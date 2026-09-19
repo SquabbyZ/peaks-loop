@@ -11,7 +11,12 @@ export type OpenSpecInitPlan = {
   apply: boolean;
   projectRoot: string;
   openspecRoot: string;
-  plannedWrites: Array<{ path: string; kind: 'directory' | 'file'; bytes: number; content: string }>;
+  plannedWrites: Array<{
+    path: string;
+    kind: 'directory' | 'file';
+    bytes: number;
+    content: string;
+  }>;
   alreadyInitialized: boolean;
   existingFiles: string[];
 };
@@ -75,7 +80,12 @@ function buildPlan(projectRoot: string, apply: boolean): OpenSpecInitPlan {
     { path: changesRoot, kind: 'directory', bytes: 0, content: '' },
     { path: archiveRoot, kind: 'directory', bytes: 0, content: '' },
     { path: join(openspecRoot, 'README.md'), kind: 'file', bytes: 0, content: renderReadme() },
-    { path: join(openspecRoot, 'CHANGES.md'), kind: 'file', bytes: 0, content: renderChangesIndex() }
+    {
+      path: join(openspecRoot, 'CHANGES.md'),
+      kind: 'file',
+      bytes: 0,
+      content: renderChangesIndex()
+    }
   ];
 
   // Stamp byte counts now that content is finalised.
@@ -122,14 +132,17 @@ export async function planOpenSpecInit(options: OpenSpecInitOptions): Promise<Op
       if (write.kind === 'directory') return directoryKeep.has(write.path);
       return !existing.includes(write.path);
     });
-    plan.alreadyInitialized = existing.length > 0 || (await isDirectory(join(openspecRoot, 'changes')));
+    plan.alreadyInitialized =
+      existing.length > 0 || (await isDirectory(join(openspecRoot, 'changes')));
     plan.existingFiles = existing;
   }
 
   return plan;
 }
 
-export async function executeOpenSpecInit(options: OpenSpecInitOptions): Promise<OpenSpecInitResult> {
+export async function executeOpenSpecInit(
+  options: OpenSpecInitOptions
+): Promise<OpenSpecInitResult> {
   const plan = await planOpenSpecInit(options);
   const writtenFiles: string[] = [];
   const createdDirectories: string[] = [];

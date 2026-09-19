@@ -26,7 +26,8 @@ const STUB_REPLY = JSON.stringify({
   successCriteria: ['Stub provider: no acceptance criteria produced.'],
   roughEffort: 'small',
   confidence: 'low',
-  rationale: 'Stub provider: the six dimensions above are placeholders so the CLI route can be exercised without a network call. Treating this as an audit would defeat the gate.'
+  rationale:
+    'Stub provider: the six dimensions above are placeholders so the CLI route can be exercised without a network call. Treating this as an audit would defeat the gate.'
 });
 
 export function createStubRunner(): LlmRunner {

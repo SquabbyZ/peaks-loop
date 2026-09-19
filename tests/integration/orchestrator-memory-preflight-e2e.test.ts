@@ -36,31 +36,36 @@ describe('Orchestrator memory preflight — e2e', () => {
       const feedbackA = {
         name: 'release-shared-chicken-egg',
         kind: 'feedback',
-        description: '<!-- peaks-feedback-promoted: layer=A --> peaks-loop@new pins peaks-loop-shared@old; bumps must lockstep',
+        description:
+          '<!-- peaks-feedback-promoted: layer=A --> peaks-loop@new pins peaks-loop-shared@old; bumps must lockstep',
         sourcePath: '/p/release-shared-chicken-egg.md',
         sourceArtifact: null,
-        updatedAt: '2026-07-22',
+        updatedAt: '2026-07-22'
       };
       // mkdirSync — writeFileSync does not create parents, and the brief's
       // first test writes .peaks/memory/index.json directly. Same gotcha
       // Task 3 had; controller-accepted amendment.
       const memDir = join(root, '.peaks', 'memory');
       mkdirSync(memDir, { recursive: true });
-      writeFileSync(join(memDir, 'index.json'), JSON.stringify({
-        hot: { feedback: [feedbackA] },
-      }));
+      writeFileSync(
+        join(memDir, 'index.json'),
+        JSON.stringify({
+          hot: { feedback: [feedbackA] }
+        })
+      );
       const service = new MemoryPreflightService(root, { memoryPreflight: {} });
       const block = await service.fetchBlock('publish peaks-loop');
       const prompt = buildDispatchSystemPrompt({
         taskTitle: 'publish peaks-loop@4.0.1',
         taskBody: 'Tag and push.',
-        memoryBlock: block,
+        memoryBlock: block
       });
       expect(prompt).toContain('release-shared-chicken-egg');
       expect(prompt).toContain('## Task');
       // Ordering check — memory block must precede the task brief.
-      expect(prompt.indexOf('## Project memory relevant to this task'))
-        .toBeLessThan(prompt.indexOf('## Task'));
+      expect(prompt.indexOf('## Project memory relevant to this task')).toBeLessThan(
+        prompt.indexOf('## Task')
+      );
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
@@ -74,7 +79,7 @@ describe('Orchestrator memory preflight — e2e', () => {
       const prompt = buildDispatchSystemPrompt({
         taskTitle: 't',
         taskBody: 'body',
-        memoryBlock: block,
+        memoryBlock: block
       });
       expect(prompt).toContain('body');
       expect(prompt).not.toContain('## Project memory');

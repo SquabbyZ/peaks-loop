@@ -1,6 +1,6 @@
-import { readdirSync, rmSync, existsSync, statSync } from "node:fs";
-import { join } from "node:path";
-import type Database from "better-sqlite3";
+import { readdirSync, rmSync, existsSync, statSync } from 'node:fs';
+import { join } from 'node:path';
+import type Database from 'better-sqlite3';
 
 /**
  * Garbage-collect content-addressed blobs under `blobsDir/<aa>/<sha>` that
@@ -12,7 +12,7 @@ import type Database from "better-sqlite3";
 export function gcBlobs({
   db,
   blobsDir,
-  dryRun,
+  dryRun
 }: {
   db: Database.Database;
   blobsDir: string;
@@ -20,7 +20,7 @@ export function gcBlobs({
 }): string[] {
   const refs = new Set<string>(
     (
-      db.prepare("SELECT DISTINCT sha256 FROM bee_file").all() as Array<{
+      db.prepare('SELECT DISTINCT sha256 FROM bee_file').all() as Array<{
         sha256: string;
       }>
     ).map((r) => r.sha256)

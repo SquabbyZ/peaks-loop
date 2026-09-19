@@ -90,7 +90,8 @@ function readLatestUsageRow(projectRoot: string, sessionId: string): UsageRow | 
     const last = lines[lines.length - 1];
     if (last === undefined) return null;
     return JSON.parse(last) as UsageRow;
-  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+  } catch {
+    // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     return null;
   }
 }
@@ -102,7 +103,11 @@ function parseIntEnv(env: NodeJS.ProcessEnv, key: string, fallback: number): num
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
-function detectWindowKind(env: NodeJS.ProcessEnv, observedTokens: number, rowModelKind: string | undefined): WindowKind {
+function detectWindowKind(
+  env: NodeJS.ProcessEnv,
+  observedTokens: number,
+  rowModelKind: string | undefined
+): WindowKind {
   if (rowModelKind === '1m') return '1m';
   if (env['PEAKS_MODEL_KIND'] === '1m') return '1m';
   // Heuristic from SKILL.md: a `[1m]` model marker OR observed tokens
@@ -127,7 +132,8 @@ export function suggestCompact(options: SuggestOptions): SuggestResult {
     const row = readLatestUsageRow(options.projectRoot, options.sessionId);
     if (row !== null) {
       if (typeof row.tokens === 'number' && Number.isFinite(row.tokens)) tokensUsed = row.tokens;
-      if (typeof row.toolCalls === 'number' && Number.isFinite(row.toolCalls)) toolCalls = row.toolCalls;
+      if (typeof row.toolCalls === 'number' && Number.isFinite(row.toolCalls))
+        toolCalls = row.toolCalls;
       if (typeof row.modelKind === 'string') modelKind = row.modelKind;
       source = 'usage-jsonl';
     }
@@ -154,9 +160,12 @@ export function suggestCompact(options: SuggestOptions): SuggestResult {
 
   const windowKind = detectWindowKind(env, tokensUsed, modelKind);
   const windowCapacity = windowKind === '1m' ? 1_000_000 : 200_000;
-  const effectiveContextThreshold = contextThreshold > 0
-    ? contextThreshold
-    : (windowKind === '1m' ? DEFAULT_CONTEXT_THRESHOLD_1M : DEFAULT_CONTEXT_THRESHOLD_200K);
+  const effectiveContextThreshold =
+    contextThreshold > 0
+      ? contextThreshold
+      : windowKind === '1m'
+        ? DEFAULT_CONTEXT_THRESHOLD_1M
+        : DEFAULT_CONTEXT_THRESHOLD_200K;
   const ratio = windowCapacity > 0 ? tokensUsed / windowCapacity : 0;
 
   const dataUnavailable = tokensUsed === 0 && toolCalls === 0;
@@ -255,7 +264,10 @@ export function dryRunCompact(options: DryRunOptions): DryRunResult {
   };
 }
 
-function buildRecommendEnvelope(from: Phase, to: Phase): {
+function buildRecommendEnvelope(
+  from: Phase,
+  to: Phase
+): {
   from: Phase;
   to: Phase;
   shouldCompact: boolean;
@@ -275,7 +287,10 @@ function buildRecommendEnvelope(from: Phase, to: Phase): {
   };
 }
 
-export function buildRecommendEnvelopePure(from: Phase, to: Phase): {
+export function buildRecommendEnvelopePure(
+  from: Phase,
+  to: Phase
+): {
   from: Phase;
   to: Phase;
   shouldCompact: boolean;

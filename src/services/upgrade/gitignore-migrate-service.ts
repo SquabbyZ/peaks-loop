@@ -46,7 +46,8 @@ import { join } from 'node:path';
  * the migration can detect "already-migrated" and stay
  * idempotent.
  */
-export const PEAKS_2_0_BLOCK_SENTINEL = '# peaks-loop 2.0 canonical ignore block — managed by `peaks upgrade --to 2.0`';
+export const PEAKS_2_0_BLOCK_SENTINEL =
+  '# peaks-loop 2.0 canonical ignore block — managed by `peaks upgrade --to 2.0`';
 
 export const CANONICAL_2_0_PEAKS_BLOCK = [
   PEAKS_2_0_BLOCK_SENTINEL,
@@ -57,7 +58,7 @@ export const CANONICAL_2_0_PEAKS_BLOCK = [
   '.peaks/system/',
   '.peaks/runtime/',
   '.peaks/preferences.json',
-  '.peaks/memory/upgrade-2.0-*.md',
+  '.peaks/memory/upgrade-2.0-*.md'
 ].join('\n');
 
 /**
@@ -164,7 +165,7 @@ export function migrateGitignoreFile(input: MigrateGitignoreFileInput): MigrateG
       changed: false,
       appliedWrite: false,
       backupPath: null,
-      removedRules: [],
+      removedRules: []
     };
   }
   const before = readFileSync(path, 'utf8');
@@ -176,7 +177,7 @@ export function migrateGitignoreFile(input: MigrateGitignoreFileInput): MigrateG
       changed: false,
       appliedWrite: false,
       backupPath: null,
-      removedRules: [],
+      removedRules: []
     };
   }
   if (input.apply !== true) {
@@ -185,7 +186,7 @@ export function migrateGitignoreFile(input: MigrateGitignoreFileInput): MigrateG
       changed: true,
       appliedWrite: false,
       backupPath: null,
-      removedRules: result.removedRules,
+      removedRules: result.removedRules
     };
   }
   // Apply: write backup first, then atomic-overwrite the original.
@@ -198,6 +199,6 @@ export function migrateGitignoreFile(input: MigrateGitignoreFileInput): MigrateG
     changed: true,
     appliedWrite: true,
     backupPath,
-    removedRules: result.removedRules,
+    removedRules: result.removedRules
   };
 }

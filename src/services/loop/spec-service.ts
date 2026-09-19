@@ -28,9 +28,7 @@ import { dirname, join, isAbsolute } from 'node:path';
 
 /** Spec origin — exposed as part of `peaks loop spec` output. */
 export type SpecOrigin =
-  | { kind: 'project'; path: string }
-  | { kind: 'global'; path: string }
-  | { kind: 'missing' };
+  { kind: 'project'; path: string } | { kind: 'global'; path: string } | { kind: 'missing' };
 
 export interface SpecEvaluatorEntry {
   readonly kind: string;
@@ -79,7 +77,11 @@ export interface SpecLintReport {
 /** Resolve a `LoopSpec` from the project-level origin. Returns
  *  `{kind:'missing'}` when no file exists. The CLI layer then chooses
  *  to bootstrap a fresh spec or fail. */
-export function resolveLoopSpec(projectRoot: string, sid: string, rid: string): { origin: SpecOrigin; spec: LoopSpec | null } {
+export function resolveLoopSpec(
+  projectRoot: string,
+  sid: string,
+  rid: string
+): { origin: SpecOrigin; spec: LoopSpec | null } {
   const path = join(projectRoot, '.peaks', '_runtime', sid, 'loop', rid, 'spec.yaml');
   if (!existsSync(path)) return { origin: { kind: 'missing' }, spec: null };
   const raw = readFileSync(path, 'utf8');
@@ -93,20 +95,32 @@ export function resolveLoopSpec(projectRoot: string, sid: string, rid: string): 
  *  `buildSpec` preserves raw values so out-of-range entries surface in
  *  `lintLoopSpec` rather than being silently clamped. */
 export function buildSpec(input: Partial<LoopSpec>, expectedRid: string): LoopSpec {
-  const evaluators = Array.isArray(input.evaluators) ? input.evaluators.map((e) => ({
-    kind: typeof e.kind === 'string' ? e.kind : '',
-    ...(typeof e.gate === 'string' ? { gate: e.gate } : {}),
-    ...(typeof e.scope === 'string' ? { scope: e.scope } : {})
-  })) : [];
-  const sla = Array.isArray(input.sla) ? input.sla.map((s) => ({
-    evaluator: typeof s.evaluator === 'string' ? s.evaluator : '',
-    maxScore: typeof s.maxScore === 'number' && Number.isFinite(s.maxScore) ? s.maxScore : Number.NaN
-  })) : [];
+  const evaluators = Array.isArray(input.evaluators)
+    ? input.evaluators.map((e) => ({
+        kind: typeof e.kind === 'string' ? e.kind : '',
+        ...(typeof e.gate === 'string' ? { gate: e.gate } : {}),
+        ...(typeof e.scope === 'string' ? { scope: e.scope } : {})
+      }))
+    : [];
+  const sla = Array.isArray(input.sla)
+    ? input.sla.map((s) => ({
+        evaluator: typeof s.evaluator === 'string' ? s.evaluator : '',
+        maxScore:
+          typeof s.maxScore === 'number' && Number.isFinite(s.maxScore) ? s.maxScore : Number.NaN
+      }))
+    : [];
   const term = input.termination ?? { strategy: 'manual' };
-  const strategy: SpecTerminationStrategy = (term.strategy === 'max-cycles' || term.strategy === 'monotonic-violation' || term.strategy === 'manual') ? term.strategy : 'manual';
+  const strategy: SpecTerminationStrategy =
+    term.strategy === 'max-cycles' ||
+    term.strategy === 'monotonic-violation' ||
+    term.strategy === 'manual'
+      ? term.strategy
+      : 'manual';
   const termination: SpecTermination = {
     strategy,
-    ...(typeof term.maxCycles === 'number' && Number.isFinite(term.maxCycles) && term.maxCycles > 0 ? { maxCycles: Math.floor(term.maxCycles) } : {})
+    ...(typeof term.maxCycles === 'number' && Number.isFinite(term.maxCycles) && term.maxCycles > 0
+      ? { maxCycles: Math.floor(term.maxCycles) }
+      : {})
   };
   return {
     schemaVersion: 1,
@@ -140,8 +154,10 @@ export function lintLoopSpec(spec: LoopSpec): SpecLintReport {
 }
 
 function validateSpecHeader(spec: LoopSpec, errors: string[]): void {
-  if (spec.schemaVersion !== 1) errors.push(`unsupported schemaVersion ${spec.schemaVersion} (expected 1)`);
-  if (!/^[a-z][a-z0-9-]*$/.test(spec.rid)) errors.push(`rid "${spec.rid}" must match /^[a-z][a-z0-9-]*$/`);
+  if (spec.schemaVersion !== 1)
+    errors.push(`unsupported schemaVersion ${spec.schemaVersion} (expected 1)`);
+  if (!/^[a-z][a-z0-9-]*$/.test(spec.rid))
+    errors.push(`rid "${spec.rid}" must match /^[a-z][a-z0-9-]*$/`);
 }
 
 function validateEvaluators(
@@ -167,13 +183,18 @@ function validateSla(
 ): void {
   const evalKinds = new Set(evaluators.map((e) => e.kind));
   for (const s of sla) {
-    if (!evalKinds.has(s.evaluator)) errors.push(`sla.evaluator "${s.evaluator}" is not declared in evaluators[]`);
-    if (s.maxScore < 0 || s.maxScore > 1) errors.push(`sla.maxScore for "${s.evaluator}" must be in [0,1] (got ${s.maxScore})`);
+    if (!evalKinds.has(s.evaluator))
+      errors.push(`sla.evaluator "${s.evaluator}" is not declared in evaluators[]`);
+    if (s.maxScore < 0 || s.maxScore > 1)
+      errors.push(`sla.maxScore for "${s.evaluator}" must be in [0,1] (got ${s.maxScore})`);
   }
 }
 
 function validateTermination(termination: SpecTermination, errors: string[]): void {
-  if (termination.strategy === 'max-cycles' && (termination.maxCycles === undefined || termination.maxCycles < 1)) {
+  if (
+    termination.strategy === 'max-cycles' &&
+    (termination.maxCycles === undefined || termination.maxCycles < 1)
+  ) {
     errors.push(`termination.strategy=max-cycles requires maxCycles ≥ 1`);
   }
 }
@@ -223,7 +244,10 @@ export function persistSpec(projectRoot: string, sid: string, spec: LoopSpec): s
 
 /** Lint a spec file from an explicit path — used by `peaks loop spec
  *  lint <file>`. Returns the lint report plus the parsed spec. */
-export function lintSpecFile(filePath: string, expectedRid?: string): { raw: string; spec: LoopSpec | null; report: SpecLintReport } {
+export function lintSpecFile(
+  filePath: string,
+  expectedRid?: string
+): { raw: string; spec: LoopSpec | null; report: SpecLintReport } {
   if (!existsSync(filePath)) {
     return {
       raw: '',
@@ -247,7 +271,13 @@ export function lintSpecFile(filePath: string, expectedRid?: string): { raw: str
     return {
       raw,
       spec: null,
-      report: { ok: false, errors: [`failed to parse spec yaml: ${error instanceof Error ? error.message : String(error)}`], warnings: [] }
+      report: {
+        ok: false,
+        errors: [
+          `failed to parse spec yaml: ${error instanceof Error ? error.message : String(error)}`
+        ],
+        warnings: []
+      }
     };
   }
 }
@@ -533,7 +563,12 @@ function stepScanner(
   return { cur: cur + ch, inQuote, depth, push: null, reset: false };
 }
 
-function stepInsideQuote(ch: string, cur: string, inQuote: string | null, depth: number): ScannerStep {
+function stepInsideQuote(
+  ch: string,
+  cur: string,
+  inQuote: string | null,
+  depth: number
+): ScannerStep {
   const nextInQuote = ch === inQuote ? null : inQuote;
   return { cur: cur + ch, inQuote: nextInQuote, depth, push: null, reset: false };
 }

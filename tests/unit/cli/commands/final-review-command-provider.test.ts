@@ -29,7 +29,7 @@ const DIMENSIONS = [
   'functional-completeness',
   'problem-resolution',
   'no-new-bugs',
-  'existing-functionality-intact',
+  'existing-functionality-intact'
 ] as const;
 
 /** Every seam this suite needs, hoisted so the `vi.mock` factories can close over it. */
@@ -37,7 +37,7 @@ const mocks = vi.hoisted(() => ({
   resolveConfig: vi.fn(),
   createAnthropicRunner: vi.fn(),
   anthropicCall: vi.fn(),
-  prepareFinalReview: vi.fn(),
+  prepareFinalReview: vi.fn()
 }));
 
 vi.mock('../../../../src/services/llm/anthropic-runner.js', async (importOriginal) => {
@@ -52,7 +52,7 @@ vi.mock('../../../../src/services/llm/anthropic-runner.js', async (importOrigina
     createAnthropicRunner: (config: unknown) => {
       mocks.createAnthropicRunner(config);
       return { call: mocks.anthropicCall };
-    },
+    }
   };
 });
 
@@ -68,13 +68,12 @@ vi.mock('../../../../src/services/final-review/final-review-service.js', async (
     prepareFinalReview: (rid: string, opts: Parameters<typeof actual.prepareFinalReview>[1]) => {
       mocks.prepareFinalReview(rid, opts);
       return actual.prepareFinalReview(rid, opts);
-    },
+    }
   };
 });
 
-const { registerFinalReviewCommands } = await import(
-  '../../../../src/cli/commands/final-review-commands.js'
-);
+const { registerFinalReviewCommands } =
+  await import('../../../../src/cli/commands/final-review-commands.js');
 const { LlmBindingError } = await import('../../../../src/services/llm/anthropic-runner.js');
 
 type Capture = { stdout: string; stderr: string };
@@ -90,8 +89,8 @@ function makeIo(): { io: ProgramIO; capture: Capture } {
       },
       get stderr() {
         return stderr.join('');
-      },
-    },
+      }
+    }
   };
 }
 
@@ -105,11 +104,11 @@ function reviewReply(): string {
       verdict: 'inconclusive',
       summary: `No evidence source for ${dimension}.`,
       evidence: [],
-      confidence: 'low',
+      confidence: 'low'
     })),
     overallSummary: 'Nothing could be concluded from the available evidence.',
     allPass: false,
-    needsAttention: [...DIMENSIONS],
+    needsAttention: [...DIMENSIONS]
   });
 }
 
@@ -117,7 +116,7 @@ const BOUND_CONFIG = {
   baseUrl: 'https://llm.invalid',
   authToken: 'test-token',
   authScheme: 'bearer',
-  model: 'test-model',
+  model: 'test-model'
 };
 
 let projectRoot: string;
@@ -152,7 +151,16 @@ async function runPrepare(io: ProgramIO, extraArgs: readonly string[] = []): Pro
   const program = new Command();
   registerFinalReviewCommands(program, io);
   await program.parseAsync(
-    ['prepare-final-review', RID, '--project', projectRoot, '--session-id', SESSION_ID, '--json', ...extraArgs],
+    [
+      'prepare-final-review',
+      RID,
+      '--project',
+      projectRoot,
+      '--session-id',
+      SESSION_ID,
+      '--json',
+      ...extraArgs
+    ],
     { from: 'user' }
   );
 }
@@ -203,7 +211,7 @@ describe('peaks prepare-final-review — provider binding', () => {
     mocks.resolveConfig.mockReturnValue(BOUND_CONFIG);
     mocks.anthropicCall.mockResolvedValue({
       output: reviewReply(),
-      tokens: { input: 10, output: 20 },
+      tokens: { input: 10, output: 20 }
     });
     const { io, capture } = makeIo();
 
@@ -215,7 +223,7 @@ describe('peaks prepare-final-review — provider binding', () => {
     expect(mocks.prepareFinalReview).toHaveBeenCalledTimes(1);
     const [serviceRid, serviceOpts] = mocks.prepareFinalReview.mock.calls[0] as [
       string,
-      { llmRunner: { call: unknown }; projectRoot: string; sessionId: string },
+      { llmRunner: { call: unknown }; projectRoot: string; sessionId: string }
     ];
     expect(serviceRid).toBe(RID);
     expect(serviceOpts.projectRoot).toBe(projectRoot);

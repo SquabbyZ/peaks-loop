@@ -38,16 +38,16 @@ import { declareDimensions } from '../_setup/4dim-template.js';
 import type { CallerBinding } from '../../../src/services/session/caller-id-types.js';
 import {
   getCallerBinding,
-  setCallerBinding,
+  setCallerBinding
 } from '../../../src/services/session/caller-binding-service.js';
 import {
   getSessionId,
-  getSessionIdCanonical,
+  getSessionIdCanonical
 } from '../../../src/services/session/session-manager.js';
 import { getCurrentSessionId } from '../../../src/services/skills/skill-presence-service.js';
 import {
   initWorkspace,
-  ConflictingSessionError,
+  ConflictingSessionError
 } from '../../../src/services/workspace/workspace-service.js';
 
 declareDimensions(
@@ -55,8 +55,8 @@ declareDimensions(
   ['behavior', 'integration'],
   [
     { dim: 'render', reason: 'no formatted output surface in this path' },
-    { dim: 'a11y', reason: 'no human-facing text in this path' },
-  ],
+    { dim: 'a11y', reason: 'no human-facing text in this path' }
+  ]
 );
 
 const CALLER_A = 'caller-rebind-a';
@@ -81,8 +81,12 @@ function seedSessionJson(sessionId: string): void {
   mkdirSync(runtimeDir, { recursive: true });
   writeFileSync(
     join(runtimeDir, 'session.json'),
-    JSON.stringify({ sessionId, createdAt: '2026-09-10T00:00:00.000Z', projectRoot: workspace }, null, 2),
-    'utf8',
+    JSON.stringify(
+      { sessionId, createdAt: '2026-09-10T00:00:00.000Z', projectRoot: workspace },
+      null,
+      2
+    ),
+    'utf8'
   );
 }
 
@@ -95,7 +99,7 @@ function seedCallerBinding(callerId: string, sessionId: string): void {
     createdAt: '2026-09-10T00:00:00.000Z',
     skill: 'peaks-code',
     mode: 'full-auto',
-    gate: 'started',
+    gate: 'started'
   };
   setCallerBinding(workspace, callerId, payload);
   // Slice 2026-09-12 (rid=caller-binding-staleness): a binding is only
@@ -132,7 +136,11 @@ afterEach(() => {
   }
   const wsToRemove = workspace;
   setImmediate(() => {
-    try { rmSync(wsToRemove, { recursive: true, force: true }); } catch { /* best-effort */ }
+    try {
+      rmSync(wsToRemove, { recursive: true, force: true });
+    } catch {
+      /* best-effort */
+    }
   });
 });
 

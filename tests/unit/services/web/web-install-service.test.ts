@@ -32,7 +32,7 @@ import { withTmpWorkspacePerTest } from '../../_setup/tmp-workspace.js';
 declareDimensions(
   'tests/unit/services/web/web-install-service.test.ts',
   ['behavior', 'integration', 'a11y'],
-  [{ dim: 'render', reason: 'the envelope that carries this outcome is printed by the CLI layer' }],
+  [{ dim: 'render', reason: 'the envelope that carries this outcome is printed by the CLI layer' }]
 );
 
 import { webInstallLockPath } from '../../../../src/services/web/web-artifact-paths.js';
@@ -49,7 +49,11 @@ import { PLAYWRIGHT_VERSION_PIN } from '../../../../src/services/web/playwright-
 
 /** `node:child_process`, replaced so no test can ever start a real download. */
 const spawnRecorder = vi.hoisted(() => ({
-  calls: [] as Array<{ command: string; args: readonly string[]; options: Record<string, unknown> }>,
+  calls: [] as Array<{
+    command: string;
+    args: readonly string[];
+    options: Record<string, unknown>;
+  }>,
   result: { status: 0 } as { status: number | null; error?: Error },
   /** `throwOnSpawn` keeps the exception path covered; real `spawnSync` returns `{error}`. */
   throwOnSpawn: false
@@ -165,7 +169,10 @@ function plantCachedPlaywright(options: {
     );
     writeFileSync(
       join(modules, 'playwright-core', 'package.json'),
-      JSON.stringify({ name: 'playwright-core', version: options.coreVersion ?? PLAYWRIGHT_VERSION_PIN })
+      JSON.stringify({
+        name: 'playwright-core',
+        version: options.coreVersion ?? PLAYWRIGHT_VERSION_PIN
+      })
     );
     planted = join(modules, 'playwright', 'index.js');
   }

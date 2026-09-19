@@ -49,7 +49,7 @@ import type { RequestArtifactRole } from '../../../../src/services/artifacts/req
 declareDimensions(
   'tests/unit/services/artifacts/unit-tests-marker-idiom.test.ts',
   ['render', 'behavior', 'integration'],
-  [{ dim: 'a11y', reason: 'resolver returns a result envelope; prints nothing and exits nothing' }],
+  [{ dim: 'a11y', reason: 'resolver returns a result envelope; prints nothing and exits nothing' }]
 );
 
 const SESSION_ID = '2026-09-16-session-5bcf09';
@@ -131,14 +131,40 @@ function writeArtifact(projectRoot: string, relativePath: string, body: string):
  *  `missing`". Only the test-cases body varies between cases — every
  *  assertion below therefore isolates the marker check. */
 function seedSlice(projectRoot: string, testCasesBody: string): void {
-  writeArtifact(projectRoot, 'prd/handoff.md', '---\nschemaVersion: 2\nsha256: deadbeef\n---\n\n# Handoff\n');
-  writeArtifact(projectRoot, `audit/security-${RID}.md`, '---\nrid: ' + RID + '\n---\n\n## Verdict\n\nwarn\n');
-  writeArtifact(projectRoot, `audit/perf-${RID}.md`, `# Performance audit — ${RID}\n\n## Baseline\n\n| metric | before | after |\n|---|---|---|\n`);
-  writeArtifact(projectRoot, `rd/code-review-${RID}.md`, `# Code review — ${RID}\n\n## Findings\n\nCRITICAL: none.\n`);
+  writeArtifact(
+    projectRoot,
+    'prd/handoff.md',
+    '---\nschemaVersion: 2\nsha256: deadbeef\n---\n\n# Handoff\n'
+  );
+  writeArtifact(
+    projectRoot,
+    `audit/security-${RID}.md`,
+    '---\nrid: ' + RID + '\n---\n\n## Verdict\n\nwarn\n'
+  );
+  writeArtifact(
+    projectRoot,
+    `audit/perf-${RID}.md`,
+    `# Performance audit — ${RID}\n\n## Baseline\n\n| metric | before | after |\n|---|---|---|\n`
+  );
+  writeArtifact(
+    projectRoot,
+    `rd/code-review-${RID}.md`,
+    `# Code review — ${RID}\n\n## Findings\n\nCRITICAL: none.\n`
+  );
   writeArtifact(
     projectRoot,
     `rd/karpathy-review-${RID}.md`,
-    [`# Karpathy review — ${RID}`, '', '## Karpathy-Gate', '', '## Think Before Coding', '## Simplicity First', '## Surgical Changes', '## Goal-Driven Execution', ''].join('\n')
+    [
+      `# Karpathy review — ${RID}`,
+      '',
+      '## Karpathy-Gate',
+      '',
+      '## Think Before Coding',
+      '## Simplicity First',
+      '## Surgical Changes',
+      '## Goal-Driven Execution',
+      ''
+    ].join('\n')
   );
   writeArtifact(projectRoot, `qa/test-cases/${RID}.md`, testCasesBody);
   writeArtifact(projectRoot, 'qa/.initiated', '');

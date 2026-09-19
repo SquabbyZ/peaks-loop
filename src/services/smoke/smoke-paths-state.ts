@@ -14,11 +14,11 @@ import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 
 export type CriticalPathSource =
-  | 'prd-business-scenario'    // from prd 业务场景块
-  | 'boss-stated'              // 老板强调的流程
-  | 'historical-incident'      // 历史事故
-  | 'impact-must-check'        // from peaks impact must-check
-  | 'manual';                  // user-registered
+  | 'prd-business-scenario' // from prd 业务场景块
+  | 'boss-stated' // 老板强调的流程
+  | 'historical-incident' // 历史事故
+  | 'impact-must-check' // from peaks impact must-check
+  | 'manual'; // user-registered
 
 export type CriticalPathStatus = 'pending' | 'pass' | 'fail';
 
@@ -38,7 +38,11 @@ export interface CriticalPath {
   readonly lastRunAt?: string;
   readonly lastRunNote?: string;
   /** Optional run history (last 5 runs, oldest first). */
-  readonly history: readonly { readonly at: string; readonly status: CriticalPathStatus; readonly note?: string }[];
+  readonly history: readonly {
+    readonly at: string;
+    readonly status: CriticalPathStatus;
+    readonly note?: string;
+  }[];
 }
 
 export interface SmokeState {
@@ -113,7 +117,10 @@ export function recordRun(
   const paths = state.paths.map((p) => {
     if (p.id !== id) return p;
     found = true;
-    const newHistory = [...p.history, { at: now.toISOString(), status, ...(note !== undefined ? { note } : {}) }].slice(-5);
+    const newHistory = [
+      ...p.history,
+      { at: now.toISOString(), status, ...(note !== undefined ? { note } : {}) }
+    ].slice(-5);
     return {
       ...p,
       status,
@@ -154,13 +161,19 @@ export interface SmokeRunResult {
 
 /** Compute run summary from current state. */
 export function summarizeState(state: SmokeState): SmokeRunResult {
-  let passed = 0, failed = 0, pending = 0;
+  let passed = 0,
+    failed = 0,
+    pending = 0;
   const failedDetails: { id: string; name: string; lastRunNote?: string }[] = [];
   for (const p of state.paths) {
     if (p.status === 'pass') passed++;
     else if (p.status === 'fail') {
       failed++;
-      failedDetails.push({ id: p.id, name: p.name, ...(p.lastRunNote !== undefined ? { lastRunNote: p.lastRunNote } : {}) });
+      failedDetails.push({
+        id: p.id,
+        name: p.name,
+        ...(p.lastRunNote !== undefined ? { lastRunNote: p.lastRunNote } : {})
+      });
     } else pending++;
   }
   return {
@@ -169,6 +182,6 @@ export function summarizeState(state: SmokeState): SmokeRunResult {
     failedPaths: failed,
     pendingPaths: pending,
     failedDetails,
-    durationMs: 0  // CLI measures wall time; the service itself is instant
+    durationMs: 0 // CLI measures wall time; the service itself is instant
   };
 }

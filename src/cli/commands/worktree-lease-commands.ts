@@ -34,7 +34,7 @@ import {
   renewLease,
   ttlForRole,
   worktreePath,
-  type WorktreeLease,
+  type WorktreeLease
 } from '../../services/worktree/worktree-lease.js';
 import { execSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync as readFileSyncNode, statSync } from 'node:fs';
@@ -107,7 +107,10 @@ export function registerWorktreeLeaseCommands(auth: Command, io: ProgramIO): voi
       .requiredOption('--rid <rid>', 'peaks request id the lease is associated with')
       .requiredOption('--role <role>', 'sub-agent role (rd | qa | ui | sc | prd | general-purpose)')
       .requiredOption('--purpose <text>', 'why this worktree was spawned (audit log)')
-      .option('--ttl <ms>', `time-to-live in ms (default role-aware; override with positive number)`)
+      .option(
+        '--ttl <ms>',
+        `time-to-live in ms (default role-aware; override with positive number)`
+      )
       .option('--branch <name>', 'git branch name (default: derived from rid)')
       .option('--session <sid>', 'override session id')
       .option('--project <path>', 'project root (default: findProjectRoot(cwd))')
@@ -136,10 +139,12 @@ export function registerWorktreeLeaseCommands(auth: Command, io: ProgramIO): voi
       // and authorize this very `git worktree add`; for Part 1 we still
       // require a current `peaks worktree auth grant` token to remain
       // consistent with the slice-027 hard gate contract.
-      execSync(
-        `git worktree add "${wtPath}" -b "${branch}"`,
-        { cwd: projectRoot, stdio: 'pipe', encoding: 'utf8', windowsHide: true }
-      );
+      execSync(`git worktree add "${wtPath}" -b "${branch}"`, {
+        cwd: projectRoot,
+        stdio: 'pipe',
+        encoding: 'utf8',
+        windowsHide: true
+      });
 
       atomicWriteJson(leaseFilePath(joinPathSession(projectRoot, sessionId), leaseId), lease);
       // Part 4.A: emit spawn metric (fire-and-forget; never blocks).
@@ -177,11 +182,17 @@ export function registerWorktreeLeaseCommands(auth: Command, io: ProgramIO): voi
     } catch (error: unknown) {
       printResult(
         io,
-        fail('worktree.spawn', 'SPAWN_FAILED', getErrorMessage(error), { rid: options.rid, role: options.role, sessionId }, [
-          'Verify `git worktree add` succeeded (output above).',
-          'If the lease file was NOT written, retry; the lease directory is .peaks/_runtime/<sid>/worktree-leases/.',
-          'For an existing branch, pass --branch <name> explicitly (the spawn refuses to overwrite an active branch).'
-        ]),
+        fail(
+          'worktree.spawn',
+          'SPAWN_FAILED',
+          getErrorMessage(error),
+          { rid: options.rid, role: options.role, sessionId },
+          [
+            'Verify `git worktree add` succeeded (output above).',
+            'If the lease file was NOT written, retry; the lease directory is .peaks/_runtime/<sid>/worktree-leases/.',
+            'For an existing branch, pass --branch <name> explicitly (the spawn refuses to overwrite an active branch).'
+          ]
+        ),
         options.json
       );
       process.exitCode = 1;
@@ -191,7 +202,9 @@ export function registerWorktreeLeaseCommands(auth: Command, io: ProgramIO): voi
   addJsonOption(
     auth
       .command('release')
-      .description('Transition a lease to released and run `git worktree remove`. Idempotent on already-released leases.')
+      .description(
+        'Transition a lease to released and run `git worktree remove`. Idempotent on already-released leases.'
+      )
       .requiredOption('--lease-id <id>', 'lease id returned by `peaks worktree spawn`')
       .option('--session <sid>', 'override session id')
       .option('--project <path>', 'project root (default: findProjectRoot(cwd))')
@@ -205,10 +218,16 @@ export function registerWorktreeLeaseCommands(auth: Command, io: ProgramIO): voi
         if (!existsSync(file)) {
           printResult(
             io,
-            fail('worktree.release', 'LEASE_NOT_FOUND', `no lease on disk at ${file}`, { leaseId: options.leaseId, file }, [
-              'Run `peaks worktree list` to inspect active leases.',
-              'For a never-spawned lease, this is a no-op — no further action needed.'
-            ]),
+            fail(
+              'worktree.release',
+              'LEASE_NOT_FOUND',
+              `no lease on disk at ${file}`,
+              { leaseId: options.leaseId, file },
+              [
+                'Run `peaks worktree list` to inspect active leases.',
+                'For a never-spawned lease, this is a no-op — no further action needed.'
+              ]
+            ),
             options.json
           );
           process.exitCode = 1;
@@ -219,10 +238,16 @@ export function registerWorktreeLeaseCommands(auth: Command, io: ProgramIO): voi
       } catch (error) {
         printResult(
           io,
-          fail('worktree.release', 'LEASE_FILE_INVALID', getErrorMessage(error), { leaseId: options.leaseId, file }, [
-            'Delete the malformed lease file manually and re-issue spawn.',
-            'For security, release never fails open on a malformed lease.'
-          ]),
+          fail(
+            'worktree.release',
+            'LEASE_FILE_INVALID',
+            getErrorMessage(error),
+            { leaseId: options.leaseId, file },
+            [
+              'Delete the malformed lease file manually and re-issue spawn.',
+              'For security, release never fails open on a malformed lease.'
+            ]
+          ),
           options.json
         );
         process.exitCode = 1;
@@ -233,7 +258,12 @@ export function registerWorktreeLeaseCommands(auth: Command, io: ProgramIO): voi
         // Idempotent: already released, nothing to do.
         printResult(
           io,
-          ok('worktree.release', { lease, sessionId, projectRoot, alreadyReleased: true }, [], [`Lease ${lease.leaseId} already released; nothing to do.`]),
+          ok(
+            'worktree.release',
+            { lease, sessionId, projectRoot, alreadyReleased: true },
+            [],
+            [`Lease ${lease.leaseId} already released; nothing to do.`]
+          ),
           options.json
         );
         return;
@@ -245,7 +275,12 @@ export function registerWorktreeLeaseCommands(auth: Command, io: ProgramIO): voi
       // released.
       let gitWorktreeRemoveFailed = false;
       try {
-        execSync(`git worktree remove --force "${lease.path}"`, { cwd: projectRoot, stdio: 'pipe', encoding: 'utf8', windowsHide: true });
+        execSync(`git worktree remove --force "${lease.path}"`, {
+          cwd: projectRoot,
+          stdio: 'pipe',
+          encoding: 'utf8',
+          windowsHide: true
+        });
       } catch {
         gitWorktreeRemoveFailed = true;
       }
@@ -268,7 +303,11 @@ export function registerWorktreeLeaseCommands(auth: Command, io: ProgramIO): voi
         ok(
           'worktree.release',
           { lease: released, sessionId, projectRoot, gitWorktreeRemoveFailed },
-          gitWorktreeRemoveFailed ? ['git worktree remove failed (likely the path was already pruned); lease marked released.'] : [],
+          gitWorktreeRemoveFailed
+            ? [
+                'git worktree remove failed (likely the path was already pruned); lease marked released.'
+              ]
+            : [],
           [
             `Lease ${lease.leaseId} marked released.`,
             gitWorktreeRemoveFailed
@@ -281,10 +320,13 @@ export function registerWorktreeLeaseCommands(auth: Command, io: ProgramIO): voi
     } catch (error: unknown) {
       printResult(
         io,
-        fail('worktree.release', 'RELEASE_FAILED', getErrorMessage(error), { leaseId: options.leaseId, sessionId }, [
-          'Verify the lease id and re-run.',
-          'If the lease was never spawned, no-op.'
-        ]),
+        fail(
+          'worktree.release',
+          'RELEASE_FAILED',
+          getErrorMessage(error),
+          { leaseId: options.leaseId, sessionId },
+          ['Verify the lease id and re-run.', 'If the lease was never spawned, no-op.']
+        ),
         options.json
       );
       process.exitCode = 1;
@@ -341,7 +383,7 @@ export function registerWorktreeLeaseCommands(auth: Command, io: ProgramIO): voi
     auth
       .command('renew')
       .description(
-        'Extend an active lease\'s `expiresAt` and persist it. Idempotent for already-active leases. ' +
+        "Extend an active lease's `expiresAt` and persist it. Idempotent for already-active leases. " +
           'Default TTL uses `DEFAULT_TTL_BY_ROLE[<lease.role>]`; pass --ttl <ms> to override.'
       )
       .requiredOption('--lease-id <id>', 'lease id returned by `peaks worktree spawn`')
@@ -356,10 +398,16 @@ export function registerWorktreeLeaseCommands(auth: Command, io: ProgramIO): voi
       if (!existsSync(file)) {
         printResult(
           io,
-          fail('worktree.renew', 'LEASE_NOT_FOUND', `no lease on disk at ${file}`, { leaseId: options.leaseId, file }, [
-            'Run `peaks worktree list` to inspect active leases.',
-            'For a never-spawned lease, this is a no-op.'
-          ]),
+          fail(
+            'worktree.renew',
+            'LEASE_NOT_FOUND',
+            `no lease on disk at ${file}`,
+            { leaseId: options.leaseId, file },
+            [
+              'Run `peaks worktree list` to inspect active leases.',
+              'For a never-spawned lease, this is a no-op.'
+            ]
+          ),
           options.json
         );
         process.exitCode = 1;
@@ -371,10 +419,16 @@ export function registerWorktreeLeaseCommands(auth: Command, io: ProgramIO): voi
       } catch (err) {
         printResult(
           io,
-          fail('worktree.renew', 'LEASE_FILE_INVALID', getErrorMessage(err), { leaseId: options.leaseId, file }, [
-            'Delete the malformed lease file manually and re-spawn.',
-            'For security, renew never fails open on a malformed lease.'
-          ]),
+          fail(
+            'worktree.renew',
+            'LEASE_FILE_INVALID',
+            getErrorMessage(err),
+            { leaseId: options.leaseId, file },
+            [
+              'Delete the malformed lease file manually and re-spawn.',
+              'For security, renew never fails open on a malformed lease.'
+            ]
+          ),
           options.json
         );
         process.exitCode = 1;
@@ -401,13 +455,18 @@ export function registerWorktreeLeaseCommands(auth: Command, io: ProgramIO): voi
       }
 
       const now = Date.now();
-      const ttlMs = options.ttl === undefined ? ttlForRole(lease.role) : Number.parseInt(options.ttl, 10);
+      const ttlMs =
+        options.ttl === undefined ? ttlForRole(lease.role) : Number.parseInt(options.ttl, 10);
       if (!Number.isInteger(ttlMs) || ttlMs <= 0) {
         printResult(
           io,
-          fail('worktree.renew', 'INVALID_TTL', '--ttl must be a positive integer (ms)', { ttl: options.ttl }, [
-            'Re-run with --ttl 1800000 (30 min) or omit to use role default.'
-          ]),
+          fail(
+            'worktree.renew',
+            'INVALID_TTL',
+            '--ttl must be a positive integer (ms)',
+            { ttl: options.ttl },
+            ['Re-run with --ttl 1800000 (30 min) or omit to use role default.']
+          ),
           options.json
         );
         process.exitCode = 1;
@@ -441,9 +500,13 @@ export function registerWorktreeLeaseCommands(auth: Command, io: ProgramIO): voi
     } catch (err) {
       printResult(
         io,
-        fail('worktree.renew', 'RENEW_FAILED', getErrorMessage(err), { leaseId: options.leaseId, sessionId }, [
-          'Re-run after fixing the failure (see cause in the error message).'
-        ]),
+        fail(
+          'worktree.renew',
+          'RENEW_FAILED',
+          getErrorMessage(err),
+          { leaseId: options.leaseId, sessionId },
+          ['Re-run after fixing the failure (see cause in the error message).']
+        ),
         options.json
       );
       process.exitCode = 1;
@@ -454,7 +517,7 @@ export function registerWorktreeLeaseCommands(auth: Command, io: ProgramIO): voi
     auth
       .command('list')
       .description(
-        'List every lease under the current session\'s lease store. ' +
+        "List every lease under the current session's lease store. " +
           'Optionally filter by --status (active|released|expired|gc) and/or --expired-only. ' +
           'Leases past their expiresAt with status=active are still listed under "active" by default ' +
           '(`isLeaseActive` returns false for them, but the on-disk status only flips to "expired" ' +
@@ -477,9 +540,14 @@ export function registerWorktreeLeaseCommands(auth: Command, io: ProgramIO): voi
       if (result.kind === 'store-missing') {
         printResult(
           io,
-          ok('worktree.list', { sessionId, projectRoot, leases: [], errors: [], storeMissing: true }, [], [
-            `No lease store at ${storeDir}. Spawn a worktree first (\`peaks worktree spawn ...\`).`
-          ]),
+          ok(
+            'worktree.list',
+            { sessionId, projectRoot, leases: [], errors: [], storeMissing: true },
+            [],
+            [
+              `No lease store at ${storeDir}. Spawn a worktree first (\`peaks worktree spawn ...\`).`
+            ]
+          ),
           options.json
         );
         return;
@@ -516,7 +584,9 @@ export function registerWorktreeLeaseCommands(auth: Command, io: ProgramIO): voi
           result.errors.map((e) => `Malformed lease: ${e.file} (${e.error})`),
           [
             `${filtered.length} lease(s) matched (${result.leases.length} on disk).`,
-            result.errors.length > 0 ? 'Some lease files were malformed — see errors[]; they were skipped.' : ''
+            result.errors.length > 0
+              ? 'Some lease files were malformed — see errors[]; they were skipped.'
+              : ''
           ].filter(Boolean)
         ),
         options.json
@@ -537,14 +607,14 @@ export function registerWorktreeLeaseCommands(auth: Command, io: ProgramIO): voi
     auth
       .command('gc')
       .description(
-        'Sweep released/expired leases: remove their git worktree (if still attached), prune git\'s ' +
+        "Sweep released/expired leases: remove their git worktree (if still attached), prune git's " +
           'worktree references, and mark the lease as "gc". With --lease-id <id>, only that lease is ' +
-          'considered. With --dry-run, report what would be gc\'d without mutating. Expired-active ' +
+          "considered. With --dry-run, report what would be gc'd without mutating. Expired-active " +
           'leases (status=active but past expiresAt) are eligible — they are first marked "expired" ' +
           'then their worktree is removed.'
       )
       .option('--lease-id <id>', 'only consider this specific lease')
-      .option('--dry-run', 'report what would be gc\'d without mutating')
+      .option('--dry-run', "report what would be gc'd without mutating")
       .option('--session <sid>', 'override session id')
       .option('--project <path>', 'project root (default: findProjectRoot(cwd))')
   ).action((options: GcOptions) => {
@@ -560,9 +630,12 @@ export function registerWorktreeLeaseCommands(auth: Command, io: ProgramIO): voi
       if (result.kind === 'store-missing') {
         printResult(
           io,
-          ok('worktree.gc', { sessionId, projectRoot, swept: 0, storeMissing: true }, [], [
-            `No lease store at ${storeDir}; nothing to gc.`
-          ]),
+          ok(
+            'worktree.gc',
+            { sessionId, projectRoot, swept: 0, storeMissing: true },
+            [],
+            [`No lease store at ${storeDir}; nothing to gc.`]
+          ),
           options.json
         );
         return;
@@ -573,7 +646,12 @@ export function registerWorktreeLeaseCommands(auth: Command, io: ProgramIO): voi
         .filter((l) => isLeaseGcEligible(l, now));
 
       const dryRun = options.dryRun === true;
-      const swept: Array<{ leaseId: string; path: string; prevStatus: WorktreeLease['status']; gitWorktreeRemoveFailed: boolean }> = [];
+      const swept: Array<{
+        leaseId: string;
+        path: string;
+        prevStatus: WorktreeLease['status'];
+        gitWorktreeRemoveFailed: boolean;
+      }> = [];
       for (const lease of candidates) {
         let prevStatus: WorktreeLease['status'] = lease.status;
         let updated: WorktreeLease = lease;
@@ -587,18 +665,31 @@ export function registerWorktreeLeaseCommands(auth: Command, io: ProgramIO): voi
           // already gone we still mark the lease gc.
           let gitWorktreeRemoveFailed = false;
           try {
-            execSync(`git worktree remove --force "${updated.path}"`, { cwd: projectRoot, stdio: 'pipe', encoding: 'utf8', windowsHide: true });
+            execSync(`git worktree remove --force "${updated.path}"`, {
+              cwd: projectRoot,
+              stdio: 'pipe',
+              encoding: 'utf8',
+              windowsHide: true
+            });
           } catch {
             gitWorktreeRemoveFailed = true;
           }
           // `git worktree prune` clears any stale admin entries. Best-effort.
           try {
-            execSync('git worktree prune', { cwd: projectRoot, stdio: 'pipe', encoding: 'utf8', windowsHide: true });
+            execSync('git worktree prune', {
+              cwd: projectRoot,
+              stdio: 'pipe',
+              encoding: 'utf8',
+              windowsHide: true
+            });
           } catch {
             // ignore — prune is idempotent
           }
           const finalLease = markGc(updated);
-          atomicWriteJson(leaseFilePath(joinPathSession(projectRoot, sessionId), lease.leaseId), finalLease);
+          atomicWriteJson(
+            leaseFilePath(joinPathSession(projectRoot, sessionId), lease.leaseId),
+            finalLease
+          );
           // Part 4.A: emit gc metric (per swept lease).
           emitLeaseEvent({
             sessionId,
@@ -608,9 +699,19 @@ export function registerWorktreeLeaseCommands(auth: Command, io: ProgramIO): voi
             rid: lease.rid,
             role: lease.role
           });
-          swept.push({ leaseId: lease.leaseId, path: lease.path, prevStatus, gitWorktreeRemoveFailed });
+          swept.push({
+            leaseId: lease.leaseId,
+            path: lease.path,
+            prevStatus,
+            gitWorktreeRemoveFailed
+          });
         } else {
-          swept.push({ leaseId: lease.leaseId, path: lease.path, prevStatus, gitWorktreeRemoveFailed: false });
+          swept.push({
+            leaseId: lease.leaseId,
+            path: lease.path,
+            prevStatus,
+            gitWorktreeRemoveFailed: false
+          });
         }
       }
 
@@ -618,7 +719,14 @@ export function registerWorktreeLeaseCommands(auth: Command, io: ProgramIO): voi
         io,
         ok(
           'worktree.gc',
-          { sessionId, projectRoot, dryRun, candidates: candidates.length, swept, errors: result.errors },
+          {
+            sessionId,
+            projectRoot,
+            dryRun,
+            candidates: candidates.length,
+            swept,
+            errors: result.errors
+          },
           result.errors.map((e) => `Malformed lease: ${e.file} (${e.error})`),
           [
             dryRun
@@ -660,9 +768,13 @@ export function registerWorktreeLeaseCommands(auth: Command, io: ProgramIO): voi
       if (!existsSync(file)) {
         printResult(
           io,
-          fail('worktree.lease-status', 'LEASE_NOT_FOUND', `no lease on disk at ${file}`, { leaseId: options.leaseId, file }, [
-            'Run `peaks worktree list` to inspect available leases.'
-          ]),
+          fail(
+            'worktree.lease-status',
+            'LEASE_NOT_FOUND',
+            `no lease on disk at ${file}`,
+            { leaseId: options.leaseId, file },
+            ['Run `peaks worktree list` to inspect available leases.']
+          ),
           options.json
         );
         process.exitCode = 1;
@@ -674,9 +786,13 @@ export function registerWorktreeLeaseCommands(auth: Command, io: ProgramIO): voi
       } catch (err) {
         printResult(
           io,
-          fail('worktree.lease-status', 'LEASE_FILE_INVALID', getErrorMessage(err), { leaseId: options.leaseId, file }, [
-            'Delete the malformed lease file manually and re-spawn.'
-          ]),
+          fail(
+            'worktree.lease-status',
+            'LEASE_FILE_INVALID',
+            getErrorMessage(err),
+            { leaseId: options.leaseId, file },
+            ['Delete the malformed lease file manually and re-spawn.']
+          ),
           options.json
         );
         process.exitCode = 1;
@@ -721,9 +837,13 @@ export function registerWorktreeLeaseCommands(auth: Command, io: ProgramIO): voi
     } catch (err) {
       printResult(
         io,
-        fail('worktree.lease-status', 'STATUS_FAILED', getErrorMessage(err), { leaseId: options.leaseId, sessionId }, [
-          'Re-run after fixing the failure (see cause in the error message).'
-        ]),
+        fail(
+          'worktree.lease-status',
+          'STATUS_FAILED',
+          getErrorMessage(err),
+          { leaseId: options.leaseId, sessionId },
+          ['Re-run after fixing the failure (see cause in the error message).']
+        ),
         options.json
       );
       process.exitCode = 1;

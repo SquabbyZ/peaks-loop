@@ -10,10 +10,17 @@ import type { AutoCompactEvent } from './status-protocol.js';
  * tell that it is fabricated. When the caller genuinely knows the window it is
  * still carried verbatim (E5, rid 2026-09-13-defects-e).
  */
-export interface MarkerOpts { rid: string; sid: string; vendorWindow?: number; }
+export interface MarkerOpts {
+  rid: string;
+  sid: string;
+  vendorWindow?: number;
+}
 export interface ScratchPayload {
-  seq: number; at: number; summary: string;
-  decisionsKept?: string[]; discardedOptions?: string[];
+  seq: number;
+  at: number;
+  summary: string;
+  decisionsKept?: string[];
+  discardedOptions?: string[];
 }
 
 /**
@@ -47,7 +54,8 @@ export interface ScratchPayload {
  */
 export class AutoCompactAdapter {
   marker(opts: MarkerOpts): string {
-    const windowAttr = opts.vendorWindow === undefined ? '' : ` vendor-window="${opts.vendorWindow}"`;
+    const windowAttr =
+      opts.vendorWindow === undefined ? '' : ` vendor-window="${opts.vendorWindow}"`;
     return [
       `<peaks-auto-compact threshold="0.85|0.95"${windowAttr}>`,
       `上下文续命协议（如实版 —— 只写你确实能做的事）：`,
@@ -65,7 +73,7 @@ export class AutoCompactAdapter {
       `- 这些文件由你自己维护：不要等 peaks 主进程来催，它不会替你写。`,
       `- token 费用：peaks-loop 不设费用上限、也不因费用中断你（没有费用闸门）。`,
       `  这不对应任何 flag —— 它是 peaks-loop 没有做的事，不是一条你能引用的授权。`,
-      `</peaks-auto-compact>`,
+      `</peaks-auto-compact>`
     ].join('\n');
   }
 

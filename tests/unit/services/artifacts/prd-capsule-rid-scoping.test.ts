@@ -62,7 +62,12 @@ import { detectPerfAudit } from '../../../../src/services/audit-independent/perf
 declareDimensions(
   'tests/unit/services/artifacts/prd-capsule-rid-scoping.test.ts',
   ['render', 'behavior', 'integration'],
-  [{ dim: 'a11y', reason: 'resolver + detectors return result envelopes; print nothing and exit nothing' }],
+  [
+    {
+      dim: 'a11y',
+      reason: 'resolver + detectors return result envelopes; print nothing and exit nothing'
+    }
+  ]
 );
 
 const SESSION_ID = '2026-09-14-session-probe';
@@ -192,7 +197,7 @@ describe('(behavior) AC1/AC2 — two rids in one session', () => {
     expect(handoffRows(await check(root, RID_B))).toEqual([]);
   });
 
-  it('should not let one rid\'s capsule satisfy another rid (the control)', async () => {
+  it("should not let one rid's capsule satisfy another rid (the control)", async () => {
     const root = makeProjectRoot();
     await writeCapsule(root, RID_B);
 
@@ -216,8 +221,9 @@ describe('(behavior) AC3 — the pre-scoping layout still resolves', () => {
     // `2026-09-13-session-21878f`) keep passing. The scoping binds for
     // capsules written from now on.
     expect(handoffRows(await check(root, RID_A))).toEqual([]);
-    expect(resolveHandoffPath({ projectRoot: root, sessionId: SESSION_ID, requestId: RID_A }))
-      .toBe(legacy);
+    expect(resolveHandoffPath({ projectRoot: root, sessionId: SESSION_ID, requestId: RID_A })).toBe(
+      legacy
+    );
   });
 
   it('should keep the legacy body contract — a bad bare capsule is still refused', async () => {
@@ -323,10 +329,16 @@ describe('(integration) the readers follow the writer', () => {
     // the bare path. It fails CLOSED: reporting "missing" for a capsule it
     // cannot name beats picking one of the session's capsules at random, which
     // is the cross-slice mix-up this scoping exists to close.
-    expect(detectSecurityAudit({ projectRoot: root, sessionId: SESSION_ID }).state).toBe('handoff-missing');
-    expect(detectPerfAudit({ projectRoot: root, sessionId: SESSION_ID }).state).toBe('handoff-missing');
+    expect(detectSecurityAudit({ projectRoot: root, sessionId: SESSION_ID }).state).toBe(
+      'handoff-missing'
+    );
+    expect(detectPerfAudit({ projectRoot: root, sessionId: SESSION_ID }).state).toBe(
+      'handoff-missing'
+    );
     // ...and the residual is scoped to that surface: the same tree resolves
     // when the caller can pass the rid.
-    expect(resolveHandoffPath({ projectRoot: root, sessionId: SESSION_ID, requestId: RID_A })).not.toBeNull();
+    expect(
+      resolveHandoffPath({ projectRoot: root, sessionId: SESSION_ID, requestId: RID_A })
+    ).not.toBeNull();
   });
 });

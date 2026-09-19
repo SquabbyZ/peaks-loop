@@ -59,7 +59,7 @@ function registrationsPath(input: {
     input.sessionId,
     'dispatch',
     input.dispatchId,
-    REGISTRATIONS_FILE,
+    REGISTRATIONS_FILE
   );
 }
 
@@ -89,10 +89,13 @@ export function registerSubAgentShutdownCommands(program: Command, io: ProgramIO
   // to a standalone `peaks sub-agent-shutdown` parent if the parent
   // is not yet registered (e.g. when this file is loaded in isolation).
   const existing = (program.commands as ReadonlyArray<Command>).find(
-    (c) => c.name() === 'sub-agent',
+    (c) => c.name() === 'sub-agent'
   );
-  const root: Command = existing ?? program.command('sub-agent-shutdown')
-    .description('Sub-agent shutdown registration (forensic hook)');
+  const root: Command =
+    existing ??
+    program
+      .command('sub-agent-shutdown')
+      .description('Sub-agent shutdown registration (forensic hook)');
   const shutdown = root
     .command('shutdown')
     .description('Register local services for the parent to kill before merge-back');
@@ -105,71 +108,71 @@ export function registerSubAgentShutdownCommands(program: Command, io: ProgramIO
     .option('--url <url>', 'optional URL the service exposes')
     .option('--dispatch-id <id>', 'dispatch id; default = PEAKS_DISPATCH_ID env or "current"')
     .action(
-      (options: { pid: string; name: string; url?: string; dispatchId?: string; json?: boolean }) => {
+      (options: {
+        pid: string;
+        name: string;
+        url?: string;
+        dispatchId?: string;
+        json?: boolean;
+      }) => {
         try {
           const sid = getCurrentSessionId(sessionRoot) ?? 'unknown-sid';
           const file = registrationsPath({
             projectRoot: sessionRoot,
             sessionId: sid,
-            dispatchId: resolveDispatchId(options),
+            dispatchId: resolveDispatchId(options)
           });
           const all = readAll(file);
           const reg: ServiceRegistration = {
             pid: Number(options.pid),
             name: options.name,
-            ...(options.url !== undefined ? { url: options.url } : {}),
+            ...(options.url !== undefined ? { url: options.url } : {})
           };
           writeAll(file, [...all, reg]);
           printResult(io, ok('sub-agent.shutdown.register', { file, reg }), options.json);
         } catch (error) {
           printResult(
             io,
-            fail(
-              'sub-agent.shutdown.register',
-              'REGISTER_FAILED',
-              getErrorMessage(error),
-              {},
-              [getErrorMessage(error)],
-            ),
-            options.json,
+            fail('sub-agent.shutdown.register', 'REGISTER_FAILED', getErrorMessage(error), {}, [
+              getErrorMessage(error)
+            ]),
+            options.json
           );
           process.exitCode = 1;
         }
-      },
+      }
     );
 
   shutdown
     .command('unregister')
     .requiredOption('--pid <pid>', 'process id to remove from the registration list')
     .option('--dispatch-id <id>', 'dispatch id; default = PEAKS_DISPATCH_ID env or "current"')
-    .action(
-      (options: { pid: string; dispatchId?: string; json?: boolean }) => {
-        try {
-          const sid = getCurrentSessionId(sessionRoot) ?? 'unknown-sid';
-          const file = registrationsPath({
-            projectRoot: sessionRoot,
-            sessionId: sid,
-            dispatchId: resolveDispatchId(options),
-          });
-          const filtered = readAll(file).filter((r) => r.pid !== Number(options.pid));
-          writeAll(file, filtered);
-          printResult(io, ok('sub-agent.shutdown.unregister', { file, removed: options.pid }), options.json);
-        } catch (error) {
-          printResult(
-            io,
-            fail(
-              'sub-agent.shutdown.unregister',
-              'UNREGISTER_FAILED',
-              getErrorMessage(error),
-              {},
-              [getErrorMessage(error)],
-            ),
-            options.json,
-          );
-          process.exitCode = 1;
-        }
-      },
-    );
+    .action((options: { pid: string; dispatchId?: string; json?: boolean }) => {
+      try {
+        const sid = getCurrentSessionId(sessionRoot) ?? 'unknown-sid';
+        const file = registrationsPath({
+          projectRoot: sessionRoot,
+          sessionId: sid,
+          dispatchId: resolveDispatchId(options)
+        });
+        const filtered = readAll(file).filter((r) => r.pid !== Number(options.pid));
+        writeAll(file, filtered);
+        printResult(
+          io,
+          ok('sub-agent.shutdown.unregister', { file, removed: options.pid }),
+          options.json
+        );
+      } catch (error) {
+        printResult(
+          io,
+          fail('sub-agent.shutdown.unregister', 'UNREGISTER_FAILED', getErrorMessage(error), {}, [
+            getErrorMessage(error)
+          ]),
+          options.json
+        );
+        process.exitCode = 1;
+      }
+    });
 
   shutdown
     .command('list')
@@ -181,24 +184,20 @@ export function registerSubAgentShutdownCommands(program: Command, io: ProgramIO
         const file = registrationsPath({
           projectRoot: sessionRoot,
           sessionId: sid,
-          dispatchId: resolveDispatchId(options),
+          dispatchId: resolveDispatchId(options)
         });
         printResult(
           io,
           ok('sub-agent.shutdown.list', { file, registrations: readAll(file) }),
-          options.json,
+          options.json
         );
       } catch (error) {
         printResult(
           io,
-          fail(
-            'sub-agent.shutdown.list',
-            'LIST_FAILED',
-            getErrorMessage(error),
-            {},
-            [getErrorMessage(error)],
-          ),
-          options.json,
+          fail('sub-agent.shutdown.list', 'LIST_FAILED', getErrorMessage(error), {}, [
+            getErrorMessage(error)
+          ]),
+          options.json
         );
         process.exitCode = 1;
       }

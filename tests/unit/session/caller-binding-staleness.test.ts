@@ -42,22 +42,22 @@ import { makeCapturedIo, withEnv } from '../_setup/io.js';
 import {
   cleanupTmpWorkspace,
   useTmpWorkspace,
-  type TmpWorkspace,
+  type TmpWorkspace
 } from '../_setup/tmp-workspace.js';
 import {
   getSessionId,
   getSessionIdCanonical,
   resolveCallerBoundSession,
-  rotateSessionBinding,
+  rotateSessionBinding
 } from '../../../src/services/session/session-manager.js';
 import {
   ensureSession,
   ensureSessionWithRotation,
-  _resetLastResolvedOuterForTest,
+  _resetLastResolvedOuterForTest
 } from '../../../src/services/session/session-binding-bridge.js';
 import {
   getCallerBinding,
-  setCallerBinding,
+  setCallerBinding
 } from '../../../src/services/session/caller-binding-service.js';
 import { getCurrentSessionId } from '../../../src/services/skills/skill-presence-service.js';
 import type { CallerBinding } from '../../../src/services/session/caller-id-types.js';
@@ -68,8 +68,8 @@ declareDimensions(
   ['behavior', 'integration'],
   [
     { dim: 'render', reason: 'JSON-shaped results; no formatted output surface' },
-    { dim: 'a11y', reason: 'no human-facing text in this path' },
-  ],
+    { dim: 'a11y', reason: 'no human-facing text in this path' }
+  ]
 );
 
 const CALLER_A = 'caller-stale-a';
@@ -88,7 +88,7 @@ function seedBoundCaller(root: string, callerId: string, sessionId: string): voi
     createdAt: '2026-09-12T00:00:00.000Z',
     skill: 'peaks-code',
     mode: 'unknown',
-    gate: 'startup',
+    gate: 'startup'
   } satisfies CallerBinding);
 }
 
@@ -101,7 +101,7 @@ function seedStaleCaller(root: string, callerId: string, sessionId: string): voi
     createdAt: '2026-09-12T00:00:00.000Z',
     skill: 'peaks-code',
     mode: 'unknown',
-    gate: 'startup',
+    gate: 'startup'
   } satisfies CallerBinding);
 }
 
@@ -114,8 +114,12 @@ function seedGlobalSession(root: string, sessionId: string): void {
   mkdirSync(runtimeDir, { recursive: true });
   writeFileSync(
     join(runtimeDir, 'session.json'),
-    JSON.stringify({ sessionId, createdAt: '2026-09-12T00:00:00.000Z', projectRoot: root }, null, 2),
-    'utf8',
+    JSON.stringify(
+      { sessionId, createdAt: '2026-09-12T00:00:00.000Z', projectRoot: root },
+      null,
+      2
+    ),
+    'utf8'
   );
 }
 
@@ -123,23 +127,31 @@ function seedSessionMeta(root: string, sessionId: string, outerSessionId: string
   seedSessionDir(root, sessionId);
   writeFileSync(
     join(root, '.peaks', '_runtime', sessionId, 'session.json'),
-    JSON.stringify({ sessionId, projectRoot: root, createdAt: '2026-09-12T00:00:00.000Z', outerSessionId }, null, 2),
-    'utf8',
+    JSON.stringify(
+      { sessionId, projectRoot: root, createdAt: '2026-09-12T00:00:00.000Z', outerSessionId },
+      null,
+      2
+    ),
+    'utf8'
   );
 }
 
 async function runJobInit(
   wsPath: string,
-  jobId: string,
+  jobId: string
 ): Promise<{ ok: boolean; code?: string; data: { statePath?: string } }> {
   const { io, captured } = makeCapturedIo();
   const program = new Command();
   registerJobCommands(program, io);
   await program.parseAsync(
     ['job', 'init', '--job-id', jobId, '--slice-list', 'S1', '--project', wsPath, '--json'],
-    { from: 'user' },
+    { from: 'user' }
   );
-  return JSON.parse(captured.stdout.join('\n')) as { ok: boolean; code?: string; data: { statePath?: string } };
+  return JSON.parse(captured.stdout.join('\n')) as {
+    ok: boolean;
+    code?: string;
+    data: { statePath?: string };
+  };
 }
 
 let ws: TmpWorkspace;
@@ -223,17 +235,21 @@ describe('Scenario: behavior — a binding to a deleted session directory is sta
     mkdirSync(join(ws.path, '.peaks', '_runtime', 'callers'), { recursive: true });
     writeFileSync(
       join(ws.path, '.peaks', '_runtime', 'callers', `${CALLER_A}.json`),
-      JSON.stringify({
-        callerId: CALLER_A,
-        peakSessionId: SID_LIVE,
-        projectRoot: ws.path,
-        createdAt: '2026-09-12T00:00:00.000Z',
-        lastActivityAt: '2026-09-12T00:00:00.000Z',
-        skill: 'peaks-code',
-        mode: 'unknown',
-        gate: 'startup',
-      }, null, 2),
-      'utf8',
+      JSON.stringify(
+        {
+          callerId: CALLER_A,
+          peakSessionId: SID_LIVE,
+          projectRoot: ws.path,
+          createdAt: '2026-09-12T00:00:00.000Z',
+          lastActivityAt: '2026-09-12T00:00:00.000Z',
+          skill: 'peaks-code',
+          mode: 'unknown',
+          gate: 'startup'
+        },
+        null,
+        2
+      ),
+      'utf8'
     );
     // when: the binding is resolved
     // then: the extra legacy key is ignored, not fatal
@@ -245,7 +261,7 @@ describe('Scenario: behavior — a binding to a deleted session directory is sta
     seedBoundCaller(ws.path, CALLER_A, SID_LIVE);
     // when: the raw file is read back
     const raw = JSON.parse(
-      readFileSync(join(ws.path, '.peaks', '_runtime', 'callers', `${CALLER_A}.json`), 'utf8'),
+      readFileSync(join(ws.path, '.peaks', '_runtime', 'callers', `${CALLER_A}.json`), 'utf8')
     ) as Record<string, unknown>;
     // then: the written-but-never-read field is gone from the contract
     expect('lastActivityAt' in raw).toBe(false);
@@ -309,7 +325,19 @@ describe('Scenario: integration — rotation cannot be re-entered through a stal
     expect(getCallerBinding(ws.path, CALLER_A)?.peakSessionId).toBe(rotated.sessionId);
     expect(envelope.ok).toBe(true);
     // ... while the rotated-out session gained no job tree
-    expect(existsSync(join(ws.path, '.peaks', '_runtime', rotated.sessionId, 'job', 'rolled-2026-09-12', 'state.json'))).toBe(true);
+    expect(
+      existsSync(
+        join(
+          ws.path,
+          '.peaks',
+          '_runtime',
+          rotated.sessionId,
+          'job',
+          'rolled-2026-09-12',
+          'state.json'
+        )
+      )
+    ).toBe(true);
     expect(existsSync(join(ws.path, '.peaks', '_runtime', SID_ROTATED, 'job'))).toBe(false);
   });
 

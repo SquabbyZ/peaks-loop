@@ -83,7 +83,9 @@ if (targetPkg.name !== 'peaks-loop') {
   process.exit(1);
 }
 
-const sourceVersion = JSON.parse(readFileSync(resolve(projectRoot, 'package.json'), 'utf8')).version;
+const sourceVersion = JSON.parse(
+  readFileSync(resolve(projectRoot, 'package.json'), 'utf8')
+).version;
 const targetVersion = targetPkg.version;
 process.stdout.write(
   `[sync-global-peaks] ${targetVersion} -> ${sourceVersion}\n` +
@@ -116,11 +118,7 @@ for (const { src, dst } of copyTargets) {
 // node_modules/peaks-loop-<name>/; the global install has them at
 // <target>/node_modules/peaks-loop-<name>/. We copy the directories
 // we can find locally.
-const localSubpackages = [
-  'peaks-loop-shared',
-  'peaks-loop-shared-channel',
-  'peaks-loop-mut',
-];
+const localSubpackages = ['peaks-loop-shared', 'peaks-loop-shared-channel', 'peaks-loop-mut'];
 for (const pkg of localSubpackages) {
   const srcPath = resolve(projectRoot, 'node_modules', pkg);
   const dstPath = resolve(target, 'node_modules', pkg);

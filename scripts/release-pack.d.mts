@@ -13,10 +13,17 @@ export interface DiscoveredSubpackage {
 }
 
 export function discoverSubpackages(): DiscoveredSubpackage[];
-export function topoOrderSubpackages(pkgs: ReadonlyArray<DiscoveredSubpackage>): DiscoveredSubpackage[];
+export function topoOrderSubpackages(
+  pkgs: ReadonlyArray<DiscoveredSubpackage>
+): DiscoveredSubpackage[];
 
 export const ROOT_DIR: string;
-export function packAndInspectTarball(pkgDir: string): { tarball: string; name: string; version: string; cliVersion?: string };
+export function packAndInspectTarball(pkgDir: string): {
+  tarball: string;
+  name: string;
+  version: string;
+  cliVersion?: string;
+};
 export function readVersionJsFromTarball(tarball: string, label: string): string;
 export function isRegistryStale(name: string, version: string, localTarball: string): boolean;
 export function extractCliVersion(blob: string | null | undefined): string | null;

@@ -21,15 +21,18 @@ export async function doctorInvokeFromCode(opts: { sid: string; json: boolean })
   // Stub: real implementation invokes peaks-doctor sub-skill
   // (LLM-driven analysis of .peaks/_runtime/<sid>/txt/handoff.md
   // + dispatch records + autoCompactEvents; emits OpenSpec proposals).
-  writeFileSync(proposalPath, [
-    '# doctor proposal (stub)',
-    '',
-    '## capability: <TBD>',
-    '## kind: <TBD>',
-    '',
-    'Real implementation: peaks-doctor LLM-driven analysis of',
-    '.peaks/_runtime/<sid>/txt/handoff.md + dispatch records.',
-  ].join('\n'));
+  writeFileSync(
+    proposalPath,
+    [
+      '# doctor proposal (stub)',
+      '',
+      '## capability: <TBD>',
+      '## kind: <TBD>',
+      '',
+      'Real implementation: peaks-doctor LLM-driven analysis of',
+      '.peaks/_runtime/<sid>/txt/handoff.md + dispatch records.'
+    ].join('\n')
+  );
   // Normalize to POSIX-style separators so callers (and tests) can rely
   // on a forward-slash contract regardless of host OS.
   const normalizedPath = proposalPath.replaceAll('\\', '/');

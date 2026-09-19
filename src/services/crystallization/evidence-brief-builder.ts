@@ -1,8 +1,5 @@
-import { z } from "zod";
-import {
-  EvidenceBriefSchema,
-  type EvidenceBrief,
-} from "./crystallization-types.js";
+import { z } from 'zod';
+import { EvidenceBriefSchema, type EvidenceBrief } from './crystallization-types.js';
 
 /* ---------------------------------------------------------------------- */
 /* PRD-002b slice 2 — schema-limit constants extracted from inline         */
@@ -95,9 +92,7 @@ export const BriefTraceInputSchema = z.object({
    * Source trace ids backing the brief (the column on
    * crystallization_event spec §4.5).
    */
-  source_trace_pointers: z
-    .array(z.string().trim().min(1).max(BRIEF_TRACE_POINTER_MAX))
-    .default([]),
+  source_trace_pointers: z.array(z.string().trim().min(1).max(BRIEF_TRACE_POINTER_MAX)).default([])
 });
 export type BriefTraceInput = z.input<typeof BriefTraceInputSchema>;
 
@@ -108,8 +103,8 @@ export type BriefTraceInput = z.input<typeof BriefTraceInputSchema>;
  * flows into the recommendation envelope.
  */
 export const EvaluatorSummarySchema = z.object({
-  one_liner: z.string().trim().max(BRIEF_EVALUATOR_ONE_LINER_MAX).default(""),
-  risk_tags: z.array(z.string().trim().min(1).max(BRIEF_EVALUATOR_RISK_TAG_MAX)).default([]),
+  one_liner: z.string().trim().max(BRIEF_EVALUATOR_ONE_LINER_MAX).default(''),
+  risk_tags: z.array(z.string().trim().min(1).max(BRIEF_EVALUATOR_RISK_TAG_MAX)).default([])
 });
 export type EvaluatorSummary = z.input<typeof EvaluatorSummarySchema>;
 
@@ -120,31 +115,24 @@ export type EvaluatorSummary = z.input<typeof EvaluatorSummarySchema>;
 export const RecommendationPayloadSchema = z.object({
   brief: EvidenceBriefSchema,
   bullets: z.array(z.string().trim().min(1).max(BRIEF_BULLET_MAX)).default([]),
-  source_trace_pointers: z
-    .array(z.string().trim().min(1).max(BRIEF_TRACE_POINTER_MAX))
-    .default([]),
+  source_trace_pointers: z.array(z.string().trim().min(1).max(BRIEF_TRACE_POINTER_MAX)).default([]),
   evaluator_summary: EvaluatorSummarySchema.default({
-    one_liner: "",
-    risk_tags: [],
-  }),
+    one_liner: '',
+    risk_tags: []
+  })
 });
-export type RecommendationPayload = z.infer<
-  typeof RecommendationPayloadSchema
->;
+export type RecommendationPayload = z.infer<typeof RecommendationPayloadSchema>;
 
 /* ---------------------------------------------------------------------- */
 /* Errors                                                                 */
 /* ---------------------------------------------------------------------- */
 
 export class BriefSectionError extends Error {
-  readonly code = "MISSING_BRIEF_SECTION" as const;
+  readonly code = 'MISSING_BRIEF_SECTION' as const;
   readonly findings: ReadonlyArray<{ path: string; message: string }>;
-  constructor(
-    message: string,
-    findings: ReadonlyArray<{ path: string; message: string }> = []
-  ) {
+  constructor(message: string, findings: ReadonlyArray<{ path: string; message: string }> = []) {
     super(message);
-    this.name = "BriefSectionError";
+    this.name = 'BriefSectionError';
     this.findings = findings;
   }
 }
@@ -189,17 +177,17 @@ export function buildEvidenceBrief(
     what_happened: parsedTrace.what_happened,
     why_it_matters: parsedTrace.why_it_matters,
     what_learned: parsedTrace.what_learned,
-    what_action: parsedTrace.what_action,
+    what_action: parsedTrace.what_action
   };
 
   const result = EvidenceBriefSchema.safeParse(candidate);
   if (!result.success) {
     const findings = result.error.issues.map((i) => ({
-      path: i.path.join("."),
-      message: i.message,
+      path: i.path.join('.'),
+      message: i.message
     }));
     throw new BriefSectionError(
-      "evidence_brief must contain all 4 sections (what_happened, why_it_matters, what_learned, what_action) with non-empty content (spec §4.7 / RL-7)",
+      'evidence_brief must contain all 4 sections (what_happened, why_it_matters, what_learned, what_action) with non-empty content (spec §4.7 / RL-7)',
       findings
     );
   }
@@ -218,16 +206,14 @@ export function buildEvidenceBrief(
 function translateBriefZodError(err: unknown): never {
   if (err instanceof z.ZodError) {
     const issues = err.issues;
-    const allBrief = issues.every((i) =>
-      BRIEF_SECTION_KEYS.has(i.path.join("."))
-    );
+    const allBrief = issues.every((i) => BRIEF_SECTION_KEYS.has(i.path.join('.')));
     if (allBrief) {
       const findings = issues.map((i) => ({
-        path: i.path.join("."),
-        message: i.message,
+        path: i.path.join('.'),
+        message: i.message
       }));
       throw new BriefSectionError(
-        "evidence_brief must contain all 4 sections (what_happened, why_it_matters, what_learned, what_action) with non-empty content (spec §4.7 / RL-7)",
+        'evidence_brief must contain all 4 sections (what_happened, why_it_matters, what_learned, what_action) with non-empty content (spec §4.7 / RL-7)',
         findings
       );
     }
@@ -236,10 +222,10 @@ function translateBriefZodError(err: unknown): never {
 }
 
 const BRIEF_SECTION_KEYS = new Set([
-  "what_happened",
-  "why_it_matters",
-  "what_learned",
-  "what_action",
+  'what_happened',
+  'why_it_matters',
+  'what_learned',
+  'what_action'
 ]);
 
 /**
@@ -253,14 +239,14 @@ const BRIEF_SECTION_KEYS = new Set([
  */
 export function renderRecommendationPayload(
   trace: BriefTraceInput,
-  evaluatorSummary: EvaluatorSummary = { one_liner: "", risk_tags: [] }
+  evaluatorSummary: EvaluatorSummary = { one_liner: '', risk_tags: [] }
 ): RecommendationPayload {
   const brief = buildEvidenceBrief(trace, evaluatorSummary);
   const payload = RecommendationPayloadSchema.parse({
     brief,
     bullets: trace.bullets ?? [],
     source_trace_pointers: trace.source_trace_pointers ?? [],
-    evaluator_summary: evaluatorSummary,
+    evaluator_summary: evaluatorSummary
   });
   return payload;
 }
@@ -271,32 +257,28 @@ export function renderRecommendationPayload(
  * render a structured MISSING_BRIEF_SECTION error without try/catch
  * noise.
  */
-export function safeRenderRecommendationPayload(
-  input: unknown
-):
+export function safeRenderRecommendationPayload(input: unknown):
   | { ok: true; payload: RecommendationPayload }
   | {
       ok: false;
-      code?: "MISSING_BRIEF_SECTION";
+      code?: 'MISSING_BRIEF_SECTION';
       findings: Array<{ path: string; message: string }>;
     } {
   const r = RecommendationPayloadSchema.safeParse(input);
   if (r.success) return { ok: true, payload: r.data };
   const findings = r.error.issues.map((i) => ({
-    path: i.path.join("."),
-    message: i.message,
+    path: i.path.join('.'),
+    message: i.message
   }));
   // Map brief failures to MISSING_BRIEF_SECTION. A failure is
   // recognized as brief iff (a) every issue points at the brief or
   // its sections, OR (b) the explicit refine message is present.
   const isBrief = r.error.issues.every(
     (i) =>
-      i.message.includes("evidence_brief must contain all 4 sections") ||
-      BRIEF_SECTION_KEYS.has(i.path.join(".")) ||
-      i.path[0] === "brief" ||
-      (i.path.length >= 2 && i.path[0] === "brief")
+      i.message.includes('evidence_brief must contain all 4 sections') ||
+      BRIEF_SECTION_KEYS.has(i.path.join('.')) ||
+      i.path[0] === 'brief' ||
+      (i.path.length >= 2 && i.path[0] === 'brief')
   );
-  return isBrief
-    ? { ok: false, code: "MISSING_BRIEF_SECTION", findings }
-    : { ok: false, findings };
+  return isBrief ? { ok: false, code: 'MISSING_BRIEF_SECTION', findings } : { ok: false, findings };
 }

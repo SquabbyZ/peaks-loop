@@ -36,10 +36,7 @@ import type { ThresholdViolation } from 'peaks-loop-mut';
 
 export interface KarpathyViolation {
   readonly guideline:
-    | 'think-before-coding'
-    | 'simplicity-first'
-    | 'surgical-changes'
-    | 'goal-driven-execution';
+    'think-before-coding' | 'simplicity-first' | 'surgical-changes' | 'goal-driven-execution';
   readonly severity: 'CRITICAL' | 'HIGH' | 'MED' | 'LOW';
   readonly file: string;
   readonly line: number;
@@ -75,11 +72,7 @@ export interface AggregatorInput {
 export type AggregatorVerdict = 'pass' | 'warn' | 'block' | 'return-to-rd';
 
 export type VerdictSource =
-  | 'security-audit'
-  | 'perf-audit'
-  | 'karpathy-reviewer'
-  | 'peaks-mut'
-  | 'peaks-qa';
+  'security-audit' | 'perf-audit' | 'karpathy-reviewer' | 'peaks-mut' | 'peaks-qa';
 
 export interface VerdictReason {
   /**
@@ -148,11 +141,7 @@ interface DedupState {
   readonly indexByKey: Map<string, number>;
 }
 
-function pushFix(
-  state: DedupState,
-  proposed: VerdictReason,
-  loc: FixLocation
-): void {
+function pushFix(state: DedupState, proposed: VerdictReason, loc: FixLocation): void {
   // v2.13.2 BLOCKER fix: dedup key is `(file, line, hint)` only,
   // per `.peaks/project-scan/audit-output-schema.md:73`. The previous
   // key `${source}|${file}|${line}|${hint}` over-segmented the
@@ -194,7 +183,15 @@ export function aggregateVerdict(input: AggregatorInput): AggregatorResult {
     for (const v of env.violations) {
       pushFix(
         state,
-        { source: 'security-audit', sources: ['security-audit'], signal: env.verdict, severity: v.severity, file: v.file, line: v.line, hint: v.hint },
+        {
+          source: 'security-audit',
+          sources: ['security-audit'],
+          signal: env.verdict,
+          severity: v.severity,
+          file: v.file,
+          line: v.line,
+          hint: v.hint
+        },
         { file: v.file, line: v.line, hint: v.hint }
       );
     }
@@ -207,7 +204,15 @@ export function aggregateVerdict(input: AggregatorInput): AggregatorResult {
     for (const v of env.violations) {
       pushFix(
         state,
-        { source: 'perf-audit', sources: ['perf-audit'], signal: env.verdict, severity: v.severity, file: v.file, line: v.line, hint: v.hint },
+        {
+          source: 'perf-audit',
+          sources: ['perf-audit'],
+          signal: env.verdict,
+          severity: v.severity,
+          file: v.file,
+          line: v.line,
+          hint: v.hint
+        },
         { file: v.file, line: v.line, hint: v.hint }
       );
     }
@@ -220,7 +225,15 @@ export function aggregateVerdict(input: AggregatorInput): AggregatorResult {
     for (const v of env.violations) {
       pushFix(
         state,
-        { source: 'karpathy-reviewer', sources: ['karpathy-reviewer'], signal: env.gateAction, severity: v.severity, file: v.file, line: v.line, hint: v.hint },
+        {
+          source: 'karpathy-reviewer',
+          sources: ['karpathy-reviewer'],
+          signal: env.gateAction,
+          severity: v.severity,
+          file: v.file,
+          line: v.line,
+          hint: v.hint
+        },
         { file: v.file, line: v.line, hint: v.hint }
       );
     }

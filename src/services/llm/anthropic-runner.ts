@@ -81,7 +81,11 @@ export class LlmBindingError extends Error {
    */
   readonly missingEnv: readonly string[];
 
-  constructor(code: 'LLM_CREDENTIAL_MISSING' | 'LLM_MODEL_MISSING', message: string, missingEnv: readonly string[]) {
+  constructor(
+    code: 'LLM_CREDENTIAL_MISSING' | 'LLM_MODEL_MISSING',
+    message: string,
+    missingEnv: readonly string[]
+  ) {
     super(message);
     this.name = 'LlmBindingError';
     this.code = code;
@@ -219,11 +223,16 @@ export function createAnthropicRunner(
       try {
         payload = (await response.json()) as AnthropicMessagePayload;
       } catch (error) {
-        throw new LlmRequestError(`LLM reply from ${url} was not valid JSON: ${getErrorMessage(error)}`);
+        throw new LlmRequestError(
+          `LLM reply from ${url} was not valid JSON: ${getErrorMessage(error)}`
+        );
       }
 
       const blocks = Array.isArray(payload.content) ? payload.content : [];
-      const output = blocks.filter(isTextBlock).map((block) => block.text).join('');
+      const output = blocks
+        .filter(isTextBlock)
+        .map((block) => block.text)
+        .join('');
       if (!output) {
         throw new LlmRequestError(`LLM reply from ${url} carried no text block`);
       }

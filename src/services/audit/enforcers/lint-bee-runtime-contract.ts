@@ -25,7 +25,12 @@ const FRONTEND_PROJECT_GENERATION = /rd work creates a frontend application/i;
 const TRANSITION_GATES = /Transition verification gates/im;
 const MEMORY_BLOCK_EMBEDDING = /memory block embedding rule/i;
 
-function findContract(lines: ReadonlyArray<string>): { openspec: boolean; frontendGen: boolean; transitionGates: boolean; memoryBlock: boolean } {
+function findContract(lines: ReadonlyArray<string>): {
+  openspec: boolean;
+  frontendGen: boolean;
+  transitionGates: boolean;
+  memoryBlock: boolean;
+} {
   let openspec = false;
   let frontendGen = false;
   let transitionGates = false;
@@ -47,13 +52,15 @@ export function lintRdRuntimeContract(skill: SkillFile): ReadonlyArray<LintHit> 
   const missing: string[] = [];
   if (!openspec) missing.push('OpenSpec usage');
   if (!frontendGen) missing.push('Frontend project generation');
-  return [{
-    catalogId: 'rl-peaks-rd-runtime-contract-001',
-    rule: 'peaks-rd SKILL.md must declare the runtime contract (OpenSpec usage + Frontend project generation)',
-    file: skill.path,
-    line: 1,
-    matchedText: `missing markers: ${missing.join(', ')}`
-  }];
+  return [
+    {
+      catalogId: 'rl-peaks-rd-runtime-contract-001',
+      rule: 'peaks-rd SKILL.md must declare the runtime contract (OpenSpec usage + Frontend project generation)',
+      file: skill.path,
+      line: 1,
+      matchedText: `missing markers: ${missing.join(', ')}`
+    }
+  ];
 }
 
 export function lintUiTransitionGates(skill: SkillFile): ReadonlyArray<LintHit> {
@@ -61,13 +68,15 @@ export function lintUiTransitionGates(skill: SkillFile): ReadonlyArray<LintHit> 
   const lines = skill.lines.length > 0 ? skill.lines : skill.body.split(/\r?\n/);
   const { transitionGates } = findContract(lines);
   if (transitionGates) return [];
-  return [{
-    catalogId: 'rl-peaks-ui-transition-gates-001',
-    rule: 'peaks-ui SKILL.md must declare the Transition verification gates section',
-    file: skill.path,
-    line: 1,
-    matchedText: 'missing "Transition verification gates" heading'
-  }];
+  return [
+    {
+      catalogId: 'rl-peaks-ui-transition-gates-001',
+      rule: 'peaks-ui SKILL.md must declare the Transition verification gates section',
+      file: skill.path,
+      line: 1,
+      matchedText: 'missing "Transition verification gates" heading'
+    }
+  ];
 }
 
 export function lintScTransitionGates(skill: SkillFile): ReadonlyArray<LintHit> {
@@ -75,13 +84,15 @@ export function lintScTransitionGates(skill: SkillFile): ReadonlyArray<LintHit> 
   const lines = skill.lines.length > 0 ? skill.lines : skill.body.split(/\r?\n/);
   const { transitionGates } = findContract(lines);
   if (transitionGates) return [];
-  return [{
-    catalogId: 'rl-peaks-sc-transition-gates-001',
-    rule: 'peaks-sc SKILL.md must declare the Transition verification gates section',
-    file: skill.path,
-    line: 1,
-    matchedText: 'missing "Transition verification gates" heading'
-  }];
+  return [
+    {
+      catalogId: 'rl-peaks-sc-transition-gates-001',
+      rule: 'peaks-sc SKILL.md must declare the Transition verification gates section',
+      file: skill.path,
+      line: 1,
+      matchedText: 'missing "Transition verification gates" heading'
+    }
+  ];
 }
 
 export function lintTxtRuntimeContract(skill: SkillFile): ReadonlyArray<LintHit> {
@@ -92,11 +103,13 @@ export function lintTxtRuntimeContract(skill: SkillFile): ReadonlyArray<LintHit>
   const missing: string[] = [];
   if (!transitionGates) missing.push('Transition verification gates');
   if (!memoryBlock) missing.push('Memory block embedding rule');
-  return [{
-    catalogId: 'rl-peaks-txt-runtime-contract-001',
-    rule: 'peaks-txt SKILL.md must declare the runtime contract (Transition verification gates + Memory block embedding rule)',
-    file: skill.path,
-    line: 1,
-    matchedText: `missing markers: ${missing.join(', ')}`
-  }];
+  return [
+    {
+      catalogId: 'rl-peaks-txt-runtime-contract-001',
+      rule: 'peaks-txt SKILL.md must declare the runtime contract (Transition verification gates + Memory block embedding rule)',
+      file: skill.path,
+      line: 1,
+      matchedText: `missing markers: ${missing.join(', ')}`
+    }
+  ];
 }

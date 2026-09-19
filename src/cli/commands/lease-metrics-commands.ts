@@ -62,10 +62,22 @@ const EMPTY_COUNTS: KindCounts = {
 /** Compute per-kind counts + chronological tail from a list of events. */
 function aggregateLeaseEvents(leaseEvents: ReadonlyArray<ObservabilityEvent>): {
   counts: KindCounts;
-  tail: ReadonlyArray<{ ts: string; kind: string; leaseId: string; rid: string | null; reason: string | null }>;
+  tail: ReadonlyArray<{
+    ts: string;
+    kind: string;
+    leaseId: string;
+    rid: string | null;
+    reason: string | null;
+  }>;
 } {
   const counts: Record<string, number> = { ...EMPTY_COUNTS };
-  const recent: Array<{ ts: string; kind: string; leaseId: string; rid: string | null; reason: string | null }> = [];
+  const recent: Array<{
+    ts: string;
+    kind: string;
+    leaseId: string;
+    rid: string | null;
+    reason: string | null;
+  }> = [];
   for (const ev of leaseEvents) {
     const detail = (ev.detail ?? {}) as Record<string, unknown>;
     const kind = typeof detail['kind'] === 'string' ? detail['kind'] : 'unknown';
@@ -123,7 +135,8 @@ export function recomputeRate(leaseEvents: ReadonlyArray<ObservabilityEvent>): R
     }
   }
   const totalSpawn = counts['spawn'] ?? 0;
-  const totalRelease = (counts['release'] ?? 0) + (counts['gc'] ?? 0) + (counts['autoRelease'] ?? 0);
+  const totalRelease =
+    (counts['release'] ?? 0) + (counts['gc'] ?? 0) + (counts['autoRelease'] ?? 0);
   const estimatedActive = Math.max(0, totalSpawn - totalRelease);
   const estimatedLeaked = Math.max(0, estimatedActive - (counts['autoRelease-failed'] ?? 0));
 
@@ -158,10 +171,14 @@ export function recomputeRate(leaseEvents: ReadonlyArray<ObservabilityEvent>): R
     if (dt >= 0) lifetimes.push(dt);
   }
   lifetimes.sort((a, b) => a - b);
-  const avg = lifetimes.length === 0 ? null : Math.round(lifetimes.reduce((s, v) => s + v, 0) / lifetimes.length);
-  const p99 = lifetimes.length === 0
-    ? null
-    : lifetimes[Math.min(lifetimes.length - 1, Math.floor(lifetimes.length * 0.99))] ?? null;
+  const avg =
+    lifetimes.length === 0
+      ? null
+      : Math.round(lifetimes.reduce((s, v) => s + v, 0) / lifetimes.length);
+  const p99 =
+    lifetimes.length === 0
+      ? null
+      : (lifetimes[Math.min(lifetimes.length - 1, Math.floor(lifetimes.length * 0.99))] ?? null);
   return {
     totalSpawn,
     totalTerminal: totalRelease,
@@ -219,11 +236,16 @@ export function registerLeaseMetricsCommand(parent: Command, io: ProgramIO): voi
   addJsonOption(
     parent
       .command('lease-metrics')
-      .description('Aggregate lease-kind observability events. Default: per-kind counts + 5-event tail for the current session. --rate: leak rate + lifetime stats. --all-sessions: aggregate across every session under .peaks/_runtime/.')
+      .description(
+        'Aggregate lease-kind observability events. Default: per-kind counts + 5-event tail for the current session. --rate: leak rate + lifetime stats. --all-sessions: aggregate across every session under .peaks/_runtime/.'
+      )
       .option('--session <sid>', 'override session id (default: read .peaks/_runtime/session.json)')
       .option('--project <path>', 'project root (default: findProjectRoot(cwd))')
       .option('--rate', 'compute leak rate (spawn - terminal) + lifetime stats (avg / p99)')
-      .option('--all-sessions', 'aggregate across every session under .peaks/_runtime/ (ignores --session)')
+      .option(
+        '--all-sessions',
+        'aggregate across every session under .peaks/_runtime/ (ignores --session)'
+      )
   ).action((options: LeaseMetricsOptions) => {
     try {
       const projectRoot = options.project ?? findProjectRoot(process.cwd()) ?? process.cwd();
@@ -266,7 +288,11 @@ export function registerLeaseMetricsCommand(parent: Command, io: ProgramIO): voi
       }
 
       // Single-session path (the Part 4.A default).
-      const sessionId = options.session ?? process.env.PEAKS_SESSION_ID ?? getCurrentSessionId(projectRoot) ?? 'unknown-sid';
+      const sessionId =
+        options.session ??
+        process.env.PEAKS_SESSION_ID ??
+        getCurrentSessionId(projectRoot) ??
+        'unknown-sid';
       const allEvents = readObservabilityEvents(projectRoot, sessionId);
       const leaseEvents = allEvents.filter((e) => e.category === 'lease');
       const { counts, tail } = aggregateLeaseEvents(leaseEvents);
@@ -299,10 +325,16 @@ export function registerLeaseMetricsCommand(parent: Command, io: ProgramIO): voi
     } catch (err) {
       printResult(
         io,
-        fail('lease.metrics', 'METRICS_READ_FAILED', err instanceof Error ? err.message : String(err), { sessionId: options.session }, [
-          'Verify the project root + session id are correct.',
-          'For the full observability stream, run `peaks audit metrics --project .`.'
-        ]),
+        fail(
+          'lease.metrics',
+          'METRICS_READ_FAILED',
+          err instanceof Error ? err.message : String(err),
+          { sessionId: options.session },
+          [
+            'Verify the project root + session id are correct.',
+            'For the full observability stream, run `peaks audit metrics --project .`.'
+          ]
+        ),
         options.json
       );
       process.exitCode = 1;

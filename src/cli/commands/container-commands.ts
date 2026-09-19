@@ -61,11 +61,19 @@ const DEFAULT_DOCKER_IMAGE = 'node:22-slim';
  */
 type ContainerRuntime = 'docker' | 'podman';
 
-function detectContainerRuntime(explicit: ContainerRuntime | undefined): { ok: true; runtime: ContainerRuntime; binary: string } | { ok: false; stderr: string; hint: string } {
+function detectContainerRuntime(
+  explicit: ContainerRuntime | undefined
+):
+  | { ok: true; runtime: ContainerRuntime; binary: string }
+  | { ok: false; stderr: string; hint: string } {
   const tryOrder: ContainerRuntime[] = explicit ? [explicit] : ['docker', 'podman'];
   for (const r of tryOrder) {
     try {
-      const version = execSync(`${r} --version`, { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf8', windowsHide: true }).trim();
+      const version = execSync(`${r} --version`, {
+        stdio: ['ignore', 'pipe', 'pipe'],
+        encoding: 'utf8',
+        windowsHide: true
+      }).trim();
       return { ok: true, runtime: r, binary: `${r} (${version.split('\n')[0] ?? ''})` };
     } catch {
       /* try next */
@@ -115,10 +123,15 @@ function checkDockerAvailable(): { ok: true; version: string } | { ok: false; st
   return { ok: false, stderr: 'deprecated — use detectContainerRuntime' };
 }
 export function registerContainerCommand(program: Command, io: ProgramIO): void {
-  const cmd = program.command('container').description('L4 container isolation: spawn/release container leases (Part 12; pairs with --isolation container on dispatch).');
+  const cmd = program
+    .command('container')
+    .description(
+      'L4 container isolation: spawn/release container leases (Part 12; pairs with --isolation container on dispatch).'
+    );
 
   addJsonOption(
-    cmd.command('spawn')
+    cmd
+      .command('spawn')
       .description(
         'Spawn a container via `docker run` and write a container lease. ' +
           'The lease is the source of truth for the L4 PreToolUse gate (Part 12 follow-up). ' +
@@ -129,13 +142,23 @@ export function registerContainerCommand(program: Command, io: ProgramIO): void 
       .requiredOption('--role <role>', 'sub-agent role (rd | qa | ui | sc | prd | general-purpose)')
       .requiredOption('--purpose <text>', 'why this container was spawned (audit log)')
       .option('--image <name>', `container image (default ${DEFAULT_DOCKER_IMAGE})`)
-      .option('--ttl <ms>', 'time-to-live in ms (default role-aware; override with positive number)')
-      .option('--mount <path>', 'host path to mount as the container working dir (default: <projectRoot>)')
+      .option(
+        '--ttl <ms>',
+        'time-to-live in ms (default role-aware; override with positive number)'
+      )
+      .option(
+        '--mount <path>',
+        'host path to mount as the container working dir (default: <projectRoot>)'
+      )
       .option('--session <sid>', 'override session id')
       .option('--project <path>', 'project root (default: findProjectRoot(cwd))')
   ).action(async (options: SpawnOptions) => {
     const projectRoot = options.project ?? findProjectRoot(process.cwd()) ?? process.cwd();
-    const sessionId = options.session ?? process.env.PEAKS_SESSION_ID ?? getCurrentSessionId(projectRoot) ?? 'unknown-sid';
+    const sessionId =
+      options.session ??
+      process.env.PEAKS_SESSION_ID ??
+      getCurrentSessionId(projectRoot) ??
+      'unknown-sid';
     try {
       const explicitRuntime = ((): ContainerRuntime | undefined => {
         if (options.runtime === 'docker') return 'docker';
@@ -146,11 +169,17 @@ export function registerContainerCommand(program: Command, io: ProgramIO): void 
       if (!runtime.ok) {
         printResult(
           io,
-          fail('container.spawn', 'CONTAINER_RUNTIME_UNAVAILABLE', `${runtime.stderr}: ${runtime.hint}`, { rid: options.rid, role: options.role, sessionId }, [
-            'Install docker (Docker Desktop on macOS / Windows) or podman (RHEL / Fedora).',
-            'On Windows, ensure WSL2 backend is enabled and the daemon is running.',
-            'Pass --runtime docker|podman to force a specific runtime.'
-          ]),
+          fail(
+            'container.spawn',
+            'CONTAINER_RUNTIME_UNAVAILABLE',
+            `${runtime.stderr}: ${runtime.hint}`,
+            { rid: options.rid, role: options.role, sessionId },
+            [
+              'Install docker (Docker Desktop on macOS / Windows) or podman (RHEL / Fedora).',
+              'On Windows, ensure WSL2 backend is enabled and the daemon is running.',
+              'Pass --runtime docker|podman to force a specific runtime.'
+            ]
+          ),
           options.json
         );
         process.exitCode = 1;
@@ -159,11 +188,20 @@ export function registerContainerCommand(program: Command, io: ProgramIO): void 
 
       const leaseId = generateContainerLeaseId();
       const now = Date.now();
-      const ttlMs = options.ttl === undefined ? ttlForContainerRole(options.role) : Number.parseInt(options.ttl, 10);
+      const ttlMs =
+        options.ttl === undefined
+          ? ttlForContainerRole(options.role)
+          : Number.parseInt(options.ttl, 10);
       if (!Number.isInteger(ttlMs) || ttlMs <= 0) {
         printResult(
           io,
-          fail('container.spawn', 'INVALID_TTL', '--ttl must be a positive integer (ms)', { ttl: options.ttl }, ['Re-run with --ttl 1800000 (30 min) or omit to use role default.']),
+          fail(
+            'container.spawn',
+            'INVALID_TTL',
+            '--ttl must be a positive integer (ms)',
+            { ttl: options.ttl },
+            ['Re-run with --ttl 1800000 (30 min) or omit to use role default.']
+          ),
           options.json
         );
         process.exitCode = 1;
@@ -186,11 +224,17 @@ export function registerContainerCommand(program: Command, io: ProgramIO): void 
       } catch (err) {
         printResult(
           io,
-          fail('container.spawn', 'DOCKER_RUN_FAILED', getErrorMessage(err), { rid: options.rid, image, runtime: runtime.runtime, sessionId }, [
-            'Verify the image name is reachable on the configured registry.',
-            'Verify the host path is mounted correctly (Windows: the path must be visible to WSL2).',
-            `Run \`${runtime.runtime} ps -a\` to inspect any leftover containers with the peaks.leaseId label.`
-          ]),
+          fail(
+            'container.spawn',
+            'DOCKER_RUN_FAILED',
+            getErrorMessage(err),
+            { rid: options.rid, image, runtime: runtime.runtime, sessionId },
+            [
+              'Verify the image name is reachable on the configured registry.',
+              'Verify the host path is mounted correctly (Windows: the path must be visible to WSL2).',
+              `Run \`${runtime.runtime} ps -a\` to inspect any leftover containers with the peaks.leaseId label.`
+            ]
+          ),
           options.json
         );
         process.exitCode = 1;
@@ -208,7 +252,10 @@ export function registerContainerCommand(program: Command, io: ProgramIO): void 
         expiresAt: now + ttlMs,
         purpose: options.purpose
       });
-      atomicWriteJson(containerLeaseFilePath(joinPathSession(projectRoot, sessionId), leaseId), lease);
+      atomicWriteJson(
+        containerLeaseFilePath(joinPathSession(projectRoot, sessionId), leaseId),
+        lease
+      );
       printResult(
         io,
         ok(
@@ -234,9 +281,15 @@ export function registerContainerCommand(program: Command, io: ProgramIO): void 
     } catch (err) {
       printResult(
         io,
-        fail('container.spawn', 'SPAWN_FAILED', getErrorMessage(err), { rid: options.rid, sessionId }, [
-          'See error message; if the lease was not written, retry after fixing the underlying issue.'
-        ]),
+        fail(
+          'container.spawn',
+          'SPAWN_FAILED',
+          getErrorMessage(err),
+          { rid: options.rid, sessionId },
+          [
+            'See error message; if the lease was not written, retry after fixing the underlying issue.'
+          ]
+        ),
         options.json
       );
       process.exitCode = 1;
@@ -244,23 +297,36 @@ export function registerContainerCommand(program: Command, io: ProgramIO): void 
   });
 
   addJsonOption(
-    cmd.command('release')
-      .description('Transition a container lease to released and run `docker rm --force`. Idempotent on already-released leases.')
+    cmd
+      .command('release')
+      .description(
+        'Transition a container lease to released and run `docker rm --force`. Idempotent on already-released leases.'
+      )
       .requiredOption('--lease-id <id>', 'lease id returned by `peaks container spawn`')
       .option('--session <sid>', 'override session id')
       .option('--project <path>', 'project root (default: findProjectRoot(cwd))')
   ).action((options: ReleaseOptions) => {
     const projectRoot = options.project ?? findProjectRoot(process.cwd()) ?? process.cwd();
-    const sessionId = options.session ?? process.env.PEAKS_SESSION_ID ?? getCurrentSessionId(projectRoot) ?? 'unknown-sid';
+    const sessionId =
+      options.session ??
+      process.env.PEAKS_SESSION_ID ??
+      getCurrentSessionId(projectRoot) ??
+      'unknown-sid';
     try {
       const file = containerLeaseFilePath(joinPathSession(projectRoot, sessionId), options.leaseId);
       if (!existsSync(file)) {
         printResult(
           io,
-          fail('container.release', 'LEASE_NOT_FOUND', `no lease on disk at ${file}`, { leaseId: options.leaseId, file }, [
-            'Run `peaks container list` to inspect active leases.',
-            'For a never-spawned lease, this is a no-op — no further action needed.'
-          ]),
+          fail(
+            'container.release',
+            'LEASE_NOT_FOUND',
+            `no lease on disk at ${file}`,
+            { leaseId: options.leaseId, file },
+            [
+              'Run `peaks container list` to inspect active leases.',
+              'For a never-spawned lease, this is a no-op — no further action needed.'
+            ]
+          ),
           options.json
         );
         process.exitCode = 1;
@@ -272,10 +338,16 @@ export function registerContainerCommand(program: Command, io: ProgramIO): void 
       } catch (err) {
         printResult(
           io,
-          fail('container.release', 'LEASE_FILE_INVALID', getErrorMessage(err), { leaseId: options.leaseId, file }, [
-            'Delete the malformed lease file manually and re-issue spawn.',
-            'For security, release never fails open on a malformed lease.'
-          ]),
+          fail(
+            'container.release',
+            'LEASE_FILE_INVALID',
+            getErrorMessage(err),
+            { leaseId: options.leaseId, file },
+            [
+              'Delete the malformed lease file manually and re-issue spawn.',
+              'For security, release never fails open on a malformed lease.'
+            ]
+          ),
           options.json
         );
         process.exitCode = 1;
@@ -284,7 +356,12 @@ export function registerContainerCommand(program: Command, io: ProgramIO): void 
       if (lease.status === 'released') {
         printResult(
           io,
-          ok('container.release', { lease, sessionId, projectRoot, alreadyReleased: true }, [], [`Lease ${lease.leaseId} already released; nothing to do.`]),
+          ok(
+            'container.release',
+            { lease, sessionId, projectRoot, alreadyReleased: true },
+            [],
+            [`Lease ${lease.leaseId} already released; nothing to do.`]
+          ),
           options.json
         );
         return;
@@ -293,7 +370,12 @@ export function registerContainerCommand(program: Command, io: ProgramIO): void 
       try {
         const releaseRuntime = detectContainerRuntime(undefined);
         const runtimeCmd = releaseRuntime.ok ? releaseRuntime.runtime : 'docker';
-        execSync(`${runtimeCmd} rm --force "${lease.containerId}"`, { cwd: projectRoot, stdio: 'pipe', encoding: 'utf8', windowsHide: true });
+        execSync(`${runtimeCmd} rm --force "${lease.containerId}"`, {
+          cwd: projectRoot,
+          stdio: 'pipe',
+          encoding: 'utf8',
+          windowsHide: true
+        });
       } catch {
         dockerRmFailed = true;
       }
@@ -304,10 +386,16 @@ export function registerContainerCommand(program: Command, io: ProgramIO): void 
         ok(
           'container.release',
           { lease: released, sessionId, projectRoot, dockerRmFailed },
-          dockerRmFailed ? ['docker rm failed (likely the container was already removed); lease marked released.'] : [],
+          dockerRmFailed
+            ? [
+                'docker rm failed (likely the container was already removed); lease marked released.'
+              ]
+            : [],
           [
             `Lease ${lease.leaseId} marked released.`,
-            dockerRmFailed ? 'Manual `docker ps -a` + `docker rm` may be needed.' : `Container ${lease.containerId} removed.`
+            dockerRmFailed
+              ? 'Manual `docker ps -a` + `docker rm` may be needed.'
+              : `Container ${lease.containerId} removed.`
           ]
         ),
         options.json
@@ -315,10 +403,13 @@ export function registerContainerCommand(program: Command, io: ProgramIO): void 
     } catch (err) {
       printResult(
         io,
-        fail('container.release', 'RELEASE_FAILED', getErrorMessage(err), { leaseId: options.leaseId, sessionId }, [
-          'Verify the lease id and re-run.',
-          'If the lease was never spawned, no-op.'
-        ]),
+        fail(
+          'container.release',
+          'RELEASE_FAILED',
+          getErrorMessage(err),
+          { leaseId: options.leaseId, sessionId },
+          ['Verify the lease id and re-run.', 'If the lease was never spawned, no-op.']
+        ),
         options.json
       );
       process.exitCode = 1;

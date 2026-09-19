@@ -35,20 +35,28 @@ import { makeCapturedIo } from '../_setup/io.js';
 import {
   cleanupTmpWorkspace,
   useTmpWorkspace,
-  type TmpWorkspace,
+  type TmpWorkspace
 } from '../_setup/tmp-workspace.js';
 
 declareDimensions(
   'tests/unit/cli/job-codegraph-autorefresh.test.ts',
   ['integration', 'a11y'],
   [
-    { dim: 'behavior', reason: 'the trigger only exists inside the CLI checkpoint action, which needs job-state fs; control flow is asserted via the integration describe' },
-    { dim: 'render', reason: 'envelope shape assertions live under a11y (ok + codegraph note) rather than a separate render block' },
-  ],
+    {
+      dim: 'behavior',
+      reason:
+        'the trigger only exists inside the CLI checkpoint action, which needs job-state fs; control flow is asserted via the integration describe'
+    },
+    {
+      dim: 'render',
+      reason:
+        'envelope shape assertions live under a11y (ok + codegraph note) rather than a separate render block'
+    }
+  ]
 );
 
 const __autorefresh = vi.hoisted(() => ({
-  refreshCodegraphAfterSlice: vi.fn(),
+  refreshCodegraphAfterSlice: vi.fn()
 }));
 
 // A2 (2026-09-17): the action now also imports `codegraphRefreshNotice` from
@@ -56,8 +64,10 @@ const __autorefresh = vi.hoisted(() => ({
 // process-spawning boundary. A hand-written replacement module would make the
 // notice under test a stub, i.e. assert the mock instead of the shipped rule.
 vi.mock('../../../src/services/codegraph/codegraph-autorefresh.js', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../../../src/services/codegraph/codegraph-autorefresh.js')>()),
-  refreshCodegraphAfterSlice: __autorefresh.refreshCodegraphAfterSlice,
+  ...(await importOriginal<
+    typeof import('../../../src/services/codegraph/codegraph-autorefresh.js')
+  >()),
+  refreshCodegraphAfterSlice: __autorefresh.refreshCodegraphAfterSlice
 }));
 
 import { registerJobCommands } from '../../../src/cli/commands/job-commands.js';
@@ -81,7 +91,7 @@ function bindSession(wsPath: string): void {
   writeFileSync(
     join(runtimeDir, 'session.json'),
     JSON.stringify({ sessionId: SESSION_ID, projectRoot: wsPath }, null, 2) + '\n',
-    'utf8',
+    'utf8'
   );
 }
 
@@ -117,9 +127,19 @@ async function runJobHuman(args: string[], wsPath: string): Promise<CapturedIo> 
   return captured;
 }
 
-function parseJson(captured: CapturedIo): { ok: boolean; command: string; warnings: string[]; data: { codegraph?: unknown; sliceId?: string; status?: string } } {
+function parseJson(captured: CapturedIo): {
+  ok: boolean;
+  command: string;
+  warnings: string[];
+  data: { codegraph?: unknown; sliceId?: string; status?: string };
+} {
   const out = captured.stdout.join('\n');
-  const parsed = JSON.parse(out) as { ok: boolean; command: string; warnings: string[]; data: { codegraph?: unknown; sliceId?: string; status?: string } };
+  const parsed = JSON.parse(out) as {
+    ok: boolean;
+    command: string;
+    warnings: string[];
+    data: { codegraph?: unknown; sliceId?: string; status?: string };
+  };
   return parsed;
 }
 
@@ -146,8 +166,18 @@ describe('Scenario: integration — peaks job checkpoint triggers auto codegraph
     __autorefresh.refreshCodegraphAfterSlice.mockResolvedValue({ refreshed: true });
     // when: job checkpoint --state done runs
     const captured = await runJob(
-      ['checkpoint', '--job-id', JOB_ID, '--slice-id', 'slice-001', '--state', 'done', '--commit-sha', COMMIT_SHA],
-      ws.path,
+      [
+        'checkpoint',
+        '--job-id',
+        JOB_ID,
+        '--slice-id',
+        'slice-001',
+        '--state',
+        'done',
+        '--commit-sha',
+        COMMIT_SHA
+      ],
+      ws.path
     );
     // then: refresh is invoked exactly once with the project root and the ok envelope carries codegraph
     expect(__autorefresh.refreshCodegraphAfterSlice).toHaveBeenCalledTimes(1);
@@ -166,8 +196,18 @@ describe('Scenario: integration — peaks job checkpoint triggers auto codegraph
     __autorefresh.refreshCodegraphAfterSlice.mockResolvedValue({ refreshed: true });
     // when: job checkpoint --state failed runs
     const captured = await runJob(
-      ['checkpoint', '--job-id', JOB_ID, '--slice-id', 'slice-001', '--state', 'failed', '--reason', 'blocked by plan'],
-      ws.path,
+      [
+        'checkpoint',
+        '--job-id',
+        JOB_ID,
+        '--slice-id',
+        'slice-001',
+        '--state',
+        'failed',
+        '--reason',
+        'blocked by plan'
+      ],
+      ws.path
     );
     // then: the refresh is never invoked and the envelope carries codegraph: null
     expect(__autorefresh.refreshCodegraphAfterSlice).not.toHaveBeenCalled();
@@ -182,8 +222,18 @@ describe('Scenario: integration — peaks job checkpoint triggers auto codegraph
     __autorefresh.refreshCodegraphAfterSlice.mockResolvedValue({ refreshed: true });
     // when: job checkpoint --state skipped runs
     const captured = await runJob(
-      ['checkpoint', '--job-id', JOB_ID, '--slice-id', 'slice-001', '--state', 'skipped', '--reason', 'out of scope'],
-      ws.path,
+      [
+        'checkpoint',
+        '--job-id',
+        JOB_ID,
+        '--slice-id',
+        'slice-001',
+        '--state',
+        'skipped',
+        '--reason',
+        'out of scope'
+      ],
+      ws.path
     );
     // then: the refresh is never invoked and the envelope still returns ok
     expect(__autorefresh.refreshCodegraphAfterSlice).not.toHaveBeenCalled();
@@ -215,16 +265,41 @@ describe('Scenario: a11y — A2 a non-refresh is visible to the operator', () =>
   it('when a codegraph store is in use and the index fails, should print the reason and the remedy on stderr', async () => {
     // given: a refresh that failed against a store that DOES exist
     await seedJob(ws.path);
-    const note = 'auto codegraph refresh failed (exit 2): schema lock conflict. Run `peaks codegraph index --project <root>` to refresh the codegraph index.';
-    __autorefresh.refreshCodegraphAfterSlice.mockResolvedValue({ refreshed: false, reason: 'index-failed', note });
+    const note =
+      'auto codegraph refresh failed (exit 2): schema lock conflict. Run `peaks codegraph index --project <root>` to refresh the codegraph index.';
+    __autorefresh.refreshCodegraphAfterSlice.mockResolvedValue({
+      refreshed: false,
+      reason: 'index-failed',
+      note
+    });
     // when: the slice-complete checkpoint runs, both ways
     const json = await runJob(
-      ['checkpoint', '--job-id', JOB_ID, '--slice-id', 'slice-001', '--state', 'done', '--commit-sha', COMMIT_SHA],
-      ws.path,
+      [
+        'checkpoint',
+        '--job-id',
+        JOB_ID,
+        '--slice-id',
+        'slice-001',
+        '--state',
+        'done',
+        '--commit-sha',
+        COMMIT_SHA
+      ],
+      ws.path
     );
     const human = await runJobHuman(
-      ['checkpoint', '--job-id', JOB_ID, '--slice-id', 'slice-001', '--state', 'done', '--commit-sha', COMMIT_SHA],
-      ws.path,
+      [
+        'checkpoint',
+        '--job-id',
+        JOB_ID,
+        '--slice-id',
+        'slice-001',
+        '--state',
+        'done',
+        '--commit-sha',
+        COMMIT_SHA
+      ],
+      ws.path
     );
     // then: the checkpoint is still ok (non-blocking is KEPT) …
     expect(parseJson(json).ok).toBe(true);
@@ -250,8 +325,18 @@ describe('Scenario: a11y — A2 a non-refresh is visible to the operator', () =>
     __autorefresh.refreshCodegraphAfterSlice.mockResolvedValue({ refreshed: true });
     // when: the slice-complete checkpoint runs without --json
     const captured = await runJobHuman(
-      ['checkpoint', '--job-id', JOB_ID, '--slice-id', 'slice-001', '--state', 'done', '--commit-sha', COMMIT_SHA],
-      ws.path,
+      [
+        'checkpoint',
+        '--job-id',
+        JOB_ID,
+        '--slice-id',
+        'slice-001',
+        '--state',
+        'done',
+        '--commit-sha',
+        COMMIT_SHA
+      ],
+      ws.path
     );
     // then: nothing is reported — a warning on every healthy boundary would
     //       train the reader to skip the line that matters
@@ -269,12 +354,22 @@ describe('Scenario: a11y — A2 a non-refresh is visible to the operator', () =>
     __autorefresh.refreshCodegraphAfterSlice.mockResolvedValue({
       refreshed: false,
       reason: 'no-codegraph-dir',
-      note: 'auto codegraph refresh skipped: no .codegraph directory. Run `peaks codegraph init` once to enable post-slice auto-refresh.',
+      note: 'auto codegraph refresh skipped: no .codegraph directory. Run `peaks codegraph init` once to enable post-slice auto-refresh.'
     });
     // when: the slice-complete checkpoint runs
     const captured = await runJob(
-      ['checkpoint', '--job-id', JOB_ID, '--slice-id', 'slice-001', '--state', 'done', '--commit-sha', COMMIT_SHA],
-      ws.path,
+      [
+        'checkpoint',
+        '--job-id',
+        JOB_ID,
+        '--slice-id',
+        'slice-001',
+        '--state',
+        'done',
+        '--commit-sha',
+        COMMIT_SHA
+      ],
+      ws.path
     );
     // then: no warning line — a boundary every non-codegraph project crosses
     //       must not warn on every slice
@@ -292,8 +387,18 @@ describe('Scenario: a11y — A2 a non-refresh is visible to the operator', () =>
     __autorefresh.refreshCodegraphAfterSlice.mockRejectedValue(new Error('boom'));
     // when: the slice-complete checkpoint runs without --json
     const captured = await runJobHuman(
-      ['checkpoint', '--job-id', JOB_ID, '--slice-id', 'slice-001', '--state', 'done', '--commit-sha', COMMIT_SHA],
-      ws.path,
+      [
+        'checkpoint',
+        '--job-id',
+        JOB_ID,
+        '--slice-id',
+        'slice-001',
+        '--state',
+        'done',
+        '--commit-sha',
+        COMMIT_SHA
+      ],
+      ws.path
     );
     // then: the caller's synthetic `unavailable` result is visible too, and on
     //       this invocation it reaches the operator as a `warning: ` line
@@ -320,12 +425,22 @@ describe('Scenario: a11y — a failing auto-refresh never fails the checkpoint',
     __autorefresh.refreshCodegraphAfterSlice.mockResolvedValue({
       refreshed: false,
       reason: 'index-failed',
-      note: 'auto codegraph refresh failed (exit 2): schema lock conflict',
+      note: 'auto codegraph refresh failed (exit 2): schema lock conflict'
     });
     // when: job checkpoint --state done runs despite the refresh failure
     const captured = await runJob(
-      ['checkpoint', '--job-id', JOB_ID, '--slice-id', 'slice-001', '--state', 'done', '--commit-sha', COMMIT_SHA],
-      ws.path,
+      [
+        'checkpoint',
+        '--job-id',
+        JOB_ID,
+        '--slice-id',
+        'slice-001',
+        '--state',
+        'done',
+        '--commit-sha',
+        COMMIT_SHA
+      ],
+      ws.path
     );
     // then: the checkpoint is still ok and the note is surfaced, not an error
     const envelope = parseJson(captured);
@@ -334,7 +449,7 @@ describe('Scenario: a11y — a failing auto-refresh never fails the checkpoint',
     expect(envelope.data.codegraph).toEqual({
       refreshed: false,
       reason: 'index-failed',
-      note: 'auto codegraph refresh failed (exit 2): schema lock conflict',
+      note: 'auto codegraph refresh failed (exit 2): schema lock conflict'
     });
   });
 
@@ -344,14 +459,28 @@ describe('Scenario: a11y — a failing auto-refresh never fails the checkpoint',
     __autorefresh.refreshCodegraphAfterSlice.mockRejectedValue(new Error('boom'));
     // when: job checkpoint --state done runs and the refresh blows up
     const captured = await runJob(
-      ['checkpoint', '--job-id', JOB_ID, '--slice-id', 'slice-001', '--state', 'done', '--commit-sha', COMMIT_SHA],
-      ws.path,
+      [
+        'checkpoint',
+        '--job-id',
+        JOB_ID,
+        '--slice-id',
+        'slice-001',
+        '--state',
+        'done',
+        '--commit-sha',
+        COMMIT_SHA
+      ],
+      ws.path
     );
     // then: the checkpoint is still ok and codegraph records the non-blocking failure
     const envelope = parseJson(captured);
     expect(envelope.ok).toBe(true);
     expect(envelope.data.status).toBe('done');
-    const codegraph = envelope.data.codegraph as { refreshed: boolean; reason?: string; note?: string };
+    const codegraph = envelope.data.codegraph as {
+      refreshed: boolean;
+      reason?: string;
+      note?: string;
+    };
     expect(codegraph.refreshed).toBe(false);
     expect(codegraph.reason).toBe('unavailable');
     expect(codegraph.note).toContain('boom');

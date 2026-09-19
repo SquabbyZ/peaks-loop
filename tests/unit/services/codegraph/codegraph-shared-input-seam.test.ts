@@ -63,8 +63,8 @@ declareDimensions(
     {
       dim: 'render',
       reason:
-        'the seam renders nothing of its own — it either passes a value through unchanged or throws; the human and JSON rendering it feeds is owned by codegraph-exclude-integrity.test.ts and codegraph-index-integrity.test.ts',
-    },
+        'the seam renders nothing of its own — it either passes a value through unchanged or throws; the human and JSON rendering it feeds is owned by codegraph-exclude-integrity.test.ts and codegraph-index-integrity.test.ts'
+    }
   ]
 );
 
@@ -109,9 +109,16 @@ function makeGitRoot(prefix: string): string {
   return root;
 }
 
-function writeConfig(root: string, config: { include: readonly string[]; exclude: readonly string[] }): void {
+function writeConfig(
+  root: string,
+  config: { include: readonly string[]; exclude: readonly string[] }
+): void {
   mkdirSync(join(root, '.codegraph'), { recursive: true });
-  writeFileSync(join(root, '.codegraph', 'config.json'), `${JSON.stringify(config, null, 2)}\n`, 'utf8');
+  writeFileSync(
+    join(root, '.codegraph', 'config.json'),
+    `${JSON.stringify(config, null, 2)}\n`,
+    'utf8'
+  );
 }
 
 /**
@@ -161,12 +168,12 @@ describe('behavior — what an empty tracked list actually means', () => {
     const gapped = reconcileCodegraphExclude({
       trackedFiles: ['src/ok.ts'],
       include: [...CONFIG.include],
-      exclude: [...CONFIG.exclude],
+      exclude: [...CONFIG.exclude]
     });
     const withEmpty = reconcileCodegraphExclude({
       trackedFiles: [],
       include: [...CONFIG.include],
-      exclude: [...CONFIG.exclude],
+      exclude: [...CONFIG.exclude]
     });
 
     expect(gapped.excludedTrackedCount).toBe(1);
@@ -198,20 +205,21 @@ describe('behavior — every verified probe shape still matches the no-seam call
       { name: '{} (empty object)', probe: () => inspectCodegraphExcludeIntegrity(root, {}) },
       {
         name: '{trackedFiles: undefined, config: undefined}',
-        probe: () => inspectCodegraphExcludeIntegrity(root, { trackedFiles: undefined, config: undefined }),
+        probe: () =>
+          inspectCodegraphExcludeIntegrity(root, { trackedFiles: undefined, config: undefined })
       },
       {
         name: 'config-only (tracked omitted -> real read)',
-        probe: () => inspectCodegraphExcludeIntegrity(root, { config: realConfig }),
+        probe: () => inspectCodegraphExcludeIntegrity(root, { config: realConfig })
       },
       {
         name: 'tracked-only (config omitted -> real read)',
-        probe: () => inspectCodegraphExcludeIntegrity(root, { trackedFiles: realTracked }),
+        probe: () => inspectCodegraphExcludeIntegrity(root, { trackedFiles: realTracked })
       },
       {
         name: 'the full shared read',
-        probe: () => inspectCodegraphExcludeIntegrity(root, readCodegraphProjectInputs(root)),
-      },
+        probe: () => inspectCodegraphExcludeIntegrity(root, readCodegraphProjectInputs(root))
+      }
     ];
 
     for (const shape of shapes) {
@@ -233,24 +241,33 @@ describe('behavior — every verified probe shape still matches the no-seam call
     const realConfig = readCodegraphExcludeConfig(root);
 
     const shapes: readonly { readonly name: string; readonly probe: () => unknown }[] = [
-      { name: '{} (empty object)', probe: () => inspectCodegraphIndexIntegrity(root, { ...adapters }) },
+      {
+        name: '{} (empty object)',
+        probe: () => inspectCodegraphIndexIntegrity(root, { ...adapters })
+      },
       {
         name: '{trackedFiles: undefined, config: undefined}',
         probe: () =>
-          inspectCodegraphIndexIntegrity(root, { ...adapters, trackedFiles: undefined, config: undefined }),
+          inspectCodegraphIndexIntegrity(root, {
+            ...adapters,
+            trackedFiles: undefined,
+            config: undefined
+          })
       },
       {
         name: 'config-only (tracked omitted -> real read)',
-        probe: () => inspectCodegraphIndexIntegrity(root, { ...adapters, config: realConfig }),
+        probe: () => inspectCodegraphIndexIntegrity(root, { ...adapters, config: realConfig })
       },
       {
         name: 'tracked-only (config omitted -> real read)',
-        probe: () => inspectCodegraphIndexIntegrity(root, { ...adapters, trackedFiles: realTracked }),
+        probe: () =>
+          inspectCodegraphIndexIntegrity(root, { ...adapters, trackedFiles: realTracked })
       },
       {
         name: 'the full shared read',
-        probe: () => inspectCodegraphIndexIntegrity(root, { ...adapters, ...readCodegraphProjectInputs(root) }),
-      },
+        probe: () =>
+          inspectCodegraphIndexIntegrity(root, { ...adapters, ...readCodegraphProjectInputs(root) })
+      }
     ];
 
     for (const shape of shapes) {
@@ -283,7 +300,10 @@ describe('integration — a legitimately empty read is not the thing being refus
     const adapters = { readIndexedPaths: () => [] };
 
     const noSeam = inspectCodegraphIndexIntegrity(root, adapters);
-    const withSeam = inspectCodegraphIndexIntegrity(root, { ...adapters, ...readCodegraphProjectInputs(root) });
+    const withSeam = inspectCodegraphIndexIntegrity(root, {
+      ...adapters,
+      ...readCodegraphProjectInputs(root)
+    });
 
     expect(noSeam.gap).toBe(false);
     expect(JSON.stringify(withSeam)).toBe(JSON.stringify(noSeam));
@@ -296,9 +316,9 @@ describe('behavior — an explicit empty value is refused on both axes', () => {
   it('should refuse a hand-built empty tracked list on the exclude axis', () => {
     const root = makeGappedRoot();
 
-    expect(() => inspectCodegraphExcludeIntegrity(root, { trackedFiles: forgedTrackedFiles })).toThrow(
-      /"trackedFiles" did not come from readTrackedFiles/
-    );
+    expect(() =>
+      inspectCodegraphExcludeIntegrity(root, { trackedFiles: forgedTrackedFiles })
+    ).toThrow(/"trackedFiles" did not come from readTrackedFiles/);
   });
 
   it('should refuse a hand-built empty config on the exclude axis', () => {
@@ -315,7 +335,7 @@ describe('behavior — an explicit empty value is refused on both axes', () => {
     expect(() =>
       inspectCodegraphIndexIntegrity(root, {
         readIndexedPaths: () => [...INDEXED_PATHS],
-        trackedFiles: forgedTrackedFiles,
+        trackedFiles: forgedTrackedFiles
       })
     ).toThrow(/"trackedFiles" did not come from readTrackedFiles/);
   });
@@ -326,7 +346,7 @@ describe('behavior — an explicit empty value is refused on both axes', () => {
     expect(() =>
       inspectCodegraphIndexIntegrity(root, {
         readIndexedPaths: () => [...INDEXED_PATHS],
-        config: forgedConfig,
+        config: forgedConfig
       })
     ).toThrow(/"config" did not come from readCodegraphExcludeConfig/);
   });
@@ -364,11 +384,11 @@ describe('behavior — the type system refuses a fabricated value as well', () =
     expect(typeLevelRejectedConfig).toEqual({ include: [], exclude: [] });
 
     const root = makeGappedRoot();
-    expect(() => inspectCodegraphExcludeIntegrity(root, { trackedFiles: typeLevelRejectedTracked })).toThrow(
-      /did not come from readTrackedFiles/
-    );
-    expect(() => inspectCodegraphExcludeIntegrity(root, { config: typeLevelRejectedConfig })).toThrow(
-      /did not come from readCodegraphExcludeConfig/
-    );
+    expect(() =>
+      inspectCodegraphExcludeIntegrity(root, { trackedFiles: typeLevelRejectedTracked })
+    ).toThrow(/did not come from readTrackedFiles/);
+    expect(() =>
+      inspectCodegraphExcludeIntegrity(root, { config: typeLevelRejectedConfig })
+    ).toThrow(/did not come from readCodegraphExcludeConfig/);
   });
 });

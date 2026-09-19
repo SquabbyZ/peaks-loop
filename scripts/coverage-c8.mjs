@@ -161,7 +161,7 @@ const c8Args = [
   '--exclude=src/services/session/index.ts',
   '--src=' + projectRoot,
   vitestBin,
-  ...vitestArgs,
+  ...vitestArgs
 ];
 
 log(`Running: c8 --check-coverage --100 ${vitestArgs.join(' ')}`);
@@ -171,7 +171,7 @@ log(`Reports     → ${coverageOutDir}`);
 const c8Res = spawnSync(process.execPath, [c8Bin, ...c8Args], {
   cwd: projectRoot,
   stdio: 'inherit',
-  windowsHide: true,
+  windowsHide: true
 });
 
 // Sanity: did V8 emit any counters? Even if c8 exited 0 (meaning the

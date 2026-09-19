@@ -92,7 +92,10 @@ export interface SliceDag {
 /** Thrown by `validateDag` when the graph violates one of the constraints. */
 export class InvalidSliceDagError extends Error {
   readonly code = 'INVALID_SLICE_DAG' as const;
-  constructor(message: string, public readonly path?: readonly string[]) {
+  constructor(
+    message: string,
+    public readonly path?: readonly string[]
+  ) {
     super(message);
     this.name = 'InvalidSliceDagError';
   }
@@ -164,17 +167,21 @@ export function validateDag(dag: SliceDag): void {
     }
     // Slice 2026-09-10 §3: optional file list. Only shape-checked when
     // present so pre-existing DAGs stay valid.
-    if (n.files !== undefined && (!Array.isArray(n.files) || n.files.some((f: unknown) => typeof f !== 'string' || f.length === 0))) {
-      throw new InvalidSliceDagError(`node ${n.id} files must be an array of non-empty strings when present`);
+    if (
+      n.files !== undefined &&
+      (!Array.isArray(n.files) ||
+        n.files.some((f: unknown) => typeof f !== 'string' || f.length === 0))
+    ) {
+      throw new InvalidSliceDagError(
+        `node ${n.id} files must be an array of non-empty strings when present`
+      );
     }
   }
 
   // v2.15.0 follow-up — G12 defensive rule: foundation slice can only
   // depend on another foundation slice. Business depending on foundation
   // is the main use case; foundation depending on business is a smell.
-  const foundationSet = new Set(
-    dag.nodes.filter((n) => n.foundation === true).map((n) => n.id)
-  );
+  const foundationSet = new Set(dag.nodes.filter((n) => n.foundation === true).map((n) => n.id));
   for (const e of dag.edges) {
     if (foundationSet.has(e.to) && !foundationSet.has(e.from)) {
       throw new InvalidSliceDagError(
@@ -196,9 +203,7 @@ export function topologicalLevels(dag: SliceDag): readonly (readonly string[])[]
   const indeg = new Map<string, number>();
   const adj = new Map<string, string[]>();
   // v2.15.0 follow-up — G12: priority sets for foundation / upstreamSync.
-  const foundationSet = new Set(
-    dag.nodes.filter((n) => n.foundation === true).map((n) => n.id)
-  );
+  const foundationSet = new Set(dag.nodes.filter((n) => n.foundation === true).map((n) => n.id));
   const upstreamSyncSet = new Set(
     dag.nodes.filter((n) => n.upstreamSync === true).map((n) => n.id)
   );

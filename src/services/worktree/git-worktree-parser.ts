@@ -23,7 +23,7 @@ export function parseGitWorktreePorcelain(raw: string): ReadonlyArray<GitWorktre
         path: current.path,
         head: current.head,
         branch: current.branch,
-        prunable: current.prunable,
+        prunable: current.prunable
       });
     }
     current = null;
@@ -41,9 +41,19 @@ export function parseGitWorktreePorcelain(raw: string): ReadonlyArray<GitWorktre
       const next: MutableRecord = { path: value, head: null, branch: null, prunable: false };
       current = next;
     } else if (current !== null && key === 'HEAD') {
-      current = { path: current.path, head: value, branch: current.branch, prunable: current.prunable };
+      current = {
+        path: current.path,
+        head: value,
+        branch: current.branch,
+        prunable: current.prunable
+      };
     } else if (current !== null && key === 'branch') {
-      current = { path: current.path, head: current.head, branch: value.replace(/^refs\/heads\//, ''), prunable: current.prunable };
+      current = {
+        path: current.path,
+        head: current.head,
+        branch: value.replace(/^refs\/heads\//, ''),
+        prunable: current.prunable
+      };
     } else if (current !== null && key === 'prunable') {
       current = { path: current.path, head: current.head, branch: current.branch, prunable: true };
     }

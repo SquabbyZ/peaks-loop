@@ -64,12 +64,8 @@ function buildReportForChecks(checks: DoctorCheck[]): DoctorReport {
  * direct (no commander / no action handler) so the test runs without
  * spinning up the full CLI surface.
  */
-function applyExitCodeGate(
-  report: DoctorReport,
-  staleInstanceCount: number
-): number {
-  const exitCode =
-    !report.summary.ok || staleInstanceCount > 0 ? 1 : 0;
+function applyExitCodeGate(report: DoctorReport, staleInstanceCount: number): number {
+  const exitCode = !report.summary.ok || staleInstanceCount > 0 ? 1 : 0;
   return exitCode;
 }
 
@@ -95,8 +91,16 @@ describe('doctor exit-code gate — severity-aware (slice repair cycle)', () => 
       // check does on a drifted PATH.
       multiBinaryDriftProbe: () => ({
         binaries: [
-          { path: '/usr/local/bin/peaks', version: '3.1.2', installDate: '2026-08-04T00:00:00.000Z' },
-          { path: '/opt/other/bin/peaks', version: '4.0.12', installDate: '2026-08-04T00:00:00.000Z' }
+          {
+            path: '/usr/local/bin/peaks',
+            version: '3.1.2',
+            installDate: '2026-08-04T00:00:00.000Z'
+          },
+          {
+            path: '/opt/other/bin/peaks',
+            version: '4.0.12',
+            installDate: '2026-08-04T00:00:00.000Z'
+          }
         ],
         driftDetected: true,
         uniqueVersions: ['3.1.2', '4.0.12']

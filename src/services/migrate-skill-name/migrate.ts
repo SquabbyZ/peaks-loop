@@ -42,8 +42,7 @@ const TARGET_ROOT = '.peaks/_runtime';
 
 const KEY_VALUE_PATTERN = (from: string, to: string): RegExp =>
   new RegExp(`"skill"\\s*:\\s*"${escapeRe(from)}"`, 'g');
-const STRING_PATTERN = (from: string, to: string): RegExp =>
-  new RegExp(`/${escapeRe(from)}`, 'g');
+const STRING_PATTERN = (from: string, to: string): RegExp => new RegExp(`/${escapeRe(from)}`, 'g');
 
 /**
  * Escape regex metachars so an aggressive `--from` value (e.g.
@@ -94,7 +93,7 @@ export function migrateSkillName(opts: MigrateOpts): MigrateResult {
     keyValueReplacements: 0,
     stringReplacements: 0,
     skipped: [...SKIP_DIRS],
-    errors: [],
+    errors: []
   };
 
   for (const file of files) {

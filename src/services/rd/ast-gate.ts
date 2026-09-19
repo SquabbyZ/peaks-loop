@@ -15,8 +15,14 @@ import { join } from 'node:path';
 import type { AstGateResult, AstViolation, ExternalApiCall } from './types.js';
 
 export interface AstGateContext {
-  readonly deps: Readonly<Record<string, { readonly version: string; readonly source: string; readonly resolved: string }>>;
-  readonly docSummaries: ReadonlyArray<{ readonly dep: string; readonly version: string; readonly apis: ReadonlyArray<string> }>;
+  readonly deps: Readonly<
+    Record<string, { readonly version: string; readonly source: string; readonly resolved: string }>
+  >;
+  readonly docSummaries: ReadonlyArray<{
+    readonly dep: string;
+    readonly version: string;
+    readonly apis: ReadonlyArray<string>;
+  }>;
 }
 
 export interface RunAstGateInput {
@@ -64,7 +70,7 @@ export async function runAstGate(input: RunAstGateInput): Promise<AstGateResult>
 
       const depVersion = input.context.deps[dep]?.version ?? '';
       const docSummary = input.context.docSummaries.find(
-        (d) => d.dep === dep && d.version === depVersion,
+        (d) => d.dep === dep && d.version === depVersion
       );
       const apis = docSummary?.apis ?? [];
 
@@ -77,7 +83,7 @@ export async function runAstGate(input: RunAstGateInput): Promise<AstGateResult>
           api: name,
           expectedVersion: depVersion,
           actualVersion: 'unknown', // could resolve via npm view if needed
-          severity: 'error',
+          severity: 'error'
         });
       }
     }
@@ -85,6 +91,6 @@ export async function runAstGate(input: RunAstGateInput): Promise<AstGateResult>
 
   return {
     passed: violations.length === 0,
-    violations,
+    violations
   };
 }

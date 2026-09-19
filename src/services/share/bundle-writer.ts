@@ -39,16 +39,10 @@
  * extra plumbing.
  */
 
-import {
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  writeFileSync,
-  rmSync,
-} from "node:fs";
-import { join } from "node:path";
-import type Database from "better-sqlite3";
-import { runTar } from "../skillhub/tar-runtime.js";
+import { existsSync, mkdirSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
+import { join } from 'node:path';
+import type Database from 'better-sqlite3';
+import { runTar } from '../skillhub/tar-runtime.js';
 import {
   PEAKS_BUNDLE_DEFAULT_MINOR_VERSION,
   PEAKS_BUNDLE_FORMAT_CONSTANT,
@@ -56,8 +50,8 @@ import {
   PEAKS_BUNDLE_SCHEMA_VERSIONS,
   SHARE_BUNDLE_ERROR_CODES,
   type BundleManifest,
-  type PeaksBundleKind,
-} from "./bundle-types.js";
+  type PeaksBundleKind
+} from './bundle-types.js';
 
 /* ---------------------------------------------------------------------- */
 /* Inputs                                                                   */
@@ -93,7 +87,7 @@ export class BundleNotShareableError extends Error {
   readonly code: typeof SHARE_BUNDLE_ERROR_CODES.NOT_SHAREABLE;
   constructor(message: string) {
     super(message);
-    this.name = "BundleNotShareableError";
+    this.name = 'BundleNotShareableError';
     this.code = SHARE_BUNDLE_ERROR_CODES.NOT_SHAREABLE;
   }
 }
@@ -105,13 +99,13 @@ export class BundleNotShareableError extends Error {
  * both fall under `BUNDLE_ASSET_NOT_FOUND` for the CLI envelope.
  */
 export class BundleAssetNotFoundError extends Error {
-  readonly code: "BUNDLE_ASSET_NOT_FOUND";
+  readonly code: 'BUNDLE_ASSET_NOT_FOUND';
   readonly assetKind: PeaksBundleKind;
   readonly assetId: string | number;
   constructor(assetKind: PeaksBundleKind, assetId: string | number) {
     super(`${assetKind} asset not found for id='${String(assetId)}'`);
-    this.name = "BundleAssetNotFoundError";
-    this.code = "BUNDLE_ASSET_NOT_FOUND";
+    this.name = 'BundleAssetNotFoundError';
+    this.code = 'BUNDLE_ASSET_NOT_FOUND';
     this.assetKind = assetKind;
     this.assetId = assetId;
   }
@@ -134,9 +128,8 @@ function readLoopReleaseRow(
   db: Database.Database,
   id: string
 ): Record<string, unknown> | undefined {
-  const row = db.prepare("SELECT * FROM loop_release WHERE id = ?").get(id) as
-    | Record<string, unknown>
-    | undefined;
+  const row = db.prepare('SELECT * FROM loop_release WHERE id = ?').get(id) as
+    Record<string, unknown> | undefined;
   if (!row) return undefined;
   // Re-shape SQLite 0/1 INTEGER convention to JS boolean; keep
   // JSON-shaped columns as their parsed-text representation so the
@@ -146,26 +139,22 @@ function readLoopReleaseRow(
     name: row.name,
     scenario: row.scenario,
     trigger_policy: row.trigger_policy,
-    success_criteria: JSON.parse(String(row.success_criteria_json ?? "[]")),
+    success_criteria: JSON.parse(String(row.success_criteria_json ?? '[]')),
     interaction_policy: row.interaction_policy,
     feedback_policy: row.feedback_policy,
     evolution_policy: row.evolution_policy,
-    evaluator_policy: JSON.parse(String(row.evaluator_policy_json ?? "[]")),
-    linked_bees: JSON.parse(String(row.linked_bees_json ?? "[]")),
-    run_history: JSON.parse(String(row.run_history_json ?? "[]")),
-    crystallization_evidence: JSON.parse(
-      String(row.crystallization_evidence_json ?? "[]")
-    ),
+    evaluator_policy: JSON.parse(String(row.evaluator_policy_json ?? '[]')),
+    linked_bees: JSON.parse(String(row.linked_bees_json ?? '[]')),
+    run_history: JSON.parse(String(row.run_history_json ?? '[]')),
+    crystallization_evidence: JSON.parse(String(row.crystallization_evidence_json ?? '[]')),
     lifecycle_status: row.lifecycle_status,
     version: row.version,
     schema_version: row.schema_version,
     archived_at: row.archived_at,
     shareable: row.shareable === 1,
-    share_excluded_paths: JSON.parse(
-      String(row.share_excluded_paths ?? "[]")
-    ),
+    share_excluded_paths: JSON.parse(String(row.share_excluded_paths ?? '[]')),
     desktop_visible: row.desktop_visible === 1,
-    export_bundle_format: row.export_bundle_format,
+    export_bundle_format: row.export_bundle_format
   };
 }
 
@@ -180,28 +169,26 @@ function readBeeReleaseBundle(
   db: Database.Database,
   id: number
 ): Record<string, unknown> | undefined {
-  const release = db
-    .prepare("SELECT * FROM bee_release WHERE id = ?")
-    .get(id) as Record<string, unknown> | undefined;
+  const release = db.prepare('SELECT * FROM bee_release WHERE id = ?').get(id) as
+    Record<string, unknown> | undefined;
   if (!release) return undefined;
-  const manifest = db
-    .prepare("SELECT * FROM bee_manifest WHERE release_id = ?")
-    .get(id) as Record<string, unknown> | undefined;
+  const manifest = db.prepare('SELECT * FROM bee_manifest WHERE release_id = ?').get(id) as
+    Record<string, unknown> | undefined;
   const segments = db
-    .prepare("SELECT * FROM bee_segment_ref WHERE release_id = ?")
+    .prepare('SELECT * FROM bee_segment_ref WHERE release_id = ?')
     .all(id) as Array<Record<string, unknown>>;
-  const files = db
-    .prepare("SELECT * FROM bee_file WHERE release_id = ?")
-    .all(id) as Array<Record<string, unknown>>;
-  const changes = db
-    .prepare("SELECT * FROM bee_change WHERE release_id = ?")
-    .all(id) as Array<Record<string, unknown>>;
+  const files = db.prepare('SELECT * FROM bee_file WHERE release_id = ?').all(id) as Array<
+    Record<string, unknown>
+  >;
+  const changes = db.prepare('SELECT * FROM bee_change WHERE release_id = ?').all(id) as Array<
+    Record<string, unknown>
+  >;
   return {
     bee_release: release,
     manifest,
     segments,
     files,
-    changes,
+    changes
   };
 }
 
@@ -213,9 +200,7 @@ function readLoopBeeRelationsForLoop(
   loopId: string
 ): Array<Record<string, unknown>> {
   return db
-    .prepare(
-      "SELECT * FROM loop_bee_relation WHERE loop_release_id = ? ORDER BY id ASC"
-    )
+    .prepare('SELECT * FROM loop_bee_relation WHERE loop_release_id = ? ORDER BY id ASC')
     .all(loopId) as Array<Record<string, unknown>>;
 }
 
@@ -227,9 +212,7 @@ function readLoopBeeRelationsForBee(
   beeReleaseId: number
 ): Array<Record<string, unknown>> {
   return db
-    .prepare(
-      "SELECT * FROM loop_bee_relation WHERE bee_release_id = ? ORDER BY id ASC"
-    )
+    .prepare('SELECT * FROM loop_bee_relation WHERE bee_release_id = ? ORDER BY id ASC')
     .all(beeReleaseId) as Array<Record<string, unknown>>;
 }
 
@@ -246,30 +229,28 @@ function readEvidenceBriefsForAsset(
   const wheres: string[] = [];
   const params: unknown[] = [];
   if (refs.loopId !== undefined) {
-    wheres.push("created_loop_release_id = ?");
+    wheres.push('created_loop_release_id = ?');
     params.push(refs.loopId);
-    wheres.push("updated_loop_release_id = ?");
+    wheres.push('updated_loop_release_id = ?');
     params.push(refs.loopId);
   }
   if (refs.beeReleaseId !== undefined) {
-    wheres.push("created_bee_release_id = ?");
+    wheres.push('created_bee_release_id = ?');
     params.push(refs.beeReleaseId);
-    wheres.push("updated_bee_release_id = ?");
+    wheres.push('updated_bee_release_id = ?');
     params.push(refs.beeReleaseId);
   }
   if (wheres.length === 0) return [];
-  const whereSql = wheres.join(" OR ");
+  const whereSql = wheres.join(' OR ');
   const rows = db
     .prepare(`SELECT * FROM crystallization_event WHERE ${whereSql} ORDER BY created_at DESC`)
     .all(...params) as Array<Record<string, unknown>>;
   return rows.map((row) => ({
     id: row.id,
     trigger: row.trigger,
-    evidence_brief: JSON.parse(String(row.evidence_brief_json ?? "{}")),
-    evidence_bullets: JSON.parse(String(row.evidence_bullets_json ?? "[]")),
-    source_trace_pointers: JSON.parse(
-      String(row.source_trace_pointers_json ?? "[]")
-    ),
+    evidence_brief: JSON.parse(String(row.evidence_brief_json ?? '{}')),
+    evidence_bullets: JSON.parse(String(row.evidence_bullets_json ?? '[]')),
+    source_trace_pointers: JSON.parse(String(row.source_trace_pointers_json ?? '[]')),
     evaluator_summary: row.evaluator_summary,
     user_decision_summary: row.user_decision_summary,
     created_loop_release_id: row.created_loop_release_id ?? undefined,
@@ -278,7 +259,7 @@ function readEvidenceBriefsForAsset(
     updated_bee_release_id: row.updated_bee_release_id ?? undefined,
     lifecycle_status: row.lifecycle_status,
     schema_version: row.schema_version,
-    created_at: row.created_at,
+    created_at: row.created_at
   }));
 }
 
@@ -308,19 +289,19 @@ export function writeBundle(args: WriteBundleArgs): {
 } {
   const { db, blobsDir, outPath } = args;
 
-  if (args.kind === "loop") {
+  if (args.kind === 'loop') {
     return writeLoopBundle({
       db,
       blobsDir,
       loopId: String(args.id),
-      outPath,
+      outPath
     });
   }
   return writeBeeBundle({
     db,
     blobsDir,
-    beeReleaseId: typeof args.id === "number" ? args.id : Number(args.id),
-    outPath,
+    beeReleaseId: typeof args.id === 'number' ? args.id : Number(args.id),
+    outPath
   });
 }
 
@@ -333,13 +314,10 @@ function writeLoopBundle(args: {
   blobsDir: string;
   loopId: string;
   outPath: string;
-}): { outPath: string; kind: "loop"; assetId: string } {
-  const loopRow = args.db
-    .prepare("SELECT * FROM loop_release WHERE id = ?")
-    .get(args.loopId) as
-    | { shareable: 0 | 1 }
-    | undefined;
-  if (!loopRow) throw new BundleAssetNotFoundError("loop", args.loopId);
+}): { outPath: string; kind: 'loop'; assetId: string } {
+  const loopRow = args.db.prepare('SELECT * FROM loop_release WHERE id = ?').get(args.loopId) as
+    { shareable: 0 | 1 } | undefined;
+  if (!loopRow) throw new BundleAssetNotFoundError('loop', args.loopId);
   // spec §7A.2 hard block: shareable=false blocks the export at the
   // CLI layer. We re-enforce at the writer for defense in depth.
   if (loopRow.shareable === 0) {
@@ -349,7 +327,7 @@ function writeLoopBundle(args: {
   }
 
   const loop = readLoopReleaseRow(args.db, args.loopId);
-  if (!loop) throw new BundleAssetNotFoundError("loop", args.loopId);
+  if (!loop) throw new BundleAssetNotFoundError('loop', args.loopId);
 
   const relations = readLoopBeeRelationsForLoop(args.db, args.loopId);
 
@@ -375,15 +353,15 @@ function writeLoopBundle(args: {
         }
       );
       // Pull every content-addressed sha256 across all bee_files rows.
-      for (const f of (bee.files as Array<{ sha256?: string }>)) {
-        const sha = String(f.sha256 ?? "");
+      for (const f of bee.files as Array<{ sha256?: string }>) {
+        const sha = String(f.sha256 ?? '');
         if (sha) blobHashes.add(sha);
       }
     }
   }
 
   const evidenceBriefs = readEvidenceBriefsForAsset(args.db, {
-    loopId: args.loopId,
+    loopId: args.loopId
   });
 
   const manifest: BundleManifest = {
@@ -394,29 +372,29 @@ function writeLoopBundle(args: {
       loop: PEAKS_BUNDLE_SCHEMA_VERSIONS.loop,
       bee: PEAKS_BUNDLE_SCHEMA_VERSIONS.bee,
       loop_bee_relation: PEAKS_BUNDLE_SCHEMA_VERSIONS.loop_bee_relation,
-      crystallization: PEAKS_BUNDLE_SCHEMA_VERSIONS.crystallization,
+      crystallization: PEAKS_BUNDLE_SCHEMA_VERSIONS.crystallization
     },
-    kind: "loop",
+    kind: 'loop',
     loop_release: loop,
     bee_release: undefined,
     related_bee_releases: relatedBees,
     loop_bee_relations: relations,
     evidence_briefs: evidenceBriefs,
     exclusion_manifest: {
-      private_run_state: "excluded",
-      personal_memory: "excluded",
-      state_db_rows: "excluded",
-    },
+      private_run_state: 'excluded',
+      personal_memory: 'excluded',
+      state_db_rows: 'excluded'
+    }
   };
 
   runStageTarball({
     outPath: args.outPath,
     blobsDir: args.blobsDir,
     blobHashes,
-    manifest,
+    manifest
   });
 
-  return { outPath: args.outPath, kind: "loop", assetId: args.loopId };
+  return { outPath: args.outPath, kind: 'loop', assetId: args.loopId };
 }
 
 /* ---------------------------------------------------------------------- */
@@ -428,14 +406,11 @@ function writeBeeBundle(args: {
   blobsDir: string;
   beeReleaseId: number;
   outPath: string;
-}): { outPath: string; kind: "bee"; assetId: number } {
+}): { outPath: string; kind: 'bee'; assetId: number } {
   const releaseRow = args.db
-    .prepare("SELECT * FROM bee_release WHERE id = ?")
-    .get(args.beeReleaseId) as
-    | { shareable: 0 | 1 }
-    | undefined;
-  if (!releaseRow)
-    throw new BundleAssetNotFoundError("bee", args.beeReleaseId);
+    .prepare('SELECT * FROM bee_release WHERE id = ?')
+    .get(args.beeReleaseId) as { shareable: 0 | 1 } | undefined;
+  if (!releaseRow) throw new BundleAssetNotFoundError('bee', args.beeReleaseId);
   // spec §7A.2 hard block: same as loop kind.
   if (releaseRow.shareable === 0) {
     throw new BundleNotShareableError(
@@ -444,17 +419,17 @@ function writeBeeBundle(args: {
   }
 
   const bee = readBeeReleaseBundle(args.db, args.beeReleaseId);
-  if (!bee) throw new BundleAssetNotFoundError("bee", args.beeReleaseId);
+  if (!bee) throw new BundleAssetNotFoundError('bee', args.beeReleaseId);
 
   const relations = readLoopBeeRelationsForBee(args.db, args.beeReleaseId);
 
   const evidenceBriefs = readEvidenceBriefsForAsset(args.db, {
-    beeReleaseId: args.beeReleaseId,
+    beeReleaseId: args.beeReleaseId
   });
 
   const blobHashes = new Set<string>();
   for (const f of (bee as { files: Array<Record<string, unknown>> }).files) {
-    const sha = String((f as { sha256?: string }).sha256 ?? "");
+    const sha = String((f as { sha256?: string }).sha256 ?? '');
     if (sha) blobHashes.add(sha);
   }
 
@@ -466,29 +441,29 @@ function writeBeeBundle(args: {
       loop: PEAKS_BUNDLE_SCHEMA_VERSIONS.loop,
       bee: PEAKS_BUNDLE_SCHEMA_VERSIONS.bee,
       loop_bee_relation: PEAKS_BUNDLE_SCHEMA_VERSIONS.loop_bee_relation,
-      crystallization: PEAKS_BUNDLE_SCHEMA_VERSIONS.crystallization,
+      crystallization: PEAKS_BUNDLE_SCHEMA_VERSIONS.crystallization
     },
-    kind: "bee",
+    kind: 'bee',
     loop_release: undefined,
     bee_release: bee,
     related_bee_releases: [],
     loop_bee_relations: relations,
     evidence_briefs: evidenceBriefs,
     exclusion_manifest: {
-      private_run_state: "excluded",
-      personal_memory: "excluded",
-      state_db_rows: "excluded",
-    },
+      private_run_state: 'excluded',
+      personal_memory: 'excluded',
+      state_db_rows: 'excluded'
+    }
   };
 
   runStageTarball({
     outPath: args.outPath,
     blobsDir: args.blobsDir,
     blobHashes,
-    manifest,
+    manifest
   });
 
-  return { outPath: args.outPath, kind: "bee", assetId: args.beeReleaseId };
+  return { outPath: args.outPath, kind: 'bee', assetId: args.beeReleaseId };
 }
 
 /* ---------------------------------------------------------------------- */
@@ -502,31 +477,28 @@ function runStageTarball(args: {
   manifest: BundleManifest;
 }): void {
   const { outPath, blobsDir, blobHashes, manifest } = args;
-  const stageDir = outPath + ".stage";
+  const stageDir = outPath + '.stage';
   if (existsSync(stageDir)) rmSync(stageDir, { recursive: true, force: true });
   mkdirSync(stageDir, { recursive: true });
   let tarOk = false;
   try {
-    writeFileSync(
-      join(stageDir, "manifest.json"),
-      JSON.stringify(manifest, null, 2)
-    );
-    mkdirSync(join(stageDir, "evidence_briefs"), { recursive: true });
+    writeFileSync(join(stageDir, 'manifest.json'), JSON.stringify(manifest, null, 2));
+    mkdirSync(join(stageDir, 'evidence_briefs'), { recursive: true });
     for (const brief of manifest.evidence_briefs) {
       const id = String(
         (brief as { id?: string | number }).id ?? Math.random().toString(16).slice(2)
       );
       writeFileSync(
-        join(stageDir, "evidence_briefs", `${id}.json`),
+        join(stageDir, 'evidence_briefs', `${id}.json`),
         JSON.stringify(brief, null, 2)
       );
     }
     writeFileSync(
-      join(stageDir, "relations.json"),
+      join(stageDir, 'relations.json'),
       JSON.stringify(
         {
           loop_bee_relations: manifest.loop_bee_relations,
-          related_bee_releases: manifest.related_bee_releases,
+          related_bee_releases: manifest.related_bee_releases
         },
         null,
         2
@@ -537,30 +509,30 @@ function runStageTarball(args: {
     // (see bundle-reader.ts) uses the same content-addressed
     // `blobs/<sha256>` layout as the existing SkillHub hashing.
     if (blobHashes.size > 0) {
-      mkdirSync(join(stageDir, "blobs"), { recursive: true });
+      mkdirSync(join(stageDir, 'blobs'), { recursive: true });
       for (const sha of blobHashes) {
         const src = join(blobsDir, sha.slice(0, 2), sha);
         if (!existsSync(src)) continue;
-        writeFileSync(join(stageDir, "blobs", sha), readFileSync(src));
+        writeFileSync(join(stageDir, 'blobs', sha), readFileSync(src));
       }
     }
     // Write EVALUATION_REQUIRED.md — a marker that signals the
     // receiver to run an independent evaluation before any durable
     // change. Spec §7A.2 hard rules (5th bullet).
     writeFileSync(
-      join(stageDir, "EVALUATION_REQUIRED.md"),
+      join(stageDir, 'EVALUATION_REQUIRED.md'),
       [
-        "# EVALUATION_REQUIRED",
-        "",
-        "The receiver MUST run an independent evaluation before",
-        "any durable change to this loop / bee. Bundles always",
-        "import as `candidate`; promotion to `stable` requires",
-        "an `evolution_evaluation` row with an",
-        "`independent_scorer_verdict` (spec §7A.2 / §10 RL-9).",
-        "",
-      ].join("\n")
+        '# EVALUATION_REQUIRED',
+        '',
+        'The receiver MUST run an independent evaluation before',
+        'any durable change to this loop / bee. Bundles always',
+        'import as `candidate`; promotion to `stable` requires',
+        'an `evolution_evaluation` row with an',
+        '`independent_scorer_verdict` (spec §7A.2 / §10 RL-9).',
+        ''
+      ].join('\n')
     );
-    runTar(["-czf", outPath, "-C", stageDir, "."]);
+    runTar(['-czf', outPath, '-C', stageDir, '.']);
     tarOk = true;
   } finally {
     if (existsSync(stageDir) && !tarOk) {

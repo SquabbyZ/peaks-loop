@@ -8,8 +8,11 @@
  * Hard constraint: budget truncation must be explicit, never silent.
  */
 import type {
-  Audience, CollectorOutput, DocRetrieverOutput, RendererOutput,
-  TokenizerOutput,
+  Audience,
+  CollectorOutput,
+  DocRetrieverOutput,
+  RendererOutput,
+  TokenizerOutput
 } from './types.js';
 
 export interface RenderInput {
@@ -24,7 +27,7 @@ export interface RenderInput {
 
 function pickDocsForAudience(
   audience: Audience,
-  docs: DocRetrieverOutput['fetchedDocs'],
+  docs: DocRetrieverOutput['fetchedDocs']
 ): DocRetrieverOutput['fetchedDocs'] {
   if (audience === 'peaks-mut') {
     // peaks-mut does NOT see docs — its job is purely test quality.
@@ -42,8 +45,12 @@ export function render(input: RenderInput): RendererOutput {
   const serialized = JSON.stringify({
     goal: input.goal,
     audience: input.audience,
-    docs: docs.map((d) => ({ dep: d.dep, version: d.version, excerpt: d.sections.map((s) => s.excerpt).join(' ') })),
-    skipped: input.docRetriever.skipped,
+    docs: docs.map((d) => ({
+      dep: d.dep,
+      version: d.version,
+      excerpt: d.sections.map((s) => s.excerpt).join(' ')
+    })),
+    skipped: input.docRetriever.skipped
   });
   const sizeBytes = Buffer.byteLength(serialized, 'utf8');
   const approxTokens = Math.ceil(sizeBytes / 4);
@@ -54,7 +61,7 @@ export function render(input: RenderInput): RendererOutput {
     renderedAt: now().toISOString(),
     sizeBytes,
     truncated,
-    ...(truncated ? { truncatedReason: 'doc_budget_exceeded' as const } : {}),
+    ...(truncated ? { truncatedReason: 'doc_budget_exceeded' as const } : {})
   };
   return Object.freeze(result);
 }

@@ -74,7 +74,11 @@ const projects: string[] = [];
 afterEach(() => {
   while (projects.length > 0) {
     const p = projects.pop() as string;
-    try { rmSync(p, { recursive: true, force: true }); } catch { /* best-effort */ }
+    try {
+      rmSync(p, { recursive: true, force: true });
+    } catch {
+      /* best-effort */
+    }
   }
 });
 
@@ -82,69 +86,99 @@ function initRepo(): string {
   const project = mkdtempSync(join(tmpdir(), 'peaks-p4b-metrics-'));
   projects.push(project);
   execFileSync('git', ['init', '-q', '-b', 'main', project], { stdio: 'pipe', windowsHide: true });
-  execFileSync('git', ['-C', project, 'config', 'user.email', 'p4b@test'], { stdio: 'pipe', windowsHide: true });
-  execFileSync('git', ['-C', project, 'config', 'user.name', 'p4b'], { stdio: 'pipe', windowsHide: true });
-  execFileSync('git', ['-C', project, 'commit', '--allow-empty', '-m', 'init', '-q'], { stdio: 'pipe', windowsHide: true });
+  execFileSync('git', ['-C', project, 'config', 'user.email', 'p4b@test'], {
+    stdio: 'pipe',
+    windowsHide: true
+  });
+  execFileSync('git', ['-C', project, 'config', 'user.name', 'p4b'], {
+    stdio: 'pipe',
+    windowsHide: true
+  });
+  execFileSync('git', ['-C', project, 'commit', '--allow-empty', '-m', 'init', '-q'], {
+    stdio: 'pipe',
+    windowsHide: true
+  });
   return project;
 }
 
 describe('peaks lease-metrics (Part 4.B)', () => {
   test('full manual lifecycle (spawn → renew → release → gc) populates per-kind counts + tail', () => {
     const project = initRepo();
-    const sessionId = '2026-07-29-p4b-metrics-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
+    const sessionId =
+      '2026-07-29-p4b-metrics-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
     const rid = 'rid-2026-07-29-p4b';
 
     // 1. spawn
-    const spawn = runCli([
-      'worktree', 'spawn',
-      '--rid', rid,
-      '--role', 'rd',
-      '--purpose', 'p4b metrics e2e',
-      '--session', sessionId,
-      '--project', project,
-      '--json'
-    ], project);
+    const spawn = runCli(
+      [
+        'worktree',
+        'spawn',
+        '--rid',
+        rid,
+        '--role',
+        'rd',
+        '--purpose',
+        'p4b metrics e2e',
+        '--session',
+        sessionId,
+        '--project',
+        project,
+        '--json'
+      ],
+      project
+    );
     expect(spawn.code).toBe(0);
-    const lid = (JSON.parse(spawn.stdout) as { data: { lease: { leaseId: string } } }).data.lease.leaseId;
+    const lid = (JSON.parse(spawn.stdout) as { data: { lease: { leaseId: string } } }).data.lease
+      .leaseId;
 
     // 2. renew
-    const renew = runCli([
-      'worktree', 'renew',
-      '--lease-id', lid,
-      '--ttl', '600000',
-      '--session', sessionId,
-      '--project', project,
-      '--json'
-    ], project);
+    const renew = runCli(
+      [
+        'worktree',
+        'renew',
+        '--lease-id',
+        lid,
+        '--ttl',
+        '600000',
+        '--session',
+        sessionId,
+        '--project',
+        project,
+        '--json'
+      ],
+      project
+    );
     expect(renew.code).toBe(0);
 
     // 3. release
-    const release = runCli([
-      'worktree', 'release',
-      '--lease-id', lid,
-      '--session', sessionId,
-      '--project', project,
-      '--json'
-    ], project);
+    const release = runCli(
+      [
+        'worktree',
+        'release',
+        '--lease-id',
+        lid,
+        '--session',
+        sessionId,
+        '--project',
+        project,
+        '--json'
+      ],
+      project
+    );
     expect(release.code).toBe(0);
 
     // 4. gc
-    const gc = runCli([
-      'worktree', 'gc',
-      '--lease-id', lid,
-      '--session', sessionId,
-      '--project', project,
-      '--json'
-    ], project);
+    const gc = runCli(
+      ['worktree', 'gc', '--lease-id', lid, '--session', sessionId, '--project', project, '--json'],
+      project
+    );
     expect(gc.code).toBe(0);
 
     // 5. read metrics
-    const metrics = runCli([
-      'lease-metrics',
-      '--session', sessionId,
-      '--project', project,
-      '--json'
-    ], project);
+    const metrics = runCli(
+      ['lease-metrics', '--session', sessionId, '--project', project, '--json'],
+      project
+    );
     expect(metrics.code).toBe(0);
     const env = JSON.parse(metrics.stdout) as MetricsEnvelope;
     expect(env.ok).toBe(true);
@@ -167,13 +201,12 @@ describe('peaks lease-metrics (Part 4.B)', () => {
     // starts at 0 in a clean session. The actual failure path
     // is unit-tested by the 16-hex regex in the writer module.
     const project = initRepo();
-    const sessionId = '2026-07-29-p4b-clean-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
-    const metrics = runCli([
-      'lease-metrics',
-      '--session', sessionId,
-      '--project', project,
-      '--json'
-    ], project);
+    const sessionId =
+      '2026-07-29-p4b-clean-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
+    const metrics = runCli(
+      ['lease-metrics', '--session', sessionId, '--project', project, '--json'],
+      project
+    );
     expect(metrics.code).toBe(0);
     const env = JSON.parse(metrics.stdout) as MetricsEnvelope;
     expect(env.ok).toBe(true);
@@ -204,18 +237,87 @@ interface RateEnvelope {
 describe('peaks lease-metrics --rate (Part 5.B)', () => {
   test('full lifecycle (spawn+renew+release+gc) → estimatedActive=0, estimatedLeaked=0, lifetime paired', () => {
     const project = initRepo();
-    const sessionId = '2026-07-29-p5b-rate-clean-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
+    const sessionId =
+      '2026-07-29-p5b-rate-clean-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
     const rid = 'rid-2026-07-29-p5b-clean';
 
     // spawn → renew → release → gc
-    const spawn = runCli(['worktree', 'spawn', '--rid', rid, '--role', 'rd', '--purpose', 'p5b', '--session', sessionId, '--project', project, '--json'], project);
+    const spawn = runCli(
+      [
+        'worktree',
+        'spawn',
+        '--rid',
+        rid,
+        '--role',
+        'rd',
+        '--purpose',
+        'p5b',
+        '--session',
+        sessionId,
+        '--project',
+        project,
+        '--json'
+      ],
+      project
+    );
     expect(spawn.code).toBe(0);
-    const lid = (JSON.parse(spawn.stdout) as { data: { lease: { leaseId: string } } }).data.lease.leaseId;
-    expect(runCli(['worktree', 'renew', '--lease-id', lid, '--ttl', '60000', '--session', sessionId, '--project', project, '--json'], project).code).toBe(0);
-    expect(runCli(['worktree', 'release', '--lease-id', lid, '--session', sessionId, '--project', project, '--json'], project).code).toBe(0);
-    expect(runCli(['worktree', 'gc', '--lease-id', lid, '--session', sessionId, '--project', project, '--json'], project).code).toBe(0);
+    const lid = (JSON.parse(spawn.stdout) as { data: { lease: { leaseId: string } } }).data.lease
+      .leaseId;
+    expect(
+      runCli(
+        [
+          'worktree',
+          'renew',
+          '--lease-id',
+          lid,
+          '--ttl',
+          '60000',
+          '--session',
+          sessionId,
+          '--project',
+          project,
+          '--json'
+        ],
+        project
+      ).code
+    ).toBe(0);
+    expect(
+      runCli(
+        [
+          'worktree',
+          'release',
+          '--lease-id',
+          lid,
+          '--session',
+          sessionId,
+          '--project',
+          project,
+          '--json'
+        ],
+        project
+      ).code
+    ).toBe(0);
+    expect(
+      runCli(
+        [
+          'worktree',
+          'gc',
+          '--lease-id',
+          lid,
+          '--session',
+          sessionId,
+          '--project',
+          project,
+          '--json'
+        ],
+        project
+      ).code
+    ).toBe(0);
 
-    const rate = runCli(['lease-metrics', '--rate', '--session', sessionId, '--project', project, '--json'], project);
+    const rate = runCli(
+      ['lease-metrics', '--rate', '--session', sessionId, '--project', project, '--json'],
+      project
+    );
     expect(rate.code).toBe(0);
     const env = JSON.parse(rate.stdout) as RateEnvelope;
     expect(env.data.rate).toBeDefined();
@@ -235,11 +337,32 @@ describe('peaks lease-metrics --rate (Part 5.B)', () => {
 
   test('only spawn (no release) → estimatedLeaked >= 1', () => {
     const project = initRepo();
-    const sessionId = '2026-07-29-p5b-rate-leaked-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
-    const spawn = runCli(['worktree', 'spawn', '--rid', 'rid-leak', '--role', 'rd', '--purpose', 'p5b-leak', '--session', sessionId, '--project', project, '--json'], project);
+    const sessionId =
+      '2026-07-29-p5b-rate-leaked-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
+    const spawn = runCli(
+      [
+        'worktree',
+        'spawn',
+        '--rid',
+        'rid-leak',
+        '--role',
+        'rd',
+        '--purpose',
+        'p5b-leak',
+        '--session',
+        sessionId,
+        '--project',
+        project,
+        '--json'
+      ],
+      project
+    );
     expect(spawn.code).toBe(0);
     // (intentionally do NOT release or gc)
-    const rate = runCli(['lease-metrics', '--rate', '--session', sessionId, '--project', project, '--json'], project);
+    const rate = runCli(
+      ['lease-metrics', '--rate', '--session', sessionId, '--project', project, '--json'],
+      project
+    );
     expect(rate.code).toBe(0);
     const env = JSON.parse(rate.stdout) as RateEnvelope;
     expect(env.data.rate?.totalSpawn).toBe(1);
@@ -258,17 +381,75 @@ describe('peaks lease-metrics --all-sessions (Part 5.B)', () => {
     const sidA = '2026-07-29-p5b-multi-A';
     const sidB = '2026-07-29-p5b-multi-B';
     // session A: 1 spawn + 1 release
-    const spawnA = runCli(['worktree', 'spawn', '--rid', 'rid-A', '--role', 'rd', '--purpose', 'A', '--session', sidA, '--project', project, '--json'], project);
+    const spawnA = runCli(
+      [
+        'worktree',
+        'spawn',
+        '--rid',
+        'rid-A',
+        '--role',
+        'rd',
+        '--purpose',
+        'A',
+        '--session',
+        sidA,
+        '--project',
+        project,
+        '--json'
+      ],
+      project
+    );
     expect(spawnA.code).toBe(0);
-    const lidA = (JSON.parse(spawnA.stdout) as { data: { lease: { leaseId: string } } }).data.lease.leaseId;
-    expect(runCli(['worktree', 'release', '--lease-id', lidA, '--session', sidA, '--project', project, '--json'], project).code).toBe(0);
+    const lidA = (JSON.parse(spawnA.stdout) as { data: { lease: { leaseId: string } } }).data.lease
+      .leaseId;
+    expect(
+      runCli(
+        [
+          'worktree',
+          'release',
+          '--lease-id',
+          lidA,
+          '--session',
+          sidA,
+          '--project',
+          project,
+          '--json'
+        ],
+        project
+      ).code
+    ).toBe(0);
     // session B: 1 spawn only (a leak)
-    const spawnB = runCli(['worktree', 'spawn', '--rid', 'rid-B', '--role', 'qa', '--purpose', 'B', '--session', sidB, '--project', project, '--json'], project);
+    const spawnB = runCli(
+      [
+        'worktree',
+        'spawn',
+        '--rid',
+        'rid-B',
+        '--role',
+        'qa',
+        '--purpose',
+        'B',
+        '--session',
+        sidB,
+        '--project',
+        project,
+        '--json'
+      ],
+      project
+    );
     expect(spawnB.code).toBe(0);
     // query cross-session with --rate
-    const cross = runCli(['lease-metrics', '--all-sessions', '--rate', '--project', project, '--json'], project);
+    const cross = runCli(
+      ['lease-metrics', '--all-sessions', '--rate', '--project', project, '--json'],
+      project
+    );
     expect(cross.code).toBe(0);
-    const env = JSON.parse(cross.stdout) as RateEnvelope & { data: { sessionCount: number; sessions: ReadonlyArray<{ sessionId: string; leaseEvents: number }> } };
+    const env = JSON.parse(cross.stdout) as RateEnvelope & {
+      data: {
+        sessionCount: number;
+        sessions: ReadonlyArray<{ sessionId: string; leaseEvents: number }>;
+      };
+    };
     expect(env.data.mode).toBe('all-sessions');
     expect(env.data.sessionCount).toBe(2);
     const sids = env.data.sessions.map((s) => s.sessionId).sort();

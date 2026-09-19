@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { z } from 'zod';
 
 /* ---------------------------------------------------------------------- */
 /* PRD-002b slice 2 — schema-limit constants extracted from inline         */
@@ -52,34 +52,26 @@ const CRYS_EVENT_ID_MAX = 128;
 /* ---------------------------------------------------------------------- */
 
 export const CrystallizationTriggerSchema = z.enum([
-  "user_explicit",
-  "llm_suggested",
-  "success_default_prompt",
-  "similar_task_recurrence",
+  'user_explicit',
+  'llm_suggested',
+  'success_default_prompt',
+  'similar_task_recurrence'
 ]);
-export type CrystallizationTrigger = z.infer<
-  typeof CrystallizationTriggerSchema
->;
+export type CrystallizationTrigger = z.infer<typeof CrystallizationTriggerSchema>;
 
 export const CRYSTALLIZATION_TRIGGERS: readonly CrystallizationTrigger[] = [
-  "user_explicit",
-  "llm_suggested",
-  "success_default_prompt",
-  "similar_task_recurrence",
+  'user_explicit',
+  'llm_suggested',
+  'success_default_prompt',
+  'similar_task_recurrence'
 ] as const;
 
 /* ---------------------------------------------------------------------- */
 /* Lifecycle status — §5.6 (event-scoped, not asset-scoped)               */
 /* ---------------------------------------------------------------------- */
 
-export const CrystallizationEventStatusSchema = z.enum([
-  "candidate",
-  "stable",
-  "retired",
-]);
-export type CrystallizationEventStatus = z.infer<
-  typeof CrystallizationEventStatusSchema
->;
+export const CrystallizationEventStatusSchema = z.enum(['candidate', 'stable', 'retired']);
+export type CrystallizationEventStatus = z.infer<typeof CrystallizationEventStatusSchema>;
 
 /* ---------------------------------------------------------------------- */
 /* EvidenceBrief — §4.7 / §10 RL-7. REQUIRED 4-section shape.             */
@@ -97,7 +89,7 @@ export type CrystallizationEventStatus = z.infer<
 const BriefSectionSchema = z
   .string()
   .trim()
-  .min(1, "brief section must be non-empty natural language")
+  .min(1, 'brief section must be non-empty natural language')
   .max(CRYS_BRIEF_SECTION_MAX);
 
 /**
@@ -124,25 +116,25 @@ export const EvidenceBriefSchema = z
     what_happened: BriefSectionSchema,
     why_it_matters: BriefSectionSchema,
     what_learned: BriefSectionSchema,
-    what_action: BriefSectionSchema,
+    what_action: BriefSectionSchema
   })
   .strict()
   .superRefine((b, ctx) => {
     const ok =
-      typeof b.what_happened === "string" &&
+      typeof b.what_happened === 'string' &&
       b.what_happened.trim().length > 0 &&
-      typeof b.why_it_matters === "string" &&
+      typeof b.why_it_matters === 'string' &&
       b.why_it_matters.trim().length > 0 &&
-      typeof b.what_learned === "string" &&
+      typeof b.what_learned === 'string' &&
       b.what_learned.trim().length > 0 &&
-      typeof b.what_action === "string" &&
+      typeof b.what_action === 'string' &&
       b.what_action.trim().length > 0;
     if (!ok) {
       ctx.addIssue({
-        code: "custom",
+        code: 'custom',
         path: [],
         message:
-          "evidence_brief must contain all 4 sections (what_happened, why_it_matters, what_learned, what_action) with non-empty content (spec §4.7 / RL-7)",
+          'evidence_brief must contain all 4 sections (what_happened, why_it_matters, what_learned, what_action) with non-empty content (spec §4.7 / RL-7)'
       });
     }
   });
@@ -157,13 +149,13 @@ export type EvidenceBrief = z.infer<typeof EvidenceBriefSchema>;
  */
 export function hasAllFourBriefSections(brief: EvidenceBrief): boolean {
   return (
-    typeof brief.what_happened === "string" &&
+    typeof brief.what_happened === 'string' &&
     brief.what_happened.trim().length > 0 &&
-    typeof brief.why_it_matters === "string" &&
+    typeof brief.why_it_matters === 'string' &&
     brief.why_it_matters.trim().length > 0 &&
-    typeof brief.what_learned === "string" &&
+    typeof brief.what_learned === 'string' &&
     brief.what_learned.trim().length > 0 &&
-    typeof brief.what_action === "string" &&
+    typeof brief.what_action === 'string' &&
     brief.what_action.trim().length > 0
   );
 }
@@ -183,14 +175,14 @@ const OptionalLoopId = z
   .min(1)
   .max(CRYS_LOOP_ID_MAX)
   .regex(/^[a-z][a-z0-9]*(-[a-z0-9]+)*$/, {
-    message: "loop_release_id must be kebab-case starting with a lowercase letter",
+    message: 'loop_release_id must be kebab-case starting with a lowercase letter'
   })
   .optional();
 const OptionalBeeId = z
   .number()
   .int()
   .gt(0)
-  .max(CRYS_BEE_ID_MAX_I32, "bee_release_id out of 32-bit range")
+  .max(CRYS_BEE_ID_MAX_I32, 'bee_release_id out of 32-bit range')
   .optional();
 
 /**
@@ -204,31 +196,17 @@ const OptionalBeeId = z
 export const CrystallizationEventInputSchema = z.object({
   trigger: CrystallizationTriggerSchema,
   evidence_brief: EvidenceBriefSchema,
-  evidence_bullets: z
-    .array(z.string().trim().min(1).max(CRYS_EVIDENCE_BULLET_MAX))
-    .default([]),
-  source_trace_pointers: z
-    .array(z.string().trim().min(1).max(CRYS_TRACE_POINTER_MAX))
-    .default([]),
-  evaluator_summary: z
-    .string()
-    .trim()
-    .max(CRYS_BRIEF_SECTION_MAX)
-    .default(""),
-  user_decision_summary: z
-    .string()
-    .trim()
-    .max(CRYS_BRIEF_SECTION_MAX)
-    .default(""),
+  evidence_bullets: z.array(z.string().trim().min(1).max(CRYS_EVIDENCE_BULLET_MAX)).default([]),
+  source_trace_pointers: z.array(z.string().trim().min(1).max(CRYS_TRACE_POINTER_MAX)).default([]),
+  evaluator_summary: z.string().trim().max(CRYS_BRIEF_SECTION_MAX).default(''),
+  user_decision_summary: z.string().trim().max(CRYS_BRIEF_SECTION_MAX).default(''),
   created_loop_release_id: OptionalLoopId,
   updated_loop_release_id: OptionalLoopId,
   created_bee_release_id: OptionalBeeId,
   updated_bee_release_id: OptionalBeeId,
-  lifecycle_status: CrystallizationEventStatusSchema.default("candidate"),
+  lifecycle_status: CrystallizationEventStatusSchema.default('candidate')
 });
-export type CrystallizationEventInput = z.input<
-  typeof CrystallizationEventInputSchema
->;
+export type CrystallizationEventInput = z.input<typeof CrystallizationEventInputSchema>;
 
 /**
  * Full persisted row schema. Adds `id` (the event id) and stamps
@@ -245,17 +223,12 @@ export const CrystallizationEventSchema = CrystallizationEventInputSchema.extend
     .min(1)
     .max(CRYS_EVENT_ID_MAX)
     .regex(/^crys-[0-9a-f]{8,}$/, {
-      message:
-        "id must start with 'crys-' followed by a hex suffix (spec §4.5)",
+      message: "id must start with 'crys-' followed by a hex suffix (spec §4.5)"
     }),
-  schema_version: z
-    .literal("peaks.crystallization/1")
-    .default("peaks.crystallization/1"),
-  created_at: z.string().datetime(),
+  schema_version: z.literal('peaks.crystallization/1').default('peaks.crystallization/1'),
+  created_at: z.string().datetime()
 });
-export type CrystallizationEvent = z.infer<
-  typeof CrystallizationEventSchema
->;
+export type CrystallizationEvent = z.infer<typeof CrystallizationEventSchema>;
 
 /**
  * Convenience: strict-parse an unknown payload into a
@@ -284,25 +257,21 @@ export function parseEvidenceBrief(input: unknown): EvidenceBrief {
  * missing (spec §10 RL-7) — distinguishes brief failures from
  * generic validation errors.
  */
-export function safeParseCrystallizationEvent(
-  input: unknown
-):
+export function safeParseCrystallizationEvent(input: unknown):
   | { ok: true; row: CrystallizationEvent }
   | {
       ok: false;
-      code?: "MISSING_BRIEF_SECTION";
+      code?: 'MISSING_BRIEF_SECTION';
       findings: Array<{ path: string; message: string }>;
     } {
   const r = CrystallizationEventSchema.safeParse(input);
   if (r.success) return { ok: true, row: r.data as CrystallizationEvent };
   const findings = r.error.issues.map((i) => ({
-    path: i.path.join("."),
-    message: i.message,
+    path: i.path.join('.'),
+    message: i.message
   }));
   const isBrief = isBriefSectionFailure(r.error.issues);
-  return isBrief
-    ? { ok: false, code: "MISSING_BRIEF_SECTION", findings }
-    : { ok: false, findings };
+  return isBrief ? { ok: false, code: 'MISSING_BRIEF_SECTION', findings } : { ok: false, findings };
 }
 
 /**
@@ -310,25 +279,21 @@ export function safeParseCrystallizationEvent(
  * shape; same MISSING_BRIEF_SECTION code mapping (covers both
  * refine-guard failures and per-section missing/empty failures).
  */
-export function safeParseEvidenceBrief(
-  input: unknown
-):
+export function safeParseEvidenceBrief(input: unknown):
   | { ok: true; row: EvidenceBrief }
   | {
       ok: false;
-      code?: "MISSING_BRIEF_SECTION";
+      code?: 'MISSING_BRIEF_SECTION';
       findings: Array<{ path: string; message: string }>;
     } {
   const r = EvidenceBriefSchema.safeParse(input);
   if (r.success) return { ok: true, row: r.data as EvidenceBrief };
   const findings = r.error.issues.map((i) => ({
-    path: i.path.join("."),
-    message: i.message,
+    path: i.path.join('.'),
+    message: i.message
   }));
   const isBrief = isBriefSectionFailure(r.error.issues);
-  return isBrief
-    ? { ok: false, code: "MISSING_BRIEF_SECTION", findings }
-    : { ok: false, findings };
+  return isBrief ? { ok: false, code: 'MISSING_BRIEF_SECTION', findings } : { ok: false, findings };
 }
 
 /**
@@ -340,16 +305,10 @@ export function safeParseEvidenceBrief(
  * `MISSING_BRIEF_SECTION` code regardless of which Zod boundary
  * caught the failure.
  */
-function isBriefSectionFailure(
-  issues: ReadonlyArray<z.ZodIssue>
-): boolean {
+function isBriefSectionFailure(issues: ReadonlyArray<z.ZodIssue>): boolean {
   if (issues.length === 0) return false;
   // Explicit refine guard (EvidenceBriefSchema.refine message).
-  if (
-    issues.some((i) =>
-      i.message.includes("evidence_brief must contain all 4 sections")
-    )
-  ) {
+  if (issues.some((i) => i.message.includes('evidence_brief must contain all 4 sections'))) {
     return true;
   }
   // Per-section Zod failures (min(1) on each section key, or
@@ -357,22 +316,22 @@ function isBriefSectionFailure(
   // the section key (`what_happened`) OR the parent `evidence_brief`
   // — Zod reports missing-key issues against the parent object.
   return issues.every((i) => {
-    const path = i.path.join(".");
-    if (path === "evidence_brief") return true;
-    if (i.path.length >= 2 && i.path[0] === "evidence_brief") {
+    const path = i.path.join('.');
+    if (path === 'evidence_brief') return true;
+    if (i.path.length >= 2 && i.path[0] === 'evidence_brief') {
       const key = i.path[i.path.length - 1];
       return (
-        key === "what_happened" ||
-        key === "why_it_matters" ||
-        key === "what_learned" ||
-        key === "what_action"
+        key === 'what_happened' ||
+        key === 'why_it_matters' ||
+        key === 'what_learned' ||
+        key === 'what_action'
       );
     }
     return (
-      path === "what_happened" ||
-      path === "why_it_matters" ||
-      path === "what_learned" ||
-      path === "what_action"
+      path === 'what_happened' ||
+      path === 'why_it_matters' ||
+      path === 'what_learned' ||
+      path === 'what_action'
     );
   });
 }

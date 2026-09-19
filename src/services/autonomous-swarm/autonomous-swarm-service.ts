@@ -36,9 +36,13 @@ import {
   planArtifactPath,
   buildWorkspaceUnavailable,
   type Result,
-  type BoundaryError,
+  type BoundaryError
 } from '../openspec/artifact-boundary.js';
-import { planRdSwarmGraph, type RdSwarmPlanRequest, type RdTaskGraph } from '../rd-swarm/rd-swarm-service.js';
+import {
+  planRdSwarmGraph,
+  type RdSwarmPlanRequest,
+  type RdTaskGraph
+} from '../rd-swarm/rd-swarm-service.js';
 
 export type AutonomousMode = 'code' | 'team';
 
@@ -139,7 +143,9 @@ const MAX_CAPABILITY_ENTRIES = 50;
 const MIN_WORKERS = 25;
 const MAX_WORKERS = 40;
 
-export function buildAutonomousGoalPackage(input: BuildAutonomousGoalPackageInput): AutonomousGoalPackage {
+export function buildAutonomousGoalPackage(
+  input: BuildAutonomousGoalPackageInput
+): AutonomousGoalPackage {
   const trimmedGoal = input.goal.trim();
   if (!trimmedGoal) {
     throw new Error('Goal must be non-empty');
@@ -161,18 +167,19 @@ export function buildAutonomousGoalPackage(input: BuildAutonomousGoalPackageInpu
   const nonGoals: string[] = [
     'Real worker spawning (dry-run only — autonomyMode is hard-coded to dry-run).',
     'No external skill / MCP installation — capability entries are metadata-only.',
-    'No target-repo source edits — artifacts land under .peaks/changes/<id>/.',
+    'No target-repo source edits — artifacts land under .peaks/changes/<id>/.'
   ];
 
   const riskNotes: string[] = [
     'Treating /goal as durable would leak session state across runs; goalCommand is non-durable.',
-    'Worker queue is capped at 40; coordinate via checkpoints, not raw fan-out.',
+    'Worker queue is capped at 40; coordinate via checkpoints, not raw fan-out.'
   ];
 
   const goalCommand: GoalCommandMarker = {
     marker: '/goal',
     nonDurable: true,
-    notes: 'Read-only marker; never persisted as run state. Re-derive from the goal-package on every resume.',
+    notes:
+      'Read-only marker; never persisted as run state. Re-derive from the goal-package on every resume.'
   };
 
   return {
@@ -184,11 +191,13 @@ export function buildAutonomousGoalPackage(input: BuildAutonomousGoalPackageInpu
     doneCondition,
     resumeCondition,
     riskNotes,
-    goalCommand,
+    goalCommand
   };
 }
 
-function readWorkspaceConfigArtifacts(workspaceRoot: string): { workspace?: RdSwarmPlanRequest['workspace'] } {
+function readWorkspaceConfigArtifacts(workspaceRoot: string): {
+  workspace?: RdSwarmPlanRequest['workspace'];
+} {
   // Read the project's workspace config file if present; the rd-swarm
   // service expects a `workspace` field carrying the resolved config so
   // its `getTechStatus` fallback can query the canonical path.
@@ -203,13 +212,18 @@ function readWorkspaceConfigArtifacts(workspaceRoot: string): { workspace?: RdSw
   }
 }
 
-function planSwarmArtifactPath(input: { changeId: string; workspaceRoot: string; requestId: string; template: string }): string {
+function planSwarmArtifactPath(input: {
+  changeId: string;
+  workspaceRoot: string;
+  requestId: string;
+  template: string;
+}): string {
   const result = planArtifactPath({
     changeId: input.changeId,
     workspaceRoot: input.workspaceRoot,
     role: 'swarm',
     requestId: input.requestId,
-    template: input.template,
+    template: input.template
   });
   if (!result.ok) {
     return `${input.changeId}/swarm/${input.template.replace('<changeId>/swarm/', '')}`;
@@ -227,9 +241,9 @@ function deriveCheckpoints(goal: string, changeId: string, workspaceRoot: string
         changeId,
         workspaceRoot,
         requestId,
-        template: `<changeId>/swarm/evidence/goal-package.md`,
+        template: `<changeId>/swarm/evidence/goal-package.md`
       }),
-      status: 'pending',
+      status: 'pending'
     },
     {
       id: 'checkpoint-2-capability-reuse',
@@ -238,9 +252,9 @@ function deriveCheckpoints(goal: string, changeId: string, workspaceRoot: string
         changeId,
         workspaceRoot,
         requestId,
-        template: `<changeId>/swarm/evidence/capability-reuse.md`,
+        template: `<changeId>/swarm/evidence/capability-reuse.md`
       }),
-      status: 'pending',
+      status: 'pending'
     },
     {
       id: 'checkpoint-3-worker-queue',
@@ -249,9 +263,9 @@ function deriveCheckpoints(goal: string, changeId: string, workspaceRoot: string
         changeId,
         workspaceRoot,
         requestId,
-        template: `<changeId>/swarm/evidence/worker-queue.md`,
+        template: `<changeId>/swarm/evidence/worker-queue.md`
       }),
-      status: 'pending',
+      status: 'pending'
     },
     {
       id: 'checkpoint-4-evidence-reports',
@@ -260,14 +274,17 @@ function deriveCheckpoints(goal: string, changeId: string, workspaceRoot: string
         changeId,
         workspaceRoot,
         requestId,
-        template: `<changeId>/swarm/evidence/evidence-summary.md`,
+        template: `<changeId>/swarm/evidence/evidence-summary.md`
       }),
-      status: 'pending',
-    },
+      status: 'pending'
+    }
   ];
 }
 
-function deriveEvidenceRequirements(changeId: string, workspaceRoot: string): EvidenceRequirement[] {
+function deriveEvidenceRequirements(
+  changeId: string,
+  workspaceRoot: string
+): EvidenceRequirement[] {
   const requestId = 'autonomous';
   return [
     {
@@ -277,9 +294,9 @@ function deriveEvidenceRequirements(changeId: string, workspaceRoot: string): Ev
         changeId,
         workspaceRoot,
         requestId,
-        template: `<changeId>/swarm/evidence/validation-report.md`,
+        template: `<changeId>/swarm/evidence/validation-report.md`
       }),
-      required: true,
+      required: true
     },
     {
       id: 'evidence-coverage-report',
@@ -288,9 +305,9 @@ function deriveEvidenceRequirements(changeId: string, workspaceRoot: string): Ev
         changeId,
         workspaceRoot,
         requestId,
-        template: `<changeId>/swarm/evidence/coverage-report.md`,
+        template: `<changeId>/swarm/evidence/coverage-report.md`
       }),
-      required: true,
+      required: true
     },
     {
       id: 'evidence-reducer-report',
@@ -299,10 +316,10 @@ function deriveEvidenceRequirements(changeId: string, workspaceRoot: string): Ev
         changeId,
         workspaceRoot,
         requestId,
-        template: `<changeId>/swarm/reducer-report.md`,
+        template: `<changeId>/swarm/reducer-report.md`
       }),
-      required: true,
-    },
+      required: true
+    }
   ];
 }
 
@@ -312,11 +329,15 @@ function workerQueueFromGraph(graph: RdTaskGraph): WorkerQueueEntry[] {
     wave: task.wave,
     status: 'planned',
     briefPath: `${graph.artifactRoot}/${task.outputs[0]}`,
-    dependsOn: [...task.dependsOn],
+    dependsOn: [...task.dependsOn]
   }));
 }
 
-function localTechStatus(workspaceRoot: string, changeId: string, workspace?: RdSwarmPlanRequest['workspace']): string {
+function localTechStatus(
+  workspaceRoot: string,
+  changeId: string,
+  workspace?: RdSwarmPlanRequest['workspace']
+): string {
   // Direct fs probe matching `rd-swarm-service.ts#localTechStatus` so the
   // autonomous-swarm composer sees the same per-file presence check that
   // the rd-swarm planner uses. The `getTechStatus` service wrapper requires
@@ -326,10 +347,16 @@ function localTechStatus(workspaceRoot: string, changeId: string, workspace?: Rd
   const required = ['frontend-tech-doc.md', 'backend-tech-doc.md', 'tech-approval-record.md'];
   const missing = required.filter((name) => !existsSync(join(root, name)));
   if (missing.length > 0) {
-    return missing.includes('tech-approval-record.md') && missing.length === 1 ? 'missing-approval' : 'missing';
+    return missing.includes('tech-approval-record.md') && missing.length === 1
+      ? 'missing-approval'
+      : 'missing';
   }
   try {
-    return readFileSync(join(root, 'tech-approval-record.md'), 'utf8').split(/\r?\n/).some((line) => line.trim() === 'status: approved') ? 'approved' : 'not-approved';
+    return readFileSync(join(root, 'tech-approval-record.md'), 'utf8')
+      .split(/\r?\n/)
+      .some((line) => line.trim() === 'status: approved')
+      ? 'approved'
+      : 'not-approved';
   } catch {
     return 'not-approved';
   }
@@ -346,7 +373,7 @@ export function planCapabilityReuse(input: { workspaceRoot: string }): Capabilit
 
   const files: Array<{ source: string; trustLevel: CapabilityEntry['trustLevel'] }> = [
     { source: 'accessRepo.md', trustLevel: 'internal' },
-    { source: 'mcpServer.md', trustLevel: 'external' },
+    { source: 'mcpServer.md', trustLevel: 'external' }
   ];
 
   for (const file of files) {
@@ -372,7 +399,7 @@ export function planCapabilityReuse(input: { workspaceRoot: string }): Capabilit
         purpose,
         trustLevel: file.trustLevel,
         activation: `metadata-only — read from ${file.source}, never invoked`,
-        risk: file.source === 'mcpServer.md' ? 'external' : 'internal',
+        risk: file.source === 'mcpServer.md' ? 'external' : 'internal'
       });
     }
   }
@@ -390,12 +417,12 @@ export function buildResumeInstructions(plan: AutonomousRdPlan): ResumeInstructi
     'Re-read artifact paths under .peaks/changes/<changeId>/swarm/ — do not trust session state.',
     'Verify the latest checkpoint (status: verified | pending | failed) before continuing.',
     'Re-verify evidence: validation-report.md, coverage-report.md, reducer-report.md.',
-    'Re-derive the goal package from the persisted request; the /goal marker is non-durable.',
+    'Re-derive the goal package from the persisted request; the /goal marker is non-durable.'
   ];
 
   const checkpointStates = plan.checkpoints.map((checkpoint) => ({
     id: checkpoint.id,
-    status: checkpoint.status,
+    status: checkpoint.status
   }));
 
   return {
@@ -403,7 +430,7 @@ export function buildResumeInstructions(plan: AutonomousRdPlan): ResumeInstructi
       ? 'Plan is available; resume by re-deriving the goal package and verifying the next pending checkpoint.'
       : 'Plan is blocked; resume by re-running planAutonomousRdSwarm and addressing the gateStatus / blockedReasons.',
     steps,
-    checkpointStates,
+    checkpointStates
   };
 }
 
@@ -422,14 +449,18 @@ export function planAutonomousRdSwarm(input: PlanAutonomousRdSwarmInput): Autono
       workerQueue: [],
       evidence: deriveEvidenceRequirements(input.changeId, input.workspaceRoot),
       artifactRoot: `${input.changeId}/swarm`,
-      gateStatus: { techApprovalRequired: input.requiresTechApproval === true, techStatus: 'unavailable', ...(input.requiresTechApproval === true ? {} : { skipReason: 'tech-gate-not-required' }) },
+      gateStatus: {
+        techApprovalRequired: input.requiresTechApproval === true,
+        techStatus: 'unavailable',
+        ...(input.requiresTechApproval === true ? {} : { skipReason: 'tech-gate-not-required' })
+      },
       blockedReasons: [id.error.code],
       nextActions: [id.error.message],
       resumeInstructions: {
         summary: 'Plan is blocked; resume after fixing the change-id format.',
         steps: [],
-        checkpointStates: [],
-      },
+        checkpointStates: []
+      }
     };
     return blocked;
   }
@@ -448,14 +479,18 @@ export function planAutonomousRdSwarm(input: PlanAutonomousRdSwarmInput): Autono
       workerQueue: [],
       evidence: deriveEvidenceRequirements(id.value.changeId, input.workspaceRoot),
       artifactRoot: `${id.value.changeId}/swarm`,
-      gateStatus: { techApprovalRequired: input.requiresTechApproval === true, techStatus: 'unavailable', ...(input.requiresTechApproval === true ? {} : { skipReason: 'tech-gate-not-required' }) },
+      gateStatus: {
+        techApprovalRequired: input.requiresTechApproval === true,
+        techStatus: 'unavailable',
+        ...(input.requiresTechApproval === true ? {} : { skipReason: 'tech-gate-not-required' })
+      },
       blockedReasons: ['INVALID_GOAL'],
       nextActions: ['Use a non-empty goal'],
       resumeInstructions: {
         summary: 'Plan is blocked; resume by providing a non-empty goal.',
         steps: [],
-        checkpointStates: [],
-      },
+        checkpointStates: []
+      }
     };
     return blocked;
   }
@@ -477,14 +512,18 @@ export function planAutonomousRdSwarm(input: PlanAutonomousRdSwarmInput): Autono
       workerQueue: [],
       evidence: deriveEvidenceRequirements(changeId, input.workspaceRoot),
       artifactRoot: `${changeId}/swarm`,
-      gateStatus: { techApprovalRequired: input.requiresTechApproval === true, techStatus: 'unavailable', ...(input.requiresTechApproval === true ? {} : { skipReason: 'tech-gate-not-required' }) },
+      gateStatus: {
+        techApprovalRequired: input.requiresTechApproval === true,
+        techStatus: 'unavailable',
+        ...(input.requiresTechApproval === true ? {} : { skipReason: 'tech-gate-not-required' })
+      },
       blockedReasons: ['INVALID_MAX_WORKERS'],
       nextActions: ['Use a positive integer for max-workers.'],
       resumeInstructions: {
         summary: 'Plan is blocked; resume by setting a positive max-workers value.',
         steps: [],
-        checkpointStates: [],
-      },
+        checkpointStates: []
+      }
     };
     return blocked;
   }
@@ -502,7 +541,7 @@ export function planAutonomousRdSwarm(input: PlanAutonomousRdSwarmInput): Autono
       dryRun: true,
       workspaceRoot: input.workspaceRoot,
       requiresTechApproval,
-      ...(workspaceArtifacts.workspace ? { workspace: workspaceArtifacts.workspace } : {}),
+      ...(workspaceArtifacts.workspace ? { workspace: workspaceArtifacts.workspace } : {})
     });
   } catch {
     graph = {
@@ -514,10 +553,19 @@ export function planAutonomousRdSwarm(input: PlanAutonomousRdSwarmInput): Autono
       tasks: [],
       conflictGroups: [],
       artifactRoot: `${changeId}/swarm`,
-      outputs: { taskGraph: `${changeId}/swarm/task-graph.json`, waveManifests: [], workerBriefs: [], reducerReport: `${changeId}/swarm/reducer-report.md` },
-      gateStatus: { techApprovalRequired: requiresTechApproval, techStatus: 'unavailable', ...(requiresTechApproval ? {} : { skipReason: 'tech-gate-not-required' }) },
+      outputs: {
+        taskGraph: `${changeId}/swarm/task-graph.json`,
+        waveManifests: [],
+        workerBriefs: [],
+        reducerReport: `${changeId}/swarm/reducer-report.md`
+      },
+      gateStatus: {
+        techApprovalRequired: requiresTechApproval,
+        techStatus: 'unavailable',
+        ...(requiresTechApproval ? {} : { skipReason: 'tech-gate-not-required' })
+      },
       blockedReasons: [],
-      nextActions: [],
+      nextActions: []
     };
   }
 
@@ -533,10 +581,13 @@ export function planAutonomousRdSwarm(input: PlanAutonomousRdSwarmInput): Autono
   const gateStatus = {
     techApprovalRequired: requiresTechApproval,
     techStatus,
-    ...(requiresTechApproval ? {} : { skipReason: 'tech-gate-not-required' }),
+    ...(requiresTechApproval ? {} : { skipReason: 'tech-gate-not-required' })
   };
 
-  const available = graph.available && !blockedReasons.includes('SMALL_SCOPE') && !blockedReasons.includes('INVALID_MAX_WORKERS');
+  const available =
+    graph.available &&
+    !blockedReasons.includes('SMALL_SCOPE') &&
+    !blockedReasons.includes('INVALID_MAX_WORKERS');
 
   const nextActions: string[] = [];
   if (blockedReasons.includes('WORKER_CAP_EXCEEDED')) {
@@ -567,7 +618,7 @@ export function planAutonomousRdSwarm(input: PlanAutonomousRdSwarmInput): Autono
     gateStatus,
     blockedReasons,
     nextActions,
-    resumeInstructions: { summary: '', steps: [], checkpointStates: [] },
+    resumeInstructions: { summary: '', steps: [], checkpointStates: [] }
   };
 
   draft.resumeInstructions = buildResumeInstructions(draft);

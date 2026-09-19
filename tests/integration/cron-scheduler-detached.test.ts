@@ -38,7 +38,15 @@
  */
 
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync, statSync, utimesSync } from 'node:fs';
+import {
+  existsSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+  statSync,
+  utimesSync
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { afterEach, describe, expect, test } from 'vitest';
@@ -95,7 +103,11 @@ const projects: string[] = [];
 afterEach(() => {
   while (projects.length > 0) {
     const p = projects.pop() as string;
-    try { rmSync(p, { recursive: true, force: true }); } catch { /* best-effort */ }
+    try {
+      rmSync(p, { recursive: true, force: true });
+    } catch {
+      /* best-effort */
+    }
   }
 });
 
@@ -160,5 +172,4 @@ describe('peaks cron-scheduler detached process (Part 40)', () => {
     // delivery timing varies by platform; the contract is the
     // pid file removal, not the process exit.
   });
-
 });

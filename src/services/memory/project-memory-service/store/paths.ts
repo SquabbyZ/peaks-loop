@@ -52,7 +52,11 @@ export function normalizeRealRoot(path: string): string {
  * "this path is a symlink" is an escape attempt. A single shared message made
  * `peaks memory extract --artifact <typo>` report a sandbox-escape warning.
  */
-export function realPathOrThrow(path: string, errorMessage: string, missingPathMessage: string): string {
+export function realPathOrThrow(
+  path: string,
+  errorMessage: string,
+  missingPathMessage: string
+): string {
   if (!existsSync(path)) {
     throw new Error(missingPathMessage);
   }
@@ -115,7 +119,8 @@ export function assertSafeProjectMemoryDir(projectRoot: string): string {
 export function safeRealpath(path: string): string | null {
   try {
     return realpathSync(path);
-  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+  } catch {
+    // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     return null;
   }
 }

@@ -37,9 +37,17 @@ import { isValidSessionId } from '~/src/services/workspace/sid-naming-guard';
 import { RUNTIME_SYSTEM_ENTRIES } from '~/src/services/workspace/runtime-layout';
 import { declareDimensions } from '../_setup/4dim-template.js';
 
-declareDimensions('tests/unit/doctor/l3-orphan-sessions.test.ts', ['behavior', 'integration', 'a11y'], [
-  { dim: 'render', reason: 'the check returns a DoctorCheck record and renders nothing; its message is covered by a11y' }
-]);
+declareDimensions(
+  'tests/unit/doctor/l3-orphan-sessions.test.ts',
+  ['behavior', 'integration', 'a11y'],
+  [
+    {
+      dim: 'render',
+      reason:
+        'the check returns a DoctorCheck record and renders nothing; its message is covered by a11y'
+    }
+  ]
+);
 
 const CHECK_ID = 'L3:l3-orphan-sessions';
 
@@ -104,7 +112,9 @@ describe('Scenario: integration — real .peaks/_runtime/ trees on disk', () => 
   });
 
   it('is silent for every registered system dir (tolerance)', () => {
-    const dirs = RUNTIME_SYSTEM_ENTRIES.filter((entry) => entry.kind === 'dir').map((entry) => entry.name);
+    const dirs = RUNTIME_SYSTEM_ENTRIES.filter((entry) => entry.kind === 'dir').map(
+      (entry) => entry.name
+    );
     // Guard against the registry shrinking to nothing and the test passing vacuously.
     expect(dirs.length).toBeGreaterThanOrEqual(8);
     makeDirs(dirs);
@@ -220,5 +230,4 @@ describe('Scenario: a11y — the operator-facing message', () => {
     const result = run();
     expect(result.message).toContain('peaks workspace clean --project <repo>');
   });
-
 });

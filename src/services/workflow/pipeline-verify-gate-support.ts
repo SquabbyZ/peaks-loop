@@ -17,7 +17,10 @@ import {
   type ArtifactPrerequisite,
   type RequestType
 } from '../artifacts/artifact-prerequisites.js';
-import type { RequestArtifactRole, RequestArtifactState } from '../artifacts/request-artifact-service.js';
+import type {
+  RequestArtifactRole,
+  RequestArtifactState
+} from '../artifacts/request-artifact-service.js';
 import { showRequestArtifact } from '../artifacts/request-artifact-service.js';
 import { readArtifactState } from '../artifacts/request-artifact-state-helpers.js';
 import type { PipelineGate } from './pipeline-verify-types.js';
@@ -34,8 +37,16 @@ export function extractState(markdown: string): string {
  * actual dir the file was found in) instead of assuming
  * `.peaks/_runtime/<sessionId>/<role>/requests/`.
  */
-export async function findRequestFile(projectRoot: string, role: string, rid: string): Promise<{ path: string; content: string; sessionId: string } | null> {
-  const artifact = await showRequestArtifact({ projectRoot, role: role as 'prd' | 'ui' | 'rd' | 'qa' | 'sc', requestId: rid });
+export async function findRequestFile(
+  projectRoot: string,
+  role: string,
+  rid: string
+): Promise<{ path: string; content: string; sessionId: string } | null> {
+  const artifact = await showRequestArtifact({
+    projectRoot,
+    role: role as 'prd' | 'ui' | 'rd' | 'qa' | 'sc',
+    requestId: rid
+  });
   if (artifact === null) return null;
   // Slice 2026-06-28-code-mode-bypass-fix (defect #3) used to strip a
   // `_runtime/` prefix here, because `showRequestArtifact` then returned the
@@ -138,7 +149,12 @@ function contractBodyViolations(
 
 export function rdGatesForType(requestType: RequestType): PipelineGate[] {
   const gates: PipelineGate[] = [
-    { name: 'rd-request-exists', description: 'RD request artifact created', passed: false, detail: '' }
+    {
+      name: 'rd-request-exists',
+      description: 'RD request artifact created',
+      passed: false,
+      detail: ''
+    }
   ];
 
   // This slot used to pin a `tech-doc` gate to `rd/tech-doc.md`, an artifact
@@ -150,16 +166,41 @@ export function rdGatesForType(requestType: RequestType): PipelineGate[] {
   // budget and the resume detector. Neither is served by failing a compliant
   // slice.)
   if (contractEvidencePaths('rd', 'qa-handoff', requestType, 'prd/handoff.md') !== null) {
-    gates.push({ name: 'prd-handoff', description: 'PRD handoff capsule (approved scope + non-goals)', passed: false, detail: '' });
+    gates.push({
+      name: 'prd-handoff',
+      description: 'PRD handoff capsule (approved scope + non-goals)',
+      passed: false,
+      detail: ''
+    });
   }
   if (requestType === 'bugfix') {
-    gates.push({ name: 'bug-analysis', description: 'Bug root-cause analysis', passed: false, detail: '' });
+    gates.push({
+      name: 'bug-analysis',
+      description: 'Bug root-cause analysis',
+      passed: false,
+      detail: ''
+    });
   }
   if (requestType !== 'docs' && requestType !== 'chore' && requestType !== 'config') {
-    gates.push({ name: 'code-review', description: 'Code review evidence', passed: false, detail: '' });
+    gates.push({
+      name: 'code-review',
+      description: 'Code review evidence',
+      passed: false,
+      detail: ''
+    });
   }
-  if (requestType === 'feature' || requestType === 'refactor' || requestType === 'bugfix' || requestType === 'config') {
-    gates.push({ name: 'security-review', description: 'Security review evidence', passed: false, detail: '' });
+  if (
+    requestType === 'feature' ||
+    requestType === 'refactor' ||
+    requestType === 'bugfix' ||
+    requestType === 'config'
+  ) {
+    gates.push({
+      name: 'security-review',
+      description: 'Security review evidence',
+      passed: false,
+      detail: ''
+    });
   }
   // The perf evidence the contract requires at `rd:qa-handoff` is `AUDIT_PERF`
   // — `audit/perf-<rid>.md`, with `audit/perf.md` and `rd/perf-baseline.md` as
@@ -170,7 +211,12 @@ export function rdGatesForType(requestType: RequestType): PipelineGate[] {
   // deleting it) is what keeps AC3's control meaningful: perf evidence that is
   // genuinely absent must still fail.
   if (contractEvidencePaths('rd', 'qa-handoff', requestType, 'rd/perf-baseline.md') !== null) {
-    gates.push({ name: 'perf-baseline', description: 'Performance audit evidence', passed: false, detail: '' });
+    gates.push({
+      name: 'perf-baseline',
+      description: 'Performance audit evidence',
+      passed: false,
+      detail: ''
+    });
   }
 
   return gates;
@@ -178,12 +224,22 @@ export function rdGatesForType(requestType: RequestType): PipelineGate[] {
 
 export function qaGatesForType(requestType: RequestType): PipelineGate[] {
   const gates: PipelineGate[] = [
-    { name: 'qa-request-exists', description: 'QA request artifact created', passed: false, detail: '' }
+    {
+      name: 'qa-request-exists',
+      description: 'QA request artifact created',
+      passed: false,
+      detail: ''
+    }
   ];
 
   if (requestType === 'feature' || requestType === 'refactor' || requestType === 'bugfix') {
     gates.push({ name: 'test-cases', description: 'QA test cases', passed: false, detail: '' });
-    gates.push({ name: 'test-report', description: 'QA test report with execution results', passed: false, detail: '' });
+    gates.push({
+      name: 'test-report',
+      description: 'QA test report with execution results',
+      passed: false,
+      detail: ''
+    });
   }
 
   // The `security-findings` / `performance-findings` gates were removed here
@@ -238,10 +294,17 @@ export function resolveRdEvidencePaths(
   let allResolvedPathsCanonical = tracker.allResolvedPathsCanonical;
   for (const gate of gates.slice(1)) {
     const probeName = RD_EVIDENCE_PROBE[gate.name]!;
-    const relativePaths = (contractEvidencePaths('rd', 'qa-handoff', requestType, probeName) ?? [probeName])
-      .map((relative) => relative.replace('<rid>', rid));
+    const relativePaths = (
+      contractEvidencePaths('rd', 'qa-handoff', requestType, probeName) ?? [probeName]
+    ).map((relative) => relative.replace('<rid>', rid));
     const primaryRelativePath = relativePaths[0]!;
-    const canonicalPath = join(projectRoot, '.peaks', '_runtime', rdEvidenceDir, primaryRelativePath);
+    const canonicalPath = join(
+      projectRoot,
+      '.peaks',
+      '_runtime',
+      rdEvidenceDir,
+      primaryRelativePath
+    );
     // Two independent axes, kept apart because they mean different things:
     //   - `legacyRoot` — the file sits under a pre-F3 session home
     //     (`.peaks/<sid>/…` or `.peaks/_runtime/change/<sid>/…`). That is a
@@ -268,20 +331,33 @@ export function resolveRdEvidencePaths(
       if (hit.legacyRoot) allResolvedPathsCanonical = false;
       // Existing is not the contract — the file must also satisfy the body
       // markers the table pins for this prereq (see `contractBodyViolations`).
-      const bodyViolations = contractBodyViolations('rd', 'qa-handoff', requestType, probeName, hit.path);
+      const bodyViolations = contractBodyViolations(
+        'rd',
+        'qa-handoff',
+        requestType,
+        probeName,
+        hit.path
+      );
       if (bodyViolations.length > 0) {
         gate.passed = false;
         gate.detail = `${hit.path} — ${bodyViolations.join('; ')}`;
-        violations.push(`RD evidence does not satisfy the contract: ${gate.description} (${primaryRelativePath}) — ${bodyViolations.join('; ')}`);
-        nextActions.push(`Fix .peaks/_runtime/${rdEvidenceDir}/${primaryRelativePath} to satisfy the contract: ${bodyViolations.join('; ')}`);
+        violations.push(
+          `RD evidence does not satisfy the contract: ${gate.description} (${primaryRelativePath}) — ${bodyViolations.join('; ')}`
+        );
+        nextActions.push(
+          `Fix .peaks/_runtime/${rdEvidenceDir}/${primaryRelativePath} to satisfy the contract: ${bodyViolations.join('; ')}`
+        );
       } else {
         gate.passed = true;
-        gate.detail = hit.path
-          + (hit.legacyRoot ? ' [DEPRECATION_LEGACY_PATH_USED]' : '')
-          + (hit.legacyForm ? ' [LEGACY_EVIDENCE_PATH]' : '');
+        gate.detail =
+          hit.path +
+          (hit.legacyRoot ? ' [DEPRECATION_LEGACY_PATH_USED]' : '') +
+          (hit.legacyForm ? ' [LEGACY_EVIDENCE_PATH]' : '');
       }
       if (hit.legacyRoot) {
-        violations.push(`DEPRECATION_LEGACY_PATH_USED: ${hit.path} — move the file into .peaks/_runtime/${rdEvidenceDir}/${primaryRelativePath} (the canonical location) so subsequent runs resolve on the canonical path. The legacy \`peaks workspace migrate-change-scope\` helper was removed in v2.19.0; use \`peaks workspace migrate\` to relocate misplaced content.`);
+        violations.push(
+          `DEPRECATION_LEGACY_PATH_USED: ${hit.path} — move the file into .peaks/_runtime/${rdEvidenceDir}/${primaryRelativePath} (the canonical location) so subsequent runs resolve on the canonical path. The legacy \`peaks workspace migrate-change-scope\` helper was removed in v2.19.0; use \`peaks workspace migrate\` to relocate misplaced content.`
+        );
       }
     } else {
       gate.detail = `missing: ${canonicalPath}`;
@@ -320,10 +396,17 @@ export function resolveQaEvidencePaths(
   let allResolvedPathsCanonical = tracker.allResolvedPathsCanonical;
   for (const gate of gates.slice(1)) {
     const probeName = QA_EVIDENCE_PROBE[gate.name]!;
-    const relativePaths = (contractEvidencePaths('qa', 'verdict-issued', requestType, probeName) ?? [probeName])
-      .map((relative) => relative.replace('<rid>', rid));
+    const relativePaths = (
+      contractEvidencePaths('qa', 'verdict-issued', requestType, probeName) ?? [probeName]
+    ).map((relative) => relative.replace('<rid>', rid));
     const primaryRelativePath = relativePaths[0]!;
-    const canonicalQaPath = join(projectRoot, '.peaks', '_runtime', rdEvidenceDir, primaryRelativePath);
+    const canonicalQaPath = join(
+      projectRoot,
+      '.peaks',
+      '_runtime',
+      rdEvidenceDir,
+      primaryRelativePath
+    );
     const candidates: Array<{ path: string; legacyRoot: boolean }> = [];
     for (const relative of relativePaths) {
       for (const [root, legacyRoot] of [
@@ -342,18 +425,30 @@ export function resolveQaEvidencePaths(
       // prereqs pin `## Test execution` / `## Test cases` / `test(`, and a
       // checker that only probed existence reported green on files the
       // `qa:verdict-issued` gate rejects.
-      const bodyViolations = contractBodyViolations('qa', 'verdict-issued', requestType, probeName, hit.path);
+      const bodyViolations = contractBodyViolations(
+        'qa',
+        'verdict-issued',
+        requestType,
+        probeName,
+        hit.path
+      );
       if (bodyViolations.length > 0) {
         gate.passed = false;
         gate.detail = `${hit.path} — ${bodyViolations.join('; ')}`;
-        violations.push(`QA evidence does not satisfy the contract: ${gate.description} (${primaryRelativePath}) — ${bodyViolations.join('; ')}`);
-        nextActions.push(`Fix .peaks/_runtime/${rdEvidenceDir}/${primaryRelativePath} to satisfy the contract: ${bodyViolations.join('; ')}`);
+        violations.push(
+          `QA evidence does not satisfy the contract: ${gate.description} (${primaryRelativePath}) — ${bodyViolations.join('; ')}`
+        );
+        nextActions.push(
+          `Fix .peaks/_runtime/${rdEvidenceDir}/${primaryRelativePath} to satisfy the contract: ${bodyViolations.join('; ')}`
+        );
       } else {
         gate.passed = true;
         gate.detail = hit.path + (hit.legacyRoot ? ' [DEPRECATION_LEGACY_PATH_USED]' : '');
       }
       if (hit.legacyRoot) {
-        violations.push(`DEPRECATION_LEGACY_PATH_USED: ${hit.path} — move the file into .peaks/_runtime/${rdEvidenceDir}/${primaryRelativePath} (the canonical location) so subsequent runs resolve on the canonical path. The legacy \`peaks workspace migrate-change-scope\` helper was removed in v2.19.0; use \`peaks workspace migrate\` to relocate misplaced content.`);
+        violations.push(
+          `DEPRECATION_LEGACY_PATH_USED: ${hit.path} — move the file into .peaks/_runtime/${rdEvidenceDir}/${primaryRelativePath} (the canonical location) so subsequent runs resolve on the canonical path. The legacy \`peaks workspace migrate-change-scope\` helper was removed in v2.19.0; use \`peaks workspace migrate\` to relocate misplaced content.`
+        );
       }
     } else {
       gate.detail = `missing: ${canonicalQaPath}`;

@@ -2,7 +2,14 @@ import { spawnSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import type { GuardContext, GuardRunResult } from '../types.js';
-import { combineProbes, fail, missingSourceFiles, pass, probe, requireBaselineRow } from './_shared.js';
+import {
+  combineProbes,
+  fail,
+  missingSourceFiles,
+  pass,
+  probe,
+  requireBaselineRow
+} from './_shared.js';
 
 const DETECTOR = ['scripts', 'lint', 'silent-warning-detector.mjs'];
 
@@ -49,7 +56,11 @@ export async function runJ03Contract(ctx: GuardContext): Promise<GuardRunResult>
   const detectorPath = join(ctx.projectRoot, ...DETECTOR);
   const detectorPresent = existsSync(detectorPath);
   const run = detectorPresent
-    ? spawnSync('node', [detectorPath], { cwd: ctx.projectRoot, encoding: 'utf8', windowsHide: true })
+    ? spawnSync('node', [detectorPath], {
+        cwd: ctx.projectRoot,
+        encoding: 'utf8',
+        windowsHide: true
+      })
     : null;
   const stdout = run?.stdout ?? '';
   const counts = parseCounts(stdout);
@@ -60,17 +71,30 @@ export async function runJ03Contract(ctx: GuardContext): Promise<GuardRunResult>
   if (counts !== null) {
     for (const rule of Object.keys(CEILING)) {
       if (counts[rule] === undefined) missingRules.push(rule);
-      else if (counts[rule]! > CEILING[rule]!) grew.push(`${rule}: ${String(counts[rule])} > ${String(CEILING[rule])}`);
+      else if (counts[rule]! > CEILING[rule]!)
+        grew.push(`${rule}: ${String(counts[rule])} > ${String(CEILING[rule])}`);
     }
   }
 
   const result = combineProbes([
     probe(missing.length === 0, `baseline sourceFiles present (${row.sourceFiles.length})`),
     probe(detectorPresent, `the repository AST guard is present (${detectorPath})`),
-    probe(scanned !== null && Number(scanned[1]) > 0, `the AST guard scanned files (${scanned?.[1] ?? 'none'})`),
-    probe(counts !== null, `the AST guard reported per-rule counts (${counts === null ? 'unparseable' : JSON.stringify(counts)})`),
-    probe(missingRules.length === 0, `every ratcheted rule was reported (missing: ${missingRules.join(',') || 'none'})`),
-    probe(grew.length === 0, `no silent-catch rule count grew past its ceiling (${grew.join('; ') || 'none'})`)
+    probe(
+      scanned !== null && Number(scanned[1]) > 0,
+      `the AST guard scanned files (${scanned?.[1] ?? 'none'})`
+    ),
+    probe(
+      counts !== null,
+      `the AST guard reported per-rule counts (${counts === null ? 'unparseable' : JSON.stringify(counts)})`
+    ),
+    probe(
+      missingRules.length === 0,
+      `every ratcheted rule was reported (missing: ${missingRules.join(',') || 'none'})`
+    ),
+    probe(
+      grew.length === 0,
+      `no silent-catch rule count grew past its ceiling (${grew.join('; ') || 'none'})`
+    )
   ]);
 
   const artifact = row.sourceFiles[1] ?? 'src/services/final-review/final-review-service.ts';

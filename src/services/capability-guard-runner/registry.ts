@@ -62,7 +62,8 @@ const SPECS: Readonly<Record<JourneyId, ContractSpec>> = {
   },
   J02: {
     kind: 'workflow-trace',
-    invariant: 'Every hard gate (audit / RD / QA / final-review) is enforced; a failure transitions state back to the prior role',
+    invariant:
+      'Every hard gate (audit / RD / QA / final-review) is enforced; a failure transitions state back to the prior role',
     execute: runJ02Contract
   },
   J03: {
@@ -72,32 +73,38 @@ const SPECS: Readonly<Record<JourneyId, ContractSpec>> = {
   },
   J04: {
     kind: 'hook-assertion',
-    invariant: 'The audit covers exactly six dimensions: correctness, completeness, scope, risks, alternatives, constraints',
+    invariant:
+      'The audit covers exactly six dimensions: correctness, completeness, scope, risks, alternatives, constraints',
     execute: runJ04Contract
   },
   J05: {
     kind: 'workflow-trace',
-    invariant: 'Every final review contains exactly four dimensions: functional-completeness, problem-resolution, no-new-bugs, existing-functionality-intact',
+    invariant:
+      'Every final review contains exactly four dimensions: functional-completeness, problem-resolution, no-new-bugs, existing-functionality-intact',
     execute: runJ05Contract
   },
   J06: {
     kind: 'workflow-trace',
-    invariant: 'The resume option always identifies the deepest completed gate (audit / RD / QA / final-review)',
+    invariant:
+      'The resume option always identifies the deepest completed gate (audit / RD / QA / final-review)',
     execute: runJ06Contract
   },
   J07: {
     kind: 'cli-output-golden',
-    invariant: "Per-test fingerprint cache never returns 'passed' for an unverified file (fileMtime + fileSha256 gate)",
+    invariant:
+      "Per-test fingerprint cache never returns 'passed' for an unverified file (fileMtime + fileSha256 gate)",
     execute: runJ07Contract
   },
   J08: {
     kind: 'asset-roundtrip',
-    invariant: 'Crystallization requires all gates (audit / RD / QA / final-review) to be in a passing state',
+    invariant:
+      'Crystallization requires all gates (audit / RD / QA / final-review) to be in a passing state',
     execute: runJ08Contract
   },
   J09: {
     kind: 'sop-register',
-    invariant: 'An SOP id must match SOP_ID_PATTERN (lowercase kebab, no dots/slashes) to prevent path traversal',
+    invariant:
+      'An SOP id must match SOP_ID_PATTERN (lowercase kebab, no dots/slashes) to prevent path traversal',
     execute: runJ09Contract
   },
   J10: {
@@ -107,17 +114,20 @@ const SPECS: Readonly<Record<JourneyId, ContractSpec>> = {
   },
   J11: {
     kind: 'cli-output-golden',
-    invariant: 'Doctor checks live under src/services/doctor/doctor-service/checks/ as a code-driven fixed-registry tree',
+    invariant:
+      'Doctor checks live under src/services/doctor/doctor-service/checks/ as a code-driven fixed-registry tree',
     execute: runJ11Contract
   },
   J12: {
     kind: 'concurrency-lease',
-    invariant: 'Auto-release on terminal heartbeat is best-effort but idempotent: duplicate release is a no-op',
+    invariant:
+      'Auto-release on terminal heartbeat is best-effort but idempotent: duplicate release is a no-op',
     execute: runJ12Contract
   },
   J13: {
     kind: 'workflow-trace',
-    invariant: 'The skill does NOT import peaks-code internals; it reuses the Loop Engineering primitives',
+    invariant:
+      'The skill does NOT import peaks-code internals; it reuses the Loop Engineering primitives',
     execute: runJ13Contract
   },
   J14: {
@@ -127,7 +137,8 @@ const SPECS: Readonly<Record<JourneyId, ContractSpec>> = {
   },
   J15: {
     kind: 'spec-coverage',
-    invariant: 'Coverage-summary discovery order is fixed: <projectRoot>/coverage/coverage-summary.json then /openspec/coverage-summary.json',
+    invariant:
+      'Coverage-summary discovery order is fixed: <projectRoot>/coverage/coverage-summary.json then /openspec/coverage-summary.json',
     execute: runJ15Contract
   }
 };

@@ -34,7 +34,7 @@ export async function writeStrategy(input: WriteStrategyInput): Promise<Strategy
     rootCauseAnalysis: input.rootCauseAnalysis,
     impactSurface: input.impactSurface,
     designRationale: input.designRationale,
-    ...(input.askUserQuestion ? { askUserQuestion: input.askUserQuestion } : {}),
+    ...(input.askUserQuestion ? { askUserQuestion: input.askUserQuestion } : {})
   };
   const sha256 = sha256Of(partial);
   const final: StrategyOutput = { ...partial, sha256 };
@@ -54,10 +54,17 @@ export async function writeStrategy(input: WriteStrategyInput): Promise<Strategy
     ``,
     `## Design Rationale`,
     input.designRationale,
-    ...(input.askUserQuestion ? [``, `## Decision Needed`, `**${input.askUserQuestion.question}**`, ...input.askUserQuestion.options.map((o) => `- ${o}`)] : []),
+    ...(input.askUserQuestion
+      ? [
+          ``,
+          `## Decision Needed`,
+          `**${input.askUserQuestion.question}**`,
+          ...input.askUserQuestion.options.map((o) => `- ${o}`)
+        ]
+      : []),
     ``,
     `---`,
-    `STRAT.sig: ${sha256}`,
+    `STRAT.sig: ${sha256}`
   ].join('\n');
 
   const tmp = `${input.out}.tmp`;

@@ -36,7 +36,16 @@ export const NOT_DETECTABLE: readonly string[] = [
   'drift where this document is stale: types cannot check doc against server'
 ];
 
-export const HTTP_METHODS = ['get', 'put', 'post', 'delete', 'options', 'head', 'patch', 'trace'] as const;
+export const HTTP_METHODS = [
+  'get',
+  'put',
+  'post',
+  'delete',
+  'options',
+  'head',
+  'patch',
+  'trace'
+] as const;
 
 /** Rendered type text for the side of a one-sided field, i.e. the field is not there at all. */
 export const ABSENT = '(absent)';
@@ -146,7 +155,8 @@ export function isRecord(value: unknown): value is Record<string, unknown> {
 export function toDisplayPath(projectRoot: string, file: string): string {
   const rootParts = safeRealpath(projectRoot).split(sep);
   const fileParts = safeRealpath(file).split(sep);
-  const inside = fileParts.length > rootParts.length
-    && rootParts.every((part, index) => part === fileParts[index]);
+  const inside =
+    fileParts.length > rootParts.length &&
+    rootParts.every((part, index) => part === fileParts[index]);
   return (inside ? fileParts.slice(rootParts.length) : fileParts).join('/');
 }

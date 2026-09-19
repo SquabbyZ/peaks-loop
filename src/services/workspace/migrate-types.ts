@@ -93,7 +93,11 @@ export type MigrateToRuntimeFilePlan = {
   /** The session id the dir belongs to. */
   sessionId: string;
   /** 'moved' or 'skipped-already-canonical' or 'conflict'. */
-  action: 'moved' | 'skipped-already-canonical' | 'conflict-target-exists-with-different-content' | 'f15-conflict-project-scan';
+  action:
+    | 'moved'
+    | 'skipped-already-canonical'
+    | 'conflict-target-exists-with-different-content'
+    | 'f15-conflict-project-scan';
   /** Human-readable reason for the action (for the conflicts list). */
   reason: string;
 };

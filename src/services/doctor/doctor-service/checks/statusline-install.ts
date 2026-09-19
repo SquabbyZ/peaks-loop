@@ -15,19 +15,24 @@ import type { DoctorCheck, DoctorCheckPlugin, DoctorContext } from '../types.js'
 
 function run({ presence, statusLineInstalled }: DoctorContext): readonly DoctorCheck[] {
   if (presence !== null && !statusLineInstalled) {
-    return [{
+    return [
+      {
+        id: 'statusline:install',
+        ok: true,
+        message:
+          'A Peaks skill is active but the statusLine is not installed; run `peaks statusline install` so the active skill shows in the terminal status bar'
+      }
+    ];
+  }
+  return [
+    {
       id: 'statusline:install',
       ok: true,
-      message: 'A Peaks skill is active but the statusLine is not installed; run `peaks statusline install` so the active skill shows in the terminal status bar'
-    }];
-  }
-  return [{
-    id: 'statusline:install',
-    ok: true,
-    message: statusLineInstalled
-      ? 'Peaks statusLine is installed'
-      : 'Peaks statusLine not installed (no active skill; install optional)'
-  }];
+      message: statusLineInstalled
+        ? 'Peaks statusLine is installed'
+        : 'Peaks statusLine not installed (no active skill; install optional)'
+    }
+  ];
 }
 
 export const check: DoctorCheckPlugin = {

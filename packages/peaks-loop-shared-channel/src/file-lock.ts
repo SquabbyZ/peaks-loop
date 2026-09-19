@@ -37,8 +37,8 @@ export class LockTimeoutError extends Error {
   constructor(lockPath: string, attempts: number) {
     super(
       `LOCK_TIMEOUT: failed to acquire ${lockPath} after ${attempts} retries ` +
-      `(a prior holder may be alive or the lock is stale; it will be reaped ` +
-      `after ${LOCK_STALE_MS}ms of inactivity)`
+        `(a prior holder may be alive or the lock is stale; it will be reaped ` +
+        `after ${LOCK_STALE_MS}ms of inactivity)`
     );
     this.lockPath = lockPath;
   }
@@ -88,7 +88,8 @@ export function withFileLockSync<T>(filePath: string, fn: () => T): T {
   if (isStaleLock(lockPath)) {
     try {
       unlinkSync(lockPath);
-    } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+    } catch {
+      // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
       // race: another process reaped it; loop will try to acquire directly.
     }
   }
@@ -109,10 +110,7 @@ export function withFileLockSync<T>(filePath: string, fn: () => T): T {
       if (code !== 'EEXIST') throw err;
       attempts += 1;
       // Exponential backoff capped at LOCK_RETRY_MAX_MS.
-      const wait = Math.min(
-        LOCK_RETRY_BASE_MS * 2 ** Math.min(attempts, 6),
-        LOCK_RETRY_MAX_MS
-      );
+      const wait = Math.min(LOCK_RETRY_BASE_MS * 2 ** Math.min(attempts, 6), LOCK_RETRY_MAX_MS);
       spinSleep(wait);
     }
   }
@@ -126,12 +124,14 @@ export function withFileLockSync<T>(filePath: string, fn: () => T): T {
   } finally {
     try {
       closeSync(fd);
-    } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+    } catch {
+      // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
       // fd may already be closed by the OS on a crash; ignore.
     }
     try {
       unlinkSync(lockPath);
-    } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+    } catch {
+      // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
       // Best-effort: stale .lock is harmless; the next acquirer reaps.
     }
   }

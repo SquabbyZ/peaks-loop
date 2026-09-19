@@ -26,25 +26,36 @@ export function registerSessionResumeCommand(session: Command, _io: ProgramIO): 
       'Read a checkpoint JSON and emit a markdown "resume context" block ' +
         '(LLM-friendly structured format). Wire to peaks session * namespace.'
     )
-    .option('--from <path>', 'path to a checkpoint JSON file (required, or use --session-id for latest)')
+    .option(
+      '--from <path>',
+      'path to a checkpoint JSON file (required, or use --session-id for latest)'
+    )
     .option('--project <path>', 'project root (defaults to current directory)', process.cwd())
-    .option('--session-id <sid>', 'use the latest checkpoint for this session id (alternative to --from)')
+    .option(
+      '--session-id <sid>',
+      'use the latest checkpoint for this session id (alternative to --from)'
+    )
     .option('--json', 'emit a JSON envelope { ok, data: { markdown, ... } }')
     .action(async (opts: SessionResumeOptions) => {
       try {
         const projectRoot = resolveCanonicalProjectRoot(opts.project ?? process.cwd());
         let fromPath = opts.from;
         if (!fromPath && opts.sessionId) {
-          const { latestCheckpointPath } = await import('../../services/session/session-checkpoint-service.js');
+          const { latestCheckpointPath } =
+            await import('../../services/session/session-checkpoint-service.js');
           const latest = latestCheckpointPath(projectRoot, opts.sessionId);
           if (!latest) {
             if (opts.json === true) {
-              process.stdout.write(JSON.stringify({
-                ok: false,
-                error: `NO_CHECKPOINTS: no checkpoints found for session ${opts.sessionId}`
-              }) + '\n');
+              process.stdout.write(
+                JSON.stringify({
+                  ok: false,
+                  error: `NO_CHECKPOINTS: no checkpoints found for session ${opts.sessionId}`
+                }) + '\n'
+              );
             } else {
-              process.stderr.write(`NO_CHECKPOINTS: no checkpoints found for session ${opts.sessionId}\n`);
+              process.stderr.write(
+                `NO_CHECKPOINTS: no checkpoints found for session ${opts.sessionId}\n`
+              );
             }
             process.exitCode = 1;
             return;
@@ -53,10 +64,12 @@ export function registerSessionResumeCommand(session: Command, _io: ProgramIO): 
         }
         if (!fromPath) {
           if (opts.json === true) {
-            process.stdout.write(JSON.stringify({
-              ok: false,
-              error: 'MISSING_PATH: pass --from <path> or --session-id <sid>'
-            }) + '\n');
+            process.stdout.write(
+              JSON.stringify({
+                ok: false,
+                error: 'MISSING_PATH: pass --from <path> or --session-id <sid>'
+              }) + '\n'
+            );
           } else {
             process.stderr.write('MISSING_PATH: pass --from <path> or --session-id <sid>\n');
           }
@@ -65,16 +78,18 @@ export function registerSessionResumeCommand(session: Command, _io: ProgramIO): 
         }
         const ctx = buildResumeContext({ checkpointPath: fromPath });
         if (opts.json === true) {
-          process.stdout.write(JSON.stringify({
-            ok: true,
-            data: {
-              sourcePath: ctx.sourcePath,
-              relativeAgeLabel: ctx.relativeAgeLabel,
-              checkpointAgeMs: ctx.checkpointAgeMs,
-              markdown: ctx.markdown,
-              snapshot: ctx.snapshot
-            }
-          }) + '\n');
+          process.stdout.write(
+            JSON.stringify({
+              ok: true,
+              data: {
+                sourcePath: ctx.sourcePath,
+                relativeAgeLabel: ctx.relativeAgeLabel,
+                checkpointAgeMs: ctx.checkpointAgeMs,
+                markdown: ctx.markdown,
+                snapshot: ctx.snapshot
+              }
+            }) + '\n'
+          );
         } else {
           process.stdout.write(ctx.markdown + '\n');
         }

@@ -31,7 +31,7 @@ import type {
   CrossPassEdge,
   LlmConfidence,
   PassNumber,
-  PassResult,
+  PassResult
 } from './slice-topology-types.js';
 import { arbitrate } from './llm-arbitrator.js';
 import type { LlmRunner } from '../audit/audit-goal-service.js';
@@ -75,12 +75,10 @@ export interface LlmCallTrace {
 // ---------------------------------------------------------------------------
 
 /** `import type { Foo } from '../upper/...'` and `import type * as Foo from '...'` */
-const TYPE_IMPORT_RE =
-  /import\s+type\s+(?:\{[^}]*\}|\*\s+as\s+\w+|\w+)\s+from\s+['"]([^'"]+)['"]/g;
+const TYPE_IMPORT_RE = /import\s+type\s+(?:\{[^}]*\}|\*\s+as\s+\w+|\w+)\s+from\s+['"]([^'"]+)['"]/g;
 
 /** `export { Bar } from '...'` / `export * from '...'` / `export type { Bar } from '...'`. */
-const RE_EXPORT_RE =
-  /\bexport\s+(?:type\s+)?(?:\*|\{[^}]*\})\s+from\s+['"]([^'"]+)['"]/g;
+const RE_EXPORT_RE = /\bexport\s+(?:type\s+)?(?:\*|\{[^}]*\})\s+from\s+['"]([^'"]+)['"]/g;
 
 /** Any `from '...'` — used only for the fixture-shares rule (test files). */
 const ANY_FROM_RE = /\bfrom\s+['"]([^'"]+)['"]/g;
@@ -106,8 +104,7 @@ export async function merge(
   const edges: CrossPassEdge[] = [];
   const llmCalls: LlmCallTrace[] = [];
   const maxLlm = opts.maxLlmCalls ?? 2;
-  const cacheDir =
-    opts.cacheDir ?? join(opts.projectRoot, '.peaks/cache/arbitrator');
+  const cacheDir = opts.cacheDir ?? join(opts.projectRoot, '.peaks/cache/arbitrator');
   mkdirSync(cacheDir, { recursive: true });
 
   for (let i = 0; i < passes.length - 1; i++) {
@@ -126,7 +123,14 @@ export async function merge(
       const emittedBefore = edges.length;
 
       for (const file of slice.files) {
-        detectStaticEdges(file, slice.id, upper.passNumber, lower.passNumber, upperFileToSlice, edges);
+        detectStaticEdges(
+          file,
+          slice.id,
+          upper.passNumber,
+          lower.passNumber,
+          upperFileToSlice,
+          edges
+        );
       }
 
       const hadStaticEdge = edges.length > emittedBefore;
@@ -173,16 +177,18 @@ function detectStaticEdges(
     const resolved = resolveImport(file, spec);
     const upperSliceId = upperFileToSlice.get(resolved);
     if (upperSliceId !== undefined) {
-      edges.push(buildEdge({
-        fromPass,
-        toPass,
-        fromSliceId: upperSliceId,
-        toSliceId: lowerSliceId,
-        kind: 'type-shares',
-        confidence: 'structural',
-        evidence,
-        arbitratedBy: null,
-      }));
+      edges.push(
+        buildEdge({
+          fromPass,
+          toPass,
+          fromSliceId: upperSliceId,
+          toSliceId: lowerSliceId,
+          kind: 'type-shares',
+          confidence: 'structural',
+          evidence,
+          arbitratedBy: null
+        })
+      );
     }
   });
 
@@ -191,16 +197,18 @@ function detectStaticEdges(
     const resolved = resolveImport(file, spec);
     const upperSliceId = upperFileToSlice.get(resolved);
     if (upperSliceId !== undefined) {
-      edges.push(buildEdge({
-        fromPass,
-        toPass,
-        fromSliceId: upperSliceId,
-        toSliceId: lowerSliceId,
-        kind: 'import-re-export',
-        confidence: 'structural',
-        evidence,
-        arbitratedBy: null,
-      }));
+      edges.push(
+        buildEdge({
+          fromPass,
+          toPass,
+          fromSliceId: upperSliceId,
+          toSliceId: lowerSliceId,
+          kind: 'import-re-export',
+          confidence: 'structural',
+          evidence,
+          arbitratedBy: null
+        })
+      );
     }
   });
 
@@ -210,16 +218,18 @@ function detectStaticEdges(
       const resolved = resolveImport(file, spec);
       const upperSliceId = upperFileToSlice.get(resolved);
       if (upperSliceId !== undefined) {
-        edges.push(buildEdge({
-          fromPass,
-          toPass,
-          fromSliceId: upperSliceId,
-          toSliceId: lowerSliceId,
-          kind: 'fixture-shares',
-          confidence: 'structural',
-          evidence,
-          arbitratedBy: null,
-        }));
+        edges.push(
+          buildEdge({
+            fromPass,
+            toPass,
+            fromSliceId: upperSliceId,
+            toSliceId: lowerSliceId,
+            kind: 'fixture-shares',
+            confidence: 'structural',
+            evidence,
+            arbitratedBy: null
+          })
+        );
       }
     });
   }
@@ -250,7 +260,7 @@ async function runLlmFallback(
     cacheDir,
     maxCallsPerInvocation,
     perCallTimeoutMs: 5000,
-    llmRunner,
+    llmRunner
   });
 
   const isFailurePath =
@@ -274,16 +284,18 @@ async function runLlmFallback(
 
   const parsed = parseDependsReply(result.output);
   if (parsed?.depends === true) {
-    edges.push(buildEdge({
-      fromPass,
-      toPass,
-      fromSliceId: upperSliceId,
-      toSliceId: lowerSlice.id,
-      kind: 'llm-arbitrated',
-      confidence: 'llm',
-      evidence: `llm:${result.callId}: ${parsed.reason}`,
-      arbitratedBy: result.callId,
-    }));
+    edges.push(
+      buildEdge({
+        fromPass,
+        toPass,
+        fromSliceId: upperSliceId,
+        toSliceId: lowerSlice.id,
+        kind: 'llm-arbitrated',
+        confidence: 'llm',
+        evidence: `llm:${result.callId}: ${parsed.reason}`,
+        arbitratedBy: result.callId
+      })
+    );
   }
 }
 
@@ -311,7 +323,7 @@ function buildEdge(fields: EdgeFields): CrossPassEdge {
     kind: fields.kind,
     confidence: fields.confidence,
     evidence: fields.evidence,
-    arbitratedBy: fields.arbitratedBy,
+    arbitratedBy: fields.arbitratedBy
   };
 }
 
@@ -335,9 +347,7 @@ function forEachMatch(
  * `.ts` form so the caller can still match against its own index.
  */
 function resolveImport(fromFile: string, spec: string): string {
-  const base = isAbsolute(spec)
-    ? spec
-    : resolve(dirname(fromFile), spec);
+  const base = isAbsolute(spec) ? spec : resolve(dirname(fromFile), spec);
 
   for (const ext of RESOLVE_EXTENSIONS) {
     const candidate = base + ext;
@@ -369,9 +379,10 @@ function parseDependsReply(
     if (typeof obj.depends !== 'boolean') return null;
     return {
       depends: obj.depends,
-      reason: typeof obj.reason === 'string' ? obj.reason : '',
+      reason: typeof obj.reason === 'string' ? obj.reason : ''
     };
-  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+  } catch {
+    // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     return null;
   }
 }

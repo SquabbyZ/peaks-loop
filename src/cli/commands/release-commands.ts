@@ -65,9 +65,9 @@ export function executeCanaryAction(
   // Layers C/D default warning → do not block canary; --strict upgrade would
   // be a separate flag (out of scope for rid-010).
   const precheck = runAllLayers({ projectRoot, strict: false });
-  const blockerEntry = (
-    Object.entries(precheck.layers) as Array<[string, LayerResult]>
-  ).find(([, l]) => l.status === 'blocker');
+  const blockerEntry = (Object.entries(precheck.layers) as Array<[string, LayerResult]>).find(
+    ([, l]) => l.status === 'blocker'
+  );
   if (blockerEntry !== undefined) {
     const [name, result] = blockerEntry;
     return {
@@ -109,9 +109,7 @@ export function executeCanaryAction(
       projectRoot,
       percent,
       currentStage: targetStage,
-      nextAction: percent === 10
-        ? 'peaks release canary --percent 50'
-        : 'peaks release promote'
+      nextAction: percent === 10 ? 'peaks release canary --percent 50' : 'peaks release promote'
     }
   };
 }
@@ -135,19 +133,30 @@ export function registerReleaseCommands(program: Command, io: ProgramIO): void {
     const state = readReleaseState(projectRoot);
     const result = planRelease(state, version);
     if ('error' in result) {
-      printResult(io, fail('release.plan', 'CONFLICT', result.error, { projectRoot }, [
-        'Run `peaks release rollback` or `peaks release hotfix` to clear the active release.'
-      ]), opts.json ?? false);
+      printResult(
+        io,
+        fail('release.plan', 'CONFLICT', result.error, { projectRoot }, [
+          'Run `peaks release rollback` or `peaks release hotfix` to clear the active release.'
+        ]),
+        opts.json ?? false
+      );
       return;
     }
     writeReleaseState(projectRoot, result.state);
-    printResult(io, ok('release.plan', {
-      projectRoot,
-      version: result.record.version,
-      currentStage: result.record.currentStage
-    }, [], [
-      'Run `peaks release canary --percent 10` to begin the canary phase.'
-    ]), opts.json ?? false);
+    printResult(
+      io,
+      ok(
+        'release.plan',
+        {
+          projectRoot,
+          version: result.record.version,
+          currentStage: result.record.currentStage
+        },
+        [],
+        ['Run `peaks release canary --percent 10` to begin the canary phase.']
+      ),
+      opts.json ?? false
+    );
   });
 
   // 2. canary — rid-010 wires precheck as the first step via executeCanaryAction
@@ -169,31 +178,72 @@ export function registerReleaseCommands(program: Command, io: ProgramIO): void {
     const gate = runChangesetHardGate(projectRoot);
     if (gate.state === 'staged-present') {
       process.exitCode = 1;
-      printResult(io, fail('release.canary', 'CHANGESET_BLOCKED', `${gate.stagedFiles.length} staged .changeset/*.md file(s) — refusing canary`, { projectRoot, state: gate.state, stagedFiles: [...gate.stagedFiles], snapshotAt: gate.snapshotAt }, [`Drain pending changesets (coordinating LLM: drain via the standard changeset consumption path), then re-run \`peaks changeset check --project ${projectRoot}\` to confirm clean state.`]), opts.json ?? false);
+      printResult(
+        io,
+        fail(
+          'release.canary',
+          'CHANGESET_BLOCKED',
+          `${gate.stagedFiles.length} staged .changeset/*.md file(s) — refusing canary`,
+          {
+            projectRoot,
+            state: gate.state,
+            stagedFiles: [...gate.stagedFiles],
+            snapshotAt: gate.snapshotAt
+          },
+          [
+            `Drain pending changesets (coordinating LLM: drain via the standard changeset consumption path), then re-run \`peaks changeset check --project ${projectRoot}\` to confirm clean state.`
+          ]
+        ),
+        opts.json ?? false
+      );
       return;
     }
     const result = executeCanaryAction(opts, io, projectRoot);
     if (result.status === 'PRECHECK_BLOCKER') {
       const layer = result.blockerLayer;
-      printResult(io, fail(
-        'release.canary',
-        'PRECHECK_BLOCKER',
-        `precheck blocker on layer '${layer?.name ?? 'unknown'}': ${layer?.result.message ?? ''}`,
-        result.payload,
-        [
-          `Run 'peaks release precheck --project ${projectRoot}' for the full 4-layer envelope.`,
-          `Run 'peaks release precheck --strict' to also surface warning-layer issues.`,
-          `Remediation: ${layer?.result.remediation ?? ''}`
-        ]
-      ), opts.json ?? false);
+      printResult(
+        io,
+        fail(
+          'release.canary',
+          'PRECHECK_BLOCKER',
+          `precheck blocker on layer '${layer?.name ?? 'unknown'}': ${layer?.result.message ?? ''}`,
+          result.payload,
+          [
+            `Run 'peaks release precheck --project ${projectRoot}' for the full 4-layer envelope.`,
+            `Run 'peaks release precheck --strict' to also surface warning-layer issues.`,
+            `Remediation: ${layer?.result.remediation ?? ''}`
+          ]
+        ),
+        opts.json ?? false
+      );
       return;
     }
     if (result.status === 'INVALID_PERCENT') {
-      printResult(io, fail('release.canary', 'INVALID_PERCENT', `--percent must be 10 or 50 (got "${opts.percent}")`, result.payload, []), opts.json ?? false);
+      printResult(
+        io,
+        fail(
+          'release.canary',
+          'INVALID_PERCENT',
+          `--percent must be 10 or 50 (got "${opts.percent}")`,
+          result.payload,
+          []
+        ),
+        opts.json ?? false
+      );
       return;
     }
     if (result.status === 'INVALID_TRANSITION') {
-      printResult(io, fail('release.canary', 'INVALID_TRANSITION', String(result.payload['error'] ?? ''), result.payload, []), opts.json ?? false);
+      printResult(
+        io,
+        fail(
+          'release.canary',
+          'INVALID_TRANSITION',
+          String(result.payload['error'] ?? ''),
+          result.payload,
+          []
+        ),
+        opts.json ?? false
+      );
       return;
     }
     printResult(io, ok('release.canary', result.payload, [], []), opts.json ?? false);
@@ -214,17 +264,30 @@ export function registerReleaseCommands(program: Command, io: ProgramIO): void {
     const state = readReleaseState(projectRoot);
     const result = transitionRelease(state, 'promoted', opts.note);
     if ('error' in result) {
-      printResult(io, fail('release.promote', 'INVALID_TRANSITION', result.error, { projectRoot }, []), opts.json ?? false);
+      printResult(
+        io,
+        fail('release.promote', 'INVALID_TRANSITION', result.error, { projectRoot }, []),
+        opts.json ?? false
+      );
       return;
     }
     writeReleaseState(projectRoot, result.state);
-    printResult(io, ok('release.promote', {
-      projectRoot,
-      currentStage: 'promoted',
-      promotedAt: result.state.active?.promotedAt
-    }, [], [
-      'Watch window started. Run `peaks release watch` to check progress; `peaks release rollback` for emergency.'
-    ]), opts.json ?? false);
+    printResult(
+      io,
+      ok(
+        'release.promote',
+        {
+          projectRoot,
+          currentStage: 'promoted',
+          promotedAt: result.state.active?.promotedAt
+        },
+        [],
+        [
+          'Watch window started. Run `peaks release watch` to check progress; `peaks release rollback` for emergency.'
+        ]
+      ),
+      opts.json ?? false
+    );
   });
 
   // 4. watch
@@ -241,27 +304,39 @@ export function registerReleaseCommands(program: Command, io: ProgramIO): void {
     const projectRoot = opts.project ?? findProjectRoot(process.cwd()) ?? process.cwd();
     const state = readReleaseState(projectRoot);
     if (state.active === null) {
-      printResult(io, fail('release.watch', 'NO_ACTIVE', 'no active release to watch', { projectRoot }, [
-        'Run `peaks release plan <version>` to start one.'
-      ]), opts.json ?? false);
+      printResult(
+        io,
+        fail('release.watch', 'NO_ACTIVE', 'no active release to watch', { projectRoot }, [
+          'Run `peaks release plan <version>` to start one.'
+        ]),
+        opts.json ?? false
+      );
       return;
     }
     const win = watchWindow(state.active);
     const readyForDone = win.percentComplete >= 1.0;
-    printResult(io, ok('release.watch', {
-      projectRoot,
-      version: state.active.version,
-      currentStage: state.active.currentStage,
-      window: {
-        elapsedMs: win.elapsedMs,
-        remainingMs: win.remainingMs,
-        windowMs: win.windowMs,
-        percentComplete: Math.round(win.percentComplete * 100) / 100
-      },
-      readyForDone
-    }, readyForDone
-      ? ['Watch window complete. Run `peaks release done` to mark the release done.']
-      : []), opts.json ?? false);
+    printResult(
+      io,
+      ok(
+        'release.watch',
+        {
+          projectRoot,
+          version: state.active.version,
+          currentStage: state.active.currentStage,
+          window: {
+            elapsedMs: win.elapsedMs,
+            remainingMs: win.remainingMs,
+            windowMs: win.windowMs,
+            percentComplete: Math.round(win.percentComplete * 100) / 100
+          },
+          readyForDone
+        },
+        readyForDone
+          ? ['Watch window complete. Run `peaks release done` to mark the release done.']
+          : []
+      ),
+      opts.json ?? false
+    );
   });
 
   // 5. done (implicit helper; not in original spec but useful)
@@ -277,7 +352,11 @@ export function registerReleaseCommands(program: Command, io: ProgramIO): void {
     const projectRoot = opts.project ?? findProjectRoot(process.cwd()) ?? process.cwd();
     const state = readReleaseState(projectRoot);
     if (state.active === null) {
-      printResult(io, fail('release.done', 'NO_ACTIVE', 'no active release', { projectRoot }, []), opts.json ?? false);
+      printResult(
+        io,
+        fail('release.done', 'NO_ACTIVE', 'no active release', { projectRoot }, []),
+        opts.json ?? false
+      );
       return;
     }
     // No stage guard here: `watching` is unreachable (nothing ever calls
@@ -288,23 +367,50 @@ export function registerReleaseCommands(program: Command, io: ProgramIO): void {
     // `promoted` may now reach `done` directly.
     const win = watchWindow(state.active);
     if (win.percentComplete < 1.0) {
-      printResult(io, fail('release.done', 'WATCH_INCOMPLETE', `watch window not yet complete (${Math.round(win.percentComplete * 100)}% elapsed)`, { projectRoot }, []), opts.json ?? false);
+      printResult(
+        io,
+        fail(
+          'release.done',
+          'WATCH_INCOMPLETE',
+          `watch window not yet complete (${Math.round(win.percentComplete * 100)}% elapsed)`,
+          { projectRoot },
+          []
+        ),
+        opts.json ?? false
+      );
       return;
     }
     const result = transitionRelease(state, 'done');
     if ('error' in result) {
-      printResult(io, fail('release.done', 'INVALID_TRANSITION', result.error, { projectRoot }, []), opts.json ?? false);
+      printResult(
+        io,
+        fail('release.done', 'INVALID_TRANSITION', result.error, { projectRoot }, []),
+        opts.json ?? false
+      );
       return;
     }
     // Move to history.
     const finalRecord = result.state.active!;
-    const newState: import('../../services/release/release-state.js').ReleaseState = { version: 1, active: null, history: [...result.state.history, finalRecord] };
+    const newState: import('../../services/release/release-state.js').ReleaseState = {
+      version: 1,
+      active: null,
+      history: [...result.state.history, finalRecord]
+    };
     writeReleaseState(projectRoot, newState);
-    printResult(io, ok('release.done', {
-      projectRoot,
-      version: finalRecord.version,
-      doneAt: finalRecord.doneAt
-    }, [], []), opts.json ?? false);
+    printResult(
+      io,
+      ok(
+        'release.done',
+        {
+          projectRoot,
+          version: finalRecord.version,
+          doneAt: finalRecord.doneAt
+        },
+        [],
+        []
+      ),
+      opts.json ?? false
+    );
   });
 
   // 6. rollback
@@ -323,17 +429,28 @@ export function registerReleaseCommands(program: Command, io: ProgramIO): void {
     const state = readReleaseState(projectRoot);
     const result = rollbackRelease(state, opts.note);
     if ('error' in result) {
-      printResult(io, fail('release.rollback', 'INVALID_TRANSITION', result.error, { projectRoot }, []), opts.json ?? false);
+      printResult(
+        io,
+        fail('release.rollback', 'INVALID_TRANSITION', result.error, { projectRoot }, []),
+        opts.json ?? false
+      );
       return;
     }
     writeReleaseState(projectRoot, result.state);
-    printResult(io, ok('release.rollback', {
-      projectRoot,
-      rolledBack: result.record.version,
-      finalStage: result.record.currentStage
-    }, [], [
-      'Run `peaks release hotfix <version>` to start a hotfix on the previous release.'
-    ]), opts.json ?? false);
+    printResult(
+      io,
+      ok(
+        'release.rollback',
+        {
+          projectRoot,
+          rolledBack: result.record.version,
+          finalStage: result.record.currentStage
+        },
+        [],
+        ['Run `peaks release hotfix <version>` to start a hotfix on the previous release.']
+      ),
+      opts.json ?? false
+    );
   });
 
   // 7. hotfix
@@ -353,23 +470,50 @@ export function registerReleaseCommands(program: Command, io: ProgramIO): void {
     const changesetGate = runChangesetHardGate(projectRoot);
     if (changesetGate.state === 'staged-present') {
       process.exitCode = 1;
-      printResult(io, fail('release.hotfix', 'CHANGESET_BLOCKED', `${changesetGate.stagedFiles.length} staged .changeset/*.md file(s) — refusing to start hotfix`, { projectRoot, stagedFiles: [...changesetGate.stagedFiles], snapshotAt: changesetGate.snapshotAt }, [`Drain pending changesets (coordinating LLM: drain via the standard changeset consumption path), then re-run \`peaks changeset check --project ${projectRoot}\` to confirm clean state.`]), opts.json ?? false);
+      printResult(
+        io,
+        fail(
+          'release.hotfix',
+          'CHANGESET_BLOCKED',
+          `${changesetGate.stagedFiles.length} staged .changeset/*.md file(s) — refusing to start hotfix`,
+          {
+            projectRoot,
+            stagedFiles: [...changesetGate.stagedFiles],
+            snapshotAt: changesetGate.snapshotAt
+          },
+          [
+            `Drain pending changesets (coordinating LLM: drain via the standard changeset consumption path), then re-run \`peaks changeset check --project ${projectRoot}\` to confirm clean state.`
+          ]
+        ),
+        opts.json ?? false
+      );
       return;
     }
     const state = readReleaseState(projectRoot);
     const result = hotfixRelease(state, version, opts.note);
     if ('error' in result) {
-      printResult(io, fail('release.hotfix', 'HOTFIX_FAILED', result.error, { projectRoot }, []), opts.json ?? false);
+      printResult(
+        io,
+        fail('release.hotfix', 'HOTFIX_FAILED', result.error, { projectRoot }, []),
+        opts.json ?? false
+      );
       return;
     }
     writeReleaseState(projectRoot, result.state);
-    printResult(io, ok('release.hotfix', {
-      projectRoot,
-      version: result.record.version,
-      currentStage: result.record.currentStage
-    }, [], [
-      'Hotfix started at canary-10. Run `peaks release canary --percent 50` to advance.'
-    ]), opts.json ?? false);
+    printResult(
+      io,
+      ok(
+        'release.hotfix',
+        {
+          projectRoot,
+          version: result.record.version,
+          currentStage: result.record.currentStage
+        },
+        [],
+        ['Hotfix started at canary-10. Run `peaks release canary --percent 50` to advance.']
+      ),
+      opts.json ?? false
+    );
   });
 
   // 8. precheck — rid-010 (Phase 4 slice 1) — 4-layer version precheck.
@@ -388,9 +532,10 @@ export function registerReleaseCommands(program: Command, io: ProgramIO): void {
     const projectRoot = opts.project ?? findProjectRoot(process.cwd()) ?? process.cwd();
     const envelope = runAllLayers({ projectRoot, strict: opts.strict === true });
     process.exitCode = envelope.ok ? 0 : 1;
-    const warningLines = envelope.overall === 'warning'
-      ? ['Warning layers reported but did not block. Re-run with --strict to upgrade.']
-      : [];
+    const warningLines =
+      envelope.overall === 'warning'
+        ? ['Warning layers reported but did not block. Re-run with --strict to upgrade.']
+        : [];
     printResult(io, ok('release.precheck', envelope, [], warningLines), opts.json ?? false);
   });
 }

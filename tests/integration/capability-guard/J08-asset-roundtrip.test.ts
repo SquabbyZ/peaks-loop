@@ -12,7 +12,12 @@ const JOURNEY = 'J08' as const;
 describe('J08 asset-roundtrip contract', () => {
   it('requires every gate to be in a passing state before crystallizing', async () => {
     const contract = getGuardContract(JOURNEY)!;
-    const r = await runGuard(contract, { projectRoot: REPO, sessionId: JOURNEY, contract, baselineInvariant: 'auto' });
+    const r = await runGuard(contract, {
+      projectRoot: REPO,
+      sessionId: JOURNEY,
+      contract,
+      baselineInvariant: 'auto'
+    });
     expect(r.status).toBe('pass');
   }, 300_000);
 });

@@ -89,7 +89,11 @@ export function writeJobProgress(
   return record;
 }
 
-export function readJobProgress(projectRoot: string, sessionId: string, jobId: string): JobProgress {
+export function readJobProgress(
+  projectRoot: string,
+  sessionId: string,
+  jobId: string
+): JobProgress {
   const path = join(jobProgressDir(projectRoot, sessionId, jobId), 'progress.json');
   if (!existsSync(path)) {
     throw new Error(`JobProgressStore: no progress for ${jobId} at ${path}`);
@@ -98,13 +102,18 @@ export function readJobProgress(projectRoot: string, sessionId: string, jobId: s
   return JobProgressSchema.parse(JSON.parse(raw));
 }
 
-export function tryReadJobProgress(projectRoot: string, sessionId: string, jobId: string): JobProgress | null {
+export function tryReadJobProgress(
+  projectRoot: string,
+  sessionId: string,
+  jobId: string
+): JobProgress | null {
   const path = join(jobProgressDir(projectRoot, sessionId, jobId), 'progress.json');
   if (!existsSync(path)) return null;
   try {
     const raw = readFileSync(path, 'utf8');
     return JobProgressSchema.parse(JSON.parse(raw));
-  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+  } catch {
+    // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     return null;
   }
 }

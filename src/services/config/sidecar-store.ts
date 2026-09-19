@@ -1,7 +1,11 @@
 import { existsSync, mkdirSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { readConfigFileSafely, validateUserConfigPathForWrite, writeConfigFileSafely } from './config-safety.js';
+import {
+  readConfigFileSafely,
+  validateUserConfigPathForWrite,
+  writeConfigFileSafely
+} from './config-safety.js';
 
 /**
  * Sidecar storage for `~/.peaks/config.json` (the slim 2.0 file).
@@ -59,7 +63,12 @@ export function readSidecarJson<T>(path: string, fallback: T): T {
 export function writeSidecarJson(path: string, content: unknown): void {
   mkdirSync(dirname(path), { recursive: true });
   const serialized = JSON.stringify(content, null, 2) + '\n';
-  writeConfigFileSafely(path, serialized, () => validateUserConfigPathForWrite(path), SIDECAR_ERROR_MESSAGE);
+  writeConfigFileSafely(
+    path,
+    serialized,
+    () => validateUserConfigPathForWrite(path),
+    SIDECAR_ERROR_MESSAGE
+  );
 }
 
 export function ensureSidecarVersion(content: { version?: unknown }): { version: string } {

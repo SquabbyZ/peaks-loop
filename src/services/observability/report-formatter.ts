@@ -52,7 +52,9 @@ function markdownHeader(input: ReportInput): string {
   const lines: string[] = [];
   lines.push('# peaks observability report');
   lines.push('');
-  lines.push(`- **scope**: ${input.scope === 'all-sessions' ? 'all sessions' : `session \`${input.scopeId}\``}`);
+  lines.push(
+    `- **scope**: ${input.scope === 'all-sessions' ? 'all sessions' : `session \`${input.scopeId}\``}`
+  );
   lines.push(`- **period**: ${input.period}`);
   lines.push(`- **generated at**: ${input.generatedAt}`);
   lines.push(`- **scope marker**: from v2.11.1 install date (no backfill per PRD Q5)`);
@@ -88,7 +90,9 @@ function markdownSliceTable(slices: SliceRollup[]): string {
   lines.push('| rid | transitions | final state | duration | success |');
   lines.push('|---|---|---|---|---|');
   for (const slice of slices) {
-    lines.push(`| ${slice.sliceRid} | ${slice.transitions} | ${slice.finalState ?? '—'} | ${formatDurationMs(slice.durationMs)} | ${slice.success ? '✓' : '✗'} |`);
+    lines.push(
+      `| ${slice.sliceRid} | ${slice.transitions} | ${slice.finalState ?? '—'} | ${formatDurationMs(slice.durationMs)} | ${slice.success ? '✓' : '✗'} |`
+    );
   }
   lines.push('');
   return lines.join('\n');
@@ -153,7 +157,9 @@ function markdownSlowestSlices(slices: SliceRollup[]): string {
   lines.push('| rid | duration | transitions | final state |');
   lines.push('|---|---|---|---|');
   for (const slice of sorted) {
-    lines.push(`| ${slice.sliceRid} | ${formatDurationMs(slice.durationMs)} | ${slice.transitions} | ${slice.finalState ?? '—'} |`);
+    lines.push(
+      `| ${slice.sliceRid} | ${formatDurationMs(slice.durationMs)} | ${slice.transitions} | ${slice.finalState ?? '—'} |`
+    );
   }
   lines.push('');
   return lines.join('\n');

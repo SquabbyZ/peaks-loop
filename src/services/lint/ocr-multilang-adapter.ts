@@ -80,12 +80,11 @@ function emptyByLanguage(): Readonly<Record<Ocr18Language, number>> {
 
 export function buildOcr18Args(options: Ocr18RunOptions): string[] {
   if (!isSupportedLanguage(options.language)) {
-    throw Object.assign(new Error(`unsupported language: ${options.language}`), { code: 'LANGUAGE_UNSUPPORTED' });
+    throw Object.assign(new Error(`unsupported language: ${options.language}`), {
+      code: 'LANGUAGE_UNSUPPORTED'
+    });
   }
-  const args: string[] = [
-    '--package', OCR_18_PACKAGE,
-    '--', 'ocr'
-  ];
+  const args: string[] = ['--package', OCR_18_PACKAGE, '--', 'ocr'];
   if (options.delegate === true) {
     args.push('delegate', 'preview');
     if (options.from !== undefined) args.push('--from', options.from);
@@ -161,7 +160,13 @@ export function runOcr18(options: Ocr18RunOptions): Ocr18RunResult {
       if (Array.isArray(parsed.findings)) {
         for (const entry of parsed.findings) {
           if (entry === null || typeof entry !== 'object') continue;
-          const f = entry as { file?: unknown; line?: unknown; rule?: unknown; severity?: unknown; message?: unknown };
+          const f = entry as {
+            file?: unknown;
+            line?: unknown;
+            rule?: unknown;
+            severity?: unknown;
+            message?: unknown;
+          };
           findings.push({
             filePath: typeof f.file === 'string' ? f.file : '',
             line: typeof f.line === 'number' ? f.line : 0,

@@ -148,12 +148,9 @@ function renderBaselineTemplate(): string {
 
 function buildPlan(projectRoot: string, apply: boolean): PerfBaselinePlan {
   const sessionId = getSessionId(projectRoot);
-  const sessionRoot = sessionId !== null
-    ? getSessionDir(projectRoot, sessionId)
-    : null;
-  const perfBaselinePath = sessionRoot !== null
-    ? join(sessionRoot, 'rd', 'perf-baseline.md')
-    : null;
+  const sessionRoot = sessionId !== null ? getSessionDir(projectRoot, sessionId) : null;
+  const perfBaselinePath =
+    sessionRoot !== null ? join(sessionRoot, 'rd', 'perf-baseline.md') : null;
   const plannedWrites: PerfBaselinePlan['plannedWrites'] = [];
   if (sessionRoot !== null && perfBaselinePath !== null) {
     plannedWrites.push({
@@ -201,7 +198,9 @@ async function planPerfBaselineInit(options: PerfBaselineInitOptions): Promise<P
   return plan;
 }
 
-export async function executePerfBaselineInit(options: PerfBaselineInitOptions): Promise<PerfBaselineResult> {
+export async function executePerfBaselineInit(
+  options: PerfBaselineInitOptions
+): Promise<PerfBaselineResult> {
   const plan = await planPerfBaselineInit(options);
   const writtenFiles: string[] = [];
   const createdDirectories: string[] = [];

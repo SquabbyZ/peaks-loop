@@ -72,7 +72,9 @@ export function parseMajorVersion(spec: string): number | null {
   return Number.isSafeInteger(n) ? n : null;
 }
 
-async function readPackageJson(packageJsonPath: string): Promise<{ exists: boolean; record: PackageJsonRecord | null; error?: string }> {
+async function readPackageJson(
+  packageJsonPath: string
+): Promise<{ exists: boolean; record: PackageJsonRecord | null; error?: string }> {
   if (!(await pathExists(packageJsonPath))) {
     return { exists: false, record: null };
   }
@@ -208,11 +210,7 @@ async function discoverWorkspacePackageJsons(
       const lernaRaw = await readText(lernaPath);
       const lerna = JSON.parse(lernaRaw) as { packages?: unknown };
       if (Array.isArray(lerna.packages) && lerna.packages.every((p) => typeof p === 'string')) {
-        const paths = await expandWorkspaceGlobs(
-          projectRoot,
-          lerna.packages as string[],
-          warnings
-        );
+        const paths = await expandWorkspaceGlobs(projectRoot, lerna.packages as string[], warnings);
         return { paths, source: 'lerna' };
       }
     } catch (error) {
@@ -275,7 +273,9 @@ async function expandWorkspaceGlobs(
     try {
       entries = await readdir(parentDir, { withFileTypes: true });
     } catch (error) {
-      warnings.push(`workspace glob "${glob}": could not read ${parentDir}: ${(error as Error).message}`);
+      warnings.push(
+        `workspace glob "${glob}": could not read ${parentDir}: ${(error as Error).message}`
+      );
       continue;
     }
 
@@ -294,9 +294,10 @@ async function expandWorkspaceGlobs(
  * Parse a single `package.json` record into `LibraryEntry` rows.
  * Returns the entries and the per-scope tallies for that one package.
  */
-function extractEntriesFromPackageJson(
-  record: PackageJsonRecord
-): { entries: LibraryEntry[]; byScope: LibraryReport['byScope'] } {
+function extractEntriesFromPackageJson(record: PackageJsonRecord): {
+  entries: LibraryEntry[];
+  byScope: LibraryReport['byScope'];
+} {
   const byScope: LibraryReport['byScope'] = {
     dependencies: 0,
     devDependencies: 0,
@@ -384,7 +385,9 @@ export async function scanLibraries(options: ScanLibrariesOptions): Promise<Libr
       const { exists, record, error } = await readPackageJson(pkgPath);
       if (!exists) continue;
       if (record === null) {
-        warnings.push(`${normalizePathForDisplay(pkgPath)} is not valid JSON: ${error ?? 'unknown parse error'}`);
+        warnings.push(
+          `${normalizePathForDisplay(pkgPath)} is not valid JSON: ${error ?? 'unknown parse error'}`
+        );
         continue;
       }
       const { entries, byScope: pkgByScope } = extractEntriesFromPackageJson(record);

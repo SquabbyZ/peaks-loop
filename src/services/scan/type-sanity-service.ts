@@ -28,10 +28,79 @@ export type TypeSanityOptions = {
   baseRef?: string;
 };
 
-const SOURCE_EXTENSIONS = new Set(['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs', '.vue', '.svelte', '.py', '.go', '.rs', '.java', '.kt', '.swift', '.cpp', '.c', '.h', '.cs', '.rb', '.php', '.scala', '.dart', '.less', '.scss', '.sass', '.css']);
+const SOURCE_EXTENSIONS = new Set([
+  '.ts',
+  '.tsx',
+  '.js',
+  '.jsx',
+  '.mjs',
+  '.cjs',
+  '.vue',
+  '.svelte',
+  '.py',
+  '.go',
+  '.rs',
+  '.java',
+  '.kt',
+  '.swift',
+  '.cpp',
+  '.c',
+  '.h',
+  '.cs',
+  '.rb',
+  '.php',
+  '.scala',
+  '.dart',
+  '.less',
+  '.scss',
+  '.sass',
+  '.css'
+]);
 const DOCS_EXTENSIONS = new Set(['.md', '.mdx', '.rst', '.txt']);
-const LOCKFILE_NAMES = new Set(['pnpm-lock.yaml', 'package-lock.json', 'yarn.lock', 'bun.lockb', 'Cargo.lock', 'Gemfile.lock', 'composer.lock', 'go.sum', 'poetry.lock']);
-const CONFIG_NAMES = new Set(['package.json', 'tsconfig.json', 'tsconfig.base.json', 'vite.config.ts', 'vite.config.js', 'webpack.config.js', 'next.config.js', 'next.config.ts', '.eslintrc', '.eslintrc.js', '.eslintrc.cjs', '.eslintrc.json', '.prettierrc', '.prettierrc.json', 'eslint.config.js', '.gitignore', '.npmrc', 'docker-compose.yml', 'docker-compose.yaml', 'Dockerfile', 'Makefile', '.editorconfig', 'tailwind.config.js', 'tailwind.config.ts', 'postcss.config.js', 'commitlint.config.js', 'lefthook.yml', 'turbo.json', 'lerna.json', 'pnpm-workspace.yaml', 'nx.json']);
+const LOCKFILE_NAMES = new Set([
+  'pnpm-lock.yaml',
+  'package-lock.json',
+  'yarn.lock',
+  'bun.lockb',
+  'Cargo.lock',
+  'Gemfile.lock',
+  'composer.lock',
+  'go.sum',
+  'poetry.lock'
+]);
+const CONFIG_NAMES = new Set([
+  'package.json',
+  'tsconfig.json',
+  'tsconfig.base.json',
+  'vite.config.ts',
+  'vite.config.js',
+  'webpack.config.js',
+  'next.config.js',
+  'next.config.ts',
+  '.eslintrc',
+  '.eslintrc.js',
+  '.eslintrc.cjs',
+  '.eslintrc.json',
+  '.prettierrc',
+  '.prettierrc.json',
+  'eslint.config.js',
+  '.gitignore',
+  '.npmrc',
+  'docker-compose.yml',
+  'docker-compose.yaml',
+  'Dockerfile',
+  'Makefile',
+  '.editorconfig',
+  'tailwind.config.js',
+  'tailwind.config.ts',
+  'postcss.config.js',
+  'commitlint.config.js',
+  'lefthook.yml',
+  'turbo.json',
+  'lerna.json',
+  'pnpm-workspace.yaml',
+  'nx.json'
+]);
 const CONFIG_EXTENSIONS = new Set(['.toml', '.ini', '.cfg', '.env']);
 
 function classifyFile(filePath: string): FileCategory {
@@ -40,10 +109,21 @@ function classifyFile(filePath: string): FileCategory {
   if (LOCKFILE_NAMES.has(name)) return 'lockfile';
   if (CONFIG_NAMES.has(name)) return 'config';
   if (CONFIG_EXTENSIONS.has(ext)) return 'config';
-  if (filePath.startsWith('.github/') || filePath.includes('/workflows/') || name === 'release.yml' || name.endsWith('.yml') || name.endsWith('.yaml')) return 'config';
+  if (
+    filePath.startsWith('.github/') ||
+    filePath.includes('/workflows/') ||
+    name === 'release.yml' ||
+    name.endsWith('.yml') ||
+    name.endsWith('.yaml')
+  )
+    return 'config';
   if (DOCS_EXTENSIONS.has(ext)) return 'docs';
   // Test files: anything under tests/, __tests__/, or matching *.test.*, *.spec.*
-  if (/\b(?:tests?|__tests__|__mocks__|spec)\b/.test(filePath) || /\.(test|spec)\.[a-z]+$/i.test(name)) return 'test';
+  if (
+    /\b(?:tests?|__tests__|__mocks__|spec)\b/.test(filePath) ||
+    /\.(test|spec)\.[a-z]+$/i.test(name)
+  )
+    return 'test';
   if (SOURCE_EXTENSIONS.has(ext)) return 'source';
   return 'unknown';
 }
@@ -62,11 +142,26 @@ function isArtifactWorkspaceFile(filePath: string): boolean {
 function tryGitDiffFiles(projectRoot: string, baseRef: string): { ok: boolean; files: string[] } {
   try {
     // Combine: tracked changes vs baseRef + untracked files. Use porcelain status for untracked too.
-    const trackedRaw = execFileSync('git', ['-C', projectRoot, 'diff', '--name-only', baseRef], { encoding: 'utf8', windowsHide: true });
-    const tracked = trackedRaw.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
-    const untrackedRaw = execFileSync('git', ['-C', projectRoot, 'ls-files', '--others', '--exclude-standard'], { encoding: 'utf8', windowsHide: true });
-    const untracked = untrackedRaw.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
-    const merged = Array.from(new Set([...tracked, ...untracked])).filter((file) => !isArtifactWorkspaceFile(file));
+    const trackedRaw = execFileSync('git', ['-C', projectRoot, 'diff', '--name-only', baseRef], {
+      encoding: 'utf8',
+      windowsHide: true
+    });
+    const tracked = trackedRaw
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean);
+    const untrackedRaw = execFileSync(
+      'git',
+      ['-C', projectRoot, 'ls-files', '--others', '--exclude-standard'],
+      { encoding: 'utf8', windowsHide: true }
+    );
+    const untracked = untrackedRaw
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean);
+    const merged = Array.from(new Set([...tracked, ...untracked])).filter(
+      (file) => !isArtifactWorkspaceFile(file)
+    );
     return { ok: true, files: merged };
   } catch {
     return { ok: false, files: [] };
@@ -89,7 +184,14 @@ function buildBreakdown(files: string[]): FileBreakdown[] {
 }
 
 function suggestTypes(breakdown: FileBreakdown[]): RequestType[] {
-  const counts: Record<FileCategory, number> = { source: 0, config: 0, docs: 0, lockfile: 0, test: 0, unknown: 0 };
+  const counts: Record<FileCategory, number> = {
+    source: 0,
+    config: 0,
+    docs: 0,
+    lockfile: 0,
+    test: 0,
+    unknown: 0
+  };
   for (const entry of breakdown) counts[entry.category] = entry.count;
   const hasSource = counts.source > 0;
   const hasConfig = counts.config > 0;
@@ -100,7 +202,8 @@ function suggestTypes(breakdown: FileBreakdown[]): RequestType[] {
   if (!hasSource && !hasConfig && hasDocs) return ['docs'];
   if (!hasSource && !hasDocs && hasConfig) return ['config'];
   if (!hasSource && !hasDocs && !hasConfig && hasLockfile) return ['chore'];
-  if (!hasSource && !hasDocs && !hasConfig && !hasLockfile && hasTest) return ['bugfix', 'refactor'];
+  if (!hasSource && !hasDocs && !hasConfig && !hasLockfile && hasTest)
+    return ['bugfix', 'refactor'];
   if (hasSource) return ['feature', 'bugfix', 'refactor'];
   return ['feature', 'bugfix', 'refactor', 'config', 'docs', 'chore'];
 }
@@ -109,7 +212,12 @@ function isConsistent(declared: RequestType, suggested: ReadonlyArray<RequestTyp
   return suggested.includes(declared);
 }
 
-function buildRationale(declared: RequestType, breakdown: FileBreakdown[], suggested: ReadonlyArray<RequestType>, consistent: boolean): string {
+function buildRationale(
+  declared: RequestType,
+  breakdown: FileBreakdown[],
+  suggested: ReadonlyArray<RequestType>,
+  consistent: boolean
+): string {
   const summary = breakdown.map((entry) => `${entry.category}=${entry.count}`).join(', ');
   if (consistent) {
     return `declared --type=${declared} is consistent with the changed files (${summary})`;
@@ -122,7 +230,11 @@ export function checkTypeSanity(options: TypeSanityOptions): TypeSanityReport {
   const { ok: gitAvailable, files } = tryGitDiffFiles(options.projectRoot, baseRef);
   const breakdown = buildBreakdown(files);
   const suggested = suggestTypes(breakdown);
-  const consistent = !gitAvailable ? true : files.length === 0 ? true : isConsistent(options.declaredType, suggested);
+  const consistent = !gitAvailable
+    ? true
+    : files.length === 0
+      ? true
+      : isConsistent(options.declaredType, suggested);
   return {
     declaredType: options.declaredType,
     gitAvailable,

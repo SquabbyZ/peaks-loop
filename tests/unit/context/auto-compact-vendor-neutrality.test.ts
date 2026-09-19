@@ -102,8 +102,18 @@ describe('compact dispatch — capability, not IDE name', () => {
 
     // `trae` ships no `compact` profile — the refusal now comes from the
     // profile's absence, and says so, rather than from an IDE shortlist.
-    const main = await dispatchIdeCompact({ projectRoot: root, sessionId: 'sid', env: TRAE_ENV, target: 'main' });
-    const sub = await dispatchIdeCompact({ projectRoot: root, sessionId: 'sid', env: TRAE_ENV, target: 'sub-agent' });
+    const main = await dispatchIdeCompact({
+      projectRoot: root,
+      sessionId: 'sid',
+      env: TRAE_ENV,
+      target: 'main'
+    });
+    const sub = await dispatchIdeCompact({
+      projectRoot: root,
+      sessionId: 'sid',
+      env: TRAE_ENV,
+      target: 'sub-agent'
+    });
 
     for (const result of [main, sub]) {
       expect(result.ok).toBe(false);

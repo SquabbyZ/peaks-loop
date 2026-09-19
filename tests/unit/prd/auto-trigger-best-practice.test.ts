@@ -42,16 +42,17 @@ const spawnMock = vi.mocked(spawn);
 const { existsSync } = await import('node:fs');
 const existsSyncMock = vi.mocked(existsSync);
 
-const { extractBusinessGoal, triggerBestPracticeScan } = await import(
-  '../../../src/services/prd/best-practice-auto-trigger.js'
-);
+const { extractBusinessGoal, triggerBestPracticeScan } =
+  await import('../../../src/services/prd/best-practice-auto-trigger.js');
 
 type FakeChild = EventEmitter & {
   pid?: number;
   unref?: () => void;
 };
 
-function makeFakeChild(opts: { pid?: number; fire?: 'spawn' | 'error'; errorMessage?: string } = {}): FakeChild {
+function makeFakeChild(
+  opts: { pid?: number; fire?: 'spawn' | 'error'; errorMessage?: string } = {}
+): FakeChild {
   const ee = new EventEmitter() as FakeChild;
   ee.pid = opts.pid ?? 12345;
   ee.unref = () => {
@@ -165,7 +166,9 @@ describe('triggerBestPracticeScan (auto-trigger post-step)', () => {
   it('Case 1: handoff body has businessGoal → spawn invoked with correct args (intent + project + json flag)', async () => {
     // given: a real PRD body whose ## Goals first bullet is a non-empty goal
     writePrdArtifact('- Wire peaks best-practice-scan after businessGoal completes');
-    spawnMock.mockReturnValue(makeFakeChild({ pid: 99999, fire: 'spawn' }) as unknown as ReturnType<typeof spawn>);
+    spawnMock.mockReturnValue(
+      makeFakeChild({ pid: 99999, fire: 'spawn' }) as unknown as ReturnType<typeof spawn>
+    );
 
     // when: the auto-trigger fires for this session+request
     const result = await triggerBestPracticeScan({
@@ -198,7 +201,10 @@ describe('triggerBestPracticeScan (auto-trigger post-step)', () => {
     // given: a valid PRD body but spawn fails (e.g., exec permission denied)
     writePrdArtifact('- Real goal that should still trigger but spawn fails');
     spawnMock.mockReturnValue(
-      makeFakeChild({ fire: 'error', errorMessage: 'EACCES permission denied' }) as unknown as ReturnType<typeof spawn>
+      makeFakeChild({
+        fire: 'error',
+        errorMessage: 'EACCES permission denied'
+      }) as unknown as ReturnType<typeof spawn>
     );
 
     // when: the auto-trigger fires

@@ -41,12 +41,7 @@ import {
 // ─── Envelope kinds ───────────────────────────────────────────────────
 
 export type EnvelopeKind =
-  | 'audit-security'
-  | 'audit-perf'
-  | 'karpathy-review'
-  | 'mut-report'
-  | 'qa-report'
-  | 'prd-handoff';
+  'audit-security' | 'audit-perf' | 'karpathy-review' | 'mut-report' | 'qa-report' | 'prd-handoff';
 
 export const ENVELOPE_KINDS: ReadonlyArray<EnvelopeKind> = [
   'audit-security',
@@ -176,13 +171,19 @@ export function captureHistoricalFixture(input: HistoricalCaptureInput): Capture
   const requireSource = input.requireSource !== false;
 
   const root = input.projectRoot ?? process.cwd();
-  const sourcePath = join(root, '.peaks', '_runtime', input.sessionId, ENVELOPE_ON_DISK_PATH[input.envelopeKind]);
+  const sourcePath = join(
+    root,
+    '.peaks',
+    '_runtime',
+    input.sessionId,
+    ENVELOPE_ON_DISK_PATH[input.envelopeKind]
+  );
   const sourcePathPosix = sourcePath.split(sep).join('/');
   if (!existsSync(sourcePath)) {
     if (requireSource) {
       throw new Error(
         `[peaks fixture capture] source not found: ${sourcePath}. ` +
-        `Ensure session ${input.sessionId} contains ${ENVELOPE_ON_DISK_PATH[input.envelopeKind]}.`
+          `Ensure session ${input.sessionId} contains ${ENVELOPE_ON_DISK_PATH[input.envelopeKind]}.`
       );
     }
     throw new Error('source-not-found');
@@ -290,9 +291,15 @@ function inferExtension(kind: EnvelopeKind): 'md' | 'json' {
 }
 
 function inferEnvelopeFromBody(body: string): EnvelopeKind {
-  if (/^---\n[\s\S]*?verdict\s*:/m.test(body) && /security-audit|## Findings/i.test(body)) return 'audit-security';
-  if (/^---\n[\s\S]*?verdict\s*:/m.test(body) && /perf|baseline|threshold/i.test(body)) return 'audit-perf';
-  if (/^## Karpathy-Gate[\s\S]*?gateAction\s*:/m.test(body) || /gateAction\s*:\s*(pass|warn|block)/m.test(body)) return 'karpathy-review';
+  if (/^---\n[\s\S]*?verdict\s*:/m.test(body) && /security-audit|## Findings/i.test(body))
+    return 'audit-security';
+  if (/^---\n[\s\S]*?verdict\s*:/m.test(body) && /perf|baseline|threshold/i.test(body))
+    return 'audit-perf';
+  if (
+    /^## Karpathy-Gate[\s\S]*?gateAction\s*:/m.test(body) ||
+    /gateAction\s*:\s*(pass|warn|block)/m.test(body)
+  )
+    return 'karpathy-review';
   if (/^---$|schemaVersion.*2|sha256\s*:/m.test(body)) return 'prd-handoff';
   if (/^verdict\s*:\s*(pass|return-to-rd|blocked)/m.test(body)) return 'qa-report';
   return 'audit-security';
@@ -306,7 +313,11 @@ function deriveEdgeCasesFromRaw(raw: string): ReadonlyArray<EdgeCaseVariant> {
   return cases;
 }
 
-function applyEdgeCaseVariant(raw: string, variant: EdgeCaseVariant, envelope: EnvelopeKind | null): string {
+function applyEdgeCaseVariant(
+  raw: string,
+  variant: EdgeCaseVariant,
+  envelope: EnvelopeKind | null
+): string {
   switch (variant) {
     case 'chinese-colon': {
       // The real v2.13.1 dogfood case: some real audit envelopes used
@@ -323,18 +334,23 @@ function applyEdgeCaseVariant(raw: string, variant: EdgeCaseVariant, envelope: E
       const fmMatch = raw.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
       const mutateBody = (body: string): string =>
         body
-          .replace(/^## Summary\n([\s\S]*?)(?=\n## |\s*$)/m, (_full, summary: string) =>
-            `## Summary\n${summary.replace(/:/g, '：')}`
+          .replace(
+            /^## Summary\n([\s\S]*?)(?=\n## |\s*$)/m,
+            (_full, summary: string) => `## Summary\n${summary.replace(/:/g, '：')}`
           )
-          .replace(/^## Findings\n([\s\S]*?)(?=\n## |\s*$)/m, (_full, findings: string) =>
-            `## Findings\n${findings.replace(/:/g, '：')}`
+          .replace(
+            /^## Findings\n([\s\S]*?)(?=\n## |\s*$)/m,
+            (_full, findings: string) => `## Findings\n${findings.replace(/:/g, '：')}`
           )
           // Body prose lines with a colon: "Authors: ..." → "Authors：..."
           // EXCLUDE parser-load-bearing lines (verdict / passed / gateAction).
-          .replace(/^([A-Za-z][A-Za-z0-9 _-]{2,40})\s*:\s*(.+)$/gm, (line, label: string, rest: string) => {
-            if (/^(verdict|passed|gateAction)$/i.test(label.trim())) return line;
-            return `${label}：${rest}`;
-          });
+          .replace(
+            /^([A-Za-z][A-Za-z0-9 _-]{2,40})\s*:\s*(.+)$/gm,
+            (line, label: string, rest: string) => {
+              if (/^(verdict|passed|gateAction)$/i.test(label.trim())) return line;
+              return `${label}：${rest}`;
+            }
+          );
       if (fmMatch !== null) {
         const frontmatter = fmMatch[1]!;
         const body = fmMatch[2]!;
@@ -362,11 +378,23 @@ function applyEdgeCaseVariant(raw: string, variant: EdgeCaseVariant, envelope: E
     case 'double-format': {
       // Embed a JSON blob inside a markdown `## Embedded JSON` block.
       // The parser must still recover the frontmatter envelope.
-      const json = JSON.stringify({
-        verdict: 'warn',
-        violations: [{ dimension: 'embed', severity: 'HIGH', file: 'embed.ts', line: 1, hint: 'embedded json' }],
-        summary: 'embedded json inside markdown'
-      }, null, 2);
+      const json = JSON.stringify(
+        {
+          verdict: 'warn',
+          violations: [
+            {
+              dimension: 'embed',
+              severity: 'HIGH',
+              file: 'embed.ts',
+              line: 1,
+              hint: 'embedded json'
+            }
+          ],
+          summary: 'embedded json inside markdown'
+        },
+        null,
+        2
+      );
       return `${raw}\n\n## Embedded JSON\n\n\`\`\`json\n${json}\n\`\`\`\n`;
     }
     case 'empty-body': {
@@ -388,11 +416,13 @@ function applyEdgeCaseVariant(raw: string, variant: EdgeCaseVariant, envelope: E
       const body = fmMatch !== null ? fmMatch[2]! : raw;
       const kept = body
         .split('\n')
-        .filter((line) => /^\s*(verdict|passed|gateAction|verdict\s*：)\s*[:：]/i.test(line) || line.trim().length === 0)
+        .filter(
+          (line) =>
+            /^\s*(verdict|passed|gateAction|verdict\s*：)\s*[:：]/i.test(line) ||
+            line.trim().length === 0
+        )
         .join('\n');
-      return fmMatch !== null
-        ? `---\n${fmMatch[1]!}\n---\n${kept}`
-        : kept;
+      return fmMatch !== null ? `---\n${fmMatch[1]!}\n---\n${kept}` : kept;
     }
     case 'multi-findings': {
       // For envelopes with `## Findings` sections, duplicate the

@@ -26,7 +26,10 @@ import { execSync } from 'node:child_process';
 
 import { openStateDb } from '../../src/services/skillhub/sqlite-store.js';
 import type Database from 'better-sqlite3';
-import { CrystallizationService, buildEvidenceBrief } from '../../src/services/crystallization/index.js';
+import {
+  CrystallizationService,
+  buildEvidenceBrief
+} from '../../src/services/crystallization/index.js';
 import { LoopReleaseService } from '../../src/services/loop/loop-release-service.js';
 import { LoopReleaseSchema } from '../../src/services/loop/loop-release-types.js';
 import { insertLoopRelease } from '../../src/services/loop/loop-release-store.js';
@@ -35,17 +38,25 @@ import { LoopBeeRelationSchema } from '../../src/services/loop/loop-bee-relation
 import { insertLoopBeeRelation } from '../../src/services/loop/loop-bee-relation-store.js';
 
 const crystallizationOptions: ConstructorParameters<typeof CrystallizationService>[1] = {
-  loopReleaseSchema: LoopReleaseSchema as unknown as ConstructorParameters<typeof CrystallizationService>[1]['loopReleaseSchema'],
-  loopBeeRelationSchema: LoopBeeRelationSchema as unknown as ConstructorParameters<typeof CrystallizationService>[1]['loopBeeRelationSchema'],
-  insertLoopRelease: insertLoopRelease as unknown as ConstructorParameters<typeof CrystallizationService>[1]['insertLoopRelease'],
-  insertLoopBeeRelation: insertLoopBeeRelation as unknown as ConstructorParameters<typeof CrystallizationService>[1]['insertLoopBeeRelation'],
+  loopReleaseSchema: LoopReleaseSchema as unknown as ConstructorParameters<
+    typeof CrystallizationService
+  >[1]['loopReleaseSchema'],
+  loopBeeRelationSchema: LoopBeeRelationSchema as unknown as ConstructorParameters<
+    typeof CrystallizationService
+  >[1]['loopBeeRelationSchema'],
+  insertLoopRelease: insertLoopRelease as unknown as ConstructorParameters<
+    typeof CrystallizationService
+  >[1]['insertLoopRelease'],
+  insertLoopBeeRelation: insertLoopBeeRelation as unknown as ConstructorParameters<
+    typeof CrystallizationService
+  >[1]['insertLoopBeeRelation']
 };
 
 function git(...args: string[]): string {
   return execSync(`git ${args.map((a) => `"${a.replace(/"/g, '\\"')}"`).join(' ')}`, {
     encoding: 'utf8',
     cwd: process.cwd(),
-    windowsHide: true,
+    windowsHide: true
   }).trim();
 }
 
@@ -61,7 +72,11 @@ describe('M8 dogfood: real crystallization of the Loop Engineering work', () => 
 
   afterAll(() => {
     if (db && typeof (db as { close?: () => void }).close === 'function') {
-      try { (db as { close?: () => void }).close!(); } catch { /* noop */ }
+      try {
+        (db as { close?: () => void }).close!();
+      } catch {
+        /* noop */
+      }
     }
     if (tmpDir && existsSync(tmpDir)) rmSync(tmpDir, { recursive: true, force: true });
   });
@@ -75,16 +90,27 @@ describe('M8 dogfood: real crystallization of the Loop Engineering work', () => 
       why_it_matters: 'pre-run creation must be blocked',
       what_learned: 'RL-2 enforcement works',
       what_action: 'fail closed',
-      source_trace_pointers: sourceShas,
+      source_trace_pointers: sourceShas
     });
     expect(() =>
       svc.crystallize({
-        task: { task_id: 'm8-test-pre-run-block', task_status: 'pending' as never, gates_passed: true, evidence_collected: true },
-        loop_input: { name: 'shoo', scenario: 'x', trigger_policy: 'x', shareable: true, desktop_visible: true } as never,
+        task: {
+          task_id: 'm8-test-pre-run-block',
+          task_status: 'pending' as never,
+          gates_passed: true,
+          evidence_collected: true
+        },
+        loop_input: {
+          name: 'shoo',
+          scenario: 'x',
+          trigger_policy: 'x',
+          shareable: true,
+          desktop_visible: true
+        } as never,
         bee_input: { name: 'bee-shoo', description: 'x' } as never,
         bee_relation_reason: 'x',
         evidence_brief: brief,
-        trigger: 'user_explicit',
+        trigger: 'user_explicit'
       })
     ).toThrow(/task.*completed|pre_run|gate|status/i);
   });
@@ -98,16 +124,27 @@ describe('M8 dogfood: real crystallization of the Loop Engineering work', () => 
       why_it_matters: 'gate failures must block crystallization',
       what_learned: 'RL-2 enforcement works',
       what_action: 'fail closed',
-      source_trace_pointers: sourceShas,
+      source_trace_pointers: sourceShas
     });
     expect(() =>
       svc.crystallize({
-        task: { task_id: 'm8-test-gate-block', task_status: 'completed' as never, gates_passed: false as never, evidence_collected: true },
-        loop_input: { name: 'shoo2', scenario: 'x', trigger_policy: 'x', shareable: true, desktop_visible: true } as never,
+        task: {
+          task_id: 'm8-test-gate-block',
+          task_status: 'completed' as never,
+          gates_passed: false as never,
+          evidence_collected: true
+        },
+        loop_input: {
+          name: 'shoo2',
+          scenario: 'x',
+          trigger_policy: 'x',
+          shareable: true,
+          desktop_visible: true
+        } as never,
         bee_input: { name: 'bee-shoo2', description: 'x' } as never,
         bee_relation_reason: 'x',
         evidence_brief: brief,
-        trigger: 'user_explicit',
+        trigger: 'user_explicit'
       })
     ).toThrow(/gate/i);
   });
@@ -121,7 +158,7 @@ describe('M8 dogfood: real crystallization of the Loop Engineering work', () => 
         // what_learned intentionally missing (empty)
         what_learned: '',
         what_action: 'd',
-        source_trace_pointers: ['x'],
+        source_trace_pointers: ['x']
       })
     ).toThrow(/brief|section|missing/i);
   });
@@ -155,8 +192,8 @@ describe('M8 dogfood: real crystallization of the Loop Engineering work', () => 
       bullets: [
         '8 M-slices implemented',
         '266+ vitest cases across loop/evolution/crystallization/share',
-        '9 red lines in karpathy 4-section form',
-      ],
+        '9 red lines in karpathy 4-section form'
+      ]
     });
 
     expect(brief.what_happened.length).toBeGreaterThan(10);
@@ -166,32 +203,43 @@ describe('M8 dogfood: real crystallization of the Loop Engineering work', () => 
 
     const svc = new CrystallizationService(db, crystallizationOptions);
     const result = svc.crystallize({
-      task: { task_id: 'm8-dogfood-loop-engineering-2026-07-07', task_status: 'completed' as never, gates_passed: true, evidence_collected: true },
+      task: {
+        task_id: 'm8-dogfood-loop-engineering-2026-07-07',
+        task_status: 'completed' as never,
+        gates_passed: true,
+        evidence_collected: true
+      },
       loop_input: {
         id: 'loop-engineering-crystallization-authoring',
         name: 'loop-engineering-crystallization-authoring',
-        scenario: 'Long-task authoring flow that turns a user complaint about "workflow, not loop engineering" into a 4-layer Loop Engineering asset model with karpathy × darwin discipline.',
-        trigger_policy: 'User NL: "workflow 不像 loop engineering" / "沉淀 loop engineering" / "下次按这个跑" / "结晶这条 loop".',
+        scenario:
+          'Long-task authoring flow that turns a user complaint about "workflow, not loop engineering" into a 4-layer Loop Engineering asset model with karpathy × darwin discipline.',
+        trigger_policy:
+          'User NL: "workflow 不像 loop engineering" / "沉淀 loop engineering" / "下次按这个跑" / "结晶这条 loop".',
         interaction_policy: 'Human-NL-Choice-Only (RL-1).',
-        feedback_policy: 'Read gates, evaluators, final review, user confirmations into loop memory.',
-        evolution_policy: 'Darwin-style ratchet (RL-4): single object + single dimension + independent scorer + regression skeptic + score-delta threshold + user confirmation. Karpathy 4-section form for new rules (RL-0).',
+        feedback_policy:
+          'Read gates, evaluators, final review, user confirmations into loop memory.',
+        evolution_policy:
+          'Darwin-style ratchet (RL-4): single object + single dimension + independent scorer + regression skeptic + score-delta threshold + user confirmation. Karpathy 4-section form for new rules (RL-0).',
         success_criteria: [
           'All 10 M-slices checkpoint done.',
           'Each slice vitest green at exit.',
-          'crystallization_event persisted with 4-section brief.',
+          'crystallization_event persisted with 4-section brief.'
         ],
         evaluator_policy: ['Independent scorer (RL-5)', 'Regression skeptic (RL-4)'],
         lifecycle_status: 'candidate' as never,
-        version: '0.1.0',
+        version: '0.1.0'
       } as never,
       bee_input: {
         bee_name: 'bee-loop-engineering-crystallization-implementer',
-        description: 'Dispatch RD sub-agents to ship M0..M7 schema/service/CLI/tests; crystallize the work into loop + bee + crystallization_event.',
-        version: '0.1.0',
+        description:
+          'Dispatch RD sub-agents to ship M0..M7 schema/service/CLI/tests; crystallize the work into loop + bee + crystallization_event.',
+        version: '0.1.0'
       } as never,
-      bee_relation_reason: 'The implementation bee that shipped the schema, service, CLI, and tests for the loop-engineering crystallization design.',
+      bee_relation_reason:
+        'The implementation bee that shipped the schema, service, CLI, and tests for the loop-engineering crystallization design.',
       evidence_brief: brief,
-      trigger: 'user_explicit',
+      trigger: 'user_explicit'
     });
 
     expect(result.loop_release_id).toBeTruthy();

@@ -27,16 +27,34 @@ export function registerComplexityCommands(program: Command, io: ProgramIO): voi
       .option('--project <path>', 'project root (default: cwd)')
   ).action((opts: { files: string; project?: string; json?: boolean }) => {
     const projectRoot = opts.project ?? findProjectRoot(process.cwd()) ?? process.cwd();
-    const files = opts.files.split(',').map((s) => s.trim()).filter((s) => s.length > 0);
+    const files = opts.files
+      .split(',')
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0);
     if (files.length === 0) {
-      printResult(io, fail('complexity-estimate', 'INVALID_INPUT', 'no files provided (--files)', { projectRoot }, [
-        'Pass --files with at least one file path.'
-      ]), opts.json ?? false);
+      printResult(
+        io,
+        fail(
+          'complexity-estimate',
+          'INVALID_INPUT',
+          'no files provided (--files)',
+          { projectRoot },
+          ['Pass --files with at least one file path.']
+        ),
+        opts.json ?? false
+      );
       return;
     }
     const report = estimateComplexity(projectRoot, files);
-    printResult(io, ok('complexity-estimate', { projectRoot, report }, [], [
-      `Overall tier: ${report.overall}. Schedule accordingly.`
-    ]), opts.json ?? false);
+    printResult(
+      io,
+      ok(
+        'complexity-estimate',
+        { projectRoot, report },
+        [],
+        [`Overall tier: ${report.overall}. Schedule accordingly.`]
+      ),
+      opts.json ?? false
+    );
   });
 }

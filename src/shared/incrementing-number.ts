@@ -17,15 +17,15 @@ import { join } from 'node:path';
 export function getNextNumber(dirPath: string): number {
   if (!existsSync(dirPath)) return 1;
 
-  const files = readdirSync(dirPath).filter(f => f.endsWith('.md'));
+  const files = readdirSync(dirPath).filter((f) => f.endsWith('.md'));
   if (files.length === 0) return 1;
 
   const numbers = files
-    .map(f => {
+    .map((f) => {
       const match = /^(\d+)-/.exec(f);
       return match && match[1] ? parseInt(match[1], 10) : NaN;
     })
-    .filter(n => !isNaN(n));
+    .filter((n) => !isNaN(n));
 
   return numbers.length > 0 ? Math.max(...numbers) + 1 : 1;
 }

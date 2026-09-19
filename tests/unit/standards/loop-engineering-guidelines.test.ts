@@ -28,13 +28,22 @@ import { join, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import { declareDimensions } from '../_setup/4dim-template.js';
-import { EXPECTED_RED_LINE_IDS, REQUIRED_SECTIONS, lintLoopEngineeringGuidelines } from '../../../src/services/standards/loop-engineering-lint.js';
+import {
+  EXPECTED_RED_LINE_IDS,
+  REQUIRED_SECTIONS,
+  lintLoopEngineeringGuidelines
+} from '../../../src/services/standards/loop-engineering-lint.js';
 import { runLoopEngineeringLint } from '../../../src/cli/commands/core/standards-command.js';
 
 declareDimensions(
   'tests/unit/standards/loop-engineering-guidelines.test.ts',
   ['behavior', 'render', 'integration'],
-  [{ dim: 'a11y', reason: 'no human-facing surface of its own; the CLI printer is covered elsewhere' }],
+  [
+    {
+      dim: 'a11y',
+      reason: 'no human-facing surface of its own; the CLI printer is covered elsewhere'
+    }
+  ]
 );
 
 const REPO_ROOT = resolve(__dirname, '..', '..', '..');
@@ -58,7 +67,7 @@ function syntheticDoc(mutate?: (lines: string[]) => void): string {
     '',
     '## Out-of-scope',
     '- does not apply elsewhere',
-    '',
+    ''
   ]);
   mutate?.(lines);
   return lines.join('\n');
@@ -161,7 +170,10 @@ describe('Scenario: integration — the shipped guideline file keeps its own pro
 
     // when: it is compared to the checklist the lint enforces
     // then: the declaration, the last red line heading and the checklist agree
-    expect(declared, 'the file must declare a `Total red lines: N (RL-a..RL-b)` line').not.toBeNull();
+    expect(
+      declared,
+      'the file must declare a `Total red lines: N (RL-a..RL-b)` line'
+    ).not.toBeNull();
     expect(Number(declared?.[1])).toBe(EXPECTED_RED_LINE_IDS.length);
     expect(declared?.[2]).toBe(`RL-0..${EXPECTED_RED_LINE_IDS[EXPECTED_RED_LINE_IDS.length - 1]}`);
     expect(REQUIRED_SECTIONS).toHaveLength(4);

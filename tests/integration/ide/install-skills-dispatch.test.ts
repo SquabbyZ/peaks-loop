@@ -9,7 +9,15 @@
  * detection (via `resolveProjectRoot`).
  */
 import { execFile } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, readlinkSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readlinkSync,
+  rmSync,
+  writeFileSync
+} from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { promisify } from 'node:util';
@@ -25,7 +33,10 @@ interface RunResult {
   readonly code: number;
 }
 
-async function runInstallSkills(env: Record<string, string>, projectRoot: string): Promise<RunResult> {
+async function runInstallSkills(
+  env: Record<string, string>,
+  projectRoot: string
+): Promise<RunResult> {
   try {
     const { stdout, stderr } = await execFileAsync('node', [SCRIPT_PATH], {
       env: {
@@ -33,10 +44,10 @@ async function runInstallSkills(env: Record<string, string>, projectRoot: string
         PEAKS_SKIP_USER_CONFIG_INSTALL: '1',
         PEAKS_SKIP_AUTO_UPGRADE: '1',
         ...env,
-        PEAKS_PROJECT_ROOT: projectRoot,
+        PEAKS_PROJECT_ROOT: projectRoot
       },
       cwd: projectRoot,
-      windowsHide: true,
+      windowsHide: true
     });
     return { stdout, stderr, code: 0 };
   } catch (error) {
@@ -44,7 +55,7 @@ async function runInstallSkills(env: Record<string, string>, projectRoot: string
     return {
       stdout: e.stdout ?? '',
       stderr: e.stderr ?? '',
-      code: typeof e.code === 'number' ? e.code : 1,
+      code: typeof e.code === 'number' ? e.code : 1
     };
   }
 }
@@ -94,10 +105,7 @@ describe('install-skills.mjs — IDE-aware dispatch (slice #011)', () => {
     // margin over observed; well below vitest's 600s hard limit.
     const customSkills = mkdtempSync(join(tmpdir(), 'peaks-skills-custom-'));
     try {
-      const result = await runInstallSkills(
-        { PEAKS_CLAUDE_SKILLS_DIR: customSkills },
-        project
-      );
+      const result = await runInstallSkills({ PEAKS_CLAUDE_SKILLS_DIR: customSkills }, project);
       expect(result.code).toBe(0);
       // At least one peaks skill should now be symlinked under the custom dir.
       const entries = require('node:fs').readdirSync(customSkills);
@@ -150,10 +158,7 @@ describe('install-skills.mjs — IDE-aware dispatch (slice #011)', () => {
     mkdirSync(join(project, '.trae'));
     const customSkills = mkdtempSync(join(tmpdir(), 'peaks-skills-trae-custom-'));
     try {
-      const result = await runInstallSkills(
-        { PEAKS_CLAUDE_SKILLS_DIR: customSkills },
-        project
-      );
+      const result = await runInstallSkills({ PEAKS_CLAUDE_SKILLS_DIR: customSkills }, project);
       expect(result.code).toBe(0);
       // The env-var override still wins for the claude-code
       // install (the legacy back-compat contract that the 8-IDE
@@ -193,10 +198,7 @@ describe('install-skills.mjs — IDE-aware dispatch (slice #011)', () => {
     // which spawns `peaks upgrade --to 2.0 --auto` — but the spawn is
     // async + the script does not await it. To avoid the test hanging
     // or invoking the real peaks binary, set PEAKS_SKIP_AUTO_UPGRADE=1.
-    const result = await runInstallSkills(
-      { PEAKS_SKIP_AUTO_UPGRADE: '1' },
-      project
-    );
+    const result = await runInstallSkills({ PEAKS_SKIP_AUTO_UPGRADE: '1' }, project);
     expect(result.code).toBe(0);
     expect(result.stdout).toMatch(/Peaks skills linked/);
   });
@@ -226,7 +228,12 @@ describe('install-skills.mjs — IDE-aware dispatch (slice #011)', () => {
   // `~/.claude/settings.json` in production).
   // ─────────────────────────────────────────────────────────────────────
 
-  function setupFakeClaudeHome(): { settingsDir: string; stylesDir: string; skillsDir: string; settingsFile: string } {
+  function setupFakeClaudeHome(): {
+    settingsDir: string;
+    stylesDir: string;
+    skillsDir: string;
+    settingsFile: string;
+  } {
     const settingsDir = mkdtempSync(join(tmpdir(), 'peaks-claude-home-'));
     const stylesDir = join(settingsDir, 'output-styles');
     const skillsDir = join(settingsDir, 'skills');
@@ -236,7 +243,7 @@ describe('install-skills.mjs — IDE-aware dispatch (slice #011)', () => {
       settingsDir,
       stylesDir,
       skillsDir,
-      settingsFile: join(settingsDir, 'settings.json'),
+      settingsFile: join(settingsDir, 'settings.json')
     };
   }
 
@@ -248,7 +255,7 @@ describe('install-skills.mjs — IDE-aware dispatch (slice #011)', () => {
       {
         PEAKS_CLAUDE_OUTPUT_STYLES_DIR: home.stylesDir,
         PEAKS_CLAUDE_SKILLS_DIR: home.skillsDir,
-        PEAKS_CLAUDE_SETTINGS_FILE: home.settingsFile,
+        PEAKS_CLAUDE_SETTINGS_FILE: home.settingsFile
       },
       project
     );
@@ -277,7 +284,7 @@ describe('install-skills.mjs — IDE-aware dispatch (slice #011)', () => {
       {
         PEAKS_CLAUDE_OUTPUT_STYLES_DIR: home.stylesDir,
         PEAKS_CLAUDE_SKILLS_DIR: home.skillsDir,
-        PEAKS_CLAUDE_SETTINGS_FILE: home.settingsFile,
+        PEAKS_CLAUDE_SETTINGS_FILE: home.settingsFile
       },
       project
     );
@@ -301,7 +308,7 @@ describe('install-skills.mjs — IDE-aware dispatch (slice #011)', () => {
       {
         PEAKS_CLAUDE_OUTPUT_STYLES_DIR: home.stylesDir,
         PEAKS_CLAUDE_SKILLS_DIR: home.skillsDir,
-        PEAKS_CLAUDE_SETTINGS_FILE: home.settingsFile,
+        PEAKS_CLAUDE_SETTINGS_FILE: home.settingsFile
       },
       project
     );
@@ -350,7 +357,7 @@ describe('install-skills.mjs — IDE-aware dispatch (slice #011)', () => {
         {
           PEAKS_CLAUDE_OUTPUT_STYLES_DIR: stylesDir,
           PEAKS_CLAUDE_SKILLS_DIR: home.skillsDir,
-          PEAKS_CLAUDE_SETTINGS_FILE: home.settingsFile,
+          PEAKS_CLAUDE_SETTINGS_FILE: home.settingsFile
         },
         project
       );
@@ -379,15 +386,11 @@ describe('install-skills.mjs — IDE-aware dispatch (slice #011)', () => {
     const emptyStylesDir = mkdtempSync(join(tmpdir(), 'peaks-unit-empty-'));
     const settingsDir = mkdtempSync(join(tmpdir(), 'peaks-unit-home-'));
     const settingsFile = join(settingsDir, 'settings.json');
-    writeFileSync(
-      settingsFile,
-      `${JSON.stringify({ theme: 'dark-ansi' }, null, 2)}\n`,
-      'utf8'
-    );
+    writeFileSync(settingsFile, `${JSON.stringify({ theme: 'dark-ansi' }, null, 2)}\n`, 'utf8');
     try {
       const result = installBundledOutputStyleDefault({
         targetRoot: emptyStylesDir,
-        settingsFile,
+        settingsFile
       });
       expect(result.skipped).toBe(true);
       expect(result.reason).toMatch(/bundled output style not present/);
@@ -408,7 +411,7 @@ describe('install-skills.mjs — IDE-aware dispatch (slice #011)', () => {
     try {
       const result = installBundledOutputStyleDefault({
         targetRoot: stylesDir,
-        settingsFile,
+        settingsFile
       });
       expect(result.skipped).toBe(true);
       expect(result.reason).toMatch(/parse error/);

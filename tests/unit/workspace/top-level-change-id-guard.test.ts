@@ -38,15 +38,21 @@ import { describe, expect, it } from 'vitest';
 
 import { declareDimensions } from '../_setup/4dim-template.js';
 import { withTmpWorkspacePerTest } from '../_setup/tmp-workspace.js';
-import { initWorkspace, LegacyChangeIdSiblingError } from '../../../src/services/workspace/workspace-service.js';
+import {
+  initWorkspace,
+  LegacyChangeIdSiblingError
+} from '../../../src/services/workspace/workspace-service.js';
 
 declareDimensions(
   'tests/unit/workspace/top-level-change-id-guard.test.ts',
   ['behavior', 'integration'],
   [
     { dim: 'render', reason: 'the asserted effects are fs/git state, not formatted output' },
-    { dim: 'a11y', reason: 'no human-facing text surface; the refusal is asserted as a typed error' },
-  ],
+    {
+      dim: 'a11y',
+      reason: 'no human-facing text surface; the refusal is asserted as a typed error'
+    }
+  ]
 );
 
 const REPO_ROOT = resolve(__dirname, '..', '..', '..');
@@ -127,7 +133,7 @@ describe('Scenario: integration — the root .gitignore still blocks a date-stam
         .split('\n')
         .map((line) => line.replace(/\r$/, ''))
         .filter((line) => line.trim().length > 0 && !line.startsWith('#'))
-        .map((line) => line.trimEnd()),
+        .map((line) => line.trimEnd())
     ).not.toContain(DEFENSE_RULE);
   });
 
@@ -135,7 +141,10 @@ describe('Scenario: integration — the root .gitignore still blocks a date-stam
     // given: a path shaped like the 2.8.0-era orphan, which need not exist on disk
     // when: git check-ignore resolves it
     // then: the matching pattern is the defensive rule
-    const result = git(['check-ignore', '-v', '.peaks/2026-01-01-fake-sibling/rd/note.md'], REPO_ROOT);
+    const result = git(
+      ['check-ignore', '-v', '.peaks/2026-01-01-fake-sibling/rd/note.md'],
+      REPO_ROOT
+    );
     expect(result.status).toBe(0);
     expect(result.stdout).toContain(DEFENSE_RULE);
   });
@@ -196,7 +205,9 @@ describe('Scenario: integration — the root .gitignore still blocks a date-stam
     //       case above: a citation wrapped in `<!-- -->` is still a
     //       substring, and a reader is still told nothing.
     for (const doc of ['CLAUDE.md', join('.peaks', 'PROJECT.md')]) {
-      expect(withoutHtmlComments(readFileSync(join(REPO_ROOT, doc), 'utf8')), doc).toContain(DEFENSE_RULE);
+      expect(withoutHtmlComments(readFileSync(join(REPO_ROOT, doc), 'utf8')), doc).toContain(
+        DEFENSE_RULE
+      );
     }
   });
 });
@@ -211,7 +222,11 @@ describe('Scenario: behavior — initWorkspace refuses the pattern before writin
     writeFileSync(join(orphan, 'note.txt'), 'hand-authored residue\n', 'utf8');
 
     // when: the workspace is initialized
-    const attempt = initWorkspace({ projectRoot: ws().path, sessionId: '2026-01-02-restored-guard', noClaudeHooks: true });
+    const attempt = initWorkspace({
+      projectRoot: ws().path,
+      sessionId: '2026-01-02-restored-guard',
+      noClaudeHooks: true
+    });
 
     // then: init refuses instead of walking into the legacy layout
     await expect(attempt).rejects.toBeInstanceOf(LegacyChangeIdSiblingError);
@@ -220,7 +235,11 @@ describe('Scenario: behavior — initWorkspace refuses the pattern before writin
   it('when no date-stamped sibling exists, should initialize without refusing', async () => {
     // given: a clean project root
     // when: the workspace is initialized
-    const report = await initWorkspace({ projectRoot: ws().path, sessionId: '2026-01-02-clean-init', noClaudeHooks: true });
+    const report = await initWorkspace({
+      projectRoot: ws().path,
+      sessionId: '2026-01-02-clean-init',
+      noClaudeHooks: true
+    });
 
     // then: the guard does not fire on the happy path
     expect(report.bound).toBe(true);

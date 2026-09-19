@@ -23,7 +23,7 @@ export function planRollback(): RollbackPlan {
   return {
     available: true,
     detectedVersion: (raw.version as string) ?? null,
-    backupPath: backup,
+    backupPath: backup
   };
 }
 

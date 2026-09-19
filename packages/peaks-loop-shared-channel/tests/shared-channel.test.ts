@@ -38,20 +38,22 @@ type Dim = 'render' | 'behavior' | 'integration' | 'a11y';
 function declareDimensions(
   _file: string,
   covered: readonly Dim[],
-  omitted: ReadonlyArray<{ dim: Dim; reason: string }> = [],
+  omitted: ReadonlyArray<{ dim: Dim; reason: string }> = []
 ): void {
   const ALL: readonly Dim[] = ['render', 'behavior', 'integration', 'a11y'];
   const coveredSet = new Set(covered);
   const missing = ALL.filter((d) => !coveredSet.has(d) && !omitted.find((o) => o.dim === d));
   if (missing.length > 0) {
-    throw new Error(`[${_file}] missing dimensions ${missing.join(', ')}; add a describe(...) or pass an omitted[] entry.`);
+    throw new Error(
+      `[${_file}] missing dimensions ${missing.join(', ')}; add a describe(...) or pass an omitted[] entry.`
+    );
   }
 }
 
 declareDimensions(
   'packages/peaks-loop-shared-channel/tests/shared-channel.test.ts',
   ['render', 'behavior', 'integration'],
-  [{ dim: 'a11y', reason: 'no user-facing text or exit code' }],
+  [{ dim: 'a11y', reason: 'no user-facing text or exit code' }]
 );
 
 import {
@@ -61,7 +63,7 @@ import {
   SHARED_CHANNEL_TTL_DAYS,
   compileKeyPattern,
   readSharedChannel,
-  writeSharedEntry,
+  writeSharedEntry
 } from '../src/shared-channel.js';
 import { assertSafeSharedChannelPath, sharedChannelPath } from '../src/dispatch-context-guard.js';
 
@@ -142,8 +144,13 @@ describe('behavior — compileKeyPattern', () => {
 describe('behavior — writeSharedEntry input validation', () => {
   it('rejects empty key', () => {
     const out = writeSharedEntry({
-      projectRoot: '/tmp', sid: 's', rid: 'r', batchId: 'b',
-      key: '', from: 'x', value: { y: 1 },
+      projectRoot: '/tmp',
+      sid: 's',
+      rid: 'r',
+      batchId: 'b',
+      key: '',
+      from: 'x',
+      value: { y: 1 }
     });
     expect(out.ok).toBe(false);
     if (!out.ok) expect(out.code).toBe('INVALID_BATCH_ID');
@@ -151,24 +158,39 @@ describe('behavior — writeSharedEntry input validation', () => {
 
   it('rejects empty from', () => {
     const out = writeSharedEntry({
-      projectRoot: '/tmp', sid: 's', rid: 'r', batchId: 'b',
-      key: 'k', from: '', value: { y: 1 },
+      projectRoot: '/tmp',
+      sid: 's',
+      rid: 'r',
+      batchId: 'b',
+      key: 'k',
+      from: '',
+      value: { y: 1 }
     });
     expect(out.ok).toBe(false);
   });
 
   it('rejects array value (must be object)', () => {
     const out = writeSharedEntry({
-      projectRoot: '/tmp', sid: 's', rid: 'r', batchId: 'b',
-      key: 'k', from: 'x', value: [] as unknown as Record<string, unknown>,
+      projectRoot: '/tmp',
+      sid: 's',
+      rid: 'r',
+      batchId: 'b',
+      key: 'k',
+      from: 'x',
+      value: [] as unknown as Record<string, unknown>
     });
     expect(out.ok).toBe(false);
   });
 
   it('rejects null value', () => {
     const out = writeSharedEntry({
-      projectRoot: '/tmp', sid: 's', rid: 'r', batchId: 'b',
-      key: 'k', from: 'x', value: null as unknown as Record<string, unknown>,
+      projectRoot: '/tmp',
+      sid: 's',
+      rid: 'r',
+      batchId: 'b',
+      key: 'k',
+      from: 'x',
+      value: null as unknown as Record<string, unknown>
     });
     expect(out.ok).toBe(false);
   });
@@ -183,14 +205,22 @@ describe('integration — writeSharedEntry + readSharedChannel round-trip', () =
   });
 
   afterEach(() => {
-    try { rmSync(tmpRoot, { recursive: true, force: true }); } catch { /* best-effort */ }
+    try {
+      rmSync(tmpRoot, { recursive: true, force: true });
+    } catch {
+      /* best-effort */
+    }
   });
 
   it('writes a single entry and reads it back', () => {
     const w = writeSharedEntry({
-      projectRoot: tmpRoot, sid: 's1', rid: 'r1', batchId: 'b1',
-      key: 'rd.completed', from: 'rd',
-      value: { result: 'success' },
+      projectRoot: tmpRoot,
+      sid: 's1',
+      rid: 'r1',
+      batchId: 'b1',
+      key: 'rd.completed',
+      from: 'rd',
+      value: { result: 'success' }
     });
     expect(w.ok).toBe(true);
     if (w.ok) {
@@ -203,12 +233,22 @@ describe('integration — writeSharedEntry + readSharedChannel round-trip', () =
 
   it('flags lastWriteWins=true when overwriting an existing key', () => {
     writeSharedEntry({
-      projectRoot: tmpRoot, sid: 's', rid: 'r', batchId: 'b',
-      key: 'k', from: 'a', value: { v: 1 },
+      projectRoot: tmpRoot,
+      sid: 's',
+      rid: 'r',
+      batchId: 'b',
+      key: 'k',
+      from: 'a',
+      value: { v: 1 }
     });
     const w = writeSharedEntry({
-      projectRoot: tmpRoot, sid: 's', rid: 'r', batchId: 'b',
-      key: 'k', from: 'b', value: { v: 2 },
+      projectRoot: tmpRoot,
+      sid: 's',
+      rid: 'r',
+      batchId: 'b',
+      key: 'k',
+      from: 'b',
+      value: { v: 2 }
     });
     expect(w.ok).toBe(true);
     if (w.ok) expect(w.lastWriteWins).toBe(true);
@@ -220,9 +260,13 @@ describe('integration — writeSharedEntry + readSharedChannel round-trip', () =
   it('flags softWarning=true when value > 1KB but < 64KB', () => {
     const big = 'x'.repeat(2000); // 2KB stringified
     const w = writeSharedEntry({
-      projectRoot: tmpRoot, sid: 's', rid: 'r', batchId: 'b',
-      key: 'k', from: 'a',
-      value: { payload: big },
+      projectRoot: tmpRoot,
+      sid: 's',
+      rid: 'r',
+      batchId: 'b',
+      key: 'k',
+      from: 'a',
+      value: { payload: big }
     });
     expect(w.ok).toBe(true);
     if (w.ok) expect(w.softWarning).toBe(true);
@@ -233,9 +277,13 @@ describe('integration — writeSharedEntry + readSharedChannel round-trip', () =
     // The value itself is a single big string field.
     const huge = 'x'.repeat(70_000);
     const w = writeSharedEntry({
-      projectRoot: tmpRoot, sid: 's', rid: 'r', batchId: 'b',
-      key: 'k', from: 'a',
-      value: { payload: huge },
+      projectRoot: tmpRoot,
+      sid: 's',
+      rid: 'r',
+      batchId: 'b',
+      key: 'k',
+      from: 'a',
+      value: { payload: huge }
     });
     expect(w.ok).toBe(false);
     if (!w.ok) expect(w.code).toBe('VALUE_TOO_LARGE');
@@ -252,12 +300,16 @@ describe('integration — writeSharedEntry + readSharedChannel round-trip', () =
       Array.from({ length: N }, (_, i) =>
         Promise.resolve().then(() =>
           writeSharedEntry({
-            projectRoot: tmpRoot, sid: 's', rid: 'r', batchId: 'b',
-            key: `k-${i}`, from: `from-${i}`,
-            value: { i },
-          }),
-        ),
-      ),
+            projectRoot: tmpRoot,
+            sid: 's',
+            rid: 'r',
+            batchId: 'b',
+            key: `k-${i}`,
+            from: `from-${i}`,
+            value: { i }
+          })
+        )
+      )
     );
     const r = readSharedChannel({ projectRoot: tmpRoot, sid: 's', rid: 'r', batchId: 'b' });
     expect(Object.keys(r.entries).sort()).toEqual(['k-0', 'k-1', 'k-2', 'k-3', 'k-4']);

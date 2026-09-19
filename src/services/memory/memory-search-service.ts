@@ -68,7 +68,9 @@ export interface MemorySearchResult {
 export function loadMemoryIndex(projectRoot: string): MemoryIndexSnapshot {
   const indexPath = join(projectRoot, '.peaks', 'memory', 'index.json');
   if (!existsSync(indexPath)) {
-    const err = new Error(`INDEX_MISSING: memory index not found at ${indexPath}`) as Error & { code?: string };
+    const err = new Error(`INDEX_MISSING: memory index not found at ${indexPath}`) as Error & {
+      code?: string;
+    };
     err.code = 'INDEX_MISSING';
     throw err;
   }
@@ -76,7 +78,9 @@ export function loadMemoryIndex(projectRoot: string): MemoryIndexSnapshot {
   try {
     raw = readFileSync(indexPath, 'utf8');
   } catch (cause) {
-    const err = new Error(`INDEX_INVALID: failed to read memory index at ${indexPath}: ${(cause as Error).message}`) as Error & { code?: string };
+    const err = new Error(
+      `INDEX_INVALID: failed to read memory index at ${indexPath}: ${(cause as Error).message}`
+    ) as Error & { code?: string };
     err.code = 'INDEX_INVALID';
     throw err;
   }
@@ -84,11 +88,18 @@ export function loadMemoryIndex(projectRoot: string): MemoryIndexSnapshot {
   try {
     parsed = JSON.parse(raw);
   } catch (cause) {
-    const err = new Error(`INDEX_INVALID: malformed memory index at ${indexPath}: ${(cause as Error).message}`) as Error & { code?: string };
+    const err = new Error(
+      `INDEX_INVALID: malformed memory index at ${indexPath}: ${(cause as Error).message}`
+    ) as Error & { code?: string };
     err.code = 'INDEX_INVALID';
     throw err;
   }
-  const index = parsed as { version?: number; updatedAt?: string; hot?: Record<string, MemoryIndexEntry[]>; cold?: MemoryIndexEntry[] };
+  const index = parsed as {
+    version?: number;
+    updatedAt?: string;
+    hot?: Record<string, MemoryIndexEntry[]>;
+    cold?: MemoryIndexEntry[];
+  };
   const hot = index.hot ?? {};
   const flatFromHot = Object.values(hot).flat() as MemoryIndexEntry[];
   const flatFromCold = (index.cold ?? []) as MemoryIndexEntry[];
@@ -98,7 +109,7 @@ export function loadMemoryIndex(projectRoot: string): MemoryIndexSnapshot {
     indexPath,
     version: index.version ?? 1,
     updatedAt: index.updatedAt ?? '',
-    entries,
+    entries
   };
 }
 
@@ -109,7 +120,9 @@ export function loadMemoryIndex(projectRoot: string): MemoryIndexSnapshot {
  */
 export function searchMemory(input: MemorySearchInput): MemorySearchResult[] {
   if (input.query === '') {
-    const err = new Error('EMPTY_QUERY: searchMemory requires a non-empty query (use `peaks memory index` to list all)') as Error & { code?: string };
+    const err = new Error(
+      'EMPTY_QUERY: searchMemory requires a non-empty query (use `peaks memory index` to list all)'
+    ) as Error & { code?: string };
     err.code = 'EMPTY_QUERY';
     throw err;
   }
@@ -125,11 +138,11 @@ export function searchMemory(input: MemorySearchInput): MemorySearchResult[] {
 
   // Per spec: searchable text is name + " " + description.
   // The keyFn is invoked once per item per call.
-  const matches = fuzzyMatchWithKey(
-    input.query,
-    candidates,
-    { keyFn: (e) => `${e.name} ${e.description}`, limit, caseSensitive: false }
-  );
+  const matches = fuzzyMatchWithKey(input.query, candidates, {
+    keyFn: (e) => `${e.name} ${e.description}`,
+    limit,
+    caseSensitive: false
+  });
 
   return matches.map((m) => {
     const entry = m.item;
@@ -139,7 +152,7 @@ export function searchMemory(input: MemorySearchInput): MemorySearchResult[] {
       description: entry.description,
       sourcePath: entry.sourcePath,
       score: m.score,
-      positions: m.positions,
+      positions: m.positions
     };
   });
 }

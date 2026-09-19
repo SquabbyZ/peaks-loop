@@ -27,8 +27,10 @@ function runCli(args: readonly string[], cwd: string): RunResult {
   } catch (error: unknown) {
     const caught = error as { stdout?: Buffer | string; stderr?: Buffer | string; status?: number };
     return {
-      stdout: typeof caught.stdout === 'string' ? caught.stdout : caught.stdout?.toString('utf8') ?? '',
-      stderr: typeof caught.stderr === 'string' ? caught.stderr : caught.stderr?.toString('utf8') ?? '',
+      stdout:
+        typeof caught.stdout === 'string' ? caught.stdout : (caught.stdout?.toString('utf8') ?? ''),
+      stderr:
+        typeof caught.stderr === 'string' ? caught.stderr : (caught.stderr?.toString('utf8') ?? ''),
       code: caught.status ?? 1
     };
   }
@@ -103,7 +105,12 @@ function seedCanaryPrecheckFixture(project: string, version: string): void {
   writeFileSync(
     join(project, 'package.json'),
     `${JSON.stringify(
-      { name: 'p2d-release-fixture', version, private: true, dependencies: { 'peaks-loop-shared': 'workspace:*' } },
+      {
+        name: 'p2d-release-fixture',
+        version,
+        private: true,
+        dependencies: { 'peaks-loop-shared': 'workspace:*' }
+      },
       null,
       2
     )}\n`,
@@ -114,7 +121,11 @@ function seedCanaryPrecheckFixture(project: string, version: string): void {
     `${JSON.stringify({ name: 'peaks-loop-shared', version, private: true }, null, 2)}\n`,
     'utf8'
   );
-  writeFileSync(join(sharedDir, 'dist', 'version.js'), `export const CLI_VERSION = "${version}";\n`, 'utf8');
+  writeFileSync(
+    join(sharedDir, 'dist', 'version.js'),
+    `export const CLI_VERSION = "${version}";\n`,
+    'utf8'
+  );
 }
 
 // ============================================================================
@@ -132,10 +143,9 @@ describe('peaks release lifecycle (P2-D cross-cutting e2e)', () => {
     seedCanaryPrecheckFixture(project, version);
 
     // plan
-    const planned = parseEnvelope(runCli(
-      ['release', 'plan', version, '--project', project, '--json'],
-      project
-    ));
+    const planned = parseEnvelope(
+      runCli(['release', 'plan', version, '--project', project, '--json'], project)
+    );
     expect(planned.command).toBe('release.plan');
     expect(planned.ok).toBe(true);
     const planData = planned.data as { version?: string; currentStage?: string };
@@ -143,10 +153,9 @@ describe('peaks release lifecycle (P2-D cross-cutting e2e)', () => {
     expect(planData.currentStage).toBe('planned');
 
     // canary 10
-    const canary10 = parseEnvelope(runCli(
-      ['release', 'canary', '--percent', '10', '--project', project, '--json'],
-      project
-    ));
+    const canary10 = parseEnvelope(
+      runCli(['release', 'canary', '--percent', '10', '--project', project, '--json'], project)
+    );
     expect(canary10.command).toBe('release.canary');
     expect(canary10.ok).toBe(true);
     const canary10Data = canary10.data as { percent?: number; currentStage?: string };
@@ -154,10 +163,9 @@ describe('peaks release lifecycle (P2-D cross-cutting e2e)', () => {
     expect(canary10Data.currentStage).toBe('canary-10');
 
     // canary 50
-    const canary50 = parseEnvelope(runCli(
-      ['release', 'canary', '--percent', '50', '--project', project, '--json'],
-      project
-    ));
+    const canary50 = parseEnvelope(
+      runCli(['release', 'canary', '--percent', '50', '--project', project, '--json'], project)
+    );
     expect(canary50.command).toBe('release.canary');
     expect(canary50.ok).toBe(true);
     const canary50Data = canary50.data as { percent?: number; currentStage?: string };
@@ -165,10 +173,12 @@ describe('peaks release lifecycle (P2-D cross-cutting e2e)', () => {
     expect(canary50Data.currentStage).toBe('canary-50');
 
     // rollback (clears the active release so a fresh hotfix can begin)
-    const rolledBack = parseEnvelope(runCli(
-      ['release', 'rollback', '--note', 'p2-d fixture rollback', '--project', project, '--json'],
-      project
-    ));
+    const rolledBack = parseEnvelope(
+      runCli(
+        ['release', 'rollback', '--note', 'p2-d fixture rollback', '--project', project, '--json'],
+        project
+      )
+    );
     expect(rolledBack.command).toBe('release.rollback');
     expect(rolledBack.ok).toBe(true);
     const rollbackData = rolledBack.data as { rolledBack?: string; finalStage?: string };
@@ -176,10 +186,21 @@ describe('peaks release lifecycle (P2-D cross-cutting e2e)', () => {
     expect(rollbackData.finalStage).toBe('rolled-back');
 
     // hotfix skips 'planned' and starts at canary-10
-    const hotfix = parseEnvelope(runCli(
-      ['release', 'hotfix', hotfixVersion, '--note', 'p2-d fixture hotfix', '--project', project, '--json'],
-      project
-    ));
+    const hotfix = parseEnvelope(
+      runCli(
+        [
+          'release',
+          'hotfix',
+          hotfixVersion,
+          '--note',
+          'p2-d fixture hotfix',
+          '--project',
+          project,
+          '--json'
+        ],
+        project
+      )
+    );
     expect(hotfix.command).toBe('release.hotfix');
     expect(hotfix.ok).toBe(true);
     const hotfixData = hotfix.data as { version?: string; currentStage?: string };
@@ -187,13 +208,16 @@ describe('peaks release lifecycle (P2-D cross-cutting e2e)', () => {
     expect(hotfixData.currentStage).toBe('canary-10');
 
     // watch returns the structured window status (still in canary-10)
-    const watch = parseEnvelope(runCli(
-      ['release', 'watch', '--project', project, '--json'],
-      project
-    ));
+    const watch = parseEnvelope(
+      runCli(['release', 'watch', '--project', project, '--json'], project)
+    );
     expect(watch.command).toBe('release.watch');
     expect(watch.ok).toBe(true);
-    const watchData = watch.data as { currentStage?: string; readyForDone?: boolean; window?: unknown };
+    const watchData = watch.data as {
+      currentStage?: string;
+      readyForDone?: boolean;
+      window?: unknown;
+    };
     // After hotfix the active release is at canary-10, not promoted; the watch
     // envelope reports currentStage + readyForDone + window instead of `stage`.
     expect(typeof watchData.currentStage).toBe('string');
@@ -216,7 +240,17 @@ describe('peaks bee export / loop export — share bundle round-trip (P2-D cross
     const project = makeProject('peaks-p2d-bundle-');
     const outPath = join(project, 'bundle.tar.gz');
     const result = runCli(
-      ['loop', 'export', '--loop', 'p2d-fake-loop-id', '--out', outPath, '--project', project, '--json'],
+      [
+        'loop',
+        'export',
+        '--loop',
+        'p2d-fake-loop-id',
+        '--out',
+        outPath,
+        '--project',
+        project,
+        '--json'
+      ],
       project
     );
     const envelope = parseEnvelope(result);
@@ -228,10 +262,7 @@ describe('peaks bee export / loop export — share bundle round-trip (P2-D cross
 
   test('peaks share bundle {write,read,apply,list} — drift pointer (surface does not exist)', () => {
     const project = makeProject('peaks-p2d-share-bundle-');
-    const result = runCli(
-      ['share', 'bundle', 'write', '--project', project, '--json'],
-      project
-    );
+    const result = runCli(['share', 'bundle', 'write', '--project', project, '--json'], project);
     expect(result.code).not.toBe(0);
     const envelope = parseEnvelope(result);
     // The actual peaks.bundle/1 surface is `peaks bee export/import` and
@@ -258,7 +289,11 @@ describe('peaks skill sync --platform cross-platform dry-run (P2-D cross-cutting
       applied?: boolean;
       dryRun?: boolean;
       projectRoot?: string;
-      perPlatform?: ReadonlyArray<{ platform?: string; ok?: boolean; installed?: readonly string[] }>;
+      perPlatform?: ReadonlyArray<{
+        platform?: string;
+        ok?: boolean;
+        installed?: readonly string[];
+      }>;
     };
     expect(data.dryRun).toBe(true);
     expect(data.applied).toBe(false);
@@ -284,7 +319,11 @@ describe('peaks skill sync --platform cross-platform dry-run (P2-D cross-cutting
     const data = envelope.data as {
       dryRun?: boolean;
       applied?: boolean;
-      perPlatform?: ReadonlyArray<{ platform?: string; ok?: boolean; installed?: readonly string[] }>;
+      perPlatform?: ReadonlyArray<{
+        platform?: string;
+        ok?: boolean;
+        installed?: readonly string[];
+      }>;
     };
     expect(data.dryRun).toBe(true);
     expect(data.applied).toBe(false);
@@ -306,10 +345,7 @@ describe('peaks skill sync --platform cross-platform dry-run (P2-D cross-cutting
 describe('peaks project context 5-template boot (P2-D cross-cutting e2e)', () => {
   test('boots all 5 templates into .peaks/project-scan/ with non-empty bodies', () => {
     const project = makeProject('peaks-p2d-context-');
-    const result = runCli(
-      ['project', 'context', '--project', project, '--json'],
-      project
-    );
+    const result = runCli(['project', 'context', '--project', project, '--json'], project);
     expect(result.code).toBe(0);
     const envelope = parseEnvelope(result);
     expect(envelope.command).toBe('project.context');
@@ -323,7 +359,9 @@ describe('peaks project context 5-template boot (P2-D cross-cutting e2e)', () =>
     expect(data.projectScan).toBeDefined();
     expect(data.projectScan!.templatesBooted).toBe(5);
 
-    const projectScanPath = data.projectScan!.projectScanPath ?? join(project, '.peaks', 'project-scan', 'project-scan.md');
+    const projectScanPath =
+      data.projectScan!.projectScanPath ??
+      join(project, '.peaks', 'project-scan', 'project-scan.md');
     expect(existsSync(projectScanPath)).toBe(true);
 
     const requiredTemplates = [
@@ -457,7 +495,17 @@ describe('peaks classify run round-trip (P2-D cross-cutting e2e)', () => {
     // header. Either way the contract is: it never returns ok:true, and the
     // spec §4 refusal is the canonical code.
     const result = runCli(
-      ['classify', 'downgrade', '--level', 'typo', '--reason', 'p2-d fixture attempt', '--project', REPO, '--json'],
+      [
+        'classify',
+        'downgrade',
+        '--level',
+        'typo',
+        '--reason',
+        'p2-d fixture attempt',
+        '--project',
+        REPO,
+        '--json'
+      ],
       REPO
     );
     expect(result.code).not.toBe(0);

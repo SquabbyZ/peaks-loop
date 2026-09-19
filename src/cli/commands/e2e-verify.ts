@@ -36,7 +36,11 @@ import { readE2EPlan, type E2EFixture } from '../../services/dispatch/e2e-fixtur
 import { fail, getErrorMessage, ok } from 'peaks-loop-shared/result';
 import { addJsonOption, printResult, type ProgramIO } from '../cli-helpers.js';
 
-export type E2EVerifyInput = { readonly projectRoot: string; readonly slice: string; readonly dispatchId?: string };
+export type E2EVerifyInput = {
+  readonly projectRoot: string;
+  readonly slice: string;
+  readonly dispatchId?: string;
+};
 export type E2EVerifyResult = {
   readonly outcome: 'pass' | 'fail' | 'skipped' | 'no-fixtures';
   readonly passCount: number;
@@ -57,22 +61,35 @@ const PLAYWRIGHT_PROFILE_NAME_ENV = 'PEAKS_PLAYWRIGHT_PROFILE_NAME';
  */
 async function probeChromiumBinary(): Promise<boolean> {
   const candidates: ReadonlyArray<string> =
-    process.platform === 'win32' ? ['chromium.exe', 'chrome.exe'] : ['chromium', 'chromium-browser', 'google-chrome'];
+    process.platform === 'win32'
+      ? ['chromium.exe', 'chrome.exe']
+      : ['chromium', 'chromium-browser', 'google-chrome'];
   const finder = process.platform === 'win32' ? 'where' : 'which';
   for (const candidate of candidates) {
     try {
-      const result = nodeSpawn(finder, [candidate], { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
+      const result = nodeSpawn(finder, [candidate], {
+        stdio: ['ignore', 'pipe', 'pipe'],
+        windowsHide: true
+      });
       const stdout = await new Promise<string>((resolve, reject) => {
         let buf = '';
-        result.stdout.on('data', (chunk) => { buf += chunk.toString('utf8'); });
-        result.on('close', (code) => { if (code === 0) resolve(buf); else reject(new Error(`exit ${code}`)); });
+        result.stdout.on('data', (chunk) => {
+          buf += chunk.toString('utf8');
+        });
+        result.on('close', (code) => {
+          if (code === 0) resolve(buf);
+          else reject(new Error(`exit ${code}`));
+        });
         result.on('error', reject);
       });
       if (stdout.trim().length === 0) continue;
       // Strip the first candidate found; try to launch it with --version.
       const firstLine = stdout.split(/\r?\n/)[0]?.trim();
       if (!firstLine) continue;
-      const probe = nodeSpawn(firstLine, ['--version'], { stdio: ['ignore', 'pipe', 'ignore'], windowsHide: true });
+      const probe = nodeSpawn(firstLine, ['--version'], {
+        stdio: ['ignore', 'pipe', 'ignore'],
+        windowsHide: true
+      });
       const exitCode: number = await new Promise((resolve) => {
         probe.on('close', (code) => resolve(code ?? 1));
         probe.on('error', () => resolve(1));
@@ -85,7 +102,10 @@ async function probeChromiumBinary(): Promise<boolean> {
   return false;
 }
 
-function resolvePlaywrightEnv(): { readonly userDataDir: string; readonly profileName: string } | null {
+function resolvePlaywrightEnv(): {
+  readonly userDataDir: string;
+  readonly profileName: string;
+} | null {
   const userDataDir = process.env[PLAYWRIGHT_USER_DATA_DIR_ENV];
   const profileName = process.env[PLAYWRIGHT_PROFILE_NAME_ENV];
   if (!userDataDir || !profileName) return null;
@@ -117,7 +137,7 @@ function resolvePlaywrightEnv(): { readonly userDataDir: string; readonly profil
  */
 async function runOneFixtureWithPlaywright(
   fixture: E2EFixture,
-  env: { userDataDir: string; profileName: string },
+  env: { userDataDir: string; profileName: string }
 ): Promise<{ pass: boolean; reason?: string }> {
   // The runtime Chromium spawn uses a temporary `--remote-debugging-port`
   // to expose a DevTools endpoint. We deliberately avoid pulling in
@@ -140,20 +160,29 @@ async function runOneFixtureWithPlaywright(
   return new Promise<{ pass: boolean; reason?: string }>((resolve) => {
     let resolved = false;
     const settle = (v: { pass: boolean; reason?: string }) => {
-      if (!resolved) { resolved = true; resolve(v); }
+      if (!resolved) {
+        resolved = true;
+        resolve(v);
+      }
     };
     try {
-      const proc = nodeSpawn('chromium', [
-        '--headless=new',
-        '--no-sandbox',
-        '--disable-gpu',
-        `--user-data-dir=${env.userDataDir}`,
-        `--profile-directory=${env.profileName}`,
-        `--dump-dom`,
-        fixture.url,
-      ], { stdio: ['ignore', 'pipe', 'ignore'], windowsHide: true });
+      const proc = nodeSpawn(
+        'chromium',
+        [
+          '--headless=new',
+          '--no-sandbox',
+          '--disable-gpu',
+          `--user-data-dir=${env.userDataDir}`,
+          `--profile-directory=${env.profileName}`,
+          `--dump-dom`,
+          fixture.url
+        ],
+        { stdio: ['ignore', 'pipe', 'ignore'], windowsHide: true }
+      );
       let html = '';
-      proc.stdout.on('data', (chunk) => { html += chunk.toString('utf8'); });
+      proc.stdout.on('data', (chunk) => {
+        html += chunk.toString('utf8');
+      });
       proc.on('error', () => settle({ pass: false, reason: 'chromium-spawn-failed' }));
       proc.on('close', (code) => {
         if (code !== 0) {
@@ -162,11 +191,15 @@ async function runOneFixtureWithPlaywright(
         }
         // Match each matcher against the rendered DOM.
         for (const matcher of fixture.matchers) {
-          const looksLikeCss = matcher.startsWith('css:') || matcher.startsWith('#') || matcher.startsWith('.');
+          const looksLikeCss =
+            matcher.startsWith('css:') || matcher.startsWith('#') || matcher.startsWith('.');
           const needle = looksLikeCss ? matcher.replace(/^css:/, '').trim() : matcher;
           const present = looksLikeCss
-            ? new RegExp(`<[a-zA-Z][^>]*class=["'][^"']*\\b${needle.replace(/^\./, '').replace(/^#/, '')}\\b`).test(html)
-              || (needle.startsWith('#') && new RegExp(`id=["']${needle.replace(/^#/, '')}["']`).test(html))
+            ? new RegExp(
+                `<[a-zA-Z][^>]*class=["'][^"']*\\b${needle.replace(/^\./, '').replace(/^#/, '')}\\b`
+              ).test(html) ||
+              (needle.startsWith('#') &&
+                new RegExp(`id=["']${needle.replace(/^#/, '')}["']`).test(html))
             : html.includes(needle);
           if (!present) {
             settle({ pass: false, reason: `matcher-missing:${matcher}` });
@@ -184,9 +217,16 @@ async function runOneFixtureWithPlaywright(
 export async function runE2EVerify(input: E2EVerifyInput): Promise<E2EVerifyResult> {
   const dir = join(input.projectRoot, 'qa', 'e2e', input.slice);
   const plan = readE2EPlan({ dir });
-  if (plan.kind === 'empty') return { outcome: 'no-fixtures', passCount: 0, failCount: 0, runner: 'stub' };
+  if (plan.kind === 'empty')
+    return { outcome: 'no-fixtures', passCount: 0, failCount: 0, runner: 'stub' };
   if (plan.kind === 'disabled') {
-    return { outcome: 'skipped', passCount: 0, failCount: 0, skippedReason: plan.reason, runner: 'stub' };
+    return {
+      outcome: 'skipped',
+      passCount: 0,
+      failCount: 0,
+      skippedReason: plan.reason,
+      runner: 'stub'
+    };
   }
 
   // Decide between the real Playwright runner and the deterministic
@@ -225,7 +265,7 @@ export async function runE2EVerify(input: E2EVerifyInput): Promise<E2EVerifyResu
     passCount,
     failCount,
     runner: 'playwright',
-    ...(chromiumReason !== null ? { skippedReason: chromiumReason } : {}),
+    ...(chromiumReason !== null ? { skippedReason: chromiumReason } : {})
   };
 }
 
@@ -237,10 +277,33 @@ export function registerE2EVerifyCommand(program: Command, io: ProgramIO): void 
       .requiredOption('--slice <rid>', 'peaks request id of the slice that just merged')
       .option('--project <path>', 'project root (default: cwd)', '.')
       .option('--dispatch-id <id>', 'optional dispatch id used in observability events')
-  ).action(async (options: { slice: string; project: string; dispatchId?: string; json?: boolean }) => {
-    try {
-      const result = await runE2EVerify({ projectRoot: options.project, slice: options.slice, ...(options.dispatchId !== undefined ? { dispatchId: options.dispatchId } : {}) });
-      printResult(io, ok('e2e.verify', { ...result, slice: options.slice, dispatchId: options.dispatchId ?? null }), options.json);
-    } catch (error) { printResult(io, fail('e2e.verify', 'E2E_VERIFY_FAILED', getErrorMessage(error), {}, [getErrorMessage(error)]), options.json); process.exitCode = 1; }
-  });
+  ).action(
+    async (options: { slice: string; project: string; dispatchId?: string; json?: boolean }) => {
+      try {
+        const result = await runE2EVerify({
+          projectRoot: options.project,
+          slice: options.slice,
+          ...(options.dispatchId !== undefined ? { dispatchId: options.dispatchId } : {})
+        });
+        printResult(
+          io,
+          ok('e2e.verify', {
+            ...result,
+            slice: options.slice,
+            dispatchId: options.dispatchId ?? null
+          }),
+          options.json
+        );
+      } catch (error) {
+        printResult(
+          io,
+          fail('e2e.verify', 'E2E_VERIFY_FAILED', getErrorMessage(error), {}, [
+            getErrorMessage(error)
+          ]),
+          options.json
+        );
+        process.exitCode = 1;
+      }
+    }
+  );
 }

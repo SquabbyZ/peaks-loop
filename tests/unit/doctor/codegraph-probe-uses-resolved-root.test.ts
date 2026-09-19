@@ -40,7 +40,7 @@ const mocks = vi.hoisted(() => ({
     admittedTrackedCount: 0,
     includeGap: [] as string[],
     indexedFileCount: 0,
-    deadRows: [] as string[],
+    deadRows: [] as string[]
   })),
   isCodegraphExcludeConfigPresent: vi.fn((_root: string) => false),
   inspectCodegraphExcludeIntegrity: vi.fn((_root: string) => ({
@@ -49,35 +49,50 @@ const mocks = vi.hoisted(() => ({
     trackedSourceCount: 0,
     excludedTrackedCount: 0,
     rulesToRemove: [] as string[],
-    violations: [] as { path: string; matchedRule: string }[],
-  })),
+    violations: [] as { path: string; matchedRule: string }[]
+  }))
 }));
 
 const { isCodegraphInitialized, isCodegraphExcludeConfigPresent } = mocks;
 
 vi.mock('~/src/services/codegraph/codegraph-service.js', () => ({
-  isCodegraphInitialized: mocks.isCodegraphInitialized,
+  isCodegraphInitialized: mocks.isCodegraphInitialized
 }));
 vi.mock('~/src/services/codegraph/codegraph-index-integrity.js', () => ({
   CODEGRAPH_INDEX_STRICT_ENV_VAR: 'PEAKS_CODEGRAPH_INDEX_STRICT',
   CODEGRAPH_REPAIR_INDEX_COMMAND: 'peaks codegraph repair-index',
   inspectCodegraphIndexIntegrity: mocks.inspectCodegraphIndexIntegrity,
-  isCodegraphIndexStrictMode: () => false,
+  isCodegraphIndexStrictMode: () => false
 }));
 vi.mock('~/src/services/codegraph/codegraph-exclude-integrity.js', () => ({
   inspectCodegraphExcludeIntegrity: mocks.inspectCodegraphExcludeIntegrity,
-  isCodegraphExcludeConfigPresent: mocks.isCodegraphExcludeConfigPresent,
+  isCodegraphExcludeConfigPresent: mocks.isCodegraphExcludeConfigPresent
 }));
 
 import { check as indexCheck } from '~/src/services/doctor/doctor-service/checks/codegraph-index-integrity';
 import { check as excludeCheck } from '~/src/services/doctor/doctor-service/checks/codegraph-exclude-integrity';
-import type { DoctorCheck, DoctorContext, DoctorOptions } from '~/src/services/doctor/doctor-service/types';
+import type {
+  DoctorCheck,
+  DoctorContext,
+  DoctorOptions
+} from '~/src/services/doctor/doctor-service/types';
 import { declareDimensions } from '../_setup/4dim-template.js';
 
-declareDimensions('tests/unit/doctor/codegraph-probe-uses-resolved-root.test.ts', ['behavior', 'integration'], [
-  { dim: 'render', reason: 'the check returns a DoctorCheck record; no output of its own is rendered here' },
-  { dim: 'a11y', reason: 'no operator-facing message is asserted; the message text is covered by the sibling codegraph check suites' }
-]);
+declareDimensions(
+  'tests/unit/doctor/codegraph-probe-uses-resolved-root.test.ts',
+  ['behavior', 'integration'],
+  [
+    {
+      dim: 'render',
+      reason: 'the check returns a DoctorCheck record; no output of its own is rendered here'
+    },
+    {
+      dim: 'a11y',
+      reason:
+        'no operator-facing message is asserted; the message text is covered by the sibling codegraph check suites'
+    }
+  ]
+);
 
 const RESOLVED_ROOT = '/tmp/resolved-doctor-root';
 
@@ -86,7 +101,12 @@ const RESOLVED_ROOT = '/tmp/resolved-doctor-root';
  * synchronous, so this narrows the union the same way the sibling doctor
  * suites do rather than indexing into the union directly.
  */
-function runPlugin(plugin: { run: (context: DoctorContext) => readonly DoctorCheck[] | Promise<readonly DoctorCheck[]> }, context: DoctorContext): readonly DoctorCheck[] {
+function runPlugin(
+  plugin: {
+    run: (context: DoctorContext) => readonly DoctorCheck[] | Promise<readonly DoctorCheck[]>;
+  },
+  context: DoctorContext
+): readonly DoctorCheck[] {
   const result = plugin.run(context);
 
   return Array.isArray(result) ? result : [];
@@ -105,12 +125,16 @@ function makeContext(resolvedL3Root: string, options: DoctorOptions = {}): Docto
     resolvedL3Root,
     projectRootResolver: () => resolvedL3Root,
     isValidSessionId: () => true,
-    accumulatedChecks: [],
+    accumulatedChecks: []
   };
 }
 
 /** First check emitted by a plugin, with the union narrowed away. */
-function first(plugin: typeof indexCheck | typeof excludeCheck, resolvedL3Root: string, options: DoctorOptions = {}): DoctorCheck {
+function first(
+  plugin: typeof indexCheck | typeof excludeCheck,
+  resolvedL3Root: string,
+  options: DoctorOptions = {}
+): DoctorCheck {
   const checks = runPlugin(plugin, makeContext(resolvedL3Root, options));
   const found = checks[0];
   if (found === undefined) throw new Error(`plugin ${plugin.name} emitted no checks`);
@@ -153,8 +177,17 @@ describe('Scenario: integration — the codegraph module boundary receives the r
   it('an injected probe still wins over the default', () => {
     // Back-compat: the injection seam the existing suites use is unchanged.
     isCodegraphInitialized.mockClear();
-    const injected = { gap: false, trackedSourceCount: 1, admittedTrackedCount: 1, includeGap: [], indexedFileCount: 1, deadRows: [] };
-    const result = first(indexCheck, RESOLVED_ROOT, { codegraphIndexIntegrityProbe: () => injected });
+    const injected = {
+      gap: false,
+      trackedSourceCount: 1,
+      admittedTrackedCount: 1,
+      includeGap: [],
+      indexedFileCount: 1,
+      deadRows: []
+    };
+    const result = first(indexCheck, RESOLVED_ROOT, {
+      codegraphIndexIntegrityProbe: () => injected
+    });
 
     expect(isCodegraphInitialized).not.toHaveBeenCalled();
     expect(result.ok).toBe(true);
@@ -181,7 +214,7 @@ describe('Scenario: behavior — the verdict the probes produce', () => {
       admittedTrackedCount: 1,
       includeGap: ['scripts/tool.mjs'],
       indexedFileCount: 1,
-      deadRows: [],
+      deadRows: []
     });
 
     const result = first(indexCheck, '/tmp/has-index');

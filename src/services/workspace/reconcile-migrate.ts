@@ -4,7 +4,17 @@
  * 800-line cap. Behaviour-preserving verbatim move.
  */
 
-import { copyFileSync, existsSync, lstatSync, mkdirSync, readdirSync, renameSync, rmSync, rmdirSync, unlinkSync } from 'node:fs';
+import {
+  copyFileSync,
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  readdirSync,
+  renameSync,
+  rmSync,
+  rmdirSync,
+  unlinkSync
+} from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 // Call-time-only dependency on the sibling service: `migrateSubAgentState`
 // walks every discovered session via `discoverSessions`, which is invoked
@@ -76,7 +86,10 @@ function runtimeNewBasename(oldBasename: string): string {
  *   successfully moved, in move order. `errors` lists per-file
  *   failures with the old path and a human-readable message.
  */
-export function migrateOldRuntimeState(projectRoot: string): { migratedFiles: string[]; errors: Array<{ path: string; message: string }> } {
+export function migrateOldRuntimeState(projectRoot: string): {
+  migratedFiles: string[];
+  errors: Array<{ path: string; message: string }>;
+} {
   const root = resolve(projectRoot);
   const peaksRoot = join(root, '.peaks');
   const newDir = join(root, RUNTIME_DIR);
@@ -177,7 +190,10 @@ function copyDirRecursiveSync(src: string, dest: string): void {
  *   relative paths (e.g. `.peaks/_runtime/<sid>/system/subagent-progress.json`) that
  *   were successfully moved. `errors` lists per-file failures.
  */
-export function migrateSubAgentState(projectRoot: string): { migratedFiles: string[]; errors: Array<{ path: string; message: string }> } {
+export function migrateSubAgentState(projectRoot: string): {
+  migratedFiles: string[];
+  errors: Array<{ path: string; message: string }>;
+} {
   const root = resolve(projectRoot);
   const newDir = join(root, '.peaks', SUB_AGENTS_DIR);
   const migratedFiles: string[] = [];
@@ -194,7 +210,11 @@ export function migrateSubAgentState(projectRoot: string): { migratedFiles: stri
       if (!existsSync(oldPath)) continue;
       if (existsSync(newPath)) {
         // New path is authoritative; remove stale old file.
-        try { rmSync(oldPath, { force: true }); } catch { /* best effort */ } // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+        try {
+          rmSync(oldPath, { force: true });
+        } catch {
+          /* best effort */
+        } // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
         continue;
       }
       try {
@@ -220,7 +240,9 @@ export function migrateSubAgentState(projectRoot: string): { migratedFiles: stri
       if (remaining.length === 0) {
         rmdirSync(oldSystemDir);
       }
-    } catch { /* best effort */ } // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+    } catch {
+      /* best effort */
+    } // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
   }
   return { migratedFiles, errors };
 }

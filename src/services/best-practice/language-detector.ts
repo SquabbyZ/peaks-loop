@@ -20,13 +20,7 @@
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
-export type DetectedLanguage =
-  | 'typescript'
-  | 'javascript'
-  | 'python'
-  | 'go'
-  | 'java'
-  | 'unknown';
+export type DetectedLanguage = 'typescript' | 'javascript' | 'python' | 'go' | 'java' | 'unknown';
 
 export type LanguageDetection = {
   readonly language: DetectedLanguage;

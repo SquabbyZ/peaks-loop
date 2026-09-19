@@ -23,7 +23,9 @@ function hasUnsafePathShape(input: string): boolean {
   if (normalized.includes('://')) return true;
   if (/^[^@\s]+@[^:\s]+:.+/.test(normalized)) return true;
 
-  return normalized.split('/').some((segment) => segment.length === 0 || segment === '.' || segment === '..');
+  return normalized
+    .split('/')
+    .some((segment) => segment.length === 0 || segment === '.' || segment === '..');
 }
 
 export function isUnsafePathInput(input: string): boolean {

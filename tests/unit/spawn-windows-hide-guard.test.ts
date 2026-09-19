@@ -323,7 +323,11 @@ function isTypeOnlyChildProcessImport(statement: ts.ImportDeclaration): boolean 
 function importsChildProcess(sourceFile: ts.SourceFile): boolean {
   let hit = false;
   const visit = (node: ts.Node): void => {
-    if (ts.isImportDeclaration(node) && isChildProcessSpecifier(node.moduleSpecifier) && !isTypeOnlyChildProcessImport(node)) {
+    if (
+      ts.isImportDeclaration(node) &&
+      isChildProcessSpecifier(node.moduleSpecifier) &&
+      !isTypeOnlyChildProcessImport(node)
+    ) {
       hit = true;
     }
     if (
@@ -431,7 +435,9 @@ function isPromisifiedChildProcessRef(expression: ts.Expression, bindings: Bindi
   const callee = expression.expression;
   const isPromisify =
     (ts.isIdentifier(callee) && callee.text === 'promisify') ||
-    (ts.isPropertyAccessExpression(callee) && ts.isIdentifier(callee.name) && callee.name.text === 'promisify');
+    (ts.isPropertyAccessExpression(callee) &&
+      ts.isIdentifier(callee.name) &&
+      callee.name.text === 'promisify');
   if (!isPromisify) return false;
   const argument = expression.arguments[0];
   return argument !== undefined && isChildProcessRef(argument, bindings);
@@ -441,19 +447,33 @@ function isChildProcessRef(expression: ts.Expression, bindings: Bindings): boole
   if (ts.isIdentifier(expression)) {
     return bindings.named.has(expression.text) || bindings.aliases.has(expression.text);
   }
-  if (ts.isPropertyAccessExpression(expression) && ts.isIdentifier(expression.expression) && ts.isIdentifier(expression.name)) {
-    return bindings.namespaces.has(expression.expression.text) && CHILD_PROCESS_ENTRY_POINTS.has(expression.name.text);
+  if (
+    ts.isPropertyAccessExpression(expression) &&
+    ts.isIdentifier(expression.expression) &&
+    ts.isIdentifier(expression.name)
+  ) {
+    return (
+      bindings.namespaces.has(expression.expression.text) &&
+      CHILD_PROCESS_ENTRY_POINTS.has(expression.name.text)
+    );
   }
   if (isPromisifiedChildProcessRef(expression, bindings)) return true;
-  if (ts.isParenthesizedExpression(expression)) return isChildProcessRef(expression.expression, bindings);
+  if (ts.isParenthesizedExpression(expression))
+    return isChildProcessRef(expression.expression, bindings);
   if (ts.isBinaryExpression(expression)) {
     const kind = expression.operatorToken.kind;
     if (kind === ts.SyntaxKind.QuestionQuestionToken || kind === ts.SyntaxKind.BarBarToken) {
-      return isChildProcessRef(expression.left, bindings) || isChildProcessRef(expression.right, bindings);
+      return (
+        isChildProcessRef(expression.left, bindings) ||
+        isChildProcessRef(expression.right, bindings)
+      );
     }
   }
   if (ts.isConditionalExpression(expression)) {
-    return isChildProcessRef(expression.whenTrue, bindings) || isChildProcessRef(expression.whenFalse, bindings);
+    return (
+      isChildProcessRef(expression.whenTrue, bindings) ||
+      isChildProcessRef(expression.whenFalse, bindings)
+    );
   }
   return false;
 }
@@ -538,7 +558,8 @@ function collectWindowsHideAssignments(sourceFile: ts.SourceFile): Set<string> {
 }
 
 function propertyNameOf(property: ts.ObjectLiteralElementLike): string | null {
-  if (!ts.isPropertyAssignment(property) && !ts.isShorthandPropertyAssignment(property)) return null;
+  if (!ts.isPropertyAssignment(property) && !ts.isShorthandPropertyAssignment(property))
+    return null;
   const key = property.name;
   if (ts.isIdentifier(key) || ts.isStringLiteral(key)) return key.text;
   return null;
@@ -551,7 +572,10 @@ function hasWindowsHideTrue(
   visited: ReadonlySet<string>
 ): { ok: boolean; why: string } {
   if (options === undefined) {
-    return { ok: false, why: 'no options argument at all — `windowsHide` cannot be set, the window will pop' };
+    return {
+      ok: false,
+      why: 'no options argument at all — `windowsHide` cannot be set, the window will pop'
+    };
   }
   // `spawn(cmd, args, OPTS)` where `const OPTS = { … }` in this file: resolve to
   // the literal. Without this, `ocr-18-acquire.ts` (which DOES set
@@ -569,7 +593,9 @@ function hasWindowsHideTrue(
     // no options at all, and saying so is more useful than "not an object
     // literal", which reads as if an options object were being hidden.
     const looksLikeArgv =
-      ts.isArrayLiteralExpression(options) || ts.isStringLiteralLike(options) || ts.isNumericLiteral(options);
+      ts.isArrayLiteralExpression(options) ||
+      ts.isStringLiteralLike(options) ||
+      ts.isNumericLiteral(options);
     return {
       ok: false,
       why: looksLikeArgv
@@ -597,7 +623,10 @@ function hasWindowsHideTrue(
     if (ts.isShorthandPropertyAssignment(property)) {
       return { ok: false, why: '`windowsHide` is present but not the literal `true`' };
     }
-    if (ts.isPropertyAssignment(property) && property.initializer.kind === ts.SyntaxKind.TrueKeyword) {
+    if (
+      ts.isPropertyAssignment(property) &&
+      property.initializer.kind === ts.SyntaxKind.TrueKeyword
+    ) {
       return { ok: true, why: '' };
     }
     return { ok: false, why: '`windowsHide` is present but not the literal `true`' };
@@ -762,9 +791,10 @@ describe('spawn hygiene — `windowsHide: true` on every child_process call site
     });
 
     it('excludes build output and dependency trees', () => {
-      const pruned = SCAN.candidates.filter((file) =>
-        PRUNED_DIRECTORY_NAMES.has(file.split('/')[0] ?? '') ||
-        file.split('/').some((segment) => PRUNED_DIRECTORY_NAMES.has(segment))
+      const pruned = SCAN.candidates.filter(
+        (file) =>
+          PRUNED_DIRECTORY_NAMES.has(file.split('/')[0] ?? '') ||
+          file.split('/').some((segment) => PRUNED_DIRECTORY_NAMES.has(segment))
       );
       expect(pruned).toEqual([]);
       expect(SCAN.candidates.some((file) => file.includes('node_modules/'))).toBe(false);
@@ -792,12 +822,16 @@ describe('spawn hygiene — `windowsHide: true` on every child_process call site
     it('does not put a type-only `child_process` import in scope', () => {
       // `packages/peaks-loop-internal-runtime/src/dispatch.ts` has
       // `import type { ChildProcess }` and spawns through the supervisor.
-      expect(SCAN.protectedFiles).not.toContain('packages/peaks-loop-internal-runtime/src/dispatch.ts');
+      expect(SCAN.protectedFiles).not.toContain(
+        'packages/peaks-loop-internal-runtime/src/dispatch.ts'
+      );
     });
 
     it('scopes the integration suite the user actually runs, not a list typed here', () => {
       expect(SCAN.protectedFiles).toContain('tests/integration/dispatch-merge-and-e2e.e2e.test.ts');
-      expect(SCAN.protectedFiles.filter((file) => file.startsWith('tests/integration/')).length).toBeGreaterThan(20);
+      expect(
+        SCAN.protectedFiles.filter((file) => file.startsWith('tests/integration/')).length
+      ).toBeGreaterThan(20);
     });
   });
 
@@ -856,7 +890,16 @@ describe('spawn hygiene — `windowsHide: true` on every child_process call site
       // @27 a shared `const` options object, @28 a spread of it, @32 an object
       // flag-set by assignment (the platform-conditional shape).
       expect(oks.map(label).sort()).toEqual(
-        ['spawn@10', 'spawnFn@13', 'cp.execFile@14', 'spawn@18', 'runAsync@25', 'spawn@27', 'spawn@28', 'spawn@32'].sort()
+        [
+          'spawn@10',
+          'spawnFn@13',
+          'cp.execFile@14',
+          'spawn@18',
+          'runAsync@25',
+          'spawn@27',
+          'spawn@28',
+          'spawn@32'
+        ].sort()
       );
     });
 
@@ -886,7 +929,9 @@ describe('spawn hygiene — `windowsHide: true` on every child_process call site
       expect(bad.map((site) => site.why)).toContain(
         'options are not an object literal here; `windowsHide` is not statically visible'
       );
-      expect(bad.map((site) => site.why)).toContain('`windowsHide` is present but not the literal `true`');
+      expect(bad.map((site) => site.why)).toContain(
+        '`windowsHide` is present but not the literal `true`'
+      );
     });
 
     it('does not invent a call site for a name that is not from child_process', () => {
@@ -952,13 +997,19 @@ describe('spawn hygiene — `windowsHide: true` on every child_process call site
     it('is not made green by skipping a directory or a file', () => {
       // Pins the two things that would quietly reproduce the old 14-file list:
       // pruning a subtree out of scope, or exempting a file by name.
-      expect(SCAN.protectedFiles.filter((file) => file.startsWith('tests/')).length).toBeGreaterThan(50);
-      expect(SCAN.protectedFiles.filter((file) => file.startsWith('src/')).length).toBeGreaterThan(50);
+      expect(
+        SCAN.protectedFiles.filter((file) => file.startsWith('tests/')).length
+      ).toBeGreaterThan(50);
+      expect(SCAN.protectedFiles.filter((file) => file.startsWith('src/')).length).toBeGreaterThan(
+        50
+      );
     });
 
     it('has no debt entry that does not match its file exactly', () => {
       const actual = liveCountsByFile().filter((entry) => debtFor(entry.file) > 0);
-      const pinned = [...KNOWN_DEBT].sort((a, b) => (a.file < b.file ? -1 : a.file > b.file ? 1 : 0));
+      const pinned = [...KNOWN_DEBT].sort((a, b) =>
+        a.file < b.file ? -1 : a.file > b.file ? 1 : 0
+      );
       // Exact count equality in both directions: a new un-hidden call site in a
       // debt file pushes the number up and fails; a fix pushes it down and also
       // fails, forcing the table to be updated rather than left stale.
@@ -971,7 +1022,9 @@ describe('spawn hygiene — `windowsHide: true` on every child_process call site
     });
 
     it('has no ghost debt entry', () => {
-      const ghosts = KNOWN_DEBT.filter((debt) => !SCAN.protectedFiles.includes(debt.file) || debt.count === 0);
+      const ghosts = KNOWN_DEBT.filter(
+        (debt) => !SCAN.protectedFiles.includes(debt.file) || debt.count === 0
+      );
       expect(ghosts).toEqual([]);
     });
 
@@ -980,13 +1033,17 @@ describe('spawn hygiene — `windowsHide: true` on every child_process call site
       // against the per-file table, so a number quoted in a report and the
       // number the guard enforces cannot diverge.
       expect(LIVE_VIOLATIONS.length).toBe(KNOWN_DEBT.reduce((sum, debt) => sum + debt.count, 0));
-      expect(KNOWN_DEBT.map((debt) => debt.file)).toEqual([...KNOWN_DEBT.map((debt) => debt.file)].sort());
+      expect(KNOWN_DEBT.map((debt) => debt.file)).toEqual(
+        [...KNOWN_DEBT.map((debt) => debt.file)].sort()
+      );
     });
   });
 
   describe('this slice’s target', () => {
     it('leaves no un-hidden child_process call site anywhere under tests/integration/', () => {
-      const remaining = LIVE_VIOLATIONS.filter((entry) => entry.file.startsWith('tests/integration/'));
+      const remaining = LIVE_VIOLATIONS.filter((entry) =>
+        entry.file.startsWith('tests/integration/')
+      );
       expect(remaining.map(formatViolation)).toEqual([]);
     });
   });

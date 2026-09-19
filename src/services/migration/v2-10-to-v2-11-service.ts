@@ -29,7 +29,13 @@ import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { DEPRECATION_BANNER, type MigrationEntry, type MigrationPlan, type MigrationResult, type MigrationReason } from './v2-10-to-v2-11-types.js';
+import {
+  DEPRECATION_BANNER,
+  type MigrationEntry,
+  type MigrationPlan,
+  type MigrationResult,
+  type MigrationReason
+} from './v2-10-to-v2-11-types.js';
 
 const SKIP_DIRS = new Set([
   'memory',
@@ -130,7 +136,9 @@ function buildEntryForFile(sessionId: string, filePath: string): MigrationEntry 
   };
 }
 
-export function enumerateTechDocs(projectRoot: string): ReadonlyArray<{ readonly sessionId: string; readonly filePath: string }> {
+export function enumerateTechDocs(
+  projectRoot: string
+): ReadonlyArray<{ readonly sessionId: string; readonly filePath: string }> {
   const out: Array<{ sessionId: string; filePath: string }> = [];
   for (const sid of enumerateSessionDirs(projectRoot)) {
     const filePath = join(projectRoot, '.peaks', sid, 'rd', 'tech-doc.md');

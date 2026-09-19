@@ -30,8 +30,19 @@ const MAX_HITS_PER_NAME = 5;
 const MAX_SCAN_FILE_BYTES = 2 * 1024 * 1024;
 const SCAN_EXTENSIONS = ['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs', '.vue', '.json', '.html'];
 const SKIP_DIRS = new Set([
-  'node_modules', '.git', 'dist', 'build', 'out', 'coverage', '.next', '.nuxt', '.output',
-  '.peaks', '.turbo', '.cache', '__pycache__'
+  'node_modules',
+  '.git',
+  'dist',
+  'build',
+  'out',
+  'coverage',
+  '.next',
+  '.nuxt',
+  '.output',
+  '.peaks',
+  '.turbo',
+  '.cache',
+  '__pycache__'
 ]);
 
 // ---------------------------------------------------------------------------
@@ -111,7 +122,8 @@ function braceBalance(text: string): number {
   return delta;
 }
 
-const DECLARATION = /^\s*(?:export\s+)?(?:declare\s+)?(?:interface|type)\s+([A-Za-z_$][\w$]*)\s*(?:<[^{>]*>)?\s*(?:=\s*)?(?:(extends)\s+[^{]+)?\{/;
+const DECLARATION =
+  /^\s*(?:export\s+)?(?:declare\s+)?(?:interface|type)\s+([A-Za-z_$][\w$]*)\s*(?:<[^{>]*>)?\s*(?:=\s*)?(?:(extends)\s+[^{]+)?\{/;
 /**
  * The fail-safe, anchored on the DECLARATION KEYWORD rather than on the shape
  * of what follows. `<[^{>}]*>` cannot span a nested generic, so
@@ -119,7 +131,8 @@ const DECLARATION = /^\s*(?:export\s+)?(?:declare\s+)?(?:interface|type)\s+([A-Z
  * was dropped in total silence — no interface, no suppression, no note. A
  * declaration we cannot read must still be RECORDED as incomplete.
  */
-const DECLARATION_KEYWORD = /^\s*(?:export\s+)?(?:declare\s+)?(?:interface|type)\s+([A-Za-z_$][\w$]*)/;
+const DECLARATION_KEYWORD =
+  /^\s*(?:export\s+)?(?:declare\s+)?(?:interface|type)\s+([A-Za-z_$][\w$]*)/;
 const MEMBER = /^\s*(?:readonly\s+)?([A-Za-z_$][\w$]*)\s*(\??)\s*:\s*(.+?)\s*;?\s*$/;
 
 /**
@@ -227,7 +240,9 @@ function truncate(text: string, max = 40): string {
 export function parseRecordedInterfaces(source: string, file: string): RecordedInterface[] {
   const lines = stripComments(source).split(/\r?\n/);
   const fileBalanced = braceBalance(lines.join('\n')) === 0;
-  const fileReason = fileBalanced ? null : 'the file has unbalanced braces, so its structure could not be read';
+  const fileReason = fileBalanced
+    ? null
+    : 'the file has unbalanced braces, so its structure could not be read';
   const found: RecordedInterface[] = [];
   let i = 0;
   while (i < lines.length) {
@@ -242,7 +257,8 @@ export function parseRecordedInterfaces(source: string, file: string): RecordedI
           name: keyword[1]!,
           file,
           members: new Map(),
-          incompleteReason: 'its declaration could not be fully parsed (a nested generic, an intersection, an alias, or a brace on a following line)'
+          incompleteReason:
+            'its declaration could not be fully parsed (a nested generic, an intersection, an alias, or a brace on a following line)'
         });
       }
       i += 1;
@@ -253,12 +269,16 @@ export function parseRecordedInterfaces(source: string, file: string): RecordedI
     const members = new Map<string, string>();
     const reasons: string[] = [];
     if (match[2] !== undefined) {
-      reasons.push('it extends a base type, whose inherited members cannot be resolved without a compiler');
+      reasons.push(
+        'it extends a base type, whose inherited members cannot be resolved without a compiler'
+      );
     }
 
     let depth = braceBalance(line);
     if (depth === 0) {
-      reasons.push('its body is written on a single line, which the line-based extractor cannot read');
+      reasons.push(
+        'its body is written on a single line, which the line-based extractor cannot read'
+      );
       i += 1;
     } else {
       i += 1;
@@ -269,14 +289,20 @@ export function parseRecordedInterfaces(source: string, file: string): RecordedI
           if (trimmed !== '' && !/^[};,]+$/.test(trimmed)) {
             const member = MEMBER.exec(bodyLine);
             if (member === null) {
-              reasons.push(`it has a body line the extractor cannot classify (\`${truncate(trimmed)}\`), which may be a member it failed to read`);
+              reasons.push(
+                `it has a body line the extractor cannot classify (\`${truncate(trimmed)}\`), which may be a member it failed to read`
+              );
             } else if (absorbedExtraMember(member[3]!)) {
-              reasons.push(`it has a body line carrying more than one member (\`${truncate(trimmed)}\`), which the line-based extractor cannot split`);
+              reasons.push(
+                `it has a body line carrying more than one member (\`${truncate(trimmed)}\`), which the line-based extractor cannot split`
+              );
             } else {
               const optional = member[2] === '?';
               const raw = member[3]!;
               if (hasInlineObject(raw)) {
-                reasons.push('it has a nested inline object member, whose inner fields are not visible');
+                reasons.push(
+                  'it has a nested inline object member, whose inner fields are not visible'
+                );
                 members.set(member[1]!, optional ? 'object | undefined' : 'object');
               } else {
                 members.set(member[1]!, optional ? `${raw} | undefined` : raw);
@@ -418,7 +444,8 @@ export function findRecordedInterfaceFiles(projectRoot: string, mockPlan: string
       if (mtimeOf(absolute) >= 0) files.add(absolute);
     }
   }
-  for (const file of listFiles(join(projectRoot, 'src', 'services', 'types'), '-api.types.ts')) files.add(file);
+  for (const file of listFiles(join(projectRoot, 'src', 'services', 'types'), '-api.types.ts'))
+    files.add(file);
   return [...files].sort();
 }
 
@@ -426,8 +453,11 @@ export function findRecordedInterfaceFiles(projectRoot: string, mockPlan: string
 export function findHandoffWithApiMigration(projectRoot: string): string | null {
   const runtime = join(projectRoot, '.peaks', '_runtime');
   const candidates: string[] = [];
-  for (const sid of listDirs(runtime)) candidates.push(...listFiles(join(runtime, sid, 'txt'), '.md'));
-  const withSection = candidates.filter((file) => /^##\s+API Migration\s*$/m.test(readTextOr(file, '')));
+  for (const sid of listDirs(runtime))
+    candidates.push(...listFiles(join(runtime, sid, 'txt'), '.md'));
+  const withSection = candidates.filter((file) =>
+    /^##\s+API Migration\s*$/m.test(readTextOr(file, ''))
+  );
   return newest(withSection);
 }
 

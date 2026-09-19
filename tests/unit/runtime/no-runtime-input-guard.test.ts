@@ -111,7 +111,10 @@ const SRC_COMMANDS_ROOT = join(PROJECT_ROOT, 'src', 'cli', 'commands');
 
 /** POSIX-normalised path relative to the project root. */
 function relativeToRoot(absolutePath: string): string {
-  return absolutePath.slice(PROJECT_ROOT.length + 1).split(sep).join('/');
+  return absolutePath
+    .slice(PROJECT_ROOT.length + 1)
+    .split(sep)
+    .join('/');
 }
 
 /** Every TypeScript file under `tests/`, recursively. `fs`, not a shell (Windows). */
@@ -146,7 +149,11 @@ const lineOf = (sourceFile: ts.SourceFile, node: ts.Node): number =>
 function moduleLocationNames(sourceFile: ts.SourceFile): ReadonlySet<string> {
   const names = new Set<string>();
   const visit = (node: ts.Node): void => {
-    if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.initializer !== undefined) {
+    if (
+      ts.isVariableDeclaration(node) &&
+      ts.isIdentifier(node.name) &&
+      node.initializer !== undefined
+    ) {
       if (/__dirname|import\.meta/.test(node.initializer.getText(sourceFile))) {
         names.add(node.name.text);
       }
@@ -281,7 +288,9 @@ export function findRepoRootedArtifactReads(sourceFile: ts.SourceFile): RepoRoot
       const elements = first.elements;
       const word = (element: ts.Node | undefined): string | undefined =>
         element !== undefined && ts.isStringLiteral(element) ? element.text : undefined;
-      const family = ARTIFACT_READERS.find(([verb, noun]) => word(elements[0]) === verb && word(elements[1]) === noun);
+      const family = ARTIFACT_READERS.find(
+        ([verb, noun]) => word(elements[0]) === verb && word(elements[1]) === noun
+      );
       if (family !== undefined) {
         for (let index = 0; index < elements.length; index += 1) {
           const flag = word(elements[index]);
@@ -480,9 +489,14 @@ const isPinnedName = (node: ts.Node, constants: ReadonlySet<string>): boolean =>
 export function moduleStringConstants(sourceFile: ts.SourceFile): ReadonlySet<string> {
   const names = new Set<string>();
   const visit = (node: ts.Node): void => {
-    if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.initializer !== undefined) {
+    if (
+      ts.isVariableDeclaration(node) &&
+      ts.isIdentifier(node.name) &&
+      node.initializer !== undefined
+    ) {
       const init = node.initializer;
-      if (ts.isStringLiteral(init) || ts.isNoSubstitutionTemplateLiteral(init)) names.add(node.name.text);
+      if (ts.isStringLiteral(init) || ts.isNoSubstitutionTemplateLiteral(init))
+        names.add(node.name.text);
     }
     ts.forEachChild(node, visit);
   };
@@ -548,8 +562,13 @@ function collectGuards(sourceFile: ts.SourceFile): GuardSets {
         }
         if (ID_VALIDATOR_NAMES.some(named)) {
           let parent: ts.Node | undefined = node.parent;
-          while (parent !== undefined && ts.isParenthesizedExpression(parent)) parent = parent.parent;
-          if (parent !== undefined && ts.isVariableDeclaration(parent) && ts.isIdentifier(parent.name)) {
+          while (parent !== undefined && ts.isParenthesizedExpression(parent))
+            parent = parent.parent;
+          if (
+            parent !== undefined &&
+            ts.isVariableDeclaration(parent) &&
+            ts.isIdentifier(parent.name)
+          ) {
             validatedRoots.add(parent.name.text);
           }
         }
@@ -580,9 +599,12 @@ function isGuardedSlot(
   constants: ReadonlySet<string>
 ): boolean {
   if (isPinnedName(node, constants)) return true;
-  if (ts.isParenthesizedExpression(node)) return isGuardedSlot(node.expression, sourceFile, guards, constants);
+  if (ts.isParenthesizedExpression(node))
+    return isGuardedSlot(node.expression, sourceFile, guards, constants);
   if (ts.isTemplateExpression(node)) {
-    return node.templateSpans.every((span) => isGuardedSlot(span.expression, sourceFile, guards, constants));
+    return node.templateSpans.every((span) =>
+      isGuardedSlot(span.expression, sourceFile, guards, constants)
+    );
   }
   // EVERY branch of a binary or conditional carries the id, so EVERY branch
   // must be guarded. Reading this as an OR over the branches is repair R7's
@@ -732,7 +754,8 @@ export function runtimeJoinSlots(
   if (runtimeAt >= 0) return args.slice(runtimeAt + 1).filter(assertable);
 
   const builderArg = args.find(
-    (a) => ts.isCallExpression(a) && ts.isIdentifier(a.expression) && builders.has(a.expression.text)
+    (a) =>
+      ts.isCallExpression(a) && ts.isIdentifier(a.expression) && builders.has(a.expression.text)
   );
   if (builderArg !== undefined) return args.filter((a) => a !== builderArg && assertable(a));
 
@@ -868,9 +891,24 @@ const NOT_SCANNED_LITERAL_FIRST: readonly {
   readonly later: string;
 }[] = [
   { file: 'src/services/prd/prd-blocks-checker.ts', line: 62, pinned: 'prd', later: 'requestId' },
-  { file: 'src/services/prd/prd-blocks-checker.ts', line: 63, pinned: 'change', later: 'requestId' },
-  { file: 'src/services/session/caller-binding-service.ts', line: 38, pinned: 'callers', later: 'callerId' },
-  { file: 'src/services/workflow/artifact-paths.ts', line: 63, pinned: 'change', later: 'sessionId' },
+  {
+    file: 'src/services/prd/prd-blocks-checker.ts',
+    line: 63,
+    pinned: 'change',
+    later: 'requestId'
+  },
+  {
+    file: 'src/services/session/caller-binding-service.ts',
+    line: 38,
+    pinned: 'callers',
+    later: 'callerId'
+  },
+  {
+    file: 'src/services/workflow/artifact-paths.ts',
+    line: 63,
+    pinned: 'change',
+    later: 'sessionId'
+  },
   {
     file: 'src/services/workflow/pipeline-verify-gate-support.ts',
     line: 260,
@@ -961,7 +999,9 @@ describe('`.peaks/_runtime` is never a test input (slice 2026-09-13)', () => {
       `const REPO = resolve(__dirname, '../..');`,
       `const p = join(REPO, '.peaks', '_runtime', sid);`
     ].join('\n');
-    expect(findModuleLocationRuntimePaths(parseSourceFile('fixture.ts', withAnchor))).toHaveLength(1);
+    expect(findModuleLocationRuntimePaths(parseSourceFile('fixture.ts', withAnchor))).toHaveLength(
+      1
+    );
     expect(
       findRepoRootedArtifactReads(
         parseSourceFile(
@@ -979,7 +1019,8 @@ describe('`.peaks/_runtime` is never a test input (slice 2026-09-13)', () => {
 
   it('no artifact-reading command is aimed at the repository root', () => {
     const offenders = SCAN.repoRootedReads.map(
-      (hit) => `${where(hit.file, hit.line)} \`peaks ${hit.command}\` resolves via ${hit.flag} ${hit.anchor}`
+      (hit) =>
+        `${where(hit.file, hit.line)} \`peaks ${hit.command}\` resolves via ${hit.flag} ${hit.anchor}`
     );
     expect(offenders).toEqual([]);
   });
@@ -1001,7 +1042,8 @@ describe('rule D — an id joined into the runtime tree carries a guard (slice 2
 
   it('no unguarded id is joined into the runtime tree', () => {
     const offenders = SRC_SCAN.unguardedIdJoins.map(
-      (hit) => `${relativeToRoot(hit.file)}:${hit.line} joins ${hit.segment} after '_runtime' with no guard in the file`
+      (hit) =>
+        `${relativeToRoot(hit.file)}:${hit.line} joins ${hit.segment} after '_runtime' with no guard in the file`
     );
     expect(offenders).toEqual([]);
   });
@@ -1012,7 +1054,9 @@ describe('rule D — an id joined into the runtime tree carries a guard (slice 2
       `const dir = join(projectRoot, '.peaks', '_runtime', sid, 'slice-reviews');`,
       `mkdirSync(dir, { recursive: true });`
     ].join('\n');
-    expect(findUnguardedRuntimeIdJoins(parseSourceFile('fixture.ts', BAD)).map((h) => h.line)).toEqual([2]);
+    expect(
+      findUnguardedRuntimeIdJoins(parseSourceFile('fixture.ts', BAD)).map((h) => h.line)
+    ).toEqual([2]);
 
     // A guard anywhere in the file is enough — `verdict-aggregate-command.ts`
     // guards `sid` once at the action entry and three helpers 100 lines below
@@ -1052,24 +1096,30 @@ describe('rule D — an id joined into the runtime tree carries a guard (slice 2
     expect(findUnguardedRuntimeIdJoins(parseSourceFile('fixture.ts', VALIDATED))).toEqual([]);
   });
 
-  it('pins rule D\'s reach, so it is not read as covering the service layer', () => {
+  it("pins rule D's reach, so it is not read as covering the service layer", () => {
     // The ~75 service-layer joins whose id comes from the canonical binding are
     // the job's §4.2 — a different trust class, deferred not cleared. They are
     // NOT scanned, and this test is the statement of that bound rather than a
     // comment someone can miss.
-    expect(SRC_SCAN.scannedFiles.some((f) => relativeToRoot(f) === 'src/services/loop/loop-store.ts')).toBe(false);
+    expect(
+      SRC_SCAN.scannedFiles.some((f) => relativeToRoot(f) === 'src/services/loop/loop-store.ts')
+    ).toBe(false);
     // …and the surface repair R5 added is scanned rather than merely listed, so
     // a future edit that drops it from `MEASURED_ESCAPE_MODULES` fails here
     // instead of quietly restoring the file-outside-the-reach defect.
     expect(
-      SRC_SCAN.scannedFiles.some((f) => relativeToRoot(f) === 'src/services/artifacts/request-artifact-service.ts')
+      SRC_SCAN.scannedFiles.some(
+        (f) => relativeToRoot(f) === 'src/services/artifacts/request-artifact-service.ts'
+      )
     ).toBe(true);
     // …while the modules rule D DOES cover are the command layer plus the
     // measured-escape set, and nothing else.
-    expect(SRC_SCAN.scannedFiles.every((f) => {
-      const rel = relativeToRoot(f);
-      return rel.startsWith('src/cli/commands/') || MEASURED_ESCAPE_MODULES.includes(rel);
-    })).toBe(true);
+    expect(
+      SRC_SCAN.scannedFiles.every((f) => {
+        const rel = relativeToRoot(f);
+        return rel.startsWith('src/cli/commands/') || MEASURED_ESCAPE_MODULES.includes(rel);
+      })
+    ).toBe(true);
   });
 
   it('segments AFTER the id slot ARE asserted (was limit (k), closed 2026-09-14)', () => {
@@ -1083,12 +1133,10 @@ describe('rule D — an id joined into the runtime tree carries a guard (slice 2
     //
     // Both segments are asserted now. `sub-agent-shutdown-commands.ts` guards
     // both (`:49`/`:52`) and is the shape the fix copies.
-    const fixture =
-      `const p = join(root, '.peaks', '_runtime', sid, 'dispatch', dispatchId, 'x.json');`;
-    expect(findUnguardedRuntimeIdJoins(parseSourceFile('fixture.ts', fixture)).map((h) => h.segment)).toEqual([
-      'sid',
-      'dispatchId'
-    ]);
+    const fixture = `const p = join(root, '.peaks', '_runtime', sid, 'dispatch', dispatchId, 'x.json');`;
+    expect(
+      findUnguardedRuntimeIdJoins(parseSourceFile('fixture.ts', fixture)).map((h) => h.segment)
+    ).toEqual(['sid', 'dispatchId']);
     const guarded = [
       `function f(root: string, sid: string, dispatchId: string) {`,
       `  if (isUnsafePathInput(sid)) throw new Error('bad sid');`,
@@ -1112,9 +1160,9 @@ describe('rule D — an id joined into the runtime tree carries a guard (slice 2
     ].join('\n');
     const parsed = parseSourceFile('fixture.ts', fixture);
     expect(findUnguardedRuntimeIdJoins(parsed).map((h) => h.segment)).toEqual(['sid']);
-    expect(findLiteralFirstIdJoins(parsed).map((h) => `${h.line}:${h.pinned}:[${h.later.join(',')}]`)).toEqual([
-      '3:SESSIONS_DIR:[sid]'
-    ]);
+    expect(
+      findLiteralFirstIdJoins(parsed).map((h) => `${h.line}:${h.pinned}:[${h.later.join(',')}]`)
+    ).toEqual(['3:SESSIONS_DIR:[sid]']);
   });
 
   it('negative control — the five escapes of repair R1 are all detected', () => {
@@ -1235,7 +1283,9 @@ describe('rule D — an id joined into the runtime tree carries a guard (slice 2
       `}`
     ].join('\n');
     expect(
-      findUnguardedRuntimeIdJoins(parseSourceFile('fixture.ts', callerOnlyGuard)).map((h) => h.segment)
+      findUnguardedRuntimeIdJoins(parseSourceFile('fixture.ts', callerOnlyGuard)).map(
+        (h) => h.segment
+      )
     ).toEqual(['sessionId', 'role']);
 
     const guardInBuilder = [
@@ -1251,7 +1301,7 @@ describe('rule D — an id joined into the runtime tree carries a guard (slice 2
     expect(findUnguardedRuntimeIdJoins(parseSourceFile('fixture.ts', guardInBuilder))).toEqual([]);
   });
 
-  it('negative control — QA\'s shape attack: the 10 catchable shapes are caught (repair R7)', () => {
+  it("negative control — QA's shape attack: the 10 catchable shapes are caught (repair R7)", () => {
     // Repair R7's AC1/AC3. Every fixture below is a PRE-FIX source shape that
     // the shipped predicate CLEARED while carrying an unchecked id. They are
     // here, and not merely in a session-scoped probe, because R1's sensitivity
@@ -1340,16 +1390,15 @@ describe('rule D — an id joined into the runtime tree carries a guard (slice 2
     // reports everything: a live site whose `??` fallback is a pinned literal
     // and whose id half IS guarded at its own function's entry must stay GREEN.
     // `request-commands.ts:372` is that site; this is its shape.
-    const liveShaped =
-      [
-        `function action(root: string, sid: string | undefined) {`,
-        `  let resolvedSessionId = sid;`,
-        `  if (resolvedSessionId !== undefined && isUnsafePathInput(resolvedSessionId)) {`,
-        `    throw new Error('bad sid');`,
-        `  }`,
-        `  return join(root, '.peaks', '_runtime', resolvedSessionId ?? 'default');`,
-        `}`
-      ].join('\n');
+    const liveShaped = [
+      `function action(root: string, sid: string | undefined) {`,
+      `  let resolvedSessionId = sid;`,
+      `  if (resolvedSessionId !== undefined && isUnsafePathInput(resolvedSessionId)) {`,
+      `    throw new Error('bad sid');`,
+      `  }`,
+      `  return join(root, '.peaks', '_runtime', resolvedSessionId ?? 'default');`,
+      `}`
+    ].join('\n');
     expect(findUnguardedRuntimeIdJoins(parseSourceFile('fixture.ts', liveShaped))).toEqual([]);
   });
 
@@ -1448,14 +1497,16 @@ describe('rule D — an id joined into the runtime tree carries a guard (slice 2
     expect(findUnguardedRuntimeIdJoins(parseSourceFile('fixture.ts', fixture))).toEqual([]);
   });
 
-  it('pins the literal-first census inside the rule\'s reach (measurement, not assurance)', () => {
+  it("pins the literal-first census inside the rule's reach (measurement, not assurance)", () => {
     // Every join in the scanned layer that rule D cannot see. A NEW one fails
     // here — that is the point: the shape that hid a live escape must announce
     // itself, not wait to be noticed. Measured 2026-09-15: 7 in the whole of
     // `src/`, of which this is the only one in reach (the other 6 are named in
     // the reach note and are NOT scanned).
     expect(
-      SRC_SCAN.literalFirstJoins.map((h) => `${relativeToRoot(h.file)}:${h.line} pinned=${h.pinned} later=[${h.later.join(',')}]`)
+      SRC_SCAN.literalFirstJoins.map(
+        (h) => `${relativeToRoot(h.file)}:${h.line} pinned=${h.pinned} later=[${h.later.join(',')}]`
+      )
     ).toEqual([
       "src/cli/commands/playwright-commands.ts:282 pinned='playwright-userdata' later=[terminalId]"
     ]);
@@ -1471,7 +1522,10 @@ describe('rule D — an id joined into the runtime tree carries a guard (slice 2
     // says they are. If the note drifts, this fails; if a row is fixed and the
     // note is not updated, this fails too.
     const measured = NOT_SCANNED_LITERAL_FIRST.map((named) => {
-      const parsed = parseSourceFile(named.file, readFileSync(join(PROJECT_ROOT, named.file), 'utf8'));
+      const parsed = parseSourceFile(
+        named.file,
+        readFileSync(join(PROJECT_ROOT, named.file), 'utf8')
+      );
       const hit = findLiteralFirstIdJoins(parsed).find((h) => h.line === named.line);
       return hit === undefined
         ? `${named.file}:${named.line} NOT FOUND`
@@ -1518,14 +1572,18 @@ describe('negative control — the six defects this guard exists for are all det
       `const REPO = resolve(__dirname, '../..');`,
       `runCli(['scan', 'diff-vs-scope', '--rid', EXISTING_RID, '--project', REPO, '--session-id', EXISTING_SESSION, '--json'], REPO);`
     ].join('\n');
-    expect(findRepoRootedArtifactReads(parseSourceFile('fixture.ts', fixture)).map((hit) => hit.line)).toEqual([2]);
+    expect(
+      findRepoRootedArtifactReads(parseSourceFile('fixture.ts', fixture)).map((hit) => hit.line)
+    ).toEqual([2]);
   });
 
   it('catches `memory extract` pointed at the repo root with a pinned artifact path (defect 13)', () => {
     const fixture =
       `runCli(['memory', 'extract', '--project', process.cwd(), '--artifact', ` +
       `join(process.cwd(), ${JSON.stringify(RUNTIME_PATH)}), '--dry-run', '--json'], process.cwd());`;
-    expect(findRepoRootedArtifactReads(parseSourceFile('fixture.ts', fixture)).map((hit) => hit.line)).toEqual([1]);
+    expect(
+      findRepoRootedArtifactReads(parseSourceFile('fixture.ts', fixture)).map((hit) => hit.line)
+    ).toEqual([1]);
   });
 });
 
@@ -1562,7 +1620,7 @@ describe('negative control — creating and reading your own runtime tree is NOT
     expect(findRepoRootedArtifactReads(parsed)).toEqual([]);
   });
 
-  it('a test that chdir\'d into a tmp workspace and writes process.cwd()/.peaks is legal', () => {
+  it("a test that chdir'd into a tmp workspace and writes process.cwd()/.peaks is legal", () => {
     // Limit (d), pinned. `tests/unit/_setup/tmp-workspace.ts` chdirs, so
     // `process.cwd()` here is the tmp root, not the repository — which is
     // exactly why rule B does not accept `process.cwd()` as an anchor.
@@ -1604,7 +1662,9 @@ describe('limits — pinned as passing tests, not left implicit', () => {
       `const SIDS = [${JSON.stringify(['2026', '07', '25'].join('-') + '-session-' + '6da9d9')}];`,
       `runCli(['request', 'show', 'x', '--project', process.cwd(), '--session-id', SIDS[0], '--json'], process.cwd());`
     ].join('\n');
-    expect(findRepoRootedArtifactReads(parseSourceFile('fixture.ts', fixture)).map((hit) => hit.line)).toEqual([2]);
+    expect(
+      findRepoRootedArtifactReads(parseSourceFile('fixture.ts', fixture)).map((hit) => hit.line)
+    ).toEqual([2]);
   });
 
   it('limit (c): a runtime path assembled from parts is invisible', () => {
@@ -1615,9 +1675,8 @@ describe('limits — pinned as passing tests, not left implicit', () => {
     expect(findModuleLocationRuntimePaths(parseSourceFile('fixture.ts', fixture))).toEqual([]);
   });
 
-  it('limit (d): process.cwd() in a direct fs call is invisible (chdir\'d suites)', () => {
-    const fixture =
-      `const p = readFileSync(join(process.cwd(), '.peaks', '_runtime', sid, 'session.json'), 'utf8');`;
+  it("limit (d): process.cwd() in a direct fs call is invisible (chdir'd suites)", () => {
+    const fixture = `const p = readFileSync(join(process.cwd(), '.peaks', '_runtime', sid, 'session.json'), 'utf8');`;
     expect(findModuleLocationRuntimePaths(parseSourceFile('fixture.ts', fixture))).toEqual([]);
   });
 

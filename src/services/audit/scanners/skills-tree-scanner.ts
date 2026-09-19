@@ -22,7 +22,11 @@ export interface SkillsTreeScanResult {
   readonly warnings: readonly ScanWarning[];
 }
 
-function readSkillFile(projectRoot: string, skillDir: string, file: string): readonly MarkdownLine[] {
+function readSkillFile(
+  projectRoot: string,
+  skillDir: string,
+  file: string
+): readonly MarkdownLine[] {
   const fullPath = join(projectRoot, SKILLS_DIR, skillDir, file);
   if (!existsSync(fullPath)) return [];
   const rel = relative(projectRoot, fullPath).split('\\').join('/');
@@ -46,7 +50,7 @@ export function scanSkillsTree(input: SkillsTreeScanInput): SkillsTreeScanResult
   } catch (error) {
     warnings.push({
       file: SKILLS_DIR,
-      message: `readdir failed: ${error instanceof Error ? error.message : String(error)}`,
+      message: `readdir failed: ${error instanceof Error ? error.message : String(error)}`
     });
     return { lines, warnings };
   }
@@ -62,7 +66,7 @@ export function scanSkillsTree(input: SkillsTreeScanInput): SkillsTreeScanResult
       } catch (error) {
         warnings.push({
           file: 'skills/bee',
-          message: `readdir failed: ${error instanceof Error ? error.message : String(error)}`,
+          message: `readdir failed: ${error instanceof Error ? error.message : String(error)}`
         });
         continue;
       }

@@ -124,12 +124,22 @@ export function detectPresenceMarker(input: DetectPresenceMarkerInput): DetectPr
   const markerFound = messageHasMarker(message);
   if (markerFound) {
     if (brokenGraph !== null) {
-      return { active: true, skill: presence.skill, markerFound: true, warning: `Peaks presence active but graph is broken (${brokenGraph}); run \`peaks workspace reconcile\` to repair.` };
+      return {
+        active: true,
+        skill: presence.skill,
+        markerFound: true,
+        warning: `Peaks presence active but graph is broken (${brokenGraph}); run \`peaks workspace reconcile\` to repair.`
+      };
     }
     return { active: true, skill: presence.skill, markerFound: true };
   }
   if (brokenGraph !== null) {
-    return { active: true, skill: presence.skill, markerFound: false, warning: `Peaks presence active but graph is broken (${brokenGraph}); run \`peaks workspace reconcile\` to repair.` };
+    return {
+      active: true,
+      skill: presence.skill,
+      markerFound: false,
+      warning: `Peaks presence active but graph is broken (${brokenGraph}); run \`peaks workspace reconcile\` to repair.`
+    };
   }
   return {
     active: true,

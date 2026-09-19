@@ -93,7 +93,9 @@ export function formatOutputTable(opts: FormatOptions): string {
       continue;
     }
     if (label === '适用场景 (parallel)') {
-      bodyRows.push(`| **${label}** | < 5 字段 + < 2 月就用掉 | 字段会增长 + 1 年+ 持续维护 | 灵活配置 + 长期演进 |`);
+      bodyRows.push(
+        `| **${label}** | < 5 字段 + < 2 月就用掉 | 字段会增长 + 1 年+ 持续维护 | 灵活配置 + 长期演进 |`
+      );
       continue;
     }
     bodyRows.push(rowLabel(label));
@@ -151,4 +153,10 @@ export function findForbiddenTokens(rendered: string): readonly string[] {
   return hits;
 }
 
-export const __TEST__ = { ROW_LABELS, FORBIDDEN_WORDS, FORBIDDEN_PHRASES, FORBIDDEN_BINARY, FORBIDDEN_STAGE };
+export const __TEST__ = {
+  ROW_LABELS,
+  FORBIDDEN_WORDS,
+  FORBIDDEN_PHRASES,
+  FORBIDDEN_BINARY,
+  FORBIDDEN_STAGE
+};

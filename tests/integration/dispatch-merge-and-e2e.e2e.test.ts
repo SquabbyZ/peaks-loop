@@ -24,12 +24,19 @@ describe('runMergeBack', () => {
     writeFileSync(join(root, 'a.txt'), 'base\nfeat\n');
     execSync('git commit -am feat', { cwd: root, windowsHide: true });
     const result = await runMergeBack({
-      projectRoot: root, sessionId: 's1', dispatchId: 'd1',
-      callerBranch: 'main', agentBranch: 'feat/x',
-      onConflict: async () => ({ ok: true }),
+      projectRoot: root,
+      sessionId: 's1',
+      dispatchId: 'd1',
+      callerBranch: 'main',
+      agentBranch: 'feat/x',
+      onConflict: async () => ({ ok: true })
     });
     expect(result.kind).toBe('merged');
-    expect(execSync('git rev-parse --abbrev-ref HEAD', { cwd: root, windowsHide: true }).toString().trim()).toBe('main');
+    expect(
+      execSync('git rev-parse --abbrev-ref HEAD', { cwd: root, windowsHide: true })
+        .toString()
+        .trim()
+    ).toBe('main');
   });
 });
 
@@ -53,12 +60,10 @@ describe('runE2EVerify', () => {
       const root = setupRepo();
       const dir = join(root, 'qa', 'e2e', 'rid-stub', 'login');
       mkdirSync(dir, { recursive: true });
-      writeFileSync(join(dir, 'happy.md'), [
-        '# Login',
-        'url: http://localhost:3000/login',
-        'matchers:',
-        '  - "Welcome"',
-      ].join('\n'));
+      writeFileSync(
+        join(dir, 'happy.md'),
+        ['# Login', 'url: http://localhost:3000/login', 'matchers:', '  - "Welcome"'].join('\n')
+      );
       const result = await runE2EVerify({ projectRoot: root, slice: 'rid-stub' });
       expect(result.outcome).toBe('pass');
       expect(result.passCount).toBe(1);
@@ -78,9 +83,12 @@ describe('full pipeline smoke (spawn → merge → e2e)', () => {
     writeFileSync(join(root, 'b.txt'), 'y');
     execSync('git add b.txt && git commit -m y', { cwd: root, windowsHide: true });
     const result = await runMergeBack({
-      projectRoot: root, sessionId: 's2', dispatchId: 'd2',
-      callerBranch: 'main', agentBranch: 'feat/y',
-      onConflict: async () => ({ ok: true }),
+      projectRoot: root,
+      sessionId: 's2',
+      dispatchId: 'd2',
+      callerBranch: 'main',
+      agentBranch: 'feat/y',
+      onConflict: async () => ({ ok: true })
     });
     expect(result.kind).toBe('merged');
     const e2e = await runE2EVerify({ projectRoot: root, slice: 'rid-y' });
@@ -91,12 +99,10 @@ describe('full pipeline smoke (spawn → merge → e2e)', () => {
     const root = setupRepo();
     const dir = join(root, 'qa', 'e2e', 'rid-z', 'login');
     mkdirSync(dir, { recursive: true });
-    writeFileSync(join(dir, 'happy.md'), [
-      '# Login',
-      'url: http://localhost:3000/login',
-      'matchers:',
-      '  - "Welcome"',
-    ].join('\n'));
+    writeFileSync(
+      join(dir, 'happy.md'),
+      ['# Login', 'url: http://localhost:3000/login', 'matchers:', '  - "Welcome"'].join('\n')
+    );
     const e2e = await runE2EVerify({ projectRoot: root, slice: 'rid-z' });
     expect(e2e.outcome).toBe('pass');
     expect(e2e.passCount).toBe(1);

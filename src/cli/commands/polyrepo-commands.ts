@@ -44,7 +44,10 @@ export interface PolyrepoDispatchOptions {
 
 function parseChildren(raw: string | undefined): string[] | undefined {
   if (raw === undefined || raw.length === 0) return undefined;
-  return raw.split(',').map((s) => s.trim()).filter((s) => s.length > 0);
+  return raw
+    .split(',')
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
 }
 
 function resolveRoot(explicit: string | undefined): string {
@@ -64,29 +67,45 @@ export function registerPolyrepoCommands(program: Command, io: ProgramIO): void 
     polyrepo
       .command('init')
       .description('Scan the parent dir for child git repos and write .peaks/polyrepo.json')
-      .option('--children <list>', 'comma-separated child directory names (defaults to auto-discovery)')
+      .option(
+        '--children <list>',
+        'comma-separated child directory names (defaults to auto-discovery)'
+      )
       .option('--root <path>', 'parent root (defaults to cwd)')
   ).action((options: PolyrepoInitOptions) => {
     try {
       const root = resolveRoot(options.root);
       const svc = new PolyrepoService();
       const children = parseChildren(options.children);
-      const result = children === undefined
-        ? svc.init({ root })
-        : svc.init({ root, children });
-      printResult(io, ok('polyrepo.init', {
-        root: result.manifest.root,
-        detectedAt: result.manifest.detectedAt,
-        children: result.manifest.children,
-        manifestPath: `${result.manifest.root}/.peaks/polyrepo.json`,
-        created: result.created
-      }, [], [
-        result.manifest.children.length === 0
-          ? 'No child git repos detected. Pass --children <dir1,dir2> to override.'
-          : `Run \`peaks polyrepo dispatch --rid <rid> --to <child-id>\` to mirror an artifact into one or more children.`
-      ]), options.json);
+      const result = children === undefined ? svc.init({ root }) : svc.init({ root, children });
+      printResult(
+        io,
+        ok(
+          'polyrepo.init',
+          {
+            root: result.manifest.root,
+            detectedAt: result.manifest.detectedAt,
+            children: result.manifest.children,
+            manifestPath: `${result.manifest.root}/.peaks/polyrepo.json`,
+            created: result.created
+          },
+          [],
+          [
+            result.manifest.children.length === 0
+              ? 'No child git repos detected. Pass --children <dir1,dir2> to override.'
+              : `Run \`peaks polyrepo dispatch --rid <rid> --to <child-id>\` to mirror an artifact into one or more children.`
+          ]
+        ),
+        options.json
+      );
     } catch (error) {
-      printResult(io, fail('polyrepo.init', 'POLYREPO_INIT_FAILED', getErrorMessage(error), {}, ['Verify --root exists and is a directory']), options.json);
+      printResult(
+        io,
+        fail('polyrepo.init', 'POLYREPO_INIT_FAILED', getErrorMessage(error), {}, [
+          'Verify --root exists and is a directory'
+        ]),
+        options.json
+      );
       process.exitCode = 1;
     }
   });
@@ -105,18 +124,38 @@ export function registerPolyrepoCommands(program: Command, io: ProgramIO): void 
       const svc = new PolyrepoService();
       const result = svc.status(root);
       if (!result.manifestExists) {
-        printResult(io, ok('polyrepo.status', { ...result, initialized: false }, [], [
-          'No polyrepo manifest found. Run `peaks polyrepo init [--children <list>]` first.'
-        ]), options.json);
+        printResult(
+          io,
+          ok(
+            'polyrepo.status',
+            { ...result, initialized: false },
+            [],
+            ['No polyrepo manifest found. Run `peaks polyrepo init [--children <list>]` first.']
+          ),
+          options.json
+        );
         return;
       }
-      printResult(io, ok('polyrepo.status', { ...result, initialized: true }, [], [
-        result.children.length === 0
-          ? 'Manifest exists but has no children. Re-run `peaks polyrepo init --children <list>`.'
-          : `Run \`peaks polyrepo dispatch --rid <rid> --to <child-id>\` to mirror an artifact.`
-      ]), options.json);
+      printResult(
+        io,
+        ok(
+          'polyrepo.status',
+          { ...result, initialized: true },
+          [],
+          [
+            result.children.length === 0
+              ? 'Manifest exists but has no children. Re-run `peaks polyrepo init --children <list>`.'
+              : `Run \`peaks polyrepo dispatch --rid <rid> --to <child-id>\` to mirror an artifact.`
+          ]
+        ),
+        options.json
+      );
     } catch (error) {
-      printResult(io, fail('polyrepo.status', 'POLYREPO_STATUS_FAILED', getErrorMessage(error), {}, []), options.json);
+      printResult(
+        io,
+        fail('polyrepo.status', 'POLYREPO_STATUS_FAILED', getErrorMessage(error), {}, []),
+        options.json
+      );
       process.exitCode = 1;
     }
   });
@@ -141,17 +180,33 @@ export function registerPolyrepoCommands(program: Command, io: ProgramIO): void 
       const rid = options.rid ?? '';
       const role = options.role;
       if (role !== 'prd' && role !== 'rd' && role !== 'qa') {
-        printResult(io, fail('polyrepo.dispatch', 'INVALID_ROLE', `--role must be prd | rd | qa (got "${role}")`, {}, [
-          'Re-run with --role prd (or rd / qa).'
-        ]), options.json);
+        printResult(
+          io,
+          fail(
+            'polyrepo.dispatch',
+            'INVALID_ROLE',
+            `--role must be prd | rd | qa (got "${role}")`,
+            {},
+            ['Re-run with --role prd (or rd / qa).']
+          ),
+          options.json
+        );
         process.exitCode = 1;
         return;
       }
       const artifact = options.artifact ?? '';
       if (!existsSync(artifact)) {
-        printResult(io, fail('polyrepo.dispatch', 'ARTIFACT_NOT_FOUND', `source artifact does not exist: ${artifact}`, {}, [
-          'Verify the path or pass an absolute path.'
-        ]), options.json);
+        printResult(
+          io,
+          fail(
+            'polyrepo.dispatch',
+            'ARTIFACT_NOT_FOUND',
+            `source artifact does not exist: ${artifact}`,
+            {},
+            ['Verify the path or pass an absolute path.']
+          ),
+          options.json
+        );
         process.exitCode = 1;
         return;
       }
@@ -161,42 +216,70 @@ export function registerPolyrepoCommands(program: Command, io: ProgramIO): void 
       const svc = new PolyrepoService();
       const status = svc.status(root);
       if (!status.manifestExists) {
-        printResult(io, fail('polyrepo.dispatch', 'NO_MANIFEST', `no polyrepo manifest at ${root}/.peaks/polyrepo.json`, {}, [
-          'Run `peaks polyrepo init` first.'
-        ]), options.json);
+        printResult(
+          io,
+          fail(
+            'polyrepo.dispatch',
+            'NO_MANIFEST',
+            `no polyrepo manifest at ${root}/.peaks/polyrepo.json`,
+            {},
+            ['Run `peaks polyrepo init` first.']
+          ),
+          options.json
+        );
         process.exitCode = 1;
         return;
       }
 
       let targets: string[];
       if (options.to !== undefined && options.to.length > 0) {
-        targets = options.to.split(',').map((s) => s.trim()).filter((s) => s.length > 0);
+        targets = options.to
+          .split(',')
+          .map((s) => s.trim())
+          .filter((s) => s.length > 0);
       } else {
         targets = status.children.map((c) => c.id);
       }
 
       const result = svc.dispatch(root, {
-        sid, rid, targets, role, artifactPath: artifact
+        sid,
+        rid,
+        targets,
+        role,
+        artifactPath: artifact
       });
 
       const allOk = result.perChild.every((c) => c.ok);
-      printResult(io, ok('polyrepo.dispatch', {
-        root,
-        sid,
-        rid,
-        role,
-        artifact,
-        dispatch: result.dispatch,
-        perChild: result.perChild,
-        allOk
-      }, result.warnings, [
-        allOk
-          ? `Mirrored artifact to ${result.perChild.length} child(ren).`
-          : `One or more child mirrors failed; inspect perChild[].ok.`
-      ]), options.json);
+      printResult(
+        io,
+        ok(
+          'polyrepo.dispatch',
+          {
+            root,
+            sid,
+            rid,
+            role,
+            artifact,
+            dispatch: result.dispatch,
+            perChild: result.perChild,
+            allOk
+          },
+          result.warnings,
+          [
+            allOk
+              ? `Mirrored artifact to ${result.perChild.length} child(ren).`
+              : `One or more child mirrors failed; inspect perChild[].ok.`
+          ]
+        ),
+        options.json
+      );
       if (!allOk) process.exitCode = 1;
     } catch (error) {
-      printResult(io, fail('polyrepo.dispatch', 'POLYREPO_DISPATCH_FAILED', getErrorMessage(error), {}, []), options.json);
+      printResult(
+        io,
+        fail('polyrepo.dispatch', 'POLYREPO_DISPATCH_FAILED', getErrorMessage(error), {}, []),
+        options.json
+      );
       process.exitCode = 1;
     }
   });

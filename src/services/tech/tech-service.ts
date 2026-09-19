@@ -85,19 +85,53 @@ export const TECH_REQUIRED_ARTIFACTS = Object.freeze([
   'ci-tech-doc.md',
   'migration-tech-doc.md',
   'tech-review-report.md',
-  'tech-approval-record.md',
+  'tech-approval-record.md'
 ]);
 
 const TECH_WAVE_TASKS: readonly [
   { name: TechWaveName; taskIds: string[] },
   { name: TechWaveName; taskIds: string[] },
   { name: TechWaveName; taskIds: string[] },
-  { name: TechWaveName; taskIds: string[] },
+  { name: TechWaveName; taskIds: string[] }
 ] = [
-  { name: 'scan', taskIds: ['tech-architecture-scan', 'tech-frontend-scan', 'tech-backend-scan', 'tech-contract-scan', 'tech-test-scan', 'tech-platform-scan', 'tech-security-scan', 'tech-ci-scan'] },
-  { name: 'document', taskIds: ['tech-frontend-doc-worker', 'tech-backend-doc-worker', 'tech-contract-doc-worker', 'tech-test-doc-worker', 'tech-platform-doc-worker', 'tech-security-doc-worker', 'tech-ci-doc-worker', 'tech-migration-doc-worker'] },
-  { name: 'review', taskIds: ['tech-architecture-reviewer', 'tech-contract-reviewer', 'tech-security-reviewer', 'tech-test-reviewer', 'tech-platform-reviewer', 'tech-risk-reviewer'] },
-  { name: 'reducer', taskIds: ['tech-reducer'] },
+  {
+    name: 'scan',
+    taskIds: [
+      'tech-architecture-scan',
+      'tech-frontend-scan',
+      'tech-backend-scan',
+      'tech-contract-scan',
+      'tech-test-scan',
+      'tech-platform-scan',
+      'tech-security-scan',
+      'tech-ci-scan'
+    ]
+  },
+  {
+    name: 'document',
+    taskIds: [
+      'tech-frontend-doc-worker',
+      'tech-backend-doc-worker',
+      'tech-contract-doc-worker',
+      'tech-test-doc-worker',
+      'tech-platform-doc-worker',
+      'tech-security-doc-worker',
+      'tech-ci-doc-worker',
+      'tech-migration-doc-worker'
+    ]
+  },
+  {
+    name: 'review',
+    taskIds: [
+      'tech-architecture-reviewer',
+      'tech-contract-reviewer',
+      'tech-security-reviewer',
+      'tech-test-reviewer',
+      'tech-platform-reviewer',
+      'tech-risk-reviewer'
+    ]
+  },
+  { name: 'reducer', taskIds: ['tech-reducer'] }
 ];
 
 function assertNonEmptyGoal(goal: string): void {
@@ -125,7 +159,10 @@ function architectureRootAbs(artifactWorkspacePath: string, sessionId: string): 
   return join(getSessionDir(artifactWorkspacePath, sessionId), 'rd', 'architecture');
 }
 
-function hasPlannerArtifactWorkspace(artifactWorkspacePath: string, workspace?: WorkspaceConfig): boolean {
+function hasPlannerArtifactWorkspace(
+  artifactWorkspacePath: string,
+  workspace?: WorkspaceConfig
+): boolean {
   return !!workspace && hasValidArtifactWorkspace(workspace, artifactWorkspacePath);
 }
 
@@ -137,10 +174,12 @@ function isEscapedArchitectureRoot(rootPath: string, artifactWorkspacePath: stri
   try {
     const rdRootPath = resolve(rootPath, '..');
     const sessionRootPath = resolve(rdRootPath, '..');
-    return lstatSync(sessionRootPath).isSymbolicLink()
-      || lstatSync(rdRootPath).isSymbolicLink()
-      || lstatSync(rootPath).isSymbolicLink()
-      || !isInsidePath(stableRealPath(rootPath), stableRealPath(artifactWorkspacePath));
+    return (
+      lstatSync(sessionRootPath).isSymbolicLink() ||
+      lstatSync(rdRootPath).isSymbolicLink() ||
+      lstatSync(rootPath).isSymbolicLink() ||
+      !isInsidePath(stableRealPath(rootPath), stableRealPath(artifactWorkspacePath))
+    );
   } catch {
     return true;
   }
@@ -153,7 +192,11 @@ function readTechArtifactFile(rootPath: string, artifact: string): string | null
   try {
     const rootRealPath = stableRealPath(rootPath);
     const artifactStat = lstatSync(artifactPath);
-    if (artifactStat.isSymbolicLink() || !artifactStat.isFile() || artifactStat.size > MAX_TECH_ARTIFACT_BYTES) {
+    if (
+      artifactStat.isSymbolicLink() ||
+      !artifactStat.isFile() ||
+      artifactStat.size > MAX_TECH_ARTIFACT_BYTES
+    ) {
       return null;
     }
     if (!isInsidePath(stableRealPath(artifactPath), rootRealPath)) {
@@ -164,7 +207,14 @@ function readTechArtifactFile(rootPath: string, artifact: string): string | null
     try {
       const openedStat = fstatSync(fd);
       const currentStat = statSync(artifactPath);
-      if (!openedStat.isFile() || openedStat.size > MAX_TECH_ARTIFACT_BYTES || openedStat.dev !== artifactStat.dev || openedStat.ino !== artifactStat.ino || openedStat.dev !== currentStat.dev || openedStat.ino !== currentStat.ino) {
+      if (
+        !openedStat.isFile() ||
+        openedStat.size > MAX_TECH_ARTIFACT_BYTES ||
+        openedStat.dev !== artifactStat.dev ||
+        openedStat.ino !== artifactStat.ino ||
+        openedStat.dev !== currentStat.dev ||
+        openedStat.ino !== currentStat.ino
+      ) {
         return null;
       }
 
@@ -186,7 +236,8 @@ function readTechArtifactFile(rootPath: string, artifact: string): string | null
     } finally {
       closeSync(fd);
     }
-  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+  } catch {
+    // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     return null;
   }
 }
@@ -225,27 +276,30 @@ function createTechGraph(request: TechPlanRequest): Omit<TechPlanGraph, 'availab
   const scanTaskIds = scanWave.taskIds;
   const documentTaskIds = documentWave.taskIds;
   const reviewTaskIds = reviewWave.taskIds;
-  const tasks = TECH_WAVE_TASKS.flatMap((wave) => wave.taskIds.map((taskId) => {
-    const dependsOn = wave.name === 'scan'
-      ? []
-      : wave.name === 'document'
-        ? [...scanTaskIds]
-        : wave.name === 'review'
-          ? [...documentTaskIds]
-          : [...reviewTaskIds];
-    const briefPath = `rd/architecture/workers/${taskId}/brief.md`;
-    return {
-      taskId,
-      wave: wave.name,
-      workerKind: taskId,
-      purpose: taskPurpose(taskId, request.goal),
-      inputs: [request.goal, architectureRoot(request.sessionId)],
-      outputs: [briefPath],
-      dependsOn,
-      conflictGroup: `tech-${wave.name}`,
-      briefPath,
-    };
-  }));
+  const tasks = TECH_WAVE_TASKS.flatMap((wave) =>
+    wave.taskIds.map((taskId) => {
+      const dependsOn =
+        wave.name === 'scan'
+          ? []
+          : wave.name === 'document'
+            ? [...scanTaskIds]
+            : wave.name === 'review'
+              ? [...documentTaskIds]
+              : [...reviewTaskIds];
+      const briefPath = `rd/architecture/workers/${taskId}/brief.md`;
+      return {
+        taskId,
+        wave: wave.name,
+        workerKind: taskId,
+        purpose: taskPurpose(taskId, request.goal),
+        inputs: [request.goal, architectureRoot(request.sessionId)],
+        outputs: [briefPath],
+        dependsOn,
+        conflictGroup: `tech-${wave.name}`,
+        briefPath
+      };
+    })
+  );
 
   return {
     sessionId: request.sessionId,
@@ -257,35 +311,44 @@ function createTechGraph(request: TechPlanRequest): Omit<TechPlanGraph, 'availab
     tasks,
     outputs: {
       taskGraph: 'rd/architecture/tech-task-graph.json',
-      waveManifests: waves.map((wave, index) => waveManifestPath(request.sessionId, index, wave.name)),
+      waveManifests: waves.map((wave, index) =>
+        waveManifestPath(request.sessionId, index, wave.name)
+      ),
       reviewChecklist: 'rd/architecture/tech-review-checklist.md',
-      approvalTemplate: 'rd/architecture/tech-approval-record.template.md',
+      approvalTemplate: 'rd/architecture/tech-approval-record.template.md'
     },
     blockedReasons: [],
-    nextActions: [],
+    nextActions: []
   };
 }
 
 export function createTechPlan(request: TechPlanRequest): TechPlanResult {
   const graph = createTechGraph(request);
 
-  if (!request.artifactWorkspacePath || !hasPlannerArtifactWorkspace(request.artifactWorkspacePath, request.workspace)) {
+  if (
+    !request.artifactWorkspacePath ||
+    !hasPlannerArtifactWorkspace(request.artifactWorkspacePath, request.workspace)
+  ) {
     return {
       available: false,
       behavior: 'preview',
       reason: 'artifact-workspace-unavailable',
       preview: graph,
-      nextActions: [...WORKSPACE_UNAVAILABLE_NEXT_ACTIONS],
+      nextActions: [...WORKSPACE_UNAVAILABLE_NEXT_ACTIONS]
     };
   }
 
   return {
     available: true,
-    ...graph,
+    ...graph
   };
 }
 
-export function getTechStatus(options: { sessionId: string; artifactWorkspacePath?: string; workspace?: WorkspaceConfig }): TechStatus {
+export function getTechStatus(options: {
+  sessionId: string;
+  artifactWorkspacePath?: string;
+  workspace?: WorkspaceConfig;
+}): TechStatus {
   // Slice 2026-06-29-change-id-root-removal: change-id is metadata-only;
   // no structural validation gate fires here.
   const artifactRoot = architectureRoot(options.sessionId);
@@ -299,7 +362,7 @@ export function getTechStatus(options: { sessionId: string; artifactWorkspacePat
       missingArtifacts: [...TECH_REQUIRED_ARTIFACTS],
       approvalRecord: null,
       blockedReasons: ['artifact-workspace-unavailable'],
-      nextActions: [...WORKSPACE_UNAVAILABLE_NEXT_ACTIONS],
+      nextActions: [...WORKSPACE_UNAVAILABLE_NEXT_ACTIONS]
     };
   }
 
@@ -312,7 +375,7 @@ export function getTechStatus(options: { sessionId: string; artifactWorkspacePat
       missingArtifacts: [...TECH_REQUIRED_ARTIFACTS],
       approvalRecord: null,
       blockedReasons: ['artifact-workspace-unavailable'],
-      nextActions: [...WORKSPACE_UNAVAILABLE_NEXT_ACTIONS],
+      nextActions: [...WORKSPACE_UNAVAILABLE_NEXT_ACTIONS]
     };
   }
 
@@ -327,11 +390,15 @@ export function getTechStatus(options: { sessionId: string; artifactWorkspacePat
       missingArtifacts: [...TECH_REQUIRED_ARTIFACTS],
       approvalRecord: null,
       blockedReasons: ['tech-artifacts-missing'],
-      nextActions: ['Run peaks tech plan --dry-run, then persist and review the required tech artifacts.'],
+      nextActions: [
+        'Run peaks tech plan --dry-run, then persist and review the required tech artifacts.'
+      ]
     };
   }
 
-  const missingArtifacts = TECH_REQUIRED_ARTIFACTS.filter((artifact) => !existsSync(join(rootPath, artifact)) || !isValidArtifactFile(rootPath, artifact));
+  const missingArtifacts = TECH_REQUIRED_ARTIFACTS.filter(
+    (artifact) => !existsSync(join(rootPath, artifact)) || !isValidArtifactFile(rootPath, artifact)
+  );
 
   if (missingArtifacts.length === 1 && missingArtifacts[0] === 'tech-approval-record.md') {
     return {
@@ -342,7 +409,7 @@ export function getTechStatus(options: { sessionId: string; artifactWorkspacePat
       missingArtifacts,
       approvalRecord: null,
       blockedReasons: ['tech-approval-missing'],
-      nextActions: ['Create tech-approval-record.md with status: approved after review.'],
+      nextActions: ['Create tech-approval-record.md with status: approved after review.']
     };
   }
 
@@ -355,10 +422,11 @@ export function getTechStatus(options: { sessionId: string; artifactWorkspacePat
       missingArtifacts,
       approvalRecord: missingArtifacts.includes('tech-approval-record.md') ? null : approvalRecord,
       blockedReasons: ['tech-artifacts-missing'],
-      nextActions: ['Run peaks tech plan --dry-run, then persist and review the required tech artifacts.'],
+      nextActions: [
+        'Run peaks tech plan --dry-run, then persist and review the required tech artifacts.'
+      ]
     };
   }
-
 
   const approvalContent = readTechArtifactFile(rootPath, 'tech-approval-record.md');
   if (approvalContent === null) {
@@ -370,7 +438,7 @@ export function getTechStatus(options: { sessionId: string; artifactWorkspacePat
       missingArtifacts,
       approvalRecord,
       blockedReasons: ['tech-approval-unreadable'],
-      nextActions: ['Ensure tech-approval-record.md is readable and contains status: approved.'],
+      nextActions: ['Ensure tech-approval-record.md is readable and contains status: approved.']
     };
   }
 
@@ -383,7 +451,7 @@ export function getTechStatus(options: { sessionId: string; artifactWorkspacePat
       missingArtifacts,
       approvalRecord,
       blockedReasons: ['tech-approval-not-approved'],
-      nextActions: ['Update tech-approval-record.md with status: approved after review.'],
+      nextActions: ['Update tech-approval-record.md with status: approved after review.']
     };
   }
 
@@ -395,6 +463,6 @@ export function getTechStatus(options: { sessionId: string; artifactWorkspacePat
     missingArtifacts: [],
     approvalRecord,
     blockedReasons: [],
-    nextActions: [],
+    nextActions: []
   };
 }

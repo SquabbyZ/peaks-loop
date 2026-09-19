@@ -149,9 +149,8 @@ export function writeLogEntry(entry: LogEntry, opts: WriteLogOptions = {}): stri
   if (!shouldEmit(entry.level)) return null;
 
   const now = opts.now ? opts.now() : new Date();
-  const dateForFile = opts.dateOverride !== undefined
-    ? new Date(`${opts.dateOverride}T00:00:00.000Z`)
-    : now;
+  const dateForFile =
+    opts.dateOverride !== undefined ? new Date(`${opts.dateOverride}T00:00:00.000Z`) : now;
   const logDir = opts.dirOverride ?? resolveLogDir();
   const fileName = buildLogFileName(dateForFile);
   const fullPath = join(logDir, fileName);
@@ -160,7 +159,8 @@ export function writeLogEntry(entry: LogEntry, opts: WriteLogOptions = {}): stri
     if (!existsSync(logDir)) {
       mkdirSync(logDir, { recursive: true });
     }
-  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+  } catch {
+    // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     return null;
   }
 
@@ -173,19 +173,23 @@ export function writeLogEntry(entry: LogEntry, opts: WriteLogOptions = {}): stri
     ...(entry.sessionId !== undefined ? { sessionId: entry.sessionId } : {}),
     ...(entry.version !== undefined ? { version: entry.version } : {}),
     ...(entry.batchId !== undefined ? { batchId: entry.batchId } : {}),
-    ...(entry.data !== undefined ? { data: redactPayload(entry.data) as Record<string, unknown> } : {})
+    ...(entry.data !== undefined
+      ? { data: redactPayload(entry.data) as Record<string, unknown> }
+      : {})
   };
 
   let line: string;
   try {
     line = JSON.stringify(redactedEntry);
-  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+  } catch {
+    // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     return null;
   }
 
   try {
     appendFileSync(fullPath, line + '\n', { mode: 0o600 });
-  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+  } catch {
+    // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     return null;
   }
 
@@ -199,7 +203,8 @@ export function writeLogEntry(entry: LogEntry, opts: WriteLogOptions = {}): stri
       if ((stat.mode & 0o777) !== 0o600) {
         chmodSync(fullPath, 0o600);
       }
-    } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+    } catch {
+      // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
       /* best-effort */
     }
   }
@@ -221,9 +226,8 @@ export type ReadLogOptions = {
  */
 export function readLogEntries(opts: ReadLogOptions = {}): LogEntry[] {
   const now = opts.now ? opts.now() : new Date();
-  const dateForFile = opts.dateOverride !== undefined
-    ? new Date(`${opts.dateOverride}T00:00:00.000Z`)
-    : now;
+  const dateForFile =
+    opts.dateOverride !== undefined ? new Date(`${opts.dateOverride}T00:00:00.000Z`) : now;
   const logDir = opts.dirOverride ?? resolveLogDir();
   const fileName = buildLogFileName(dateForFile);
   const fullPath = join(logDir, fileName);
@@ -242,7 +246,8 @@ export function readLogEntries(opts: ReadLogOptions = {}): LogEntry[] {
     if (line.length === 0) continue;
     try {
       out.push(JSON.parse(line) as LogEntry);
-    } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+    } catch {
+      // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
       // skip malformed
     }
   }

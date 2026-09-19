@@ -100,9 +100,7 @@ export function isWorkspaceInitializedAt(projectRoot: string): boolean {
   );
 }
 
-function defaultWorkspaceInitializedProbe(
-  projectRootResolver: () => string | null
-): boolean {
+function defaultWorkspaceInitializedProbe(projectRootResolver: () => string | null): boolean {
   const projectRoot = projectRootResolver();
   if (projectRoot === null) return false;
   // Workspace is "initialized" when EITHER the canonical runtime-layer
@@ -112,7 +110,12 @@ function defaultWorkspaceInitializedProbe(
   return isWorkspaceInitializedAt(projectRoot);
 }
 
-async function defaultLoadSkills(baseDir: string | undefined, listDirectories: (target: string) => Promise<string[]>, pathExists: (target: string) => Promise<boolean>, readText: (target: string) => Promise<string>): Promise<DoctorSkillsResult> {
+async function defaultLoadSkills(
+  baseDir: string | undefined,
+  listDirectories: (target: string) => Promise<string[]>,
+  pathExists: (target: string) => Promise<boolean>,
+  readText: (target: string) => Promise<string>
+): Promise<DoctorSkillsResult> {
   // slice-3b Option C: minimal skill-loader. Walks
   // `<baseDir>/*/SKILL.md` (and one level into `bee/`, mirroring the
   // upstream `skill-registry.ts`), parses the frontmatter, and returns
@@ -205,11 +208,15 @@ export async function runDoctor(options: DoctorOptions = {}): Promise<DoctorRepo
   const isValidSessionId = options.isValidSessionIdProbe ?? defaultIsValidSessionId;
 
   const fsModule = await import('peaks-loop-shared/fs');
-  const listDirectoriesImpl = (target: string): Promise<string[]> => fsModule.listDirectories(target);
+  const listDirectoriesImpl = (target: string): Promise<string[]> =>
+    fsModule.listDirectories(target);
   const pathExistsImpl = (target: string): Promise<boolean> => fsModule.pathExists(target);
   const readTextImpl = (target: string): Promise<string> => fsModule.readText(target);
 
-  const loadSkills = options.loadSkills ?? ((baseDir?: string) => defaultLoadSkills(baseDir, listDirectoriesImpl, pathExistsImpl, readTextImpl));
+  const loadSkills =
+    options.loadSkills ??
+    ((baseDir?: string) =>
+      defaultLoadSkills(baseDir, listDirectoriesImpl, pathExistsImpl, readTextImpl));
   const registry = await loadSkills(options.skillsBaseDir);
   const skills = registry.skills;
 
@@ -226,7 +233,9 @@ export async function runDoctor(options: DoctorOptions = {}): Promise<DoctorRepo
   }
 
   // Workspace initialized: probe once up front, swallowing probe errors.
-  const workspaceProbe = options.workspaceInitializedProbe ?? (() => defaultWorkspaceInitializedProbe(projectRootResolver));
+  const workspaceProbe =
+    options.workspaceInitializedProbe ??
+    (() => defaultWorkspaceInitializedProbe(projectRootResolver));
   let workspaceInitialized = false;
   try {
     workspaceInitialized = workspaceProbe();

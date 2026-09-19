@@ -28,7 +28,7 @@ import { declareDimensions } from '../../_setup/4dim-template.js';
 declareDimensions(
   'tests/unit/services/compact/decision-tables.test.ts',
   ['render', 'behavior', 'a11y'],
-  [{ dim: 'integration', reason: 'pure data + lookup, no fs/clock/env' }],
+  [{ dim: 'integration', reason: 'pure data + lookup, no fs/clock/env' }]
 );
 
 import {
@@ -40,24 +40,18 @@ import {
   isPhase,
   lookupPhaseTransition,
   type Phase,
-  type Severity,
+  type Severity
 } from '~/src/services/compact/decision-tables';
 
-describe("Scenario: render — PHASES + isPhase", () => {
-  it("when invoked, should PHASES lists the 5 documented phases in order", () => {
+describe('Scenario: render — PHASES + isPhase', () => {
+  it('when invoked, should PHASES lists the 5 documented phases in order', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
-    expect(PHASES).toEqual([
-      'research',
-      'planning',
-      'implementation',
-      'testing',
-      'debugging',
-    ]);
+    expect(PHASES).toEqual(['research', 'planning', 'implementation', 'testing', 'debugging']);
   });
 
-  it("when invoked, should isPhase accepts each documented phase and rejects anything else", () => {
+  it('when invoked, should isPhase accepts each documented phase and rejects anything else', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -70,15 +64,15 @@ describe("Scenario: render — PHASES + isPhase", () => {
   });
 });
 
-describe("Scenario: render — PHASE_TRANSITIONS table shape", () => {
-  it("when invoked, should has exactly 4 documented yes/maybe rows", () => {
+describe('Scenario: render — PHASE_TRANSITIONS table shape', () => {
+  it('when invoked, should has exactly 4 documented yes/maybe rows', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
     expect(PHASE_TRANSITIONS).toHaveLength(4);
   });
 
-  it("when invoked, should each row carries from/to/severity/rationale as strings", () => {
+  it('when invoked, should each row carries from/to/severity/rationale as strings', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -90,7 +84,7 @@ describe("Scenario: render — PHASE_TRANSITIONS table shape", () => {
     }
   });
 
-  it("when invoked, should research→planning, planning→implementation, debugging→implementation are severity=yes", () => {
+  it('when invoked, should research→planning, planning→implementation, debugging→implementation are severity=yes', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -102,7 +96,7 @@ describe("Scenario: render — PHASE_TRANSITIONS table shape", () => {
     expect(d2i?.severity).toBe<Severity>('yes');
   });
 
-  it("when invoked, should implementation→testing is severity=maybe", () => {
+  it('when invoked, should implementation→testing is severity=maybe', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -111,15 +105,15 @@ describe("Scenario: render — PHASE_TRANSITIONS table shape", () => {
   });
 });
 
-describe("Scenario: render — PHASE_NO_TRANSITIONS + SURVIVAL_TABLE shape", () => {
-  it("when invoked, should PHASE_NO_TRANSITIONS has 2 documented no rows", () => {
+describe('Scenario: render — PHASE_NO_TRANSITIONS + SURVIVAL_TABLE shape', () => {
+  it('when invoked, should PHASE_NO_TRANSITIONS has 2 documented no rows', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
     expect(PHASE_NO_TRANSITIONS).toHaveLength(2);
   });
 
-  it("when invoked, should implementation→implementation and debugging→debugging are the only no-rows", () => {
+  it('when invoked, should implementation→implementation and debugging→debugging are the only no-rows', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -127,7 +121,7 @@ describe("Scenario: render — PHASE_NO_TRANSITIONS + SURVIVAL_TABLE shape", () 
     expect(pairs.sort()).toEqual(['debugging->debugging', 'implementation->implementation']);
   });
 
-  it("when invoked, should SURVIVAL_TABLE.persists has 5 documented items", () => {
+  it('when invoked, should SURVIVAL_TABLE.persists has 5 documented items', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -137,7 +131,7 @@ describe("Scenario: render — PHASE_NO_TRANSITIONS + SURVIVAL_TABLE shape", () 
     expect(SURVIVAL_TABLE.persists).toContain('Files on disk');
   });
 
-  it("when invoked, should SURVIVAL_TABLE.lost has 5 documented items", () => {
+  it('when invoked, should SURVIVAL_TABLE.lost has 5 documented items', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -147,8 +141,8 @@ describe("Scenario: render — PHASE_NO_TRANSITIONS + SURVIVAL_TABLE shape", () 
   });
 });
 
-describe("Scenario: behavior — lookupPhaseTransition", () => {
-  it("when invoked, should direct hit on a yes-row returns severity + rationale + notInTable=false", () => {
+describe('Scenario: behavior — lookupPhaseTransition', () => {
+  it('when invoked, should direct hit on a yes-row returns severity + rationale + notInTable=false', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -158,7 +152,7 @@ describe("Scenario: behavior — lookupPhaseTransition", () => {
     expect(out.notInTable).toBe(false);
   });
 
-  it("when invoked, should direct hit on a no-row returns severity=no + the no-row rationale + notInTable=false", () => {
+  it('when invoked, should direct hit on a no-row returns severity=no + the no-row rationale + notInTable=false', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -168,7 +162,7 @@ describe("Scenario: behavior — lookupPhaseTransition", () => {
     expect(out.notInTable).toBe(false);
   });
 
-  it("when invoked, should unknown pair returns severity=no + default rationale + notInTable=true", () => {
+  it('when invoked, should unknown pair returns severity=no + default rationale + notInTable=true', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -178,7 +172,7 @@ describe("Scenario: behavior — lookupPhaseTransition", () => {
     expect(out.rationale).toMatch(/No documented transition/);
   });
 
-  it("when invoked, should the default-rationale branch is taken when neither PHASE_TRANSITIONS nor PHASE_NO_TRANSITIONS match", () => {
+  it('when invoked, should the default-rationale branch is taken when neither PHASE_TRANSITIONS nor PHASE_NO_TRANSITIONS match', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -188,8 +182,8 @@ describe("Scenario: behavior — lookupPhaseTransition", () => {
   });
 });
 
-describe("Scenario: behavior — buildSuggestedCompactMessage", () => {
-  it("when invoked, should severity=yes: imperative /compact Focus on <to>", () => {
+describe('Scenario: behavior — buildSuggestedCompactMessage', () => {
+  it('when invoked, should severity=yes: imperative /compact Focus on <to>', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -198,7 +192,7 @@ describe("Scenario: behavior — buildSuggestedCompactMessage", () => {
     expect(msg).toMatch(/research context has been distilled/);
   });
 
-  it("when invoked, should severity=maybe: imperative /compact Focus on completing <to>", () => {
+  it('when invoked, should severity=maybe: imperative /compact Focus on completing <to>', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -207,7 +201,7 @@ describe("Scenario: behavior — buildSuggestedCompactMessage", () => {
     expect(msg).toMatch(/preserve recent code references/);
   });
 
-  it("when invoked, should severity=no: imperative /compact Preserve context for ongoing <from>", () => {
+  it('when invoked, should severity=no: imperative /compact Preserve context for ongoing <from>', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -217,8 +211,8 @@ describe("Scenario: behavior — buildSuggestedCompactMessage", () => {
   });
 });
 
-describe("Scenario: a11y — message surface", () => {
-  it("when invoked, should every severity produces a single-line, English, imperative message", () => {
+describe('Scenario: a11y — message surface', () => {
+  it('when invoked, should every severity produces a single-line, English, imperative message', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -233,7 +227,7 @@ describe("Scenario: a11y — message surface", () => {
     }
   });
 
-  it("when invoked, should rationale text in PHASE_TRANSITIONS is human-readable prose (no code-style placeholders)", () => {
+  it('when invoked, should rationale text in PHASE_TRANSITIONS is human-readable prose (no code-style placeholders)', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation

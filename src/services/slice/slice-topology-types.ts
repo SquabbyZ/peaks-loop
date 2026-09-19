@@ -39,7 +39,8 @@ export type LlmConfidence = 'high' | 'medium' | 'low';
 export type InternalEdgeKind = 'imports' | 'calls' | 'depends_on' | 'contains_flow' | 'flow_step';
 
 /** Edge kinds for edges that connect two different passes. */
-export type CrossPassEdgeKind = 'type-shares' | 'fixture-shares' | 'import-re-export' | 'llm-arbitrated';
+export type CrossPassEdgeKind =
+  'type-shares' | 'fixture-shares' | 'import-re-export' | 'llm-arbitrated';
 
 /** Configuration for a single decomposition pass. */
 export interface PassConfig {

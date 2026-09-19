@@ -1,12 +1,33 @@
 import { readFile } from 'node:fs/promises';
 import { Command } from 'commander';
-import { loadOpenSpecChange, scanOpenSpec, type OpenSpecScanOptions } from '../../services/openspec/openspec-scan-service.js';
+import {
+  loadOpenSpecChange,
+  scanOpenSpec,
+  type OpenSpecScanOptions
+} from '../../services/openspec/openspec-scan-service.js';
 import { projectOpenSpecToRdInput } from '../../services/openspec/openspec-bridge-service.js';
-import { renderOpenSpecChange, type OpenSpecRenderOptions, type OpenSpecRenderRequest } from '../../services/openspec/openspec-render-service.js';
-import { validateOpenSpecChange, type OpenSpecValidateOptions } from '../../services/openspec/openspec-validate-service.js';
-import { archiveOpenSpecChange, OpenSpecArchiveError, type OpenSpecArchiveOptions } from '../../services/openspec/openspec-archive-service.js';
-import { executeOpenSpecInit, type OpenSpecInitOptions } from '../../services/openspec/openspec-init-service.js';
-import { proposeFromDoctor, type DoctorFinding } from '../../services/openspec/openspec-propose-from-doctor-service.js';
+import {
+  renderOpenSpecChange,
+  type OpenSpecRenderOptions,
+  type OpenSpecRenderRequest
+} from '../../services/openspec/openspec-render-service.js';
+import {
+  validateOpenSpecChange,
+  type OpenSpecValidateOptions
+} from '../../services/openspec/openspec-validate-service.js';
+import {
+  archiveOpenSpecChange,
+  OpenSpecArchiveError,
+  type OpenSpecArchiveOptions
+} from '../../services/openspec/openspec-archive-service.js';
+import {
+  executeOpenSpecInit,
+  type OpenSpecInitOptions
+} from '../../services/openspec/openspec-init-service.js';
+import {
+  proposeFromDoctor,
+  type DoctorFinding
+} from '../../services/openspec/openspec-propose-from-doctor-service.js';
 import { runDoctor } from '../../services/doctor/index.js';
 import { fail, ok } from 'peaks-loop-shared/result';
 
@@ -60,7 +81,9 @@ async function loadRenderRequest(requestPath: string): Promise<OpenSpecRenderReq
 }
 
 export function registerOpenSpecCommands(program: Command, io: ProgramIO): void {
-  const openspec = program.command('openspec').description('Inspect OpenSpec changes inside the target project');
+  const openspec = program
+    .command('openspec')
+    .description('Inspect OpenSpec changes inside the target project');
 
   addJsonOption(
     openspec
@@ -74,7 +97,9 @@ export function registerOpenSpecCommands(program: Command, io: ProgramIO): void 
     } catch (error) {
       printResult(
         io,
-        fail('openspec.list', 'OPENSPEC_LIST_FAILED', getErrorMessage(error), {}, ['Check the project path and openspec/ layout before retrying']),
+        fail('openspec.list', 'OPENSPEC_LIST_FAILED', getErrorMessage(error), {}, [
+          'Check the project path and openspec/ layout before retrying'
+        ]),
         options.json
       );
       process.exitCode = 1;
@@ -93,7 +118,13 @@ export function registerOpenSpecCommands(program: Command, io: ProgramIO): void 
       if (detail === null) {
         printResult(
           io,
-          fail('openspec.show', 'OPENSPEC_CHANGE_NOT_FOUND', `OpenSpec change ${changeId} was not found`, { changeId }, [`Verify openspec/changes/${changeId}/ exists`]),
+          fail(
+            'openspec.show',
+            'OPENSPEC_CHANGE_NOT_FOUND',
+            `OpenSpec change ${changeId} was not found`,
+            { changeId },
+            [`Verify openspec/changes/${changeId}/ exists`]
+          ),
           options.json
         );
         process.exitCode = 1;
@@ -103,7 +134,9 @@ export function registerOpenSpecCommands(program: Command, io: ProgramIO): void 
     } catch (error) {
       printResult(
         io,
-        fail('openspec.show', 'OPENSPEC_SHOW_FAILED', getErrorMessage(error), { changeId }, ['Check the project path and openspec/ layout before retrying']),
+        fail('openspec.show', 'OPENSPEC_SHOW_FAILED', getErrorMessage(error), { changeId }, [
+          'Check the project path and openspec/ layout before retrying'
+        ]),
         options.json
       );
       process.exitCode = 1;
@@ -113,16 +146,27 @@ export function registerOpenSpecCommands(program: Command, io: ProgramIO): void 
   addJsonOption(
     openspec
       .command('to-rd')
-      .description('Project an OpenSpec change into an RD/SC input shape (acceptance, what-changes, commit boundaries)')
+      .description(
+        'Project an OpenSpec change into an RD/SC input shape (acceptance, what-changes, commit boundaries)'
+      )
       .argument('<changeId>', 'OpenSpec change directory name under openspec/changes')
       .option('--project <path>', 'project root containing an openspec/ directory')
   ).action(async (changeId: string, options: OpenSpecToRdOptions) => {
     try {
-      const projection = await projectOpenSpecToRdInput(changeId, resolveScanOptions(options.project));
+      const projection = await projectOpenSpecToRdInput(
+        changeId,
+        resolveScanOptions(options.project)
+      );
       if (projection === null) {
         printResult(
           io,
-          fail('openspec.to-rd', 'OPENSPEC_CHANGE_NOT_FOUND', `OpenSpec change ${changeId} was not found`, { changeId }, [`Verify openspec/changes/${changeId}/ exists`]),
+          fail(
+            'openspec.to-rd',
+            'OPENSPEC_CHANGE_NOT_FOUND',
+            `OpenSpec change ${changeId} was not found`,
+            { changeId },
+            [`Verify openspec/changes/${changeId}/ exists`]
+          ),
           options.json
         );
         process.exitCode = 1;
@@ -132,7 +176,9 @@ export function registerOpenSpecCommands(program: Command, io: ProgramIO): void 
     } catch (error) {
       printResult(
         io,
-        fail('openspec.to-rd', 'OPENSPEC_TO_RD_FAILED', getErrorMessage(error), { changeId }, ['Check the project path and openspec/ layout before retrying']),
+        fail('openspec.to-rd', 'OPENSPEC_TO_RD_FAILED', getErrorMessage(error), { changeId }, [
+          'Check the project path and openspec/ layout before retrying'
+        ]),
         options.json
       );
       process.exitCode = 1;
@@ -166,7 +212,13 @@ export function registerOpenSpecCommands(program: Command, io: ProgramIO): void 
     } catch (error) {
       printResult(
         io,
-        fail('openspec.render', 'OPENSPEC_RENDER_FAILED', getErrorMessage(error), { requestPath: options.request }, ['Check the request JSON shape and the openspec root before retrying']),
+        fail(
+          'openspec.render',
+          'OPENSPEC_RENDER_FAILED',
+          getErrorMessage(error),
+          { requestPath: options.request },
+          ['Check the request JSON shape and the openspec root before retrying']
+        ),
         options.json
       );
       process.exitCode = 1;
@@ -176,10 +228,15 @@ export function registerOpenSpecCommands(program: Command, io: ProgramIO): void 
   addJsonOption(
     openspec
       .command('validate')
-      .description('Validate an OpenSpec change against internal lint rules (and optionally the external openspec CLI)')
+      .description(
+        'Validate an OpenSpec change against internal lint rules (and optionally the external openspec CLI)'
+      )
       .argument('<changeId>', 'OpenSpec change directory name under openspec/changes')
       .option('--project <path>', 'project root containing an openspec/ directory')
-      .option('--prefer-external', 'use the external openspec CLI when available, fall back to internal lint')
+      .option(
+        '--prefer-external',
+        'use the external openspec CLI when available, fall back to internal lint'
+      )
   ).action(async (changeId: string, options: OpenSpecValidateCommandOptions) => {
     try {
       const scan = resolveScanOptions(options.project);
@@ -194,7 +251,13 @@ export function registerOpenSpecCommands(program: Command, io: ProgramIO): void 
       if (result === null) {
         printResult(
           io,
-          fail('openspec.validate', 'OPENSPEC_CHANGE_NOT_FOUND', `OpenSpec change ${changeId} was not found`, { changeId }, [`Verify openspec/changes/${changeId}/ exists`]),
+          fail(
+            'openspec.validate',
+            'OPENSPEC_CHANGE_NOT_FOUND',
+            `OpenSpec change ${changeId} was not found`,
+            { changeId },
+            [`Verify openspec/changes/${changeId}/ exists`]
+          ),
           options.json
         );
         process.exitCode = 1;
@@ -203,17 +266,39 @@ export function registerOpenSpecCommands(program: Command, io: ProgramIO): void 
       if (!result.valid) {
         printResult(
           io,
-          fail('openspec.validate', 'OPENSPEC_VALIDATE_INVALID', `OpenSpec change ${changeId} failed validation`, result, result.issues.map((issue) => `${issue.level}: ${issue.rule}: ${issue.message}`)),
+          fail(
+            'openspec.validate',
+            'OPENSPEC_VALIDATE_INVALID',
+            `OpenSpec change ${changeId} failed validation`,
+            result,
+            result.issues.map((issue) => `${issue.level}: ${issue.rule}: ${issue.message}`)
+          ),
           options.json
         );
         process.exitCode = 1;
         return;
       }
-      printResult(io, ok('openspec.validate', result, result.issues.filter((issue) => issue.level === 'warning').map((issue) => `${issue.rule}: ${issue.message}`)), options.json);
+      printResult(
+        io,
+        ok(
+          'openspec.validate',
+          result,
+          result.issues
+            .filter((issue) => issue.level === 'warning')
+            .map((issue) => `${issue.rule}: ${issue.message}`)
+        ),
+        options.json
+      );
     } catch (error) {
       printResult(
         io,
-        fail('openspec.validate', 'OPENSPEC_VALIDATE_FAILED', getErrorMessage(error), { changeId }, ['Check the project path and openspec/ layout before retrying']),
+        fail(
+          'openspec.validate',
+          'OPENSPEC_VALIDATE_FAILED',
+          getErrorMessage(error),
+          { changeId },
+          ['Check the project path and openspec/ layout before retrying']
+        ),
         options.json
       );
       process.exitCode = 1;
@@ -223,12 +308,20 @@ export function registerOpenSpecCommands(program: Command, io: ProgramIO): void 
   addJsonOption(
     openspec
       .command('archive')
-      .description('Move an OpenSpec change under openspec/changes/<archiveDir>/<id>/ (dry-run by default)')
+      .description(
+        'Move an OpenSpec change under openspec/changes/<archiveDir>/<id>/ (dry-run by default)'
+      )
       .argument('<changeId>', 'OpenSpec change directory name under openspec/changes')
       .option('--project <path>', 'project root containing an openspec/ directory')
       .option('--apply', 'actually move the change directory')
-      .option('--force', 'bypass the Pre-cond 2 Coverage Evidence gate (use only after confirming the gap is acceptable for this archive)')
-      .option('--coverage-summary <path>', 'override coverage-summary.json discovery (Fix-6B). Default: <projectRoot>/coverage/coverage-summary.json, then <projectRoot>/openspec/coverage-summary.json')
+      .option(
+        '--force',
+        'bypass the Pre-cond 2 Coverage Evidence gate (use only after confirming the gap is acceptable for this archive)'
+      )
+      .option(
+        '--coverage-summary <path>',
+        'override coverage-summary.json discovery (Fix-6B). Default: <projectRoot>/coverage/coverage-summary.json, then <projectRoot>/openspec/coverage-summary.json'
+      )
       .option('--archive-dir <name>', 'archive subdirectory name (default: archive)')
   ).action(async (changeId: string, options: OpenSpecArchiveCommandOptions) => {
     try {
@@ -253,7 +346,13 @@ export function registerOpenSpecCommands(program: Command, io: ProgramIO): void 
       if (result === null) {
         printResult(
           io,
-          fail('openspec.archive', 'OPENSPEC_CHANGE_NOT_FOUND', `OpenSpec change ${changeId} was not found`, { changeId }, [`Verify openspec/changes/${changeId}/ exists`]),
+          fail(
+            'openspec.archive',
+            'OPENSPEC_CHANGE_NOT_FOUND',
+            `OpenSpec change ${changeId} was not found`,
+            { changeId },
+            [`Verify openspec/changes/${changeId}/ exists`]
+          ),
           options.json
         );
         process.exitCode = 1;
@@ -261,21 +360,36 @@ export function registerOpenSpecCommands(program: Command, io: ProgramIO): void 
       }
       const warnings: string[] = [];
       if (result.coverageGateBypassed === true) {
-        warnings.push('Coverage gate bypassed via --force; archived with at least one uncovered requirement.');
+        warnings.push(
+          'Coverage gate bypassed via --force; archived with at least one uncovered requirement.'
+        );
       }
       if (result.coverageMismatchBypassed === true) {
-        warnings.push('Coverage summary mismatch bypassed via --force; archived with at least one capability below 100%.');
+        warnings.push(
+          'Coverage summary mismatch bypassed via --force; archived with at least one capability below 100%.'
+        );
       }
       printResult(
         io,
-        ok('openspec.archive', result, warnings, result.applied ? [] : [`Re-run with --apply to move ${result.from} → ${result.to}`]),
+        ok(
+          'openspec.archive',
+          result,
+          warnings,
+          result.applied ? [] : [`Re-run with --apply to move ${result.from} → ${result.to}`]
+        ),
         options.json
       );
     } catch (error) {
       if (error instanceof OpenSpecArchiveError) {
         printResult(
           io,
-          fail('openspec.archive', error.code, getErrorMessage(error), error.detail, nextActionsForArchiveError(error.code)),
+          fail(
+            'openspec.archive',
+            error.code,
+            getErrorMessage(error),
+            error.detail,
+            nextActionsForArchiveError(error.code)
+          ),
           options.json
         );
         process.exitCode = 1;
@@ -283,7 +397,9 @@ export function registerOpenSpecCommands(program: Command, io: ProgramIO): void 
       }
       printResult(
         io,
-        fail('openspec.archive', 'OPENSPEC_ARCHIVE_FAILED', getErrorMessage(error), { changeId }, ['Check the project path and openspec/ layout before retrying']),
+        fail('openspec.archive', 'OPENSPEC_ARCHIVE_FAILED', getErrorMessage(error), { changeId }, [
+          'Check the project path and openspec/ layout before retrying'
+        ]),
         options.json
       );
       process.exitCode = 1;
@@ -293,7 +409,9 @@ export function registerOpenSpecCommands(program: Command, io: ProgramIO): void 
   addJsonOption(
     openspec
       .command('init')
-      .description('Scaffold the openspec/ directory in the target project (changes/, archive/, README.md, CHANGES.md). Idempotent — refuses to overwrite an existing openspec/')
+      .description(
+        'Scaffold the openspec/ directory in the target project (changes/, archive/, README.md, CHANGES.md). Idempotent — refuses to overwrite an existing openspec/'
+      )
       .requiredOption('--project <path>', 'target project root')
       .option('--apply', 'write files to disk (default: dry-run preview)', false)
   ).action(async (options: OpenSpecInitCommandOptions) => {
@@ -311,13 +429,21 @@ export function registerOpenSpecCommands(program: Command, io: ProgramIO): void 
       } else if (!result.apply) {
         nextActions.push('Re-run with --apply to write the planned files to disk.');
       } else {
-        nextActions.push('Run `peaks openspec render --request <path> --apply` to scaffold a first change proposal.');
+        nextActions.push(
+          'Run `peaks openspec render --request <path> --apply` to scaffold a first change proposal.'
+        );
       }
       printResult(io, ok('openspec.init', result, [], nextActions), options.json);
     } catch (error) {
       printResult(
         io,
-        fail('openspec.init', 'OPENSPEC_INIT_FAILED', getErrorMessage(error), { projectRoot: options.project }, ['Verify the project path exists and is writable']),
+        fail(
+          'openspec.init',
+          'OPENSPEC_INIT_FAILED',
+          getErrorMessage(error),
+          { projectRoot: options.project },
+          ['Verify the project path exists and is writable']
+        ),
         options.json
       );
       process.exitCode = 1;
@@ -335,9 +461,14 @@ export function registerOpenSpecCommands(program: Command, io: ProgramIO): void 
   addJsonOption(
     openspec
       .command('from-doctor')
-      .description('Slice L3.3: generate an OpenSpec change draft (proposal.md) from a peaks doctor finding')
+      .description(
+        'Slice L3.3: generate an OpenSpec change draft (proposal.md) from a peaks doctor finding'
+      )
       .requiredOption('--project <path>', 'target project root')
-      .requiredOption('--check-id <id>', 'the doctor check id to draft from (e.g. L3:l3-memory-health)')
+      .requiredOption(
+        '--check-id <id>',
+        'the doctor check id to draft from (e.g. L3:l3-memory-health)'
+      )
   ).action(async (options: FromDoctorOptions) => {
     try {
       const report = await runDoctor();
@@ -345,7 +476,13 @@ export function registerOpenSpecCommands(program: Command, io: ProgramIO): void 
       if (finding === undefined) {
         printResult(
           io,
-          fail('openspec.from-doctor', 'CHECK_NOT_FOUND', `No doctor check with id "${options.checkId}"`, { availableIds: report.checks.map((c) => c.id) }, ['Run peaks doctor --json to list available check ids']),
+          fail(
+            'openspec.from-doctor',
+            'CHECK_NOT_FOUND',
+            `No doctor check with id "${options.checkId}"`,
+            { availableIds: report.checks.map((c) => c.id) },
+            ['Run peaks doctor --json to list available check ids']
+          ),
           options.json
         );
         process.exitCode = 1;
@@ -354,7 +491,13 @@ export function registerOpenSpecCommands(program: Command, io: ProgramIO): void 
       if (finding.ok) {
         printResult(
           io,
-          fail('openspec.from-doctor', 'CHECK_ALREADY_PASSING', `Doctor check "${options.checkId}" is already passing; nothing to draft`, { checkId: options.checkId }, ['Pick a failing check from peaks doctor --json']),
+          fail(
+            'openspec.from-doctor',
+            'CHECK_ALREADY_PASSING',
+            `Doctor check "${options.checkId}" is already passing; nothing to draft`,
+            { checkId: options.checkId },
+            ['Pick a failing check from peaks doctor --json']
+          ),
           options.json
         );
         process.exitCode = 1;
@@ -364,17 +507,32 @@ export function registerOpenSpecCommands(program: Command, io: ProgramIO): void 
         id: finding.id,
         rule: (finding as unknown as { rule?: string }).rule ?? finding.id,
         detail: finding.message,
-        severity: 'fail',
+        severity: 'fail'
       };
       const result = proposeFromDoctor({ projectRoot: options.project, finding: doctorFinding });
-      printResult(io, ok('openspec.from-doctor', result, [], [
-        `draft proposal written to ${result.proposalPath}`,
-        'Review + edit the draft, then run `peaks openspec validate <id>`',
-      ]), options.json);
+      printResult(
+        io,
+        ok(
+          'openspec.from-doctor',
+          result,
+          [],
+          [
+            `draft proposal written to ${result.proposalPath}`,
+            'Review + edit the draft, then run `peaks openspec validate <id>`'
+          ]
+        ),
+        options.json
+      );
     } catch (error) {
       printResult(
         io,
-        fail('openspec.from-doctor', 'OPENSPEC_FROM_DOCTOR_FAILED', getErrorMessage(error), { projectRoot: options.project, checkId: options.checkId }, ['Verify the project path and the check id']),
+        fail(
+          'openspec.from-doctor',
+          'OPENSPEC_FROM_DOCTOR_FAILED',
+          getErrorMessage(error),
+          { projectRoot: options.project, checkId: options.checkId },
+          ['Verify the project path and the check id']
+        ),
         options.json
       );
       process.exitCode = 1;

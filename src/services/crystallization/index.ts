@@ -12,7 +12,7 @@ export {
   CrystallizationService,
   CrystallizationIntegrityError,
   type CrystallizationOptions,
-  type CrystallizationTaskState,
+  type CrystallizationTaskState
 } from './crystallization-service.js';
 
 export {
@@ -21,7 +21,7 @@ export {
   getCrystallizationEvent,
   listCrystallizationEvents,
   newCrystallizationId,
-  updateCrystallizationEventStatus,
+  updateCrystallizationEventStatus
 } from './crystallization-store.js';
 
 export {
@@ -37,7 +37,7 @@ export {
   type CrystallizationEvent,
   type CrystallizationEventInput,
   type CrystallizationEventStatus,
-  type EvidenceBrief,
+  type EvidenceBrief
 } from './crystallization-types.js';
 
 export {
@@ -45,5 +45,5 @@ export {
   renderRecommendationPayload,
   safeRenderRecommendationPayload,
   buildEvidenceBrief,
-  type BriefTraceInput,
+  type BriefTraceInput
 } from './evidence-brief-builder.js';

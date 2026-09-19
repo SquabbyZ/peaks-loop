@@ -26,9 +26,7 @@ import { posix, relative, resolve, isAbsolute as nodeIsAbsolute } from 'node:pat
 import { isPathInsideArtifactRoot as _isPathInsideArtifactRoot } from '../../shared/path-safety.js';
 import { normalizePath } from '../../shared/path-utils.js';
 
-export type Result<T, E> =
-  | { ok: true; value: T }
-  | { ok: false; error: E };
+export type Result<T, E> = { ok: true; value: T } | { ok: false; error: E };
 
 export function ok<T>(value: T): Result<T, never> {
   return { ok: true, value };
@@ -133,7 +131,12 @@ export type PlanArtifactPathOutput = {
 
 const DEFAULT_TEMPLATE = '<changeId>/<role>/<requestId>';
 
-function interpolateTemplate(template: string, changeId: string, role: string, requestId: string): string {
+function interpolateTemplate(
+  template: string,
+  changeId: string,
+  role: string,
+  requestId: string
+): string {
   return template
     .replaceAll('<changeId>', changeId)
     .replaceAll('<role>', role)
@@ -164,7 +167,12 @@ export function planArtifactPath(
       ? input.absolutePath
       : input.relativePath !== undefined
         ? input.relativePath
-        : interpolateTemplate(input.template ?? DEFAULT_TEMPLATE, input.changeId, input.role, input.requestId);
+        : interpolateTemplate(
+            input.template ?? DEFAULT_TEMPLATE,
+            input.changeId,
+            input.role,
+            input.requestId
+          );
 
   // Always normalize separators to forward-slashes for the JSON-safe output,
   // then run posix.normalize so empty segments (foo//bar) and `..` segments
@@ -221,4 +229,3 @@ export function buildWorkspaceUnavailable(input: {
     nextActions: [...WORKSPACE_UNAVAILABLE_NEXT_ACTIONS]
   };
 }
-

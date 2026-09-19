@@ -23,11 +23,12 @@
 export function runGitLsFiles(projectRoot: string, glob: string): readonly string[] {
   try {
     const { execFileSync } = require('node:child_process') as typeof import('node:child_process');
-    const stdout = execFileSync(
-      'git',
-      ['ls-files', '--', glob],
-      { cwd: projectRoot, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], windowsHide: true }
-    );
+    const stdout = execFileSync('git', ['ls-files', '--', glob], {
+      cwd: projectRoot,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+      windowsHide: true
+    });
     return stdout.split('\n').filter((line: string) => line.length > 0);
   } catch {
     return [];
@@ -53,7 +54,9 @@ export async function dispatchSubAgent(input: {
   graphRef?: string;
 }): Promise<{ role: string; toolCall: unknown; dispatchRecordPath: string | null }> {
   if (typeof input.graphNode !== 'string' || input.graphNode.length === 0) {
-    const err = new Error('PEAKS_GRAPH_NODE_REQUIRED: --graph-node is required (RD §4 D4c)') as Error & { code: string };
+    const err = new Error(
+      'PEAKS_GRAPH_NODE_REQUIRED: --graph-node is required (RD §4 D4c)'
+    ) as Error & { code: string };
     err.code = 'PEAKS_GRAPH_NODE_REQUIRED';
     throw err;
   }
@@ -63,6 +66,6 @@ export async function dispatchSubAgent(input: {
   return {
     role: input.role,
     toolCall: null,
-    dispatchRecordPath: null,
+    dispatchRecordPath: null
   };
 }

@@ -13,7 +13,12 @@
  */
 
 import { Buffer } from 'node:buffer';
-import type { CodegraphRunner, DecomposeOptions, DecompositionResult, SliceBenchmark } from './slice-decompose-types.js';
+import type {
+  CodegraphRunner,
+  DecomposeOptions,
+  DecompositionResult,
+  SliceBenchmark
+} from './slice-decompose-types.js';
 import { decomposeSlices, defaultCodegraphRunner } from './slice-decompose-service.js';
 
 export interface BenchmarkEnvelope {

@@ -46,7 +46,7 @@ export function fuzzyMatchWithKey<T>(
     limit,
     // Per spec: default is case-insensitive (NOT fzf's smart-case).
     // The user explicitly opts into case-sensitive via caseSensitive:true.
-    casing: options.caseSensitive === true ? 'case-sensitive' : 'case-insensitive',
+    casing: options.caseSensitive === true ? 'case-sensitive' : 'case-insensitive'
     // normalize:true (default) strips diacritics; fzf returns more matches
     // for non-ASCII text this way, which is what we want for
     // bilingual (zh-CN + en) memory entries.

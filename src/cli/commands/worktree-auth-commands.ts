@@ -34,10 +34,14 @@ import {
   readAuthorization,
   writeAuthorization,
   type OperationType,
-  type WorktreeAuthorization,
+  type WorktreeAuthorization
 } from '../../services/hooks/worktree-authorization-gate.js';
 import { reconcileHostWorktrees } from '../../services/worktree/host-worktree-reconciler.js';
-import { registerWorktreeLeaseCommands, resolveProjectRoot, resolveSessionId } from './worktree-lease-commands.js';
+import {
+  registerWorktreeLeaseCommands,
+  resolveProjectRoot,
+  resolveSessionId
+} from './worktree-lease-commands.js';
 
 const DEFAULT_TTL_MS = 5 * 60 * 1_000;
 const ALLOWED_OPERATIONS: ReadonlyArray<OperationType> = [
@@ -91,12 +95,18 @@ export function registerWorktreeAuthCommand(program: Command, io: ProgramIO): vo
         'asked for the operation. The PreToolUse gate fail-closes on missing or expired grants.'
     );
 
-  const auth_ = auth.command('auth').description('Manage worktree authorization grants (granted by the LLM after explicit user opt-in).');
+  const auth_ = auth
+    .command('auth')
+    .description(
+      'Manage worktree authorization grants (granted by the LLM after explicit user opt-in).'
+    );
 
   addJsonOption(
     auth
       .command('reconcile-host')
-      .description('Read-only reconciliation of host-created .claude/worktrees/agent-* against the canonical Peaks lease store.')
+      .description(
+        'Read-only reconciliation of host-created .claude/worktrees/agent-* against the canonical Peaks lease store.'
+      )
       .option('--session <sid>', 'override session id')
       .option('--project <path>', 'project root (default: findProjectRoot(cwd))')
       .option('--host-root <path>', 'override host worktree root')
@@ -107,15 +117,30 @@ export function registerWorktreeAuthCommand(program: Command, io: ProgramIO): vo
       const result = reconcileHostWorktrees({
         projectRoot,
         sessionId,
-        ...(options.hostRoot !== undefined ? { hostRoot: options.hostRoot } : {}),
+        ...(options.hostRoot !== undefined ? { hostRoot: options.hostRoot } : {})
       });
-      const warnings = result.unmanaged.length > 0
-        ? [`${result.unmanaged.length} host worktree(s) are outside Peaks lease governance.`]
-        : [];
-      printResult(io, ok('worktree.reconcile-host', { ...result, sessionId, projectRoot }, warnings), options.json);
+      const warnings =
+        result.unmanaged.length > 0
+          ? [`${result.unmanaged.length} host worktree(s) are outside Peaks lease governance.`]
+          : [];
+      printResult(
+        io,
+        ok('worktree.reconcile-host', { ...result, sessionId, projectRoot }, warnings),
+        options.json
+      );
       if (result.unmanaged.length > 0) process.exitCode = 1;
     } catch (error) {
-      printResult(io, fail('worktree.reconcile-host', 'HOST_WORKTREE_RECONCILE_FAILED', getErrorMessage(error), { sessionId, projectRoot }, []), options.json);
+      printResult(
+        io,
+        fail(
+          'worktree.reconcile-host',
+          'HOST_WORKTREE_RECONCILE_FAILED',
+          getErrorMessage(error),
+          { sessionId, projectRoot },
+          []
+        ),
+        options.json
+      );
       process.exitCode = 1;
     }
   });
@@ -123,14 +148,26 @@ export function registerWorktreeAuthCommand(program: Command, io: ProgramIO): vo
   addJsonOption(
     auth_
       .command('grant')
-      .description('Append a single grant to the current session\'s worktree authorization file.')
+      .description("Append a single grant to the current session's worktree authorization file.")
       .requiredOption('--operation <op>', `operation type: ${ALLOWED_OPERATIONS.join(' | ')}`)
-      .requiredOption('--reason <text>', 'why the user authorized this operation (logged for audit)')
+      .requiredOption(
+        '--reason <text>',
+        'why the user authorized this operation (logged for audit)'
+      )
       .option('--ttl <ms>', `time-to-live in ms (default ${DEFAULT_TTL_MS} = 5 min)`)
       .option('--multi', 'multi-use grant (default: single-use, consumed on first match)')
-      .option('--request-id <rid>', 'scope the grant to a specific peaks request id (defense in depth)')
-      .option('--no-request-id', 'explicitly mark this grant as NOT scoped to any rid (default behavior)')
-      .option('--prompt-hash <hex>', '16-hex prefix of the user prompt at grant time (optional, traceability)')
+      .option(
+        '--request-id <rid>',
+        'scope the grant to a specific peaks request id (defense in depth)'
+      )
+      .option(
+        '--no-request-id',
+        'explicitly mark this grant as NOT scoped to any rid (default behavior)'
+      )
+      .option(
+        '--prompt-hash <hex>',
+        '16-hex prefix of the user prompt at grant time (optional, traceability)'
+      )
       .option('--session <sid>', 'override session id (default: read .peaks/_runtime/session.json)')
       .option('--project <path>', 'project root (default: findProjectRoot(cwd))')
   ).action((options: GrantOptions) => {
@@ -154,7 +191,13 @@ export function registerWorktreeAuthCommand(program: Command, io: ProgramIO): vo
       if (options.reason.trim().length === 0) {
         printResult(
           io,
-          fail('worktree.auth.grant', 'EMPTY_REASON', '--reason must not be empty', { reason: options.reason }, ['Provide a non-empty --reason for the audit log.']),
+          fail(
+            'worktree.auth.grant',
+            'EMPTY_REASON',
+            '--reason must not be empty',
+            { reason: options.reason },
+            ['Provide a non-empty --reason for the audit log.']
+          ),
           options.json
         );
         process.exitCode = 1;
@@ -164,7 +207,13 @@ export function registerWorktreeAuthCommand(program: Command, io: ProgramIO): vo
       if (!Number.isInteger(ttlMs) || ttlMs <= 0) {
         printResult(
           io,
-          fail('worktree.auth.grant', 'INVALID_TTL', '--ttl must be a positive integer (ms)', { ttl: options.ttl }, ['Re-run with --ttl 300000 for a 5-minute window.']),
+          fail(
+            'worktree.auth.grant',
+            'INVALID_TTL',
+            '--ttl must be a positive integer (ms)',
+            { ttl: options.ttl },
+            ['Re-run with --ttl 300000 for a 5-minute window.']
+          ),
           options.json
         );
         process.exitCode = 1;
@@ -177,12 +226,13 @@ export function registerWorktreeAuthCommand(program: Command, io: ProgramIO): vo
       const consume = options.multi !== true;
       const requestId: string | null = options.noRequestId
         ? null
-        : (typeof options.requestId === 'string' && options.requestId.length > 0
+        : typeof options.requestId === 'string' && options.requestId.length > 0
           ? options.requestId
-          : null);
-      const promptHash: string | null = typeof options.promptHash === 'string' && /^[a-f0-9]{1,16}$/.test(options.promptHash)
-        ? options.promptHash
-        : null;
+          : null;
+      const promptHash: string | null =
+        typeof options.promptHash === 'string' && /^[a-f0-9]{1,16}$/.test(options.promptHash)
+          ? options.promptHash
+          : null;
       const authorization: WorktreeAuthorization = {
         operation: op,
         reason: options.reason,
@@ -216,7 +266,13 @@ export function registerWorktreeAuthCommand(program: Command, io: ProgramIO): vo
     } catch (error) {
       printResult(
         io,
-        fail('worktree.auth.grant', 'GRANT_FAILED', getErrorMessage(error), { operation: options.operation }, ['Re-run after fixing the failure (see cause in the error message).']),
+        fail(
+          'worktree.auth.grant',
+          'GRANT_FAILED',
+          getErrorMessage(error),
+          { operation: options.operation },
+          ['Re-run after fixing the failure (see cause in the error message).']
+        ),
         options.json
       );
       process.exitCode = 1;
@@ -236,17 +292,24 @@ export function registerWorktreeAuthCommand(program: Command, io: ProgramIO): vo
       const result = clearAllGrants(projectRoot, sessionId);
       printResult(
         io,
-        ok('worktree.auth.revoke', { sessionId, projectRoot, ...result }, [], [
-          result.removed > 0
-            ? `Cleared ${result.removed} grant(s). The PreToolUse gate now fail-closes again.`
-            : 'No grants to clear. The gate is already fail-closed.'
-        ]),
+        ok(
+          'worktree.auth.revoke',
+          { sessionId, projectRoot, ...result },
+          [],
+          [
+            result.removed > 0
+              ? `Cleared ${result.removed} grant(s). The PreToolUse gate now fail-closes again.`
+              : 'No grants to clear. The gate is already fail-closed.'
+          ]
+        ),
         options.json
       );
     } catch (error) {
       printResult(
         io,
-        fail('worktree.auth.revoke', 'REVOKE_FAILED', getErrorMessage(error), {}, ['Re-run after fixing the failure (see cause in the error message).']),
+        fail('worktree.auth.revoke', 'REVOKE_FAILED', getErrorMessage(error), {}, [
+          'Re-run after fixing the failure (see cause in the error message).'
+        ]),
         options.json
       );
       process.exitCode = 1;
@@ -256,7 +319,9 @@ export function registerWorktreeAuthCommand(program: Command, io: ProgramIO): vo
   addJsonOption(
     auth_
       .command('status')
-      .description('Inspect the current session\'s worktree-authorization file (granted operations + expiry).')
+      .description(
+        "Inspect the current session's worktree-authorization file (granted operations + expiry)."
+      )
       .option('--session <sid>', 'override session id (default: read .peaks/_runtime/session.json)')
       .option('--project <path>', 'project root (default: findProjectRoot(cwd))')
   ).action((options: StatusOptions) => {
@@ -281,7 +346,14 @@ export function registerWorktreeAuthCommand(program: Command, io: ProgramIO): vo
       if (file === null) {
         printResult(
           io,
-          ok('worktree.auth.status', { sessionId, projectRoot, grants: [], file: null }, [], ['No grants on file. The PreToolUse gate will fail-close on worktree-mutating tool calls.']),
+          ok(
+            'worktree.auth.status',
+            { sessionId, projectRoot, grants: [], file: null },
+            [],
+            [
+              'No grants on file. The PreToolUse gate will fail-close on worktree-mutating tool calls.'
+            ]
+          ),
           options.json
         );
         return;
@@ -293,15 +365,27 @@ export function registerWorktreeAuthCommand(program: Command, io: ProgramIO): vo
       }));
       printResult(
         io,
-        ok('worktree.auth.status', { sessionId, projectRoot, file: '.peaks/_runtime/' + sessionId + '/worktree-auth.json', grants: live }, [], [
-          `${file.grants.length} grant(s) recorded. ${live.filter((g) => !g.expired).length} still valid.`
-        ]),
+        ok(
+          'worktree.auth.status',
+          {
+            sessionId,
+            projectRoot,
+            file: '.peaks/_runtime/' + sessionId + '/worktree-auth.json',
+            grants: live
+          },
+          [],
+          [
+            `${file.grants.length} grant(s) recorded. ${live.filter((g) => !g.expired).length} still valid.`
+          ]
+        ),
         options.json
       );
     } catch (error) {
       printResult(
         io,
-        fail('worktree.auth.status', 'STATUS_FAILED', getErrorMessage(error), {}, ['Re-run after fixing the failure (see cause in the error message).']),
+        fail('worktree.auth.status', 'STATUS_FAILED', getErrorMessage(error), {}, [
+          'Re-run after fixing the failure (see cause in the error message).'
+        ]),
         options.json
       );
       process.exitCode = 1;

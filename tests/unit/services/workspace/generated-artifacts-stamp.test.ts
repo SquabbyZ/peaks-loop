@@ -47,10 +47,11 @@ declareDimensions(
   [
     {
       dim: 'render',
-      reason: 'service returns a typed object; the human-visible surface is `peaks skill presence`, covered by its own CLI test',
+      reason:
+        'service returns a typed object; the human-visible surface is `peaks skill presence`, covered by its own CLI test'
     },
-    { dim: 'a11y', reason: 'no human-facing text in this module' },
-  ],
+    { dim: 'a11y', reason: 'no human-facing text in this module' }
+  ]
 );
 
 const SESSION_ID = '2026-09-15-session-abcdef';
@@ -169,7 +170,11 @@ describe('Scenario: generated-artifact version stamp', () => {
     // detector's question. It answers "when did a release last regenerate
     // this project", not "do the bytes still match the template" — that is
     // `templateContentMatches`'s question, asked on the next init.
-    writeFileSync(join(ws.path, '.claude', 'settings.local.json'), '{"theme":"hand-edited"}\n', 'utf8');
+    writeFileSync(
+      join(ws.path, '.claude', 'settings.local.json'),
+      '{"theme":"hand-edited"}\n',
+      'utf8'
+    );
     expect(detectStaleGeneratedArtifacts(ws.path).stale).toBe(false);
   });
 });

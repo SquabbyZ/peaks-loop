@@ -1,7 +1,11 @@
 import { existsSync, mkdirSync, readdirSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-interface ActiveRecord { pid: number; rid: string; ownerSession: string; }
+interface ActiveRecord {
+  pid: number;
+  rid: string;
+  ownerSession: string;
+}
 
 export class LifecycleOwner {
   private active = new Map<string, ActiveRecord>();
@@ -19,8 +23,10 @@ export class LifecycleOwner {
     writeFileSync(join(dir, 'exit.json'), JSON.stringify(exit));
 
     // Archive
-    if (existsSync(join(dir, 'log.txt'))) renameSync(join(dir, 'log.txt'), join(dir, 'log-archive.txt'));
-    if (existsSync(join(dir, 'status.json'))) renameSync(join(dir, 'status.json'), join(dir, 'status-final.json'));
+    if (existsSync(join(dir, 'log.txt')))
+      renameSync(join(dir, 'log.txt'), join(dir, 'log-archive.txt'));
+    if (existsSync(join(dir, 'status.json')))
+      renameSync(join(dir, 'status.json'), join(dir, 'status-final.json'));
 
     // Delete active markers
     for (const f of ['pid', 'owner-session']) {

@@ -84,7 +84,9 @@ export function parseWorkflowYaml(raw: string, expectedId: string): WorkflowSpec
   // Path stack tracks the chain of object/array containers so we can
   // disambiguate `phases: [...]` (root array) from
   // `contextSnapshot: { files: [...] }` (nested array under an object).
-  type Frame = { kind: 'object'; container: Record<string, unknown>; key: string } | { kind: 'array'; container: unknown[]; key: string };
+  type Frame =
+    | { kind: 'object'; container: Record<string, unknown>; key: string }
+    | { kind: 'array'; container: unknown[]; key: string };
   const stack: Frame[] = [{ kind: 'object', container: root, key: '__root__' }];
 
   function pushChild(parent: Frame, childKey: string, child: unknown): void {
@@ -142,14 +144,22 @@ export function parseWorkflowYaml(raw: string, expectedId: string): WorkflowSpec
       // `- src/foo` (scalar).
       const nextLine = (lines[i + 1] ?? '').trim();
       const nextIndent = leadingSpaces(lines[i + 1] ?? '');
-      if (itemText.endsWith(':') && (nextLine.startsWith('- ') || nextLine === '-') && nextIndent > indent) {
+      if (
+        itemText.endsWith(':') &&
+        (nextLine.startsWith('- ') || nextLine === '-') &&
+        nextIndent > indent
+      ) {
         // Nested array under object.
         const obj: Record<string, unknown> = {};
         const childKey = itemText.slice(0, -1);
         obj['__pendingArrayKey'] = childKey;
         top.container.push(obj);
         // We push a new frame so subsequent `- ` lines belong to the inner array.
-        stack.push({ kind: 'array', container: top.container as unknown as unknown[], key: childKey });
+        stack.push({
+          kind: 'array',
+          container: top.container as unknown as unknown[],
+          key: childKey
+        });
         // Replace top's last item with the placeholder object — but we
         // actually need a separate child array. Simpler: convert the
         // last pushed object into { [childKey]: [] } and push the array
@@ -164,7 +174,7 @@ export function parseWorkflowYaml(raw: string, expectedId: string): WorkflowSpec
         // Inline object.
         const obj: Record<string, unknown> = {};
         const inlineParts = itemText.split(':');
-        obj[inlineParts[0] ?? ''] = parseScalar((inlineParts.slice(1).join(':')).trim());
+        obj[inlineParts[0] ?? ''] = parseScalar(inlineParts.slice(1).join(':').trim());
         top.container.push(obj);
         stack.push({ kind: 'object', container: obj, key: inlineParts[0] ?? '' });
       } else {
@@ -175,7 +185,12 @@ export function parseWorkflowYaml(raw: string, expectedId: string): WorkflowSpec
     if (top.kind === 'array' && trimmed.includes(':') && !trimmed.startsWith('- ')) {
       // Continuation of the last array object.
       const lastItem = top.container[top.container.length - 1];
-      if (lastItem !== undefined && lastItem !== null && typeof lastItem === 'object' && !Array.isArray(lastItem)) {
+      if (
+        lastItem !== undefined &&
+        lastItem !== null &&
+        typeof lastItem === 'object' &&
+        !Array.isArray(lastItem)
+      ) {
         const parts = trimmed.split(':');
         const key = parts[0] ?? '';
         const value = parts.slice(1).join(':').trim();
@@ -248,7 +263,9 @@ function buildSpec(root: Record<string, unknown>, expectedId: string): WorkflowS
   };
   const budget: WorkflowBudget = {
     ...(budgetRaw['tokens'] !== undefined ? { tokens: numberField(budgetRaw, 'tokens') } : {}),
-    ...(budgetRaw['wallSeconds'] !== undefined ? { wallSeconds: numberField(budgetRaw, 'wallSeconds') } : {}),
+    ...(budgetRaw['wallSeconds'] !== undefined
+      ? { wallSeconds: numberField(budgetRaw, 'wallSeconds') }
+      : {}),
     ...(budgetRaw['cycles'] !== undefined ? { cycles: numberField(budgetRaw, 'cycles') } : {})
   };
 
@@ -309,7 +326,9 @@ function buildEvaluator(raw: unknown): WorkflowEvaluator {
   const obj = objectField({ evaluator: raw }, 'evaluator');
   const typeRaw = stringField(obj, 'type');
   if (!VALID_EVALUATORS.has(typeRaw as EvaluatorKind)) {
-    throw new Error(`workflow evaluator type "${typeRaw}" is not a native evaluator (allowed: ${[...VALID_EVALUATORS].join(', ')})`);
+    throw new Error(
+      `workflow evaluator type "${typeRaw}" is not a native evaluator (allowed: ${[...VALID_EVALUATORS].join(', ')})`
+    );
   }
   const type = typeRaw as EvaluatorKind;
   const gate = typeof obj['gate'] === 'string' ? obj['gate'] : undefined;

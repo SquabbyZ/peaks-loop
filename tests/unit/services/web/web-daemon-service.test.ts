@@ -28,12 +28,16 @@ declareDimensions('tests/unit/services/web/web-daemon-service.test.ts', [
   'behavior',
   'integration',
   'a11y',
-  'render',
+  'render'
 ]);
 
 import { BrowserSessionManager } from '../../../../src/services/web/browser-session-manager.js';
 import { readDaemonInfo } from '../../../../src/services/web/daemon-registry.js';
-import type { PwBrowser, PwContext, PwPage } from '../../../../src/services/web/playwright-loader.js';
+import type {
+  PwBrowser,
+  PwContext,
+  PwPage
+} from '../../../../src/services/web/playwright-loader.js';
 import { PROTOCOL_VERSION } from '../../../../src/services/web/web-protocol.js';
 import { startWebDaemon, routeOp } from '../../../../src/services/web/web-daemon-service.js';
 
@@ -65,7 +69,7 @@ function fakeBrowser(): PwBrowser {
       }
       return Buffer.from('PNG', 'utf8');
     },
-    evaluate: async <T,>() => ({ lcp: 12, cls: 0.1, inp: 34 }) as T,
+    evaluate: async <T>() => ({ lcp: 12, cls: 0.1, inp: 34 }) as T,
     locator: () => ({
       click: async () => undefined,
       innerText: async () => 'page text',
@@ -240,7 +244,10 @@ describe('integration — the listening daemon', () => {
     });
     // then: it names this process and this session — the ownership proof
     expect(response.status).toBe(200);
-    const identity = (await response.json()) as { ok?: boolean; data?: { pid?: number; sessionId?: string } };
+    const identity = (await response.json()) as {
+      ok?: boolean;
+      data?: { pid?: number; sessionId?: string };
+    };
     expect(identity.ok).toBe(true);
     expect(identity.data?.pid).toBe(process.pid);
     expect(identity.data?.sessionId).toBe(SESSION_ID);

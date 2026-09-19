@@ -32,7 +32,7 @@ import { MemoryIndexReader } from './memory-index-reader.js';
 import {
   resolveMemoryPreflightConfig,
   type MemoryPreflightConfig,
-  type MemoryPreflightPrefsInput,
+  type MemoryPreflightPrefsInput
 } from './memory-preflight-config.js';
 import type { MemoryIndexEntry } from '../memory/memory-search-service.js';
 
@@ -64,9 +64,36 @@ interface RankedEntry {
 
 /** Function words carry no selection signal. */
 const STOPWORDS = new Set([
-  'the', 'and', 'for', 'with', 'from', 'that', 'this', 'not', 'are', 'was',
-  'but', 'you', 'all', 'any', 'can', 'has', 'its', 'our', 'out', 'use', 'via',
-  'per', 'into', 'when', 'then', 'than', 'they', 'their', 'should', 'must',
+  'the',
+  'and',
+  'for',
+  'with',
+  'from',
+  'that',
+  'this',
+  'not',
+  'are',
+  'was',
+  'but',
+  'you',
+  'all',
+  'any',
+  'can',
+  'has',
+  'its',
+  'our',
+  'out',
+  'use',
+  'via',
+  'per',
+  'into',
+  'when',
+  'then',
+  'than',
+  'they',
+  'their',
+  'should',
+  'must'
 ]);
 
 /**
@@ -114,10 +141,7 @@ function tokenHits(text: string, tokens: string[]): number {
   return hits;
 }
 
-function truncateToCap(
-  text: string,
-  capBytes: number,
-): { text: string; truncated: boolean } {
+function truncateToCap(text: string, capBytes: number): { text: string; truncated: boolean } {
   if (Buffer.byteLength(text, 'utf8') <= capBytes) {
     return { text, truncated: false };
   }
@@ -154,7 +178,7 @@ export class MemoryPreflightService {
       // Fail-soft: a selection failure must never block a dispatch.
       return {
         available: false,
-        reason: `SELECTION_ERROR: ${(err as Error).message ?? String(err)}`,
+        reason: `SELECTION_ERROR: ${(err as Error).message ?? String(err)}`
       };
     }
   }
@@ -175,8 +199,7 @@ export class MemoryPreflightService {
     const hotRanked = rankedAll.filter((r) => hotSet.has(r.entry));
     const hotSelected = hotRanked.slice(0, this.config.hotItemCap);
 
-    let timedOut =
-      performance.now() - startedAt >= this.config.selectionTimeBudgetMs;
+    let timedOut = performance.now() - startedAt >= this.config.selectionTimeBudgetMs;
     const warmSelected: RankedEntry[] = [];
     let warmEligibleCount = 0;
     if (!timedOut && this.config.warmItemCap > 0) {
@@ -185,15 +208,12 @@ export class MemoryPreflightService {
         .filter(
           (r) =>
             tokenHits(`${r.entry.name} ${r.entry.description}`.toLowerCase(), tokens) >=
-            this.config.warmMinTokenHits,
+            this.config.warmMinTokenHits
         );
       warmEligibleCount = warmRanked.length;
       for (const candidate of warmRanked) {
         if (warmSelected.length >= this.config.warmItemCap) break;
-        if (
-          performance.now() - startedAt >=
-          this.config.selectionTimeBudgetMs
-        ) {
+        if (performance.now() - startedAt >= this.config.selectionTimeBudgetMs) {
           timedOut = true;
           break;
         }
@@ -233,9 +253,7 @@ export class MemoryPreflightService {
     const selectedCount = hotSelected.length + warmSelected.length;
     const droppedByItemCap =
       hotRanked.length - hotSelected.length + (warmEligibleCount - warmSelected.length);
-    const droppedByBytes = truncated
-      ? Math.max(0, selectedCount - countItemsInBlock(text))
-      : 0;
+    const droppedByBytes = truncated ? Math.max(0, selectedCount - countItemsInBlock(text)) : 0;
     const droppedCount = droppedByItemCap + droppedByBytes;
 
     return {
@@ -249,7 +267,7 @@ export class MemoryPreflightService {
       budgetTruncated: truncated || droppedByItemCap > 0 || timedOut,
       timedOut,
       truncated,
-      droppedCount: droppedCount > 0 ? droppedCount : undefined,
+      droppedCount: droppedCount > 0 ? droppedCount : undefined
     };
   }
 }
@@ -293,7 +311,7 @@ function rankByRelevance(query: string, entries: MemoryIndexEntry[]): RankedEntr
     const matches = fuzzyMatchWithKey(token, entries, {
       keyFn: (e) => `${e.name} ${e.description}`,
       limit: entries.length,
-      caseSensitive: false,
+      caseSensitive: false
     });
     for (const match of matches) {
       accumulated.set(match.item, (accumulated.get(match.item) ?? 0) + match.score);

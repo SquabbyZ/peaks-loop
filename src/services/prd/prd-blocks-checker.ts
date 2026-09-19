@@ -46,11 +46,36 @@ export interface PrdBlocksReport {
   readonly ok: boolean;
 }
 
-const BLOCK_HEADINGS: readonly { block: 1 | 2 | 3 | 4; name: string; pattern: RegExp; requiredByDefault: boolean }[] = [
-  { block: 1, name: '业务场景', pattern: /^#{1,4}\s*(?:\d+\.\s*)?业务场景[^\n]*$/m, requiredByDefault: true },
-  { block: 2, name: '边界 case', pattern: /^#{1,4}\s*(?:\d+\.\s*)?边界\s*case[^\n]*$/mi, requiredByDefault: true },
-  { block: 3, name: 'UI 装配意图', pattern: /^#{1,4}\s*(?:\d+\.\s*)?UI\s*装配[^\n]*$/mi, requiredByDefault: true },
-  { block: 4, name: '上游基线', pattern: /^#{1,4}\s*(?:\d+\.\s*)?上游基线[^\n]*$/m, requiredByDefault: false }
+const BLOCK_HEADINGS: readonly {
+  block: 1 | 2 | 3 | 4;
+  name: string;
+  pattern: RegExp;
+  requiredByDefault: boolean;
+}[] = [
+  {
+    block: 1,
+    name: '业务场景',
+    pattern: /^#{1,4}\s*(?:\d+\.\s*)?业务场景[^\n]*$/m,
+    requiredByDefault: true
+  },
+  {
+    block: 2,
+    name: '边界 case',
+    pattern: /^#{1,4}\s*(?:\d+\.\s*)?边界\s*case[^\n]*$/im,
+    requiredByDefault: true
+  },
+  {
+    block: 3,
+    name: 'UI 装配意图',
+    pattern: /^#{1,4}\s*(?:\d+\.\s*)?UI\s*装配[^\n]*$/im,
+    requiredByDefault: true
+  },
+  {
+    block: 4,
+    name: '上游基线',
+    pattern: /^#{1,4}\s*(?:\d+\.\s*)?上游基线[^\n]*$/m,
+    requiredByDefault: false
+  }
 ];
 
 const MIN_CONTENT_LENGTH = 50;
@@ -60,7 +85,16 @@ export function findPrdArtifact(projectRoot: string, requestId: string): string 
   // Use the first hit (the most common layout is single-session).
   const candidates = [
     join(projectRoot, '.peaks', '_runtime', 'prd', 'requests', `${requestId}.md`),
-    join(projectRoot, '.peaks', '_runtime', 'change', requestId, 'prd', 'requests', `${requestId}.md`)
+    join(
+      projectRoot,
+      '.peaks',
+      '_runtime',
+      'change',
+      requestId,
+      'prd',
+      'requests',
+      `${requestId}.md`
+    )
   ];
   for (const c of candidates) {
     if (existsSync(c)) return c;
@@ -106,9 +140,7 @@ export function checkPrdBlocks(projectRoot: string, requestId: string): PrdBlock
         required: h.requiredByDefault,
         present: false,
         content: null,
-        issues: h.requiredByDefault
-          ? ['PRD artifact not found — write the prd body first.']
-          : []
+        issues: h.requiredByDefault ? ['PRD artifact not found — write the prd body first.'] : []
       })),
       ok: false
     };
@@ -126,7 +158,9 @@ export function checkPrdBlocks(projectRoot: string, requestId: string): PrdBlock
         present: false,
         content: null,
         issues: required
-          ? [`Missing required block: ${h.name}. Add a heading like "## ${h.name}" with at least ${MIN_CONTENT_LENGTH} chars of content.`]
+          ? [
+              `Missing required block: ${h.name}. Add a heading like "## ${h.name}" with at least ${MIN_CONTENT_LENGTH} chars of content.`
+            ]
           : []
       };
     }
@@ -141,11 +175,15 @@ export function checkPrdBlocks(projectRoot: string, requestId: string): PrdBlock
     const content = restBody.slice(0, end).trim();
     const issues: string[] = [];
     if (content.length < MIN_CONTENT_LENGTH) {
-      issues.push(`Block "${h.name}" is too short (${content.length} chars; minimum ${MIN_CONTENT_LENGTH}). Add more concrete details.`);
+      issues.push(
+        `Block "${h.name}" is too short (${content.length} chars; minimum ${MIN_CONTENT_LENGTH}). Add more concrete details.`
+      );
     }
     // Block 1: must include 业务禁区 (no-go areas) — anti-pattern guard.
     if (h.block === 1 && !/业务禁区|non-goal|non goal|不\s*做\s*什么/i.test(content)) {
-      issues.push('Block "业务场景" missing "业务禁区" sub-section (the 12 Gaps positioning memory requires this).');
+      issues.push(
+        'Block "业务场景" missing "业务禁区" sub-section (the 12 Gaps positioning memory requires this).'
+      );
     }
     return {
       block: h.block,

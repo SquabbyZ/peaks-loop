@@ -5,7 +5,7 @@ import {
   FANOUT_MODES,
   isFanoutMode,
   PREFERENCES_SCHEMA_VERSION,
-  type ProjectPreferences,
+  type ProjectPreferences
 } from './preferences-types.js';
 
 const PREFS_REL_PATH = '.peaks/preferences.json';
@@ -111,9 +111,7 @@ function mergePreferences(
   base: ProjectPreferences,
   overrides: Partial<ProjectPreferences>
 ): ProjectPreferences {
-  const definedEntries = Object.entries(overrides).filter(
-    ([, value]) => value !== undefined
-  );
+  const definedEntries = Object.entries(overrides).filter(([, value]) => value !== undefined);
   // Shallow merge at the top level, BUT merge the `fanout` object
   // deeply so a partial override like `{"fanout": {"perTouchpoint": {...}}}`
   // does not silently drop `defaultMode`. Slice
@@ -124,7 +122,7 @@ function mergePreferences(
   // that already specified `defaultMode` in their preferences.json.
   const shallow = {
     ...base,
-    ...Object.fromEntries(definedEntries),
+    ...Object.fromEntries(definedEntries)
   };
   const overrideFanout = (overrides as { fanout?: unknown }).fanout;
   if (
@@ -140,7 +138,7 @@ function mergePreferences(
   }
   return {
     ...shallow,
-    schema_version: PREFERENCES_SCHEMA_VERSION,
+    schema_version: PREFERENCES_SCHEMA_VERSION
   };
 }
 
@@ -180,9 +178,7 @@ export function migratePreferences(
       `PREFERENCES_JSON_INVALID: failed to parse ${filePath}: ${(err as Error).message}`
     );
   }
-  const fromVersion = typeof raw.schema_version === 'string'
-    ? raw.schema_version
-    : 'unknown';
+  const fromVersion = typeof raw.schema_version === 'string' ? raw.schema_version : 'unknown';
   if (fromVersion === PREFERENCES_SCHEMA_VERSION) {
     return {
       fromVersion,
@@ -219,11 +215,12 @@ export function migratePreferences(
   // fully-valid v2 ProjectPreferences.
   const migrated = mergePreferences(DEFAULT_PREFERENCES, {
     ...(raw as Partial<ProjectPreferences>),
-    fanout: typeof raw.fanout === 'object' && raw.fanout !== null && !Array.isArray(raw.fanout)
-      ? ((raw.fanout as { defaultMode?: unknown }).defaultMode === 'serial'
+    fanout:
+      typeof raw.fanout === 'object' && raw.fanout !== null && !Array.isArray(raw.fanout)
+        ? (raw.fanout as { defaultMode?: unknown }).defaultMode === 'serial'
           ? { defaultMode: 'fan-out' as const }
-          : (raw.fanout as ProjectPreferences['fanout']))
-      : { defaultMode: 'fan-out' }
+          : (raw.fanout as ProjectPreferences['fanout'])
+        : { defaultMode: 'fan-out' }
   });
 
   let written = false;

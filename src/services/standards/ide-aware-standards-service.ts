@@ -31,16 +31,13 @@
  * contract intact.
  */
 import type { IdeId } from '../ide/ide-types.js';
-import {
-  detectAllResourceTargets,
-  getStandardsProfile,
-} from '../ide/resource-profile.js';
+import { detectAllResourceTargets, getStandardsProfile } from '../ide/resource-profile.js';
 import {
   type ProjectStandardsInitOptions,
   type ProjectStandardsInitResult,
   type ProjectStandardsUpdateResult,
   executeProjectStandardsInit,
-  executeProjectStandardsUpdate,
+  executeProjectStandardsUpdate
 } from './project-standards-service.js';
 import { detectInstalledIde } from '../ide/ide-detector.js';
 
@@ -85,7 +82,10 @@ function warnNoIdeDetected(projectRoot: string): void {
  *   2. `IdeRegistry.detect()` from `options.projectRoot`
  *   3. `null` (no detected IDE — caller falls back to legacy)
  */
-export function resolveStandardsIdeId(options: { readonly projectRoot: string; readonly ideId?: IdeId }): IdeId | null {
+export function resolveStandardsIdeId(options: {
+  readonly projectRoot: string;
+  readonly ideId?: IdeId;
+}): IdeId | null {
   if (options.ideId !== undefined) {
     return options.ideId;
   }
@@ -148,7 +148,10 @@ export function executeProjectStandardsUpdateIdeAware(
  * the integration test in `tests/unit/standards/ide-aware-standards-service.test.ts`
  * to assert the dispatch decision without running the full write.
  */
-export function inspectStandardsDispatch(options: { readonly projectRoot: string; readonly ideId?: IdeId }): {
+export function inspectStandardsDispatch(options: {
+  readonly projectRoot: string;
+  readonly ideId?: IdeId;
+}): {
   readonly ideId: IdeId | null;
   readonly profile: ReturnType<typeof getStandardsProfile>;
 } {

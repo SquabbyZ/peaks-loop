@@ -31,14 +31,16 @@ import type { DoctorCheck, DoctorCheckPlugin, DoctorContext } from '../types.js'
 const SKILL_PRESENCE_FRESHNESS_THRESHOLD_MS = 24 * 60 * 60 * 1000;
 
 function run({ options, presence }: DoctorContext): readonly DoctorCheck[] {
-  const freshnessThresholdMs = options.skillPresenceFreshnessThresholdMs ?? SKILL_PRESENCE_FRESHNESS_THRESHOLD_MS;
+  const freshnessThresholdMs =
+    options.skillPresenceFreshnessThresholdMs ?? SKILL_PRESENCE_FRESHNESS_THRESHOLD_MS;
 
   if (presence === null) {
     return [
       {
         id: 'skill-presence:current',
         ok: true,
-        message: 'No active Peaks skill presence (no canonical lease under .peaks/_runtime/<sid>/leases/)'
+        message:
+          'No active Peaks skill presence (no canonical lease under .peaks/_runtime/<sid>/leases/)'
       },
       {
         id: 'skill-presence:freshness',
@@ -50,11 +52,13 @@ function run({ options, presence }: DoctorContext): readonly DoctorCheck[] {
 
   const modePart = presence.mode !== undefined ? `, mode ${presence.mode}` : '';
   const gatePart = presence.gate !== undefined ? `, gate ${presence.gate}` : '';
-  const checks: DoctorCheck[] = [{
-    id: 'skill-presence:current',
-    ok: true,
-    message: `Active Peaks skill presence: ${presence.skill}${modePart}${gatePart} (set ${presence.setAt})`
-  }];
+  const checks: DoctorCheck[] = [
+    {
+      id: 'skill-presence:current',
+      ok: true,
+      message: `Active Peaks skill presence: ${presence.skill}${modePart}${gatePart} (set ${presence.setAt})`
+    }
+  ];
 
   const setAtMs = Date.parse(presence.setAt);
   if (Number.isNaN(setAtMs)) {

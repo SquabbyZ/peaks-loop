@@ -43,7 +43,8 @@ import { findProjectRoot } from '../config/config-safety.js';
 const SUB_AGENTS_DIR = '_sub_agents';
 const PROGRESS_FILE_NAME = 'subagent-progress.json';
 
-export type SubAgentProgressPhase = 'starting' | 'running' | 'verifying' | 'completing' | 'finished' | 'failed' | 'idle';
+export type SubAgentProgressPhase =
+  'starting' | 'running' | 'verifying' | 'completing' | 'finished' | 'failed' | 'idle';
 
 export type SubAgentProgressStep = {
   /** ISO-8601 timestamp at which the sub-agent started. */

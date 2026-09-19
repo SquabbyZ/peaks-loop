@@ -12,7 +12,12 @@ const JOURNEY = 'J01' as const;
 describe('J01 envelope-arg-shapes contract', () => {
   it('routes every fixture case through the super-command surface', async () => {
     const contract = getGuardContract(JOURNEY)!;
-    const r = await runGuard(contract, { projectRoot: REPO, sessionId: JOURNEY, contract, baselineInvariant: 'auto' });
+    const r = await runGuard(contract, {
+      projectRoot: REPO,
+      sessionId: JOURNEY,
+      contract,
+      baselineInvariant: 'auto'
+    });
     expect(r.status).toBe('pass');
   }, 300_000);
 
@@ -25,7 +30,12 @@ describe('J01 envelope-arg-shapes contract', () => {
     const contract = getGuardContract(JOURNEY)!;
     process.env.PEAKS_BIN_OVERRIDE = 'peaks-bin-that-does-not-exist';
     try {
-      const r = await runGuard(contract, { projectRoot: REPO, sessionId: JOURNEY, contract, baselineInvariant: 'auto' });
+      const r = await runGuard(contract, {
+        projectRoot: REPO,
+        sessionId: JOURNEY,
+        contract,
+        baselineInvariant: 'auto'
+      });
       expect(r.status).toBe('fail');
       expect(r.diff?.reason).toMatch(/J01 invariant broken/);
     } finally {

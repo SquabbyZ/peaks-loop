@@ -22,7 +22,10 @@ import { makeCapturedIo, type CapturedIo } from '../../_setup/io.js';
 import { withTmpWorkspacePerTest } from '../../_setup/tmp-workspace.js';
 
 import { registerWebCommands } from '../../../../src/cli/commands/web-commands.js';
-import { loginStorageStatePath, webProfileDir } from '../../../../src/services/web/web-login-profile.js';
+import {
+  loginStorageStatePath,
+  webProfileDir
+} from '../../../../src/services/web/web-login-profile.js';
 import { pw, resetPw } from './_login-fake.js';
 
 export { pw } from './_login-fake.js';

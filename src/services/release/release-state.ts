@@ -12,7 +12,8 @@
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 
-export type ReleaseStage = 'planned' | 'canary-10' | 'canary-50' | 'promoted' | 'watching' | 'done' | 'rolled-back';
+export type ReleaseStage =
+  'planned' | 'canary-10' | 'canary-50' | 'promoted' | 'watching' | 'done' | 'rolled-back';
 
 /**
  * Valid stage transitions.
@@ -28,14 +29,14 @@ export type ReleaseStage = 'planned' | 'canary-10' | 'canary-50' | 'promoted' | 
  * watch window, never `done`.
  */
 const VALID_TRANSITIONS: Readonly<Record<ReleaseStage, readonly ReleaseStage[]>> = {
-  'planned': ['canary-10', 'rolled-back'],
+  planned: ['canary-10', 'rolled-back'],
   'canary-10': ['canary-50', 'rolled-back'],
   'canary-50': ['promoted', 'rolled-back'],
   // 'watching' is the declared intermediate but is unreachable in practice
   // (no command transitions into it), so 'done' is reachable from 'promoted'.
-  'promoted': ['watching', 'done', 'rolled-back'],
-  'watching': ['done', 'rolled-back'],
-  'done': [],
+  promoted: ['watching', 'done', 'rolled-back'],
+  watching: ['done', 'rolled-back'],
+  done: [],
   'rolled-back': ['planned']
 };
 
@@ -55,7 +56,11 @@ export function isReleaseStage(value: string): value is ReleaseStage {
 export interface ReleaseRecord {
   readonly version: string;
   readonly currentStage: ReleaseStage;
-  readonly stageHistory: readonly { readonly stage: ReleaseStage; readonly at: string; readonly note?: string }[];
+  readonly stageHistory: readonly {
+    readonly stage: ReleaseStage;
+    readonly at: string;
+    readonly note?: string;
+  }[];
   readonly createdAt: string;
   readonly promotedAt?: string;
   readonly doneAt?: string;
@@ -128,15 +133,19 @@ export function transitionRelease(
   if (state.active === null) return { error: 'no active release' };
   const from = state.active.currentStage;
   if (!isValidStageTransition(from, to)) {
-    return { error: `invalid transition: ${from} → ${to} (allowed from ${from}: ${VALID_TRANSITIONS[from].join(', ') || 'none'})` };
+    return {
+      error: `invalid transition: ${from} → ${to} (allowed from ${from}: ${VALID_TRANSITIONS[from].join(', ') || 'none'})`
+    };
   }
-  const stageHistory = [...state.active.stageHistory, { stage: to, at: now.toISOString(), ...(note !== undefined ? { note } : {}) }];
-  const promoted: ReleaseRecord = to === 'promoted'
-    ? { ...state.active, currentStage: to, stageHistory, promotedAt: now.toISOString() }
-    : { ...state.active, currentStage: to, stageHistory };
-  const done: ReleaseRecord = to === 'done'
-    ? { ...promoted, doneAt: now.toISOString() }
-    : promoted;
+  const stageHistory = [
+    ...state.active.stageHistory,
+    { stage: to, at: now.toISOString(), ...(note !== undefined ? { note } : {}) }
+  ];
+  const promoted: ReleaseRecord =
+    to === 'promoted'
+      ? { ...state.active, currentStage: to, stageHistory, promotedAt: now.toISOString() }
+      : { ...state.active, currentStage: to, stageHistory };
+  const done: ReleaseRecord = to === 'done' ? { ...promoted, doneAt: now.toISOString() } : promoted;
   return { state: { ...state, active: done } };
 }
 
@@ -151,8 +160,16 @@ export function rollbackRelease(
   if (!isValidStageTransition(from, 'rolled-back')) {
     return { error: `cannot rollback from ${from}` };
   }
-  const newEntry: { readonly stage: ReleaseStage; readonly at: string; readonly note?: string } = { stage: 'rolled-back', at: now.toISOString(), ...(note !== undefined ? { note } : {}) };
-  const stageHistory = [...state.active.stageHistory, newEntry] as readonly { readonly stage: ReleaseStage; readonly at: string; readonly note?: string }[];
+  const newEntry: { readonly stage: ReleaseStage; readonly at: string; readonly note?: string } = {
+    stage: 'rolled-back',
+    at: now.toISOString(),
+    ...(note !== undefined ? { note } : {})
+  };
+  const stageHistory = [...state.active.stageHistory, newEntry] as readonly {
+    readonly stage: ReleaseStage;
+    readonly at: string;
+    readonly note?: string;
+  }[];
   const record: ReleaseRecord = { ...state.active, currentStage: 'rolled-back', stageHistory };
   return { state: { version: 1, active: null, history: [...state.history, record] }, record };
 }
@@ -183,11 +200,18 @@ export function hotfixRelease(
     ],
     createdAt: now.toISOString()
   };
-  return { state: { ...currentState, active: record }, record, ...(priorRecord !== null ? { rolledBack: priorRecord } : {}) } as { state: ReleaseState; record: ReleaseRecord };
+  return {
+    state: { ...currentState, active: record },
+    record,
+    ...(priorRecord !== null ? { rolledBack: priorRecord } : {})
+  } as { state: ReleaseState; record: ReleaseRecord };
 }
 
 /** Compute the watch window. */
-export function watchWindow(record: ReleaseRecord, now: Date = new Date()): {
+export function watchWindow(
+  record: ReleaseRecord,
+  now: Date = new Date()
+): {
   elapsedMs: number;
   remainingMs: number;
   windowMs: number;

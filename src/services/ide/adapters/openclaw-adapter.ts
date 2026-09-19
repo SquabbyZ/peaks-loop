@@ -34,9 +34,7 @@ export const OPENCLAW_ADAPTER: IdeAdapter = {
   // dispatcher as uniform placeholder.
   subAgentDispatcher: traeSubAgentDispatcher,
   promptSizeAware: true,
-  installHints: [
-    'Restart OpenClaw (or reload the workspace) so the PreToolUse hooks take effect.'
-  ],
+  installHints: ['Restart OpenClaw (or reload the workspace) so the PreToolUse hooks take effect.'],
   capabilities: {
     gateEnforce: true,
     statusline: true
@@ -54,8 +52,10 @@ export const OPENCLAW_ADAPTER: IdeAdapter = {
       const trimmed = candidate.trim();
       if (/^[a-zA-Z0-9._-]{1,200}$/.test(trimmed)) return trimmed;
     }
-    const err = new Error('PEAKS_CALLER_NOT_RESOLVED: OpenClaw vendor signal unverified') as Error & { code: string };
+    const err = new Error(
+      'PEAKS_CALLER_NOT_RESOLVED: OpenClaw vendor signal unverified'
+    ) as Error & { code: string };
     err.code = 'PEAKS_CALLER_NOT_RESOLVED';
     throw err;
-  },
+  }
 };

@@ -104,7 +104,9 @@ export function readSchedule(projectRoot: string): ScheduleFile {
   }
   const obj = parsed as { version?: number; entries?: ReadonlyArray<unknown> };
   if (obj.version !== SCHEDULE_VERSION) {
-    throw new Error(`schedule.json version mismatch (got ${String(obj.version)}, expected ${SCHEDULE_VERSION})`);
+    throw new Error(
+      `schedule.json version mismatch (got ${String(obj.version)}, expected ${SCHEDULE_VERSION})`
+    );
   }
   if (!Array.isArray(obj.entries)) {
     throw new Error('schedule.json entries must be an array');
@@ -113,7 +115,12 @@ export function readSchedule(projectRoot: string): ScheduleFile {
   for (const e of obj.entries) {
     if (typeof e !== 'object' || e === null) continue;
     const ent = e as Record<string, unknown>;
-    if (typeof ent.id !== 'string' || typeof ent.name !== 'string' || typeof ent.command !== 'string') continue;
+    if (
+      typeof ent.id !== 'string' ||
+      typeof ent.name !== 'string' ||
+      typeof ent.command !== 'string'
+    )
+      continue;
     if (!Array.isArray(ent.args) || !ent.args.every((a) => typeof a === 'string')) continue;
     if (typeof ent.intervalMs !== 'number' || typeof ent.createdAt !== 'number') continue;
     entries.push({
@@ -171,13 +178,16 @@ export function runTask(projectRoot: string, task: ScheduleEntry): RunRecord {
   let exitCode = 0;
   let stderr = '';
   try {
-    execSync(`peaks ${task.command} ${task.args.map((a) => `"${a.replace(/"/g, '\\"')}"`).join(' ')}`, {
-      cwd: projectRoot,
-      stdio: ['ignore', 'pipe', 'pipe'],
-      encoding: 'utf8',
-      timeout: EXEC_TIMEOUT_MS,
-      windowsHide: true
-    });
+    execSync(
+      `peaks ${task.command} ${task.args.map((a) => `"${a.replace(/"/g, '\\"')}"`).join(' ')}`,
+      {
+        cwd: projectRoot,
+        stdio: ['ignore', 'pipe', 'pipe'],
+        encoding: 'utf8',
+        timeout: EXEC_TIMEOUT_MS,
+        windowsHide: true
+      }
+    );
   } catch (err) {
     const e = err as { status?: number; stderr?: string };
     exitCode = typeof e.status === 'number' ? e.status : 1;
@@ -195,7 +205,10 @@ export function runTask(projectRoot: string, task: ScheduleEntry): RunRecord {
   return record;
 }
 
-export function listDueTasks(projectRoot: string, now: number = Date.now()): ReadonlyArray<ScheduleEntry> {
+export function listDueTasks(
+  projectRoot: string,
+  now: number = Date.now()
+): ReadonlyArray<ScheduleEntry> {
   const file = readSchedule(projectRoot);
   return file.entries.filter((e) => {
     if (!e.enabled) return false;
@@ -207,11 +220,16 @@ export function listDueTasks(projectRoot: string, now: number = Date.now()): Rea
 export function registerCronCommand(program: Command, io: ProgramIO): void {
   const cmd = program
     .command('cron')
-    .description('Persistent scheduled tasks (Part 14; companion to peaks worktree / peaks container).');
+    .description(
+      'Persistent scheduled tasks (Part 14; companion to peaks worktree / peaks container).'
+    );
 
   addJsonOption(
-    cmd.command('init')
-      .description('Create .peaks/cron/schedule.json with the built-in tasks (currently: lease-gc-daily). Idempotent.')
+    cmd
+      .command('init')
+      .description(
+        'Create .peaks/cron/schedule.json with the built-in tasks (currently: lease-gc-daily). Idempotent.'
+      )
       .option('--project <path>', 'project root (default: findProjectRoot(cwd))')
   ).action((options: { project?: string; json?: boolean }) => {
     try {
@@ -224,7 +242,12 @@ export function registerCronCommand(program: Command, io: ProgramIO): void {
         io,
         ok(
           'cron.init',
-          { projectRoot, schedulePath: schedulePath(projectRoot), totalEntries: updated.entries.length, added },
+          {
+            projectRoot,
+            schedulePath: schedulePath(projectRoot),
+            totalEntries: updated.entries.length,
+            added
+          },
           [],
           [
             added > 0
@@ -237,10 +260,16 @@ export function registerCronCommand(program: Command, io: ProgramIO): void {
     } catch (err) {
       printResult(
         io,
-        fail('cron.init', 'CRON_INIT_FAILED', getErrorMessage(err), { projectRoot: options.project }, [
-          'Verify the project root is a peaks-loop project (.peaks/ exists).',
-          'Check filesystem permissions.'
-        ]),
+        fail(
+          'cron.init',
+          'CRON_INIT_FAILED',
+          getErrorMessage(err),
+          { projectRoot: options.project },
+          [
+            'Verify the project root is a peaks-loop project (.peaks/ exists).',
+            'Check filesystem permissions.'
+          ]
+        ),
         options.json
       );
       process.exitCode = 1;
@@ -248,7 +277,8 @@ export function registerCronCommand(program: Command, io: ProgramIO): void {
   });
 
   addJsonOption(
-    cmd.command('list')
+    cmd
+      .command('list')
       .description('List all registered cron tasks + their due status (relative to now).')
       .option('--project <path>', 'project root (default: findProjectRoot(cwd))')
   ).action((options: { project?: string; json?: boolean }) => {
@@ -264,17 +294,24 @@ export function registerCronCommand(program: Command, io: ProgramIO): void {
       annotated.sort((a, b) => a.nextDueAt - b.nextDueAt);
       printResult(
         io,
-        ok('cron.list', { projectRoot, schedulePath: schedulePath(projectRoot), entries: annotated }, [], [
-          `${annotated.length} task(s); ${annotated.filter((e) => e.due).length} due now.`
-        ]),
+        ok(
+          'cron.list',
+          { projectRoot, schedulePath: schedulePath(projectRoot), entries: annotated },
+          [],
+          [`${annotated.length} task(s); ${annotated.filter((e) => e.due).length} due now.`]
+        ),
         options.json
       );
     } catch (err) {
       printResult(
         io,
-        fail('cron.list', 'CRON_LIST_FAILED', getErrorMessage(err), { projectRoot: options.project }, [
-          "If schedule.json is missing, run 'peaks cron init' first."
-        ]),
+        fail(
+          'cron.list',
+          'CRON_LIST_FAILED',
+          getErrorMessage(err),
+          { projectRoot: options.project },
+          ["If schedule.json is missing, run 'peaks cron init' first."]
+        ),
         options.json
       );
       process.exitCode = 1;
@@ -282,8 +319,11 @@ export function registerCronCommand(program: Command, io: ProgramIO): void {
   });
 
   addJsonOption(
-    cmd.command('run')
-      .description('Run the specified task (by id) immediately, update lastRunAt, append a history record.')
+    cmd
+      .command('run')
+      .description(
+        'Run the specified task (by id) immediately, update lastRunAt, append a history record.'
+      )
       .option('--id <taskId>', 'task id to run (default: all due tasks)')
       .option('--project <path>', 'project root (default: findProjectRoot(cwd))')
   ).action((options: { id?: string; project?: string; json?: boolean }) => {
@@ -296,7 +336,12 @@ export function registerCronCommand(program: Command, io: ProgramIO): void {
       if (targets.length === 0) {
         printResult(
           io,
-          ok('cron.run', { projectRoot, ran: 0, records: [] }, [], ['No due tasks; nothing to run.']),
+          ok(
+            'cron.run',
+            { projectRoot, ran: 0, records: [] },
+            [],
+            ['No due tasks; nothing to run.']
+          ),
           options.json
         );
         return;
@@ -319,8 +364,15 @@ export function registerCronCommand(program: Command, io: ProgramIO): void {
         ok(
           'cron.run',
           { projectRoot, ran: records.length, records },
-          records.filter((r) => r.exitCode !== 0).map((r) => `Task ${r.taskId} failed (exit=${r.exitCode}): ${r.stderr.slice(0, STDERR_NEXT_ACTIONS_TRUNCATE_CHARS)}`),
-          [`Ran ${records.length} task(s); ${records.filter((r) => r.exitCode === 0).length} succeeded.`]
+          records
+            .filter((r) => r.exitCode !== 0)
+            .map(
+              (r) =>
+                `Task ${r.taskId} failed (exit=${r.exitCode}): ${r.stderr.slice(0, STDERR_NEXT_ACTIONS_TRUNCATE_CHARS)}`
+            ),
+          [
+            `Ran ${records.length} task(s); ${records.filter((r) => r.exitCode === 0).length} succeeded.`
+          ]
         ),
         options.json
       );
@@ -328,9 +380,13 @@ export function registerCronCommand(program: Command, io: ProgramIO): void {
     } catch (err) {
       printResult(
         io,
-        fail('cron.run', 'CRON_RUN_FAILED', getErrorMessage(err), { projectRoot: options.project }, [
-          "If schedule.json is missing, run 'peaks cron init' first."
-        ]),
+        fail(
+          'cron.run',
+          'CRON_RUN_FAILED',
+          getErrorMessage(err),
+          { projectRoot: options.project },
+          ["If schedule.json is missing, run 'peaks cron init' first."]
+        ),
         options.json
       );
       process.exitCode = 1;

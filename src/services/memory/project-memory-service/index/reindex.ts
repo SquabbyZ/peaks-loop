@@ -45,8 +45,9 @@ export const MEMORY_MD_FILENAME = 'MEMORY.md';
  * from the insertion order of `MEMORY_KIND_TIER` so the vocabulary has
  * exactly one definition.
  */
-export const KIND_ORDER: readonly ProjectMemoryKind[] =
-  Object.keys(MEMORY_KIND_TIER) as ProjectMemoryKind[];
+export const KIND_ORDER: readonly ProjectMemoryKind[] = Object.keys(
+  MEMORY_KIND_TIER
+) as ProjectMemoryKind[];
 
 export interface ReindexUnclassified {
   name: string;
@@ -113,7 +114,8 @@ function readPreviousIndexEntries(indexPath: string): MemoryIndexEntry[] {
   // `readExistingIndex` is fail-soft (null on missing / unparsable / wrong
   // version), which is exactly what a drift report wants: a corrupt index
   // simply yields no orphan-index findings instead of throwing.
-  const previous = readExistingIndex(indexPath) as (MemoryIndex & { cold?: MemoryIndexEntry[] }) | null;
+  const previous = readExistingIndex(indexPath) as
+    (MemoryIndex & { cold?: MemoryIndexEntry[] }) | null;
   if (previous === null) return [];
   return [
     ...Object.values(previous.hot ?? {}).flat(),
@@ -130,7 +132,12 @@ function collectUnclassified(diskFiles: readonly string[]): ReindexUnclassified[
       parsed = parseMemoryFrontmatter(readFileSync(filePath, 'utf8'));
     } catch {
       // Unreadable file: still report it rather than dropping it silently.
-      unclassified.push({ name: basename(filePath, '.md'), filePath, rawKind: null, reason: 'file could not be read' });
+      unclassified.push({
+        name: basename(filePath, '.md'),
+        filePath,
+        rawKind: null,
+        reason: 'file could not be read'
+      });
       continue;
     }
     if (parsed.kind.kind !== null) continue;
@@ -139,9 +146,10 @@ function collectUnclassified(diskFiles: readonly string[]): ReindexUnclassified[
       name: parsed.name ?? basename(filePath, '.md'),
       filePath,
       rawKind,
-      reason: rawKind === null
-        ? 'no metadata.type / kind / type field in frontmatter'
-        : `unrecognized kind value: ${rawKind}`
+      reason:
+        rawKind === null
+          ? 'no metadata.type / kind / type field in frontmatter'
+          : `unrecognized kind value: ${rawKind}`
     });
   }
   return unclassified.sort((left, right) => left.filePath.localeCompare(right.filePath));
@@ -172,7 +180,10 @@ function collectNameConflicts(diskFiles: readonly string[]): ReindexNameConflict
 
   return [...byName.entries()]
     .filter(([, filePaths]) => filePaths.length > 1)
-    .map(([name, filePaths]) => ({ name, filePaths: [...filePaths].sort((left, right) => left.localeCompare(right)) }))
+    .map(([name, filePaths]) => ({
+      name,
+      filePaths: [...filePaths].sort((left, right) => left.localeCompare(right))
+    }))
     .sort((left, right) => left.name.localeCompare(right.name));
 }
 
@@ -193,8 +204,9 @@ export function renderMemoryMarkdown(index: MemoryIndex, memoryDir: string): str
   ];
 
   for (const kind of KIND_ORDER) {
-    const entries = [...(index.hot[kind] ?? []), ...(index.warm[kind] ?? [])]
-      .sort((left, right) => left.name.localeCompare(right.name));
+    const entries = [...(index.hot[kind] ?? []), ...(index.warm[kind] ?? [])].sort((left, right) =>
+      left.name.localeCompare(right.name)
+    );
     if (entries.length === 0) continue;
     lines.push(`## ${kind} (${entries.length})`, '');
     for (const entry of entries) {
@@ -218,10 +230,17 @@ export function executeMemoryReindex(options: MemoryReindexOptions): MemoryReind
   const indexPath = join(memoryDir, 'index.json');
   const memoryMdPath = join(memoryDir, MEMORY_MD_FILENAME);
 
-  const diskFiles = listMarkdownFiles(memoryDir).filter((filePath) => basename(filePath) !== MEMORY_MD_FILENAME);
+  const diskFiles = listMarkdownFiles(memoryDir).filter(
+    (filePath) => basename(filePath) !== MEMORY_MD_FILENAME
+  );
 
   const orphanIndex = readPreviousIndexEntries(indexPath)
-    .filter((entry) => typeof entry.sourcePath !== 'string' || entry.sourcePath.length === 0 || !existsSync(entry.sourcePath))
+    .filter(
+      (entry) =>
+        typeof entry.sourcePath !== 'string' ||
+        entry.sourcePath.length === 0 ||
+        !existsSync(entry.sourcePath)
+    )
     .map((entry) => ({ name: entry.name, kind: entry.kind, sourcePath: entry.sourcePath }))
     .sort((left, right) => left.name.localeCompare(right.name));
 
@@ -277,4 +296,3 @@ export function executeMemoryReindex(options: MemoryReindexOptions): MemoryReind
     writtenFiles
   };
 }
-

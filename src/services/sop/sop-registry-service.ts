@@ -52,7 +52,10 @@ function countGates(sops: RegisteredSop[]): number {
 }
 
 /** Read a single registry layer; empty when absent. Throws on corrupt JSON. */
-async function readRegistryAt(scope: SopScope, projectRoot: string | undefined): Promise<RegisteredSop[]> {
+async function readRegistryAt(
+  scope: SopScope,
+  projectRoot: string | undefined
+): Promise<RegisteredSop[]> {
   if (scope === 'project' && projectRoot === undefined) {
     return [];
   }
@@ -104,7 +107,10 @@ export async function registerSop(options: RegisterSopOptions): Promise<Register
   if (options.projectRoot !== undefined) lintOptions.projectRoot = options.projectRoot;
   const lint = await lintSop(lintOptions);
   if (lint === null || !lint.ok) {
-    throw new SopRegisterError('SOP_INVALID', `SOP "${options.id}" must lint clean before it can be registered`);
+    throw new SopRegisterError(
+      'SOP_INVALID',
+      `SOP "${options.id}" must lint clean before it can be registered`
+    );
   }
 
   const gates: RegisteredGate[] = manifest.gates.map((gate) => ({
@@ -114,7 +120,11 @@ export async function registerSop(options: RegisterSopOptions): Promise<Register
     phase: gate.phase,
     transition: `${manifest.id}:${gate.phase}`
   }));
-  const registered: RegisteredSop = { id: manifest.id, path: relativeManifestPath(manifest.id), gates };
+  const registered: RegisteredSop = {
+    id: manifest.id,
+    path: relativeManifestPath(manifest.id),
+    gates
+  };
 
   // Upsert within the SAME layer's registry (not the merged view).
   const current = await readRegistryAt(scope, options.projectRoot);

@@ -1,4 +1,12 @@
-import { closeSync, fstatSync, lstatSync, openSync, readSync, realpathSync, statSync } from 'node:fs';
+import {
+  closeSync,
+  fstatSync,
+  lstatSync,
+  openSync,
+  readSync,
+  realpathSync,
+  statSync
+} from 'node:fs';
 import { isAbsolute, join, relative, resolve } from 'node:path';
 import { stableRealPath } from '../../shared/path-utils.js';
 import { WORKSPACE_UNAVAILABLE_NEXT_ACTIONS } from '../../shared/planner-response.js';
@@ -57,7 +65,13 @@ export const runTactical = runTacticalStage;
 export type { RunStrategicInput, RunTacticalInput };
 
 export type RdSkill = 'rd';
-export type RdWaveName = 'discovery' | 'planning' | 'implementation candidates' | 'unit-test execution' | 'quality gates' | 'reducer';
+export type RdWaveName =
+  | 'discovery'
+  | 'planning'
+  | 'implementation candidates'
+  | 'unit-test execution'
+  | 'quality gates'
+  | 'reducer';
 export type RdModelRole = 'strongest' | 'execution';
 
 export type RdSwarmPlanRequest = {
@@ -188,13 +202,18 @@ function normalizeGoal(goal: string): string {
 }
 
 function isClearLowRiskGoal(goal: string): boolean {
-  return /^fix\b/i.test(goal) && /\b(typo|spelling|comment|docs?|test|lint|format|copy)\b/i.test(goal);
+  return (
+    /^fix\b/i.test(goal) && /\b(typo|spelling|comment|docs?|test|lint|format|copy)\b/i.test(goal)
+  );
 }
 
 const MIN_SAFE_SWARM_WORKERS = 25;
 const MAX_SAFE_SWARM_WORKERS = 80;
 
-function resolveWorkerTarget(maxWorkers: number): { workerTarget: number; blockedReasons: string[] } {
+function resolveWorkerTarget(maxWorkers: number): {
+  workerTarget: number;
+  blockedReasons: string[];
+} {
   if (!Number.isInteger(maxWorkers) || maxWorkers < 1) {
     throw new Error('max-workers must be a positive integer');
   }
@@ -210,26 +229,64 @@ function resolveWorkerTarget(maxWorkers: number): { workerTarget: number; blocke
   return { workerTarget: maxWorkers, blockedReasons: [] };
 }
 
-function resolveArtifactWorkspacePath(request: Pick<RdSwarmPlanRequest, 'artifactWorkspacePath' | 'workspace'>): string | undefined {
-  return request.artifactWorkspacePath ?? (request.workspace ? getLocalArtifactPath(request.workspace) : undefined);
+function resolveArtifactWorkspacePath(
+  request: Pick<RdSwarmPlanRequest, 'artifactWorkspacePath' | 'workspace'>
+): string | undefined {
+  return (
+    request.artifactWorkspacePath ??
+    (request.workspace ? getLocalArtifactPath(request.workspace) : undefined)
+  );
 }
 
-function hasPlannerArtifactWorkspace(request: RdSwarmPlanRequest, artifactWorkspacePath: string | undefined): artifactWorkspacePath is string {
-  return !!request.workspace && !!artifactWorkspacePath && hasValidArtifactWorkspace(request.workspace, artifactWorkspacePath);
+function hasPlannerArtifactWorkspace(
+  request: RdSwarmPlanRequest,
+  artifactWorkspacePath: string | undefined
+): artifactWorkspacePath is string {
+  return (
+    !!request.workspace &&
+    !!artifactWorkspacePath &&
+    hasValidArtifactWorkspace(request.workspace, artifactWorkspacePath)
+  );
 }
 
 function buildTaskIds(workerTarget: number): string[] {
   const fixed = [
-    'rd-discovery-1', 'rd-discovery-2', 'rd-discovery-3', 'rd-discovery-4', 'rd-discovery-5', 'rd-discovery-6', 'rd-discovery-7', 'rd-discovery-8',
-    'rd-planning-1', 'rd-planning-2', 'rd-planning-3', 'rd-planning-4', 'rd-planning-5', 'rd-planning-6', 'rd-planning-7', 'rd-planning-8',
-    'rd-test-1', 'rd-test-2', 'rd-test-3',
-    'peaks-qa-1', 'peaks-qa-2', 'peaks-qa-3', 'peaks-qa-4',
-    'rd-reducer-1',
+    'rd-discovery-1',
+    'rd-discovery-2',
+    'rd-discovery-3',
+    'rd-discovery-4',
+    'rd-discovery-5',
+    'rd-discovery-6',
+    'rd-discovery-7',
+    'rd-discovery-8',
+    'rd-planning-1',
+    'rd-planning-2',
+    'rd-planning-3',
+    'rd-planning-4',
+    'rd-planning-5',
+    'rd-planning-6',
+    'rd-planning-7',
+    'rd-planning-8',
+    'rd-test-1',
+    'rd-test-2',
+    'rd-test-3',
+    'peaks-qa-1',
+    'peaks-qa-2',
+    'peaks-qa-3',
+    'peaks-qa-4',
+    'rd-reducer-1'
   ];
 
   const implementationCount = Math.max(workerTarget - fixed.length, 1);
-  const implementation = Array.from({ length: implementationCount }, (_, index) => `rd-impl-${String(index + 1).padStart(RD_TASK_ID_PAD_WIDTH, '0')}`);
-  return [...fixed.slice(0, RD_FIXED_TASK_BOUNDARY), ...implementation, ...fixed.slice(RD_FIXED_TASK_BOUNDARY)];
+  const implementation = Array.from(
+    { length: implementationCount },
+    (_, index) => `rd-impl-${String(index + 1).padStart(RD_TASK_ID_PAD_WIDTH, '0')}`
+  );
+  return [
+    ...fixed.slice(0, RD_FIXED_TASK_BOUNDARY),
+    ...implementation,
+    ...fixed.slice(RD_FIXED_TASK_BOUNDARY)
+  ];
 }
 
 function isInsidePath(childPath: string, parentPath: string): boolean {
@@ -238,15 +295,27 @@ function isInsidePath(childPath: string, parentPath: string): boolean {
 }
 
 function isSafeRepoRelativePath(candidate: string): boolean {
-  if (!candidate || candidate.includes('\\') || candidate.startsWith('/') || /^[A-Za-z]:/.test(candidate) || candidate.includes(':') || isAbsolute(candidate)) {
+  if (
+    !candidate ||
+    candidate.includes('\\') ||
+    candidate.startsWith('/') ||
+    /^[A-Za-z]:/.test(candidate) ||
+    candidate.includes(':') ||
+    isAbsolute(candidate)
+  ) {
     return false;
   }
 
-  return candidate.split('/').every((segment) => segment.length > 0 && segment !== '.' && segment !== '..');
+  return candidate
+    .split('/')
+    .every((segment) => segment.length > 0 && segment !== '.' && segment !== '..');
 }
 
 function extractCandidatePath(line: string): string | null {
-  const trimmed = line.trim().replace(/^[-*+]\s+/, '').trim();
+  const trimmed = line
+    .trim()
+    .replace(/^[-*+]\s+/, '')
+    .trim();
   const codeSpan = trimmed.match(/^`([^`]+)`(?:\s|$)/);
   const firstToken = trimmed.split(/\s+/)[0]!;
   const candidate = codeSpan === null ? firstToken : codeSpan[1]!;
@@ -256,7 +325,9 @@ function extractCandidatePath(line: string): string | null {
 
 function extractImplementationTargetAreas(content: string): string[] {
   const lines = content.split(/\r?\n/);
-  const sectionStart = lines.findIndex((line) => /^#{0,6}\s*Implementation target areas\s*:?\s*$/i.test(line.trim()));
+  const sectionStart = lines.findIndex((line) =>
+    /^#{0,6}\s*Implementation target areas\s*:?\s*$/i.test(line.trim())
+  );
   if (sectionStart === -1) {
     return [];
   }
@@ -279,28 +350,47 @@ function selectConcreteTargetArea(targetAreas: [string, ...string[]], index: num
 }
 
 function getTaskModelRole(wave: RdWaveName): RdModelRole {
-  return wave === 'implementation candidates' || wave === 'unit-test execution' ? 'execution' : 'strongest';
+  return wave === 'implementation candidates' || wave === 'unit-test execution'
+    ? 'execution'
+    : 'strongest';
 }
 
-function getTaskModelId(modelRole: RdModelRole, executionModelId: string, strongestModelId: string): string {
+function getTaskModelId(
+  modelRole: RdModelRole,
+  executionModelId: string,
+  strongestModelId: string
+): string {
   return modelRole === 'execution' ? executionModelId : strongestModelId;
 }
 
 const MAX_ARTIFACT_BYTES = 256_000;
 
-function readArtifactFile(rootPath: string, artifactWorkspacePath: string, artifact: string): string | null {
+function readArtifactFile(
+  rootPath: string,
+  artifactWorkspacePath: string,
+  artifact: string
+): string | null {
   const artifactPath = resolve(rootPath, artifact);
   try {
     const artifactWorkspaceRealPath = stableRealPath(artifactWorkspacePath);
     const rootRealPath = stableRealPath(rootPath);
     const rdRootPath = resolve(rootPath, '..');
     const sessionRootPath = resolve(rdRootPath, '..');
-    if (lstatSync(sessionRootPath).isSymbolicLink() || lstatSync(rdRootPath).isSymbolicLink() || lstatSync(rootPath).isSymbolicLink() || !isInsidePath(rootRealPath, artifactWorkspaceRealPath)) {
+    if (
+      lstatSync(sessionRootPath).isSymbolicLink() ||
+      lstatSync(rdRootPath).isSymbolicLink() ||
+      lstatSync(rootPath).isSymbolicLink() ||
+      !isInsidePath(rootRealPath, artifactWorkspaceRealPath)
+    ) {
       return null;
     }
 
     const artifactStat = lstatSync(artifactPath);
-    if (artifactStat.isSymbolicLink() || !artifactStat.isFile() || artifactStat.size > MAX_ARTIFACT_BYTES) {
+    if (
+      artifactStat.isSymbolicLink() ||
+      !artifactStat.isFile() ||
+      artifactStat.size > MAX_ARTIFACT_BYTES
+    ) {
       return null;
     }
     if (!isInsidePath(stableRealPath(artifactPath), rootRealPath)) {
@@ -311,7 +401,14 @@ function readArtifactFile(rootPath: string, artifactWorkspacePath: string, artif
     try {
       const openedStat = fstatSync(fd);
       const currentStat = statSync(artifactPath);
-      if (!openedStat.isFile() || openedStat.size > MAX_ARTIFACT_BYTES || openedStat.dev !== artifactStat.dev || openedStat.ino !== artifactStat.ino || openedStat.dev !== currentStat.dev || openedStat.ino !== currentStat.ino) {
+      if (
+        !openedStat.isFile() ||
+        openedStat.size > MAX_ARTIFACT_BYTES ||
+        openedStat.dev !== artifactStat.dev ||
+        openedStat.ino !== artifactStat.ino ||
+        openedStat.dev !== currentStat.dev ||
+        openedStat.ino !== currentStat.ino
+      ) {
         return null;
       }
 
@@ -330,7 +427,8 @@ function readArtifactFile(rootPath: string, artifactWorkspacePath: string, artif
     } finally {
       closeSync(fd);
     }
-  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+  } catch {
+    // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     return null;
   }
 }
@@ -347,8 +445,16 @@ function resolveExecutionModelId(): string {
   }
 }
 
-function getConcreteTargetAreas(request: RdSwarmPlanRequest, artifactWorkspacePath: string | undefined, hasApprovedTechArtifacts: boolean): string[] {
-  if (!artifactWorkspacePath || !hasApprovedTechArtifacts || !hasPlannerArtifactWorkspace(request, artifactWorkspacePath)) {
+function getConcreteTargetAreas(
+  request: RdSwarmPlanRequest,
+  artifactWorkspacePath: string | undefined,
+  hasApprovedTechArtifacts: boolean
+): string[] {
+  if (
+    !artifactWorkspacePath ||
+    !hasApprovedTechArtifacts ||
+    !hasPlannerArtifactWorkspace(request, artifactWorkspacePath)
+  ) {
     return [];
   }
 
@@ -357,7 +463,11 @@ function getConcreteTargetAreas(request: RdSwarmPlanRequest, artifactWorkspacePa
   // identifier is reused as the session-dir name for tech-artifact
   // reads, matching the test helper `writeApprovedTechArtifacts` and
   // `autonomous-resume-writer.ts`).
-  const architectureRoot = join(getSessionDir(artifactWorkspacePath, request.sessionId), 'rd', 'architecture');
+  const architectureRoot = join(
+    getSessionDir(artifactWorkspacePath, request.sessionId),
+    'rd',
+    'architecture'
+  );
   const candidates = TECH_REQUIRED_ARTIFACTS.flatMap((artifact) => {
     if (artifact === 'tech-approval-record.md') {
       return [];
@@ -393,21 +503,26 @@ function buildStandardsOverlay(request: RdSwarmPlanRequest): StandardsOverlay {
   if (!request.projectRoot) {
     return {};
   }
-  const check = resolveRdStartupStandardsCheck({ projectRoot: request.projectRoot, strict: request.strictStandards === true });
+  const check = resolveRdStartupStandardsCheck({
+    projectRoot: request.projectRoot,
+    strict: request.strictStandards === true
+  });
   // Slice 2026-06-16-peaks-rd-no-gates — Repair cycle 1:
   // thread BOTH diagnostic and errorCode so strict-mode callers still
   // surface `EPEAKS_NO_STANDARDS`. The pre-fix version early-returned
   // on `diagnostic !== null` and dropped `errorCode` (QA#4 AC3 violation).
   const overlay: StandardsOverlay = { standardsGates: check.gates };
-  const withDiagnostic = check.diagnostic !== null
-    ? { ...overlay, standardsDiagnostic: check.diagnostic }
-    : overlay;
+  const withDiagnostic =
+    check.diagnostic !== null ? { ...overlay, standardsDiagnostic: check.diagnostic } : overlay;
   return check.errorCode !== null
     ? { ...withDiagnostic, standardsErrorCode: check.errorCode }
     : withDiagnostic;
 }
 
-function buildPlan(request: RdSwarmPlanRequest, standardsOverlay: StandardsOverlay): Omit<Extract<RdPlanResult, { available: true }>, 'available'> {
+function buildPlan(
+  request: RdSwarmPlanRequest,
+  standardsOverlay: StandardsOverlay
+): Omit<Extract<RdPlanResult, { available: true }>, 'available'> {
   // Slice 2026-06-29-change-id-root-removal: change-id is metadata-only;
   // no structural validation gate fires here.
   const goal = normalizeGoal(request.goal);
@@ -422,7 +537,7 @@ function buildPlan(request: RdSwarmPlanRequest, standardsOverlay: StandardsOverl
   const techStatus = getTechStatus({
     sessionId: request.sessionId,
     ...(artifactWorkspacePath ? { artifactWorkspacePath } : {}),
-    ...(request.workspace ? { workspace: request.workspace } : {}),
+    ...(request.workspace ? { workspace: request.workspace } : {})
   });
   const requiresTechApproval = request.requiresTechApproval ?? !isClearLowRiskGoal(goal);
   const techGateSkipped = !requiresTechApproval;
@@ -441,15 +556,20 @@ function buildPlan(request: RdSwarmPlanRequest, standardsOverlay: StandardsOverl
         taskGraph: 'rd/swarm/task-graph.json',
         waveManifests: [],
         workerBriefs: [],
-        reducerReport: 'rd/swarm/reducer-report.md',
+        reducerReport: 'rd/swarm/reducer-report.md'
       },
-      gateStatus: withStandardsOverlay({
-        techApprovalRequired: requiresTechApproval,
-        techStatus: techStatus.status,
-        ...(techGateSkipped ? { skipReason: 'tech-gate-skipped-clear-implementation-path' as const } : {}),
-      }, standardsOverlay),
+      gateStatus: withStandardsOverlay(
+        {
+          techApprovalRequired: requiresTechApproval,
+          techStatus: techStatus.status,
+          ...(techGateSkipped
+            ? { skipReason: 'tech-gate-skipped-clear-implementation-path' as const }
+            : {})
+        },
+        standardsOverlay
+      ),
       blockedReasons,
-      nextActions: [],
+      nextActions: []
     };
   }
 
@@ -467,14 +587,19 @@ function buildPlan(request: RdSwarmPlanRequest, standardsOverlay: StandardsOverl
         taskGraph: 'rd/swarm/task-graph.json',
         waveManifests: [],
         workerBriefs: [],
-        reducerReport: 'rd/swarm/reducer-report.md',
+        reducerReport: 'rd/swarm/reducer-report.md'
       },
-      gateStatus: withStandardsOverlay({
-        techApprovalRequired: true,
-        techStatus: techStatus.status,
-      }, standardsOverlay),
+      gateStatus: withStandardsOverlay(
+        {
+          techApprovalRequired: true,
+          techStatus: techStatus.status
+        },
+        standardsOverlay
+      ),
       blockedReasons: ['tech-approval-required', ...blockedReasons],
-      nextActions: ['Run peaks tech plan --dry-run and approve the tech plan before running peaks swarm plan.'],
+      nextActions: [
+        'Run peaks tech plan --dry-run and approve the tech plan before running peaks swarm plan.'
+      ]
     };
   }
 
@@ -492,25 +617,48 @@ function buildPlan(request: RdSwarmPlanRequest, standardsOverlay: StandardsOverl
         taskGraph: 'rd/swarm/task-graph.json',
         waveManifests: [],
         workerBriefs: [],
-        reducerReport: 'rd/swarm/reducer-report.md',
+        reducerReport: 'rd/swarm/reducer-report.md'
       },
-      gateStatus: withStandardsOverlay({
-        techApprovalRequired: requiresTechApproval,
-        techStatus: techStatus.status,
-        ...(techGateSkipped ? { skipReason: 'tech-gate-skipped-clear-implementation-path' as const } : {}),
-      }, standardsOverlay),
+      gateStatus: withStandardsOverlay(
+        {
+          techApprovalRequired: requiresTechApproval,
+          techStatus: techStatus.status,
+          ...(techGateSkipped
+            ? { skipReason: 'tech-gate-skipped-clear-implementation-path' as const }
+            : {})
+        },
+        standardsOverlay
+      ),
       blockedReasons,
-      nextActions: ['Lower max-workers to match the current change scope or accept the capped target.'],
+      nextActions: [
+        'Lower max-workers to match the current change scope or accept the capped target.'
+      ]
     };
   }
 
   const taskIds = buildTaskIds(workerTarget);
-  const concreteTargetAreas = getConcreteTargetAreas(request, artifactWorkspacePath, techStatus.status === 'approved');
+  const concreteTargetAreas = getConcreteTargetAreas(
+    request,
+    artifactWorkspacePath,
+    techStatus.status === 'approved'
+  );
   const discoveryTaskIds = taskIds.slice(0, RD_DISCOVERY_PLANNING_WAVE_SIZE);
-  const planningTaskIds = taskIds.slice(RD_DISCOVERY_PLANNING_WAVE_SIZE, RD_IMPLEMENTATION_BAND_START);
-  const implementationTaskIds = taskIds.slice(RD_IMPLEMENTATION_BAND_START, taskIds.length - RD_DISCOVERY_PLANNING_WAVE_SIZE);
-  const unitTestTaskIds = taskIds.slice(taskIds.length - RD_DISCOVERY_PLANNING_WAVE_SIZE, taskIds.length - RD_QUALITY_GATE_BAND_SIZE);
-  const qualityTaskIds = taskIds.slice(taskIds.length - RD_QUALITY_GATE_BAND_SIZE, taskIds.length - 1);
+  const planningTaskIds = taskIds.slice(
+    RD_DISCOVERY_PLANNING_WAVE_SIZE,
+    RD_IMPLEMENTATION_BAND_START
+  );
+  const implementationTaskIds = taskIds.slice(
+    RD_IMPLEMENTATION_BAND_START,
+    taskIds.length - RD_DISCOVERY_PLANNING_WAVE_SIZE
+  );
+  const unitTestTaskIds = taskIds.slice(
+    taskIds.length - RD_DISCOVERY_PLANNING_WAVE_SIZE,
+    taskIds.length - RD_QUALITY_GATE_BAND_SIZE
+  );
+  const qualityTaskIds = taskIds.slice(
+    taskIds.length - RD_QUALITY_GATE_BAND_SIZE,
+    taskIds.length - 1
+  );
   const reducerTaskIds = taskIds.slice(taskIds.length - 1);
 
   const waves: RdWave[] = [
@@ -519,7 +667,7 @@ function buildPlan(request: RdSwarmPlanRequest, standardsOverlay: StandardsOverl
     { name: 'implementation candidates', taskIds: [...implementationTaskIds] },
     { name: 'unit-test execution', taskIds: [...unitTestTaskIds] },
     { name: 'quality gates', taskIds: [...qualityTaskIds] },
-    { name: 'reducer', taskIds: [...reducerTaskIds] },
+    { name: 'reducer', taskIds: [...reducerTaskIds] }
   ];
 
   const waveDependencies: Record<RdWaveName, string[]> = {
@@ -528,16 +676,28 @@ function buildPlan(request: RdSwarmPlanRequest, standardsOverlay: StandardsOverl
     'implementation candidates': planningTaskIds,
     'unit-test execution': implementationTaskIds,
     'quality gates': unitTestTaskIds,
-    reducer: qualityTaskIds,
+    reducer: qualityTaskIds
   };
 
   const tasks: RdTask[] = taskIds.map((taskId, index): RdTask => {
-    const wave: RdWaveName = index < RD_DISCOVERY_PLANNING_WAVE_SIZE ? 'discovery' : index < RD_IMPLEMENTATION_BAND_START ? 'planning' : index < taskIds.length - RD_DISCOVERY_PLANNING_WAVE_SIZE ? 'implementation candidates' : index < taskIds.length - RD_QUALITY_GATE_BAND_SIZE ? 'unit-test execution' : index < taskIds.length - 1 ? 'quality gates' : 'reducer';
+    const wave: RdWaveName =
+      index < RD_DISCOVERY_PLANNING_WAVE_SIZE
+        ? 'discovery'
+        : index < RD_IMPLEMENTATION_BAND_START
+          ? 'planning'
+          : index < taskIds.length - RD_DISCOVERY_PLANNING_WAVE_SIZE
+            ? 'implementation candidates'
+            : index < taskIds.length - RD_QUALITY_GATE_BAND_SIZE
+              ? 'unit-test execution'
+              : index < taskIds.length - 1
+                ? 'quality gates'
+                : 'reducer';
     const briefPath = `rd/swarm/workers/${taskId}/brief.md`;
     const implementationIndex = index - RD_IMPLEMENTATION_BAND_START;
-    const targetArea = wave === 'implementation candidates' && hasConcreteTargetAreas(concreteTargetAreas)
-      ? selectConcreteTargetArea(concreteTargetAreas, implementationIndex)
-      : `area-${wave}`;
+    const targetArea =
+      wave === 'implementation candidates' && hasConcreteTargetAreas(concreteTargetAreas)
+        ? selectConcreteTargetArea(concreteTargetAreas, implementationIndex)
+        : `area-${wave}`;
     const modelRole = getTaskModelRole(wave);
     return {
       taskId,
@@ -551,15 +711,16 @@ function buildPlan(request: RdSwarmPlanRequest, standardsOverlay: StandardsOverl
       dependsOn: [...waveDependencies[wave]],
       conflictGroup: `group-${wave.replace(/\s+/g, '-')}`,
       targetArea,
-      expectedEvidence: wave === 'reducer'
-        ? 'reducer-report.md'
-        : wave === 'implementation candidates'
-          ? `${taskId}-patch-summary.md`
-          : wave === 'unit-test execution'
-            ? `${taskId}-test-command-result.md`
-            : wave === 'quality gates'
-              ? `${taskId}-qa-review.md`
-              : `${taskId}.md`,
+      expectedEvidence:
+        wave === 'reducer'
+          ? 'reducer-report.md'
+          : wave === 'implementation candidates'
+            ? `${taskId}-patch-summary.md`
+            : wave === 'unit-test execution'
+              ? `${taskId}-test-command-result.md`
+              : wave === 'quality gates'
+                ? `${taskId}-qa-review.md`
+                : `${taskId}.md`
     };
   });
 
@@ -567,7 +728,7 @@ function buildPlan(request: RdSwarmPlanRequest, standardsOverlay: StandardsOverl
     groupId: `group-${wave.name.replace(/\s+/g, '-')}`,
     ownedPaths: wave.taskIds.map((taskId) => `rd/swarm/workers/${taskId}/brief.md`),
     parallelismPolicy: wave.taskIds.length > 1 ? 'parallel' : 'sequential',
-    reason: `${wave.name} work is isolated by worker output path`,
+    reason: `${wave.name} work is isolated by worker output path`
   }));
 
   return {
@@ -581,17 +742,27 @@ function buildPlan(request: RdSwarmPlanRequest, standardsOverlay: StandardsOverl
     artifactRoot,
     outputs: {
       taskGraph: 'rd/swarm/task-graph.json',
-      waveManifests: waves.map((_wave, index) => `rd/swarm/waves/wave-${index + 1}-${_wave.name}.json`),
+      waveManifests: waves.map(
+        (_wave, index) => `rd/swarm/waves/wave-${index + 1}-${_wave.name}.json`
+      ),
       workerBriefs: tasks.map((task) => task.outputs[0]),
-      reducerReport: 'rd/swarm/reducer-report.md',
+      reducerReport: 'rd/swarm/reducer-report.md'
     },
-    gateStatus: withStandardsOverlay({
-      techApprovalRequired: requiresTechApproval,
-      techStatus: techStatus.status,
-      ...(techGateSkipped ? { skipReason: 'tech-gate-skipped-clear-implementation-path' as const } : {}),
-    }, standardsOverlay),
+    gateStatus: withStandardsOverlay(
+      {
+        techApprovalRequired: requiresTechApproval,
+        techStatus: techStatus.status,
+        ...(techGateSkipped
+          ? { skipReason: 'tech-gate-skipped-clear-implementation-path' as const }
+          : {})
+      },
+      standardsOverlay
+    ),
     blockedReasons,
-    nextActions: blockedReasons.length > 0 ? ['Lower max-workers to match the current change scope or accept the capped target.'] : [],
+    nextActions:
+      blockedReasons.length > 0
+        ? ['Lower max-workers to match the current change scope or accept the capped target.']
+        : []
   };
 }
 
@@ -618,7 +789,7 @@ export function createRdSwarmPlan(request: RdSwarmPlanRequest): RdPlanResult {
       outputs: result.outputs,
       gateStatus: result.gateStatus,
       blockedReasons: result.blockedReasons,
-      nextActions: [...WORKSPACE_UNAVAILABLE_NEXT_ACTIONS],
+      nextActions: [...WORKSPACE_UNAVAILABLE_NEXT_ACTIONS]
     };
   }
 
@@ -637,12 +808,12 @@ export function createRdSwarmPlan(request: RdSwarmPlanRequest): RdPlanResult {
       outputs: result.outputs,
       gateStatus: result.gateStatus,
       blockedReasons: result.blockedReasons,
-      nextActions: result.nextActions,
+      nextActions: result.nextActions
     };
   }
 
   return {
     available: true,
-    ...result,
+    ...result
   };
 }

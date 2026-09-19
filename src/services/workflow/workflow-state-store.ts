@@ -42,7 +42,11 @@ function stateFilePath(projectRoot: string, sessionId: string, rid: string): str
  * the file is malformed. The caller is expected to treat `null` as
  * "no skip applied; evaluate all gates normally".
  */
-export function readSkipState(projectRoot: string, sessionId: string, rid: string): WorkflowSkipState | null {
+export function readSkipState(
+  projectRoot: string,
+  sessionId: string,
+  rid: string
+): WorkflowSkipState | null {
   const path = stateFilePath(projectRoot, sessionId, rid);
   if (!existsSync(path)) {
     return null;
@@ -54,7 +58,8 @@ export function readSkipState(projectRoot: string, sessionId: string, rid: strin
       return null;
     }
     return parsed;
-  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+  } catch {
+    // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     return null;
   }
 }

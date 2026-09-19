@@ -13,7 +13,11 @@
  */
 
 import type { Command } from 'commander';
-import { ApiDiffInputError, diffApiDocument, formatApiDiffText } from '../../services/scan/api-diff-service.js';
+import {
+  ApiDiffInputError,
+  diffApiDocument,
+  formatApiDiffText
+} from '../../services/scan/api-diff-service.js';
 import { fail, ok } from 'peaks-loop-shared/result';
 
 import { addJsonOption, printResult, type ProgramIO } from '../cli-helpers.js';
@@ -21,9 +25,9 @@ import { addJsonOption, printResult, type ProgramIO } from '../cli-helpers.js';
 export function registerApiDiffCommands(program: Command, io: ProgramIO): void {
   // Reuse the existing `scan` parent — the add-a-new-subcommand-check-for-
   // existing-top-level-first rule (same guard as bee-commands / asset-commands).
-  const scan = program.commands.find((c) => c.name() === 'scan') ?? program
-    .command('scan')
-    .description('Read-only project scans for tech-doc and RD handoffs');
+  const scan =
+    program.commands.find((c) => c.name() === 'scan') ??
+    program.command('scan').description('Read-only project scans for tech-doc and RD handoffs');
 
   addJsonOption(
     scan
@@ -42,9 +46,12 @@ export function registerApiDiffCommands(program: Command, io: ProgramIO): void {
     const asJson = options.json ?? false;
     try {
       const report = diffApiDocument({ projectRoot, docPath: doc });
-      const nextActions = report.notes.length > 0
-        ? ['Read the notes: at least one recorded source was missing, so the Exact section is partial by construction.']
-        : [];
+      const nextActions =
+        report.notes.length > 0
+          ? [
+              'Read the notes: at least one recorded source was missing, so the Exact section is partial by construction.'
+            ]
+          : [];
       if (asJson) {
         printResult(io, ok('scan.api-diff', report, [], nextActions), true);
         return;

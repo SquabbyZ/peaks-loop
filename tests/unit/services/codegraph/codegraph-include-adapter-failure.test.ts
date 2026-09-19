@@ -38,29 +38,33 @@ import { declareDimensions } from '../../_setup/4dim-template.js';
 declareDimensions(
   'tests/unit/services/codegraph/codegraph-include-adapter-failure.test.ts',
   ['behavior', 'integration', 'a11y'],
-  [{ dim: 'render', reason: 'the module writes a config but prints nothing; it returns a report' }],
+  [{ dim: 'render', reason: 'the module writes a config but prints nothing; it returns a report' }]
 );
 
 const adapter = vi.hoisted(() => ({ fail: false }));
 
-vi.mock('../../../../src/services/codegraph/codegraph-include-reconciler.js', async (importOriginal) => {
-  const actual = await importOriginal<
-    typeof import('../../../../src/services/codegraph/codegraph-include-reconciler.js')
-  >();
+vi.mock(
+  '../../../../src/services/codegraph/codegraph-include-reconciler.js',
+  async (importOriginal) => {
+    const actual =
+      await importOriginal<
+        typeof import('../../../../src/services/codegraph/codegraph-include-reconciler.js')
+      >();
 
-  return {
-    ...actual,
-    upstreamUnnamedIncludeExtensions: (): readonly string[] => {
-      if (adapter.fail) {
-        // What an upstream `dist/` layout change or a broken install produces:
-        // `require` of a path inside the package that no longer exists.
-        throw new Error('injected upstream dist-layout failure');
+    return {
+      ...actual,
+      upstreamUnnamedIncludeExtensions: (): readonly string[] => {
+        if (adapter.fail) {
+          // What an upstream `dist/` layout change or a broken install produces:
+          // `require` of a path inside the package that no longer exists.
+          throw new Error('injected upstream dist-layout failure');
+        }
+
+        return actual.upstreamUnnamedIncludeExtensions();
       }
-
-      return actual.upstreamUnnamedIncludeExtensions();
-    },
-  };
-});
+    };
+  }
+);
 
 import { repairCodegraphExcludeFromProject } from '../../../../src/services/codegraph/codegraph-exclude-repair.js';
 
@@ -95,7 +99,7 @@ function makeFixture(): string {
   writeFileSync(
     join(projectRoot, '.codegraph', 'config.json'),
     `${JSON.stringify({ include: ['**/*.ts'], exclude: ['**/node_modules/**'] }, null, 2)}\n`,
-    'utf8',
+    'utf8'
   );
 
   return projectRoot;
@@ -104,7 +108,7 @@ function makeFixture(): string {
 const runner = async (): Promise<{ exitCode: number; stdout: string; stderr: string }> => ({
   exitCode: 0,
   stdout: '',
-  stderr: '',
+  stderr: ''
 });
 
 describe('repairCodegraphExcludeFromProject — an upstream adapter failure is a warning, not a throw', () => {

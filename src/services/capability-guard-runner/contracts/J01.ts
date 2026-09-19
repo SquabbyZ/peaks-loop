@@ -1,7 +1,14 @@
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
 import type { GuardContext, GuardRunResult } from '../types.js';
-import { combineProbes, fail, missingSourceFiles, pass, probe, requireBaselineRow } from './_shared.js';
+import {
+  combineProbes,
+  fail,
+  missingSourceFiles,
+  pass,
+  probe,
+  requireBaselineRow
+} from './_shared.js';
 
 const FIXTURES: ReadonlyArray<readonly [string, string]> = [
   ['make', 'implement a CLI parser'],
@@ -9,7 +16,7 @@ const FIXTURES: ReadonlyArray<readonly [string, string]> = [
   ['make', 'write a blog article'],
   ['learn', 'author an SOP checklist'],
   ['check', 'run red-lines audit'],
-  ['run',  'execute a workflow']
+  ['run', 'execute a workflow']
 ];
 
 export async function runJ01Contract(ctx: GuardContext): Promise<GuardRunResult> {
@@ -39,10 +46,16 @@ export async function runJ01Contract(ctx: GuardContext): Promise<GuardRunResult>
 
   const result = combineProbes([
     probe(missing.length === 0, `baseline sourceFiles present (${row.sourceFiles.length})`),
-    probe(failures.length === 0, `all ${String(FIXTURES.length)} NL routing cases return ok (failures: ${failures.join('; ') || 'none'})`),
+    probe(
+      failures.length === 0,
+      `all ${String(FIXTURES.length)} NL routing cases return ok (failures: ${failures.join('; ') || 'none'})`
+    ),
     // The invariant is that the SYSTEM picks the skill: a bare ok envelope is
     // not enough, the answer must name the skill it chose.
-    probe(routed > 0, `the envelope names the routed skill (${String(routed)}/${String(FIXTURES.length)})`)
+    probe(
+      routed > 0,
+      `the envelope names the routed skill (${String(routed)}/${String(FIXTURES.length)})`
+    )
   ]);
 
   const artifact = row.sourceFiles[2] ?? 'tests/integration/super-command-routing.test.ts';

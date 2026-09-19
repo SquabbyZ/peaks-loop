@@ -80,5 +80,5 @@ export interface GcResult {
 export {
   PEAKS_CALLER_NOT_RESOLVED,
   PEAKS_SESSION_NOT_BOUND,
-  PEAKS_GRAPH_REF_BROKEN,
+  PEAKS_GRAPH_REF_BROKEN
 } from '../workflow/workflow-graph-store.js';

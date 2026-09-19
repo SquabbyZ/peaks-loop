@@ -28,15 +28,15 @@ export function makeCapturedIo(): {
   return {
     io: {
       stdout: (s: string) => stdout.push(s),
-      stderr: (s: string) => stderr.push(s),
+      stderr: (s: string) => stderr.push(s)
     },
     captured: {
       stdout,
       stderr,
       text: () => stdout.join('\n'),
       stderrText: () => stderr.join('\n'),
-      lines: () => stdout,
-    },
+      lines: () => stdout
+    }
   };
 }
 

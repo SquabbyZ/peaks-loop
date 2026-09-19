@@ -26,9 +26,7 @@ export type SessionEntry = {
   artifactCount: number;
 };
 
-export type DeletionCandidateReason =
-  | 'empty-or-auto-only'
-  | 'older-than-threshold';
+export type DeletionCandidateReason = 'empty-or-auto-only' | 'older-than-threshold';
 
 export type ReconcileResult = {
   /** Absolute project root the command operated on. */
@@ -43,11 +41,7 @@ export type ReconcileResult = {
    * no sessions at all.
    */
   canonicalSource:
-    | 'active-skill'
-    | 'latest-session-json-mtime'
-    | 'latest-any-file-mtime'
-    | 'dir-name-sort'
-    | null;
+    'active-skill' | 'latest-session-json-mtime' | 'latest-any-file-mtime' | 'dir-name-sort' | null;
   /** The session id the binding pointed at before reconcile. Null if no prior binding. */
   repointedFrom: string | null;
   /** The session id the binding now points at. Null if there were no sessions. */
@@ -92,7 +86,9 @@ export type ReconcileResult = {
    * `kind: 'migrate'` discriminator so consumers can tell migration
    * errors apart from deletion errors. The shape is additive.
    */
-  errors: Array<{ sessionId: string; message: string } | { kind: 'migrate'; path: string; message: string }>;
+  errors: Array<
+    { sessionId: string; message: string } | { kind: 'migrate'; path: string; message: string }
+  >;
   /**
    * Slice 006 (2026-06-06-change-folder-simplify-and-lazy-role-subdirs):
    * result of syncing the single `change/<canonicalSessionId>/` live

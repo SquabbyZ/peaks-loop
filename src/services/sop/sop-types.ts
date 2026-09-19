@@ -89,7 +89,11 @@ export type SopRegistry = {
 
 export type SopCheckResult = 'pass' | 'fail' | 'blocked';
 
-export const SOP_GATE_CHECK_TYPES: ReadonlyArray<SopGateCheckType> = ['file-exists', 'grep', 'command'];
+export const SOP_GATE_CHECK_TYPES: ReadonlyArray<SopGateCheckType> = [
+  'file-exists',
+  'grep',
+  'command'
+];
 
 /** SOP id grammar: lowercase kebab, must start alphanumeric. */
 export const SOP_ID_PATTERN = /^[a-z0-9][a-z0-9-]*$/;

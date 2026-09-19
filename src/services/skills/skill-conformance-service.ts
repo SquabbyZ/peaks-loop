@@ -65,10 +65,12 @@ const MAX_LINE_COUNT = 800;
 
 const CLI_BACK_PATTERNS: readonly RegExp[] = [
   /`peaks\s+[a-z][a-z0-9-]+(?:\s+[a-z][a-z0-9-]+)*`/g,
-  /`peaks\s+[a-z][a-z0-9-]+/g,
+  /`peaks\s+[a-z][a-z0-9-]+/g
 ];
 
-function readSkillFrontmatter(skillPath: string): { raw: string; fields: Record<string, string> } | null {
+function readSkillFrontmatter(
+  skillPath: string
+): { raw: string; fields: Record<string, string> } | null {
   if (!existsSync(skillPath)) return null;
   const content = readFileSync(skillPath, 'utf-8');
   const match = /^---\n([\s\S]*?)\n---\n/.exec(content);
@@ -120,11 +122,21 @@ export function auditSkillConformance(input: SkillConformanceInput): Conformance
 
     // 1. task-level frontmatter
     if (fm === null) {
-      checks.push({ id: 'frontmatter:present', skill: skillName, level: 'fail', message: 'SKILL.md missing' });
+      checks.push({
+        id: 'frontmatter:present',
+        skill: skillName,
+        level: 'fail',
+        message: 'SKILL.md missing'
+      });
     } else {
       for (const required of REQUIRED_FRONTMATTER_FIELDS) {
         if (fm.fields[required] === undefined) {
-          checks.push({ id: `frontmatter:${required}`, skill: skillName, level: 'fail', message: `frontmatter missing required field "${required}"` });
+          checks.push({
+            id: `frontmatter:${required}`,
+            skill: skillName,
+            level: 'fail',
+            message: `frontmatter missing required field "${required}"`
+          });
         }
       }
     }
@@ -134,26 +146,47 @@ export function auditSkillConformance(input: SkillConformanceInput): Conformance
       const content = readFileSync(skillPath, 'utf-8');
       const cliCount = countCliBackReferences(content);
       if (cliCount === 0) {
-        checks.push({ id: 'cli-back:present', skill: skillName, level: 'warn', message: 'no `peaks <cmd>` references in SKILL.md body; consider documenting which CLI primitives the skill composes' });
+        checks.push({
+          id: 'cli-back:present',
+          skill: skillName,
+          level: 'warn',
+          message:
+            'no `peaks <cmd>` references in SKILL.md body; consider documenting which CLI primitives the skill composes'
+        });
       }
     }
 
     // 3. loadStrategy on-demand 标注
     if (fm !== null && fm.fields['loadStrategy'] === undefined) {
-      checks.push({ id: 'loadStrategy:declared', skill: skillName, level: 'warn', message: 'loadStrategy not declared in frontmatter (eager | on-demand)' });
+      checks.push({
+        id: 'loadStrategy:declared',
+        skill: skillName,
+        level: 'warn',
+        message: 'loadStrategy not declared in frontmatter (eager | on-demand)'
+      });
     }
 
     // 4. 800-line cap
     if (fm !== null) {
       const lines = lineCount(skillPath);
       if (lines > MAX_LINE_COUNT) {
-        checks.push({ id: 'line-count:cap', skill: skillName, level: 'fail', message: `${lines} lines > ${MAX_LINE_COUNT} cap (Karpathy)` });
+        checks.push({
+          id: 'line-count:cap',
+          skill: skillName,
+          level: 'fail',
+          message: `${lines} lines > ${MAX_LINE_COUNT} cap (Karpathy)`
+        });
       }
     }
 
     // 5. outputStyle: peaks-concise-v1
     if (fm !== null && fm.fields['outputStyle'] === undefined) {
-      checks.push({ id: 'outputStyle:declared', skill: skillName, level: 'warn', message: 'outputStyle not declared in frontmatter' });
+      checks.push({
+        id: 'outputStyle:declared',
+        skill: skillName,
+        level: 'warn',
+        message: 'outputStyle not declared in frontmatter'
+      });
     }
   }
 
@@ -166,6 +199,9 @@ export function auditSkillConformance(input: SkillConformanceInput): Conformance
     warned,
     failed,
     checks,
-    summary: failed === 0 ? 'all hard checks pass; warnings are advisory' : `${failed} hard failure(s); fix before shipping`,
+    summary:
+      failed === 0
+        ? 'all hard checks pass; warnings are advisory'
+        : `${failed} hard failure(s); fix before shipping`
   };
 }

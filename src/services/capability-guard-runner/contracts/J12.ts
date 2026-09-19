@@ -1,4 +1,12 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  writeFileSync
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
@@ -17,7 +25,14 @@ import {
 } from '../../worktree/worktree-lease.js';
 import type { WorktreeLeaseDraft } from '../../worktree/worktree-lease.js';
 import type { GuardContext, GuardRunResult } from '../types.js';
-import { combineProbes, fail, missingSourceFiles, pass, probe, requireBaselineRow } from './_shared.js';
+import {
+  combineProbes,
+  fail,
+  missingSourceFiles,
+  pass,
+  probe,
+  requireBaselineRow
+} from './_shared.js';
 
 const NOW = 1_700_000_000_000;
 
@@ -58,30 +73,66 @@ export async function runJ12Contract(ctx: GuardContext): Promise<GuardRunResult>
   const root = mkdtempSync(join(tmpdir(), 'cbl-J12-'));
   try {
     const storeDir = leaseStoreDir(root);
-    const missingStore = listLeasesSync(storeDir, { readdir: readdirSync, readFile: (p) => readFileSync(p, 'utf8'), existsSync });
+    const missingStore = listLeasesSync(storeDir, {
+      readdir: readdirSync,
+      readFile: (p) => readFileSync(p, 'utf8'),
+      existsSync
+    });
     mkdirSync(storeDir, { recursive: true });
     writeFileSync(leaseFilePath(root, lease.leaseId), serializeLease(lease));
-    const listed = listLeasesSync(storeDir, { readdir: readdirSync, readFile: (p) => readFileSync(p, 'utf8'), existsSync });
+    const listed = listLeasesSync(storeDir, {
+      readdir: readdirSync,
+      readFile: (p) => readFileSync(p, 'utf8'),
+      existsSync
+    });
 
     const result = combineProbes([
       probe(missing.length === 0, `baseline sourceFiles present (${row.sourceFiles.length})`),
-      probe(lease.status === 'active' && lease.consumedBySubAgents.length === 0, 'a fresh lease is active with no consumers'),
-      probe(leaseStoreDir(root).replace(/\\/g, '/').endsWith('/worktree-leases'), `leases live under the session worktree-leases dir (${leaseStoreDir(root)})`),
-      probe(missingStore.kind === 'store-missing', 'an absent lease store is reported, not invented'),
-      probe(listed.kind === 'ok' && listed.leases.length === 1, `a persisted lease is listed back (${listed.kind === 'ok' ? String(listed.leases.length) : listed.kind})`),
-      probe(JSON.stringify(deserializeLease(serializeLease(lease))) === JSON.stringify(lease), 'serialize/deserialize round-trips the lease'),
-      probe(onceReleased.status === 'released', 'release moves the lease to released'),
-      probe(JSON.stringify(twiceReleased) === JSON.stringify(onceReleased), 'a duplicate release is a no-op'),
       probe(
-        JSON.stringify(consumedTwice) === JSON.stringify(consumed) && consumed.consumedBySubAgents.length === 1,
+        lease.status === 'active' && lease.consumedBySubAgents.length === 0,
+        'a fresh lease is active with no consumers'
+      ),
+      probe(
+        leaseStoreDir(root).replace(/\\/g, '/').endsWith('/worktree-leases'),
+        `leases live under the session worktree-leases dir (${leaseStoreDir(root)})`
+      ),
+      probe(
+        missingStore.kind === 'store-missing',
+        'an absent lease store is reported, not invented'
+      ),
+      probe(
+        listed.kind === 'ok' && listed.leases.length === 1,
+        `a persisted lease is listed back (${listed.kind === 'ok' ? String(listed.leases.length) : listed.kind})`
+      ),
+      probe(
+        JSON.stringify(deserializeLease(serializeLease(lease))) === JSON.stringify(lease),
+        'serialize/deserialize round-trips the lease'
+      ),
+      probe(onceReleased.status === 'released', 'release moves the lease to released'),
+      probe(
+        JSON.stringify(twiceReleased) === JSON.stringify(onceReleased),
+        'a duplicate release is a no-op'
+      ),
+      probe(
+        JSON.stringify(consumedTwice) === JSON.stringify(consumed) &&
+          consumed.consumedBySubAgents.length === 1,
         'a duplicate consumption is not appended twice'
       ),
-      probe(renewed.status === 'active' && renewed.expiresAt === NOW + 120_000, 'renew extends expiry and returns the lease to active'),
+      probe(
+        renewed.status === 'active' && renewed.expiresAt === NOW + 120_000,
+        'renew extends expiry and returns the lease to active'
+      ),
       probe(isLeaseActive(lease, NOW), 'an unexpired active lease is in flight'),
       probe(!isLeaseGcEligible(lease, NOW), 'gc is NOT eligible for an in-flight lease'),
       probe(isLeaseGcEligible(onceReleased, NOW), 'a released lease is gc-eligible'),
-      probe(isLeaseGcEligible(finalizeLease({ ...DRAFT, expiresAt: NOW - 1 }), NOW), 'an expired lease is gc-eligible'),
-      probe(ttlForRole('rd') > 0 && ttlForRole('no-such-role') === ttlForRole('rd'), 'unknown roles fall back to the rd TTL')
+      probe(
+        isLeaseGcEligible(finalizeLease({ ...DRAFT, expiresAt: NOW - 1 }), NOW),
+        'an expired lease is gc-eligible'
+      ),
+      probe(
+        ttlForRole('rd') > 0 && ttlForRole('no-such-role') === ttlForRole('rd'),
+        'unknown roles fall back to the rd TTL'
+      )
     ]);
 
     const artifact = row.sourceFiles[0] ?? 'src/services/worktree/worktree-lease.ts';

@@ -331,7 +331,9 @@ export async function runHeadedLogin(options: WebLoginOptions): Promise<WebLogin
         publishState(statePath, result.snapshot, warnings);
         state = readStateCounts(statePath);
         if (state.failure !== null) {
-          warnings.push(`the storage state at ${statePath} could not be read back: ${state.failure}`);
+          warnings.push(
+            `the storage state at ${statePath} could not be read back: ${state.failure}`
+          );
         }
       }
     }
@@ -474,10 +476,7 @@ function isEmptyCapture(snapshot: unknown): boolean {
   const cookies = (snapshot as { cookies?: unknown }).cookies;
   const origins = (snapshot as { origins?: unknown }).origins;
   return (
-    Array.isArray(cookies) &&
-    cookies.length === 0 &&
-    Array.isArray(origins) &&
-    origins.length === 0
+    Array.isArray(cookies) && cookies.length === 0 && Array.isArray(origins) && origins.length === 0
   );
 }
 
@@ -621,7 +620,12 @@ async function readSession(context: PwContext): Promise<SessionRead> {
     return { ok: true, state: await context.storageState(), error: null, closedTarget: false };
   } catch (error) {
     const raw = getErrorMessage(error);
-    return { ok: false, state: null, error: cappedEcho(raw), closedTarget: isClosedTargetError(raw) };
+    return {
+      ok: false,
+      state: null,
+      error: cappedEcho(raw),
+      closedTarget: isClosedTargetError(raw)
+    };
   }
 }
 
@@ -715,7 +719,11 @@ function unreadable(bytes: number): { cookies: 0; origins: 0; failure: string } 
  * process may still be on the machine, and the close is not retried or waited
  * on: this command is over.
  */
-async function closeBounded(browser: PwBrowser, timeoutMs: number, warnings: string[]): Promise<void> {
+async function closeBounded(
+  browser: PwBrowser,
+  timeoutMs: number,
+  warnings: string[]
+): Promise<void> {
   const boundMs = Math.min(timeoutMs, TEARDOWN_TIMEOUT_MS);
   let expired = false;
   const bound = sleep(boundMs).then(() => {

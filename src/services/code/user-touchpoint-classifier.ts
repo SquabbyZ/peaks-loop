@@ -47,14 +47,16 @@ const RAW_CLASSIFICATION: readonly RawGate[] = [
   {
     step: 'step-0.5-openspec-opt-in',
     kind: 'mode-selection',
-    description: 'OpenSpec 一次性 opt-in(使用 OpenSpec spec-first 流程)。这是 context 选择门,user 必答。',
+    description:
+      'OpenSpec 一次性 opt-in(使用 OpenSpec spec-first 流程)。这是 context 选择门,user 必答。',
     fullAutoCanProceed: false,
     userShouldReview: 'always'
   },
   {
     step: 'step-0.6-audit-goal',
     kind: 'business',
-    description: 'Audit + Goal 确认。goal 必须明确区分业务/产品(user 写)与技术(AI 拍板)。user 必审。',
+    description:
+      'Audit + Goal 确认。goal 必须明确区分业务/产品(user 写)与技术(AI 拍板)。user 必审。',
     fullAutoCanProceed: false,
     userShouldReview: 'always'
   },
@@ -68,7 +70,8 @@ const RAW_CLASSIFICATION: readonly RawGate[] = [
   {
     step: 'step-0.55-1x-upgrade',
     kind: 'commit-floor',
-    description: '1.x → 2.0 升级检测。不可逆外部副作用(改写 config + cache schema),所有 mode 都必须 AskUserQuestion。full-auto 也暂停。',
+    description:
+      '1.x → 2.0 升级检测。不可逆外部副作用(改写 config + cache schema),所有 mode 都必须 AskUserQuestion。full-auto 也暂停。',
     fullAutoCanProceed: false,
     userShouldReview: 'always'
   },
@@ -117,7 +120,8 @@ const RAW_CLASSIFICATION: readonly RawGate[] = [
   {
     step: 'phase-10-txt-memory-extract',
     kind: 'business',
-    description: 'TXT handoff + memory 提取。user 必审(决定哪些 peaks-memory 块落 .peaks/memory/)。',
+    description:
+      'TXT handoff + memory 提取。user 必审(决定哪些 peaks-memory 块落 .peaks/memory/)。',
     fullAutoCanProceed: false,
     userShouldReview: 'always'
   },
@@ -156,7 +160,9 @@ export function classifyGate(step: string): GateClassification | null {
 
 /** List all gates the user must review (per the 12 Gaps positioning). */
 export function userMustReviewGates(): readonly GateClassification[] {
-  return RAW_CLASSIFICATION.filter((g) => g.userShouldReview !== 'never') as readonly GateClassification[];
+  return RAW_CLASSIFICATION.filter(
+    (g) => g.userShouldReview !== 'never'
+  ) as readonly GateClassification[];
 }
 
 /** List all gates AI auto-decides in full-auto. */

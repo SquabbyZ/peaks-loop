@@ -3,15 +3,13 @@ import type {
   StatusLineModel,
   StatusLinePresence,
   StatusLineActiveLeaf,
-  TwentyFourHourOverlay,
+  TwentyFourHourOverlay
 } from './skill-statusline-service.js';
-import type {
-  CompactStatuslineState,
-} from '../compact-statusline/compact-statusline-service.js';
+import type { CompactStatuslineState } from '../compact-statusline/compact-statusline-service.js';
 import { AUTO_COMPACT_RED_LINE_RATIO } from '../context/auto-compact-types.js';
 import {
   computeRootSuffix as computeRootSuffixImpl,
-  formatShortSid,
+  formatShortSid
 } from './skill-statusline-sid-suffix.js';
 
 // Re-export so existing test imports
@@ -31,7 +29,7 @@ import {
   paletteFor,
   renderActiveDot,
   type StatusLineCapability,
-  type StatusPalette,
+  type StatusPalette
 } from './statusline-palette.js';
 export type { StatusLineCapability } from './statusline-palette.js';
 
@@ -119,7 +117,7 @@ export function format24hSuffix(
   overlay: TwentyFourHourOverlay | null,
   palette: StatusPalette,
   capability: StatusLineCapability,
-  noColor: boolean,
+  noColor: boolean
 ): string {
   if (!overlay) return '';
   const label = `[24h-${overlay.state.toLowerCase()}]`;
@@ -163,7 +161,7 @@ function renderActive(
   capability: StatusLineCapability,
   noColor: boolean,
   activeLeaf: StatusLineActiveLeaf | null,
-  twentyFourHourState: TwentyFourHourOverlay | null,
+  twentyFourHourState: TwentyFourHourOverlay | null
 ): string {
   if (!presence) {
     return `${palette.idle} ${palette.idleLabel}`;
@@ -180,15 +178,17 @@ function renderActive(
   }
   const skill = presence.skill;
   const dot = renderActiveDot(capability, nowMs, noColor);
-  const modeToken = typeof presence.mode === 'string' && presence.mode.length > 0
-    ? brandRun(` [${presence.mode}]`, noColor, capability)
-    : '';
+  const modeToken =
+    typeof presence.mode === 'string' && presence.mode.length > 0
+      ? brandRun(` [${presence.mode}]`, noColor, capability)
+      : '';
   // Dual-skill layout: leaf role (in-flight bee) + orchestrator skill.
   if (activeLeaf !== null) {
     const leaf = brandRun(activeLeaf.role, noColor, capability);
-    const tail = activeLeaf.pendingCount > 1
-      ? ` ${brandRun(`(+${activeLeaf.pendingCount - 1})`, noColor, capability)}`
-      : '';
+    const tail =
+      activeLeaf.pendingCount > 1
+        ? ` ${brandRun(`(+${activeLeaf.pendingCount - 1})`, noColor, capability)}`
+        : '';
     const sep = brandRun(' | ', noColor, capability);
     return `${dot} ${leaf}${tail}${sep}${brandRun(skill, noColor, capability)}${modeToken}${suffix}`;
   }
@@ -200,7 +200,7 @@ function renderStale(
   ageMs: number | null,
   palette: StatusPalette,
   capability: StatusLineCapability,
-  noColor: boolean,
+  noColor: boolean
 ): string {
   // Slice rid-statusline-stale-ux AC-1: stale presence belongs to a
   // *previous* session (outer-session-mismatch). Line still emits the
@@ -228,10 +228,7 @@ function renderIdle(palette: StatusPalette): string {
 
 const COMPACT_BAR_WIDTH = 8;
 
-function renderCompactBar(
-  filledCells: 0 | 2 | 4 | 6 | 8,
-  palette: StatusPalette,
-): string {
+function renderCompactBar(filledCells: 0 | 2 | 4 | 6 | 8, palette: StatusPalette): string {
   const filled = palette.barFilled.repeat(filledCells);
   const empty = palette.barEmpty.repeat(COMPACT_BAR_WIDTH - filledCells);
   return `[${filled}${empty}]`;
@@ -257,10 +254,7 @@ function formatRatio(value: number): string {
  * "stalled" label. Invalid states surface the read-reason verbatim as a
  * single-line diagnostic so the user can see why the bar is empty.
  */
-function renderCompact(
-  state: CompactStatuslineState,
-  palette: StatusPalette,
-): string {
+function renderCompact(state: CompactStatuslineState, palette: StatusPalette): string {
   switch (state.kind) {
     case 'none':
       return '';
@@ -287,11 +281,12 @@ function renderCompact(
       // progress claim, and a registered-but-unfired trigger has no
       // progress to report — it is waiting for the ratio to reach the
       // red line on its own. Say exactly that instead.
-      const now = typeof state.triggerRatio === 'number'
-        ? `${palette.inlineSeparator}${formatRatio(state.triggerRatio)}`
-        : '';
+      const now =
+        typeof state.triggerRatio === 'number'
+          ? `${palette.inlineSeparator}${formatRatio(state.triggerRatio)}`
+          : '';
       return `${palette.compact.armed} armed${now}${palette.inlineSeparator}fires at ${formatRatio(
-        AUTO_COMPACT_RED_LINE_RATIO,
+        AUTO_COMPACT_RED_LINE_RATIO
       )}`;
     }
     case 'verifying':
@@ -310,13 +305,14 @@ function renderCompact(
       }`;
     case 'failed': {
       const failedAt = state.failedAt ?? 'compacting';
-      const filledAt = failedAt === 'queued'
-        ? 0
-        : failedAt === 'preparing'
-          ? 2
-          : failedAt === 'compacting'
-            ? 4
-            : 6;
+      const filledAt =
+        failedAt === 'queued'
+          ? 0
+          : failedAt === 'preparing'
+            ? 2
+            : failedAt === 'compacting'
+              ? 4
+              : 6;
       return `${palette.compact.failed} ${renderCompactBar(filledAt, palette)} compact failed${palette.inlineSeparator}${failedAt}`;
     }
     case 'stalled':
@@ -408,7 +404,10 @@ export function resolveStatusLineCapability(input: {
   // identifier by indirection so a `grep PEAKS_STATUSLINE_ASCII` finds the
   // exact contract; the comparison string is built at call time.
   const asciiFlag = input.env['PEAKS_STATUSLINE_ASCII'];
-  if (typeof asciiFlag === 'string' && (asciiFlag === '1' || asciiFlag === 'true' || asciiFlag === 'yes')) {
+  if (
+    typeof asciiFlag === 'string' &&
+    (asciiFlag === '1' || asciiFlag === 'true' || asciiFlag === 'yes')
+  ) {
     return 'ascii';
   }
   // NO_COLOR is honoured at render time (see {@link renderStatusLine});
@@ -595,7 +594,7 @@ export function applyMarquee(s: string, nowMs: number, capability: StatusLineCap
 export function renderStatusLine(
   model: StatusLineModel,
   options?: StatusLineRenderOptions,
-  env?: NodeJS.ProcessEnv,
+  env?: NodeJS.ProcessEnv
 ): string {
   const capability: StatusLineCapability = options?.capability ?? DEFAULT_CAPABILITY;
   const noColor = env !== undefined ? isNoColor(env) : false;
@@ -649,7 +648,15 @@ export function renderStatusLine(
     let base: string;
     switch (model.state) {
       case 'active':
-        base = renderActive(model.presence, palette, nowMs, capability, noColor, model.activeLeaf, model.twentyFourHourState);
+        base = renderActive(
+          model.presence,
+          palette,
+          nowMs,
+          capability,
+          noColor,
+          model.activeLeaf,
+          model.twentyFourHourState
+        );
         break;
       case 'stale':
         base = renderStale(model.presence, model.ageMs, palette, capability, noColor);

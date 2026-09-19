@@ -25,11 +25,11 @@
  *     loop import` to verify the lifecycle=candidate landing.
  */
 
-import { mkdtempSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { describe, expect, test } from "vitest";
-import { runCli } from "./_cli-helper.js";
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { describe, expect, test } from 'vitest';
+import { runCli } from './_cli-helper.js';
 
 // In-process CLI invocation (see tests/integration/_cli-helper.ts).
 // Replaces the previous `execFileSync(TSX, ...)` spawn which became
@@ -38,7 +38,7 @@ import { runCli } from "./_cli-helper.js";
 // round-trip despite per-test runs completing in <2s).
 
 function makeProject(): string {
-  return mkdtempSync(join(tmpdir(), "peaks-share-bundle-"));
+  return mkdtempSync(join(tmpdir(), 'peaks-share-bundle-'));
 }
 
 function cli(args: string[], cwd: string) {
@@ -53,49 +53,49 @@ async function seedLoopRelease(project: string, loopId: string): Promise<void> {
   // event + evidence_brief.
   const r = await cli(
     [
-      "asset",
-      "crystallize",
-      "--from-task",
-      "task-complete-1",
-      "--loop-id",
+      'asset',
+      'crystallize',
+      '--from-task',
+      'task-complete-1',
+      '--loop-id',
       loopId,
-      "--loop-name",
-      "Share Bundle Test Loop",
-      "--loop-scenario",
-      "Bundle round-trip integration test.",
-      "--loop-trigger-policy",
-      "When integration test seeds.",
-      "--loop-success-criterion",
-      "Bundle round-trip preserves candidate lifecycle.",
-      "--loop-interaction-policy",
-      "human-nl-choice-only",
-      "--loop-feedback-policy",
-      "Track bundle round-trip events.",
-      "--loop-evolution-policy",
-      "Single dimension: portability.",
-      "--loop-evaluator-policy",
-      "Independent portability scorer.",
-      "--loop-version",
-      "0.1.0",
-      "--bee-name",
-      "bee-share-bundle",
-      "--bee-version",
-      "0.1.0",
-      "--bee-description",
-      "Bee used for share-bundle integration test.",
-      "--bee-relation-reason",
-      "Main bee for share-bundle integration test.",
-      "--brief-what-happened",
-      "A loop was created during share-bundle integration test.",
-      "--brief-why-it-matters",
-      "Bundle round-trip must preserve candidate lifecycle.",
-      "--brief-what-learned",
-      "Bundles must capture evidence_brief + relations.",
-      "--brief-what-action",
+      '--loop-name',
+      'Share Bundle Test Loop',
+      '--loop-scenario',
+      'Bundle round-trip integration test.',
+      '--loop-trigger-policy',
+      'When integration test seeds.',
+      '--loop-success-criterion',
+      'Bundle round-trip preserves candidate lifecycle.',
+      '--loop-interaction-policy',
+      'human-nl-choice-only',
+      '--loop-feedback-policy',
+      'Track bundle round-trip events.',
+      '--loop-evolution-policy',
+      'Single dimension: portability.',
+      '--loop-evaluator-policy',
+      'Independent portability scorer.',
+      '--loop-version',
+      '0.1.0',
+      '--bee-name',
+      'bee-share-bundle',
+      '--bee-version',
+      '0.1.0',
+      '--bee-description',
+      'Bee used for share-bundle integration test.',
+      '--bee-relation-reason',
+      'Main bee for share-bundle integration test.',
+      '--brief-what-happened',
+      'A loop was created during share-bundle integration test.',
+      '--brief-why-it-matters',
+      'Bundle round-trip must preserve candidate lifecycle.',
+      '--brief-what-learned',
+      'Bundles must capture evidence_brief + relations.',
+      '--brief-what-action',
       "Run the round-trip test and assert lifecycle_status='candidate'.",
-      "--trigger",
-      "user_explicit",
-      "--json",
+      '--trigger',
+      'user_explicit',
+      '--json'
     ],
     project
   );
@@ -104,55 +104,49 @@ async function seedLoopRelease(project: string, loopId: string): Promise<void> {
   expect(out.ok).toBe(true);
 }
 
-describe("share-bundle round-trip — AC-25", () => {
-  test("export → import lands as candidate on the receiver (AC-25)", async () => {
+describe('share-bundle round-trip — AC-25', () => {
+  test('export → import lands as candidate on the receiver (AC-25)', async () => {
     const sender = makeProject();
     const receiver = makeProject();
-    const bundlePath = join(sender, "share-bundle.tar.gz");
+    const bundlePath = join(sender, 'share-bundle.tar.gz');
     try {
-      await seedLoopRelease(sender, "loop-share-bundle");
+      await seedLoopRelease(sender, 'loop-share-bundle');
 
       // ---- SENDER: peaks loop export ----
       const exportResult = await cli(
-        [
-          "loop",
-          "export",
-          "--loop",
-          "loop-share-bundle",
-          "--out",
-          bundlePath,
-          "--json",
-        ],
+        ['loop', 'export', '--loop', 'loop-share-bundle', '--out', bundlePath, '--json'],
         sender
       );
       expect(exportResult.code).toBe(0);
       const exportOut = JSON.parse(exportResult.stdout);
       expect(exportOut.ok).toBe(true);
-      expect(exportOut.data.kind).toBe("loop");
-      expect(exportOut.data.assetId).toBe("loop-share-bundle");
+      expect(exportOut.data.kind).toBe('loop');
+      expect(exportOut.data.assetId).toBe('loop-share-bundle');
 
       // ---- RECEIVER: peaks loop import ----
-      const importResult = await cli(
-        ["loop", "import", "--in", bundlePath, "--json"],
-        receiver
-      );
+      const importResult = await cli(['loop', 'import', '--in', bundlePath, '--json'], receiver);
       if (importResult.code !== 0) {
-        console.error("import failed\nstdout:", importResult.stdout, "\nstderr:", importResult.stderr);
+        console.error(
+          'import failed\nstdout:',
+          importResult.stdout,
+          '\nstderr:',
+          importResult.stderr
+        );
       }
       expect(importResult.code).toBe(0);
       const importOut = JSON.parse(importResult.stdout);
       expect(importOut.ok).toBe(true);
       // AC-25 (hard rule): importedAs MUST be 'candidate'.
-      expect(importOut.data.importedAs).toBe("candidate");
-      expect(importOut.data.kind).toBe("loop");
-      expect(importOut.data.assetId).toBe("loop-share-bundle");
+      expect(importOut.data.importedAs).toBe('candidate');
+      expect(importOut.data.kind).toBe('loop');
+      expect(importOut.data.assetId).toBe('loop-share-bundle');
     } finally {
       rmSync(sender, { recursive: true, force: true });
       rmSync(receiver, { recursive: true, force: true });
     }
   });
 
-  test("shareable=false blocks export at the CLI layer", async () => {
+  test('shareable=false blocks export at the CLI layer', async () => {
     const project = makeProject();
     try {
       // Crystallize a normal loop first (creates the row with
@@ -162,10 +156,10 @@ describe("share-bundle round-trip — AC-25", () => {
       // (`refuses to write a loop bundle when shareable=false`);
       // we re-assert the CLI shape here so a future CLI refactor
       // cannot drop the guard.
-      await seedLoopRelease(project, "loop-private");
-      const out = join(project, "private.tar.gz");
+      await seedLoopRelease(project, 'loop-private');
+      const out = join(project, 'private.tar.gz');
       const exportResult = await cli(
-        ["loop", "export", "--loop", "loop-private", "--out", out, "--json"],
+        ['loop', 'export', '--loop', 'loop-private', '--out', out, '--json'],
         project
       );
       // shareable defaults to true → export SUCCEEDS. We assert
@@ -175,9 +169,9 @@ describe("share-bundle round-trip — AC-25", () => {
       expect(exportResult.code).toBe(0);
       const parsed = JSON.parse(exportResult.stdout);
       expect(parsed.ok).toBe(true);
-      expect(parsed.data.kind).toBe("loop");
-      expect(parsed.data.assetId).toBe("loop-private");
-      expect(parsed.data.importedAs).toBe("candidate");
+      expect(parsed.data.kind).toBe('loop');
+      expect(parsed.data.assetId).toBe('loop-private');
+      expect(parsed.data.importedAs).toBe('candidate');
     } finally {
       rmSync(project, { recursive: true, force: true });
     }
@@ -200,8 +194,8 @@ db.close();
 `;
 void FLIP_SHAREABLE_SCRIPT;
 
-describe("share-bundle round-trip — AC-26 (no promote without evaluation)", () => {
-  test("without an evolution_evaluation row, peaks loop promote has no candidate path; the receiver must evaluate first", async () => {
+describe('share-bundle round-trip — AC-26 (no promote without evaluation)', () => {
+  test('without an evolution_evaluation row, peaks loop promote has no candidate path; the receiver must evaluate first', async () => {
     // AC-26 requires `peaks loop promote` to refuse a candidate → stable transition
     // unless an evolution_evaluation row exists with an
     // `independent_scorer_verdict`. M7 does not add a `peaks loop
@@ -212,43 +206,26 @@ describe("share-bundle round-trip — AC-26 (no promote without evaluation)", ()
     // no promotion evidence.
     const sender = makeProject();
     const receiver = makeProject();
-    const bundlePath = join(sender, "share-bundle-2.tar.gz");
+    const bundlePath = join(sender, 'share-bundle-2.tar.gz');
     try {
-      await seedLoopRelease(sender, "loop-share-bundle-2");
+      await seedLoopRelease(sender, 'loop-share-bundle-2');
       const exportResult = await cli(
-        [
-          "loop",
-          "export",
-          "--loop",
-          "loop-share-bundle-2",
-          "--out",
-          bundlePath,
-          "--json",
-        ],
+        ['loop', 'export', '--loop', 'loop-share-bundle-2', '--out', bundlePath, '--json'],
         sender
       );
       expect(exportResult.code).toBe(0);
 
-      const importResult = await cli(
-        ["loop", "import", "--in", bundlePath, "--json"],
-        receiver
-      );
+      const importResult = await cli(['loop', 'import', '--in', bundlePath, '--json'], receiver);
       expect(importResult.code).toBe(0);
       const importOut = JSON.parse(importResult.stdout);
-      expect(importOut.data.importedAs).toBe("candidate");
+      expect(importOut.data.importedAs).toBe('candidate');
 
       // Receiver-side: peaks evolution status reports
       // total=0 — there is no evolution_evaluation row against
       // the imported loop_release, so any future peaks loop
       // promote would refuse.
       const statusResult = await cli(
-        [
-          "evolution",
-          "status",
-          "--target",
-          "loop:loop-share-bundle-2",
-          "--json",
-        ],
+        ['evolution', 'status', '--target', 'loop:loop-share-bundle-2', '--json'],
         receiver
       );
       expect(statusResult.code).toBe(0);
@@ -258,7 +235,7 @@ describe("share-bundle round-trip — AC-26 (no promote without evaluation)", ()
       // byVerdict is the canonical aggregate that promotes read
       // (the same dict `peaks loop promote` would gate on).
       expect(statusOut.data.byVerdict.keep).toBe(0);
-      expect(statusOut.data.byVerdict["needs-user-decision"]).toBe(0);
+      expect(statusOut.data.byVerdict['needs-user-decision']).toBe(0);
       expect(statusOut.data.byVerdict.revert).toBe(0);
     } finally {
       rmSync(sender, { recursive: true, force: true });

@@ -55,12 +55,18 @@ describe('registerEvidenceCommands', () => {
 
     await program.parseAsync(
       [
-        'evidence', 'generate',
-        '--rid', RID,
-        '--title', TITLE,
-        '--files', 'src/a.ts,src/b.ts,src/c.ts',
-        '--line-counts', 'src/a.ts=120;src/b.ts=300;src/c.ts=450',
-        '--session-id', SID,
+        'evidence',
+        'generate',
+        '--rid',
+        RID,
+        '--title',
+        TITLE,
+        '--files',
+        'src/a.ts,src/b.ts,src/c.ts',
+        '--line-counts',
+        'src/a.ts=120;src/b.ts=300;src/c.ts=450',
+        '--session-id',
+        SID,
         '--json'
       ],
       { from: 'user' }
@@ -106,11 +112,25 @@ describe('registerEvidenceCommands', () => {
     expect(testReport).toContain('## Test execution');
 
     // 8. qa/security-findings-<rid>.md — ## Findings (suffixed)
-    const securityFindings = readRel(ws, '.peaks', '_runtime', SID, 'qa', `security-findings-${RID}.md`);
+    const securityFindings = readRel(
+      ws,
+      '.peaks',
+      '_runtime',
+      SID,
+      'qa',
+      `security-findings-${RID}.md`
+    );
     expect(securityFindings).toContain('## Findings');
 
     // 9. qa/performance-findings-<rid>.md — ## Baseline (suffixed)
-    const performanceFindings = readRel(ws, '.peaks', '_runtime', SID, 'qa', `performance-findings-${RID}.md`);
+    const performanceFindings = readRel(
+      ws,
+      '.peaks',
+      '_runtime',
+      SID,
+      'qa',
+      `performance-findings-${RID}.md`
+    );
     expect(performanceFindings).toContain('## Baseline');
 
     // 10. qa/requests/001-<rid>.md — filled (no placeholders) + verdict pass
@@ -152,12 +172,18 @@ describe('registerEvidenceCommands', () => {
 
     await program.parseAsync(
       [
-        'evidence', 'generate',
-        '--rid', RID,
-        '--title', TITLE,
-        '--files', 'src/a.ts',
-        '--line-counts', 'src/a.ts=120',
-        '--session-id', SID,
+        'evidence',
+        'generate',
+        '--rid',
+        RID,
+        '--title',
+        TITLE,
+        '--files',
+        'src/a.ts',
+        '--line-counts',
+        'src/a.ts=120',
+        '--session-id',
+        SID,
         '--json'
       ],
       { from: 'user' }

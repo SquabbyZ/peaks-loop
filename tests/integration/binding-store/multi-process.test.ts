@@ -35,10 +35,16 @@ import { afterAll, afterEach, beforeAll, describe, expect, test } from 'vitest';
 
 const REPO_ROOT = resolve(__dirname, '..', '..', '..');
 const DRIVER = join(REPO_ROOT, 'scripts', 'fixtures', 'ci-binding-driver.mjs');
-const BUILT_BINDING_STORE = join(REPO_ROOT, 'dist', 'src', 'services', 'session', 'binding-store.js');
+const BUILT_BINDING_STORE = join(
+  REPO_ROOT,
+  'dist',
+  'src',
+  'services',
+  'session',
+  'binding-store.js'
+);
 
-const IS_UBUNTU_CI =
-  process.env.CI === 'true' && process.env.RUNNER_OS === 'Linux';
+const IS_UBUNTU_CI = process.env.CI === 'true' && process.env.RUNNER_OS === 'Linux';
 
 interface DriverEnvelope {
   ok: boolean;
@@ -74,9 +80,7 @@ function spawnDriver(envSignal: string, projectRoot: string): DriverEnvelope {
   });
 
   if (r.status !== 0) {
-    throw new Error(
-      `driver exited ${r.status} — stderr: ${r.stderr ?? '(empty)'}`
-    );
+    throw new Error(`driver exited ${r.status} — stderr: ${r.stderr ?? '(empty)'}`);
   }
   const lines = (r.stdout ?? '').trim().split('\n').filter(Boolean);
   const lastLine = lines[lines.length - 1] ?? '{}';

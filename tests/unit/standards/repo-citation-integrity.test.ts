@@ -181,8 +181,8 @@ declareDimensions(
   ['behavior', 'integration'],
   [
     { dim: 'render', reason: 'the checker returns findings; it renders nothing' },
-    { dim: 'a11y', reason: 'no human-facing surface; findings surface in the assertion message' },
-  ],
+    { dim: 'a11y', reason: 'no human-facing surface; findings surface in the assertion message' }
+  ]
 );
 
 const REPO_ROOT = resolve(__dirname, '..', '..', '..');
@@ -242,7 +242,7 @@ const CORPUS_ENTRIES = [
   'CLAUDE.md',
   '.peaks/PROJECT.md',
   'README.md',
-  'contracts/test-style-contract.md',
+  'contracts/test-style-contract.md'
 ] as const;
 const CORPUS_DIRS = ['.peaks/standards', 'skills'] as const;
 
@@ -257,11 +257,22 @@ const CORPUS_DIRS = ['.peaks/standards', 'skills'] as const;
  * because a citation that resolves against the tree is cleared before this
  * rule is ever consulted for it (see `findDanglingCitations`).
  */
-const SESSION_WORKSPACE_DIRS = new Set(['prd', 'rd', 'qa', 'sc', 'txt', 'audit', 'ui', 'session', 'system']);
+const SESSION_WORKSPACE_DIRS = new Set([
+  'prd',
+  'rd',
+  'qa',
+  'sc',
+  'txt',
+  'audit',
+  'ui',
+  'session',
+  'system'
+]);
 
 /** A backtick span must look like this to be treated as a path citation. */
 const PATH_SHAPED = /^[A-Za-z0-9_.@-]+(?:\/[A-Za-z0-9_.@-]+)+$/;
-const REPO_ANCHORS = /^(\.peaks|\.claude|\.github|src|tests|docs|scripts|skills|packages|bin|openspec)\//;
+const REPO_ANCHORS =
+  /^(\.peaks|\.claude|\.github|src|tests|docs|scripts|skills|packages|bin|openspec)\//;
 
 /**
  * `path.md:127` — a citation that names a LINE of the file rather than the file
@@ -345,14 +356,27 @@ const ELLIPSIS_SEGMENT = /(?:^|\/)\.\.\.(?:$|\/)/;
  * of hard-blocked path *families* is illustrating `src/`; no repository owes
  * anyone a file called `x.ts`.
  */
-const SYNTHETIC_STEMS = new Set(['x', 'y', 'z', 'foo', 'bar', 'baz', 'qux', 'example', 'sample', 'dummy', 'placeholder']);
+const SYNTHETIC_STEMS = new Set([
+  'x',
+  'y',
+  'z',
+  'foo',
+  'bar',
+  'baz',
+  'qux',
+  'example',
+  'sample',
+  'dummy',
+  'placeholder'
+]);
 
 /**
  * Text that introduces a path as a shape to copy into the consumer's own
  * repository, e.g. "exactly one mapper file (e.g. `mappers/user.mapper.ts`)".
  * Such a path is not a claim that this tree contains it.
  */
-const ILLUSTRATION_CUE = /(?:e\.g\.|i\.e\.|for example|such as|reference shape|Example:)\s*\(?\s*$/i;
+const ILLUSTRATION_CUE =
+  /(?:e\.g\.|i\.e\.|for example|such as|reference shape|Example:)\s*\(?\s*$/i;
 
 /**
  * Paths that are documented by design and legitimately absent from a checkout.
@@ -371,12 +395,14 @@ const OPTIONAL_RUNTIME_PATHS = new Set([
   // path". It is in neither `.gitignore` nor most working trees, so without
   // this entry the guard would require the tree to hold a file the runtime no
   // longer writes.
-  '.peaks/.session.json',
+  '.peaks/.session.json'
 ]);
 
 /** Every markdown file in the corpus, absolute paths, repo-relative order. */
 export function corpusFiles(repoRoot: string): string[] {
-  const files: string[] = CORPUS_ENTRIES.map((rel) => join(repoRoot, rel)).filter((abs) => existsSync(abs));
+  const files: string[] = CORPUS_ENTRIES.map((rel) => join(repoRoot, rel)).filter((abs) =>
+    existsSync(abs)
+  );
   const walk = (relDir: string): void => {
     const absDir = join(repoRoot, relDir);
     if (!existsSync(absDir)) return;
@@ -428,7 +454,8 @@ export function corpusFiles(repoRoot: string): string[] {
  * pattern directly as well — the same regex at a second call site, not a second
  * regex.
  */
-const BARE_TEST_CITATION = /(?<!`)(tests\/[A-Za-z0-9_.-]+(?:\/[A-Za-z0-9_.-]+)*\.test\.ts)(?![\w./-])/g;
+const BARE_TEST_CITATION =
+  /(?<!`)(tests\/[A-Za-z0-9_.-]+(?:\/[A-Za-z0-9_.-]+)*\.test\.ts)(?![\w./-])/g;
 
 /**
  * A bare `*.test.ts` FILENAME carrying no directory — the second bare shape,
@@ -469,7 +496,10 @@ const BARE_TEST_CITATION = /(?<!`)(tests\/[A-Za-z0-9_.-]+(?:\/[A-Za-z0-9_.-]+)*\
  * character classes would be two rules free to drift apart.
  */
 const BARE_FILENAME_NAME = String.raw`[A-Za-z0-9_][A-Za-z0-9_.-]*-[A-Za-z0-9_.-]*\.test\.ts`;
-const BARE_TEST_FILENAME = new RegExp(String.raw`(?:^|(?<=\s))(${BARE_FILENAME_NAME})(?=\s|$)`, 'g');
+const BARE_TEST_FILENAME = new RegExp(
+  String.raw`(?:^|(?<=\s))(${BARE_FILENAME_NAME})(?=\s|$)`,
+  'g'
+);
 const BARE_FILENAME_SHAPED = new RegExp(`^${BARE_FILENAME_NAME}$`);
 
 /**
@@ -479,7 +509,7 @@ const BARE_FILENAME_SHAPED = new RegExp(`^${BARE_FILENAME_NAME}$`);
  */
 const BARE_SCANS: ReadonlyArray<readonly [RegExp, boolean]> = [
   [BARE_TEST_CITATION, false],
-  [BARE_TEST_FILENAME, true],
+  [BARE_TEST_FILENAME, true]
 ];
 
 /**
@@ -612,7 +642,7 @@ function isCandidate(
    * `slice(0, lastIndexOf('/'))` finds no slash (`-1`) and silently drops the
    * span's last character. A hardening, not a repair — nothing is broken now.
    */
-  namesNoDirectory = false,
+  namesNoDirectory = false
 ): boolean {
   // excludes `<sid>` placeholders, globs and bare non-paths
   if (!(namesNoDirectory ? BARE_FILENAME_SHAPED.test(span) : PATH_SHAPED.test(span))) return false;
@@ -657,7 +687,7 @@ export function findDanglingCitations(
    * document-relative branch of `isCandidate` consults it, so the pure
    * behavior controls — whose spans are all repo-anchored — may omit it.
    */
-  dirExists: (relDir: string) => boolean = () => false,
+  dirExists: (relDir: string) => boolean = () => false
 ): string[] {
   const findings: string[] = [];
   for (const { id, body } of texts) {
@@ -727,7 +757,9 @@ describe('Scenario: behavior — the checker can fail, and can clear', () => {
 
   it('when a corpus text cites a path that does not exist, should report it', () => {
     // given: a document citing two repo paths, only one of which exists
-    const texts = [{ id: 'FAKE.md', body: 'See `tests/unit/does-not-exist.test.ts` and `src/cli/index.ts`.' }];
+    const texts = [
+      { id: 'FAKE.md', body: 'See `tests/unit/does-not-exist.test.ts` and `src/cli/index.ts`.' }
+    ];
     const exists = (rel: string): boolean => rel === 'src/cli/index.ts';
 
     // when: the corpus is checked
@@ -739,10 +771,18 @@ describe('Scenario: behavior — the checker can fail, and can clear', () => {
 
   it('when every cited path exists, should report nothing', () => {
     // given: a document whose citations all resolve (the clean-tree control)
-    const texts = [{ id: 'FAKE.md', body: 'See `src/cli/index.ts` and `tests/unit/standards/repo-citation-integrity.test.ts`.' }];
+    const texts = [
+      {
+        id: 'FAKE.md',
+        body: 'See `src/cli/index.ts` and `tests/unit/standards/repo-citation-integrity.test.ts`.'
+      }
+    ];
 
     // when: the corpus is checked
-    const findings = findDanglingCitations(texts, (rel) => rel.startsWith('src/') || rel.startsWith('tests/'));
+    const findings = findDanglingCitations(
+      texts,
+      (rel) => rel.startsWith('src/') || rel.startsWith('tests/')
+    );
 
     // then: the guard stays green
     expect(findings).toEqual([]);
@@ -751,14 +791,16 @@ describe('Scenario: behavior — the checker can fail, and can clear', () => {
   it('when a span is not a path citation, should not treat it as one', () => {
     // given: prose carrying a category label, an action ref, a glob and a
     //        per-session path — plus one real dangling citation as the control
-    const texts = [{
-      id: 'FAKE.md',
-      body: [
-        'Categories `TODO/FIXME/XXX`, action `pnpm/action-setup@v4`,',
-        'glob `src/**/*.ts`, session `.peaks/_runtime/<sid>/rd/x.md`,',
-        'and `docs/gone.md`.',
-      ].join('\n'),
-    }];
+    const texts = [
+      {
+        id: 'FAKE.md',
+        body: [
+          'Categories `TODO/FIXME/XXX`, action `pnpm/action-setup@v4`,',
+          'glob `src/**/*.ts`, session `.peaks/_runtime/<sid>/rd/x.md`,',
+          'and `docs/gone.md`.'
+        ].join('\n')
+      }
+    ];
 
     // when: the corpus is checked with nothing on disk
     const findings = findDanglingCitations(texts, noPathsExist);
@@ -774,7 +816,9 @@ describe('Scenario: behavior — the bare scans see citations the backticks hide
   it('when prose names a bare tests/ path that is gone, should report it', () => {
     // given: gap #1's first shape — the path written without backticks, which a
     //        backtick-only reading cannot fail on
-    const texts = [{ id: 'FAKE.md', body: 'Coverage is asserted by tests/some-thing.test.ts today.' }];
+    const texts = [
+      { id: 'FAKE.md', body: 'Coverage is asserted by tests/some-thing.test.ts today.' }
+    ];
 
     // when: the checker runs with nothing on disk
     const findings = findDanglingCitations(texts, noPathsExist);
@@ -785,10 +829,18 @@ describe('Scenario: behavior — the bare scans see citations the backticks hide
 
   it('when prose names a bare tests/ path that exists, should report nothing', () => {
     // given: the clean control for the case above — same shape, resolvable
-    const texts = [{ id: 'FAKE.md', body: 'Coverage is asserted by tests/unit/standards/repo-citation-integrity.test.ts today.' }];
+    const texts = [
+      {
+        id: 'FAKE.md',
+        body: 'Coverage is asserted by tests/unit/standards/repo-citation-integrity.test.ts today.'
+      }
+    ];
 
     // when: the checker runs against a tree that holds it
-    const findings = findDanglingCitations(texts, (rel) => rel === 'tests/unit/standards/repo-citation-integrity.test.ts');
+    const findings = findDanglingCitations(
+      texts,
+      (rel) => rel === 'tests/unit/standards/repo-citation-integrity.test.ts'
+    );
 
     // then: the guard stays green
     expect(findings).toEqual([]);
@@ -797,7 +849,9 @@ describe('Scenario: behavior — the bare scans see citations the backticks hide
   it('when the same dangling path is backticked, should still report it', () => {
     // given: the pre-existing shape, unchanged — the widening must not have
     //        moved the backtick path's behavior
-    const texts = [{ id: 'FAKE.md', body: 'Coverage is asserted by `tests/nonexistent.test.ts` today.' }];
+    const texts = [
+      { id: 'FAKE.md', body: 'Coverage is asserted by `tests/nonexistent.test.ts` today.' }
+    ];
 
     // when: the checker runs with nothing on disk
     const findings = findDanglingCitations(texts, noPathsExist);
@@ -809,7 +863,12 @@ describe('Scenario: behavior — the bare scans see citations the backticks hide
   it('when prose names a bare path that is not a test, should not report it', () => {
     // given: the precision control — the bare rule is drawn at `.test.ts`, not
     //        at paths in general
-    const texts = [{ id: 'FAKE.md', body: 'The entry point is src/some-file.ts and the config is config/settings.json.' }];
+    const texts = [
+      {
+        id: 'FAKE.md',
+        body: 'The entry point is src/some-file.ts and the config is config/settings.json.'
+      }
+    ];
 
     // when: the checker runs with nothing on disk
     const findings = findDanglingCitations(texts, noPathsExist);
@@ -821,7 +880,9 @@ describe('Scenario: behavior — the bare scans see citations the backticks hide
   it('when a dangling path is both backticked and bare on one line, should report it once', () => {
     // given: one line reading the same missing path twice — once marked as a
     //        path, once in plain prose
-    const texts = [{ id: 'FAKE.md', body: 'See `tests/gone.test.ts`; tests/gone.test.ts is the guard.' }];
+    const texts = [
+      { id: 'FAKE.md', body: 'See `tests/gone.test.ts`; tests/gone.test.ts is the guard.' }
+    ];
 
     // when: the checker runs with nothing on disk
     const findings = findDanglingCitations(texts, noPathsExist);
@@ -836,7 +897,12 @@ describe('Scenario: behavior — the bare scans see citations the backticks hide
     //        `skills/bee/peaks-qa/SKILL.md`, whose test was deleted in
     //        `457b9a87`. `BARE_TEST_CITATION` opens with `tests\/` and cannot
     //        match it; without this rule the shape stays invisible
-    const texts = [{ id: 'FAKE.md', body: 'The guard is pinned by skills-skill-md-naming.test.ts in this suite.' }];
+    const texts = [
+      {
+        id: 'FAKE.md',
+        body: 'The guard is pinned by skills-skill-md-naming.test.ts in this suite.'
+      }
+    ];
 
     // when: the checker runs with nothing on disk
     const findings = findDanglingCitations(texts, noPathsExist);
@@ -848,7 +914,9 @@ describe('Scenario: behavior — the bare scans see citations the backticks hide
   it('when prose names a bare filename that is not a test, should not report it', () => {
     // given: the precision control for the rule above — a bare filename is a
     //        name, not a citation, and these documents are full of them
-    const texts = [{ id: 'FAKE.md', body: 'Read README.md and CHANGELOG.md, then see .peaks/PROJECT.md.' }];
+    const texts = [
+      { id: 'FAKE.md', body: 'Read README.md and CHANGELOG.md, then see .peaks/PROJECT.md.' }
+    ];
 
     // when: the checker runs with nothing on disk
     const findings = findDanglingCitations(texts, noPathsExist);
@@ -887,7 +955,12 @@ describe('Scenario: behavior — the bare scans see citations the backticks hide
     //        `PATH_SHAPED`, which requires a slash — so a backticked filename
     //        fails the shape test exactly as a bare one does, and this slice's
     //        widening (which reads only OUTSIDE spans) does not reach it
-    const texts = [{ id: 'FAKE.md', body: 'The guard is pinned by `skills-skill-md-naming.test.ts` in this suite.' }];
+    const texts = [
+      {
+        id: 'FAKE.md',
+        body: 'The guard is pinned by `skills-skill-md-naming.test.ts` in this suite.'
+      }
+    ];
 
     // when: the checker runs with nothing on disk
     const findings = findDanglingCitations(texts, noPathsExist);
@@ -904,10 +977,12 @@ describe('Scenario: behavior — the bare scans see citations the backticks hide
     // given: the shape the real corpus actually contains — a path that is a
     //        fragment of a quoted sample record wrapped in backticks. Nothing
     //        here claims this tree holds the file
-    const texts = [{
-      id: 'FAKE.md',
-      body: '> `summary: "AC-1 covered by config-service.api.test.ts (public API unchanged)"`',
-    }];
+    const texts = [
+      {
+        id: 'FAKE.md',
+        body: '> `summary: "AC-1 covered by config-service.api.test.ts (public API unchanged)"`'
+      }
+    ];
 
     // when: the checker runs with nothing on disk
     const findings = findDanglingCitations(texts, noPathsExist);
@@ -950,13 +1025,15 @@ describe('Scenario: behavior — a line-numbered citation is judged on its file'
     //        not one of them a citation). Had the fix been "add `:` to
     //        `PATH_SHAPED`" rather than "strip a `:<digits>` suffix", each of
     //        these would be reported as a file this tree owes
-    const texts = [{
-      id: 'FAKE.md',
-      body: [
-        'A record `schemaVersion: 1`, a URL `https://example.com/x.md`,',
-        'a host `localhost:9222`, a bare port `:9222`, and a range `docs/gone.md:14-17`.',
-      ].join('\n'),
-    }];
+    const texts = [
+      {
+        id: 'FAKE.md',
+        body: [
+          'A record `schemaVersion: 1`, a URL `https://example.com/x.md`,',
+          'a host `localhost:9222`, a bare port `:9222`, and a range `docs/gone.md:14-17`.'
+        ].join('\n')
+      }
+    ];
 
     // when: the checker runs with nothing on disk
     const findings = findDanglingCitations(texts, noPathsExist);
@@ -1024,8 +1101,11 @@ describe('Scenario: integration — the real corpus resolves on the real tree', 
   /** The corpus, read off the working tree, keyed by its repo-relative id. */
   const corpusTexts = (): Array<{ id: string; body: string }> =>
     corpusFiles(REPO_ROOT).map((abs) => ({
-      id: abs.slice(REPO_ROOT.length + 1).split('\\').join('/'),
-      body: readFileSync(abs, 'utf8'),
+      id: abs
+        .slice(REPO_ROOT.length + 1)
+        .split('\\')
+        .join('/'),
+      body: readFileSync(abs, 'utf8')
     }));
 
   /**
@@ -1045,7 +1125,9 @@ describe('Scenario: integration — the real corpus resolves on the real tree', 
 
     // when: every path-shaped citation is resolved against the tree, first from
     //       the repo root and then from the citing document's own directory
-    const findings = findDanglingCitations(texts, resolveOnTree, (rel) => isDirectory(join(REPO_ROOT, rel)));
+    const findings = findDanglingCitations(texts, resolveOnTree, (rel) =>
+      isDirectory(join(REPO_ROOT, rel))
+    );
 
     // then: nothing dangles — and this is the case that would fail if the bare
     //       scans below reported a sample-record filename as a missing file
@@ -1058,11 +1140,13 @@ describe('Scenario: integration — the real corpus resolves on the real tree', 
     const texts = corpusTexts();
     texts.push({
       id: 'skills/peaks-audit/SKILL.md',
-      body: 'The behaviour is pinned by tests/unit/skills/a-gone-bare.test.ts and by a-gone-filename.test.ts today.',
+      body: 'The behaviour is pinned by tests/unit/skills/a-gone-bare.test.ts and by a-gone-filename.test.ts today.'
     });
 
     // when: the widened checker runs over exactly that corpus
-    const findings = findDanglingCitations(texts, resolveOnTree, (rel) => isDirectory(join(REPO_ROOT, rel)));
+    const findings = findDanglingCitations(texts, resolveOnTree, (rel) =>
+      isDirectory(join(REPO_ROOT, rel))
+    );
 
     // then: both are reported, and nothing else is. The corpus above is the
     //       baseline; this is the injection that proves the scan reading it is
@@ -1070,7 +1154,7 @@ describe('Scenario: integration — the real corpus resolves on the real tree', 
     //       above while guarding nothing
     expect(findings).toEqual([
       'skills/peaks-audit/SKILL.md:1 cites `tests/unit/skills/a-gone-bare.test.ts`',
-      'skills/peaks-audit/SKILL.md:1 cites `a-gone-filename.test.ts`',
+      'skills/peaks-audit/SKILL.md:1 cites `a-gone-filename.test.ts`'
     ]);
   });
 
@@ -1081,15 +1165,17 @@ describe('Scenario: integration — the real corpus resolves on the real tree', 
     const texts = corpusTexts();
     texts.push({
       id: 'skills/peaks-final-review/SKILL.md',
-      body: 'The gate was described in `docs/nonexistent.md:42`.',
+      body: 'The gate was described in `docs/nonexistent.md:42`.'
     });
 
     // when: the checker runs over exactly that corpus
-    const findings = findDanglingCitations(texts, resolveOnTree, (rel) => isDirectory(join(REPO_ROOT, rel)));
+    const findings = findDanglingCitations(texts, resolveOnTree, (rel) =>
+      isDirectory(join(REPO_ROOT, rel))
+    );
 
     // then: it is reported, and nothing else is
     expect(findings).toEqual([
-      'skills/peaks-final-review/SKILL.md:1 cites `docs/nonexistent.md:42`',
+      'skills/peaks-final-review/SKILL.md:1 cites `docs/nonexistent.md:42`'
     ]);
   });
 
@@ -1103,11 +1189,13 @@ describe('Scenario: integration — the real corpus resolves on the real tree', 
     const texts = corpusTexts().map((t) =>
       t.id === 'contracts/test-style-contract.md'
         ? { ...t, body: 'The retired guide was `.peaks/docs/gone-contract.md`.' }
-        : t,
+        : t
     );
 
     // when: the checker runs over exactly that corpus
-    const findings = findDanglingCitations(texts, resolveOnTree, (rel) => isDirectory(join(REPO_ROOT, rel)));
+    const findings = findDanglingCitations(texts, resolveOnTree, (rel) =>
+      isDirectory(join(REPO_ROOT, rel))
+    );
 
     // then: it is reported. Drop `contracts/test-style-contract.md` from
     //       `CORPUS_ENTRIES` and this goes RED — no id matches, nothing is
@@ -1116,14 +1204,19 @@ describe('Scenario: integration — the real corpus resolves on the real tree', 
     //       and published, while its three neighbours are archive, and this
     //       case is the line between them made executable
     expect(findings).toEqual([
-      'contracts/test-style-contract.md:1 cites `.peaks/docs/gone-contract.md`',
+      'contracts/test-style-contract.md:1 cites `.peaks/docs/gone-contract.md`'
     ]);
   });
 
   it('when the corpus is enumerated, should include the normative documents', () => {
     // given: the corpus definition
     // when: it is enumerated
-    const ids = corpusFiles(REPO_ROOT).map((abs) => abs.slice(REPO_ROOT.length + 1).split('\\').join('/'));
+    const ids = corpusFiles(REPO_ROOT).map((abs) =>
+      abs
+        .slice(REPO_ROOT.length + 1)
+        .split('\\')
+        .join('/')
+    );
 
     // then: the documents the brief names as normative are all present
     expect(ids).toContain('CLAUDE.md');
@@ -1165,13 +1258,13 @@ describe('Scenario: integration — script comments cite only paths that exist',
     // given: the comment text of every script, read off the working tree
     const texts = scriptFiles(REPO_ROOT).map((id) => ({
       id,
-      body: commentText(readFileSync(join(REPO_ROOT, id), 'utf8')),
+      body: commentText(readFileSync(join(REPO_ROOT, id), 'utf8'))
     }));
 
     // when: every path-shaped backtick citation in a comment is resolved
     const findings = findDanglingCitations(
       texts,
-      (rel) => existsSync(join(REPO_ROOT, rel)) || isGitIgnored(rel),
+      (rel) => existsSync(join(REPO_ROOT, rel)) || isGitIgnored(rel)
     );
 
     // then: nothing dangles
@@ -1182,12 +1275,17 @@ describe('Scenario: integration — script comments cite only paths that exist',
 describe('Scenario: behavior — the comment corpus can fail, and cannot read code as prose', () => {
   it('when a comment cites a deleted test, should report it with the real line number', () => {
     // given: a script whose comment cites a test that is not on the tree
-    const body = ['#!/usr/bin/env node', 'import { x } from "y";', '// pinned by `tests/unit/scripts/gone.test.ts`', 'x();'].join('\n');
+    const body = [
+      '#!/usr/bin/env node',
+      'import { x } from "y";',
+      '// pinned by `tests/unit/scripts/gone.test.ts`',
+      'x();'
+    ].join('\n');
 
     // when: its comment text is checked
     const findings = findDanglingCitations(
       [{ id: 'scripts/fake.mjs', body: commentText(body) }],
-      () => false,
+      () => false
     );
 
     // then: the citation is reported at the line the reader will open
@@ -1196,12 +1294,15 @@ describe('Scenario: behavior — the comment corpus can fail, and cannot read co
 
   it('when a comment cites a file that exists, should report nothing', () => {
     // given: the clean control for the case above
-    const body = ['#!/usr/bin/env node', '// pinned by `tests/unit/standards/repo-citation-integrity.test.ts`'].join('\n');
+    const body = [
+      '#!/usr/bin/env node',
+      '// pinned by `tests/unit/standards/repo-citation-integrity.test.ts`'
+    ].join('\n');
 
     // when: its comment text is checked
     const findings = findDanglingCitations(
       [{ id: 'scripts/fake.mjs', body: commentText(body) }],
-      (rel) => rel === 'tests/unit/standards/repo-citation-integrity.test.ts',
+      (rel) => rel === 'tests/unit/standards/repo-citation-integrity.test.ts'
     );
 
     // then: the guard stays green
@@ -1212,12 +1313,16 @@ describe('Scenario: behavior — the comment corpus can fail, and cannot read co
     // given: a script whose only path-shaped string is a runtime argument —
     //        the shape the corpus must not read as prose, or every import and
     //        every fs call would become a citation
-    const body = ['#!/usr/bin/env node', 'const manifest = "release/artifacts/index.json";', 'run("scripts/does-not-exist.mjs");'].join('\n');
+    const body = [
+      '#!/usr/bin/env node',
+      'const manifest = "release/artifacts/index.json";',
+      'run("scripts/does-not-exist.mjs");'
+    ].join('\n');
 
     // when: its comment text is checked
     const findings = findDanglingCitations(
       [{ id: 'scripts/fake.mjs', body: commentText(body) }],
-      () => false,
+      () => false
     );
 
     // then: no citation is claimed — code is not prose
@@ -1228,17 +1333,24 @@ describe('Scenario: behavior — the comment corpus can fail, and cannot read co
     // given: E2's exact shape — a comment asserting coverage, the test path
     //        written in bare prose, the file gone. A backtick-only reading
     //        passes over this, which is why the defect survived
-    const body = ['#!/usr/bin/env node', '// This narrow unlink stays because it is unit-tested by', '// tests/unit/scripts/sync-version-invalidation.test.ts and', '// catching the Bug-04 lineage on its own is cheap insurance.'].join('\n');
+    const body = [
+      '#!/usr/bin/env node',
+      '// This narrow unlink stays because it is unit-tested by',
+      '// tests/unit/scripts/sync-version-invalidation.test.ts and',
+      '// catching the Bug-04 lineage on its own is cheap insurance.'
+    ].join('\n');
 
     // when: its comment text is checked
     const findings = findDanglingCitations(
       [{ id: 'scripts/fake.mjs', body: commentText(body) }],
-      () => false,
+      () => false
     );
 
     // then: the citation is reported at the line the reader will open — the
     //       citing line is 3, and the shim line above it is not miscounted
-    expect(findings).toEqual(['scripts/fake.mjs:3 cites `tests/unit/scripts/sync-version-invalidation.test.ts`']);
+    expect(findings).toEqual([
+      'scripts/fake.mjs:3 cites `tests/unit/scripts/sync-version-invalidation.test.ts`'
+    ]);
   });
 
   it('when a comment names a bare path that is NOT a test, should not report it', () => {
@@ -1249,13 +1361,13 @@ describe('Scenario: behavior — the comment corpus can fail, and cannot read co
     const body = [
       '#!/usr/bin/env node',
       '// For "." the source is src/index.ts.',
-      '//   --variant-from tests/fixtures/replay/2026-06-27-gone-audit-security.md \\',
+      '//   --variant-from tests/fixtures/replay/2026-06-27-gone-audit-security.md \\'
     ].join('\n');
 
     // when: its comment text is checked
     const findings = findDanglingCitations(
       [{ id: 'scripts/fake.mjs', body: commentText(body) }],
-      () => false,
+      () => false
     );
 
     // then: neither is claimed as a citation — the bare-token rule is drawn

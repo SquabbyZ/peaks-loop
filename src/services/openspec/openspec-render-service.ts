@@ -3,7 +3,11 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { isDirectory, pathExists } from 'peaks-loop-shared/fs';
 
-import { validateAgainstSchema, type JsonSchemaIssue, type JsonSchemaNode } from '../../shared/json-schema-mini.js';
+import {
+  validateAgainstSchema,
+  type JsonSchemaIssue,
+  type JsonSchemaNode
+} from '../../shared/json-schema-mini.js';
 
 import { validateChangeId } from './artifact-boundary.js';
 
@@ -183,7 +187,9 @@ export async function renderOpenSpecChange(
   }
 
   if (options.overwrite !== true && (await isDirectory(changeRoot))) {
-    throw new Error(`Refusing to render: change directory already exists at ${changeRoot}. Re-run with overwrite to replace it.`);
+    throw new Error(
+      `Refusing to render: change directory already exists at ${changeRoot}. Re-run with overwrite to replace it.`
+    );
   }
 
   await writeRenderedFiles(files);

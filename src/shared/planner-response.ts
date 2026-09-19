@@ -19,12 +19,11 @@ export type ArtifactWorkspaceAvailableResponse<T> = {
 };
 
 export type ArtifactWorkspaceResponse<T> =
-  | ArtifactWorkspaceUnavailableResponse
-  | ArtifactWorkspaceAvailableResponse<T>;
+  ArtifactWorkspaceUnavailableResponse | ArtifactWorkspaceAvailableResponse<T>;
 
 export const WORKSPACE_UNAVAILABLE_NEXT_ACTIONS = Object.freeze([
   'Configure a Peaks artifact workspace in your workspace config.',
-  'See peaks artifacts workspace --help for setup instructions.',
+  'See peaks artifacts workspace --help for setup instructions.'
 ]);
 
 export function makeUnavailableResponse(
@@ -35,17 +34,19 @@ export function makeUnavailableResponse(
     available: false,
     behavior,
     reason,
-    nextActions: [...WORKSPACE_UNAVAILABLE_NEXT_ACTIONS],
+    nextActions: [...WORKSPACE_UNAVAILABLE_NEXT_ACTIONS]
   };
 }
 
 export function makeAvailableResponse<T>(data: T): ArtifactWorkspaceAvailableResponse<T> {
   return {
     available: true,
-    data,
+    data
   };
 }
 
-export function isUnavailableResponse<T>(resp: ArtifactWorkspaceResponse<T>): resp is ArtifactWorkspaceUnavailableResponse {
+export function isUnavailableResponse<T>(
+  resp: ArtifactWorkspaceResponse<T>
+): resp is ArtifactWorkspaceUnavailableResponse {
   return resp.available === false;
 }

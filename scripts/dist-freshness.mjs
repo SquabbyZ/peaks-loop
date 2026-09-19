@@ -148,7 +148,8 @@ function sourcesNewerThan(projectRoot, cutoffMs) {
   const newer = [];
   for (const file of listFiles(srcRoot, (name) => name.endsWith(SOURCE_EXTENSION))) {
     const stat = statSync(file);
-    if (stat.mtimeMs > cutoffMs) newer.push({ path: toPosix(file.slice(projectRoot.length + 1)), mtimeMs: stat.mtimeMs });
+    if (stat.mtimeMs > cutoffMs)
+      newer.push({ path: toPosix(file.slice(projectRoot.length + 1)), mtimeMs: stat.mtimeMs });
   }
   return newer.sort((a, b) => b.mtimeMs - a.mtimeMs);
 }
@@ -180,7 +181,15 @@ export function evaluateDistFreshness(projectRoot) {
     if (stamp.digest === digest) {
       return { state: 'fresh', method: 'digest', distDir, digest, fileCount };
     }
-    return { state: 'stale', method: 'digest', distDir, digest, fileCount, builtDigest: stamp.digest, builtAt: stamp.builtAt ?? null };
+    return {
+      state: 'stale',
+      method: 'digest',
+      distDir,
+      digest,
+      fileCount,
+      builtDigest: stamp.digest,
+      builtAt: stamp.builtAt ?? null
+    };
   }
 
   // No usable stamp. `dist/` was produced by something other than this build

@@ -30,8 +30,8 @@ declareDimensions(
   [
     { dim: 'behavior', reason: 'asserts generated markdown shape, not a return-value transition' },
     { dim: 'integration', reason: 'real temp dir only; no network / subprocess / clock control' },
-    { dim: 'a11y', reason: 'no user-visible text or exit code' },
-  ],
+    { dim: 'a11y', reason: 'no user-visible text or exit code' }
+  ]
 );
 
 const tempRoots: string[] = [];
@@ -89,7 +89,7 @@ describe('Scenario: render — generated project-scan.md section placement', () 
     writeFileSync(
       join(root, 'package.json'),
       JSON.stringify({ name: 'fixture', dependencies: { react: '^18.0.0' } }),
-      'utf8',
+      'utf8'
     );
     mkdirSync(join(root, 'src'), { recursive: true });
     writeFileSync(join(root, 'src', 'main.tsx'), 'export const x = 1;\n', 'utf8');
@@ -125,7 +125,7 @@ describe('Scenario: render — generated project-scan.md section placement', () 
     const parties = [
       'skills/peaks-code/references/project-scan-checklist.md',
       'skills/peaks-code/references/swarm-dispatch-contract.md',
-      'skills/peaks-code/references/frontend-only-mode.md',
+      'skills/peaks-code/references/frontend-only-mode.md'
     ];
 
     // when: each file is scanned for a frontendOnly ↔ ## Archetype binding

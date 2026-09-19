@@ -13,7 +13,7 @@ import {
   componentLibraryLabel,
   cssFrameworkLabel,
   detectProjectContext,
-  type ProjectContext,
+  type ProjectContext
 } from './project-context.js';
 import { renderUiLibraryPriorityRule } from './project-standards-service.js';
 

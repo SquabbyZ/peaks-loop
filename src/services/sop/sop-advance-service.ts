@@ -78,7 +78,9 @@ export class SopGateBlockedError extends Error {
   readonly code = 'SOP_GATE_BLOCKED';
   readonly blockedGates: BlockedGate[];
   constructor(toPhase: string, blockedGates: BlockedGate[]) {
-    super(`Cannot advance to "${toPhase}": ${blockedGates.length} gate(s) not satisfied (${blockedGates.map((g) => `${g.gateId}=${g.result}`).join(', ')})`);
+    super(
+      `Cannot advance to "${toPhase}": ${blockedGates.length} gate(s) not satisfied (${blockedGates.map((g) => `${g.gateId}=${g.result}`).join(', ')})`
+    );
     this.name = 'SopGateBlockedError';
     this.blockedGates = blockedGates;
   }
@@ -90,7 +92,9 @@ export class SopPhaseSkipError extends Error {
   readonly toPhase: string;
   readonly expectedNext: string;
   constructor(fromPhase: string | null, toPhase: string, expectedNext: string) {
-    super(`Cannot advance to "${toPhase}": it skips ahead of the declared phase order (current: ${fromPhase ?? 'none'}, next allowed: ${expectedNext}). Bypass with --allow-incomplete --reason "<why>" if you really must skip.`);
+    super(
+      `Cannot advance to "${toPhase}": it skips ahead of the declared phase order (current: ${fromPhase ?? 'none'}, next allowed: ${expectedNext}). Bypass with --allow-incomplete --reason "<why>" if you really must skip.`
+    );
     this.name = 'SopPhaseSkipError';
     this.fromPhase = fromPhase;
     this.toPhase = toPhase;
@@ -138,7 +142,10 @@ export async function advanceSop(options: AdvanceSopOptions): Promise<AdvanceSop
     throw new SopAdvanceError('SOP_NOT_FOUND', `No SOP found for id "${options.id}"`);
   }
   if (!manifest.phases.includes(options.toPhase)) {
-    throw new SopAdvanceError('INVALID_PHASE', `Phase "${options.toPhase}" is not declared by SOP "${options.id}"`);
+    throw new SopAdvanceError(
+      'INVALID_PHASE',
+      `Phase "${options.toPhase}" is not declared by SOP "${options.id}"`
+    );
   }
 
   const previous = await readSopState(options.projectRoot, options.id);
@@ -150,15 +157,18 @@ export async function advanceSop(options: AdvanceSopOptions): Promise<AdvanceSop
 
     const evaluateOptions: EvaluateGateOptions = {};
     if (options.allowCommands !== undefined) evaluateOptions.allowCommands = options.allowCommands;
-    if (options.commandTimeoutMs !== undefined) evaluateOptions.commandTimeoutMs = options.commandTimeoutMs;
+    if (options.commandTimeoutMs !== undefined)
+      evaluateOptions.commandTimeoutMs = options.commandTimeoutMs;
 
     const blocked: BlockedGate[] = [];
     for (const gate of phaseGates) {
       const verdict = evaluateGate(options.projectRoot, gate, evaluateOptions);
       if (verdict.result !== 'pass') {
-        blocked.push(verdict.reason === undefined
-          ? { gateId: gate.id, result: verdict.result }
-          : { gateId: gate.id, result: verdict.result, reason: verdict.reason });
+        blocked.push(
+          verdict.reason === undefined
+            ? { gateId: gate.id, result: verdict.result }
+            : { gateId: gate.id, result: verdict.result, reason: verdict.reason }
+        );
       }
     }
     if (blocked.length > 0) {
@@ -169,12 +179,19 @@ export async function advanceSop(options: AdvanceSopOptions): Promise<AdvanceSop
   const bypassed = options.allowIncomplete === true;
 
   if (options.dryRun === true) {
-    return { id: options.id, phase: options.toPhase, bypassed, previousPhase: previous.currentPhase, applied: false };
+    return {
+      id: options.id,
+      phase: options.toPhase,
+      bypassed,
+      previousPhase: previous.currentPhase,
+      applied: false
+    };
   }
 
-  const entry: SopHistoryEntry = options.reason === undefined
-    ? { phase: options.toPhase, bypassed }
-    : { phase: options.toPhase, bypassed, reason: options.reason };
+  const entry: SopHistoryEntry =
+    options.reason === undefined
+      ? { phase: options.toPhase, bypassed }
+      : { phase: options.toPhase, bypassed, reason: options.reason };
   const nextState: SopState = {
     currentPhase: options.toPhase,
     history: [...previous.history, entry]
@@ -184,7 +201,13 @@ export async function advanceSop(options: AdvanceSopOptions): Promise<AdvanceSop
   await mkdir(dirname(path), { recursive: true });
   await writeFile(path, `${JSON.stringify(nextState, null, 2)}\n`, 'utf8');
 
-  return { id: options.id, phase: options.toPhase, bypassed, previousPhase: previous.currentPhase, applied: true };
+  return {
+    id: options.id,
+    phase: options.toPhase,
+    bypassed,
+    previousPhase: previous.currentPhase,
+    applied: true
+  };
 }
 
 export { EMPTY_STATE };

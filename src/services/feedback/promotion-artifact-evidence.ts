@@ -346,7 +346,8 @@ function citedMemories(doc: string): string[] {
  */
 function hardFloorFailure(source: string, id: string): string | null {
   const registered = vocabularyMembers(source).some(
-    (member) => member.enforcing && (member.literal === id || citedMemories(member.doc).includes(id))
+    (member) =>
+      member.enforcing && (member.literal === id || citedMemories(member.doc).includes(id))
   );
   return registered
     ? null
@@ -357,7 +358,10 @@ function hardFloorFailure(source: string, id: string): string | null {
  * The reason `check` is unsatisfied by `text`, or `null` when it is satisfied.
  * Never throws: a file that cannot be parsed yields the reason it could not be.
  */
-export function artifactEvidenceFailure(check: PromotionArtifactCheck, text: string): string | null {
+export function artifactEvidenceFailure(
+  check: PromotionArtifactCheck,
+  text: string
+): string | null {
   if (check.evidence === 'hard-floor-category') return hardFloorFailure(text, check.id);
 
   let parsed: unknown;

@@ -44,7 +44,10 @@ export type SwarmSummary = {
 const STALE_THRESHOLD_SEC = 5 * 60;
 
 /** Build a per-sub-agent view of the current state of one record. */
-export function viewSubAgent(record: DispatchRecord, now: () => Date = () => new Date()): SubAgentLiveView {
+export function viewSubAgent(
+  record: DispatchRecord,
+  now: () => Date = () => new Date()
+): SubAgentLiveView {
   const latest = record.heartbeats[record.heartbeats.length - 1];
   const lastBeatAgo = record.lastBeatAt
     ? Math.max(0, Math.floor((now().getTime() - new Date(record.lastBeatAt).getTime()) / 1000))
@@ -64,9 +67,10 @@ export function viewSubAgent(record: DispatchRecord, now: () => Date = () => new
     // S5 — surface the optional stage label so a long-running agent is
     // legible. Reads from the record's `stage` field (added in the
     // same slice); undefined on legacy records degrades to null.
-    stage: typeof (record as DispatchRecord & { stage?: string | null }).stage === 'string'
-      ? ((record as DispatchRecord & { stage?: string | null }).stage ?? null)
-      : null
+    stage:
+      typeof (record as DispatchRecord & { stage?: string | null }).stage === 'string'
+        ? ((record as DispatchRecord & { stage?: string | null }).stage ?? null)
+        : null
   };
 }
 
@@ -87,7 +91,11 @@ export function summarize(records: readonly DispatchRecord[]): SwarmSummary {
 }
 
 /** Render a single status line. */
-export function renderStatusLine(prefix: string, records: readonly DispatchRecord[], now: () => Date = () => new Date()): string {
+export function renderStatusLine(
+  prefix: string,
+  records: readonly DispatchRecord[],
+  now: () => Date = () => new Date()
+): string {
   if (records.length === 0) {
     return `${prefix} swarm 0/0 idle`;
   }

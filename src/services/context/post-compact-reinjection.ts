@@ -114,7 +114,7 @@ export const POST_COMPACT_REINJECTION_BYTE_BUDGET = 3072;
 export const AGENT_RUNTIME_RULES: ReadonlyArray<string> = Object.freeze([
   'CLI: run `node --import tsx src/cli/index.ts <cmd>`, never `pnpm exec tsx` — on Windows the latter truncates any argument at its first newline.',
   'Test scope: one file or pattern per run; the full suite requires PEAKS_FULL_TEST=1.',
-  'Exit codes: never read a test result through a pipe (`| tail` reports tail\'s status); read ${PIPESTATUS[0]}.',
+  "Exit codes: never read a test result through a pipe (`| tail` reports tail's status); read ${PIPESTATUS[0]}.",
   'Never write `.claude/settings.local.json` from a slice — reproduce against a temp project copy via `--project <tmpdir>`.',
   'Git: commit / push policy is per-dispatch and is NOT inherited from this card — re-read the dispatch record before any state-mutating git command.',
   'No interactive questions: decide, act, and record the decision in the artifact.'
@@ -271,7 +271,11 @@ export type PostCompactReinjectionFacts = {
   readonly sessionId: string | null;
   readonly jobId: string | null;
   readonly isJob: boolean;
-  readonly progress: { readonly done: number; readonly total: number; readonly currentSlice: string } | null;
+  readonly progress: {
+    readonly done: number;
+    readonly total: number;
+    readonly currentSlice: string;
+  } | null;
   readonly latestRequest: string | null;
   /** Which sources could not be read. Rendered nowhere in the card; reported. */
   readonly unresolved: readonly string[];
@@ -435,7 +439,8 @@ function buildBlocks(facts: PostCompactReinjectionFacts): ReinjectionBlock[] {
     const base = `.peaks/_runtime/${facts.sessionId}`;
     pointers.push(`session tree: ${base}/`);
     pointers.push(`requests: read the newest file under ${base}/<role>/requests/`);
-    if (facts.jobId !== null) pointers.push(`job progress: ${base}/job/${facts.jobId}/progress.json`);
+    if (facts.jobId !== null)
+      pointers.push(`job progress: ${base}/job/${facts.jobId}/progress.json`);
     pointers.push(`job shape: ${base}/job-shape.json`);
     pointers.push(`dispatch records: .peaks/_sub_agents/${facts.sessionId}/dispatch-*.json`);
   } else {
@@ -460,16 +465,22 @@ function buildBlocks(facts: PostCompactReinjectionFacts): ReinjectionBlock[] {
   // Rank 3 — next action.
   const next: string[] = [];
   if (facts.progress !== null) {
-    next.push(`job ${facts.jobId ?? '?'}: slice ${facts.progress.done + 1}/${facts.progress.total} (${facts.progress.currentSlice})`);
+    next.push(
+      `job ${facts.jobId ?? '?'}: slice ${facts.progress.done + 1}/${facts.progress.total} (${facts.progress.currentSlice})`
+    );
   } else if (facts.isJob) {
-    next.push(`job ${facts.jobId ?? '?'}: no progress.json yet — resume at the first unfinished slice`);
+    next.push(
+      `job ${facts.jobId ?? '?'}: no progress.json yet — resume at the first unfinished slice`
+    );
   } else if (facts.latestRequest !== null) {
     // NOT "continue <path>". The newest artifact is the best available guess
     // at the live request, but it is only a guess — a sibling role writing to
     // its own `requests/` directory bumps that directory's mtimes too, so the
     // card names the candidate and sends the model to the authority (the
     // dispatch record) rather than promoting a heuristic into an instruction.
-    next.push(`no active job — confirm the live request from the dispatch record, then continue it`);
+    next.push(
+      `no active job — confirm the live request from the dispatch record, then continue it`
+    );
   } else {
     next.push('no job and no request on disk — re-read the user request before acting');
   }
@@ -487,7 +498,9 @@ function buildBlocks(facts: PostCompactReinjectionFacts): ReinjectionBlock[] {
     current.push(`job: ${facts.jobId}${facts.isJob ? ' (job mode)' : ''}`);
   }
   if (facts.progress !== null) {
-    current.push(`progress: ${facts.progress.done}/${facts.progress.total} — current ${facts.progress.currentSlice}`);
+    current.push(
+      `progress: ${facts.progress.done}/${facts.progress.total} — current ${facts.progress.currentSlice}`
+    );
   }
   if (facts.latestRequest !== null) {
     current.push(`latest request artifact: ${facts.latestRequest}`);

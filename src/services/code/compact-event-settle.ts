@@ -180,7 +180,8 @@ export function measurePostCompact(input: {
   return {
     ratio: unmeasurable ? null : probe.ratio,
     ide: probe.ide,
-    windowTokens: unmeasurable || typeof probe.capacityTokens !== 'number' ? null : probe.capacityTokens,
+    windowTokens:
+      unmeasurable || typeof probe.capacityTokens !== 'number' ? null : probe.capacityTokens,
     windowSource: unmeasurable ? null : (probe.capacitySource ?? null)
   };
 }
@@ -301,12 +302,19 @@ export function settleCompactFromHarnessEvent(input: {
         ? ` (measured now at ${(settled.afterRatio * 100).toFixed(1)}%)`
         : ' (no post-compact measurement available)'),
     ...(settled.afterRatio !== null
-      ? { windowTokens: measurement?.windowTokens ?? null, windowSource: measurement?.windowSource ?? null }
+      ? {
+          windowTokens: measurement?.windowTokens ?? null,
+          windowSource: measurement?.windowSource ?? null
+        }
       : {})
   };
 
   try {
-    appendCompactHistoryEvent({ projectRoot: input.projectRoot, sessionId: input.sessionId, event });
+    appendCompactHistoryEvent({
+      projectRoot: input.projectRoot,
+      sessionId: input.sessionId,
+      event
+    });
   } catch {
     // The lifecycle run is already settled; losing the history row is the
     // smaller loss, and a throwing hook is the larger one. Reported rather

@@ -19,10 +19,7 @@
 
 export type BrowserIntent = 'navigate' | 'click' | 'fill' | 'snapshot' | 'extract';
 
-export type McpCaller = (
-  tool: string,
-  args: Record<string, unknown>
-) => Promise<unknown>;
+export type McpCaller = (tool: string, args: Record<string, unknown>) => Promise<unknown>;
 
 export interface BrowserActionArgs {
   url?: string | undefined;
@@ -107,9 +104,7 @@ function toolFor(intent: BrowserIntent, args: BrowserActionArgs): ResolvedTool {
     }
     default: {
       const exhaustive: never = intent;
-      throw new Error(
-        `unknown intent "${String(exhaustive)}" — fall back to raw MCP`
-      );
+      throw new Error(`unknown intent "${String(exhaustive)}" — fall back to raw MCP`);
     }
   }
 }
@@ -119,8 +114,6 @@ function assertSimpleSelector(selector: unknown): asserts selector is string {
     throw new Error('selector is required (fall back to raw MCP for complex selectors)');
   }
   if (!SIMPLE_SELECTOR.test(selector)) {
-    throw new Error(
-      `selector "${selector}" is not a simple selector — fall back to raw MCP`
-    );
+    throw new Error(`selector "${selector}" is not a simple selector — fall back to raw MCP`);
   }
 }

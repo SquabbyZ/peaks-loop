@@ -30,7 +30,11 @@ function validateUrl(value: string, label: string): void {
   }
 }
 
-export function planProxyTest(proxy: string, target = 'https://www.google.com', dryRun = true): ProxyTestResult {
+export function planProxyTest(
+  proxy: string,
+  target = 'https://www.google.com',
+  dryRun = true
+): ProxyTestResult {
   validateUrl(proxy, 'Proxy');
   validateUrl(target, 'Target');
 

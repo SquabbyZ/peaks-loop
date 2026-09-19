@@ -46,7 +46,7 @@ import { declareDimensions } from '../../_setup/4dim-template.js';
 declareDimensions(
   'tests/unit/services/codegraph/codegraph-exclude-repair-hardening.test.ts',
   ['render', 'behavior', 'integration'],
-  [{ dim: 'a11y', reason: 'the module returns a plan/outcome; it prints nothing' }],
+  [{ dim: 'a11y', reason: 'the module returns a plan/outcome; it prints nothing' }]
 );
 
 const fsRef = vi.hoisted(() => ({ actual: null as null | typeof import('node:fs') }));
@@ -55,7 +55,7 @@ const fsRef = vi.hoisted(() => ({ actual: null as null | typeof import('node:fs'
 const renameHook = vi.hoisted(() => ({
   calls: [] as Array<{ from: string; to: string }>,
   failOn: null as null | string,
-  armed: false,
+  armed: false
 }));
 
 vi.mock('node:fs', async (importOriginal) => {
@@ -73,14 +73,14 @@ vi.mock('node:fs', async (importOriginal) => {
         throw Object.assign(new Error('injected rename failure'), { code: 'EPERM' });
       }
       actual.renameSync(fromPath, toPath);
-    },
+    }
   };
 });
 
 import {
   CODEGRAPH_CONFIG_BACKUP_SUFFIX,
   applyCodegraphConfigRepair,
-  repairCodegraphExclude,
+  repairCodegraphExclude
 } from '../../../../src/services/codegraph/codegraph-exclude-repair.js';
 
 const cleanups: string[] = [];
@@ -119,7 +119,7 @@ describe('repairCodegraphExclude — removedRules is a set, not a filter', () =>
   it('should count a duplicated rule once', () => {
     const plan = repairCodegraphExclude({
       exclude: ['**/a/**', '**/a/**'],
-      rulesToRemove: ['**/a/**'],
+      rulesToRemove: ['**/a/**']
     });
 
     expect(plan.changed).toBe(true);
@@ -133,7 +133,7 @@ describe('repairCodegraphExclude — removedRules is a set, not a filter', () =>
   it('should dedupe while keeping config order across several rules', () => {
     const plan = repairCodegraphExclude({
       exclude: ['**/b/**', '**/a/**', '**/b/**', '**/a/**', '**/keep/**'],
-      rulesToRemove: ['**/a/**', '**/b/**'],
+      rulesToRemove: ['**/a/**', '**/b/**']
     });
 
     expect(plan.removedRules).toEqual(['**/b/**', '**/a/**']);
@@ -149,7 +149,10 @@ describe('applyCodegraphConfigRepair — the file keeps its shape', () => {
     const original = '{"include":["**/*.ts"],"exclude":["**/vendor/**","**/dist/**"]}\n';
     seedConfig(projectRoot, original);
 
-    const outcome = applyCodegraphConfigRepair(projectRoot, { rulesToRemove: ['**/vendor/**'], includePatternsToAdd: [] });
+    const outcome = applyCodegraphConfigRepair(projectRoot, {
+      rulesToRemove: ['**/vendor/**'],
+      includePatternsToAdd: []
+    });
 
     expect(outcome.applied).toBe(true);
     const after = readFileSync(configPathOf(projectRoot), 'utf8');
@@ -167,7 +170,10 @@ describe('applyCodegraphConfigRepair — the file keeps its shape', () => {
     )}\n`;
     seedConfig(projectRoot, original);
 
-    applyCodegraphConfigRepair(projectRoot, { rulesToRemove: ['**/vendor/**'], includePatternsToAdd: [] });
+    applyCodegraphConfigRepair(projectRoot, {
+      rulesToRemove: ['**/vendor/**'],
+      includePatternsToAdd: []
+    });
 
     const after = readFileSync(configPathOf(projectRoot), 'utf8');
     expect(after).toContain('\n    "exclude"');
@@ -188,7 +194,10 @@ describe('applyCodegraphConfigRepair — the rewrite is atomic', () => {
     );
 
     renameHook.armed = true;
-    const outcome = applyCodegraphConfigRepair(projectRoot, { rulesToRemove: ['**/vendor/**'], includePatternsToAdd: [] });
+    const outcome = applyCodegraphConfigRepair(projectRoot, {
+      rulesToRemove: ['**/vendor/**'],
+      includePatternsToAdd: []
+    });
 
     expect(outcome.applied).toBe(true);
     const renames = renameHook.calls.filter((call) => call.to === configPath);
@@ -211,9 +220,12 @@ describe('applyCodegraphConfigRepair — the rewrite is atomic', () => {
     renameHook.armed = true;
     renameHook.failOn = configPath;
 
-    expect(() => applyCodegraphConfigRepair(projectRoot, { rulesToRemove: ['**/vendor/**'], includePatternsToAdd: [] })).toThrow(
-      /injected rename failure/
-    );
+    expect(() =>
+      applyCodegraphConfigRepair(projectRoot, {
+        rulesToRemove: ['**/vendor/**'],
+        includePatternsToAdd: []
+      })
+    ).toThrow(/injected rename failure/);
 
     // The third-party config still holds its ORIGINAL bytes — not a prefix,
     // not a half-written rewrite.
@@ -247,7 +259,12 @@ describe('applyCodegraphConfigRepair — concurrent writers get distinct temp pa
     );
     renameHook.armed = true;
     const before = renameHook.calls.length;
-    expect(applyCodegraphConfigRepair(projectRoot, { rulesToRemove: ['**/vendor/**'], includePatternsToAdd: [] }).applied).toBe(true);
+    expect(
+      applyCodegraphConfigRepair(projectRoot, {
+        rulesToRemove: ['**/vendor/**'],
+        includePatternsToAdd: []
+      }).applied
+    ).toBe(true);
     const rename = renameHook.calls.slice(before).find((call) => call.to === configPath);
     expect(rename).toBeDefined();
     const tempPath = rename?.from ?? '';
@@ -318,7 +335,9 @@ describe('applyCodegraphConfigRepair — the backup refuses to be written throug
     // The injection really is a hard link: same inode, link count 2.
     expect(lstatSync(backupPath).nlink).toBe(2);
 
-    expect(() => applyCodegraphConfigRepair(projectRoot, TWO_AXIS)).toThrow(/refusing to write through/);
+    expect(() => applyCodegraphConfigRepair(projectRoot, TWO_AXIS)).toThrow(
+      /refusing to write through/
+    );
 
     // …and NOTHING was written: the victim still holds its own bytes, and the
     // config was not published either (the refusal happens before the rewrite).
@@ -348,7 +367,9 @@ describe('applyCodegraphConfigRepair — the backup refuses to be written throug
     }
 
     expect(lstatSync(backupPath).isSymbolicLink()).toBe(true);
-    expect(() => applyCodegraphConfigRepair(projectRoot, TWO_AXIS)).toThrow(/refusing to write through/);
+    expect(() => applyCodegraphConfigRepair(projectRoot, TWO_AXIS)).toThrow(
+      /refusing to write through/
+    );
     expect(readFileSync(victimPath, 'utf8')).toBe('ORIGINAL VICTIM\n');
     expect(readFileSync(configPath, 'utf8')).toBe(original);
   });
@@ -361,7 +382,9 @@ describe('applyCodegraphConfigRepair — the backup refuses to be written throug
     // Not a link, but not writable-as-a-backup either: `rename` onto a
     // non-empty directory fails with an opaque errno, so the guard names the
     // real reason instead.
-    expect(() => applyCodegraphConfigRepair(projectRoot, TWO_AXIS)).toThrow(/refusing to write at a directory/);
+    expect(() => applyCodegraphConfigRepair(projectRoot, TWO_AXIS)).toThrow(
+      /refusing to write at a directory/
+    );
     expect(readFileSync(configPath, 'utf8')).toBe(original);
   });
 

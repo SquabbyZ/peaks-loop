@@ -56,7 +56,10 @@ export function killRegisteredServices(input: {
     }
     try {
       if (platform === 'win32') {
-        execFileSync('taskkill', ['/T', '/F', '/PID', String(reg.pid)], { stdio: 'ignore', windowsHide: true });
+        execFileSync('taskkill', ['/T', '/F', '/PID', String(reg.pid)], {
+          stdio: 'ignore',
+          windowsHide: true
+        });
         return { pid: reg.pid, name: reg.name, skipped: false, signal: 'taskkill' };
       }
       // POSIX: try SIGTERM via the `kill` CLI (universally available);

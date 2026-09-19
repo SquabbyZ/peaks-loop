@@ -27,7 +27,15 @@
  *
  * Style: BDD given/when/then per peaks-loop 4.0.11+ contract.
  */
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync
+} from 'node:fs';
 import { dirname } from 'node:path';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -43,16 +51,22 @@ vi.mock('node:fs', async (importOriginal) => {
   return {
     ...actual,
     renameSync: (...args: Parameters<typeof actual.renameSync>) => {
-      if (__rename.fail) throw Object.assign(new Error('EPERM: operation not permitted'), { code: 'EPERM' });
+      if (__rename.fail)
+        throw Object.assign(new Error('EPERM: operation not permitted'), { code: 'EPERM' });
       return actual.renameSync(...args);
-    },
+    }
   };
 });
 
 declareDimensions(
   'tests/unit/services/context/harness-context-witness.test.ts',
   ['render', 'behavior', 'integration'],
-  [{ dim: 'a11y', reason: 'No human-visible output beyond the one-way sentence, asserted in the behavior suite.' }],
+  [
+    {
+      dim: 'a11y',
+      reason: 'No human-visible output beyond the one-way sentence, asserted in the behavior suite.'
+    }
+  ]
 );
 
 import {
@@ -67,7 +81,7 @@ import {
   readHarnessWitness,
   witnessToleranceTokens,
   writeHarnessWitness,
-  type HarnessContextWitness,
+  type HarnessContextWitness
 } from '~/src/services/context/harness-context-witness';
 import type { StatusLineStdin } from '~/src/services/skills/skill-statusline-service';
 
@@ -119,10 +133,10 @@ function payloadOf(overrides: HarnessPayload = {}): StatusLineStdin {
         input_tokens: 200_000,
         cache_read_input_tokens: 90_000,
         cache_creation_input_tokens: 10_000,
-        output_tokens: 4_000,
-      },
+        output_tokens: 4_000
+      }
     },
-    ...overrides,
+    ...overrides
   } as StatusLineStdin;
 }
 
@@ -145,7 +159,8 @@ const PEAKS_RATIO_FIXTURE = 0.9;
 const PEAKS_TOKENS_FIXTURE = 900_000;
 
 function witnessOf(overrides: Partial<HarnessContextWitness> = {}): HarnessContextWitness {
-  const usedPercentage = overrides.usedPercentage === undefined ? PEAKS_RATIO_FIXTURE : overrides.usedPercentage;
+  const usedPercentage =
+    overrides.usedPercentage === undefined ? PEAKS_RATIO_FIXTURE : overrides.usedPercentage;
   return {
     schemaVersion: WITNESS_SCHEMA_VERSION,
     capturedAt: '2026-09-13T10:00:00.000Z',
@@ -157,7 +172,7 @@ function witnessOf(overrides: Partial<HarnessContextWitness> = {}): HarnessConte
     modelWindowTokens: WINDOW,
     usageTokens: PEAKS_TOKENS_FIXTURE,
     outerSessionId: null,
-    ...overrides,
+    ...overrides
   };
 }
 
@@ -173,14 +188,17 @@ function witnessAt(root: string, sid = SID): HarnessContextWitness | null {
 }
 
 /** Probe side: peaks-loop measured 900,000 tokens against a 1,000,000 window. */
-function compareWith(witness: HarnessContextWitness | null, overrides: Record<string, unknown> = {}) {
+function compareWith(
+  witness: HarnessContextWitness | null,
+  overrides: Record<string, unknown> = {}
+) {
   return compareHarnessWitness({
     witness,
     peaksRatio: PEAKS_RATIO_FIXTURE,
     peaksTokens: PEAKS_TOKENS_FIXTURE,
     peaksWindowTokens: WINDOW,
     outerSessionId: null,
-    ...overrides,
+    ...overrides
   });
 }
 
@@ -188,13 +206,17 @@ function compareWith(witness: HarnessContextWitness | null, overrides: Record<st
 // literal, so a change to either contributor shows up as a failing case rather
 // than as a silently different budget.
 const FRESH_TOLERANCE =
-  (WITNESS_PERCENT_ROUNDING_FRACTION * WINDOW + WITNESS_NUMERATOR_FRACTION * PEAKS_TOKENS_FIXTURE) / WINDOW;
+  (WITNESS_PERCENT_ROUNDING_FRACTION * WINDOW + WITNESS_NUMERATOR_FRACTION * PEAKS_TOKENS_FIXTURE) /
+  WINDOW;
 
 describe('harness context witness — capture (AC1)', () => {
   describe('(behavior)', () => {
     it('when the payload carries a context_window, should parse it into the recorded shape', () => {
       // given / when
-      const parsed = parseHarnessWitness({ stdin: payloadOf(), nowMs: Date.parse('2026-09-13T10:00:00.000Z') });
+      const parsed = parseHarnessWitness({
+        stdin: payloadOf(),
+        nowMs: Date.parse('2026-09-13T10:00:00.000Z')
+      });
       // then: every field the comparison needs, and the raw usage components
       // summed the same way peaks-loop sums its own transcript estimate.
       expect(parsed).not.toBeNull();
@@ -212,8 +234,8 @@ describe('harness context witness — capture (AC1)', () => {
         context_window: {
           context_window_size: WINDOW,
           used_percentage: 0.3,
-          current_usage: { input_tokens: 300_000 },
-        },
+          current_usage: { input_tokens: 300_000 }
+        }
       });
       // then
       const parsed = parseHarnessWitness({ stdin: payload, nowMs: 0 })!;
@@ -231,8 +253,8 @@ describe('harness context witness — capture (AC1)', () => {
         context_window: {
           context_window_size: WINDOW,
           used_percentage: 1,
-          current_usage: { input_tokens: 10_000 },
-        },
+          current_usage: { input_tokens: 10_000 }
+        }
       });
       // when
       const parsed = parseHarnessWitness({ stdin: payload, nowMs: 0 })!;
@@ -247,7 +269,11 @@ describe('harness context witness — capture (AC1)', () => {
       // it is not refused (the old (1, 1.5] hole), and the snapshot agreeing
       // makes this the easy case
       const payload = payloadOf({
-        context_window: { context_window_size: WINDOW, used_percentage: 1.2, current_usage: { input_tokens: 12_000 } },
+        context_window: {
+          context_window_size: WINDOW,
+          used_percentage: 1.2,
+          current_usage: { input_tokens: 12_000 }
+        }
       });
       // when / then
       const parsed = parseHarnessWitness({ stdin: payload, nowMs: 0 })!;
@@ -267,8 +293,8 @@ describe('harness context witness — capture (AC1)', () => {
         context_window: {
           context_window_size: WINDOW,
           used_percentage: 1.0001,
-          current_usage: { input_tokens: 200_000 },
-        },
+          current_usage: { input_tokens: 200_000 }
+        }
       });
       // when / then
       const parsed = parseHarnessWitness({ stdin: payload, nowMs: 0 })!;
@@ -285,15 +311,23 @@ describe('harness context witness — capture (AC1)', () => {
       // that the boundary is where the doc says it is.
       const nearerThePercent = parseHarnessWitness({
         stdin: payloadOf({
-          context_window: { context_window_size: WINDOW, used_percentage: 0.5, current_usage: { input_tokens: 30_000 } },
+          context_window: {
+            context_window_size: WINDOW,
+            used_percentage: 0.5,
+            current_usage: { input_tokens: 30_000 }
+          }
         }),
-        nowMs: 0,
+        nowMs: 0
       })!;
       const nearerTheFraction = parseHarnessWitness({
         stdin: payloadOf({
-          context_window: { context_window_size: WINDOW, used_percentage: 0.5, current_usage: { input_tokens: 70_000 } },
+          context_window: {
+            context_window_size: WINDOW,
+            used_percentage: 0.5,
+            current_usage: { input_tokens: 70_000 }
+          }
         }),
-        nowMs: 0,
+        nowMs: 0
       })!;
       expect(nearerThePercent.usedPercentageUnit).toBe('percent');
       expect(nearerThePercent.usedPercentage).toBeCloseTo(0.005, 10);
@@ -306,7 +340,11 @@ describe('harness context witness — capture (AC1)', () => {
       // negative reading falls through to the unit rule, is stored as a
       // negative ratio, and compares as a confident disagreement.
       const payload = payloadOf({
-        context_window: { context_window_size: WINDOW, used_percentage: -1, current_usage: { input_tokens: 10_000 } },
+        context_window: {
+          context_window_size: WINDOW,
+          used_percentage: -1,
+          current_usage: { input_tokens: 10_000 }
+        }
       });
       const parsed = parseHarnessWitness({ stdin: payload, nowMs: 0 })!;
       expect(parsed.usedPercentage).toBeNull();
@@ -323,7 +361,7 @@ describe('harness context witness — capture (AC1)', () => {
       // confident disagreement — with a sentence blaming the two denominators —
       // against a probe reading 90%.
       const payload = payloadOf({
-        context_window: { context_window_size: WINDOW, used_percentage: 1 },
+        context_window: { context_window_size: WINDOW, used_percentage: 1 }
       });
       // when
       const parsed = parseHarnessWitness({ stdin: payload, nowMs: 0 })!;
@@ -337,7 +375,7 @@ describe('harness context witness — capture (AC1)', () => {
     it('when used_percentage is on neither scale, should keep the raw value and refuse to compare', () => {
       // given
       const payload = payloadOf({
-        context_window: { context_window_size: WINDOW, used_percentage: 150, current_usage: {} },
+        context_window: { context_window_size: WINDOW, used_percentage: 150, current_usage: {} }
       });
       // when
       const parsed = parseHarnessWitness({ stdin: payload, nowMs: 0 });
@@ -350,7 +388,10 @@ describe('harness context witness — capture (AC1)', () => {
     });
 
     it('when the payload has no context_window, should record the render without inventing a number', () => {
-      const parsed = parseHarnessWitness({ stdin: { session_id: 'x' } as StatusLineStdin, nowMs: 0 });
+      const parsed = parseHarnessWitness({
+        stdin: { session_id: 'x' } as StatusLineStdin,
+        nowMs: 0
+      });
       expect(parsed).not.toBeNull();
       expect(parsed!.usedPercentage).toBeNull();
       expect(parsed!.usedPercentageRaw).toBeNull();
@@ -370,7 +411,7 @@ describe('harness context witness — capture (AC1)', () => {
       // produce the identical record, and does.
       const parsed = parseHarnessWitness({
         stdin: { session_id: 'x', context_window: null } as unknown as StatusLineStdin,
-        nowMs: 0,
+        nowMs: 0
       });
       expect(parsed).not.toBeNull();
       expect(parsed!.usedPercentage).toBeNull();
@@ -378,7 +419,7 @@ describe('harness context witness — capture (AC1)', () => {
       expect(parsed!.modelWindowTokens).toBeNull();
       expect(parsed!.usageTokens).toBeNull();
       expect(parsed).toEqual(
-        parseHarnessWitness({ stdin: { session_id: 'x' } as StatusLineStdin, nowMs: 0 }),
+        parseHarnessWitness({ stdin: { session_id: 'x' } as StatusLineStdin, nowMs: 0 })
       );
     });
 
@@ -393,7 +434,12 @@ describe('harness context witness — capture (AC1)', () => {
       const root = makeProject();
       withSessionDir(root);
       // when
-      const written = writeHarnessWitness({ projectRoot: root, sessionId: SID, stdin: payloadOf(), nowMs: 0 });
+      const written = writeHarnessWitness({
+        projectRoot: root,
+        sessionId: SID,
+        stdin: payloadOf(),
+        nowMs: 0
+      });
       // then: on disk, under the session runtime path, and readable back
       expect(written).toBe(true);
       const path = harnessWitnessPath(root, SID);
@@ -409,7 +455,9 @@ describe('harness context witness — capture (AC1)', () => {
 
     it('when the session dir is missing, should not create it and not write', () => {
       const root = makeProject();
-      expect(writeHarnessWitness({ projectRoot: root, sessionId: SID, stdin: payloadOf(), nowMs: 0 })).toBe(false);
+      expect(
+        writeHarnessWitness({ projectRoot: root, sessionId: SID, stdin: payloadOf(), nowMs: 0 })
+      ).toBe(false);
       expect(existsSync(join(root, '.peaks'))).toBe(false);
     });
 
@@ -422,7 +470,7 @@ describe('harness context witness — capture (AC1)', () => {
         projectRoot: root,
         sessionId: SID,
         stdin: { session_id: 'x' } as StatusLineStdin,
-        nowMs: 0,
+        nowMs: 0
       });
       // then: a render DID happen here, and the file says so — that is what
       // separates "the payload had nothing to read" from "nothing rendered"
@@ -438,14 +486,20 @@ describe('harness context witness — capture (AC1)', () => {
       withSessionDir(root);
       writeHarnessWitness({ projectRoot: root, sessionId: SID, stdin: payloadOf(), nowMs: 0 });
       const changed = payloadOf({
-        context_window: { context_window_size: WINDOW, used_percentage: 61, current_usage: { input_tokens: 610_000 } },
+        context_window: {
+          context_window_size: WINDOW,
+          used_percentage: 61,
+          current_usage: { input_tokens: 610_000 }
+        }
       });
       writeHarnessWitness({ projectRoot: root, sessionId: SID, stdin: changed, nowMs: 1 });
       const read = witnessAt(root);
       expect(read!.usedPercentage).toBeCloseTo(0.61, 10);
       expect(read!.usageTokens).toBe(610_000);
       // then: exactly one file, not an append log
-      expect(JSON.parse(readFileSync(harnessWitnessPath(root, SID), 'utf8')).schemaVersion).toBe(WITNESS_SCHEMA_VERSION);
+      expect(JSON.parse(readFileSync(harnessWitnessPath(root, SID), 'utf8')).schemaVersion).toBe(
+        WITNESS_SCHEMA_VERSION
+      );
     });
 
     it('when the rename cannot replace the file, should still land the sample', () => {
@@ -455,11 +509,20 @@ describe('harness context witness — capture (AC1)', () => {
       // no `.tmp-` file is left behind.
       const root = makeProject();
       const dir = withSessionDir(root);
-      writeFileSync(harnessWitnessPath(root, SID), '{"schemaVersion":2,"usedPercentage":0.99}\n', 'utf8');
+      writeFileSync(
+        harnessWitnessPath(root, SID),
+        '{"schemaVersion":2,"usedPercentage":0.99}\n',
+        'utf8'
+      );
       __rename.fail = true;
       try {
         // when
-        const written = writeHarnessWitness({ projectRoot: root, sessionId: SID, stdin: payloadOf(), nowMs: 0 });
+        const written = writeHarnessWitness({
+          projectRoot: root,
+          sessionId: SID,
+          stdin: payloadOf(),
+          nowMs: 0
+        });
         // then: the observation survives — dropping it here would be the exact
         // silent loss the temp+rename exists to remove
         expect(written).toBe(true);
@@ -484,7 +547,7 @@ describe('harness context witness — comparison (AC2/AC3/AC4)', () => {
 
     it('when the witness belongs to another harness session, should refuse to compare it', () => {
       const comparison = compareWith(witnessOf({ outerSessionId: 'other-session' }), {
-        outerSessionId: 'this-session',
+        outerSessionId: 'this-session'
       });
       expect(comparison.verdict).toBe('foreign-session');
       expect(describeHarnessWitness(comparison)).toBeNull();
@@ -492,7 +555,9 @@ describe('harness context witness — comparison (AC2/AC3/AC4)', () => {
 
     it('when one id is unresolvable, should compare anyway (leniency is one-way by design)', () => {
       // given: the witness names a session, this side cannot resolve one
-      const comparison = compareWith(witnessOf({ outerSessionId: 'other-session' }), { outerSessionId: null });
+      const comparison = compareWith(witnessOf({ outerSessionId: 'other-session' }), {
+        outerSessionId: null
+      });
       // then: a missing field never becomes a permanent "cannot tell"
       expect(comparison.verdict).toBe('agree');
     });
@@ -528,8 +593,12 @@ describe('harness context witness — comparison (AC2/AC3/AC4)', () => {
 
     it('when the deviation sits just inside the tolerance, should agree — and just outside, should disagree', () => {
       // given: two inputs 0.001 apart, straddling the computed budget
-      const inside = compareWith(witnessOf({ usedPercentage: 0.9 - (FRESH_TOLERANCE - 0.001), usageTokens: 900_000 }));
-      const outside = compareWith(witnessOf({ usedPercentage: 0.9 - (FRESH_TOLERANCE + 0.001), usageTokens: 900_000 }));
+      const inside = compareWith(
+        witnessOf({ usedPercentage: 0.9 - (FRESH_TOLERANCE - 0.001), usageTokens: 900_000 })
+      );
+      const outside = compareWith(
+        witnessOf({ usedPercentage: 0.9 - (FRESH_TOLERANCE + 0.001), usageTokens: 900_000 })
+      );
       // then: the tolerance is not merely present, it is the thing deciding
       expect(inside.verdict).toBe('agree');
       expect(outside.verdict).toBe('disagree');
@@ -576,7 +645,9 @@ describe('harness context witness — comparison (AC2/AC3/AC4)', () => {
       // given: a recorded render whose payload reported 150 (the ledger keeps
       // the raw value); a unit misfire must not be able to look like a
       // denominator difference
-      const comparison = compareWith(witnessOf({ usedPercentage: null, usedPercentageRaw: 150, usedPercentageUnit: null }));
+      const comparison = compareWith(
+        witnessOf({ usedPercentage: null, usedPercentageRaw: 150, usedPercentageUnit: null })
+      );
       // then
       expect(comparison.verdict).toBe('unverifiable');
       expect(comparison.harnessPct).toBeNull();
@@ -586,7 +657,9 @@ describe('harness context witness — comparison (AC2/AC3/AC4)', () => {
 
     it('when the render recorded no percentage at all, should say so rather than blame the statusline', () => {
       // given: a ledger entry from a payload with no `context_window`
-      const comparison = compareWith(witnessOf({ usedPercentage: null, usedPercentageRaw: null, usedPercentageUnit: null }));
+      const comparison = compareWith(
+        witnessOf({ usedPercentage: null, usedPercentageRaw: null, usedPercentageUnit: null })
+      );
       // then: the cause is named, and it is not "nothing rendered here"
       expect(comparison.verdict).toBe('unverifiable');
       expect(comparison.reason).toContain('no `used_percentage`');
@@ -597,7 +670,11 @@ describe('harness context witness — comparison (AC2/AC3/AC4)', () => {
       // given: a recorded render whose percentage was in range on both scales
       // with nothing to settle which (see the capture case)
       const comparison = compareWith(
-        witnessOf({ usedPercentage: null, usedPercentageRaw: 1, usedPercentageUnit: 'unestablished' }),
+        witnessOf({
+          usedPercentage: null,
+          usedPercentageRaw: 1,
+          usedPercentageUnit: 'unestablished'
+        })
       );
       // then: the three `unverifiable` causes are three different sentences —
       // "the payload said nothing", "the payload said 1 and meant either scale",
@@ -643,7 +720,7 @@ describe('harness context witness — comparison (AC2/AC3/AC4)', () => {
       // matter operationally.
       const comparison = compareWith(witnessOf({ usedPercentage: 0.02, usageTokens: 20_000 }), {
         peaksRatio: 0.02,
-        peaksTokens: 20_000,
+        peaksTokens: 20_000
       });
       expect(comparison.residual).toBeCloseTo(0, 10);
       expect(comparison.verdict).toBe('unverifiable');
@@ -657,9 +734,15 @@ describe('harness context witness — comparison (AC2/AC3/AC4)', () => {
       const large = witnessToleranceTokens({ windowTokens: 1_000_000, usedTokens: 300_000 });
       // then: rounding is a fraction OF THE WINDOW; the numerator term is a
       // fraction of the tokens and must not move with the window
-      expect(large - small).toBeCloseTo(WITNESS_PERCENT_ROUNDING_FRACTION * (1_000_000 - 200_000), 10);
+      expect(large - small).toBeCloseTo(
+        WITNESS_PERCENT_ROUNDING_FRACTION * (1_000_000 - 200_000),
+        10
+      );
       expect(small).toBeGreaterThan(WITNESS_NUMERATOR_FRACTION * 300_000);
-      expect(witnessToleranceTokens({ windowTokens: WINDOW, usedTokens: 300_000 })).toBeCloseTo(5_510, 10);
+      expect(witnessToleranceTokens({ windowTokens: WINDOW, usedTokens: 300_000 })).toBeCloseTo(
+        5_510,
+        10
+      );
     });
 
     it('when the ratio sits where the sharpness gate decides the answer, should abstain', () => {
@@ -670,7 +753,7 @@ describe('harness context witness — comparison (AC2/AC3/AC4)', () => {
       // `agree`, however good the token alignment.
       const comparison = compareWith(witnessOf({ usedPercentage: 0.12, usageTokens: 120_000 }), {
         peaksRatio: 0.12,
-        peaksTokens: 120_000,
+        peaksTokens: 120_000
       });
       // then: abstaining is the honest answer. (The arithmetic is written as
       // literals, not derived from the constants: an expectation recomputed
@@ -697,9 +780,9 @@ describe('harness context witness — comparison (AC2/AC3/AC4)', () => {
           usedPercentage: 1,
           modelWindowTokens: WINDOW,
           usageTokens: 900_000,
-          outerSessionId: null,
+          outerSessionId: null
         })}\n`,
-        'utf8',
+        'utf8'
       );
       // when
       const comparison = compareWith(witnessAt(root));
@@ -739,12 +822,15 @@ describe('harness context witness — comparison (AC2/AC3/AC4)', () => {
         const witnessTokens = peaksTokens - Math.round(skew * W);
         verdicts.add(
           compareHarnessWitness({
-            witness: witnessOf({ usedPercentage: witnessTokens / harnessWindow, usageTokens: witnessTokens }),
+            witness: witnessOf({
+              usedPercentage: witnessTokens / harnessWindow,
+              usageTokens: witnessTokens
+            }),
             peaksRatio: 0.96,
             peaksTokens,
             peaksWindowTokens: W,
-            outerSessionId: null,
-          }).verdict,
+            outerSessionId: null
+          }).verdict
         );
       }
       expect([...verdicts]).toEqual(['disagree']);

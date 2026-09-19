@@ -28,7 +28,7 @@ export async function dispatch(f: DispatchFlags) {
   if (f.mode !== 'detached') {
     throw new Error(
       'src/cli/commands/sub-agent/detached.ts only handles --mode detached; ' +
-      'peaks sub-agent dispatch default mode remains in-process (backward compat)',
+        'peaks sub-agent dispatch default mode remains in-process (backward compat)'
     );
   }
 
@@ -39,7 +39,7 @@ export async function dispatch(f: DispatchFlags) {
   const warnings: string[] = [];
   if (enforce.throttle && !f.noThrottle) {
     throw new Error(
-      'RESOURCE_BUDGET_THROTTLED: concurrent fan-out > max-concurrent; pass --no-throttle to bypass',
+      'RESOURCE_BUDGET_THROTTLED: concurrent fan-out > max-concurrent; pass --no-throttle to bypass'
     );
   }
   if (f.noThrottle) {
@@ -76,7 +76,7 @@ export async function dispatch(f: DispatchFlags) {
     files: [],
     refs: [],
     runtimeDir: `.peaks/_runtime/${sid}/detached`,
-    subAgentsDir: `.peaks/_sub_agents/${sid}`,
+    subAgentsDir: `.peaks/_sub_agents/${sid}`
   });
   // The launch outcome is the envelope's `ok`, not a footnote. A vendor CLI
   // that is not installed is an expected environment, and the dispatch record
@@ -106,7 +106,7 @@ export async function dispatch(f: DispatchFlags) {
             spawnError: { code: spawnError.code, message: spawnError.message },
             orchestratorVisibleHint: `❌ Could not launch detached sub-agent via ${f.vendor ?? 'claude'}: rid=${f.requestId} (${spawnError.code})`
           }),
-      expectedCompletionSeconds: 60,
+      expectedCompletionSeconds: 60
     },
     warnings,
     nextActions:

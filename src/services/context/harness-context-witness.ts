@@ -115,7 +115,11 @@ const FRACTION_MAX = 1;
 const PERCENT_SCALE_MAX = 100;
 
 /** The three prompt-side components peaks-loop's own `rawTokens` sums. */
-const USAGE_TOKEN_KEYS = ['input_tokens', 'cache_read_input_tokens', 'cache_creation_input_tokens'] as const;
+const USAGE_TOKEN_KEYS = [
+  'input_tokens',
+  'cache_read_input_tokens',
+  'cache_creation_input_tokens'
+] as const;
 
 /**
  * Which of the two in-range readings of a raw percentage was taken, or that
@@ -249,7 +253,7 @@ function readPercentageUnit(raw: number, tokensPerWindow: number | null): Percen
  */
 function resolvePercentage(
   raw: unknown,
-  tokensPerWindow: number | null,
+  tokensPerWindow: number | null
 ): { value: number | null; raw: number | null; unit: PercentageUnit | null } {
   const value = finiteNumber(raw);
   if (value === null || value < 0 || value > PERCENT_SCALE_MAX) {
@@ -394,7 +398,10 @@ export function writeHarnessWitness(input: {
   const path = harnessWitnessPath(input.projectRoot, input.sessionId);
   if (!existsSync(dirname(path))) return false;
   if (witness.usedPercentage === null) {
-    const existing = readHarnessWitness({ projectRoot: input.projectRoot, sessionId: input.sessionId });
+    const existing = readHarnessWitness({
+      projectRoot: input.projectRoot,
+      sessionId: input.sessionId
+    });
     if (existing.kind === 'valid' && existing.witness.usedPercentage !== null) return false;
   }
   const json = `${JSON.stringify(witness, null, 2)}\n`;
@@ -447,7 +454,8 @@ export function readHarnessWitness(input: {
   if (!existsSync(path)) return { kind: 'missing' };
   try {
     const parsed: unknown = JSON.parse(readFileSync(path, 'utf8'));
-    if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) return { kind: 'invalid' };
+    if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed))
+      return { kind: 'invalid' };
     const record = parsed as Record<string, unknown>;
     const unit = record['usedPercentageUnit'];
     return {
@@ -457,10 +465,12 @@ export function readHarnessWitness(input: {
         capturedAt: typeof record['capturedAt'] === 'string' ? record['capturedAt'] : '',
         usedPercentage: finiteNumber(record['usedPercentage']),
         usedPercentageRaw: finiteNumber(record['usedPercentageRaw']),
-        usedPercentageUnit: unit === 'fraction' || unit === 'percent' || unit === 'unestablished' ? unit : null,
+        usedPercentageUnit:
+          unit === 'fraction' || unit === 'percent' || unit === 'unestablished' ? unit : null,
         modelWindowTokens: finiteNumber(record['modelWindowTokens']),
         usageTokens: finiteNumber(record['usageTokens']),
-        outerSessionId: typeof record['outerSessionId'] === 'string' ? record['outerSessionId'] : null
+        outerSessionId:
+          typeof record['outerSessionId'] === 'string' ? record['outerSessionId'] : null
       }
     };
   } catch {
@@ -488,8 +498,10 @@ export function witnessToleranceTokens(input: {
   readonly windowTokens: number;
   readonly usedTokens: number;
 }): number {
-  return WITNESS_PERCENT_ROUNDING_FRACTION * input.windowTokens
-    + WITNESS_NUMERATOR_FRACTION * input.usedTokens;
+  return (
+    WITNESS_PERCENT_ROUNDING_FRACTION * input.windowTokens +
+    WITNESS_NUMERATOR_FRACTION * input.usedTokens
+  );
 }
 
 /**
@@ -516,7 +528,8 @@ export function witnessToleranceTokens(input: {
  */
 function sampleSupportsAgreement(harnessPct: number, tolerance: number): boolean {
   const smallestGapSignal =
-    (MIN_DETECTABLE_WINDOW_DIFFERENCE * Math.abs(harnessPct)) / (1 + MIN_DETECTABLE_WINDOW_DIFFERENCE);
+    (MIN_DETECTABLE_WINDOW_DIFFERENCE * Math.abs(harnessPct)) /
+    (1 + MIN_DETECTABLE_WINDOW_DIFFERENCE);
   return smallestGapSignal > 2 * tolerance;
 }
 
@@ -526,8 +539,10 @@ function absentReason(cause: WitnessAbsentCause): string {
     return 'this session has no runtime directory yet, so nothing has been captured for it';
   }
   if (cause === 'unreadable') {
-    return 'a witness file exists for this session but could not be read as a record — the statusline DID '
-      + 'render here, and its record is unreadable, malformed, or not the shape this reader expects';
+    return (
+      'a witness file exists for this session but could not be read as a record — the statusline DID ' +
+      'render here, and its record is unreadable, malformed, or not the shape this reader expects'
+    );
   }
   return 'no render has been recorded for this session — the statusline has not rendered through peaks-loop here';
 }
@@ -538,12 +553,16 @@ function unusableReason(witness: HarnessContextWitness): string {
     return 'the payload carried no `used_percentage`, so this render recorded nothing to compare';
   }
   if (witness.usedPercentageUnit === 'unestablished') {
-    return `the payload reported used_percentage ${witness.usedPercentageRaw} and carried no token snapshot `
-      + 'to settle whether that is a fraction or a percent; the raw value is recorded, and no comparison is '
-      + 'made from it';
+    return (
+      `the payload reported used_percentage ${witness.usedPercentageRaw} and carried no token snapshot ` +
+      'to settle whether that is a fraction or a percent; the raw value is recorded, and no comparison is ' +
+      'made from it'
+    );
   }
-  return `the payload reported used_percentage ${witness.usedPercentageRaw}, which is on neither scale `
-    + '(a 0..1 fraction or a 0..100 percent); the raw value is recorded, and no comparison is made from it';
+  return (
+    `the payload reported used_percentage ${witness.usedPercentageRaw}, which is on neither scale ` +
+    '(a 0..1 fraction or a 0..100 percent); the raw value is recorded, and no comparison is made from it'
+  );
 }
 
 /**
@@ -626,9 +645,10 @@ export function compareHarnessWitness(input: {
     return {
       ...base,
       verdict: 'unverifiable',
-      reason: `this witness was recorded under schema v${witness.schemaVersion} and this revision reads `
-        + `v${WITNESS_SCHEMA_VERSION}, which do not agree on what the recorded percentage means; it is not `
-        + 'compared, and the next render replaces it',
+      reason:
+        `this witness was recorded under schema v${witness.schemaVersion} and this revision reads ` +
+        `v${WITNESS_SCHEMA_VERSION}, which do not agree on what the recorded percentage means; it is not ` +
+        'compared, and the next render replaces it',
       harnessPct: null,
       deviation: null,
       residual: null,
@@ -666,11 +686,17 @@ export function compareHarnessWitness(input: {
       tolerance: null
     };
   }
-  if (windowTokens === null || windowTokens <= 0 || peaksTokens === null || witnessTokens === null) {
+  if (
+    windowTokens === null ||
+    windowTokens <= 0 ||
+    peaksTokens === null ||
+    witnessTokens === null
+  ) {
     return {
       ...base,
       verdict: 'unverifiable',
-      reason: 'the probe and the witness do not both carry a token snapshot, so the two numbers cannot be shown to describe the same moment',
+      reason:
+        'the probe and the witness do not both carry a token snapshot, so the two numbers cannot be shown to describe the same moment',
       harnessPct,
       deviation: input.peaksRatio - harnessPct,
       residual: null,
@@ -684,13 +710,22 @@ export function compareHarnessWitness(input: {
   // or after the probe is corrected in the direction it is actually off.
   const skewRatio = (peaksTokens - witnessTokens) / windowTokens;
   const residual = deviation - skewRatio;
-  const tolerance = witnessToleranceTokens({ windowTokens, usedTokens: peaksTokens }) / windowTokens;
+  const tolerance =
+    witnessToleranceTokens({ windowTokens, usedTokens: peaksTokens }) / windowTokens;
 
   // The two answers are not symmetric, so they do not share one gate.
   // `disagree` only claims that SOME difference exists, and a residual past the
   // budget is exactly that claim — sound at any ratio, any witness age.
   if (Math.abs(residual) > tolerance) {
-    return { ...base, verdict: 'disagree', reason: null, harnessPct, deviation, residual, tolerance };
+    return {
+      ...base,
+      verdict: 'disagree',
+      reason: null,
+      harnessPct,
+      deviation,
+      residual,
+      tolerance
+    };
   }
   // `agree` claims there is no difference, which needs the sample to be sharp
   // enough to support it — see `sampleSupportsAgreement`.
@@ -722,19 +757,23 @@ export function compareHarnessWitness(input: {
 export function describeHarnessWitness(comparison: HarnessWitnessComparison): string | null {
   if (comparison.verdict !== 'disagree') return null;
   const pct = (value: number): string => `${(value * 100).toFixed(1)}%`;
-  const skew = comparison.deviation === null || comparison.residual === null
-    ? null
-    : comparison.deviation - comparison.residual;
-  const readAs = comparison.witnessPercentageUnit === null
-    ? ''
-    : ` (raw ${comparison.witnessRawPercentage}, read as a ${comparison.witnessPercentageUnit})`;
-  return `Harness context witness disagrees: the harness reports ${pct(comparison.harnessPct ?? 0)} used${readAs}, `
-    + `peaks-loop computes ${pct(comparison.peaksRatio)} (deviation ${pct(Math.abs(comparison.deviation ?? 0))}`
-    + `${skew === null ? '' : `, of which the measured sampling skew explains ${pct(Math.abs(skew))}`}, `
-    + `leaving ${pct(Math.abs(comparison.residual ?? 0))} against a budget of ${pct(comparison.tolerance ?? 0)}). `
-    + 'The two ratios do not share a denominator: '
-    + 'peaks-loop\'s configured auto-compact window and the harness\'s effective auto-compact window are '
-    + 'different numbers. Nothing is blocked.';
+  const skew =
+    comparison.deviation === null || comparison.residual === null
+      ? null
+      : comparison.deviation - comparison.residual;
+  const readAs =
+    comparison.witnessPercentageUnit === null
+      ? ''
+      : ` (raw ${comparison.witnessRawPercentage}, read as a ${comparison.witnessPercentageUnit})`;
+  return (
+    `Harness context witness disagrees: the harness reports ${pct(comparison.harnessPct ?? 0)} used${readAs}, ` +
+    `peaks-loop computes ${pct(comparison.peaksRatio)} (deviation ${pct(Math.abs(comparison.deviation ?? 0))}` +
+    `${skew === null ? '' : `, of which the measured sampling skew explains ${pct(Math.abs(skew))}`}, ` +
+    `leaving ${pct(Math.abs(comparison.residual ?? 0))} against a budget of ${pct(comparison.tolerance ?? 0)}). ` +
+    'The two ratios do not share a denominator: ' +
+    "peaks-loop's configured auto-compact window and the harness's effective auto-compact window are " +
+    'different numbers. Nothing is blocked.'
+  );
 }
 
 /** Convenience for the CLI: read + compare in one call. */
@@ -757,10 +796,11 @@ export function readAndCompareHarnessWitness(input: {
     // the two no-file states apart. The third cause is not a directory
     // question — `invalid` IS the fact that a render happened — so it is
     // answered by the read and never falls through to the ternary.
-    absentCause: read.kind === 'invalid'
-      ? 'unreadable'
-      : existsSync(getSessionDir(input.projectRoot, input.sessionId))
-        ? 'not-rendered'
-        : 'session-dir-missing'
+    absentCause:
+      read.kind === 'invalid'
+        ? 'unreadable'
+        : existsSync(getSessionDir(input.projectRoot, input.sessionId))
+          ? 'not-rendered'
+          : 'session-dir-missing'
   });
 }

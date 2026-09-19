@@ -53,8 +53,7 @@ export interface MemoryPreflightConfig {
  * this alias rather than re-deriving the structural type.
  */
 export type MemoryPreflightPrefsInput =
-  | ProjectPreferences
-  | Pick<ProjectPreferences, 'memoryPreflight'>;
+  ProjectPreferences | Pick<ProjectPreferences, 'memoryPreflight'>;
 
 const DEFAULTS = Object.freeze({
   enabled: true,
@@ -65,7 +64,7 @@ const DEFAULTS = Object.freeze({
   warmItemCap: 4,
   warmMinTokenHits: 1,
   selectionTimeBudgetMs: 200,
-  includeBodies: false,
+  includeBodies: false
 });
 
 const LIST_CAP_MIN = 1;
@@ -79,9 +78,7 @@ function asFiniteInt(value: unknown, fallback: number): number {
 }
 
 function asFiniteNumber(value: unknown, fallback: number): number {
-  return typeof value === 'number' && Number.isFinite(value) && value >= 0
-    ? value
-    : fallback;
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : fallback;
 }
 
 function clamp(value: number, min: number, max: number): number {
@@ -105,8 +102,7 @@ export function resolveMemoryPreflightConfig(
         : DEFAULTS.contentCacheBytes,
     // `maxBytes` wins when explicitly set; otherwise the legacy token cap
     // is preserved verbatim (maxTokens * 4 bytes).
-    maxBytes:
-      m.maxBytes && m.maxBytes > 0 ? Math.trunc(m.maxBytes) : maxTokens * 4,
+    maxBytes: m.maxBytes && m.maxBytes > 0 ? Math.trunc(m.maxBytes) : maxTokens * 4,
     // `hotItemCap` falls back to the legacy `listCap` only when the caller
     // explicitly set `listCap`; otherwise the tiered default (10) applies.
     hotItemCap: clamp(
@@ -118,11 +114,7 @@ export function resolveMemoryPreflightConfig(
       LIST_CAP_MIN,
       ITEM_CAP_MAX
     ),
-    warmItemCap: clamp(
-      asFiniteInt(m.warmItemCap, DEFAULTS.warmItemCap),
-      0,
-      ITEM_CAP_MAX
-    ),
+    warmItemCap: clamp(asFiniteInt(m.warmItemCap, DEFAULTS.warmItemCap), 0, ITEM_CAP_MAX),
     warmMinTokenHits: clamp(
       asFiniteInt(m.warmMinTokenHits, DEFAULTS.warmMinTokenHits),
       1,
@@ -133,7 +125,6 @@ export function resolveMemoryPreflightConfig(
       0,
       10_000
     ),
-    includeBodies:
-      m.includeBodies === true ? true : DEFAULTS.includeBodies,
+    includeBodies: m.includeBodies === true ? true : DEFAULTS.includeBodies
   };
 }

@@ -88,7 +88,10 @@ function countNonEmptyArtifacts(dir: string): number {
   return count;
 }
 
-function findCoverageContract(lines: ReadonlyArray<string>): { target: boolean; noPadding: boolean } {
+function findCoverageContract(lines: ReadonlyArray<string>): {
+  target: boolean;
+  noPadding: boolean;
+} {
   let target = false;
   let noPadding = false;
   for (const line of lines) {
@@ -105,7 +108,7 @@ function findCoverageContract(lines: ReadonlyArray<string>): { target: boolean; 
  */
 export function lintRdHandoffContract(
   skill: SkillFile,
-  projectRoot: string,
+  projectRoot: string
 ): ReadonlyArray<LintHit> {
   if (skill.name !== 'peaks-rd') return [];
 
@@ -116,30 +119,32 @@ export function lintRdHandoffContract(
   const artifactCount = countNonEmptyArtifacts(requestsDir);
   if (artifactCount > 0) return [];
 
-  return [{
-    catalogId: 'rl-rd-handoff-contract-001',
-    rule: 'peaks-rd must not hand off to QA without a non-empty RD artifact under rd/requests/',
-    file: requestsDir,
-    line: 1,
-    matchedText: `no non-empty .md artifact under ${requestsDir} (${binding.reason})`,
-  }];
+  return [
+    {
+      catalogId: 'rl-rd-handoff-contract-001',
+      rule: 'peaks-rd must not hand off to QA without a non-empty RD artifact under rd/requests/',
+      file: requestsDir,
+      line: 1,
+      matchedText: `no non-empty .md artifact under ${requestsDir} (${binding.reason})`
+    }
+  ];
 }
 
 export function lintRdCoverageDiscipline(skill: SkillFile): ReadonlyArray<LintHit> {
   if (skill.name !== 'peaks-rd') return [];
-  const lines = skill.lines.length > 0
-    ? skill.lines
-    : skill.body.split(/\r?\n/);
+  const lines = skill.lines.length > 0 ? skill.lines : skill.body.split(/\r?\n/);
   const { target, noPadding } = findCoverageContract(lines);
   if (target && noPadding) return [];
   const missing: string[] = [];
   if (!target) missing.push('100% coverage target (testable files) phrasing');
   if (!noPadding) missing.push('"must not write coverage-padding tests" rule');
-  return [{
-    catalogId: 'rl-rd-coverage-discipline-001',
-    rule: 'peaks-rd SKILL.md must declare the coverage discipline (100% target + no-padding rule)',
-    file: skill.path,
-    line: 1,
-    matchedText: `missing markers: ${missing.join(', ')}`
-  }];
+  return [
+    {
+      catalogId: 'rl-rd-coverage-discipline-001',
+      rule: 'peaks-rd SKILL.md must declare the coverage discipline (100% target + no-padding rule)',
+      file: skill.path,
+      line: 1,
+      matchedText: `missing markers: ${missing.join(', ')}`
+    }
+  ];
 }

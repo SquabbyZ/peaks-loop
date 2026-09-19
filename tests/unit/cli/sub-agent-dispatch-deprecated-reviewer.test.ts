@@ -29,18 +29,21 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { declareDimensions } from '../_setup/4dim-template.js';
 import { makeCapturedIo } from '../_setup/io.js';
 import { registerSubAgentCommands } from '../../../src/cli/commands/sub-agent-commands.js';
-import { deprecatedReviewerWarnings, validateRole } from '../../../src/cli/commands/sub-agent-shared.js';
+import {
+  deprecatedReviewerWarnings,
+  validateRole
+} from '../../../src/cli/commands/sub-agent-shared.js';
 import { getPrerequisitesFor } from '../../../src/services/artifacts/artifact-prerequisites.js';
 import {
   RD_DEPRECATED_REVIEWERS,
-  isDeprecatedReviewer,
+  isDeprecatedReviewer
 } from '../../../src/services/rd/reviewer-dispatch-policy.js';
 
 declareDimensions('tests/unit/cli/sub-agent-dispatch-deprecated-reviewer.test.ts', [
   'render',
   'behavior',
   'integration',
-  'a11y',
+  'a11y'
 ]);
 
 interface DispatchEnvelope {
@@ -95,9 +98,9 @@ async function runDispatch(role: string): Promise<DispatchEnvelope> {
       project,
       '--graph-node',
       'n1',
-      '--json',
+      '--json'
     ],
-    { from: 'user' },
+    { from: 'user' }
   );
   return JSON.parse(captured.text()) as DispatchEnvelope;
 }

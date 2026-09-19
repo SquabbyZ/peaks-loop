@@ -82,7 +82,8 @@ export function applyRetention(opts: ApplyRetentionOptions = {}): string[] {
         if (!stat.isFile()) continue;
         unlinkSync(fullPath);
         removed.push(fullPath);
-      } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+      } catch {
+        // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
         /* best-effort: file removed by another process or perms denied */
       }
     }
@@ -108,6 +109,6 @@ export function cleanupEccCache(options: {
   return cleanupStaleCache({
     retentionDays: options.retentionDays,
     nowMs: options.nowMs ?? Date.now(),
-    ...(options.dirOverride !== undefined ? { dirOverride: options.dirOverride } : {}),
+    ...(options.dirOverride !== undefined ? { dirOverride: options.dirOverride } : {})
   });
 }

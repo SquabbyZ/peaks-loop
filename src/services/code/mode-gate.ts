@@ -24,12 +24,7 @@ import type { SkillPresenceMode } from '../skills/skill-presence-service.js';
 
 export type CodeMode = SkillPresenceMode;
 
-export const CODE_MODES: readonly CodeMode[] = [
-  'full-auto',
-  'assisted',
-  'strict',
-  '24h'
-] as const;
+export const CODE_MODES: readonly CodeMode[] = ['full-auto', 'assisted', 'strict', '24h'] as const;
 
 export type HardFloorCategory =
   | 'irreversible-external-side-effect'
@@ -170,11 +165,7 @@ export function shouldAutoProceed(mode: CodeMode): boolean {
  * override.
  */
 export type CommitBoundaryActionId =
-  | 'git-push'
-  | 'git-tag'
-  | 'npm-publish'
-  | 'npm-install-global'
-  | 'peaks-global-install';
+  'git-push' | 'git-tag' | 'npm-publish' | 'npm-install-global' | 'peaks-global-install';
 
 export const COMMIT_BOUNDARY_ACTIONS: readonly CommitBoundaryActionId[] = [
   'git-push',
@@ -241,7 +232,8 @@ export function shouldPauseAtGate(opts: {
   if (opts.commitBoundaryAction === true) {
     return {
       shouldPause: true,
-      reason: 'commit-boundary side effect (push/tag/publish/global-install) → always pause regardless of mode (slice 002 AC-4, full-auto boundary = commit only)',
+      reason:
+        'commit-boundary side effect (push/tag/publish/global-install) → always pause regardless of mode (slice 002 AC-4, full-auto boundary = commit only)',
       hardFloorCategory: 'commit-boundary-side-effect',
       gateKind: 'hard-floor'
     };

@@ -44,7 +44,8 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { declareDimensions } from '../_setup/4dim-template.js';
 
-const { detectPresenceMarker } = await import('../../../src/services/hooks/presence-marker-detector.js');
+const { detectPresenceMarker } =
+  await import('../../../src/services/hooks/presence-marker-detector.js');
 
 declareDimensions(
   'tests/unit/hooks/presence-marker-detector.test.ts',
@@ -52,17 +53,19 @@ declareDimensions(
   [
     {
       dim: 'render',
-      reason: 'no user-visible text in this module; the public surface is a typed return object only',
+      reason:
+        'no user-visible text in this module; the public surface is a typed return object only'
     },
     {
       dim: 'a11y',
-      reason: 'no user-visible text in this module; this file is consumed by hooks, not rendered for humans',
-    },
-  ],
+      reason:
+        'no user-visible text in this module; this file is consumed by hooks, not rendered for humans'
+    }
+  ]
 );
 
 const SAMPLE_MESSAGE_WITH_MARKER = [
-  'Peaks-Loop Skill: peaks-code | Peaks-Loop Gate: rd-running | Next: write tests',
+  'Peaks-Loop Skill: peaks-code | Peaks-Loop Gate: rd-running | Next: write tests'
 ].join('\n');
 
 const SID = '2026-08-05-session-marker-detector';
@@ -70,22 +73,14 @@ const SID = '2026-08-05-session-marker-detector';
 function makeProjectRoot(): string {
   const root = mkdtempSync(join(tmpdir(), 'peaks-presence-marker-'));
   mkdirSync(join(root, '.peaks'), { recursive: true });
-  writeFileSync(
-    join(root, '.peaks', 'config.json'),
-    JSON.stringify({ schemaVersion: 1 }),
-    'utf8',
-  );
+  writeFileSync(join(root, '.peaks', 'config.json'), JSON.stringify({ schemaVersion: 1 }), 'utf8');
   return root;
 }
 
 function makeSessionBinding(projectRoot: string, sessionId: string): void {
   const dir = join(projectRoot, '.peaks', '_runtime');
   mkdirSync(dir, { recursive: true });
-  writeFileSync(
-    join(dir, 'session.json'),
-    JSON.stringify({ sessionId, projectRoot }),
-    'utf8',
-  );
+  writeFileSync(join(dir, 'session.json'), JSON.stringify({ sessionId, projectRoot }), 'utf8');
 }
 
 /**
@@ -100,7 +95,7 @@ function writeLease(
   status: 'running' | 'preparing' | 'terminalized' | 'lost' = 'running',
   skill: string = 'peaks-code',
   workflowId: string = 'wf-test',
-  callerId: string = 'caller-test',
+  callerId: string = 'caller-test'
 ): void {
   const leaseDir = join(projectRoot, '.peaks', '_runtime', sessionId, 'leases');
   mkdirSync(leaseDir, { recursive: true });
@@ -115,26 +110,26 @@ function writeLease(
       startedAt: '2026-08-05T11:55:00.000Z',
       lastHeartbeat: '2026-08-05T11:59:00.000Z',
       status,
-      schemaVersion: 1,
+      schemaVersion: 1
     }),
-    'utf8',
+    'utf8'
   );
 }
 
-describe("Scenario: behavior — canonical lease read path", () => {
-  it("when invoked, should Case A: returns active=true when an in-flight canonical lease exists under the bound session", () => {
+describe('Scenario: behavior — canonical lease read path', () => {
+  it('when invoked, should Case A: returns active=true when an in-flight canonical lease exists under the bound session', () => {
     const tmpDir = makeProjectRoot();
     makeSessionBinding(tmpDir, SID);
     writeLease(tmpDir, SID, 'running', 'peaks-code');
     expect(
       detectPresenceMarker({
         project: tmpDir,
-        latestAssistantMessage: SAMPLE_MESSAGE_WITH_MARKER,
-      }).active,
+        latestAssistantMessage: SAMPLE_MESSAGE_WITH_MARKER
+      }).active
     ).toBe(true);
   });
 
-  it("when invoked, should Case B: returns active=false when the lease dir is missing (IO / missing-file semantic preserved)", () => {
+  it('when invoked, should Case B: returns active=false when the lease dir is missing (IO / missing-file semantic preserved)', () => {
     const tmpDir = makeProjectRoot();
     makeSessionBinding(tmpDir, SID);
     // No leases written. The canonical lease service returns [] for a
@@ -143,31 +138,31 @@ describe("Scenario: behavior — canonical lease read path", () => {
     expect(
       detectPresenceMarker({
         project: tmpDir,
-        latestAssistantMessage: SAMPLE_MESSAGE_WITH_MARKER,
-      }).active,
+        latestAssistantMessage: SAMPLE_MESSAGE_WITH_MARKER
+      }).active
     ).toBe(false);
   });
 
-  it("when invoked, should Case C: returns active=false when the bound session has only terminalized leases", () => {
+  it('when invoked, should Case C: returns active=false when the bound session has only terminalized leases', () => {
     const tmpDir = makeProjectRoot();
     makeSessionBinding(tmpDir, SID);
     writeLease(tmpDir, SID, 'terminalized', 'peaks-code');
     expect(
       detectPresenceMarker({
         project: tmpDir,
-        latestAssistantMessage: SAMPLE_MESSAGE_WITH_MARKER,
-      }).active,
+        latestAssistantMessage: SAMPLE_MESSAGE_WITH_MARKER
+      }).active
     ).toBe(false);
   });
 
-  it("when invoked, should Case D: returns active=false when no session binding exists (project unbound)", () => {
+  it('when invoked, should Case D: returns active=false when no session binding exists (project unbound)', () => {
     const tmpDir = makeProjectRoot();
     // No session binding → listPresenceLeases is not consulted.
     expect(
       detectPresenceMarker({
         project: tmpDir,
-        latestAssistantMessage: SAMPLE_MESSAGE_WITH_MARKER,
-      }).active,
+        latestAssistantMessage: SAMPLE_MESSAGE_WITH_MARKER
+      }).active
     ).toBe(false);
   });
 });

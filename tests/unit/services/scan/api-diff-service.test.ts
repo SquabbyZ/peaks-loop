@@ -91,13 +91,17 @@ function seedRecordedSources(ws: TmpWorkspace): void {
   write(ws.path, '.peaks/_runtime/2026-01-01-session-aaaa/txt/handoff.md', HANDOFF);
   write(ws.path, 'src/services/types/user-api.types.ts', RECORDED_USER_API);
   write(ws.path, 'src/services/types/order-api.types.ts', RECORDED_ORDER_API);
-  write(ws.path, 'src/services/user-service.ts', [
-    '// adapts the backend snake_case payload',
-    'export function readDisplayName(row: { display_name: string }): string {',
-    '  return row.display_name;',
-    '}',
-    ''
-  ].join('\n'));
+  write(
+    ws.path,
+    'src/services/user-service.ts',
+    [
+      '// adapts the backend snake_case payload',
+      'export function readDisplayName(row: { display_name: string }): string {',
+      '  return row.display_name;',
+      '}',
+      ''
+    ].join('\n')
+  );
 }
 
 describe('diffApiDocument', () => {
@@ -126,17 +130,20 @@ describe('diffApiDocument', () => {
     // then: the field appears as a type change, recorded -> document
     const report = diffApiDocument({ projectRoot: ws().path, docPath: JSON_DOC });
 
-    expect(report.exact.fields.find((entry) => entry.after.field === 'email' && entry.location === 'response.200'))
-      .toEqual({
-        confidence: 'exact',
-        kind: 'changed',
-        via: 'type-changed',
-        method: 'get',
-        path: '/api/users/{id}',
-        location: 'response.200',
-        before: { field: 'email', type: 'string' },
-        after: { field: 'email', type: 'string | null' }
-      });
+    expect(
+      report.exact.fields.find(
+        (entry) => entry.after.field === 'email' && entry.location === 'response.200'
+      )
+    ).toEqual({
+      confidence: 'exact',
+      kind: 'changed',
+      via: 'type-changed',
+      method: 'get',
+      path: '/api/users/{id}',
+      location: 'response.200',
+      before: { field: 'email', type: 'string' },
+      after: { field: 'email', type: 'string | null' }
+    });
   });
 
   it('when a field is renamed between the document and a recorded interface, should report CHANGED with the old name before the new one', () => {
@@ -168,7 +175,9 @@ describe('diffApiDocument', () => {
       before: { field: 'timezone', type: '(absent)' },
       after: { field: 'timezone', type: 'string' }
     });
-    expect(report.exact.fields.find((entry) => entry.before.field === 'legacy_opt_in')).toMatchObject({
+    expect(
+      report.exact.fields.find((entry) => entry.before.field === 'legacy_opt_in')
+    ).toMatchObject({
       via: 'removed-from-document',
       after: { field: 'legacy_opt_in', type: '(absent)' }
     });
@@ -182,7 +191,9 @@ describe('diffApiDocument', () => {
 
     expect(report.document.openapi).toBe('3.1.0');
     expect(report.document.title).toBe('Orders API');
-    expect(report.exact.fields.find((entry) => entry.after.field === 'note')?.after.type).toBe('string | null');
+    expect(report.exact.fields.find((entry) => entry.after.field === 'note')?.after.type).toBe(
+      'string | null'
+    );
     expect(report.exact.fields.some((entry) => entry.after.field === 'tags')).toBe(false);
   });
 
@@ -192,7 +203,14 @@ describe('diffApiDocument', () => {
     // then: only changed/added/removed names are candidates, and unchanged fields are never grepped
     const report = diffApiDocument({ projectRoot: ws().path, docPath: JSON_DOC });
 
-    const changed = new Set(['email', 'displayName', 'display_name', 'expand', 'timezone', 'legacy_opt_in']);
+    const changed = new Set([
+      'email',
+      'displayName',
+      'display_name',
+      'expand',
+      'timezone',
+      'legacy_opt_in'
+    ]);
     const names = report.candidates.map((entry) => entry.name);
 
     expect(names.length).toBeGreaterThan(0);
@@ -201,11 +219,15 @@ describe('diffApiDocument', () => {
     expect(names).not.toContain('id');
     expect(report.candidates.every((entry) => entry.confidence === 'candidate')).toBe(true);
     // the new spelling is grepped where the code will have to change…
-    expect(report.candidates.find((entry) => entry.name === 'display_name')?.hits)
-      .toContainEqual({ file: 'src/services/user-service.ts', line: 2 });
+    expect(report.candidates.find((entry) => entry.name === 'display_name')?.hits).toContainEqual({
+      file: 'src/services/user-service.ts',
+      line: 2
+    });
     // …and the recorded (old) spelling too, because the current code still says it
-    expect(report.candidates.find((entry) => entry.name === 'displayName')?.hits)
-      .toContainEqual({ file: 'src/services/types/user-api.types.ts', line: 3 });
+    expect(report.candidates.find((entry) => entry.name === 'displayName')?.hits).toContainEqual({
+      file: 'src/services/types/user-api.types.ts',
+      line: 3
+    });
   });
 
   it('when no recorded interface was parsed, should emit no candidates and say change-site lookup needs a recorded side', () => {
@@ -218,7 +240,9 @@ describe('diffApiDocument', () => {
     const report = diffApiDocument({ projectRoot: bare, docPath: JSON_DOC });
 
     expect(report.candidates).toEqual([]);
-    expect(report.notes).toContain('no candidate change-sites: change-site lookup needs a parsed recorded interface to know what changed.');
+    expect(report.notes).toContain(
+      'no candidate change-sites: change-site lookup needs a parsed recorded interface to know what changed.'
+    );
   });
 
   it('when the document lives inside the project, should not report the document as a candidate change-site', () => {
@@ -243,7 +267,10 @@ describe('diffApiDocument', () => {
     mkdirSync(join(consumer, 'docs'), { recursive: true });
     copyFileSync(JSON_DOC, join(consumer, 'docs', 'users-api.json'));
 
-    const report = diffApiDocument({ projectRoot: consumer, docPath: 'consumer/docs/users-api.json' });
+    const report = diffApiDocument({
+      projectRoot: consumer,
+      docPath: 'consumer/docs/users-api.json'
+    });
 
     expect(report.document.operationCount).toBe(3);
     expect(report.document.file).toBe('docs/users-api.json');
@@ -271,7 +298,9 @@ describe('diffApiDocument', () => {
 
     const note = report.notes.find((entry) => entry.includes('paired with a document operation'));
     expect(note).toBeDefined();
-    expect(note).toContain('operationId `getOrder` would pair with an interface named `GetOrderResponse`');
+    expect(note).toContain(
+      'operationId `getOrder` would pair with an interface named `GetOrderResponse`'
+    );
     expect(note).toContain('Document operationIds: getOrder');
     expect(note).toContain('Unpaired interfaces: GetUserResponse, CreateUserRequest');
     expect(report.exact.fields).toEqual([]);
@@ -324,33 +353,44 @@ describe('exactness repair', () => {
     // given: a POST with both a requestBody and a 200 response body, and only a ...Request interface recorded
     // when: the document is diffed
     // then: unchanged request fields produce no line at all, and nothing is reported at a response location
-    write(ws().path, THING_TYPES, [
-      'export interface CreateThingRequest {',
-      '  email: string;',
-      '  nickname: string;',
-      '}',
-      ''
-    ].join('\n'));
+    write(
+      ws().path,
+      THING_TYPES,
+      [
+        'export interface CreateThingRequest {',
+        '  email: string;',
+        '  nickname: string;',
+        '}',
+        ''
+      ].join('\n')
+    );
 
     const report = diffApiDocument({ projectRoot: ws().path, docPath: THINGS_DOC });
 
     expect(report.exact.fields.filter((entry) => entry.path === '/api/things')).toEqual([]);
     expect(report.exact.fields.some((entry) => entry.location.startsWith('response.'))).toBe(false);
-    expect(report.exact.fields.some((entry) => entry.before.field === 'email' || entry.after.field === 'email'))
-      .toBe(false);
+    expect(
+      report.exact.fields.some(
+        (entry) => entry.before.field === 'email' || entry.after.field === 'email'
+      )
+    ).toBe(false);
   });
 
   it('when a request field is renamed, should report it at the request location where the Request interface belongs', () => {
     // given: the recorded request member is spelled `emailAddress`, the document says `email`
     // when: the document is diffed
     // then: the rename is reported at the requestBody location, proving role-matched pairing
-    write(ws().path, THING_TYPES, [
-      'export interface CreateThingRequest {',
-      '  emailAddress: string;',
-      '  nickname: string;',
-      '}',
-      ''
-    ].join('\n'));
+    write(
+      ws().path,
+      THING_TYPES,
+      [
+        'export interface CreateThingRequest {',
+        '  emailAddress: string;',
+        '  nickname: string;',
+        '}',
+        ''
+      ].join('\n')
+    );
 
     const report = diffApiDocument({ projectRoot: ws().path, docPath: THINGS_DOC });
 
@@ -367,16 +407,20 @@ describe('exactness repair', () => {
     // given: GetThingResponse extends an unresolvable base that carries `id` and `createdAt`
     // when: the document is diffed
     // then: no field line is emitted for that operation, and the note names the interface and the reason
-    write(ws().path, THING_TYPES, [
-      'interface BaseEntity {',
-      '  id: string;',
-      '  createdAt: string;',
-      '}',
-      'export interface GetThingResponse extends BaseEntity {',
-      '  name: string;',
-      '}',
-      ''
-    ].join('\n'));
+    write(
+      ws().path,
+      THING_TYPES,
+      [
+        'interface BaseEntity {',
+        '  id: string;',
+        '  createdAt: string;',
+        '}',
+        'export interface GetThingResponse extends BaseEntity {',
+        '  name: string;',
+        '}',
+        ''
+      ].join('\n')
+    );
 
     const report = diffApiDocument({ projectRoot: ws().path, docPath: THINGS_DOC });
 
@@ -413,10 +457,13 @@ describe('exactness repair', () => {
     // given: a single-line `type X = { ... }` body the line-based extractor cannot read
     // when: the document is diffed
     // then: its exact lines are suppressed and the note says why
-    write(ws().path, THING_TYPES, [
-      'export type GetThingResponse = { id: string; name: string; createdAt: string; }',
-      ''
-    ].join('\n'));
+    write(
+      ws().path,
+      THING_TYPES,
+      ['export type GetThingResponse = { id: string; name: string; createdAt: string; }', ''].join(
+        '\n'
+      )
+    );
 
     const report = diffApiDocument({ projectRoot: ws().path, docPath: THINGS_DOC });
 
@@ -429,14 +476,18 @@ describe('exactness repair', () => {
     // given: GetThingResponse whose only member is an inline object with hidden inner fields
     // when: the document is diffed
     // then: nothing is claimed about that operation, and the note explains the invisible shape
-    write(ws().path, THING_TYPES, [
-      'export interface GetThingResponse {',
-      '  data: {',
-      '    inner: string;',
-      '  };',
-      '}',
-      ''
-    ].join('\n'));
+    write(
+      ws().path,
+      THING_TYPES,
+      [
+        'export interface GetThingResponse {',
+        '  data: {',
+        '    inner: string;',
+        '  };',
+        '}',
+        ''
+      ].join('\n')
+    );
 
     const report = diffApiDocument({ projectRoot: ws().path, docPath: THINGS_DOC });
 
@@ -450,11 +501,17 @@ describe('exactness repair', () => {
     // given: a handoff recording `GET /api/users/:id` where the document says `{id}`
     // when: the document is diffed
     // then: the endpoint is not reported as an exact ADDED + REMOVED pair
-    write(ws().path, '.peaks/_runtime/2026-01-01-session-aaaa/txt/handoff.md', HANDOFF.replaceAll('{id}', ':id'));
+    write(
+      ws().path,
+      '.peaks/_runtime/2026-01-01-session-aaaa/txt/handoff.md',
+      HANDOFF.replaceAll('{id}', ':id')
+    );
 
     const report = diffApiDocument({ projectRoot: ws().path, docPath: JSON_DOC });
 
-    const userEndpoints = report.exact.endpoints.filter((entry) => entry.path.includes('/api/users/'));
+    const userEndpoints = report.exact.endpoints.filter((entry) =>
+      entry.path.includes('/api/users/')
+    );
     expect(userEndpoints).toHaveLength(1);
     expect(userEndpoints[0]).toMatchObject({ kind: 'removed', method: 'delete' });
   });
@@ -474,13 +531,21 @@ describe('exactness repair', () => {
     // given: a changed field name repeated on more lines than the per-name hit cap
     // when: the document is diffed
     // then: the hit list is capped AND a note says it is capped
-    write(ws().path, 'src/many.ts', Array.from({ length: 8 }, (_value, index) => `export const k${index} = 'display_name';`).join('\n'));
+    write(
+      ws().path,
+      'src/many.ts',
+      Array.from({ length: 8 }, (_value, index) => `export const k${index} = 'display_name';`).join(
+        '\n'
+      )
+    );
 
     const report = diffApiDocument({ projectRoot: ws().path, docPath: JSON_DOC });
 
     const mention = report.candidates.find((entry) => entry.name === 'display_name');
     expect(mention?.hits).toHaveLength(5);
-    expect(report.notes.some((note) => note.includes('candidate hits are capped per name'))).toBe(true);
+    expect(report.notes.some((note) => note.includes('candidate hits are capped per name'))).toBe(
+      true
+    );
   });
 });
 
@@ -501,12 +566,11 @@ describe('proven-completeness repair', () => {
     // given: two members collapsed onto a single body line
     // when: the document is diffed
     // then: no garbage type is emitted, the vanished `name` produces no line, and a note explains why
-    write(ws().path, THING_TYPES, [
-      'export interface GetThingResponse {',
-      '  id: string; name: string;',
-      '}',
-      ''
-    ].join('\n'));
+    write(
+      ws().path,
+      THING_TYPES,
+      ['export interface GetThingResponse {', '  id: string; name: string;', '}', ''].join('\n')
+    );
 
     const report = diffApiDocument({ projectRoot: ws().path, docPath: THINGS_DOC });
 
@@ -519,12 +583,11 @@ describe('proven-completeness repair', () => {
     // given: a comma-separated pair of members on one body line
     // when: the document is diffed
     // then: nothing is claimed and the note names the line
-    write(ws().path, THING_TYPES, [
-      'export interface GetThingResponse {',
-      '  id: string, name: string;',
-      '}',
-      ''
-    ].join('\n'));
+    write(
+      ws().path,
+      THING_TYPES,
+      ['export interface GetThingResponse {', '  id: string, name: string;', '}', ''].join('\n')
+    );
 
     const report = diffApiDocument({ projectRoot: ws().path, docPath: THINGS_DOC });
 
@@ -536,13 +599,17 @@ describe('proven-completeness repair', () => {
     // given: `interface GetThingResponse<T extends Record<string, unknown>>`, which no declaration pattern spans
     // when: the document is diffed
     // then: a note names the interface — the failure is never silent
-    write(ws().path, THING_TYPES, [
-      'export interface GetThingResponse<T extends Record<string, unknown>> {',
-      '  id: string;',
-      '  name: number;',
-      '}',
-      ''
-    ].join('\n'));
+    write(
+      ws().path,
+      THING_TYPES,
+      [
+        'export interface GetThingResponse<T extends Record<string, unknown>> {',
+        '  id: string;',
+        '  name: number;',
+        '}',
+        ''
+      ].join('\n')
+    );
 
     const report = diffApiDocument({ projectRoot: ws().path, docPath: THINGS_DOC });
 
@@ -555,14 +622,13 @@ describe('proven-completeness repair', () => {
     // given: `export interface X` followed by `{` on the following line
     // when: the document is diffed
     // then: a note names the interface
-    write(ws().path, THING_TYPES, [
-      'export interface GetThingResponse',
-      '{',
-      '  id: string;',
-      '  name: number;',
-      '}',
-      ''
-    ].join('\n'));
+    write(
+      ws().path,
+      THING_TYPES,
+      ['export interface GetThingResponse', '{', '  id: string;', '  name: number;', '}', ''].join(
+        '\n'
+      )
+    );
 
     const report = diffApiDocument({ projectRoot: ws().path, docPath: THINGS_DOC });
 
@@ -574,12 +640,11 @@ describe('proven-completeness repair', () => {
     // given: a complete, suppressed GetThingResponse — an interface that WAS parsed
     // when: the document is diffed
     // then: the candidate note points at the notes above rather than misdirecting the reader
-    write(ws().path, THING_TYPES, [
-      'export interface GetThingResponse {',
-      '  id: string; name: string;',
-      '}',
-      ''
-    ].join('\n'));
+    write(
+      ws().path,
+      THING_TYPES,
+      ['export interface GetThingResponse {', '  id: string; name: string;', '}', ''].join('\n')
+    );
 
     const report = diffApiDocument({ projectRoot: ws().path, docPath: THINGS_DOC });
 
@@ -592,14 +657,18 @@ describe('proven-completeness repair', () => {
     // given: a normally-readable interface in a file whose structure collapsed
     // when: the document is diffed
     // then: nothing is claimed from that file and the note names it
-    write(ws().path, THING_TYPES, [
-      'export interface GetThingResponse {',
-      '  id: string;',
-      '  name: number;',
-      '}',
-      'const pattern = /[{]/;',
-      ''
-    ].join('\n'));
+    write(
+      ws().path,
+      THING_TYPES,
+      [
+        'export interface GetThingResponse {',
+        '  id: string;',
+        '  name: number;',
+        '}',
+        'const pattern = /[{]/;',
+        ''
+      ].join('\n')
+    );
 
     const report = diffApiDocument({ projectRoot: ws().path, docPath: THINGS_DOC });
 
@@ -614,21 +683,27 @@ describe('proven-completeness repair', () => {
     // when: the document is diffed
     // then: no line is emitted — `string | undefined | undefined` is the same type
     expect(normalizeType('string | undefined | undefined')).toBe('string | undefined');
-    expect(normalizeType('string | undefined')).toBe(normalizeType('string | undefined | undefined'));
+    expect(normalizeType('string | undefined')).toBe(
+      normalizeType('string | undefined | undefined')
+    );
   });
 
   it('when a document field is a nested $ref, should keep the referenced name rather than reporting object', () => {
     // given: `owner: {$ref: User}` and `tags: {items: {$ref: User}}` against a recorded `User` / `User[]`
     // when: the document is diffed
     // then: neither field produces a line — the ref name is the faithful reading
-    write(ws().path, 'src/services/types/refs-api.types.ts', [
-      'export interface GetRefResponse {',
-      '  id: string;',
-      '  owner: User;',
-      '  tags: User[];',
-      '}',
-      ''
-    ].join('\n'));
+    write(
+      ws().path,
+      'src/services/types/refs-api.types.ts',
+      [
+        'export interface GetRefResponse {',
+        '  id: string;',
+        '  owner: User;',
+        '  tags: User[];',
+        '}',
+        ''
+      ].join('\n')
+    );
 
     const report = diffApiDocument({ projectRoot: ws().path, docPath: REFS_DOC });
 
@@ -640,13 +715,13 @@ describe('proven-completeness repair', () => {
     // given: `owner: {$ref: OwnerRef}` where OwnerRef itself points at User
     // when: the document is diffed
     // then: no line is emitted for the unchanged field
-    write(ws().path, 'src/services/types/refs-api.types.ts', [
-      'export interface GetHopResponse {',
-      '  id: string;',
-      '  owner: OwnerRef;',
-      '}',
-      ''
-    ].join('\n'));
+    write(
+      ws().path,
+      'src/services/types/refs-api.types.ts',
+      ['export interface GetHopResponse {', '  id: string;', '  owner: OwnerRef;', '}', ''].join(
+        '\n'
+      )
+    );
 
     const report = diffApiDocument({ projectRoot: ws().path, docPath: REFS_DOC });
 
@@ -657,13 +732,13 @@ describe('proven-completeness repair', () => {
     // given: `allOf: [BaseUser]` with a sibling `properties: { name }`, recorded with both id and name
     // when: the document is diffed
     // then: the inherited `id` is never reported removed-from-document, and a note names the construct
-    write(ws().path, 'src/services/types/refs-api.types.ts', [
-      'export interface GetComposedResponse {',
-      '  id: string;',
-      '  name: string;',
-      '}',
-      ''
-    ].join('\n'));
+    write(
+      ws().path,
+      'src/services/types/refs-api.types.ts',
+      ['export interface GetComposedResponse {', '  id: string;', '  name: string;', '}', ''].join(
+        '\n'
+      )
+    );
 
     const report = diffApiDocument({ projectRoot: ws().path, docPath: REFS_DOC });
 
@@ -677,12 +752,13 @@ describe('proven-completeness repair', () => {
     // given: the document renders `"active" | "suspended"` and the recording writes `'active' | 'suspended'`
     // when: the document is diffed
     // then: quote style is a rendering artifact, so no line is emitted
-    write(ws().path, 'src/services/types/refs-api.types.ts', [
-      'export interface GetEnumResponse {',
-      "  status: 'active' | 'suspended';",
-      '}',
-      ''
-    ].join('\n'));
+    write(
+      ws().path,
+      'src/services/types/refs-api.types.ts',
+      ['export interface GetEnumResponse {', "  status: 'active' | 'suspended';", '}', ''].join(
+        '\n'
+      )
+    );
 
     const report = diffApiDocument({ projectRoot: ws().path, docPath: REFS_DOC });
 
@@ -694,13 +770,17 @@ describe('proven-completeness repair', () => {
     // given: a document with two operations where only one recorded interface exists
     // when: the document is diffed
     // then: the mix is not silent — the unpaired operation is named
-    write(ws().path, THING_TYPES, [
-      'export interface CreateThingRequest {',
-      '  email: string;',
-      '  nickname: string;',
-      '}',
-      ''
-    ].join('\n'));
+    write(
+      ws().path,
+      THING_TYPES,
+      [
+        'export interface CreateThingRequest {',
+        '  email: string;',
+        '  nickname: string;',
+        '}',
+        ''
+      ].join('\n')
+    );
 
     const report = diffApiDocument({ projectRoot: ws().path, docPath: THINGS_DOC });
 
@@ -714,32 +794,38 @@ describe('proven-completeness repair', () => {
     // given: `type: ['integer','null']` and `type: ['integer']` against recorded `number` spellings
     // when: the document is diffed
     // then: no line is emitted for any of the three unchanged fields
-    write(ws().path, EDGE_TYPES, [
-      'export interface GetV31Response {',
-      '  id: number | null;',
-      '  count: number;',
-      '  scores: (number | null)[];',
-      '}',
-      ''
-    ].join('\n'));
+    write(
+      ws().path,
+      EDGE_TYPES,
+      [
+        'export interface GetV31Response {',
+        '  id: number | null;',
+        '  count: number;',
+        '  scores: (number | null)[];',
+        '}',
+        ''
+      ].join('\n')
+    );
 
     const report = diffApiDocument({ projectRoot: ws().path, docPath: EDGE_DOC });
 
     expect(report.exact.fields.filter((entry) => entry.path === '/api/v31/{id}')).toEqual([]);
-    expect(report.exact.fields.some((entry) => entry.before.type.includes('integer') || entry.after.type.includes('integer')))
-      .toBe(false);
+    expect(
+      report.exact.fields.some(
+        (entry) => entry.before.type.includes('integer') || entry.after.type.includes('integer')
+      )
+    ).toBe(false);
   });
 
   it('when a response schema lists no properties, should suppress the location rather than dropping it in silence', () => {
     // given: a `{type: 'string'}` response body the field reader cannot produce a field set from
     // when: the document is diffed
     // then: the location is named in a note and no line claims the recorded field was removed
-    write(ws().path, EDGE_TYPES, [
-      'export interface GetScalarResponse {',
-      '  status: string;',
-      '}',
-      ''
-    ].join('\n'));
+    write(
+      ws().path,
+      EDGE_TYPES,
+      ['export interface GetScalarResponse {', '  status: string;', '}', ''].join('\n')
+    );
 
     const report = diffApiDocument({ projectRoot: ws().path, docPath: EDGE_DOC });
 
@@ -753,12 +839,11 @@ describe('proven-completeness repair', () => {
     // given: a scalar 200 alongside an object 404, and a Response interface that names no status
     // when: the document is diffed
     // then: the multi-status guard still fires — nothing is compared against the 404
-    write(ws().path, EDGE_TYPES, [
-      'export interface GetPartialResponse {',
-      '  id: string;',
-      '}',
-      ''
-    ].join('\n'));
+    write(
+      ws().path,
+      EDGE_TYPES,
+      ['export interface GetPartialResponse {', '  id: string;', '}', ''].join('\n')
+    );
 
     const report = diffApiDocument({ projectRoot: ws().path, docPath: EDGE_DOC });
 
@@ -771,13 +856,13 @@ describe('proven-completeness repair', () => {
     // given: a body with no `required` key against a recorded `id?: string; name?: string`
     // when: the document is diffed
     // then: no line is emitted — omitting `required` means optional, per OpenAPI
-    write(ws().path, EDGE_TYPES, [
-      'export interface GetOptResponse {',
-      '  id?: string;',
-      '  name?: string;',
-      '}',
-      ''
-    ].join('\n'));
+    write(
+      ws().path,
+      EDGE_TYPES,
+      ['export interface GetOptResponse {', '  id?: string;', '  name?: string;', '}', ''].join(
+        '\n'
+      )
+    );
 
     const report = diffApiDocument({ projectRoot: ws().path, docPath: EDGE_DOC });
 
@@ -788,12 +873,11 @@ describe('proven-completeness repair', () => {
     // given: an OpenAPI `integer` field recorded as a TypeScript `number`
     // when: the document is diffed
     // then: no line is emitted — `integer` and `number` are the same type
-    write(ws().path, 'src/services/types/count-api.types.ts', [
-      'export interface GetCountResponse {',
-      '  total: number;',
-      '}',
-      ''
-    ].join('\n'));
+    write(
+      ws().path,
+      'src/services/types/count-api.types.ts',
+      ['export interface GetCountResponse {', '  total: number;', '}', ''].join('\n')
+    );
 
     const report = diffApiDocument({ projectRoot: ws().path, docPath: COUNT_DOC });
 
@@ -804,13 +888,17 @@ describe('proven-completeness repair', () => {
     // given: a depth-1 key the MEMBER pattern cannot match
     // when: the document is diffed
     // then: no exact line is emitted and the note names the line
-    write(ws().path, THING_TYPES, [
-      'export interface GetThingResponse {',
-      "  'display-name': string;",
-      '  id: string;',
-      '}',
-      ''
-    ].join('\n'));
+    write(
+      ws().path,
+      THING_TYPES,
+      [
+        'export interface GetThingResponse {',
+        "  'display-name': string;",
+        '  id: string;',
+        '}',
+        ''
+      ].join('\n')
+    );
 
     const report = diffApiDocument({ projectRoot: ws().path, docPath: THINGS_DOC });
 
@@ -824,12 +912,11 @@ describe('proven-completeness repair', () => {
     // given: an index-signature-only body, which previously yielded zero members
     // when: the document is diffed
     // then: nothing is claimed about that operation
-    write(ws().path, THING_TYPES, [
-      'export interface GetThingResponse {',
-      '  [key: string]: unknown;',
-      '}',
-      ''
-    ].join('\n'));
+    write(
+      ws().path,
+      THING_TYPES,
+      ['export interface GetThingResponse {', '  [key: string]: unknown;', '}', ''].join('\n')
+    );
 
     const report = diffApiDocument({ projectRoot: ws().path, docPath: THINGS_DOC });
 
@@ -841,14 +928,18 @@ describe('proven-completeness repair', () => {
     // given: a member whose continuation line is the unclassifiable one
     // when: the document is diffed
     // then: no exact line survives, so the truncated first line never becomes a type claim
-    write(ws().path, THING_TYPES, [
-      'export interface GetThingResponse {',
-      '  id: string;',
-      '  status: "a"',
-      '    | "b";',
-      '}',
-      ''
-    ].join('\n'));
+    write(
+      ws().path,
+      THING_TYPES,
+      [
+        'export interface GetThingResponse {',
+        '  id: string;',
+        '  status: "a"',
+        '    | "b";',
+        '}',
+        ''
+      ].join('\n')
+    );
 
     const report = diffApiDocument({ projectRoot: ws().path, docPath: THINGS_DOC });
 
@@ -860,15 +951,19 @@ describe('proven-completeness repair', () => {
     // given: `type X = Base & { ... }`, which no declaration pattern matches
     // when: the document is diffed
     // then: it is recorded, named in a note, and emits no exact line
-    write(ws().path, THING_TYPES, [
-      'interface BaseEntity {',
-      '  id: string;',
-      '}',
-      'export type GetThingResponse = BaseEntity & {',
-      '  name: string;',
-      '};',
-      ''
-    ].join('\n'));
+    write(
+      ws().path,
+      THING_TYPES,
+      [
+        'interface BaseEntity {',
+        '  id: string;',
+        '}',
+        'export type GetThingResponse = BaseEntity & {',
+        '  name: string;',
+        '};',
+        ''
+      ].join('\n')
+    );
 
     const report = diffApiDocument({ projectRoot: ws().path, docPath: THINGS_DOC });
 
@@ -882,12 +977,11 @@ describe('proven-completeness repair', () => {
     // given: `Array<{ ... }>` nests an object without the type text starting with a brace
     // when: the document is diffed
     // then: the interface is incomplete and no line is emitted
-    write(ws().path, THING_TYPES, [
-      'export interface GetThingResponse {',
-      '  data: Array<{ a: string }>;',
-      '}',
-      ''
-    ].join('\n'));
+    write(
+      ws().path,
+      THING_TYPES,
+      ['export interface GetThingResponse {', '  data: Array<{ a: string }>;', '}', ''].join('\n')
+    );
 
     const report = diffApiDocument({ projectRoot: ws().path, docPath: THINGS_DOC });
 
@@ -899,13 +993,13 @@ describe('proven-completeness repair', () => {
     // given: a complete GetThingResponse and an operation whose 200 and 404 both have JSON bodies
     // when: the document is diffed
     // then: nothing is emitted for it and the refusal names the interface
-    write(ws().path, THING_TYPES, [
-      'export interface GetThingResponse {',
-      '  id: string;',
-      '  name: string;',
-      '}',
-      ''
-    ].join('\n'));
+    write(
+      ws().path,
+      THING_TYPES,
+      ['export interface GetThingResponse {', '  id: string;', '  name: string;', '}', ''].join(
+        '\n'
+      )
+    );
 
     const report = diffApiDocument({ projectRoot: ws().path, docPath: THINGS_DOC });
 
@@ -919,13 +1013,11 @@ describe('proven-completeness repair', () => {
     // given: a response-shaped `GetThingDto`, whose suffix names neither side
     // when: the document is diffed
     // then: no exact line is emitted and the refusal explains the suffix
-    write(ws().path, THING_TYPES, [
-      'export interface GetThingDto {',
-      '  id: string;',
-      '  name: string;',
-      '}',
-      ''
-    ].join('\n'));
+    write(
+      ws().path,
+      THING_TYPES,
+      ['export interface GetThingDto {', '  id: string;', '  name: string;', '}', ''].join('\n')
+    );
 
     const report = diffApiDocument({ projectRoot: ws().path, docPath: THINGS_DOC });
 
@@ -939,12 +1031,11 @@ describe('proven-completeness repair', () => {
     // given: a GetThingRequest paired with a GET that declares no requestBody
     // when: the document is diffed
     // then: the silent hole is named rather than swallowed by the operation being skipped
-    write(ws().path, THING_TYPES, [
-      'export interface GetThingRequest {',
-      '  id: string;',
-      '}',
-      ''
-    ].join('\n'));
+    write(
+      ws().path,
+      THING_TYPES,
+      ['export interface GetThingRequest {', '  id: string;', '}', ''].join('\n')
+    );
 
     const report = diffApiDocument({ projectRoot: ws().path, docPath: THINGS_DOC });
 
@@ -971,11 +1062,15 @@ describe('formatApiDiffText', () => {
     expect(text).toContain('Exact — document parsed vs recorded interfaces parsed');
     expect(text).toContain('Candidate mentions — name-grep, may OVER- and UNDER-report');
     expect(text).toContain('Not detectable by this command');
-    expect(text).toContain('  CHANGED   GET /api/users/{id}   response.200.email   string -> string | null');
+    expect(text).toContain(
+      '  CHANGED   GET /api/users/{id}   response.200.email   string -> string | null'
+    );
     expect(text).toContain('  ADDED     GET /api/legacy/users');
     expect(text).toContain('  REMOVED   DELETE /api/users/{id}');
     expect(text.indexOf('Exact —')).toBeLessThan(text.indexOf('Candidate mentions —'));
-    expect(text.indexOf('Candidate mentions —')).toBeLessThan(text.indexOf('Not detectable by this command'));
+    expect(text.indexOf('Candidate mentions —')).toBeLessThan(
+      text.indexOf('Not detectable by this command')
+    );
   });
 
   it('when a section is empty, should say so out loud rather than printing nothing', () => {
@@ -1065,7 +1160,9 @@ describe('parseRecordedInterfaces', () => {
       ''
     ].join('\n');
 
-    const child = parseRecordedInterfaces(source, 'child.ts').find((entry) => entry.name === 'Child');
+    const child = parseRecordedInterfaces(source, 'child.ts').find(
+      (entry) => entry.name === 'Child'
+    );
 
     expect([...(child?.members.keys() ?? [])]).toEqual(['b']);
     expect(child?.incompleteReason).toContain('extends a base type');

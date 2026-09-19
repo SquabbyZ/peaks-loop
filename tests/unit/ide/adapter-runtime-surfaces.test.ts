@@ -39,7 +39,7 @@ import type { IdeId } from '../../../src/services/ide/ide-types.js';
 import {
   hasHookSpec,
   resolveHookShell,
-  resolveHookSpec,
+  resolveHookSpec
 } from '../../../src/services/skills/hooks-codegate-superpowers.js';
 
 declareDimensions(
@@ -47,8 +47,8 @@ declareDimensions(
   ['behavior', 'integration'],
   [
     { dim: 'render', reason: 'nothing renders here; the assembled hook entry is asserted as data' },
-    { dim: 'a11y', reason: 'the two refusal messages are asserted as text under behavior' },
-  ],
+    { dim: 'a11y', reason: 'the two refusal messages are asserted as text under behavior' }
+  ]
 );
 
 const tmpDirs: string[] = [];
@@ -71,7 +71,14 @@ afterEach(() => {
  * — see the "table not yet filled" scenario below, which pins that refusal
  * rather than leaving it unnoticed.
  */
-const IDES_WITH_HOOK_SPEC: readonly IdeId[] = ['claude-code', 'trae', 'cursor', 'codex', 'hermes', 'openclaw'];
+const IDES_WITH_HOOK_SPEC: readonly IdeId[] = [
+  'claude-code',
+  'trae',
+  'cursor',
+  'codex',
+  'hermes',
+  'openclaw'
+];
 const IDES_WITHOUT_HOOK_SPEC: readonly IdeId[] = ['qoder', 'tongyi-lingma', 'zcode'];
 
 describe('Scenario: behavior — settings paths resolve per scope, platform-correctly', () => {
@@ -79,7 +86,11 @@ describe('Scenario: behavior — settings paths resolve per scope, platform-corr
     const root = makeTmpDir();
     for (const ide of listAdapterIds()) {
       const adapter = getAdapter(ide);
-      const expected = join(resolve(root), adapter.settings.dirName, adapter.settings.settingsFileName);
+      const expected = join(
+        resolve(root),
+        adapter.settings.dirName,
+        adapter.settings.settingsFileName
+      );
       const actual = adapter.settings.resolveSettingsFile('project', root);
 
       expect(actual, ide).toBe(expected);
@@ -95,7 +106,7 @@ describe('Scenario: behavior — settings paths resolve per scope, platform-corr
     for (const ide of listAdapterIds()) {
       const adapter = getAdapter(ide);
       expect(adapter.settings.resolveSettingsFile('global', makeTmpDir()), ide).toBe(
-        join(homedir(), adapter.settings.dirName, adapter.settings.settingsFileName),
+        join(homedir(), adapter.settings.dirName, adapter.settings.settingsFileName)
       );
     }
   });
@@ -108,7 +119,7 @@ describe('Scenario: behavior — settings paths resolve per scope, platform-corr
     for (const ide of listAdapterIds()) {
       const adapter = getAdapter(ide);
       expect(adapter.settings.resolveSettingsFile('project', undefined), ide).toBe(
-        adapter.settings.resolveSettingsFile('global', makeTmpDir()),
+        adapter.settings.resolveSettingsFile('global', makeTmpDir())
       );
     }
   });
@@ -143,7 +154,9 @@ describe('Scenario: behavior — the install emits the adapter own event, matche
     // given: the one adapter whose hook takes `--json` (its validator rejects
     // a plain `{}` stdout). Asserting the exact command pins the flag.
     const spec = resolveHookSpec('claude-code');
-    expect(spec.hookEnforceCommand).toBe('peaks gate enforce --project "${CLAUDE_PROJECT_DIR}" --json');
+    expect(spec.hookEnforceCommand).toBe(
+      'peaks gate enforce --project "${CLAUDE_PROJECT_DIR}" --json'
+    );
   });
 
   it('when a non-claude spec is resolved, should dispatch through `peaks hook handle` and omit the json flag', () => {
@@ -224,7 +237,7 @@ describe('Scenario: integration — detection picks the adapter each signal name
       const detected = detectIdeFromContext({
         env: { [adapter.envVar]: makeTmpDir() },
         cwd: makeTmpDir(),
-        parsedStdin: null,
+        parsedStdin: null
       });
       expect(detected, `${adapter.envVar} detected as ${detected}`).toBe(ide);
     }
@@ -247,20 +260,32 @@ describe('Scenario: integration — detection picks the adapter each signal name
 
     // when / then: documenting which signal wins — the heuristics are ordered,
     // and a reordering is a behaviour change
-    expect(detectIdeFromContext({ env: { TRAE_PROJECT_DIR: makeTmpDir() }, cwd, parsedStdin: null })).toBe('trae');
+    expect(
+      detectIdeFromContext({ env: { TRAE_PROJECT_DIR: makeTmpDir() }, cwd, parsedStdin: null })
+    ).toBe('trae');
   });
 
   it('when the stdin payload is Cursor-shaped, should detect cursor', () => {
     // given: the three stdin shapes the translator recognises
-    expect(detectIdeFromContext({ env: {}, cwd: makeTmpDir(), parsedStdin: { toolName: 'Bash' } })).toBe('cursor');
+    expect(
+      detectIdeFromContext({ env: {}, cwd: makeTmpDir(), parsedStdin: { toolName: 'Bash' } })
+    ).toBe('cursor');
   });
 
   it('when the stdin payload is Trae-shaped, should detect trae', () => {
-    expect(detectIdeFromContext({ env: {}, cwd: makeTmpDir(), parsedStdin: { eventName: 'beforeToolCall' } })).toBe('trae');
+    expect(
+      detectIdeFromContext({
+        env: {},
+        cwd: makeTmpDir(),
+        parsedStdin: { eventName: 'beforeToolCall' }
+      })
+    ).toBe('trae');
   });
 
   it('when the stdin payload is claude-shaped, should detect claude-code', () => {
-    expect(detectIdeFromContext({ env: {}, cwd: makeTmpDir(), parsedStdin: { tool_name: 'Bash' } })).toBe('claude-code');
+    expect(
+      detectIdeFromContext({ env: {}, cwd: makeTmpDir(), parsedStdin: { tool_name: 'Bash' } })
+    ).toBe('claude-code');
   });
 
   it('when nothing matches, should fall back to claude-code rather than an unregistered value', () => {

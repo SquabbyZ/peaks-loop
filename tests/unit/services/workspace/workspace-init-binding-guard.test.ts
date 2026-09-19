@@ -28,7 +28,7 @@ import { declareDimensions } from '../../_setup/4dim-template.js';
 import { withTmpWorkspacePerTest } from '../../_setup/tmp-workspace.js';
 import {
   initWorkspace,
-  ConflictingSessionError,
+  ConflictingSessionError
 } from '../../../../src/services/workspace/workspace-service.js';
 
 declareDimensions(
@@ -36,8 +36,12 @@ declareDimensions(
   ['behavior', 'integration'],
   [
     { dim: 'render', reason: 'no formatted output surface in the service' },
-    { dim: 'a11y', reason: 'no human-facing text in the service; the CLI surfaces the ConflictingSessionError remediation' },
-  ],
+    {
+      dim: 'a11y',
+      reason:
+        'no human-facing text in the service; the CLI surfaces the ConflictingSessionError remediation'
+    }
+  ]
 );
 
 const PARENT_SESSION = '2026-09-07-session-aaaa11';
@@ -56,22 +60,30 @@ function writeLiveParentBinding(projectRoot: string): void {
   // Project-level binding with the relative stored form.
   writeFileSync(
     join(runtimeDir, 'session.json'),
-    JSON.stringify({ sessionId: PARENT_SESSION, createdAt: '2026-09-07T00:00:00.000Z', projectRoot: '.' }, null, 2),
-    'utf8',
+    JSON.stringify(
+      { sessionId: PARENT_SESSION, createdAt: '2026-09-07T00:00:00.000Z', projectRoot: '.' },
+      null,
+      2
+    ),
+    'utf8'
   );
   // Live parent session dir (non-empty meta + recorded outer-session id).
   const parentDir = join(runtimeDir, PARENT_SESSION);
   mkdirSync(parentDir, { recursive: true });
   writeFileSync(
     join(parentDir, 'session.json'),
-    JSON.stringify({
-      sessionId: PARENT_SESSION,
-      projectRoot: '.',
-      createdAt: '2026-09-07T00:00:00.000Z',
-      lastActivity: '2026-09-07T00:00:00.000Z',
-      outerSessionId: 'outer-parent-session',
-    }, null, 2),
-    'utf8',
+    JSON.stringify(
+      {
+        sessionId: PARENT_SESSION,
+        projectRoot: '.',
+        createdAt: '2026-09-07T00:00:00.000Z',
+        lastActivity: '2026-09-07T00:00:00.000Z',
+        outerSessionId: 'outer-parent-session'
+      },
+      null,
+      2
+    ),
+    'utf8'
   );
 }
 
@@ -92,8 +104,8 @@ describe('Scenario: behavior — differing re-init refuses to clobber a live par
       initWorkspace({
         projectRoot: ws().path,
         sessionId: PHANTOM_SESSION,
-        allowSessionRebind: false,
-      }),
+        allowSessionRebind: false
+      })
     ).rejects.toBeInstanceOf(ConflictingSessionError);
 
     expect(readBoundSessionId(ws().path)).toBe(PARENT_SESSION);
@@ -105,7 +117,7 @@ describe('Scenario: behavior — differing re-init refuses to clobber a live par
     const report = await initWorkspace({
       projectRoot: ws().path,
       sessionId: PHANTOM_SESSION,
-      allowSessionRebind: true,
+      allowSessionRebind: true
     });
 
     expect(report.bound).toBe(true);
@@ -119,7 +131,7 @@ describe('Scenario: behavior — differing re-init refuses to clobber a live par
     const report = await initWorkspace({
       projectRoot: ws().path,
       sessionId: PARENT_SESSION,
-      allowSessionRebind: false,
+      allowSessionRebind: false
     });
 
     expect(report.bound).toBe(true);

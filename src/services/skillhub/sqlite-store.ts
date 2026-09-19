@@ -1,7 +1,7 @@
-import Database from "better-sqlite3";
-import { readFileSync, readdirSync, existsSync, mkdirSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import Database from 'better-sqlite3';
+import { readFileSync, readdirSync, existsSync, mkdirSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 /**
  * Open (or create) a SkillHub state database at the given path.
@@ -22,14 +22,16 @@ export function openStateDb(path: string): Database.Database {
   const parent = dirname(path);
   if (!existsSync(parent)) mkdirSync(parent, { recursive: true });
   const db = new Database(path);
-  db.pragma("journal_mode = WAL");
-  db.pragma("foreign_keys = ON");
+  db.pragma('journal_mode = WAL');
+  db.pragma('foreign_keys = ON');
   const here = dirname(fileURLToPath(import.meta.url));
-  const migrationsDir = join(here, "migrations");
+  const migrationsDir = join(here, 'migrations');
   if (existsSync(migrationsDir)) {
-    const files = readdirSync(migrationsDir).filter((f) => f.endsWith(".sql")).sort();
+    const files = readdirSync(migrationsDir)
+      .filter((f) => f.endsWith('.sql'))
+      .sort();
     for (const f of files) {
-      const sql = readFileSync(join(migrationsDir, f), "utf-8");
+      const sql = readFileSync(join(migrationsDir, f), 'utf-8');
       try {
         db.exec(sql);
       } catch (err) {
@@ -40,10 +42,7 @@ export function openStateDb(path: string): Database.Database {
         // made idempotent here so the same state.db can be opened
         // by multiple CLI processes within one workflow.
         const msg = err instanceof Error ? err.message : String(err);
-        if (
-          msg.includes("duplicate column name") ||
-          msg.includes("already exists")
-        ) {
+        if (msg.includes('duplicate column name') || msg.includes('already exists')) {
           continue;
         }
         throw err;

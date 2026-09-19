@@ -20,7 +20,16 @@
  */
 import { afterEach, describe, expect, it } from 'vitest';
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  statSync,
+  writeFileSync
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -106,12 +115,17 @@ describe('behavior — Peaks declares its external fact-forcing gate exemption',
     //        one adapter table, not scattered through the installer
     // when: every TypeScript file under src/ is searched for it
     const hits = listSourceFiles(join(ROOT, 'src'))
-      .map((file) => ({ file, count: (readFileSync(file, 'utf8').match(new RegExp(VENDOR_KEY, 'g')) ?? []).length }))
+      .map((file) => ({
+        file,
+        count: (readFileSync(file, 'utf8').match(new RegExp(VENDOR_KEY, 'g')) ?? []).length
+      }))
       .filter((entry) => entry.count > 0);
     // then: there is exactly one site, and it is the adapter mapping
     expect(hits).toHaveLength(1);
     expect(hits[0]!.count).toBe(1);
-    expect(hits[0]!.file.replaceAll('\\', '/')).toContain('services/skills/hooks-codegate-superpowers.ts');
+    expect(hits[0]!.file.replaceAll('\\', '/')).toContain(
+      'services/skills/hooks-codegate-superpowers.ts'
+    );
     expect(EXTERNAL_GATE_EXEMPT_ENV[VENDOR_KEY]).toBe(PEAKS_WORKSPACE_GLOB);
   });
 
@@ -131,7 +145,9 @@ describe('behavior — Peaks declares its external fact-forcing gate exemption',
     // given: a project whose settings.local.json was hand-edited — one of our
     //        variable plus an unrelated env key
     const tmpRoot = makeTempProjectRoot();
-    seedLocalSettings(tmpRoot, { env: { [VENDOR_KEY]: 'tests/**', [UNRELATED_ENV_KEY]: 'keep-me' } });
+    seedLocalSettings(tmpRoot, {
+      env: { [VENDOR_KEY]: 'tests/**', [UNRELATED_ENV_KEY]: 'keep-me' }
+    });
     // when: the install runs
     applyHookInstall('project', tmpRoot, { ide: 'claude-code' });
     // then: the existing glob is EXTENDED (not replaced) and the unrelated
@@ -185,11 +201,15 @@ describe('behavior — Peaks declares its external fact-forcing gate exemption',
     //        can only have learned it from the file
     const base: NodeJS.ProcessEnv = { ...process.env };
     delete base[VENDOR_KEY];
-    const child = spawnSync(process.execPath, ['-e', `process.stdout.write(String(process.env.${VENDOR_KEY}))`], {
-      env: { ...base, ...writtenEnv },
-      encoding: 'utf8',
-      windowsHide: true
-    });
+    const child = spawnSync(
+      process.execPath,
+      ['-e', `process.stdout.write(String(process.env.${VENDOR_KEY}))`],
+      {
+        env: { ...base, ...writtenEnv },
+        encoding: 'utf8',
+        windowsHide: true
+      }
+    );
     // then: the subprocess reads the glob — the environment, not the file
     expect(child.status).toBe(0);
     expect(child.stdout).toBe(PEAKS_WORKSPACE_GLOB);
@@ -198,7 +218,9 @@ describe('behavior — Peaks declares its external fact-forcing gate exemption',
   it('when hooks uninstall runs, should strip our glob and leave the user’s env intact', () => {
     // given: a project with the install applied over a hand-edited env
     const tmpRoot = makeTempProjectRoot();
-    seedLocalSettings(tmpRoot, { env: { [VENDOR_KEY]: 'tests/**', [UNRELATED_ENV_KEY]: 'keep-me' } });
+    seedLocalSettings(tmpRoot, {
+      env: { [VENDOR_KEY]: 'tests/**', [UNRELATED_ENV_KEY]: 'keep-me' }
+    });
     applyHookInstall('project', tmpRoot, { ide: 'claude-code' });
     // when: the hooks are uninstalled
     removeHookInstall('project', tmpRoot, { ide: 'claude-code' });
@@ -228,7 +250,9 @@ describe('behavior — Peaks declares its external fact-forcing gate exemption',
     applyHookInstall('global', undefined, { ide: 'claude-code' });
     // then: the entry is present at the user level, with no machine-local
     //       sibling involved
-    expect(readEnvObject(join(home, '.claude', 'settings.json'))[VENDOR_KEY]).toBe(PEAKS_WORKSPACE_GLOB);
+    expect(readEnvObject(join(home, '.claude', 'settings.json'))[VENDOR_KEY]).toBe(
+      PEAKS_WORKSPACE_GLOB
+    );
   });
 
   it('when the IDE is not Claude Code, should not write the third-party variable', () => {
@@ -279,7 +303,9 @@ describe('behavior — Peaks declares its external fact-forcing gate exemption',
     const result = await materializeClaudeSettingsLocal(tmpRoot, false);
     // then: the refresh repairs the drifted hook but NOT the user's exemption
     expect(result.action).toBe('refreshed');
-    expect(readEnvObject(localSettingsPath(tmpRoot))[VENDOR_KEY]).toBe(`tests/**,${PEAKS_WORKSPACE_GLOB}`);
+    expect(readEnvObject(localSettingsPath(tmpRoot))[VENDOR_KEY]).toBe(
+      `tests/**,${PEAKS_WORKSPACE_GLOB}`
+    );
   });
 
   it('when the template comparator runs, should accept a superset env and reject a missing one', () => {
@@ -304,8 +330,13 @@ describe('behavior — Peaks declares its external fact-forcing gate exemption',
     //       input was never mutated
     expect(twice).toBe(once);
     expect(input).toEqual({ env: { [UNRELATED_ENV_KEY]: 'keep-me' } });
-    expect(once.env).toEqual({ [UNRELATED_ENV_KEY]: 'keep-me', [VENDOR_KEY]: PEAKS_WORKSPACE_GLOB });
+    expect(once.env).toEqual({
+      [UNRELATED_ENV_KEY]: 'keep-me',
+      [VENDOR_KEY]: PEAKS_WORKSPACE_GLOB
+    });
     // and the inverse returns the original shape
-    expect(withoutExternalGateExemptions(once)).toEqual({ env: { [UNRELATED_ENV_KEY]: 'keep-me' } });
+    expect(withoutExternalGateExemptions(once)).toEqual({
+      env: { [UNRELATED_ENV_KEY]: 'keep-me' }
+    });
   });
 });

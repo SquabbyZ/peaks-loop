@@ -12,7 +12,12 @@ const JOURNEY = 'J15' as const;
 describe('J15 spec-coverage contract', () => {
   it('honours the fixed coverage-summary discovery order', async () => {
     const contract = getGuardContract(JOURNEY)!;
-    const r = await runGuard(contract, { projectRoot: REPO, sessionId: JOURNEY, contract, baselineInvariant: 'auto' });
+    const r = await runGuard(contract, {
+      projectRoot: REPO,
+      sessionId: JOURNEY,
+      contract,
+      baselineInvariant: 'auto'
+    });
     expect(r.status).toBe('pass');
   }, 300_000);
 });

@@ -47,19 +47,32 @@ export function registerUserTouchpointCommands(program: Command, io: ProgramIO):
   ).action((opts: { step: string; json?: boolean }) => {
     const c = classifyGate(opts.step);
     if (c === null) {
-      printResult(io, fail('code.gate-classify', 'UNKNOWN_STEP', `unknown step "${opts.step}"`, {}, [
-        'Run `peaks code user-touchpoints` to list all known steps.'
-      ]), opts.json ?? false);
+      printResult(
+        io,
+        fail('code.gate-classify', 'UNKNOWN_STEP', `unknown step "${opts.step}"`, {}, [
+          'Run `peaks code user-touchpoints` to list all known steps.'
+        ]),
+        opts.json ?? false
+      );
       process.exitCode = 1;
       return;
     }
-    printResult(io, ok('code.gate-classify', { classification: c }, [], [
-      c.userShouldReview === 'always'
-        ? 'User must review this gate in all modes.'
-        : c.userShouldReview === 'business-only'
-          ? 'User reviews this gate only when it surfaces a business decision.'
-          : 'AI auto-decides this gate in full-auto. User does not need to review.'
-    ]), opts.json ?? false);
+    printResult(
+      io,
+      ok(
+        'code.gate-classify',
+        { classification: c },
+        [],
+        [
+          c.userShouldReview === 'always'
+            ? 'User must review this gate in all modes.'
+            : c.userShouldReview === 'business-only'
+              ? 'User reviews this gate only when it surfaces a business decision.'
+              : 'AI auto-decides this gate in full-auto. User does not need to review.'
+        ]
+      ),
+      opts.json ?? false
+    );
   });
 
   addJsonOption(
@@ -73,17 +86,26 @@ export function registerUserTouchpointCommands(program: Command, io: ProgramIO):
   ).action((opts: { json?: boolean }) => {
     const must = userMustReviewGates();
     const auto = aiAutoDecidesGates();
-    printResult(io, ok('code.user-touchpoints', {
-      userMustReview: must,
-      aiAutoDecides: auto,
-      counts: {
-        userMustReview: must.length,
-        aiAutoDecides: auto.length
-      }
-    }, [], [
-      `User reviews ${must.length} gate(s); AI auto-decides ${auto.length} in full-auto.`,
-      'Goal: 减少 user 被打扰次数 from 14 → 6-8 (the must-review count).'
-    ]), opts.json ?? false);
+    printResult(
+      io,
+      ok(
+        'code.user-touchpoints',
+        {
+          userMustReview: must,
+          aiAutoDecides: auto,
+          counts: {
+            userMustReview: must.length,
+            aiAutoDecides: auto.length
+          }
+        },
+        [],
+        [
+          `User reviews ${must.length} gate(s); AI auto-decides ${auto.length} in full-auto.`,
+          'Goal: 减少 user 被打扰次数 from 14 → 6-8 (the must-review count).'
+        ]
+      ),
+      opts.json ?? false
+    );
   });
 
   addJsonOption(
@@ -95,8 +117,15 @@ export function registerUserTouchpointCommands(program: Command, io: ProgramIO):
           '"full-auto 只做到 commit"). The user is always asked to confirm.'
       )
   ).action((opts: { json?: boolean }) => {
-    printResult(io, ok('code.commit-boundary-actions', { actions: COMMIT_BOUNDARY_ACTIONS_LIST }, [], [
-      'Even in full-auto, the user must explicitly confirm these actions.'
-    ]), opts.json ?? false);
+    printResult(
+      io,
+      ok(
+        'code.commit-boundary-actions',
+        { actions: COMMIT_BOUNDARY_ACTIONS_LIST },
+        [],
+        ['Even in full-auto, the user must explicitly confirm these actions.']
+      ),
+      opts.json ?? false
+    );
   });
 }

@@ -11,7 +11,7 @@ import {
   CHECKPOINT_CONSTANTS,
   CHECKPOINT_REASONS,
   writeCheckpoint,
-  type CheckpointReason,
+  type CheckpointReason
 } from '../../services/session/session-checkpoint-service.js';
 import { resolveCanonicalProjectRoot } from '../../services/config/config-service.js';
 import { getErrorMessage, type ProgramIO } from '../cli-helpers.js';
@@ -46,9 +46,16 @@ export function registerSessionCheckpointCommand(session: Command, _io: ProgramI
         `_runtime/<sessionId>/checkpoints/<iso>.json (max ${CHECKPOINT_CONSTANTS.MAX_CHECKPOINTS} retained). ` +
         'Designed for skill-level invocation.'
     )
-    .option('--reason <reason>', `one of: ${CHECKPOINT_REASONS.join(', ')} (default: periodic)`, 'periodic')
+    .option(
+      '--reason <reason>',
+      `one of: ${CHECKPOINT_REASONS.join(', ')} (default: periodic)`,
+      'periodic'
+    )
     .option('--project <path>', 'project root (defaults to current directory)', process.cwd())
-    .option('--session-id <sid>', 'explicit session id (defaults to canonical binding from .peaks/_runtime/session.json)')
+    .option(
+      '--session-id <sid>',
+      'explicit session id (defaults to canonical binding from .peaks/_runtime/session.json)'
+    )
     .option('--current-plan <text>', 'current plan summary')
     .option('--open-questions <list>', 'newline-separated open questions')
     .option('--recent-decisions <list>', 'newline-separated recent decisions')
@@ -62,17 +69,22 @@ export function registerSessionCheckpointCommand(session: Command, _io: ProgramI
         const projectRoot = resolveCanonicalProjectRoot(opts.project ?? process.cwd());
         let sid: string | undefined = opts.sessionId;
         if (!sid) {
-          const { getSessionIdCanonical } = await import('../../services/session/session-manager.js');
+          const { getSessionIdCanonical } =
+            await import('../../services/session/session-manager.js');
           sid = getSessionIdCanonical(projectRoot) ?? undefined;
         }
         if (!sid) {
           if (opts.json === true) {
-            process.stdout.write(JSON.stringify({
-              ok: false,
-              error: 'NO_ACTIVE_SESSION: run `peaks workspace init` first or pass --session-id'
-            }) + '\n');
+            process.stdout.write(
+              JSON.stringify({
+                ok: false,
+                error: 'NO_ACTIVE_SESSION: run `peaks workspace init` first or pass --session-id'
+              }) + '\n'
+            );
           } else {
-            process.stderr.write('NO_ACTIVE_SESSION: run `peaks workspace init` first or pass --session-id\n');
+            process.stderr.write(
+              'NO_ACTIVE_SESSION: run `peaks workspace init` first or pass --session-id\n'
+            );
           }
           process.exitCode = 1;
           return;
@@ -80,12 +92,16 @@ export function registerSessionCheckpointCommand(session: Command, _io: ProgramI
         const reasonRaw = opts.reason ?? 'periodic';
         if (!(CHECKPOINT_REASONS as readonly string[]).includes(reasonRaw)) {
           if (opts.json === true) {
-            process.stdout.write(JSON.stringify({
-              ok: false,
-              error: `INVALID_REASON: --reason must be one of ${CHECKPOINT_REASONS.join(', ')} (got "${reasonRaw}")`
-            }) + '\n');
+            process.stdout.write(
+              JSON.stringify({
+                ok: false,
+                error: `INVALID_REASON: --reason must be one of ${CHECKPOINT_REASONS.join(', ')} (got "${reasonRaw}")`
+              }) + '\n'
+            );
           } else {
-            process.stderr.write(`INVALID_REASON: --reason must be one of ${CHECKPOINT_REASONS.join(', ')} (got "${reasonRaw}")\n`);
+            process.stderr.write(
+              `INVALID_REASON: --reason must be one of ${CHECKPOINT_REASONS.join(', ')} (got "${reasonRaw}")\n`
+            );
           }
           process.exitCode = 1;
           return;
@@ -105,7 +121,9 @@ export function registerSessionCheckpointCommand(session: Command, _io: ProgramI
         if (opts.json === true) {
           process.stdout.write(JSON.stringify({ ok: true, data: result }) + '\n');
         } else {
-          process.stdout.write(`checkpoint: ${result.path} (reason=${result.reason}, retained=${result.totalRetained})\n`);
+          process.stdout.write(
+            `checkpoint: ${result.path} (reason=${result.reason}, retained=${result.totalRetained})\n`
+          );
         }
       } catch (error) {
         if (opts.json === true) {

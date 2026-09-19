@@ -148,7 +148,10 @@ function safeReadCheckpoint(absPath: string): CheckpointFile | null {
 function readLatestTodayCheckpoint(
   runtimeDir: string,
   now: Date
-): { found: 'none' } | { found: 'today'; file: CheckpointFile } | { found: 'multiple'; files: readonly CheckpointFile[] } {
+):
+  | { found: 'none' }
+  | { found: 'today'; file: CheckpointFile }
+  | { found: 'multiple'; files: readonly CheckpointFile[] } {
   const dir = join(runtimeDir, CHECKPOINTS_DIR);
   if (!existsSync(dir)) {
     return { found: 'none' };
@@ -278,11 +281,19 @@ export async function detectPostCompactResume(
     checkpointPath: file.path,
     checkpointMtime: file.mtime.toISOString(),
     ...(file.content.currentPlan !== undefined ? { task: file.content.currentPlan } : {}),
-    ...(file.content.openQuestions !== undefined ? { openQuestions: file.content.openQuestions } : {}),
-    ...(file.content.recentDecisions !== undefined ? { recentDecisions: file.content.recentDecisions } : {}),
+    ...(file.content.openQuestions !== undefined
+      ? { openQuestions: file.content.openQuestions }
+      : {}),
+    ...(file.content.recentDecisions !== undefined
+      ? { recentDecisions: file.content.recentDecisions }
+      : {}),
     warnings
   };
-  emitPostCompactEvent({ projectRoot: opts.projectRoot, sessionId: opts.sessionId, probe: successProbe });
+  emitPostCompactEvent({
+    projectRoot: opts.projectRoot,
+    sessionId: opts.sessionId,
+    probe: successProbe
+  });
   return successProbe;
 }
 
@@ -294,18 +305,23 @@ function emitPostCompactEvent(opts: {
   sessionId: string;
   probe: PostCompactResumeProbe;
 }): void {
-  emitObservabilityEvent({
-    schemaVersion: 1,
-    ts: new Date().toISOString(),
-    sessionId: opts.sessionId,
-    category: 'post-compact',
-    detail: {
-      shouldAutoResume: opts.probe.shouldAutoResume,
-      reason: opts.probe.reason,
-      ...(opts.probe.mode !== undefined ? { mode: opts.probe.mode } : {}),
-      ...(opts.probe.checkpointPath !== undefined ? { checkpointPath: opts.probe.checkpointPath } : {})
-    }
-  }, { projectRoot: opts.projectRoot });
+  emitObservabilityEvent(
+    {
+      schemaVersion: 1,
+      ts: new Date().toISOString(),
+      sessionId: opts.sessionId,
+      category: 'post-compact',
+      detail: {
+        shouldAutoResume: opts.probe.shouldAutoResume,
+        reason: opts.probe.reason,
+        ...(opts.probe.mode !== undefined ? { mode: opts.probe.mode } : {}),
+        ...(opts.probe.checkpointPath !== undefined
+          ? { checkpointPath: opts.probe.checkpointPath }
+          : {})
+      }
+    },
+    { projectRoot: opts.projectRoot }
+  );
 }
 
 function readActiveSkillName(projectRoot: string): string | undefined {

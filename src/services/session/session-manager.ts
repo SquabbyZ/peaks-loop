@@ -6,17 +6,25 @@
  * Each session gets a unique directory under .peaks/ with incrementing numbered files.
  */
 
-import { existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, unlinkSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  realpathSync,
+  unlinkSync,
+  writeFileSync
+} from 'node:fs';
 import { mkdir as mkdirAsync } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { randomBytes } from 'node:crypto';
-import {
-  projectRootsMatch,
-  resolveInputPath,
-  stableRealPath
-} from '../../shared/path-utils.js';
+import { projectRootsMatch, resolveInputPath, stableRealPath } from '../../shared/path-utils.js';
 import { ensureSession } from './session-binding-bridge.js';
-import { getCallerBinding, getCallerBindingFile, resolveCallerBinding } from './caller-binding-service.js';
+import {
+  getCallerBinding,
+  getCallerBindingFile,
+  resolveCallerBinding
+} from './caller-binding-service.js';
 import { resolveCallerProjection } from './resolve-caller-id.js';
 
 export type SessionInfo = {
@@ -160,11 +168,16 @@ function readSessionFile(projectRoot: string): SessionInfo | null {
 
   try {
     const data = JSON.parse(readFileSync(pathToRead, 'utf8'));
-    if (data.sessionId && typeof data.projectRoot === 'string' && projectRootsMatch(data.projectRoot, projectRoot)) {
+    if (
+      data.sessionId &&
+      typeof data.projectRoot === 'string' &&
+      projectRootsMatch(data.projectRoot, projectRoot)
+    ) {
       return data as SessionInfo;
     }
     return null;
-  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+  } catch {
+    // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     return null;
   }
 }
@@ -192,12 +205,14 @@ function readSessionFileCanonical(projectRoot: string): SessionInfo | null {
     if (
       data.sessionId &&
       storedRaw !== null &&
-      resolveStoredAgainstCaller(storedRaw, projectRoot) === resolveStoredAgainstCaller(projectRoot, projectRoot)
+      resolveStoredAgainstCaller(storedRaw, projectRoot) ===
+        resolveStoredAgainstCaller(projectRoot, projectRoot)
     ) {
       return data as SessionInfo;
     }
     return null;
-  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+  } catch {
+    // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     return null;
   }
 }
@@ -271,7 +286,8 @@ export function rotateSessionBinding(projectRoot: string): string | null {
   if (existsSync(legacyFile)) {
     try {
       unlinkSync(legacyFile);
-    } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+    } catch {
+      // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
       // best-effort: a stale legacy binding is not blocking
     }
   }
@@ -302,7 +318,8 @@ function clearRotatedCallerBinding(projectRoot: string, rotatedOutSessionId: str
   let callerId: string;
   try {
     callerId = resolveCallerProjection({ projectRoot, env: process.env }).callerId;
-  } catch { // PEAKS_CALLER_NOT_RESOLVED → no per-caller binding exists
+  } catch {
+    // PEAKS_CALLER_NOT_RESOLVED → no per-caller binding exists
     return;
   }
   const binding = getCallerBinding(projectRoot, callerId);
@@ -311,7 +328,8 @@ function clearRotatedCallerBinding(projectRoot: string, rotatedOutSessionId: str
   }
   try {
     unlinkSync(getCallerBindingFile(projectRoot, callerId));
-  } catch { // TODO(g2): best-effort unlink — rotation must not fail on a cleanup
+  } catch {
+    // TODO(g2): best-effort unlink — rotation must not fail on a cleanup
     // error (Windows EPERM). On failure the binding survives; it is stale
     // for as long as its session directory is gone, and the next rotation
     // or rebind retries the clear.
@@ -360,7 +378,8 @@ function readSessionMeta(projectRoot: string, sessionId: string): SessionMeta | 
       return null;
     }
     return parsed as SessionMeta;
-  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+  } catch {
+    // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     return null;
   }
 }
@@ -388,7 +407,11 @@ export function getSessionMeta(projectRoot: string, sessionId: string): SessionM
  * Write or update metadata for a session.  Fields besides sessionId and createdAt
  * are merged on top of the current meta (partial update).
  */
-export function setSessionMeta(projectRoot: string, sessionId: string, partial: Partial<Omit<SessionMeta, 'sessionId' | 'createdAt' | 'projectRoot'>>): SessionMeta {
+export function setSessionMeta(
+  projectRoot: string,
+  sessionId: string,
+  partial: Partial<Omit<SessionMeta, 'sessionId' | 'createdAt' | 'projectRoot'>>
+): SessionMeta {
   const existing = readSessionMeta(projectRoot, sessionId);
   const now = new Date().toISOString();
 
@@ -409,7 +432,11 @@ export function setSessionMeta(projectRoot: string, sessionId: string, partial: 
 /**
  * Set the display title for a session directory.
  */
-export function setSessionTitle(projectRoot: string, sessionId: string, title: string): SessionMeta {
+export function setSessionTitle(
+  projectRoot: string,
+  sessionId: string,
+  title: string
+): SessionMeta {
   return setSessionMeta(projectRoot, sessionId, { title });
 }
 
@@ -471,7 +498,8 @@ function readSessionMetaCompat(peaksRoot: string, sessionId: string): SessionMet
       return null;
     }
     return parsed as SessionMeta;
-  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+  } catch {
+    // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     return null;
   }
 }
@@ -591,7 +619,8 @@ export function resolveCallerBoundSession(projectRoot: string): CallerBoundSessi
       return { sessionId: null, staleSessionId: resolution.binding.peakSessionId };
     }
     return { sessionId: null, staleSessionId: null };
-  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+  } catch {
+    // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     return { sessionId: null, staleSessionId: null };
   }
 }

@@ -33,27 +33,11 @@ import { dirname, join } from 'node:path';
 import type { BusinessConcept, BusinessKnowledge } from './project-scan-types.js';
 import { readBusinessKnowledge } from './project-scan-reader.js';
 
-const BUSINESS_KNOWLEDGE_RELATIVE = join(
-  '.peaks',
-  'project-scan',
-  'business-knowledge.md'
-);
+const BUSINESS_KNOWLEDGE_RELATIVE = join('.peaks', 'project-scan', 'business-knowledge.md');
 
-const SECURITY_TEMPLATE_RELATIVE = join(
-  '.peaks',
-  'project-scan',
-  'security-template.md'
-);
-const PERF_TEMPLATE_RELATIVE = join(
-  '.peaks',
-  'project-scan',
-  'perf-template.md'
-);
-const AUDIT_OUTPUT_SCHEMA_RELATIVE = join(
-  '.peaks',
-  'project-scan',
-  'audit-output-schema.md'
-);
+const SECURITY_TEMPLATE_RELATIVE = join('.peaks', 'project-scan', 'security-template.md');
+const PERF_TEMPLATE_RELATIVE = join('.peaks', 'project-scan', 'perf-template.md');
+const AUDIT_OUTPUT_SCHEMA_RELATIVE = join('.peaks', 'project-scan', 'audit-output-schema.md');
 
 export interface SedimentAppendOptions {
   readonly projectRoot: string;
@@ -450,7 +434,9 @@ function splitTableRow(row: string): string[] {
   return row
     .split('|')
     .map((cell) => cell.trim())
-    .filter((cell, idx, arr) => !(idx === 0 && cell === '') && !(idx === arr.length - 1 && cell === ''));
+    .filter(
+      (cell, idx, arr) => !(idx === 0 && cell === '') && !(idx === arr.length - 1 && cell === '')
+    );
 }
 
 function renderFreshAuditPatternBody(args: AppendAuditPatternArgs): string {
@@ -522,10 +508,7 @@ function replacePlaceholderRow(
   return out.join('\n');
 }
 
-function appendRowAfterTable(
-  body: string,
-  args: { index: number; row: AuditPatternRow }
-): string {
+function appendRowAfterTable(body: string, args: { index: number; row: AuditPatternRow }): string {
   // Find the last `|`-prefixed line and insert the new row right after it.
   const lines = body.split(/\r?\n/);
   let lastTableLine = -1;

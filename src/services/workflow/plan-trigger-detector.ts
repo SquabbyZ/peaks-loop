@@ -42,9 +42,21 @@ export interface DetectTriggerArgs {
 
 export interface SliceDiff {
   readonly packageJson?: {
-    readonly dependencies?: { readonly added?: readonly string[]; readonly removed?: readonly string[]; readonly changed?: readonly string[] };
-    readonly optionalDependencies?: { readonly added?: readonly string[]; readonly removed?: readonly string[]; readonly changed?: readonly string[] };
-    readonly devDependencies?: { readonly added?: readonly string[]; readonly removed?: readonly string[]; readonly changed?: readonly string[] };
+    readonly dependencies?: {
+      readonly added?: readonly string[];
+      readonly removed?: readonly string[];
+      readonly changed?: readonly string[];
+    };
+    readonly optionalDependencies?: {
+      readonly added?: readonly string[];
+      readonly removed?: readonly string[];
+      readonly changed?: readonly string[];
+    };
+    readonly devDependencies?: {
+      readonly added?: readonly string[];
+      readonly removed?: readonly string[];
+      readonly changed?: readonly string[];
+    };
   };
   readonly newFiles?: readonly string[];
   readonly changedFiles?: readonly string[];
@@ -68,7 +80,8 @@ function readPackageJson(projectRoot: string): PackageJsonShape | null {
   if (!existsSync(path)) return null;
   try {
     return JSON.parse(readFileSync(path, 'utf8')) as PackageJsonShape;
-  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+  } catch {
+    // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     return null;
   }
 }
@@ -102,7 +115,8 @@ function freshScan(projectRoot: string): SliceDiff {
         continue;
       }
       for (const entry of entries) {
-        if (entry.name === 'node_modules' || entry.name === '.git' || entry.name === 'dist') continue;
+        if (entry.name === 'node_modules' || entry.name === '.git' || entry.name === 'dist')
+          continue;
         const full = join(dir, entry.name);
         if (entry.isDirectory()) {
           stack.push(full);
@@ -117,7 +131,11 @@ function freshScan(projectRoot: string): SliceDiff {
   return {
     packageJson: {
       dependencies: { added: Object.keys(pkg?.dependencies ?? {}), removed: [], changed: [] },
-      optionalDependencies: { added: Object.keys(pkg?.optionalDependencies ?? {}), removed: [], changed: [] },
+      optionalDependencies: {
+        added: Object.keys(pkg?.optionalDependencies ?? {}),
+        removed: [],
+        changed: []
+      },
       devDependencies: { added: Object.keys(pkg?.devDependencies ?? {}), removed: [], changed: [] }
     },
     newFiles: newFiles.sort(),
@@ -157,31 +175,54 @@ export function detectTrigger(args: DetectTriggerArgs): ResultEnvelope<DetectTri
   // the service boundary so every caller (CLI, skill, integration test)
   // gets the same rejection shape.
   if (!REQUEST_ID_PATTERN.test(args.rid)) {
-    return fail('workflow.plan.detect-trigger', 'INVALID_RID', 'request id must match [A-Za-z0-9][A-Za-z0-9._-]*', {
-      triggered: false,
-      reason: 'no-triggering-change'
-    } satisfies DetectTriggerData);
+    return fail(
+      'workflow.plan.detect-trigger',
+      'INVALID_RID',
+      'request id must match [A-Za-z0-9][A-Za-z0-9._-]*',
+      {
+        triggered: false,
+        reason: 'no-triggering-change'
+      } satisfies DetectTriggerData
+    );
   }
   if (args.manualOverride === true) {
-    return ok('workflow.plan.detect-trigger', { triggered: true, reason: 'manual-override' } satisfies DetectTriggerData);
+    return ok('workflow.plan.detect-trigger', {
+      triggered: true,
+      reason: 'manual-override'
+    } satisfies DetectTriggerData);
   }
   const diff = args.diff ?? freshScan(args.project);
   // Rule 1: new top-level dependency in `dependencies` or `optionalDependencies`
   // (devDependencies explicitly excluded per locked decision 1).
   if (anyAddedDeps(diff)) {
-    return ok('workflow.plan.detect-trigger', { triggered: true, reason: 'new-dependency' } satisfies DetectTriggerData);
+    return ok('workflow.plan.detect-trigger', {
+      triggered: true,
+      reason: 'new-dependency'
+    } satisfies DetectTriggerData);
   }
   // Rule 2: new file under src/services/{auth,security,secrets,payments,filesystem}/
   if (findNewSensitiveServiceFile(diff) !== null) {
-    return ok('workflow.plan.detect-trigger', { triggered: true, reason: 'auth-surface-added' } satisfies DetectTriggerData);
+    return ok('workflow.plan.detect-trigger', {
+      triggered: true,
+      reason: 'auth-surface-added'
+    } satisfies DetectTriggerData);
   }
   // Rule 3: new *auth*.ts file anywhere in src/
   if (findNewAuthFile(diff) !== null) {
-    return ok('workflow.plan.detect-trigger', { triggered: true, reason: 'auth-surface-added' } satisfies DetectTriggerData);
+    return ok('workflow.plan.detect-trigger', {
+      triggered: true,
+      reason: 'auth-surface-added'
+    } satisfies DetectTriggerData);
   }
   // Rule 4: new endpoint / route registration
   if (findNewHotPathFile(diff) !== null) {
-    return ok('workflow.plan.detect-trigger', { triggered: true, reason: 'hot-path-added' } satisfies DetectTriggerData);
+    return ok('workflow.plan.detect-trigger', {
+      triggered: true,
+      reason: 'hot-path-added'
+    } satisfies DetectTriggerData);
   }
-  return ok('workflow.plan.detect-trigger', { triggered: false, reason: 'no-triggering-change' } satisfies DetectTriggerData);
+  return ok('workflow.plan.detect-trigger', {
+    triggered: false,
+    reason: 'no-triggering-change'
+  } satisfies DetectTriggerData);
 }

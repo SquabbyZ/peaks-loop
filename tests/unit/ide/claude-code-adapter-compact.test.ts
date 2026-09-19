@@ -54,7 +54,7 @@ const __fsMocks = vi.hoisted(() => ({
   closeSync: null as unknown as ((...args: unknown[]) => unknown) | null,
   // Instrumentation for the reverse-scan bounded-read assertion.
   readFileSyncPaths: [] as string[],
-  readSyncTotalBytes: 0,
+  readSyncTotalBytes: 0
 }));
 vi.mock('node:fs', async () => {
   const actual = await vi.importActual<typeof import('node:fs')>('node:fs');
@@ -86,7 +86,7 @@ vi.mock('node:fs', async () => {
     closeSync: (...args: unknown[]) => {
       if (__fsMocks.closeSync) return __fsMocks.closeSync(...args);
       return (actual.closeSync as (...a: unknown[]) => unknown)(...args);
-    },
+    }
   };
 });
 
@@ -94,9 +94,12 @@ declareDimensions(
   'tests/unit/ide/claude-code-adapter-compact.test.ts',
   ['behavior', 'integration'],
   [
-    { dim: 'render', reason: 'adapter fallback returns a probe; shape is asserted inside behavior cases' },
-    { dim: 'a11y', reason: 'no human-facing text in the fallback path' },
-  ],
+    {
+      dim: 'render',
+      reason: 'adapter fallback returns a probe; shape is asserted inside behavior cases'
+    },
+    { dim: 'a11y', reason: 'no human-facing text in the fallback path' }
+  ]
 );
 
 import {
@@ -105,7 +108,7 @@ import {
   modelContextWindowTokens,
   parseContextWindowOverride,
   resolveClaudeModelFromEnv,
-  resolveContextWindow,
+  resolveContextWindow
 } from '~/src/services/ide/adapters/claude-code-adapter';
 import {
   readContextPercent,
@@ -130,7 +133,11 @@ beforeEach(() => {
 afterEach(() => {
   __home.value = '';
   for (const root of projects) {
-    try { rmSync(root, { recursive: true, force: true }); } catch { /* best effort */ }
+    try {
+      rmSync(root, { recursive: true, force: true });
+    } catch {
+      /* best effort */
+    }
   }
   projects.length = 0;
   __fsMocks.readdirSync = null;
@@ -151,7 +158,11 @@ afterEach(() => {
 describe('Scenario: behavior — statusline key parsing', () => {
   it('when statusline has contextPercent (0..1), should read it directly', () => {
     mkdirSync(join(home, '.claude'), { recursive: true });
-    writeFileSync(join(home, '.claude', 'statusline-state.json'), JSON.stringify({ contextPercent: 0.42 }), 'utf8');
+    writeFileSync(
+      join(home, '.claude', 'statusline-state.json'),
+      JSON.stringify({ contextPercent: 0.42 }),
+      'utf8'
+    );
 
     const probe = fallback()({ projectRoot: '/tmp/x', sessionId: 'peaks-sid' });
     expect(probe).not.toBeNull();
@@ -162,7 +173,11 @@ describe('Scenario: behavior — statusline key parsing', () => {
 
   it('when statusline has context_usage_percent (>1.5), should divide by 100', () => {
     mkdirSync(join(home, '.claude'), { recursive: true });
-    writeFileSync(join(home, '.claude', 'statusline-state.json'), JSON.stringify({ context_usage_percent: 72 }), 'utf8');
+    writeFileSync(
+      join(home, '.claude', 'statusline-state.json'),
+      JSON.stringify({ context_usage_percent: 72 }),
+      'utf8'
+    );
 
     const probe = fallback()({ projectRoot: '/tmp/x', sessionId: 'peaks-sid' });
     expect(probe!.source).toBe('statusline-poll');
@@ -171,7 +186,11 @@ describe('Scenario: behavior — statusline key parsing', () => {
 
   it('when statusline has contextPercentUsed, should clamp to [0,1]', () => {
     mkdirSync(join(home, '.claude'), { recursive: true });
-    writeFileSync(join(home, '.claude', 'statusline-state.json'), JSON.stringify({ contextPercentUsed: 1.2 }), 'utf8');
+    writeFileSync(
+      join(home, '.claude', 'statusline-state.json'),
+      JSON.stringify({ contextPercentUsed: 1.2 }),
+      'utf8'
+    );
 
     const probe = fallback()({ projectRoot: '/tmp/x', sessionId: 'peaks-sid' });
     expect(probe!.source).toBe('statusline-poll');
@@ -182,7 +201,9 @@ describe('Scenario: behavior — statusline key parsing', () => {
     __fsMocks.existsSync = () => true;
     __fsMocks.readFileSync = () => '{ broken json';
     try {
-      expect(() => fallback()({ projectRoot: '/tmp/x', sessionId: 'peaks-sid' })).toThrow(SyntaxError);
+      expect(() => fallback()({ projectRoot: '/tmp/x', sessionId: 'peaks-sid' })).toThrow(
+        SyntaxError
+      );
     } finally {
       __fsMocks.existsSync = null;
       __fsMocks.readFileSync = null;
@@ -208,9 +229,17 @@ describe('Scenario: integration — transcript outer-session-id lookup + token r
   it('when transcript has a usage entry, should return transcript-estimate with token ratio (200K window)', () => {
     // Non-1M model → 200K window; 100K + 50K + 10K = 160K → ratio 0.8
     writeTranscript(outer, [
-      usageLine('claude-3-5-sonnet-20241022', { input_tokens: 100_000, cache_read_input_tokens: 50_000, cache_creation_input_tokens: 10_000 })
+      usageLine('claude-3-5-sonnet-20241022', {
+        input_tokens: 100_000,
+        cache_read_input_tokens: 50_000,
+        cache_creation_input_tokens: 10_000
+      })
     ]);
-    const probe = fallback()({ projectRoot: '/tmp/x', sessionId: 'peaks-sid', outerSessionId: outer });
+    const probe = fallback()({
+      projectRoot: '/tmp/x',
+      sessionId: 'peaks-sid',
+      outerSessionId: outer
+    });
     expect(probe).not.toBeNull();
     expect(probe!.source).toBe('transcript-estimate');
     expect(probe!.ratio).toBeCloseTo(160_000 / 200_000, 5);
@@ -223,10 +252,18 @@ describe('Scenario: integration — transcript outer-session-id lookup + token r
     mkdirSync(deep, { recursive: true });
     writeFileSync(
       join(deep, `${outer}.jsonl`),
-      usageLine('claude-3-5-sonnet-20241022', { input_tokens: 40_000, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 }) + '\n',
+      usageLine('claude-3-5-sonnet-20241022', {
+        input_tokens: 40_000,
+        cache_read_input_tokens: 0,
+        cache_creation_input_tokens: 0
+      }) + '\n',
       'utf8'
     );
-    const probe = fallback()({ projectRoot: '/tmp/x', sessionId: 'peaks-sid', outerSessionId: outer });
+    const probe = fallback()({
+      projectRoot: '/tmp/x',
+      sessionId: 'peaks-sid',
+      outerSessionId: outer
+    });
     expect(probe).not.toBeNull();
     expect(probe!.source).toBe('transcript-estimate');
     expect(probe!.ratio).toBeCloseTo(40_000 / 200_000, 5);
@@ -234,28 +271,56 @@ describe('Scenario: integration — transcript outer-session-id lookup + token r
 
   it('should use the LATEST usage entry, not an older one (reverse scan)', () => {
     writeTranscript(outer, [
-      usageLine('claude-3-5-sonnet-20241022', { input_tokens: 10, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 }),
-      usageLine('claude-3-5-sonnet-20241022', { input_tokens: 100_000, cache_read_input_tokens: 50_000, cache_creation_input_tokens: 10_000 })
+      usageLine('claude-3-5-sonnet-20241022', {
+        input_tokens: 10,
+        cache_read_input_tokens: 0,
+        cache_creation_input_tokens: 0
+      }),
+      usageLine('claude-3-5-sonnet-20241022', {
+        input_tokens: 100_000,
+        cache_read_input_tokens: 50_000,
+        cache_creation_input_tokens: 10_000
+      })
     ]);
-    const probe = fallback()({ projectRoot: '/tmp/x', sessionId: 'peaks-sid', outerSessionId: outer });
+    const probe = fallback()({
+      projectRoot: '/tmp/x',
+      sessionId: 'peaks-sid',
+      outerSessionId: outer
+    });
     expect(probe!.rawTokens).toBe(160_000);
     expect(probe!.ratio).toBeCloseTo(0.8, 5);
   });
 
   it('when model is a known 1M-context model (allowlist), should use 1,000,000 window', () => {
     writeTranscript(outer, [
-      usageLine('claude-sonnet-4-5-20250929', { input_tokens: 500_000, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 })
+      usageLine('claude-sonnet-4-5-20250929', {
+        input_tokens: 500_000,
+        cache_read_input_tokens: 0,
+        cache_creation_input_tokens: 0
+      })
     ]);
-    const probe = fallback()({ projectRoot: '/tmp/x', sessionId: 'peaks-sid', outerSessionId: outer });
+    const probe = fallback()({
+      projectRoot: '/tmp/x',
+      sessionId: 'peaks-sid',
+      outerSessionId: outer
+    });
     expect(probe!.capacityTokens).toBe(1_000_000);
     expect(probe!.ratio).toBeCloseTo(500_000 / 1_000_000, 5);
   });
 
   it('when model id carries a "1m" suffix, should use 1,000,000 window', () => {
     writeTranscript(outer, [
-      usageLine('some-vendor-model-2025-1m', { input_tokens: 100_000, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 })
+      usageLine('some-vendor-model-2025-1m', {
+        input_tokens: 100_000,
+        cache_read_input_tokens: 0,
+        cache_creation_input_tokens: 0
+      })
     ]);
-    const probe = fallback()({ projectRoot: '/tmp/x', sessionId: 'peaks-sid', outerSessionId: outer });
+    const probe = fallback()({
+      projectRoot: '/tmp/x',
+      sessionId: 'peaks-sid',
+      outerSessionId: outer
+    });
     expect(probe!.capacityTokens).toBe(1_000_000);
     expect(probe!.ratio).toBeCloseTo(100_000 / 1_000_000, 5);
   });
@@ -265,10 +330,16 @@ describe('Scenario: integration — transcript outer-session-id lookup + token r
     // when: the transcript fallback runs with that env
     // then: capacityTokens is 1_000_000 (env-first), not the 200_000 the transcript model alone would imply
     writeTranscript(outer, [
-      usageLine('deepseek-v4-flash', { input_tokens: 100_000, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 })
+      usageLine('deepseek-v4-flash', {
+        input_tokens: 100_000,
+        cache_read_input_tokens: 0,
+        cache_creation_input_tokens: 0
+      })
     ]);
     const probe = fallback()({
-      projectRoot: '/tmp/x', sessionId: 'peaks-sid', outerSessionId: outer,
+      projectRoot: '/tmp/x',
+      sessionId: 'peaks-sid',
+      outerSessionId: outer,
       env: { ANTHROPIC_MODEL: 'deepseek-v4-flash[1M]' }
     });
     expect(probe).not.toBeNull();
@@ -282,9 +353,18 @@ describe('Scenario: integration — transcript outer-session-id lookup + token r
     // when: the transcript fallback runs with an empty env map
     // then: the transcript model drives the window (1_000_000), preserving the pre-env behavior
     writeTranscript(outer, [
-      usageLine('claude-sonnet-4-5-20250929', { input_tokens: 500_000, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 })
+      usageLine('claude-sonnet-4-5-20250929', {
+        input_tokens: 500_000,
+        cache_read_input_tokens: 0,
+        cache_creation_input_tokens: 0
+      })
     ]);
-    const probe = fallback()({ projectRoot: '/tmp/x', sessionId: 'peaks-sid', outerSessionId: outer, env: {} });
+    const probe = fallback()({
+      projectRoot: '/tmp/x',
+      sessionId: 'peaks-sid',
+      outerSessionId: outer,
+      env: {}
+    });
     expect(probe).not.toBeNull();
     expect(probe!.capacityTokens).toBe(1_000_000);
     expect(probe!.ratio).toBeCloseTo(500_000 / 1_000_000, 5);
@@ -292,18 +372,34 @@ describe('Scenario: integration — transcript outer-session-id lookup + token r
 
   it('when tokens exceed 200K on an unknown model, should infer a ≥1M window', () => {
     writeTranscript(outer, [
-      usageLine('unknown-future-model', { input_tokens: 300_000, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 })
+      usageLine('unknown-future-model', {
+        input_tokens: 300_000,
+        cache_read_input_tokens: 0,
+        cache_creation_input_tokens: 0
+      })
     ]);
-    const probe = fallback()({ projectRoot: '/tmp/x', sessionId: 'peaks-sid', outerSessionId: outer });
+    const probe = fallback()({
+      projectRoot: '/tmp/x',
+      sessionId: 'peaks-sid',
+      outerSessionId: outer
+    });
     expect(probe!.capacityTokens).toBe(1_000_000);
     expect(probe!.ratio).toBeCloseTo(300_000 / 1_000_000, 5);
   });
 
   it('should clamp ratio to 1 when tokens exceed even the 1M window', () => {
     writeTranscript(outer, [
-      usageLine('claude-sonnet-4-5-20250929', { input_tokens: 1_500_000, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 })
+      usageLine('claude-sonnet-4-5-20250929', {
+        input_tokens: 1_500_000,
+        cache_read_input_tokens: 0,
+        cache_creation_input_tokens: 0
+      })
     ]);
-    const probe = fallback()({ projectRoot: '/tmp/x', sessionId: 'peaks-sid', outerSessionId: outer });
+    const probe = fallback()({
+      projectRoot: '/tmp/x',
+      sessionId: 'peaks-sid',
+      outerSessionId: outer
+    });
     expect(probe!.ratio).toBe(1);
   });
 
@@ -313,10 +409,16 @@ describe('Scenario: integration — transcript outer-session-id lookup + token r
   // make that diagnosable and fixable in one read.
   it('when PEAKS_CONTEXT_WINDOW_TOKENS is set, should use it as the window and tag capacitySource env-override', () => {
     writeTranscript(outer, [
-      usageLine('deepseek-v4-flash', { input_tokens: 100_000, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 })
+      usageLine('deepseek-v4-flash', {
+        input_tokens: 100_000,
+        cache_read_input_tokens: 0,
+        cache_creation_input_tokens: 0
+      })
     ]);
     const probe = fallback()({
-      projectRoot: '/tmp/x', sessionId: 'peaks-sid', outerSessionId: outer,
+      projectRoot: '/tmp/x',
+      sessionId: 'peaks-sid',
+      outerSessionId: outer,
       env: { PEAKS_CONTEXT_WINDOW_TOKENS: '400000' }
     });
     expect(probe).not.toBeNull();
@@ -327,11 +429,18 @@ describe('Scenario: integration — transcript outer-session-id lookup + token r
 
   it('when config context.windowTokens is set (env absent), should tag capacitySource config', () => {
     writeTranscript(outer, [
-      usageLine('deepseek-v4-flash', { input_tokens: 100_000, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 })
+      usageLine('deepseek-v4-flash', {
+        input_tokens: 100_000,
+        cache_read_input_tokens: 0,
+        cache_creation_input_tokens: 0
+      })
     ]);
     const probe = fallback()({
-      projectRoot: '/tmp/x', sessionId: 'peaks-sid', outerSessionId: outer,
-      env: {}, configWindowTokens: 400_000
+      projectRoot: '/tmp/x',
+      sessionId: 'peaks-sid',
+      outerSessionId: outer,
+      env: {},
+      configWindowTokens: 400_000
     });
     expect(probe!.capacityTokens).toBe(400_000);
     expect(probe!.capacitySource).toBe('config');
@@ -340,16 +449,34 @@ describe('Scenario: integration — transcript outer-session-id lookup + token r
 
   it('when no override is set, should tag capacitySource from the winning heuristic layer', () => {
     writeTranscript(outer, [
-      usageLine('deepseek-v4-flash[1M]', { input_tokens: 100_000, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 })
+      usageLine('deepseek-v4-flash[1M]', {
+        input_tokens: 100_000,
+        cache_read_input_tokens: 0,
+        cache_creation_input_tokens: 0
+      })
     ]);
-    const known = fallback()({ projectRoot: '/tmp/x', sessionId: 'peaks-sid', outerSessionId: outer, env: {} });
+    const known = fallback()({
+      projectRoot: '/tmp/x',
+      sessionId: 'peaks-sid',
+      outerSessionId: outer,
+      env: {}
+    });
     expect(known!.capacitySource).toBe('model-heuristic');
 
     const unknownOuter = '12e57453-default-source-0000-000000000000';
     writeTranscript(unknownOuter, [
-      usageLine('deepseek-v4-flash', { input_tokens: 100_000, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 })
+      usageLine('deepseek-v4-flash', {
+        input_tokens: 100_000,
+        cache_read_input_tokens: 0,
+        cache_creation_input_tokens: 0
+      })
     ]);
-    const unknown = fallback()({ projectRoot: '/tmp/x', sessionId: 'peaks-sid', outerSessionId: unknownOuter, env: {} });
+    const unknown = fallback()({
+      projectRoot: '/tmp/x',
+      sessionId: 'peaks-sid',
+      outerSessionId: unknownOuter,
+      env: {}
+    });
     expect(unknown!.capacitySource).toBe('default');
     expect(unknown!.capacityTokens).toBe(200_000);
   });
@@ -360,10 +487,16 @@ describe('Scenario: integration — transcript outer-session-id lookup + token r
     // when: the transcript fallback runs
     // then: the pinned window wins — no silent bump to 1M
     writeTranscript(outer, [
-      usageLine('deepseek-v4-flash', { input_tokens: 500_000, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 })
+      usageLine('deepseek-v4-flash', {
+        input_tokens: 500_000,
+        cache_read_input_tokens: 0,
+        cache_creation_input_tokens: 0
+      })
     ]);
     const probe = fallback()({
-      projectRoot: '/tmp/x', sessionId: 'peaks-sid', outerSessionId: outer,
+      projectRoot: '/tmp/x',
+      sessionId: 'peaks-sid',
+      outerSessionId: outer,
       env: { PEAKS_CONTEXT_WINDOW_TOKENS: '400000' }
     });
     expect(probe!.capacityTokens).toBe(400_000);
@@ -373,9 +506,18 @@ describe('Scenario: integration — transcript outer-session-id lookup + token r
 
   it('regression: the late 1M rescue still fires when the window came from the heuristic/default layer', () => {
     writeTranscript(outer, [
-      usageLine('deepseek-v4-flash', { input_tokens: 500_000, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 })
+      usageLine('deepseek-v4-flash', {
+        input_tokens: 500_000,
+        cache_read_input_tokens: 0,
+        cache_creation_input_tokens: 0
+      })
     ]);
-    const probe = fallback()({ projectRoot: '/tmp/x', sessionId: 'peaks-sid', outerSessionId: outer, env: {} });
+    const probe = fallback()({
+      projectRoot: '/tmp/x',
+      sessionId: 'peaks-sid',
+      outerSessionId: outer,
+      env: {}
+    });
     expect(probe!.capacityTokens).toBe(1_000_000);
     expect(probe!.capacitySource).toBe('default');
   });
@@ -388,12 +530,19 @@ describe('Scenario: integration — transcript outer-session-id lookup + token r
   it('when the harness window is set and no human pin exists, should beat the model heuristic', () => {
     // given: a `[1M]` model and a harness window written by an earlier probe
     writeTranscript(outer, [
-      usageLine('deepseek-v4-flash[1M]', { input_tokens: 100_000, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 })
+      usageLine('deepseek-v4-flash[1M]', {
+        input_tokens: 100_000,
+        cache_read_input_tokens: 0,
+        cache_creation_input_tokens: 0
+      })
     ]);
     // when: the transcript fallback runs
     const probe = fallback()({
-      projectRoot: '/tmp/x', sessionId: 'peaks-sid', outerSessionId: outer,
-      env: {}, harnessWindowTokens: '850000'
+      projectRoot: '/tmp/x',
+      sessionId: 'peaks-sid',
+      outerSessionId: outer,
+      env: {},
+      harnessWindowTokens: '850000'
     });
     // then: the window both sides actually use wins over the model-name guess
     expect(probe!.capacityTokens).toBe(850_000);
@@ -404,12 +553,20 @@ describe('Scenario: integration — transcript outer-session-id lookup + token r
   it('when a human pin also exists, should let the pin win over the harness window (propagation, not shadowing)', () => {
     // given: a config pin of 500K while a stale 850K harness window is in force
     writeTranscript(outer, [
-      usageLine('deepseek-v4-flash', { input_tokens: 100_000, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 })
+      usageLine('deepseek-v4-flash', {
+        input_tokens: 100_000,
+        cache_read_input_tokens: 0,
+        cache_creation_input_tokens: 0
+      })
     ]);
     // when: the transcript fallback runs
     const probe = fallback()({
-      projectRoot: '/tmp/x', sessionId: 'peaks-sid', outerSessionId: outer,
-      env: {}, configWindowTokens: 500_000, harnessWindowTokens: '850000'
+      projectRoot: '/tmp/x',
+      sessionId: 'peaks-sid',
+      outerSessionId: outer,
+      env: {},
+      configWindowTokens: 500_000,
+      harnessWindowTokens: '850000'
     });
     // then: the pin decides — and the probe's own denominator is what the
     //       caller then syncs into the harness, so the conflict closes on the
@@ -421,12 +578,19 @@ describe('Scenario: integration — transcript outer-session-id lookup + token r
   it('when both PEAKS_CONTEXT_WINDOW_TOKENS and the harness window are set, should keep the explicit pin on top', () => {
     // given: a hand-exported pin plus the window peaks-loop wrote
     writeTranscript(outer, [
-      usageLine('deepseek-v4-flash', { input_tokens: 100_000, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 })
+      usageLine('deepseek-v4-flash', {
+        input_tokens: 100_000,
+        cache_read_input_tokens: 0,
+        cache_creation_input_tokens: 0
+      })
     ]);
     // when: the transcript fallback runs
     const probe = fallback()({
-      projectRoot: '/tmp/x', sessionId: 'peaks-sid', outerSessionId: outer,
-      env: { PEAKS_CONTEXT_WINDOW_TOKENS: '300000' }, harnessWindowTokens: '850000'
+      projectRoot: '/tmp/x',
+      sessionId: 'peaks-sid',
+      outerSessionId: outer,
+      env: { PEAKS_CONTEXT_WINDOW_TOKENS: '300000' },
+      harnessWindowTokens: '850000'
     });
     // then: the existing top-precedence contract is unchanged
     expect(probe!.capacityTokens).toBe(300_000);
@@ -451,12 +615,20 @@ describe('Scenario: integration — transcript outer-session-id lookup + token r
       // given: the QA table's row 2 — 500K observed, a 200K window that
       //        peaks-loop itself wrote (an unrecognised model's default)
       writeTranscript(outer, [
-        usageLine('deepseek-v4-flash', { input_tokens: 500_000, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 })
+        usageLine('deepseek-v4-flash', {
+          input_tokens: 500_000,
+          cache_read_input_tokens: 0,
+          cache_creation_input_tokens: 0
+        })
       ]);
       // when: the fallback resolves with the provenance marker matching
       const probe = fallback()({
-        projectRoot: '/tmp/x', sessionId: 'peaks-sid', outerSessionId: outer,
-        env: {}, harnessWindowTokens: '200000', harnessWindowPeakWritten: true
+        projectRoot: '/tmp/x',
+        sessionId: 'peaks-sid',
+        outerSessionId: outer,
+        env: {},
+        harnessWindowTokens: '200000',
+        harnessWindowPeakWritten: true
       });
       // then: evidence overrules peaks-loop's own output — the caller then
       //       syncs this very number back, so both sides move together
@@ -465,15 +637,23 @@ describe('Scenario: integration — transcript outer-session-id lookup + token r
       expect(probe!.ratio).toBeCloseTo(500_000 / 1_000_000, 5);
     });
 
-    it('when a HUMAN set the window, should NOT fight it — an explicit pin is not peaks-loop\'s to rewrite', () => {
+    it("when a HUMAN set the window, should NOT fight it — an explicit pin is not peaks-loop's to rewrite", () => {
       // given: the same 500K observed against a hand-set 200K window
       writeTranscript(outer, [
-        usageLine('deepseek-v4-flash', { input_tokens: 500_000, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 })
+        usageLine('deepseek-v4-flash', {
+          input_tokens: 500_000,
+          cache_read_input_tokens: 0,
+          cache_creation_input_tokens: 0
+        })
       ]);
       // when: the fallback resolves with no peaks provenance
       const probe = fallback()({
-        projectRoot: '/tmp/x', sessionId: 'peaks-sid', outerSessionId: outer,
-        env: {}, harnessWindowTokens: '200000', harnessWindowPeakWritten: false
+        projectRoot: '/tmp/x',
+        sessionId: 'peaks-sid',
+        outerSessionId: outer,
+        env: {},
+        harnessWindowTokens: '200000',
+        harnessWindowPeakWritten: false
       });
       // then: the pin stands — bumping (and persisting the bump) would replace
       //       a window the user chose with one peaks-loop prefers. The ratio
@@ -487,12 +667,19 @@ describe('Scenario: integration — transcript outer-session-id lookup + token r
     it('when provenance is unknown (no marker), should default to NOT bumping', () => {
       // given: a bare window value with no provenance information at all
       writeTranscript(outer, [
-        usageLine('deepseek-v4-flash', { input_tokens: 500_000, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 })
+        usageLine('deepseek-v4-flash', {
+          input_tokens: 500_000,
+          cache_read_input_tokens: 0,
+          cache_creation_input_tokens: 0
+        })
       ]);
       // when: the fallback resolves without the flag
       const probe = fallback()({
-        projectRoot: '/tmp/x', sessionId: 'peaks-sid', outerSessionId: outer,
-        env: {}, harnessWindowTokens: '200000'
+        projectRoot: '/tmp/x',
+        sessionId: 'peaks-sid',
+        outerSessionId: outer,
+        env: {},
+        harnessWindowTokens: '200000'
       });
       // then: the safe direction — do not rewrite what you did not write
       expect(probe!.capacityTokens).toBe(200_000);
@@ -516,8 +703,17 @@ describe('Scenario: integration — transcript outer-session-id lookup + token r
 
     /** One probe + sync, exactly as `peaks code context-now` performs them. */
     function probeAndSync(project: string, env: NodeJS.ProcessEnv = {}) {
-      const probe = readContextPercent({ projectRoot: project, sessionId: 'peaks-sid', outerSessionId: outer, env });
-      const sync = syncHarnessWindowForProject({ projectRoot: project, env, tokens: probe.capacityTokens ?? null });
+      const probe = readContextPercent({
+        projectRoot: project,
+        sessionId: 'peaks-sid',
+        outerSessionId: outer,
+        env
+      });
+      const sync = syncHarnessWindowForProject({
+        projectRoot: project,
+        env,
+        tokens: probe.capacityTokens ?? null
+      });
       return { probe, sync };
     }
 
@@ -528,7 +724,13 @@ describe('Scenario: integration — transcript outer-session-id lookup + token r
 
     it('row 1 — a 30K-token session resolves the 200K default and writes it to the harness', () => {
       const project = makeProject();
-      writeTranscript(outer, [usageLine('deepseek-v4-flash', { input_tokens: 30_000, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 })]);
+      writeTranscript(outer, [
+        usageLine('deepseek-v4-flash', {
+          input_tokens: 30_000,
+          cache_read_input_tokens: 0,
+          cache_creation_input_tokens: 0
+        })
+      ]);
       const { probe, sync } = probeAndSync(project);
       // then: the unrecognised model defaults to 200K, and BOTH sides get it
       expect(probe.capacityTokens).toBe(200_000);
@@ -539,11 +741,23 @@ describe('Scenario: integration — transcript outer-session-id lookup + token r
 
     it('row 2 — the SAME session grows to 500K: must resolve 1M and refresh the harness key with it', () => {
       const project = makeProject();
-      writeTranscript(outer, [usageLine('deepseek-v4-flash', { input_tokens: 30_000, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 })]);
+      writeTranscript(outer, [
+        usageLine('deepseek-v4-flash', {
+          input_tokens: 30_000,
+          cache_read_input_tokens: 0,
+          cache_creation_input_tokens: 0
+        })
+      ]);
       probeAndSync(project);
       expect(windowOnDisk(project)).toBe('200000');
       // when: the same session grows 16× (the transcript's latest usage entry)
-      writeTranscript(outer, [usageLine('deepseek-v4-flash', { input_tokens: 500_000, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 })]);
+      writeTranscript(outer, [
+        usageLine('deepseek-v4-flash', {
+          input_tokens: 500_000,
+          cache_read_input_tokens: 0,
+          cache_creation_input_tokens: 0
+        })
+      ]);
       const { probe, sync } = probeAndSync(project);
       // then: the late 1M rescue fires through the harness layer (no ratchet)...
       expect(probe.capacityTokens).toBe(1_000_000);
@@ -557,11 +771,27 @@ describe('Scenario: integration — transcript outer-session-id lookup + token r
 
     it('row 3 — control: with the key deleted, the resolution is unchanged (1M)', () => {
       const project = makeProject();
-      writeTranscript(outer, [usageLine('deepseek-v4-flash', { input_tokens: 30_000, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 })]);
+      writeTranscript(outer, [
+        usageLine('deepseek-v4-flash', {
+          input_tokens: 30_000,
+          cache_read_input_tokens: 0,
+          cache_creation_input_tokens: 0
+        })
+      ]);
       probeAndSync(project);
       // given: the key removed, as the QA control does
-      writeFileSync(join(project, '.claude', 'settings.local.json'), `${JSON.stringify({ env: {} }, null, 2)}\n`, 'utf8');
-      writeTranscript(outer, [usageLine('deepseek-v4-flash', { input_tokens: 500_000, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 })]);
+      writeFileSync(
+        join(project, '.claude', 'settings.local.json'),
+        `${JSON.stringify({ env: {} }, null, 2)}\n`,
+        'utf8'
+      );
+      writeTranscript(outer, [
+        usageLine('deepseek-v4-flash', {
+          input_tokens: 500_000,
+          cache_read_input_tokens: 0,
+          cache_creation_input_tokens: 0
+        })
+      ]);
       // when: the probe runs with no harness window at all
       const { probe } = probeAndSync(project);
       // then: identical to row 2 — 1M, ratio 0.5 (the harness layer added
@@ -572,12 +802,24 @@ describe('Scenario: integration — transcript outer-session-id lookup + token r
 
     it('row 4 — a running session whose env is frozen at the OLD window must not flip back after the refresh', () => {
       const project = makeProject();
-      writeTranscript(outer, [usageLine('deepseek-v4-flash', { input_tokens: 30_000, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 })]);
+      writeTranscript(outer, [
+        usageLine('deepseek-v4-flash', {
+          input_tokens: 30_000,
+          cache_read_input_tokens: 0,
+          cache_creation_input_tokens: 0
+        })
+      ]);
       probeAndSync(project);
       // given: the session's process env, which the harness captured at
       //        start-up and which does NOT change when the file does
       const frozen: NodeJS.ProcessEnv = { [WINDOW_KEY]: '200000' };
-      writeTranscript(outer, [usageLine('deepseek-v4-flash', { input_tokens: 500_000, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 })]);
+      writeTranscript(outer, [
+        usageLine('deepseek-v4-flash', {
+          input_tokens: 500_000,
+          cache_read_input_tokens: 0,
+          cache_creation_input_tokens: 0
+        })
+      ]);
       // when: the session probes again and peaks-loop refreshes the file
       const second = probeAndSync(project, frozen);
       expect(second.probe.capacityTokens).toBe(1_000_000);
@@ -599,7 +841,13 @@ describe('Scenario: integration — transcript outer-session-id lookup + token r
     // commands reports is not a notice.
     it('the auto-compact path reports the write too (the notice cannot live in only one command)', async () => {
       const project = makeProject();
-      writeTranscript(outer, [usageLine('deepseek-v4-flash', { input_tokens: 30_000, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 })]);
+      writeTranscript(outer, [
+        usageLine('deepseek-v4-flash', {
+          input_tokens: 30_000,
+          cache_read_input_tokens: 0,
+          cache_creation_input_tokens: 0
+        })
+      ]);
       // when: the orchestrator runs (below threshold — the sync still writes).
       // `PEAKS_OUTER_SESSION_ID` is how the transcript (and so a token window)
       // is reached; without it the probe has no window and there is nothing to
@@ -620,12 +868,19 @@ describe('Scenario: integration — transcript outer-session-id lookup + token r
   it('when the harness window is garbage (a hand-edited `500k`), should warn and fall through, never crash', () => {
     // given: the marker the harness itself refuses
     writeTranscript(outer, [
-      usageLine('deepseek-v4-flash[1M]', { input_tokens: 100_000, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 })
+      usageLine('deepseek-v4-flash[1M]', {
+        input_tokens: 100_000,
+        cache_read_input_tokens: 0,
+        cache_creation_input_tokens: 0
+      })
     ]);
     // when: the fallback resolves the window with an invalid harness value
     const probe = fallback()({
-      projectRoot: '/tmp/x', sessionId: 'peaks-sid', outerSessionId: outer,
-      env: {}, harnessWindowTokens: '500k'
+      projectRoot: '/tmp/x',
+      sessionId: 'peaks-sid',
+      outerSessionId: outer,
+      env: {},
+      harnessWindowTokens: '500k'
     });
     // then: the invalid layer is skipped and the heuristic still answers
     expect(probe!.capacityTokens).toBe(1_000_000);
@@ -633,17 +888,34 @@ describe('Scenario: integration — transcript outer-session-id lookup + token r
   });
 
   it('when no entry carries a numeric message.usage, should return null (conservative)', () => {
-    const noUsage = JSON.stringify({ type: 'assistant', message: { role: 'assistant', content: 'hello' } });
+    const noUsage = JSON.stringify({
+      type: 'assistant',
+      message: { role: 'assistant', content: 'hello' }
+    });
     writeTranscript(outer, [noUsage, noUsage]);
-    const probe = fallback()({ projectRoot: '/tmp/x', sessionId: 'peaks-sid', outerSessionId: outer });
+    const probe = fallback()({
+      projectRoot: '/tmp/x',
+      sessionId: 'peaks-sid',
+      outerSessionId: outer
+    });
     expect(probe).toBeNull();
   });
 
   it('when usage fields are non-numeric, should return null (conservative)', () => {
     writeTranscript(outer, [
-      JSON.stringify({ type: 'assistant', message: { model: 'claude-3-5-sonnet-20241022', usage: { input_tokens: 'a lot', cache_read_input_tokens: null } } })
+      JSON.stringify({
+        type: 'assistant',
+        message: {
+          model: 'claude-3-5-sonnet-20241022',
+          usage: { input_tokens: 'a lot', cache_read_input_tokens: null }
+        }
+      })
     ]);
-    const probe = fallback()({ projectRoot: '/tmp/x', sessionId: 'peaks-sid', outerSessionId: outer });
+    const probe = fallback()({
+      projectRoot: '/tmp/x',
+      sessionId: 'peaks-sid',
+      outerSessionId: outer
+    });
     expect(probe).toBeNull();
   });
 
@@ -651,8 +923,15 @@ describe('Scenario: integration — transcript outer-session-id lookup + token r
     const big = '12e57453-9999-8888-7777-666655554444';
     const hashDir = join(home, '.claude', 'projects', '-Users-large');
     mkdirSync(hashDir, { recursive: true });
-    const junkLine = JSON.stringify({ type: 'assistant', message: { role: 'assistant', content: 'x'.repeat(200) } });
-    const tailLine = usageLine('claude-3-5-sonnet-20241022', { input_tokens: 100_000, cache_read_input_tokens: 50_000, cache_creation_input_tokens: 10_000 });
+    const junkLine = JSON.stringify({
+      type: 'assistant',
+      message: { role: 'assistant', content: 'x'.repeat(200) }
+    });
+    const tailLine = usageLine('claude-3-5-sonnet-20241022', {
+      input_tokens: 100_000,
+      cache_read_input_tokens: 50_000,
+      cache_creation_input_tokens: 10_000
+    });
     const lines: string[] = [];
     for (let i = 0; i < 10_000; i++) lines.push(junkLine);
     lines.push(tailLine);
@@ -661,7 +940,11 @@ describe('Scenario: integration — transcript outer-session-id lookup + token r
     __fsMocks.readFileSyncPaths.length = 0;
     __fsMocks.readSyncTotalBytes = 0;
 
-    const probe = fallback()({ projectRoot: '/tmp/x', sessionId: 'peaks-sid', outerSessionId: big });
+    const probe = fallback()({
+      projectRoot: '/tmp/x',
+      sessionId: 'peaks-sid',
+      outerSessionId: big
+    });
     expect(probe).not.toBeNull();
     expect(probe!.rawTokens).toBe(160_000);
 
@@ -683,11 +966,19 @@ describe('Scenario: integration — transcript outer-session-id lookup + token r
     // Claude names the transcript by the OUTER session UUID.
     writeFileSync(
       join(hashDir, `${outerId}.jsonl`),
-      usageLine('claude-3-5-sonnet-20241022', { input_tokens: 10_000, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 }) + '\n',
+      usageLine('claude-3-5-sonnet-20241022', {
+        input_tokens: 10_000,
+        cache_read_input_tokens: 0,
+        cache_creation_input_tokens: 0
+      }) + '\n',
       'utf8'
     );
 
-    const found = fallback()({ projectRoot: '/tmp/x', sessionId: peaksSid, outerSessionId: outerId });
+    const found = fallback()({
+      projectRoot: '/tmp/x',
+      sessionId: peaksSid,
+      outerSessionId: outerId
+    });
     expect(found).not.toBeNull();
     expect(found!.source).toBe('transcript-estimate');
 
@@ -698,7 +989,11 @@ describe('Scenario: integration — transcript outer-session-id lookup + token r
   });
 
   it('when no matching transcript exists, should return null (caller → conservative-fallback)', () => {
-    const probe = fallback()({ projectRoot: '/tmp/x', sessionId: 'peaks-sid', outerSessionId: '12e57453-absent' });
+    const probe = fallback()({
+      projectRoot: '/tmp/x',
+      sessionId: 'peaks-sid',
+      outerSessionId: '12e57453-absent'
+    });
     expect(probe).toBeNull();
   });
 
@@ -708,7 +1003,9 @@ describe('Scenario: integration — transcript outer-session-id lookup + token r
       throw new ReferenceError('require is not defined in ES module scope');
     };
     try {
-      expect(() => fallback()({ projectRoot: '/tmp/x', sessionId: 'peaks-sid', outerSessionId: 'outer-1' })).toThrow(ReferenceError);
+      expect(() =>
+        fallback()({ projectRoot: '/tmp/x', sessionId: 'peaks-sid', outerSessionId: 'outer-1' })
+      ).toThrow(ReferenceError);
     } finally {
       __fsMocks.readdirSync = null;
     }
@@ -720,39 +1017,47 @@ describe('Scenario: behavior — env-model resolver precedence + [1M] suffix win
     // given: env carries ANTHROPIC_MODEL plus later-precedence candidate vars
     // when: resolveClaudeModelFromEnv runs
     // then: the ANTHROPIC_MODEL value wins (documented precedence #1)
-    expect(resolveClaudeModelFromEnv({
-      ANTHROPIC_MODEL: 'deepseek-v4-flash[1M]',
-      ANTHROPIC_DEFAULT_SONNET_MODEL: 'claude-sonnet-4-5',
-      CLAUDE_CODE_SUBAGENT_MODEL: 'claude-haiku-4-5'
-    })).toBe('deepseek-v4-flash[1M]');
+    expect(
+      resolveClaudeModelFromEnv({
+        ANTHROPIC_MODEL: 'deepseek-v4-flash[1M]',
+        ANTHROPIC_DEFAULT_SONNET_MODEL: 'claude-sonnet-4-5',
+        CLAUDE_CODE_SUBAGENT_MODEL: 'claude-haiku-4-5'
+      })
+    ).toBe('deepseek-v4-flash[1M]');
   });
 
   it('when ANTHROPIC_MODEL is absent, should resolve the first non-empty default', () => {
     // given: only ANTHROPIC_DEFAULT_SONNET_MODEL is set
     // when: resolveClaudeModelFromEnv runs
     // then: returns the sonnet default id
-    expect(resolveClaudeModelFromEnv({
-      ANTHROPIC_DEFAULT_SONNET_MODEL: 'claude-sonnet-4-5[1M]'
-    })).toBe('claude-sonnet-4-5[1M]');
+    expect(
+      resolveClaudeModelFromEnv({
+        ANTHROPIC_DEFAULT_SONNET_MODEL: 'claude-sonnet-4-5[1M]'
+      })
+    ).toBe('claude-sonnet-4-5[1M]');
   });
 
   it('when only CLAUDE_CODE_SUBAGENT_MODEL is set, should resolve it', () => {
     // given: only the sub-agent model var is present
     // when: resolveClaudeModelFromEnv runs
     // then: returns the sub-agent model id
-    expect(resolveClaudeModelFromEnv({
-      CLAUDE_CODE_SUBAGENT_MODEL: 'deepseek-v4-flash[1M]'
-    })).toBe('deepseek-v4-flash[1M]');
+    expect(
+      resolveClaudeModelFromEnv({
+        CLAUDE_CODE_SUBAGENT_MODEL: 'deepseek-v4-flash[1M]'
+      })
+    ).toBe('deepseek-v4-flash[1M]');
   });
 
   it('when a higher-precedence value is whitespace-only, should skip to the next non-empty candidate', () => {
     // given: ANTHROPIC_MODEL is blank and a later default is a real id
     // when: resolveClaudeModelFromEnv runs
     // then: skips the blank value and resolves the later default
-    expect(resolveClaudeModelFromEnv({
-      ANTHROPIC_MODEL: '   ',
-      ANTHROPIC_DEFAULT_HAIKU_MODEL: 'claude-haiku-4-5-20251001'
-    })).toBe('claude-haiku-4-5-20251001');
+    expect(
+      resolveClaudeModelFromEnv({
+        ANTHROPIC_MODEL: '   ',
+        ANTHROPIC_DEFAULT_HAIKU_MODEL: 'claude-haiku-4-5-20251001'
+      })
+    ).toBe('claude-haiku-4-5-20251001');
   });
 
   it('when env is empty or undefined, should return undefined so the transcript model drives the window', () => {
@@ -814,7 +1119,9 @@ describe('Scenario: behavior — explicit context-window override precedence + s
       tokens: 1_000_000,
       source: 'model-heuristic'
     });
-    expect(resolveContextWindow('claude-opus-4-5-20251101', { env: {} }).source).toBe('model-heuristic');
+    expect(resolveContextWindow('claude-opus-4-5-20251101', { env: {} }).source).toBe(
+      'model-heuristic'
+    );
     // regression: the documented allowlist ids still resolve to 1M
     expect(modelContextWindowTokens('claude-opus-4')).toBe(1_000_000);
     expect(modelContextWindowTokens('claude-sonnet-4')).toBe(1_000_000);
@@ -896,17 +1203,26 @@ describe('Scenario: behavior — explicit context-window override precedence + s
   it('when the harness window is valid, should outrank the model heuristic but lose to BOTH human pins', () => {
     // given: no pins at all, and a harness window above a model-name guess
     // when: resolveContextWindow runs
-    const harnessOnly = resolveContextWindow('deepseek-v4-flash', { env: {}, harnessWindowTokens: 850_000 });
+    const harnessOnly = resolveContextWindow('deepseek-v4-flash', {
+      env: {},
+      harnessWindowTokens: 850_000
+    });
     // then: harness-env wins (it is the number the harness itself fires against)
     expect(harnessOnly).toEqual({ tokens: 850_000, source: 'harness-env' });
     // given: a config pin alongside the harness window
-    const withConfig = resolveContextWindow('deepseek-v4-flash', { env: {}, harnessWindowTokens: 850_000, configWindowTokens: 400_000 });
+    const withConfig = resolveContextWindow('deepseek-v4-flash', {
+      env: {},
+      harnessWindowTokens: 850_000,
+      configWindowTokens: 400_000
+    });
     // then: the human pin wins — a pin shadowed by an earlier peaks write is
     //       a setting the user cannot see taking effect
     expect(withConfig).toEqual({ tokens: 400_000, source: 'config' });
     // given: the explicit env pin is present too
     const withEnv = resolveContextWindow('deepseek-v4-flash', {
-      env: { [ENV]: '300000' }, harnessWindowTokens: 850_000, configWindowTokens: 400_000
+      env: { [ENV]: '300000' },
+      harnessWindowTokens: 850_000,
+      configWindowTokens: 400_000
     });
     // then: the existing top-precedence contract is unchanged
     expect(withEnv).toEqual({ tokens: 300_000, source: 'env-override' });
@@ -923,7 +1239,7 @@ describe('Scenario: behavior — explicit context-window override precedence + s
   // the detector is `modelContextWindowTokens` — a name heuristic that is wrong
   // for exactly the proxied models the pin exists for. The warning therefore
   // says what peaks-loop actually knows, and no more.
-  describe('Scenario: behavior — E2 a pin above peaks-loop\'s model estimate', () => {
+  describe("Scenario: behavior — E2 a pin above peaks-loop's model estimate", () => {
     it('when the env pin is larger than the model estimate, should warn and name both numbers', () => {
       // given: a proxied id the heuristic cannot see past 200K, pinned to 500K
       const warnings: string[] = [];
@@ -990,7 +1306,21 @@ describe('Scenario: behavior — explicit context-window override precedence + s
     expect(parseContextWindowOverride(1_000_000)).toBe(1_000_000);
     expect(parseContextWindowOverride('1000000')).toBe(1_000_000);
     expect(parseContextWindowOverride(' 1000000 ')).toBe(1_000_000);
-    for (const bad of [0, -1, 1.5, Number.NaN, Number.POSITIVE_INFINITY, '', '  ', 'abc', null, undefined, {}, [], true]) {
+    for (const bad of [
+      0,
+      -1,
+      1.5,
+      Number.NaN,
+      Number.POSITIVE_INFINITY,
+      '',
+      '  ',
+      'abc',
+      null,
+      undefined,
+      {},
+      [],
+      true
+    ]) {
       expect(parseContextWindowOverride(bad)).toBeNull();
     }
   });

@@ -1,7 +1,13 @@
 import { existsSync } from 'node:fs';
 import { isAbsolute } from 'node:path';
 import type { WorkspaceConfig } from './config-types.js';
-import { SIDECAR_SCHEMA_VERSION, ensureSidecarVersion, workspacesConfigPath, readSidecarJson, writeSidecarJson } from './sidecar-store.js';
+import {
+  SIDECAR_SCHEMA_VERSION,
+  ensureSidecarVersion,
+  workspacesConfigPath,
+  readSidecarJson,
+  writeSidecarJson
+} from './sidecar-store.js';
 import { stablePath } from '../../shared/path-utils.js';
 import { isInsidePath } from './config-safety.js';
 
@@ -41,7 +47,13 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function sanitizeArtifactRemoteRepo(value: unknown): WorkspaceConfig['artifactRepo'] | null {
-  if (!isRecord(value) || (value.provider !== 'github' && value.provider !== 'gitlab') || typeof value.owner !== 'string' || typeof value.name !== 'string') return null;
+  if (
+    !isRecord(value) ||
+    (value.provider !== 'github' && value.provider !== 'gitlab') ||
+    typeof value.owner !== 'string' ||
+    typeof value.name !== 'string'
+  )
+    return null;
   if (!isSafeSegment(value.owner) || !isSafeSegment(value.name)) return null;
   return { provider: value.provider, owner: value.owner, name: value.name };
 }
@@ -51,14 +63,23 @@ function sanitizeArtifactStorage(value: unknown): WorkspaceConfig['artifactStora
   const localPath = typeof value.localPath === 'string' ? { localPath: value.localPath } : {};
   if (value.mode === 'local') return { mode: 'local', ...localPath };
   const remote = sanitizeArtifactRemoteRepo(value.remote);
-  if (value.mode === 'local-with-remote-sync' && remote) return { mode: 'local-with-remote-sync', ...localPath, remote };
+  if (value.mode === 'local-with-remote-sync' && remote)
+    return { mode: 'local-with-remote-sync', ...localPath, remote };
   return null;
 }
 
 function sanitizeWorkspace(value: unknown): WorkspaceConfig | null {
   if (!isRecord(value)) return null;
   const { workspaceId, name, rootPath, installedCapabilityIds } = value;
-  if (typeof workspaceId !== 'string' || !isSafeSegment(workspaceId) || typeof name !== 'string' || typeof rootPath !== 'string' || !Array.isArray(installedCapabilityIds) || !installedCapabilityIds.every((id) => typeof id === 'string')) return null;
+  if (
+    typeof workspaceId !== 'string' ||
+    !isSafeSegment(workspaceId) ||
+    typeof name !== 'string' ||
+    typeof rootPath !== 'string' ||
+    !Array.isArray(installedCapabilityIds) ||
+    !installedCapabilityIds.every((id) => typeof id === 'string')
+  )
+    return null;
   const artifactRepo = sanitizeArtifactRemoteRepo(value.artifactRepo);
   const artifactStorage = sanitizeArtifactStorage(value.artifactStorage);
   return {
@@ -72,7 +93,9 @@ function sanitizeWorkspace(value: unknown): WorkspaceConfig | null {
 }
 
 function sanitizeWorkspaces(value: unknown): WorkspaceConfig[] {
-  return Array.isArray(value) ? value.map(sanitizeWorkspace).filter((w): w is WorkspaceConfig => w !== null) : [];
+  return Array.isArray(value)
+    ? value.map(sanitizeWorkspace).filter((w): w is WorkspaceConfig => w !== null)
+    : [];
 }
 
 function loadWorkspacesSidecar(): WorkspacesSidecar {
@@ -111,13 +134,16 @@ export function setCurrentWorkspace(workspaceId: string | null): boolean {
 
 export function addWorkspace(workspace: WorkspaceConfig): void {
   if (!isSafeSegment(workspace.workspaceId)) {
-    throw new Error('Workspace id must only contain letters, numbers, dots, underscores, or hyphens and must not contain path traversal');
+    throw new Error(
+      'Workspace id must only contain letters, numbers, dots, underscores, or hyphens and must not contain path traversal'
+    );
   }
   const data = loadWorkspacesSidecar();
   const existingIndex = data.workspaces.findIndex((w) => w.workspaceId === workspace.workspaceId);
-  const nextWorkspaces = existingIndex >= 0
-    ? data.workspaces.map((w) => (w.workspaceId === workspace.workspaceId ? workspace : w))
-    : [...data.workspaces, workspace];
+  const nextWorkspaces =
+    existingIndex >= 0
+      ? data.workspaces.map((w) => (w.workspaceId === workspace.workspaceId ? workspace : w))
+      : [...data.workspaces, workspace];
   saveWorkspacesSidecar({ ...data, workspaces: nextWorkspaces });
 }
 
@@ -127,7 +153,10 @@ export function removeWorkspace(workspaceId: string): boolean {
   const idx = data.workspaces.findIndex((w) => w.workspaceId === workspaceId);
   if (idx < 0) return false;
   const nextWorkspaces = data.workspaces.filter((w) => w.workspaceId !== workspaceId);
-  const nextCurrent = data.currentWorkspace === workspaceId ? nextWorkspaces[0]?.workspaceId ?? null : data.currentWorkspace;
+  const nextCurrent =
+    data.currentWorkspace === workspaceId
+      ? (nextWorkspaces[0]?.workspaceId ?? null)
+      : data.currentWorkspace;
   saveWorkspacesSidecar({ ...data, workspaces: nextWorkspaces, currentWorkspace: nextCurrent });
   return true;
 }
@@ -150,7 +179,9 @@ function findWorkspaceForPath(workspaces: WorkspaceConfig[], path: string): Work
     return isInsidePath(targetPath, rootPath) ? [{ workspace, rootPath }] : [];
   });
   if (matches.length === 0) return null;
-  return matches.reduce((best, match) => (match.rootPath.length > best.rootPath.length ? match : best)).workspace;
+  return matches.reduce((best, match) =>
+    match.rootPath.length > best.rootPath.length ? match : best
+  ).workspace;
 }
 
 export function getWorkspaceConfigForPath(path: string): WorkspaceConfig | null {

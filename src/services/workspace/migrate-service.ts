@@ -23,7 +23,7 @@ const PROTECTED_TOP_LEVEL_DIRS = new Set([
   'memory',
   'sops',
   'project-scan',
-  'perf-baseline',
+  'perf-baseline'
 ]);
 
 /** Files inside a session dir that are transient runtime state, not reviewable. */
@@ -31,7 +31,13 @@ const TRANSIENT_FILES = new Set(['session.json']);
 
 /** Per-role subdir inside a change-id dir (mirrors the canonical layout). */
 function dirToRole(subdir: string): MigrateFilePlan['role'] {
-  if (subdir === 'prd' || subdir === 'ui' || subdir === 'rd' || subdir === 'qa' || subdir === 'sc') {
+  if (
+    subdir === 'prd' ||
+    subdir === 'ui' ||
+    subdir === 'rd' ||
+    subdir === 'qa' ||
+    subdir === 'sc'
+  ) {
     return subdir;
   }
   if (subdir === 'system') {
@@ -57,39 +63,76 @@ const FILENAME_CHANGE_ID_RE = /^\d{1,3}-([A-Za-z0-9][A-Za-z0-9._-]*)\.md$/;
  * we match "H1 ends with `: <something>`" OR "H1 starts with a known
  * role prefix and ends with an identifier".
  */
-const H1_CHANGE_ID_PATTERNS: Array<{ test: (h1: string) => boolean; extract: (h1: string) => string | null }> = [
+const H1_CHANGE_ID_PATTERNS: Array<{
+  test: (h1: string) => boolean;
+  extract: (h1: string) => string | null;
+}> = [
   // "# Tech Doc: <change-id>" / "# Tech Doc — RD <change-id>"
-  { test: (h) => /^#\s*Tech\s*Doc[\s:—–-]+(?:RD\s+)?(.+)$/i.test(h), extract: (h) => /^#\s*Tech\s*Doc[\s:—–-]+(?:RD\s+)?(.+)$/i.exec(h)?.[1]?.trim() ?? null },
+  {
+    test: (h) => /^#\s*Tech\s*Doc[\s:—–-]+(?:RD\s+)?(.+)$/i.test(h),
+    extract: (h) => /^#\s*Tech\s*Doc[\s:—–-]+(?:RD\s+)?(.+)$/i.exec(h)?.[1]?.trim() ?? null
+  },
   // "# Code Review <change-id>"
-  { test: (h) => /^#\s*Code\s+Review\s+(.+)$/i.test(h), extract: (h) => /^#\s*Code\s+Review\s+(.+)$/i.exec(h)?.[1]?.trim() ?? null },
+  {
+    test: (h) => /^#\s*Code\s+Review\s+(.+)$/i.test(h),
+    extract: (h) => /^#\s*Code\s+Review\s+(.+)$/i.exec(h)?.[1]?.trim() ?? null
+  },
   // "# Security Review <change-id>" / "# Security Review: <change-id>"
-  { test: (h) => /^#\s*Security\s+Review[\s:—–-]+(.+)$/i.test(h), extract: (h) => /^#\s*Security\s+Review[\s:—–-]+(.+)$/i.exec(h)?.[1]?.trim() ?? null },
+  {
+    test: (h) => /^#\s*Security\s+Review[\s:—–-]+(.+)$/i.test(h),
+    extract: (h) => /^#\s*Security\s+Review[\s:—–-]+(.+)$/i.exec(h)?.[1]?.trim() ?? null
+  },
   // "# Bug Analysis: <change-id>" / "# Bug Analysis — <change-id>"
-  { test: (h) => /^#\s*Bug\s+Analysis[\s:—–-]+(.+)$/i.test(h), extract: (h) => /^#\s*Bug\s+Analysis[\s:—–-]+(.+)$/i.exec(h)?.[1]?.trim() ?? null },
+  {
+    test: (h) => /^#\s*Bug\s+Analysis[\s:—–-]+(.+)$/i.test(h),
+    extract: (h) => /^#\s*Bug\s+Analysis[\s:—–-]+(.+)$/i.exec(h)?.[1]?.trim() ?? null
+  },
   // "# Performance Baseline" / "# Perf Baseline" / "# Perf Baseline: <slice>"
   //   → cross-cutting, NOT a per-slice change-id (return null)
   { test: (h) => /^#\s*(?:Performance|Perf)\s+Baseline(?:\s*:.*)?$/i.test(h), extract: () => null },
   // "# Project Scan: <name>" → cross-cutting, returns the name but caller treats as cross-cutting
   { test: (h) => /^#\s*Project\s+Scan(?:\s*:.*)?$/i.test(h), extract: () => null },
   // "# Handoff: <slice>" / "# Handoff — RD <slice>"
-  { test: (h) => /^#\s*Handoff[\s:—–-]+(?:RD\s+)?(.+)$/i.test(h), extract: (h) => /^#\s*Handoff[\s:—–-]+(?:RD\s+)?(.+)$/i.exec(h)?.[1]?.trim() ?? null },
+  {
+    test: (h) => /^#\s*Handoff[\s:—–-]+(?:RD\s+)?(.+)$/i.test(h),
+    extract: (h) => /^#\s*Handoff[\s:—–-]+(?:RD\s+)?(.+)$/i.exec(h)?.[1]?.trim() ?? null
+  },
   // "# Test Cases: <slice>" / "# Test Report: <slice>" / "# Security Findings: <slice>"
-  { test: (h) => /^#\s*(?:Test\s+Cases|Test\s+Report|Security\s+Findings)[\s:—–-]+(.+)$/i.test(h), extract: (h) => /^#\s*(?:Test\s+Cases|Test\s+Report|Security\s+Findings)[\s:—–-]+(.+)$/i.exec(h)?.[1]?.trim() ?? null },
+  {
+    test: (h) => /^#\s*(?:Test\s+Cases|Test\s+Report|Security\s+Findings)[\s:—–-]+(.+)$/i.test(h),
+    extract: (h) =>
+      /^#\s*(?:Test\s+Cases|Test\s+Report|Security\s+Findings)[\s:—–-]+(.+)$/i
+        .exec(h)?.[1]
+        ?.trim() ?? null
+  },
   // "# PRD Request <change-id>" / "# PRD Request: <change-id>" (legacy request artifact H1)
-  { test: (h) => /^#\s*PRD\s+Request[\s:—–-]+(.+)$/i.test(h), extract: (h) => /^#\s*PRD\s+Request[\s:—–-]+(.+)$/i.exec(h)?.[1]?.trim() ?? null },
+  {
+    test: (h) => /^#\s*PRD\s+Request[\s:—–-]+(.+)$/i.test(h),
+    extract: (h) => /^#\s*PRD\s+Request[\s:—–-]+(.+)$/i.exec(h)?.[1]?.trim() ?? null
+  },
   // "# RD Request <change-id>" / "# RD Request: <change-id>" (legacy RD request artifact H1)
-  { test: (h) => /^#\s*RD\s+Request[\s:—–-]+(.+)$/i.test(h), extract: (h) => /^#\s*RD\s+Request[\s:—–-]+(.+)$/i.exec(h)?.[1]?.trim() ?? null },
+  {
+    test: (h) => /^#\s*RD\s+Request[\s:—–-]+(.+)$/i.test(h),
+    extract: (h) => /^#\s*RD\s+Request[\s:—–-]+(.+)$/i.exec(h)?.[1]?.trim() ?? null
+  },
   // "# QA Request <change-id>" / "# QA Request: <change-id>"
-  { test: (h) => /^#\s*QA\s+Request[\s:—–-]+(.+)$/i.test(h), extract: (h) => /^#\s*QA\s+Request[\s:—–-]+(.+)$/i.exec(h)?.[1]?.trim() ?? null },
+  {
+    test: (h) => /^#\s*QA\s+Request[\s:—–-]+(.+)$/i.test(h),
+    extract: (h) => /^#\s*QA\s+Request[\s:—–-]+(.+)$/i.exec(h)?.[1]?.trim() ?? null
+  },
   // "# UI Request <change-id>" / "# SC Request <change-id>"
-  { test: (h) => /^#\s*(?:UI|SC)\s+Request[\s:—–-]+(.+)$/i.test(h), extract: (h) => /^#\s*(?:UI|SC)\s+Request[\s:—–-]+(.+)$/i.exec(h)?.[1]?.trim() ?? null },
+  {
+    test: (h) => /^#\s*(?:UI|SC)\s+Request[\s:—–-]+(.+)$/i.test(h),
+    extract: (h) => /^#\s*(?:UI|SC)\s+Request[\s:—–-]+(.+)$/i.exec(h)?.[1]?.trim() ?? null
+  }
 ];
 
 /** Tier 3 — body frontmatter: `- rid: <change-id>` OR `- linked-rd: .peaks/_runtime/<sid>/<role>/<num>-<change-id>.md`
  * The legacy request artifact template writes `- rid:` and the linked-* lines.
  */
 const FRONTMATTER_RID_RE = /^-\s*rid\s*:\s*([A-Za-z0-9][A-Za-z0-9._-]*)\s*$/m;
-const FRONTMATTER_LINKED_RE = /-\s*linked-(?:prd|rd|qa|sc|ui)\s*:\s*\.peaks\/[^/]+\/[^/]+\/\d+[-/]([A-Za-z0-9][A-Za-z0-9._-]*)\.md/m;
+const FRONTMATTER_LINKED_RE =
+  /-\s*linked-(?:prd|rd|qa|sc|ui)\s*:\s*\.peaks\/[^/]+\/[^/]+\/\d+[-/]([A-Za-z0-9][A-Za-z0-9._-]*)\.md/m;
 
 interface ParsedFile {
   /** The role inferred from the directory layout. */
@@ -354,7 +397,13 @@ async function planSession(
     });
   }
 
-  return { sessionId, path: sessionPath, empty: empty && plans.every((p) => p.skipped), files: plans, fallbackChangeId: fallback };
+  return {
+    sessionId,
+    path: sessionPath,
+    empty: empty && plans.every((p) => p.skipped),
+    files: plans,
+    fallbackChangeId: fallback
+  };
 }
 
 /**
@@ -413,7 +462,7 @@ async function migrateToRuntime(
       // F15 carve-out check
       const fromScan = join(fromPath, 'rd', 'project-scan.md');
       const toScan = join(toPath, 'rd', 'project-scan.md');
-      if (await pathExists(fromScan) && await pathExists(toScan)) {
+      if ((await pathExists(fromScan)) && (await pathExists(toScan))) {
         const fromContent = await readFile(fromScan, 'utf8').catch(() => null);
         const toContent = await readFile(toScan, 'utf8').catch(() => null);
         if (fromContent !== null && toContent !== null && fromContent !== toContent) {
@@ -422,7 +471,8 @@ async function migrateToRuntime(
             to: toPath,
             sessionId,
             action: 'f15-conflict-project-scan',
-            reason: 'F15 carve-out: top-level rd/project-scan.md differs from runtime copy; left in place.'
+            reason:
+              'F15 carve-out: top-level rd/project-scan.md differs from runtime copy; left in place.'
           });
           conflicts.push({
             from: fromScan,
@@ -562,10 +612,18 @@ export async function migrateWorkspace(options: MigrateOptions): Promise<Migrate
           const sourceContent = await readFile(file.from, 'utf8').catch(() => null);
           const targetContent = await readFile(file.to, 'utf8').catch(() => null);
           if (sourceContent === targetContent) {
-            conflicts.push({ from: file.from, to: file.to, reason: 'identical-content-already-migrated' });
+            conflicts.push({
+              from: file.from,
+              to: file.to,
+              reason: 'identical-content-already-migrated'
+            });
             continue;
           }
-          conflicts.push({ from: file.from, to: file.to, reason: 'target-exists-with-different-content' });
+          conflicts.push({
+            from: file.from,
+            to: file.to,
+            reason: 'target-exists-with-different-content'
+          });
           continue;
         }
         await gitMv(file.from, file.to, options.projectRoot);

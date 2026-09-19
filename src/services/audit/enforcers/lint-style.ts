@@ -20,7 +20,8 @@ const SECTION_HARD_CONTRACTS_HEADING = /^##\s+(Hard contracts|Hard contract)\b/i
 const SECTION_MANDATORY_HEADING = /^##\s+Mandatory\b/im;
 const SECTION_DEFAULT_RUNBOOK_HEADING = /^##\s+(Default runbook|Default)\b/im;
 const SECTION_GATE_INDEX_HEADING = /^##\s+(RD gate index|QA gate index|Gate index|gate-index)\b/im;
-const SECTION_NAMING_AXIOM_HEADING = /(Two-axis naming convention|change-id.*session-id|두 가지 직교 축)/i;
+const SECTION_NAMING_AXIOM_HEADING =
+  /(Two-axis naming convention|change-id.*session-id|두 가지 직교 축)/i;
 
 const FRONTMATTER_NAME_LINE = /^name:\s*peaks-/m;
 const FRONTMATTER_DESCRIPTION_LINE = /^description:\s*\S/m;
@@ -99,11 +100,28 @@ export function lintSectionShape(skill: SkillFile): readonly LintHit[] {
     pattern: RegExp;
     requiresBodyMarker?: boolean;
   }> = [
-    { id: 'rl-section-hard-contracts-001', rule: 'Hard contracts for browser/IO surface', pattern: SECTION_HARD_CONTRACTS_HEADING, requiresBodyMarker: true },
-    { id: 'rl-section-mandatory-artifact-001', rule: 'Mandatory per-request artifact', pattern: SECTION_MANDATORY_HEADING },
-    { id: 'rl-section-default-runbook-001', rule: 'Default runbook pointer', pattern: SECTION_DEFAULT_RUNBOOK_HEADING },
+    {
+      id: 'rl-section-hard-contracts-001',
+      rule: 'Hard contracts for browser/IO surface',
+      pattern: SECTION_HARD_CONTRACTS_HEADING,
+      requiresBodyMarker: true
+    },
+    {
+      id: 'rl-section-mandatory-artifact-001',
+      rule: 'Mandatory per-request artifact',
+      pattern: SECTION_MANDATORY_HEADING
+    },
+    {
+      id: 'rl-section-default-runbook-001',
+      rule: 'Default runbook pointer',
+      pattern: SECTION_DEFAULT_RUNBOOK_HEADING
+    },
     { id: 'rl-section-gate-index-001', rule: 'Gate index', pattern: SECTION_GATE_INDEX_HEADING },
-    { id: 'rl-section-naming-axiom-001', rule: 'Two-axis naming axiom', pattern: SECTION_NAMING_AXIOM_HEADING }
+    {
+      id: 'rl-section-naming-axiom-001',
+      rule: 'Two-axis naming axiom',
+      pattern: SECTION_NAMING_AXIOM_HEADING
+    }
   ];
   for (const r of rules) {
     const line = findLine(skill.lines, r.pattern);
@@ -157,9 +175,21 @@ export function lintSectionShape(skill: SkillFile): readonly LintHit[] {
 export function lintSectionOrder(skill: SkillFile): readonly LintHit[] {
   const hits: LintHit[] = [];
   const order: ReadonlyArray<{ id: string; rule: string; pattern: RegExp }> = [
-    { id: 'rl-section-naming-axiom-001', rule: 'Two-axis naming axiom must precede Hard contracts', pattern: SECTION_NAMING_AXIOM_HEADING },
-    { id: 'rl-section-hard-contracts-001', rule: 'Hard contracts must precede Default runbook', pattern: SECTION_HARD_CONTRACTS_HEADING },
-    { id: 'rl-section-default-runbook-001', rule: 'Default runbook must precede Gate index', pattern: SECTION_DEFAULT_RUNBOOK_HEADING },
+    {
+      id: 'rl-section-naming-axiom-001',
+      rule: 'Two-axis naming axiom must precede Hard contracts',
+      pattern: SECTION_NAMING_AXIOM_HEADING
+    },
+    {
+      id: 'rl-section-hard-contracts-001',
+      rule: 'Hard contracts must precede Default runbook',
+      pattern: SECTION_HARD_CONTRACTS_HEADING
+    },
+    {
+      id: 'rl-section-default-runbook-001',
+      rule: 'Default runbook must precede Gate index',
+      pattern: SECTION_DEFAULT_RUNBOOK_HEADING
+    }
   ];
   let lastSeenLine = -1;
   let lastSeenRule = '';
@@ -172,7 +202,7 @@ export function lintSectionOrder(skill: SkillFile): readonly LintHit[] {
         rule: 'Section wireframe order: each section must appear in the canonical order',
         file: skill.path,
         line,
-        matchedText: `(section "${r.rule}" at line ${line} comes after "${lastSeenRule}" at line ${lastSeenLine})`,
+        matchedText: `(section "${r.rule}" at line ${line} comes after "${lastSeenRule}" at line ${lastSeenLine})`
       });
     }
     lastSeenLine = line;
@@ -217,7 +247,10 @@ export function lintFrontmatterShape(skill: SkillFile): readonly LintHit[] {
  * line. The audit is invoked per-skill, so this helper takes a
  * `referencesRoot` (the skill's `references/` dir).
  */
-export function lintReferenceLoadStrategy(referencesRoot: string, refs: readonly string[]): readonly LintHit[] {
+export function lintReferenceLoadStrategy(
+  referencesRoot: string,
+  refs: readonly string[]
+): readonly LintHit[] {
   const hits: LintHit[] = [];
   for (const ref of refs) {
     const path = join(referencesRoot, ref);

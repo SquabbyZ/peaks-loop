@@ -14,12 +14,7 @@
  */
 
 export type AuditDimensionKind =
-  | 'correctness'
-  | 'completeness'
-  | 'scope'
-  | 'risks'
-  | 'alternatives'
-  | 'constraints';
+  'correctness' | 'completeness' | 'scope' | 'risks' | 'alternatives' | 'constraints';
 
 export type AuditSeverity = 'info' | 'concern' | 'blocker';
 

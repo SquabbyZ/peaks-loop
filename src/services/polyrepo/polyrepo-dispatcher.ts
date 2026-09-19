@@ -59,7 +59,12 @@ export interface DispatchResult {
 
 /** Compute the child-side path where the artifact should be mirrored.
  *  Mirrors the parent shape exactly: `.peaks/_runtime/<sid>/<role>/`. */
-function childArtifactPath(childRoot: string, sid: string, role: string, sourcePath: string): string {
+function childArtifactPath(
+  childRoot: string,
+  sid: string,
+  role: string,
+  sourcePath: string
+): string {
   const filename = sourcePath.split(/[\\/]/).pop() ?? 'artifact.md';
   return join(childRoot, '.peaks', '_runtime', sid, role, filename);
 }
@@ -99,7 +104,9 @@ export function dispatchArtifact(opts: DispatchOptions): DispatchResult {
   try {
     sourceBody = readFileSync(opts.artifact.path, 'utf8');
   } catch (err) {
-    throw new Error(`source artifact unreadable at ${opts.artifact.path}: ${(err as Error).message}`);
+    throw new Error(
+      `source artifact unreadable at ${opts.artifact.path}: ${(err as Error).message}`
+    );
   }
 
   // Per-child write.
@@ -117,7 +124,9 @@ export function dispatchArtifact(opts: DispatchOptions): DispatchResult {
         mirroredTo: dest
       });
       if (!child.peaksInstalled) {
-        warnings.push(`child "${targetId}" has no peaks-loop install — artifact mirrored but not picked up by a running peaks process`);
+        warnings.push(
+          `child "${targetId}" has no peaks-loop install — artifact mirrored but not picked up by a running peaks process`
+        );
       }
     } catch (err) {
       perChild.push({
@@ -153,7 +162,8 @@ export function readManifest(root: string): PolyrepoManifest | null {
   try {
     const raw = readFileSync(p, 'utf8');
     return JSON.parse(raw) as PolyrepoManifest;
-  } catch { // TODO(g2): fail-closed JSON parse — null is the documented contract, caller checks via existsSync
+  } catch {
+    // TODO(g2): fail-closed JSON parse — null is the documented contract, caller checks via existsSync
     return null;
   }
 }

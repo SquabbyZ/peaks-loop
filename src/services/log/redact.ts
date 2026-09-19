@@ -19,7 +19,8 @@
  * `client_secret` key) is a one-line change.
  */
 
-const SECRET_KEY_PATTERN = /^(?:.*[\._-])?(api[_-]?key|apikey|api[_-]?secret|secret|password|passwd|token|authorization|access[_-]?token|refresh[_-]?token|cookie|set[_-]?cookie|client[_-]?secret)$/i;
+const SECRET_KEY_PATTERN =
+  /^(?:.*[\._-])?(api[_-]?key|apikey|api[_-]?secret|secret|password|passwd|token|authorization|access[_-]?token|refresh[_-]?token|cookie|set[_-]?cookie|client[_-]?secret)$/i;
 
 /**
  * Returns true when the given key name should be treated as a
@@ -36,7 +37,8 @@ export function isSecretKey(key: unknown): boolean {
  * redacted. Short, human-readable strings (a name, a command name)
  * are left alone.
  */
-const TOKEN_VALUE_PATTERN = /^(?:Bearer\s+[A-Za-z0-9._\-+/=]{8,}|ghp_[A-Za-z0-9]{16,}|github_pat_[A-Za-z0-9_]{16,}|sk-[A-Za-z0-9]{16,}|[A-Za-z0-9_\-]{32,})$/;
+const TOKEN_VALUE_PATTERN =
+  /^(?:Bearer\s+[A-Za-z0-9._\-+/=]{8,}|ghp_[A-Za-z0-9]{16,}|github_pat_[A-Za-z0-9_]{16,}|sk-[A-Za-z0-9]{16,}|[A-Za-z0-9_\-]{32,})$/;
 
 const REDACTED = '<redacted>';
 
@@ -59,10 +61,10 @@ export function redactValue(value: unknown): unknown {
  */
 const LINE_KEY_VALUE_PATTERN = new RegExp(
   String.raw`((?:api[_-]?key|apikey|secret|password|passwd|token|access[_-]?token|refresh[_-]?token|client[_-]?secret))` +
-  String.raw`\s*[=:]\s*` +
-  String.raw`(?:"([^"]*)"|'([^']*)'|([^\s,;"'` +
-  String.raw`` +
-  String.raw`]+))`,
+    String.raw`\s*[=:]\s*` +
+    String.raw`(?:"([^"]*)"|'([^']*)'|([^\s,;"'` +
+    String.raw`` +
+    String.raw`]+))`,
   'gi'
 );
 

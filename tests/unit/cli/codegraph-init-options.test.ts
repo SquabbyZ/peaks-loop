@@ -37,22 +37,26 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { declareDimensions } from '../_setup/4dim-template.js';
 import { makeCapturedIo } from '../_setup/io.js';
-import { cleanupTmpWorkspace, useTmpWorkspace, type TmpWorkspace } from '../_setup/tmp-workspace.js';
+import {
+  cleanupTmpWorkspace,
+  useTmpWorkspace,
+  type TmpWorkspace
+} from '../_setup/tmp-workspace.js';
 
 declareDimensions(
   'tests/unit/cli/codegraph-init-options.test.ts',
   ['render', 'behavior', 'integration'],
-  [{ dim: 'a11y', reason: 'no user-facing copy or exit code is under test' }],
+  [{ dim: 'a11y', reason: 'no user-facing copy or exit code is under test' }]
 );
 
 const __m = vi.hoisted(() => ({
-  executeCodegraphInvocation: vi.fn(),
+  executeCodegraphInvocation: vi.fn()
 }));
 
 vi.mock('../../../src/services/codegraph/codegraph-service.js', async () => {
-  const actual = await vi.importActual<typeof import('../../../src/services/codegraph/codegraph-service.js')>(
-    '../../../src/services/codegraph/codegraph-service.js'
-  );
+  const actual = await vi.importActual<
+    typeof import('../../../src/services/codegraph/codegraph-service.js')
+  >('../../../src/services/codegraph/codegraph-service.js');
   return { ...actual, executeCodegraphInvocation: __m.executeCodegraphInvocation };
 });
 
@@ -72,12 +76,21 @@ function initCommand(): Command {
 /** A real temp git work tree with no `.codegraph/` — the "fresh" guard path. */
 function seedGitProject(ws: TmpWorkspace): string {
   execFileSync('git', ['-C', ws.path, 'init', '-q'], { stdio: 'ignore', windowsHide: true });
-  execFileSync('git', ['-C', ws.path, 'config', 'user.email', 'peaks-test@example.com'], { stdio: 'ignore', windowsHide: true });
-  execFileSync('git', ['-C', ws.path, 'config', 'user.name', 'peaks test'], { stdio: 'ignore', windowsHide: true });
+  execFileSync('git', ['-C', ws.path, 'config', 'user.email', 'peaks-test@example.com'], {
+    stdio: 'ignore',
+    windowsHide: true
+  });
+  execFileSync('git', ['-C', ws.path, 'config', 'user.name', 'peaks test'], {
+    stdio: 'ignore',
+    windowsHide: true
+  });
   mkdirSync(join(ws.path, 'src'), { recursive: true });
   writeFileSync(join(ws.path, 'src', 'ok.ts'), 'export const ok = 1;\n', 'utf8');
   execFileSync('git', ['-C', ws.path, 'add', '-A'], { stdio: 'ignore', windowsHide: true });
-  execFileSync('git', ['-C', ws.path, 'commit', '-qm', 'fixture'], { stdio: 'ignore', windowsHide: true });
+  execFileSync('git', ['-C', ws.path, 'commit', '-qm', 'fixture'], {
+    stdio: 'ignore',
+    windowsHide: true
+  });
   return ws.path;
 }
 
@@ -113,7 +126,7 @@ describe('peaks codegraph init — the --yes flag is gone from every layer', () 
       createCodegraphInvocation({
         subcommand: 'init',
         project: process.cwd(),
-        yes: true,
+        yes: true
       } as unknown as Parameters<typeof createCodegraphInvocation>[0])
     ).toThrow(/Unsupported option yes/);
   });
@@ -124,10 +137,15 @@ describe('peaks codegraph init — the --yes flag is gone from every layer', () 
     const program = new Command();
     registerCodegraphCommands(program, io);
 
-    await program.parseAsync(['codegraph', 'init', '--project', project, '--peaks-json'], { from: 'user' });
+    await program.parseAsync(['codegraph', 'init', '--project', project, '--peaks-json'], {
+      from: 'user'
+    });
 
     expect(__m.executeCodegraphInvocation).toHaveBeenCalledTimes(1);
-    const invocation = __m.executeCodegraphInvocation.mock.calls[0]?.[0] as { args: string[]; subcommand: string };
+    const invocation = __m.executeCodegraphInvocation.mock.calls[0]?.[0] as {
+      args: string[];
+      subcommand: string;
+    };
 
     expect(invocation.subcommand).toBe('init');
     expect(invocation.args).not.toContain('--yes');

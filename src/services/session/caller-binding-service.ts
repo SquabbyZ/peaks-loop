@@ -100,7 +100,8 @@ export function getCallerBinding(projectRoot: string, callerId: string): CallerB
       return null;
     }
     return parsed;
-  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+  } catch {
+    // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     return null;
   }
 }
@@ -252,8 +253,16 @@ export function reconcileLegacyCallerPresence(input: {
   projectRoot: string;
   callerId: string;
   peakSessionId: string;
-}): { migrated: boolean; reason: 'already-canonical' | 'missing-legacy' | 'success' | 'io-error'; error?: string } {
-  const legacyPath = getActiveSkillFileForCaller(input.projectRoot, input.peakSessionId, input.callerId);
+}): {
+  migrated: boolean;
+  reason: 'already-canonical' | 'missing-legacy' | 'success' | 'io-error';
+  error?: string;
+} {
+  const legacyPath = getActiveSkillFileForCaller(
+    input.projectRoot,
+    input.peakSessionId,
+    input.callerId
+  );
   if (!existsSync(legacyPath)) {
     return { migrated: false, reason: 'missing-legacy' };
   }

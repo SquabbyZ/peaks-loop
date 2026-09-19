@@ -49,7 +49,12 @@ function matchesType(value: unknown, expected: string): boolean {
   return typeof value === expected;
 }
 
-function validateNode(value: unknown, schema: JsonSchemaNode, path: string, errors: JsonSchemaIssue[]): void {
+function validateNode(
+  value: unknown,
+  schema: JsonSchemaNode,
+  path: string,
+  errors: JsonSchemaIssue[]
+): void {
   if (Array.isArray(schema.oneOf)) {
     const branches = schema.oneOf as JsonSchemaNode[];
     const branchErrors: JsonSchemaIssue[][] = [];
@@ -64,7 +69,9 @@ function validateNode(value: unknown, schema: JsonSchemaNode, path: string, erro
       branchErrors.push(sink);
     }
     if (!matched) {
-      const detail = branchErrors.map((sink) => sink.map((issue) => issue.message).join(' / ')).join(' | ');
+      const detail = branchErrors
+        .map((sink) => sink.map((issue) => issue.message).join(' / '))
+        .join(' | ');
       errors.push({ path, message: `does not match any oneOf branch (${detail})` });
     }
     return;

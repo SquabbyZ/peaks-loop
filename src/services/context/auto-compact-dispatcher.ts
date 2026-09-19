@@ -92,7 +92,9 @@ export interface DispatchIdeCompactInput {
  * context actually shrunk; the next `peaks code auto-compact` probe
  * confirms.
  */
-export async function dispatchIdeCompact(input: DispatchIdeCompactInput): Promise<CompactDispatchResult> {
+export async function dispatchIdeCompact(
+  input: DispatchIdeCompactInput
+): Promise<CompactDispatchResult> {
   const env = input.env ?? process.env;
   const detected = detectIdeFromEnv(env);
   // See auto-compact-reader.ts for the IdeKind→IdeId cast rationale.
@@ -279,19 +281,21 @@ async function dispatchIdeNativeHook(input: {
   // location. `undefined` means "this IDE declares no machine-local
   // layer" → the installer's documented default applies.
   const localFileName = input.adapter.settings.localSettingsFileName;
-  const settingsPath = localFileName === undefined
-    ? undefined
-    : join(input.projectRoot, input.adapter.settings.dirName, localFileName);
+  const settingsPath =
+    localFileName === undefined
+      ? undefined
+      : join(input.projectRoot, input.adapter.settings.dirName, localFileName);
   const result = installAutoCompactHook({ projectRoot: input.projectRoot, settingsPath });
   const envVar = input.profile.envVarForContextPercent;
   return {
     ok: true,
     ide: input.adapter.id,
     pathway: 'ide-native',
-    message: result.action === 'installed'
-      ? `Auto-compact PreToolUse hook installed at ${result.settingsPath}. Next Bash/Task tool call will read ${envVar} and compact in-band at ratio ≥ 95%.`
-      : result.action === 'updated'
-        ? `Auto-compact PreToolUse hook REPAIRED at ${result.settingsPath} — the installed entry carried a stale command and was rewritten.`
-        : `Auto-compact PreToolUse hook already installed at ${result.settingsPath}; next Bash/Task tool call will trigger compact in-band at ratio ≥ 95%.`
+    message:
+      result.action === 'installed'
+        ? `Auto-compact PreToolUse hook installed at ${result.settingsPath}. Next Bash/Task tool call will read ${envVar} and compact in-band at ratio ≥ 95%.`
+        : result.action === 'updated'
+          ? `Auto-compact PreToolUse hook REPAIRED at ${result.settingsPath} — the installed entry carried a stale command and was rewritten.`
+          : `Auto-compact PreToolUse hook already installed at ${result.settingsPath}; next Bash/Task tool call will trigger compact in-band at ratio ≥ 95%.`
   };
 }

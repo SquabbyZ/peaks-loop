@@ -46,8 +46,8 @@ export class JobStateStore {
         sliceId: `slice-${String(i + 1).padStart(3, '0')}`,
         label,
         status: 'pending',
-        repairCycles: 0,
-      })),
+        repairCycles: 0
+      }))
     });
     this.save(state);
     return state;

@@ -91,7 +91,14 @@ async function fetchL0(projectRoot: string): Promise<LayerPayload> {
     sizes.push({ path: rel, bytes: body.length });
     byteSize += body.length;
   }
-  return { layer: 'L0', description: 'full read: every SKILL.md concatenated', files: sizes, content, byteSize, warnings };
+  return {
+    layer: 'L0',
+    description: 'full read: every SKILL.md concatenated',
+    files: sizes,
+    content,
+    byteSize,
+    warnings
+  };
 }
 
 async function fetchL1(projectRoot: string): Promise<LayerPayload> {
@@ -111,7 +118,14 @@ async function fetchL1(projectRoot: string): Promise<LayerPayload> {
     sizes.push({ path: rel, bytes: firstPara.length });
     byteSize += firstPara.length;
   }
-  return { layer: 'L1', description: 'summary: first paragraph per skill', files: sizes, content, byteSize, warnings };
+  return {
+    layer: 'L1',
+    description: 'summary: first paragraph per skill',
+    files: sizes,
+    content,
+    byteSize,
+    warnings
+  };
 }
 
 async function fetchL2(projectRoot: string): Promise<LayerPayload> {
@@ -124,7 +138,7 @@ async function fetchL2(projectRoot: string): Promise<LayerPayload> {
     files: files.map((f) => ({ path: f, bytes: 0 })),
     content,
     byteSize,
-    warnings: [],
+    warnings: []
   };
 }
 
@@ -132,7 +146,14 @@ async function fetchL3(projectRoot: string, query: string): Promise<LayerPayload
   const warnings: string[] = [];
   if (query.trim().length === 0) {
     warnings.push('empty query; L3 requires a --query string for fuzzy search');
-    return { layer: 'L3', description: 'fuzzy search (empty query)', files: [], content: '', byteSize: 0, warnings };
+    return {
+      layer: 'L3',
+      description: 'fuzzy search (empty query)',
+      files: [],
+      content: '',
+      byteSize: 0,
+      warnings
+    };
   }
   try {
     const hits = searchMemory({ projectRoot, query, limit: 10 });
@@ -147,7 +168,7 @@ async function fetchL3(projectRoot: string, query: string): Promise<LayerPayload
       files: hits.map((h) => ({ path: h.sourcePath, bytes: h.description.length })),
       content,
       byteSize: content.length,
-      warnings,
+      warnings
     };
   } catch (error) {
     return {
@@ -156,7 +177,7 @@ async function fetchL3(projectRoot: string, query: string): Promise<LayerPayload
       files: [],
       content: '',
       byteSize: 0,
-      warnings: [`L3 search failed: ${getErrorMessage(error)}`],
+      warnings: [`L3 search failed: ${getErrorMessage(error)}`]
     };
   }
 }
@@ -169,7 +190,9 @@ export function registerContextCommands(program: Command, io: ProgramIO): void {
   addJsonOption(
     context
       .command('layer')
-      .description('Fetch a context layer (L0 = full SKILL.md; L1 = first paragraph; L2 = index; L3 = fuzzy search by --query)')
+      .description(
+        'Fetch a context layer (L0 = full SKILL.md; L1 = first paragraph; L2 = index; L3 = fuzzy search by --query)'
+      )
       .requiredOption('--project <path>', 'target project root')
       .requiredOption('--level <L0|L1|L2|L3>', 'context layer to load')
       .option('--query <text>', 'fuzzy search query (required for L3)')
@@ -179,7 +202,13 @@ export function registerContextCommands(program: Command, io: ProgramIO): void {
       if (level !== 'L0' && level !== 'L1' && level !== 'L2' && level !== 'L3') {
         printResult(
           io,
-          fail('context.layer', 'INVALID_LEVEL', `level must be one of L0, L1, L2, L3 (got ${level})`, { provided: level }, ['Pass --level L0|L1|L2|L3']),
+          fail(
+            'context.layer',
+            'INVALID_LEVEL',
+            `level must be one of L0, L1, L2, L3 (got ${level})`,
+            { provided: level },
+            ['Pass --level L0|L1|L2|L3']
+          ),
           options.json
         );
         process.exitCode = 1;
@@ -190,14 +219,31 @@ export function registerContextCommands(program: Command, io: ProgramIO): void {
       else if (level === 'L1') payload = await fetchL1(options.project);
       else if (level === 'L2') payload = await fetchL2(options.project);
       else payload = await fetchL3(options.project, options.query ?? '');
-      printResult(io, ok('context.layer', payload, [], [
-        `${payload.layer} loaded: ${payload.byteSize} bytes across ${payload.files.length} file(s)`,
-        payload.warnings.length > 0 ? `${payload.warnings.length} warning(s); see envelope.warnings` : null
-      ].filter((x): x is string => typeof x === 'string')), options.json);
+      printResult(
+        io,
+        ok(
+          'context.layer',
+          payload,
+          [],
+          [
+            `${payload.layer} loaded: ${payload.byteSize} bytes across ${payload.files.length} file(s)`,
+            payload.warnings.length > 0
+              ? `${payload.warnings.length} warning(s); see envelope.warnings`
+              : null
+          ].filter((x): x is string => typeof x === 'string')
+        ),
+        options.json
+      );
     } catch (error) {
       printResult(
         io,
-        fail('context.layer', 'CONTEXT_LAYER_FAILED', getErrorMessage(error), { projectRoot: options.project }, ['Verify the project path and --level value']),
+        fail(
+          'context.layer',
+          'CONTEXT_LAYER_FAILED',
+          getErrorMessage(error),
+          { projectRoot: options.project },
+          ['Verify the project path and --level value']
+        ),
         options.json
       );
       process.exitCode = 1;
@@ -207,59 +253,84 @@ export function registerContextCommands(program: Command, io: ProgramIO): void {
   addJsonOption(
     context
       .command('status')
-      .description('v2.11.0 D6: report main-session threshold tier for a given prompt size (no trigger dispatched). Useful for `--json` probes before invoking `peaks context check --auto-trigger`.')
+      .description(
+        'v2.11.0 D6: report main-session threshold tier for a given prompt size (no trigger dispatched). Useful for `--json` probes before invoking `peaks context check --auto-trigger`.'
+      )
       .requiredOption('--prompt-size <bytes>', 'estimated prompt size in bytes')
       .option('--capacity <bytes>', 'override the 256K default capacity (test seam)', '262144')
-  ).action(
-    (opts: { promptSize: string; capacity?: string; json?: boolean }) => {
-      try {
-        const promptSize = Number(opts.promptSize);
-        const capacity = opts.capacity !== undefined ? Number(opts.capacity) : undefined;
-        if (!Number.isFinite(promptSize) || promptSize < 0) {
-          printResult(
-            io,
-            fail('context.status', 'INVALID_PROMPT_SIZE', `prompt-size must be a non-negative number (got "${opts.promptSize}")`, { provided: opts.promptSize }, ['Pass --prompt-size <bytes>']),
-            opts.json
-          );
-          process.exitCode = 1;
-          return;
-        }
-        const evaluation = evaluateMainSessionThreshold(promptSize, capacity);
+  ).action((opts: { promptSize: string; capacity?: string; json?: boolean }) => {
+    try {
+      const promptSize = Number(opts.promptSize);
+      const capacity = opts.capacity !== undefined ? Number(opts.capacity) : undefined;
+      if (!Number.isFinite(promptSize) || promptSize < 0) {
         printResult(
           io,
-          ok('context.status', { ...evaluation, ide: detectIdeFromEnv() }, [...evaluation.warnings], [
-            `Main-session tier=${evaluation.tier} (${(evaluation.ratio * 100).toFixed(0)}%)`
-          ]),
-          opts.json
-        );
-      } catch (err) {
-        printResult(
-          io,
-          fail('context.status', 'CONTEXT_STATUS_FAILED', getErrorMessage(err), null, ['Verify --prompt-size is a non-negative number']),
+          fail(
+            'context.status',
+            'INVALID_PROMPT_SIZE',
+            `prompt-size must be a non-negative number (got "${opts.promptSize}")`,
+            { provided: opts.promptSize },
+            ['Pass --prompt-size <bytes>']
+          ),
           opts.json
         );
         process.exitCode = 1;
+        return;
       }
+      const evaluation = evaluateMainSessionThreshold(promptSize, capacity);
+      printResult(
+        io,
+        ok(
+          'context.status',
+          { ...evaluation, ide: detectIdeFromEnv() },
+          [...evaluation.warnings],
+          [`Main-session tier=${evaluation.tier} (${(evaluation.ratio * 100).toFixed(0)}%)`]
+        ),
+        opts.json
+      );
+    } catch (err) {
+      printResult(
+        io,
+        fail('context.status', 'CONTEXT_STATUS_FAILED', getErrorMessage(err), null, [
+          'Verify --prompt-size is a non-negative number'
+        ]),
+        opts.json
+      );
+      process.exitCode = 1;
     }
-  );
+  });
 
   addJsonOption(
     context
       .command('check')
-      .description('v2.11.0 D6: threshold check + IDE-aware trigger dispatch. With --auto-trigger, returns the trigger path the LLM should follow; without, returns a dry-run recommendation. The LLM is responsible for actually invoking the trigger (slash command, self-compress, or escalation).')
+      .description(
+        'v2.11.0 D6: threshold check + IDE-aware trigger dispatch. With --auto-trigger, returns the trigger path the LLM should follow; without, returns a dry-run recommendation. The LLM is responsible for actually invoking the trigger (slash command, self-compress, or escalation).'
+      )
       .requiredOption('--prompt-size <bytes>', 'estimated prompt size in bytes')
       .option('--capacity <bytes>', 'override the 256K default capacity (test seam)', '262144')
       .option('--in-flight-batch', 'a sub-agent batch is in flight (defer trigger per D6.e)', false)
       .option('--auto-trigger', 'return the trigger path the LLM should follow', false)
   ).action(
-    (opts: { promptSize: string; capacity?: string; inFlightBatch?: boolean; autoTrigger?: boolean; json?: boolean }) => {
+    (opts: {
+      promptSize: string;
+      capacity?: string;
+      inFlightBatch?: boolean;
+      autoTrigger?: boolean;
+      json?: boolean;
+    }) => {
       try {
         const promptSize = Number(opts.promptSize);
         const capacity = opts.capacity !== undefined ? Number(opts.capacity) : undefined;
         if (!Number.isFinite(promptSize) || promptSize < 0) {
           printResult(
             io,
-            fail('context.check', 'INVALID_PROMPT_SIZE', `prompt-size must be a non-negative number (got "${opts.promptSize}")`, { provided: opts.promptSize }, ['Pass --prompt-size <bytes>']),
+            fail(
+              'context.check',
+              'INVALID_PROMPT_SIZE',
+              `prompt-size must be a non-negative number (got "${opts.promptSize}")`,
+              { provided: opts.promptSize },
+              ['Pass --prompt-size <bytes>']
+            ),
             opts.json
           );
           process.exitCode = 1;
@@ -268,26 +339,32 @@ export function registerContextCommands(program: Command, io: ProgramIO): void {
         const trigger = pickMainSessionTrigger({
           promptSize,
           capacityBytes: capacity,
-          inFlightBatch: opts.inFlightBatch === true ? { hasInFlightBatch: true, sharedChannelEntries: 1 } : undefined
+          inFlightBatch:
+            opts.inFlightBatch === true
+              ? { hasInFlightBatch: true, sharedChannelEntries: 1 }
+              : undefined
         });
         // Slice C of v2.11.1 — observability hook #5/7. Fire-and-forget
         // per PRD Q4. The synchronous emit never throws.
         const projectRoot = findProjectRoot(process.cwd()) ?? process.cwd();
         const sid = getSessionIdCanonical(projectRoot) ?? '';
         if (sid.length > 0) {
-          emitObservabilityEvent({
-            schemaVersion: 1,
-            ts: new Date().toISOString(),
-            sessionId: sid,
-            category: 'context-trigger',
-            detail: {
-              kind: trigger.kind,
-              promptSize,
-              ...(trigger.kind === 'soft-warn' || trigger.kind === 'compact'
-                ? { ratio: trigger.ratio }
-                : {})
-            }
-          }, { projectRoot });
+          emitObservabilityEvent(
+            {
+              schemaVersion: 1,
+              ts: new Date().toISOString(),
+              sessionId: sid,
+              category: 'context-trigger',
+              detail: {
+                kind: trigger.kind,
+                promptSize,
+                ...(trigger.kind === 'soft-warn' || trigger.kind === 'compact'
+                  ? { ratio: trigger.ratio }
+                  : {})
+              }
+            },
+            { projectRoot }
+          );
         }
         const logLine = formatMainSessionTriggerLogLine(trigger, 'main');
         const payload = {
@@ -297,21 +374,28 @@ export function registerContextCommands(program: Command, io: ProgramIO): void {
         };
         printResult(
           io,
-          ok('context.check', payload, [], [
-            trigger.kind === 'compact'
-              ? `Tier reached → trigger ${trigger.path} on ${trigger.ide} (code=${trigger.code})`
-              : trigger.kind === 'defer'
-                ? `Deferred: ${trigger.reason}`
-                : trigger.kind === 'soft-warn'
-                  ? `Soft warning at ${(trigger.ratio * 100).toFixed(0)}% (no trigger yet)`
-                  : 'Below threshold; no trigger'
-          ]),
+          ok(
+            'context.check',
+            payload,
+            [],
+            [
+              trigger.kind === 'compact'
+                ? `Tier reached → trigger ${trigger.path} on ${trigger.ide} (code=${trigger.code})`
+                : trigger.kind === 'defer'
+                  ? `Deferred: ${trigger.reason}`
+                  : trigger.kind === 'soft-warn'
+                    ? `Soft warning at ${(trigger.ratio * 100).toFixed(0)}% (no trigger yet)`
+                    : 'Below threshold; no trigger'
+            ]
+          ),
           opts.json
         );
       } catch (err) {
         printResult(
           io,
-          fail('context.check', 'CONTEXT_CHECK_FAILED', getErrorMessage(err), null, ['Verify --prompt-size is a non-negative number']),
+          fail('context.check', 'CONTEXT_CHECK_FAILED', getErrorMessage(err), null, [
+            'Verify --prompt-size is a non-negative number'
+          ]),
           opts.json
         );
         process.exitCode = 1;

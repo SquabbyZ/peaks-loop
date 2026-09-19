@@ -6,14 +6,24 @@ import {
 } from '../../crystallization/crystallization-service.js';
 import type { CrystallizationOptions } from '../../crystallization/crystallization-service.js';
 import type { GuardContext, GuardRunResult } from '../types.js';
-import { combineProbes, fail, missingSourceFiles, pass, probe, requireBaselineRow } from './_shared.js';
+import {
+  combineProbes,
+  fail,
+  missingSourceFiles,
+  pass,
+  probe,
+  requireBaselineRow
+} from './_shared.js';
 
 /** Test doubles: `assertReady` never reaches any of them. */
 function probeService(): CrystallizationService {
   const noop = (): void => undefined;
   const opts = {
     loopReleaseSchema: { parse: (input: unknown) => input },
-    loopBeeRelationSchema: { parse: (input: unknown) => input, omit: () => ({ parse: (input: unknown) => input }) },
+    loopBeeRelationSchema: {
+      parse: (input: unknown) => input,
+      omit: () => ({ parse: (input: unknown) => input })
+    },
     insertLoopRelease: noop,
     insertLoopBeeRelation: noop
   } as unknown as CrystallizationOptions;
@@ -35,12 +45,26 @@ export async function runJ08Contract(ctx: GuardContext): Promise<GuardRunResult>
   const row = requireBaselineRow(ctx);
   const missing = missingSourceFiles(ctx, row);
 
-  const ready = { task_id: 'guard-J08', task_status: 'completed' as const, gates_passed: true as const, evidence_collected: true as const };
+  const ready = {
+    task_id: 'guard-J08',
+    task_status: 'completed' as const,
+    gates_passed: true as const,
+    evidence_collected: true as const
+  };
 
   const schemaAcceptsReady = CrystallizationTaskStateSchema.safeParse(ready).success;
-  const schemaRejectsGatesFalse = !CrystallizationTaskStateSchema.safeParse({ ...ready, gates_passed: false }).success;
-  const schemaRejectsNotCompleted = !CrystallizationTaskStateSchema.safeParse({ ...ready, task_status: 'in_progress' }).success;
-  const schemaRejectsNoEvidence = !CrystallizationTaskStateSchema.safeParse({ ...ready, evidence_collected: false }).success;
+  const schemaRejectsGatesFalse = !CrystallizationTaskStateSchema.safeParse({
+    ...ready,
+    gates_passed: false
+  }).success;
+  const schemaRejectsNotCompleted = !CrystallizationTaskStateSchema.safeParse({
+    ...ready,
+    task_status: 'in_progress'
+  }).success;
+  const schemaRejectsNoEvidence = !CrystallizationTaskStateSchema.safeParse({
+    ...ready,
+    evidence_collected: false
+  }).success;
 
   const svc = probeService();
   let serviceAcceptsReady = false;
@@ -71,7 +95,10 @@ export async function runJ08Contract(ctx: GuardContext): Promise<GuardRunResult>
     probe(schemaRejectsNotCompleted, 'task_status!=completed is refused by the schema'),
     probe(schemaRejectsNoEvidence, 'evidence_collected=false is refused by the schema'),
     probe(serviceAcceptsReady, 'the service accepts a ready task'),
-    probe(refused.length === 3, `the service refuses every non-passing gate state with CrystallizationIntegrityError (refused: ${refused.join(', ') || 'none'})`)
+    probe(
+      refused.length === 3,
+      `the service refuses every non-passing gate state with CrystallizationIntegrityError (refused: ${refused.join(', ') || 'none'})`
+    )
   ]);
 
   const artifact = row.sourceFiles[0] ?? 'src/services/crystallization/crystallization-service.ts';

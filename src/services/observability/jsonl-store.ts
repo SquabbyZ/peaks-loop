@@ -15,7 +15,15 @@
  * (full-auto must never fail-loud on observability).
  */
 
-import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync } from 'node:fs';
+import {
+  appendFileSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  statSync
+} from 'node:fs';
 import { join } from 'node:path';
 
 import { getSessionDir, tryGetSessionDir } from '../session/getSessionDir.js';
@@ -146,7 +154,8 @@ export function pruneMetricsFiles(projectRoot: string): string[] {
     try {
       rmSync(path, { force: true });
       removed.push(path);
-    } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+    } catch {
+      // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
       // best-effort: do not throw out of prune
     }
   }

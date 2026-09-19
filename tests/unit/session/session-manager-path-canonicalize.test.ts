@@ -37,8 +37,8 @@ declareDimensions(
   ['behavior', 'integration'],
   [
     { dim: 'render', reason: 'getSessionId returns string|null; no formatted output surface' },
-    { dim: 'a11y', reason: 'no human-facing text in the session-manager read path' },
-  ],
+    { dim: 'a11y', reason: 'no human-facing text in the session-manager read path' }
+  ]
 );
 
 // Relative import rather than the `~/src/...` alias: that alias is
@@ -66,15 +66,19 @@ function writeBinding(bindingHome: string, storedProjectRoot: string): void {
   writeFileSync(
     join(runtimeDir, 'session.json'),
     JSON.stringify(
-      { sessionId: SESSION_ID, createdAt: '2026-08-04T02:23:03.502Z', projectRoot: storedProjectRoot },
+      {
+        sessionId: SESSION_ID,
+        createdAt: '2026-08-04T02:23:03.502Z',
+        projectRoot: storedProjectRoot
+      },
       null,
-      2,
+      2
     ),
-    'utf8',
+    'utf8'
   );
 }
 
-describe("Scenario: behavior — projectRoot canonicalization on read", () => {
+describe('Scenario: behavior — projectRoot canonicalization on read', () => {
   const ws = withTmpWorkspacePerTest('peaks-path-canon-');
 
   it.runIf(process.platform === 'win32')(
@@ -89,7 +93,7 @@ describe("Scenario: behavior — projectRoot canonicalization on read", () => {
       writeBinding(root, backslashForm);
 
       expect(getSessionId(forwardSlashForm)).toBe(SESSION_ID);
-    },
+    }
   );
 
   it.runIf(process.platform === 'win32')(
@@ -106,7 +110,7 @@ describe("Scenario: behavior — projectRoot canonicalization on read", () => {
       writeBinding(root, mixedCaseForm);
 
       expect(getSessionId(lowerCaseForm)).toBe(SESSION_ID);
-    },
+    }
   );
 
   it.runIf(process.platform === 'darwin')(
@@ -123,10 +127,10 @@ describe("Scenario: behavior — projectRoot canonicalization on read", () => {
       writeBinding(root, root);
 
       expect(getSessionId(symlinkedForm)).toBe(SESSION_ID);
-    },
+    }
   );
 
-  it("when invoked, should Case 4 (regression): a genuinely different project root still returns null", () => {
+  it('when invoked, should Case 4 (regression): a genuinely different project root still returns null', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -142,7 +146,7 @@ describe("Scenario: behavior — projectRoot canonicalization on read", () => {
     expect(getSessionId(otherRoot)).toBeNull();
   });
 
-  it("when invoked, should Case 4b (regression): sibling directories differing only by name do not collide", () => {
+  it('when invoked, should Case 4b (regression): sibling directories differing only by name do not collide', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -157,7 +161,7 @@ describe("Scenario: behavior — projectRoot canonicalization on read", () => {
     expect(getSessionId(projectB)).toBeNull();
   });
 
-  it("when invoked, should returns the bound id for the exact stored spelling (no regression on the happy path)", () => {
+  it('when invoked, should returns the bound id for the exact stored spelling (no regression on the happy path)', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -168,17 +172,17 @@ describe("Scenario: behavior — projectRoot canonicalization on read", () => {
   });
 });
 
-describe("Scenario: integration — binding file on a real workspace", () => {
+describe('Scenario: integration — binding file on a real workspace', () => {
   const ws = withTmpWorkspacePerTest('peaks-path-canon-io-');
 
-  it("when invoked, should returns null when no binding file exists at all", () => {
+  it('when invoked, should returns null when no binding file exists at all', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
     expect(getSessionId(ws().path)).toBeNull();
   });
 
-  it("when invoked, should returns null when the binding file is malformed JSON", () => {
+  it('when invoked, should returns null when the binding file is malformed JSON', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -190,7 +194,7 @@ describe("Scenario: integration — binding file on a real workspace", () => {
     expect(getSessionId(root)).toBeNull();
   });
 
-  it("when invoked, should does not throw when the queried project root does not exist on disk", () => {
+  it('when invoked, should does not throw when the queried project root does not exist on disk', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation

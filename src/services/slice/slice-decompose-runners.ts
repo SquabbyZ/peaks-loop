@@ -38,7 +38,10 @@ export function defaultCodegraphRunner(): CodegraphRunner {
   return {
     async query(text, projectRoot) {
       try {
-        const stdout = runCodegraph(['query', text, '--json', '--project', projectRoot], projectRoot);
+        const stdout = runCodegraph(
+          ['query', text, '--json', '--project', projectRoot],
+          projectRoot
+        );
         const parsed = JSON.parse(stdout);
         if (Array.isArray(parsed)) {
           // Upstream envelope: { node: {id, kind, name, filePath, ...}, score }
@@ -57,7 +60,10 @@ export function defaultCodegraphRunner(): CodegraphRunner {
               }
               return null;
             })
-            .filter((h: CodegraphQueryHit | null): h is CodegraphQueryHit => h !== null && h.filePath !== '');
+            .filter(
+              (h: CodegraphQueryHit | null): h is CodegraphQueryHit =>
+                h !== null && h.filePath !== ''
+            );
         }
         return [];
       } catch {
@@ -66,7 +72,10 @@ export function defaultCodegraphRunner(): CodegraphRunner {
     },
     async affected(files, projectRoot): Promise<CodegraphAffectedResult> {
       try {
-        const stdout = runCodegraph(['affected', ...files, '--json', '--project', projectRoot], projectRoot);
+        const stdout = runCodegraph(
+          ['affected', ...files, '--json', '--project', projectRoot],
+          projectRoot
+        );
         const parsed = JSON.parse(stdout);
         return {
           changedFiles: parsed.changedFiles ?? files,
@@ -128,7 +137,11 @@ function runCodegraph(args: string[], projectRoot: string): string {
       // Fallback: raw `codegraph` (won't accept --project, drop it), reached
       // through the npx resolver so the local `.bin` shim is never spawned.
       const fallbackArgs = args.filter((a) => a !== '--project' && !a.startsWith('--project='));
-      const { command, args: npxArgs, baseEnv } = resolveNpxInvocation(['codegraph', ...fallbackArgs]);
+      const {
+        command,
+        args: npxArgs,
+        baseEnv
+      } = resolveNpxInvocation(['codegraph', ...fallbackArgs]);
       return execFileSync(command, npxArgs, { ...execOptions, env: baseEnv }).toString('utf8');
     }
     throw error;
@@ -144,7 +157,8 @@ export function defaultImportEdgeRunner(): ImportEdgeRunner {
         if (!existsSync(absPath)) continue;
         try {
           const content = readFileSync(absPath, 'utf8');
-          const importRe = /import\s+(?:type\s+)?(?:\{[^}]*\}|\*\s+as\s+\w+|\w+)?\s*(?:,\s*(?:\{[^}]*\}|\*\s+as\s+\w+|\w+))?\s*from\s+['"]([^'"]+)['"]/g;
+          const importRe =
+            /import\s+(?:type\s+)?(?:\{[^}]*\}|\*\s+as\s+\w+|\w+)?\s*(?:,\s*(?:\{[^}]*\}|\*\s+as\s+\w+|\w+))?\s*from\s+['"]([^'"]+)['"]/g;
           let match: RegExpExecArray | null;
           while ((match = importRe.exec(content)) !== null) {
             const importPath = match[1]!;
@@ -154,7 +168,8 @@ export function defaultImportEdgeRunner(): ImportEdgeRunner {
             const resolved = relative(projectRoot, join(projectRoot, fromDir, tsPath));
             edges.push({ from: file, to: resolved, evidence: match[0] });
           }
-        } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+        } catch {
+          // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
           // Skip unreadable files
         }
       }

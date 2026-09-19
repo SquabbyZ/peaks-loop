@@ -85,7 +85,7 @@ export const RD_REVIEW_REQUEST_TYPES = [
   'refactor',
   'config',
   'docs',
-  'chore',
+  'chore'
 ] as const;
 export type RdReviewRequestType = (typeof RD_REVIEW_REQUEST_TYPES)[number];
 
@@ -98,7 +98,7 @@ export type RdReviewRequestType = (typeof RD_REVIEW_REQUEST_TYPES)[number];
 export const RD_FANOUT_REVIEWERS = [
   'code-reviewer',
   'qa-test-cases-writer',
-  'karpathy-reviewer',
+  'karpathy-reviewer'
 ] as const;
 export type RdFanoutReviewer = (typeof RD_FANOUT_REVIEWERS)[number];
 
@@ -115,10 +115,7 @@ export type RdFanoutReviewer = (typeof RD_FANOUT_REVIEWERS)[number];
  * Use `isDeprecatedReviewer(name)` (not direct array membership) so
  * future deprecations can use the same predicate without churn.
  */
-export const RD_DEPRECATED_REVIEWERS = [
-  'security-reviewer',
-  'perf-baseline-reviewer',
-] as const;
+export const RD_DEPRECATED_REVIEWERS = ['security-reviewer', 'perf-baseline-reviewer'] as const;
 export type RdDeprecatedReviewer = (typeof RD_DEPRECATED_REVIEWERS)[number];
 
 /** Subset of request types that fire the 3-way fanout. */
@@ -137,12 +134,8 @@ export function shouldDispatchKarpathy(type: RdReviewRequestType): boolean {
 /**
  * True iff the request type triggers the 3-way review fanout.
  */
-export function isFanoutTriggerType(
-  type: RdReviewRequestType
-): type is RdFanoutRequestType {
-  return (
-    type === 'feat' || type === 'bugfix' || type === 'refactor'
-  );
+export function isFanoutTriggerType(type: RdReviewRequestType): type is RdFanoutRequestType {
+  return type === 'feat' || type === 'bugfix' || type === 'refactor';
 }
 
 /**

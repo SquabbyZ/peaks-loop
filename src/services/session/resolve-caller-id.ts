@@ -39,7 +39,7 @@ import {
   CallerIdError,
   type CallerIdSource,
   type CallerProjection,
-  type CallerProjectionSource,
+  type CallerProjectionSource
 } from './caller-id-types.js';
 import { getAdapter } from '../ide/ide-registry.js';
 import { detectInstalledIde } from '../ide/ide-detector.js';
@@ -124,7 +124,9 @@ export function resolveCallerId(opts: ResolveCallerIdOptions = {}): string {
   }
 
   // Priority level 2: env var (vendor-neutral override).
-  const envValue = isNonEmpty(opts.envOverride) ? opts.envOverride : opts.env?.PEAKS_CALLER_ID ?? process.env.PEAKS_CALLER_ID;
+  const envValue = isNonEmpty(opts.envOverride)
+    ? opts.envOverride
+    : (opts.env?.PEAKS_CALLER_ID ?? process.env.PEAKS_CALLER_ID);
   if (isNonEmpty(envValue)) {
     return validateCallerId(envValue, 'env');
   }
@@ -175,7 +177,7 @@ export function resolveCallerProjection(opts: ResolveCallerIdOptions = {}): Call
       callerId: validated,
       workflowId: null,
       graphRef: null,
-      source: 'env-flag',
+      source: 'env-flag'
     };
   }
 
@@ -188,7 +190,7 @@ export function resolveCallerProjection(opts: ResolveCallerIdOptions = {}): Call
       callerId: validated,
       workflowId: null,
       graphRef: null,
-      source: 'env-flag',
+      source: 'env-flag'
     };
   }
 
@@ -201,7 +203,7 @@ export function resolveCallerProjection(opts: ResolveCallerIdOptions = {}): Call
       callerId,
       workflowId: null,
       graphRef: null,
-      source: 'adapter',
+      source: 'adapter'
     };
   } catch (err) {
     const code = (err as { code?: unknown }).code;

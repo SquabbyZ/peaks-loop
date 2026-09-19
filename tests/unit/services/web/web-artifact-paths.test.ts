@@ -27,9 +27,12 @@ declareDimensions(
   'tests/unit/services/web/web-artifact-paths.test.ts',
   ['behavior', 'integration'],
   [
-    { dim: 'render', reason: 'resolvers return path strings; the CLI layer owns every text surface' },
-    { dim: 'a11y', reason: 'no user-visible text or exit code is produced by these pure resolvers' },
-  ],
+    {
+      dim: 'render',
+      reason: 'resolvers return path strings; the CLI layer owns every text surface'
+    },
+    { dim: 'a11y', reason: 'no user-visible text or exit code is produced by these pure resolvers' }
+  ]
 );
 
 import { normalizePath } from '../../../../src/shared/path-utils.js';
@@ -44,7 +47,7 @@ import {
   webProfilesDir,
   webShotPath,
   webSpawnLockPath,
-  WEB_SUBDIR,
+  WEB_SUBDIR
 } from '../../../../src/services/web/web-artifact-paths.js';
 
 const ws = withTmpWorkspacePerTest('peaks-web-paths-');
@@ -63,7 +66,7 @@ describe('behavior — web artifact resolvers', () => {
       webShotPath(root, SESSION_ID, '20260910T090312345Z'),
       webDaemonInfoPath(root, SESSION_ID),
       webSpawnLockPath(root, SESSION_ID),
-      webLogPath(root, SESSION_ID),
+      webLogPath(root, SESSION_ID)
     ];
     for (const path of paths) {
       expect(normalizePath(path)).toContain(expected);
@@ -94,7 +97,9 @@ describe('behavior — web artifact resolvers', () => {
     // then:  it reuses the pw-profiles directory convention and stores storageState.json
     const root = ws().path;
     const path = normalizePath(webContextStatePath(root, SESSION_ID, 'dispatch-42'));
-    expect(path).toContain(`/.peaks/_runtime/${SESSION_ID}/pw-profiles/dispatch-42/storageState.json`);
+    expect(path).toContain(
+      `/.peaks/_runtime/${SESSION_ID}/pw-profiles/dispatch-42/storageState.json`
+    );
   });
 
   it('when webProfilesDir is called, should land beside web/ rather than inside it', () => {
@@ -157,7 +162,9 @@ describe('behavior — assertUnder', () => {
     // then:  the escape is rejected
     const root = ws().path;
     const parent = webDir(root, SESSION_ID);
-    expect(() => assertUnder(join(parent, '..', '..', 'evil.png'), parent)).toThrow(/WEB_PATH_ESCAPE/);
+    expect(() => assertUnder(join(parent, '..', '..', 'evil.png'), parent)).toThrow(
+      /WEB_PATH_ESCAPE/
+    );
   });
 
   it('when the child is a sibling-prefix directory, should throw WEB_PATH_ESCAPE', () => {

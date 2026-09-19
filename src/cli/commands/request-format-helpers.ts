@@ -11,7 +11,7 @@ import {
   VALID_REQUEST_TYPES,
   type RequestArtifactRole,
   type RequestArtifactState,
-  type RequestType,
+  type RequestType
 } from '../../services/artifacts/request-artifact-service.js';
 import { formatMdCompact } from '../../shared/format-md-compact.js';
 

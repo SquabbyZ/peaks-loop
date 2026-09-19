@@ -123,7 +123,11 @@ export function writeContract(
   if (!input.sliceId || input.sliceId.length === 0) {
     throw new ContractStoreError('sliceId is required');
   }
-  if (!Array.isArray(input.exports) || !Array.isArray(input.types) || !Array.isArray(input.publicSignatures)) {
+  if (
+    !Array.isArray(input.exports) ||
+    !Array.isArray(input.types) ||
+    !Array.isArray(input.publicSignatures)
+  ) {
     throw new ContractStoreError('exports, types, publicSignatures must be arrays');
   }
   const completedAt = input.completedAt ?? new Date().toISOString();
@@ -186,7 +190,9 @@ export function listContracts(projectRoot: string, sessionId: string): readonly 
  */
 export function formatContractInjection(contracts: readonly SliceContract[]): string {
   if (contracts.length === 0) return '';
-  const blocks: string[] = ['## Ancestor slice contracts (do not import source — use this surface)'];
+  const blocks: string[] = [
+    '## Ancestor slice contracts (do not import source — use this surface)'
+  ];
   for (const c of contracts) {
     blocks.push(
       '',

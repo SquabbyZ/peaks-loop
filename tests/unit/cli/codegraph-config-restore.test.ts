@@ -36,30 +36,34 @@ import {
   realpathSync,
   statSync,
   symlinkSync,
-  writeFileSync,
+  writeFileSync
 } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { declareDimensions } from '../_setup/4dim-template.js';
 import { makeCapturedIo } from '../_setup/io.js';
-import { cleanupTmpWorkspace, useTmpWorkspace, type TmpWorkspace } from '../_setup/tmp-workspace.js';
+import {
+  cleanupTmpWorkspace,
+  useTmpWorkspace,
+  type TmpWorkspace
+} from '../_setup/tmp-workspace.js';
 
 declareDimensions('tests/unit/cli/codegraph-config-restore.test.ts', [
   'render',
   'behavior',
   'integration',
-  'a11y',
+  'a11y'
 ]);
 
 const __m = vi.hoisted(() => ({
-  executeCodegraphInvocation: vi.fn(),
+  executeCodegraphInvocation: vi.fn()
 }));
 
 vi.mock('../../../src/services/codegraph/codegraph-service.js', async () => {
-  const actual = await vi.importActual<typeof import('../../../src/services/codegraph/codegraph-service.js')>(
-    '../../../src/services/codegraph/codegraph-service.js'
-  );
+  const actual = await vi.importActual<
+    typeof import('../../../src/services/codegraph/codegraph-service.js')
+  >('../../../src/services/codegraph/codegraph-service.js');
   return { ...actual, executeCodegraphInvocation: __m.executeCodegraphInvocation };
 });
 
@@ -256,7 +260,9 @@ describe('behavior — every refusal shape, and what survives it', () => {
     const captured = await runCodegraph(['config-restore', '--project', project, '--peaks-json']);
 
     expect(parseJson(captured).ok).toBe(false);
-    expect(parseJson(captured).data.reason).toContain('refusing to restore through a symbolic link');
+    expect(parseJson(captured).data.reason).toContain(
+      'refusing to restore through a symbolic link'
+    );
     expect(readFileSync(configPathOf(project), 'utf8')).not.toContain('INJECTED');
   });
 
@@ -427,7 +433,11 @@ describe('a11y — exit codes and the refusal text', () => {
     const outside = join(ws.path, 'outside', '.codegraph');
     mkdirSync(outside, { recursive: true });
     mkdirSync(project, { recursive: true });
-    symlinkSync(outside, join(project, '.codegraph'), process.platform === 'win32' ? 'junction' : 'dir');
+    symlinkSync(
+      outside,
+      join(project, '.codegraph'),
+      process.platform === 'win32' ? 'junction' : 'dir'
+    );
 
     const captured = await runCodegraph(['config-restore', '--project', project, '--peaks-json']);
 

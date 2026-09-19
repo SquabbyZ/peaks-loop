@@ -69,13 +69,28 @@ export function registerRuntimeCommands(program: Command, io: ProgramIO): void {
   ).action((options: RuntimeDetectOptions) => {
     try {
       const result = detectRuntime();
-      printResult(io, ok('runtime.detect', result, [], [
-        result.vendor === 'unknown'
-          ? 'No vendor sentinel detected. Use `peaks adapter register --id <vendor> --binary <cmd>` to wire a custom one.'
-          : `Run \`peaks runtime compact --via ${result.vendor}\` to invoke its compact verb.`
-      ]), options.json);
+      printResult(
+        io,
+        ok(
+          'runtime.detect',
+          result,
+          [],
+          [
+            result.vendor === 'unknown'
+              ? 'No vendor sentinel detected. Use `peaks adapter register --id <vendor> --binary <cmd>` to wire a custom one.'
+              : `Run \`peaks runtime compact --via ${result.vendor}\` to invoke its compact verb.`
+          ]
+        ),
+        options.json
+      );
     } catch (error) {
-      printResult(io, fail('runtime.detect', 'RUNTIME_DETECT_FAILED', getErrorMessage(error), {}, ['Retry with a clean env']), options.json);
+      printResult(
+        io,
+        fail('runtime.detect', 'RUNTIME_DETECT_FAILED', getErrorMessage(error), {}, [
+          'Retry with a clean env'
+        ]),
+        options.json
+      );
       process.exitCode = 1;
     }
   });
@@ -90,12 +105,27 @@ export function registerRuntimeCommands(program: Command, io: ProgramIO): void {
   ).action((options: RuntimeListOptions) => {
     try {
       const svc = new RuntimeService();
-      const adapters = svc.listBuiltInAdapters().map((a) => ({ id: a.id, displayName: a.displayName }));
-      printResult(io, ok('runtime.list', { builtIn: adapters }, [], [
-        `Run \`peaks adapter register --id <vendor> --binary <cmd>\` to add a custom adapter (persists to .peaks/runtime/adapters.json).`
-      ]), options.json);
+      const adapters = svc
+        .listBuiltInAdapters()
+        .map((a) => ({ id: a.id, displayName: a.displayName }));
+      printResult(
+        io,
+        ok(
+          'runtime.list',
+          { builtIn: adapters },
+          [],
+          [
+            `Run \`peaks adapter register --id <vendor> --binary <cmd>\` to add a custom adapter (persists to .peaks/runtime/adapters.json).`
+          ]
+        ),
+        options.json
+      );
     } catch (error) {
-      printResult(io, fail('runtime.list', 'RUNTIME_LIST_FAILED', getErrorMessage(error), {}, []), options.json);
+      printResult(
+        io,
+        fail('runtime.list', 'RUNTIME_LIST_FAILED', getErrorMessage(error), {}, []),
+        options.json
+      );
       process.exitCode = 1;
     }
   });
@@ -106,7 +136,9 @@ export function registerRuntimeCommands(program: Command, io: ProgramIO): void {
   addJsonOption(
     runtime
       .command('compact')
-      .description('Compact the active vendor via the chosen adapter (--via <vendor-id>); vendor verbs live ONLY in adapter files')
+      .description(
+        'Compact the active vendor via the chosen adapter (--via <vendor-id>); vendor verbs live ONLY in adapter files'
+      )
       .option('--via <id>', 'vendor adapter id (built-in or user-registered)')
       .option('--force', 'ask the vendor to compact unconditionally')
       .option('--project <path>', 'project root (defaults to cwd)')
@@ -118,9 +150,17 @@ export function registerRuntimeCommands(program: Command, io: ProgramIO): void {
         // No explicit --via: try to detect first, then fall back.
         const detected = detectRuntime();
         if (detected.vendor === 'unknown') {
-          printResult(io, fail('runtime.compact', 'NO_VENDOR_SPECIFIED', 'No --via <id> provided and no vendor detected.', { detected }, [
-            'Pass --via <vendor-id>, or run `peaks runtime detect` to see what was detected.'
-          ]), options.json);
+          printResult(
+            io,
+            fail(
+              'runtime.compact',
+              'NO_VENDOR_SPECIFIED',
+              'No --via <id> provided and no vendor detected.',
+              { detected },
+              ['Pass --via <vendor-id>, or run `peaks runtime detect` to see what was detected.']
+            ),
+            options.json
+          );
           process.exitCode = 1;
           return;
         }
@@ -129,7 +169,11 @@ export function registerRuntimeCommands(program: Command, io: ProgramIO): void {
       }
       await runCompact(projectRoot, requested, options.force === true, io, options.json);
     } catch (error) {
-      printResult(io, fail('runtime.compact', 'RUNTIME_COMPACT_FAILED', getErrorMessage(error), {}, []), options.json);
+      printResult(
+        io,
+        fail('runtime.compact', 'RUNTIME_COMPACT_FAILED', getErrorMessage(error), {}, []),
+        options.json
+      );
       process.exitCode = 1;
     }
   });
@@ -148,7 +192,8 @@ async function runCompact(
   if (existsSync(registryFile)) {
     try {
       registry.load(registryFile);
-    } catch { // TODO(g2): vendor-neutrality — corrupt adapter registry must NOT block peaks runtime
+    } catch {
+      // TODO(g2): vendor-neutrality — corrupt adapter registry must NOT block peaks runtime
       // Treat corrupt registry as empty — vendor-neutrality: a corrupt
       // .peaks/runtime/adapters.json must NOT block peaks runtime.
       // We still try the built-in path below.
@@ -161,11 +206,15 @@ async function runCompact(
     if (r.exitCode === 127) {
       warnings.push(`binary for adapter "${viaId}" not found on PATH; compact is a no-op`);
     }
-    printResult(io, ok('runtime.compact', { via: viaId, source: 'registry', compact: r }, warnings, [
-      r.exitCode === 0
-        ? 'Compact completed.'
-        : `Compact exited with code ${r.exitCode}. Check stderr above.`
-    ]), asJson);
+    printResult(
+      io,
+      ok('runtime.compact', { via: viaId, source: 'registry', compact: r }, warnings, [
+        r.exitCode === 0
+          ? 'Compact completed.'
+          : `Compact exited with code ${r.exitCode}. Check stderr above.`
+      ]),
+      asJson
+    );
     if (r.exitCode !== 0) process.exitCode = 1;
     return;
   }
@@ -178,11 +227,24 @@ async function runCompact(
   if (r.exitCode === 127) {
     warnings.push(`built-in adapter "${viaId}" binary not found on PATH; compact is a no-op`);
   }
-  printResult(io, ok('runtime.compact', { via: viaId, source: 'built-in', compact: { exitCode: r.exitCode, stdout: r.stdout, stderr: r.stderr } }, warnings, [
-    r.exitCode === 0
-      ? 'Compact completed.'
-      : `Compact exited with code ${r.exitCode}. Check stderr above.`
-  ]), asJson);
+  printResult(
+    io,
+    ok(
+      'runtime.compact',
+      {
+        via: viaId,
+        source: 'built-in',
+        compact: { exitCode: r.exitCode, stdout: r.stdout, stderr: r.stderr }
+      },
+      warnings,
+      [
+        r.exitCode === 0
+          ? 'Compact completed.'
+          : `Compact exited with code ${r.exitCode}. Check stderr above.`
+      ]
+    ),
+    asJson
+  );
   if (r.exitCode !== 0) process.exitCode = 1;
 }
 

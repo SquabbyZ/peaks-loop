@@ -16,7 +16,7 @@ import {
   type WorkflowGraph,
   type WorkflowId,
   type TerminalReason,
-  TERMINAL_REASONS,
+  TERMINAL_REASONS
 } from './workflow-graph-types.js';
 import {
   emptyGraph,
@@ -27,12 +27,12 @@ import {
   PEAKS_GRAPH_NOT_FOUND,
   PEAKS_GRAPH_CORRUPTED,
   PEAKS_TERMINALIZE_ATOMICITY_FAILED,
-  PEAKS_TERMINAL_REASON_INVALID,
+  PEAKS_TERMINAL_REASON_INVALID
 } from './workflow-graph-store.js';
 import {
   setPresenceLease,
   readPresenceLease,
-  markPresenceLost,
+  markPresenceLost
 } from '../skills/presence-lease-service.js';
 import type { SkillPresenceLease, PresenceIndex } from '../skills/presence-lease-types.js';
 
@@ -81,7 +81,11 @@ export interface TerminalizeError extends Error {
   readonly consistent?: boolean;
 }
 
-function lifeError(code: string, message: string, extra: Partial<TerminalizeError> = {}): TerminalizeError {
+function lifeError(
+  code: string,
+  message: string,
+  extra: Partial<TerminalizeError> = {}
+): TerminalizeError {
   const err = new Error(message) as TerminalizeError;
   err.name = 'TerminalizeError';
   (err as { code: string }).code = code;
@@ -95,12 +99,15 @@ export async function initWorkflow(input: InitWorkflowInput): Promise<InitWorkfl
   const workflowId: WorkflowId = input.workflowId ?? `wf-${Date.now().toString(36)}`;
   const graphRef = input.graphRef ?? `graphs/${workflowId}.json`;
   if (graphRef !== `graphs/${workflowId}.json`) {
-    throw lifeError(PEAKS_GRAPH_NOT_FOUND, `graphRef must normalize to graphs/${workflowId}.json; got ${graphRef}`);
+    throw lifeError(
+      PEAKS_GRAPH_NOT_FOUND,
+      `graphRef must normalize to graphs/${workflowId}.json; got ${graphRef}`
+    );
   }
   const graph = emptyGraph({
     workflowId,
     rootSkill: input.skill,
-    ...(input.parentWorkflowId ? { parentWorkflowId: input.parentWorkflowId } : {}),
+    ...(input.parentWorkflowId ? { parentWorkflowId: input.parentWorkflowId } : {})
   });
   validateGraph(graph);
 
@@ -111,7 +118,7 @@ export async function initWorkflow(input: InitWorkflowInput): Promise<InitWorkfl
     graphRef,
     workflowId,
     graph,
-    holder: `initWorkflow:${input.callerId}`,
+    holder: `initWorkflow:${input.callerId}`
   });
 
   // Phase 2: write lease + index.
@@ -124,7 +131,7 @@ export async function initWorkflow(input: InitWorkflowInput): Promise<InitWorkfl
     skill: input.skill,
     ...(input.parentWorkflowId ? { parentWorkflowId: input.parentWorkflowId } : {}),
     depth: input.depth ?? 0,
-    ...(input.now ? { now: input.now } : {}),
+    ...(input.now ? { now: input.now } : {})
   });
 
   const events: Record<string, unknown>[] = [
@@ -135,8 +142,8 @@ export async function initWorkflow(input: InitWorkflowInput): Promise<InitWorkfl
       sessionId: input.sessionId,
       callerId: input.callerId,
       workflowId,
-      graphRef,
-    },
+      graphRef
+    }
   ];
 
   return {
@@ -145,13 +152,15 @@ export async function initWorkflow(input: InitWorkflowInput): Promise<InitWorkfl
     graph,
     lease: setResult.lease,
     index: setResult.index,
-    events,
+    events
   };
 }
 
 /* ---------- Terminalize ---------- */
 
-export async function terminalizeWorkflow(input: TerminalizeWorkflowInput): Promise<TerminalizeWorkflowResult> {
+export async function terminalizeWorkflow(
+  input: TerminalizeWorkflowInput
+): Promise<TerminalizeWorkflowResult> {
   if (!TERMINAL_REASONS.includes(input.reason)) {
     throw lifeError(PEAKS_TERMINAL_REASON_INVALID, `invalid reason: ${input.reason}`);
   }
@@ -165,23 +174,25 @@ export async function terminalizeWorkflow(input: TerminalizeWorkflowInput): Prom
       projectRoot: input.projectRoot,
       sessionId: input.sessionId,
       graphRef: input.graphRef,
-      workflowId: input.workflowId,
+      workflowId: input.workflowId
     });
 
     // Phase 2: check unconsumed envelopes (RD §4 terminalize contract).
     if (input.requireConsumed === true) {
       const pending = graph.nodes.filter((n) => n.status === 'envelope-received');
       if (pending.length > 0) {
-        throw lifeError('PEAKS_UNCONSUMED_ENVELOPE', `graph has ${pending.length} unconsumed envelope(s)`);
+        throw lifeError(
+          'PEAKS_UNCONSUMED_ENVELOPE',
+          `graph has ${pending.length} unconsumed envelope(s)`
+        );
       }
     }
 
     // Phase 3: transition the terminal node to terminalized / lost.
-    const targetStatus = input.reason === 'success' || input.reason === 'aborted' ? 'terminalized' : 'lost';
+    const targetStatus =
+      input.reason === 'success' || input.reason === 'aborted' ? 'terminalized' : 'lost';
     const updatedNodes = graph.nodes.map((n) =>
-      n.kind === 'terminal'
-        ? { ...n, status: targetStatus as typeof n.status }
-        : n
+      n.kind === 'terminal' ? { ...n, status: targetStatus as typeof n.status } : n
     );
     const updatedGraph: WorkflowGraph = { ...graph, nodes: updatedNodes };
     validateGraph(updatedGraph);
@@ -193,7 +204,7 @@ export async function terminalizeWorkflow(input: TerminalizeWorkflowInput): Prom
       graphRef: input.graphRef,
       workflowId: input.workflowId,
       graph: updatedGraph,
-      holder: `terminalize:${input.callerId}`,
+      holder: `terminalize:${input.callerId}`
     });
 
     // Phase 5: mark the lease lost/terminalized. This will throw on
@@ -208,7 +219,7 @@ export async function terminalizeWorkflow(input: TerminalizeWorkflowInput): Prom
       status: targetStatus === 'terminalized' ? 'terminalized' : 'lost',
       reason: input.reason,
       ...(input.now ? { now: input.now } : {}),
-      expectedCallerId: input.callerId,
+      expectedCallerId: input.callerId
     });
 
     // Phase 6: emit exactly one terminalized observability event.
@@ -220,7 +231,7 @@ export async function terminalizeWorkflow(input: TerminalizeWorkflowInput): Prom
       callerId: input.callerId,
       workflowId: input.workflowId,
       graphRef: input.graphRef,
-      terminalReason: input.reason,
+      terminalReason: input.reason
     });
     successEventCount = 1;
 
@@ -228,7 +239,7 @@ export async function terminalizeWorkflow(input: TerminalizeWorkflowInput): Prom
       lease,
       graph: updatedGraph,
       events,
-      indexCleared: true,
+      indexCleared: true
     };
   } catch (err) {
     // On any failure, surface a typed terminalize-atomicity error. The test
@@ -240,31 +251,40 @@ export async function terminalizeWorkflow(input: TerminalizeWorkflowInput): Prom
     const message = (err as Error).message ?? 'terminalize failed';
     throw lifeError(PEAKS_TERMINALIZE_ATOMICITY_FAILED, message, {
       successEventCount,
-      consistent: true,
+      consistent: true
     });
   }
 }
 
 /* ---------- Read-only projection (used by hooks / statusline) ---------- */
 
-export function readWorkflowLease(projectRoot: string, sessionId: string, callerId: string, workflowId: string) {
+export function readWorkflowLease(
+  projectRoot: string,
+  sessionId: string,
+  callerId: string,
+  workflowId: string
+) {
   return readPresenceLease({
     projectRoot,
     sessionId,
     callerId,
     workflowId,
-    graphRef: `graphs/${workflowId}.json`,
+    graphRef: `graphs/${workflowId}.json`
   });
 }
 
 /* ---------- Helper for tests: probe whether a graph file exists ---------- */
 
-export function graphFileExists(projectRoot: string, sessionId: string, workflowId: string): boolean {
+export function graphFileExists(
+  projectRoot: string,
+  sessionId: string,
+  workflowId: string
+): boolean {
   const path = graphPathFor({
     projectRoot,
     sessionId,
     graphRef: `graphs/${workflowId}.json`,
-    workflowId,
+    workflowId
   });
   return existsSync(path);
 }
@@ -274,7 +294,7 @@ export function readGraphFile(projectRoot: string, sessionId: string, workflowId
     projectRoot,
     sessionId,
     graphRef: `graphs/${workflowId}.json`,
-    workflowId,
+    workflowId
   });
   if (!existsSync(path)) {
     throw new Error(`graph not found: ${path}`);

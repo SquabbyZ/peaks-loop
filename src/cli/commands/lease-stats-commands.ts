@@ -36,7 +36,11 @@ import { fail, ok } from 'peaks-loop-shared/result';
 
 import { addJsonOption, printResult, type ProgramIO } from '../cli-helpers.js';
 import { findProjectRoot } from '../../services/config/config-safety.js';
-import { readAllSessionLeaseEvents, recomputeRate, type RateStats } from './lease-metrics-commands.js';
+import {
+  readAllSessionLeaseEvents,
+  recomputeRate,
+  type RateStats
+} from './lease-metrics-commands.js';
 
 type LeaseStatsOptions = {
   project?: string;
@@ -83,8 +87,14 @@ export function computeLeaseStats(args: {
   const allEvents = args.eventsBySession.flatMap((s) => s.events);
   const rate = recomputeRate(allEvents as Parameters<typeof recomputeRate>[0]);
 
-  const ridTally = tallyByField(allEvents as ReadonlyArray<{ detail: Record<string, unknown> }>, 'rid');
-  const roleTally = tallyByField(allEvents as ReadonlyArray<{ detail: Record<string, unknown> }>, 'role');
+  const ridTally = tallyByField(
+    allEvents as ReadonlyArray<{ detail: Record<string, unknown> }>,
+    'rid'
+  );
+  const roleTally = tallyByField(
+    allEvents as ReadonlyArray<{ detail: Record<string, unknown> }>,
+    'role'
+  );
   const isoTally = new Map<string, number>();
   for (const ev of allEvents as ReadonlyArray<{ detail: Record<string, unknown> }>) {
     const detail = ev.detail;
@@ -105,7 +115,10 @@ export function computeLeaseStats(args: {
       .map(([role, count]) => ({ role, count }))
       .sort((a, b) => b.count - a.count),
     perIsolation: Array.from(isoTally.entries())
-      .map(([isolation, count]) => ({ isolation: (isolation as 'worktree' | 'container' | 'none'), count }))
+      .map(([isolation, count]) => ({
+        isolation: isolation as 'worktree' | 'container' | 'none',
+        count
+      }))
       .sort((a, b) => b.count - a.count)
   };
 }
@@ -114,7 +127,9 @@ export function registerLeaseStatsCommand(parent: Command, io: ProgramIO): void 
   addJsonOption(
     parent
       .command('lease-stats')
-      .description('Project-wide lease summary: counts, leak rate, per-rid / per-role / per-isolation breakdown. Always aggregates across every session in the project root.')
+      .description(
+        'Project-wide lease summary: counts, leak rate, per-rid / per-role / per-isolation breakdown. Always aggregates across every session in the project root.'
+      )
       .option('--project <path>', 'project root (default: findProjectRoot(cwd))')
   ).action((options: LeaseStatsOptions) => {
     try {
@@ -133,7 +148,9 @@ export function registerLeaseStatsCommand(parent: Command, io: ProgramIO): void 
           [],
           [
             `${stats.totalLeaseEvents} lease events across ${stats.sessionCount} session(s); ${stats.rate.estimatedActive} estimated active, ${stats.rate.estimatedLeaked} estimated leaked.`,
-            stats.perRid.length > 0 ? `Top rid: ${stats.perRid[0]?.rid} (${stats.perRid[0]?.count} events).` : '',
+            stats.perRid.length > 0
+              ? `Top rid: ${stats.perRid[0]?.rid} (${stats.perRid[0]?.count} events).`
+              : '',
             'Pipe to `jq` or paste into a dashboard for visual rendering.'
           ].filter(Boolean)
         ),
@@ -142,9 +159,13 @@ export function registerLeaseStatsCommand(parent: Command, io: ProgramIO): void 
     } catch (err) {
       printResult(
         io,
-        fail('lease.stats', 'STATS_READ_FAILED', err instanceof Error ? err.message : String(err), { projectRoot: options.project }, [
-          'Verify the project root is correct.'
-        ]),
+        fail(
+          'lease.stats',
+          'STATS_READ_FAILED',
+          err instanceof Error ? err.message : String(err),
+          { projectRoot: options.project },
+          ['Verify the project root is correct.']
+        ),
         options.json
       );
       process.exitCode = 1;

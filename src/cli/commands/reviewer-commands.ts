@@ -10,7 +10,11 @@
  * and exit 0 (consistent with A4.3 fallbackOnError=skip).
  */
 import { Command } from 'commander';
-import { runReviewer, REVIEWER_ID, type ReviewerEnvelope } from '../../services/reviewer/reviewer-service.js';
+import {
+  runReviewer,
+  REVIEWER_ID,
+  type ReviewerEnvelope
+} from '../../services/reviewer/reviewer-service.js';
 import { loadReviewerConfig } from '../../services/reviewer/reviewer-config.js';
 import { deriveModelFamily } from '../../services/reviewer/model-family.js';
 import { addJsonOption, printResult, type ProgramIO } from '../cli-helpers.js';
@@ -22,7 +26,9 @@ type StatusOptions = { json?: boolean };
 export function registerReviewerCommands(program: Command, io: ProgramIO): void {
   const reviewer = program
     .command('reviewer')
-    .description('Third-party reviewer (v2.14.0 G4 anti-fake-green) — runs an out-of-band model on the slice and emits a schema-validated ReviewerEnvelope.');
+    .description(
+      'Third-party reviewer (v2.14.0 G4 anti-fake-green) — runs an out-of-band model on the slice and emits a schema-validated ReviewerEnvelope.'
+    );
 
   addJsonOption(
     reviewer
@@ -51,7 +57,11 @@ export function registerReviewerCommands(program: Command, io: ProgramIO): void 
         gateAction: 'allow',
         reason: 'skipped: no-reviewer-config (fallbackOnError=skip)'
       };
-      printResult(io, ok('reviewer.run', { envelope, reason: status.reason }), options.json === true);
+      printResult(
+        io,
+        ok('reviewer.run', { envelope, reason: status.reason }),
+        options.json === true
+      );
       return;
     }
     const result = await runReviewer({ rid, context: `rid=${rid}` });
@@ -59,17 +69,27 @@ export function registerReviewerCommands(program: Command, io: ProgramIO): void 
       printResult(io, ok('reviewer.run', { envelope: result.envelope }), options.json === true);
       return;
     }
-    printResult(io, fail('reviewer.run', 'NO_REVIEWER_CONFIG', result.reason, null), options.json === true);
+    printResult(
+      io,
+      fail('reviewer.run', 'NO_REVIEWER_CONFIG', result.reason, null),
+      options.json === true
+    );
   });
 
   addJsonOption(
     reviewer
       .command('status')
-      .description('Show whether the reviewer is configured and which selection mode + provider families are active.')
+      .description(
+        'Show whether the reviewer is configured and which selection mode + provider families are active.'
+      )
   ).action((options: StatusOptions) => {
     const status = loadReviewerConfig();
     if (!status.ok) {
-      printResult(io, ok('reviewer.status', { configured: false, reason: status.reason }), options.json === true);
+      printResult(
+        io,
+        ok('reviewer.status', { configured: false, reason: status.reason }),
+        options.json === true
+      );
       return;
     }
     const families = status.config.providers.map((p) => ({

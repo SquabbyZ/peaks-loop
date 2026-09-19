@@ -51,7 +51,10 @@ describe('release precheck — an unreadable root package.json is a structured b
   });
 
   it('package.json#version not semver → rootVsShared blocker, no throw', () => {
-    writeFileSync(join(root, 'package.json'), JSON.stringify({ name: 'x', version: 'not-a-version' }));
+    writeFileSync(
+      join(root, 'package.json'),
+      JSON.stringify({ name: 'x', version: 'not-a-version' })
+    );
 
     const envelope = runAllLayers({ projectRoot: root });
 
@@ -65,7 +68,11 @@ describe('release precheck — an unreadable root package.json is a structured b
   it('a well-formed project still reports rootVsShared ok', () => {
     writeFileSync(
       join(root, 'package.json'),
-      JSON.stringify({ name: 'x', version: '4.0.0', dependencies: { 'peaks-loop-shared': 'workspace:*' } })
+      JSON.stringify({
+        name: 'x',
+        version: '4.0.0',
+        dependencies: { 'peaks-loop-shared': 'workspace:*' }
+      })
     );
     mkdirSync(join(root, 'packages', 'peaks-loop-shared', 'dist'), { recursive: true });
     writeFileSync(

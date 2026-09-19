@@ -1,4 +1,12 @@
-import { closeSync, existsSync, openSync, readFileSync, readSync, readdirSync, statSync } from 'node:fs';
+import {
+  closeSync,
+  existsSync,
+  openSync,
+  readFileSync,
+  readSync,
+  readdirSync,
+  statSync
+} from 'node:fs';
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 import type { ContextPercentFallbackInput, IdeAdapter } from '../ide-types.js';
@@ -41,10 +49,11 @@ function readClaudeStatuslinePercent(): number | null {
         return raw > 1.5 ? raw / 100 : Math.max(0, Math.min(1, raw));
       }
     }
-  } catch (err) { // TODO(g2): legacy silent catch — now narrows to IO errors only (grace: 1 minor release, v2.14.0)
-    if (err instanceof ReferenceError) throw err;  // surface module-load bugs
-    if (err instanceof SyntaxError) throw err;     // surface parse bugs (e.g. broken statusline JSON)
-    return null;                                    // only swallow IO errors
+  } catch (err) {
+    // TODO(g2): legacy silent catch — now narrows to IO errors only (grace: 1 minor release, v2.14.0)
+    if (err instanceof ReferenceError) throw err; // surface module-load bugs
+    if (err instanceof SyntaxError) throw err; // surface parse bugs (e.g. broken statusline JSON)
+    return null; // only swallow IO errors
   }
   return null;
 }
@@ -61,10 +70,7 @@ function readClaudeStatuslinePercent(): number | null {
  * session id (Claude Code names its transcript by the outer session UUID),
  * NOT the peaks session id.
  */
-function findTranscriptJsonl(
-  projectsDir: string,
-  outerSessionId: string,
-): string | null {
+function findTranscriptJsonl(projectsDir: string, outerSessionId: string): string | null {
   if (!existsSync(projectsDir)) return null;
   try {
     const stack: string[] = [projectsDir];
@@ -81,10 +87,11 @@ function findTranscriptJsonl(
         }
       }
     }
-  } catch (err) { // TODO(g2): legacy silent catch — now narrows to IO errors only (grace: 1 minor release, v2.14.0)
-    if (err instanceof ReferenceError) throw err;  // surface module-load bugs
-    if (err instanceof SyntaxError) throw err;     // surface parse bugs
-    return null;                                    // only swallow IO errors
+  } catch (err) {
+    // TODO(g2): legacy silent catch — now narrows to IO errors only (grace: 1 minor release, v2.14.0)
+    if (err instanceof ReferenceError) throw err; // surface module-load bugs
+    if (err instanceof SyntaxError) throw err; // surface parse bugs
+    return null; // only swallow IO errors
   }
   return null;
 }
@@ -100,7 +107,7 @@ function findTranscriptJsonl(
  */
 export function resolveClaudeTranscriptPath(
   outerSessionId: string,
-  projectsDir: string = join(homedir(), '.claude', 'projects'),
+  projectsDir: string = join(homedir(), '.claude', 'projects')
 ): string | null {
   if (typeof outerSessionId !== 'string' || outerSessionId.length === 0) return null;
   return findTranscriptJsonl(projectsDir, outerSessionId);
@@ -143,7 +150,7 @@ const CLAUDE_CODE_MODEL_ENV_VARS: readonly string[] = [
   'ANTHROPIC_DEFAULT_SONNET_MODEL',
   'ANTHROPIC_DEFAULT_HAIKU_MODEL',
   'ANTHROPIC_DEFAULT_FABLE_MODEL',
-  'CLAUDE_CODE_SUBAGENT_MODEL',
+  'CLAUDE_CODE_SUBAGENT_MODEL'
 ];
 
 /**
@@ -214,7 +221,8 @@ export const CONTEXT_WINDOW_TOKENS_ENV_VAR = 'PEAKS_CONTEXT_WINDOW_TOKENS';
  *   - `model-heuristic`  — `[1M]` suffix / `ONE_MILLION_CONTEXT_MODELS`
  *   - `default`          — 200K safe default
  */
-export type ContextWindowSource = 'env-override' | 'harness-env' | 'config' | 'model-heuristic' | 'default';
+export type ContextWindowSource =
+  'env-override' | 'harness-env' | 'config' | 'model-heuristic' | 'default';
 
 export interface ContextWindowResolution {
   readonly tokens: number;
@@ -372,7 +380,8 @@ export function resolveContextWindow(
   const warn = overrides.onInvalidOverride ?? ((message: string) => console.warn(message));
   // E2: the second sink, for a value that IS valid but that the harness may
   // reduce. Kept separate so neither notice can be mistaken for the other.
-  const warnAboveEstimate = overrides.onAboveModelEstimate ?? ((message: string) => console.warn(message));
+  const warnAboveEstimate =
+    overrides.onAboveModelEstimate ?? ((message: string) => console.warn(message));
   const envRaw = overrides.env?.[CONTEXT_WINDOW_TOKENS_ENV_VAR];
   if (envRaw !== undefined) {
     const parsed = parseContextWindowOverride(envRaw);
@@ -385,7 +394,9 @@ export function resolveContextWindow(
       if (above !== null) warnAboveEstimate(above);
       return { tokens: parsed, source: 'env-override' };
     }
-    warn(`[peaks] ${CONTEXT_WINDOW_TOKENS_ENV_VAR}="${String(envRaw)}" is not a positive integer — ignoring the override`);
+    warn(
+      `[peaks] ${CONTEXT_WINDOW_TOKENS_ENV_VAR}="${String(envRaw)}" is not a positive integer — ignoring the override`
+    );
   }
   if (overrides.configWindowTokens !== undefined) {
     const parsed = parseContextWindowOverride(overrides.configWindowTokens);
@@ -398,12 +409,16 @@ export function resolveContextWindow(
       if (above !== null) warnAboveEstimate(above);
       return { tokens: parsed, source: 'config' };
     }
-    warn(`[peaks] config context.windowTokens=${JSON.stringify(overrides.configWindowTokens)} is not a positive integer — ignoring the override`);
+    warn(
+      `[peaks] config context.windowTokens=${JSON.stringify(overrides.configWindowTokens)} is not a positive integer — ignoring the override`
+    );
   }
   if (overrides.harnessWindowTokens !== undefined) {
     const parsed = parseContextWindowOverride(overrides.harnessWindowTokens);
     if (parsed !== null) return { tokens: parsed, source: 'harness-env' };
-    warn(`[peaks] harness auto-compact window ${JSON.stringify(overrides.harnessWindowTokens)} is not a positive integer — ignoring the override`);
+    warn(
+      `[peaks] harness auto-compact window ${JSON.stringify(overrides.harnessWindowTokens)} is not a positive integer — ignoring the override`
+    );
   }
   const heuristic = modelContextWindowTokens(model);
   return heuristic === DEFAULT_CONTEXT_WINDOW_TOKENS
@@ -445,9 +460,12 @@ function parseTranscriptUsageLine(line: string): { contextTokens: number; model:
 
   const contextTokens = (inputTokens ?? 0) + (cacheRead ?? 0) + (cacheCreation ?? 0);
   // Model id lives at `message.model`, falling back to a top-level `model`.
-  const model = typeof msg.model === 'string'
-    ? msg.model
-    : typeof record.model === 'string' ? record.model : '';
+  const model =
+    typeof msg.model === 'string'
+      ? msg.model
+      : typeof record.model === 'string'
+        ? record.model
+        : '';
   return { contextTokens, model };
 }
 
@@ -457,7 +475,9 @@ function parseTranscriptUsageLine(line: string): { contextTokens: number; model:
  * backward chunks of TRANSCRIPT_SCAN_CHUNK_BYTES — never fully into memory —
  * and stops at the first (newest) usable entry.
  */
-function findLatestTranscriptUsage(filePath: string): { contextTokens: number; model: string } | null {
+function findLatestTranscriptUsage(
+  filePath: string
+): { contextTokens: number; model: string } | null {
   let fd: number | null = null;
   try {
     const size = statSync(filePath).size;
@@ -494,7 +514,11 @@ function findLatestTranscriptUsage(filePath: string): { contextTokens: number; m
     return null;
   } finally {
     if (fd !== null) {
-      try { closeSync(fd); } catch { /* best-effort */ }
+      try {
+        closeSync(fd);
+      } catch {
+        /* best-effort */
+      }
     }
   }
 }
@@ -538,7 +562,8 @@ function resolveContextWindowTokens(
 ): ContextWindowResolution {
   const resolved = resolveContextWindow(model, overrides);
   if (resolved.source === 'env-override' || resolved.source === 'config') return resolved;
-  if (resolved.source === 'harness-env' && overrides.harnessWindowPeakWritten !== true) return resolved;
+  if (resolved.source === 'harness-env' && overrides.harnessWindowPeakWritten !== true)
+    return resolved;
   return contextTokens > resolved.tokens
     ? { tokens: ONE_MILLION_CONTEXT_TOKENS, source: resolved.source }
     : resolved;
@@ -564,8 +589,13 @@ function resolveContextWindowTokens(
 function readClaudeTranscriptEstimate(
   outerSessionId: string,
   envModel?: string,
-  overrides: ContextWindowOverrides = {},
-): { ratio: number; contextTokens: number; contextWindowTokens: number; capacitySource: ContextWindowSource } | null {
+  overrides: ContextWindowOverrides = {}
+): {
+  ratio: number;
+  contextTokens: number;
+  contextWindowTokens: number;
+  capacitySource: ContextWindowSource;
+} | null {
   const projectsDir = join(homedir(), '.claude', 'projects');
   const path = findTranscriptJsonl(projectsDir, outerSessionId);
   if (path === null) return null;
@@ -575,7 +605,12 @@ function readClaudeTranscriptEstimate(
   const resolved = resolveContextWindowTokens(model, latest.contextTokens, overrides);
   const contextWindowTokens = resolved.tokens;
   const ratio = Math.min(1, latest.contextTokens / contextWindowTokens);
-  return { ratio, contextTokens: latest.contextTokens, contextWindowTokens, capacitySource: resolved.source };
+  return {
+    ratio,
+    contextTokens: latest.contextTokens,
+    contextWindowTokens,
+    capacitySource: resolved.source
+  };
 }
 
 /**
@@ -595,7 +630,9 @@ function readClaudeTranscriptEstimate(
  * Returns `null` when neither yields a signal → the reader emits
  * `conservative-fallback`.
  */
-function readContextPercentFallback(input: ContextPercentFallbackInput): ContextPercentProbe | null {
+function readContextPercentFallback(
+  input: ContextPercentFallbackInput
+): ContextPercentProbe | null {
   const capturedAt = new Date().toISOString();
   // Byte-based capacity is carried only for the percent path (statusline-poll
   // returns a 0..1 ratio; capacityBytes is metadata there). The
@@ -618,10 +655,14 @@ function readContextPercentFallback(input: ContextPercentFallbackInput): Context
       // peaks-loop configured for the harness outranks config + heuristic
       // (see `resolveContextWindow`). The generic reader resolved it from the
       // adapter's own declarations — this module never names the key.
-      ...(input.harnessWindowTokens !== undefined ? { harnessWindowTokens: input.harnessWindowTokens } : {}),
+      ...(input.harnessWindowTokens !== undefined
+        ? { harnessWindowTokens: input.harnessWindowTokens }
+        : {}),
       // ...and whether that value is peaks-loop's own output (bumpable) or a
       // human's pin (not) — see `resolveContextWindowTokens`.
-      ...(input.harnessWindowPeakWritten !== undefined ? { harnessWindowPeakWritten: input.harnessWindowPeakWritten } : {})
+      ...(input.harnessWindowPeakWritten !== undefined
+        ? { harnessWindowPeakWritten: input.harnessWindowPeakWritten }
+        : {})
     });
     if (estimate !== null) {
       return {
@@ -653,7 +694,7 @@ export const CLAUDE_CODE_ADAPTER: IdeAdapter = {
     resolveSettingsFile: (scope, projectRoot) => {
       const root = scope === 'global' ? homedir() : resolve(projectRoot ?? homedir());
       return join(root, '.claude', 'settings.json');
-    },
+    }
   },
   envVar: 'CLAUDE_PROJECT_DIR',
   hookEvent: 'PreToolUse',
@@ -666,12 +707,10 @@ export const CLAUDE_CODE_ADAPTER: IdeAdapter = {
   // form that can wrap `peaks sub-agent-dispatch-guard` as a sub-command.
   // Opt in to the G9 hook install.
   promptSizeAware: true,
-  installHints: [
-    'Restart Claude Code (or reload the window) so the PreToolUse hooks take effect.'
-  ],
+  installHints: ['Restart Claude Code (or reload the window) so the PreToolUse hooks take effect.'],
   capabilities: {
     gateEnforce: true,
-    statusline: true,
+    statusline: true
   },
   // v2.13.0 AC-1 + AC-3 MVP, slice 2026-07-02-auto-compact-zero-pause:
   // Claude Code is the first IDE to fill the `compact` profile.
@@ -711,7 +750,7 @@ export const CLAUDE_CODE_ADAPTER: IdeAdapter = {
     // layout knowledge (`~/.claude/projects/**/<outerSessionId>.jsonl`)
     // stays here; `peaks code context-audit` resolves it through the
     // adapter registry, never by naming this adapter directly.
-    resolveTranscriptPath: (outerSessionId: string) => resolveClaudeTranscriptPath(outerSessionId),
+    resolveTranscriptPath: (outerSessionId: string) => resolveClaudeTranscriptPath(outerSessionId)
   },
   // Slice #011: standards profile. Claude Code reads its constitution at
   // CLAUDE.md + module-level rules under .claude/rules/**. The values mirror
@@ -727,7 +766,7 @@ export const CLAUDE_CODE_ADAPTER: IdeAdapter = {
     rulesFileGlob: '**/*.md',
     autoLoaded: true,
     format: 'markdown',
-    migrationHint: 'Standards live at CLAUDE.md + .claude/rules/** for Claude Code.',
+    migrationHint: 'Standards live at CLAUDE.md + .claude/rules/** for Claude Code.'
   },
   // Slice #011: skill install profile. The postinstall script symlinks
   // bundled skills to `~/.claude/skills` and writes output-styles to
@@ -738,7 +777,7 @@ export const CLAUDE_CODE_ADAPTER: IdeAdapter = {
     skillsDir: join(homedir(), '.claude', 'skills'),
     outputStylesDir: join(homedir(), '.claude', 'output-styles'),
     installStrategy: 'symlink',
-    envVarOverride: 'PEAKS_CLAUDE_SKILLS_DIR',
+    envVarOverride: 'PEAKS_CLAUDE_SKILLS_DIR'
   },
   // Slice 4.0.8 RD §5: Claude Code resolves PEAKS_CALLER_ID (override) →
   // CLAUDE_CODE_SESSION_ID. Empty/invalid → typed PEAKS_CALLER_NOT_RESOLVED.
@@ -754,8 +793,10 @@ export const CLAUDE_CODE_ADAPTER: IdeAdapter = {
       const trimmed = v.trim();
       if (/^[a-zA-Z0-9._-]{1,200}$/.test(trimmed)) return trimmed;
     }
-    const err = new Error('PEAKS_CALLER_NOT_RESOLVED: no Claude Code session id available') as Error & { code: string };
+    const err = new Error(
+      'PEAKS_CALLER_NOT_RESOLVED: no Claude Code session id available'
+    ) as Error & { code: string };
     err.code = 'PEAKS_CALLER_NOT_RESOLVED';
     throw err;
-  },
+  }
 };

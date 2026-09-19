@@ -45,7 +45,7 @@ export class ProcessSupervisor {
     // pipes for capture + lifecycle control.
     const spawnOpts: SpawnOptions = {
       detached: false,
-      stdio: opts.stdio ?? 'pipe',
+      stdio: opts.stdio ?? 'pipe'
     };
     if (isWin) {
       // Suppress the popup console window on Windows without changing
@@ -96,7 +96,7 @@ export class ProcessSupervisor {
       pid: child.pid ?? -1,
       child,
       kill: (signal: NodeJS.Signals = 'SIGTERM') => child.kill(signal),
-      settled,
+      settled
     };
   }
 }

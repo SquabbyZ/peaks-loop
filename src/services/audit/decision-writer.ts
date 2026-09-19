@@ -106,7 +106,11 @@ function buildDescription(date: string, audit: RedLineAudit, rid: string | undef
   return `${prefix} — Red-line audit: ${audit.totalRedLines} total / ${audit.cliBacked} cli-backed / ${audit.partial} partial / ${audit.proseOnly} prose-only; ${failures} enforcer failures.`;
 }
 
-function severityCounts(findings: RedLineAudit['enforcerFindings']): { fail: number; warn: number; pass: number } {
+function severityCounts(findings: RedLineAudit['enforcerFindings']): {
+  fail: number;
+  warn: number;
+  pass: number;
+} {
   let fail = 0;
   let warn = 0;
   let pass = 0;
@@ -122,7 +126,10 @@ function severityCounts(findings: RedLineAudit['enforcerFindings']): { fail: num
  * Pure: render the decision markdown body. No I/O. Used by both the
  * writer and the test suite for byte-exact assertions.
  */
-export function renderDecisionMarkdown(audit: RedLineAudit, options: { date: string; rid?: string }): string {
+export function renderDecisionMarkdown(
+  audit: RedLineAudit,
+  options: { date: string; rid?: string }
+): string {
   const { rid } = options;
   const date = sanitizeDate(options.date);
   const slug = buildSlug(date, rid);
@@ -214,13 +221,19 @@ function renderEnforcerSection(findings: RedLineAudit['enforcerFindings']): stri
  * the previous decision markdown (the slug collides, the older file is
  * replaced). This matches the "one audit run = one decision record" model.
  */
-export function writeAuditDecision(audit: RedLineAudit, options: AuditDecisionOptions): AuditDecisionRecord {
+export function writeAuditDecision(
+  audit: RedLineAudit,
+  options: AuditDecisionOptions
+): AuditDecisionRecord {
   const date = sanitizeDate(options.date);
   const slug = buildSlug(date, options.rid);
   const memoryDir = join(options.projectRoot, '.peaks', 'memory');
   const decisionDir = join(memoryDir, SUBDIR);
   const filePath = join(decisionDir, `${slug}.md`);
-  const markdown = renderDecisionMarkdown(audit, options.rid ? { date, rid: options.rid } : { date });
+  const markdown = renderDecisionMarkdown(
+    audit,
+    options.rid ? { date, rid: options.rid } : { date }
+  );
 
   mkdirSync(decisionDir, { recursive: true });
   writeFileSync(filePath, markdown, { mode: 0o644 });

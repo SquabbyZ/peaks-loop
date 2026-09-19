@@ -37,7 +37,11 @@ interface CapturedCall {
   readonly dispatchCount: number;
   readonly recordPaths: readonly string[];
   readonly timeoutMs: number | undefined;
-  readonly options: { readonly defaultTimeoutMs: number; readonly notePrefix?: string; readonly hardCapMs?: number };
+  readonly options: {
+    readonly defaultTimeoutMs: number;
+    readonly notePrefix?: string;
+    readonly hardCapMs?: number;
+  };
 }
 
 const captured = vi.hoisted(() => ({ calls: [] as CapturedCall[] }));
@@ -47,7 +51,7 @@ vi.mock('~/src/services/dispatch/await-batch.js', () => ({
     dispatchCount: number,
     recordPaths: readonly string[],
     timeoutMs: number | undefined,
-    options: CapturedCall['options'],
+    options: CapturedCall['options']
   ) => {
     captured.calls.push({ dispatchCount, recordPaths, timeoutMs, options });
     return {
@@ -55,9 +59,9 @@ vi.mock('~/src/services/dispatch/await-batch.js', () => ({
       outcome: 'completed' as const,
       requestedTimeoutMs: timeoutMs ?? options.defaultTimeoutMs,
       effectiveTimeoutMs: 0,
-      hardCapMs: options.hardCapMs ?? 120_000,
+      hardCapMs: options.hardCapMs ?? 120_000
     };
-  },
+  }
 }));
 
 // Imported AFTER the mock declaration, so the module graph picks the stub up.
@@ -65,17 +69,20 @@ const {
   claudeCodeSubAgentDispatcher,
   traeSubAgentDispatcher,
   codexSubAgentDispatcher,
-  cursorSubAgentDispatcher,
+  cursorSubAgentDispatcher
 } = await import('../../../../src/services/dispatch/sub-agent-dispatcher.js');
 
 declareDimensions(
   'tests/unit/services/dispatch/sub-agent-dispatcher-timeouts.test.ts',
   ['behavior'],
   [
-    { dim: 'integration', reason: 'the stubbed loop is exercised against a real fs by sub-agent-dispatchers.test.ts' },
+    {
+      dim: 'integration',
+      reason: 'the stubbed loop is exercised against a real fs by sub-agent-dispatchers.test.ts'
+    },
     { dim: 'render', reason: 'nothing renders; the options are asserted as data' },
-    { dim: 'a11y', reason: 'no human-facing surface on this path' },
-  ],
+    { dim: 'a11y', reason: 'no human-facing surface on this path' }
+  ]
 );
 
 const CASES = [
@@ -83,26 +90,26 @@ const CASES = [
     ide: 'claude-code',
     dispatcher: claudeCodeSubAgentDispatcher,
     defaultTimeoutMs: 60_000,
-    notePrefix: undefined,
+    notePrefix: undefined
   },
   {
     ide: 'trae',
     dispatcher: traeSubAgentDispatcher,
     defaultTimeoutMs: 30_000,
-    notePrefix: 'trae 1.3 real awaitBatch',
+    notePrefix: 'trae 1.3 real awaitBatch'
   },
   {
     ide: 'codex',
     dispatcher: codexSubAgentDispatcher,
     defaultTimeoutMs: 45_000,
-    notePrefix: 'codex 1.3 real awaitBatch',
+    notePrefix: 'codex 1.3 real awaitBatch'
   },
   {
     ide: 'cursor',
     dispatcher: cursorSubAgentDispatcher,
     defaultTimeoutMs: 30_000,
-    notePrefix: 'cursor 1.3 real awaitBatch',
-  },
+    notePrefix: 'cursor 1.3 real awaitBatch'
+  }
 ] as const;
 
 describe('Scenario: behavior — each dispatcher hands the join loop its own per-IDE configuration', () => {
@@ -115,7 +122,7 @@ describe('Scenario: behavior — each dispatcher hands the join loop its own per
       await testCase.dispatcher.awaitBatch?.({
         batchId: 'batch-1',
         dispatchCount: 2,
-        recordPaths: ['record-a.json', 'record-b.json'],
+        recordPaths: ['record-a.json', 'record-b.json']
       });
 
       // then: exactly one call reached the loop, carrying this IDE's numbers
@@ -140,7 +147,7 @@ describe('Scenario: behavior — each dispatcher hands the join loop its own per
         batchId: 'batch-2',
         dispatchCount: 1,
         recordPaths: ['record.json'],
-        timeoutMs: 7_777,
+        timeoutMs: 7_777
       });
       expect((captured.calls[0] as CapturedCall).timeoutMs, testCase.ide).toBe(7_777);
     }
@@ -156,7 +163,7 @@ describe('Scenario: behavior — each dispatcher hands the join loop its own per
       'claude-code': 60_000,
       trae: 30_000,
       codex: 45_000,
-      cursor: 30_000,
+      cursor: 30_000
     });
   });
 
@@ -180,7 +187,7 @@ describe('Scenario: behavior — each dispatcher hands the join loop its own per
       await testCase.dispatcher.awaitBatch?.({
         batchId: 'batch-3',
         dispatchCount: 1,
-        recordPaths: ['record.json'],
+        recordPaths: ['record.json']
       });
       expect((captured.calls[0] as CapturedCall).options.hardCapMs, testCase.ide).toBeUndefined();
     }

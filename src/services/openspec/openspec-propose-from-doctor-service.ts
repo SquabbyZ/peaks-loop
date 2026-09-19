@@ -115,7 +115,7 @@ export function proposeFromDoctor(input: ProposeFromDoctorInput): ProposeFromDoc
         changeId,
         finding: input.finding,
         title: `Fix ${input.finding.rule}`,
-        date,
+        date
       });
       writeFileSync(proposalPath, content);
       created = true;

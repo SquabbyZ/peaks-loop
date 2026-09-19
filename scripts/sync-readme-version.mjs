@@ -31,9 +31,7 @@ import { resolve } from 'node:path';
 
 const TARGETS = ['README.md', 'README-en.md'];
 
-const newVersion = JSON.parse(
-  readFileSync(resolve('package.json'), 'utf8'),
-).version;
+const newVersion = JSON.parse(readFileSync(resolve('package.json'), 'utf8')).version;
 
 // Row anchor: the "最新版本" / "Latest" cell's badge, the em-dash, then the
 // bare version. Groups are (1) everything up to and including the `— `,
@@ -47,10 +45,7 @@ function releaseDate(version) {
   const escaped = version.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   try {
     const changelog = readFileSync(resolve('CHANGELOG.md'), 'utf8');
-    return (
-      changelog.match(new RegExp(`^## ${escaped} — (\\d{4}-\\d{2}-\\d{2})`, 'm'))?.[1] ??
-      null
-    );
+    return changelog.match(new RegExp(`^## ${escaped} — (\\d{4}-\\d{2}-\\d{2})`, 'm'))?.[1] ?? null;
   } catch {
     return null;
   }
@@ -60,14 +55,14 @@ const newDate = releaseDate(newVersion);
 if (newDate === null) {
   console.error(
     `[sync-readme-version] warn: no '## ${newVersion} — <date>' heading in CHANGELOG.md; ` +
-      "keeping each README row's existing date.",
+      "keeping each README row's existing date."
   );
 }
 
 function rewrite(_match, prefix, _version, deco) {
   const tail =
     deco === undefined || newDate === null
-      ? deco ?? ''
+      ? (deco ?? '')
       : deco.replace(/\d{4}-\d{2}-\d{2}/, newDate);
   return `${prefix}${newVersion}${tail}`;
 }
@@ -86,14 +81,14 @@ for (const f of TARGETS) {
   const after = before.replace(ROW, rewrite);
   if (after === before) {
     console.log(
-      `[sync-readme-version] ${f} already in sync (${matched.length} row(s) matched) -> ${newVersion}`,
+      `[sync-readme-version] ${f} already in sync (${matched.length} row(s) matched) -> ${newVersion}`
     );
     continue;
   }
   writeFileSync(path, after, 'utf8');
   totalChanged += matched.length;
   console.log(
-    `[sync-readme-version] updated ${f} (${matched.length} occurrence(s)) -> ${newVersion}`,
+    `[sync-readme-version] updated ${f} (${matched.length} occurrence(s)) -> ${newVersion}`
   );
 }
 
@@ -103,11 +98,9 @@ if (missing.length > 0) {
       'Expected README.md "| **最新版本** | … — <version>(<date>) |" or ' +
       'README-en.md "| **Latest** | … — <version> (<date>) |". ' +
       'The README layout changed and this script can no longer sync it — ' +
-      'fix the pattern or the row. Refusing to exit 0 with a stale version row.',
+      'fix the pattern or the row. Refusing to exit 0 with a stale version row.'
   );
   process.exit(1);
 }
 
-console.log(
-  `[sync-readme-version] total ${totalChanged} occurrence(s) updated to ${newVersion}`,
-);
+console.log(`[sync-readme-version] total ${totalChanged} occurrence(s) updated to ${newVersion}`);

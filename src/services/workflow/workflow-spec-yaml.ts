@@ -72,6 +72,7 @@ export function objectField(obj: Record<string, unknown>, key: string): Record<s
 export function stringArrayField(obj: Record<string, unknown>, key: string): readonly string[] {
   const v = obj[key];
   if (v === undefined) return [];
-  if (!Array.isArray(v)) throw new Error(`workflow yaml: field "${key}" must be an array of strings`);
+  if (!Array.isArray(v))
+    throw new Error(`workflow yaml: field "${key}" must be an array of strings`);
   return v.map((s) => String(s));
 }

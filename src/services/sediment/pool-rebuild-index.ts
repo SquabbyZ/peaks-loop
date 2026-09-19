@@ -1,8 +1,8 @@
-import { writeFileSync, mkdirSync, existsSync } from "node:fs";
-import { join } from "node:path";
-import { resolvePoolRoot } from "./pool-paths.js";
-import { readPool } from "./pool-read.js";
-import type { IndexFile } from "./types.js";
+import { writeFileSync, mkdirSync, existsSync } from 'node:fs';
+import { join } from 'node:path';
+import { resolvePoolRoot } from './pool-paths.js';
+import { readPool } from './pool-read.js';
+import type { IndexFile } from './types.js';
 
 /**
  * Rebuilds index.json from on-disk manifests/segments and writes the result.
@@ -24,6 +24,6 @@ export function rebuildIndexFromFs({ home }: { home: string }): IndexFile {
   // behavior rather than drop it — both are JSON-valid but the trailing
   // newline matches the convention used by every other peaks-*.json file
   // in the project (manifest.json, segment.json, etc.).
-  writeFileSync(join(root, "index.json"), JSON.stringify(idx, null, 2) + "\n");
+  writeFileSync(join(root, 'index.json'), JSON.stringify(idx, null, 2) + '\n');
   return idx;
 }

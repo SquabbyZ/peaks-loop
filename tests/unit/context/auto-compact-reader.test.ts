@@ -27,10 +27,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { declareDimensions } from '../_setup/4dim-template.js';
-import {
-  _resetAdaptersForTesting,
-  _setAdapterForTesting
-} from '~/src/services/ide/ide-registry';
+import { _resetAdaptersForTesting, _setAdapterForTesting } from '~/src/services/ide/ide-registry';
 import { CLAUDE_CODE_ADAPTER } from '~/src/services/ide/adapters/claude-code-adapter';
 import type { IdeAdapter } from '~/src/services/ide/ide-types';
 import {
@@ -44,7 +41,7 @@ import {
 declareDimensions(
   'tests/unit/context/auto-compact-reader.test.ts',
   ['render', 'behavior', 'integration'],
-  [{ dim: 'a11y', reason: 'pure env/adapter probe; no user-visible text emitted' }],
+  [{ dim: 'a11y', reason: 'pure env/adapter probe; no user-visible text emitted' }]
 );
 
 const SID = '2026-07-31-mac-rid-001';
@@ -189,7 +186,9 @@ describe('Scenario: integration — harness window resolution is adapter-declare
     // then: null in both shapes, and a sync is a no-op rather than a stray write
     expect(resolveHarnessWindowLocation({ projectRoot: '/tmp/peaks-test', env: {} })).toBeNull();
     expect(readHarnessWindowState({ projectRoot: '/tmp/peaks-test', env: {} })).toBeNull();
-    expect(syncHarnessWindowForProject({ projectRoot: '/tmp/peaks-test', env: {}, tokens: 1_000_000 })).toBeNull();
+    expect(
+      syncHarnessWindowForProject({ projectRoot: '/tmp/peaks-test', env: {}, tokens: 1_000_000 })
+    ).toBeNull();
   });
 });
 
@@ -206,8 +205,15 @@ describe('Scenario: behavior — the ratio divides by the FILE, not the frozen e
   function adapterWithRatioKnob(): IdeAdapter {
     return {
       ...CLAUDE_CODE_ADAPTER,
-      settings: { ...CLAUDE_CODE_ADAPTER.settings, dirName: '.fakeide', localSettingsFileName: 'settings.local.json' },
-      compact: { ...CLAUDE_CODE_ADAPTER.compact!, autoCompactWindowEnvVar: 'FAKEIDE_AUTO_COMPACT_WINDOW' }
+      settings: {
+        ...CLAUDE_CODE_ADAPTER.settings,
+        dirName: '.fakeide',
+        localSettingsFileName: 'settings.local.json'
+      },
+      compact: {
+        ...CLAUDE_CODE_ADAPTER.compact!,
+        autoCompactWindowEnvVar: 'FAKEIDE_AUTO_COMPACT_WINDOW'
+      }
     };
   }
 
@@ -223,7 +229,10 @@ describe('Scenario: behavior — the ratio divides by the FILE, not the frozen e
       );
       _setAdapterForTesting('claude-code', adapterWithRatioKnob());
       // when: the ratio's window is resolved
-      const state = readHarnessWindowState({ projectRoot: root, env: { FAKEIDE_AUTO_COMPACT_WINDOW: '200000' } as NodeJS.ProcessEnv });
+      const state = readHarnessWindowState({
+        projectRoot: root,
+        env: { FAKEIDE_AUTO_COMPACT_WINDOW: '200000' } as NodeJS.ProcessEnv
+      });
       // then: the file's 150000 is what the ratio must divide by...
       expect(resolveHarnessRatioWindow(state)).toBe('150000');
       // ...even though the in-force read (status display) reports the env copy
@@ -238,10 +247,17 @@ describe('Scenario: behavior — the ratio divides by the FILE, not the frozen e
     const root = mkdtempSync(join(tmpdir(), 'peaks-ratio-window-'));
     try {
       mkdirSync(join(root, '.fakeide'), { recursive: true });
-      writeFileSync(join(root, '.fakeide', 'settings.local.json'), JSON.stringify({ env: {} }), 'utf8');
+      writeFileSync(
+        join(root, '.fakeide', 'settings.local.json'),
+        JSON.stringify({ env: {} }),
+        'utf8'
+      );
       _setAdapterForTesting('claude-code', adapterWithRatioKnob());
       // when: the ratio's window is resolved
-      const state = readHarnessWindowState({ projectRoot: root, env: { FAKEIDE_AUTO_COMPACT_WINDOW: '200000' } as NodeJS.ProcessEnv });
+      const state = readHarnessWindowState({
+        projectRoot: root,
+        env: { FAKEIDE_AUTO_COMPACT_WINDOW: '200000' } as NodeJS.ProcessEnv
+      });
       // then: the env is the only signal, so it is used
       expect(resolveHarnessRatioWindow(state)).toBe('200000');
     } finally {
@@ -251,7 +267,9 @@ describe('Scenario: behavior — the ratio divides by the FILE, not the frozen e
 
   it('when the adapter declares no window knob, should resolve nothing', () => {
     _setAdapterForTesting('claude-code', noFallbackAdapter());
-    expect(resolveHarnessRatioWindow(readHarnessWindowState({ projectRoot: '/tmp/peaks-test', env: {} }))).toBeUndefined();
+    expect(
+      resolveHarnessRatioWindow(readHarnessWindowState({ projectRoot: '/tmp/peaks-test', env: {} }))
+    ).toBeUndefined();
   });
 
   // E1 (rid 2026-09-13-defects-e), read half. The write half refuses to PLANT an
@@ -299,7 +317,9 @@ describe('Scenario: behavior — the ratio divides by the FILE, not the frozen e
       _setAdapterForTesting('claude-code', adapterWithRatioKnob());
       // when / then: in band ⇒ still the ratio's window (so the case above is
       //             the band's doing, not a read that stopped resolving)
-      expect(resolveHarnessRatioWindow(readHarnessWindowState({ projectRoot: root, env: {} }))).toBe('1000000');
+      expect(
+        resolveHarnessRatioWindow(readHarnessWindowState({ projectRoot: root, env: {} }))
+      ).toBe('1000000');
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
@@ -409,14 +429,24 @@ describe('Scenario: integration — config context.windowTokens reaches the adap
   it('when the project config pins context.windowTokens, should pass the raw value to the fallback', () => {
     seedProjectConfig(500_000);
     let captured: unknown = 'sentinel';
-    _setAdapterForTesting('claude-code', capturingAdapter((value) => { captured = value; }));
+    _setAdapterForTesting(
+      'claude-code',
+      capturingAdapter((value) => {
+        captured = value;
+      })
+    );
     readContextPercent({ projectRoot: project, sessionId: SID, env: {} });
     expect(captured).toBe(500_000);
   });
 
   it('when the project config has no override, should pass undefined so the adapter falls back to heuristics', () => {
     let captured: unknown = 'sentinel';
-    _setAdapterForTesting('claude-code', capturingAdapter((value) => { captured = value; }));
+    _setAdapterForTesting(
+      'claude-code',
+      capturingAdapter((value) => {
+        captured = value;
+      })
+    );
     readContextPercent({ projectRoot: project, sessionId: SID, env: {} });
     expect(captured).toBeUndefined();
   });

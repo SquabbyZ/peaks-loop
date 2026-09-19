@@ -14,11 +14,7 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { parse as parseYaml } from 'yaml';
 
-import type {
-  BusinessConcept,
-  BusinessKnowledge,
-  ProjectScan,
-} from './project-scan-types.js';
+import type { BusinessConcept, BusinessKnowledge, ProjectScan } from './project-scan-types.js';
 
 /**
  * `.peaks/project-scan/project-scan.md`, project-relative. Exported so the
@@ -27,18 +23,12 @@ import type {
  * `project-commands.ts`, `workspace/init-command.ts` and here.
  */
 export const PROJECT_SCAN_RELATIVE = join('.peaks', 'project-scan', 'project-scan.md');
-const BUSINESS_KNOWLEDGE_RELATIVE = join(
-  '.peaks',
-  'project-scan',
-  'business-knowledge.md'
-);
+const BUSINESS_KNOWLEDGE_RELATIVE = join('.peaks', 'project-scan', 'business-knowledge.md');
 
 /** Read `.peaks/project-scan/project-scan.md`. Returns `null` when the
  *  file or its parent dir is absent (fresh project). Throws on other
  *  IO failures or malformed YAML. */
-export async function readProjectScan(
-  projectRoot: string
-): Promise<ProjectScan | null> {
+export async function readProjectScan(projectRoot: string): Promise<ProjectScan | null> {
   const content = await readOptionalFile(projectRoot, PROJECT_SCAN_RELATIVE);
   if (content === null) return null;
   return parseProjectScanContent(content);
@@ -57,24 +47,17 @@ export async function readBusinessKnowledge(
 /** Read the raw markdown content of a project-scan file. Returns
  *  `null` when absent. Used by bootstrap flows (peaks-prd Step 0.8
  *  first-run templates). */
-export async function readProjectScanRaw(
-  projectRoot: string
-): Promise<string | null> {
+export async function readProjectScanRaw(projectRoot: string): Promise<string | null> {
   return readOptionalFile(projectRoot, PROJECT_SCAN_RELATIVE);
 }
 
-export async function readBusinessKnowledgeRaw(
-  projectRoot: string
-): Promise<string | null> {
+export async function readBusinessKnowledgeRaw(projectRoot: string): Promise<string | null> {
   return readOptionalFile(projectRoot, BUSINESS_KNOWLEDGE_RELATIVE);
 }
 
 // ── internal helpers ─────────────────────────────────────────────────
 
-async function readOptionalFile(
-  projectRoot: string,
-  relativePath: string
-): Promise<string | null> {
+async function readOptionalFile(projectRoot: string, relativePath: string): Promise<string | null> {
   const absolutePath = join(projectRoot, relativePath);
   try {
     return await readFile(absolutePath, 'utf8');
@@ -115,9 +98,7 @@ function parseBusinessKnowledgeContent(content: string): BusinessKnowledge {
     parsed = parseYaml(frontmatter);
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
-    throw new Error(
-      `business-knowledge: frontmatter YAML parse failed: ${message}`
-    );
+    throw new Error(`business-knowledge: frontmatter YAML parse failed: ${message}`);
   }
   if (!isBusinessKnowledgeFrontmatter(parsed)) {
     throw new Error('business-knowledge: frontmatter shape validation failed');
@@ -146,7 +127,9 @@ function parseConceptsFromMarkdownTable(body: string): readonly BusinessConcept[
     const cells = row
       .split('|')
       .map((cell) => cell.trim())
-      .filter((cell, idx, arr) => !(idx === 0 && cell === '') && !(idx === arr.length - 1 && cell === ''));
+      .filter(
+        (cell, idx, arr) => !(idx === 0 && cell === '') && !(idx === arr.length - 1 && cell === '')
+      );
     if (cells.length < 5) continue;
     const [concept, definition, sourceRid, decidedAt, evidence] = cells;
     if (!concept || !definition || !sourceRid || !decidedAt || !evidence) continue;

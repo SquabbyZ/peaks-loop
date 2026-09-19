@@ -4,7 +4,11 @@ import { readRegistry } from './sop-registry-service.js';
 import { readSopManifest } from './sop-service.js';
 import { evaluateGate } from './sop-check-service.js';
 import { sopStateDir } from './sop-paths.js';
-import { isBypassLimitReached, recordBypass, MAX_BYPASSES_PER_SESSION } from '../mode/bypass-tracker.js';
+import {
+  isBypassLimitReached,
+  recordBypass,
+  MAX_BYPASSES_PER_SESSION
+} from '../mode/bypass-tracker.js';
 import type { BlockedGate } from './sop-advance-service.js';
 
 /**
@@ -57,7 +61,10 @@ function readBypassTokens(projectRoot: string, sopId: string): BypassToken[] {
     if (!Array.isArray(parsed)) {
       return [];
     }
-    return parsed.filter((t): t is BypassToken => t !== null && typeof t === 'object' && typeof (t as BypassToken).phase === 'string');
+    return parsed.filter(
+      (t): t is BypassToken =>
+        t !== null && typeof t === 'object' && typeof (t as BypassToken).phase === 'string'
+    );
   } catch {
     return [];
   }
@@ -66,7 +73,11 @@ function readBypassTokens(projectRoot: string, sopId: string): BypassToken[] {
 function writeBypassTokens(projectRoot: string, sopId: string, tokens: BypassToken[]): void {
   const dir = sopStateDir(projectRoot, sopId);
   mkdirSync(dir, { recursive: true });
-  writeFileSync(bypassTokensPath(projectRoot, sopId), `${JSON.stringify(tokens, null, 2)}\n`, 'utf8');
+  writeFileSync(
+    bypassTokensPath(projectRoot, sopId),
+    `${JSON.stringify(tokens, null, 2)}\n`,
+    'utf8'
+  );
 }
 
 function hasBypassToken(projectRoot: string, sopId: string, phase: string): boolean {
@@ -99,10 +110,18 @@ export class GateBypassError extends Error {
  * `enforceBashCommand` that the transition blocks consumes it and allows once.
  * Capped per-project-per-SOP by MAX_BYPASSES_PER_SESSION.
  */
-export function recordGateBypass(projectRoot: string, sopId: string, phase: string, reason: string): { count: number } {
+export function recordGateBypass(
+  projectRoot: string,
+  sopId: string,
+  phase: string,
+  reason: string
+): { count: number } {
   const root = sopStateDir(projectRoot, sopId);
   if (isBypassLimitReached(root)) {
-    throw new GateBypassError('BYPASS_LIMIT_REACHED', `gate bypass limit reached (${MAX_BYPASSES_PER_SESSION} bypasses per SOP per project)`);
+    throw new GateBypassError(
+      'BYPASS_LIMIT_REACHED',
+      `gate bypass limit reached (${MAX_BYPASSES_PER_SESSION} bypasses per SOP per project)`
+    );
   }
   const tokens = readBypassTokens(projectRoot, sopId);
   writeBypassTokens(projectRoot, sopId, [...tokens, { phase, reason }]);
@@ -112,7 +131,9 @@ export function recordGateBypass(projectRoot: string, sopId: string, phase: stri
 
 function denyReason(matched: MatchedGuard[]): string {
   const lines = matched.map((m) => {
-    const gates = m.failing.map((g) => `${g.gateId}=${g.result}${g.reason ? ` (${g.reason})` : ''}`).join(', ');
+    const gates = m.failing
+      .map((g) => `${g.gateId}=${g.result}${g.reason ? ` (${g.reason})` : ''}`)
+      .join(', ');
     return `SOP "${m.sopId}" phase "${m.phase}": ${gates}`;
   });
   const hint = matched
@@ -125,7 +146,10 @@ function denyReason(matched: MatchedGuard[]): string {
  * Decide whether a Bash command may run. Pure given the filesystem; never throws
  * (fail-open on any internal error). Returns allow/deny for the PreToolUse hook.
  */
-export async function enforceBashCommand(projectRoot: string, command: string): Promise<EnforceDecision> {
+export async function enforceBashCommand(
+  projectRoot: string,
+  command: string
+): Promise<EnforceDecision> {
   const warnings: string[] = [];
 
   let sopIds: string[];
@@ -135,7 +159,12 @@ export async function enforceBashCommand(projectRoot: string, command: string): 
     // teammate who has only the repo, not your global ~/.peaks.
     sopIds = (await readRegistry(projectRoot)).sops.map((sop) => sop.id);
   } catch (error) {
-    return { decision: 'allow', warnings: [`gate enforce: could not read registry (${error instanceof Error ? error.message : 'error'}); allowing`] };
+    return {
+      decision: 'allow',
+      warnings: [
+        `gate enforce: could not read registry (${error instanceof Error ? error.message : 'error'}); allowing`
+      ]
+    };
   }
 
   const matched: MatchedGuard[] = [];
@@ -145,7 +174,9 @@ export async function enforceBashCommand(projectRoot: string, command: string): 
     try {
       manifest = await readSopManifest(sopId, projectRoot);
     } catch (error) {
-      warnings.push(`gate enforce: SOP "${sopId}" manifest unreadable (${error instanceof Error ? error.message : 'error'}); skipping`);
+      warnings.push(
+        `gate enforce: SOP "${sopId}" manifest unreadable (${error instanceof Error ? error.message : 'error'}); skipping`
+      );
       continue;
     }
     if (manifest === null || !Array.isArray(manifest.guards) || manifest.guards.length === 0) {
@@ -157,7 +188,9 @@ export async function enforceBashCommand(projectRoot: string, command: string): 
       try {
         regex = new RegExp(guard.bash);
       } catch {
-        warnings.push(`gate enforce: SOP "${sopId}" guard has an invalid regex "${guard.bash}"; skipping`);
+        warnings.push(
+          `gate enforce: SOP "${sopId}" guard has an invalid regex "${guard.bash}"; skipping`
+        );
         continue;
       }
       if (!regex.test(command)) {
@@ -167,9 +200,11 @@ export async function enforceBashCommand(projectRoot: string, command: string): 
       for (const gate of manifest.gates.filter((g) => g.phase === guard.phase)) {
         const verdict = evaluateGate(projectRoot, gate, { allowCommands: true });
         if (verdict.result !== 'pass') {
-          failing.push(verdict.reason === undefined
-            ? { gateId: gate.id, result: verdict.result }
-            : { gateId: gate.id, result: verdict.result, reason: verdict.reason });
+          failing.push(
+            verdict.reason === undefined
+              ? { gateId: gate.id, result: verdict.result }
+              : { gateId: gate.id, result: verdict.result, reason: verdict.reason }
+          );
         }
       }
       if (failing.length > 0) {

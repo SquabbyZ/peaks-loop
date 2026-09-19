@@ -49,7 +49,10 @@ export function planRuntimeCleanup(
     if (s.ageHours >= cutoffHours) {
       eligible.push(s.sid);
     } else {
-      skipped.push({ sid: s.sid, reason: `fresh: age=${s.ageHours.toFixed(1)}h < cutoff=${cutoffHours}h` });
+      skipped.push({
+        sid: s.sid,
+        reason: `fresh: age=${s.ageHours.toFixed(1)}h < cutoff=${cutoffHours}h`
+      });
     }
   }
   return { eligible, skipped };

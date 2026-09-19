@@ -112,7 +112,9 @@ function renderGapMessage(
     );
   }
   if (deadRows.length > 0) {
-    parts.push(`${deadRows.length} of ${indexedFileCount} indexed file(s) are gone from disk [${elide(deadRows)}]`);
+    parts.push(
+      `${deadRows.length} of ${indexedFileCount} indexed file(s) are gone from disk [${elide(deadRows)}]`
+    );
   }
 
   return `codegraph index does not cover the repository: ${parts.join('; ')}.`;
@@ -134,28 +136,35 @@ function run({ options, resolvedL3Root }: DoctorContext): readonly DoctorCheck[]
   try {
     report = probe();
   } catch (error) {
-    return [{
-      id: CHECK_ID,
-      ok: false,
-      severity: 'warning',
-      message: `codegraph index integrity could not be evaluated: ${getErrorMessage(error)}`
-    }];
+    return [
+      {
+        id: CHECK_ID,
+        ok: false,
+        severity: 'warning',
+        message: `codegraph index integrity could not be evaluated: ${getErrorMessage(error)}`
+      }
+    ];
   }
 
   if (report === null) {
-    return [{
-      id: CHECK_ID,
-      ok: true,
-      message: 'codegraph is not initialized in this project (no .codegraph/codegraph.db); there is no index to be incomplete or stale'
-    }];
+    return [
+      {
+        id: CHECK_ID,
+        ok: true,
+        message:
+          'codegraph is not initialized in this project (no .codegraph/codegraph.db); there is no index to be incomplete or stale'
+      }
+    ];
   }
 
   if (!report.gap) {
-    return [{
-      id: CHECK_ID,
-      ok: true,
-      message: `codegraph index covers the repository (${report.admittedTrackedCount} extractor-supported tracked file(s) admitted, ${report.indexedFileCount} indexed row(s), none stale)`
-    }];
+    return [
+      {
+        id: CHECK_ID,
+        ok: true,
+        message: `codegraph index covers the repository (${report.admittedTrackedCount} extractor-supported tracked file(s) admitted, ${report.indexedFileCount} indexed row(s), none stale)`
+      }
+    ];
   }
 
   const gapMessage = renderGapMessage(
@@ -172,12 +181,14 @@ function run({ options, resolvedL3Root }: DoctorContext): readonly DoctorCheck[]
   // path for the switch, so an operator who wants blocking is told how.
   return strict
     ? [{ id: CHECK_ID, ok: false, message: `${gapMessage} ${remediation()}` }]
-    : [{
-        id: CHECK_ID,
-        ok: false,
-        severity: 'warning',
-        message: `${gapMessage} ${remediation()} Advisory: set ${CODEGRAPH_INDEX_STRICT_ENV_VAR}=1 to make this blocking.`
-      }];
+    : [
+        {
+          id: CHECK_ID,
+          ok: false,
+          severity: 'warning',
+          message: `${gapMessage} ${remediation()} Advisory: set ${CODEGRAPH_INDEX_STRICT_ENV_VAR}=1 to make this blocking.`
+        }
+      ];
 }
 
 export const check: DoctorCheckPlugin = {

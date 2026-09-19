@@ -37,11 +37,7 @@
  */
 import { existsSync, readFileSync } from 'node:fs';
 
-export type AwaitBatchOutcome =
-  | 'completed'
-  | 'timed-out'
-  | 'clamped'
-  | 'no-progress';
+export type AwaitBatchOutcome = 'completed' | 'timed-out' | 'clamped' | 'no-progress';
 
 export interface AwaitBatchOptions {
   /** Caller-supplied per-IDE default when no timeoutMs is provided. */
@@ -152,22 +148,27 @@ export async function awaitBatch(
   const noProgressBudget = options.noProgressMs ?? DEFAULT_NO_PROGRESS_MS;
 
   const now = options.now ?? (() => Date.now());
-  const schedule = options.schedule ?? ((cb: () => void, ms: number) => {
-    const t = setTimeout(cb, ms);
-    t.unref?.();
-    return t;
-  });
+  const schedule =
+    options.schedule ??
+    ((cb: () => void, ms: number) => {
+      const t = setTimeout(cb, ms);
+      t.unref?.();
+      return t;
+    });
   const readOutcome = options.readOutcome ?? ((p: string) => defaultReadOutcome(p).status);
   const readRecord = options.readRecord ?? defaultReadOutcome;
 
   const startedAt = now();
-  const slots = new Map<number, {
-    recordPath: string;
-    status: 'done' | 'failed' | 'cancelled' | 'timeout';
-    note: string | null;
-    finishedAt: number | null;
-    lastProgress: number;
-  }>();
+  const slots = new Map<
+    number,
+    {
+      recordPath: string;
+      status: 'done' | 'failed' | 'cancelled' | 'timeout';
+      note: string | null;
+      finishedAt: number | null;
+      lastProgress: number;
+    }
+  >();
   for (let i = 0; i < recordPaths.length; i += 1) {
     const recordPath = recordPaths[i] ?? '';
     slots.set(i, {
@@ -246,7 +247,9 @@ export async function awaitBatch(
     // progress for `noProgressBudget`, escalate.
     if (now() - startedAt < effective) {
       const allStalled = Array.from(slots.entries()).every(
-        ([idx, slot]) => slot.finishedAt !== null || (now() - (lastProgressAt.get(idx) ?? startedAt)) >= noProgressBudget
+        ([idx, slot]) =>
+          slot.finishedAt !== null ||
+          now() - (lastProgressAt.get(idx) ?? startedAt) >= noProgressBudget
       );
       if (allStalled && slots.size > 0) {
         batchOutcome = 'no-progress';
@@ -255,7 +258,9 @@ export async function awaitBatch(
     }
 
     // Sleep a tick.
-    await new Promise<void>((resolveSleep) => schedule(() => resolveSleep(), DEFAULT_POLL_INTERVAL_MS));
+    await new Promise<void>((resolveSleep) =>
+      schedule(() => resolveSleep(), DEFAULT_POLL_INTERVAL_MS)
+    );
   }
 
   // Post-loop batch outcome:
@@ -329,7 +334,10 @@ export async function awaitBatch(
   // typed outcome but do not let it influence the per-dispatch
   // results. This preserves the pre-S4 silent-return shape so a
   // stuck session can be unblocked by flipping the flag.
-  if (FAILFAST_DISABLED && (batchOutcome === 'timed-out' || batchOutcome === 'no-progress' || batchOutcome === 'clamped')) {
+  if (
+    FAILFAST_DISABLED &&
+    (batchOutcome === 'timed-out' || batchOutcome === 'no-progress' || batchOutcome === 'clamped')
+  ) {
     batchOutcome = 'completed';
   }
 

@@ -50,7 +50,7 @@ function run(cmd, args) {
     cwd: repoRoot,
     encoding: 'utf8',
     shell: false,
-    windowsHide: true,
+    windowsHide: true
   });
 }
 
@@ -60,7 +60,7 @@ function runInherit(cmd, args) {
       cwd: repoRoot,
       stdio: 'inherit',
       shell: false,
-      windowsHide: true,
+      windowsHide: true
     });
     child.on('exit', (code) => resolveRun(code ?? 1));
     child.on('error', () => resolveRun(1));
@@ -69,7 +69,10 @@ function runInherit(cmd, args) {
 
 async function main() {
   // 1. 拿 diff base: 用户可显式传一个位置参数(过滤 --flag)。否则默认 HEAD。
-  const userBase = process.argv.slice(2).filter((a) => !a.startsWith('--')).pop();
+  const userBase = process.argv
+    .slice(2)
+    .filter((a) => !a.startsWith('--'))
+    .pop();
   const base = userBase || 'HEAD';
 
   const gitCheck = run('git', ['rev-parse', '--git-dir']);
@@ -116,7 +119,7 @@ async function main() {
     /^tsconfig\.json$/,
     /^scripts\//,
     /^\.claude\//,
-    /^\.peaks\//,
+    /^\.peaks\//
   ];
   let needsFull = changed.length === 0;
   for (const f of changed) {

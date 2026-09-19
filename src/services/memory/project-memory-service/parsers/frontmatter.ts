@@ -23,18 +23,28 @@
 import { basename } from 'node:path';
 
 import { PROJECT_MEMORY_KINDS } from '../types.js';
-import type { ExtractedProjectMemory, MemoryBlockParse, ProjectMemoryKind, StoredProjectMemory } from '../types.js';
+import type {
+  ExtractedProjectMemory,
+  MemoryBlockParse,
+  ProjectMemoryKind,
+  StoredProjectMemory
+} from '../types.js';
 
 /** Accepted-kind set, derived from the canonical `PROJECT_MEMORY_KINDS`
  *  tuple so the parser cannot drift from the union type / tier map. */
-export const VALID_MEMORY_KINDS: ReadonlySet<ProjectMemoryKind> = new Set<ProjectMemoryKind>(PROJECT_MEMORY_KINDS);
+export const VALID_MEMORY_KINDS: ReadonlySet<ProjectMemoryKind> = new Set<ProjectMemoryKind>(
+  PROJECT_MEMORY_KINDS
+);
 
 /** Exported for guard tests + tooling that needs to enumerate the accepted
  *  set (CLI help text, `--kind` validation) without duplicating the literal. */
 export const VALID_PROJECT_MEMORY_KINDS: readonly ProjectMemoryKind[] = PROJECT_MEMORY_KINDS;
 
 export function slugify(title: string): string {
-  const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  const slug = title
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
   return slug.length > 0 ? slug : 'project-memory';
 }
 
@@ -50,7 +60,11 @@ export function parseBlockResult(block: string, sourceArtifact: string): MemoryB
   const normalizedBlock = block.replace(/\r\n/g, '\n');
   const separatorIndex = normalizedBlock.indexOf('\n---\n');
   if (separatorIndex < 0) {
-    return { ok: false, reason: 'missing-separator', detail: "block header is not followed by a '---' separator line" };
+    return {
+      ok: false,
+      reason: 'missing-separator',
+      detail: "block header is not followed by a '---' separator line"
+    };
   }
 
   const header = normalizedBlock.slice(0, separatorIndex).trim();
@@ -69,13 +83,25 @@ export function parseBlockResult(block: string, sourceArtifact: string): MemoryB
   const title = fields.get('title')?.trim();
   const kind = fields.get('kind')?.trim() as ProjectMemoryKind | undefined;
   if (!title) {
-    return { ok: false, reason: 'missing-title', detail: "block header has no non-empty 'title:' field" };
+    return {
+      ok: false,
+      reason: 'missing-title',
+      detail: "block header has no non-empty 'title:' field"
+    };
   }
   if (!kind) {
-    return { ok: false, reason: 'missing-kind', detail: "block header has no non-empty 'kind:' field" };
+    return {
+      ok: false,
+      reason: 'missing-kind',
+      detail: "block header has no non-empty 'kind:' field"
+    };
   }
   if (!VALID_MEMORY_KINDS.has(kind)) {
-    return { ok: false, reason: 'unknown-kind', detail: `block declares kind '${kind}', which is not an accepted memory kind` };
+    return {
+      ok: false,
+      reason: 'unknown-kind',
+      detail: `block declares kind '${kind}', which is not an accepted memory kind`
+    };
   }
   if (body.length === 0) {
     return { ok: false, reason: 'empty-body', detail: 'block body is empty' };
@@ -213,11 +239,21 @@ export function parseMemoryFrontmatter(content: string): ParsedMemoryFrontmatter
   const normalized = content.replace(/\r\n/g, '\n');
   const head = normalized.slice(leadingCommentPrefixLength(normalized));
   if (!head.startsWith('---\n')) {
-    return { hasFrontmatter: false, kind: { kind: null, source: 'none', rawKind: null }, frontmatter: '', body: normalized.trim() };
+    return {
+      hasFrontmatter: false,
+      kind: { kind: null, source: 'none', rawKind: null },
+      frontmatter: '',
+      body: normalized.trim()
+    };
   }
   const endIndex = head.indexOf('\n---\n', 4);
   if (endIndex < 0) {
-    return { hasFrontmatter: false, kind: { kind: null, source: 'none', rawKind: null }, frontmatter: '', body: normalized.trim() };
+    return {
+      hasFrontmatter: false,
+      kind: { kind: null, source: 'none', rawKind: null },
+      frontmatter: '',
+      body: normalized.trim()
+    };
   }
 
   const frontmatter = head.slice(4, endIndex);
@@ -239,14 +275,17 @@ export function parseMemoryFrontmatter(content: string): ParsedMemoryFrontmatter
       inMetadata = line === 'metadata:';
     }
     if (line.startsWith('name:')) name = line.slice('name:'.length).trim();
-    else if (line.startsWith('title:')) { if (!indented) titleField = line.slice('title:'.length).trim(); }
-    else if (line.startsWith('description:')) description = line.slice('description:'.length).trim();
+    else if (line.startsWith('title:')) {
+      if (!indented) titleField = line.slice('title:'.length).trim();
+    } else if (line.startsWith('description:'))
+      description = line.slice('description:'.length).trim();
     else if (line.startsWith('type:')) {
       const value = line.slice('type:'.length).trim();
       if (indented || inMetadata) nestedType ??= value;
       else topType ??= value;
     } else if (line.startsWith('kind:')) kindField ??= line.slice('kind:'.length).trim();
-    else if (line.startsWith('sourceArtifact:')) sourceArtifact = line.slice('sourceArtifact:'.length).trim();
+    else if (line.startsWith('sourceArtifact:'))
+      sourceArtifact = line.slice('sourceArtifact:'.length).trim();
   }
 
   const candidates: ReadonlyArray<readonly [MemoryKindSource, string | undefined]> = [
@@ -264,7 +303,16 @@ export function parseMemoryFrontmatter(content: string): ParsedMemoryFrontmatter
     }
   }
 
-  return { hasFrontmatter: true, frontmatter, ...(name !== undefined ? { name } : {}), ...(titleField !== undefined ? { title: titleField } : {}), ...(description !== undefined ? { description } : {}), ...(sourceArtifact !== undefined ? { sourceArtifact } : {}), kind, body };
+  return {
+    hasFrontmatter: true,
+    frontmatter,
+    ...(name !== undefined ? { name } : {}),
+    ...(titleField !== undefined ? { title: titleField } : {}),
+    ...(description !== undefined ? { description } : {}),
+    ...(sourceArtifact !== undefined ? { sourceArtifact } : {}),
+    kind,
+    body
+  };
 }
 
 /** Which frontmatter field (or the filename) supplied a memory's name. */
@@ -289,15 +337,23 @@ export interface MemoryNameResolution {
  * falls through, and a file whose stem is also empty resolves to null so the
  * caller's validation is preserved (never invents a name).
  */
-export function resolveMemoryName(parsed: ParsedMemoryFrontmatter, filePath: string): MemoryNameResolution {
-  if (parsed.name !== undefined && parsed.name.length > 0) return { name: parsed.name, source: 'name' };
-  if (parsed.title !== undefined && parsed.title.length > 0) return { name: parsed.title, source: 'title' };
+export function resolveMemoryName(
+  parsed: ParsedMemoryFrontmatter,
+  filePath: string
+): MemoryNameResolution {
+  if (parsed.name !== undefined && parsed.name.length > 0)
+    return { name: parsed.name, source: 'name' };
+  if (parsed.title !== undefined && parsed.title.length > 0)
+    return { name: parsed.title, source: 'title' };
   const stem = basename(filePath, '.md');
   if (stem.length > 0) return { name: stem, source: 'stem' };
   return { name: null, source: 'none' };
 }
 
-export function parseStoredMemoryFile(content: string, filePath: string): StoredProjectMemory | null {
+export function parseStoredMemoryFile(
+  content: string,
+  filePath: string
+): StoredProjectMemory | null {
   const parsed = parseMemoryFrontmatter(content);
   if (!parsed.hasFrontmatter) return null;
   const { description, sourceArtifact, body } = parsed;

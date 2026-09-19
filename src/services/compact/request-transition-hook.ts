@@ -65,7 +65,8 @@ function readLatestUsageRow(projectRoot: string, sessionId: string): UsageRow | 
     const last = lines[lines.length - 1];
     if (last === undefined) return null;
     return JSON.parse(last) as UsageRow;
-  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+  } catch {
+    // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     return null;
   }
 }
@@ -76,10 +77,14 @@ function readLatestUsageRow(projectRoot: string, sessionId: string): UsageRow | 
  * types use a 256KB byte-based estimate; this hook uses a 200k
  * token-based window to match the strategic-compact SKILL.md.
  */
-function computeRatio(row: UsageRow | null): { ratio: number; zone: 'none' | 'soft-warn' | 'pre-compact' | 'red-line' } {
+function computeRatio(row: UsageRow | null): {
+  ratio: number;
+  zone: 'none' | 'soft-warn' | 'pre-compact' | 'red-line';
+} {
   if (row === null) return { ratio: 0, zone: 'none' };
   const tokens = typeof row.tokens === 'number' && Number.isFinite(row.tokens) ? row.tokens : 0;
-  const capacity = typeof row.capacityTokens === 'number' && row.capacityTokens > 0 ? row.capacityTokens : 200_000;
+  const capacity =
+    typeof row.capacityTokens === 'number' && row.capacityTokens > 0 ? row.capacityTokens : 200_000;
   const ratio = capacity > 0 ? tokens / capacity : 0;
   if (ratio >= PRE_COMPACT_ZONE.redLine) return { ratio, zone: 'red-line' };
   if (ratio >= PRE_COMPACT_ZONE.preCompact) return { ratio, zone: 'pre-compact' };

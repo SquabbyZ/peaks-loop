@@ -106,24 +106,27 @@ const CANONICAL_2_0_CODING_STYLE_TS = `# TypeScript Coding Standards (2.0 canoni
 - peaks-rd must check this file before planning code changes in typescript projects.
 `;
 
-const CANONICAL_2_0_COMMON_FILES: ReadonlyArray<{ readonly relPath: string; readonly content: string }> = [
+const CANONICAL_2_0_COMMON_FILES: ReadonlyArray<{
+  readonly relPath: string;
+  readonly content: string;
+}> = [
   { relPath: 'common/dev-preference.md', content: CANONICAL_2_0_DEV_PREFERENCE },
   {
     relPath: 'common/coding-style.md',
     content:
-      '# Coding Standards (2.0 canonical)\n\n- Prefer simple, readable code over clever abstractions.\n- Keep functions focused and files cohesive.\n- Use immutable updates unless a language-specific convention explicitly favors mutation.\n- Validate user input, external data, file paths, and configuration at system boundaries.\n- Preserve existing project conventions when they are stricter than this baseline.\n',
+      '# Coding Standards (2.0 canonical)\n\n- Prefer simple, readable code over clever abstractions.\n- Keep functions focused and files cohesive.\n- Use immutable updates unless a language-specific convention explicitly favors mutation.\n- Validate user input, external data, file paths, and configuration at system boundaries.\n- Preserve existing project conventions when they are stricter than this baseline.\n'
   },
   {
     relPath: 'common/code-review.md',
     content:
-      '# Code Review Standards (2.0 canonical)\n\n- Review diffs for correctness, maintainability, test coverage, and regression risk.\n- Treat missing tests for changed behavior as a blocker unless the change is documentation-only.\n- Verify code paths that handle filesystem, external APIs, credentials, user input, or generated artifacts.\n',
+      '# Code Review Standards (2.0 canonical)\n\n- Review diffs for correctness, maintainability, test coverage, and regression risk.\n- Treat missing tests for changed behavior as a blocker unless the change is documentation-only.\n- Verify code paths that handle filesystem, external APIs, credentials, user input, or generated artifacts.\n'
   },
   {
     relPath: 'common/security.md',
     content:
-      '# Security Review Standards (2.0 canonical)\n\n- Never hardcode secrets, API keys, passwords, tokens, or credentials.\n- Do not send private code or secrets to external services without explicit user authorization.\n- Guard filesystem writes against path traversal, symlink, and junction escapes.\n- Require explicit confirmation for destructive actions, external state changes, and credential use.\n',
+      '# Security Review Standards (2.0 canonical)\n\n- Never hardcode secrets, API keys, passwords, tokens, or credentials.\n- Do not send private code or secrets to external services without explicit user authorization.\n- Guard filesystem writes against path traversal, symlink, and junction escapes.\n- Require explicit confirmation for destructive actions, external state changes, and credential use.\n'
   },
-  { relPath: 'typescript/coding-style.md', content: CANONICAL_2_0_CODING_STYLE_TS },
+  { relPath: 'typescript/coding-style.md', content: CANONICAL_2_0_CODING_STYLE_TS }
 ];
 
 export function migrateClaudeRules(input: MigrateClaudeRulesInput): MigrateClaudeRulesResult {
@@ -155,7 +158,9 @@ export function migrateClaudeRules(input: MigrateClaudeRulesInput): MigrateClaud
   // the would-create location) but only created on disk in
   // apply mode. In dry-run mode we still return the path so
   // the user can see where the backup will land.
-  const computedBackupPath = hasThickFiles ? join(claudeRulesDir, `.peaks-2.0-backup-${timestampSlug()}`) : null;
+  const computedBackupPath = hasThickFiles
+    ? join(claudeRulesDir, `.peaks-2.0-backup-${timestampSlug()}`)
+    : null;
   const backupPath: string | null = apply ? computedBackupPath : null;
 
   const thinnedFiles: string[] = [];
@@ -195,7 +200,9 @@ export function migrateClaudeRules(input: MigrateClaudeRulesInput): MigrateClaud
         writeFileSync(file, POINTER_TEXT(canonicalRelPath), 'utf8');
         thinnedFiles.push(file);
       } catch (err) {
-        warnings.push(`Thin step failed for ${file}: ${err instanceof Error ? err.message : String(err)}`);
+        warnings.push(
+          `Thin step failed for ${file}: ${err instanceof Error ? err.message : String(err)}`
+        );
       }
     }
 
@@ -211,19 +218,27 @@ export function migrateClaudeRules(input: MigrateClaudeRulesInput): MigrateClaud
         writeFileSync(dest, file.content, 'utf8');
         scaffoldedFiles.push(dest);
       } catch (err) {
-        warnings.push(`Scaffold step failed for ${file.relPath}: ${err instanceof Error ? err.message : String(err)}`);
+        warnings.push(
+          `Scaffold step failed for ${file.relPath}: ${err instanceof Error ? err.message : String(err)}`
+        );
       }
     }
   }
 
   if (thinnedFiles.length > 0) {
-    nextActions.push(`Thinned ${thinnedFiles.length} .md file(s) under .claude/rules (recursive) → 2-line pointer.`);
+    nextActions.push(
+      `Thinned ${thinnedFiles.length} .md file(s) under .claude/rules (recursive) → 2-line pointer.`
+    );
   }
   if (scaffoldedFiles.length > 0) {
-    nextActions.push(`Scaffolded ${scaffoldedFiles.length} 2.0 canonical rule(s) at .peaks/standards/.`);
+    nextActions.push(
+      `Scaffolded ${scaffoldedFiles.length} 2.0 canonical rule(s) at .peaks/standards/.`
+    );
   }
   if (preservedFiles.length > 0) {
-    nextActions.push(`Preserved ${preservedFiles.length} existing .peaks/standards/ file(s) (no overwrite).`);
+    nextActions.push(
+      `Preserved ${preservedFiles.length} existing .peaks/standards/ file(s) (no overwrite).`
+    );
   }
   if (backupPath !== null) {
     nextActions.push(`Backup at ${backupPath} (git-ignored).`);
@@ -241,8 +256,8 @@ export function migrateClaudeRules(input: MigrateClaudeRulesInput): MigrateClaud
       preservedFiles,
       wouldChange,
       applied: apply && hasThickFiles,
-      nextActions,
+      nextActions
     },
-    warnings,
+    warnings
   };
 }

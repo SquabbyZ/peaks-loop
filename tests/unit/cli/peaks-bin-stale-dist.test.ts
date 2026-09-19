@@ -34,7 +34,12 @@ const REPO_ROOT = resolve(HERE, '..', '..', '..');
 const REAL_BIN = resolve(REPO_ROOT, 'bin', 'peaks.js');
 const REAL_DIST_ENTRY = resolve(REPO_ROOT, 'dist', 'cli', 'index.js');
 
-declareDimensions('tests/unit/cli/peaks-bin-stale-dist.test.ts', ['render', 'behavior', 'integration', 'a11y']);
+declareDimensions('tests/unit/cli/peaks-bin-stale-dist.test.ts', [
+  'render',
+  'behavior',
+  'integration',
+  'a11y'
+]);
 
 interface SpawnOutcome {
   readonly status: number | null;
@@ -49,7 +54,7 @@ function runShim(dir: string, args: readonly string[] = []): SpawnOutcome {
       cwd: dir,
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'pipe'],
-      windowsHide: true,
+      windowsHide: true
     });
     return { status: 0, stdout, stderr: '' };
   } catch (err) {
@@ -101,10 +106,19 @@ describe('(render) stale-dist message names the missing module + the fix', () =>
     mkdirSync(join(dir, 'node_modules', 'peaks-loop-shared', 'dist'), { recursive: true });
     writeFileSync(
       join(dir, 'node_modules', 'peaks-loop-shared', 'package.json'),
-      JSON.stringify({ name: 'peaks-loop-shared', version: '0.0.0', type: 'module', exports: { './version': { default: './dist/version.js' } } }),
+      JSON.stringify({
+        name: 'peaks-loop-shared',
+        version: '0.0.0',
+        type: 'module',
+        exports: { './version': { default: './dist/version.js' } }
+      }),
       'utf8'
     );
-    writeFileSync(join(dir, 'dist', 'cli', 'index.js'), "import 'peaks-loop-shared/version';\n", 'utf8');
+    writeFileSync(
+      join(dir, 'dist', 'cli', 'index.js'),
+      "import 'peaks-loop-shared/version';\n",
+      'utf8'
+    );
     const out = runShim(dir, ['anything']);
     expect(out.status).toBe(1);
     expect(out.stderr).toContain('peaks-loop-shared');
@@ -118,7 +132,7 @@ describe('(behavior) happy path is unchanged; non-internal errors rethrow', () =
     mkdirSync(join(dir, 'dist', 'cli'), { recursive: true });
     writeFileSync(
       join(dir, 'dist', 'cli', 'index.js'),
-      "process.stdout.write(JSON.stringify(process.argv.slice(2)));\nprocess.exitCode = 7;\n",
+      'process.stdout.write(JSON.stringify(process.argv.slice(2)));\nprocess.exitCode = 7;\n',
       'utf8'
     );
     const out = runShim(dir, ['memory', 'reindex', '--project', '.']);
@@ -130,7 +144,11 @@ describe('(behavior) happy path is unchanged; non-internal errors rethrow', () =
   it('rethrows a third-party resolution failure unchanged (no friendly message)', () => {
     const dir = track(makeShimDir());
     mkdirSync(join(dir, 'dist', 'cli'), { recursive: true });
-    writeFileSync(join(dir, 'dist', 'cli', 'index.js'), "import 'totally-missing-thirdparty-xyz';\n", 'utf8');
+    writeFileSync(
+      join(dir, 'dist', 'cli', 'index.js'),
+      "import 'totally-missing-thirdparty-xyz';\n",
+      'utf8'
+    );
     const out = runShim(dir, ['anything']);
     expect(out.status).toBe(1);
     expect(out.stderr).toContain('ERR_MODULE_NOT_FOUND');
@@ -139,7 +157,11 @@ describe('(behavior) happy path is unchanged; non-internal errors rethrow', () =
   });
 
   it.skipIf(!existsSync(REAL_DIST_ENTRY))('real repo shim still runs the real CLI', () => {
-    const stdout = execFileSync(process.execPath, [REAL_BIN, '--version'], { cwd: REPO_ROOT, encoding: 'utf8', windowsHide: true });
+    const stdout = execFileSync(process.execPath, [REAL_BIN, '--version'], {
+      cwd: REPO_ROOT,
+      encoding: 'utf8',
+      windowsHide: true
+    });
     expect(stdout.trim()).toMatch(/^\d+\.\d+\.\d+/);
   });
 });

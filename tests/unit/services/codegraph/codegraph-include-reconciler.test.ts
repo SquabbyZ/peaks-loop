@@ -99,7 +99,9 @@ const UPSTREAM_GRAMMARS = require(
 // the extractor knows, minus the ones upstream's own template already names,
 // minus any the extractor would not actually parse.
 function expectedUnnamedExtensions(): string[] {
-  const named = new Set(UPSTREAM_TYPES.DEFAULT_CONFIG.include.map((entry) => extname(entry).toLowerCase()));
+  const named = new Set(
+    UPSTREAM_TYPES.DEFAULT_CONFIG.include.map((entry) => extname(entry).toLowerCase())
+  );
 
   return Object.keys(UPSTREAM_GRAMMARS.EXTENSION_MAP).filter(
     (extension) =>
@@ -236,10 +238,12 @@ describe('normalizeCodegraphInclude (pure plan)', () => {
     // `picomatch('')` throws, and a config carrying `"include": [""]` used to
     // abort the exclusion reconciliation. The matcher below is the same one,
     // so the same guard has to hold here.
-    expect(normalizeCodegraphInclude({ include: [], candidateExtensions: ['.mjs'] }).changed).toBe(true);
-    expect(normalizeCodegraphInclude({ include: [''], candidateExtensions: ['.mjs'] }).addedPatterns).toEqual([
-      '**/*.mjs'
-    ]);
+    expect(normalizeCodegraphInclude({ include: [], candidateExtensions: ['.mjs'] }).changed).toBe(
+      true
+    );
+    expect(
+      normalizeCodegraphInclude({ include: [''], candidateExtensions: ['.mjs'] }).addedPatterns
+    ).toEqual(['**/*.mjs']);
   });
 
   it('should not append a duplicate candidate twice', () => {
@@ -255,9 +259,9 @@ describe('normalizeCodegraphInclude (pure plan)', () => {
   });
 
   it('for an extension-only candidate list, should accept both dotted and bare forms', () => {
-    expect(normalizeCodegraphInclude({ include: [], candidateExtensions: ['mjs'] }).addedPatterns).toEqual([
-      '**/*.mjs'
-    ]);
+    expect(
+      normalizeCodegraphInclude({ include: [], candidateExtensions: ['mjs'] }).addedPatterns
+    ).toEqual(['**/*.mjs']);
   });
 });
 

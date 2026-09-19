@@ -34,8 +34,8 @@ declareDimensions(
   ['integration', 'behavior'],
   [
     { dim: 'render', reason: 'classifyResume returns a classification; it renders nothing' },
-    { dim: 'a11y', reason: 'no human-facing text or exit code in this path' },
-  ],
+    { dim: 'a11y', reason: 'no human-facing text or exit code in this path' }
+  ]
 );
 
 const SESSION_ID = '2026-09-14-session-repair01';
@@ -70,8 +70,16 @@ describe('Scenario: integration — resolve the resume point of a compliant slic
     //        code review and audit both carry the rid
     const workspace = ws().path;
     writeRdRequestAtQaHandoff(workspace);
-    writeSessionFile(workspace, `rd/code-review-${RID}.md`, '# Code review\n\n## Findings\n\nCRITICAL: none.\n');
-    writeSessionFile(workspace, `audit/security-${RID}.md`, '# Security audit\n\n## Verdict\n\npass\n');
+    writeSessionFile(
+      workspace,
+      `rd/code-review-${RID}.md`,
+      '# Code review\n\n## Findings\n\nCRITICAL: none.\n'
+    );
+    writeSessionFile(
+      workspace,
+      `audit/security-${RID}.md`,
+      '# Security audit\n\n## Verdict\n\npass\n'
+    );
 
     // when: the classifier runs
     const classification = classifyResume(SESSION_ID, join(workspace, '.peaks', '_runtime'));
@@ -86,7 +94,11 @@ describe('Scenario: integration — resolve the resume point of a compliant slic
     // given: a session written before the rename — back-compat must hold
     const workspace = ws().path;
     writeRdRequestAtQaHandoff(workspace);
-    writeSessionFile(workspace, 'rd/code-review.md', '# Code review\n\n## Findings\n\nCRITICAL: none.\n');
+    writeSessionFile(
+      workspace,
+      'rd/code-review.md',
+      '# Code review\n\n## Findings\n\nCRITICAL: none.\n'
+    );
     writeSessionFile(workspace, 'audit/security.md', '# Security audit\n\n## Verdict\n\npass\n');
 
     // when: the classifier runs
@@ -124,8 +136,16 @@ describe('Scenario: integration — resolve the resume point of a compliant slic
       `rd/requests/001-${RD_REQUEST}`,
       ['# RD request', '', '## Status', '', '- state: qa-handoff', ''].join('\n')
     );
-    writeSessionFile(workspace, `rd/code-review-${RID}.md`, '# Code review\n\n## Findings\n\nCRITICAL: none.\n');
-    writeSessionFile(workspace, `audit/security-${RID}.md`, '# Security audit\n\n## Verdict\n\npass\n');
+    writeSessionFile(
+      workspace,
+      `rd/code-review-${RID}.md`,
+      '# Code review\n\n## Findings\n\nCRITICAL: none.\n'
+    );
+    writeSessionFile(
+      workspace,
+      `audit/security-${RID}.md`,
+      '# Security audit\n\n## Verdict\n\npass\n'
+    );
 
     // when: the classifier runs
     const classification = classifyResume(SESSION_ID, join(workspace, '.peaks', '_runtime'));

@@ -29,26 +29,19 @@
  * classes) is preserved verbatim.
  */
 
-import {
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  readdirSync,
-  writeFileSync,
-  rmSync,
-} from "node:fs";
-import { join } from "node:path";
-import { ZodError } from "zod";
-import type Database from "better-sqlite3";
-import { runTar } from "../skillhub/tar-runtime.js";
+import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync, rmSync } from 'node:fs';
+import { join } from 'node:path';
+import { ZodError } from 'zod';
+import type Database from 'better-sqlite3';
+import { runTar } from '../skillhub/tar-runtime.js';
 import {
   PEAKS_BUNDLE_FORMAT_VERSION_MAJOR,
   PEAKS_BUNDLE_SCHEMA_VERSIONS,
   SHARE_BUNDLE_ERROR_CODES,
   BundleManifestSchema,
   type BundleManifest,
-  type PeaksBundleKind,
-} from "./bundle-types.js";
+  type PeaksBundleKind
+} from './bundle-types.js';
 
 /* ---------------------------------------------------------------------- */
 /* Reader errors                                                            */
@@ -65,7 +58,7 @@ export class BundleMajorVersionMismatchError extends Error {
     super(
       `bundle declares format_version_major=${receivedMajor}; the only supported major is ${PEAKS_BUNDLE_FORMAT_VERSION_MAJOR} (spec §7A.2)`
     );
-    this.name = "BundleMajorVersionMismatchError";
+    this.name = 'BundleMajorVersionMismatchError';
     this.code = SHARE_BUNDLE_ERROR_CODES.MAJOR_VERSION_MISMATCH;
     this.receivedMajor = receivedMajor;
   }
@@ -84,7 +77,7 @@ export class BundleSchemaVersionsMismatchError extends Error {
         PEAKS_BUNDLE_SCHEMA_VERSIONS
       )} received=${JSON.stringify(received)}`
     );
-    this.name = "BundleSchemaVersionsMismatchError";
+    this.name = 'BundleSchemaVersionsMismatchError';
     this.code = SHARE_BUNDLE_ERROR_CODES.SCHEMA_VERSIONS_MISMATCH;
     this.received = received;
   }
@@ -100,7 +93,7 @@ export class BundleImportToStableForbiddenError extends Error {
     super(
       `bundles cannot land as '${receivedStatus}'; the only allowed target is 'candidate' (spec §7A.2). promotion to stable requires an evolution_evaluation row with an independent_scorer_verdict`
     );
-    this.name = "BundleImportToStableForbiddenError";
+    this.name = 'BundleImportToStableForbiddenError';
     this.code = SHARE_BUNDLE_ERROR_CODES.IMPORT_TO_STABLE_FORBIDDEN;
   }
 }
@@ -114,7 +107,7 @@ export class BundleMalformedError extends Error {
   readonly code: typeof SHARE_BUNDLE_ERROR_CODES.BUNDLE_MALFORMED;
   constructor(message: string) {
     super(`bundle is malformed: ${message}`);
-    this.name = "BundleMalformedError";
+    this.name = 'BundleMalformedError';
     this.code = SHARE_BUNDLE_ERROR_CODES.BUNDLE_MALFORMED;
   }
 }
@@ -147,7 +140,7 @@ export type ReadBundleResult = {
   assetId: string | number;
   kind: PeaksBundleKind;
   /** Always `candidate` — the reader does not honor any other status. */
-  importedAs: "candidate";
+  importedAs: 'candidate';
   /** Non-fatal warnings (e.g. minor-version mismatch). */
   warnings: string[];
   /** Count of crystallization_event rows imported. */
@@ -163,9 +156,7 @@ const SHA256_RE = /^[0-9a-f]{64}$/;
 
 /** Coerce a possibly-unknown value to a string lifecycle status, defaulting to "candidate". */
 function readSourceLifecycle(release: Record<string, unknown>): string {
-  return typeof release.lifecycle_status === "string"
-    ? release.lifecycle_status
-    : "candidate";
+  return typeof release.lifecycle_status === 'string' ? release.lifecycle_status : 'candidate';
 }
 
 /**
@@ -174,7 +165,7 @@ function readSourceLifecycle(release: Record<string, unknown>): string {
  * for defense in depth.
  */
 function enforceImportAsCandidate(status: string): void {
-  if (status !== "candidate") {
+  if (status !== 'candidate') {
     throw new BundleImportToStableForbiddenError(status);
   }
 }
@@ -186,13 +177,13 @@ function bool01(value: unknown, defaultValue: 0 | 1): 0 | 1 {
 }
 
 /** Coerce an unknown value to a string column value (empty string default). */
-function str(value: unknown, defaultValue = ""): string {
-  return typeof value === "string" ? value : defaultValue;
+function str(value: unknown, defaultValue = ''): string {
+  return typeof value === 'string' ? value : defaultValue;
 }
 
 /** Coerce an unknown value to a string-or-null column value. */
 function strOrNull(value: unknown): string | null {
-  return typeof value === "string" ? value : null;
+  return typeof value === 'string' ? value : null;
 }
 
 /** Coerce an unknown value to a JSON-stringified column value. */
@@ -202,7 +193,7 @@ function jsonArr(value: unknown): string {
 
 /** Coerce an unknown value to an ISO-8601 string (now() default). */
 function isoOrNow(value: unknown): string {
-  return typeof value === "string" ? value : new Date().toISOString();
+  return typeof value === 'string' ? value : new Date().toISOString();
 }
 
 /** Now as an ISO string. */
@@ -222,12 +213,10 @@ function readDirEntries(dir: string): string[] {
 /** Read and JSON.parse a file, throwing BundleMalformedError on parse failure. */
 function readJsonOrThrow(path: string): unknown {
   try {
-    return JSON.parse(readFileSync(path, "utf-8"));
+    return JSON.parse(readFileSync(path, 'utf-8'));
   } catch (err: unknown) {
     throw new BundleMalformedError(
-      `manifest.json could not be parsed: ${
-        err instanceof Error ? err.message : String(err)
-      }`
+      `manifest.json could not be parsed: ${err instanceof Error ? err.message : String(err)}`
     );
   }
 }
@@ -242,10 +231,10 @@ export function readBundle(args: ReadBundleArgs): ReadBundleResult {
     throw new BundleMalformedError(`bundle file not found at '${inPath}'`);
   }
 
-  const stageDir = inPath + ".extract";
+  const stageDir = inPath + '.extract';
   resetStageDir(stageDir);
   try {
-    runTar(["-xzf", inPath, "-C", stageDir]);
+    runTar(['-xzf', inPath, '-C', stageDir]);
     const manifest = loadStageManifest(stageDir);
     materialiseBlobs(stageDir, blobsDir);
     const assetId = KIND_IMPORTERS[manifest.kind](db, manifest, blobsDir, args.asName);
@@ -269,10 +258,10 @@ function resetStageDir(stageDir: string): void {
  * BundleMalformedError if the file is missing.
  */
 function loadStageManifest(stageDir: string): BundleManifest {
-  const manifestPath = join(stageDir, "manifest.json");
+  const manifestPath = join(stageDir, 'manifest.json');
   if (!existsSync(manifestPath)) {
     throw new BundleMalformedError(
-      "bundle is missing manifest.json (writer is required to emit it)"
+      'bundle is missing manifest.json (writer is required to emit it)'
     );
   }
   return parseManifest(readJsonOrThrow(manifestPath));
@@ -283,7 +272,7 @@ function loadStageManifest(stageDir: string): BundleManifest {
  * the layout (`blobs/<sha256>`) is identical for both.
  */
 function materialiseBlobs(stageDir: string, blobsDir: string): void {
-  const blobsStageDir = join(stageDir, "blobs");
+  const blobsStageDir = join(stageDir, 'blobs');
   if (!existsSync(blobsStageDir)) return;
   mkdirSync(blobsDir, { recursive: true });
   for (const fname of readDirEntries(blobsStageDir)) {
@@ -300,22 +289,17 @@ function materialiseBlobs(stageDir: string, blobsDir: string): void {
  * Build the read-result envelope, including the minor-version
  * warning if the bundle is not on the default minor.
  */
-function buildReadResult(
-  manifest: BundleManifest,
-  assetId: string | number
-): ReadBundleResult {
+function buildReadResult(manifest: BundleManifest, assetId: string | number): ReadBundleResult {
   const warnings: string[] =
     manifest.format_version_minor === 0
       ? []
-      : [
-          `minor-version=${manifest.format_version_minor}; supported but flagging for awareness`,
-        ];
+      : [`minor-version=${manifest.format_version_minor}; supported but flagging for awareness`];
   return {
     assetId,
     kind: manifest.kind,
-    importedAs: "candidate",
+    importedAs: 'candidate',
     warnings,
-    evidenceBriefCount: manifest.evidence_briefs.length,
+    evidenceBriefCount: manifest.evidence_briefs.length
   };
 }
 
@@ -324,12 +308,8 @@ function buildReadResult(
 /* ---------------------------------------------------------------------- */
 
 function parseManifest(raw: unknown): BundleManifest {
-  if (
-    !raw ||
-    typeof raw !== "object" ||
-    Array.isArray(raw)
-  ) {
-    throw new BundleMalformedError("manifest must be a JSON object");
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+    throw new BundleMalformedError('manifest must be a JSON object');
   }
   // Defense in depth: even if Zod would accept, we layer an early
   // major-mismatch guard so the CLI can surface a specific error
@@ -337,24 +317,22 @@ function parseManifest(raw: unknown): BundleManifest {
   // schema-version mapping fatal-error path fires.
   const candidate = raw as Record<string, unknown>;
   if (
-    typeof candidate.format_version_major === "number" &&
+    typeof candidate.format_version_major === 'number' &&
     candidate.format_version_major !== PEAKS_BUNDLE_FORMAT_VERSION_MAJOR
   ) {
-    throw new BundleMajorVersionMismatchError(
-      candidate.format_version_major as number
-    );
+    throw new BundleMajorVersionMismatchError(candidate.format_version_major as number);
   }
-  if (typeof candidate.format_constant !== "string") {
-    throw new BundleMalformedError("manifest is missing format_constant");
+  if (typeof candidate.format_constant !== 'string') {
+    throw new BundleMalformedError('manifest is missing format_constant');
   }
-  if (candidate.format_constant !== "peaks.bundle/1") {
+  if (candidate.format_constant !== 'peaks.bundle/1') {
     throw new BundleMalformedError(
       `format_constant must be "peaks.bundle/1"; received '${candidate.format_constant}'`
     );
   }
   if (
-    !("schema_versions" in candidate) ||
-    typeof candidate.schema_versions !== "object" ||
+    !('schema_versions' in candidate) ||
+    typeof candidate.schema_versions !== 'object' ||
     candidate.schema_versions === null ||
     Array.isArray(candidate.schema_versions)
   ) {
@@ -364,9 +342,7 @@ function parseManifest(raw: unknown): BundleManifest {
     return BundleManifestSchema.parse(raw) as BundleManifest;
   } catch (err: unknown) {
     if (err instanceof ZodError) {
-      const schemaIssue = err.issues.find(
-        (i) => i.path[0] === "schema_versions"
-      );
+      const schemaIssue = err.issues.find((i) => i.path[0] === 'schema_versions');
       if (schemaIssue) {
         throw new BundleSchemaVersionsMismatchError(
           candidate.schema_versions as Record<string, unknown>
@@ -374,8 +350,8 @@ function parseManifest(raw: unknown): BundleManifest {
       }
       throw new BundleMalformedError(
         `manifest failed schema validation: ${err.issues
-          .map((i) => `${i.path.join(".")}:${i.message}`)
-          .join("; ")}`
+          .map((i) => `${i.path.join('.')}:${i.message}`)
+          .join('; ')}`
       );
     }
     throw err;
@@ -394,10 +370,8 @@ type KindImporter = (
 ) => string | number;
 
 const KIND_IMPORTERS: Record<PeaksBundleKind, KindImporter> = {
-  loop: (db, manifest, _blobsDir, asName) =>
-    importLoopBundle(db, manifest, asName),
-  bee: (db, manifest, blobsDir, asName) =>
-    importBeeBundle(db, manifest, blobsDir, asName),
+  loop: (db, manifest, _blobsDir, asName) => importLoopBundle(db, manifest, asName),
+  bee: (db, manifest, blobsDir, asName) => importBeeBundle(db, manifest, blobsDir, asName)
 };
 
 /* ---------------------------------------------------------------------- */
@@ -410,8 +384,8 @@ function importLoopBundle(
   asName: string | undefined
 ): string {
   const srcLoop = manifest.loop_release as Record<string, unknown>;
-  const srcId = String(srcLoop.id ?? "");
-  if (!srcId) throw new BundleMalformedError("loop_release is missing id");
+  const srcId = String(srcLoop.id ?? '');
+  if (!srcId) throw new BundleMalformedError('loop_release is missing id');
 
   const srcStatus = readSourceLifecycle(srcLoop);
   enforceImportAsCandidate(srcStatus);
@@ -439,10 +413,7 @@ function importLoopBundle(
  * the receiver writes to `loop_release`. Split out so the SQL
  * INSERT can stay isolated.
  */
-function buildLoopRow(
-  srcLoop: Record<string, unknown>,
-  targetId: string
-): LoopRow {
+function buildLoopRow(srcLoop: Record<string, unknown>, targetId: string): LoopRow {
   return {
     id: targetId,
     name: srcLoop.name,
@@ -458,19 +429,20 @@ function buildLoopRow(
     crystallization_evidence_json: jsonArr(srcLoop.crystallization_evidence),
     // The reader always lands as candidate — the source's lifecycle
     // status is silently overridden (spec §7A.2 hard rule).
-    lifecycle_status: "candidate",
+    lifecycle_status: 'candidate',
     version: srcLoop.version,
-    schema_version: typeof srcLoop.schema_version === "string" && srcLoop.schema_version.length > 0
-      ? srcLoop.schema_version
-      : PEAKS_BUNDLE_SCHEMA_VERSIONS.loop,
+    schema_version:
+      typeof srcLoop.schema_version === 'string' && srcLoop.schema_version.length > 0
+        ? srcLoop.schema_version
+        : PEAKS_BUNDLE_SCHEMA_VERSIONS.loop,
     archived_at: isoOrNow(srcLoop.archived_at),
     shareable: bool01(srcLoop.shareable, 1),
     share_excluded_paths: jsonArr(srcLoop.share_excluded_paths),
     desktop_visible: bool01(srcLoop.desktop_visible, 1),
     export_bundle_format:
-      typeof srcLoop.export_bundle_format === "string"
+      typeof srcLoop.export_bundle_format === 'string'
         ? srcLoop.export_bundle_format
-        : "peaks.bundle/1",
+        : 'peaks.bundle/1'
   };
 }
 
@@ -487,7 +459,7 @@ type LoopRow = {
   linked_bees_json: string;
   run_history_json: string;
   crystallization_evidence_json: string;
-  lifecycle_status: "candidate";
+  lifecycle_status: 'candidate';
   version: unknown;
   schema_version: string;
   archived_at: string;
@@ -498,21 +470,33 @@ type LoopRow = {
 };
 
 const LOOP_RELEASE_COLUMNS = [
-  "id", "name", "scenario", "trigger_policy",
-  "success_criteria_json", "interaction_policy", "feedback_policy", "evolution_policy",
-  "evaluator_policy_json", "linked_bees_json", "run_history_json", "crystallization_evidence_json",
-  "lifecycle_status", "version", "schema_version", "archived_at",
-  "shareable", "share_excluded_paths", "desktop_visible", "export_bundle_format",
+  'id',
+  'name',
+  'scenario',
+  'trigger_policy',
+  'success_criteria_json',
+  'interaction_policy',
+  'feedback_policy',
+  'evolution_policy',
+  'evaluator_policy_json',
+  'linked_bees_json',
+  'run_history_json',
+  'crystallization_evidence_json',
+  'lifecycle_status',
+  'version',
+  'schema_version',
+  'archived_at',
+  'shareable',
+  'share_excluded_paths',
+  'desktop_visible',
+  'export_bundle_format'
 ] as const;
 
 /** Insert one loop_release row (or replace on conflict). */
-function insertLoopReleaseRow(
-  db: Database.Database,
-  row: Record<string, unknown>
-): void {
-  const placeholders = LOOP_RELEASE_COLUMNS.map(() => "?").join(", ");
+function insertLoopReleaseRow(db: Database.Database, row: Record<string, unknown>): void {
+  const placeholders = LOOP_RELEASE_COLUMNS.map(() => '?').join(', ');
   db.prepare(
-    `INSERT OR REPLACE INTO loop_release (${LOOP_RELEASE_COLUMNS.join(", ")}) VALUES (${placeholders})`
+    `INSERT OR REPLACE INTO loop_release (${LOOP_RELEASE_COLUMNS.join(', ')}) VALUES (${placeholders})`
   ).run(...LOOP_RELEASE_COLUMNS.map((c) => row[c] as never));
 }
 
@@ -595,16 +579,15 @@ function materialiseSingleRelatedBee(
   const release = entry.bee_release ?? {};
   const srcId = Number(release.id);
   if (!Number.isInteger(srcId) || srcId <= 0) return null;
-  const beeName = String(release.bee_name ?? "");
+  const beeName = String(release.bee_name ?? '');
   if (!beeName) return null;
 
   // Honour the same non-candidate hard rule at the bee row.
   enforceImportAsCandidate(readSourceLifecycle(release));
 
   // Pre-existing receiver-side bee with the same name → keep its id.
-  const existing = db
-    .prepare("SELECT id FROM bee_release WHERE bee_name = ?")
-    .get(beeName) as { id: number } | undefined;
+  const existing = db.prepare('SELECT id FROM bee_release WHERE bee_name = ?').get(beeName) as
+    { id: number } | undefined;
   if (existing) return { srcId, newId: existing.id };
 
   return { srcId, newId: insertNewRelatedBee(db, release, entry.manifest) };
@@ -623,8 +606,8 @@ function insertNewRelatedBee(
        ) VALUES (?, ?, 'user', ?, 'user', ?, ?, ?, ?, ?, ?)`
     )
     .run(
-      String(release.bee_name ?? ""),
-      String(release.version ?? "0.0.0"),
+      String(release.bee_name ?? ''),
+      String(release.version ?? '0.0.0'),
       nowIso(),
       release.user_intent_raw ?? null,
       release.description ?? null,
@@ -650,11 +633,11 @@ function importBeeBundle(
 ): number {
   const beeObj = manifest.bee_release as BeeBundleEntry | undefined;
   if (!beeObj) {
-    throw new BundleMalformedError("bee_release payload missing from bee bundle");
+    throw new BundleMalformedError('bee_release payload missing from bee bundle');
   }
   const release = beeObj.bee_release;
-  const newBeeName = asName ?? String(release.bee_name ?? "");
-  if (!newBeeName) throw new BundleMalformedError("bee_release.bee_name missing");
+  const newBeeName = asName ?? String(release.bee_name ?? '');
+  if (!newBeeName) throw new BundleMalformedError('bee_release.bee_name missing');
   // Same hard rule: any non-candidate import is refused. The reader
   // does not honor --as-stable switches.
   enforceImportAsCandidate(readSourceLifecycle(release));
@@ -685,7 +668,7 @@ function insertAnchorBeeRelease(
     )
     .run(
       beeName,
-      String(release.version ?? "0.0.0"),
+      String(release.version ?? '0.0.0'),
       nowIso(),
       release.user_intent_raw ?? null,
       release.description ?? null,
@@ -711,11 +694,11 @@ function insertBeeManifestRow(
      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).run(
     releaseId,
-    String(manifest.schema_version ?? "peaks.bee/1"),
-    String(manifest.description ?? ""),
+    String(manifest.schema_version ?? 'peaks.bee/1'),
+    String(manifest.description ?? ''),
     JSON.stringify(manifest.segments_json ?? []),
     strOrNull(manifest.entrypoint_preamble),
-    String(manifest.promotion ?? "manual"),
+    String(manifest.promotion ?? 'manual'),
     (manifest.min_cycles as number | null) ?? null,
     manifest.requires_human === undefined ? 1 : Number(manifest.requires_human),
     manifest.requires_smoke === undefined ? 1 : Number(manifest.requires_smoke),
@@ -738,7 +721,7 @@ function insertBeeSegmentRows(
   for (const s of segments) {
     stmt.run(
       releaseId,
-      String(s.segment_name ?? ""),
+      String(s.segment_name ?? ''),
       strOrNull(s.inputs_json),
       strOrNull(s.outputs_json),
       strOrNull(s.side_effects)
@@ -762,13 +745,13 @@ function insertBeeFileRows(
   for (const f of files) {
     stmt.run(
       releaseId,
-      String(f.owner_kind ?? "bee"),
+      String(f.owner_kind ?? 'bee'),
       beeName,
-      String(f.path ?? ""),
-      String(f.kind ?? "other"),
+      String(f.path ?? ''),
+      String(f.kind ?? 'other'),
       Number(f.size_bytes ?? 0),
-      String(f.sha256 ?? ""),
-      String(f.blob_path ?? "")
+      String(f.sha256 ?? ''),
+      String(f.blob_path ?? '')
     );
   }
 }
@@ -788,9 +771,9 @@ function insertBeeChangeRows(
   for (const c of changes) {
     stmt.run(
       releaseId,
-      String(c.change_kind ?? ""),
-      String(c.target_kind ?? ""),
-      String(c.target_name ?? ""),
+      String(c.change_kind ?? ''),
+      String(c.target_kind ?? ''),
+      String(c.target_name ?? ''),
       strOrNull(c.detail)
     );
   }

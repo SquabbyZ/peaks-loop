@@ -40,5 +40,5 @@ export {
   type WorkspaceLayoutProbe,
   type GateguardHookLocation,
   type GateguardProbeResult,
-  type GateguardProbe,
+  type GateguardProbe
 } from './doctor-service.js';

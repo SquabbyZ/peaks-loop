@@ -11,9 +11,7 @@
  * The fetcher is injected so tests can pin responses deterministically
  * (cross-version isolation test relies on this).
  */
-import type {
-  DepInfo, DocRetrieverOutput, DocSection, FetchedDoc, SkippedDoc,
-} from './types.js';
+import type { DepInfo, DocRetrieverOutput, DocSection, FetchedDoc, SkippedDoc } from './types.js';
 
 export interface DocFetcher {
   (dep: string, version: string): Promise<FetcherPayload | null>;
@@ -35,7 +33,7 @@ function makeSection(excerpt: string): DocSection {
   return {
     title: 'API Summary',
     tokenEstimate: Math.ceil(excerpt.length / 4),
-    excerpt,
+    excerpt
   };
 }
 
@@ -52,7 +50,7 @@ function hashContent(content: string): string {
 
 export async function retrieveDocs(
   deps: Readonly<Record<string, DepInfo>>,
-  options: RetrieveOptions,
+  options: RetrieveOptions
 ): Promise<DocRetrieverOutput> {
   const fetchedDocs: FetchedDoc[] = [];
   const skipped: SkippedDoc[] = [];
@@ -77,7 +75,7 @@ export async function retrieveDocs(
         fetchedAt: now().toISOString(),
         contentHash: hashContent(payload.excerpt),
         sections: [makeSection(payload.excerpt)],
-        stale: false,
+        stale: false
       });
     } catch {
       skipped.push({ dep, reason: 'network_error' });

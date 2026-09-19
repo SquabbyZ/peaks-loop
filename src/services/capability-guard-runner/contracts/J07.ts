@@ -12,7 +12,14 @@ import {
   writeTestCache
 } from '../../test-cache/test-cache-service.js';
 import type { GuardContext, GuardRunResult } from '../types.js';
-import { combineProbes, fail, missingSourceFiles, pass, probe, requireBaselineRow } from './_shared.js';
+import {
+  combineProbes,
+  fail,
+  missingSourceFiles,
+  pass,
+  probe,
+  requireBaselineRow
+} from './_shared.js';
 
 const TEST_NAME = 'fingerprint probe';
 
@@ -68,7 +75,11 @@ export async function runJ07Contract(ctx: GuardContext): Promise<GuardRunResult>
     const afterSilentEdit = isCacheable(root, file, TEST_NAME);
 
     // Gate 2, isolated: the sha is up-to-date but the recorded mtime is stale.
-    writeTestCache(root, { ...cached!, fileSha256: sha256OfFile(file), fileMtime: cached!.fileMtime - 5_000 });
+    writeTestCache(root, {
+      ...cached!,
+      fileSha256: sha256OfFile(file),
+      fileMtime: cached!.fileMtime - 5_000
+    });
     const afterTouch = isCacheable(root, file, TEST_NAME);
 
     // A non-passing status must never be served as a hit.
@@ -85,7 +96,10 @@ export async function runJ07Contract(ctx: GuardContext): Promise<GuardRunResult>
 
     const result = combineProbes([
       probe(missing.length === 0, `baseline sourceFiles present (${row.sourceFiles.length})`),
-      probe(baseline.hit, `an unchanged passing test is a cache hit (reason=${String(baseline.reason)})`),
+      probe(
+        baseline.hit,
+        `an unchanged passing test is a cache hit (reason=${String(baseline.reason)})`
+      ),
       probe(
         !afterSilentEdit.hit && afterSilentEdit.reason === 'sha-changed',
         `a same-mtime content edit is NOT a hit (hit=${String(afterSilentEdit.hit)} reason=${String(afterSilentEdit.reason)})`
@@ -98,9 +112,14 @@ export async function runJ07Contract(ctx: GuardContext): Promise<GuardRunResult>
         !skipped.hit && skipped.reason === 'previous-skipped',
         `a previously skipped test is NOT a hit (hit=${String(skipped.hit)} reason=${String(skipped.reason)})`
       ),
-      probe(!unknown.hit && unknown.reason === 'no-cache', `an unrecorded test is NOT a hit (reason=${String(unknown.reason)})`),
       probe(
-        testCacheDir(ctx.projectRoot).replace(/\\/g, '/').endsWith(`.peaks/_runtime/${TEST_CACHE_DIR}`),
+        !unknown.hit && unknown.reason === 'no-cache',
+        `an unrecorded test is NOT a hit (reason=${String(unknown.reason)})`
+      ),
+      probe(
+        testCacheDir(ctx.projectRoot)
+          .replace(/\\/g, '/')
+          .endsWith(`.peaks/_runtime/${TEST_CACHE_DIR}`),
         `the cache writes under .peaks/_runtime/${TEST_CACHE_DIR} (got ${testCacheDir(ctx.projectRoot)})`
       ),
       probe(

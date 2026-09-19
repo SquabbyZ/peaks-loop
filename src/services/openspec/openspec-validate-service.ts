@@ -40,11 +40,17 @@ function defaultOpenSpecRoot(): string {
   return join(process.cwd(), 'openspec');
 }
 
-async function defaultExternalRunner(_command: string, _args: string[]): Promise<ExternalRunnerOutcome> {
+async function defaultExternalRunner(
+  _command: string,
+  _args: string[]
+): Promise<ExternalRunnerOutcome> {
   return { available: false, exitCode: null, stdout: '', stderr: '' };
 }
 
-function buildInternalIssues(changeId: string, detail: Awaited<ReturnType<typeof loadOpenSpecChange>>): OpenSpecValidationIssue[] {
+function buildInternalIssues(
+  changeId: string,
+  detail: Awaited<ReturnType<typeof loadOpenSpecChange>>
+): OpenSpecValidationIssue[] {
   const issues: OpenSpecValidationIssue[] = [];
 
   const changeIdResult = validateChangeId(changeId);
@@ -66,10 +72,18 @@ function buildInternalIssues(changeId: string, detail: Awaited<ReturnType<typeof
     issues.push({ level: 'warning', rule: 'why-non-empty', message: 'Why section is empty' });
   }
   if (proposal.whatChanges.length === 0) {
-    issues.push({ level: 'error', rule: 'what-changes-non-empty', message: 'What Changes section has no bullets' });
+    issues.push({
+      level: 'error',
+      rule: 'what-changes-non-empty',
+      message: 'What Changes section has no bullets'
+    });
   }
   if (proposal.acceptanceCriteria.length === 0) {
-    issues.push({ level: 'error', rule: 'acceptance-non-empty', message: 'Acceptance Criteria section has no bullets' });
+    issues.push({
+      level: 'error',
+      rule: 'acceptance-non-empty',
+      message: 'Acceptance Criteria section has no bullets'
+    });
   }
 
   return issues;
@@ -79,7 +93,10 @@ function hasErrors(issues: OpenSpecValidationIssue[]): boolean {
   return issues.some((issue) => issue.level === 'error');
 }
 
-async function runInternal(changeId: string, openspecRoot: string): Promise<OpenSpecValidationResult | null> {
+async function runInternal(
+  changeId: string,
+  openspecRoot: string
+): Promise<OpenSpecValidationResult | null> {
   const changeRoot = join(openspecRoot, 'changes', changeId);
   if (!(await isDirectory(changeRoot))) {
     return null;
@@ -104,11 +121,20 @@ export async function validateOpenSpecChange(
   if (options.preferExternal === true) {
     const outcome = await runner('openspec', ['validate', changeId]);
     if (outcome.available) {
-      const cliOutput = [outcome.stdout, outcome.stderr].filter((part) => part.length > 0).join('\n').trim();
+      const cliOutput = [outcome.stdout, outcome.stderr]
+        .filter((part) => part.length > 0)
+        .join('\n')
+        .trim();
       const passed = outcome.exitCode === 0;
       const issues: OpenSpecValidationIssue[] = passed
         ? []
-        : [{ level: 'error', rule: 'openspec-cli-failed', message: `openspec validate exited with code ${outcome.exitCode ?? 'null'}` }];
+        : [
+            {
+              level: 'error',
+              rule: 'openspec-cli-failed',
+              message: `openspec validate exited with code ${outcome.exitCode ?? 'null'}`
+            }
+          ];
       return { changeId, valid: passed, source: 'openspec-cli', issues, cliOutput };
     }
     const internal = await runInternal(changeId, openspecRoot);
@@ -116,7 +142,11 @@ export async function validateOpenSpecChange(
       return null;
     }
     internal.issues = [
-      { level: 'warning', rule: 'openspec-cli-unavailable', message: 'openspec CLI not found, fell back to internal lint' },
+      {
+        level: 'warning',
+        rule: 'openspec-cli-unavailable',
+        message: 'openspec CLI not found, fell back to internal lint'
+      },
       ...internal.issues
     ];
     return internal;

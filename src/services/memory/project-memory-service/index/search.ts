@@ -35,7 +35,10 @@ import { MEMORY_KIND_TIER, PROJECT_MEMORY_KINDS } from '../types.js';
 import { parseStoredMemoryFile } from '../parsers/frontmatter.js';
 import { assertSafeProjectMemoryDir, normalizeRoot } from '../store/paths.js';
 
-export function listMarkdownFiles(dirPath: string, options: { maxDepth?: number; skipDotfiles?: boolean } = {}): string[] {
+export function listMarkdownFiles(
+  dirPath: string,
+  options: { maxDepth?: number; skipDotfiles?: boolean } = {}
+): string[] {
   if (!existsSync(dirPath)) return [];
 
   const { maxDepth = Infinity, skipDotfiles = true } = options;
@@ -45,7 +48,9 @@ export function listMarkdownFiles(dirPath: string, options: { maxDepth?: number;
   while (stack.length > 0) {
     const frame = stack.pop() as { path: string; depth: number };
     if (frame.depth > maxDepth) continue;
-    for (const entry of readdirSync(frame.path, { withFileTypes: true }).sort((left, right) => left.name.localeCompare(right.name))) {
+    for (const entry of readdirSync(frame.path, { withFileTypes: true }).sort((left, right) =>
+      left.name.localeCompare(right.name)
+    )) {
       if (skipDotfiles && entry.name.startsWith('.')) continue;
       const entryPath = join(frame.path, entry.name);
       if (entry.isSymbolicLink()) {
@@ -167,7 +172,10 @@ export function readProjectMemories(projectRoot: string): ProjectMemoryReadResul
  * (pretty). The CLI layer applies `formatMdCompact` when `format: 'compact'`
  * is requested. Slice 023 (R3).
  */
-export function readProjectMemoryBody(projectRoot: string, name: string): ProjectMemoryShowResult | null {
+export function readProjectMemoryBody(
+  projectRoot: string,
+  name: string
+): ProjectMemoryShowResult | null {
   const normalizedRoot = normalizeRoot(projectRoot);
   const memoryDir = assertSafeProjectMemoryDir(normalizedRoot);
   if (!existsSync(memoryDir)) {

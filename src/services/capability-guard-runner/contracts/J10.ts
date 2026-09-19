@@ -3,7 +3,14 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { applyHookInstall, planHookInstall } from '../../skills/hooks-settings-service.js';
 import type { GuardContext, GuardRunResult } from '../types.js';
-import { combineProbes, fail, missingSourceFiles, pass, probe, requireBaselineRow } from './_shared.js';
+import {
+  combineProbes,
+  fail,
+  missingSourceFiles,
+  pass,
+  probe,
+  requireBaselineRow
+} from './_shared.js';
 import { normalizePath } from '../../../shared/path-utils.js';
 
 function countOccurrences(haystack: string, needle: string): number {
@@ -44,9 +51,13 @@ export async function runJ10Contract(ctx: GuardContext): Promise<GuardRunResult>
 
     // Each managed hook entry is identified by its own sentinel; every one of
     // them must land exactly once and stay at one across a re-apply.
-    const sentinels = plan.entryTargets.filter((t) => t.settingsPath === settingsPath).map((t) => t.sentinel);
+    const sentinels = plan.entryTargets
+      .filter((t) => t.settingsPath === settingsPath)
+      .map((t) => t.sentinel);
     const countsNow = (): ReadonlyArray<number> =>
-      existsSync(settingsPath) ? sentinels.map((s) => countOccurrences(readFileSync(settingsPath, 'utf8'), s)) : [];
+      existsSync(settingsPath)
+        ? sentinels.map((s) => countOccurrences(readFileSync(settingsPath, 'utf8'), s))
+        : [];
 
     const first = applyHookInstall('project', root);
     const fileWritten = existsSync(settingsPath);
@@ -59,22 +70,40 @@ export async function runJ10Contract(ctx: GuardContext): Promise<GuardRunResult>
 
     const result = combineProbes([
       probe(missing.length === 0, `baseline sourceFiles present (${row.sourceFiles.length})`),
-      probe(plannedInsideProject, `the plan targets a settings file inside the project (${settingsPath})`),
-      probe(freshProjectNotInstalled, 'a fresh project reports exists=false / alreadyInstalled=false'),
-      probe(planIsReadOnly, 'planning does not create the settings file — the diff is reviewable first'),
+      probe(
+        plannedInsideProject,
+        `the plan targets a settings file inside the project (${settingsPath})`
+      ),
+      probe(
+        freshProjectNotInstalled,
+        'a fresh project reports exists=false / alreadyInstalled=false'
+      ),
+      probe(
+        planIsReadOnly,
+        'planning does not create the settings file — the diff is reviewable first'
+      ),
       probe(first.applied === true, 'apply reports applied=true'),
       probe(fileWritten, 'apply writes the settings file'),
-      probe(sentinels.length > 0, `the plan enumerates managed hook entries (${String(sentinels.length)})`),
+      probe(
+        sentinels.length > 0,
+        `the plan enumerates managed hook entries (${String(sentinels.length)})`
+      ),
       probe(
         installedCounts.length > 0 && installedCounts.every((c) => c === 1),
         `apply installs every managed entry exactly once (counts=${installedCounts.join(',') || 'none'})`
       ),
-      probe(second.applied === false, `a second apply is a no-op (applied=${String(second.applied)}, first sentinel count=${String(sentinelCount)})`),
+      probe(
+        second.applied === false,
+        `a second apply is a no-op (applied=${String(second.applied)}, first sentinel count=${String(sentinelCount)})`
+      ),
       probe(
         afterSecondApply === 1,
         `a duplicate apply does not duplicate the entry (count=${String(afterSecondApply)})`
       ),
-      probe(planAfterApply.alreadyInstalled === true, 'the plan reports alreadyInstalled=true after a successful apply')
+      probe(
+        planAfterApply.alreadyInstalled === true,
+        'the plan reports alreadyInstalled=true after a successful apply'
+      )
     ]);
 
     const artifact = row.sourceFiles[0] ?? 'src/services/skills/hooks-settings-service.ts';

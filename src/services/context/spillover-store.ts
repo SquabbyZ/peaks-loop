@@ -11,7 +11,13 @@ import {
 import { randomUUID } from 'node:crypto';
 import { isAbsolute, join, relative } from 'node:path';
 
-import { SPILL_TTL_MS, type SpillId, type SpillOptions, type SpillRecord, type SpillState } from './spillover-types.js';
+import {
+  SPILL_TTL_MS,
+  type SpillId,
+  type SpillOptions,
+  type SpillRecord,
+  type SpillState
+} from './spillover-types.js';
 
 const SAFE_SEGMENT = /^[A-Za-z0-9._-]+$/;
 
@@ -23,7 +29,11 @@ function assertSafeSegment(value: string, name: string): void {
 
 function assertInside(base: string, target: string): void {
   const rel = relative(base, target);
-  if (rel === '..' || rel.startsWith(`..${process.platform === 'win32' ? '\\' : '/'}`) || isAbsolute(rel)) {
+  if (
+    rel === '..' ||
+    rel.startsWith(`..${process.platform === 'win32' ? '\\' : '/'}`) ||
+    isAbsolute(rel)
+  ) {
     throw new Error('Spill path must stay inside the session spill directory');
   }
 }

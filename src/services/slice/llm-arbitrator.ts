@@ -44,10 +44,7 @@ export function resetArbitratorBudget(): void {
   callsThisInvocation = 0;
 }
 
-export async function arbitrate(
-  prompt: string,
-  opts: ArbitratorOptions
-): Promise<ArbitrateResult> {
+export async function arbitrate(prompt: string, opts: ArbitratorOptions): Promise<ArbitrateResult> {
   const promptHash = createHash('sha256').update(prompt).digest('hex');
   const cacheFile = join(opts.cacheDir, `${promptHash}.json`);
 

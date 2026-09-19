@@ -15,9 +15,7 @@
  */
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import type {
-  AssertionsReport, WeakExample, WeakPattern, WeakPatternCount,
-} from './types.js';
+import type { AssertionsReport, WeakExample, WeakPattern, WeakPatternCount } from './types.js';
 
 const WEAK_PATTERNS: ReadonlyArray<{
   readonly pattern: WeakPattern;
@@ -25,7 +23,7 @@ const WEAK_PATTERNS: ReadonlyArray<{
 }> = [
   { pattern: 'toBeDefined', regex: /\.toBeDefined\s*\(\s*\)/g },
   { pattern: 'toBeTruthy', regex: /\.toBeTruthy\s*\(\s*\)/g },
-  { pattern: 'expect-anything', regex: /expect\.anything\s*\(\s*\)/g },
+  { pattern: 'expect-anything', regex: /expect\.anything\s*\(\s*\)/g }
   // Self-equality patterns require matched-pair parsing; handled below.
 ];
 
@@ -90,7 +88,9 @@ export async function scanAssertions(input: ScanInput): Promise<AssertionsReport
     // toEqual-self: needs receiver extraction.
     const eqSelf = [...content.matchAll(TO_EQUAL_SELF)];
     for (const m of eqSelf) {
-      const receiverMatch = content.slice(0, m.index ?? 0).match(/expect\s*\(\s*([a-zA-Z_$][\w$]*)\s*\)/g);
+      const receiverMatch = content
+        .slice(0, m.index ?? 0)
+        .match(/expect\s*\(\s*([a-zA-Z_$][\w$]*)\s*\)/g);
       if (receiverMatch && receiverMatch.length > 0) {
         const lastReceiver = receiverMatch[receiverMatch.length - 1];
         const receiverName = lastReceiver?.match(/expect\s*\(\s*([a-zA-Z_$][\w$]*)\s*\)/)?.[1];
@@ -107,7 +107,9 @@ export async function scanAssertions(input: ScanInput): Promise<AssertionsReport
     // toBe-self: same pattern.
     const beSelf = [...content.matchAll(TO_BE_SELF)];
     for (const m of beSelf) {
-      const receiverMatch = content.slice(0, m.index ?? 0).match(/expect\s*\(\s*([a-zA-Z_$][\w$]*)\s*\)/g);
+      const receiverMatch = content
+        .slice(0, m.index ?? 0)
+        .match(/expect\s*\(\s*([a-zA-Z_$][\w$]*)\s*\)/g);
       if (receiverMatch && receiverMatch.length > 0) {
         const lastReceiver = receiverMatch[receiverMatch.length - 1];
         const receiverName = lastReceiver?.match(/expect\s*\(\s*([a-zA-Z_$][\w$]*)\s*\)/)?.[1];
@@ -131,6 +133,6 @@ export async function scanAssertions(input: ScanInput): Promise<AssertionsReport
     totalAssertions: total,
     weakAssertions: weak,
     weakRate: total === 0 ? 0 : weak / total,
-    weakPatterns,
+    weakPatterns
   };
 }

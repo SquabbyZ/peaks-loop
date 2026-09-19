@@ -82,9 +82,8 @@ export function tailLog(opts: TailLogOptions = {}): TailLogResult {
   const lines = opts.lines ?? 50;
   const logDir = opts.dirOverride ?? resolveLogDir();
   const now = opts.now ? opts.now() : new Date();
-  const dateForFile = opts.dateOverride !== undefined
-    ? new Date(`${opts.dateOverride}T00:00:00.000Z`)
-    : now;
+  const dateForFile =
+    opts.dateOverride !== undefined ? new Date(`${opts.dateOverride}T00:00:00.000Z`) : now;
   const fileName = buildLogFileName(dateForFile);
   const fullPath = join(logDir, fileName);
 
@@ -101,9 +100,8 @@ export function tailLog(opts: TailLogOptions = {}): TailLogResult {
   // read but BEFORE the trailing window, so a single batch's
   // interleaved log lines surface as a coherent sequence instead of
   // being pushed out by sibling-batch lines.
-  const filtered = opts.batchId !== undefined
-    ? allEntries.filter((e) => e.batchId === opts.batchId)
-    : allEntries;
+  const filtered =
+    opts.batchId !== undefined ? allEntries.filter((e) => e.batchId === opts.batchId) : allEntries;
   if (filtered.length === 0) {
     return { file: fullPath, entries: [], total, batchMatches: 0 };
   }

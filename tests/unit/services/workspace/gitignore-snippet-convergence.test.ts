@@ -38,8 +38,8 @@ declareDimensions(
   ['behavior', 'integration'],
   [
     { dim: 'render', reason: 'no human-visible output in the service' },
-    { dim: 'a11y', reason: 'no human-facing text in this module' },
-  ],
+    { dim: 'a11y', reason: 'no human-facing text in this module' }
+  ]
 );
 
 const USER_LINES = ['node_modules/', 'dist/', '# my own note'];
@@ -72,7 +72,9 @@ describe('Scenario: behavior — managed .gitignore snippet converges', () => {
     for (const line of USER_LINES) expect(body).toContain(line);
     expect(body).toContain('.claude/settings.local.json');
     expect(body).toContain('.peaks/.claude-settings-template.json');
-    expect(body.indexOf('.claude/settings.local.json')).toBeGreaterThan(body.indexOf('node_modules/'));
+    expect(body.indexOf('.claude/settings.local.json')).toBeGreaterThan(
+      body.indexOf('node_modules/')
+    );
   });
 
   it('a block left by an OLDER release is replaced by the current one (the defect)', async () => {

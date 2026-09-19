@@ -69,7 +69,8 @@ export async function getStrongestModelIdAsync(
     try {
       const probed = await detectCurrentIdeModel();
       if (probed && probed.length > 0) return probed;
-    } catch { // TODO(g2): best-effort runtime probe — fall through to back-compat default is intentional
+    } catch {
+      // TODO(g2): best-effort runtime probe — fall through to back-compat default is intentional
       // best-effort — fall through to back-compat default
     }
   }
@@ -100,10 +101,14 @@ export class ProviderNotConfiguredError extends Error {
   }
 }
 
-export function getEconomyAwareExecutionModelId(config: Pick<PeaksConfig, 'economyMode' | 'providers'> & { model?: string }): string {
+export function getEconomyAwareExecutionModelId(
+  config: Pick<PeaksConfig, 'economyMode' | 'providers'> & { model?: string }
+): string {
   // Slice 2.0.1-bug1 round 3: economy is the project default. Treat undefined as enabled
   // (matches the pre-slice implicit default from DEFAULT_CONFIG.economyMode = true). Only an
   // explicit `economyMode === false` switches execution to the strongest planner/reviewer
   // model (resolved dynamically per Slice 2026-07-09 add-zcode-adapter A.3).
-  return config.economyMode !== false ? getConfiguredExecutionModelId(config.providers) : getStrongestModelId(config);
+  return config.economyMode !== false
+    ? getConfiguredExecutionModelId(config.providers)
+    : getStrongestModelId(config);
 }

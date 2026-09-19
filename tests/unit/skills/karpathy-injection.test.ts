@@ -68,14 +68,7 @@ const LAYER_B = join(
   'rd-sub-agent-dispatch.md'
 );
 /** Layer C — the pointer callout on the RD fan-out contract. */
-const LAYER_C = join(
-  repoRoot,
-  'skills',
-  'bee',
-  'peaks-rd',
-  'references',
-  'rd-fanout-contracts.md'
-);
+const LAYER_C = join(repoRoot, 'skills', 'bee', 'peaks-rd', 'references', 'rd-fanout-contracts.md');
 /** Layer D — the orchestrator-side rule + canonical skill id. */
 const LAYER_D = join(repoRoot, 'skills', 'peaks-code', 'SKILL.md');
 

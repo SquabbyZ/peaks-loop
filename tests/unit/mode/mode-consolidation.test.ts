@@ -37,11 +37,7 @@ import {
   isSkillPresenceMode,
   normalizeSkillPresenceMode
 } from '~/src/services/skills/skill-presence-service';
-import {
-  CODE_MODES,
-  shouldAutoProceed,
-  shouldPauseAtGate
-} from '~/src/services/code/mode-gate';
+import { CODE_MODES, shouldAutoProceed, shouldPauseAtGate } from '~/src/services/code/mode-gate';
 import { requiresConfirmation } from '~/src/services/mode/mode-enforcement';
 import { applyAutoEngagePresenceMode } from '~/src/services/24h-mode/auto-engage';
 import { emptySnapshot, write24hState } from '~/src/services/24h-mode/store';
@@ -50,10 +46,12 @@ import { resolveActiveSkillForCaller } from '~/src/services/audit/enforcers/acti
 import { resolveModeStatus } from '~/src/services/mode/mode-status-service';
 import { registerCodeModeStatusCommand } from '~/src/cli/commands/code-mode-status-command';
 
-declareDimensions(
-  'tests/unit/mode/mode-consolidation.test.ts',
-  ['render', 'behavior', 'integration', 'a11y']
-);
+declareDimensions('tests/unit/mode/mode-consolidation.test.ts', [
+  'render',
+  'behavior',
+  'integration',
+  'a11y'
+]);
 
 const SID = '2026-09-09-session-mode-consolidation';
 const CALLER = 'test-caller-mode';
@@ -205,7 +203,11 @@ describe('Scenario: integration — auto-engage stamps the 24h mode', () => {
     const root = makeProjectRoot();
     writeLease(root, 'assisted');
 
-    const refused = applyAutoEngagePresenceMode({ projectRoot: root, sessionId: SID, mode: 'full-auto' });
+    const refused = applyAutoEngagePresenceMode({
+      projectRoot: root,
+      sessionId: SID,
+      mode: 'full-auto'
+    });
     expect(refused.applied).toBe(false);
     if (!refused.applied) expect(refused.reason).toBe('mode-not-auto-settable');
     expect(leaseMode(root)).toBe('assisted');
@@ -247,7 +249,11 @@ describe('Scenario: render — peaks code mode status envelope', () => {
     expect(status.mode).toBe('24h');
     expect(status.is24h).toBe(true);
     expect(status.autoCompactProfile).toBe('partial');
-    expect(status.autoCompactThresholds).toEqual({ autoFire: 0.65, preCompact: 0.70, redLine: 0.85 });
+    expect(status.autoCompactThresholds).toEqual({
+      autoFire: 0.65,
+      preCompact: 0.7,
+      redLine: 0.85
+    });
     expect(status.h24State?.state).toBe('24H_ACTIVE');
     expect(status.jobMode).toBe(false);
 
@@ -255,7 +261,16 @@ describe('Scenario: render — peaks code mode status envelope', () => {
     const program = new Command();
     const code = program.command('code');
     registerCodeModeStatusCommand(code, io);
-    await program.parseAsync(['node', 'peaks', 'code', 'mode', 'status', '--project', root, '--json']);
+    await program.parseAsync([
+      'node',
+      'peaks',
+      'code',
+      'mode',
+      'status',
+      '--project',
+      root,
+      '--json'
+    ]);
 
     const envelope = JSON.parse(captured.text()) as { ok: boolean; data: Record<string, unknown> };
     expect(envelope.ok).toBe(true);

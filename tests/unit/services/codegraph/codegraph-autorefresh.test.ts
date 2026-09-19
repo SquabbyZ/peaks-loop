@@ -24,7 +24,15 @@
 // Run with: pnpm vitest run tests/unit/services/codegraph/codegraph-autorefresh.test.ts
 
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  writeFileSync
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
@@ -32,13 +40,13 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   codegraphRefreshNotice,
   refreshCodegraphAfterSlice,
-  isCodegraphPresent,
+  isCodegraphPresent
 } from '../../../../src/services/codegraph/codegraph-autorefresh.js';
 import {
   CODEGRAPH_DB_NAME,
   CODEGRAPH_MARKER_NAME,
   type CodegraphExecutionResult,
-  type CodegraphInvocation,
+  type CodegraphInvocation
 } from '../../../../src/services/codegraph/codegraph-service.js';
 import { declareDimensions } from '../../_setup/4dim-template.js';
 
@@ -48,9 +56,10 @@ declareDimensions(
   [
     {
       dim: 'render',
-      reason: 'the module returns a typed result object and prints nothing; return-shape assertions live under behavior',
-    },
-  ],
+      reason:
+        'the module returns a typed result object and prints nothing; return-shape assertions live under behavior'
+    }
+  ]
 );
 
 function freshProject(prefix: string): string {
@@ -58,11 +67,19 @@ function freshProject(prefix: string): string {
 }
 
 function okRunner() {
-  return vi.fn(async (_invocation: CodegraphInvocation): Promise<CodegraphExecutionResult> => ({ exitCode: 0, stdout: 'indexed\n', stderr: '' }));
+  return vi.fn(async (_invocation: CodegraphInvocation): Promise<CodegraphExecutionResult> => ({
+    exitCode: 0,
+    stdout: 'indexed\n',
+    stderr: ''
+  }));
 }
 
 function failingRunner(exitCode: number, stderr = '') {
-  return vi.fn(async (_invocation: CodegraphInvocation): Promise<CodegraphExecutionResult> => ({ exitCode, stdout: '', stderr }));
+  return vi.fn(async (_invocation: CodegraphInvocation): Promise<CodegraphExecutionResult> => ({
+    exitCode,
+    stdout: '',
+    stderr
+  }));
 }
 
 /** Create `.codegraph/` WITH a `codegraph.db` (an initialized schema). */
@@ -168,9 +185,11 @@ describe('Scenario: integration — refresh runs codegraph index against a real 
     // given: an existing `.codegraph/` dir and a runner that rejects
     const project = freshProject('peaks-cg-auto-i3-');
     initializedCodegraph(project);
-    const runner = vi.fn(async (_invocation: CodegraphInvocation): Promise<CodegraphExecutionResult> => {
-      throw new Error('codegraph binary not found');
-    });
+    const runner = vi.fn(
+      async (_invocation: CodegraphInvocation): Promise<CodegraphExecutionResult> => {
+        throw new Error('codegraph binary not found');
+      }
+    );
     try {
       // when: refreshCodegraphAfterSlice is invoked
       const result = await refreshCodegraphAfterSlice(project, runner);
@@ -190,11 +209,15 @@ describe('Scenario: integration — dangling marker self-heal and foreign skip',
     // given: a project whose `.codegraph/` carries the marker but no db
     const project = freshProject('peaks-cg-auto-d1-');
     danglingCodegraph(project);
-    const runner = vi.fn(async (invocation: CodegraphInvocation): Promise<CodegraphExecutionResult> => {
-      if (invocation.subcommand === 'init') return { exitCode: 0, stdout: 'initialized\n', stderr: '' };
-      if (invocation.subcommand === 'index') return { exitCode: 0, stdout: 'indexed\n', stderr: '' };
-      return { exitCode: 1, stdout: '', stderr: 'unexpected subcommand' };
-    });
+    const runner = vi.fn(
+      async (invocation: CodegraphInvocation): Promise<CodegraphExecutionResult> => {
+        if (invocation.subcommand === 'init')
+          return { exitCode: 0, stdout: 'initialized\n', stderr: '' };
+        if (invocation.subcommand === 'index')
+          return { exitCode: 0, stdout: 'indexed\n', stderr: '' };
+        return { exitCode: 1, stdout: '', stderr: 'unexpected subcommand' };
+      }
+    );
     try {
       // when: refreshCodegraphAfterSlice is invoked
       const result = await refreshCodegraphAfterSlice(project, runner);
@@ -223,28 +246,40 @@ describe('Scenario: integration — dangling marker self-heal and foreign skip',
     writeFileSync(join(project, 'src', 'ok.ts'), 'export const ok = 1;\n', 'utf8');
     writeFileSync(join(project, 'vendor', 'lib.ts'), 'export const lib = 1;\n', 'utf8');
     execFileSync('git', ['-C', project, 'init', '-q'], { stdio: 'ignore', windowsHide: true });
-    execFileSync('git', ['-C', project, 'config', 'user.email', 'peaks-test@example.com'], { stdio: 'ignore', windowsHide: true });
-    execFileSync('git', ['-C', project, 'config', 'user.name', 'peaks test'], { stdio: 'ignore', windowsHide: true });
+    execFileSync('git', ['-C', project, 'config', 'user.email', 'peaks-test@example.com'], {
+      stdio: 'ignore',
+      windowsHide: true
+    });
+    execFileSync('git', ['-C', project, 'config', 'user.name', 'peaks test'], {
+      stdio: 'ignore',
+      windowsHide: true
+    });
     execFileSync('git', ['-C', project, 'add', '-A'], { stdio: 'ignore', windowsHide: true });
-    execFileSync('git', ['-C', project, 'commit', '-qm', 'fixture'], { stdio: 'ignore', windowsHide: true });
+    execFileSync('git', ['-C', project, 'commit', '-qm', 'fixture'], {
+      stdio: 'ignore',
+      windowsHide: true
+    });
     danglingCodegraph(project);
 
-    const runner = vi.fn(async (invocation: CodegraphInvocation): Promise<CodegraphExecutionResult> => {
-      if (invocation.subcommand === 'init') {
-        writeFileSync(
-          join(project, '.codegraph', 'config.json'),
-          `${JSON.stringify(
-            { version: 1, include: ['**/*.ts'], exclude: ['**/vendor/**', '**/node_modules/**'] },
-            null,
-            2,
-          )}\n`,
-          'utf8',
-        );
-        return { exitCode: 0, stdout: 'initialized\n', stderr: '' };
+    const runner = vi.fn(
+      async (invocation: CodegraphInvocation): Promise<CodegraphExecutionResult> => {
+        if (invocation.subcommand === 'init') {
+          writeFileSync(
+            join(project, '.codegraph', 'config.json'),
+            `${JSON.stringify(
+              { version: 1, include: ['**/*.ts'], exclude: ['**/vendor/**', '**/node_modules/**'] },
+              null,
+              2
+            )}\n`,
+            'utf8'
+          );
+          return { exitCode: 0, stdout: 'initialized\n', stderr: '' };
+        }
+        if (invocation.subcommand === 'index')
+          return { exitCode: 0, stdout: 'indexed\n', stderr: '' };
+        return { exitCode: 1, stdout: '', stderr: 'unexpected subcommand' };
       }
-      if (invocation.subcommand === 'index') return { exitCode: 0, stdout: 'indexed\n', stderr: '' };
-      return { exitCode: 1, stdout: '', stderr: 'unexpected subcommand' };
-    });
+    );
 
     try {
       // when: refreshCodegraphAfterSlice is invoked
@@ -279,7 +314,7 @@ describe('Scenario: integration — dangling marker self-heal and foreign skip',
         '**/*.cjs',
         '**/*.pyw',
         '**/*.hxx',
-        '**/*.rake',
+        '**/*.rake'
       ]);
 
       // … and exactly one index ran (the repair does not add a second
@@ -295,10 +330,13 @@ describe('Scenario: integration — dangling marker self-heal and foreign skip',
     // given: a dangling dir whose init step exits non-zero
     const project = freshProject('peaks-cg-auto-d2-');
     danglingCodegraph(project);
-    const runner = vi.fn(async (invocation: CodegraphInvocation): Promise<CodegraphExecutionResult> => {
-      if (invocation.subcommand === 'init') return { exitCode: 2, stdout: '', stderr: 'grammar load failed' };
-      return { exitCode: 0, stdout: '', stderr: '' };
-    });
+    const runner = vi.fn(
+      async (invocation: CodegraphInvocation): Promise<CodegraphExecutionResult> => {
+        if (invocation.subcommand === 'init')
+          return { exitCode: 2, stdout: '', stderr: 'grammar load failed' };
+        return { exitCode: 0, stdout: '', stderr: '' };
+      }
+    );
     try {
       // when: refreshCodegraphAfterSlice is invoked
       const result = await refreshCodegraphAfterSlice(project, runner);
@@ -379,7 +417,10 @@ describe('Scenario: a11y — refresh notes are human/LLM actionable', () => {
     initializedCodegraph(project);
     try {
       // when: refreshCodegraphAfterSlice is invoked
-      const result = await refreshCodegraphAfterSlice(project, failingRunner(2, 'schema lock conflict'));
+      const result = await refreshCodegraphAfterSlice(
+        project,
+        failingRunner(2, 'schema lock conflict')
+      );
       // then: the note carries both — the reason, and what to do about it
       expect(result.refreshed).toBe(false);
       if (result.refreshed) throw new Error('unreachable');
@@ -395,7 +436,10 @@ describe('Scenario: a11y — refresh notes are human/LLM actionable', () => {
     const project = freshProject('peaks-cg-auto-a4-');
     initializedCodegraph(project);
     try {
-      const result = await refreshCodegraphAfterSlice(project, failingRunner(2, 'schema lock conflict'));
+      const result = await refreshCodegraphAfterSlice(
+        project,
+        failingRunner(2, 'schema lock conflict')
+      );
       // when: the shared notice rule is asked what to report
       const notice = codegraphRefreshNotice(result);
       // then: the note itself, verbatim — a second wording here would be a

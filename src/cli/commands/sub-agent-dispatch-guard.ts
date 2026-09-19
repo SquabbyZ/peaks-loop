@@ -21,7 +21,10 @@
  * to decide whether to register this hook for a given IDE.
  */
 import { Command } from 'commander';
-import { evaluatePromptSize, type ContextGuardDecision } from '../../services/context/context-guard.js';
+import {
+  evaluatePromptSize,
+  type ContextGuardDecision
+} from '../../services/context/context-guard.js';
 
 export const HOOK_GUARD_RESULT_TYPE = 'peaks-hook-guard/v1' as const;
 
@@ -77,8 +80,14 @@ export function registerSubAgentDispatchGuard(program: Command): void {
   program
     .command('sub-agent-dispatch-guard')
     .description('INTERNAL: PreToolUse hook guard (G9.5 / RL-30 strict)')
-    .requiredOption('--prompt <text>', 'the prompt to validate (size in bytes is what gets checked)')
-    .option('--prompt-length <bytes>', 'DOGFOOD ONLY: synthesize a prompt of this size (overrides --prompt content for size only)')
+    .requiredOption(
+      '--prompt <text>',
+      'the prompt to validate (size in bytes is what gets checked)'
+    )
+    .option(
+      '--prompt-length <bytes>',
+      'DOGFOOD ONLY: synthesize a prompt of this size (overrides --prompt content for size only)'
+    )
     .action((options: { prompt: string; promptLength?: string }) => {
       let prompt = options.prompt;
       if (typeof options.promptLength === 'string' && options.promptLength.length > 0) {

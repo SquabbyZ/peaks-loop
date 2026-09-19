@@ -12,7 +12,7 @@
 import {
   type WorkflowGraph,
   type GraphNodeStatus,
-  type WorkflowId,
+  type WorkflowId
 } from './workflow-graph-types.js';
 
 export const FRESH_RUNNING_THRESHOLD_MS = 30 * 60 * 1000; // 30 minutes
@@ -66,7 +66,7 @@ const NON_RUNNING: ReadonlySet<string> = new Set([
   'envelope-received',
   'consumed-by-parent',
   'terminalized',
-  'lost',
+  'lost'
 ]);
 
 export function probeInFlightBatch(input: ProbeInput): ProbeResult {
@@ -80,7 +80,7 @@ export function probeInFlightBatch(input: ProbeInput): ProbeResult {
       errors.push({
         code: PEAKS_GRAPH_REF_BROKEN,
         message: 'corrupt or missing graph',
-        ...(graph.graphRef ? { graphRef: graph.graphRef } : {}),
+        ...(graph.graphRef ? { graphRef: graph.graphRef } : {})
       });
       continue;
     }
@@ -88,7 +88,7 @@ export function probeInFlightBatch(input: ProbeInput): ProbeResult {
       errors.push({
         code: PEAKS_GRAPH_CORRUPTED,
         message: 'graph.nodes missing',
-        ...(graph.graphRef ? { graphRef: graph.graphRef } : {}),
+        ...(graph.graphRef ? { graphRef: graph.graphRef } : {})
       });
       continue;
     }
@@ -98,7 +98,7 @@ export function probeInFlightBatch(input: ProbeInput): ProbeResult {
         warnings.push({
           code: PEAKS_HEARTBEAT_MISSING,
           message: 'running node missing lastHeartbeat',
-          ...(node.id ? { nodeId: node.id } : {}),
+          ...(node.id ? { nodeId: node.id } : {})
         });
         continue;
       }
@@ -107,7 +107,7 @@ export function probeInFlightBatch(input: ProbeInput): ProbeResult {
         warnings.push({
           code: PEAKS_HEARTBEAT_MISSING,
           message: 'heartbeat unparseable',
-          ...(node.id ? { nodeId: node.id } : {}),
+          ...(node.id ? { nodeId: node.id } : {})
         });
         continue;
       }
@@ -130,7 +130,9 @@ export function probeInFlightBatch(input: ProbeInput): ProbeResult {
     errors,
     reason: inFlight
       ? 'fresh-running-node'
-      : (errors.length > 0 ? 'corrupt-graphs' : 'no-fresh-running-node'),
+      : errors.length > 0
+        ? 'corrupt-graphs'
+        : 'no-fresh-running-node'
   };
 }
 

@@ -37,10 +37,7 @@ import {
   type LoopSpec,
   type SpecTerminationStrategy
 } from './spec-service.js';
-import {
-  dispatchEvaluator,
-  type EvaluatorVerdictEnvelope
-} from './evaluator-dispatcher.js';
+import { dispatchEvaluator, type EvaluatorVerdictEnvelope } from './evaluator-dispatcher.js';
 import {
   checkMonotonicImprovement,
   toScoreRow,
@@ -133,8 +130,9 @@ const ALLOWED_EVALUATOR_KINDS: ReadonlySet<string> = new Set<string>([
 ]);
 
 /** In-process lock registry. Test seam: cleared by `_clearRunLocks()`. */
-const RUN_LOCKS: Map<string, true> = (globalThis as { __PEAKS_RUN_LOCKS__?: Map<string, true> })
-  .__PEAKS_RUN_LOCKS__ ?? new Map<string, true>();
+const RUN_LOCKS: Map<string, true> =
+  (globalThis as { __PEAKS_RUN_LOCKS__?: Map<string, true> }).__PEAKS_RUN_LOCKS__ ??
+  new Map<string, true>();
 (globalThis as { __PEAKS_RUN_LOCKS__?: Map<string, true> }).__PEAKS_RUN_LOCKS__ = RUN_LOCKS;
 
 /** Test seam: clear in-process locks between test cases. */
@@ -212,15 +210,12 @@ function defaultDispatch(
   ctx: { projectRoot: string; rid: string; sid: string },
   peaksBin?: string
 ): EvaluatorVerdictEnvelope {
-  return dispatchEvaluator(
-    kind as Parameters<typeof dispatchEvaluator>[0],
-    {
-      projectRoot: ctx.projectRoot,
-      rid: ctx.rid,
-      sessionId: ctx.sid,
-      ...(peaksBin !== undefined ? { peaksBin } : {})
-    }
-  );
+  return dispatchEvaluator(kind as Parameters<typeof dispatchEvaluator>[0], {
+    projectRoot: ctx.projectRoot,
+    rid: ctx.rid,
+    sessionId: ctx.sid,
+    ...(peaksBin !== undefined ? { peaksBin } : {})
+  });
 }
 
 /** Top-level entry point — `peaks loop run <rid>`.
@@ -243,7 +238,11 @@ export function runLoop(options: RunDriverOptions): RunDriverResult {
   const lint = lintLoopSpec(resolved.spec);
   if (!lint.ok) {
     return {
-      ...emptyResult('SPEC_INVALID', `spec at ${specPathStr} failed lint: ${lint.errors.join('; ')}`, options),
+      ...emptyResult(
+        'SPEC_INVALID',
+        `spec at ${specPathStr} failed lint: ${lint.errors.join('; ')}`,
+        options
+      ),
       cycles: []
     };
   }
@@ -275,9 +274,10 @@ export function runLoop(options: RunDriverOptions): RunDriverResult {
   // `max-cycles` both honour `termination.maxCycles` (default
   // DEFAULT_MAX_CYCLES). The dispatch prompt's `termination.maxCycles
   // (默认 5)` applies to the default `monotonic-violation` strategy.
-  const maxCycles = strat === 'manual'
-    ? 1
-    : (options.maxCyclesOverride ?? spec.termination.maxCycles ?? DEFAULT_MAX_CYCLES);
+  const maxCycles =
+    strat === 'manual'
+      ? 1
+      : (options.maxCyclesOverride ?? spec.termination.maxCycles ?? DEFAULT_MAX_CYCLES);
 
   // 3) Acquire the in-process lock.
   const key = lockKey(options.sid, options.rid);
@@ -301,7 +301,11 @@ export function runLoop(options: RunDriverOptions): RunDriverResult {
   }
 }
 
-function emptyResult(code: RunDriverCode, message: string, options: RunDriverOptions): RunDriverResult {
+function emptyResult(
+  code: RunDriverCode,
+  message: string,
+  options: RunDriverOptions
+): RunDriverResult {
   return {
     code,
     ok: false,
@@ -322,12 +326,18 @@ function runLoopLocked(
 ): RunDriverResult {
   const threshold = options.threshold ?? DEFAULT_MONOTONIC_THRESHOLD;
   const persist = options.persist !== false;
-  const dispatchFn = options.dispatchOverride
-    ?? ((kind: string) => defaultDispatch(kind, {
-      projectRoot: options.projectRoot,
-      rid: options.rid,
-      sid: options.sid
-    }, options.peaksBin));
+  const dispatchFn =
+    options.dispatchOverride ??
+    ((kind: string) =>
+      defaultDispatch(
+        kind,
+        {
+          projectRoot: options.projectRoot,
+          rid: options.rid,
+          sid: options.sid
+        },
+        options.peaksBin
+      ));
 
   const cycleLimit = strategy === 'manual' ? 1 : maxCycles;
   const evaluators = spec.evaluators.map((e) => e.kind);
@@ -429,9 +439,11 @@ function runLoopLocked(
   return {
     code: aborted ? abortCode : 'RUN_OK',
     ok,
-    message: aborted ? abortMessage : (strategy === 'manual'
-      ? `reached 1 cycle for manual strategy (no regressions observed)`
-      : `reached maxCycles ${cycleLimit} with ${regressionCount} regression(s)`),
+    message: aborted
+      ? abortMessage
+      : strategy === 'manual'
+        ? `reached 1 cycle for manual strategy (no regressions observed)`
+        : `reached maxCycles ${cycleLimit} with ${regressionCount} regression(s)`,
     strategy,
     maxCycles,
     cycles,
@@ -447,7 +459,12 @@ function runLoopLocked(
  *  monotonic-runner's prior cycle; the run-driver's own prior cycle
  *  is the *same* number — we read the matching row from the cycles
  *  subdir to keep the two writers isolated). */
-function loadCycleAt(projectRoot: string, sid: string, rid: string, n: number): MonotonicCycle | null {
+function loadCycleAt(
+  projectRoot: string,
+  sid: string,
+  rid: string,
+  n: number
+): MonotonicCycle | null {
   if (n < 1) return null;
   const path = join(cyclesDir(projectRoot, sid, rid), `cycle-${n}.json`);
   if (!existsSync(path)) {
@@ -491,10 +508,18 @@ function parseCycleFromPath(path: string, fallbackCycle: number): MonotonicCycle
     if (typeof r['evaluator'] !== 'string') continue;
     const gate = r['gateAction'];
     if (gate !== 'pass' && gate !== 'warn' && gate !== 'block') continue;
-    const observedAt = typeof r['observedAt'] === 'string' ? r['observedAt'] : new Date(0).toISOString();
+    const observedAt =
+      typeof r['observedAt'] === 'string' ? r['observedAt'] : new Date(0).toISOString();
     rows.push({
       evaluator: r['evaluator'],
-      score: typeof r['score'] === 'number' ? r['score'] : (gate === 'pass' ? 1.0 : gate === 'warn' ? 0.5 : 0.0),
+      score:
+        typeof r['score'] === 'number'
+          ? r['score']
+          : gate === 'pass'
+            ? 1.0
+            : gate === 'warn'
+              ? 0.5
+              : 0.0,
       gateAction: gate,
       degraded: r['degraded'] === true,
       observedAt
@@ -505,11 +530,11 @@ function parseCycleFromPath(path: string, fallbackCycle: number): MonotonicCycle
 
 /** CLI helper: resolve the project root, sid, and rid from a
  *  `(project, session, rid)` triple. */
-export function resolveRunContext(opts: {
-  project?: string;
-  session: string;
+export function resolveRunContext(opts: { project?: string; session: string; rid: string }): {
+  projectRoot: string;
+  sid: string;
   rid: string;
-}): { projectRoot: string; sid: string; rid: string } {
+} {
   const projectRoot = opts.project ?? findProjectRoot(process.cwd()) ?? process.cwd();
   return { projectRoot, sid: opts.session, rid: opts.rid };
 }

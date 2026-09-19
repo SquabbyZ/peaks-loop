@@ -17,10 +17,7 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 export type KarpathyViolationKind =
-  | 'think-before-coding'
-  | 'simplicity-first'
-  | 'surgical-changes'
-  | 'goal-driven-execution';
+  'think-before-coding' | 'simplicity-first' | 'surgical-changes' | 'goal-driven-execution';
 
 export type KarpathyScanOptions = {
   projectRoot: string;
@@ -64,8 +61,10 @@ const GUIDELINE_MARKERS: Record<KarpathyViolationKind, RegExp> = {
 const VIOLATION_HINTS: Record<KarpathyViolationKind, string> = {
   'think-before-coding': 'State assumptions explicitly. Surface tradeoffs. Do not hide confusion.',
   'simplicity-first': 'If 200 lines could be 50, rewrite. No features beyond what was asked.',
-  'surgical-changes': 'Touch only what the user asked. Clean up only your own mess. Every changed line must trace to the request.',
-  'goal-driven-execution': 'Define verifiable success criteria. For multi-step work, state plan + verify checkpoints.'
+  'surgical-changes':
+    'Touch only what the user asked. Clean up only your own mess. Every changed line must trace to the request.',
+  'goal-driven-execution':
+    'Define verifiable success criteria. For multi-step work, state plan + verify checkpoints.'
 };
 
 const DEFAULT_REVIEW_FILE = 'rd/karpathy-review.md';
@@ -180,7 +179,12 @@ export async function scanKarpathy(options: KarpathyScanOptions): Promise<Karpat
     if (inFence) continue;
     for (const ap of ANTI_PATTERNS) {
       if (ap.re.test(line)) {
-        violations.push({ kind: ap.kind, line: i + 1, snippet: line.trim().slice(0, 120), hint: ap.hint });
+        violations.push({
+          kind: ap.kind,
+          line: i + 1,
+          snippet: line.trim().slice(0, 120),
+          hint: ap.hint
+        });
         counts[ap.kind] += 1;
       }
     }
@@ -219,13 +223,16 @@ export async function scanKarpathy(options: KarpathyScanOptions): Promise<Karpat
  */
 export function escapeMarkdown(value: string): string {
   return value
-    .replace(/\\/g, '\\\\')     // backslash first (order matters)
-    .replace(/`/g, '\\`')       // inline code fence
-    .replace(/\[/g, '\\[')      // link/image open
-    .replace(/\]/g, '\\]');     // link/image close
+    .replace(/\\/g, '\\\\') // backslash first (order matters)
+    .replace(/`/g, '\\`') // inline code fence
+    .replace(/\[/g, '\\[') // link/image open
+    .replace(/\]/g, '\\]'); // link/image close
 }
 
-export function formatKarpathyMarkdown(report: KarpathyScanReport, opts: { title?: string } = {}): string {
+export function formatKarpathyMarkdown(
+  report: KarpathyScanReport,
+  opts: { title?: string } = {}
+): string {
   const title = opts.title ?? '## Karpathy inventory';
   const lines: string[] = [];
   lines.push(title);
@@ -275,6 +282,8 @@ export function formatKarpathyMarkdown(report: KarpathyScanReport, opts: { title
 
   lines.push('### Karpathy-Gate');
   lines.push('');
-  lines.push('Per `andrej-karpathy-skills:karpathy-guidelines` §1 Think Before Coding / §3 Surgical Changes, the hard Karpathy-Gate requires `rd/karpathy-review-<rid>.md` to be present with all 4 guideline sections before `peaks request transition --state qa-handoff`. (`rd/karpathy-review.md` is the accepted back-compat tier, and the only name this scanner probes.)');
+  lines.push(
+    'Per `andrej-karpathy-skills:karpathy-guidelines` §1 Think Before Coding / §3 Surgical Changes, the hard Karpathy-Gate requires `rd/karpathy-review-<rid>.md` to be present with all 4 guideline sections before `peaks request transition --state qa-handoff`. (`rd/karpathy-review.md` is the accepted back-compat tier, and the only name this scanner probes.)'
+  );
   return lines.join('\n');
 }

@@ -77,7 +77,11 @@ const projects: string[] = [];
 afterEach(() => {
   while (projects.length > 0) {
     const p = projects.pop() as string;
-    try { rmSync(p, { recursive: true, force: true }); } catch { /* best-effort */ }
+    try {
+      rmSync(p, { recursive: true, force: true });
+    } catch {
+      /* best-effort */
+    }
   }
 });
 
@@ -85,9 +89,18 @@ function initRepo(): string {
   const project = mkdtempSync(join(tmpdir(), 'peaks-p3a3-auto-'));
   projects.push(project);
   execFileSync('git', ['init', '-q', '-b', 'main', project], { stdio: 'pipe', windowsHide: true });
-  execFileSync('git', ['-C', project, 'config', 'user.email', 'p3a3@test'], { stdio: 'pipe', windowsHide: true });
-  execFileSync('git', ['-C', project, 'config', 'user.name', 'p3a3'], { stdio: 'pipe', windowsHide: true });
-  execFileSync('git', ['-C', project, 'commit', '--allow-empty', '-m', 'init', '-q'], { stdio: 'pipe', windowsHide: true });
+  execFileSync('git', ['-C', project, 'config', 'user.email', 'p3a3@test'], {
+    stdio: 'pipe',
+    windowsHide: true
+  });
+  execFileSync('git', ['-C', project, 'config', 'user.name', 'p3a3'], {
+    stdio: 'pipe',
+    windowsHide: true
+  });
+  execFileSync('git', ['-C', project, 'commit', '--allow-empty', '-m', 'init', '-q'], {
+    stdio: 'pipe',
+    windowsHide: true
+  });
   return project;
 }
 
@@ -108,16 +121,27 @@ describe('peaks sub-agent dispatch --isolation worktree auto-release (Part 3.A.3
     const requestId = '2026-07-29-p3a3-happy-rid';
 
     // 1. dispatch with --isolation worktree
-    const dispatch = runCli([
-      'sub-agent', 'dispatch', 'rd',
-      '--prompt', 'p3a3 auto-release probe',
-      '--request-id', requestId,
-      '--session-id', sessionId,
-      '--project', project,
-      '--isolation', 'worktree',
-      '--graph-node', 'n1',
-      '--json'
-    ], project);
+    const dispatch = runCli(
+      [
+        'sub-agent',
+        'dispatch',
+        'rd',
+        '--prompt',
+        'p3a3 auto-release probe',
+        '--request-id',
+        requestId,
+        '--session-id',
+        sessionId,
+        '--project',
+        project,
+        '--isolation',
+        'worktree',
+        '--graph-node',
+        'n1',
+        '--json'
+      ],
+      project
+    );
     expect(dispatch.code).toBe(0);
     const env = JSON.parse(dispatch.stdout) as DispatchEnv;
     expect(env.ok).toBe(true);
@@ -125,18 +149,33 @@ describe('peaks sub-agent dispatch --isolation worktree auto-release (Part 3.A.3
     const wtPath = env.data.worktreePath;
     expect(lid).toMatch(/^[a-f0-9]{16}$/);
     expect(existsSync(wtPath)).toBe(true);
-    const leaseFile = join(project, '.peaks', '_runtime', sessionId, 'worktree-leases', lid + '.json');
+    const leaseFile = join(
+      project,
+      '.peaks',
+      '_runtime',
+      sessionId,
+      'worktree-leases',
+      lid + '.json'
+    );
     expect(existsSync(leaseFile)).toBe(true);
 
     // 2. heartbeat --status done against the dispatch record
-    const heartbeat = runCli([
-      'sub-agent', 'heartbeat',
-      '--record', env.data.dispatchRecordPath,
-      '--status', 'done',
-      '--progress', '100',
-      '--project', project,
-      '--json'
-    ], project);
+    const heartbeat = runCli(
+      [
+        'sub-agent',
+        'heartbeat',
+        '--record',
+        env.data.dispatchRecordPath,
+        '--status',
+        'done',
+        '--progress',
+        '100',
+        '--project',
+        project,
+        '--json'
+      ],
+      project
+    );
     expect(heartbeat.code).toBe(0);
 
     // 3. wait for the detached release to land (best-effort, async)
@@ -157,7 +196,10 @@ describe('peaks sub-agent dispatch --isolation worktree auto-release (Part 3.A.3
     // ran `git worktree remove --force`); gc would add `git worktree
     // prune` but we don't run gc here — the admin table is
     // best-effort cleaned by git itself on the next `worktree list`.
-    const wtList = execFileSync('git', ['-C', project, 'worktree', 'list', '--porcelain'], { encoding: 'utf8', windowsHide: true });
+    const wtList = execFileSync('git', ['-C', project, 'worktree', 'list', '--porcelain'], {
+      encoding: 'utf8',
+      windowsHide: true
+    });
     expect(wtList).not.toContain(wtPath);
   });
 
@@ -166,31 +208,57 @@ describe('peaks sub-agent dispatch --isolation worktree auto-release (Part 3.A.3
     const sessionId = '2026-07-29-p3a3-running';
     const requestId = '2026-07-29-p3a3-running-rid';
 
-    const dispatch = runCli([
-      'sub-agent', 'dispatch', 'rd',
-      '--prompt', 'p3a3 non-terminal probe',
-      '--request-id', requestId,
-      '--session-id', sessionId,
-      '--project', project,
-      '--isolation', 'worktree',
-      '--graph-node', 'n1',
-      '--json'
-    ], project);
+    const dispatch = runCli(
+      [
+        'sub-agent',
+        'dispatch',
+        'rd',
+        '--prompt',
+        'p3a3 non-terminal probe',
+        '--request-id',
+        requestId,
+        '--session-id',
+        sessionId,
+        '--project',
+        project,
+        '--isolation',
+        'worktree',
+        '--graph-node',
+        'n1',
+        '--json'
+      ],
+      project
+    );
     expect(dispatch.code).toBe(0);
     const env = JSON.parse(dispatch.stdout) as DispatchEnv;
     const lid = env.data.leaseId;
     const wtPath = env.data.worktreePath;
-    const leaseFile = join(project, '.peaks', '_runtime', sessionId, 'worktree-leases', lid + '.json');
+    const leaseFile = join(
+      project,
+      '.peaks',
+      '_runtime',
+      sessionId,
+      'worktree-leases',
+      lid + '.json'
+    );
 
     // heartbeat --status running should NOT auto-release
-    const heartbeat = runCli([
-      'sub-agent', 'heartbeat',
-      '--record', env.data.dispatchRecordPath,
-      '--status', 'running',
-      '--progress', '50',
-      '--project', project,
-      '--json'
-    ], project);
+    const heartbeat = runCli(
+      [
+        'sub-agent',
+        'heartbeat',
+        '--record',
+        env.data.dispatchRecordPath,
+        '--status',
+        'running',
+        '--progress',
+        '50',
+        '--project',
+        project,
+        '--json'
+      ],
+      project
+    );
     expect(heartbeat.code).toBe(0);
 
     // Give the would-be release time to fire if it were going to.
@@ -216,32 +284,53 @@ describe('peaks sub-agent dispatch --isolation worktree auto-release (Part 3.A.3
     const requestId = '2026-07-29-p3a3-nolease-rid';
 
     // dispatch WITHOUT --isolation (no lease spawned)
-    const dispatch = runCli([
-      'sub-agent', 'dispatch', 'rd',
-      '--prompt', 'p3a3 no-lease probe',
-      '--request-id', requestId,
-      '--session-id', sessionId,
-      '--project', project,
-      '--graph-node', 'n1',
-      '--json'
-    ], project);
+    const dispatch = runCli(
+      [
+        'sub-agent',
+        'dispatch',
+        'rd',
+        '--prompt',
+        'p3a3 no-lease probe',
+        '--request-id',
+        requestId,
+        '--session-id',
+        sessionId,
+        '--project',
+        project,
+        '--graph-node',
+        'n1',
+        '--json'
+      ],
+      project
+    );
     expect(dispatch.code).toBe(0);
     const env = JSON.parse(dispatch.stdout) as { data: { dispatchRecordPath: string } };
     expect(env.data.dispatchRecordPath).toBeTruthy();
 
     // heartbeat --status done should succeed without spawning release
-    const heartbeat = runCli([
-      'sub-agent', 'heartbeat',
-      '--record', env.data.dispatchRecordPath,
-      '--status', 'done',
-      '--progress', '100',
-      '--project', project,
-      '--json'
-    ], project);
+    const heartbeat = runCli(
+      [
+        'sub-agent',
+        'heartbeat',
+        '--record',
+        env.data.dispatchRecordPath,
+        '--status',
+        'done',
+        '--progress',
+        '100',
+        '--project',
+        project,
+        '--json'
+      ],
+      project
+    );
     expect(heartbeat.code).toBe(0);
 
     // The dispatch record still exists; no lease file was created
-    const record = JSON.parse(readFileSync(env.data.dispatchRecordPath, 'utf8')) as { leaseId: string | null; status: string };
+    const record = JSON.parse(readFileSync(env.data.dispatchRecordPath, 'utf8')) as {
+      leaseId: string | null;
+      status: string;
+    };
     expect(record.leaseId).toBeNull();
     expect(record.status).toBe('done');
     const leaseDir = join(project, '.peaks', '_runtime', sessionId, 'worktree-leases');

@@ -93,10 +93,7 @@ export function writeForkState(projectRoot: string, state: ForkState): void {
  * Record a new sync plan. The state is immutable; the returned state
  * has the new plan appended to `history`.
  */
-export function appendSyncRecord(
-  state: ForkState,
-  record: ForkSyncRecord
-): ForkState {
+export function appendSyncRecord(state: ForkState, record: ForkSyncRecord): ForkState {
   return {
     version: 1,
     baseline: state.baseline,
@@ -152,10 +149,11 @@ export function recommendStableTags(
   // Sort by semver-like order (best effort): split on '.', parse ints.
   const cmp = (a: string, b: string): number => {
     // Strip leading 'v' before splitting on '.' or '-' so 'v1' → [1]
-    const toParts = (t: string): number[] => t
-      .replace(/^v/i, '')
-      .split(/[.\-]/)
-      .map((s) => Number.parseInt(s, 10) || 0);
+    const toParts = (t: string): number[] =>
+      t
+        .replace(/^v/i, '')
+        .split(/[.\-]/)
+        .map((s) => Number.parseInt(s, 10) || 0);
     const pa = toParts(a);
     const pb = toParts(b);
     for (let i = 0; i < Math.max(pa.length, pb.length); i++) {

@@ -120,7 +120,4 @@ export interface HandoffProbe {
 }
 
 export type HandoffProbeReason =
-  | 'file-missing'
-  | 'frontmatter-malformed'
-  | 'hash-mismatch'
-  | 'schema-version-mismatch';
+  'file-missing' | 'frontmatter-malformed' | 'hash-mismatch' | 'schema-version-mismatch';

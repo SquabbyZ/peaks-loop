@@ -152,7 +152,9 @@ export const CODEGRAPH_INDEX_STRICT_ENV_VAR = 'PEAKS_CODEGRAPH_INDEX_STRICT';
 export function isCodegraphIndexStrictMode(
   env: Readonly<Record<string, string | undefined>> = process.env
 ): boolean {
-  return env[CODEGRAPH_INDEX_STRICT_ENV_VAR] === '1' || env[CODEGRAPH_INDEX_STRICT_ENV_VAR] === 'true';
+  return (
+    env[CODEGRAPH_INDEX_STRICT_ENV_VAR] === '1' || env[CODEGRAPH_INDEX_STRICT_ENV_VAR] === 'true'
+  );
 }
 
 /**
@@ -632,12 +634,16 @@ export function renderCodegraphIndexIntegrityLines(
       lines.push(`  not admitted: ${filePath}`);
     }
     if (report.includeGap.length > MAX_REPORTED_PATHS) {
-      lines.push(`  … and ${report.includeGap.length - MAX_REPORTED_PATHS} more not-admitted file(s)`);
+      lines.push(
+        `  … and ${report.includeGap.length - MAX_REPORTED_PATHS} more not-admitted file(s)`
+      );
     }
   }
 
   if (report.deadRows.length > 0) {
-    lines.push(`  stale rows: ${report.deadRows.length} of ${report.indexedFileCount} indexed file(s) are gone from disk`);
+    lines.push(
+      `  stale rows: ${report.deadRows.length} of ${report.indexedFileCount} indexed file(s) are gone from disk`
+    );
     for (const filePath of report.deadRows.slice(0, MAX_REPORTED_PATHS)) {
       lines.push(`  stale: ${filePath}`);
     }

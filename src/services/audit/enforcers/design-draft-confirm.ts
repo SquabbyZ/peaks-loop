@@ -18,7 +18,7 @@ import { join } from 'node:path';
 const CONFIRMATION_MARKERS: readonly RegExp[] = [
   /\bconfirmed\b\s*[:=]\s*true/i,
   /\bstatus:\s*confirmed-by-user/i,
-  /^#\s*confirmed\b/im,
+  /^#\s*confirmed\b/im
 ];
 
 export interface DesignDraftConfirmInput {
@@ -33,7 +33,9 @@ export interface DesignDraftConfirmResult {
   readonly confirmationPath: string;
 }
 
-export function checkDesignDraftConfirmation(input: DesignDraftConfirmInput): DesignDraftConfirmResult {
+export function checkDesignDraftConfirmation(
+  input: DesignDraftConfirmInput
+): DesignDraftConfirmResult {
   // Back-compat read: 2.8.0-era `peaks workspace init` wrote design drafts
   // at `.peaks/_runtime/<sessionId>/ui/design-draft.md`. The 2.8.3+ canonical path
   // is `.peaks/_runtime/change/<sessionId>/ui/design-draft.md`, but the
@@ -48,7 +50,7 @@ export function checkDesignDraftConfirmation(input: DesignDraftConfirmInput): De
       draftExists: false,
       draftPath,
       confirmed: false,
-      confirmationPath: '',
+      confirmationPath: ''
     };
   }
 
@@ -60,7 +62,7 @@ export function checkDesignDraftConfirmation(input: DesignDraftConfirmInput): De
       draftExists: true,
       draftPath,
       confirmed: false,
-      confirmationPath: draftPath,
+      confirmationPath: draftPath
     };
   }
 
@@ -69,6 +71,6 @@ export function checkDesignDraftConfirmation(input: DesignDraftConfirmInput): De
     draftExists: true,
     draftPath,
     confirmed,
-    confirmationPath: draftPath,
+    confirmationPath: draftPath
   };
 }

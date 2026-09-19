@@ -52,14 +52,49 @@ function block(inner: string): string {
 const BLOCKS: ReadonlyArray<{ name: string; raw: string; accepted: boolean; reason?: string }> = [
   { name: 'valid', raw: 'title: A\nkind: lesson\n---\nBody.', accepted: true },
   { name: 'valid-crlf', raw: 'title: A\r\nkind: lesson\r\n---\r\nBody.', accepted: true },
-  { name: 'missing-separator', raw: 'title: A\nkind: lesson\nBody.', accepted: false, reason: 'missing-separator' },
-  { name: 'missing-title', raw: 'kind: lesson\n---\nBody.', accepted: false, reason: 'missing-title' },
-  { name: 'empty-title-value', raw: 'title:\nkind: lesson\n---\nBody.', accepted: false, reason: 'missing-title' },
+  {
+    name: 'missing-separator',
+    raw: 'title: A\nkind: lesson\nBody.',
+    accepted: false,
+    reason: 'missing-separator'
+  },
+  {
+    name: 'missing-title',
+    raw: 'kind: lesson\n---\nBody.',
+    accepted: false,
+    reason: 'missing-title'
+  },
+  {
+    name: 'empty-title-value',
+    raw: 'title:\nkind: lesson\n---\nBody.',
+    accepted: false,
+    reason: 'missing-title'
+  },
   { name: 'missing-kind', raw: 'title: A\n---\nBody.', accepted: false, reason: 'missing-kind' },
-  { name: 'empty-kind-value', raw: 'title: A\nkind:\n---\nBody.', accepted: false, reason: 'missing-kind' },
-  { name: 'unknown-kind', raw: 'title: A\nkind: note\n---\nBody.', accepted: false, reason: 'unknown-kind' },
-  { name: 'wrong-case-kind', raw: 'title: A\nkind: Lesson\n---\nBody.', accepted: false, reason: 'unknown-kind' },
-  { name: 'empty-body', raw: 'title: A\nkind: lesson\n---\n   ', accepted: false, reason: 'empty-body' },
+  {
+    name: 'empty-kind-value',
+    raw: 'title: A\nkind:\n---\nBody.',
+    accepted: false,
+    reason: 'missing-kind'
+  },
+  {
+    name: 'unknown-kind',
+    raw: 'title: A\nkind: note\n---\nBody.',
+    accepted: false,
+    reason: 'unknown-kind'
+  },
+  {
+    name: 'wrong-case-kind',
+    raw: 'title: A\nkind: Lesson\n---\nBody.',
+    accepted: false,
+    reason: 'unknown-kind'
+  },
+  {
+    name: 'empty-body',
+    raw: 'title: A\nkind: lesson\n---\n   ',
+    accepted: false,
+    reason: 'empty-body'
+  },
   // The standard STORED convention (`name:`/`description:`/`metadata.type`) is
   // still rejected on the extract path. NOT relaxed here — that is the user's
   // product call.
@@ -76,7 +111,9 @@ describe('parseBlockResult names the failing precondition', () => {
     for (const { name, raw, accepted } of BLOCKS) {
       const parsed = parseBlockResult(raw, 'probe/artifact.md');
       const legacy = parseBlock(raw, 'probe/artifact.md');
-      expect(parsed.ok, `${name}: parseBlockResult.ok must track parseBlock !== null`).toBe(legacy !== null);
+      expect(parsed.ok, `${name}: parseBlockResult.ok must track parseBlock !== null`).toBe(
+        legacy !== null
+      );
       expect(parsed.ok, `${name}: expectation table must match the implementation`).toBe(accepted);
       if (parsed.ok && legacy !== null) {
         // Byte-identical memory object, not merely "both accepted".
@@ -95,7 +132,9 @@ describe('parseBlockResult names the failing precondition', () => {
       expect(parsed.ok, name).toBe(false);
       if (!parsed.ok) {
         expect(parsed.reason, name).toBe(reason);
-        expect(parsed.detail.length, `${name}: a reason must carry an explanation`).toBeGreaterThan(0);
+        expect(parsed.detail.length, `${name}: a reason must carry an explanation`).toBeGreaterThan(
+          0
+        );
       }
     }
   });
@@ -109,8 +148,18 @@ describe('parseBlockResult names the failing precondition', () => {
 });
 
 describe('extractStableProjectMemories reports the blocks it drops', () => {
-  const DOCS: ReadonlyArray<{ name: string; content: string; extractedCount: number; droppedCount: number }> = [
-    { name: 'one-valid', content: `${block('title: A\nkind: lesson\n---\nBody A.')}\n`, extractedCount: 1, droppedCount: 0 },
+  const DOCS: ReadonlyArray<{
+    name: string;
+    content: string;
+    extractedCount: number;
+    droppedCount: number;
+  }> = [
+    {
+      name: 'one-valid',
+      content: `${block('title: A\nkind: lesson\n---\nBody A.')}\n`,
+      extractedCount: 1,
+      droppedCount: 0
+    },
     {
       name: 'valid-plus-bare-marker',
       content: `${block('title: A\nkind: lesson\n---\nBody A.')}\n${START}\n${END}\n`,
@@ -124,15 +173,28 @@ describe('extractStableProjectMemories reports the blocks it drops', () => {
       droppedCount: 2
     },
     { name: 'no-blocks', content: 'prose only, no markers\n', extractedCount: 0, droppedCount: 0 },
-    { name: 'unterminated-start', content: `${START}\ntitle: A\nkind: lesson\n---\nBody A.\n`, extractedCount: 0, droppedCount: 0 }
+    {
+      name: 'unterminated-start',
+      content: `${START}\ntitle: A\nkind: lesson\n---\nBody A.\n`,
+      extractedCount: 0,
+      droppedCount: 0
+    }
   ];
 
   it('keeps the pre-change extraction counts (behaviour is unchanged)', () => {
     for (const { name, content, extractedCount } of DOCS) {
-      const withDiagnostics = extractStableProjectMemoriesWithDiagnostics(content, `probe/${name}.md`);
-      expect(withDiagnostics.memories.length, `${name}: extracted count must equal the pre-change count`).toBe(extractedCount);
+      const withDiagnostics = extractStableProjectMemoriesWithDiagnostics(
+        content,
+        `probe/${name}.md`
+      );
+      expect(
+        withDiagnostics.memories.length,
+        `${name}: extracted count must equal the pre-change count`
+      ).toBe(extractedCount);
       // The legacy projection must agree with the diagnostic one, by construction.
-      expect(extractStableProjectMemories(content, `probe/${name}.md`), name).toEqual(withDiagnostics.memories);
+      expect(extractStableProjectMemories(content, `probe/${name}.md`), name).toEqual(
+        withDiagnostics.memories
+      );
     }
   });
 
@@ -200,7 +262,11 @@ describe('peaks memory extract surfaces the drops through the plan', () => {
       'utf8'
     );
 
-    const plan = executeProjectMemoryExtract({ projectRoot: root, artifactPaths: [artifactPath], apply: false });
+    const plan = executeProjectMemoryExtract({
+      projectRoot: root,
+      artifactPaths: [artifactPath],
+      apply: false
+    });
 
     // Pre-change observables, unchanged.
     expect(plan.apply).toBe(false);
@@ -246,7 +312,11 @@ describe('extractSessionMemories reports the blocks it drops', () => {
     root = mkdtempSync(join(tmpdir(), 'peaks-b2-drops-'));
     mkdirSync(join(root, '.peaks', 'memory'), { recursive: true });
     mkdirSync(join(root, '.peaks', '_runtime', sessionId, 'txt'), { recursive: true });
-    writeFileSync(join(root, '.peaks', '_runtime', sessionId, 'txt', 'handoff.md'), SESSION_HANDOFF, 'utf8');
+    writeFileSync(
+      join(root, '.peaks', '_runtime', sessionId, 'txt', 'handoff.md'),
+      SESSION_HANDOFF,
+      'utf8'
+    );
   });
 
   afterEach(() => {
@@ -310,7 +380,11 @@ describe('extractSessionMemories reports the blocks it drops', () => {
   });
 
   it('reports an empty drop list when the session directory does not exist', () => {
-    const result = extractSessionMemories({ projectRoot: root, sessionId: 'no-such-session', apply: false });
+    const result = extractSessionMemories({
+      projectRoot: root,
+      sessionId: 'no-such-session',
+      apply: false
+    });
     expect(result.scannedFiles).toBe(0);
     expect(result.extractedCount).toBe(0);
     expect(result.droppedBlocks).toEqual([]);
@@ -321,7 +395,10 @@ describe('extractSessionMemories reports the blocks it drops', () => {
     // The service returning the array is not enough — the command must hand it
     // to `ok(...)` as the warnings argument, the way `memory.extract` does.
     // Static, because firing the real CLI here would need a built dist.
-    const command = readFileSync(resolve(__dirname, '..', '..', '..', '..', 'src', 'cli', 'commands', 'project-commands.ts'), 'utf8');
+    const command = readFileSync(
+      resolve(__dirname, '..', '..', '..', '..', 'src', 'cli', 'commands', 'project-commands.ts'),
+      'utf8'
+    );
     expect(command, 'project memories:extract must surface its drops').toContain(
       'describeMemoryBlockDrops(result.droppedBlocks)'
     );
@@ -382,9 +459,14 @@ describe('extractStableProjectMemories names marker-shaped comments it cannot us
 
   it('reports every near-miss, naming the text found and the literal wanted', () => {
     for (const { name, content, extracted, wants } of NEAR_MISSES) {
-      const { memories, dropped } = extractStableProjectMemoriesWithDiagnostics(content, `probe/${name}.md`);
+      const { memories, dropped } = extractStableProjectMemoriesWithDiagnostics(
+        content,
+        `probe/${name}.md`
+      );
 
-      expect(memories.length, `${name}: a near-miss marker must still extract nothing`).toBe(extracted);
+      expect(memories.length, `${name}: a near-miss marker must still extract nothing`).toBe(
+        extracted
+      );
       expect(memories.length, `${name}: nothing new may be extracted`).toBe(
         extractStableProjectMemories(content, `probe/${name}.md`).length
       );
@@ -396,7 +478,9 @@ describe('extractStableProjectMemories names marker-shaped comments it cannot us
       const [warning] = describeMemoryBlockDrops(nearMisses);
       expect(warning, `${name}: the warning must name the file`).toContain(`probe/${name}.md`);
       expect(warning, `${name}: the warning must show what was found`).toContain('peaks-memory:');
-      expect(warning, `${name}: the warning must show the literal the locator wants`).toContain(wants);
+      expect(warning, `${name}: the warning must show the literal the locator wants`).toContain(
+        wants
+      );
     }
   });
 
@@ -404,7 +488,10 @@ describe('extractStableProjectMemories names marker-shaped comments it cannot us
     // The exact shape of the old doc's instruction: one attribute-shaped marker,
     // nothing else. Before N1 this was `extractedCount: 0, warnings: []`.
     const only = `<!-- peaks-memory:start kind=lesson -->\n\nA memory the author meant to keep.\n\n${END}\n`;
-    const { memories, dropped } = extractStableProjectMemoriesWithDiagnostics(only, 'sc/handoff.md');
+    const { memories, dropped } = extractStableProjectMemoriesWithDiagnostics(
+      only,
+      'sc/handoff.md'
+    );
     expect(memories).toEqual([]);
     expect(dropped).toHaveLength(1);
     expect(dropped[0]!.reason).toBe('unrecognized-marker');
@@ -417,7 +504,10 @@ describe('extractStableProjectMemories names marker-shaped comments it cannot us
     // The near-miss scan must not fire on a correctly written block. If it did,
     // every existing handoff in every downstream project would sprout warnings.
     const clean = `${block('title: A\nkind: lesson\n---\nBody A.')}\n${block('title: B\nkind: rule\n---\nBody B.')}\n`;
-    const { memories, dropped } = extractStableProjectMemoriesWithDiagnostics(clean, 'probe/clean.md');
+    const { memories, dropped } = extractStableProjectMemoriesWithDiagnostics(
+      clean,
+      'probe/clean.md'
+    );
     expect(memories).toHaveLength(2);
     expect(dropped, 'a correct marker must produce no drop of any kind').toEqual([]);
     expect(describeMemoryBlockDrops(dropped)).toEqual([]);
@@ -435,14 +525,22 @@ describe('extractStableProjectMemories names marker-shaped comments it cannot us
       'Body A.',
       `${END}`
     ].join('\n');
-    const { memories, dropped } = extractStableProjectMemoriesWithDiagnostics(prose, 'probe/prose.md');
+    const { memories, dropped } = extractStableProjectMemoriesWithDiagnostics(
+      prose,
+      'probe/prose.md'
+    );
     expect(memories, 'the one real block still extracts').toHaveLength(1);
     expect(dropped, 'a mention is not an attempted marker').toEqual([]);
   });
 
   it('ANTI-NOISE: a near-miss inside a real block body is body text, not a marker', () => {
-    const content = block(`title: A\nkind: lesson\n---\nDocs say <!-- peaks-memory:start kind=lesson --> is wrong.`);
-    const { memories, dropped } = extractStableProjectMemoriesWithDiagnostics(content, 'probe/body.md');
+    const content = block(
+      `title: A\nkind: lesson\n---\nDocs say <!-- peaks-memory:start kind=lesson --> is wrong.`
+    );
+    const { memories, dropped } = extractStableProjectMemoriesWithDiagnostics(
+      content,
+      'probe/body.md'
+    );
     expect(memories).toHaveLength(1);
     expect(dropped).toEqual([]);
   });
@@ -460,10 +558,18 @@ describe('extractStableProjectMemories names marker-shaped comments it cannot us
       'title: A\n---\nBody.',
       'title: A\nkind: note\n---\nBody.'
     ]) {
-      const { dropped } = extractStableProjectMemoriesWithDiagnostics(block(raw), 'probe/reasons.md');
+      const { dropped } = extractStableProjectMemoriesWithDiagnostics(
+        block(raw),
+        'probe/reasons.md'
+      );
       for (const drop of dropped) reasons.add(drop.reason);
     }
-    expect([...reasons].sort()).toEqual(['missing-kind', 'missing-separator', 'missing-title', 'unknown-kind']);
+    expect([...reasons].sort()).toEqual([
+      'missing-kind',
+      'missing-separator',
+      'missing-title',
+      'unknown-kind'
+    ]);
 
     const emptied = parseBlockResult('title: A\nkind: lesson\n---\n   ', 'probe/reasons.md');
     expect(emptied.ok).toBe(false);

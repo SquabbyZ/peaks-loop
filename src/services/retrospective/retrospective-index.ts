@@ -42,8 +42,20 @@ export interface RetrospectiveIndexResult {
   warning: string | null;
 }
 
-const VALID_TYPES = new Set<RetrospectiveType>(['refactor', 'feature', 'bugfix', 'config', 'docs', 'chore']);
-const VALID_OUTCOMES = new Set<RetrospectiveOutcome>(['shipped', 'blocked', 'in-flight', 'cancelled']);
+const VALID_TYPES = new Set<RetrospectiveType>([
+  'refactor',
+  'feature',
+  'bugfix',
+  'config',
+  'docs',
+  'chore'
+]);
+const VALID_OUTCOMES = new Set<RetrospectiveOutcome>([
+  'shipped',
+  'blocked',
+  'in-flight',
+  'cancelled'
+]);
 
 export function loadRetrospectiveIndex(projectRoot: string): RetrospectiveIndexResult {
   const resolvedRoot = resolve(projectRoot);
@@ -55,7 +67,8 @@ export function loadRetrospectiveIndex(projectRoot: string): RetrospectiveIndexR
       entries: [],
       totalCount: 0,
       source: null,
-      warning: 'no retrospective index; run `peaks retrospective migrate --apply` to build one from legacy MDs'
+      warning:
+        'no retrospective index; run `peaks retrospective migrate --apply` to build one from legacy MDs'
     };
   }
 
@@ -120,10 +133,16 @@ function isRetrospectiveEntry(value: unknown): value is RetrospectiveEntry {
   if (typeof v.type !== 'string' || !VALID_TYPES.has(v.type as RetrospectiveType)) return false;
   if (typeof v.title !== 'string') return false;
   if (typeof v.summary !== 'string') return false;
-  if (typeof v.outcome !== 'string' || !VALID_OUTCOMES.has(v.outcome as RetrospectiveOutcome)) return false;
+  if (typeof v.outcome !== 'string' || !VALID_OUTCOMES.has(v.outcome as RetrospectiveOutcome))
+    return false;
   if (!Array.isArray(v.keyDecisions)) return false;
   if (!v.keyDecisions.every((decision) => typeof decision === 'string')) return false;
-  if (typeof v.lessonsLearned !== 'number' || !Number.isInteger(v.lessonsLearned) || v.lessonsLearned < 0) return false;
+  if (
+    typeof v.lessonsLearned !== 'number' ||
+    !Number.isInteger(v.lessonsLearned) ||
+    v.lessonsLearned < 0
+  )
+    return false;
   if (!Array.isArray(v.artifactPaths)) return false;
   if (!v.artifactPaths.every((p) => typeof p === 'string')) return false;
   if (typeof v.updatedAt !== 'string') return false;

@@ -32,7 +32,15 @@
  * substituted invocation and the installed one from drifting apart.
  */
 import { afterEach, describe, expect, it } from 'vitest';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  writeFileSync
+} from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -43,7 +51,10 @@ import {
   HOOK_POST_COMPACT_REINJECT_MATCHER,
   HOOK_POST_COMPACT_REINJECT_SENTINEL
 } from '~/src/services/skills/session-start-hook-constants';
-import { resolveHookEntries, resolveLegacySentinels } from '~/src/services/skills/hooks-codegate-superpowers';
+import {
+  resolveHookEntries,
+  resolveLegacySentinels
+} from '~/src/services/skills/hooks-codegate-superpowers';
 import { applyHookInstall, removeHookInstall } from '~/src/services/skills/hooks-settings-service';
 import { POST_COMPACT_REINJECTION_BYTE_BUDGET } from '~/src/services/context/post-compact-reinjection';
 
@@ -80,7 +91,9 @@ function readSessionStartEntries(settingsPath: string): HookEntry[] {
 
 function findReinjectEntry(entries: HookEntry[]): HookEntry | undefined {
   return entries.find((entry) =>
-    (entry.hooks ?? []).some((h) => String(h.command ?? '').includes(HOOK_POST_COMPACT_REINJECT_SENTINEL))
+    (entry.hooks ?? []).some((h) =>
+      String(h.command ?? '').includes(HOOK_POST_COMPACT_REINJECT_SENTINEL)
+    )
   );
 }
 
@@ -152,7 +165,9 @@ describe('behavior — the post-compact re-injection hook entry', () => {
         {
           statusLine: { type: 'command', command: 'my-statusline' },
           hooks: {
-            SessionStart: [{ matcher: '', hooks: [{ type: 'command', command: 'my-own-session-start' }] }]
+            SessionStart: [
+              { matcher: '', hooks: [{ type: 'command', command: 'my-own-session-start' }] }
+            ]
           }
         },
         null,
@@ -162,7 +177,11 @@ describe('behavior — the post-compact re-injection hook entry', () => {
     );
     writeFileSync(
       localPath,
-      JSON.stringify({ env: { MY_OWN_VAR: 'keep-me', GATEGUARD_EXEMPT_GLOBS: 'docs/**' } }, null, 2) + '\n',
+      JSON.stringify(
+        { env: { MY_OWN_VAR: 'keep-me', GATEGUARD_EXEMPT_GLOBS: 'docs/**' } },
+        null,
+        2
+      ) + '\n',
       'utf8'
     );
     // when: the peaks hooks are installed
@@ -172,12 +191,18 @@ describe('behavior — the post-compact re-injection hook entry', () => {
     expect(first.applied).toBe(true);
     const entries = readSessionStartEntries(sharedPath);
     expect(findReinjectEntry(entries)?.matcher).toBe('compact');
-    const parsedShared = JSON.parse(readFileSync(sharedPath, 'utf8')) as { statusLine?: { command?: string } };
+    const parsedShared = JSON.parse(readFileSync(sharedPath, 'utf8')) as {
+      statusLine?: { command?: string };
+    };
     expect(parsedShared.statusLine?.command).toBe('my-statusline');
-    expect(entries.some((e) => (e.hooks ?? []).some((h) => h.command === 'my-own-session-start'))).toBe(true);
+    expect(
+      entries.some((e) => (e.hooks ?? []).some((h) => h.command === 'my-own-session-start'))
+    ).toBe(true);
     // ...and the user's env value survived while ours was unioned in, not
     //     substituted for it
-    const parsedLocal = JSON.parse(readFileSync(localPath, 'utf8')) as { env?: Record<string, string> };
+    const parsedLocal = JSON.parse(readFileSync(localPath, 'utf8')) as {
+      env?: Record<string, string>;
+    };
     expect(parsedLocal.env?.MY_OWN_VAR).toBe('keep-me');
     expect(parsedLocal.env?.GATEGUARD_EXEMPT_GLOBS).toBe('docs/**,.peaks/**');
   });
@@ -195,7 +220,9 @@ describe('behavior — the post-compact re-injection hook entry', () => {
     expect(second.alreadyInstalled).toBe(true);
     expect(readFileSync(sharedPath, 'utf8')).toBe(afterFirst);
     // ...and there is exactly one re-injection entry, not two
-    expect(readSessionStartEntries(sharedPath).filter((e) => findReinjectEntry([e]) !== undefined)).toHaveLength(1);
+    expect(
+      readSessionStartEntries(sharedPath).filter((e) => findReinjectEntry([e]) !== undefined)
+    ).toHaveLength(1);
   });
 
   it('when the hooks are uninstalled, should remove the entry and nothing else', () => {
@@ -203,7 +230,9 @@ describe('behavior — the post-compact re-injection hook entry', () => {
     const tmpRoot = makeTempProjectRoot();
     applyHookInstall('project', tmpRoot, { ide: 'claude-code' });
     const sharedPath = sharedSettingsPath(tmpRoot);
-    const before = JSON.parse(readFileSync(sharedPath, 'utf8')) as { hooks: Record<string, unknown> };
+    const before = JSON.parse(readFileSync(sharedPath, 'utf8')) as {
+      hooks: Record<string, unknown>;
+    };
     before.hooks.SessionStart = [
       ...((before.hooks.SessionStart as HookEntry[]) ?? []),
       { matcher: '', hooks: [{ type: 'command', command: 'my-own-session-start' }] }
@@ -216,7 +245,9 @@ describe('behavior — the post-compact re-injection hook entry', () => {
     expect(removed.removed).toBe(true);
     const entries = readSessionStartEntries(sharedPath);
     expect(findReinjectEntry(entries)).toBeUndefined();
-    expect(entries.some((e) => (e.hooks ?? []).some((h) => h.command === 'my-own-session-start'))).toBe(true);
+    expect(
+      entries.some((e) => (e.hooks ?? []).some((h) => h.command === 'my-own-session-start'))
+    ).toBe(true);
     // ...and the sentinel is registered as peaks-managed, which is the only
     // reason uninstall can find it at all
     expect(resolveLegacySentinels('claude-code')).toContain(HOOK_POST_COMPACT_REINJECT_SENTINEL);
@@ -256,7 +287,11 @@ describe('behavior — the post-compact re-injection hook entry', () => {
     );
     mkdirSync(join(sess, 'job', 'j-hook-1'), { recursive: true });
     mkdirSync(join(sess, 'rd', 'requests'), { recursive: true });
-    writeFileSync(join(sess, 'rd', 'requests', '2026-09-13-a2-post-compact-reinject.md'), 'x', 'utf8');
+    writeFileSync(
+      join(sess, 'rd', 'requests', '2026-09-13-a2-post-compact-reinject.md'),
+      'x',
+      'utf8'
+    );
     writeFileSync(
       join(sess, 'job-shape.json'),
       JSON.stringify({
@@ -290,8 +325,21 @@ describe('behavior — the post-compact re-injection hook entry', () => {
     // when: the command the hook runs is executed against that project
     const run = spawnSync(
       process.execPath,
-      ['--import', 'tsx', join(ROOT, 'src', 'cli', 'index.ts'), 'session', 'reinject', '--project', tmpRoot],
-      { cwd: ROOT, encoding: 'utf8', windowsHide: true, env: { ...process.env, CLAUDE_PROJECT_DIR: tmpRoot } }
+      [
+        '--import',
+        'tsx',
+        join(ROOT, 'src', 'cli', 'index.ts'),
+        'session',
+        'reinject',
+        '--project',
+        tmpRoot
+      ],
+      {
+        cwd: ROOT,
+        encoding: 'utf8',
+        windowsHide: true,
+        env: { ...process.env, CLAUDE_PROJECT_DIR: tmpRoot }
+      }
     );
     // then: it succeeded, printed a card, and the card is the re-anchoring
     //       state — not an empty string that would silently re-inject nothing
@@ -317,8 +365,21 @@ describe('behavior — the post-compact re-injection hook entry', () => {
     // when: the command runs against it
     const run = spawnSync(
       process.execPath,
-      ['--import', 'tsx', join(ROOT, 'src', 'cli', 'index.ts'), 'session', 'reinject', '--project', tmpRoot],
-      { cwd: ROOT, encoding: 'utf8', windowsHide: true, env: { ...process.env, CLAUDE_PROJECT_DIR: tmpRoot } }
+      [
+        '--import',
+        'tsx',
+        join(ROOT, 'src', 'cli', 'index.ts'),
+        'session',
+        'reinject',
+        '--project',
+        tmpRoot
+      ],
+      {
+        cwd: ROOT,
+        encoding: 'utf8',
+        windowsHide: true,
+        env: { ...process.env, CLAUDE_PROJECT_DIR: tmpRoot }
+      }
     );
     // then: exit 0, and a card that carries no session-specific claim but is
     //       still a valid pointer + rules card rather than an error message
@@ -334,7 +395,15 @@ describe('behavior — the post-compact re-injection hook entry', () => {
     // when: the command runs against it
     const run = spawnSync(
       process.execPath,
-      ['--import', 'tsx', join(ROOT, 'src', 'cli', 'index.ts'), 'session', 'reinject', '--project', missing],
+      [
+        '--import',
+        'tsx',
+        join(ROOT, 'src', 'cli', 'index.ts'),
+        'session',
+        'reinject',
+        '--project',
+        missing
+      ],
       { cwd: ROOT, encoding: 'utf8', windowsHide: true }
     );
     // then: nothing on stdout at all — no error text for the model to read as
@@ -377,7 +446,8 @@ describe('behavior — workspace init does not disturb the re-injection entry', 
     // routes all three SessionStart entries to the shared file), so this is a
     // latent hazard for a future entry that needs a machine-local hook, not a
     // live defect. It is in the RD report's "found, not touched" list.
-    const { materializeClaudeSettingsLocal } = await import('~/src/services/workspace/workspace-claude-settings-materializer');
+    const { materializeClaudeSettingsLocal } =
+      await import('~/src/services/workspace/workspace-claude-settings-materializer');
     const tmpRoot = mkdtempSync(join(tmpdir(), 'peaks-reinject-init-'));
     tmpRoots.push(tmpRoot);
     // given: an installed project
@@ -386,8 +456,12 @@ describe('behavior — workspace init does not disturb the re-injection entry', 
     // ...whose LOCAL file's PreToolUse tree predates the current template, so
     //    the drift comparator takes the rewrite path rather than short-circuiting
     const localPath = join(tmpRoot, '.claude', 'settings.local.json');
-    const drifted = JSON.parse(readFileSync(localPath, 'utf8')) as { hooks: Record<string, unknown> };
-    drifted.hooks.PreToolUse = [{ matcher: 'Bash', hooks: [{ type: 'command', command: 'stale-handler' }] }];
+    const drifted = JSON.parse(readFileSync(localPath, 'utf8')) as {
+      hooks: Record<string, unknown>;
+    };
+    drifted.hooks.PreToolUse = [
+      { matcher: 'Bash', hooks: [{ type: 'command', command: 'stale-handler' }] }
+    ];
     writeFileSync(localPath, JSON.stringify(drifted, null, 2) + '\n', 'utf8');
     const before = readFileSync(sharedPath, 'utf8');
     // when: workspace init refreshes the project's settings

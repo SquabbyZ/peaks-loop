@@ -44,14 +44,14 @@ export function listSkillsVisibility(repoRoot: string): SkillVisibility[] {
       return {
         name: basename(entry),
         userInvocable: true,
-        visibility: 'public' as const,
+        visibility: 'public' as const
       };
     }
     const userInvocable = entry.userInvocable !== false;
     return {
       name: entry.name ?? '',
       userInvocable,
-      visibility: userInvocable ? ('public' as const) : ('internal' as const),
+      visibility: userInvocable ? ('public' as const) : ('internal' as const)
     };
   });
 }

@@ -17,14 +17,20 @@
  * session-manager helper for writing the binding. No new dependencies.
  */
 
-import { existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  statSync,
+  writeFileSync
+} from 'node:fs';
 import { join, resolve } from 'node:path';
 import { getSessionIdCanonical, setCurrentSessionBinding } from '../session/session-manager.js';
-import type {
-  ReconcileOptions,
-  ReconcileResult,
-  SessionEntry
-} from './reconcile-types.js';
+import type { ReconcileOptions, ReconcileResult, SessionEntry } from './reconcile-types.js';
 import { migrateOldRuntimeState, migrateSubAgentState } from './reconcile-migrate.js';
 
 const SESSION_ID_PATTERN = /^\d{4}-\d{2}-\d{2}-session-[a-f0-9]+$/;
@@ -109,7 +115,6 @@ function scanSessionDir(peaksRoot: string, name: string, entries: SessionEntry[]
 
   entries.push({ sessionId: name, path: dir, lastActivity, artifactCount });
 }
-
 
 /**
  * 4-tier canonical selection. Tiers evaluated in order; first one that
@@ -235,10 +240,7 @@ export function findDeletionCandidates(
   for (const e of entries) {
     const isEmptyOrAutoOnly = e.artifactCount === 0;
     if (!isEmptyOrAutoOnly) continue;
-    const mtime =
-      e.lastActivity !== null
-        ? e.lastActivity
-        : readDirMtime(e.path);
+    const mtime = e.lastActivity !== null ? e.lastActivity : readDirMtime(e.path);
     if (mtime === null) continue;
     if (now - mtime < ageThresholdMs) continue;
     candidates.push(e);
@@ -249,7 +251,8 @@ export function findDeletionCandidates(
 function readDirMtime(dirPath: string): number | null {
   try {
     return statSync(dirPath).mtimeMs;
-  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+  } catch {
+    // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     return null;
   }
 }
@@ -263,7 +266,11 @@ function readDirMtime(dirPath: string): number | null {
 export function applyDeletions(
   candidates: SessionEntry[],
   apply: boolean
-): { deleted: string[]; wouldDelete: string[]; errors: Array<{ sessionId: string; message: string }> } {
+): {
+  deleted: string[];
+  wouldDelete: string[];
+  errors: Array<{ sessionId: string; message: string }>;
+} {
   if (!apply) {
     return {
       deleted: [],
@@ -310,7 +317,8 @@ function readActiveSkillSessionId(projectRoot: string): string | null {
     if (typeof parsed?.sessionId === 'string' && parsed.sessionId.length > 0) {
       return parsed.sessionId;
     }
-  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+  } catch {
+    // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     return null;
   }
   return null;
@@ -449,9 +457,14 @@ export function reconcileWorkspace(options: ReconcileOptions): ReconcileResult {
   // `.peaks/_runtime/change/`. Idempotent. This step is independent
   // of the apply flag — syncing the marker is a derived-state write,
   // not a destructive side effect.
-  const changeMarker = canonical === null
-    ? { removed: [] as string[], created: null as string | null, error: 'no canonical session' as string | null }
-    : syncChangeMarker(projectRoot, canonical.sessionId);
+  const changeMarker =
+    canonical === null
+      ? {
+          removed: [] as string[],
+          created: null as string | null,
+          error: 'no canonical session' as string | null
+        }
+      : syncChangeMarker(projectRoot, canonical.sessionId);
 
   // Slice 006: clean up the F3-introduced `.peaks/_runtime/<sid>/system/`
   // subdir under EVERY session dir (not just the canonical one). The
@@ -468,7 +481,8 @@ export function reconcileWorkspace(options: ReconcileOptions): ReconcileResult {
       try {
         rmSync(systemDir, { recursive: true, force: true });
         systemCleaned.push(systemDir);
-      } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+      } catch {
+        // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
         // Best-effort: a locked subdir does not block the rest of reconcile.
       }
     }
@@ -548,10 +562,18 @@ export function reconcilePresenceLeases(input: ReconcilePresenceInput): Reconcil
       const raw = readFileSync(newPath, 'utf8');
       const parsed = JSON.parse(raw) as { skill?: unknown };
       if (typeof parsed?.skill !== 'string') {
-        conflicts.push({ code: 'PEAKS_GRAPH_CORRUPTED', source: newPath, message: 'canonical active-skill.json malformed' });
+        conflicts.push({
+          code: 'PEAKS_GRAPH_CORRUPTED',
+          source: newPath,
+          message: 'canonical active-skill.json malformed'
+        });
       }
     } catch (err) {
-      conflicts.push({ code: 'PEAKS_GRAPH_CORRUPTED', source: newPath, message: `JSON malformed: ${(err as Error).message}` });
+      conflicts.push({
+        code: 'PEAKS_GRAPH_CORRUPTED',
+        source: newPath,
+        message: `JSON malformed: ${(err as Error).message}`
+      });
     }
   }
 
@@ -568,7 +590,9 @@ export function reconcilePresenceLeases(input: ReconcilePresenceInput): Reconcil
     try {
       const receipt = JSON.parse(readFileSync(receiptPath, 'utf8')) as { migratedCount?: number };
       migratedCount = typeof receipt.migratedCount === 'number' ? receipt.migratedCount : 0;
-    } catch { /* swallow; treat as empty receipt */ }
+    } catch {
+      /* swallow; treat as empty receipt */
+    }
   }
 
   // Migration itself: copy each legacy source into the canonical tree.
@@ -594,7 +618,7 @@ export function reconcilePresenceLeases(input: ReconcilePresenceInput): Reconcil
       legacyPresence: false,
       migratedCount,
       createdCount: 0,
-      receiptPath: null,
+      receiptPath: null
     };
   }
 
@@ -614,7 +638,7 @@ export function reconcilePresenceLeases(input: ReconcilePresenceInput): Reconcil
         startedAt: new Date().toISOString(),
         lastHeartbeat: new Date().toISOString(),
         status: 'preparing',
-        schemaVersion: 1,
+        schemaVersion: 1
       };
       const leasePath = join(leasesDir, `presence-${caller}-${workflowId}.json`);
       const tmpPath = `${leasePath}.tmp-${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -623,7 +647,11 @@ export function reconcilePresenceLeases(input: ReconcilePresenceInput): Reconcil
       createdCount += 1;
       migratedCount += 1;
     } catch (err) {
-      conflicts.push({ code: 'PEAKS_LEASE_IO_FAILED', source: legacy, message: (err as Error).message });
+      conflicts.push({
+        code: 'PEAKS_LEASE_IO_FAILED',
+        source: legacy,
+        message: (err as Error).message
+      });
     }
   }
 
@@ -632,11 +660,13 @@ export function reconcilePresenceLeases(input: ReconcilePresenceInput): Reconcil
       schemaVersion: 1,
       migratedCount,
       sources: legacyPaths,
-      ts: new Date().toISOString(),
+      ts: new Date().toISOString()
     };
     try {
       writeFileSync(receiptPath, JSON.stringify(receipt, null, 2), 'utf8');
-    } catch { /* best-effort */ }
+    } catch {
+      /* best-effort */
+    }
   }
 
   return {
@@ -644,6 +674,6 @@ export function reconcilePresenceLeases(input: ReconcilePresenceInput): Reconcil
     legacyPresence: legacyPaths.length > 0,
     migratedCount,
     createdCount,
-    receiptPath: createdCount > 0 ? receiptPath : null,
+    receiptPath: createdCount > 0 ? receiptPath : null
   };
 }

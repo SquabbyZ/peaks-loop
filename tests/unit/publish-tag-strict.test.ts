@@ -28,10 +28,7 @@ import { dirname, resolve } from 'node:path';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-const WORKFLOW_PATH = resolve(
-  __dirname,
-  '../../.github/workflows/publish.yml',
-);
+const WORKFLOW_PATH = resolve(__dirname, '../../.github/workflows/publish.yml');
 
 describe('publish.yml strict vX.Y.Z tag gate (slice 2026-08-05-publish-tag-strict)', () => {
   const yaml = readFileSync(WORKFLOW_PATH, 'utf8');
@@ -74,7 +71,7 @@ describe('publish.yml strict vX.Y.Z tag gate (slice 2026-08-05-publish-tag-stric
     const operand = /\[\[\s*"\$\{exact_tag\}"\s*=~\s*(\S+)\s*\]\]/.exec(yaml)?.[1];
 
     expect(operand, 'the strict-tag gate must test the tag with a bash regex').toBe(
-      '^v[0-9]+\\.[0-9]+\\.[0-9]+$',
+      '^v[0-9]+\\.[0-9]+\\.[0-9]+$'
     );
   });
 });

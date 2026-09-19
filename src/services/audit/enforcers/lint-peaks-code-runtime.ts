@@ -21,7 +21,10 @@ const REQUIRED_HEADINGS: ReadonlyArray<{ name: string; pattern: RegExp }> = Obje
   { name: 'npm-contract boundary', pattern: /npm-contract boundary/i },
   { name: 'Startup sequence', pattern: /peaks-loop startup sequence/i },
   { name: 'Step 0.8 job-shape detection', pattern: /step 0\.8.*job-shape detection/i },
-  { name: 'Local intermediate artifact workspace', pattern: /peaks-loop local intermediate artifact workspace/i },
+  {
+    name: 'Local intermediate artifact workspace',
+    pattern: /peaks-loop local intermediate artifact workspace/i
+  },
   { name: 'Pre-rd project scan checklist', pattern: /peaks-loop pre-rd project scan checklist/i },
   { name: 'Step 11 memory sediment', pattern: /step 11.*memory sediment/i },
   { name: '--enforce-job-mode (v3.1.2)', pattern: /enforce-job-mode \(v3\.1\.2\)/i }
@@ -35,11 +38,13 @@ export function lintPeaksCodeRuntimeContract(skill: SkillFile): ReadonlyArray<Li
     if (!lines.some((l) => h.pattern.test(l))) missing.push(h.name);
   }
   if (missing.length === 0) return [];
-  return [{
-    catalogId: 'rl-peaks-code-runtime-contract-001',
-    rule: 'peaks-code SKILL.md must declare the runbook section markers (Scope, no auto-compact, superpowers bridge, npm-contract, startup sequence, step 0.8 job-shape, local intermediate artifact workspace, pre-rd project scan checklist, step 11 memory sediment, --enforce-job-mode v3.1.2).',
-    file: skill.path,
-    line: 1,
-    matchedText: `missing markers: ${missing.join(', ')}`
-  }];
+  return [
+    {
+      catalogId: 'rl-peaks-code-runtime-contract-001',
+      rule: 'peaks-code SKILL.md must declare the runbook section markers (Scope, no auto-compact, superpowers bridge, npm-contract, startup sequence, step 0.8 job-shape, local intermediate artifact workspace, pre-rd project scan checklist, step 11 memory sediment, --enforce-job-mode v3.1.2).',
+      file: skill.path,
+      line: 1,
+      matchedText: `missing markers: ${missing.join(', ')}`
+    }
+  ];
 }

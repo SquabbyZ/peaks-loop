@@ -8,7 +8,14 @@ export type JobEvent =
   | { kind: 'job-started'; jobId: string; total: number; strategy: 'single' | 'rotating' }
   | { kind: 'job-progress'; jobId: string; done: number; total: number; currentSlice?: string }
   | { kind: 'job-blocked'; jobId: string; sliceId: string; reason: string }
-  | { kind: 'job-completed'; jobId: string; done: number; failed: number; blocked: number; skipped: number };
+  | {
+      kind: 'job-completed';
+      jobId: string;
+      done: number;
+      failed: number;
+      blocked: number;
+      skipped: number;
+    };
 
 export function emitJobEvent(event: JobEvent): void {
   // Write to stderr so it doesn't pollute the JSON-envelope stdout that the CLI emits.

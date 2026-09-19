@@ -97,7 +97,17 @@ describe('peaks slice ls (slice 2026-06-27-slice-ls)', () => {
     fixtures.push(root);
     const { stdout, status } = runLs(['--json'], root);
     expect(status).toBe(0);
-    const env = JSON.parse(stdout) as { ok: boolean; data: { rids: Array<{ rid: string; pickedPath: string | null; sizeBytes: number; isStale: boolean }> } };
+    const env = JSON.parse(stdout) as {
+      ok: boolean;
+      data: {
+        rids: Array<{
+          rid: string;
+          pickedPath: string | null;
+          sizeBytes: number;
+          isStale: boolean;
+        }>;
+      };
+    };
     expect(env.ok).toBe(true);
     expect(env.data.rids).toHaveLength(2);
     expect(env.data.rids[0]?.rid).toBe('2026-06-26-bar');
@@ -124,7 +134,10 @@ describe('peaks slice ls (slice 2026-06-27-slice-ls)', () => {
   });
 
   it('AC5+AC6: empty / missing dir returns empty list, exit 0', () => {
-    const root = join(tmpdir(), `slice-ls-empty-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
+    const root = join(
+      tmpdir(),
+      `slice-ls-empty-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+    );
     mkdirSync(root, { recursive: true });
     fixtures.push(root);
     const { stdout, status } = runLs(['--json'], root);
@@ -164,9 +177,7 @@ describe('peaks slice ls (slice 2026-06-27-slice-ls)', () => {
   });
 
   it('AC9: plaintext mode prints header + data rows', () => {
-    const root = makeFixture([
-      { rid: 'r1', hasPicked: false, ageDays: 1 }
-    ]);
+    const root = makeFixture([{ rid: 'r1', hasPicked: false, ageDays: 1 }]);
     fixtures.push(root);
     const { stdout, status } = runLs([], root);
     expect(status).toBe(0);

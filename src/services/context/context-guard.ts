@@ -47,8 +47,10 @@ export interface ContextGuardOptions {
   readonly capacityBytes?: number;
 }
 
-const NEAR_LIMIT_SUGGEST = 'Prompt is near the context limit; trim the prompt or split into multiple dispatches.';
-const SOFT_WARN_SUGGEST = 'Prompt is large; trim or split into multiple dispatches to stay within context budget.';
+const NEAR_LIMIT_SUGGEST =
+  'Prompt is near the context limit; trim the prompt or split into multiple dispatches.';
+const SOFT_WARN_SUGGEST =
+  'Prompt is large; trim or split into multiple dispatches to stay within context budget.';
 const HARD_REJECT_SUGGEST =
   'Trim prompt to < 80% of context capacity. Pass --force at CLI to override (NOT allowed at hook layer).';
 const EMERGENCY_SUGGEST =

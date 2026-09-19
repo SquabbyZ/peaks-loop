@@ -2,9 +2,5 @@
 import type { GuardDiff } from './types.js';
 
 export function formatHumanReadableDiff(diff: GuardDiff): string {
-  return [
-    `reason: ${diff.reason}`,
-    `- ${diff.before}`,
-    `+ ${diff.after}`
-  ].join('\n');
+  return [`reason: ${diff.reason}`, `- ${diff.before}`, `+ ${diff.after}`].join('\n');
 }

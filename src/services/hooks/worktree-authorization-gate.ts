@@ -34,21 +34,28 @@
  */
 
 import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  renameSync,
+  unlinkSync,
+  writeFileSync
+} from 'node:fs';
 import { dirname, join } from 'node:path';
 
 import {
   deserializeLease,
   isLeaseActive,
   leaseFilePath,
-  type WorktreeLease,
+  type WorktreeLease
 } from '../worktree/worktree-lease.js';
 import { readDispatchProvenance } from '../worktree/dispatch-provenance.js';
 import {
   containerLeaseFilePath,
   deserializeContainerLease,
   isContainerLeaseActive,
-  type ContainerLease,
+  type ContainerLease
 } from '../container/container-lease.js';
 
 export const WORKTREE_AUTH_FILE = 'worktree-auth.json';
@@ -90,9 +97,24 @@ export type WorktreeAuthorization = {
 
 /** Result of a gate check. `allow` permits the tool call; `deny` blocks it. */
 export type WorktreeAuthDecision =
-  | { readonly allow: true; readonly authorization: WorktreeAuthorization; readonly remaining: number; readonly viaLease: null }
-  | { readonly allow: true; readonly authorization: null; readonly remaining: 0; readonly viaLease: WorktreeLease | ContainerLease }
-  | { readonly allow: false; readonly reason: string; readonly code: WorktreeAuthDenyCode; readonly remediation: string };
+  | {
+      readonly allow: true;
+      readonly authorization: WorktreeAuthorization;
+      readonly remaining: number;
+      readonly viaLease: null;
+    }
+  | {
+      readonly allow: true;
+      readonly authorization: null;
+      readonly remaining: 0;
+      readonly viaLease: WorktreeLease | ContainerLease;
+    }
+  | {
+      readonly allow: false;
+      readonly reason: string;
+      readonly code: WorktreeAuthDenyCode;
+      readonly remediation: string;
+    };
 
 export type WorktreeAuthDenyCode =
   /** No current-task grant for the operation. */
@@ -175,7 +197,10 @@ export function worktreeAuthFilePath(projectRoot: string, sessionId: string): st
  * recorded yet). Throws `WorktreeAuthFileInvalidError` for malformed JSON / wrong shape / wrong
  * sessionId — the gate treats this as deny, not allow. We never silently fail open.
  */
-export function readAuthorization(projectRoot: string, sessionId: string): AuthorizationFile | null {
+export function readAuthorization(
+  projectRoot: string,
+  sessionId: string
+): AuthorizationFile | null {
   const path = worktreeAuthFilePath(projectRoot, sessionId);
   if (!existsSync(path)) return null;
   const raw = readFileSync(path, 'utf8');
@@ -183,10 +208,16 @@ export function readAuthorization(projectRoot: string, sessionId: string): Autho
   try {
     parsed = JSON.parse(raw);
   } catch (error) {
-    throw new WorktreeAuthFileInvalidError(`worktree-auth.json: invalid JSON (${(error as Error).message})`, { path });
+    throw new WorktreeAuthFileInvalidError(
+      `worktree-auth.json: invalid JSON (${(error as Error).message})`,
+      { path }
+    );
   }
   if (!isAuthorizationFile(parsed)) {
-    throw new WorktreeAuthFileInvalidError('worktree-auth.json: shape does not match AuthorizationFile', { path });
+    throw new WorktreeAuthFileInvalidError(
+      'worktree-auth.json: shape does not match AuthorizationFile',
+      { path }
+    );
   }
   if (parsed.sessionId !== sessionId) {
     throw new WorktreeAuthFileInvalidError(
@@ -242,7 +273,8 @@ function isOperationType(value: string): value is OperationType {
 
 /** The narrow set of worktree-mutating `git` commands the gate actually blocks. Tightly scoped on purpose. */
 const GIT_WORKTREE_REGEX = /^\s*git\s+worktree(?:\s+(add|remove|prune|lock|unlock|move|repair))?\b/;
-const GIT_STASH_MUTATING_REGEX = /^\s*git\s+stash(?:\s+(push|pop|save|create|drop|store|clear|apply))(?:\s+|$)/;
+const GIT_STASH_MUTATING_REGEX =
+  /^\s*git\s+stash(?:\s+(push|pop|save|create|drop|store|clear|apply))(?:\s+|$)/;
 
 /**
  * Map the actual tool call to an `OperationType` the gate should look up. Returns `null` for tool calls
@@ -301,7 +333,12 @@ export function decideFromAuthorization(
     .filter((g) => Date.parse(g.expiresAt) > now)
     .find((g) => g.requestId === null || g.requestId === input.requestId);
   if (requestMatched !== undefined) {
-    return { allow: true, authorization: requestMatched, remaining: file.grants.length, viaLease: null };
+    return {
+      allow: true,
+      authorization: requestMatched,
+      remaining: file.grants.length,
+      viaLease: null
+    };
   }
   // No live grant matched the current rid (or the caller's rid is null). Diagnose why.
   const sameOpAnyState = file.grants.filter((g) => g.operation === operation);
@@ -310,19 +347,19 @@ export function decideFromAuthorization(
       allow: false,
       code: 'WORKTREE_USER_AUTH_REQUIRED',
       reason: `No grant for operation "${operation}" in this session.`,
-      remediation:
-        `Run \`peaks worktree auth grant --operation ${operation} --reason "<why>"\` from the LLM after the user has explicitly asked for the operation.`
+      remediation: `Run \`peaks worktree auth grant --operation ${operation} --reason "<why>"\` from the LLM after the user has explicitly asked for the operation.`
     };
   }
   const ridScoped = sameOpAnyState.find((g) => g.requestId !== null);
-  const ridMatchesScope = ridScoped !== undefined && (input.requestId === null || ridScoped.requestId === input.requestId);
+  const ridMatchesScope =
+    ridScoped !== undefined &&
+    (input.requestId === null || ridScoped.requestId === input.requestId);
   if (ridScoped !== undefined && !ridMatchesScope) {
     return {
       allow: false,
       code: 'WORKTREE_USER_AUTH_REQUEST_MISMATCH',
       reason: `Grant for "${operation}" is scoped to requestId=${ridScoped.requestId} but the current tool call carries requestId=${input.requestId ?? 'null'}.`,
-      remediation:
-        `Either drop the requestId scope from the grant (\`peaks worktree auth grant --operation ${operation} --no-request-id\`) or operate under the scoped request.`
+      remediation: `Either drop the requestId scope from the grant (\`peaks worktree auth grant --operation ${operation} --no-request-id\`) or operate under the scoped request.`
     };
   }
   // Otherwise: every grant for the operation is either consumed or expired.
@@ -332,8 +369,7 @@ export function decideFromAuthorization(
       allow: false,
       code: 'WORKTREE_USER_AUTH_EXPIRED',
       reason: `All grants for operation "${operation}" in this session have expired.`,
-      remediation:
-        `Re-run \`peaks worktree auth grant --operation ${operation} --reason "<why>"\` (default TTL 5 min) before the tool call retries.`
+      remediation: `Re-run \`peaks worktree auth grant --operation ${operation} --reason "<why>"\` (default TTL 5 min) before the tool call retries.`
     };
   }
   // Grants exist and at least one is unexpired, but every non-expired one is consumed.
@@ -341,8 +377,7 @@ export function decideFromAuthorization(
     allow: false,
     code: 'WORKTREE_USER_AUTH_REQUIRED',
     reason: `All unexpired grants for operation "${operation}" in this session are already consumed.`,
-    remediation:
-      `Re-run \`peaks worktree auth grant --operation ${operation} --reason "<why>"\` to issue a fresh grant (or pass --multi to make it multi-use).`
+    remediation: `Re-run \`peaks worktree auth grant --operation ${operation} --reason "<why>"\` to issue a fresh grant (or pass --multi to make it multi-use).`
   };
 }
 
@@ -357,9 +392,14 @@ export function evaluateWorktreeAuth(input: WorktreeAuthCheckInput): WorktreeAut
   const operation = classifyToolCall(input);
   if (operation === 'agent-isolation-worktree') {
     const token = input.dispatchProvenanceToken ?? '';
-    const provenance = token.length > 0
-      ? readDispatchProvenance({ projectRoot: input.projectRoot, sessionId: input.sessionId, token })
-      : null;
+    const provenance =
+      token.length > 0
+        ? readDispatchProvenance({
+            projectRoot: input.projectRoot,
+            sessionId: input.sessionId,
+            token
+          })
+        : null;
     if (
       provenance === null ||
       input.leaseId === null ||
@@ -369,8 +409,10 @@ export function evaluateWorktreeAuth(input: WorktreeAuthCheckInput): WorktreeAut
       return {
         allow: false,
         code: 'HOST_AGENT_ISOLATION_UNMANAGED',
-        reason: 'Host Agent/Task worktree isolation lacks a matching Peaks dispatch provenance record and canonical lease.',
-        remediation: 'Route the work through Peaks sub-agent dispatch with worktree isolation. Existing leaked host worktrees must be reconciled or adopted before cleanup.'
+        reason:
+          'Host Agent/Task worktree isolation lacks a matching Peaks dispatch provenance record and canonical lease.',
+        remediation:
+          'Route the work through Peaks sub-agent dispatch with worktree isolation. Existing leaked host worktrees must be reconciled or adopted before cleanup.'
       };
     }
     const leaseDecision = decideFromLease({ ...input, requestId: provenance.requestId });
@@ -431,7 +473,11 @@ export function evaluateWorktreeAuth(input: WorktreeAuthCheckInput): WorktreeAut
   // `peaks worktree auth grant` are unaffected (their grants already allowed above).
   if (input.leaseId === null || input.leaseId === undefined || input.leaseId.length === 0) {
     // Part 19: try the container lease fallback before giving up.
-    if (input.containerLeaseId !== null && input.containerLeaseId !== undefined && input.containerLeaseId.length > 0) {
+    if (
+      input.containerLeaseId !== null &&
+      input.containerLeaseId !== undefined &&
+      input.containerLeaseId.length > 0
+    ) {
       return decideFromContainerLease(input);
     }
     return decision;
@@ -441,7 +487,11 @@ export function evaluateWorktreeAuth(input: WorktreeAuthCheckInput): WorktreeAut
   // Part 19: if the worktree lease did not allow, try the container
   // lease as a second lease path (sub-agents with container
   // isolation).
-  if (input.containerLeaseId !== null && input.containerLeaseId !== undefined && input.containerLeaseId.length > 0) {
+  if (
+    input.containerLeaseId !== null &&
+    input.containerLeaseId !== undefined &&
+    input.containerLeaseId.length > 0
+  ) {
     return decideFromContainerLease(input);
   }
   return leaseResult;
@@ -461,7 +511,10 @@ export function evaluateWorktreeAuth(input: WorktreeAuthCheckInput): WorktreeAut
  */
 export function decideFromContainerLease(input: WorktreeAuthCheckInput): WorktreeAuthDecision {
   const containerLeaseId = input.containerLeaseId ?? '';
-  const file = containerLeaseFilePath(`${input.projectRoot}/.peaks/_runtime/${input.sessionId}`, containerLeaseId);
+  const file = containerLeaseFilePath(
+    `${input.projectRoot}/.peaks/_runtime/${input.sessionId}`,
+    containerLeaseId
+  );
   if (!existsSync(file)) {
     return {
       allow: false,
@@ -531,8 +584,7 @@ export function decideFromLease(input: WorktreeAuthCheckInput): WorktreeAuthDeci
       allow: false,
       code: 'WORKTREE_LEASE_FILE_INVALID',
       reason: `Lease file at ${file} is unreadable/malformed: ${(error as Error).message}`,
-      remediation:
-        `Delete the malformed lease (\`rm ${file}\`) and re-spawn. The gate never fails open on a malformed lease.`
+      remediation: `Delete the malformed lease (\`rm ${file}\`) and re-spawn. The gate never fails open on a malformed lease.`
     };
   }
   if (input.requestId !== null && lease.rid !== input.requestId) {
@@ -548,8 +600,7 @@ export function decideFromLease(input: WorktreeAuthCheckInput): WorktreeAuthDeci
       allow: false,
       code: 'WORKTREE_LEASE_NOT_ACTIVE',
       reason: `Lease ${lease.leaseId} is not active (status=${lease.status}, remainingMs=${lease.expiresAt - Date.now()}).`,
-      remediation:
-        `Run \`peaks worktree renew --lease-id ${lease.leaseId}\` to extend, or \`peaks worktree spawn ...\` to create a new lease.`
+      remediation: `Run \`peaks worktree renew --lease-id ${lease.leaseId}\` to extend, or \`peaks worktree spawn ...\` to create a new lease.`
     };
   }
   return { allow: true, authorization: null, remaining: 0, viaLease: lease };

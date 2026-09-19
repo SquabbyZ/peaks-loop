@@ -49,7 +49,11 @@ export type KarpathyCostCheckDecision =
   | {
       readonly kind: 'no-cost-data';
       readonly gateAction: GateAction | null;
-      readonly reason: 'envelope-missing-evaluationCost' | 'file-missing' | 'file-unreadable' | 'envelope-not-json';
+      readonly reason:
+        | 'envelope-missing-evaluationCost'
+        | 'file-missing'
+        | 'file-unreadable'
+        | 'envelope-not-json';
     }
   | {
       readonly kind: '24h-mode-active';
@@ -99,9 +103,10 @@ export function decideKarpathyCostCheck(input: KarpathyCostCheckInput): Karpathy
       decision: {
         kind: '24h-mode-active',
         gateAction: null,
-        reason: 'peaks session 24h-mode state = 24H_ACTIVE; cost-check is the OVERRIDE, not the constrained side',
+        reason:
+          'peaks session 24h-mode state = 24H_ACTIVE; cost-check is the OVERRIDE, not the constrained side'
       },
-      reasonLine: 'karpathy-cost-check: skipped (24h-mode active)',
+      reasonLine: 'karpathy-cost-check: skipped (24h-mode active)'
     };
   }
 
@@ -111,7 +116,7 @@ export function decideKarpathyCostCheck(input: KarpathyCostCheckInput): Karpathy
   } catch {
     return {
       decision: { kind: 'no-cost-data', gateAction: null, reason: 'envelope-not-json' },
-      reasonLine: 'karpathy-cost-check: skipped (envelope not JSON)',
+      reasonLine: 'karpathy-cost-check: skipped (envelope not JSON)'
     };
   }
 
@@ -120,9 +125,9 @@ export function decideKarpathyCostCheck(input: KarpathyCostCheckInput): Karpathy
       decision: {
         kind: 'no-cost-data',
         gateAction: envelope.gateAction ?? null,
-        reason: 'envelope-missing-evaluationCost',
+        reason: 'envelope-missing-evaluationCost'
       },
-      reasonLine: 'karpathy-cost-check: skipped (envelope missing evaluationCost/costRatio)',
+      reasonLine: 'karpathy-cost-check: skipped (envelope missing evaluationCost/costRatio)'
     };
   }
 
@@ -136,22 +141,32 @@ export function decideKarpathyCostCheck(input: KarpathyCostCheckInput): Karpathy
         originalGateAction: 'block',
         newGateAction: 'warn',
         costRatio,
-        evaluationCost,
+        evaluationCost
       },
-      reasonLine: `karpathy-cost-check: downgraded block → warn (costRatio=${costRatio.toFixed(2)} > ${KARPATHY_COST_DOWNGRADE_THRESHOLD})`,
+      reasonLine: `karpathy-cost-check: downgraded block → warn (costRatio=${costRatio.toFixed(2)} > ${KARPATHY_COST_DOWNGRADE_THRESHOLD})`
     };
   }
 
   if (costRatio > KARPATHY_COST_REPORT_THRESHOLD) {
     return {
-      decision: { kind: 'reported', gateAction: envelope.gateAction ?? 'pass', costRatio, evaluationCost },
-      reasonLine: `karpathy-cost-check: costRatio=${costRatio.toFixed(2)} > ${KARPATHY_COST_REPORT_THRESHOLD} (sediment appended)`,
+      decision: {
+        kind: 'reported',
+        gateAction: envelope.gateAction ?? 'pass',
+        costRatio,
+        evaluationCost
+      },
+      reasonLine: `karpathy-cost-check: costRatio=${costRatio.toFixed(2)} > ${KARPATHY_COST_REPORT_THRESHOLD} (sediment appended)`
     };
   }
 
   return {
-    decision: { kind: 'unchanged', gateAction: envelope.gateAction ?? 'pass', costRatio, evaluationCost },
-    reasonLine: `karpathy-cost-check: unchanged (costRatio=${costRatio.toFixed(2)})`,
+    decision: {
+      kind: 'unchanged',
+      gateAction: envelope.gateAction ?? 'pass',
+      costRatio,
+      evaluationCost
+    },
+    reasonLine: `karpathy-cost-check: unchanged (costRatio=${costRatio.toFixed(2)})`
   };
 }
 
@@ -166,16 +181,18 @@ export function runKarpathyCostCheck(opts: {
   } catch {
     return {
       decision: { kind: 'no-cost-data', gateAction: null, reason: 'file-missing' },
-      reasonLine: `karpathy-cost-check: skipped (file missing: ${opts.reviewFilePath})`,
+      reasonLine: `karpathy-cost-check: skipped (file missing: ${opts.reviewFilePath})`
     };
   }
   return decideKarpathyCostCheck({
     reviewFileContent: content,
-    is24hModeActive: opts.is24hModeActive,
+    is24hModeActive: opts.is24hModeActive
   });
 }
 
 /** Envelope-shape return for the CLI. */
-export function buildCostCheckEnvelope(out: KarpathyCostCheckOutput): ResultEnvelope<KarpathyCostCheckDecision> {
+export function buildCostCheckEnvelope(
+  out: KarpathyCostCheckOutput
+): ResultEnvelope<KarpathyCostCheckDecision> {
   return ok('karpathy-cost-check', out.decision);
 }

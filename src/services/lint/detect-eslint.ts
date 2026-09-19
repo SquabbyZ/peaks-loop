@@ -8,11 +8,7 @@ import { resolveNpmInvocation, resolveNpxInvocation } from './npx-resolver.js';
 import { ESLINT_PACKAGE_PINS } from './eslint-runner.js';
 
 export type EslintDetectState =
-  | 'ready'
-  | 'eslint-missing'
-  | 'config-error'
-  | 'npx-failed'
-  | 'detection-failed';
+  'ready' | 'eslint-missing' | 'config-error' | 'npx-failed' | 'detection-failed';
 
 export type EslintDetectResult = {
   readonly state: EslintDetectState;
@@ -30,9 +26,12 @@ const PACKAGES_TO_PROBE: ReadonlyArray<keyof typeof ESLINT_PACKAGE_PINS> = [
 
 function packageNameFor(key: keyof typeof ESLINT_PACKAGE_PINS): string {
   switch (key) {
-    case 'eslint': return 'eslint';
-    case 'typescriptEslintParser': return '@typescript-eslint/parser';
-    case 'typescriptEslintPlugin': return '@typescript-eslint/eslint-plugin';
+    case 'eslint':
+      return 'eslint';
+    case 'typescriptEslintParser':
+      return '@typescript-eslint/parser';
+    case 'typescriptEslintPlugin':
+      return '@typescript-eslint/eslint-plugin';
   }
 }
 
@@ -77,7 +76,10 @@ export function detectEslint(): EslintDetectResult {
       npxAvailable: false,
       pinnedVersions: ESLINT_PACKAGE_PINS,
       warnings: ['npx is not on PATH'],
-      nextActions: ['Install Node.js ≥ 20 with npm to enable `npx --package`.', 'Or run `peaks code lint --no-npx` (future slice).']
+      nextActions: [
+        'Install Node.js ≥ 20 with npm to enable `npx --package`.',
+        'Or run `peaks code lint --no-npx` (future slice).'
+      ]
     };
   }
   for (const key of PACKAGES_TO_PROBE) {
@@ -88,7 +90,7 @@ export function detectEslint(): EslintDetectResult {
       probe.error === null
         ? `npm registry cannot resolve ${target}`
         : `${NPM_PROBE_UNRESOLVED_CODE}: could not launch npm to probe ${target} (${probe.error}). ` +
-          'Ensure Node.js >= 20 with its bundled npm is installed.'
+            'Ensure Node.js >= 20 with its bundled npm is installed.'
     );
   }
   if (warnings.length > 0) {

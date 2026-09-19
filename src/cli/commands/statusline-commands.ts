@@ -3,10 +3,13 @@ import { fail, ok } from 'peaks-loop-shared/result';
 
 import { addJsonOption, printResult, getErrorMessage, type ProgramIO } from '../cli-helpers.js';
 import { findProjectRoot } from '../../services/config/config-safety.js';
-import { buildStatusLineModel, parseStatusLineStdin } from '../../services/skills/skill-statusline-service.js';
+import {
+  buildStatusLineModel,
+  parseStatusLineStdin
+} from '../../services/skills/skill-statusline-service.js';
 import {
   renderStatusLine,
-  resolveStatusLineCapability,
+  resolveStatusLineCapability
 } from '../../services/skills/skill-statusline-renderer.js';
 import {
   applyStatusLineInstall,
@@ -20,7 +23,7 @@ import { resolveIdeOptionHelp } from '../../services/ide/ide-registry.js';
 import type { IdeId } from '../../services/ide/ide-types.js';
 import {
   decideCompactStatusline,
-  renderCompactStatusline,
+  renderCompactStatusline
 } from '../../services/compact-statusline/compact-statusline-service.js';
 import { getSessionIdCanonical } from '../../services/session/session-manager.js';
 import { writeHarnessWitness } from '../../services/context/harness-context-witness.js';
@@ -99,10 +102,21 @@ function resolveIdeForCommand(options: { ide?: string }, projectRoot: string | u
   if (options.ide !== undefined && options.ide.length > 0) {
     return options.ide as IdeId;
   }
-  return detectIdeFromContext({ env: process.env, cwd: projectRoot ?? process.cwd(), parsedStdin: null });
+  return detectIdeFromContext({
+    env: process.env,
+    cwd: projectRoot ?? process.cwd(),
+    parsedStdin: null
+  });
 }
 
-type InstallOptions = { global?: boolean; project?: string; force?: boolean; dryRun?: boolean; json?: boolean; ide?: string };
+type InstallOptions = {
+  global?: boolean;
+  project?: string;
+  force?: boolean;
+  dryRun?: boolean;
+  json?: boolean;
+  ide?: string;
+};
 type UninstallOptions = { global?: boolean; project?: string; json?: boolean; ide?: string };
 type StatusOptions = { global?: boolean; project?: string; json?: boolean; ide?: string };
 type RenderOptions = { project?: string; json?: boolean; now?: number | string };
@@ -146,11 +160,11 @@ export async function runDefaultStatuslineRender(
     projectRoot: model.projectRoot,
     sessionId: model.sessionId,
     stdin,
-    nowMs: now,
+    nowMs: now
   });
   const capability = resolveStatusLineCapability({
     env: process.env,
-    isTTY: Boolean(process.stdout.isTTY),
+    isTTY: Boolean(process.stdout.isTTY)
   });
   const text = renderStatusLine(model, { capability }, process.env);
   if (options.json === true) {
@@ -172,9 +186,17 @@ export function registerStatusLineCommands(program: Command, io: ProgramIO): voi
   const statusline = addJsonOption(
     program
       .command('statusline')
-      .description('Render the Peaks skill status line for the current session, or manage the adapter-driven statusLine entry. Run with no subcommand to render; with a subcommand (install | uninstall | status) to manage.')
-      .option('--project <path>', 'project root path (used to label the status line when stdin is absent; applies to the default render path)')
-      .option('--now <ms>', 'override current time (epoch ms) — for testing / deterministic rendering of the lifecycle expiry window')
+      .description(
+        'Render the Peaks skill status line for the current session, or manage the adapter-driven statusLine entry. Run with no subcommand to render; with a subcommand (install | uninstall | status) to manage.'
+      )
+      .option(
+        '--project <path>',
+        'project root path (used to label the status line when stdin is absent; applies to the default render path)'
+      )
+      .option(
+        '--now <ms>',
+        'override current time (epoch ms) — for testing / deterministic rendering of the lifecycle expiry window'
+      )
   );
 
   // Default behavior: when the user types `peaks statusline` with no
@@ -197,8 +219,13 @@ export function registerStatusLineCommands(program: Command, io: ProgramIO): voi
   // render explicitly without going through the default-action dispatch.
   statusline
     .command('render', { hidden: true })
-    .description('Render the Peaks skill status line for the current session (reads session JSON on stdin; honors --project for the project label).')
-    .option('--project <path>', 'project root path (used to label the status line when stdin is absent)')
+    .description(
+      'Render the Peaks skill status line for the current session (reads session JSON on stdin; honors --project for the project label).'
+    )
+    .option(
+      '--project <path>',
+      'project root path (used to label the status line when stdin is absent)'
+    )
     .action(async (options: RenderOptions) => {
       await runDefaultStatuslineRender(options, io);
     });
@@ -206,38 +233,70 @@ export function registerStatusLineCommands(program: Command, io: ProgramIO): voi
   addJsonOption(
     statusline
       .command('install')
-      .description("Install the Peaks status line into the adapter's settings.json (project scope by default).")
-      .option('--global', 'install into the user-level ~/.claude/settings.json instead of the project')
+      .description(
+        "Install the Peaks status line into the adapter's settings.json (project scope by default)."
+      )
+      .option(
+        '--global',
+        'install into the user-level ~/.claude/settings.json instead of the project'
+      )
       .option('--project <path>', 'project root path (auto-detected from cwd when omitted)')
       .option('--ide <id>', resolveIdeOptionHelp())
       .option('--force', 'overwrite an existing non-Peaks statusLine entry')
       .option('--dry-run', 'show what would change without writing')
   ).action((options: InstallOptions) => {
     const scope = resolveScope(options);
-    const projectRoot = scope === 'project'
-      ? (options.project ?? findProjectRoot(process.cwd()) ?? process.cwd())
-      : undefined;
+    const projectRoot =
+      scope === 'project'
+        ? (options.project ?? findProjectRoot(process.cwd()) ?? process.cwd())
+        : undefined;
     const ide = resolveIdeForCommand(options, projectRoot);
     try {
       if (options.dryRun) {
         const plan = planStatusLineInstall(scope, projectRoot, { ide });
         const warnings = plan.conflict
-          ? [`An existing statusLine command is set: ${plan.conflictCommand}. Rerun with --force to overwrite.`]
+          ? [
+              `An existing statusLine command is set: ${plan.conflictCommand}. Rerun with --force to overwrite.`
+            ]
           : [];
-        printResult(io, ok('statusline.install', { ...plan, ide, applied: false, dryRun: true }, warnings), options.json);
+        printResult(
+          io,
+          ok('statusline.install', { ...plan, ide, applied: false, dryRun: true }, warnings),
+          options.json
+        );
         return;
       }
-      const result = applyStatusLineInstall(scope, projectRoot, { force: options.force === true, ide });
-      const warnings = result.conflict && !result.applied
-        ? [`An existing statusLine command is set: ${result.conflictCommand}. Rerun with --force to overwrite.`]
-        : [];
+      const result = applyStatusLineInstall(scope, projectRoot, {
+        force: options.force === true,
+        ide
+      });
+      const warnings =
+        result.conflict && !result.applied
+          ? [
+              `An existing statusLine command is set: ${result.conflictCommand}. Rerun with --force to overwrite.`
+            ]
+          : [];
       const nextActions = result.applied
         ? ['Restart the IDE (or reload the workspace) so the status line takes effect']
         : [];
-      printResult(io, ok('statusline.install', { ...result, ide, dryRun: false }, warnings, nextActions), options.json);
+      printResult(
+        io,
+        ok('statusline.install', { ...result, ide, dryRun: false }, warnings, nextActions),
+        options.json
+      );
     } catch (error: unknown) {
       const message = getErrorMessage(error);
-      printResult(io, fail('statusline.install', 'STATUSLINE_INSTALL_FAILED', message, { scope, ide, applied: false }, [message]), options.json);
+      printResult(
+        io,
+        fail(
+          'statusline.install',
+          'STATUSLINE_INSTALL_FAILED',
+          message,
+          { scope, ide, applied: false },
+          [message]
+        ),
+        options.json
+      );
       process.exitCode = 1;
     }
   });
@@ -246,21 +305,35 @@ export function registerStatusLineCommands(program: Command, io: ProgramIO): voi
     statusline
       .command('uninstall')
       .description("Remove the Peaks status line from the adapter's settings.json.")
-      .option('--global', 'remove from the user-level ~/.claude/settings.json instead of the project')
+      .option(
+        '--global',
+        'remove from the user-level ~/.claude/settings.json instead of the project'
+      )
       .option('--project <path>', 'project root path (auto-detected from cwd when omitted)')
       .option('--ide <id>', resolveIdeOptionHelp())
   ).action((options: UninstallOptions) => {
     const scope = resolveScope(options);
-    const projectRoot = scope === 'project'
-      ? (options.project ?? findProjectRoot(process.cwd()) ?? process.cwd())
-      : undefined;
+    const projectRoot =
+      scope === 'project'
+        ? (options.project ?? findProjectRoot(process.cwd()) ?? process.cwd())
+        : undefined;
     const ide = resolveIdeForCommand(options, projectRoot);
     try {
       const result = removeStatusLineInstall(scope, projectRoot, { ide });
       printResult(io, ok('statusline.uninstall', { ...result, ide }), options.json);
     } catch (error: unknown) {
       const message = getErrorMessage(error);
-      printResult(io, fail('statusline.uninstall', 'STATUSLINE_UNINSTALL_FAILED', message, { scope, ide, removed: false }, [message]), options.json);
+      printResult(
+        io,
+        fail(
+          'statusline.uninstall',
+          'STATUSLINE_UNINSTALL_FAILED',
+          message,
+          { scope, ide, removed: false },
+          [message]
+        ),
+        options.json
+      );
       process.exitCode = 1;
     }
   });
@@ -268,22 +341,33 @@ export function registerStatusLineCommands(program: Command, io: ProgramIO): voi
   addJsonOption(
     statusline
       .command('status')
-      .description('Report whether the Peaks status line is installed in the adapter settings.json.')
+      .description(
+        'Report whether the Peaks status line is installed in the adapter settings.json.'
+      )
       .option('--global', 'inspect the user-level ~/.claude/settings.json instead of the project')
       .option('--project <path>', 'project root path (auto-detected from cwd when omitted)')
       .option('--ide <id>', resolveIdeOptionHelp())
   ).action((options: StatusOptions) => {
     const scope = resolveScope(options);
-    const projectRoot = scope === 'project'
-      ? (options.project ?? findProjectRoot(process.cwd()) ?? process.cwd())
-      : undefined;
+    const projectRoot =
+      scope === 'project'
+        ? (options.project ?? findProjectRoot(process.cwd()) ?? process.cwd())
+        : undefined;
     const ide = resolveIdeForCommand(options, projectRoot);
     try {
       const status = readSettingsStatus(scope, projectRoot, { ide });
-      printResult(io, ok('statusline.status', { ...status, ide, command: 'peaks statusline' }), options.json);
+      printResult(
+        io,
+        ok('statusline.status', { ...status, ide, command: 'peaks statusline' }),
+        options.json
+      );
     } catch (error: unknown) {
       const message = getErrorMessage(error);
-      printResult(io, fail('statusline.status', 'STATUSLINE_STATUS_FAILED', message, { scope, ide }, [message]), options.json);
+      printResult(
+        io,
+        fail('statusline.status', 'STATUSLINE_STATUS_FAILED', message, { scope, ide }, [message]),
+        options.json
+      );
       process.exitCode = 1;
     }
   });
@@ -313,50 +397,71 @@ export function registerStatusLineCommands(program: Command, io: ProgramIO): voi
           '--session-id to target a non-canonical session explicitly.'
       )
       .option('--project <path>', 'project root (auto-detected from cwd when omitted)')
-      .option('--session-id <sid>', 'override the active session id (defaults to the canonical binding; supported for QA / internal tooling)')
-      .option('--now <ms>', 'override current time (epoch ms) — for testing / deterministic rendering of the lifecycle expiry window')
-      .action((options: { project?: string; sessionId?: string; json?: boolean; now?: number | string }, command: Command) => {
-        // Re-resolve options via `command.optsWithGlobals()` (Commander 12.x
-        // compatibility): when the parent `statusline` command has its own
-        // `--json` registered AND the user types `peaks statusline compact
-        // --json`, commander's parent-vs-child option parser can land
-        // `--json` on the parent scope only. `optsWithGlobals()` merges
-        // parent + child options so the JSON branch fires regardless of
-        // which scope commander assigned the flag to. Verified by the
-        // `compact --json emits the documented envelope` integration test.
-        const merged: { project?: string; sessionId?: string; json?: boolean; now?: number | string } = {
-          ...options,
-          ...(command.optsWithGlobals?.() as { json?: boolean }),
-        };
-        try {
-          const projectRoot = merged.project !== undefined
-            ? merged.project
-            : (findProjectRoot(process.cwd()) ?? process.cwd());
-          const sid = merged.sessionId ?? getSessionIdCanonical(projectRoot) ?? null;
-          // Slice 2026-08-07-statusline-flake: honor `--now` (epoch ms)
-          // when present so deterministic lifecycle-window checks stay
-          // in-range under full-suite concurrency. See `--now` doc on
-          // the parent `statusline` command.
-          const now = merged.now !== undefined ? Number(merged.now) : Date.now();
-          const state = decideCompactStatusline({
-            projectRoot,
-            sessionId: sid,
-            now,
-          });
-          const label = renderCompactStatusline(state);
-          // For non-JSON mode we print the LABEL DIRECTLY to stdout
-          // (no envelope wrapping) because the consumer is the IDE
-          // statusline, not a peaks-Loop caller.
-          if (merged.json === true) {
-            printResult(io, ok('statusline.compact', { label, state }), merged.json);
-          } else {
-            process.stdout.write(`${label}\n`);
+      .option(
+        '--session-id <sid>',
+        'override the active session id (defaults to the canonical binding; supported for QA / internal tooling)'
+      )
+      .option(
+        '--now <ms>',
+        'override current time (epoch ms) — for testing / deterministic rendering of the lifecycle expiry window'
+      )
+      .action(
+        (
+          options: { project?: string; sessionId?: string; json?: boolean; now?: number | string },
+          command: Command
+        ) => {
+          // Re-resolve options via `command.optsWithGlobals()` (Commander 12.x
+          // compatibility): when the parent `statusline` command has its own
+          // `--json` registered AND the user types `peaks statusline compact
+          // --json`, commander's parent-vs-child option parser can land
+          // `--json` on the parent scope only. `optsWithGlobals()` merges
+          // parent + child options so the JSON branch fires regardless of
+          // which scope commander assigned the flag to. Verified by the
+          // `compact --json emits the documented envelope` integration test.
+          const merged: {
+            project?: string;
+            sessionId?: string;
+            json?: boolean;
+            now?: number | string;
+          } = {
+            ...options,
+            ...(command.optsWithGlobals?.() as { json?: boolean })
+          };
+          try {
+            const projectRoot =
+              merged.project !== undefined
+                ? merged.project
+                : (findProjectRoot(process.cwd()) ?? process.cwd());
+            const sid = merged.sessionId ?? getSessionIdCanonical(projectRoot) ?? null;
+            // Slice 2026-08-07-statusline-flake: honor `--now` (epoch ms)
+            // when present so deterministic lifecycle-window checks stay
+            // in-range under full-suite concurrency. See `--now` doc on
+            // the parent `statusline` command.
+            const now = merged.now !== undefined ? Number(merged.now) : Date.now();
+            const state = decideCompactStatusline({
+              projectRoot,
+              sessionId: sid,
+              now
+            });
+            const label = renderCompactStatusline(state);
+            // For non-JSON mode we print the LABEL DIRECTLY to stdout
+            // (no envelope wrapping) because the consumer is the IDE
+            // statusline, not a peaks-Loop caller.
+            if (merged.json === true) {
+              printResult(io, ok('statusline.compact', { label, state }), merged.json);
+            } else {
+              process.stdout.write(`${label}\n`);
+            }
+          } catch (error: unknown) {
+            const message = getErrorMessage(error);
+            printResult(
+              io,
+              fail('statusline.compact', 'STATUSLINE_COMPACT_FAILED', message, {}, [message]),
+              merged.json
+            );
+            process.exitCode = 1;
           }
-        } catch (error: unknown) {
-          const message = getErrorMessage(error);
-          printResult(io, fail('statusline.compact', 'STATUSLINE_COMPACT_FAILED', message, {}, [message]), merged.json);
-          process.exitCode = 1;
         }
-      }),
+      )
   );
 }

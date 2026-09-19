@@ -39,12 +39,12 @@ describe('publish.yml lockstep — runtime added as on-disk gate only (private p
     expectLockstep(
       'RUNTIME_VERSION in packages/peaks-loop-internal-runtime/src/index.ts',
       declaredVersion('packages/peaks-loop-internal-runtime/src/index.ts', 'RUNTIME_VERSION'),
-      root,
+      root
     );
     expectLockstep(
       'CLI_VERSION in packages/peaks-loop-shared/src/version.ts',
       declaredVersion('packages/peaks-loop-shared/src/version.ts', 'CLI_VERSION'),
-      root,
+      root
     );
 
     // The CI gate reads the *built* artifact. dist/ is gitignored, so it
@@ -53,7 +53,7 @@ describe('publish.yml lockstep — runtime added as on-disk gate only (private p
       expectLockstep(
         'CLI_VERSION in packages/peaks-loop-shared/dist/version.js',
         declaredVersion('packages/peaks-loop-shared/dist/version.js', 'CLI_VERSION'),
-        root,
+        root
       );
     }
 

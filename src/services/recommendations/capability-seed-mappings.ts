@@ -1,4 +1,8 @@
-import type { CapabilityLandingKind, CapabilityLandingMapping, CapabilitySourceGroup } from './recommendation-types.js';
+import type {
+  CapabilityLandingKind,
+  CapabilityLandingMapping,
+  CapabilitySourceGroup
+} from './recommendation-types.js';
 
 type MappingInput = {
   capabilityId: string;
@@ -12,54 +16,445 @@ type MappingInput = {
 };
 
 export const seedCapabilityLandingMappings: CapabilityLandingMapping[] = [
-  mapping({ capabilityId: 'ruflo-access-repo.workflow-reference', sourceId: 'ruflo-access-repo', sourceGroup: 'access-repo', landingKind: 'catalog', target: 'peaks autonomous planning reference', guidance: 'Use as workflow orchestration inspiration only; Peaks owns execution boundaries.' }),
-  mapping({ capabilityId: 'context7.docs-lookup', sourceId: 'context7', sourceGroup: 'access-repo', landingKind: 'cli', target: 'peaks recommend', commandPreview: 'peaks recommend --workflow code-refactor --json', guidance: 'Use for current library/API documentation lookup through approved MCP access.' }),
-  mapping({ capabilityId: 'codegraph.project-indexing', sourceId: 'codegraph', sourceGroup: 'access-repo', landingKind: 'skill', target: 'peaks-rd', skillName: 'peaks-rd', guidance: 'Dry-run reference only: if local indexing is explicitly approved, peaks-rd may use peaks codegraph index --project <path> before semantic analysis; generated .codegraph artifacts stay local unless explicitly approved.' }),
-  mapping({ capabilityId: 'codegraph.semantic-query', sourceId: 'codegraph', sourceGroup: 'access-repo', landingKind: 'skill', target: 'peaks-rd', skillName: 'peaks-rd', guidance: 'Dry-run reference only: peaks-rd may use peaks codegraph query --project <path> <search> for project relationship evidence during RD planning when execution is approved; Peaks RD gates remain authoritative.' }),
-  mapping({ capabilityId: 'codegraph.impact-analysis', sourceId: 'codegraph', sourceGroup: 'access-repo', landingKind: 'skill', target: 'peaks-rd', skillName: 'peaks-rd', guidance: 'Dry-run reference only: peaks-rd may use peaks codegraph affected --project <path> <files...> --json to inspect likely impact before slice planning and red-line checks when execution is approved.' }),
-  mapping({ capabilityId: 'codegraph.impact-analysis', sourceId: 'codegraph', sourceGroup: 'access-repo', landingKind: 'skill', target: 'peaks-qa', skillName: 'peaks-qa', guidance: 'Use affected output as regression-surface evidence only; QA validation and test evidence remain authoritative.' }),
-  mapping({ capabilityId: 'codegraph.context-pack', sourceId: 'codegraph', sourceGroup: 'access-repo', landingKind: 'skill', target: 'peaks-rd', skillName: 'peaks-rd', guidance: 'Dry-run reference only: peaks-rd may use peaks codegraph context --project <path> <task> to gather local evidence for RD analysis when execution is approved, without replacing standards dry-runs.' }),
-  mapping({ capabilityId: 'codegraph.context-pack', sourceId: 'codegraph', sourceGroup: 'access-repo', landingKind: 'skill', target: 'peaks-code', skillName: 'peaks-code', guidance: 'Code may attach local context packs or affected summaries before role handoff so RD, QA, and TXT share the same project evidence.' }),
-  mapping({ capabilityId: 'codegraph.context-pack', sourceId: 'codegraph', sourceGroup: 'access-repo', landingKind: 'skill', target: 'peaks-txt', skillName: 'peaks-txt', guidance: 'TXT may summarize recorded codegraph context packs into handoffs while treating them as supporting evidence only.' }),
-  mapping({ capabilityId: 'playwright-mcp.browser-validation', sourceId: 'playwright-mcp', sourceGroup: 'access-repo', landingKind: 'skill', target: 'peaks-qa', skillName: 'peaks-qa', guidance: 'Use for browser and E2E validation after user-approved app targets are available.' }),
-  mapping({ capabilityId: 'chrome-devtools-mcp.browser-debug', sourceId: 'chrome-devtools-mcp', sourceGroup: 'access-repo', landingKind: 'skill', target: 'peaks-ui', skillName: 'peaks-ui', guidance: 'Use for runtime UI, console, network, and performance inspection.' }),
-  mapping({ capabilityId: 'context-mode.context-management', sourceId: 'context-mode', sourceGroup: 'access-repo', landingKind: 'skill', target: 'peaks-txt', skillName: 'peaks-txt', guidance: 'Use only for explicit context management; durable memory requires user opt-in.' }),
-  mapping({ capabilityId: 'modelcontextprotocol-servers.collection', sourceId: 'modelcontextprotocol-servers', sourceGroup: 'access-repo', landingKind: 'catalog', target: 'future peaks mcp catalog', guidance: 'Treat as an unscanned MCP collection; do not auto-install unknown servers.' }),
-  mapping({ capabilityId: 'searchcode-mcp.code-search', sourceId: 'searchcode-mcp', sourceGroup: 'access-repo', landingKind: 'skill', target: 'peaks-rd', skillName: 'peaks-rd', guidance: 'Use for external code discovery only after confirming queries do not expose secrets or private code.' }),
-  mapping({ capabilityId: 'mysql-mcp.database-inspection', sourceId: 'mysql-mcp-server', sourceGroup: 'access-repo', landingKind: 'catalog', target: 'database capability boundary', guidance: 'Database access requires explicit credentials and confirmation before any write query.' }),
-  mapping({ capabilityId: 'figma-context-mcp.design-context', sourceId: 'figma-context-mcp', sourceGroup: 'access-repo', landingKind: 'skill', target: 'peaks-ui', skillName: 'peaks-ui', guidance: 'Use for design-to-code context only with user-authorized Figma access.' }),
-  mapping({ capabilityId: 'everything-claude-code.code-review-agent', sourceId: 'everything-claude-code', sourceGroup: 'mcp-server', landingKind: 'skill', target: 'peaks-rd', skillName: 'peaks-rd', guidance: 'Use as code review capability after local diff and test evidence exist.' }),
-  mapping({ capabilityId: 'everything-claude-code.code-review-guidance', sourceId: 'everything-claude-code', sourceGroup: 'mcp-server', landingKind: 'skill', target: 'peaks-qa', skillName: 'peaks-qa', guidance: 'Use as project-local code review standards guidance during QA preflight.' }),
-  mapping({ capabilityId: 'everything-claude-code.language-standards', sourceId: 'everything-claude-code', sourceGroup: 'mcp-server', landingKind: 'skill', target: 'peaks-rd', skillName: 'peaks-rd', guidance: 'Use as curated language standards source during RD standards preflight.' }),
-  mapping({ capabilityId: 'everything-claude-code.security-review-agent', sourceId: 'everything-claude-code', sourceGroup: 'mcp-server', landingKind: 'skill', target: 'peaks-rd', skillName: 'peaks-rd', guidance: 'Use as security review capability after local diff and test evidence exist.' }),
-  mapping({ capabilityId: 'everything-claude-code.security-review-guidance', sourceId: 'everything-claude-code', sourceGroup: 'mcp-server', landingKind: 'skill', target: 'peaks-qa', skillName: 'peaks-qa', guidance: 'Use as project-local security review standards guidance during QA preflight.' }),
-  mapping({ capabilityId: 'andrej-karpathy-skills.guidance', sourceId: 'andrej-karpathy-skills', sourceGroup: 'mcp-server', landingKind: 'skill', target: 'peaks-rd', skillName: 'peaks-rd', guidance: 'Use as engineering guidance inspiration after project-local standards are scanned.' }),
-  mapping({ capabilityId: 'mattpocock-skills.product-prd-methods', sourceId: 'mattpocock-skills', sourceGroup: 'mcp-server', landingKind: 'skill', target: 'peaks-prd', skillName: 'peaks-prd', guidance: 'Use to-prd, zoom-out, and grill-with-docs as inspected product-method references; Peaks PRD artifacts remain authoritative.' }),
-  mapping({ capabilityId: 'mattpocock-skills.engineering-diagnosis', sourceId: 'mattpocock-skills', sourceGroup: 'mcp-server', landingKind: 'skill', target: 'peaks-rd', skillName: 'peaks-rd', guidance: 'Use diagnose, triage, improve-codebase-architecture, and prototype as inspected engineering references; Peaks RD gates remain authoritative.' }),
-  mapping({ capabilityId: 'mattpocock-skills.tdd-method', sourceId: 'mattpocock-skills', sourceGroup: 'mcp-server', landingKind: 'skill', target: 'peaks-rd', skillName: 'peaks-rd', guidance: 'Use tdd as an inspected tests-first reference during RD implementation; Peaks unit-test and review gates remain authoritative.' }),
-  mapping({ capabilityId: 'mattpocock-skills.tdd-method', sourceId: 'mattpocock-skills', sourceGroup: 'mcp-server', landingKind: 'skill', target: 'peaks-qa', skillName: 'peaks-qa', guidance: 'Use tdd as an inspected reference for checking whether tests protect changed behavior; Peaks QA evidence gates remain authoritative.' }),
-  mapping({ capabilityId: 'mattpocock-skills.qa-triage', sourceId: 'mattpocock-skills', sourceGroup: 'mcp-server', landingKind: 'skill', target: 'peaks-qa', skillName: 'peaks-qa', guidance: 'Use triage and grill-with-docs as inspected QA references for blockers, release risk, and acceptance evidence; Peaks QA remains the acceptance authority.' }),
-  mapping({ capabilityId: 'mattpocock-skills.handoff-context', sourceId: 'mattpocock-skills', sourceGroup: 'mcp-server', landingKind: 'skill', target: 'peaks-txt', skillName: 'peaks-txt', guidance: 'Use handoff, to-issues, and write-a-skill as inspected context references; Peaks TXT local capsule and memory-authorization rules remain authoritative.' }),
-  mapping({ capabilityId: 'mattpocock-skills.git-guardrails', sourceId: 'mattpocock-skills', sourceGroup: 'mcp-server', landingKind: 'catalog', target: 'git guardrails reference catalog', guidance: 'Catalog only; do not install hooks, mutate git configuration, or write Claude settings from this capability map.' }),
-  mapping({ capabilityId: 'impeccable.quality-guidance', sourceId: 'impeccable', sourceGroup: 'mcp-server', landingKind: 'catalog', target: 'quality reference catalog', guidance: 'Use as quality inspiration; Peaks review gates remain authoritative.' }),
-  mapping({ capabilityId: 'vercel-agent-skills.skill-pack', sourceId: 'vercel-agent-skills', sourceGroup: 'mcp-server', landingKind: 'catalog', target: 'external skill catalog', guidance: 'Catalog only until individual skills are inspected and approved.' }),
-  mapping({ capabilityId: 'agent-browser.browser-agent', sourceId: 'agent-browser', sourceGroup: 'mcp-server', landingKind: 'skill', target: 'peaks-qa', skillName: 'peaks-qa', guidance: 'Use for browser validation; never submit forms or mutate authenticated state without explicit permission.' }),
-  mapping({ capabilityId: 'claude-mem.memory-persistence', sourceId: 'claude-mem', sourceGroup: 'mcp-server', landingKind: 'skill', target: 'peaks-txt', skillName: 'peaks-txt', guidance: 'Use only with explicit durable-memory consent and never store secrets.' }),
-  mapping({ capabilityId: 'darwin-skill.external-skill', sourceId: 'darwin-skill', sourceGroup: 'mcp-server', landingKind: 'catalog', target: 'external skill catalog', guidance: 'Catalog only until inspected for project fit and safety.' }),
-  mapping({ capabilityId: 'claude-code-best-practice.workflow-guidance', sourceId: 'claude-code-best-practice', sourceGroup: 'mcp-server', landingKind: 'skill', target: 'peaks-rd', skillName: 'peaks-rd', guidance: 'Use as Claude Code workflow reference while preserving Peaks gates.' }),
-  mapping({ capabilityId: 'openspec.spec-workflow', sourceId: 'openspec', sourceGroup: 'mcp-server', landingKind: 'skill', target: 'peaks-prd', skillName: 'peaks-prd', guidance: 'Use for spec-first product and engineering artifact structure.' }),
-  mapping({ capabilityId: 'gitnexus.repo-intelligence', sourceId: 'gitnexus', sourceGroup: 'mcp-server', landingKind: 'fallback', target: 'future peaks mcp gitnexus proxy', guidance: 'Do not install globally; future use should be proxied through Peaks.' }),
-  mapping({ capabilityId: 'taste-skill.design-critique', sourceId: 'taste-skill', sourceGroup: 'mcp-server', landingKind: 'skill', target: 'peaks-ui', skillName: 'peaks-ui', guidance: 'Use as design critique inspiration, with Peaks UI constraints staying authoritative.' }),
-  mapping({ capabilityId: 'ui-ux-pro-max-skill.design-guidance', sourceId: 'ui-ux-pro-max-skill', sourceGroup: 'mcp-server', landingKind: 'skill', target: 'peaks-ui', skillName: 'peaks-ui', guidance: 'Use as UI/UX guidance after product goals and accessibility constraints are clear.' }),
-  mapping({ capabilityId: 'ruflo-mcp-server.workflow-reference', sourceId: 'ruflo-mcp-server', sourceGroup: 'mcp-server', landingKind: 'catalog', target: 'peaks autonomous planning reference', guidance: 'Use as orchestration inspiration only; Peaks owns execution boundaries.' }),
-  mapping({ capabilityId: 'superpowers.workflow-methodology', sourceId: 'superpowers', sourceGroup: 'mcp-server', landingKind: 'skill', target: 'peaks-prd', skillName: 'peaks-prd', guidance: 'Use as workflow methodology reference for artifact sequencing.' }),
-  mapping({ capabilityId: 'penpot.design-source', sourceId: 'penpot', sourceGroup: 'mcp-server', landingKind: 'skill', target: 'peaks-ui', skillName: 'peaks-ui', guidance: 'Use as design-source context only with user-authorized project access.' }),
-  mapping({ capabilityId: 'gstack.product-stack-guidance', sourceId: 'gstack', sourceGroup: 'mcp-server', landingKind: 'skill', target: 'peaks-prd', skillName: 'peaks-prd', guidance: 'Use as product-stack guidance, not as a substitute for user goals.' }),
-  mapping({ capabilityId: 'awesome-design-md.design-reference', sourceId: 'awesome-design-md', sourceGroup: 'mcp-server', landingKind: 'skill', target: 'peaks-ui', skillName: 'peaks-ui', guidance: 'Use as visual/reference material while preserving product-specific design direction.' }),
-  mapping({ capabilityId: 'anthropic-skills.skill-pack', sourceId: 'anthropic-skills', sourceGroup: 'mcp-server', landingKind: 'catalog', target: 'external skill catalog', guidance: 'Catalog only until individual skills are inspected and approved.' }),
-  mapping({ capabilityId: 'vercel-skills.skill-pack', sourceId: 'vercel-skills', sourceGroup: 'mcp-server', landingKind: 'catalog', target: 'external skill catalog', guidance: 'Catalog only until individual skills are inspected and approved.' }),
-  mapping({ capabilityId: 'reactbits.ui-reference', sourceId: 'reactbits', sourceGroup: 'mcp-server', landingKind: 'skill', target: 'peaks-ui', skillName: 'peaks-ui', guidance: 'Use as UI and motion inspiration after checking license, accessibility, and performance.' }),
-  mapping({ capabilityId: 'azure-skills.cloud-skill-pack', sourceId: 'azure-skills', sourceGroup: 'mcp-server', landingKind: 'catalog', target: 'cloud capability catalog', guidance: 'Cloud actions can affect cost and infrastructure; require explicit confirmation and credentials.' })
+  mapping({
+    capabilityId: 'ruflo-access-repo.workflow-reference',
+    sourceId: 'ruflo-access-repo',
+    sourceGroup: 'access-repo',
+    landingKind: 'catalog',
+    target: 'peaks autonomous planning reference',
+    guidance: 'Use as workflow orchestration inspiration only; Peaks owns execution boundaries.'
+  }),
+  mapping({
+    capabilityId: 'context7.docs-lookup',
+    sourceId: 'context7',
+    sourceGroup: 'access-repo',
+    landingKind: 'cli',
+    target: 'peaks recommend',
+    commandPreview: 'peaks recommend --workflow code-refactor --json',
+    guidance: 'Use for current library/API documentation lookup through approved MCP access.'
+  }),
+  mapping({
+    capabilityId: 'codegraph.project-indexing',
+    sourceId: 'codegraph',
+    sourceGroup: 'access-repo',
+    landingKind: 'skill',
+    target: 'peaks-rd',
+    skillName: 'peaks-rd',
+    guidance:
+      'Dry-run reference only: if local indexing is explicitly approved, peaks-rd may use peaks codegraph index --project <path> before semantic analysis; generated .codegraph artifacts stay local unless explicitly approved.'
+  }),
+  mapping({
+    capabilityId: 'codegraph.semantic-query',
+    sourceId: 'codegraph',
+    sourceGroup: 'access-repo',
+    landingKind: 'skill',
+    target: 'peaks-rd',
+    skillName: 'peaks-rd',
+    guidance:
+      'Dry-run reference only: peaks-rd may use peaks codegraph query --project <path> <search> for project relationship evidence during RD planning when execution is approved; Peaks RD gates remain authoritative.'
+  }),
+  mapping({
+    capabilityId: 'codegraph.impact-analysis',
+    sourceId: 'codegraph',
+    sourceGroup: 'access-repo',
+    landingKind: 'skill',
+    target: 'peaks-rd',
+    skillName: 'peaks-rd',
+    guidance:
+      'Dry-run reference only: peaks-rd may use peaks codegraph affected --project <path> <files...> --json to inspect likely impact before slice planning and red-line checks when execution is approved.'
+  }),
+  mapping({
+    capabilityId: 'codegraph.impact-analysis',
+    sourceId: 'codegraph',
+    sourceGroup: 'access-repo',
+    landingKind: 'skill',
+    target: 'peaks-qa',
+    skillName: 'peaks-qa',
+    guidance:
+      'Use affected output as regression-surface evidence only; QA validation and test evidence remain authoritative.'
+  }),
+  mapping({
+    capabilityId: 'codegraph.context-pack',
+    sourceId: 'codegraph',
+    sourceGroup: 'access-repo',
+    landingKind: 'skill',
+    target: 'peaks-rd',
+    skillName: 'peaks-rd',
+    guidance:
+      'Dry-run reference only: peaks-rd may use peaks codegraph context --project <path> <task> to gather local evidence for RD analysis when execution is approved, without replacing standards dry-runs.'
+  }),
+  mapping({
+    capabilityId: 'codegraph.context-pack',
+    sourceId: 'codegraph',
+    sourceGroup: 'access-repo',
+    landingKind: 'skill',
+    target: 'peaks-code',
+    skillName: 'peaks-code',
+    guidance:
+      'Code may attach local context packs or affected summaries before role handoff so RD, QA, and TXT share the same project evidence.'
+  }),
+  mapping({
+    capabilityId: 'codegraph.context-pack',
+    sourceId: 'codegraph',
+    sourceGroup: 'access-repo',
+    landingKind: 'skill',
+    target: 'peaks-txt',
+    skillName: 'peaks-txt',
+    guidance:
+      'TXT may summarize recorded codegraph context packs into handoffs while treating them as supporting evidence only.'
+  }),
+  mapping({
+    capabilityId: 'playwright-mcp.browser-validation',
+    sourceId: 'playwright-mcp',
+    sourceGroup: 'access-repo',
+    landingKind: 'skill',
+    target: 'peaks-qa',
+    skillName: 'peaks-qa',
+    guidance: 'Use for browser and E2E validation after user-approved app targets are available.'
+  }),
+  mapping({
+    capabilityId: 'chrome-devtools-mcp.browser-debug',
+    sourceId: 'chrome-devtools-mcp',
+    sourceGroup: 'access-repo',
+    landingKind: 'skill',
+    target: 'peaks-ui',
+    skillName: 'peaks-ui',
+    guidance: 'Use for runtime UI, console, network, and performance inspection.'
+  }),
+  mapping({
+    capabilityId: 'context-mode.context-management',
+    sourceId: 'context-mode',
+    sourceGroup: 'access-repo',
+    landingKind: 'skill',
+    target: 'peaks-txt',
+    skillName: 'peaks-txt',
+    guidance: 'Use only for explicit context management; durable memory requires user opt-in.'
+  }),
+  mapping({
+    capabilityId: 'modelcontextprotocol-servers.collection',
+    sourceId: 'modelcontextprotocol-servers',
+    sourceGroup: 'access-repo',
+    landingKind: 'catalog',
+    target: 'future peaks mcp catalog',
+    guidance: 'Treat as an unscanned MCP collection; do not auto-install unknown servers.'
+  }),
+  mapping({
+    capabilityId: 'searchcode-mcp.code-search',
+    sourceId: 'searchcode-mcp',
+    sourceGroup: 'access-repo',
+    landingKind: 'skill',
+    target: 'peaks-rd',
+    skillName: 'peaks-rd',
+    guidance:
+      'Use for external code discovery only after confirming queries do not expose secrets or private code.'
+  }),
+  mapping({
+    capabilityId: 'mysql-mcp.database-inspection',
+    sourceId: 'mysql-mcp-server',
+    sourceGroup: 'access-repo',
+    landingKind: 'catalog',
+    target: 'database capability boundary',
+    guidance:
+      'Database access requires explicit credentials and confirmation before any write query.'
+  }),
+  mapping({
+    capabilityId: 'figma-context-mcp.design-context',
+    sourceId: 'figma-context-mcp',
+    sourceGroup: 'access-repo',
+    landingKind: 'skill',
+    target: 'peaks-ui',
+    skillName: 'peaks-ui',
+    guidance: 'Use for design-to-code context only with user-authorized Figma access.'
+  }),
+  mapping({
+    capabilityId: 'everything-claude-code.code-review-agent',
+    sourceId: 'everything-claude-code',
+    sourceGroup: 'mcp-server',
+    landingKind: 'skill',
+    target: 'peaks-rd',
+    skillName: 'peaks-rd',
+    guidance: 'Use as code review capability after local diff and test evidence exist.'
+  }),
+  mapping({
+    capabilityId: 'everything-claude-code.code-review-guidance',
+    sourceId: 'everything-claude-code',
+    sourceGroup: 'mcp-server',
+    landingKind: 'skill',
+    target: 'peaks-qa',
+    skillName: 'peaks-qa',
+    guidance: 'Use as project-local code review standards guidance during QA preflight.'
+  }),
+  mapping({
+    capabilityId: 'everything-claude-code.language-standards',
+    sourceId: 'everything-claude-code',
+    sourceGroup: 'mcp-server',
+    landingKind: 'skill',
+    target: 'peaks-rd',
+    skillName: 'peaks-rd',
+    guidance: 'Use as curated language standards source during RD standards preflight.'
+  }),
+  mapping({
+    capabilityId: 'everything-claude-code.security-review-agent',
+    sourceId: 'everything-claude-code',
+    sourceGroup: 'mcp-server',
+    landingKind: 'skill',
+    target: 'peaks-rd',
+    skillName: 'peaks-rd',
+    guidance: 'Use as security review capability after local diff and test evidence exist.'
+  }),
+  mapping({
+    capabilityId: 'everything-claude-code.security-review-guidance',
+    sourceId: 'everything-claude-code',
+    sourceGroup: 'mcp-server',
+    landingKind: 'skill',
+    target: 'peaks-qa',
+    skillName: 'peaks-qa',
+    guidance: 'Use as project-local security review standards guidance during QA preflight.'
+  }),
+  mapping({
+    capabilityId: 'andrej-karpathy-skills.guidance',
+    sourceId: 'andrej-karpathy-skills',
+    sourceGroup: 'mcp-server',
+    landingKind: 'skill',
+    target: 'peaks-rd',
+    skillName: 'peaks-rd',
+    guidance: 'Use as engineering guidance inspiration after project-local standards are scanned.'
+  }),
+  mapping({
+    capabilityId: 'mattpocock-skills.product-prd-methods',
+    sourceId: 'mattpocock-skills',
+    sourceGroup: 'mcp-server',
+    landingKind: 'skill',
+    target: 'peaks-prd',
+    skillName: 'peaks-prd',
+    guidance:
+      'Use to-prd, zoom-out, and grill-with-docs as inspected product-method references; Peaks PRD artifacts remain authoritative.'
+  }),
+  mapping({
+    capabilityId: 'mattpocock-skills.engineering-diagnosis',
+    sourceId: 'mattpocock-skills',
+    sourceGroup: 'mcp-server',
+    landingKind: 'skill',
+    target: 'peaks-rd',
+    skillName: 'peaks-rd',
+    guidance:
+      'Use diagnose, triage, improve-codebase-architecture, and prototype as inspected engineering references; Peaks RD gates remain authoritative.'
+  }),
+  mapping({
+    capabilityId: 'mattpocock-skills.tdd-method',
+    sourceId: 'mattpocock-skills',
+    sourceGroup: 'mcp-server',
+    landingKind: 'skill',
+    target: 'peaks-rd',
+    skillName: 'peaks-rd',
+    guidance:
+      'Use tdd as an inspected tests-first reference during RD implementation; Peaks unit-test and review gates remain authoritative.'
+  }),
+  mapping({
+    capabilityId: 'mattpocock-skills.tdd-method',
+    sourceId: 'mattpocock-skills',
+    sourceGroup: 'mcp-server',
+    landingKind: 'skill',
+    target: 'peaks-qa',
+    skillName: 'peaks-qa',
+    guidance:
+      'Use tdd as an inspected reference for checking whether tests protect changed behavior; Peaks QA evidence gates remain authoritative.'
+  }),
+  mapping({
+    capabilityId: 'mattpocock-skills.qa-triage',
+    sourceId: 'mattpocock-skills',
+    sourceGroup: 'mcp-server',
+    landingKind: 'skill',
+    target: 'peaks-qa',
+    skillName: 'peaks-qa',
+    guidance:
+      'Use triage and grill-with-docs as inspected QA references for blockers, release risk, and acceptance evidence; Peaks QA remains the acceptance authority.'
+  }),
+  mapping({
+    capabilityId: 'mattpocock-skills.handoff-context',
+    sourceId: 'mattpocock-skills',
+    sourceGroup: 'mcp-server',
+    landingKind: 'skill',
+    target: 'peaks-txt',
+    skillName: 'peaks-txt',
+    guidance:
+      'Use handoff, to-issues, and write-a-skill as inspected context references; Peaks TXT local capsule and memory-authorization rules remain authoritative.'
+  }),
+  mapping({
+    capabilityId: 'mattpocock-skills.git-guardrails',
+    sourceId: 'mattpocock-skills',
+    sourceGroup: 'mcp-server',
+    landingKind: 'catalog',
+    target: 'git guardrails reference catalog',
+    guidance:
+      'Catalog only; do not install hooks, mutate git configuration, or write Claude settings from this capability map.'
+  }),
+  mapping({
+    capabilityId: 'impeccable.quality-guidance',
+    sourceId: 'impeccable',
+    sourceGroup: 'mcp-server',
+    landingKind: 'catalog',
+    target: 'quality reference catalog',
+    guidance: 'Use as quality inspiration; Peaks review gates remain authoritative.'
+  }),
+  mapping({
+    capabilityId: 'vercel-agent-skills.skill-pack',
+    sourceId: 'vercel-agent-skills',
+    sourceGroup: 'mcp-server',
+    landingKind: 'catalog',
+    target: 'external skill catalog',
+    guidance: 'Catalog only until individual skills are inspected and approved.'
+  }),
+  mapping({
+    capabilityId: 'agent-browser.browser-agent',
+    sourceId: 'agent-browser',
+    sourceGroup: 'mcp-server',
+    landingKind: 'skill',
+    target: 'peaks-qa',
+    skillName: 'peaks-qa',
+    guidance:
+      'Use for browser validation; never submit forms or mutate authenticated state without explicit permission.'
+  }),
+  mapping({
+    capabilityId: 'claude-mem.memory-persistence',
+    sourceId: 'claude-mem',
+    sourceGroup: 'mcp-server',
+    landingKind: 'skill',
+    target: 'peaks-txt',
+    skillName: 'peaks-txt',
+    guidance: 'Use only with explicit durable-memory consent and never store secrets.'
+  }),
+  mapping({
+    capabilityId: 'darwin-skill.external-skill',
+    sourceId: 'darwin-skill',
+    sourceGroup: 'mcp-server',
+    landingKind: 'catalog',
+    target: 'external skill catalog',
+    guidance: 'Catalog only until inspected for project fit and safety.'
+  }),
+  mapping({
+    capabilityId: 'claude-code-best-practice.workflow-guidance',
+    sourceId: 'claude-code-best-practice',
+    sourceGroup: 'mcp-server',
+    landingKind: 'skill',
+    target: 'peaks-rd',
+    skillName: 'peaks-rd',
+    guidance: 'Use as Claude Code workflow reference while preserving Peaks gates.'
+  }),
+  mapping({
+    capabilityId: 'openspec.spec-workflow',
+    sourceId: 'openspec',
+    sourceGroup: 'mcp-server',
+    landingKind: 'skill',
+    target: 'peaks-prd',
+    skillName: 'peaks-prd',
+    guidance: 'Use for spec-first product and engineering artifact structure.'
+  }),
+  mapping({
+    capabilityId: 'gitnexus.repo-intelligence',
+    sourceId: 'gitnexus',
+    sourceGroup: 'mcp-server',
+    landingKind: 'fallback',
+    target: 'future peaks mcp gitnexus proxy',
+    guidance: 'Do not install globally; future use should be proxied through Peaks.'
+  }),
+  mapping({
+    capabilityId: 'taste-skill.design-critique',
+    sourceId: 'taste-skill',
+    sourceGroup: 'mcp-server',
+    landingKind: 'skill',
+    target: 'peaks-ui',
+    skillName: 'peaks-ui',
+    guidance: 'Use as design critique inspiration, with Peaks UI constraints staying authoritative.'
+  }),
+  mapping({
+    capabilityId: 'ui-ux-pro-max-skill.design-guidance',
+    sourceId: 'ui-ux-pro-max-skill',
+    sourceGroup: 'mcp-server',
+    landingKind: 'skill',
+    target: 'peaks-ui',
+    skillName: 'peaks-ui',
+    guidance: 'Use as UI/UX guidance after product goals and accessibility constraints are clear.'
+  }),
+  mapping({
+    capabilityId: 'ruflo-mcp-server.workflow-reference',
+    sourceId: 'ruflo-mcp-server',
+    sourceGroup: 'mcp-server',
+    landingKind: 'catalog',
+    target: 'peaks autonomous planning reference',
+    guidance: 'Use as orchestration inspiration only; Peaks owns execution boundaries.'
+  }),
+  mapping({
+    capabilityId: 'superpowers.workflow-methodology',
+    sourceId: 'superpowers',
+    sourceGroup: 'mcp-server',
+    landingKind: 'skill',
+    target: 'peaks-prd',
+    skillName: 'peaks-prd',
+    guidance: 'Use as workflow methodology reference for artifact sequencing.'
+  }),
+  mapping({
+    capabilityId: 'penpot.design-source',
+    sourceId: 'penpot',
+    sourceGroup: 'mcp-server',
+    landingKind: 'skill',
+    target: 'peaks-ui',
+    skillName: 'peaks-ui',
+    guidance: 'Use as design-source context only with user-authorized project access.'
+  }),
+  mapping({
+    capabilityId: 'gstack.product-stack-guidance',
+    sourceId: 'gstack',
+    sourceGroup: 'mcp-server',
+    landingKind: 'skill',
+    target: 'peaks-prd',
+    skillName: 'peaks-prd',
+    guidance: 'Use as product-stack guidance, not as a substitute for user goals.'
+  }),
+  mapping({
+    capabilityId: 'awesome-design-md.design-reference',
+    sourceId: 'awesome-design-md',
+    sourceGroup: 'mcp-server',
+    landingKind: 'skill',
+    target: 'peaks-ui',
+    skillName: 'peaks-ui',
+    guidance: 'Use as visual/reference material while preserving product-specific design direction.'
+  }),
+  mapping({
+    capabilityId: 'anthropic-skills.skill-pack',
+    sourceId: 'anthropic-skills',
+    sourceGroup: 'mcp-server',
+    landingKind: 'catalog',
+    target: 'external skill catalog',
+    guidance: 'Catalog only until individual skills are inspected and approved.'
+  }),
+  mapping({
+    capabilityId: 'vercel-skills.skill-pack',
+    sourceId: 'vercel-skills',
+    sourceGroup: 'mcp-server',
+    landingKind: 'catalog',
+    target: 'external skill catalog',
+    guidance: 'Catalog only until individual skills are inspected and approved.'
+  }),
+  mapping({
+    capabilityId: 'reactbits.ui-reference',
+    sourceId: 'reactbits',
+    sourceGroup: 'mcp-server',
+    landingKind: 'skill',
+    target: 'peaks-ui',
+    skillName: 'peaks-ui',
+    guidance:
+      'Use as UI and motion inspiration after checking license, accessibility, and performance.'
+  }),
+  mapping({
+    capabilityId: 'azure-skills.cloud-skill-pack',
+    sourceId: 'azure-skills',
+    sourceGroup: 'mcp-server',
+    landingKind: 'catalog',
+    target: 'cloud capability catalog',
+    guidance:
+      'Cloud actions can affect cost and infrastructure; require explicit confirmation and credentials.'
+  })
 ];
 
 function mapping(input: MappingInput): CapabilityLandingMapping {

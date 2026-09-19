@@ -67,13 +67,13 @@ export const defaultSubstepExecutor: SubstepExecutor = (command, args, timeoutMs
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'pipe'],
       timeout: timeoutMs,
-      windowsHide: true,
+      windowsHide: true
     });
     return {
       status: result.status,
       stdout: result.stdout ?? '',
       stderr: result.stderr ?? '',
-      durationMs: Date.now() - start,
+      durationMs: Date.now() - start
     };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
@@ -81,7 +81,7 @@ export const defaultSubstepExecutor: SubstepExecutor = (command, args, timeoutMs
       status: null,
       stdout: '',
       stderr: message,
-      durationMs: Date.now() - start,
+      durationMs: Date.now() - start
     };
   }
 };
@@ -137,8 +137,22 @@ export interface UpgradeResult {
 }
 
 const STEPS: ReadonlyArray<{ name: string; args: (projectRoot: string) => string[] }> = [
-  { name: 'config-migrate', args: (p) => ['config', 'migrate', '--project', p, '--apply', '--json'] },
-  { name: 'standards-migrate', args: (p) => ['standards', 'migrate', '--from-claude-rules', '--project', p, '--apply', '--json'] },
+  {
+    name: 'config-migrate',
+    args: (p) => ['config', 'migrate', '--project', p, '--apply', '--json']
+  },
+  {
+    name: 'standards-migrate',
+    args: (p) => [
+      'standards',
+      'migrate',
+      '--from-claude-rules',
+      '--project',
+      p,
+      '--apply',
+      '--json'
+    ]
+  },
   // memory extract is special: its --artifact takes literal file
   // paths (memory-service rejects glob patterns via realpathSync).
   // The umbrella expands the three documented patterns
@@ -149,7 +163,7 @@ const STEPS: ReadonlyArray<{ name: string; args: (projectRoot: string) => string
   { name: 'memory-extract', args: (p) => ['memory', 'extract', '--project', p, '--json'] },
   { name: 'hooks-install', args: (p) => ['hooks', 'install', '--project', p, '--json'] },
   { name: 'skill-sync', args: (p) => ['skill', 'sync', '--all', '--project', p, '--json'] },
-  { name: 'audit-verify', args: (p) => ['audit', 'red-lines', '--project', p, '--json'] },
+  { name: 'audit-verify', args: (p) => ['audit', 'red-lines', '--project', p, '--json'] }
 ];
 
 /**
@@ -235,9 +249,8 @@ function expandMemoryArtifacts(projectRoot: string): readonly string[] {
   }
 
   // .claude/rules/**/*.md
-  const claudeRules = collectFilesRecursive(
-    join(projectRoot, '.claude', 'rules'),
-    (name) => name.endsWith('.md')
+  const claudeRules = collectFilesRecursive(join(projectRoot, '.claude', 'rules'), (name) =>
+    name.endsWith('.md')
   );
   for (const abs of claudeRules) {
     out.push(relative(projectRoot, abs));
@@ -254,7 +267,8 @@ function read1xVersion(cwd: string): string | null {
   try {
     const raw = JSON.parse(readFileSync(global, 'utf8')) as Record<string, unknown>;
     if (typeof raw.version === 'string') return raw.version;
-  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+  } catch {
+    // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     // ignore
   }
   return null;
@@ -297,14 +311,11 @@ function runStep(
     exitCode: result.status,
     stdout: result.stdout,
     stderr: result.stderr,
-    durationMs: result.durationMs,
+    durationMs: result.durationMs
   };
 }
 
-function writeUpgradeRecord(
-  projectRoot: string,
-  result: UpgradeResult
-): string | null {
+function writeUpgradeRecord(projectRoot: string, result: UpgradeResult): string | null {
   try {
     const memoryDir = join(projectRoot, '.peaks', 'memory');
     mkdirSync(memoryDir, { recursive: true });
@@ -327,17 +338,23 @@ function writeUpgradeRecord(
     lines.push('| step | status | exitCode | durationMs |');
     lines.push('|------|--------|----------|------------|');
     for (const step of result.steps) {
-      lines.push(`| ${step.name} | ${step.status} | ${step.exitCode ?? 'n/a'} | ${step.durationMs} |`);
+      lines.push(
+        `| ${step.name} | ${step.status} | ${step.exitCode ?? 'n/a'} | ${step.durationMs} |`
+      );
     }
     lines.push('');
     if (result.auditBefore !== null || result.auditAfter !== null) {
       lines.push('## Audit snapshot');
       lines.push('');
       if (result.auditBefore !== null) {
-        lines.push(`- Before: totalRedLines=${result.auditBefore.totalRedLines}, cliBacked=${result.auditBefore.cliBacked}`);
+        lines.push(
+          `- Before: totalRedLines=${result.auditBefore.totalRedLines}, cliBacked=${result.auditBefore.cliBacked}`
+        );
       }
       if (result.auditAfter !== null) {
-        lines.push(`- After:  totalRedLines=${result.auditAfter.totalRedLines}, cliBacked=${result.auditAfter.cliBacked}`);
+        lines.push(
+          `- After:  totalRedLines=${result.auditAfter.totalRedLines}, cliBacked=${result.auditAfter.cliBacked}`
+        );
       }
       lines.push('');
     }
@@ -368,9 +385,7 @@ export function runUpgrade(input: UpgradeInput): UpgradeResult {
   // The compiled service lives at dist/services/upgrade/upgrade-service.js
   // (rootDir=src in tsconfig.build.json trims the "src" segment); bin/peaks.js
   // is at the peaks-loop root, 3 dirs up.
-  const peaksBin =
-    input.peaksBin ??
-    resolve(here, '..', '..', '..', 'bin', 'peaks.js');
+  const peaksBin = input.peaksBin ?? resolve(here, '..', '..', '..', 'bin', 'peaks.js');
   const fallbackPeaks = 'peaks';
   const resolvedPeaksBin = existsSync(peaksBin) ? peaksBin : fallbackPeaks;
 
@@ -395,9 +410,7 @@ export function runUpgrade(input: UpgradeInput): UpgradeResult {
   try {
     savePreferences(input.projectRoot, {});
   } catch (err) {
-    warnings.push(
-      `ensure-preferences failed: ${err instanceof Error ? err.message : String(err)}`
-    );
+    warnings.push(`ensure-preferences failed: ${err instanceof Error ? err.message : String(err)}`);
   }
 
   // Migrate .gitignore so 2.0 tracked artifacts
@@ -417,9 +430,7 @@ export function runUpgrade(input: UpgradeInput): UpgradeResult {
       warnings.push('gitignore-migrate skipped: project has no .gitignore');
     }
   } catch (err) {
-    warnings.push(
-      `gitignore-migrate failed: ${err instanceof Error ? err.message : String(err)}`
-    );
+    warnings.push(`gitignore-migrate failed: ${err instanceof Error ? err.message : String(err)}`);
   }
 
   // Audit BEFORE the upgrade (baseline)
@@ -428,9 +439,7 @@ export function runUpgrade(input: UpgradeInput): UpgradeResult {
     const r = runRedLinesAudit({ projectRoot: input.projectRoot });
     auditBefore = { totalRedLines: r.audit.totalRedLines, cliBacked: r.audit.cliBacked };
   } catch (err) {
-    warnings.push(
-      `audit-before failed: ${err instanceof Error ? err.message : String(err)}`
-    );
+    warnings.push(`audit-before failed: ${err instanceof Error ? err.message : String(err)}`);
   }
 
   // Run the 6 sub-steps
@@ -448,11 +457,20 @@ export function runUpgrade(input: UpgradeInput): UpgradeResult {
           exitCode: null,
           stdout: '',
           stderr: 'no skills/, CLAUDE.md, or .claude/rules/ artifacts found in the project',
-          durationMs: 0,
+          durationMs: 0
         });
         continue;
       }
-      const args = ['memory', 'extract', '--project', input.projectRoot, '--artifact', ...artifacts, '--apply', '--json'];
+      const args = [
+        'memory',
+        'extract',
+        '--project',
+        input.projectRoot,
+        '--artifact',
+        ...artifacts,
+        '--apply',
+        '--json'
+      ];
       const r = runStep(resolvedPeaksBin, 'memory-extract', args, 60_000, executor);
       steps.push(r);
       if (r.status === 'fail') {
@@ -474,9 +492,7 @@ export function runUpgrade(input: UpgradeInput): UpgradeResult {
     const r = runRedLinesAudit({ projectRoot: input.projectRoot });
     auditAfter = { totalRedLines: r.audit.totalRedLines, cliBacked: r.audit.cliBacked };
   } catch (err) {
-    warnings.push(
-      `audit-after failed: ${err instanceof Error ? err.message : String(err)}`
-    );
+    warnings.push(`audit-after failed: ${err instanceof Error ? err.message : String(err)}`);
   }
 
   const passedCount = steps.filter((s) => s.status === 'pass').length;
@@ -490,9 +506,13 @@ export function runUpgrade(input: UpgradeInput): UpgradeResult {
     );
   }
   if (input.auto !== true) {
-    nextActions.push('Run `peaks audit red-lines --project .` to verify the L2 catalog is healthy.');
+    nextActions.push(
+      'Run `peaks audit red-lines --project .` to verify the L2 catalog is healthy.'
+    );
   }
-  nextActions.push('See `docs/UPGRADING-2.0.md` for the manual fallback if this auto-upgrade fails.');
+  nextActions.push(
+    'See `docs/UPGRADING-2.0.md` for the manual fallback if this auto-upgrade fails.'
+  );
 
   // Write the upgrade record (always, even on partial failure —
   // the user gets a forensic artifact either way)
@@ -509,7 +529,7 @@ export function runUpgrade(input: UpgradeInput): UpgradeResult {
     auditAfter,
     upgradeRecordPath: null,
     nextActions,
-    warnings,
+    warnings
   };
   const upgradeRecordPath = writeUpgradeRecord(input.projectRoot, partial);
   return { ...partial, upgradeRecordPath };

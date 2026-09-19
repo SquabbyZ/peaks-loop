@@ -93,7 +93,11 @@ export function parseDaemonInfo(raw: string): WebDaemonInfo | null {
   if (!isNonEmptyString(token) || !isNonEmptyString(version)) {
     return null;
   }
-  if (!isNonEmptyString(projectRoot) || !isNonEmptyString(sessionId) || !isNonEmptyString(startedAt)) {
+  if (
+    !isNonEmptyString(projectRoot) ||
+    !isNonEmptyString(sessionId) ||
+    !isNonEmptyString(startedAt)
+  ) {
     return null;
   }
   return { protocolVersion, pid, port, token, version, projectRoot, sessionId, startedAt };

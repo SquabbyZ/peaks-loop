@@ -263,7 +263,7 @@ export interface IdeCompactProfile {
    * Added in slice 2026-09-02-vendor-neutral-context-probe.
    */
   readonly readContextPercentFallback?: (
-    input: ContextPercentFallbackInput,
+    input: ContextPercentFallbackInput
   ) => ContextPercentProbe | null;
   /**
    * Optional locator for the IDE's per-session transcript file (jsonl),

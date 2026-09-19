@@ -1,5 +1,18 @@
-import { seedCapabilityItems, seedCapabilityLandingMappings, seedCapabilitySources } from './seed-capability-catalog.js';
-import type { CapabilityAvailability, CapabilityFallback, CapabilityItem, CapabilityLandingMapping, CapabilityMapPlan, CapabilityMapSourceFilter, CapabilitySource, LocalizedText } from './recommendation-types.js';
+import {
+  seedCapabilityItems,
+  seedCapabilityLandingMappings,
+  seedCapabilitySources
+} from './seed-capability-catalog.js';
+import type {
+  CapabilityAvailability,
+  CapabilityFallback,
+  CapabilityItem,
+  CapabilityLandingMapping,
+  CapabilityMapPlan,
+  CapabilityMapSourceFilter,
+  CapabilitySource,
+  LocalizedText
+} from './recommendation-types.js';
 
 export type CapabilityMapOptions = {
   source?: CapabilityMapSourceFilter;
@@ -13,7 +26,9 @@ export function createCapabilityMapPlan(options: CapabilityMapOptions = {}): Cap
   const sources = sortSources(filterSources(sourceFilter));
   const sourceIds = new Set(sources.map((source) => source.sourceId));
   const items = sortItems(seedCapabilityItems.filter((item) => sourceIds.has(item.sourceId)));
-  const mappings = sortMappings(seedCapabilityLandingMappings.filter((mapping) => sourceIds.has(mapping.sourceId)));
+  const mappings = sortMappings(
+    seedCapabilityLandingMappings.filter((mapping) => sourceIds.has(mapping.sourceId))
+  );
   const constraints = [
     'dry-run only: do not install MCP servers, skills, hooks, agents, or browser tooling from this map',
     'do not clone external repositories or write Claude settings from this map',
@@ -22,7 +37,9 @@ export function createCapabilityMapPlan(options: CapabilityMapOptions = {}): Cap
   ];
 
   if (httpProxy) {
-    constraints.push(`use HTTP proxy ${httpProxy} for GitHub, registries, MCP directories, and external web access`);
+    constraints.push(
+      `use HTTP proxy ${httpProxy} for GitHub, registries, MCP directories, and external web access`
+    );
   }
 
   return {
@@ -60,8 +77,16 @@ function normalizeProxyUrl(value: string | undefined): string | undefined {
   if (value === undefined) return undefined;
   try {
     const url = new URL(value);
-    return (url.protocol === 'http:' || url.protocol === 'https:') && url.username.length === 0 && url.password.length === 0 && url.pathname === '/' && url.search.length === 0 && url.hash.length === 0 ? value : undefined;
-  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+    return (url.protocol === 'http:' || url.protocol === 'https:') &&
+      url.username.length === 0 &&
+      url.password.length === 0 &&
+      url.pathname === '/' &&
+      url.search.length === 0 &&
+      url.hash.length === 0
+      ? value
+      : undefined;
+  } catch {
+    // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     return undefined;
   }
 }
@@ -83,10 +108,15 @@ function sortItems(items: CapabilityItem[]): CapabilityItem[] {
 }
 
 function sortMappings(mappings: CapabilityLandingMapping[]): CapabilityLandingMapping[] {
-  return [...mappings].sort((left, right) => `${left.sourceId}:${left.capabilityId}`.localeCompare(`${right.sourceId}:${right.capabilityId}`));
+  return [...mappings].sort((left, right) =>
+    `${left.sourceId}:${left.capabilityId}`.localeCompare(`${right.sourceId}:${right.capabilityId}`)
+  );
 }
 
-function resolveDryRunAvailability(items: CapabilityItem[], installedCapabilityIds: string[]): CapabilityAvailability[] {
+function resolveDryRunAvailability(
+  items: CapabilityItem[],
+  installedCapabilityIds: string[]
+): CapabilityAvailability[] {
   const installedIds = new Set(installedCapabilityIds);
 
   return items.map((item) => ({

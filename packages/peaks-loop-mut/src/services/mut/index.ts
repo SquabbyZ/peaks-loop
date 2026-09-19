@@ -5,7 +5,7 @@ export {
   type RunMutationInput,
   type RunMutationOutput,
   type StrykerInvoker,
-  type StrykerRawResult,
+  type StrykerRawResult
 } from './mut-runner.js';
 export { createProductionStrykerInvoker } from './production-stryker.js';
 export { buildMutReport, type BuildMutInput } from './report-builder.js';
@@ -16,9 +16,13 @@ export {
   type Thresholds,
   type ThresholdEvaluation,
   type ThresholdViolation,
-  type ThresholdViolationKind,
+  type ThresholdViolationKind
 } from './thresholds.js';
 export type {
-  MutReportJson, MutationReport, AssertionsReport,
-  WeakPattern, WeakPatternCount, Followup,
+  MutReportJson,
+  MutationReport,
+  AssertionsReport,
+  WeakPattern,
+  WeakPatternCount,
+  Followup
 } from './types.js';

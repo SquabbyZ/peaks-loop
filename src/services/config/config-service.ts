@@ -1,10 +1,49 @@
 import { existsSync, lstatSync, mkdirSync, realpathSync } from 'node:fs';
 import { dirname, isAbsolute, resolve } from 'node:path';
-import { DEFAULT_CONFIG, isConfigV2, type ConfigGetOptions, type ConfigLayer, type ConfigSetOptions, type ConfigV2, type ModelPreference, type ModelProviderConfig, type PeaksConfig, type ProviderModelConfig, type ProxyConfig, type TokenConfig, type TokenRef, type WorkspaceConfig } from './config-types.js';
+import {
+  DEFAULT_CONFIG,
+  isConfigV2,
+  type ConfigGetOptions,
+  type ConfigLayer,
+  type ConfigSetOptions,
+  type ConfigV2,
+  type ModelPreference,
+  type ModelProviderConfig,
+  type PeaksConfig,
+  type ProviderModelConfig,
+  type ProxyConfig,
+  type TokenConfig,
+  type TokenRef,
+  type WorkspaceConfig
+} from './config-types.js';
 import { stablePath } from '../../shared/path-utils.js';
-import { findProjectRoot, getProjectBootstrapConfigPath, getProjectConfigPath, getUserConfigPath, isInsidePath, readConfigFileSafely, resolveCanonicalProjectRoot, resolveProjectRootForConfig, validateArtifactWorkspaceMarkerPath, validateArtifactWorkspaceRoot, validateProjectBootstrapConfigPathForWrite, validateUserConfigPathForWrite, writeConfigFileSafely, writeProjectConfigFile, writeUserConfigFile } from './config-safety.js';
+import {
+  findProjectRoot,
+  getProjectBootstrapConfigPath,
+  getProjectConfigPath,
+  getUserConfigPath,
+  isInsidePath,
+  readConfigFileSafely,
+  resolveCanonicalProjectRoot,
+  resolveProjectRootForConfig,
+  validateArtifactWorkspaceMarkerPath,
+  validateArtifactWorkspaceRoot,
+  validateProjectBootstrapConfigPathForWrite,
+  validateUserConfigPathForWrite,
+  writeConfigFileSafely,
+  writeProjectConfigFile,
+  writeUserConfigFile
+} from './config-safety.js';
 import { globalConfigPath, CONFIG_SCHEMA_VERSION_V2 } from './config-migration.js';
-import { SIDECAR_SCHEMA_VERSION, providersConfigPath, proxyConfigPath, readSidecarJson, sidecarExists, workspacesConfigPath, writeSidecarJson } from './sidecar-store.js';
+import {
+  SIDECAR_SCHEMA_VERSION,
+  providersConfigPath,
+  proxyConfigPath,
+  readSidecarJson,
+  sidecarExists,
+  workspacesConfigPath,
+  writeSidecarJson
+} from './sidecar-store.js';
 
 // Re-export resolveProjectRootForConfig and resolveCanonicalProjectRoot for external consumers
 export { resolveProjectRootForConfig, resolveCanonicalProjectRoot } from './config-safety.js';
@@ -57,9 +96,18 @@ function hasLegacyGlobalFields(raw: Record<string, unknown>): boolean {
  */
 function promoteLegacyGlobalFieldsToSidecars(raw: Record<string, unknown>): void {
   if (isRecord(raw.providers)) {
-    const existing = readSidecarJson<Partial<ProvidersSidecarShape>>(providersConfigPath(), { version: SIDECAR_SCHEMA_VERSION, providers: {} });
-    const mergedProviders = { ...(existing.providers ?? {}), ...(raw.providers as Record<string, unknown>) };
-    writeSidecarJson(providersConfigPath(), { version: SIDECAR_SCHEMA_VERSION, providers: mergedProviders });
+    const existing = readSidecarJson<Partial<ProvidersSidecarShape>>(providersConfigPath(), {
+      version: SIDECAR_SCHEMA_VERSION,
+      providers: {}
+    });
+    const mergedProviders = {
+      ...(existing.providers ?? {}),
+      ...(raw.providers as Record<string, unknown>)
+    };
+    writeSidecarJson(providersConfigPath(), {
+      version: SIDECAR_SCHEMA_VERSION,
+      providers: mergedProviders
+    });
   }
   if (isRecord(raw.proxy) && typeof (raw.proxy as Record<string, unknown>).httpProxy === 'string') {
     const httpProxy = (raw.proxy as Record<string, unknown>).httpProxy as string;
@@ -105,18 +153,27 @@ function readOcrFromRawConfigFile(): Record<string, unknown> | null {
   return isRecord(raw.ocr) ? raw.ocr : null;
 }
 
-function readJsonFile(path: string | null, validateBeforeRead?: () => void, errorMessage = 'Config path must stay inside the config root'): Partial<PeaksConfig> | null {
+function readJsonFile(
+  path: string | null,
+  validateBeforeRead?: () => void,
+  errorMessage = 'Config path must stay inside the config root'
+): Partial<PeaksConfig> | null {
   if (!path || !existsSync(path)) return null;
   validateBeforeRead?.();
   const content = readConfigFileSafely(path, errorMessage);
   try {
     return JSON.parse(content) as Partial<PeaksConfig>;
-  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+  } catch {
+    // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     return null;
   }
 }
 
-function readExistingJsonFile(path: string, errorMessage: string, validateBeforeRead?: () => void): Partial<PeaksConfig> | null {
+function readExistingJsonFile(
+  path: string,
+  errorMessage: string,
+  validateBeforeRead?: () => void
+): Partial<PeaksConfig> | null {
   if (!existsSync(path)) return null;
   validateBeforeRead?.();
   try {
@@ -128,12 +185,22 @@ function readExistingJsonFile(path: string, errorMessage: string, validateBefore
 
 function readUserJsonFile(): Partial<PeaksConfig> | null {
   const userPath = getUserConfigPath();
-  return readJsonFile(userPath, () => validateUserConfigPathForWrite(userPath), 'User config path must stay inside the user root');
+  return readJsonFile(
+    userPath,
+    () => validateUserConfigPathForWrite(userPath),
+    'User config path must stay inside the user root'
+  );
 }
 
 function readProjectJsonFile(projectRoot: string | null): Partial<PeaksConfig> | null {
   const projectPath = getProjectConfigPath(projectRoot);
-  return readJsonFile(projectPath, projectRoot && projectPath ? () => validateProjectBootstrapConfigPathForWrite(projectRoot, projectPath) : undefined, 'Project config path must stay inside the project root');
+  return readJsonFile(
+    projectPath,
+    projectRoot && projectPath
+      ? () => validateProjectBootstrapConfigPathForWrite(projectRoot, projectPath)
+      : undefined,
+    'Project config path must stay inside the project root'
+  );
 }
 
 function ensureDir(dirPath: string): void {
@@ -145,7 +212,10 @@ function ensureDir(dirPath: string): void {
 const UNSAFE_NESTED_PATH_SEGMENTS = new Set(['__proto__', 'constructor', 'prototype']);
 
 function getNestedPathParts(path: string): string[] {
-  return path.replace(/\[(\d+)\]/g, '.$1').split('.').filter(Boolean);
+  return path
+    .replace(/\[(\d+)\]/g, '.$1')
+    .split('.')
+    .filter(Boolean);
 }
 
 function hasUnsafeNestedPathSegment(parts: string[]): boolean {
@@ -160,7 +230,12 @@ function getNestedValue(obj: Record<string, unknown>, path: string): unknown {
 
   let current: unknown = obj;
   for (const part of parts) {
-    if (current === null || current === undefined || typeof current !== 'object' || !Object.prototype.hasOwnProperty.call(current, part)) {
+    if (
+      current === null ||
+      current === undefined ||
+      typeof current !== 'object' ||
+      !Object.prototype.hasOwnProperty.call(current, part)
+    ) {
       return undefined;
     }
     current = (current as Record<string, unknown>)[part];
@@ -177,7 +252,12 @@ function setNestedValue(obj: Record<string, unknown>, path: string, value: unkno
   let current: Record<string, unknown> = obj;
   for (let i = 0; i < parts.length - 1; i++) {
     const part = parts[i] as string;
-    if (!Object.prototype.hasOwnProperty.call(current, part) || typeof current[part] !== 'object' || current[part] === null || Array.isArray(current[part])) {
+    if (
+      !Object.prototype.hasOwnProperty.call(current, part) ||
+      typeof current[part] !== 'object' ||
+      current[part] === null ||
+      Array.isArray(current[part])
+    ) {
       current[part] = {};
     }
     current = current[part] as Record<string, unknown>;
@@ -188,7 +268,11 @@ function setNestedValue(obj: Record<string, unknown>, path: string, value: unkno
 
 function removeProjectSensitiveConfig(config: Partial<PeaksConfig>): Partial<PeaksConfig> {
   const { providers, proxy, tokens, ...safeConfig } = config;
-  return Object.fromEntries(Object.entries(safeConfig).filter(([key, value]) => !isSecretKey(key) && !containsSensitiveConfigValue(value))) as Partial<PeaksConfig>;
+  return Object.fromEntries(
+    Object.entries(safeConfig).filter(
+      ([key, value]) => !isSecretKey(key) && !containsSensitiveConfigValue(value)
+    )
+  ) as Partial<PeaksConfig>;
 }
 
 export function isConfigLayer(value: string): value is ConfigLayer {
@@ -224,14 +308,25 @@ export function readContextWindowTokensOverride(projectRoot?: string | null): un
       return getNestedValue(userRaw, CONTEXT_WINDOW_TOKENS_CONFIG_KEY);
     }
     return undefined;
-  } catch { // TODO(g2): legacy silent catch — never let config IO break a probe (grace: 1 minor release, v2.14.0)
+  } catch {
+    // TODO(g2): legacy silent catch — never let config IO break a probe (grace: 1 minor release, v2.14.0)
     return undefined;
   }
 }
 
 export function isSensitiveConfigPath(path: string): boolean {
   const normalized = path.toLowerCase().replace(/[^a-z0-9]/g, '');
-  return normalized.includes('apikey') || normalized.includes('accesskey') || normalized.includes('privatekey') || normalized.includes('token') || normalized.includes('secret') || normalized.includes('password') || normalized.includes('bearer') || normalized.includes('credential') || normalized.includes('auth');
+  return (
+    normalized.includes('apikey') ||
+    normalized.includes('accesskey') ||
+    normalized.includes('privatekey') ||
+    normalized.includes('token') ||
+    normalized.includes('secret') ||
+    normalized.includes('password') ||
+    normalized.includes('bearer') ||
+    normalized.includes('credential') ||
+    normalized.includes('auth')
+  );
 }
 
 /**
@@ -284,7 +379,13 @@ function isProviderBaseUrlPath(path: string): boolean {
 function isValidProviderBaseUrl(value: string): boolean {
   try {
     const url = new URL(value);
-    return url.protocol === 'https:' && url.username.length === 0 && url.password.length === 0 && url.search.length === 0 && url.hash.length === 0;
+    return (
+      url.protocol === 'https:' &&
+      url.username.length === 0 &&
+      url.password.length === 0 &&
+      url.search.length === 0 &&
+      url.hash.length === 0
+    );
   } catch {
     return false;
   }
@@ -292,7 +393,9 @@ function isValidProviderBaseUrl(value: string): boolean {
 
 function validateProviderBaseUrl(value: unknown): void {
   if (value !== undefined && (typeof value !== 'string' || !isValidProviderBaseUrl(value))) {
-    throw new Error('Provider base URL must be HTTPS without embedded credentials, query, or fragment');
+    throw new Error(
+      'Provider base URL must be HTTPS without embedded credentials, query, or fragment'
+    );
   }
 }
 
@@ -323,7 +426,14 @@ function validateProviderConfig(partial: Partial<PeaksConfig>): void {
 function isValidProxyUrl(value: string): boolean {
   try {
     const url = new URL(value);
-    return (url.protocol === 'http:' || url.protocol === 'https:') && url.username.length === 0 && url.password.length === 0 && url.pathname === '/' && url.search.length === 0 && url.hash.length === 0;
+    return (
+      (url.protocol === 'http:' || url.protocol === 'https:') &&
+      url.username.length === 0 &&
+      url.password.length === 0 &&
+      url.pathname === '/' &&
+      url.search.length === 0 &&
+      url.hash.length === 0
+    );
   } catch {
     return false;
   }
@@ -344,11 +454,18 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function isSafeConfigSegment(value: string): boolean {
-  return /^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(value) && !value.includes('..') && !value.endsWith('.');
+  return (
+    /^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(value) && !value.includes('..') && !value.endsWith('.')
+  );
 }
 
 function toArtifactRemoteRepoConfig(value: unknown): WorkspaceConfig['artifactRepo'] | null {
-  if (!isRecord(value) || (value.provider !== 'github' && value.provider !== 'gitlab') || typeof value.owner !== 'string' || typeof value.name !== 'string') {
+  if (
+    !isRecord(value) ||
+    (value.provider !== 'github' && value.provider !== 'gitlab') ||
+    typeof value.owner !== 'string' ||
+    typeof value.name !== 'string'
+  ) {
     return null;
   }
   if (!isSafeConfigSegment(value.owner) || !isSafeConfigSegment(value.name)) {
@@ -373,7 +490,14 @@ function toArtifactStorageConfig(value: unknown): WorkspaceConfig['artifactStora
 function toWorkspaceConfig(value: unknown): WorkspaceConfig | null {
   if (!isRecord(value)) return null;
   const { workspaceId, name, rootPath, installedCapabilityIds } = value;
-  if (typeof workspaceId !== 'string' || !isSafeConfigSegment(workspaceId) || typeof name !== 'string' || typeof rootPath !== 'string' || !Array.isArray(installedCapabilityIds) || !installedCapabilityIds.every((id) => typeof id === 'string')) {
+  if (
+    typeof workspaceId !== 'string' ||
+    !isSafeConfigSegment(workspaceId) ||
+    typeof name !== 'string' ||
+    typeof rootPath !== 'string' ||
+    !Array.isArray(installedCapabilityIds) ||
+    !installedCapabilityIds.every((id) => typeof id === 'string')
+  ) {
     return null;
   }
   const artifactRepo = toArtifactRemoteRepoConfig(value.artifactRepo);
@@ -389,19 +513,30 @@ function toWorkspaceConfig(value: unknown): WorkspaceConfig | null {
 }
 
 function toWorkspaceConfigs(value: unknown): WorkspaceConfig[] {
-  return Array.isArray(value) ? value.map(toWorkspaceConfig).filter((workspace): workspace is WorkspaceConfig => workspace !== null) : [];
+  return Array.isArray(value)
+    ? value
+        .map(toWorkspaceConfig)
+        .filter((workspace): workspace is WorkspaceConfig => workspace !== null)
+    : [];
 }
 
 function toProviderModelConfig(value: unknown): ProviderModelConfig {
   if (!isRecord(value)) return {};
   return {
-    ...(typeof value.model === 'string' && value.model.trim().length > 0 ? { model: value.model.trim() } : {}),
+    ...(typeof value.model === 'string' && value.model.trim().length > 0
+      ? { model: value.model.trim() }
+      : {}),
     ...(typeof value.baseUrl === 'string' ? { baseUrl: value.baseUrl } : {}),
     ...(typeof value.apiKey === 'string' ? { apiKey: value.apiKey } : {})
   };
 }
 
-const TOKEN_CONFIG_KEYS = new Set<keyof TokenConfig>(['AnthropicApiKey', 'OpenAiApiKey', 'GitHubToken', 'GitLabToken']);
+const TOKEN_CONFIG_KEYS = new Set<keyof TokenConfig>([
+  'AnthropicApiKey',
+  'OpenAiApiKey',
+  'GitHubToken',
+  'GitLabToken'
+]);
 
 function toTokenRef(value: unknown): TokenRef | null {
   if (!isRecord(value)) return null;
@@ -434,12 +569,19 @@ function toTokenConfig(value: unknown): TokenConfig {
 
 function toModelProviderConfig(value: unknown): ModelProviderConfig {
   if (!isRecord(value)) return {};
-  return Object.fromEntries(Object.entries(value).map(([providerId, providerConfig]) => [providerId, toProviderModelConfig(providerConfig)]));
+  return Object.fromEntries(
+    Object.entries(value).map(([providerId, providerConfig]) => [
+      providerId,
+      toProviderModelConfig(providerConfig)
+    ])
+  );
 }
 
 function toProxyConfig(value: unknown): ProxyConfig | null {
   if (!isRecord(value)) return null;
-  return typeof value.httpProxy === 'string' && isValidProxyUrl(value.httpProxy) ? { httpProxy: value.httpProxy } : null;
+  return typeof value.httpProxy === 'string' && isValidProxyUrl(value.httpProxy)
+    ? { httpProxy: value.httpProxy }
+    : null;
 }
 
 function getProjectWriteTarget(): { projectRoot: string; configPath: string } {
@@ -459,10 +601,13 @@ export function containsSensitiveConfigValue(value: unknown): boolean {
     return false;
   }
 
-  return Object.entries(value).some(([key, entry]) => isSecretKey(key) || containsSensitiveConfigValue(entry));
+  return Object.entries(value).some(
+    ([key, entry]) => isSecretKey(key) || containsSensitiveConfigValue(entry)
+  );
 }
 
-export type RedactedConfigValue = string | number | boolean | null | RedactedConfigValue[] | { [key: string]: RedactedConfigValue };
+export type RedactedConfigValue =
+  string | number | boolean | null | RedactedConfigValue[] | { [key: string]: RedactedConfigValue };
 
 export function redactConfigSecrets(value: unknown, path = ''): RedactedConfigValue {
   if (Array.isArray(value)) {
@@ -475,16 +620,18 @@ export function redactConfigSecrets(value: unknown, path = ''): RedactedConfigVa
     return value as RedactedConfigValue;
   }
 
-  return Object.fromEntries(Object.entries(value).map(([key, entry]) => {
-    const nextPath = path ? `${path}.${key}` : key;
-    if (isSecretKey(key)) {
-      return [key, '***'];
-    }
-    if (isProviderBaseUrlPath(nextPath) && typeof entry === 'string') {
-      return [key, sanitizeBaseUrlForDisplay(entry)];
-    }
-    return [key, redactConfigSecrets(entry, nextPath)];
-  }));
+  return Object.fromEntries(
+    Object.entries(value).map(([key, entry]) => {
+      const nextPath = path ? `${path}.${key}` : key;
+      if (isSecretKey(key)) {
+        return [key, '***'];
+      }
+      if (isProviderBaseUrlPath(nextPath) && typeof entry === 'string') {
+        return [key, sanitizeBaseUrlForDisplay(entry)];
+      }
+      return [key, redactConfigSecrets(entry, nextPath)];
+    })
+  );
 }
 
 function inferHumanLanguage(value: string): string {
@@ -507,7 +654,9 @@ function toPeaksConfig(value: unknown): Partial<PeaksConfig> {
   return {
     ...(typeof value.version === 'string' ? { version: value.version } : {}),
     ...(typeof value.language === 'string' ? { language: value.language } : {}),
-    ...(typeof value.model === 'string' && ['haiku', 'sonnet', 'opus'].includes(value.model) ? { model: value.model as ModelPreference } : {}),
+    ...(typeof value.model === 'string' && ['haiku', 'sonnet', 'opus'].includes(value.model)
+      ? { model: value.model as ModelPreference }
+      : {}),
     ...(typeof value.economyMode === 'boolean' ? { economyMode: value.economyMode } : {}),
     ...(typeof value.swarmMode === 'boolean' ? { swarmMode: value.swarmMode } : {}),
     ...(isRecord(value.tokens) ? { tokens: toTokenConfig(value.tokens) } : {}),
@@ -519,17 +668,26 @@ function toPeaksConfig(value: unknown): Partial<PeaksConfig> {
 export function bootstrapProjectLanguageConfig(projectRoot: string, language: string): void {
   const inferredLanguage = inferHumanLanguage(language);
   const projectPath = getProjectBootstrapConfigPath(projectRoot);
-  const existing = readExistingJsonFile(projectPath, 'Project config must contain valid JSON', () => validateProjectBootstrapConfigPathForWrite(projectRoot, projectPath)) ?? {};
+  const existing =
+    readExistingJsonFile(projectPath, 'Project config must contain valid JSON', () =>
+      validateProjectBootstrapConfigPathForWrite(projectRoot, projectPath)
+    ) ?? {};
   if (typeof existing.language === 'string' && existing.language.trim().length > 0) {
     return;
   }
-  writeProjectConfigFile(projectRoot, projectPath, JSON.stringify({ ...existing, language: inferredLanguage }, null, 2));
+  writeProjectConfigFile(
+    projectRoot,
+    projectPath,
+    JSON.stringify({ ...existing, language: inferredLanguage }, null, 2)
+  );
 }
 
 export function readConfig(projectRoot?: string | null): PeaksConfig {
   const detectedRoot = projectRoot ?? findProjectRoot(process.cwd());
   const userConfig = toPeaksConfig(readUserJsonFile());
-  const projectConfig = removeProjectSensitiveConfig(toPeaksConfig(readProjectJsonFile(detectedRoot)));
+  const projectConfig = removeProjectSensitiveConfig(
+    toPeaksConfig(readProjectJsonFile(detectedRoot))
+  );
   const { proxy: projectProxy, ...projectConfigWithoutProxy } = projectConfig;
 
   return {
@@ -544,7 +702,11 @@ function sanitizeWorkspacePartial(partial: Record<string, unknown>): Record<stri
   if (Array.isArray(result.workspaces)) {
     result.workspaces = toWorkspaceConfigs(result.workspaces);
   }
-  if (typeof result.currentWorkspace !== 'string' && result.currentWorkspace !== null && result.currentWorkspace !== undefined) {
+  if (
+    typeof result.currentWorkspace !== 'string' &&
+    result.currentWorkspace !== null &&
+    result.currentWorkspace !== undefined
+  ) {
     delete result.currentWorkspace;
   }
   return result;
@@ -554,7 +716,12 @@ export function writeConfig(partial: Partial<PeaksConfig>, layer: ConfigLayer = 
   if (!isConfigLayer(layer)) {
     throw new Error('Invalid config layer');
   }
-  if (layer === 'project' && (partial.providers !== undefined || partial.proxy !== undefined || containsSensitiveConfigValue(partial))) {
+  if (
+    layer === 'project' &&
+    (partial.providers !== undefined ||
+      partial.proxy !== undefined ||
+      containsSensitiveConfigValue(partial))
+  ) {
     throw new Error('Sensitive config keys must be stored in the user config layer');
   }
   validateProviderConfig(partial);
@@ -563,7 +730,10 @@ export function writeConfig(partial: Partial<PeaksConfig>, layer: ConfigLayer = 
   if (layer === 'project') {
     const { projectRoot, configPath } = getProjectWriteTarget();
     ensureDir(dirname(configPath));
-    const existing = readJsonFile(configPath, () => validateProjectBootstrapConfigPathForWrite(projectRoot, configPath)) ?? {};
+    const existing =
+      readJsonFile(configPath, () =>
+        validateProjectBootstrapConfigPathForWrite(projectRoot, configPath)
+      ) ?? {};
     const merged = sanitizeWorkspacePartial({ ...existing, ...partial });
     writeProjectConfigFile(projectRoot, configPath, JSON.stringify(merged, null, 2));
     return;
@@ -581,15 +751,21 @@ export function getConfig(options: ConfigGetOptions = {}): unknown {
   const userConfig = readUserJsonFile() ?? {};
   const projectConfig = removeProjectSensitiveConfig(readProjectJsonFile(projectRoot) ?? {});
   const { proxy: projectProxy, ...projectConfigWithoutProxy } = projectConfig;
-  const source = options.layer === 'user'
-    ? userConfig
-    : options.layer === 'project'
-      ? projectConfig
-      : {
-        ...userConfig,
-        ...projectConfigWithoutProxy
-      };
-  const config = isRecord(source) ? { ...source, ...(source.tokens !== undefined ? { tokens: toTokenConfig(source.tokens) } : {}) } : source;
+  const source =
+    options.layer === 'user'
+      ? userConfig
+      : options.layer === 'project'
+        ? projectConfig
+        : {
+            ...userConfig,
+            ...projectConfigWithoutProxy
+          };
+  const config = isRecord(source)
+    ? {
+        ...source,
+        ...(source.tokens !== undefined ? { tokens: toTokenConfig(source.tokens) } : {})
+      }
+    : source;
 
   if (options.key !== undefined) {
     return getNestedValue(config as Record<string, unknown>, options.key);
@@ -606,10 +782,16 @@ export function setConfig(options: ConfigSetOptions): void {
   if (isLegacyConfigKey(options.key)) {
     throw new Error(
       `Legacy config key "${options.key}" is no longer stored in ~/.peaks/config.json. ` +
-      'Set it under <project>/.peaks/preferences.json (e.g. `peaks preferences set --key <key> --value <value>`).'
+        'Set it under <project>/.peaks/preferences.json (e.g. `peaks preferences set --key <key> --value <value>`).'
     );
   }
-  if (layer === 'project' && (isProviderConfigPath(options.key) || isProxyConfigPath(options.key) || isSensitiveConfigPath(options.key) || containsSensitiveConfigValue(options.value))) {
+  if (
+    layer === 'project' &&
+    (isProviderConfigPath(options.key) ||
+      isProxyConfigPath(options.key) ||
+      isSensitiveConfigPath(options.key) ||
+      containsSensitiveConfigValue(options.value))
+  ) {
     throw new Error('Sensitive config keys must be stored in the user config layer');
   }
   if (options.key === 'providers') {
@@ -629,8 +811,10 @@ export function setConfig(options: ConfigSetOptions): void {
 
   ensureDir(dirname(targetPath));
   const existing = projectTarget
-    ? readJsonFile(targetPath, () => validateProjectBootstrapConfigPathForWrite(projectTarget.projectRoot, targetPath)) ?? {}
-    : readJsonFile(targetPath, () => validateUserConfigPathForWrite(targetPath)) ?? {};
+    ? (readJsonFile(targetPath, () =>
+        validateProjectBootstrapConfigPathForWrite(projectTarget.projectRoot, targetPath)
+      ) ?? {})
+    : (readJsonFile(targetPath, () => validateUserConfigPathForWrite(targetPath)) ?? {});
   const updated = { ...existing };
   setNestedValue(updated, options.key, options.value);
   const content = JSON.stringify(updated, null, 2);
@@ -653,9 +837,10 @@ function readRawWorkspaceData(layer: ConfigLayer): RawWorkspaceData {
   const config = getConfig({ layer });
   return isRecord(config)
     ? {
-      currentWorkspace: typeof config.currentWorkspace === 'string' ? config.currentWorkspace : null,
-      workspaces: toWorkspaceConfigs(config.workspaces)
-    }
+        currentWorkspace:
+          typeof config.currentWorkspace === 'string' ? config.currentWorkspace : null,
+        workspaces: toWorkspaceConfigs(config.workspaces)
+      }
     : { currentWorkspace: null, workspaces: [] };
 }
 
@@ -664,8 +849,10 @@ function writeRawWorkspaceData(data: Partial<RawWorkspaceData>, layer: ConfigLay
   const targetPath = projectTarget?.configPath ?? getUserConfigPath();
   ensureDir(dirname(targetPath));
   const existing = projectTarget
-    ? readJsonFile(targetPath, () => validateProjectBootstrapConfigPathForWrite(projectTarget.projectRoot, targetPath)) ?? {}
-    : readJsonFile(targetPath, () => validateUserConfigPathForWrite(targetPath)) ?? {};
+    ? (readJsonFile(targetPath, () =>
+        validateProjectBootstrapConfigPathForWrite(projectTarget.projectRoot, targetPath)
+      ) ?? {})
+    : (readJsonFile(targetPath, () => validateUserConfigPathForWrite(targetPath)) ?? {});
   const merged = { ...existing, ...data };
   const content = JSON.stringify(merged, null, 2);
   if (projectTarget) {
@@ -687,25 +874,36 @@ function readAllWorkspaces(): { currentWorkspace: string | null; workspaces: Wor
   };
 }
 
-export function getWorkspaceConfig(workspaceId: string, _projectRoot?: string | null): WorkspaceConfig | null {
+export function getWorkspaceConfig(
+  workspaceId: string,
+  _projectRoot?: string | null
+): WorkspaceConfig | null {
   const { workspaces } = readAllWorkspaces();
   return workspaces.find((w) => w.workspaceId === workspaceId) ?? null;
 }
 
-function readLayerConfig(layer: ConfigLayer): { currentWorkspace: string | null; workspaces: WorkspaceConfig[] } {
+function readLayerConfig(layer: ConfigLayer): {
+  currentWorkspace: string | null;
+  workspaces: WorkspaceConfig[];
+} {
   return readRawWorkspaceData(layer);
 }
 
 export function addWorkspace(workspace: WorkspaceConfig, layer: ConfigLayer = 'user'): void {
   if (!isSafeConfigSegment(workspace.workspaceId)) {
-    throw new Error('Workspace id must only contain letters, numbers, dots, underscores, or hyphens and must not contain path traversal');
+    throw new Error(
+      'Workspace id must only contain letters, numbers, dots, underscores, or hyphens and must not contain path traversal'
+    );
   }
   const config = readRawWorkspaceData(layer);
   const workspaces = config.workspaces;
   const existing = workspaces.findIndex((w) => w.workspaceId === workspace.workspaceId);
-  const updatedWorkspaces = existing >= 0
-    ? workspaces.map((existingWorkspace) => existingWorkspace.workspaceId === workspace.workspaceId ? workspace : existingWorkspace)
-    : [...workspaces, workspace];
+  const updatedWorkspaces =
+    existing >= 0
+      ? workspaces.map((existingWorkspace) =>
+          existingWorkspace.workspaceId === workspace.workspaceId ? workspace : existingWorkspace
+        )
+      : [...workspaces, workspace];
   writeRawWorkspaceData({ workspaces: updatedWorkspaces }, layer);
 }
 
@@ -717,7 +915,10 @@ export function removeWorkspace(workspaceId: string, layer: ConfigLayer = 'user'
   if (idx < 0) return false;
 
   const updatedWorkspaces = workspaces.filter((w) => w.workspaceId !== workspaceId);
-  const currentWorkspace = config.currentWorkspace === workspaceId ? updatedWorkspaces[0]?.workspaceId ?? null : config.currentWorkspace ?? null;
+  const currentWorkspace =
+    config.currentWorkspace === workspaceId
+      ? (updatedWorkspaces[0]?.workspaceId ?? null)
+      : (config.currentWorkspace ?? null);
 
   writeRawWorkspaceData({ workspaces: updatedWorkspaces, currentWorkspace }, layer);
   return true;
@@ -754,11 +955,15 @@ function findWorkspaceForPath(workspaces: WorkspaceConfig[], path: string): Work
   });
   if (matches.length === 0) return null;
 
-  return matches.reduce((best, match) => match.rootPath.length > best.rootPath.length ? match : best).workspace;
+  return matches.reduce((best, match) =>
+    match.rootPath.length > best.rootPath.length ? match : best
+  ).workspace;
 }
 
 function getWorkspaceArtifactRoot(workspace: WorkspaceConfig): string {
-  return workspace.artifactStorage?.localPath ? resolve(workspace.artifactStorage.localPath) : resolve(workspace.rootPath, '.peaks', 'artifacts');
+  return workspace.artifactStorage?.localPath
+    ? resolve(workspace.artifactStorage.localPath)
+    : resolve(workspace.rootPath, '.peaks', 'artifacts');
 }
 
 function ensureArtifactWorkspaceMarker(workspace: WorkspaceConfig): void {
@@ -771,7 +976,12 @@ function ensureArtifactWorkspaceMarker(workspace: WorkspaceConfig): void {
   ensureDir(peaksPath);
   validateArtifactWorkspaceMarkerPath(artifactRoot, peaksPath, markerPath);
   if (!existsSync(markerPath)) {
-    writeConfigFileSafely(markerPath, '{}\n', () => validateArtifactWorkspaceMarkerPath(artifactRoot, peaksPath, markerPath), 'Artifact workspace marker must stay inside the artifact workspace');
+    writeConfigFileSafely(
+      markerPath,
+      '{}\n',
+      () => validateArtifactWorkspaceMarkerPath(artifactRoot, peaksPath, markerPath),
+      'Artifact workspace marker must stay inside the artifact workspace'
+    );
   }
 }
 

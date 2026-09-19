@@ -18,7 +18,18 @@
  * with the zod schema and either re-migrate or rebuild empty.
  */
 
-import { constants as fsConstants, copyFileSync, closeSync, existsSync, mkdirSync, openSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs';
+import {
+  constants as fsConstants,
+  copyFileSync,
+  closeSync,
+  existsSync,
+  mkdirSync,
+  openSync,
+  readFileSync,
+  renameSync,
+  unlinkSync,
+  writeFileSync
+} from 'node:fs';
 import { dirname, join } from 'node:path';
 import { z } from 'zod';
 
@@ -103,7 +114,9 @@ function backupCorruptFile(projectRoot: string): void {
   } catch (err) {
     // best-effort backup; do not block rebuild. Surface a warning so
     // silent-warning-detector does not flag this branch.
-    process.stderr.write(`[binding-store] backup ${canonical} → ${backup} failed: ${String(err)}\n`);
+    process.stderr.write(
+      `[binding-store] backup ${canonical} → ${backup} failed: ${String(err)}\n`
+    );
   }
 }
 
@@ -353,7 +366,10 @@ export function dropInstance(projectRoot: string, sid: string): Binding | null {
  * the list of dropped sid values so the caller can log them. Used
  * by AC-10 Doctor.
  */
-export function dropStale(projectRoot: string, ttlMs: number): { binding: Binding | null; dropped: string[] } {
+export function dropStale(
+  projectRoot: string,
+  ttlMs: number
+): { binding: Binding | null; dropped: string[] } {
   const existing = readBinding(projectRoot);
   if (!existing) return { binding: null, dropped: [] };
   const cutoff = Date.now() - ttlMs;
@@ -463,7 +479,9 @@ function releaseRebuildLock(lock: { fd: number; path: string } | null): void {
     // does not flag the empty-catch. The next acquireRebuildLock will
     // still detect the stale lock via EEXIST and treat it as held,
     // which is the safer default.
-    process.stderr.write(`[binding-store] close rebuild lock ${lock.path} failed: ${String(err)}\n`);
+    process.stderr.write(
+      `[binding-store] close rebuild lock ${lock.path} failed: ${String(err)}\n`
+    );
   }
   try {
     // unlinkSync is best-effort; a stale lock will be detected by
@@ -471,7 +489,9 @@ function releaseRebuildLock(lock: { fd: number; path: string } | null): void {
     // (returning null), which is the safer default.
     unlinkSync(lock.path);
   } catch (err) {
-    process.stderr.write(`[binding-store] unlink rebuild lock ${lock.path} failed: ${String(err)}\n`);
+    process.stderr.write(
+      `[binding-store] unlink rebuild lock ${lock.path} failed: ${String(err)}\n`
+    );
   }
 }
 
@@ -549,7 +569,9 @@ export function rebuildBindingFromLegacy(projectRoot: string): RebuildResult {
       try {
         unlinkSync(tmpPath);
       } catch (cleanupErr) {
-        process.stderr.write(`[binding-store] cleanup tmp ${tmpPath} after rename failure failed: ${String(cleanupErr)}\n`);
+        process.stderr.write(
+          `[binding-store] cleanup tmp ${tmpPath} after rename failure failed: ${String(cleanupErr)}\n`
+        );
       }
       throw renameErr;
     }

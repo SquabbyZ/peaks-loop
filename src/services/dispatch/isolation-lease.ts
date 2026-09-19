@@ -20,47 +20,74 @@ export function spawnWorktreeLease(args: {
   purpose: string;
 }): Promise<{ leaseId: string; path: string; branch: string; expiresAt: number }> {
   return new Promise((resolve, reject) => {
-    const child = childProcessSpawn(process.execPath, [
-      // The compiled CLI lives in dist/cli/peaks.js. We pass the entry
-      // through node so the test suite (which also runs on the same
-      // process) and the production binary share the same path. When
-      // the binary is invoked as `peaks`, the package bin stub does
-      // this for us; here we explicitly use process.execPath + the
-      // resolved entry to avoid PATH surprises.
-      process.argv[1] ?? '',
-      'worktree', 'spawn',
-      '--rid', args.rid,
-      '--role', args.role,
-      '--purpose', args.purpose,
-      '--project', args.projectRoot,
-      '--session', args.sessionId,
-      '--json'
-    ], { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true, detached: true });
+    const child = childProcessSpawn(
+      process.execPath,
+      [
+        // The compiled CLI lives in dist/cli/peaks.js. We pass the entry
+        // through node so the test suite (which also runs on the same
+        // process) and the production binary share the same path. When
+        // the binary is invoked as `peaks`, the package bin stub does
+        // this for us; here we explicitly use process.execPath + the
+        // resolved entry to avoid PATH surprises.
+        process.argv[1] ?? '',
+        'worktree',
+        'spawn',
+        '--rid',
+        args.rid,
+        '--role',
+        args.role,
+        '--purpose',
+        args.purpose,
+        '--project',
+        args.projectRoot,
+        '--session',
+        args.sessionId,
+        '--json'
+      ],
+      { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true, detached: true }
+    );
 
     let stdout = '';
     let stderr = '';
-    child.stdout.on('data', (d) => { stdout += d.toString('utf8'); });
-    child.stderr.on('data', (d) => { stderr += d.toString('utf8'); });
-    child.on('error', (err) => reject(new Error(`worktree spawn subprocess failed: ${err.message}`)));
+    child.stdout.on('data', (d) => {
+      stdout += d.toString('utf8');
+    });
+    child.stderr.on('data', (d) => {
+      stderr += d.toString('utf8');
+    });
+    child.on('error', (err) =>
+      reject(new Error(`worktree spawn subprocess failed: ${err.message}`))
+    );
     child.on('close', (code) => {
       if (code !== 0) {
-        reject(new Error(`peaks worktree spawn exited ${code}; stderr: ${stderr.trim() || '(empty)'}`));
+        reject(
+          new Error(`peaks worktree spawn exited ${code}; stderr: ${stderr.trim() || '(empty)'}`)
+        );
         return;
       }
       let parsed: unknown;
       try {
         parsed = JSON.parse(stdout);
       } catch (err) {
-        reject(new Error(`peaks worktree spawn produced unparseable JSON: ${(err as Error).message}; stdout: ${stdout.slice(0, 400)}`));
+        reject(
+          new Error(
+            `peaks worktree spawn produced unparseable JSON: ${(err as Error).message}; stdout: ${stdout.slice(0, 400)}`
+          )
+        );
         return;
       }
       if (typeof parsed !== 'object' || parsed === null) {
         reject(new Error('peaks worktree spawn envelope is not an object'));
         return;
       }
-      const env = parsed as { ok?: boolean; data?: { lease?: { leaseId: string; path: string; branch: string; expiresAt: number } } };
+      const env = parsed as {
+        ok?: boolean;
+        data?: { lease?: { leaseId: string; path: string; branch: string; expiresAt: number } };
+      };
       if (env.ok !== true || !env.data?.lease) {
-        reject(new Error(`peaks worktree spawn envelope missing lease; got: ${stdout.slice(0, 200)}`));
+        reject(
+          new Error(`peaks worktree spawn envelope missing lease; got: ${stdout.slice(0, 200)}`)
+        );
         return;
       }
       resolve({
@@ -75,7 +102,9 @@ export function spawnWorktreeLease(args: {
       // child handle. Without this microtask defer, the unref
       // races the buffered stdout close and the test receives
       // an empty JSON envelope.
-      setImmediate(() => { child.unref(); });
+      setImmediate(() => {
+        child.unref();
+      });
     });
   });
 }
@@ -98,31 +127,53 @@ export function spawnContainerLease(args: {
   purpose: string;
 }): Promise<{ leaseId: string }> {
   return new Promise((resolve, reject) => {
-    const child = childProcessSpawn(process.execPath, [
-      process.argv[1] ?? '',
-      'container', 'spawn',
-      '--rid', args.rid,
-      '--role', args.role,
-      '--purpose', args.purpose,
-      '--project', args.projectRoot,
-      '--session', args.sessionId,
-      '--json'
-    ], { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true, detached: true });
+    const child = childProcessSpawn(
+      process.execPath,
+      [
+        process.argv[1] ?? '',
+        'container',
+        'spawn',
+        '--rid',
+        args.rid,
+        '--role',
+        args.role,
+        '--purpose',
+        args.purpose,
+        '--project',
+        args.projectRoot,
+        '--session',
+        args.sessionId,
+        '--json'
+      ],
+      { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true, detached: true }
+    );
     let stdout = '';
     let stderr = '';
-    child.stdout.on('data', (d) => { stdout += d.toString('utf8'); });
-    child.stderr.on('data', (d) => { stderr += d.toString('utf8'); });
-    child.on('error', (err) => reject(new Error(`container spawn subprocess failed: ${err.message}`)));
+    child.stdout.on('data', (d) => {
+      stdout += d.toString('utf8');
+    });
+    child.stderr.on('data', (d) => {
+      stderr += d.toString('utf8');
+    });
+    child.on('error', (err) =>
+      reject(new Error(`container spawn subprocess failed: ${err.message}`))
+    );
     child.on('close', (code) => {
       if (code !== 0) {
-        reject(new Error(`peaks container spawn exited ${code}; stderr: ${stderr.trim() || '(empty)'}`));
+        reject(
+          new Error(`peaks container spawn exited ${code}; stderr: ${stderr.trim() || '(empty)'}`)
+        );
         return;
       }
       let parsed: unknown;
       try {
         parsed = JSON.parse(stdout);
       } catch (err) {
-        reject(new Error(`peaks container spawn produced unparseable JSON: ${(err as Error).message}; stdout: ${stdout.slice(0, 400)}`));
+        reject(
+          new Error(
+            `peaks container spawn produced unparseable JSON: ${(err as Error).message}; stdout: ${stdout.slice(0, 400)}`
+          )
+        );
         return;
       }
       if (typeof parsed !== 'object' || parsed === null) {
@@ -131,7 +182,9 @@ export function spawnContainerLease(args: {
       }
       const env = parsed as { ok?: boolean; data?: { lease?: { leaseId: string } } };
       if (env.ok !== true || !env.data?.lease) {
-        reject(new Error(`peaks container spawn envelope missing lease; got: ${stdout.slice(0, 200)}`));
+        reject(
+          new Error(`peaks container spawn envelope missing lease; got: ${stdout.slice(0, 200)}`)
+        );
         return;
       }
       resolve({ leaseId: env.data.lease.leaseId });

@@ -1,6 +1,10 @@
 import type { Command } from 'commander';
 import { runDoctor } from '../../../services/doctor/index.js';
-import { readBinding, dropStale, rebuildBindingFromLegacy } from '../../../services/session/binding-store.js';
+import {
+  readBinding,
+  dropStale,
+  rebuildBindingFromLegacy
+} from '../../../services/session/binding-store.js';
 import { findProjectRoot } from '../../../services/config/config-safety.js';
 import { loadSkillRegistry } from '../../../services/skills/skill-registry.js';
 import { planStatusLineInstall } from '../../../services/skills/statusline-settings-service.js';
@@ -29,7 +33,10 @@ function doctorIsValidSessionId(sid: string): boolean {
   return /^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])-session-[0-9a-z]{3,6}$/.test(sid);
 }
 
-function statusLineAlreadyInstalledForScope(scope: 'project' | 'global', projectRoot?: string): boolean {
+function statusLineAlreadyInstalledForScope(
+  scope: 'project' | 'global',
+  projectRoot?: string
+): boolean {
   try {
     if (scope === 'project') {
       if (projectRoot === undefined) return false;
@@ -49,28 +56,38 @@ function statusLineAlreadyInstalledForScope(scope: 'project' | 'global', project
  * kept verbatim. ≤ 2 KB by construction.
  */
 export function buildDoctorSummary(data: Record<string, unknown>): Record<string, unknown> {
-  const checks = Array.isArray(data.checks) ? (data.checks as Array<{ id?: unknown; ok?: unknown; severity?: unknown; message?: unknown }>) : [];
+  const checks = Array.isArray(data.checks)
+    ? (data.checks as Array<{ id?: unknown; ok?: unknown; severity?: unknown; message?: unknown }>)
+    : [];
   const label = (c: { id?: unknown; ok?: unknown; severity?: unknown }): string => {
     const id = typeof c.id === 'string' ? c.id : 'unknown';
     if (c.ok === true) return `ok ${id}`;
     return `${c.severity === 'warning' ? 'warn' : 'FAIL'} ${id}`;
   };
   const failed = checks.filter((c) => c.ok === false);
-  const stale = typeof data.staleBinding === 'object' && data.staleBinding !== null
-    ? (data.staleBinding as Record<string, unknown>)
-    : null;
+  const stale =
+    typeof data.staleBinding === 'object' && data.staleBinding !== null
+      ? (data.staleBinding as Record<string, unknown>)
+      : null;
   const view: Record<string, unknown> = {
     view: 'summary',
     summary: data.summary,
     checks: boundedNames(checks.map(label)),
-    failed: boundedNames(failed.map((c) => `${typeof c.id === 'string' ? c.id : 'unknown'}: ${typeof c.message === 'string' ? c.message : ''}`)),
+    failed: boundedNames(
+      failed.map(
+        (c) =>
+          `${typeof c.id === 'string' ? c.id : 'unknown'}: ${typeof c.message === 'string' ? c.message : ''}`
+      )
+    )
   };
   if (stale !== null) {
     view.staleBinding = {
       ttlMs: stale.ttlMs,
       staleCount: stale.staleCount,
       droppedCount: stale.droppedCount,
-      droppedSids: boundedNames(Array.isArray(stale.droppedSids) ? stale.droppedSids.map((s) => String(s)) : []),
+      droppedSids: boundedNames(
+        Array.isArray(stale.droppedSids) ? stale.droppedSids.map((s) => String(s)) : []
+      )
     };
   }
   if (data.logs !== undefined) view.logs = data.logs;
@@ -85,7 +102,8 @@ function doctorStatusLineInstalledProbe(): boolean {
     if (projectRoot !== null && statusLineAlreadyInstalledForScope('project', projectRoot)) {
       return true;
     }
-  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+  } catch {
+    // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     /* fall through to global */
   }
   try {
@@ -117,7 +135,10 @@ const STALE_TTL_MS = 5 * 60 * 1000;
 // Slice v2.16.0 AC-10: identify stale instances (lastHeartbeat > 5min)
 // in the project-level binding. Used by `peaks doctor` and surfaced as
 // a warning in the report. Returns the stale entry descriptors.
-function listStaleInstances(projectRoot: string, ttlMs: number = STALE_TTL_MS): Array<{ sid: string; callerId: string; lastHeartbeat: string }> {
+function listStaleInstances(
+  projectRoot: string,
+  ttlMs: number = STALE_TTL_MS
+): Array<{ sid: string; callerId: string; lastHeartbeat: string }> {
   const binding = readBinding(projectRoot);
   if (!binding) return [];
   const cutoff = Date.now() - ttlMs;
@@ -175,189 +196,227 @@ export function registerDoctorCommand(program: Command, io: ProgramIO): void {
     program
       .command('doctor')
       .description('Run repository doctor checks')
-      .option('--log', 'include a "logs" section in the doctor output (slice 2026-06-16-cli-logging, AC6)')
-      .option('--cleanup-stale', 'drop stale instance entries from the project-level binding (v2.16.0 AC-10)')
-      .option('--stale-ttl-ms <ms>', 'stale-binding TTL in milliseconds (default 300000 = 5 minutes, v2.16.0 AC-10)')
+      .option(
+        '--log',
+        'include a "logs" section in the doctor output (slice 2026-06-16-cli-logging, AC6)'
+      )
+      .option(
+        '--cleanup-stale',
+        'drop stale instance entries from the project-level binding (v2.16.0 AC-10)'
+      )
+      .option(
+        '--stale-ttl-ms <ms>',
+        'stale-binding TTL in milliseconds (default 300000 = 5 minutes, v2.16.0 AC-10)'
+      )
       // v2.18.2 PATCH scope (follow-up issue #1): rewrite legacy
       // v2.16.0 / v2.17.0 binding files in place so every existing
       // callerId gets the `${envSignal}#${pid}` suffix introduced in
       // v2.18.0. Mutually exclusive with --cleanup-stale to keep the
       // semantics unambiguous (rebuild = structural change,
       // cleanup-stale = TTL-based prune).
-      .option('--rebuild-binding', 'rewrite legacy v2.16.0 / v2.17.0 callerId entries to the v2.18.0+ `#${pid}` format (v2.18.2, follow-up issue #1)')
+      .option(
+        '--rebuild-binding',
+        'rewrite legacy v2.16.0 / v2.17.0 callerId entries to the v2.18.0+ `#${pid}` format (v2.18.2, follow-up issue #1)'
+      )
       // v2.18.2 cycle 2: --project makes the project-root-bound
       // flags (--rebuild-binding, --cleanup-stale, stale-binding
       // scan) addressable for non-current projects. The doctor was
       // hardcoded to findProjectRoot(process.cwd()) which is the
       // wrong default for users inspecting a sibling project.
       .option('--project <path>', 'target project root (defaults to git root or cwd)')
-      .option('--summary', 'JSON envelope only: emit check counts + names-of-first-N (≤ 2 KB) instead of the full checks/stale-binding arrays; the default envelope is unchanged')
-  ).action(async (options: { json?: boolean; log?: boolean; cleanupStale?: boolean; staleTtlMs?: string; rebuildBinding?: boolean; project?: string; summary?: boolean }) => {
-    // v2.18.2 cycle 2 (Q2 arbitration): --rebuild-binding and
-    // --cleanup-stale BOTH mutate the binding file. Running them
-    // together is ambiguous (rebuild rewrites callerIds; cleanup
-    // prunes entries). Hard-reject the combination so the user
-    // gets an actionable error instead of a silent short-circuit.
-    if (options.rebuildBinding === true && options.cleanupStale === true) {
-      const envelope = fail(
-        'doctor.rebuild-binding',
-        'CONFLICTING_FLAGS',
-        '--rebuild-binding and --cleanup-stale are mutually exclusive',
-        { rebuildBinding: true, cleanupStale: true },
-        ['Run them in separate `peaks doctor` invocations']
-      );
-      printResult(io, envelope, options.json === true);
-      process.exitCode = 1;
-      return;
-    }
+      .option(
+        '--summary',
+        'JSON envelope only: emit check counts + names-of-first-N (≤ 2 KB) instead of the full checks/stale-binding arrays; the default envelope is unchanged'
+      )
+  ).action(
+    async (options: {
+      json?: boolean;
+      log?: boolean;
+      cleanupStale?: boolean;
+      staleTtlMs?: string;
+      rebuildBinding?: boolean;
+      project?: string;
+      summary?: boolean;
+    }) => {
+      // v2.18.2 cycle 2 (Q2 arbitration): --rebuild-binding and
+      // --cleanup-stale BOTH mutate the binding file. Running them
+      // together is ambiguous (rebuild rewrites callerIds; cleanup
+      // prunes entries). Hard-reject the combination so the user
+      // gets an actionable error instead of a silent short-circuit.
+      if (options.rebuildBinding === true && options.cleanupStale === true) {
+        const envelope = fail(
+          'doctor.rebuild-binding',
+          'CONFLICTING_FLAGS',
+          '--rebuild-binding and --cleanup-stale are mutually exclusive',
+          { rebuildBinding: true, cleanupStale: true },
+          ['Run them in separate `peaks doctor` invocations']
+        );
+        printResult(io, envelope, options.json === true);
+        process.exitCode = 1;
+        return;
+      }
 
-    // v2.18.2 cycle 2: --project override, applies to BOTH the
-    // --rebuild-binding short-circuit AND the binding-stale scan.
-    const projectRoot = options.project !== undefined
-      ? options.project
-      : (findProjectRoot(process.cwd()) ?? process.cwd());
+      // v2.18.2 cycle 2: --project override, applies to BOTH the
+      // --rebuild-binding short-circuit AND the binding-stale scan.
+      const projectRoot =
+        options.project !== undefined
+          ? options.project
+          : (findProjectRoot(process.cwd()) ?? process.cwd());
 
-    // v2.18.2: short-circuit on --rebuild-binding so the doctor
-    // checks don't run when the user is asking for a single targeted
-    // migration. The rebuild is observable in its own right
-    // (rewritten/preserved counts) and does not benefit from running
-    // the full doctor surface first.
-    if (options.rebuildBinding === true) {
-      const result = rebuildBindingFromLegacy(projectRoot);
-      if (result.errors.length > 0) {
-        for (const err of result.errors) {
-          io.stderr(`  warning: ${err}`);
+      // v2.18.2: short-circuit on --rebuild-binding so the doctor
+      // checks don't run when the user is asking for a single targeted
+      // migration. The rebuild is observable in its own right
+      // (rewritten/preserved counts) and does not benefit from running
+      // the full doctor surface first.
+      if (options.rebuildBinding === true) {
+        const result = rebuildBindingFromLegacy(projectRoot);
+        if (result.errors.length > 0) {
+          for (const err of result.errors) {
+            io.stderr(`  warning: ${err}`);
+          }
+        }
+        const data = {
+          rebuilt: !result.noop,
+          rewritten: result.rewritten,
+          preserved: result.preserved,
+          errors: result.errors,
+          projectRoot
+        };
+        const envelope =
+          result.rewritten === 0
+            ? ok(
+                'doctor.rebuild-binding',
+                data,
+                [],
+                result.noop ? ['no legacy callerId entries found — nothing to rewrite'] : []
+              )
+            : fail(
+                'doctor.rebuild-binding',
+                result.noop ? 'BINDING_REBUILD_NOOP' : 'BINDING_REBUILD_OK',
+                result.noop
+                  ? 'No legacy callerId entries to rewrite'
+                  : `Rewrote ${result.rewritten} legacy callerId entry/entries (preserved ${result.preserved})`,
+                data,
+                ['Re-run `peaks binding status` to verify the rewritten entries']
+              );
+        printResult(io, envelope, options.json === true);
+        if (result.errors.length > 0 && result.rewritten === 0) {
+          process.exitCode = 1;
+        }
+        return;
+      }
+
+      const report = await runDoctor({
+        // slice-3b Option C: wire cross-domain probes at call-site.
+        loadSkills: loadSkillRegistry,
+        projectRootResolver: () => findProjectRoot(process.cwd()),
+        isValidSessionIdProbe: doctorIsValidSessionId,
+        statusLineInstalledProbe: doctorStatusLineInstalledProbe
+      });
+      let logsSection: DoctorLogsSection | null = null;
+      if (options.log === true) {
+        logsSection = await buildDoctorLogsSection();
+      }
+
+      // v2.16.0 AC-10: scan binding for stale instances.
+      const ttl = options.staleTtlMs !== undefined ? Number(options.staleTtlMs) : STALE_TTL_MS;
+      const staleInstances = listStaleInstances(projectRoot, ttl);
+      let droppedStale: string[] = [];
+      if (options.cleanupStale === true) {
+        const { dropped } = dropStale(projectRoot, ttl);
+        droppedStale = dropped;
+      }
+      const staleBindingSection = {
+        ttlMs: ttl,
+        staleCount: staleInstances.length,
+        staleInstances,
+        droppedCount: droppedStale.length,
+        droppedSids: droppedStale
+      };
+
+      const fullData =
+        logsSection === null
+          ? { ...report, staleBinding: staleBindingSection }
+          : { ...report, logs: logsSection, staleBinding: staleBindingSection };
+      // Slice B: `--summary` is opt-in and affects the JSON envelope only (the
+      // human-readable path below already prints one line per check).
+      const data = options.summary === true ? buildDoctorSummary(fullData) : fullData;
+      // Slice 2026-08-05-statusline-sid-only-marker-and-multi-binary-drift-guard
+      // repair cycle: `report.summary.ok` already factors in the
+      // severity-aware aggregation in `buildReport` (warnings do NOT
+      // flip `ok`). Stale-binding is independent and still escalates.
+      const result =
+        report.summary.ok && staleInstances.length === 0
+          ? ok('doctor', data)
+          : fail(
+              'doctor',
+              'DOCTOR_FAILED',
+              staleInstances.length > 0
+                ? `Found ${staleInstances.length} stale binding instance(s); rerun with --cleanup-stale to drop them`
+                : 'One or more doctor checks failed',
+              data,
+              staleInstances.length > 0
+                ? ['Run `peaks doctor --cleanup-stale` to drop stale entries']
+                : ['Fix failed checks and rerun peaks doctor']
+            );
+      if (options.json === true) {
+        printResult(io, result, true);
+      } else {
+        // Human-readable: one line per check, green/red indicators, no JSON.
+        // Slice 2026-08-05-statusline-sid-only-marker-and-multi-binary-drift-guard
+        // repair cycle: warn-only findings (severity: 'warning') surface
+        // as `! check.ok` with the `! ` (warning) glyph so the operator
+        // can tell them apart from real errors without reading JSON.
+        for (const check of report.checks) {
+          if (check.ok) {
+            io.stdout(`  +  ${check.message}`);
+          } else if (check.severity === 'warning') {
+            io.stdout(`  !  ${check.message}`);
+          } else {
+            io.stdout(`  ×  ${check.message}`);
+          }
+        }
+        if (logsSection !== null) {
+          io.stdout('\n  logs:');
+          io.stdout(`    logDir:        ${logsSection.logDir}`);
+          io.stdout(`    todayFile:     ${logsSection.todayFile}`);
+          io.stdout(`    sizeBytes:     ${logsSection.sizeBytes}`);
+          io.stdout(`    retentionDays: ${logsSection.retentionDays}`);
+          io.stdout(`    level:         ${logsSection.level}`);
+        }
+        io.stdout('\n  stale-binding (v2.16.0 AC-10):');
+        if (staleInstances.length === 0) {
+          io.stdout('    + no stale instances');
+        } else {
+          io.stdout(`    × ${staleInstances.length} stale instance(s):`);
+          for (const s of staleInstances) {
+            io.stdout(`      - sid=${s.sid} caller=${s.callerId} lastSeen=${s.lastHeartbeat}`);
+          }
+          if (droppedStale.length > 0) {
+            io.stdout(`    cleaned up: ${droppedStale.length}`);
+          } else {
+            io.stdout('    rerun with --cleanup-stale to drop them');
+          }
+        }
+        io.stdout(
+          `\n  ${report.summary.passed} passed, ${report.summary.failed} failed${report.summary.warnings > 0 ? `, ${report.summary.warnings} warning(s)` : ''}`
+        );
+        if (!report.summary.ok || staleInstances.length > 0) {
+          io.stderr(
+            `\nDOCTOR_FAILED: ${staleInstances.length > 0 ? 'stale binding present' : `${report.summary.failed} check(s) failed`}.`
+          );
+        } else if (report.summary.warnings > 0) {
+          io.stdout(`\n  ${report.summary.warnings} warning(s) present — exit code 0 (warn-only).`);
         }
       }
-      const data = {
-        rebuilt: !result.noop,
-        rewritten: result.rewritten,
-        preserved: result.preserved,
-        errors: result.errors,
-        projectRoot
-      };
-      const envelope = result.rewritten === 0
-        ? ok('doctor.rebuild-binding', data, [], result.noop ? ['no legacy callerId entries found — nothing to rewrite'] : [])
-        : fail(
-            'doctor.rebuild-binding',
-            result.noop ? 'BINDING_REBUILD_NOOP' : 'BINDING_REBUILD_OK',
-            result.noop
-              ? 'No legacy callerId entries to rewrite'
-              : `Rewrote ${result.rewritten} legacy callerId entry/entries (preserved ${result.preserved})`,
-            data,
-            ['Re-run `peaks binding status` to verify the rewritten entries']
-          );
-      printResult(io, envelope, options.json === true);
-      if (result.errors.length > 0 && result.rewritten === 0) {
+      // Slice 2026-08-05-statusline-sid-only-marker-and-multi-binary-drift-guard
+      // repair cycle: `report.summary.ok` already factors in the
+      // severity-aware aggregation in `buildReport` (warnings do NOT
+      // flip `ok`). The exit-code gate remains `summary.ok &&
+      // !staleInstances` — no separate warning special-case needed here.
+      if (!report.summary.ok || staleInstances.length > 0) {
         process.exitCode = 1;
       }
-      return;
     }
-
-    const report = await runDoctor({
-      // slice-3b Option C: wire cross-domain probes at call-site.
-      loadSkills: loadSkillRegistry,
-      projectRootResolver: () => findProjectRoot(process.cwd()),
-      isValidSessionIdProbe: doctorIsValidSessionId,
-      statusLineInstalledProbe: doctorStatusLineInstalledProbe
-    });
-    let logsSection: DoctorLogsSection | null = null;
-    if (options.log === true) {
-      logsSection = await buildDoctorLogsSection();
-    }
-
-    // v2.16.0 AC-10: scan binding for stale instances.
-    const ttl = options.staleTtlMs !== undefined ? Number(options.staleTtlMs) : STALE_TTL_MS;
-    const staleInstances = listStaleInstances(projectRoot, ttl);
-    let droppedStale: string[] = [];
-    if (options.cleanupStale === true) {
-      const { dropped } = dropStale(projectRoot, ttl);
-      droppedStale = dropped;
-    }
-    const staleBindingSection = {
-      ttlMs: ttl,
-      staleCount: staleInstances.length,
-      staleInstances,
-      droppedCount: droppedStale.length,
-      droppedSids: droppedStale
-    };
-
-    const fullData = logsSection === null
-      ? { ...report, staleBinding: staleBindingSection }
-      : { ...report, logs: logsSection, staleBinding: staleBindingSection };
-    // Slice B: `--summary` is opt-in and affects the JSON envelope only (the
-    // human-readable path below already prints one line per check).
-    const data = options.summary === true ? buildDoctorSummary(fullData) : fullData;
-    // Slice 2026-08-05-statusline-sid-only-marker-and-multi-binary-drift-guard
-    // repair cycle: `report.summary.ok` already factors in the
-    // severity-aware aggregation in `buildReport` (warnings do NOT
-    // flip `ok`). Stale-binding is independent and still escalates.
-    const result = report.summary.ok && staleInstances.length === 0
-      ? ok('doctor', data)
-      : fail(
-          'doctor',
-          'DOCTOR_FAILED',
-          staleInstances.length > 0
-            ? `Found ${staleInstances.length} stale binding instance(s); rerun with --cleanup-stale to drop them`
-            : 'One or more doctor checks failed',
-          data,
-          staleInstances.length > 0
-            ? ['Run `peaks doctor --cleanup-stale` to drop stale entries']
-            : ['Fix failed checks and rerun peaks doctor']
-        );
-    if (options.json === true) {
-      printResult(io, result, true);
-    } else {
-      // Human-readable: one line per check, green/red indicators, no JSON.
-      // Slice 2026-08-05-statusline-sid-only-marker-and-multi-binary-drift-guard
-      // repair cycle: warn-only findings (severity: 'warning') surface
-      // as `! check.ok` with the `! ` (warning) glyph so the operator
-      // can tell them apart from real errors without reading JSON.
-      for (const check of report.checks) {
-        if (check.ok) {
-          io.stdout(`  +  ${check.message}`);
-        } else if (check.severity === 'warning') {
-          io.stdout(`  !  ${check.message}`);
-        } else {
-          io.stdout(`  ×  ${check.message}`);
-        }
-      }
-      if (logsSection !== null) {
-        io.stdout('\n  logs:');
-        io.stdout(`    logDir:        ${logsSection.logDir}`);
-        io.stdout(`    todayFile:     ${logsSection.todayFile}`);
-        io.stdout(`    sizeBytes:     ${logsSection.sizeBytes}`);
-        io.stdout(`    retentionDays: ${logsSection.retentionDays}`);
-        io.stdout(`    level:         ${logsSection.level}`);
-      }
-      io.stdout('\n  stale-binding (v2.16.0 AC-10):');
-      if (staleInstances.length === 0) {
-        io.stdout('    + no stale instances');
-      } else {
-        io.stdout(`    × ${staleInstances.length} stale instance(s):`);
-        for (const s of staleInstances) {
-          io.stdout(`      - sid=${s.sid} caller=${s.callerId} lastSeen=${s.lastHeartbeat}`);
-        }
-        if (droppedStale.length > 0) {
-          io.stdout(`    cleaned up: ${droppedStale.length}`);
-        } else {
-          io.stdout('    rerun with --cleanup-stale to drop them');
-        }
-      }
-      io.stdout(`\n  ${report.summary.passed} passed, ${report.summary.failed} failed${report.summary.warnings > 0 ? `, ${report.summary.warnings} warning(s)` : ''}`);
-      if (!report.summary.ok || staleInstances.length > 0) {
-        io.stderr(`\nDOCTOR_FAILED: ${staleInstances.length > 0 ? 'stale binding present' : `${report.summary.failed} check(s) failed`}.`);
-      } else if (report.summary.warnings > 0) {
-        io.stdout(`\n  ${report.summary.warnings} warning(s) present — exit code 0 (warn-only).`);
-      }
-    }
-    // Slice 2026-08-05-statusline-sid-only-marker-and-multi-binary-drift-guard
-    // repair cycle: `report.summary.ok` already factors in the
-    // severity-aware aggregation in `buildReport` (warnings do NOT
-    // flip `ok`). The exit-code gate remains `summary.ok &&
-    // !staleInstances` — no separate warning special-case needed here.
-    if (!report.summary.ok || staleInstances.length > 0) {
-      process.exitCode = 1;
-    }
-  });
+  );
 }

@@ -142,10 +142,8 @@ export function classifyResume(sid: string, peaksRoot: string): ResumeClassifica
   // When there is only ONE request, the abandoned flag is informational
   // only — a single blocked RD with an abandoned note is still the
   // primary, because the user might want to unblock and continue.
-  const rdStates =
-    rdStatesRaw.length > 1 ? rdStatesRaw.filter((s) => !s.abandoned) : rdStatesRaw;
-  const qaStates =
-    qaStatesRaw.length > 1 ? qaStatesRaw.filter((s) => !s.abandoned) : qaStatesRaw;
+  const rdStates = rdStatesRaw.length > 1 ? rdStatesRaw.filter((s) => !s.abandoned) : rdStatesRaw;
+  const qaStates = qaStatesRaw.length > 1 ? qaStatesRaw.filter((s) => !s.abandoned) : qaStatesRaw;
 
   const primaryPrd = pickPrimary(prdStates);
   const primaryRd = pickPrimary(rdStates);
@@ -287,7 +285,11 @@ function classifyTerminalGates(
     const rid = ridOf(ctx.primaryRd.filename);
     const missing: string[] = [];
     const codeReviewCandidates = [`rd/code-review-${rid}.md`, 'rd/code-review.md'];
-    const securityCandidates = [`audit/security-${rid}.md`, 'audit/security.md', 'rd/security-review.md'];
+    const securityCandidates = [
+      `audit/security-${rid}.md`,
+      'audit/security.md',
+      'rd/security-review.md'
+    ];
     if (!codeReviewCandidates.some((rel) => existsSync(join(sessionDir, rel)))) {
       missing.push(codeReviewCandidates[0]!);
     }
@@ -311,10 +313,7 @@ function classifyTerminalGates(
       kind: 'resume',
       point: 'qa-validation',
       state: null,
-      missingArtifacts:
-        ctx.primaryQa === null
-          ? [`qa/test-cases/${ctx.primaryRd.filename}`]
-          : [],
+      missingArtifacts: ctx.primaryQa === null ? [`qa/test-cases/${ctx.primaryRd.filename}`] : [],
       warnings: [],
       abandonedRequestCount: ctx.abandonedCount,
       usedLegacyPath: ctx.usedLegacyPath
@@ -389,7 +388,10 @@ function classifyTerminalGates(
  * `.peaks/_runtime/<sid>/` (one level up from the runtime root) for one
  * minor release. Returns `null` when neither path exists.
  */
-function resolveSessionDir(sid: string, peaksRoot: string): { sessionDir: string; usedLegacyPath: boolean } | null {
+function resolveSessionDir(
+  sid: string,
+  peaksRoot: string
+): { sessionDir: string; usedLegacyPath: boolean } | null {
   const canonical = join(peaksRoot, sid);
   if (existsSync(canonical)) {
     return { sessionDir: canonical, usedLegacyPath: false };

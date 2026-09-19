@@ -64,8 +64,8 @@ function runContextNow(args: readonly string[], env: NodeJS.ProcessEnv): CliResu
   } catch (err: unknown) {
     const e = err as { stdout?: Buffer | string; stderr?: Buffer | string; status?: number };
     return {
-      stdout: (typeof e.stdout === 'string' ? e.stdout : e.stdout?.toString('utf8') ?? ''),
-      stderr: (typeof e.stderr === 'string' ? e.stderr : e.stderr?.toString('utf8') ?? ''),
+      stdout: typeof e.stdout === 'string' ? e.stdout : (e.stdout?.toString('utf8') ?? ''),
+      stderr: typeof e.stderr === 'string' ? e.stderr : (e.stderr?.toString('utf8') ?? ''),
       code: e.status ?? 1
     };
   }
@@ -136,10 +136,9 @@ describe('peaks code context-now (v3.1.2) AC-15 job-mode action field', () => {
   test('AC-15c: ratio=0.40 (no job-shape.json, no --enforce-job-mode) → action=ok (advisory)', () => {
     const project = makeProject();
     projects.push(project);
-    const r = runContextNow(
-      ['--project', project, '--session-id', SESSION_ID, '--json'],
-      { [RATIO_ENV]: '0.40' }
-    );
+    const r = runContextNow(['--project', project, '--session-id', SESSION_ID, '--json'], {
+      [RATIO_ENV]: '0.40'
+    });
     expect(r.code).toBe(0);
     const env = JSON.parse(r.stdout) as ContextNowEnvelope;
     expect(env.ok).toBe(true);

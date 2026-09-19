@@ -59,10 +59,11 @@ export async function runDispatchFromDag(
   const projectRoot = options.project ?? process.cwd();
   // Slice 2026-06-26-unknown-sid-fallback-fix: see dispatch-commands.ts.
   // Auto-resolve sid from .peaks/_runtime/session.json before falling back.
-  const sid = options.sessionId
-    ?? process.env.PEAKS_SESSION_ID
-    ?? getCurrentSessionId(projectRoot)
-    ?? 'unknown-sid';
+  const sid =
+    options.sessionId ??
+    process.env.PEAKS_SESSION_ID ??
+    getCurrentSessionId(projectRoot) ??
+    'unknown-sid';
   const rid = options.requestId ?? 'unknown-rid';
   const batchId = options.batchId ?? randomUUID();
 
@@ -90,9 +91,19 @@ export async function runDispatchFromDag(
     validateDag(parsed);
     dag = parsed;
   } catch (err) {
-    printResult(io, fail('sub-agent.dispatch', 'INVALID_DAG', `failed to read or validate DAG from ${options.fromDag}: ${(err as Error).message}`, { role, toolCall: null, dispatchRecordPath: null } as never, [
-      'Check the JSON file at the given path; the DAG must have {nodes, edges} and pass validateDag().'
-    ]), asJson);
+    printResult(
+      io,
+      fail(
+        'sub-agent.dispatch',
+        'INVALID_DAG',
+        `failed to read or validate DAG from ${options.fromDag}: ${(err as Error).message}`,
+        { role, toolCall: null, dispatchRecordPath: null } as never,
+        [
+          'Check the JSON file at the given path; the DAG must have {nodes, edges} and pass validateDag().'
+        ]
+      ),
+      asJson
+    );
     process.exitCode = 1;
     return;
   }
@@ -107,13 +118,22 @@ export async function runDispatchFromDag(
   // CLI runs.
   for (const node of dag.nodes) {
     const graphNodeId = (node as { graphNode?: unknown }).graphNode;
-    const candidate = typeof graphNodeId === 'string' && graphNodeId.length > 0 ? graphNodeId : node.id;
+    const candidate =
+      typeof graphNodeId === 'string' && graphNodeId.length > 0 ? graphNodeId : node.id;
     if (typeof candidate !== 'string' || candidate.length === 0) {
-      printResult(io, fail('sub-agent.dispatch', 'PEAKS_GRAPH_NODE_REQUIRED',
-        `DAG node ${node.id} has no graph-node mapping (RD §4 D4c)`,
-        { role, toolCall: null, dispatchRecordPath: null, dagNodeId: node.id } as never,
-        ['Annotate the DAG node with `graphNode: "<id>"` so each dispatch can bind a prepared graph node.']),
-        asJson);
+      printResult(
+        io,
+        fail(
+          'sub-agent.dispatch',
+          'PEAKS_GRAPH_NODE_REQUIRED',
+          `DAG node ${node.id} has no graph-node mapping (RD §4 D4c)`,
+          { role, toolCall: null, dispatchRecordPath: null, dagNodeId: node.id } as never,
+          [
+            'Annotate the DAG node with `graphNode: "<id>"` so each dispatch can bind a prepared graph node.'
+          ]
+        ),
+        asJson
+      );
       process.exitCode = 1;
       return;
     }
@@ -130,10 +150,20 @@ export async function runDispatchFromDag(
   try {
     levelArr = topologicalLevels(dag);
   } catch (err) {
-    printResult(io, fail('sub-agent.dispatch', 'INVALID_DAG', `topologicalLevels failed for ${options.fromDag}: ${(err as Error).message}`, { role, toolCall: null, dispatchRecordPath: null } as never, [
-      'The DAG passed validateDag() but topologicalLevels threw (likely a cycle that slipped past validateDag, or a runtime invariant).',
-      'Inspect the DAG file with the editor and re-invoke dispatch. (No peaks scan dag CLI ships in 2.7.0; if you need a programmatic DAG validator, import validateDag / topologicalLevels from src/services/dispatch/slice-dag.ts directly.)'
-    ]), asJson);
+    printResult(
+      io,
+      fail(
+        'sub-agent.dispatch',
+        'INVALID_DAG',
+        `topologicalLevels failed for ${options.fromDag}: ${(err as Error).message}`,
+        { role, toolCall: null, dispatchRecordPath: null } as never,
+        [
+          'The DAG passed validateDag() but topologicalLevels threw (likely a cycle that slipped past validateDag, or a runtime invariant).',
+          'Inspect the DAG file with the editor and re-invoke dispatch. (No peaks scan dag CLI ships in 2.7.0; if you need a programmatic DAG validator, import validateDag / topologicalLevels from src/services/dispatch/slice-dag.ts directly.)'
+        ]
+      ),
+      asJson
+    );
     process.exitCode = 1;
     return;
   }
@@ -149,9 +179,17 @@ export async function runDispatchFromDag(
   const adapter = getAdapter(ide);
   const dispatcher = adapter.subAgentDispatcher;
   if (!dispatcher.supportsRole(role)) {
-    printResult(io, fail('sub-agent.dispatch', 'IDE_NOT_SUPPORTED', `IDE ${ide} does not support role "${role}"`, { role, toolCall: null, dispatchRecordPath: null } as never, [
-      'Switch to a registered IDE (e.g. claude-code) or pick a role the current IDE supports.'
-    ]), asJson);
+    printResult(
+      io,
+      fail(
+        'sub-agent.dispatch',
+        'IDE_NOT_SUPPORTED',
+        `IDE ${ide} does not support role "${role}"`,
+        { role, toolCall: null, dispatchRecordPath: null } as never,
+        ['Switch to a registered IDE (e.g. claude-code) or pick a role the current IDE supports.']
+      ),
+      asJson
+    );
     process.exitCode = 1;
     return;
   }
@@ -175,10 +213,10 @@ export async function runDispatchFromDag(
     id,
     files: dag.nodes.find((n) => n.id === id)?.files ?? []
   }));
-  const firstLevelWaves = firstLevelDescriptors.length > 0
-    && firstLevelDescriptors.every((d) => d.files.length > 0)
-    ? planFileOverlapWaves(firstLevelDescriptors).waves
-    : null;
+  const firstLevelWaves =
+    firstLevelDescriptors.length > 0 && firstLevelDescriptors.every((d) => d.files.length > 0)
+      ? planFileOverlapWaves(firstLevelDescriptors).waves
+      : null;
 
   const emittedToolCalls: SubAgentToolCall[] = [];
   const emittedSliceIds: string[] = [];
@@ -270,53 +308,73 @@ export async function runDispatchFromDag(
     // cycle slipping past validateDag). Surface it as INVALID_DAG so
     // the CLI envelope has a clear failure code, not a generic
     // DISPATCH_ERROR.
-    printResult(io, fail('sub-agent.dispatch', 'INVALID_DAG', `runLayeredDag failed for ${options.fromDag}: ${(err as Error).message}`, { role, toolCall: null, dispatchRecordPath: null } as never, [
-      'runLayeredDag threw DagPlanError; the DAG passed validateDag() but failed at topologicalLevels or contractStore dispatch.',
-      'Inspect the DAG file and re-run.'
-    ]), asJson);
+    printResult(
+      io,
+      fail(
+        'sub-agent.dispatch',
+        'INVALID_DAG',
+        `runLayeredDag failed for ${options.fromDag}: ${(err as Error).message}`,
+        { role, toolCall: null, dispatchRecordPath: null } as never,
+        [
+          'runLayeredDag threw DagPlanError; the DAG passed validateDag() but failed at topologicalLevels or contractStore dispatch.',
+          'Inspect the DAG file and re-run.'
+        ]
+      ),
+      asJson
+    );
     process.exitCode = 1;
     return;
   }
 
-  printResult(io, ok('sub-agent.dispatch', {
-    // Slice 2026-06-23-audit-4th #E1: envelopeVersion marker
-    envelopeVersion: '2.1.0',
-    role,
-    ide: dispatcher.label,
-    fromDag: options.fromDag,
-    batchId,
-    dispatchCount: emittedSliceIds.length,
-    levelsTotal: levelArr.length,
-    firstLevel: emittedSliceIds,
-    // §3: file-overlap wave plan for the first level (null when any
-    // first-level node omits `files`). Additive field.
-    firstLevelWaves,
-    toolCalls: emittedToolCalls,
-    existingContractCount: existingContracts.length,
-    expectedCompletionSeconds: 60,
-    artifactsPublicPaths: [],
-    orchestratorVisibleHint: `⏳ Spawning ${emittedSliceIds.length} sub-agents via Task tool from DAG ${options.fromDag}, batch-id=${batchId} (ETA ~60s)`,
-    // v2.15.0 follow-up — G12/G11/G2: per-slice metadata (foundation /
-    // upstreamSync / complexity) for downstream scheduling decisions.
-    sliceMeta: emittedSliceIds.map((id) => {
-      const node = dag.nodes.find((n) => n.id === id);
-      return {
-        id,
-        foundation: node?.foundation === true,
-        upstreamSync: node?.upstreamSync === true,
-        complexity: node?.complexity !== undefined && isSliceComplexity(node.complexity)
-          ? node.complexity
-          : null
-      };
-    }),
-    nextActions: [
-      'Execute each toolCall in your IDE; on completion, write the slice contract to .peaks/_runtime/<sid>/dispatch/contracts/<slice-id>.json.',
-      'Re-invoke `peaks sub-agent dispatch --from-dag <file>` with the same batch-id to advance to the next level once all current-level slices have written contracts.'
-    ]
-  }, [], [
-    'MVP (1.2) plans the first level via runLayeredDag orchestrator (cancel-on-fail path active); the LLM drives subsequent levels by re-invoking this command after contract writes.',
-    existingContracts.length > 0
-      ? `Injected ${existingContracts.length} upstream contract(s) into downstream-level prompts via formatContractInjection.`
-      : 'No upstream contracts found; first-level prompts have empty ancestor blocks.'
-  ]), asJson);
+  printResult(
+    io,
+    ok(
+      'sub-agent.dispatch',
+      {
+        // Slice 2026-06-23-audit-4th #E1: envelopeVersion marker
+        envelopeVersion: '2.1.0',
+        role,
+        ide: dispatcher.label,
+        fromDag: options.fromDag,
+        batchId,
+        dispatchCount: emittedSliceIds.length,
+        levelsTotal: levelArr.length,
+        firstLevel: emittedSliceIds,
+        // §3: file-overlap wave plan for the first level (null when any
+        // first-level node omits `files`). Additive field.
+        firstLevelWaves,
+        toolCalls: emittedToolCalls,
+        existingContractCount: existingContracts.length,
+        expectedCompletionSeconds: 60,
+        artifactsPublicPaths: [],
+        orchestratorVisibleHint: `⏳ Spawning ${emittedSliceIds.length} sub-agents via Task tool from DAG ${options.fromDag}, batch-id=${batchId} (ETA ~60s)`,
+        // v2.15.0 follow-up — G12/G11/G2: per-slice metadata (foundation /
+        // upstreamSync / complexity) for downstream scheduling decisions.
+        sliceMeta: emittedSliceIds.map((id) => {
+          const node = dag.nodes.find((n) => n.id === id);
+          return {
+            id,
+            foundation: node?.foundation === true,
+            upstreamSync: node?.upstreamSync === true,
+            complexity:
+              node?.complexity !== undefined && isSliceComplexity(node.complexity)
+                ? node.complexity
+                : null
+          };
+        }),
+        nextActions: [
+          'Execute each toolCall in your IDE; on completion, write the slice contract to .peaks/_runtime/<sid>/dispatch/contracts/<slice-id>.json.',
+          'Re-invoke `peaks sub-agent dispatch --from-dag <file>` with the same batch-id to advance to the next level once all current-level slices have written contracts.'
+        ]
+      },
+      [],
+      [
+        'MVP (1.2) plans the first level via runLayeredDag orchestrator (cancel-on-fail path active); the LLM drives subsequent levels by re-invoking this command after contract writes.',
+        existingContracts.length > 0
+          ? `Injected ${existingContracts.length} upstream contract(s) into downstream-level prompts via formatContractInjection.`
+          : 'No upstream contracts found; first-level prompts have empty ancestor blocks.'
+      ]
+    ),
+    asJson
+  );
 }

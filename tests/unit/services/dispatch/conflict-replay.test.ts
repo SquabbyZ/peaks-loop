@@ -23,14 +23,14 @@ declareDimensions(
   [
     { dim: 'integration', reason: 'pure function, no fs / subprocess boundary' },
     { dim: 'render', reason: 'returns a structured ConflictReplayOutput, no text surface' },
-    { dim: 'a11y', reason: 'no user-visible text or exit code' },
-  ],
+    { dim: 'a11y', reason: 'no user-visible text or exit code' }
+  ]
 );
 
 import { buildConflictReplay } from '~/src/services/dispatch/conflict-replay';
 
-describe("Scenario: behavior — envelope shape", () => {
-  it("when invoked, should embeds the original prompt, transcript, and conflict diff", () => {
+describe('Scenario: behavior — envelope shape', () => {
+  it('when invoked, should embeds the original prompt, transcript, and conflict diff', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -38,7 +38,7 @@ describe("Scenario: behavior — envelope shape", () => {
       originalPrompt: 'implement login',
       mergeAttemptTranscript: ['git merge --no-ff feat/login'],
       conflictDiff: '<<<<<<< HEAD\nfoo\n=======\nbar\n>>>>>>>',
-      callerBranch: 'main',
+      callerBranch: 'main'
     });
     expect(out.prompt).toContain('implement login');
     expect(out.prompt).toContain('main');
@@ -46,7 +46,7 @@ describe("Scenario: behavior — envelope shape", () => {
     expect(out.instructions.length).toBeGreaterThan(0);
   });
 
-  it("when invoked, should instructs the agent to not introduce new functionality", () => {
+  it('when invoked, should instructs the agent to not introduce new functionality', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -54,12 +54,12 @@ describe("Scenario: behavior — envelope shape", () => {
       originalPrompt: 'x',
       mergeAttemptTranscript: [],
       conflictDiff: '',
-      callerBranch: 'main',
+      callerBranch: 'main'
     });
     expect(out.instructions.join(' ')).toMatch(/new functionality/i);
   });
 
-  it("when invoked, should preserves the caller branch name in the prompt header", () => {
+  it('when invoked, should preserves the caller branch name in the prompt header', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -67,7 +67,7 @@ describe("Scenario: behavior — envelope shape", () => {
       originalPrompt: 'x',
       mergeAttemptTranscript: [],
       conflictDiff: '',
-      callerBranch: 'feat/checkout',
+      callerBranch: 'feat/checkout'
     });
     expect(out.prompt).toContain('feat/checkout');
   });

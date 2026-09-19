@@ -20,7 +20,15 @@
  * Default: dry-run. Pass `--apply` to actually move.
  */
 
-import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  renameSync,
+  rmSync,
+  writeFileSync
+} from 'node:fs';
 import { join } from 'node:path';
 
 export const PER_SESSION_ARTIFACT_TYPES = [
@@ -30,12 +38,12 @@ export const PER_SESSION_ARTIFACT_TYPES = [
   'rd/perf-baseline.md',
   'rd/bug-analysis.md',
   'qa/security-findings.md',
-  'qa/performance-findings.md',
+  'qa/performance-findings.md'
 ] as const;
 
 export const PER_REQUEST_ARTIFACT_TYPES = [
   'qa/test-cases/<rid>.md',
-  'qa/test-reports/<rid>.md',
+  'qa/test-reports/<rid>.md'
 ] as const;
 
 export type MigrationPlanEntry = {
@@ -44,7 +52,8 @@ export type MigrationPlanEntry = {
   readonly from: string;
   readonly to: string;
   readonly sha256: string;
-  readonly reason: 'legacy-only' | 'identical-content-already-canonical' | 'content-mismatch' | 'no-legacy-file';
+  readonly reason:
+    'legacy-only' | 'identical-content-already-canonical' | 'content-mismatch' | 'no-legacy-file';
 };
 
 export type MigrationResult = {
@@ -65,7 +74,24 @@ function sha256(content: string): string {
 function enumerateLegacySessions(projectRoot: string): string[] {
   // Legacy per-session dirs: `.peaks/_runtime/<sid>/` (NOT `.peaks/_runtime/<sid>/`).
   // We skip well-known non-session entries.
-  const SKIP = new Set(['memory', 'PROJECT.md', 'retrospective', 'scope', '.peaks-init-hooks-decision.json', 'session.json', '.session.json', '_runtime', '_sub_agents', 'change', 'caller', 'callers', 'sop-state', 'system', 'active-skill.json', '.active-skill.json']);
+  const SKIP = new Set([
+    'memory',
+    'PROJECT.md',
+    'retrospective',
+    'scope',
+    '.peaks-init-hooks-decision.json',
+    'session.json',
+    '.session.json',
+    '_runtime',
+    '_sub_agents',
+    'change',
+    'caller',
+    'callers',
+    'sop-state',
+    'system',
+    'active-skill.json',
+    '.active-skill.json'
+  ]);
   const peaksRoot = join(projectRoot, '.peaks');
   if (!existsSync(peaksRoot)) return [];
   const out: string[] = [];
@@ -109,12 +135,33 @@ function buildPlan(projectRoot: string): MigrationPlanEntry[] {
       if (existsSync(to)) {
         const existing = readFileSync(to, 'utf8');
         if (sha256(existing) === hash) {
-          plan.push({ sessionId: sid, relativePath: rel, from, to, sha256: hash, reason: 'identical-content-already-canonical' });
+          plan.push({
+            sessionId: sid,
+            relativePath: rel,
+            from,
+            to,
+            sha256: hash,
+            reason: 'identical-content-already-canonical'
+          });
         } else {
-          plan.push({ sessionId: sid, relativePath: rel, from, to, sha256: hash, reason: 'content-mismatch' });
+          plan.push({
+            sessionId: sid,
+            relativePath: rel,
+            from,
+            to,
+            sha256: hash,
+            reason: 'content-mismatch'
+          });
         }
       } else {
-        plan.push({ sessionId: sid, relativePath: rel, from, to, sha256: hash, reason: 'legacy-only' });
+        plan.push({
+          sessionId: sid,
+          relativePath: rel,
+          from,
+          to,
+          sha256: hash,
+          reason: 'legacy-only'
+        });
       }
     }
     // Per-request files (with <rid> template).
@@ -130,12 +177,33 @@ function buildPlan(projectRoot: string): MigrationPlanEntry[] {
         if (existsSync(to)) {
           const existing = readFileSync(to, 'utf8');
           if (sha256(existing) === hash) {
-            plan.push({ sessionId: sid, relativePath: expanded, from, to, sha256: hash, reason: 'identical-content-already-canonical' });
+            plan.push({
+              sessionId: sid,
+              relativePath: expanded,
+              from,
+              to,
+              sha256: hash,
+              reason: 'identical-content-already-canonical'
+            });
           } else {
-            plan.push({ sessionId: sid, relativePath: expanded, from, to, sha256: hash, reason: 'content-mismatch' });
+            plan.push({
+              sessionId: sid,
+              relativePath: expanded,
+              from,
+              to,
+              sha256: hash,
+              reason: 'content-mismatch'
+            });
           }
         } else {
-          plan.push({ sessionId: sid, relativePath: expanded, from, to, sha256: hash, reason: 'legacy-only' });
+          plan.push({
+            sessionId: sid,
+            relativePath: expanded,
+            from,
+            to,
+            sha256: hash,
+            reason: 'legacy-only'
+          });
         }
       }
     }
@@ -151,7 +219,7 @@ export function planMigrate1_4_1(projectRoot: string): MigrationResult {
     movedCount: 0,
     conflictCount: plan.filter((p) => p.reason === 'content-mismatch').length,
     deletedEmptyDirs: [],
-    errors: [],
+    errors: []
   };
 }
 
@@ -172,10 +240,17 @@ export function applyMigrate1_4_1(projectRoot: string): MigrationResult {
         movedCount++;
       } else if (entry.reason === 'identical-content-already-canonical') {
         // Skip the move but delete the duplicate source.
-        try { rmSync(entry.from); } catch { /* best-effort */ } // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+        try {
+          rmSync(entry.from);
+        } catch {
+          /* best-effort */
+        } // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
       } else if (entry.reason === 'content-mismatch') {
         // Conflict: do NOT delete the source. Mark for manual review.
-        errors.push({ path: entry.from, message: `content mismatch; review manually (target ${entry.to})` });
+        errors.push({
+          path: entry.from,
+          message: `content mismatch; review manually (target ${entry.to})`
+        });
       }
     } catch (err) {
       errors.push({ path: entry.from, message: (err as Error).message });
@@ -193,7 +268,9 @@ export function applyMigrate1_4_1(projectRoot: string): MigrationResult {
         rmSync(legacyRoot, { recursive: true, force: true });
         deletedEmptyDirs.push(legacyRoot);
       }
-    } catch { /* best-effort */ } // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+    } catch {
+      /* best-effort */
+    } // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
   }
 
   return {
@@ -202,6 +279,6 @@ export function applyMigrate1_4_1(projectRoot: string): MigrationResult {
     movedCount,
     conflictCount: plan.filter((p) => p.reason === 'content-mismatch').length,
     deletedEmptyDirs,
-    errors,
+    errors
   };
 }

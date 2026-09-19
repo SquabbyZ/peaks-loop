@@ -29,7 +29,14 @@ export type ModelFamilyDerivation = {
  */
 const RULES: ReadonlyArray<{ family: string; test: (m: string) => boolean }> = [
   // Anthropic (incl. bedrock-hosted anthropic) — most specific first.
-  { family: 'claude', test: (m) => /^(claude|anthropic\.)/i.test(m) || /^anthropic\.claude-/i.test(m) || /^us\.anthropic\./i.test(m) || /^bedrock\/.+\/claude-/i.test(m) },
+  {
+    family: 'claude',
+    test: (m) =>
+      /^(claude|anthropic\.)/i.test(m) ||
+      /^anthropic\.claude-/i.test(m) ||
+      /^us\.anthropic\./i.test(m) ||
+      /^bedrock\/.+\/claude-/i.test(m)
+  },
   // OpenAI / o-series — order: most specific prefix first.
   { family: 'gpt-5', test: (m) => /^gpt-5/i.test(m) },
   { family: 'gpt-4o', test: (m) => /^gpt-4o/i.test(m) },

@@ -8,25 +8,29 @@ import { addJsonOption, printResult, type ProgramIO } from '../cli-helpers.js';
 import { isUnsafePathInput } from '../../shared/path-safety.js';
 import { JobStateStore } from '../../services/job/job-state-store.js';
 import { JobOrchestrator } from '../../services/job/job-orchestrator.js';
-import { writeJobProgress, readJobProgress, tryReadJobProgress } from '../../services/job/job-progress-store.js';
+import {
+  writeJobProgress,
+  readJobProgress,
+  tryReadJobProgress
+} from '../../services/job/job-progress-store.js';
 import { JobRotation } from '../../services/job/job-rotation.js';
 import { SubAgentJobWrapper } from '../../services/job/subagent-job-wrapper.js';
 import { emitJobEvent } from '../../services/job/job-event-emitter.js';
 import {
   JobInitInputSchema,
   JobCheckpointInputSchema,
-  JobBlockInputSchema,
+  JobBlockInputSchema
 } from '../../services/job/job-types.js';
 import { getCurrentSessionId } from '../../services/skills/skill-presence-service.js';
 import {
   buildCostCheckEnvelope,
-  runKarpathyCostCheck,
+  runKarpathyCostCheck
 } from '../../services/karpathy-cost/karpathy-cost-check-service.js';
 import { read24hState } from '../../services/24h-mode/store.js';
 import {
   codegraphRefreshNotice,
   refreshCodegraphAfterSlice,
-  type CodegraphAutorefreshResult,
+  type CodegraphAutorefreshResult
 } from '../../services/codegraph/codegraph-autorefresh.js';
 
 // `printResult`'s third parameter is `asJson: boolean`. Each `job` subcommand
@@ -99,7 +103,10 @@ function findSessionHoldingJob(project: string, jobId: string): string | null {
   const runtimeDir = join(project, '.peaks', '_runtime');
   if (!existsSync(runtimeDir)) return null;
   for (const entry of readdirSync(runtimeDir, { withFileTypes: true })) {
-    if (entry.isDirectory() && existsSync(join(runtimeDir, entry.name, 'job', jobId, 'state.json'))) {
+    if (
+      entry.isDirectory() &&
+      existsSync(join(runtimeDir, entry.name, 'job', jobId, 'state.json'))
+    ) {
       return entry.name;
     }
   }
@@ -127,11 +134,16 @@ function findSessionHoldingJob(project: string, jobId: string): string | null {
  * error names the session that does hold it (if any), instead of leaving the
  * caller with a bare "no state for <job> at <other-sid>" path.
  */
-function resolveJobStateRoot(opts: any, jobId?: string): { rootDir: string; sessionId: string; projectRoot: string } {
+function resolveJobStateRoot(
+  opts: any,
+  jobId?: string
+): { rootDir: string; sessionId: string; projectRoot: string } {
   const project = projectRoot(opts);
   const sessionId = opts.sessionId ?? process.env.PEAKS_SESSION_ID ?? getCurrentSessionId(project);
   if (!sessionId) {
-    throw new Error('NO_ACTIVE_SESSION: peaks job requires --session-id or an active peaks-code session via peaks workspace init');
+    throw new Error(
+      'NO_ACTIVE_SESSION: peaks job requires --session-id or an active peaks-code session via peaks workspace init'
+    );
   }
   // Sid axis — the sibling of the jobId guard in `JobStateStore.jobDir`. A
   // caller-supplied `--session-id` reaches this join unmodified, so a
@@ -146,7 +158,7 @@ function resolveJobStateRoot(opts: any, jobId?: string): { rootDir: string; sess
     throw new Error(
       other
         ? `JOB_NOT_IN_SESSION: no job "${jobId}" in session "${sessionId}"; it lives in session "${other}" — re-run with --session-id ${other}`
-        : `JOB_NOT_IN_SESSION: no job "${jobId}" in session "${sessionId}" (and no other session under .peaks/_runtime/ has it)`,
+        : `JOB_NOT_IN_SESSION: no job "${jobId}" in session "${sessionId}" (and no other session under .peaks/_runtime/ has it)`
     );
   }
   return { rootDir, sessionId, projectRoot: project };
@@ -163,19 +175,27 @@ function resolveJobStateRoot(opts: any, jobId?: string): { rootDir: string; sess
 function resolveSliceId(
   store: JobStateStore,
   jobId: string,
-  sliceId: string,
+  sliceId: string
 ): { sliceId: string } | { message: string; validSliceIds: string[] } {
   const slices = store.load(jobId).slices;
   const hit = slices.find((sl) => sl.sliceId === sliceId || sl.label === sliceId);
   if (hit) return { sliceId: hit.sliceId };
   return {
     message: `no slice "${sliceId}" in job ${jobId}; valid ids: ${slices.map((sl) => `${sl.sliceId} (${sl.label})`).join(', ')}`,
-    validSliceIds: slices.map((sl) => sl.sliceId),
+    validSliceIds: slices.map((sl) => sl.sliceId)
   };
 }
 
-export function registerJobCommands(program: Command, io: ProgramIO = { stdout: (t: string) => process.stdout.write(t), stderr: (t: string) => process.stderr.write(t) }): void {
-  const job = new Command('job').description('Drive long multi-slice work as one Job (peaks-code Step 0.8+)');
+export function registerJobCommands(
+  program: Command,
+  io: ProgramIO = {
+    stdout: (t: string) => process.stdout.write(t),
+    stderr: (t: string) => process.stderr.write(t)
+  }
+): void {
+  const job = new Command('job').description(
+    'Drive long multi-slice work as one Job (peaks-code Step 0.8+)'
+  );
 
   job
     .command('init')
@@ -193,25 +213,40 @@ export function registerJobCommands(program: Command, io: ProgramIO = { stdout: 
       // (this caller's binding, else the project-global session.json) > FAIL.
       // Per spec §3.3, Job state lives at .peaks/_runtime/<sessionId>/job/<jobId>/state.json —
       // a random UUID would scatter state across dirs and break resume/auto-compact.
-      let sessionId: string | null = opts.sessionId ?? process.env.PEAKS_SESSION_ID ?? getCurrentSessionId(project);
+      let sessionId: string | null =
+        opts.sessionId ?? process.env.PEAKS_SESSION_ID ?? getCurrentSessionId(project);
       if (!sessionId) {
-        return failResult(io, fail('init', 'NO_ACTIVE_SESSION', 'peaks job init requires --session-id (or an active peaks-code session via peaks workspace init)', { project }, [
-          'Re-run with --session-id <sid>',
-          'Or run `peaks workspace init` to create a session first'
-        ]), opts);
+        return failResult(
+          io,
+          fail(
+            'init',
+            'NO_ACTIVE_SESSION',
+            'peaks job init requires --session-id (or an active peaks-code session via peaks workspace init)',
+            { project },
+            [
+              'Re-run with --session-id <sid>',
+              'Or run `peaks workspace init` to create a session first'
+            ]
+          ),
+          opts
+        );
       }
       const parsed = JobInitInputSchema.safeParse({
         jobId: opts.jobId,
         sessionId,
-        sliceList: opts.sliceList.split(',').map((s: string) => s.trim()).filter(Boolean),
+        sliceList: opts.sliceList
+          .split(',')
+          .map((s: string) => s.trim())
+          .filter(Boolean),
         parallelismHint: opts.parallelismHint,
         exitPolicy: opts.exitPolicy,
         mainLoopStrategy: opts.mainLoopStrategy,
         rotateEvery: Number(opts.rotateEvery),
         project,
-        json: opts.json,
+        json: opts.json
       });
-      if (!parsed.success) return failResult(io, fail('init', 'INVALID_INIT', parsed.error.message, {}), opts);
+      if (!parsed.success)
+        return failResult(io, fail('init', 'INVALID_INIT', parsed.error.message, {}), opts);
       const jobRoot = resolveJobStateRoot(opts);
       const store = new JobStateStore(jobRoot.rootDir);
       const orch = new JobOrchestrator(store);
@@ -222,10 +257,15 @@ export function registerJobCommands(program: Command, io: ProgramIO = { stdout: 
         parallelismHint: parsed.data.parallelismHint,
         exitPolicy: parsed.data.exitPolicy,
         mainLoopStrategy: parsed.data.mainLoopStrategy,
-        rotateEvery: parsed.data.rotateEvery,
+        rotateEvery: parsed.data.rotateEvery
       });
       try {
-        emitJobEvent({ kind: 'job-started', jobId: state.jobId, total: state.slices.length, strategy: state.mainLoopStrategy });
+        emitJobEvent({
+          kind: 'job-started',
+          jobId: state.jobId,
+          total: state.slices.length,
+          strategy: state.mainLoopStrategy
+        });
       } catch (e) {
         // ADVISORY (F1, 2026-09-17) — deliberately exits 0. Event emission is a
         // telemetry side effect; a failed emit does not mean `job init` failed
@@ -234,9 +274,17 @@ export function registerJobCommands(program: Command, io: ProgramIO = { stdout: 
         // in tests/unit/cli/job-exit-code.test.ts.
         void e;
       }
-      printResult(io, ok('init', { jobId: state.jobId, sliceCount: state.slices.length, statePath: `${jobRoot.rootDir}/${state.jobId}/state.json` }), asJson(opts));
+      printResult(
+        io,
+        ok('init', {
+          jobId: state.jobId,
+          sliceCount: state.slices.length,
+          statePath: `${jobRoot.rootDir}/${state.jobId}/state.json`
+        }),
+        asJson(opts)
+      );
     });
-  addJsonOption(job.commands.find(c => c.name() === 'init')!);
+  addJsonOption(job.commands.find((c) => c.name() === 'init')!);
 
   job
     .command('status')
@@ -252,15 +300,32 @@ export function registerJobCommands(program: Command, io: ProgramIO = { stdout: 
       if (opts.watch) {
         const draw = () => {
           const bar = `[${'='.repeat(s.done)}${' '.repeat(s.total - s.done)}]`;
-          process.stdout.write(`\rjob ${opts.jobId}: ${bar} ${s.done}/${s.total}${s.currentSlice ? ` next=${s.currentSlice}` : ''}    `);
+          process.stdout.write(
+            `\rjob ${opts.jobId}: ${bar} ${s.done}/${s.total}${s.currentSlice ? ` next=${s.currentSlice}` : ''}    `
+          );
         };
         draw();
-        const iv = setInterval(() => { const u = orch.status(opts.jobId); Object.assign(s, u); draw(); if (u.done + u.failed + u.skipped + u.blocked >= u.total) clearInterval(iv); }, 3000);
-        process.on('SIGINT', () => { clearInterval(iv); process.stdout.write('\n'); process.exit(0); });
+        const iv = setInterval(() => {
+          const u = orch.status(opts.jobId);
+          Object.assign(s, u);
+          draw();
+          if (u.done + u.failed + u.skipped + u.blocked >= u.total) clearInterval(iv);
+        }, 3000);
+        process.on('SIGINT', () => {
+          clearInterval(iv);
+          process.stdout.write('\n');
+          process.exit(0);
+        });
         return;
       }
       try {
-        emitJobEvent({ kind: 'job-progress', jobId: opts.jobId, done: s.done, total: s.total, ...(s.currentSlice ? { currentSlice: s.currentSlice } : {}) });
+        emitJobEvent({
+          kind: 'job-progress',
+          jobId: opts.jobId,
+          done: s.done,
+          total: s.total,
+          ...(s.currentSlice ? { currentSlice: s.currentSlice } : {})
+        });
       } catch (e) {
         // ADVISORY (F1, 2026-09-17) — deliberately exits 0. The status itself
         // was already read successfully; the emit is telemetry. Same rule as
@@ -269,25 +334,32 @@ export function registerJobCommands(program: Command, io: ProgramIO = { stdout: 
       }
       printResult(io, ok('status', s as unknown as Record<string, unknown>), asJson(opts));
     });
-  addJsonOption(job.commands.find(c => c.name() === 'status')!);
+  addJsonOption(job.commands.find((c) => c.name() === 'status')!);
 
   // M4.2: wire rotate-now to JobRotation (session-rotate callbacks are stubs pending M6.5 batch-fix).
-  job.command('rotate-now')
+  job
+    .command('rotate-now')
     .requiredOption('--job-id <jid>')
     .option('--session-id <sid>', SESSION_ID_HELP)
     .option('--project <repo>')
     .action(async (opts) => {
       const store = new JobStateStore(resolveJobStateRoot(opts, opts.jobId).rootDir);
-      const rotation = new JobRotation(store,
-        async (_jid) => { /* delegate to peaks session rotate — implementation wired in M6.5 batch-fix */ return { rotated: true }; },
-        async (jid) => ({ jobId: jid, cycle: 0 }),
+      const rotation = new JobRotation(
+        store,
+        async (_jid) => {
+          /* delegate to peaks session rotate — implementation wired in M6.5 batch-fix */ return {
+            rotated: true
+          };
+        },
+        async (jid) => ({ jobId: jid, cycle: 0 })
       );
       const r = await rotation.rotateNow(opts.jobId);
       printResult(io, ok('rotate-now', r as unknown as Record<string, unknown>), asJson(opts));
     });
-  addJsonOption(job.commands.find(c => c.name() === 'rotate-now')!);
+  addJsonOption(job.commands.find((c) => c.name() === 'rotate-now')!);
 
-  job.command('subagent-cleanup')
+  job
+    .command('subagent-cleanup')
     .requiredOption('--job-id <jid>')
     .requiredOption('--batch-id <bid>')
     .option('--force')
@@ -298,10 +370,14 @@ export function registerJobCommands(program: Command, io: ProgramIO = { stdout: 
         new JobStateStore(resolveJobStateRoot(opts, opts.jobId).rootDir),
         async () => ({ batchId: opts.batchId })
       );
-      const r = await wrapper.cleanup({ jobId: opts.jobId, batchId: opts.batchId, force: !!opts.force });
+      const r = await wrapper.cleanup({
+        jobId: opts.jobId,
+        batchId: opts.batchId,
+        force: !!opts.force
+      });
       printResult(io, ok('subagent-cleanup', r), asJson(opts));
     });
-  addJsonOption(job.commands.find(c => c.name() === 'subagent-cleanup')!);
+  addJsonOption(job.commands.find((c) => c.name() === 'subagent-cleanup')!);
 
   // M3.2: wire the remaining 5 subcommand slots — block, checkpoint, continue, handoff, resume.
   job
@@ -315,11 +391,20 @@ export function registerJobCommands(program: Command, io: ProgramIO = { stdout: 
     .option('--project <repo>')
     .action(async (opts) => {
       const parsed = JobCheckpointInputSchema.safeParse({
-        jobId: opts.jobId, sliceId: opts.sliceId, state: opts.state,
-        commitSha: opts.commitSha, reason: opts.reason,
-        project: projectRoot(opts), json: opts.json,
+        jobId: opts.jobId,
+        sliceId: opts.sliceId,
+        state: opts.state,
+        commitSha: opts.commitSha,
+        reason: opts.reason,
+        project: projectRoot(opts),
+        json: opts.json
       });
-      if (!parsed.success) return failResult(io, fail('checkpoint', 'INVALID_CHECKPOINT', parsed.error.message, {}), opts);
+      if (!parsed.success)
+        return failResult(
+          io,
+          fail('checkpoint', 'INVALID_CHECKPOINT', parsed.error.message, {}),
+          opts
+        );
       const jobRoot = resolveJobStateRoot(opts, opts.jobId);
       const store = new JobStateStore(jobRoot.rootDir);
       // D7: `--slice-id` accepts the canonical `slice-NNN` or the slice's label
@@ -327,9 +412,21 @@ export function registerJobCommands(program: Command, io: ProgramIO = { stdout: 
       // so progress.json is never touched by a checkpoint that matched nothing.
       const slice = resolveSliceId(store, parsed.data.jobId, parsed.data.sliceId);
       if ('message' in slice) {
-        return failResult(io, fail('checkpoint', 'SLICE_NOT_FOUND', slice.message, {
-          jobId: parsed.data.jobId, sliceId: parsed.data.sliceId, validSliceIds: slice.validSliceIds,
-        }, ['Re-run with one of the valid slice ids']), opts);
+        return failResult(
+          io,
+          fail(
+            'checkpoint',
+            'SLICE_NOT_FOUND',
+            slice.message,
+            {
+              jobId: parsed.data.jobId,
+              sliceId: parsed.data.sliceId,
+              validSliceIds: slice.validSliceIds
+            },
+            ['Re-run with one of the valid slice ids']
+          ),
+          opts
+        );
       }
       const sliceId = slice.sliceId;
       const orch = new JobOrchestrator(store);
@@ -341,7 +438,11 @@ export function registerJobCommands(program: Command, io: ProgramIO = { stdout: 
       // when the refresh succeeded or when no codegraph store was in use.
       let codegraphWarning: string | null = null;
       if (parsed.data.state === 'done') {
-        await orch.checkpointDone({ jobId: parsed.data.jobId, sliceId, ...(parsed.data.commitSha ? { commitSha: parsed.data.commitSha } : {}) });
+        await orch.checkpointDone({
+          jobId: parsed.data.jobId,
+          sliceId,
+          ...(parsed.data.commitSha ? { commitSha: parsed.data.commitSha } : {})
+        });
         // v3.1.2: after each --state done, mirror slice progress to
         // .peaks/_runtime/<sessionId>/job/<jid>/progress.json so the
         // next LLM turn (or peaks code gate-step-08 hook) can read it.
@@ -377,13 +478,25 @@ export function registerJobCommands(program: Command, io: ProgramIO = { stdout: 
         try {
           codegraph = await refreshCodegraphAfterSlice(project);
         } catch (e) {
-          codegraph = { refreshed: false, reason: 'unavailable', note: `auto codegraph refresh failed: ${e instanceof Error ? e.message : String(e)}` };
+          codegraph = {
+            refreshed: false,
+            reason: 'unavailable',
+            note: `auto codegraph refresh failed: ${e instanceof Error ? e.message : String(e)}`
+          };
         }
         codegraphWarning = codegraphRefreshNotice(codegraph);
       } else if (parsed.data.state === 'skipped') {
-        await orch.checkpointSkipped({ jobId: parsed.data.jobId, sliceId, reason: parsed.data.reason! });
+        await orch.checkpointSkipped({
+          jobId: parsed.data.jobId,
+          sliceId,
+          reason: parsed.data.reason!
+        });
       } else {
-        await orch.checkpointFailed({ jobId: parsed.data.jobId, sliceId, reason: parsed.data.reason! });
+        await orch.checkpointFailed({
+          jobId: parsed.data.jobId,
+          sliceId,
+          reason: parsed.data.reason!
+        });
       }
       printResult(
         io,
@@ -395,7 +508,7 @@ export function registerJobCommands(program: Command, io: ProgramIO = { stdout: 
         asJson(opts)
       );
     });
-  addJsonOption(job.commands.find(c => c.name() === 'checkpoint')!);
+  addJsonOption(job.commands.find((c) => c.name() === 'checkpoint')!);
 
   job
     .command('block')
@@ -406,24 +519,44 @@ export function registerJobCommands(program: Command, io: ProgramIO = { stdout: 
     .option('--project <repo>')
     .action(async (opts) => {
       const parsed = JobBlockInputSchema.safeParse({
-        jobId: opts.jobId, sliceId: opts.sliceId, reason: opts.reason,
-        project: projectRoot(opts), json: opts.json,
+        jobId: opts.jobId,
+        sliceId: opts.sliceId,
+        reason: opts.reason,
+        project: projectRoot(opts),
+        json: opts.json
       });
-      if (!parsed.success) return failResult(io, fail('block', 'INVALID_BLOCK', parsed.error.message, {}), opts);
+      if (!parsed.success)
+        return failResult(io, fail('block', 'INVALID_BLOCK', parsed.error.message, {}), opts);
       const store = new JobStateStore(resolveJobStateRoot(opts, opts.jobId).rootDir);
       // D7 (same silent no-op as checkpoint): resolve label → sliceId, reject a
       // miss before any write.
       const slice = resolveSliceId(store, parsed.data.jobId, parsed.data.sliceId);
       if ('message' in slice) {
-        return failResult(io, fail('block', 'SLICE_NOT_FOUND', slice.message, {
-          jobId: parsed.data.jobId, sliceId: parsed.data.sliceId, validSliceIds: slice.validSliceIds,
-        }, ['Re-run with one of the valid slice ids']), opts);
+        return failResult(
+          io,
+          fail(
+            'block',
+            'SLICE_NOT_FOUND',
+            slice.message,
+            {
+              jobId: parsed.data.jobId,
+              sliceId: parsed.data.sliceId,
+              validSliceIds: slice.validSliceIds
+            },
+            ['Re-run with one of the valid slice ids']
+          ),
+          opts
+        );
       }
       const orch = new JobOrchestrator(store);
       await orch.blockSlice({ ...parsed.data, sliceId: slice.sliceId });
-      printResult(io, ok('block', { blocked: slice.sliceId, reason: parsed.data.reason }), asJson(opts));
+      printResult(
+        io,
+        ok('block', { blocked: slice.sliceId, reason: parsed.data.reason }),
+        asJson(opts)
+      );
     });
-  addJsonOption(job.commands.find(c => c.name() === 'block')!);
+  addJsonOption(job.commands.find((c) => c.name() === 'block')!);
 
   job
     .command('continue')
@@ -436,7 +569,7 @@ export function registerJobCommands(program: Command, io: ProgramIO = { stdout: 
       const r = orch.continueNow(opts.jobId);
       printResult(io, ok('continue', r as unknown as Record<string, unknown>), asJson(opts));
     });
-  addJsonOption(job.commands.find(c => c.name() === 'continue')!);
+  addJsonOption(job.commands.find((c) => c.name() === 'continue')!);
 
   job
     .command('resume')
@@ -447,9 +580,13 @@ export function registerJobCommands(program: Command, io: ProgramIO = { stdout: 
       const store = new JobStateStore(resolveJobStateRoot(opts, opts.jobId).rootDir);
       const orch = new JobOrchestrator(store);
       const s = orch.status(opts.jobId);
-      printResult(io, ok('resume', { resumed: opts.jobId, ...(s as unknown as Record<string, unknown>) }), asJson(opts));
+      printResult(
+        io,
+        ok('resume', { resumed: opts.jobId, ...(s as unknown as Record<string, unknown>) }),
+        asJson(opts)
+      );
     });
-  addJsonOption(job.commands.find(c => c.name() === 'resume')!);
+  addJsonOption(job.commands.find((c) => c.name() === 'resume')!);
 
   // v3.1.2: read the on-disk slice progress mirror written by `peaks
   // job checkpoint --state done`. Used by peaks code gate-step-08 and
@@ -485,43 +622,63 @@ export function registerJobCommands(program: Command, io: ProgramIO = { stdout: 
         const jobRoot = resolveJobStateRoot(opts, opts.jobId);
         const sessId = jobRoot.sessionId;
         const project = projectRoot(opts);
-        const progress = opts.allowMissing === true
-          ? tryReadJobProgress(project, sessId, opts.jobId)
-          : readJobProgress(project, sessId, opts.jobId);
+        const progress =
+          opts.allowMissing === true
+            ? tryReadJobProgress(project, sessId, opts.jobId)
+            : readJobProgress(project, sessId, opts.jobId);
         if (progress === null) {
           // F1: this site already set `process.exitCode = 1` by hand; it is
           // routed through `failResult` so all nine failure sites in this file
           // share one rule instead of this one being the lone precedent.
           failResult(
             io,
-            fail('progress', 'NO_PROGRESS', `No progress.json for job ${opts.jobId} at .peaks/_runtime/${sessId}/job/${opts.jobId}/progress.json`, { jobId: opts.jobId, sessionId: sessId }, [
-              'Run `peaks job checkpoint --state done ...` at least once to seed progress.json.',
-              // H3: the second action used to read "Or pass --allow-missing to
-              // return a zero-progress envelope." That line could only ever be
-              // printed when `--allow-missing` had ALREADY been passed — this
-              // `progress === null` branch is unreachable otherwise, because the
-              // no-flag path throws into the catch below and reports
-              // PROGRESS_READ_FAILED. So the CLI was advising the caller to pass
-              // the flag they had just passed, to obtain an envelope that does
-              // not exist. Replaced with the fact the caller actually needs.
-              '--allow-missing selects this NO_PROGRESS envelope over a PROGRESS_READ_FAILED read error; it does not change the exit code.'
-            ]),
+            fail(
+              'progress',
+              'NO_PROGRESS',
+              `No progress.json for job ${opts.jobId} at .peaks/_runtime/${sessId}/job/${opts.jobId}/progress.json`,
+              { jobId: opts.jobId, sessionId: sessId },
+              [
+                'Run `peaks job checkpoint --state done ...` at least once to seed progress.json.',
+                // H3: the second action used to read "Or pass --allow-missing to
+                // return a zero-progress envelope." That line could only ever be
+                // printed when `--allow-missing` had ALREADY been passed — this
+                // `progress === null` branch is unreachable otherwise, because the
+                // no-flag path throws into the catch below and reports
+                // PROGRESS_READ_FAILED. So the CLI was advising the caller to pass
+                // the flag they had just passed, to obtain an envelope that does
+                // not exist. Replaced with the fact the caller actually needs.
+                '--allow-missing selects this NO_PROGRESS envelope over a PROGRESS_READ_FAILED read error; it does not change the exit code.'
+              ]
+            ),
             opts
           );
           return;
         }
-        printResult(io, ok('progress', progress, [], [
-          `Next: slice #${progress.done + 1} of ${progress.total} (${progress.currentSlice})`
-        ]), asJson(opts));
+        printResult(
+          io,
+          ok(
+            'progress',
+            progress,
+            [],
+            [`Next: slice #${progress.done + 1} of ${progress.total} (${progress.currentSlice})`]
+          ),
+          asJson(opts)
+        );
       } catch (err) {
         failResult(
           io,
-          fail('progress', 'PROGRESS_READ_FAILED', err instanceof Error ? err.message : String(err), { jobId: opts.jobId }, ['Verify the job id and try again']),
+          fail(
+            'progress',
+            'PROGRESS_READ_FAILED',
+            err instanceof Error ? err.message : String(err),
+            { jobId: opts.jobId },
+            ['Verify the job id and try again']
+          ),
           opts
         );
       }
     });
-  addJsonOption(job.commands.find(c => c.name() === 'progress')!);
+  addJsonOption(job.commands.find((c) => c.name() === 'progress')!);
 
   job
     .command('handoff')
@@ -532,27 +689,43 @@ export function registerJobCommands(program: Command, io: ProgramIO = { stdout: 
       const store = new JobStateStore(resolveJobStateRoot(opts, opts.jobId).rootDir);
       const orch = new JobOrchestrator(store);
       const s = orch.status(opts.jobId);
-      printResult(io, ok('handoff', { handoffFor: opts.jobId, ...(s as unknown as Record<string, unknown>) }), asJson(opts));
+      printResult(
+        io,
+        ok('handoff', { handoffFor: opts.jobId, ...(s as unknown as Record<string, unknown>) }),
+        asJson(opts)
+      );
     });
-  addJsonOption(job.commands.find(c => c.name() === 'handoff')!);
+  addJsonOption(job.commands.find((c) => c.name() === 'handoff')!);
 
   job
     .command('karpathy-cost-check')
-    .description('Read the slice\'s rd/karpathy-review.md and decide whether to downgrade a block gateAction to warn (slice 2026-07-30-karpathy-cost-self-review).')
-    .requiredOption('--review-file <path>', 'path to rd/karpathy-review.md (or its .json sibling if the file is JSON)')
+    .description(
+      "Read the slice's rd/karpathy-review.md and decide whether to downgrade a block gateAction to warn (slice 2026-07-30-karpathy-cost-self-review)."
+    )
+    .requiredOption(
+      '--review-file <path>',
+      'path to rd/karpathy-review.md (or its .json sibling if the file is JSON)'
+    )
     .option('--project <repo>')
     .option('--session-id <sid>', SESSION_ID_HELP)
     .action(async (opts) => {
       const project = projectRoot(opts);
-      const sessionId = opts.sessionId ?? process.env.PEAKS_SESSION_ID ?? getCurrentSessionId(project);
+      const sessionId =
+        opts.sessionId ?? process.env.PEAKS_SESSION_ID ?? getCurrentSessionId(project);
       if (!sessionId) {
         return failResult(
           io,
-          fail('karpathy-cost-check', 'NO_ACTIVE_SESSION', 'karpathy-cost-check requires --session-id (or an active peaks-code session)', { project }, [
-            'Re-run with --session-id <sid>',
-            'Or run `peaks workspace init` to create a session first',
-          ]),
-          opts,
+          fail(
+            'karpathy-cost-check',
+            'NO_ACTIVE_SESSION',
+            'karpathy-cost-check requires --session-id (or an active peaks-code session)',
+            { project },
+            [
+              'Re-run with --session-id <sid>',
+              'Or run `peaks workspace init` to create a session first'
+            ]
+          ),
+          opts
         );
       }
       const is24hModeActive = (): boolean => {
@@ -565,11 +738,11 @@ export function registerJobCommands(program: Command, io: ProgramIO = { stdout: 
       };
       const out = runKarpathyCostCheck({
         reviewFilePath: opts.reviewFile,
-        is24hModeActive,
+        is24hModeActive
       });
       printResult(io, buildCostCheckEnvelope(out), asJson(opts));
     });
-  addJsonOption(job.commands.find(c => c.name() === 'karpathy-cost-check')!);
+  addJsonOption(job.commands.find((c) => c.name() === 'karpathy-cost-check')!);
 
   program.addCommand(job);
 }

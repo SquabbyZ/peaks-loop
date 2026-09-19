@@ -35,7 +35,10 @@ declareDimensions(
   ['behavior', 'a11y'],
   [
     { dim: 'render', reason: 'pure string transform; returned string is asserted under behavior' },
-    { dim: 'integration', reason: 'pure function; no fs / subprocess / network / env / clock boundary' }
+    {
+      dim: 'integration',
+      reason: 'pure function; no fs / subprocess / network / env / clock boundary'
+    }
   ]
 );
 

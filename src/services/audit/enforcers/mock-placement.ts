@@ -13,7 +13,7 @@
 const MOCK_PATTERNS: readonly RegExp[] = [
   /\bmockData\s*[:=]\s*\{/,
   /\bfixtures?\s*=\s*\{/,
-  /const\s+\w*[Mm]ock\w*\s*=\s*\{[\s\S]{20,}/,
+  /const\s+\w*[Mm]ock\w*\s*=\s*\{[\s\S]{20,}/
 ];
 
 export interface MockPlacementCheckInput {
@@ -34,7 +34,7 @@ export function hasInlineMock(content: string): MockPlacementViolation | null {
       return {
         filePath: '',
         pattern: pattern.source,
-        snippet: match[0].slice(0, 80),
+        snippet: match[0].slice(0, 80)
       };
     }
   }
@@ -42,7 +42,7 @@ export function hasInlineMock(content: string): MockPlacementViolation | null {
 }
 
 export function findMockViolations(
-  changedFiles: readonly { filePath: string; content: string }[],
+  changedFiles: readonly { filePath: string; content: string }[]
 ): readonly MockPlacementViolation[] {
   const violations: MockPlacementViolation[] = [];
   for (const { filePath, content } of changedFiles) {

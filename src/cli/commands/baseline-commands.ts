@@ -9,23 +9,55 @@ import {
   writeBaselineFile
 } from '../../services/capability-baseline/store.js';
 import { validateBaselineFile } from '../../services/capability-baseline/validator.js';
-import { P0_JOURNEY_IDS, type CapabilityBaselineFile, type JourneyId } from '../../services/capability-baseline/types.js';
-import { GUARD_CONTRACTS, getGuardContract, isJourneyId } from '../../services/capability-guard-runner/registry.js';
-import { exitCodeForGuardSummary, runAllGuards } from '../../services/capability-guard-runner/runner.js';
+import {
+  P0_JOURNEY_IDS,
+  type CapabilityBaselineFile,
+  type JourneyId
+} from '../../services/capability-baseline/types.js';
+import {
+  GUARD_CONTRACTS,
+  getGuardContract,
+  isJourneyId
+} from '../../services/capability-guard-runner/registry.js';
+import {
+  exitCodeForGuardSummary,
+  runAllGuards
+} from '../../services/capability-guard-runner/runner.js';
 import type { GuardContext, GuardContract } from '../../services/capability-guard-runner/types.js';
 import { RUNTIME_SESSIONLESS_SCOPE } from '../../services/workspace/runtime-layout.js';
 
-function fail(io: ProgramIO, code: string, message: string, data: Record<string, unknown> = {}): void {
-  io.stdout(JSON.stringify({ ok: false, command: `baseline`, code, message, data, warnings: [], nextActions: [] }));
+function fail(
+  io: ProgramIO,
+  code: string,
+  message: string,
+  data: Record<string, unknown> = {}
+): void {
+  io.stdout(
+    JSON.stringify({
+      ok: false,
+      command: `baseline`,
+      code,
+      message,
+      data,
+      warnings: [],
+      nextActions: []
+    })
+  );
   process.exitCode = 1;
 }
 
-function ok(io: ProgramIO, command: string, data: Record<string, unknown>, nextActions: ReadonlyArray<string> = []): void {
+function ok(
+  io: ProgramIO,
+  command: string,
+  data: Record<string, unknown>,
+  nextActions: ReadonlyArray<string> = []
+): void {
   io.stdout(JSON.stringify({ ok: true, command, data, warnings: [], nextActions }));
 }
 
 const CURRENT_DIR = (root: string): string => join(root, 'openspec', 'baselines', 'current');
-const HISTORY_DIR = (root: string, version: string): string => join(root, 'openspec', 'baselines', 'history', version);
+const HISTORY_DIR = (root: string, version: string): string =>
+  join(root, 'openspec', 'baselines', 'history', version);
 
 /** Whitelist of supported `--scorer` values for `peaks baseline audit`. */
 const SCORER_MODES = ['live', 'stub'] as const;
@@ -47,7 +79,9 @@ function guardContext(projectRoot: string): GuardContext {
 }
 
 export function registerBaselineCommands(program: Command, io: ProgramIO): void {
-  const baseline = program.command('baseline').description('Manage the capability baseline (frozen product semantics for 15 P0 journeys).');
+  const baseline = program
+    .command('baseline')
+    .description('Manage the capability baseline (frozen product semantics for 15 P0 journeys).');
 
   baseline
     .command('freeze')
@@ -57,10 +91,16 @@ export function registerBaselineCommands(program: Command, io: ProgramIO): void 
     .option('--json', 'Emit JSON envelope')
     .action((opts: { from?: string; project?: string }) => {
       const projectRoot = opts.project ?? '.';
-      if (!opts.from) { fail(io, 'MISSING_ARG', '--from is required'); return; }
+      if (!opts.from) {
+        fail(io, 'MISSING_ARG', '--from is required');
+        return;
+      }
       const file = JSON.parse(readFileSync(opts.from, 'utf8')) as CapabilityBaselineFile;
       const v = validateBaselineFile(file);
-      if (!v.ok) { fail(io, v.error.code, v.error.message); return; }
+      if (!v.ok) {
+        fail(io, v.error.code, v.error.message);
+        return;
+      }
       const out = writeBaselineFile({ projectRoot, file });
       historySnapshot({ projectRoot, version: file.version });
       ok(io, 'baseline.freeze', { path: out.path, lockPath: out.lockPath, version: file.version });
@@ -74,8 +114,15 @@ export function registerBaselineCommands(program: Command, io: ProgramIO): void 
     .action((opts: { project?: string }) => {
       const projectRoot = opts.project ?? '.';
       const r = readBaselineFile(projectRoot);
-      if (!r.ok) { fail(io, r.error.code, r.error.message); return; }
-      const rows = r.file.rows.map((row) => ({ journeyId: row.journeyId, intent: row.intent, invariantCount: row.invariants.length }));
+      if (!r.ok) {
+        fail(io, r.error.code, r.error.message);
+        return;
+      }
+      const rows = r.file.rows.map((row) => ({
+        journeyId: row.journeyId,
+        intent: row.intent,
+        invariantCount: row.invariants.length
+      }));
       ok(io, 'baseline.list', { version: r.file.version, signedAt: r.file.signedAt, rows });
     });
 
@@ -87,16 +134,27 @@ export function registerBaselineCommands(program: Command, io: ProgramIO): void 
     .action((journeyId: string, opts: { project?: string }) => {
       const projectRoot = opts.project ?? '.';
       const r = readBaselineFile(projectRoot);
-      if (!r.ok) { fail(io, r.error.code, r.error.message); return; }
+      if (!r.ok) {
+        fail(io, r.error.code, r.error.message);
+        return;
+      }
       const row = r.file.rows.find((x) => x.journeyId === (journeyId as JourneyId));
-      if (!row) { fail(io, 'BASELINE_ROW_SHAPE_INVALID', `row ${journeyId} not found`); return; }
+      if (!row) {
+        fail(io, 'BASELINE_ROW_SHAPE_INVALID', `row ${journeyId} not found`);
+        return;
+      }
       ok(io, 'baseline.show', row as unknown as Record<string, unknown>);
     });
 
   baseline
     .command('run-guard')
-    .description('Run the guard contracts over the frozen baseline. Runs all 15 journeys unless --journey is given.')
-    .option('--journey <id>', `Run only one journey (${P0_JOURNEY_IDS.join('|')}); default is all 15.`)
+    .description(
+      'Run the guard contracts over the frozen baseline. Runs all 15 journeys unless --journey is given.'
+    )
+    .option(
+      '--journey <id>',
+      `Run only one journey (${P0_JOURNEY_IDS.join('|')}); default is all 15.`
+    )
     .option('--project <path>', 'Project root', '.')
     .option('--json', 'Emit JSON envelope')
     .action(async (opts: { journey?: string; project?: string }) => {
@@ -105,7 +163,11 @@ export function registerBaselineCommands(program: Command, io: ProgramIO): void 
       if (opts.journey === undefined) {
         contracts = GUARD_CONTRACTS;
       } else if (!isJourneyId(opts.journey)) {
-        fail(io, 'UNKNOWN_JOURNEY', `unknown journey "${opts.journey}"; expected one of ${P0_JOURNEY_IDS.join(', ')}`);
+        fail(
+          io,
+          'UNKNOWN_JOURNEY',
+          `unknown journey "${opts.journey}"; expected one of ${P0_JOURNEY_IDS.join(', ')}`
+        );
         return;
       } else {
         const contract = getGuardContract(opts.journey);
@@ -141,24 +203,44 @@ export function registerBaselineCommands(program: Command, io: ProgramIO): void 
     .action((opts: { project?: string }) => {
       const projectRoot = opts.project ?? '.';
       const r = readBaselineFile(projectRoot);
-      if (!r.ok) { fail(io, r.error.code, r.error.message); return; }
-      ok(io, 'baseline.diff', { version: r.file.version, signedAt: r.file.signedAt, rowsCount: r.file.rows.length });
+      if (!r.ok) {
+        fail(io, r.error.code, r.error.message);
+        return;
+      }
+      ok(io, 'baseline.diff', {
+        version: r.file.version,
+        signedAt: r.file.signedAt,
+        rowsCount: r.file.rows.length
+      });
     });
 
   baseline
     .command('audit')
-    .description('Run the capability audit (independent-context scorer). Exits non-zero unless the verdict is consistent.')
-    .option('--scorer <mode>', `Scorer to run: ${SCORER_MODES.join('|')}. 'live' (default) runs the deterministic independent checker, which needs no credentials; 'stub' performs no evaluation and can never be consistent.`, DEFAULT_SCORER_MODE)
+    .description(
+      'Run the capability audit (independent-context scorer). Exits non-zero unless the verdict is consistent.'
+    )
+    .option(
+      '--scorer <mode>',
+      `Scorer to run: ${SCORER_MODES.join('|')}. 'live' (default) runs the deterministic independent checker, which needs no credentials; 'stub' performs no evaluation and can never be consistent.`,
+      DEFAULT_SCORER_MODE
+    )
     .option('--project <path>', 'Project root', '.')
     .option('--json', 'Emit JSON envelope')
     .action(async (opts: { scorer?: string; project?: string }) => {
       const projectRoot = opts.project ?? '.';
       if (!isScorerMode(opts.scorer)) {
-        fail(io, 'UNKNOWN_SCORER', `unknown scorer "${String(opts.scorer)}"; expected one of ${SCORER_MODES.join(', ')}`);
+        fail(
+          io,
+          'UNKNOWN_SCORER',
+          `unknown scorer "${String(opts.scorer)}"; expected one of ${SCORER_MODES.join(', ')}`
+        );
         return;
       }
       const r = readBaselineFile(projectRoot);
-      if (!r.ok) { fail(io, r.error.code, r.error.message); return; }
+      if (!r.ok) {
+        fail(io, r.error.code, r.error.message);
+        return;
+      }
 
       // The guard summary is the REAL aggregate of the 15 contracts. It used to
       // be a literal `{pass:15,fail:0,skipped:0,total:15}` that no run produced.
@@ -193,28 +275,51 @@ export function registerBaselineCommands(program: Command, io: ProgramIO): void 
         ok(io, 'baseline.audit', data);
         return;
       }
-      fail(io, 'AUDIT_NOT_CONSISTENT', `capability audit verdict is "${audit.verdict}"${audit.degraded ? ' (degraded: stub scorer)' : ''}`, data);
+      fail(
+        io,
+        'AUDIT_NOT_CONSISTENT',
+        `capability audit verdict is "${audit.verdict}"${audit.degraded ? ' (degraded: stub scorer)' : ''}`,
+        data
+      );
     });
 
   baseline
     .command('freeze-update')
-    .description('Update one or more baseline rows. The LLM authors the JSON; --confirm records the user\'s approval.')
+    .description(
+      "Update one or more baseline rows. The LLM authors the JSON; --confirm records the user's approval."
+    )
     .option('--from <path>', 'Path to the new baseline JSON input')
-    .option('--confirm', "Record the user's approval (collected via AskUserQuestion) for this ratchet change")
+    .option(
+      '--confirm',
+      "Record the user's approval (collected via AskUserQuestion) for this ratchet change"
+    )
     .option('--project <path>', 'Project root', '.')
     .option('--json', 'Emit JSON envelope')
     .action((opts: { from?: string; confirm?: boolean; project?: string }) => {
       const projectRoot = opts.project ?? '.';
       if (opts.confirm !== true) {
-        fail(io, 'HUMAN_NL_DECISION_REQUIRED', 'freeze-update requires the user to approve the ratchet change via AskUserQuestion. The LLM must surface a multi-choice prompt, then re-run with --confirm.');
+        fail(
+          io,
+          'HUMAN_NL_DECISION_REQUIRED',
+          'freeze-update requires the user to approve the ratchet change via AskUserQuestion. The LLM must surface a multi-choice prompt, then re-run with --confirm.'
+        );
         return;
       }
-      if (!opts.from) { fail(io, 'MISSING_ARG', '--from is required'); return; }
+      if (!opts.from) {
+        fail(io, 'MISSING_ARG', '--from is required');
+        return;
+      }
       const r = readBaselineFile(projectRoot);
-      if (!r.ok) { fail(io, r.error.code, r.error.message); return; }
+      if (!r.ok) {
+        fail(io, r.error.code, r.error.message);
+        return;
+      }
       const file = JSON.parse(readFileSync(opts.from, 'utf8')) as CapabilityBaselineFile;
       const v = validateBaselineFile(file);
-      if (!v.ok) { fail(io, v.error.code, v.error.message); return; }
+      if (!v.ok) {
+        fail(io, v.error.code, v.error.message);
+        return;
+      }
       const out = writeBaselineFile({ projectRoot, file });
       historySnapshot({ projectRoot, version: file.version });
       ok(io, 'baseline.freeze-update', {
@@ -227,18 +332,30 @@ export function registerBaselineCommands(program: Command, io: ProgramIO): void 
 
   baseline
     .command('rollback')
-    .description('Roll the baseline back to a historical version. --confirm records the user\'s approval.')
+    .description(
+      "Roll the baseline back to a historical version. --confirm records the user's approval."
+    )
     .option('--to <version>', 'Historical version to roll back to')
-    .option('--confirm', "Record the user's approval (collected via AskUserQuestion) for this rollback")
+    .option(
+      '--confirm',
+      "Record the user's approval (collected via AskUserQuestion) for this rollback"
+    )
     .option('--project <path>', 'Project root', '.')
     .option('--json', 'Emit JSON envelope')
     .action((opts: { to?: string; confirm?: boolean; project?: string }) => {
       const projectRoot = opts.project ?? '.';
       if (opts.confirm !== true) {
-        fail(io, 'HUMAN_NL_DECISION_REQUIRED', 'rollback requires the user to approve via AskUserQuestion. The LLM must surface a multi-choice prompt, then re-run with --confirm.');
+        fail(
+          io,
+          'HUMAN_NL_DECISION_REQUIRED',
+          'rollback requires the user to approve via AskUserQuestion. The LLM must surface a multi-choice prompt, then re-run with --confirm.'
+        );
         return;
       }
-      if (!opts.to) { fail(io, 'MISSING_ARG', '--to is required'); return; }
+      if (!opts.to) {
+        fail(io, 'MISSING_ARG', '--to is required');
+        return;
+      }
       const source = HISTORY_DIR(projectRoot, opts.to);
       const from = join(source, 'capability-baseline.json');
       const fromLock = join(source, 'capability-baseline.lock');
@@ -247,36 +364,58 @@ export function registerBaselineCommands(program: Command, io: ProgramIO): void 
         return;
       }
       const r = readBaselineFile(projectRoot);
-      if (!r.ok) { fail(io, r.error.code, r.error.message); return; }
+      if (!r.ok) {
+        fail(io, r.error.code, r.error.message);
+        return;
+      }
       mkdirSync(CURRENT_DIR(projectRoot), { recursive: true });
       copyFileSync(from, join(CURRENT_DIR(projectRoot), 'capability-baseline.json'));
       copyFileSync(fromLock, join(CURRENT_DIR(projectRoot), 'capability-baseline.lock'));
       // Re-read through the locked store so a tampered history entry cannot be
       // installed: the copy is only reported successful if it verifies.
       const after = readBaselineFile(projectRoot);
-      if (!after.ok) { fail(io, after.error.code, after.error.message); return; }
-      ok(io, 'baseline.rollback', { fromVersion: r.file.version, toVersion: after.file.version, historyPath: source });
+      if (!after.ok) {
+        fail(io, after.error.code, after.error.message);
+        return;
+      }
+      ok(io, 'baseline.rollback', {
+        fromVersion: r.file.version,
+        toVersion: after.file.version,
+        historyPath: source
+      });
     });
 
   baseline
     .command('reset')
-    .description('Wipe the current baseline and require a re-freeze. --confirm records the user\'s approval.')
+    .description(
+      "Wipe the current baseline and require a re-freeze. --confirm records the user's approval."
+    )
     .option('--confirm', "Record the user's approval (collected via AskUserQuestion) for the wipe")
     .option('--project <path>', 'Project root', '.')
     .option('--json', 'Emit JSON envelope')
     .action((opts: { confirm?: boolean; project?: string }) => {
       const projectRoot = opts.project ?? '.';
       if (opts.confirm !== true) {
-        fail(io, 'HUMAN_NL_DECISION_REQUIRED', 'reset requires the user to approve via AskUserQuestion. The LLM must surface a multi-choice prompt, then re-run with --confirm.');
+        fail(
+          io,
+          'HUMAN_NL_DECISION_REQUIRED',
+          'reset requires the user to approve via AskUserQuestion. The LLM must surface a multi-choice prompt, then re-run with --confirm.'
+        );
         return;
       }
       const r = readBaselineFile(projectRoot);
       // A missing baseline is already "wiped" — but an unreadable one (hash
       // mismatch / unsigned lock) must not be silently discarded.
-      if (!r.ok && r.error.code !== 'BASELINE_NOT_FOUND') { fail(io, r.error.code, r.error.message); return; }
+      if (!r.ok && r.error.code !== 'BASELINE_NOT_FOUND') {
+        fail(io, r.error.code, r.error.message);
+        return;
+      }
       const wipedVersion = r.ok ? r.file.version : null;
       rmSync(join(CURRENT_DIR(projectRoot), 'capability-baseline.json'), { force: true });
       rmSync(join(CURRENT_DIR(projectRoot), 'capability-baseline.lock'), { force: true });
-      ok(io, 'baseline.reset', { wipedVersion, nextAction: 're-freeze with `baseline freeze --from <path>`' });
+      ok(io, 'baseline.reset', {
+        wipedVersion,
+        nextAction: 're-freeze with `baseline freeze --from <path>`'
+      });
     });
 }

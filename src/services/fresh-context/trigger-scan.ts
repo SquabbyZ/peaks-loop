@@ -27,14 +27,28 @@ export interface FreshContextPreflightResult {
 
 /** Signal keywords — matched case-insensitively as substrings. */
 export const SIGNAL_KEYWORDS: readonly string[] = [
-  '升级', '迁移', '最新', 'latest', 'new', '版本', '兼容',
-  'breaking', 'upgrade', 'migrate', '新框架', '推荐库', '选型'
+  '升级',
+  '迁移',
+  '最新',
+  'latest',
+  'new',
+  '版本',
+  '兼容',
+  'breaking',
+  'upgrade',
+  'migrate',
+  '新框架',
+  '推荐库',
+  '选型'
 ];
 
 /** Force keywords — the user explicitly asks for a live search. */
 export const FORCE_KEYWORDS: readonly string[] = ['联网搜', '查最新', '搜一下'];
 
-export function scanFreshContextTrigger(prompt: string, enabled: boolean): FreshContextPreflightResult {
+export function scanFreshContextTrigger(
+  prompt: string,
+  enabled: boolean
+): FreshContextPreflightResult {
   const haystack = prompt.toLowerCase();
   const signals = SIGNAL_KEYWORDS.filter((keyword) => haystack.includes(keyword.toLowerCase()));
   const forced = FORCE_KEYWORDS.some((keyword) => haystack.includes(keyword.toLowerCase()));

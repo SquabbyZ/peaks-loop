@@ -22,7 +22,11 @@ export const AUTO_ENGAGE_PRESENCE_MODE = '24h' as const;
 
 export type AutoEngagePresenceResult =
   | { applied: true; mode: typeof AUTO_ENGAGE_PRESENCE_MODE; updated: number }
-  | { applied: false; mode: string; reason: 'mode-not-auto-settable' | 'no-in-flight-lease' | 'stamp-failed' };
+  | {
+      applied: false;
+      mode: string;
+      reason: 'mode-not-auto-settable' | 'no-in-flight-lease' | 'stamp-failed';
+    };
 
 /**
  * Stamp the 24h mode onto every in-flight presence lease of the bound

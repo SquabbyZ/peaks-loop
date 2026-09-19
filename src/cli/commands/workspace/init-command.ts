@@ -30,8 +30,14 @@ import {
 // level.
 import { ensureSessionWithRotation } from '../../../services/session/session-manager.js';
 import { resolveCanonicalProjectRoot } from '../../../services/config/config-service.js';
-import { resolveWritableProjectRoot, UnsafeProjectRootError } from '../../../services/config/config-safety.js';
-import { applyHookInstall, readHookStatus } from '../../../services/skills/hooks-settings-service.js';
+import {
+  resolveWritableProjectRoot,
+  UnsafeProjectRootError
+} from '../../../services/config/config-safety.js';
+import {
+  applyHookInstall,
+  readHookStatus
+} from '../../../services/skills/hooks-settings-service.js';
 import { clearStalePresenceOnRotation } from '../../../services/skills/skill-presence-service.js';
 import { gcStalePresenceLeases } from '../../../services/skills/presence-lease-service.js';
 import {
@@ -164,10 +170,19 @@ export function registerWorkspaceInitCommand(workspace: Command, io: ProgramIO):
   addJsonOption(
     workspace
       .command('init')
-      .description('Create the .peaks/_runtime/<session-id>/ directory with ONLY the session.json metadata file (slice 006: role subdirs prd/ui/rd/qa/sc/txt and the system/ subdir are created lazily by writers, not pre-created at init). Pass --session-id to use a specific id, or omit it to auto-generate one (and adopt an existing binding if present). On the first call for a project, also handles the one-time "install peaks hooks" decision (sticky-marker stored in .peaks/.peaks-init-hooks-decision.json).')
+      .description(
+        'Create the .peaks/_runtime/<session-id>/ directory with ONLY the session.json metadata file (slice 006: role subdirs prd/ui/rd/qa/sc/txt and the system/ subdir are created lazily by writers, not pre-created at init). Pass --session-id to use a specific id, or omit it to auto-generate one (and adopt an existing binding if present). On the first call for a project, also handles the one-time "install peaks hooks" decision (sticky-marker stored in .peaks/.peaks-init-hooks-decision.json).'
+      )
       .requiredOption('--project <path>', 'target project root')
-      .option('--session-id <id>', 'optional session id in YYYY-MM-DD-<kebab-slug> format. When omitted, the CLI is the single source of truth: an existing binding is reused, otherwise a fresh id is auto-generated.')
-      .option('--allow-session-rebind', 'overwrite an existing session binding when the requested session id differs from the project current one', false)
+      .option(
+        '--session-id <id>',
+        'optional session id in YYYY-MM-DD-<kebab-slug> format. When omitted, the CLI is the single source of truth: an existing binding is reused, otherwise a fresh id is auto-generated.'
+      )
+      .option(
+        '--allow-session-rebind',
+        'overwrite an existing session binding when the requested session id differs from the project current one',
+        false
+      )
       .option(
         '--no-rotate-on-outer-mismatch',
         'suppress the auto-rotation of the project session binding when the outer (Claude / harness) session id has changed. Default rotates on mismatch.'
@@ -188,7 +203,7 @@ export function registerWorkspaceInitCommand(workspace: Command, io: ProgramIO):
       )
       .option(
         '--init-standards',
-        'slice 2026-06-16-peaks-code-auto-scaffold: when the consumer project\'s .claude/rules/ is missing or empty, auto-apply `peaks standards init --project <path> --apply` after emitting the diagnostic. Default: diagnostic only (no write).'
+        "slice 2026-06-16-peaks-code-auto-scaffold: when the consumer project's .claude/rules/ is missing or empty, auto-apply `peaks standards init --project <path> --apply` after emitting the diagnostic. Default: diagnostic only (no write)."
       )
       .option(
         '--no-project-scan-bootstrap',
@@ -235,10 +250,11 @@ export function registerWorkspaceInitCommand(workspace: Command, io: ProgramIO):
       // verbatim and do NOT rotate (rotation only fires for the
       // auto-detect path).
       let sessionId: string;
-      let rotation: { previousSessionId: string | null; reason: 'outer-session-mismatch' | null } = {
-        previousSessionId: null,
-        reason: null
-      };
+      let rotation: { previousSessionId: string | null; reason: 'outer-session-mismatch' | null } =
+        {
+          previousSessionId: null,
+          reason: null
+        };
       if (options.sessionId !== undefined && options.sessionId.length > 0) {
         sessionId = options.sessionId;
       } else {
@@ -316,7 +332,9 @@ export function registerWorkspaceInitCommand(workspace: Command, io: ProgramIO):
       }
       const nextActions: string[] = [];
       if (report.previousSessionId !== null && report.bound) {
-        nextActions.push(`Replaced prior session binding "${report.previousSessionId}" with "${report.sessionId}".`);
+        nextActions.push(
+          `Replaced prior session binding "${report.previousSessionId}" with "${report.sessionId}".`
+        );
       }
       if (rotation.previousSessionId !== null && rotation.reason === 'outer-session-mismatch') {
         // Outer-session-mismatch rotation: the previous Claude / harness
@@ -336,8 +354,8 @@ export function registerWorkspaceInitCommand(workspace: Command, io: ProgramIO):
         // the re-ask fires.
         const presenceClearOutcome = clearStalePresenceOnRotation({
           projectRootOverride: projectRoot,
-          currentOuterSessionId: process.env.PEAKS_OUTER_SESSION_ID
-            ?? process.env.CLAUDE_CODE_SESSION_ID,
+          currentOuterSessionId:
+            process.env.PEAKS_OUTER_SESSION_ID ?? process.env.CLAUDE_CODE_SESSION_ID,
           rotatedOutSessionId: rotation.previousSessionId
         });
         if (presenceClearOutcome.cleared) {
@@ -359,7 +377,9 @@ export function registerWorkspaceInitCommand(workspace: Command, io: ProgramIO):
       if (report.created.length === 0) {
         nextActions.push('Workspace already initialized — proceed to project scan.');
       } else {
-        nextActions.push('Run `peaks scan archetype --project <path> --json` next to populate rd/project-scan.md.');
+        nextActions.push(
+          'Run `peaks scan archetype --project <path> --json` next to populate rd/project-scan.md.'
+        );
       }
 
       // Slice 2.0.1-bug3-fact-forcing-bypass: surface the consumer-
@@ -368,7 +388,10 @@ export function registerWorkspaceInitCommand(workspace: Command, io: ProgramIO):
       // and Bash calls targeting .peaks/** will not be blocked by the
       // [Fact-Forcing Gate]. When the user opted out, we surface a
       // nextAction so the manual recovery is documented.
-      if (report.claudeSettings.action === 'written' || report.claudeSettings.action === 'refreshed') {
+      if (
+        report.claudeSettings.action === 'written' ||
+        report.claudeSettings.action === 'refreshed'
+      ) {
         nextActions.push(
           `Materialized .claude/settings.local.json (action: ${report.claudeSettings.action}) — ` +
             `the [Fact-Forcing Gate] is bypassed for tool calls inside .peaks/**. ` +
@@ -475,7 +498,7 @@ export function registerWorkspaceInitCommand(workspace: Command, io: ProgramIO):
       try {
         const gcResult = await gcStalePresenceLeases({
           projectRoot,
-          trigger: 'workspace-init',
+          trigger: 'workspace-init'
         });
         if (gcResult.removed > 0) {
           warningsForEnvelope.push(
@@ -579,7 +602,12 @@ export function registerWorkspaceInitCommand(workspace: Command, io: ProgramIO):
             // JSON envelope so the LLM and the human both see the swap.
             // Field is omitted (not null) when no rotation fired.
             ...(rotation.previousSessionId !== null && rotation.reason !== null
-              ? { rotation: { previousSessionId: rotation.previousSessionId, reason: rotation.reason } }
+              ? {
+                  rotation: {
+                    previousSessionId: rotation.previousSessionId,
+                    reason: rotation.reason
+                  }
+                }
               : {}),
             hooksInstall: {
               decision: hooksOutcome.decision,
@@ -594,7 +622,12 @@ export function registerWorkspaceInitCommand(workspace: Command, io: ProgramIO):
             // (even when skipped / errored) so downstream readers can
             // rely on the shape.
             ...(projectScanEnvelope !== null
-              ? { projectScan: { ...projectScanEnvelope, ...(projectScanError !== null ? { error: projectScanError } : {}) } }
+              ? {
+                  projectScan: {
+                    ...projectScanEnvelope,
+                    ...(projectScanError !== null ? { error: projectScanError } : {})
+                  }
+                }
               : {})
           },
           warningsForEnvelope,
@@ -611,14 +644,20 @@ export function registerWorkspaceInitCommand(workspace: Command, io: ProgramIO):
         // it as an unexplained failure.
         printResult(
           io,
-          fail('workspace.init', 'UNSAFE_PROJECT_ROOT', error.message, {
-            resolvedProjectRoot: error.projectRoot,
-            projectOption: options.project ?? null
-          }, [
-            'Pass --project <path-to-your-project> instead of a path that resolves to your home directory.',
-            'This command creates .peaks/, .gitignore, .claude/settings.local.json and a codegraph index; none of those belong in $HOME.',
-            'If you meant to initialize the current directory, cd into a project directory first — peaks will not write into the home directory itself.'
-          ]),
+          fail(
+            'workspace.init',
+            'UNSAFE_PROJECT_ROOT',
+            error.message,
+            {
+              resolvedProjectRoot: error.projectRoot,
+              projectOption: options.project ?? null
+            },
+            [
+              'Pass --project <path-to-your-project> instead of a path that resolves to your home directory.',
+              'This command creates .peaks/, .gitignore, .claude/settings.local.json and a codegraph index; none of those belong in $HOME.',
+              'If you meant to initialize the current directory, cd into a project directory first — peaks will not write into the home directory itself.'
+            ]
+          ),
           options.json
         );
         process.exitCode = 1;
@@ -627,7 +666,9 @@ export function registerWorkspaceInitCommand(workspace: Command, io: ProgramIO):
       if (error instanceof InvalidSessionIdError) {
         printResult(
           io,
-          fail('workspace.init', error.code, error.message, { sessionId: options.sessionId }, ['Use a date-prefixed kebab slug like 2026-05-25-add-user-auth']),
+          fail('workspace.init', error.code, error.message, { sessionId: options.sessionId }, [
+            'Use a date-prefixed kebab slug like 2026-05-25-add-user-auth'
+          ]),
           options.json
         );
         process.exitCode = 1;
@@ -636,13 +677,19 @@ export function registerWorkspaceInitCommand(workspace: Command, io: ProgramIO):
       if (error instanceof ConflictingSessionError) {
         printResult(
           io,
-          fail('workspace.init', error.code, error.message, {
-            existingSessionId: error.existingSessionId,
-            requestedSessionId: error.requestedSessionId
-          }, [
-            `Finish or abandon session "${error.existingSessionId}" first, then re-run workspace init.`,
-            'Or pass --allow-session-rebind to override the binding (overwrites the prior binding).'
-          ]),
+          fail(
+            'workspace.init',
+            error.code,
+            error.message,
+            {
+              existingSessionId: error.existingSessionId,
+              requestedSessionId: error.requestedSessionId
+            },
+            [
+              `Finish or abandon session "${error.existingSessionId}" first, then re-run workspace init.`,
+              'Or pass --allow-session-rebind to override the binding (overwrites the prior binding).'
+            ]
+          ),
           options.json
         );
         process.exitCode = 1;
@@ -657,14 +704,20 @@ export function registerWorkspaceInitCommand(workspace: Command, io: ProgramIO):
         // sibling dir may contain user-authored content.
         printResult(
           io,
-          fail('workspace.init', error.code, error.message, {
-            sessionId: error.sessionId,
-            legacyPath: error.legacyPath
-          }, [
-            `Inspect ${error.legacyPath} for any user-authored content you want to keep.`,
-            `Move any desired files into .peaks/_runtime/<sessionId>/<role>/ (gitignored), then delete ${error.legacyPath}.`,
-            `Re-run \`peaks workspace init --project <path>\` to bind a fresh session.`
-          ]),
+          fail(
+            'workspace.init',
+            error.code,
+            error.message,
+            {
+              sessionId: error.sessionId,
+              legacyPath: error.legacyPath
+            },
+            [
+              `Inspect ${error.legacyPath} for any user-authored content you want to keep.`,
+              `Move any desired files into .peaks/_runtime/<sessionId>/<role>/ (gitignored), then delete ${error.legacyPath}.`,
+              `Re-run \`peaks workspace init --project <path>\` to bind a fresh session.`
+            ]
+          ),
           options.json
         );
         process.exitCode = 1;
@@ -676,7 +729,13 @@ export function registerWorkspaceInitCommand(workspace: Command, io: ProgramIO):
       // written by init, so there is no legacy binding to detect.
       printResult(
         io,
-        fail('workspace.init', 'WORKSPACE_INIT_FAILED', getErrorMessage(error), { projectRoot: options.project, sessionId: options.sessionId }, ['Verify the project path exists and is writable']),
+        fail(
+          'workspace.init',
+          'WORKSPACE_INIT_FAILED',
+          getErrorMessage(error),
+          { projectRoot: options.project, sessionId: options.sessionId },
+          ['Verify the project path exists and is writable']
+        ),
         options.json
       );
       process.exitCode = 1;
@@ -728,12 +787,26 @@ export async function resolveFirstTimeHooksInstall(
     if (existingMarker.decision === 'installed' && !hookStatus.installed) {
       try {
         applyHookInstall('project', projectRoot);
-        return { decision: 'installed', action: 'reinstalled', scope: 'project', reason: 'marker-said-installed-hooks-missing' };
+        return {
+          decision: 'installed',
+          action: 'reinstalled',
+          scope: 'project',
+          reason: 'marker-said-installed-hooks-missing'
+        };
       } catch (error) {
-        return { decision: existingMarker.decision, action: 'marker-honored', scope: 'project', reason: `reinstall-failed: ${getErrorMessage(error)}` };
+        return {
+          decision: existingMarker.decision,
+          action: 'marker-honored',
+          scope: 'project',
+          reason: `reinstall-failed: ${getErrorMessage(error)}`
+        };
       }
     }
-    return { decision: existingMarker.decision, action: 'marker-honored', scope: existingMarker.scope };
+    return {
+      decision: existingMarker.decision,
+      action: 'marker-honored',
+      scope: existingMarker.scope
+    };
   }
 
   // No marker yet — first decision.
@@ -745,12 +818,16 @@ export async function resolveFirstTimeHooksInstall(
   // Determine effective mode (explicit flag wins; default depends on TTY + jsonMode).
   const explicitMode = options.explicitMode;
   const effectiveMode: 'ask' | 'auto' | 'skip' =
-    explicitMode ??
-    (jsonMode ? 'auto' : (process.stdin.isTTY === true ? 'ask' : 'auto'));
+    explicitMode ?? (jsonMode ? 'auto' : process.stdin.isTTY === true ? 'ask' : 'auto');
 
   if (effectiveMode === 'skip') {
     writeDecisionMarker(projectRoot, 'skipped');
-    return { decision: 'skipped', action: 'first-decision', scope: 'project', reason: 'explicit-skip' };
+    return {
+      decision: 'skipped',
+      action: 'first-decision',
+      scope: 'project',
+      reason: 'explicit-skip'
+    };
   }
 
   if (effectiveMode === 'auto' || jsonMode) {
@@ -769,13 +846,23 @@ export async function resolveFirstTimeHooksInstall(
     try {
       applyHookInstall('project', projectRoot);
       writeDecisionMarker(projectRoot, 'installed');
-      return { decision: 'installed', action: 'first-decision', scope: 'project', reason: autoReason };
+      return {
+        decision: 'installed',
+        action: 'first-decision',
+        scope: 'project',
+        reason: autoReason
+      };
     } catch (error) {
       // Auto-install failed: still record the decision so we do not keep retrying
       // every workspace init. The user can fix the underlying problem and run
       // `peaks hooks install` manually.
       writeDecisionMarker(projectRoot, 'installed');
-      return { decision: 'installed', action: 'first-decision', scope: 'project', reason: `install-failed: ${getErrorMessage(error)}` };
+      return {
+        decision: 'installed',
+        action: 'first-decision',
+        scope: 'project',
+        reason: `install-failed: ${getErrorMessage(error)}`
+      };
     }
   }
 
@@ -783,7 +870,7 @@ export async function resolveFirstTimeHooksInstall(
   process.stderr.write(
     '\nPeaks-Cli: install the PreToolUse hooks for this project now?\n' +
       '  → Bash matcher: `peaks gate enforce` (SOP gate enforcement)\n' +
- 'The gate-enforce hook runs on every Claude Code tool call without further prompting. The decision is sticky\n' +
+      'The gate-enforce hook runs on every Claude Code tool call without further prompting. The decision is sticky\n' +
       '(recorded in .peaks/.peaks-init-hooks-decision.json) and re-runs of `workspace init` will\n' +
       'honour it. Re-run with --install-hooks=skip or --install-hooks=auto to override.\n\n' +
       'Install now? [Y/n]: '
@@ -792,18 +879,38 @@ export async function resolveFirstTimeHooksInstall(
   if (answer === null) {
     // TTY disappeared mid-prompt (rare): treat as skip + write marker.
     writeDecisionMarker(projectRoot, 'skipped');
-    return { decision: 'skipped', action: 'first-decision', scope: 'project', reason: 'tty-prompt-aborted' };
+    return {
+      decision: 'skipped',
+      action: 'first-decision',
+      scope: 'project',
+      reason: 'tty-prompt-aborted'
+    };
   }
   if (!answer) {
     writeDecisionMarker(projectRoot, 'skipped');
-    return { decision: 'skipped', action: 'first-decision', scope: 'project', reason: 'user-answered-no' };
+    return {
+      decision: 'skipped',
+      action: 'first-decision',
+      scope: 'project',
+      reason: 'user-answered-no'
+    };
   }
   try {
     applyHookInstall('project', projectRoot);
     writeDecisionMarker(projectRoot, 'installed');
-    return { decision: 'installed', action: 'first-decision', scope: 'project', reason: 'user-answered-yes' };
+    return {
+      decision: 'installed',
+      action: 'first-decision',
+      scope: 'project',
+      reason: 'user-answered-yes'
+    };
   } catch (error) {
     writeDecisionMarker(projectRoot, 'installed');
-    return { decision: 'installed', action: 'first-decision', scope: 'project', reason: `install-failed: ${getErrorMessage(error)}` };
+    return {
+      decision: 'installed',
+      action: 'first-decision',
+      scope: 'project',
+      reason: `install-failed: ${getErrorMessage(error)}`
+    };
   }
 }

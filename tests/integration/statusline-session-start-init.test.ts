@@ -36,7 +36,10 @@ function makeTempProjectRoot(): { tmpRoot: string; settingsPath: string } {
 
 function copyRealSettingsInto(tmpRoot: string, settingsPath: string): void {
   const realSettingsPath = resolve(process.cwd(), '.claude/settings.json');
-  const realSettings = JSON.parse(readFileSync(realSettingsPath, 'utf8')) as Record<string, unknown>;
+  const realSettings = JSON.parse(readFileSync(realSettingsPath, 'utf8')) as Record<
+    string,
+    unknown
+  >;
   writeFileSync(settingsPath, JSON.stringify(realSettings, null, 2), 'utf8');
 }
 
@@ -44,12 +47,14 @@ type SettingsShape = {
   hooks?: Record<string, Array<{ matcher?: string; hooks?: Array<{ command?: string }> }>>;
 };
 
-function readSessionStartEntries(settingsPath: string): Array<{ matcher?: string; hooks?: Array<{ command?: string }> }> {
+function readSessionStartEntries(
+  settingsPath: string
+): Array<{ matcher?: string; hooks?: Array<{ command?: string }> }> {
   const settings = JSON.parse(readFileSync(settingsPath, 'utf8')) as SettingsShape;
   return settings.hooks?.SessionStart ?? [];
 }
 
-describe("statusline-session-start-init — SessionStart primer is registered", () => {
+describe('statusline-session-start-init — SessionStart primer is registered', () => {
   const tmpRoots: string[] = [];
 
   afterEach(() => {
@@ -65,37 +70,41 @@ describe("statusline-session-start-init — SessionStart primer is registered", 
     tmpRoots.length = 0;
   });
 
-  it("applyHookInstall emits a SessionStart primer entry", () => {
+  it('applyHookInstall emits a SessionStart primer entry', () => {
     const { tmpRoot, settingsPath } = makeTempProjectRoot();
     tmpRoots.push(tmpRoot);
     copyRealSettingsInto(tmpRoot, settingsPath);
     applyHookInstall('project', tmpRoot, { ide: 'claude-code' });
     const entries = readSessionStartEntries(settingsPath);
     const primer = entries.find((entry) =>
-      (entry.hooks ?? []).some((h) => typeof h.command === 'string' && h.command.includes('peaks session primer --project'))
+      (entry.hooks ?? []).some(
+        (h) => typeof h.command === 'string' && h.command.includes('peaks session primer --project')
+      )
     );
     expect(primer).toBeDefined();
     expect(primer?.hooks?.[0]?.command).toContain('${CLAUDE_PROJECT_DIR}');
   });
 
-  it("applyHookInstall emits the HOOK_WORKSPACE_INIT_SENTINEL", () => {
+  it('applyHookInstall emits the HOOK_WORKSPACE_INIT_SENTINEL', () => {
     const { tmpRoot, settingsPath } = makeTempProjectRoot();
     tmpRoots.push(tmpRoot);
     copyRealSettingsInto(tmpRoot, settingsPath);
     applyHookInstall('project', tmpRoot, { ide: 'claude-code' });
     const entries = readSessionStartEntries(settingsPath);
     const hasPrimerSentinel = entries.some((entry) =>
-      (entry.hooks ?? []).some((h) => typeof h.command === 'string' && h.command.includes(HOOK_WORKSPACE_INIT_SENTINEL))
+      (entry.hooks ?? []).some(
+        (h) => typeof h.command === 'string' && h.command.includes(HOOK_WORKSPACE_INIT_SENTINEL)
+      )
     );
     expect(hasPrimerSentinel).toBe(true);
   });
 
-  it("HOOK_WORKSPACE_INIT_COMMAND contains the CLAUDE_PROJECT_DIR placeholder", () => {
+  it('HOOK_WORKSPACE_INIT_COMMAND contains the CLAUDE_PROJECT_DIR placeholder', () => {
     expect(HOOK_WORKSPACE_INIT_COMMAND).toContain('${CLAUDE_PROJECT_DIR}');
     expect(HOOK_WORKSPACE_INIT_COMMAND).toContain('peaks session primer');
   });
 
-  it("project .claude/settings.json contains the SessionStart primer hook", () => {
+  it('project .claude/settings.json contains the SessionStart primer hook', () => {
     // This is the self-check that confirms the repo hand-added the
     // SessionStart entry to its own settings.json (per RD §4.2.4).
     const settingsPath = resolve(process.cwd(), '.claude/settings.json');

@@ -34,8 +34,10 @@ function runCli(args: readonly string[], cwd: string): RunResult {
   } catch (error: unknown) {
     const caught = error as { stdout?: Buffer | string; stderr?: Buffer | string; status?: number };
     return {
-      stdout: typeof caught.stdout === 'string' ? caught.stdout : caught.stdout?.toString('utf8') ?? '',
-      stderr: typeof caught.stderr === 'string' ? caught.stderr : caught.stderr?.toString('utf8') ?? '',
+      stdout:
+        typeof caught.stdout === 'string' ? caught.stdout : (caught.stdout?.toString('utf8') ?? ''),
+      stderr:
+        typeof caught.stderr === 'string' ? caught.stderr : (caught.stderr?.toString('utf8') ?? ''),
       code: caught.status ?? 1
     };
   }
@@ -69,7 +71,10 @@ function makeProject(prefix: string): string {
  *  rotate-now / subagent-cleanup) resolve the same session-id used elsewhere.
  */
 function bindSession(project: string): void {
-  runCli(['workspace', 'init', '--project', project, '--session-id', FIXTURE_SESSION, '--json'], project);
+  runCli(
+    ['workspace', 'init', '--project', project, '--session-id', FIXTURE_SESSION, '--json'],
+    project
+  );
 }
 
 /**
@@ -85,11 +90,23 @@ function bindSession(project: string): void {
  */
 function seedRequestArtifact(project: string): string {
   bindSession(project);
-  const created = runCli([
-    'request', 'init', '--role', 'rd', '--id', FIXTURE_RID,
-    '--project', project, '--session-id', FIXTURE_SESSION,
-    '--apply', '--json'
-  ], project);
+  const created = runCli(
+    [
+      'request',
+      'init',
+      '--role',
+      'rd',
+      '--id',
+      FIXTURE_RID,
+      '--project',
+      project,
+      '--session-id',
+      FIXTURE_SESSION,
+      '--apply',
+      '--json'
+    ],
+    project
+  );
   expect(created.code).toBe(0);
   const envelope = parseEnvelope(created);
   expect(envelope.ok).toBe(true);
@@ -129,10 +146,7 @@ describe('peaks slice decompose (P2-B.3 orchestration e2e)', () => {
 describe('peaks slice pick (P2-B.3 orchestration e2e)', () => {
   test('with no decomposition file present returns a structured SLICE_PICK_FAILED envelope', () => {
     const project = makeProject('peaks-p2b3-slice-pick-');
-    const result = runCli(
-      ['slice', 'pick', FIXTURE_RID, '--project', project, '--json'],
-      project
-    );
+    const result = runCli(['slice', 'pick', FIXTURE_RID, '--project', project, '--json'], project);
     expect(result.stdout.length).toBeGreaterThan(0);
     const envelope = parseEnvelope(result);
     expect(envelope.command).toMatch(/^slice\.pick/);
@@ -145,10 +159,7 @@ describe('peaks slice pick (P2-B.3 orchestration e2e)', () => {
 describe('peaks slice plan (P2-B.3 orchestration e2e)', () => {
   test('without a picked file returns a structured SLICE_PLAN_FAILED envelope (no apply path exercised)', () => {
     const project = makeProject('peaks-p2b3-slice-plan-');
-    const result = runCli(
-      ['slice', 'plan', FIXTURE_RID, '--project', project, '--json'],
-      project
-    );
+    const result = runCli(['slice', 'plan', FIXTURE_RID, '--project', project, '--json'], project);
     expect(result.stdout.length).toBeGreaterThan(0);
     const envelope = parseEnvelope(result);
     expect(envelope.command).toMatch(/^slice\.plan/);
@@ -222,12 +233,22 @@ describe('peaks slice review (P2-B.3 orchestration e2e)', () => {
 describe('peaks job init (P2-B.3 orchestration e2e)', () => {
   test('on a tmp project seeds a job envelope and writes a state.json artifact', () => {
     const project = makeProject('peaks-p2b3-job-init-');
-    const result = runCli([
-      'job', 'init', '--job-id', 'p2b3-fixture-job',
-      '--slice-list', `${FIXTURE_RID},rid-fake`,
-      '--project', project, '--session-id', FIXTURE_SESSION,
-      '--json'
-    ], project);
+    const result = runCli(
+      [
+        'job',
+        'init',
+        '--job-id',
+        'p2b3-fixture-job',
+        '--slice-list',
+        `${FIXTURE_RID},rid-fake`,
+        '--project',
+        project,
+        '--session-id',
+        FIXTURE_SESSION,
+        '--json'
+      ],
+      project
+    );
     expect(result.code).toBe(0);
     const envelope = parseEnvelope(result);
     expect(envelope.ok).toBe(true);
@@ -243,17 +264,28 @@ describe('peaks job status (P2-B.3 orchestration e2e)', () => {
   test('reports the seeded job state with structured envelope', () => {
     const project = makeProject('peaks-p2b3-job-status-');
     bindSession(project);
-    const init = runCli([
-      'job', 'init', '--job-id', 'p2b3-status-job',
-      '--slice-list', `${FIXTURE_RID}`,
-      '--project', project, '--session-id', FIXTURE_SESSION,
-      '--json'
-    ], project);
+    const init = runCli(
+      [
+        'job',
+        'init',
+        '--job-id',
+        'p2b3-status-job',
+        '--slice-list',
+        `${FIXTURE_RID}`,
+        '--project',
+        project,
+        '--session-id',
+        FIXTURE_SESSION,
+        '--json'
+      ],
+      project
+    );
     expect(init.code).toBe(0);
 
-    const result = runCli([
-      'job', 'status', '--job-id', 'p2b3-status-job', '--project', project, '--json'
-    ], project);
+    const result = runCli(
+      ['job', 'status', '--job-id', 'p2b3-status-job', '--project', project, '--json'],
+      project
+    );
     expect(result.stdout.length).toBeGreaterThan(0);
     const envelope = parseEnvelope(result);
     expect(envelope.ok).toBe(true);
@@ -274,10 +306,10 @@ describe('peaks job progress (P2-B.3 orchestration e2e)', () => {
   test('on a fresh job returns a structured PROGRESS_READ_FAILED verdict with jobId in data', () => {
     const project = makeProject('peaks-p2b3-job-progress-');
     bindSession(project);
-    const result = runCli([
-      'job', 'progress', '--job-id', 'p2b3-progress-job',
-      '--project', project, '--json'
-    ], project);
+    const result = runCli(
+      ['job', 'progress', '--job-id', 'p2b3-progress-job', '--project', project, '--json'],
+      project
+    );
     expect(result.stdout.length).toBeGreaterThan(0);
     const envelope = parseEnvelope(result);
     expect(envelope.command).toBe('progress');
@@ -302,23 +334,44 @@ describe('peaks job checkpoint (P2-B.3 orchestration e2e)', () => {
   test('records a done checkpoint and reports structured envelope', () => {
     const project = makeProject('peaks-p2b3-job-checkpoint-');
     bindSession(project);
-    const init = runCli([
-      'job', 'init', '--job-id', 'p2b3-checkpoint-job',
-      '--slice-list', `${FIXTURE_RID}`,
-      '--project', project, '--session-id', FIXTURE_SESSION,
-      '--json'
-    ], project);
+    const init = runCli(
+      [
+        'job',
+        'init',
+        '--job-id',
+        'p2b3-checkpoint-job',
+        '--slice-list',
+        `${FIXTURE_RID}`,
+        '--project',
+        project,
+        '--session-id',
+        FIXTURE_SESSION,
+        '--json'
+      ],
+      project
+    );
     expect(init.code).toBe(0);
 
-    const result = runCli([
-      'job', 'checkpoint',
-      '--job-id', 'p2b3-checkpoint-job',
-      '--slice-id', FIXTURE_RID,
-      '--state', 'done',
-      '--commit-sha', 'deadbeefcafebabe1234567890abcdef00000000',
-      '--reason', 'p2b3 orchestration e2e fixture',
-      '--project', project, '--json'
-    ], project);
+    const result = runCli(
+      [
+        'job',
+        'checkpoint',
+        '--job-id',
+        'p2b3-checkpoint-job',
+        '--slice-id',
+        FIXTURE_RID,
+        '--state',
+        'done',
+        '--commit-sha',
+        'deadbeefcafebabe1234567890abcdef00000000',
+        '--reason',
+        'p2b3 orchestration e2e fixture',
+        '--project',
+        project,
+        '--json'
+      ],
+      project
+    );
     expect(result.stdout.length).toBeGreaterThan(0);
     const envelope = parseEnvelope(result);
     expect(envelope.ok).toBe(true);
@@ -336,17 +389,27 @@ describe('peaks job rotate-now (P2-B.3 orchestration e2e)', () => {
   test('on a seeded job emits a structured rotation envelope', () => {
     const project = makeProject('peaks-p2b3-job-rotate-');
     bindSession(project);
-    runCli([
-      'job', 'init', '--job-id', 'p2b3-rotate-job',
-      '--slice-list', `${FIXTURE_RID},rid-a,rid-b`,
-      '--project', project, '--session-id', FIXTURE_SESSION,
-      '--json'
-    ], project);
+    runCli(
+      [
+        'job',
+        'init',
+        '--job-id',
+        'p2b3-rotate-job',
+        '--slice-list',
+        `${FIXTURE_RID},rid-a,rid-b`,
+        '--project',
+        project,
+        '--session-id',
+        FIXTURE_SESSION,
+        '--json'
+      ],
+      project
+    );
 
-    const result = runCli([
-      'job', 'rotate-now', '--job-id', 'p2b3-rotate-job',
-      '--project', project, '--json'
-    ], project);
+    const result = runCli(
+      ['job', 'rotate-now', '--job-id', 'p2b3-rotate-job', '--project', project, '--json'],
+      project
+    );
     expect(result.stdout.length).toBeGreaterThan(0);
     const envelope = parseEnvelope(result);
     expect(envelope.ok).toBe(true);
@@ -361,20 +424,39 @@ describe('peaks job block (P2-B.3 orchestration e2e)', () => {
   test('records a block reason on a seeded job', () => {
     const project = makeProject('peaks-p2b3-job-block-');
     bindSession(project);
-    runCli([
-      'job', 'init', '--job-id', 'p2b3-block-job',
-      '--slice-list', `${FIXTURE_RID}`,
-      '--project', project, '--session-id', FIXTURE_SESSION,
-      '--json'
-    ], project);
+    runCli(
+      [
+        'job',
+        'init',
+        '--job-id',
+        'p2b3-block-job',
+        '--slice-list',
+        `${FIXTURE_RID}`,
+        '--project',
+        project,
+        '--session-id',
+        FIXTURE_SESSION,
+        '--json'
+      ],
+      project
+    );
 
-    const result = runCli([
-      'job', 'block',
-      '--job-id', 'p2b3-block-job',
-      '--slice-id', FIXTURE_RID,
-      '--reason', 'p2b3 block fixture',
-      '--project', project, '--json'
-    ], project);
+    const result = runCli(
+      [
+        'job',
+        'block',
+        '--job-id',
+        'p2b3-block-job',
+        '--slice-id',
+        FIXTURE_RID,
+        '--reason',
+        'p2b3 block fixture',
+        '--project',
+        project,
+        '--json'
+      ],
+      project
+    );
     expect(result.stdout.length).toBeGreaterThan(0);
     const envelope = parseEnvelope(result);
     expect(envelope.ok).toBe(true);
@@ -391,17 +473,27 @@ describe('peaks job continue (P2-B.3 orchestration e2e)', () => {
   test('on a seeded job reports a structured continue envelope', () => {
     const project = makeProject('peaks-p2b3-job-continue-');
     bindSession(project);
-    runCli([
-      'job', 'init', '--job-id', 'p2b3-continue-job',
-      '--slice-list', `${FIXTURE_RID}`,
-      '--project', project, '--session-id', FIXTURE_SESSION,
-      '--json'
-    ], project);
+    runCli(
+      [
+        'job',
+        'init',
+        '--job-id',
+        'p2b3-continue-job',
+        '--slice-list',
+        `${FIXTURE_RID}`,
+        '--project',
+        project,
+        '--session-id',
+        FIXTURE_SESSION,
+        '--json'
+      ],
+      project
+    );
 
-    const result = runCli([
-      'job', 'continue', '--job-id', 'p2b3-continue-job',
-      '--project', project, '--json'
-    ], project);
+    const result = runCli(
+      ['job', 'continue', '--job-id', 'p2b3-continue-job', '--project', project, '--json'],
+      project
+    );
     expect(result.stdout.length).toBeGreaterThan(0);
     const envelope = parseEnvelope(result);
     expect(envelope.ok).toBe(true);
@@ -416,17 +508,27 @@ describe('peaks job resume (P2-B.3 orchestration e2e)', () => {
   test('on a seeded job reports a structured resume envelope', () => {
     const project = makeProject('peaks-p2b3-job-resume-');
     bindSession(project);
-    runCli([
-      'job', 'init', '--job-id', 'p2b3-resume-job',
-      '--slice-list', `${FIXTURE_RID}`,
-      '--project', project, '--session-id', FIXTURE_SESSION,
-      '--json'
-    ], project);
+    runCli(
+      [
+        'job',
+        'init',
+        '--job-id',
+        'p2b3-resume-job',
+        '--slice-list',
+        `${FIXTURE_RID}`,
+        '--project',
+        project,
+        '--session-id',
+        FIXTURE_SESSION,
+        '--json'
+      ],
+      project
+    );
 
-    const result = runCli([
-      'job', 'resume', '--job-id', 'p2b3-resume-job',
-      '--project', project, '--json'
-    ], project);
+    const result = runCli(
+      ['job', 'resume', '--job-id', 'p2b3-resume-job', '--project', project, '--json'],
+      project
+    );
     expect(result.stdout.length).toBeGreaterThan(0);
     const envelope = parseEnvelope(result);
     expect(envelope.ok).toBe(true);
@@ -441,17 +543,27 @@ describe('peaks job handoff (P2-B.3 orchestration e2e)', () => {
   test('on a seeded job reports a structured handoff envelope', () => {
     const project = makeProject('peaks-p2b3-job-handoff-');
     bindSession(project);
-    runCli([
-      'job', 'init', '--job-id', 'p2b3-handoff-job',
-      '--slice-list', `${FIXTURE_RID}`,
-      '--project', project, '--session-id', FIXTURE_SESSION,
-      '--json'
-    ], project);
+    runCli(
+      [
+        'job',
+        'init',
+        '--job-id',
+        'p2b3-handoff-job',
+        '--slice-list',
+        `${FIXTURE_RID}`,
+        '--project',
+        project,
+        '--session-id',
+        FIXTURE_SESSION,
+        '--json'
+      ],
+      project
+    );
 
-    const result = runCli([
-      'job', 'handoff', '--job-id', 'p2b3-handoff-job',
-      '--project', project, '--json'
-    ], project);
+    const result = runCli(
+      ['job', 'handoff', '--job-id', 'p2b3-handoff-job', '--project', project, '--json'],
+      project
+    );
     expect(result.stdout.length).toBeGreaterThan(0);
     const envelope = parseEnvelope(result);
     expect(envelope.ok).toBe(true);
@@ -466,19 +578,37 @@ describe('peaks job subagent-cleanup (P2-B.3 orchestration e2e)', () => {
   test('on a seeded job with --batch-id returns a structured envelope (no force)', () => {
     const project = makeProject('peaks-p2b3-job-sa-cleanup-');
     bindSession(project);
-    runCli([
-      'job', 'init', '--job-id', 'p2b3-sa-job',
-      '--slice-list', `${FIXTURE_RID}`,
-      '--project', project, '--session-id', FIXTURE_SESSION,
-      '--json'
-    ], project);
+    runCli(
+      [
+        'job',
+        'init',
+        '--job-id',
+        'p2b3-sa-job',
+        '--slice-list',
+        `${FIXTURE_RID}`,
+        '--project',
+        project,
+        '--session-id',
+        FIXTURE_SESSION,
+        '--json'
+      ],
+      project
+    );
 
-    const result = runCli([
-      'job', 'subagent-cleanup',
-      '--job-id', 'p2b3-sa-job',
-      '--batch-id', 'batch-fixture-001',
-      '--project', project, '--json'
-    ], project);
+    const result = runCli(
+      [
+        'job',
+        'subagent-cleanup',
+        '--job-id',
+        'p2b3-sa-job',
+        '--batch-id',
+        'batch-fixture-001',
+        '--project',
+        project,
+        '--json'
+      ],
+      project
+    );
     expect(result.stdout.length).toBeGreaterThan(0);
     const envelope = parseEnvelope(result);
     expect(envelope.ok).toBe(true);
@@ -491,10 +621,10 @@ describe('peaks job subagent-cleanup (P2-B.3 orchestration e2e)', () => {
 describe('peaks job rotation (P2-B.3 orchestration e2e)', () => {
   test('subcommand is NOT registered — use "rotate-now" instead (drift pointer)', () => {
     const project = makeProject('peaks-p2b3-job-rotation-');
-    const result = runCli([
-      'job', 'rotation', '--job-id', 'p2b3-rotation-job',
-      '--project', project, '--json'
-    ], project);
+    const result = runCli(
+      ['job', 'rotation', '--job-id', 'p2b3-rotation-job', '--project', project, '--json'],
+      project
+    );
     expect(result.code).not.toBe(0);
     const combined = result.stdout + result.stderr;
     expect(combined).toMatch(/unknown command.*rotation/);
@@ -509,12 +639,19 @@ describe('peaks memory extract (P2-B.3 orchestration e2e)', () => {
   test('dry-run on a self-constructed artifact reports a structured extract verdict (apply:false)', () => {
     const project = makeProject('peaks-p2b3-mem-extract-');
     const artifactPath = seedRequestArtifact(project);
-    const result = runCli([
-      'memory', 'extract',
-      '--project', project,
-      '--artifact', artifactPath,
-      '--dry-run', '--json'
-    ], project);
+    const result = runCli(
+      [
+        'memory',
+        'extract',
+        '--project',
+        project,
+        '--artifact',
+        artifactPath,
+        '--dry-run',
+        '--json'
+      ],
+      project
+    );
     expect(result.code).toBe(0);
     const envelope = parseEnvelope(result);
     expect(envelope.ok).toBe(true);
@@ -540,12 +677,10 @@ describe('peaks memory sync (P2-B.3 orchestration e2e)', () => {
     // the rejection is structured (not free-form) so JSON consumers can
     // branch on `code`.
     const project = makeProject('peaks-p2b3-mem-sync-');
-    const result = runCli([
-      'memory', 'sync',
-      '--project', project,
-      '--workspace', project,
-      '--dry-run', '--json'
-    ], project);
+    const result = runCli(
+      ['memory', 'sync', '--project', project, '--workspace', project, '--dry-run', '--json'],
+      project
+    );
     expect(result.stdout.length).toBeGreaterThan(0);
     const envelope = parseEnvelope(result);
     expect(envelope.command).toBe('memory.sync');
@@ -575,9 +710,7 @@ describe('peaks memory list (P2-B.3 orchestration e2e)', () => {
   });
 
   test('--kind rule filter narrows the result set to the requested kind', () => {
-    const result = runCli([
-      'memory', 'list', '--kind', 'rule', '--json'
-    ], process.cwd());
+    const result = runCli(['memory', 'list', '--kind', 'rule', '--json'], process.cwd());
     expect(result.code).toBe(0);
     const envelope = parseEnvelope(result);
     expect(envelope.ok).toBe(true);
@@ -593,9 +726,7 @@ describe('peaks memory list (P2-B.3 orchestration e2e)', () => {
 
 describe('peaks memory search (P2-B.3 orchestration e2e)', () => {
   test('returns a structured match list with deterministic scores', () => {
-    const result = runCli([
-      'memory', 'search', 'peaks', '--limit', '3', '--json'
-    ], process.cwd());
+    const result = runCli(['memory', 'search', 'peaks', '--limit', '3', '--json'], process.cwd());
     expect(result.code).toBe(0);
     const envelope = parseEnvelope(result);
     expect(envelope.ok).toBe(true);
@@ -615,9 +746,10 @@ describe('peaks memory search (P2-B.3 orchestration e2e)', () => {
 
 describe('peaks memory sediment (P2-B.3 orchestration e2e)', () => {
   test('subcommand is NOT registered (drift pointer)', () => {
-    const result = runCli([
-      'memory', 'sediment', '--project', process.cwd(), '--json'
-    ], process.cwd());
+    const result = runCli(
+      ['memory', 'sediment', '--project', process.cwd(), '--json'],
+      process.cwd()
+    );
     expect(result.code).not.toBe(0);
     const combined = result.stdout + result.stderr;
     expect(combined).toMatch(/unknown command.*sediment/);
@@ -626,9 +758,7 @@ describe('peaks memory sediment (P2-B.3 orchestration e2e)', () => {
 
 describe('peaks memory prune (P2-B.3 orchestration e2e)', () => {
   test('subcommand is NOT registered (drift pointer)', () => {
-    const result = runCli([
-      'memory', 'prune', '--project', process.cwd(), '--json'
-    ], process.cwd());
+    const result = runCli(['memory', 'prune', '--project', process.cwd(), '--json'], process.cwd());
     expect(result.code).not.toBe(0);
     const combined = result.stdout + result.stderr;
     expect(combined).toMatch(/unknown command.*prune/);
@@ -643,12 +773,21 @@ describe('peaks request lint (P2-B.3 orchestration e2e)', () => {
   test('scans the fixture rid artifact and reports findings with structured envelope', () => {
     const project = makeProject('peaks-p2b3-req-lint-');
     seedRequestArtifact(project);
-    const result = runCli([
-      'request', 'lint', FIXTURE_RID, '--role', 'rd',
-      '--project', project,
-      '--session-id', FIXTURE_SESSION,
-      '--json'
-    ], project);
+    const result = runCli(
+      [
+        'request',
+        'lint',
+        FIXTURE_RID,
+        '--role',
+        'rd',
+        '--project',
+        project,
+        '--session-id',
+        FIXTURE_SESSION,
+        '--json'
+      ],
+      project
+    );
     expect(result.stdout.length).toBeGreaterThan(0);
     const envelope = parseEnvelope(result);
     expect(envelope.ok).toBe(true);
@@ -671,12 +810,19 @@ describe('peaks request repair-status (P2-B.3 orchestration e2e)', () => {
   test('reports cycle count and atCap verdict for the fixture rid', () => {
     const project = makeProject('peaks-p2b3-req-repair-');
     seedRequestArtifact(project);
-    const result = runCli([
-      'request', 'repair-status', FIXTURE_RID,
-      '--project', project,
-      '--session-id', FIXTURE_SESSION,
-      '--json'
-    ], project);
+    const result = runCli(
+      [
+        'request',
+        'repair-status',
+        FIXTURE_RID,
+        '--project',
+        project,
+        '--session-id',
+        FIXTURE_SESSION,
+        '--json'
+      ],
+      project
+    );
     expect(result.code).toBe(0);
     const envelope = parseEnvelope(result);
     expect(envelope.ok).toBe(true);
@@ -702,10 +848,20 @@ describe('peaks request list (P2-B.3 orchestration e2e)', () => {
   test('lists per-request artifacts under the session scoped to role=rd', () => {
     const project = makeProject('peaks-p2b3-req-list-');
     seedRequestArtifact(project);
-    const result = runCli([
-      'request', 'list', '--project', project,
-      '--session-id', FIXTURE_SESSION, '--role', 'rd', '--json'
-    ], project);
+    const result = runCli(
+      [
+        'request',
+        'list',
+        '--project',
+        project,
+        '--session-id',
+        FIXTURE_SESSION,
+        '--role',
+        'rd',
+        '--json'
+      ],
+      project
+    );
     expect(result.code).toBe(0);
     const envelope = parseEnvelope(result);
     expect(envelope.ok).toBe(true);
@@ -726,12 +882,21 @@ describe('peaks request show (P2-B.3 orchestration e2e)', () => {
   test('shows the fixture rid artifact with a structured envelope', () => {
     const project = makeProject('peaks-p2b3-req-show-');
     seedRequestArtifact(project);
-    const result = runCli([
-      'request', 'show', FIXTURE_RID, '--role', 'rd',
-      '--project', project,
-      '--session-id', FIXTURE_SESSION,
-      '--json'
-    ], project);
+    const result = runCli(
+      [
+        'request',
+        'show',
+        FIXTURE_RID,
+        '--role',
+        'rd',
+        '--project',
+        project,
+        '--session-id',
+        FIXTURE_SESSION,
+        '--json'
+      ],
+      project
+    );
     expect(result.code).toBe(0);
     const envelope = parseEnvelope(result);
     expect(envelope.ok).toBe(true);
@@ -754,11 +919,10 @@ describe('peaks request delete (P2-B.3 orchestration e2e)', () => {
     // The brief explicitly skips destructive tests; we only assert the
     // documented subcommand is NOT registered so a future addition gets
     // surfaced as a structured verdict rather than a silent delete.
-    const result = runCli([
-      'request', 'delete', FIXTURE_RID,
-      '--project', process.cwd(),
-      '--json'
-    ], process.cwd());
+    const result = runCli(
+      ['request', 'delete', FIXTURE_RID, '--project', process.cwd(), '--json'],
+      process.cwd()
+    );
     expect(result.code).not.toBe(0);
     const combined = result.stdout + result.stderr;
     expect(combined).toMatch(/unknown command.*delete/);

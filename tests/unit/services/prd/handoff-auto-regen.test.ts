@@ -40,7 +40,7 @@ import { getPrerequisitesFor } from '../../../../src/services/artifacts/artifact
 declareDimensions(
   'tests/unit/services/prd/handoff-auto-regen.test.ts',
   ['render', 'behavior', 'integration'],
-  [{ dim: 'a11y', reason: 'returns a result envelope; prints nothing' }],
+  [{ dim: 'a11y', reason: 'returns a result envelope; prints nothing' }]
 );
 
 const SESSION_ID = '2026-09-12-session-e37ef0';
@@ -94,7 +94,7 @@ describe('autoRegenPrdHandoff frontmatter', () => {
       projectRoot,
       sessionId: SESSION_ID,
       requestId: REQUEST_ID,
-      role: 'prd',
+      role: 'prd'
     });
 
     expect(result.status).toBe('created');
@@ -119,7 +119,7 @@ describe('autoRegenPrdHandoff frontmatter', () => {
       projectRoot,
       sessionId: SESSION_ID,
       requestId: REQUEST_ID,
-      role: 'prd',
+      role: 'prd'
     });
 
     const frontmatter = frontmatterOf(readFileSync(handoffPathOf(projectRoot), 'utf8'));
@@ -140,7 +140,7 @@ describe('autoRegenPrdHandoff frontmatter', () => {
       projectRoot,
       sessionId: SESSION_ID,
       requestId: REQUEST_ID,
-      role: 'prd',
+      role: 'prd'
     });
 
     const handoff = readFileSync(handoffPathOf(projectRoot), 'utf8');
@@ -161,7 +161,7 @@ describe('autoRegenPrdHandoff frontmatter', () => {
       projectRoot,
       sessionId: SESSION_ID,
       requestId: REQUEST_ID,
-      role: 'prd',
+      role: 'prd'
     });
 
     expect(result.status).toBe('skipped-exists');
@@ -170,13 +170,15 @@ describe('autoRegenPrdHandoff frontmatter', () => {
 
   it('should fail (not throw) when the request artifact is missing', async () => {
     const projectRoot = makeProjectRoot();
-    mkdirSync(join(projectRoot, '.peaks', '_runtime', SESSION_ID, 'prd', 'requests'), { recursive: true });
+    mkdirSync(join(projectRoot, '.peaks', '_runtime', SESSION_ID, 'prd', 'requests'), {
+      recursive: true
+    });
 
     const result = await autoRegenPrdHandoff({
       projectRoot,
       sessionId: SESSION_ID,
       requestId: REQUEST_ID,
-      role: 'prd',
+      role: 'prd'
     });
 
     expect(result.status).toBe('failed');
@@ -191,7 +193,7 @@ describe('autoRegenPrdHandoff frontmatter', () => {
       projectRoot,
       sessionId: SESSION_ID,
       requestId: REQUEST_ID,
-      role: 'qa',
+      role: 'qa'
     });
 
     expect(result).toEqual({ status: 'failed', reason: 'role must be prd' });
@@ -228,14 +230,18 @@ describe('autoRegenPrdHandoff — the output passes the repo’s own handoff ver
       projectRoot,
       sessionId: SESSION_ID,
       requestId: REQUEST_ID,
-      role: 'prd',
+      role: 'prd'
     });
     expect(result.status).toBe('created');
 
     // Before the fix: `{ ok: false, reason: 'file-missing' }` — a file that
     // exists, reported as absent, from a bare `catch`.
     const probe = await verifyHandoff(handoffPathOf(projectRoot));
-    expect(probe).toEqual({ ok: true, actualHash: expect.any(String), expectedHash: expect.any(String) });
+    expect(probe).toEqual({
+      ok: true,
+      actualHash: expect.any(String),
+      expectedHash: expect.any(String)
+    });
   });
 
   it('should let `readHandoff` parse the frontmatter and normalize schemaVersion to `2`', async () => {
@@ -246,7 +252,7 @@ describe('autoRegenPrdHandoff — the output passes the repo’s own handoff ver
       projectRoot,
       sessionId: SESSION_ID,
       requestId: REQUEST_ID,
-      role: 'prd',
+      role: 'prd'
     });
 
     // Before the fix this threw "handoff: frontmatter shape validation failed".
@@ -280,7 +286,7 @@ describe('autoRegenPrdHandoff — the output passes the repo’s own handoff ver
         'handoffPath: prd/handoff.md',
         '---',
         '',
-        'body',
+        'body'
       ].join('\n');
 
     for (const spelling of ['2', '"2"', "'2'"]) {
@@ -301,7 +307,7 @@ describe('autoRegenPrdHandoff — the output passes the repo’s own handoff ver
     // failure classes must not blur the one that is real.
     expect(await verifyHandoff(handoffPathOf(projectRoot))).toEqual({
       ok: false,
-      reason: 'file-missing',
+      reason: 'file-missing'
     });
   });
 
@@ -326,7 +332,7 @@ describe('autoRegenPrdHandoff — the output passes the repo’s own handoff ver
       projectRoot,
       sessionId: SESSION_ID,
       requestId: REQUEST_ID,
-      role: 'prd',
+      role: 'prd'
     });
 
     // Found by its legacy tier (see the same lookup in

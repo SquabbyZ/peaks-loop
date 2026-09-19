@@ -48,9 +48,9 @@ function readEnvOuter(): string | undefined {
   return undefined;
 }
 
-function readCacheFile(cachePath: string):
-  | { ok: true; outerSessionId: string; capturedAt: string }
-  | { ok: false; missing: true } {
+function readCacheFile(
+  cachePath: string
+): { ok: true; outerSessionId: string; capturedAt: string } | { ok: false; missing: true } {
   if (!existsSync(cachePath)) return { ok: false, missing: true };
   try {
     const raw = readFileSync(cachePath, 'utf8');
@@ -59,7 +59,7 @@ function readCacheFile(cachePath: string):
       parsed !== null &&
       typeof parsed === 'object' &&
       typeof (parsed as { outerSessionId?: unknown }).outerSessionId === 'string' &&
-      ((parsed as { outerSessionId: string }).outerSessionId).length > 0 &&
+      (parsed as { outerSessionId: string }).outerSessionId.length > 0 &&
       typeof (parsed as { capturedAt?: unknown }).capturedAt === 'string'
     ) {
       return {
@@ -69,7 +69,8 @@ function readCacheFile(cachePath: string):
       };
     }
     return { ok: false, missing: true };
-  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+  } catch {
+    // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     return { ok: false, missing: true };
   }
 }
@@ -98,7 +99,7 @@ export function registerOuterCacheCommands(program: Command, io: ProgramIO): voi
       )
       .option('--project <path>', 'target project root (defaults to git root or cwd)')
   ).action((options: OuterCacheWriteOptions) => {
-    const projectRoot = options.project ?? (findProjectRoot(process.cwd()) ?? process.cwd());
+    const projectRoot = options.project ?? findProjectRoot(process.cwd()) ?? process.cwd();
     const cachePath = resolveCachePath(projectRoot);
     const outerSessionId = readEnvOuter();
     if (outerSessionId === undefined) {
@@ -154,7 +155,9 @@ export function registerOuterCacheCommands(program: Command, io: ProgramIO): voi
         'outer-cache.write',
         { cachePath, written: true, projectRoot, outerSessionId, capturedAt },
         [],
-        [`Wrote ${cachePath}; getCurrentOuterSessionId() will resolve to "${outerSessionId}" until the next SessionStart fires.`]
+        [
+          `Wrote ${cachePath}; getCurrentOuterSessionId() will resolve to "${outerSessionId}" until the next SessionStart fires.`
+        ]
       ),
       options.json === true
     );
@@ -168,7 +171,7 @@ export function registerOuterCacheCommands(program: Command, io: ProgramIO): voi
       )
       .option('--project <path>', 'target project root (defaults to git root or cwd)')
   ).action((options: OuterCacheReadOptions) => {
-    const projectRoot = options.project ?? (findProjectRoot(process.cwd()) ?? process.cwd());
+    const projectRoot = options.project ?? findProjectRoot(process.cwd()) ?? process.cwd();
     const cachePath = resolveCachePath(projectRoot);
     const result = readCacheFile(cachePath);
     if (result.ok) {
@@ -176,7 +179,13 @@ export function registerOuterCacheCommands(program: Command, io: ProgramIO): voi
         io,
         ok(
           'outer-cache.read',
-          { cachePath, missing: false, projectRoot, outerSessionId: result.outerSessionId, capturedAt: result.capturedAt },
+          {
+            cachePath,
+            missing: false,
+            projectRoot,
+            outerSessionId: result.outerSessionId,
+            capturedAt: result.capturedAt
+          },
           [],
           [`outer-session-id resolved: ${result.outerSessionId} (captured ${result.capturedAt})`]
         ),
@@ -189,7 +198,9 @@ export function registerOuterCacheCommands(program: Command, io: ProgramIO): voi
       ok(
         'outer-cache.read',
         { cachePath, missing: true, projectRoot },
-        ['No outer-session cache present — getCurrentOuterSessionId() will return undefined for this project.'],
+        [
+          'No outer-session cache present — getCurrentOuterSessionId() will return undefined for this project.'
+        ],
         [
           'Re-run `peaks hooks install` to wire the SessionStart hook that writes this cache automatically',
           'Or set PEAKS_OUTER_SESSION_ID=<id> so env-first resolution wins without touching the cache'

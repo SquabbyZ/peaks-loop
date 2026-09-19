@@ -18,27 +18,24 @@ import { describe, expect, it } from 'vitest';
 import { Command } from 'commander';
 
 import { registerSessionCommand } from '~/src/cli/commands/core/session-command';
-import {
-  registerPrimerCommand,
-  runPrimerAction
-} from '~/src/cli/commands/primer-command';
+import { registerPrimerCommand, runPrimerAction } from '~/src/cli/commands/primer-command';
 
 function makeStdio(): { stdout: (s: string) => void; stderr: (s: string) => void } {
   return { stdout: (): void => {}, stderr: (): void => {} };
 }
 
-describe("workspace-session-start-primer — `peaks session primer` subcommand", () => {
-  it("rejects empty --project (fail-closed, PRIMER_EMPTY_PROJECT)", async () => {
+describe('workspace-session-start-primer — `peaks session primer` subcommand', () => {
+  it('rejects empty --project (fail-closed, PRIMER_EMPTY_PROJECT)', async () => {
     const result = await runPrimerAction({ project: '' }, makeStdio());
     expect(result.exitCode).toBe(1);
   });
 
-  it("rejects whitespace-only --project (fail-closed)", async () => {
+  it('rejects whitespace-only --project (fail-closed)', async () => {
     const result = await runPrimerAction({ project: '   ' }, makeStdio());
     expect(result.exitCode).toBe(1);
   });
 
-  it("NUL byte in --project triggers InvalidProjectRootError (PRIMER_INVALID_PROJECT_ROOT_NUL_BYTE)", async () => {
+  it('NUL byte in --project triggers InvalidProjectRootError (PRIMER_INVALID_PROJECT_ROOT_NUL_BYTE)', async () => {
     const result = await runPrimerAction({ project: 'foo\0bar' }, makeStdio());
     expect(result.exitCode).toBe(1);
   });

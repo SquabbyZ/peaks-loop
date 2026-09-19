@@ -18,11 +18,13 @@ import {
   arbitrate,
   resetArbitratorBudget,
   type ArbitratorOptions,
-  type ArbitrateResult,
+  type ArbitrateResult
 } from '../../../src/services/slice/llm-arbitrator.js';
 import type { LlmRunner } from '../../../src/services/audit/audit-goal-service.js';
 
-function makeRunner(responses: ReadonlyArray<{ output: string; tokens: { input: number; output: number } }>): {
+function makeRunner(
+  responses: ReadonlyArray<{ output: string; tokens: { input: number; output: number } }>
+): {
   runner: LlmRunner;
   counter: { count: number };
 } {
@@ -39,13 +41,16 @@ function makeRunner(responses: ReadonlyArray<{ output: string; tokens: { input: 
   return { runner, counter };
 }
 
-function makeOpts(overrides: Partial<ArbitratorOptions> = {}): ArbitratorOptions & { cacheDir: string } {
+function makeOpts(
+  overrides: Partial<ArbitratorOptions> = {}
+): ArbitratorOptions & { cacheDir: string } {
   const cacheDir = overrides.cacheDir ?? mkdtempSync(join(tmpdir(), 'peaks-arb-'));
   return {
     cacheDir,
     maxCallsPerInvocation: overrides.maxCallsPerInvocation ?? 3,
     perCallTimeoutMs: overrides.perCallTimeoutMs ?? 1000,
-    llmRunner: overrides.llmRunner ?? makeRunner([{ output: 'OK', tokens: { input: 1, output: 1 } }]).runner
+    llmRunner:
+      overrides.llmRunner ?? makeRunner([{ output: 'OK', tokens: { input: 1, output: 1 } }]).runner
   };
 }
 
@@ -65,8 +70,13 @@ afterEach(() => {
 describe('LLMArbitrator — AC-4 cadence coverage', () => {
   it('short-circuits when the cache file already exists', async () => {
     // First call populates the cache.
-    const { runner, counter: calls } = makeRunner([{ output: 'cached-output', tokens: { input: 1, output: 1 } }]);
-    const opts = makeOpts({ llmRunner: runner, cacheDir: mkdtempSync(join(tmpdir(), 'peaks-arb-')) });
+    const { runner, counter: calls } = makeRunner([
+      { output: 'cached-output', tokens: { input: 1, output: 1 } }
+    ]);
+    const opts = makeOpts({
+      llmRunner: runner,
+      cacheDir: mkdtempSync(join(tmpdir(), 'peaks-arb-'))
+    });
     tempRoots.push(opts.cacheDir);
 
     const first = await arbitrate('prompt-A', opts);

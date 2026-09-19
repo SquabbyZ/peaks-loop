@@ -1,11 +1,25 @@
 import { Command } from 'commander';
 import { executeMigration, planMigration } from '../../services/config/config-migration.js';
-import { getConfig, isSensitiveConfigPath, redactConfigSecrets, setConfig, type ConfigLayer } from '../../services/config/config-service.js';
+import {
+  getConfig,
+  isSensitiveConfigPath,
+  redactConfigSecrets,
+  setConfig,
+  type ConfigLayer
+} from '../../services/config/config-service.js';
 import { listAvailableFields, restoreField } from '../../services/config/config-restore.js';
 import { executeRollback, planRollback } from '../../services/config/config-rollback.js';
 import { fail, ok } from 'peaks-loop-shared/result';
 
-import { addJsonOption, getErrorMessage, parseConfigLayer, printInvalidConfigLayer, printResult, redactSensitiveErrorMessage, type ProgramIO } from '../cli-helpers.js';
+import {
+  addJsonOption,
+  getErrorMessage,
+  parseConfigLayer,
+  printInvalidConfigLayer,
+  printResult,
+  redactSensitiveErrorMessage,
+  type ProgramIO
+} from '../cli-helpers.js';
 
 export function registerConfigCommands(program: Command, io: ProgramIO): void {
   const config = program.command('config').description('Manage Peaks configuration');
@@ -14,20 +28,40 @@ export function registerConfigCommands(program: Command, io: ProgramIO): void {
 }
 
 function registerConfigGetSetCommands(config: Command, io: ProgramIO): void {
-  addJsonOption(config.command('get').description('Get current config or a specific key').option('--key <path>', 'dot-notation key path').option('--layer <layer>', 'user or project')).action((options: { key?: string; layer?: string; json?: boolean }) => {
+  addJsonOption(
+    config
+      .command('get')
+      .description('Get current config or a specific key')
+      .option('--key <path>', 'dot-notation key path')
+      .option('--layer <layer>', 'user or project')
+  ).action((options: { key?: string; layer?: string; json?: boolean }) => {
     const layer = parseConfigLayer(options.layer);
     if (layer === null) {
       printInvalidConfigLayer(io, 'config.get', options.json);
       return;
     }
 
-    const getOpts: { key?: string; layer?: ConfigLayer } = { ...(layer !== undefined ? { layer } : {}), ...(options.key !== undefined ? { key: options.key } : {}) };
+    const getOpts: { key?: string; layer?: ConfigLayer } = {
+      ...(layer !== undefined ? { layer } : {}),
+      ...(options.key !== undefined ? { key: options.key } : {})
+    };
     const value = getConfig(getOpts);
     const isSensitiveKey = options.key !== undefined && isSensitiveConfigPath(options.key);
-    printResult(io, ok('config.get', isSensitiveKey ? '***' : redactConfigSecrets(value, options.key ?? '')), options.json);
+    printResult(
+      io,
+      ok('config.get', isSensitiveKey ? '***' : redactConfigSecrets(value, options.key ?? '')),
+      options.json
+    );
   });
 
-  addJsonOption(config.command('set').description('Set a config value').requiredOption('--key <path>', 'dot-notation key path').requiredOption('--value <json>', 'JSON value').option('--layer <layer>', 'user or project')).action((options: { key: string; value: string; layer?: string; json?: boolean }) => {
+  addJsonOption(
+    config
+      .command('set')
+      .description('Set a config value')
+      .requiredOption('--key <path>', 'dot-notation key path')
+      .requiredOption('--value <json>', 'JSON value')
+      .option('--layer <layer>', 'user or project')
+  ).action((options: { key: string; value: string; layer?: string; json?: boolean }) => {
     const parsedLayer = parseConfigLayer(options.layer);
     if (parsedLayer === null) {
       printInvalidConfigLayer(io, 'config.set', options.json);
@@ -38,7 +72,13 @@ function registerConfigGetSetCommands(config: Command, io: ProgramIO): void {
     try {
       parsed = JSON.parse(options.value);
     } catch {
-      printResult(io, fail('config.set', 'INVALID_JSON', 'Could not parse value as JSON', {}, ['Use valid JSON: --value \'{"key":"value"}\'']), options.json);
+      printResult(
+        io,
+        fail('config.set', 'INVALID_JSON', 'Could not parse value as JSON', {}, [
+          'Use valid JSON: --value \'{"key":"value"}\''
+        ]),
+        options.json
+      );
       process.exitCode = 1;
       return;
     }
@@ -60,7 +100,11 @@ function registerConfigMigrationCommands(config: Command, io: ProgramIO): void {
   config
     .command('migrate')
     .description('Migrate global config from 1.x to 2.0 (YAGNI slim + per-project fields)')
-    .option('--project <path>', 'current project root (for migrating per-project fields)', process.cwd())
+    .option(
+      '--project <path>',
+      'current project root (for migrating per-project fields)',
+      process.cwd()
+    )
     .option('--apply', 'actually write changes (default is dry-run)')
     .option('--dry-run', 'plan only, do not write (default)')
     .option('--json', 'JSON envelope output')
@@ -75,7 +119,13 @@ function registerConfigMigrationCommands(config: Command, io: ProgramIO): void {
         const plan = planMigration({ currentProjectRoot: options.project });
         printResult(io, ok('config.migrate', { ...plan, applied: false }), options.json);
       } catch (error) {
-        printResult(io, fail('config.migrate', 'CONFIG_MIGRATE_FAILED', getErrorMessage(error), {}, ['Inspect ~/.peaks/config.json and re-run with --apply']), options.json);
+        printResult(
+          io,
+          fail('config.migrate', 'CONFIG_MIGRATE_FAILED', getErrorMessage(error), {}, [
+            'Inspect ~/.peaks/config.json and re-run with --apply'
+          ]),
+          options.json
+        );
         process.exitCode = 1;
       }
     });
@@ -101,7 +151,13 @@ function registerConfigMigrationCommands(config: Command, io: ProgramIO): void {
         // an `available: false` SUCCESS envelope (see `config-rollback.ts`).
         const message = getErrorMessage(error);
         io.stderr(`CONFIG_ROLLBACK_FAILED: ${message}`);
-        printResult(io, fail('config.rollback', 'CONFIG_ROLLBACK_FAILED', message, {}, ['Re-run peaks config migrate --apply to recreate the .bak']), options.json);
+        printResult(
+          io,
+          fail('config.rollback', 'CONFIG_ROLLBACK_FAILED', message, {}, [
+            'Re-run peaks config migrate --apply to recreate the .bak'
+          ]),
+          options.json
+        );
         process.exitCode = 1;
       }
     });
@@ -114,59 +170,88 @@ function registerConfigMigrationCommands(config: Command, io: ProgramIO): void {
     .option('--apply', 'actually write sidecar (default is dry-run)')
     .option('--dry-run', 'plan only, do not write (default)')
     .option('--json', 'JSON envelope output')
-    .action((options: { field?: string; list?: boolean; apply?: boolean; dryRun?: boolean; json?: boolean }) => {
-      try {
-        // `available` is on every envelope this command prints (see
-        // `config-restore.ts`): `false` ⇒ this machine has no `.bak`, exit 0,
-        // nothing to restore; `true` on a FAILURE envelope ⇒ the backup is
-        // there and the field/guard was the problem, exit 1. One key replaces
-        // the exit code as the "was there ever a backup?" signal.
-        if (options.list === true || !options.field) {
-          const { available, fields } = listAvailableFields();
-          printResult(io, ok('config.restore', { available, fields, applied: false }), options.json);
-          return;
+    .action(
+      (options: {
+        field?: string;
+        list?: boolean;
+        apply?: boolean;
+        dryRun?: boolean;
+        json?: boolean;
+      }) => {
+        try {
+          // `available` is on every envelope this command prints (see
+          // `config-restore.ts`): `false` ⇒ this machine has no `.bak`, exit 0,
+          // nothing to restore; `true` on a FAILURE envelope ⇒ the backup is
+          // there and the field/guard was the problem, exit 1. One key replaces
+          // the exit code as the "was there ever a backup?" signal.
+          if (options.list === true || !options.field) {
+            const { available, fields } = listAvailableFields();
+            printResult(
+              io,
+              ok('config.restore', { available, fields, applied: false }),
+              options.json
+            );
+            return;
+          }
+          const apply = options.apply === true;
+          const result = restoreField({ field: options.field, apply });
+          printResult(io, ok('config.restore', result), options.json);
+        } catch (error) {
+          const message = getErrorMessage(error);
+          // A missing `.bak` no longer reaches this block, so anything that does
+          // implies the backup exists — which is what `available: true` reports.
+          let code = 'CONFIG_RESTORE_FAILED';
+          if (message.startsWith('RESTORE_GUARDED')) code = 'RESTORE_GUARDED';
+          else if (message.startsWith('FIELD_NOT_FOUND')) code = 'FIELD_NOT_FOUND';
+          io.stderr(`${code}: ${message}`);
+          printResult(
+            io,
+            fail(
+              'config.restore',
+              code,
+              message,
+              { available: true, ...(options.field !== undefined ? { field: options.field } : {}) },
+              ['Use --list to see available fields']
+            ),
+            options.json
+          );
+          process.exitCode = 1;
         }
-        const apply = options.apply === true;
-        const result = restoreField({ field: options.field, apply });
-        printResult(io, ok('config.restore', result), options.json);
-      } catch (error) {
-        const message = getErrorMessage(error);
-        // A missing `.bak` no longer reaches this block, so anything that does
-        // implies the backup exists — which is what `available: true` reports.
-        let code = 'CONFIG_RESTORE_FAILED';
-        if (message.startsWith('RESTORE_GUARDED')) code = 'RESTORE_GUARDED';
-        else if (message.startsWith('FIELD_NOT_FOUND')) code = 'FIELD_NOT_FOUND';
-        io.stderr(`${code}: ${message}`);
-        printResult(
-          io,
-          fail(
-            'config.restore',
-            code,
-            message,
-            { available: true, ...(options.field !== undefined ? { field: options.field } : {}) },
-            ['Use --list to see available fields']
-          ),
-          options.json
-        );
-        process.exitCode = 1;
       }
-    });
+    );
 }
 
 function printConfigSetError(io: ProgramIO, error: unknown, asJson?: boolean): void {
   const message = getErrorMessage(error);
   if (message === 'Sensitive config keys must be stored in the user config layer') {
-    printResult(io, fail('config.set', 'SECRET_CONFIG_REQUIRES_USER_LAYER', message, {}, ['Use --layer user for sensitive config keys']), asJson);
+    printResult(
+      io,
+      fail('config.set', 'SECRET_CONFIG_REQUIRES_USER_LAYER', message, {}, [
+        'Use --layer user for sensitive config keys'
+      ]),
+      asJson
+    );
     process.exitCode = 1;
     return;
   }
   if (message === 'Project config not found') {
-    printResult(io, fail('config.set', 'PROJECT_CONFIG_NOT_FOUND', message, {}, ['Create a safe .peaks/config.json in the project or use --layer user']), asJson);
+    printResult(
+      io,
+      fail('config.set', 'PROJECT_CONFIG_NOT_FOUND', message, {}, [
+        'Create a safe .peaks/config.json in the project or use --layer user'
+      ]),
+      asJson
+    );
     process.exitCode = 1;
     return;
   }
 
-  printResult(io, fail('config.set', 'CONFIG_SET_FAILED', message, {}, ['Check the config key and layer, then retry']), asJson);
+  printResult(
+    io,
+    fail('config.set', 'CONFIG_SET_FAILED', message, {}, [
+      'Check the config key and layer, then retry'
+    ]),
+    asJson
+  );
   process.exitCode = 1;
 }
-

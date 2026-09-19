@@ -17,33 +17,45 @@ import type { ProgramIO } from '../../../../src/cli/cli-helpers.js';
 const callMock = vi.fn();
 
 vi.mock('../../../../src/services/llm/anthropic-runner.js', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../../../../src/services/llm/anthropic-runner.js')>();
+  const actual =
+    await importOriginal<typeof import('../../../../src/services/llm/anthropic-runner.js')>();
   return {
     ...actual,
     resolveAnthropicConfig: () => ({
       baseUrl: 'https://llm.invalid',
       authToken: 'test-token',
       authScheme: 'bearer',
-      model: 'test-model',
+      model: 'test-model'
     }),
-    createAnthropicRunner: () => ({ call: callMock }),
+    createAnthropicRunner: () => ({ call: callMock })
   };
 });
 
 const { registerAuditCommands } = await import('../../../../src/cli/commands/audit-commands.js');
 const { LlmRequestError } = await import('../../../../src/services/llm/anthropic-runner.js');
 
-const DIMENSIONS = ['correctness', 'completeness', 'scope', 'risks', 'alternatives', 'constraints'] as const;
+const DIMENSIONS = [
+  'correctness',
+  'completeness',
+  'scope',
+  'risks',
+  'alternatives',
+  'constraints'
+] as const;
 
 function auditReply(dimensions: readonly string[]): string {
   return JSON.stringify({
     summary: 'A need.',
-    audit: dimensions.map((dimension) => ({ dimension, finding: `finding for ${dimension}`, severity: 'concern' })),
+    audit: dimensions.map((dimension) => ({
+      dimension,
+      finding: `finding for ${dimension}`,
+      severity: 'concern'
+    })),
     proposedGoal: 'A goal.',
     successCriteria: ['criterion'],
     roughEffort: 'small',
     confidence: 'high',
-    rationale: 'Because.',
+    rationale: 'Because.'
   });
 }
 
@@ -55,9 +67,13 @@ function makeIo(): { io: ProgramIO; capture: Capture } {
   return {
     io: { stdout: (s: string) => stdout.push(s), stderr: (s: string) => stderr.push(s) },
     capture: {
-      get stdout() { return stdout.join(''); },
-      get stderr() { return stderr.join(''); },
-    },
+      get stdout() {
+        return stdout.join('');
+      },
+      get stderr() {
+        return stderr.join('');
+      }
+    }
   };
 }
 
@@ -92,7 +108,10 @@ async function runGoal(io: ProgramIO): Promise<void> {
 describe('peaks audit goal with a bound LLM', () => {
   it('when the LLM reply omits a dimension, should exit non-zero with INCOMPLETE_AUDIT', async () => {
     // given: a bound LLM whose answer covers only five of the six dimensions
-    callMock.mockResolvedValue({ output: auditReply(DIMENSIONS.slice(0, 5)), tokens: { input: 1, output: 1 } });
+    callMock.mockResolvedValue({
+      output: auditReply(DIMENSIONS.slice(0, 5)),
+      tokens: { input: 1, output: 1 }
+    });
     const { io, capture } = makeIo();
 
     // when: the gate runs
@@ -108,7 +127,9 @@ describe('peaks audit goal with a bound LLM', () => {
 
   it('when the transport fails, should exit non-zero with LLM_REQUEST_FAILED', async () => {
     // given: a bound LLM that cannot be reached
-    callMock.mockRejectedValue(new LlmRequestError('LLM request to https://llm.invalid/v1/messages failed: HTTP 503'));
+    callMock.mockRejectedValue(
+      new LlmRequestError('LLM request to https://llm.invalid/v1/messages failed: HTTP 503')
+    );
     const { io, capture } = makeIo();
 
     // when: the gate runs
@@ -132,7 +153,12 @@ describe('peaks audit goal with a bound LLM', () => {
     // then: the envelope claims an audit and names the binding that produced it
     const envelope = JSON.parse(capture.stdout) as {
       ok: boolean;
-      data: { status: string; providerBinding: string; model: string; result: { audit: unknown[] } };
+      data: {
+        status: string;
+        providerBinding: string;
+        model: string;
+        result: { audit: unknown[] };
+      };
     };
     expect(envelope.ok).toBe(true);
     expect(envelope.data.status).toBe('audit-complete');

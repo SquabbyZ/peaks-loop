@@ -4,8 +4,15 @@ import type { Command } from 'commander';
 
 import { resolveCanonicalProjectRoot } from '../../services/config/config-service.js';
 import { getSessionIdCanonical } from '../../services/session/session-manager.js';
-import { readRecords, type DispatchRecord } from '../../services/dispatch/dispatch-record-writer.js';
-import { renderStatusLine, summarize, viewSubAgent } from '../../services/code/status-line-renderer.js';
+import {
+  readRecords,
+  type DispatchRecord
+} from '../../services/dispatch/dispatch-record-writer.js';
+import {
+  renderStatusLine,
+  summarize,
+  viewSubAgent
+} from '../../services/code/status-line-renderer.js';
 import { getErrorMessage, type ProgramIO } from '../cli-helpers.js';
 
 const DEFAULT_INTERVAL_MS = 10_000;
@@ -58,7 +65,11 @@ function parseMaxTicks(raw: string | undefined): number {
   return value;
 }
 
-function findBatchRecords(projectRoot: string, sessionId: string, batchId: string): DispatchRecord[] {
+function findBatchRecords(
+  projectRoot: string,
+  sessionId: string,
+  batchId: string
+): DispatchRecord[] {
   const sessionDir = resolve(projectRoot, '.peaks', '_sub_agents', sessionId);
   if (!existsSync(sessionDir)) return [];
   const paths = readdirSync(sessionDir)
@@ -77,7 +88,9 @@ function snapshot(
   const summary = summarize(records);
   const views = records.map((record) => viewSubAgent(record, now));
   const customThresholdSec = Math.floor(staleThresholdMs / 1000);
-  const staleViews = views.filter((view) => view.lastBeatAgoSec !== null && view.lastBeatAgoSec > customThresholdSec);
+  const staleViews = views.filter(
+    (view) => view.lastBeatAgoSec !== null && view.lastBeatAgoSec > customThresholdSec
+  );
   let line = renderStatusLine(prefix, records, now);
   if (staleThresholdMs > DEFAULT_STALE_THRESHOLD_MS) {
     line = line.replaceAll(' ⚠ stale', '');
@@ -120,15 +133,26 @@ export function registerHeartbeatWatchCommand(parent: Command, io: ProgramIO): v
     .description('Watch persisted sub-agent heartbeat records for one batch')
     .requiredOption('--batch-id <id>', 'batch id to watch')
     .option('--interval-ms <n>', `poll interval in milliseconds (default ${DEFAULT_INTERVAL_MS})`)
-    .option('--stale-threshold-ms <n>', `stale threshold in milliseconds (default ${DEFAULT_STALE_THRESHOLD_MS})`)
+    .option(
+      '--stale-threshold-ms <n>',
+      `stale threshold in milliseconds (default ${DEFAULT_STALE_THRESHOLD_MS})`
+    )
     .option('--max-ticks <n>', 'stop after n ticks (test/diagnostic seam)')
     .option('--project <path>', 'project root (defaults to current directory)')
     .option('--session-id <id>', 'session id (defaults to the active binding)')
     .option('--json', 'emit one JSON envelope per poll tick')
     .action(async (options: WatchOptions) => {
       try {
-        const intervalMs = parsePositiveMs(options.intervalMs, DEFAULT_INTERVAL_MS, '--interval-ms');
-        const staleThresholdMs = parsePositiveMs(options.staleThresholdMs, DEFAULT_STALE_THRESHOLD_MS, '--stale-threshold-ms');
+        const intervalMs = parsePositiveMs(
+          options.intervalMs,
+          DEFAULT_INTERVAL_MS,
+          '--interval-ms'
+        );
+        const staleThresholdMs = parsePositiveMs(
+          options.staleThresholdMs,
+          DEFAULT_STALE_THRESHOLD_MS,
+          '--stale-threshold-ms'
+        );
         const maxTicks = parseMaxTicks(options.maxTicks);
         const projectRoot = resolveCanonicalProjectRoot(options.project ?? process.cwd());
         const sessionId = options.sessionId ?? getSessionIdCanonical(projectRoot);
@@ -158,7 +182,8 @@ export function registerHeartbeatWatchCommand(parent: Command, io: ProgramIO): v
         });
       } catch (error: unknown) {
         const message = getErrorMessage(error);
-        if (options.json === true) io.stdout(`${JSON.stringify({ ok: false, code: 'HEARTBEAT_WATCH_FAILED', message })}\n`);
+        if (options.json === true)
+          io.stdout(`${JSON.stringify({ ok: false, code: 'HEARTBEAT_WATCH_FAILED', message })}\n`);
         else io.stderr(`HEARTBEAT_WATCH_FAILED: ${message}\n`);
         process.exitCode = 1;
       }

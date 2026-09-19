@@ -39,7 +39,10 @@ import type { Command } from 'commander';
 import type { ProgramIO } from '../cli-helpers.js';
 import { printResult } from '../cli-helpers.js';
 import { fail, ok } from 'peaks-loop-shared/result';
-import { resolveCanonicalProjectRootStrict, InvalidProjectRootError } from '../../services/config/config-safety.js';
+import {
+  resolveCanonicalProjectRootStrict,
+  InvalidProjectRootError
+} from '../../services/config/config-safety.js';
 import {
   POST_COMPACT_REINJECTION_BYTE_BUDGET,
   buildPostCompactReinjectionCard
@@ -52,7 +55,8 @@ export type ReinjectOptions = {
 };
 
 /** Why no card was produced. Reported through `--json` only. */
-export type ReinjectSkipReason = 'empty-project' | 'invalid-project-root' | 'unreadable-project-root';
+export type ReinjectSkipReason =
+  'empty-project' | 'invalid-project-root' | 'unreadable-project-root';
 
 export type ReinjectResult =
   | { readonly ok: true; readonly card: ReturnType<typeof buildPostCompactReinjectionCard> }
@@ -65,7 +69,9 @@ export type ReinjectResult =
  * proves (`--budget-bytes 4KiB` becoming `NaN` and then the default would
  * report a full card while the caller believed they had constrained it).
  */
-function parseBudget(raw: string | undefined): { readonly ok: true; readonly value: number | null } | { readonly ok: false } {
+function parseBudget(
+  raw: string | undefined
+): { readonly ok: true; readonly value: number | null } | { readonly ok: false } {
   if (raw === undefined) return { ok: true, value: null };
   const parsed = Number(raw);
   if (!Number.isInteger(parsed) || parsed < 0) return { ok: false };
@@ -127,10 +133,7 @@ export function buildReinjectResult(opts: ReinjectOptions): ReinjectResult {
  * only way a caller sees `exitCode: 1` is a bug in the `--json` serializer
  * itself, and even that is caught.
  */
-export function runReinjectAction(
-  opts: ReinjectOptions,
-  io: ProgramIO
-): { exitCode: 0 | 1 } {
+export function runReinjectAction(opts: ReinjectOptions, io: ProgramIO): { exitCode: 0 | 1 } {
   let result: ReinjectResult;
   try {
     result = buildReinjectResult(opts);
@@ -146,9 +149,15 @@ export function runReinjectAction(
     if (!result.ok) {
       printResult(
         io,
-        fail('session.reinject', `REINJECT_SKIPPED_${result.reason.replace(/-/g, '_').toUpperCase()}`, result.message, {
-          project: opts.project
-        }, []),
+        fail(
+          'session.reinject',
+          `REINJECT_SKIPPED_${result.reason.replace(/-/g, '_').toUpperCase()}`,
+          result.message,
+          {
+            project: opts.project
+          },
+          []
+        ),
         true
       );
       // A skipped card is a legitimate answer, not a failed command: the hook
@@ -200,7 +209,10 @@ export function registerReinjectCommand(program: Command, io: ProgramIO): void {
         'no state to re-inject.'
     )
     .requiredOption('--project <path>', 'Project root (must be a non-empty canonical path)')
-    .option('--budget-bytes <n>', `Diagnostic override for the card's byte ceiling (default ${POST_COMPACT_REINJECTION_BYTE_BUDGET})`)
+    .option(
+      '--budget-bytes <n>',
+      `Diagnostic override for the card's byte ceiling (default ${POST_COMPACT_REINJECTION_BYTE_BUDGET})`
+    )
     .option('--json', 'emit a JSON envelope { ok, data } to stdout instead of the card')
     .action((opts: ReinjectOptions) => {
       const { exitCode } = runReinjectAction(opts, io);

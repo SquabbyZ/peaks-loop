@@ -35,7 +35,7 @@ export type ConflictReplayOutput = {
 const INSTRUCTIONS: ReadonlyArray<string> = [
   'A previous merge into the caller branch conflicted. Resolve the conflict preserving the intent of both your prior work and the caller branch.',
   'Do NOT introduce new functionality or refactor outside the conflict.',
-  'Re-run the dispatch and report the new conflict state. The parent will retry the merge.',
+  'Re-run the dispatch and report the new conflict state. The parent will retry the merge.'
 ];
 
 export function buildConflictReplay(input: ConflictReplayInput): ConflictReplayOutput {
@@ -52,7 +52,7 @@ export function buildConflictReplay(input: ConflictReplayInput): ConflictReplayO
     '### Conflict diff',
     '```diff',
     input.conflictDiff,
-    '```',
+    '```'
   ].join('\n');
   return { prompt, instructions: INSTRUCTIONS };
 }

@@ -56,7 +56,8 @@ const EXPORTED_DECL_PATTERNS: { pattern: RegExp; form: DeclarationForm }[] = [
   { pattern: /export\s+default\s+(?:async\s+)?function\s+([A-Za-z_$][\w$]*)/g, form: 'function' },
   { pattern: /export\s+(?:async\s+)?function\s+([A-Za-z_$][\w$]*)/g, form: 'function' },
   {
-    pattern: /export\s+const\s+([A-Za-z_$][\w$]*)\s*=\s*(?:async\s+)?(?:function\b|(?:<[^<>]*>\s*)?\()/g,
+    pattern:
+      /export\s+const\s+([A-Za-z_$][\w$]*)\s*=\s*(?:async\s+)?(?:function\b|(?:<[^<>]*>\s*)?\()/g,
     form: 'paren'
   },
   {
@@ -394,9 +395,10 @@ function locateBody(text: string, declaration: ExportedDeclaration): BodyLocatio
 function readReturnShape(masked: string, declaration: ExportedDeclaration): ClassifiedReturn {
   const body = locateBody(masked, declaration);
   if (body === null) return { shape: 'other', signature: null };
-  const expressions = body.kind === 'expression'
-    ? [masked.slice(body.from, readExpression(masked, body.from, declaration.limit).next)]
-    : scanBlockBody(masked, body.openBrace);
+  const expressions =
+    body.kind === 'expression'
+      ? [masked.slice(body.from, readExpression(masked, body.from, declaration.limit).next)]
+      : scanBlockBody(masked, body.openBrace);
   if (expressions.length === 0) return { shape: 'other', signature: null };
 
   const classified = expressions.map(classifyReturn);
@@ -465,7 +467,10 @@ function strictDominantOf<T>(values: T[]): T | null {
   return tied ? null : best;
 }
 
-function namingPatternOf(count: number, prefixed: number): HookDirectoryConvention['namingPattern'] {
+function namingPatternOf(
+  count: number,
+  prefixed: number
+): HookDirectoryConvention['namingPattern'] {
   if (count === 0) return 'unknown';
   if (prefixed === count) return 'use<X>';
   if (prefixed === 0) return 'no-use-prefix';
@@ -484,21 +489,27 @@ function listedNames(names: string[]): string {
   return extra > 0 ? `${listed} (+${extra} more)` : listed;
 }
 
-function summarizeDirectory(dir: string, hooks: HookObservation[], files: HookFileReport[]): DirectorySummary {
+function summarizeDirectory(
+  dir: string,
+  hooks: HookObservation[],
+  files: HookFileReport[]
+): DirectorySummary {
   const dominantReturnShape = strictDominantOf(hooks.map((hook) => hook.returnShape));
   const signatures: string[] = [];
   if (dominantReturnShape === 'object') {
     for (const hook of hooks) {
-      if (hook.returnShape === 'object' && hook.returnSignature !== null) signatures.push(hook.returnSignature);
+      if (hook.returnShape === 'object' && hook.returnSignature !== null)
+        signatures.push(hook.returnSignature);
     }
   }
   // A tie inside the object class has no dominant key set — null, not a pick.
   const dominantReturnSignature = strictDominantOf(signatures);
   // Deviants are compared by shape CLASS. A different key set is key-level
   // detail, reported separately, never as "an object deviating from objects".
-  const offShape = dominantReturnShape === null
-    ? []
-    : hooks.filter((hook) => hook.returnShape !== dominantReturnShape);
+  const offShape =
+    dominantReturnShape === null
+      ? []
+      : hooks.filter((hook) => hook.returnShape !== dominantReturnShape);
   const prefixed = hooks.filter((hook) => hook.usePrefix).length;
   const mapperFiles = files.filter((entry) => entry.importsMapper).map((entry) => entry.file);
 
@@ -522,7 +533,9 @@ function summarizeDirectory(dir: string, hooks: HookObservation[], files: HookFi
         `(${formatShapeCounts(hooks)}); no deviant set is reported`
     );
   } else if (dominantReturnShape !== null && offShape.length > 0) {
-    const deviants = offShape.map((hook) => `${hook.name} (${describeShape(hook.returnShape, hook.returnSignature)})`);
+    const deviants = offShape.map(
+      (hook) => `${hook.name} (${describeShape(hook.returnShape, hook.returnSignature)})`
+    );
     inconsistencies.push(
       `hook return shape: ${hooks.length - offShape.length} of ${hooks.length} hooks in ${dir} return ` +
         `${describeShape(dominantReturnShape, dominantReturnSignature)}; deviating: ${listedNames(deviants)}`
@@ -532,14 +545,19 @@ function summarizeDirectory(dir: string, hooks: HookObservation[], files: HookFi
     const objectHooks = hooks.filter((hook) => hook.returnShape === 'object');
     const distinctKeys = new Set(signatures);
     if (distinctKeys.size >= 2) {
-      const differing = objectHooks.filter((hook) => hook.returnSignature !== dominantReturnSignature);
-      const dominantKeys = dominantReturnSignature === null
-        ? 'no single dominant key set'
-        : `an object ${dominantReturnSignature}`;
+      const differing = objectHooks.filter(
+        (hook) => hook.returnSignature !== dominantReturnSignature
+      );
+      const dominantKeys =
+        dominantReturnSignature === null
+          ? 'no single dominant key set'
+          : `an object ${dominantReturnSignature}`;
       inconsistencies.push(
         `hook return keys: ${objectHooks.length - differing.length} of ${objectHooks.length} object-returning hooks ` +
           `in ${dir} return ${dominantKeys}; differing keys: ` +
-          listedNames(differing.map((hook) => `${hook.name} (${hook.returnSignature ?? 'keys not read'})`))
+          listedNames(
+            differing.map((hook) => `${hook.name} (${hook.returnSignature ?? 'keys not read'})`)
+          )
       );
     }
   }
@@ -601,7 +619,10 @@ async function readHooksInDirectory(
       continue; // unreadable file — this scan is read-only and best-effort
     }
     const masked = maskNonCode(text);
-    const declared = readHooksFromMasked(masked, relative(projectRoot, path).split(/[\\/]/).join('/'));
+    const declared = readHooksFromMasked(
+      masked,
+      relative(projectRoot, path).split(/[\\/]/).join('/')
+    );
     if (declared.length === 0) continue;
     hooks.push(...declared);
     // Mapper delegation is observed per FILE: an import belongs to a module,
@@ -611,7 +632,9 @@ async function readHooksInDirectory(
   return { hooks, files };
 }
 
-export async function scanHookConvention(options: HookConventionScanOptions): Promise<HookConventionReport> {
+export async function scanHookConvention(
+  options: HookConventionScanOptions
+): Promise<HookConventionReport> {
   const { projectRoot, hookDirs } = options;
   const directories: HookDirectoryConvention[] = [];
   const inconsistencies: string[] = [];

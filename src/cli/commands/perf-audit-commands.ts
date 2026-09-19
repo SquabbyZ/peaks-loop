@@ -23,7 +23,7 @@ import {
   detectPerfAudit,
   isPerfAuditEnvelope,
   runPerfAudit,
-  type PerfAuditEnvelope,
+  type PerfAuditEnvelope
 } from '../../services/audit-independent/index.js';
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
 import { fail, ok } from 'peaks-loop-shared/result';
@@ -52,9 +52,7 @@ function resolveEnvelope(envelopePath: string | undefined): unknown {
     const raw = readFileSync(envelopePath, 'utf8');
     return JSON.parse(raw);
   } catch (error: unknown) {
-    throw new Error(
-      `Failed to read envelope from ${envelopePath}: ${getErrorMessage(error)}`
-    );
+    throw new Error(`Failed to read envelope from ${envelopePath}: ${getErrorMessage(error)}`);
   }
 }
 
@@ -105,7 +103,10 @@ export function registerPerfAuditCommands(program: Command, io: ProgramIO): void
           'SID_REQUIRED',
           'session id (--sid) is required for perf-audit.detect',
           { state: 'sid-missing' },
-          ['Pass --sid <session-id> (e.g. 2026-06-27-session-...)', 'Run `peaks session info --active --json` to find the active sid.']
+          [
+            'Pass --sid <session-id> (e.g. 2026-06-27-session-...)',
+            'Run `peaks session info --active --json` to find the active sid.'
+          ]
         ),
         options.json
       );
@@ -116,17 +117,18 @@ export function registerPerfAuditCommands(program: Command, io: ProgramIO): void
       const detect = detectPerfAudit({
         projectRoot,
         sessionId: sid,
-        ...(rid !== undefined ? { requestId: rid } : {}),
+        ...(rid !== undefined ? { requestId: rid } : {})
       });
-      const envelope = detect.state === 'ready'
-        ? ok('perf-audit.detect', detect, [...detect.warnings], [...detect.nextActions])
-        : fail(
-            'perf-audit.detect',
-            detect.state.toUpperCase().replace(/-/g, '_'),
-            `perf-audit is not ready: ${detect.state}`,
-            detect,
-            [...detect.nextActions]
-          );
+      const envelope =
+        detect.state === 'ready'
+          ? ok('perf-audit.detect', detect, [...detect.warnings], [...detect.nextActions])
+          : fail(
+              'perf-audit.detect',
+              detect.state.toUpperCase().replace(/-/g, '_'),
+              `perf-audit is not ready: ${detect.state}`,
+              detect,
+              [...detect.nextActions]
+            );
       printResult(io, envelope, options.json);
       if (detect.state !== 'ready') {
         process.exitCode = 1;
@@ -143,7 +145,7 @@ export function registerPerfAuditCommands(program: Command, io: ProgramIO): void
             handoffPresent: false,
             templatePresent: false,
             warnings: [],
-            nextActions: [],
+            nextActions: []
           },
           ['Re-run with --project <path> pointing at a known-good project root.']
         ),
@@ -162,7 +164,10 @@ export function registerPerfAuditCommands(program: Command, io: ProgramIO): void
       .option('--rid <rid>', 'request id (e.g. 2026-06-27-v2-12-...)')
       .option('--sid <sid>', 'session id (e.g. 2026-06-27-session-...)')
       .option('--project <path>', 'project root (default: cwd)')
-      .option('--envelope <path>', 'path to envelope JSON file; "-" reads from stdin (default: stdin)')
+      .option(
+        '--envelope <path>',
+        'path to envelope JSON file; "-" reads from stdin (default: stdin)'
+      )
   ).action((options: RunOptions) => {
     const projectRoot = options.project ?? process.cwd();
     const sid = options.sid;
@@ -222,7 +227,7 @@ export function registerPerfAuditCommands(program: Command, io: ProgramIO): void
         sessionId: sid,
         rid,
         generatedAt: new Date().toISOString(),
-        envelope: envelopeValue as PerfAuditEnvelope,
+        envelope: envelopeValue as PerfAuditEnvelope
       });
       if (result.detect.state !== 'ready' || result.artifactPath === null) {
         printResult(
@@ -247,7 +252,7 @@ export function registerPerfAuditCommands(program: Command, io: ProgramIO): void
             detect: result.detect,
             artifactPath: result.artifactPath,
             violationsCount: result.violationsCount,
-            verdict: result.verdict,
+            verdict: result.verdict
           },
           [...result.detect.warnings],
           [...result.detect.nextActions]
@@ -257,13 +262,9 @@ export function registerPerfAuditCommands(program: Command, io: ProgramIO): void
     } catch (error: unknown) {
       printResult(
         io,
-        fail(
-          'perf-audit.run',
-          'RUN_PERF_AUDIT_FAILED',
-          getErrorMessage(error),
-          {},
-          ['Verify the envelope JSON is well-formed and matches the strict-shape contract.']
-        ),
+        fail('perf-audit.run', 'RUN_PERF_AUDIT_FAILED', getErrorMessage(error), {}, [
+          'Verify the envelope JSON is well-formed and matches the strict-shape contract.'
+        ]),
         options.json
       );
       process.exitCode = 1;

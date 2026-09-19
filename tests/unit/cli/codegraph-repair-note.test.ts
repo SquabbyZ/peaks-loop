@@ -39,12 +39,17 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { declareDimensions } from '../_setup/4dim-template.js';
 import { makeCapturedIo } from '../_setup/io.js';
 
-declareDimensions('tests/unit/cli/codegraph-repair-note.test.ts', ['render', 'behavior', 'integration'], [
-  {
-    dim: 'a11y',
-    reason: 'the rendered sentence is the only operator surface for this defect and is asserted under render',
-  },
-]);
+declareDimensions(
+  'tests/unit/cli/codegraph-repair-note.test.ts',
+  ['render', 'behavior', 'integration'],
+  [
+    {
+      dim: 'a11y',
+      reason:
+        'the rendered sentence is the only operator surface for this defect and is asserted under render'
+    }
+  ]
+);
 
 const __m = vi.hoisted(() => ({ executeCodegraphInvocation: vi.fn() }));
 
@@ -52,9 +57,9 @@ const __m = vi.hoisted(() => ({ executeCodegraphInvocation: vi.fn() }));
 // traversal and the sentence itself all run for real — a mocked repair could
 // not exhibit the defect this file exists to pin.
 vi.mock('../../../src/services/codegraph/codegraph-service.js', async () => {
-  const actual = await vi.importActual<typeof import('../../../src/services/codegraph/codegraph-service.js')>(
-    '../../../src/services/codegraph/codegraph-service.js'
-  );
+  const actual = await vi.importActual<
+    typeof import('../../../src/services/codegraph/codegraph-service.js')
+  >('../../../src/services/codegraph/codegraph-service.js');
   return { ...actual, executeCodegraphInvocation: __m.executeCodegraphInvocation };
 });
 
@@ -83,15 +88,24 @@ function seedIncludeHeavyProject(): string {
   const root = mkdtempSync(join(tmpdir(), 'peaks-cg-note-'));
   cleanups.push(root);
   execFileSync('git', ['-C', root, 'init', '-q'], { stdio: 'ignore', windowsHide: true });
-  execFileSync('git', ['-C', root, 'config', 'user.email', 'peaks-test@example.com'], { stdio: 'ignore', windowsHide: true });
-  execFileSync('git', ['-C', root, 'config', 'user.name', 'peaks test'], { stdio: 'ignore', windowsHide: true });
+  execFileSync('git', ['-C', root, 'config', 'user.email', 'peaks-test@example.com'], {
+    stdio: 'ignore',
+    windowsHide: true
+  });
+  execFileSync('git', ['-C', root, 'config', 'user.name', 'peaks test'], {
+    stdio: 'ignore',
+    windowsHide: true
+  });
 
   mkdirSync(join(root, 'src'), { recursive: true });
   writeFileSync(join(root, 'src', 'ok.ts'), 'export const ok = 1;\n', 'utf8');
   writeFileSync(join(root, 'app.mjs'), 'export const a = 1;\n', 'utf8');
   writeFileSync(join(root, 'tool.cjs'), 'module.exports = 1;\n', 'utf8');
   execFileSync('git', ['-C', root, 'add', '-A'], { stdio: 'ignore', windowsHide: true });
-  execFileSync('git', ['-C', root, 'commit', '-qm', 'fixture'], { stdio: 'ignore', windowsHide: true });
+  execFileSync('git', ['-C', root, 'commit', '-qm', 'fixture'], {
+    stdio: 'ignore',
+    windowsHide: true
+  });
 
   mkdirSync(join(root, '.codegraph'), { recursive: true });
   writeFileSync(
@@ -103,7 +117,10 @@ function seedIncludeHeavyProject(): string {
   return root;
 }
 
-async function runRepair(project: string, mode: 'repair-exclude' | 'repair-index' = 'repair-exclude'): Promise<CapturedIo> {
+async function runRepair(
+  project: string,
+  mode: 'repair-exclude' | 'repair-index' = 'repair-exclude'
+): Promise<CapturedIo> {
   const { io, captured } = makeCapturedIo();
   const program = new Command();
   registerCodegraphCommands(program, io);
@@ -120,7 +137,9 @@ async function statusGap(project: string): Promise<boolean | undefined> {
   const { io, captured } = makeCapturedIo();
   const program = new Command();
   registerCodegraphCommands(program, io);
-  await program.parseAsync(['codegraph', 'status', '--project', project, '--peaks-json'], { from: 'user' });
+  await program.parseAsync(['codegraph', 'status', '--project', project, '--peaks-json'], {
+    from: 'user'
+  });
   const envelope = JSON.parse(captured.stdout.join('\n')) as {
     data: { integrity?: { gap: boolean } | null };
   };
@@ -176,7 +195,10 @@ describe('Scenario: render — the repair sentence attributes each count to its 
     mkdirSync(join(project, 'vendor'), { recursive: true });
     writeFileSync(join(project, 'vendor', 'lib.ts'), 'export const lib = 1;\n', 'utf8');
     execFileSync('git', ['-C', project, 'add', '-A'], { stdio: 'ignore', windowsHide: true });
-    execFileSync('git', ['-C', project, 'commit', '-qm', 'vendor'], { stdio: 'ignore', windowsHide: true });
+    execFileSync('git', ['-C', project, 'commit', '-qm', 'vendor'], {
+      stdio: 'ignore',
+      windowsHide: true
+    });
     const configPath = join(project, '.codegraph', 'config.json');
     const config = JSON.parse(readFileSync(configPath, 'utf8')) as { exclude: string[] };
     config.exclude = ['**/node_modules/**', '**/vendor/**'];
@@ -209,7 +231,8 @@ describe('Scenario: render — the repair sentence attributes each count to its 
  * to catch.
  */
 describe('Scenario: render — the gap-closed confirmation is earned, not assumed', () => {
-  const CLOSED_NOTE = 'Re-run `peaks codegraph status --project <root>` to confirm the gap is closed.';
+  const CLOSED_NOTE =
+    'Re-run `peaks codegraph status --project <root>` to confirm the gap is closed.';
 
   it('when the repair wrote the config, should make the promise and leave the repaired bytes behind', async () => {
     const project = seedIncludeHeavyProject();
@@ -251,7 +274,10 @@ describe('Scenario: render — the gap-closed confirmation is earned, not assume
     mkdirSync(join(project, 'vendor'), { recursive: true });
     writeFileSync(join(project, 'vendor', 'lib.ts'), 'export const lib = 1;\n', 'utf8');
     execFileSync('git', ['-C', project, 'add', '-A'], { stdio: 'ignore', windowsHide: true });
-    execFileSync('git', ['-C', project, 'commit', '-qm', 'vendor'], { stdio: 'ignore', windowsHide: true });
+    execFileSync('git', ['-C', project, 'commit', '-qm', 'vendor'], {
+      stdio: 'ignore',
+      windowsHide: true
+    });
     const configPath = join(project, '.codegraph', 'config.json');
     const config = JSON.parse(readFileSync(configPath, 'utf8')) as { exclude: string[] };
     config.exclude = ['**/node_modules/**', '**/vendor/**'];

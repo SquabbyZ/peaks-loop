@@ -12,7 +12,8 @@ export type MainSessionMonitorBanDecision = {
   readonly reason?: string;
 };
 
-const FORBIDDEN_IMPORT = /import\s*\{[^}]*\b(?:detectIdeFromEnv|IdeKind|IDE_KINDS|isIdeKind)\b[^}]*\}\s*from\s*['"][^'"]*main-session-monitor(?:\.js)?['"]/;
+const FORBIDDEN_IMPORT =
+  /import\s*\{[^}]*\b(?:detectIdeFromEnv|IdeKind|IDE_KINDS|isIdeKind)\b[^}]*\}\s*from\s*['"][^'"]*main-session-monitor(?:\.js)?['"]/;
 
 /** Reject Edit/Write calls that introduce a new import of the legacy monitor. */
 export function checkMainSessionMonitorImport(
@@ -31,6 +32,7 @@ export function checkMainSessionMonitorImport(
   }
   return {
     allowed: false,
-    reason: 'Import IDE detection from services/context/ide-detect.ts; main-session-monitor.ts is legacy-only.'
+    reason:
+      'Import IDE detection from services/context/ide-detect.ts; main-session-monitor.ts is legacy-only.'
   };
 }

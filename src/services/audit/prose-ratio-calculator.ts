@@ -60,7 +60,7 @@ export const DEFAULT_PROSE_RATIO_TARGET = 0.05;
 
 export function computeProseRatio(
   entries: readonly RedLineEntry[],
-  options: ProseRatioOptions = {},
+  options: ProseRatioOptions = {}
 ): ProseRatioResult {
   const target = options.target ?? DEFAULT_PROSE_RATIO_TARGET;
   let cliBacked = 0;
@@ -90,6 +90,6 @@ export function computeProseRatio(
     informational,
     ratio,
     target,
-    exceeds: ratio > target,
+    exceeds: ratio > target
   };
 }

@@ -26,20 +26,36 @@ declareDimensions(
   'tests/unit/services/fs-error-classification.test.ts',
   ['behavior'],
   [
-    { dim: 'integration', reason: 'the two call sites are covered by tests/unit/code/{post-compact-detector,step-08-gate}.test.ts' },
+    {
+      dim: 'integration',
+      reason:
+        'the two call sites are covered by tests/unit/code/{post-compact-detector,step-08-gate}.test.ts'
+    },
     { dim: 'render', reason: 'pure predicate; renders nothing' },
-    { dim: 'a11y', reason: 'no human-facing text' },
-  ],
+    { dim: 'a11y', reason: 'no human-facing text' }
+  ]
 );
 
 /** Exactly what Node throws for a failed `fs` call. */
 function fsError(code: string): Error {
-  return Object.assign(new Error(`${code}: something went wrong`), { code, errno: -1, syscall: 'open' });
+  return Object.assign(new Error(`${code}: something went wrong`), {
+    code,
+    errno: -1,
+    syscall: 'open'
+  });
 }
 
 describe('Scenario: behavior — isExpectedFsMiss', () => {
   it('accepts the codes a caller may legitimately turn into a fallback value', () => {
-    for (const code of ['ENOENT', 'ENOTDIR', 'EISDIR', 'EACCES', 'EPERM', 'ELOOP', 'ENAMETOOLONG']) {
+    for (const code of [
+      'ENOENT',
+      'ENOTDIR',
+      'EISDIR',
+      'EACCES',
+      'EPERM',
+      'ELOOP',
+      'ENAMETOOLONG'
+    ]) {
       expect(isExpectedFsMiss(fsError(code)), code).toBe(true);
     }
   });
@@ -52,7 +68,9 @@ describe('Scenario: behavior — isExpectedFsMiss', () => {
     expect(isExpectedFsMiss(new SyntaxError('bad JSON'))).toBe(false);
     expect(isExpectedFsMiss(new TypeError('cannot read properties of undefined'))).toBe(false);
     // A non-fs error carrying a `code` is still not an fs miss.
-    expect(isExpectedFsMiss(Object.assign(new Error('nope'), { code: 'ERR_INVALID_ARG_TYPE' }))).toBe(false);
+    expect(
+      isExpectedFsMiss(Object.assign(new Error('nope'), { code: 'ERR_INVALID_ARG_TYPE' }))
+    ).toBe(false);
   });
 
   it('never throws on a hostile value (it runs inside catch blocks)', () => {

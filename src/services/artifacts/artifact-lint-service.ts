@@ -81,7 +81,9 @@ function stripInlineCode(line: string): string {
   return line.replace(/`[^`]*`/g, '');
 }
 
-export async function lintRequestArtifact(options: LintArtifactOptions): Promise<ArtifactLintReport | null> {
+export async function lintRequestArtifact(
+  options: LintArtifactOptions
+): Promise<ArtifactLintReport | null> {
   const showOptions: Parameters<typeof showRequestArtifact>[0] = {
     projectRoot: options.projectRoot,
     role: options.role,

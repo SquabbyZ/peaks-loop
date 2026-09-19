@@ -1,17 +1,17 @@
-import type Database from "better-sqlite3";
+import type Database from 'better-sqlite3';
 import {
   LoopReleaseSchema,
   type LoopRelease,
   type LoopReleaseInput,
-  type LoopReleaseLifecycleStatus,
-} from "./loop-release-types.js";
+  type LoopReleaseLifecycleStatus
+} from './loop-release-types.js';
 import {
   ensureLoopReleaseTable,
   insertLoopRelease,
   getLoopRelease,
   listLoopReleasesByStatus,
-  searchLoopReleasesByScenario,
-} from "./loop-release-store.js";
+  searchLoopReleasesByScenario
+} from './loop-release-store.js';
 
 /**
  * Thin service wrapper around the loop_release store. M1 keeps the
@@ -62,7 +62,7 @@ export class LoopReleaseService {
    */
   list(opts: { status?: LoopReleaseLifecycleStatus } = {}): LoopRelease[] {
     if (opts.status) return listLoopReleasesByStatus(this.db, opts.status);
-    const all: LoopReleaseLifecycleStatus[] = ["candidate", "stable", "retired"];
+    const all: LoopReleaseLifecycleStatus[] = ['candidate', 'stable', 'retired'];
     const out: LoopRelease[] = [];
     for (const s of all) out.push(...listLoopReleasesByStatus(this.db, s));
     return out;
@@ -73,10 +73,7 @@ export class LoopReleaseService {
    * string (case-insensitive substring match via LIKE). Filter by
    * `status` to scope the search.
    */
-  search(opts: {
-    query: string;
-    status?: LoopReleaseLifecycleStatus;
-  }): LoopRelease[] {
+  search(opts: { query: string; status?: LoopReleaseLifecycleStatus }): LoopRelease[] {
     const hits = searchLoopReleasesByScenario(this.db, opts.query);
     if (!opts.status) return hits;
     return hits.filter((r) => r.lifecycle_status === opts.status);

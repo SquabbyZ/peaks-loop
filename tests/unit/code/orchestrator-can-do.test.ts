@@ -47,7 +47,7 @@ import {
   ORCHESTRATOR_REDLINE_RATIO,
   probeContextRatio,
   probeSubAgentAvailable,
-  type ContextProbe,
+  type ContextProbe
 } from '~/src/services/code/orchestrator-can-do';
 import { registerCodeOrchestratorCanDoCommand } from '~/src/cli/commands/code-orchestrator-can-do';
 // Case 4b pins the two faces of the 0.95 red line against each other.
@@ -57,10 +57,12 @@ import { Command } from 'commander';
 /** Repo root — the tree the un-injected probes must resolve their own CLI from. */
 const REPO_ROOT = resolve(__dirname, '..', '..', '..');
 
-declareDimensions(
-  'tests/unit/code/orchestrator-can-do.test.ts',
-  ['render', 'behavior', 'integration', 'a11y']
-);
+declareDimensions('tests/unit/code/orchestrator-can-do.test.ts', [
+  'render',
+  'behavior',
+  'integration',
+  'a11y'
+]);
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -129,7 +131,7 @@ describe('Scenario: render — Q1 hard-blocked-path family scan (slice 2026-08-0
       'tests/integration/',
       'config/',
       'bin/',
-      'scripts/',
+      'scripts/'
     ]);
   });
 });
@@ -143,14 +145,14 @@ describe('Scenario: behavior — buildOrchestratorCanDoResult verdict matrix', (
     const result = buildOrchestratorCanDoResult(
       {
         sliceSpec: 'modify src/services/foo.ts',
-        projectRoot: '.',
+        projectRoot: '.'
       },
       {
         q1SourceCodeTouched: true,
         q1HardBlockedPath: true,
         q2SubAgentAvailable: true,
         q3RequiresUserDecision: false,
-        q4ContextRatio: 0.5,
+        q4ContextRatio: 0.5
       }
     );
     expect(result.canDoInSession).toBe(false);
@@ -170,14 +172,14 @@ describe('Scenario: behavior — buildOrchestratorCanDoResult verdict matrix', (
     const result = buildOrchestratorCanDoResult(
       {
         sliceSpec: 'update docs/spec.md',
-        projectRoot: '.',
+        projectRoot: '.'
       },
       {
         q1SourceCodeTouched: false,
         q1HardBlockedPath: false,
         q2SubAgentAvailable: true,
         q3RequiresUserDecision: false,
-        q4ContextRatio: 0.5,
+        q4ContextRatio: 0.5
       }
     );
     expect(result.canDoInSession).toBe(true);
@@ -193,7 +195,7 @@ describe('Scenario: behavior — buildOrchestratorCanDoResult verdict matrix', (
         sliceSpec: '',
         projectRoot: '.',
         probeSubAgentAvailable: async () => true,
-        probeContextRatio: async () => ({ ratio: 0, source: 'unavailable' } satisfies ContextProbe),
+        probeContextRatio: async () => ({ ratio: 0, source: 'unavailable' }) satisfies ContextProbe
       })
     ).rejects.toBeInstanceOf(OrchestratorCanDoError);
   });
@@ -214,7 +216,7 @@ describe('Scenario: behavior — buildOrchestratorCanDoResult verdict matrix', (
         q1HardBlockedPath: false,
         q2SubAgentAvailable: true,
         q3RequiresUserDecision: false,
-        q4ContextRatio: 0.97,
+        q4ContextRatio: 0.97
       }
     );
     // nothing blocks: the context signal does not, because a context ratio
@@ -235,7 +237,7 @@ describe('Scenario: behavior — buildOrchestratorCanDoResult verdict matrix', (
         q1HardBlockedPath: false,
         q2SubAgentAvailable: true,
         q3RequiresUserDecision: false,
-        q4ContextRatio: 0.88,
+        q4ContextRatio: 0.88
       }
     );
     expect(result.canDoInSession).toBe(true);
@@ -256,7 +258,7 @@ describe('Scenario: behavior — buildOrchestratorCanDoResult verdict matrix', (
         q1HardBlockedPath: false,
         q2SubAgentAvailable: true,
         q3RequiresUserDecision: false,
-        q4ContextRatio: ratio,
+        q4ContextRatio: ratio
       }
     );
     // then: the trigger ASKS ("NOT blocked") and the probe does not claim
@@ -264,7 +266,8 @@ describe('Scenario: behavior — buildOrchestratorCanDoResult verdict matrix', (
     //       while the trigger answered "carry on" — one number, two verdicts.
     // (`if` rather than an assertion, so TS narrows the union and the wording
     //  below is read off the red-line variant rather than a widened one)
-    if (trigger.kind !== 'red-line') throw new Error(`expected the red line at ${ratio}, got ${trigger.kind}`);
+    if (trigger.kind !== 'red-line')
+      throw new Error(`expected the red line at ${ratio}, got ${trigger.kind}`);
     expect(trigger.message).toContain('NOT blocked');
     expect(probe.canDoInSession).toBe(true);
     expect(probe.blockers).toEqual([]);
@@ -278,7 +281,7 @@ describe('Scenario: behavior — buildOrchestratorCanDoResult verdict matrix', (
         q1HardBlockedPath: true,
         q2SubAgentAvailable: false,
         q3RequiresUserDecision: false,
-        q4ContextRatio: 0.5,
+        q4ContextRatio: 0.5
       }
     );
     expect(result.canDoInSession).toBe(false);
@@ -296,7 +299,7 @@ describe('Scenario: behavior — buildOrchestratorCanDoResult verdict matrix', (
         q1HardBlockedPath: false,
         q2SubAgentAvailable: true,
         q3RequiresUserDecision: true,
-        q4ContextRatio: 0.5,
+        q4ContextRatio: 0.5
       }
     );
     expect(result.canDoInSession).toBe(true);
@@ -320,7 +323,7 @@ describe('Scenario: integration — evaluateOrchestratorCanDo end-to-end with mo
       sliceSpec: 'update docs/spec.md',
       projectRoot: '.',
       probeSubAgentAvailable: async () => true,
-      probeContextRatio: async () => ({ ratio: 0.42, source: 'claude-code-env' }),
+      probeContextRatio: async () => ({ ratio: 0.42, source: 'claude-code-env' })
     });
     expect(result.canDoInSession).toBe(true);
     expect(result.q1SourceCodeTouched).toBe(false);
@@ -336,7 +339,7 @@ describe('Scenario: integration — evaluateOrchestratorCanDo end-to-end with mo
       sliceSpec: 'modify src/services/foo.ts',
       projectRoot: '.',
       probeSubAgentAvailable: async () => true,
-      probeContextRatio: async () => ({ ratio: 0.42, source: 'claude-code-env' }),
+      probeContextRatio: async () => ({ ratio: 0.42, source: 'claude-code-env' })
     });
     expect(result.canDoInSession).toBe(false);
     expect(result.q1HardBlockedPath).toBe(true);
@@ -349,7 +352,7 @@ describe('Scenario: integration — evaluateOrchestratorCanDo end-to-end with mo
       sliceSpec: 'modify src/services/foo.ts',
       projectRoot: '.',
       probeSubAgentAvailable: async () => false,
-      probeContextRatio: async () => ({ ratio: 0.42, source: 'claude-code-env' }),
+      probeContextRatio: async () => ({ ratio: 0.42, source: 'claude-code-env' })
     });
     expect(result.canDoInSession).toBe(false);
     expect(result.subAgentAvailable).toBe(false);
@@ -362,7 +365,7 @@ describe('Scenario: integration — evaluateOrchestratorCanDo end-to-end with mo
       sliceSpec: 'update docs/spec.md',
       projectRoot: '.',
       probeSubAgentAvailable: async () => true,
-      probeContextRatio: async () => ({ ratio: 0.91, source: 'transcript-estimate' }),
+      probeContextRatio: async () => ({ ratio: 0.91, source: 'transcript-estimate' })
     });
     // E3: the ratio is reported and warned about, but it is not a reason to
     // refuse a dispatch — peaks-loop cannot compact the session, so refusing
@@ -419,7 +422,7 @@ describe('Scenario: behavior — orchestrator-can-do end-to-end BDD for slice 20
       sliceSpec: 'modify src/services/foo.ts',
       projectRoot: '.',
       probeSubAgentAvailable: async () => true,
-      probeContextRatio: async () => ({ ratio: 0.4, source: 'claude-code-env' }),
+      probeContextRatio: async () => ({ ratio: 0.4, source: 'claude-code-env' })
     });
     expect(result.canDoInSession).toBe(false);
     expect(result.q1HardBlockedPath).toBe(true);
@@ -431,7 +434,7 @@ describe('Scenario: behavior — orchestrator-can-do end-to-end BDD for slice 20
       sliceSpec: 'add tests/unit/services/foo.test.ts',
       projectRoot: '.',
       probeSubAgentAvailable: async () => true,
-      probeContextRatio: async () => ({ ratio: 0.4, source: 'claude-code-env' }),
+      probeContextRatio: async () => ({ ratio: 0.4, source: 'claude-code-env' })
     });
     expect(result.canDoInSession).toBe(false);
     expect(result.q1HardBlockedPath).toBe(true);
@@ -442,7 +445,7 @@ describe('Scenario: behavior — orchestrator-can-do end-to-end BDD for slice 20
       sliceSpec: 'add tests/integration/foo.test.ts',
       projectRoot: '.',
       probeSubAgentAvailable: async () => true,
-      probeContextRatio: async () => ({ ratio: 0.4, source: 'claude-code-env' }),
+      probeContextRatio: async () => ({ ratio: 0.4, source: 'claude-code-env' })
     });
     expect(result.canDoInSession).toBe(false);
     expect(result.q1HardBlockedPath).toBe(true);
@@ -453,7 +456,7 @@ describe('Scenario: behavior — orchestrator-can-do end-to-end BDD for slice 20
       sliceSpec: 'update config/peaks.json',
       projectRoot: '.',
       probeSubAgentAvailable: async () => true,
-      probeContextRatio: async () => ({ ratio: 0.4, source: 'claude-code-env' }),
+      probeContextRatio: async () => ({ ratio: 0.4, source: 'claude-code-env' })
     });
     expect(result.canDoInSession).toBe(false);
     expect(result.q1HardBlockedPath).toBe(true);
@@ -464,7 +467,7 @@ describe('Scenario: behavior — orchestrator-can-do end-to-end BDD for slice 20
       sliceSpec: 'rewrite bin/peaks.js',
       projectRoot: '.',
       probeSubAgentAvailable: async () => true,
-      probeContextRatio: async () => ({ ratio: 0.4, source: 'claude-code-env' }),
+      probeContextRatio: async () => ({ ratio: 0.4, source: 'claude-code-env' })
     });
     expect(result.canDoInSession).toBe(false);
     expect(result.q1HardBlockedPath).toBe(true);
@@ -475,7 +478,7 @@ describe('Scenario: behavior — orchestrator-can-do end-to-end BDD for slice 20
       sliceSpec: 'update scripts/release.sh',
       projectRoot: '.',
       probeSubAgentAvailable: async () => true,
-      probeContextRatio: async () => ({ ratio: 0.4, source: 'claude-code-env' }),
+      probeContextRatio: async () => ({ ratio: 0.4, source: 'claude-code-env' })
     });
     expect(result.canDoInSession).toBe(false);
     expect(result.q1HardBlockedPath).toBe(true);
@@ -486,7 +489,7 @@ describe('Scenario: behavior — orchestrator-can-do end-to-end BDD for slice 20
       sliceSpec: 'sediment lesson to .peaks/memory/2026-08-06-codegate.md',
       projectRoot: '.',
       probeSubAgentAvailable: async () => true,
-      probeContextRatio: async () => ({ ratio: 0.4, source: 'claude-code-env' }),
+      probeContextRatio: async () => ({ ratio: 0.4, source: 'claude-code-env' })
     });
     expect(result.canDoInSession).toBe(true);
     expect(result.q1HardBlockedPath).toBe(false);
@@ -499,7 +502,7 @@ describe('Scenario: behavior — orchestrator-can-do end-to-end BDD for slice 20
       sliceSpec: 'update skills/peaks-code/SKILL.md',
       projectRoot: '.',
       probeSubAgentAvailable: async () => true,
-      probeContextRatio: async () => ({ ratio: 0.4, source: 'claude-code-env' }),
+      probeContextRatio: async () => ({ ratio: 0.4, source: 'claude-code-env' })
     });
     expect(result.canDoInSession).toBe(true);
     expect(result.q1HardBlockedPath).toBe(false);
@@ -550,7 +553,7 @@ describe('Scenario: render — CLI shim registers the orchestrator-can-do comman
         '--slice-spec',
         'modify src/services/foo.ts',
         '--peaks-bin',
-        'this-binary-does-not-exist-xyz-12345',
+        'this-binary-does-not-exist-xyz-12345'
       ]);
       expect(process.exitCode).toBe(1);
     } finally {

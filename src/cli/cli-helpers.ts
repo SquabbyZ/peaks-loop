@@ -1,7 +1,16 @@
 import { Command } from 'commander';
-import { fail, getErrorMessage, ok, redactSensitiveErrorMessage, type ResultEnvelope } from 'peaks-loop-shared/result';
+import {
+  fail,
+  getErrorMessage,
+  ok,
+  redactSensitiveErrorMessage,
+  type ResultEnvelope
+} from 'peaks-loop-shared/result';
 
-import type { ArtifactProvider, GuidedArtifactSetup } from '../services/artifacts/artifact-service.js';
+import type {
+  ArtifactProvider,
+  GuidedArtifactSetup
+} from '../services/artifacts/artifact-service.js';
 import type { ConfigLayer } from '../services/config/config-service.js';
 import type { RecommendationWorkflow } from '../services/recommendations/recommendation-service.js';
 
@@ -41,18 +50,20 @@ export function printResult<T>(io: ProgramIO, result: ResultEnvelope<T>, asJson 
 }
 
 export function printSuperCommandCatalog(io: ProgramIO): void {
-  io.stdout([
-    'Peaks super-command catalog',
-    'make — describe what to build or change',
-    'learn — describe a procedure, lesson, or memory to capture',
-    'check — describe a project, health, audit, or security target',
-    'run — describe a workflow, job, slice, or dispatch',
-    'share — hand off a sub-agent sharing operation',
-    'version — show the current Peaks version',
-    'ask — describe any natural-language question',
-    'status — show current workflow status',
-    'Choose a surface or describe your goal; the LLM coordinates the underlying operation.'
-  ].join('\n'));
+  io.stdout(
+    [
+      'Peaks super-command catalog',
+      'make — describe what to build or change',
+      'learn — describe a procedure, lesson, or memory to capture',
+      'check — describe a project, health, audit, or security target',
+      'run — describe a workflow, job, slice, or dispatch',
+      'share — hand off a sub-agent sharing operation',
+      'version — show the current Peaks version',
+      'ask — describe any natural-language question',
+      'status — show current workflow status',
+      'Choose a surface or describe your goal; the LLM coordinates the underlying operation.'
+    ].join('\n')
+  );
 }
 
 export function addJsonOption(command: Command): Command {
@@ -60,7 +71,13 @@ export function addJsonOption(command: Command): Command {
 }
 
 export function failUnsupportedNonDryRun(io: ProgramIO, command: string, asJson?: boolean): void {
-  printResult(io, fail(command, 'UNSUPPORTED_NON_DRY_RUN', 'Only dry-run planning is supported', {}, ['Rerun with --dry-run or omit --no-dry-run']), asJson);
+  printResult(
+    io,
+    fail(command, 'UNSUPPORTED_NON_DRY_RUN', 'Only dry-run planning is supported', {}, [
+      'Rerun with --dry-run or omit --no-dry-run'
+    ]),
+    asJson
+  );
   process.exitCode = 1;
 }
 
@@ -76,7 +93,11 @@ export function failUnsupportedNonDryRun(io: ProgramIO, command: string, asJson?
  *  Output format mirrors the existing `registerSedimentCommands` shim:
  *  a JSON envelope on stdout (one line, parseable), nothing else.
  */
-export interface CliEnvelope { ok: boolean; error?: string; data?: unknown }
+export interface CliEnvelope {
+  ok: boolean;
+  error?: string;
+  data?: unknown;
+}
 export function printCliEnvelope(io: ProgramIO, r: CliEnvelope): void {
   if (r.ok) {
     io.stdout(JSON.stringify({ ok: true, data: r.data ?? null }));
@@ -172,7 +193,11 @@ export function resolveInvokedCommandPath(program: Command, argv: readonly strin
  * required option asserted an envelope production no longer emits. Sharing the
  * builder is what makes the mirror incapable of lying.
  */
-export function printMissingRequiredOptionEnvelope(io: ProgramIO, invokedCommand: string, message: string): void {
+export function printMissingRequiredOptionEnvelope(
+  io: ProgramIO,
+  invokedCommand: string,
+  message: string
+): void {
   const option = /required option '([^']+)'/.exec(message)?.[1];
   printErrorEnvelope(
     io,
@@ -200,11 +225,15 @@ export function isArtifactProvider(value: string): value is ArtifactProvider {
 }
 
 export function isArtifactSetupStep(value: string): value is GuidedArtifactSetup['step'] {
-  return value === 'detect' || value === 'configure' || value === 'validate' || value === 'complete';
+  return (
+    value === 'detect' || value === 'configure' || value === 'validate' || value === 'complete'
+  );
 }
 
 export function isArtifactRepoSegment(value: string): boolean {
-  return /^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(value) && !value.includes('..') && !value.endsWith('.');
+  return (
+    /^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(value) && !value.includes('..') && !value.endsWith('.')
+  );
 }
 
 export function parseConfigLayer(value: string | undefined): ConfigLayer | undefined | null {
@@ -215,7 +244,13 @@ export function parseConfigLayer(value: string | undefined): ConfigLayer | undef
 }
 
 export function printInvalidConfigLayer(io: ProgramIO, command: string, asJson?: boolean): void {
-  printResult(io, fail(command, 'INVALID_CONFIG_LAYER', 'Config layer must be user or project', {}, ['Use --layer user or --layer project']), asJson);
+  printResult(
+    io,
+    fail(command, 'INVALID_CONFIG_LAYER', 'Config layer must be user or project', {}, [
+      'Use --layer user or --layer project'
+    ]),
+    asJson
+  );
   process.exitCode = 1;
 }
 

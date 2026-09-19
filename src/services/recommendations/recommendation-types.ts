@@ -1,5 +1,7 @@
-export type CapabilitySourceType = 'repo' | 'skills-package' | 'mcp-collection' | 'website' | 'local-install';
-export type CapabilityItemType = 'skill' | 'agent' | 'mcp' | 'rule' | 'hook' | 'template' | 'workflow' | 'doc' | 'cli';
+export type CapabilitySourceType =
+  'repo' | 'skills-package' | 'mcp-collection' | 'website' | 'local-install';
+export type CapabilityItemType =
+  'skill' | 'agent' | 'mcp' | 'rule' | 'hook' | 'template' | 'workflow' | 'doc' | 'cli';
 export type CapabilityAvailabilityStatus = 'available' | 'installable' | 'disabled' | 'unknown';
 export type RiskLevel = 'low' | 'medium' | 'high';
 export type CapabilitySourceGroup = 'access-repo' | 'mcp-server';

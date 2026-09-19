@@ -42,7 +42,7 @@ import type { ProgramIO } from '~/src/cli/cli-helpers';
 declareDimensions(
   'tests/unit/cli/commands/verdict-aggregate-missing-evidence.test.ts',
   ['render', 'behavior', 'integration'],
-  [{ dim: 'a11y', reason: 'the command emits a JSON envelope; no human-facing text is asserted' }],
+  [{ dim: 'a11y', reason: 'the command emits a JSON envelope; no human-facing text is asserted' }]
 );
 
 const SESSION_ID = '2026-09-14-session-repair01';
@@ -93,7 +93,17 @@ async function runAggregate(projectRoot: string): Promise<AggregateData> {
   const program = new Command();
   registerVerdictAggregateCommands(program, io);
   await program.parseAsync(
-    ['verdict', 'aggregate', '--from-rid', RID, '--sid', SESSION_ID, '--project', projectRoot, '--json'],
+    [
+      'verdict',
+      'aggregate',
+      '--from-rid',
+      RID,
+      '--sid',
+      SESSION_ID,
+      '--project',
+      projectRoot,
+      '--json'
+    ],
     { from: 'user' }
   );
   const envelope = JSON.parse(stdout.join('')) as { ok: boolean; data: AggregateData };
@@ -247,7 +257,17 @@ describe('(integration) the reader follows the writers to the rid-scoped paths',
     const program = new Command();
     registerVerdictAggregateCommands(program, io);
     await program.parseAsync(
-      ['verdict', 'aggregate', '--from-rid', '../../../../../../ONLY-HERE', '--sid', SESSION_ID, '--project', projectRoot, '--json'],
+      [
+        'verdict',
+        'aggregate',
+        '--from-rid',
+        '../../../../../../ONLY-HERE',
+        '--sid',
+        SESSION_ID,
+        '--project',
+        projectRoot,
+        '--json'
+      ],
       { from: 'user' }
     );
 
@@ -266,7 +286,17 @@ describe('(integration) the reader follows the writers to the rid-scoped paths',
     const program = new Command();
     registerVerdictAggregateCommands(program, io);
     await program.parseAsync(
-      ['verdict', 'aggregate', '--from-rid', RID, '--sid', '../../../../OUTSIDE', '--project', projectRoot, '--json'],
+      [
+        'verdict',
+        'aggregate',
+        '--from-rid',
+        RID,
+        '--sid',
+        '../../../../OUTSIDE',
+        '--project',
+        projectRoot,
+        '--json'
+      ],
       { from: 'user' }
     );
 
@@ -280,13 +310,23 @@ describe('(integration) the reader follows the writers to the rid-scoped paths',
     // given: this rid's security audit is a real violation, and a bare
     //        `audit/security.md` from another slice says everything is clean
     const projectRoot = makeProjectRoot();
-    writeSessionFile(projectRoot, `audit/security-${RID}.md`, JSON.stringify({
-      verdict: 'block',
-      violations: [
-        { dimension: 'injection', severity: 'CRITICAL', file: 'src/x.ts', line: 3, hint: 'unsanitised input' }
-      ],
-      summary: 'sibling-decoy control'
-    }));
+    writeSessionFile(
+      projectRoot,
+      `audit/security-${RID}.md`,
+      JSON.stringify({
+        verdict: 'block',
+        violations: [
+          {
+            dimension: 'injection',
+            severity: 'CRITICAL',
+            file: 'src/x.ts',
+            line: 3,
+            hint: 'unsanitised input'
+          }
+        ],
+        summary: 'sibling-decoy control'
+      })
+    );
     writeSessionFile(projectRoot, 'audit/security.md', PASS_AUDIT_JSON);
 
     // when: the aggregate runs

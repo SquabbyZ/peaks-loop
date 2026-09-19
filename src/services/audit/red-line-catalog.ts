@@ -27,47 +27,29 @@ export const RED_LINE_CATALOG: readonly RedLineCatalogEntry[] = [
     id: 'rl-code-ban-001',
     rule: 'Code Commit Ban',
     markers: ['BLOCKING', 'MANDATORY'],
-    phrases: [
-      'peaks-code',
-      'orchestrator, NOT an implementer',
-      'code',
-    ],
-    enforcerRef: 'src/services/audit/enforcers/code-ban.ts',
+    phrases: ['peaks-code', 'orchestrator, NOT an implementer', 'code'],
+    enforcerRef: 'src/services/audit/enforcers/code-ban.ts'
   },
   {
     id: 'rl-no-root-pollution-001',
     rule: 'No Root Pollution',
     markers: ['MANDATORY', 'MUST NOT', 'RED LINE'],
-    phrases: [
-      'root pollution',
-      'must not write to the project root',
-      'no root',
-    ],
-    enforcerRef: 'src/services/audit/enforcers/no-root-pollution.ts',
+    phrases: ['root pollution', 'must not write to the project root', 'no root'],
+    enforcerRef: 'src/services/audit/enforcers/no-root-pollution.ts'
   },
   {
     id: 'rl-sub-agent-sid-001',
     rule: 'Sub-Agent SID Isolation',
     markers: ['MANDATORY', 'BLOCKING'],
-    phrases: [
-      'sub-agent',
-      'session id',
-      'sub-agent session sharing',
-      'one conversation = one sid',
-    ],
-    enforcerRef: 'src/services/audit/enforcers/sub-agent-sid.ts',
+    phrases: ['sub-agent', 'session id', 'sub-agent session sharing', 'one conversation = one sid'],
+    enforcerRef: 'src/services/audit/enforcers/sub-agent-sid.ts'
   },
   {
     id: 'rl-mock-placement-001',
     rule: 'Mock Data Placement',
     markers: ['MUST NOT', 'MANDATORY'],
-    phrases: [
-      'mock data',
-      'mock placement',
-      'inline mock',
-      'fixture placement',
-    ],
-    enforcerRef: 'src/services/audit/enforcers/mock-placement.ts',
+    phrases: ['mock data', 'mock placement', 'inline mock', 'fixture placement'],
+    enforcerRef: 'src/services/audit/enforcers/mock-placement.ts'
   },
   // === Slice L2.2 P1 — 10 P1 red lines across 5 categories ===
   // Each catalog entry has a phrase that distinguishes it from P0; the
@@ -77,70 +59,76 @@ export const RED_LINE_CATALOG: readonly RedLineCatalogEntry[] = [
     rule: 'Resume Detection: Session Binding',
     markers: ['MANDATORY', 'BLOCKING'],
     phrases: ['resume detection', 'session binding', 'resume session', 'resume from'],
-    enforcerRef: 'src/services/audit/enforcers/resume-detection.ts',
+    enforcerRef: 'src/services/audit/enforcers/resume-detection.ts'
   },
   {
     id: 'rl-resume-detection-002',
     rule: 'Resume Detection: Request State',
     markers: ['MANDATORY', 'BLOCKING'],
     phrases: ['request state', 'resumable state', 'spec-locked', 'implemented', 'qa-handoff'],
-    enforcerRef: 'src/services/audit/enforcers/resume-detection.ts',
+    enforcerRef: 'src/services/audit/enforcers/resume-detection.ts'
   },
   {
     id: 'rl-prototype-fidelity-001',
     rule: 'Prototype Fidelity: No Stub Markers',
     markers: ['MUST NOT', 'MANDATORY'],
     phrases: ['prototype fidelity', 'no stub', 'no TODO', 'no FIXME', 'no placeholder'],
-    enforcerRef: 'src/services/audit/enforcers/prototype-fidelity.ts',
+    enforcerRef: 'src/services/audit/enforcers/prototype-fidelity.ts'
   },
   {
     id: 'rl-prototype-fidelity-002',
     rule: 'Prototype Fidelity: Test Coverage',
     markers: ['MANDATORY', 'RED LINE'],
     phrases: ['prototype test', 'must have tests', 'test coverage', 'fidelity test'],
-    enforcerRef: 'src/services/audit/enforcers/prototype-fidelity.ts',
+    enforcerRef: 'src/services/audit/enforcers/prototype-fidelity.ts'
   },
   {
     id: 'rl-design-draft-confirm-001',
     rule: 'Design-Draft Confirm: Existence',
     markers: ['MANDATORY', 'BLOCKING'],
     phrases: ['design-draft', 'design draft', 'design-draft.md', 'design draft exists'],
-    enforcerRef: 'src/services/audit/enforcers/design-draft-confirm.ts',
+    enforcerRef: 'src/services/audit/enforcers/design-draft-confirm.ts'
   },
   {
     id: 'rl-design-draft-confirm-002',
     rule: 'Design-Draft Confirm: Confirmed State',
     markers: ['MANDATORY', 'BLOCKING'],
     phrases: ['design confirmed', 'design-draft confirmed', 'confirmed-by-user', 'user confirmed'],
-    enforcerRef: 'src/services/audit/enforcers/design-draft-confirm.ts',
+    enforcerRef: 'src/services/audit/enforcers/design-draft-confirm.ts'
   },
   {
     id: 'rl-pre-rd-scan-001',
     rule: 'Pre-RD Scan: Archetype Detected',
     markers: ['MANDATORY', 'BLOCKING'],
     phrases: ['pre-rd scan', 'project-scan', 'archetype detected', 'scan archetype'],
-    enforcerRef: 'src/services/audit/enforcers/pre-rd-scan.ts',
+    enforcerRef: 'src/services/audit/enforcers/pre-rd-scan.ts'
   },
   {
     id: 'rl-pre-rd-scan-002',
     rule: 'Pre-RD Scan: Standards Preflight',
     markers: ['MANDATORY', 'BLOCKING'],
     phrases: ['standards preflight', 'pre-rd standards', 'standards init', 'standards update'],
-    enforcerRef: 'src/services/audit/enforcers/pre-rd-scan.ts',
+    enforcerRef: 'src/services/audit/enforcers/pre-rd-scan.ts'
   },
   {
     id: 'rl-login-gate-001',
     rule: 'Login Gate: Destructive Path Confirmation',
     markers: ['MANDATORY', 'BLOCKING', 'RED LINE'],
-    phrases: ['login gate', 'destructive path', 'uninstall', 'force-push', 'user confirmation required'],
-    enforcerRef: 'src/services/audit/enforcers/login-gate.ts',
+    phrases: [
+      'login gate',
+      'destructive path',
+      'uninstall',
+      'force-push',
+      'user confirmation required'
+    ],
+    enforcerRef: 'src/services/audit/enforcers/login-gate.ts'
   },
   {
     id: 'rl-login-gate-002',
     rule: 'Login Gate: Protected Path Auth',
     markers: ['MANDATORY', 'BLOCKING'],
     phrases: ['protected path', 'auth required', 'auth header', 'login required', 'session check'],
-    enforcerRef: 'src/services/audit/enforcers/login-gate.ts',
+    enforcerRef: 'src/services/audit/enforcers/login-gate.ts'
   },
   // Slice #6 L2.3 P2-a: 24 lint-style red-lines (Theme A: section
   // structure, B: frontmatter shape, C: output style, D: CLI-back
@@ -151,7 +139,7 @@ export const RED_LINE_CATALOG: readonly RedLineCatalogEntry[] = [
   // Slice #7 L2.4 P2-b: 25 lint-style red-lines for references/*.md
   // (Themes H-P) + 4 audit-regression enforcers (Theme L). Spread
   // from the P2-b module so future P2-b edits are localized.
-  ...RED_LINE_CATALOG_P2_B,
+  ...RED_LINE_CATALOG_P2_B
 ] as const;
 
 /**
@@ -195,7 +183,10 @@ export const DEFERRED_ENFORCERS: ReadonlySet<string> = new Set([]);
  * the catalog so future integration commits can re-tag them with a
  * single source-of-truth change.
  */
-export function findCatalogEntry(rule: string, _markers: readonly RedLineMarker[]): RedLineCatalogEntry | null {
+export function findCatalogEntry(
+  rule: string,
+  _markers: readonly RedLineMarker[]
+): RedLineCatalogEntry | null {
   const lower = rule.toLowerCase();
   for (const entry of RED_LINE_CATALOG) {
     const phraseHit = entry.phrases.some((p) => lower.includes(p.toLowerCase()));

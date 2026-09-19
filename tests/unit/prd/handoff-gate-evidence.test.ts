@@ -28,28 +28,28 @@ import { parse as parseYaml } from 'yaml';
 import { declareDimensions } from '../_setup/4dim-template.js';
 import {
   readHandoffGateEvidence,
-  type HandoffGateEvidenceResult,
+  type HandoffGateEvidenceResult
 } from '../../../src/services/prd/handoff-gate-evidence.js';
 import { serializeHandoffFrontmatter } from '../../../src/services/prd/handoff-frontmatter.js';
 import {
   initHandoff,
   readHandoff,
   verifyHandoff,
-  writeHandoff,
+  writeHandoff
 } from '../../../src/services/prd/handoff-service.js';
 import { autoRegenPrdHandoff } from '../../../src/services/prd/handoff-auto-regen.js';
 import { deriveGateEvidence } from '../../../src/services/prd/gate-evidence-derivation.js';
 import {
   GATE_EVIDENCE_KEYS,
   type GateEvidence,
-  type HandoffFrontmatter,
+  type HandoffFrontmatter
 } from '../../../src/services/prd/handoff-types.js';
 
 declareDimensions('tests/unit/prd/handoff-gate-evidence.test.ts', [
   'render',
   'behavior',
   'integration',
-  'a11y',
+  'a11y'
 ]);
 
 const SESSION_ID = '2026-09-17-session-b1';
@@ -62,7 +62,7 @@ const ALL_FIVE: GateEvidence = {
   prdHandoff: `.peaks/_runtime/${SESSION_ID}/prd/handoff-${REQUEST_ID}.md`,
   codeReview: `.peaks/_runtime/${SESSION_ID}/rd/code-review-${REQUEST_ID}.md`,
   securityReview: `.peaks/_runtime/${SESSION_ID}/audit/security-${REQUEST_ID}.md`,
-  perfBaseline: `.peaks/_runtime/${SESSION_ID}/audit/perf-${REQUEST_ID}.md`,
+  perfBaseline: `.peaks/_runtime/${SESSION_ID}/audit/perf-${REQUEST_ID}.md`
 };
 
 let tempRoots: string[] = [];
@@ -122,7 +122,7 @@ describe('(render) serializeHandoffFrontmatter renders the map, or nothing', () 
       goals: ['G1'],
       acceptanceCriteria: ['AC-1'],
       preservedBehavior: [],
-      ...(evidence === undefined ? {} : { gateEvidence: evidence }),
+      ...(evidence === undefined ? {} : { gateEvidence: evidence })
     });
     return handoff.frontmatter;
   }
@@ -141,7 +141,7 @@ describe('(render) serializeHandoffFrontmatter renders the map, or nothing', () 
 
   it('emits the five keys in canonical order, after every anchored field', () => {
     const lines = frontmatterBlockOf(serializeHandoffFrontmatter(frontmatterOf(ALL_FIVE))).split(
-      '\n',
+      '\n'
     );
     // The two scalars the gate and both audit loaders match as `^`-anchored
     // lines must stay ABOVE the new block — nothing may be inserted before
@@ -153,14 +153,14 @@ describe('(render) serializeHandoffFrontmatter renders the map, or nothing', () 
     }
     const blockStart = lines.indexOf('gateEvidence:');
     expect(lines.slice(blockStart + 1, blockStart + 1 + GATE_EVIDENCE_KEYS.length)).toEqual(
-      GATE_EVIDENCE_KEYS.map((key) => `  ${key}: ${JSON.stringify(ALL_FIVE[key] ?? '')}`),
+      GATE_EVIDENCE_KEYS.map((key) => `  ${key}: ${JSON.stringify(ALL_FIVE[key] ?? '')}`)
     );
   });
 
   it('round-trips through YAML: serialize → parse → the same map', () => {
     // Requirement 8, without touching the disk.
     const parsed = parseYaml(
-      frontmatterBlockOf(serializeHandoffFrontmatter(frontmatterOf(ALL_FIVE))),
+      frontmatterBlockOf(serializeHandoffFrontmatter(frontmatterOf(ALL_FIVE)))
     ) as Record<string, unknown>;
     expect(parsed['gateEvidence']).toEqual(ALL_FIVE);
   });
@@ -175,21 +175,19 @@ describe('(render) serializeHandoffFrontmatter renders the map, or nothing', () 
     // lives (one funnel, all three producers).
     const fromJson = JSON.parse('{"projectScans": "typo.md"}') as GateEvidence;
     expect(() => serializeHandoffFrontmatter(frontmatterOf(fromJson))).toThrow(
-      /unknown gateEvidence key\(s\) \[projectScans\]/,
+      /unknown gateEvidence key\(s\) \[projectScans\]/
     );
   });
 
   it('refuses a non-string evidence value', () => {
     const fromJson = JSON.parse('{"projectScan": 42}') as unknown as GateEvidence;
-    expect(() => serializeHandoffFrontmatter(frontmatterOf(fromJson))).toThrow(
-      /must be strings/,
-    );
+    expect(() => serializeHandoffFrontmatter(frontmatterOf(fromJson))).toThrow(/must be strings/);
   });
 
   it('quotes path scalars so a Windows backslash survives the YAML round trip', () => {
     const winPath = '.peaks\\_runtime\\project-scan.md';
     const parsed = parseYaml(
-      frontmatterBlockOf(serializeHandoffFrontmatter(frontmatterOf({ projectScan: winPath }))),
+      frontmatterBlockOf(serializeHandoffFrontmatter(frontmatterOf({ projectScan: winPath })))
     ) as Record<string, unknown>;
     expect(parsed['gateEvidence']).toEqual({ projectScan: winPath });
   });
@@ -209,18 +207,20 @@ describe('(behavior) readHandoffGateEvidence classifies each outcome distinctly'
   });
 
   it('reports `frontmatter-malformed` with the parser message when the YAML is broken', async () => {
-    const filePath = writeTempHandoff('---\nschemaVersion: 2\ngateEvidence: {unclosed\n---\n\n# Body\n');
+    const filePath = writeTempHandoff(
+      '---\nschemaVersion: 2\ngateEvidence: {unclosed\n---\n\n# Body\n'
+    );
     const result = await readHandoffGateEvidence(filePath);
     expect(result.status).toBe('frontmatter-malformed');
     expect(result.status === 'frontmatter-malformed' ? result.reason : '').toContain(
-      'yaml-parse-error',
+      'yaml-parse-error'
     );
   });
 
   it('reports `field-absent` (not an error) for a pre-B1 handoff', async () => {
     // Invariant 1: a capsule written before this field existed still parses.
     const filePath = writeTempHandoff(
-      '---\nschemaVersion: 2\nrequestId: r-1\nhandoffHash: abc\n---\n\n# Body\n',
+      '---\nschemaVersion: 2\nrequestId: r-1\nhandoffHash: abc\n---\n\n# Body\n'
     );
     const result = await readHandoffGateEvidence(filePath);
     expect(result).toEqual({ status: 'field-absent' });
@@ -230,11 +230,11 @@ describe('(behavior) readHandoffGateEvidence classifies each outcome distinctly'
     // The shape this file's own fixtures used to write. It is a broken
     // declaration now, not a claim — and it is not `null`.
     const filePath = writeTempHandoff(
-      handoffWithGateEvidenceBlock('gateEvidence: [audit/security-r.md]'),
+      handoffWithGateEvidenceBlock('gateEvidence: [audit/security-r.md]')
     );
     expect(await readHandoffGateEvidence(filePath)).toEqual({
       status: 'field-not-map',
-      actualType: 'array',
+      actualType: 'array'
     });
   });
 
@@ -244,7 +244,7 @@ describe('(behavior) readHandoffGateEvidence classifies each outcome distinctly'
     const filePath = writeTempHandoff(handoffWithGateEvidenceBlock('gateEvidence:'));
     expect(await readHandoffGateEvidence(filePath)).toEqual({
       status: 'field-not-map',
-      actualType: 'null',
+      actualType: 'null'
     });
   });
 
@@ -256,13 +256,13 @@ describe('(behavior) readHandoffGateEvidence classifies each outcome distinctly'
     const filePath = writeTempHandoff(
       handoffWithGateEvidenceBlock(
         ['gateEvidence:', '  projectScan: 42', '  codeReview: ok.md', '  perfBaseline: true'].join(
-          '\n',
-        ),
-      ),
+          '\n'
+        )
+      )
     );
     expect(await readHandoffGateEvidence(filePath)).toEqual({
       status: 'value-not-string',
-      keys: ['perfBaseline', 'projectScan'],
+      keys: ['perfBaseline', 'projectScan']
     });
   });
 
@@ -270,12 +270,12 @@ describe('(behavior) readHandoffGateEvidence classifies each outcome distinctly'
     // Requirement 3: a slice that ran two of five gates declares two.
     const filePath = writeTempHandoff(
       handoffWithGateEvidenceBlock(
-        ['gateEvidence:', '  projectScan: scan.md', '  perfBaseline: perf.md'].join('\n'),
-      ),
+        ['gateEvidence:', '  projectScan: scan.md', '  perfBaseline: perf.md'].join('\n')
+      )
     );
     expect(expectOk(await readHandoffGateEvidence(filePath)).evidence).toEqual({
       projectScan: 'scan.md',
-      perfBaseline: 'perf.md',
+      perfBaseline: 'perf.md'
     });
   });
 
@@ -291,7 +291,7 @@ describe('(behavior) readHandoffGateEvidence classifies each outcome distinctly'
       prdHandoff: 'prdHandoff.md',
       codeReview: 'codeReview.md',
       securityReview: 'securityReview.md',
-      perfBaseline: 'perfBaseline.md',
+      perfBaseline: 'perfBaseline.md'
     });
   });
 
@@ -314,7 +314,7 @@ describe('(behavior) readHandoffGateEvidence classifies each outcome distinctly'
     expect(await readHandoffGateEvidence(filePath)).toEqual({
       status: 'ok',
       evidence: {},
-      unknownKeys: [],
+      unknownKeys: []
     });
   });
 
@@ -322,7 +322,7 @@ describe('(behavior) readHandoffGateEvidence classifies each outcome distinctly'
     // A typo'd key is the reason a required gate reads as undeclared, so the
     // reader names it instead of silently ignoring it.
     const filePath = writeTempHandoff(
-      handoffWithGateEvidenceBlock(['gateEvidence:', '  projectScans: scan.md'].join('\n')),
+      handoffWithGateEvidenceBlock(['gateEvidence:', '  projectScans: scan.md'].join('\n'))
     );
     const result = expectOk(await readHandoffGateEvidence(filePath));
     expect(result.evidence).toEqual({});
@@ -340,7 +340,7 @@ describe('(integration) the producers and the reader agree end to end', () => {
       goals: ['G1'],
       acceptanceCriteria: ['AC-1'],
       preservedBehavior: [],
-      gateEvidence: evidence,
+      gateEvidence: evidence
     });
   }
 
@@ -376,7 +376,7 @@ describe('(integration) the producers and the reader agree end to end', () => {
       writtenAt: '2026-09-17T00:00:00.000Z',
       goals: [],
       acceptanceCriteria: [],
-      preservedBehavior: [],
+      preservedBehavior: []
     });
     const written = await writeHandoff(handoff, root);
     // Pre-B1 capsules are byte-identical: the reader says "declared nothing".
@@ -397,7 +397,7 @@ describe('(integration) the producers and the reader agree end to end', () => {
       projectRoot: root,
       sessionId: SESSION_ID,
       requestId: REQUEST_ID,
-      role: 'prd',
+      role: 'prd'
     });
     expect(regen.status).toBe('created');
     if (regen.status !== 'created') throw new Error('unreachable');
@@ -410,8 +410,8 @@ describe('(integration) the producers and the reader agree end to end', () => {
       deriveGateEvidence({
         sessionId: SESSION_ID,
         requestId: REQUEST_ID,
-        requestType: 'feature',
-      }),
+        requestType: 'feature'
+      })
     );
   });
 
@@ -426,7 +426,7 @@ describe('(integration) the producers and the reader agree end to end', () => {
       projectRoot: root,
       sessionId: SESSION_ID,
       requestId: REQUEST_ID,
-      role: 'prd',
+      role: 'prd'
     });
     expect(regen.status).toBe('skipped-exists');
     expect(expectOk(await readHandoffGateEvidence(written.path)).evidence).toEqual(ALL_FIVE);
@@ -453,7 +453,7 @@ describe('(integration) the two readers agree about the same bytes', () => {
       `handoffPath: prd/handoff-${REQUEST_ID}.md`,
       block,
       '---',
-      BODY,
+      BODY
     ].join('\n');
   }
 
@@ -461,14 +461,16 @@ describe('(integration) the two readers agree about the same bytes', () => {
     // F2 of `rid-b1-qa`: these were two shape predicates, so the same bytes
     // produced two different maps. One classifier now backs both.
     const filePath = writeTempHandoff(
-      fullHandoffWith(['gateEvidence:', '  projectScan: scan.md', '  perfBaseline: perf.md'].join('\n')),
+      fullHandoffWith(
+        ['gateEvidence:', '  projectScan: scan.md', '  perfBaseline: perf.md'].join('\n')
+      )
     );
     const viaReader = expectOk(await readHandoffGateEvidence(filePath));
     const viaHandoff = await readHandoff(filePath);
     expect(viaHandoff.frontmatter.gateEvidence).toEqual(viaReader.evidence);
     expect(viaHandoff.frontmatter.gateEvidence).toEqual({
       projectScan: 'scan.md',
-      perfBaseline: 'perf.md',
+      perfBaseline: 'perf.md'
     });
   });
 
@@ -477,7 +479,7 @@ describe('(integration) the two readers agree about the same bytes', () => {
     // YAML object made that a claim rather than a fact, and made the typed
     // field disagree with the reader for the same bytes.
     const filePath = writeTempHandoff(
-      fullHandoffWith(['gateEvidence:', '  projectScans: typo.md'].join('\n')),
+      fullHandoffWith(['gateEvidence:', '  projectScans: typo.md'].join('\n'))
     );
     const viaReader = expectOk(await readHandoffGateEvidence(filePath));
     const viaHandoff = await readHandoff(filePath);
@@ -504,10 +506,10 @@ describe('(a11y) the outcome names what is wrong to a human', () => {
     // The one property the pre-B1 reader could not express: both used to be
     // `null`, so a caller could not tell whether to proceed or to stop.
     const nothing = await readHandoffGateEvidence(
-      writeTempHandoff('---\nschemaVersion: 2\n---\n\n# Body\n'),
+      writeTempHandoff('---\nschemaVersion: 2\n---\n\n# Body\n')
     );
     const broken = await readHandoffGateEvidence(
-      writeTempHandoff(handoffWithGateEvidenceBlock('gateEvidence: [a.md]')),
+      writeTempHandoff(handoffWithGateEvidenceBlock('gateEvidence: [a.md]'))
     );
     // Pinning each to its own literal IS the distinction; an extra
     // `not.toBe` between them (removed, F4 of `rid-b1-qa`) could not fail
@@ -528,7 +530,9 @@ describe('(a11y) the outcome names what is wrong to a human', () => {
 
   it('names the offending keys in the failure, not just the count', async () => {
     const result = await readHandoffGateEvidence(
-      writeTempHandoff(handoffWithGateEvidenceBlock(['gateEvidence:', '  securityReview: 7'].join('\n'))),
+      writeTempHandoff(
+        handoffWithGateEvidenceBlock(['gateEvidence:', '  securityReview: 7'].join('\n'))
+      )
     );
     expect(result).toEqual({ status: 'value-not-string', keys: ['securityReview'] });
   });

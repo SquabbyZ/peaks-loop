@@ -1,4 +1,14 @@
-import { closeSync, constants, existsSync, mkdirSync, openSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs';
+import {
+  closeSync,
+  constants,
+  existsSync,
+  mkdirSync,
+  openSync,
+  readFileSync,
+  renameSync,
+  unlinkSync,
+  writeFileSync
+} from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
 import { homedir } from 'node:os';
@@ -123,7 +133,12 @@ function extractExistingCommand(settings: Record<string, unknown>): string | nul
   return null;
 }
 
-function buildPlan(scope: StatusLineScope, settingsPath: string, settings: Record<string, unknown>, exists: boolean): StatusLineSettingsPlan {
+function buildPlan(
+  scope: StatusLineScope,
+  settingsPath: string,
+  settings: Record<string, unknown>,
+  exists: boolean
+): StatusLineSettingsPlan {
   const existingCommand = extractExistingCommand(settings);
   const alreadyInstalled = existingCommand !== null && existingCommand.includes(STATUSLINE_COMMAND);
   const conflict = existingCommand !== null && !alreadyInstalled;
@@ -138,7 +153,11 @@ function buildPlan(scope: StatusLineScope, settingsPath: string, settings: Recor
   };
 }
 
-export function planStatusLineInstall(scope: StatusLineScope, projectRoot?: string, options?: StatusLineSettingsOptions): StatusLineSettingsPlan {
+export function planStatusLineInstall(
+  scope: StatusLineScope,
+  projectRoot?: string,
+  options?: StatusLineSettingsOptions
+): StatusLineSettingsPlan {
   const ide = resolveIde(options);
   const { settingsPath } = resolveAndAssertSettingsPath(scope, ide, projectRoot);
   const exists = existsSync(settingsPath);
@@ -150,7 +169,11 @@ function atomicWriteJson(settingsPath: string, settings: Record<string, unknown>
   const dir = dirname(settingsPath);
   mkdirSync(dir, { recursive: true });
   const tempPath = join(dir, `.settings.${randomUUID()}.tmp`);
-  const fd = openSync(tempPath, constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW, 0o600);
+  const fd = openSync(
+    tempPath,
+    constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW,
+    0o600
+  );
   try {
     writeFileSync(fd, `${JSON.stringify(settings, null, 2)}\n`, 'utf8');
   } finally {
@@ -161,14 +184,19 @@ function atomicWriteJson(settingsPath: string, settings: Record<string, unknown>
   } catch (error) {
     try {
       unlinkSync(tempPath);
-    } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+    } catch {
+      // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
       // best effort cleanup
     }
     throw error;
   }
 }
 
-export function applyStatusLineInstall(scope: StatusLineScope, projectRoot?: string, options: { force?: boolean; ide?: IdeId } = {}): StatusLineSettingsResult {
+export function applyStatusLineInstall(
+  scope: StatusLineScope,
+  projectRoot?: string,
+  options: { force?: boolean; ide?: IdeId } = {}
+): StatusLineSettingsResult {
   const ide = resolveIde(options);
   const { settingsPath } = resolveAndAssertSettingsPath(scope, ide, projectRoot);
   const exists = existsSync(settingsPath);
@@ -188,7 +216,11 @@ export function applyStatusLineInstall(scope: StatusLineScope, projectRoot?: str
   return { ...plan, applied: true };
 }
 
-export function removeStatusLineInstall(scope: StatusLineScope, projectRoot?: string, options?: StatusLineSettingsOptions): { scope: StatusLineScope; settingsPath: string; removed: boolean } {
+export function removeStatusLineInstall(
+  scope: StatusLineScope,
+  projectRoot?: string,
+  options?: StatusLineSettingsOptions
+): { scope: StatusLineScope; settingsPath: string; removed: boolean } {
   const ide = resolveIde(options);
   const { settingsPath } = resolveAndAssertSettingsPath(scope, ide, projectRoot);
   if (!existsSync(settingsPath)) {

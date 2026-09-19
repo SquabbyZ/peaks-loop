@@ -32,12 +32,16 @@ vi.mock('../../../../src/services/lint/npx-resolver.js', () => ({
 }));
 
 const { spawnSync } = await import('node:child_process');
-const { detectOcr18, NPX_PROBE_UNRESOLVED_CODE } = await import('../../../../src/services/lint/detect-ocr-18.js');
+const { detectOcr18, NPX_PROBE_UNRESOLVED_CODE } =
+  await import('../../../../src/services/lint/detect-ocr-18.js');
 const { OCR_18_PACKAGE } = await import('../../../../src/services/lint/ocr-multilang-adapter.js');
 
 const childMock = { spawnSync } as unknown as { spawnSync: ReturnType<typeof vi.fn> };
 
-const RESOLVED = { command: process.execPath, args: ['/fake/npm/bin/npx-cli.js'] as readonly string[] };
+const RESOLVED = {
+  command: process.execPath,
+  args: ['/fake/npm/bin/npx-cli.js'] as readonly string[]
+};
 const FALLBACK = { command: 'npx', args: [] as readonly string[] };
 
 type SpawnResult = {
@@ -56,7 +60,11 @@ function queueSpawnSequence(results: SpawnResult[]): void {
 }
 
 function enoent(message: string): SpawnResult {
-  return { status: null, stdout: '', error: Object.assign(new Error(message), { code: 'ENOENT' } as NodeJS.ErrnoException) };
+  return {
+    status: null,
+    stdout: '',
+    error: Object.assign(new Error(message), { code: 'ENOENT' } as NodeJS.ErrnoException)
+  };
 }
 
 /**

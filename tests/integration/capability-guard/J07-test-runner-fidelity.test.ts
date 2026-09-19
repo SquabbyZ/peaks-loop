@@ -12,7 +12,12 @@ const JOURNEY = 'J07' as const;
 describe('J07 test-runner-fidelity contract', () => {
   it('never serves a cache hit for an unverified test file', async () => {
     const contract = getGuardContract(JOURNEY)!;
-    const r = await runGuard(contract, { projectRoot: REPO, sessionId: JOURNEY, contract, baselineInvariant: 'auto' });
+    const r = await runGuard(contract, {
+      projectRoot: REPO,
+      sessionId: JOURNEY,
+      contract,
+      baselineInvariant: 'auto'
+    });
     expect(r.status).toBe('pass');
   }, 300_000);
 });

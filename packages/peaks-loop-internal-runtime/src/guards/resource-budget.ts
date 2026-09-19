@@ -1,6 +1,13 @@
-export interface Sample { rssMb: number; cpuPct: number; }
-export interface EnforceInput { active: number; }
-export interface EnforceOpts { maxConcurrent: number; }
+export interface Sample {
+  rssMb: number;
+  cpuPct: number;
+}
+export interface EnforceInput {
+  active: number;
+}
+export interface EnforceOpts {
+  maxConcurrent: number;
+}
 
 export class ResourceBudgetGuard {
   constructor(private readonly cfg: { maxRssMb: number; maxCpuPct: number }) {}

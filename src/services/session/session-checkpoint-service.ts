@@ -10,7 +10,15 @@
  * that knows when context pressure is high; the CLI is the muscle.
  */
 
-import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  statSync,
+  writeFileSync
+} from 'node:fs';
 import { join, sep } from 'node:path';
 import { emitObservabilityEvent } from '../observability/observability-service.js';
 import { isUnsafePathInput } from '../../shared/path-safety.js';
@@ -20,11 +28,7 @@ const CHECKPOINT_FILENAME_EXT = '.json';
 const MAX_CHECKPOINTS = 10;
 
 export type CheckpointReason =
-  | 'context-fill'
-  | 'periodic'
-  | 'artifact-written'
-  | 'user-pause'
-  | 'user-close';
+  'context-fill' | 'periodic' | 'artifact-written' | 'user-pause' | 'user-close';
 
 export const CHECKPOINT_REASONS: readonly CheckpointReason[] = [
   'context-fill',
@@ -170,19 +174,22 @@ export function writeCheckpoint(
 
   // Slice C of v2.11.1 — observability hook #3/7. Fire-and-forget
   // per PRD Q4. The synchronous emit never throws.
-  emitObservabilityEvent({
-    schemaVersion: 1,
-    ts: snapshot.createdAt,
-    sessionId: snapshot.sessionId,
-    category: 'checkpoint',
-    detail: {
-      reason: snapshot.reason,
-      checkpointPath: toPosix(path),
-      currentPlanLength: snapshot.currentPlan.length,
-      openQuestionsCount: snapshot.openQuestions.length,
-      recentDecisionsCount: snapshot.recentDecisions.length
-    }
-  }, { projectRoot });
+  emitObservabilityEvent(
+    {
+      schemaVersion: 1,
+      ts: snapshot.createdAt,
+      sessionId: snapshot.sessionId,
+      category: 'checkpoint',
+      detail: {
+        reason: snapshot.reason,
+        checkpointPath: toPosix(path),
+        currentPlanLength: snapshot.currentPlan.length,
+        openQuestionsCount: snapshot.openQuestions.length,
+        recentDecisionsCount: snapshot.recentDecisions.length
+      }
+    },
+    { projectRoot }
+  );
 
   const pruned = pruneOldest(dir);
   const totalRetained = listCheckpoints(dir).length;
@@ -210,7 +217,7 @@ export function listCheckpointPaths(projectRoot: string, sessionId: string): str
 
 export function latestCheckpointPath(projectRoot: string, sessionId: string): string | null {
   const paths = listCheckpointPaths(projectRoot, sessionId);
-  return paths.length > 0 ? paths[0] ?? null : null;
+  return paths.length > 0 ? (paths[0] ?? null) : null;
 }
 
 export const CHECKPOINT_CONSTANTS = {

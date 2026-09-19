@@ -11,12 +11,7 @@
  * WAITING_USER — proposal §1 T3/T4 exception).
  */
 
-import {
-  B3_THRESHOLD,
-  isDecisionKey,
-  type DecisionKey,
-  type State
-} from './state.js';
+import { B3_THRESHOLD, isDecisionKey, type DecisionKey, type State } from './state.js';
 import { resolveAutoCompactProfile } from '../mode/mode-status-service.js';
 import type { AutoCompactMode } from '../code/auto-compact-modes.js';
 
@@ -173,7 +168,11 @@ export function checkTriggers(input: {
  *   - all-trigger-resolved
  *   - B3 unresolvable (B3Escalation that the user dismisses)
  */
-export const HANDOFF_EXIT_CONDITIONS = ['user_abort', 'all_triggers_resolved', 'b3_unresolvable'] as const;
+export const HANDOFF_EXIT_CONDITIONS = [
+  'user_abort',
+  'all_triggers_resolved',
+  'b3_unresolvable'
+] as const;
 export type HandoffExitCondition = (typeof HANDOFF_EXIT_CONDITIONS)[number];
 
 export function isHandoffExitCondition(s: string): s is HandoffExitCondition {

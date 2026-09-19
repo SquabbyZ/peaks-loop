@@ -12,7 +12,11 @@
 import { Command } from 'commander';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { aggregateVerdict, type VerdictReason, type VerdictSource } from '../../services/verdict/verdict-aggregator.js';
+import {
+  aggregateVerdict,
+  type VerdictReason,
+  type VerdictSource
+} from '../../services/verdict/verdict-aggregator.js';
 import {
   parseKarpathyEnvelope,
   parseMutEnvelope,
@@ -87,12 +91,16 @@ const REQUIRED_SOURCES: ReadonlyArray<{
 ];
 
 export function registerVerdictAggregateCommands(program: Command, io: ProgramIO): void {
-  const verdict = program.command('verdict').description('Aggregate the 5 envelope sources feeding peaks-code verdict logic');
+  const verdict = program
+    .command('verdict')
+    .description('Aggregate the 5 envelope sources feeding peaks-code verdict logic');
 
   addJsonOption(
     verdict
       .command('aggregate')
-      .description('Aggregate 5 envelope sources (security / perf / karpathy / mut / qa) and print the verdict + reasons JSON envelope. Used by peaks-code and peaks-final-review.')
+      .description(
+        'Aggregate 5 envelope sources (security / perf / karpathy / mut / qa) and print the verdict + reasons JSON envelope. Used by peaks-code and peaks-final-review.'
+      )
       .requiredOption('--from-rid <rid>', 'request id, e.g. 2026-06-27-...')
       .option('--sid <sid>', 'session id, e.g. 2026-06-27-session-...; default: project default')
       .option('--project <path>', 'project root (default: cwd)')
@@ -101,7 +109,13 @@ export function registerVerdictAggregateCommands(program: Command, io: ProgramIO
     const sid = options.sid ?? 'default';
     const rid = options.fromRid;
     if (rid === undefined || rid.length === 0) {
-      printResult(io, fail('verdict.aggregate', 'RID_REQUIRED', '--from-rid is required', {}, ['Re-run with --from-rid <rid>']), options.json);
+      printResult(
+        io,
+        fail('verdict.aggregate', 'RID_REQUIRED', '--from-rid is required', {}, [
+          'Re-run with --from-rid <rid>'
+        ]),
+        options.json
+      );
       process.exitCode = 1;
       return;
     }
@@ -115,7 +129,15 @@ export function registerVerdictAggregateCommands(program: Command, io: ProgramIO
     if (!REQUEST_ID_PATTERN.test(rid)) {
       printResult(
         io,
-        fail('verdict.aggregate', 'RID_INVALID', `Invalid request id: ${rid} (expected letters, digits, dots, underscores, or dashes)`, {}, ['Pass the rid of the slice whose evidence you want aggregated, e.g. 2026-09-14-some-slug']),
+        fail(
+          'verdict.aggregate',
+          'RID_INVALID',
+          `Invalid request id: ${rid} (expected letters, digits, dots, underscores, or dashes)`,
+          {},
+          [
+            'Pass the rid of the slice whose evidence you want aggregated, e.g. 2026-09-14-some-slug'
+          ]
+        ),
         options.json
       );
       process.exitCode = 1;
@@ -128,7 +150,13 @@ export function registerVerdictAggregateCommands(program: Command, io: ProgramIO
     if (isUnsafePathInput(sid)) {
       printResult(
         io,
-        fail('verdict.aggregate', 'SID_INVALID', `Invalid session id: ${sid} (must be a single path segment)`, {}, ['Pass the session id, e.g. 2026-09-14-session-abc123']),
+        fail(
+          'verdict.aggregate',
+          'SID_INVALID',
+          `Invalid session id: ${sid} (must be a single path segment)`,
+          {},
+          ['Pass the session id, e.g. 2026-09-14-session-abc123']
+        ),
         options.json
       );
       process.exitCode = 1;
@@ -151,9 +179,13 @@ export function registerVerdictAggregateCommands(program: Command, io: ProgramIO
         qa: readQa(projectRoot, sid, rid)
       };
       const input = envelopesToAggregatorInput([
-        sources.security !== null ? { kind: 'security' as const, envelope: sources.security } : null,
+        sources.security !== null
+          ? { kind: 'security' as const, envelope: sources.security }
+          : null,
         sources.perf !== null ? { kind: 'perf' as const, envelope: sources.perf } : null,
-        sources.karpathy !== null ? { kind: 'karpathy' as const, envelope: sources.karpathy } : null,
+        sources.karpathy !== null
+          ? { kind: 'karpathy' as const, envelope: sources.karpathy }
+          : null,
         sources.mut !== null ? { kind: 'mut' as const, envelope: sources.mut } : null,
         sources.qa !== null ? { kind: 'qa' as const, envelope: sources.qa } : null
       ]);
@@ -196,7 +228,13 @@ export function registerVerdictAggregateCommands(program: Command, io: ProgramIO
       );
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
-      printResult(io, fail('verdict.aggregate', 'AGGREGATE_FAILED', message, {}, ['Verify the rid/sid/project are correct']), options.json);
+      printResult(
+        io,
+        fail('verdict.aggregate', 'AGGREGATE_FAILED', message, {}, [
+          'Verify the rid/sid/project are correct'
+        ]),
+        options.json
+      );
       process.exitCode = 1;
     }
   });
@@ -228,7 +266,8 @@ async function readMut(projectRoot: string, sid: string): Promise<ReturnType<typ
   let json: unknown;
   try {
     json = JSON.parse(raw);
-  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+  } catch {
+    // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     return null;
   }
   return parseMutJson(json);

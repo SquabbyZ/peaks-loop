@@ -1,4 +1,14 @@
-import { closeSync, constants, existsSync, mkdirSync, openSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs';
+import {
+  closeSync,
+  constants,
+  existsSync,
+  mkdirSync,
+  openSync,
+  readFileSync,
+  renameSync,
+  unlinkSync,
+  writeFileSync
+} from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import { dirname, join } from 'node:path';
 
@@ -38,7 +48,11 @@ export function atomicWriteJson(filePath: string, value: unknown): void {
   const dir = dirname(filePath);
   mkdirSync(dir, { recursive: true });
   const tempPath = join(dir, `.settings.${randomUUID()}.tmp`);
-  const fd = openSync(tempPath, constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW, ATOMIC_JSON_FILE_MODE);
+  const fd = openSync(
+    tempPath,
+    constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW,
+    ATOMIC_JSON_FILE_MODE
+  );
   try {
     writeFileSync(fd, `${JSON.stringify(value, null, 2)}\n`, 'utf8');
   } finally {
@@ -49,7 +63,8 @@ export function atomicWriteJson(filePath: string, value: unknown): void {
   } catch (error) {
     try {
       unlinkSync(tempPath);
-    } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+    } catch {
+      // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
       // best effort cleanup
     }
     throw error;

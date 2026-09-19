@@ -9,22 +9,26 @@
  * argument. Same-project GC lives here (RD §3 D3).
  */
 
-import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  renameSync,
+  writeFileSync
+} from 'node:fs';
 import { dirname, join, resolve, sep } from 'node:path';
 import {
   type SkillPresenceLease,
   type PresenceIndex,
   type PresenceProjection,
-  type GcResult,
+  type GcResult
 } from './presence-lease-types.js';
-import {
-  WORKFLOW_ID_REGEX,
-  type TerminalReason,
-} from '../workflow/workflow-graph-types.js';
+import { WORKFLOW_ID_REGEX, type TerminalReason } from '../workflow/workflow-graph-types.js';
 import {
   PEAKS_SESSION_NOT_BOUND,
   PEAKS_CALLER_NOT_RESOLVED,
-  PEAKS_GRAPH_REF_BROKEN,
+  PEAKS_GRAPH_REF_BROKEN
 } from '../workflow/workflow-graph-store.js';
 
 export interface PresenceError extends Error {
@@ -38,7 +42,7 @@ function presenceError(code: string, message: string): PresenceError {
   return err;
 }
 
-export const STALE_HEARTBEAT_MS = 60 * 60 * 1000;        // 1h
+export const STALE_HEARTBEAT_MS = 60 * 60 * 1000; // 1h
 export const STALE_STARTED_AFTER_MS = 24 * 60 * 60 * 1000 + 30 * 60 * 1000; // 24h30m (RD §3 calls for >24h; the +30m buffer disambiguates leases that started in the 24-25h window so only leases older than 24h30m are GC'd)
 
 /** Validate `callerId` shape. Returns trimmed value or throws. */
@@ -98,10 +102,18 @@ export function migrationsDir(projectRoot: string, sessionId: string): string {
 }
 
 /** Resolve the lease file path for a (callerId, workflowId) pair. */
-function leaseFilePath(projectRoot: string, sessionId: string, callerId: string, workflowId: string): string {
+function leaseFilePath(
+  projectRoot: string,
+  sessionId: string,
+  callerId: string,
+  workflowId: string
+): string {
   const safeCaller = callerId.replace(/[^a-zA-Z0-9._-]/g, '_');
   const safeWorkflow = workflowId.replace(/[^a-zA-Z0-9._-]/g, '_');
-  const path = join(leaseDir(projectRoot, sessionId), `presence-${safeCaller}-${safeWorkflow}.json`);
+  const path = join(
+    leaseDir(projectRoot, sessionId),
+    `presence-${safeCaller}-${safeWorkflow}.json`
+  );
   const root = sessionRuntimeRoot(projectRoot, sessionId);
   if (!path.startsWith(root + sep) && path !== root) {
     throw presenceError(PEAKS_GRAPH_REF_BROKEN, `lease path escapes session root: ${path}`);
@@ -207,7 +219,10 @@ export function setPresenceLease(input: SetPresenceLeaseInput): SetPresenceLease
   const graphRef = input.graphRef;
   // Validate graphRef shape before any filesystem writes (D4a).
   if (graphRef !== `graphs/${workflowId}.json`) {
-    throw presenceError(PEAKS_GRAPH_REF_BROKEN, `graphRef ${graphRef} does not match workflowId ${workflowId}`);
+    throw presenceError(
+      PEAKS_GRAPH_REF_BROKEN,
+      `graphRef ${graphRef} does not match workflowId ${workflowId}`
+    );
   }
 
   const now = input.now ?? new Date().toISOString();
@@ -217,7 +232,7 @@ export function setPresenceLease(input: SetPresenceLeaseInput): SetPresenceLease
     projectRoot: input.projectRoot,
     now,
     leases: input.staleLeases ?? [],
-    trigger: 'presence-set',
+    trigger: 'presence-set'
   });
 
   const lease: SkillPresenceLease = {
@@ -231,7 +246,7 @@ export function setPresenceLease(input: SetPresenceLeaseInput): SetPresenceLease
     startedAt: now,
     lastHeartbeat: now,
     status: 'preparing',
-    schemaVersion: 1,
+    schemaVersion: 1
   };
 
   const leasePath = leaseFilePath(input.projectRoot, sessionId, callerId, workflowId);
@@ -244,7 +259,7 @@ export function setPresenceLease(input: SetPresenceLeaseInput): SetPresenceLease
     workflowId,
     graphRef,
     updatedAt: now,
-    schemaVersion: 1,
+    schemaVersion: 1
   };
   const indexPath = callerIndexPath(input.projectRoot, sessionId, callerId);
   writeAtomic(indexPath, JSON.stringify(index, null, 2));
@@ -259,7 +274,7 @@ export function setPresenceLease(input: SetPresenceLeaseInput): SetPresenceLease
     ...lease,
     lease,
     index,
-    gc,
+    gc
   } as SetPresenceLeaseResult & SkillPresenceLease;
 }
 
@@ -298,14 +313,20 @@ export function readPresenceLease(input: ReadPresenceLeaseInput): PresenceProjec
   const callerId = validateCallerId(input.callerId);
   const workflowId = validateWorkflowId(input.workflowId);
   if (input.graphRef !== `graphs/${workflowId}.json`) {
-    throw presenceError(PEAKS_GRAPH_REF_BROKEN, `graphRef ${input.graphRef} does not match workflowId ${workflowId}`);
+    throw presenceError(
+      PEAKS_GRAPH_REF_BROKEN,
+      `graphRef ${input.graphRef} does not match workflowId ${workflowId}`
+    );
   }
   const leasePath = leaseFilePath(input.projectRoot, sessionId, callerId, workflowId);
   const lease = readJsonStrict<SkillPresenceLease>(leasePath, PEAKS_GRAPH_REF_BROKEN);
   // Verify graphRef inside the lease matches the one we requested. If not,
   // fail closed — the lease is pointing at a different workflow.
   if (lease.workflowId !== workflowId || lease.graphRef !== input.graphRef) {
-    throw presenceError(PEAKS_GRAPH_REF_BROKEN, `lease graphRef/workflowId mismatch (lease.wf=${lease.workflowId} req=${workflowId})`);
+    throw presenceError(
+      PEAKS_GRAPH_REF_BROKEN,
+      `lease graphRef/workflowId mismatch (lease.wf=${lease.workflowId} req=${workflowId})`
+    );
   }
   // Graph file existence is OPTIONAL on the read path: the lease is the
   // source of truth for the lease lifecycle, and the graph store separately
@@ -346,7 +367,7 @@ export function readPresenceLease(input: ReadPresenceLeaseInput): PresenceProjec
     sessionId,
     skill: lease.skill,
     setAt: lease.startedAt,
-    lastHeartbeat: lease.lastHeartbeat,
+    lastHeartbeat: lease.lastHeartbeat
   } as PresenceProjection & SkillPresenceLease;
 }
 
@@ -358,7 +379,10 @@ export function markPresenceLost(input: MarkPresenceLostInput): SkillPresenceLea
     throw presenceError(PEAKS_GRAPH_REF_BROKEN, `graphRef mismatch in markPresenceLost`);
   }
   if (input.expectedCallerId !== undefined && input.expectedCallerId !== callerId) {
-    throw presenceError(PEAKS_CALLER_NOT_RESOLVED, `callerId ${callerId} != expected ${input.expectedCallerId}`);
+    throw presenceError(
+      PEAKS_CALLER_NOT_RESOLVED,
+      `callerId ${callerId} != expected ${input.expectedCallerId}`
+    );
   }
   const leasePath = leaseFilePath(input.projectRoot, sessionId, callerId, workflowId);
   if (!existsSync(leasePath)) {
@@ -374,14 +398,17 @@ export function markPresenceLost(input: MarkPresenceLostInput): SkillPresenceLea
   const targetStatus: 'terminalized' | 'lost' =
     input.reason === 'success' || input.reason === 'aborted' ? 'terminalized' : 'lost';
   if (targetStatus === 'terminalized' && input.reason !== 'success') {
-    throw presenceError('PEAKS_TERMINAL_REASON_INVALID', `terminalized requires success; got ${input.reason}`);
+    throw presenceError(
+      'PEAKS_TERMINAL_REASON_INVALID',
+      `terminalized requires success; got ${input.reason}`
+    );
   }
   const next: SkillPresenceLease = {
     ...existing,
     status: targetStatus,
     terminalAt: now,
     terminalReason: input.reason,
-    lastHeartbeat: now,
+    lastHeartbeat: now
   };
   writeAtomic(leasePath, JSON.stringify(next, null, 2));
   // Caller index only cleared when terminal reason is success or aborted
@@ -394,16 +421,25 @@ export function markPresenceLost(input: MarkPresenceLostInput): SkillPresenceLea
         const idx = readJsonStrict<PresenceIndex>(indexPath, PEAKS_GRAPH_REF_BROKEN);
         if (idx.workflowId === workflowId && idx.callerId === callerId) {
           // Clear by writing a tombstone with an empty leaseRef.
-          writeAtomic(indexPath, JSON.stringify({
-            ...idx,
-            leaseRef: '',
-            workflowId: '',
-            graphRef: '',
-            updatedAt: now,
-          } satisfies PresenceIndex, null, 2));
+          writeAtomic(
+            indexPath,
+            JSON.stringify(
+              {
+                ...idx,
+                leaseRef: '',
+                workflowId: '',
+                graphRef: '',
+                updatedAt: now
+              } satisfies PresenceIndex,
+              null,
+              2
+            )
+          );
         }
       }
-    } catch { /* swallow — best-effort tombstone */ }
+    } catch {
+      /* swallow — best-effort tombstone */
+    }
   }
   return next;
 }
@@ -420,17 +456,25 @@ export function gcStalePresenceLeases(input: GcPresenceLeasesInput): GcResult {
   for (const lease of leases) {
     const lastHeartbeatMs = new Date(lease.lastHeartbeat).getTime();
     const startedAtMs = new Date(lease.startedAt).getTime();
-    const heartbeatStale = Number.isFinite(lastHeartbeatMs) && (now - lastHeartbeatMs) > STALE_HEARTBEAT_MS;
-    const startedStale = Number.isFinite(startedAtMs) && (now - startedAtMs) > STALE_STARTED_AFTER_MS;
+    const heartbeatStale =
+      Number.isFinite(lastHeartbeatMs) && now - lastHeartbeatMs > STALE_HEARTBEAT_MS;
+    const startedStale = Number.isFinite(startedAtMs) && now - startedAtMs > STALE_STARTED_AFTER_MS;
     if (heartbeatStale && startedStale) {
       // Verify graphRef exists before removing; missing graph is a typed
       // warning, not a silent removal.
-      const graphPath = join(sessionRuntimeRoot(input.projectRoot, lease.workflowId), lease.graphRef);
+      const graphPath = join(
+        sessionRuntimeRoot(input.projectRoot, lease.workflowId),
+        lease.graphRef
+      );
       // For test seams, `lease.workflowId` may not match a real session; we
       // skip the existsSync check when the lease points at a non-canonical
       // path (the test seam is responsible for surfacing its own warning).
       if (lease.graphRef === 'graphs/missing.json') {
-        warnings.push({ code: PEAKS_GRAPH_REF_BROKEN, leaseRef: lease.graphRef, message: 'graph file missing' });
+        warnings.push({
+          code: PEAKS_GRAPH_REF_BROKEN,
+          leaseRef: lease.graphRef,
+          message: 'graph file missing'
+        });
         retained += 1;
         continue;
       }
@@ -445,7 +489,7 @@ export function gcStalePresenceLeases(input: GcPresenceLeasesInput): GcResult {
     trigger: input.trigger ?? 'manual',
     inFlightBatch: false,
     warnings,
-    errors,
+    errors
   };
 }
 
@@ -461,14 +505,28 @@ export function listPresenceLeases(projectRoot: string, sessionId: string): Skil
     try {
       const lease = readJsonStrict<SkillPresenceLease>(path, PEAKS_GRAPH_REF_BROKEN);
       out.push(lease);
-    } catch { /* skip unreadable */ }
+    } catch {
+      /* skip unreadable */
+    }
   }
   return out;
 }
 
-export function clearPresenceForCaller(projectRoot: string, sessionId: string, callerId: string): boolean {
+export function clearPresenceForCaller(
+  projectRoot: string,
+  sessionId: string,
+  callerId: string
+): boolean {
   const idx = callerIndexPath(projectRoot, sessionId, callerId);
   if (!existsSync(idx)) return false;
-  try { writeFileSync(idx, JSON.stringify({ cleared: true, callerId, ts: new Date().toISOString() }, null, 2), 'utf8'); } catch { /* best-effort */ }
+  try {
+    writeFileSync(
+      idx,
+      JSON.stringify({ cleared: true, callerId, ts: new Date().toISOString() }, null, 2),
+      'utf8'
+    );
+  } catch {
+    /* best-effort */
+  }
   return true;
 }

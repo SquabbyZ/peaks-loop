@@ -57,7 +57,7 @@ export function useTmpWorkspace(prefix = 'peaks-unit-'): TmpWorkspace {
   active = {
     path,
     peaksDir,
-    rel: (p: string) => resolve(path, p),
+    rel: (p: string) => resolve(path, p)
   };
   return active;
 }

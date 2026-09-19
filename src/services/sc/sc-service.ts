@@ -3,7 +3,11 @@ import { execFileSync } from 'node:child_process';
 import { join, relative, resolve } from 'node:path';
 import { isInsidePath } from '../../shared/path-utils.js';
 import { getWorkspaceConfigForPath } from '../config/config-service.js';
-import { getArtifactRemoteRepo, getArtifactWorkspaceStatus, getLocalArtifactPath } from '../artifacts/workspace-service.js';
+import {
+  getArtifactRemoteRepo,
+  getArtifactWorkspaceStatus,
+  getLocalArtifactPath
+} from '../artifacts/workspace-service.js';
 import { getSessionId } from '../session/session-manager.js';
 import { listPresenceLeases } from '../skills/presence-lease-service.js';
 
@@ -139,7 +143,9 @@ function getPeaksPath(workspaceRoot: string): string {
   return resolve(workspaceRoot, '.peaks');
 }
 
-function getArtifactRepoUrl(artifactRepo: { provider: 'github' | 'gitlab'; owner: string; name: string } | undefined): string | null {
+function getArtifactRepoUrl(
+  artifactRepo: { provider: 'github' | 'gitlab'; owner: string; name: string } | undefined
+): string | null {
   if (!artifactRepo) return null;
   if (artifactRepo.provider === 'github') {
     return `https://github.com/${artifactRepo.owner}/${artifactRepo.name}.git`;
@@ -151,19 +157,30 @@ function getCurrentCommitHash(workspaceRoot?: string): string | null {
   if (!workspaceRoot) return null;
 
   try {
-    return execFileSync('git', ['rev-parse', 'HEAD'], { cwd: workspaceRoot, encoding: 'utf-8', windowsHide: true }).trim();
-  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+    return execFileSync('git', ['rev-parse', 'HEAD'], {
+      cwd: workspaceRoot,
+      encoding: 'utf-8',
+      windowsHide: true
+    }).trim();
+  } catch {
+    // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     return null;
   }
 }
 
-function mapSyncState(syncStatus: 'synced' | 'pending' | 'out-of-sync' | 'unknown'): 'synced' | 'pending' | 'failed' {
+function mapSyncState(
+  syncStatus: 'synced' | 'pending' | 'out-of-sync' | 'unknown'
+): 'synced' | 'pending' | 'failed' {
   if (syncStatus === 'synced') return 'synced';
   if (syncStatus === 'pending') return 'pending';
   return 'failed';
 }
 
-function getCurrentArtifactDir(artifactWorkspacePath: string): { peaksPath: string; sessionId: string | null; changeDir: string } {
+function getCurrentArtifactDir(artifactWorkspacePath: string): {
+  peaksPath: string;
+  sessionId: string | null;
+  changeDir: string;
+} {
   const peaksPath = getPeaksPath(artifactWorkspacePath);
   // Slice 2026-06-29-change-id-root-removal: the `.peaks/_runtime/current-change`
   // binding file is gone. Resolve the active change-id from the workspace
@@ -180,7 +197,10 @@ function getCurrentArtifactDir(artifactWorkspacePath: string): { peaksPath: stri
   };
 }
 
-function getRetentionChangeDir(artifactWorkspacePath: string, sliceId: string): { peaksPath: string; sessionId: string; changeDir: string } {
+function getRetentionChangeDir(
+  artifactWorkspacePath: string,
+  sliceId: string
+): { peaksPath: string; sessionId: string; changeDir: string } {
   // Slice 2026-06-29-change-id-root-removal: retention slice dirs
   // remain under the legacy `.peaks/<sliceId>/` shape (they're shipped
   // / frozen artifacts, not session-scoped workspace state). Only the
@@ -194,7 +214,12 @@ function getRetentionChangeDir(artifactWorkspacePath: string, sliceId: string): 
   };
 }
 
-function isRetainedArtifactFile(filePath: string, artifactWorkspacePath: string, changesRoot: string, changeDir: string): boolean {
+function isRetainedArtifactFile(
+  filePath: string,
+  artifactWorkspacePath: string,
+  changesRoot: string,
+  changeDir: string
+): boolean {
   if (!existsSync(filePath)) return false;
 
   try {
@@ -202,11 +227,13 @@ function isRetainedArtifactFile(filePath: string, artifactWorkspacePath: string,
     const changesRootRealPath = realpathSync(changesRoot);
     const changeDirRealPath = realpathSync(changeDir);
     const fileRealPath = realpathSync(filePath);
-    return !lstatSync(changesRoot).isSymbolicLink()
-      && !lstatSync(changeDir).isSymbolicLink()
-      && isInsidePath(changesRootRealPath, artifactWorkspaceRealPath)
-      && isInsidePath(changeDirRealPath, changesRootRealPath)
-      && isInsidePath(fileRealPath, changeDirRealPath);
+    return (
+      !lstatSync(changesRoot).isSymbolicLink() &&
+      !lstatSync(changeDir).isSymbolicLink() &&
+      isInsidePath(changesRootRealPath, artifactWorkspaceRealPath) &&
+      isInsidePath(changeDirRealPath, changesRootRealPath) &&
+      isInsidePath(fileRealPath, changeDirRealPath)
+    );
   } catch {
     return false;
   }
@@ -261,7 +288,8 @@ function readSessionJsonBinding(projectRoot: string): string | null {
     if (typeof parsed?.sessionId === 'string' && parsed.sessionId.length > 0) {
       return parsed.sessionId;
     }
-  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+  } catch {
+    // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     return null;
   }
   return null;
@@ -308,7 +336,8 @@ function findSessionOwningSlice(projectRoot: string, sliceId: string): string | 
   let topLevel: string[];
   try {
     topLevel = readdirSync(peaksRoot);
-  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+  } catch {
+    // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     return null;
   }
   topLevel.sort();
@@ -411,7 +440,10 @@ export function resolveArtifactSession(
 
   const findHit = findSessionOwningSlice(projectRoot, sliceId);
   if (findHit !== null) {
-    return { resolvedSessionId: findHit, candidateSources: ['active-skill', 'session-json', 'find-fallback'] };
+    return {
+      resolvedSessionId: findHit,
+      candidateSources: ['active-skill', 'session-json', 'find-fallback']
+    };
   }
 
   return { resolvedSessionId: null, candidateSources: [] };
@@ -432,7 +464,9 @@ export function getChangeTraceabilityStatus(): ChangeTraceabilityStatus {
         path: resolve('.peaks', '<session-id>', ...artifact.path),
         exists: false
       })),
-      nextActions: ['Add a workspace: peaks config workspace add --id <id> --name <name> --path <path>']
+      nextActions: [
+        'Add a workspace: peaks config workspace add --id <id> --name <name> --path <path>'
+      ]
     };
   }
 
@@ -529,7 +563,10 @@ export function recordCommitBoundary(options: {
   sliceId: string;
   artifacts?: string[];
   codeFiles?: string[];
-}): CommitBoundary & { resolvedSessionId: string | null; candidateSources: ArtifactSessionSource[] } {
+}): CommitBoundary & {
+  resolvedSessionId: string | null;
+  candidateSources: ArtifactSessionSource[];
+} {
   const workspace = getWorkspaceConfigForPath(process.cwd());
   const artifactStatus = getArtifactWorkspaceStatus(workspace?.workspaceId);
   const commitHash = getCurrentCommitHash(workspace?.rootPath);
@@ -569,7 +606,9 @@ export function validateArtifactRetention(sliceId: string): {
     return {
       valid: false,
       missingArtifacts: ['Invalid slice id'],
-      warnings: ['Slice id must stay inside .peaks/_runtime/<session-id> and only contain letters, numbers, dots, underscores, or hyphens'],
+      warnings: [
+        'Slice id must stay inside .peaks/_runtime/<session-id> and only contain letters, numbers, dots, underscores, or hyphens'
+      ],
       resolvedSessionId: null,
       candidateSources: []
     };
@@ -586,9 +625,10 @@ export function validateArtifactRetention(sliceId: string): {
   // usually there. We accept either location — workspace artifact path
   // OR project-root peaks — so the additive behavior does not regress
   // existing workspaces.
-  const resolvedPeaksSessionDir = resolution.resolvedSessionId !== null
-    ? join(projectRoot, '.peaks', resolution.resolvedSessionId)
-    : null;
+  const resolvedPeaksSessionDir =
+    resolution.resolvedSessionId !== null
+      ? join(projectRoot, '.peaks', resolution.resolvedSessionId)
+      : null;
 
   // Collect present files: legacy workspace-artifact-path check, OR the
   // resolved session's project-root peaks dir.
@@ -620,7 +660,9 @@ export function validateArtifactRetention(sliceId: string): {
         candidateSources: resolution.candidateSources
       };
     }
-    const missingArtifacts = modernRequirementRelativePaths(sliceId).filter((rel) => !existsSync(join(resolvedPeaksSessionDir as string, rel)));
+    const missingArtifacts = modernRequirementRelativePaths(sliceId).filter(
+      (rel) => !existsSync(join(resolvedPeaksSessionDir as string, rel))
+    );
     return {
       valid: missingArtifacts.length === 0,
       missingArtifacts,
@@ -630,9 +672,13 @@ export function validateArtifactRetention(sliceId: string): {
     };
   }
 
-  const missingArtifacts = RETENTION_REQUIREMENTS
-    .map(([folder, file]) => `${folder}/${file}`)
-    .filter((rel) => !legacyPresent(...rel.split('/') as [string, string]) && !resolvedPresent(...rel.split('/') as [string, string]));
+  const missingArtifacts = RETENTION_REQUIREMENTS.map(
+    ([folder, file]) => `${folder}/${file}`
+  ).filter(
+    (rel) =>
+      !legacyPresent(...(rel.split('/') as [string, string])) &&
+      !resolvedPresent(...(rel.split('/') as [string, string]))
+  );
 
   // If the legacy check is short (i.e. we're missing a lot of legacy-named
   // files) but the resolver landed on a real session, ALSO accept the
@@ -642,7 +688,9 @@ export function validateArtifactRetention(sliceId: string): {
   // returning `valid: true` for slices that completed under the current
   // peaks-loop convention.
   if (missingArtifacts.length > 0 && resolvedPeaksSessionDir !== null) {
-    const modernMissing = modernRequirementRelativePaths(sliceId).filter((rel) => !resolvedPresent(...rel.split('/') as [string, string]));
+    const modernMissing = modernRequirementRelativePaths(sliceId).filter(
+      (rel) => !resolvedPresent(...(rel.split('/') as [string, string]))
+    );
     if (modernMissing.length === 0) {
       return {
         valid: true,

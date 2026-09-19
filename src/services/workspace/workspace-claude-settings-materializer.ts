@@ -48,7 +48,9 @@ function readSettingsObject(serialized: string): Record<string, unknown> | undef
 /** The `env` object of a serialized settings file, or `undefined`. */
 function readEnvObject(serialized: string): Record<string, unknown> | undefined {
   const env = readSettingsObject(serialized)?.env;
-  return typeof env === 'object' && env !== null && !Array.isArray(env) ? (env as Record<string, unknown>) : undefined;
+  return typeof env === 'object' && env !== null && !Array.isArray(env)
+    ? (env as Record<string, unknown>)
+    : undefined;
 }
 
 /**
@@ -160,7 +162,8 @@ function isPlainRecord(value: unknown): value is Record<string, unknown> {
 // exercises the append path instead of the converge path — which is exactly
 // what happened on the first run of
 // `tests/unit/services/workspace/gitignore-snippet-convergence.test.ts`.
-export const PEAKS_GITIGNORE_HEADER = '# >>> peaks-loop managed snippet (slice 2.0.1-bug3) — do not edit by hand';
+export const PEAKS_GITIGNORE_HEADER =
+  '# >>> peaks-loop managed snippet (slice 2.0.1-bug3) — do not edit by hand';
 export const PEAKS_GITIGNORE_FOOTER = '# <<< peaks-loop managed snippet';
 
 const PEAKS_GITIGNORE_SNIPPET = [
@@ -170,8 +173,8 @@ const PEAKS_GITIGNORE_SNIPPET = [
   '.claude/settings.local.json',
   '# Offline template copy (.peaks/.claude-settings-template.json): written by',
   '# `peaks workspace init` as a manual-recovery anchor. The source-of-truth is',
-  '# peaks-loop\'s own `buildClaudeSettingsLocalJson()` — NOT this committed copy.',
-  '# Gitignored so the init flow\'s drift-driven refresh does not show up as',
+  "# peaks-loop's own `buildClaudeSettingsLocalJson()` — NOT this committed copy.",
+  "# Gitignored so the init flow's drift-driven refresh does not show up as",
   '# "modified" in `git status` on every release bump. Recovery path: re-run',
   '# `peaks workspace init` to regenerate; or copy from peaks-loop source.',
   '# Both patterns below are PROJECT-ROOT-relative, so this snippet must land',
@@ -181,13 +184,13 @@ const PEAKS_GITIGNORE_SNIPPET = [
   '# `repair-exclude` / `repair-index` / pre-dispatch preflight / post-slice',
   '# auto-refresh copies `.codegraph/config.json` here before rewriting it, so',
   '# this file is LOCAL CHURN: a committed one is silently replaced by the next',
-  '# repair. Upstream\'s own `.codegraph/.gitignore` does not cover it (it names',
+  "# repair. Upstream's own `.codegraph/.gitignore` does not cover it (it names",
   '# *.db / *.db-wal / *.db-shm, cache/, *.log and .dirty only) and `.codegraph/`',
   '# is NOT ignored wholesale downstream, so without this line a consumer project',
   '# commits a file peaks-loop rewrites under it.',
   '#',
   '# ONLY the backup, never `config.json` itself: upstream deliberately keeps',
-  '# that config committable (it is a project\'s include/exclude policy, and',
+  "# that config committable (it is a project's include/exclude policy, and",
   '# committing it is how a team shares it), so ignoring it would hide a file',
   '# people mean to commit. A rollback copy is the opposite kind of file.',
   '.codegraph/config.json.bak',
@@ -420,7 +423,9 @@ async function stripLegacyPeaksGitignoreSnippet(projectRoot: string): Promise<vo
   const footerAt = existing.indexOf(PEAKS_GITIGNORE_FOOTER, start);
   if (footerAt === -1) return;
 
-  const remainder = (existing.slice(0, start) + existing.slice(footerAt + PEAKS_GITIGNORE_FOOTER.length))
+  const remainder = (
+    existing.slice(0, start) + existing.slice(footerAt + PEAKS_GITIGNORE_FOOTER.length)
+  )
     .replace(/\n{3,}/g, '\n\n')
     .trim();
 
@@ -469,13 +474,20 @@ async function upsertPeaksGitignoreSnippet(projectRoot: string): Promise<void> {
   // up and repaired at the risk of eating the rest of the file.
   const start = existing.indexOf(PEAKS_GITIGNORE_HEADER);
   if (start !== -1) {
-    const footerAt = existing.indexOf(PEAKS_GITIGNORE_FOOTER, start + PEAKS_GITIGNORE_HEADER.length);
+    const footerAt = existing.indexOf(
+      PEAKS_GITIGNORE_FOOTER,
+      start + PEAKS_GITIGNORE_HEADER.length
+    );
     if (footerAt === -1) return;
     const end = footerAt + PEAKS_GITIGNORE_FOOTER.length;
     const currentBlock = existing.slice(start, end);
     const nextBlock = PEAKS_GITIGNORE_SNIPPET.trimEnd();
     if (currentBlock === nextBlock) return;
-    await writeFile(gitignorePath, existing.slice(0, start) + nextBlock + existing.slice(end), 'utf8');
+    await writeFile(
+      gitignorePath,
+      existing.slice(0, start) + nextBlock + existing.slice(end),
+      'utf8'
+    );
     return;
   }
 

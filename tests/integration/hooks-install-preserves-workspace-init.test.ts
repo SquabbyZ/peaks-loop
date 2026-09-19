@@ -21,13 +21,8 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 
-import {
-  applyHookInstall,
-  removeHookInstall
-} from '~/src/services/skills/hooks-settings-service';
-import {
-  HOOK_WORKSPACE_INIT_SENTINEL
-} from '~/src/services/skills/session-start-hook-constants';
+import { applyHookInstall, removeHookInstall } from '~/src/services/skills/hooks-settings-service';
+import { HOOK_WORKSPACE_INIT_SENTINEL } from '~/src/services/skills/session-start-hook-constants';
 
 function makeTempProjectRoot(): { tmpRoot: string; settingsPath: string } {
   const tmpRoot = mkdtempSync(join(tmpdir(), 'peaks-test-hooks-'));
@@ -38,7 +33,10 @@ function makeTempProjectRoot(): { tmpRoot: string; settingsPath: string } {
 
 function copyRealSettingsInto(tmpRoot: string, settingsPath: string): void {
   const realSettingsPath = resolve(process.cwd(), '.claude/settings.json');
-  const realSettings = JSON.parse(readFileSync(realSettingsPath, 'utf8')) as Record<string, unknown>;
+  const realSettings = JSON.parse(readFileSync(realSettingsPath, 'utf8')) as Record<
+    string,
+    unknown
+  >;
   writeFileSync(settingsPath, JSON.stringify(realSettings, null, 2), 'utf8');
 }
 
@@ -46,7 +44,7 @@ function sha256(buf: Buffer | string): string {
   return createHash('sha256').update(buf).digest('hex');
 }
 
-describe("hooks-install-preserves-workspace-init — regression guard", () => {
+describe('hooks-install-preserves-workspace-init — regression guard', () => {
   const tmpRoots: string[] = [];
 
   afterEach(() => {
@@ -63,7 +61,7 @@ describe("hooks-install-preserves-workspace-init — regression guard", () => {
     tmpRoots.length = 0;
   });
 
-  it("applyHookInstall twice retains the SessionStart primer entry (P1 #12)", () => {
+  it('applyHookInstall twice retains the SessionStart primer entry (P1 #12)', () => {
     const { tmpRoot, settingsPath } = makeTempProjectRoot();
     tmpRoots.push(tmpRoot);
     copyRealSettingsInto(tmpRoot, settingsPath);
@@ -78,7 +76,9 @@ describe("hooks-install-preserves-workspace-init — regression guard", () => {
     expect(sessionStartEntries).toBeDefined();
     expect(Array.isArray(sessionStartEntries)).toBe(true);
     const hasPrimer = sessionStartEntries?.some((entry) =>
-      (entry.hooks ?? []).some((h) => typeof h.command === 'string' && h.command.includes('peaks session primer --project'))
+      (entry.hooks ?? []).some(
+        (h) => typeof h.command === 'string' && h.command.includes('peaks session primer --project')
+      )
     );
     expect(hasPrimer).toBe(true);
   });
@@ -93,12 +93,14 @@ describe("hooks-install-preserves-workspace-init — regression guard", () => {
     };
     const sessionStartEntries = result.hooks?.SessionStart ?? [];
     const primerEntry = sessionStartEntries.find((entry) =>
-      (entry.hooks ?? []).some((h) => typeof h.command === 'string' && h.command.includes(HOOK_WORKSPACE_INIT_SENTINEL))
+      (entry.hooks ?? []).some(
+        (h) => typeof h.command === 'string' && h.command.includes(HOOK_WORKSPACE_INIT_SENTINEL)
+      )
     );
     expect(primerEntry).toBeDefined();
   });
 
-  it("removeHookInstall cleanly removes the SessionStart primer entry", () => {
+  it('removeHookInstall cleanly removes the SessionStart primer entry', () => {
     const { tmpRoot, settingsPath } = makeTempProjectRoot();
     tmpRoots.push(tmpRoot);
     copyRealSettingsInto(tmpRoot, settingsPath);
@@ -115,13 +117,15 @@ describe("hooks-install-preserves-workspace-init — regression guard", () => {
     // Either undefined (cleaned up) or an empty array — no primer left.
     if (sessionStartEntries !== undefined) {
       const hasPrimer = sessionStartEntries.some((entry) =>
-        (entry.hooks ?? []).some((h) => typeof h.command === 'string' && h.command.includes(HOOK_WORKSPACE_INIT_SENTINEL))
+        (entry.hooks ?? []).some(
+          (h) => typeof h.command === 'string' && h.command.includes(HOOK_WORKSPACE_INIT_SENTINEL)
+        )
       );
       expect(hasPrimer).toBe(false);
     }
   });
 
-  it("does NOT clobber git-tracked .claude/settings.json (H-A regression guard)", () => {
+  it('does NOT clobber git-tracked .claude/settings.json (H-A regression guard)', () => {
     // Read the git-tracked settings.json BEFORE the install call
     // against a tmp root. The install operates on the tmp root
     // only; the git-tracked file must be byte-identical afterwards.

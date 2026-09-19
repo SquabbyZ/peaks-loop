@@ -15,14 +15,18 @@ import { findProjectRoot } from '../../services/config/config-safety.js';
 import { getCurrentSessionId } from '../../services/skills/skill-presence-service.js';
 import {
   initWorkflow,
-  terminalizeWorkflow,
+  terminalizeWorkflow
 } from '../../services/workflow/workflow-presence-lifecycle.js';
 import { readGraph, emptyGraph } from '../../services/workflow/workflow-graph-store.js';
-import { WORKFLOW_ID_REGEX, type TerminalReason, TERMINAL_REASONS } from '../../services/workflow/workflow-graph-types.js';
+import {
+  WORKFLOW_ID_REGEX,
+  type TerminalReason,
+  TERMINAL_REASONS
+} from '../../services/workflow/workflow-graph-types.js';
 import {
   prepareNodeAction,
   transitionNode,
-  transitionLease,
+  transitionLease
 } from '../../services/workflow/workflow-node-lifecycle.js';
 
 export interface WorkflowInitOptions {
@@ -88,9 +92,13 @@ function deriveCallerId(): string {
   try {
     return resolveCallerId({});
   } catch (err) {
-    throw fail('workflow.init', 'PEAKS_CALLER_NOT_RESOLVED', getErrorMessage(err), { callerId: null } as never, [
-      'Resolve the IDE session identity before running workflow commands.',
-    ]);
+    throw fail(
+      'workflow.init',
+      'PEAKS_CALLER_NOT_RESOLVED',
+      getErrorMessage(err),
+      { callerId: null } as never,
+      ['Resolve the IDE session identity before running workflow commands.']
+    );
   }
 }
 
@@ -137,10 +145,15 @@ export const UNKNOWN_SESSION_ID = 'unknown-sid';
  * project resolves the project's binding instead of `cwd`'s (which has none).
  */
 function deriveSessionId(options: { sessionId?: string; project?: string }): string {
-  if (typeof options.sessionId === 'string' && options.sessionId.length > 0) return options.sessionId;
+  if (typeof options.sessionId === 'string' && options.sessionId.length > 0)
+    return options.sessionId;
   const fromEnv = process.env.PEAKS_SESSION_ID;
   if (typeof fromEnv === 'string' && fromEnv.length > 0) return fromEnv;
-  return getCurrentSessionId(findProjectRoot(options.project ?? process.cwd()) ?? (options.project ?? process.cwd())) ?? UNKNOWN_SESSION_ID;
+  return (
+    getCurrentSessionId(
+      findProjectRoot(options.project ?? process.cwd()) ?? options.project ?? process.cwd()
+    ) ?? UNKNOWN_SESSION_ID
+  );
 }
 
 /**
@@ -149,7 +162,10 @@ function deriveSessionId(options: { sessionId?: string; project?: string }): str
  * create a bucket named after a failure — `graph list` already does (see its
  * `PEAKS_SESSION_NOT_BOUND` guard below); `init` did not.
  */
-function buildSessionNotBoundEnvelope(sessionId: string, projectRoot: string): ReturnType<typeof fail> {
+function buildSessionNotBoundEnvelope(
+  sessionId: string,
+  projectRoot: string
+): ReturnType<typeof fail> {
   return fail(
     'workflow.init',
     'PEAKS_SESSION_NOT_BOUND',
@@ -157,7 +173,7 @@ function buildSessionNotBoundEnvelope(sessionId: string, projectRoot: string): R
     { workflowId: null },
     [
       'Run `peaks workspace init --project <p>` to bind a session, then re-run.',
-      'Or pass `--session-id <sid>` explicitly.',
+      'Or pass `--session-id <sid>` explicitly.'
     ]
   );
 }
@@ -167,7 +183,9 @@ export function registerWorkflowLifecycleCommand(parent: Command, io: ProgramIO)
   // to avoid Commander.js's "cannot add command 'workflow' as already have
   // command 'workflow'" duplicate-registration throw at CLI startup.
   const existingWorkflow = parent.commands.find((c) => c.name() === 'workflow');
-  const workflow = existingWorkflow ?? parent.command('workflow').description('workflow lifecycle commands (RD §4)');
+  const workflow =
+    existingWorkflow ??
+    parent.command('workflow').description('workflow lifecycle commands (RD §4)');
 
   addJsonOption(
     workflow
@@ -176,7 +194,10 @@ export function registerWorkflowLifecycleCommand(parent: Command, io: ProgramIO)
       .requiredOption('--skill <name>', 'the skill owning this workflow (e.g. peaks-code)')
       .option('--workflow-id <id>', 'optional explicit workflowId (auto-generated if omitted)')
       .option('--parent-workflow <id>', 'parent workflowId for nested runs')
-      .option('--session-id <sid>', 'override session id (default: derived from session.json / env)')
+      .option(
+        '--session-id <sid>',
+        'override session id (default: derived from session.json / env)'
+      )
       .option('--project <path>', 'target project root (defaults to cwd)')
   ).action(async (options: WorkflowInitOptions) => {
     const asJson = options.json === true;
@@ -199,17 +220,25 @@ export function registerWorkflowLifecycleCommand(parent: Command, io: ProgramIO)
         callerId,
         skill: options.skill ?? 'peaks-code',
         workflowId,
-        ...(options.parentWorkflow ? { parentWorkflowId: options.parentWorkflow } : {}),
+        ...(options.parentWorkflow ? { parentWorkflowId: options.parentWorkflow } : {})
       });
-      printResult(io, ok('workflow.init', {
-        envelopeVersion: '4.0.8',
-        workflowId: result.workflowId,
-        graphRef: result.graphRef,
-        events: result.events,
-      }), asJson);
+      printResult(
+        io,
+        ok('workflow.init', {
+          envelopeVersion: '4.0.8',
+          workflowId: result.workflowId,
+          graphRef: result.graphRef,
+          events: result.events
+        }),
+        asJson
+      );
     } catch (err) {
       const code = (err as { code?: string }).code ?? 'PEAKS_GRAPH_WRITE_FAILED';
-      printResult(io, fail('workflow.init', code, getErrorMessage(err), { workflowId: null } as never, []), asJson);
+      printResult(
+        io,
+        fail('workflow.init', code, getErrorMessage(err), { workflowId: null } as never, []),
+        asJson
+      );
       process.exitCode = 1;
     }
   });
@@ -242,12 +271,16 @@ export function registerWorkflowLifecycleCommand(parent: Command, io: ProgramIO)
           projectRoot,
           sessionId,
           graphRef: `graphs/${workflowId}.json`,
-          workflowId,
+          workflowId
         });
         printResult(io, ok('workflow.graph.show', { envelopeVersion: '4.0.8', graph }), asJson);
       } catch (err) {
         const code = (err as { code?: string }).code ?? 'PEAKS_GRAPH_NOT_FOUND';
-        printResult(io, fail('workflow.graph.show', code, getErrorMessage(err), { graph: null } as never, []), asJson);
+        printResult(
+          io,
+          fail('workflow.graph.show', code, getErrorMessage(err), { graph: null } as never, []),
+          asJson
+        );
         process.exitCode = 1;
       }
     });
@@ -269,7 +302,11 @@ export function registerWorkflowLifecycleCommand(parent: Command, io: ProgramIO)
         printResult(io, ok('workflow.graph.list', result), asJson);
       } catch (err) {
         const code = (err as { code?: string }).code ?? 'PEAKS_SESSION_NOT_BOUND';
-        printResult(io, fail('workflow.graph.list', code, getErrorMessage(err), { graphs: [] } as never, []), asJson);
+        printResult(
+          io,
+          fail('workflow.graph.list', code, getErrorMessage(err), { graphs: [] } as never, []),
+          asJson
+        );
         process.exitCode = 1;
       }
     });
@@ -303,7 +340,10 @@ export function registerWorkflowLifecycleCommand(parent: Command, io: ProgramIO)
         const existing = readGraph({ projectRoot, sessionId, graphRef, workflowId });
         const nodeId = options.node ?? `node-${Date.now().toString(36)}`;
         const kind = (options.kind ?? 'step') as 'step' | 'dispatch' | 'terminal';
-        const dependsOn = (options.dependsOn ?? '').split(',').map((s) => s.trim()).filter((s) => s.length > 0);
+        const dependsOn = (options.dependsOn ?? '')
+          .split(',')
+          .map((s) => s.trim())
+          .filter((s) => s.length > 0);
         const updated = prepareNodeAction({
           workflowId,
           nodeId,
@@ -312,17 +352,25 @@ export function registerWorkflowLifecycleCommand(parent: Command, io: ProgramIO)
             kind,
             label: options.label ?? nodeId,
             status: 'prepared',
-            dependsOn,
+            dependsOn
           },
           dependsOn,
-          status: 'prepared',
+          status: 'prepared'
         });
         // Persist via the graph store
         // (not inlined so the CLI delegates everything to the service).
-        printResult(io, ok('workflow.node.prepare', { envelopeVersion: '4.0.8', graph: updated }), asJson);
+        printResult(
+          io,
+          ok('workflow.node.prepare', { envelopeVersion: '4.0.8', graph: updated }),
+          asJson
+        );
       } catch (err) {
         const code = (err as { code?: string }).code ?? 'PEAKS_GRAPH_CORRUPTED';
-        printResult(io, fail('workflow.node.prepare', code, getErrorMessage(err), { graph: null } as never, []), asJson);
+        printResult(
+          io,
+          fail('workflow.node.prepare', code, getErrorMessage(err), { graph: null } as never, []),
+          asJson
+        );
         process.exitCode = 1;
       }
     });
@@ -351,10 +399,18 @@ export function registerWorkflowLifecycleCommand(parent: Command, io: ProgramIO)
           throw new Error('PEAKS_ENVELOPE_NOT_RECEIVED: node is not envelope-received');
         }
         const updated = transitionNode(node.status, 'consumed-by-parent', { graphNode: node });
-        printResult(io, ok('workflow.node.ack', { envelopeVersion: '4.0.8', node: updated }), asJson);
+        printResult(
+          io,
+          ok('workflow.node.ack', { envelopeVersion: '4.0.8', node: updated }),
+          asJson
+        );
       } catch (err) {
         const code = (err as { code?: string }).code ?? 'PEAKS_ENVELOPE_NOT_RECEIVED';
-        printResult(io, fail('workflow.node.ack', code, getErrorMessage(err), { node: null } as never, []), asJson);
+        printResult(
+          io,
+          fail('workflow.node.ack', code, getErrorMessage(err), { node: null } as never, []),
+          asJson
+        );
         process.exitCode = 1;
       }
     });
@@ -379,16 +435,24 @@ export function registerWorkflowLifecycleCommand(parent: Command, io: ProgramIO)
         if (!TERMINAL_REASONS.includes(reason as TerminalReason)) {
           throw new Error(`PEAKS_TERMINAL_REASON_INVALID: ${reason}`);
         }
-        printResult(io, ok('workflow.node.mark-lost', {
-          envelopeVersion: '4.0.8',
-          workflowId,
-          nodeId,
-          status: 'lost',
-          terminalReason: reason,
-        }), asJson);
+        printResult(
+          io,
+          ok('workflow.node.mark-lost', {
+            envelopeVersion: '4.0.8',
+            workflowId,
+            nodeId,
+            status: 'lost',
+            terminalReason: reason
+          }),
+          asJson
+        );
       } catch (err) {
         const code = (err as { code?: string }).code ?? 'PEAKS_TERMINAL_REASON_INVALID';
-        printResult(io, fail('workflow.node.mark-lost', code, getErrorMessage(err), { node: null } as never, []), asJson);
+        printResult(
+          io,
+          fail('workflow.node.mark-lost', code, getErrorMessage(err), { node: null } as never, []),
+          asJson
+        );
         process.exitCode = 1;
       }
     });
@@ -396,7 +460,9 @@ export function registerWorkflowLifecycleCommand(parent: Command, io: ProgramIO)
   addJsonOption(
     workflow
       .command('terminalize')
-      .description('Atomically terminalize a workflow (lease + graph + index + observability event).')
+      .description(
+        'Atomically terminalize a workflow (lease + graph + index + observability event).'
+      )
       .requiredOption('--workflow <id>', 'workflow id')
       .requiredOption('--reason <reason>', `terminal reason: ${TERMINAL_REASONS.join(' | ')}`)
       .option('--session-id <sid>', 'session id')
@@ -420,18 +486,26 @@ export function registerWorkflowLifecycleCommand(parent: Command, io: ProgramIO)
         workflowId,
         graphRef: `graphs/${workflowId}.json`,
         reason: options.reason as TerminalReason,
-        ...(options.requireConsumed ? { requireConsumed: true } : {}),
+        ...(options.requireConsumed ? { requireConsumed: true } : {})
       });
-      printResult(io, ok('workflow.terminalize', {
-        envelopeVersion: '4.0.8',
-        lease: result.lease,
-        graph: result.graph,
-        events: result.events,
-        indexCleared: result.indexCleared,
-      }), asJson);
+      printResult(
+        io,
+        ok('workflow.terminalize', {
+          envelopeVersion: '4.0.8',
+          lease: result.lease,
+          graph: result.graph,
+          events: result.events,
+          indexCleared: result.indexCleared
+        }),
+        asJson
+      );
     } catch (err) {
       const code = (err as { code?: string }).code ?? 'PEAKS_TERMINALIZE_ATOMICITY_FAILED';
-      printResult(io, fail('workflow.terminalize', code, getErrorMessage(err), { lease: null } as never, []), asJson);
+      printResult(
+        io,
+        fail('workflow.terminalize', code, getErrorMessage(err), { lease: null } as never, []),
+        asJson
+      );
       process.exitCode = 1;
     }
   });

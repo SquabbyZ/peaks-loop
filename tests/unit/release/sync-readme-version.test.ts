@@ -32,7 +32,7 @@ declareDimensions('tests/unit/release/sync-readme-version.test.ts', [
   'render',
   'behavior',
   'integration',
-  'a11y',
+  'a11y'
 ]);
 
 // ---- harness ---------------------------------------------------------------
@@ -69,15 +69,23 @@ function setupHarness(opts: FixtureOptions): Harness {
   writeFileSync(
     join(cwd, 'package.json'),
     JSON.stringify({ name: 'peaks-loop', version: opts.version }, null, 2) + '\n',
-    'utf8',
+    'utf8'
   );
-  writeFileSync(join(cwd, 'README.md'), readme(opts.zhRow ?? rowZh('4.0.32', '2026-09-08'), '代码'), 'utf8');
-  writeFileSync(join(cwd, 'README-en.md'), readme(opts.enRow ?? rowEn('4.0.17', '2026-08-07'), 'Code'), 'utf8');
+  writeFileSync(
+    join(cwd, 'README.md'),
+    readme(opts.zhRow ?? rowZh('4.0.32', '2026-09-08'), '代码'),
+    'utf8'
+  );
+  writeFileSync(
+    join(cwd, 'README-en.md'),
+    readme(opts.enRow ?? rowEn('4.0.17', '2026-08-07'), 'Code'),
+    'utf8'
+  );
   if (opts.changelog !== null) {
     writeFileSync(
       join(cwd, 'CHANGELOG.md'),
       opts.changelog ?? `# Changelog\n\n## ${opts.version} — 2026-09-10 (test fixture)\n\n- body\n`,
-      'utf8',
+      'utf8'
     );
   }
   active = { cwd };
@@ -94,7 +102,7 @@ function runSync(): { status: number | null; stdout: string; stderr: string } {
     cwd: active.cwd,
     encoding: 'utf8',
     shell: false,
-    windowsHide: true,
+    windowsHide: true
   });
   return { status: r.status, stdout: r.stdout ?? '', stderr: r.stderr ?? '' };
 }
@@ -120,8 +128,12 @@ describe('Scenario: (render) — updated vs already-in-sync lines are distinguis
     const r = runSync();
     // then:  each file reports its own update
     expect(r.status).toBe(0);
-    expect(r.stdout).toContain('[sync-readme-version] updated README.md (1 occurrence(s)) -> 4.0.37');
-    expect(r.stdout).toContain('[sync-readme-version] updated README-en.md (1 occurrence(s)) -> 4.0.37');
+    expect(r.stdout).toContain(
+      '[sync-readme-version] updated README.md (1 occurrence(s)) -> 4.0.37'
+    );
+    expect(r.stdout).toContain(
+      '[sync-readme-version] updated README-en.md (1 occurrence(s)) -> 4.0.37'
+    );
     expect(r.stdout).toContain('[sync-readme-version] total 2 occurrence(s) updated to 4.0.37');
   });
 
@@ -149,7 +161,7 @@ describe('Scenario: (behavior) — only the version label moves', () => {
     expect(read('README-en.md')).toBe(readme(rowEn('4.0.37', '2026-09-10'), 'Code'));
   });
 
-  it('when invoked, should keeps each file\'s own spacing before the date', () => {
+  it("when invoked, should keeps each file's own spacing before the date", () => {
     // given: README.md uses `4.0.32(…<date>)`, README-en.md uses `4.0.17 (…<date>)`
     setupHarness({ version: '4.0.37' });
     // when:  the script runs
@@ -220,7 +232,7 @@ describe('Scenario: (a11y) — an unmatched row aborts the publish instead of pa
     setupHarness({
       version: '4.0.37',
       zhRow: '| **版本** | 4.0.32 |',
-      enRow: '| **Version** | 4.0.17 |',
+      enRow: '| **Version** | 4.0.17 |'
     });
     const r = runSync();
     expect(r.status).toBe(1);

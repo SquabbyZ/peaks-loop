@@ -25,7 +25,15 @@
  */
 
 import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, writeFileSync, readdirSync, unlinkSync, statSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  writeFileSync,
+  readdirSync,
+  unlinkSync,
+  statSync
+} from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
 
 export type TestFramework = 'jest' | 'vitest' | 'mocha';
@@ -76,7 +84,8 @@ export function readTestCache(projectRoot: string, filePath: string): TestCacheF
     const raw = readFileSync(path, 'utf8');
     const parsed = JSON.parse(raw) as TestCacheFile;
     return parsed;
-  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+  } catch {
+    // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     return null;
   }
 }
@@ -114,11 +123,7 @@ export interface CacheLookup {
  * Returns hit=true if the cache record shows passed AND both
  * (fileMtime, fileSha256) match the current file state.
  */
-export function isCacheable(
-  projectRoot: string,
-  filePath: string,
-  testName: string
-): CacheLookup {
+export function isCacheable(projectRoot: string, filePath: string, testName: string): CacheLookup {
   const cache = readTestCache(projectRoot, filePath);
   if (!cache) return { hit: false, reason: 'no-cache' };
   if (!existsSync(filePath)) {
@@ -135,7 +140,10 @@ export function isCacheable(
   const record = cache.tests.find((t) => t.testName === testName);
   if (!record) return { hit: false, reason: 'no-cache' };
   if (record.status !== 'passed') {
-    return { hit: false, reason: record.status === 'failed' ? 'previous-failed' : 'previous-skipped' };
+    return {
+      hit: false,
+      reason: record.status === 'failed' ? 'previous-failed' : 'previous-skipped'
+    };
   }
   return { hit: true, cached: record };
 }
@@ -186,7 +194,8 @@ export function detectTestFramework(projectRoot: string): TestFramework | null {
   let pkg: { devDependencies?: Record<string, string>; dependencies?: Record<string, string> };
   try {
     pkg = JSON.parse(readFileSync(pkgPath, 'utf8')) as typeof pkg;
-  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+  } catch {
+    // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     return null;
   }
   const all: Record<string, string> = {

@@ -1,4 +1,15 @@
-import { closeSync, constants, existsSync, lstatSync, mkdirSync, openSync, readdirSync, realpathSync, readFileSync, writeFileSync } from 'node:fs';
+import {
+  closeSync,
+  constants,
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  openSync,
+  readdirSync,
+  realpathSync,
+  readFileSync,
+  writeFileSync
+} from 'node:fs';
 import { homedir as osHomedir } from 'node:os';
 import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { detectProjectContext, type ProjectContext } from './project-context.js';
@@ -9,7 +20,7 @@ import {
   renderCommonCodingStyle,
   renderLanguageCodingStyle,
   renderManagedClaudeMdIndex,
-  renderSecurity,
+  renderSecurity
 } from './standards-render.js';
 export { renderUiLibraryPriorityRule } from './standards-render.js';
 
@@ -19,7 +30,8 @@ export { renderUiLibraryPriorityRule } from './standards-render.js';
  * under `<homedir>/.claude/**`). Surfaced as a stable error code so CLI
  * callers can map it to a recoverable hint.
  */
-export type ProjectStandardsWriteTargetReason = 'outside-project-root' | 'resolves-to-homedir-claude';
+export type ProjectStandardsWriteTargetReason =
+  'outside-project-root' | 'resolves-to-homedir-claude';
 
 export class ProjectStandardsWriteTargetError extends Error {
   public readonly code = 'PROJECT_STANDARDS_WRITE_TARGET_OUTSIDE_ROOT' as const;
@@ -154,7 +166,14 @@ const SKILL_PREFLIGHT: StandardsSkillPreflight = {
   summary: 'peaks-rd、peaks-qa、peaks-code 进入代码仓工作流时自动 preflight 项目规范。'
 };
 
-const SUPPORTED_LANGUAGES = new Set<StandardsLanguage>(['generic', 'typescript', 'javascript', 'python', 'go', 'rust']);
+const SUPPORTED_LANGUAGES = new Set<StandardsLanguage>([
+  'generic',
+  'typescript',
+  'javascript',
+  'python',
+  'go',
+  'rust'
+]);
 
 function normalizeRoot(path: string): string {
   return realpathSync(resolve(path));
@@ -225,7 +244,11 @@ function parseLanguage(value: string): StandardsLanguage {
 function detectLanguageInternal(projectRoot: string): StandardsLanguage {
   if (existsSync(join(projectRoot, 'tsconfig.json'))) return 'typescript';
   if (existsSync(join(projectRoot, 'package.json'))) return 'javascript';
-  if (existsSync(join(projectRoot, 'pyproject.toml')) || existsSync(join(projectRoot, 'requirements.txt'))) return 'python';
+  if (
+    existsSync(join(projectRoot, 'pyproject.toml')) ||
+    existsSync(join(projectRoot, 'requirements.txt'))
+  )
+    return 'python';
   if (existsSync(join(projectRoot, 'go.mod'))) return 'go';
   if (existsSync(join(projectRoot, 'Cargo.toml'))) return 'rust';
   return 'generic';
@@ -252,10 +275,16 @@ function readFileIfExists(path: string): string | null {
 }
 
 function getPendingStandardsRuleWrites(plan: ProjectStandardsInitPlan): StandardsWrite[] {
-  return plan.plannedWrites.filter((write) => write.relativePath !== 'CLAUDE.md' && write.status !== 'existing');
+  return plan.plannedWrites.filter(
+    (write) => write.relativePath !== 'CLAUDE.md' && write.status !== 'existing'
+  );
 }
 
-function prevalidateWrites(projectRoot: string, writes: StandardsWrite[], resolveHomedir: () => string = osHomedir): void {
+function prevalidateWrites(
+  projectRoot: string,
+  writes: StandardsWrite[],
+  resolveHomedir: () => string = osHomedir
+): void {
   const homeRoot = resolveHomedir();
   for (const write of writes) {
     const targetPath = resolve(write.filePath);
@@ -316,7 +345,10 @@ function assertNotHomedirBaseline(targetPath: string, projectRoot: string, homeR
   }
 }
 
-function writeMissingStandardsRules(plan: ProjectStandardsInitPlan, writes = getPendingStandardsRuleWrites(plan)): string[] {
+function writeMissingStandardsRules(
+  plan: ProjectStandardsInitPlan,
+  writes = getPendingStandardsRuleWrites(plan)
+): string[] {
   const writtenFiles: string[] = [];
 
   for (const write of writes) {
@@ -333,9 +365,15 @@ function createTemplates(language: StandardsLanguage, ctx: ProjectContext): Stan
   return [
     { relativePath: 'CLAUDE.md', content: renderClaudeMd(language, ctx) },
     { relativePath: '.peaks/standards/common/code-review.md', content: renderCodeReview(ctx) },
-    { relativePath: '.peaks/standards/common/coding-style.md', content: renderCommonCodingStyle(ctx) },
+    {
+      relativePath: '.peaks/standards/common/coding-style.md',
+      content: renderCommonCodingStyle(ctx)
+    },
     { relativePath: '.peaks/standards/common/security.md', content: renderSecurity(ctx) },
-    { relativePath: `.peaks/standards/${language}/coding-style.md`, content: renderLanguageCodingStyle(language, ctx) }
+    {
+      relativePath: `.peaks/standards/${language}/coding-style.md`,
+      content: renderLanguageCodingStyle(language, ctx)
+    }
   ];
 }
 
@@ -347,13 +385,19 @@ function createTemplates(language: StandardsLanguage, ctx: ProjectContext): Stan
  * `peaks standards migrate --from-claude-rules` to converge to
  * the 2.0 canonical layout.
  */
-function createLegacyOneXTemplates(language: StandardsLanguage, ctx: ProjectContext): StandardsTemplate[] {
+function createLegacyOneXTemplates(
+  language: StandardsLanguage,
+  ctx: ProjectContext
+): StandardsTemplate[] {
   return [
     { relativePath: 'CLAUDE.md', content: renderClaudeMdOneX(language, ctx) },
     { relativePath: '.claude/rules/common/code-review.md', content: renderCodeReview(ctx) },
     { relativePath: '.claude/rules/common/coding-style.md', content: renderCommonCodingStyle(ctx) },
     { relativePath: '.claude/rules/common/security.md', content: renderSecurity(ctx) },
-    { relativePath: `.claude/rules/${language}/coding-style.md`, content: renderLanguageCodingStyle(language, ctx) }
+    {
+      relativePath: `.claude/rules/${language}/coding-style.md`,
+      content: renderLanguageCodingStyle(language, ctx)
+    }
   ];
 }
 
@@ -415,7 +459,11 @@ function createManagedClaudeBlock(language: StandardsLanguage): string {
   return renderManagedClaudeMdIndex(language);
 }
 
-function buildClaudeUpdate(projectRoot: string, language: StandardsLanguage, ctx: ProjectContext): {
+function buildClaudeUpdate(
+  projectRoot: string,
+  language: StandardsLanguage,
+  ctx: ProjectContext
+): {
   readonly relativePath: 'CLAUDE.md';
   readonly filePath: string;
   readonly status: StandardsWriteStatus;
@@ -473,7 +521,9 @@ ${managedBlock}`,
     status: 'review',
     content: existingContent,
     appendBlock: '',
-    reviewSuggestions: ['Existing CLAUDE.md already has a managed standards block. Review the managed block manually before changing it.']
+    reviewSuggestions: [
+      'Existing CLAUDE.md already has a managed standards block. Review the managed block manually before changing it.'
+    ]
   };
 }
 
@@ -487,7 +537,11 @@ function buildWrite(projectRoot: string, template: StandardsTemplate): Standards
 }
 
 function writeNewFile(path: string, content: string): void {
-  const fd = openSync(path, constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW, 0o600);
+  const fd = openSync(
+    path,
+    constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW,
+    0o600
+  );
   try {
     writeFileSync(fd, content, 'utf8');
   } finally {
@@ -504,10 +558,15 @@ function appendExistingFile(path: string, content: string): void {
   }
 }
 
-export function createProjectStandardsInitPlan(options: ProjectStandardsInitOptions): ProjectStandardsInitPlan {
+export function createProjectStandardsInitPlan(
+  options: ProjectStandardsInitOptions
+): ProjectStandardsInitPlan {
   const projectRoot = normalizeRoot(options.projectRoot);
   assertSafeStandardsRoot(projectRoot);
-  const language = options.language === undefined ? detectLanguageInternal(projectRoot) : parseLanguage(options.language);
+  const language =
+    options.language === undefined
+      ? detectLanguageInternal(projectRoot)
+      : parseLanguage(options.language);
   const ctx = detectProjectContext(projectRoot);
   // Default to the 2.0 canonical layout (`.peaks/standards/`).
   // If the consumer project still carries a 1.x "thick" `.claude/rules/`
@@ -530,7 +589,9 @@ export function createProjectStandardsInitPlan(options: ProjectStandardsInitOpti
   };
 }
 
-export function createProjectStandardsUpdatePlan(options: ProjectStandardsInitOptions): ProjectStandardsUpdatePlan {
+export function createProjectStandardsUpdatePlan(
+  options: ProjectStandardsInitOptions
+): ProjectStandardsUpdatePlan {
   const basePlan = createProjectStandardsInitPlan(options);
   const ctx = detectProjectContext(basePlan.projectRoot);
   const claudeMd = buildClaudeUpdate(basePlan.projectRoot, basePlan.language, ctx);
@@ -540,7 +601,9 @@ export function createProjectStandardsUpdatePlan(options: ProjectStandardsInitOp
   };
 }
 
-export function executeProjectStandardsInit(options: ProjectStandardsInitOptions): ProjectStandardsInitResult {
+export function executeProjectStandardsInit(
+  options: ProjectStandardsInitOptions
+): ProjectStandardsInitResult {
   const plan = createProjectStandardsInitPlan(options);
   const writtenFiles: string[] = [];
   const resolveHomedir = options.resolveHomedir ?? osHomedir;
@@ -559,12 +622,16 @@ export function executeProjectStandardsInit(options: ProjectStandardsInitOptions
 
   return {
     ...plan,
-    plannedWrites: plan.plannedWrites.map((write) => writtenFiles.includes(write.relativePath) ? { ...write, status: 'written' } : write),
+    plannedWrites: plan.plannedWrites.map((write) =>
+      writtenFiles.includes(write.relativePath) ? { ...write, status: 'written' } : write
+    ),
     writtenFiles
   };
 }
 
-export function executeProjectStandardsUpdate(options: ProjectStandardsInitOptions): ProjectStandardsUpdateResult {
+export function executeProjectStandardsUpdate(
+  options: ProjectStandardsInitOptions
+): ProjectStandardsUpdateResult {
   const plan = createProjectStandardsUpdatePlan(options);
   const writtenFiles: string[] = [];
   const appendedFiles: string[] = [];
@@ -610,30 +677,44 @@ export function executeProjectStandardsUpdate(options: ProjectStandardsInitOptio
   };
 }
 
-export function summarizeProjectStandardsInitResult(result: ProjectStandardsInitResult): ProjectStandardsInitSummary {
+export function summarizeProjectStandardsInitResult(
+  result: ProjectStandardsInitResult
+): ProjectStandardsInitSummary {
   return {
     apply: result.apply,
     projectRoot: result.projectRoot,
     language: result.language,
     source: result.source,
     skillPreflight: result.skillPreflight,
-    plannedWrites: result.plannedWrites.map((write) => ({ relativePath: write.relativePath, status: write.status })),
+    plannedWrites: result.plannedWrites.map((write) => ({
+      relativePath: write.relativePath,
+      status: write.status
+    })),
     writtenFiles: result.writtenFiles,
-    skippedFiles: result.plannedWrites.filter((write) => write.status === 'existing').map((write) => write.relativePath)
+    skippedFiles: result.plannedWrites
+      .filter((write) => write.status === 'existing')
+      .map((write) => write.relativePath)
   };
 }
 
-export function summarizeProjectStandardsUpdateResult(result: ProjectStandardsUpdateResult): ProjectStandardsUpdateSummary {
+export function summarizeProjectStandardsUpdateResult(
+  result: ProjectStandardsUpdateResult
+): ProjectStandardsUpdateSummary {
   return {
     apply: result.apply,
     projectRoot: result.projectRoot,
     language: result.language,
     source: result.source,
     skillPreflight: result.skillPreflight,
-    plannedWrites: result.plannedWrites.map((write) => ({ relativePath: write.relativePath, status: write.status })),
+    plannedWrites: result.plannedWrites.map((write) => ({
+      relativePath: write.relativePath,
+      status: write.status
+    })),
     writtenFiles: result.writtenFiles,
     appendedFiles: result.appendedFiles,
-    skippedFiles: result.plannedWrites.filter((write) => write.status === 'existing').map((write) => write.relativePath),
+    skippedFiles: result.plannedWrites
+      .filter((write) => write.status === 'existing')
+      .map((write) => write.relativePath),
     reviewSuggestions: result.reviewSuggestions,
     claudeMd: {
       relativePath: result.claudeMd.relativePath,

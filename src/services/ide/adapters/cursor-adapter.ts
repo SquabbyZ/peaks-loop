@@ -66,14 +66,12 @@ export const CURSOR_ADAPTER: IdeAdapter = {
   // `peaks sub-agent-dispatch-guard`. Opt in (matches the byte-stable
   // slice #008 install entry shape — same pattern as Trae adapter).
   promptSizeAware: true,
-  installHints: [
-    'Restart Cursor so the beforeShellExecution hooks take effect.'
-  ],
+  installHints: ['Restart Cursor so the beforeShellExecution hooks take effect.'],
   capabilities: {
     gateEnforce: true,
     // Cursor has a statusline UI (Cmd+Shift+P → "Cursor: Open Status Bar")
     // that can host peaks statusline output, so opt in to the capability.
-    statusline: true,
+    statusline: true
   },
   // Standards: UNVERIFIED — see slice #012+ (Cursor real-install dogfood for
   // the `standardsProfile` and `skillInstall` fields). Until then, `peaks
@@ -96,8 +94,10 @@ export const CURSOR_ADAPTER: IdeAdapter = {
       const trimmed = candidate.trim();
       if (/^[a-zA-Z0-9._-]{1,200}$/.test(trimmed)) return trimmed;
     }
-    const err = new Error('PEAKS_CALLER_NOT_RESOLVED: Cursor vendor signal unverified in 4.0.8') as Error & { code: string };
+    const err = new Error(
+      'PEAKS_CALLER_NOT_RESOLVED: Cursor vendor signal unverified in 4.0.8'
+    ) as Error & { code: string };
     err.code = 'PEAKS_CALLER_NOT_RESOLVED';
     throw err;
-  },
+  }
 };

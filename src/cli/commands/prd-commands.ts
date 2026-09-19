@@ -16,7 +16,13 @@
 
 import { readFile } from 'node:fs/promises';
 import { Command } from 'commander';
-import { initHandoff, readHandoff, showHandoff, verifyHandoff, writeHandoff } from '../../services/prd/handoff-service.js';
+import {
+  initHandoff,
+  readHandoff,
+  showHandoff,
+  verifyHandoff,
+  writeHandoff
+} from '../../services/prd/handoff-service.js';
 import { deriveGateEvidenceForRequest } from '../../services/prd/gate-evidence-derivation.js';
 import { fail, ok } from 'peaks-loop-shared/result';
 
@@ -70,13 +76,19 @@ export function registerPrdCommands(program: Command, io: ProgramIO): void {
     .command('prd', { hidden: true })
     .description('peaks-prd role: artifact + handoff primitives');
 
-  const handoff = prd.command('handoff').description('Write / verify / show the immutable PRD handoff (sha256-locked, schemaVersion: 2)');
+  const handoff = prd
+    .command('handoff')
+    .description(
+      'Write / verify / show the immutable PRD handoff (sha256-locked, schemaVersion: 2)'
+    );
 
   // peaks prd handoff init
   addJsonOption(
     handoff
       .command('init')
-      .description('Initialize an immutable handoff: sha256(body) → frontmatter → write to .peaks/_runtime/<sid>/prd/handoff-<rid>.md')
+      .description(
+        'Initialize an immutable handoff: sha256(body) → frontmatter → write to .peaks/_runtime/<sid>/prd/handoff-<rid>.md'
+      )
       .requiredOption('--rid <request-id>', 'request id (e.g. 001-v2-11-cc-group-b)')
       .requiredOption('--sid <session-id>', 'session id (e.g. 2026-06-26-session-a28d69)')
       .requiredOption('--body <body>', 'handoff body markdown, or @<file> to read from disk')
@@ -101,7 +113,7 @@ export function registerPrdCommands(program: Command, io: ProgramIO): void {
       const gateEvidence = await deriveGateEvidenceForRequest({
         projectRoot,
         sessionId: options.sid,
-        requestId: options.rid,
+        requestId: options.rid
       });
       const handoff = initHandoff({
         requestId: options.rid,
@@ -111,35 +123,49 @@ export function registerPrdCommands(program: Command, io: ProgramIO): void {
         goals: splitCsv(options.goals),
         acceptanceCriteria: splitCsv(options.ac),
         preservedBehavior: splitCsv(options.preserve),
-        ...(gateEvidence === undefined ? {} : { gateEvidence }),
+        ...(gateEvidence === undefined ? {} : { gateEvidence })
       });
       if (options.apply !== true) {
-        printResult(io, ok('prd.handoff.init', {
-          dryRun: true,
-          requestId: handoff.frontmatter.requestId,
-          sessionId: handoff.frontmatter.sessionId,
-          schemaVersion: handoff.frontmatter.schemaVersion,
-          handoffHash: handoff.frontmatter.handoffHash,
-          handoffPath: handoff.frontmatter.handoffPath,
-          bodyBytes: Buffer.byteLength(body, 'utf8'),
-          goals: handoff.frontmatter.goals,
-          acceptanceCriteria: handoff.frontmatter.acceptanceCriteria,
-          preservedBehavior: handoff.frontmatter.preservedBehavior
-        }), options.json);
+        printResult(
+          io,
+          ok('prd.handoff.init', {
+            dryRun: true,
+            requestId: handoff.frontmatter.requestId,
+            sessionId: handoff.frontmatter.sessionId,
+            schemaVersion: handoff.frontmatter.schemaVersion,
+            handoffHash: handoff.frontmatter.handoffHash,
+            handoffPath: handoff.frontmatter.handoffPath,
+            bodyBytes: Buffer.byteLength(body, 'utf8'),
+            goals: handoff.frontmatter.goals,
+            acceptanceCriteria: handoff.frontmatter.acceptanceCriteria,
+            preservedBehavior: handoff.frontmatter.preservedBehavior
+          }),
+          options.json
+        );
         return;
       }
       const written = await writeHandoff(handoff, projectRoot);
-      printResult(io, ok('prd.handoff.init', {
-        applied: true,
-        path: written.path,
-        hash: written.hash,
-        requestId: handoff.frontmatter.requestId,
-        sessionId: handoff.frontmatter.sessionId
-      }), options.json);
+      printResult(
+        io,
+        ok('prd.handoff.init', {
+          applied: true,
+          path: written.path,
+          hash: written.hash,
+          requestId: handoff.frontmatter.requestId,
+          sessionId: handoff.frontmatter.sessionId
+        }),
+        options.json
+      );
     } catch (error) {
       printResult(
         io,
-        fail('prd.handoff.init', 'HANDOFF_INIT_FAILED', getErrorMessage(error), { rid: options.rid, sid: options.sid }, ['Check --body syntax (@<file> or literal) and re-run']),
+        fail(
+          'prd.handoff.init',
+          'HANDOFF_INIT_FAILED',
+          getErrorMessage(error),
+          { rid: options.rid, sid: options.sid },
+          ['Check --body syntax (@<file> or literal) and re-run']
+        ),
         options.json
       );
       process.exitCode = 1;
@@ -156,14 +182,33 @@ export function registerPrdCommands(program: Command, io: ProgramIO): void {
     try {
       const probe = await verifyHandoff(options.path);
       if (!probe.ok) {
-        printResult(io, fail('prd.handoff.verify', 'HANDOFF_VERIFY_FAILED',
-          probe.reason ?? 'unknown', probe, ['Re-init the handoff with `peaks prd handoff init --apply` to restore integrity']), options.json);
+        printResult(
+          io,
+          fail('prd.handoff.verify', 'HANDOFF_VERIFY_FAILED', probe.reason ?? 'unknown', probe, [
+            'Re-init the handoff with `peaks prd handoff init --apply` to restore integrity'
+          ]),
+          options.json
+        );
         process.exitCode = 1;
         return;
       }
-      printResult(io, ok('prd.handoff.verify', { ok: true, hash: probe.actualHash, path: options.path }), options.json);
+      printResult(
+        io,
+        ok('prd.handoff.verify', { ok: true, hash: probe.actualHash, path: options.path }),
+        options.json
+      );
     } catch (error) {
-      printResult(io, fail('prd.handoff.verify', 'HANDOFF_VERIFY_FAILED', getErrorMessage(error), { path: options.path }, ['Check the path and ensure the file is readable']), options.json);
+      printResult(
+        io,
+        fail(
+          'prd.handoff.verify',
+          'HANDOFF_VERIFY_FAILED',
+          getErrorMessage(error),
+          { path: options.path },
+          ['Check the path and ensure the file is readable']
+        ),
+        options.json
+      );
       process.exitCode = 1;
     }
   });
@@ -179,18 +224,32 @@ export function registerPrdCommands(program: Command, io: ProgramIO): void {
       const content = await showHandoff(options.path);
       const handoff = await readHandoff(options.path);
       if (options.json === true) {
-        printResult(io, ok('prd.handoff.show', {
-          path: options.path,
-          frontmatter: handoff.frontmatter,
-          bodyBytes: Buffer.byteLength(content, 'utf8'),
-          body: content
-        }), true);
+        printResult(
+          io,
+          ok('prd.handoff.show', {
+            path: options.path,
+            frontmatter: handoff.frontmatter,
+            bodyBytes: Buffer.byteLength(content, 'utf8'),
+            body: content
+          }),
+          true
+        );
         return;
       }
       io.stdout(content);
       if (!content.endsWith('\n')) io.stdout('\n');
     } catch (error) {
-      printResult(io, fail('prd.handoff.show', 'HANDOFF_SHOW_FAILED', getErrorMessage(error), { path: options.path }, ['Check the path and ensure the file is readable']), options.json);
+      printResult(
+        io,
+        fail(
+          'prd.handoff.show',
+          'HANDOFF_SHOW_FAILED',
+          getErrorMessage(error),
+          { path: options.path },
+          ['Check the path and ensure the file is readable']
+        ),
+        options.json
+      );
       process.exitCode = 1;
     }
   });

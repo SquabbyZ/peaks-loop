@@ -39,7 +39,13 @@ beforeEach(() => {
     root,
     detectedAt: new Date().toISOString(),
     children: [
-      { id: 'childA', path: childRoot, gitRoot: false, peaksScope: 'child-only', peaksInstalled: false }
+      {
+        id: 'childA',
+        path: childRoot,
+        gitRoot: false,
+        peaksScope: 'child-only',
+        peaksInstalled: false
+      }
     ]
   };
 });
@@ -89,7 +95,14 @@ describe('polyrepo dispatch — sid path-traversal guard', () => {
   it('still dispatches a well-formed sid (control — not vacuous)', () => {
     const result = dispatch('2026-09-13-session-21878f');
     expect(result.perChild[0]?.ok).toBe(true);
-    const written = join(childRoot, '.peaks', '_runtime', '2026-09-13-session-21878f', 'prd', 'src.md');
+    const written = join(
+      childRoot,
+      '.peaks',
+      '_runtime',
+      '2026-09-13-session-21878f',
+      'prd',
+      'src.md'
+    );
     expect(result.perChild[0]?.mirroredTo).toBe(written);
     expect(existsSync(written)).toBe(true);
     expect(readFileSync(written, 'utf8')).toContain('BODY');

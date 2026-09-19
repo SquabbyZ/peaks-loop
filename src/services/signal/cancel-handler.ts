@@ -16,7 +16,11 @@
  */
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import type { DispatchRecord, DispatchRecordStatus, DispatchOutcome } from '../dispatch/dispatch-record-writer.js';
+import type {
+  DispatchRecord,
+  DispatchRecordStatus,
+  DispatchOutcome
+} from '../dispatch/dispatch-record-writer.js';
 
 export interface CancelResult {
   readonly cancelled: number;
@@ -76,7 +80,8 @@ function readRecordOrNull(path: string): DispatchRecord | null {
     if (typeof obj.completedAt !== 'string' && obj.completedAt !== null) return null;
     if (typeof obj.role !== 'string') return null;
     return obj as unknown as DispatchRecord;
-  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+  } catch {
+    // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     return null;
   }
 }

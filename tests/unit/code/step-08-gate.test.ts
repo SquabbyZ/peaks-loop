@@ -70,7 +70,7 @@ const __fsMocks = vi.hoisted(() => ({
   // through to the real implementation so the gate actually reaches
   // `readProgressIfAny` instead of falling into the JOB_SHAPE_NOT_DECIDED
   // fail-closed branch first.
-  pathMatch: null as RegExp | null,
+  pathMatch: null as RegExp | null
 }));
 
 vi.mock('node:fs', async () => {
@@ -85,7 +85,7 @@ vi.mock('node:fs', async () => {
         }
       }
       return (actual.readFileSync as (...a: unknown[]) => unknown)(...args);
-    },
+    }
   };
 });
 
@@ -99,13 +99,15 @@ declareDimensions(
   [
     {
       dim: 'render',
-      reason: 'no user-visible text in this module; the public surface is a typed verdict object only',
+      reason:
+        'no user-visible text in this module; the public surface is a typed verdict object only'
     },
     {
       dim: 'a11y',
-      reason: 'no user-visible text in this module; this file is consumed by peaks-code Step 0.8 hook, not rendered for humans',
-    },
-  ],
+      reason:
+        'no user-visible text in this module; this file is consumed by peaks-code Step 0.8 hook, not rendered for humans'
+    }
+  ]
 );
 
 // -- helpers ----------------------------------------------------------------
@@ -129,11 +131,11 @@ function writeValidJobShapeDecision(tmpDir: string, sessionId: string): void {
         suggestedJobId: 'rid-step-08-gate-test',
         suggestedStrategy: 'single',
         confidence: 'high',
-        decidedAt: new Date().toISOString(),
+        decidedAt: new Date().toISOString()
       },
-      schemaVersion: 1,
+      schemaVersion: 1
     }),
-    'utf8',
+    'utf8'
   );
 }
 
@@ -152,8 +154,8 @@ function writeValidJobShapeDecision(tmpDir: string, sessionId: string): void {
 //           existing progress.json is STILL swallowed (backward-compat:
 //           progress-unreadable semantic preserved, gate still returns
 //           allow-job with progress: null).
-describe("Scenario: behavior — readProgressIfAny catch narrows to IO errors only", () => {
-  it("when invoked, should Case A: SyntaxError from broken progress.json surfaces to caller (NOT swallowed)", () => {
+describe('Scenario: behavior — readProgressIfAny catch narrows to IO errors only', () => {
+  it('when invoked, should Case A: SyntaxError from broken progress.json surfaces to caller (NOT swallowed)', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -171,11 +173,7 @@ describe("Scenario: behavior — readProgressIfAny catch narrows to IO errors on
     // (3-40 chars, lowercase, matches SUGGESTED_JID_RE /^[a-z0-9][a-z0-9-]{2,40}$/).
     const jobDir = join(tmpDir, '.peaks', '_runtime', sessionId, 'job', 'rid-step-08-gate-test');
     mkdirSync(jobDir, { recursive: true });
-    writeFileSync(
-      join(jobDir, 'progress.json'),
-      '{ this is not valid JSON :: ',
-      'utf8',
-    );
+    writeFileSync(join(jobDir, 'progress.json'), '{ this is not valid JSON :: ', 'utf8');
     // Discriminate: only intercept progress.json reads so the
     // readFileSync inside `readJobShapeDecision` (job-shape.json) still
     // passes through to the real fs and the gate actually reaches
@@ -186,15 +184,15 @@ describe("Scenario: behavior — readProgressIfAny catch narrows to IO errors on
       expect(() =>
         evaluateStep08({
           sessionId,
-          projectRoot: tmpDir,
-        }),
+          projectRoot: tmpDir
+        })
       ).toThrow(SyntaxError);
     } finally {
       __fsMocks.pathMatch = null;
     }
   });
 
-  it("when invoked, should Case B: IO error from readFileSync against existing progress.json returns allow-job with progress: null (still swallowed)", () => {
+  it('when invoked, should Case B: IO error from readFileSync against existing progress.json returns allow-job with progress: null (still swallowed)', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -224,22 +222,22 @@ describe("Scenario: behavior — readProgressIfAny catch narrows to IO errors on
         total: 3,
         currentSlice: 'rid-step-08-gate-test-slice-2',
         lastCommitSha: null,
-        updatedAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
       }),
-      'utf8',
+      'utf8'
     );
     __fsMocks.pathMatch = /progress\.json$/;
     __fsMocks.readFileSync = () => {
       throw Object.assign(new Error('EACCES: permission denied, open progress.json'), {
         code: 'EACCES',
         errno: -13,
-        syscall: 'open',
+        syscall: 'open'
       });
     };
     try {
       const out = evaluateStep08({
         sessionId,
-        projectRoot: tmpDir,
+        projectRoot: tmpDir
       });
       // IO error path → progress unreadable → falls through to
       // progress: null, nextSliceLine: null (allow with no resume context).
@@ -255,7 +253,7 @@ describe("Scenario: behavior — readProgressIfAny catch narrows to IO errors on
     }
   });
 
-  it("when invoked, should Case C: a NON-IO error from readFileSync surfaces to caller (NOT swallowed)", () => {
+  it('when invoked, should Case C: a NON-IO error from readFileSync surfaces to caller (NOT swallowed)', () => {
     // S6 (2026-09-15) — the half the old rule got backwards.
     //
     // The pre-S6 catch rethrew `ReferenceError` and `SyntaxError` by name and
@@ -279,8 +277,8 @@ describe("Scenario: behavior — readProgressIfAny catch narrows to IO errors on
       expect(() =>
         evaluateStep08({
           sessionId,
-          projectRoot: tmpDir,
-        }),
+          projectRoot: tmpDir
+        })
       ).toThrow(TypeError);
     } finally {
       __fsMocks.readFileSync = null;

@@ -62,7 +62,11 @@ export function upsertRole(registry: RoleRegistry, role: Role): RoleRegistry {
 }
 
 /** Grant a permission to a role. Returns the new registry. */
-export function grantPermission(registry: RoleRegistry, roleName: string, permission: string): RoleRegistry {
+export function grantPermission(
+  registry: RoleRegistry,
+  roleName: string,
+  permission: string
+): RoleRegistry {
   const found = registry.roles.find((r) => r.name === roleName);
   if (!found) return registry;
   if (found.permissions.includes(permission)) return registry;
@@ -71,7 +75,11 @@ export function grantPermission(registry: RoleRegistry, roleName: string, permis
 }
 
 /** Check if a role has a permission. */
-export function roleHasPermission(registry: RoleRegistry, roleName: string, permission: string): boolean {
+export function roleHasPermission(
+  registry: RoleRegistry,
+  roleName: string,
+  permission: string
+): boolean {
   const role = registry.roles.find((r) => r.name === roleName);
   if (!role) return false;
   return role.permissions.includes(permission);
@@ -98,5 +106,13 @@ export const DEFAULT_PERMISSIONS: readonly string[] = [
 export const DEFAULT_SENIOR_FE_ROLE: Role = {
   name: 'senior-fe',
   description: 'Senior Frontend (业务资深 + 后端半盲 + 24h AI 程序员)',
-  permissions: ['prd.write', 'prd.confirm', 'rd.review', 'qa.accept', 'qa.reject', 'smoke.define', 'smoke.run']
+  permissions: [
+    'prd.write',
+    'prd.confirm',
+    'rd.review',
+    'qa.accept',
+    'qa.reject',
+    'smoke.define',
+    'smoke.run'
+  ]
 };

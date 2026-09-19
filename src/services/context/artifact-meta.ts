@@ -48,8 +48,8 @@ export interface ContextImpact {
   readonly contextWarning: 'normal' | 'high' | 'critical';
 }
 
-const ARTIFACT_MAX_SIZE_BYTES = 1024 * 1024;       // 1MB
-const BATCH_TOTAL_HIGH_BYTES = 4 * 1024 * 1024;    // 4MB
+const ARTIFACT_MAX_SIZE_BYTES = 1024 * 1024; // 1MB
+const BATCH_TOTAL_HIGH_BYTES = 4 * 1024 * 1024; // 4MB
 
 /**
  * Compute the sha256 hex digest of a file. Throws if the file does not

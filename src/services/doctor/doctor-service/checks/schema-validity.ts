@@ -20,7 +20,11 @@ async function run({ schemaRoot }: DoctorContext): Promise<readonly DoctorCheck[
   for (const schemaFile of requiredSchemaFiles) {
     try {
       JSON.parse(await readText(join(schemaRoot, schemaFile)));
-      checks.push({ id: `schema:${schemaFile}`, ok: true, message: `Schema ${schemaFile} is valid JSON` });
+      checks.push({
+        id: `schema:${schemaFile}`,
+        ok: true,
+        message: `Schema ${schemaFile} is valid JSON`
+      });
     } catch (error) {
       checks.push({
         id: `schema:${schemaFile}`,

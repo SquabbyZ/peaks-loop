@@ -48,7 +48,10 @@ export const EPEAKS_NO_STANDARDS = 'EPEAKS_NO_STANDARDS' as const;
 /** Subdirectories of `<projectRoot>/.claude/rules/` that must be populated. */
 export type RdStandardsSubdir = 'common' | 'typescript';
 
-export const RD_STANDARDS_REQUIRED_SUBDIRS: ReadonlyArray<RdStandardsSubdir> = ['common', 'typescript'] as const;
+export const RD_STANDARDS_REQUIRED_SUBDIRS: ReadonlyArray<RdStandardsSubdir> = [
+  'common',
+  'typescript'
+] as const;
 
 /** The three gates the RD bootstrap inspects. */
 export type RdStandardGateName = 'code-review' | 'security-review' | 'performance-review';
@@ -99,7 +102,9 @@ export type ResolveRdStartupStandardsCheckResult = {
  * (CLI bootstrap) is expected to surface the remediation; this function
  * just reports the truth.
  */
-export function detectMissingProjectStandards(input: DetectMissingProjectStandardsInput): DetectMissingProjectStandardsResult {
+export function detectMissingProjectStandards(
+  input: DetectMissingProjectStandardsInput
+): DetectMissingProjectStandardsResult {
   const projectRoot = input.projectRoot;
   const rulesPath = join(projectRoot, '.claude', 'rules');
   const missingSubdirs: RdStandardsSubdir[] = [];
@@ -134,7 +139,8 @@ export function detectMissingProjectStandards(input: DetectMissingProjectStandar
  */
 export function renderRdStandardsDiagnostic(input: RenderRdStandardsDiagnosticInput): string {
   const { projectRoot: _projectRoot, detection } = input;
-  const missingList = detection.missingSubdirs.length > 0 ? ` (missing: ${detection.missingSubdirs.join(', ')})` : '';
+  const missingList =
+    detection.missingSubdirs.length > 0 ? ` (missing: ${detection.missingSubdirs.join(', ')})` : '';
   return [
     `⚠ no project-local standards found at ${detection.path}${missingList}`,
     `— run ${detection.remediation} to scaffold.`,
@@ -147,7 +153,9 @@ export function renderRdStandardsDiagnostic(input: RenderRdStandardsDiagnosticIn
  * Mirrors the PRD's AC2 contract: when missing, each gate is
  * `{ name, status: 'skipped', reason: 'no project-local standards' }`.
  */
-export function buildRdStandardsGateList(input: { readonly missing: boolean }): ReadonlyArray<RdStandardGate> {
+export function buildRdStandardsGateList(input: {
+  readonly missing: boolean;
+}): ReadonlyArray<RdStandardGate> {
   if (input.missing) {
     return [
       { name: 'code-review', status: 'skipped', reason: 'no project-local standards' },
@@ -176,7 +184,9 @@ export function buildRdStandardsGateList(input: { readonly missing: boolean }): 
  * - strict any     + present  → exitCode 0, errorCode null,
  *                                diagnostic null, gates ready.
  */
-export function resolveRdStartupStandardsCheck(input: ResolveRdStartupStandardsCheckInput): ResolveRdStartupStandardsCheckResult {
+export function resolveRdStartupStandardsCheck(
+  input: ResolveRdStartupStandardsCheckInput
+): ResolveRdStartupStandardsCheckResult {
   const detection = detectMissingProjectStandards({ projectRoot: input.projectRoot });
   if (!detection.missing) {
     return {

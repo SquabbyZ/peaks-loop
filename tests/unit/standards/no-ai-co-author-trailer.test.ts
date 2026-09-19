@@ -65,8 +65,8 @@ declareDimensions(
   ['behavior', 'integration'],
   [
     { dim: 'render', reason: 'the checker returns findings; it renders nothing' },
-    { dim: 'a11y', reason: 'no human-facing surface; findings surface in the assertion message' },
-  ],
+    { dim: 'a11y', reason: 'no human-facing surface; findings surface in the assertion message' }
+  ]
 );
 
 const REPO_ROOT = resolve(__dirname, '..', '..', '..');
@@ -100,7 +100,6 @@ const AI_ATTRIBUTION_EMAIL = /@(?:anthropic|openai)\.com\b/i;
  * every phrase that happens to contain a vendor word.
  */
 const IS_PARENTHESISED_NOTE = /^\(/;
-
 
 export interface TrailerFinding {
   /** Index of the message in the input array. */
@@ -154,7 +153,10 @@ export function readCommitMessages(repoRoot: string): string[] {
     .filter((entry) => entry.length > 0);
 }
 
-function describeFindings(findings: readonly TrailerFinding[], messages: readonly string[]): string {
+function describeFindings(
+  findings: readonly TrailerFinding[],
+  messages: readonly string[]
+): string {
   return findings
     .map((f) => {
       const subject = (messages[f.messageIndex] ?? '').split('\n')[0] ?? '';
@@ -213,9 +215,7 @@ describe('behavior — the trailer checker', () => {
 
   it('reports the line number of the offending trailer', () => {
     const findings = findAiAttributionTrailers(['subject\n\nbody\n\nCo-Authored-By: Claude\n']);
-    expect(findings).toEqual([
-      { messageIndex: 0, line: 5, trailer: 'Co-Authored-By: Claude' }
-    ]);
+    expect(findings).toEqual([{ messageIndex: 0, line: 5, trailer: 'Co-Authored-By: Claude' }]);
   });
 });
 
@@ -226,7 +226,9 @@ describe('integration — the real commit history', () => {
     // The read must not be vacuous. `git log` returning nothing would make the
     // assertion below pass while checking nothing at all, which is the exact
     // failure mode this file exists to avoid.
-    expect(messages.length, 'git log returned no commits — the guard read nothing').toBeGreaterThan(0);
+    expect(messages.length, 'git log returned no commits — the guard read nothing').toBeGreaterThan(
+      0
+    );
 
     const findings = findAiAttributionTrailers(messages);
     expect(
@@ -253,7 +255,10 @@ describe('integration — the real commit history', () => {
       mkdirSync(repo, { recursive: true });
       execFileSync('git', ['init', '-q'], { cwd: repo, windowsHide: true });
       execFileSync('git', ['config', 'user.name', 'SquabbyZ'], { cwd: repo, windowsHide: true });
-      execFileSync('git', ['config', 'user.email', '601709253@qq.com'], { cwd: repo, windowsHide: true });
+      execFileSync('git', ['config', 'user.email', '601709253@qq.com'], {
+        cwd: repo,
+        windowsHide: true
+      });
       // Keeps `git add` from warning about LF→CRLF on a machine with
       // core.autocrlf=true; the warning is stderr noise in the suite report.
       execFileSync('git', ['config', 'core.autocrlf', 'false'], { cwd: repo, windowsHide: true });

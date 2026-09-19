@@ -30,10 +30,7 @@ function makeProject(): string {
   return mkdtempSync(join(tmpdir(), 'peaks-skill-readiness-'));
 }
 
-function writeFakeSkill(
-  projectRoot: string,
-  body: string,
-): string {
+function writeFakeSkill(projectRoot: string, body: string): string {
   const dir = join(projectRoot, 'fake-skill');
   mkdirSync(dir, { recursive: true });
   const path = join(dir, 'SKILL.md');
@@ -46,7 +43,7 @@ function writeFakeSkill(
     '# Peaks-Fake-Skill',
     '',
     body,
-    '',
+    ''
   ].join('\n');
   writeFileSync(path, md, 'utf-8');
   return dir;
@@ -58,13 +55,7 @@ function cli(args: string[], cwd: string) {
 
 describe('peaks skill lint --category loop-engineering-readiness (M6)', () => {
   test('peaks-maker SKILL.md passes the readiness lint', async () => {
-    const peaksMakerPath = resolve(
-      REPO_ROOT,
-      'src',
-      'skills',
-      'peaks-maker',
-      'SKILL.md',
-    );
+    const peaksMakerPath = resolve(REPO_ROOT, 'src', 'skills', 'peaks-maker', 'SKILL.md');
     const project = mkdtempSync(join(tmpdir(), 'peaks-skill-readiness-'));
     try {
       const result = await cli(
@@ -75,9 +66,9 @@ describe('peaks skill lint --category loop-engineering-readiness (M6)', () => {
           'loop-engineering-readiness',
           '--path',
           peaksMakerPath,
-          '--json',
+          '--json'
         ],
-        project,
+        project
       );
       expect(result.code).toBe(0);
       const envelope = JSON.parse(result.stdout);
@@ -94,29 +85,17 @@ describe('peaks skill lint --category loop-engineering-readiness (M6)', () => {
     try {
       const skillDir = writeFakeSkill(
         project,
-        [
-          'No reference to the shared guideline file at all.',
-        ].join('\n'),
+        ['No reference to the shared guideline file at all.'].join('\n')
       );
       const result = await cli(
-        [
-          'skill',
-          'lint',
-          '--category',
-          'loop-engineering-readiness',
-          '--path',
-          skillDir,
-          '--json',
-        ],
-        project,
+        ['skill', 'lint', '--category', 'loop-engineering-readiness', '--path', skillDir, '--json'],
+        project
       );
       expect(result.code).toBe(1);
       const envelope = JSON.parse(result.stdout);
       expect(envelope.ok).toBe(false);
       expect(envelope.code).toBe('SKILL_READINESS_FAILED');
-      const codes = (envelope.data.findings as string[]).map((f) =>
-        f.split(':')[0],
-      );
+      const codes = (envelope.data.findings as string[]).map((f) => f.split(':')[0]);
       expect(codes).toContain('missing-guideline-reference');
     } finally {
       rmSync(project, { recursive: true, force: true });
@@ -131,27 +110,17 @@ describe('peaks skill lint --category loop-engineering-readiness (M6)', () => {
         [
           'Reference: .peaks/standards/loop-engineering-guidelines.md',
           '',
-          'Run `peaks custom-evolve my-bee` to evolve your bee directly.',
-        ].join('\n'),
+          'Run `peaks custom-evolve my-bee` to evolve your bee directly.'
+        ].join('\n')
       );
       const result = await cli(
-        [
-          'skill',
-          'lint',
-          '--category',
-          'loop-engineering-readiness',
-          '--path',
-          skillDir,
-          '--json',
-        ],
-        project,
+        ['skill', 'lint', '--category', 'loop-engineering-readiness', '--path', skillDir, '--json'],
+        project
       );
       expect(result.code).toBe(1);
       const envelope = JSON.parse(result.stdout);
       expect(envelope.ok).toBe(false);
-      const codes = (envelope.data.findings as string[]).map((f) =>
-        f.split(':')[0],
-      );
+      const codes = (envelope.data.findings as string[]).map((f) => f.split(':')[0]);
       expect(codes).toContain('cli-verb-bypass');
     } finally {
       rmSync(project, { recursive: true, force: true });
@@ -163,19 +132,11 @@ describe('peaks skill lint --category loop-engineering-readiness (M6)', () => {
     try {
       const skillDir = writeFakeSkill(
         project,
-        'Reference: .peaks/standards/loop-engineering-guidelines.md',
+        'Reference: .peaks/standards/loop-engineering-guidelines.md'
       );
       const result = await cli(
-        [
-          'skill',
-          'lint',
-          '--category',
-          'something-else',
-          '--path',
-          skillDir,
-          '--json',
-        ],
-        project,
+        ['skill', 'lint', '--category', 'something-else', '--path', skillDir, '--json'],
+        project
       );
       expect(result.code).toBe(1);
       const envelope = JSON.parse(result.stdout);
@@ -189,14 +150,8 @@ describe('peaks skill lint --category loop-engineering-readiness (M6)', () => {
     const project = mkdtempSync(join(tmpdir(), 'peaks-skill-readiness-'));
     try {
       const result = await cli(
-        [
-          'skill',
-          'lint',
-          '--category',
-          'loop-engineering-readiness',
-          '--json',
-        ],
-        project,
+        ['skill', 'lint', '--category', 'loop-engineering-readiness', '--json'],
+        project
       );
       // commander treats requiredOption as a precondition; we accept
       // either a structured MISSING_PATH envelope or a commander-level
@@ -208,13 +163,7 @@ describe('peaks skill lint --category loop-engineering-readiness (M6)', () => {
   });
 
   test('alias `peaks skill ready --category loop-engineering-readiness` works', async () => {
-    const peaksMakerPath = resolve(
-      REPO_ROOT,
-      'src',
-      'skills',
-      'peaks-maker',
-      'SKILL.md',
-    );
+    const peaksMakerPath = resolve(REPO_ROOT, 'src', 'skills', 'peaks-maker', 'SKILL.md');
     const project = mkdtempSync(join(tmpdir(), 'peaks-skill-readiness-'));
     try {
       const result = await cli(
@@ -225,9 +174,9 @@ describe('peaks skill lint --category loop-engineering-readiness (M6)', () => {
           'loop-engineering-readiness',
           '--path',
           peaksMakerPath,
-          '--json',
+          '--json'
         ],
-        project,
+        project
       );
       expect(result.code).toBe(0);
       const envelope = JSON.parse(result.stdout);

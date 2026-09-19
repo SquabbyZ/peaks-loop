@@ -35,14 +35,18 @@ import {
   realpathSync,
   rmSync,
   symlinkSync,
-  writeFileSync,
+  writeFileSync
 } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { declareDimensions } from '../_setup/4dim-template.js';
 import { makeCapturedIo } from '../_setup/io.js';
-import { cleanupTmpWorkspace, useTmpWorkspace, type TmpWorkspace } from '../_setup/tmp-workspace.js';
+import {
+  cleanupTmpWorkspace,
+  useTmpWorkspace,
+  type TmpWorkspace
+} from '../_setup/tmp-workspace.js';
 import { CODEGRAPH_INTEGRITY_EXIT_CODE } from '../../../src/services/codegraph/codegraph-exclude-integrity.js';
 import { repairCodegraphExcludeFromProject } from '../../../src/services/codegraph/codegraph-exclude-repair.js';
 
@@ -50,17 +54,17 @@ declareDimensions('tests/unit/cli/codegraph-status-integrity.test.ts', [
   'render',
   'behavior',
   'integration',
-  'a11y',
+  'a11y'
 ]);
 
 const __m = vi.hoisted(() => ({
-  executeCodegraphInvocation: vi.fn(),
+  executeCodegraphInvocation: vi.fn()
 }));
 
 vi.mock('../../../src/services/codegraph/codegraph-service.js', async () => {
-  const actual = await vi.importActual<typeof import('../../../src/services/codegraph/codegraph-service.js')>(
-    '../../../src/services/codegraph/codegraph-service.js'
-  );
+  const actual = await vi.importActual<
+    typeof import('../../../src/services/codegraph/codegraph-service.js')
+  >('../../../src/services/codegraph/codegraph-service.js');
   return { ...actual, executeCodegraphInvocation: __m.executeCodegraphInvocation };
 });
 
@@ -103,15 +107,24 @@ type ProjectMode = 'gapped' | 'clean' | 'uninitialized' | 'gapped-empty-rule';
 
 function seedProject(ws: TmpWorkspace, mode: ProjectMode): string {
   execFileSync('git', ['-C', ws.path, 'init', '-q'], { stdio: 'ignore', windowsHide: true });
-  execFileSync('git', ['-C', ws.path, 'config', 'user.email', 'peaks-test@example.com'], { stdio: 'ignore', windowsHide: true });
-  execFileSync('git', ['-C', ws.path, 'config', 'user.name', 'peaks test'], { stdio: 'ignore', windowsHide: true });
+  execFileSync('git', ['-C', ws.path, 'config', 'user.email', 'peaks-test@example.com'], {
+    stdio: 'ignore',
+    windowsHide: true
+  });
+  execFileSync('git', ['-C', ws.path, 'config', 'user.name', 'peaks test'], {
+    stdio: 'ignore',
+    windowsHide: true
+  });
 
   mkdirSync(join(ws.path, 'src'), { recursive: true });
   mkdirSync(join(ws.path, 'vendor'), { recursive: true });
   writeFileSync(join(ws.path, 'src', 'ok.ts'), 'export const ok = 1;\n', 'utf8');
   writeFileSync(join(ws.path, 'vendor', 'lib.ts'), 'export const lib = 1;\n', 'utf8');
   execFileSync('git', ['-C', ws.path, 'add', '-A'], { stdio: 'ignore', windowsHide: true });
-  execFileSync('git', ['-C', ws.path, 'commit', '-qm', 'fixture'], { stdio: 'ignore', windowsHide: true });
+  execFileSync('git', ['-C', ws.path, 'commit', '-qm', 'fixture'], {
+    stdio: 'ignore',
+    windowsHide: true
+  });
 
   if (mode === 'uninitialized') {
     return ws.path;
@@ -129,7 +142,7 @@ function seedProject(ws: TmpWorkspace, mode: ProjectMode): string {
             ? ['**/vendor/**', '**/node_modules/**']
             : mode === 'gapped-empty-rule'
               ? ['', '**/vendor/**', '**/node_modules/**']
-              : ['**/node_modules/**'],
+              : ['**/node_modules/**']
       },
       null,
       2
@@ -174,7 +187,7 @@ beforeEach(() => {
   __m.executeCodegraphInvocation.mockResolvedValue({
     exitCode: 0,
     stdout: UPSTREAM_CLEAN_STDOUT,
-    stderr: '',
+    stderr: ''
   });
 });
 
@@ -635,10 +648,10 @@ describe('peaks codegraph repair-index', () => {
       // because the repair verb hand-rolled `resolve()` and skipped the
       // canonicalizer every codegraph invocation goes through.
       expect(envelope.data.configPath).toBe(
-        join(realpathSync.native(project), '.codegraph', 'config.json'),
+        join(realpathSync.native(project), '.codegraph', 'config.json')
       );
       expect(envelope.data.backupPath).toBe(
-        join(realpathSync.native(project), '.codegraph', 'config.json.bak'),
+        join(realpathSync.native(project), '.codegraph', 'config.json.bak')
       );
       expect(existsSync(envelope.data.backupPath ?? '')).toBe(true);
     } finally {

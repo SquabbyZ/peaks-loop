@@ -35,7 +35,7 @@ export const EXPECTED_RED_LINE_IDS = [
   // short of the file it was supposed to police. The file's own footer said
   // "Total red lines: 9 (RL-0..RL-9)" while RL-10 sat below it — the two
   // statements contradicted each other and only the file was ever read.
-  'RL-10',
+  'RL-10'
 ] as const;
 
 export type RedLineId = (typeof EXPECTED_RED_LINE_IDS)[number];
@@ -44,7 +44,7 @@ export const REQUIRED_SECTIONS = [
   'Failure modes',
   'Rewrite',
   'Self-check',
-  'Out-of-scope',
+  'Out-of-scope'
 ] as const;
 
 export type RedLineSection = (typeof REQUIRED_SECTIONS)[number];
@@ -99,7 +99,12 @@ function parseRedLines(raw: string): RedLineReport[] {
   const headings: Array<{ id: string; title: string; start: number; end: number }> = [];
   let m: RegExpExecArray | null;
   while ((m = headingRegex.exec(raw)) !== null) {
-    headings.push({ id: m[1] ?? '', title: m[2] ?? '', start: m.index + m[0].length, end: raw.length });
+    headings.push({
+      id: m[1] ?? '',
+      title: m[2] ?? '',
+      start: m.index + m[0].length,
+      end: raw.length
+    });
   }
   for (let i = 0; i < headings.length - 1; i++) {
     headings[i]!.end = headings[i + 1]!.start;
@@ -118,14 +123,17 @@ function parseRedLines(raw: string): RedLineReport[] {
     }
     for (let i = 0; i < sectionMatches.length; i++) {
       const start = sectionMatches[i]!.start;
-      const end = i + 1 < sectionMatches.length ? sectionMatches[i + 1]!.start - sectionMatches[i]!.start : body.length - start;
+      const end =
+        i + 1 < sectionMatches.length
+          ? sectionMatches[i + 1]!.start - sectionMatches[i]!.start
+          : body.length - start;
       const text = body.slice(start, start + end);
       sections[sectionMatches[i]!.name] = text;
     }
     return {
       id: h.id as RedLineId,
       title: h.title,
-      sections,
+      sections
     };
   });
 }

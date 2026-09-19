@@ -26,7 +26,10 @@
  */
 import { existsSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
-import { assertSafeDispatchRecordPath, dispatchRecordPath } from '../security/safe-settings-path.js';
+import {
+  assertSafeDispatchRecordPath,
+  dispatchRecordPath
+} from '../security/safe-settings-path.js';
 import { withFileLockSync } from 'peaks-loop-shared-channel';
 import { isStageLabel, type StageLabel } from './stage-enum.js';
 import { emitLeaseEvent } from '../observability/observability-service.js';
@@ -64,7 +67,7 @@ export function writeInitialDispatchRecord(input: WriteInitialDispatchInput): {
   if (prompt.length > MAX_PROMPT_BYTES) {
     const err = new Error(
       `prompt exceeds ${MAX_PROMPT_BYTES} bytes (got ${prompt.length}); ` +
-      `truncate or split into multiple dispatches`
+        `truncate or split into multiple dispatches`
     ) as Error & { code: string };
     err.code = 'PROMPT_TOO_LARGE';
     throw err;
@@ -100,7 +103,10 @@ export function writeInitialDispatchRecord(input: WriteInitialDispatchInput): {
  * writer stays under the `max-lines-per-function: 50` ESLint ceiling.
  * Behavior is byte-identical to the previous inline literal.
  */
-function buildInitialDispatchRecord(input: WriteInitialDispatchInput, now: () => Date): DispatchRecord {
+function buildInitialDispatchRecord(
+  input: WriteInitialDispatchInput,
+  now: () => Date
+): DispatchRecord {
   const { role, requestId, sessionId, prompt, toolCall, batchId } = input;
   return {
     version: '4.1.0',
@@ -134,18 +140,20 @@ function buildInitialDispatchRecord(input: WriteInitialDispatchInput, now: () =>
     // (gate-commands.ts), so an attacker-controlled toolCall.env
     // cannot inject a non-hex value and get the release path to
     // misfire.
-    leaseId: typeof input.leaseId === 'string' && /^[a-f0-9]{16}$/.test(input.leaseId)
-      ? input.leaseId
-      : null,
+    leaseId:
+      typeof input.leaseId === 'string' && /^[a-f0-9]{16}$/.test(input.leaseId)
+        ? input.leaseId
+        : null,
     // Slice 2026-07-29-worktree-l2-extended Part 7: v3.1 field.
     // ISO timestamp when the isolation mode was set up. Default
     // null when the dispatch did not request isolation. We do
     // NOT validate the format — the writer is the source of
     // truth here, and any ISO 8601 string Date.parse() can
     // handle is acceptable for the dashboard.
-    isolationStartedAt: typeof input.isolationStartedAt === 'string' && input.isolationStartedAt.length > 0
-      ? input.isolationStartedAt
-      : null,
+    isolationStartedAt:
+      typeof input.isolationStartedAt === 'string' && input.isolationStartedAt.length > 0
+        ? input.isolationStartedAt
+        : null,
     // Slice 2026-08-01-subagent-merge-and-e2e (Task 7): v3.2 fields.
     // New records start with empty serviceKill and zero attempts;
     // the merge-back-runner (Task 9) populates them in place.
@@ -155,28 +163,52 @@ function buildInitialDispatchRecord(input: WriteInitialDispatchInput, now: () =>
     // `null` for legacy / ad-hoc dispatches that do not bind a graph
     // node; v4.0.0 schema is structural (required field), so a `null`
     // is the explicit "no binding" state.
-    workflowId: typeof input.workflowId === 'string' && /^[a-zA-Z0-9._-]{1,200}$/.test(input.workflowId) ? input.workflowId : null,
-    graphNodeId: typeof input.graphNodeId === 'string' && /^[a-zA-Z0-9._-]{1,200}$/.test(input.graphNodeId) ? input.graphNodeId : null,
-    graphRef: typeof input.graphRef === 'string' && input.graphRef.length > 0 ? input.graphRef : null,
+    workflowId:
+      typeof input.workflowId === 'string' && /^[a-zA-Z0-9._-]{1,200}$/.test(input.workflowId)
+        ? input.workflowId
+        : null,
+    graphNodeId:
+      typeof input.graphNodeId === 'string' && /^[a-zA-Z0-9._-]{1,200}$/.test(input.graphNodeId)
+        ? input.graphNodeId
+        : null,
+    graphRef:
+      typeof input.graphRef === 'string' && input.graphRef.length > 0 ? input.graphRef : null,
     // Phase A Task 8: detached sub-agent mode (default in-process).
     mode: input.mode === 'detached' ? 'detached' : 'in-process',
-    vendor: input.vendor === 'claude' || input.vendor === 'codex' || input.vendor === 'copilot' ? input.vendor : null,
+    vendor:
+      input.vendor === 'claude' || input.vendor === 'codex' || input.vendor === 'copilot'
+        ? input.vendor
+        : null,
     autoCompactEvents: Array.isArray(input.autoCompactEvents)
-      ? input.autoCompactEvents.filter((e): e is { at: number; threshold: '0.85' | '0.95'; tokensBefore: number; tokensAfter: number; scratchFile?: string } =>
-          typeof e?.at === 'number' &&
-          (e?.threshold === '0.85' || e?.threshold === '0.95') &&
-          typeof e?.tokensBefore === 'number' &&
-          typeof e?.tokensAfter === 'number',
+      ? input.autoCompactEvents.filter(
+          (
+            e
+          ): e is {
+            at: number;
+            threshold: '0.85' | '0.95';
+            tokensBefore: number;
+            tokensAfter: number;
+            scratchFile?: string;
+          } =>
+            typeof e?.at === 'number' &&
+            (e?.threshold === '0.85' || e?.threshold === '0.95') &&
+            typeof e?.tokensBefore === 'number' &&
+            typeof e?.tokensAfter === 'number'
         )
       : [],
     tokenUsage:
-      typeof input.tokenUsage === 'object' && input.tokenUsage !== null && typeof input.tokenUsage.promptTokens === 'number' && typeof input.tokenUsage.completionTokens === 'number'
+      typeof input.tokenUsage === 'object' &&
+      input.tokenUsage !== null &&
+      typeof input.tokenUsage.promptTokens === 'number' &&
+      typeof input.tokenUsage.completionTokens === 'number'
         ? {
             promptTokens: input.tokenUsage.promptTokens,
             completionTokens: input.tokenUsage.completionTokens,
-            ...(typeof input.tokenUsage.totalCostUsd === 'number' ? { totalCostUsd: input.tokenUsage.totalCostUsd } : {}),
+            ...(typeof input.tokenUsage.totalCostUsd === 'number'
+              ? { totalCostUsd: input.tokenUsage.totalCostUsd }
+              : {})
           }
-        : null,
+        : null
   };
 }
 
@@ -304,7 +336,10 @@ function unregisterActiveDispatch(input: {
  * Returns an empty map when the index file is missing or corrupt
  * (the on-disk records directory is the next fallback).
  */
-export function readActiveDispatchIndex(projectRoot: string, sessionId: string): Record<string, ActiveDispatchEntry> {
+export function readActiveDispatchIndex(
+  projectRoot: string,
+  sessionId: string
+): Record<string, ActiveDispatchEntry> {
   const indexPath = activeDispatchIndexPath(projectRoot, sessionId);
   if (!existsSync(indexPath)) return {};
   try {
@@ -349,16 +384,23 @@ export function isOrphanDispatchRecord(opts: {
 }
 
 /** Append a heartbeat (G6). Idempotent on (at, status) — append-only. */
-export function appendHeartbeat(input: AppendHeartbeatInput): { record: DispatchRecord; truncated: boolean } {
+export function appendHeartbeat(input: AppendHeartbeatInput): {
+  record: DispatchRecord;
+  truncated: boolean;
+} {
   const { recordPath, status, progress, note } = input;
   const now = input.now ?? (() => new Date());
   if (!Number.isInteger(progress) || progress < 0 || progress > 100) {
-    const err = new Error(`progress must be integer 0..100 (got ${progress})`) as Error & { code: string };
+    const err = new Error(`progress must be integer 0..100 (got ${progress})`) as Error & {
+      code: string;
+    };
     err.code = 'INVALID_PROGRESS';
     throw err;
   }
   if (note !== undefined && note.length > NOTE_MAX_CHARS) {
-    const err = new Error(`note must be ≤ 200 chars (got ${note.length})`) as Error & { code: string };
+    const err = new Error(`note must be ≤ 200 chars (got ${note.length})`) as Error & {
+      code: string;
+    };
     err.code = 'NOTE_TOO_LONG';
     throw err;
   }
@@ -387,10 +429,7 @@ export function appendHeartbeat(input: AppendHeartbeatInput): { record: Dispatch
     // our pre-lock `readRecord` above and lock acquisition (heartbeats
     // and markCompleted share the same record file).
     const lockedExisting = readRecord(recordPath);
-    const lockedHeartbeats = applyTruncation([
-      ...lockedExisting.heartbeats,
-      entry
-    ]).heartbeats;
+    const lockedHeartbeats = applyTruncation([...lockedExisting.heartbeats, entry]).heartbeats;
     const lockedNext: DispatchRecord = {
       ...lockedExisting,
       heartbeats: lockedHeartbeats,
@@ -408,14 +447,20 @@ export function appendHeartbeat(input: AppendHeartbeatInput): { record: Dispatch
 }
 
 /** Apply truncation: keep most recent 100, mark truncated flag. */
-export function applyTruncation(entries: readonly Heartbeat[]): { heartbeats: Heartbeat[]; truncated: boolean } {
+export function applyTruncation(entries: readonly Heartbeat[]): {
+  heartbeats: Heartbeat[];
+  truncated: boolean;
+} {
   if (entries.length <= 100) {
     return { heartbeats: [...entries], truncated: false };
   }
   return { heartbeats: entries.slice(-100), truncated: true };
 }
 
-function mapStatusToAggregate(latest: HeartbeatStatus, current: DispatchRecordStatus): DispatchRecordStatus {
+function mapStatusToAggregate(
+  latest: HeartbeatStatus,
+  current: DispatchRecordStatus
+): DispatchRecordStatus {
   // 'stale' is a poller-driven warning and must not be overwritten by
   // a normal heartbeat that arrives after the stale flag was set.
   if (current === 'stale') {
@@ -492,10 +537,14 @@ async function spawnLeaseReleaseChild(args: {
       process.execPath,
       [
         process.argv[1] ?? '',
-        'worktree', 'release',
-        '--lease-id', args.leaseId,
-        '--project', args.projectRoot,
-        '--session', args.sessionId,
+        'worktree',
+        'release',
+        '--lease-id',
+        args.leaseId,
+        '--project',
+        args.projectRoot,
+        '--session',
+        args.sessionId,
         '--json'
       ],
       // `pipe` rather than `ignore` so a spawn failure (e.g. ENOENT
@@ -506,14 +555,24 @@ async function spawnLeaseReleaseChild(args: {
     );
     spawned = true;
     if (process.env.PEAKS_WORKTREE_LEASE_DEBUG) {
-      child.stderr?.on('data', (d: Buffer) => process.stderr.write(`[release] ${d.toString('utf8')}`));
-      child.stdout?.on('data', (d: Buffer) => process.stderr.write(`[release] ${d.toString('utf8')}`));
+      child.stderr?.on('data', (d: Buffer) =>
+        process.stderr.write(`[release] ${d.toString('utf8')}`)
+      );
+      child.stdout?.on('data', (d: Buffer) =>
+        process.stderr.write(`[release] ${d.toString('utf8')}`)
+      );
       child.on('error', (e) => process.stderr.write(`[release error] ${e.message}\n`));
       child.on('exit', (code) => process.stderr.write(`[release exit] code=${code}\n`));
     } else {
-      child.stderr?.on('data', () => { /* drain */ });
-      child.stdout?.on('data', () => { /* drain */ });
-      child.on('error', () => { /* detached best-effort */ });
+      child.stderr?.on('data', () => {
+        /* drain */
+      });
+      child.stdout?.on('data', () => {
+        /* drain */
+      });
+      child.on('error', () => {
+        /* detached best-effort */
+      });
     }
     child.unref();
   } catch (e) {
@@ -576,7 +635,11 @@ export function markCompleted(input: LifecycleInput): { record: DispatchRecord }
   // PEAKS_GRAPH_REF_BROKEN, etc.) is reused. Failures are swallowed
   // (best-effort; the dispatch record itself is the source of truth
   // and the transition is observable through the graph store).
-  if (result.record.workflowId !== null && result.record.graphNodeId !== null && result.record.graphRef !== null) {
+  if (
+    result.record.workflowId !== null &&
+    result.record.graphNodeId !== null &&
+    result.record.graphRef !== null
+  ) {
     scheduleGraphEnvelopeTransition(input, result.record);
   }
   // Slice 2026-06-23-audit-4th #A4: update the active-dispatches
@@ -592,7 +655,8 @@ export function markCompleted(input: LifecycleInput): { record: DispatchRecord }
         recordPath: input.recordPath,
         status: input.status
       });
-    } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+    } catch {
+      // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
       /* best-effort */
     }
   }
@@ -603,14 +667,19 @@ export function markCompleted(input: LifecycleInput): { record: DispatchRecord }
   // and best-effort; a crash here cannot roll back the markCompleted
   // write (we already returned from the lock). The next gc pass is
   // the safety net.
-  if (result.record.leaseId !== null && typeof input.projectRoot === 'string' && input.projectRoot.length > 0) {
+  if (
+    result.record.leaseId !== null &&
+    typeof input.projectRoot === 'string' &&
+    input.projectRoot.length > 0
+  ) {
     try {
       tryAutoReleaseLease({
         projectRoot: input.projectRoot,
         sessionId: result.record.sessionId,
         leaseId: result.record.leaseId
       });
-    } catch { // best-effort; release is async anyway
+    } catch {
+      // best-effort; release is async anyway
       /* swallow */
     }
   }
@@ -645,16 +714,18 @@ function scheduleGraphEnvelopeTransition(input: LifecycleInput, record: Dispatch
               projectRoot: input.projectRoot ?? '',
               sessionId: record.sessionId,
               graphRef: record.graphRef ?? '',
-              workflowId: record.workflowId ?? '',
+              workflowId: record.workflowId ?? ''
             });
-          } catch { return null; }
+          } catch {
+            return null;
+          }
         })();
         if (sessionRoot === null) return;
         const graph = storeMod.readGraph({
           projectRoot: input.projectRoot ?? '',
           sessionId: record.sessionId,
           graphRef: record.graphRef ?? '',
-          workflowId: record.workflowId ?? '',
+          workflowId: record.workflowId ?? ''
         });
         const node = graph.nodes.find((n) => n.id === record.graphNodeId);
         if (node === undefined) return;
@@ -665,15 +736,22 @@ function scheduleGraphEnvelopeTransition(input: LifecycleInput, record: Dispatch
         lifecycleMod.writeEnvelope({
           graphNode: node,
           dispatchRef,
-          envelopeDispatchRef: dispatchRef,
+          envelopeDispatchRef: dispatchRef
         });
-      } catch { /* best-effort graph transition */ }
+      } catch {
+        /* best-effort graph transition */
+      }
     })();
-  } catch { /* best-effort */ }
+  } catch {
+    /* best-effort */
+  }
 }
 
 /** Mark a record as disposed (reducer ran). */
-export function markDisposed(recordPath: string, now: () => Date = () => new Date()): { record: DispatchRecord } {
+export function markDisposed(
+  recordPath: string,
+  now: () => Date = () => new Date()
+): { record: DispatchRecord } {
   // Lock + re-read (see markCompleted).
   return withFileLockSync(recordPath, () => {
     const existing = readRecord(recordPath);
@@ -726,7 +804,10 @@ export function setStage(input: {
  */
 export function readRecord(recordPath: string): DispatchRecord {
   if (!existsSync(recordPath)) {
-    const err = new Error(`Dispatch record not found: ${recordPath}`) as Error & { code: string; path: string };
+    const err = new Error(`Dispatch record not found: ${recordPath}`) as Error & {
+      code: string;
+      path: string;
+    };
     err.code = 'RECORD_NOT_FOUND';
     (err as unknown as { path: string }).path = recordPath;
     throw err;
@@ -736,7 +817,9 @@ export function readRecord(recordPath: string): DispatchRecord {
   try {
     parsed = JSON.parse(raw);
   } catch (error: unknown) {
-    const err = new Error(`Invalid dispatch record JSON: ${(error as Error).message}`) as Error & { code: string };
+    const err = new Error(`Invalid dispatch record JSON: ${(error as Error).message}`) as Error & {
+      code: string;
+    };
     err.code = 'INVALID_RECORD_JSON';
     throw err;
   }

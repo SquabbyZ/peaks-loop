@@ -13,21 +13,50 @@ import { resolve } from 'node:path';
 
 const ROOT_FILE_ALLOWLIST: ReadonlySet<string> = new Set([
   // Top-level docs
-  'README.md', 'README-en.md', 'LICENSE', 'LICENSE.md', 'NOTICE', 'CONTRIBUTING.md',
-  'CHANGELOG.md', 'AUTHORS', 'CONTRIBUTORS',
+  'README.md',
+  'README-en.md',
+  'LICENSE',
+  'LICENSE.md',
+  'NOTICE',
+  'CONTRIBUTING.md',
+  'CHANGELOG.md',
+  'AUTHORS',
+  'CONTRIBUTORS',
   // Build / package manifests
-  'package.json', 'pnpm-lock.yaml', 'pnpm-workspace.yaml', 'tsconfig.json',
-  'tsconfig.*.json', 'vitest.config.ts', 'vite.config.ts', '.npmrc', '.nvmrc',
+  'package.json',
+  'pnpm-lock.yaml',
+  'pnpm-workspace.yaml',
+  'tsconfig.json',
+  'tsconfig.*.json',
+  'vitest.config.ts',
+  'vite.config.ts',
+  '.npmrc',
+  '.nvmrc',
   // VCS / editor
-  '.gitignore', '.gitattributes', '.editorconfig', '.gitkeep',
+  '.gitignore',
+  '.gitattributes',
+  '.editorconfig',
+  '.gitkeep',
   // Project-local config dirs (peaks-loop convention)
-  'openspec', '.peaks', '.claude', '.peaksrc',
+  'openspec',
+  '.peaks',
+  '.claude',
+  '.peaksrc',
   // Source dirs (writes into them are normal)
-  'src', 'tests', 'bin', 'scripts', 'schemas', 'output-styles', 'docs',
+  'src',
+  'tests',
+  'bin',
+  'scripts',
+  'schemas',
+  'output-styles',
+  'docs',
   // Skills are allowed at root
   'skills',
   // Generated / ignored
-  'dist', 'node_modules', 'coverage', '.nyc_output',
+  'dist',
+  'node_modules',
+  'coverage',
+  '.nyc_output'
 ]);
 
 export interface RootWriteCheckInput {
@@ -68,8 +97,9 @@ export function isRootWrite(input: RootWriteCheckInput): RootWriteCheckResult {
     isRoot: true,
     allowed: false,
     topSegment,
-    denyReason: `no-root-pollution: file "${rel}" is not in the root allowlist. ` +
+    denyReason:
+      `no-root-pollution: file "${rel}" is not in the root allowlist. ` +
       `Move it under docs/, tests/, skills/, or another documented directory, ` +
-      `or add it to ROOT_FILE_ALLOWLIST in src/services/audit/enforcers/no-root-pollution.ts.`,
+      `or add it to ROOT_FILE_ALLOWLIST in src/services/audit/enforcers/no-root-pollution.ts.`
   };
 }

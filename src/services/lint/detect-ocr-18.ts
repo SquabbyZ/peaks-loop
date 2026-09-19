@@ -9,11 +9,7 @@ import { OCR_18_PACKAGE } from './ocr-multilang-adapter.js';
 import { npmExecCacheRoots } from '../../shared/npm-cache.js';
 
 export type Ocr18DetectState =
-  | 'ready'
-  | 'ocr18-missing'
-  | 'binary-missing'
-  | 'llm-config-missing'
-  | 'detection-failed';
+  'ready' | 'ocr18-missing' | 'binary-missing' | 'llm-config-missing' | 'detection-failed';
 
 export type Ocr18DetectResult = {
   readonly state: Ocr18DetectState;
@@ -55,7 +51,11 @@ function probeNpx(): NpxProbe {
       ? { available: false, reason: 'not-launchable', detail: error.message }
       : { available: false, reason: 'not-on-path', detail: error.message };
   }
-  return { available: false, reason: 'probe-failed', detail: `npx --version exited ${probe.status ?? 'null'}` };
+  return {
+    available: false,
+    reason: 'probe-failed',
+    detail: `npx --version exited ${probe.status ?? 'null'}`
+  };
 }
 
 /** The scoped directory and exact version a `name@version` spec names. */
@@ -67,7 +67,9 @@ function splitSpec(spec: string): { readonly dir: string; readonly version: stri
 /** The version the `package.json` at `modulesRoot/<dir>` declares, or `null`. */
 function installedVersion(modulesRoot: string, dir: string): string | null {
   try {
-    const parsed = JSON.parse(readFileSync(join(modulesRoot, dir, 'package.json'), 'utf8')) as { version?: unknown };
+    const parsed = JSON.parse(readFileSync(join(modulesRoot, dir, 'package.json'), 'utf8')) as {
+      version?: unknown;
+    };
     return typeof parsed.version === 'string' ? parsed.version : null;
   } catch {
     // Nothing installed under this root is the normal case for most of them.
@@ -122,7 +124,9 @@ function resolvableModuleRoots(cwd: string): string[] {
  */
 function probeOcr18(cwd: string): boolean {
   const { dir, version } = splitSpec(OCR_18_PACKAGE);
-  return resolvableModuleRoots(cwd).some((modulesRoot) => installedVersion(modulesRoot, dir) === version);
+  return resolvableModuleRoots(cwd).some(
+    (modulesRoot) => installedVersion(modulesRoot, dir) === version
+  );
 }
 
 /**
@@ -138,8 +142,12 @@ export function detectOcr18(options: { readonly cwd?: string } = {}): Ocr18Detec
         state: 'detection-failed',
         npxAvailable: false,
         package: OCR_18_PACKAGE,
-        warnings: [`${NPX_PROBE_UNRESOLVED_CODE}: could not launch npx to probe (${probe.detail}).`],
-        nextActions: ['Ensure Node.js >= 20 with its bundled npm is installed; `npx --version` must succeed.']
+        warnings: [
+          `${NPX_PROBE_UNRESOLVED_CODE}: could not launch npx to probe (${probe.detail}).`
+        ],
+        nextActions: [
+          'Ensure Node.js >= 20 with its bundled npm is installed; `npx --version` must succeed.'
+        ]
       };
     }
     return {

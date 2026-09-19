@@ -17,15 +17,17 @@ import {
 
 const ENVELOPE: EccEnvelope = {
   passed: false,
-  violations: [
-    { kind: 'correctness', line: 12, snippet: 'if (x = 1)', hint: 'use ===' }
-  ],
+  violations: [{ kind: 'correctness', line: 12, snippet: 'if (x = 1)', hint: 'use ===' }],
   gateAction: 'block'
 };
 
 describe('detectEcc — cache-backed state', () => {
   it('returns ready-via-cache when the plugin is missing but the cache is materialized', () => {
-    const result = detectEcc({ pluginInstalled: false, agentAvailable: false, cacheAgentAvailable: true });
+    const result = detectEcc({
+      pluginInstalled: false,
+      agentAvailable: false,
+      cacheAgentAvailable: true
+    });
     expect(result.state).toBe('ready-via-cache');
     expect(result.pluginInstalled).toBe(false);
     expect(result.agentAvailable).toBe(false);
@@ -46,7 +48,11 @@ describe('detectEcc — cache-backed state', () => {
   });
 
   it('returns ready-via-cache when the plugin agent is missing but the cache is materialized', () => {
-    const result = detectEcc({ pluginInstalled: true, agentAvailable: false, cacheAgentAvailable: true });
+    const result = detectEcc({
+      pluginInstalled: true,
+      agentAvailable: false,
+      cacheAgentAvailable: true
+    });
     expect(result.state).toBe('ready-via-cache');
     expect(result.pluginInstalled).toBe(true);
     expect(result.agentAvailable).toBe(false);

@@ -62,7 +62,7 @@ import {
   createCodegraphInvocation,
   executeCodegraphInvocation,
   isCodegraphInitialized,
-  type CodegraphProcessRunner,
+  type CodegraphProcessRunner
 } from './codegraph-service.js';
 import { repairCodegraphExcludeFromProject } from './codegraph-exclude-repair.js';
 
@@ -141,13 +141,13 @@ function firstMeaningfulLine(text: string): string {
  */
 export async function refreshCodegraphAfterSlice(
   projectRoot: string,
-  runner?: CodegraphProcessRunner,
+  runner?: CodegraphProcessRunner
 ): Promise<CodegraphAutorefreshResult> {
   if (!isCodegraphPresent(projectRoot)) {
     return {
       refreshed: false,
       reason: 'no-codegraph-dir',
-      note: `auto codegraph refresh skipped: no ${CODEGRAPH_DIR_NAME} directory at ${join(projectRoot, CODEGRAPH_DIR_NAME)}. Run \`peaks codegraph init\` once to enable post-slice auto-refresh.`,
+      note: `auto codegraph refresh skipped: no ${CODEGRAPH_DIR_NAME} directory at ${join(projectRoot, CODEGRAPH_DIR_NAME)}. Run \`peaks codegraph init\` once to enable post-slice auto-refresh.`
     };
   }
 
@@ -163,18 +163,18 @@ export async function refreshCodegraphAfterSlice(
         return {
           refreshed: false,
           reason: 'no-codegraph-dir',
-          note: `auto codegraph refresh skipped: ${CODEGRAPH_DIR_NAME}/ exists without a codegraph.db and is not peaks-loop-managed. Run \`peaks codegraph init\` once to enable post-slice auto-refresh.`,
+          note: `auto codegraph refresh skipped: ${CODEGRAPH_DIR_NAME}/ exists without a codegraph.db and is not peaks-loop-managed. Run \`peaks codegraph init\` once to enable post-slice auto-refresh.`
         };
       }
       const initResult = await executeCodegraphInvocation(
         createCodegraphInvocation({ subcommand: 'init', project: projectRoot }),
-        runner,
+        runner
       );
       if (initResult.exitCode !== 0) {
         return {
           refreshed: false,
           reason: 'index-failed',
-          note: `auto codegraph refresh self-heal init failed (exit ${String(initResult.exitCode)}): ${firstMeaningfulLine(initResult.stderr || initResult.stdout)}. ${REFRESH_REMEDY}`,
+          note: `auto codegraph refresh self-heal init failed (exit ${String(initResult.exitCode)}): ${firstMeaningfulLine(initResult.stderr || initResult.stdout)}. ${REFRESH_REMEDY}`
         };
       }
       // That init just wrote upstream's 99-rule default `exclude`
@@ -190,13 +190,17 @@ export async function refreshCodegraphAfterSlice(
       await repairCodegraphExcludeFromProject(projectRoot, runner, { reindex: false });
     }
 
-    const invocation = createCodegraphInvocation({ subcommand: 'index', project: projectRoot, quiet: true });
+    const invocation = createCodegraphInvocation({
+      subcommand: 'index',
+      project: projectRoot,
+      quiet: true
+    });
     const result = await executeCodegraphInvocation(invocation, runner);
     if (result.exitCode !== 0) {
       return {
         refreshed: false,
         reason: 'index-failed',
-        note: `auto codegraph refresh failed (exit ${String(result.exitCode)}): ${firstMeaningfulLine(result.stderr || result.stdout)}. ${REFRESH_REMEDY}`,
+        note: `auto codegraph refresh failed (exit ${String(result.exitCode)}): ${firstMeaningfulLine(result.stderr || result.stdout)}. ${REFRESH_REMEDY}`
       };
     }
     return { refreshed: true };
@@ -204,7 +208,7 @@ export async function refreshCodegraphAfterSlice(
     return {
       refreshed: false,
       reason: 'unavailable',
-      note: `auto codegraph refresh unavailable: ${errorMessage(error)}. ${REFRESH_REMEDY}`,
+      note: `auto codegraph refresh unavailable: ${errorMessage(error)}. ${REFRESH_REMEDY}`
     };
   }
 }

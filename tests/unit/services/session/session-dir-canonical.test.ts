@@ -77,7 +77,7 @@ import {
   readFileSync,
   rmSync,
   statSync,
-  writeFileSync,
+  writeFileSync
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 
@@ -87,7 +87,7 @@ import { getSessionDir } from '~/src/services/session/getSessionDir';
 declareDimensions(
   'tests/unit/services/session/session-dir-canonical.test.ts',
   ['render', 'behavior', 'integration'],
-  [{ dim: 'a11y', reason: 'static scans expose no human-facing text or exit code' }],
+  [{ dim: 'a11y', reason: 'static scans expose no human-facing text or exit code' }]
 );
 
 // `src/` files exempt from invariant (b). Every entry MUST be load-bearing —
@@ -115,9 +115,8 @@ const ALLOWED_LEGACY_READ_PATHS: ReadonlyArray<string> = [
   // Intentional legacy read: `legacySessionRoot` is tier 2 of the documented
   // pre-F3 back-compat fallback (`:455`), consumed by
   // `resolvePrerequisiteAbsolutePathWithFallback`.
-  'src/services/artifacts/artifact-prerequisites.ts',
+  'src/services/artifacts/artifact-prerequisites.ts'
 ];
-
 
 // `skills/` files exempt from invariant (c). Deliberately empty: the two
 // historical entries (`skills/peaks-code/references/a2a-artifact-mapping.md`
@@ -155,7 +154,7 @@ function listFiles(dir: string, match: (name: string) => boolean): string[] {
  */
 function findSessionDirJoinViolations(
   file: string,
-  opts: { applyAllowList?: boolean } = {},
+  opts: { applyAllowList?: boolean } = {}
 ): Array<{ line: number; text: string }> {
   const rel = file.replace(/\\/g, '/');
   if (rel.endsWith('src/services/session/getSessionDir.ts')) return [];
@@ -194,7 +193,7 @@ function findSessionDirJoinViolations(
 /** Find `<root>/.peaks/<sid>/...` paths a sub-agent would follow verbatim. */
 function findSkillMarkdownLegacySessionPaths(
   file: string,
-  opts: { applyAllowList?: boolean } = {},
+  opts: { applyAllowList?: boolean } = {}
 ): Array<{ line: number; text: string }> {
   const rel = file.replace(/\\/g, '/');
   if ((opts.applyAllowList ?? true) && ALLOWED_LEGACY_SKILL_PATHS.some((a) => rel.endsWith(a))) {
@@ -218,7 +217,7 @@ function findSkillMarkdownLegacySessionPaths(
 function scanTree(
   root: string,
   files: string[],
-  scan: (file: string) => Array<{ line: number; text: string }>,
+  scan: (file: string) => Array<{ line: number; text: string }>
 ): Array<{ file: string; line: number; text: string }> {
   const prefix = root.replace(/\\/g, '/') + '/';
   const violations: Array<{ file: string; line: number; text: string }> = [];
@@ -240,7 +239,7 @@ function makeFixtureTree(): { root: string; srcFile: string; skillFile: string }
   writeFileSync(
     srcFile,
     `const p = join(root, '.peaks', sessionId, 'qa', 'performance-findings.md');\n`,
-    'utf8',
+    'utf8'
   );
 
   // Two levels deep on purpose: the original one-level walker could not see
@@ -281,7 +280,11 @@ describe('Scenario: behavior — each scanner rejects a deliberate violation (in
       expect(violations).toHaveLength(1);
       expect(violations[0]?.line).toBe(1);
 
-      writeFileSync(skillFile, `Write evidence at .peaks/_runtime/<sid>/qa/test-reports/<rid>.md\n`, 'utf8');
+      writeFileSync(
+        skillFile,
+        `Write evidence at .peaks/_runtime/<sid>/qa/test-reports/<rid>.md\n`,
+        'utf8'
+      );
       expect(findSkillMarkdownLegacySessionPaths(skillFile)).toEqual([]);
     } finally {
       rmSync(root, { recursive: true, force: true });

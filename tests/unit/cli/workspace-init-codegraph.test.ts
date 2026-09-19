@@ -98,13 +98,19 @@ describe('workspace-init codegraph auto-stake (rid-CG-001)', () => {
       // The workspace-init branch must NOT touch the foreign files.
       // We mirror the branch by NOT calling writeCodegraphMarker and
       // asserting the foreign file is byte-identical after the guard.
-      const foreignContentBefore = readFileSync(join(projectRoot, '.codegraph', 'foreign.db'), 'utf8');
+      const foreignContentBefore = readFileSync(
+        join(projectRoot, '.codegraph', 'foreign.db'),
+        'utf8'
+      );
 
       // Re-run the guard to confirm the conflict status is sticky.
       const after = defaultCodegraphInitGuard(projectRoot);
       expect(after.status).toBe('conflict-foreign-schema');
 
-      const foreignContentAfter = readFileSync(join(projectRoot, '.codegraph', 'foreign.db'), 'utf8');
+      const foreignContentAfter = readFileSync(
+        join(projectRoot, '.codegraph', 'foreign.db'),
+        'utf8'
+      );
       expect(foreignContentAfter).toBe(foreignContentBefore);
 
       // The marker file MUST NOT exist.

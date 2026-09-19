@@ -30,11 +30,20 @@ export function registerLegacyCommands(program: Command, io: ProgramIO): void {
   ).action((opts: { dir: string; project?: string; json?: boolean }) => {
     const projectRoot = opts.project ?? findProjectRoot(process.cwd()) ?? process.cwd();
     const report = detectLegacy(projectRoot, opts.dir);
-    printResult(io, ok('legacy-detect', { projectRoot, dir: opts.dir, report }, [], [
-      `Scanned ${report.scannedFiles} file(s). Smells: ${report.smells}.`,
-      report.smells === 'high'
-        ? 'Consider refactoring high-smell areas first.'
-        : 'Manageable technical debt.'
-    ]), opts.json ?? false);
+    printResult(
+      io,
+      ok(
+        'legacy-detect',
+        { projectRoot, dir: opts.dir, report },
+        [],
+        [
+          `Scanned ${report.scannedFiles} file(s). Smells: ${report.smells}.`,
+          report.smells === 'high'
+            ? 'Consider refactoring high-smell areas first.'
+            : 'Manageable technical debt.'
+        ]
+      ),
+      opts.json ?? false
+    );
   });
 }

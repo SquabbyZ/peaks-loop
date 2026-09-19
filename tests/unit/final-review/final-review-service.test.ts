@@ -65,7 +65,12 @@ function makeProject(): string {
 
 /** Read-only git, for the fixtures themselves (never for the service). */
 function git(root: string, args: readonly string[]): void {
-  execFileSync('git', [...args], { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
+  execFileSync('git', [...args], {
+    cwd: root,
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+    windowsHide: true
+  });
 }
 
 /**
@@ -95,11 +100,7 @@ function makeGitProject(): string {
   return root;
 }
 
-function writeUnderProject(
-  root: string,
-  segments: readonly string[],
-  content: string
-): string {
+function writeUnderProject(root: string, segments: readonly string[], content: string): string {
   const dir = join(root, '.peaks', '_runtime', SESSION_ID, ...segments.slice(0, -1));
   mkdirSync(dir, { recursive: true });
   const file = join(dir, segments[segments.length - 1] as string);
@@ -130,12 +131,32 @@ function writeAllEvidence(root: string, filler = '', exactBodyBytes?: number): v
     if (exactBodyBytes === undefined) return base;
     return base + 'X'.repeat(Math.max(0, exactBodyBytes - base.length));
   };
-  writeUnderProject(root, ['qa', 'test-reports', `${RID}.md`], body('MARKER-QA-TEST-REPORT 48 files / 406 tests passed'));
-  writeUnderProject(root, ['qa', 'test-cases', `${RID}.md`], body('MARKER-QA-TEST-CASES AC1 -> tests/unit/x.test.ts'));
-  writeUnderProject(root, ['qa', `security-findings-${RID}.md`], body('MARKER-QA-SECURITY 0 findings'));
-  writeUnderProject(root, ['qa', `performance-findings-${RID}.md`], body('MARKER-QA-PERFORMANCE no regression'));
+  writeUnderProject(
+    root,
+    ['qa', 'test-reports', `${RID}.md`],
+    body('MARKER-QA-TEST-REPORT 48 files / 406 tests passed')
+  );
+  writeUnderProject(
+    root,
+    ['qa', 'test-cases', `${RID}.md`],
+    body('MARKER-QA-TEST-CASES AC1 -> tests/unit/x.test.ts')
+  );
+  writeUnderProject(
+    root,
+    ['qa', `security-findings-${RID}.md`],
+    body('MARKER-QA-SECURITY 0 findings')
+  );
+  writeUnderProject(
+    root,
+    ['qa', `performance-findings-${RID}.md`],
+    body('MARKER-QA-PERFORMANCE no regression')
+  );
   writeUnderProject(root, ['rd', 'code-review.md'], body('MARKER-RD-CODE-REVIEW 0 blockers'));
-  writeUnderProject(root, ['rd', 'security-review.md'], body('MARKER-RD-SECURITY-REVIEW 0 findings'));
+  writeUnderProject(
+    root,
+    ['rd', 'security-review.md'],
+    body('MARKER-RD-SECURITY-REVIEW 0 findings')
+  );
   writeUnderProject(root, ['rd', 'tech-doc.md'], body('MARKER-RD-TECH-DOC no public API change'));
   writeUnderProject(root, ['rd', 'bug-analysis.md'], body('MARKER-RD-BUG-ANALYSIS original repro'));
   writeUnderProject(root, ['prd', 'handoff.md'], body('MARKER-PRD-HANDOFF scope + non-goals'));
@@ -163,7 +184,8 @@ function captureRunner(
     async call(systemPrompt, userPrompt, opts) {
       calls.push({ systemPrompt, userPrompt, maxTokens: opts.maxTokens });
       const raw = typeof output === 'function' ? output() : output;
-      const emitted = typeof outputTokens === 'function' ? outputTokens(opts.maxTokens) : outputTokens;
+      const emitted =
+        typeof outputTokens === 'function' ? outputTokens(opts.maxTokens) : outputTokens;
       return { output: raw, tokens: { input: 0, output: emitted } };
     }
   };
@@ -177,7 +199,7 @@ function reviewJson(
   return JSON.stringify({
     rid: RID,
     generatedAt: '2026-09-12T00:00:00.000Z',
-    dimensions: REQUIRED.map(dimension => ({
+    dimensions: REQUIRED.map((dimension) => ({
       dimension,
       verdict: verdicts[dimension],
       summary: `model summary for ${dimension}`,
@@ -216,11 +238,11 @@ function parseRenderedSources(prompt: string): readonly RenderedSource[] {
   return prompt
     .split(/^### \[/m)
     .slice(1)
-    .map(block => {
+    .map((block) => {
       const key = block.match(/^\d+\]\s+(\S+)/)?.[1] ?? '';
       const supports = (block.match(/^SUPPORTS: (.+)$/m)?.[1] ?? '')
         .split(',')
-        .map(part => part.trim())
+        .map((part) => part.trim())
         .filter(Boolean);
       const truncated = block.match(/showing the first (\d+) of (\d+) bytes/);
       if (truncated) {
@@ -343,7 +365,7 @@ describe('prepareFinalReview — on-disk evidence (D1)', () => {
       llmRunner: runner
     });
 
-    const byDimension = new Map(out.dimensions.map(d => [d.dimension, d.verdict]));
+    const byDimension = new Map(out.dimensions.map((d) => [d.dimension, d.verdict]));
     expect(byDimension.get('problem-resolution')).toBe('fail');
     expect(byDimension.get('functional-completeness')).toBe('inconclusive');
     expect(out.allPass).toBe(false);
@@ -442,13 +464,15 @@ describe('prepareFinalReview — the pre/post-diff gate covers every cause (F3)'
     expect(prompt).toContain('STATUS: UNAVAILABLE');
     expect(prompt).toContain('not inside a git work tree');
 
-    const dimension = out.dimensions.find(d => d.dimension === 'existing-functionality-intact');
+    const dimension = out.dimensions.find((d) => d.dimension === 'existing-functionality-intact');
     // The three measured facts of the defect, asserted directly: the verdict is
     // downgraded, there is no fabricated `pre-post-diff` evidence, and the
     // envelope is not a clean handoff.
     expect(dimension?.verdict).toBe('inconclusive');
     expect(dimension?.confidence).toBe('low');
-    expect((dimension?.evidence ?? []).filter(item => item.kind === 'pre-post-diff')).toHaveLength(0);
+    expect(
+      (dimension?.evidence ?? []).filter((item) => item.kind === 'pre-post-diff')
+    ).toHaveLength(0);
     expect(out.allPass).toBe(false);
     expect(out.needsAttention).toContain('existing-functionality-intact');
     // The CAUSE of the missing evidence is named in the reason — named as the
@@ -457,7 +481,7 @@ describe('prepareFinalReview — the pre/post-diff gate covers every cause (F3)'
     expect(dimension?.summary).toContain('not a git work tree');
 
     // Exactly one dimension is narrowed: this gate must not redden the review.
-    const others = out.dimensions.filter(d => d.dimension !== 'existing-functionality-intact');
+    const others = out.dimensions.filter((d) => d.dimension !== 'existing-functionality-intact');
     expect(others).toHaveLength(3);
     for (const other of others) expect(other.verdict).toBe('pass');
   });
@@ -567,7 +591,7 @@ describe('prepareFinalReview — output budget (D1 layer 3)', () => {
     const partial = JSON.stringify({
       rid: RID,
       generatedAt: '2026-09-12T00:00:00.000Z',
-      dimensions: REQUIRED.slice(0, 3).map(dimension => ({
+      dimensions: REQUIRED.slice(0, 3).map((dimension) => ({
         dimension,
         verdict: 'pass',
         summary: 's',
@@ -580,7 +604,7 @@ describe('prepareFinalReview — output budget (D1 layer 3)', () => {
     });
 
     // The provider reports it stopped exactly at the ceiling it was given.
-    const { runner } = captureRunner(partial, maxTokens => maxTokens);
+    const { runner } = captureRunner(partial, (maxTokens) => maxTokens);
     const error: unknown = await prepareFinalReview(RID, {
       projectRoot: root,
       sessionId: SESSION_ID,
@@ -615,7 +639,7 @@ describe('prepareFinalReview — output contract', () => {
     const partial = JSON.stringify({
       rid: RID,
       generatedAt: '2026-09-12T00:00:00.000Z',
-      dimensions: REQUIRED.slice(0, 3).map(dimension => ({
+      dimensions: REQUIRED.slice(0, 3).map((dimension) => ({
         dimension,
         verdict: 'pass',
         summary: 's',
@@ -708,13 +732,13 @@ describe('prepareFinalReview — evidence budget (D2: no dimension is starved)',
     // were the two the budget omitted on every saturated run; the floor is what
     // makes them reachable, and reachability is the whole point — a gate whose
     // source never fits is a gate that is always red.
-    expect(rendered.find(s => s.key === 'prd-handoff')?.status).toBe('found');
-    expect(rendered.find(s => s.key === 'final-review-pre-post-diff')?.status).toBe('found');
+    expect(rendered.find((s) => s.key === 'prd-handoff')?.status).toBe('found');
+    expect(rendered.find((s) => s.key === 'final-review-pre-post-diff')?.status).toBe('found');
     // ...and the source F1 took the floor AWAY from is the one that loses now:
     // `rd-tech-doc.md` supports the 4th dimension, which prompt rule 6 declares
     // it insufficient for (a design-intent document is not a before/after
     // comparison), so it is the legitimate casualty.
-    expect(rendered.find(s => s.key === 'rd-tech-doc')?.status).toBe('omitted');
+    expect(rendered.find((s) => s.key === 'rd-tech-doc')?.status).toBe('omitted');
     expect(prompt).toContain('MISSING (omitted)');
 
     // Delivery was restored for all four dimensions, so a clean 4/4 survives —
@@ -722,8 +746,12 @@ describe('prepareFinalReview — evidence budget (D2: no dimension is starved)',
     // be backed by what arrived, and everything that arrived arrived whole.
     expect(out.allPass).toBe(true);
     expect(out.needsAttention).toEqual([]);
-    expect(out.dimensions.find(d => d.dimension === 'functional-completeness')?.verdict).toBe('pass');
-    expect(out.dimensions.find(d => d.dimension === 'existing-functionality-intact')?.verdict).toBe('pass');
+    expect(out.dimensions.find((d) => d.dimension === 'functional-completeness')?.verdict).toBe(
+      'pass'
+    );
+    expect(
+      out.dimensions.find((d) => d.dimension === 'existing-functionality-intact')?.verdict
+    ).toBe('pass');
 
     // The reservation is a floor, not a quota: the first source still gets the
     // full per-file cap before any floor is drawn on.
@@ -753,13 +781,13 @@ describe('prepareFinalReview — evidence budget (D2: no dimension is starved)',
     // All ten blocks are still rendered — nine fixed sources plus the
     // pre/post-diff artifact — and a missing file is stated, not skipped.
     expect(rendered).toHaveLength(10);
-    expect(rendered.find(s => s.key === 'rd-tech-doc')?.status).toBe('missing');
+    expect(rendered.find((s) => s.key === 'rd-tech-doc')?.status).toBe('missing');
 
     // The 8th and 9th sources are this dimension's last chances, and the floors
     // reach them: reserving the source a GATE depends on is what keeps the
     // dimension from being blind, which is exactly what F1 fixed.
-    const handoff = rendered.find(s => s.key === 'prd-handoff');
-    const ppd = rendered.find(s => s.key === 'final-review-pre-post-diff');
+    const handoff = rendered.find((s) => s.key === 'prd-handoff');
+    const ppd = rendered.find((s) => s.key === 'final-review-pre-post-diff');
     expect(handoff?.status).toBe('found');
     expect(handoff?.includedBytes).toBeGreaterThan(0);
     expect(ppd?.status).toBe('found');
@@ -772,7 +800,7 @@ describe('prepareFinalReview — evidence budget (D2: no dimension is starved)',
     // ...so the dimension keeps a `pass` the reviewer did back with evidence:
     // the comparison it names is among the blocks, delivered whole, and the
     // fixture's own baseline reports no drift.
-    const dimension = out.dimensions.find(d => d.dimension === 'existing-functionality-intact');
+    const dimension = out.dimensions.find((d) => d.dimension === 'existing-functionality-intact');
     expect(dimension?.verdict).toBe('pass');
     expect(dimension?.summary).not.toContain('pre-post-diff-gate');
     expect(out.allPass).toBe(true);
@@ -803,7 +831,7 @@ describe('prepareFinalReview — evidence budget (D2: no dimension is starved)',
     // a redundant source is acceptable; losing it SILENTLY is not — the block
     // names the reservation as the reason, so it is never confused with a
     // missing file or an empty one.
-    const omitted = rendered.filter(source => source.status === 'omitted');
+    const omitted = rendered.filter((source) => source.status === 'omitted');
     expect(omitted.length).toBeGreaterThan(0);
     expect(prompt).toContain('bytes of the budget are reserved for dimension(s)');
     // The reservation names the dimensions it is holding the bytes FOR, so an
@@ -862,7 +890,7 @@ describe('prepareFinalReview — the pre/post-diff gate keys on DELIVERY (F-BLOC
     });
 
     const prompt = calls[0]?.userPrompt ?? '';
-    const ppd = parseRenderedSources(prompt).find(s => s.key === 'final-review-pre-post-diff');
+    const ppd = parseRenderedSources(prompt).find((s) => s.key === 'final-review-pre-post-diff');
     expect(ppd?.status).toBe('found');
     // Whole, and the conclusion came with it: the artifact opens with its
     // `VERDICT:` line, which is the `conclusion` delivery rule for this source.
@@ -873,12 +901,12 @@ describe('prepareFinalReview — the pre/post-diff gate keys on DELIVERY (F-BLOC
     expect(prompt).toContain('STATUS: COMPUTED —');
     expect(prompt).not.toContain('STATUS: COMPUTED ON DISK, NOT DELIVERED');
 
-    const dimension = out.dimensions.find(d => d.dimension === 'existing-functionality-intact');
+    const dimension = out.dimensions.find((d) => d.dimension === 'existing-functionality-intact');
     expect(dimension?.verdict).toBe('pass');
     expect(dimension?.summary).not.toContain('pre-post-diff-gate');
     // The artifact the verdict rests on IS attached, because the reviewer had
     // it: the attachment follows the same delivery judgement as the gate.
-    expect((dimension?.evidence ?? []).filter(i => i.kind === 'pre-post-diff')).toHaveLength(1);
+    expect((dimension?.evidence ?? []).filter((i) => i.kind === 'pre-post-diff')).toHaveLength(1);
 
     // Neither delivery gate fires on this run, and nothing else moves.
     for (const other of out.dimensions) {
@@ -906,7 +934,7 @@ describe('prepareFinalReview — the pre/post-diff gate keys on DELIVERY (F-BLOC
       llmRunner: runner
     });
 
-    const dimension = out.dimensions.find(d => d.dimension === 'existing-functionality-intact');
+    const dimension = out.dimensions.find((d) => d.dimension === 'existing-functionality-intact');
     expect(dimension?.verdict).toBe('inconclusive');
     expect(dimension?.summary).toContain('evidence-gate');
     expect(dimension?.summary).toContain('pre-post-diff-gate');
@@ -921,21 +949,19 @@ describe('prepareFinalReview — the pre/post-diff gate keys on DELIVERY (F-BLOC
     // The reviewer itself returns the contradiction the schema allows but the
     // meaning does not: "high" confidence that it could not tell.
     const verdicts = { ...allVerdicts('pass'), 'no-new-bugs': 'inconclusive' as Verdict };
-    const { runner } = captureRunner(
-      reviewJson(verdicts, { allPass: true, needsAttention: [] })
-    );
+    const { runner } = captureRunner(reviewJson(verdicts, { allPass: true, needsAttention: [] }));
     const out = await prepareFinalReview(RID, {
       projectRoot: root,
       sessionId: SESSION_ID,
       llmRunner: runner
     });
 
-    const noNewBugs = out.dimensions.find(d => d.dimension === 'no-new-bugs');
+    const noNewBugs = out.dimensions.find((d) => d.dimension === 'no-new-bugs');
     expect(noNewBugs?.verdict).toBe('inconclusive');
     expect(noNewBugs?.confidence).toBe('medium');
     expect(noNewBugs?.summary).toContain('confidence-gate');
     // A verdict that says something real keeps its confidence.
-    expect(out.dimensions.find(d => d.dimension === 'functional-completeness')?.confidence).toBe(
+    expect(out.dimensions.find((d) => d.dimension === 'functional-completeness')?.confidence).toBe(
       'high'
     );
     expect(out.allPass).toBe(false);
@@ -1002,7 +1028,7 @@ describe('prepareFinalReview — a source is delivered whole or not at all (F-BL
 
     const prompt = calls[0]?.userPrompt ?? '';
     const rendered = parseRenderedSources(prompt);
-    const ppd = rendered.find(s => s.key === PP_DIFF_KEY);
+    const ppd = rendered.find((s) => s.key === PP_DIFF_KEY);
 
     // Ten blocks are rendered, and the tenth is delivered WHOLE. The one byte
     // the old allocator had left is no longer what the block rests on: F1
@@ -1020,9 +1046,9 @@ describe('prepareFinalReview — a source is delivered whole or not at all (F-BL
 
     // ...so the baseline the pass rests on is one the reviewer actually had,
     // and the artifact is attached because of it.
-    const dimension = out.dimensions.find(d => d.dimension === 'existing-functionality-intact');
+    const dimension = out.dimensions.find((d) => d.dimension === 'existing-functionality-intact');
     expect(dimension?.verdict).toBe('pass');
-    expect((dimension?.evidence ?? []).filter(i => i.kind === 'pre-post-diff')).toHaveLength(1);
+    expect((dimension?.evidence ?? []).filter((i) => i.kind === 'pre-post-diff')).toHaveLength(1);
     expect(out.allPass).toBe(true);
   });
 
@@ -1064,14 +1090,14 @@ describe('prepareFinalReview — a source is delivered whole or not at all (F-BL
     expect(artifact).toBeGreaterThan(MAX_EVIDENCE_BYTES_PER_FILE);
 
     const prompt = calls[0]?.userPrompt ?? '';
-    const ppd = parseRenderedSources(prompt).find(s => s.key === PP_DIFF_KEY);
+    const ppd = parseRenderedSources(prompt).find((s) => s.key === PP_DIFF_KEY);
     expect(ppd?.status).toBe('found');
     expect(ppd?.includedBytes).toBe(MAX_EVIDENCE_BYTES_PER_FILE);
     expect(prompt).toContain('TRUNCATED');
     // The whole point: the delivered slice CARRIES the conclusion.
     expect(prompt).toContain('VERDICT: ');
 
-    const dimension = out.dimensions.find(d => d.dimension === 'existing-functionality-intact');
+    const dimension = out.dimensions.find((d) => d.dimension === 'existing-functionality-intact');
     expect(dimension?.verdict).toBe('pass');
     expect(out.allPass).toBe(true);
   });
@@ -1097,7 +1123,7 @@ describe('prepareFinalReview — a source is delivered whole or not at all (F-BL
     const prompt = calls[0]?.userPrompt ?? '';
     const rendered = parseRenderedSources(prompt);
     const onDisk: Record<string, number> = Object.fromEntries(
-      NINE_SOURCE_KEYS.map(key => [key, MAX_EVIDENCE_BYTES_PER_FILE])
+      NINE_SOURCE_KEYS.map((key) => [key, MAX_EVIDENCE_BYTES_PER_FILE])
     );
     onDisk[PP_DIFF_KEY] = statSync(ppDiffPath(root)).size;
 
@@ -1110,13 +1136,15 @@ describe('prepareFinalReview — a source is delivered whole or not at all (F-BL
       }
       // The invariant: whatever a FOUND block carries is its WHOLE unit —
       // `min(file bytes, per-file cap)` — never a fragment of it.
-      expect(source.includedBytes).toBe(Math.min(onDisk[source.key] ?? 0, MAX_EVIDENCE_BYTES_PER_FILE));
+      expect(source.includedBytes).toBe(
+        Math.min(onDisk[source.key] ?? 0, MAX_EVIDENCE_BYTES_PER_FILE)
+      );
     }
 
     // The fixture is genuinely saturated (the invariant is not vacuous), and the
     // sources it holds back are F1's deliberate casualties, not fragments.
     expect(omitted).toBeGreaterThan(0);
-    expect(rendered.find(s => s.key === 'rd-code-review')?.status).toBe('omitted');
+    expect(rendered.find((s) => s.key === 'rd-code-review')?.status).toBe('omitted');
     expect(prompt).not.toMatch(/showing the first \d+ of/);
   });
 
@@ -1129,11 +1157,7 @@ describe('prepareFinalReview — a source is delivered whole or not at all (F-BL
     // reviewer received none of it. `qa-test-report` — which also backs this
     // dimension, and is first in the order — is delivered whole, which is the
     // exact configuration in which the pre-fix rule let the pass stand.
-    writeFileSync(
-      join(root, '.peaks', '_runtime', SESSION_ID, 'prd', 'handoff.md'),
-      '',
-      'utf8'
-    );
+    writeFileSync(join(root, '.peaks', '_runtime', SESSION_ID, 'prd', 'handoff.md'), '', 'utf8');
 
     const { runner, calls } = captureRunner(
       reviewJson(allVerdicts('pass'), { allPass: true, needsAttention: [] })
@@ -1148,11 +1172,11 @@ describe('prepareFinalReview — a source is delivered whole or not at all (F-BL
     // non-goals included) exists and carried nothing — the dimension may not
     // report a pass on the strength of a test report alone.
     const handoff = parseRenderedSources(calls[0]?.userPrompt ?? '').find(
-      s => s.key === 'prd-handoff'
+      (s) => s.key === 'prd-handoff'
     );
     expect(handoff?.status).toBe('empty');
 
-    const dimension = out.dimensions.find(d => d.dimension === 'functional-completeness');
+    const dimension = out.dimensions.find((d) => d.dimension === 'functional-completeness');
     expect(dimension?.verdict).toBe('inconclusive');
     expect(dimension?.confidence).toBe('low');
     expect(dimension?.summary).toContain('scope-contract-gate');
@@ -1179,7 +1203,7 @@ describe('prepareFinalReview — a source is delivered whole or not at all (F-BL
       llmRunner: runner
     });
 
-    const dimension = out.dimensions.find(d => d.dimension === 'functional-completeness');
+    const dimension = out.dimensions.find((d) => d.dimension === 'functional-completeness');
     expect(dimension?.verdict).toBe('pass');
     expect(dimension?.summary).not.toContain('scope-contract-gate');
     expect(out.allPass).toBe(true);
@@ -1261,17 +1285,17 @@ describe('prepareFinalReview — the output budget survives the real provider (N
     const derived = outputBudgetForEvidence(MAX_EVIDENCE_BYTES_TOTAL);
     // The failure message told the operator to "raise the budget" while no
     // surface could raise it. It can now.
-    expect(resolveOutputBudget(MAX_EVIDENCE_BYTES_TOTAL, { [MAX_OUTPUT_TOKENS_ENV]: '32000' })).toBe(
-      32000
-    );
+    expect(
+      resolveOutputBudget(MAX_EVIDENCE_BYTES_TOTAL, { [MAX_OUTPUT_TOKENS_ENV]: '32000' })
+    ).toBe(32000);
     expect(
       resolveOutputBudget(MAX_EVIDENCE_BYTES_TOTAL, { [MAX_OUTPUT_TOKENS_ENV]: '32000' })
     ).toBeGreaterThan(derived);
     // Unset keeps the derived budget.
     expect(resolveOutputBudget(MAX_EVIDENCE_BYTES_TOTAL, {})).toBe(derived);
-    expect(
-      resolveOutputBudget(MAX_EVIDENCE_BYTES_TOTAL, { [MAX_OUTPUT_TOKENS_ENV]: '   ' })
-    ).toBe(derived);
+    expect(resolveOutputBudget(MAX_EVIDENCE_BYTES_TOTAL, { [MAX_OUTPUT_TOKENS_ENV]: '   ' })).toBe(
+      derived
+    );
     // Out-of-range is clamped, not refused: a call still gets made.
     expect(resolveOutputBudget(0, { [MAX_OUTPUT_TOKENS_ENV]: '999999' })).toBe(
       HARD_MAX_OUTPUT_TOKENS
@@ -1339,7 +1363,9 @@ describe('prepareFinalReview — an empty reply is its own failure mode (N4)', (
       async call() {
         attempts += 1;
         if (attempts === 1) {
-          throw new Error('LLM reply from https://example.invalid/v1/messages carried no text block');
+          throw new Error(
+            'LLM reply from https://example.invalid/v1/messages carried no text block'
+          );
         }
         return { output: fourPassesJson(), tokens: { input: 10, output: 10 } };
       }
@@ -1504,8 +1530,8 @@ describe('prepareFinalReview — the floor protects the source the GATE needs (F
 
     const prompt = calls[0]?.userPrompt ?? '';
     const rendered = parseRenderedSources(prompt);
-    const handoff = rendered.find(s => s.key === 'prd-handoff');
-    const ppd = rendered.find(s => s.key === 'final-review-pre-post-diff');
+    const handoff = rendered.find((s) => s.key === 'prd-handoff');
+    const ppd = rendered.find((s) => s.key === 'final-review-pre-post-diff');
 
     // The approved-scope contract arrives WHOLE — 8,164 of 8,164 bytes, which is
     // the `whole` delivery rule and, before F1, was unreachable because the
@@ -1519,8 +1545,8 @@ describe('prepareFinalReview — the floor protects the source the GATE needs (F
 
     // The two dimensions that were structurally locked to `inconclusive` are
     // judged on delivered evidence, and neither delivery gate fires.
-    const functional = out.dimensions.find(d => d.dimension === 'functional-completeness');
-    const intact = out.dimensions.find(d => d.dimension === 'existing-functionality-intact');
+    const functional = out.dimensions.find((d) => d.dimension === 'functional-completeness');
+    const intact = out.dimensions.find((d) => d.dimension === 'existing-functionality-intact');
     expect(functional?.verdict).toBe('pass');
     expect(functional?.confidence).toBe('high');
     expect(functional?.summary).not.toContain('scope-contract-gate');
@@ -1534,14 +1560,7 @@ describe('prepareFinalReview — the floor protects the source the GATE needs (F
 
     // The floor is what makes it affordable, and the arithmetic is the one QA
     // verified: the three gate-source units fit the total.
-    const artifact = join(
-      root,
-      '.peaks',
-      '_runtime',
-      SESSION_ID,
-      'final-review',
-      'api-diff.txt'
-    );
+    const artifact = join(root, '.peaks', '_runtime', SESSION_ID, 'final-review', 'api-diff.txt');
     expect(8164 + statSync(artifact).size).toBeLessThan(MAX_EVIDENCE_BYTES_TOTAL);
   });
 
@@ -1565,9 +1584,9 @@ describe('prepareFinalReview — the floor protects the source the GATE needs (F
     const rendered = parseRenderedSources(calls[0]?.userPrompt ?? '');
     // `rd/tech-doc.md` is the source F1 took the floor from, and it is the one
     // that loses now — a redundant design-intent document, not the comparison.
-    expect(rendered.find(s => s.key === 'rd-tech-doc')?.status).toBe('omitted');
-    expect(rendered.find(s => s.key === 'prd-handoff')?.status).toBe('found');
-    expect(rendered.find(s => s.key === 'final-review-pre-post-diff')?.status).toBe('found');
+    expect(rendered.find((s) => s.key === 'rd-tech-doc')?.status).toBe('omitted');
+    expect(rendered.find((s) => s.key === 'prd-handoff')?.status).toBe('found');
+    expect(rendered.find((s) => s.key === 'final-review-pre-post-diff')?.status).toBe('found');
   });
 });
 
@@ -1634,8 +1653,12 @@ describe('prepareFinalReview — an undeliverable dimension is stated, never sil
 
     // (2) ...and the ENVELOPE repeats it on each dimension it is true of, so the
     // human is told WHY it is red rather than left to read it as uncertainty.
-    for (const dimension of ['functional-completeness', 'problem-resolution', 'no-new-bugs'] as const) {
-      const entry = out.dimensions.find(d => d.dimension === dimension);
+    for (const dimension of [
+      'functional-completeness',
+      'problem-resolution',
+      'no-new-bugs'
+    ] as const) {
+      const entry = out.dimensions.find((d) => d.dimension === dimension);
       expect(entry?.verdict).toBe('inconclusive');
       expect(entry?.summary).toContain('delivery-reachability');
       expect(entry?.summary).toContain(String(OVER_CAP));
@@ -1670,7 +1693,7 @@ describe('prepareFinalReview — an undeliverable dimension is stated, never sil
     expect(section).toContain('- functional-completeness: NO deliverable source.');
     expect(section).toContain('- no-new-bugs: NO deliverable source.');
     expect(section).not.toContain('- problem-resolution:');
-    const resolved = out.dimensions.find(d => d.dimension === 'problem-resolution');
+    const resolved = out.dimensions.find((d) => d.dimension === 'problem-resolution');
     expect(resolved?.verdict).toBe('pass');
     expect(resolved?.summary).not.toContain('delivery-reachability');
   });
@@ -1701,7 +1724,7 @@ describe('prepareFinalReview — an undeliverable dimension is stated, never sil
     expect(prompt).not.toContain('## Evidence delivery reachability');
     // The starvation is still stated, by the layer that owns it.
     expect(prompt).toContain('bytes of the budget are reserved for dimension(s)');
-    const intact = out.dimensions.find(d => d.dimension === 'existing-functionality-intact');
+    const intact = out.dimensions.find((d) => d.dimension === 'existing-functionality-intact');
     expect(intact?.verdict).toBe('inconclusive');
     expect(intact?.summary).not.toContain('delivery-reachability');
   });
@@ -1732,9 +1755,11 @@ describe('prepareFinalReview — delivery is a content judgement (1.3)', () => {
     // the table of contents".
     const root = makeGitProject();
     writeAuditGoal(root, ['AC1: the widget renders']);
-    writeUnderProject(root, ['qa', 'test-reports', `${RID}.md`], `# front matter\n\n${
-      'table of contents '.repeat(700)
-    }\n`);
+    writeUnderProject(
+      root,
+      ['qa', 'test-reports', `${RID}.md`],
+      `# front matter\n\n${'table of contents '.repeat(700)}\n`
+    );
 
     const { runner } = captureRunner(
       reviewJson(allVerdicts('pass'), { allPass: true, needsAttention: [] })
@@ -1749,8 +1774,12 @@ describe('prepareFinalReview — delivery is a content judgement (1.3)', () => {
     // dimension has no DELIVERED evidence and the pass cannot stand. The three
     // dimensions that source backs are all downgraded for the same reason; the
     // 4th is delivered its baseline and keeps its pass.
-    for (const dimension of ['functional-completeness', 'problem-resolution', 'no-new-bugs'] as const) {
-      const entry = out.dimensions.find(d => d.dimension === dimension);
+    for (const dimension of [
+      'functional-completeness',
+      'problem-resolution',
+      'no-new-bugs'
+    ] as const) {
+      const entry = out.dimensions.find((d) => d.dimension === dimension);
       expect(entry?.verdict).toBe('inconclusive');
       expect(entry?.confidence).toBe('low');
       expect(entry?.summary).toContain('evidence-gate');
@@ -1780,7 +1809,7 @@ describe('prepareFinalReview — delivery is a content judgement (1.3)', () => {
       llmRunner: runner
     });
 
-    const report = out.dimensions.find(d => d.dimension === 'no-new-bugs');
+    const report = out.dimensions.find((d) => d.dimension === 'no-new-bugs');
     expect(report?.verdict).toBe('pass');
     expect(report?.summary).not.toContain('evidence-gate');
   });
@@ -1795,7 +1824,11 @@ describe('prepareFinalReview — a delivered drift conclusion is read (F2)', () 
   function makeDriftedGitProject(): string {
     const root = makeGitProject();
     mkdirSync(join(root, 'src'), { recursive: true });
-    writeFileSync(join(root, 'src', 'surface.ts'), 'export const kept = 1;\nexport const dropped = 2;\n', 'utf8');
+    writeFileSync(
+      join(root, 'src', 'surface.ts'),
+      'export const kept = 1;\nexport const dropped = 2;\n',
+      'utf8'
+    );
     git(root, ['add', 'src/surface.ts']);
     git(root, ['commit', '-q', '-m', 'add surface']);
     // A second commit, so the resolved base (`HEAD~1`, there is no remote) is
@@ -1827,7 +1860,7 @@ describe('prepareFinalReview — a delivered drift conclusion is read (F2)', () 
     expect(calls[0]?.userPrompt ?? '').toContain('STRUCTURAL DRIFT DETECTED');
     expect(calls[0]?.userPrompt ?? '').toContain('1 export name(s)');
 
-    const dimension = out.dimensions.find(d => d.dimension === 'existing-functionality-intact');
+    const dimension = out.dimensions.find((d) => d.dimension === 'existing-functionality-intact');
     // The verdict is NOT forced to `fail` — an authorized removal is the
     // reviewer's and the human's call. What is refused is SILENCE.
     expect(dimension?.verdict).toBe('pass');
@@ -1855,7 +1888,7 @@ describe('prepareFinalReview — a delivered drift conclusion is read (F2)', () 
       llmRunner: runner
     });
 
-    const dimension = out.dimensions.find(d => d.dimension === 'existing-functionality-intact');
+    const dimension = out.dimensions.find((d) => d.dimension === 'existing-functionality-intact');
     expect(dimension?.summary).toContain('pre-post-diff-gate');
     expect(dimension?.summary).not.toContain('drift-gate');
     expect(dimension?.summary).not.toContain('never actually read');
@@ -1915,7 +1948,7 @@ describe('prepareFinalReview — missing, empty and unreadable are three facts (
     expect(prompt).not.toContain(`STATUS: MISSING (unreadable)`);
     expect(prompt).toContain(contractPath.split('\\').join('/').split('/').slice(-4).join('/'));
 
-    const dimension = out.dimensions.find(d => d.dimension === 'functional-completeness');
+    const dimension = out.dimensions.find((d) => d.dimension === 'functional-completeness');
     expect(dimension?.verdict).toBe('inconclusive');
     expect(dimension?.summary).toContain('scope-contract-gate');
     expect(dimension?.summary).toContain('unreadable');
@@ -1946,7 +1979,7 @@ describe('prepareFinalReview — missing, empty and unreadable are three facts (
     });
     expect(empty.calls[0]?.userPrompt ?? '').toContain('STATUS: MISSING (empty)');
     expect(
-      emptyOut.dimensions.find(d => d.dimension === 'functional-completeness')?.summary
+      emptyOut.dimensions.find((d) => d.dimension === 'functional-completeness')?.summary
     ).toContain('scope-contract-gate');
 
     // ...while an absent contract stays a non-event: no PRD phase, no gate.
@@ -1965,7 +1998,7 @@ describe('prepareFinalReview — missing, empty and unreadable are three facts (
     });
     expect(absent.calls[0]?.userPrompt ?? '').toContain('STATUS: MISSING (missing)');
     expect(
-      absentOut.dimensions.find(d => d.dimension === 'functional-completeness')?.summary
+      absentOut.dimensions.find((d) => d.dimension === 'functional-completeness')?.summary
     ).not.toContain('scope-contract-gate');
   });
 });
@@ -2098,7 +2131,9 @@ function deliveryProxyOffenders(source: string): readonly string[] {
  * four proxies. That is the H1 defect reproduced as an assertion — it is what
  * makes "this test fails against the old guard" a fact rather than a claim.
  */
-function legacyTopLevelFunctions(source: string): readonly { readonly name: string; readonly body: string }[] {
+function legacyTopLevelFunctions(
+  source: string
+): readonly { readonly name: string; readonly body: string }[] {
   const start = /^(?:export\s+)?(?:async\s+)?function\s+([A-Za-z_$][\w$]*)/;
   const lines = source.split('\n');
   const blocks: { name: string; body: string }[] = [];
@@ -2123,7 +2158,16 @@ function legacyTopLevelFunctions(source: string): readonly { readonly name: stri
 }
 
 describe('final-review — the delivery judgement has exactly one home (guard C)', () => {
-  const SERVICE_PATH = resolve(__dirname, '..', '..', '..', 'src', 'services', 'final-review', 'final-review-service.ts');
+  const SERVICE_PATH = resolve(
+    __dirname,
+    '..',
+    '..',
+    '..',
+    'src',
+    'services',
+    'final-review',
+    'final-review-service.ts'
+  );
   const source = readFileSync(SERVICE_PATH, 'utf8');
 
   it('keeps every delivery proxy inside the single predicate', () => {
@@ -2131,14 +2175,14 @@ describe('final-review — the delivery judgement has exactly one home (guard C)
     // Only `isDelivered` may decide delivery; every other function must ASK it.
     expect(
       offenders.filter(
-        entry =>
+        (entry) =>
           !entry.startsWith(`${DELIVERY_PREDICATE} `) &&
-          !RENDER_ONLY.some(name => entry.startsWith(`${name} `))
+          !RENDER_ONLY.some((name) => entry.startsWith(`${name} `))
       )
     ).toEqual([]);
     // ...and the predicate itself must actually decide something, or this guard
     // is satisfied by deleting the judgement altogether.
-    expect(offenders.some(entry => entry.startsWith(`${DELIVERY_PREDICATE} `))).toBe(true);
+    expect(offenders.some((entry) => entry.startsWith(`${DELIVERY_PREDICATE} `))).toBe(true);
   });
 
   /**
@@ -2188,9 +2232,11 @@ describe('final-review — the delivery judgement has exactly one home (guard C)
       `withTemplate uses status === 'found'`,
       `withTemplate uses status !== 'found'`
     ]);
-    expect(legacyTopLevelFunctions(templateBrace).map(fn => fn.name)).toEqual(['withTemplate']);
+    expect(legacyTopLevelFunctions(templateBrace).map((fn) => fn.name)).toEqual(['withTemplate']);
     expect(
-      legacyTopLevelFunctions(templateBrace).some(fn => PROXIES.some(proxy => proxy.re.test(fn.body)))
+      legacyTopLevelFunctions(templateBrace).some((fn) =>
+        PROXIES.some((proxy) => proxy.re.test(fn.body))
+      )
     ).toBe(false);
   });
 
@@ -2222,7 +2268,7 @@ describe('final-review — the delivery judgement has exactly one home (guard C)
   });
 
   it('routes every dimension-level judgement through the single predicate', () => {
-    const bodies = new Map(namedFunctionBodies(source).map(fn => [fn.name, fn.body]));
+    const bodies = new Map(namedFunctionBodies(source).map((fn) => [fn.name, fn.body]));
     // The judgement points the round-6 dispatch names — plus
     // `enforcePrePostDiffAvailability`, which M3 found missing from this list
     // — by name, so a future refactor that drops one of them fails here rather
@@ -2244,7 +2290,7 @@ describe('final-review — the delivery judgement has exactly one home (guard C)
     // through a widened type, where tsc would not.
     const table = /function evidenceSourcesFor[\s\S]*?\n}/.exec(source)?.[0] ?? '';
     const keys = [...table.matchAll(/key:\s*(?:'([^']*)'|([A-Z_]+))/g)].map(
-      match => match[1] ?? match[2]
+      (match) => match[1] ?? match[2]
     );
     const rules = table.match(/delivery:\s*\{/g) ?? [];
     expect(keys.length).toBeGreaterThan(0);
@@ -2256,7 +2302,7 @@ function fourPassesJson(): string {
   return JSON.stringify({
     rid: RID,
     generatedAt: '2026-09-12T00:00:00.000Z',
-    dimensions: REQUIRED.map(dimension => ({
+    dimensions: REQUIRED.map((dimension) => ({
       dimension,
       verdict: 'pass',
       summary: 's',

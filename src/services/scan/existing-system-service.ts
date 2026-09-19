@@ -4,7 +4,12 @@ import { isDirectory, pathExists, readText } from 'peaks-loop-shared/fs';
 
 import { scanArchetype } from './archetype-service.js';
 import { scanHookConvention } from './hook-convention-service.js';
-import type { ConventionSample, ExistingSystemReport, VisualToken, VisualTokenSource } from './scan-types.js';
+import type {
+  ConventionSample,
+  ExistingSystemReport,
+  VisualToken,
+  VisualTokenSource
+} from './scan-types.js';
 
 export type ExistingSystemScanOptions = {
   projectRoot: string;
@@ -15,7 +20,19 @@ export type ExistingSystemScanOptions = {
 const DEFAULT_MAX_TOKENS = 40;
 const DEFAULT_SAMPLES = 5;
 
-const COLOR_KEYWORDS = ['color', 'primary', 'success', 'warning', 'error', 'danger', 'info', 'bg', 'background', 'border', 'text'];
+const COLOR_KEYWORDS = [
+  'color',
+  'primary',
+  'success',
+  'warning',
+  'error',
+  'danger',
+  'info',
+  'bg',
+  'background',
+  'border',
+  'text'
+];
 const SPACING_KEYWORDS = ['spacing', 'gap', 'padding', 'margin', 'size'];
 const TYPO_KEYWORDS = ['font', 'text-size', 'line-height', 'letter-spacing', 'heading'];
 const RADIUS_KEYWORDS = ['radius', 'rounded'];
@@ -90,8 +107,15 @@ async function walkStyleFiles(projectRoot: string): Promise<string[]> {
   return found;
 }
 
-async function extractTailwindTokens(projectRoot: string): Promise<{ tokens: VisualToken[]; source: VisualTokenSource | null }> {
-  const candidates = ['tailwind.config.js', 'tailwind.config.ts', 'tailwind.config.cjs', 'tailwind.config.mjs'];
+async function extractTailwindTokens(
+  projectRoot: string
+): Promise<{ tokens: VisualToken[]; source: VisualTokenSource | null }> {
+  const candidates = [
+    'tailwind.config.js',
+    'tailwind.config.ts',
+    'tailwind.config.cjs',
+    'tailwind.config.mjs'
+  ];
   for (const candidate of candidates) {
     const full = join(projectRoot, candidate);
     if (await pathExists(full)) {
@@ -137,7 +161,8 @@ async function listFilesByMtime(dir: string, exts: RegExp, max: number): Promise
         try {
           const stats = await stat(full);
           collected.push({ path: full, mtimeMs: stats.mtimeMs });
-        } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+        } catch {
+          // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
           // skip unreadable
         }
       }
@@ -147,7 +172,9 @@ async function listFilesByMtime(dir: string, exts: RegExp, max: number): Promise
   return collected.slice(0, max);
 }
 
-function classifyComponentNaming(samples: FileSample[]): 'PascalCase' | 'kebab-case' | 'mixed' | 'unknown' {
+function classifyComponentNaming(
+  samples: FileSample[]
+): 'PascalCase' | 'kebab-case' | 'mixed' | 'unknown' {
   if (samples.length === 0) return 'unknown';
   let pascal = 0;
   let kebab = 0;
@@ -194,13 +221,17 @@ function findInconsistencies(tokens: VisualToken[]): string[] {
   }
   for (const [name, values] of byName.entries()) {
     if (values.size > 1) {
-      issues.push(`token "${name}" has ${values.size} different values across sources: ${[...values].join(' | ')}`);
+      issues.push(
+        `token "${name}" has ${values.size} different values across sources: ${[...values].join(' | ')}`
+      );
     }
   }
   return issues;
 }
 
-export async function scanExistingSystem(options: ExistingSystemScanOptions): Promise<ExistingSystemReport> {
+export async function scanExistingSystem(
+  options: ExistingSystemScanOptions
+): Promise<ExistingSystemReport> {
   const { projectRoot } = options;
   const maxTokens = options.maxTokens ?? DEFAULT_MAX_TOKENS;
   const maxSamples = options.maxSamplesPerKind ?? DEFAULT_SAMPLES;
@@ -277,20 +308,36 @@ export async function scanExistingSystem(options: ExistingSystemScanOptions): Pr
   const serviceDir = await firstExistingDir(projectRoot, SERVICE_DIRS);
   const hookDir = await firstExistingDir(projectRoot, HOOK_DIRS);
 
-  const componentSamples = componentDir !== null
-    ? await listFilesByMtime(join(projectRoot, componentDir), /\.(tsx|jsx|vue|svelte)$/i, maxSamples)
-    : [];
-  const serviceSamples = serviceDir !== null
-    ? await listFilesByMtime(join(projectRoot, serviceDir), /\.(ts|js)$/i, maxSamples)
-    : [];
-  const hookSamples = hookDir !== null
-    ? await listFilesByMtime(join(projectRoot, hookDir), /\.(ts|js)$/i, maxSamples)
-    : [];
+  const componentSamples =
+    componentDir !== null
+      ? await listFilesByMtime(
+          join(projectRoot, componentDir),
+          /\.(tsx|jsx|vue|svelte)$/i,
+          maxSamples
+        )
+      : [];
+  const serviceSamples =
+    serviceDir !== null
+      ? await listFilesByMtime(join(projectRoot, serviceDir), /\.(ts|js)$/i, maxSamples)
+      : [];
+  const hookSamples =
+    hookDir !== null
+      ? await listFilesByMtime(join(projectRoot, hookDir), /\.(ts|js)$/i, maxSamples)
+      : [];
 
   const samples: ConventionSample[] = [
-    ...componentSamples.map<ConventionSample>((sample) => ({ path: relative(projectRoot, sample.path).split(/[\\/]/).join('/'), kind: 'component' })),
-    ...serviceSamples.map<ConventionSample>((sample) => ({ path: relative(projectRoot, sample.path).split(/[\\/]/).join('/'), kind: 'service' })),
-    ...hookSamples.map<ConventionSample>((sample) => ({ path: relative(projectRoot, sample.path).split(/[\\/]/).join('/'), kind: 'hook' }))
+    ...componentSamples.map<ConventionSample>((sample) => ({
+      path: relative(projectRoot, sample.path).split(/[\\/]/).join('/'),
+      kind: 'component'
+    })),
+    ...serviceSamples.map<ConventionSample>((sample) => ({
+      path: relative(projectRoot, sample.path).split(/[\\/]/).join('/'),
+      kind: 'service'
+    })),
+    ...hookSamples.map<ConventionSample>((sample) => ({
+      path: relative(projectRoot, sample.path).split(/[\\/]/).join('/'),
+      kind: 'hook'
+    }))
   ];
 
   return {

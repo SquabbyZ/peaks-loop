@@ -15,7 +15,10 @@
  * the 80% threshold; the hook layer CANNOT.
  */
 import { spawnSync } from 'node:child_process';
-import { evaluateHookGuard, type HookGuardResult } from '../cli/commands/sub-agent-dispatch-guard.js';
+import {
+  evaluateHookGuard,
+  type HookGuardResult
+} from '../cli/commands/sub-agent-dispatch-guard.js';
 
 /**
  * Read the prompt size from the LLM platform's hook stdin. Different
@@ -56,12 +59,11 @@ export function readPromptSizeFromHookStdin(stdin: unknown): number {
  * (e.g. a shell script that wraps the peaks CLI).
  */
 export function runHookGuardSubprocess(prompt: string): HookGuardResult {
-  const result = spawnSync('node', [
-    process.argv[1] ?? 'peaks',
-    'sub-agent-dispatch-guard',
-    '--prompt', prompt,
-    '--json'
-  ], { encoding: 'utf8', windowsHide: true });
+  const result = spawnSync(
+    'node',
+    [process.argv[1] ?? 'peaks', 'sub-agent-dispatch-guard', '--prompt', prompt, '--json'],
+    { encoding: 'utf8', windowsHide: true }
+  );
   if (result.status !== 0) {
     // Fallback: allow (don't block the dispatch on a guard subprocess failure).
     return {

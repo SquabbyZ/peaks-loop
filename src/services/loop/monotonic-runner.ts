@@ -62,12 +62,7 @@ interface MonotonicCycleLine {
 /** Set of evaluator kinds the loop walker actually scores — keeps the
  *  guard surface tight (the verdict-aggregate is the cross-source merge
  *  and not a per-cycle input). */
-const WALKED_EVALUATORS = [
-  'karpathy',
-  'code-review',
-  'security-review',
-  'perf-baseline'
-] as const;
+const WALKED_EVALUATORS = ['karpathy', 'code-review', 'security-review', 'perf-baseline'] as const;
 type WalkedKind = (typeof WALKED_EVALUATORS)[number];
 
 export interface RunMonotonicOptions {
@@ -115,8 +110,10 @@ export function loadPreviousCycle(
   sid: string,
   rid: string
 ): MonotonicCycle | null {
-  return loadMostRecentCycleFromJsonl(projectRoot, sid, rid)
-    ?? loadMostRecentCycleFromSubAgents(projectRoot, sid, rid);
+  return (
+    loadMostRecentCycleFromJsonl(projectRoot, sid, rid) ??
+    loadMostRecentCycleFromSubAgents(projectRoot, sid, rid)
+  );
 }
 
 /** Scan the jsonl-store from tail backwards for the most recent
@@ -161,10 +158,18 @@ function parseScoreRows(raw: unknown): MonotonicScoreRow[] {
     if (typeof r['evaluator'] !== 'string') continue;
     const gate = r['gateAction'];
     if (gate !== 'pass' && gate !== 'warn' && gate !== 'block') continue;
-    const observedAt = typeof r['observedAt'] === 'string' ? r['observedAt'] : new Date(0).toISOString();
+    const observedAt =
+      typeof r['observedAt'] === 'string' ? r['observedAt'] : new Date(0).toISOString();
     out.push({
       evaluator: r['evaluator'],
-      score: typeof r['score'] === 'number' ? r['score'] : (gate === 'pass' ? 1.0 : gate === 'warn' ? 0.5 : 0.0),
+      score:
+        typeof r['score'] === 'number'
+          ? r['score']
+          : gate === 'pass'
+            ? 1.0
+            : gate === 'warn'
+              ? 0.5
+              : 0.0,
       gateAction: gate,
       degraded: r['degraded'] === true,
       observedAt
@@ -322,11 +327,11 @@ export function runMonotonicCheck(options: RunMonotonicOptions): RunMonotonicRes
 }
 
 /** Helper for tests + CLI — resolve project root + sid consistently. */
-export function resolveMonotonicContext(opts: {
-  project?: string;
-  session: string;
+export function resolveMonotonicContext(opts: { project?: string; session: string; rid: string }): {
+  projectRoot: string;
+  sid: string;
   rid: string;
-}): { projectRoot: string; sid: string; rid: string } {
+} {
   const projectRoot = opts.project ?? findProjectRoot(process.cwd()) ?? process.cwd();
   return { projectRoot, sid: opts.session, rid: opts.rid };
 }

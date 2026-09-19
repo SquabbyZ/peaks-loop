@@ -79,10 +79,7 @@
 import { join } from 'node:path';
 import { pathExists } from 'peaks-loop-shared/fs';
 
-import {
-  getPrerequisitesFor,
-  type RequestType
-} from '../artifacts/artifact-prerequisites.js';
+import { getPrerequisitesFor, type RequestType } from '../artifacts/artifact-prerequisites.js';
 import { showRequestArtifact } from '../artifacts/request-artifact-service.js';
 import { readHandoffGateEvidence } from './handoff-gate-evidence.js';
 import { resolveHandoffPath } from './handoff-service.js';

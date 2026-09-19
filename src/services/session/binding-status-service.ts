@@ -48,12 +48,17 @@ export function loadBindingStatus(projectRoot: string): BindingStatusView {
   const binding = readBinding(projectRoot);
   const canonicalExists = existsSync(join(projectRoot, '.peaks', '_runtime', 'session.json'));
   const legacyExists = existsSync(join(projectRoot, '.peaks', '.session.json'));
-  const source: BindingStatusView['source'] = canonicalExists ? 'canonical' : legacyExists ? 'legacy' : 'none';
+  const source: BindingStatusView['source'] = canonicalExists
+    ? 'canonical'
+    : legacyExists
+      ? 'legacy'
+      : 'none';
 
   const outerSessionId = readOuterSessionId();
-  const stale = binding === null
-    ? false
-    : !Object.values(binding.instances).some((inst) => inst.callerId.startsWith(outerSessionId));
+  const stale =
+    binding === null
+      ? false
+      : !Object.values(binding.instances).some((inst) => inst.callerId.startsWith(outerSessionId));
 
   return { binding, source, projectRoot, stale, outerSessionId };
 }
@@ -83,7 +88,7 @@ function readOuterSessionIdFromEnv(env: NodeJS.ProcessEnv): string | undefined {
 export function resolveOuterSessionId(
   projectRoot: string,
   sessionId: string,
-  env: NodeJS.ProcessEnv = process.env,
+  env: NodeJS.ProcessEnv = process.env
 ): string | undefined {
   const envOuter = readOuterSessionIdFromEnv(env);
   if (envOuter !== undefined) return envOuter;
@@ -102,7 +107,13 @@ export function formatTable(view: BindingStatusView): string {
   if (view.binding === null) return '';
   const rows: string[][] = [];
   for (const [sid, inst] of Object.entries(view.binding.instances)) {
-    rows.push([sid, inst.callerId, String(view.binding.pid), inst.roles.join(','), inst.lastHeartbeat]);
+    rows.push([
+      sid,
+      inst.callerId,
+      String(view.binding.pid),
+      inst.roles.join(','),
+      inst.lastHeartbeat
+    ]);
   }
   if (rows.length === 0) return '';
   const header = ['sid', 'callerId', 'pid', 'roles', 'lastHeartbeat'];
@@ -143,8 +154,10 @@ export function isInstanceRecord(value: unknown): value is InstanceRecord {
   // canonical validation lives in `BindingSchema` from binding-store.
   if (value === null || typeof value !== 'object') return false;
   const v = value as Record<string, unknown>;
-  return typeof v.startedAt === 'string' &&
+  return (
+    typeof v.startedAt === 'string' &&
     Array.isArray(v.roles) &&
     typeof v.callerId === 'string' &&
-    typeof v.lastHeartbeat === 'string';
+    typeof v.lastHeartbeat === 'string'
+  );
 }

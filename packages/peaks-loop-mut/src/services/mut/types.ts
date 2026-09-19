@@ -11,7 +11,7 @@ export type MutVersion = '1.0';
 export type MutTool = 'stryker' | 'mutmut' | 'go-mutesting';
 
 export type WeakPattern =
-  | 'toBeDefined' | 'toBeTruthy' | 'toEqual-self' | 'expect-anything' | 'toBe-self';
+  'toBeDefined' | 'toBeTruthy' | 'toEqual-self' | 'expect-anything' | 'toBe-self';
 
 export interface SurvivedMutant {
   readonly line: number;
@@ -82,7 +82,11 @@ export interface MutReportJson {
 }
 
 export const WeakPatternSchema = z.enum([
-  'toBeDefined', 'toBeTruthy', 'toEqual-self', 'expect-anything', 'toBe-self',
+  'toBeDefined',
+  'toBeTruthy',
+  'toEqual-self',
+  'expect-anything',
+  'toBe-self'
 ]);
 
 export const MutReportSchema = z.object({
@@ -97,39 +101,49 @@ export const MutReportSchema = z.object({
     mutantsSurvived: z.number().int().gte(0),
     mutantsTimeout: z.number().int().gte(0),
     killRate: z.number().min(0).max(1),
-    byFile: z.array(z.object({
-      file: z.string(),
-      killRate: z.number().min(0).max(1),
-      survived: z.array(z.object({
-        line: z.number().int(),
-        mutation: z.string(),
-        survivedBecause: z.string(),
-      })),
-    })),
+    byFile: z.array(
+      z.object({
+        file: z.string(),
+        killRate: z.number().min(0).max(1),
+        survived: z.array(
+          z.object({
+            line: z.number().int(),
+            mutation: z.string(),
+            survivedBecause: z.string()
+          })
+        )
+      })
+    )
   }),
   assertions: z.object({
     totalAssertions: z.number().int().gte(0),
     weakAssertions: z.number().int().gte(0),
     weakRate: z.number().min(0).max(1),
-    weakPatterns: z.array(z.object({
-      pattern: WeakPatternSchema,
-      count: z.number().int().gte(0),
-      examples: z.array(z.object({
-        file: z.string(),
-        line: z.number().int(),
-        code: z.string(),
-      })),
-    })),
+    weakPatterns: z.array(
+      z.object({
+        pattern: WeakPatternSchema,
+        count: z.number().int().gte(0),
+        examples: z.array(
+          z.object({
+            file: z.string(),
+            line: z.number().int(),
+            code: z.string()
+          })
+        )
+      })
+    )
   }),
   thresholds: z.object({
     mutationKillRateMin: z.number().min(0).max(1),
     weakAssertionRateMax: z.number().min(0).max(1),
-    passed: z.boolean(),
+    passed: z.boolean()
   }),
-  followups: z.array(z.object({
-    file: z.string(),
-    issue: z.enum(['low_kill_rate', 'high_weak_assertions']),
-    severity: z.enum(['soft', 'hard']),
-    suggestion: z.string(),
-  })),
+  followups: z.array(
+    z.object({
+      file: z.string(),
+      issue: z.enum(['low_kill_rate', 'high_weak_assertions']),
+      severity: z.enum(['soft', 'hard']),
+      suggestion: z.string()
+    })
+  )
 });

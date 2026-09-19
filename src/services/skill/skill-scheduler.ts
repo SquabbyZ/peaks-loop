@@ -40,7 +40,11 @@ export function parseHeartbeatConfig(skillBody: string): SkillHeartbeatConfig {
     return { intervalSec: DEFAULT_HEARTBEAT_INTERVAL_SEC, source: 'default' };
   }
   const value = Number.parseInt(match[1] as string, 10);
-  if (!Number.isInteger(value) || value < MIN_HEARTBEAT_INTERVAL_SEC || value > MAX_HEARTBEAT_INTERVAL_SEC) {
+  if (
+    !Number.isInteger(value) ||
+    value < MIN_HEARTBEAT_INTERVAL_SEC ||
+    value > MAX_HEARTBEAT_INTERVAL_SEC
+  ) {
     return { intervalSec: DEFAULT_HEARTBEAT_INTERVAL_SEC, source: 'default' };
   }
   return { intervalSec: value, source: 'skill-frontmatter' };

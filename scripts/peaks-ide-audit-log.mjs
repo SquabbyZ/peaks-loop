@@ -79,7 +79,13 @@ async function run() {
   const args = parseArgs(process.argv.slice(2));
   const projectRoot = typeof args.project === 'string' ? args.project : null;
   if (projectRoot === null) {
-    process.stdout.write(JSON.stringify({ ok: false, code: 'AUDIT_LOG_PROJECT_MISSING', message: 'Missing --project <path>' }) + '\n');
+    process.stdout.write(
+      JSON.stringify({
+        ok: false,
+        code: 'AUDIT_LOG_PROJECT_MISSING',
+        message: 'Missing --project <path>'
+      }) + '\n'
+    );
     process.exitCode = 2;
     return;
   }
@@ -87,12 +93,14 @@ async function run() {
   const line = buildLine(args, new Date().toISOString());
 
   if (args['dry-run'] === true) {
-    process.stdout.write(JSON.stringify({
-      ok: true,
-      dryRun: true,
-      logPath,
-      line
-    }) + '\n');
+    process.stdout.write(
+      JSON.stringify({
+        ok: true,
+        dryRun: true,
+        logPath,
+        line
+      }) + '\n'
+    );
     return;
   }
 
@@ -101,19 +109,23 @@ async function run() {
   }
   await appendFile(logPath, JSON.stringify(line) + '\n', 'utf8');
   const stats = await stat(logPath).catch(() => null);
-  process.stdout.write(JSON.stringify({
-    ok: true,
-    logPath,
-    line,
-    bytes: stats?.size ?? 0
-  }) + '\n');
+  process.stdout.write(
+    JSON.stringify({
+      ok: true,
+      logPath,
+      line,
+      bytes: stats?.size ?? 0
+    }) + '\n'
+  );
 }
 
 run().catch((err) => {
-  process.stdout.write(JSON.stringify({
-    ok: false,
-    code: 'AUDIT_LOG_WRITE_FAILED',
-    message: err?.message ?? String(err)
-  }) + '\n');
+  process.stdout.write(
+    JSON.stringify({
+      ok: false,
+      code: 'AUDIT_LOG_WRITE_FAILED',
+      message: err?.message ?? String(err)
+    }) + '\n'
+  );
   process.exitCode = 1;
 });

@@ -27,11 +27,16 @@ import {
   CONTEXT_HINT_CACHE_TTL_MS,
   CONTEXT_HINT_RATIO_THRESHOLD,
   formatContextHintLine,
-  type ContextHintCacheEntry,
+  type ContextHintCacheEntry
 } from '~/src/services/context/context-audit-hint.js';
 import type { ContextAuditResult } from '~/src/services/context/context-audit.js';
 
-declareDimensions('tests/unit/context/context-audit-hint.test.ts', ['render', 'behavior', 'integration', 'a11y']);
+declareDimensions('tests/unit/context/context-audit-hint.test.ts', [
+  'render',
+  'behavior',
+  'integration',
+  'a11y'
+]);
 
 const created: string[] = [];
 function tmpDir(): string {
@@ -58,8 +63,10 @@ function auditResult(overrides: Partial<ContextAuditResult> = {}): ContextAuditR
     entryCount: 5,
     groupCount: 2,
     topN: 1,
-    entries: [{ tool: 'Bash', key: 'peaks memory reindex --json', bytes: 412, pctOfTotal: 41.2, count: 4 }],
-    ...overrides,
+    entries: [
+      { tool: 'Bash', key: 'peaks memory reindex --json', bytes: 412, pctOfTotal: 41.2, count: 4 }
+    ],
+    ...overrides
   };
 }
 
@@ -73,7 +80,7 @@ function cacheEntry(overrides: Partial<ContextHintCacheEntry> = {}): ContextHint
     bytes: 412,
     pctOfTotal: 41.2,
     count: 4,
-    ...overrides,
+    ...overrides
   };
 }
 
@@ -101,7 +108,7 @@ describe('(behavior) threshold / cache / TTL decision table', () => {
       sessionId: 'sid',
       cachePath: join(tmpDir(), 'cache.json'),
       probeRatio: () => CONTEXT_HINT_RATIO_THRESHOLD - 0.01,
-      runAudit,
+      runAudit
     });
     expect(line).toBeNull();
     expect(runAudit).not.toHaveBeenCalled();
@@ -116,7 +123,7 @@ describe('(behavior) threshold / cache / TTL decision table', () => {
       nowMs: 1_000_000,
       cachePath,
       probeRatio: () => 0.72,
-      runAudit,
+      runAudit
     });
     expect(runAudit).toHaveBeenCalledTimes(1);
     expect(line).toContain('top consumer: Bash');
@@ -133,7 +140,7 @@ describe('(behavior) threshold / cache / TTL decision table', () => {
       nowMs: 1_000_000 + CONTEXT_HINT_CACHE_TTL_MS - 1,
       cachePath,
       probeRatio: () => 0.72,
-      runAudit,
+      runAudit
     });
     expect(line).toContain('top consumer: Bash');
     expect(runAudit).not.toHaveBeenCalled();
@@ -142,10 +149,19 @@ describe('(behavior) threshold / cache / TTL decision table', () => {
   it('scans at most once per TTL window across repeated gate calls', () => {
     const cachePath = join(tmpDir(), 'cache.json');
     const runAudit = vi.fn(() => auditResult());
-    const base = { projectRoot: '/proj', sessionId: 'sid', cachePath, probeRatio: () => 0.72, runAudit };
+    const base = {
+      projectRoot: '/proj',
+      sessionId: 'sid',
+      cachePath,
+      probeRatio: () => 0.72,
+      runAudit
+    };
     const first = buildContextAuditHint({ ...base, nowMs: 2_000_000 });
     const second = buildContextAuditHint({ ...base, nowMs: 2_000_000 + 60_000 });
-    const third = buildContextAuditHint({ ...base, nowMs: 2_000_000 + CONTEXT_HINT_CACHE_TTL_MS - 1 });
+    const third = buildContextAuditHint({
+      ...base,
+      nowMs: 2_000_000 + CONTEXT_HINT_CACHE_TTL_MS - 1
+    });
     expect([first, second, third].every((l) => l !== null)).toBe(true);
     expect(runAudit).toHaveBeenCalledTimes(1);
   });
@@ -160,7 +176,7 @@ describe('(behavior) threshold / cache / TTL decision table', () => {
       nowMs: 1_000_000 + CONTEXT_HINT_CACHE_TTL_MS + 1,
       cachePath,
       probeRatio: () => 0.72,
-      runAudit,
+      runAudit
     });
     expect(line).not.toBeNull();
     expect(runAudit).toHaveBeenCalledTimes(1);
@@ -168,8 +184,16 @@ describe('(behavior) threshold / cache / TTL decision table', () => {
 
   it('emits nothing when the audit is unavailable, and caches the failure', () => {
     const cachePath = join(tmpDir(), 'cache.json');
-    const runAudit = vi.fn(() => auditResult({ available: false, reason: 'transcript-not-found', entries: [] }));
-    const base = { projectRoot: '/proj', sessionId: 'sid', cachePath, probeRatio: () => 0.72, runAudit };
+    const runAudit = vi.fn(() =>
+      auditResult({ available: false, reason: 'transcript-not-found', entries: [] })
+    );
+    const base = {
+      projectRoot: '/proj',
+      sessionId: 'sid',
+      cachePath,
+      probeRatio: () => 0.72,
+      runAudit
+    };
     expect(buildContextAuditHint({ ...base, nowMs: 3_000_000 })).toBeNull();
     // Second call inside the TTL must not rescan (cached failure).
     expect(buildContextAuditHint({ ...base, nowMs: 3_000_000 + 1000 })).toBeNull();
@@ -183,7 +207,7 @@ describe('(behavior) threshold / cache / TTL decision table', () => {
       sessionId: 'sid',
       cachePath: join(tmpDir(), 'cache.json'),
       probeRatio: () => 0.72,
-      runAudit: () => auditResult({ entries: [], entryCount: 0, groupCount: 0, totalBytes: 0 }),
+      runAudit: () => auditResult({ entries: [], entryCount: 0, groupCount: 0, totalBytes: 0 })
     });
     expect(line).toBeNull();
   });
@@ -197,7 +221,7 @@ describe('(behavior) threshold / cache / TTL decision table', () => {
       probeRatio: () => {
         throw new Error('adapter exploded');
       },
-      runAudit,
+      runAudit
     });
     expect(line).toBeNull();
     expect(runAudit).not.toHaveBeenCalled();
@@ -211,7 +235,7 @@ describe('(behavior) threshold / cache / TTL decision table', () => {
       probeRatio: () => 0.72,
       runAudit: () => {
         throw new Error('scan exploded');
-      },
+      }
     });
     expect(line).toBeNull();
   });
@@ -226,7 +250,7 @@ describe('(behavior) threshold / cache / TTL decision table', () => {
       nowMs: 4_000_000,
       cachePath,
       probeRatio: () => 0.72,
-      runAudit,
+      runAudit
     });
     expect(line).not.toBeNull();
     expect(runAudit).toHaveBeenCalledTimes(1);
@@ -237,13 +261,17 @@ describe('(integration) per-session cache on the real filesystem', () => {
   it('resolves the cache under .peaks/_runtime/<sid>/ and round-trips it', () => {
     const projectRoot = tmpDir();
     const cachePath = contextHintCachePath(projectRoot, '2026-09-10-session-abc123');
-    expect(cachePath.endsWith(join('_runtime', '2026-09-10-session-abc123', 'context', CONTEXT_HINT_CACHE_FILE_NAME))).toBe(true);
+    expect(
+      cachePath.endsWith(
+        join('_runtime', '2026-09-10-session-abc123', 'context', CONTEXT_HINT_CACHE_FILE_NAME)
+      )
+    ).toBe(true);
     const line = buildContextAuditHint({
       projectRoot,
       sessionId: '2026-09-10-session-abc123',
       nowMs: 5_000_000,
       probeRatio: () => 0.75,
-      runAudit: () => auditResult(),
+      runAudit: () => auditResult()
     });
     expect(line).not.toBeNull();
     const onDisk = JSON.parse(readFileSync(cachePath, 'utf8')) as ContextHintCacheEntry;

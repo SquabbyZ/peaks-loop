@@ -32,21 +32,35 @@ describe('end-to-end buildContext', () => {
     try {
       mkdirSync(join(workdir, 'src'), { recursive: true });
       writeFileSync(join(workdir, 'src', 'A.ts'), 'export const X = 1;\n');
-      writeFileSync(join(workdir, 'package.json'), JSON.stringify({
-        name: 'demo', dependencies: { antd: '5.21.0' },
-      }));
+      writeFileSync(
+        join(workdir, 'package.json'),
+        JSON.stringify({
+          name: 'demo',
+          dependencies: { antd: '5.21.0' }
+        })
+      );
       writeFileSync(join(workdir, 'pnpm-lock.yaml'), 'lockfileVersion: 9\n');
 
       const out = join(workdir, 'ctx.json');
       const fetcher = async () => ({ version: '5.21.0', excerpt: 'Form.Item' });
 
       const ctx1 = await buildContext({
-        goal: 'x', project: workdir, audience: 'peaks-rd', depsMode: 'locked',
-        docBudgetTokens: 8000, out, fetcher,
+        goal: 'x',
+        project: workdir,
+        audience: 'peaks-rd',
+        depsMode: 'locked',
+        docBudgetTokens: 8000,
+        out,
+        fetcher
       });
       const ctx2 = await buildContext({
-        goal: 'x', project: workdir, audience: 'peaks-rd', depsMode: 'locked',
-        docBudgetTokens: 8000, out, fetcher,
+        goal: 'x',
+        project: workdir,
+        audience: 'peaks-rd',
+        depsMode: 'locked',
+        docBudgetTokens: 8000,
+        out,
+        fetcher
       });
 
       // With mocked clock, ALL fields are deterministic — including sha256.

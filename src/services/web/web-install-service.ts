@@ -295,7 +295,9 @@ export function releaseInstallLock(): void {
 /** Is this body a lock we must not touch — an owner that is alive and in date? */
 function isLiveInstallLock(body: InstallLockBody | null): boolean {
   return (
-    body !== null && isProcessAlive(body.pid) && Date.now() - Date.parse(body.startedAt) <= INSTALL_LOCK_STALE_MS
+    body !== null &&
+    isProcessAlive(body.pid) &&
+    Date.now() - Date.parse(body.startedAt) <= INSTALL_LOCK_STALE_MS
   );
 }
 
@@ -317,7 +319,9 @@ function ownsInstallLock(target: string): boolean {
  * daemon answers the op with the tier-3 envelope and this verb, on the human's
  * channel, performs the download.
  */
-export async function installChromium(options: { readonly force?: boolean } = {}): Promise<InstallOutcome> {
+export async function installChromium(
+  options: { readonly force?: boolean } = {}
+): Promise<InstallOutcome> {
   const { force = false } = options;
   let locked = false;
   try {
@@ -364,7 +368,10 @@ export async function installChromium(options: { readonly force?: boolean } = {}
 }
 
 function spawnFailure(error: Error): InstallOutcome {
-  const code = (error as NodeJS.ErrnoException).code === 'ETIMEDOUT' ? 'WEB_INSTALL_TIMEOUT' : 'WEB_INSTALL_FAILED';
+  const code =
+    (error as NodeJS.ErrnoException).code === 'ETIMEDOUT'
+      ? 'WEB_INSTALL_TIMEOUT'
+      : 'WEB_INSTALL_FAILED';
   return failure(code, `\`playwright install chromium\` did not complete: ${error.message}`);
 }
 
@@ -375,7 +382,11 @@ function failure(code: string, message: string): InstallOutcome {
 function tryCreateInstallLock(target: string): boolean {
   const body: InstallLockBody = { pid: process.pid, startedAt: new Date().toISOString() };
   try {
-    writeFileSync(target, JSON.stringify(body), { flag: 'wx', encoding: 'utf8', mode: LOCK_FILE_MODE });
+    writeFileSync(target, JSON.stringify(body), {
+      flag: 'wx',
+      encoding: 'utf8',
+      mode: LOCK_FILE_MODE
+    });
     return true;
   } catch {
     // `EEXIST` (held) and any other write failure both mean "not acquired".

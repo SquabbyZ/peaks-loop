@@ -17,14 +17,14 @@ import {
   type AnthropicConfig,
   type FetchLike,
   type LlmFetchInit,
-  type LlmHttpResponse,
+  type LlmHttpResponse
 } from '../../../../src/services/llm/anthropic-runner.js';
 
 const BEARER_CONFIG: AnthropicConfig = {
   baseUrl: 'https://llm.invalid',
   authToken: 'tok-123',
   authScheme: 'bearer',
-  model: 'test-model',
+  model: 'test-model'
 };
 
 function jsonResponse(body: unknown, status = 200): LlmHttpResponse {
@@ -32,7 +32,7 @@ function jsonResponse(body: unknown, status = 200): LlmHttpResponse {
     ok: status >= 200 && status < 300,
     status,
     json: async () => body,
-    text: async () => JSON.stringify(body),
+    text: async () => JSON.stringify(body)
   };
 }
 
@@ -46,14 +46,18 @@ function captureTransport(response: LlmHttpResponse): {
       captured = { url, init };
       return response;
     },
-    seen: () => captured,
+    seen: () => captured
   };
 }
 
 describe('resolveAnthropicConfig', () => {
   it('when both credential variables are set, should prefer ANTHROPIC_AUTH_TOKEN with a bearer header', () => {
     // given: an env carrying both ANTHROPIC_AUTH_TOKEN and ANTHROPIC_API_KEY
-    const env = { ANTHROPIC_AUTH_TOKEN: 'session-token', ANTHROPIC_API_KEY: 'api-key', ANTHROPIC_MODEL: 'm' };
+    const env = {
+      ANTHROPIC_AUTH_TOKEN: 'session-token',
+      ANTHROPIC_API_KEY: 'api-key',
+      ANTHROPIC_MODEL: 'm'
+    };
 
     // when: the config is resolved
     const config = resolveAnthropicConfig(env);
@@ -153,7 +157,11 @@ describe('resolveAnthropicConfig', () => {
 
   it('when ANTHROPIC_BASE_URL carries trailing slashes, should strip them', () => {
     // given: a base URL with trailing separators
-    const env = { ANTHROPIC_API_KEY: 'api-key', ANTHROPIC_MODEL: 'm', ANTHROPIC_BASE_URL: 'https://gateway.invalid/anthropic//' };
+    const env = {
+      ANTHROPIC_API_KEY: 'api-key',
+      ANTHROPIC_MODEL: 'm',
+      ANTHROPIC_BASE_URL: 'https://gateway.invalid/anthropic//'
+    };
 
     // when: the config is resolved
     const config = resolveAnthropicConfig(env);
@@ -166,7 +174,9 @@ describe('resolveAnthropicConfig', () => {
 describe('createAnthropicRunner', () => {
   it('when called, should POST the prompts to <base>/v1/messages with the bearer credential', async () => {
     // given: a runner bound to an injected transport
-    const transport = captureTransport(jsonResponse({ content: [{ type: 'text', text: 'hello' }] }));
+    const transport = captureTransport(
+      jsonResponse({ content: [{ type: 'text', text: 'hello' }] })
+    );
     const runner = createAnthropicRunner(BEARER_CONFIG, { fetchImpl: transport.fetchImpl });
 
     // when: one call is made
@@ -184,14 +194,19 @@ describe('createAnthropicRunner', () => {
       model: 'test-model',
       max_tokens: 77,
       system: 'system-prompt',
-      messages: [{ role: 'user', content: 'user-prompt' }],
+      messages: [{ role: 'user', content: 'user-prompt' }]
     });
   });
 
   it('when the binding uses an API key, should send the x-api-key header instead of a bearer token', async () => {
     // given: a runner bound with the x-api-key convention
-    const transport = captureTransport(jsonResponse({ content: [{ type: 'text', text: 'hello' }] }));
-    const runner = createAnthropicRunner({ ...BEARER_CONFIG, authToken: 'api-key', authScheme: 'x-api-key' }, { fetchImpl: transport.fetchImpl });
+    const transport = captureTransport(
+      jsonResponse({ content: [{ type: 'text', text: 'hello' }] })
+    );
+    const runner = createAnthropicRunner(
+      { ...BEARER_CONFIG, authToken: 'api-key', authScheme: 'x-api-key' },
+      { fetchImpl: transport.fetchImpl }
+    );
 
     // when: one call is made
     await runner.call('s', 'u', { maxTokens: 10 });
@@ -205,7 +220,10 @@ describe('createAnthropicRunner', () => {
   it('when the call is made, should bound it with an abort signal', async () => {
     // given: a runner with an explicit timeout
     const transport = captureTransport(jsonResponse({ content: [{ type: 'text', text: 'ok' }] }));
-    const runner = createAnthropicRunner(BEARER_CONFIG, { fetchImpl: transport.fetchImpl, timeoutMs: 5_000 });
+    const runner = createAnthropicRunner(BEARER_CONFIG, {
+      fetchImpl: transport.fetchImpl,
+      timeoutMs: 5_000
+    });
 
     // when: one call is made
     await runner.call('s', 'u', { maxTokens: 10 });
@@ -219,8 +237,12 @@ describe('createAnthropicRunner', () => {
     // given: a reply whose text is split across blocks, alongside a non-text block
     const transport = captureTransport(
       jsonResponse({
-        content: [{ type: 'text', text: '{"a":' }, { type: 'thinking' }, { type: 'text', text: '1}' }],
-        usage: { input_tokens: 11, output_tokens: 22 },
+        content: [
+          { type: 'text', text: '{"a":' },
+          { type: 'thinking' },
+          { type: 'text', text: '1}' }
+        ],
+        usage: { input_tokens: 11, output_tokens: 22 }
       })
     );
     const runner = createAnthropicRunner(BEARER_CONFIG, { fetchImpl: transport.fetchImpl });
@@ -260,7 +282,7 @@ describe('createAnthropicRunner', () => {
       fetchImpl: async () => {
         throw timeoutError;
       },
-      timeoutMs: 1_234,
+      timeoutMs: 1_234
     });
 
     // when: one call is made
@@ -285,8 +307,8 @@ describe('createAnthropicRunner', () => {
         json: async () => {
           throw new SyntaxError('Unexpected token <');
         },
-        text: async () => '<html>',
-      }),
+        text: async () => '<html>'
+      })
     });
 
     // when: one call is made

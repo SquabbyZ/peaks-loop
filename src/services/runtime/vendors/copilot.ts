@@ -10,11 +10,7 @@
 import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
-import type {
-  VendorAdapter,
-  VendorCompactArgs,
-  VendorCompactResult
-} from '../vendor-adapter.js';
+import type { VendorAdapter, VendorCompactArgs, VendorCompactResult } from '../vendor-adapter.js';
 
 export class CopilotAdapter implements VendorAdapter {
   readonly id = 'copilot';
@@ -33,10 +29,18 @@ export class CopilotAdapter implements VendorAdapter {
       const proc = spawn('copilot', argv, { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
       let stdout = '';
       let stderr = '';
-      proc.stdout.on('data', (chunk: Buffer) => { stdout += chunk.toString('utf8'); });
-      proc.stderr.on('data', (chunk: Buffer) => { stderr += chunk.toString('utf8'); });
+      proc.stdout.on('data', (chunk: Buffer) => {
+        stdout += chunk.toString('utf8');
+      });
+      proc.stderr.on('data', (chunk: Buffer) => {
+        stderr += chunk.toString('utf8');
+      });
       proc.on('error', (err) => {
-        resolveRun({ exitCode: 127, stdout, stderr: stderr + (stderr.length > 0 ? '\n' : '') + err.message });
+        resolveRun({
+          exitCode: 127,
+          stdout,
+          stderr: stderr + (stderr.length > 0 ? '\n' : '') + err.message
+        });
       });
       proc.on('close', (code) => {
         resolveRun({ exitCode: code ?? 0, stdout, stderr });

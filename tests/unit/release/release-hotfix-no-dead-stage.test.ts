@@ -42,20 +42,20 @@ import {
   readReleaseState,
   transitionRelease,
   writeReleaseState,
-  type ReleaseStage,
+  type ReleaseStage
 } from '~/src/services/release/release-state.js';
 
-declareDimensions('tests/unit/release/release-hotfix-no-dead-stage.test.ts', [
-  'render',
-  'behavior',
-  'integration',
-], [
-  {
-    dim: 'a11y',
-    reason:
-      'no user-facing copy, error code, or exit code is under test — the fix is a stage-table deletion plus its service-level guard',
-  },
-]);
+declareDimensions(
+  'tests/unit/release/release-hotfix-no-dead-stage.test.ts',
+  ['render', 'behavior', 'integration'],
+  [
+    {
+      dim: 'a11y',
+      reason:
+        'no user-facing copy, error code, or exit code is under test — the fix is a stage-table deletion plus its service-level guard'
+    }
+  ]
+);
 
 /** The stage this slice deleted. Probe-only: intentionally cast, because the
  *  whole point is that `ReleaseStage` must no longer admit it. */
@@ -70,7 +70,7 @@ const DECLARED_STAGES: readonly ReleaseStage[] = [
   'promoted',
   'watching',
   'done',
-  'rolled-back',
+  'rolled-back'
 ];
 
 const T0 = new Date('2026-09-18T10:00:00Z');
@@ -82,7 +82,7 @@ describe('Scenario: behavior — no transition reaches the deleted hotfixed stag
     for (const from of DECLARED_STAGES) {
       expect(
         isValidStageTransition(from, DELETED_STAGE),
-        `'${from}' must not be able to reach '${DELETED_STAGE}'`,
+        `'${from}' must not be able to reach '${DELETED_STAGE}'`
       ).toBe(false);
     }
   });
@@ -167,9 +167,7 @@ describe('Scenario: behavior — a hotfix enters the normal pipeline, not a stag
     expect(done.state.active?.currentStage).toBe('done');
     expect(done.state.active?.doneAt).toBe(T1.toISOString());
     // ... and the walk never needed the deleted stage.
-    expect(
-      done.state.active?.stageHistory.every((e) => e.stage !== DELETED_STAGE),
-    ).toBe(true);
+    expect(done.state.active?.stageHistory.every((e) => e.stage !== DELETED_STAGE)).toBe(true);
   });
 });
 
@@ -221,7 +219,7 @@ describe('Scenario: integration — the hotfix release survives a real state rou
     const closed = {
       version: 1 as const,
       active: null,
-      history: [...done.state.history, done.state.active!],
+      history: [...done.state.history, done.state.active!]
     };
     writeReleaseState(ws().path, closed);
     const after = readReleaseState(ws().path);

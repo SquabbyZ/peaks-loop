@@ -20,8 +20,13 @@ const SECTION_HARD_CONTRACTS: RedLineCatalogEntry = {
   id: 'rl-section-hard-contracts-001',
   rule: 'Section structure: Hard contracts for browser/IO surface',
   markers: ['MANDATORY', 'BLOCKING'],
-  phrases: ['hard contract', 'hard contracts for browser', 'hard contracts (blocking)', 'must be read before'],
-  enforcerRef: 'src/services/audit/enforcers/lint-style.ts',
+  phrases: [
+    'hard contract',
+    'hard contracts for browser',
+    'hard contracts (blocking)',
+    'must be read before'
+  ],
+  enforcerRef: 'src/services/audit/enforcers/lint-style.ts'
 };
 
 const SECTION_MANDATORY_ARTIFACT: RedLineCatalogEntry = {
@@ -29,15 +34,20 @@ const SECTION_MANDATORY_ARTIFACT: RedLineCatalogEntry = {
   rule: 'Section structure: Mandatory per-request artifact',
   markers: ['MANDATORY', 'BLOCKING'],
   phrases: ['mandatory per-request artifact', 'mandatory per-slice', 'mandatory .peaks/'],
-  enforcerRef: 'src/services/audit/enforcers/lint-style.ts',
+  enforcerRef: 'src/services/audit/enforcers/lint-style.ts'
 };
 
 const SECTION_DEFAULT_RUNBOOK: RedLineCatalogEntry = {
   id: 'rl-section-default-runbook-001',
   rule: 'Section structure: Default runbook pointer',
   markers: ['MANDATORY'],
-  phrases: ['default runbook', 'runbook is in the references', 'full runbook', '## Default runbook'],
-  enforcerRef: 'src/services/audit/enforcers/lint-style.ts',
+  phrases: [
+    'default runbook',
+    'runbook is in the references',
+    'full runbook',
+    '## Default runbook'
+  ],
+  enforcerRef: 'src/services/audit/enforcers/lint-style.ts'
 };
 
 const SECTION_GATE_INDEX: RedLineCatalogEntry = {
@@ -45,7 +55,7 @@ const SECTION_GATE_INDEX: RedLineCatalogEntry = {
   rule: 'Section structure: Gate index',
   markers: ['MANDATORY'],
   phrases: ['gate index', 'rd gate index', 'qa gate index', 'cli-backed gates'],
-  enforcerRef: 'src/services/audit/enforcers/lint-style.ts',
+  enforcerRef: 'src/services/audit/enforcers/lint-style.ts'
 };
 
 const SECTION_NAMING_AXIOM: RedLineCatalogEntry = {
@@ -53,7 +63,7 @@ const SECTION_NAMING_AXIOM: RedLineCatalogEntry = {
   rule: 'Section structure: Two-axis naming axiom',
   markers: ['MANDATORY'],
   phrases: ['two-axis naming', 'change-id', 'session-id', 'two orthogonal axes'],
-  enforcerRef: 'src/services/audit/enforcers/lint-style.ts',
+  enforcerRef: 'src/services/audit/enforcers/lint-style.ts'
 };
 
 /** Theme A wireframe — the "ASCII wireframe" hint from spec §5.4
@@ -64,7 +74,7 @@ const SECTION_ORDER_WIREFRAME: RedLineCatalogEntry = {
   rule: 'Section structure: ASCII wireframe — sections in canonical order',
   markers: ['MANDATORY'],
   phrases: ['wireframe', 'section order', 'canonical order', 'ascii wireframe'],
-  enforcerRef: 'src/services/audit/enforcers/lint-style.ts',
+  enforcerRef: 'src/services/audit/enforcers/lint-style.ts'
 };
 
 /** Theme B — Frontmatter shape (3 enforcers). Grouped with Theme A
@@ -75,7 +85,7 @@ const FRONTMATTER_PARSEABLE: RedLineCatalogEntry = {
   rule: 'Frontmatter shape: skills_md parseable frontmatter',
   markers: ['MANDATORY'],
   phrases: ['frontmatter', 'parseable', 'name: peaks-', 'description:'],
-  enforcerRef: 'src/services/audit/enforcers/lint-style.ts',
+  enforcerRef: 'src/services/audit/enforcers/lint-style.ts'
 };
 
 const FRONTMATTER_REFERENCES_LOAD_STRATEGY: RedLineCatalogEntry = {
@@ -83,7 +93,7 @@ const FRONTMATTER_REFERENCES_LOAD_STRATEGY: RedLineCatalogEntry = {
   rule: 'Frontmatter shape: references loadStrategy declared',
   markers: ['MANDATORY'],
   phrases: ['loadstrategy', 'load-strategy', 'always | on-demand'],
-  enforcerRef: 'src/services/audit/enforcers/lint-style.ts',
+  enforcerRef: 'src/services/audit/enforcers/lint-style.ts'
 };
 
 const FRONTMATTER_APPLICABLE_TASK_LEVELS: RedLineCatalogEntry = {
@@ -91,7 +101,7 @@ const FRONTMATTER_APPLICABLE_TASK_LEVELS: RedLineCatalogEntry = {
   rule: 'Frontmatter shape: skill applicable task levels',
   markers: ['MANDATORY'],
   phrases: ['applicabletasklevels', 'task levels invoke', 'applies to'],
-  enforcerRef: 'src/services/audit/enforcers/lint-style.ts',
+  enforcerRef: 'src/services/audit/enforcers/lint-style.ts'
 };
 
 /** Theme C — Output style (3 enforcers) */
@@ -100,7 +110,7 @@ const OUTPUT_STYLE_STATUS_HEADER: RedLineCatalogEntry = {
   rule: 'Output style: Peaks-Loop status header on every response',
   markers: ['MANDATORY'],
   phrases: ['peaks-loop skill:', 'peaks-loop gate:', 'peaks-loop next:', 'status header'],
-  enforcerRef: 'src/services/audit/enforcers/lint-output-style.ts',
+  enforcerRef: 'src/services/audit/enforcers/lint-output-style.ts'
 };
 
 const OUTPUT_STYLE_NO_FLUFF: RedLineCatalogEntry = {
@@ -108,7 +118,7 @@ const OUTPUT_STYLE_NO_FLUFF: RedLineCatalogEntry = {
   rule: 'Output style: no greeting / persona fluff in SKILL.md',
   markers: ['MUST NOT'],
   phrases: ['你好,', '你好!', 'hello, i am', 'i am a', '作为一个', '我是'],
-  enforcerRef: 'src/services/audit/enforcers/lint-output-style.ts',
+  enforcerRef: 'src/services/audit/enforcers/lint-output-style.ts'
 };
 
 const OUTPUT_STYLE_NO_CLOSING_PROMPT: RedLineCatalogEntry = {
@@ -116,7 +126,7 @@ const OUTPUT_STYLE_NO_CLOSING_PROMPT: RedLineCatalogEntry = {
   rule: 'Output style: no closing-prompt flattery',
   markers: ['MUST NOT'],
   phrases: ['let me know if', '如有任何需要', '如有需要', 'feel free to ask', 'do not hesitate'],
-  enforcerRef: 'src/services/audit/enforcers/lint-output-style.ts',
+  enforcerRef: 'src/services/audit/enforcers/lint-output-style.ts'
 };
 
 /** Theme D — CLI-back gaps (4 enforcers) */
@@ -125,7 +135,7 @@ const CLI_BACK_MANDATORY_TEXT: RedLineCatalogEntry = {
   rule: 'CLI-back: MANDATORY text has peaks * enforcer in the surrounding ±2 lines',
   markers: ['MANDATORY'],
   phrases: ['mandatory', 'mandatory peaks', 'cli-enforced-by', 'enforced by peaks'],
-  enforcerRef: 'src/services/audit/enforcers/lint-cli-back.ts',
+  enforcerRef: 'src/services/audit/enforcers/lint-cli-back.ts'
 };
 
 const CLI_BACK_NO_ORPHAN_BLOCKING: RedLineCatalogEntry = {
@@ -133,7 +143,7 @@ const CLI_BACK_NO_ORPHAN_BLOCKING: RedLineCatalogEntry = {
   rule: 'CLI-back: no orphan BLOCKING marker without a peaks * enforcer',
   markers: ['BLOCKING'],
   phrases: ['blocking', 'blocking peaks', 'blocking gate'],
-  enforcerRef: 'src/services/audit/enforcers/lint-cli-back.ts',
+  enforcerRef: 'src/services/audit/enforcers/lint-cli-back.ts'
 };
 
 const CLI_BACK_NO_ORPHAN_MUST_NOT: RedLineCatalogEntry = {
@@ -141,7 +151,7 @@ const CLI_BACK_NO_ORPHAN_MUST_NOT: RedLineCatalogEntry = {
   rule: 'CLI-back: no orphan MUST NOT marker without a peaks * enforcer',
   markers: ['MUST NOT'],
   phrases: ['must not', 'must not peaks', 'must not be'],
-  enforcerRef: 'src/services/audit/enforcers/lint-cli-back.ts',
+  enforcerRef: 'src/services/audit/enforcers/lint-cli-back.ts'
 };
 
 const CLI_BACK_PROSE_ONLY_THRESHOLD: RedLineCatalogEntry = {
@@ -149,7 +159,7 @@ const CLI_BACK_PROSE_ONLY_THRESHOLD: RedLineCatalogEntry = {
   rule: 'CLI-back: prose-only ratio must stay ≤ 5%',
   markers: ['MANDATORY'],
   phrases: ['prose-only', 'prose only', 'prose-only ratio', 'prose-only threshold'],
-  enforcerRef: 'src/services/audit/enforcers/lint-cli-back.ts',
+  enforcerRef: 'src/services/audit/enforcers/lint-cli-back.ts'
 };
 
 /** Theme E — Reference integrity (4 enforcers) */
@@ -158,7 +168,7 @@ const REF_PATH_RESOLVES: RedLineCatalogEntry = {
   rule: 'Reference integrity: every references/<file>.md link resolves',
   markers: ['MANDATORY'],
   phrases: ['see references/', 'see `references/', 'see the references file', '→ see'],
-  enforcerRef: 'src/services/audit/enforcers/lint-reference-integrity.ts',
+  enforcerRef: 'src/services/audit/enforcers/lint-reference-integrity.ts'
 };
 
 const REF_NO_BROKEN_MKDIR: RedLineCatalogEntry = {
@@ -166,7 +176,7 @@ const REF_NO_BROKEN_MKDIR: RedLineCatalogEntry = {
   rule: 'Reference integrity: no `mkdir -p` outside the project root',
   markers: ['MUST NOT'],
   phrases: ['mkdir -p', 'mkdir -p /', 'mkdir outside', 'mkdir the'],
-  enforcerRef: 'src/services/audit/enforcers/lint-reference-integrity.ts',
+  enforcerRef: 'src/services/audit/enforcers/lint-reference-integrity.ts'
 };
 
 const REF_NO_PWD_SYMLINK_JUMPS: RedLineCatalogEntry = {
@@ -174,7 +184,7 @@ const REF_NO_PWD_SYMLINK_JUMPS: RedLineCatalogEntry = {
   rule: 'Reference integrity: no `cd ..` chain jumping outside the project',
   markers: ['MUST NOT'],
   phrases: ['cd ..', 'cd ../..', 'cd ../../..', 'cd outside the project'],
-  enforcerRef: 'src/services/audit/enforcers/lint-reference-integrity.ts',
+  enforcerRef: 'src/services/audit/enforcers/lint-reference-integrity.ts'
 };
 
 const REF_NO_RELATIVE_ARCHIVE_PATHS: RedLineCatalogEntry = {
@@ -182,7 +192,7 @@ const REF_NO_RELATIVE_ARCHIVE_PATHS: RedLineCatalogEntry = {
   rule: 'Reference integrity: no `cp`/`mv`/`ln` to absolute /tmp paths',
   markers: ['MUST NOT'],
   phrases: ['cp /tmp', 'mv /tmp', 'ln /tmp', 'cp -r /tmp', 'do not use /tmp'],
-  enforcerRef: 'src/services/audit/enforcers/lint-reference-integrity.ts',
+  enforcerRef: 'src/services/audit/enforcers/lint-reference-integrity.ts'
 };
 
 /** Theme F — Workflow-bound shape (4 enforcers) */
@@ -191,7 +201,7 @@ const OPENSPEC_PROPOSAL_HAS_AC_BULLETS: RedLineCatalogEntry = {
   rule: 'Workflow: openspec proposal has non-empty Acceptance Criteria bullets',
   markers: ['MANDATORY'],
   phrases: ['acceptance criteria', 'a1 —', 'a2 —', '## acceptance criteria'],
-  enforcerRef: 'src/services/audit/enforcers/lint-workflow-shape.ts',
+  enforcerRef: 'src/services/audit/enforcers/lint-workflow-shape.ts'
 };
 
 const OPENSPEC_PROPOSAL_HAS_SPEC_CHANGES: RedLineCatalogEntry = {
@@ -199,7 +209,7 @@ const OPENSPEC_PROPOSAL_HAS_SPEC_CHANGES: RedLineCatalogEntry = {
   rule: 'Workflow: openspec proposal has Spec reference (canonical) link',
   markers: ['MANDATORY'],
   phrases: ['spec reference (canonical)', 'spec reference', 'see the spec'],
-  enforcerRef: 'src/services/audit/enforcers/lint-workflow-shape.ts',
+  enforcerRef: 'src/services/audit/enforcers/lint-workflow-shape.ts'
 };
 
 // (Removed in v2.11.0 Group A: TECH_DOC_PRESENCE_PRE_RD catalog entry —
@@ -211,7 +221,7 @@ const PEAKS_DOCTOR_SKILL_ACKNOWLEDGED: RedLineCatalogEntry = {
   rule: 'Workflow: skill that writes a request artifact acknowledges peaks doctor',
   markers: ['MANDATORY'],
   phrases: ['peaks doctor', 'peaks-doctor', 'doctor scan', 'doctor route'],
-  enforcerRef: 'src/services/audit/enforcers/lint-workflow-shape.ts',
+  enforcerRef: 'src/services/audit/enforcers/lint-workflow-shape.ts'
 };
 
 /** Theme G — Catalog governance (2 enforcers). The catalog-size
@@ -223,7 +233,7 @@ const CATALOG_TOTAL_LE_45: RedLineCatalogEntry = {
   rule: 'Catalog governance: catalog size must grow to ≥ 40 (L2.3 P2-a target)',
   markers: ['MANDATORY'],
   phrases: ['total red lines', 'totalredlines', 'catalog size', 'catalog grows'],
-  enforcerRef: 'src/services/audit/enforcers/lint-catalog-governance.ts',
+  enforcerRef: 'src/services/audit/enforcers/lint-catalog-governance.ts'
 };
 
 const CATALOG_PROSE_ONLY_RATIO: RedLineCatalogEntry = {
@@ -231,15 +241,19 @@ const CATALOG_PROSE_ONLY_RATIO: RedLineCatalogEntry = {
   rule: 'Catalog governance: prose-only ratio must stay ≤ 5% (per §10.2 L2 acceptance)',
   markers: ['MANDATORY'],
   phrases: ['prose-only ratio', 'prose-only threshold', 'prose-only ≤ 5%', 'prose-only < 10%'],
-  enforcerRef: 'src/services/audit/enforcers/lint-catalog-governance.ts',
+  enforcerRef: 'src/services/audit/enforcers/lint-catalog-governance.ts'
 };
 
 const SKILL_PRESENCE_MANDATORY: RedLineCatalogEntry = {
   id: 'rl-skill-presence-mandatory-001',
   rule: 'peaks-* bee SKILL.md must declare `## Skill presence (MANDATORY first action)` heading + body',
   markers: ['MANDATORY'],
-  phrases: ['skill presence (mandatory first action)', 'skill presence ( first action', 'immediately run:'],
-  enforcerRef: 'src/services/audit/enforcers/lint-skill-presence-mandatory.ts',
+  phrases: [
+    'skill presence (mandatory first action)',
+    'skill presence ( first action',
+    'immediately run:'
+  ],
+  enforcerRef: 'src/services/audit/enforcers/lint-skill-presence-mandatory.ts'
 };
 
 const PRD_SOURCE_SNAPSHOT_PLACEMENT: RedLineCatalogEntry = {
@@ -247,15 +261,19 @@ const PRD_SOURCE_SNAPSHOT_PLACEMENT: RedLineCatalogEntry = {
   rule: 'peaks-prd SKILL.md must declare `## Document snapshot placement (BLOCKING)` heading + Prohibited paths + .peaks/_runtime/<session-id>/prd/source/ path',
   markers: ['BLOCKING'],
   phrases: ['document snapshot placement', 'prohibited paths', 'prd/source/'],
-  enforcerRef: 'src/services/audit/enforcers/lint-prd-source-snapshot.ts',
+  enforcerRef: 'src/services/audit/enforcers/lint-prd-source-snapshot.ts'
 };
 
 const PRD_ARTIFACT_HANDOFF: RedLineCatalogEntry = {
   id: 'rl-prd-artifact-handoff-001',
   rule: 'peaks-prd SKILL.md must declare the artifact handoff contract (Preserved behavior + step 5.5 + Transition verification gates)',
   markers: ['BLOCKING'],
-  phrases: ['preserved behavior', '5.5 — write the immutable handoff', 'transition verification gates'],
-  enforcerRef: 'src/services/audit/enforcers/lint-prd-artifact-handoff.ts',
+  phrases: [
+    'preserved behavior',
+    '5.5 — write the immutable handoff',
+    'transition verification gates'
+  ],
+  enforcerRef: 'src/services/audit/enforcers/lint-prd-artifact-handoff.ts'
 };
 
 const RD_HANDOFF_CONTRACT: RedLineCatalogEntry = {
@@ -263,7 +281,7 @@ const RD_HANDOFF_CONTRACT: RedLineCatalogEntry = {
   rule: 'peaks-rd must not hand off to QA without a non-empty RD artifact under rd/requests/',
   markers: ['BLOCKING'],
   phrases: ['do not hand off to qa without', 'tech-doc', 'perf-baseline'],
-  enforcerRef: 'src/services/audit/enforcers/lint-rd-handoff-coverage.ts',
+  enforcerRef: 'src/services/audit/enforcers/lint-rd-handoff-coverage.ts'
 };
 
 const RD_COVERAGE_DISCIPLINE: RedLineCatalogEntry = {
@@ -271,7 +289,7 @@ const RD_COVERAGE_DISCIPLINE: RedLineCatalogEntry = {
   rule: 'peaks-rd SKILL.md must declare the coverage discipline (100% target + no-padding rule)',
   markers: ['MANDATORY'],
   phrases: ['100% coverage target on testable files', 'must not write coverage-padding tests'],
-  enforcerRef: 'src/services/audit/enforcers/lint-rd-handoff-coverage.ts',
+  enforcerRef: 'src/services/audit/enforcers/lint-rd-handoff-coverage.ts'
 };
 
 const QA_GATEGUARD_PREFLIGHT: RedLineCatalogEntry = {
@@ -279,23 +297,30 @@ const QA_GATEGUARD_PREFLIGHT: RedLineCatalogEntry = {
   rule: 'peaks-qa SKILL.md must declare the gateguard-fact-force pre-flight BLOCKING section',
   markers: ['BLOCKING'],
   phrases: ['gateguard-fact-force conflict', 'pre-flight'],
-  enforcerRef: 'src/services/audit/enforcers/lint-qa-gateguard-and-runtime.ts',
+  enforcerRef: 'src/services/audit/enforcers/lint-qa-gateguard-and-runtime.ts'
 };
 
 const QA_RUNTIME_CONTRACT: RedLineCatalogEntry = {
   id: 'rl-qa-runtime-contract-001',
   rule: 'peaks-qa SKILL.md must declare the runtime contract (transition gates + Playwright MCP fallback + OpenSpec integration)',
   markers: ['BLOCKING', 'MANDATORY'],
-  phrases: ['transition verification gates', 'playwright mcp is unavailable', 'when the target repository has openspec/'],
-  enforcerRef: 'src/services/audit/enforcers/lint-qa-gateguard-and-runtime.ts',
+  phrases: [
+    'transition verification gates',
+    'playwright mcp is unavailable',
+    'when the target repository has openspec/'
+  ],
+  enforcerRef: 'src/services/audit/enforcers/lint-qa-gateguard-and-runtime.ts'
 };
 
 const PEAKS_UI_SUPERPOWERS_CHAIN: RedLineCatalogEntry = {
   id: 'rl-peaks-ui-superpowers-chain-001',
   rule: 'peaks-ui SKILL.md must declare the superpowers chain refusal + reference-material contract',
   markers: ['BLOCKING'],
-  phrases: ['MUST NOT follow the superpowers chain', 'superpowers skills remain available as reference material'],
-  enforcerRef: 'src/services/audit/enforcers/lint-peaks-ui-sc-txt-runtime.ts',
+  phrases: [
+    'MUST NOT follow the superpowers chain',
+    'superpowers skills remain available as reference material'
+  ],
+  enforcerRef: 'src/services/audit/enforcers/lint-peaks-ui-sc-txt-runtime.ts'
 };
 
 const PEAKS_UI_INVOLVEMENT: RedLineCatalogEntry = {
@@ -303,15 +328,18 @@ const PEAKS_UI_INVOLVEMENT: RedLineCatalogEntry = {
   rule: 'peaks-ui SKILL.md must declare the UI-involvement identification block',
   markers: ['MANDATORY'],
   phrases: ['identify ui involvement'],
-  enforcerRef: 'src/services/audit/enforcers/lint-peaks-ui-sc-txt-runtime.ts',
+  enforcerRef: 'src/services/audit/enforcers/lint-peaks-ui-sc-txt-runtime.ts'
 };
 
 const PEAKS_TXT_UPSTREAM: RedLineCatalogEntry = {
   id: 'rl-peaks-txt-upstream-001',
   rule: 'peaks-txt SKILL.md must declare the upstream-inspection + memory-block contract',
   markers: ['MANDATORY'],
-  phrases: ['inspect upstream skill content before applying any method', 'memory block embedding rule'],
-  enforcerRef: 'src/services/audit/enforcers/lint-peaks-ui-sc-txt-runtime.ts',
+  phrases: [
+    'inspect upstream skill content before applying any method',
+    'memory block embedding rule'
+  ],
+  enforcerRef: 'src/services/audit/enforcers/lint-peaks-ui-sc-txt-runtime.ts'
 };
 
 const PEAKS_PERF_AUDIT_SCOPE: RedLineCatalogEntry = {
@@ -319,7 +347,7 @@ const PEAKS_PERF_AUDIT_SCOPE: RedLineCatalogEntry = {
   rule: 'peaks-perf-audit SKILL.md must declare the non-perf MUST NOT invoke clause',
   markers: ['MUST NOT'],
   phrases: ['MUST NOT invoke this skill', 'non-perf'],
-  enforcerRef: 'src/services/audit/enforcers/lint-peaks-ui-sc-txt-runtime.ts',
+  enforcerRef: 'src/services/audit/enforcers/lint-peaks-ui-sc-txt-runtime.ts'
 };
 
 const PEAKS_RD_RUNTIME_CONTRACT: RedLineCatalogEntry = {
@@ -327,7 +355,7 @@ const PEAKS_RD_RUNTIME_CONTRACT: RedLineCatalogEntry = {
   rule: 'peaks-rd SKILL.md must declare the runtime contract (OpenSpec usage + Frontend project generation)',
   markers: ['BLOCKING', 'MUST NOT'],
   phrases: ['use openspec when the', 'rd work creates a frontend application'],
-  enforcerRef: 'src/services/audit/enforcers/lint-bee-runtime-contract.ts',
+  enforcerRef: 'src/services/audit/enforcers/lint-bee-runtime-contract.ts'
 };
 
 const PEAKS_UI_TRANSITION_GATES: RedLineCatalogEntry = {
@@ -335,7 +363,7 @@ const PEAKS_UI_TRANSITION_GATES: RedLineCatalogEntry = {
   rule: 'peaks-ui SKILL.md must declare the Transition verification gates section',
   markers: ['MANDATORY'],
   phrases: ['transition verification gates'],
-  enforcerRef: 'src/services/audit/enforcers/lint-bee-runtime-contract.ts',
+  enforcerRef: 'src/services/audit/enforcers/lint-bee-runtime-contract.ts'
 };
 
 const PEAKS_SC_TRANSITION_GATES: RedLineCatalogEntry = {
@@ -343,7 +371,7 @@ const PEAKS_SC_TRANSITION_GATES: RedLineCatalogEntry = {
   rule: 'peaks-sc SKILL.md must declare the Transition verification gates section',
   markers: ['MANDATORY'],
   phrases: ['transition verification gates'],
-  enforcerRef: 'src/services/audit/enforcers/lint-bee-runtime-contract.ts',
+  enforcerRef: 'src/services/audit/enforcers/lint-bee-runtime-contract.ts'
 };
 
 const PEAKS_TXT_RUNTIME_CONTRACT: RedLineCatalogEntry = {
@@ -351,7 +379,7 @@ const PEAKS_TXT_RUNTIME_CONTRACT: RedLineCatalogEntry = {
   rule: 'peaks-txt SKILL.md must declare the runtime contract (Transition verification gates + Memory block embedding rule)',
   markers: ['MANDATORY'],
   phrases: ['transition verification gates', 'memory block embedding rule'],
-  enforcerRef: 'src/services/audit/enforcers/lint-bee-runtime-contract.ts',
+  enforcerRef: 'src/services/audit/enforcers/lint-bee-runtime-contract.ts'
 };
 
 const PEAKS_CODE_RUNTIME_CONTRACT: RedLineCatalogEntry = {
@@ -370,7 +398,7 @@ const PEAKS_CODE_RUNTIME_CONTRACT: RedLineCatalogEntry = {
     'step 11',
     'enforce-job-mode (v3.1.2)'
   ],
-  enforcerRef: 'src/services/audit/enforcers/lint-peaks-code-runtime.ts',
+  enforcerRef: 'src/services/audit/enforcers/lint-peaks-code-runtime.ts'
 };
 
 /**
@@ -383,8 +411,13 @@ const PEAKS_AUDIT_RUNTIME: RedLineCatalogEntry = {
   id: 'rl-peaks-audit-runtime-001',
   rule: 'peaks-audit SKILL.md must declare the audit-runtime contract (machine-readable audit log, six-dimension audit, author identity)',
   markers: ['MANDATORY', 'BLOCKING'],
-  phrases: ['audit log is machine-readable', 'six dimensions', '6 dimensions', 'author identity.*local gitconfig'],
-  enforcerRef: 'src/services/audit/enforcers/lint-peaks-skill-runtime.ts',
+  phrases: [
+    'audit log is machine-readable',
+    'six dimensions',
+    '6 dimensions',
+    'author identity.*local gitconfig'
+  ],
+  enforcerRef: 'src/services/audit/enforcers/lint-peaks-skill-runtime.ts'
 };
 
 const PEAKS_CONTENT_RUNTIME: RedLineCatalogEntry = {
@@ -392,15 +425,19 @@ const PEAKS_CONTENT_RUNTIME: RedLineCatalogEntry = {
   rule: 'peaks-content SKILL.md must declare the content-runtime contract (what this skill do, failure mode, each red line is written)',
   markers: ['MANDATORY', 'BLOCKING'],
   phrases: ['what this skill do', 'failure mode', 'each red line is written'],
-  enforcerRef: 'src/services/audit/enforcers/lint-peaks-skill-runtime.ts',
+  enforcerRef: 'src/services/audit/enforcers/lint-peaks-skill-runtime.ts'
 };
 
 const PEAKS_IDE_RUNTIME: RedLineCatalogEntry = {
   id: 'rl-peaks-ide-runtime-001',
   rule: 'peaks-ide SKILL.md must declare the ide-runtime contract (for any consumer, what this skill do, general workflow-gating tool)',
   markers: ['MANDATORY'],
-  phrases: ['for any consumer of the v2 envelope', 'what this skill do', 'general workflow-gating tool'],
-  enforcerRef: 'src/services/audit/enforcers/lint-peaks-skill-runtime.ts',
+  phrases: [
+    'for any consumer of the v2 envelope',
+    'what this skill do',
+    'general workflow-gating tool'
+  ],
+  enforcerRef: 'src/services/audit/enforcers/lint-peaks-skill-runtime.ts'
 };
 
 const PEAKS_DOCTOR_RUNTIME: RedLineCatalogEntry = {
@@ -408,7 +445,7 @@ const PEAKS_DOCTOR_RUNTIME: RedLineCatalogEntry = {
   rule: 'peaks-doctor SKILL.md must declare the doctor-orchestrator marker',
   markers: ['MANDATORY'],
   phrases: ['peaks-loop doctor is a doctor orchestrator'],
-  enforcerRef: 'src/services/audit/enforcers/lint-peaks-skill-runtime.ts',
+  enforcerRef: 'src/services/audit/enforcers/lint-peaks-skill-runtime.ts'
 };
 
 const PEAKS_ISSUE_FIX_ORCHESTRATOR_RUNTIME: RedLineCatalogEntry = {
@@ -416,7 +453,7 @@ const PEAKS_ISSUE_FIX_ORCHESTRATOR_RUNTIME: RedLineCatalogEntry = {
   rule: 'peaks-issue-fix-orchestrator SKILL.md must declare the deviation note + autonomous work proceed markers',
   markers: ['MANDATORY'],
   phrases: ['deviation note', 'autonomous work proceed'],
-  enforcerRef: 'src/services/audit/enforcers/lint-peaks-skill-runtime.ts',
+  enforcerRef: 'src/services/audit/enforcers/lint-peaks-skill-runtime.ts'
 };
 
 const PEAKS_SOP_RUNTIME: RedLineCatalogEntry = {
@@ -424,7 +461,7 @@ const PEAKS_SOP_RUNTIME: RedLineCatalogEntry = {
   rule: 'peaks-sop SKILL.md must declare the sop-runtime contract (each red line below, sop lint reports findings)',
   markers: ['MANDATORY'],
   phrases: ['each red line below is written', 'sop lint reports findings'],
-  enforcerRef: 'src/services/audit/enforcers/lint-peaks-skill-runtime.ts',
+  enforcerRef: 'src/services/audit/enforcers/lint-peaks-skill-runtime.ts'
 };
 
 const PEAKS_SLICE_DECOMPOSE_RUNTIME: RedLineCatalogEntry = {
@@ -432,7 +469,7 @@ const PEAKS_SLICE_DECOMPOSE_RUNTIME: RedLineCatalogEntry = {
   rule: 'peaks-slice-decompose SKILL.md must declare the slice-decompose contract (what this skill do, failure mode)',
   markers: ['MANDATORY'],
   phrases: ['what this skill do', 'failure mode ('],
-  enforcerRef: 'src/services/audit/enforcers/lint-peaks-skill-runtime.ts',
+  enforcerRef: 'src/services/audit/enforcers/lint-peaks-skill-runtime.ts'
 };
 export const RED_LINE_CATALOG_P2_A: readonly RedLineCatalogEntry[] = [
   SECTION_HARD_CONTRACTS,
@@ -517,6 +554,5 @@ export const RED_LINE_CATALOG_P2_A: readonly RedLineCatalogEntry[] = [
   PEAKS_DOCTOR_RUNTIME,
   PEAKS_ISSUE_FIX_ORCHESTRATOR_RUNTIME,
   PEAKS_SOP_RUNTIME,
-  PEAKS_SLICE_DECOMPOSE_RUNTIME,
+  PEAKS_SLICE_DECOMPOSE_RUNTIME
 ];
-

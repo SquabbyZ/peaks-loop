@@ -41,15 +41,34 @@ export interface QaBusinessReview {
 
 /** 6-item business checklist (12 Gaps QA perspective). */
 export const QA_BUSINESS_ITEMS: readonly { id: string; question: string }[] = [
-  { id: 'business-flow', question: '这个功能"用起来"对吗?(业务流程顺不顺,操作路径是否反人类,跟现有系统交互有没有断层)' },
-  { id: 'req-coverage', question: '老板提的需求都覆盖了吗?(大需求点 vs 小需求点,显式需求 vs 隐式需求)' },
-  { id: 'boundary-cases', question: '边界 case 跟业务预期一致吗?(异常输入 / 错误提示用户语言 / 空加载失败状态)' },
-  { id: 'ui-assembly', question: '页面模式 / 关键交互 / 信息密度 跟产品预期一致吗?(装配验收,非视觉设计)' },
-  { id: 'exception-tone', question: '异常态 / 边界态视觉跟产品语调一致吗?(空状态有引导 / 加载态不闪烁 / 失败态有重试入口)' },
+  {
+    id: 'business-flow',
+    question: '这个功能"用起来"对吗?(业务流程顺不顺,操作路径是否反人类,跟现有系统交互有没有断层)'
+  },
+  {
+    id: 'req-coverage',
+    question: '老板提的需求都覆盖了吗?(大需求点 vs 小需求点,显式需求 vs 隐式需求)'
+  },
+  {
+    id: 'boundary-cases',
+    question: '边界 case 跟业务预期一致吗?(异常输入 / 错误提示用户语言 / 空加载失败状态)'
+  },
+  {
+    id: 'ui-assembly',
+    question: '页面模式 / 关键交互 / 信息密度 跟产品预期一致吗?(装配验收,非视觉设计)'
+  },
+  {
+    id: 'exception-tone',
+    question: '异常态 / 边界态视觉跟产品语调一致吗?(空状态有引导 / 加载态不闪烁 / 失败态有重试入口)'
+  },
   { id: 'mergeable', question: '能合入下个小版本吗?(业务风险 / 用户体验风险 / 集成断点)' }
 ];
 
-export function buildEmptyQaReview(requestId: string, sessionId: string, now: Date = new Date()): QaBusinessReview {
+export function buildEmptyQaReview(
+  requestId: string,
+  sessionId: string,
+  now: Date = new Date()
+): QaBusinessReview {
   return {
     requestId,
     sessionId,
@@ -91,7 +110,11 @@ export function getQaReviewPath(projectRoot: string, sessionId: string, requestI
   return join(getQaReviewDir(projectRoot, sessionId), `${requestId}.json`);
 }
 
-export function readQaReview(projectRoot: string, sessionId: string, requestId: string): QaBusinessReview | null {
+export function readQaReview(
+  projectRoot: string,
+  sessionId: string,
+  requestId: string
+): QaBusinessReview | null {
   const path = getQaReviewPath(projectRoot, sessionId, requestId);
   if (!existsSync(path)) return null;
   try {
@@ -108,7 +131,13 @@ export function writeQaReview(projectRoot: string, review: QaBusinessReview): vo
   writeFileSync(path, JSON.stringify(review, null, 2), 'utf8');
 }
 
-export function scoreQaItem(review: QaBusinessReview, itemId: string, score: number, note?: string, now: Date = new Date()): QaBusinessReview {
+export function scoreQaItem(
+  review: QaBusinessReview,
+  itemId: string,
+  score: number,
+  note?: string,
+  now: Date = new Date()
+): QaBusinessReview {
   let found = false;
   const items = review.items.map((it) => {
     if (it.id !== itemId) return it;
@@ -120,7 +149,12 @@ export function scoreQaItem(review: QaBusinessReview, itemId: string, score: num
 }
 
 export function averageQaScore(review: QaBusinessReview): number | null {
-  const scored = review.items.filter((it) => it.score !== null) as Array<{ id: string; question: string; score: number; note?: string }>;
+  const scored = review.items.filter((it) => it.score !== null) as Array<{
+    id: string;
+    question: string;
+    score: number;
+    note?: string;
+  }>;
   if (scored.length === 0) return null;
   return scored.reduce((sum, it) => sum + it.score, 0) / scored.length;
 }
@@ -138,6 +172,10 @@ export function acceptQaReview(review: QaBusinessReview, now: Date = new Date())
   return { ...review, decision: 'accepted', updatedAt: now.toISOString() };
 }
 
-export function rejectQaReview(review: QaBusinessReview, reason: string, now: Date = new Date()): QaBusinessReview {
+export function rejectQaReview(
+  review: QaBusinessReview,
+  reason: string,
+  now: Date = new Date()
+): QaBusinessReview {
   return { ...review, decision: 'rejected', rejectionReason: reason, updatedAt: now.toISOString() };
 }

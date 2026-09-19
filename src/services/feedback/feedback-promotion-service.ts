@@ -34,7 +34,11 @@ import { dirname, join, resolve } from 'node:path';
 import { registerSop } from '../sop/sop-registry-service.js';
 import { projectRegistryPath, projectSopManifestPath } from '../sop/sop-paths.js';
 import type { SopManifest } from '../sop/sop-types.js';
-import { artifactEvidenceFailure, type PromotionArtifactCheck, type PromotionEvidence } from './promotion-artifact-evidence.js';
+import {
+  artifactEvidenceFailure,
+  type PromotionArtifactCheck,
+  type PromotionEvidence
+} from './promotion-artifact-evidence.js';
 
 // Re-exported so callers keep importing the check shape from the service that
 // builds the table, even though the readers live in their own module.
@@ -61,9 +65,22 @@ export type PromotionLayerDetail = {
 };
 
 export const PROMOTION_LAYER_DETAILS: readonly PromotionLayerDetail[] = [
-  { layer: 'A', label: 'peaks-sop gate', description: 'Append to sops/*.md and reference from a peaks-sop check. Procedural rules.' },
-  { layer: 'B', label: 'peaks-hooks PreToolUse', description: 'Append a matcher to .peaks/.claude-settings-template.json. Tool-call interception.' },
-  { layer: 'C', label: 'mode-gate hardFloorCategory', description: 'Extend HardFloorCategory + shouldPauseAtGate. Always pauses regardless of mode.' }
+  {
+    layer: 'A',
+    label: 'peaks-sop gate',
+    description: 'Append to sops/*.md and reference from a peaks-sop check. Procedural rules.'
+  },
+  {
+    layer: 'B',
+    label: 'peaks-hooks PreToolUse',
+    description:
+      'Append a matcher to .peaks/.claude-settings-template.json. Tool-call interception.'
+  },
+  {
+    layer: 'C',
+    label: 'mode-gate hardFloorCategory',
+    description: 'Extend HardFloorCategory + shouldPauseAtGate. Always pauses regardless of mode.'
+  }
 ] as const;
 
 /**
@@ -114,7 +131,10 @@ export function sopIdForFeedback(memoryName: string): string {
 }
 
 /** The artifact(s) and the structural evidence each must carry for `layer` to mean anything. */
-export function promotionArtifactChecks(memoryName: string, layer: PromotionLayer): PromotionArtifactCheck[] {
+export function promotionArtifactChecks(
+  memoryName: string,
+  layer: PromotionLayer
+): PromotionArtifactCheck[] {
   if (layer === 'A') {
     const id = sopIdForFeedback(memoryName);
     return [
@@ -123,9 +143,17 @@ export function promotionArtifactChecks(memoryName: string, layer: PromotionLaye
     ];
   }
   if (layer === 'B') {
-    return [{ path: '.peaks/.claude-settings-template.json', evidence: 'hook-registration', id: memoryName }];
+    return [
+      {
+        path: '.peaks/.claude-settings-template.json',
+        evidence: 'hook-registration',
+        id: memoryName
+      }
+    ];
   }
-  return [{ path: 'src/services/code/mode-gate.ts', evidence: 'hard-floor-category', id: memoryName }];
+  return [
+    { path: 'src/services/code/mode-gate.ts', evidence: 'hard-floor-category', id: memoryName }
+  ];
 }
 
 /**
@@ -134,7 +162,10 @@ export function promotionArtifactChecks(memoryName: string, layer: PromotionLaye
  * that is absent, unreadable, or unparseable is a finding, not a warning —
  * "cannot read the evidence" must not read as "the evidence is good".
  */
-export function missingArtifacts(checks: readonly PromotionArtifactCheck[], projectRoot: string): string[] {
+export function missingArtifacts(
+  checks: readonly PromotionArtifactCheck[],
+  projectRoot: string
+): string[] {
   const missing: string[] = [];
   for (const check of checks) {
     const absolute = resolve(projectRoot, check.path);
@@ -218,7 +249,8 @@ export type NotToPromoteCode = (typeof NOT_TO_PROMOTE_CODES)[number];
  */
 const NOT_TO_PROMOTE_CORROBORATION: Record<NotToPromoteCode, string> = {
   'non-actionable': 'frontmatter `scope:` containing `non-actionable`, or `nonActionable: true`',
-  'closed-slice-note': 'frontmatter `sourceArtifact:` or `source:` naming the slice it was derived from'
+  'closed-slice-note':
+    'frontmatter `sourceArtifact:` or `source:` naming the slice it was derived from'
 };
 
 export type NotToPromoteRead =
@@ -241,7 +273,9 @@ export function parseFeedbackMemory(filePath: string): FeedbackMemory | null {
   try {
     raw = readFileSync(filePath, 'utf8');
   } catch (err) {
-    throw new Error(`failed to read feedback memory at ${filePath}: ${(err as Error).message}`, { cause: err });
+    throw new Error(`failed to read feedback memory at ${filePath}: ${(err as Error).message}`, {
+      cause: err
+    });
   }
   const normalized = raw.replace(/\r\n/g, '\n');
   if (!normalized.startsWith('---\n')) return null;
@@ -258,7 +292,8 @@ export function parseFeedbackMemory(filePath: string): FeedbackMemory | null {
   for (const rawLine of frontmatterRaw.split('\n')) {
     const line = rawLine.trim();
     if (line.startsWith('name:')) name = line.slice('name:'.length).trim();
-    else if (line.startsWith('description:')) description = line.slice('description:'.length).trim();
+    else if (line.startsWith('description:'))
+      description = line.slice('description:'.length).trim();
     else if (line.startsWith('type:')) kind = line.slice('type:'.length).trim();
     else if (line.startsWith('  type:')) kind = line.slice('  type:'.length).trim();
   }
@@ -292,7 +327,9 @@ export function parseFeedbackMemory(filePath: string): FeedbackMemory | null {
         }
       } catch (err) {
         // malformed sidecar — warn but do not fail the whole parse
-        console.warn(`parseFeedbackMemory: malformed sidecar at ${sidecarPath}: ${(err as Error).message}`);
+        console.warn(
+          `parseFeedbackMemory: malformed sidecar at ${sidecarPath}: ${(err as Error).message}`
+        );
       }
     }
   }
@@ -326,7 +363,9 @@ export function listUnpromotedFeedback(opts: { projectRoot: string }): Unpromote
   const memoryDir = resolve(opts.projectRoot, '.peaks', 'memory');
   if (!existsSync(memoryDir)) return [];
   const out: UnpromotedFeedbackEntry[] = [];
-  for (const entry of readdirSync(memoryDir, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
+  for (const entry of readdirSync(memoryDir, { withFileTypes: true }).sort((a, b) =>
+    a.name.localeCompare(b.name)
+  )) {
     if (!entry.isFile() || !entry.name.endsWith('.md')) continue;
     if (entry.name.startsWith('.')) continue; // skip dotfiles (e.g. .index.json)
     const parsed = parseFeedbackMemory(join(memoryDir, entry.name));
@@ -457,8 +496,10 @@ function corroborates(code: NotToPromoteCode, frontmatter: string): boolean {
     if (scope !== null && scope.includes('non-actionable')) return true;
     return frontmatterValue(frontmatter, 'nonActionable') === 'true';
   }
-  return frontmatterValue(frontmatter, 'sourceArtifact') !== null
-    || frontmatterValue(frontmatter, 'source') !== null;
+  return (
+    frontmatterValue(frontmatter, 'sourceArtifact') !== null ||
+    frontmatterValue(frontmatter, 'source') !== null
+  );
 }
 
 /**
@@ -473,7 +514,10 @@ export function readNotToPromote(filePath: string): NotToPromoteRead {
   const reason = frontmatterValue(frontmatter, 'notToPromoteReason');
   if (code === null && reason === null) return { kind: 'none' };
   if (code === null) {
-    return { kind: 'invalid', reason: '`notToPromoteReason` is set but the `notToPromote` code is missing' };
+    return {
+      kind: 'invalid',
+      reason: '`notToPromoteReason` is set but the `notToPromote` code is missing'
+    };
   }
   if (!(NOT_TO_PROMOTE_CODES as readonly string[]).includes(code)) {
     return {
@@ -482,7 +526,10 @@ export function readNotToPromote(filePath: string): NotToPromoteRead {
     };
   }
   if (reason === null) {
-    return { kind: 'invalid', reason: `\`notToPromote: ${code}\` has no \`notToPromoteReason\` — an exemption must state its own reason` };
+    return {
+      kind: 'invalid',
+      reason: `\`notToPromote: ${code}\` has no \`notToPromoteReason\` — an exemption must state its own reason`
+    };
   }
   const typedCode = code as NotToPromoteCode;
   if (!corroborates(typedCode, frontmatter)) {
@@ -510,7 +557,9 @@ export function listPromotionExempt(opts: { projectRoot: string }): PromotionExe
   const memoryDir = resolve(opts.projectRoot, '.peaks', 'memory');
   if (!existsSync(memoryDir)) return [];
   const out: PromotionExemptEntry[] = [];
-  for (const entry of readdirSync(memoryDir, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
+  for (const entry of readdirSync(memoryDir, { withFileTypes: true }).sort((a, b) =>
+    a.name.localeCompare(b.name)
+  )) {
     if (!entry.isFile() || !entry.name.endsWith('.md') || entry.name.startsWith('.')) continue;
     const filePath = join(memoryDir, entry.name);
     const parsed = parseFeedbackMemory(filePath);
@@ -518,7 +567,12 @@ export function listPromotionExempt(opts: { projectRoot: string }): PromotionExe
     const declaration = readNotToPromote(filePath);
     if (declaration.kind !== 'valid') continue;
     if (parsed.promotion !== null) continue; // contradiction — reported as a violation instead
-    out.push({ name: parsed.name, path: parsed.path, code: declaration.code, reason: declaration.reason });
+    out.push({
+      name: parsed.name,
+      path: parsed.path,
+      code: declaration.code,
+      reason: declaration.reason
+    });
   }
   return out;
 }
@@ -550,7 +604,10 @@ export function generatePromotionStub(opts: {
   // layer === 'C'
   return {
     snippet: `// src/services/code/mode-gate.ts\n// 1. Add to HardFloorCategory union: '${feedbackName}-rule'\n// 2. Add to HARD_FLOOR_CATEGORIES\n// 3. Wire shouldPauseAtGate to recognise the new category\n// Tests: tests/unit/services/code/<name>-hard-floor.test.ts (≥6 cases per AC-4)`,
-    targetFiles: ['src/services/code/mode-gate.ts', `tests/unit/services/code/${feedbackName}-hard-floor.test.ts`]
+    targetFiles: [
+      'src/services/code/mode-gate.ts',
+      `tests/unit/services/code/${feedbackName}-hard-floor.test.ts`
+    ]
   };
 }
 
@@ -583,7 +640,10 @@ export type FeedbackPromoteEnvelope = {
  * malformed generation throws here rather than leaving a promotion that only
  * looks real.
  */
-async function generateLayerAArtifact(parsed: FeedbackMemory, projectRoot: string): Promise<string[]> {
+async function generateLayerAArtifact(
+  parsed: FeedbackMemory,
+  projectRoot: string
+): Promise<string[]> {
   const id = sopIdForFeedback(parsed.name);
   const manifestPath = projectSopManifestPath(projectRoot, id);
   const description = parsed.frontmatter.description ?? '';
@@ -685,15 +745,19 @@ export async function promoteFeedback(opts: {
   const sidecarPath = opts.feedbackPath.replace(/\.md$/, '.promotion.json');
   writeFileSync(
     sidecarPath,
-    JSON.stringify({
-      name: parsed.name,
-      layer: opts.layer,
-      layerDetail: envelope.layerDetail,
-      generatedFiles: envelope.generatedFiles,
-      requiredArtifacts: envelope.requiredArtifacts,
-      promotedAt: now,
-      promotedBy: opts.promotedBy
-    }, null, 2),
+    JSON.stringify(
+      {
+        name: parsed.name,
+        layer: opts.layer,
+        layerDetail: envelope.layerDetail,
+        generatedFiles: envelope.generatedFiles,
+        requiredArtifacts: envelope.requiredArtifacts,
+        promotedAt: now,
+        promotedBy: opts.promotedBy
+      },
+      null,
+      2
+    ),
     'utf8'
   );
   envelope.generatedFiles.push(sidecarPath);

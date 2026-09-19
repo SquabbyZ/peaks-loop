@@ -3,14 +3,25 @@ import { existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { isDirectory, listDirectories, pathExists } from 'peaks-loop-shared/fs';
 
-import { checkPrerequisites, DEFAULT_REQUEST_TYPE, isRequestType, VALID_REQUEST_TYPES, type PrerequisiteCheckResult, type RequestType } from './artifact-prerequisites.js';
+import {
+  checkPrerequisites,
+  DEFAULT_REQUEST_TYPE,
+  isRequestType,
+  VALID_REQUEST_TYPES,
+  type PrerequisiteCheckResult,
+  type RequestType
+} from './artifact-prerequisites.js';
 import { ensureSession, getSessionIdCanonical } from '../session/session-manager.js';
 // Slice 2026-06-29-change-id-root-removal: `getCurrentChangeId` was
 // removed with the change-id axis. The change-id binding file is
 // gone; request-artifact callers pass `options.sessionId` explicitly
 // or accept the requestId as the default. Path-safety helpers now
 // live at `shared/path-safety.ts` if this module ever needs them.
-import { getNextNumber, buildNumberedFilename, slugifyDescription } from '../../shared/incrementing-number.js';
+import {
+  getNextNumber,
+  buildNumberedFilename,
+  slugifyDescription
+} from '../../shared/incrementing-number.js';
 import { lintRequestArtifact } from './artifact-lint-service.js';
 import { isUnsafePathInput } from '../../shared/path-safety.js';
 import { guardRuntimeSegment, runtimeRoot } from '../../shared/runtime-root.js';
@@ -32,7 +43,11 @@ export { VALID_REQUEST_TYPES, DEFAULT_REQUEST_TYPE, isRequestType, type RequestT
 // the local namespace under `isolatedModules`).
 import { type RequestArtifactRole, renderTemplate } from './artifact-templates.js';
 export type { RequestArtifactRole } from './artifact-templates.js';
-export { formatHandoffPath, formatCommitBoundaryPath, formatSkillUsageLessonsPath } from './artifact-templates.js';
+export {
+  formatHandoffPath,
+  formatCommitBoundaryPath,
+  formatSkillUsageLessonsPath
+} from './artifact-templates.js';
 
 export type CreateRequestArtifactOptions = {
   role: RequestArtifactRole;
@@ -122,7 +137,11 @@ function defaultSessionId(iso: string): string {
  * wrote `state: blocked` to a file outside the project root, and only then threw
  * — from `emitObservabilityEvent`'s own session-id check, i.e. after the write.
  */
-function requestArtifactRequestsDir(projectRoot: string, sessionId: string, role: RequestArtifactRole): string {
+function requestArtifactRequestsDir(
+  projectRoot: string,
+  sessionId: string,
+  role: RequestArtifactRole
+): string {
   // Slice 2026-09-15 (runtime-path-unrepresentable): the two ids are branded by
   // `guardRuntimeSegment`, which performs the same `isUnsafePathInput` check
   // this function used to spell inline. The join itself now *requires* the
@@ -134,12 +153,16 @@ function requestArtifactRequestsDir(projectRoot: string, sessionId: string, role
   );
 }
 
-export async function createRequestArtifact(options: CreateRequestArtifactOptions): Promise<CreateRequestArtifactResult> {
+export async function createRequestArtifact(
+  options: CreateRequestArtifactOptions
+): Promise<CreateRequestArtifactResult> {
   if (!VALID_ROLES.has(options.role)) {
     throw new Error(`Invalid role: ${String(options.role)} (expected prd, ui, rd, qa, or sc)`);
   }
   if (!REQUEST_ID_PATTERN.test(options.requestId)) {
-    throw new Error(`Invalid request id: ${options.requestId} (expected letters, digits, dots, underscores, or dashes)`);
+    throw new Error(
+      `Invalid request id: ${options.requestId} (expected letters, digits, dots, underscores, or dashes)`
+    );
   }
   const requestType = options.requestType ?? DEFAULT_REQUEST_TYPE;
 
@@ -157,7 +180,7 @@ export async function createRequestArtifact(options: CreateRequestArtifactOption
   // canonical session → legacy session). The change-id is preserved
   // in the artifact body's frontmatter (under `- change-id:`) for
   // human navigation; it is no longer a filesystem path key.
-  const sessionId = options.sessionId ?? await ensureSession(options.projectRoot);
+  const sessionId = options.sessionId ?? (await ensureSession(options.projectRoot));
   // Sid axis. The rid axis is guarded three times above (`REQUEST_ID_PATTERN`
   // at :110, and again in the numbered-filename path); the session id was
   // never checked, so `--session-id ../../x` wrote the artifact outside the
@@ -186,12 +209,15 @@ export async function createRequestArtifact(options: CreateRequestArtifactOption
   // `mkdir(..., { recursive: true })`.
   const LOOKS_LIKE_SESSION_ID = /^\d{4}-\d{2}-\d{2}-session-/;
   if (LOOKS_LIKE_SESSION_ID.test(sessionId)) {
-    const sessionDir = runtimeRoot(options.projectRoot).join(guardRuntimeSegment(sessionId, 'session id'));
+    const sessionDir = runtimeRoot(options.projectRoot).join(
+      guardRuntimeSegment(sessionId, 'session id')
+    );
     if (!(await isDirectory(sessionDir))) {
       const canonicalSid = getSessionIdCanonical(options.projectRoot);
-      const hint = canonicalSid !== null
-        ? `Use --session-id ${canonicalSid} or run 'peaks workspace init' to create a new session.`
-        : `Run 'peaks workspace init' to create a new session.`;
+      const hint =
+        canonicalSid !== null
+          ? `Use --session-id ${canonicalSid} or run 'peaks workspace init' to create a new session.`
+          : `Run 'peaks workspace init' to create a new session.`;
       throw new Error(
         `session id '${sessionId}' does not exist in _runtime/. Current canonical binding is '${canonicalSid ?? '<none>'}'. ${hint}`
       );
@@ -215,7 +241,9 @@ export async function createRequestArtifact(options: CreateRequestArtifactOption
       return false;
     });
     if (alreadyExists) {
-      throw new Error(`A request artifact with id "${options.requestId}" already exists in ${requestsDir}. Remove it before re-running peaks request init.`);
+      throw new Error(
+        `A request artifact with id "${options.requestId}" already exists in ${requestsDir}. Remove it before re-running peaks request init.`
+      );
     }
   }
 
@@ -223,13 +251,22 @@ export async function createRequestArtifact(options: CreateRequestArtifactOption
   const filename = buildNumberedFilename(number, options.requestId);
   const path = join(requestsDir, filename);
 
-  const content = renderTemplate(options.role, options.requestId, sessionId, sessionSlug, timestamp, requestType);
+  const content = renderTemplate(
+    options.role,
+    options.requestId,
+    sessionId,
+    sessionSlug,
+    timestamp,
+    requestType
+  );
 
   if (options.apply !== true) {
     // Slice 2026-06-29-change-id-root-removal: scopeDir is the
     // session-axis dir (`.peaks/_runtime/<sid>/`). Pre-resolved here
     // so dry-run output reports the canonical scope location.
-    const scopeDir = runtimeRoot(options.projectRoot).join(guardRuntimeSegment(sessionId, 'session id'));
+    const scopeDir = runtimeRoot(options.projectRoot).join(
+      guardRuntimeSegment(sessionId, 'session id')
+    );
     return {
       role: options.role,
       requestId: options.requestId,
@@ -310,7 +347,12 @@ export type ShowRequestArtifactResult = RequestArtifactSummary & {
   content: string;
 };
 
-function extractMetadata(markdown: string): { state: string; requestType: RequestType; createdAt?: string; sessionId?: string } {
+function extractMetadata(markdown: string): {
+  state: string;
+  requestType: RequestType;
+  createdAt?: string;
+  sessionId?: string;
+} {
   const state = readArtifactState(markdown) ?? 'unknown';
   let createdAt: string | undefined;
   let requestType: RequestType = DEFAULT_REQUEST_TYPE;
@@ -337,7 +379,8 @@ function extractMetadata(markdown: string): { state: string; requestType: Reques
       continue;
     }
   }
-  const base: { state: string; requestType: RequestType; createdAt?: string; sessionId?: string } = { state, requestType };
+  const base: { state: string; requestType: RequestType; createdAt?: string; sessionId?: string } =
+    { state, requestType };
   if (createdAt !== undefined) base.createdAt = createdAt;
   if (sessionId !== undefined) base.sessionId = sessionId;
   return base;
@@ -387,7 +430,9 @@ async function listMarkdownFiles(dir: string): Promise<string[]> {
     .sort();
 }
 
-export async function listRequestArtifacts(options: ListRequestArtifactsOptions): Promise<RequestArtifactSummary[]> {
+export async function listRequestArtifacts(
+  options: ListRequestArtifactsOptions
+): Promise<RequestArtifactSummary[]> {
   const peaksRoot = join(options.projectRoot, '.peaks');
   if (!(await isDirectory(peaksRoot))) {
     return [];
@@ -425,12 +470,16 @@ export async function listRequestArtifacts(options: ListRequestArtifactsOptions)
   return summaries;
 }
 
-export async function showRequestArtifact(options: ShowRequestArtifactOptions): Promise<ShowRequestArtifactResult | null> {
+export async function showRequestArtifact(
+  options: ShowRequestArtifactOptions
+): Promise<ShowRequestArtifactResult | null> {
   if (!VALID_ROLES.has(options.role)) {
     throw new Error(`Invalid role: ${String(options.role)} (expected prd, ui, rd, qa, or sc)`);
   }
   if (!REQUEST_ID_PATTERN.test(options.requestId)) {
-    throw new Error(`Invalid request id: ${options.requestId} (expected letters, digits, dots, underscores, or dashes)`);
+    throw new Error(
+      `Invalid request id: ${options.requestId} (expected letters, digits, dots, underscores, or dashes)`
+    );
   }
 
   // Search for files matching the requestId (supports both legacy and numbered formats)
@@ -494,7 +543,8 @@ async function readRequestArtifact(
   try {
     const content = await readFile(found.path, 'utf8');
     return { ...summary, content };
-  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+  } catch {
+    // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     return null;
   }
 }
@@ -535,7 +585,7 @@ import {
   readArtifactState,
   TypeSanityViolationError,
   updateStatusBlock,
-  type RequestArtifactState,
+  type RequestArtifactState
 } from './request-artifact-state-helpers.js';
 export {
   allowedStatesForRole,
@@ -547,16 +597,22 @@ export {
 } from './request-artifact-state-helpers.js';
 export type { RequestArtifactState } from './request-artifact-state-helpers.js';
 
-export async function transitionRequestArtifact(options: TransitionRequestArtifactOptions): Promise<TransitionRequestArtifactResult | null> {
+export async function transitionRequestArtifact(
+  options: TransitionRequestArtifactOptions
+): Promise<TransitionRequestArtifactResult | null> {
   if (!VALID_ROLES.has(options.role)) {
     throw new Error(`Invalid role: ${String(options.role)} (expected prd, ui, rd, qa, or sc)`);
   }
   if (!REQUEST_ID_PATTERN.test(options.requestId)) {
-    throw new Error(`Invalid request id: ${options.requestId} (expected letters, digits, dots, underscores, or dashes)`);
+    throw new Error(
+      `Invalid request id: ${options.requestId} (expected letters, digits, dots, underscores, or dashes)`
+    );
   }
   const allowed = ALLOWED_STATES_PER_ROLE[options.role];
   if (!allowed.includes(options.newState)) {
-    throw new Error(`Invalid state for role ${options.role}: ${options.newState} (expected one of ${allowed.join(', ')})`);
+    throw new Error(
+      `Invalid state for role ${options.role}: ${options.newState} (expected one of ${allowed.join(', ')})`
+    );
   }
 
   const showOptions: ShowRequestArtifactOptions = {
@@ -573,7 +629,8 @@ export async function transitionRequestArtifact(options: TransitionRequestArtifa
   }
 
   // Mode enforcement: require user confirmation in assisted/strict modes
-  const transitionKey = `${options.role}:${options.newState}` as `${RequestArtifactRole}:${RequestArtifactState}`;
+  const transitionKey =
+    `${options.role}:${options.newState}` as `${RequestArtifactRole}:${RequestArtifactState}`;
   await requireUserConfirmation({
     projectRoot: options.projectRoot,
     transitionKey,
@@ -606,7 +663,11 @@ export async function transitionRequestArtifact(options: TransitionRequestArtifa
   // see PRD for `v2-11-rd-techdoc-removal-and-runtime-friction` AC-3/AC-4.)
 
   // Type sanity check for PRD handoff
-  if (options.typeSanityCheck !== undefined && options.role === 'prd' && options.newState === 'handed-off') {
+  if (
+    options.typeSanityCheck !== undefined &&
+    options.role === 'prd' &&
+    options.newState === 'handed-off'
+  ) {
     const sanityReport = checkTypeSanity({
       projectRoot: options.typeSanityCheck.projectRoot,
       declaredType: options.typeSanityCheck.declaredType
@@ -637,7 +698,11 @@ export async function transitionRequestArtifact(options: TransitionRequestArtifa
   }
 
   // File size gate: when RD declares implemented, scan for oversized files (karpathy-skills "Simplicity First")
-  if (options.role === 'rd' && options.newState === 'implemented' && options.allowIncomplete !== true) {
+  if (
+    options.role === 'rd' &&
+    options.newState === 'implemented' &&
+    options.allowIncomplete !== true
+  ) {
     const sizeResult = scanFileSize({ projectRoot: options.projectRoot });
     if (!sizeResult.ok) {
       throw new FileSizeViolationError(sizeResult.violations, sizeResult.threshold);
@@ -646,12 +711,20 @@ export async function transitionRequestArtifact(options: TransitionRequestArtifa
 
   const clock = options.clock ?? defaultClock;
   const timestamp = clock();
-  const bypassNote = !prerequisiteResult.ok && options.allowIncomplete === true
-    ? `bypassed prerequisites (${prerequisiteResult.missing.map((entry) => entry.path).join(', ')})`
-    : undefined;
-  const combinedReason = [options.reason, bypassNote].filter((part): part is string => part !== undefined && part.length > 0).join(' | ');
+  const bypassNote =
+    !prerequisiteResult.ok && options.allowIncomplete === true
+      ? `bypassed prerequisites (${prerequisiteResult.missing.map((entry) => entry.path).join(', ')})`
+      : undefined;
+  const combinedReason = [options.reason, bypassNote]
+    .filter((part): part is string => part !== undefined && part.length > 0)
+    .join(' | ');
   const reasonForNote = combinedReason.length > 0 ? combinedReason : undefined;
-  const { updated, previousState } = updateStatusBlock(existing.content, options.newState, timestamp, reasonForNote);
+  const { updated, previousState } = updateStatusBlock(
+    existing.content,
+    options.newState,
+    timestamp,
+    reasonForNote
+  );
   await writeFile(existing.path, updated, 'utf8');
 
   // Slice v2.11.1 — observability hook #1/7. Fire-and-forget emit per
@@ -659,19 +732,22 @@ export async function transitionRequestArtifact(options: TransitionRequestArtifa
   // synchronous `emitObservabilityEvent` returns `{written: false}` on
   // any error path; we deliberately ignore the result so the
   // transition contract remains unchanged.
-  emitObservabilityEvent({
-    schemaVersion: 1,
-    ts: timestamp,
-    sessionId: existing.sessionId,
-    category: 'slice-transition',
-    sliceRid: options.requestId,
-    detail: {
-      from: previousState,
-      to: options.newState,
-      artifactRole: options.role,
-      reason: reasonForNote
-    }
-  }, { projectRoot: options.projectRoot });
+  emitObservabilityEvent(
+    {
+      schemaVersion: 1,
+      ts: timestamp,
+      sessionId: existing.sessionId,
+      category: 'slice-transition',
+      sliceRid: options.requestId,
+      detail: {
+        from: previousState,
+        to: options.newState,
+        artifactRole: options.role,
+        reason: reasonForNote
+      }
+    },
+    { projectRoot: options.projectRoot }
+  );
 
   const result: TransitionRequestArtifactResult = {
     role: options.role,

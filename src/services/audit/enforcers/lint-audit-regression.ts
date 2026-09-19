@@ -17,7 +17,7 @@ import { join } from 'node:path';
 import { RED_LINE_CATALOG } from '../red-line-catalog.js';
 import type { LintHit } from './lint-style.js';
 
-export const CATALOG_STABILITY_GROWTH_CAP = 0.20;
+export const CATALOG_STABILITY_GROWTH_CAP = 0.2;
 export const CATALOG_STABILITY_WINDOW_DAYS = 90;
 export const RUNTIME_BUDGET_MS = 2000;
 
@@ -29,7 +29,7 @@ function syntheticHit(catalogId: string, rule: string, detail: string): LintHit 
     rule,
     file: fakeCatalogPath,
     line: 1,
-    matchedText: detail,
+    matchedText: detail
   };
 }
 
@@ -49,11 +49,13 @@ export function lintCatalogStability(input: CatalogStabilityInput): readonly Lin
   }
   const growth = (input.currentSize - input.sizeNinetyDaysAgo) / input.sizeNinetyDaysAgo;
   if (growth <= CATALOG_STABILITY_GROWTH_CAP) return [];
-  return [syntheticHit(
-    'rl-audit-catalog-stability-001',
-    'catalog size has not grown > 20% in the last 90 days',
-    `(growth ${(growth * 100).toFixed(1)}% over 90 days; currentSize=${input.currentSize}, priorSize=${input.sizeNinetyDaysAgo})`,
-  )];
+  return [
+    syntheticHit(
+      'rl-audit-catalog-stability-001',
+      'catalog size has not grown > 20% in the last 90 days',
+      `(growth ${(growth * 100).toFixed(1)}% over 90 days; currentSize=${input.currentSize}, priorSize=${input.sizeNinetyDaysAgo})`
+    )
+  ];
 }
 
 export function lintNoOrphanEnforcer(projectRoot: string): readonly LintHit[] {
@@ -62,11 +64,13 @@ export function lintNoOrphanEnforcer(projectRoot: string): readonly LintHit[] {
     if (!entry.enforcerRef) continue;
     const absPath = join(projectRoot, entry.enforcerRef);
     if (!existsSync(absPath)) {
-      hits.push(syntheticHit(
-        'rl-audit-no-orphan-enforcer-001',
-        'every enforcerRef points to a real file',
-        `(enforcerRef "${entry.enforcerRef}" for ${entry.id} does not exist on disk)`,
-      ));
+      hits.push(
+        syntheticHit(
+          'rl-audit-no-orphan-enforcer-001',
+          'every enforcerRef points to a real file',
+          `(enforcerRef "${entry.enforcerRef}" for ${entry.id} does not exist on disk)`
+        )
+      );
     }
   }
   return hits;
@@ -76,26 +80,27 @@ export function lintNoOrphanCatalog(): readonly LintHit[] {
   const hits: LintHit[] = [];
   for (const entry of RED_LINE_CATALOG) {
     if (entry.enforcerRef === null) {
-      hits.push(syntheticHit(
-        'rl-audit-no-orphan-catalog-001',
-        'every catalog entry has a non-null enforcerRef (or a documented reason)',
-        `(catalog entry ${entry.id} has enforcerRef: null)`,
-      ));
+      hits.push(
+        syntheticHit(
+          'rl-audit-no-orphan-catalog-001',
+          'every catalog entry has a non-null enforcerRef (or a documented reason)',
+          `(catalog entry ${entry.id} has enforcerRef: null)`
+        )
+      );
     }
   }
   return hits;
 }
 
-export function lintRuntimeBudget(
-  projectRoot: string,
-  observedMs: number
-): readonly LintHit[] {
+export function lintRuntimeBudget(projectRoot: string, observedMs: number): readonly LintHit[] {
   if (observedMs <= RUNTIME_BUDGET_MS) return [];
-  return [syntheticHit(
-    'rl-audit-runtime-budget-001',
-    `peaks audit red-lines completes in < ${RUNTIME_BUDGET_MS}ms on a 100-reference project`,
-    `(observed ${observedMs}ms > budget ${RUNTIME_BUDGET_MS}ms)`,
-  )];
+  return [
+    syntheticHit(
+      'rl-audit-runtime-budget-001',
+      `peaks audit red-lines completes in < ${RUNTIME_BUDGET_MS}ms on a 100-reference project`,
+      `(observed ${observedMs}ms > budget ${RUNTIME_BUDGET_MS}ms)`
+    )
+  ];
 }
 
 /**
@@ -110,7 +115,8 @@ export function readCatalogHistory(projectRoot: string): number | null {
   try {
     const raw = JSON.parse(readFileSync(path, 'utf8')) as { sizeNinetyDaysAgo?: number };
     return typeof raw.sizeNinetyDaysAgo === 'number' ? raw.sizeNinetyDaysAgo : null;
-  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+  } catch {
+    // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     return null;
   }
 }

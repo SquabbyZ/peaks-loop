@@ -31,7 +31,7 @@ export function registerSessionMigrateSkillNameCommand(session: Command): void {
     .command('migrate-skill-name')
     .description(
       'Rewrite skill-name strings under .peaks/_runtime/** (idempotent, dry-run by default). ' +
-      'Use --apply to write through. Skips .peaks/memory/** and .peaks/skills/.system/bees/.',
+        'Use --apply to write through. Skips .peaks/memory/** and .peaks/skills/.system/bees/.'
     )
     .requiredOption('--from <old>', 'old skill name (e.g. peaks-code)')
     .requiredOption('--to <new>', 'new skill name (e.g. peaks-code)')
@@ -45,18 +45,18 @@ export function registerSessionMigrateSkillNameCommand(session: Command): void {
           projectRoot,
           from: opts.from,
           to: opts.to,
-          apply: opts.apply === true,
+          apply: opts.apply === true
         });
         if (opts.json === true) {
           process.stdout.write(JSON.stringify(result, null, 2) + '\n');
         } else {
           process.stdout.write(
             `Scanned: ${result.scannedFiles}\n` +
-            `Modified: ${result.modifiedFiles}\n` +
-            `Key-value replacements: ${result.keyValueReplacements}\n` +
-            `String replacements: ${result.stringReplacements}\n` +
-            `Skipped: ${result.skipped.length} path(s)\n` +
-            `Errors: ${result.errors.length}\n`,
+              `Modified: ${result.modifiedFiles}\n` +
+              `Key-value replacements: ${result.keyValueReplacements}\n` +
+              `String replacements: ${result.stringReplacements}\n` +
+              `Skipped: ${result.skipped.length} path(s)\n` +
+              `Errors: ${result.errors.length}\n`
           );
         }
         process.exitCode = result.ok ? 0 : 1;

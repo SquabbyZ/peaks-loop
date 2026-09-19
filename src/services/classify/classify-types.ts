@@ -20,7 +20,13 @@
 
 export type TaskLevel = 'typo' | 'bug' | 'feature' | 'refactor' | 'migration';
 
-export const TASK_LEVELS: readonly TaskLevel[] = ['typo', 'bug', 'feature', 'refactor', 'migration'] as const;
+export const TASK_LEVELS: readonly TaskLevel[] = [
+  'typo',
+  'bug',
+  'feature',
+  'refactor',
+  'migration'
+] as const;
 
 /** Numeric ordering for "next level" / "previous level" promotion. */
 export const TASK_LEVEL_ORDER: Readonly<Record<TaskLevel, number>> = {
@@ -28,7 +34,7 @@ export const TASK_LEVEL_ORDER: Readonly<Record<TaskLevel, number>> = {
   bug: 1,
   feature: 2,
   refactor: 3,
-  migration: 4,
+  migration: 4
 };
 
 export interface ClassifySignals {
@@ -80,7 +86,7 @@ export const TASK_LEVEL_GATE_SETS: Readonly<Record<TaskLevel, TaskLevelGateSet>>
     requiresSecurityReview: false,
     requiresPerfBaseline: false,
     requiresQaHandoff: false,
-    requiresDestructiveConfirmation: false,
+    requiresDestructiveConfirmation: false
   },
   bug: {
     level: 'bug',
@@ -92,7 +98,7 @@ export const TASK_LEVEL_GATE_SETS: Readonly<Record<TaskLevel, TaskLevelGateSet>>
     requiresSecurityReview: false,
     requiresPerfBaseline: false,
     requiresQaHandoff: false,
-    requiresDestructiveConfirmation: false,
+    requiresDestructiveConfirmation: false
   },
   feature: {
     level: 'feature',
@@ -104,7 +110,7 @@ export const TASK_LEVEL_GATE_SETS: Readonly<Record<TaskLevel, TaskLevelGateSet>>
     requiresSecurityReview: true,
     requiresPerfBaseline: true,
     requiresQaHandoff: true,
-    requiresDestructiveConfirmation: true,
+    requiresDestructiveConfirmation: true
   },
   refactor: {
     level: 'refactor',
@@ -116,20 +122,27 @@ export const TASK_LEVEL_GATE_SETS: Readonly<Record<TaskLevel, TaskLevelGateSet>>
     requiresSecurityReview: true,
     requiresPerfBaseline: false,
     requiresQaHandoff: true,
-    requiresDestructiveConfirmation: false,
+    requiresDestructiveConfirmation: false
   },
   migration: {
     level: 'migration',
     description: 'Migration: codemod, schema change, data backfill, dependency upgrade.',
-    stages: ['typecheck', 'unit-tests', 'lint', 'review-fanout', 'gate-verify-pipeline', 'backward-compat'],
+    stages: [
+      'typecheck',
+      'unit-tests',
+      'lint',
+      'review-fanout',
+      'gate-verify-pipeline',
+      'backward-compat'
+    ],
     requiresPrd: true,
     requiresTechDoc: true,
     requiresCodeReview: true,
     requiresSecurityReview: true,
     requiresPerfBaseline: true,
     requiresQaHandoff: true,
-    requiresDestructiveConfirmation: true,
-  },
+    requiresDestructiveConfirmation: true
+  }
 };
 
 /** Result of a classification (deterministic given signals + conservatism). */

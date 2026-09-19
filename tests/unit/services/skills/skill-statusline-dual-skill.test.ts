@@ -47,10 +47,12 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-declareDimensions(
-  'tests/unit/services/skills/skill-statusline-dual-skill.test.ts',
-  ['behavior', 'integration', 'render', 'a11y'],
-);
+declareDimensions('tests/unit/services/skills/skill-statusline-dual-skill.test.ts', [
+  'behavior',
+  'integration',
+  'render',
+  'a11y'
+]);
 
 import { buildStatusLineModel } from '~/src/services/skills/skill-statusline-service';
 import { renderStatusLine } from '~/src/services/skills/skill-statusline-renderer';
@@ -78,11 +80,7 @@ function makeProjectRoot(): string {
   // collapses to `state: 'idle'`. A bare `.peaks/config.json` is the
   // documented marker.
   mkdirSync(join(root, '.peaks'), { recursive: true });
-  writeFileSync(
-    join(root, '.peaks', 'config.json'),
-    JSON.stringify({ schemaVersion: 1 }),
-    'utf8',
-  );
+  writeFileSync(join(root, '.peaks', 'config.json'), JSON.stringify({ schemaVersion: 1 }), 'utf8');
   return root;
 }
 
@@ -96,11 +94,7 @@ function makeProjectRoot(): string {
 function makeSessionBinding(projectRoot: string, sessionId: string): void {
   const dir = join(projectRoot, '.peaks', '_runtime');
   mkdirSync(dir, { recursive: true });
-  writeFileSync(
-    join(dir, 'session.json'),
-    JSON.stringify({ sessionId, projectRoot }),
-    'utf8',
-  );
+  writeFileSync(join(dir, 'session.json'), JSON.stringify({ sessionId, projectRoot }), 'utf8');
 }
 
 /**
@@ -116,7 +110,7 @@ function writePresenceLease(
   callerId: string,
   workflowId: string,
   skill: string,
-  mode: string,
+  mode: string
 ): void {
   // The resolver walks the session dir `.peaks/_runtime/<sid>/` looking
   // for files starting with `presence-`; the read then delegates to
@@ -131,7 +125,7 @@ function writePresenceLease(
   writeFileSync(
     join(sessionDir, `presence-${callerId}-${workflowId}.json`),
     JSON.stringify({ stub: true }),
-    'utf8',
+    'utf8'
   );
   // The actual lease file the read dereferences.
   const leasePath = join(leaseDir, `presence-${callerId}-${workflowId}.json`);
@@ -147,28 +141,44 @@ function writePresenceLease(
       lastHeartbeat: '2026-08-04T11:59:00.000Z',
       status: 'running',
       mode,
-      schemaVersion: 1,
+      schemaVersion: 1
     }),
-    'utf8',
+    'utf8'
   );
 }
 
 function writeActiveDispatchIndex(
   projectRoot: string,
   sessionId: string,
-  entries: Record<string, { recordPath: string; requestId: string; role: string; batchId: string; createdAt: string; status: 'queued' | 'running' | 'finalizing' | 'done' | 'failed' | 'cancelled' | 'stale' | 'no-execution' | 'never-started' | 'unreadable' }>,
+  entries: Record<
+    string,
+    {
+      recordPath: string;
+      requestId: string;
+      role: string;
+      batchId: string;
+      createdAt: string;
+      status:
+        | 'queued'
+        | 'running'
+        | 'finalizing'
+        | 'done'
+        | 'failed'
+        | 'cancelled'
+        | 'stale'
+        | 'no-execution'
+        | 'never-started'
+        | 'unreadable';
+    }
+  >
 ): void {
   const dir = join(projectRoot, '.peaks', '_sub_agents', sessionId);
   mkdirSync(dir, { recursive: true });
-  writeFileSync(
-    join(dir, 'active-dispatches.json'),
-    JSON.stringify(entries, null, 2),
-    'utf8',
-  );
+  writeFileSync(join(dir, 'active-dispatches.json'), JSON.stringify(entries, null, 2), 'utf8');
 }
 
-describe("Scenario: behavior — single session, no active leaf (Case 1)", () => {
-  it("when invoked, should renders `peaks-code [full-auto]` when the active-dispatch index is empty", () => {
+describe('Scenario: behavior — single session, no active leaf (Case 1)', () => {
+  it('when invoked, should renders `peaks-code [full-auto]` when the active-dispatch index is empty', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -179,25 +189,25 @@ describe("Scenario: behavior — single session, no active leaf (Case 1)", () =>
     const stdin = {
       workspace: { current_dir: projectRoot },
       session_id: 'claude-code-outer-A',
-      caller_id: CALLER_A,
+      caller_id: CALLER_A
     };
     const model = buildStatusLineModel(stdin, NOW_MS);
     expect(model.state).toBe('active');
     expect(model.presence?.skill).toBe('peaks-code');
     expect(model.activeLeaf).toBeNull();
-    const out = withPinnedClock(NOW_MS, () =>
-      renderStatusLine(model, { capability: 'ascii' }),
-    );
+    const out = withPinnedClock(NOW_MS, () => renderStatusLine(model, { capability: 'ascii' }));
     // Render includes a trailing project-root label (basename of the
     // tmp project root) followed by the short-sid suffix
     // (slice 2026-08-05-statusline-empty-render-and-short-sid-suffix:
     // `${root} [aaaa]` since SID_A = `2026-08-04-session-aaaa`).
-    expect(out).toMatch(/^Peaks \* peaks-code \[full-auto\] -> peaks-statusline-dual-[A-Za-z0-9]+ \[aaaa\]$/);
+    expect(out).toMatch(
+      /^Peaks \* peaks-code \[full-auto\] -> peaks-statusline-dual-[A-Za-z0-9]+ \[aaaa\]$/
+    );
   });
 });
 
-describe("Scenario: behavior — single session, 1 active leaf (Case 2)", () => {
-  it("when invoked, should renders `${leaf} | ${orchestrator} [${mode}]` for a single in-flight peaks-rd", () => {
+describe('Scenario: behavior — single session, 1 active leaf (Case 2)', () => {
+  it('when invoked, should renders `${leaf} | ${orchestrator} [${mode}]` for a single in-flight peaks-rd', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -211,25 +221,25 @@ describe("Scenario: behavior — single session, 1 active leaf (Case 2)", () => 
         role: 'peaks-rd',
         batchId: 'b1',
         createdAt: '2026-08-04T11:50:00.000Z',
-        status: 'running',
-      },
+        status: 'running'
+      }
     });
     const stdin = {
       workspace: { current_dir: projectRoot },
       session_id: 'claude-code-outer-A',
-      caller_id: CALLER_A,
+      caller_id: CALLER_A
     };
     const model = buildStatusLineModel(stdin, NOW_MS);
     expect(model.activeLeaf).toEqual({ role: 'peaks-rd', pendingCount: 1 });
-    const out = withPinnedClock(NOW_MS, () =>
-      renderStatusLine(model, { capability: 'ascii' }),
+    const out = withPinnedClock(NOW_MS, () => renderStatusLine(model, { capability: 'ascii' }));
+    expect(out).toMatch(
+      /^Peaks \* peaks-rd \| peaks-code \[full-auto\] -> peaks-statusline-dual-[A-Za-z0-9]+ \[aaaa\]$/
     );
-    expect(out).toMatch(/^Peaks \* peaks-rd \| peaks-code \[full-auto\] -> peaks-statusline-dual-[A-Za-z0-9]+ \[aaaa\]$/);
   });
 });
 
-describe("Scenario: behavior — single session, 3 active leaves (Case 3)", () => {
-  it("when invoked, should renders `${leaf} (+2) | ${orchestrator} [${mode}]` and sorts by createdAt desc", () => {
+describe('Scenario: behavior — single session, 3 active leaves (Case 3)', () => {
+  it('when invoked, should renders `${leaf} (+2) | ${orchestrator} [${mode}]` and sorts by createdAt desc', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -244,7 +254,7 @@ describe("Scenario: behavior — single session, 3 active leaves (Case 3)", () =
         role: 'peaks-qa',
         batchId: 'b1',
         createdAt: '2026-08-04T11:30:00.000Z', // older
-        status: 'running',
+        status: 'running'
       },
       'records/rd-002.json': {
         recordPath: 'records/rd-002.json',
@@ -252,7 +262,7 @@ describe("Scenario: behavior — single session, 3 active leaves (Case 3)", () =
         role: 'peaks-ui',
         batchId: 'b1',
         createdAt: '2026-08-04T11:40:00.000Z', // middle
-        status: 'running',
+        status: 'running'
       },
       'records/rd-003.json': {
         recordPath: 'records/rd-003.json',
@@ -260,25 +270,25 @@ describe("Scenario: behavior — single session, 3 active leaves (Case 3)", () =
         role: 'peaks-rd',
         batchId: 'b1',
         createdAt: '2026-08-04T11:50:00.000Z', // newest
-        status: 'running',
-      },
+        status: 'running'
+      }
     });
     const stdin = {
       workspace: { current_dir: projectRoot },
       session_id: 'claude-code-outer-A',
-      caller_id: CALLER_A,
+      caller_id: CALLER_A
     };
     const model = buildStatusLineModel(stdin, NOW_MS);
     expect(model.activeLeaf).toEqual({ role: 'peaks-rd', pendingCount: 3 });
-    const out = withPinnedClock(NOW_MS, () =>
-      renderStatusLine(model, { capability: 'ascii' }),
+    const out = withPinnedClock(NOW_MS, () => renderStatusLine(model, { capability: 'ascii' }));
+    expect(out).toMatch(
+      /^Peaks \* peaks-rd \(\+2\) \| peaks-code \[full-auto\] -> peaks-statusline-dual-[A-Za-z0-9]+ \[aaaa\]$/
     );
-    expect(out).toMatch(/^Peaks \* peaks-rd \(\+2\) \| peaks-code \[full-auto\] -> peaks-statusline-dual-[A-Za-z0-9]+ \[aaaa\]$/);
   });
 });
 
-describe("Scenario: behavior — cross-session isolation (Case 4)", () => {
-  it("when invoked, should two callers in the same project see their own lease, not the other callers (no project-level single-file fallback)", () => {
+describe('Scenario: behavior — cross-session isolation (Case 4)', () => {
+  it('when invoked, should two callers in the same project see their own lease, not the other callers (no project-level single-file fallback)', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -296,12 +306,12 @@ describe("Scenario: behavior — cross-session isolation (Case 4)", () => {
     const stdinA = {
       workspace: { current_dir: projectRoot },
       session_id: 'claude-code-outer-A',
-      caller_id: CALLER_A,
+      caller_id: CALLER_A
     };
     const stdinB = {
       workspace: { current_dir: projectRoot },
       session_id: 'claude-code-outer-B',
-      caller_id: CALLER_B,
+      caller_id: CALLER_B
     };
     const modelA = buildStatusLineModel(stdinA, NOW_MS);
     const modelB = buildStatusLineModel(stdinB, NOW_MS);
@@ -323,8 +333,8 @@ describe("Scenario: behavior — cross-session isolation (Case 4)", () => {
   });
 });
 
-describe("Scenario: behavior — mixed terminal+in-flight (Case 5)", () => {
-  it("when invoked, should renders only the in-flight leaf; terminal entries are filtered out", () => {
+describe('Scenario: behavior — mixed terminal+in-flight (Case 5)', () => {
+  it('when invoked, should renders only the in-flight leaf; terminal entries are filtered out', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -338,7 +348,7 @@ describe("Scenario: behavior — mixed terminal+in-flight (Case 5)", () => {
         role: 'peaks-rd',
         batchId: 'b1',
         createdAt: '2026-08-04T11:30:00.000Z',
-        status: 'done', // terminal — must be filtered
+        status: 'done' // terminal — must be filtered
       },
       'records/qa-001.json': {
         recordPath: 'records/qa-001.json',
@@ -346,25 +356,25 @@ describe("Scenario: behavior — mixed terminal+in-flight (Case 5)", () => {
         role: 'peaks-qa',
         batchId: 'b1',
         createdAt: '2026-08-04T11:50:00.000Z',
-        status: 'running', // only this one survives
-      },
+        status: 'running' // only this one survives
+      }
     });
     const stdin = {
       workspace: { current_dir: projectRoot },
       session_id: 'claude-code-outer-A',
-      caller_id: CALLER_A,
+      caller_id: CALLER_A
     };
     const model = buildStatusLineModel(stdin, NOW_MS);
     expect(model.activeLeaf).toEqual({ role: 'peaks-qa', pendingCount: 1 });
-    const out = withPinnedClock(NOW_MS, () =>
-      renderStatusLine(model, { capability: 'ascii' }),
+    const out = withPinnedClock(NOW_MS, () => renderStatusLine(model, { capability: 'ascii' }));
+    expect(out).toMatch(
+      /^Peaks \* peaks-qa \| peaks-code \[full-auto\] -> peaks-statusline-dual-[A-Za-z0-9]+ \[aaaa\]$/
     );
-    expect(out).toMatch(/^Peaks \* peaks-qa \| peaks-code \[full-auto\] -> peaks-statusline-dual-[A-Za-z0-9]+ \[aaaa\]$/);
   });
 });
 
-describe("Scenario: mutation check (documented in spec; run by the orchestrator at Step 8)", () => {
-  it("when invoked, should reference shape: when readPresenceReadOnly is reverted to project-level single-file, Case 2 fails", () => {
+describe('Scenario: mutation check (documented in spec; run by the orchestrator at Step 8)', () => {
+  it('when invoked, should reference shape: when readPresenceReadOnly is reverted to project-level single-file, Case 2 fails', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation

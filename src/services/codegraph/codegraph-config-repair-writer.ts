@@ -20,7 +20,15 @@
 // import `codegraph-exclude-repair.ts`, which imports this one.
 
 import { randomBytes } from 'node:crypto';
-import { chmodSync, lstatSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import {
+  chmodSync,
+  lstatSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  statSync,
+  writeFileSync
+} from 'node:fs';
 import { join } from 'node:path';
 
 import { assertStringArray, CODEGRAPH_CONFIG_FILENAME } from './codegraph-exclude-reconciler.js';
@@ -397,10 +405,14 @@ export function applyCodegraphConfigRepair(
   // invented. A key that is PRESENT but is not an array of strings is still
   // an error: that is a genuinely malformed config, and silently ignoring it
   // is how a wrong `include` would survive a repair that reported success.
-  const include = record.include === undefined ? [] : assertStringArray(record.include, 'include', configPath);
+  const include =
+    record.include === undefined ? [] : assertStringArray(record.include, 'include', configPath);
 
   const excludePlan = repairCodegraphExclude({ exclude, rulesToRemove: repair.rulesToRemove });
-  const includePlan = repairCodegraphInclude({ include, patternsToAdd: repair.includePatternsToAdd });
+  const includePlan = repairCodegraphInclude({
+    include,
+    patternsToAdd: repair.includePatternsToAdd
+  });
 
   if (!excludePlan.changed && !includePlan.changed) {
     return {

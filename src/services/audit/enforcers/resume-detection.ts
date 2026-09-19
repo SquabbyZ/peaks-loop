@@ -27,7 +27,12 @@ export interface ResumeDetectionResult {
 const RESUMABLE_STATES: ReadonlySet<string> = new Set(['spec-locked', 'implemented', 'qa-handoff']);
 
 export function checkResume(input: ResumeDetectionInput): ResumeDetectionResult {
-  const sessionBindingPath = join(input.projectRoot, '.peaks/_runtime', input.sessionId, 'session.json');
+  const sessionBindingPath = join(
+    input.projectRoot,
+    '.peaks/_runtime',
+    input.sessionId,
+    'session.json'
+  );
   const sessionBindingExists = existsSync(sessionBindingPath);
 
   // The rd request artifact lives under .peaks/_runtime/<sid>/rd/requests/<rid>.md
@@ -52,18 +57,20 @@ export function checkResume(input: ResumeDetectionInput): ResumeDetectionResult 
           break;
         }
       }
-    } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+    } catch {
+      // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
       // ignore read errors
     }
   }
 
-  const canResume = sessionBindingExists && requestState !== null && RESUMABLE_STATES.has(requestState);
+  const canResume =
+    sessionBindingExists && requestState !== null && RESUMABLE_STATES.has(requestState);
 
   return {
     sessionBindingExists,
     sessionBindingPath,
     requestState,
     requestStatePath,
-    canResume,
+    canResume
   };
 }

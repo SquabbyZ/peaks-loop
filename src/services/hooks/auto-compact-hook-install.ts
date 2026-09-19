@@ -106,7 +106,12 @@ export type AutoCompactHookRemoveResult =
  * top-level keys (permissions, etc.) are passed through verbatim.
  */
 type ClaudeSettingsLocal = {
-  hooks?: { PreToolUse?: Array<{ matcher: string; hooks: Array<{ type: string; command: string; shell?: string }> }> };
+  hooks?: {
+    PreToolUse?: Array<{
+      matcher: string;
+      hooks: Array<{ type: string; command: string; shell?: string }>;
+    }>;
+  };
 };
 
 function isObject(value: unknown): value is Record<string, unknown> {
@@ -149,7 +154,8 @@ export function installAutoCompactHook(input: {
   readonly projectRoot: string;
   readonly settingsPath?: string | undefined;
 }): AutoCompactHookInstallResult {
-  const settingsPath = input.settingsPath ?? join(input.projectRoot, AUTO_COMPACT_HOOK_SETTINGS_PATH);
+  const settingsPath =
+    input.settingsPath ?? join(input.projectRoot, AUTO_COMPACT_HOOK_SETTINGS_PATH);
   const settings = readSettings(settingsPath);
   const hooks = settings.hooks ?? {};
   const preToolUse = hooks.PreToolUse ?? [];
@@ -221,7 +227,8 @@ export function removeAutoCompactHook(input: {
   readonly projectRoot: string;
   readonly settingsPath?: string | undefined;
 }): AutoCompactHookRemoveResult {
-  const settingsPath = input.settingsPath ?? join(input.projectRoot, AUTO_COMPACT_HOOK_SETTINGS_PATH);
+  const settingsPath =
+    input.settingsPath ?? join(input.projectRoot, AUTO_COMPACT_HOOK_SETTINGS_PATH);
   if (!existsSync(settingsPath)) return { action: 'absent', settingsPath };
 
   const settings = readSettings(settingsPath);

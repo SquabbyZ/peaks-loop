@@ -18,7 +18,7 @@ const REF_H1_TITLE_REQUIRED: RedLineCatalogEntry = {
   rule: 'Reference shape: every references/*.md starts with `# <title>`',
   markers: ['MANDATORY'],
   phrases: ['# ', 'h1 title', 'top heading'],
-  enforcerRef: 'src/services/audit/enforcers/lint-reference-shape.ts',
+  enforcerRef: 'src/services/audit/enforcers/lint-reference-shape.ts'
 };
 
 const REF_APPLICABLE_TASK_LEVELS: RedLineCatalogEntry = {
@@ -26,7 +26,7 @@ const REF_APPLICABLE_TASK_LEVELS: RedLineCatalogEntry = {
   rule: 'Reference shape: every references/*.md declares applicableTaskLevels',
   markers: ['MANDATORY'],
   phrases: ['applicable task levels', 'applies to', 'task levels:'],
-  enforcerRef: 'src/services/audit/enforcers/lint-reference-shape.ts',
+  enforcerRef: 'src/services/audit/enforcers/lint-reference-shape.ts'
 };
 
 const REF_SEE_ALSO_SECTION: RedLineCatalogEntry = {
@@ -34,7 +34,7 @@ const REF_SEE_ALSO_SECTION: RedLineCatalogEntry = {
   rule: 'Reference shape: every references/*.md has a `## See also` section',
   markers: ['MANDATORY'],
   phrases: ['see also', 'related references', '## see also'],
-  enforcerRef: 'src/services/audit/enforcers/lint-reference-shape.ts',
+  enforcerRef: 'src/services/audit/enforcers/lint-reference-shape.ts'
 };
 
 /** Theme I — Reference cross-references (3 enforcers) */
@@ -43,7 +43,7 @@ const REF_CROSS_REF_RESOLVES: RedLineCatalogEntry = {
   rule: 'Reference integrity: every `../<file>.md` link from a reference resolves',
   markers: ['MANDATORY'],
   phrases: ['cross-reference', 'see also', 'see ./'],
-  enforcerRef: 'src/services/audit/enforcers/lint-reference-shape.ts',
+  enforcerRef: 'src/services/audit/enforcers/lint-reference-shape.ts'
 };
 
 const REF_NO_SELF_REFERENCE: RedLineCatalogEntry = {
@@ -51,7 +51,7 @@ const REF_NO_SELF_REFERENCE: RedLineCatalogEntry = {
   rule: 'Reference integrity: no reference file links to itself',
   markers: ['MUST NOT'],
   phrases: ['self reference', 'circular reference', 'recursive link'],
-  enforcerRef: 'src/services/audit/enforcers/lint-reference-shape.ts',
+  enforcerRef: 'src/services/audit/enforcers/lint-reference-shape.ts'
 };
 
 const REF_NO_ORPHAN_LINK: RedLineCatalogEntry = {
@@ -59,7 +59,7 @@ const REF_NO_ORPHAN_LINK: RedLineCatalogEntry = {
   rule: 'Reference integrity: no link to a non-existent file or section',
   markers: ['MUST NOT'],
   phrases: ['orphan link', 'broken link', 'dead link'],
-  enforcerRef: 'src/services/audit/enforcers/lint-reference-shape.ts',
+  enforcerRef: 'src/services/audit/enforcers/lint-reference-shape.ts'
 };
 
 /** Theme J — Reference size + structure (3 enforcers) */
@@ -68,7 +68,7 @@ const REF_LINE_COUNT_LE_800: RedLineCatalogEntry = {
   rule: 'Reference size: each reference ≤ 800 lines (Karpathy Guidelines §2 Simplicity First)',
   markers: ['MANDATORY'],
   phrases: ['800 lines', 'line count', 'karpathy cap', 'file size'],
-  enforcerRef: 'src/services/audit/enforcers/lint-reference-shape.ts',
+  enforcerRef: 'src/services/audit/enforcers/lint-reference-shape.ts'
 };
 
 const REF_H2_COUNT_LE_12: RedLineCatalogEntry = {
@@ -76,7 +76,7 @@ const REF_H2_COUNT_LE_12: RedLineCatalogEntry = {
   rule: 'Reference size: at most 12 `## <heading>` per reference',
   markers: ['MANDATORY'],
   phrases: ['h2 count', '12 h2', 'depth cap'],
-  enforcerRef: 'src/services/audit/enforcers/lint-reference-shape.ts',
+  enforcerRef: 'src/services/audit/enforcers/lint-reference-shape.ts'
 };
 
 const REF_OVERVIEW_SECTION_NEAR_TOP: RedLineCatalogEntry = {
@@ -84,7 +84,7 @@ const REF_OVERVIEW_SECTION_NEAR_TOP: RedLineCatalogEntry = {
   rule: 'Reference size: long references (>200 lines) must have `## Overview` within the first 30 lines',
   markers: ['MANDATORY'],
   phrases: ['overview section', 'top of file', '## overview'],
-  enforcerRef: 'src/services/audit/enforcers/lint-reference-shape.ts',
+  enforcerRef: 'src/services/audit/enforcers/lint-reference-shape.ts'
 };
 
 /** Theme K — loadStrategy behavior (2 enforcers) */
@@ -93,7 +93,7 @@ const REF_LOADSTRATEGY_ON_DEMAND_FALLBACK: RedLineCatalogEntry = {
   rule: 'loadStrategy: on-demand references must declare a fallback path',
   markers: ['MANDATORY'],
   phrases: ['on-demand fallback', 'fallback path', 'loadstrategy: on-demand'],
-  enforcerRef: 'src/services/audit/enforcers/lint-reference-shape.ts',
+  enforcerRef: 'src/services/audit/enforcers/lint-reference-shape.ts'
 };
 
 const REF_LOADSTRATEGY_ALWAYS_CACHEABLE: RedLineCatalogEntry = {
@@ -101,7 +101,7 @@ const REF_LOADSTRATEGY_ALWAYS_CACHEABLE: RedLineCatalogEntry = {
   rule: 'loadStrategy: always references must be safe to load unconditionally',
   markers: ['MANDATORY'],
   phrases: ['always-cacheable', 'unconditional load', 'loadstrategy: always'],
-  enforcerRef: 'src/services/audit/enforcers/lint-reference-shape.ts',
+  enforcerRef: 'src/services/audit/enforcers/lint-reference-shape.ts'
 };
 
 /** Theme L — Audit regression (4 enforcers) */
@@ -110,7 +110,7 @@ const AUDIT_CATALOG_STABILITY: RedLineCatalogEntry = {
   rule: 'Audit regression: catalog size has not grown > 20% in the last 90 days',
   markers: ['MANDATORY'],
   phrases: ['catalog stability', 'catalog growth', 'catalog drift'],
-  enforcerRef: 'src/services/audit/enforcers/lint-audit-regression.ts',
+  enforcerRef: 'src/services/audit/enforcers/lint-audit-regression.ts'
 };
 
 const AUDIT_NO_ORPHAN_ENFORCER: RedLineCatalogEntry = {
@@ -118,7 +118,7 @@ const AUDIT_NO_ORPHAN_ENFORCER: RedLineCatalogEntry = {
   rule: 'Audit regression: every enforcerRef points to a real file',
   markers: ['MUST NOT'],
   phrases: ['orphan enforcer', 'missing enforcer file', 'enforcerref'],
-  enforcerRef: 'src/services/audit/enforcers/lint-audit-regression.ts',
+  enforcerRef: 'src/services/audit/enforcers/lint-audit-regression.ts'
 };
 
 const AUDIT_NO_ORPHAN_CATALOG: RedLineCatalogEntry = {
@@ -126,7 +126,7 @@ const AUDIT_NO_ORPHAN_CATALOG: RedLineCatalogEntry = {
   rule: 'Audit regression: every catalog entry has a non-null enforcerRef (or a documented reason)',
   markers: ['MUST NOT'],
   phrases: ['orphan catalog', 'prose-only entry', 'enforcerref: null'],
-  enforcerRef: 'src/services/audit/enforcers/lint-audit-regression.ts',
+  enforcerRef: 'src/services/audit/enforcers/lint-audit-regression.ts'
 };
 
 const AUDIT_RUNTIME_BUDGET: RedLineCatalogEntry = {
@@ -134,7 +134,7 @@ const AUDIT_RUNTIME_BUDGET: RedLineCatalogEntry = {
   rule: 'Audit regression: peaks audit red-lines completes in < 2 seconds on a 100-reference project',
   markers: ['MANDATORY'],
   phrases: ['runtime budget', 'audit performance', '2 second budget'],
-  enforcerRef: 'src/services/audit/enforcers/lint-audit-regression.ts',
+  enforcerRef: 'src/services/audit/enforcers/lint-audit-regression.ts'
 };
 
 /** Theme M — Inline shell patterns (3 enforcers) */
@@ -143,7 +143,7 @@ const REF_NO_BASH_HEREDOC: RedLineCatalogEntry = {
   rule: 'Reference inline shell: no `cat <<EOF` (YAGNI for the demo skill)',
   markers: ['MUST NOT'],
   phrases: ['bash heredoc', 'cat <<eof', 'heredoc pattern'],
-  enforcerRef: 'src/services/audit/enforcers/lint-reference-shape.ts',
+  enforcerRef: 'src/services/audit/enforcers/lint-reference-shape.ts'
 };
 
 const REF_NO_SUDO: RedLineCatalogEntry = {
@@ -151,7 +151,7 @@ const REF_NO_SUDO: RedLineCatalogEntry = {
   rule: 'Reference inline shell: no `sudo` (peaks-loop is user-scope)',
   markers: ['MUST NOT'],
   phrases: ['no sudo', 'user-scope', 'sudo command'],
-  enforcerRef: 'src/services/audit/enforcers/lint-reference-shape.ts',
+  enforcerRef: 'src/services/audit/enforcers/lint-reference-shape.ts'
 };
 
 const REF_NO_CURL_PIPE_BASH: RedLineCatalogEntry = {
@@ -159,7 +159,7 @@ const REF_NO_CURL_PIPE_BASH: RedLineCatalogEntry = {
   rule: 'Reference inline shell: no `curl ... | bash` (LLM supply-chain attack vector)',
   markers: ['MUST NOT'],
   phrases: ['curl pipe bash', 'remote code execution', 'supply-chain'],
-  enforcerRef: 'src/services/audit/enforcers/lint-reference-shape.ts',
+  enforcerRef: 'src/services/audit/enforcers/lint-reference-shape.ts'
 };
 
 /** Theme N — Code blocks (3 enforcers) */
@@ -168,7 +168,7 @@ const REF_CODE_BLOCK_LANGUAGE: RedLineCatalogEntry = {
   rule: 'Reference code blocks: every fenced block has a language tag',
   markers: ['MANDATORY'],
   phrases: ['fenced code block', 'language tag', 'typescript | bash | json'],
-  enforcerRef: 'src/services/audit/enforcers/lint-reference-shape.ts',
+  enforcerRef: 'src/services/audit/enforcers/lint-reference-shape.ts'
 };
 
 const REF_NO_FAKE_PROMPT: RedLineCatalogEntry = {
@@ -176,7 +176,7 @@ const REF_NO_FAKE_PROMPT: RedLineCatalogEntry = {
   rule: 'Reference code blocks: no `# fake prompt` / `$ fake` markers',
   markers: ['MUST NOT'],
   phrases: ['fake prompt', 'placeholder code', 'demo marker'],
-  enforcerRef: 'src/services/audit/enforcers/lint-reference-shape.ts',
+  enforcerRef: 'src/services/audit/enforcers/lint-reference-shape.ts'
 };
 
 const REF_NO_ABSOLUTE_PATHS: RedLineCatalogEntry = {
@@ -184,7 +184,7 @@ const REF_NO_ABSOLUTE_PATHS: RedLineCatalogEntry = {
   rule: 'Reference code blocks: no `C:\\` or `/usr/local` (use peaks-loop primitives)',
   markers: ['MUST NOT'],
   phrases: ['absolute path', 'c:\\', '/usr/local', 'machine-specific'],
-  enforcerRef: 'src/services/audit/enforcers/lint-reference-shape.ts',
+  enforcerRef: 'src/services/audit/enforcers/lint-reference-shape.ts'
 };
 
 /** Theme O — Permissions + numbers (2 enforcers) */
@@ -193,7 +193,7 @@ const REF_NO_CHMOD_777: RedLineCatalogEntry = {
   rule: 'Reference inline shell: no `chmod 777` (security red flag)',
   markers: ['MUST NOT'],
   phrases: ['chmod 777', 'world-writable', 'insecure permission'],
-  enforcerRef: 'src/services/audit/enforcers/lint-reference-shape.ts',
+  enforcerRef: 'src/services/audit/enforcers/lint-reference-shape.ts'
 };
 
 const REF_NO_MAGIC_NUMBERS: RedLineCatalogEntry = {
@@ -201,7 +201,7 @@ const REF_NO_MAGIC_NUMBERS: RedLineCatalogEntry = {
   rule: 'Reference code blocks: no unsigned integer ≥ 100 that is not a named constant',
   markers: ['MUST NOT'],
   phrases: ['magic number', 'named constant', 'hard-coded threshold'],
-  enforcerRef: 'src/services/audit/enforcers/lint-reference-shape.ts',
+  enforcerRef: 'src/services/audit/enforcers/lint-reference-shape.ts'
 };
 
 /** Theme P — Dogfooding (2 enforcers) */
@@ -210,7 +210,7 @@ const REF_SKILL_CITES_EVERY_EXISTING: RedLineCatalogEntry = {
   rule: 'Reference dogfooding: every reference file IS cited in its parent SKILL.md',
   markers: ['MANDATORY'],
   phrases: ['uncited reference', 'dead reference', 'reference not cited'],
-  enforcerRef: 'src/services/audit/enforcers/lint-reference-shape.ts',
+  enforcerRef: 'src/services/audit/enforcers/lint-reference-shape.ts'
 };
 
 const REF_LOADSTRATEGY_MATCHES_SIZE: RedLineCatalogEntry = {
@@ -218,7 +218,7 @@ const REF_LOADSTRATEGY_MATCHES_SIZE: RedLineCatalogEntry = {
   rule: 'Reference dogfooding: loadStrategy matches file size (>5KB → on-demand)',
   markers: ['MANDATORY'],
   phrases: ['loadstrategy matches size', 'context budget', 'on-demand for large'],
-  enforcerRef: 'src/services/audit/enforcers/lint-reference-shape.ts',
+  enforcerRef: 'src/services/audit/enforcers/lint-reference-shape.ts'
 };
 
 /**
@@ -260,5 +260,5 @@ export const RED_LINE_CATALOG_P2_B: readonly RedLineCatalogEntry[] = [
   REF_NO_MAGIC_NUMBERS,
   // Theme P
   REF_SKILL_CITES_EVERY_EXISTING,
-  REF_LOADSTRATEGY_MATCHES_SIZE,
+  REF_LOADSTRATEGY_MATCHES_SIZE
 ];

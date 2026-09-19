@@ -86,8 +86,11 @@ export function registerCronSchedulerCommand(program: Command, io: ProgramIO): v
     .description('Long-running background scheduler for peaks cron tasks (Part 15).');
 
   addJsonOption(
-    cmd.command('start')
-      .description('Spawn the scheduler as a detached background process. Idempotent: refuses to start when an alive pid already exists.')
+    cmd
+      .command('start')
+      .description(
+        'Spawn the scheduler as a detached background process. Idempotent: refuses to start when an alive pid already exists.'
+      )
       .option('--project <path>', 'project root (default: findProjectRoot(cwd))')
   ).action((options: { project?: string; json?: boolean }) => {
     try {
@@ -97,10 +100,15 @@ export function registerCronSchedulerCommand(program: Command, io: ProgramIO): v
       if (existing !== null && isPidAlive(existing)) {
         printResult(
           io,
-          ok('cron-scheduler.start', { projectRoot, started: false, alreadyRunning: true, existingPid: existing }, [], [
-            `Scheduler already running at pid ${existing}; not starting a second one.`,
-            'Use `peaks cron-scheduler stop` first if you need to restart.'
-          ]),
+          ok(
+            'cron-scheduler.start',
+            { projectRoot, started: false, alreadyRunning: true, existingPid: existing },
+            [],
+            [
+              `Scheduler already running at pid ${existing}; not starting a second one.`,
+              'Use `peaks cron-scheduler stop` first if you need to restart.'
+            ]
+          ),
           options.json
         );
         return;
@@ -126,19 +134,30 @@ export function registerCronSchedulerCommand(program: Command, io: ProgramIO): v
       writeFileSync(pidFile, String(child.pid), 'utf8');
       printResult(
         io,
-        ok('cron-scheduler.start', { projectRoot, started: true, pid: child.pid, pidFile }, [], [
-          `Scheduler started at pid ${child.pid}; logs go to .peaks/cron/scheduler.log.`,
-          'Use `peaks cron-scheduler status` to confirm it is alive; `stop` to terminate.'
-        ]),
+        ok(
+          'cron-scheduler.start',
+          { projectRoot, started: true, pid: child.pid, pidFile },
+          [],
+          [
+            `Scheduler started at pid ${child.pid}; logs go to .peaks/cron/scheduler.log.`,
+            'Use `peaks cron-scheduler status` to confirm it is alive; `stop` to terminate.'
+          ]
+        ),
         options.json
       );
     } catch (err) {
       printResult(
         io,
-        fail('cron-scheduler.start', 'SCHEDULER_START_FAILED', getErrorMessage(err), { projectRoot: options.project }, [
-          'Verify the peaks-cron-scheduler.js entry point is on disk.',
-          'Check that the .peaks/cron/ directory is writable.'
-        ]),
+        fail(
+          'cron-scheduler.start',
+          'SCHEDULER_START_FAILED',
+          getErrorMessage(err),
+          { projectRoot: options.project },
+          [
+            'Verify the peaks-cron-scheduler.js entry point is on disk.',
+            'Check that the .peaks/cron/ directory is writable.'
+          ]
+        ),
         options.json
       );
       process.exitCode = 1;
@@ -146,8 +165,11 @@ export function registerCronSchedulerCommand(program: Command, io: ProgramIO): v
   });
 
   addJsonOption(
-    cmd.command('stop')
-      .description('Send SIGTERM to the scheduler pid (best-effort; removes the pid file either way).')
+    cmd
+      .command('stop')
+      .description(
+        'Send SIGTERM to the scheduler pid (best-effort; removes the pid file either way).'
+      )
       .option('--project <path>', 'project root (default: findProjectRoot(cwd))')
   ).action((options: { project?: string; json?: boolean }) => {
     try {
@@ -156,7 +178,12 @@ export function registerCronSchedulerCommand(program: Command, io: ProgramIO): v
       if (pid === null) {
         printResult(
           io,
-          ok('cron-scheduler.stop', { projectRoot, stopped: false, reason: 'no-pid-file' }, [], ['No scheduler pid file found; nothing to stop.']),
+          ok(
+            'cron-scheduler.stop',
+            { projectRoot, stopped: false, reason: 'no-pid-file' },
+            [],
+            ['No scheduler pid file found; nothing to stop.']
+          ),
           options.json
         );
         return;
@@ -171,22 +198,35 @@ export function registerCronSchedulerCommand(program: Command, io: ProgramIO): v
         }
       }
       const pidFile = schedulerPidPath(projectRoot);
-      try { unlinkSync(pidFile); } catch { /* best-effort */ }
+      try {
+        unlinkSync(pidFile);
+      } catch {
+        /* best-effort */
+      }
       printResult(
         io,
-        ok('cron-scheduler.stop', { projectRoot, stopped: signalSent, pid, pidFile }, [], [
-          signalSent
-            ? `Sent SIGTERM to pid ${pid}; pid file removed.`
-            : `pid ${pid} was not alive; pid file removed.`
-        ]),
+        ok(
+          'cron-scheduler.stop',
+          { projectRoot, stopped: signalSent, pid, pidFile },
+          [],
+          [
+            signalSent
+              ? `Sent SIGTERM to pid ${pid}; pid file removed.`
+              : `pid ${pid} was not alive; pid file removed.`
+          ]
+        ),
         options.json
       );
     } catch (err) {
       printResult(
         io,
-        fail('cron-scheduler.stop', 'SCHEDULER_STOP_FAILED', getErrorMessage(err), { projectRoot: options.project }, [
-          'Verify the pid file is readable / the process is yours.'
-        ]),
+        fail(
+          'cron-scheduler.stop',
+          'SCHEDULER_STOP_FAILED',
+          getErrorMessage(err),
+          { projectRoot: options.project },
+          ['Verify the pid file is readable / the process is yours.']
+        ),
         options.json
       );
       process.exitCode = 1;
@@ -194,7 +234,8 @@ export function registerCronSchedulerCommand(program: Command, io: ProgramIO): v
   });
 
   addJsonOption(
-    cmd.command('status')
+    cmd
+      .command('status')
       .description('Report whether the scheduler is alive + when it last ran a task.')
       .option('--project <path>', 'project root (default: findProjectRoot(cwd))')
   ).action((options: { project?: string; json?: boolean }) => {
@@ -213,20 +254,32 @@ export function registerCronSchedulerCommand(program: Command, io: ProgramIO): v
         io,
         ok(
           'cron-scheduler.status',
-          { projectRoot, pid, alive, scheduleEntries: schedule.entries.length, dueTaskCount: due.length },
+          {
+            projectRoot,
+            pid,
+            alive,
+            scheduleEntries: schedule.entries.length,
+            dueTaskCount: due.length
+          },
           [],
-          [alive
-            ? `Scheduler alive at pid ${pid}; ${due.length} task(s) due now.`
-            : 'Scheduler is NOT running. Use `peaks cron-scheduler start` to spawn.']
+          [
+            alive
+              ? `Scheduler alive at pid ${pid}; ${due.length} task(s) due now.`
+              : 'Scheduler is NOT running. Use `peaks cron-scheduler start` to spawn.'
+          ]
         ),
         options.json
       );
     } catch (err) {
       printResult(
         io,
-        fail('cron-scheduler.status', 'SCHEDULER_STATUS_FAILED', getErrorMessage(err), { projectRoot: options.project }, [
-          'Verify the .peaks/cron/ directory exists.'
-        ]),
+        fail(
+          'cron-scheduler.status',
+          'SCHEDULER_STATUS_FAILED',
+          getErrorMessage(err),
+          { projectRoot: options.project },
+          ['Verify the .peaks/cron/ directory exists.']
+        ),
         options.json
       );
       process.exitCode = 1;
@@ -234,8 +287,11 @@ export function registerCronSchedulerCommand(program: Command, io: ProgramIO): v
   });
 
   addJsonOption(
-    cmd.command('run-once')
-      .description('Synchronous foreground one-shot: run every currently-due task and exit. Useful for manual cron substitute.')
+    cmd
+      .command('run-once')
+      .description(
+        'Synchronous foreground one-shot: run every currently-due task and exit. Useful for manual cron substitute.'
+      )
       .option('--project <path>', 'project root (default: findProjectRoot(cwd))')
   ).action((options: { project?: string; json?: boolean }) => {
     try {
@@ -244,18 +300,27 @@ export function registerCronSchedulerCommand(program: Command, io: ProgramIO): v
       const records = due.map((t) => runTask(projectRoot, t));
       printResult(
         io,
-        ok('cron-scheduler.run-once', { projectRoot, ran: records.length, records }, [], [
-          `${records.length} due task(s) ran; ${records.filter((r) => r.exitCode === 0).length} succeeded.`
-        ]),
+        ok(
+          'cron-scheduler.run-once',
+          { projectRoot, ran: records.length, records },
+          [],
+          [
+            `${records.length} due task(s) ran; ${records.filter((r) => r.exitCode === 0).length} succeeded.`
+          ]
+        ),
         options.json
       );
       if (records.some((r) => r.exitCode !== 0)) process.exitCode = 1;
     } catch (err) {
       printResult(
         io,
-        fail('cron-scheduler.run-once', 'SCHEDULER_RUN_ONCE_FAILED', getErrorMessage(err), { projectRoot: options.project }, [
-          "If schedule.json is missing, run 'peaks cron init' first."
-        ]),
+        fail(
+          'cron-scheduler.run-once',
+          'SCHEDULER_RUN_ONCE_FAILED',
+          getErrorMessage(err),
+          { projectRoot: options.project },
+          ["If schedule.json is missing, run 'peaks cron init' first."]
+        ),
         options.json
       );
       process.exitCode = 1;
@@ -273,7 +338,11 @@ export function registerCronSchedulerCommand(program: Command, io: ProgramIO): v
  * command-side `registerCronSchedulerCommand` only uses
  * start/stop/status, not the loop.
  */
-export async function runSchedulerLoop(args: { projectRoot: string; tickMs?: number; signal?: AbortSignal }): Promise<void> {
+export async function runSchedulerLoop(args: {
+  projectRoot: string;
+  tickMs?: number;
+  signal?: AbortSignal;
+}): Promise<void> {
   const tickMs = args.tickMs ?? SCHEDULER_TICK_MS;
   // Idempotency: refuse to start a second loop in the same
   // process (the start CLI is expected to be a fresh spawn).
@@ -331,7 +400,9 @@ if (process.env.PEAKS_CRON_SCHEDULER_DAEMON === '1') {
   // process inherits the parent's argv[1] (which is bin/peaks.js).
   const projectRoot = (() => {
     const idx = process.argv.indexOf('--project');
-    return idx >= 0 ? process.argv[idx + 1] as string : findProjectRoot(process.cwd()) ?? process.cwd();
+    return idx >= 0
+      ? (process.argv[idx + 1] as string)
+      : (findProjectRoot(process.cwd()) ?? process.cwd());
   })();
   runSchedulerLoop({ projectRoot }).catch((err) => {
     process.stderr.write(`[cron-scheduler] fatal: ${getErrorMessage(err)}\n`);

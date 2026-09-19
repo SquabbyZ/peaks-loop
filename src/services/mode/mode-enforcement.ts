@@ -8,7 +8,10 @@ const ASSISTED_CONFIRM_TRANSITIONS: ReadonlySet<TransitionKey> = new Set([
   'qa:verdict-issued'
 ]);
 
-export function requiresConfirmation(mode: SkillPresenceMode, transitionKey: TransitionKey): boolean {
+export function requiresConfirmation(
+  mode: SkillPresenceMode,
+  transitionKey: TransitionKey
+): boolean {
   // Slice 2026-09-09-mode-consolidation: `swarm` removed as a mode; the
   // two auto-proceed peers are `full-auto` and `24h`.
   if (mode === 'full-auto' || mode === '24h') {
@@ -48,9 +51,9 @@ export class ConfirmationRequiredError extends Error {
     ];
     super(
       `Confirmation required for: ${description} (mode: ${mode})\n` +
-      `${nextActions[0]}\n` +
-      `${nextActions[1]}\n` +
-      'No terminal prompt is available: this gate never reads stdin.'
+        `${nextActions[0]}\n` +
+        `${nextActions[1]}\n` +
+        'No terminal prompt is available: this gate never reads stdin.'
     );
     this.name = 'ConfirmationRequiredError';
     this.transitionKey = transitionKey;
@@ -81,9 +84,10 @@ export async function requireUserConfirmation(options: ConfirmationOptions): Pro
   // For assisted/strict, env var is ignored unless --force-confirm is also set
   if (process.env.PEAKS_AUTO_CONFIRM === '1') {
     if (options.forceConfirm) {
-      console.error( // TODO(g2): legacy console.error without envelope — grace: 1 minor release (v2.14.0)
+      console.error(
+        // TODO(g2): legacy console.error without envelope — grace: 1 minor release (v2.14.0)
         `[WARNING] --force-confirm used in ${mode} mode. ` +
-        'This bypasses user confirmation. Use with caution.'
+          'This bypasses user confirmation. Use with caution.'
       );
       return;
     }
@@ -92,9 +96,10 @@ export async function requireUserConfirmation(options: ConfirmationOptions): Pro
 
   // --force-confirm without env var
   if (options.forceConfirm) {
-    console.error( // TODO(g2): legacy console.error without envelope — grace: 1 minor release (v2.14.0)
+    console.error(
+      // TODO(g2): legacy console.error without envelope — grace: 1 minor release (v2.14.0)
       `[WARNING] --force-confirm used in ${mode} mode. ` +
-      'This bypasses user confirmation. Use with caution.'
+        'This bypasses user confirmation. Use with caution.'
     );
     return;
   }

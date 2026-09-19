@@ -34,36 +34,48 @@ import { makeCapturedIo } from '../_setup/io.js';
 import {
   cleanupTmpWorkspace,
   useTmpWorkspace,
-  type TmpWorkspace,
+  type TmpWorkspace
 } from '../_setup/tmp-workspace.js';
 
 declareDimensions(
   'tests/unit/cli/request-codegraph-autorefresh.test.ts',
   ['integration', 'a11y'],
   [
-    { dim: 'behavior', reason: 'the trigger only exists inside the CLI transition action; control flow is asserted via the integration describe' },
-    { dim: 'render', reason: 'envelope shape assertions live under a11y (ok + codegraphRefresh note) rather than a separate render block' },
-  ],
+    {
+      dim: 'behavior',
+      reason:
+        'the trigger only exists inside the CLI transition action; control flow is asserted via the integration describe'
+    },
+    {
+      dim: 'render',
+      reason:
+        'envelope shape assertions live under a11y (ok + codegraphRefresh note) rather than a separate render block'
+    }
+  ]
 );
 
 const __m = vi.hoisted(() => ({
   transitionRequestArtifact: vi.fn(),
-  refreshCodegraphAfterSlice: vi.fn(),
+  refreshCodegraphAfterSlice: vi.fn()
 }));
 
 // A2 (2026-09-17): the action now also imports `codegraphRefreshNotice` from
 // this module, so the mock spreads the REAL module and overrides only the
 // process-spawning boundary — see the note in job-codegraph-autorefresh.
 vi.mock('../../../src/services/codegraph/codegraph-autorefresh.js', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../../../src/services/codegraph/codegraph-autorefresh.js')>()),
-  refreshCodegraphAfterSlice: __m.refreshCodegraphAfterSlice,
+  ...(await importOriginal<
+    typeof import('../../../src/services/codegraph/codegraph-autorefresh.js')
+  >()),
+  refreshCodegraphAfterSlice: __m.refreshCodegraphAfterSlice
 }));
 
 vi.mock('../../../src/services/artifacts/request-artifact-service.js', async () => {
-  const actual = await vi.importActual<typeof import('../../../src/services/artifacts/request-artifact-service.js')>('../../../src/services/artifacts/request-artifact-service.js');
+  const actual = await vi.importActual<
+    typeof import('../../../src/services/artifacts/request-artifact-service.js')
+  >('../../../src/services/artifacts/request-artifact-service.js');
   return {
     ...actual,
-    transitionRequestArtifact: __m.transitionRequestArtifact,
+    transitionRequestArtifact: __m.transitionRequestArtifact
   };
 });
 
@@ -79,8 +91,21 @@ async function runTransition(state: string, wsPath: string): Promise<CapturedIo>
   const program = new Command();
   registerRequestCommands(program, io);
   await program.parseAsync(
-    ['request', 'transition', REQUEST_ID, '--role', 'rd', '--state', state, '--project', wsPath, '--session-id', SESSION_ID, '--json'],
-    { from: 'user' },
+    [
+      'request',
+      'transition',
+      REQUEST_ID,
+      '--role',
+      'rd',
+      '--state',
+      state,
+      '--project',
+      wsPath,
+      '--session-id',
+      SESSION_ID,
+      '--json'
+    ],
+    { from: 'user' }
   );
   return captured;
 }
@@ -96,15 +121,35 @@ async function runTransitionHuman(state: string, wsPath: string): Promise<Captur
   const program = new Command();
   registerRequestCommands(program, io);
   await program.parseAsync(
-    ['request', 'transition', REQUEST_ID, '--role', 'rd', '--state', state, '--project', wsPath, '--session-id', SESSION_ID],
-    { from: 'user' },
+    [
+      'request',
+      'transition',
+      REQUEST_ID,
+      '--role',
+      'rd',
+      '--state',
+      state,
+      '--project',
+      wsPath,
+      '--session-id',
+      SESSION_ID
+    ],
+    { from: 'user' }
   );
   return captured;
 }
 
-function parseJson(captured: CapturedIo): { ok: boolean; warnings?: string[]; data: { codegraphRefresh?: unknown; state?: string } } {
+function parseJson(captured: CapturedIo): {
+  ok: boolean;
+  warnings?: string[];
+  data: { codegraphRefresh?: unknown; state?: string };
+} {
   const out = captured.stdout.join('\n');
-  return JSON.parse(out) as { ok: boolean; warnings?: string[]; data: { codegraphRefresh?: unknown; state?: string } };
+  return JSON.parse(out) as {
+    ok: boolean;
+    warnings?: string[];
+    data: { codegraphRefresh?: unknown; state?: string };
+  };
 }
 
 describe('Scenario: integration — request transition triggers auto codegraph refresh on rd:qa-handoff only', () => {
@@ -126,7 +171,7 @@ describe('Scenario: integration — request transition triggers auto codegraph r
       role: 'rd',
       requestId: REQUEST_ID,
       state: 'qa-handoff',
-      sessionId: SESSION_ID,
+      sessionId: SESSION_ID
     });
     __m.refreshCodegraphAfterSlice.mockResolvedValue({ refreshed: true });
     // when: request transition rd -> qa-handoff runs
@@ -145,7 +190,7 @@ describe('Scenario: integration — request transition triggers auto codegraph r
       role: 'rd',
       requestId: REQUEST_ID,
       state: 'implemented',
-      sessionId: SESSION_ID,
+      sessionId: SESSION_ID
     });
     __m.refreshCodegraphAfterSlice.mockResolvedValue({ refreshed: true });
     // when: request transition rd -> implemented runs
@@ -177,12 +222,12 @@ describe('Scenario: a11y — a failing auto-refresh never fails the transition',
       role: 'rd',
       requestId: REQUEST_ID,
       state: 'qa-handoff',
-      sessionId: SESSION_ID,
+      sessionId: SESSION_ID
     });
     __m.refreshCodegraphAfterSlice.mockResolvedValue({
       refreshed: false,
       reason: 'no-codegraph-dir',
-      note: 'auto codegraph refresh skipped: no .codegraph directory. Run `peaks codegraph init` once to enable post-slice auto-refresh.',
+      note: 'auto codegraph refresh skipped: no .codegraph directory. Run `peaks codegraph init` once to enable post-slice auto-refresh.'
     });
     // when: request transition rd -> qa-handoff runs despite the refresh skip
     const captured = await runTransition('qa-handoff', ws.path);
@@ -192,7 +237,7 @@ describe('Scenario: a11y — a failing auto-refresh never fails the transition',
     expect(envelope.data.codegraphRefresh).toEqual({
       refreshed: false,
       reason: 'no-codegraph-dir',
-      note: 'auto codegraph refresh skipped: no .codegraph directory. Run `peaks codegraph init` once to enable post-slice auto-refresh.',
+      note: 'auto codegraph refresh skipped: no .codegraph directory. Run `peaks codegraph init` once to enable post-slice auto-refresh.'
     });
   });
 });
@@ -212,7 +257,7 @@ describe('Scenario: a11y — A2 a non-refresh is visible to the operator', () =>
       role: 'rd',
       requestId: REQUEST_ID,
       state: 'qa-handoff',
-      sessionId: SESSION_ID,
+      sessionId: SESSION_ID
     });
   });
 
@@ -222,8 +267,13 @@ describe('Scenario: a11y — A2 a non-refresh is visible to the operator', () =>
 
   it('when a codegraph store is in use and the refresh fails, should warn on stderr with the reason and the remedy', async () => {
     // given: a refresh that failed against a store that DOES exist
-    const note = 'auto codegraph refresh failed (exit 2): schema lock conflict. Run `peaks codegraph index --project <root>` to refresh the codegraph index.';
-    __m.refreshCodegraphAfterSlice.mockResolvedValue({ refreshed: false, reason: 'index-failed', note });
+    const note =
+      'auto codegraph refresh failed (exit 2): schema lock conflict. Run `peaks codegraph index --project <root>` to refresh the codegraph index.';
+    __m.refreshCodegraphAfterSlice.mockResolvedValue({
+      refreshed: false,
+      reason: 'index-failed',
+      note
+    });
     // when: the rd:qa-handoff transition runs on both output paths
     const json = await runTransition('qa-handoff', ws.path);
     const human = await runTransitionHuman('qa-handoff', ws.path);
@@ -242,7 +292,7 @@ describe('Scenario: a11y — A2 a non-refresh is visible to the operator', () =>
     __m.refreshCodegraphAfterSlice.mockResolvedValue({
       refreshed: false,
       reason: 'no-codegraph-dir',
-      note: 'auto codegraph refresh skipped: no .codegraph directory. Run `peaks codegraph init` once to enable post-slice auto-refresh.',
+      note: 'auto codegraph refresh skipped: no .codegraph directory. Run `peaks codegraph init` once to enable post-slice auto-refresh.'
     });
     // when: the rd:qa-handoff transition runs on both output paths
     const json = await runTransition('qa-handoff', ws.path);

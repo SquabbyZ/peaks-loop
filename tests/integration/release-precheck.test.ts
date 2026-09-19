@@ -31,8 +31,21 @@ function seedGitTag(projectRoot: string, version: string): boolean {
     execFileSync('git', ['-C', projectRoot, ...args], { stdio: 'pipe', windowsHide: true });
   };
   try {
-    execFileSync('git', ['init', '-q', '-b', 'main', projectRoot], { stdio: 'pipe', windowsHide: true });
-    run(['-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-q', '--allow-empty', '-m', 'init']);
+    execFileSync('git', ['init', '-q', '-b', 'main', projectRoot], {
+      stdio: 'pipe',
+      windowsHide: true
+    });
+    run([
+      '-c',
+      'user.email=t@t',
+      '-c',
+      'user.name=t',
+      'commit',
+      '-q',
+      '--allow-empty',
+      '-m',
+      'init'
+    ]);
     run(['tag', `v${version}`]);
     return true;
   } catch {
@@ -53,19 +66,25 @@ function parseCliJson(stdout: string): CliJsonResult {
   return JSON.parse(trimmed) as CliJsonResult;
 }
 
-function writePackageJson(projectRoot: string, opts: {
-  version: string;
-  sharedDep?: string;
-}): void {
+function writePackageJson(
+  projectRoot: string,
+  opts: {
+    version: string;
+    sharedDep?: string;
+  }
+): void {
   const deps: Record<string, string> = {};
   if (opts.sharedDep !== undefined) {
     deps['peaks-loop-shared'] = opts.sharedDep;
   }
-  writeFileSync(join(projectRoot, 'package.json'), JSON.stringify(
-    { name: 'peaks-loop-fixture', version: opts.version, dependencies: deps },
-    null,
-    2
-  ));
+  writeFileSync(
+    join(projectRoot, 'package.json'),
+    JSON.stringify(
+      { name: 'peaks-loop-fixture', version: opts.version, dependencies: deps },
+      null,
+      2
+    )
+  );
 }
 
 function writeSharedDist(projectRoot: string, cliVersion: string): void {
@@ -77,11 +96,10 @@ function writeSharedDist(projectRoot: string, cliVersion: string): void {
 function writeSharedPackageJson(projectRoot: string, version: string): void {
   const dir = join(projectRoot, 'packages', 'peaks-loop-shared');
   mkdirSync(dir, { recursive: true });
-  writeFileSync(join(dir, 'package.json'), JSON.stringify(
-    { name: 'peaks-loop-shared', version },
-    null,
-    2
-  ));
+  writeFileSync(
+    join(dir, 'package.json'),
+    JSON.stringify({ name: 'peaks-loop-shared', version }, null, 2)
+  );
 }
 
 describe('peaks release precheck — integration', () => {
@@ -144,7 +162,9 @@ describe('peaks release precheck — integration', () => {
     writeSharedDist(tmp, '4.0.0-beta.40');
     const r = await runCli(['release', 'precheck', '--project', tmp, '--json'], tmp);
     const json = parseCliJson(r.stdout);
-    const data = json.data as { layers: Record<string, { status: string; message: string; remediation: string }> };
+    const data = json.data as {
+      layers: Record<string, { status: string; message: string; remediation: string }>;
+    };
     for (const layerName of Object.keys(data.layers)) {
       const layer = data.layers[layerName];
       if (layer === undefined) continue;
@@ -165,7 +185,7 @@ describe('peaks release precheck — integration', () => {
       'utf8'
     );
     // §(A) on-disk gate substrings
-    expect(yml).toContain("CLI_VERSION = \"[^\"]+\"");
+    expect(yml).toContain('CLI_VERSION = "[^"]+"');
     expect(yml).toContain('pnpm --filter peaks-loop-shared pack');
     expect(yml).toContain('package/dist/version.js');
     // rid-010 reference comment

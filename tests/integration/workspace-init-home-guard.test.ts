@@ -74,63 +74,83 @@ function runCli(args: readonly string[], cwd: string, fakeHome: string): RunResu
   } catch (error: unknown) {
     const caught = error as { stdout?: Buffer | string; stderr?: Buffer | string; status?: number };
     return {
-      stdout: typeof caught.stdout === 'string' ? caught.stdout : caught.stdout?.toString('utf8') ?? '',
-      stderr: typeof caught.stderr === 'string' ? caught.stderr : caught.stderr?.toString('utf8') ?? '',
+      stdout:
+        typeof caught.stdout === 'string' ? caught.stdout : (caught.stdout?.toString('utf8') ?? ''),
+      stderr:
+        typeof caught.stderr === 'string' ? caught.stderr : (caught.stderr?.toString('utf8') ?? ''),
       code: caught.status ?? 1
     };
   }
 }
 
-function envelopeOf(result: RunResult): { ok: boolean; code?: string; message?: string; nextActions: readonly string[] } {
+function envelopeOf(result: RunResult): {
+  ok: boolean;
+  code?: string;
+  message?: string;
+  nextActions: readonly string[];
+} {
   const combined = `${result.stdout}\n${result.stderr}`;
   const start = combined.indexOf('{');
   expect(start, `no JSON envelope in output:\n${combined}`).toBeGreaterThanOrEqual(0);
-  return JSON.parse(combined.slice(start)) as { ok: boolean; code?: string; message?: string; nextActions: readonly string[] };
+  return JSON.parse(combined.slice(start)) as {
+    ok: boolean;
+    code?: string;
+    message?: string;
+    nextActions: readonly string[];
+  };
 }
 
 describe('peaks workspace init refuses to write into the home directory', () => {
-  test('--project . with cwd=$HOME is refused and creates no project tree', () => {
-    const home = makeFakeHome();
-    const result = runCli(['workspace', 'init', '--project', '.', '--json'], home, home);
+  test(
+    '--project . with cwd=$HOME is refused and creates no project tree',
+    () => {
+      const home = makeFakeHome();
+      const result = runCli(['workspace', 'init', '--project', '.', '--json'], home, home);
 
-    expect(result.code).toBe(1);
-    const envelope = envelopeOf(result);
-    expect(envelope.ok).toBe(false);
-    expect(envelope.code).toBe('UNSAFE_PROJECT_ROOT');
-    expect(envelope.nextActions.length).toBeGreaterThan(0);
+      expect(result.code).toBe(1);
+      const envelope = envelopeOf(result);
+      expect(envelope.ok).toBe(false);
+      expect(envelope.code).toBe('UNSAFE_PROJECT_ROOT');
+      expect(envelope.nextActions.length).toBeGreaterThan(0);
 
-    // Every artifact the unguarded command created in the incident. Asserted
-    // individually (not as "the directory is empty") because `$HOME/.peaks/logs`
-    // is the USER-level peaks log directory — any peaks command creates it, it
-    // is the same `~/.peaks/` that holds the user's `config.json`, and it is not
-    // what this guard is about.
-    for (const artifact of [
-      join(home, '.claude', 'settings.local.json'),
-      join(home, '.peaks', '.claude-settings-template.json'),
-      join(home, '.peaks', '_runtime'),
-      join(home, '.peaks', 'project-scan'),
-      join(home, '.peaks', '.peaks-init-hooks-decision.json'),
-      join(home, '.gitignore'),
-      join(home, '.codegraph')
-    ]) {
-      expect(existsSync(artifact), `${artifact} must not exist`).toBe(false);
-    }
-  }, BIN_TIMEOUT_MS);
+      // Every artifact the unguarded command created in the incident. Asserted
+      // individually (not as "the directory is empty") because `$HOME/.peaks/logs`
+      // is the USER-level peaks log directory — any peaks command creates it, it
+      // is the same `~/.peaks/` that holds the user's `config.json`, and it is not
+      // what this guard is about.
+      for (const artifact of [
+        join(home, '.claude', 'settings.local.json'),
+        join(home, '.peaks', '.claude-settings-template.json'),
+        join(home, '.peaks', '_runtime'),
+        join(home, '.peaks', 'project-scan'),
+        join(home, '.peaks', '.peaks-init-hooks-decision.json'),
+        join(home, '.gitignore'),
+        join(home, '.codegraph')
+      ]) {
+        expect(existsSync(artifact), `${artifact} must not exist`).toBe(false);
+      }
+    },
+    BIN_TIMEOUT_MS
+  );
 
-  test('a project INSIDE the home directory is still initialized normally', () => {
-    const home = makeFakeHome();
-    const project = join(home, 'my-project');
-    mkdirSync(project, { recursive: true });
+  test(
+    'a project INSIDE the home directory is still initialized normally',
+    () => {
+      const home = makeFakeHome();
+      const project = join(home, 'my-project');
+      mkdirSync(project, { recursive: true });
 
-    const result = runCli(['workspace', 'init', '--project', project, '--json'], home, home);
+      const result = runCli(['workspace', 'init', '--project', project, '--json'], home, home);
 
-    expect(result.code).toBe(0);
-    const envelope = envelopeOf(result);
-    expect(envelope.ok).toBe(true);
-    // The guard is EXACT-home only: `~/my-project` is an ordinary project and
-    // must keep getting a real workspace, or the fix would be worse than the
-    // defect.
-    expect(existsSync(join(project, '.peaks', '_runtime'))).toBe(true);
-    expect(existsSync(join(project, '.claude', 'settings.local.json'))).toBe(true);
-  }, BIN_TIMEOUT_MS);
+      expect(result.code).toBe(0);
+      const envelope = envelopeOf(result);
+      expect(envelope.ok).toBe(true);
+      // The guard is EXACT-home only: `~/my-project` is an ordinary project and
+      // must keep getting a real workspace, or the fix would be worse than the
+      // defect.
+      expect(existsSync(join(project, '.peaks', '_runtime'))).toBe(true);
+      expect(existsSync(join(project, '.claude', 'settings.local.json'))).toBe(true);
+    },
+    BIN_TIMEOUT_MS
+  );
 });

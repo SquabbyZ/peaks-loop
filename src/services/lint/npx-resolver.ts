@@ -22,15 +22,14 @@ export type NpxInvocation = {
 
 /** Locate `<npm install>/bin/<scriptFile>`, or `null` when not on disk. */
 function locateNpmCliScript(scriptFile: 'npm-cli.js' | 'npx-cli.js'): string | null {
-  const candidates: ReadonlyArray<string> = process.platform === 'win32'
-    ? [
-        join(process.execPath, '..', '..', 'node_modules', 'npm', 'bin', scriptFile),
-        `C:/nvm4w/nodejs/node_modules/npm/bin/${scriptFile}`,
-        `C:/Program Files/nodejs/node_modules/npm/bin/${scriptFile}`
-      ]
-    : [
-        join(process.execPath, '..', '..', 'lib', 'node_modules', 'npm', 'bin', scriptFile)
-      ];
+  const candidates: ReadonlyArray<string> =
+    process.platform === 'win32'
+      ? [
+          join(process.execPath, '..', '..', 'node_modules', 'npm', 'bin', scriptFile),
+          `C:/nvm4w/nodejs/node_modules/npm/bin/${scriptFile}`,
+          `C:/Program Files/nodejs/node_modules/npm/bin/${scriptFile}`
+        ]
+      : [join(process.execPath, '..', '..', 'lib', 'node_modules', 'npm', 'bin', scriptFile)];
   for (const candidate of candidates) {
     if (existsSync(candidate)) return candidate;
   }

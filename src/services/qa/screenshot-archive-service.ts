@@ -116,9 +116,7 @@ export function archiveScreenshots(options: ArchiveScreenshotOptions): ArchiveSc
     };
   }
 
-  const targetContentsBefore = existsSync(targetDir)
-    ? readdirSync(targetDir)
-    : [];
+  const targetContentsBefore = existsSync(targetDir) ? readdirSync(targetDir) : [];
 
   mkdirSync(targetDir, { recursive: true });
 

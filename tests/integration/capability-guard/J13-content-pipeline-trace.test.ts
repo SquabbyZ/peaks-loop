@@ -12,7 +12,12 @@ const JOURNEY = 'J13' as const;
 describe('J13 content-pipeline-trace contract', () => {
   it('keeps the four content stages and the peaks-code boundary', async () => {
     const contract = getGuardContract(JOURNEY)!;
-    const r = await runGuard(contract, { projectRoot: REPO, sessionId: JOURNEY, contract, baselineInvariant: 'auto' });
+    const r = await runGuard(contract, {
+      projectRoot: REPO,
+      sessionId: JOURNEY,
+      contract,
+      baselineInvariant: 'auto'
+    });
     expect(r.status).toBe('pass');
   }, 300_000);
 });

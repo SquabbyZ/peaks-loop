@@ -67,40 +67,56 @@ export function registerFixtureCommands(program: Command, io: ProgramIO): void {
   addJsonOption(
     fixture
       .command('capture')
-      .description('Capture a real envelope artifact as a replay fixture. Sanitizes secrets, computes SHA-256, writes fixture.meta.json.')
+      .description(
+        'Capture a real envelope artifact as a replay fixture. Sanitizes secrets, computes SHA-256, writes fixture.meta.json.'
+      )
       .option('--from-rid <rid>', 'historical rid to capture (requires --sid + --envelope)')
       .option('--sid <sid>', 'session id under .peaks/_runtime/<sid>/', 'default')
       .option('--envelope <kind>', `envelope kind: ${ENVELOPE_KINDS.join(' | ')}`)
       .option('--variant-from <path>', 'parent fixture path (derived-variant mode)')
       .option('--variant <edge-case>', `edge case: ${EDGE_CASE_VARIANTS.join(' | ')}`)
       .option('--out <dir>', 'output dir', 'tests/fixtures/replay')
-      .option('--fixture-id <id>', 'override the fixtureId (auto-derived from rid/variant otherwise)')
+      .option(
+        '--fixture-id <id>',
+        'override the fixtureId (auto-derived from rid/variant otherwise)'
+      )
   ).action((options: CaptureOptions) => {
     const out = resolve(process.cwd(), options.out ?? 'tests/fixtures/replay');
 
     // Mode 1: derived-variant
     if (options.variantFrom !== undefined || options.variant !== undefined) {
       if (options.variantFrom === undefined || options.variant === undefined) {
-        printResult(io,
-          fail('fixture.capture', 'VARIANT_ARGS_REQUIRED',
+        printResult(
+          io,
+          fail(
+            'fixture.capture',
+            'VARIANT_ARGS_REQUIRED',
             '--variant-from and --variant must be supplied together',
-            {}, ['Rerun with both --variant-from <path> --variant <edge-case>']),
-          options.json);
+            {},
+            ['Rerun with both --variant-from <path> --variant <edge-case>']
+          ),
+          options.json
+        );
         process.exitCode = 1;
         return;
       }
       if (!isEdgeCaseVariant(options.variant)) {
-        printResult(io,
-          fail('fixture.capture', 'VARIANT_UNKNOWN',
+        printResult(
+          io,
+          fail(
+            'fixture.capture',
+            'VARIANT_UNKNOWN',
             `unknown variant '${options.variant}'`,
             { knownVariants: EDGE_CASE_VARIANTS },
-            [`Use one of: ${EDGE_CASE_VARIANTS.join(', ')}`]),
-          options.json);
+            [`Use one of: ${EDGE_CASE_VARIANTS.join(', ')}`]
+          ),
+          options.json
+        );
         process.exitCode = 1;
         return;
       }
-      const fixtureId = options.fixtureId
-        ?? deriveVariantFixtureId(options.variantFrom, options.variant);
+      const fixtureId =
+        options.fixtureId ?? deriveVariantFixtureId(options.variantFrom, options.variant);
       try {
         const captured = captureDerivedVariant({
           mode: 'derived-variant',
@@ -109,15 +125,23 @@ export function registerFixtureCommands(program: Command, io: ProgramIO): void {
           fixtureId,
           outDir: out
         });
-        printResult(io,
+        printResult(
+          io,
           ok('fixture.capture', { mode: 'derived-variant', ...captured }),
-          options.json);
+          options.json
+        );
       } catch (err: unknown) {
-        printResult(io,
-          fail('fixture.capture', 'CAPTURE_FAILED',
+        printResult(
+          io,
+          fail(
+            'fixture.capture',
+            'CAPTURE_FAILED',
             err instanceof Error ? err.message : String(err),
-            {}, ['Verify the parent fixture path exists']),
-          options.json);
+            {},
+            ['Verify the parent fixture path exists']
+          ),
+          options.json
+        );
         process.exitCode = 1;
       }
       return;
@@ -125,26 +149,40 @@ export function registerFixtureCommands(program: Command, io: ProgramIO): void {
 
     // Mode 2: historical
     if (options.fromRid === undefined || options.envelope === undefined) {
-      printResult(io,
-        fail('fixture.capture', 'CAPTURE_ARGS_REQUIRED',
+      printResult(
+        io,
+        fail(
+          'fixture.capture',
+          'CAPTURE_ARGS_REQUIRED',
           'Either --variant-from/--variant OR --from-rid/--envelope must be supplied',
           { envelopeKinds: ENVELOPE_KINDS, edgeCases: EDGE_CASE_VARIANTS },
-          ['Rerun with --from-rid <rid> --envelope <kind>', 'OR --variant-from <path> --variant <edge-case>']),
-        options.json);
+          [
+            'Rerun with --from-rid <rid> --envelope <kind>',
+            'OR --variant-from <path> --variant <edge-case>'
+          ]
+        ),
+        options.json
+      );
       process.exitCode = 1;
       return;
     }
     if (!isEnvelopeKind(options.envelope)) {
-      printResult(io,
-        fail('fixture.capture', 'ENVELOPE_UNKNOWN',
+      printResult(
+        io,
+        fail(
+          'fixture.capture',
+          'ENVELOPE_UNKNOWN',
           `unknown envelope kind '${options.envelope}'`,
           { knownKinds: ENVELOPE_KINDS },
-          [`Use one of: ${ENVELOPE_KINDS.join(', ')}`]),
-        options.json);
+          [`Use one of: ${ENVELOPE_KINDS.join(', ')}`]
+        ),
+        options.json
+      );
       process.exitCode = 1;
       return;
     }
-    const fixtureId = options.fixtureId ?? deriveHistoricalFixtureId(options.fromRid, options.envelope);
+    const fixtureId =
+      options.fixtureId ?? deriveHistoricalFixtureId(options.fromRid, options.envelope);
     try {
       const captured = captureHistoricalFixture({
         mode: 'historical',
@@ -154,25 +192,39 @@ export function registerFixtureCommands(program: Command, io: ProgramIO): void {
         outDir: out,
         requireSource: true
       });
-      printResult(io,
-        ok('fixture.capture', { mode: 'historical', ...captured }),
-        options.json);
+      printResult(io, ok('fixture.capture', { mode: 'historical', ...captured }), options.json);
     } catch (err: unknown) {
-      printResult(io,
-        fail('fixture.capture', 'CAPTURE_FAILED',
+      printResult(
+        io,
+        fail(
+          'fixture.capture',
+          'CAPTURE_FAILED',
           err instanceof Error ? err.message : String(err),
-          {}, ['Verify --sid / --envelope point to an existing session artifact']),
-        options.json);
+          {},
+          ['Verify --sid / --envelope point to an existing session artifact']
+        ),
+        options.json
+      );
       process.exitCode = 1;
     }
   });
 }
 
 function deriveHistoricalFixtureId(rid: string, envelope: EnvelopeKind): string {
-  return `${rid}-${envelope}`.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 80);
+  return `${rid}-${envelope}`
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .slice(0, 80);
 }
 
 function deriveVariantFixtureId(parentPath: string, variant: EdgeCaseVariant): string {
-  const base = parentPath.replace(/\.(md|json)$/, '').split(/[/\\]/).pop() ?? 'parent';
-  return `${base}--${variant}`.toLowerCase().replace(/[^a-z0-9-]+/g, '-').slice(0, 80);
+  const base =
+    parentPath
+      .replace(/\.(md|json)$/, '')
+      .split(/[/\\]/)
+      .pop() ?? 'parent';
+  return `${base}--${variant}`
+    .toLowerCase()
+    .replace(/[^a-z0-9-]+/g, '-')
+    .slice(0, 80);
 }

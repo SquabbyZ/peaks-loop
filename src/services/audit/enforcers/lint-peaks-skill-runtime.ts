@@ -29,13 +29,16 @@ function buildContract(
       if (!lines.some((l) => m.pattern.test(l))) missing.push(m.name);
     }
     if (missing.length === 0) return [];
-    return [{
-      catalogId: 'lint-peaks-skill-runtime-' + markers[0]?.name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
-      rule: `peaks-* SKILL.md must declare the runtime contract (missing markers: ${missing.join(', ')})`,
-      file: skill.path,
-      line: 1,
-      matchedText: `missing markers: ${missing.join(', ')}`
-    }];
+    return [
+      {
+        catalogId:
+          'lint-peaks-skill-runtime-' + markers[0]?.name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+        rule: `peaks-* SKILL.md must declare the runtime contract (missing markers: ${missing.join(', ')})`,
+        file: skill.path,
+        line: 1,
+        matchedText: `missing markers: ${missing.join(', ')}`
+      }
+    ];
   };
 }
 
@@ -63,7 +66,10 @@ export const lintPeaksIdeRuntime = buildContract(PEAKS_IDE_MARKERS, 'peaks-ide')
 
 /** Doctor — single marker, often a one-line contract. */
 const PEAKS_DOCTOR_MARKERS: ReadonlyArray<RequiredMarker> = Object.freeze([
-  { name: 'peaks-loop doctor is a doctor orchestrator', pattern: /peaks-loop doctor is a doctor orchestrator/i }
+  {
+    name: 'peaks-loop doctor is a doctor orchestrator',
+    pattern: /peaks-loop doctor is a doctor orchestrator/i
+  }
 ]);
 
 const PEAKS_ISSUE_FIX_ORCHESTRATOR_MARKERS: ReadonlyArray<RequiredMarker> = Object.freeze([
@@ -82,6 +88,12 @@ const PEAKS_SLICE_DECOMPOSE_MARKERS: ReadonlyArray<RequiredMarker> = Object.free
 ]);
 
 export const lintPeaksDoctorRuntime = buildContract(PEAKS_DOCTOR_MARKERS, 'peaks-doctor');
-export const lintPeaksIssueFixOrchestratorRuntime = buildContract(PEAKS_ISSUE_FIX_ORCHESTRATOR_MARKERS, 'peaks-issue-fix-orchestrator');
+export const lintPeaksIssueFixOrchestratorRuntime = buildContract(
+  PEAKS_ISSUE_FIX_ORCHESTRATOR_MARKERS,
+  'peaks-issue-fix-orchestrator'
+);
 export const lintPeaksSopRuntime = buildContract(PEAKS_SOP_MARKERS, 'peaks-sop');
-export const lintPeaksSliceDecomposeRuntime = buildContract(PEAKS_SLICE_DECOMPOSE_MARKERS, 'peaks-slice-decompose');
+export const lintPeaksSliceDecomposeRuntime = buildContract(
+  PEAKS_SLICE_DECOMPOSE_MARKERS,
+  'peaks-slice-decompose'
+);

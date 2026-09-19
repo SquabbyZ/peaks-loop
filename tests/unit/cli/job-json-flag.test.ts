@@ -39,9 +39,18 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { declareDimensions } from '../_setup/4dim-template.js';
 import { makeCapturedIo } from '../_setup/io.js';
 import { withEnv } from '../_setup/io.js';
-import { cleanupTmpWorkspace, useTmpWorkspace, type TmpWorkspace } from '../_setup/tmp-workspace.js';
+import {
+  cleanupTmpWorkspace,
+  useTmpWorkspace,
+  type TmpWorkspace
+} from '../_setup/tmp-workspace.js';
 
-declareDimensions('tests/unit/cli/job-json-flag.test.ts', ['render', 'behavior', 'integration', 'a11y']);
+declareDimensions('tests/unit/cli/job-json-flag.test.ts', [
+  'render',
+  'behavior',
+  'integration',
+  'a11y'
+]);
 
 const __autorefresh = vi.hoisted(() => ({ refreshCodegraphAfterSlice: vi.fn() }));
 
@@ -49,8 +58,10 @@ const __autorefresh = vi.hoisted(() => ({ refreshCodegraphAfterSlice: vi.fn() })
 // decides which refresh outcomes become a warning, so the warning under test is
 // the shipped rule rather than a stub.
 vi.mock('../../../src/services/codegraph/codegraph-autorefresh.js', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../../../src/services/codegraph/codegraph-autorefresh.js')>()),
-  refreshCodegraphAfterSlice: __autorefresh.refreshCodegraphAfterSlice,
+  ...(await importOriginal<
+    typeof import('../../../src/services/codegraph/codegraph-autorefresh.js')
+  >()),
+  refreshCodegraphAfterSlice: __autorefresh.refreshCodegraphAfterSlice
 }));
 
 import { registerJobCommands } from '../../../src/cli/commands/job-commands.js';
@@ -78,7 +89,7 @@ function bindSession(wsPath: string): void {
   writeFileSync(
     join(runtimeDir, 'session.json'),
     JSON.stringify({ sessionId: SESSION_ID, projectRoot: wsPath }, null, 2) + '\n',
-    'utf8',
+    'utf8'
   );
 }
 
@@ -86,7 +97,11 @@ function bindSession(wsPath: string): void {
  * Run one `peaks job` invocation. `--json` is the ONLY axis these cases vary —
  * everything else about the invocation is held fixed.
  */
-async function runJob(args: readonly string[], projectPath: string, json: boolean): Promise<CapturedIo> {
+async function runJob(
+  args: readonly string[],
+  projectPath: string,
+  json: boolean
+): Promise<CapturedIo> {
   const { io, captured } = makeCapturedIo();
   const program = new Command();
   registerJobCommands(program, io);
@@ -102,8 +117,18 @@ async function seedJob(ws: TmpWorkspace): Promise<void> {
 }
 
 /** Parse stdout as an envelope. Throws (fails the case) if it is not one. */
-function asEnvelope(captured: CapturedIo): { ok: boolean; command: string; warnings: string[]; nextActions: string[] } {
-  return JSON.parse(captured.stdout.join('\n')) as { ok: boolean; command: string; warnings: string[]; nextActions: string[] };
+function asEnvelope(captured: CapturedIo): {
+  ok: boolean;
+  command: string;
+  warnings: string[];
+  nextActions: string[];
+} {
+  return JSON.parse(captured.stdout.join('\n')) as {
+    ok: boolean;
+    command: string;
+    warnings: string[];
+    nextActions: string[];
+  };
 }
 
 /** Parse stdout as the `data` payload the non-JSON branch prints. */
@@ -209,9 +234,19 @@ describe('Scenario: a11y — the human channel a truthy asJson made unreachable'
     __autorefresh.refreshCodegraphAfterSlice.mockResolvedValue({
       refreshed: false,
       reason: 'index-failed',
-      note: REFRESH_NOTE,
+      note: REFRESH_NOTE
     });
-    const args = ['checkpoint', '--job-id', JOB_ID, '--slice-id', 'slice-001', '--state', 'done', '--commit-sha', COMMIT_SHA];
+    const args = [
+      'checkpoint',
+      '--job-id',
+      JOB_ID,
+      '--slice-id',
+      'slice-001',
+      '--state',
+      'done',
+      '--commit-sha',
+      COMMIT_SHA
+    ];
     // when: the slice-complete checkpoint runs both ways
     const withoutFlag = await runJob(args, ws.path, false);
     const withFlag = await runJob(args, ws.path, true);
@@ -234,9 +269,19 @@ describe('Scenario: a11y — the human channel a truthy asJson made unreachable'
     __autorefresh.refreshCodegraphAfterSlice.mockResolvedValue({ refreshed: true });
     // when: the slice-complete checkpoint runs without --json
     const captured = await runJob(
-      ['checkpoint', '--job-id', JOB_ID, '--slice-id', 'slice-001', '--state', 'done', '--commit-sha', COMMIT_SHA],
+      [
+        'checkpoint',
+        '--job-id',
+        JOB_ID,
+        '--slice-id',
+        'slice-001',
+        '--state',
+        'done',
+        '--commit-sha',
+        COMMIT_SHA
+      ],
       ws.path,
-      false,
+      false
     );
     // then: nothing is reported — a warning on every healthy boundary would
     //       train the reader to skip the line that matters
@@ -251,7 +296,7 @@ describe('Scenario: a11y — the human channel a truthy asJson made unreachable'
     const captured = await runJob(
       ['block', '--job-id', JOB_ID, '--slice-id', 'no-such-slice', '--reason', 'why'],
       ws.path,
-      false,
+      false
     );
     // then: the code and the remedy are on stderr, and stdout stays empty
     expect(captured.stderrText()).toContain('SLICE_NOT_FOUND: ');
@@ -281,30 +326,113 @@ describe('Scenario: integration — every fixed call site routes through the fla
     needsProgress?: true;
   }> = [
     // init: NO_ACTIVE_SESSION, INVALID_INIT, ok
-    { site: 'init/NO_ACTIVE_SESSION', label: 'init — no session', args: ['init', '--job-id', 'j-bare', '--slice-list', 's1'], bare: true },
-    { site: 'init/INVALID_INIT', label: 'init — empty slice list', args: ['init', '--job-id', 'j-bad', '--slice-list', ','] },
-    { site: 'init/ok', label: 'init — ok', args: ['init', '--job-id', 'j-fresh', '--slice-list', 's1'] },
+    {
+      site: 'init/NO_ACTIVE_SESSION',
+      label: 'init — no session',
+      args: ['init', '--job-id', 'j-bare', '--slice-list', 's1'],
+      bare: true
+    },
+    {
+      site: 'init/INVALID_INIT',
+      label: 'init — empty slice list',
+      args: ['init', '--job-id', 'j-bad', '--slice-list', ',']
+    },
+    {
+      site: 'init/ok',
+      label: 'init — ok',
+      args: ['init', '--job-id', 'j-fresh', '--slice-list', 's1']
+    },
     { site: 'status/ok', label: 'status', args: ['status', '--job-id', JOB_ID] },
     { site: 'rotate-now/ok', label: 'rotate-now', args: ['rotate-now', '--job-id', JOB_ID] },
-    { site: 'subagent-cleanup/ok', label: 'subagent-cleanup', args: ['subagent-cleanup', '--job-id', JOB_ID, '--batch-id', 'b1', '--force'] },
+    {
+      site: 'subagent-cleanup/ok',
+      label: 'subagent-cleanup',
+      args: ['subagent-cleanup', '--job-id', JOB_ID, '--batch-id', 'b1', '--force']
+    },
     // checkpoint: INVALID_CHECKPOINT, SLICE_NOT_FOUND, ok
-    { site: 'checkpoint/INVALID_CHECKPOINT', label: 'checkpoint — done without a commit sha', args: ['checkpoint', '--job-id', JOB_ID, '--slice-id', 'slice-001', '--state', 'done'] },
-    { site: 'checkpoint/SLICE_NOT_FOUND', label: 'checkpoint — unknown slice', args: ['checkpoint', '--job-id', JOB_ID, '--slice-id', 'no-such-slice', '--state', 'failed', '--reason', 'why'] },
-    { site: 'checkpoint/ok', label: 'checkpoint — done', args: ['checkpoint', '--job-id', JOB_ID, '--slice-id', 'slice-001', '--state', 'done', '--commit-sha', COMMIT_SHA] },
+    {
+      site: 'checkpoint/INVALID_CHECKPOINT',
+      label: 'checkpoint — done without a commit sha',
+      args: ['checkpoint', '--job-id', JOB_ID, '--slice-id', 'slice-001', '--state', 'done']
+    },
+    {
+      site: 'checkpoint/SLICE_NOT_FOUND',
+      label: 'checkpoint — unknown slice',
+      args: [
+        'checkpoint',
+        '--job-id',
+        JOB_ID,
+        '--slice-id',
+        'no-such-slice',
+        '--state',
+        'failed',
+        '--reason',
+        'why'
+      ]
+    },
+    {
+      site: 'checkpoint/ok',
+      label: 'checkpoint — done',
+      args: [
+        'checkpoint',
+        '--job-id',
+        JOB_ID,
+        '--slice-id',
+        'slice-001',
+        '--state',
+        'done',
+        '--commit-sha',
+        COMMIT_SHA
+      ]
+    },
     // block: INVALID_BLOCK, SLICE_NOT_FOUND, ok
-    { site: 'block/INVALID_BLOCK', label: 'block — reason too short', args: ['block', '--job-id', JOB_ID, '--slice-id', 'slice-001', '--reason', 'ab'] },
-    { site: 'block/SLICE_NOT_FOUND', label: 'block — unknown slice', args: ['block', '--job-id', JOB_ID, '--slice-id', 'no-such-slice', '--reason', 'why'] },
-    { site: 'block/ok', label: 'block — ok', args: ['block', '--job-id', JOB_ID, '--slice-id', 'slice-001', '--reason', 'because'] },
+    {
+      site: 'block/INVALID_BLOCK',
+      label: 'block — reason too short',
+      args: ['block', '--job-id', JOB_ID, '--slice-id', 'slice-001', '--reason', 'ab']
+    },
+    {
+      site: 'block/SLICE_NOT_FOUND',
+      label: 'block — unknown slice',
+      args: ['block', '--job-id', JOB_ID, '--slice-id', 'no-such-slice', '--reason', 'why']
+    },
+    {
+      site: 'block/ok',
+      label: 'block — ok',
+      args: ['block', '--job-id', JOB_ID, '--slice-id', 'slice-001', '--reason', 'because']
+    },
     { site: 'continue/ok', label: 'continue', args: ['continue', '--job-id', JOB_ID] },
     { site: 'resume/ok', label: 'resume', args: ['resume', '--job-id', JOB_ID] },
     // progress: NO_PROGRESS, ok, PROGRESS_READ_FAILED
-    { site: 'progress/NO_PROGRESS', label: 'progress — allow-missing with no mirror', args: ['progress', '--job-id', JOB_ID, '--allow-missing'] },
-    { site: 'progress/ok', label: 'progress — seeded mirror', args: ['progress', '--job-id', JOB_ID], needsProgress: true },
-    { site: 'progress/PROGRESS_READ_FAILED', label: 'progress — no mirror, no allow-missing', args: ['progress', '--job-id', JOB_ID] },
+    {
+      site: 'progress/NO_PROGRESS',
+      label: 'progress — allow-missing with no mirror',
+      args: ['progress', '--job-id', JOB_ID, '--allow-missing']
+    },
+    {
+      site: 'progress/ok',
+      label: 'progress — seeded mirror',
+      args: ['progress', '--job-id', JOB_ID],
+      needsProgress: true
+    },
+    {
+      site: 'progress/PROGRESS_READ_FAILED',
+      label: 'progress — no mirror, no allow-missing',
+      args: ['progress', '--job-id', JOB_ID]
+    },
     { site: 'handoff/ok', label: 'handoff', args: ['handoff', '--job-id', JOB_ID] },
     // karpathy-cost-check: NO_ACTIVE_SESSION, ok
-    { site: 'karpathy-cost-check/NO_ACTIVE_SESSION', label: 'karpathy-cost-check — no session', args: ['karpathy-cost-check', '--review-file', 'rd/karpathy-review.md'], bare: true },
-    { site: 'karpathy-cost-check/ok', label: 'karpathy-cost-check — missing review file', args: ['karpathy-cost-check', '--review-file', 'rd/karpathy-review.md'] },
+    {
+      site: 'karpathy-cost-check/NO_ACTIVE_SESSION',
+      label: 'karpathy-cost-check — no session',
+      args: ['karpathy-cost-check', '--review-file', 'rd/karpathy-review.md'],
+      bare: true
+    },
+    {
+      site: 'karpathy-cost-check/ok',
+      label: 'karpathy-cost-check — missing review file',
+      args: ['karpathy-cost-check', '--review-file', 'rd/karpathy-review.md']
+    }
   ];
 
   for (const { site, label, args, bare, needsProgress } of callSites) {
@@ -330,13 +458,19 @@ describe('Scenario: integration — every fixed call site routes through the fla
     // given: a workspace with NO session binding
     const bare = bareWorkspace();
     // when: init runs both ways
-    const withoutFlag = await runJob(['init', '--job-id', JOB_ID, '--slice-list', 's1'], bare, false);
+    const withoutFlag = await runJob(
+      ['init', '--job-id', JOB_ID, '--slice-list', 's1'],
+      bare,
+      false
+    );
     const withFlag = await runJob(['init', '--job-id', JOB_ID, '--slice-list', 's1'], bare, true);
     // then: --json keeps the envelope and its command name …
     expect(asEnvelope(withFlag).ok).toBe(false);
     expect(asEnvelope(withFlag).command).toBe('init');
     // … while without it the refusal is human text on stderr
-    expect(withoutFlag.stderrText()).toContain('NO_ACTIVE_SESSION: peaks job init requires --session-id');
+    expect(withoutFlag.stderrText()).toContain(
+      'NO_ACTIVE_SESSION: peaks job init requires --session-id'
+    );
   });
 });
 
@@ -363,6 +497,6 @@ function writeProgressMirror(projectDir: string): void {
     done: 1,
     total: 2,
     currentSlice: 'slice-002',
-    lastCommitSha: null,
+    lastCommitSha: null
   });
 }

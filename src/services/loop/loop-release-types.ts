@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { z } from 'zod';
 
 /* ---------------------------------------------------------------------- */
 /* PRD-002b slice 2 — schema-limit constants extracted from inline         */
@@ -62,14 +62,8 @@ const LOOP_CRYSTALLIZATION_EVIDENCE_MAX = 128;
  *     value is accepted in this schema version.
  */
 
-export const LoopReleaseLifecycleStatusSchema = z.enum([
-  "candidate",
-  "stable",
-  "retired",
-]);
-export type LoopReleaseLifecycleStatus = z.infer<
-  typeof LoopReleaseLifecycleStatusSchema
->;
+export const LoopReleaseLifecycleStatusSchema = z.enum(['candidate', 'stable', 'retired']);
+export type LoopReleaseLifecycleStatus = z.infer<typeof LoopReleaseLifecycleStatusSchema>;
 
 /**
  * The M3 share / desktop extension fields, listed for code-search /
@@ -82,10 +76,10 @@ export type LoopReleaseLifecycleStatus = z.infer<
  *   - export_bundle_format: constant "peaks.bundle/1" (CLI-written).
  */
 export const LOOP_RELEASE_M3_FIELDS = [
-  "shareable",
-  "share_excluded_paths",
-  "desktop_visible",
-  "export_bundle_format",
+  'shareable',
+  'share_excluded_paths',
+  'desktop_visible',
+  'export_bundle_format'
 ] as const;
 
 /**
@@ -100,18 +94,12 @@ export const LOOP_RELEASE_M3_FIELDS = [
  */
 export const LoopReleaseM3ExtensionSchema = z.object({
   shareable: z.boolean().default(true),
-  share_excluded_paths: z
-    .array(z.string().min(1).max(LOOP_SHARE_EXCLUDED_PATH_MAX))
-    .default([]),
+  share_excluded_paths: z.array(z.string().min(1).max(LOOP_SHARE_EXCLUDED_PATH_MAX)).default([]),
   desktop_visible: z.boolean().default(true),
-  export_bundle_format: z
-    .literal("peaks.bundle/1")
-    .default("peaks.bundle/1"),
+  export_bundle_format: z.literal('peaks.bundle/1').default('peaks.bundle/1')
 });
 /** Convenience type for the M3 share / desktop subset. */
-export type LoopReleaseM3Extension = z.infer<
-  typeof LoopReleaseM3ExtensionSchema
->;
+export type LoopReleaseM3Extension = z.infer<typeof LoopReleaseM3ExtensionSchema>;
 
 /**
  * Zod schema for the create payload (LoopReleaseInput). Mirrors the
@@ -127,31 +115,31 @@ export const LoopReleaseInputSchema = z
       .max(LOOP_ID_MAX)
       .regex(/^[a-z][a-z0-9]*(-[a-z0-9]+)*$/, {
         message:
-          "id must be kebab-case starting with a lowercase letter (e.g. loop-onboarding-research)",
+          'id must be kebab-case starting with a lowercase letter (e.g. loop-onboarding-research)'
       }),
     name: z.string().min(1).max(LOOP_NAME_MAX),
     scenario: z.string().trim().min(1).max(LOOP_SCENARIO_MAX),
     trigger_policy: z.string().trim().min(1).max(LOOP_TRIGGER_POLICY_MAX),
     success_criteria: z
       .array(z.string().trim().min(1).max(LOOP_SUCCESS_CRITERIA_ITEM_MAX))
-      .min(1, "success_criteria must list at least one declarative criterion"),
+      .min(1, 'success_criteria must list at least one declarative criterion'),
     interaction_policy: z
       .string()
       .trim()
-      .min(1, "interaction_policy must declare human-NL-choice-only semantics")
+      .min(1, 'interaction_policy must declare human-NL-choice-only semantics')
       .max(LOOP_INTERACTION_POLICY_MAX),
     feedback_policy: z.string().trim().min(1).max(LOOP_FEEDBACK_POLICY_MAX),
     evolution_policy: z.string().trim().min(1).max(LOOP_EVOLUTION_POLICY_MAX),
     evaluator_policy: z.array(z.string().trim().min(1).max(LOOP_EVALUATOR_POLICY_ITEM_MAX)).min(1),
     linked_bees: z.array(z.string().min(1).max(LOOP_LINKED_BEE_MAX)).default([]),
     run_history: z.array(z.string().min(1).max(LOOP_HISTORY_ITEM_MAX)).default([]),
-    crystallization_evidence: z.array(z.string().min(1).max(LOOP_CRYSTALLIZATION_EVIDENCE_MAX)).default([]),
+    crystallization_evidence: z
+      .array(z.string().min(1).max(LOOP_CRYSTALLIZATION_EVIDENCE_MAX))
+      .default([]),
     lifecycle_status: LoopReleaseLifecycleStatusSchema,
-    version: z
-      .string()
-      .regex(/^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/, {
-        message: "version must be a semver string (e.g. 0.1.0)",
-      }),
+    version: z.string().regex(/^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/, {
+      message: 'version must be a semver string (e.g. 0.1.0)'
+    })
   })
   .extend(LoopReleaseM3ExtensionSchema.shape);
 /**
@@ -175,9 +163,7 @@ export type LoopReleaseInput = z.input<typeof LoopReleaseInputSchema>;
  * service.create/read paths.
  */
 export const LoopReleaseSchema = LoopReleaseInputSchema.extend({
-  schema_version: z
-    .literal("peaks.loop/1")
-    .default("peaks.loop/1"),
+  schema_version: z.literal('peaks.loop/1').default('peaks.loop/1')
 });
 export type LoopRelease = z.infer<typeof LoopReleaseSchema>;
 
@@ -195,14 +181,16 @@ export function parseLoopRelease(input: unknown): LoopRelease {
  */
 export function safeParseLoopRelease(
   input: unknown
-): { ok: true; row: LoopRelease } | { ok: false; findings: Array<{ path: string; message: string }> } {
+):
+  | { ok: true; row: LoopRelease }
+  | { ok: false; findings: Array<{ path: string; message: string }> } {
   const r = LoopReleaseSchema.safeParse(input);
   if (r.success) return { ok: true, row: r.data as LoopRelease };
   return {
     ok: false,
     findings: r.error.issues.map((i) => ({
-      path: i.path.join("."),
-      message: i.message,
-    })),
+      path: i.path.join('.'),
+      message: i.message
+    }))
   };
 }

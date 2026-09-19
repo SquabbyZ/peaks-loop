@@ -59,6 +59,8 @@ try {
   process.stdout.write(JSON.stringify(envelope) + '\n');
   process.exit(0);
 } catch (err) {
-  process.stderr.write(`[ci-binding-driver] registerInstance failed: ${(err && err.stack) || String(err)}\n`);
+  process.stderr.write(
+    `[ci-binding-driver] registerInstance failed: ${(err && err.stack) || String(err)}\n`
+  );
   process.exit(1);
 }

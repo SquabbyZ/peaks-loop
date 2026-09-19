@@ -45,7 +45,11 @@ function refName(ref: string): string {
 }
 
 /** Resolves a `$ref` chain. Callers that only need the NAME must not use this — see `schemaToTypeString`. */
-function deref(schema: unknown, doc: Record<string, unknown>, depth: number): Record<string, unknown> | null {
+function deref(
+  schema: unknown,
+  doc: Record<string, unknown>,
+  depth: number
+): Record<string, unknown> | null {
   if (!isRecord(schema)) return null;
   const ref = schema['$ref'];
   if (typeof ref === 'string' && depth < MAX_REF_DEPTH) {
@@ -98,8 +102,12 @@ function schemaToTypeString(schema: unknown, doc: Record<string, unknown>, depth
   const enumValues = node['enum'];
   let base: string;
   if (Array.isArray(enumValues) && enumValues.length > 0) {
-    base = enumValues.map((value) => (typeof value === 'string' ? JSON.stringify(value) : String(value))).join(' | ');
-  } else if (COMPOSITION_KEYS.some((key) => Array.isArray(node[key]) && (node[key] as unknown[]).length > 0)) {
+    base = enumValues
+      .map((value) => (typeof value === 'string' ? JSON.stringify(value) : String(value)))
+      .join(' | ');
+  } else if (
+    COMPOSITION_KEYS.some((key) => Array.isArray(node[key]) && (node[key] as unknown[]).length > 0)
+  ) {
     const key = COMPOSITION_KEYS.find((candidate) => Array.isArray(node[candidate]))!;
     const variants = node[key] as unknown[];
     const glue = key === 'allOf' ? ' & ' : ' | ';
@@ -110,7 +118,11 @@ function schemaToTypeString(schema: unknown, doc: Record<string, unknown>, depth
     // leaked an unmapped `integer`, which this file's own comment records as a
     // source of false `number -> integer` exact lines.
     base = (node['type'] as unknown[])
-      .map((entry) => (typeof entry === 'string' && SCALAR_TYPES[entry] !== undefined ? SCALAR_TYPES[entry]! : String(entry)))
+      .map((entry) =>
+        typeof entry === 'string' && SCALAR_TYPES[entry] !== undefined
+          ? SCALAR_TYPES[entry]!
+          : String(entry)
+      )
       .join(' | ');
   } else {
     const type = node['type'];
@@ -250,7 +262,9 @@ export function parseOpenApiDocument(file: string, doc: Record<string, unknown>)
       collectParameters([...shared, ...own], locations);
 
       const requestBody = opRaw['requestBody'];
-      const bodySchema = schemaOf(jsonContent(isRecord(requestBody) ? requestBody['content'] : undefined));
+      const bodySchema = schemaOf(
+        jsonContent(isRecord(requestBody) ? requestBody['content'] : undefined)
+      );
       if (bodySchema !== undefined) record('request', collectFields(bodySchema, doc));
 
       const responses = opRaw['responses'];
@@ -263,10 +277,13 @@ export function parseOpenApiDocument(file: string, doc: Record<string, unknown>)
         }
       }
 
-      const operationId = typeof opRaw['operationId'] === 'string' ? opRaw['operationId'] : undefined;
-      operations.push(operationId === undefined
-        ? { method, path, locations, locationIssues }
-        : { method, path, operationId, locations, locationIssues });
+      const operationId =
+        typeof opRaw['operationId'] === 'string' ? opRaw['operationId'] : undefined;
+      operations.push(
+        operationId === undefined
+          ? { method, path, locations, locationIssues }
+          : { method, path, operationId, locations, locationIssues }
+      );
     }
   }
 
@@ -279,7 +296,9 @@ export function parseOpenApiDocument(file: string, doc: Record<string, unknown>)
 
   const info = doc['info'];
   const title = isRecord(info) && typeof info['title'] === 'string' ? info['title'] : undefined;
-  return title === undefined ? { openapi: version, operations } : { openapi: version, title, operations };
+  return title === undefined
+    ? { openapi: version, operations }
+    : { openapi: version, title, operations };
 }
 
 /** Reads and parses `.json` / `.yaml` / `.yml`. Throws `ApiDiffInputError` on anything else. */
@@ -297,7 +316,10 @@ export function loadApiDocument(file: string): ParsedDocument {
     else if (lower.endsWith('.json') || raw.trimStart().startsWith('{')) parsed = JSON.parse(raw);
     else parsed = parseYaml(raw);
   } catch (error) {
-    throw new ApiDiffInputError('PARSE_FAILED', `cannot parse ${file} as JSON or YAML: ${(error as Error).message}`);
+    throw new ApiDiffInputError(
+      'PARSE_FAILED',
+      `cannot parse ${file} as JSON or YAML: ${(error as Error).message}`
+    );
   }
   if (!isRecord(parsed)) {
     throw new ApiDiffInputError('NOT_AN_OBJECT', `${file} did not parse to an object`);
@@ -355,14 +377,19 @@ function splitTopLevel(text: string, separator: string): string[] {
  * `X | undefined` used to become `X | undefined | undefined`.
  */
 export function normalizeType(text: string): string {
-  let out = text.trim().replace(/[;,]\s*$/, '').replace(/\s+/g, ' ');
+  let out = text
+    .trim()
+    .replace(/[;,]\s*$/, '')
+    .replace(/\s+/g, ' ');
   out = out.replace(/'([^'\\]*)'/g, '"$1"');
   out = out.replace(/\s*\|\s*/g, ' | ').replace(/\s*&\s*/g, ' & ');
   const union = splitTopLevel(out, ' | ');
   if (union.length > 1) out = [...new Set(union)].join(' | ');
   out = out.replace(/\s*\[\s*\]/g, '[]');
   for (let pass = 0; pass < 3; pass += 1) {
-    out = out.replace(/Array<([^<>]*)>/g, (_all, inner: string) => (/[|&]/.test(inner) ? `(${inner})[]` : `${inner}[]`));
+    out = out.replace(/Array<([^<>]*)>/g, (_all, inner: string) =>
+      /[|&]/.test(inner) ? `(${inner})[]` : `${inner}[]`
+    );
   }
   out = out.replace(/\s*<\s*/g, '<').replace(/\s*>\s*/g, '>');
   return out.trim();

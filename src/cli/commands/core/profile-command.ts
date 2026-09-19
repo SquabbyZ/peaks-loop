@@ -6,7 +6,9 @@ import { addJsonOption, printResult, type ProgramIO } from '../../cli-helpers.js
 
 export function registerProfileCommand(program: Command, io: ProgramIO): void {
   const profile = program.command('profile').description('Manage runtime profiles');
-  addJsonOption(profile.command('list').description('List available profiles')).action((options: { json?: boolean }) => {
-    printResult(io, ok('profile.list', { profiles: listProfiles() }), options.json);
-  });
+  addJsonOption(profile.command('list').description('List available profiles')).action(
+    (options: { json?: boolean }) => {
+      printResult(io, ok('profile.list', { profiles: listProfiles() }), options.json);
+    }
+  );
 }

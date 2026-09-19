@@ -19,14 +19,14 @@ declareDimensions(
   [
     { dim: 'integration', reason: 'pure function, no fs / network / config boundary' },
     { dim: 'render', reason: 'returns a plain object, no structured output surface' },
-    { dim: 'a11y', reason: 'no user-visible text or exit code' },
-  ],
+    { dim: 'a11y', reason: 'no user-visible text or exit code' }
+  ]
 );
 
 import { scanFreshContextTrigger } from '~/src/services/fresh-context/trigger-scan';
 
 describe('Scenario: behavior — fresh-context trigger scan', () => {
-  it("when a signal keyword is present, should trigger and report the matched signals", () => {
+  it('when a signal keyword is present, should trigger and report the matched signals', () => {
     // given: a prompt carrying upgrade/migration signal keywords and the switch enabled
     // when:  the scan is invoked
     const out = scanFreshContextTrigger('升级 antd 到最新版本', true);
@@ -39,7 +39,7 @@ describe('Scenario: behavior — fresh-context trigger scan', () => {
     expect(out.enabled).toBe(true);
   });
 
-  it("when no signal keyword is present, should not trigger", () => {
+  it('when no signal keyword is present, should not trigger', () => {
     // given: a neutral refactor request with no trigger keyword
     // when:  the scan is invoked
     const out = scanFreshContextTrigger('重构内部工具函数', true);
@@ -49,7 +49,7 @@ describe('Scenario: behavior — fresh-context trigger scan', () => {
     expect(out.signals).toEqual([]);
   });
 
-  it("when a force keyword is present, should force a trigger even without signal keywords", () => {
+  it('when a force keyword is present, should force a trigger even without signal keywords', () => {
     // given: a prompt with only a force keyword (联网搜) and no signal keyword
     // when:  the scan is invoked
     const out = scanFreshContextTrigger('请帮我联网搜一下', true);
@@ -59,7 +59,7 @@ describe('Scenario: behavior — fresh-context trigger scan', () => {
     expect(out.signals).toEqual([]);
   });
 
-  it("when the kill-switch is disabled, should no-op regardless of signal hit", () => {
+  it('when the kill-switch is disabled, should no-op regardless of signal hit', () => {
     // given: a clear signal keyword but the kill-switch set to false
     // when:  the scan is invoked
     const out = scanFreshContextTrigger('升级 antd', false);
@@ -69,10 +69,13 @@ describe('Scenario: behavior — fresh-context trigger scan', () => {
     expect(out.signals).toContain('升级');
   });
 
-  it("when English signal keywords are present with mixed case, should match case-insensitively", () => {
+  it('when English signal keywords are present with mixed case, should match case-insensitively', () => {
     // given: a prompt with mixed-case English signal keywords
     // when:  the scan is invoked
-    const out = scanFreshContextTrigger('Migrate to the NEWEST React and check BREAKING changes', true);
+    const out = scanFreshContextTrigger(
+      'Migrate to the NEWEST React and check BREAKING changes',
+      true
+    );
     // then:  the english keywords are matched case-insensitively and the scan triggers
     expect(out.triggered).toBe(true);
     expect(out.signals).toContain('migrate');

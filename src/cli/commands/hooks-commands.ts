@@ -15,13 +15,23 @@ import {
   listSuperpowersDenyEntries,
   type HookScope
 } from '../../services/skills/hooks-settings-service.js';
-import { resolveHookEntries, resolveHookSpec } from '../../services/skills/hooks-codegate-superpowers.js';
+import {
+  resolveHookEntries,
+  resolveHookSpec
+} from '../../services/skills/hooks-codegate-superpowers.js';
 import { readJsonObjectFile } from '../../services/ide/shared/atomic-json.js';
 import { detectIdeFromContext } from '../../services/ide/hook-translator.js';
 import { resolveIdeOptionHelp } from '../../services/ide/ide-registry.js';
 import type { IdeId } from '../../services/ide/ide-types.js';
 
-type HookCliOptions = { global?: boolean; project?: string; dryRun?: boolean; json?: boolean; ide?: string; progress?: boolean };
+type HookCliOptions = {
+  global?: boolean;
+  project?: string;
+  dryRun?: boolean;
+  json?: boolean;
+  ide?: string;
+  progress?: boolean;
+};
 
 /**
  * This module's own directory — `<root>/src/cli/commands` in the source tree,
@@ -39,7 +49,9 @@ function resolveScope(options: { global?: boolean }): HookScope {
 }
 
 function resolveProjectRoot(scope: HookScope, project: string | undefined): string | undefined {
-  return scope === 'project' ? (project ?? findProjectRoot(process.cwd()) ?? process.cwd()) : undefined;
+  return scope === 'project'
+    ? (project ?? findProjectRoot(process.cwd()) ?? process.cwd())
+    : undefined;
 }
 
 /**
@@ -53,7 +65,11 @@ function resolveIdeForCommand(options: { ide?: string }, projectRoot: string | u
   if (options.ide !== undefined && options.ide.length > 0) {
     return options.ide as IdeId;
   }
-  return detectIdeFromContext({ env: process.env, cwd: projectRoot ?? process.cwd(), parsedStdin: null });
+  return detectIdeFromContext({
+    env: process.env,
+    cwd: projectRoot ?? process.cwd(),
+    parsedStdin: null
+  });
 }
 
 /**
@@ -68,7 +84,10 @@ function resolveIdeForCommand(options: { ide?: string }, projectRoot: string | u
  * the install shape so the JSON envelope doesn't claim a hook the
  * service did not write.
  */
-function listExpectedEntriesForIde(ide: IdeId, _skipProgress = false): ReadonlyArray<{ matcher: string; sentinel: string }> {
+function listExpectedEntriesForIde(
+  ide: IdeId,
+  _skipProgress = false
+): ReadonlyArray<{ matcher: string; sentinel: string }> {
   // Derived from `resolveHookEntries(ide)` — the same function `planHookInstall`
   // / `applyHookInstall` write from — so the summary can only ever report a
   // shape the install actually produces. The previous version was a
@@ -155,14 +174,33 @@ function describeHookCopy(
 ): string | null {
   if (scope !== 'global') return null;
   if (copy.copied) {
-    return dryRun ? `would copy ${label} from ${copy.source} to ${copy.target}` : `Copied ${label}: ${copy.target}`;
+    return dryRun
+      ? `would copy ${label} from ${copy.source} to ${copy.target}`
+      : `Copied ${label}: ${copy.target}`;
   }
   return `${label} NOT copied — source missing at ${copy.source}. Run the build (\`pnpm build\`) so the script ships with the package.`;
 }
 
-function copyBridgeHookIfPresent(userHome: string, dryRun = false): { copied: boolean; source: string; target: string } {
-  const source = resolve(MODULE_DIR, '..', '..', 'services', 'hooks', 'pre-tool-superpowers-bridge.sh');
-  const target = resolve(userHome, '.claude', 'skills', 'peaks-code', 'hooks', 'pre-tool-superpowers-bridge.sh');
+function copyBridgeHookIfPresent(
+  userHome: string,
+  dryRun = false
+): { copied: boolean; source: string; target: string } {
+  const source = resolve(
+    MODULE_DIR,
+    '..',
+    '..',
+    'services',
+    'hooks',
+    'pre-tool-superpowers-bridge.sh'
+  );
+  const target = resolve(
+    userHome,
+    '.claude',
+    'skills',
+    'peaks-code',
+    'hooks',
+    'pre-tool-superpowers-bridge.sh'
+  );
   if (!existsSync(source)) {
     return { copied: false, source, target };
   }
@@ -184,9 +222,19 @@ function copyBridgeHookIfPresent(userHome: string, dryRun = false): { copied: bo
  * runtime entry; the shell script is the canonical artifact distributed
  * alongside the bridge hook.
  */
-function copyCodeGateHookIfPresent(userHome: string, dryRun = false): { copied: boolean; source: string; target: string } {
+function copyCodeGateHookIfPresent(
+  userHome: string,
+  dryRun = false
+): { copied: boolean; source: string; target: string } {
   const source = resolve(MODULE_DIR, '..', '..', 'services', 'hooks', 'pre-tool-code-gate.sh');
-  const target = resolve(userHome, '.claude', 'skills', 'peaks-code', 'hooks', 'pre-tool-code-gate.sh');
+  const target = resolve(
+    userHome,
+    '.claude',
+    'skills',
+    'peaks-code',
+    'hooks',
+    'pre-tool-code-gate.sh'
+  );
   if (!existsSync(source)) {
     return { copied: false, source, target };
   }
@@ -211,11 +259,17 @@ export function registerHooksCommands(program: Command, io: ProgramIO): void {
       .description(
         `Install the peaks-managed gate-enforce hook entry into the adapter's settings.json. Slice #014: only the gate-enforce entry is installed; the legacy progress-start entry is no longer installed. Idempotent: re-runs are no-ops. Project scope by default.`
       )
-      .option('--global', 'install into the user-level ~/.claude/settings.json instead of the project')
+      .option(
+        '--global',
+        'install into the user-level ~/.claude/settings.json instead of the project'
+      )
       .option('--project <path>', 'project root path (auto-detected from cwd when omitted)')
       .option('--ide <id>', resolveIdeOptionHelp())
       .option('--dry-run', 'show what would change without writing')
-      .option('--no-progress', 'skip the progress-start PreToolUse hook entry; install ONLY the gate-enforce entry')
+      .option(
+        '--no-progress',
+        'skip the progress-start PreToolUse hook entry; install ONLY the gate-enforce entry'
+      )
   ).action((options: HookCliOptions) => {
     const scope = resolveScope(options);
     const projectRoot = resolveProjectRoot(scope, options.project);
@@ -227,17 +281,19 @@ export function registerHooksCommands(program: Command, io: ProgramIO): void {
         const dryRunEntries = listExpectedEntriesForIde(ide, skipProgress);
         // `dryRun: true` — a --dry-run must not write anything, and these
         // helpers' target is the user's home directory.
-        const bridgeCopy = scope === 'global'
-          ? copyBridgeHookIfPresent(process.env.USERPROFILE ?? process.env.HOME ?? '', true)
-          : { copied: false, source: '', target: '' };
+        const bridgeCopy =
+          scope === 'global'
+            ? copyBridgeHookIfPresent(process.env.USERPROFILE ?? process.env.HOME ?? '', true)
+            : { copied: false, source: '', target: '' };
         // Slice 2026-08-06-codegate-vendor-neutral: also copy the
         // code-gate hook script. The runtime gate lives at
         // `peaks code-gate --json` (registered as a PreToolUse entry
         // in the install output); the script is the build artifact
         // distributed alongside the bridge hook.
-        const codeGateCopy = scope === 'global'
-          ? copyCodeGateHookIfPresent(process.env.USERPROFILE ?? process.env.HOME ?? '', true)
-          : { copied: false, source: '', target: '' };
+        const codeGateCopy =
+          scope === 'global'
+            ? copyCodeGateHookIfPresent(process.env.USERPROFILE ?? process.env.HOME ?? '', true)
+            : { copied: false, source: '', target: '' };
         printResult(
           io,
           ok(
@@ -268,7 +324,8 @@ export function registerHooksCommands(program: Command, io: ProgramIO): void {
               // `settingsPath` + the entry names read as if it landed in the
               // committed, shared file.
               ...plan.entryTargets.map(
-                (entry) => `would write ${entry.matcher || '(no matcher)'} → ${entry.sentinel} to ${entry.settingsPath}`
+                (entry) =>
+                  `would write ${entry.matcher || '(no matcher)'} → ${entry.sentinel} to ${entry.settingsPath}`
               ),
               `would write ${listSuperpowersDenyEntries().length} permissions.deny entries (Layer 3 worktree governance)`,
               describeHookCopy('bridge hook', bridgeCopy, scope, true),
@@ -290,17 +347,19 @@ export function registerHooksCommands(program: Command, io: ProgramIO): void {
       // hook script from src/services/hooks/ to the user-global hooks
       // directory. Project scope does not need this — project's
       // .claude/skills/peaks-code is already a junction into the npm source.
-      const bridgeCopy = scope === 'global'
-        ? copyBridgeHookIfPresent(process.env.USERPROFILE ?? process.env.HOME ?? '')
-        : { copied: false, source: '', target: '' };
+      const bridgeCopy =
+        scope === 'global'
+          ? copyBridgeHookIfPresent(process.env.USERPROFILE ?? process.env.HOME ?? '')
+          : { copied: false, source: '', target: '' };
       // Slice 2026-08-06-codegate-vendor-neutral: also copy the
       // code-gate hook script. The runtime gate lives at
       // `peaks code-gate --json` (registered as a PreToolUse entry
       // in the install output); the script is the build artifact
       // distributed alongside the bridge hook.
-      const codeGateCopy = scope === 'global'
-        ? copyCodeGateHookIfPresent(process.env.USERPROFILE ?? process.env.HOME ?? '')
-        : { copied: false, source: '', target: '' };
+      const codeGateCopy =
+        scope === 'global'
+          ? copyCodeGateHookIfPresent(process.env.USERPROFILE ?? process.env.HOME ?? '')
+          : { copied: false, source: '', target: '' };
       const nextActions = result.applied
         ? [
             'Restart the IDE (or reload the workspace) so the hook entries take effect',
@@ -311,7 +370,9 @@ export function registerHooksCommands(program: Command, io: ProgramIO): void {
             describeHookCopy('bridge hook', bridgeCopy, scope, false),
             describeHookCopy('code-gate hook', codeGateCopy, scope, false)
           ].filter((line): line is string => line !== null)
-        : [describeHookCopy('bridge hook', bridgeCopy, scope, false)].filter((line): line is string => line !== null);
+        : [describeHookCopy('bridge hook', bridgeCopy, scope, false)].filter(
+            (line): line is string => line !== null
+          );
       // Slice 2026-07-29-worktree-layer3-deny: emit L3 deny bookkeeping
       // in the JSON envelope so downstream automation (audit / sc) can
       // confirm Layer 3 was applied without re-reading the file. When
@@ -341,7 +402,17 @@ export function registerHooksCommands(program: Command, io: ProgramIO): void {
       );
     } catch (error: unknown) {
       const message = getErrorMessage(error);
-      printResult(io, fail('hooks.install', 'HOOKS_INSTALL_FAILED', message, { scope, ide, applied: false, skipProgress }, [message]), options.json);
+      printResult(
+        io,
+        fail(
+          'hooks.install',
+          'HOOKS_INSTALL_FAILED',
+          message,
+          { scope, ide, applied: false, skipProgress },
+          [message]
+        ),
+        options.json
+      );
       process.exitCode = 1;
     }
   });
@@ -349,8 +420,13 @@ export function registerHooksCommands(program: Command, io: ProgramIO): void {
   addJsonOption(
     hooks
       .command('uninstall')
-      .description("Remove the peaks-managed gate-enforce hook entry from the target settings.json. Any legacy progress-start entry that a pre-#014 install left behind is also removed (sentinel-based scan). Third-party hooks are preserved.")
-      .option('--global', 'remove from the user-level ~/.claude/settings.json instead of the project')
+      .description(
+        'Remove the peaks-managed gate-enforce hook entry from the target settings.json. Any legacy progress-start entry that a pre-#014 install left behind is also removed (sentinel-based scan). Third-party hooks are preserved.'
+      )
+      .option(
+        '--global',
+        'remove from the user-level ~/.claude/settings.json instead of the project'
+      )
       .option('--project <path>', 'project root path (auto-detected from cwd when omitted)')
       .option('--ide <id>', resolveIdeOptionHelp())
   ).action((options: HookCliOptions) => {
@@ -375,7 +451,13 @@ export function registerHooksCommands(program: Command, io: ProgramIO): void {
       );
     } catch (error: unknown) {
       const message = getErrorMessage(error);
-      printResult(io, fail('hooks.uninstall', 'HOOKS_UNINSTALL_FAILED', message, { scope, ide, removed: false }, [message]), options.json);
+      printResult(
+        io,
+        fail('hooks.uninstall', 'HOOKS_UNINSTALL_FAILED', message, { scope, ide, removed: false }, [
+          message
+        ]),
+        options.json
+      );
       process.exitCode = 1;
     }
   });
@@ -425,24 +507,34 @@ export function registerHooksCommands(program: Command, io: ProgramIO): void {
       // installed yet".
       const warnings = status.supportsHooks
         ? []
-        : [`IDE '${ide}' cannot host peaks hooks (no HOOK_COMMAND_BY_IDE entry); nothing can be installed for it, which is why none is.`];
+        : [
+            `IDE '${ide}' cannot host peaks hooks (no HOOK_COMMAND_BY_IDE entry); nothing can be installed for it, which is why none is.`
+          ];
       printResult(
         io,
-        ok('hooks.status', {
-          ...status,
-          ide,
-          entries: [
-            ...readInstalledEntriesFromSettings(settings, ide),
-            ...readInstalledEntriesFromSettings(localSettings, ide)
-          ],
-          permissionsDenyEntries: listSuperpowersDenyEntries(),
-          permissionsDenyOnDisk: onDiskDeny
-        }, warnings),
+        ok(
+          'hooks.status',
+          {
+            ...status,
+            ide,
+            entries: [
+              ...readInstalledEntriesFromSettings(settings, ide),
+              ...readInstalledEntriesFromSettings(localSettings, ide)
+            ],
+            permissionsDenyEntries: listSuperpowersDenyEntries(),
+            permissionsDenyOnDisk: onDiskDeny
+          },
+          warnings
+        ),
         options.json
       );
     } catch (error: unknown) {
       const message = getErrorMessage(error);
-      printResult(io, fail('hooks.status', 'HOOKS_STATUS_FAILED', message, { scope, ide }, [message]), options.json);
+      printResult(
+        io,
+        fail('hooks.status', 'HOOKS_STATUS_FAILED', message, { scope, ide }, [message]),
+        options.json
+      );
       process.exitCode = 1;
     }
   });

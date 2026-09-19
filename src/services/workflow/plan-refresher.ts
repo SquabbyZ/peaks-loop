@@ -9,7 +9,16 @@
  * being rendered; the body is then `normalizePlanBody`-ed before hashing
  * so re-running with no input change returns the same hash.
  */
-import { existsSync, readFileSync, readdirSync, realpathSync, statSync, writeFileSync, mkdirSync, type Dirent } from 'node:fs';
+import {
+  existsSync,
+  readFileSync,
+  readdirSync,
+  realpathSync,
+  statSync,
+  writeFileSync,
+  mkdirSync,
+  type Dirent
+} from 'node:fs';
 import { join, sep } from 'node:path';
 import { fail, ok, type ResultEnvelope } from 'peaks-loop-shared/result';
 
@@ -55,7 +64,8 @@ function readPackageJson(projectRoot: string): PackageJsonShape | null {
   if (!existsSync(path)) return null;
   try {
     return JSON.parse(readFileSync(path, 'utf8')) as PackageJsonShape;
-  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+  } catch {
+    // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     return null;
   }
 }
@@ -76,11 +86,16 @@ function listAuthTsFiles(projectRoot: string): string[] {
         continue;
       }
       for (const entry of entries) {
-        if (entry.name === 'node_modules' || entry.name === '.git' || entry.name === 'dist') continue;
+        if (entry.name === 'node_modules' || entry.name === '.git' || entry.name === 'dist')
+          continue;
         const full = join(dir, entry.name);
         if (entry.isDirectory()) {
           stack.push(full);
-        } else if (entry.isFile() && /auth.*\.ts$|\.ts$/i.test(entry.name) && /auth/i.test(entry.name)) {
+        } else if (
+          entry.isFile() &&
+          /auth.*\.ts$|\.ts$/i.test(entry.name) &&
+          /auth/i.test(entry.name)
+        ) {
           out.push(full);
         }
       }
@@ -147,7 +162,9 @@ export function buildSecurityPlanBody(projectRoot: string): string {
   sections.push(`# Security Test Plan (project-level)`);
   sections.push(`Generated: ${new Date('2026-01-01T00:00:00Z').toISOString()}`);
   sections.push(`## Threat Model`);
-  sections.push(`Asset inventory: auth boundary, secret storage, external API surface, file system writes.`);
+  sections.push(
+    `Asset inventory: auth boundary, secret storage, external API surface, file system writes.`
+  );
   sections.push(`## Sensitive Service Files`);
   for (const dir of [...SENSITIVE_SERVICE_DIRS].sort()) {
     const files = sensitive[dir] ?? [];
@@ -215,12 +232,19 @@ function nowIso(): string {
 }
 
 export function refreshPlan(args: RefreshPlanArgs): ResultEnvelope<RefreshPlanData> {
-  const target = planPath({ projectRoot: args.project, sessionId: args.sessionId, type: args.type });
+  const target = planPath({
+    projectRoot: args.project,
+    sessionId: args.sessionId,
+    type: args.type
+  });
   // The body is a *function* of the project (sorted inputs + normalized
   // output). To make the hash independent of the current wall clock, we
   // always emit the same `Generated:` timestamp; the real `refreshedAt`
   // is reported separately as the envelope field.
-  const rawBody = args.type === 'security' ? buildSecurityPlanBody(args.project) : buildPerfPlanBody(args.project);
+  const rawBody =
+    args.type === 'security'
+      ? buildSecurityPlanBody(args.project)
+      : buildPerfPlanBody(args.project);
   const hash = hashNormalizedBody(rawBody);
   const wouldWrite = [target];
   const refreshedAt = nowIso();
@@ -259,15 +283,21 @@ export function refreshPlan(args: RefreshPlanArgs): ResultEnvelope<RefreshPlanDa
   try {
     projectRootReal = realpathSync(projectRoot);
   } catch {
-    return fail('workflow.plan.refresh', 'SYMLINK_ESCAPE', `cannot resolve project root ${projectRoot}`, {
-      type: args.type,
-      writtenFiles: [],
-      wouldWrite,
-      hash,
-      refreshedAt,
-      dryRun: true,
-      bodyPreview: rawBody
-    } satisfies RefreshPlanData, ['Inspect the project root for symlinks that escape the filesystem']);
+    return fail(
+      'workflow.plan.refresh',
+      'SYMLINK_ESCAPE',
+      `cannot resolve project root ${projectRoot}`,
+      {
+        type: args.type,
+        writtenFiles: [],
+        wouldWrite,
+        hash,
+        refreshedAt,
+        dryRun: true,
+        bodyPreview: rawBody
+      } satisfies RefreshPlanData,
+      ['Inspect the project root for symlinks that escape the filesystem']
+    );
   }
   const parent = join(target, '..');
   // Find the deepest existing ancestor of `parent` that is still
@@ -277,7 +307,12 @@ export function refreshPlan(args: RefreshPlanArgs): ResultEnvelope<RefreshPlanDa
   let cursor = parent;
   // Bound the walk: stop at the project root (inclusive). If the
   // project root itself does not exist, that's an error.
-  while (cursor !== projectRoot && cursor !== join(projectRoot, '..') && cursor !== '' && cursor !== sep) {
+  while (
+    cursor !== projectRoot &&
+    cursor !== join(projectRoot, '..') &&
+    cursor !== '' &&
+    cursor !== sep
+  ) {
     if (existsSync(cursor)) {
       existingParent = cursor;
       break;
@@ -292,15 +327,21 @@ export function refreshPlan(args: RefreshPlanArgs): ResultEnvelope<RefreshPlanDa
     // root's real path IS the deepest verifiable ancestor; if it's
     // a symlink, realpathSync has already collapsed it.
     if (!existsSync(projectRoot)) {
-      return fail('workflow.plan.refresh', 'SYMLINK_ESCAPE', `project root does not exist: ${projectRoot}`, {
-        type: args.type,
-        writtenFiles: [],
-        wouldWrite,
-        hash,
-        refreshedAt,
-        dryRun: true,
-        bodyPreview: rawBody
-      } satisfies RefreshPlanData, ['Inspect the project root — it must exist and be a directory']);
+      return fail(
+        'workflow.plan.refresh',
+        'SYMLINK_ESCAPE',
+        `project root does not exist: ${projectRoot}`,
+        {
+          type: args.type,
+          writtenFiles: [],
+          wouldWrite,
+          hash,
+          refreshedAt,
+          dryRun: true,
+          bodyPreview: rawBody
+        } satisfies RefreshPlanData,
+        ['Inspect the project root — it must exist and be a directory']
+      );
     }
     // Sanity: ensure the project root's real path stays inside its
     // own prefix (always true after realpath). No further check needed.
@@ -309,15 +350,21 @@ export function refreshPlan(args: RefreshPlanArgs): ResultEnvelope<RefreshPlanDa
     try {
       resolvedParent = realpathSync(existingParent);
     } catch {
-      return fail('workflow.plan.refresh', 'SYMLINK_ESCAPE', `cannot resolve parent directory ${existingParent}`, {
-        type: args.type,
-        writtenFiles: [],
-        wouldWrite,
-        hash,
-        refreshedAt,
-        dryRun: true,
-        bodyPreview: rawBody
-      } satisfies RefreshPlanData, ['Inspect the parent directory chain for symlinks that escape the session dir']);
+      return fail(
+        'workflow.plan.refresh',
+        'SYMLINK_ESCAPE',
+        `cannot resolve parent directory ${existingParent}`,
+        {
+          type: args.type,
+          writtenFiles: [],
+          wouldWrite,
+          hash,
+          refreshedAt,
+          dryRun: true,
+          bodyPreview: rawBody
+        } satisfies RefreshPlanData,
+        ['Inspect the parent directory chain for symlinks that escape the session dir']
+      );
     }
     // Resolved parent must stay under the project root. This catches
     // both: (i) a symlink within the project that points outside the
@@ -326,15 +373,21 @@ export function refreshPlan(args: RefreshPlanArgs): ResultEnvelope<RefreshPlanDa
     // destination, so the resolved parent chain must end up there.
     const projectRootPrefix = projectRootReal + sep;
     if (!resolvedParent.startsWith(projectRootPrefix) && resolvedParent !== projectRootReal) {
-      return fail('workflow.plan.refresh', 'SYMLINK_ESCAPE', `resolved path escapes project root: ${resolvedParent} is not under ${projectRootReal}`, {
-        type: args.type,
-        writtenFiles: [],
-        wouldWrite,
-        hash,
-        refreshedAt,
-        dryRun: true,
-        bodyPreview: rawBody
-      } satisfies RefreshPlanData, ['Inspect the parent directory chain for symlinks that escape the project root']);
+      return fail(
+        'workflow.plan.refresh',
+        'SYMLINK_ESCAPE',
+        `resolved path escapes project root: ${resolvedParent} is not under ${projectRootReal}`,
+        {
+          type: args.type,
+          writtenFiles: [],
+          wouldWrite,
+          hash,
+          refreshedAt,
+          dryRun: true,
+          bodyPreview: rawBody
+        } satisfies RefreshPlanData,
+        ['Inspect the parent directory chain for symlinks that escape the project root']
+      );
     }
   }
   // Apply: ensure parent dir exists, then write.
@@ -360,7 +413,9 @@ export function refreshPlan(args: RefreshPlanArgs): ResultEnvelope<RefreshPlanDa
 export { normalizePlanBody };
 // Helper for the CLI to use the same body builder.
 export function renderPlanBody(args: { type: PlanType; project: string }): string {
-  return args.type === 'security' ? buildSecurityPlanBody(args.project) : buildPerfPlanBody(args.project);
+  return args.type === 'security'
+    ? buildSecurityPlanBody(args.project)
+    : buildPerfPlanBody(args.project);
 }
 
 // hash helper for tests that want to assert a body against a fixture.

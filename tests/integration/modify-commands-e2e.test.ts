@@ -1,5 +1,13 @@
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
@@ -26,14 +34,18 @@ function runCli(args: readonly string[], cwd: string): RunResult {
   } catch (error: unknown) {
     const caught = error as { stdout?: Buffer | string; stderr?: Buffer | string; status?: number };
     return {
-      stdout: typeof caught.stdout === 'string' ? caught.stdout : caught.stdout?.toString('utf8') ?? '',
-      stderr: typeof caught.stderr === 'string' ? caught.stderr : caught.stderr?.toString('utf8') ?? '',
+      stdout:
+        typeof caught.stdout === 'string' ? caught.stdout : (caught.stdout?.toString('utf8') ?? ''),
+      stderr:
+        typeof caught.stderr === 'string' ? caught.stderr : (caught.stderr?.toString('utf8') ?? ''),
       code: caught.status ?? 1
     };
   }
 }
 
-function parseEnvelope<T = Record<string, unknown>>(result: RunResult): {
+function parseEnvelope<T = Record<string, unknown>>(
+  result: RunResult
+): {
   ok: boolean;
   command: string;
   code?: string;
@@ -67,7 +79,10 @@ afterEach(() => {
 describe('peaks config migrate (P2-B.2 modify e2e)', () => {
   test('dry-run reports planned migration without writing', () => {
     const project = makeProject('peaks-p2b2-cfg-mig-');
-    const result = runCli(['config', 'migrate', '--project', project, '--dry-run', '--json'], project);
+    const result = runCli(
+      ['config', 'migrate', '--project', project, '--dry-run', '--json'],
+      project
+    );
     expect(result.code).toBe(0);
     const envelope = parseEnvelope<{
       alreadyAtV2: boolean;
@@ -100,11 +115,16 @@ describe('peaks config rollback (P2-B.2 modify e2e)', () => {
     expect(envelope.data.applied).toBe(false);
     expect(typeof envelope.data.available).toBe('boolean');
     // backupPath may be null when no .bak is present on this machine — assert type only
-    expect(envelope.data.backupPath === null || typeof envelope.data.backupPath === 'string').toBe(true);
+    expect(envelope.data.backupPath === null || typeof envelope.data.backupPath === 'string').toBe(
+      true
+    );
   });
 
   test('does NOT accept --project flag (drift: --project is rejected)', () => {
-    const result = runCli(['config', 'rollback', '--project', 'C:/tmp', '--dry-run', '--json'], process.cwd());
+    const result = runCli(
+      ['config', 'rollback', '--project', 'C:/tmp', '--dry-run', '--json'],
+      process.cwd()
+    );
     expect(result.code).not.toBe(0);
     // commander "unknown option" message lives on stderr; the structured
     // JSON envelope explaining the rejection lives on stdout OR stderr
@@ -133,7 +153,8 @@ describe('peaks config restore (P2-B.2 modify e2e)', () => {
     mkdirSync(join(home, '.peaks'), { recursive: true });
     writeFileSync(
       join(home, '.peaks', 'config.json.1.x.bak'),
-      JSON.stringify({ version: '1.x', language: 'en', currentWorkspace: 'ws-default' }, null, 2) + '\n',
+      JSON.stringify({ version: '1.x', language: 'en', currentWorkspace: 'ws-default' }, null, 2) +
+        '\n',
       'utf8'
     );
     origHome = process.env.HOME;
@@ -145,8 +166,10 @@ describe('peaks config restore (P2-B.2 modify e2e)', () => {
   });
 
   afterEach(() => {
-    if (origHome === undefined) delete process.env.HOME; else process.env.HOME = origHome;
-    if (origUserProfile === undefined) delete process.env.USERPROFILE; else process.env.USERPROFILE = origUserProfile;
+    if (origHome === undefined) delete process.env.HOME;
+    else process.env.HOME = origHome;
+    if (origUserProfile === undefined) delete process.env.USERPROFILE;
+    else process.env.USERPROFILE = origUserProfile;
     rmSync(home, { recursive: true, force: true });
   });
 
@@ -164,11 +187,10 @@ describe('peaks config restore (P2-B.2 modify e2e)', () => {
   });
 
   test('--field dry-run on missing field returns structured verdict', () => {
-    const result = runCli([
-      'config', 'restore',
-      '--field', 'currentWorkspace',
-      '--dry-run', '--json'
-    ], process.cwd());
+    const result = runCli(
+      ['config', 'restore', '--field', 'currentWorkspace', '--dry-run', '--json'],
+      process.cwd()
+    );
     // Either the field is available (ok:true, applied:false) or unavailable (ok:false)
     // — both outcomes are valid structured verdicts; never silently a free-text crash.
     expect(result.code).toBe(0);
@@ -192,7 +214,10 @@ describe('peaks config restore (P2-B.2 modify e2e)', () => {
 describe('peaks standards init (P2-B.2 modify e2e)', () => {
   test('dry-run reports planned standards writes without touching disk', () => {
     const project = makeProject('peaks-p2b2-std-init-');
-    const result = runCli(['standards', 'init', '--project', project, '--dry-run', '--json'], project);
+    const result = runCli(
+      ['standards', 'init', '--project', project, '--dry-run', '--json'],
+      project
+    );
     expect(result.code).toBe(0);
     const envelope = parseEnvelope<{
       apply: boolean;
@@ -216,7 +241,10 @@ describe('peaks standards update (P2-B.2 modify e2e)', () => {
     const project = makeProject('peaks-p2b2-std-upd-');
     // Pre-create a CLAUDE.md so update has something to append to.
     writeFileSync(join(project, 'CLAUDE.md'), '# Project\n\nBody.\n', 'utf8');
-    const result = runCli(['standards', 'update', '--project', project, '--dry-run', '--json'], project);
+    const result = runCli(
+      ['standards', 'update', '--project', project, '--dry-run', '--json'],
+      project
+    );
     expect(result.code).toBe(0);
     const envelope = parseEnvelope<{
       apply: boolean;
@@ -255,7 +283,10 @@ describe('peaks standards migrate (P2-B.2 modify e2e)', () => {
     const project = makeProject('peaks-p2b2-std-mig-fcr-');
     // Note: the --from-claude-rules option is documented under `standards migrate`,
     // NOT as a separate `standards migrate-from-claude-rules` subcommand.
-    const result = runCli(['standards', 'migrate', '--project', project, '--from-claude-rules', '--json'], project);
+    const result = runCli(
+      ['standards', 'migrate', '--project', project, '--from-claude-rules', '--json'],
+      project
+    );
     // Either ok:true with a verdict, or ok:false with a structured code — never a free-form crash.
     expect(result.code).toBe(0);
     const envelope = parseEnvelope<{ applied: boolean }>(result);
@@ -267,7 +298,10 @@ describe('peaks standards migrate (P2-B.2 modify e2e)', () => {
 describe('peaks standards migrate-from-claude-rules (P2-B.2 modify e2e)', () => {
   test('subcommand is NOT registered as a separate verb (drift pointer)', () => {
     const project = makeProject('peaks-p2b2-std-mig-fcr-only-');
-    const result = runCli(['standards', 'migrate-from-claude-rules', '--project', project, '--json'], project);
+    const result = runCli(
+      ['standards', 'migrate-from-claude-rules', '--project', project, '--json'],
+      project
+    );
     expect(result.code).not.toBe(0);
     // Commander "unknown command" message is on stdout (free-form), plus a structured
     // envelope on stderr (or vice-versa). Accept either channel as long as the rejection
@@ -284,7 +318,10 @@ describe('peaks standards migrate-from-claude-rules (P2-B.2 modify e2e)', () => 
 describe('peaks standards lint (P2-B.2 modify e2e)', () => {
   test('reaches the handler and reports the missing guideline file', () => {
     const project = makeProject('peaks-p2b2-std-lint-');
-    const result = runCli(['standards', 'lint', '--category', 'loop-engineering', '--project', project, '--json'], project);
+    const result = runCli(
+      ['standards', 'lint', '--category', 'loop-engineering', '--project', project, '--json'],
+      project
+    );
     expect(result.code).not.toBe(0);
     const envelope = parseEnvelope<{ path: string }>(result);
     expect(envelope.ok).toBe(false);
@@ -294,7 +331,10 @@ describe('peaks standards lint (P2-B.2 modify e2e)', () => {
 
   test('rejects a category it does not implement', () => {
     const project = makeProject('peaks-p2b2-std-lint-cat-');
-    const result = runCli(['standards', 'lint', '--category', 'not-a-category', '--project', project, '--json'], project);
+    const result = runCli(
+      ['standards', 'lint', '--category', 'not-a-category', '--project', project, '--json'],
+      project
+    );
     expect(result.code).not.toBe(0);
     const envelope = parseEnvelope(result);
     expect(envelope.ok).toBe(false);
@@ -305,7 +345,10 @@ describe('peaks standards lint (P2-B.2 modify e2e)', () => {
     // The lint reads its own `--project` tree; the repo root is the one tree
     // guaranteed to carry `.peaks/standards/loop-engineering-guidelines.md`.
     const repoRoot = resolve(__dirname, '..', '..');
-    const result = runCli(['standards', 'lint', '--category', 'loop-engineering', '--project', repoRoot, '--json'], repoRoot);
+    const result = runCli(
+      ['standards', 'lint', '--category', 'loop-engineering', '--project', repoRoot, '--json'],
+      repoRoot
+    );
     expect(result.code).toBe(0);
     const envelope = parseEnvelope<{ redLineCount: number; findings: readonly string[] }>(result);
     expect(envelope.ok).toBe(true);
@@ -331,7 +374,10 @@ describe('peaks upgrade --detect-1x (P2-B.2 modify e2e)', () => {
     // "cwd is not a peaks project (no .peaks/_runtime/)" branch at :1266), so
     // the fixture — not the product — was what never matched.
     mkdirSync(join(project, '.peaks', '_runtime'), { recursive: true });
-    const result = runCli(['upgrade', '--to', '2.0', '--project', project, '--detect-1x', '--json'], project);
+    const result = runCli(
+      ['upgrade', '--to', '2.0', '--project', project, '--detect-1x', '--json'],
+      project
+    );
     expect(result.code).toBe(0);
     const envelope = parseEnvelope<{
       isOneX: boolean;
@@ -418,7 +464,10 @@ describe('peaks upgrade 1x-detector positional form (P2-B.2 modify e2e)', () => 
 describe('peaks upgrade gitignore-migrate positional form (P2-B.2 modify e2e)', () => {
   test('rejects positional "gitignore-migrate" and points to --gitignore-migrate', () => {
     const project = makeProject('peaks-p2b2-upg-gim-');
-    const result = runCli(['upgrade', 'gitignore-migrate', '--project', project, '--json'], project);
+    const result = runCli(
+      ['upgrade', 'gitignore-migrate', '--project', project, '--json'],
+      project
+    );
     expect(result.code).not.toBe(0);
     const envelope = parseEnvelope<Record<string, never>>(result);
     expect(envelope.ok).toBe(false);
@@ -437,51 +486,84 @@ describe('peaks preferences round-trip (P2-B.2 modify e2e)', () => {
   test('set -> get -> reset cycle persists and clears the override', () => {
     const project = makeProject('peaks-p2b2-pref-');
     // Sanity: --get on default key reports source:default.
-    const initial = parseEnvelope<{ key: string; source: string }>(runCli([
-      'preferences', 'get', '--key', 'economyMode', '--project', project, '--json'
-    ], project));
+    const initial = parseEnvelope<{ key: string; source: string }>(
+      runCli(
+        ['preferences', 'get', '--key', 'economyMode', '--project', project, '--json'],
+        project
+      )
+    );
     expect(initial.ok).toBe(true);
     expect(initial.data.source).toBe('default');
 
     // --set writes the override.
-    const setResult = parseEnvelope<{ key: string; value: unknown }>(runCli([
-      'preferences', 'set', '--key', 'economyMode',
-      '--value', 'false',
-      '--project', project, '--json'
-    ], project));
+    const setResult = parseEnvelope<{ key: string; value: unknown }>(
+      runCli(
+        [
+          'preferences',
+          'set',
+          '--key',
+          'economyMode',
+          '--value',
+          'false',
+          '--project',
+          project,
+          '--json'
+        ],
+        project
+      )
+    );
     expect(setResult.ok).toBe(true);
     expect(setResult.data.key).toBe('economyMode');
     expect(existsSync(join(project, '.peaks', 'preferences.json'))).toBe(true);
 
     // --get now returns source:override.
-    const afterSet = parseEnvelope<{ key: string; value: unknown; source: string }>(runCli([
-      'preferences', 'get', '--key', 'economyMode', '--project', project, '--json'
-    ], project));
+    const afterSet = parseEnvelope<{ key: string; value: unknown; source: string }>(
+      runCli(
+        ['preferences', 'get', '--key', 'economyMode', '--project', project, '--json'],
+        project
+      )
+    );
     expect(afterSet.ok).toBe(true);
     expect(afterSet.data.source).toBe('override');
     expect(afterSet.data.value).toBe(false);
 
     // --reset removes the override (CLI exposes `reset`, NOT `unset`).
-    const resetResult = parseEnvelope<{ key: string; removed: boolean }>(runCli([
-      'preferences', 'reset', '--key', 'economyMode', '--project', project, '--json'
-    ], project));
+    const resetResult = parseEnvelope<{ key: string; removed: boolean }>(
+      runCli(
+        ['preferences', 'reset', '--key', 'economyMode', '--project', project, '--json'],
+        project
+      )
+    );
     expect(resetResult.ok).toBe(true);
     expect(resetResult.data.removed).toBe(true);
 
     // After reset, --get returns source:default again.
-    const afterReset = parseEnvelope<{ key: string; source: string }>(runCli([
-      'preferences', 'get', '--key', 'economyMode', '--project', project, '--json'
-    ], project));
+    const afterReset = parseEnvelope<{ key: string; source: string }>(
+      runCli(
+        ['preferences', 'get', '--key', 'economyMode', '--project', project, '--json'],
+        project
+      )
+    );
     expect(afterReset.ok).toBe(true);
     expect(afterReset.data.source).toBe('default');
   });
 
   test('set rejects unknown key with structured PREFERENCES_KEY_UNKNOWN', () => {
     const project = makeProject('peaks-p2b2-pref-unknown-');
-    const result = runCli([
-      'preferences', 'set', '--key', 'bogus-key-12345',
-      '--value', '"x"', '--project', project, '--json'
-    ], project);
+    const result = runCli(
+      [
+        'preferences',
+        'set',
+        '--key',
+        'bogus-key-12345',
+        '--value',
+        '"x"',
+        '--project',
+        project,
+        '--json'
+      ],
+      project
+    );
     expect(result.code).not.toBe(0);
     // The error is emitted on stderr (the help-shell's contract writes
     // PREFERENCES_KEY_UNKNOWN to stderr, not the JSON envelope stream).
@@ -503,7 +585,10 @@ describe('peaks preferences list / unset subcommand forms (P2-B.2 modify e2e)', 
 
   test('positional "unset" is NOT registered — use "reset" instead (drift pointer)', () => {
     const project = makeProject('peaks-p2b2-pref-unset-');
-    const result = runCli(['preferences', 'unset', '--key', 'economyMode', '--project', project, '--json'], project);
+    const result = runCli(
+      ['preferences', 'unset', '--key', 'economyMode', '--project', project, '--json'],
+      project
+    );
     expect(result.code).not.toBe(0);
     const combined = result.stdout + result.stderr;
     expect(combined).toMatch(/unknown command.*unset|reset, set/);

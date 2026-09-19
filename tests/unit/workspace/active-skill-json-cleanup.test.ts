@@ -140,27 +140,39 @@ function findAllHits(dir: string, pattern: RegExp): Array<{ file: string; match:
   return out;
 }
 
-describe("Scenario: drift guard — `.peaks/_runtime/active-skill.json` is not referenced in src/", () => {
-  it("when invoked, should scan src/ for the project-level single-slot path; expect 0 production-code hits", () => {
+describe('Scenario: drift guard — `.peaks/_runtime/active-skill.json` is not referenced in src/', () => {
+  it('when invoked, should scan src/ for the project-level single-slot path; expect 0 production-code hits', () => {
     for (const dir of SCAN_DIRS) {
       const hits = findAllHits(dir, PROJECT_LEVEL_PATH_RE);
-      expect(hits, `Deprecated project-level single-slot path referenced in ${hits.map((h) => h.file).join(', ')}`).toEqual([]);
+      expect(
+        hits,
+        `Deprecated project-level single-slot path referenced in ${hits.map((h) => h.file).join(', ')}`
+      ).toEqual([]);
     }
   });
 });
 
-describe("Scenario: drift guard — `.peaks/.active-skill.json` (legacy dotfile) is not referenced in src/", () => {
-  it("when invoked, should scan src/ for the legacy dotfile path; expect 0 production-code hits", () => {
+describe('Scenario: drift guard — `.peaks/.active-skill.json` (legacy dotfile) is not referenced in src/', () => {
+  it('when invoked, should scan src/ for the legacy dotfile path; expect 0 production-code hits', () => {
     for (const dir of SCAN_DIRS) {
       const hits = findAllHits(dir, LEGACY_DOTFILE_PATH_RE);
-      expect(hits, `Legacy dotfile path referenced in ${hits.map((h) => h.file).join(', ')}`).toEqual([]);
+      expect(
+        hits,
+        `Legacy dotfile path referenced in ${hits.map((h) => h.file).join(', ')}`
+      ).toEqual([]);
     }
   });
 });
 
-describe("Scenario: drift guard — migration list no longer references active-skill.json", () => {
-  it("when invoked, should scan src/services/migration/ for the literal filenames; expect 0 hits", () => {
-    const hits = findAllHits(MIGRATION_DIR, /['"`]'?\/?(?:\.peaks[\\/]+)?(?:_runtime[\\/]+)?active-skill\.json['"`]?/g);
-    expect(hits, `Migration list still references active-skill.json in ${hits.map((h) => h.file).join(', ')}`).toEqual([]);
+describe('Scenario: drift guard — migration list no longer references active-skill.json', () => {
+  it('when invoked, should scan src/services/migration/ for the literal filenames; expect 0 hits', () => {
+    const hits = findAllHits(
+      MIGRATION_DIR,
+      /['"`]'?\/?(?:\.peaks[\\/]+)?(?:_runtime[\\/]+)?active-skill\.json['"`]?/g
+    );
+    expect(
+      hits,
+      `Migration list still references active-skill.json in ${hits.map((h) => h.file).join(', ')}`
+    ).toEqual([]);
   });
 });

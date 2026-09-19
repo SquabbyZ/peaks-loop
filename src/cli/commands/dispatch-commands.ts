@@ -37,7 +37,11 @@ import { provisionDispatchNode } from '../../services/workflow/provision-dispatc
 import { evaluatePromptSize } from '../../services/context/context-guard.js';
 import { getCurrentSessionId } from '../../services/skills/skill-presence-service.js';
 import { resolveOuterSessionId } from '../../services/session/binding-status-service.js';
-import { buildArtifactMeta, buildContextImpact, type ArtifactMeta } from '../../services/context/artifact-meta.js';
+import {
+  buildArtifactMeta,
+  buildContextImpact,
+  type ArtifactMeta
+} from '../../services/context/artifact-meta.js';
 import { assertSafeArtifactPath } from 'peaks-loop-shared-channel';
 import { playwrightProfilePaths } from '../../services/worktree/playwright-profile.js';
 import { loadPreferences } from '../../services/preferences/preferences-service.js';
@@ -51,9 +55,7 @@ import {
   validateRole
 } from './sub-agent-shared.js';
 import { runDispatchFromDag } from './dispatch-from-dag.js';
-import {
-  TEST_TOOL_DETECTION_BLOCK
-} from '../../services/dispatch/test-tool-detection.js';
+import { TEST_TOOL_DETECTION_BLOCK } from '../../services/dispatch/test-tool-detection.js';
 import {
   MemoryPreflightService,
   deriveMemoryQuery
@@ -66,9 +68,12 @@ import type { ContextPercentProbe } from '../../services/context/auto-compact-ty
 import {
   createDispatchProvenanceToken,
   DISPATCH_PROVENANCE_ENV,
-  writeDispatchProvenance,
+  writeDispatchProvenance
 } from '../../services/worktree/dispatch-provenance.js';
-import { spawnWorktreeLease, spawnContainerLease } from '../../services/dispatch/isolation-lease.js';
+import {
+  spawnWorktreeLease,
+  spawnContainerLease
+} from '../../services/dispatch/isolation-lease.js';
 import { runGitLsFiles } from '../../services/dispatch/dispatch-sub-agent.js';
 
 export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
@@ -77,45 +82,87 @@ export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
       .command('dispatch')
       .description(
         'Build an IDE-specific tool-call descriptor for a sub-agent dispatch. ' +
-        'Dry-run by design; the LLM executes the returned toolCall in its own ' +
-        'environment. Flags: --write-artifact (G7), ' +
-        '--force (G9 CLI 兜底). ' +
-        'See skills/peaks-code/references/sub-agent-dispatch.md for the ' +
-        'orchestrator contract.'
+          'Dry-run by design; the LLM executes the returned toolCall in its own ' +
+          'environment. Flags: --write-artifact (G7), ' +
+          '--force (G9 CLI 兜底). ' +
+          'See skills/peaks-code/references/sub-agent-dispatch.md for the ' +
+          'orchestrator contract.'
       )
-      .argument('<role>', 'sub-agent role (e.g. rd | qa | ui | txt | qa-business | qa-business-api)')
+      .argument(
+        '<role>',
+        'sub-agent role (e.g. rd | qa | ui | txt | qa-business | qa-business-api)'
+      )
       // 2.7.0 slice-dag-dispatcher MVP: --prompt is required ONLY when --from-dag is NOT
       // supplied. Previously this was `.requiredOption('--prompt')`, which blocked
       // `dispatch --from-dag <file>` calls because commander.js validates
       // `.requiredOption` before the action handler runs. The mutual-exclusion
       // check is enforced below in the action body (--prompt XOR --from-dag).
-      .option('--prompt <text>', 'the prompt to send to the sub-agent (required unless --from-dag is provided)')
-      .option('--prompt-length <bytes>', 'DOGFOOD ONLY: synthesize a prompt of this size (overrides --prompt content for size only; content is "x" repeated)')
+      .option(
+        '--prompt <text>',
+        'the prompt to send to the sub-agent (required unless --from-dag is provided)'
+      )
+      .option(
+        '--prompt-length <bytes>',
+        'DOGFOOD ONLY: synthesize a prompt of this size (overrides --prompt content for size only; content is "x" repeated)'
+      )
       .option('--request-id <rid>', 'the same <rid> used by peaks request init')
-      .option('--session-id <sid>', 'override active session id (default: resolve from .peaks/_runtime/session.json; falls back to PEAKS_SESSION_ID env var; final fallback "unknown-sid")')
+      .option(
+        '--session-id <sid>',
+        'override active session id (default: resolve from .peaks/_runtime/session.json; falls back to PEAKS_SESSION_ID env var; final fallback "unknown-sid")'
+      )
       .option('--project <path>', 'target project root (defaults to cwd)')
       .option('--batch-id <uuid>', 'batch id for the dispatch (default: auto-generated UUID)')
-      .option('--write-artifact <path>', 'G7: register an artifact file at <path>; CLI computes sha256 + size + writes ArtifactMeta to the dispatch record')
-      .option('--force', 'G9: override the 80% hard reject threshold at CLI (NOT allowed at hook layer per RL-30 strict)')
-      .option('--from-dag <file>', '2.7.0 slice-dag-dispatcher MVP: read a SliceDag JSON file, dispatch one sub-agent per node in topological order; --batch-id overrides the auto-generated batch id (mutually exclusive with <role>)')
-      .option('--isolation <mode>', 'slice 2026-07-29-worktree-l2-extended Part 2.C: isolation mode for the sub-agent. Accepts "worktree" (Part 2.C + Part 12 L2 surface), "container" (Part 8 contract + Part 12 L4 docker runtime), or "vm" (Part 25 contract; the VM runtime is a follow-up rid and fail-fasts with ISOLATION_VM_NOT_YET_IMPLEMENTED). Auto-spawns a lease + injects PEAKS_<MODE>_LEASE_ID into the dispatch envelope so the sub-agent can write to the isolated surface without a separate auth grant.')
+      .option(
+        '--write-artifact <path>',
+        'G7: register an artifact file at <path>; CLI computes sha256 + size + writes ArtifactMeta to the dispatch record'
+      )
+      .option(
+        '--force',
+        'G9: override the 80% hard reject threshold at CLI (NOT allowed at hook layer per RL-30 strict)'
+      )
+      .option(
+        '--from-dag <file>',
+        '2.7.0 slice-dag-dispatcher MVP: read a SliceDag JSON file, dispatch one sub-agent per node in topological order; --batch-id overrides the auto-generated batch id (mutually exclusive with <role>)'
+      )
+      .option(
+        '--isolation <mode>',
+        'slice 2026-07-29-worktree-l2-extended Part 2.C: isolation mode for the sub-agent. Accepts "worktree" (Part 2.C + Part 12 L2 surface), "container" (Part 8 contract + Part 12 L4 docker runtime), or "vm" (Part 25 contract; the VM runtime is a follow-up rid and fail-fasts with ISOLATION_VM_NOT_YET_IMPLEMENTED). Auto-spawns a lease + injects PEAKS_<MODE>_LEASE_ID into the dispatch envelope so the sub-agent can write to the isolated surface without a separate auth grant.'
+      )
       // Slice 4.0.8 RD §4 made this a `.requiredOption`. It is optional now:
       // the requirement was enforced but never validated — nothing downstream
       // reads the node, and the record writer's graph transition is
       // best-effort — so its only observable effect was to block dispatch in
       // every project without graph infrastructure. See
       // `provisionDispatchNode`.
-      .option('--graph-node <id>', 'graph node id this dispatch binds to (default: a node is provisioned on demand)')
-      .option('--workflow-id <id>', 'workflow id the graph node belongs to (defaults to derived from session)')
+      .option(
+        '--graph-node <id>',
+        'graph node id this dispatch binds to (default: a node is provisioned on demand)'
+      )
+      .option(
+        '--workflow-id <id>',
+        'workflow id the graph node belongs to (defaults to derived from session)'
+      )
       .option('--graph-ref <ref>', 'graphRef (defaults to graphs/<workflow-id>.json)')
       // rid-001 detached sub-agent dispatch: 4 new options. Default
       // mode is `in-process` so the 106+ existing dispatch call sites
       // keep their path byte-identical. The detached branch below
       // fires only when --mode detached is explicitly passed.
-      .option('--mode <mode>', 'dispatch execution mode: in-process (default, dry-run envelope only) | detached (shell out to peaks-loop-internal-runtime/dispatch.dispatchDetached for real vendor CLI execution).')
-      .option('--vendor <vendor>', 'target vendor CLI for --mode detached (claude | codex | copilot). Ignored in the default in-process path.')
-      .option('--no-throttle', 'rid-001 detached: user-overrides ResourceBudgetGuard when concurrent fan-out exceeds max-concurrent (user accepts risk; surfaces as warning)')
-      .option('--max-concurrent <n>', 'rid-001 detached: override the per-tenant max concurrent budget (default 8). Effective in both detached and in-process paths.')
+      .option(
+        '--mode <mode>',
+        'dispatch execution mode: in-process (default, dry-run envelope only) | detached (shell out to peaks-loop-internal-runtime/dispatch.dispatchDetached for real vendor CLI execution).'
+      )
+      .option(
+        '--vendor <vendor>',
+        'target vendor CLI for --mode detached (claude | codex | copilot). Ignored in the default in-process path.'
+      )
+      .option(
+        '--no-throttle',
+        'rid-001 detached: user-overrides ResourceBudgetGuard when concurrent fan-out exceeds max-concurrent (user accepts risk; surfaces as warning)'
+      )
+      .option(
+        '--max-concurrent <n>',
+        'rid-001 detached: override the per-tenant max concurrent budget (default 8). Effective in both detached and in-process paths.'
+      )
       // F5 follow-up (sediment 2026-08-11-rid-001-redo-fake-green-recovery-closure
       // §Lesson 1): the RD sub-agent's fake-green failure mode was that it
       // claimed "5/5 reachability tests PASS" while the files were never
@@ -125,7 +172,10 @@ export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
       // `## must_ls_files enforcement` block to the sub-agent prompt so
       // the LLM's first action MUST re-verify file existence before any
       // "completed" claim. Absent → old behavior is preserved.
-      .option('--must-ls-files <glob>', 'F5: anti-fake-green gate. Run `git ls-files <glob>` upfront; surface the result in the envelope as `mustLsFilesVerification: { path, exists, files }`; prepend a must_ls_files enforcement block to the sub-agent prompt. Absent → unchanged behavior.')
+      .option(
+        '--must-ls-files <glob>',
+        'F5: anti-fake-green gate. Run `git ls-files <glob>` upfront; surface the result in the envelope as `mustLsFilesVerification: { path, exists, files }`; prepend a must_ls_files enforcement block to the sub-agent prompt. Absent → unchanged behavior.'
+      )
   ).action(async (role: string, options: DispatchOptions) => {
     const asJson = options.json === true;
     // rid-001 detached sub-agent dispatch: when --mode detached is
@@ -141,9 +191,10 @@ export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
       try {
         const { dispatch: detachedDispatch } = await import('./sub-agent/detached.js');
         const projectRoot = options.project ?? process.cwd();
-        const maxConcurrent = typeof options.maxConcurrent === 'string' && options.maxConcurrent.length > 0
-          ? Number.parseInt(options.maxConcurrent, 10)
-          : undefined;
+        const maxConcurrent =
+          typeof options.maxConcurrent === 'string' && options.maxConcurrent.length > 0
+            ? Number.parseInt(options.maxConcurrent, 10)
+            : undefined;
         const result = await detachedDispatch({
           role,
           prompt: typeof options.prompt === 'string' ? options.prompt : '',
@@ -153,16 +204,22 @@ export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
           project: projectRoot,
           json: asJson,
           ...(options.noThrottle === true ? { noThrottle: true } : {}),
-          ...(typeof maxConcurrent === 'number' && Number.isInteger(maxConcurrent) && maxConcurrent > 0
+          ...(typeof maxConcurrent === 'number' &&
+          Number.isInteger(maxConcurrent) &&
+          maxConcurrent > 0
             ? { maxConcurrent }
-            : {}),
+            : {})
         });
         // The handler's `ok` is the launch outcome (a vendor CLI that is not
         // installed is a failure, not a footnote) — the caller must not
         // re-wrap it as `ok()` unconditionally, which is how `ok: true` with
         // `pid: -1` reached the orchestrator.
         if (result.ok) {
-          printResult(io, ok(result.command, result.data, result.warnings ?? [], result.nextActions ?? []), asJson);
+          printResult(
+            io,
+            ok(result.command, result.data, result.warnings ?? [], result.nextActions ?? []),
+            asJson
+          );
         } else {
           printResult(
             io,
@@ -178,14 +235,24 @@ export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
           process.exitCode = 1;
         }
       } catch (error: unknown) {
-        printResult(io, fail('sub-agent.dispatch', 'DISPATCH_DETACHED_ERROR', getErrorMessage(error), {
-          role,
-          toolCall: null,
-          dispatchRecordPath: null
-        } as never, [
-          'If --mode detached fails on import, the peaks-loop-internal-runtime package may be missing; reinstall and retry.',
-          'For environments without a vendor CLI on PATH, drop --mode to fall back to the default in-process dry-run.'
-        ]), asJson);
+        printResult(
+          io,
+          fail(
+            'sub-agent.dispatch',
+            'DISPATCH_DETACHED_ERROR',
+            getErrorMessage(error),
+            {
+              role,
+              toolCall: null,
+              dispatchRecordPath: null
+            } as never,
+            [
+              'If --mode detached fails on import, the peaks-loop-internal-runtime package may be missing; reinstall and retry.',
+              'For environments without a vendor CLI on PATH, drop --mode to fall back to the default in-process dry-run.'
+            ]
+          ),
+          asJson
+        );
         process.exitCode = 1;
       }
       return;
@@ -198,10 +265,20 @@ export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
     }
     const validation = validateRole(role);
     if (validation !== null) {
-      printResult(io, fail('sub-agent.dispatch', 'INVALID_ROLE', validation, { role, toolCall: null, dispatchRecordPath: null } as never, [
-        'Use a non-empty role string with no control characters.',
-        `Recommended: ${RECOMMENDED_ROLES}.`
-      ]), asJson);
+      printResult(
+        io,
+        fail(
+          'sub-agent.dispatch',
+          'INVALID_ROLE',
+          validation,
+          { role, toolCall: null, dispatchRecordPath: null } as never,
+          [
+            'Use a non-empty role string with no control characters.',
+            `Recommended: ${RECOMMENDED_ROLES}.`
+          ]
+        ),
+        asJson
+      );
       process.exitCode = 1;
       return;
     }
@@ -215,18 +292,41 @@ export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
     // so `peaks sub-agent dispatch agent --help` continues to
     // exit 0 with the help text — that is intentional, not a bug.
     if (role === 'agent') {
-      printResult(io, fail('sub-agent.dispatch', 'ROLE_REMOVED',
-        'The agent role was removed in Slice 3',
-        { role, reason: 'role-removed-in-slice-3', toolCall: null, dispatchRecordPath: null } as never, []), asJson);
+      printResult(
+        io,
+        fail(
+          'sub-agent.dispatch',
+          'ROLE_REMOVED',
+          'The agent role was removed in Slice 3',
+          {
+            role,
+            reason: 'role-removed-in-slice-3',
+            toolCall: null,
+            dispatchRecordPath: null
+          } as never,
+          []
+        ),
+        asJson
+      );
       process.exitCode = 1;
       return;
     }
     if (!options.prompt || options.prompt.length === 0) {
-      printResult(io, fail('sub-agent.dispatch', 'MISSING_PROMPT', '--prompt is required when --from-dag is not provided', { role, toolCall: null, dispatchRecordPath: null } as never, [
-        'Re-run with either:',
-        '  • `--prompt <text>` for single-role dispatch, OR',
-        '  • `--from-dag <file>` for DAG-aware multi-slice dispatch (no --prompt needed; the per-slice prompt is generated from the DAG nodes).'
-      ]), asJson);
+      printResult(
+        io,
+        fail(
+          'sub-agent.dispatch',
+          'MISSING_PROMPT',
+          '--prompt is required when --from-dag is not provided',
+          { role, toolCall: null, dispatchRecordPath: null } as never,
+          [
+            'Re-run with either:',
+            '  • `--prompt <text>` for single-role dispatch, OR',
+            '  • `--from-dag <file>` for DAG-aware multi-slice dispatch (no --prompt needed; the per-slice prompt is generated from the DAG nodes).'
+          ]
+        ),
+        asJson
+      );
       process.exitCode = 1;
       return;
     }
@@ -245,10 +345,20 @@ export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
       }
     }
     if (options.prompt.length + TEST_TOOL_DETECTION_BLOCK.length > PROMPT_LIMIT_BYTES) {
-      printResult(io, fail('sub-agent.dispatch', 'PROMPT_TOO_LARGE', `prompt exceeds ${PROMPT_LIMIT_BYTES} bytes (got ${options.prompt.length})`, { role, toolCall: null, dispatchRecordPath: null } as never, [
-        'Truncate the prompt or split into multiple dispatches.',
-        'Pass --force to override the 80% threshold at CLI (NOT allowed at hook layer).'
-      ]), asJson);
+      printResult(
+        io,
+        fail(
+          'sub-agent.dispatch',
+          'PROMPT_TOO_LARGE',
+          `prompt exceeds ${PROMPT_LIMIT_BYTES} bytes (got ${options.prompt.length})`,
+          { role, toolCall: null, dispatchRecordPath: null } as never,
+          [
+            'Truncate the prompt or split into multiple dispatches.',
+            'Pass --force to override the 80% threshold at CLI (NOT allowed at hook layer).'
+          ]
+        ),
+        asJson
+      );
       process.exitCode = 1;
       return;
     }
@@ -256,14 +366,24 @@ export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
     // G9 CLI 兜底 — evaluate prompt size against the threshold table.
     const decision = evaluatePromptSize(options.prompt.length, { force: options.force === true });
     if (!decision.allow) {
-      printResult(io, fail('sub-agent.dispatch', decision.code, `prompt size ${options.prompt.length} bytes exceeds threshold (tier=${decision.evaluation.tier}, ratio=${decision.evaluation.ratio.toFixed(3)})`, {
-        role,
-        toolCall: null,
-        dispatchRecordPath: null
-      } as never, [
-        decision.suggest ?? 'Trim prompt or pass --force to override at CLI.',
-        'PreToolUse hook layer will still reject regardless of --force (RL-30 strict).'
-      ]), asJson);
+      printResult(
+        io,
+        fail(
+          'sub-agent.dispatch',
+          decision.code,
+          `prompt size ${options.prompt.length} bytes exceeds threshold (tier=${decision.evaluation.tier}, ratio=${decision.evaluation.ratio.toFixed(3)})`,
+          {
+            role,
+            toolCall: null,
+            dispatchRecordPath: null
+          } as never,
+          [
+            decision.suggest ?? 'Trim prompt or pass --force to override at CLI.',
+            'PreToolUse hook layer will still reject regardless of --force (RL-30 strict).'
+          ]
+        ),
+        asJson
+      );
       process.exitCode = 1;
       return;
     }
@@ -277,10 +397,11 @@ export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
       // of the `unknown-sid` fallback. The unknown-sid branch is preserved
       // as the last-resort so callers without a bound session (e.g. an
       // ad-hoc dispatch in a fresh tree) still get a deterministic path.
-      const sid = options.sessionId
-        ?? process.env.PEAKS_SESSION_ID
-        ?? getCurrentSessionId(projectRoot)
-        ?? 'unknown-sid';
+      const sid =
+        options.sessionId ??
+        process.env.PEAKS_SESSION_ID ??
+        getCurrentSessionId(projectRoot) ??
+        'unknown-sid';
       const rid = options.requestId ?? 'unknown-rid';
       const batchId = options.batchId ?? randomUUID();
 
@@ -295,12 +416,28 @@ export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
       let worktreePath: string | null = null;
       let worktreeBranch: string | null = null;
       if (typeof options.isolation === 'string' && options.isolation.length > 0) {
-        if (options.isolation !== 'worktree' && options.isolation !== 'container' && options.isolation !== 'vm') {
-          printResult(io, fail('sub-agent.dispatch', 'INVALID_ISOLATION', `--isolation only accepts "worktree" | "container" | "vm" (got "${options.isolation}")`, {
-            role,
-            toolCall: null,
-            dispatchRecordPath: null
-          } as never, ['Drop --isolation or pass --isolation worktree / --isolation container / --isolation vm.']), asJson);
+        if (
+          options.isolation !== 'worktree' &&
+          options.isolation !== 'container' &&
+          options.isolation !== 'vm'
+        ) {
+          printResult(
+            io,
+            fail(
+              'sub-agent.dispatch',
+              'INVALID_ISOLATION',
+              `--isolation only accepts "worktree" | "container" | "vm" (got "${options.isolation}")`,
+              {
+                role,
+                toolCall: null,
+                dispatchRecordPath: null
+              } as never,
+              [
+                'Drop --isolation or pass --isolation worktree / --isolation container / --isolation vm.'
+              ]
+            ),
+            asJson
+          );
           process.exitCode = 1;
           return;
         }
@@ -323,14 +460,24 @@ export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
             // (id of the isolation surface the dispatch owns).
             leaseId = spawnResult.leaseId;
           } catch (error) {
-            printResult(io, fail('sub-agent.dispatch', 'ISOLATION_CONTAINER_SPAWN_FAILED', getErrorMessage(error), {
-              role,
-              toolCall: null,
-              dispatchRecordPath: null
-            } as never, [
-              'The dispatch aborts when --isolation container lease spawn fails; retry without --isolation or fix the underlying docker error.',
-              'For environments without a docker daemon, use --isolation worktree (the L2 production path).'
-            ]), asJson);
+            printResult(
+              io,
+              fail(
+                'sub-agent.dispatch',
+                'ISOLATION_CONTAINER_SPAWN_FAILED',
+                getErrorMessage(error),
+                {
+                  role,
+                  toolCall: null,
+                  dispatchRecordPath: null
+                } as never,
+                [
+                  'The dispatch aborts when --isolation container lease spawn fails; retry without --isolation or fix the underlying docker error.',
+                  'For environments without a docker daemon, use --isolation worktree (the L2 production path).'
+                ]
+              ),
+              asJson
+            );
             process.exitCode = 1;
             return;
           }
@@ -349,13 +496,23 @@ export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
             worktreePath = spawnResult.path;
             worktreeBranch = spawnResult.branch;
           } catch (error) {
-            printResult(io, fail('sub-agent.dispatch', 'ISOLATION_SPAWN_FAILED', getErrorMessage(error), {
-              role,
-              toolCall: null,
-              dispatchRecordPath: null
-            } as never, [
-              'The dispatch aborts when --isolation worktree lease spawn fails; retry without --isolation or fix the underlying git error.'
-            ]), asJson);
+            printResult(
+              io,
+              fail(
+                'sub-agent.dispatch',
+                'ISOLATION_SPAWN_FAILED',
+                getErrorMessage(error),
+                {
+                  role,
+                  toolCall: null,
+                  dispatchRecordPath: null
+                } as never,
+                [
+                  'The dispatch aborts when --isolation worktree lease spawn fails; retry without --isolation or fix the underlying git error.'
+                ]
+              ),
+              asJson
+            );
             process.exitCode = 1;
             return;
           }
@@ -390,35 +547,55 @@ export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
           //      allow via the vm lease.
           //
           // Until then: fail-fast.
-          printResult(io, fail('sub-agent.dispatch', 'ISOLATION_VM_NOT_YET_IMPLEMENTED', '--isolation vm is the L4 follow-up to --isolation container (Part 25 contract); the VM runtime (KVM / HyperKit / Hyper-V) is a much larger follow-up rid and is intentionally not implemented yet. Drop --isolation or pass --isolation worktree / --isolation container for now.', {
-            role,
-            toolCall: null,
-            dispatchRecordPath: null
-          } as never, [
-            'The VM contract is shipped (--isolation vm is accepted by the dispatch parser); the runtime is the next rid.',
-            'Use --isolation worktree (L2 production) or --isolation container (L4 docker, Part 12) for now.'
-          ]), asJson);
+          printResult(
+            io,
+            fail(
+              'sub-agent.dispatch',
+              'ISOLATION_VM_NOT_YET_IMPLEMENTED',
+              '--isolation vm is the L4 follow-up to --isolation container (Part 25 contract); the VM runtime (KVM / HyperKit / Hyper-V) is a much larger follow-up rid and is intentionally not implemented yet. Drop --isolation or pass --isolation worktree / --isolation container for now.',
+              {
+                role,
+                toolCall: null,
+                dispatchRecordPath: null
+              } as never,
+              [
+                'The VM contract is shipped (--isolation vm is accepted by the dispatch parser); the runtime is the next rid.',
+                'Use --isolation worktree (L2 production) or --isolation container (L4 docker, Part 12) for now.'
+              ]
+            ),
+            asJson
+          );
           process.exitCode = 1;
           return;
         }
       }
-
 
       // loadPreferences can throw on schema mismatch; we fall back to defaults
       // to avoid breaking the dispatch on a stale preferences.json file.
       let projectPrefs = DEFAULT_PREFERENCES;
       try {
         projectPrefs = loadPreferences(projectRoot);
-      } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+      } catch {
+        // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
         // Keep default preferences.
       }
 
       const ide = detectInstalledIde(projectRoot) ?? 'claude-code';
       const adapter = getAdapter(ide);
       if (!adapter.subAgentDispatcher.supportsRole(role)) {
-        printResult(io, fail('sub-agent.dispatch', 'IDE_NOT_SUPPORTED', `IDE ${ide} does not support role "${role}"`, { role, toolCall: null, dispatchRecordPath: null } as never, [
-          'Switch to a registered IDE (e.g. claude-code) or pick a role the current IDE supports.'
-        ]), asJson);
+        printResult(
+          io,
+          fail(
+            'sub-agent.dispatch',
+            'IDE_NOT_SUPPORTED',
+            `IDE ${ide} does not support role "${role}"`,
+            { role, toolCall: null, dispatchRecordPath: null } as never,
+            [
+              'Switch to a registered IDE (e.g. claude-code) or pick a role the current IDE supports.'
+            ]
+          ),
+          asJson
+        );
         process.exitCode = 1;
         return;
       }
@@ -444,7 +621,8 @@ export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
       let codegraphBlock: string | null | undefined;
       if (role === 'rd') {
         try {
-          const { buildCodegraphPreflightBlock } = await import('../../services/codegraph/codegraph-preflight-service.js');
+          const { buildCodegraphPreflightBlock } =
+            await import('../../services/codegraph/codegraph-preflight-service.js');
           const preflight = await buildCodegraphPreflightBlock(projectRoot);
           codegraphBlock = preflight.available ? preflight.block : null;
         } catch {
@@ -484,7 +662,8 @@ export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
       // free).
       let contextProbe: ContextPercentProbe | null = null;
       try {
-        const { readContextPercent } = await import('../../services/context/auto-compact-reader.js');
+        const { readContextPercent } =
+          await import('../../services/context/auto-compact-reader.js');
         const outerSessionId = resolveOuterSessionId(projectRoot, sid);
         contextProbe = readContextPercent({
           projectRoot,
@@ -523,7 +702,9 @@ export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
         ...(freshContextBlock !== undefined ? { freshContextBlock } : {}),
         // §4: advisory session capsule pointer + precedence line.
         ...(capsuleRef !== null
-          ? { capsule: { batchId: capsuleRef.batchId, key: capsuleRef.key, bytes: capsuleRef.bytes } }
+          ? {
+              capsule: { batchId: capsuleRef.batchId, key: capsuleRef.key, bytes: capsuleRef.bytes }
+            }
           : {})
       });
       // Part 2.C: when --isolation worktree, prepend an isolation envelope
@@ -532,13 +713,22 @@ export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
       // process.env.PEAKS_WORKTREE_LEASE_ID here — sub-agents are spawned
       // by the LLM in its own environment, not as children of this CLI;
       // the lease id travels through the dispatch record + prompt body.
-      const isolationBlock = isolationMode !== null && leaseId !== null
-        ? `\n## Worktree isolation (Part 2.C)\n` +
-          `leaseId: ${leaseId}\n` +
-          `worktreePath: ${worktreePath}\n` +
-          `branch: ${worktreeBranch}\n` +
-          `You MAY ` + '`git worktree add` ' + `and ` + '`git worktree remove` ' + `against this lease without a separate ` + '`peaks worktree auth grant` ' + `— the PreToolUse gate reads the lease file. Run ` + '`peaks worktree release --lease-id ${leaseId}` ' + `when done.\n`
-        : '';
+      const isolationBlock =
+        isolationMode !== null && leaseId !== null
+          ? `\n## Worktree isolation (Part 2.C)\n` +
+            `leaseId: ${leaseId}\n` +
+            `worktreePath: ${worktreePath}\n` +
+            `branch: ${worktreeBranch}\n` +
+            `You MAY ` +
+            '`git worktree add` ' +
+            `and ` +
+            '`git worktree remove` ' +
+            `against this lease without a separate ` +
+            '`peaks worktree auth grant` ' +
+            `— the PreToolUse gate reads the lease file. Run ` +
+            '`peaks worktree release --lease-id ${leaseId}` ' +
+            `when done.\n`
+          : '';
       // F5 follow-up: anti-fake-green gate. When `--must-ls-files <glob>`
       // is supplied, run `git ls-files <glob>` upfront, surface the
       // result in the envelope as `mustLsFilesVerification: { path,
@@ -548,14 +738,19 @@ export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
       // any "completed"/"PASS" claim). When the flag is absent the
       // field is `null` and no block is injected — old call sites
       // see no behavior change (rid-001 fake-green Lesson 1).
-      let mustLsFilesVerification: { path: string; exists: boolean; files: readonly string[] } | null = null;
+      let mustLsFilesVerification: {
+        path: string;
+        exists: boolean;
+        files: readonly string[];
+      } | null = null;
       let mustLsFilesBlock = '';
       if (typeof options.mustLsFiles === 'string' && options.mustLsFiles.length > 0) {
         const glob = options.mustLsFiles;
         const files = runGitLsFiles(projectRoot, glob);
         const exists = files.length > 0;
         mustLsFilesVerification = { path: glob, exists, files };
-        mustLsFilesBlock = `\n## must_ls_files enforcement (F5 anti-fake-green)\n` +
+        mustLsFilesBlock =
+          `\n## must_ls_files enforcement (F5 anti-fake-green)\n` +
           `glob: ${glob}\n` +
           `verification: ${exists ? `EXISTS (${files.length} file${files.length === 1 ? '' : 's'} found)` : 'MISSING (no files matched the glob)'}\n` +
           (exists ? `first match: ${files[0] ?? ''}\n` : '') +
@@ -570,7 +765,12 @@ export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
 
       let toolCall: SubAgentToolCall;
       try {
-        toolCall = adapter.subAgentDispatcher.buildToolCall({ role, prompt: effectivePrompt, requestId: rid, sessionId: sid });
+        toolCall = adapter.subAgentDispatcher.buildToolCall({
+          role,
+          prompt: effectivePrompt,
+          requestId: rid,
+          sessionId: sid
+        });
         // Part 2.C: stamp the toolCall with `isolation` + a sub-agent
         // env block so adapters that surface it (Claude Code's Task
         // tool) propagate the lease id to the spawned process. The
@@ -581,7 +781,7 @@ export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
           const provenanceToken = createDispatchProvenanceToken({
             sessionId: sid,
             requestId: rid,
-            leaseId,
+            leaseId
           });
           if (isolationMode === 'worktree') {
             writeDispatchProvenance({
@@ -593,8 +793,8 @@ export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
                 requestId: rid,
                 leaseId,
                 isolation: 'worktree',
-                issuedAt: new Date().toISOString(),
-              },
+                issuedAt: new Date().toISOString()
+              }
             });
           }
           // Slice 2026-08-01-subagent-merge-and-e2e (Task 8): stamp the
@@ -607,7 +807,7 @@ export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
           const profile = playwrightProfilePaths({
             projectRoot,
             sessionId: sid,
-            dispatchId: rid,
+            dispatchId: rid
           });
           toolCall = {
             ...toolCall,
@@ -619,7 +819,9 @@ export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
                 PEAKS_WORKTREE_LEASE_ID: leaseId,
                 PEAKS_PLAYWRIGHT_USER_DATA_DIR: profile.userDataDir,
                 PEAKS_PLAYWRIGHT_PROFILE_NAME: profile.profileName,
-                ...(isolationMode === 'worktree' ? { [DISPATCH_PROVENANCE_ENV]: provenanceToken } : {}),
+                ...(isolationMode === 'worktree'
+                  ? { [DISPATCH_PROVENANCE_ENV]: provenanceToken }
+                  : {})
               }
             }
           };
@@ -633,24 +835,37 @@ export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
         // roles like 'qa-business' would otherwise drop the event
         // through schema rejection).
         const KNOWN_ROLES: ReadonlySet<string> = new Set(OBSERVABILITY_SUBAGENT_ROLES);
-        const knownRole: ObservabilitySubagentRole | null = KNOWN_ROLES.has(role) ? role as ObservabilitySubagentRole : null;
-        emitObservabilityEvent({
-          schemaVersion: 1,
-          ts: new Date().toISOString(),
-          sessionId: sid,
-          category: 'dispatch',
-          ...(knownRole !== null ? { role: knownRole } : {}),
-          detail: {
-            requestId: rid,
-            ide: adapter.subAgentDispatcher.label,
-            promptBytes: effectivePrompt.length
-          }
-        }, { projectRoot });
+        const knownRole: ObservabilitySubagentRole | null = KNOWN_ROLES.has(role)
+          ? (role as ObservabilitySubagentRole)
+          : null;
+        emitObservabilityEvent(
+          {
+            schemaVersion: 1,
+            ts: new Date().toISOString(),
+            sessionId: sid,
+            category: 'dispatch',
+            ...(knownRole !== null ? { role: knownRole } : {}),
+            detail: {
+              requestId: rid,
+              ide: adapter.subAgentDispatcher.label,
+              promptBytes: effectivePrompt.length
+            }
+          },
+          { projectRoot }
+        );
       } catch (error: unknown) {
         if (error instanceof SubAgentNotSupportedError) {
-          printResult(io, fail('sub-agent.dispatch', 'IDE_NOT_SUPPORTED', error.message, { role, toolCall: null, dispatchRecordPath: null } as never, [
-            'Switch IDE or pick a role the current IDE supports.'
-          ]), asJson);
+          printResult(
+            io,
+            fail(
+              'sub-agent.dispatch',
+              'IDE_NOT_SUPPORTED',
+              error.message,
+              { role, toolCall: null, dispatchRecordPath: null } as never,
+              ['Switch IDE or pick a role the current IDE supports.']
+            ),
+            asJson
+          );
           process.exitCode = 1;
           return;
         }
@@ -742,60 +957,74 @@ export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
       });
       const nextActions = [
         'Tool call is dry-run; LLM must execute the tool to actually dispatch the sub-agent.',
-        'After dispatching, the sub-agent should call `peaks sub-agent heartbeat --record ' + dispatchRecordPath + '` periodically.'
+        'After dispatching, the sub-agent should call `peaks sub-agent heartbeat --record ' +
+          dispatchRecordPath +
+          '` periodically.'
       ];
       if (counter.warning) {
-        nextActions.push(`Batch is over the RL-1 limit (${BATCH_LIMIT}); consider splitting into multiple batches.`);
+        nextActions.push(
+          `Batch is over the RL-1 limit (${BATCH_LIMIT}); consider splitting into multiple batches.`
+        );
       }
       const expectedCompletionSeconds = 45;
-      const artifactsPublicPaths = typeof options.writeArtifact === 'string' && options.writeArtifact.length > 0
-        ? [options.writeArtifact]
-        : [];
+      const artifactsPublicPaths =
+        typeof options.writeArtifact === 'string' && options.writeArtifact.length > 0
+          ? [options.writeArtifact]
+          : [];
       const orchestratorVisibleHint = `⏳ Spawning sub-agent via Task tool: ${role} for rid=${rid}, batch-id=${batchId} (ETA ~${expectedCompletionSeconds}s)`;
-      printResult(io, ok('sub-agent.dispatch', {
-        // Slice 2026-06-23-audit-4th #E1: every CLI envelope carries
-        // an envelopeVersion marker so consumers can detect contract
-        // changes (the previous #4 dropped `data.prompt` silently).
-        envelopeVersion: '2.3.0',
-        role,
-        ide: adapter.subAgentDispatcher.label,
-        // Slice 2026-06-23-audit-3rd #4: do NOT echo `prompt` in stdout.
-        // Prompts can carry user content (sometimes test credentials /
-        // internal URLs) that has no business landing in shell history,
-        // log aggregators, or tmux scrollback. The dispatch record on
-        // disk (gitignored under .peaks/_sub_agents/) keeps the prompt
-        // for the sub-agent to read; CLI stdout stays metadata-only.
-        // Surface promptSize + originalPromptSize so the LLM-side
-        // runner can reason about the size delta without seeing the
-        // content.
-        originalPromptSize: options.prompt.length,
-        promptSize: effectivePrompt.length,
-        toolCall,
-        dispatchRecordPath,
-        batchId,
-        dispatchedInBatch: counter.count,
-        forcedAt: decision.forcedAt,
-        contextImpact,
-        artifactMetas: artifactMeta ? [artifactMeta] : [],
-        orchestratorVisibleHint,
-        artifactsPublicPaths,
-        expectedCompletionSeconds,
-        // Part 2.C: when --isolation worktree, surface the lease
-        // handle to the LLM-side runner so it can call
-        // `peaks worktree release --lease-id <id>` after the sub-agent
-        // finishes (or rely on the next gc pass to clean up). When
-        // isolation is not requested, isolation === null.
-        isolation: isolationMode,
-        leaseId,
-        worktreePath,
-        worktreeBranch,
-        // F5: anti-fake-green gate envelope surface. When
-        // `--must-ls-files <glob>` is supplied this carries the
-        // pre-dispatch verification result so the orchestrator can
-        // surface "the file exists" (or "missing — block") before
-        // spawning the sub-agent. Null when the flag is absent.
-        mustLsFilesVerification
-      }, warnings, nextActions), asJson);
+      printResult(
+        io,
+        ok(
+          'sub-agent.dispatch',
+          {
+            // Slice 2026-06-23-audit-4th #E1: every CLI envelope carries
+            // an envelopeVersion marker so consumers can detect contract
+            // changes (the previous #4 dropped `data.prompt` silently).
+            envelopeVersion: '2.3.0',
+            role,
+            ide: adapter.subAgentDispatcher.label,
+            // Slice 2026-06-23-audit-3rd #4: do NOT echo `prompt` in stdout.
+            // Prompts can carry user content (sometimes test credentials /
+            // internal URLs) that has no business landing in shell history,
+            // log aggregators, or tmux scrollback. The dispatch record on
+            // disk (gitignored under .peaks/_sub_agents/) keeps the prompt
+            // for the sub-agent to read; CLI stdout stays metadata-only.
+            // Surface promptSize + originalPromptSize so the LLM-side
+            // runner can reason about the size delta without seeing the
+            // content.
+            originalPromptSize: options.prompt.length,
+            promptSize: effectivePrompt.length,
+            toolCall,
+            dispatchRecordPath,
+            batchId,
+            dispatchedInBatch: counter.count,
+            forcedAt: decision.forcedAt,
+            contextImpact,
+            artifactMetas: artifactMeta ? [artifactMeta] : [],
+            orchestratorVisibleHint,
+            artifactsPublicPaths,
+            expectedCompletionSeconds,
+            // Part 2.C: when --isolation worktree, surface the lease
+            // handle to the LLM-side runner so it can call
+            // `peaks worktree release --lease-id <id>` after the sub-agent
+            // finishes (or rely on the next gc pass to clean up). When
+            // isolation is not requested, isolation === null.
+            isolation: isolationMode,
+            leaseId,
+            worktreePath,
+            worktreeBranch,
+            // F5: anti-fake-green gate envelope surface. When
+            // `--must-ls-files <glob>` is supplied this carries the
+            // pre-dispatch verification result so the orchestrator can
+            // surface "the file exists" (or "missing — block") before
+            // spawning the sub-agent. Null when the flag is absent.
+            mustLsFilesVerification
+          },
+          warnings,
+          nextActions
+        ),
+        asJson
+      );
       // Slice 2026-06-23-audit-4th #B1: structured log on success path.
       // Best-effort: writeLogEntry swallows its own errors (logger.ts:155-159),
       // so a full disk or missing ~/.peaks/logs/ dir never blocks the dispatch.
@@ -815,13 +1044,24 @@ export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
             forcedAt: decision.forcedAt
           }
         });
-      } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+      } catch {
+        // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
         /* best-effort */
       }
     } catch (error: unknown) {
-      printResult(io, fail('sub-agent.dispatch', 'DISPATCH_ERROR', getErrorMessage(error), { role, toolCall: null, dispatchRecordPath: null } as never, [
-        'See error message; if you are dispatching from a SKILL.md, the LLM should retry with a smaller prompt or pick a different role.'
-      ]), asJson);
+      printResult(
+        io,
+        fail(
+          'sub-agent.dispatch',
+          'DISPATCH_ERROR',
+          getErrorMessage(error),
+          { role, toolCall: null, dispatchRecordPath: null } as never,
+          [
+            'See error message; if you are dispatching from a SKILL.md, the LLM should retry with a smaller prompt or pick a different role.'
+          ]
+        ),
+        asJson
+      );
       process.exitCode = 1;
     }
   });

@@ -88,7 +88,10 @@ export function pruneAriaSnapshot(nodes: readonly AriaNode[]): SnapshotPruneResu
 
   const nodeCapped = droppedByNodeCap > 0;
   const pruned = nodeCapped
-    ? [...cappedNodes, { role: 'text', text: `${TRUNCATION_TEXT} [${droppedByNodeCap} more nodes]` }]
+    ? [
+        ...cappedNodes,
+        { role: 'text', text: `${TRUNCATION_TEXT} [${droppedByNodeCap} more nodes]` }
+      ]
     : cappedNodes;
 
   return {
@@ -137,7 +140,7 @@ function isDroppable(node: AriaNode): boolean {
 function dropAndHoist(list: readonly AriaNode[], counter: { dropped: number }): AriaNode[] {
   const root: AriaNode[] = [];
   const stack: Array<{ source: readonly AriaNode[]; index: number; out: AriaNode[] }> = [
-    { source: list, index: 0, out: root },
+    { source: list, index: 0, out: root }
   ];
   while (stack.length > 0) {
     const frame = stack[stack.length - 1];
@@ -206,7 +209,11 @@ function applyNodeCap(
     }
     state.emitted += 1;
     const children = node.children ?? [];
-    out.push(children.length > 0 ? { ...node, children: applyNodeCap(children, maxNodes, state, onDrop) } : node);
+    out.push(
+      children.length > 0
+        ? { ...node, children: applyNodeCap(children, maxNodes, state, onDrop) }
+        : node
+    );
   }
   return out;
 }

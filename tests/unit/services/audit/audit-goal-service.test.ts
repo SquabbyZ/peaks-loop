@@ -6,7 +6,11 @@
 // are pinned here with an INJECTED runner — no network call in this file.
 
 import { describe, expect, it } from 'vitest';
-import { auditGoal, IncompleteAuditError, type LlmRunner } from '../../../../src/services/audit/audit-goal-service.js';
+import {
+  auditGoal,
+  IncompleteAuditError,
+  type LlmRunner
+} from '../../../../src/services/audit/audit-goal-service.js';
 import type { AuditDimensionKind } from '../../../../src/services/audit/audit-goal-types.js';
 
 const SIX_DIMENSIONS: readonly AuditDimensionKind[] = [
@@ -15,22 +19,31 @@ const SIX_DIMENSIONS: readonly AuditDimensionKind[] = [
   'scope',
   'risks',
   'alternatives',
-  'constraints',
+  'constraints'
 ];
 
 function replyWith(output: unknown): LlmRunner {
-  return { call: async () => ({ output: typeof output === 'string' ? output : JSON.stringify(output), tokens: { input: 1, output: 1 } }) };
+  return {
+    call: async () => ({
+      output: typeof output === 'string' ? output : JSON.stringify(output),
+      tokens: { input: 1, output: 1 }
+    })
+  };
 }
 
 function fullAudit(): Record<string, unknown> {
   return {
     summary: 'A need.',
-    audit: SIX_DIMENSIONS.map((dimension) => ({ dimension, finding: `finding for ${dimension}`, severity: 'concern' })),
+    audit: SIX_DIMENSIONS.map((dimension) => ({
+      dimension,
+      finding: `finding for ${dimension}`,
+      severity: 'concern'
+    })),
     proposedGoal: 'A goal.',
     successCriteria: ['criterion'],
     roughEffort: 'small',
     confidence: 'high',
-    rationale: 'Because.',
+    rationale: 'Because.'
   };
 }
 
@@ -45,8 +58,12 @@ describe('auditGoal', () => {
     // then: every dimension survives with its finding and severity, and the
     // three constrained fields stay inside their declared enums
     expect(result.audit.map((entry) => entry.dimension).sort()).toEqual([...SIX_DIMENSIONS].sort());
-    expect(result.audit.every((entry) => entry.finding.length > 0 && entry.severity.length > 0)).toBe(true);
-    expect(result.audit.every((entry) => ['info', 'concern', 'blocker'].includes(entry.severity))).toBe(true);
+    expect(
+      result.audit.every((entry) => entry.finding.length > 0 && entry.severity.length > 0)
+    ).toBe(true);
+    expect(
+      result.audit.every((entry) => ['info', 'concern', 'blocker'].includes(entry.severity))
+    ).toBe(true);
     expect(['small', 'medium', 'large', 'epic']).toContain(result.roughEffort);
     expect(['high', 'medium', 'low']).toContain(result.confidence);
     expect(result.proposedGoal).toBe('A goal.');
@@ -183,7 +200,7 @@ describe('auditGoal', () => {
       call: async (systemPrompt, userPrompt, opts) => {
         calls.push({ systemPrompt, userPrompt, maxTokens: opts.maxTokens });
         return { output: JSON.stringify(fullAudit()), tokens: { input: 1, output: 1 } };
-      },
+      }
     };
 
     // when: the need is audited

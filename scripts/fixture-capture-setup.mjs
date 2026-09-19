@@ -64,7 +64,7 @@ function checkSourcePresent() {
     if (!existsSync(p)) {
       process.stderr.write(
         `[fixture-capture-setup] WARNING: source missing for ${env}: ${p}\n` +
-        `[fixture-capture-setup] Will skip this envelope.\n`
+          `[fixture-capture-setup] Will skip this envelope.\n`
       );
     }
   }
@@ -90,11 +90,16 @@ async function main() {
     // The CLI auto-derives fixtureId as `${rid}-${envelope}`. We pass a
     // clean rid here so the suffix doesn't double up.
     const args = [
-      '--from-rid', SOURCE_CHANGE,
-      '--sid', SOURCE_SID,
-      '--change-id', SOURCE_CHANGE,
-      '--envelope', env,
-      '--out', FIXTURE_DIR
+      '--from-rid',
+      SOURCE_CHANGE,
+      '--sid',
+      SOURCE_SID,
+      '--change-id',
+      SOURCE_CHANGE,
+      '--envelope',
+      env,
+      '--out',
+      FIXTURE_DIR
     ];
     const result = runCli(args);
     if (result.status === 0) {
@@ -124,9 +129,12 @@ async function main() {
       const parentPath = resolve(projectRoot, FIXTURE_DIR, `${fixtureId}.json`);
       if (!existsSync(parentPath)) continue;
       const args = [
-        '--variant-from', parentPath,
-        '--variant', 'double-format',
-        '--out', FIXTURE_DIR
+        '--variant-from',
+        parentPath,
+        '--variant',
+        'double-format',
+        '--out',
+        FIXTURE_DIR
       ];
       const result = runCli(args);
       if (result.status === 0) {
@@ -147,11 +155,7 @@ async function main() {
     // parser-load-bearing lines (verdict/passed/gateAction) so the
     // parser still extracts a verdict.
     for (const variant of VARIANTS) {
-      const args = [
-        '--variant-from', parentPath,
-        '--variant', variant,
-        '--out', FIXTURE_DIR
-      ];
+      const args = ['--variant-from', parentPath, '--variant', variant, '--out', FIXTURE_DIR];
       const result = runCli(args);
       if (result.status === 0) {
         okCount++;
@@ -163,9 +167,7 @@ async function main() {
     }
   }
 
-  process.stdout.write(
-    `\n[fixture-capture-setup] Done. ok=${okCount} skipped=${skipCount}\n`
-  );
+  process.stdout.write(`\n[fixture-capture-setup] Done. ok=${okCount} skipped=${skipCount}\n`);
   // We do NOT exit non-zero when some historical sources are missing —
   // the replay test enumerates whatever fixtures exist on disk and
   // asserts ≥30. We surface skipCount in stdout for ops triage.

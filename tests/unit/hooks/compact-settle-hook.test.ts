@@ -26,7 +26,15 @@
  * Style: BDD given/when/then per peaks-loop 4.0.11+ contract.
  */
 import { afterEach, describe, expect, it } from 'vitest';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  writeFileSync
+} from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -37,7 +45,10 @@ import {
   HOOK_COMPACT_SETTLE_MATCHER,
   HOOK_COMPACT_SETTLE_SENTINEL
 } from '~/src/services/skills/session-start-hook-constants';
-import { resolveHookEntries, resolveLegacySentinels } from '~/src/services/skills/hooks-codegate-superpowers';
+import {
+  resolveHookEntries,
+  resolveLegacySentinels
+} from '~/src/services/skills/hooks-codegate-superpowers';
 import { applyHookInstall, removeHookInstall } from '~/src/services/skills/hooks-settings-service';
 import { writeCompactLifecycle } from '~/src/services/compact-statusline/compact-lifecycle-store';
 import { materializeClaudeSettingsLocal } from '~/src/services/workspace/workspace-claude-settings-materializer';
@@ -95,7 +106,11 @@ function bindSession(root: string): void {
   mkdirSync(join(root, '.peaks', '_runtime'), { recursive: true });
   writeFileSync(
     join(root, '.peaks', '_runtime', 'session.json'),
-    JSON.stringify({ sessionId: SID, projectRoot: realpathSync(root), createdAt: '2026-09-13T05:00:00.000Z' }),
+    JSON.stringify({
+      sessionId: SID,
+      projectRoot: realpathSync(root),
+      createdAt: '2026-09-13T05:00:00.000Z'
+    }),
     'utf8'
   );
 }
@@ -124,7 +139,15 @@ function runSettleCommand(
 ): { status: number | null; stdout: string } {
   const run = spawnSync(
     process.execPath,
-    ['--import', 'tsx', join(ROOT, 'src', 'cli', 'index.ts'), 'compact', 'settle', '--project', root],
+    [
+      '--import',
+      'tsx',
+      join(ROOT, 'src', 'cli', 'index.ts'),
+      'compact',
+      'settle',
+      '--project',
+      root
+    ],
     {
       cwd: ROOT,
       encoding: 'utf8',
@@ -138,7 +161,9 @@ function runSettleCommand(
 /** Every `PostCompact` entry in a settings file, in order. */
 function readPostCompactEntries(settingsPath: string): HookEntry[] {
   if (!existsSync(settingsPath)) return [];
-  const parsed = JSON.parse(readFileSync(settingsPath, 'utf8')) as { hooks?: { PostCompact?: HookEntry[] } };
+  const parsed = JSON.parse(readFileSync(settingsPath, 'utf8')) as {
+    hooks?: { PostCompact?: HookEntry[] };
+  };
   return parsed.hooks?.PostCompact ?? [];
 }
 
@@ -219,7 +244,9 @@ describe('behavior — a corrupted matcher is seen and repaired (R2)', () => {
     const sharedPath = sharedSettingsPath(root);
     expect(findSettleEntry(readPostCompactEntries(sharedPath))?.matcher).toBe('');
     // when: the settle entry's matcher is corrupted on disk
-    const settings = JSON.parse(readFileSync(sharedPath, 'utf8')) as { hooks: { PostCompact: HookEntry[] } };
+    const settings = JSON.parse(readFileSync(sharedPath, 'utf8')) as {
+      hooks: { PostCompact: HookEntry[] };
+    };
     const entry = findSettleEntry(settings.hooks.PostCompact);
     if (entry === undefined) throw new Error('expected the settle entry on disk');
     entry.matcher = 'auto|manual';
@@ -370,8 +397,12 @@ describe('behavior — the entry survives a settings refresh (AC3)', () => {
     //    `already-current` — "nothing happened" is the failure this case is
     //    built to exclude
     const localPath = localSettingsPath(root);
-    const drifted = JSON.parse(readFileSync(localPath, 'utf8')) as { hooks: Record<string, unknown> };
-    drifted.hooks.PreToolUse = [{ matcher: 'Bash', hooks: [{ type: 'command', command: 'stale-handler' }] }];
+    const drifted = JSON.parse(readFileSync(localPath, 'utf8')) as {
+      hooks: Record<string, unknown>;
+    };
+    drifted.hooks.PreToolUse = [
+      { matcher: 'Bash', hooks: [{ type: 'command', command: 'stale-handler' }] }
+    ];
     writeFileSync(localPath, JSON.stringify(drifted, null, 2) + '\n', 'utf8');
     // when: `peaks workspace init` refreshes the project's settings
     const result = await materializeClaudeSettingsLocal(root, false);
@@ -414,10 +445,17 @@ describe('behavior — the entry survives a settings refresh (AC3)', () => {
     const root = makeProject();
     await materializeClaudeSettingsLocal(root, false);
     const localPath = localSettingsPath(root);
-    const settings = JSON.parse(readFileSync(localPath, 'utf8')) as { hooks: Record<string, unknown> };
-    const entry = { matcher: '', hooks: [{ type: 'command', command: 'peaks compact settle --project "x"' }] };
+    const settings = JSON.parse(readFileSync(localPath, 'utf8')) as {
+      hooks: Record<string, unknown>;
+    };
+    const entry = {
+      matcher: '',
+      hooks: [{ type: 'command', command: 'peaks compact settle --project "x"' }]
+    };
     settings.hooks.PostCompact = [entry];
-    settings.hooks.PreToolUse = [{ matcher: 'Bash', hooks: [{ type: 'command', command: 'stale-handler' }] }];
+    settings.hooks.PreToolUse = [
+      { matcher: 'Bash', hooks: [{ type: 'command', command: 'stale-handler' }] }
+    ];
     writeFileSync(localPath, JSON.stringify(settings, null, 2) + '\n', 'utf8');
     // when: the materializer runs
     const result = await materializeClaudeSettingsLocal(root, false);

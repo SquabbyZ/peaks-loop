@@ -23,12 +23,18 @@ declareDimensions(
   'tests/unit/services/web/web-status-report.test.ts',
   ['behavior', 'integration'],
   [
-    { dim: 'render', reason: 'the report is a structure; `peaks web status` owns every text surface' },
-    { dim: 'a11y', reason: 'no user-visible text or exit code is produced at this layer' },
-  ],
+    {
+      dim: 'render',
+      reason: 'the report is a structure; `peaks web status` owns every text surface'
+    },
+    { dim: 'a11y', reason: 'no user-visible text or exit code is produced at this layer' }
+  ]
 );
 
-import { webDaemonDir, webDaemonInfoPath } from '../../../../src/services/web/web-artifact-paths.js';
+import {
+  webDaemonDir,
+  webDaemonInfoPath
+} from '../../../../src/services/web/web-artifact-paths.js';
 import { PROTOCOL_VERSION } from '../../../../src/services/web/web-protocol.js';
 import { buildStatusReport } from '../../../../src/services/web/web-status-report.js';
 

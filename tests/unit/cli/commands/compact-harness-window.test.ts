@@ -33,10 +33,12 @@ import { withTmpWorkspacePerTest } from '../../_setup/tmp-workspace.js';
 import { registerCompactCommands } from '../../../../src/cli/commands/compact-command.js';
 import { syncHarnessWindowForProject } from '../../../../src/services/context/auto-compact-reader.js';
 
-declareDimensions(
-  'tests/unit/cli/commands/compact-harness-window.test.ts',
-  ['render', 'behavior', 'integration', 'a11y'],
-);
+declareDimensions('tests/unit/cli/commands/compact-harness-window.test.ts', [
+  'render',
+  'behavior',
+  'integration',
+  'a11y'
+]);
 
 const KEY = 'CLAUDE_CODE_AUTO_COMPACT_WINDOW';
 const SETTINGS_REL = join('.claude', 'settings.local.json');
@@ -76,12 +78,14 @@ describe('peaks compact harness-window — show / rollback', () => {
     writeFileSync(
       settingsPath(),
       `${JSON.stringify({ env, hooks: { PreToolUse: [{ matcher: 'Bash', hooks: [{ type: 'command', command: 'peaks gate enforce' }] }] } }, null, 2)}\n`,
-      'utf8',
+      'utf8'
     );
   }
 
   function envBlock(): Record<string, unknown> {
-    const parsed = JSON.parse(readFileSync(settingsPath(), 'utf8')) as { env?: Record<string, unknown> };
+    const parsed = JSON.parse(readFileSync(settingsPath(), 'utf8')) as {
+      env?: Record<string, unknown>;
+    };
     return parsed['env'] ?? {};
   }
 
@@ -163,7 +167,7 @@ describe('peaks compact harness-window — show / rollback', () => {
     writeFileSync(
       settingsPath(),
       `${JSON.stringify({ permissions: { allow: ['Bash(git status)'] }, env: { SOME_USER_KEY: 'keep-me' } }, null, 2)}\n`,
-      'utf8',
+      'utf8'
     );
     const before = readFileSync(settingsPath(), 'utf8');
     // when: the rollback runs
@@ -203,7 +207,9 @@ describe('peaks compact harness-window — show / rollback', () => {
     // and: the way back exists
     const reenabled = await run(['--project', ws().path, '--reenable']);
     expect(reenabled.data['action']).toBe('reenabled');
-    expect(syncHarnessWindowForProject({ projectRoot: ws().path, tokens: 1_000_000 })?.action).toBe('written');
+    expect(syncHarnessWindowForProject({ projectRoot: ws().path, tokens: 1_000_000 })?.action).toBe(
+      'written'
+    );
     expect(envBlock()[KEY]).toBe('1000000');
   });
 

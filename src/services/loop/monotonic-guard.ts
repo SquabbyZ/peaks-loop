@@ -23,10 +23,7 @@
  *  guard never regresses past the boundary value; downstream callers
  *  can surface `degraded` separately.
  */
-function gateActionToScore(
-  gateAction: 'pass' | 'warn' | 'block',
-  degraded: boolean
-): number {
+function gateActionToScore(gateAction: 'pass' | 'warn' | 'block', degraded: boolean): number {
   if (degraded) return 0.25;
   if (gateAction === 'pass') return 1.0;
   if (gateAction === 'warn') return 0.5;
@@ -76,7 +73,11 @@ export interface MonotonicReport {
   /** Convenience boolean — true iff a regression exceeds the threshold. */
   readonly monotonicityViolation: boolean;
   /** Diagnostic hint surfaced as `MONOTONICITY_VIOLATION` in the CLI envelope. */
-  readonly code: 'MONOTONIC_OK' | 'MONOTONIC_NO_PREVIOUS' | 'MONOTONIC_VIOLATION' | 'MONOTONIC_INCOMPARABLE_EVALUATORS';
+  readonly code:
+    | 'MONOTONIC_OK'
+    | 'MONOTONIC_NO_PREVIOUS'
+    | 'MONOTONIC_VIOLATION'
+    | 'MONOTONIC_INCOMPARABLE_EVALUATORS';
 }
 
 /** Convert an envelope-shaped verdict row to `MonotonicScoreRow`.
@@ -128,7 +129,8 @@ export function checkMonotonicImprovement(
     return {
       status: 'skip',
       ok: true,
-      reason: 'no previous cycle recorded — monotonicity check is a no-op (first run is allowed to start anywhere)',
+      reason:
+        'no previous cycle recorded — monotonicity check is a no-op (first run is allowed to start anywhere)',
       threshold,
       previousCycle: null,
       currentCycle: current.cycle,
@@ -177,7 +179,10 @@ export function checkMonotonicImprovement(
 
   if (regressions.length > 0) {
     const summary = regressions
-      .map((r) => `${r.evaluator} ${r.previousScore.toFixed(4)}→${r.currentScore.toFixed(4)} (Δ=${r.delta.toFixed(4)})`)
+      .map(
+        (r) =>
+          `${r.evaluator} ${r.previousScore.toFixed(4)}→${r.currentScore.toFixed(4)} (Δ=${r.delta.toFixed(4)})`
+      )
       .join(', ');
     return {
       status: 'block',
@@ -224,10 +229,7 @@ function classifyFsError(err: unknown): 'NOT_FOUND' | 'IO_ERROR' {
  *  cross-batch signal (per Slice C (b) case "跨 session 读
  *  .peaks/_sub_agents/<sid>/shared/ 跨批 signal → 不 crash").
  *  Pure helper; only present for the cross-session case. */
-export function loadCrossSessionSignal(
-  projectRoot: string,
-  sid: string
-): MonotonicCycle | null {
+export function loadCrossSessionSignal(projectRoot: string, sid: string): MonotonicCycle | null {
   // Lazily import so unit tests in non-windows environments don't pull
   // node:fs through a static `import` (test envs stay small).
   // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -281,7 +283,8 @@ export function loadCrossSessionSignal(
     if (typeof r['evaluator'] !== 'string') continue;
     const gate = r['gateAction'];
     if (gate !== 'pass' && gate !== 'warn' && gate !== 'block') continue;
-    const observedAt = typeof r['observedAt'] === 'string' ? r['observedAt'] : new Date(0).toISOString();
+    const observedAt =
+      typeof r['observedAt'] === 'string' ? r['observedAt'] : new Date(0).toISOString();
     const degraded = r['degraded'] === true;
     scores.push({
       evaluator: r['evaluator'],

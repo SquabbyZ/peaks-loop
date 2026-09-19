@@ -1,4 +1,4 @@
-import type Database from "better-sqlite3";
+import type Database from 'better-sqlite3';
 
 export interface ReleaseDiff {
   added: string[];
@@ -16,7 +16,7 @@ export function releaseDiff({
   db,
   beeName,
   fromVersion,
-  toVersion,
+  toVersion
 }: {
   db: Database.Database;
   beeName: string;
@@ -24,26 +24,28 @@ export function releaseDiff({
   toVersion: string;
 }): ReleaseDiff {
   const aRow = db
-    .prepare("SELECT id FROM bee_release WHERE bee_name = ? AND version = ?")
+    .prepare('SELECT id FROM bee_release WHERE bee_name = ? AND version = ?')
     .get(beeName, fromVersion) as { id: number } | undefined;
   const bRow = db
-    .prepare("SELECT id FROM bee_release WHERE bee_name = ? AND version = ?")
+    .prepare('SELECT id FROM bee_release WHERE bee_name = ? AND version = ?')
     .get(beeName, toVersion) as { id: number } | undefined;
-  if (!aRow || !bRow) throw new Error("VERSION_NOT_FOUND");
+  if (!aRow || !bRow) throw new Error('VERSION_NOT_FOUND');
   const a = aRow.id;
   const b = bRow.id;
   const aFiles = new Map<string, string>(
     (
-      db
-        .prepare("SELECT path, sha256 FROM bee_file WHERE release_id = ?")
-        .all(a) as Array<{ path: string; sha256: string }>
+      db.prepare('SELECT path, sha256 FROM bee_file WHERE release_id = ?').all(a) as Array<{
+        path: string;
+        sha256: string;
+      }>
     ).map((r) => [r.path, r.sha256])
   );
   const bFiles = new Map<string, string>(
     (
-      db
-        .prepare("SELECT path, sha256 FROM bee_file WHERE release_id = ?")
-        .all(b) as Array<{ path: string; sha256: string }>
+      db.prepare('SELECT path, sha256 FROM bee_file WHERE release_id = ?').all(b) as Array<{
+        path: string;
+        sha256: string;
+      }>
     ).map((r) => [r.path, r.sha256])
   );
   const added: string[] = [];

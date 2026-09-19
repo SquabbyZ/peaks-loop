@@ -32,14 +32,14 @@ import { makeCapturedIo, withEnv } from '../_setup/io.js';
 import {
   cleanupTmpWorkspace,
   useTmpWorkspace,
-  type TmpWorkspace,
+  type TmpWorkspace
 } from '../_setup/tmp-workspace.js';
 
 declareDimensions('tests/unit/cli/job-session-addressing.test.ts', [
   'render',
   'behavior',
   'integration',
-  'a11y',
+  'a11y'
 ]);
 
 import { registerJobCommands } from '../../../src/cli/commands/job-commands.js';
@@ -58,7 +58,7 @@ const SUBCOMMANDS_THAT_RESOLVE_A_JOB_ROOT = [
   'resume',
   'progress',
   'handoff',
-  'karpathy-cost-check',
+  'karpathy-cost-check'
 ];
 
 type CapturedIo = ReturnType<typeof makeCapturedIo>['captured'];
@@ -78,8 +78,18 @@ async function runJob(args: string[], wsPath: string): Promise<CapturedIo> {
   return captured;
 }
 
-function parseJson(captured: CapturedIo): { ok: boolean; code?: string; message?: string; data: any } {
-  return JSON.parse(captured.stdout.join('\n')) as { ok: boolean; code?: string; message?: string; data: any };
+function parseJson(captured: CapturedIo): {
+  ok: boolean;
+  code?: string;
+  message?: string;
+  data: any;
+} {
+  return JSON.parse(captured.stdout.join('\n')) as {
+    ok: boolean;
+    code?: string;
+    message?: string;
+    data: any;
+  };
 }
 
 /** Point the single per-project session binding at `sessionId`. */
@@ -89,16 +99,27 @@ function bindSession(wsPath: string, sessionId: string): void {
   writeFileSync(
     join(runtimeDir, 'session.json'),
     JSON.stringify({ sessionId, projectRoot: wsPath }) + '\n',
-    'utf8',
+    'utf8'
   );
 }
 
-function readJobState(wsPath: string, sid: string, jobId: string): { slices: Array<{ sliceId: string; label: string; status: string }> } {
+function readJobState(
+  wsPath: string,
+  sid: string,
+  jobId: string
+): { slices: Array<{ sliceId: string; label: string; status: string }> } {
   const p = join(wsPath, '.peaks', '_runtime', sid, 'job', jobId, 'state.json');
-  return JSON.parse(readFileSync(p, 'utf8')) as { slices: Array<{ sliceId: string; label: string; status: string }> };
+  return JSON.parse(readFileSync(p, 'utf8')) as {
+    slices: Array<{ sliceId: string; label: string; status: string }>;
+  };
 }
 
-async function seedJob(wsPath: string, sid: string, jobId: string, sliceList: string): Promise<void> {
+async function seedJob(
+  wsPath: string,
+  sid: string,
+  jobId: string,
+  sliceList: string
+): Promise<void> {
   await runJob(['init', '--job-id', jobId, '--slice-list', sliceList, '--session-id', sid], wsPath);
 }
 
@@ -143,7 +164,9 @@ describe('Scenario: behavior — session resolution precedence is flag > env > b
     ws = useTmpWorkspace('peaks-job-sid-behavior-');
     withEnv('PEAKS_SESSION_ID', undefined);
   });
-  afterEach(() => { cleanupTmpWorkspace(); });
+  afterEach(() => {
+    cleanupTmpWorkspace();
+  });
 
   it('when both --session-id and PEAKS_SESSION_ID are set, should read the flag session', async () => {
     // given: job "alpha" exists in two sessions with different slice counts
@@ -151,7 +174,10 @@ describe('Scenario: behavior — session resolution precedence is flag > env > b
     await seedJob(ws.path, OTHER_SID, 'alpha', 'S1,S2,S3,S4,S5');
     withEnv('PEAKS_SESSION_ID', OTHER_SID);
     // when: status is read with an explicit --session-id
-    const captured = await runJob(['status', '--job-id', 'alpha', '--session-id', JOB_SID], ws.path);
+    const captured = await runJob(
+      ['status', '--job-id', 'alpha', '--session-id', JOB_SID],
+      ws.path
+    );
     // then: the flag wins over the env var
     const envelope = parseJson(captured);
     expect(envelope.ok).toBe(true);
@@ -191,14 +217,19 @@ describe('Scenario: integration — a job stays addressable while the binding po
     ws = useTmpWorkspace('peaks-job-sid-integration-');
     withEnv('PEAKS_SESSION_ID', undefined);
   });
-  afterEach(() => { cleanupTmpWorkspace(); });
+  afterEach(() => {
+    cleanupTmpWorkspace();
+  });
 
   it('when the binding points at another session, should read the job via --session-id', async () => {
     // given: job "peaks-web" in JOB_SID and a binding pointing at OTHER_SID
     bindSession(ws.path, OTHER_SID);
     await seedJob(ws.path, JOB_SID, 'peaks-web', 'S1,S2,S3,S4');
     // when: status is read with --session-id
-    const captured = await runJob(['status', '--job-id', 'peaks-web', '--session-id', JOB_SID], ws.path);
+    const captured = await runJob(
+      ['status', '--job-id', 'peaks-web', '--session-id', JOB_SID],
+      ws.path
+    );
     // then: the read succeeds against the job's own session
     const envelope = parseJson(captured);
     expect(envelope.ok).toBe(true);
@@ -211,8 +242,18 @@ describe('Scenario: integration — a job stays addressable while the binding po
     await seedJob(ws.path, JOB_SID, 'peaks-web', 'S1,S2');
     // when: a slice mutation runs with --session-id
     const captured = await runJob(
-      ['block', '--job-id', 'peaks-web', '--slice-id', 'S1', '--reason', 'waiting on review', '--session-id', JOB_SID],
-      ws.path,
+      [
+        'block',
+        '--job-id',
+        'peaks-web',
+        '--slice-id',
+        'S1',
+        '--reason',
+        'waiting on review',
+        '--session-id',
+        JOB_SID
+      ],
+      ws.path
     );
     // then: the envelope is ok and the write landed in JOB_SID, not the bound session
     expect(parseJson(captured).ok).toBe(true);
@@ -227,7 +268,9 @@ describe('Scenario: a11y — an unresolvable job/session fails with a readable e
     ws = useTmpWorkspace('peaks-job-sid-a11y-');
     withEnv('PEAKS_SESSION_ID', undefined);
   });
-  afterEach(() => { cleanupTmpWorkspace(); });
+  afterEach(() => {
+    cleanupTmpWorkspace();
+  });
 
   it('when the job lives in another session, should name that session so the caller can re-run with --session-id', async () => {
     // given: job "delta" in JOB_SID while the binding points at OTHER_SID

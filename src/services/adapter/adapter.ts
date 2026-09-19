@@ -35,17 +35,13 @@ export interface AdapterSegment {
 }
 export interface AdapterEnvelope {
   preamble: string;
-  refs: { path: string; kind: "file" | "dir" | "script" }[];
+  refs: { path: string; kind: 'file' | 'dir' | 'script' }[];
 }
 
 export interface Adapter {
-  readonly name: "claude" | "codex" | "copilot" | "auto";
+  readonly name: 'claude' | 'codex' | 'copilot' | 'auto';
   resolveScratchDir(beeName: string): Promise<string>;
-  materialize(
-    beeName: string,
-    env: AdapterEnvelope,
-    segments: AdapterSegment[],
-  ): Promise<string>;
+  materialize(beeName: string, env: AdapterEnvelope, segments: AdapterSegment[]): Promise<string>;
   publish(scratchDir: string): Promise<string>;
   activate(scratchDir: string): Promise<void>;
   cleanup(scratchDir: string): Promise<void>;

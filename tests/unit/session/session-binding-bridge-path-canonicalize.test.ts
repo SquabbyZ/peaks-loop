@@ -46,8 +46,8 @@ declareDimensions(
   ['behavior', 'integration'],
   [
     { dim: 'render', reason: 'ensureSession returns string; no formatted output surface' },
-    { dim: 'a11y', reason: 'no human-facing text in the bridge write path' },
-  ],
+    { dim: 'a11y', reason: 'no human-facing text in the bridge write path' }
+  ]
 );
 
 const SESSION_ID = '2026-08-04-session-139b31-rid2';
@@ -66,15 +66,19 @@ function writeBinding(bindingHome: string, storedProjectRoot: string): void {
   writeFileSync(
     join(runtimeDir, 'session.json'),
     JSON.stringify(
-      { sessionId: SESSION_ID, createdAt: '2026-08-04T02:30:00.000Z', projectRoot: storedProjectRoot },
+      {
+        sessionId: SESSION_ID,
+        createdAt: '2026-08-04T02:30:00.000Z',
+        projectRoot: storedProjectRoot
+      },
       null,
-      2,
+      2
     ),
-    'utf8',
+    'utf8'
   );
 }
 
-describe("Scenario: behavior — bridge readSessionFile path spelling", () => {
+describe('Scenario: behavior — bridge readSessionFile path spelling', () => {
   const ws = withTmpWorkspacePerTest('peaks-bridge-canon-');
 
   it.runIf(process.platform === 'win32')(
@@ -94,7 +98,7 @@ describe("Scenario: behavior — bridge readSessionFile path spelling", () => {
 
       const sessionId = await ensureSession(forwardSlashForm);
       expect(sessionId).toBe(SESSION_ID);
-    },
+    }
   );
 
   it.runIf(process.platform === 'win32')(
@@ -111,10 +115,10 @@ describe("Scenario: behavior — bridge readSessionFile path spelling", () => {
 
       const sessionId = await ensureSession(lowerCaseForm);
       expect(sessionId).toBe(SESSION_ID);
-    },
+    }
   );
 
-  it("when invoked, should Case 3 (write contract): bridge.writeSessionFile persists stableRealPath form, not the caller-passed spelling", async () => {
+  it('when invoked, should Case 3 (write contract): bridge.writeSessionFile persists stableRealPath form, not the caller-passed spelling', async () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -129,9 +133,8 @@ describe("Scenario: behavior — bridge readSessionFile path spelling", () => {
     // which canonicalizes to the same `root` either way, so POSIX Case 3
     // additionally forces a relative-vs-absolute mismatch via the
     // resolveInputPath path prefix.
-    const inputForm = process.platform === 'win32'
-      ? root + '\\.'
-      : join(resolveInputPath(root) + '/');
+    const inputForm =
+      process.platform === 'win32' ? root + '\\.' : join(resolveInputPath(root) + '/');
     const expectedCanonical = stableRealPath(root);
 
     const sessionId = await ensureSession(inputForm);
@@ -144,7 +147,7 @@ describe("Scenario: behavior — bridge readSessionFile path spelling", () => {
     expect(parsed.projectRoot).toBe(expectedCanonical);
   });
 
-  it("when invoked, should Case 4 (regression): a genuinely different project root still returns null", async () => {
+  it('when invoked, should Case 4 (regression): a genuinely different project root still returns null', async () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation

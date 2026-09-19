@@ -172,17 +172,20 @@ describe('parseMemoryFrontmatter tolerates a leading sediment marker', () => {
 
 describe('reindex no longer reports marker-prefixed memories as unclassified', () => {
   it('indexes a marker-prefixed file that carries a valid kind', () => {
-    writeMemory('marker-lesson.md', [
-      START_MARKER,
-      '---',
-      'title: Marker Lesson',
-      'kind: lesson',
-      '---',
-      '',
-      'Body text long enough to be summarized.',
-      END_MARKER,
-      ''
-    ].join('\n'));
+    writeMemory(
+      'marker-lesson.md',
+      [
+        START_MARKER,
+        '---',
+        'title: Marker Lesson',
+        'kind: lesson',
+        '---',
+        '',
+        'Body text long enough to be summarized.',
+        END_MARKER,
+        ''
+      ].join('\n')
+    );
 
     const report = executeMemoryReindex({ projectRoot: root, apply: false });
 
@@ -192,16 +195,19 @@ describe('reindex no longer reports marker-prefixed memories as unclassified', (
   });
 
   it('still reports a marker-prefixed file with no resolvable kind', () => {
-    writeMemory('marker-unknown.md', [
-      START_MARKER,
-      '---',
-      'title: Marker Unknown',
-      'kind: not-a-kind',
-      '---',
-      '',
-      'Body text long enough to be summarized.',
-      ''
-    ].join('\n'));
+    writeMemory(
+      'marker-unknown.md',
+      [
+        START_MARKER,
+        '---',
+        'title: Marker Unknown',
+        'kind: not-a-kind',
+        '---',
+        '',
+        'Body text long enough to be summarized.',
+        ''
+      ].join('\n')
+    );
 
     const report = executeMemoryReindex({ projectRoot: root, apply: false });
 

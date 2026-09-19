@@ -19,7 +19,7 @@ import {
   type WorkflowGraph,
   type WorkflowGraphNode,
   type NodeId,
-  type WorkflowId,
+  type WorkflowId
 } from './workflow-graph-types.js';
 import {
   PEAKS_NODE_TRANSITION_INVALID,
@@ -33,7 +33,7 @@ import {
   PEAKS_GRAPH_REF_BROKEN,
   PEAKS_ENVELOPE_NOT_RECEIVED,
   PEAKS_ENVELOPE_GRAPH_MISMATCH,
-  PEAKS_TERMINAL_REASON_INVALID,
+  PEAKS_TERMINAL_REASON_INVALID
 } from './workflow-graph-store.js';
 
 export interface LifecycleError extends Error {
@@ -53,13 +53,20 @@ const LEASE_FROM_BY_TO: Record<LeaseStatus, ReadonlyArray<LeaseStatus>> = {
   preparing: ['running', 'terminalized', 'lost'],
   running: ['terminalized', 'lost'],
   terminalized: [],
-  lost: [],
+  lost: []
 };
 
-export function transitionLease(from: LeaseStatus, to: LeaseStatus, input: Record<string, unknown> = {}): Record<string, unknown> {
+export function transitionLease(
+  from: LeaseStatus,
+  to: LeaseStatus,
+  input: Record<string, unknown> = {}
+): Record<string, unknown> {
   const allowed = LEASE_FROM_BY_TO[from] ?? [];
   if (!allowed.includes(to)) {
-    throw lifeError(PEAKS_NODE_TRANSITION_INVALID, `lease transition ${from} -> ${to} is forbidden`);
+    throw lifeError(
+      PEAKS_NODE_TRANSITION_INVALID,
+      `lease transition ${from} -> ${to} is forbidden`
+    );
   }
   const result: Record<string, unknown> = { status: to, ...input };
 
@@ -68,21 +75,31 @@ export function transitionLease(from: LeaseStatus, to: LeaseStatus, input: Recor
   if (typeof input.workflowId === 'string' && typeof input.graphRef === 'string') {
     const expected = `graphs/${input.workflowId}.json`;
     if (input.graphRef !== expected) {
-      throw lifeError(PEAKS_GRAPH_REF_BROKEN, `graphRef ${input.graphRef} does not match workflowId ${input.workflowId}`);
+      throw lifeError(
+        PEAKS_GRAPH_REF_BROKEN,
+        `graphRef ${input.graphRef} does not match workflowId ${input.workflowId}`
+      );
     }
   }
 
   if (to === 'terminalized' || to === 'lost') {
     const reason = input.terminalReason;
     if (typeof reason !== 'string' || !TERMINAL_REASONS.includes(reason as TerminalReason)) {
-      throw lifeError(PEAKS_TERMINAL_REASON_INVALID, `terminalReason missing or invalid: ${String(reason)}`);
+      throw lifeError(
+        PEAKS_TERMINAL_REASON_INVALID,
+        `terminalReason missing or invalid: ${String(reason)}`
+      );
     }
     result.terminalReason = reason;
-    result.terminalAt = typeof input.terminalAt === 'string' ? input.terminalAt : new Date().toISOString();
+    result.terminalAt =
+      typeof input.terminalAt === 'string' ? input.terminalAt : new Date().toISOString();
     if (to === 'terminalized' && reason === 'unknown') {
       // `success` is the only valid success reason for terminalized; anything
       // else maps to `lost` per RD §3.
-      throw lifeError(PEAKS_TERMINAL_REASON_INVALID, `terminalized requires a known reason; got ${reason}`);
+      throw lifeError(
+        PEAKS_TERMINAL_REASON_INVALID,
+        `terminalized requires a known reason; got ${reason}`
+      );
     }
   }
 
@@ -92,18 +109,22 @@ export function transitionLease(from: LeaseStatus, to: LeaseStatus, input: Recor
   if (input.probe === true) {
     result.lastHeartbeat = input.lastHeartbeat;
   } else if (to === 'running') {
-    result.lastHeartbeat = typeof input.lastHeartbeat === 'string'
-      ? input.lastHeartbeat
-      : new Date().toISOString();
+    result.lastHeartbeat =
+      typeof input.lastHeartbeat === 'string' ? input.lastHeartbeat : new Date().toISOString();
   }
 
   // Caller-scoped terminalization: if expectedCallerId was supplied and
   // doesn't match the input's callerId, fail closed (caller cannot clear a
   // different caller's lease).
-  if (typeof input.expectedCallerId === 'string'
-    && typeof input.callerId === 'string'
-    && input.callerId !== input.expectedCallerId) {
-    throw lifeError(PEAKS_NODE_TRANSITION_INVALID, `callerId ${input.callerId} != expected ${input.expectedCallerId}`);
+  if (
+    typeof input.expectedCallerId === 'string' &&
+    typeof input.callerId === 'string' &&
+    input.callerId !== input.expectedCallerId
+  ) {
+    throw lifeError(
+      PEAKS_NODE_TRANSITION_INVALID,
+      `callerId ${input.callerId} != expected ${input.expectedCallerId}`
+    );
   }
 
   // ttl-expired requires both age thresholds to hold (RD §3).
@@ -111,7 +132,10 @@ export function transitionLease(from: LeaseStatus, to: LeaseStatus, input: Recor
     const hbAge = typeof input.lastHeartbeatAgeMs === 'number' ? input.lastHeartbeatAgeMs : 0;
     const startAge = typeof input.startedAtAgeMs === 'number' ? input.startedAtAgeMs : 0;
     if (hbAge < 3_600_001 || startAge < 86_400_001) {
-      throw lifeError(PEAKS_NODE_TRANSITION_INVALID, `ttl-expired requires heartbeatAge>=1h AND startAge>=24h (got hb=${hbAge} start=${startAge})`);
+      throw lifeError(
+        PEAKS_NODE_TRANSITION_INVALID,
+        `ttl-expired requires heartbeatAge>=1h AND startAge>=24h (got hb=${hbAge} start=${startAge})`
+      );
     }
   }
 
@@ -132,10 +156,14 @@ const NODE_FROM_BY_TO: Record<GraphNodeStatus, ReadonlyArray<GraphNodeStatus>> =
   'envelope-received': ['consumed-by-parent', 'lost'],
   'consumed-by-parent': ['terminalized'],
   terminalized: [],
-  lost: [],
+  lost: []
 };
 
-export function transitionNode(from: GraphNodeStatus, to: GraphNodeStatus, input: Record<string, unknown> = {}): Record<string, unknown> {
+export function transitionNode(
+  from: GraphNodeStatus,
+  to: GraphNodeStatus,
+  input: Record<string, unknown> = {}
+): Record<string, unknown> {
   // Graph corruption fires BEFORE the transition guard so a caller
   // asking for a forbidden transition against a corrupt graph gets the
   // more specific PEAKS_GRAPH_CORRUPTED code (TC-SM-11).
@@ -161,9 +189,17 @@ export function transitionNode(from: GraphNodeStatus, to: GraphNodeStatus, input
   // surface as PEAKS_ENVELOPE_GRAPH_MISMATCH.
   if (to === 'envelope-received') {
     const nodeDispatchRef = typeof input.dispatchRef === 'string' ? input.dispatchRef : null;
-    const envelopeDispatchRef = typeof input.envelopeDispatchRef === 'string' ? input.envelopeDispatchRef : null;
-    if (nodeDispatchRef !== null && envelopeDispatchRef !== null && nodeDispatchRef !== envelopeDispatchRef) {
-      throw lifeError(PEAKS_ENVELOPE_GRAPH_MISMATCH, `dispatchRef mismatch: ${nodeDispatchRef} vs ${envelopeDispatchRef}`);
+    const envelopeDispatchRef =
+      typeof input.envelopeDispatchRef === 'string' ? input.envelopeDispatchRef : null;
+    if (
+      nodeDispatchRef !== null &&
+      envelopeDispatchRef !== null &&
+      nodeDispatchRef !== envelopeDispatchRef
+    ) {
+      throw lifeError(
+        PEAKS_ENVELOPE_GRAPH_MISMATCH,
+        `dispatchRef mismatch: ${nodeDispatchRef} vs ${envelopeDispatchRef}`
+      );
     }
   }
 
@@ -194,9 +230,8 @@ export function transitionNode(from: GraphNodeStatus, to: GraphNodeStatus, input
   if (input.probe === true) {
     result.lastHeartbeat = input.lastHeartbeat;
   } else if (to === 'running' || to === 'dispatched') {
-    result.lastHeartbeat = typeof input.lastHeartbeat === 'string'
-      ? input.lastHeartbeat
-      : new Date().toISOString();
+    result.lastHeartbeat =
+      typeof input.lastHeartbeat === 'string' ? input.lastHeartbeat : new Date().toISOString();
   }
   return result;
 }
@@ -258,7 +293,10 @@ function _purePrepareNode(graph: WorkflowGraph, node: WorkflowGraphNode): Workfl
   const knownIds = new Set<NodeId>(graph.nodes.map((n) => n.id));
   for (const dep of node.dependsOn) {
     if (!knownIds.has(dep)) {
-      throw lifeError(PEAKS_DEPENDENCY_NOT_CONSUMED, `dependency ${dep} not consumed / not in graph`);
+      throw lifeError(
+        PEAKS_DEPENDENCY_NOT_CONSUMED,
+        `dependency ${dep} not consumed / not in graph`
+      );
     }
   }
   return { ...graph, nodes: [...graph.nodes, node] };
@@ -291,7 +329,7 @@ export function buildGraphNode(input: {
     ...(input.dispatchRef ? { dispatchRef: input.dispatchRef } : {}),
     ...(input.lastHeartbeat ? { lastHeartbeat: input.lastHeartbeat } : {}),
     ...(input.ackStatus ? { ackStatus: input.ackStatus } : {}),
-    dependsOn: input.dependsOn ?? [],
+    dependsOn: input.dependsOn ?? []
   };
 }
 
@@ -309,7 +347,10 @@ export function resolveDispatchBinding(input: {
   graphRef?: string;
 }): GraphDispatchBinding {
   if (!input.workflowId || !input.graphNodeId || !input.graphRef) {
-    throw lifeError(PEAKS_GRAPH_NODE_REQUIRED, 'workflowId, graphNodeId, and graphRef are required');
+    throw lifeError(
+      PEAKS_GRAPH_NODE_REQUIRED,
+      'workflowId, graphNodeId, and graphRef are required'
+    );
   }
   if (input.graphRef !== `graphs/${input.workflowId}.json`) {
     throw lifeError(PEAKS_GRAPH_REF_BROKEN, 'graphRef does not match workflowId');
@@ -349,7 +390,8 @@ export function prepareNodeAction(input: NodeLifecycleInput): WorkflowGraphNode 
   if (input.cycle === true) {
     throw lifeError(PEAKS_GRAPH_CYCLE, 'cycle detected');
   }
-  const kind: 'step' | 'dispatch' | 'terminal' = (input.graphNode?.kind as 'step' | 'dispatch' | 'terminal' | undefined) ?? 'step';
+  const kind: 'step' | 'dispatch' | 'terminal' =
+    (input.graphNode?.kind as 'step' | 'dispatch' | 'terminal' | undefined) ?? 'step';
   if (kind !== 'step' && kind !== 'dispatch' && kind !== 'terminal') {
     throw lifeError(PEAKS_GRAPH_NODE_KIND_INVALID, `invalid kind: ${kind}`);
   }
@@ -365,7 +407,7 @@ export function prepareNodeAction(input: NodeLifecycleInput): WorkflowGraphNode 
     ...(input.dispatchRef ? { dispatchRef: input.dispatchRef } : {}),
     ...(input.lastHeartbeat ? { lastHeartbeat: input.lastHeartbeat } : {}),
     ...(input.graphNode?.ackStatus ? { ackStatus: input.graphNode.ackStatus } : {}),
-    dependsOn,
+    dependsOn
   });
 }
 
@@ -375,7 +417,7 @@ export function dispatchNode(input: NodeLifecycleInput): Record<string, unknown>
   }
   return transitionNode('prepared', 'dispatched', {
     graphNode: input.graphNode,
-    dispatchRef: input.dispatchRef,
+    dispatchRef: input.dispatchRef
   });
 }
 
@@ -386,7 +428,7 @@ export function heartbeatNode(input: NodeLifecycleInput): Record<string, unknown
       graphNode: input.graphNode,
       firstHeartbeat: true,
       lastHeartbeat: input.lastHeartbeat,
-      dispatchRef: input.dispatchRef,
+      dispatchRef: input.dispatchRef
     });
   }
   // Subsequent heartbeat — idempotent self-update, only bumps timestamp.
@@ -394,7 +436,7 @@ export function heartbeatNode(input: NodeLifecycleInput): Record<string, unknown
     graphNode: input.graphNode,
     firstHeartbeat: false,
     lastHeartbeat: input.lastHeartbeat,
-    probe: false,
+    probe: false
   });
 }
 
@@ -402,7 +444,7 @@ export function writeEnvelope(input: NodeLifecycleInput): Record<string, unknown
   return transitionNode('running', 'envelope-received', {
     graphNode: input.graphNode,
     dispatchRef: input.dispatchRef,
-    envelopeDispatchRef: input.envelopeDispatchRef ?? input.dispatchRef,
+    envelopeDispatchRef: input.envelopeDispatchRef ?? input.dispatchRef
   });
 }
 
@@ -411,7 +453,10 @@ export function ackNode(input: NodeLifecycleInput): Record<string, unknown> {
     throw lifeError(PEAKS_ENVELOPE_NOT_RECEIVED, 'cannot ack without graph node context');
   }
   if (input.graphNode.status !== 'envelope-received') {
-    throw lifeError(PEAKS_ENVELOPE_NOT_RECEIVED, `cannot ack node in status ${input.graphNode.status}`);
+    throw lifeError(
+      PEAKS_ENVELOPE_NOT_RECEIVED,
+      `cannot ack node in status ${input.graphNode.status}`
+    );
   }
   const next = acknowledgeNode(input.graphNode);
   return { ...next, status: next.status };
@@ -435,7 +480,10 @@ export function markLost(input: NodeLifecycleInput): Record<string, unknown> {
 // pure form; a 1-arg call (or a 2-arg call where the first arg
 // is a flat record) is the wrapper form. The detection is
 // structural + cheap.
-export function prepareNode(arg1: WorkflowGraph | NodeLifecycleInput, arg2?: WorkflowGraphNode): WorkflowGraph | WorkflowGraphNode {
+export function prepareNode(
+  arg1: WorkflowGraph | NodeLifecycleInput,
+  arg2?: WorkflowGraphNode
+): WorkflowGraph | WorkflowGraphNode {
   if (arg2 !== undefined) {
     // Pure form: prepareNode(graph, node).
     return _purePrepareNode(arg1 as WorkflowGraph, arg2);
@@ -445,4 +493,3 @@ export function prepareNode(arg1: WorkflowGraph | NodeLifecycleInput, arg2?: Wor
 }
 export const nodePrepare = prepareNodeAction;
 export const nodePreparePure = _purePrepareNode;
-

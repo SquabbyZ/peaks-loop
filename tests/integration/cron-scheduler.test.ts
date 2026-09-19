@@ -66,7 +66,11 @@ const projects: string[] = [];
 afterEach(() => {
   while (projects.length > 0) {
     const p = projects.pop() as string;
-    try { rmSync(p, { recursive: true, force: true }); } catch { /* best-effort */ }
+    try {
+      rmSync(p, { recursive: true, force: true });
+    } catch {
+      /* best-effort */
+    }
   }
 });
 

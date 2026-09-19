@@ -21,17 +21,34 @@ import {
 } from '../../services/codegraph/codegraph-service.js';
 import { fail } from 'peaks-loop-shared/result';
 
-import { getErrorMessage, printResult, redactSensitiveErrorMessage, type ProgramIO } from '../cli-helpers.js';
+import {
+  getErrorMessage,
+  printResult,
+  redactSensitiveErrorMessage,
+  type ProgramIO
+} from '../cli-helpers.js';
 
 export interface CommonCodegraphOptions {
   project: string;
   peaksJson?: boolean;
 }
 
-export function printCodegraphFailure(io: ProgramIO, command: string, error: unknown, asJson?: boolean, exitCode = 1): void {
+export function printCodegraphFailure(
+  io: ProgramIO,
+  command: string,
+  error: unknown,
+  asJson?: boolean,
+  exitCode = 1
+): void {
   printResult(
     io,
-    fail(command, 'CODEGRAPH_COMMAND_FAILED', redactSensitiveErrorMessage(getErrorMessage(error)), {}, ['Check the codegraph command options and project path before retrying']),
+    fail(
+      command,
+      'CODEGRAPH_COMMAND_FAILED',
+      redactSensitiveErrorMessage(getErrorMessage(error)),
+      {},
+      ['Check the codegraph command options and project path before retrying']
+    ),
     asJson
   );
   process.exitCode = exitCode;
@@ -75,7 +92,15 @@ export async function runCodegraphCommand(
     const result = await executeCodegraphInvocation(invocation);
 
     if (result.exitCode !== null && result.exitCode !== 0 && asJson === true) {
-      printCodegraphFailure(io, command, new Error(result.stderr || result.stdout || `codegraph exited with code ${result.exitCode}`), true, result.exitCode);
+      printCodegraphFailure(
+        io,
+        command,
+        new Error(
+          result.stderr || result.stdout || `codegraph exited with code ${result.exitCode}`
+        ),
+        true,
+        result.exitCode
+      );
       return true;
     }
 

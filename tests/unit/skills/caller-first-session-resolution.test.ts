@@ -31,13 +31,13 @@ import { makeCapturedIo, withEnv } from '../_setup/io.js';
 import {
   cleanupTmpWorkspace,
   useTmpWorkspace,
-  type TmpWorkspace,
+  type TmpWorkspace
 } from '../_setup/tmp-workspace.js';
 import { getCurrentSessionId } from '../../../src/services/skills/skill-presence-service.js';
 import { setCallerBinding } from '../../../src/services/session/caller-binding-service.js';
 import {
   getSessionId,
-  getSessionIdCanonical,
+  getSessionIdCanonical
 } from '../../../src/services/session/session-manager.js';
 import type { CallerBinding } from '../../../src/services/session/caller-id-types.js';
 import { registerJobCommands } from '../../../src/cli/commands/job-commands.js';
@@ -47,8 +47,8 @@ declareDimensions(
   ['behavior', 'integration'],
   [
     { dim: 'render', reason: 'JSON-shaped results; no formatted output surface' },
-    { dim: 'a11y', reason: 'no human-facing text in this path' },
-  ],
+    { dim: 'a11y', reason: 'no human-facing text in this path' }
+  ]
 );
 
 const CALLER_A = 'caller-window-a';
@@ -64,7 +64,7 @@ function seedCallerBinding(root: string, callerId: string, sessionId: string): v
     createdAt: '2026-09-12T00:00:00.000Z',
     skill: 'peaks-code',
     mode: 'unknown',
-    gate: 'startup',
+    gate: 'startup'
   };
   setCallerBinding(root, callerId, payload);
   // Slice 2026-09-12 (rid=caller-binding-staleness): the caller binding is
@@ -81,8 +81,12 @@ function seedGlobalSession(root: string, sessionId: string): void {
   mkdirSync(runtimeDir, { recursive: true });
   writeFileSync(
     join(runtimeDir, 'session.json'),
-    JSON.stringify({ sessionId, createdAt: '2026-09-12T00:00:00.000Z', projectRoot: root }, null, 2),
-    'utf8',
+    JSON.stringify(
+      { sessionId, createdAt: '2026-09-12T00:00:00.000Z', projectRoot: root },
+      null,
+      2
+    ),
+    'utf8'
   );
 }
 
@@ -92,18 +96,25 @@ function seedLegacySession(root: string, sessionId: string): void {
   mkdirSync(peaksDir, { recursive: true });
   writeFileSync(
     join(peaksDir, '.session.json'),
-    JSON.stringify({ sessionId, createdAt: '2026-09-12T00:00:00.000Z', projectRoot: root }, null, 2),
-    'utf8',
+    JSON.stringify(
+      { sessionId, createdAt: '2026-09-12T00:00:00.000Z', projectRoot: root },
+      null,
+      2
+    ),
+    'utf8'
   );
 }
 
-async function runJobInit(wsPath: string, jobId: string): Promise<{ ok: boolean; data: { statePath?: string } }> {
+async function runJobInit(
+  wsPath: string,
+  jobId: string
+): Promise<{ ok: boolean; data: { statePath?: string } }> {
   const { io, captured } = makeCapturedIo();
   const program = new Command();
   registerJobCommands(program, io);
   await program.parseAsync(
     ['job', 'init', '--job-id', jobId, '--slice-list', 'S1', '--project', wsPath, '--json'],
-    { from: 'user' },
+    { from: 'user' }
   );
   return JSON.parse(captured.stdout.join('\n')) as { ok: boolean; data: { statePath?: string } };
 }
@@ -208,7 +219,15 @@ describe('Scenario: integration — a job lands in the caller-bound session', ()
     const envelope = await runJobInit(ws.path, 'caller-first-2026-09-12');
     // then: the job is written into A's session ...
     expect(envelope.ok).toBe(true);
-    const statePath = join(ws.path, '.peaks', '_runtime', SID_A, 'job', 'caller-first-2026-09-12', 'state.json');
+    const statePath = join(
+      ws.path,
+      '.peaks',
+      '_runtime',
+      SID_A,
+      'job',
+      'caller-first-2026-09-12',
+      'state.json'
+    );
     expect(existsSync(statePath)).toBe(true);
     expect(JSON.parse(readFileSync(statePath, 'utf8')).sessionId).toBe(SID_A);
     // ... and the other window's session stays untouched
@@ -223,7 +242,15 @@ describe('Scenario: integration — a job lands in the caller-bound session', ()
     const envelope = await runJobInit(ws.path, 'global-fallback-2026-09-12');
     // then: single-window behaviour is unchanged (no regression for CI)
     expect(envelope.ok).toBe(true);
-    const statePath = join(ws.path, '.peaks', '_runtime', SID_B, 'job', 'global-fallback-2026-09-12', 'state.json');
+    const statePath = join(
+      ws.path,
+      '.peaks',
+      '_runtime',
+      SID_B,
+      'job',
+      'global-fallback-2026-09-12',
+      'state.json'
+    );
     expect(existsSync(statePath)).toBe(true);
   });
 });

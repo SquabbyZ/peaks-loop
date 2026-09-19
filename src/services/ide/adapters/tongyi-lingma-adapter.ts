@@ -57,8 +57,10 @@ export const TONGYI_LINGMA_ADAPTER: IdeAdapter = {
       const trimmed = candidate.trim();
       if (/^[a-zA-Z0-9._-]{1,200}$/.test(trimmed)) return trimmed;
     }
-    const err = new Error('PEAKS_CALLER_NOT_RESOLVED: Tongyi Lingma vendor signal unverified') as Error & { code: string };
+    const err = new Error(
+      'PEAKS_CALLER_NOT_RESOLVED: Tongyi Lingma vendor signal unverified'
+    ) as Error & { code: string };
     err.code = 'PEAKS_CALLER_NOT_RESOLVED';
     throw err;
-  },
+  }
 };

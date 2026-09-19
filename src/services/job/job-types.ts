@@ -7,32 +7,32 @@ export const SliceStateSchema = z
     sliceId: z.string(),
     label: z.string(),
     status: z.enum(['pending', 'in-progress', 'done', 'failed', 'blocked', 'skipped']),
-    commitSha: z.string().optional(),                       // required when status=done
+    commitSha: z.string().optional(), // required when status=done
     finishedAt: z.string().datetime().optional(),
-    failureReason: z.string().optional(),                  // required when status=failed
+    failureReason: z.string().optional(), // required when status=failed
     repairCycles: z.number().int().gte(0).default(0),
-    blockedReason: z.string().optional(),                  // required when status=blocked
+    blockedReason: z.string().optional() // required when status=blocked
   })
   .superRefine((v, ctx) => {
     if (v.status === 'done' && !(v.commitSha && v.commitSha.length >= 7)) {
       ctx.addIssue({
         code: 'custom',
         path: ['commitSha'],
-        message: 'commitSha required (≥7 hex) when status=done',
+        message: 'commitSha required (≥7 hex) when status=done'
       });
     }
     if (v.status === 'failed' && !(v.failureReason && v.failureReason.length >= 1)) {
       ctx.addIssue({
         code: 'custom',
         path: ['failureReason'],
-        message: 'failureReason required when status=failed',
+        message: 'failureReason required when status=failed'
       });
     }
     if (v.status === 'blocked' && !(v.blockedReason && v.blockedReason.length >= 1)) {
       ctx.addIssue({
         code: 'custom',
         path: ['blockedReason'],
-        message: 'blockedReason required when status=blocked',
+        message: 'blockedReason required when status=blocked'
       });
     }
   });
@@ -52,10 +52,10 @@ export const JobStateSchema = z.object({
       from: z.literal('rotating'),
       to: z.literal('single'),
       reason: z.string().min(10),
-      at: z.string().datetime(),
+      at: z.string().datetime()
     })
     .optional(),
-  slices: z.array(SliceStateSchema),
+  slices: z.array(SliceStateSchema)
 });
 
 export const ResourceSnapshotSchema = z.object({
@@ -63,7 +63,7 @@ export const ResourceSnapshotSchema = z.object({
   cpuPercent: z.number().min(0).max(100),
   memMb: z.number().gte(0),
   diskMb: z.number().gte(0),
-  contextRatio: z.number().min(0).max(1),
+  contextRatio: z.number().min(0).max(1)
 });
 
 export const JobStatusSummarySchema = z.object({
@@ -77,7 +77,7 @@ export const JobStatusSummarySchema = z.object({
   mainLoopStrategy: z.enum(['single', 'rotating']),
   mainSessionCycle: z.number().int(),
   etaSec: z.number().int().optional(),
-  resourcesNow: ResourceSnapshotSchema.optional(),
+  resourcesNow: ResourceSnapshotSchema.optional()
 });
 
 export type SliceState = z.infer<typeof SliceStateSchema>;
@@ -96,7 +96,7 @@ export const JobInitInputSchema = z.object({
   mainLoopStrategy: z.enum(['single', 'rotating']).default('rotating'),
   rotateEvery: z.number().int().gt(0).default(3),
   project: z.string(),
-  json: z.boolean().default(true),
+  json: z.boolean().default(true)
 });
 export type JobInitInput = z.infer<typeof JobInitInputSchema>;
 
@@ -108,24 +108,21 @@ export const JobCheckpointInputSchema = z
     commitSha: z.string().optional(),
     reason: z.string().optional(),
     project: z.string(),
-    json: z.boolean().default(true),
+    json: z.boolean().default(true)
   })
   .superRefine((v, ctx) => {
     if (v.state === 'done' && !(v.commitSha && v.commitSha.length >= 7)) {
       ctx.addIssue({
         code: 'custom',
         path: ['commitSha'],
-        message: 'commitSha required (≥7 hex) when state=done',
+        message: 'commitSha required (≥7 hex) when state=done'
       });
     }
-    if (
-      (v.state === 'failed' || v.state === 'skipped') &&
-      !(v.reason && v.reason.length >= 3)
-    ) {
+    if ((v.state === 'failed' || v.state === 'skipped') && !(v.reason && v.reason.length >= 3)) {
       ctx.addIssue({
         code: 'custom',
         path: ['reason'],
-        message: 'reason required (≥3 chars) when state=failed|skipped',
+        message: 'reason required (≥3 chars) when state=failed|skipped'
       });
     }
   });
@@ -136,6 +133,6 @@ export const JobBlockInputSchema = z.object({
   sliceId: z.string(),
   reason: z.string().min(3),
   project: z.string(),
-  json: z.boolean().default(true),
+  json: z.boolean().default(true)
 });
 export type JobBlockInput = z.infer<typeof JobBlockInputSchema>;

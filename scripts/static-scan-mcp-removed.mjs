@@ -39,14 +39,14 @@ const FORBIDDEN_VERBS = [
   'peaks mcp rollback',
   'peaks mcp scan',
   // The capability install registry identifier that the deleted scan-service exported.
-  'mcp-install-registry',
+  'mcp-install-registry'
 ];
 
 const BAKED_PREFIXES = [
   'mcp__playwright__',
   'mcp__chrome_devtools__',
   'mcp__Figma_AI_Bridge__',
-  'mcp__plugin_context7_context7__',
+  'mcp__plugin_context7_context7__'
 ];
 
 /**
@@ -84,7 +84,7 @@ function scan() {
         violations.push({
           file,
           invariant: 1,
-          rule: `forbidden verb ${verb}`,
+          rule: `forbidden verb ${verb}`
         });
       }
     }
@@ -102,7 +102,7 @@ function scan() {
         violations.push({
           file,
           invariant: 2,
-          rule: `baked MCP prefix ${prefix}`,
+          rule: `baked MCP prefix ${prefix}`
         });
       }
     }
@@ -111,26 +111,28 @@ function scan() {
   // Invariant 3: program.ts does not import from mcp-commands.js.
   if (existsSync(PROGRAM_TS)) {
     const programText = readFileSync(PROGRAM_TS, 'utf8');
-    if (programText.includes(`from './commands/mcp-commands.js'`) ||
-        programText.includes(`from "./commands/mcp-commands.js"`)) {
+    if (
+      programText.includes(`from './commands/mcp-commands.js'`) ||
+      programText.includes(`from "./commands/mcp-commands.js"`)
+    ) {
       violations.push({
         file: PROGRAM_TS,
         invariant: 3,
-        rule: 'program.ts still imports mcp-commands.js',
+        rule: 'program.ts still imports mcp-commands.js'
       });
     }
     if (programText.includes('registerMcpCommands')) {
       violations.push({
         file: PROGRAM_TS,
         invariant: 3,
-        rule: 'program.ts still references registerMcpCommands',
+        rule: 'program.ts still references registerMcpCommands'
       });
     }
   } else {
     violations.push({
       file: PROGRAM_TS,
       invariant: 3,
-      rule: 'program.ts missing on disk',
+      rule: 'program.ts missing on disk'
     });
   }
 
@@ -139,7 +141,7 @@ function scan() {
     violations.push({
       file: MCP_SERVICE_DIR,
       invariant: 4,
-      rule: 'src/services/mcp/ directory still exists on disk',
+      rule: 'src/services/mcp/ directory still exists on disk'
     });
   }
 
@@ -148,7 +150,9 @@ function scan() {
 
 const { violations, filesScanned } = scan();
 if (violations.length === 0) {
-  process.stdout.write(`mcp-subsystem-removed scan OK (${filesScanned} skill files scanned, 0 violations)\n`);
+  process.stdout.write(
+    `mcp-subsystem-removed scan OK (${filesScanned} skill files scanned, 0 violations)\n`
+  );
   process.exit(0);
 }
 

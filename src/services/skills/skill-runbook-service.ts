@@ -82,7 +82,8 @@ async function loadRunbookSection(skillPath: string, body: string): Promise<stri
       if (bestRef === null || refSection.length > bestRef.length) {
         bestRef = refSection;
       }
-    } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+    } catch {
+      // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
       // candidate not present or unreadable; try the next one
     }
   }
@@ -104,7 +105,10 @@ function findPeaksCommandLines(section: string): string[] {
     .map((line) => line.trim());
 }
 
-export async function inspectSkillRunbook(name: string, baseDir?: string): Promise<SkillRunbookInspection> {
+export async function inspectSkillRunbook(
+  name: string,
+  baseDir?: string
+): Promise<SkillRunbookInspection> {
   const registry = await loadSkillRegistry(baseDir);
   const skill = registry.skills.find((entry) => entry.name === name);
   if (skill === undefined) {

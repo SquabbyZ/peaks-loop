@@ -56,7 +56,10 @@ const COVERAGE_GAP_WARN_THRESHOLD = 2;
 const MAX_NAMES_IN_MESSAGE = 5;
 
 function countEntries(bucket: Record<string, unknown[]> | undefined): number {
-  return Object.values(bucket ?? {}).reduce((sum, arr) => sum + (Array.isArray(arr) ? arr.length : 0), 0);
+  return Object.values(bucket ?? {}).reduce(
+    (sum, arr) => sum + (Array.isArray(arr) ? arr.length : 0),
+    0
+  );
 }
 
 function previewNames(names: readonly string[]): string {
@@ -73,8 +76,14 @@ interface IndexEntryShape {
 function readIndexSourcePaths(indexPath: string): IndexEntryShape[] {
   const parsed = JSON.parse(readFileSync(indexPath, 'utf8')) as MemoryIndexShape;
   const fromBucket = (bucket: Record<string, unknown[]> | undefined): IndexEntryShape[] =>
-    Object.values(bucket ?? {}).flatMap((arr) => (Array.isArray(arr) ? (arr as IndexEntryShape[]) : []));
-  return [...fromBucket(parsed.hot), ...fromBucket(parsed.warm), ...((parsed.cold ?? []) as IndexEntryShape[])];
+    Object.values(bucket ?? {}).flatMap((arr) =>
+      Array.isArray(arr) ? (arr as IndexEntryShape[]) : []
+    );
+  return [
+    ...fromBucket(parsed.hot),
+    ...fromBucket(parsed.warm),
+    ...((parsed.cold ?? []) as IndexEntryShape[])
+  ];
 }
 
 function inspectDrift(
@@ -83,14 +92,17 @@ function inspectDrift(
   indexedCount: number
 ): readonly DoctorCheck[] {
   const checks: DoctorCheck[] = [];
-  const diskFiles = listMarkdownFiles(memoryDir).filter((filePath) => basename(filePath) !== MEMORY_MD_FILENAME);
+  const diskFiles = listMarkdownFiles(memoryDir).filter(
+    (filePath) => basename(filePath) !== MEMORY_MD_FILENAME
+  );
 
   // --- coverage ---------------------------------------------------------
   const gap = diskFiles.length - indexedCount;
   if (Math.abs(gap) > COVERAGE_GAP_WARN_THRESHOLD) {
-    const direction = gap > 0
-      ? `${gap} file(s) on disk are not in the index`
-      : `${-gap} index entr(ies) have no matching file`;
+    const direction =
+      gap > 0
+        ? `${gap} file(s) on disk are not in the index`
+        : `${-gap} index entr(ies) have no matching file`;
     checks.push({
       id: 'L3:l3-memory-coverage',
       ok: false,
@@ -107,7 +119,12 @@ function inspectDrift(
 
   // --- orphans (both directions) ---------------------------------------
   const missingSources = readIndexSourcePaths(memoryIndexPath)
-    .filter((entry) => typeof entry.sourcePath !== 'string' || entry.sourcePath.length === 0 || !existsSync(entry.sourcePath))
+    .filter(
+      (entry) =>
+        typeof entry.sourcePath !== 'string' ||
+        entry.sourcePath.length === 0 ||
+        !existsSync(entry.sourcePath)
+    )
     .map((entry) => entry.name ?? entry.sourcePath ?? '<unnamed>')
     .sort((left, right) => left.localeCompare(right));
   if (missingSources.length > 0) {
@@ -159,11 +176,13 @@ function run({ resolvedL3Root }: DoctorContext): readonly DoctorCheck[] {
   const memoryDir = join(resolvedL3Root, '.peaks/memory');
   const memoryIndexPath = join(memoryDir, 'index.json');
   if (!existsSync(memoryIndexPath)) {
-    return [{
-      id: 'L3:l3-memory-health',
-      ok: true,
-      message: 'No .peaks/memory/index.json yet (no memories extracted)'
-    }];
+    return [
+      {
+        id: 'L3:l3-memory-health',
+        ok: true,
+        message: 'No .peaks/memory/index.json yet (no memories extracted)'
+      }
+    ];
   }
 
   let parsed: MemoryIndexShape;
@@ -171,29 +190,35 @@ function run({ resolvedL3Root }: DoctorContext): readonly DoctorCheck[] {
     const raw = readFileSync(memoryIndexPath, 'utf8');
     parsed = JSON.parse(raw) as MemoryIndexShape;
   } catch (parseError) {
-    return [{
-      id: 'L3:l3-memory-health',
-      ok: false,
-      message: `.peaks/memory/index.json is not valid JSON: ${getErrorMessage(parseError)}`
-    }];
+    return [
+      {
+        id: 'L3:l3-memory-health',
+        ok: false,
+        message: `.peaks/memory/index.json is not valid JSON: ${getErrorMessage(parseError)}`
+      }
+    ];
   }
 
   const schemaMarker = parsed.schema_version ?? parsed.version;
   if (schemaMarker === undefined) {
-    return [{
-      id: 'L3:l3-memory-health',
-      ok: false,
-      message: '.peaks/memory/index.json missing schema_version / version field'
-    }];
+    return [
+      {
+        id: 'L3:l3-memory-health',
+        ok: false,
+        message: '.peaks/memory/index.json missing schema_version / version field'
+      }
+    ];
   }
 
   const hotCount = countEntries(parsed.hot);
   const warmCount = countEntries(parsed.warm);
-  const checks: DoctorCheck[] = [{
-    id: 'L3:l3-memory-health',
-    ok: true,
-    message: `.peaks/memory/index.json is well-formed JSON; version=${schemaMarker}; ${hotCount} hot + ${warmCount} warm memory entries`
-  }];
+  const checks: DoctorCheck[] = [
+    {
+      id: 'L3:l3-memory-health',
+      ok: true,
+      message: `.peaks/memory/index.json is well-formed JSON; version=${schemaMarker}; ${hotCount} hot + ${warmCount} warm memory entries`
+    }
+  ];
 
   // Drift inspection is best-effort: a scan failure must not turn a
   // well-formed index into a hard failure.

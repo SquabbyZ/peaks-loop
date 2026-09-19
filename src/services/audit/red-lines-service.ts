@@ -32,38 +32,35 @@ import {
   lintSectionShape,
   lintSectionOrder,
   lintFrontmatterShape,
-  lintReferenceLoadStrategy,
+  lintReferenceLoadStrategy
 } from './enforcers/lint-style.js';
 import {
   lintRefPathResolves,
   lintNoBrokenMkdir,
   lintNoPwdSymlinkJumps,
-  lintNoRelativeArchivePaths,
+  lintNoRelativeArchivePaths
 } from './enforcers/lint-reference-integrity.js';
 import {
   lintCliBackMandatorText,
   lintCliBackNoOrphanBlocking,
-  lintCliBackNoOrphanMustNot,
+  lintCliBackNoOrphanMustNot
 } from './enforcers/lint-cli-back.js';
 import {
   lintNoFluff,
   lintNoClosingPrompt,
-  lintStatusHeader,
+  lintStatusHeader
 } from './enforcers/lint-output-style.js';
 import {
   lintRdHandoffContract,
-  lintRdCoverageDiscipline,
+  lintRdCoverageDiscipline
 } from './enforcers/lint-rd-handoff-coverage.js';
 import {
   lintOpenSpecAcceptanceBullets,
   lintOpenSpecSpecReference,
   // (Removed in v2.11.0 Group A: `lintTechDocPresenceShape`)
-  lintPeaksDoctorAcknowledged,
+  lintPeaksDoctorAcknowledged
 } from './enforcers/lint-workflow-shape.js';
-import {
-  lintCatalogSize,
-  lintCatalogProseOnlyRatio,
-} from './enforcers/lint-catalog-governance.js';
+import { lintCatalogSize, lintCatalogProseOnlyRatio } from './enforcers/lint-catalog-governance.js';
 import {
   lintH1TitleRequired,
   lintApplicableTaskLevels,
@@ -86,14 +83,14 @@ import {
   lintNoMagicNumbers,
   lintSkillCitesEveryReference,
   lintLoadStrategyMatchesSize,
-  readReferenceFiles,
+  readReferenceFiles
 } from './enforcers/lint-reference-shape.js';
 import {
   lintCatalogStability,
   lintNoOrphanEnforcer,
   lintNoOrphanCatalog,
   lintRuntimeBudget,
-  readCatalogHistory,
+  readCatalogHistory
 } from './enforcers/lint-audit-regression.js';
 import type { EnforcerFinding, RedLineAudit, RedLineEntry, ScanWarning } from './types.js';
 
@@ -109,7 +106,7 @@ export interface RedLinesServiceResult {
 function buildFileInputs(
   skills: { lines: readonly { file: string; line: number; text: string }[] },
   rules: { lines: readonly { file: string; line: number; text: string }[] },
-  openspec: { lines: readonly { file: string; line: number; text: string }[] },
+  openspec: { lines: readonly { file: string; line: number; text: string }[] }
 ): readonly ClassifyFileInput[] {
   const grouped = new Map<string, string[]>();
   for (const line of [...skills.lines, ...rules.lines, ...openspec.lines]) {
@@ -151,7 +148,7 @@ function tally(entries: readonly RedLineEntry[]): {
     totalRedLines: entries.length,
     cliBacked,
     partial,
-    proseOnly,
+    proseOnly
   };
 }
 
@@ -174,9 +171,7 @@ export function runRedLinesAudit(input: RedLinesServiceInput): RedLinesServiceRe
   // the detector falls back to the pre-A9 "file exists" rule.
   const liveness = computeLiveEnforcers(
     input.projectRoot,
-    RED_LINE_CATALOG.map((entry) => entry.enforcerRef).filter(
-      (ref): ref is string => ref !== null,
-    ),
+    RED_LINE_CATALOG.map((entry) => entry.enforcerRef).filter((ref): ref is string => ref !== null)
   );
   const backed = classifyBackingBatch(classified.entries, input.projectRoot, liveness.live);
 
@@ -190,7 +185,7 @@ export function runRedLinesAudit(input: RedLinesServiceInput): RedLinesServiceRe
     ...openspec.warnings,
     ...classified.warnings.map((message) => ({ file: '(classifier)', message })),
     ...backed.warnings.map((message) => ({ file: '(backing-detector)', message })),
-    ...liveness.warnings.map((message) => ({ file: '(enforcer-liveness)', message })),
+    ...liveness.warnings.map((message) => ({ file: '(enforcer-liveness)', message }))
   ];
 
   // A9: name every enforcer that was downgraded, so the drop in
@@ -199,14 +194,14 @@ export function runRedLinesAudit(input: RedLinesServiceInput): RedLinesServiceRe
     warnings.push({
       file: '(enforcer-liveness)',
       message:
-        'no src/ tree under the project root; enforcer liveness is undecidable, so `cli-backed` falls back to the pre-A9 "the enforcer file exists" rule',
+        'no src/ tree under the project root; enforcer liveness is undecidable, so `cli-backed` falls back to the pre-A9 "the enforcer file exists" rule'
     });
   }
   for (const ref of backed.deadEnforcers) {
     warnings.push({
       file: ref,
       message:
-        'enforcer file exists but nothing outside src/services/audit/enforcers/ imports it; red lines backed by it are counted as prose-only',
+        'enforcer file exists but nothing outside src/services/audit/enforcers/ imports it; red lines backed by it are counted as prose-only'
     });
   }
 
@@ -214,7 +209,7 @@ export function runRedLinesAudit(input: RedLinesServiceInput): RedLinesServiceRe
     for (const sid of subAgentSids.invalid) {
       warnings.push({
         file: '.peaks/_sub_agents/' + sid,
-        message: `invalid sub-agent sid: "${sid}" (does not match isValidSessionId)`,
+        message: `invalid sub-agent sid: "${sid}" (does not match isValidSessionId)`
       });
     }
   }
@@ -222,7 +217,7 @@ export function runRedLinesAudit(input: RedLinesServiceInput): RedLinesServiceRe
     for (const sid of runtimeSids.invalid) {
       warnings.push({
         file: '.peaks/_runtime/' + sid,
-        message: `invalid runtime sid: "${sid}" (does not match isValidSessionId)`,
+        message: `invalid runtime sid: "${sid}" (does not match isValidSessionId)`
       });
     }
   }
@@ -244,7 +239,7 @@ export function runRedLinesAudit(input: RedLinesServiceInput): RedLinesServiceRe
         rule: 'Sub-Agent SID Isolation',
         severity: 'fail',
         file: `.peaks/_sub_agents/${sid}`,
-        detail: `invalid sub-agent sid: "${sid}" (does not match isValidSessionId)`,
+        detail: `invalid sub-agent sid: "${sid}" (does not match isValidSessionId)`
       });
     }
   }
@@ -255,7 +250,7 @@ export function runRedLinesAudit(input: RedLinesServiceInput): RedLinesServiceRe
         rule: 'Sub-Agent SID Isolation',
         severity: 'fail',
         file: `.peaks/_runtime/${sid}`,
-        detail: `invalid runtime sid: "${sid}" (does not match isValidSessionId)`,
+        detail: `invalid runtime sid: "${sid}" (does not match isValidSessionId)`
       });
     }
   }
@@ -272,16 +267,21 @@ export function runRedLinesAudit(input: RedLinesServiceInput): RedLinesServiceRe
   //    for the current session.
   if (existsSync(sessionJsonPath)) {
     try {
-      const sessionData = JSON.parse(require('node:fs').readFileSync(sessionJsonPath, 'utf8')) as { peakSessionId?: string };
+      const sessionData = JSON.parse(require('node:fs').readFileSync(sessionJsonPath, 'utf8')) as {
+        peakSessionId?: string;
+      };
       if (typeof sessionData.peakSessionId === 'string' && sessionData.peakSessionId.length > 0) {
-        const preRd = checkPreRdScan({ projectRoot: input.projectRoot, sessionId: sessionData.peakSessionId });
+        const preRd = checkPreRdScan({
+          projectRoot: input.projectRoot,
+          sessionId: sessionData.peakSessionId
+        });
         if (!preRd.archetypeScanned) {
           enforcerFindings.push({
             enforcerId: 'rl-pre-rd-scan-001',
             rule: 'Pre-RD Scan: Archetype Detected',
             severity: 'warn',
             file: preRd.archetypeReportPath,
-            detail: 'project-scan.md not produced; rd work has no archetype context',
+            detail: 'project-scan.md not produced; rd work has no archetype context'
           });
         }
         if (!preRd.standardsPreflightDone) {
@@ -290,11 +290,13 @@ export function runRedLinesAudit(input: RedLinesServiceInput): RedLinesServiceRe
             rule: 'Pre-RD Scan: Standards Preflight',
             severity: 'warn',
             file: preRd.standardsReportPath,
-            detail: 'standards-preflight.json not produced; rd work has no project standards context',
+            detail:
+              'standards-preflight.json not produced; rd work has no project standards context'
           });
         }
       }
-    } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+    } catch {
+      // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
       // skip
     }
   }
@@ -310,7 +312,7 @@ export function runRedLinesAudit(input: RedLinesServiceInput): RedLinesServiceRe
         if (entry === '_runtime' || entry === '_sub_agents' || entry.startsWith('.')) continue;
         const designCheck = checkDesignDraftConfirmation({
           projectRoot: input.projectRoot,
-          sessionId: entry,
+          sessionId: entry
         });
         if (designCheck.draftExists && !designCheck.confirmed) {
           enforcerFindings.push({
@@ -318,11 +320,12 @@ export function runRedLinesAudit(input: RedLinesServiceInput): RedLinesServiceRe
             rule: 'Design-Draft Confirm: Confirmed State',
             severity: 'warn',
             file: designCheck.draftPath,
-            detail: 'design-draft.md exists but is not confirmed (no "confirmed" marker)',
+            detail: 'design-draft.md exists but is not confirmed (no "confirmed" marker)'
           });
         }
       }
-    } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+    } catch {
+      // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
       // skip
     }
   }
@@ -342,7 +345,10 @@ export function runRedLinesAudit(input: RedLinesServiceInput): RedLinesServiceRe
             if (e.name === 'node_modules' || e.name === 'dist') continue;
             walk(full);
           } else if (e.isFile() && /\.(ts|tsx|js|mjs)$/.test(e.name)) {
-            const rel = full.slice(input.projectRoot.length + 1).split('\\').join('/');
+            const rel = full
+              .slice(input.projectRoot.length + 1)
+              .split('\\')
+              .join('/');
             allFiles.push(rel);
           }
         }
@@ -356,11 +362,12 @@ export function runRedLinesAudit(input: RedLinesServiceInput): RedLinesServiceRe
           rule: 'Prototype Fidelity: No Stub Markers',
           severity: 'warn',
           file: hit.filePath,
-          detail: `stub marker "${hit.pattern}" at line containing: ${hit.snippet.slice(0, 50)}`,
+          detail: `stub marker "${hit.pattern}" at line containing: ${hit.snippet.slice(0, 50)}`
         });
       }
     }
-  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+  } catch {
+    // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     // skip
   }
 
@@ -397,7 +404,7 @@ export function runRedLinesAudit(input: RedLinesServiceInput): RedLinesServiceRe
         warnings.push({
           file: `skills/${root}`,
           message:
-            'no top-level SKILL.md — this directory and every skill nested under it are skipped by all lint-style enforcers (including rl-section-hard-contracts-001); their red-line rows are unverified',
+            'no top-level SKILL.md — this directory and every skill nested under it are skipped by all lint-style enforcers (including rl-section-hard-contracts-001); their red-line rows are unverified'
         });
       }
       const skillFiles = readSkillFiles(skillsRoot, skillNames);
@@ -426,7 +433,7 @@ export function runRedLinesAudit(input: RedLinesServiceInput): RedLinesServiceRe
           // A10: the RD handoff gate reads the artifact, not the SKILL.md
           // sentence that promises one. See lint-rd-handoff-coverage.ts.
           ...lintRdHandoffContract(skill, input.projectRoot),
-          ...lintRdCoverageDiscipline(skill),
+          ...lintRdCoverageDiscipline(skill)
         ];
         for (const hit of lintHits) {
           enforcerFindings.push({
@@ -434,7 +441,7 @@ export function runRedLinesAudit(input: RedLinesServiceInput): RedLinesServiceRe
             rule: hit.rule,
             severity: 'warn',
             file: hit.file,
-            detail: `line ${hit.line}: ${hit.matchedText}`,
+            detail: `line ${hit.line}: ${hit.matchedText}`
           });
         }
 
@@ -466,7 +473,7 @@ export function runRedLinesAudit(input: RedLinesServiceInput): RedLinesServiceRe
               ...lintNoChmod777(ref),
               ...lintNoMagicNumbers(ref),
               ...lintSkillCitesEveryReference(ref, skill),
-              ...lintLoadStrategyMatchesSize(ref),
+              ...lintLoadStrategyMatchesSize(ref)
             ];
             for (const hit of refHits) {
               enforcerFindings.push({
@@ -474,16 +481,18 @@ export function runRedLinesAudit(input: RedLinesServiceInput): RedLinesServiceRe
                 rule: hit.rule,
                 severity: 'warn',
                 file: hit.file,
-                detail: `line ${hit.line}: ${hit.matchedText}`,
+                detail: `line ${hit.line}: ${hit.matchedText}`
               });
             }
           }
-        } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+        } catch {
+          // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
           // skip — P2-b enforcers are best-effort per reference file
         }
       }
     }
-  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+  } catch {
+    // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     // skip — P2-a enforcers are best-effort; a failure here must
     // not break the audit pipeline
   }
@@ -501,11 +510,11 @@ export function runRedLinesAudit(input: RedLinesServiceInput): RedLinesServiceRe
     const auditRegressionHits = [
       ...lintCatalogStability({
         currentSize: catalogSize,
-        sizeNinetyDaysAgo: readCatalogHistory(input.projectRoot),
+        sizeNinetyDaysAgo: readCatalogHistory(input.projectRoot)
       }),
       ...lintNoOrphanEnforcer(input.projectRoot),
       ...lintNoOrphanCatalog(),
-      ...lintRuntimeBudget(input.projectRoot, observedMs),
+      ...lintRuntimeBudget(input.projectRoot, observedMs)
     ];
     for (const hit of auditRegressionHits) {
       enforcerFindings.push({
@@ -513,10 +522,11 @@ export function runRedLinesAudit(input: RedLinesServiceInput): RedLinesServiceRe
         rule: hit.rule,
         severity: 'warn',
         file: hit.file,
-        detail: `line ${hit.line}: ${hit.matchedText}`,
+        detail: `line ${hit.line}: ${hit.matchedText}`
       });
     }
-  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+  } catch {
+    // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     // skip — audit-regression enforcers are best-effort
   }
 
@@ -524,7 +534,7 @@ export function runRedLinesAudit(input: RedLinesServiceInput): RedLinesServiceRe
   try {
     const openspecHits = [
       ...lintOpenSpecAcceptanceBullets(input.projectRoot),
-      ...lintOpenSpecSpecReference(input.projectRoot),
+      ...lintOpenSpecSpecReference(input.projectRoot)
       // (Removed in v2.11.0 Group A: lintTechDocPresenceShape)
     ];
     for (const hit of openspecHits) {
@@ -533,10 +543,11 @@ export function runRedLinesAudit(input: RedLinesServiceInput): RedLinesServiceRe
         rule: hit.rule,
         severity: 'warn',
         file: hit.file,
-        detail: `line ${hit.line}: ${hit.matchedText}`,
+        detail: `line ${hit.line}: ${hit.matchedText}`
       });
     }
-  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+  } catch {
+    // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     // skip
   }
 
@@ -547,7 +558,9 @@ export function runRedLinesAudit(input: RedLinesServiceInput): RedLinesServiceRe
   try {
     let peakSessionId = '';
     if (existsSync(sessionJsonPath)) {
-      const sessionData = JSON.parse(readFileSync(sessionJsonPath, 'utf8')) as { peakSessionId?: string };
+      const sessionData = JSON.parse(readFileSync(sessionJsonPath, 'utf8')) as {
+        peakSessionId?: string;
+      };
       if (typeof sessionData.peakSessionId === 'string') {
         peakSessionId = sessionData.peakSessionId;
       }
@@ -560,11 +573,12 @@ export function runRedLinesAudit(input: RedLinesServiceInput): RedLinesServiceRe
           rule: hit.rule,
           severity: 'warn',
           file: hit.file,
-          detail: `line ${hit.line}: ${hit.matchedText}`,
+          detail: `line ${hit.line}: ${hit.matchedText}`
         });
       }
     }
-  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+  } catch {
+    // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     // skip
   }
 
@@ -582,10 +596,11 @@ export function runRedLinesAudit(input: RedLinesServiceInput): RedLinesServiceRe
         rule: hit.rule,
         severity: 'warn',
         file: hit.file,
-        detail: `line ${hit.line}: ${hit.matchedText}`,
+        detail: `line ${hit.line}: ${hit.matchedText}`
       });
     }
-  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+  } catch {
+    // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     // skip
   }
 
@@ -595,7 +610,7 @@ export function runRedLinesAudit(input: RedLinesServiceInput): RedLinesServiceRe
     partial: counts.partial,
     proseOnly: counts.proseOnly,
     audit: backed.entries,
-    enforcerFindings,
+    enforcerFindings
   };
 
   return { audit, warnings };

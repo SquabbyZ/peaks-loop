@@ -1,10 +1,10 @@
-import type Database from "better-sqlite3";
+import type Database from 'better-sqlite3';
 import {
   CrystallizationEventSchema,
   type CrystallizationEvent,
   type CrystallizationEventInput,
-  type CrystallizationEventStatus,
-} from "./crystallization-types.js";
+  type CrystallizationEventStatus
+} from './crystallization-types.js';
 
 /**
  * Low-level SQLite access for the `crystallization_event` table.
@@ -27,7 +27,7 @@ import {
  *     the persisted, validated row.
  */
 
-const SCHEMA_VERSION = "peaks.crystallization/1" as const;
+const SCHEMA_VERSION = 'peaks.crystallization/1' as const;
 
 /**
  * Re-apply the crystallization_event table migration against an
@@ -88,21 +88,17 @@ interface CrystallizationEventRow {
   created_bee_release_id: number | null;
   updated_bee_release_id: number | null;
   lifecycle_status: CrystallizationEventStatus;
-  schema_version: "peaks.crystallization/1";
+  schema_version: 'peaks.crystallization/1';
   created_at: string;
 }
 
-function rowToCrystallizationEvent(
-  row: CrystallizationEventRow
-): CrystallizationEvent {
+function rowToCrystallizationEvent(row: CrystallizationEventRow): CrystallizationEvent {
   return {
     id: row.id,
-    trigger: row.trigger as CrystallizationEvent["trigger"],
+    trigger: row.trigger as CrystallizationEvent['trigger'],
     evidence_brief: JSON.parse(row.evidence_brief_json),
     evidence_bullets: JSON.parse(row.evidence_bullets_json) as string[],
-    source_trace_pointers: JSON.parse(
-      row.source_trace_pointers_json
-    ) as string[],
+    source_trace_pointers: JSON.parse(row.source_trace_pointers_json) as string[],
     evaluator_summary: row.evaluator_summary,
     user_decision_summary: row.user_decision_summary,
     created_loop_release_id: row.created_loop_release_id ?? undefined,
@@ -111,7 +107,7 @@ function rowToCrystallizationEvent(
     updated_bee_release_id: row.updated_bee_release_id ?? undefined,
     lifecycle_status: row.lifecycle_status,
     schema_version: row.schema_version,
-    created_at: row.created_at,
+    created_at: row.created_at
   };
 }
 
@@ -138,7 +134,7 @@ export function insertCrystallizationEvent(
     ...row,
     id,
     schema_version: SCHEMA_VERSION,
-    created_at: createdAt,
+    created_at: createdAt
   }) as CrystallizationEvent;
   const stmt = db.prepare(
     `INSERT INTO crystallization_event (
@@ -174,9 +170,8 @@ export function getCrystallizationEvent(
   db: Database.Database,
   id: string
 ): CrystallizationEvent | undefined {
-  const row = db
-    .prepare("SELECT * FROM crystallization_event WHERE id = ?")
-    .get(id) as CrystallizationEventRow | undefined;
+  const row = db.prepare('SELECT * FROM crystallization_event WHERE id = ?').get(id) as
+    CrystallizationEventRow | undefined;
   if (!row) return undefined;
   return rowToCrystallizationEvent(row);
 }
@@ -199,28 +194,28 @@ export function listCrystallizationEvents(
   const wheres: string[] = [];
   const params: unknown[] = [];
   if (opts.lifecycle_status !== undefined) {
-    wheres.push("lifecycle_status = ?");
+    wheres.push('lifecycle_status = ?');
     params.push(opts.lifecycle_status);
   }
   if (opts.created_loop_release_id !== undefined) {
-    wheres.push("created_loop_release_id = ?");
+    wheres.push('created_loop_release_id = ?');
     params.push(opts.created_loop_release_id);
   }
   if (opts.updated_loop_release_id !== undefined) {
-    wheres.push("updated_loop_release_id = ?");
+    wheres.push('updated_loop_release_id = ?');
     params.push(opts.updated_loop_release_id);
   }
   if (opts.created_bee_release_id !== undefined) {
-    wheres.push("created_bee_release_id = ?");
+    wheres.push('created_bee_release_id = ?');
     params.push(opts.created_bee_release_id);
   }
   if (opts.updated_bee_release_id !== undefined) {
-    wheres.push("updated_bee_release_id = ?");
+    wheres.push('updated_bee_release_id = ?');
     params.push(opts.updated_bee_release_id);
   }
-  let sql = "SELECT * FROM crystallization_event";
-  if (wheres.length > 0) sql += " WHERE " + wheres.join(" AND ");
-  sql += " ORDER BY created_at DESC, id ASC";
+  let sql = 'SELECT * FROM crystallization_event';
+  if (wheres.length > 0) sql += ' WHERE ' + wheres.join(' AND ');
+  sql += ' ORDER BY created_at DESC, id ASC';
   const rows = db.prepare(sql).all(...params) as CrystallizationEventRow[];
   return rows.map(rowToCrystallizationEvent);
 }
@@ -240,9 +235,7 @@ export function updateCrystallizationEventStatus(
 ): CrystallizationEvent | undefined {
   const existing = getCrystallizationEvent(db, id);
   if (!existing) return undefined;
-  db.prepare(
-    "UPDATE crystallization_event SET lifecycle_status = ? WHERE id = ?"
-  ).run(next, id);
+  db.prepare('UPDATE crystallization_event SET lifecycle_status = ? WHERE id = ?').run(next, id);
   return getCrystallizationEvent(db, id);
 }
 
@@ -254,7 +247,7 @@ export function updateCrystallizationEventStatus(
 export function newCrystallizationId(): string {
   const hex = Math.floor(Math.random() * 0x1_000_000_000_000)
     .toString(16)
-    .padStart(12, "0");
+    .padStart(12, '0');
   return `crys-${hex}`;
 }
 

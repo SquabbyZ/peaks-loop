@@ -44,7 +44,13 @@ export type ArchetypeReport = {
 
 export type VisualTokenSource = {
   path: string;
-  kind: 'less-vars' | 'sass-vars' | 'css-vars' | 'tailwind-config' | 'antd-config-provider' | 'theme-file';
+  kind:
+    | 'less-vars'
+    | 'sass-vars'
+    | 'css-vars'
+    | 'tailwind-config'
+    | 'antd-config-provider'
+    | 'theme-file';
 };
 
 export type VisualToken = {

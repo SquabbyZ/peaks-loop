@@ -71,6 +71,9 @@ export function readResult(filePath: string): DecompositionResult | Decompositio
  * Serialize a v1 or v2 decomposition result to disk as pretty-printed JSON.
  * The `schemaVersion` field (or its absence) is preserved as-is.
  */
-export function writeResult(filePath: string, result: DecompositionResult | DecompositionResultV2): void {
+export function writeResult(
+  filePath: string,
+  result: DecompositionResult | DecompositionResultV2
+): void {
   writeFileSync(filePath, JSON.stringify(result, null, 2), 'utf8');
 }

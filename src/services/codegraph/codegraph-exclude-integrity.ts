@@ -130,7 +130,10 @@ export function inspectCodegraphExcludeIntegrity(
     excludedTrackedCount: result.excludedTrackedCount,
     violations: result.violations,
     rulesToRemove: result.rulesToRemove,
-    ruleImpacts: result.rulesToRemove.map((rule) => ({ rule, blockedCount: blockedCounts.get(rule) ?? 0 }))
+    ruleImpacts: result.rulesToRemove.map((rule) => ({
+      rule,
+      blockedCount: blockedCounts.get(rule) ?? 0
+    }))
   };
 }
 

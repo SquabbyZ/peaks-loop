@@ -15,7 +15,8 @@ export function planMergeBack(input: {
 }): MergePlan {
   if (input.agentBranch.length === 0) return { kind: 'missing', reason: 'agent-branch-empty' };
   if (input.callerBranch === input.agentBranch) return { kind: 'noop' };
-  if (input.conflictingFiles.length > 0) return { kind: 'conflict', conflictingFiles: input.conflictingFiles };
+  if (input.conflictingFiles.length > 0)
+    return { kind: 'conflict', conflictingFiles: input.conflictingFiles };
   const base = ['git', 'merge', '--no-ff'];
   if (input.callerBranch === 'main' && input.commitsBehind === 0) {
     return { kind: 'fast-forward', command: ['git', 'merge', '--ff-only', input.agentBranch] };

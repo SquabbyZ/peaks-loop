@@ -36,43 +36,55 @@ function normalizeGoal(goal: string): string {
 }
 
 function renderGoalPackage(sessionId: string, goal: string): string {
-  return `${JSON.stringify({
-    sessionId,
-    artifactType: 'goal-package',
-    status: 'ready',
-    goal,
-    doneCondition: `Autonomous plan for ${sessionId} is complete when all acceptance criteria pass, the worker queue is empty or blocked with next actions, and validation evidence is recorded.`,
-    resumeCondition: `Resume ${sessionId} only after checkpoint artifacts, worker queue state, and validation evidence requirements have been verified.`,
-    acceptanceCriteria: [
-      'A resumable autonomous RD plan exists with checkpoints, worker queue, and validation evidence requirements.',
-      'Curated capabilities from docs/accessRepo.md and docs/mcpServer.md are considered before custom implementation.',
-      'Resume after compact verifies checkpoints and evidence before continuing.',
-      'All execution remains dry-run until explicitly approved.'
-    ]
-  }, null, 2)}\n`;
+  return `${JSON.stringify(
+    {
+      sessionId,
+      artifactType: 'goal-package',
+      status: 'ready',
+      goal,
+      doneCondition: `Autonomous plan for ${sessionId} is complete when all acceptance criteria pass, the worker queue is empty or blocked with next actions, and validation evidence is recorded.`,
+      resumeCondition: `Resume ${sessionId} only after checkpoint artifacts, worker queue state, and validation evidence requirements have been verified.`,
+      acceptanceCriteria: [
+        'A resumable autonomous RD plan exists with checkpoints, worker queue, and validation evidence requirements.',
+        'Curated capabilities from docs/accessRepo.md and docs/mcpServer.md are considered before custom implementation.',
+        'Resume after compact verifies checkpoints and evidence before continuing.',
+        'All execution remains dry-run until explicitly approved.'
+      ]
+    },
+    null,
+    2
+  )}\n`;
 }
 
 function renderRdPlan(sessionId: string): string {
-  return `${JSON.stringify({
-    sessionId,
-    artifactType: 'rd-plan',
-    status: 'ready',
-    workerQueueStatus: 'ready',
-    taskCount: 1,
-    reducerRequired: true
-  }, null, 2)}\n`;
+  return `${JSON.stringify(
+    {
+      sessionId,
+      artifactType: 'rd-plan',
+      status: 'ready',
+      workerQueueStatus: 'ready',
+      taskCount: 1,
+      reducerRequired: true
+    },
+    null,
+    2
+  )}\n`;
 }
 
 function renderCheckpoint(sessionId: string, createdAt: string): string {
-  return `${JSON.stringify({
-    sessionId,
-    artifactType: 'checkpoint',
-    status: 'ready',
-    checkpointId: 'checkpoint-1',
-    createdAt,
-    workerQueueState: {},
-    validationRefs: ['unit-tests.md']
-  }, null, 2)}\n`;
+  return `${JSON.stringify(
+    {
+      sessionId,
+      artifactType: 'checkpoint',
+      status: 'ready',
+      checkpointId: 'checkpoint-1',
+      createdAt,
+      workerQueueState: {},
+      validationRefs: ['unit-tests.md']
+    },
+    null,
+    2
+  )}\n`;
 }
 
 function renderValidationReport(sessionId: string): string {
@@ -135,7 +147,12 @@ Next actions:
 `;
 }
 
-function buildFiles(sessionId: string, goal: string, createdAt: string, artifactWorkspacePath: string): AutonomousResumeArtifactFile[] {
+function buildFiles(
+  sessionId: string,
+  goal: string,
+  createdAt: string,
+  artifactWorkspacePath: string
+): AutonomousResumeArtifactFile[] {
   // Slice 2026-06-29-change-id-root-removal: route every reviewable
   // artifact under the session-axis dir at `.peaks/_runtime/<sid>/...`
   // via `getSessionDir`. The change-id identifier is reused as the
@@ -171,13 +188,17 @@ function buildFiles(sessionId: string, goal: string, createdAt: string, artifact
   ];
 }
 
-export async function writeAutonomousResumeArtifacts(request: AutonomousResumeWriteRequest): Promise<AutonomousResumeWriteResult> {
+export async function writeAutonomousResumeArtifacts(
+  request: AutonomousResumeWriteRequest
+): Promise<AutonomousResumeWriteResult> {
   // Slice 2026-06-29-change-id-root-removal: change-id is metadata-only;
   // structural validation for the session id is a path-safety check
   // (no path-traversal / no absolute path) so unsafe ids never escape
   // the canonical `.peaks/_runtime/<sid>/` scope.
   if (isUnsafePathInput(request.sessionId)) {
-    throw new Error(`Refusing to write: session id '${request.sessionId}' is unsafe (path-traversal, absolute, or otherwise malformed).`);
+    throw new Error(
+      `Refusing to write: session id '${request.sessionId}' is unsafe (path-traversal, absolute, or otherwise malformed).`
+    );
   }
   const goal = normalizeGoal(request.goal);
   const clock = request.clock ?? defaultClock;
@@ -190,7 +211,9 @@ export async function writeAutonomousResumeArtifacts(request: AutonomousResumeWr
 
   for (const file of files) {
     if (await pathExists(file.path)) {
-      throw new Error(`Refusing to write: ${file.path} already exists. Remove it before re-running peaks autonomous resume init --apply.`);
+      throw new Error(
+        `Refusing to write: ${file.path} already exists. Remove it before re-running peaks autonomous resume init --apply.`
+      );
     }
   }
 

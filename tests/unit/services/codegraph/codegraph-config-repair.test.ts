@@ -44,7 +44,15 @@
 // Run with: pnpm vitest run tests/unit/services/codegraph/codegraph-config-repair.test.ts
 
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync, existsSync } from 'node:fs';
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+  existsSync
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -247,9 +255,9 @@ describe('the exclude reconciliation must run AFTER include normalization', () =
     const config = readConfig(projectRoot);
     expect(config.include).toEqual(['**/*.ts', ...EXPECTED_INCLUDE_ADDITIONS]);
     expect(config.exclude).toEqual(['**/node_modules/**']);
-    expect(readFileSync(`${configPathOf(projectRoot)}${CODEGRAPH_CONFIG_BACKUP_SUFFIX}`, 'utf8')).toContain(
-      '"**/tool.mjs"'
-    );
+    expect(
+      readFileSync(`${configPathOf(projectRoot)}${CODEGRAPH_CONFIG_BACKUP_SUFFIX}`, 'utf8')
+    ).toContain('"**/tool.mjs"');
 
     // The index axis, after: the gap that was reported is CLOSED, asserted by
     // re-running the inspector rather than by trusting the report.
@@ -287,7 +295,7 @@ describe('the exclude reconciliation must run AFTER include normalization', () =
 
 // ── 2. the coverage ratio's denominator is an independent measurement ─
 
-describe('the repair report\'s coverage ratio can report a SHORTFALL', () => {
+describe("the repair report's coverage ratio can report a SHORTFALL", () => {
   /**
    * The defect this pins (code review MEDIUM-1): the denominator the CLI
    * divides by was fed from the reconciler's ADMITTED count — the numerator's
@@ -481,9 +489,13 @@ describe('reindex option — the dead-row purge path', () => {
     const forcedRoot = makeOrderingFixture();
 
     const plain = await repairCodegraphExcludeFromProject(plainRoot, makeRecordingRunner().runner);
-    const forced = await repairCodegraphExcludeFromProject(forcedRoot, makeRecordingRunner().runner, {
-      reindex: 'force'
-    });
+    const forced = await repairCodegraphExcludeFromProject(
+      forcedRoot,
+      makeRecordingRunner().runner,
+      {
+        reindex: 'force'
+      }
+    );
 
     // The two modes produce the SAME config, byte for byte: `'force'` is not a
     // different repair, it is the same repair followed by a different rebuild.
@@ -578,7 +590,9 @@ describe('the writer keeps the third-party config intact', () => {
     // nothing was purged and `forcedRebuild: false` is the truth here. The
     // two cases together are what makes the field a discriminator.
     expect(report.forcedRebuild).toBe(false);
-    expect(report.warning).toMatch(/^codegraph config repaired \(1 exclude rule\(s\) removed, 5 include pattern\(s\) added\) but the follow-up index failed \(exit 7\)/);
+    expect(report.warning).toMatch(
+      /^codegraph config repaired \(1 exclude rule\(s\) removed, 5 include pattern\(s\) added\) but the follow-up index failed \(exit 7\)/
+    );
     // The config repair itself is durable — it is not rolled back.
     expect(inspectCodegraphExcludeIntegrity(projectRoot).gap).toBe(false);
   });

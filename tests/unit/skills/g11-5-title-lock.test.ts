@@ -67,7 +67,9 @@ describe('G11.5 visibility contract — AC-3 title-lock baseline', () => {
     // Pinned on the EXACT title text so a complete rename breaks the
     // test (which is the point of a title-lock). The title was
     // introduced in slice 2026-07-28-sub-agent-visibility.
-    expect(dispatchRef).toMatch(/^## G11\.5 — visibility contract \(slice 2026-07-28-sub-agent-visibility\)$/m);
+    expect(dispatchRef).toMatch(
+      /^## G11\.5 — visibility contract \(slice 2026-07-28-sub-agent-visibility\)$/m
+    );
   });
 
   it('declares the orchestrator prose obligation in the dispatch contract', () => {
@@ -83,7 +85,9 @@ describe('G11.5 visibility contract — AC-3 title-lock baseline', () => {
     // is the file the deleted `sub-agent-visibility-envelope.test.ts` case
     // actually parsed. With only the peaks-code sibling pinned, this file
     // could drop its heading while every case stayed green.
-    expect(rdDispatchRef).toMatch(/^## G11\.5 visibility contract \(mandatory, slice 2026-07-28-sub-agent-visibility\)$/m);
+    expect(rdDispatchRef).toMatch(
+      /^## G11\.5 visibility contract \(mandatory, slice 2026-07-28-sub-agent-visibility\)$/m
+    );
     expect(rdDispatchRef).toMatch(/⏳\s*Spawning sub-agent via Task tool:\s*<description>/);
   });
 

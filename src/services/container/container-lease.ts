@@ -123,7 +123,10 @@ export function markContainerGc(lease: ContainerLease): ContainerLease {
   return { ...lease, status: 'gc' };
 }
 
-export function recordContainerConsumption(lease: ContainerLease, subAgentId: string): ContainerLease {
+export function recordContainerConsumption(
+  lease: ContainerLease,
+  subAgentId: string
+): ContainerLease {
   if (lease.consumedBySubAgents.includes(subAgentId)) return lease;
   return { ...lease, consumedBySubAgents: [...lease.consumedBySubAgents, subAgentId] };
 }

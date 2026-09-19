@@ -74,7 +74,11 @@ export function resolveWorkflow(projectRoot: string, id: string): ResolvedWorkfl
   return {
     source: { kind: 'missing' },
     spec: emptySpec(id),
-    lint: { ok: false, errors: [`workflow "${id}" not found in project, global, or bundled locations`], warnings: [] }
+    lint: {
+      ok: false,
+      errors: [`workflow "${id}" not found in project, global, or bundled locations`],
+      warnings: []
+    }
   };
 }
 
@@ -89,13 +93,27 @@ export interface WorkflowPlanGraph {
     readonly parallelGroup: string | null;
     readonly dependsOn: readonly string[];
   }>;
-  readonly parallelGroups: ReadonlyArray<{ readonly id: string; readonly phaseIds: readonly string[] }>;
-  readonly evaluators: ReadonlyArray<{ readonly type: string; readonly gate: string | null; readonly scope: string | null }>;
-  readonly budget: { readonly tokens: number | null; readonly wallSeconds: number | null; readonly cycles: number | null };
+  readonly parallelGroups: ReadonlyArray<{
+    readonly id: string;
+    readonly phaseIds: readonly string[];
+  }>;
+  readonly evaluators: ReadonlyArray<{
+    readonly type: string;
+    readonly gate: string | null;
+    readonly scope: string | null;
+  }>;
+  readonly budget: {
+    readonly tokens: number | null;
+    readonly wallSeconds: number | null;
+    readonly cycles: number | null;
+  };
   readonly source: ResolvedWorkflowSource;
 }
 
-export function planWorkflow(spec: WorkflowSpec, source: ResolvedWorkflowSource): WorkflowPlanGraph {
+export function planWorkflow(
+  spec: WorkflowSpec,
+  source: ResolvedWorkflowSource
+): WorkflowPlanGraph {
   // Detect parallel groups (groups with ≥2 phases).
   const groupMap = new Map<string, string[]>();
   for (const phase of spec.phases) {

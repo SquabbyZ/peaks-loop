@@ -246,7 +246,9 @@ function matchAcToHit(ac: string, hits: readonly CodegraphQueryHit[]): Codegraph
   if (hits.length === 0) return null;
   const acLower = ac.toLowerCase();
   for (const h of hits) {
-    const nameBase = basename(h.filePath, '.ts').replace(/\.tsx?$/, '').toLowerCase();
+    const nameBase = basename(h.filePath, '.ts')
+      .replace(/\.tsx?$/, '')
+      .toLowerCase();
     if (acLower.includes(nameBase)) {
       return h;
     }
@@ -261,7 +263,11 @@ function matchAcToHit(ac: string, hits: readonly CodegraphQueryHit[]): Codegraph
 async function buildDepDagStage(state: DecomposeState): Promise<DecomposeState> {
   const fileSet = await collectFileSet(state.workUnits, state.runners.ier, state.projectRoot);
   const allFiles = Array.from(fileSet);
-  const codegraphAffectedCrossFile = await probeCrossFileAffected(allFiles, state.runners.cg, state.projectRoot);
+  const codegraphAffectedCrossFile = await probeCrossFileAffected(
+    allFiles,
+    state.runners.cg,
+    state.projectRoot
+  );
   const workUnits = applyImplicitWuFallback(state.workUnits, allFiles);
   const importEdges = await state.runners.ier.importsOf(state.projectRoot, allFiles);
   const depEdges = buildDependencyEdges(workUnits, importEdges, state.projectRoot);
@@ -300,7 +306,10 @@ async function probeCrossFileAffected(
 /** If no ACs but the import graph has files, create implicit WUs (one
  *  per file). This is the fallback path for the chain/diamond test
  *  cases. */
-function applyImplicitWuFallback(workUnits: readonly WorkUnit[], allFiles: readonly string[]): WorkUnit[] {
+function applyImplicitWuFallback(
+  workUnits: readonly WorkUnit[],
+  allFiles: readonly string[]
+): WorkUnit[] {
   if (workUnits.length > 0 || allFiles.length === 0) return [...workUnits];
   return allFiles.map((file, i) => ({
     id: `F${i + 1}`,
@@ -332,7 +341,13 @@ function sccCriticalPathStage(state: DecomposeState): DecomposeState {
 function findCriticalPath(
   wus: readonly WorkUnit[],
   edges: readonly DependencyEdge[]
-): { nodes: readonly string[]; edges: readonly string[]; totalLoc: number; totalDeltaLoc: number; rationale: string } {
+): {
+  nodes: readonly string[];
+  edges: readonly string[];
+  totalLoc: number;
+  totalDeltaLoc: number;
+  rationale: string;
+} {
   const locById = indexLocById(wus);
   const adj = buildForwardAdjacency(wus, edges, locById);
   const topoOrder = phaseTopoOrder(wus, adj);
@@ -443,7 +458,13 @@ function phaseReconstruct(
   topoOrder: readonly string[],
   dist: ReadonlyMap<string, number>,
   prev: ReadonlyMap<string, string | null>
-): { nodes: readonly string[]; edges: readonly string[]; totalLoc: number; totalDeltaLoc: number; rationale: string } {
+): {
+  nodes: readonly string[];
+  edges: readonly string[];
+  totalLoc: number;
+  totalDeltaLoc: number;
+  rationale: string;
+} {
   const endNode = pickEndNode(topoOrder, dist);
   const path = backtrackPath(endNode, prev);
   const totalLoc = path.reduce((sum, id) => sum + (locById.get(id) ?? 0), 0);
@@ -508,9 +529,7 @@ function findMinCut(
   partitions.push({ name: 'critical-path', nodes: criticalPath.nodes });
 
   // For v1, just label every non-CP WU as its own parallel partition
-  const remaining = Array.from(
-    new Set(_wus.map((w) => w.id).filter((id) => !cpSet.has(id)))
-  );
+  const remaining = Array.from(new Set(_wus.map((w) => w.id).filter((id) => !cpSet.has(id))));
   let parallelIdx = 1;
   for (const id of remaining) {
     partitions.push({ name: `parallel-${parallelIdx++}`, nodes: [id] });
@@ -520,7 +539,8 @@ function findMinCut(
   }
 
   return {
-    algorithm: 'v1 simplified min-cut: lowest-weight non-critical-path edges; full Stoer-Wagner in v2',
+    algorithm:
+      'v1 simplified min-cut: lowest-weight non-critical-path edges; full Stoer-Wagner in v2',
     cutEdges: cutSet.map((e) => ({
       from: e.from,
       to: e.to,
@@ -655,9 +675,7 @@ function runBatchScheduler(
   const placed = new Set<string>();
   const batches: ParallelBatch[] = [];
 
-  const seedIds = wus
-    .filter((wu) => (upstream.get(wu.id) ?? []).length === 0)
-    .map((wu) => wu.id);
+  const seedIds = wus.filter((wu) => (upstream.get(wu.id) ?? []).length === 0).map((wu) => wu.id);
   batches.push(materialiseBatch(1, [], seedIds, wus));
   for (const id of seedIds) placed.add(id);
 

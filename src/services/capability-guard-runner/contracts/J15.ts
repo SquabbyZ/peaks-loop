@@ -1,9 +1,19 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { parseCapabilityMapping, resolveCoverageSummaryPath } from '../../openspec/coverage-evidence-reader.js';
+import {
+  parseCapabilityMapping,
+  resolveCoverageSummaryPath
+} from '../../openspec/coverage-evidence-reader.js';
 import type { GuardContext, GuardRunResult } from '../types.js';
-import { combineProbes, fail, missingSourceFiles, pass, probe, requireBaselineRow } from './_shared.js';
+import {
+  combineProbes,
+  fail,
+  missingSourceFiles,
+  pass,
+  probe,
+  requireBaselineRow
+} from './_shared.js';
 
 const COVERAGE_REL = ['coverage', 'coverage-summary.json'];
 const OPENSPEC_REL = ['openspec', 'coverage-summary.json'];
@@ -61,7 +71,8 @@ export async function runJ15Contract(ctx: GuardContext): Promise<GuardRunResult>
     writeFileSync(proposalPath, '# change\n\n## Other section\n');
     const withoutBlock = await parseCapabilityMapping(proposalPath);
 
-    const triedPaths = !neither.ok && neither.error.code === 'missing' ? neither.error.triedPaths : [];
+    const triedPaths =
+      !neither.ok && neither.error.code === 'missing' ? neither.error.triedPaths : [];
 
     const result = combineProbes([
       probe(missing.length === 0, `baseline sourceFiles present (${row.sourceFiles.length})`),
@@ -73,15 +84,24 @@ export async function runJ15Contract(ctx: GuardContext): Promise<GuardRunResult>
         second.ok && second.value.replace(/\\/g, '/').endsWith('/openspec/coverage-summary.json'),
         `with only the openspec summary present the override is used (${second.ok ? second.value : second.error.code})`
       ),
-      probe(!neither.ok && neither.error.code === 'missing', `with neither summary present resolution fails (${neither.ok ? 'resolved' : neither.error.code})`),
+      probe(
+        !neither.ok && neither.error.code === 'missing',
+        `with neither summary present resolution fails (${neither.ok ? 'resolved' : neither.error.code})`
+      ),
       probe(
         triedPaths.length === 2 &&
           triedPaths[0]!.replace(/\\/g, '/').endsWith('/coverage/coverage-summary.json') &&
           triedPaths[1]!.replace(/\\/g, '/').endsWith('/openspec/coverage-summary.json'),
         `the tried-path list reports the fixed order (${triedPaths.join(' | ') || 'none'})`
       ),
-      probe(withBlock.present && withBlock.rows.length === 1, `a ## Capability Mapping block parses to one row (present=${String(withBlock.present)} rows=${String(withBlock.rows.length)})`),
-      probe(!withoutBlock.present && withoutBlock.rows.length === 0, 'a proposal without the block is reported as absent, not guessed')
+      probe(
+        withBlock.present && withBlock.rows.length === 1,
+        `a ## Capability Mapping block parses to one row (present=${String(withBlock.present)} rows=${String(withBlock.rows.length)})`
+      ),
+      probe(
+        !withoutBlock.present && withoutBlock.rows.length === 0,
+        'a proposal without the block is reported as absent, not guessed'
+      )
     ]);
 
     const artifact = row.sourceFiles[0] ?? 'src/services/openspec/coverage-evidence-reader.ts';

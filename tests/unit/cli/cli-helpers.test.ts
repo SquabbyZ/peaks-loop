@@ -36,7 +36,7 @@ import { withTmpWorkspacePerTest } from '../_setup/tmp-workspace.js';
 declareDimensions(
   'tests/unit/cli/cli-helpers.test.ts',
   ['render', 'behavior', 'a11y'],
-  [{ dim: 'integration', reason: 'cli-helpers.ts is a pure module.' }],
+  [{ dim: 'integration', reason: 'cli-helpers.ts is a pure module.' }]
 );
 
 import { Command } from 'commander';
@@ -53,14 +53,14 @@ import {
   printInvalidConfigLayer,
   printResult,
   printSuperCommandCatalog,
-  type ProgramIO,
+  type ProgramIO
 } from '~/src/cli/cli-helpers';
 import { fail, ok } from 'peaks-loop-shared/result';
 
-describe("Scenario: render — printResult shape", () => {
+describe('Scenario: render — printResult shape', () => {
   withTmpWorkspacePerTest();
 
-  it("when invoked, should ok result with asJson=true prints the full envelope as pretty JSON", () => {
+  it('when invoked, should ok result with asJson=true prints the full envelope as pretty JSON', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -77,7 +77,7 @@ describe("Scenario: render — printResult shape", () => {
     expect(captured.stderrText()).toBe('');
   });
 
-  it("when invoked, should err result with asJson=true prints the full envelope verbatim", () => {
+  it('when invoked, should err result with asJson=true prints the full envelope verbatim', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -89,7 +89,7 @@ describe("Scenario: render — printResult shape", () => {
     expect(text).toContain('"message": "msg"');
   });
 
-  it("when invoked, should ok result with asJson=false prints data + warnings + next actions", () => {
+  it('when invoked, should ok result with asJson=false prints data + warnings + next actions', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -101,7 +101,7 @@ describe("Scenario: render — printResult shape", () => {
     expect(text).toMatch(/next: retry/);
   });
 
-  it("when invoked, should err result with asJson=false writes code + message + each nextAction to stderr", () => {
+  it('when invoked, should err result with asJson=false writes code + message + each nextAction to stderr', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -114,7 +114,7 @@ describe("Scenario: render — printResult shape", () => {
     expect(err).toMatch(/- escalate/);
   });
 
-  it("when invoked, should err result with asJson=false prints the warnings spread over it", () => {
+  it('when invoked, should err result with asJson=false prints the warnings spread over it', () => {
     // given: the shape `degradedEnvelope` (web-fallback.ts) and `peaks web
     //        login` build — `fail()` hard-codes `warnings: []`, so a failed
     //        envelope only ever carries one by spreading (S4 repair, F6)
@@ -124,9 +124,9 @@ describe("Scenario: render — printResult shape", () => {
       io,
       {
         ...fail('peaks.web.login', 'WEB_LOGIN_FAILED', 'msg', {}, ['retry']),
-        warnings: ['local browser skipped (PEAKS_WEB_DISABLED=1)', 'MCP fallback warning'],
+        warnings: ['local browser skipped (PEAKS_WEB_DISABLED=1)', 'MCP fallback warning']
       },
-      false,
+      false
     );
     // then:  the failure branch does not DROP them: they are the only news some
     //        failures have, and the JSON branch is untouched by this loop
@@ -137,7 +137,7 @@ describe("Scenario: render — printResult shape", () => {
     expect(captured.text()).toBe('');
   });
 
-  it("when invoked, should err result with asJson=true keeps warnings in the envelope only", () => {
+  it('when invoked, should err result with asJson=true keeps warnings in the envelope only', () => {
     // given: the same failed envelope read by a machine
     const { io, captured } = makeCapturedIo();
     // when:  it is printed as JSON
@@ -148,8 +148,8 @@ describe("Scenario: render — printResult shape", () => {
   });
 });
 
-describe("Scenario: render — printSuperCommandCatalog", () => {
-  it("when invoked, should emits the documented 8 super-commands + footer", () => {
+describe('Scenario: render — printSuperCommandCatalog', () => {
+  it('when invoked, should emits the documented 8 super-commands + footer', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -164,8 +164,8 @@ describe("Scenario: render — printSuperCommandCatalog", () => {
   });
 });
 
-describe("Scenario: render — printErrorEnvelope", () => {
-  it("when invoked, should writes a pretty fail() envelope to stderr and sets process.exitCode = 1", () => {
+describe('Scenario: render — printErrorEnvelope', () => {
+  it('when invoked, should writes a pretty fail() envelope to stderr and sets process.exitCode = 1', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -183,7 +183,7 @@ describe("Scenario: render — printErrorEnvelope", () => {
     process.exitCode = exitBefore;
   });
 
-  it("when invoked, should redacts Bearer / API-key strings inside the message BEFORE printing", () => {
+  it('when invoked, should redacts Bearer / API-key strings inside the message BEFORE printing', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -198,8 +198,8 @@ describe("Scenario: render — printErrorEnvelope", () => {
   });
 });
 
-describe("Scenario: render — printCliEnvelope", () => {
-  it("when invoked, should ok: writes { ok: true, data } to stdout and does not change exitCode", () => {
+describe('Scenario: render — printCliEnvelope', () => {
+  it('when invoked, should ok: writes { ok: true, data } to stdout and does not change exitCode', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -214,7 +214,7 @@ describe("Scenario: render — printCliEnvelope", () => {
     process.exitCode = exitBefore;
   });
 
-  it("when invoked, should err: writes { ok: false, error } to stdout and sets exitCode = 1", () => {
+  it('when invoked, should err: writes { ok: false, error } to stdout and sets exitCode = 1', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -229,8 +229,8 @@ describe("Scenario: render — printCliEnvelope", () => {
   });
 });
 
-describe("Scenario: render — printInvalidConfigLayer", () => {
-  it("when invoked, should writes the INVALID_CONFIG_LAYER envelope and sets exitCode = 1", () => {
+describe('Scenario: render — printInvalidConfigLayer', () => {
+  it('when invoked, should writes the INVALID_CONFIG_LAYER envelope and sets exitCode = 1', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -246,8 +246,8 @@ describe("Scenario: render — printInvalidConfigLayer", () => {
   });
 });
 
-describe("Scenario: render — addJsonOption", () => {
-  it("when invoked, should attaches a --json boolean option to a Commander command", () => {
+describe('Scenario: render — addJsonOption', () => {
+  it('when invoked, should attaches a --json boolean option to a Commander command', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -260,8 +260,8 @@ describe("Scenario: render — addJsonOption", () => {
   });
 });
 
-describe("Scenario: behavior — predicates + parsers", () => {
-  it("when invoked, should isRecommendationWorkflow accepts the 3 documented values", () => {
+describe('Scenario: behavior — predicates + parsers', () => {
+  it('when invoked, should isRecommendationWorkflow accepts the 3 documented values', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -272,7 +272,7 @@ describe("Scenario: behavior — predicates + parsers", () => {
     expect(isRecommendationWorkflow('')).toBe(false);
   });
 
-  it("when invoked, should isArtifactProvider accepts the 2 documented providers", () => {
+  it('when invoked, should isArtifactProvider accepts the 2 documented providers', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -281,7 +281,7 @@ describe("Scenario: behavior — predicates + parsers", () => {
     expect(isArtifactProvider('bitbucket')).toBe(false);
   });
 
-  it("when invoked, should isArtifactSetupStep accepts detect/configure/validate/complete", () => {
+  it('when invoked, should isArtifactSetupStep accepts detect/configure/validate/complete', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -292,7 +292,7 @@ describe("Scenario: behavior — predicates + parsers", () => {
     expect(isArtifactSetupStep('nope')).toBe(false);
   });
 
-  it("when invoked, should isArtifactRepoSegment accepts well-formed names and rejects path-traversal / empty", () => {
+  it('when invoked, should isArtifactRepoSegment accepts well-formed names and rejects path-traversal / empty', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -304,7 +304,7 @@ describe("Scenario: behavior — predicates + parsers", () => {
     expect(isArtifactRepoSegment('')).toBe(false);
   });
 
-  it("when invoked, should parseConfigLayer returns undefined for missing, the layer for user/project, null for anything else", () => {
+  it('when invoked, should parseConfigLayer returns undefined for missing, the layer for user/project, null for anything else', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -314,7 +314,7 @@ describe("Scenario: behavior — predicates + parsers", () => {
     expect(parseConfigLayer('global')).toBe(null);
   });
 
-  it("when invoked, should multipleOption appends to the accumulated list and tolerates a missing previous", () => {
+  it('when invoked, should multipleOption appends to the accumulated list and tolerates a missing previous', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -324,15 +324,18 @@ describe("Scenario: behavior — predicates + parsers", () => {
   });
 });
 
-describe("Scenario: a11y — error envelope hygiene", () => {
-  it("when invoked, should printErrorEnvelope never tells the user to type a CLI verb in nextActions", () => {
+describe('Scenario: a11y — error envelope hygiene', () => {
+  it('when invoked, should printErrorEnvelope never tells the user to type a CLI verb in nextActions', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
     const exitBefore = process.exitCode;
     process.exitCode = 0;
     const { io, captured } = makeCapturedIo();
-    printErrorEnvelope(io, 'demo', 'CODE', 'msg', {}, ['Rerun via the LLM coordinator', 'Escalate to the orchestrator']);
+    printErrorEnvelope(io, 'demo', 'CODE', 'msg', {}, [
+      'Rerun via the LLM coordinator',
+      'Escalate to the orchestrator'
+    ]);
     const text = captured.stderrText();
     // nextActions appear inside the JSON envelope (Human-NL-Choice-Only).
     // Verify the production envelope has the documented shape, not the
@@ -342,7 +345,7 @@ describe("Scenario: a11y — error envelope hygiene", () => {
     process.exitCode = exitBefore;
   });
 
-  it("when invoked, should printErrorEnvelope emit exactly one fresh errorId per call and keep a multi-line message verbatim", () => {
+  it('when invoked, should printErrorEnvelope emit exactly one fresh errorId per call and keep a multi-line message verbatim', () => {
     // Renamed by diagnosis E5 (2026-09-15). The old name — "preserves the
     // original errorId across multi-line messages" — named a behaviour
     // printErrorEnvelope does not have: its signature is
@@ -372,9 +375,7 @@ describe("Scenario: a11y — error envelope hygiene", () => {
       // This is the assertion the old name asserted the opposite of.
       const second = makeCapturedIo();
       printErrorEnvelope(second.io, 'demo', 'CODE', 'line1\nline2', {}, []);
-      const secondId = second.captured
-        .stderrText()
-        .match(/"errorId":\s*"([0-9a-f-]{36})"/)?.[1];
+      const secondId = second.captured.stderrText().match(/"errorId":\s*"([0-9a-f-]{36})"/)?.[1];
       expect(secondId).toBeDefined();
       expect(secondId).not.toBe(id);
     } finally {
@@ -432,8 +433,8 @@ describe("Scenario: a11y — error envelope hygiene", () => {
 // rid: 2026-09-17-exit-code-root-cause
 // evidence: .peaks/_runtime/2026-09-16-session-5bcf09/rd/requests/013-2026-09-17-exit-code-root-cause.md
 // ---------------------------------------------------------------------------
-describe("Scenario: behavior — PINNED root cause: printResult does not exit (rid 2026-09-17-exit-code-root-cause)", () => {
-  it("when invoked, should record a failed envelope on stderr and LEAVE process.exitCode at 0 — pinned, not endorsed", () => {
+describe('Scenario: behavior — PINNED root cause: printResult does not exit (rid 2026-09-17-exit-code-root-cause)', () => {
+  it('when invoked, should record a failed envelope on stderr and LEAVE process.exitCode at 0 — pinned, not endorsed', () => {
     // given: a clean exit-code slate and a failing envelope
     const exitBefore = process.exitCode;
     process.exitCode = 0;
@@ -460,14 +461,14 @@ describe("Scenario: behavior — PINNED root cause: printResult does not exit (r
           'unguarded sites (complexity-estimate, smoke define, fork sync, impact scan, ' +
           'lint check, ide model, release plan, code-review run-ocr-18) whose fix would ' +
           'be reverted by a central assignment. If the change is deliberate, update this ' +
-          'pin and read 013-2026-09-17-exit-code-root-cause.md for the blast-radius count.',
+          'pin and read 013-2026-09-17-exit-code-root-cause.md for the blast-radius count.'
       ).toBe(0);
     } finally {
       process.exitCode = exitBefore;
     }
   });
 
-  it("when invoked, should leave process.exitCode at 0 on the --json path too — the flag picks the channel, not the status", () => {
+  it('when invoked, should leave process.exitCode at 0 on the --json path too — the flag picks the channel, not the status', () => {
     // given: the same failed envelope, read by a machine
     const exitBefore = process.exitCode;
     process.exitCode = 0;
@@ -480,10 +481,12 @@ describe("Scenario: behavior — PINNED root cause: printResult does not exit (r
       // then:  the envelope is on stdout and the code is still untouched
       expect(captured.stderrText()).toBe('');
       expect((JSON.parse(captured.text()) as { ok: boolean; code: string }).ok).toBe(false);
-      expect((JSON.parse(captured.text()) as { ok: boolean; code: string }).code).toBe('DEMO_ROOT_CAUSE');
+      expect((JSON.parse(captured.text()) as { ok: boolean; code: string }).code).toBe(
+        'DEMO_ROOT_CAUSE'
+      );
       expect(
         process.exitCode,
-        'PINNED ROOT CAUSE CHANGED (rid 2026-09-17-exit-code-root-cause) on the --json path.',
+        'PINNED ROOT CAUSE CHANGED (rid 2026-09-17-exit-code-root-cause) on the --json path.'
       ).toBe(0);
     } finally {
       process.exitCode = exitBefore;

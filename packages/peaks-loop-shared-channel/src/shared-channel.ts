@@ -16,7 +16,15 @@
  * See: `.peaks/memory/sub-agent-shared-channel-cross-completion.md` for
  * the full G8 rule.
  */
-import { existsSync, mkdirSync, readFileSync, renameSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  renameSync,
+  statSync,
+  unlinkSync,
+  writeFileSync
+} from 'node:fs';
 import { dirname } from 'node:path';
 import { assertSafeSharedChannelPath, sharedChannelPath } from './dispatch-context-guard.js';
 import { withFileLockSync } from './file-lock.js';
@@ -27,24 +35,24 @@ export interface SharedChannelEntry {
   // (1 version behind is still readable; 2 versions behind is dropped).
   // Default-on-read via isValidEntry() handles pre-versioning records.
   readonly version: 1;
-  readonly at: string;                                         // ISO8601
-  readonly from: string;                                       // sub-agent role string
-  readonly key: string;                                        // '<role>.<event>' convention
-  readonly value: Readonly<Record<string, unknown>>;           // ≤ 1KB soft warn, ≥ 64KB rejected
-  readonly valueSize: number;                                  // bytes
+  readonly at: string; // ISO8601
+  readonly from: string; // sub-agent role string
+  readonly key: string; // '<role>.<event>' convention
+  readonly value: Readonly<Record<string, unknown>>; // ≤ 1KB soft warn, ≥ 64KB rejected
+  readonly valueSize: number; // bytes
 }
 
 export interface SharedChannel {
   readonly batchId: string;
   readonly createdAt: string;
   readonly updatedAt: string;
-  readonly entries: Readonly<Record<string, SharedChannelEntry>>;  // key → entry (last-write-wins)
+  readonly entries: Readonly<Record<string, SharedChannelEntry>>; // key → entry (last-write-wins)
 }
 
-export const SHARED_CHANNEL_MAX_VALUE_BYTES = 64 * 1024;       // 64KB hard reject
-export const SHARED_CHANNEL_SOFT_VALUE_WARN = 1024;             // 1KB soft warning
-export const SHARED_CHANNEL_MAX_FILE_BYTES = 1024 * 1024;      // 1MB LRU cap
-export const SHARED_CHANNEL_TTL_DAYS = 30;                     // 30-day TTL on orphan channels
+export const SHARED_CHANNEL_MAX_VALUE_BYTES = 64 * 1024; // 64KB hard reject
+export const SHARED_CHANNEL_SOFT_VALUE_WARN = 1024; // 1KB soft warning
+export const SHARED_CHANNEL_MAX_FILE_BYTES = 1024 * 1024; // 1MB LRU cap
+export const SHARED_CHANNEL_TTL_DAYS = 30; // 30-day TTL on orphan channels
 
 export type WriteSharedEntryResult =
   | {

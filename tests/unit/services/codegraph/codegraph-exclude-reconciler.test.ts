@@ -43,7 +43,7 @@ import {
   readCodegraphExcludeConfig,
   readTrackedFiles,
   reconcileCodegraphExclude,
-  reconcileCodegraphExcludeFromProject,
+  reconcileCodegraphExcludeFromProject
 } from '../../../../src/services/codegraph/codegraph-exclude-reconciler.js';
 import { declareDimensions } from '../../_setup/4dim-template.js';
 
@@ -51,7 +51,7 @@ declareDimensions('tests/unit/services/codegraph/codegraph-exclude-reconciler.te
   'render',
   'behavior',
   'integration',
-  'a11y',
+  'a11y'
 ]);
 
 // The include list upstream ships, trimmed to the extensions this repo
@@ -65,14 +65,21 @@ const BIN_RULE = `${'**'}/bin/${'**'}`;
 const PUBLISH_RULE = `${'**'}/publish/${'**'}`;
 
 // Harmless defaults that must never be proposed for removal.
-const HARMLESS_EXCLUDES = [`${'**'}/node_modules/${'**'}`, `${'**'}/dist/${'**'}`, `${'**'}/coverage/${'**'}`];
+const HARMLESS_EXCLUDES = [
+  `${'**'}/node_modules/${'**'}`,
+  `${'**'}/dist/${'**'}`,
+  `${'**'}/coverage/${'**'}`
+];
 
 const REAL_RULES: ReadonlyArray<{ rule: string; blockedFile: string }> = [
   { rule: ARTIFACTS_RULE, blockedFile: 'src/services/artifacts/artifact-service.ts' },
   { rule: RELEASE_RULE, blockedFile: 'src/services/release/release-state.ts' },
-  { rule: VENDOR_RULE, blockedFile: 'packages/peaks-loop-internal-runtime/src/vendor/claude-adapter.ts' },
+  {
+    rule: VENDOR_RULE,
+    blockedFile: 'packages/peaks-loop-internal-runtime/src/vendor/claude-adapter.ts'
+  },
   { rule: BIN_RULE, blockedFile: 'bin/peaks.js' },
-  { rule: PUBLISH_RULE, blockedFile: 'tests/unit/publish/lockstep-three-packages.test.ts' },
+  { rule: PUBLISH_RULE, blockedFile: 'tests/unit/publish/lockstep-three-packages.test.ts' }
 ];
 
 const tempProjects: string[] = [];
@@ -89,7 +96,11 @@ afterEach(() => {
 // ── fixtures ────────────────────────────────────────────────────────
 
 function runGit(project: string, args: string[]): void {
-  execFileSync('git', ['-C', project, ...args], { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true });
+  execFileSync('git', ['-C', project, ...args], {
+    encoding: 'utf8',
+    stdio: ['pipe', 'pipe', 'pipe'],
+    windowsHide: true
+  });
 }
 
 // Create a throwaway git work tree containing `files`, all committed.
@@ -113,7 +124,7 @@ function createGitProject(files: readonly string[]): string {
     'commit',
     '-m',
     'fixture',
-    '--no-verify',
+    '--no-verify'
   ]);
 
   return project;
@@ -121,12 +132,16 @@ function createGitProject(files: readonly string[]): string {
 
 // Write `.codegraph/config.json` AFTER the commit so it stays untracked
 // (it never appears in `git ls-files`, exactly as in a real checkout).
-function writeCodegraphConfig(project: string, include: readonly string[], exclude: readonly string[]): void {
+function writeCodegraphConfig(
+  project: string,
+  include: readonly string[],
+  exclude: readonly string[]
+): void {
   mkdirSync(join(project, '.codegraph'), { recursive: true });
   writeFileSync(
     join(project, '.codegraph', 'config.json'),
     `${JSON.stringify({ version: 1, include, exclude }, null, 2)}\n`,
-    'utf8',
+    'utf8'
   );
 }
 
@@ -138,40 +153,43 @@ function reconcile(trackedFiles: readonly string[], exclude: readonly string[]) 
 
 describe('Scenario: render — reconcile result shape', () => {
   it('returns exactly the four documented fields', () => {
-    const result = reconcile(['src/services/artifacts/artifact-service.ts'], [ARTIFACTS_RULE, ...HARMLESS_EXCLUDES]);
+    const result = reconcile(
+      ['src/services/artifacts/artifact-service.ts'],
+      [ARTIFACTS_RULE, ...HARMLESS_EXCLUDES]
+    );
 
     expect(Object.keys(result).sort()).toEqual([
       'excludedTrackedCount',
       'rulesToRemove',
       'trackedSourceCount',
-      'violations',
+      'violations'
     ]);
     expect(result.trackedSourceCount).toBe(1);
     expect(result.excludedTrackedCount).toBe(1);
     expect(result.rulesToRemove).toEqual([ARTIFACTS_RULE]);
     expect(result.violations).toEqual([
-      { path: 'src/services/artifacts/artifact-service.ts', matchedRule: ARTIFACTS_RULE },
+      { path: 'src/services/artifacts/artifact-service.ts', matchedRule: ARTIFACTS_RULE }
     ]);
   });
 
   it('reports one violation entry per (file, rule) pair but counts distinct files', () => {
     const result = reconcile(
       ['src/services/artifacts/nested/artifact-service.ts'],
-      [ARTIFACTS_RULE, `${'**'}/nested/${'**'}`, ...HARMLESS_EXCLUDES],
+      [ARTIFACTS_RULE, `${'**'}/nested/${'**'}`, ...HARMLESS_EXCLUDES]
     );
 
     expect(result.violations).toHaveLength(2);
     expect(result.excludedTrackedCount).toBe(1);
     expect(result.violations.map((violation) => violation.matchedRule)).toEqual([
       ARTIFACTS_RULE,
-      `${'**'}/nested/${'**'}`,
+      `${'**'}/nested/${'**'}`
     ]);
   });
 
   it('keeps rulesToRemove in original config order regardless of match order', () => {
     const result = reconcile(
       ['bin/peaks.js', 'src/services/release/release-state.ts'],
-      [RELEASE_RULE, ...HARMLESS_EXCLUDES, BIN_RULE],
+      [RELEASE_RULE, ...HARMLESS_EXCLUDES, BIN_RULE]
     );
 
     expect(result.rulesToRemove).toEqual([RELEASE_RULE, BIN_RULE]);
@@ -199,8 +217,12 @@ describe('Scenario: behavior — glob semantics match upstream picomatch', () =>
   });
 
   it('supports * and ? inside a segment without crossing separators', () => {
-    expect(matchesCodegraphGlob('src/cmake-build-debug/a.ts', `${'**'}/cmake-build-*/${'**'}`)).toBe(true);
-    expect(matchesCodegraphGlob('src/cmake-buildx/a.ts', `${'**'}/cmake-build-*/${'**'}`)).toBe(false);
+    expect(
+      matchesCodegraphGlob('src/cmake-build-debug/a.ts', `${'**'}/cmake-build-*/${'**'}`)
+    ).toBe(true);
+    expect(matchesCodegraphGlob('src/cmake-buildx/a.ts', `${'**'}/cmake-build-*/${'**'}`)).toBe(
+      false
+    );
     expect(matchesCodegraphGlob('foo.ts', `${'**'}/*.ts`)).toBe(true);
     expect(matchesCodegraphGlob('src/a/foo.ts', `${'**'}/*.ts`)).toBe(true);
     expect(matchesCodegraphGlob('a1.ts', `${'**'}/a?.ts`)).toBe(true);
@@ -271,7 +293,7 @@ describe('Scenario: behavior — the five real upstream default rules', () => {
   it('flags all five at once without touching the harmless defaults', () => {
     const result = reconcile(
       REAL_RULES.map((entry) => entry.blockedFile),
-      [...REAL_RULES.map((entry) => entry.rule), ...HARMLESS_EXCLUDES],
+      [...REAL_RULES.map((entry) => entry.rule), ...HARMLESS_EXCLUDES]
     );
 
     expect(result.trackedSourceCount).toBe(5);
@@ -286,13 +308,13 @@ describe('Scenario: behavior — the five real upstream default rules', () => {
     const braceRule = `${'**'}/{release,artifacts}/${'**'}`;
     const result = reconcile(
       ['src/services/artifacts/a.ts', 'src/services/release/a.ts', 'src/services/other/a.ts'],
-      [braceRule, ...HARMLESS_EXCLUDES],
+      [braceRule, ...HARMLESS_EXCLUDES]
     );
 
     expect(result.excludedTrackedCount).toBe(2);
     expect(result.violations).toEqual([
       { path: 'src/services/artifacts/a.ts', matchedRule: braceRule },
-      { path: 'src/services/release/a.ts', matchedRule: braceRule },
+      { path: 'src/services/release/a.ts', matchedRule: braceRule }
     ]);
     expect(result.rulesToRemove).toEqual([braceRule]);
   });
@@ -311,7 +333,10 @@ describe('Scenario: behavior — false-positive guards', () => {
   it('never proposes removing a rule that blocks zero tracked source files', () => {
     // `bin` matches nothing here, so it must survive even though the same
     // config blocks a real artifacts file.
-    const result = reconcile(['src/services/artifacts/foo.ts'], [ARTIFACTS_RULE, BIN_RULE, ...HARMLESS_EXCLUDES]);
+    const result = reconcile(
+      ['src/services/artifacts/foo.ts'],
+      [ARTIFACTS_RULE, BIN_RULE, ...HARMLESS_EXCLUDES]
+    );
 
     expect(result.rulesToRemove).toEqual([ARTIFACTS_RULE]);
     expect(result.rulesToRemove).not.toContain(BIN_RULE);
@@ -333,7 +358,7 @@ describe('Scenario: behavior — false-positive guards', () => {
     const result = reconcile([backslashPath], [ARTIFACTS_RULE]);
 
     expect(result.violations).toEqual([
-      { path: 'src/services/artifacts/artifact-service.ts', matchedRule: ARTIFACTS_RULE },
+      { path: 'src/services/artifacts/artifact-service.ts', matchedRule: ARTIFACTS_RULE }
     ]);
   });
 });
@@ -351,13 +376,13 @@ describe('Scenario: behavior — an unmatchable rule never masks a real gap', ()
   it('does not throw on an empty exclude rule and still reports the real one', () => {
     const result = reconcile(
       ['src/services/artifacts/foo.ts', 'src/index.ts'],
-      ['', ARTIFACTS_RULE, ...HARMLESS_EXCLUDES],
+      ['', ARTIFACTS_RULE, ...HARMLESS_EXCLUDES]
     );
 
     expect(result.trackedSourceCount).toBe(2);
     expect(result.excludedTrackedCount).toBe(1);
     expect(result.violations).toEqual([
-      { path: 'src/services/artifacts/foo.ts', matchedRule: ARTIFACTS_RULE },
+      { path: 'src/services/artifacts/foo.ts', matchedRule: ARTIFACTS_RULE }
     ]);
     expect(result.rulesToRemove).toEqual([ARTIFACTS_RULE]);
   });
@@ -376,7 +401,10 @@ describe('Scenario: behavior — an unmatchable rule never masks a real gap', ()
     // pinned here as an over-correction guard: a fix that started
     // treating whitespace as a finding, or as a rule to remove, would
     // turn a harmless config into a reported one.
-    const result = reconcile(['src/services/artifacts/foo.ts', 'src/index.ts'], ['   ', ARTIFACTS_RULE]);
+    const result = reconcile(
+      ['src/services/artifacts/foo.ts', 'src/index.ts'],
+      ['   ', ARTIFACTS_RULE]
+    );
 
     expect(result.excludedTrackedCount).toBe(1);
     expect(result.rulesToRemove).toEqual([ARTIFACTS_RULE]);
@@ -388,7 +416,7 @@ describe('Scenario: behavior — an unmatchable rule never masks a real gap', ()
     const result = reconcileCodegraphExclude({
       trackedFiles: ['src/index.ts'],
       include: [''],
-      exclude: [ARTIFACTS_RULE],
+      exclude: [ARTIFACTS_RULE]
     });
 
     expect(result.trackedSourceCount).toBe(0);
@@ -426,12 +454,15 @@ describe('Scenario: behavior — idempotency', () => {
 
 describe('Scenario: integration — read-only adapters against a real git work tree', () => {
   it('reads tracked files from git and ignores untracked ones', () => {
-    const project = createGitProject(['src/services/artifacts/artifact-service.ts', 'bin/peaks.js']);
+    const project = createGitProject([
+      'src/services/artifacts/artifact-service.ts',
+      'bin/peaks.js'
+    ]);
     writeFileSync(join(project, 'untracked.ts'), 'export const x = 1;\n', 'utf8');
 
     expect([...readTrackedFiles(project)].sort()).toEqual([
       'bin/peaks.js',
-      'src/services/artifacts/artifact-service.ts',
+      'src/services/artifacts/artifact-service.ts'
     ]);
   });
 
@@ -440,7 +471,7 @@ describe('Scenario: integration — read-only adapters against a real git work t
       'src/services/artifacts/artifact-service.ts',
       'src/services/release/release-state.ts',
       'bin/peaks.js',
-      'src/index.ts',
+      'src/index.ts'
     ]);
     const exclude = [ARTIFACTS_RULE, RELEASE_RULE, BIN_RULE, ...HARMLESS_EXCLUDES];
     writeCodegraphConfig(project, INCLUDE, exclude);
@@ -457,7 +488,7 @@ describe('Scenario: integration — read-only adapters against a real git work t
     writeCodegraphConfig(
       project,
       INCLUDE,
-      exclude.filter((rule) => !first.rulesToRemove.includes(rule)),
+      exclude.filter((rule) => !first.rulesToRemove.includes(rule))
     );
     const second = reconcileCodegraphExcludeFromProject(project);
     expect(second.rulesToRemove).toEqual([]);
@@ -476,7 +507,7 @@ describe('Scenario: integration — read-only adapters against a real git work t
       RELEASE_RULE,
       VENDOR_RULE,
       BIN_RULE,
-      PUBLISH_RULE,
+      PUBLISH_RULE
     ]);
 
     const result = reconcileCodegraphExcludeFromProject(project);
@@ -508,11 +539,13 @@ describe('Scenario: a11y — failures name the file and the field', () => {
     writeFileSync(
       join(project, '.codegraph', 'config.json'),
       JSON.stringify({ include: INCLUDE, exclude: ['ok.ts', 42] }),
-      'utf8',
+      'utf8'
     );
 
     expect(() => readCodegraphExcludeConfig(project)).toThrow(/config\.json/);
-    expect(() => readCodegraphExcludeConfig(project)).toThrow(/"exclude" must be an array of strings/);
+    expect(() => readCodegraphExcludeConfig(project)).toThrow(
+      /"exclude" must be an array of strings/
+    );
   });
 
   it('rejects a config that is not a JSON object at all', () => {
@@ -526,9 +559,15 @@ describe('Scenario: a11y — failures name the file and the field', () => {
   it('names the field when `include` is missing entirely', () => {
     const project = createGitProject(['src/index.ts']);
     mkdirSync(join(project, '.codegraph'), { recursive: true });
-    writeFileSync(join(project, '.codegraph', 'config.json'), JSON.stringify({ exclude: [] }), 'utf8');
+    writeFileSync(
+      join(project, '.codegraph', 'config.json'),
+      JSON.stringify({ exclude: [] }),
+      'utf8'
+    );
 
-    expect(() => readCodegraphExcludeConfig(project)).toThrow(/"include" must be an array of strings/);
+    expect(() => readCodegraphExcludeConfig(project)).toThrow(
+      /"include" must be an array of strings/
+    );
   });
 
   it('surfaces the literal config rule string so an operator can grep it', () => {

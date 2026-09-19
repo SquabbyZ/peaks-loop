@@ -31,7 +31,14 @@
 
 import { createHash } from 'node:crypto';
 import { spawn } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, writeFileSync, readdirSync, unlinkSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  writeFileSync,
+  readdirSync,
+  unlinkSync
+} from 'node:fs';
 import type { Command } from 'commander';
 import { join, dirname, resolve } from 'node:path';
 import { resolveCanonicalProjectRoot } from '../../services/config/config-service.js';
@@ -42,7 +49,7 @@ import { runBrowserAction } from '../../services/qa/browser-wrapper-service.js';
 export const DEFAULT_PORT = 8931;
 export const MAX_PORT = 8949;
 const BROWSERS = ['chromium', 'firefox', 'webkit'] as const;
-type Browser = typeof BROWSERS[number];
+type Browser = (typeof BROWSERS)[number];
 
 export interface PlaywrightSession {
   terminalId: string;
@@ -79,7 +86,10 @@ export function sessionFilePath(projectRoot: string, terminalId: string): string
  * the platform's own terminal-session id (macOS Terminal, Windows
  * Terminal) and falls back to a hash of (ppid, tty).
  */
-export function deriveTerminalId(env: NodeJS.ProcessEnv = process.env, ppid: number = process.ppid): string {
+export function deriveTerminalId(
+  env: NodeJS.ProcessEnv = process.env,
+  ppid: number = process.ppid
+): string {
   const termSession = env.TERM_SESSION_ID;
   if (termSession && termSession.length > 0) {
     return sanitizeTerminalId(termSession);
@@ -135,7 +145,8 @@ export function listSessions(projectRoot: string): PlaywrightSession[] {
       const raw = readFileSync(join(dir, entry), 'utf8');
       const session = JSON.parse(raw) as PlaywrightSession;
       out.push(session);
-    } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+    } catch {
+      // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
       // skip malformed session file
     }
   }
@@ -147,7 +158,8 @@ export function readSession(projectRoot: string, terminalId: string): Playwright
   if (!existsSync(path)) return null;
   try {
     return JSON.parse(readFileSync(path, 'utf8')) as PlaywrightSession;
-  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+  } catch {
+    // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     return null;
   }
 }
@@ -181,7 +193,12 @@ export function spawnPlaywrightMcp(
 ): { pid: number | undefined; child: ReturnType<typeof spawn> } {
   const child = spawn(
     'npx',
-    ['playwright-mcp@latest', `--port=${port}`, `--browser=${browser}`, `--user-data-dir=${userDataDir}`],
+    [
+      'playwright-mcp@latest',
+      `--port=${port}`,
+      `--browser=${browser}`,
+      `--user-data-dir=${userDataDir}`
+    ],
     {
       cwd: projectRoot,
       env: process.env,
@@ -198,125 +215,156 @@ export function registerPlaywrightCommands(program: Command, _io: ProgramIO): vo
     .command('playwright')
     .description(
       'Multi-terminal Playwright MCP lifecycle. `peaks playwright start` allocates a unique port ' +
-      '(8931→8949) and writes a session file; `ls` lists running sessions; `stop` tears them down. ' +
-      'Does NOT bundle the playwright-mcp binary (uses `npx playwright-mcp@latest`). ' +
-      '(slice 2.5.0 sub-fix C)'
+        '(8931→8949) and writes a session file; `ls` lists running sessions; `stop` tears them down. ' +
+        'Does NOT bundle the playwright-mcp binary (uses `npx playwright-mcp@latest`). ' +
+        '(slice 2.5.0 sub-fix C)'
     );
 
   playwright
     .command('start')
     .description('Start a Playwright MCP server on a free port; write a session record.')
-    .option('--port <n>', 'preferred port (default 8931; walks 8931→8949 if busy)', (v: string) => Number(v))
-    .option('--browser <name>', `browser engine: ${BROWSERS.join(', ')} (default chromium)`, 'chromium')
-    .option('--user-data-dir <path>', 'browser user-data directory (default: <projectRoot>/.peaks/_runtime/playwright-userdata/<terminal-id>)')
-    .option('--reuse', 'if a session is already running for this terminal, return its port instead of erroring')
+    .option('--port <n>', 'preferred port (default 8931; walks 8931→8949 if busy)', (v: string) =>
+      Number(v)
+    )
+    .option(
+      '--browser <name>',
+      `browser engine: ${BROWSERS.join(', ')} (default chromium)`,
+      'chromium'
+    )
+    .option(
+      '--user-data-dir <path>',
+      'browser user-data directory (default: <projectRoot>/.peaks/_runtime/playwright-userdata/<terminal-id>)'
+    )
+    .option(
+      '--reuse',
+      'if a session is already running for this terminal, return its port instead of erroring'
+    )
     .option('--project <path>', 'project root (defaults to current directory)', process.cwd())
     .option('--json', 'emit a JSON envelope { ok, data } to stdout')
-    .action(async (opts: {
-      port?: number;
-      browser?: string;
-      userDataDir?: string;
-      reuse?: boolean;
-      project?: string;
-      json?: boolean;
-    }) => {
-      try {
-        const projectRoot = resolveCanonicalProjectRoot(opts.project ?? process.cwd());
-        const browser: Browser = BROWSERS.includes(opts.browser as Browser)
-          ? (opts.browser as Browser)
-          : 'chromium';
-        const terminalId = deriveTerminalId();
+    .action(
+      async (opts: {
+        port?: number;
+        browser?: string;
+        userDataDir?: string;
+        reuse?: boolean;
+        project?: string;
+        json?: boolean;
+      }) => {
+        try {
+          const projectRoot = resolveCanonicalProjectRoot(opts.project ?? process.cwd());
+          const browser: Browser = BROWSERS.includes(opts.browser as Browser)
+            ? (opts.browser as Browser)
+            : 'chromium';
+          const terminalId = deriveTerminalId();
 
-        // Existing session for this terminal?
-        const existing = readSession(projectRoot, terminalId);
-        if (existing) {
-          if (opts.reuse) {
-            if (opts.json === true) {
-              process.stdout.write(JSON.stringify({
-                ok: true,
-                data: { reused: true, session: existing }
-              }) + '\n');
-            } else {
-              process.stdout.write(`reusing existing playwright session on port ${existing.port} (terminal ${terminalId})\n`);
+          // Existing session for this terminal?
+          const existing = readSession(projectRoot, terminalId);
+          if (existing) {
+            if (opts.reuse) {
+              if (opts.json === true) {
+                process.stdout.write(
+                  JSON.stringify({
+                    ok: true,
+                    data: { reused: true, session: existing }
+                  }) + '\n'
+                );
+              } else {
+                process.stdout.write(
+                  `reusing existing playwright session on port ${existing.port} (terminal ${terminalId})\n`
+                );
+              }
+              return;
             }
+            // Conflict: G21 / AC18
+            const msg = `CONFLICT: another playwright MCP is already running on port ${existing.port} (terminal ${terminalId}). Reuse it (--reuse) or pick a new port (--port <n>).`;
+            if (opts.json === true) {
+              process.stdout.write(
+                JSON.stringify({ ok: false, error: msg, code: 'CONFLICT' }) + '\n'
+              );
+            } else {
+              process.stderr.write(msg + '\n');
+            }
+            process.exitCode = 1;
             return;
           }
-          // Conflict: G21 / AC18
-          const msg = `CONFLICT: another playwright MCP is already running on port ${existing.port} (terminal ${terminalId}). Reuse it (--reuse) or pick a new port (--port <n>).`;
+
+          // Port allocation
+          const startPort =
+            typeof opts.port === 'number' && Number.isFinite(opts.port) ? opts.port : DEFAULT_PORT;
+          if (startPort < 1024 || startPort > 65535) {
+            const msg = `INVALID_PORT: --port must be between 1024 and 65535 (got ${startPort})`;
+            if (opts.json === true) {
+              process.stdout.write(JSON.stringify({ ok: false, error: msg }) + '\n');
+            } else {
+              process.stderr.write(msg + '\n');
+            }
+            process.exitCode = 1;
+            return;
+          }
+          const port = await findFreePort(startPort, MAX_PORT);
+          if (port === null) {
+            const msg = `PORT_EXHAUSTED: no free port in ${startPort}..${MAX_PORT} range`;
+            if (opts.json === true) {
+              process.stdout.write(
+                JSON.stringify({ ok: false, error: msg, code: 'PORT_EXHAUSTED' }) + '\n'
+              );
+            } else {
+              process.stderr.write(msg + '\n');
+            }
+            process.exitCode = 1;
+            return;
+          }
+
+          // userDataDir default
+          const userDataDir = opts.userDataDir
+            ? resolveUserDataDir(opts.userDataDir, projectRoot)
+            : join(projectRoot, '.peaks', '_runtime', 'playwright-userdata', terminalId);
+
+          // Spawn the MCP via npx. Detached so it survives our exit.
+          const { pid, child } = spawnPlaywrightMcp(port, browser, userDataDir, projectRoot);
+          // Detach: do not wait for it.
+          child.unref();
+
+          const session: PlaywrightSession = {
+            terminalId,
+            port,
+            browser,
+            userDataDir,
+            startedAt: new Date().toISOString(),
+            ...(pid !== undefined ? { pid } : {})
+          };
+          writeSession(projectRoot, session);
+
           if (opts.json === true) {
-            process.stdout.write(JSON.stringify({ ok: false, error: msg, code: 'CONFLICT' }) + '\n');
+            process.stdout.write(
+              JSON.stringify({
+                ok: true,
+                data: { session, sessionFile: sessionFilePath(projectRoot, terminalId) }
+              }) + '\n'
+            );
           } else {
-            process.stderr.write(msg + '\n');
+            process.stdout.write(
+              `playwright MCP started on port ${port} (browser=${browser}, terminal=${terminalId})\n`
+            );
+          }
+        } catch (error) {
+          if (opts.json === true) {
+            process.stdout.write(
+              JSON.stringify({ ok: false, error: getErrorMessage(error) }) + '\n'
+            );
+          } else {
+            process.stderr.write(getErrorMessage(error) + '\n');
           }
           process.exitCode = 1;
-          return;
         }
-
-        // Port allocation
-        const startPort = typeof opts.port === 'number' && Number.isFinite(opts.port) ? opts.port : DEFAULT_PORT;
-        if (startPort < 1024 || startPort > 65535) {
-          const msg = `INVALID_PORT: --port must be between 1024 and 65535 (got ${startPort})`;
-          if (opts.json === true) {
-            process.stdout.write(JSON.stringify({ ok: false, error: msg }) + '\n');
-          } else {
-            process.stderr.write(msg + '\n');
-          }
-          process.exitCode = 1;
-          return;
-        }
-        const port = await findFreePort(startPort, MAX_PORT);
-        if (port === null) {
-          const msg = `PORT_EXHAUSTED: no free port in ${startPort}..${MAX_PORT} range`;
-          if (opts.json === true) {
-            process.stdout.write(JSON.stringify({ ok: false, error: msg, code: 'PORT_EXHAUSTED' }) + '\n');
-          } else {
-            process.stderr.write(msg + '\n');
-          }
-          process.exitCode = 1;
-          return;
-        }
-
-        // userDataDir default
-        const userDataDir = opts.userDataDir
-          ? resolveUserDataDir(opts.userDataDir, projectRoot)
-          : join(projectRoot, '.peaks', '_runtime', 'playwright-userdata', terminalId);
-
-        // Spawn the MCP via npx. Detached so it survives our exit.
-        const { pid, child } = spawnPlaywrightMcp(port, browser, userDataDir, projectRoot);
-        // Detach: do not wait for it.
-        child.unref();
-
-        const session: PlaywrightSession = {
-          terminalId,
-          port,
-          browser,
-          userDataDir,
-          startedAt: new Date().toISOString(),
-          ...(pid !== undefined ? { pid } : {})
-        };
-        writeSession(projectRoot, session);
-
-        if (opts.json === true) {
-          process.stdout.write(JSON.stringify({
-            ok: true,
-            data: { session, sessionFile: sessionFilePath(projectRoot, terminalId) }
-          }) + '\n');
-        } else {
-          process.stdout.write(`playwright MCP started on port ${port} (browser=${browser}, terminal=${terminalId})\n`);
-        }
-      } catch (error) {
-        if (opts.json === true) {
-          process.stdout.write(JSON.stringify({ ok: false, error: getErrorMessage(error) }) + '\n');
-        } else {
-          process.stderr.write(getErrorMessage(error) + '\n');
-        }
-        process.exitCode = 1;
       }
-    });
+    );
 
   playwright
     .command('ls')
-    .description('List running Playwright MCP sessions from .peaks/_runtime/playwright-sessions/*.json')
+    .description(
+      'List running Playwright MCP sessions from .peaks/_runtime/playwright-sessions/*.json'
+    )
     .option('--project <path>', 'project root (defaults to current directory)', process.cwd())
     .option('--json', 'emit a JSON envelope { ok, data: { sessions } }')
     .action(async (opts: { project?: string; json?: boolean }) => {
@@ -329,7 +377,9 @@ export function registerPlaywrightCommands(program: Command, _io: ProgramIO): vo
           process.stdout.write('no playwright sessions running\n');
         } else {
           for (const s of sessions) {
-            process.stdout.write(`port=${s.port}\tbrowser=${s.browser}\tterminal=${s.terminalId}\tpid=${s.pid ?? '?'}\tstarted=${s.startedAt}\n`);
+            process.stdout.write(
+              `port=${s.port}\tbrowser=${s.browser}\tterminal=${s.terminalId}\tpid=${s.pid ?? '?'}\tstarted=${s.startedAt}\n`
+            );
           }
         }
       } catch (error) {
@@ -345,7 +395,7 @@ export function registerPlaywrightCommands(program: Command, _io: ProgramIO): vo
   playwright
     .command('stop')
     .description('Stop a running Playwright MCP session (best-effort kill + remove session file).')
-    .option('--terminal <id>', 'terminal id to stop (default: this shell\'s derived terminal id)')
+    .option('--terminal <id>', "terminal id to stop (default: this shell's derived terminal id)")
     .option('--project <path>', 'project root (defaults to current directory)', process.cwd())
     .option('--json', 'emit a JSON envelope { ok, data }')
     .action(async (opts: { terminal?: string; project?: string; json?: boolean }) => {
@@ -367,7 +417,8 @@ export function registerPlaywrightCommands(program: Command, _io: ProgramIO): vo
         if (session.pid !== undefined && session.pid !== null) {
           try {
             process.kill(session.pid, 'SIGTERM');
-          } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+          } catch {
+            // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
             /* process may have already exited */
           }
         }
@@ -375,7 +426,9 @@ export function registerPlaywrightCommands(program: Command, _io: ProgramIO): vo
         if (opts.json === true) {
           process.stdout.write(JSON.stringify({ ok: true, data: { stopped: session } }) + '\n');
         } else {
-          process.stdout.write(`stopped playwright session on port ${session.port} (terminal ${terminalId})\n`);
+          process.stdout.write(
+            `stopped playwright session on port ${session.port} (terminal ${terminalId})\n`
+          );
         }
       } catch (error) {
         if (opts.json === true) {
@@ -433,20 +486,28 @@ export function registerBrowserActionCommand(program: Command): void {
           // The IDE/agent harness bridges `mcp__playwright__browser_*` tools.
           // Outside the harness, we use a pass-through caller that records
           // the intent + args so skills and tests can route the call.
-          const result = await runBrowserAction(intent, {
-            url: opts.url,
-            selector: opts.selector,
-            value: opts.value,
-            expression: opts.expression
-          }, mockOrPassThroughCaller);
+          const result = await runBrowserAction(
+            intent,
+            {
+              url: opts.url,
+              selector: opts.selector,
+              value: opts.value,
+              expression: opts.expression
+            },
+            mockOrPassThroughCaller
+          );
           if (opts.json === true) {
             process.stdout.write(JSON.stringify({ ok: true, data: result }) + '\n');
           } else {
-            process.stdout.write(`intent=${result.intent} ok=${result.ok} elapsedMs=${result.elapsedMs}\n`);
+            process.stdout.write(
+              `intent=${result.intent} ok=${result.ok} elapsedMs=${result.elapsedMs}\n`
+            );
           }
         } catch (error) {
           if (opts.json === true) {
-            process.stdout.write(JSON.stringify({ ok: false, error: getErrorMessage(error) }) + '\n');
+            process.stdout.write(
+              JSON.stringify({ ok: false, error: getErrorMessage(error) }) + '\n'
+            );
           } else {
             process.stderr.write(getErrorMessage(error) + '\n');
           }
@@ -456,8 +517,16 @@ export function registerBrowserActionCommand(program: Command): void {
     );
 }
 
-function isSupportedIntent(value: string): value is 'navigate' | 'click' | 'fill' | 'snapshot' | 'extract' {
-  return value === 'navigate' || value === 'click' || value === 'fill' || value === 'snapshot' || value === 'extract';
+function isSupportedIntent(
+  value: string
+): value is 'navigate' | 'click' | 'fill' | 'snapshot' | 'extract' {
+  return (
+    value === 'navigate' ||
+    value === 'click' ||
+    value === 'fill' ||
+    value === 'snapshot' ||
+    value === 'extract'
+  );
 }
 
 /**
@@ -474,7 +543,8 @@ function isSupportedIntent(value: string): value is 'navigate' | 'click' | 'fill
  */
 export function resolveUserDataDir(raw: string, projectRoot: string): string {
   const resolved = resolve(projectRoot, raw);
-  const rootResolved = resolve(projectRoot) + (projectRoot.endsWith('/') || projectRoot.endsWith('\\') ? '' : '/');
+  const rootResolved =
+    resolve(projectRoot) + (projectRoot.endsWith('/') || projectRoot.endsWith('\\') ? '' : '/');
   // Use the projectRoot + sep as the prefix; require either an exact
   // match or a child path. The `+ '/'` guard prevents sibling-prefix
   // collisions (e.g. /home/A/proj2 passes the check for /home/A/proj).

@@ -3,7 +3,11 @@ import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { basename, join, resolve } from 'node:path';
 
 import { leaseStoreDir, listLeasesSync } from './worktree-lease.js';
-import { isPathInside, parseGitWorktreePorcelain, type GitWorktreeRecord } from './git-worktree-parser.js';
+import {
+  isPathInside,
+  parseGitWorktreePorcelain,
+  type GitWorktreeRecord
+} from './git-worktree-parser.js';
 
 export type HostWorktreeFinding = GitWorktreeRecord & {
   readonly managedLeaseId: string | null;
@@ -28,7 +32,7 @@ export function reconcileHostWorktrees(input: {
       cwd: input.projectRoot,
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'pipe'],
-      windowsHide: true,
+      windowsHide: true
     });
     records = parseGitWorktreePorcelain(raw);
   } catch {
@@ -39,19 +43,25 @@ export function reconcileHostWorktrees(input: {
   const leaseResult = listLeasesSync(storeDir, {
     existsSync,
     readdir: (path) => readdirSync(path),
-    readFile: (path) => readFileSync(path, 'utf8'),
+    readFile: (path) => readFileSync(path, 'utf8')
   });
   const leases = leaseResult.kind === 'ok' ? leaseResult.leases : [];
   const leaseByPath = new Map(leases.map((lease) => [resolve(lease.path), lease.leaseId]));
   const findings = records
-    .filter((record) => isPathInside(hostRoot, record.path) && basename(record.path).startsWith('agent-'))
+    .filter(
+      (record) => isPathInside(hostRoot, record.path) && basename(record.path).startsWith('agent-')
+    )
     .map((record): HostWorktreeFinding => {
       const managedLeaseId = leaseByPath.get(resolve(record.path)) ?? null;
       return {
         ...record,
         managedLeaseId,
-        state: record.prunable ? 'prunable' : managedLeaseId === null ? 'unleased' : 'managed',
+        state: record.prunable ? 'prunable' : managedLeaseId === null ? 'unleased' : 'managed'
       };
     });
-  return { hostRoot, findings, unmanaged: findings.filter((finding) => finding.state !== 'managed') };
+  return {
+    hostRoot,
+    findings,
+    unmanaged: findings.filter((finding) => finding.state !== 'managed')
+  };
 }

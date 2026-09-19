@@ -17,13 +17,9 @@ import {
   type AssertionsReport,
   type Followup,
   type MutationReport,
-  type MutReportJson,
+  type MutReportJson
 } from './types.js';
-import {
-  DEFAULT_THRESHOLDS,
-  evaluateThresholds,
-  type Thresholds,
-} from './thresholds.js';
+import { DEFAULT_THRESHOLDS, evaluateThresholds, type Thresholds } from './thresholds.js';
 
 export interface BuildMutInput {
   readonly mutation: MutationReport;
@@ -37,7 +33,7 @@ export interface BuildMutInput {
 function deriveFollowups(
   m: MutationReport,
   a: AssertionsReport,
-  t: Thresholds,
+  t: Thresholds
 ): ReadonlyArray<Followup> {
   const out: Followup[] = [];
   if (m.killRate < t.mutationKillRateMin) {
@@ -47,7 +43,7 @@ function deriveFollowups(
           file: f.file,
           issue: 'low_kill_rate',
           severity: 'soft',
-          suggestion: `Add tests for ${f.survived.length} survived mutants in ${f.file}`,
+          suggestion: `Add tests for ${f.survived.length} survived mutants in ${f.file}`
         });
       }
     }
@@ -60,7 +56,7 @@ function deriveFollowups(
           file: exampleFile,
           issue: 'high_weak_assertions',
           severity: 'hard',
-          suggestion: `Replace ${p.count} weak assertions of type "${p.pattern}" with concrete value checks`,
+          suggestion: `Replace ${p.count} weak assertions of type "${p.pattern}" with concrete value checks`
         });
       }
     }
@@ -109,7 +105,7 @@ export async function buildMutReport(input: BuildMutInput): Promise<MutReportJso
   const evalResult = evaluateThresholds(
     thresholds,
     input.mutation.killRate,
-    input.assertions.weakRate,
+    input.assertions.weakRate
   );
   const followups = deriveFollowups(input.mutation, input.assertions, thresholds);
 
@@ -122,9 +118,9 @@ export async function buildMutReport(input: BuildMutInput): Promise<MutReportJso
     thresholds: {
       mutationKillRateMin: thresholds.mutationKillRateMin,
       weakAssertionRateMax: thresholds.weakAssertionRateMax,
-      passed: evalResult.passed,
+      passed: evalResult.passed
     },
-    followups,
+    followups
   };
   const sha256 = computeMutSig(partial);
   const final: MutReportJson = { ...partial, sha256 };

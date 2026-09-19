@@ -13,7 +13,15 @@
 // Run with:
 //   pnpm vitest run tests/unit/services/memory/memory-ingest.test.ts
 
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  writeFileSync
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -109,19 +117,22 @@ describe('executeMemoryIngest', () => {
   });
 
   it('preserves non-contract metadata keys as provenance', () => {
-    writeSource('prov.md', [
-      '---',
-      'name: prov',
-      'description: Provenance test',
-      'metadata:',
-      '  type: rule',
-      '  originSessionId: abc-123',
-      '  modified: 2026-09-08T00:00:00.000Z',
-      '---',
-      '',
-      'A body long enough to be summarized deterministically.',
-      ''
-    ].join('\n'));
+    writeSource(
+      'prov.md',
+      [
+        '---',
+        'name: prov',
+        'description: Provenance test',
+        'metadata:',
+        '  type: rule',
+        '  originSessionId: abc-123',
+        '  modified: 2026-09-08T00:00:00.000Z',
+        '---',
+        '',
+        'A body long enough to be summarized deterministically.',
+        ''
+      ].join('\n')
+    );
 
     executeMemoryIngest({ projectRoot, sourceDir, apply: true });
     const written = readFileSync(join(memoryDir, 'prov.md'), 'utf8');
@@ -146,7 +157,11 @@ describe('executeMemoryIngest', () => {
   it('leaves both copies when the destination differs (conflict)', () => {
     writeSource('nested-project.md', NESTED_PROJECT);
     mkdirSync(memoryDir, { recursive: true });
-    writeFileSync(join(memoryDir, 'nested-project.md'), '---\nname: nested-project\nmetadata:\n  type: rule\n---\n\nUser-authored local copy.\n', 'utf8');
+    writeFileSync(
+      join(memoryDir, 'nested-project.md'),
+      '---\nname: nested-project\nmetadata:\n  type: rule\n---\n\nUser-authored local copy.\n',
+      'utf8'
+    );
 
     const report = executeMemoryIngest({ projectRoot, sourceDir, apply: true });
     expect(report.imported).toHaveLength(0);
@@ -154,7 +169,9 @@ describe('executeMemoryIngest', () => {
     expect(report.conflicts[0]!.reason).toContain('different content');
 
     // Destination untouched, source untouched.
-    expect(readFileSync(join(memoryDir, 'nested-project.md'), 'utf8')).toContain('User-authored local copy.');
+    expect(readFileSync(join(memoryDir, 'nested-project.md'), 'utf8')).toContain(
+      'User-authored local copy.'
+    );
     expect(readFileSync(join(sourceDir, 'nested-project.md'), 'utf8')).toBe(NESTED_PROJECT);
   });
 
@@ -188,24 +205,31 @@ describe('executeMemoryIngest', () => {
   });
 
   it('returns an empty, warned report when the source dir is missing', () => {
-    const report = executeMemoryIngest({ projectRoot, sourceDir: join(sourceRoot, 'nope'), apply: true });
+    const report = executeMemoryIngest({
+      projectRoot,
+      sourceDir: join(sourceRoot, 'nope'),
+      apply: true
+    });
     expect(report.sourceExists).toBe(false);
     expect(report.imported).toHaveLength(0);
     expect(report.warnings).toHaveLength(1);
   });
 
   it('refuses sensitive source content instead of importing it', () => {
-    writeSource('secret.md', [
-      '---',
-      'name: secret',
-      'description: Contains a credential',
-      'metadata:',
-      '  type: reference',
-      '---',
-      '',
-      'api_key: sk-abcdef1234567890',
-      ''
-    ].join('\n'));
+    writeSource(
+      'secret.md',
+      [
+        '---',
+        'name: secret',
+        'description: Contains a credential',
+        'metadata:',
+        '  type: reference',
+        '---',
+        '',
+        'api_key: sk-abcdef1234567890',
+        ''
+      ].join('\n')
+    );
 
     const report = executeMemoryIngest({ projectRoot, sourceDir, apply: true });
     expect(report.imported).toHaveLength(0);

@@ -114,7 +114,9 @@ export function classifyTestCommand(
   // token.
   const tokens = trimmed.match(/(?:[^\s"']+|"[^"]*"|'[^']*')+/g) ?? [];
   // Find the runner token and look for arguments after it.
-  const runnerIdx = tokens.findIndex((t) => /(^|\/)(vitest|jest|mocha)(\.cmd|\.exe)?$/.test(t.toLowerCase()));
+  const runnerIdx = tokens.findIndex((t) =>
+    /(^|\/)(vitest|jest|mocha)(\.cmd|\.exe)?$/.test(t.toLowerCase())
+  );
   if (runnerIdx < 0) {
     return {
       classification: 'unsupported',
@@ -126,7 +128,18 @@ export function classifyTestCommand(
   // Strip flags (e.g. --config, --reporter, --coverage). A flag is
   // any token starting with `-`. The path we care about is the first
   // non-flag, non-runner, non-keyword token after the runner.
-  const PATH_KEYWORDS = new Set(['run', 'watch', 'test', 'c', 'ci', 'r', 'reporter', 't', 'u', 'coverage']);
+  const PATH_KEYWORDS = new Set([
+    'run',
+    'watch',
+    'test',
+    'c',
+    'ci',
+    'r',
+    'reporter',
+    't',
+    'u',
+    'coverage'
+  ]);
   const pathTokens: string[] = [];
   for (const tok of after) {
     if (tok.startsWith('-')) continue;

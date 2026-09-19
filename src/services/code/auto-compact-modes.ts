@@ -21,16 +21,24 @@
 
 export type AutoCompactMode = 'standard' | 'partial';
 
-export const AUTO_COMPACT_THRESHOLDS: Readonly<Record<AutoCompactMode, {
-  readonly autoFire: number;
-  readonly preCompact: number;
-  readonly redLine: number;
-}>> = {
-  standard: { autoFire: 0.80, preCompact: 0.85, redLine: 0.95 },
-  partial: { autoFire: 0.65, preCompact: 0.70, redLine: 0.85 }
+export const AUTO_COMPACT_THRESHOLDS: Readonly<
+  Record<
+    AutoCompactMode,
+    {
+      readonly autoFire: number;
+      readonly preCompact: number;
+      readonly redLine: number;
+    }
+  >
+> = {
+  standard: { autoFire: 0.8, preCompact: 0.85, redLine: 0.95 },
+  partial: { autoFire: 0.65, preCompact: 0.7, redLine: 0.85 }
 };
 
-export function thresholdFor(mode: AutoCompactMode, kind: 'autoFire' | 'preCompact' | 'redLine'): number {
+export function thresholdFor(
+  mode: AutoCompactMode,
+  kind: 'autoFire' | 'preCompact' | 'redLine'
+): number {
   return AUTO_COMPACT_THRESHOLDS[mode][kind];
 }
 

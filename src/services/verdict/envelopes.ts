@@ -23,7 +23,12 @@
  *     "missing → null" contract). Callers can detect "envelope missing"
  *     without throwing.
  */
-import { isPerfAuditEnvelope, isSecurityAuditEnvelope, type PerfAuditEnvelope, type SecurityAuditEnvelope } from '../audit-independent/index.js';
+import {
+  isPerfAuditEnvelope,
+  isSecurityAuditEnvelope,
+  type PerfAuditEnvelope,
+  type SecurityAuditEnvelope
+} from '../audit-independent/index.js';
 import {
   type KarpathyEnvelope,
   type MutEnvelope,
@@ -65,7 +70,8 @@ export function parseSecurityEnvelope(md: string): SecurityAuditEnvelope | null 
   try {
     const jsonValue = JSON.parse(md) as unknown;
     if (isSecurityAuditEnvelope(jsonValue)) return jsonValue;
-  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+  } catch {
+    // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     // not JSON — fall through to markdown parse
   }
   // Path 2: real v2.12.0 markdown (YAML frontmatter + body)
@@ -78,7 +84,8 @@ export function parsePerfEnvelope(md: string): PerfAuditEnvelope | null {
   try {
     const jsonValue = JSON.parse(md) as unknown;
     if (isPerfAuditEnvelope(jsonValue)) return jsonValue;
-  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+  } catch {
+    // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     // not JSON — fall through to markdown parse
   }
   // Path 2: real v2.12.0 markdown (YAML frontmatter + body)
@@ -97,7 +104,8 @@ export function parsePerfEnvelope(md: string): PerfAuditEnvelope | null {
  */
 export function parseKarpathyEnvelope(md: string): KarpathyEnvelope | null {
   if (typeof md !== 'string' || md.length === 0) return null;
-  const gateAction = matchEnum(md, /^\s*(?:gateAction|verdict)\s*:\s*(pass|warn|block)\s*$/m) as 'pass' | 'warn' | 'block' | null;
+  const gateAction = matchEnum(md, /^\s*(?:gateAction|verdict)\s*:\s*(pass|warn|block)\s*$/m) as
+    'pass' | 'warn' | 'block' | null;
   const passedMatch = md.match(/^\s*passed\s*:\s*(true|false)\s*$/m);
   if (gateAction === null || passedMatch === null) return null;
   const violations = parseKarpathyViolations(md);
@@ -122,14 +130,21 @@ function parseKarpathyViolations(md: string): KarpathyEnvelope['violations'] {
   if (section === undefined) return [];
   const lines = section.split('\n').filter((l) => l.trim().startsWith('- '));
   type KarpathyV = KarpathyEnvelope['violations'][number];
-const out: KarpathyV[] = [];
+  const out: KarpathyV[] = [];
   for (const line of lines) {
     const m = line.match(
       /\[(CRITICAL|HIGH|MED|LOW)\]\s+([^:\s]+):(\d+)\s+[—-]\s+(.+?)\s+\((\w[\w-]*)\)/
     );
     if (m === null) continue;
     const [, severity, file, lineNo, hint, guideline] = m;
-    if (severity === undefined || file === undefined || lineNo === undefined || hint === undefined || guideline === undefined) continue;
+    if (
+      severity === undefined ||
+      file === undefined ||
+      lineNo === undefined ||
+      hint === undefined ||
+      guideline === undefined
+    )
+      continue;
     if (!(KARPATHY_SEVERITIES as ReadonlyArray<string>).includes(severity)) continue;
     if (!(KARPATHY_GUIDELINES as ReadonlyArray<string>).includes(guideline)) continue;
     out.push({
@@ -156,7 +171,7 @@ export function parseMutEnvelope(json: unknown): MutEnvelope | null {
   if (typeof obj.weakRate !== 'number' || !Number.isFinite(obj.weakRate)) return null;
   if (!Array.isArray(obj.violations)) return null;
   type MutV = MutEnvelope['violations'][number];
-const violations: MutV[] = [];
+  const violations: MutV[] = [];
   for (const v of obj.violations) {
     if (v === null || typeof v !== 'object') return null;
     const vo = v as Record<string, unknown>;
@@ -183,7 +198,8 @@ const violations: MutV[] = [];
  */
 export function parseQaEnvelope(md: string): QaEnvelope | null {
   if (typeof md !== 'string' || md.length === 0) return null;
-  const verdict = matchEnum(md, /^\s*verdict\s*:\s*(pass|return-to-rd|blocked)\s*$/m) as 'pass' | 'return-to-rd' | 'blocked' | null;
+  const verdict = matchEnum(md, /^\s*verdict\s*:\s*(pass|return-to-rd|blocked)\s*$/m) as
+    'pass' | 'return-to-rd' | 'blocked' | null;
   if (verdict === null) return null;
   const reportPathMatch = md.match(/^\s*reportPath\s*:\s*(.+?)\s*$/m);
   return {
@@ -206,9 +222,11 @@ export function envelopesToAggregatorInput(
   const out = {} as AggregatorInput;
   for (const item of list) {
     if (item === null) continue;
-    if (item.kind === 'security') (out as { security?: typeof item.envelope }).security = item.envelope;
+    if (item.kind === 'security')
+      (out as { security?: typeof item.envelope }).security = item.envelope;
     else if (item.kind === 'perf') (out as { perf?: typeof item.envelope }).perf = item.envelope;
-    else if (item.kind === 'karpathy') (out as { karpathy?: typeof item.envelope }).karpathy = item.envelope;
+    else if (item.kind === 'karpathy')
+      (out as { karpathy?: typeof item.envelope }).karpathy = item.envelope;
     else if (item.kind === 'mut') (out as { mut?: typeof item.envelope }).mut = item.envelope;
     else if (item.kind === 'qa') (out as { qa?: typeof item.envelope }).qa = item.envelope;
   }
@@ -249,10 +267,7 @@ type AuditEnvelopeGuard<T> = (v: unknown) => v is T;
  *      guard. Return null if the guard rejects (per the parser
  *      contract: parsers never throw).
  */
-function parseAuditMarkdown<T>(
-  md: string,
-  guard: AuditEnvelopeGuard<T>
-): T | null {
+function parseAuditMarkdown<T>(md: string, guard: AuditEnvelopeGuard<T>): T | null {
   const frontmatterMatch = md.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
   // The v2.12.0 audit artifact contract is YAML frontmatter + body.
   // The CLI also writes a body-only variant (no frontmatter) when the
@@ -307,11 +322,23 @@ function extractSection(body: string, heading: string): string | null {
 }
 
 /** Parse `## Findings` bullets. Accepts the 3 real v2.12.0 shapes. */
-function parseFindingBullets(body: string): Array<{ dimension: string; severity: 'CRITICAL' | 'HIGH' | 'MED' | 'LOW'; file: string; line: number; hint: string }> {
+function parseFindingBullets(body: string): Array<{
+  dimension: string;
+  severity: 'CRITICAL' | 'HIGH' | 'MED' | 'LOW';
+  file: string;
+  line: number;
+  hint: string;
+}> {
   const section = body.split(/^##\s+Findings\s*$/m)[1];
   if (section === undefined) return [];
   const lines = section.split('\n').filter((l) => l.trim().startsWith('- '));
-  const out: Array<{ dimension: string; severity: 'CRITICAL' | 'HIGH' | 'MED' | 'LOW'; file: string; line: number; hint: string }> = [];
+  const out: Array<{
+    dimension: string;
+    severity: 'CRITICAL' | 'HIGH' | 'MED' | 'LOW';
+    file: string;
+    line: number;
+    hint: string;
+  }> = [];
   for (const line of lines) {
     const v = parseFindingBullet(line);
     if (v !== null) out.push(v);
@@ -320,12 +347,27 @@ function parseFindingBullets(body: string): Array<{ dimension: string; severity:
 }
 
 /** Parse a single finding bullet. Returns null on malformed input. */
-function parseFindingBullet(line: string): { dimension: string; severity: 'CRITICAL' | 'HIGH' | 'MED' | 'LOW'; file: string; line: number; hint: string } | null {
+function parseFindingBullet(line: string): {
+  dimension: string;
+  severity: 'CRITICAL' | 'HIGH' | 'MED' | 'LOW';
+  file: string;
+  line: number;
+  hint: string;
+} | null {
   // Shape A (rendered by renderSecurityAuditArtifact): `- [SEV] dim @ file:line — hint`
-  const a = line.match(/^\s*-\s*\[(CRITICAL|HIGH|MED|LOW)\]\s+(\S+)\s+@\s+([^:\s]+):(\d+)\s+[—-]\s+(.+)$/);
+  const a = line.match(
+    /^\s*-\s*\[(CRITICAL|HIGH|MED|LOW)\]\s+(\S+)\s+@\s+([^:\s]+):(\d+)\s+[—-]\s+(.+)$/
+  );
   if (a !== null) {
     const [, severity, dimension, file, lineNo, hint] = a;
-    if (severity === undefined || dimension === undefined || file === undefined || lineNo === undefined || hint === undefined) return null;
+    if (
+      severity === undefined ||
+      dimension === undefined ||
+      file === undefined ||
+      lineNo === undefined ||
+      hint === undefined
+    )
+      return null;
     return {
       severity: severity as 'CRITICAL' | 'HIGH' | 'MED' | 'LOW',
       dimension,
@@ -338,7 +380,8 @@ function parseFindingBullet(line: string): { dimension: string; severity: 'CRITI
   const b = line.match(/^\s*-\s*(CRITICAL|HIGH|MED|LOW)\s*:\s+(.+?)\s+in\s+([^:\s]+):(\d+)\s*$/);
   if (b !== null) {
     const [, severity, hint, file, lineNo] = b;
-    if (severity === undefined || hint === undefined || file === undefined || lineNo === undefined) return null;
+    if (severity === undefined || hint === undefined || file === undefined || lineNo === undefined)
+      return null;
     return {
       severity: severity as 'CRITICAL' | 'HIGH' | 'MED' | 'LOW',
       // dogfood fixtures omit dimension — fall back to severity. The

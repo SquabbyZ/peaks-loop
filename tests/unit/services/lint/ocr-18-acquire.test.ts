@@ -28,11 +28,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { declareDimensions } from '../../_setup/4dim-template.js';
 import { withTmpWorkspacePerTest } from '../../_setup/tmp-workspace.js';
 
-declareDimensions('tests/unit/services/lint/ocr-18-acquire.test.ts', [
-  'behavior',
-  'integration',
-  'a11y',
-], [{ dim: 'render', reason: 'the module returns a typed outcome; the CLI verb renders it' }]);
+declareDimensions(
+  'tests/unit/services/lint/ocr-18-acquire.test.ts',
+  ['behavior', 'integration', 'a11y'],
+  [{ dim: 'render', reason: 'the module returns a typed outcome; the CLI verb renders it' }]
+);
 
 const childMock = vi.hoisted(() => ({ spawnSync: vi.fn() }));
 
@@ -50,26 +50,26 @@ import {
   ocrAcquireLockPath,
   releaseOcrLock,
   type AcquireOutcome,
-  type AcquireShell,
+  type AcquireShell
 } from '../../../../src/services/lint/ocr-18-acquire.js';
 import { OCR_18_PACKAGE } from '../../../../src/services/lint/ocr-multilang-adapter.js';
 
 const BASH: AcquireShell = {
   kind: 'bash',
   path: 'C:\\Program Files\\Git\\bin\\bash.exe',
-  note: 'bash: C:\\Program Files\\Git\\bin\\bash.exe (Git Bash located at pinned or default path)',
+  note: 'bash: C:\\Program Files\\Git\\bin\\bash.exe (Git Bash located at pinned or default path)'
 };
 
 const POWERSHELL: AcquireShell = {
   kind: 'powershell',
   path: 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe',
-  note: 'PowerShell: … — Git Bash is absent on this host',
+  note: 'PowerShell: … — Git Bash is absent on this host'
 };
 
 const DIRECT: AcquireShell = {
   kind: 'direct',
   path: null,
-  note: 'no shell: this host has neither Git Bash nor PowerShell, so npx is launched directly',
+  note: 'no shell: this host has neither Git Bash nor PowerShell, so npx is launched directly'
 };
 
 /** A pid no OS will ever hand out, so `isProcessAlive` answers false. */
@@ -187,7 +187,7 @@ describe('behavior — the shell the installer runs through', () => {
       '-NoProfile',
       '-NonInteractive',
       '-Command',
-      acquireCommandLine(),
+      acquireCommandLine()
     ]);
   });
 
@@ -205,7 +205,14 @@ describe('behavior — the shell the installer runs through', () => {
   it('should pin the pinned package and the non-interactive --yes in the argv', () => {
     // `--yes` is what turns "Ok to proceed?" — a prompt on a fresh machine —
     // into an install that finishes on its own.
-    expect(acquireCommandArgs()).toEqual(['--yes', '--package', OCR_18_PACKAGE, '--', 'ocr', 'version']);
+    expect(acquireCommandArgs()).toEqual([
+      '--yes',
+      '--package',
+      OCR_18_PACKAGE,
+      '--',
+      'ocr',
+      'version'
+    ]);
     // Every token quoted: a bare `@alibaba-group/…` is PowerShell array syntax.
     expect(acquireCommandLine()).toBe(
       ['npx', ...acquireCommandArgs()].map((token) => `"${token}"`).join(' ')
@@ -279,8 +286,8 @@ describe('integration — the machine-global acquisition lock', () => {
         'thrown spawn',
         () => {
           throw new Error('spawn EPERM');
-        },
-      ],
+        }
+      ]
     ];
 
     for (const [label, result] of cases) {
@@ -322,7 +329,7 @@ describe('a11y — a failed install is a named outcome, never a silent throw', (
   it('should give a timeout its own code, so "never hang" is checkable', async () => {
     childMock.spawnSync.mockReturnValue({
       status: null,
-      error: Object.assign(new Error('spawnSync ETIMEDOUT'), { code: 'ETIMEDOUT' }),
+      error: Object.assign(new Error('spawnSync ETIMEDOUT'), { code: 'ETIMEDOUT' })
     });
 
     const outcome = await acquireOcr18({ shell: BASH });

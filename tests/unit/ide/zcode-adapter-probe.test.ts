@@ -41,19 +41,16 @@ vi.mock('node:os', async () => {
   return { ...actual, homedir: () => __home.value };
 });
 
-const {
-  defaultZcodeConfigPath,
-  detectZcodeCurrentModel,
-  resolveZcodeCurrentModel,
-} = await import('../../../src/services/ide/adapters/zcode-adapter.js');
+const { defaultZcodeConfigPath, detectZcodeCurrentModel, resolveZcodeCurrentModel } =
+  await import('../../../src/services/ide/adapters/zcode-adapter.js');
 
 declareDimensions(
   'tests/unit/ide/zcode-adapter-probe.test.ts',
   ['behavior', 'integration'],
   [
     { dim: 'render', reason: 'the probe returns a model id; it renders nothing' },
-    { dim: 'a11y', reason: 'a missing or corrupt config is a documented undefined, not a message' },
-  ],
+    { dim: 'a11y', reason: 'a missing or corrupt config is a documented undefined, not a message' }
+  ]
 );
 
 const tmpDirs: string[] = [];
@@ -103,7 +100,7 @@ describe('Scenario: behavior — the resolution chain walks its four steps in or
     // given: a pinned uuid and a config where P2 would answer differently
     const config = configWith({
       'user-uuid-1': { models: { 'model-from-p2': {} } },
-      'pinned-uuid': { models: { 'model-from-p1': {} } },
+      'pinned-uuid': { models: { 'model-from-p1': {} } }
     });
 
     // when / then: the pin wins — P1 outranks the non-builtin preference
@@ -132,7 +129,7 @@ describe('Scenario: behavior — the resolution chain walks its four steps in or
     const config = configWith({
       'builtin:anthropic': { models: { 'builtin-model': {} } },
       'user-uuid-1': { models: { 'user-model-1': {} } },
-      'user-uuid-2': { models: { 'user-model-2': {} } },
+      'user-uuid-2': { models: { 'user-model-2': {} } }
     });
 
     // when / then: the prefix, not the position, decides
@@ -144,7 +141,7 @@ describe('Scenario: behavior — the resolution chain walks its four steps in or
     const config = configWith({
       'builtin:a': { enabled: false, models: { 'disabled-model': {} } },
       'builtin:b': { enabled: true, models: { 'enabled-model': {} } },
-      'builtin:c': { enabled: true, models: { 'later-enabled-model': {} } },
+      'builtin:c': { enabled: true, models: { 'later-enabled-model': {} } }
     });
 
     // when / then: `enabled: true` is the discriminator, and insertion order
@@ -156,7 +153,7 @@ describe('Scenario: behavior — the resolution chain walks its four steps in or
     // given: the last resort — every provider disabled
     const config = configWith({
       'builtin:a': { enabled: false, models: { 'first-model': {} } },
-      'builtin:b': { enabled: false, models: { 'second-model': {} } },
+      'builtin:b': { enabled: false, models: { 'second-model': {} } }
     });
 
     // when / then: P4 answers instead of returning undefined, which is what
@@ -170,7 +167,7 @@ describe('Scenario: behavior — the resolution chain walks its four steps in or
       'builtin:a': {},
       'builtin:b': { models: {} },
       'builtin:c': { models: 'nope' },
-      'builtin:d': { models: null },
+      'builtin:d': { models: null }
     });
     expect(resolveZcodeCurrentModel(unusable)).toBeUndefined();
 
@@ -179,7 +176,7 @@ describe('Scenario: behavior — the resolution chain walks its four steps in or
     const mixed = configWith({
       'builtin:a': {},
       'builtin:b': { enabled: true, models: {} },
-      user: { models: { 'real-model': {} } },
+      user: { models: { 'real-model': {} } }
     });
     expect(resolveZcodeCurrentModel(mixed)).toBe('real-model');
   });
@@ -188,12 +185,12 @@ describe('Scenario: behavior — the resolution chain walks its four steps in or
     // given: an insertion order whose first key is whitespace
     // when / then: a blank key is not a model id — and the key is returned
     // TRIMMED, so a padded key does not leak padding into the model name
-    expect(resolveZcodeCurrentModel(configWith({ user: { models: { '   ': {}, 'real-model': {} } } }))).toBe(
-      'real-model',
-    );
-    expect(resolveZcodeCurrentModel(configWith({ user: { models: { '  padded-model  ': {} } } }))).toBe(
-      'padded-model',
-    );
+    expect(
+      resolveZcodeCurrentModel(configWith({ user: { models: { '   ': {}, 'real-model': {} } } }))
+    ).toBe('real-model');
+    expect(
+      resolveZcodeCurrentModel(configWith({ user: { models: { '  padded-model  ': {} } } }))
+    ).toBe('padded-model');
   });
 });
 
@@ -201,7 +198,11 @@ describe('Scenario: integration — the probe reads a real config file at the pa
   it('when the config path is overridden, should resolve the model from that file', async () => {
     // given: a config file on disk with one user provider
     const path = join(makeTmpDir(), 'config.json');
-    writeFileSync(path, JSON.stringify(configWith({ 'user-uuid-1': { models: { 'disk-model': {} } } })), 'utf8');
+    writeFileSync(
+      path,
+      JSON.stringify(configWith({ 'user-uuid-1': { models: { 'disk-model': {} } } })),
+      'utf8'
+    );
     withEnv('PEAKS_ZCODE_CONFIG_PATH', path);
     withEnv('PEAKS_ZCODE_ACTIVE_PROVIDER_UUID', undefined);
 
@@ -217,10 +218,10 @@ describe('Scenario: integration — the probe reads a real config file at the pa
       JSON.stringify(
         configWith({
           'user-uuid-1': { models: { 'p2-model': {} } },
-          'pinned-uuid': { models: { 'p1-model': {} } },
-        }),
+          'pinned-uuid': { models: { 'p1-model': {} } }
+        })
       ),
-      'utf8',
+      'utf8'
     );
     withEnv('PEAKS_ZCODE_CONFIG_PATH', path);
     withEnv('PEAKS_ZCODE_ACTIVE_PROVIDER_UUID', 'pinned-uuid');

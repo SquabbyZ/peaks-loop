@@ -52,16 +52,19 @@ import { declareDimensions } from '../_setup/4dim-template.js';
 import { runAutoCompact } from '~/src/services/code/auto-compact-orchestrator';
 import {
   readCompactLifecycle,
-  writeCompactLifecycle,
+  writeCompactLifecycle
 } from '~/src/services/compact-statusline/compact-lifecycle-store';
 import { readOpenDispatchRun } from '~/src/services/code/auto-compact-lifecycle';
-import { computeWindowCalibration, readCompactHistory } from '~/src/services/compact-history/compact-history-service';
+import {
+  computeWindowCalibration,
+  readCompactHistory
+} from '~/src/services/compact-history/compact-history-service';
 
 declareDimensions('tests/unit/code/auto-compact-dispatch-backoff.test.ts', [
   'render',
   'behavior',
   'integration',
-  'a11y',
+  'a11y'
 ]);
 
 const SID = '2026-09-14-dispatch-backoff';
@@ -70,7 +73,7 @@ const SID = '2026-09-14-dispatch-backoff';
 function envAtRatio(ratio: number): NodeJS.ProcessEnv {
   return {
     CLAUDE_CODE_ENTRYPOINT: 'cli',
-    CLAUDE_CONTEXT_USAGE_PERCENT: String(ratio),
+    CLAUDE_CONTEXT_USAGE_PERCENT: String(ratio)
   };
 }
 
@@ -95,7 +98,7 @@ function lifecycleOf(projectRoot: string) {
     projectRoot,
     sessionId: SID,
     nowMs: Date.now(),
-    staleAfterMs: 60_000,
+    staleAfterMs: 60_000
   });
 }
 
@@ -124,7 +127,7 @@ describe('Scenario: behavior — AC1, the bound on dispatch rows', () => {
       const result = await runAutoCompact({
         projectRoot,
         sessionId: SID,
-        env: envAtRatio(ratio),
+        env: envAtRatio(ratio)
       });
       codes.push(result.code);
     }
@@ -137,7 +140,10 @@ describe('Scenario: behavior — AC1, the bound on dispatch rows', () => {
     // only on a settle — which requires the ratio to fall, which by hypothesis
     // never happens. So the one run opened by the crossing is never superseded,
     // and the crossing admits exactly one dispatch.
-    expect(readOpenDispatchRun({ projectRoot, sessionId: SID })).toMatchObject({ kind: 'open', stage: 'armed' });
+    expect(readOpenDispatchRun({ projectRoot, sessionId: SID })).toMatchObject({
+      kind: 'open',
+      stage: 'armed'
+    });
   });
 
   it('when invoked, should Case 2 (AC1): the bound is 1 per crossing, not 1 per session — it is the RUN that is open, not a global latch', async () => {
@@ -184,8 +190,8 @@ describe('Scenario: behavior — AC1, the bound on dispatch rows', () => {
         triggerRatio: 0.9,
         redLine: false,
         failedAt: 'preparing',
-        errorSummary: 'disk full while writing checkpoint',
-      },
+        errorSummary: 'disk full while writing checkpoint'
+      }
     });
     const result = await runAutoCompact({ projectRoot, sessionId: SID, env: envAtRatio(0.9) });
     // then: a failure is a reason to try again, not a reason to stay quiet
@@ -201,7 +207,7 @@ describe('Scenario: behavior — AC1, the bound on dispatch rows', () => {
       projectRoot,
       sessionId: SID,
       env: envAtRatio(0.9),
-      force: true,
+      force: true
     });
     // then: the instruction is honoured — an inference about whether re-asking
     //       helps must never reduce an explicit command to a silent no-op
@@ -231,7 +237,8 @@ describe('Scenario: behavior — AC2, the crossing is still recorded and still l
     //       reported (0.94), paired with the unanswered ask (0.87). This pair is
     //       what replaces the per-probe rows the backoff stops writing.
     expect(later.code).toBe('AUTO_COMPACT_ALREADY_ARMED');
-    if (later.code !== 'AUTO_COMPACT_ALREADY_ARMED') throw new Error('expected the backoff envelope');
+    if (later.code !== 'AUTO_COMPACT_ALREADY_ARMED')
+      throw new Error('expected the backoff envelope');
     expect(later.data.ratio).toBeCloseTo(0.94, 5);
     expect(later.data.armedAtRatio).toBeCloseTo(0.87, 5);
     expect(later.data.decision).toBe('already-armed');
@@ -241,7 +248,7 @@ describe('Scenario: behavior — AC2, the crossing is still recorded and still l
     expect(open.kind === 'open' ? open.triggerRatio : null).toBeCloseTo(0.87, 5);
   });
 
-  it('when invoked, should Case 8 (AC2): the suppressed probe writes NO checkpoint, which is where 444 of the 15.5-hour session\'s files came from', async () => {
+  it("when invoked, should Case 8 (AC2): the suppressed probe writes NO checkpoint, which is where 444 of the 15.5-hour session's files came from", async () => {
     // given: a crossing
     await runAutoCompact({ projectRoot, sessionId: SID, env: envAtRatio(0.88) });
     // when:  two more probes are suppressed
@@ -284,7 +291,10 @@ describe('Scenario: integration — AC3, the control group (a real compaction st
     await runAutoCompact({ projectRoot, sessionId: SID, env: envAtRatio(0.9) });
     // then: no `observed` row is invented, and the run is still open
     expect(readRows(projectRoot).map((r) => r['kind'] ?? 'dispatch')).toEqual(['dispatch']);
-    expect(readOpenDispatchRun({ projectRoot, sessionId: SID })).toMatchObject({ kind: 'open', stage: 'armed' });
+    expect(readOpenDispatchRun({ projectRoot, sessionId: SID })).toMatchObject({
+      kind: 'open',
+      stage: 'armed'
+    });
   });
 });
 
@@ -349,7 +359,9 @@ describe('Scenario: render / a11y — the sentence the human and the runner read
     // ...says plainly that nothing compacted...
     expect(result.message).toContain('nothing has compacted since');
     // ...and never claims a compaction landed or a ratio dropped
-    expect(result.message).not.toMatch(/compacted successfully|ratio dropped|context is now smaller|shrunk/i);
+    expect(result.message).not.toMatch(
+      /compacted successfully|ratio dropped|context is now smaller|shrunk/i
+    );
   });
 
   it('when invoked, should Case 15 (a11y): the message asks for no CLI verb the reader must type itself', async () => {

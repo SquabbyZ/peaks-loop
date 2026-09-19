@@ -32,10 +32,7 @@ const COMMAND_PATTERN = /program\s*\.\s*command\(\s*['"]([^'"]+)['"]/g;
 const DESC_PATTERN = /\.description\(\s*['"]([^'"]+)['"]\)/g;
 
 /** Generate a SKILL.md skeleton from a directory of CLI command files. */
-export function generateSkillFromCommands(
-  skillName: string,
-  commandsDir: string
-): SkillDoc {
+export function generateSkillFromCommands(skillName: string, commandsDir: string): SkillDoc {
   const sections: SkillSection[] = [];
   let description = `Auto-generated SKILL.md skeleton for ${skillName}.`;
 
@@ -52,7 +49,9 @@ export function generateSkillFromCommands(
     } catch {
       continue;
     }
-    const commands = [...content.matchAll(COMMAND_PATTERN)].map((m) => m[1]!).filter((c) => c.length > 0);
+    const commands = [...content.matchAll(COMMAND_PATTERN)]
+      .map((m) => m[1]!)
+      .filter((c) => c.length > 0);
     const descs = [...content.matchAll(DESC_PATTERN)].map((m) => m[1]!);
     for (const cmd of commands) {
       if (!commandMap.has(cmd)) commandMap.set(cmd, []);
@@ -102,7 +101,11 @@ export interface ChangelogEntry {
 export function parseCommitSubject(subject: string, file: string): ChangelogEntry {
   const conventionalMatch = /^(feat|fix|docs|refactor|chore)(?:\([^)]+\))?:\s*(.+)$/i.exec(subject);
   if (conventionalMatch) {
-    return { kind: conventionalMatch[1]!.toLowerCase() as ChangelogEntry['kind'], subject: conventionalMatch[2]!.trim(), file };
+    return {
+      kind: conventionalMatch[1]!.toLowerCase() as ChangelogEntry['kind'],
+      subject: conventionalMatch[2]!.trim(),
+      file
+    };
   }
   return { kind: 'chore', subject, file };
 }
@@ -117,7 +120,10 @@ export function gitLogSince(projectRoot: string, since: string): ChangelogEntry[
       windowsHide: true
     });
     if (out.trim().length === 0) return [];
-    return out.split('\n').filter((s) => s.length > 0).map((s) => parseCommitSubject(s, 'git log'));
+    return out
+      .split('\n')
+      .filter((s) => s.length > 0)
+      .map((s) => parseCommitSubject(s, 'git log'));
   } catch {
     return [];
   }
@@ -126,7 +132,13 @@ export function gitLogSince(projectRoot: string, since: string): ChangelogEntry[
 /** Group entries by kind + render a "## [Unreleased]" block. */
 export function suggestChangelog(entries: readonly ChangelogEntry[]): string {
   if (entries.length === 0) return '## [Unreleased]\n\n(no changes since the reference)';
-  const groups: Record<ChangelogEntry['kind'], ChangelogEntry[]> = { feat: [], fix: [], docs: [], refactor: [], chore: [] };
+  const groups: Record<ChangelogEntry['kind'], ChangelogEntry[]> = {
+    feat: [],
+    fix: [],
+    docs: [],
+    refactor: [],
+    chore: []
+  };
   for (const e of entries) groups[e.kind].push(e);
   const lines: string[] = ['## [Unreleased]', ''];
   for (const k of ['feat', 'fix', 'refactor', 'docs', 'chore'] as const) {

@@ -59,16 +59,34 @@ export function registerWorkspaceReconcileCommand(workspace: Command, io: Progra
           'Migration (1), repoint (2), and marker sync (3) always run regardless of --apply.'
       )
       .requiredOption('--project <path>', 'target project root')
-      .option('--apply', 'actually delete the deletion candidates (destructive); without it, dry-run only', false)
-      .option('--older-than <days>', `age threshold in days for deletion candidates (default: ${DEFAULT_RECONCILE_AGE_DAYS})`, (value: string) => Number.parseFloat(value))
+      .option(
+        '--apply',
+        'actually delete the deletion candidates (destructive); without it, dry-run only',
+        false
+      )
+      .option(
+        '--older-than <days>',
+        `age threshold in days for deletion candidates (default: ${DEFAULT_RECONCILE_AGE_DAYS})`,
+        (value: string) => Number.parseFloat(value)
+      )
   ).action((options: WorkspaceReconcileOptions) => {
     try {
       const projectRoot = resolveCanonicalProjectRoot(options.project);
       const olderThanDays = options.olderThan ?? DEFAULT_RECONCILE_AGE_DAYS;
-      if (typeof olderThanDays !== 'number' || !Number.isFinite(olderThanDays) || olderThanDays <= 0) {
+      if (
+        typeof olderThanDays !== 'number' ||
+        !Number.isFinite(olderThanDays) ||
+        olderThanDays <= 0
+      ) {
         printResult(
           io,
-          fail('workspace.reconcile', 'INVALID_AGE_THRESHOLD', `--older-than must be a positive number of days`, { provided: options.olderThan }, ['Use --older-than 7 (or omit it to accept the 7-day default)']),
+          fail(
+            'workspace.reconcile',
+            'INVALID_AGE_THRESHOLD',
+            `--older-than must be a positive number of days`,
+            { provided: options.olderThan },
+            ['Use --older-than 7 (or omit it to accept the 7-day default)']
+          ),
           options.json
         );
         process.exitCode = 1;
@@ -85,21 +103,31 @@ export function registerWorkspaceReconcileCommand(workspace: Command, io: Progra
 
       const warnings: string[] = [];
       if (result.sessions.length === 0) {
-        warnings.push('No session directories found under .peaks/. Run peaks workspace init first.');
+        warnings.push(
+          'No session directories found under .peaks/. Run peaks workspace init first.'
+        );
       }
       if (apply && result.deleted.length > 0) {
-        warnings.push(`Deleted ${result.deleted.length} session dir(s) older than ${olderThanDays} day(s).`);
+        warnings.push(
+          `Deleted ${result.deleted.length} session dir(s) older than ${olderThanDays} day(s).`
+        );
       }
 
       const nextActions: string[] = [];
       if (result.migratedFiles.length > 0) {
-        nextActions.push(`Migrated ${result.migratedFiles.length} legacy runtime file(s) into .peaks/_runtime/: ${result.migratedFiles.join(', ')}.`);
+        nextActions.push(
+          `Migrated ${result.migratedFiles.length} legacy runtime file(s) into .peaks/_runtime/: ${result.migratedFiles.join(', ')}.`
+        );
       }
       if (result.repointed) {
-        nextActions.push(`Re-pointed .peaks/_runtime/session.json from ${result.repointedFrom ?? '<unbound>'} to ${result.repointedTo}.`);
+        nextActions.push(
+          `Re-pointed .peaks/_runtime/session.json from ${result.repointedFrom ?? '<unbound>'} to ${result.repointedTo}.`
+        );
       }
       if (!apply && result.wouldDelete.length > 0) {
-        nextActions.push(`Re-run with --apply to delete ${result.wouldDelete.length} candidate dir(s).`);
+        nextActions.push(
+          `Re-run with --apply to delete ${result.wouldDelete.length} candidate dir(s).`
+        );
       }
       if (result.changeMarker.created !== null) {
         nextActions.push(`Synced change/<${result.changeMarker.created}>/ live marker.`);
@@ -107,13 +135,17 @@ export function registerWorkspaceReconcileCommand(workspace: Command, io: Progra
         nextActions.push(`change/<${result.canonicalSessionId}>/ live marker already in place.`);
       }
       if (result.changeMarker.removed.length > 0) {
-        nextActions.push(`Removed ${result.changeMarker.removed.length} stale change/<oldSid>/ marker(s).`);
+        nextActions.push(
+          `Removed ${result.changeMarker.removed.length} stale change/<oldSid>/ marker(s).`
+        );
       }
       if (result.systemCleaned.length > 0) {
         nextActions.push(`Removed ${result.systemCleaned.length} F3 system/ subdir(s).`);
       }
       if (result.subAgentStateMigrated > 0) {
-        nextActions.push(`Migrated ${result.subAgentStateMigrated} legacy sub-agent state file(s) into .peaks/_sub_agents/.`);
+        nextActions.push(
+          `Migrated ${result.subAgentStateMigrated} legacy sub-agent state file(s) into .peaks/_sub_agents/.`
+        );
       }
 
       printResult(io, ok('workspace.reconcile', result, warnings, nextActions), options.json);
@@ -124,7 +156,13 @@ export function registerWorkspaceReconcileCommand(workspace: Command, io: Progra
     } catch (error) {
       printResult(
         io,
-        fail('workspace.reconcile', 'WORKSPACE_RECONCILE_FAILED', getErrorMessage(error), { projectRoot: options.project }, ['Verify the project path exists and is writable']),
+        fail(
+          'workspace.reconcile',
+          'WORKSPACE_RECONCILE_FAILED',
+          getErrorMessage(error),
+          { projectRoot: options.project },
+          ['Verify the project path exists and is writable']
+        ),
         options.json
       );
       process.exitCode = 1;

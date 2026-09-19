@@ -24,8 +24,17 @@
  * by a real OS-level watcher in a future slice without changing the
  * callback contract.
  */
-import { type DispatchRecord, type HeartbeatStatus, readRecords } from '../dispatch/dispatch-record-writer.js';
-import { renderStatusLine, summarize, viewSubAgent, type SubAgentLiveView } from './status-line-renderer.js';
+import {
+  type DispatchRecord,
+  type HeartbeatStatus,
+  readRecords
+} from '../dispatch/dispatch-record-writer.js';
+import {
+  renderStatusLine,
+  summarize,
+  viewSubAgent,
+  type SubAgentLiveView
+} from './status-line-renderer.js';
 
 export const DEFAULT_POLL_INTERVAL_MS = 10_000;
 export const DEFAULT_STALE_THRESHOLD_MS = 5 * 60 * 1000;
@@ -144,13 +153,21 @@ export class BatchHeartbeatPoller {
       }
     }
 
-    if (summary.total > 0 && summary.done === summary.total && this.prevSummaryDone !== summary.done) {
+    if (
+      summary.total > 0 &&
+      summary.done === summary.total &&
+      this.prevSummaryDone !== summary.done
+    ) {
       this.prevSummaryDone = summary.done;
       this.handlers.onDone?.({ kind: 'done', summary });
       this.stop();
     } else if (
       recs.length > 0 &&
-      recs.every((r) => TERMINAL_RECORD_STATUSES.includes(r.status) || TERMINAL_STATUSES.includes(r.status as HeartbeatStatus))
+      recs.every(
+        (r) =>
+          TERMINAL_RECORD_STATUSES.includes(r.status) ||
+          TERMINAL_STATUSES.includes(r.status as HeartbeatStatus)
+      )
     ) {
       this.handlers.onDone?.({ kind: 'done', summary });
       this.stop();

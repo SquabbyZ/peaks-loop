@@ -34,11 +34,11 @@ declareDimensions('tests/unit/cli/commands/best-practice-scan-command.test.ts', 
   'render',
   'behavior',
   'a11y',
-  'integration',
+  'integration'
 ]);
 
 vi.mock('../../../../src/services/best-practice/scan-orchestrator.js', () => ({
-  scanBestPractice: vi.fn(),
+  scanBestPractice: vi.fn()
 }));
 
 const scanMock = vi.mocked(scanBestPractice);
@@ -66,7 +66,9 @@ afterEach(() => {
   }
 });
 
-async function runCli(args: readonly string[]): Promise<ReturnType<typeof makeCapturedIo>['captured']> {
+async function runCli(
+  args: readonly string[]
+): Promise<ReturnType<typeof makeCapturedIo>['captured']> {
   const { io, captured } = makeCapturedIo();
   const program = new Command();
   program.exitOverride();
@@ -81,7 +83,7 @@ function syntheticScan() {
     intent: INTENT,
     language: 'typescript',
     projectRoot,
-    io: makeCapturedIo().io,
+    io: makeCapturedIo().io
   });
 }
 
@@ -95,10 +97,18 @@ function injectedLookupScan() {
     context7Lookup: async () => ({
       ok: true,
       results: [
-        { title: 'Caching best practices', url: 'https://docs.example.com/cache', snippet: 'real fragment A' },
-        { title: 'Cache invalidation', url: 'https://docs.example.com/cache-2', snippet: 'real fragment B' },
-      ],
-    }),
+        {
+          title: 'Caching best practices',
+          url: 'https://docs.example.com/cache',
+          snippet: 'real fragment A'
+        },
+        {
+          title: 'Cache invalidation',
+          url: 'https://docs.example.com/cache-2',
+          snippet: 'real fragment B'
+        }
+      ]
+    })
   });
 }
 
@@ -108,7 +118,14 @@ describe('render — refusal for a synthetic scan', () => {
     scanMock.mockResolvedValue(await syntheticScan());
 
     // when: the command runs non-interactively
-    const captured = await runCli(['--intent', INTENT, '--project', projectRoot, '--lang', 'typescript']);
+    const captured = await runCli([
+      '--intent',
+      INTENT,
+      '--project',
+      projectRoot,
+      '--lang',
+      'typescript'
+    ]);
 
     // then: no fabricated presentation survives — no ★, no recommendation, no table, no gate
     const out = captured.text();
@@ -156,7 +173,14 @@ describe('a11y — exit codes for the synthetic refusal', () => {
     scanMock.mockResolvedValue(await syntheticScan());
 
     // when: the command runs
-    const captured = await runCli(['--intent', INTENT, '--project', projectRoot, '--lang', 'typescript']);
+    const captured = await runCli([
+      '--intent',
+      INTENT,
+      '--project',
+      projectRoot,
+      '--lang',
+      'typescript'
+    ]);
 
     // then: an automated caller cannot read this as satisfied
     expect(process.exitCode).toBe(1);
@@ -168,7 +192,15 @@ describe('a11y — exit codes for the synthetic refusal', () => {
     scanMock.mockResolvedValue(await syntheticScan());
 
     // when: the command runs with --json
-    const captured = await runCli(['--intent', INTENT, '--project', projectRoot, '--lang', 'typescript', '--json']);
+    const captured = await runCli([
+      '--intent',
+      INTENT,
+      '--project',
+      projectRoot,
+      '--lang',
+      'typescript',
+      '--json'
+    ]);
 
     // then: the envelope is ok:false with the synthetic skip recorded
     expect(process.exitCode).toBe(1);
@@ -182,7 +214,11 @@ describe('integration — the skip is recorded, a real lookup still renders', ()
   it('when the scan is synthetic, should record the skip under the intent slug', async () => {
     // given: a synthetic scan
     scanMock.mockResolvedValue(await syntheticScan());
-    const artifactPath = join(projectRoot, 'best-practice', `${new Date().toISOString().slice(0, 10)}-add-a-caching-layer.md`);
+    const artifactPath = join(
+      projectRoot,
+      'best-practice',
+      `${new Date().toISOString().slice(0, 10)}-add-a-caching-layer.md`
+    );
 
     // when: the command runs
     await runCli(['--intent', INTENT, '--project', projectRoot, '--lang', 'typescript']);
@@ -200,10 +236,21 @@ describe('integration — the skip is recorded, a real lookup still renders', ()
     expect(realScan.synthetic).toBe(false);
     scanMock.mockResolvedValue(realScan);
     withEnv(STDIN_SEAM, '');
-    const artifactPath = join(projectRoot, 'best-practice', `${new Date().toISOString().slice(0, 10)}-add-a-caching-layer.md`);
+    const artifactPath = join(
+      projectRoot,
+      'best-practice',
+      `${new Date().toISOString().slice(0, 10)}-add-a-caching-layer.md`
+    );
 
     // when: the command runs
-    const captured = await runCli(['--intent', INTENT, '--project', projectRoot, '--lang', 'typescript']);
+    const captured = await runCli([
+      '--intent',
+      INTENT,
+      '--project',
+      projectRoot,
+      '--lang',
+      'typescript'
+    ]);
 
     // then: the full table, the recommendation, the gate and a 0 exit code are all still there
     const out = captured.text();

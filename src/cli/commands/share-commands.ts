@@ -85,11 +85,10 @@ export const FINALIZE_SELECTION_RULE =
 export function selectFinalizeTarget(
   candidates: readonly FinalizeCandidate[]
 ): FinalizeCandidate | null {
-  const queued = candidates.filter(candidate => candidate.status === 'queued');
+  const queued = candidates.filter((candidate) => candidate.status === 'queued');
   if (queued.length === 0) return null;
   return [...queued].sort(
-    (a, b) =>
-      b.createdAt.localeCompare(a.createdAt) || b.recordPath.localeCompare(a.recordPath)
+    (a, b) => b.createdAt.localeCompare(a.createdAt) || b.recordPath.localeCompare(a.recordPath)
   )[0]!;
 }
 
@@ -110,23 +109,37 @@ export function registerShareCommand(parent: Command, io: ProgramIO): void {
       .command('share')
       .description(
         'G8.4: write a shared entry to the cross sub-agent shared channel. ' +
-        'Dispatcher-mediated indirect signal: sub-agent A writes, dispatcher ' +
-        'stores, sub-agent B (still in flight) reads via `peaks sub-agent ' +
-        'shared-read`. Not peer-to-peer; pseudo-swarm property 3 preserved.'
+          'Dispatcher-mediated indirect signal: sub-agent A writes, dispatcher ' +
+          'stores, sub-agent B (still in flight) reads via `peaks sub-agent ' +
+          'shared-read`. Not peer-to-peer; pseudo-swarm property 3 preserved.'
       )
       .requiredOption('--batch <batchId>', 'batchId (from `peaks sub-agent dispatch` envelope)')
       .requiredOption('--key <k>', 'entry key (convention: "<role>.<event>")')
       .requiredOption('--value <json>', 'JSON object value (≤ 1KB soft warn, ≥ 64KB rejected)')
-      .option('--from <role>', 'sub-agent role string; defaults to dispatch record role if available')
+      .option(
+        '--from <role>',
+        'sub-agent role string; defaults to dispatch record role if available'
+      )
       .option('--request-id <rid>', 'request id (default: "unknown-rid")')
-      .option('--session-id <sid>', 'session id (default: resolve from .peaks/_runtime/session.json; falls back to PEAKS_SESSION_ID env var; final fallback "unknown-sid")')
+      .option(
+        '--session-id <sid>',
+        'session id (default: resolve from .peaks/_runtime/session.json; falls back to PEAKS_SESSION_ID env var; final fallback "unknown-sid")'
+      )
       .option('--project <path>', 'target project root (defaults to cwd)')
   ).action((options: ShareOptions) => {
     const asJson = options.json === true;
     if (!options.batch || !options.key || !options.value) {
-      printResult(io, fail('sub-agent.share', 'MISSING_ARG', '--batch, --key, and --value are required', { ok: false } as never, [
-        'Re-run with --batch <batchId> --key <key> --value <jsonObject>.'
-      ]), asJson);
+      printResult(
+        io,
+        fail(
+          'sub-agent.share',
+          'MISSING_ARG',
+          '--batch, --key, and --value are required',
+          { ok: false } as never,
+          ['Re-run with --batch <batchId> --key <key> --value <jsonObject>.']
+        ),
+        asJson
+      );
       process.exitCode = 1;
       return;
     }
@@ -138,9 +151,17 @@ export function registerShareCommand(parent: Command, io: ProgramIO): void {
       }
       parsedValue = parsed as Record<string, unknown>;
     } catch (err) {
-      printResult(io, fail('sub-agent.share', 'INVALID_VALUE', `value must be a JSON object: ${getErrorMessage(err)}`, { ok: false } as never, [
-        'Pass --value as a JSON object literal, e.g. --value \'{"reason":"x"}\'.'
-      ]), asJson);
+      printResult(
+        io,
+        fail(
+          'sub-agent.share',
+          'INVALID_VALUE',
+          `value must be a JSON object: ${getErrorMessage(err)}`,
+          { ok: false } as never,
+          ['Pass --value as a JSON object literal, e.g. --value \'{"reason":"x"}\'.']
+        ),
+        asJson
+      );
       process.exitCode = 1;
       return;
     }
@@ -148,10 +169,11 @@ export function registerShareCommand(parent: Command, io: ProgramIO): void {
     try {
       const projectRoot = options.project ?? process.cwd();
       // Slice 2026-06-26-unknown-sid-fallback-fix: see dispatch-commands.ts.
-      const sid = options.sessionId
-        ?? process.env.PEAKS_SESSION_ID
-        ?? getCurrentSessionId(projectRoot)
-        ?? 'unknown-sid';
+      const sid =
+        options.sessionId ??
+        process.env.PEAKS_SESSION_ID ??
+        getCurrentSessionId(projectRoot) ??
+        'unknown-sid';
       const rid = options.requestId ?? 'unknown-rid';
       const from = options.from ?? 'unknown-role';
 
@@ -167,11 +189,21 @@ export function registerShareCommand(parent: Command, io: ProgramIO): void {
 
       if (!result.ok) {
         const code = result.code;
-        printResult(io, fail('sub-agent.share', code, result.message, { ok: false, batchId: options.batch } as never, [
-          code === 'VALUE_TOO_LARGE'
-            ? 'Reduce value size; 1KB is a soft warning, 64KB is a hard reject.'
-            : 'See error message; check --batch, --key, --value arguments.'
-        ]), asJson);
+        printResult(
+          io,
+          fail(
+            'sub-agent.share',
+            code,
+            result.message,
+            { ok: false, batchId: options.batch } as never,
+            [
+              code === 'VALUE_TOO_LARGE'
+                ? 'Reduce value size; 1KB is a soft warning, 64KB is a hard reject.'
+                : 'See error message; check --batch, --key, --value arguments.'
+            ]
+          ),
+          asJson
+        );
         process.exitCode = 1;
         return;
       }
@@ -181,22 +213,35 @@ export function registerShareCommand(parent: Command, io: ProgramIO): void {
         warnings.push('LAST_WRITE_WINS');
       }
       if (result.softWarning) {
-        warnings.push(`VALUE_SIZE_SOFT_WARN: ${result.entry.valueSize} > ${SHARED_CHANNEL_SOFT_VALUE_WARN} bytes`);
+        warnings.push(
+          `VALUE_SIZE_SOFT_WARN: ${result.entry.valueSize} > ${SHARED_CHANNEL_SOFT_VALUE_WARN} bytes`
+        );
       }
 
-      printResult(io, ok('sub-agent.share', {
-        // Slice 2026-06-23-audit-4th #E1: envelopeVersion marker
-        envelopeVersion: '2.1.0',
-        ok: true,
-        batchId: options.batch,
-        entryKey: options.key,
-        writtenAt: result.entry.at,
-        channelSize: result.channelSize,
-        lastWriteWins: result.lastWriteWins,
-        valueSize: result.entry.valueSize
-      }, warnings, [
-        'Sub-agents in the same batch can read this entry via `peaks sub-agent shared-read --batch ' + options.batch + '`.'
-      ]), asJson);
+      printResult(
+        io,
+        ok(
+          'sub-agent.share',
+          {
+            // Slice 2026-06-23-audit-4th #E1: envelopeVersion marker
+            envelopeVersion: '2.1.0',
+            ok: true,
+            batchId: options.batch,
+            entryKey: options.key,
+            writtenAt: result.entry.at,
+            channelSize: result.channelSize,
+            lastWriteWins: result.lastWriteWins,
+            valueSize: result.entry.valueSize
+          },
+          warnings,
+          [
+            'Sub-agents in the same batch can read this entry via `peaks sub-agent shared-read --batch ' +
+              options.batch +
+              '`.'
+          ]
+        ),
+        asJson
+      );
       // Slice 2026-06-23-audit-4th #B1: structured log on success.
       try {
         writeLogEntry({
@@ -213,14 +258,23 @@ export function registerShareCommand(parent: Command, io: ProgramIO): void {
             lastWriteWins: result.lastWriteWins
           }
         });
-      } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+      } catch {
+        // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
         /* best-effort */
       }
     } catch (error: unknown) {
       const code = (error as { code?: string }).code ?? 'SHARE_ERROR';
-      printResult(io, fail('sub-agent.share', code, getErrorMessage(error), { ok: false, batchId: options.batch } as never, [
-        shareErrorNextActions(code)
-      ]), asJson);
+      printResult(
+        io,
+        fail(
+          'sub-agent.share',
+          code,
+          getErrorMessage(error),
+          { ok: false, batchId: options.batch } as never,
+          [shareErrorNextActions(code)]
+        ),
+        asJson
+      );
       process.exitCode = 1;
     }
   });
@@ -247,31 +301,43 @@ export function registerSharedReadCommand(parent: Command, io: ProgramIO): void 
       .command('shared-read')
       .description(
         'G8.4: read entries from the cross sub-agent shared channel. ' +
-        'Returns sibling sub-agent status. Supports --since (ISO8601) ' +
-        'and --key (glob pattern with * wildcard).'
+          'Returns sibling sub-agent status. Supports --since (ISO8601) ' +
+          'and --key (glob pattern with * wildcard).'
       )
       .requiredOption('--batch <batchId>', 'batchId (from `peaks sub-agent dispatch` envelope)')
       .option('--since <iso>', 'only return entries written after this ISO8601 timestamp')
       .option('--key <pattern>', 'glob pattern, e.g. "rd.*" or "*.completed"')
       .option('--request-id <rid>', 'request id (default: "unknown-rid")')
-      .option('--session-id <sid>', 'session id (default: resolve from .peaks/_runtime/session.json; falls back to PEAKS_SESSION_ID env var; final fallback "unknown-sid")')
+      .option(
+        '--session-id <sid>',
+        'session id (default: resolve from .peaks/_runtime/session.json; falls back to PEAKS_SESSION_ID env var; final fallback "unknown-sid")'
+      )
       .option('--project <path>', 'target project root (defaults to cwd)')
   ).action((options: SharedReadOptions) => {
     const asJson = options.json === true;
     if (!options.batch) {
-      printResult(io, fail('sub-agent.shared-read', 'MISSING_BATCH', '--batch is required', { ok: false } as never, [
-        'Re-run with --batch <batchId>.'
-      ]), asJson);
+      printResult(
+        io,
+        fail(
+          'sub-agent.shared-read',
+          'MISSING_BATCH',
+          '--batch is required',
+          { ok: false } as never,
+          ['Re-run with --batch <batchId>.']
+        ),
+        asJson
+      );
       process.exitCode = 1;
       return;
     }
     try {
       const projectRoot = options.project ?? process.cwd();
       // Slice 2026-06-26-unknown-sid-fallback-fix: see dispatch-commands.ts.
-      const sid = options.sessionId
-        ?? process.env.PEAKS_SESSION_ID
-        ?? getCurrentSessionId(projectRoot)
-        ?? 'unknown-sid';
+      const sid =
+        options.sessionId ??
+        process.env.PEAKS_SESSION_ID ??
+        getCurrentSessionId(projectRoot) ??
+        'unknown-sid';
       const rid = options.requestId ?? 'unknown-rid';
       const channel = readSharedChannel({
         projectRoot,
@@ -281,23 +347,40 @@ export function registerSharedReadCommand(parent: Command, io: ProgramIO): void 
         ...(options.since !== undefined ? { since: options.since } : {}),
         ...(options.key !== undefined ? { keyPattern: options.key } : {})
       });
-      printResult(io, ok('sub-agent.shared-read', {
-        // Slice 2026-06-23-audit-4th #E1: envelopeVersion marker
-        envelopeVersion: '2.1.0',
-        ok: true,
-        batchId: options.batch,
-        entries: channel.entries,
-        totalEntries: Object.keys(channel.entries).length,
-        channelSize: JSON.stringify(channel).length,
-        updatedAt: channel.updatedAt
-      }, [], [
-        'Shared channel is dispatcher-mediated; do not attempt to read sibling dispatch records directly.'
-      ]), asJson);
+      printResult(
+        io,
+        ok(
+          'sub-agent.shared-read',
+          {
+            // Slice 2026-06-23-audit-4th #E1: envelopeVersion marker
+            envelopeVersion: '2.1.0',
+            ok: true,
+            batchId: options.batch,
+            entries: channel.entries,
+            totalEntries: Object.keys(channel.entries).length,
+            channelSize: JSON.stringify(channel).length,
+            updatedAt: channel.updatedAt
+          },
+          [],
+          [
+            'Shared channel is dispatcher-mediated; do not attempt to read sibling dispatch records directly.'
+          ]
+        ),
+        asJson
+      );
     } catch (error: unknown) {
       const code = (error as { code?: string }).code ?? 'SHARED_READ_ERROR';
-      printResult(io, fail('sub-agent.shared-read', code, getErrorMessage(error), { ok: false, batchId: options.batch } as never, [
-        sharedReadErrorNextActions(code)
-      ]), asJson);
+      printResult(
+        io,
+        fail(
+          'sub-agent.shared-read',
+          code,
+          getErrorMessage(error),
+          { ok: false, batchId: options.batch } as never,
+          [sharedReadErrorNextActions(code)]
+        ),
+        asJson
+      );
       process.exitCode = 1;
     }
   });
@@ -316,20 +399,30 @@ export function registerAwaitCommand(parent: Command, io: ProgramIO): void {
       .command('await')
       .description(
         '2.7.0 slice-dag-dispatcher MVP: wait for a batch of dispatched sub-agents ' +
-        'to finish (or hit --timeout). Returns one BatchResult per dispatch. ' +
-        'For non-claude-code IDEs, the wait is delegated to the LLM (slice 1.3 will ' +
-        'land real per-IDE joins).'
+          'to finish (or hit --timeout). Returns one BatchResult per dispatch. ' +
+          'For non-claude-code IDEs, the wait is delegated to the LLM (slice 1.3 will ' +
+          'land real per-IDE joins).'
       )
       .requiredOption('--batch <batchId>', 'batchId from a dispatch envelope')
-      .option('--timeout <ms>', 'optional cap on how long the join waits (ms; default 60000, max 120000)')
+      .option(
+        '--timeout <ms>',
+        'optional cap on how long the join waits (ms; default 60000, max 120000)'
+      )
       .option('--project <path>', 'target project root (defaults to cwd)')
-      .option('--session-id <sid>', 'override active session id (default: resolve from .peaks/_runtime/session.json; falls back to PEAKS_SESSION_ID env var; final fallback "unknown-sid")')
+      .option(
+        '--session-id <sid>',
+        'override active session id (default: resolve from .peaks/_runtime/session.json; falls back to PEAKS_SESSION_ID env var; final fallback "unknown-sid")'
+      )
   ).action(async (options: AwaitOptions) => {
     const asJson = options.json === true;
     if (!options.batch) {
-      printResult(io, fail('sub-agent.await', 'MISSING_BATCH', '--batch is required', { ok: false } as never, [
-        'Re-run with --batch <batchId> from a dispatch envelope.'
-      ]), asJson);
+      printResult(
+        io,
+        fail('sub-agent.await', 'MISSING_BATCH', '--batch is required', { ok: false } as never, [
+          'Re-run with --batch <batchId> from a dispatch envelope.'
+        ]),
+        asJson
+      );
       process.exitCode = 1;
       return;
     }
@@ -337,9 +430,17 @@ export function registerAwaitCommand(parent: Command, io: ProgramIO): void {
     if (typeof options.timeout === 'string' && options.timeout.length > 0) {
       const n = Number.parseInt(options.timeout, 10);
       if (!Number.isInteger(n) || n <= 0) {
-        printResult(io, fail('sub-agent.await', 'INVALID_TIMEOUT', `--timeout must be a positive integer ms (got ${options.timeout})`, { ok: false } as never, [
-          'Pass an integer like --timeout 60000.'
-        ]), asJson);
+        printResult(
+          io,
+          fail(
+            'sub-agent.await',
+            'INVALID_TIMEOUT',
+            `--timeout must be a positive integer ms (got ${options.timeout})`,
+            { ok: false } as never,
+            ['Pass an integer like --timeout 60000.']
+          ),
+          asJson
+        );
         process.exitCode = 1;
         return;
       }
@@ -347,10 +448,11 @@ export function registerAwaitCommand(parent: Command, io: ProgramIO): void {
     }
     const projectRoot = options.project ?? process.cwd();
     // Slice 2026-06-26-unknown-sid-fallback-fix: see dispatch-commands.ts.
-    const sid = options.sessionId
-      ?? process.env.PEAKS_SESSION_ID
-      ?? getCurrentSessionId(projectRoot)
-      ?? 'unknown-sid';
+    const sid =
+      options.sessionId ??
+      process.env.PEAKS_SESSION_ID ??
+      getCurrentSessionId(projectRoot) ??
+      'unknown-sid';
     // Lazy-import IDE modules so `peaks sub-agent share` and
     // `peaks sub-agent shared-read` (the high-frequency G8.4 path) do not
     // pay for adapter resolution at module-load time. Slice
@@ -361,9 +463,19 @@ export function registerAwaitCommand(parent: Command, io: ProgramIO): void {
     const adapter = getAdapter(ide);
     const dispatcher = adapter.subAgentDispatcher;
     if (typeof dispatcher.awaitBatch !== 'function') {
-      printResult(io, fail('sub-agent.await', 'IDE_NOT_SUPPORTED', `IDE ${ide} does not support awaitBatch`, { ok: false } as never, [
-        'Every built-in adapter has an awaitBatch since slice 1.3; a dispatcher without one is a custom adapter registered outside the built-in set.'
-      ]), asJson);
+      printResult(
+        io,
+        fail(
+          'sub-agent.await',
+          'IDE_NOT_SUPPORTED',
+          `IDE ${ide} does not support awaitBatch`,
+          { ok: false } as never,
+          [
+            'Every built-in adapter has an awaitBatch since slice 1.3; a dispatcher without one is a custom adapter registered outside the built-in set.'
+          ]
+        ),
+        asJson
+      );
       process.exitCode = 1;
       return;
     }
@@ -382,15 +494,26 @@ export function registerAwaitCommand(parent: Command, io: ProgramIO): void {
         readOne: readRecord
       });
       if (scan.recordPaths.length === 0) {
-        const unreadableNote = scan.unreadable.length > 0
-          ? ` ${scan.unreadable.length} dispatch record(s) there could not be read, so they could not be matched to this batch: ${scan.unreadable.join(', ')}`
-          : '';
-        printResult(io, fail('sub-agent.await', 'NO_DISPATCH_RECORDS', `No dispatch record with batchId=${options.batch} under ${scan.sessionDir}.${unreadableNote}`, {
-          ok: false,
-          batchId: options.batch,
-          sessionDir: scan.sessionDir,
-          unreadableRecords: scan.unreadable
-        } as never, [awaitErrorNextActions('NO_DISPATCH_RECORDS')]), asJson);
+        const unreadableNote =
+          scan.unreadable.length > 0
+            ? ` ${scan.unreadable.length} dispatch record(s) there could not be read, so they could not be matched to this batch: ${scan.unreadable.join(', ')}`
+            : '';
+        printResult(
+          io,
+          fail(
+            'sub-agent.await',
+            'NO_DISPATCH_RECORDS',
+            `No dispatch record with batchId=${options.batch} under ${scan.sessionDir}.${unreadableNote}`,
+            {
+              ok: false,
+              batchId: options.batch,
+              sessionDir: scan.sessionDir,
+              unreadableRecords: scan.unreadable
+            } as never,
+            [awaitErrorNextActions('NO_DISPATCH_RECORDS')]
+          ),
+          asJson
+        );
         process.exitCode = 1;
         return;
       }
@@ -402,31 +525,46 @@ export function registerAwaitCommand(parent: Command, io: ProgramIO): void {
       };
       const results = await dispatcher.awaitBatch(input);
       const summary = summarizeBatchResults(results);
-      printResult(io, ok('sub-agent.await', {
-        // Slice 2026-06-23-audit-4th #E1: envelopeVersion marker
-        envelopeVersion: '2.1.0',
-        batchId: options.batch,
-        ide: dispatcher.label,
-        results,
-        summary,
-        unreadableRecords: scan.unreadable
-      }, scan.unreadable.length > 0
-        ? [`${scan.unreadable.length} unreadable dispatch record(s) in this session were skipped and are NOT part of the results: ${scan.unreadable.join(', ')}`]
-        : [], [
-        // Slice 2026-09-15-s9: corrected. This used to tell users that the
-        // four non-Claude IDEs would report `awaitByLlm: <ide> 1.2 fallback`,
-        // the slice-1.2 marker that slice 1.3 replaced with a real
-        // file-polling await. The text survived because nothing tested it —
-        // no adapter produces that note any more (asserted in
-        // sub-agent-dispatchers.test.ts), and the emitter that produced it,
-        // `awaitByLlmFallback`, has since been removed.
-        `Each non-claude-code IDE labels its own results (see the \`note\` field), so a timed-out slot is attributable to the adapter it came from.`
-      ]), asJson);
+      printResult(
+        io,
+        ok(
+          'sub-agent.await',
+          {
+            // Slice 2026-06-23-audit-4th #E1: envelopeVersion marker
+            envelopeVersion: '2.1.0',
+            batchId: options.batch,
+            ide: dispatcher.label,
+            results,
+            summary,
+            unreadableRecords: scan.unreadable
+          },
+          scan.unreadable.length > 0
+            ? [
+                `${scan.unreadable.length} unreadable dispatch record(s) in this session were skipped and are NOT part of the results: ${scan.unreadable.join(', ')}`
+              ]
+            : [],
+          [
+            // Slice 2026-09-15-s9: corrected. This used to tell users that the
+            // four non-Claude IDEs would report `awaitByLlm: <ide> 1.2 fallback`,
+            // the slice-1.2 marker that slice 1.3 replaced with a real
+            // file-polling await. The text survived because nothing tested it —
+            // no adapter produces that note any more (asserted in
+            // sub-agent-dispatchers.test.ts), and the emitter that produced it,
+            // `awaitByLlmFallback`, has since been removed.
+            `Each non-claude-code IDE labels its own results (see the \`note\` field), so a timed-out slot is attributable to the adapter it came from.`
+          ]
+        ),
+        asJson
+      );
     } catch (error: unknown) {
       const code = (error as { code?: string }).code ?? 'AWAIT_ERROR';
-      printResult(io, fail('sub-agent.await', code, getErrorMessage(error), { ok: false } as never, [
-        awaitErrorNextActions(code)
-      ]), asJson);
+      printResult(
+        io,
+        fail('sub-agent.await', code, getErrorMessage(error), { ok: false } as never, [
+          awaitErrorNextActions(code)
+        ]),
+        asJson
+      );
       process.exitCode = 1;
     }
   });
@@ -529,7 +667,9 @@ export function registerFinalizeCommand(parent: Command, io: ProgramIO): void {
   addJsonOption(
     parent
       .command('finalize')
-      .description('D21: signal that a dispatched sub-agent has finished (success/failure/cancellation). Pass --all-stale for crash-recovery sweep.')
+      .description(
+        'D21: signal that a dispatched sub-agent has finished (success/failure/cancellation). Pass --all-stale for crash-recovery sweep.'
+      )
       .option('--batch <batchId>', 'batchId from dispatch envelope')
       .option('--request-id <rid>', 'requestId from dispatch envelope')
       .option('--outcome <state>', 'done | failed | cancelled (default: done)')
@@ -544,7 +684,17 @@ export function registerFinalizeCommand(parent: Command, io: ProgramIO): void {
         const projectRoot = resolve(options.project ?? process.cwd());
         const sessionId = options.sessionId ?? getCurrentSessionId(projectRoot) ?? 'unknown-sid';
         if (!options.allStale && !options.requestId && !options.batch) {
-          printResult(io, fail('sub-agent.finalize', 'MISSING_TARGET', 'Pass --request-id or --batch (or --all-stale)', { ok: false } as never, ['Call finalize after each Task completes.']), asJson);
+          printResult(
+            io,
+            fail(
+              'sub-agent.finalize',
+              'MISSING_TARGET',
+              'Pass --request-id or --batch (or --all-stale)',
+              { ok: false } as never,
+              ['Call finalize after each Task completes.']
+            ),
+            asJson
+          );
           process.exitCode = 1;
           return;
         }
@@ -552,10 +702,13 @@ export function registerFinalizeCommand(parent: Command, io: ProgramIO): void {
         const writerMod = await import('../../services/dispatch/dispatch-record-writer.js');
         const { readRecord, markCompleted, readActiveDispatchIndex } = writerMod;
         // map outcome -> (status, outcome)
-        const outcomeMap: Record<string, { status: 'done' | 'failed' | 'cancelled'; outcome: 'success' | 'failed' | 'cancelled' }> = {
+        const outcomeMap: Record<
+          string,
+          { status: 'done' | 'failed' | 'cancelled'; outcome: 'success' | 'failed' | 'cancelled' }
+        > = {
           done: { status: 'done', outcome: 'success' },
           failed: { status: 'failed', outcome: 'failed' },
-          cancelled: { status: 'cancelled', outcome: 'cancelled' },
+          cancelled: { status: 'cancelled', outcome: 'cancelled' }
         };
         const mapped = outcomeMap[outcome] ?? outcomeMap['done']!;
         const finalized = [] as Array<{ recordPath: string; requestId: string; status: string }>;
@@ -586,15 +739,27 @@ export function registerFinalizeCommand(parent: Command, io: ProgramIO): void {
           }
         };
         const applyOutcome = (recordPath: string, rid: string): void => {
-          markCompleted({ recordPath, now: () => new Date(), status: mapped.status, outcome: mapped.outcome, projectRoot });
+          markCompleted({
+            recordPath,
+            now: () => new Date(),
+            status: mapped.status,
+            outcome: mapped.outcome,
+            projectRoot
+          });
           finalized.push({ recordPath, requestId: rid, status: mapped.status });
         };
         if (options.allStale) {
           const index = readActiveDispatchIndex(projectRoot, sessionId);
           for (const [recordPath, entry] of Object.entries(index)) {
-            if (entry.status !== 'queued') { skipped.push({ recordPath, reason: 'status is ' + entry.status }); continue; }
-            try { applyOutcome(recordPath, entry.requestId); }
-            catch (e: unknown) { errors.push({ recordPath, error: getErrorMessage(e) }); }
+            if (entry.status !== 'queued') {
+              skipped.push({ recordPath, reason: 'status is ' + entry.status });
+              continue;
+            }
+            try {
+              applyOutcome(recordPath, entry.requestId);
+            } catch (e: unknown) {
+              errors.push({ recordPath, error: getErrorMessage(e) });
+            }
           }
         } else if (options.requestId) {
           const fs2 = await import('node:fs');
@@ -622,7 +787,17 @@ export function registerFinalizeCommand(parent: Command, io: ProgramIO): void {
             }
           }
           if (candidates.length === 0) {
-            printResult(io, fail('sub-agent.finalize', 'RECORD_NOT_FOUND', 'No dispatch record for requestId=' + options.requestId, { ok: false } as never, ['Check --request-id matches the dispatch envelope.']), asJson);
+            printResult(
+              io,
+              fail(
+                'sub-agent.finalize',
+                'RECORD_NOT_FOUND',
+                'No dispatch record for requestId=' + options.requestId,
+                { ok: false } as never,
+                ['Check --request-id matches the dispatch envelope.']
+              ),
+              asJson
+            );
             process.exitCode = 1;
             return;
           }
@@ -634,8 +809,8 @@ export function registerFinalizeCommand(parent: Command, io: ProgramIO): void {
             matched: candidates.length,
             chosen: chosen?.recordPath ?? null,
             rejected: candidates
-              .filter(candidate => candidate !== chosen)
-              .map(candidate => ({
+              .filter((candidate) => candidate !== chosen)
+              .map((candidate) => ({
                 recordPath: candidate.recordPath,
                 status: candidate.status,
                 reason: describeFinalizeRejection(candidate, chosen)
@@ -645,8 +820,11 @@ export function registerFinalizeCommand(parent: Command, io: ProgramIO): void {
             skipped.push({ recordPath: rejected.recordPath, reason: rejected.reason });
           }
           if (chosen !== null) {
-            try { applyOutcome(chosen.recordPath, chosen.requestId); }
-            catch (e: unknown) { errors.push({ recordPath: chosen.recordPath, error: getErrorMessage(e) }); }
+            try {
+              applyOutcome(chosen.recordPath, chosen.requestId);
+            } catch (e: unknown) {
+              errors.push({ recordPath: chosen.recordPath, error: getErrorMessage(e) });
+            }
           }
         } else {
           const fs2 = await import('node:fs');
@@ -659,27 +837,58 @@ export function registerFinalizeCommand(parent: Command, io: ProgramIO): void {
               const r = tryReadRecord(p);
               if (r === null) continue;
               if (r.batchId !== options.batch) continue;
-              if (r.status !== 'queued') { skipped.push({ recordPath: p, reason: 'status is ' + r.status }); continue; }
-              try { applyOutcome(p, r.requestId); }
-              catch (e: unknown) { errors.push({ recordPath: p, error: getErrorMessage(e) }); }
+              if (r.status !== 'queued') {
+                skipped.push({ recordPath: p, reason: 'status is ' + r.status });
+                continue;
+              }
+              try {
+                applyOutcome(p, r.requestId);
+              } catch (e: unknown) {
+                errors.push({ recordPath: p, error: getErrorMessage(e) });
+              }
             }
           }
         }
         const hints: string[] = [];
         if (errors.length > 0) {
-          hints.push('Re-run after fixing; unreadable records are listed in errors[] and were skipped, not fatal.');
+          hints.push(
+            'Re-run after fixing; unreadable records are listed in errors[] and were skipped, not fatal.'
+          );
         } else if (finalized.length === 0 && skipped.length > 0) {
-          hints.push('Nothing was finalized: every matching record had already left `queued`. See skipped[] for each record\'s status.');
+          hints.push(
+            "Nothing was finalized: every matching record had already left `queued`. See skipped[] for each record's status."
+          );
         } else {
           hints.push('All targeted records transitioned out of queued.');
         }
         if (selection !== null) {
-          hints.push(`--request-id selection (${selection.rule}): chose ${selection.chosen ?? '(none)'} of ${selection.matched} matching record(s); ${selection.rejected.length} rejected.`);
+          hints.push(
+            `--request-id selection (${selection.rule}): chose ${selection.chosen ?? '(none)'} of ${selection.matched} matching record(s); ${selection.rejected.length} rejected.`
+          );
         }
-        printResult(io, ok('sub-agent.finalize', { finalized, skipped, errors, selection, sessionId, outcome }, errors.length > 0 ? [errors.length + ' failed'] : [], hints), asJson);
+        printResult(
+          io,
+          ok(
+            'sub-agent.finalize',
+            { finalized, skipped, errors, selection, sessionId, outcome },
+            errors.length > 0 ? [errors.length + ' failed'] : [],
+            hints
+          ),
+          asJson
+        );
         if (errors.length > 0) process.exitCode = 1;
       } catch (error: unknown) {
-        printResult(io, fail('sub-agent.finalize', 'FINALIZE_ERROR', getErrorMessage(error), { ok: false } as never, ['Inspect the error.']), asJson);
+        printResult(
+          io,
+          fail(
+            'sub-agent.finalize',
+            'FINALIZE_ERROR',
+            getErrorMessage(error),
+            { ok: false } as never,
+            ['Inspect the error.']
+          ),
+          asJson
+        );
         process.exitCode = 1;
       }
     })();

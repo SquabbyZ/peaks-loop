@@ -18,7 +18,11 @@
  * builds the read-side surface so Slice C is purely additive.
  */
 
-import { readObservabilityEvents, type ObservabilityEvent, type ObservabilitySubagentRole } from './observability-service.js';
+import {
+  readObservabilityEvents,
+  type ObservabilityEvent,
+  type ObservabilitySubagentRole
+} from './observability-service.js';
 import { listSessionDirsWithMetrics } from './jsonl-store.js';
 
 // ----- types -----
@@ -74,8 +78,8 @@ export const REPAIR_CYCLE_CAP = 3;
 // rationale on why `security-reviewer` was dropped and `peaks-security-audit`
 // + `peaks-perf-audit` were added.
 const ZERO_FANOUT: Record<ObservabilitySubagentRole, number> = {
-  'rd': 0,
-  'qa': 0,
+  rd: 0,
+  qa: 0,
   'code-reviewer': 0,
   'karpathy-reviewer': 0,
   'peaks-security-audit': 0,
@@ -84,7 +88,9 @@ const ZERO_FANOUT: Record<ObservabilitySubagentRole, number> = {
 
 // ----- internal helpers -----
 
-function isSliceTransition(event: ObservabilityEvent): event is ObservabilityEvent & { sliceRid: string } {
+function isSliceTransition(
+  event: ObservabilityEvent
+): event is ObservabilityEvent & { sliceRid: string } {
   return event.category === 'slice-transition' && typeof event.sliceRid === 'string';
 }
 
@@ -251,7 +257,11 @@ export function periodStartIso(period: Period, now: () => Date = () => new Date(
   return d.toISOString();
 }
 
-export function filterByPeriod(events: readonly ObservabilityEvent[], period: Period, now?: () => Date): ObservabilityEvent[] {
+export function filterByPeriod(
+  events: readonly ObservabilityEvent[],
+  period: Period,
+  now?: () => Date
+): ObservabilityEvent[] {
   const start = periodStartIso(period, now);
   return events.filter((e) => e.ts >= start);
 }
@@ -315,11 +325,16 @@ export function aggregateDashboardMetrics(
     if (Number.isFinite(cutoff) && Number.isFinite(ts) && ts < cutoff) continue;
     if (event.category === 'cycle') cycleCount += 1;
     else if (event.category === 'token-usage') {
-      const detail = event.detail as { totalTokens?: unknown; inputTokens?: unknown; outputTokens?: unknown };
-      const t = typeof detail.totalTokens === 'number'
-        ? detail.totalTokens
-        : (typeof detail.inputTokens === 'number' ? detail.inputTokens : 0)
-          + (typeof detail.outputTokens === 'number' ? detail.outputTokens : 0);
+      const detail = event.detail as {
+        totalTokens?: unknown;
+        inputTokens?: unknown;
+        outputTokens?: unknown;
+      };
+      const t =
+        typeof detail.totalTokens === 'number'
+          ? detail.totalTokens
+          : (typeof detail.inputTokens === 'number' ? detail.inputTokens : 0) +
+            (typeof detail.outputTokens === 'number' ? detail.outputTokens : 0);
       tokenCount += t;
     } else if (event.category === 'dispatch') dispatchCount += 1;
     else if (event.category === 'post-compact') compactCount += 1;
@@ -347,11 +362,16 @@ export function aggregateDashboardMetricsFromEvents(
     if (cutoff !== null && Number.isFinite(ts) && ts < cutoff) continue;
     if (event.category === 'cycle') cycleCount += 1;
     else if (event.category === 'token-usage') {
-      const detail = event.detail as { totalTokens?: unknown; inputTokens?: unknown; outputTokens?: unknown };
-      const t = typeof detail.totalTokens === 'number'
-        ? detail.totalTokens
-        : (typeof detail.inputTokens === 'number' ? detail.inputTokens : 0)
-          + (typeof detail.outputTokens === 'number' ? detail.outputTokens : 0);
+      const detail = event.detail as {
+        totalTokens?: unknown;
+        inputTokens?: unknown;
+        outputTokens?: unknown;
+      };
+      const t =
+        typeof detail.totalTokens === 'number'
+          ? detail.totalTokens
+          : (typeof detail.inputTokens === 'number' ? detail.inputTokens : 0) +
+            (typeof detail.outputTokens === 'number' ? detail.outputTokens : 0);
       tokenCount += t;
     } else if (event.category === 'dispatch') dispatchCount += 1;
     else if (event.category === 'post-compact') compactCount += 1;

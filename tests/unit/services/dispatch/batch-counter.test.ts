@@ -25,10 +25,12 @@ import { declareDimensions } from '../../_setup/4dim-template.js';
 import { withTmpWorkspacePerTest } from '../../_setup/tmp-workspace.js';
 import { withEnv } from '../../_setup/io.js';
 
-declareDimensions(
-  'tests/unit/services/dispatch/batch-counter.test.ts',
-  ['render', 'behavior', 'integration', 'a11y'],
-);
+declareDimensions('tests/unit/services/dispatch/batch-counter.test.ts', [
+  'render',
+  'behavior',
+  'integration',
+  'a11y'
+]);
 
 import {
   BATCH_LIMIT,
@@ -37,7 +39,7 @@ import {
   noteDispatched,
   readBatchCount,
   resetBatch,
-  type BatchCounterRecord,
+  type BatchCounterRecord
 } from '~/src/services/dispatch/batch-counter';
 import { existsSync, readFileSync } from 'node:fs';
 
@@ -45,10 +47,10 @@ const SID = '2026-07-30-test-counter';
 const BATCH = 'batch-001';
 const FIXED_NOW = new Date('2026-07-30T10:00:00Z');
 
-describe("Scenario: render — counter file shape", () => {
+describe('Scenario: render — counter file shape', () => {
   withTmpWorkspacePerTest();
 
-  it("when invoked, should noteDispatched writes a pretty JSON record with all 4 fields", () => {
+  it('when invoked, should noteDispatched writes a pretty JSON record with all 4 fields', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -69,7 +71,7 @@ describe("Scenario: render — counter file shape", () => {
     expect(raw).toContain('\n');
   });
 
-  it("when invoked, should BATCH_LIMIT and BATCH_OVER_LIMIT_CODE are the documented values", () => {
+  it('when invoked, should BATCH_LIMIT and BATCH_OVER_LIMIT_CODE are the documented values', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -78,10 +80,10 @@ describe("Scenario: render — counter file shape", () => {
   });
 });
 
-describe("Scenario: behavior — increment + reset", () => {
+describe('Scenario: behavior — increment + reset', () => {
   withTmpWorkspacePerTest();
 
-  it("when invoked, should first noteDispatched returns count=1, no warning", () => {
+  it('when invoked, should first noteDispatched returns count=1, no warning', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -90,7 +92,7 @@ describe("Scenario: behavior — increment + reset", () => {
     expect(out.warning).toBeNull();
   });
 
-  it("when invoked, should subsequent notes accumulate monotonically", () => {
+  it('when invoked, should subsequent notes accumulate monotonically', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -103,7 +105,7 @@ describe("Scenario: behavior — increment + reset", () => {
     expect(readBatchCount(ws, SID, BATCH)).toBe(5);
   });
 
-  it("when invoked, should count 6 (== BATCH_LIMIT) is still in-budget (no warning)", () => {
+  it('when invoked, should count 6 (== BATCH_LIMIT) is still in-budget (no warning)', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -118,7 +120,7 @@ describe("Scenario: behavior — increment + reset", () => {
     expect(out.warning?.code).toBe(BATCH_OVER_LIMIT_CODE);
   });
 
-  it("when invoked, should count > 6 emits a BATCH_OVER_LIMIT warning with the right fields", () => {
+  it('when invoked, should count > 6 emits a BATCH_OVER_LIMIT warning with the right fields', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -131,11 +133,11 @@ describe("Scenario: behavior — increment + reset", () => {
       code: BATCH_OVER_LIMIT_CODE,
       batchId: BATCH,
       dispatched: 8,
-      limit: BATCH_LIMIT,
+      limit: BATCH_LIMIT
     });
   });
 
-  it("when invoked, should resetBatch removes the file and readBatchCount returns 0 again", () => {
+  it('when invoked, should resetBatch removes the file and readBatchCount returns 0 again', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -146,14 +148,14 @@ describe("Scenario: behavior — increment + reset", () => {
     expect(readBatchCount(ws, SID, BATCH)).toBe(0);
   });
 
-  it("when invoked, should readBatchCount returns 0 for an unknown batch (no file yet)", () => {
+  it('when invoked, should readBatchCount returns 0 for an unknown batch (no file yet)', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
     expect(readBatchCount(process.cwd(), SID, 'no-such-batch')).toBe(0);
   });
 
-  it("when invoked, should readBatchCount returns 0 for a corrupt JSON file (defensive default)", () => {
+  it('when invoked, should readBatchCount returns 0 for a corrupt JSON file (defensive default)', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -165,7 +167,7 @@ describe("Scenario: behavior — increment + reset", () => {
     expect(readBatchCount(ws, SID, 'corrupt')).toBe(0);
   });
 
-  it("when invoked, should noteDispatched accepts a custom clock injection (deterministic createdAt)", () => {
+  it('when invoked, should noteDispatched accepts a custom clock injection (deterministic createdAt)', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -181,38 +183,46 @@ describe("Scenario: behavior — increment + reset", () => {
   });
 });
 
-describe("Scenario: integration — real fs writes under a file lock", () => {
+describe('Scenario: integration — real fs writes under a file lock', () => {
   withTmpWorkspacePerTest();
   withEnv('PEAKS_FORCE_FILE_LOCK', '1');
 
-  it("when invoked, should 50 sequential notes produce a final count of 50, never losing updates", { timeout: 90_000 }, () => {
-    // given: the test setup
-    // when:  the function under test is invoked
-    // then:  the result matches the expectation
-    const ws = process.cwd();
-    for (let i = 0; i < 50; i++) {
-      noteDispatched(ws, SID, BATCH, () => FIXED_NOW);
+  it(
+    'when invoked, should 50 sequential notes produce a final count of 50, never losing updates',
+    { timeout: 90_000 },
+    () => {
+      // given: the test setup
+      // when:  the function under test is invoked
+      // then:  the result matches the expectation
+      const ws = process.cwd();
+      for (let i = 0; i < 50; i++) {
+        noteDispatched(ws, SID, BATCH, () => FIXED_NOW);
+      }
+      const final = readBatchCount(ws, SID, BATCH);
+      expect(final).toBe(50);
     }
-    const final = readBatchCount(ws, SID, BATCH);
-    expect(final).toBe(50);
-  });
+  );
 
-  it("when invoked, should parallel noteDispatched calls do not lose updates (file lock)", { timeout: 90_000 }, async () => {
-    // given: the test setup
-    // when:  the function under test is invoked
-    // then:  the result matches the expectation
-    const ws = process.cwd();
-    const N = 25;
-    await Promise.all(
-      Array.from({ length: N }, () =>
-        Promise.resolve(noteDispatched(ws, SID, BATCH, () => FIXED_NOW)),
-      ),
-    );
-    // Every dispatch must have been counted exactly once.
-    expect(readBatchCount(ws, SID, BATCH)).toBe(N);
-  });
+  it(
+    'when invoked, should parallel noteDispatched calls do not lose updates (file lock)',
+    { timeout: 90_000 },
+    async () => {
+      // given: the test setup
+      // when:  the function under test is invoked
+      // then:  the result matches the expectation
+      const ws = process.cwd();
+      const N = 25;
+      await Promise.all(
+        Array.from({ length: N }, () =>
+          Promise.resolve(noteDispatched(ws, SID, BATCH, () => FIXED_NOW))
+        )
+      );
+      // Every dispatch must have been counted exactly once.
+      expect(readBatchCount(ws, SID, BATCH)).toBe(N);
+    }
+  );
 
-  it("when invoked, should file lives under .peaks/_sub_agents/<sid>/batch-<id>.counter.json", () => {
+  it('when invoked, should file lives under .peaks/_sub_agents/<sid>/batch-<id>.counter.json', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -223,10 +233,10 @@ describe("Scenario: integration — real fs writes under a file lock", () => {
   });
 });
 
-describe("Scenario: a11y — human-visible warning text", () => {
+describe('Scenario: a11y — human-visible warning text', () => {
   withTmpWorkspacePerTest();
 
-  it("when invoked, should BATCH_OVER_LIMIT message is human-readable, mentions the bound, and is not a stack trace", () => {
+  it('when invoked, should BATCH_OVER_LIMIT message is human-readable, mentions the bound, and is not a stack trace', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation

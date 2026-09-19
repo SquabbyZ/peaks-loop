@@ -31,7 +31,7 @@ declareDimensions('tests/unit/services/web/web-login-profile.test.ts', [
   'render',
   'behavior',
   'integration',
-  'a11y',
+  'a11y'
 ]);
 
 import { runHeadedLogin } from '../../../../src/services/web/web-login-profile.js';
@@ -186,7 +186,11 @@ describe('behavior — the --profile contract', () => {
     // given: a user who never closes the headed window
     // when:  the wait expires
     const started = performance.now();
-    const outcome = await runHeadedLogin({ profile: 'silent', announce: () => undefined, timeoutMs: 120 });
+    const outcome = await runHeadedLogin({
+      profile: 'silent',
+      announce: () => undefined,
+      timeoutMs: 120
+    });
     // then:  the deadline is HONOURED — not merely an upper bound on how fast it
     //        gave up — the failure is explicit, and no artifact is left. The
     //        `.partial` line is a regression guard: a second on-disk artifact is

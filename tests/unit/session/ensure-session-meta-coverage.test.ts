@@ -36,9 +36,12 @@ declareDimensions(
   'tests/unit/session/ensure-session-meta-coverage.test.ts',
   ['behavior', 'integration'],
   [
-    { dim: 'render', reason: 'setSessionMeta returns JSON-shaped meta; no formatted output surface' },
-    { dim: 'a11y', reason: 'no human-facing text in the meta path' },
-  ],
+    {
+      dim: 'render',
+      reason: 'setSessionMeta returns JSON-shaped meta; no formatted output surface'
+    },
+    { dim: 'a11y', reason: 'no human-facing text in the meta path' }
+  ]
 );
 
 const CACHE_REL = join('.peaks', '_runtime', '.outer-session-cache.json');
@@ -64,12 +67,20 @@ afterEach(() => {
   else process.env.PEAKS_OUTER_SESSION_ID = prevPeaksEnv;
   if (prevClaudeEnv === undefined) delete process.env.CLAUDE_CODE_SESSION_ID;
   else process.env.CLAUDE_CODE_SESSION_ID = prevClaudeEnv;
-  try { process.chdir(prevCwd); } catch { /* best-effort */ }
+  try {
+    process.chdir(prevCwd);
+  } catch {
+    /* best-effort */
+  }
   // Capture the value BEFORE deferring: `workspace` is reassigned by the
   // next test's beforeEach, and a deferred read would delete the LIVE dir.
   const wsToRemove = workspace;
   setImmediate(() => {
-    try { rmSync(wsToRemove, { recursive: true, force: true }); } catch { /* best-effort */ }
+    try {
+      rmSync(wsToRemove, { recursive: true, force: true });
+    } catch {
+      /* best-effort */
+    }
   });
 });
 
@@ -101,7 +112,7 @@ function writeCacheFile(outerSessionId: string): void {
   );
 }
 
-describe("Scenario: behavior — already-bound ensureSession overwrites meta.outerSessionId", () => {
+describe('Scenario: behavior — already-bound ensureSession overwrites meta.outerSessionId', () => {
   it('AC8: already-bound session has its outerSessionId overwritten on every ensureSession call', async () => {
     seedBinding();
     const newOuter = 'session-start-current-outer';
@@ -140,7 +151,7 @@ describe("Scenario: behavior — already-bound ensureSession overwrites meta.out
   });
 });
 
-describe("Scenario: behavior — undefined outer preserves existing meta", () => {
+describe('Scenario: behavior — undefined outer preserves existing meta', () => {
   it('AC10 (partial): when no env + no cache, ensureSession leaves pre-existing outerSessionId untouched', async () => {
     seedBinding();
     // Pre-seed the meta with an outerSessionId via setSessionMeta.
@@ -168,7 +179,7 @@ describe("Scenario: behavior — undefined outer preserves existing meta", () =>
   });
 });
 
-describe("Scenario: integration — other meta fields preserved across outer overwrite", () => {
+describe('Scenario: integration — other meta fields preserved across outer overwrite', () => {
   it('AC10: title / skill / mode / gate / createdAt are preserved when outerSessionId is overwritten', async () => {
     seedBinding();
     // Seed a fully-populated meta.

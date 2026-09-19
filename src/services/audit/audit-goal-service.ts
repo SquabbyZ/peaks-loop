@@ -97,9 +97,7 @@ export async function auditGoal(
   try {
     parsed = JSON.parse(response.output);
   } catch (err) {
-    throw new IncompleteAuditError(
-      `LLM output is not valid JSON: ${(err as Error).message}`
-    );
+    throw new IncompleteAuditError(`LLM output is not valid JSON: ${(err as Error).message}`);
   }
 
   if (!isAuditGoalOutput(parsed)) {
@@ -108,12 +106,10 @@ export async function auditGoal(
     );
   }
 
-  const presentDimensions = new Set(parsed.audit.map(d => d.dimension));
-  const missing = REQUIRED_DIMENSIONS.filter(d => !presentDimensions.has(d));
+  const presentDimensions = new Set(parsed.audit.map((d) => d.dimension));
+  const missing = REQUIRED_DIMENSIONS.filter((d) => !presentDimensions.has(d));
   if (missing.length > 0) {
-    throw new IncompleteAuditError(
-      `Missing required audit dimensions: ${missing.join(', ')}`
-    );
+    throw new IncompleteAuditError(`Missing required audit dimensions: ${missing.join(', ')}`);
   }
 
   // Coverage is not validity: a reply can carry all six dimensions and still

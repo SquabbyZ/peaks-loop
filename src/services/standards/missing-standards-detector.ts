@@ -116,9 +116,8 @@ export function diagnoseStandardsTree(
 
   const normalizedRoot = normalizeProjectRoot(projectRoot);
   const commonDir = join(normalizedRoot, '.peaks', 'standards', 'common');
-  const languageDir = language === 'generic'
-    ? null
-    : join(normalizedRoot, '.peaks', 'standards', language);
+  const languageDir =
+    language === 'generic' ? null : join(normalizedRoot, '.peaks', 'standards', language);
 
   const commonOk = hasPopulatedMarkdown(commonDir);
   const languageOk = languageDir === null ? true : hasPopulatedMarkdown(languageDir);

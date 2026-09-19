@@ -41,19 +41,28 @@ function writeMemory(fileName: string, content: string): void {
   writeFileSync(join(memoryDir, fileName), content, 'utf8');
 }
 
-function frontmatter(lines: readonly string[], body = 'Body text long enough to be summarized.'): string {
+function frontmatter(
+  lines: readonly string[],
+  body = 'Body text long enough to be summarized.'
+): string {
   return ['---', ...lines, '---', '', body, ''].join('\n');
 }
 
 describe('name fallback chain (name -> title -> filename stem)', () => {
   it('prefers `name:` when present', () => {
-    const parsed = parseStoredMemoryFile(frontmatter(['name: canonical', 'title: A Title', 'kind: lesson']), join(memoryDir, 'some-stem.md'));
+    const parsed = parseStoredMemoryFile(
+      frontmatter(['name: canonical', 'title: A Title', 'kind: lesson']),
+      join(memoryDir, 'some-stem.md')
+    );
     expect(parsed?.name).toBe('canonical');
   });
 
   it('falls back to `title:` when `name:` is absent (the on-disk defect shape)', () => {
     const filePath = join(memoryDir, 'rid-001-closeout.md');
-    const parsed = parseStoredMemoryFile(frontmatter(['title: rid-001 envelope closure closeout', 'kind: sediment']), filePath);
+    const parsed = parseStoredMemoryFile(
+      frontmatter(['title: rid-001 envelope closure closeout', 'kind: sediment']),
+      filePath
+    );
     expect(parsed).not.toBeNull();
     expect(parsed?.name).toBe('rid-001 envelope closure closeout');
     expect(parsed?.kind).toBe('sediment');
@@ -67,25 +76,40 @@ describe('name fallback chain (name -> title -> filename stem)', () => {
 
   it('skips an empty `name:` and continues down the chain', () => {
     const filePath = join(memoryDir, 'empty-name.md');
-    const parsed = parseStoredMemoryFile(frontmatter(['name:', 'title: Real Title', 'kind: lesson']), filePath);
+    const parsed = parseStoredMemoryFile(
+      frontmatter(['name:', 'title: Real Title', 'kind: lesson']),
+      filePath
+    );
     expect(parsed?.name).toBe('Real Title');
   });
 
   it('does not treat a nested `metadata.title` as a name fallback', () => {
     const filePath = join(memoryDir, 'nested-title.md');
-    const parsed = parseStoredMemoryFile(frontmatter(['kind: lesson', 'metadata:', '  title: Nested Title']), filePath);
+    const parsed = parseStoredMemoryFile(
+      frontmatter(['kind: lesson', 'metadata:', '  title: Nested Title']),
+      filePath
+    );
     expect(parsed?.name).toBe('nested-title');
   });
 
   it('still rejects a file with no frontmatter at all', () => {
-    expect(parseStoredMemoryFile('Hand-written note, no frontmatter.\n', join(memoryDir, 'x.md'))).toBeNull();
+    expect(
+      parseStoredMemoryFile('Hand-written note, no frontmatter.\n', join(memoryDir, 'x.md'))
+    ).toBeNull();
   });
 
   it('resolveMemoryName reports which source won', () => {
     const parsed = parseMemoryFrontmatter(frontmatter(['title: A Title', 'kind: lesson']));
-    expect(resolveMemoryName(parsed, join(memoryDir, 'stem.md'))).toEqual({ name: 'A Title', source: 'title' });
-    expect(resolveMemoryName(parseMemoryFrontmatter(frontmatter(['kind: lesson'])), join(memoryDir, 'stem.md')))
-      .toEqual({ name: 'stem', source: 'stem' });
+    expect(resolveMemoryName(parsed, join(memoryDir, 'stem.md'))).toEqual({
+      name: 'A Title',
+      source: 'title'
+    });
+    expect(
+      resolveMemoryName(
+        parseMemoryFrontmatter(frontmatter(['kind: lesson'])),
+        join(memoryDir, 'stem.md')
+      )
+    ).toEqual({ name: 'stem', source: 'stem' });
   });
 });
 

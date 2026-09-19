@@ -39,7 +39,7 @@ import {
   executeCodegraphInvocation,
   isCodegraphInitialized,
   writeCodegraphMarker,
-  type CodegraphProcessRunner,
+  type CodegraphProcessRunner
 } from './codegraph-service.js';
 import { defaultCodegraphProcessRunner } from './codegraph-process-runner.js';
 import { repairCodegraphExcludeFromProject } from './codegraph-exclude-repair.js';
@@ -84,7 +84,7 @@ function normalizeCodegraphPath(path: string): string {
  */
 export function renderCodegraphStructureBlock(
   files: readonly CodegraphStructureFileEntry[],
-  options: CodegraphStructureRenderOptions = {},
+  options: CodegraphStructureRenderOptions = {}
 ): CodegraphStructureSummary {
   const maxDirs = options.maxDirs ?? CODEGRAPH_STRUCTURE_MAX_DIRS;
   const maxRootFiles = options.maxRootFiles ?? CODEGRAPH_STRUCTURE_MAX_ROOT_FILES;
@@ -105,8 +105,9 @@ export function renderCodegraphStructureBlock(
     dirCounts.set(dir, (dirCounts.get(dir) ?? 0) + 1);
   }
 
-  const sortedDirs = [...dirCounts.entries()]
-    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+  const sortedDirs = [...dirCounts.entries()].sort(
+    (a, b) => b[1] - a[1] || a[0].localeCompare(b[0])
+  );
   const shownDirs = sortedDirs.slice(0, maxDirs);
   const truncatedDirs = sortedDirs.length > maxDirs;
 
@@ -118,16 +119,20 @@ export function renderCodegraphStructureBlock(
   lines.push(
     total === 0
       ? 'No files are indexed yet. Run `peaks codegraph index` before dispatching planning work for symbol-accurate structure.'
-      : `${total} file${total === 1 ? '' : 's'} indexed in the codegraph index:`,
+      : `${total} file${total === 1 ? '' : 's'} indexed in the codegraph index:`
   );
   for (const [dir, count] of shownDirs) {
     lines.push(`- \`${dir}/\` — ${count} file${count === 1 ? '' : 's'}`);
   }
   if (truncatedDirs) {
-    lines.push(`- … and ${sortedDirs.length - maxDirs} more director${sortedDirs.length - maxDirs === 1 ? 'y' : 'ies'}`);
+    lines.push(
+      `- … and ${sortedDirs.length - maxDirs} more director${sortedDirs.length - maxDirs === 1 ? 'y' : 'ies'}`
+    );
   }
   if (sortedRoot.length > 0) {
-    lines.push(`- (root) — ${shownRoot.map((f) => `\`${f}\``).join(', ')}${truncatedRoot ? ' …' : ''}`);
+    lines.push(
+      `- (root) — ${shownRoot.map((f) => `\`${f}\``).join(', ')}${truncatedRoot ? ' …' : ''}`
+    );
   }
 
   const block = lines.join('\n').replace(/\s+$/, '') + '\n\n';
@@ -145,12 +150,18 @@ function firstMeaningfulLine(text: string): string {
   return first !== undefined ? first.slice(0, 200) : 'no upstream output';
 }
 
-function parseFilesPayload(stdout: string): { ok: boolean; entries: CodegraphStructureFileEntry[] } {
+function parseFilesPayload(stdout: string): {
+  ok: boolean;
+  entries: CodegraphStructureFileEntry[];
+} {
   try {
     const parsed: unknown = JSON.parse(stdout);
     if (Array.isArray(parsed)) {
       const entries = parsed
-        .filter((entry): entry is { path: unknown } => typeof entry === 'object' && entry !== null && 'path' in entry)
+        .filter(
+          (entry): entry is { path: unknown } =>
+            typeof entry === 'object' && entry !== null && 'path' in entry
+        )
         .map((entry) => ({ path: typeof entry.path === 'string' ? entry.path : '' }))
         .filter((entry) => entry.path.length > 0);
       return { ok: true, entries };
@@ -165,11 +176,15 @@ function parseFilesPayload(stdout: string): { ok: boolean; entries: CodegraphStr
 
 async function readStructure(
   projectRoot: string,
-  runner: CodegraphProcessRunner,
+  runner: CodegraphProcessRunner
 ): Promise<CodegraphPreflightResult> {
   let result;
   try {
-    const invocation = createCodegraphInvocation({ subcommand: 'files', project: projectRoot, json: true });
+    const invocation = createCodegraphInvocation({
+      subcommand: 'files',
+      project: projectRoot,
+      json: true
+    });
     result = await executeCodegraphInvocation(invocation, runner);
   } catch (error) {
     return { available: false, note: `codegraph files unavailable: ${errorMessage(error)}` };
@@ -177,20 +192,20 @@ async function readStructure(
   if (result.exitCode !== 0) {
     return {
       available: false,
-      note: `codegraph files failed (exit ${String(result.exitCode)}): ${firstMeaningfulLine(result.stderr || result.stdout)}`,
+      note: `codegraph files failed (exit ${String(result.exitCode)}): ${firstMeaningfulLine(result.stderr || result.stdout)}`
     };
   }
   const { ok, entries } = parseFilesPayload(result.stdout);
   if (!ok) {
     return {
       available: false,
-      note: 'codegraph files returned no parseable structure — run `peaks codegraph index` before dispatch for symbol-accurate structure.',
+      note: 'codegraph files returned no parseable structure — run `peaks codegraph index` before dispatch for symbol-accurate structure.'
     };
   }
   if (entries.length === 0) {
     return {
       available: false,
-      note: 'codegraph index has no files — run `peaks codegraph index` before dispatch for symbol-accurate structure.',
+      note: 'codegraph index has no files — run `peaks codegraph index` before dispatch for symbol-accurate structure.'
     };
   }
   const summary = renderCodegraphStructureBlock(entries);
@@ -198,7 +213,7 @@ async function readStructure(
     available: true,
     block: summary.block,
     fileCount: summary.total,
-    truncated: summary.truncated,
+    truncated: summary.truncated
   };
 }
 
@@ -223,7 +238,7 @@ async function readStructure(
  */
 export async function buildCodegraphPreflightBlock(
   projectRoot: string,
-  runner?: CodegraphProcessRunner,
+  runner?: CodegraphProcessRunner
 ): Promise<CodegraphPreflightResult> {
   const processRunner: CodegraphProcessRunner = runner ?? defaultCodegraphProcessRunner;
   const guard = defaultCodegraphInitGuard(projectRoot);
@@ -231,7 +246,7 @@ export async function buildCodegraphPreflightBlock(
   if (guard.status === 'conflict-foreign-schema') {
     return {
       available: false,
-      note: `codegraph unavailable: ${CODEGRAPH_DIR_NAME}/ exists with a non-peaks-loop schema and was not touched. Move or rename the foreign directory, then re-run \`peaks codegraph init\` to enable pre-dispatch structure reads.`,
+      note: `codegraph unavailable: ${CODEGRAPH_DIR_NAME}/ exists with a non-peaks-loop schema and was not touched. Move or rename the foreign directory, then re-run \`peaks codegraph init\` to enable pre-dispatch structure reads.`
     };
   }
 
@@ -245,12 +260,12 @@ export async function buildCodegraphPreflightBlock(
     try {
       const initResult = await executeCodegraphInvocation(
         createCodegraphInvocation({ subcommand: 'init', project: projectRoot }),
-        processRunner,
+        processRunner
       );
       if (initResult.exitCode !== 0) {
         return {
           available: false,
-          note: `codegraph init failed (exit ${String(initResult.exitCode)}): ${firstMeaningfulLine(initResult.stderr || initResult.stdout)}`,
+          note: `codegraph init failed (exit ${String(initResult.exitCode)}): ${firstMeaningfulLine(initResult.stderr || initResult.stdout)}`
         };
       }
       try {
@@ -280,12 +295,12 @@ export async function buildCodegraphPreflightBlock(
     try {
       const indexResult = await executeCodegraphInvocation(
         createCodegraphInvocation({ subcommand: 'index', project: projectRoot, quiet: true }),
-        processRunner,
+        processRunner
       );
       if (indexResult.exitCode !== 0) {
         return {
           available: false,
-          note: `codegraph index failed (exit ${String(indexResult.exitCode)}): ${firstMeaningfulLine(indexResult.stderr || indexResult.stdout)}`,
+          note: `codegraph index failed (exit ${String(indexResult.exitCode)}): ${firstMeaningfulLine(indexResult.stderr || indexResult.stdout)}`
         };
       }
     } catch (error) {

@@ -5,7 +5,12 @@
  * call into this service so they don't need to know about the
  * individual helpers.
  */
-import { dispatchArtifact, readManifest, writeManifest, manifestPath } from './polyrepo-dispatcher.js';
+import {
+  dispatchArtifact,
+  readManifest,
+  writeManifest,
+  manifestPath
+} from './polyrepo-dispatcher.js';
 import { scanPolyrepo } from './polyrepo-scanner.js';
 import type { PolyrepoChild, PolyrepoManifest } from './polyrepo-types.js';
 
@@ -32,9 +37,10 @@ export class PolyrepoService {
    *  (false = existing manifest was overwritten). */
   init(opts: PolyrepoInitOptions): PolyrepoInitResult {
     const existing = readManifest(opts.root);
-    const manifest = opts.children === undefined
-      ? scanPolyrepo(opts.root)
-      : scanPolyrepo(opts.root, { explicitChildren: opts.children });
+    const manifest =
+      opts.children === undefined
+        ? scanPolyrepo(opts.root)
+        : scanPolyrepo(opts.root, { explicitChildren: opts.children });
     writeManifest(opts.root, manifest);
     return { manifest, created: existing === null };
   }
@@ -54,16 +60,21 @@ export class PolyrepoService {
    *  around dispatchArtifact that resolves the manifest from disk
    *  first. Throws when no manifest exists (caller should run init
    *  first). */
-  dispatch(root: string, params: {
-    sid: string;
-    rid: string;
-    targets: readonly string[];
-    role: 'prd' | 'rd' | 'qa';
-    artifactPath: string;
-  }) {
+  dispatch(
+    root: string,
+    params: {
+      sid: string;
+      rid: string;
+      targets: readonly string[];
+      role: 'prd' | 'rd' | 'qa';
+      artifactPath: string;
+    }
+  ) {
     const manifest = readManifest(root);
     if (manifest === null) {
-      throw new Error(`no polyrepo manifest at ${manifestPath(root)} — run \`peaks polyrepo init\` first`);
+      throw new Error(
+        `no polyrepo manifest at ${manifestPath(root)} — run \`peaks polyrepo init\` first`
+      );
     }
     return dispatchArtifact({
       manifest,

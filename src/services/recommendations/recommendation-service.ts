@@ -1,6 +1,10 @@
 import { resolveCapabilityAvailability } from './capability-availability.js';
 import { seedCapabilityItems } from './seed-capability-catalog.js';
-import type { CapabilityAvailability, CapabilityItem, RecommendationPlan } from './recommendation-types.js';
+import type {
+  CapabilityAvailability,
+  CapabilityItem,
+  RecommendationPlan
+} from './recommendation-types.js';
 
 export type RecommendationWorkflow = 'code-refactor' | 'product-refactor' | 'frontend-design';
 
@@ -59,7 +63,9 @@ function getNextActions(
   availability: CapabilityAvailability[]
 ): RecommendationPlan['machine']['nextActions'] {
   const preferredCapabilityId = getPreferredCapabilityId(workflow);
-  const preferredAvailability = availability.find((item) => item.capabilityId === preferredCapabilityId);
+  const preferredAvailability = availability.find(
+    (item) => item.capabilityId === preferredCapabilityId
+  );
   const fallbackActions = availability
     .filter((item) => item.status !== 'available')
     .map((item) => ({
@@ -74,26 +80,29 @@ function getNextActions(
     return fallbackActions;
   }
 
-  const invokeAction = workflow === 'code-refactor'
-    ? {
-        id: 'run-code-review',
-        type: 'invoke-capability' as const,
-        capabilityId: preferredCapabilityId,
-        requiresApproval: false,
-        riskLevel: preferredAvailability.risk
-      }
-    : {
-        id: 'lookup-docs',
-        type: 'invoke-capability' as const,
-        capabilityId: preferredCapabilityId,
-        requiresApproval: false,
-        riskLevel: preferredAvailability.risk
-      };
+  const invokeAction =
+    workflow === 'code-refactor'
+      ? {
+          id: 'run-code-review',
+          type: 'invoke-capability' as const,
+          capabilityId: preferredCapabilityId,
+          requiresApproval: false,
+          riskLevel: preferredAvailability.risk
+        }
+      : {
+          id: 'lookup-docs',
+          type: 'invoke-capability' as const,
+          capabilityId: preferredCapabilityId,
+          requiresApproval: false,
+          riskLevel: preferredAvailability.risk
+        };
 
   return [...fallbackActions, invokeAction];
 }
 
-export function createRecommendationPlan(options: CreateRecommendationPlanOptions): RecommendationPlan {
+export function createRecommendationPlan(
+  options: CreateRecommendationPlanOptions
+): RecommendationPlan {
   const language = options.language ?? 'en';
   const workflowItems = getWorkflowItems(options.workflow);
   const availabilityOptions = options.installedCapabilityIds
@@ -140,7 +149,11 @@ export function createRecommendationPlan(options: CreateRecommendationPlanOption
         }
       ],
       warnings: missingCapabilities.map((item) =>
-        localize(language, `缺少能力：${item.capabilityId}，将使用 fallback。`, `Missing capability: ${item.capabilityId}; fallback will be used.`)
+        localize(
+          language,
+          `缺少能力：${item.capabilityId}，将使用 fallback。`,
+          `Missing capability: ${item.capabilityId}; fallback will be used.`
+        )
       ),
       explanations: [
         localize(

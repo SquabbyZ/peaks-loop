@@ -31,14 +31,16 @@ const ADAPTERS: ReadonlyMap<IdeId, IdeAdapter> = new Map<IdeId, IdeAdapter>([
   ['openclaw', OPENCLAW_ADAPTER],
   ['qoder', QODER_ADAPTER],
   ['tongyi-lingma', TONGYI_LINGMA_ADAPTER],
-  ['zcode', ZCODE_ADAPTER],
+  ['zcode', ZCODE_ADAPTER]
 ]);
 
 /** Get the adapter for a given IDE id. Throws on unsupported IDE. */
 export function getAdapter(ide: IdeId): IdeAdapter {
   const adapter = ADAPTERS.get(ide);
   if (!adapter) {
-    throw new Error(`Unsupported IDE: ${ide}. Registered: ${listAdapterIds().join(', ') || '(none)'}`);
+    throw new Error(
+      `Unsupported IDE: ${ide}. Registered: ${listAdapterIds().join(', ') || '(none)'}`
+    );
   }
   return adapter;
 }

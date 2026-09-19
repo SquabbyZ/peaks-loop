@@ -65,7 +65,13 @@ function parseSemVer(v) {
   // Matches x.y.z or x.y.z-prerelease
   const m = /^(\d+)\.(\d+)\.(\d+)(?:-(.+))?$/.exec(v);
   if (!m) return null;
-  return { major: Number(m[1]), minor: Number(m[2]), patch: Number(m[3]), pre: m[4] ?? null, raw: v };
+  return {
+    major: Number(m[1]),
+    minor: Number(m[2]),
+    patch: Number(m[3]),
+    pre: m[4] ?? null,
+    raw: v
+  };
 }
 
 function bumpPatch(v) {
@@ -105,11 +111,11 @@ function bumpMajor(v) {
 function registryLatest() {
   try {
     const npmBin = process.platform === 'win32' ? 'npm.cmd' : 'npm';
-    const out = execFileSync(
-      npmBin,
-      ['view', 'peaks-loop', 'dist-tags.latest', '--json'],
-      { stdio: ['ignore', 'pipe', 'pipe'], shell: process.platform === 'win32', windowsHide: true },
-    ).toString();
+    const out = execFileSync(npmBin, ['view', 'peaks-loop', 'dist-tags.latest', '--json'], {
+      stdio: ['ignore', 'pipe', 'pipe'],
+      shell: process.platform === 'win32',
+      windowsHide: true
+    }).toString();
     return JSON.parse(out);
   } catch {
     return null;
@@ -152,7 +158,10 @@ function discoverPackageDirs() {
   const packagesRoot = resolve('packages');
   if (!existsSync(packagesRoot)) return [];
   return readdirSync(packagesRoot, { withFileTypes: true })
-    .filter((entry) => entry.isDirectory() && existsSync(resolve(packagesRoot, entry.name, 'package.json')))
+    .filter(
+      (entry) =>
+        entry.isDirectory() && existsSync(resolve(packagesRoot, entry.name, 'package.json'))
+    )
     .map((entry) => entry.name)
     .sort();
 }
@@ -236,10 +245,12 @@ if (to) {
 if (next === current) {
   if (to) {
     console.log(
-      `[bump-version] root already at explicit target ${current}; leaving root manifest untouched`,
+      `[bump-version] root already at explicit target ${current}; leaving root manifest untouched`
     );
     bumpWorkspacePackages(current);
-    console.log(`[bump-version] peaks-loop ${current} -> ${current} (root unchanged, subpackages bumped)`);
+    console.log(
+      `[bump-version] peaks-loop ${current} -> ${current} (root unchanged, subpackages bumped)`
+    );
     process.exit(0);
   }
   console.error(`[bump-version] no-op: target version equals current version ${current}`);

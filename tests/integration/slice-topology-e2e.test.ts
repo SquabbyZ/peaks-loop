@@ -105,85 +105,91 @@ const PRD_WITH_ACS = `# Refactor config-service
 `;
 
 describe('slice-topology e2e', () => {
-  it('produces v2 multi-pass output against the real peaks-loop config service', async () => {
-    const codegraphRunner = buildCodegraphRunner();
-    const result = await decompose(
-      'e2e-slice-topology',
-      PRD_WITH_ACS,
-      configServiceDir,
-      { granularity: 'both', codegraphRunner }
-    );
+  it(
+    'produces v2 multi-pass output against the real peaks-loop config service',
+    async () => {
+      const codegraphRunner = buildCodegraphRunner();
+      const result = await decompose('e2e-slice-topology', PRD_WITH_ACS, configServiceDir, {
+        granularity: 'both',
+        codegraphRunner
+      });
 
-    // v2 envelope contract
-    expect(result.schemaVersion).toBe('v2');
-    expect(result.rid).toBe('e2e-slice-topology');
-    expect(result.partial).toBe(false);
-    expect(result.generatedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+      // v2 envelope contract
+      expect(result.schemaVersion).toBe('v2');
+      expect(result.rid).toBe('e2e-slice-topology');
+      expect(result.partial).toBe(false);
+      expect(result.generatedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
 
-    // 'both' granularity → at least Pass 1 (service) must run.
-    expect(result.passes.length).toBeGreaterThanOrEqual(1);
+      // 'both' granularity → at least Pass 1 (service) must run.
+      expect(result.passes.length).toBeGreaterThanOrEqual(1);
 
-    // Pass 1 must be the service-level pass.
-    expect(result.passes[0]?.granularity).toBe('service');
+      // Pass 1 must be the service-level pass.
+      expect(result.passes[0]?.granularity).toBe('service');
 
-    // Every pass must have produced at least one slice and the slice ids
-    // follow the v2 convention: Pass 1 → W1..Wn, Pass 2 → Wn.m children.
-    for (const pass of result.passes) {
-      expect(pass.slices.length).toBeGreaterThan(0);
-      for (const slice of pass.slices) {
-        expect(slice.granularity).toBe(pass.granularity);
-        expect(slice.files.length).toBeGreaterThan(0);
-        expect(slice.id).toMatch(/^W\d+(\.\d+)?$/);
-        // LoC is computed by the algorithm; just assert it's a non-negative integer.
-        expect(slice.loc).toBeGreaterThanOrEqual(0);
+      // Every pass must have produced at least one slice and the slice ids
+      // follow the v2 convention: Pass 1 → W1..Wn, Pass 2 → Wn.m children.
+      for (const pass of result.passes) {
+        expect(pass.slices.length).toBeGreaterThan(0);
+        for (const slice of pass.slices) {
+          expect(slice.granularity).toBe(pass.granularity);
+          expect(slice.files.length).toBeGreaterThan(0);
+          expect(slice.id).toMatch(/^W\d+(\.\d+)?$/);
+          // LoC is computed by the algorithm; just assert it's a non-negative integer.
+          expect(slice.loc).toBeGreaterThanOrEqual(0);
+        }
       }
-    }
 
-    // crossPassEdges and llmArbitrations are present (may be empty without an
-    // llmRunner — but the arrays must exist and be readonly).
-    expect(Array.isArray(result.crossPassEdges)).toBe(true);
-    expect(Array.isArray(result.llmArbitrations)).toBe(true);
+      // crossPassEdges and llmArbitrations are present (may be empty without an
+      // llmRunner — but the arrays must exist and be readonly).
+      expect(Array.isArray(result.crossPassEdges)).toBe(true);
+      expect(Array.isArray(result.llmArbitrations)).toBe(true);
 
-    // Codegraph envelope is populated.
-    expect(result.codegraph).toBeDefined();
-  }, E2E_TIMEOUT_MS);
+      // Codegraph envelope is populated.
+      expect(result.codegraph).toBeDefined();
+    },
+    E2E_TIMEOUT_MS
+  );
 
-  it('returns a single service-level pass when granularity=service', async () => {
-    const codegraphRunner = buildCodegraphRunner();
-    const result = await decompose(
-      'e2e-service-only',
-      PRD_WITH_ACS,
-      configServiceDir,
-      { granularity: 'service', codegraphRunner }
-    );
+  it(
+    'returns a single service-level pass when granularity=service',
+    async () => {
+      const codegraphRunner = buildCodegraphRunner();
+      const result = await decompose('e2e-service-only', PRD_WITH_ACS, configServiceDir, {
+        granularity: 'service',
+        codegraphRunner
+      });
 
-    expect(result.schemaVersion).toBe('v2');
-    expect(result.rid).toBe('e2e-service-only');
-    expect(result.passes).toHaveLength(1);
-    expect(result.passes[0]?.granularity).toBe('service');
-    expect(result.passes[0]?.slices.length).toBeGreaterThan(0);
-    // No cross-pass edges possible with a single pass.
-    expect(result.crossPassEdges).toHaveLength(0);
-  }, E2E_TIMEOUT_MS);
+      expect(result.schemaVersion).toBe('v2');
+      expect(result.rid).toBe('e2e-service-only');
+      expect(result.passes).toHaveLength(1);
+      expect(result.passes[0]?.granularity).toBe('service');
+      expect(result.passes[0]?.slices.length).toBeGreaterThan(0);
+      // No cross-pass edges possible with a single pass.
+      expect(result.crossPassEdges).toHaveLength(0);
+    },
+    E2E_TIMEOUT_MS
+  );
 
-  it('returns a single file-level pass when granularity=file', async () => {
-    const codegraphRunner = buildCodegraphRunner();
-    const result = await decompose(
-      'e2e-file-only',
-      PRD_WITH_ACS,
-      configServiceDir,
-      { granularity: 'file', codegraphRunner }
-    );
+  it(
+    'returns a single file-level pass when granularity=file',
+    async () => {
+      const codegraphRunner = buildCodegraphRunner();
+      const result = await decompose('e2e-file-only', PRD_WITH_ACS, configServiceDir, {
+        granularity: 'file',
+        codegraphRunner
+      });
 
-    expect(result.schemaVersion).toBe('v2');
-    expect(result.rid).toBe('e2e-file-only');
-    expect(result.passes).toHaveLength(1);
-    expect(result.passes[0]?.granularity).toBe('file');
-    expect(result.passes[0]?.slices.length).toBeGreaterThan(0);
-    // Every file-level slice has a null parent (no Pass 1 ancestor).
-    for (const slice of result.passes[0]?.slices ?? []) {
-      expect(slice.parentSliceId).toBeNull();
-    }
-    expect(result.crossPassEdges).toHaveLength(0);
-  }, E2E_TIMEOUT_MS);
+      expect(result.schemaVersion).toBe('v2');
+      expect(result.rid).toBe('e2e-file-only');
+      expect(result.passes).toHaveLength(1);
+      expect(result.passes[0]?.granularity).toBe('file');
+      expect(result.passes[0]?.slices.length).toBeGreaterThan(0);
+      // Every file-level slice has a null parent (no Pass 1 ancestor).
+      for (const slice of result.passes[0]?.slices ?? []) {
+        expect(slice.parentSliceId).toBeNull();
+      }
+      expect(result.crossPassEdges).toHaveLength(0);
+    },
+    E2E_TIMEOUT_MS
+  );
 });

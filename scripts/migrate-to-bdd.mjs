@@ -120,7 +120,7 @@ function inferHint(block) {
     return {
       given: 'the test precondition',
       when: 'the function under test runs',
-      then: 'the expected outcome holds',
+      then: 'the expected outcome holds'
     };
   }
   const text = first.getText().slice(0, 80);
@@ -128,20 +128,20 @@ function inferHint(block) {
     return {
       given: 'the test setup',
       when: 'the function under test is exercised',
-      then: 'the assertion holds',
+      then: 'the assertion holds'
     };
   }
   if (/^\s*(const|let)\s+\w+\s*=/.test(text)) {
     return {
       given: 'the test setup',
       when: 'the function under test is invoked',
-      then: 'the result matches the expectation',
+      then: 'the result matches the expectation'
     };
   }
   return {
     given: 'the test setup',
     when: 'the function under test is invoked',
-    then: 'the result matches the expectation',
+    then: 'the result matches the expectation'
   };
 }
 
@@ -149,7 +149,7 @@ function buildCommentBlock(indent) {
   return [
     `${indent}// given: the test setup`,
     `${indent}// when:  the function under test is invoked`,
-    `${indent}// then:  the result matches the expectation`,
+    `${indent}// then:  the result matches the expectation`
   ].join('\n');
 }
 
@@ -182,13 +182,13 @@ export function migrateSource(source, fileName = 'inline.ts') {
             kind,
             original,
             rewritten,
-            location: `${fileName}:${start.line + 1}:${start.character + 1}`,
+            location: `${fileName}:${start.line + 1}:${start.character + 1}`
           });
           if (rewritten !== original) {
             edits.push({
               startPos: arg0.getStart(sourceFile),
               endPos: arg0.getEnd(),
-              text: JSON.stringify(rewritten),
+              text: JSON.stringify(rewritten)
             });
           }
         }
@@ -228,7 +228,7 @@ export function migrateSource(source, fileName = 'inline.ts') {
     rewrites,
     totalItRewritten: rewrites.filter((r) => r.kind === 'it').length,
     totalTestRewritten: rewrites.filter((r) => r.kind === 'test').length,
-    totalDescribeRewritten: rewrites.filter((r) => r.kind === 'describe').length,
+    totalDescribeRewritten: rewrites.filter((r) => r.kind === 'describe').length
   };
 }
 
@@ -287,13 +287,14 @@ function buildInsertion(block, sourceFile, source) {
   const wsMatch = /^[ \t]*\r?\n?/.exec(tail);
   const wsLen = wsMatch ? wsMatch[0].length : 0;
   // Indent for the new comment lines = body's outer indent + 2 spaces.
-  const lineStart = sourceFile.getLineStarts()[sourceFile.getLineAndCharacterOfPosition(bracePos).line];
+  const lineStart =
+    sourceFile.getLineStarts()[sourceFile.getLineAndCharacterOfPosition(bracePos).line];
   const bodyIndent = source.slice(lineStart, bracePos).match(/^[ \t]*/)?.[0] ?? '  ';
   const innerIndent = bodyIndent + '  ';
   return {
     startPos: innerStart,
     endPos: innerStart + wsLen,
-    text: '\n' + buildCommentBlock(innerIndent) + '\n',
+    text: '\n' + buildCommentBlock(innerIndent) + '\n'
   };
 }
 
@@ -303,7 +304,9 @@ function readAllStdin() {
   return new Promise((resolveP, reject) => {
     let data = '';
     process.stdin.setEncoding('utf8');
-    process.stdin.on('data', (chunk) => { data += chunk; });
+    process.stdin.on('data', (chunk) => {
+      data += chunk;
+    });
     process.stdin.on('end', () => resolveP(data));
     process.stdin.on('error', reject);
   });
@@ -365,7 +368,7 @@ async function main() {
     } else {
       writeFileSync(absPath, result.transformedSource, 'utf8');
       process.stderr.write(
-        `[migrate-to-bdd] ${absPath}: rewrote ${result.totalItRewritten} it() + ${result.totalTestRewritten} test() + ${result.totalDescribeRewritten} describe()\n`,
+        `[migrate-to-bdd] ${absPath}: rewrote ${result.totalItRewritten} it() + ${result.totalTestRewritten} test() + ${result.totalDescribeRewritten} describe()\n`
       );
     }
   }

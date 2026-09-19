@@ -52,7 +52,7 @@ export async function runTacticalStage(input: RunTacticalInput): Promise<ImplOut
   const astGate = await runAstGate({
     project: input.project,
     changedFiles: input.changedFiles,
-    context: input.context,
+    context: input.context
   });
   // H8 chain enforcement: inputSig must equal STRAT.sig for this project.
   // Runs AFTER AST gate so existing AST-gate error semantics are preserved.
@@ -61,8 +61,8 @@ export async function runTacticalStage(input: RunTacticalInput): Promise<ImplOut
   if (stratSig === undefined || stratSig !== input.inputSig) {
     throw new Error(
       `${STRAT_SIG_CHAIN_INVARIANT}: inputSig=${input.inputSig.slice(0, 12)}… ` +
-      `stratSig=${stratSig ? stratSig.slice(0, 12) + '…' : '<unregistered>'} ` +
-      `(projectDir=${projectDir})`
+        `stratSig=${stratSig ? stratSig.slice(0, 12) + '…' : '<unregistered>'} ` +
+        `(projectDir=${projectDir})`
     );
   }
   return writeImpl({
@@ -70,6 +70,6 @@ export async function runTacticalStage(input: RunTacticalInput): Promise<ImplOut
     inputSig: input.inputSig,
     changedFiles: input.changedFiles,
     externalApiCalls: [], // v1: AST gate emits violations; future slice maps to calls
-    astGate,
+    astGate
   });
 }

@@ -21,11 +21,22 @@ import { dirname, isAbsolute, relative, resolve, sep } from 'node:path';
 const SUB_AGENTS_DIR = '_sub_agents';
 
 /** Build the canonical record path for a given session/rid/timestamp. */
-export function dispatchRecordPath(projectRoot: string, sid: string, rid: string, ts: Date = new Date()): string {
+export function dispatchRecordPath(
+  projectRoot: string,
+  sid: string,
+  rid: string,
+  ts: Date = new Date()
+): string {
   const safeSid = sanitizeSegment(sid, 'sessionId');
   const safeRid = sanitizeSegment(rid, 'requestId');
   const tsCompact = ts.toISOString().replace(/[:.]/g, '-');
-  return resolve(projectRoot, '.peaks', SUB_AGENTS_DIR, safeSid, `dispatch-${safeRid}-${tsCompact}.json`);
+  return resolve(
+    projectRoot,
+    '.peaks',
+    SUB_AGENTS_DIR,
+    safeSid,
+    `dispatch-${safeRid}-${tsCompact}.json`
+  );
 }
 
 /** The directory under which dispatch records live. */
@@ -90,7 +101,12 @@ export function assertSafeDispatchRecordPath(recordPath: string, projectRoot: st
     }
     try {
       realRoot = realpathSync(projectRoot);
-      const canonicalRecord = resolve(realRoot, '.peaks', SUB_AGENTS_DIR, recordPath.slice(fallback.length + 1));
+      const canonicalRecord = resolve(
+        realRoot,
+        '.peaks',
+        SUB_AGENTS_DIR,
+        recordPath.slice(fallback.length + 1)
+      );
       const realRel = relative(realRoot, canonicalRecord);
       if (realRel.startsWith('..' + sep) || realRel === '..' || isAbsolute(realRel)) {
         throw invalidPathError(recordPath, 'escapes project root via symlink');
@@ -113,7 +129,9 @@ function sanitizeSegment(segment: string, label: string): string {
     throw new Error(`Invalid ${label}: empty`);
   }
   if (!/^[A-Za-z0-9._-]+$/.test(segment)) {
-    throw new Error(`Invalid ${label}: must match [A-Za-z0-9._-]+ (got ${JSON.stringify(segment)})`);
+    throw new Error(
+      `Invalid ${label}: must match [A-Za-z0-9._-]+ (got ${JSON.stringify(segment)})`
+    );
   }
   if (segment.includes('..')) {
     throw new Error(`Invalid ${label}: must not contain ..`);
@@ -122,7 +140,10 @@ function sanitizeSegment(segment: string, label: string): string {
 }
 
 function invalidPathError(path: string, reason: string): Error & { code: string; path: string } {
-  const err = new Error(`Unsafe dispatch record path (${reason}): ${path}`) as Error & { code: string; path: string };
+  const err = new Error(`Unsafe dispatch record path (${reason}): ${path}`) as Error & {
+    code: string;
+    path: string;
+  };
   err.code = 'INVALID_RECORD_PATH';
   (err as unknown as { path: string }).path = path;
   return err;

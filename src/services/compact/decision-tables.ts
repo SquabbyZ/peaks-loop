@@ -113,7 +113,10 @@ export const SURVIVAL_TABLE: Readonly<{ persists: readonly string[]; lost: reado
  * LLM can see "this transition isn't in the table" instead of silently
  * getting a default.
  */
-export function lookupPhaseTransition(from: Phase, to: Phase): {
+export function lookupPhaseTransition(
+  from: Phase,
+  to: Phase
+): {
   severity: Severity;
   rationale: string;
   notInTable: boolean;

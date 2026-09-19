@@ -19,14 +19,10 @@ const DESTRUCTIVE_PATH_PATTERNS: readonly RegExp[] = [
   /force-push/i,
   /--force\b/,
   /--hard\b/,
-  /rm\s+-rf?\b/,
+  /rm\s+-rf?\b/
 ];
 
-const PROTECTED_PATH_PATTERNS: readonly RegExp[] = [
-  /auth/i,
-  /login/i,
-  /session/i,
-];
+const PROTECTED_PATH_PATTERNS: readonly RegExp[] = [/auth/i, /login/i, /session/i];
 
 export interface LoginGateInput {
   readonly command: string;

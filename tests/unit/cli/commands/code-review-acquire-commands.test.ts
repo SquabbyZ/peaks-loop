@@ -26,11 +26,16 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { declareDimensions } from '../../_setup/4dim-template.js';
 import { makeCapturedIo } from '../../_setup/io.js';
 
-declareDimensions('tests/unit/cli/commands/code-review-acquire-commands.test.ts', [
-  'render',
-  'behavior',
-  'a11y',
-], [{ dim: 'integration', reason: 'both outside boundaries (npm exec, the npx probe) are module seams here' }]);
+declareDimensions(
+  'tests/unit/cli/commands/code-review-acquire-commands.test.ts',
+  ['render', 'behavior', 'a11y'],
+  [
+    {
+      dim: 'integration',
+      reason: 'both outside boundaries (npm exec, the npx probe) are module seams here'
+    }
+  ]
+);
 
 /**
  * The seam: `acquireOcr18` really spawns `npx --package … -- ocr version`,
@@ -39,19 +44,20 @@ declareDimensions('tests/unit/cli/commands/code-review-acquire-commands.test.ts'
  */
 const seam = vi.hoisted(() => ({
   calls: [] as Array<Record<string, unknown>>,
-  outcome: null as unknown,
+  outcome: null as unknown
 }));
 
 const detectSeam = vi.hoisted(() => ({ states: [] as string[], calls: 0 }));
 
 vi.mock('../../../../src/services/lint/ocr-18-acquire.js', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../../../../src/services/lint/ocr-18-acquire.js')>();
+  const actual =
+    await importOriginal<typeof import('../../../../src/services/lint/ocr-18-acquire.js')>();
   return {
     ...actual,
     acquireOcr18: (options: Record<string, unknown>) => {
       seam.calls.push(options);
       return Promise.resolve(seam.outcome);
-    },
+    }
   };
 });
 
@@ -63,10 +69,12 @@ vi.mock('../../../../src/services/lint/detect-ocr-18.js', () => ({
       state,
       npxAvailable: true,
       package: '@alibaba-group/open-code-review@1.8.9',
-      warnings: state === 'ready' ? [] : ['could not resolve @alibaba-group/open-code-review@1.8.9'],
-      nextActions: state === 'ready' ? [] : ['Run `peaks code-review acquire-ocr-18` to fetch the reviewer.'],
+      warnings:
+        state === 'ready' ? [] : ['could not resolve @alibaba-group/open-code-review@1.8.9'],
+      nextActions:
+        state === 'ready' ? [] : ['Run `peaks code-review acquire-ocr-18` to fetch the reviewer.']
     };
-  },
+  }
 }));
 
 import { registerCodeReviewCommands } from '../../../../src/cli/commands/code-review-commands.js';
@@ -75,7 +83,7 @@ import { ACQUIRE_NETWORK_WARNING } from '../../../../src/services/lint/ocr-18-ac
 const SHELL = {
   kind: 'powershell',
   path: 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe',
-  note: 'PowerShell: C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe — Git Bash is absent on this host',
+  note: 'PowerShell: C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe — Git Bash is absent on this host'
 };
 
 interface Envelope {
@@ -96,7 +104,7 @@ async function acquire(asJson = true): Promise<ReturnType<typeof makeCapturedIo>
   program.exitOverride();
   registerCodeReviewCommands(program, captured.io);
   await program.parseAsync(['code-review', 'acquire-ocr-18', ...(asJson ? ['--json'] : [])], {
-    from: 'user',
+    from: 'user'
   });
   return captured;
 }
@@ -109,7 +117,7 @@ beforeEach(() => {
     message: '',
     shell: SHELL,
     durationMs: 12,
-    warnings: [ACQUIRE_NETWORK_WARNING],
+    warnings: [ACQUIRE_NETWORK_WARNING]
   };
   detectSeam.states.length = 0;
   detectSeam.calls = 0;
@@ -210,7 +218,7 @@ describe('a11y — a failed acquisition', () => {
       message: 'another OCR 1.8.x acquisition is already running on this machine',
       shell: SHELL,
       durationMs: 1,
-      warnings: [],
+      warnings: []
     };
 
     // when: the verb runs

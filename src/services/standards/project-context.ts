@@ -34,7 +34,15 @@ export type ComponentLibrary = {
   readonly hasProSuite?: boolean;
 };
 
-export type CssFramework = 'less' | 'sass' | 'tailwind' | 'css-modules' | 'styled-components' | 'emotion' | 'plain-css' | 'unknown';
+export type CssFramework =
+  | 'less'
+  | 'sass'
+  | 'tailwind'
+  | 'css-modules'
+  | 'styled-components'
+  | 'emotion'
+  | 'plain-css'
+  | 'unknown';
 
 export type ProjectContext = {
   readonly hasPackageJson: boolean;
@@ -116,7 +124,10 @@ function majorOf(version: string | undefined): string | undefined {
  *  Refactored 2026-08-07 (PRD-002b slice 3 Commit C — table-dispatch):
  *  replaces the original 12-step `if`-chain with a `[signal, detect]`
  *  table iterated in order; first detector to match wins. */
-type LibraryDetector = (deps: Record<string, string>, projectRoot: string) => ComponentLibrary | null;
+type LibraryDetector = (
+  deps: Record<string, string>,
+  projectRoot: string
+) => ComponentLibrary | null;
 
 const LIBRARY_DETECTORS: readonly LibraryDetector[] = [
   detectAntd,
@@ -132,7 +143,10 @@ const LIBRARY_DETECTORS: readonly LibraryDetector[] = [
   detectShadcn
 ];
 
-export function detectComponentLibrary(projectRoot: string, deps: Record<string, string>): ComponentLibrary {
+export function detectComponentLibrary(
+  projectRoot: string,
+  deps: Record<string, string>
+): ComponentLibrary {
   for (const detector of LIBRARY_DETECTORS) {
     const result = detector(deps, projectRoot);
     if (result !== null) return result;
@@ -143,10 +157,15 @@ export function detectComponentLibrary(projectRoot: string, deps: Record<string,
 function detectAntd(deps: Record<string, string>, _projectRoot: string): ComponentLibrary | null {
   if (!('antd' in deps)) return null;
   const major = majorOf(deps['antd']);
-  const hasProSuite = '@ant-design/pro-components' in deps
-    || Object.keys(deps).some((d) => d.startsWith('@ant-design/pro-'));
+  const hasProSuite =
+    '@ant-design/pro-components' in deps ||
+    Object.keys(deps).some((d) => d.startsWith('@ant-design/pro-'));
   return hasProSuite
-    ? { name: 'antd-pro', ...(major !== undefined ? { majorVersion: major } : {}), hasProSuite: true }
+    ? {
+        name: 'antd-pro',
+        ...(major !== undefined ? { majorVersion: major } : {}),
+        hasProSuite: true
+      }
     : { name: 'antd', ...(major !== undefined ? { majorVersion: major } : {}) };
 }
 
@@ -156,11 +175,17 @@ function detectMui(deps: Record<string, string>, _projectRoot: string): Componen
   return { name: 'mui', ...(major !== undefined ? { majorVersion: major } : {}) };
 }
 
-function detectElementPlus(deps: Record<string, string>, _projectRoot: string): ComponentLibrary | null {
+function detectElementPlus(
+  deps: Record<string, string>,
+  _projectRoot: string
+): ComponentLibrary | null {
   return 'element-plus' in deps ? { name: 'element-plus' } : null;
 }
 
-function detectElementUi(deps: Record<string, string>, _projectRoot: string): ComponentLibrary | null {
+function detectElementUi(
+  deps: Record<string, string>,
+  _projectRoot: string
+): ComponentLibrary | null {
   return 'element-ui' in deps ? { name: 'element-ui' } : null;
 }
 
@@ -168,8 +193,11 @@ function detectArco(deps: Record<string, string>, _projectRoot: string): Compone
   return '@arco-design/web-react' in deps ? { name: 'arco' } : null;
 }
 
-function detectTdesign(deps: Record<string, string>, _projectRoot: string): ComponentLibrary | null {
-  return ('tdesign-react' in deps || 'tdesign-vue-next' in deps) ? { name: 'tdesign' } : null;
+function detectTdesign(
+  deps: Record<string, string>,
+  _projectRoot: string
+): ComponentLibrary | null {
+  return 'tdesign-react' in deps || 'tdesign-vue-next' in deps ? { name: 'tdesign' } : null;
 }
 
 function detectSemi(deps: Record<string, string>, _projectRoot: string): ComponentLibrary | null {
@@ -194,20 +222,26 @@ function detectVant(deps: Record<string, string>, _projectRoot: string): Compone
  *  peer utilities (cva, clsx, tailwind-merge, lucide-react) is present
  *  AND Tailwind is present (either as a dep or via a components/ui dir). */
 function detectShadcn(deps: Record<string, string>, projectRoot: string): ComponentLibrary | null {
-  const hasPeerUtility = 'class-variance-authority' in deps
-    || 'clsx' in deps
-    || 'tailwind-merge' in deps
-    || 'lucide-react' in deps;
+  const hasPeerUtility =
+    'class-variance-authority' in deps ||
+    'clsx' in deps ||
+    'tailwind-merge' in deps ||
+    'lucide-react' in deps;
   if (!hasPeerUtility) return null;
-  const hasTailwind = 'tailwindcss' in deps
-    || existsSync(join(projectRoot, 'components', 'ui'))
-    || existsSync(join(projectRoot, 'src', 'components', 'ui'));
+  const hasTailwind =
+    'tailwindcss' in deps ||
+    existsSync(join(projectRoot, 'components', 'ui')) ||
+    existsSync(join(projectRoot, 'src', 'components', 'ui'));
   return hasTailwind ? { name: 'shadcn' } : null;
 }
 
 function detectCssFrameworks(projectRoot: string, deps: Record<string, string>): CssFramework[] {
   const frameworks: CssFramework[] = [];
-  if ('tailwindcss' in deps || existsSync(join(projectRoot, 'tailwind.config.js')) || existsSync(join(projectRoot, 'tailwind.config.ts'))) {
+  if (
+    'tailwindcss' in deps ||
+    existsSync(join(projectRoot, 'tailwind.config.js')) ||
+    existsSync(join(projectRoot, 'tailwind.config.ts'))
+  ) {
     frameworks.push('tailwind');
   }
   if ('less' in deps || 'less-loader' in deps) frameworks.push('less');
@@ -222,14 +256,23 @@ function detectCssConflicts(library: ComponentLibrary, frameworks: CssFramework[
   const conflicts: string[] = [];
   const hasTailwind = frameworks.includes('tailwind');
   if (hasTailwind && (library.name === 'antd' || library.name === 'antd-pro')) {
-    conflicts.push("Tailwind preflight reset can break antd component base styles; set `corePlugins.preflight: false` in tailwind.config or scope Tailwind via `important: '#root'`.");
+    conflicts.push(
+      "Tailwind preflight reset can break antd component base styles; set `corePlugins.preflight: false` in tailwind.config or scope Tailwind via `important: '#root'`."
+    );
   }
   if (hasTailwind && library.name === 'mui') {
-    conflicts.push('Tailwind preflight overrides MUI base styles; disable Tailwind preflight or scope it away from MUI roots.');
+    conflicts.push(
+      'Tailwind preflight overrides MUI base styles; disable Tailwind preflight or scope it away from MUI roots.'
+    );
   }
-  const cssInJsCount = [frameworks.includes('styled-components'), frameworks.includes('emotion')].filter(Boolean).length;
+  const cssInJsCount = [
+    frameworks.includes('styled-components'),
+    frameworks.includes('emotion')
+  ].filter(Boolean).length;
   if (cssInJsCount >= 2) {
-    conflicts.push('Multiple CSS-in-JS libraries detected (styled-components + emotion); pick one and remove the other.');
+    conflicts.push(
+      'Multiple CSS-in-JS libraries detected (styled-components + emotion); pick one and remove the other.'
+    );
   }
   return conflicts;
 }
@@ -274,13 +317,20 @@ function detectLegacySignals(projectRoot: string, deps: Record<string, string>):
 }
 
 function collectPackageLegacySignals(deps: Record<string, string>, signals: string[]): void {
-  if ('moment' in deps) signals.push('`moment` in deps — prefer `dayjs` or `date-fns` for new code');
-  if (Object.keys(deps).some((d) => d.startsWith('enzyme'))) signals.push('Enzyme test suite — write new tests with React Testing Library');
-  if ('redux-saga' in deps) signals.push('redux-saga — keep saga patterns for existing flows; use Redux Toolkit thunks/RTK Query for new code');
-  if ('redux-thunk' in deps && !('@reduxjs/toolkit' in deps)) signals.push('Plain redux-thunk — prefer Redux Toolkit createAsyncThunk for new code');
+  if ('moment' in deps)
+    signals.push('`moment` in deps — prefer `dayjs` or `date-fns` for new code');
+  if (Object.keys(deps).some((d) => d.startsWith('enzyme')))
+    signals.push('Enzyme test suite — write new tests with React Testing Library');
+  if ('redux-saga' in deps)
+    signals.push(
+      'redux-saga — keep saga patterns for existing flows; use Redux Toolkit thunks/RTK Query for new code'
+    );
+  if ('redux-thunk' in deps && !('@reduxjs/toolkit' in deps))
+    signals.push('Plain redux-thunk — prefer Redux Toolkit createAsyncThunk for new code');
   if ('jquery' in deps) signals.push('jQuery — do not add new jQuery usage');
   if ('backbone' in deps) signals.push('Backbone — legacy; do not add new Backbone code');
-  if (deps['vue']?.startsWith('2') === true) signals.push('Vue 2 — preserve Options API for existing components');
+  if (deps['vue']?.startsWith('2') === true)
+    signals.push('Vue 2 — preserve Options API for existing components');
 }
 
 function collectSourceFileLegacySignals(projectRoot: string, signals: string[]): void {
@@ -288,11 +338,20 @@ function collectSourceFileLegacySignals(projectRoot: string, signals: string[]):
   if (!existsSync(srcRoot)) return;
   const sample = sampleSourceFiles(srcRoot, 80);
   const { classComponentHits, inlineStyleHits } = scanSampleForLegacyMarkers(sample);
-  if (classComponentHits >= 1) signals.push(`React class components detected (${classComponentHits}+ files) — keep class style for existing modules, use function components + hooks for new code`);
-  if (inlineStyleHits >= 50) signals.push(`Inline styles dominant (${inlineStyleHits}+ occurrences) — match existing styling for new code in same modules`);
+  if (classComponentHits >= 1)
+    signals.push(
+      `React class components detected (${classComponentHits}+ files) — keep class style for existing modules, use function components + hooks for new code`
+    );
+  if (inlineStyleHits >= 50)
+    signals.push(
+      `Inline styles dominant (${inlineStyleHits}+ occurrences) — match existing styling for new code in same modules`
+    );
 }
 
-function scanSampleForLegacyMarkers(sample: readonly string[]): { classComponentHits: number; inlineStyleHits: number } {
+function scanSampleForLegacyMarkers(sample: readonly string[]): {
+  classComponentHits: number;
+  inlineStyleHits: number;
+} {
   let classComponentHits = 0;
   let inlineStyleHits = 0;
   for (const filePath of sample) {
@@ -301,7 +360,8 @@ function scanSampleForLegacyMarkers(sample: readonly string[]): { classComponent
       if (/extends\s+(?:React\.)?Component\b/.test(content)) classComponentHits += 1;
       const matches = content.match(/style=\{\{/g);
       if (matches !== null) inlineStyleHits += matches.length;
-    } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+    } catch {
+      // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
       // ignore unreadable files
     }
   }
@@ -331,11 +391,19 @@ function sampleSourceFiles(root: string, limit: number): string[] {
 }
 
 function readDirOrEmpty(dir: string): string[] {
-  try { return readdirSync(dir); } catch { return []; }
+  try {
+    return readdirSync(dir);
+  } catch {
+    return [];
+  }
 }
 
 function statOrNull(path: string): ReturnType<typeof statSync> | null {
-  try { return statSync(path); } catch { return null; }
+  try {
+    return statSync(path);
+  } catch {
+    return null;
+  }
 }
 
 function isIgnoredEntry(entry: string): boolean {
@@ -349,7 +417,21 @@ function isJsxFile(entry: string): boolean {
 }
 
 function notableDepsList(deps: Record<string, string>): string[] {
-  const interesting = ['monaco-editor', '@monaco-editor/react', 'react-querybuilder', '@dnd-kit/core', 'react-dnd', 'echarts', 'recharts', '@ant-design/charts', 'antd-style', 'lodash', 'lodash-es', 'rxjs', 'socket.io-client'];
+  const interesting = [
+    'monaco-editor',
+    '@monaco-editor/react',
+    'react-querybuilder',
+    '@dnd-kit/core',
+    'react-dnd',
+    'echarts',
+    'recharts',
+    '@ant-design/charts',
+    'antd-style',
+    'lodash',
+    'lodash-es',
+    'rxjs',
+    'socket.io-client'
+  ];
   return interesting.filter((d) => d in deps);
 }
 

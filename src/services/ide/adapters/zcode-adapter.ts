@@ -53,7 +53,8 @@ function readZcodeConfig(path: string): unknown {
   if (!existsSync(path)) return undefined;
   try {
     return JSON.parse(readFileSync(path, 'utf8')) as unknown;
-  } catch { // TODO(g2): fail-closed JSON parse — undefined is the documented contract for missing/corrupt config
+  } catch {
+    // TODO(g2): fail-closed JSON parse — undefined is the documented contract for missing/corrupt config
     return undefined;
   }
 }
@@ -159,7 +160,7 @@ export const ZCODE_ADAPTER: IdeAdapter = {
     resolveSettingsFile: (scope, projectRoot) => {
       const root = scope === 'global' ? homedir() : resolve(projectRoot ?? homedir());
       return join(root, '.zcode', 'settings.json');
-    },
+    }
   },
   // UNVERIFIED — z-code 桌面应用未公开 `ZCODE_PROJECT_DIR` env var,这里
   // 用占位符,RD 阶段假设 z-code 借用了 Anthropic-compatible 协议并可能
@@ -182,11 +183,11 @@ export const ZCODE_ADAPTER: IdeAdapter = {
   promptSizeAware: true,
   installHints: [
     'z-code 没有 CLI,因此无需重启 — skills symlink 已写入 ~/.zcode/skills/。',
-    '若 z-code 未自动加载 peaks-* skills,在 z-code 桌面应用里手动触发 "导入 skills" 功能即可。',
+    '若 z-code 未自动加载 peaks-* skills,在 z-code 桌面应用里手动触发 "导入 skills" 功能即可。'
   ],
   capabilities: {
     gateEnforce: true,
-    statusline: true,
+    statusline: true
   },
   // Standards profile: 路径常量保留 (z-code 的 "导入 skills" 功能
   // 借用了上游 settings 目录,因此宪法文件路径常量同步保留)。
@@ -196,7 +197,7 @@ export const ZCODE_ADAPTER: IdeAdapter = {
     rulesFileGlob: '**/*.md',
     autoLoaded: true,
     format: 'markdown',
-    migrationHint: 'z-code 借用了上游 standards 路径,无需迁移。',
+    migrationHint: 'z-code 借用了上游 standards 路径,无需迁移。'
   },
   // Skill install profile: 指向 `~/.zcode/skills` 系列 (实测 z-code 已通过
   // user 手动 symlink 同步;peaks-loop 也直接支持)。
@@ -204,7 +205,7 @@ export const ZCODE_ADAPTER: IdeAdapter = {
     skillsDir: join(homedir(), '.zcode', 'skills'),
     outputStylesDir: join(homedir(), '.zcode', 'output-styles'),
     installStrategy: 'symlink',
-    envVarOverride: 'PEAKS_ZCODE_SKILLS_DIR',
+    envVarOverride: 'PEAKS_ZCODE_SKILLS_DIR'
   },
   // compact profile 留空 — z-code 没有 CLI binary (RD-3 §2.2 D1 决策)。
   // peaks-loop 走 `llm-self-compress` fallback 路径 (LLM 自己总结 context),
@@ -231,8 +232,10 @@ export const ZCODE_ADAPTER: IdeAdapter = {
       const trimmed = candidate.trim();
       if (/^[a-zA-Z0-9._-]{1,200}$/.test(trimmed)) return trimmed;
     }
-    const err = new Error('PEAKS_CALLER_NOT_RESOLVED: z-code vendor signal unverified') as Error & { code: string };
+    const err = new Error('PEAKS_CALLER_NOT_RESOLVED: z-code vendor signal unverified') as Error & {
+      code: string;
+    };
     err.code = 'PEAKS_CALLER_NOT_RESOLVED';
     throw err;
-  },
+  }
 };

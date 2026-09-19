@@ -27,7 +27,8 @@ export const SECURITY_FINDINGS_SUFFIXED = (rid: string): string => `security-fin
 export const SECURITY_FINDINGS_LEGACY = 'security-findings.md';
 
 /** File name (with `<rid>` suffix) for the per-request performance findings delta. */
-export const PERFORMANCE_FINDINGS_SUFFIXED = (rid: string): string => `performance-findings-${rid}.md`;
+export const PERFORMANCE_FINDINGS_SUFFIXED = (rid: string): string =>
+  `performance-findings-${rid}.md`;
 
 /** File name (legacy, no `<rid>` suffix) for the performance findings artifact. */
 export const PERFORMANCE_FINDINGS_LEGACY = 'performance-findings.md';
@@ -145,7 +146,11 @@ function resolveFindingsPath(args: {
  * log a warning. When `rid` is undefined, the legacy form is the
  * canonical target.
  */
-export function resolveSecurityFindingsPath(args: { projectRoot: string; sessionId: string; rid?: string }): ResolveFindingsPathResult {
+export function resolveSecurityFindingsPath(args: {
+  projectRoot: string;
+  sessionId: string;
+  rid?: string;
+}): ResolveFindingsPathResult {
   return resolveFindingsPath({
     projectRoot: args.projectRoot,
     sessionId: args.sessionId,
@@ -157,7 +162,11 @@ export function resolveSecurityFindingsPath(args: { projectRoot: string; session
 }
 
 /** Resolve the performance-findings artifact path (mirror of `resolveSecurityFindingsPath`). */
-export function resolvePerformanceFindingsPath(args: { projectRoot: string; sessionId: string; rid?: string }): ResolveFindingsPathResult {
+export function resolvePerformanceFindingsPath(args: {
+  projectRoot: string;
+  sessionId: string;
+  rid?: string;
+}): ResolveFindingsPathResult {
   return resolveFindingsPath({
     projectRoot: args.projectRoot,
     sessionId: args.sessionId,

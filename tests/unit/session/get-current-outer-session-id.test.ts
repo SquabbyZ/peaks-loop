@@ -32,9 +32,12 @@ declareDimensions(
   'tests/unit/session/get-current-outer-session-id.test.ts',
   ['behavior', 'integration'],
   [
-    { dim: 'render', reason: 'getCurrentOuterSessionId returns string | undefined; no formatted output surface' },
-    { dim: 'a11y', reason: 'no human-facing text in the resolution path' },
-  ],
+    {
+      dim: 'render',
+      reason: 'getCurrentOuterSessionId returns string | undefined; no formatted output surface'
+    },
+    { dim: 'a11y', reason: 'no human-facing text in the resolution path' }
+  ]
 );
 
 const CACHE_REL = join('.peaks', '_runtime', '.outer-session-cache.json');
@@ -59,12 +62,20 @@ afterEach(() => {
   else process.env.PEAKS_OUTER_SESSION_ID = prevPeaksEnv;
   if (prevClaudeEnv === undefined) delete process.env.CLAUDE_CODE_SESSION_ID;
   else process.env.CLAUDE_CODE_SESSION_ID = prevClaudeEnv;
-  try { process.chdir(prevCwd); } catch { /* best-effort */ }
+  try {
+    process.chdir(prevCwd);
+  } catch {
+    /* best-effort */
+  }
   // Capture the value BEFORE deferring: `workspace` is reassigned by the
   // next test's beforeEach, and a deferred read would delete the LIVE dir.
   const wsToRemove = workspace;
   setImmediate(() => {
-    try { rmSync(wsToRemove, { recursive: true, force: true }); } catch { /* best-effort */ }
+    try {
+      rmSync(wsToRemove, { recursive: true, force: true });
+    } catch {
+      /* best-effort */
+    }
   });
 });
 
@@ -80,10 +91,12 @@ async function bindSession(): Promise<string> {
   return ensureSession(workspace);
 }
 
-describe("Scenario: behavior — outer-session-id resolution ordering", () => {
+describe('Scenario: behavior — outer-session-id resolution ordering', () => {
   it('AC3: cache file alone (no env) wins → ensureSession stamps the cached outer onto meta', async () => {
     const cachedOuter = 'cached-outer-from-session-start-3fe1be';
-    writeCacheFile(JSON.stringify({ outerSessionId: cachedOuter, capturedAt: '2026-08-06T00:00:00.000Z' }));
+    writeCacheFile(
+      JSON.stringify({ outerSessionId: cachedOuter, capturedAt: '2026-08-06T00:00:00.000Z' })
+    );
 
     const sessionId = await bindSession();
     const meta = getSessionMeta(workspace, sessionId);
@@ -93,7 +106,9 @@ describe("Scenario: behavior — outer-session-id resolution ordering", () => {
   it('AC4: PEAKS_OUTER_SESSION_ID wins over the cached value', async () => {
     const cachedOuter = 'cached-outer-from-session-start-3fe1be';
     const envOverride = 'env-override-peaks-outer';
-    writeCacheFile(JSON.stringify({ outerSessionId: cachedOuter, capturedAt: '2026-08-06T00:00:00.000Z' }));
+    writeCacheFile(
+      JSON.stringify({ outerSessionId: cachedOuter, capturedAt: '2026-08-06T00:00:00.000Z' })
+    );
     process.env.PEAKS_OUTER_SESSION_ID = envOverride;
 
     const sessionId = await bindSession();
@@ -104,7 +119,9 @@ describe("Scenario: behavior — outer-session-id resolution ordering", () => {
   it('AC4b: CLAUDE_CODE_SESSION_ID wins over the cached value when PEAKS env is unset', async () => {
     const cachedOuter = 'cached-outer-from-session-start-3fe1be';
     const claudeEnv = 'claude-code-session-from-env';
-    writeCacheFile(JSON.stringify({ outerSessionId: cachedOuter, capturedAt: '2026-08-06T00:00:00.000Z' }));
+    writeCacheFile(
+      JSON.stringify({ outerSessionId: cachedOuter, capturedAt: '2026-08-06T00:00:00.000Z' })
+    );
     process.env.CLAUDE_CODE_SESSION_ID = claudeEnv;
 
     const sessionId = await bindSession();
@@ -130,7 +147,9 @@ describe("Scenario: behavior — outer-session-id resolution ordering", () => {
   });
 
   it('AC6b: cache file with non-string outerSessionId is treated as cache-miss', async () => {
-    writeCacheFile(JSON.stringify({ outerSessionId: 12345, capturedAt: '2026-08-06T00:00:00.000Z' }));
+    writeCacheFile(
+      JSON.stringify({ outerSessionId: 12345, capturedAt: '2026-08-06T00:00:00.000Z' })
+    );
     const sessionId = await bindSession();
     const meta = getSessionMeta(workspace, sessionId);
     expect(meta?.outerSessionId).toBeUndefined();
@@ -144,7 +163,7 @@ describe("Scenario: behavior — outer-session-id resolution ordering", () => {
   });
 });
 
-describe("Scenario: integration — cache file round-trip with ensureSession", () => {
+describe('Scenario: integration — cache file round-trip with ensureSession', () => {
   it('ensureSession on an already-bound session re-reads the cache and updates meta', async () => {
     // First call: no cache → binding is created, meta has no outerSessionId.
     const sessionId = await ensureSession(workspace);
@@ -153,7 +172,9 @@ describe("Scenario: integration — cache file round-trip with ensureSession", (
 
     // Simulate SessionStart hook firing: write the cache file.
     const newOuter = 'session-start-outer-after-bind';
-    writeCacheFile(JSON.stringify({ outerSessionId: newOuter, capturedAt: '2026-08-06T01:00:00.000Z' }));
+    writeCacheFile(
+      JSON.stringify({ outerSessionId: newOuter, capturedAt: '2026-08-06T01:00:00.000Z' })
+    );
 
     // Second call: existing binding is found; cache is read; meta is stamped.
     const sessionId2 = await ensureSession(workspace);
@@ -165,19 +186,25 @@ describe("Scenario: integration — cache file round-trip with ensureSession", (
   it('multiple ensureSession calls keep meta on the most recent cache value', async () => {
     const outerA = 'outer-a-first';
     const outerB = 'outer-b-second';
-    writeCacheFile(JSON.stringify({ outerSessionId: outerA, capturedAt: '2026-08-06T02:00:00.000Z' }));
+    writeCacheFile(
+      JSON.stringify({ outerSessionId: outerA, capturedAt: '2026-08-06T02:00:00.000Z' })
+    );
 
     const sessionId = await ensureSession(workspace);
     expect(getSessionMeta(workspace, sessionId)?.outerSessionId).toBe(outerA);
 
-    writeCacheFile(JSON.stringify({ outerSessionId: outerB, capturedAt: '2026-08-06T03:00:00.000Z' }));
+    writeCacheFile(
+      JSON.stringify({ outerSessionId: outerB, capturedAt: '2026-08-06T03:00:00.000Z' })
+    );
     const sessionId2 = await ensureSession(workspace);
     expect(sessionId2).toBe(sessionId);
     expect(getSessionMeta(workspace, sessionId2)?.outerSessionId).toBe(outerB);
   });
 
   it('cache file lives under .peaks/_runtime/ — gitignored by the repo rule', async () => {
-    const path = writeCacheFile(JSON.stringify({ outerSessionId: 'x', capturedAt: '2026-08-06T00:00:00.000Z' }));
+    const path = writeCacheFile(
+      JSON.stringify({ outerSessionId: 'x', capturedAt: '2026-08-06T00:00:00.000Z' })
+    );
     const absolute = resolve(path);
     expect(absolute).toContain(join('.peaks', '_runtime'));
     // Verify the .gitignore covers the parent directory (defensive).

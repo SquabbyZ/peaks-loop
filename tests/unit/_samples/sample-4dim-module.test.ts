@@ -26,7 +26,7 @@ import { declareDimensions } from '../_setup/4dim-template.js';
 declareDimensions(
   'tests/unit/_samples/sample-4dim-module.test.ts',
   ['render', 'behavior', 'a11y'],
-  [{ dim: 'integration', reason: 'result is a pure module; no fs/clock/env boundary to test.' }],
+  [{ dim: 'integration', reason: 'result is a pure module; no fs/clock/env boundary to test.' }]
 );
 
 import {
@@ -34,11 +34,11 @@ import {
   fail,
   getErrorMessage,
   redactSensitiveErrorMessage,
-  type ResultEnvelope,
+  type ResultEnvelope
 } from 'peaks-loop-shared/result';
 
-describe("Scenario: render — ResultEnvelope shape", () => {
-  it("when invoked, should ok() returns a typed envelope with ok=true and the supplied data", () => {
+describe('Scenario: render — ResultEnvelope shape', () => {
+  it('when invoked, should ok() returns a typed envelope with ok=true and the supplied data', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -50,7 +50,7 @@ describe("Scenario: render — ResultEnvelope shape", () => {
     expect(out.nextActions).toEqual([]);
   });
 
-  it("when invoked, should fail() returns a typed envelope with code + message + opaque errorId", () => {
+  it('when invoked, should fail() returns a typed envelope with code + message + opaque errorId', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -63,7 +63,7 @@ describe("Scenario: render — ResultEnvelope shape", () => {
     expect(out.errorId).toMatch(/^[0-9a-f-]{36}$/);
   });
 
-  it("when invoked, should fail() mints a fresh errorId per call (no reuse)", () => {
+  it('when invoked, should fail() mints a fresh errorId per call (no reuse)', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -73,8 +73,8 @@ describe("Scenario: render — ResultEnvelope shape", () => {
   });
 });
 
-describe("Scenario: behavior — pure transformations", () => {
-  it("when invoked, should ok() propagates warnings and nextActions through", () => {
+describe('Scenario: behavior — pure transformations', () => {
+  it('when invoked, should ok() propagates warnings and nextActions through', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -83,7 +83,7 @@ describe("Scenario: behavior — pure transformations", () => {
     expect(out.nextActions).toEqual(['retry', 'escalate']);
   });
 
-  it("when invoked, should fail() redaction runs before the envelope is built (no leaky secret in message)", () => {
+  it('when invoked, should fail() redaction runs before the envelope is built (no leaky secret in message)', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -92,21 +92,21 @@ describe("Scenario: behavior — pure transformations", () => {
     expect(out.message).toMatch(/\[redacted\]/);
   });
 
-  it("when invoked, should getErrorMessage returns Error.message verbatim", () => {
+  it('when invoked, should getErrorMessage returns Error.message verbatim', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
     expect(getErrorMessage(new Error('boom'))).toBe('boom');
   });
 
-  it("when invoked, should getErrorMessage unwraps plain strings", () => {
+  it('when invoked, should getErrorMessage unwraps plain strings', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
     expect(getErrorMessage('plain')).toBe('plain');
   });
 
-  it("when invoked, should getErrorMessage coerces non-string / non-Error values to a safe fallback", () => {
+  it('when invoked, should getErrorMessage coerces non-string / non-Error values to a safe fallback', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -114,11 +114,12 @@ describe("Scenario: behavior — pure transformations", () => {
     expect(getErrorMessage({})).toBe('Unexpected error');
   });
 
-  it("when invoked, should redactSensitiveErrorMessage redacts the known token + key + JWT shapes", () => {
+  it('when invoked, should redactSensitiveErrorMessage redacts the known token + key + JWT shapes', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
-    const dirty = 'api_key=sk-abcdefghijklmnop and header Bearer eyJabcdefghij.abcdefghij.abcdefghij';
+    const dirty =
+      'api_key=sk-abcdefghijklmnop and header Bearer eyJabcdefghij.abcdefghij.abcdefghij';
     const out = redactSensitiveErrorMessage(dirty);
     expect(out).toMatch(/\[redacted\]/);
     expect(out).not.toContain('sk-abcdefghijklmnop');
@@ -126,8 +127,8 @@ describe("Scenario: behavior — pure transformations", () => {
   });
 });
 
-describe("Scenario: a11y — human-visible error surface", () => {
-  it("when invoked, should fail().message is human-readable text, not a stack trace fragment", () => {
+describe('Scenario: a11y — human-visible error surface', () => {
+  it('when invoked, should fail().message is human-readable text, not a stack trace fragment', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -136,7 +137,7 @@ describe("Scenario: a11y — human-visible error surface", () => {
     expect(out.message).not.toMatch(/at .+:\d+/);
   });
 
-  it("when invoked, should errorId is opaque and never appears inside the human message", () => {
+  it('when invoked, should errorId is opaque and never appears inside the human message', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation

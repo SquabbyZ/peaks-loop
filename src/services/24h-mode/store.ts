@@ -36,15 +36,23 @@ function coerceSnapshot(raw: unknown): State24hSnapshot {
     throw new Error('24H_STATE_INVALID: root must be an object');
   }
   if (typeof raw['state'] !== 'string' || !isState(raw['state'])) {
-    throw new Error(`24H_STATE_INVALID: state must be one of IDLE|BRAINSTORM|USER_CONFIRM|24H_ACTIVE|WAITING_USER|HANDOFF (got ${JSON.stringify(raw['state'])})`);
+    throw new Error(
+      `24H_STATE_INVALID: state must be one of IDLE|BRAINSTORM|USER_CONFIRM|24H_ACTIVE|WAITING_USER|HANDOFF (got ${JSON.stringify(raw['state'])})`
+    );
   }
   if (typeof raw['enteredAt'] !== 'string') {
     throw new Error('24H_STATE_INVALID: enteredAt must be an ISO string');
   }
-  if (raw['enteredFrom'] !== null && (typeof raw['enteredFrom'] !== 'string' || !isState(raw['enteredFrom']))) {
+  if (
+    raw['enteredFrom'] !== null &&
+    (typeof raw['enteredFrom'] !== 'string' || !isState(raw['enteredFrom']))
+  ) {
     throw new Error('24H_STATE_INVALID: enteredFrom must be a State or null');
   }
-  if (!Array.isArray(raw['activeSlices']) || !raw['activeSlices'].every((s) => typeof s === 'string')) {
+  if (
+    !Array.isArray(raw['activeSlices']) ||
+    !raw['activeSlices'].every((s) => typeof s === 'string')
+  ) {
     throw new Error('24H_STATE_INVALID: activeSlices must be string[]');
   }
   if (typeof raw['monotonicGuards'] !== 'number' || !Number.isInteger(raw['monotonicGuards'])) {

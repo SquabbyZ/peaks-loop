@@ -43,12 +43,7 @@ export type DispatchRecordStatus =
   | 'never-started'
   | 'unreadable';
 
-export type DispatchOutcome =
-  | 'success'
-  | 'failed'
-  | 'timeout'
-  | 'cancelled'
-  | 'no-execution';
+export type DispatchOutcome = 'success' | 'failed' | 'timeout' | 'cancelled' | 'no-execution';
 
 /** G2+G5+G6 dispatch record schema (AC-26 + AC-34). */
 export interface DispatchRecord {

@@ -22,14 +22,14 @@ declareDimensions(
   [
     { dim: 'integration', reason: 'pure function, no fs / subprocess boundary' },
     { dim: 'render', reason: 'returns a structured object, no text surface' },
-    { dim: 'a11y', reason: 'no user-visible text or exit code' },
-  ],
+    { dim: 'a11y', reason: 'no user-visible text or exit code' }
+  ]
 );
 
 import { playwrightProfilePaths } from '~/src/services/worktree/playwright-profile';
 
-describe("Scenario: behavior — path generator", () => {
-  it("when invoked, should returns a user-data-dir under .peaks/_runtime and a deterministic profile name", () => {
+describe('Scenario: behavior — path generator', () => {
+  it('when invoked, should returns a user-data-dir under .peaks/_runtime and a deterministic profile name', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -38,7 +38,7 @@ describe("Scenario: behavior — path generator", () => {
     expect(out.profileName).toBe('dispatch-d1');
   });
 
-  it("when invoked, should collision guard: same dispatchId produces the same path", () => {
+  it('when invoked, should collision guard: same dispatchId produces the same path', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation

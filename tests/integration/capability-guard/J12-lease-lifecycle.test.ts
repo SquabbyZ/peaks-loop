@@ -12,7 +12,12 @@ const JOURNEY = 'J12' as const;
 describe('J12 lease-lifecycle contract', () => {
   it('releases idempotently and never treats an in-flight lease as gc-eligible', async () => {
     const contract = getGuardContract(JOURNEY)!;
-    const r = await runGuard(contract, { projectRoot: REPO, sessionId: JOURNEY, contract, baselineInvariant: 'auto' });
+    const r = await runGuard(contract, {
+      projectRoot: REPO,
+      sessionId: JOURNEY,
+      contract,
+      baselineInvariant: 'auto'
+    });
     expect(r.status).toBe('pass');
   }, 300_000);
 });

@@ -30,7 +30,9 @@ function isSelf(f) {
   return SELF_DIRS.some((d) => f === d || f.startsWith(d + '/') || f.startsWith(d + '\\'));
 }
 
-const tsMod = await import(pathToFileURL(resolve(REPO, 'node_modules/typescript/lib/typescript.js')).href);
+const tsMod = await import(
+  pathToFileURL(resolve(REPO, 'node_modules/typescript/lib/typescript.js')).href
+);
 const ts = tsMod.default ?? tsMod;
 
 let marked = 0;
@@ -47,15 +49,28 @@ for (const root of ['src']) {
     function visit(node) {
       if (ts.isCatchClause(node) && node.block) {
         const block = node.block;
-        const isEmpty = block.statements.length === 0 || block.statements.every((s) => ts.isEmptyStatement(s));
+        const isEmpty =
+          block.statements.length === 0 || block.statements.every((s) => ts.isEmptyStatement(s));
         let isReturnNull = false;
         if (!isEmpty) {
           for (const s of block.statements) {
             if (ts.isEmptyStatement(s)) continue;
             if (ts.isReturnStatement(s) && s.expression) {
-              if (s.expression.kind === ts.SyntaxKind.NullKeyword || s.expression.kind === ts.SyntaxKind.UndefinedKeyword) isReturnNull = true;
-              else if (ts.isIdentifier(s.expression) && (s.expression.text === 'null' || s.expression.text === 'undefined')) isReturnNull = true;
-              else if (ts.isBinaryExpression(s.expression) && s.expression.operatorToken.kind === ts.SyntaxKind.QuestionQuestionToken) isReturnNull = true;
+              if (
+                s.expression.kind === ts.SyntaxKind.NullKeyword ||
+                s.expression.kind === ts.SyntaxKind.UndefinedKeyword
+              )
+                isReturnNull = true;
+              else if (
+                ts.isIdentifier(s.expression) &&
+                (s.expression.text === 'null' || s.expression.text === 'undefined')
+              )
+                isReturnNull = true;
+              else if (
+                ts.isBinaryExpression(s.expression) &&
+                s.expression.operatorToken.kind === ts.SyntaxKind.QuestionQuestionToken
+              )
+                isReturnNull = true;
             }
             break;
           }
@@ -64,7 +79,8 @@ for (const root of ['src']) {
           const { line } = sf.getLineAndCharacterOfPosition(node.getStart(sf));
           const lineText = lines[line] ?? '';
           if (lineText && !/TODO\(g2\)/.test(lineText)) {
-            lines[line] = lineText + ' // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)';
+            lines[line] =
+              lineText + ' // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)';
             dirty = true;
             marked++;
           }
@@ -72,13 +88,19 @@ for (const root of ['src']) {
       }
       // Pattern 4 (console.error without envelope.warnings) — apply grace
       // marker on the offending console.error line itself.
-      if (ts.isCallExpression(node) && ts.isPropertyAccessExpression(node.expression) && node.expression.name.text === 'error') {
+      if (
+        ts.isCallExpression(node) &&
+        ts.isPropertyAccessExpression(node.expression) &&
+        node.expression.name.text === 'error'
+      ) {
         const obj = node.expression.expression;
         if (ts.isIdentifier(obj) && obj.text === 'console') {
           const { line } = sf.getLineAndCharacterOfPosition(node.getStart(sf));
           const lineText = lines[line] ?? '';
           if (lineText && !/TODO\(g2\)/.test(lineText)) {
-            lines[line] = lineText + ' // TODO(g2): legacy console.error without envelope — grace: 1 minor release (v2.14.0)';
+            lines[line] =
+              lineText +
+              ' // TODO(g2): legacy console.error without envelope — grace: 1 minor release (v2.14.0)';
             dirty = true;
             marked++;
           }

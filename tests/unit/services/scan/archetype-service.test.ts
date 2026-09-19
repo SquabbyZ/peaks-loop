@@ -12,9 +12,17 @@ const ws = withTmpWorkspacePerTest('peaks-archetype-');
  * (optionally) an interface-doc file. Nothing else — no `src/`, no
  * lockfile — so every input below is reproducible byte-for-byte.
  */
-function seedProject(args: { deps: Record<string, string>; interfaceDoc?: string; apiRoutes?: boolean }): string {
+function seedProject(args: {
+  deps: Record<string, string>;
+  interfaceDoc?: string;
+  apiRoutes?: boolean;
+}): string {
   const root = ws().path;
-  writeFileSync(join(root, 'package.json'), JSON.stringify({ name: 'fixture', dependencies: args.deps }), 'utf8');
+  writeFileSync(
+    join(root, 'package.json'),
+    JSON.stringify({ name: 'fixture', dependencies: args.deps }),
+    'utf8'
+  );
   if (args.interfaceDoc !== undefined) {
     const abs = join(root, args.interfaceDoc);
     mkdirSync(dirname(abs), { recursive: true });
@@ -22,7 +30,11 @@ function seedProject(args: { deps: Record<string, string>; interfaceDoc?: string
   }
   if (args.apiRoutes === true) {
     mkdirSync(join(root, 'pages', 'api'), { recursive: true });
-    writeFileSync(join(root, 'pages', 'api', 'health.ts'), 'export default function handler() {}\n', 'utf8');
+    writeFileSync(
+      join(root, 'pages', 'api', 'health.ts'),
+      'export default function handler() {}\n',
+      'utf8'
+    );
   }
   return root;
 }

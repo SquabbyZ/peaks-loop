@@ -6,14 +6,24 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 const BIN = join(__dirname, '..', '..', 'bin', 'peaks.js');
 let projectRoot = '';
-afterEach(() => { if (projectRoot) rmSync(projectRoot, { recursive: true, force: true }); projectRoot = ''; });
+afterEach(() => {
+  if (projectRoot) rmSync(projectRoot, { recursive: true, force: true });
+  projectRoot = '';
+});
 
 function run(args: ReadonlyArray<string>): { stdout: string; code: number } {
   try {
-    return { stdout: execFileSync('node', [BIN, ...args], { cwd: projectRoot, windowsHide: true, env: { ...process.env, PEAKS_CALLER_ID: 'baseline-cli-test' } }).toString('utf8'), code: 0 };
+    return {
+      stdout: execFileSync('node', [BIN, ...args], {
+        cwd: projectRoot,
+        windowsHide: true,
+        env: { ...process.env, PEAKS_CALLER_ID: 'baseline-cli-test' }
+      }).toString('utf8'),
+      code: 0
+    };
   } catch (e) {
     const err = e as { stdout?: Buffer | string; status?: number };
-    return { stdout: (err.stdout?.toString('utf8') ?? ''), code: err.status ?? 1 };
+    return { stdout: err.stdout?.toString('utf8') ?? '', code: err.status ?? 1 };
   }
 }
 
@@ -43,13 +53,25 @@ describe('peaks baseline freeze + list + show', () => {
     const fromFile = writeSampleInput(projectRoot);
     const r = run(['baseline', 'freeze', '--from', fromFile, '--project', projectRoot, '--json']);
     expect(r.code).toBe(0);
-    expect(existsSync(join(projectRoot, 'openspec', 'baselines', 'current', 'capability-baseline.json'))).toBe(true);
-    expect(existsSync(join(projectRoot, 'openspec', 'baselines', 'current', 'capability-baseline.lock'))).toBe(true);
+    expect(
+      existsSync(join(projectRoot, 'openspec', 'baselines', 'current', 'capability-baseline.json'))
+    ).toBe(true);
+    expect(
+      existsSync(join(projectRoot, 'openspec', 'baselines', 'current', 'capability-baseline.lock'))
+    ).toBe(true);
   });
   it('list prints 15 rows', () => {
     projectRoot = mkdtempSync(join(tmpdir(), 'cbl-cli-'));
     const fromFile = writeSampleInput(projectRoot);
-    const freeze = run(['baseline', 'freeze', '--from', fromFile, '--project', projectRoot, '--json']);
+    const freeze = run([
+      'baseline',
+      'freeze',
+      '--from',
+      fromFile,
+      '--project',
+      projectRoot,
+      '--json'
+    ]);
     expect(freeze.code).toBe(0);
     const list = run(['baseline', 'list', '--project', projectRoot, '--json']);
     expect(list.code).toBe(0);

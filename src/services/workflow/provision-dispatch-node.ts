@@ -1,5 +1,14 @@
-import { emptyGraph, readGraph, writeGraph, PEAKS_GRAPH_NOT_FOUND } from './workflow-graph-store.js';
-import { WORKFLOW_ID_REGEX, type WorkflowGraph, type WorkflowGraphNode } from './workflow-graph-types.js';
+import {
+  emptyGraph,
+  readGraph,
+  writeGraph,
+  PEAKS_GRAPH_NOT_FOUND
+} from './workflow-graph-store.js';
+import {
+  WORKFLOW_ID_REGEX,
+  type WorkflowGraph,
+  type WorkflowGraphNode
+} from './workflow-graph-types.js';
 
 export interface ProvisionedDispatchNode {
   readonly nodeId: string;
@@ -56,7 +65,12 @@ export function provisionDispatchNode(input: {
   let graph: WorkflowGraph;
   let graphCreated = false;
   try {
-    graph = readGraph({ projectRoot: input.projectRoot, sessionId: input.sessionId, graphRef, workflowId });
+    graph = readGraph({
+      projectRoot: input.projectRoot,
+      sessionId: input.sessionId,
+      graphRef,
+      workflowId
+    });
   } catch (err) {
     if ((err as { code?: string }).code !== PEAKS_GRAPH_NOT_FOUND) throw err;
     // `emptyGraph` supplies the one terminal node `validateGraph` requires.
@@ -71,7 +85,7 @@ export function provisionDispatchNode(input: {
     kind: 'dispatch',
     label: `${input.role} dispatch`,
     status: 'prepared',
-    dependsOn: [],
+    dependsOn: []
   };
 
   writeGraph({
@@ -79,7 +93,7 @@ export function provisionDispatchNode(input: {
     sessionId: input.sessionId,
     graphRef,
     workflowId,
-    graph: { ...graph, nodes: [...graph.nodes, node] },
+    graph: { ...graph, nodes: [...graph.nodes, node] }
   });
 
   return { nodeId, workflowId, graphRef, graphCreated };

@@ -57,10 +57,9 @@ export const SkillSearchInputSchema = z
     limit: z.number().int().min(1).max(100).default(20).optional(),
     includeInternal: z.boolean().default(false).optional()
   })
-  .refine(
-    (v) => v.query !== undefined || v.tag !== undefined || v.domain !== undefined,
-    { message: 'At least one of --query / --tag / --domain is required' }
-  );
+  .refine((v) => v.query !== undefined || v.tag !== undefined || v.domain !== undefined, {
+    message: 'At least one of --query / --tag / --domain is required'
+  });
 
 export type SkillSearchInput = z.input<typeof SkillSearchInputSchema>;
 
@@ -171,11 +170,7 @@ async function loadEnrichedSkills(): Promise<EnrichedSkill[]> {
  * in the lowercased target. Length is normalized as word count (so a
  * 1-word description that matches returns the full 0.5 contribution).
  */
-function scoreQuery(
-  query: string,
-  description: string,
-  triggers: string[]
-): number {
+function scoreQuery(query: string, description: string, triggers: string[]): number {
   const q = query.toLowerCase();
   const desc = description.toLowerCase();
   const descHits = countOccurrences(desc, q);
@@ -245,9 +240,7 @@ export async function searchSkills(rawInput: SkillSearchInput): Promise<SkillSea
     tags: skill.tags,
     domain: skill.domain,
     matchScore:
-      input.query !== undefined
-        ? scoreQuery(input.query, skill.description, skill.triggers)
-        : 1
+      input.query !== undefined ? scoreQuery(input.query, skill.description, skill.triggers) : 1
   }));
 
   scored.sort((a, b) => {

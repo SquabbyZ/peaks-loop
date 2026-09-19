@@ -15,7 +15,11 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { formatMdCompact } from '../../shared/format-md-compact.js';
-import { loadRetrospectiveIndex, type RetrospectiveEntry, type RetrospectiveIndexResult } from './retrospective-index.js';
+import {
+  loadRetrospectiveIndex,
+  type RetrospectiveEntry,
+  type RetrospectiveIndexResult
+} from './retrospective-index.js';
 
 export type RetrospectiveFormat = 'compact' | 'pretty';
 
@@ -100,7 +104,10 @@ interface BodySynthesis {
 
 function synthesizeBody(entry: RetrospectiveEntry, projectRoot: string): BodySynthesis {
   if (entry.artifactPaths.length === 0) {
-    return { body: renderEntryHeader(entry), warnings: ['entry has no artifactPaths; body is the index summary only'] };
+    return {
+      body: renderEntryHeader(entry),
+      warnings: ['entry has no artifactPaths; body is the index summary only']
+    };
   }
 
   const sections: string[] = [];
@@ -121,9 +128,10 @@ function synthesizeBody(entry: RetrospectiveEntry, projectRoot: string): BodySyn
   }
 
   const header = renderEntryHeader(entry);
-  const body = sections.length === 0
-    ? `${header}\n\n_No artifacts available; only the index summary is shown._`
-    : `${header}\n\n${sections.join('\n\n---\n\n')}`;
+  const body =
+    sections.length === 0
+      ? `${header}\n\n_No artifacts available; only the index summary is shown._`
+      : `${header}\n\n${sections.join('\n\n---\n\n')}`;
 
   return { body, warnings };
 }
@@ -142,7 +150,12 @@ function renderEntryHeader(entry: RetrospectiveEntry): string {
     ''
   ];
   if (entry.keyDecisions.length > 0) {
-    lines.push('## Key Decisions', '', ...entry.keyDecisions.map((decision) => `- ${decision}`), '');
+    lines.push(
+      '## Key Decisions',
+      '',
+      ...entry.keyDecisions.map((decision) => `- ${decision}`),
+      ''
+    );
   }
   if (entry.summary.length > 0) {
     lines.push('## Summary', '', entry.summary, '');

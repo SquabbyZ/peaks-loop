@@ -27,7 +27,7 @@ import { getSessionIdCanonical } from '../../services/session/session-manager.js
 import {
   computeWindowCalibration,
   readCompactHistory,
-  summarizeCompactHistory,
+  summarizeCompactHistory
 } from '../../services/compact-history/compact-history-service.js';
 import {
   readHarnessWindowState,
@@ -135,7 +135,8 @@ async function readHookPayload(): Promise<unknown> {
   if (raw.trim().length === 0) return null;
   try {
     return JSON.parse(raw);
-  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+  } catch {
+    // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     return null;
   }
 }
@@ -166,7 +167,8 @@ function resolveSessionId(
       sid: null,
       error: {
         code: 'NO_ACTIVE_SESSION',
-        message: 'No active session bound. Run `peaks workspace init --project <repo> --json` to bind one.',
+        message:
+          'No active session bound. Run `peaks workspace init --project <repo> --json` to bind one.',
         nextActions: [`peaks workspace init --project ${projectRoot} --json`]
       }
     };
@@ -191,16 +193,33 @@ export function registerCompactCommands(program: Command, io: ProgramIO): void {
           'Read-only by default; pass --apply to also append a one-line info row to the session log.'
       )
       .option('--project <path>', 'project root (defaults to git root or cwd)')
-      .option('--session-id <sid>', 'override the active session id (defaults to the canonical binding)')
-      .option('--apply', 'append a one-line info row to .peaks/_runtime/<sid>/session.json (default: dry-run)')
+      .option(
+        '--session-id <sid>',
+        'override the active session id (defaults to the canonical binding)'
+      )
+      .option(
+        '--apply',
+        'append a one-line info row to .peaks/_runtime/<sid>/session.json (default: dry-run)'
+      )
   ).action((options: CompactSuggestOptions) => {
     try {
-      const projectRoot = options.project !== undefined
-        ? resolveCanonicalProjectRoot(options.project)
-        : (findProjectRoot(process.cwd()) ?? process.cwd());
+      const projectRoot =
+        options.project !== undefined
+          ? resolveCanonicalProjectRoot(options.project)
+          : (findProjectRoot(process.cwd()) ?? process.cwd());
       const session = resolveSessionId(projectRoot, options.sessionId);
       if (session.error !== null) {
-        printResult(io, fail('compact.suggest', session.error.code, session.error.message, { projectRoot }, session.error.nextActions), options.json);
+        printResult(
+          io,
+          fail(
+            'compact.suggest',
+            session.error.code,
+            session.error.message,
+            { projectRoot },
+            session.error.nextActions
+          ),
+          options.json
+        );
         process.exitCode = 1;
         return;
       }
@@ -208,13 +227,28 @@ export function registerCompactCommands(program: Command, io: ProgramIO): void {
         projectRoot,
         sessionId: session.sid
       });
-      printResult(io, ok('compact.suggest', result, [], [
-        result.shouldSuggest
-          ? `Run \`peaks compact force --reason "<short note>"\` to checkpoint, then /compact.`
-          : `Context at ${(result.ratio * 100).toFixed(1)}% (${result.tokensUsed} of ${result.windowKind === '1m' ? '1M' : '200k'}); below threshold.`
-      ]), options.json);
+      printResult(
+        io,
+        ok(
+          'compact.suggest',
+          result,
+          [],
+          [
+            result.shouldSuggest
+              ? `Run \`peaks compact force --reason "<short note>"\` to checkpoint, then /compact.`
+              : `Context at ${(result.ratio * 100).toFixed(1)}% (${result.tokensUsed} of ${result.windowKind === '1m' ? '1M' : '200k'}); below threshold.`
+          ]
+        ),
+        options.json
+      );
     } catch (error) {
-      printResult(io, fail('compact.suggest', 'COMPACT_SUGGEST_FAILED', getErrorMessage(error), {}, ['Verify project root and session binding before retrying']), options.json);
+      printResult(
+        io,
+        fail('compact.suggest', 'COMPACT_SUGGEST_FAILED', getErrorMessage(error), {}, [
+          'Verify project root and session binding before retrying'
+        ]),
+        options.json
+      );
       process.exitCode = 1;
     }
   });
@@ -234,28 +268,70 @@ export function registerCompactCommands(program: Command, io: ProgramIO): void {
   ).action((options: CompactRecommendOptions) => {
     try {
       if (!isPhase(options.from)) {
-        printResult(io, fail('compact.recommend', 'INVALID_PHASE', `--from must be one of ${PHASES.join(', ')} (got "${options.from}")`, { from: options.from }, [`Use --from ${PHASES.join('|')}`]), options.json);
+        printResult(
+          io,
+          fail(
+            'compact.recommend',
+            'INVALID_PHASE',
+            `--from must be one of ${PHASES.join(', ')} (got "${options.from}")`,
+            { from: options.from },
+            [`Use --from ${PHASES.join('|')}`]
+          ),
+          options.json
+        );
         process.exitCode = 1;
         return;
       }
       if (!isPhase(options.to)) {
-        printResult(io, fail('compact.recommend', 'INVALID_PHASE', `--to must be one of ${PHASES.join(', ')} (got "${options.to}")`, { to: options.to }, [`Use --to ${PHASES.join('|')}`]), options.json);
+        printResult(
+          io,
+          fail(
+            'compact.recommend',
+            'INVALID_PHASE',
+            `--to must be one of ${PHASES.join(', ')} (got "${options.to}")`,
+            { to: options.to },
+            [`Use --to ${PHASES.join('|')}`]
+          ),
+          options.json
+        );
         process.exitCode = 1;
         return;
       }
       const envelope = buildRecommendEnvelopePure(options.from as Phase, options.to as Phase);
       const lookup = lookupPhaseTransition(options.from as Phase, options.to as Phase);
-      printResult(io, ok('compact.recommend', {
-        from: envelope.from,
-        to: envelope.to,
-        shouldCompact: envelope.shouldCompact,
-        severity: envelope.severity,
-        rationale: envelope.rationale,
-        suggestedMessage: envelope.suggestedMessage,
-        notInTable: lookup.notInTable
-      }, lookup.notInTable ? [`Transition ${options.from} → ${options.to} is not in the strategic-compact table; defaulting to severity=no.`] : []), options.json);
+      printResult(
+        io,
+        ok(
+          'compact.recommend',
+          {
+            from: envelope.from,
+            to: envelope.to,
+            shouldCompact: envelope.shouldCompact,
+            severity: envelope.severity,
+            rationale: envelope.rationale,
+            suggestedMessage: envelope.suggestedMessage,
+            notInTable: lookup.notInTable
+          },
+          lookup.notInTable
+            ? [
+                `Transition ${options.from} → ${options.to} is not in the strategic-compact table; defaulting to severity=no.`
+              ]
+            : []
+        ),
+        options.json
+      );
     } catch (error) {
-      printResult(io, fail('compact.recommend', 'COMPACT_RECOMMEND_FAILED', getErrorMessage(error), { from: options.from, to: options.to }, ['Verify the phase pair against the documented transitions']), options.json);
+      printResult(
+        io,
+        fail(
+          'compact.recommend',
+          'COMPACT_RECOMMEND_FAILED',
+          getErrorMessage(error),
+          { from: options.from, to: options.to },
+          ['Verify the phase pair against the documented transitions']
+        ),
+        options.json
+      );
       process.exitCode = 1;
     }
   });
@@ -268,12 +344,21 @@ export function registerCompactCommands(program: Command, io: ProgramIO): void {
       .command('survival')
       .description('Strategic-compact "What Survives Compaction" table. Pure static data; no I/O.')
   ).action((options: CompactSurvivalOptions) => {
-    printResult(io, ok('compact.survival', {
-      persists: [...SURVIVAL_TABLE.persists],
-      lost: [...SURVIVAL_TABLE.lost]
-    }, [], [
-      'Persists = guaranteed across `/compact`. Lost = not preserved; persist to disk before compacting.'
-    ]), options.json);
+    printResult(
+      io,
+      ok(
+        'compact.survival',
+        {
+          persists: [...SURVIVAL_TABLE.persists],
+          lost: [...SURVIVAL_TABLE.lost]
+        },
+        [],
+        [
+          'Persists = guaranteed across `/compact`. Lost = not preserved; persist to disk before compacting.'
+        ]
+      ),
+      options.json
+    );
   });
 
   // -----------------------------------------------------------------
@@ -286,38 +371,90 @@ export function registerCompactCommands(program: Command, io: ProgramIO): void {
         'Composite preview of (suggest + recommend + survival). ' +
           'No writes. The LLM calls this every tool-call cycle to stay informed.'
       )
-      .option('--from <phase>', `optional source phase for recommend lookup (one of ${PHASES.join(', ')})`)
-      .option('--to <phase>', `optional target phase for recommend lookup (one of ${PHASES.join(', ')})`)
+      .option(
+        '--from <phase>',
+        `optional source phase for recommend lookup (one of ${PHASES.join(', ')})`
+      )
+      .option(
+        '--to <phase>',
+        `optional target phase for recommend lookup (one of ${PHASES.join(', ')})`
+      )
       .option('--project <path>', 'project root (defaults to git root or cwd)')
       .option('--session-id <sid>', 'override the active session id')
   ).action((options: CompactDryRunOptions) => {
     try {
-      const projectRoot = options.project !== undefined
-        ? resolveCanonicalProjectRoot(options.project)
-        : (findProjectRoot(process.cwd()) ?? process.cwd());
+      const projectRoot =
+        options.project !== undefined
+          ? resolveCanonicalProjectRoot(options.project)
+          : (findProjectRoot(process.cwd()) ?? process.cwd());
       const session = resolveSessionId(projectRoot, options.sessionId);
       if (session.error !== null) {
-        printResult(io, fail('compact.dry-run', session.error.code, session.error.message, { projectRoot }, session.error.nextActions), options.json);
+        printResult(
+          io,
+          fail(
+            'compact.dry-run',
+            session.error.code,
+            session.error.message,
+            { projectRoot },
+            session.error.nextActions
+          ),
+          options.json
+        );
         process.exitCode = 1;
         return;
       }
       if ((options.from === undefined) !== (options.to === undefined)) {
-        printResult(io, fail('compact.dry-run', 'PHASE_PAIR_INCOMPLETE', 'Both --from and --to must be provided together', { from: options.from, to: options.to }, ['Pass both --from and --to, or omit both for a suggest-only dry-run']), options.json);
+        printResult(
+          io,
+          fail(
+            'compact.dry-run',
+            'PHASE_PAIR_INCOMPLETE',
+            'Both --from and --to must be provided together',
+            { from: options.from, to: options.to },
+            ['Pass both --from and --to, or omit both for a suggest-only dry-run']
+          ),
+          options.json
+        );
         process.exitCode = 1;
         return;
       }
       if (options.from !== undefined && !isPhase(options.from)) {
-        printResult(io, fail('compact.dry-run', 'INVALID_PHASE', `--from must be one of ${PHASES.join(', ')} (got "${options.from}")`, { from: options.from }, [`Use --from ${PHASES.join('|')}`]), options.json);
+        printResult(
+          io,
+          fail(
+            'compact.dry-run',
+            'INVALID_PHASE',
+            `--from must be one of ${PHASES.join(', ')} (got "${options.from}")`,
+            { from: options.from },
+            [`Use --from ${PHASES.join('|')}`]
+          ),
+          options.json
+        );
         process.exitCode = 1;
         return;
       }
       if (options.to !== undefined && !isPhase(options.to)) {
-        printResult(io, fail('compact.dry-run', 'INVALID_PHASE', `--to must be one of ${PHASES.join(', ')} (got "${options.to}")`, { to: options.to }, [`Use --to ${PHASES.join('|')}`]), options.json);
+        printResult(
+          io,
+          fail(
+            'compact.dry-run',
+            'INVALID_PHASE',
+            `--to must be one of ${PHASES.join(', ')} (got "${options.to}")`,
+            { to: options.to },
+            [`Use --to ${PHASES.join('|')}`]
+          ),
+          options.json
+        );
         process.exitCode = 1;
         return;
       }
       const hasPhasePair = options.from !== undefined && options.to !== undefined;
-      const dryRunInput: { projectRoot: string; sessionId: string | null; from?: Phase; to?: Phase } = {
+      const dryRunInput: {
+        projectRoot: string;
+        sessionId: string | null;
+        from?: Phase;
+        to?: Phase;
+      } = {
         projectRoot,
         sessionId: session.sid
       };
@@ -326,13 +463,28 @@ export function registerCompactCommands(program: Command, io: ProgramIO): void {
         dryRunInput.to = options.to as Phase;
       }
       const result = dryRunCompact(dryRunInput);
-      printResult(io, ok('compact.dry-run', result, [], [
-        result.action === 'compact'
-          ? `Action=compact: run \`peaks compact force --reason "<note>"\`, then /compact.`
-          : `Action=skip: continue without compacting.`
-      ]), options.json);
+      printResult(
+        io,
+        ok(
+          'compact.dry-run',
+          result,
+          [],
+          [
+            result.action === 'compact'
+              ? `Action=compact: run \`peaks compact force --reason "<note>"\`, then /compact.`
+              : `Action=skip: continue without compacting.`
+          ]
+        ),
+        options.json
+      );
     } catch (error) {
-      printResult(io, fail('compact.dry-run', 'COMPACT_DRY_RUN_FAILED', getErrorMessage(error), {}, ['Verify project root, session binding, and phase pair before retrying']), options.json);
+      printResult(
+        io,
+        fail('compact.dry-run', 'COMPACT_DRY_RUN_FAILED', getErrorMessage(error), {}, [
+          'Verify project root, session binding, and phase pair before retrying'
+        ]),
+        options.json
+      );
       process.exitCode = 1;
     }
   });
@@ -345,13 +497,20 @@ export function registerCompactCommands(program: Command, io: ProgramIO): void {
       .command('force')
       .description(
         'Write a pre-compact checkpoint via `peaks session checkpoint --reason context-fill`. ' +
-          'The IDE-side `/compact` is still the LLM\'s call; this primitive guarantees ' +
+          "The IDE-side `/compact` is still the LLM's call; this primitive guarantees " +
           'the pre-compact state is persisted. NO sleep, NO wait for IDE response.'
       )
-      .option('--reason <text>', 'human-readable reason for the pre-compact checkpoint', 'pre-force-compact')
+      .option(
+        '--reason <text>',
+        'human-readable reason for the pre-compact checkpoint',
+        'pre-force-compact'
+      )
       .option('--project <path>', 'project root (defaults to git root or cwd)')
       .option('--session-id <sid>', 'override the active session id')
-      .option('--current-plan <text>', 'current plan summary (forwarded to the checkpoint snapshot)')
+      .option(
+        '--current-plan <text>',
+        'current plan summary (forwarded to the checkpoint snapshot)'
+      )
       .option('--open-questions <list>', 'newline-separated open questions')
       .option('--recent-decisions <list>', 'newline-separated recent decisions')
       .option('--recent-artifact-paths <list>', 'newline-separated recent artifact paths')
@@ -360,16 +519,27 @@ export function registerCompactCommands(program: Command, io: ProgramIO): void {
       .option('--todo-state <list>', 'newline-separated todo lines')
   ).action((options: CompactForceOptions) => {
     try {
-      const projectRoot = options.project !== undefined
-        ? resolveCanonicalProjectRoot(options.project)
-        : (findProjectRoot(process.cwd()) ?? process.cwd());
+      const projectRoot =
+        options.project !== undefined
+          ? resolveCanonicalProjectRoot(options.project)
+          : (findProjectRoot(process.cwd()) ?? process.cwd());
       const session = resolveSessionId(projectRoot, options.sessionId);
       if (session.error !== null) {
-        printResult(io, fail('compact.force', session.error.code, session.error.message, { projectRoot }, session.error.nextActions), options.json);
+        printResult(
+          io,
+          fail(
+            'compact.force',
+            session.error.code,
+            session.error.message,
+            { projectRoot },
+            session.error.nextActions
+          ),
+          options.json
+        );
         process.exitCode = 1;
         return;
       }
-          const reason = (options.reason ?? 'pre-force-compact').slice(0, 200);
+      const reason = (options.reason ?? 'pre-force-compact').slice(0, 200);
       // The session-checkpoint-service restricts `reason` to a fixed
       // enum. The strategic-compact `force` primitive uses
       // 'context-fill' (the closest semantic match: the LLM is
@@ -390,19 +560,35 @@ export function registerCompactCommands(program: Command, io: ProgramIO): void {
         checkpointOptions.currentPlan = options.currentPlan;
       }
       const result = writeCheckpoint(projectRoot, checkpointOptions);
-      printResult(io, ok('compact.force', {
-        checkpointPath: result.path,
-        reason: 'pre-force-compact',
-        callerReason: reason,
-        sessionId: result.sessionId,
-        createdAt: result.createdAt,
-        totalRetained: result.totalRetained,
-        message: 'Pre-compact checkpoint written. The IDE-side /compact is still the LLM\'s call; this CLI does NOT invoke the IDE slash command.'
-      }, [], [
-        'After the LLM fires the IDE-side /compact, call `peaks compact survival` to see what to persist before the next compact.'
-      ]), options.json);
+      printResult(
+        io,
+        ok(
+          'compact.force',
+          {
+            checkpointPath: result.path,
+            reason: 'pre-force-compact',
+            callerReason: reason,
+            sessionId: result.sessionId,
+            createdAt: result.createdAt,
+            totalRetained: result.totalRetained,
+            message:
+              "Pre-compact checkpoint written. The IDE-side /compact is still the LLM's call; this CLI does NOT invoke the IDE slash command."
+          },
+          [],
+          [
+            'After the LLM fires the IDE-side /compact, call `peaks compact survival` to see what to persist before the next compact.'
+          ]
+        ),
+        options.json
+      );
     } catch (error) {
-      printResult(io, fail('compact.force', 'COMPACT_FORCE_FAILED', getErrorMessage(error), {}, ['Verify the project path is writable and a session is bound']), options.json);
+      printResult(
+        io,
+        fail('compact.force', 'COMPACT_FORCE_FAILED', getErrorMessage(error), {}, [
+          'Verify the project path is writable and a session is bound'
+        ]),
+        options.json
+      );
       process.exitCode = 1;
     }
   });
@@ -416,33 +602,47 @@ export function registerCompactCommands(program: Command, io: ProgramIO): void {
           'summary of every auto-compact dispatch in the current session.'
       )
       .option('--project <path>', 'project root (defaults to git root or cwd)')
-      .option('--session-id <sid>', 'override the active session id (defaults to the canonical binding)')
+      .option(
+        '--session-id <sid>',
+        'override the active session id (defaults to the canonical binding)'
+      )
       .action((options: { project?: string; sessionId?: string; json?: boolean }) => {
         try {
-          const project = options.project !== undefined
-            ? resolveCanonicalProjectRoot(options.project)
-            : (findProjectRoot(process.cwd()) ?? process.cwd());
+          const project =
+            options.project !== undefined
+              ? resolveCanonicalProjectRoot(options.project)
+              : (findProjectRoot(process.cwd()) ?? process.cwd());
           const session = resolveSessionId(project, options.sessionId);
           if (session.error !== null) {
             printResult(
               io,
-              fail('compact.history', session.error.code, session.error.message, { projectRoot: project }, session.error.nextActions),
-              options.json,
+              fail(
+                'compact.history',
+                session.error.code,
+                session.error.message,
+                { projectRoot: project },
+                session.error.nextActions
+              ),
+              options.json
             );
             process.exitCode = 1;
             return;
           }
-          const result = readCompactHistory({ projectRoot: project, sessionId: session.sid as string });
+          const result = readCompactHistory({
+            projectRoot: project,
+            sessionId: session.sid as string
+          });
           if (result.kind === 'file-missing') {
             printResult(
               io,
               ok('compact.history', {
                 sessionId: session.sid,
                 totalCompacts: 0,
-                message: 'No compact-history.jsonl yet; auto-compact has not fired in this session.',
-                historyPath: result.path,
+                message:
+                  'No compact-history.jsonl yet; auto-compact has not fired in this session.',
+                historyPath: result.path
               }),
-              options.json,
+              options.json
             );
             return;
           }
@@ -453,9 +653,9 @@ export function registerCompactCommands(program: Command, io: ProgramIO): void {
                 sessionId: session.sid,
                 totalCompacts: 0,
                 message: 'compact-history.jsonl exists but is empty.',
-                historyPath: result.path,
+                historyPath: result.path
               }),
-              options.json,
+              options.json
             );
             return;
           }
@@ -474,19 +674,21 @@ export function registerCompactCommands(program: Command, io: ProgramIO): void {
               windowCalibration,
               events: result.events,
               parseErrors: result.parseErrors,
-              historyPath: result.path,
+              historyPath: result.path
             }),
-            options.json,
+            options.json
           );
         } catch (error) {
           printResult(
             io,
-            fail('compact.history', 'COMPACT_HISTORY_READ_FAILED', getErrorMessage(error), {}, ['Verify the project path is readable and a session is bound']),
-            options.json,
+            fail('compact.history', 'COMPACT_HISTORY_READ_FAILED', getErrorMessage(error), {}, [
+              'Verify the project path is readable and a session is bound'
+            ]),
+            options.json
           );
           process.exitCode = 1;
         }
-      }),
+      })
   );
 
   // 7. peaks compact harness-window [--reset | --disable | --reenable]
@@ -507,7 +709,7 @@ export function registerCompactCommands(program: Command, io: ProgramIO): void {
       .command('harness-window')
       .description(
         'Report / roll back the auto-compact window peaks-loop writes into the ' +
-          'harness\'s own machine-local settings (the adapter-declared ' +
+          "harness's own machine-local settings (the adapter-declared " +
           'autoCompactWindowEnvVar, e.g. CLAUDE_CODE_AUTO_COMPACT_WINDOW in ' +
           '.claude/settings.local.json). peaks-loop computes its context ratio ' +
           'against exactly this number, so the value it reports as "85%" and the ' +
@@ -523,145 +725,171 @@ export function registerCompactCommands(program: Command, io: ProgramIO): void {
       )
       .option('--project <path>', 'project root (defaults to git root or cwd)')
       .option('--reset', 'rollback: remove the window key and stop managing it')
-      .option('--disable', 'record the opt-out only (do not manage this key), without removing a value that is already there; expressible before the first write')
+      .option(
+        '--disable',
+        'record the opt-out only (do not manage this key), without removing a value that is already there; expressible before the first write'
+      )
       .option('--reenable', 'undo a --reset or --disable opt-out (peaks-loop manages it again)')
-      .action((options: { project?: string; reset?: boolean; disable?: boolean; reenable?: boolean; json?: boolean }) => {
-        try {
-          const project = options.project !== undefined
-            ? resolveCanonicalProjectRoot(options.project)
-            : (findProjectRoot(process.cwd()) ?? process.cwd());
+      .action(
+        (options: {
+          project?: string;
+          reset?: boolean;
+          disable?: boolean;
+          reenable?: boolean;
+          json?: boolean;
+        }) => {
+          try {
+            const project =
+              options.project !== undefined
+                ? resolveCanonicalProjectRoot(options.project)
+                : (findProjectRoot(process.cwd()) ?? process.cwd());
 
-          const location = resolveHarnessWindowLocation({ projectRoot: project, env: process.env });
-          if (location === null) {
-            printResult(
-              io,
-              ok('compact.harness-window', {
-                projectRoot: project,
-                managed: false,
-                message:
-                  'The active IDE adapter declares no auto-compact window key, so peaks-loop cannot tie ' +
-                  'the harness window to its own ratio. Nothing was written and there is nothing to roll back.',
-              }),
-              options.json,
-            );
-            return;
-          }
+            const location = resolveHarnessWindowLocation({
+              projectRoot: project,
+              env: process.env
+            });
+            if (location === null) {
+              printResult(
+                io,
+                ok('compact.harness-window', {
+                  projectRoot: project,
+                  managed: false,
+                  message:
+                    'The active IDE adapter declares no auto-compact window key, so peaks-loop cannot tie ' +
+                    'the harness window to its own ratio. Nothing was written and there is nothing to roll back.'
+                }),
+                options.json
+              );
+              return;
+            }
 
-          if (options.reset === true) {
-            const result = resetHarnessWindow({ location, env: process.env });
+            if (options.reset === true) {
+              const result = resetHarnessWindow({ location, env: process.env });
+              printResult(
+                io,
+                ok(
+                  'compact.harness-window',
+                  {
+                    projectRoot: project,
+                    action: result.action,
+                    key: location.envVar,
+                    settingsPath: result.settingsPath,
+                    previousTokens: result.previousTokens
+                  },
+                  [],
+                  [
+                    result.action === 'removed'
+                      ? `Removed ${location.envVar} from ${result.settingsPath} and opted this project out, so later probes stop writing it. Undo with \`peaks compact harness-window --reenable\`.`
+                      : `Nothing to remove — ${location.envVar} was already absent from ${result.settingsPath}, so nothing was written and no opt-out row was recorded: if a probe writes a window here later, run --reset again to remove it. To say "never manage this key here" WITHOUT waiting for that first write, run \`peaks compact harness-window --disable\`.`
+                  ]
+                ),
+                options.json
+              );
+              return;
+            }
+
+            if (options.disable === true) {
+              const result = disableHarnessWindowSync({ location });
+              printResult(
+                io,
+                ok(
+                  'compact.harness-window',
+                  {
+                    projectRoot: project,
+                    action: result.action,
+                    key: location.envVar,
+                    settingsPath: result.settingsPath
+                  },
+                  [],
+                  [
+                    result.action === 'disabled'
+                      ? `Recorded the opt-out in ${result.settingsPath}: peaks-loop will not write ${location.envVar} here, and left any value already in the file exactly as it was. Undo with \`peaks compact harness-window --reenable\`.`
+                      : result.action === 'already-opted-out'
+                        ? `Already opted out — ${result.settingsPath} carries ${location.envVar}'s opt-out, so nothing was written. Undo with \`peaks compact harness-window --reenable\`.`
+                        : result.action === 'refused-unsafe-project-root'
+                          ? `Nothing written: the resolved project root is the user's own home directory, so ${result.settingsPath} is their PERSONAL harness settings, not a project's. peaks-loop already refuses to write ${location.envVar} there, so an opt-out would change nothing except which refusal you see. Point --project at a project (a subdirectory of home is fine) and the opt-out lands there.`
+                          : `Nothing written — ${result.settingsPath} is not a JSON object peaks-loop can safely edit, so the opt-out could not be recorded there.`
+                  ]
+                ),
+                options.json
+              );
+              return;
+            }
+
+            if (options.reenable === true) {
+              const result = reenableHarnessWindowSync({ location });
+              printResult(
+                io,
+                ok(
+                  'compact.harness-window',
+                  {
+                    projectRoot: project,
+                    action: result.action,
+                    key: location.envVar,
+                    settingsPath: result.settingsPath
+                  },
+                  [],
+                  [
+                    result.action === 'reenabled'
+                      ? 'Opt-out cleared; the next context probe will materialize the window again.'
+                      : 'No opt-out was recorded for this project.'
+                  ]
+                ),
+                options.json
+              );
+              return;
+            }
+
+            const state = readHarnessWindowState({ projectRoot: project, env: process.env });
             printResult(
               io,
               ok(
                 'compact.harness-window',
                 {
                   projectRoot: project,
-                  action: result.action,
+                  managed: true,
                   key: location.envVar,
-                  settingsPath: result.settingsPath,
-                  previousTokens: result.previousTokens,
+                  settingsPath: location.settingsPath,
+                  tokens: state?.tokens ?? null,
+                  raw: state?.raw ?? null,
+                  source: state?.source ?? null,
+                  optedOut: state?.optedOut ?? false,
+                  // Provenance: whether this value is peaks-loop's own write or
+                  // one the user set by hand. It decides whether the late 1M
+                  // rescue may override it, so it is not just diagnostics.
+                  peakWritten: state?.peakWritten ?? false
                 },
                 [],
                 [
-                  result.action === 'removed'
-                    ? `Removed ${location.envVar} from ${result.settingsPath} and opted this project out, so later probes stop writing it. Undo with \`peaks compact harness-window --reenable\`.`
-                    : `Nothing to remove — ${location.envVar} was already absent from ${result.settingsPath}, so nothing was written and no opt-out row was recorded: if a probe writes a window here later, run --reset again to remove it. To say "never manage this key here" WITHOUT waiting for that first write, run \`peaks compact harness-window --disable\`.`,
-                ],
+                  state?.tokens === null || state?.tokens === undefined
+                    ? 'No window is set yet. The next `peaks code context-now` probe materializes the window it computes its ratio against.'
+                    : `peaks-loop computes its context ratio against ${state.tokens} tokens; the harness fires near the end of that window. ${
+                        state.peakWritten
+                          ? 'peaks-loop wrote this value; it may raise it if a session outgrows it.'
+                          : "This value is not peaks-loop's own write, so peaks-loop will not raise it — it is treated as your setting."
+                      }`,
+                  'Rollback: `peaks compact harness-window --reset`.',
+                  'Intent-vs-observed calibration: `peaks compact history --json` → windowCalibration.'
+                ]
               ),
-              options.json,
+              options.json
             );
-            return;
-          }
-
-          if (options.disable === true) {
-            const result = disableHarnessWindowSync({ location });
+          } catch (error) {
             printResult(
               io,
-              ok(
+              fail(
                 'compact.harness-window',
-                {
-                  projectRoot: project,
-                  action: result.action,
-                  key: location.envVar,
-                  settingsPath: result.settingsPath,
-                },
-                [],
-                [
-                  result.action === 'disabled'
-                    ? `Recorded the opt-out in ${result.settingsPath}: peaks-loop will not write ${location.envVar} here, and left any value already in the file exactly as it was. Undo with \`peaks compact harness-window --reenable\`.`
-                    : result.action === 'already-opted-out'
-                      ? `Already opted out — ${result.settingsPath} carries ${location.envVar}'s opt-out, so nothing was written. Undo with \`peaks compact harness-window --reenable\`.`
-                      : result.action === 'refused-unsafe-project-root'
-                        ? `Nothing written: the resolved project root is the user's own home directory, so ${result.settingsPath} is their PERSONAL harness settings, not a project's. peaks-loop already refuses to write ${location.envVar} there, so an opt-out would change nothing except which refusal you see. Point --project at a project (a subdirectory of home is fine) and the opt-out lands there.`
-                        : `Nothing written — ${result.settingsPath} is not a JSON object peaks-loop can safely edit, so the opt-out could not be recorded there.`,
-                ],
+                'COMPACT_HARNESS_WINDOW_FAILED',
+                getErrorMessage(error),
+                {},
+                ['Verify the project path is writable and a session is bound']
               ),
-              options.json,
+              options.json
             );
-            return;
+            process.exitCode = 1;
           }
-
-          if (options.reenable === true) {
-            const result = reenableHarnessWindowSync({ location });
-            printResult(
-              io,
-              ok(
-                'compact.harness-window',
-                { projectRoot: project, action: result.action, key: location.envVar, settingsPath: result.settingsPath },
-                [],
-                [
-                  result.action === 'reenabled'
-                    ? 'Opt-out cleared; the next context probe will materialize the window again.'
-                    : 'No opt-out was recorded for this project.',
-                ],
-              ),
-              options.json,
-            );
-            return;
-          }
-
-          const state = readHarnessWindowState({ projectRoot: project, env: process.env });
-          printResult(
-            io,
-            ok(
-              'compact.harness-window',
-              {
-                projectRoot: project,
-                managed: true,
-                key: location.envVar,
-                settingsPath: location.settingsPath,
-                tokens: state?.tokens ?? null,
-                raw: state?.raw ?? null,
-                source: state?.source ?? null,
-                optedOut: state?.optedOut ?? false,
-                // Provenance: whether this value is peaks-loop's own write or
-                // one the user set by hand. It decides whether the late 1M
-                // rescue may override it, so it is not just diagnostics.
-                peakWritten: state?.peakWritten ?? false,
-              },
-              [],
-              [
-                state?.tokens === null || state?.tokens === undefined
-                  ? 'No window is set yet. The next `peaks code context-now` probe materializes the window it computes its ratio against.'
-                  : `peaks-loop computes its context ratio against ${state.tokens} tokens; the harness fires near the end of that window. ${
-                      state.peakWritten
-                        ? 'peaks-loop wrote this value; it may raise it if a session outgrows it.'
-                        : 'This value is not peaks-loop\'s own write, so peaks-loop will not raise it — it is treated as your setting.'
-                    }`,
-                'Rollback: `peaks compact harness-window --reset`.',
-                'Intent-vs-observed calibration: `peaks compact history --json` → windowCalibration.',
-              ],
-            ),
-            options.json,
-          );
-        } catch (error) {
-          printResult(
-            io,
-            fail('compact.harness-window', 'COMPACT_HARNESS_WINDOW_FAILED', getErrorMessage(error), {}, ['Verify the project path is writable and a session is bound']),
-            options.json,
-          );
-          process.exitCode = 1;
         }
-      }),
+      )
   );
 
   // 8. peaks compact settle [--json]
@@ -690,7 +918,10 @@ export function registerCompactCommands(program: Command, io: ProgramIO): void {
           'and exits 0 when run by the hook. Pass --json for the diagnostic envelope.'
       )
       .option('--project <path>', 'project root (defaults to git root or cwd)')
-      .option('--session-id <sid>', 'override the active session id (defaults to the canonical binding)')
+      .option(
+        '--session-id <sid>',
+        'override the active session id (defaults to the canonical binding)'
+      )
   ).action(async (options: CompactSettleOptions) => {
     // One parse, two fields: reading stdin twice would let the two readers
     // disagree about the payload they were handed.
@@ -700,13 +931,24 @@ export function registerCompactCommands(program: Command, io: ProgramIO): void {
     // The hook path returns before any `process.exitCode` assignment below, so
     // the harness never sees a non-zero exit from this command.
     try {
-      const project = options.project !== undefined
-        ? resolveCanonicalProjectRoot(options.project)
-        : (findProjectRoot(process.cwd()) ?? process.cwd());
+      const project =
+        options.project !== undefined
+          ? resolveCanonicalProjectRoot(options.project)
+          : (findProjectRoot(process.cwd()) ?? process.cwd());
       const session = resolveSessionId(project, options.sessionId);
       if (session.error !== null) {
         if (options.json !== true) return;
-        printResult(io, fail('compact.settle', session.error.code, session.error.message, { projectRoot: project }, session.error.nextActions), true);
+        printResult(
+          io,
+          fail(
+            'compact.settle',
+            session.error.code,
+            session.error.message,
+            { projectRoot: project },
+            session.error.nextActions
+          ),
+          true
+        );
         return;
       }
       const result: CompactSettleResult = settleCompactFromHarnessEvent({
@@ -732,16 +974,18 @@ export function registerCompactCommands(program: Command, io: ProgramIO): void {
               : result.reason === 'different-session'
                 ? `The hook payload names a different harness session, so this project's open compact run was left alone.`
                 : 'No compact run was open, so nothing was settled and no history row was appended.'
-          ],
+          ]
         ),
-        true,
+        true
       );
     } catch (error) {
       if (options.json !== true) return;
       printResult(
         io,
-        fail('compact.settle', 'COMPACT_SETTLE_FAILED', getErrorMessage(error), {}, ['Verify the project path and session binding']),
-        true,
+        fail('compact.settle', 'COMPACT_SETTLE_FAILED', getErrorMessage(error), {}, [
+          'Verify the project path and session binding'
+        ]),
+        true
       );
     }
   });

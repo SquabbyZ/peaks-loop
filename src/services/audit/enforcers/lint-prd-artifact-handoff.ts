@@ -36,20 +36,20 @@ function findPrdHandoffContract(lines: ReadonlyArray<string>): {
 
 export function lintPrdArtifactHandoff(skill: SkillFile): ReadonlyArray<LintHit> {
   if (skill.name !== 'peaks-prd') return [];
-  const lines = skill.lines.length > 0
-    ? skill.lines
-    : skill.body.split(/\r?\n/);
+  const lines = skill.lines.length > 0 ? skill.lines : skill.body.split(/\r?\n/);
   const { preserved, handoffStep, transitionGates } = findPrdHandoffContract(lines);
   if (preserved && handoffStep && transitionGates) return [];
   const missing: string[] = [];
   if (!preserved) missing.push('Preserved behavior');
   if (!handoffStep) missing.push('step 5.5 (write the immutable handoff)');
   if (!transitionGates) missing.push('Transition verification gates');
-  return [{
-    catalogId: 'rl-prd-artifact-handoff-001',
-    rule: 'peaks-prd SKILL.md must declare the artifact handoff contract (Preserved behavior + step 5.5 + Transition verification gates)',
-    file: skill.path,
-    line: 1,
-    matchedText: `missing markers: ${missing.join(', ')}`
-  }];
+  return [
+    {
+      catalogId: 'rl-prd-artifact-handoff-001',
+      rule: 'peaks-prd SKILL.md must declare the artifact handoff contract (Preserved behavior + step 5.5 + Transition verification gates)',
+      file: skill.path,
+      line: 1,
+      matchedText: `missing markers: ${missing.join(', ')}`
+    }
+  ];
 }

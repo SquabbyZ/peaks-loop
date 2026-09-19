@@ -13,8 +13,17 @@ export class CodexAdapter implements VendorAdapter {
     try {
       const o = JSON.parse(stdout);
       if (typeof o.progress !== 'number') return null;
-      return { rid: String(o.rid ?? ''), vendor: 'codex', progress: o.progress, state: o.state, note: String(o.note ?? ''), ts: Number(o.ts ?? Date.now()) };
-    } catch { return null; }
+      return {
+        rid: String(o.rid ?? ''),
+        vendor: 'codex',
+        progress: o.progress,
+        state: o.state,
+        note: String(o.note ?? ''),
+        ts: Number(o.ts ?? Date.now())
+      };
+    } catch {
+      return null;
+    }
   }
   async detectInstalled(): Promise<boolean> {
     return detectBinaryInstalled(this.binary);

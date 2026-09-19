@@ -29,9 +29,7 @@ import { declareDimensions } from '../../_setup/4dim-template.js';
 declareDimensions(
   'tests/unit/services/context/dispatch-fact-force-gate.test.ts',
   ['behavior', 'render', 'a11y'],
-  [
-    { dim: 'integration', reason: 'pure function, no fs / subprocess boundary' },
-  ],
+  [{ dim: 'integration', reason: 'pure function, no fs / subprocess boundary' }]
 );
 
 import {
@@ -39,7 +37,7 @@ import {
   BINDING_RULE_TOKENS,
   FACT_FORCE_GATE_BLOCK,
   missingRuleTokens,
-  renderFactForceGateBlock,
+  renderFactForceGateBlock
 } from '~/src/services/context/build-dispatch-system-prompt';
 import type { MemoryPreflightResult } from '~/src/services/context/memory-preflight-service';
 import type { ContextPercentProbe } from '~/src/services/context/auto-compact-types';
@@ -50,13 +48,13 @@ const HEADING = '## Read before you edit (Fact-Forcing Gate)';
 const NO_MEMORY: MemoryPreflightResult = { available: false };
 const MEMORY: MemoryPreflightResult = {
   available: true,
-  block: '## Project memory relevant to this task\n- * mem\n',
+  block: '## Project memory relevant to this task\n- * mem\n'
 };
 const PROBE: ContextPercentProbe = {
   ratio: 0.28,
   source: 'transcript-estimate',
   ide: 'claude-code',
-  capturedAt: '2026-09-10T00:00:00.000Z',
+  capturedAt: '2026-09-10T00:00:00.000Z'
 };
 
 const bytes = (s: string): number => Buffer.byteLength(s, 'utf8');
@@ -65,7 +63,7 @@ function promptFor(role: string, memoryAvailable: boolean): string {
   return buildDispatchSystemPrompt({
     taskTitle: role,
     taskBody: 'TASK_BODY_SENTINEL',
-    memoryBlock: memoryAvailable ? MEMORY : NO_MEMORY,
+    memoryBlock: memoryAvailable ? MEMORY : NO_MEMORY
   });
 }
 
@@ -123,11 +121,18 @@ describe('Scenario: behavior — the denial is a consequence, not a failure (dis
     // given: the recovery sentence
     // when:  the four requests and the retry are checked
     // then:  the sub-agent knows to satisfy the gate and retry, not to abandon
-    for (const fact of ['importers', 'affected API', 'data schemas if any', 'verbatim instruction']) {
+    for (const fact of [
+      'importers',
+      'affected API',
+      'data schemas if any',
+      'verbatim instruction'
+    ]) {
       expect(FACT_FORCE_GATE_BLOCK).toContain(fact);
     }
     expect(FACT_FORCE_GATE_BLOCK).toContain('retry the same operation');
-    expect(FACT_FORCE_GATE_BLOCK).toContain('Do not switch tools, do not give up, do not re-attempt blindly.');
+    expect(FACT_FORCE_GATE_BLOCK).toContain(
+      'Do not switch tools, do not give up, do not re-attempt blindly.'
+    );
   });
 });
 
@@ -185,7 +190,7 @@ describe('Scenario: a11y — the block is part of the binding-rule guard set', (
       taskTitle: 'rd',
       taskBody: 'TASK_BODY_SENTINEL',
       memoryBlock: NO_MEMORY,
-      contextProbe: PROBE,
+      contextProbe: PROBE
     });
     // when:  the binding-rule set is checked
     // then:  the gate's obligations survive compression like every other rule
@@ -197,7 +202,7 @@ describe('Scenario: a11y — the block is part of the binding-rule guard set', (
       HEADING,
       'A denial is NOT a failure and the tool is NOT broken',
       'your edit was NOT applied',
-      'do not re-attempt blindly',
+      'do not re-attempt blindly'
     ]) {
       expect(BINDING_RULE_TOKENS).toContain(token);
     }

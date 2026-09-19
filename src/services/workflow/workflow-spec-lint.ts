@@ -29,7 +29,9 @@ export function lintWorkflowSpec(spec: WorkflowSpec): WorkflowLintReport {
   for (const phase of spec.phases) {
     for (const gateRef of phase.gates) {
       if (!gateIds.has(gateRef) && !gateRef.startsWith('Gate ')) {
-        warnings.push(`phase "${phase.id}" references unknown gate "${gateRef}" (not in gates[] and not a built-in "Gate …" label)`);
+        warnings.push(
+          `phase "${phase.id}" references unknown gate "${gateRef}" (not in gates[] and not a built-in "Gate …" label)`
+        );
       }
     }
   }
@@ -46,7 +48,8 @@ export function lintWorkflowSpec(spec: WorkflowSpec): WorkflowLintReport {
   for (const phase of spec.phases) {
     if (phase.dependsOn !== undefined) {
       for (const dep of phase.dependsOn) {
-        if (!phaseIds.has(dep)) errors.push(`phase "${phase.id}" depends on missing phase "${dep}"`);
+        if (!phaseIds.has(dep))
+          errors.push(`phase "${phase.id}" depends on missing phase "${dep}"`);
       }
     }
   }
@@ -59,7 +62,8 @@ export function lintWorkflowSpec(spec: WorkflowSpec): WorkflowLintReport {
     }
   }
   for (const [group, count] of groupCounts) {
-    if (count < 2) warnings.push(`parallelGroup "${group}" has only ${count} phase(s); parallelism requires ≥2`);
+    if (count < 2)
+      warnings.push(`parallelGroup "${group}" has only ${count} phase(s); parallelism requires ≥2`);
   }
 
   // Budget sanity.

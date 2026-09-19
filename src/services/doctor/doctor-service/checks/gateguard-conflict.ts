@@ -109,7 +109,8 @@ function readSettingsJson(path: string): unknown {
   if (!existsSync(path)) return null;
   try {
     return JSON.parse(readFileSync(path, 'utf8')) as unknown;
-  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+  } catch {
+    // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     return null;
   }
 }
@@ -133,49 +134,61 @@ function defaultGateguardProbe(projectRootResolver: () => string | null): Gategu
  * `~/.claude/settings.json`.
  */
 export function collectGateguardEntries(probe: GateguardProbeResult): GateguardHookLocation[] {
-  const fromGlobal = extractGateguardEntries('global', probe.globalSettingsPath ?? '~/.claude/settings.json', probe.globalSettings);
-  const fromProject = probe.projectSettingsPath === null
-    ? []
-    : extractGateguardEntries('project', probe.projectSettingsPath, probe.projectSettings);
+  const fromGlobal = extractGateguardEntries(
+    'global',
+    probe.globalSettingsPath ?? '~/.claude/settings.json',
+    probe.globalSettings
+  );
+  const fromProject =
+    probe.projectSettingsPath === null
+      ? []
+      : extractGateguardEntries('project', probe.projectSettingsPath, probe.projectSettings);
   return [...fromGlobal, ...fromProject];
 }
 
 function run({ options, projectRootResolver }: DoctorContext): readonly DoctorCheck[] {
-  const gateguardProbe: GateguardProbe = options.gateguardProbe ?? (() => defaultGateguardProbe(projectRootResolver));
+  const gateguardProbe: GateguardProbe =
+    options.gateguardProbe ?? (() => defaultGateguardProbe(projectRootResolver));
   try {
     const probe = gateguardProbe();
     const offending = collectGateguardEntries(probe);
     if (offending.length === 0) {
-      return [{
-        id: 'integration:gateguard-peaks-conflict',
-        ok: true,
-        message:
-          'No gateguard-fact-force PreToolUse hook detected in ~/.claude/settings.json or project .claude/settings.json; the Edit/Write fact-forcing flow will not interfere with peaks-qa .peaks/ artifact writes'
-      }];
+      return [
+        {
+          id: 'integration:gateguard-peaks-conflict',
+          ok: true,
+          message:
+            'No gateguard-fact-force PreToolUse hook detected in ~/.claude/settings.json or project .claude/settings.json; the Edit/Write fact-forcing flow will not interfere with peaks-qa .peaks/ artifact writes'
+        }
+      ];
     }
     const unrouted = offending.filter((location) => !entrySkipsPeaks(location.entry));
     if (unrouted.length === 0) {
-      return [{
-        id: 'integration:gateguard-peaks-conflict',
-        ok: true,
-        message:
-          `gateguard-fact-force hook is installed in ${offending.map((l) => l.source).join(' + ')} but a .peaks/** skip pattern is configured; peaks-qa .peaks/ artifact writes are not blocked`
-      }];
+      return [
+        {
+          id: 'integration:gateguard-peaks-conflict',
+          ok: true,
+          message: `gateguard-fact-force hook is installed in ${offending.map((l) => l.source).join(' + ')} but a .peaks/** skip pattern is configured; peaks-qa .peaks/ artifact writes are not blocked`
+        }
+      ];
     }
     const sources = Array.from(new Set(unrouted.map((u) => u.sourcePath))).join(' + ');
     const matchers = unrouted.map((u) => u.entry.matcher ?? '*').join(', ');
-    return [{
-      id: 'integration:gateguard-peaks-conflict',
-      ok: false,
-      message:
-        `gateguard-fact-force PreToolUse hook is installed (${sources}, matcher: ${matchers}) with no .peaks/** skip pattern; every Edit/Write of a peaks-qa envelope (.peaks/_runtime/<sid>/qa/requests/*.md) will be intercepted and demand a 4-fact questionnaire that does not apply to QA templates. Workaround: set \`ECC_DISABLED_HOOKS=pre:edit-write:gateguard-fact-force\` for the session, OR add a paired PreToolUse entry whose matcher restricts the hook to non-.peaks paths. peaks-loop is NOT the source of this hook.`
-    }];
+    return [
+      {
+        id: 'integration:gateguard-peaks-conflict',
+        ok: false,
+        message: `gateguard-fact-force PreToolUse hook is installed (${sources}, matcher: ${matchers}) with no .peaks/** skip pattern; every Edit/Write of a peaks-qa envelope (.peaks/_runtime/<sid>/qa/requests/*.md) will be intercepted and demand a 4-fact questionnaire that does not apply to QA templates. Workaround: set \`ECC_DISABLED_HOOKS=pre:edit-write:gateguard-fact-force\` for the session, OR add a paired PreToolUse entry whose matcher restricts the hook to non-.peaks paths. peaks-loop is NOT the source of this hook.`
+      }
+    ];
   } catch (error) {
-    return [{
-      id: 'integration:gateguard-peaks-conflict',
-      ok: true,
-      message: `gateguard probe failed (${getErrorMessage(error)}); skipping check`
-    }];
+    return [
+      {
+        id: 'integration:gateguard-peaks-conflict',
+        ok: true,
+        message: `gateguard probe failed (${getErrorMessage(error)}); skipping check`
+      }
+    ];
   }
 }
 

@@ -22,9 +22,8 @@ vi.mock('node:os', async (importOriginal) => {
   return { ...actual, homedir: () => homeDirRef.value };
 });
 
-const { downloadToCache, ECC_REPO_NAME } = await import(
-  '../../../../packages/peaks-loop-mut/src/services/agent/ecc-cache-service.js'
-);
+const { downloadToCache, ECC_REPO_NAME } =
+  await import('../../../../packages/peaks-loop-mut/src/services/agent/ecc-cache-service.js');
 
 const TAG = 'v2.2.0';
 const ROOT = 'affaan-m-ECC-deadbeef'; // api.github.com tarball root shape
@@ -60,7 +59,11 @@ function makeTarGz(entries: Record<string, string>): Uint8Array {
   const chunks: Uint8Array[] = [];
   for (const [name, body] of Object.entries(entries)) {
     const data = enc.encode(body);
-    chunks.push(tarHeader(name, data.length), data, new Uint8Array((512 - (data.length % 512)) % 512));
+    chunks.push(
+      tarHeader(name, data.length),
+      data,
+      new Uint8Array((512 - (data.length % 512)) % 512)
+    );
   }
   chunks.push(new Uint8Array(1024)); // end-of-archive
   const tar = new Uint8Array(chunks.reduce((n, c) => n + c.length, 0));
@@ -152,7 +155,9 @@ describe('downloadToCache D-010 chain', () => {
     stubFetch({
       [LATEST_URL]: { body: releaseBody() },
       [TAGS_URL]: {
-        body: releaseBody({ assets: [{ name: `ECC-universal-${TAG}.tgz`, browser_download_url: ASSET_URL }] })
+        body: releaseBody({
+          assets: [{ name: `ECC-universal-${TAG}.tgz`, browser_download_url: ASSET_URL }]
+        })
       },
       [TARBALL_URL]: { status: 415 },
       [ASSET_URL]: { body: TARBALL }

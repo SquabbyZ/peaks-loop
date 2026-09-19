@@ -30,7 +30,10 @@ import { join } from 'node:path';
 import { getSessionIdCanonical } from '../../session/session-manager.js';
 import { getSessionDir } from '../../session/getSessionDir.js';
 import { readPresenceLease, listPresenceLeases } from '../../skills/presence-lease-service.js';
-import { getCurrentSessionId, normalizeSkillPresenceMode } from '../../skills/skill-presence-service.js';
+import {
+  getCurrentSessionId,
+  normalizeSkillPresenceMode
+} from '../../skills/skill-presence-service.js';
 
 const ACTIVE_SKILL_PREFIX = 'active-skill-';
 
@@ -65,7 +68,7 @@ export interface ActiveSkillResolution {
  */
 export function resolveActiveSkillForCaller(
   projectRoot: string,
-  opts?: { legacyPresence?: boolean; callerId?: string | null },
+  opts?: { legacyPresence?: boolean; callerId?: string | null }
 ): ActiveSkillResolution {
   const envOverride = process.env.PEAKS_ACTIVE_SKILL;
   if (typeof envOverride === 'string' && envOverride.length > 0) {
@@ -120,25 +123,39 @@ export function resolveActiveSkillForCaller(
     // caller's lease. Slice 2026-08-04-rid-005 surfaces this for the
     // statusline read so two concurrent sessions bound to the same
     // project session do not see each other's skill.
-    if (typeof opts?.callerId === 'string' && opts.callerId.length > 0 && lease.callerId !== opts.callerId) continue;
+    if (
+      typeof opts?.callerId === 'string' &&
+      opts.callerId.length > 0 &&
+      lease.callerId !== opts.callerId
+    )
+      continue;
     try {
       const projection = readPresenceLease({
         projectRoot,
         sessionId,
         callerId: lease.callerId,
         workflowId: lease.workflowId,
-        graphRef: lease.graphRef,
+        graphRef: lease.graphRef
       });
-      if (projection.lease !== null && typeof projection.lease.skill === 'string' && projection.lease.skill.length > 0) {
+      if (
+        projection.lease !== null &&
+        typeof projection.lease.skill === 'string' &&
+        projection.lease.skill.length > 0
+      ) {
         return {
           skill: projection.lease.skill,
           callerId: lease.callerId,
           sessionId,
-          mode: normalizeSkillPresenceMode(typeof projection.mode === 'string' ? projection.mode : null) ?? null,
-          source: 'canonical',
+          mode:
+            normalizeSkillPresenceMode(
+              typeof projection.mode === 'string' ? projection.mode : null
+            ) ?? null,
+          source: 'canonical'
         };
       }
-    } catch { /* fall through to next lease */ }
+    } catch {
+      /* fall through to next lease */
+    }
   }
 
   // Legacy fall-back (one minor release). Gated on `legacyPresence:
@@ -160,10 +177,13 @@ export function resolveActiveSkillForCaller(
         const raw = readFileSync(filePath, 'utf8');
         const parsed = JSON.parse(raw) as { skill?: unknown; mode?: unknown };
         if (typeof parsed.skill === 'string' && parsed.skill.length > 0) {
-          const legacyMode = normalizeSkillPresenceMode(typeof parsed.mode === 'string' ? parsed.mode : null) ?? null;
+          const legacyMode =
+            normalizeSkillPresenceMode(typeof parsed.mode === 'string' ? parsed.mode : null) ??
+            null;
           return { skill: parsed.skill, callerId, sessionId, mode: legacyMode, source: 'file' };
         }
-      } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+      } catch {
+        // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
         // skip malformed file
       }
     }

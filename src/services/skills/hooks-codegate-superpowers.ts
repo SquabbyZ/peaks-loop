@@ -89,17 +89,18 @@ export function resolveHookShell(platform: NodeJS.Platform = process.platform): 
  * — adding a new IDE does NOT require editing this function's control
  * flow, only adding a line to this table.
  */
-const HOOK_COMMAND_BY_IDE: Readonly<Partial<Record<IdeId, { command: string; sentinel: string }>>> = {
-  'claude-code': { command: 'peaks gate enforce', sentinel: 'peaks gate enforce' },
-  'trae':       { command: 'peaks hook handle',  sentinel: 'peaks hook handle' },
-  'cursor':     { command: 'peaks hook handle',  sentinel: 'peaks hook handle' },
-  'codex':      { command: 'peaks hook handle',  sentinel: 'peaks hook handle' },
-  'hermes':     { command: 'peaks gate enforce', sentinel: 'peaks gate enforce' },
-  'openclaw':   { command: 'peaks gate enforce', sentinel: 'peaks gate enforce' },
-  // qoder / tongyi-lingma are reserved IdeIds (slice #1) but not yet
-  // registered. When a slice adds them, add a HOOK_COMMAND_BY_IDE entry
-  // here — the function below fail-closes on missing entries.
-};
+const HOOK_COMMAND_BY_IDE: Readonly<Partial<Record<IdeId, { command: string; sentinel: string }>>> =
+  {
+    'claude-code': { command: 'peaks gate enforce', sentinel: 'peaks gate enforce' },
+    trae: { command: 'peaks hook handle', sentinel: 'peaks hook handle' },
+    cursor: { command: 'peaks hook handle', sentinel: 'peaks hook handle' },
+    codex: { command: 'peaks hook handle', sentinel: 'peaks hook handle' },
+    hermes: { command: 'peaks gate enforce', sentinel: 'peaks gate enforce' },
+    openclaw: { command: 'peaks gate enforce', sentinel: 'peaks gate enforce' }
+    // qoder / tongyi-lingma are reserved IdeIds (slice #1) but not yet
+    // registered. When a slice adds them, add a HOOK_COMMAND_BY_IDE entry
+    // here — the function below fail-closes on missing entries.
+  };
 
 /**
  * True when the IDE is tabled in `HOOK_COMMAND_BY_IDE`, i.e. peaks can write a
@@ -125,7 +126,9 @@ export function resolveHookSpec(ide: IdeId): ResolvedHookSpec {
     // uninstall and the dry-run plan, so the message names neither a verb
     // (naming the install verb made an uninstall failure read as an install
     // failure) nor a file that is not the table.
-    throw new Error(`unsupported IDE '${ide}': no HOOK_COMMAND_BY_IDE entry (add one in hooks-codegate-superpowers.ts)`);
+    throw new Error(
+      `unsupported IDE '${ide}': no HOOK_COMMAND_BY_IDE entry (add one in hooks-codegate-superpowers.ts)`
+    );
   }
   const isClaudeCode = ide === 'claude-code';
   // Claude Code's gate hook must emit its structured decision as JSON:
@@ -297,33 +300,39 @@ export function resolveHookEntries(ide: IdeId, _skipProgress = false): PeaksHook
 const LEGACY_PROGRESS_START_SENTINEL = 'peaks progress start';
 
 export function resolveLegacySentinels(ide: IdeId): ReadonlyArray<string> {
- if (ide === 'trae') {
- return ['peaks hook handle', LEGACY_PROGRESS_START_SENTINEL];
- }
- // Slice 2026-08-06-session-outer-cache: include the SessionStart outer-cache
- // sentinel so uninstall strips it alongside the gate-enforce entry.
- // Slice 2026-08-06-codegate-vendor-neutral: also include the code-gate
- // sentinel so uninstall strips the Edit|Write|MultiEdit entry alongside
- // the rest of the peaks-managed entries.
- const base = [HOOK_ENFORCE_SENTINEL, LEGACY_PROGRESS_START_SENTINEL, HOOK_CODE_GATE_SENTINEL];
- if (ide === 'claude-code') {
-   // Slice rid-statusline-stale-ux AC-2: include the SessionStart
-   // workspace-init primer sentinel so uninstall strips it alongside
-   // the gate-enforce entry, and so hand-added entries matching this
-   // sentinel are recognized as peaks-managed (not stripped as
-   // non-Peaks).
-   // rid 2026-09-13-a2-post-compact-reinject: the post-compact re-injection
-   // sentinel joins the same set, so uninstall strips it (and status counts
-   // it) exactly like the other two SessionStart entries. Without this the
-   // entry would be unremovable by `peaks hooks uninstall` — the rollback
-   // path T2 requires.
-   // rid 2026-09-13-compact-event-settle: the PostCompact settle sentinel joins
-   // too — same rollback argument as the reinject entry above. A hook that
-   // `peaks hooks uninstall` cannot remove is a hook the user cannot get rid
-   // of, and this one fires on every compaction.
-   return [...base, HOOK_OUTER_CACHE_SENTINEL, HOOK_WORKSPACE_INIT_SENTINEL, HOOK_POST_COMPACT_REINJECT_SENTINEL, HOOK_COMPACT_SETTLE_SENTINEL];
- }
- return base;
+  if (ide === 'trae') {
+    return ['peaks hook handle', LEGACY_PROGRESS_START_SENTINEL];
+  }
+  // Slice 2026-08-06-session-outer-cache: include the SessionStart outer-cache
+  // sentinel so uninstall strips it alongside the gate-enforce entry.
+  // Slice 2026-08-06-codegate-vendor-neutral: also include the code-gate
+  // sentinel so uninstall strips the Edit|Write|MultiEdit entry alongside
+  // the rest of the peaks-managed entries.
+  const base = [HOOK_ENFORCE_SENTINEL, LEGACY_PROGRESS_START_SENTINEL, HOOK_CODE_GATE_SENTINEL];
+  if (ide === 'claude-code') {
+    // Slice rid-statusline-stale-ux AC-2: include the SessionStart
+    // workspace-init primer sentinel so uninstall strips it alongside
+    // the gate-enforce entry, and so hand-added entries matching this
+    // sentinel are recognized as peaks-managed (not stripped as
+    // non-Peaks).
+    // rid 2026-09-13-a2-post-compact-reinject: the post-compact re-injection
+    // sentinel joins the same set, so uninstall strips it (and status counts
+    // it) exactly like the other two SessionStart entries. Without this the
+    // entry would be unremovable by `peaks hooks uninstall` — the rollback
+    // path T2 requires.
+    // rid 2026-09-13-compact-event-settle: the PostCompact settle sentinel joins
+    // too — same rollback argument as the reinject entry above. A hook that
+    // `peaks hooks uninstall` cannot remove is a hook the user cannot get rid
+    // of, and this one fires on every compaction.
+    return [
+      ...base,
+      HOOK_OUTER_CACHE_SENTINEL,
+      HOOK_WORKSPACE_INIT_SENTINEL,
+      HOOK_POST_COMPACT_REINJECT_SENTINEL,
+      HOOK_COMPACT_SETTLE_SENTINEL
+    ];
+  }
+  return base;
 }
 
 // --- Slice 2026-07-29-worktree-layer3-deny -----------------------------------
@@ -443,7 +452,10 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 
 /** Split a comma-separated glob list, dropping blanks and surrounding space. */
 function splitGlobList(value: string): string[] {
-  return value.split(',').map((glob) => glob.trim()).filter((glob) => glob.length > 0);
+  return value
+    .split(',')
+    .map((glob) => glob.trim())
+    .filter((glob) => glob.length > 0);
 }
 
 /** True when every `EXTERNAL_GATE_EXEMPT_ENV` glob is already declared in `settings.env`. */
@@ -462,7 +474,9 @@ export function hasExternalGateExemptions(settings: Record<string, unknown>): bo
  * left byte-identical (so a re-run cannot churn the file), and the input object
  * is returned unchanged when there is nothing to add. Pure.
  */
-export function withExternalGateExemptions(settings: Record<string, unknown>): Record<string, unknown> {
+export function withExternalGateExemptions(
+  settings: Record<string, unknown>
+): Record<string, unknown> {
   const env: Record<string, unknown> = isPlainObject(settings.env) ? { ...settings.env } : {};
   let changed = false;
   for (const [key, glob] of Object.entries(EXTERNAL_GATE_EXEMPT_ENV)) {
@@ -481,7 +495,9 @@ export function withExternalGateExemptions(settings: Record<string, unknown>): R
  * of ours, and `env` itself is dropped when it becomes empty — so uninstall
  * leaves no orphan field behind. Pure.
  */
-export function withoutExternalGateExemptions(settings: Record<string, unknown>): Record<string, unknown> {
+export function withoutExternalGateExemptions(
+  settings: Record<string, unknown>
+): Record<string, unknown> {
   if (!isPlainObject(settings.env)) return settings;
   const env: Record<string, unknown> = { ...settings.env };
   let changed = false;

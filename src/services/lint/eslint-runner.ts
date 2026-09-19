@@ -48,11 +48,7 @@ export const ESLINT_PACKAGE_PINS = {
 export type RedLineMode = 'none' | 'baseline-aware';
 
 export type EslintState =
-  | 'ok'
-  | 'eslint-missing'
-  | 'npx-failed'
-  | 'execution-failed'
-  | 'baseline-missing';
+  'ok' | 'eslint-missing' | 'npx-failed' | 'execution-failed' | 'baseline-missing';
 
 export type EslintFinding = {
   readonly filePath: string;
@@ -237,7 +233,8 @@ function loadBaseline(cwd: string, baselineFile: string): readonly BaselineViola
   const violations = Array.isArray(parsed.violations) ? parsed.violations : [];
   const out: BaselineViolation[] = [];
   for (const v of violations) {
-    if (typeof v.ruleId !== 'string' || typeof v.file !== 'string' || typeof v.line !== 'number') continue;
+    if (typeof v.ruleId !== 'string' || typeof v.file !== 'string' || typeof v.line !== 'number')
+      continue;
     out.push({
       ruleId: v.ruleId,
       file: v.file,
@@ -301,9 +298,12 @@ function emptyResult(state: EslintState, start: number, rawOutput: string): Esli
 
 export function buildEslintArgs(options: EslintRunOptions): string[] {
   if (options.fix === true || options.write === true) {
-    throw Object.assign(new Error('peaks code lint is read-only; --fix and --write are forbidden'), {
-      code: 'LINT_FIX_FORBIDDEN'
-    });
+    throw Object.assign(
+      new Error('peaks code lint is read-only; --fix and --write are forbidden'),
+      {
+        code: 'LINT_FIX_FORBIDDEN'
+      }
+    );
   }
   // The runner now uses the locally-installed eslint binary
   // (`./node_modules/eslint/bin/eslint.js`) instead of the npx
@@ -328,7 +328,11 @@ export function runEslint(options: EslintRunOptions): EslintRunResult {
   try {
     args = buildEslintArgs(options);
   } catch (error: unknown) {
-    return emptyResult('execution-failed', start, error instanceof Error ? error.message : String(error));
+    return emptyResult(
+      'execution-failed',
+      start,
+      error instanceof Error ? error.message : String(error)
+    );
   }
 
   const projectRoot = resolveProjectRoot(options.cwd);
@@ -357,10 +361,15 @@ export function runEslint(options: EslintRunOptions): EslintRunResult {
     // Fallback: resolve `npx` through the user's bundled npm install to
     // bypass the Windows .cmd shim + shell-quoting issues.
     const resolved = resolveNpxInvocation([
-      '--package', `eslint@${ESLINT_PACKAGE_PINS.eslint}`,
-      '--package', `@typescript-eslint/parser@${ESLINT_PACKAGE_PINS.typescriptEslintParser}`,
-      '--package', `@typescript-eslint/eslint-plugin@${ESLINT_PACKAGE_PINS.typescriptEslintPlugin}`,
-      '--', 'eslint', ...args
+      '--package',
+      `eslint@${ESLINT_PACKAGE_PINS.eslint}`,
+      '--package',
+      `@typescript-eslint/parser@${ESLINT_PACKAGE_PINS.typescriptEslintParser}`,
+      '--package',
+      `@typescript-eslint/eslint-plugin@${ESLINT_PACKAGE_PINS.typescriptEslintPlugin}`,
+      '--',
+      'eslint',
+      ...args
     ]);
     command = resolved.command;
     invocationArgs = resolved.args;
@@ -375,7 +384,11 @@ export function runEslint(options: EslintRunOptions): EslintRunResult {
   }
 
   if (result.signal !== null && result.signal !== undefined) {
-    return emptyResult('execution-failed', start, typeof result.stdout === 'string' ? result.stdout : '');
+    return emptyResult(
+      'execution-failed',
+      start,
+      typeof result.stdout === 'string' ? result.stdout : ''
+    );
   }
 
   const stdout = typeof result.stdout === 'string' ? result.stdout : '';
@@ -385,16 +398,18 @@ export function runEslint(options: EslintRunOptions): EslintRunResult {
       const parsed = JSON.parse(stdout) as ReadonlyArray<EslintMessage>;
       for (const entry of parsed) {
         if (typeof entry !== 'object' || entry === null) continue;
-        const parentFile = typeof (entry as { filePath?: unknown }).filePath === 'string'
-          ? (entry as { filePath: string }).filePath
-          : '';
+        const parentFile =
+          typeof (entry as { filePath?: unknown }).filePath === 'string'
+            ? (entry as { filePath: string }).filePath
+            : '';
         const messages = Array.isArray((entry as { messages?: unknown[] }).messages)
           ? (entry as { messages: EslintMessage[] }).messages
           : [];
         for (const m of messages) {
           if (m === null || typeof m !== 'object') continue;
           findings.push({
-            filePath: typeof m.filePath === 'string' && m.filePath.length > 0 ? m.filePath : parentFile,
+            filePath:
+              typeof m.filePath === 'string' && m.filePath.length > 0 ? m.filePath : parentFile,
             line: typeof m.line === 'number' ? m.line : 0,
             column: typeof m.column === 'number' ? m.column : 0,
             ruleId: typeof m.ruleId === 'string' ? m.ruleId : null,
@@ -409,7 +424,11 @@ export function runEslint(options: EslintRunOptions): EslintRunResult {
   }
 
   if (result.status !== 0 && findings.length === 0) {
-    return emptyResult('eslint-missing', start, typeof result.stderr === 'string' ? result.stderr : stdout);
+    return emptyResult(
+      'eslint-missing',
+      start,
+      typeof result.stderr === 'string' ? result.stderr : stdout
+    );
   }
 
   // PRD-002b slice: incremental-first / no-touch-stockcode filters.

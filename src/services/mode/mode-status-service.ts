@@ -28,10 +28,7 @@ import { getCurrentSessionId, type SkillPresenceMode } from '../skills/skill-pre
 import { read24hState } from '../24h-mode/store.js';
 import type { State, State24hSnapshot } from '../24h-mode/state.js';
 import { readJobShapeDecision } from '../code/job-shape-decision.js';
-import {
-  AUTO_COMPACT_THRESHOLDS,
-  type AutoCompactMode
-} from '../code/auto-compact-modes.js';
+import { AUTO_COMPACT_THRESHOLDS, type AutoCompactMode } from '../code/auto-compact-modes.js';
 
 export interface ResolvedPresenceMode {
   readonly mode: SkillPresenceMode | null;

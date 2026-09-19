@@ -19,7 +19,11 @@ import { fail, ok } from 'peaks-loop-shared/result';
 import { addJsonOption, printResult, type ProgramIO } from '../cli-helpers.js';
 import type { SliceContract } from '../../services/dispatch/contract-store.js';
 
-function loadContractsForSlices(projectRoot: string, sessionId: string, sliceIds: readonly string[]): SliceContract[] {
+function loadContractsForSlices(
+  projectRoot: string,
+  sessionId: string,
+  sliceIds: readonly string[]
+): SliceContract[] {
   // Sid axis: `--session-id` reaches this join unmodified.
   if (isUnsafePathInput(sessionId)) {
     throw new Error(`Invalid session id: ${sessionId} (must be a single path segment)`);
@@ -41,7 +45,9 @@ function loadContractsForSlices(projectRoot: string, sessionId: string, sliceIds
     // it is that rule's limit (m). The guard is real; the coverage is not
     // claimed.
     if (!SLICE_ID_PATTERN.test(sliceId)) {
-      console.warn(`loadContractsForSlices: skipping invalid slice id ${JSON.stringify(sliceId)} (must be a single filename segment)`);
+      console.warn(
+        `loadContractsForSlices: skipping invalid slice id ${JSON.stringify(sliceId)} (must be a single filename segment)`
+      );
       continue;
     }
     const file = join(dir, `${sliceId}.json`);
@@ -51,7 +57,9 @@ function loadContractsForSlices(projectRoot: string, sessionId: string, sliceIds
       result.push(JSON.parse(raw) as SliceContract);
     } catch (err) {
       // skip malformed contracts but warn (silent-warning-detector)
-      console.warn(`loadContractsForSlices: skipping malformed contract at ${file}: ${(err as Error).message}`);
+      console.warn(
+        `loadContractsForSlices: skipping malformed contract at ${file}: ${(err as Error).message}`
+      );
     }
   }
   return result;
@@ -74,29 +82,57 @@ export function registerSliceIntegrateCommands(program: Command, io: ProgramIO):
   ).action((opts: { slices: string; sessionId?: string; project?: string; json?: boolean }) => {
     const projectRoot = opts.project ?? resolve(process.cwd());
     const sessionId = opts.sessionId ?? getCurrentSessionId(projectRoot) ?? 'unknown-sid';
-    const sliceIds = opts.slices.split(',').map((s) => s.trim()).filter((s) => s.length > 0);
+    const sliceIds = opts.slices
+      .split(',')
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0);
     if (sliceIds.length < 2) {
-      printResult(io, fail('slice-integrate', 'TOO_FEW_SLICES', 'need at least 2 slice ids to verify integration', { projectRoot, sessionId, sliceIds }, [
-        'Pass --slices id1,id2,id3 (at least 2).'
-      ]), opts.json ?? false);
+      printResult(
+        io,
+        fail(
+          'slice-integrate',
+          'TOO_FEW_SLICES',
+          'need at least 2 slice ids to verify integration',
+          { projectRoot, sessionId, sliceIds },
+          ['Pass --slices id1,id2,id3 (at least 2).']
+        ),
+        opts.json ?? false
+      );
       process.exitCode = 1;
       return;
     }
     const contracts = loadContractsForSlices(projectRoot, sessionId, sliceIds);
     if (contracts.length === 0) {
-      printResult(io, fail('slice-integrate', 'NO_CONTRACTS', `no contracts found for the given slice ids under session ${sessionId}`, { projectRoot, sessionId, sliceIds }, [
-        'Run `peaks contract write` first, or check --session-id.'
-      ]), opts.json ?? false);
+      printResult(
+        io,
+        fail(
+          'slice-integrate',
+          'NO_CONTRACTS',
+          `no contracts found for the given slice ids under session ${sessionId}`,
+          { projectRoot, sessionId, sliceIds },
+          ['Run `peaks contract write` first, or check --session-id.']
+        ),
+        opts.json ?? false
+      );
       process.exitCode = 1;
       return;
     }
     const report = integrateSlices({ contracts });
-    printResult(io, ok('slice-integrate', { projectRoot, sessionId, report }, [], report.ok
-      ? []
-      : [
-        `${report.summary.errors} integration error(s) found.`,
-        'Address duplicate exports / signature drift before merging slices.'
-      ]), opts.json ?? false);
+    printResult(
+      io,
+      ok(
+        'slice-integrate',
+        { projectRoot, sessionId, report },
+        [],
+        report.ok
+          ? []
+          : [
+              `${report.summary.errors} integration error(s) found.`,
+              'Address duplicate exports / signature drift before merging slices.'
+            ]
+      ),
+      opts.json ?? false
+    );
     if (!report.ok) process.exitCode = 1;
   });
 }

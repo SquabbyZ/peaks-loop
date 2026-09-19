@@ -20,7 +20,11 @@ import type { Command } from 'commander';
 
 import { addJsonOption, type ProgramIO } from '../cli-helpers.js';
 import { resolveCanonicalProjectRoot } from '../../services/config/config-service.js';
-import { planV2ToV11Migration, applyV2ToV11Migration, dryRunV2ToV11Migration } from '../../services/migration/v2-10-to-v2-11-service.js';
+import {
+  planV2ToV11Migration,
+  applyV2ToV11Migration,
+  dryRunV2ToV11Migration
+} from '../../services/migration/v2-10-to-v2-11-service.js';
 import { ok, fail, type ResultEnvelope } from 'peaks-loop-shared/result';
 
 type MigrateV2ToV11Options = {
@@ -34,7 +38,7 @@ export function registerMigrateV2ToV11Command(workspace: Command, io: ProgramIO)
     workspace
       .command('migrate-v2-10-to-v2-11')
       .description(
-        'v2.11.0 Group E (Tier 8): prepend a YAML deprecation banner to every pre-v2.11.0 session\'s ' +
+        "v2.11.0 Group E (Tier 8): prepend a YAML deprecation banner to every pre-v2.11.0 session's " +
           '`rd/tech-doc.md` file. Marks them `deprecated: historical` and points to the new peaks-prd ' +
           'handoff as the source of truth. Text-only — no file moves. Default: dry-run; pass `--apply` ' +
           'to actually write. Idempotent: re-running on an already-migrated tree is a no-op. Different ' +
@@ -42,7 +46,11 @@ export function registerMigrateV2ToV11Command(workspace: Command, io: ProgramIO)
           'move files, only prepends the banner.'
       )
       .requiredOption('--project <path>', 'target project root')
-      .option('--apply', 'actually prepend the deprecation banner to each `rd/tech-doc.md` (idempotent); without it, dry-run only', false)
+      .option(
+        '--apply',
+        'actually prepend the deprecation banner to each `rd/tech-doc.md` (idempotent); without it, dry-run only',
+        false
+      )
   ).action(async (options: MigrateV2ToV11Options) => {
     try {
       const projectRoot = resolveCanonicalProjectRoot(options.project);
@@ -50,14 +58,23 @@ export function registerMigrateV2ToV11Command(workspace: Command, io: ProgramIO)
       const result = apply
         ? applyV2ToV11Migration(planV2ToV11Migration(projectRoot))
         : dryRunV2ToV11Migration(projectRoot);
-      const envelope: ResultEnvelope<typeof result> = ok('workspace.migrate-v2-10-to-v2-11', result);
+      const envelope: ResultEnvelope<typeof result> = ok(
+        'workspace.migrate-v2-10-to-v2-11',
+        result
+      );
       io.stdout(`${JSON.stringify(envelope, null, 2)}\n`);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
-      const envelope = fail('workspace.migrate-v2-10-to-v2-11', 'MIGRATE_V2_10_TO_V2_11_FAILED', message, null, [
-        'Run with --apply to attempt the deprecation banner write (default is dry-run only)',
-        'Verify the project path exists and contains at least one .peaks/_runtime/<sid>/rd/tech-doc.md'
-      ]);
+      const envelope = fail(
+        'workspace.migrate-v2-10-to-v2-11',
+        'MIGRATE_V2_10_TO_V2_11_FAILED',
+        message,
+        null,
+        [
+          'Run with --apply to attempt the deprecation banner write (default is dry-run only)',
+          'Verify the project path exists and contains at least one .peaks/_runtime/<sid>/rd/tech-doc.md'
+        ]
+      );
       io.stdout(`${JSON.stringify(envelope, null, 2)}\n`);
       process.exitCode = 1;
     }

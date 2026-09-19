@@ -15,7 +15,7 @@ if (typeof version !== 'string' || version.length === 0) {
 // consumers; we always emit the main peaks-loop version.
 writeFileSync(
   resolve('packages/peaks-loop-shared/src/version.ts'),
-  `export const CLI_VERSION = ${JSON.stringify(version)};\n`,
+  `export const CLI_VERSION = ${JSON.stringify(version)};\n`
 );
 
 // Slice 2026-09-11 (runtime-version-lockstep) — sync RUNTIME_VERSION.
@@ -102,4 +102,3 @@ for (const ext of ['js', 'd.ts', 'd.ts.map']) {
 // that a stale packages/peaks-loop-shared/dist/version.js is
 // actually removed. If you need the unlink pinned, that test has
 // to be written — the one named here no longer exists.
-

@@ -23,47 +23,68 @@ export function registerDashboardSummaryCommand(dashboard: Command, io: ProgramI
     .option('--project <path>', 'project root (defaults to current directory)')
     .option('--session-id <sessionId>', 'explicit session id (defaults to canonical binding)')
     .option('--json', 'emit machine-readable JSON', false)
-    .action(async (options: { since?: string; project?: string; sessionId?: string; json?: boolean }) => {
-      const projectRoot = resolveCanonicalProjectRoot(options.project ?? process.cwd());
-      const parsed = parseSince(options.since ?? '24h');
-      if (!parsed.ok) {
-        io.stdout((options.json === true
-          ? JSON.stringify({ ok: false, code: 'INVALID_SINCE', message: parsed.error })
-          : `${parsed.error}\n`) + '\n');
-        process.exitCode = 1;
-        return;
+    .action(
+      async (options: { since?: string; project?: string; sessionId?: string; json?: boolean }) => {
+        const projectRoot = resolveCanonicalProjectRoot(options.project ?? process.cwd());
+        const parsed = parseSince(options.since ?? '24h');
+        if (!parsed.ok) {
+          io.stdout(
+            (options.json === true
+              ? JSON.stringify({ ok: false, code: 'INVALID_SINCE', message: parsed.error })
+              : `${parsed.error}\n`) + '\n'
+          );
+          process.exitCode = 1;
+          return;
+        }
+        const since = new Date(Date.now() - parsed.ms);
+        let sid: string | null = options.sessionId ?? null;
+        if (!sid) {
+          const { getSessionIdCanonical } =
+            await import('../../services/session/session-manager.js');
+          sid = await getSessionIdCanonical(projectRoot);
+        }
+        if (!sid) {
+          io.stdout(
+            options.json === true
+              ? JSON.stringify({
+                  ok: false,
+                  code: 'NO_ACTIVE_SESSION',
+                  message: 'no --session-id and no canonical binding'
+                })
+              : 'NO_ACTIVE_SESSION: no --session-id and no canonical binding\n'
+          );
+          process.exitCode = 1;
+          return;
+        }
+        try {
+          const metrics = aggregateDashboardMetrics(projectRoot, sid, since);
+          const payload = {
+            ok: true,
+            data: {
+              sessionId: sid,
+              since: options.since ?? '24h',
+              sinceMs: parsed.ms,
+              windowStart: since.toISOString(),
+              metrics
+            }
+          };
+          io.stdout(
+            (options.json === true
+              ? JSON.stringify(payload)
+              : JSON.stringify(payload.data, null, 2)) + '\n'
+          );
+        } catch (error) {
+          io.stdout(
+            (options.json === true
+              ? JSON.stringify({
+                  ok: false,
+                  code: 'SUMMARY_READ_FAILED',
+                  message: getErrorMessage(error)
+                })
+              : `SUMMARY_READ_FAILED: ${getErrorMessage(error)}\n`) + '\n'
+          );
+          process.exitCode = 1;
+        }
       }
-      const since = new Date(Date.now() - parsed.ms);
-      let sid: string | null = options.sessionId ?? null;
-      if (!sid) {
-        const { getSessionIdCanonical } = await import('../../services/session/session-manager.js');
-        sid = await getSessionIdCanonical(projectRoot);
-      }
-      if (!sid) {
-        io.stdout((options.json === true
-          ? JSON.stringify({ ok: false, code: 'NO_ACTIVE_SESSION', message: 'no --session-id and no canonical binding' })
-          : 'NO_ACTIVE_SESSION: no --session-id and no canonical binding\n'));
-        process.exitCode = 1;
-        return;
-      }
-      try {
-        const metrics = aggregateDashboardMetrics(projectRoot, sid, since);
-        const payload = {
-          ok: true,
-          data: {
-            sessionId: sid,
-            since: options.since ?? '24h',
-            sinceMs: parsed.ms,
-            windowStart: since.toISOString(),
-            metrics
-          }
-        };
-        io.stdout((options.json === true ? JSON.stringify(payload) : JSON.stringify(payload.data, null, 2)) + '\n');
-      } catch (error) {
-        io.stdout((options.json === true
-          ? JSON.stringify({ ok: false, code: 'SUMMARY_READ_FAILED', message: getErrorMessage(error) })
-          : `SUMMARY_READ_FAILED: ${getErrorMessage(error)}\n`) + '\n');
-        process.exitCode = 1;
-      }
-    });
+    );
 }

@@ -125,11 +125,7 @@ export {
   repairCodegraphExclude,
   repairCodegraphInclude
 };
-export type {
-  CodegraphConfigRepairOutcome,
-  CodegraphConfigRepairPlan,
-  CodegraphExcludeRepairPlan
-};
+export type { CodegraphConfigRepairOutcome, CodegraphConfigRepairPlan, CodegraphExcludeRepairPlan };
 
 // ─────────────────────────────────────────────────────────────────────
 // Reconcile → repair → reindex, as one never-throwing step
@@ -412,8 +408,7 @@ export async function repairCodegraphExcludeFromProject(
   // pass runs only on the one run per project that actually widens
   // `include`, where a repair is about to spend seconds rebuilding an index.
   const includeFilesRecovered = includePlan.changed
-    ? includeAdmittedAfter -
-      filterAdmittedTrackedFiles(trackedFiles, config.include).length
+    ? includeAdmittedAfter - filterAdmittedTrackedFiles(trackedFiles, config.include).length
     : 0;
 
   const nothingToRepair =

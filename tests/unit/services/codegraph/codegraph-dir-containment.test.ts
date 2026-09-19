@@ -53,7 +53,7 @@ import {
   readFileSync,
   rmSync,
   symlinkSync,
-  writeFileSync,
+  writeFileSync
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -63,14 +63,14 @@ import { declareDimensions } from '../../_setup/4dim-template.js';
 import {
   CODEGRAPH_CONFIG_BACKUP_SUFFIX,
   applyCodegraphConfigRepair,
-  repairCodegraphExcludeFromProject,
+  repairCodegraphExcludeFromProject
 } from '../../../../src/services/codegraph/codegraph-exclude-repair.js';
 import { assertCodegraphDirContained } from '../../../../src/services/codegraph/codegraph-service.js';
 
 declareDimensions(
   'tests/unit/services/codegraph/codegraph-dir-containment.test.ts',
   ['behavior', 'integration', 'render'],
-  [{ dim: 'a11y', reason: 'the refusal surfaces as a named warning field on the report envelope' }],
+  [{ dim: 'a11y', reason: 'the refusal surfaces as a named warning field on the report envelope' }]
 );
 
 const cleanups: string[] = [];
@@ -250,10 +250,12 @@ describe('applyCodegraphConfigRepair — the .codegraph DIRECTORY is contained',
 
     expect(outcome.applied).toBe(true);
     const configPath = configPathOf(projectRoot);
-    expect(readFileSync(`${configPath}${CODEGRAPH_CONFIG_BACKUP_SUFFIX}`, 'utf8')).toBe(CONFIG_TEXT);
+    expect(readFileSync(`${configPath}${CODEGRAPH_CONFIG_BACKUP_SUFFIX}`, 'utf8')).toBe(
+      CONFIG_TEXT
+    );
     expect(JSON.parse(readFileSync(configPath, 'utf8'))).toEqual({
       include: ['**/*.ts', '**/*.mjs'],
-      exclude: ['**/dist/**'],
+      exclude: ['**/dist/**']
     });
   });
 
@@ -272,11 +274,11 @@ describe('applyCodegraphConfigRepair — the .codegraph DIRECTORY is contained',
     expect(outcome.applied).toBe(true);
     expect(JSON.parse(readFileSync(join(derivedDir, 'config.json'), 'utf8'))).toEqual({
       include: ['**/*.ts', '**/*.mjs'],
-      exclude: ['**/dist/**'],
+      exclude: ['**/dist/**']
     });
-    expect(readFileSync(`${join(derivedDir, 'config.json')}${CODEGRAPH_CONFIG_BACKUP_SUFFIX}`, 'utf8')).toBe(
-      CONFIG_TEXT
-    );
+    expect(
+      readFileSync(`${join(derivedDir, 'config.json')}${CODEGRAPH_CONFIG_BACKUP_SUFFIX}`, 'utf8')
+    ).toBe(CONFIG_TEXT);
   });
 });
 

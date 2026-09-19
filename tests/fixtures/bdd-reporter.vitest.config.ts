@@ -21,6 +21,6 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig({
   root: resolve(dirname(fileURLToPath(import.meta.url))),
   test: {
-    include: ['bdd-reporter-tmp/**/*.test.ts'],
-  },
+    include: ['bdd-reporter-tmp/**/*.test.ts']
+  }
 });

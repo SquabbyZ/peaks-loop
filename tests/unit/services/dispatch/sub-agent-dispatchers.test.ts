@@ -41,16 +41,22 @@ import {
   nullSubAgentDispatcher,
   SubAgentNotSupportedError,
   traeSubAgentDispatcher,
-  type SubAgentDispatcher,
+  type SubAgentDispatcher
 } from '../../../../src/services/dispatch/sub-agent-dispatcher.js';
 
 declareDimensions(
   'tests/unit/services/dispatch/sub-agent-dispatchers.test.ts',
   ['behavior', 'integration'],
   [
-    { dim: 'render', reason: 'the CLI envelope wrapping these results is asserted in the CLI test suite' },
-    { dim: 'a11y', reason: 'the single human-facing string is the typed refusal, asserted as text under behavior' },
-  ],
+    {
+      dim: 'render',
+      reason: 'the CLI envelope wrapping these results is asserted in the CLI test suite'
+    },
+    {
+      dim: 'a11y',
+      reason: 'the single human-facing string is the typed refusal, asserted as text under behavior'
+    }
+  ]
 );
 
 const tmpDirs: string[] = [];
@@ -79,14 +85,14 @@ const TOOL_CALL_DISPATCHERS: ReadonlyArray<readonly [string, SubAgentDispatcher]
   ['claude-code', claudeCodeSubAgentDispatcher],
   ['trae', traeSubAgentDispatcher],
   ['codex', codexSubAgentDispatcher],
-  ['cursor', cursorSubAgentDispatcher],
+  ['cursor', cursorSubAgentDispatcher]
 ];
 
 /** The three that carry a per-IDE `awaitBatch` note prefix. */
 const PREFIXED: ReadonlyArray<readonly [string, string, SubAgentDispatcher]> = [
   ['trae', 'trae 1.3 real awaitBatch', traeSubAgentDispatcher],
   ['codex', 'codex 1.3 real awaitBatch', codexSubAgentDispatcher],
-  ['cursor', 'cursor 1.3 real awaitBatch', cursorSubAgentDispatcher],
+  ['cursor', 'cursor 1.3 real awaitBatch', cursorSubAgentDispatcher]
 ];
 
 describe('Scenario: behavior — every dispatcher announces itself and accepts a role', () => {
@@ -114,7 +120,12 @@ describe('Scenario: behavior — every dispatcher announces itself and accepts a
     // when / then: both methods refuse, with the code the CLI branches on
     let fromToolCall: unknown;
     try {
-      nullSubAgentDispatcher.buildToolCall({ role: 'rd', prompt: 'p', requestId: 'r', sessionId: 's' });
+      nullSubAgentDispatcher.buildToolCall({
+        role: 'rd',
+        prompt: 'p',
+        requestId: 'r',
+        sessionId: 's'
+      });
     } catch (error) {
       fromToolCall = error;
     }
@@ -122,7 +133,7 @@ describe('Scenario: behavior — every dispatcher announces itself and accepts a
     expect((fromToolCall as SubAgentNotSupportedError).code).toBe('IDE_NOT_SUPPORTED');
 
     await expect(
-      nullSubAgentDispatcher.awaitBatch?.({ batchId: 'b', dispatchCount: 1, recordPaths: ['x'] }),
+      nullSubAgentDispatcher.awaitBatch?.({ batchId: 'b', dispatchCount: 1, recordPaths: ['x'] })
     ).rejects.toBeInstanceOf(SubAgentNotSupportedError);
   });
 });
@@ -130,7 +141,12 @@ describe('Scenario: behavior — every dispatcher announces itself and accepts a
 describe('Scenario: behavior — the four tool-call shapes agree, and carry the request through', () => {
   it('when the same input is handed to every dispatcher, should produce the same tool call', () => {
     // given: one dispatch, asked of all four
-    const input = { role: 'qa', prompt: 'verify the slice', requestId: 'rid-1', sessionId: 'sid-1' };
+    const input = {
+      role: 'qa',
+      prompt: 'verify the slice',
+      requestId: 'rid-1',
+      sessionId: 'sid-1'
+    };
     const [firstLabel, first] = TOOL_CALL_DISPATCHERS[0] as readonly [string, SubAgentDispatcher];
     const expected = first.buildToolCall(input);
 
@@ -151,20 +167,25 @@ describe('Scenario: behavior — the four tool-call shapes agree, and carry the 
       role: 'rd',
       prompt: 'do the thing',
       requestId: 'rid-9',
-      sessionId: 'sid-9',
+      sessionId: 'sid-9'
     });
     expect(call.name).toBe('Task');
     expect(call.args).toEqual({
       subagent_type: 'general-purpose',
       description: 'rd for rid=rid-9',
-      prompt: 'do the thing',
+      prompt: 'do the thing'
     });
     // and: the arg-shape version is stamped (a future IDE version can detect a
     // record written by this one). Codex omitted; trae omitted — see the
     // divergence case below.
-    expect(claudeCodeSubAgentDispatcher.buildToolCall({
-      role: 'rd', prompt: 'p', requestId: 'r', sessionId: 's',
-    }).toolCallVersion).toBe('2.0.0');
+    expect(
+      claudeCodeSubAgentDispatcher.buildToolCall({
+        role: 'rd',
+        prompt: 'p',
+        requestId: 'r',
+        sessionId: 's'
+      }).toolCallVersion
+    ).toBe('2.0.0');
   });
 
   it('when the session id is dropped, should not leak it into the description', () => {
@@ -172,7 +193,10 @@ describe('Scenario: behavior — the four tool-call shapes agree, and carry the 
     // ABSENCE matters: a session id in the description is how a sub-agent
     // envelope would carry state it was never meant to carry.
     const call = codexSubAgentDispatcher.buildToolCall({
-      role: 'ui', prompt: 'p', requestId: 'rid-2', sessionId: 'sid-secret',
+      role: 'ui',
+      prompt: 'p',
+      requestId: 'rid-2',
+      sessionId: 'sid-secret'
     });
     expect(call.args.description).toBe('ui for rid=rid-2');
     expect(JSON.stringify(call.args)).not.toContain('sid-secret');
@@ -185,9 +209,9 @@ describe('Scenario: behavior — the four tool-call shapes agree, and carry the 
     // shape wrote this" signal. Named per dispatcher so a drop is attributable
     // rather than a count that stayed right by accident.
     const input = { role: 'rd', prompt: 'p', requestId: 'r', sessionId: 's' };
-    const unstamped = TOOL_CALL_DISPATCHERS
-      .filter(([, d]) => d.buildToolCall(input).toolCallVersion !== '2.0.0')
-      .map(([label]) => label);
+    const unstamped = TOOL_CALL_DISPATCHERS.filter(
+      ([, d]) => d.buildToolCall(input).toolCallVersion !== '2.0.0'
+    ).map(([label]) => label);
     expect(unstamped).toEqual([]);
     expect(claudeCodeSubAgentDispatcher.buildToolCall(input).toolCallVersion).toBe('2.0.0');
   });
@@ -204,7 +228,7 @@ describe('Scenario: integration — the three non-Claude awaitBatch calls attrib
         batchId: 'b',
         dispatchCount: 1,
         recordPaths: [missing],
-        timeoutMs: 0,
+        timeoutMs: 0
       });
 
       // then: one slot, timed out, labelled with THIS IDE — the whole reason
@@ -222,7 +246,7 @@ describe('Scenario: integration — the three non-Claude awaitBatch calls attrib
         batchId: 'b',
         dispatchCount: 1,
         recordPaths: [record],
-        timeoutMs: 5_000,
+        timeoutMs: 5_000
       });
       expect(results?.[0]?.status).toBe('done');
       // done carries a bare prefix — no outcome suffix to explain
@@ -235,7 +259,7 @@ describe('Scenario: integration — the three non-Claude awaitBatch calls attrib
         batchId: 'b',
         dispatchCount: 1,
         recordPaths: [record],
-        timeoutMs: 5_000,
+        timeoutMs: 5_000
       });
       expect(results?.[0]?.status).toBe('failed');
       expect(results?.[0]?.note).toBe(`${prefix} — leaf-2 died`);
@@ -250,7 +274,7 @@ describe('Scenario: integration — the three non-Claude awaitBatch calls attrib
         batchId: 'b',
         dispatchCount: 1,
         recordPaths: [record],
-        timeoutMs: 5_000,
+        timeoutMs: 5_000
       });
       expect(results?.[0]?.status).toBe('timeout');
       expect(results?.[0]?.note).toBe(`${prefix} — stale`);
@@ -266,7 +290,7 @@ describe('Scenario: integration — the three non-Claude awaitBatch calls attrib
       batchId: 'b',
       dispatchCount: 1,
       recordPaths: [join(makeTmpDir(), 'never-written.json')],
-      timeoutMs: 0,
+      timeoutMs: 0
     });
     expect(results?.[0]?.status).toBe('timeout');
     expect(results?.[0]?.note).toBeNull();
@@ -280,7 +304,7 @@ describe('Scenario: integration — the three non-Claude awaitBatch calls attrib
     const results = await codexSubAgentDispatcher.awaitBatch?.({
       batchId: 'b',
       dispatchCount: 1,
-      recordPaths: [],
+      recordPaths: []
     });
     expect(results).toEqual([]);
   });
@@ -295,7 +319,7 @@ describe('Scenario: integration — the three non-Claude awaitBatch calls attrib
       batchId: 'b',
       dispatchCount: 1,
       recordPaths: [path],
-      timeoutMs: 0,
+      timeoutMs: 0
     });
     expect(results?.[0]?.status).toBe('timeout');
   });
@@ -319,7 +343,7 @@ describe('Scenario: integration — each adapter fans out through the dispatcher
       openclaw: 'trae',
       qoder: 'trae',
       'tongyi-lingma': 'trae',
-      zcode: 'null',
+      zcode: 'null'
     });
   });
 
@@ -332,7 +356,7 @@ describe('Scenario: integration — each adapter fans out through the dispatcher
       batchId: 'b',
       dispatchCount: 1,
       recordPaths: [join(makeTmpDir(), 'never-written.json')],
-      timeoutMs: 0,
+      timeoutMs: 0
     });
     expect(results?.[0]?.note).toBe('codex 1.3 real awaitBatch (timeout)');
   });
@@ -354,7 +378,7 @@ describe('Scenario: integration — each adapter fans out through the dispatcher
           batchId: 'b',
           dispatchCount: 1,
           recordPaths: [join(makeTmpDir(), 'never-written.json')],
-          timeoutMs: 0,
+          timeoutMs: 0
         });
       } catch {
         continue; // null dispatcher refuses — not a stale note
@@ -367,5 +391,4 @@ describe('Scenario: integration — each adapter fans out through the dispatcher
     }
     expect(stale).toEqual([]);
   });
-
 });

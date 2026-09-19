@@ -21,15 +21,21 @@ import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 const HOOK = resolve(
-  __dirname, '..', '..', '..',
-  'src', 'services', 'hooks', 'pre-tool-superpowers-bridge.sh'
+  __dirname,
+  '..',
+  '..',
+  '..',
+  'src',
+  'services',
+  'hooks',
+  'pre-tool-superpowers-bridge.sh'
 );
 
 const NEW_SKILLS: ReadonlyArray<string> = [
   'systematic-debugging',
   'test-driven-development',
   'verification-before-completion',
-  'using-superpowers',
+  'using-superpowers'
 ];
 
 function runBridge(payload: string): { status: number | null; stdout: string; stderr: string } {
@@ -45,12 +51,12 @@ function runBridge(payload: string): { status: number | null; stdout: string; st
     encoding: 'utf8',
     // Git Bash (MSYS2) is a console app: without this, Windows allocates a
     // console window for each of the four cases below.
-    windowsHide: true,
+    windowsHide: true
   });
   return {
     status: result.status,
     stdout: result.stdout ?? '',
-    stderr: result.stderr ?? '',
+    stderr: result.stderr ?? ''
   };
 }
 

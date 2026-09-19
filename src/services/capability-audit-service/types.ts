@@ -7,7 +7,11 @@ export type AuditEvidenceKind = 'guard-run' | 'independent-eval' | 'karpathy-cro
 export interface AuditDimension {
   readonly journeyId: JourneyId;
   readonly consistencyScore: number;
-  readonly evidence: ReadonlyArray<{ readonly kind: AuditEvidenceKind; readonly ref: string; readonly summary: string }>;
+  readonly evidence: ReadonlyArray<{
+    readonly kind: AuditEvidenceKind;
+    readonly ref: string;
+    readonly summary: string;
+  }>;
 }
 
 export interface CrossCheck {

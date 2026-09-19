@@ -89,11 +89,13 @@ export const MEMORY_KIND_TIER: Record<ProjectMemoryKind, MemoryKindTier> = {
   sediment: 'warm'
 };
 
-export const HOT_MEMORY_KINDS: readonly ProjectMemoryKind[] =
-  PROJECT_MEMORY_KINDS.filter((kind) => MEMORY_KIND_TIER[kind] === 'hot');
+export const HOT_MEMORY_KINDS: readonly ProjectMemoryKind[] = PROJECT_MEMORY_KINDS.filter(
+  (kind) => MEMORY_KIND_TIER[kind] === 'hot'
+);
 
-export const WARM_MEMORY_KINDS: readonly ProjectMemoryKind[] =
-  PROJECT_MEMORY_KINDS.filter((kind) => MEMORY_KIND_TIER[kind] === 'warm');
+export const WARM_MEMORY_KINDS: readonly ProjectMemoryKind[] = PROJECT_MEMORY_KINDS.filter(
+  (kind) => MEMORY_KIND_TIER[kind] === 'warm'
+);
 
 export type ExtractedProjectMemory = {
   title: string;

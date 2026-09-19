@@ -3,7 +3,15 @@
 // injected `~/.peaks/agents/ecc`-shaped target and NEVER under a
 // `~/.claude`-shaped path, and that every failure mode is fail-soft.
 
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, sep } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -33,7 +41,12 @@ function writeCache(root: string, agents: Record<string, string>): string {
   mkdirSync(agentsDir, { recursive: true });
   writeFileSync(
     join(cacheDir, 'ecc-installed.json'),
-    JSON.stringify({ version: '1', sha: SHA, fetchedAt: new Date().toISOString(), agents: Object.keys(agents) })
+    JSON.stringify({
+      version: '1',
+      sha: SHA,
+      fetchedAt: new Date().toISOString(),
+      agents: Object.keys(agents)
+    })
   );
   for (const [name, body] of Object.entries(agents)) {
     writeFileSync(join(agentsDir, `${name}.md`), body);
@@ -61,7 +74,9 @@ describe('materializeEccAgents', () => {
 
     expect(result.sha).toBe(SHA);
     expect(result.materialized).toEqual(['code-review', 'security-review']);
-    expect(readFileSync(join(targetDir, 'code-review.md'), 'utf8')).toContain('body of code-review');
+    expect(readFileSync(join(targetDir, 'code-review.md'), 'utf8')).toContain(
+      'body of code-review'
+    );
     expect(readMaterializedAgent('code-review', targetDir)).toContain('body of code-review');
     expect(hasMaterializedEccAgents(targetDir)).toBe(true);
     expect(listMaterializedAgents(targetDir)).toEqual(['code-review', 'security-review']);
@@ -104,7 +119,12 @@ describe('materializeEccAgents', () => {
     mkdirSync(cacheDir, { recursive: true });
     writeFileSync(
       join(cacheDir, 'ecc-installed.json'),
-      JSON.stringify({ version: '1', sha: SHA, fetchedAt: new Date().toISOString(), agents: ['code-review'] })
+      JSON.stringify({
+        version: '1',
+        sha: SHA,
+        fetchedAt: new Date().toISOString(),
+        agents: ['code-review']
+      })
     );
     const result = materializeEccAgents({ cacheDir, targetDir: join(root, 'target') });
     expect(result.sha).toBeNull();
@@ -137,7 +157,9 @@ describe('materializeEccAgents', () => {
 
     expect(listMaterializedAgents(targetDir)).toEqual(['code-reviewer', 'security-reviewer']);
     expect(readMaterializedAgent('code-review', targetDir)).toBeNull();
-    expect(resolveMaterializedAgentName(['code-reviewer', 'code-review'], targetDir)).toBe('code-reviewer');
+    expect(resolveMaterializedAgentName(['code-reviewer', 'code-review'], targetDir)).toBe(
+      'code-reviewer'
+    );
   });
 
   it('prefers the caller candidate order when both names are materialized', () => {
@@ -146,8 +168,12 @@ describe('materializeEccAgents', () => {
     const targetDir = join(root, 'target');
     materializeEccAgents({ cacheDir, targetDir });
 
-    expect(resolveMaterializedAgentName(['code-reviewer', 'code-review'], targetDir)).toBe('code-reviewer');
-    expect(resolveMaterializedAgentName(['code-review', 'code-reviewer'], targetDir)).toBe('code-review');
+    expect(resolveMaterializedAgentName(['code-reviewer', 'code-review'], targetDir)).toBe(
+      'code-reviewer'
+    );
+    expect(resolveMaterializedAgentName(['code-review', 'code-reviewer'], targetDir)).toBe(
+      'code-review'
+    );
   });
 
   it('keeps backward compatibility when only the legacy `code-review` exists', () => {
@@ -156,7 +182,9 @@ describe('materializeEccAgents', () => {
     const targetDir = join(root, 'target');
     materializeEccAgents({ cacheDir, targetDir });
 
-    expect(resolveMaterializedAgentName(['code-reviewer', 'code-review'], targetDir)).toBe('code-review');
+    expect(resolveMaterializedAgentName(['code-reviewer', 'code-review'], targetDir)).toBe(
+      'code-review'
+    );
   });
 
   it('falls back deterministically to a `code-*reviewer` agent when no candidate matches verbatim', () => {
@@ -165,7 +193,9 @@ describe('materializeEccAgents', () => {
     const targetDir = join(root, 'target');
     materializeEccAgents({ cacheDir, targetDir });
 
-    expect(resolveMaterializedAgentName(['code-reviewer', 'code-review'], targetDir)).toBe('code-quality-reviewer');
+    expect(resolveMaterializedAgentName(['code-reviewer', 'code-review'], targetDir)).toBe(
+      'code-quality-reviewer'
+    );
   });
 
   it('returns null when nothing matches, so the caller can degrade to inline', () => {

@@ -55,8 +55,8 @@ function runCli(args: readonly string[], cwd: string): RunResult {
   } catch (err: unknown) {
     const e = err as { stdout?: Buffer | string; stderr?: Buffer | string; status?: number };
     return {
-      stdout: (typeof e.stdout === 'string' ? e.stdout : e.stdout?.toString('utf8') ?? ''),
-      stderr: (typeof e.stderr === 'string' ? e.stderr : e.stderr?.toString('utf8') ?? ''),
+      stdout: typeof e.stdout === 'string' ? e.stdout : (e.stdout?.toString('utf8') ?? ''),
+      stderr: typeof e.stderr === 'string' ? e.stderr : (e.stderr?.toString('utf8') ?? ''),
       code: e.status ?? 1
     };
   }
@@ -124,15 +124,23 @@ describe('peaks sub-agent dispatch rd (P1-7 e2e)', () => {
     const requestId = '2026-07-25-p1-7-sub-agent-dispatch-e2e';
     const prompt = 'p1-7 e2e probe — verify tool-call envelope + on-disk record';
 
-    const r = runCli([
-      'rd',
-      '--prompt', prompt,
-      '--request-id', requestId,
-      '--session-id', sessionId,
-      '--project', project,
-      '--graph-node', 'n1',
-      '--json'
-    ], project);
+    const r = runCli(
+      [
+        'rd',
+        '--prompt',
+        prompt,
+        '--request-id',
+        requestId,
+        '--session-id',
+        sessionId,
+        '--project',
+        project,
+        '--graph-node',
+        'n1',
+        '--json'
+      ],
+      project
+    );
 
     expect(r.code).toBe(0);
     expect(r.stderr).toBe('');
@@ -177,7 +185,10 @@ describe('peaks sub-agent dispatch rd (P1-7 e2e)', () => {
     // ── 3. active-dispatches.json sidecar contains the batchId ─────────────
     const sidecarPath = join(project, '.peaks', '_sub_agents', sessionId, 'active-dispatches.json');
     expect(existsSync(sidecarPath)).toBe(true);
-    const sidecar = JSON.parse(readFileSync(sidecarPath, 'utf8')) as Record<string, ActiveDispatchEntry>;
+    const sidecar = JSON.parse(readFileSync(sidecarPath, 'utf8')) as Record<
+      string,
+      ActiveDispatchEntry
+    >;
     const batchIds = Object.values(sidecar).map((e) => e.batchId);
     expect(batchIds).toContain(env.data.batchId);
   });
@@ -195,25 +206,46 @@ describe('peaks sub-agent dispatch rd (P1-7 e2e)', () => {
     // Initialise a real git repo so `peaks worktree spawn` (which runs
     // `git worktree add`) succeeds. commit-1 / commit-2 give it some
     // history.
-    execFileSync('git', ['init', '-q', '-b', 'main', project], { stdio: 'pipe', windowsHide: true });
-    execFileSync('git', ['-C', project, 'config', 'user.email', 'p2c@test'], { stdio: 'pipe', windowsHide: true });
-    execFileSync('git', ['-C', project, 'config', 'user.name', 'p2c'], { stdio: 'pipe', windowsHide: true });
-    execFileSync('git', ['-C', project, 'commit', '--allow-empty', '-m', 'init', '-q'], { stdio: 'pipe', windowsHide: true });
+    execFileSync('git', ['init', '-q', '-b', 'main', project], {
+      stdio: 'pipe',
+      windowsHide: true
+    });
+    execFileSync('git', ['-C', project, 'config', 'user.email', 'p2c@test'], {
+      stdio: 'pipe',
+      windowsHide: true
+    });
+    execFileSync('git', ['-C', project, 'config', 'user.name', 'p2c'], {
+      stdio: 'pipe',
+      windowsHide: true
+    });
+    execFileSync('git', ['-C', project, 'commit', '--allow-empty', '-m', 'init', '-q'], {
+      stdio: 'pipe',
+      windowsHide: true
+    });
 
     const sessionId = '2026-07-29-p2c-iso';
     const requestId = '2026-07-29-p2c-iso-rid';
     const prompt = 'p2c isolation probe — verify lease injection';
 
-    const r = runCli([
-      'rd',
-      '--prompt', prompt,
-      '--request-id', requestId,
-      '--session-id', sessionId,
-      '--project', project,
-      '--isolation', 'worktree',
-      '--graph-node', 'n1',
-      '--json'
-    ], project);
+    const r = runCli(
+      [
+        'rd',
+        '--prompt',
+        prompt,
+        '--request-id',
+        requestId,
+        '--session-id',
+        sessionId,
+        '--project',
+        project,
+        '--isolation',
+        'worktree',
+        '--graph-node',
+        'n1',
+        '--json'
+      ],
+      project
+    );
 
     expect(r.code).toBe(0);
     expect(r.stderr).toBe('');
@@ -231,7 +263,14 @@ describe('peaks sub-agent dispatch rd (P1-7 e2e)', () => {
     expect(env2.PEAKS_WORKTREE_LEASE_ID).toBe(env.data.leaseId);
 
     // The on-disk lease file exists and is valid JSON.
-    const leaseFile = join(project, '.peaks', '_runtime', sessionId, 'worktree-leases', env.data.leaseId + '.json');
+    const leaseFile = join(
+      project,
+      '.peaks',
+      '_runtime',
+      sessionId,
+      'worktree-leases',
+      env.data.leaseId + '.json'
+    );
     expect(existsSync(leaseFile)).toBe(true);
     const lease = JSON.parse(readFileSync(leaseFile, 'utf8')) as { rid: string; status: string };
     expect(lease.rid).toBe(requestId);
@@ -241,16 +280,25 @@ describe('peaks sub-agent dispatch rd (P1-7 e2e)', () => {
   test('--isolation with an unsupported mode → INVALID_ISOLATION (fail-fast before any sub-agent work)', () => {
     const project = mkdtempSync(join(tmpdir(), 'peaks-p2c-iso-bad-'));
     projects.push(project);
-    const r = runCli([
-      'rd',
-      '--prompt', 'p2c invalid isolation',
-      '--request-id', '2026-07-29-p2c-bad-rid',
-      '--session-id', '2026-07-29-p2c-bad',
-      '--project', project,
-      '--isolation', 'totally-bogus',
-      '--graph-node', 'n1',
-      '--json'
-    ], project);
+    const r = runCli(
+      [
+        'rd',
+        '--prompt',
+        'p2c invalid isolation',
+        '--request-id',
+        '2026-07-29-p2c-bad-rid',
+        '--session-id',
+        '2026-07-29-p2c-bad',
+        '--project',
+        project,
+        '--isolation',
+        'totally-bogus',
+        '--graph-node',
+        'n1',
+        '--json'
+      ],
+      project
+    );
     expect(r.code).toBe(1);
     const env = JSON.parse(r.stdout) as { ok: boolean; code: string };
     expect(env.ok).toBe(false);

@@ -12,7 +12,12 @@ const JOURNEY = 'J14' as const;
 describe('J14 issue-orchestrator-trace contract', () => {
   it('keeps the AI-modified declaration and the banned-target list', async () => {
     const contract = getGuardContract(JOURNEY)!;
-    const r = await runGuard(contract, { projectRoot: REPO, sessionId: JOURNEY, contract, baselineInvariant: 'auto' });
+    const r = await runGuard(contract, {
+      projectRoot: REPO,
+      sessionId: JOURNEY,
+      contract,
+      baselineInvariant: 'auto'
+    });
     expect(r.status).toBe('pass');
   }, 300_000);
 });

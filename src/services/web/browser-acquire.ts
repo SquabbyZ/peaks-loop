@@ -68,7 +68,10 @@ export async function acquireChromium(): Promise<AcquiredChromium> {
 
 /** One sentence, shared by both refusal paths, naming the command that fixes it. */
 function installRequiredDetail(version: string | null): string {
-  const held = version === null ? 'the pinned Playwright is not resolvable' : `playwright@${version} is cached`;
+  const held =
+    version === null
+      ? 'the pinned Playwright is not resolvable'
+      : `playwright@${version} is cached`;
   return (
     `${held} but its browser is not launched-ready; run \`peaks web install\` ` +
     `(\`npx ${installCommandLine().join(' ')}\`)`

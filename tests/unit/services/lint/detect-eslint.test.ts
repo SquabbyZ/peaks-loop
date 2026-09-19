@@ -84,7 +84,9 @@ describe('detectEslint', () => {
 
     // then: every `npm view` call goes through the resolver, and none carries a
     // shell — the shim + shell flag was the defect (spaced args split, DEP0190).
-    const packageCalls = spawnSyncMock.mock.calls.slice(1) as Array<[string, string[], Record<string, unknown>]>;
+    const packageCalls = spawnSyncMock.mock.calls.slice(1) as Array<
+      [string, string[], Record<string, unknown>]
+    >;
     expect(packageCalls.length).toBeGreaterThan(0);
     for (const call of packageCalls) {
       expectPlatformNpmCommand(call);

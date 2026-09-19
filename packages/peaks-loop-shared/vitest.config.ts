@@ -20,6 +20,6 @@ export default defineConfig({
     // root suite is the canonical test surface for these pure
     // utilities. Without passWithNoTests the empty workspace would
     // fail pnpm -r run test under the new test:full wrapper.
-    passWithNoTests: true,
-  },
+    passWithNoTests: true
+  }
 });

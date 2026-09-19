@@ -22,16 +22,19 @@ describe('cross-version isolation (★ core promise)', () => {
     try {
       mkdirSync(join(workdir, 'src'), { recursive: true });
       writeFileSync(join(workdir, 'src', 'Login.tsx'), 'export const X = 1;\n');
-      writeFileSync(join(workdir, 'package.json'), JSON.stringify({
-        name: 'demo',
-        dependencies: { antd: '5.21.0', react: '18.3.1' },
-      }));
+      writeFileSync(
+        join(workdir, 'package.json'),
+        JSON.stringify({
+          name: 'demo',
+          dependencies: { antd: '5.21.0', react: '18.3.1' }
+        })
+      );
       writeFileSync(join(workdir, 'pnpm-lock.yaml'), 'lockfileVersion: 9\n');
 
       const collected = await collectContext({
         goal: 'add login feature',
         project: workdir,
-        depsMode: 'locked',
+        depsMode: 'locked'
       });
 
       // The fetcher is intentionally permissive — it returns BOTH 5.x and 6.x

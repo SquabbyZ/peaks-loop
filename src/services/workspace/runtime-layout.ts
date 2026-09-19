@@ -91,22 +91,26 @@ export const RUNTIME_SYSTEM_ENTRIES: readonly RuntimeSystemEntry[] = [
   {
     name: 'change',
     kind: 'dir',
-    purpose: 'change-id routing root for reviewable artifacts (workflow/artifact-paths.ts, prd/prd-blocks-checker.ts, workspace/reconcile-service.ts)'
+    purpose:
+      'change-id routing root for reviewable artifacts (workflow/artifact-paths.ts, prd/prd-blocks-checker.ts, workspace/reconcile-service.ts)'
   },
   {
     name: 'callers',
     kind: 'dir',
-    purpose: 'per-caller binding files `.peaks/_runtime/callers/<callerId>.json` (session/caller-binding-service.ts)'
+    purpose:
+      'per-caller binding files `.peaks/_runtime/callers/<callerId>.json` (session/caller-binding-service.ts)'
   },
   {
     name: 'benchmarks',
     kind: 'dir',
-    purpose: '`peaks slice benchmark` artifacts `<rid>.benchmark.json` (cli/commands/slice-commands.ts)'
+    purpose:
+      '`peaks slice benchmark` artifacts `<rid>.benchmark.json` (cli/commands/slice-commands.ts)'
   },
   {
     name: 'prd',
     kind: 'dir',
-    purpose: 'read-only PRD artifact root `.peaks/_runtime/prd/requests/<rid>.md` (prd/prd-blocks-checker.ts); the writer lives outside this repo, the check tolerates it'
+    purpose:
+      'read-only PRD artifact root `.peaks/_runtime/prd/requests/<rid>.md` (prd/prd-blocks-checker.ts); the writer lives outside this repo, the check tolerates it'
   },
   {
     name: 'playwright-userdata',
@@ -126,12 +130,14 @@ export const RUNTIME_SYSTEM_ENTRIES: readonly RuntimeSystemEntry[] = [
   {
     name: 'sop-state',
     kind: 'dir',
-    purpose: 'SOP state migrated from `.peaks/sop-state/` (cli/commands/workspace/reconcile-command.ts)'
+    purpose:
+      'SOP state migrated from `.peaks/sop-state/` (cli/commands/workspace/reconcile-command.ts)'
   },
   {
     name: RUNTIME_SESSIONLESS_SCOPE,
     kind: 'dir',
-    purpose: 'capability-audit output for session-less runs `.peaks/_runtime/_audit/capability-audit/*.json` (cli/commands/baseline-commands.ts)'
+    purpose:
+      'capability-audit output for session-less runs `.peaks/_runtime/_audit/capability-audit/*.json` (cli/commands/baseline-commands.ts)'
   },
   {
     name: 'session.json',
@@ -146,12 +152,14 @@ export const RUNTIME_SYSTEM_ENTRIES: readonly RuntimeSystemEntry[] = [
   {
     name: 'generated-artifacts.json',
     kind: 'file',
-    purpose: 'stamp describing which generated artifacts exist on this machine, so a refresh can tell "stale" from "never generated" (services/workspace/generated-artifacts-stamp.ts)'
+    purpose:
+      'stamp describing which generated artifacts exist on this machine, so a refresh can tell "stale" from "never generated" (services/workspace/generated-artifacts-stamp.ts)'
   },
   {
     name: '.outer-session-cache.json',
     kind: 'file',
-    purpose: 'outer (IDE) session cache for CLI sub-processes (cli/commands/outer-cache-commands.ts, session/session-binding-bridge.ts)'
+    purpose:
+      'outer (IDE) session cache for CLI sub-processes (cli/commands/outer-cache-commands.ts, session/session-binding-bridge.ts)'
   },
   {
     name: '.rebuild-binding.lock',

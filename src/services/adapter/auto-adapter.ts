@@ -11,19 +11,21 @@
  * (`src/cli/commands/adapter-commands.ts`) echoes back the name it was given
  * and reads no adapter file.
  */
-import { Adapter } from "./adapter.js";
+import { Adapter } from './adapter.js';
 
-type Detectable = Pick<Adapter, "name" | "detect">;
+type Detectable = Pick<Adapter, 'name' | 'detect'>;
 
 export class AutoAdapter {
   constructor(
     private readonly _o: { home: string },
-    private readonly _adapters: Detectable[],
+    private readonly _adapters: Detectable[]
   ) {}
   async detectAndPick(): Promise<Detectable> {
     for (const a of this._adapters) {
       if (await a.detect()) return a;
     }
-    throw new Error("No adapter detected. Use `peaks skill adapter set-active <name>` to force one.");
+    throw new Error(
+      'No adapter detected. Use `peaks skill adapter set-active <name>` to force one.'
+    );
   }
 }

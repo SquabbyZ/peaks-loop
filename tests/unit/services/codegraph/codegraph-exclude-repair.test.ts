@@ -34,7 +34,18 @@
 
 import { execFileSync } from 'node:child_process';
 import { createRequire } from 'node:module';
-import { chmodSync, existsSync, linkSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
+import {
+  chmodSync,
+  existsSync,
+  linkSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  symlinkSync,
+  writeFileSync
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -43,7 +54,7 @@ import {
   CODEGRAPH_CONFIG_BACKUP_SUFFIX,
   applyCodegraphConfigRepair,
   repairCodegraphExclude,
-  repairCodegraphExcludeFromProject,
+  repairCodegraphExcludeFromProject
 } from '../../../../src/services/codegraph/codegraph-exclude-repair.js';
 import { rollbackCodegraphConfig } from '../../../../src/services/codegraph/codegraph-config-repair-writer.js';
 import type { CodegraphConfigRollbackResult } from '../../../../src/services/codegraph/codegraph-config-repair-writer.js';
@@ -54,16 +65,18 @@ declareDimensions('tests/unit/services/codegraph/codegraph-exclude-repair.test.t
   'render',
   'behavior',
   'integration',
-  'a11y',
+  'a11y'
 ]);
 
 // ── the REAL upstream template (never this workspace's config) ────────
 
 const require = createRequire(import.meta.url);
 const UPSTREAM_TYPES_PATH = require.resolve('@colbymchenry/codegraph/dist/types.js');
-const UPSTREAM_DEFAULT_CONFIG = (require(UPSTREAM_TYPES_PATH) as {
-  DEFAULT_CONFIG: Record<string, unknown> & { include: string[]; exclude: string[] };
-}).DEFAULT_CONFIG;
+const UPSTREAM_DEFAULT_CONFIG = (
+  require(UPSTREAM_TYPES_PATH) as {
+    DEFAULT_CONFIG: Record<string, unknown> & { include: string[]; exclude: string[] };
+  }
+).DEFAULT_CONFIG;
 
 // The five real offender rules. They are not invented here: the test
 // asserts below that the pinned upstream template really ships them.
@@ -72,7 +85,7 @@ const OFFENDER_RULES = [
   '**/artifacts/**',
   '**/bin/**',
   '**/release/**',
-  '**/publish/**',
+  '**/publish/**'
 ] as const;
 
 // `bin` is checked last so at least one rule is NOT first in the array;
@@ -168,7 +181,7 @@ describe('repairCodegraphExclude (pure plan)', () => {
 
     const plan = repairCodegraphExclude({
       exclude,
-      rulesToRemove: ['**/vendor/**', '**/artifacts/**'],
+      rulesToRemove: ['**/vendor/**', '**/artifacts/**']
     });
 
     expect(plan.changed).toBe(true);
@@ -179,7 +192,7 @@ describe('repairCodegraphExclude (pure plan)', () => {
   it('should never invent a rule that is not already in the exclude list', () => {
     const plan = repairCodegraphExclude({
       exclude: ['**/dist/**'],
-      rulesToRemove: ['**/vendor/**'],
+      rulesToRemove: ['**/vendor/**']
     });
 
     expect(plan.changed).toBe(false);
@@ -209,7 +222,10 @@ describe('applyCodegraphConfigRepair (config writer)', () => {
     const before = readFileSync(configPathOf(projectRoot), 'utf8');
     const mtimeBefore = statSync(configPathOf(projectRoot)).mtimeMs;
 
-    const outcome = applyCodegraphConfigRepair(projectRoot, { rulesToRemove: [], includePatternsToAdd: [] });
+    const outcome = applyCodegraphConfigRepair(projectRoot, {
+      rulesToRemove: [],
+      includePatternsToAdd: []
+    });
 
     expect(outcome.applied).toBe(false);
     expect(readFileSync(configPathOf(projectRoot), 'utf8')).toBe(before);
@@ -230,19 +246,24 @@ describe('applyCodegraphConfigRepair (config writer)', () => {
         frameworks: [],
         maxFileSize: 1048576,
         extractDocstrings: true,
-        trackCallSites: false,
+        trackCallSites: false
       },
       null,
       2
     )}\n`;
     writeFileSync(configPathOf(projectRoot), original, 'utf8');
 
-    const outcome = applyCodegraphConfigRepair(projectRoot, { rulesToRemove: ['**/vendor/**', '**/artifacts/**'], includePatternsToAdd: [] });
+    const outcome = applyCodegraphConfigRepair(projectRoot, {
+      rulesToRemove: ['**/vendor/**', '**/artifacts/**'],
+      includePatternsToAdd: []
+    });
 
     expect(outcome.applied).toBe(true);
 
     // byte-exact rollback copy
-    expect(readFileSync(`${configPathOf(projectRoot)}${CODEGRAPH_CONFIG_BACKUP_SUFFIX}`, 'utf8')).toBe(original);
+    expect(
+      readFileSync(`${configPathOf(projectRoot)}${CODEGRAPH_CONFIG_BACKUP_SUFFIX}`, 'utf8')
+    ).toBe(original);
 
     // Only the `exclude` array moved: everything before it and
     // everything after it must be byte-identical. Sliced textually
@@ -271,7 +292,7 @@ describe('applyCodegraphConfigRepair (config writer)', () => {
       'frameworks',
       'maxFileSize',
       'extractDocstrings',
-      'trackCallSites',
+      'trackCallSites'
     ]);
   });
 
@@ -280,15 +301,28 @@ describe('applyCodegraphConfigRepair (config writer)', () => {
     mkdirSync(join(projectRoot, '.codegraph'), { recursive: true });
     writeFileSync(configPathOf(projectRoot), '{"exclude":["**/vendor/**","**/dist/**"]}\n', 'utf8');
 
-    expect(applyCodegraphConfigRepair(projectRoot, { rulesToRemove: ['**/vendor/**'], includePatternsToAdd: [] }).applied).toBe(true);
+    expect(
+      applyCodegraphConfigRepair(projectRoot, {
+        rulesToRemove: ['**/vendor/**'],
+        includePatternsToAdd: []
+      }).applied
+    ).toBe(true);
     const afterFirst = readFileSync(configPathOf(projectRoot), 'utf8');
-    const backupAfterFirst = readFileSync(`${configPathOf(projectRoot)}${CODEGRAPH_CONFIG_BACKUP_SUFFIX}`, 'utf8');
+    const backupAfterFirst = readFileSync(
+      `${configPathOf(projectRoot)}${CODEGRAPH_CONFIG_BACKUP_SUFFIX}`,
+      'utf8'
+    );
 
-    const second = applyCodegraphConfigRepair(projectRoot, { rulesToRemove: ['**/vendor/**'], includePatternsToAdd: [] });
+    const second = applyCodegraphConfigRepair(projectRoot, {
+      rulesToRemove: ['**/vendor/**'],
+      includePatternsToAdd: []
+    });
 
     expect(second.applied).toBe(false);
     expect(readFileSync(configPathOf(projectRoot), 'utf8')).toBe(afterFirst);
-    expect(readFileSync(`${configPathOf(projectRoot)}${CODEGRAPH_CONFIG_BACKUP_SUFFIX}`, 'utf8')).toBe(backupAfterFirst);
+    expect(
+      readFileSync(`${configPathOf(projectRoot)}${CODEGRAPH_CONFIG_BACKUP_SUFFIX}`, 'utf8')
+    ).toBe(backupAfterFirst);
   });
 });
 
@@ -328,7 +362,9 @@ describe('repairCodegraphExcludeFromProject (fresh clone self-heal)', () => {
     const excludeAfter = readConfig(projectRoot).exclude as string[];
     expect(excludeAfter).toContain('**/node_modules/**');
     expect(excludeAfter).toContain('**/target/release/**');
-    expect(excludeAfter.length).toBe(UPSTREAM_DEFAULT_CONFIG.exclude.length - OFFENDER_RULES.length);
+    expect(excludeAfter.length).toBe(
+      UPSTREAM_DEFAULT_CONFIG.exclude.length - OFFENDER_RULES.length
+    );
 
     // second run has nothing left to do and writes nothing
     const second = await repairCodegraphExcludeFromProject(projectRoot, stubRunner);
@@ -346,9 +382,9 @@ describe('repairCodegraphExcludeFromProject (fresh clone self-heal)', () => {
     );
     expect(impact?.blockedCount).toBe(1);
 
-    expect(inspectCodegraphExcludeIntegrity(projectRoot).violations.map((v) => v.path)).not.toContain(
-      'vendor/untracked.ts'
-    );
+    expect(
+      inspectCodegraphExcludeIntegrity(projectRoot).violations.map((v) => v.path)
+    ).not.toContain('vendor/untracked.ts');
   });
 
   it('when the follow-up index fails, should still report the repair and carry a warning', async () => {
@@ -367,7 +403,11 @@ describe('repairCodegraphExcludeFromProject (fresh clone self-heal)', () => {
   it('when the project is not a git work tree, should return a warning instead of throwing', async () => {
     const projectRoot = makeProjectRoot('peaks-cg-s2-nogit-');
     mkdirSync(join(projectRoot, '.codegraph'), { recursive: true });
-    writeFileSync(configPathOf(projectRoot), '{"include":["**/*.ts"],"exclude":["**/vendor/**"]}\n', 'utf8');
+    writeFileSync(
+      configPathOf(projectRoot),
+      '{"include":["**/*.ts"],"exclude":["**/vendor/**"]}\n',
+      'utf8'
+    );
 
     const report = await repairCodegraphExcludeFromProject(projectRoot, stubRunner);
 
@@ -398,7 +438,9 @@ describe('repairCodegraphExcludeFromProject (fresh clone self-heal)', () => {
       return { exitCode: 0, stdout: '', stderr: '' };
     };
 
-    const report = await repairCodegraphExcludeFromProject(projectRoot, countingRunner, { reindex: false });
+    const report = await repairCodegraphExcludeFromProject(projectRoot, countingRunner, {
+      reindex: false
+    });
 
     expect(report.applied).toBe(true);
     expect(runnerCalls).toBe(0);
@@ -461,7 +503,9 @@ describe('A1 — the report counts each axis on its own', () => {
     const projectRoot = makeIncludeAxisFixture();
 
     // when: the shared two-axis repair runs
-    const report = await repairCodegraphExcludeFromProject(projectRoot, stubRunner, { reindex: false });
+    const report = await repairCodegraphExcludeFromProject(projectRoot, stubRunner, {
+      reindex: false
+    });
 
     // then: the exclude axis' counter is honestly zero …
     expect(report.applied).toBe(true);
@@ -482,7 +526,9 @@ describe('A1 — the report counts each axis on its own', () => {
     await repairCodegraphExcludeFromProject(projectRoot, stubRunner, { reindex: false });
 
     // when: the repair runs a second time
-    const report = await repairCodegraphExcludeFromProject(projectRoot, stubRunner, { reindex: false });
+    const report = await repairCodegraphExcludeFromProject(projectRoot, stubRunner, {
+      reindex: false
+    });
 
     // then: nothing moved, and the tracked `.mjs`/`.cjs` files it already
     //       admitted are NOT reported as recovered a second time
@@ -505,7 +551,9 @@ describe('A4 — the rollback copy carries the original config mode', () => {
     const modeBefore = statSync(configPath).mode & 0o777;
 
     // when: the config is repaired
-    const report = await repairCodegraphExcludeFromProject(projectRoot, stubRunner, { reindex: false });
+    const report = await repairCodegraphExcludeFromProject(projectRoot, stubRunner, {
+      reindex: false
+    });
 
     // then: the rollback copy restores the permission the project granted,
     //       not the one this process happens to run under
@@ -528,7 +576,9 @@ describe('A4 — the rollback copy carries the original config mode', () => {
     const modeBefore = statSync(configPath).mode & 0o777;
 
     // when: the repair runs over it
-    const report = await repairCodegraphExcludeFromProject(projectRoot, stubRunner, { reindex: false });
+    const report = await repairCodegraphExcludeFromProject(projectRoot, stubRunner, {
+      reindex: false
+    });
 
     // then: it replaced the previous backup in one go, with no warning …
     expect(report.applied).toBe(true);
@@ -585,14 +635,14 @@ describe('rollbackCodegraphConfig — the read side of the backup', () => {
     const original = `${JSON.stringify(
       { version: 1, include: ['**/*.ts'], exclude: ['**/vendor/**', '**/dist/**'] },
       null,
-      2,
+      2
     )}\n`;
     writeFileSync(configPathOf(projectRoot), original, 'utf8');
 
     // The real writer, so the `.bak` under test is the one production makes.
     const outcome = applyCodegraphConfigRepair(projectRoot, {
       rulesToRemove: ['**/vendor/**'],
-      includePatternsToAdd: [],
+      includePatternsToAdd: []
     });
     expect(outcome.applied).toBe(true);
 
@@ -601,7 +651,7 @@ describe('rollbackCodegraphConfig — the read side of the backup', () => {
       configPath: configPathOf(projectRoot),
       backupPath: `${configPathOf(projectRoot)}${CODEGRAPH_CONFIG_BACKUP_SUFFIX}`,
       original,
-      repaired: readFileSync(configPathOf(projectRoot), 'utf8'),
+      repaired: readFileSync(configPathOf(projectRoot), 'utf8')
     };
   }
 

@@ -34,7 +34,13 @@ import {
 declareDimensions(
   'tests/unit/services/feedback/feedback-promotion-artifact.test.ts',
   ['behavior', 'integration', 'render'],
-  [{ dim: 'a11y', reason: 'no user-facing render surface; the gate output is machine-readable JSON asserted under render' }],
+  [
+    {
+      dim: 'a11y',
+      reason:
+        'no user-facing render surface; the gate output is machine-readable JSON asserted under render'
+    }
+  ]
 );
 
 const MEMORY_DIR = join('.peaks', 'memory');
@@ -68,7 +74,11 @@ function writeLayerAArtifact(root: string, name: string): void {
   );
   writeFileSync(
     join(root, '.peaks', 'sops', 'registry.json'),
-    JSON.stringify({ version: 1, sops: [{ id, path: `sops/${id}/sop.json`, gates: [] }], gateCount: 0 }, null, 2),
+    JSON.stringify(
+      { version: 1, sops: [{ id, path: `sops/${id}/sop.json`, gates: [] }], gateCount: 0 },
+      null,
+      2
+    ),
     'utf8'
   );
 }
@@ -88,7 +98,8 @@ function writeDeclaredMemory(
   } = {}
 ): string {
   mkdirSync(join(root, MEMORY_DIR), { recursive: true });
-  const marker = opts.layer === undefined ? '' : `<!-- peaks-feedback-promoted: layer=${opts.layer} -->\n\n`;
+  const marker =
+    opts.layer === undefined ? '' : `<!-- peaks-feedback-promoted: layer=${opts.layer} -->\n\n`;
   const lines = [
     '---',
     `name: ${name}`,
@@ -117,14 +128,21 @@ describe('promotion artifact table (behavior)', () => {
     const b = promotionArtifactChecks('rule-x', 'B');
     const c = promotionArtifactChecks('rule-x', 'C');
 
-    expect(a.map((x) => x.path)).toEqual([`.peaks/sops/${sopIdForFeedback('rule-x')}/sop.json`, '.peaks/sops/registry.json']);
+    expect(a.map((x) => x.path)).toEqual([
+      `.peaks/sops/${sopIdForFeedback('rule-x')}/sop.json`,
+      '.peaks/sops/registry.json'
+    ]);
     expect(a.map((x) => x.evidence)).toEqual(['sop-manifest', 'sop-registry-entry']);
     // Layers B and C are shared files that already exist, so existence alone
     // would pass for the wrong reason — they must register the rule, and
     // "register" is a shape the file has to parse into (a name in the bytes is
     // not a registration).
-    expect(b).toEqual([{ path: '.peaks/.claude-settings-template.json', evidence: 'hook-registration', id: 'rule-x' }]);
-    expect(c).toEqual([{ path: 'src/services/code/mode-gate.ts', evidence: 'hard-floor-category', id: 'rule-x' }]);
+    expect(b).toEqual([
+      { path: '.peaks/.claude-settings-template.json', evidence: 'hook-registration', id: 'rule-x' }
+    ]);
+    expect(c).toEqual([
+      { path: 'src/services/code/mode-gate.ts', evidence: 'hard-floor-category', id: 'rule-x' }
+    ]);
   });
 
   it('reports every unsatisfied check, not just the first', () => {
@@ -142,11 +160,21 @@ describe('promotion artifact table (behavior)', () => {
       const id = sopIdForFeedback('rule-x');
       mkdirSync(join(root, '.peaks', 'sops', id), { recursive: true });
       // A manifest that IS well-formed, so this case isolates the registry half.
-      writeFileSync(join(root, '.peaks', 'sops', id, 'sop.json'), JSON.stringify({ id, gates: [] }), 'utf8');
-      writeFileSync(join(root, '.peaks', 'sops', 'registry.json'), JSON.stringify({ version: 1, sops: [] }), 'utf8');
+      writeFileSync(
+        join(root, '.peaks', 'sops', id, 'sop.json'),
+        JSON.stringify({ id, gates: [] }),
+        'utf8'
+      );
+      writeFileSync(
+        join(root, '.peaks', 'sops', 'registry.json'),
+        JSON.stringify({ version: 1, sops: [] }),
+        'utf8'
+      );
 
       const missing = missingArtifacts(promotionArtifactChecks('rule-x', 'A'), root);
-      expect(missing).toEqual([`.peaks/sops/registry.json (registry has no SOP entry with id "${id}")`]);
+      expect(missing).toEqual([
+        `.peaks/sops/registry.json (registry has no SOP entry with id "${id}")`
+      ]);
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
@@ -186,7 +214,9 @@ describe('Gate H input: marker without artifact is not a promotion (integration)
       writeMemory(root, 'legacy-a', 'A');
       expect(existsSync(join(root, MEMORY_DIR, 'legacy-a.promotion.json'))).toBe(false);
 
-      expect(listUnpromotedFeedback({ projectRoot: root }).map((u) => u.name)).toEqual(['legacy-a']);
+      expect(listUnpromotedFeedback({ projectRoot: root }).map((u) => u.name)).toEqual([
+        'legacy-a'
+      ]);
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
@@ -248,7 +278,9 @@ describe('the tool produces what the gate demands (integration + render)', () =>
         projectRoot: root
       });
 
-      const sidecar = JSON.parse(readFileSync(join(root, MEMORY_DIR, 'promoted-rule.promotion.json'), 'utf8')) as {
+      const sidecar = JSON.parse(
+        readFileSync(join(root, MEMORY_DIR, 'promoted-rule.promotion.json'), 'utf8')
+      ) as {
         requiredArtifacts: string[];
       };
       expect(sidecar.requiredArtifacts).toEqual([
@@ -293,14 +325,19 @@ describe('the not-to-promote declaration (behavior + integration)', () => {
     const root = project('decl-control');
     try {
       writeDeclaredMemory(root, 'bare-rule');
-      expect(listUnpromotedFeedback({ projectRoot: root }).map((u) => u.name)).toEqual(['bare-rule']);
+      expect(listUnpromotedFeedback({ projectRoot: root }).map((u) => u.name)).toEqual([
+        'bare-rule'
+      ]);
       expect(listPromotionExempt({ projectRoot: root })).toEqual([]);
 
       // Same tree, same gate: add the declaration (and the frontmatter claim it
       // restates) and the memory leaves the failure set — visibly, not silently.
       writeDeclaredMemory(root, 'bare-rule', {
         extraFrontmatter: ['  scope: harness-level / non-actionable'],
-        declaration: { code: 'non-actionable', reason: 'records an observation; prescribes no action' }
+        declaration: {
+          code: 'non-actionable',
+          reason: 'records an observation; prescribes no action'
+        }
       });
       expect(listUnpromotedFeedback({ projectRoot: root })).toEqual([]);
       expect(listPromotionExempt({ projectRoot: root }).map((e) => `${e.name}:${e.code}`)).toEqual([
@@ -335,7 +372,9 @@ describe('the not-to-promote declaration (behavior + integration)', () => {
         extraFrontmatter: ['  scope: x / non-actionable'],
         declaration: { code: 'because-i-said-so', reason: 'free text is not a code' }
       });
-      expect(listUnpromotedFeedback({ projectRoot: root })[0]!.reason).toContain('not a recognised code');
+      expect(listUnpromotedFeedback({ projectRoot: root })[0]!.reason).toContain(
+        'not a recognised code'
+      );
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
@@ -348,7 +387,9 @@ describe('the not-to-promote declaration (behavior + integration)', () => {
         extraFrontmatter: ['  scope: x / non-actionable'],
         declaration: { code: 'non-actionable', reason: null }
       });
-      expect(listUnpromotedFeedback({ projectRoot: root })[0]!.reason).toContain('has no `notToPromoteReason`');
+      expect(listUnpromotedFeedback({ projectRoot: root })[0]!.reason).toContain(
+        'has no `notToPromoteReason`'
+      );
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
@@ -375,7 +416,9 @@ describe('the not-to-promote declaration (behavior + integration)', () => {
     const root = project('decl-slice-note');
     try {
       writeDeclaredMemory(root, 'design-note', {
-        extraFrontmatter: ['  sourceArtifact: .peaks/_runtime/2026-06-06-session-22f08c/txt/handoff.md'],
+        extraFrontmatter: [
+          '  sourceArtifact: .peaks/_runtime/2026-06-06-session-22f08c/txt/handoff.md'
+        ],
         declaration: { code: 'closed-slice-note', reason: 'a design record from a closed slice' }
       });
       expect(listUnpromotedFeedback({ projectRoot: root })).toEqual([]);
@@ -395,7 +438,13 @@ describe('the not-to-promote declaration (behavior + integration)', () => {
       // Tool and gate must agree: the command may not print `effective: true` for
       // the very state the gate rejects.
       await expect(
-        promoteFeedback({ feedbackPath: memoryPath, layer: 'A', promotedBy: 'test', sessionId: 'sid-test', projectRoot: root })
+        promoteFeedback({
+          feedbackPath: memoryPath,
+          layer: 'A',
+          promotedBy: 'test',
+          sessionId: 'sid-test',
+          projectRoot: root
+        })
       ).rejects.toThrow(/contradict that declaration/);
     } finally {
       rmSync(root, { recursive: true, force: true });
@@ -418,7 +467,11 @@ describe('the artifact must be parsed, not merely mentioned (behavior + integrat
       const id = sopIdForFeedback('rule-x');
       writeMemory(root, 'rule-x', 'A');
       mkdirSync(join(root, '.peaks', 'sops', id), { recursive: true });
-      writeFileSync(join(root, '.peaks', 'sops', id, 'sop.json'), JSON.stringify({ id, gates: [] }), 'utf8');
+      writeFileSync(
+        join(root, '.peaks', 'sops', id, 'sop.json'),
+        JSON.stringify({ id, gates: [] }),
+        'utf8'
+      );
       const registryPath = join(root, '.peaks', 'sops', 'registry.json');
 
       // The refusal: the id is in the bytes and the file is not JSON.
@@ -430,7 +483,11 @@ describe('the artifact must be parsed, not merely mentioned (behavior + integrat
       // The genuine entry: the same substring, inside a file that parses.
       writeFileSync(
         registryPath,
-        JSON.stringify({ version: 1, sops: [{ id, path: `sops/${id}/sop.json`, gates: [] }], gateCount: 0 }),
+        JSON.stringify({
+          version: 1,
+          sops: [{ id, path: `sops/${id}/sop.json`, gates: [] }],
+          gateCount: 0
+        }),
         'utf8'
       );
       expect(missingArtifacts(promotionArtifactChecks('rule-x', 'A'), root)).toEqual([]);
@@ -453,7 +510,16 @@ describe('the artifact must be parsed, not merely mentioned (behavior + integrat
       writeFileSync(
         templatePath,
         JSON.stringify(
-          { hooks: { PreToolUse: [{ matcher: 'Bash', hooks: [{ type: 'command', command: 'node scripts/enforce-rule-x.js' }] }] } },
+          {
+            hooks: {
+              PreToolUse: [
+                {
+                  matcher: 'Bash',
+                  hooks: [{ type: 'command', command: 'node scripts/enforce-rule-x.js' }]
+                }
+              ]
+            }
+          },
           null,
           2
         ),
@@ -516,7 +582,9 @@ describe('the artifact must be parsed, not merely mentioned (behavior + integrat
       const id = sopIdForFeedback('rule-x');
       const manifestPath = join(root, '.peaks', 'sops', id, 'sop.json');
       mkdirSync(join(root, '.peaks', 'sops', id), { recursive: true });
-      const manifestOnly = promotionArtifactChecks('rule-x', 'A').filter((c) => c.evidence === 'sop-manifest');
+      const manifestOnly = promotionArtifactChecks('rule-x', 'A').filter(
+        (c) => c.evidence === 'sop-manifest'
+      );
       const decision = (): string => {
         const missing = missingArtifacts(manifestOnly, root);
         return missing.length === 0 ? 'permitted' : missing[0]!;
@@ -557,12 +625,14 @@ describe('the artifact must be parsed, not merely mentioned (behavior + integrat
     }
   });
 
-  it('AC5 — the repo\'s own layer-C promotion is still backed (calibration, not a fixture)', () => {
+  it("AC5 — the repo's own layer-C promotion is still backed (calibration, not a fixture)", () => {
     const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', '..');
     // The one real layer-C promotion cites its memory from the category's doc
     // block. Reporting it missing would be a false positive on a file already
     // known good — the calibration the reader needs before it is trusted.
-    expect(missingArtifacts(promotionArtifactChecks('2026-06-28-full-auto-boundary', 'C'), repoRoot)).toEqual([]);
+    expect(
+      missingArtifacts(promotionArtifactChecks('2026-06-28-full-auto-boundary', 'C'), repoRoot)
+    ).toEqual([]);
     // ...and the same file must NOT back a rule it merely mentions elsewhere.
     expect(missingArtifacts(promotionArtifactChecks('rule-x', 'C'), repoRoot)).toHaveLength(1);
   });
@@ -578,7 +648,10 @@ describe('the artifact must be parsed, not merely mentioned (behavior + integrat
 // they cannot come back.
 describe('the verdict does not depend on where the refusal sits (behavior)', () => {
   /** The two declarations, with `line` spliced in at `at`. */
-  function gateSource(at: 'union' | 'array' | 'member-doc' | 'other-member' | null, line: string): string {
+  function gateSource(
+    at: 'union' | 'array' | 'member-doc' | 'other-member' | null,
+    line: string
+  ): string {
     const union = [
       'export type HardFloorCategory =',
       ...(at === 'union' ? [`  ${line}`] : []),
@@ -625,7 +698,11 @@ describe('the verdict does not depend on where the refusal sits (behavior)', () 
 
       // ...and the repo's own form — the memory cited by PATH from a member's doc
       // block — still registers.
-      writeFileSync(gatePath, gateSource('member-doc', '* Per `.peaks/memory/rule-x.md`: always pauses.'), 'utf8');
+      writeFileSync(
+        gatePath,
+        gateSource('member-doc', '* Per `.peaks/memory/rule-x.md`: always pauses.'),
+        'utf8'
+      );
       expect(missingArtifacts(promotionArtifactChecks('rule-x', 'C'), root)).toEqual([]);
     } finally {
       rmSync(root, { recursive: true, force: true });
@@ -637,24 +714,40 @@ describe('the verdict does not depend on where the refusal sits (behavior)', () 
     try {
       writeMemory(root, 'rule-x', 'B');
       const templatePath = join(root, '.peaks', '.claude-settings-template.json');
-      const template = (group: unknown): string => JSON.stringify({ hooks: { PreToolUse: [group] } }, null, 2);
+      const template = (group: unknown): string =>
+        JSON.stringify({ hooks: { PreToolUse: [group] } }, null, 2);
 
       const refusals: Record<string, unknown> = {
         // R2 passed this: the rule's name was in the field's BYTES.
-        'echoed refusal': { matcher: 'Bash', hooks: [{ type: 'command', command: "echo 'do NOT add a matcher for rule-x'" }] },
+        'echoed refusal': {
+          matcher: 'Bash',
+          hooks: [{ type: 'command', command: "echo 'do NOT add a matcher for rule-x'" }]
+        },
         // A matcher selects TOOLS; this one's second segment is not a tool.
         'negating tool selector': { matcher: 'Bash|rule-x-is-not-a-matcher', hooks: [] },
-        'bare negating word': { matcher: 'Bash', hooks: [{ type: 'command', command: 'echo rule-x-is-not-a-hook' }] }
+        'bare negating word': {
+          matcher: 'Bash',
+          hooks: [{ type: 'command', command: 'echo rule-x-is-not-a-hook' }]
+        }
       };
       for (const [label, group] of Object.entries(refusals)) {
         writeFileSync(templatePath, template(group), 'utf8');
-        expect(missingArtifacts(promotionArtifactChecks('rule-x', 'B'), root), label).toHaveLength(1);
+        expect(missingArtifacts(promotionArtifactChecks('rule-x', 'B'), root), label).toHaveLength(
+          1
+        );
       }
 
       // ...while a hook that RUNS something named after the rule still registers,
       // quoted or not.
-      for (const command of ['node scripts/enforce-rule-x.js', 'node "C:/p/hooks/enforce-rule-x.js"']) {
-        writeFileSync(templatePath, template({ matcher: 'Bash', hooks: [{ type: 'command', command }] }), 'utf8');
+      for (const command of [
+        'node scripts/enforce-rule-x.js',
+        'node "C:/p/hooks/enforce-rule-x.js"'
+      ]) {
+        writeFileSync(
+          templatePath,
+          template({ matcher: 'Bash', hooks: [{ type: 'command', command }] }),
+          'utf8'
+        );
         expect(missingArtifacts(promotionArtifactChecks('rule-x', 'B'), root), command).toEqual([]);
       }
     } finally {
@@ -725,13 +818,21 @@ describe('the check certifies what ENFORCES, not what is merely declared (behavi
       // The second half of the conjunction: what that verdict certified. Asking the
       // runtime the same file defines.
       expect(isHardFloorCategory(subject)).toBe(false);
-      expect(shouldPauseAtGate({ mode: '24h', step: 'phase-2-prd-confirm', hardFloorCategory: asCategory }).shouldPause).toBe(
-        false
-      );
+      expect(
+        shouldPauseAtGate({
+          mode: '24h',
+          step: 'phase-2-prd-confirm',
+          hardFloorCategory: asCategory
+        }).shouldPause
+      ).toBe(false);
 
       // (b) a union-only member whose doc CITES the memory — the citation form of
       //     the same defect. Pre-change this was BACKED too.
-      writeFileSync(gatePath, unionOnlyGate('rule-x-holder', 'Per `.peaks/memory/rule-x.md`: always pauses.'), 'utf8');
+      writeFileSync(
+        gatePath,
+        unionOnlyGate('rule-x-holder', 'Per `.peaks/memory/rule-x.md`: always pauses.'),
+        'utf8'
+      );
       expect(missingArtifacts(promotionArtifactChecks(subject, 'C'), root)).toHaveLength(1);
 
       // (c) the genuine form — array-backed, cited by its own doc block — passes.
@@ -747,13 +848,25 @@ describe('the check certifies what ENFORCES, not what is merely declared (behavi
 
     // Every category the ARRAY enforces is backed by the gate...
     for (const category of HARD_FLOOR_CATEGORIES) {
-      expect(missingArtifacts(promotionArtifactChecks(category, 'C'), repoRoot), `must back "${category}"`).toEqual([]);
-      expect(isHardFloorCategory(category), `"${category}" is in the array and must enforce`).toBe(true);
+      expect(
+        missingArtifacts(promotionArtifactChecks(category, 'C'), repoRoot),
+        `must back "${category}"`
+      ).toEqual([]);
+      expect(isHardFloorCategory(category), `"${category}" is in the array and must enforce`).toBe(
+        true
+      );
     }
     // ...and a literal the array does not contain is rejected by BOTH halves, so
     // neither can drift into certifying the other's absence.
-    for (const outsider of ['rule-x', 'multi-day-investments', 'irreversible-external-side-effects']) {
-      expect(missingArtifacts(promotionArtifactChecks(outsider, 'C'), repoRoot), outsider).toHaveLength(1);
+    for (const outsider of [
+      'rule-x',
+      'multi-day-investments',
+      'irreversible-external-side-effects'
+    ]) {
+      expect(
+        missingArtifacts(promotionArtifactChecks(outsider, 'C'), repoRoot),
+        outsider
+      ).toHaveLength(1);
       expect(isHardFloorCategory(outsider), outsider).toBe(false);
     }
   });

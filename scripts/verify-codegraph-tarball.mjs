@@ -69,12 +69,16 @@ function runNpmPackDryRun() {
   // a space is split. `resolveNpmInvocation` resolves npm's own JS entry and
   // runs it through `process.execPath` instead.
   const { bin, prefixArgs } = resolveNpmInvocation();
-  const result = spawnSync(bin, [...prefixArgs, 'pack', '--dry-run', '--json', '--ignore-scripts'], {
-    cwd: process.cwd(),
-    encoding: 'utf8',
-    stdio: ['ignore', 'pipe', 'pipe'],
-    windowsHide: true,
-  });
+  const result = spawnSync(
+    bin,
+    [...prefixArgs, 'pack', '--dry-run', '--json', '--ignore-scripts'],
+    {
+      cwd: process.cwd(),
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true
+    }
+  );
 
   if (result.error) {
     fail(`npm pack --dry-run failed to spawn: ${result.error.message}`);

@@ -29,14 +29,19 @@ import { withTmpWorkspacePerTest } from '../../_setup/tmp-workspace.js';
 declareDimensions(
   'tests/unit/services/web/web-daemon-browser-teardown.test.ts',
   ['behavior', 'integration', 'a11y'],
-  [
-    { dim: 'render', reason: 'the daemon renders no user-facing text; the CLI layer owns that' },
-  ],
+  [{ dim: 'render', reason: 'the daemon renders no user-facing text; the CLI layer owns that' }]
 );
 
-import type { PwBrowser, PwContext, PwPage } from '../../../../src/services/web/playwright-loader.js';
+import type {
+  PwBrowser,
+  PwContext,
+  PwPage
+} from '../../../../src/services/web/playwright-loader.js';
 import type { WebOp, WebOpResponse } from '../../../../src/services/web/web-protocol.js';
-import { startWebDaemon, type RunningWebDaemon } from '../../../../src/services/web/web-daemon-service.js';
+import {
+  startWebDaemon,
+  type RunningWebDaemon
+} from '../../../../src/services/web/web-daemon-service.js';
 
 /** The acquisition seam, mutable per test and shared with the module mock. */
 const recorder = vi.hoisted(() => ({
@@ -70,7 +75,7 @@ function closingBrowser(): ClosingBrowser {
     title: async () => 'Fake Title',
     url: () => 'https://example.test/',
     screenshot: async () => Buffer.from('PNG', 'utf8'),
-    evaluate: async <T,>() => ({}) as T,
+    evaluate: async <T>() => ({}) as T,
     locator: () => ({
       click: async () => undefined,
       innerText: async () => 'page text',

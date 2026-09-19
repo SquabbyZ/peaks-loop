@@ -41,7 +41,12 @@
  * silently for any command not guarded by a registered SOP gate.
  */
 
-import { EXTERNAL_GATE_EXEMPT_ENV, hasExternalGateExemptions, resolveHookShell, resolveHookSpec } from '../skills/hooks-codegate-superpowers.js';
+import {
+  EXTERNAL_GATE_EXEMPT_ENV,
+  hasExternalGateExemptions,
+  resolveHookShell,
+  resolveHookSpec
+} from '../skills/hooks-codegate-superpowers.js';
 
 export const CLAUDE_SETTINGS_LOCAL_FILENAME = '.claude/settings.local.json';
 

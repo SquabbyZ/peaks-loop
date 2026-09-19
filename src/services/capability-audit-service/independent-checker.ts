@@ -36,9 +36,18 @@
 // how narrow, so `consistent` is never read as more than it is.
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { P0_JOURNEY_IDS, type CapabilityBaselineRow, type JourneyId } from '../capability-baseline/types.js';
+import {
+  P0_JOURNEY_IDS,
+  type CapabilityBaselineRow,
+  type JourneyId
+} from '../capability-baseline/types.js';
 import type { GuardContract, GuardRunResult } from '../capability-guard-runner/types.js';
-import type { AuditCoverage, AuditFinding, AuditFindingCode, IndependentCheckResult } from './types.js';
+import type {
+  AuditCoverage,
+  AuditFinding,
+  AuditFindingCode,
+  IndependentCheckResult
+} from './types.js';
 
 export interface IndependentCheckInput {
   readonly projectRoot: string;
@@ -68,11 +77,28 @@ function checkObservationSet(
 
   for (const j of frozen) {
     const n = counts.get(j) ?? 0;
-    if (n === 0) out.push(finding('OBSERVATION_INCOMPLETE', j, `${j} is in the frozen baseline but no guard result was observed for it`));
-    else if (n > 1) out.push(finding('OBSERVATION_INCOMPLETE', j, `${j} produced ${String(n)} guard results; the frozen baseline declares it once`));
+    if (n === 0)
+      out.push(
+        finding(
+          'OBSERVATION_INCOMPLETE',
+          j,
+          `${j} is in the frozen baseline but no guard result was observed for it`
+        )
+      );
+    else if (n > 1)
+      out.push(
+        finding(
+          'OBSERVATION_INCOMPLETE',
+          j,
+          `${j} produced ${String(n)} guard results; the frozen baseline declares it once`
+        )
+      );
   }
   for (const j of counts.keys()) {
-    if (!frozen.includes(j)) out.push(finding('OBSERVATION_INCOMPLETE', j, `${j} was observed but is not a frozen P0 journey`));
+    if (!frozen.includes(j))
+      out.push(
+        finding('OBSERVATION_INCOMPLETE', j, `${j} was observed but is not a frozen P0 journey`)
+      );
   }
   return out;
 }
@@ -84,11 +110,22 @@ function checkFrozenRows(rows: ReadonlyArray<CapabilityBaselineRow>): ReadonlyAr
   for (const r of rows) seen.set(r.journeyId, (seen.get(r.journeyId) ?? 0) + 1);
   for (const j of P0_JOURNEY_IDS) {
     const n = seen.get(j) ?? 0;
-    if (n === 0) out.push(finding('BASELINE_ROW_SET_INVALID', j, `frozen baseline has no row for ${j}`));
-    else if (n > 1) out.push(finding('BASELINE_ROW_SET_INVALID', j, `frozen baseline declares ${j} ${String(n)} times`));
+    if (n === 0)
+      out.push(finding('BASELINE_ROW_SET_INVALID', j, `frozen baseline has no row for ${j}`));
+    else if (n > 1)
+      out.push(
+        finding('BASELINE_ROW_SET_INVALID', j, `frozen baseline declares ${j} ${String(n)} times`)
+      );
   }
   for (const j of seen.keys()) {
-    if (!P0_JOURNEY_IDS.includes(j)) out.push(finding('BASELINE_ROW_SET_INVALID', j, `frozen baseline declares ${j}, which is not a P0 journey`));
+    if (!P0_JOURNEY_IDS.includes(j))
+      out.push(
+        finding(
+          'BASELINE_ROW_SET_INVALID',
+          j,
+          `frozen baseline declares ${j}, which is not a P0 journey`
+        )
+      );
   }
   return out;
 }
@@ -107,7 +144,13 @@ function checkSourceBindings(
   for (const row of rows) {
     for (const f of row.sourceFiles) {
       if (!existsSync(join(projectRoot, f))) {
-        out.push(finding('SOURCE_FILE_MISSING', row.journeyId, `frozen sourceFiles entry "${f}" is not on disk`));
+        out.push(
+          finding(
+            'SOURCE_FILE_MISSING',
+            row.journeyId,
+            `frozen sourceFiles entry "${f}" is not on disk`
+          )
+        );
       }
     }
   }
@@ -121,7 +164,10 @@ function countArmed(
   let armed = 0;
   for (const row of rows) {
     for (const inv of row.invariants) {
-      if (contracts.some((c) => c.source.baselineRow === row.journeyId && c.source.invariant === inv)) armed += 1;
+      if (
+        contracts.some((c) => c.source.baselineRow === row.journeyId && c.source.invariant === inv)
+      )
+        armed += 1;
     }
   }
   return armed;
@@ -136,7 +182,10 @@ export function runIndependentCheck(input: IndependentCheckInput): IndependentCh
   const observed = input.guardResults.map((r) => r.journeyId);
   const findings: AuditFinding[] = [
     ...checkFrozenRows(input.baselineRows),
-    ...checkObservationSet(input.baselineRows.map((r) => r.journeyId), observed),
+    ...checkObservationSet(
+      input.baselineRows.map((r) => r.journeyId),
+      observed
+    ),
     ...checkSourceBindings(input.projectRoot, input.baselineRows)
   ];
 
@@ -147,7 +196,10 @@ export function runIndependentCheck(input: IndependentCheckInput): IndependentCh
     invariantsArmed: countArmed(input.baselineRows, input.contracts),
     // Disclosed, not checked: free-text prohibitions cannot be judged
     // deterministically without turning a keyword scan into a fake verdict.
-    forbiddenChangesUnverified: input.baselineRows.reduce((n, r) => n + r.forbiddenChanges.length, 0)
+    forbiddenChangesUnverified: input.baselineRows.reduce(
+      (n, r) => n + r.forbiddenChanges.length,
+      0
+    )
   };
 
   return {

@@ -47,7 +47,9 @@ function resolveProjectRoot(explicit: string | undefined): string {
 export function registerAdapterS2ACommands(program: Command, io: ProgramIO): void {
   const adapter = program
     .command('adapter')
-    .description('Vendor adapter registry (user-registered, persisted to .peaks/runtime/adapters.json)');
+    .description(
+      'Vendor adapter registry (user-registered, persisted to .peaks/runtime/adapters.json)'
+    );
 
   // -----------------------------------------------------------------
   // 1. peaks adapter list [--json] [--project <root>]
@@ -64,13 +66,26 @@ export function registerAdapterS2ACommands(program: Command, io: ProgramIO): voi
       const reg = new AdapterRegistry();
       if (existsSync(file)) reg.load(file);
       const records = reg.list();
-      printResult(io, ok('adapter.list', { projectRoot, file, records, count: records.length }, [], [
-        records.length === 0
-          ? 'No adapters registered yet. Run `peaks adapter register --id <vendor> --binary <cmd>` to add one.'
-          : `Run \`peaks runtime compact --via <id>\` to invoke a registered adapter.`
-      ]), options.json);
+      printResult(
+        io,
+        ok(
+          'adapter.list',
+          { projectRoot, file, records, count: records.length },
+          [],
+          [
+            records.length === 0
+              ? 'No adapters registered yet. Run `peaks adapter register --id <vendor> --binary <cmd>` to add one.'
+              : `Run \`peaks runtime compact --via <id>\` to invoke a registered adapter.`
+          ]
+        ),
+        options.json
+      );
     } catch (error) {
-      printResult(io, fail('adapter.list', 'ADAPTER_LIST_FAILED', getErrorMessage(error), {}, []), options.json);
+      printResult(
+        io,
+        fail('adapter.list', 'ADAPTER_LIST_FAILED', getErrorMessage(error), {}, []),
+        options.json
+      );
       process.exitCode = 1;
     }
   });
@@ -85,7 +100,11 @@ export function registerAdapterS2ACommands(program: Command, io: ProgramIO): voi
       .requiredOption('--id <id>', 'vendor adapter id (lowercase, e.g. my-cli)')
       .option('--name <name>', 'human-readable display name (defaults to <id>)')
       .requiredOption('--binary <cmd>', 'binary name to invoke for compact (e.g. my-cli)')
-      .option('--arg <value>', 'extra arg appended before --force (repeatable)', (value: string, previous: string[] = []) => [...previous, value])
+      .option(
+        '--arg <value>',
+        'extra arg appended before --force (repeatable)',
+        (value: string, previous: string[] = []) => [...previous, value]
+      )
       .option('--force', 'overwrite an existing adapter with the same id')
       .option('--project <path>', 'project root (defaults to cwd)')
   ).action((options: AdapterRegisterOptions) => {
@@ -96,17 +115,28 @@ export function registerAdapterS2ACommands(program: Command, io: ProgramIO): voi
       if (existsSync(file)) reg.load(file);
 
       const id = options.id ?? '';
-      const record: AdapterRecord = options.arg !== undefined
-        ? { id, displayName: options.name ?? id, binary: options.binary ?? '', args: options.arg }
-        : { id, displayName: options.name ?? id, binary: options.binary ?? '' };
+      const record: AdapterRecord =
+        options.arg !== undefined
+          ? { id, displayName: options.name ?? id, binary: options.binary ?? '', args: options.arg }
+          : { id, displayName: options.name ?? id, binary: options.binary ?? '' };
 
       let result: { record: AdapterRecord; created: boolean };
       try {
         result = reg.register(record, { force: options.force === true });
       } catch (validationError) {
-        printResult(io, fail('adapter.register', 'INVALID_ADAPTER_RECORD', getErrorMessage(validationError), { id }, [
-          'Use --id with /^[a-z0-9][a-z0-9._-]*$/, --binary as a binary name (no path separators).'
-        ]), options.json);
+        printResult(
+          io,
+          fail(
+            'adapter.register',
+            'INVALID_ADAPTER_RECORD',
+            getErrorMessage(validationError),
+            { id },
+            [
+              'Use --id with /^[a-z0-9][a-z0-9._-]*$/, --binary as a binary name (no path separators).'
+            ]
+          ),
+          options.json
+        );
         process.exitCode = 1;
         return;
       }
@@ -118,16 +148,27 @@ export function registerAdapterS2ACommands(program: Command, io: ProgramIO): voi
         warnings.push(`adapter "${id}" already registered; pass --force to overwrite`);
       }
 
-      printResult(io, ok('adapter.register', {
-        projectRoot,
-        file,
-        adapter: result.record,
-        created: result.created
-      }, warnings, [
-        `Run \`peaks runtime compact --via ${id}\` to invoke it.`
-      ]), options.json);
+      printResult(
+        io,
+        ok(
+          'adapter.register',
+          {
+            projectRoot,
+            file,
+            adapter: result.record,
+            created: result.created
+          },
+          warnings,
+          [`Run \`peaks runtime compact --via ${id}\` to invoke it.`]
+        ),
+        options.json
+      );
     } catch (error) {
-      printResult(io, fail('adapter.register', 'ADAPTER_REGISTER_FAILED', getErrorMessage(error), {}, []), options.json);
+      printResult(
+        io,
+        fail('adapter.register', 'ADAPTER_REGISTER_FAILED', getErrorMessage(error), {}, []),
+        options.json
+      );
       process.exitCode = 1;
     }
   });

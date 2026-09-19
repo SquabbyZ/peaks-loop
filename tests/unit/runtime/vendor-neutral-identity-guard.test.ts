@@ -353,7 +353,10 @@ const SRC_ROOT = join(PROJECT_ROOT, 'src');
 
 /** POSIX-normalised path relative to the project root. */
 function relativeToRoot(absolutePath: string): string {
-  return absolutePath.slice(PROJECT_ROOT.length + 1).split(sep).join('/');
+  return absolutePath
+    .slice(PROJECT_ROOT.length + 1)
+    .split(sep)
+    .join('/');
 }
 
 /**
@@ -373,7 +376,11 @@ const EXCLUDED_DIR_NAMES: ReadonlySet<string> = new Set(['node_modules', 'dist',
  * complete list before anything is parsed, so a single unparseable file can
  * never decide whether the remaining files are seen.
  */
-function listFilesRecursively(dir: string, extensions: readonly string[], out: string[] = []): string[] {
+function listFilesRecursively(
+  dir: string,
+  extensions: readonly string[],
+  out: string[] = []
+): string[] {
   let entries: Dirent[];
   try {
     entries = readdirSync(dir, { withFileTypes: true });
@@ -453,7 +460,11 @@ function parseSourceFile(absolutePath: string, source: string): ts.SourceFile {
 function stringUnionMembers(sourceFile: ts.SourceFile, typeName: string): string[] {
   const members: string[] = [];
   const visit = (node: ts.Node): void => {
-    if (ts.isTypeAliasDeclaration(node) && node.name.text === typeName && ts.isUnionTypeNode(node.type)) {
+    if (
+      ts.isTypeAliasDeclaration(node) &&
+      node.name.text === typeName &&
+      ts.isUnionTypeNode(node.type)
+    ) {
       for (const member of node.type.types) {
         if (ts.isLiteralTypeNode(member) && ts.isStringLiteral(member.literal)) {
           members.push(member.literal.text);
@@ -571,7 +582,8 @@ function staticStringValue(node: ts.Node): string | null {
   // 2026-09-13: an assertion hid the literal from every shape, so a
   // NON-consumer file (where shape 2 does not run) could re-inject an
   // identity comparison by adding `as const` and nothing failed.
-  if (ts.isAsExpression(node) || ts.isTypeAssertionExpression(node)) return staticStringValue(node.expression);
+  if (ts.isAsExpression(node) || ts.isTypeAssertionExpression(node))
+    return staticStringValue(node.expression);
   if (ts.isBinaryExpression(node) && node.operatorToken.kind === ts.SyntaxKind.PlusToken) {
     const left = staticStringValue(node.left);
     const right = staticStringValue(node.right);
@@ -704,7 +716,9 @@ function structuralNormalize(text: string): string {
 
 /** `\-` → `-`, `\/` → `/`; `\s`, `\d`, `\w`, `\b` keep their meaning. */
 function unescapePunctuation(text: string): string {
-  return text.replace(/\\(.)/g, (whole, escaped: string) => (/^[A-Za-z0-9]$/.test(escaped) ? whole : escaped));
+  return text.replace(/\\(.)/g, (whole, escaped: string) =>
+    /^[A-Za-z0-9]$/.test(escaped) ? whole : escaped
+  );
 }
 
 /** The id text an alternative is keyed on: structural form, then unescaped. */
@@ -847,7 +861,8 @@ function isTypePosition(node: ts.Node): boolean {
 function isExcludedValuePosition(node: ts.Node): boolean {
   const parent: ts.Node | undefined = node.parent;
   if (parent === undefined) return false;
-  if (ts.isBinaryExpression(parent) && IDENTITY_OPERATORS.has(parent.operatorToken.kind)) return true;
+  if (ts.isBinaryExpression(parent) && IDENTITY_OPERATORS.has(parent.operatorToken.kind))
+    return true;
   if (ts.isCaseClause(parent)) return true;
   if (ts.isPropertyAssignment(parent) && parent.name === node) return true;
   if (ts.isArrayLiteralExpression(parent)) return true;
@@ -924,7 +939,11 @@ export interface SettingsPathLiteral {
 function matchesSettingsDir(text: string): string | null {
   const stripped = text.replace(/^~[\\/]?/, '');
   for (const dirName of SETTINGS_DIR_NAMES) {
-    if (stripped === dirName || stripped.startsWith(`${dirName}/`) || stripped.startsWith(`${dirName}\\`)) {
+    if (
+      stripped === dirName ||
+      stripped.startsWith(`${dirName}/`) ||
+      stripped.startsWith(`${dirName}\\`)
+    ) {
       return dirName;
     }
   }
@@ -1072,7 +1091,7 @@ const KNOWN_DEBT: readonly {
     reason:
       'picks the hook shell + the codegate entry per IDE; pre-existing, and ' +
       'changing it risks the `peaks hooks install` byte-stability contract ' +
-      '(same class as the fixed dispatcher sites, out of this slice\'s scope)'
+      "(same class as the fixed dispatcher sites, out of this slice's scope)"
   },
   {
     file: 'src/services/skills/hooks-settings-service.ts',
@@ -1082,7 +1101,7 @@ const KNOWN_DEBT: readonly {
     reason:
       'decides whether the settings writer emits env exemptions, keyed on the IDE ' +
       'name, and derives the default peaks-managed hook entries from ' +
-      '`resolveHookSpec(\'claude-code\')`'
+      "`resolveHookSpec('claude-code')`"
   },
   {
     file: 'src/cli/commands/hooks-commands.ts',
@@ -1091,8 +1110,8 @@ const KNOWN_DEBT: readonly {
     settingsPaths: 2,
     reason:
       'REMAINING: the Claude Code skill-bridge copy targets ' +
-      '(`resolve(userHome, \'.claude\', \'skills\', …)`). The `comparisons: 1` this ' +
-      'entry used to carry was the `ide === \'trae\'` branch in ' +
+      "(`resolve(userHome, '.claude', 'skills', …)`). The `comparisons: 1` this " +
+      "entry used to carry was the `ide === 'trae'` branch in " +
       '`listExpectedEntriesForIde`; slice 2026-09-15-s7-doc-code-align removed it ' +
       'by deriving the entry list from `resolveHookEntries(ide)`, so the count ' +
       'drops to 0 and only the two literal `.claude` paths remain pinned.'
@@ -1103,8 +1122,8 @@ const KNOWN_DEBT: readonly {
     ideValues: 0,
     settingsPaths: 0,
     reason:
-      'runtime-VENDOR axis, not the IDE axis: `vendor === \'codex\'` on a dispatch ' +
-      'record. Caught only because shape 1 no longer filters by the counterpart\'s ' +
+      "runtime-VENDOR axis, not the IDE axis: `vendor === 'codex'` on a dispatch " +
+      "record. Caught only because shape 1 no longer filters by the counterpart's " +
       'name; pinned rather than name-excluded (that filter was the `adapter.id` hole)'
   },
   {
@@ -1120,13 +1139,13 @@ const KNOWN_DEBT: readonly {
     ideValues: 0,
     settingsPaths: 0,
     reason:
-      'B3(a): `ideId === \'claude-code\'` gates the PEAKS_CLAUDE_*_DIR env-var ' +
+      "B3(a): `ideId === 'claude-code'` gates the PEAKS_CLAUDE_*_DIR env-var " +
       'override for the agentsDir fan-out and the skillsDir fan-out. The env ' +
       'var name IS already declared per-platform (`IDE_SKILL_INSTALL_PROFILES[' +
       'ide].envVar` / `.agentsEnvVar`), so an adapter-driven version is ' +
       'available — but it would also switch ON the override for the other ' +
       'platforms whose profile declares one (_trae / _trae-cn / …), which is a ' +
-      'behaviour change to a shipped script\'s documented 1.x-compat contract. ' +
+      "behaviour change to a shipped script's documented 1.x-compat contract. " +
       'Visible and ratcheted instead: a THIRD site here fails this test'
   }
 ];
@@ -1206,7 +1225,9 @@ interface ScanResult {
 }
 
 function scanProject(): ScanResult {
-  const files = SCAN_ROOTS.flatMap(({ root, extensions }) => listFilesRecursively(root, extensions));
+  const files = SCAN_ROOTS.flatMap(({ root, extensions }) =>
+    listFilesRecursively(root, extensions)
+  );
   const comparisons: IdentityComparison[] = [];
   const ideValues: IdeValueLiteral[] = [];
   const settingsPaths: SettingsPathLiteral[] = [];
@@ -1266,7 +1287,9 @@ describe('vendor neutrality — IDE identity decisions outside the adapter layer
     // a scanner regression. The extension itself is retained at SCAN_ROOTS —
     // see the note there — and it has no file to name today, so the `src/` root
     // is pinned by extension-agnostic evidence instead.
-    expect(SCAN.scannedFileList, 'the scripts/ root was not walked').toContain('scripts/install-skills.mjs');
+    expect(SCAN.scannedFileList, 'the scripts/ root was not walked').toContain(
+      'scripts/install-skills.mjs'
+    );
     expect(SCAN.scannedFileList).toContain('src/services/context/auto-compact-reader.ts');
     // The regex branch's measured cost, pinned as a fact: no regex literal in
     // the scanned tree matches an id as a whole string today, so the branch
@@ -1296,7 +1319,10 @@ describe('vendor neutrality — IDE identity decisions outside the adapter layer
         const file = relativeToRoot(hit.file);
         return !inAllowedDir(file) && !isDebt(file);
       })
-      .map((hit) => `${relativeToRoot(hit.file)}:${hit.line} ${hit.subject} vs '${hit.id}' (${hit.form})`);
+      .map(
+        (hit) =>
+          `${relativeToRoot(hit.file)}:${hit.line} ${hit.subject} vs '${hit.id}' (${hit.form})`
+      );
     expect(unexpected).toEqual([]);
   });
 
@@ -1328,7 +1354,8 @@ describe('vendor neutrality — IDE identity decisions outside the adapter layer
       file: debt.file,
       comparisons: SCAN.comparisons.filter((hit) => relativeToRoot(hit.file) === debt.file).length,
       ideValues: SCAN.ideValues.filter((hit) => relativeToRoot(hit.file) === debt.file).length,
-      settingsPaths: SCAN.settingsPaths.filter((hit) => relativeToRoot(hit.file) === debt.file).length
+      settingsPaths: SCAN.settingsPaths.filter((hit) => relativeToRoot(hit.file) === debt.file)
+        .length
     }));
     expect(actual).toEqual(
       KNOWN_DEBT.map((debt) => ({
@@ -1351,7 +1378,10 @@ describe('vendor neutrality — IDE identity decisions outside the adapter layer
     const offenders = [
       ...SCAN.comparisons
         .filter((hit) => repaired.includes(relativeToRoot(hit.file)))
-        .map((hit) => `${relativeToRoot(hit.file)}:${hit.line} comparison ${hit.subject} vs '${hit.id}'`),
+        .map(
+          (hit) =>
+            `${relativeToRoot(hit.file)}:${hit.line} comparison ${hit.subject} vs '${hit.id}'`
+        ),
       ...SCAN.ideValues
         .filter((hit) => repaired.includes(relativeToRoot(hit.file)))
         .map((hit) => `${relativeToRoot(hit.file)}:${hit.line} value ${hit.position} '${hit.id}'`),
@@ -1390,27 +1420,27 @@ describe('vendor neutrality — IDE identity decisions outside the adapter layer
       { file: 'fixture.ts', line: 7, id: 'claude-code', position: 'ide:' }
     ]);
     expect(findSettingsPathLiterals(parsed).map((h) => `${h.line}:${h.text}`)).toEqual([
-      "9:.claude"
+      '9:.claude'
     ]);
   });
 
   it('negative control — prose, the runtime-vendor axis and non-identity tests are NOT shape-1 hits', () => {
     const fixture = [
       "// ide === 'claude-code' used to decide this (comment, not code)",
-      "const doc = \"an adapter that declares ide === 'trae' is fine\";",
+      'const doc = "an adapter that declares ide === \'trae\' is fine";',
       "const isUnknown = ide === 'unknown';",
-      "const isPresent = ide !== undefined;",
-      "const byTable = IDE_SET.has(ide);",
-      "const sameConst = ide === IDE_DEFAULT;"
+      'const isPresent = ide !== undefined;',
+      'const byTable = IDE_SET.has(ide);',
+      'const sameConst = ide === IDE_DEFAULT;'
     ].join('\n');
     expect(findIdentityComparisons(parseSourceFile('fixture.ts', fixture))).toEqual([]);
     // The runtime-vendor axis is NOT invisible any more — it is caught and
     // pinned as debt (see KNOWN_DEBT). Pinned here so nobody "restores" a
     // name filter that would silently reopen the `adapter.id` hole.
     const vendorAxis = "const vendor = obj.vendor === 'codex';";
-    expect(findIdentityComparisons(parseSourceFile('fixture.ts', vendorAxis)).map((h) => h.id)).toEqual([
-      'codex'
-    ]);
+    expect(
+      findIdentityComparisons(parseSourceFile('fixture.ts', vendorAxis)).map((h) => h.id)
+    ).toEqual(['codex']);
   });
 
   it('negative control — a SYNTHESIZED id is still an id (concatenation and backtick literals)', () => {
@@ -1441,13 +1471,14 @@ describe('vendor neutrality — IDE identity decisions outside the adapter layer
     // Same fold, applied to shape 2. Recorded once per site: a `+` chain must
     // not also report its own sub-literals (`'claude' + '-code'` has two
     // string children, one hit).
-    const fixture = [
-      `const c1 = { ide: 'claude' + '-code' };`,
-      `const c2 = \`claude-code\`;`
-    ].join('\n');
+    const fixture = [`const c1 = { ide: 'claude' + '-code' };`, `const c2 = \`claude-code\`;`].join(
+      '\n'
+    );
     expect(
-      findIdeValueLiterals(parseSourceFile('fixture.ts', fixture)).map((h) => `${h.line}:${h.position}:${h.id}`)
-    ).toEqual(["1:ide::claude-code", '2:c2 =:claude-code']);
+      findIdeValueLiterals(parseSourceFile('fixture.ts', fixture)).map(
+        (h) => `${h.line}:${h.position}:${h.id}`
+      )
+    ).toEqual(['1:ide::claude-code', '2:c2 =:claude-code']);
   });
 
   it('negative control — a REGEX test is an identity decision (the round-4 injection)', () => {
@@ -1463,7 +1494,11 @@ describe('vendor neutrality — IDE identity decisions outside the adapter layer
       `const b = ide.match(/claude-code/);`,
       `const c = /^(claude-code|trae)$/.test(ide);`
     ].join('\n');
-    expect(findIdentityComparisons(parseSourceFile('fixture.ts', fixture)).map((h) => `${h.line}:${h.form}:${h.id}`)).toEqual([
+    expect(
+      findIdentityComparisons(parseSourceFile('fixture.ts', fixture)).map(
+        (h) => `${h.line}:${h.form}:${h.id}`
+      )
+    ).toEqual([
       '1:regex-literal:claude-code',
       '2:regex-literal:claude-code',
       '3:regex-literal:claude-code',
@@ -1480,7 +1515,11 @@ describe('vendor neutrality — IDE identity decisions outside the adapter layer
       `const e = /trae$/.test(ide);`,
       `const f = /^codex/.test(ide);`
     ].join('\n');
-    expect(findIdentityComparisons(parseSourceFile('fixture.ts', fixture)).map((h) => `${h.line}:${h.id}`)).toEqual([
+    expect(
+      findIdentityComparisons(parseSourceFile('fixture.ts', fixture)).map(
+        (h) => `${h.line}:${h.id}`
+      )
+    ).toEqual([
       '1:claude-code',
       '2:claude-code',
       '3:claude-code',
@@ -1605,7 +1644,7 @@ describe('vendor neutrality — IDE identity decisions outside the adapter layer
     ].join('\n');
     const parsed = parseSourceFile('fixture.ts', fixture);
     expect(findIdeValueLiterals(parsed).map((h) => `${h.line}:${h.position}:${h.id}`)).toEqual([
-      "1:ide::claude-code",
+      '1:ide::claude-code',
       '2:return:trae',
       '3:h(...):cursor',
       '10:RegExp(...):claude-code'
@@ -1623,11 +1662,11 @@ describe('vendor neutrality — IDE identity decisions outside the adapter layer
       `const doc = 'Import memories from ~/.claude/projects/<hash>/memory/*.md';`, // prose
       `const other = join(root, '.peaks', 'runtime');` // not an adapter dir
     ].join('\n');
-    expect(findSettingsPathLiterals(parseSourceFile('fixture.ts', fixture)).map((h) => `${h.line}:${h.text}`)).toEqual([
-      '1:.claude',
-      '2:.claude',
-      '3:~/.claude/settings.json'
-    ]);
+    expect(
+      findSettingsPathLiterals(parseSourceFile('fixture.ts', fixture)).map(
+        (h) => `${h.line}:${h.text}`
+      )
+    ).toEqual(['1:.claude', '2:.claude', '3:~/.claude/settings.json']);
   });
 
   it('negative control — shapes 2/3 are scoped: a non-consumer file is not checked by them', () => {
@@ -1669,7 +1708,10 @@ describe('vendor neutrality — IDE identity decisions outside the adapter layer
     // if someone ADDS a second `.claude` literal there, this fails too.
     // The dispatcher — which IS covered — must pass the adapter-derived path,
     // so this default only serves callers holding no adapter.
-    const sourceFile = parseSourceFile(HOOK_INSTALLER_PATH, readFileSync(join(PROJECT_ROOT, HOOK_INSTALLER_PATH), 'utf8'));
+    const sourceFile = parseSourceFile(
+      HOOK_INSTALLER_PATH,
+      readFileSync(join(PROJECT_ROOT, HOOK_INSTALLER_PATH), 'utf8')
+    );
     expect(isRegistryConsumer(sourceFile)).toBe(false);
     expect(findSettingsPathLiterals(sourceFile).map((hit) => `${hit.line}:${hit.text}`)).toEqual([
       '87:.claude/settings.local.json'
@@ -1729,15 +1771,14 @@ describe('AC-1 — vendor verb strings live only in adapter implementations', ()
     // Lines 1-4 are comments (line + block) → invisible. Line 5 is a REAL
     // template literal and IS a hit: a template can be an executed command,
     // so it is inspected like any other literal.
-    expect(findVendorVerbLiterals(parseSourceFile('fixture.ts', fixture)).map((h) => h.line)).toEqual([5]);
+    expect(
+      findVendorVerbLiterals(parseSourceFile('fixture.ts', fixture)).map((h) => h.line)
+    ).toEqual([5]);
   });
 
   it('negative control — a verb assembled at runtime is NOT flagged (check limit a)', () => {
     // Pinned so nobody reads the check above as "verbs cannot escape".
-    const fixture = [
-      "const binary = 'claude';",
-      'const cmd = `${binary} --compact`;'
-    ].join('\n');
+    const fixture = ["const binary = 'claude';", 'const cmd = `${binary} --compact`;'].join('\n');
     expect(findVendorVerbLiterals(parseSourceFile('fixture.ts', fixture))).toEqual([]);
   });
 });

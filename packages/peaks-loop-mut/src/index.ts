@@ -32,5 +32,5 @@ export {
   ECC_REPO_NAME,
   type CacheManifest,
   type DownloadResult,
-  type EccMaterializeManifest,
+  type EccMaterializeManifest
 } from './services/agent/ecc-cache-service.js';

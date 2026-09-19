@@ -21,7 +21,7 @@ import {
   boundedNames,
   fitSummaryToBytes,
   SUMMARY_INITIAL_NAMES,
-  SUMMARY_MAX_BYTES,
+  SUMMARY_MAX_BYTES
 } from '~/src/services/context/summary-view';
 import { buildMemoryReindexSummary } from '~/src/cli/commands/memory-commands';
 import { buildDoctorSummary } from '~/src/cli/commands/core/doctor-command';
@@ -33,12 +33,13 @@ declareDimensions(
   ['behavior', 'render'],
   [
     { dim: 'integration', reason: 'pure functions over in-memory objects; no fs / subprocess' },
-    { dim: 'a11y', reason: 'no human-visible surface beyond the JSON envelope asserted here' },
-  ],
+    { dim: 'a11y', reason: 'no human-visible surface beyond the JSON envelope asserted here' }
+  ]
 );
 
 /** Size AS PRINTED — the CLI serializes with `null, 2`. */
-const bytes = (value: unknown): number => Buffer.byteLength(JSON.stringify(value, null, 2) ?? '', 'utf8');
+const bytes = (value: unknown): number =>
+  Buffer.byteLength(JSON.stringify(value, null, 2) ?? '', 'utf8');
 
 describe('behavior — boundedNames', () => {
   it('when given many names, should keep the true count and cap the prefix', () => {
@@ -67,7 +68,7 @@ describe('behavior — fitSummaryToBytes', () => {
     const big = {
       view: 'summary',
       count: 2000,
-      nested: { names: Array.from({ length: 2000 }, (_, i) => `entry-${i}-${'y'.repeat(40)}`) },
+      nested: { names: Array.from({ length: 2000 }, (_, i) => `entry-${i}-${'y'.repeat(40)}`) }
     };
 
     // when: the fitter runs
@@ -100,13 +101,20 @@ describe('render — command summary builders stay ≤ 2 KB and keep counts', ()
         name: `stray-${i}`,
         filePath: `/repo/.peaks/memory/${'deep/'.repeat(6)}stray-${i}.md`,
         rawKind: null,
-        reason: 'no resolvable kind',
+        reason: 'no resolvable kind'
       })),
-      nameConflicts: Array.from({ length: 40 }, (_, i) => ({ name: `dup-${i}`, filePaths: ['a', 'b'] })),
-      orphanIndex: Array.from({ length: 60 }, (_, i) => ({ name: `gone-${i}`, kind: 'rule', sourcePath: '/x' })),
+      nameConflicts: Array.from({ length: 40 }, (_, i) => ({
+        name: `dup-${i}`,
+        filePaths: ['a', 'b']
+      })),
+      orphanIndex: Array.from({ length: 60 }, (_, i) => ({
+        name: `gone-${i}`,
+        kind: 'rule',
+        sourcePath: '/x'
+      })),
       orphanDisk: Array.from({ length: 60 }, (_, i) => `/repo/.peaks/memory/orphan-${i}.md`),
       memoryMd: { path: '/repo/.peaks/memory/MEMORY.md', regenerated: false },
-      writtenFiles: ['/repo/.peaks/memory/MEMORY.md'],
+      writtenFiles: ['/repo/.peaks/memory/MEMORY.md']
     };
 
     const view = buildMemoryReindexSummary(report);
@@ -125,12 +133,18 @@ describe('render — command summary builders stay ≤ 2 KB and keep counts', ()
       id: `l3:check-${i}`,
       ok: i % 3 !== 0,
       message: `check ${i} ${'m'.repeat(120)}`,
-      severity: i % 3 === 0 ? 'error' : 'warning',
+      severity: i % 3 === 0 ? 'error' : 'warning'
     }));
     const view = buildDoctorSummary({
       checks,
       summary: { ok: false, passed: 133, failed: 67, warnings: 133 },
-      staleBinding: { ttlMs: 300000, staleCount: 4, staleInstances: new Array(4).fill({ sid: 's' }), droppedCount: 1, droppedSids: ['s1'] },
+      staleBinding: {
+        ttlMs: 300000,
+        staleCount: 4,
+        staleInstances: new Array(4).fill({ sid: 's' }),
+        droppedCount: 1,
+        droppedSids: ['s1']
+      }
     });
 
     expect(bytes(view)).toBeLessThanOrEqual(SUMMARY_MAX_BYTES);
@@ -148,7 +162,7 @@ describe('render — command summary builders stay ≤ 2 KB and keep counts', ()
       requestId: `2026-09-10-request-${i}`,
       path: `/repo/.peaks/_runtime/2026-09-10-session-abcdef/rd/requests/2026-09-10-request-${i}.md`,
       state: 'rd-handoff',
-      requestType: 'feature' as const,
+      requestType: 'feature' as const
     }));
 
     const view = buildRequestListSummary(items);

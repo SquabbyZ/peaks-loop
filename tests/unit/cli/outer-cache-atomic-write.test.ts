@@ -27,8 +27,8 @@ declareDimensions(
   ['behavior', 'integration'],
   [
     { dim: 'render', reason: 'JSON-shaped CLI envelope; no formatted output' },
-    { dim: 'a11y', reason: 'no human-facing text in this path' },
-  ],
+    { dim: 'a11y', reason: 'no human-facing text in this path' }
+  ]
 );
 
 const CACHE_REL = join('.peaks', '_runtime', '.outer-session-cache.json');
@@ -53,12 +53,20 @@ afterEach(() => {
   else process.env.PEAKS_OUTER_SESSION_ID = prevPeaksEnv;
   if (prevClaudeEnv === undefined) delete process.env.CLAUDE_CODE_SESSION_ID;
   else process.env.CLAUDE_CODE_SESSION_ID = prevClaudeEnv;
-  try { process.chdir(prevCwd); } catch { /* best-effort */ }
+  try {
+    process.chdir(prevCwd);
+  } catch {
+    /* best-effort */
+  }
   // Capture the value BEFORE deferring: `workspace` is reassigned by the
   // next test's beforeEach, and a deferred read would delete the LIVE dir.
   const wsToRemove = workspace;
   setImmediate(() => {
-    try { rmSync(wsToRemove, { recursive: true, force: true }); } catch { /* best-effort */ }
+    try {
+      rmSync(wsToRemove, { recursive: true, force: true });
+    } catch {
+      /* best-effort */
+    }
   });
 });
 
@@ -69,20 +77,31 @@ afterEach(() => {
  * `atomicWriteJson` swap.
  */
 async function invokeOuterCacheWrite(): Promise<{ exitCode: number; stdout: string }> {
-  const { registerOuterCacheCommands } = await import(
-    '../../../src/cli/commands/outer-cache-commands.js'
-  );
+  const { registerOuterCacheCommands } =
+    await import('../../../src/cli/commands/outer-cache-commands.js');
   const program = new Command();
   const stdout: string[] = [];
   const io = {
-    stdout: (s: string) => { stdout.push(s); },
-    stderr: (s: string) => { stdout.push(`[stderr]${s}`); },
+    stdout: (s: string) => {
+      stdout.push(s);
+    },
+    stderr: (s: string) => {
+      stdout.push(`[stderr]${s}`);
+    }
   };
   registerOuterCacheCommands(program, io);
   let exitCode: number = 0;
   const prevExit = process.exitCode;
   try {
-    await program.parseAsync(['node', 'peaks', 'outer-cache', 'write', '--project', workspace, '--json']);
+    await program.parseAsync([
+      'node',
+      'peaks',
+      'outer-cache',
+      'write',
+      '--project',
+      workspace,
+      '--json'
+    ]);
     exitCode = typeof process.exitCode === 'number' ? process.exitCode : 0;
   } finally {
     process.exitCode = prevExit;
@@ -98,7 +117,9 @@ describe('Scenario: behavior — atomic write hygiene (A.5c)', () => {
     // behind. Verify by listing the runtime dir.
     const { readdirSync } = require('node:fs');
     const entries = readdirSync(join(workspace, '.peaks', '_runtime'));
-    const tempFiles = entries.filter((n: string) => n.startsWith('.settings.') && n.endsWith('.tmp'));
+    const tempFiles = entries.filter(
+      (n: string) => n.startsWith('.settings.') && n.endsWith('.tmp')
+    );
     expect(tempFiles.length).toBe(0);
     // The cache file exists with the right name.
     expect(existsSync(join(workspace, CACHE_REL))).toBe(true);
@@ -121,16 +142,27 @@ describe('Scenario: behavior — atomic write hygiene (A.5c)', () => {
     process.env.PEAKS_OUTER_SESSION_ID = 'outer-readback';
     await invokeOuterCacheWrite();
     // Reuse the read path via `peaks outer-cache read`.
-    const { registerOuterCacheCommands } = await import(
-      '../../../src/cli/commands/outer-cache-commands.js'
-    );
+    const { registerOuterCacheCommands } =
+      await import('../../../src/cli/commands/outer-cache-commands.js');
     const program = new Command();
     const stdout: string[] = [];
     registerOuterCacheCommands(program, {
-      stdout: (s: string) => { stdout.push(s); },
-      stderr: (s: string) => { stdout.push(`[stderr]${s}`); },
+      stdout: (s: string) => {
+        stdout.push(s);
+      },
+      stderr: (s: string) => {
+        stdout.push(`[stderr]${s}`);
+      }
     });
-    await program.parseAsync(['node', 'peaks', 'outer-cache', 'read', '--project', workspace, '--json']);
+    await program.parseAsync([
+      'node',
+      'peaks',
+      'outer-cache',
+      'read',
+      '--project',
+      workspace,
+      '--json'
+    ]);
     expect(stdout.join('\n')).toContain('outer-readback');
   });
 

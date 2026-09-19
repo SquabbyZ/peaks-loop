@@ -39,7 +39,10 @@ describe('behavior — the `--ide <id>` help text is derived from the registry',
 
     // ...and it must not name anything else as if it were a value. Parse the
     // parenthesised enumeration back out and compare as a set.
-    const listed = /\(([^)]*)\)/.exec(help)?.[1]?.split('|').map((s) => s.trim());
+    const listed = /\(([^)]*)\)/
+      .exec(help)?.[1]
+      ?.split('|')
+      .map((s) => s.trim());
     expect(listed).toEqual([...ids]);
   });
 
@@ -51,7 +54,9 @@ describe('behavior — the `--ide <id>` help text is derived from the registry',
       const declarations = src.match(/\.option\('--ide <id>',[^\n]*/g) ?? [];
       expect(declarations.length, `${parts.join('/')} declares no --ide option`).toBeGreaterThan(0);
       for (const decl of declarations) {
-        expect(decl, `${parts.join('/')}: --ide help is not derived: ${decl}`).toContain('resolveIdeOptionHelp()');
+        expect(decl, `${parts.join('/')}: --ide help is not derived: ${decl}`).toContain(
+          'resolveIdeOptionHelp()'
+        );
       }
       // ...and no stale enumeration survives anywhere in the file.
       expect(src).not.toMatch(/target adapter id \(claude-code \| trae\)/);

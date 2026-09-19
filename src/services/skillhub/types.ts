@@ -2,9 +2,9 @@ export interface BeeReleaseRow {
   id: number;
   bee_name: string;
   version: string;
-  source: "user";
+  source: 'user';
   archived_at: string;
-  archived_by: "user" | "llm";
+  archived_by: 'user' | 'llm';
   user_intent_raw: string | null;
   description: string | null;
   parent_version: string | null;
@@ -52,10 +52,10 @@ export interface BeeSegmentRefRow {
 export interface BeeFileRow {
   id: number;
   release_id: number;
-  owner_kind: "bee" | "segment";
+  owner_kind: 'bee' | 'segment';
   owner_name: string;
   path: string;
-  kind: "markdown" | "script" | "reference" | "binary" | "other";
+  kind: 'markdown' | 'script' | 'reference' | 'binary' | 'other';
   size_bytes: number;
   sha256: string;
   blob_path: string;

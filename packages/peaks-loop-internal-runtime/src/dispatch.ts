@@ -13,10 +13,15 @@ import { AutoCompactAdapter } from './auto-compact-adapter.js';
 import { ResourceBudgetGuard } from './guards/resource-budget.js';
 
 export interface DispatchInput {
-  sid: string; rid: string; role: 'rd'|'qa'|'ui'|'txt'|'general-purpose';
-  vendor: 'claude'|'codex'|'copilot';
-  userTask: string; files: string[]; refs: string[];
-  runtimeDir: string; subAgentsDir: string;
+  sid: string;
+  rid: string;
+  role: 'rd' | 'qa' | 'ui' | 'txt' | 'general-purpose';
+  vendor: 'claude' | 'codex' | 'copilot';
+  userTask: string;
+  files: string[];
+  refs: string[];
+  runtimeDir: string;
+  subAgentsDir: string;
   verbatimBlocks?: string[];
 }
 export interface DispatchResult {
@@ -33,7 +38,11 @@ export interface DispatchResult {
 }
 
 export async function dispatchDetached(i: DispatchInput): Promise<DispatchResult> {
-  const registry = new VendorAdapterRegistry([new ClaudeAdapter(), new CodexAdapter(), new CopilotAdapter()]);
+  const registry = new VendorAdapterRegistry([
+    new ClaudeAdapter(),
+    new CodexAdapter(),
+    new CopilotAdapter()
+  ]);
   const adapter = registry.get(i.vendor);
   if (!adapter) throw new Error(`vendor adapter not registered: ${i.vendor}`);
 
@@ -48,9 +57,13 @@ export async function dispatchDetached(i: DispatchInput): Promise<DispatchResult
   // than invented.
   const marker = ac.marker({ rid: i.rid, sid: i.sid });
   const prompt = pb.assemble({
-    rid: i.rid, role: i.role, vendor: i.vendor,
-    files: i.files, refs: i.refs, userTask: i.userTask,
-    verbatimBlocks: [marker, ...(i.verbatimBlocks ?? [])],
+    rid: i.rid,
+    role: i.role,
+    vendor: i.vendor,
+    files: i.files,
+    refs: i.refs,
+    userTask: i.userTask,
+    verbatimBlocks: [marker, ...(i.verbatimBlocks ?? [])]
   });
 
   const args = adapter.headlessArgs(prompt, { autoCompactMarker: marker });
@@ -75,14 +88,26 @@ export async function dispatchDetached(i: DispatchInput): Promise<DispatchResult
   // Write dispatch record (placeholder — final shape per Task 8 schema)
   const recPath = join(i.subAgentsDir, `dispatch-${i.rid}-${Date.now()}.json`);
   mkdirSync(i.subAgentsDir, { recursive: true });
-  writeFileSync(recPath, JSON.stringify({
-    rid: i.rid, mode: 'detached', vendor: i.vendor,
-    // The record must not claim a child is running when the launch failed —
-    // that is the on-disk form of "looks green, checked nothing".
-    status: spawnError ? 'failed' : 'running',
-    ...(spawnError ? { spawnError: { code: spawnError.code, message: spawnError.message } } : {}),
-    heartbeats: [], at: Date.now(),
-  }, null, 2));
+  writeFileSync(
+    recPath,
+    JSON.stringify(
+      {
+        rid: i.rid,
+        mode: 'detached',
+        vendor: i.vendor,
+        // The record must not claim a child is running when the launch failed —
+        // that is the on-disk form of "looks green, checked nothing".
+        status: spawnError ? 'failed' : 'running',
+        ...(spawnError
+          ? { spawnError: { code: spawnError.code, message: spawnError.message } }
+          : {}),
+        heartbeats: [],
+        at: Date.now()
+      },
+      null,
+      2
+    )
+  );
 
   return { pid: handle.pid, dispatchRecordPath: recPath, child: handle.child, spawnError };
 }

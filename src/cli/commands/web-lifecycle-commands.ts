@@ -42,7 +42,7 @@ export function registerWebLifecycleCommands(web: Command, io: ProgramIO): void 
     web
       .command('status')
       .description(
-        'Report this session\'s web daemon instances (live / orphaned / stale). Works with no ' +
+        "Report this session's web daemon instances (live / orphaned / stale). Works with no " +
           'daemon running and never starts one.'
       )
   ).action(async (options: { json?: boolean }) => {
@@ -69,7 +69,10 @@ export function registerWebLifecycleCommands(web: Command, io: ProgramIO): void 
           'before the first browser op — a read-only verb never downloads. Refuses while ' +
           'PEAKS_WEB_DISABLED=1.'
       )
-      .option('--force', "reinstall even if the browser is already present (Playwright's own recovery path)")
+      .option(
+        '--force',
+        "reinstall even if the browser is already present (Playwright's own recovery path)"
+      )
   ).action(async (options: { json?: boolean; force?: boolean }) => {
     await runWebInstall(io, options.json === true, options.force === true);
   });
@@ -119,7 +122,7 @@ function stopWarnings(result: StopDaemonResult): string[] {
   if (result.orphanedPids.length > 0) {
     warnings.push(
       `${String(result.orphanedPids.length)} daemon instance(s) are alive but could not be proven ` +
-        'to be this session\'s daemon (no authenticated identity); the processes were left running, ' +
+        "to be this session's daemon (no authenticated identity); the processes were left running, " +
         'because a pid that cannot be proven is never signalled, and their records are kept so ' +
         '`peaks web status` and a later `stop` still see them'
     );
@@ -136,11 +139,21 @@ export async function runWebStatus(io: ProgramIO, asJson: boolean): Promise<void
       process.exitCode = 1;
       return;
     }
-    printResult(io, ok(command, await buildStatusReport(session.projectRoot, session.sessionId)), asJson);
+    printResult(
+      io,
+      ok(command, await buildStatusReport(session.projectRoot, session.sessionId)),
+      asJson
+    );
   } catch (error) {
     printResult(
       io,
-      fail(command, 'WEB_STATUS_FAILED', `peaks web status failed: ${getErrorMessage(error)}`, {}, []),
+      fail(
+        command,
+        'WEB_STATUS_FAILED',
+        `peaks web status failed: ${getErrorMessage(error)}`,
+        {},
+        []
+      ),
       asJson
     );
     process.exitCode = 1;
@@ -374,7 +387,11 @@ export async function runWebLogin(
         3,
         rawProfile === undefined ? {} : { profile: cappedEcho(rawProfile) }
       );
-      printResult(io, { ...gateEnvelope, warnings: [...gateEnvelope.warnings, ...gateFoldNotice(rawProfile)] }, asJson);
+      printResult(
+        io,
+        { ...gateEnvelope, warnings: [...gateEnvelope.warnings, ...gateFoldNotice(rawProfile)] },
+        asJson
+      );
       process.exitCode = 1;
       return;
     }
@@ -404,7 +421,11 @@ export async function runWebLogin(
       // puts the code in front of the message again — strip it, so human output
       // does not read `WEB_PROFILE_NAME_INVALID: WEB_PROFILE_NAME_INVALID: …`.
       const detail = getErrorMessage(error).replace(/^WEB_PROFILE_NAME_INVALID:\s*/, '');
-      printResult(io, fail(command, 'WEB_PROFILE_NAME_INVALID', detail, {}, LOGIN_NEXT_ACTIONS), asJson);
+      printResult(
+        io,
+        fail(command, 'WEB_PROFILE_NAME_INVALID', detail, {}, LOGIN_NEXT_ACTIONS),
+        asJson
+      );
       process.exitCode = 1;
       return;
     }
@@ -417,7 +438,9 @@ export async function runWebLogin(
     foldWarnings =
       rawProfile === profile
         ? []
-        : [`--profile ${JSON.stringify(cappedEcho(rawProfile))} resolved to the profile "${profile}"`];
+        : [
+            `--profile ${JSON.stringify(cappedEcho(rawProfile))} resolved to the profile "${profile}"`
+          ];
 
     const outcome = await runHeadedLogin({
       profile,

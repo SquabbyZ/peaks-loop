@@ -8,9 +8,7 @@ export class ClaudeAdapter implements VendorAdapter {
   readonly maxPromptBytes = 8 * 1024;
 
   headlessArgs(prompt: string, opts?: { autoCompactMarker?: string }): string[] {
-    const injected = opts?.autoCompactMarker
-      ? `${opts.autoCompactMarker}\n\n${prompt}`
-      : prompt;
+    const injected = opts?.autoCompactMarker ? `${opts.autoCompactMarker}\n\n${prompt}` : prompt;
     return ['-p', injected, '--output-format', 'json', '--include-partial-messages'];
   }
 
@@ -24,9 +22,11 @@ export class ClaudeAdapter implements VendorAdapter {
         progress: obj.progress,
         state: obj.state,
         note: String(obj.note ?? ''),
-        ts: Number(obj.ts ?? Date.now()),
+        ts: Number(obj.ts ?? Date.now())
       };
-    } catch { return null; }
+    } catch {
+      return null;
+    }
   }
 
   async detectInstalled(): Promise<boolean> {

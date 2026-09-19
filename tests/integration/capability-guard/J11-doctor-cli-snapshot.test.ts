@@ -12,7 +12,12 @@ const JOURNEY = 'J11' as const;
 describe('J11 doctor-cli-snapshot contract', () => {
   it('keeps the fixed doctor check registry and the finding-to-change chain', async () => {
     const contract = getGuardContract(JOURNEY)!;
-    const r = await runGuard(contract, { projectRoot: REPO, sessionId: JOURNEY, contract, baselineInvariant: 'auto' });
+    const r = await runGuard(contract, {
+      projectRoot: REPO,
+      sessionId: JOURNEY,
+      contract,
+      baselineInvariant: 'auto'
+    });
     expect(r.status).toBe('pass');
   }, 300_000);
 });

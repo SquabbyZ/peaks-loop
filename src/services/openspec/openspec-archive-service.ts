@@ -12,7 +12,7 @@ import {
   validateCapabilityCoverage,
   type CapabilityCoverageMismatch,
   type CapabilityMappingRow,
-  type CoverageSummary,
+  type CoverageSummary
 } from './coverage-evidence-reader.js';
 
 export type OpenSpecArchiveOptions = OpenSpecScanOptions & {
@@ -125,7 +125,7 @@ export async function parseCoverageEvidence(proposalPath: string): Promise<Cover
       summaryStatus: 'unavailable',
       capabilityValidation: 'not-enforced',
       staleFiles: [],
-      mismatches: [],
+      mismatches: []
     };
   }
 
@@ -139,7 +139,7 @@ export async function parseCoverageEvidence(proposalPath: string): Promise<Cover
       summaryStatus: 'unavailable',
       capabilityValidation: 'not-enforced',
       staleFiles: [],
-      mismatches: [],
+      mismatches: []
     };
   }
 
@@ -177,28 +177,32 @@ export async function parseCoverageEvidence(proposalPath: string): Promise<Cover
     summaryStatus: 'unavailable',
     capabilityValidation: 'not-enforced',
     staleFiles: [],
-    mismatches: [],
+    mismatches: []
   };
 }
 
 function parseTableRow(line: string): Omit<CoverageRequirementRow, 'line'> | null {
   const trimmed = line.trim();
   if (!trimmed.startsWith('|')) return null;
-  const cells = trimmed.split('|').slice(1, -1).map((c) => c.trim());
+  const cells = trimmed
+    .split('|')
+    .slice(1, -1)
+    .map((c) => c.trim());
   if (cells.length < 3) return null;
   const capability = cells[0];
   const requirement = cells[1];
   const statusRaw = cells[2];
   const testAnchor = cells[3];
   if (capability === undefined || requirement === undefined || statusRaw === undefined) return null;
-  if (capability.toLowerCase() === 'capability' && requirement.toLowerCase() === 'requirement') return null;
+  if (capability.toLowerCase() === 'capability' && requirement.toLowerCase() === 'requirement')
+    return null;
   if (/^-+$/.test(capability.replace(/\s+/g, ''))) return null;
   const status = statusRaw.toLowerCase();
   if (status !== 'covered' && status !== 'partial' && status !== 'uncovered') return null;
   const row: Omit<CoverageRequirementRow, 'line'> = {
     capability,
     requirement,
-    status: status,
+    status: status
   };
   if (testAnchor !== undefined && testAnchor !== '') {
     row.testAnchor = testAnchor;
@@ -238,14 +242,14 @@ function evaluateGate(
     return {
       ok: false,
       reason: 'requirement-not-fully-covered',
-      failing,
+      failing
     };
   }
   if (evidence.rows.length === 0) {
     return {
       ok: false,
       reason: 'no-coverage-evidence-block',
-      failing: [],
+      failing: []
     };
   }
   return { ok: true };
@@ -309,9 +313,9 @@ export async function archiveOpenSpecChange(
               requirement: r.requirement,
               status: r.status,
               testAnchor: r.testAnchor,
-              line: r.line,
+              line: r.line
             })),
-            coverage,
+            coverage
           }
         );
       }
@@ -321,7 +325,7 @@ export async function archiveOpenSpecChange(
     const mapping = await parseCapabilityMapping(proposalPath);
     coverage = {
       ...coverage,
-      capabilityRows: mapping.rows,
+      capabilityRows: mapping.rows
     };
 
     if (mapping.rows.length === 0) {
@@ -340,11 +344,16 @@ export async function archiveOpenSpecChange(
     const projectRoot = resolve(openspecRoot, '..');
     const summaryPathResult = await resolveCoverageSummaryPath({
       projectRoot,
-      ...(options.coverageSummaryPath !== undefined ? { explicitPath: options.coverageSummaryPath } : {}),
+      ...(options.coverageSummaryPath !== undefined
+        ? { explicitPath: options.coverageSummaryPath }
+        : {})
     });
     if (!summaryPathResult.ok) {
       // AC1: missing or not-readable
-      const triedPaths = summaryPathResult.error.code === 'missing' ? summaryPathResult.error.triedPaths : [summaryPathResult.error.path];
+      const triedPaths =
+        summaryPathResult.error.code === 'missing'
+          ? summaryPathResult.error.triedPaths
+          : [summaryPathResult.error.path];
       throw new OpenSpecArchiveError(
         'OPENSPEC_COVERAGE_EVIDENCE_MISSING',
         `Refusing to archive "${changeId}": no coverage-summary.json found at any of: ${triedPaths.join(', ')}. ` +
@@ -354,7 +363,7 @@ export async function archiveOpenSpecChange(
         {
           changeId,
           triedPaths,
-          coverage,
+          coverage
         }
       );
     }
@@ -373,20 +382,20 @@ export async function archiveOpenSpecChange(
     }
     coverage = {
       ...coverage,
-      summaryPath: summary.path,
+      summaryPath: summary.path
     };
 
     const staleFiles = await findStaleChangeFiles({
       projectRoot,
       openspecRoot,
       changeId,
-      summary,
+      summary
     });
     if (staleFiles.length > 0) {
       coverage = {
         ...coverage,
         summaryStatus: 'stale',
-        staleFiles,
+        staleFiles
       };
       throw new OpenSpecArchiveError(
         'OPENSPEC_COVERAGE_EVIDENCE_STALE',
@@ -397,20 +406,20 @@ export async function archiveOpenSpecChange(
     }
     coverage = {
       ...coverage,
-      summaryStatus: 'fresh',
+      summaryStatus: 'fresh'
     };
 
     // Per-capability coverage check (AC4)
     const validation = await validateCapabilityCoverage({
       projectRoot,
       summary,
-      rows: mapping.rows,
+      rows: mapping.rows
     });
     if (!validation.ok) {
       coverage = {
         ...coverage,
         capabilityValidation: 'mismatch',
-        mismatches: validation.mismatches,
+        mismatches: validation.mismatches
       };
       if (options.force === true) {
         coverageMismatchBypassed = true;
@@ -422,14 +431,14 @@ export async function archiveOpenSpecChange(
           {
             changeId,
             mismatches: validation.mismatches,
-            coverage,
+            coverage
           }
         );
       }
     } else {
       coverage = {
         ...coverage,
-        capabilityValidation: 'ok',
+        capabilityValidation: 'ok'
       };
     }
   } else if (options.apply === true) {
@@ -444,7 +453,7 @@ export async function archiveOpenSpecChange(
       from,
       to,
       applied: false,
-      ...(coverage !== undefined ? { coverage } : {}),
+      ...(coverage !== undefined ? { coverage } : {})
     };
   }
 
@@ -462,6 +471,6 @@ export async function archiveOpenSpecChange(
     applied: true,
     ...(coverage !== undefined ? { coverage } : {}),
     ...(coverageGateBypassed === true ? { coverageGateBypassed: true } : {}),
-    ...(coverageMismatchBypassed === true ? { coverageMismatchBypassed: true } : {}),
+    ...(coverageMismatchBypassed === true ? { coverageMismatchBypassed: true } : {})
   };
 }

@@ -60,14 +60,23 @@ import { declareDimensions } from '../../_setup/4dim-template.js';
 declareDimensions(
   'tests/unit/services/memory/memory-title-sensitive-scan.test.ts',
   ['behavior', 'integration', 'a11y'],
-  [{ dim: 'render', reason: 'the gate returns nothing and prints nothing of its own; the envelope it feeds is asserted under a11y' }],
+  [
+    {
+      dim: 'render',
+      reason:
+        'the gate returns nothing and prints nothing of its own; the envelope it feeds is asserted under a11y'
+    }
+  ]
 );
 
 const START = '<!-- peaks-memory:start -->';
 const END = '<!-- peaks-memory:end -->';
 
 /** A memory whose title is the only thing under test. */
-function memory(title: string, body = 'A stable fact that carries no credential.'): ExtractedProjectMemory {
+function memory(
+  title: string,
+  body = 'A stable fact that carries no credential.'
+): ExtractedProjectMemory {
   return { title, kind: 'lesson', body, sourceArtifact: 'probe/handoff.md' };
 }
 
@@ -273,12 +282,15 @@ const CONTENT_SCANNER: ReadonlyArray<readonly [sample: string, sensitive: boolea
 ];
 
 describe('Scenario: behavior — the content scanner is unchanged', () => {
-  it.each(CONTENT_SCANNER)('when the content is %j, should report sensitive = %s', (sample, sensitive) => {
-    // given: a pre-C0 sample of each pattern family, plus its prose counterpart
-    // when: the content scanner reads it
-    // then: it answers exactly what it answered before this slice
-    expect(hasSensitiveMemoryContent(sample)).toBe(sensitive);
-  });
+  it.each(CONTENT_SCANNER)(
+    'when the content is %j, should report sensitive = %s',
+    (sample, sensitive) => {
+      // given: a pre-C0 sample of each pattern family, plus its prose counterpart
+      // when: the content scanner reads it
+      // then: it answers exactly what it answered before this slice
+      expect(hasSensitiveMemoryContent(sample)).toBe(sensitive);
+    }
+  );
 });
 
 describe('Scenario: integration — the real extract path', () => {
@@ -301,24 +313,43 @@ describe('Scenario: integration — the real extract path', () => {
 
   it('when an artifact carries a memory titled after authority, should extract it', () => {
     // given: the reported artifact, on disk
-    writeFileSync(artifactPath, `${block('Derive from the authority, never re-declare it', 'The capsule is the source of truth.')}\n`, 'utf8');
+    writeFileSync(
+      artifactPath,
+      `${block('Derive from the authority, never re-declare it', 'The capsule is the source of truth.')}\n`,
+      'utf8'
+    );
 
     // when: the real extract path runs
-    const plan = executeProjectMemoryExtract({ projectRoot: root, artifactPaths: [artifactPath], apply: false });
+    const plan = executeProjectMemoryExtract({
+      projectRoot: root,
+      artifactPaths: [artifactPath],
+      apply: false
+    });
 
     // then: the memory is planned for writing instead of aborting the extract —
     //       one refused block used to fail the whole run, not just its own file
-    expect(plan.plannedWrites.map((write) => write.memory.title)).toEqual(['Derive from the authority, never re-declare it']);
+    expect(plan.plannedWrites.map((write) => write.memory.title)).toEqual([
+      'Derive from the authority, never re-declare it'
+    ]);
   });
 
   it('when an artifact carries a credential value, should abort the extract', () => {
     // given: an artifact with a value the content scanner owns
-    writeFileSync(artifactPath, `${block('Rotate the key quarterly', 'api_key: sk-abcdef1234567890')}\n`, 'utf8');
+    writeFileSync(
+      artifactPath,
+      `${block('Rotate the key quarterly', 'api_key: sk-abcdef1234567890')}\n`,
+      'utf8'
+    );
 
     // when: the real extract path runs
     // then: it still refuses — the false-refusal fix did not open this path
-    expect(() => executeProjectMemoryExtract({ projectRoot: root, artifactPaths: [artifactPath], apply: false }))
-      .toThrow(new RegExp(SENSITIVE_MEMORY_CHECKS.content));
+    expect(() =>
+      executeProjectMemoryExtract({
+        projectRoot: root,
+        artifactPaths: [artifactPath],
+        apply: false
+      })
+    ).toThrow(new RegExp(SENSITIVE_MEMORY_CHECKS.content));
   });
 });
 
@@ -339,7 +370,10 @@ describe('Scenario: a11y — the envelope names the check, and the advice answer
     const io: ProgramIO = { stdout: (chunk: string) => stdout.push(chunk), stderr: () => {} };
     const program = new Command();
     registerMemoryCommand(program, io);
-    await program.parseAsync(['memory', 'extract', '--json', '--project', root, '--artifact', artifactPath], { from: 'user' });
+    await program.parseAsync(
+      ['memory', 'extract', '--json', '--project', root, '--artifact', artifactPath],
+      { from: 'user' }
+    );
     return JSON.parse(stdout.join('')) as Envelope;
   }
 
@@ -357,7 +391,11 @@ describe('Scenario: a11y — the envelope names the check, and the advice answer
   it('when a prose title is refused, should name the term and stop advising "remove secrets"', async () => {
     // given: a memory whose title IS a credential term — the one case where the
     //        title scan is the only check that can fire
-    writeFileSync(artifactPath, `${START}\ntitle: apiKey\nkind: lesson\n---\nWhere the key comes from.\n${END}\n`, 'utf8');
+    writeFileSync(
+      artifactPath,
+      `${START}\ntitle: apiKey\nkind: lesson\n---\nWhere the key comes from.\n${END}\n`,
+      'utf8'
+    );
 
     // when: the CLI runs
     const envelope = await runExtract();
@@ -368,7 +406,9 @@ describe('Scenario: a11y — the envelope names the check, and the advice answer
     expect(envelope.ok).toBe(false);
     expect(envelope.code).toBe('MEMORY_EXTRACT_FAILED');
     expect(envelope.message).toContain(SENSITIVE_MEMORY_CHECKS.title);
-    expect(envelope.nextActions).toEqual(['Retitle the memory so it is not named after a credential term, then re-run memory extract']);
+    expect(envelope.nextActions).toEqual([
+      'Retitle the memory so it is not named after a credential term, then re-run memory extract'
+    ]);
     expect(envelope.nextActions?.join(' ')).not.toContain('remove secrets');
 
     // The term itself reaches the reader through `data`, and NOT through the
@@ -387,7 +427,11 @@ describe('Scenario: a11y — the envelope names the check, and the advice answer
 
   it('when a credential value is refused, should name the content scan and advise removing the value', async () => {
     // given: a real credential in the body
-    writeFileSync(artifactPath, `${START}\ntitle: Rotate the key quarterly\nkind: lesson\n---\napi_key: sk-abcdef1234567890\n${END}\n`, 'utf8');
+    writeFileSync(
+      artifactPath,
+      `${START}\ntitle: Rotate the key quarterly\nkind: lesson\n---\napi_key: sk-abcdef1234567890\n${END}\n`,
+      'utf8'
+    );
 
     // when: the CLI runs
     const envelope = await runExtract();
@@ -398,7 +442,9 @@ describe('Scenario: a11y — the envelope names the check, and the advice answer
     //       credential, so it is not echoed anywhere.
     expect(envelope.ok).toBe(false);
     expect(envelope.message).toContain(SENSITIVE_MEMORY_CHECKS.content);
-    expect(envelope.nextActions).toEqual(['Remove the credential value from the memory content, then re-run memory extract']);
+    expect(envelope.nextActions).toEqual([
+      'Remove the credential value from the memory content, then re-run memory extract'
+    ]);
     expect(envelope.data?.check).toBe(SENSITIVE_MEMORY_CHECKS.content);
     expect(envelope.data?.matchedTerm).toBeNull();
 
@@ -412,7 +458,11 @@ describe('Scenario: a11y — the envelope names the check, and the advice answer
 
   it('when the same title is accepted, should report success with the memory planned', async () => {
     // given: the reported title, whose only sin was a word inside a word
-    writeFileSync(artifactPath, `${START}\ntitle: Derive from the authority, never re-declare it\nkind: lesson\n---\nThe capsule is the source of truth.\n${END}\n`, 'utf8');
+    writeFileSync(
+      artifactPath,
+      `${START}\ntitle: Derive from the authority, never re-declare it\nkind: lesson\n---\nThe capsule is the source of truth.\n${END}\n`,
+      'utf8'
+    );
 
     // when: the CLI runs
     const envelope = await runExtract();

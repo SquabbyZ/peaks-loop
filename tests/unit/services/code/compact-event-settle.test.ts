@@ -38,7 +38,10 @@ import {
   settleOpenLifecycleRunOnCompactEvent
 } from '~/src/services/code/auto-compact-lifecycle';
 import { runAutoCompact } from '~/src/services/code/auto-compact-orchestrator';
-import { readCompactLifecycle, writeCompactLifecycle } from '~/src/services/compact-statusline/compact-lifecycle-store';
+import {
+  readCompactLifecycle,
+  writeCompactLifecycle
+} from '~/src/services/compact-statusline/compact-lifecycle-store';
 import {
   computeWindowCalibration,
   summarizeCompactHistory,
@@ -65,7 +68,12 @@ function makeProject(): string {
 }
 
 /** Open a `compacting` run at `ratio`, which is what a dispatch leaves behind. */
-function openRun(projectRoot: string, sessionId: string, ratio: number, runId = 'compact-test-run'): void {
+function openRun(
+  projectRoot: string,
+  sessionId: string,
+  ratio: number,
+  runId = 'compact-test-run'
+): void {
   writeCompactLifecycle({
     projectRoot,
     sessionId,
@@ -107,12 +115,21 @@ describe('settling on the harness event rather than on a measurement', () => {
     const sid = '2026-09-13-session-settle1';
     openRun(root, sid, 0.92);
     // when: the settle runs off the event alone
-    const settled = settleOpenLifecycleRunOnCompactEvent({ projectRoot: root, sessionId: sid, measuredRatio: null });
+    const settled = settleOpenLifecycleRunOnCompactEvent({
+      projectRoot: root,
+      sessionId: sid,
+      measuredRatio: null
+    });
     // then: the run is closed, with no fabricated after-ratio
     expect(settled).not.toBeNull();
     expect(settled?.triggerRatio).toBe(0.92);
     expect(settled?.afterRatio).toBeNull();
-    const read = readCompactLifecycle({ projectRoot: root, sessionId: sid, nowMs: Date.now(), staleAfterMs: 60_000 });
+    const read = readCompactLifecycle({
+      projectRoot: root,
+      sessionId: sid,
+      nowMs: Date.now(),
+      staleAfterMs: 60_000
+    });
     expect(read.kind).toBe('valid');
     if (read.kind !== 'valid') return;
     expect(read.record.stage).toBe('completed');
@@ -131,10 +148,19 @@ describe('settling on the harness event rather than on a measurement', () => {
     const sid = '2026-09-13-session-settle2';
     openRun(root, sid, 0.55);
     // when: the event settles it
-    const settled = settleOpenLifecycleRunOnCompactEvent({ projectRoot: root, sessionId: sid, measuredRatio: 0.9 });
+    const settled = settleOpenLifecycleRunOnCompactEvent({
+      projectRoot: root,
+      sessionId: sid,
+      measuredRatio: 0.9
+    });
     // then: the run is completed and the misleading number is not on it
     expect(settled?.afterRatio).toBeNull();
-    const read = readCompactLifecycle({ projectRoot: root, sessionId: sid, nowMs: Date.now(), staleAfterMs: 60_000 });
+    const read = readCompactLifecycle({
+      projectRoot: root,
+      sessionId: sid,
+      nowMs: Date.now(),
+      staleAfterMs: 60_000
+    });
     if (read.kind !== 'valid') throw new Error(`expected a valid record, got ${read.kind}`);
     expect(read.record.stage).toBe('completed');
     expect(read.record.afterRatio).toBeUndefined();
@@ -146,10 +172,19 @@ describe('settling on the harness event rather than on a measurement', () => {
     const sid = '2026-09-13-session-settle3';
     openRun(root, sid, 0.92);
     // when: the event settles it
-    const settled = settleOpenLifecycleRunOnCompactEvent({ projectRoot: root, sessionId: sid, measuredRatio: 0.04 });
+    const settled = settleOpenLifecycleRunOnCompactEvent({
+      projectRoot: root,
+      sessionId: sid,
+      measuredRatio: 0.04
+    });
     // then: the drop is recorded, which is what makes the row useful
     expect(settled?.afterRatio).toBe(0.04);
-    const read = readCompactLifecycle({ projectRoot: root, sessionId: sid, nowMs: Date.now(), staleAfterMs: 60_000 });
+    const read = readCompactLifecycle({
+      projectRoot: root,
+      sessionId: sid,
+      nowMs: Date.now(),
+      staleAfterMs: 60_000
+    });
     if (read.kind !== 'valid') throw new Error(`expected a valid record, got ${read.kind}`);
     expect(read.record.afterRatio).toBe(0.04);
   });
@@ -163,10 +198,19 @@ describe('settling on the harness event rather than on a measurement', () => {
     const sid = '2026-09-13-session-settle4';
     mkdirSync(join(root, '.peaks', '_runtime', sid), { recursive: true });
     // when: the event arrives
-    const settled = settleOpenLifecycleRunOnCompactEvent({ projectRoot: root, sessionId: sid, measuredRatio: 0.02 });
+    const settled = settleOpenLifecycleRunOnCompactEvent({
+      projectRoot: root,
+      sessionId: sid,
+      measuredRatio: 0.02
+    });
     // then: nothing settled and nothing was written
     expect(settled).toBeNull();
-    const read = readCompactLifecycle({ projectRoot: root, sessionId: sid, nowMs: Date.now(), staleAfterMs: 60_000 });
+    const read = readCompactLifecycle({
+      projectRoot: root,
+      sessionId: sid,
+      nowMs: Date.now(),
+      staleAfterMs: 60_000
+    });
     expect(read.kind).toBe('missing');
   });
 
@@ -178,9 +222,19 @@ describe('settling on the harness event rather than on a measurement', () => {
     const root = makeProject();
     const sid = '2026-09-13-session-settle5';
     openRun(root, sid, 0.92);
-    expect(settleOpenLifecycleRunOnCompactEvent({ projectRoot: root, sessionId: sid, measuredRatio: 0.04 })).not.toBeNull();
+    expect(
+      settleOpenLifecycleRunOnCompactEvent({
+        projectRoot: root,
+        sessionId: sid,
+        measuredRatio: 0.04
+      })
+    ).not.toBeNull();
     // when: the news arrives again — from the hook, then from a later probe
-    const second = settleOpenLifecycleRunOnCompactEvent({ projectRoot: root, sessionId: sid, measuredRatio: 0.03 });
+    const second = settleOpenLifecycleRunOnCompactEvent({
+      projectRoot: root,
+      sessionId: sid,
+      measuredRatio: 0.03
+    });
     // then: the second arrival is a no-op
     expect(second).toBeNull();
   });
@@ -205,21 +259,34 @@ describe('R1 — a harness-settled compaction still closes its calibration pair'
     // given: a dispatch at 0.93, which opens a run and writes the dispatch row
     const root = makeProject();
     const sid = '2026-09-13-session-settle-r1';
-    const dispatched = await runAutoCompact({ projectRoot: root, sessionId: sid, env: envAtRatio(0.93) });
+    const dispatched = await runAutoCompact({
+      projectRoot: root,
+      sessionId: sid,
+      env: envAtRatio(0.93)
+    });
     expect(dispatched.code).toBe('AUTO_COMPACT_DISPATCHED');
     // when: the event settles it on the still-stale pre-compact reading
     const event = settleCompactFromHarnessEvent({
       projectRoot: root,
       sessionId: sid,
       trigger: 'auto',
-      measure: ruler({ ratio: 0.93, ide: 'claude-code', windowTokens: 200_000, windowSource: 'qa-ruler' })
+      measure: ruler({
+        ratio: 0.93,
+        ide: 'claude-code',
+        windowTokens: 200_000,
+        windowSource: 'qa-ruler'
+      })
     });
     // then: it settles, and drops the number rather than laundering it
     expect(event.settled).toBe(true);
     if (!event.settled) return;
     expect(event.afterRatio).toBeNull();
     // when: the honest post-compact number reaches a later real probe
-    const probe = await runAutoCompact({ projectRoot: root, sessionId: sid, env: envAtRatio(0.04) });
+    const probe = await runAutoCompact({
+      projectRoot: root,
+      sessionId: sid,
+      env: envAtRatio(0.04)
+    });
     expect(probe.code).toBe('AUTO_COMPACT_SKIP');
     // then: the pair closes — one pair, measured, reading the honest number
     const calibration = computeWindowCalibration(readHistory(root, sid));
@@ -237,10 +304,26 @@ describe('R1 — a harness-settled compaction still closes its calibration pair'
     const root = makeProject();
     const sid = '2026-09-13-session-settle-r2';
     openRun(root, sid, 0.92);
-    expect(settleOpenLifecycleRunOnCompactEvent({ projectRoot: root, sessionId: sid, measuredRatio: null })).not.toBeNull();
+    expect(
+      settleOpenLifecycleRunOnCompactEvent({
+        projectRoot: root,
+        sessionId: sid,
+        measuredRatio: null
+      })
+    ).not.toBeNull();
     // when: two successive probes each measure a genuine drop
-    const first = fillEventSettledMeasurement({ projectRoot: root, sessionId: sid, measuredRatio: 0.04, source: 'statusline' });
-    const second = fillEventSettledMeasurement({ projectRoot: root, sessionId: sid, measuredRatio: 0.03, source: 'statusline' });
+    const first = fillEventSettledMeasurement({
+      projectRoot: root,
+      sessionId: sid,
+      measuredRatio: 0.04,
+      source: 'statusline'
+    });
+    const second = fillEventSettledMeasurement({
+      projectRoot: root,
+      sessionId: sid,
+      measuredRatio: 0.03,
+      source: 'statusline'
+    });
     // then: the first fills, the second is silent — one compaction, one number
     expect(first?.afterRatio).toBe(0.04);
     expect(second).toBeNull();
@@ -256,12 +339,28 @@ describe('R1 — a harness-settled compaction still closes its calibration pair'
     const root = makeProject();
     const sid = '2026-09-13-session-settle-r3';
     openRun(root, sid, 0.6);
-    expect(settleOpenLifecycleRunOnCompactEvent({ projectRoot: root, sessionId: sid, measuredRatio: null })).not.toBeNull();
+    expect(
+      settleOpenLifecycleRunOnCompactEvent({
+        projectRoot: root,
+        sessionId: sid,
+        measuredRatio: null
+      })
+    ).not.toBeNull();
     // when: a later probe offers a ratio at or above the dispatch ratio
-    const filled = fillEventSettledMeasurement({ projectRoot: root, sessionId: sid, measuredRatio: 0.7, source: 'statusline' });
+    const filled = fillEventSettledMeasurement({
+      projectRoot: root,
+      sessionId: sid,
+      measuredRatio: 0.7,
+      source: 'statusline'
+    });
     // then: nothing is recorded, and the record still claims no after-ratio
     expect(filled).toBeNull();
-    const read = readCompactLifecycle({ projectRoot: root, sessionId: sid, nowMs: Date.now(), staleAfterMs: 60_000 });
+    const read = readCompactLifecycle({
+      projectRoot: root,
+      sessionId: sid,
+      nowMs: Date.now(),
+      staleAfterMs: 60_000
+    });
     if (read.kind !== 'valid') throw new Error(`expected a valid record, got ${read.kind}`);
     expect(read.record.afterRatio).toBeUndefined();
   });
@@ -300,7 +399,12 @@ describe('the observed row the hook appends', () => {
       projectRoot: root,
       sessionId: sid,
       trigger: 'manual',
-      measure: ruler({ ratio: 0.04, ide: 'claude-code', windowTokens: 123_456, windowSource: 'harness-env' })
+      measure: ruler({
+        ratio: 0.04,
+        ide: 'claude-code',
+        windowTokens: 123_456,
+        windowSource: 'harness-env'
+      })
     });
     // then: the settlement is reported...
     expect(result.settled).toBe(true);
@@ -329,12 +433,27 @@ describe('the observed row the hook appends', () => {
     const root = makeProject();
     const sidA = '2026-09-13-session-settle7';
     const sidB = '2026-09-13-session-settle8';
-    const measurement: PostCompactMeasurement = { ratio: 0.04, ide: 'claude-code', windowTokens: null, windowSource: null };
+    const measurement: PostCompactMeasurement = {
+      ratio: 0.04,
+      ide: 'claude-code',
+      windowTokens: null,
+      windowSource: null
+    };
     openRun(root, sidA, 0.92);
     openRun(root, sidB, 0.92);
     // when: the harness reports `auto` on one and `manual` on the other
-    settleCompactFromHarnessEvent({ projectRoot: root, sessionId: sidA, trigger: 'auto', measure: ruler(measurement) });
-    settleCompactFromHarnessEvent({ projectRoot: root, sessionId: sidB, trigger: 'manual', measure: ruler(measurement) });
+    settleCompactFromHarnessEvent({
+      projectRoot: root,
+      sessionId: sidA,
+      trigger: 'auto',
+      measure: ruler(measurement)
+    });
+    settleCompactFromHarnessEvent({
+      projectRoot: root,
+      sessionId: sidB,
+      trigger: 'manual',
+      measure: ruler(measurement)
+    });
     // then: the two persisted rows differ in exactly that field
     expect(readHistory(root, sidA)[0]?.trigger).toBe('auto');
     expect(readHistory(root, sidB)[0]?.trigger).toBe('manual');
@@ -364,7 +483,11 @@ describe('the observed row the hook appends', () => {
     const sid = '2026-09-13-session-settle10';
     mkdirSync(join(root, '.peaks', '_runtime', sid), { recursive: true });
     // when: the event arrives
-    const result = settleCompactFromHarnessEvent({ projectRoot: root, sessionId: sid, trigger: 'auto' });
+    const result = settleCompactFromHarnessEvent({
+      projectRoot: root,
+      sessionId: sid,
+      trigger: 'auto'
+    });
     // then: no settlement, and no row that would need a fabricated before-ratio
     expect(result.settled).toBe(false);
     expect(readHistory(root, sid)).toEqual([]);
@@ -401,7 +524,11 @@ describe('the production ruler distinguishes "unknown" from "zero"', () => {
     //        outer session — the machine the suite actually runs on
     const root = makeProject();
     // when: the real probe is asked
-    const measurement = measurePostCompact({ projectRoot: root, sessionId: '2026-09-13-session-settle12', env: {} });
+    const measurement = measurePostCompact({
+      projectRoot: root,
+      sessionId: '2026-09-13-session-settle12',
+      env: {}
+    });
     // then: no ratio is claimed — but an adapter is, because which adapter
     //       could not measure is itself diagnostic
     expect(measurement.ratio).toBeNull();
@@ -434,7 +561,12 @@ describe('A — a lifecycle write that failed is not "nothing to settle"', () =>
     // ...and the failed write is reported as exactly that
     expect(outcome?.lifecycleWritten).toBe(false);
     // ...so the run is still open on disk, which is what the CLI now says
-    const read = readCompactLifecycle({ projectRoot: root, sessionId: sid, nowMs: Date.now(), staleAfterMs: 60_000 });
+    const read = readCompactLifecycle({
+      projectRoot: root,
+      sessionId: sid,
+      nowMs: Date.now(),
+      staleAfterMs: 60_000
+    });
     if (read.kind !== 'valid') throw new Error(`expected a valid record, got ${read.kind}`);
     expect(read.record.stage).toBe('compacting');
   });
@@ -473,7 +605,12 @@ describe('A — a lifecycle write that failed is not "nothing to settle"', () =>
     // ...nothing asserting a settlement is on disk...
     expect(readHistory(root, sid)).toEqual([]);
     // ...the run is demonstrably still where it was...
-    const still = readCompactLifecycle({ projectRoot: root, sessionId: sid, nowMs: Date.now(), staleAfterMs: 60_000 });
+    const still = readCompactLifecycle({
+      projectRoot: root,
+      sessionId: sid,
+      nowMs: Date.now(),
+      staleAfterMs: 60_000
+    });
     if (still.kind !== 'valid') throw new Error(`expected a valid record, got ${still.kind}`);
     expect(still.record.stage).toBe('compacting');
     // ...and the retry, once the write lands, appends exactly one row — at the
@@ -497,7 +634,12 @@ describe('A — a lifecycle write that failed is not "nothing to settle"', () =>
 
 describe('C — the sibling settle path, aligned (repair R9)', () => {
   /** The measurement both tests below are taken at: the same drop, three times. */
-  const drop: PostCompactMeasurement = { ratio: 0.04, ide: 'claude-code', windowTokens: null, windowSource: null };
+  const drop: PostCompactMeasurement = {
+    ratio: 0.04,
+    ide: 'claude-code',
+    windowTokens: null,
+    windowSource: null
+  };
 
   /**
    * Force the lifecycle write to fail, portably, and OBSERVE that it did.
@@ -529,7 +671,12 @@ describe('C — the sibling settle path, aligned (repair R9)', () => {
    * that landed would have advanced to `completed`.
    */
   function forceWriteRefusal(root: string, sid: string): void {
-    const before = readCompactLifecycle({ projectRoot: root, sessionId: sid, nowMs: Date.now(), staleAfterMs: 60_000 });
+    const before = readCompactLifecycle({
+      projectRoot: root,
+      sessionId: sid,
+      nowMs: Date.now(),
+      staleAfterMs: 60_000
+    });
     expect(before.kind).toBe('valid');
     if (before.kind !== 'valid') return;
 
@@ -543,7 +690,12 @@ describe('C — the sibling settle path, aligned (repair R9)', () => {
     if (!canary.settled) return;
     expect(canary.lifecycleWritten).toBe(false);
 
-    const after = readCompactLifecycle({ projectRoot: root, sessionId: sid, nowMs: Date.now(), staleAfterMs: 60_000 });
+    const after = readCompactLifecycle({
+      projectRoot: root,
+      sessionId: sid,
+      nowMs: Date.now(),
+      staleAfterMs: 60_000
+    });
     expect(after.kind).toBe('valid');
     if (after.kind !== 'valid') return;
     expect(after.record.stage).toBe(before.record.stage);
@@ -602,13 +754,23 @@ describe('C — the sibling settle path, aligned (repair R9)', () => {
     // still holds at `compacting`, one per arrival, bounded only by how often
     // the harness fires.
     expect(readHistory(root, sid)).toEqual([]);
-    const still = readCompactLifecycle({ projectRoot: root, sessionId: sid, nowMs: Date.now(), staleAfterMs: 60_000 });
+    const still = readCompactLifecycle({
+      projectRoot: root,
+      sessionId: sid,
+      nowMs: Date.now(),
+      staleAfterMs: 60_000
+    });
     if (still.kind !== 'valid') throw new Error(`expected a valid record, got ${still.kind}`);
     expect(still.record.stage).toBe('compacting');
 
     // and the control that falsifies "this path never appends anything": with
     // the write restored, the SAME event appends exactly one row
-    const recovered = settleCompactFromHarnessEvent({ projectRoot: root, sessionId: sid, trigger: 'auto', measure: ruler(drop) });
+    const recovered = settleCompactFromHarnessEvent({
+      projectRoot: root,
+      sessionId: sid,
+      trigger: 'auto',
+      measure: ruler(drop)
+    });
     expect(recovered.settled).toBe(true);
     if (!recovered.settled) return;
     expect(recovered.lifecycleWritten).toBe(true);
@@ -630,7 +792,11 @@ describe('C — the sibling settle path, aligned (repair R9)', () => {
     // given: a real dispatch, so there is a pair to close
     const root = makeProject();
     const sid = '2026-09-13-session-settle-r9c';
-    const dispatched = await runAutoCompact({ projectRoot: root, sessionId: sid, env: envAtRatio(0.93) });
+    const dispatched = await runAutoCompact({
+      projectRoot: root,
+      sessionId: sid,
+      env: envAtRatio(0.93)
+    });
     expect(dispatched.code).toBe('AUTO_COMPACT_DISPATCHED');
 
     // when: the harness event arrives while the lifecycle record cannot be written
@@ -655,7 +821,12 @@ describe('C — the sibling settle path, aligned (repair R9)', () => {
     expect(summarizeCompactHistory(readHistory(root, sid)).totalCompacts).toBe(1);
 
     // when: the retry lands — the same run, still open
-    const retry = settleCompactFromHarnessEvent({ projectRoot: root, sessionId: sid, trigger: 'auto', measure: ruler(drop) });
+    const retry = settleCompactFromHarnessEvent({
+      projectRoot: root,
+      sessionId: sid,
+      trigger: 'auto',
+      measure: ruler(drop)
+    });
     expect(retry.settled).toBe(true);
     if (!retry.settled) return;
     expect(retry.historyWritten).toBe(true);
@@ -730,7 +901,12 @@ describe('B — attribution to the session the payload names', () => {
     // then: it is refused as an attribution problem, not reported as an absence
     expect(result).toEqual({ settled: false, reason: 'different-session' });
     expect(readHistory(root, sid)).toEqual([]);
-    const read = readCompactLifecycle({ projectRoot: root, sessionId: sid, nowMs: Date.now(), staleAfterMs: 60_000 });
+    const read = readCompactLifecycle({
+      projectRoot: root,
+      sessionId: sid,
+      nowMs: Date.now(),
+      staleAfterMs: 60_000
+    });
     if (read.kind !== 'valid') throw new Error(`expected a valid record, got ${read.kind}`);
     expect(read.record.stage).toBe('compacting');
   });
@@ -810,24 +986,47 @@ describe('D — the one probe that cannot close the pair (the R1 doc block, meas
     // given: a dispatch whose event-settled record is still owed a number
     const root = makeProject();
     const sid = '2026-09-13-session-settle-d1';
-    const dispatched = await runAutoCompact({ projectRoot: root, sessionId: sid, env: envAtRatio(0.93) });
+    const dispatched = await runAutoCompact({
+      projectRoot: root,
+      sessionId: sid,
+      env: envAtRatio(0.93)
+    });
     expect(dispatched.code).toBe('AUTO_COMPACT_DISPATCHED');
     const event = settleCompactFromHarnessEvent({
       projectRoot: root,
       sessionId: sid,
       trigger: 'auto',
-      measure: ruler({ ratio: 0.93, ide: 'claude-code', windowTokens: 200_000, windowSource: 'qa-ruler' })
+      measure: ruler({
+        ratio: 0.93,
+        ide: 'claude-code',
+        windowTokens: 200_000,
+        windowSource: 'qa-ruler'
+      })
     });
     expect(event.settled).toBe(true);
-    const owed = readCompactLifecycle({ projectRoot: root, sessionId: sid, nowMs: Date.now(), staleAfterMs: 60_000 });
+    const owed = readCompactLifecycle({
+      projectRoot: root,
+      sessionId: sid,
+      nowMs: Date.now(),
+      staleAfterMs: 60_000
+    });
     if (owed.kind !== 'valid') throw new Error(`expected a valid record, got ${owed.kind}`);
     expect(owed.record.stage).toBe('completed');
     expect(owed.record.afterRatio).toBeUndefined();
     // when: the next probe crosses the threshold and dispatches again
-    const recommitted = await runAutoCompact({ projectRoot: root, sessionId: sid, env: envAtRatio(0.93) });
+    const recommitted = await runAutoCompact({
+      projectRoot: root,
+      sessionId: sid,
+      env: envAtRatio(0.93)
+    });
     expect(recommitted.code).toBe('AUTO_COMPACT_DISPATCHED');
     // then: the record the pair was owed is overwritten, not deferred
-    const after = readCompactLifecycle({ projectRoot: root, sessionId: sid, nowMs: Date.now(), staleAfterMs: 60_000 });
+    const after = readCompactLifecycle({
+      projectRoot: root,
+      sessionId: sid,
+      nowMs: Date.now(),
+      staleAfterMs: 60_000
+    });
     if (after.kind !== 'valid') throw new Error(`expected a valid record, got ${after.kind}`);
     expect(after.record.runId).not.toBe(owed.record.runId);
     expect(after.record.afterRatio).toBeUndefined();

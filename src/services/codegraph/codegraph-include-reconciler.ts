@@ -50,7 +50,10 @@
 import { createRequire } from 'node:module';
 import { dirname, extname, join } from 'node:path';
 
-import { compileCodegraphGlobs, type CompiledCodegraphGlobs } from './codegraph-exclude-reconciler.js';
+import {
+  compileCodegraphGlobs,
+  type CompiledCodegraphGlobs
+} from './codegraph-exclude-reconciler.js';
 
 // ─────────────────────────────────────────────────────────────────────
 // Which extensions does this project's `include` already admit?

@@ -20,14 +20,14 @@ import {
   SUPERPOWERS_DENIED_SKILLS,
   listSuperpowersDenyEntries,
   withSuperpowersSkillDenylist,
-  withoutSuperpowersSkillDenylist,
+  withoutSuperpowersSkillDenylist
 } from '../../../src/services/skills/hooks-settings-service.js';
 
 const NEW_DENIED: ReadonlyArray<string> = [
   'superpowers:systematic-debugging',
   'superpowers:test-driven-development',
   'superpowers:verification-before-completion',
-  'superpowers:using-superpowers',
+  'superpowers:using-superpowers'
 ];
 
 describe('slice rid-skill-persistence-001: SUPERPOWERS_DENIED_SKILLS widened', () => {

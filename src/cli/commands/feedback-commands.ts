@@ -42,7 +42,9 @@ import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../
 export function registerFeedbackCommands(program: Command, io: ProgramIO): void {
   const feedback = program
     .command('feedback')
-    .description('v2.15.0 slice 002 AC-3: promote user-given feedback memories to peaks-loop enforcement layers (A: sop, B: hooks, C: hard-floor).');
+    .description(
+      'v2.15.0 slice 002 AC-3: promote user-given feedback memories to peaks-loop enforcement layers (A: sop, B: hooks, C: hard-floor).'
+    );
 
   addJsonOption(
     feedback
@@ -58,14 +60,26 @@ export function registerFeedbackCommands(program: Command, io: ProgramIO): void 
       )
       .option('--layer <A|B|C>', `enforcement layer (${PROMOTION_LAYERS.join(' | ')})`)
       .option('--project <path>', 'project root (default: cwd)')
-      .option('--promoted-by <id>', 'identity string for the audit envelope (default: peaks-rd fork agent)')
+      .option(
+        '--promoted-by <id>',
+        'identity string for the audit envelope (default: peaks-rd fork agent)'
+      )
       .option('--dry-run', 'preview the stub without writing the marker / sidecar / envelope')
   ).action(
-    async (memoryFile: string, opts: { layer?: string; project?: string; promotedBy?: string; dryRun?: boolean; json?: boolean }) => {
+    async (
+      memoryFile: string,
+      opts: {
+        layer?: string;
+        project?: string;
+        promotedBy?: string;
+        dryRun?: boolean;
+        json?: boolean;
+      }
+    ) => {
       try {
         const projectRoot = opts.project ?? findProjectRoot(process.cwd()) ?? process.cwd();
         const memoryPath = memoryFile.endsWith('.md')
-          ? (memoryFile.startsWith('/') || memoryFile.includes(':'))
+          ? memoryFile.startsWith('/') || memoryFile.includes(':')
             ? memoryFile
             : resolvePath(projectRoot, memoryFile)
           : resolvePath(projectRoot, '.peaks', 'memory', `${memoryFile}.md`);
@@ -190,8 +204,12 @@ export function registerFeedbackCommands(program: Command, io: ProgramIO): void 
             [
               ...notes,
               ...(envelope.layer === 'C'
-                ? ['Layer C lives in source code: register the hard-floor category in src/services/code/mode-gate.ts, then re-run promote to record it.']
-                : ['Apply the snippet to the file(s) named above, then re-run promote to record it.'])
+                ? [
+                    'Layer C lives in source code: register the hard-floor category in src/services/code/mode-gate.ts, then re-run promote to record it.'
+                  ]
+                : [
+                    'Apply the snippet to the file(s) named above, then re-run promote to record it.'
+                  ])
             ]
           ),
           opts.json
@@ -200,7 +218,9 @@ export function registerFeedbackCommands(program: Command, io: ProgramIO): void 
       } catch (err) {
         printResult(
           io,
-          fail('feedback.promote', 'PROMOTE_FAILED', getErrorMessage(err), { memoryFile }, ['Verify the file is a feedback memory and re-run']),
+          fail('feedback.promote', 'PROMOTE_FAILED', getErrorMessage(err), { memoryFile }, [
+            'Verify the file is a feedback memory and re-run'
+          ]),
           opts.json
         );
         process.exitCode = 1;
@@ -217,76 +237,87 @@ export function registerFeedbackCommands(program: Command, io: ProgramIO): void 
           'unpromoted feedback is found — this is what `peaks workflow verify-pipeline` Gate H uses.'
       )
       .requiredOption('--project <path>', 'project root')
-      .option('--strict', 'exit non-zero when any unpromoted feedback is found (used by verify-pipeline Gate H)')
-  ).action(
-    (opts: { project: string; strict?: boolean; json?: boolean }) => {
-      try {
-        const unpromoted = listUnpromotedFeedback({ projectRoot: opts.project });
-        const exempt = listPromotionExempt({ projectRoot: opts.project });
-        const count = unpromoted.length;
-        if (count === 0) {
-          printResult(
-            io,
-            ok(
-              'feedback.check-unpromoted',
-              { count: 0, unpromoted: [], exempt },
-              [],
-              [
-                `No unpromoted feedback found in .peaks/memory/.`,
-                ...(exempt.length === 0
-                  ? []
-                  : [`${exempt.length} memor${exempt.length === 1 ? 'y' : 'ies'} declare themselves not-to-be-promoted: ${exempt.map((e) => `${e.name} (${e.code})`).join('; ')}.`])
-              ]
-            ),
-            opts.json
-          );
-          return;
-        }
-        const message = `${count} feedback memor${count === 1 ? 'y is' : 'ies are'} not yet promoted to an enforcement layer.`;
-        const nextActions = [
-          `Run \`peaks feedback promote <memory-file> --layer <A|B|C>\` for each entry above.`,
-          'A = peaks-sop gate, B = peaks-hooks PreToolUse, C = mode-gate hardFloorCategory.',
-          'A marker alone does not count: the entry above names the artifact its layer still owes.',
-          'See sops/feedback-promotion-sop.md for the SOP and the layer-choice rubric.'
-        ];
-        if (opts.strict === true) {
-          printResult(
-            io,
-            fail(
-              'feedback.check-unpromoted',
-              'UNPROMOTED_FEEDBACK_FOUND',
-              message,
-              { count, unpromoted, exempt },
-              nextActions
-            ),
-            opts.json
-          );
-          process.exitCode = 1;
-          return;
-        }
+      .option(
+        '--strict',
+        'exit non-zero when any unpromoted feedback is found (used by verify-pipeline Gate H)'
+      )
+  ).action((opts: { project: string; strict?: boolean; json?: boolean }) => {
+    try {
+      const unpromoted = listUnpromotedFeedback({ projectRoot: opts.project });
+      const exempt = listPromotionExempt({ projectRoot: opts.project });
+      const count = unpromoted.length;
+      if (count === 0) {
         printResult(
           io,
           ok(
             'feedback.check-unpromoted',
-            { count, unpromoted, exempt },
+            { count: 0, unpromoted: [], exempt },
+            [],
             [
-              message,
+              `No unpromoted feedback found in .peaks/memory/.`,
               ...(exempt.length === 0
                 ? []
-                : [`${exempt.length} memor${exempt.length === 1 ? 'y' : 'ies'} declare themselves not-to-be-promoted: ${exempt.map((e) => `${e.name} (${e.code})`).join('; ')}.`])
-            ],
+                : [
+                    `${exempt.length} memor${exempt.length === 1 ? 'y' : 'ies'} declare themselves not-to-be-promoted: ${exempt.map((e) => `${e.name} (${e.code})`).join('; ')}.`
+                  ])
+            ]
+          ),
+          opts.json
+        );
+        return;
+      }
+      const message = `${count} feedback memor${count === 1 ? 'y is' : 'ies are'} not yet promoted to an enforcement layer.`;
+      const nextActions = [
+        `Run \`peaks feedback promote <memory-file> --layer <A|B|C>\` for each entry above.`,
+        'A = peaks-sop gate, B = peaks-hooks PreToolUse, C = mode-gate hardFloorCategory.',
+        'A marker alone does not count: the entry above names the artifact its layer still owes.',
+        'See sops/feedback-promotion-sop.md for the SOP and the layer-choice rubric.'
+      ];
+      if (opts.strict === true) {
+        printResult(
+          io,
+          fail(
+            'feedback.check-unpromoted',
+            'UNPROMOTED_FEEDBACK_FOUND',
+            message,
+            { count, unpromoted, exempt },
             nextActions
           ),
           opts.json
         );
-      } catch (err) {
-        printResult(
-          io,
-          fail('feedback.check-unpromoted', 'CHECK_FAILED', getErrorMessage(err), { project: opts.project }, ['Verify --project path and re-run']),
-          opts.json
-        );
         process.exitCode = 1;
+        return;
       }
+      printResult(
+        io,
+        ok(
+          'feedback.check-unpromoted',
+          { count, unpromoted, exempt },
+          [
+            message,
+            ...(exempt.length === 0
+              ? []
+              : [
+                  `${exempt.length} memor${exempt.length === 1 ? 'y' : 'ies'} declare themselves not-to-be-promoted: ${exempt.map((e) => `${e.name} (${e.code})`).join('; ')}.`
+                ])
+          ],
+          nextActions
+        ),
+        opts.json
+      );
+    } catch (err) {
+      printResult(
+        io,
+        fail(
+          'feedback.check-unpromoted',
+          'CHECK_FAILED',
+          getErrorMessage(err),
+          { project: opts.project },
+          ['Verify --project path and re-run']
+        ),
+        opts.json
+      );
+      process.exitCode = 1;
     }
-  );
+  });
 }

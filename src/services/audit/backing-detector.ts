@@ -25,7 +25,7 @@ const PARTIAL_PHRASES = [
   'best effort',
   'advisory only',
   'soft enforcement',
-  'when remembered',
+  'when remembered'
 ] as const;
 
 function detectPartial(context: string): boolean {
@@ -56,19 +56,21 @@ export interface BackingResult {
 export function classifyBacking(
   entry: RedLineEntry,
   projectRoot: string,
-  liveEnforcers: LiveEnforcerSet,
+  liveEnforcers: LiveEnforcerSet
 ): BackingResult {
-  const enforcerPath =
-    entry.enforcerRef === null ? null : resolve(projectRoot, entry.enforcerRef);
+  const enforcerPath = entry.enforcerRef === null ? null : resolve(projectRoot, entry.enforcerRef);
   const exists = enforcerPath !== null && existsSync(enforcerPath);
   const dead =
-    entry.enforcerRef !== null && exists && liveEnforcers !== null && !liveEnforcers.has(entry.enforcerRef);
+    entry.enforcerRef !== null &&
+    exists &&
+    liveEnforcers !== null &&
+    !liveEnforcers.has(entry.enforcerRef);
 
   if (detectPartial(entry.source.context)) {
     return {
       entry: { ...entry, backing: 'partial' },
       enforcerExists: exists,
-      enforcerDead: dead,
+      enforcerDead: dead
     };
   }
 
@@ -80,7 +82,7 @@ export function classifyBacking(
   return {
     entry: { ...entry, backing: backed ? 'cli-backed' : 'prose-only' },
     enforcerExists: exists,
-    enforcerDead: dead,
+    enforcerDead: dead
   };
 }
 
@@ -94,7 +96,7 @@ export interface BackingBatchResult {
 export function classifyBackingBatch(
   entries: readonly RedLineEntry[],
   projectRoot: string,
-  liveEnforcers: LiveEnforcerSet,
+  liveEnforcers: LiveEnforcerSet
 ): BackingBatchResult {
   const updated: RedLineEntry[] = [];
   const warnings: string[] = [];
@@ -108,7 +110,9 @@ export function classifyBackingBatch(
     if (result.entry.backing === 'cli-backed' && !result.enforcerExists) {
       // Defensive: should not happen because classifyBacking downgrades to
       // prose-only, but keep the assertion in case of future drift.
-      warnings.push(`enforcer ref "${result.entry.enforcerRef}" missing on disk for ${result.entry.id}`);
+      warnings.push(
+        `enforcer ref "${result.entry.enforcerRef}" missing on disk for ${result.entry.id}`
+      );
     }
   }
   return { entries: updated, warnings, deadEnforcers: [...dead].sort() };

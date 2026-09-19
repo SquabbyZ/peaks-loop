@@ -34,13 +34,17 @@ declareDimensions(
   ['behavior', 'integration'],
   [
     { dim: 'render', reason: 'no user-visible text: this asserts the cold-start decision' },
-    { dim: 'a11y', reason: 'no CLI envelope or exit code is produced at this layer' },
-  ],
+    { dim: 'a11y', reason: 'no CLI envelope or exit code is produced at this layer' }
+  ]
 );
 
 import { isProcessAlive, readDaemonInfo } from '../../../../src/services/web/daemon-registry.js';
 import { ensureDaemon } from '../../../../src/services/web/daemon-supervisor.js';
-import { webDaemonDir, webDaemonInfoPath, webLogPath } from '../../../../src/services/web/web-artifact-paths.js';
+import {
+  webDaemonDir,
+  webDaemonInfoPath,
+  webLogPath
+} from '../../../../src/services/web/web-artifact-paths.js';
 import { PROTOCOL_VERSION } from '../../../../src/services/web/web-protocol.js';
 
 const SESSION_ID = '2026-09-10-session-slowpeer';
@@ -170,24 +174,20 @@ async function waitUntil(predicate: () => boolean, timeoutMs = 15_000): Promise<
 }
 
 describe('integration — a live daemon that stalls', () => {
-  it(
-    'when the recorded daemon is alive but answers /health slowly, should reuse it and spawn nothing',
-    async () => {
-      // given: a live pid recorded as this session's daemon on a peer whose
-      // first /health answers arrive after the health budget has expired
-      const projectRoot = ws().path;
-      roots.push(projectRoot);
-      const peer = await startSlowPeer();
-      plantLiveDaemon(projectRoot, process.pid, peer.port);
-      // when: a daemon is requested for that session
-      const info = await ensureDaemon(projectRoot, SESSION_ID);
-      // then: the live daemon was reused, its record survived, and no second
-      // daemon was ever booted
-      expect(info.pid).toBe(process.pid);
-      expect(readDaemonInfo(projectRoot, SESSION_ID)?.pid).toBe(process.pid);
-      expect(bootCount(projectRoot)).toBe(0);
-      await peer.close();
-    },
-    30_000
-  );
+  it('when the recorded daemon is alive but answers /health slowly, should reuse it and spawn nothing', async () => {
+    // given: a live pid recorded as this session's daemon on a peer whose
+    // first /health answers arrive after the health budget has expired
+    const projectRoot = ws().path;
+    roots.push(projectRoot);
+    const peer = await startSlowPeer();
+    plantLiveDaemon(projectRoot, process.pid, peer.port);
+    // when: a daemon is requested for that session
+    const info = await ensureDaemon(projectRoot, SESSION_ID);
+    // then: the live daemon was reused, its record survived, and no second
+    // daemon was ever booted
+    expect(info.pid).toBe(process.pid);
+    expect(readDaemonInfo(projectRoot, SESSION_ID)?.pid).toBe(process.pid);
+    expect(bootCount(projectRoot)).toBe(0);
+    await peer.close();
+  }, 30_000);
 });

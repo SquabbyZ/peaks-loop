@@ -12,7 +12,15 @@
  * unchanged (verbatim move).
  */
 
-import { closeSync, fstatSync, lstatSync, openSync, readSync, realpathSync, statSync } from 'node:fs';
+import {
+  closeSync,
+  fstatSync,
+  lstatSync,
+  openSync,
+  readSync,
+  realpathSync,
+  statSync
+} from 'node:fs';
 import { isAbsolute, relative, resolve } from 'node:path';
 // Slice 2026-06-29-change-id-root-removal: `buildArtifactRelativePath`
 // was removed with the change-id axis. The artifact under each
@@ -79,7 +87,11 @@ function normalizeRoleRelativePath(artifact: string, _sessionId: string): string
   return normalizePath(artifact).replace(/^\/+/, '');
 }
 
-function readResumeArtifact(artifactWorkspacePath: string, sessionId: string, artifact: string): string | null {
+function readResumeArtifact(
+  artifactWorkspacePath: string,
+  sessionId: string,
+  artifact: string
+): string | null {
   // Slice 2026-06-29-change-id-root-removal: on-disk home now lives under
   // the session-axis `getSessionDir(root, sessionId)`. The role/swarm
   // sub-path (e.g. `rd/swarm/checkpoints/checkpoint-1.json`) is
@@ -90,7 +102,11 @@ function readResumeArtifact(artifactWorkspacePath: string, sessionId: string, ar
   try {
     const artifactWorkspaceRealPath = realpathSync(artifactWorkspacePath);
     const artifactStat = lstatSync(artifactPath);
-    if (artifactStat.isSymbolicLink() || !artifactStat.isFile() || artifactStat.size > MAX_RESUME_ARTIFACT_BYTES) {
+    if (
+      artifactStat.isSymbolicLink() ||
+      !artifactStat.isFile() ||
+      artifactStat.size > MAX_RESUME_ARTIFACT_BYTES
+    ) {
       return null;
     }
 
@@ -113,7 +129,10 @@ function readResumeArtifact(artifactWorkspacePath: string, sessionId: string, ar
     }
 
     const artifactRealPath = realpathSync(artifactPath);
-    if (!isInsidePath(allowedRootRealPath, artifactWorkspaceRealPath) || !isInsidePath(artifactRealPath, allowedRootRealPath)) {
+    if (
+      !isInsidePath(allowedRootRealPath, artifactWorkspaceRealPath) ||
+      !isInsidePath(artifactRealPath, allowedRootRealPath)
+    ) {
       return null;
     }
 
@@ -121,19 +140,28 @@ function readResumeArtifact(artifactWorkspacePath: string, sessionId: string, ar
     try {
       const openedStat = fstatSync(fd);
       const currentStat = statSync(artifactPath);
-      if (!openedStat.isFile() || openedStat.size > MAX_RESUME_ARTIFACT_BYTES || openedStat.dev !== artifactStat.dev || openedStat.ino !== artifactStat.ino || openedStat.dev !== currentStat.dev || openedStat.ino !== currentStat.ino) {
+      if (
+        !openedStat.isFile() ||
+        openedStat.size > MAX_RESUME_ARTIFACT_BYTES ||
+        openedStat.dev !== artifactStat.dev ||
+        openedStat.ino !== artifactStat.ino ||
+        openedStat.dev !== currentStat.dev ||
+        openedStat.ino !== currentStat.ino
+      ) {
         return null;
       }
       return readFully(fd, openedStat.size);
     } finally {
       closeSync(fd);
     }
-  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+  } catch {
+    // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     return null;
   }
 }
 
-type ResumeArtifactType = 'goal-package' | 'rd-plan' | 'checkpoint' | 'validation-report' | 'resume-instructions';
+type ResumeArtifactType =
+  'goal-package' | 'rd-plan' | 'checkpoint' | 'validation-report' | 'resume-instructions';
 
 function getExpectedResumeArtifactType(artifact: string): ResumeArtifactType {
   if (artifact.endsWith('/autonomous-goal-package.json')) return 'goal-package';
@@ -144,46 +172,67 @@ function getExpectedResumeArtifactType(artifact: string): ResumeArtifactType {
 }
 
 function hasStringArray(value: unknown): value is string[] {
-  return Array.isArray(value) && value.length > 0 && value.every((item) => typeof item === 'string' && item.trim().length > 0);
+  return (
+    Array.isArray(value) &&
+    value.length > 0 &&
+    value.every((item) => typeof item === 'string' && item.trim().length > 0)
+  );
 }
 
 function hasValidGoalPackageJson(parsed: Record<string, unknown>, goal: string): boolean {
-  return parsed.goal === goal
-    && typeof parsed.doneCondition === 'string'
-    && parsed.doneCondition.trim().length > 0
-    && typeof parsed.resumeCondition === 'string'
-    && parsed.resumeCondition.trim().length > 0
-    && hasStringArray(parsed.acceptanceCriteria);
+  return (
+    parsed.goal === goal &&
+    typeof parsed.doneCondition === 'string' &&
+    parsed.doneCondition.trim().length > 0 &&
+    typeof parsed.resumeCondition === 'string' &&
+    parsed.resumeCondition.trim().length > 0 &&
+    hasStringArray(parsed.acceptanceCriteria)
+  );
 }
 
 function hasValidRdPlanJson(parsed: Record<string, unknown>): boolean {
-  return parsed.workerQueueStatus === 'ready'
-    && typeof parsed.taskCount === 'number'
-    && Number.isInteger(parsed.taskCount)
-    && parsed.taskCount > 0
-    && parsed.reducerRequired === true;
+  return (
+    parsed.workerQueueStatus === 'ready' &&
+    typeof parsed.taskCount === 'number' &&
+    Number.isInteger(parsed.taskCount) &&
+    parsed.taskCount > 0 &&
+    parsed.reducerRequired === true
+  );
 }
 
 function hasValidCheckpointJson(parsed: Record<string, unknown>): boolean {
-  return parsed.checkpointId === 'checkpoint-1'
-    && typeof parsed.createdAt === 'string'
-    && parsed.createdAt.trim().length > 0
-    && isObjectRecord(parsed.workerQueueState)
-    && hasStringArray(parsed.validationRefs);
+  return (
+    parsed.checkpointId === 'checkpoint-1' &&
+    typeof parsed.createdAt === 'string' &&
+    parsed.createdAt.trim().length > 0 &&
+    isObjectRecord(parsed.workerQueueState) &&
+    hasStringArray(parsed.validationRefs)
+  );
 }
 
 function parseJsonObject(content: string): Record<string, unknown> | null {
   try {
     const parsed: unknown = JSON.parse(content);
     return isObjectRecord(parsed) ? parsed : null;
-  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+  } catch {
+    // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     return null;
   }
 }
 
-function hasValidJsonMetadata(content: string, sessionId: string, artifactType: string, goal: string): boolean {
+function hasValidJsonMetadata(
+  content: string,
+  sessionId: string,
+  artifactType: string,
+  goal: string
+): boolean {
   const parsed = parseJsonObject(content);
-  if (parsed === null || parsed.sessionId !== sessionId || parsed.artifactType !== artifactType || parsed.status !== 'ready') {
+  if (
+    parsed === null ||
+    parsed.sessionId !== sessionId ||
+    parsed.artifactType !== artifactType ||
+    parsed.status !== 'ready'
+  ) {
     return false;
   }
 
@@ -223,17 +272,21 @@ function getMarkdownBody(content: string): string {
 }
 
 function hasValidationReportBody(body: string): boolean {
-  return body.includes('Validation summary:')
-    && body.includes('Checks:')
-    && body.includes('Result: passed')
-    && body.includes('Evidence refs:');
+  return (
+    body.includes('Validation summary:') &&
+    body.includes('Checks:') &&
+    body.includes('Result: passed') &&
+    body.includes('Evidence refs:')
+  );
 }
 
 function hasResumeInstructionsBody(body: string): boolean {
-  return body.includes('Resume steps:')
-    && body.includes('Preconditions:')
-    && body.includes('Blocked actions:')
-    && body.includes('Next actions:');
+  return (
+    body.includes('Resume steps:') &&
+    body.includes('Preconditions:') &&
+    body.includes('Blocked actions:') &&
+    body.includes('Next actions:')
+  );
 }
 
 function extractMarkdownListSection(body: string, heading: string): string[] {
@@ -246,7 +299,8 @@ function extractMarkdownListSection(body: string, heading: string): string[] {
   const sectionLines = lines.slice(startIndex + 1);
   const nextHeadingIndex = sectionLines.findIndex((line) => /^[A-Z][A-Za-z ]+:$/.test(line.trim()));
   const sectionEndIndex = nextHeadingIndex + 1 || sectionLines.length;
-  return sectionLines.slice(0, sectionEndIndex)
+  return sectionLines
+    .slice(0, sectionEndIndex)
     .map((line) => line.trim())
     .filter((line) => line.startsWith('- '))
     .map((line) => line.slice(2).trim())
@@ -259,33 +313,71 @@ function getCheckpointValidationRefs(checkpointContent: string): string[] {
 }
 
 function isSafeEvidenceRef(ref: string): boolean {
-  return ref.toLowerCase() !== 'validation-report.md' && /^[A-Za-z0-9][A-Za-z0-9._-]*\.md$/.test(ref) && !ref.includes('..');
+  return (
+    ref.toLowerCase() !== 'validation-report.md' &&
+    /^[A-Za-z0-9][A-Za-z0-9._-]*\.md$/.test(ref) &&
+    !ref.includes('..')
+  );
 }
 
-function evidenceRefsExist(artifactWorkspacePath: string, sessionId: string, refs: readonly string[]): boolean {
-  return refs.every((ref) => isSafeEvidenceRef(ref) && readResumeArtifact(artifactWorkspacePath, sessionId, `rd/swarm/evidence/${ref}`) !== null);
+function evidenceRefsExist(
+  artifactWorkspacePath: string,
+  sessionId: string,
+  refs: readonly string[]
+): boolean {
+  return refs.every(
+    (ref) =>
+      isSafeEvidenceRef(ref) &&
+      readResumeArtifact(artifactWorkspacePath, sessionId, `rd/swarm/evidence/${ref}`) !== null
+  );
 }
 
-function hasMatchingEvidenceRefs(artifactWorkspacePath: string, sessionId: string, validationReportContent: string, checkpointContent: string): boolean {
+function hasMatchingEvidenceRefs(
+  artifactWorkspacePath: string,
+  sessionId: string,
+  validationReportContent: string,
+  checkpointContent: string
+): boolean {
   const expectedRefs = getCheckpointValidationRefs(checkpointContent);
-  const actualRefs = extractMarkdownListSection(getMarkdownBody(validationReportContent), 'Evidence refs:');
-  return expectedRefs.length > 0
-    && expectedRefs.length === actualRefs.length
-    && expectedRefs.every((expectedRef, index) => expectedRef === actualRefs[index])
-    && evidenceRefsExist(artifactWorkspacePath, sessionId, expectedRefs);
+  const actualRefs = extractMarkdownListSection(
+    getMarkdownBody(validationReportContent),
+    'Evidence refs:'
+  );
+  return (
+    expectedRefs.length > 0 &&
+    expectedRefs.length === actualRefs.length &&
+    expectedRefs.every((expectedRef, index) => expectedRef === actualRefs[index]) &&
+    evidenceRefsExist(artifactWorkspacePath, sessionId, expectedRefs)
+  );
 }
 
-function hasValidMarkdownMetadata(content: string, sessionId: string, artifactType: string): boolean {
+function hasValidMarkdownMetadata(
+  content: string,
+  sessionId: string,
+  artifactType: string
+): boolean {
   const metadata = parseFrontMatter(content);
-  if (metadata === null || metadata.sessionId !== sessionId || metadata.artifactType !== artifactType || metadata.status !== 'passed') {
+  if (
+    metadata === null ||
+    metadata.sessionId !== sessionId ||
+    metadata.artifactType !== artifactType ||
+    metadata.status !== 'passed'
+  ) {
     return false;
   }
 
   const body = getMarkdownBody(content);
-  return artifactType === 'validation-report' ? hasValidationReportBody(body) : hasResumeInstructionsBody(body);
+  return artifactType === 'validation-report'
+    ? hasValidationReportBody(body)
+    : hasResumeInstructionsBody(body);
 }
 
-function isValidResumeArtifact(artifact: string, content: string, sessionId: string, goal: string): boolean {
+function isValidResumeArtifact(
+  artifact: string,
+  content: string,
+  sessionId: string,
+  goal: string
+): boolean {
   if (!content.trim()) {
     return false;
   }
@@ -296,7 +388,12 @@ function isValidResumeArtifact(artifact: string, content: string, sessionId: str
     : hasValidMarkdownMetadata(content, sessionId, artifactType);
 }
 
-function getResumeArtifactsStatus(artifactWorkspacePath: string, requiredArtifacts: readonly string[], sessionId: string, goal: string): ResumeArtifactsStatus {
+function getResumeArtifactsStatus(
+  artifactWorkspacePath: string,
+  requiredArtifacts: readonly string[],
+  sessionId: string,
+  goal: string
+): ResumeArtifactsStatus {
   let hasInvalidArtifact = false;
   const artifactContents = new Map<string, string>();
   for (const artifact of requiredArtifacts) {
@@ -305,7 +402,11 @@ function getResumeArtifactsStatus(artifactWorkspacePath: string, requiredArtifac
     // rather than guessing from path segments. The prefix-strip is now
     // a simple `/` + backslash normaliser since descriptors are
     // role-relative.
-    const content = readResumeArtifact(artifactWorkspacePath, sessionId, normalizeRoleRelativePath(artifact, sessionId));
+    const content = readResumeArtifact(
+      artifactWorkspacePath,
+      sessionId,
+      normalizeRoleRelativePath(artifact, sessionId)
+    );
     if (content === null) {
       return 'missing';
     }
@@ -318,7 +419,16 @@ function getResumeArtifactsStatus(artifactWorkspacePath: string, requiredArtifac
 
   const checkpointContent = artifactContents.get('rd/swarm/checkpoints/checkpoint-1.json');
   const validationReportContent = artifactContents.get('rd/swarm/evidence/validation-report.md');
-  if (!checkpointContent || !validationReportContent || !hasMatchingEvidenceRefs(artifactWorkspacePath, sessionId, validationReportContent, checkpointContent)) {
+  if (
+    !checkpointContent ||
+    !validationReportContent ||
+    !hasMatchingEvidenceRefs(
+      artifactWorkspacePath,
+      sessionId,
+      validationReportContent,
+      checkpointContent
+    )
+  ) {
     hasInvalidArtifact = true;
   }
 
@@ -330,7 +440,12 @@ export function createResumePlan(sessionId: string, ready: boolean): AutonomousR
 
   return {
     status: ready ? 'ready' : 'preview',
-    checkpoints: ['goal-package-created', 'capabilities-planned', 'rd-swarm-planned', 'validation-evidence-required'],
+    checkpoints: [
+      'goal-package-created',
+      'capabilities-planned',
+      'rd-swarm-planned',
+      'validation-evidence-required'
+    ],
     requiredArtifacts,
     resumeInstructions: ready
       ? 'Before continuing, verify checkpoint artifacts, pending worker queue state, and validation evidence requirements.'

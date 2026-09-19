@@ -131,7 +131,10 @@ function readRootVersion(projectRoot: string): RootVersionRead {
   return { ok: true, version: pkg.version };
 }
 
-function rollup(layers: PrecheckEnvelope['layers'], strict: boolean): {
+function rollup(
+  layers: PrecheckEnvelope['layers'],
+  strict: boolean
+): {
   ok: boolean;
   overall: LayerStatus;
 } {
@@ -160,13 +163,7 @@ export function runRootVsShared(opts: PrecheckOptions): LayerResult {
     };
   }
   const rootVersion = rootRead.version;
-  const sharedDist = join(
-    opts.projectRoot,
-    'packages',
-    'peaks-loop-shared',
-    'dist',
-    'version.js'
-  );
+  const sharedDist = join(opts.projectRoot, 'packages', 'peaks-loop-shared', 'dist', 'version.js');
   let sharedVersion: string | null = null;
   let distExists = false;
   try {
@@ -263,7 +260,8 @@ export function runTagCollision(opts: PrecheckOptions): LayerResult {
     return {
       status: 'warning',
       message: `git tag --list exited with code ${res.status}; tag-collision layer skipped`,
-      remediation: 'inspect git configuration; precheck will defer to publish.yml gate for tag collision',
+      remediation:
+        'inspect git configuration; precheck will defer to publish.yml gate for tag collision',
       observed: { tagName, stderr: res.stderr }
     };
   }
@@ -348,8 +346,7 @@ export function runWorkspaceLockstep(opts: PrecheckOptions): LayerResult {
     return {
       status: 'blocker',
       message: 'peaks-loop-shared is not declared in root dependencies',
-      remediation:
-        'add `"peaks-loop-shared": "workspace:*"` to root package.json#dependencies',
+      remediation: 'add `"peaks-loop-shared": "workspace:*"` to root package.json#dependencies',
       observed: { sharedDep: null }
     };
   }

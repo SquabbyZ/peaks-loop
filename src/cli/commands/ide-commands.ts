@@ -33,13 +33,20 @@ type IdeModelOptions = {
 };
 
 export function registerIdeCommands(program: Command, io: ProgramIO): void {
-  const ide = program.command('ide').description('Read-only introspection helpers for the registered IDE adapter layer (slice 2026-07-09 add-zcode-adapter, Slice C)');
+  const ide = program
+    .command('ide')
+    .description(
+      'Read-only introspection helpers for the registered IDE adapter layer (slice 2026-07-09 add-zcode-adapter, Slice C)'
+    );
 
   addJsonOption(
     ide
       .command('model')
       .description('Inspect the IDE adapter model surface. Slice C supports `--current` only.')
-      .option('--current', 'Print the model id the active IDE adapter reports as currently configured')
+      .option(
+        '--current',
+        'Print the model id the active IDE adapter reports as currently configured'
+      )
       .action(async (options: IdeModelOptions) => {
         if (options.current) {
           await runIdeModelCurrent(io, options);
@@ -72,7 +79,7 @@ async function runIdeModelCurrent(io: ProgramIO, options: IdeModelOptions): Prom
         ok('ide.model.current', {
           modelId: null,
           detected: false,
-          registeredAdapters: listAdapterIds(),
+          registeredAdapters: listAdapterIds()
         }),
         options.json
       );
@@ -83,7 +90,7 @@ async function runIdeModelCurrent(io: ProgramIO, options: IdeModelOptions): Prom
       ok('ide.model.current', {
         modelId,
         detected: true,
-        registeredAdapters: listAdapterIds(),
+        registeredAdapters: listAdapterIds()
       }),
       options.json
     );

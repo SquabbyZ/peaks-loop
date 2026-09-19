@@ -21,7 +21,7 @@ import {
   evaluateOrchestratorCanDo,
   OrchestratorCanDoError,
   ORCHESTRATOR_PRECOMPACT_RATIO,
-  ORCHESTRATOR_REDLINE_RATIO,
+  ORCHESTRATOR_REDLINE_RATIO
 } from '../../services/code/orchestrator-can-do.js';
 import { findProjectRoot } from '../../services/config/config-safety.js';
 
@@ -38,7 +38,10 @@ export function registerCodeOrchestratorCanDoCommand(code: Command, io: ProgramI
           'sub-agent dispatch (`peaks sub-agent dispatch rd`) is the canonical delegation path ' +
           'for source-code changes.'
       )
-      .requiredOption('--slice-spec <text>', 'short description of the slice (e.g. "modify src/services/foo.ts")')
+      .requiredOption(
+        '--slice-spec <text>',
+        'short description of the slice (e.g. "modify src/services/foo.ts")'
+      )
       .option('--project <path>', 'target project root (default: findProjectRoot(cwd))')
       .option('--peaks-bin <path>', 'peaks binary path (test seam; default: peaks on PATH)')
   ).action(
@@ -50,7 +53,7 @@ export function registerCodeOrchestratorCanDoCommand(code: Command, io: ProgramI
           sliceSpec: opts.sliceSpec,
           projectRoot,
           probeSubAgentAvailable: () => probeSubAgentAvailableWithBin(projectRoot, peaksBin),
-          probeContextRatio: () => probeContextRatioWithBin(projectRoot, peaksBin),
+          probeContextRatio: () => probeContextRatioWithBin(projectRoot, peaksBin)
         });
         printResult(
           io,
@@ -68,7 +71,7 @@ export function registerCodeOrchestratorCanDoCommand(code: Command, io: ProgramI
           printResult(
             io,
             fail('code.orchestrator-can-do', err.code, err.message, null, [
-              'Pass --slice-spec <text> describing what the slice should change',
+              'Pass --slice-spec <text> describing what the slice should change'
             ]),
             opts.json
           );
@@ -78,7 +81,7 @@ export function registerCodeOrchestratorCanDoCommand(code: Command, io: ProgramI
         printResult(
           io,
           fail('code.orchestrator-can-do', 'PROBE_FAILED', getErrorMessage(err), null, [
-            'Verify --slice-spec is non-empty and --project is a valid path',
+            'Verify --slice-spec is non-empty and --project is a valid path'
           ]),
           opts.json
         );
@@ -88,7 +91,14 @@ export function registerCodeOrchestratorCanDoCommand(code: Command, io: ProgramI
   );
 }
 
-function summaryLines(result: { canDoInSession: boolean; q1SourceCodeTouched: boolean; q1HardBlockedPath: boolean; q2SubAgentAvailable: boolean; q3RequiresUserDecision: boolean; contextRatio: number }): string[] {
+function summaryLines(result: {
+  canDoInSession: boolean;
+  q1SourceCodeTouched: boolean;
+  q1HardBlockedPath: boolean;
+  q2SubAgentAvailable: boolean;
+  q3RequiresUserDecision: boolean;
+  contextRatio: number;
+}): string[] {
   const lines: string[] = [];
   lines.push(
     `verdict: ${result.canDoInSession ? 'canDoInSession=true' : 'canDoInSession=false (blockers present)'}; ` +
@@ -100,12 +110,18 @@ function summaryLines(result: { canDoInSession: boolean; q1SourceCodeTouched: bo
   return lines;
 }
 
-async function probeSubAgentAvailableWithBin(projectRoot: string, peaksBin: string): Promise<boolean> {
+async function probeSubAgentAvailableWithBin(
+  projectRoot: string,
+  peaksBin: string
+): Promise<boolean> {
   const { probeSubAgentAvailable } = await import('../../services/code/orchestrator-can-do.js');
   return probeSubAgentAvailable(projectRoot, peaksBin);
 }
 
-async function probeContextRatioWithBin(projectRoot: string, peaksBin: string): Promise<{ ratio: number; source: string }> {
+async function probeContextRatioWithBin(
+  projectRoot: string,
+  peaksBin: string
+): Promise<{ ratio: number; source: string }> {
   const { probeContextRatio } = await import('../../services/code/orchestrator-can-do.js');
   return probeContextRatio(projectRoot, peaksBin);
 }

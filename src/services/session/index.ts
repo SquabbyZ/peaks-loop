@@ -20,9 +20,7 @@ export {
 export { getSessionDir } from './getSessionDir.js';
 
 // Slice 020 — caller-keyed session binding. The new canonical path.
-export {
-  resolveCallerId,
-} from './resolve-caller-id.js';
+export { resolveCallerId } from './resolve-caller-id.js';
 
 export {
   getCallerBindingFile,
@@ -40,15 +38,9 @@ export {
 // type-checking; the array is empty and unused at runtime. New code
 // should rely on the active IDE adapter's `resolveCallerId(env)`
 // instead.
-export {
-  PLATFORM_FALLBACKS,
-  type PlatformFallback
-} from './platform-fallbacks.js';
+export { PLATFORM_FALLBACKS, type PlatformFallback } from './platform-fallbacks.js';
 
-export {
-  resolveCallerProjection,
-  type ResolveCallerIdOptions
-} from './resolve-caller-id.js';
+export { resolveCallerProjection, type ResolveCallerIdOptions } from './resolve-caller-id.js';
 
 export {
   type CallerProjection,

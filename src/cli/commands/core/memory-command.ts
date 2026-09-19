@@ -1,5 +1,14 @@
 import type { Command } from 'commander';
-import { describeMemoryBlockDrops, executeProjectMemoryBackup, executeProjectMemoryExtract, SENSITIVE_MEMORY_CHECKS, summarizeProjectMemoryBackupResult, summarizeProjectMemoryExtractResult, UnsafeMemoryError, VALID_PROJECT_MEMORY_KINDS } from '../../../services/memory/project-memory-service.js';
+import {
+  describeMemoryBlockDrops,
+  executeProjectMemoryBackup,
+  executeProjectMemoryExtract,
+  SENSITIVE_MEMORY_CHECKS,
+  summarizeProjectMemoryBackupResult,
+  summarizeProjectMemoryExtractResult,
+  UnsafeMemoryError,
+  VALID_PROJECT_MEMORY_KINDS
+} from '../../../services/memory/project-memory-service.js';
 import { fail, ok } from 'peaks-loop-shared/result';
 
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../../cli-helpers.js';
@@ -17,39 +26,69 @@ export function registerMemoryCommand(program: Command, io: ProgramIO): void {
       .requiredOption('--artifact <path...>', 'skill artifact paths inside the project')
       .option('--dry-run', 'preview writes without changing files')
       .option('--apply', 'write extracted memories into project .peaks/memory')
-  ).action((options: { project: string; artifact: string[]; dryRun?: boolean; apply?: boolean; json?: boolean }) => {
-    if (options.dryRun === true && options.apply === true) {
-      printResult(io, fail('memory.extract', 'INVALID_MEMORY_EXTRACT_FLAGS', 'Use either --dry-run or --apply, not both', {}, ['Run without --apply to preview writes, or pass --apply to write memories']), options.json);
-      process.exitCode = 1;
-      return;
+  ).action(
+    (options: {
+      project: string;
+      artifact: string[];
+      dryRun?: boolean;
+      apply?: boolean;
+      json?: boolean;
+    }) => {
+      if (options.dryRun === true && options.apply === true) {
+        printResult(
+          io,
+          fail(
+            'memory.extract',
+            'INVALID_MEMORY_EXTRACT_FLAGS',
+            'Use either --dry-run or --apply, not both',
+            {},
+            ['Run without --apply to preview writes, or pass --apply to write memories']
+          ),
+          options.json
+        );
+        process.exitCode = 1;
+        return;
+      }
+      try {
+        const result = executeProjectMemoryExtract({
+          projectRoot: options.project,
+          artifactPaths: options.artifact,
+          apply: options.apply === true
+        });
+        // A block that was found but not extracted must not vanish silently: the
+        // parser's rejection reasons ride the envelope's existing `warnings`
+        // channel (JSON: `warnings[]`; human: `warning: …` on stderr). `data` is
+        // unchanged — this adds no field to the summary.
+        printResult(
+          io,
+          ok(
+            'memory.extract',
+            summarizeProjectMemoryExtractResult(result),
+            describeMemoryBlockDrops(result.droppedBlocks)
+          ),
+          options.json
+        );
+      } catch (error) {
+        const refusal = error instanceof UnsafeMemoryError ? error : null;
+        printResult(
+          io,
+          fail(
+            'memory.extract',
+            'MEMORY_EXTRACT_FAILED',
+            getErrorMessage(error),
+            // The check and the term are facts about the failure, so they ride
+            // the envelope's data — not just its prose. `fail()` redacts
+            // `message` (see `UnsafeMemoryError`), so the term would otherwise
+            // reach the reader as `[redacted]`; `data` is passed through.
+            refusal === null ? {} : { check: refusal.check, matchedTerm: refusal.matchedTerm },
+            memoryExtractNextActions(refusal)
+          ),
+          options.json
+        );
+        process.exitCode = 1;
+      }
     }
-    try {
-      const result = executeProjectMemoryExtract({ projectRoot: options.project, artifactPaths: options.artifact, apply: options.apply === true });
-      // A block that was found but not extracted must not vanish silently: the
-      // parser's rejection reasons ride the envelope's existing `warnings`
-      // channel (JSON: `warnings[]`; human: `warning: …` on stderr). `data` is
-      // unchanged — this adds no field to the summary.
-      printResult(io, ok('memory.extract', summarizeProjectMemoryExtractResult(result), describeMemoryBlockDrops(result.droppedBlocks)), options.json);
-    } catch (error) {
-      const refusal = error instanceof UnsafeMemoryError ? error : null;
-      printResult(
-        io,
-        fail(
-          'memory.extract',
-          'MEMORY_EXTRACT_FAILED',
-          getErrorMessage(error),
-          // The check and the term are facts about the failure, so they ride
-          // the envelope's data — not just its prose. `fail()` redacts
-          // `message` (see `UnsafeMemoryError`), so the term would otherwise
-          // reach the reader as `[redacted]`; `data` is passed through.
-          refusal === null ? {} : { check: refusal.check, matchedTerm: refusal.matchedTerm },
-          memoryExtractNextActions(refusal)
-        ),
-        options.json
-      );
-      process.exitCode = 1;
-    }
-  });
+  );
   addJsonOption(
     memory
       .command('sync')
@@ -58,141 +97,266 @@ export function registerMemoryCommand(program: Command, io: ProgramIO): void {
       .requiredOption('--workspace <path>', 'artifact workspace path')
       .option('--dry-run', 'preview copies without changing files')
       .option('--apply', 'copy project .peaks/memory into artifact workspace backup')
-  ).action((options: { project: string; workspace: string; dryRun?: boolean; apply?: boolean; json?: boolean }) => {
-    if (options.dryRun === true && options.apply === true) {
-      printResult(io, fail('memory.sync', 'INVALID_MEMORY_SYNC_FLAGS', 'Use either --dry-run or --apply, not both', {}, ['Run without --apply to preview copies, or pass --apply to back up memories']), options.json);
-      process.exitCode = 1;
-      return;
+  ).action(
+    (options: {
+      project: string;
+      workspace: string;
+      dryRun?: boolean;
+      apply?: boolean;
+      json?: boolean;
+    }) => {
+      if (options.dryRun === true && options.apply === true) {
+        printResult(
+          io,
+          fail(
+            'memory.sync',
+            'INVALID_MEMORY_SYNC_FLAGS',
+            'Use either --dry-run or --apply, not both',
+            {},
+            ['Run without --apply to preview copies, or pass --apply to back up memories']
+          ),
+          options.json
+        );
+        process.exitCode = 1;
+        return;
+      }
+      try {
+        const result = executeProjectMemoryBackup({
+          projectRoot: options.project,
+          artifactWorkspacePath: options.workspace,
+          apply: options.apply === true
+        });
+        printResult(
+          io,
+          ok('memory.sync', summarizeProjectMemoryBackupResult(result)),
+          options.json
+        );
+      } catch (error) {
+        printResult(
+          io,
+          fail('memory.sync', 'MEMORY_SYNC_FAILED', getErrorMessage(error), {}, [
+            'Use an artifact workspace outside the project root'
+          ]),
+          options.json
+        );
+        process.exitCode = 1;
+      }
     }
-    try {
-      const result = executeProjectMemoryBackup({ projectRoot: options.project, artifactWorkspacePath: options.workspace, apply: options.apply === true });
-      printResult(io, ok('memory.sync', summarizeProjectMemoryBackupResult(result)), options.json);
-    } catch (error) {
-      printResult(io, fail('memory.sync', 'MEMORY_SYNC_FAILED', getErrorMessage(error), {}, ['Use an artifact workspace outside the project root']), options.json);
-      process.exitCode = 1;
-    }
-  });
+  );
 
   addJsonOption(
     memory
       .command('list')
-      .description('List all memory entries from .peaks/memory/index.json. Pass --pick to spawn fzf for interactive multi-select; the picked subset is written to .peaks/memory/picked.json.')
+      .description(
+        'List all memory entries from .peaks/memory/index.json. Pass --pick to spawn fzf for interactive multi-select; the picked subset is written to .peaks/memory/picked.json.'
+      )
       .option('--kind <kind>', `filter by memory kind (one of: ${KIND_HELP})`)
-      .option('--pick', 'spawn fzf for interactive multi-select (requires fzf >= 0.38); writes picked.json')
+      .option(
+        '--pick',
+        'spawn fzf for interactive multi-select (requires fzf >= 0.38); writes picked.json'
+      )
       .option('--fzf-bin <path>', 'override fzf binary path (default: fzf on PATH)', 'fzf')
-      .option('--summary', 'emit counts + names-of-first-N only (≤ 2 KB) instead of the full entry array; the default envelope is unchanged')
+      .option(
+        '--summary',
+        'emit counts + names-of-first-N only (≤ 2 KB) instead of the full entry array; the default envelope is unchanged'
+      )
       .option('--project <path>', 'target project root (defaults to git root or cwd)')
-  ).action((options: { kind?: string; pick?: boolean; fzfBin?: string; project?: string; summary?: boolean; json?: boolean }) => {
-    void import('../memory-commands.js').then(({ runMemoryList }) => {
-      void runMemoryList(io, {
-        ...(options.kind !== undefined ? { kind: options.kind } : {}),
-        ...(options.pick === true ? { pick: true } : {}),
-        ...(options.fzfBin ? { fzfBin: options.fzfBin } : {}),
-        ...(options.project !== undefined ? { project: options.project } : {}),
-        ...(options.summary === true ? { summary: true } : {}),
-        ...(options.json !== undefined ? { json: options.json } : {}),
-      });
-    }).catch((error: unknown) => {
-      const msg = /brew install fzf|apt-get install fzf|older than required/.test(getErrorMessage(error))
-        ? 'fzf binary not found or too old. Install with: brew install fzf (or apt: apt-get install fzf). peaks memory list --pick requires fzf >= 0.38.'
-        : getErrorMessage(error);
-      const code = /brew install fzf|apt-get install fzf|older than required/.test(msg) ? 'FZF_UNAVAILABLE' : 'MEMORY_LIST_BOOTSTRAP_FAILED';
-      printResult(io, fail('memory.list', code, msg, {}, ['Install fzf or run without --pick to list entries as JSON']), options.json);
-      if (code === 'FZF_UNAVAILABLE') process.exitCode = 127;
-      else process.exitCode = 1;
-    });
-  });
+  ).action(
+    (options: {
+      kind?: string;
+      pick?: boolean;
+      fzfBin?: string;
+      project?: string;
+      summary?: boolean;
+      json?: boolean;
+    }) => {
+      void import('../memory-commands.js')
+        .then(({ runMemoryList }) => {
+          void runMemoryList(io, {
+            ...(options.kind !== undefined ? { kind: options.kind } : {}),
+            ...(options.pick === true ? { pick: true } : {}),
+            ...(options.fzfBin ? { fzfBin: options.fzfBin } : {}),
+            ...(options.project !== undefined ? { project: options.project } : {}),
+            ...(options.summary === true ? { summary: true } : {}),
+            ...(options.json !== undefined ? { json: options.json } : {})
+          });
+        })
+        .catch((error: unknown) => {
+          const msg = /brew install fzf|apt-get install fzf|older than required/.test(
+            getErrorMessage(error)
+          )
+            ? 'fzf binary not found or too old. Install with: brew install fzf (or apt: apt-get install fzf). peaks memory list --pick requires fzf >= 0.38.'
+            : getErrorMessage(error);
+          const code = /brew install fzf|apt-get install fzf|older than required/.test(msg)
+            ? 'FZF_UNAVAILABLE'
+            : 'MEMORY_LIST_BOOTSTRAP_FAILED';
+          printResult(
+            io,
+            fail('memory.list', code, msg, {}, [
+              'Install fzf or run without --pick to list entries as JSON'
+            ]),
+            options.json
+          );
+          if (code === 'FZF_UNAVAILABLE') process.exitCode = 127;
+          else process.exitCode = 1;
+        });
+    }
+  );
 
   addJsonOption(
     memory
       .command('reindex')
-      .description('Rebuild .peaks/memory/index.json from every memory file on disk and regenerate MEMORY.md; reports unclassified files and orphans both ways. Dry-run by default; pass --apply to write.')
+      .description(
+        'Rebuild .peaks/memory/index.json from every memory file on disk and regenerate MEMORY.md; reports unclassified files and orphans both ways. Dry-run by default; pass --apply to write.'
+      )
       .option('--project <path>', 'target project root (defaults to git root or cwd)')
       .option('--dry-run', 'report drift without writing (default)')
       .option('--apply', 'rebuild index.json and regenerate MEMORY.md')
-      .option('--summary', 'emit drift counts + names-of-first-N only (≤ 2 KB) instead of the full arrays; the default envelope is unchanged')
-  ).action((options: { project?: string; dryRun?: boolean; apply?: boolean; summary?: boolean; json?: boolean }) => {
-    void import('../memory-commands.js').then(({ runMemoryReindex }) => {
-      void runMemoryReindex(io, {
-        ...(options.project !== undefined ? { project: options.project } : {}),
-        ...(options.dryRun === true ? { dryRun: true } : {}),
-        ...(options.apply === true ? { apply: true } : {}),
-        ...(options.summary === true ? { summary: true } : {}),
-        ...(options.json !== undefined ? { json: options.json } : {}),
-      });
-    }).catch((error: unknown) => {
-      printResult(io, fail('memory.reindex', 'MEMORY_REINDEX_BOOTSTRAP_FAILED', getErrorMessage(error), {}, []), options.json);
-      process.exitCode = 1;
-    });
-  });
+      .option(
+        '--summary',
+        'emit drift counts + names-of-first-N only (≤ 2 KB) instead of the full arrays; the default envelope is unchanged'
+      )
+  ).action(
+    (options: {
+      project?: string;
+      dryRun?: boolean;
+      apply?: boolean;
+      summary?: boolean;
+      json?: boolean;
+    }) => {
+      void import('../memory-commands.js')
+        .then(({ runMemoryReindex }) => {
+          void runMemoryReindex(io, {
+            ...(options.project !== undefined ? { project: options.project } : {}),
+            ...(options.dryRun === true ? { dryRun: true } : {}),
+            ...(options.apply === true ? { apply: true } : {}),
+            ...(options.summary === true ? { summary: true } : {}),
+            ...(options.json !== undefined ? { json: options.json } : {})
+          });
+        })
+        .catch((error: unknown) => {
+          printResult(
+            io,
+            fail(
+              'memory.reindex',
+              'MEMORY_REINDEX_BOOTSTRAP_FAILED',
+              getErrorMessage(error),
+              {},
+              []
+            ),
+            options.json
+          );
+          process.exitCode = 1;
+        });
+    }
+  );
 
   addJsonOption(
     memory
       .command('ingest')
-      .description('Import memories written by the IDE-side agent (~/.claude/projects/<hash>/memory/*.md) into the peaks-owned .peaks/memory store. The IDE-side dir is read-only. Dry-run by default; pass --apply to write.')
+      .description(
+        'Import memories written by the IDE-side agent (~/.claude/projects/<hash>/memory/*.md) into the peaks-owned .peaks/memory store. The IDE-side dir is read-only. Dry-run by default; pass --apply to write.'
+      )
       .option('--project <path>', 'target project root (defaults to git root or cwd)')
       .option('--source-dir <path>', 'override the IDE-side memory directory')
       .option('--dry-run', 'preview imports without writing (default)')
       .option('--apply', 'write normalized memories into .peaks/memory')
-  ).action((options: { project?: string; sourceDir?: string; dryRun?: boolean; apply?: boolean; json?: boolean }) => {
-    void import('../memory-commands.js').then(({ runMemoryIngest }) => {
-      void runMemoryIngest(io, {
-        ...(options.project !== undefined ? { project: options.project } : {}),
-        ...(options.sourceDir !== undefined ? { sourceDir: options.sourceDir } : {}),
-        ...(options.dryRun === true ? { dryRun: true } : {}),
-        ...(options.apply === true ? { apply: true } : {}),
-        ...(options.json !== undefined ? { json: options.json } : {}),
-      });
-    }).catch((error: unknown) => {
-      printResult(io, fail('memory.ingest', 'MEMORY_INGEST_BOOTSTRAP_FAILED', getErrorMessage(error), {}, []), options.json);
-      process.exitCode = 1;
-    });
-  });
+  ).action(
+    (options: {
+      project?: string;
+      sourceDir?: string;
+      dryRun?: boolean;
+      apply?: boolean;
+      json?: boolean;
+    }) => {
+      void import('../memory-commands.js')
+        .then(({ runMemoryIngest }) => {
+          void runMemoryIngest(io, {
+            ...(options.project !== undefined ? { project: options.project } : {}),
+            ...(options.sourceDir !== undefined ? { sourceDir: options.sourceDir } : {}),
+            ...(options.dryRun === true ? { dryRun: true } : {}),
+            ...(options.apply === true ? { apply: true } : {}),
+            ...(options.json !== undefined ? { json: options.json } : {})
+          });
+        })
+        .catch((error: unknown) => {
+          printResult(
+            io,
+            fail('memory.ingest', 'MEMORY_INGEST_BOOTSTRAP_FAILED', getErrorMessage(error), {}, []),
+            options.json
+          );
+          process.exitCode = 1;
+        });
+    }
+  );
 
   addJsonOption(
     memory
       .command('rotate')
-      .description('Tier-driven retention for .peaks/memory/ (sediment pruning policy, tier 1: archive only, never delete). Tier assignment: explicit `metadata.tier: A|B|C|D` wins; else files under archived/ are D, files pinned in MEMORY.md are B, kinds rule/convention/project-rule are A, kinds decision/reference/feedback/module/bug/investigation/technical-pattern are B, everything else is C. Tier C older than 6 months (frontmatter updatedAt/updated/modified, else file mtime) and not pinned is archived; tier D is reported as a delete-candidate only. Tier A/B are never selected, every candidate must pass a reference grep against src/ + skills/, and --apply refuses an empty plan or a failed gate. Dry-run by default.')
+      .description(
+        'Tier-driven retention for .peaks/memory/ (sediment pruning policy, tier 1: archive only, never delete). Tier assignment: explicit `metadata.tier: A|B|C|D` wins; else files under archived/ are D, files pinned in MEMORY.md are B, kinds rule/convention/project-rule are A, kinds decision/reference/feedback/module/bug/investigation/technical-pattern are B, everything else is C. Tier C older than 6 months (frontmatter updatedAt/updated/modified, else file mtime) and not pinned is archived; tier D is reported as a delete-candidate only. Tier A/B are never selected, every candidate must pass a reference grep against src/ + skills/, and --apply refuses an empty plan or a failed gate. Dry-run by default.'
+      )
       .option('--project <path>', 'target project root (defaults to git root or cwd)')
       .option('--dry-run', 'report the rotation plan without moving anything (default)')
       .option('--apply', 'move tier-C candidates into .peaks/memory/archived/')
   ).action((options: { project?: string; dryRun?: boolean; apply?: boolean; json?: boolean }) => {
-    void import('../memory-commands.js').then(({ runMemoryRotate }) => {
-      void runMemoryRotate(io, {
-        ...(options.project !== undefined ? { project: options.project } : {}),
-        ...(options.dryRun === true ? { dryRun: true } : {}),
-        ...(options.apply === true ? { apply: true } : {}),
-        ...(options.json !== undefined ? { json: options.json } : {}),
+    void import('../memory-commands.js')
+      .then(({ runMemoryRotate }) => {
+        void runMemoryRotate(io, {
+          ...(options.project !== undefined ? { project: options.project } : {}),
+          ...(options.dryRun === true ? { dryRun: true } : {}),
+          ...(options.apply === true ? { apply: true } : {}),
+          ...(options.json !== undefined ? { json: options.json } : {})
+        });
+      })
+      .catch((error: unknown) => {
+        printResult(
+          io,
+          fail('memory.rotate', 'MEMORY_ROTATE_BOOTSTRAP_FAILED', getErrorMessage(error), {}, []),
+          options.json
+        );
+        process.exitCode = 1;
       });
-    }).catch((error: unknown) => {
-      printResult(io, fail('memory.rotate', 'MEMORY_ROTATE_BOOTSTRAP_FAILED', getErrorMessage(error), {}, []), options.json);
-      process.exitCode = 1;
-    });
   });
 
   addJsonOption(
     memory
       .command('search <query>')
-      .description('Fuzzy-search the memory index (deterministic, local, zero-token). Default --limit 6.')
+      .description(
+        'Fuzzy-search the memory index (deterministic, local, zero-token). Default --limit 6.'
+      )
       .option('--kind <kind>', `filter by memory kind (one of: ${KIND_HELP})`)
-      .option('--limit <n>', 'maximum number of matches to return', (value: string) => Number(value))
+      .option('--limit <n>', 'maximum number of matches to return', (value: string) =>
+        Number(value)
+      )
       .option('--project <path>', 'target project root (defaults to git root or cwd)')
-  ).action((query: string, options: { kind?: string; limit?: number; project?: string; json?: boolean }) => {
-    // Lazy import avoids a top-of-file import cycle (memory-commands.ts
-    // imports services that the rest of this file may also touch).
-    void import('../memory-commands.js').then(({ runMemorySearch }) => {
-      void runMemorySearch(io, {
-        query,
-        ...(options.kind !== undefined ? { kind: options.kind } : {}),
-        ...(options.limit !== undefined ? { limit: options.limit } : {}),
-        ...(options.project !== undefined ? { project: options.project } : {}),
-        ...(options.json !== undefined ? { json: options.json } : {}),
-      });
-    }).catch((error: unknown) => {
-      printResult(io, fail('memory.search', 'MEMORY_SEARCH_BOOTSTRAP_FAILED', getErrorMessage(error), {}, []), options.json);
-      process.exitCode = 1;
-    });
-  });
+  ).action(
+    (
+      query: string,
+      options: { kind?: string; limit?: number; project?: string; json?: boolean }
+    ) => {
+      // Lazy import avoids a top-of-file import cycle (memory-commands.ts
+      // imports services that the rest of this file may also touch).
+      void import('../memory-commands.js')
+        .then(({ runMemorySearch }) => {
+          void runMemorySearch(io, {
+            query,
+            ...(options.kind !== undefined ? { kind: options.kind } : {}),
+            ...(options.limit !== undefined ? { limit: options.limit } : {}),
+            ...(options.project !== undefined ? { project: options.project } : {}),
+            ...(options.json !== undefined ? { json: options.json } : {})
+          });
+        })
+        .catch((error: unknown) => {
+          printResult(
+            io,
+            fail('memory.search', 'MEMORY_SEARCH_BOOTSTRAP_FAILED', getErrorMessage(error), {}, []),
+            options.json
+          );
+          process.exitCode = 1;
+        });
+    }
+  );
 }
 
 /**
@@ -218,7 +382,9 @@ function memoryExtractNextActions(refusal: UnsafeMemoryError | null): string[] {
     return ['Check artifact paths and remove secrets before extracting memory'];
   }
   if (refusal.check === SENSITIVE_MEMORY_CHECKS.title) {
-    return ['Retitle the memory so it is not named after a credential term, then re-run memory extract'];
+    return [
+      'Retitle the memory so it is not named after a credential term, then re-run memory extract'
+    ];
   }
   return ['Remove the credential value from the memory content, then re-run memory extract'];
 }

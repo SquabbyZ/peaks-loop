@@ -80,35 +80,31 @@ program.parseAsync(process.argv).catch((error: unknown) => {
       // See `printMissingRequiredOptionEnvelope` — the same builder backs the
       // in-process test runner, so the envelope a test asserts is the envelope
       // a user gets.
-      printMissingRequiredOptionEnvelope(defaultIo, resolveInvokedCommandPath(program, argv), getErrorMessage(error));
+      printMissingRequiredOptionEnvelope(
+        defaultIo,
+        resolveInvokedCommandPath(program, argv),
+        getErrorMessage(error)
+      );
       return;
     }
-    if (error.code === 'commander.missingArgument' || error.code === 'commander.unknownCommand' || error.code === 'commander.unknownOption') {
+    if (
+      error.code === 'commander.missingArgument' ||
+      error.code === 'commander.unknownCommand' ||
+      error.code === 'commander.unknownOption'
+    ) {
       // Emit a `COMMAND_NOT_FOUND` JSON envelope for the unknown-command
       // path. The error text already went to stderr via Commander's
       // default handler; we add a structured envelope for LLM-side
       // consumers (Human-NL-Choice-Only: don't tell the human to type
       // a CLI verb — say what the LLM can coordinate).
-      printErrorEnvelope(
-        defaultIo,
-        'cli',
-        'COMMAND_NOT_FOUND',
-        getErrorMessage(error),
-        {},
-        ['Run `peaks --help` to list available commands.']
-      );
+      printErrorEnvelope(defaultIo, 'cli', 'COMMAND_NOT_FOUND', getErrorMessage(error), {}, [
+        'Run `peaks --help` to list available commands.'
+      ]);
       process.exitCode = 1;
       return;
     }
   }
 
-  printErrorEnvelope(
-    defaultIo,
-    'cli',
-    'UNHANDLED_ERROR',
-    getErrorMessage(error),
-    {},
-    []
-  );
+  printErrorEnvelope(defaultIo, 'cli', 'UNHANDLED_ERROR', getErrorMessage(error), {}, []);
   process.exitCode = 1;
 });

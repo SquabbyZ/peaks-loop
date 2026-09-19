@@ -4,7 +4,14 @@ import { join } from 'node:path';
 import { PLUGINS } from '../../doctor/doctor-service/plugin-registry.js';
 import { proposeFromDoctor } from '../../openspec/openspec-propose-from-doctor-service.js';
 import type { GuardContext, GuardRunResult } from '../types.js';
-import { combineProbes, fail, missingSourceFiles, pass, probe, requireBaselineRow } from './_shared.js';
+import {
+  combineProbes,
+  fail,
+  missingSourceFiles,
+  pass,
+  probe,
+  requireBaselineRow
+} from './_shared.js';
 
 const CHECKS_DIR = ['src', 'services', 'doctor', 'doctor-service', 'checks'];
 const LEGACY_SHIM = ['src', 'services', 'doctor', 'doctor-service.ts'];
@@ -47,7 +54,9 @@ export async function runJ11Contract(ctx: GuardContext): Promise<GuardRunResult>
   const missing = missingSourceFiles(ctx, row);
 
   const checksDirAbs = join(ctx.projectRoot, ...CHECKS_DIR);
-  const checkFiles = existsSync(checksDirAbs) ? readdirSync(checksDirAbs).filter((f) => f.endsWith('.ts')) : [];
+  const checkFiles = existsSync(checksDirAbs)
+    ? readdirSync(checksDirAbs).filter((f) => f.endsWith('.ts'))
+    : [];
   const pluginIds = PLUGINS.map((p) => p.name);
   const uniquePluginIds = new Set(pluginIds);
 
@@ -55,12 +64,19 @@ export async function runJ11Contract(ctx: GuardContext): Promise<GuardRunResult>
   const shimSource = existsSync(shimAbs) ? readFileSync(shimAbs, 'utf8') : '';
   const shimLines = executableLines(shimSource);
   const shimLogic = shimLines.filter((line) => FORBIDDEN_SHIM_PATTERNS.some((re) => re.test(line)));
-  const shimReexports = /export\s+(\*|\{[\s\S]*?\}|type\s*\{[\s\S]*?\})\s*from\s*'/.test(shimSource);
+  const shimReexports = /export\s+(\*|\{[\s\S]*?\}|type\s*\{[\s\S]*?\})\s*from\s*'/.test(
+    shimSource
+  );
   const shimIsReexportOnly = shimLines.length > 0 && shimLogic.length === 0 && shimReexports;
 
   const root = mkdtempSync(join(tmpdir(), 'cbl-J11-'));
   try {
-    const finding = { id: 'L3:l3-memory-health', rule: 'r', detail: 'd', severity: 'fail' as const };
+    const finding = {
+      id: 'L3:l3-memory-health',
+      rule: 'r',
+      detail: 'd',
+      severity: 'fail' as const
+    };
     const first = proposeFromDoctor({ projectRoot: root, finding, clock: FROZEN_CLOCK });
     const second = proposeFromDoctor({ projectRoot: root, finding, clock: FROZEN_CLOCK });
     const proposalMentionsFinding = existsSync(first.proposalPath)
@@ -69,8 +85,14 @@ export async function runJ11Contract(ctx: GuardContext): Promise<GuardRunResult>
 
     const result = combineProbes([
       probe(missing.length === 0, `baseline sourceFiles present (${row.sourceFiles.length})`),
-      probe(checkFiles.length > 0 && PLUGINS.length === checkFiles.length, `the plugin registry enumerates every check module (${String(PLUGINS.length)} plugins / ${String(checkFiles.length)} checks)`),
-      probe(uniquePluginIds.size === PLUGINS.length, `plugin ids are unique (${String(uniquePluginIds.size)}/${String(PLUGINS.length)})`),
+      probe(
+        checkFiles.length > 0 && PLUGINS.length === checkFiles.length,
+        `the plugin registry enumerates every check module (${String(PLUGINS.length)} plugins / ${String(checkFiles.length)} checks)`
+      ),
+      probe(
+        uniquePluginIds.size === PLUGINS.length,
+        `plugin ids are unique (${String(uniquePluginIds.size)}/${String(PLUGINS.length)})`
+      ),
       probe(
         shimIsReexportOnly,
         `the legacy doctor-service.ts shim holds no logic (${String(shimLines.length)} executable lines, ${String(shimLogic.length)} with logic${shimLogic.length > 0 ? `: ${shimLogic.slice(0, 3).join(' | ')}` : ''})`
@@ -81,7 +103,10 @@ export async function runJ11Contract(ctx: GuardContext): Promise<GuardRunResult>
       ),
       probe(first.created === true, 'the first proposal is created'),
       probe(proposalMentionsFinding, 'the proposal names the originating finding id'),
-      probe(second.created === false, 'regenerating from the same finding is idempotent (created=false)')
+      probe(
+        second.created === false,
+        'regenerating from the same finding is idempotent (created=false)'
+      )
     ]);
 
     const artifact = row.sourceFiles[0] ?? 'src/services/doctor/doctor-service/index.ts';

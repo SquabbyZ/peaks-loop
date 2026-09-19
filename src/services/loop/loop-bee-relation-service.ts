@@ -1,11 +1,11 @@
-import type Database from "better-sqlite3";
-import { ZodError } from "zod";
+import type Database from 'better-sqlite3';
+import { ZodError } from 'zod';
 import {
   LoopBeeRelationSchema,
   type LoopBeeRelation,
   type LoopBeeRelationInput,
-  type LoopBeeRelationRole,
-} from "./loop-bee-relation-types.js";
+  type LoopBeeRelationRole
+} from './loop-bee-relation-types.js';
 import {
   ensureLoopBeeRelationTable,
   insertLoopBeeRelation,
@@ -13,8 +13,8 @@ import {
   listLoopBeeRelationsByBee,
   updateLoopBeeRelationRole,
   removeLoopBeeRelation,
-  getLoopBeeRelation,
-} from "./loop-bee-relation-store.js";
+  getLoopBeeRelation
+} from './loop-bee-relation-store.js';
 
 /**
  * Domain error thrown by LoopBeeRelationService when an invariant is
@@ -22,11 +22,7 @@ import {
  * NL-friendly. The CLI layer (M5) maps these into user-facing prompts.
  */
 export type LoopBeeRelationIntegrityErrorCode =
-  | "LOOP_RETIRED"
-  | "DUP_RELATION"
-  | "TWO_MAIN_BEES"
-  | "FK_LOOP_NOT_FOUND"
-  | "FK_BEE_NOT_FOUND";
+  'LOOP_RETIRED' | 'DUP_RELATION' | 'TWO_MAIN_BEES' | 'FK_LOOP_NOT_FOUND' | 'FK_BEE_NOT_FOUND';
 
 export class LoopBeeRelationIntegrityError extends Error {
   readonly code: LoopBeeRelationIntegrityErrorCode;
@@ -38,7 +34,7 @@ export class LoopBeeRelationIntegrityError extends Error {
     findings: ReadonlyArray<{ path: string; message: string }> = []
   ) {
     super(message);
-    this.name = "LoopBeeRelationIntegrityError";
+    this.name = 'LoopBeeRelationIntegrityError';
     this.code = code;
     this.findings = findings;
   }
@@ -109,51 +105,46 @@ export class LoopBeeRelationService {
   create(input: LoopBeeRelationInput): LoopBeeRelation {
     const parsed = LoopBeeRelationSchema.omit({
       id: true,
-      created_at: true,
-    }).parse(input) as Omit<LoopBeeRelation, "id" | "created_at">;
+      created_at: true
+    }).parse(input) as Omit<LoopBeeRelation, 'id' | 'created_at'>;
 
     // (a) Verify the loop_release row exists and is not retired.
     const loopRow = this.db
-      .prepare(
-        "SELECT lifecycle_status FROM loop_release WHERE id = ?"
-      )
-      .get(parsed.loop_release_id) as
-      | { lifecycle_status: string }
-      | undefined;
+      .prepare('SELECT lifecycle_status FROM loop_release WHERE id = ?')
+      .get(parsed.loop_release_id) as { lifecycle_status: string } | undefined;
     if (!loopRow) {
       throw new LoopBeeRelationIntegrityError(
-        "FK_LOOP_NOT_FOUND",
+        'FK_LOOP_NOT_FOUND',
         `loop_release row '${parsed.loop_release_id}' does not exist`,
-        [{ path: "loop_release_id", message: "loop_release row not found" }]
+        [{ path: 'loop_release_id', message: 'loop_release row not found' }]
       );
     }
-    if (loopRow.lifecycle_status === "retired") {
+    if (loopRow.lifecycle_status === 'retired') {
       throw new LoopBeeRelationIntegrityError(
-        "LOOP_RETIRED",
+        'LOOP_RETIRED',
         `cannot relate bee to retired loop '${parsed.loop_release_id}'`,
         [
           {
-            path: "loop_release_id",
-            message:
-              "loop_release.lifecycle_status is 'retired'; retirement severs new relations",
-          },
+            path: 'loop_release_id',
+            message: "loop_release.lifecycle_status is 'retired'; retirement severs new relations"
+          }
         ]
       );
     }
 
     // (b) Verify the bee_release row exists.
     const beeRow = this.db
-      .prepare("SELECT id FROM bee_release WHERE id = ?")
+      .prepare('SELECT id FROM bee_release WHERE id = ?')
       .get(parsed.bee_release_id) as { id: number } | undefined;
     if (!beeRow) {
       throw new LoopBeeRelationIntegrityError(
-        "FK_BEE_NOT_FOUND",
+        'FK_BEE_NOT_FOUND',
         `bee_release row ${parsed.bee_release_id} does not exist`,
         [
           {
-            path: "bee_release_id",
-            message: "bee_release row not found",
-          },
+            path: 'bee_release_id',
+            message: 'bee_release row not found'
+          }
         ]
       );
     }
@@ -166,7 +157,7 @@ export class LoopBeeRelationService {
       return insertLoopBeeRelation(this.db, parsed);
     } catch (err: unknown) {
       const code =
-        typeof err === "object" && err !== null && "code" in err
+        typeof err === 'object' && err !== null && 'code' in err
           ? (err as { code: unknown }).code
           : undefined;
       // Partial unique index on (loop_release_id) WHERE role='main'.
@@ -176,52 +167,51 @@ export class LoopBeeRelationService {
       // It is distinguished from the (loop_release_id, bee_release_id)
       // composite UNIQUE violation by the absence of bee_release_id
       // in the message.
-      if (code === "SQLITE_CONSTRAINT_UNIQUE") {
+      if (code === 'SQLITE_CONSTRAINT_UNIQUE') {
         const msg = err instanceof Error ? err.message : String(err);
-        if (msg.includes("loop_bee_relation.bee_release_id")) {
+        if (msg.includes('loop_bee_relation.bee_release_id')) {
           // Composite UNIQUE(loop_release_id, bee_release_id).
           throw new LoopBeeRelationIntegrityError(
-            "DUP_RELATION",
+            'DUP_RELATION',
             `relation between loop '${parsed.loop_release_id}' and bee ${parsed.bee_release_id} already exists`,
             [
               {
-                path: "loop_release_id,bee_release_id",
-                message: "duplicate relation",
-              },
+                path: 'loop_release_id,bee_release_id',
+                message: 'duplicate relation'
+              }
             ]
           );
         }
         // Otherwise: partial unique index on (loop_release_id) WHERE role='main'.
         throw new LoopBeeRelationIntegrityError(
-          "TWO_MAIN_BEES",
+          'TWO_MAIN_BEES',
           `loop '${parsed.loop_release_id}' already has a main bee`,
           [
             {
-              path: "role",
-              message:
-                "at most one main bee per loop; promote / retire the existing main first",
-            },
+              path: 'role',
+              message: 'at most one main bee per loop; promote / retire the existing main first'
+            }
           ]
         );
       }
       // FK violations from better-sqlite3 (foreign_keys = ON).
-      if (code === "SQLITE_CONSTRAINT_FOREIGNKEY") {
+      if (code === 'SQLITE_CONSTRAINT_FOREIGNKEY') {
         // Distinguish by re-checking which row is missing; the friendly
         // pre-check above should have caught these, but defense in depth.
         const loopStill = this.db
-          .prepare("SELECT 1 FROM loop_release WHERE id = ?")
+          .prepare('SELECT 1 FROM loop_release WHERE id = ?')
           .get(parsed.loop_release_id);
         if (!loopStill) {
           throw new LoopBeeRelationIntegrityError(
-            "FK_LOOP_NOT_FOUND",
+            'FK_LOOP_NOT_FOUND',
             `loop_release row '${parsed.loop_release_id}' does not exist`,
-            [{ path: "loop_release_id", message: "FK violation" }]
+            [{ path: 'loop_release_id', message: 'FK violation' }]
           );
         }
         throw new LoopBeeRelationIntegrityError(
-          "FK_BEE_NOT_FOUND",
+          'FK_BEE_NOT_FOUND',
           `bee_release row ${parsed.bee_release_id} does not exist`,
-          [{ path: "bee_release_id", message: "FK violation" }]
+          [{ path: 'bee_release_id', message: 'FK violation' }]
         );
       }
       // Re-throw unexpected errors unchanged.
@@ -237,24 +227,14 @@ export class LoopBeeRelationService {
   /**
    * List relations for a given loop. Filter by `role` when supplied.
    */
-  listByLoop(opts: {
-    loop_release_id: string;
-    role?: LoopBeeRelationRole;
-  }): LoopBeeRelation[] {
-    return listLoopBeeRelationsByLoop(
-      this.db,
-      opts.loop_release_id,
-      opts.role
-    );
+  listByLoop(opts: { loop_release_id: string; role?: LoopBeeRelationRole }): LoopBeeRelation[] {
+    return listLoopBeeRelationsByLoop(this.db, opts.loop_release_id, opts.role);
   }
 
   /**
    * List relations for a given bee. Filter by `role` when supplied.
    */
-  listByBee(opts: {
-    bee_release_id: number;
-    role?: LoopBeeRelationRole;
-  }): LoopBeeRelation[] {
+  listByBee(opts: { bee_release_id: number; role?: LoopBeeRelationRole }): LoopBeeRelation[] {
     return listLoopBeeRelationsByBee(this.db, opts.bee_release_id, opts.role);
   }
 
@@ -271,16 +251,16 @@ export class LoopBeeRelationService {
       return updateLoopBeeRelationRole(this.db, id, newRole);
     } catch (err: unknown) {
       const code =
-        typeof err === "object" && err !== null && "code" in err
+        typeof err === 'object' && err !== null && 'code' in err
           ? (err as { code: unknown }).code
           : undefined;
-      if (code === "SQLITE_CONSTRAINT_UNIQUE") {
+      if (code === 'SQLITE_CONSTRAINT_UNIQUE') {
         const existing = getLoopBeeRelation(this.db, id);
-        const loopId = existing?.loop_release_id ?? "<unknown>";
+        const loopId = existing?.loop_release_id ?? '<unknown>';
         throw new LoopBeeRelationIntegrityError(
-          "TWO_MAIN_BEES",
+          'TWO_MAIN_BEES',
           `loop '${loopId}' already has a main bee`,
-          [{ path: "role", message: "at most one main bee per loop" }]
+          [{ path: 'role', message: 'at most one main bee per loop' }]
         );
       }
       throw err;

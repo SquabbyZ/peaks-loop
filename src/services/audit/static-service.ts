@@ -89,14 +89,14 @@ export function runStaticAudit(input: StaticAuditInput): StaticAuditResult {
   const peaksResult = runRedLinesAudit({ projectRoot: input.projectRoot });
   const mergedAudit: RedLineAudit = {
     ...peaksResult.audit,
-    enforcerFindings: [...peaksResult.audit.enforcerFindings],
+    enforcerFindings: [...peaksResult.audit.enforcerFindings]
   };
 
   const state: AgentShieldState = {
     spawned: false,
     installed: false,
     reason: 'disabled-and-ecc-missing',
-    findings: [],
+    findings: []
   };
 
   const proseRatio = computeProseRatio(mergedAudit.audit);
@@ -105,6 +105,6 @@ export function runStaticAudit(input: StaticAuditInput): StaticAuditResult {
     audit: mergedAudit,
     agentShield: state,
     warnings: [],
-    proseRatio,
+    proseRatio
   };
 }

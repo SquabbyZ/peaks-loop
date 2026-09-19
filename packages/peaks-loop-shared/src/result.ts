@@ -19,11 +19,22 @@ export type ResultEnvelope<T> = {
   errorId?: string;
 };
 
-export function ok<T>(command: string, data: T, warnings: string[] = [], nextActions: string[] = []): ResultEnvelope<T> {
+export function ok<T>(
+  command: string,
+  data: T,
+  warnings: string[] = [],
+  nextActions: string[] = []
+): ResultEnvelope<T> {
   return { ok: true, command, data, warnings, nextActions };
 }
 
-export function fail<T>(command: string, code: string, message: string, data: T, nextActions: string[] = []): ResultEnvelope<T> {
+export function fail<T>(
+  command: string,
+  code: string,
+  message: string,
+  data: T,
+  nextActions: string[] = []
+): ResultEnvelope<T> {
   // Slice 2026-06-23-audit-4th #B3: mint a fresh errorId per failure.
   // The id is opaque (uuid v4) and never reused; downstream log
   // entries from the same code path can carry the same id for
@@ -68,5 +79,8 @@ export function getErrorMessage(error: unknown): string {
 }
 
 export function redactSensitiveErrorMessage(message: string): string {
-  return SENSITIVE_ERROR_PATTERNS.reduce((redacted, pattern) => redacted.replace(pattern, '[redacted]'), message);
+  return SENSITIVE_ERROR_PATTERNS.reduce(
+    (redacted, pattern) => redacted.replace(pattern, '[redacted]'),
+    message
+  );
 }

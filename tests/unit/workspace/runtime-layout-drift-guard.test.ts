@@ -58,11 +58,16 @@ import { describe, expect, it } from 'vitest';
 import { RUNTIME_SYSTEM_ENTRIES } from '~/src/services/workspace/runtime-layout';
 import { declareDimensions } from '../_setup/4dim-template.js';
 
-declareDimensions('tests/unit/workspace/runtime-layout-drift-guard.test.ts', [
-  'render',
-  'behavior',
-  'integration',
-], [{ dim: 'a11y', reason: 'no user-facing surface: emits no stdout, exit code or message of its own' }]);
+declareDimensions(
+  'tests/unit/workspace/runtime-layout-drift-guard.test.ts',
+  ['render', 'behavior', 'integration'],
+  [
+    {
+      dim: 'a11y',
+      reason: 'no user-facing surface: emits no stdout, exit code or message of its own'
+    }
+  ]
+);
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
 const SRC_ROOT = join(REPO_ROOT, 'src');
@@ -82,7 +87,13 @@ function listTsFiles(dir: string, out: string[] = []): string[] {
 }
 
 function parse(file: string): ts.SourceFile {
-  return ts.createSourceFile(file, readFileSync(file, 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+  return ts.createSourceFile(
+    file,
+    readFileSync(file, 'utf8'),
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.TS
+  );
 }
 
 function calledName(expression: ts.Expression): string {
@@ -98,7 +109,8 @@ function moduleStringConstants(sourceFile: ts.SourceFile): Map<string, string> {
     if (!ts.isVariableStatement(statement)) continue;
     for (const declaration of statement.declarationList.declarations) {
       if (!ts.isIdentifier(declaration.name) || declaration.initializer === undefined) continue;
-      if (ts.isStringLiteral(declaration.initializer)) constants.set(declaration.name.text, declaration.initializer.text);
+      if (ts.isStringLiteral(declaration.initializer))
+        constants.set(declaration.name.text, declaration.initializer.text);
     }
   }
   return constants;
@@ -203,7 +215,10 @@ function decide(scan: TreeScan, registered: ReadonlySet<string>, root: string): 
   const inScope = scan.children.filter((child) => !isExcused(child.name));
   const unregistered = inScope
     .filter((child) => !registered.has(child.name))
-    .map((child) => ({ file: relativePath(root, child.file).replace(/\\/g, '/'), name: child.name }));
+    .map((child) => ({
+      file: relativePath(root, child.file).replace(/\\/g, '/'),
+      name: child.name
+    }));
   const seen = new Set(scan.children.map((child) => child.name));
   const dead = [...registered].filter((name) => !seen.has(name) && !scan.constantValues.has(name));
   return { unregistered, dead };
@@ -234,7 +249,10 @@ function describeDrift(drift: Drift, registryPath: string): string {
 
 const REGISTRY_RELATIVE_PATH = 'src/services/workspace/runtime-layout.ts';
 
-function withFixtureTree(files: Readonly<Record<string, string>>, body: (root: string) => void): void {
+function withFixtureTree(
+  files: Readonly<Record<string, string>>,
+  body: (root: string) => void
+): void {
   const root = mkdtempSync(join(tmpdir(), 'peaks-runtime-layout-'));
   try {
     for (const [name, content] of Object.entries(files)) {
@@ -273,7 +291,10 @@ describe('Scenario: integration — the guard walks the real src/ tree', () => {
   it('the check consumes the registry instead of re-declaring a local set', () => {
     // The regression this whole file exists for was a LOCAL literal in the
     // check (`new Set(['change'])`) drifting from the tree.
-    const checkSource = readFileSync(join(SRC_ROOT, 'services/doctor/doctor-service/checks/l3-orphan-sessions.ts'), 'utf8');
+    const checkSource = readFileSync(
+      join(SRC_ROOT, 'services/doctor/doctor-service/checks/l3-orphan-sessions.ts'),
+      'utf8'
+    );
     expect(checkSource).toContain("from '../../../workspace/runtime-layout.js'");
     expect(checkSource).not.toMatch(/const\s+RUNTIME_SYSTEM_SUBDIRS\s*:/);
   });
@@ -286,14 +307,18 @@ describe('Scenario: behavior — the decision, on fixture trees', () => {
 
   it('passes a tree whose `_runtime` children are all registered', () => {
     withFixtureTree(
-      { 'a.ts': `import { join } from 'node:path';\nexport const A = join(root, '.peaks', '_runtime', 'callers');\n` },
+      {
+        'a.ts': `import { join } from 'node:path';\nexport const A = join(root, '.peaks', '_runtime', 'callers');\n`
+      },
       (root) => expect(decide(scanTree(root), registered, root).unregistered).toEqual([])
     );
   });
 
   it('flags an unregistered `_runtime` child written by a join chain', () => {
     withFixtureTree(
-      { 'a.ts': `import { join } from 'node:path';\nexport const A = join(root, '.peaks', '_runtime', 'newsystem');\n` },
+      {
+        'a.ts': `import { join } from 'node:path';\nexport const A = join(root, '.peaks', '_runtime', 'newsystem');\n`
+      },
       (root) => {
         const drift = decide(scanTree(root), registered, root);
         expect(drift.unregistered).toEqual([{ file: 'a.ts', name: 'newsystem' }]);
@@ -303,7 +328,9 @@ describe('Scenario: behavior — the decision, on fixture trees', () => {
 
   it('flags an unregistered `_runtime` child written as one literal', () => {
     withFixtureTree({ 'a.ts': `export const P = '.peaks/_runtime/test-cache/';\n` }, (root) => {
-      expect(decide(scanTree(root), registered, root).unregistered).toEqual([{ file: 'a.ts', name: 'test-cache' }]);
+      expect(decide(scanTree(root), registered, root).unregistered).toEqual([
+        { file: 'a.ts', name: 'test-cache' }
+      ]);
     });
   });
 
@@ -326,7 +353,9 @@ describe('Scenario: behavior — the decision, on fixture trees', () => {
     // `evidence-generator.ts` really carries `.peaks/_runtime/pwned.md` in a
     // comment; a text scan would demand a registry entry for an attack string.
     withFixtureTree(
-      { 'a.ts': `// measured: --rid '../../../pwned' wrote .peaks/_runtime/pwned.md\nexport const A = 1;\n` },
+      {
+        'a.ts': `// measured: --rid '../../../pwned' wrote .peaks/_runtime/pwned.md\nexport const A = 1;\n`
+      },
       (root) => expect(decide(scanTree(root), registered, root).unregistered).toEqual([])
     );
   });
@@ -362,7 +391,9 @@ describe('Scenario: behavior — the decision, on fixture trees', () => {
 describe('Scenario: render — the failure message names the file and the name', () => {
   it('names each offending file, its literal, and the registry to edit', () => {
     withFixtureTree(
-      { 'src/a.ts': `import { join } from 'node:path';\nexport const A = join(root, '.peaks', '_runtime', 'newsystem');\n` },
+      {
+        'src/a.ts': `import { join } from 'node:path';\nexport const A = join(root, '.peaks', '_runtime', 'newsystem');\n`
+      },
       (root) => {
         const drift = decide(scanTree(join(root, 'src')), new Set(['change']), root);
         const message = describeDrift(drift, REGISTRY_RELATIVE_PATH);

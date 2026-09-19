@@ -18,7 +18,7 @@ function entry(backing: RedLineBacking, informational?: boolean): RedLineEntry {
     source: { file: 'skills/x/SKILL.md', line: 1, marker: 'BLOCKING', context: '' },
     backing,
     enforcerRef: null,
-    ...(informational === undefined ? {} : { informational }),
+    ...(informational === undefined ? {} : { informational })
   };
 }
 
@@ -42,7 +42,7 @@ describe('computeProseRatio', () => {
       entry('prose-only', true),
       entry('prose-only', true),
       entry('prose-only'),
-      entry('prose-only'),
+      entry('prose-only')
     ];
 
     // when: the ratio is computed
@@ -64,7 +64,7 @@ describe('computeProseRatio', () => {
       entry('cli-backed'),
       entry('cli-backed'),
       entry('partial'),
-      entry('partial'),
+      entry('partial')
     ];
 
     // when: the ratio is computed

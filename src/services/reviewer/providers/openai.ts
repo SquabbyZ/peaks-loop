@@ -41,12 +41,17 @@ export async function callOpenAI(input: ProviderCallInput): Promise<ProviderCall
     });
     if (!res.ok) {
       const detail = await safeReadError(res);
-      return { ok: false, error: `openai http ${res.status}: ${detail}`, latencyMs: Date.now() - start };
+      return {
+        ok: false,
+        error: `openai http ${res.status}: ${detail}`,
+        latencyMs: Date.now() - start
+      };
     }
     const json = (await res.json()) as { choices?: Array<{ message?: { content?: unknown } }> };
-    const text = typeof json.choices?.[0]?.message?.content === 'string'
-      ? (json.choices[0].message.content as string)
-      : '';
+    const text =
+      typeof json.choices?.[0]?.message?.content === 'string'
+        ? (json.choices[0].message.content as string)
+        : '';
     return { ok: true, modelId: input.provider.model, text, latencyMs: Date.now() - start };
   } catch (err) {
     return {

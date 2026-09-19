@@ -62,15 +62,10 @@ export function registerSkillSearchCommand(program: Command, io: ProgramIO): voi
       '-d, --domain <domain>',
       'exact match on metadata.domain (locked enum: code | content | doctor | research | triage | sop | audit | final-review | resume | status | test | ide | slice-decompose | issue-fix-orchestrator | perf-audit | security-audit | reviewer)'
     )
-    .option(
-      '-l, --limit <n>',
-      'max results returned (1..100, default 20)',
-      (v: string) => Number.parseInt(v, 10)
+    .option('-l, --limit <n>', 'max results returned (1..100, default 20)', (v: string) =>
+      Number.parseInt(v, 10)
     )
-    .option(
-      '--include-internal',
-      'include skills with visibility: internal (default: hide them)'
-    )
+    .option('--include-internal', 'include skills with visibility: internal (default: hide them)')
     .action(
       async (options: {
         query?: string;

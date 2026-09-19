@@ -25,7 +25,7 @@ import { declareDimensions } from '../../_setup/4dim-template.js';
 import { withTmpWorkspacePerTest } from '../../_setup/tmp-workspace.js';
 import {
   createRequestArtifact,
-  showRequestArtifact,
+  showRequestArtifact
 } from '../../../../src/services/artifacts/request-artifact-service.js';
 
 declareDimensions(
@@ -33,8 +33,8 @@ declareDimensions(
   ['integration', 'behavior'],
   [
     { dim: 'render', reason: 'no formatted output surface in the service round-trip' },
-    { dim: 'a11y', reason: 'no human-facing text in the service round-trip' },
-  ],
+    { dim: 'a11y', reason: 'no human-facing text in the service round-trip' }
+  ]
 );
 
 const MIXED_CASE_REQUEST_ID = '2026-09-06-split-batchA';
@@ -49,11 +49,19 @@ describe('Scenario: integration — mixed-case request id resolves to its lowerc
       requestId: MIXED_CASE_REQUEST_ID,
       projectRoot: ws().path,
       sessionId: SESSION_ID,
-      apply: true,
+      apply: true
     });
 
     expect(result.path).toBe(
-      join(ws().path, '.peaks', '_runtime', SESSION_ID, 'rd', 'requests', '001-2026-09-06-split-batcha.md'),
+      join(
+        ws().path,
+        '.peaks',
+        '_runtime',
+        SESSION_ID,
+        'rd',
+        'requests',
+        '001-2026-09-06-split-batcha.md'
+      )
     );
   });
 
@@ -63,21 +71,29 @@ describe('Scenario: integration — mixed-case request id resolves to its lowerc
       requestId: MIXED_CASE_REQUEST_ID,
       projectRoot: ws().path,
       sessionId: SESSION_ID,
-      apply: true,
+      apply: true
     });
 
     const shown = await showRequestArtifact({
       projectRoot: ws().path,
       role: 'rd',
       requestId: MIXED_CASE_REQUEST_ID,
-      sessionId: SESSION_ID,
+      sessionId: SESSION_ID
     });
 
     expect(shown).not.toBeNull();
     // readSummary derives requestId from the on-disk (lowercased) filename.
     expect(shown?.requestId).toBe('2026-09-06-split-batcha');
     expect(shown?.path).toBe(
-      join(ws().path, '.peaks', '_runtime', SESSION_ID, 'rd', 'requests', '001-2026-09-06-split-batcha.md'),
+      join(
+        ws().path,
+        '.peaks',
+        '_runtime',
+        SESSION_ID,
+        'rd',
+        'requests',
+        '001-2026-09-06-split-batcha.md'
+      )
     );
   });
 });
@@ -91,7 +107,7 @@ describe('Scenario: behavior — duplicate detection is slug-aware', () => {
       requestId: MIXED_CASE_REQUEST_ID,
       projectRoot: ws().path,
       sessionId: SESSION_ID,
-      apply: true,
+      apply: true
     });
 
     await expect(
@@ -100,8 +116,8 @@ describe('Scenario: behavior — duplicate detection is slug-aware', () => {
         requestId: MIXED_CASE_REQUEST_ID,
         projectRoot: ws().path,
         sessionId: SESSION_ID,
-        apply: true,
-      }),
+        apply: true
+      })
     ).rejects.toThrow(/already exists/);
   });
 });

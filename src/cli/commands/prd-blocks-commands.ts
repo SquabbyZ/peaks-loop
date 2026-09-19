@@ -28,9 +28,7 @@ export function registerPrdBlocksCommands(program: Command, io: ProgramIO): void
   const prd = program.commands.find((c) => c.name() === 'prd');
   if (prd === undefined) {
     // Fallback: create if missing. Should never trigger in normal startup.
-    program
-      .command('prd')
-      .description('v2.15.0 follow-up G3: PRD design-quality gates.');
+    program.command('prd').description('v2.15.0 follow-up G3: PRD design-quality gates.');
   }
   const target = prd ?? program.commands.find((c) => c.name() === 'prd')!;
 
@@ -46,12 +44,21 @@ export function registerPrdBlocksCommands(program: Command, io: ProgramIO): void
   ).action((requestId: string, opts: { project: string; json?: boolean }) => {
     const projectRoot = opts.project ?? findProjectRoot(process.cwd()) ?? process.cwd();
     const report = checkPrdBlocks(projectRoot, requestId);
-    printResult(io, ok('prd.check-blocks', report, [], report.ok
-      ? []
-      : [
-          'Fix the missing / too-short required blocks above.',
-          'The 12 Gaps positioning memory: prd design quality is the only lever — execution layer does not add quality.'
-        ]), opts.json ?? false);
+    printResult(
+      io,
+      ok(
+        'prd.check-blocks',
+        report,
+        [],
+        report.ok
+          ? []
+          : [
+              'Fix the missing / too-short required blocks above.',
+              'The 12 Gaps positioning memory: prd design quality is the only lever — execution layer does not add quality.'
+            ]
+      ),
+      opts.json ?? false
+    );
     if (!report.ok) {
       process.exitCode = 1;
     }

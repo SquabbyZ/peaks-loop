@@ -23,14 +23,14 @@ declareDimensions(
   ['behavior', 'integration'],
   [
     { dim: 'render', reason: 'returns a structured E2EPlan, no text surface' },
-    { dim: 'a11y', reason: 'no user-visible text or exit code' },
-  ],
+    { dim: 'a11y', reason: 'no user-visible text or exit code' }
+  ]
 );
 
 import { readE2EPlan } from '~/src/services/dispatch/e2e-fixtures';
 
-describe("Scenario: behavior — plan shape", () => {
-  it("when invoked, should returns empty for a missing directory", () => {
+describe('Scenario: behavior — plan shape', () => {
+  it('when invoked, should returns empty for a missing directory', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -38,7 +38,7 @@ describe("Scenario: behavior — plan shape", () => {
     expect(readE2EPlan({ dir }).kind).toBe('empty');
   });
 
-  it("when invoked, should returns disabled when disabled file is present", () => {
+  it('when invoked, should returns disabled when disabled file is present', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -49,8 +49,8 @@ describe("Scenario: behavior — plan shape", () => {
   });
 });
 
-describe("Scenario: integration — parsed fixtures", () => {
-  it("when invoked, should returns fixtures with parsed url and matchers", () => {
+describe('Scenario: integration — parsed fixtures', () => {
+  it('when invoked, should returns fixtures with parsed url and matchers', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -58,7 +58,13 @@ describe("Scenario: integration — parsed fixtures", () => {
     mkdirSync(join(dir, 'login'), { recursive: true });
     writeFileSync(
       join(dir, 'login', 'happy.md'),
-      ['# Login', 'url: http://localhost:3000/login', 'matchers:', '  - "Welcome"', '  - "[data-testid=submit]"'].join('\n'),
+      [
+        '# Login',
+        'url: http://localhost:3000/login',
+        'matchers:',
+        '  - "Welcome"',
+        '  - "[data-testid=submit]"'
+      ].join('\n')
     );
     const plan = readE2EPlan({ dir });
     expect(plan.kind).toBe('fixtures');

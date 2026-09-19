@@ -21,7 +21,9 @@ import { addJsonOption, printResult, type ProgramIO } from '../cli-helpers.js';
 export function registerImpactCommands(program: Command, io: ProgramIO): void {
   const impact = program
     .command('impact')
-    .description('v2.15.0 follow-up G13: lightweight impact scan (no AST, glob-based) for存量老项目无 UT 兜底.');
+    .description(
+      'v2.15.0 follow-up G13: lightweight impact scan (no AST, glob-based) for存量老项目无 UT 兜底.'
+    );
 
   addJsonOption(
     impact
@@ -31,19 +33,33 @@ export function registerImpactCommands(program: Command, io: ProgramIO): void {
           'affected business flows (configurable), and the must-check list (concrete ' +
           'scenarios the user must verify before shipping). Pure local computation, no I/O.'
       )
-      .requiredOption('--files <list>', 'comma-separated list of changed file paths (relative to project root)')
+      .requiredOption(
+        '--files <list>',
+        'comma-separated list of changed file paths (relative to project root)'
+      )
       .option('--project <path>', 'project root (default: cwd)')
   ).action((opts: { files: string; project?: string; json?: boolean }) => {
     const projectRoot = opts.project ?? findProjectRoot(process.cwd()) ?? process.cwd();
-    const files: string[] = opts.files.split(',').map((s) => s.trim()).filter((s) => s.length > 0);
+    const files: string[] = opts.files
+      .split(',')
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0);
     if (files.length === 0) {
-      printResult(io, fail('impact.scan', 'INVALID_INPUT', 'no files provided (--files)', { projectRoot }, [
-        'Pass --files with at least one file path.'
-      ]), opts.json ?? false);
+      printResult(
+        io,
+        fail('impact.scan', 'INVALID_INPUT', 'no files provided (--files)', { projectRoot }, [
+          'Pass --files with at least one file path.'
+        ]),
+        opts.json ?? false
+      );
       return;
     }
     const report = runImpactScan({ changedFiles: files });
-    printResult(io, ok('impact.scan', { projectRoot, report }, [], [...report.warnings]), opts.json ?? false);
+    printResult(
+      io,
+      ok('impact.scan', { projectRoot, report }, [], [...report.warnings]),
+      opts.json ?? false
+    );
   });
 
   addJsonOption(
@@ -58,19 +74,35 @@ export function registerImpactCommands(program: Command, io: ProgramIO): void {
       .option('--project <path>', 'project root (default: cwd)')
   ).action((opts: { files: string; project?: string; json?: boolean }) => {
     const projectRoot = opts.project ?? findProjectRoot(process.cwd()) ?? process.cwd();
-    const files: string[] = opts.files.split(',').map((s) => s.trim()).filter((s) => s.length > 0);
+    const files: string[] = opts.files
+      .split(',')
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0);
     if (files.length === 0) {
-      printResult(io, fail('impact.must-check', 'INVALID_INPUT', 'no files provided (--files)', { projectRoot }, [
-        'Pass --files with at least one file path.'
-      ]), opts.json ?? false);
+      printResult(
+        io,
+        fail('impact.must-check', 'INVALID_INPUT', 'no files provided (--files)', { projectRoot }, [
+          'Pass --files with at least one file path.'
+        ]),
+        opts.json ?? false
+      );
       return;
     }
     const report = runImpactScan({ changedFiles: files });
     const items = mustCheckFromReport(report);
-    printResult(io, ok('impact.must-check', { projectRoot, count: items.length, items }, [], [
-      items.length === 0
-        ? 'No must-check items generated for the given changes.'
-        : 'Pipe into `peaks smoke add-path` to register these as regression paths.'
-    ]), opts.json ?? false);
+    printResult(
+      io,
+      ok(
+        'impact.must-check',
+        { projectRoot, count: items.length, items },
+        [],
+        [
+          items.length === 0
+            ? 'No must-check items generated for the given changes.'
+            : 'Pipe into `peaks smoke add-path` to register these as regression paths.'
+        ]
+      ),
+      opts.json ?? false
+    );
   });
 }

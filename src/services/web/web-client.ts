@@ -34,7 +34,11 @@ export class WebDaemonClient {
   }
 
   /** Invoke one op. A transport failure throws; an op failure comes back as `ok: false`. */
-  async call<T>(op: WebOp, args: Readonly<Record<string, unknown>>, timeoutMs: number): Promise<WebOpResponse<T>> {
+  async call<T>(
+    op: WebOp,
+    args: Readonly<Record<string, unknown>>,
+    timeoutMs: number
+  ): Promise<WebOpResponse<T>> {
     const body: WebOpRequest = { op, args };
     const response = await fetch(`${this.baseUrl}/op`, {
       method: 'POST',

@@ -61,7 +61,7 @@ declareDimensions('tests/unit/doctor/codegraph-index-integrity.test.ts', [
   'render',
   'behavior',
   'integration',
-  'a11y',
+  'a11y'
 ]);
 
 const CHECK_ID = 'capability:codegraph-index-integrity';
@@ -80,7 +80,7 @@ function makeContext(options: DoctorOptions = {}): DoctorContext {
     resolvedL3Root: '',
     projectRootResolver: () => null,
     isValidSessionId: () => true,
-    accumulatedChecks: [],
+    accumulatedChecks: []
   };
 }
 
@@ -115,7 +115,7 @@ const CLEAN_REPORT: CodegraphIndexIntegrityProbe = {
   admittedTrackedCount: 2,
   includeGap: [],
   indexedFileCount: 2,
-  deadRows: [],
+  deadRows: []
 };
 
 const INCLUDE_GAP_REPORT: CodegraphIndexIntegrityProbe = {
@@ -123,14 +123,14 @@ const INCLUDE_GAP_REPORT: CodegraphIndexIntegrityProbe = {
   gap: true,
   trackedSourceCount: 2,
   admittedTrackedCount: 1,
-  includeGap: ['scripts/release-pack.mjs'],
+  includeGap: ['scripts/release-pack.mjs']
 };
 
 const STALE_REPORT: CodegraphIndexIntegrityProbe = {
   ...CLEAN_REPORT,
   gap: true,
   indexedFileCount: 3,
-  deadRows: ['src/cli/commands/deleted-commands.ts'],
+  deadRows: ['src/cli/commands/deleted-commands.ts']
 };
 
 // ── behavior: CLEAN controls ─────────────────────────────────────────
@@ -157,7 +157,9 @@ describe('capability:codegraph-index-integrity (clean controls)', () => {
 
 describe('capability:codegraph-index-integrity (injection controls)', () => {
   it('when include does not admit a supported tracked file, should report it naming it', () => {
-    const checks = runCheck(makeContext({ codegraphIndexIntegrityProbe: () => INCLUDE_GAP_REPORT }));
+    const checks = runCheck(
+      makeContext({ codegraphIndexIntegrityProbe: () => INCLUDE_GAP_REPORT })
+    );
 
     expect(checks[0]?.ok).toBe(false);
     expect(checks[0]?.message).toContain('not admitted');
@@ -178,8 +180,8 @@ describe('capability:codegraph-index-integrity (injection controls)', () => {
         codegraphIndexIntegrityProbe: () => ({
           ...STALE_REPORT,
           admittedTrackedCount: 1,
-          includeGap: ['scripts/release-pack.mjs'],
-        }),
+          includeGap: ['scripts/release-pack.mjs']
+        })
       })
     );
 
@@ -194,7 +196,9 @@ describe('capability:codegraph-index-integrity (injection controls)', () => {
     // gate exists to prevent. Slice-002 shipped the command, so the message
     // must name it — in BOTH modes, because the operator needs it whether or
     // not the project opted into blocking.
-    const advisory = runCheck(makeContext({ codegraphIndexIntegrityProbe: () => INCLUDE_GAP_REPORT }));
+    const advisory = runCheck(
+      makeContext({ codegraphIndexIntegrityProbe: () => INCLUDE_GAP_REPORT })
+    );
     expect(advisory[0]?.message).toContain(CODEGRAPH_REPAIR_INDEX_COMMAND);
 
     const stale = runCheck(makeContext({ codegraphIndexIntegrityProbe: () => STALE_REPORT }));
@@ -213,7 +217,9 @@ describe('capability:codegraph-index-integrity (injection controls)', () => {
 
 describe('capability:codegraph-index-integrity (severity policy)', () => {
   it('when the project has not opted in, should tag the gap advisory so the doctor exit code is untouched', () => {
-    const checks = runCheck(makeContext({ codegraphIndexIntegrityProbe: () => INCLUDE_GAP_REPORT }));
+    const checks = runCheck(
+      makeContext({ codegraphIndexIntegrityProbe: () => INCLUDE_GAP_REPORT })
+    );
 
     // `severity: 'warning'` is what `buildReport` reads to keep the finding
     // out of `summary.ok`. Without this assertion, tagging the gap
@@ -266,7 +272,7 @@ describe('capability:codegraph-index-integrity (unevaluable)', () => {
       makeContext({
         codegraphIndexIntegrityProbe: () => {
           throw new Error('not a git repository');
-        },
+        }
       })
     );
 
@@ -281,7 +287,7 @@ describe('capability:codegraph-index-integrity (unevaluable)', () => {
       makeContext({
         codegraphIndexIntegrityProbe: () => {
           throw new Error('no such table: files');
-        },
+        }
       })
     );
     const clean = runCheck(makeContext({ codegraphIndexIntegrityProbe: () => CLEAN_REPORT }));
@@ -305,7 +311,7 @@ describe('capability:codegraph-index-integrity (unevaluable)', () => {
         makeContext({
           codegraphIndexIntegrityProbe: () => {
             throw new Error('no such table: files');
-          },
+          }
         })
       )
     );
@@ -343,15 +349,24 @@ describe('capability:codegraph-index-integrity (integration)', () => {
     const root = mkdtempSync(join(tmpdir(), 'peaks-cg-index-integrity-'));
     try {
       execFileSync('git', ['-C', root, 'init', '-q'], { stdio: 'ignore', windowsHide: true });
-      execFileSync('git', ['-C', root, 'config', 'user.email', 'peaks-test@example.com'], { stdio: 'ignore', windowsHide: true });
-      execFileSync('git', ['-C', root, 'config', 'user.name', 'peaks test'], { stdio: 'ignore', windowsHide: true });
+      execFileSync('git', ['-C', root, 'config', 'user.email', 'peaks-test@example.com'], {
+        stdio: 'ignore',
+        windowsHide: true
+      });
+      execFileSync('git', ['-C', root, 'config', 'user.name', 'peaks test'], {
+        stdio: 'ignore',
+        windowsHide: true
+      });
 
       mkdirSync(join(root, 'src'), { recursive: true });
       mkdirSync(join(root, 'scripts'), { recursive: true });
       writeFileSync(join(root, 'src', 'ok.ts'), 'export const ok = 1;\n', 'utf8');
       writeFileSync(join(root, 'scripts', 'tool.mjs'), 'export const tool = 1;\n', 'utf8');
       execFileSync('git', ['-C', root, 'add', '-A'], { stdio: 'ignore', windowsHide: true });
-      execFileSync('git', ['-C', root, 'commit', '-qm', 'fixture'], { stdio: 'ignore', windowsHide: true });
+      execFileSync('git', ['-C', root, 'commit', '-qm', 'fixture'], {
+        stdio: 'ignore',
+        windowsHide: true
+      });
 
       mkdirSync(join(root, '.codegraph'), { recursive: true });
       writeFileSync(
@@ -362,8 +377,12 @@ describe('capability:codegraph-index-integrity (integration)', () => {
 
       // A real index db with upstream's real `files` schema.
       const db = new Database(join(root, '.codegraph', 'codegraph.db'));
-      db.exec('CREATE TABLE files (path TEXT PRIMARY KEY, content_hash TEXT NOT NULL, language TEXT NOT NULL, size INTEGER NOT NULL, modified_at INTEGER NOT NULL, indexed_at INTEGER NOT NULL, node_count INTEGER DEFAULT 0, errors TEXT)');
-      const insert = db.prepare('INSERT INTO files (path, content_hash, language, size, modified_at, indexed_at) VALUES (?, ?, ?, 0, 0, 0)');
+      db.exec(
+        'CREATE TABLE files (path TEXT PRIMARY KEY, content_hash TEXT NOT NULL, language TEXT NOT NULL, size INTEGER NOT NULL, modified_at INTEGER NOT NULL, indexed_at INTEGER NOT NULL, node_count INTEGER DEFAULT 0, errors TEXT)'
+      );
+      const insert = db.prepare(
+        'INSERT INTO files (path, content_hash, language, size, modified_at, indexed_at) VALUES (?, ?, ?, 0, 0, 0)'
+      );
       insert.run('src/ok.ts', 'h', 'typescript');
       insert.run('src/deleted.ts', 'h', 'typescript');
       db.close();

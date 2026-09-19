@@ -115,7 +115,8 @@ export function computeWindowCalibration(
       for (let i = pairs.length - 1; i >= 0; i -= 1) {
         const candidate = pairs[i]!;
         if (candidate.observedRatio !== null || typeof event.afterRatio !== 'number') continue;
-        const observedTokens = candidate.windowTokens === null ? null : event.afterRatio * candidate.windowTokens;
+        const observedTokens =
+          candidate.windowTokens === null ? null : event.afterRatio * candidate.windowTokens;
         pairs[i] = {
           ...candidate,
           observedRatio: event.afterRatio,
@@ -164,7 +165,13 @@ export function readCompactHistory(input: {
   readonly projectRoot: string;
   readonly sessionId: string;
 }): CompactHistoryReadResult {
-  const path = join(input.projectRoot, '.peaks', '_runtime', input.sessionId, 'compact-history.jsonl');
+  const path = join(
+    input.projectRoot,
+    '.peaks',
+    '_runtime',
+    input.sessionId,
+    'compact-history.jsonl'
+  );
   if (!existsSync(path)) {
     return { kind: 'file-missing', path };
   }
@@ -199,7 +206,9 @@ export interface CompactHistorySummary {
   readonly failedCount: number;
 }
 
-export function summarizeCompactHistory(events: ReadonlyArray<CompactHistoryEvent>): CompactHistorySummary {
+export function summarizeCompactHistory(
+  events: ReadonlyArray<CompactHistoryEvent>
+): CompactHistorySummary {
   if (events.length === 0) {
     return {
       totalCompacts: 0,
@@ -207,7 +216,7 @@ export function summarizeCompactHistory(events: ReadonlyArray<CompactHistoryEven
       lastBeforeRatio: null,
       lastRedLine: false,
       redLineCount: 0,
-      failedCount: 0,
+      failedCount: 0
     };
   }
   const last = events[events.length - 1]!;
@@ -217,6 +226,6 @@ export function summarizeCompactHistory(events: ReadonlyArray<CompactHistoryEven
     lastBeforeRatio: last.beforeRatio,
     lastRedLine: last.redLine,
     redLineCount: events.filter((e) => e.redLine).length,
-    failedCount: events.filter((e) => !e.ok).length,
+    failedCount: events.filter((e) => !e.ok).length
   };
 }

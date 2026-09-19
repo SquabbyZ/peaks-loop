@@ -87,11 +87,13 @@ export function lintPeaksDoctorAcknowledged(skill: SkillFile): readonly LintHit[
   const writesRequestArtifact = /\bpeaks\s+request\s+(init|show|transition)\b/.test(skill.body);
   if (!writesRequestArtifact) return [];
   if (PEAKS_DOCTOR_PATTERN.test(skill.body)) return [];
-  return [{
-    catalogId: 'rl-peaks-doctor-skill-acknowledged-001',
-    rule: 'skill that writes a request artifact acknowledges peaks doctor',
-    file: skill.path,
-    line: 1,
-    matchedText: '(no peaks doctor / peaks-doctor mention in skill body)'
-  }];
+  return [
+    {
+      catalogId: 'rl-peaks-doctor-skill-acknowledged-001',
+      rule: 'skill that writes a request artifact acknowledges peaks doctor',
+      file: skill.path,
+      line: 1,
+      matchedText: '(no peaks doctor / peaks-doctor mention in skill body)'
+    }
+  ];
 }

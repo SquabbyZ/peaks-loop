@@ -26,13 +26,23 @@ export interface PreRdScanResult {
 }
 
 export function checkPreRdScan(input: PreRdScanInput): PreRdScanResult {
-  const archetypeReportPath = join(input.projectRoot, '.peaks/_runtime', input.sessionId, 'rd/project-scan.md');
-  const standardsReportPath = join(input.projectRoot, '.peaks/_runtime', input.sessionId, 'standards-preflight.json');
+  const archetypeReportPath = join(
+    input.projectRoot,
+    '.peaks/_runtime',
+    input.sessionId,
+    'rd/project-scan.md'
+  );
+  const standardsReportPath = join(
+    input.projectRoot,
+    '.peaks/_runtime',
+    input.sessionId,
+    'standards-preflight.json'
+  );
 
   return {
     archetypeScanned: existsSync(archetypeReportPath),
     archetypeReportPath,
     standardsPreflightDone: existsSync(standardsReportPath),
-    standardsReportPath,
+    standardsReportPath
   };
 }

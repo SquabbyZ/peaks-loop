@@ -10,18 +10,23 @@ describe('rd sub-stages end-to-end', () => {
     const workdir = mkdtempSync(join(tmpdir(), 'peaks-rd-e2e-'));
     try {
       mkdirSync(join(workdir, 'src'), { recursive: true });
-      writeFileSync(join(workdir, 'src', 'A.ts'), 'export const add = (a: number, b: number) => a + b;\n');
+      writeFileSync(
+        join(workdir, 'src', 'A.ts'),
+        'export const add = (a: number, b: number) => a + b;\n'
+      );
       const strat = await runStrategicStage({
         out: join(workdir, 'strategy.md'),
         goal: 'add add helper',
         rootCauseAnalysis: 'no local add helper',
         impactSurface: ['src/A.ts'],
-        designRationale: 'trivial',
+        designRationale: 'trivial'
       });
       const tact = await runTacticalStage({
-        project: workdir, changedFiles: ['src/A.ts'],
-        inputSig: strat.sha256, context: { deps: {}, docSummaries: [] },
-        out: join(workdir, 'impl.json'),
+        project: workdir,
+        changedFiles: ['src/A.ts'],
+        inputSig: strat.sha256,
+        context: { deps: {}, docSummaries: [] },
+        out: join(workdir, 'impl.json')
       });
       expect(tact.inputSig).toBe(strat.sha256);
       expect(existsSync(join(workdir, 'strategy.md'))).toBe(true);

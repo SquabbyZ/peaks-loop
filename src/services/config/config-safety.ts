@@ -1,4 +1,18 @@
-import { closeSync, constants, existsSync, fchmodSync, fstatSync, lstatSync, mkdirSync, openSync, readFileSync, realpathSync, renameSync, unlinkSync, writeFileSync } from 'node:fs';
+import {
+  closeSync,
+  constants,
+  existsSync,
+  fchmodSync,
+  fstatSync,
+  lstatSync,
+  mkdirSync,
+  openSync,
+  readFileSync,
+  realpathSync,
+  renameSync,
+  unlinkSync,
+  writeFileSync
+} from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { basename, dirname, isAbsolute, relative, resolve } from 'node:path';
@@ -24,7 +38,8 @@ function isSafeProjectConfigMarker(projectRoot: string): boolean {
     const peaksReal = realpathSync(peaksPath);
     const markerStats = lstatSync(markerPath);
     if (!peaksStats.isDirectory() || peaksStats.isSymbolicLink()) return false;
-    if (!markerStats.isFile() || markerStats.isSymbolicLink() || markerStats.nlink !== 1) return false;
+    if (!markerStats.isFile() || markerStats.isSymbolicLink() || markerStats.nlink !== 1)
+      return false;
     const markerReal = realpathSync(markerPath);
     if (!isInsidePath(peaksReal, projectRootReal)) return false;
     if (!isInsidePath(markerReal, projectRootReal)) return false;
@@ -42,11 +57,17 @@ function normalizeBoundaryPath(path: string): string {
   } catch {
     realPath = resolved;
   }
-  return process.platform === 'win32' || process.platform === 'darwin' ? realPath.toLowerCase() : realPath;
+  return process.platform === 'win32' || process.platform === 'darwin'
+    ? realPath.toLowerCase()
+    : realPath;
 }
 
 function getHomeBoundaryPaths(): Set<string> {
-  return new Set([homedir(), process.env.HOME, process.env.USERPROFILE].filter((path): path is string => typeof path === 'string' && path.length > 0).map(normalizeBoundaryPath));
+  return new Set(
+    [homedir(), process.env.HOME, process.env.USERPROFILE]
+      .filter((path): path is string => typeof path === 'string' && path.length > 0)
+      .map(normalizeBoundaryPath)
+  );
 }
 
 export function findProjectRoot(startPath: string): string | null {
@@ -56,7 +77,10 @@ export function findProjectRoot(startPath: string): string | null {
   let pkgRoot: string | null = null;
 
   while (current !== parent && !homeBoundaryPaths.has(normalizeBoundaryPath(current))) {
-    if (existsSync(resolve(current, '.peaks', 'config.json')) && isSafeProjectConfigMarker(current)) {
+    if (
+      existsSync(resolve(current, '.peaks', 'config.json')) &&
+      isSafeProjectConfigMarker(current)
+    ) {
       return current;
     }
     // .git is the definitive project root — return immediately
@@ -82,7 +106,10 @@ export function resolveProjectRootForConfig(startPath: string): string {
   let pkgRoot: string | null = null;
 
   while (current !== parent && !homeBoundaryPaths.has(normalizeBoundaryPath(current))) {
-    if (existsSync(resolve(current, '.peaks', 'config.json')) && isSafeProjectConfigMarker(current)) {
+    if (
+      existsSync(resolve(current, '.peaks', 'config.json')) &&
+      isSafeProjectConfigMarker(current)
+    ) {
       return current;
     }
     if (existsSync(resolve(current, '.git'))) {
@@ -220,7 +247,8 @@ function resolveProjectRootFromGit(startPath: string): string | null {
     const trimmed = stdout.trim();
     if (trimmed.length === 0) return null;
     rawRoot = resolve(trimmed);
-  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+  } catch {
+    // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     // git not on PATH, startPath is not in a repo, or some other
     // benign failure — fall through to the heuristic.
     return null;
@@ -335,11 +363,19 @@ export function getProjectBootstrapConfigPath(projectRoot: string): string {
   return configPath;
 }
 
-function validateProjectBootstrapConfigPath(projectRootPath: string, peaksPath: string, configPath: string): void {
+function validateProjectBootstrapConfigPath(
+  projectRootPath: string,
+  peaksPath: string,
+  configPath: string
+): void {
   const projectRootReal = realpathSync(projectRootPath);
   const peaksStats = lstatSync(peaksPath);
   const peaksReal = realpathSync(peaksPath);
-  if (!peaksStats.isDirectory() || peaksStats.isSymbolicLink() || peaksReal !== resolve(projectRootReal, '.peaks')) {
+  if (
+    !peaksStats.isDirectory() ||
+    peaksStats.isSymbolicLink() ||
+    peaksReal !== resolve(projectRootReal, '.peaks')
+  ) {
     throw new Error('Project config path must stay inside the project root');
   }
 
@@ -362,9 +398,16 @@ function validateProjectBootstrapConfigPath(projectRootPath: string, peaksPath: 
   }
 }
 
-export function validateProjectBootstrapConfigPathForWrite(projectRoot: string, configPath: string): void {
+export function validateProjectBootstrapConfigPathForWrite(
+  projectRoot: string,
+  configPath: string
+): void {
   const projectRootPath = resolve(projectRoot);
-  validateProjectBootstrapConfigPath(projectRootPath, resolve(projectRootPath, '.peaks'), configPath);
+  validateProjectBootstrapConfigPath(
+    projectRootPath,
+    resolve(projectRootPath, '.peaks'),
+    configPath
+  );
 }
 
 export function validateUserConfigPathForWrite(configPath: string): void {
@@ -373,7 +416,11 @@ export function validateUserConfigPathForWrite(configPath: string): void {
   const userRootReal = realpathSync(userRoot);
   const peaksStats = lstatSync(peaksPath);
   const peaksReal = realpathSync(peaksPath);
-  if (!peaksStats.isDirectory() || peaksStats.isSymbolicLink() || peaksReal !== resolve(userRootReal, '.peaks')) {
+  if (
+    !peaksStats.isDirectory() ||
+    peaksStats.isSymbolicLink() ||
+    peaksReal !== resolve(userRootReal, '.peaks')
+  ) {
     throw new Error('User config path must stay inside the user root');
   }
 
@@ -403,7 +450,11 @@ export function validateArtifactWorkspaceRoot(artifactRoot: string, _workspaceRo
   }
 }
 
-export function validateArtifactWorkspaceMarkerPath(artifactRoot: string, peaksPath: string, markerPath: string): void {
+export function validateArtifactWorkspaceMarkerPath(
+  artifactRoot: string,
+  peaksPath: string,
+  markerPath: string
+): void {
   const artifactStats = lstatSync(artifactRoot);
   if (!artifactStats.isDirectory() || artifactStats.isSymbolicLink()) {
     throw new Error('Artifact workspace marker must stay inside the artifact workspace');
@@ -411,7 +462,11 @@ export function validateArtifactWorkspaceMarkerPath(artifactRoot: string, peaksP
   const artifactRootReal = realpathSync(artifactRoot);
   const peaksStats = lstatSync(peaksPath);
   const peaksReal = realpathSync(peaksPath);
-  if (!peaksStats.isDirectory() || peaksStats.isSymbolicLink() || peaksReal !== resolve(artifactRootReal, '.peaks')) {
+  if (
+    !peaksStats.isDirectory() ||
+    peaksStats.isSymbolicLink() ||
+    peaksReal !== resolve(artifactRootReal, '.peaks')
+  ) {
     throw new Error('Artifact workspace marker must stay inside the artifact workspace');
   }
 
@@ -437,7 +492,12 @@ export function validateArtifactWorkspaceMarkerPath(artifactRoot: string, peaksP
 function validateOpenConfigFile(fd: number, tempPath: string, errorMessage: string): void {
   const fdStats = fstatSync(fd);
   const pathStats = lstatSync(tempPath);
-  if (!fdStats.isFile() || !pathStats.isFile() || fdStats.dev !== pathStats.dev || fdStats.ino !== pathStats.ino) {
+  if (
+    !fdStats.isFile() ||
+    !pathStats.isFile() ||
+    fdStats.dev !== pathStats.dev ||
+    fdStats.ino !== pathStats.ino
+  ) {
     throw new Error(errorMessage);
   }
   if (fdStats.nlink !== 1 || pathStats.nlink !== 1) {
@@ -451,7 +511,9 @@ function getSafeTempOpenFlags(): number {
 }
 
 function getSafeReadOpenFlags(): number {
-  return typeof constants.O_NOFOLLOW === 'number' ? constants.O_RDONLY | constants.O_NOFOLLOW : constants.O_RDONLY;
+  return typeof constants.O_NOFOLLOW === 'number'
+    ? constants.O_RDONLY | constants.O_NOFOLLOW
+    : constants.O_RDONLY;
 }
 
 export function readConfigFileSafely(configPath: string, errorMessage: string): string {
@@ -464,7 +526,12 @@ export function readConfigFileSafely(configPath: string, errorMessage: string): 
   }
 }
 
-export function writeConfigFileSafely(configPath: string, content: string, validateBeforeWrite: () => void, errorMessage: string): void {
+export function writeConfigFileSafely(
+  configPath: string,
+  content: string,
+  validateBeforeWrite: () => void,
+  errorMessage: string
+): void {
   validateBeforeWrite();
 
   const tempPath = `${configPath}.${process.pid}.${randomUUID()}.tmp`;
@@ -507,10 +574,24 @@ export function writeConfigFileSafely(configPath: string, content: string, valid
   }
 }
 
-export function writeProjectConfigFile(projectRoot: string, configPath: string, content: string): void {
-  writeConfigFileSafely(configPath, content, () => validateProjectBootstrapConfigPathForWrite(projectRoot, configPath), 'Project config path must stay inside the project root');
+export function writeProjectConfigFile(
+  projectRoot: string,
+  configPath: string,
+  content: string
+): void {
+  writeConfigFileSafely(
+    configPath,
+    content,
+    () => validateProjectBootstrapConfigPathForWrite(projectRoot, configPath),
+    'Project config path must stay inside the project root'
+  );
 }
 
 export function writeUserConfigFile(configPath: string, content: string): void {
-  writeConfigFileSafely(configPath, content, () => validateUserConfigPathForWrite(configPath), 'User config path must stay inside the user root');
+  writeConfigFileSafely(
+    configPath,
+    content,
+    () => validateUserConfigPathForWrite(configPath),
+    'User config path must stay inside the user root'
+  );
 }

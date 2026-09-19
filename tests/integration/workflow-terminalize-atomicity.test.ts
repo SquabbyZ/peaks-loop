@@ -13,7 +13,7 @@ vi.mock('node:fs', async () => {
       __fsMocks.writes += 1;
       if (__fsMocks.writes === 2) throw new Error('injected second-write failure');
       return actual.writeFileSync(...args);
-    },
+    }
   };
 });
 
@@ -27,11 +27,17 @@ function codeOf(error: unknown): string | undefined {
 describe('workflow terminalize atomicity', () => {
   it('TC-AG-08: second write failure leaves no half-terminalized state or success event. RD §7. Pass criterion: assert.equal(error.code, "PEAKS_TERMINALIZE_ATOMICITY_FAILED"), assert.equal(result.successEventCount, 0), and assert.equal(result.consistent, true).', async () => {
     __fsMocks.writes = 0;
-    const module = await import('../../src/services/workflow/workflow-presence-lifecycle.js') as unknown as AnyRecord;
+    const module =
+      (await import('../../src/services/workflow/workflow-presence-lifecycle.js')) as unknown as AnyRecord;
     expect(typeof module.terminalizeWorkflow).toBe('function');
     try {
       await (module.terminalizeWorkflow as (input: AnyRecord) => Promise<AnyRecord>)({
-        projectRoot: 'terminalize-atomicity-project', sessionId: 'terminalize-session', callerId: 'terminalize-caller', workflowId: 'terminalize-workflow', graphRef: 'graphs/terminalize-workflow.json', reason: 'success',
+        projectRoot: 'terminalize-atomicity-project',
+        sessionId: 'terminalize-session',
+        callerId: 'terminalize-caller',
+        workflowId: 'terminalize-workflow',
+        graphRef: 'graphs/terminalize-workflow.json',
+        reason: 'success'
       });
       throw new Error('expected atomicity failure');
     } catch (error: unknown) {

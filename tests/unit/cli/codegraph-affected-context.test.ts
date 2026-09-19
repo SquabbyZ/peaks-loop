@@ -116,7 +116,14 @@ describe('writeCodegraphAffectedContext (rid-CG-002)', () => {
 
     expect(result.written).toBe(true);
     if (!result.written) throw new Error('unreachable');
-    const expectedPath = join(projectRoot, '.peaks', '_runtime', 'session-cg-002-A', 'rd', 'codegraph-context.md');
+    const expectedPath = join(
+      projectRoot,
+      '.peaks',
+      '_runtime',
+      'session-cg-002-A',
+      'rd',
+      'codegraph-context.md'
+    );
     expect(result.path).toBe(expectedPath);
     expect(existsSync(expectedPath)).toBe(true);
 

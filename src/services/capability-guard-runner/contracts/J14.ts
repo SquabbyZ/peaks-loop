@@ -1,7 +1,14 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { GuardContext, GuardRunResult } from '../types.js';
-import { combineProbes, fail, missingSourceFiles, pass, probe, requireBaselineRow } from './_shared.js';
+import {
+  combineProbes,
+  fail,
+  missingSourceFiles,
+  pass,
+  probe,
+  requireBaselineRow
+} from './_shared.js';
 
 const SKILL_MD = ['skills', 'peaks-issue-fix-orchestrator', 'SKILL.md'];
 
@@ -63,9 +70,18 @@ export async function runJ14Contract(ctx: GuardContext): Promise<GuardRunResult>
     probe(missing.length === 0, `baseline sourceFiles present (${row.sourceFiles.length})`),
     probe(body.length > 0, 'the issue-fix orchestrator skill file is readable'),
     probe(headingPresent, 'the RL-3 AI-modified declaration section is still present'),
-    probe(missingMarkers.length === 0, `the commit-body markers are intact (missing: ${missingMarkers.join(', ') || 'none'})`),
-    probe(missingTrailers.length === 0, `the AI trailer ban is intact (missing: ${missingTrailers.join(', ') || 'none'})`),
-    probe(missingTargets.length === 0, `the survey-banned target globs are intact (missing: ${missingTargets.join(', ') || 'none'})`)
+    probe(
+      missingMarkers.length === 0,
+      `the commit-body markers are intact (missing: ${missingMarkers.join(', ') || 'none'})`
+    ),
+    probe(
+      missingTrailers.length === 0,
+      `the AI trailer ban is intact (missing: ${missingTrailers.join(', ') || 'none'})`
+    ),
+    probe(
+      missingTargets.length === 0,
+      `the survey-banned target globs are intact (missing: ${missingTargets.join(', ') || 'none'})`
+    )
   ]);
 
   const artifact = row.sourceFiles[0] ?? 'skills/peaks-issue-fix-orchestrator/SKILL.md';

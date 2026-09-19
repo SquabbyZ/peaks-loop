@@ -35,7 +35,7 @@ function makeProject(files: Record<string, string>): string {
 function boundProject(artifacts: Record<string, string>): string {
   return makeProject({
     '.peaks/_runtime/session.json': JSON.stringify({ sessionId: SESSION }),
-    ...artifacts,
+    ...artifacts
   });
 }
 
@@ -65,7 +65,7 @@ describe('lintRdHandoffContract', () => {
   it('when the artifact was deleted after the SKILL.md sentence stayed put, should report the handoff as unbacked', () => {
     // given: a project that HAS the artifact
     const root = boundProject({
-      [`.peaks/_runtime/${SESSION}/rd/requests/001-x.md`]: '# RD Request\n\nreal content\n',
+      [`.peaks/_runtime/${SESSION}/rd/requests/001-x.md`]: '# RD Request\n\nreal content\n'
     });
     expect(lintRdHandoffContract(skillNamed('peaks-rd'), root)).toHaveLength(0);
 
@@ -81,7 +81,7 @@ describe('lintRdHandoffContract', () => {
   it('when a non-empty artifact exists, should report nothing', () => {
     // given: one populated artifact under the bound session
     const root = boundProject({
-      [`.peaks/_runtime/${SESSION}/rd/requests/001-x.md`]: '# RD Request\n\nreal content\n',
+      [`.peaks/_runtime/${SESSION}/rd/requests/001-x.md`]: '# RD Request\n\nreal content\n'
     });
 
     // when: the handoff enforcer reads the artifact
@@ -106,7 +106,7 @@ describe('lintRdHandoffContract', () => {
     // given: a binding written with the older key spelling
     const root = makeProject({
       '.peaks/_runtime/session.json': JSON.stringify({ peakSessionId: SESSION }),
-      [`.peaks/_runtime/${SESSION}/rd/requests/001-x.md`]: '# RD Request\n',
+      [`.peaks/_runtime/${SESSION}/rd/requests/001-x.md`]: '# RD Request\n'
     });
 
     // when: the handoff enforcer reads the artifact

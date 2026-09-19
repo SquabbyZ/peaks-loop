@@ -30,7 +30,7 @@ import {
   downloadToCache,
   listCachedAgents,
   readAgentSkill,
-  readCacheManifest,
+  readCacheManifest
 } from 'peaks-loop-mut';
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
 import { fail, ok, type ResultEnvelope } from 'peaks-loop-shared/result';
@@ -45,7 +45,9 @@ export function registerEccCommands(program: Command, io: ProgramIO): void {
   addJsonOption(
     ecc
       .command('install')
-      .description('Download affaan-m/ECC to ~/.peaks/cache/ecc-<sha>/ (selective extract: agents/ subtree only).')
+      .description(
+        'Download affaan-m/ECC to ~/.peaks/cache/ecc-<sha>/ (selective extract: agents/ subtree only).'
+      )
       .option('--ref <tag>', 'release tag (default: latest)')
   ).action(async (options: { ref?: string; json?: boolean }) => {
     const asJson = options.json === true;
@@ -61,7 +63,7 @@ export function registerEccCommands(program: Command, io: ProgramIO): void {
           `Cache landed at ~/.peaks/cache/ecc-${result.sha}/agents/`,
           `Plugin-free copy materialized at ~/.peaks/agents/ecc/ (read it directly when the ECC plugin is absent)`,
           `Inspect with: peaks ecc ls`,
-          `Consume one agent with: peaks ecc show <name>`,
+          `Consume one agent with: peaks ecc show <name>`
         ]
       );
       printResult(io, envelope, asJson);
@@ -73,7 +75,7 @@ export function registerEccCommands(program: Command, io: ProgramIO): void {
           'Network failure during ECC download. Manual fallback:',
           '  git clone https://github.com/affaan-m/ECC.git',
           '  Copy <repo>/agents/*.md into ~/.peaks/cache/ecc-<sha>/agents/.',
-          '  Drop a minimal ecc-installed.json manifest into ~/.peaks/cache/.',
+          '  Drop a minimal ecc-installed.json manifest into ~/.peaks/cache/.'
         ]),
         asJson
       );
@@ -105,10 +107,12 @@ export function registerEccCommands(program: Command, io: ProgramIO): void {
     }
     printResult(
       io,
-      ok('ecc.status', manifest, [], [
-        `Inspect agents with: peaks ecc ls`,
-        `Print one agent with: peaks ecc show <name>`,
-      ]),
+      ok(
+        'ecc.status',
+        manifest,
+        [],
+        [`Inspect agents with: peaks ecc ls`, `Print one agent with: peaks ecc show <name>`]
+      ),
       asJson
     );
   });
@@ -120,25 +124,34 @@ export function registerEccCommands(program: Command, io: ProgramIO): void {
   ).action((options: { json?: boolean }) => {
     const asJson = options.json === true;
     const agents = listCachedAgents();
-    printResult(io, ok('ecc.ls', { agents }, [], [
-      'Print one with: `peaks ecc show <name>`',
-    ]), asJson);
+    printResult(
+      io,
+      ok('ecc.ls', { agents }, [], ['Print one with: `peaks ecc show <name>`']),
+      asJson
+    );
   });
 
   addJsonOption(
     ecc
       .command('show <name>')
       .description('Print agent SKILL.md to stdout (LLM-consumable; Skill-first path).')
-      .option('--section <heading>', 'extract only the named H1 section (# <heading> through next # )')
+      .option(
+        '--section <heading>',
+        'extract only the named H1 section (# <heading> through next # )'
+      )
       .option('--max-lines <n>', 'cap stdout at N lines (default: unlimited)')
   ).action((name: string, options: { section?: string; maxLines?: string; json?: boolean }) => {
     const asJson = options.json === true;
     if (!/^[a-z][a-z0-9-]*$/.test(name)) {
       printResult(
         io,
-        fail('ecc.show', 'INVALID_NAME', `agent name must match ^[a-z][a-z0-9-]*$ (got "${name}")`, { name }, [
-          'Run `peaks ecc ls` to see valid agent names.',
-        ]),
+        fail(
+          'ecc.show',
+          'INVALID_NAME',
+          `agent name must match ^[a-z][a-z0-9-]*$ (got "${name}")`,
+          { name },
+          ['Run `peaks ecc ls` to see valid agent names.']
+        ),
         asJson
       );
       process.exitCode = 1;
@@ -150,7 +163,7 @@ export function registerEccCommands(program: Command, io: ProgramIO): void {
         io,
         fail('ecc.show', 'NOT_FOUND', `agent "${name}" is not in the cache`, { name }, [
           'Run `peaks ecc ls` to see available agents.',
-          'Or run `peaks ecc install` to (re-)populate the cache.',
+          'Or run `peaks ecc install` to (re-)populate the cache.'
         ]),
         asJson
       );
@@ -162,13 +175,19 @@ export function registerEccCommands(program: Command, io: ProgramIO): void {
     if (typeof options.section === 'string' && options.section.length > 0) {
       const heading = options.section.trim();
       const lines = body.split(/\r?\n/);
-      const startIdx = lines.findIndex((line) => new RegExp(`^#\\s+${escapeRegExp(heading)}\\s*$`).test(line));
+      const startIdx = lines.findIndex((line) =>
+        new RegExp(`^#\\s+${escapeRegExp(heading)}\\s*$`).test(line)
+      );
       if (startIdx === -1) {
         printResult(
           io,
-          fail('ecc.show', 'SECTION_NOT_FOUND', `section "# ${heading}" not found in ${name}.md`, { name, section: heading }, [
-            'Open the file directly to see section names.',
-          ]),
+          fail(
+            'ecc.show',
+            'SECTION_NOT_FOUND',
+            `section "# ${heading}" not found in ${name}.md`,
+            { name, section: heading },
+            ['Open the file directly to see section names.']
+          ),
           asJson
         );
         process.exitCode = 1;

@@ -14,10 +14,7 @@
  * user-authored content.
  */
 
-export type MigrationReason =
-  | 'will-deprecate'
-  | 'already-deprecated'
-  | 'not-a-tech-doc';
+export type MigrationReason = 'will-deprecate' | 'already-deprecated' | 'not-a-tech-doc';
 
 export interface MigrationEntry {
   readonly sessionId: string;

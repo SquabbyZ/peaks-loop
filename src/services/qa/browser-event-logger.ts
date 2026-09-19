@@ -64,7 +64,8 @@ export class BrowserEventLogger {
     }
     try {
       appendFileSync(this.filePath, line + '\n');
-    } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+    } catch {
+      // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
       /* best-effort; never block the CLI on a log write */
     }
   }

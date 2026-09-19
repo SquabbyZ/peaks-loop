@@ -22,22 +22,25 @@ declareDimensions(
   'tests/unit/services/web/bounded-snapshot.test.ts',
   ['behavior', 'render'],
   [
-    { dim: 'integration', reason: 'pure string / tree transformations; no fs, process, network or clock' },
-    { dim: 'a11y', reason: 'no user-visible text or exit code is produced at this layer' },
-  ],
+    {
+      dim: 'integration',
+      reason: 'pure string / tree transformations; no fs, process, network or clock'
+    },
+    { dim: 'a11y', reason: 'no user-visible text or exit code is produced at this layer' }
+  ]
 );
 
 import {
   capText,
   MAX_SNAP_BYTES,
   MAX_SNAP_DEPTH,
-  MAX_SNAP_NODES,
+  MAX_SNAP_NODES
 } from '../../../../src/services/web/bounded-output.js';
 import {
   pruneAriaSnapshot,
   renderSnapshot,
   SNAPSHOT_NOISE_ROLES,
-  type AriaNode,
+  type AriaNode
 } from '../../../../src/services/web/snapshot-pruner.js';
 
 /** A CJK payload: every character is 3 UTF-8 bytes, so byte != char length. */
@@ -123,7 +126,9 @@ describe('behavior — pruneAriaSnapshot', () => {
     // given: a generic wrapper with no name, text or state
     // when:  the tree is pruned
     // then:  the wrapper is gone and its children survive at the parent level
-    const pruned = pruneAriaSnapshot([node('generic', { children: [node('button', { name: 'Submit' })] })]);
+    const pruned = pruneAriaSnapshot([
+      node('generic', { children: [node('button', { name: 'Submit' })] })
+    ]);
     expect(pruned.droppedNodes).toBe(1);
     expect(pruned.nodes).toHaveLength(1);
     expect(pruned.nodes[0]?.role).toBe('button');
@@ -222,7 +227,7 @@ describe('render — renderSnapshot', () => {
     // when:  the tree is rendered
     // then:  the line carries role, quoted name and both flags
     const rendered = renderSnapshot([
-      node('checkbox', { name: 'Subscribe', checked: true, disabled: true }),
+      node('checkbox', { name: 'Subscribe', checked: true, disabled: true })
     ]);
     expect(rendered).toBe('- checkbox "Subscribe" [checked] [disabled]');
   });
@@ -235,7 +240,7 @@ describe('render — renderSnapshot', () => {
     const longPlaceholder = 'b'.repeat(200);
     const rendered = renderSnapshot([
       node('link', { name: 'Docs', url: longUrl }),
-      node('textbox', { placeholder: longPlaceholder }),
+      node('textbox', { placeholder: longPlaceholder })
     ]);
     expect(rendered).toContain(`url=${longUrl.slice(0, 80)}`);
     expect(rendered).toContain(`placeholder=${longPlaceholder.slice(0, 80)}`);
@@ -247,7 +252,7 @@ describe('render — renderSnapshot', () => {
     // then:  each flag appears, so a selected tab is distinguishable
     const rendered = renderSnapshot([
       node('tab', { name: 'Second', selected: true, active: true, pressed: true }),
-      node('textbox', { name: 'Email', invalid: 'mixed' }),
+      node('textbox', { name: 'Email', invalid: 'mixed' })
     ]);
     expect(rendered).toContain('[selected]');
     expect(rendered).toContain('[active]');

@@ -137,7 +137,11 @@ describe('producePrePostDiff — a computable baseline', () => {
     write(root, 'src/a.ts', 'export const beta = 1;\nexport const gamma = 2;\n');
     write(root, 'tests/b.test.ts', "it('three', () => {});\n");
 
-    const result = producePrePostDiff({ projectRoot: root, sessionId: SESSION_ID, baseRef: 'HEAD' });
+    const result = producePrePostDiff({
+      projectRoot: root,
+      sessionId: SESSION_ID,
+      baseRef: 'HEAD'
+    });
 
     expect(result.status).toBe('computed');
     if (result.status !== 'computed') return;
@@ -200,8 +204,10 @@ describe('producePrePostDiff — a computable baseline', () => {
     expect(prompt).toContain('final-review-pre-post-diff');
     expect(prompt).toContain('+ beta (src/a.ts)');
 
-    const dimension = out.dimensions.find(d => d.dimension === 'existing-functionality-intact');
-    const diffEvidence = (dimension?.evidence ?? []).filter(item => item.kind === 'pre-post-diff');
+    const dimension = out.dimensions.find((d) => d.dimension === 'existing-functionality-intact');
+    const diffEvidence = (dimension?.evidence ?? []).filter(
+      (item) => item.kind === 'pre-post-diff'
+    );
     expect(diffEvidence).toHaveLength(1);
     expect(diffEvidence[0]?.artifact).toBe(ARTIFACT_RELATIVE);
     expect(diffEvidence[0]?.description).toContain('test files 1 -> 1');
@@ -251,13 +257,15 @@ describe('producePrePostDiff — an uncomputable baseline', () => {
     expect(prompt).toContain('no usable base ref');
     expect(prompt).toContain('Do NOT report "pass"');
 
-    const dimension = out.dimensions.find(d => d.dimension === 'existing-functionality-intact');
+    const dimension = out.dimensions.find((d) => d.dimension === 'existing-functionality-intact');
     expect(dimension?.verdict).toBe('inconclusive');
     expect(dimension?.verdict).not.toBe('pass');
     expect(dimension?.summary).toContain('pre-post-diff-gate');
     expect(dimension?.summary).toContain('no usable base ref');
     // No fabricated evidence to make it look assessed.
-    expect((dimension?.evidence ?? []).filter(item => item.kind === 'pre-post-diff')).toHaveLength(0);
+    expect(
+      (dimension?.evidence ?? []).filter((item) => item.kind === 'pre-post-diff')
+    ).toHaveLength(0);
     expect(out.allPass).toBe(false);
     expect(out.needsAttention).toContain('existing-functionality-intact');
   });
@@ -369,7 +377,11 @@ describe('producePrePostDiff — a deletion is visible (F4) and never contradict
     });
     rmSync(join(root, 'src', 'gone.ts'));
 
-    const result = producePrePostDiff({ projectRoot: root, sessionId: SESSION_ID, baseRef: 'HEAD' });
+    const result = producePrePostDiff({
+      projectRoot: root,
+      sessionId: SESSION_ID,
+      baseRef: 'HEAD'
+    });
 
     expect(result.status).toBe('computed');
     if (result.status !== 'computed') return;
@@ -394,7 +406,11 @@ describe('producePrePostDiff — a deletion is visible (F4) and never contradict
     const root = makeRepo({ 'src/a.ts': 'export { };\nexport const alpha = 1;\n' });
     write(root, 'src/a.ts', 'export const alpha = 1;\n');
 
-    const result = producePrePostDiff({ projectRoot: root, sessionId: SESSION_ID, baseRef: 'HEAD' });
+    const result = producePrePostDiff({
+      projectRoot: root,
+      sessionId: SESSION_ID,
+      baseRef: 'HEAD'
+    });
 
     expect(result.status).toBe('computed');
     if (result.status !== 'computed') return;
@@ -429,7 +445,11 @@ describe('producePrePostDiff — rewrites are not removals (F6)', () => {
     });
     write(root, 'src/a.ts', 'export { alpha, beta };\nconst alpha = 1;\nconst beta = 2;\n');
 
-    const result = producePrePostDiff({ projectRoot: root, sessionId: SESSION_ID, baseRef: 'HEAD' });
+    const result = producePrePostDiff({
+      projectRoot: root,
+      sessionId: SESSION_ID,
+      baseRef: 'HEAD'
+    });
 
     expect(result.status).toBe('computed');
     if (result.status !== 'computed') return;
@@ -452,7 +472,11 @@ describe('producePrePostDiff — rewrites are not removals (F6)', () => {
       "test.each([1, 2])('case %i', () => {});\ntest.each([3])('case %i', () => {});\n"
     );
 
-    const result = producePrePostDiff({ projectRoot: root, sessionId: SESSION_ID, baseRef: 'HEAD' });
+    const result = producePrePostDiff({
+      projectRoot: root,
+      sessionId: SESSION_ID,
+      baseRef: 'HEAD'
+    });
 
     expect(result.status).toBe('computed');
     if (result.status !== 'computed') return;
@@ -468,7 +492,11 @@ describe('producePrePostDiff — rewrites are not removals (F6)', () => {
     const root = makeRepo({ 'tests/a.test.ts': "it('one', () => {});\n" });
     git(root, ['mv', 'tests/a.test.ts', 'tests/renamed.test.ts']);
 
-    const result = producePrePostDiff({ projectRoot: root, sessionId: SESSION_ID, baseRef: 'HEAD' });
+    const result = producePrePostDiff({
+      projectRoot: root,
+      sessionId: SESSION_ID,
+      baseRef: 'HEAD'
+    });
 
     expect(result.status).toBe('computed');
     if (result.status !== 'computed') return;
@@ -494,7 +522,8 @@ describe('producePrePostDiff — the case count is symmetric (F10)', () => {
     // the old expression (before 2 / after 1), so a no-op edit reported a
     // removed case that never existed.
     const root = makeRepo({
-      'tests/a.test.ts': "it('one', () => {});\nit.skip('two', () => {});\n// it('commented', () => {});\n"
+      'tests/a.test.ts':
+        "it('one', () => {});\nit.skip('two', () => {});\n// it('commented', () => {});\n"
     });
     write(
       root,
@@ -502,7 +531,11 @@ describe('producePrePostDiff — the case count is symmetric (F10)', () => {
       "test.each([1])('one %i', () => {});\nit.skip('two', () => {});\n// it('commented', () => {});\n"
     );
 
-    const result = producePrePostDiff({ projectRoot: root, sessionId: SESSION_ID, baseRef: 'HEAD' });
+    const result = producePrePostDiff({
+      projectRoot: root,
+      sessionId: SESSION_ID,
+      baseRef: 'HEAD'
+    });
 
     expect(result.status).toBe('computed');
     if (result.status !== 'computed') return;
@@ -544,11 +577,7 @@ describe('producePrePostDiff — base resolution and empty ranges (F7 / F8)', ()
     // whose merge-base IS HEAD produces on its DEFAULT path.
     const root = makeRepo({ 'src/a.ts': 'export const alpha = 1;\n' });
     writeAuditGoal(root);
-    write(
-      root,
-      `.peaks/_runtime/${SESSION_ID}/rd/tech-doc.md`,
-      'MARKER-RD-TECH-DOC design intent'
-    );
+    write(root, `.peaks/_runtime/${SESSION_ID}/rd/tech-doc.md`, 'MARKER-RD-TECH-DOC design intent');
 
     const probe = producePrePostDiff({ projectRoot: root, sessionId: SESSION_ID, baseRef: 'HEAD' });
     expect(probe.status).toBe('unavailable');
@@ -570,7 +599,7 @@ describe('producePrePostDiff — base resolution and empty ranges (F7 / F8)', ()
     });
     const prompt = prompts[0] ?? '';
     expect(prompt).toContain('no comparable range');
-    const dimension = out.dimensions.find(d => d.dimension === 'existing-functionality-intact');
+    const dimension = out.dimensions.find((d) => d.dimension === 'existing-functionality-intact');
     expect(dimension?.verdict).toBe('inconclusive');
     expect(out.allPass).toBe(false);
     expect(out.needsAttention).toContain('existing-functionality-intact');

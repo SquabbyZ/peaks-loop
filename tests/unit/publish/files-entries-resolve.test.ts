@@ -140,7 +140,7 @@ export function findUnresolvableEntries(entries: readonly string[], repoRoot: st
     findings.push(
       isGlob
         ? `files entry ${JSON.stringify(entry)} (glob) — its directory ${JSON.stringify(prefix)} does not exist`
-        : `files entry ${JSON.stringify(entry)} (concrete path) does not exist`,
+        : `files entry ${JSON.stringify(entry)} (concrete path) does not exist`
     );
   }
 
@@ -148,7 +148,8 @@ export function findUnresolvableEntries(entries: readonly string[], repoRoot: st
 }
 
 const realFiles = (): string[] =>
-  (JSON.parse(readFileSync(join(projectRoot, 'package.json'), 'utf8')) as { files: string[] }).files;
+  (JSON.parse(readFileSync(join(projectRoot, 'package.json'), 'utf8')) as { files: string[] })
+    .files;
 
 describe('Scenario: behavior — the checker can fail, and clears what it should', () => {
   it('when a concrete entry names a file that is gone, should report it', () => {
@@ -159,7 +160,9 @@ describe('Scenario: behavior — the checker can fail, and clears what it should
     const findings = findUnresolvableEntries(entries, projectRoot);
 
     // then: the stale one is named, and only it
-    expect(findings).toEqual(['files entry "docs/test-style-contract.md" (concrete path) does not exist']);
+    expect(findings).toEqual([
+      'files entry "docs/test-style-contract.md" (concrete path) does not exist'
+    ]);
   });
 
   it('when a glob reaches into a directory that is gone, should report it', () => {
@@ -171,7 +174,7 @@ describe('Scenario: behavior — the checker can fail, and clears what it should
 
     // then: only the dead glob is reported, and it names the directory, not a match count
     expect(findings).toEqual([
-      'files entry "gone-dir/**" (glob) — its directory "gone-dir" does not exist',
+      'files entry "gone-dir/**" (glob) — its directory "gone-dir" does not exist'
     ]);
   });
 
@@ -190,7 +193,11 @@ describe('Scenario: behavior — the checker can fail, and clears what it should
 
   it('when a negation names something that does not exist, should report nothing — control', () => {
     // given: negations, including one naming a path that is definitely absent
-    const entries = ['!skills/**/test-prompts.json', '!skills/**/.DS_Store', '!skills/**/not-here.json'];
+    const entries = [
+      '!skills/**/test-prompts.json',
+      '!skills/**/.DS_Store',
+      '!skills/**/not-here.json'
+    ];
 
     // when: the entries are resolved
     const findings = findUnresolvableEntries(entries, projectRoot);
@@ -225,7 +232,7 @@ describe('Scenario: behavior — the checker can fail, and clears what it should
 
     // then: the unignored one is reported and the ignored one is not
     expect(findings).toEqual([
-      'files entry "src/never-built/index.js" (concrete path) does not exist',
+      'files entry "src/never-built/index.js" (concrete path) does not exist'
     ]);
   });
 
@@ -239,7 +246,7 @@ describe('Scenario: behavior — the checker can fail, and clears what it should
       '!skills/**/test-prompts.json', //     negation
       'dist/**/*.js', //                     generated, ignored
       'docs/gone.md', //                     concrete, absent  -> reported
-      'gone-dir/**', //                      glob, absent      -> reported
+      'gone-dir/**' //                      glob, absent      -> reported
     ];
 
     // when: the entries are resolved
@@ -248,7 +255,7 @@ describe('Scenario: behavior — the checker can fail, and clears what it should
     // then: exactly the two dead entries, in array order
     expect(findings).toEqual([
       'files entry "docs/gone.md" (concrete path) does not exist',
-      'files entry "gone-dir/**" (glob) — its directory "gone-dir" does not exist',
+      'files entry "gone-dir/**" (glob) — its directory "gone-dir" does not exist'
     ]);
   });
 });

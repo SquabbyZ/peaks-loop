@@ -56,7 +56,7 @@ declareDimensions('tests/unit/services/codegraph/codegraph-index-integrity.test.
   'behavior',
   'render',
   'integration',
-  'a11y',
+  'a11y'
 ]);
 
 // The fixture mirrors the real shape of the defect: an `include` list that
@@ -71,7 +71,7 @@ const BASE: CodegraphIndexIntegrityInput = {
   indexedPaths: ['src/ok.ts'],
   // Stands in for upstream's oracle: `.ts`/`.mjs` are supported, `.md` is not.
   supportsPath: (filePath) => filePath.endsWith('.ts') || filePath.endsWith('.mjs'),
-  pathExists: () => true,
+  pathExists: () => true
 };
 
 function withInput(overrides: Partial<CodegraphIndexIntegrityInput>): CodegraphIndexIntegrityInput {
@@ -145,7 +145,7 @@ describe('inspectCodegraphIndexIntegrityFrom (staleness injection)', () => {
         trackedFiles: ['src/ok.ts'],
         include: ['**/*.ts'],
         indexedPaths: ['src/ok.ts', 'src/deleted.ts'],
-        pathExists: (p) => p !== 'src/deleted.ts',
+        pathExists: (p) => p !== 'src/deleted.ts'
       })
     );
 
@@ -172,7 +172,7 @@ describe('inspectCodegraphIndexIntegrityFrom (both axes)', () => {
     const report = inspectCodegraphIndexIntegrityFrom(
       withInput({
         indexedPaths: ['src/ok.ts', 'src/deleted.ts'],
-        pathExists: (p) => p !== 'src/deleted.ts',
+        pathExists: (p) => p !== 'src/deleted.ts'
       })
     );
 
@@ -186,7 +186,7 @@ describe('inspectCodegraphIndexIntegrityFrom (both axes)', () => {
       withInput({
         trackedFiles: ['src\\ok.ts', 'scripts\\tool.mjs'],
         indexedPaths: ['src\\ok.ts', 'src\\deleted.ts'],
-        pathExists: (p) => p !== 'src/deleted.ts',
+        pathExists: (p) => p !== 'src/deleted.ts'
       })
     );
 
@@ -202,7 +202,7 @@ describe('renderCodegraphIndexIntegrityLines', () => {
     const report = inspectCodegraphIndexIntegrityFrom(
       withInput({
         indexedPaths: ['src/ok.ts', 'src/deleted.ts'],
-        pathExists: (p) => p !== 'src/deleted.ts',
+        pathExists: (p) => p !== 'src/deleted.ts'
       })
     );
 
@@ -240,7 +240,7 @@ describe('renderCodegraphIndexIntegrityLines', () => {
         trackedFiles: ['src/ok.ts'],
         include: ['**/*.ts'],
         indexedPaths: many,
-        pathExists: (p) => p === 'src/ok.ts',
+        pathExists: (p) => p === 'src/ok.ts'
       })
     );
 
@@ -254,7 +254,7 @@ describe('renderCodegraphIndexIntegrityLines', () => {
 // ── integration: the real upstream oracle ────────────────────────────
 
 describe('upstreamSupportsPath (real installed @colbymchenry/codegraph)', () => {
-  it('should answer from upstream\'s own grammar data, not a hardcoded list', () => {
+  it("should answer from upstream's own grammar data, not a hardcoded list", () => {
     // `.mjs` / `.cjs` are the two the default `include` template omits;
     // they must be supported, or the include-axis gap is config-only and
     // the whole gate has nothing to report.
@@ -271,7 +271,7 @@ describe('upstreamSupportsPath (real installed @colbymchenry/codegraph)', () => 
 
 // ── integration: AC6 as a cross-module counting identity (QA-03) ─────
 
-describe('the two reports\' `trackedSourceCount` (QA-03, corrected)', () => {
+describe("the two reports' `trackedSourceCount` (QA-03, corrected)", () => {
   // QA-03 as first written was unsatisfiable and its note was inverted: it
   // claimed the identity holds under a permissive oracle (`() => true`).
   // Measured, it is the reverse. Both reports use the SAME field name for
@@ -287,10 +287,19 @@ describe('the two reports\' `trackedSourceCount` (QA-03, corrected)', () => {
   const TRACKED = ['src/ok.ts', 'scripts/tool.mjs'];
 
   it('should agree once `include` admits everything and the oracle rejects nothing', () => {
-    const reconciled = reconcileCodegraphExclude({ trackedFiles: TRACKED, include: ['**/*'], exclude: [] });
+    const reconciled = reconcileCodegraphExclude({
+      trackedFiles: TRACKED,
+      include: ['**/*'],
+      exclude: []
+    });
     const filtered = filterAdmittedTrackedFiles(TRACKED, ['**/*']);
     const inspected = inspectCodegraphIndexIntegrityFrom(
-      withInput({ trackedFiles: TRACKED, include: ['**/*'], indexedPaths: [], supportsPath: () => true })
+      withInput({
+        trackedFiles: TRACKED,
+        include: ['**/*'],
+        indexedPaths: [],
+        supportsPath: () => true
+      })
     );
 
     // 2 = every tracked file, which is what both predicates reduce to here.
@@ -301,9 +310,18 @@ describe('the two reports\' `trackedSourceCount` (QA-03, corrected)', () => {
   });
 
   it('should diverge as soon as `include` drops a file the oracle would support', () => {
-    const reconciled = reconcileCodegraphExclude({ trackedFiles: TRACKED, include: ['**/*.ts'], exclude: [] });
+    const reconciled = reconcileCodegraphExclude({
+      trackedFiles: TRACKED,
+      include: ['**/*.ts'],
+      exclude: []
+    });
     const inspected = inspectCodegraphIndexIntegrityFrom(
-      withInput({ trackedFiles: TRACKED, include: ['**/*.ts'], indexedPaths: [], supportsPath: () => true })
+      withInput({
+        trackedFiles: TRACKED,
+        include: ['**/*.ts'],
+        indexedPaths: [],
+        supportsPath: () => true
+      })
     );
 
     // The measurement QA recorded: exclude 1, index 2 — the include gap is
@@ -331,7 +349,9 @@ describe('resolveCodegraphIndexIntegrityVerdict', () => {
     // The defect this replaces: `null` + no warning meant "there is no
     // index here", and an unreadable index ALSO produced `null` — so
     // "I could not check" was reported identically to "nothing to check".
-    expect(resolveCodegraphIndexIntegrityVerdict(null, 'no such table: files')).toBe('not-evaluated');
+    expect(resolveCodegraphIndexIntegrityVerdict(null, 'no such table: files')).toBe(
+      'not-evaluated'
+    );
     expect(resolveCodegraphIndexIntegrityVerdict(null, null)).toBe('not-applicable');
     expect(resolveCodegraphIndexIntegrityVerdict(report(true), 'boom')).toBe('not-evaluated');
   });
@@ -381,7 +401,7 @@ describe('isCodegraphIndexStrictMode', () => {
 });
 
 describe('index-integrity exit code', () => {
-  it('should be non-zero and distinct from the exclude gate\'s code', () => {
+  it("should be non-zero and distinct from the exclude gate's code", () => {
     expect(CODEGRAPH_INDEX_INTEGRITY_EXIT_CODE).not.toBe(0);
     expect(CODEGRAPH_INDEX_INTEGRITY_EXIT_CODE).not.toBe(CODEGRAPH_INTEGRITY_EXIT_CODE);
   });

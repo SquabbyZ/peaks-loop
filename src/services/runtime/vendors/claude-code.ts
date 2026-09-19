@@ -10,20 +10,18 @@
  * should still work even when the host vendor CLI is absent).
  */
 import { spawn } from 'node:child_process';
-import type {
-  VendorAdapter,
-  VendorCompactArgs,
-  VendorCompactResult
-} from '../vendor-adapter.js';
+import type { VendorAdapter, VendorCompactArgs, VendorCompactResult } from '../vendor-adapter.js';
 
 export class ClaudeCodeAdapter implements VendorAdapter {
   readonly id = 'claude-code';
   readonly displayName = 'Claude Code';
 
   async detect(): Promise<boolean> {
-    return process.env.CLAUDE_CODE === '1'
-      || process.env.CLAUDE_CODE === 'true'
-      || (process.env.CLAUDE_CODE_ENTRYPOINT?.length ?? 0) > 0;
+    return (
+      process.env.CLAUDE_CODE === '1' ||
+      process.env.CLAUDE_CODE === 'true' ||
+      (process.env.CLAUDE_CODE_ENTRYPOINT?.length ?? 0) > 0
+    );
   }
 
   async compact(args: VendorCompactArgs = {}): Promise<VendorCompactResult> {
@@ -33,10 +31,18 @@ export class ClaudeCodeAdapter implements VendorAdapter {
       const proc = spawn('claude', argv, { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
       let stdout = '';
       let stderr = '';
-      proc.stdout.on('data', (chunk: Buffer) => { stdout += chunk.toString('utf8'); });
-      proc.stderr.on('data', (chunk: Buffer) => { stderr += chunk.toString('utf8'); });
+      proc.stdout.on('data', (chunk: Buffer) => {
+        stdout += chunk.toString('utf8');
+      });
+      proc.stderr.on('data', (chunk: Buffer) => {
+        stderr += chunk.toString('utf8');
+      });
       proc.on('error', (err) => {
-        resolveRun({ exitCode: 127, stdout, stderr: stderr + (stderr.length > 0 ? '\n' : '') + err.message });
+        resolveRun({
+          exitCode: 127,
+          stdout,
+          stderr: stderr + (stderr.length > 0 ? '\n' : '') + err.message
+        });
       });
       proc.on('close', (code) => {
         resolveRun({ exitCode: code ?? 0, stdout, stderr });

@@ -138,12 +138,31 @@ describe('executeMemoryReindex', () => {
   it('reports index entries whose sourcePath no longer exists', () => {
     writeMemory('nested-rule.md', NESTED);
     const vanished = join(memoryDir, 'vanished.md');
-    writeFileSync(join(memoryDir, 'index.json'), JSON.stringify({
-      version: 1,
-      updatedAt: '2026-01-01T00:00:00.000Z',
-      hot: { rule: [{ name: 'vanished', kind: 'rule', description: 'gone', sourcePath: vanished, sourceArtifact: null, updatedAt: '2026-01-01' }] },
-      warm: {}
-    }, null, 2), 'utf8');
+    writeFileSync(
+      join(memoryDir, 'index.json'),
+      JSON.stringify(
+        {
+          version: 1,
+          updatedAt: '2026-01-01T00:00:00.000Z',
+          hot: {
+            rule: [
+              {
+                name: 'vanished',
+                kind: 'rule',
+                description: 'gone',
+                sourcePath: vanished,
+                sourceArtifact: null,
+                updatedAt: '2026-01-01'
+              }
+            ]
+          },
+          warm: {}
+        },
+        null,
+        2
+      ),
+      'utf8'
+    );
 
     const report = executeMemoryReindex({ projectRoot: root, apply: false });
     expect(report.orphanIndex).toHaveLength(1);
@@ -166,17 +185,20 @@ describe('executeMemoryReindex', () => {
   it('reports an unrecognized kind value instead of inventing a type', () => {
     // `design` became a valid kind in slice 2026-09-10-memory-vocab-and-rotate
     // (E); use a value that is still outside the vocabulary.
-    writeMemory('weird.md', [
-      '---',
-      'name: weird',
-      'description: An unknown kind value',
-      'metadata:',
-      '  type: not-a-real-kind',
-      '---',
-      '',
-      'Body text long enough to be summarized.',
-      ''
-    ].join('\n'));
+    writeMemory(
+      'weird.md',
+      [
+        '---',
+        'name: weird',
+        'description: An unknown kind value',
+        'metadata:',
+        '  type: not-a-real-kind',
+        '---',
+        '',
+        'Body text long enough to be summarized.',
+        ''
+      ].join('\n')
+    );
 
     const report = executeMemoryReindex({ projectRoot: root, apply: false });
     expect(report.indexed).toBe(0);

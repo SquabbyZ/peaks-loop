@@ -1,9 +1,19 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
-import { SOP_GATE_CHECK_TYPES, SOP_ID_PATTERN, type SopGate, type SopManifest, type SopPhaseGuard } from './sop-types.js';
 import {
-  sopDir, sopManifestPath, sopSkillPath,
-  projectSopDir, projectSopManifestPath, projectSopSkillPath,
+  SOP_GATE_CHECK_TYPES,
+  SOP_ID_PATTERN,
+  type SopGate,
+  type SopManifest,
+  type SopPhaseGuard
+} from './sop-types.js';
+import {
+  sopDir,
+  sopManifestPath,
+  sopSkillPath,
+  projectSopDir,
+  projectSopManifestPath,
+  projectSopSkillPath,
   resolveSopManifestPath
 } from './sop-paths.js';
 
@@ -81,7 +91,10 @@ export type SopLintOptions = {
  * global (the project layer wins). Returns null when neither layer has it;
  * throws on malformed JSON. Callers that need validation should run lintSop.
  */
-export async function readSopManifest(id: string, projectRoot?: string): Promise<SopManifest | null> {
+export async function readSopManifest(
+  id: string,
+  projectRoot?: string
+): Promise<SopManifest | null> {
   const resolved = resolveSopManifestPath(id, projectRoot);
   if (resolved === null) {
     return null;
@@ -131,7 +144,9 @@ function scaffoldSkill(manifest: SopManifest): string {
 
 export async function initSop(options: SopInitOptions): Promise<SopInitResult> {
   if (!SOP_ID_PATTERN.test(options.id)) {
-    throw new Error(`Invalid SOP id: ${options.id} (expected lowercase letters, digits, and dashes, starting alphanumeric)`);
+    throw new Error(
+      `Invalid SOP id: ${options.id} (expected lowercase letters, digits, and dashes, starting alphanumeric)`
+    );
   }
   const reserved = reservedIdReason(options.id);
   if (reserved !== null) {
@@ -140,11 +155,17 @@ export async function initSop(options: SopInitOptions): Promise<SopInitResult> {
 
   const inProject = options.projectRoot !== undefined;
   const dir = inProject ? projectSopDir(options.projectRoot!, options.id) : sopDir(options.id);
-  const manifestPath = inProject ? projectSopManifestPath(options.projectRoot!, options.id) : sopManifestPath(options.id);
-  const skillPath = inProject ? projectSopSkillPath(options.projectRoot!, options.id) : sopSkillPath(options.id);
+  const manifestPath = inProject
+    ? projectSopManifestPath(options.projectRoot!, options.id)
+    : sopManifestPath(options.id);
+  const skillPath = inProject
+    ? projectSopSkillPath(options.projectRoot!, options.id)
+    : sopSkillPath(options.id);
 
   if (existsSync(manifestPath)) {
-    throw new Error(`A SOP with id "${options.id}" already exists at ${manifestPath}. Remove it before re-running peaks sop init.`);
+    throw new Error(
+      `A SOP with id "${options.id}" already exists at ${manifestPath}. Remove it before re-running peaks sop init.`
+    );
   }
 
   const manifest = scaffoldManifest(options.id, options.name ?? options.id);
@@ -170,8 +191,17 @@ export async function initSop(options: SopInitOptions): Promise<SopInitResult> {
   return { ...result, applied: true };
 }
 
-function pushError(findings: SopLintFinding[], code: string, message: string, gateId?: string): void {
-  findings.push(gateId === undefined ? { code, message, severity: 'error' } : { code, message, gateId, severity: 'error' });
+function pushError(
+  findings: SopLintFinding[],
+  code: string,
+  message: string,
+  gateId?: string
+): void {
+  findings.push(
+    gateId === undefined
+      ? { code, message, severity: 'error' }
+      : { code, message, gateId, severity: 'error' }
+  );
 }
 
 function lintGate(
@@ -184,7 +214,12 @@ function lintGate(
 ): void {
   const label = typeof gate?.id === 'string' && gate.id.length > 0 ? gate.id : `#${index}`;
   if (typeof gate?.id !== 'string' || !SOP_ID_PATTERN.test(gate.id)) {
-    pushError(findings, 'INVALID_GATE_ID', `Gate ${label} has an invalid id (expected lowercase kebab)`, label);
+    pushError(
+      findings,
+      'INVALID_GATE_ID',
+      `Gate ${label} has an invalid id (expected lowercase kebab)`,
+      label
+    );
     return;
   }
   if (seenGateIds.has(gate.id)) {
@@ -194,54 +229,118 @@ function lintGate(
   seenGateIds.add(gate.id);
 
   if (typeof gate.phase !== 'string' || !phases.has(gate.phase)) {
-    pushError(findings, 'GATE_PHASE_UNKNOWN', `Gate "${gate.id}" binds to unknown phase "${String(gate.phase)}"`, gate.id);
+    pushError(
+      findings,
+      'GATE_PHASE_UNKNOWN',
+      `Gate "${gate.id}" binds to unknown phase "${String(gate.phase)}"`,
+      gate.id
+    );
   }
 
   const check = gate.check;
-  if (check === null || typeof check !== 'object' || !(SOP_GATE_CHECK_TYPES as ReadonlyArray<string>).includes((check as { type?: string }).type ?? '')) {
-    pushError(findings, 'INVALID_CHECK_TYPE', `Gate "${gate.id}" has an invalid or missing check type (expected ${SOP_GATE_CHECK_TYPES.join(' | ')})`, gate.id);
+  if (
+    check === null ||
+    typeof check !== 'object' ||
+    !(SOP_GATE_CHECK_TYPES as ReadonlyArray<string>).includes(
+      (check as { type?: string }).type ?? ''
+    )
+  ) {
+    pushError(
+      findings,
+      'INVALID_CHECK_TYPE',
+      `Gate "${gate.id}" has an invalid or missing check type (expected ${SOP_GATE_CHECK_TYPES.join(' | ')})`,
+      gate.id
+    );
     return;
   }
 
   if (check.type === 'file-exists' && (typeof check.path !== 'string' || check.path.length === 0)) {
-    pushError(findings, 'CHECK_MISSING_FIELD', `Gate "${gate.id}" file-exists check requires a non-empty "path"`, gate.id);
+    pushError(
+      findings,
+      'CHECK_MISSING_FIELD',
+      `Gate "${gate.id}" file-exists check requires a non-empty "path"`,
+      gate.id
+    );
   }
-  if (check.type === 'grep' && (typeof check.file !== 'string' || check.file.length === 0 || typeof check.pattern !== 'string' || check.pattern.length === 0)) {
-    pushError(findings, 'CHECK_MISSING_FIELD', `Gate "${gate.id}" grep check requires non-empty "file" and "pattern"`, gate.id);
+  if (
+    check.type === 'grep' &&
+    (typeof check.file !== 'string' ||
+      check.file.length === 0 ||
+      typeof check.pattern !== 'string' ||
+      check.pattern.length === 0)
+  ) {
+    pushError(
+      findings,
+      'CHECK_MISSING_FIELD',
+      `Gate "${gate.id}" grep check requires non-empty "file" and "pattern"`,
+      gate.id
+    );
   }
   if (check.type === 'command') {
-    if (!Array.isArray(check.run) || check.run.length === 0 || !check.run.every((part) => typeof part === 'string')) {
-      pushError(findings, 'CHECK_MISSING_FIELD', `Gate "${gate.id}" command check requires a non-empty string array "run"`, gate.id);
+    if (
+      !Array.isArray(check.run) ||
+      check.run.length === 0 ||
+      !check.run.every((part) => typeof part === 'string')
+    ) {
+      pushError(
+        findings,
+        'CHECK_MISSING_FIELD',
+        `Gate "${gate.id}" command check requires a non-empty string array "run"`,
+        gate.id
+      );
     }
     if (!allowCommands) {
-      pushError(findings, 'COMMAND_NOT_ALLOWED', `Gate "${gate.id}" uses a command check; re-run with --allow-commands to permit command-type gates`, gate.id);
+      pushError(
+        findings,
+        'COMMAND_NOT_ALLOWED',
+        `Gate "${gate.id}" uses a command check; re-run with --allow-commands to permit command-type gates`,
+        gate.id
+      );
     }
   }
 }
 
-function lintGuard(guard: SopPhaseGuard, index: number, phases: Set<string>, findings: SopLintFinding[]): void {
+function lintGuard(
+  guard: SopPhaseGuard,
+  index: number,
+  phases: Set<string>,
+  findings: SopLintFinding[]
+): void {
   const label = `#${index}`;
   if (typeof guard?.phase !== 'string' || !phases.has(guard.phase)) {
-    pushError(findings, 'GUARD_PHASE_UNKNOWN', `Guard ${label} binds to unknown phase "${String(guard?.phase)}"`);
+    pushError(
+      findings,
+      'GUARD_PHASE_UNKNOWN',
+      `Guard ${label} binds to unknown phase "${String(guard?.phase)}"`
+    );
   }
   if (typeof guard?.bash !== 'string' || guard.bash.length === 0) {
-    pushError(findings, 'GUARD_MISSING_PATTERN', `Guard ${label} requires a non-empty "bash" pattern`);
+    pushError(
+      findings,
+      'GUARD_MISSING_PATTERN',
+      `Guard ${label} requires a non-empty "bash" pattern`
+    );
     return;
   }
   try {
     // eslint-disable-next-line no-new
     new RegExp(guard.bash);
   } catch {
-    pushError(findings, 'GUARD_INVALID_PATTERN', `Guard ${label} has an invalid bash regex "${guard.bash}"`);
+    pushError(
+      findings,
+      'GUARD_INVALID_PATTERN',
+      `Guard ${label} has an invalid bash regex "${guard.bash}"`
+    );
   }
 }
 
 export async function lintSop(options: SopLintOptions): Promise<SopLintResult | null> {
   // lint validates the EXACT layer the caller targets (project when projectRoot
   // is set, else global) — not the precedence resolution used for execution.
-  const manifestPath = options.projectRoot !== undefined
-    ? projectSopManifestPath(options.projectRoot, options.id)
-    : sopManifestPath(options.id);
+  const manifestPath =
+    options.projectRoot !== undefined
+      ? projectSopManifestPath(options.projectRoot, options.id)
+      : sopManifestPath(options.id);
   if (!existsSync(manifestPath)) {
     return null;
   }
@@ -252,19 +351,39 @@ export async function lintSop(options: SopLintOptions): Promise<SopLintResult | 
   try {
     manifest = JSON.parse(await readFile(manifestPath, 'utf8')) as SopManifest;
   } catch (error) {
-    pushError(findings, 'INVALID_JSON', `Manifest is not valid JSON: ${error instanceof Error ? error.message : 'parse error'}`);
-    return { ok: false, id: options.id, manifestPath, gateCount: 0, gateIds: [], findings, warnings };
+    pushError(
+      findings,
+      'INVALID_JSON',
+      `Manifest is not valid JSON: ${error instanceof Error ? error.message : 'parse error'}`
+    );
+    return {
+      ok: false,
+      id: options.id,
+      manifestPath,
+      gateCount: 0,
+      gateIds: [],
+      findings,
+      warnings
+    };
   }
 
   if (typeof manifest.id !== 'string' || !SOP_ID_PATTERN.test(manifest.id)) {
-    pushError(findings, 'INVALID_ID', `Manifest id "${String(manifest.id)}" is invalid (expected lowercase kebab)`);
+    pushError(
+      findings,
+      'INVALID_ID',
+      `Manifest id "${String(manifest.id)}" is invalid (expected lowercase kebab)`
+    );
   } else {
     const reserved = reservedIdReason(manifest.id);
     if (reserved !== null) {
       pushError(findings, 'RESERVED_ID', reserved);
     }
     if (manifest.id !== options.id) {
-      pushError(findings, 'ID_MISMATCH', `Manifest id "${manifest.id}" does not match its directory "${options.id}"`);
+      pushError(
+        findings,
+        'ID_MISMATCH',
+        `Manifest id "${manifest.id}" does not match its directory "${options.id}"`
+      );
     }
   }
 
@@ -282,7 +401,9 @@ export async function lintSop(options: SopLintOptions): Promise<SopLintResult | 
 
   const gates = Array.isArray(manifest.gates) ? manifest.gates : [];
   const seenGateIds = new Set<string>();
-  gates.forEach((gate, index) => lintGate(gate, index, phaseSet, seenGateIds, options.allowCommands === true, findings));
+  gates.forEach((gate, index) =>
+    lintGate(gate, index, phaseSet, seenGateIds, options.allowCommands === true, findings)
+  );
 
   const guards = Array.isArray(manifest.guards) ? manifest.guards : [];
   guards.forEach((guard, index) => lintGuard(guard, index, phaseSet, findings));

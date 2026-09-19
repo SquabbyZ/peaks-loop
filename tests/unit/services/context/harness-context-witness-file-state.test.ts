@@ -37,13 +37,15 @@ declareDimensions(
   [
     {
       dim: 'render',
-      reason: 'No output shape is asserted here; the one-way sentence and the CLI envelope live in code-context-now-witness.test.ts.',
+      reason:
+        'No output shape is asserted here; the one-way sentence and the CLI envelope live in code-context-now-witness.test.ts.'
     },
     {
       dim: 'a11y',
-      reason: 'The only human-readable text asserted is the absent-cause clause, which is read by an LLM/CLI consumer rather than rendered.',
-    },
-  ],
+      reason:
+        'The only human-readable text asserted is the absent-cause clause, which is read by an LLM/CLI consumer rather than rendered.'
+    }
+  ]
 );
 
 import {
@@ -52,7 +54,7 @@ import {
   readAndCompareHarnessWitness,
   readHarnessWitness,
   writeHarnessWitness,
-  type HarnessContextWitness,
+  type HarnessContextWitness
 } from '~/src/services/context/harness-context-witness';
 import type { StatusLineStdin } from '~/src/services/skills/skill-statusline-service';
 
@@ -96,8 +98,12 @@ function payloadOf(): StatusLineStdin {
     context_window: {
       context_window_size: WINDOW,
       used_percentage: 30,
-      current_usage: { input_tokens: 200_000, cache_read_input_tokens: 90_000, cache_creation_input_tokens: 10_000 },
-    },
+      current_usage: {
+        input_tokens: 200_000,
+        cache_read_input_tokens: 90_000,
+        cache_creation_input_tokens: 10_000
+      }
+    }
   } as StatusLineStdin;
 }
 
@@ -114,7 +120,7 @@ function recordJson(): string {
     usedPercentageUnit: 'fraction',
     modelWindowTokens: WINDOW,
     usageTokens: PEAKS_TOKENS_FIXTURE,
-    outerSessionId: null,
+    outerSessionId: null
   };
   return `${JSON.stringify(witness, null, 2)}\n`;
 }
@@ -150,7 +156,7 @@ describe('harness context witness — on-disk state (repair cycle 3)', () => {
         peaksRatio: PEAKS_RATIO_FIXTURE,
         peaksTokens: PEAKS_TOKENS_FIXTURE,
         peaksWindowTokens: WINDOW,
-        outerSessionId: null,
+        outerSessionId: null
       });
       // control: the SAME call with the directory present and no file in it
       withSessionDir(root);
@@ -160,7 +166,7 @@ describe('harness context witness — on-disk state (repair cycle 3)', () => {
         peaksRatio: PEAKS_RATIO_FIXTURE,
         peaksTokens: PEAKS_TOKENS_FIXTURE,
         peaksWindowTokens: WINDOW,
-        outerSessionId: null,
+        outerSessionId: null
       });
       expect(noDir.verdict).toBe('absent');
       expect(noRender.verdict).toBe('absent');
@@ -184,7 +190,7 @@ describe('harness context witness — on-disk state (repair cycle 3)', () => {
         peaksRatio: PEAKS_RATIO_FIXTURE,
         peaksTokens: PEAKS_TOKENS_FIXTURE,
         peaksWindowTokens: WINDOW,
-        outerSessionId: null,
+        outerSessionId: null
       });
       expect(comparison.verdict).toBe('absent');
       expect(comparison.reason).toContain('could not be read');
@@ -202,7 +208,12 @@ describe('harness context witness — on-disk state (repair cycle 3)', () => {
       withSessionDir(root);
       writeHarnessWitness({ projectRoot: root, sessionId: SID, stdin: payloadOf(), nowMs: 0 });
       // when
-      const downgraded = writeHarnessWitness({ projectRoot: root, sessionId: SID, stdin: CONTEXTLESS, nowMs: 1 });
+      const downgraded = writeHarnessWitness({
+        projectRoot: root,
+        sessionId: SID,
+        stdin: CONTEXTLESS,
+        nowMs: 1
+      });
       // then: nothing was written (`false` is "no file written", not an error),
       // and the higher-information record — with the render that produced it —
       // is what a reader finds
@@ -212,7 +223,9 @@ describe('harness context witness — on-disk state (repair cycle 3)', () => {
       expect(kept.kind === 'valid' && kept.witness.usedPercentage).toBeCloseTo(0.3, 10);
       expect(kept.kind === 'valid' && kept.witness.usageTokens).toBe(PAYLOAD_USAGE_TOKENS);
       expect(kept.kind === 'valid' && kept.witness.capturedAt).toBe(new Date(0).toISOString());
-      expect(JSON.parse(readFileSync(harnessWitnessPath(root, SID), 'utf8')).usageTokens).toBe(PAYLOAD_USAGE_TOKENS);
+      expect(JSON.parse(readFileSync(harnessWitnessPath(root, SID), 'utf8')).usageTokens).toBe(
+        PAYLOAD_USAGE_TOKENS
+      );
     });
   });
 });

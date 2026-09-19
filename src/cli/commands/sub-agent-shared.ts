@@ -25,9 +25,14 @@ import { isDeprecatedReviewer } from '../../services/rd/reviewer-dispatch-policy
 // shell-probe report without importing the env service at every
 // call site. Codifies .peaks/memory/2026-07-27-windows-shell-pref.md
 // at the dispatch / tool boundary (AC-6.2).
-export { probeShell, type ShellProbeReport, type ShellProbeOptions } from '../../services/env/shell-probe.js';
+export {
+  probeShell,
+  type ShellProbeReport,
+  type ShellProbeOptions
+} from '../../services/env/shell-probe.js';
 
-export const RECOMMENDED_ROLES = 'rd | qa | ui | txt | qa-business | qa-perf | qa-security | qa-business-<*> | general-purpose';
+export const RECOMMENDED_ROLES =
+  'rd | qa | ui | txt | qa-business | qa-perf | qa-security | qa-business-<*> | general-purpose';
 
 // Slice 2026-07-29-dispatch-stall-governance / S2 — align the per-
 // heartbeat vocabulary with the dispatch record's aggregate status
@@ -186,7 +191,7 @@ export function validateRole(role: string): string | null {
   }
   for (let i = 0; i < role.length; i += 1) {
     const code = role.charCodeAt(i);
-    if (code <= 0x20 || code === 0x7F) {
+    if (code <= 0x20 || code === 0x7f) {
       return 'role must not contain whitespace or control characters';
     }
   }

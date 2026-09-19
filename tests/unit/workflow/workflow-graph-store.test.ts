@@ -11,7 +11,7 @@ import { declareDimensions } from '../_setup/4dim-template.js';
 declareDimensions(
   'tests/unit/workflow/workflow-graph-store.test.ts',
   ['behavior', 'integration', 'a11y'],
-  [{ dim: 'render', reason: 'graph store has no UI/rendered output' }],
+  [{ dim: 'render', reason: 'graph store has no UI/rendered output' }]
 );
 
 type AnyRecord = Record<string, unknown>;
@@ -22,8 +22,10 @@ type GraphStoreApi = AnyRecord & {
 };
 
 async function loadGraphStore(): Promise<GraphStoreApi> {
-  const module = await import('~/src/services/workflow/workflow-graph-store.js') as unknown as AnyRecord;
-  for (const name of ['readGraph', 'writeGraph', 'validateGraph']) expect(typeof module[name]).toBe('function');
+  const module =
+    (await import('~/src/services/workflow/workflow-graph-store.js')) as unknown as AnyRecord;
+  for (const name of ['readGraph', 'writeGraph', 'validateGraph'])
+    expect(typeof module[name]).toBe('function');
   return module as GraphStoreApi;
 }
 
@@ -46,10 +48,12 @@ function graph(overrides: AnyRecord = {}): AnyRecord {
   return {
     workflowId: 'workflow-graph-test',
     rootSkill: 'peaks-code',
-    nodes: [{ id: 'terminal', kind: 'terminal', label: 'complete', status: 'prepared', dependsOn: [] }],
+    nodes: [
+      { id: 'terminal', kind: 'terminal', label: 'complete', status: 'prepared', dependsOn: [] }
+    ],
     edges: [],
     schemaVersion: 1,
-    ...overrides,
+    ...overrides
   };
 }
 
@@ -64,8 +68,8 @@ afterEach(async () => {
   for (const root of projects.splice(0)) await rm(root, { recursive: true, force: true });
 });
 
-describe("Scenario: behavior — graph invariants fail closed", () => {
-  it("when invoked, should TC-SM-11: invalid JSON and cycles produce PEAKS_GRAPH_CORRUPTED with no active projection. RD §3. Pass criterion: assert.equal(error.code, \"PEAKS_GRAPH_CORRUPTED\").", async () => {
+describe('Scenario: behavior — graph invariants fail closed', () => {
+  it('when invoked, should TC-SM-11: invalid JSON and cycles produce PEAKS_GRAPH_CORRUPTED with no active projection. RD §3. Pass criterion: assert.equal(error.code, "PEAKS_GRAPH_CORRUPTED").', async () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -74,17 +78,29 @@ describe("Scenario: behavior — graph invariants fail closed", () => {
     await mkdir(join(root, 'graphs'), { recursive: true });
     await writeFile(graphPath, '{broken-json', 'utf8');
     const api = await loadGraphStore();
-    await expectCode(() => api.readGraph({ projectRoot: root, graphPath }), 'PEAKS_GRAPH_CORRUPTED');
     await expectCode(
-      () => api.validateGraph(graph({ edges: [{ from: 'a', to: 'b' }, { from: 'b', to: 'a' }], nodes: [
-        { id: 'a', kind: 'step', label: 'a', status: 'prepared', dependsOn: ['b'] },
-        { id: 'b', kind: 'terminal', label: 'b', status: 'prepared', dependsOn: ['a'] },
-      ] })),
-      'PEAKS_GRAPH_CORRUPTED',
+      () => api.readGraph({ projectRoot: root, graphPath }),
+      'PEAKS_GRAPH_CORRUPTED'
+    );
+    await expectCode(
+      () =>
+        api.validateGraph(
+          graph({
+            edges: [
+              { from: 'a', to: 'b' },
+              { from: 'b', to: 'a' }
+            ],
+            nodes: [
+              { id: 'a', kind: 'step', label: 'a', status: 'prepared', dependsOn: ['b'] },
+              { id: 'b', kind: 'terminal', label: 'b', status: 'prepared', dependsOn: ['a'] }
+            ]
+          })
+        ),
+      'PEAKS_GRAPH_CORRUPTED'
     );
   });
 
-  it("when invoked, should TC-SM-09: malformed canonical graph is surfaced even when a legacy marker is valid. RD §3. Pass criterion: assert.equal(error.code, \"PEAKS_GRAPH_CORRUPTED\") and assert.equal(error.legacyFallback, false).", async () => {
+  it('when invoked, should TC-SM-09: malformed canonical graph is surfaced even when a legacy marker is valid. RD §3. Pass criterion: assert.equal(error.code, "PEAKS_GRAPH_CORRUPTED") and assert.equal(error.legacyFallback, false).', async () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -92,10 +108,18 @@ describe("Scenario: behavior — graph invariants fail closed", () => {
     const graphPath = join(root, 'graphs', 'workflow-graph-test.json');
     await mkdir(join(root, 'graphs'), { recursive: true });
     await writeFile(graphPath, '{not-json', 'utf8');
-    await writeFile(join(root, 'active-skill.json'), JSON.stringify({ skill: 'peaks-code', active: true }), 'utf8');
+    await writeFile(
+      join(root, 'active-skill.json'),
+      JSON.stringify({ skill: 'peaks-code', active: true }),
+      'utf8'
+    );
     const api = await loadGraphStore();
     try {
-      await api.readGraph({ projectRoot: root, graphPath, legacyMarkerPath: join(root, 'active-skill.json') });
+      await api.readGraph({
+        projectRoot: root,
+        graphPath,
+        legacyMarkerPath: join(root, 'active-skill.json')
+      });
       throw new Error('expected malformed canonical graph error');
     } catch (error: unknown) {
       expect(codeOf(error)).toBe('PEAKS_GRAPH_CORRUPTED');
@@ -104,8 +128,8 @@ describe("Scenario: behavior — graph invariants fail closed", () => {
   });
 });
 
-describe("Scenario: integration — production ESM graph parsing", () => {
-  it("when invoked, should TC-AG-02: canonical corruption escapes instead of falling through to legacy. RD §7. Pass criterion: assert.equal(error.code, \"PEAKS_GRAPH_CORRUPTED\").", async () => {
+describe('Scenario: integration — production ESM graph parsing', () => {
+  it('when invoked, should TC-AG-02: canonical corruption escapes instead of falling through to legacy. RD §7. Pass criterion: assert.equal(error.code, "PEAKS_GRAPH_CORRUPTED").', async () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -113,12 +137,24 @@ describe("Scenario: integration — production ESM graph parsing", () => {
     const graphPath = join(root, 'graphs', 'workflow-graph-test.json');
     await mkdir(join(root, 'graphs'), { recursive: true });
     await writeFile(graphPath, '{ malformed canonical', 'utf8');
-    await writeFile(join(root, 'legacy-marker.json'), JSON.stringify({ skill: 'peaks-code' }), 'utf8');
+    await writeFile(
+      join(root, 'legacy-marker.json'),
+      JSON.stringify({ skill: 'peaks-code' }),
+      'utf8'
+    );
     const api = await loadGraphStore();
-    await expectCode(() => api.readGraph({ projectRoot: root, graphPath, legacyMarkerPath: join(root, 'legacy-marker.json') }), 'PEAKS_GRAPH_CORRUPTED');
+    await expectCode(
+      () =>
+        api.readGraph({
+          projectRoot: root,
+          graphPath,
+          legacyMarkerPath: join(root, 'legacy-marker.json')
+        }),
+      'PEAKS_GRAPH_CORRUPTED'
+    );
   });
 
-  it("when invoked, should TC-AG-03: syntactically invalid graph JSON escapes PEAKS_GRAPH_CORRUPTED. RD §7. Pass criterion: assert.equal(error.code, \"PEAKS_GRAPH_CORRUPTED\") and assert.equal(readsActive, false).", async () => {
+  it('when invoked, should TC-AG-03: syntactically invalid graph JSON escapes PEAKS_GRAPH_CORRUPTED. RD §7. Pass criterion: assert.equal(error.code, "PEAKS_GRAPH_CORRUPTED") and assert.equal(readsActive, false).', async () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -127,6 +163,9 @@ describe("Scenario: integration — production ESM graph parsing", () => {
     await mkdir(join(root, 'graphs'), { recursive: true });
     await writeFile(graphPath, '[] trailing', 'utf8');
     const api = await loadGraphStore();
-    await expectCode(() => api.readGraph({ projectRoot: root, graphPath }), 'PEAKS_GRAPH_CORRUPTED');
+    await expectCode(
+      () => api.readGraph({ projectRoot: root, graphPath }),
+      'PEAKS_GRAPH_CORRUPTED'
+    );
   });
 });

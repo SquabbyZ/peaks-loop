@@ -159,9 +159,11 @@ function basename(path: string): string {
  * structure is uniform.
  */
 function collectScenarios(
-  entity: BddTestModuleLike | { children: { tests(): Iterable<BddTestCaseLike>; suites(): Iterable<unknown> } },
+  entity:
+    | BddTestModuleLike
+    | { children: { tests(): Iterable<BddTestCaseLike>; suites(): Iterable<unknown> } },
   file: string,
-  out: RenderedScenario[],
+  out: RenderedScenario[]
 ): void {
   const visited = new WeakSet<object>();
   const walk = (node: unknown, scenarioLabel: string): void => {
@@ -180,18 +182,25 @@ function collectScenarios(
     if (obj.type === 'test') {
       const tc = node as unknown as BddTestCaseLike;
       const result = tc.result ? tc.result() : undefined;
-      const resultObj = (result ?? {}) as { state?: string; errors?: ReadonlyArray<{ message?: string }> };
-      const state = (resultObj.state === 'passed' || resultObj.state === 'failed' || resultObj.state === 'skipped')
-        ? resultObj.state
-        : 'skipped';
-      const err = resultObj.state === 'failed' && resultObj.errors && resultObj.errors[0]
-        ? (resultObj.errors[0].message ?? 'unknown failure')
-        : undefined;
+      const resultObj = (result ?? {}) as {
+        state?: string;
+        errors?: ReadonlyArray<{ message?: string }>;
+      };
+      const state =
+        resultObj.state === 'passed' ||
+        resultObj.state === 'failed' ||
+        resultObj.state === 'skipped'
+          ? resultObj.state
+          : 'skipped';
+      const err =
+        resultObj.state === 'failed' && resultObj.errors && resultObj.errors[0]
+          ? (resultObj.errors[0].message ?? 'unknown failure')
+          : undefined;
       out.push({
         scenario: scenarioLabel,
         title: tc.name,
         state,
-        error: err,
+        error: err
       });
       return;
     }

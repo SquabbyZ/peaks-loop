@@ -58,11 +58,7 @@ import { renderDecisionMarkdown } from './decision-writer.js';
 
 export type ArtifactKind = 'decision' | 'prompt' | 'machine-output' | 'narrative';
 
-export type ArtifactType =
-  | 'decision'
-  | 'prompt'
-  | 'machine-output'
-  | 'narrative';
+export type ArtifactType = 'decision' | 'prompt' | 'machine-output' | 'narrative';
 
 export interface ArtifactWriterOptions {
   readonly projectRoot: string;
@@ -118,7 +114,12 @@ function sanitizeRid(rid: string | undefined): string {
   return cleaned.length > 0 ? cleaned.slice(0, 64) : '';
 }
 
-function buildSlug(prefix: string, date: string, rid: string | undefined, override?: string): string {
+function buildSlug(
+  prefix: string,
+  date: string,
+  rid: string | undefined,
+  override?: string
+): string {
   if (override) return override;
   const safe = sanitizeRid(rid);
   return safe ? `${prefix}-${date}-${safe}` : `${prefix}-${date}`;
@@ -157,14 +158,14 @@ const KIND_TO_SUBDIR: Readonly<Record<ArtifactKind, string | null>> = {
   decision: 'audit-decisions',
   prompt: 'audit-prompts',
   'machine-output': null, // top-level (no subdir)
-  narrative: null, // top-level (no subdir)
+  narrative: null // top-level (no subdir)
 };
 
 const KIND_TO_SLUG_PREFIX: Readonly<Record<ArtifactKind, string>> = {
   decision: 'audit-decision',
   prompt: 'audit-prompt',
   'machine-output': 'audit-output',
-  narrative: 'audit-narrative',
+  narrative: 'audit-narrative'
 };
 
 function resolvePath(args: {
@@ -178,7 +179,7 @@ function resolvePath(args: {
   const targetDir = subdir === null ? memoryDir : join(memoryDir, subdir);
   return {
     memoryDir,
-    filePath: join(targetDir, `${args.slug}.md`),
+    filePath: join(targetDir, `${args.slug}.md`)
   };
 }
 
@@ -188,7 +189,7 @@ function resolvePath(args: {
 
 export function writeDecision(
   audit: RedLineAudit,
-  options: ArtifactWriterOptions,
+  options: ArtifactWriterOptions
 ): ArtifactWriteRecord {
   const date = sanitizeDate(options.date);
   const slug = buildSlug(KIND_TO_SLUG_PREFIX.decision, date, options.rid, options.slugOverride);
@@ -196,7 +197,7 @@ export function writeDecision(
     projectRoot: options.projectRoot,
     kind: 'decision',
     slug,
-    date,
+    date
   });
   const description = `Audit Decision ${date}${options.rid ? ` (${options.rid})` : ''}`;
   const renderOpts = options.rid ? { date, rid: options.rid } : { date };
@@ -204,7 +205,7 @@ export function writeDecision(
 
   if (!options.dryRun) {
     mkdirSync(join(options.projectRoot, '.peaks', 'memory', KIND_TO_SUBDIR.decision ?? ''), {
-      recursive: true,
+      recursive: true
     });
     writeFileSync(filePath, markdown, { mode: 0o644 });
   }
@@ -220,7 +221,7 @@ export function writeDecision(
     filePath,
     memoryDir,
     indexPath,
-    indexSynced: index !== null,
+    indexSynced: index !== null
   };
 }
 
@@ -234,14 +235,17 @@ export interface PromptInput {
   readonly body: string;
 }
 
-export function writePrompt(input: PromptInput, options: ArtifactWriterOptions): ArtifactWriteRecord {
+export function writePrompt(
+  input: PromptInput,
+  options: ArtifactWriterOptions
+): ArtifactWriteRecord {
   const date = sanitizeDate(options.date);
   const slug = buildSlug(KIND_TO_SLUG_PREFIX.prompt, date, options.rid, options.slugOverride);
   const { memoryDir, filePath } = resolvePath({
     projectRoot: options.projectRoot,
     kind: 'prompt',
     slug,
-    date,
+    date
   });
 
   const frontmatter = buildFrontmatter({
@@ -251,14 +255,14 @@ export function writePrompt(input: PromptInput, options: ArtifactWriterOptions):
     extras: {
       sourceArtifact: 'peaks audit artifact write --kind prompt',
       createdAt: date,
-      artifactType: 'prompt',
-    },
+      artifactType: 'prompt'
+    }
   });
   const markdown = `${frontmatter}\n\n# ${input.name}\n\n${input.body}\n`;
 
   if (!options.dryRun) {
     mkdirSync(join(options.projectRoot, '.peaks', 'memory', KIND_TO_SUBDIR.prompt ?? ''), {
-      recursive: true,
+      recursive: true
     });
     writeFileSync(filePath, markdown, { mode: 0o644 });
   }
@@ -273,7 +277,7 @@ export function writePrompt(input: PromptInput, options: ArtifactWriterOptions):
     filePath,
     memoryDir,
     indexPath,
-    indexSynced: index !== null,
+    indexSynced: index !== null
   };
 }
 
@@ -290,20 +294,20 @@ export interface MachineOutputInput {
 
 export function writeMachineOutput(
   input: MachineOutputInput,
-  options: ArtifactWriterOptions,
+  options: ArtifactWriterOptions
 ): ArtifactWriteRecord {
   const date = sanitizeDate(options.date);
   const slug = buildSlug(
     KIND_TO_SLUG_PREFIX['machine-output'],
     date,
     options.rid,
-    options.slugOverride,
+    options.slugOverride
   );
   const { memoryDir, filePath } = resolvePath({
     projectRoot: options.projectRoot,
     kind: 'machine-output',
     slug,
-    date,
+    date
   });
 
   const rawJson = readInputContent(input.json);
@@ -312,7 +316,7 @@ export function writeMachineOutput(
     JSON.parse(rawJson);
   } catch (err) {
     throw new Error(
-      `writeMachineOutput: input.json is not valid JSON: ${err instanceof Error ? err.message : String(err)}`,
+      `writeMachineOutput: input.json is not valid JSON: ${err instanceof Error ? err.message : String(err)}`
     );
   }
 
@@ -323,8 +327,8 @@ export function writeMachineOutput(
     extras: {
       sourceArtifact: 'peaks audit artifact write --kind machine-output',
       createdAt: date,
-      artifactType: 'machine-output',
-    },
+      artifactType: 'machine-output'
+    }
   });
   const title = input.name;
   const summaryTable = [
@@ -332,7 +336,7 @@ export function writeMachineOutput(
     '| --- | --- |',
     `| Artifact kind | machine-output |`,
     `| JSON bytes | ${rawJson.length} |`,
-    `| Captured at | ${date} |`,
+    `| Captured at | ${date} |`
   ].join('\n');
   const body = [
     `# ${title}`,
@@ -348,7 +352,7 @@ export function writeMachineOutput(
     '```json',
     rawJson,
     '```',
-    '',
+    ''
   ].join('\n');
   const markdown = `${frontmatter}\n\n${body}`;
 
@@ -368,7 +372,7 @@ export function writeMachineOutput(
     filePath,
     memoryDir,
     indexPath,
-    indexSynced: index !== null,
+    indexSynced: index !== null
   };
 }
 
@@ -384,7 +388,7 @@ export interface NarrativeInput {
 
 export function writeNarrative(
   input: NarrativeInput,
-  options: ArtifactWriterOptions,
+  options: ArtifactWriterOptions
 ): ArtifactWriteRecord {
   const date = sanitizeDate(options.date);
   const slug = buildSlug(KIND_TO_SLUG_PREFIX.narrative, date, options.rid, options.slugOverride);
@@ -392,7 +396,7 @@ export function writeNarrative(
     projectRoot: options.projectRoot,
     kind: 'narrative',
     slug,
-    date,
+    date
   });
 
   const frontmatter = buildFrontmatter({
@@ -402,8 +406,8 @@ export function writeNarrative(
     extras: {
       sourceArtifact: 'peaks audit artifact write --kind narrative',
       createdAt: date,
-      artifactType: 'narrative',
-    },
+      artifactType: 'narrative'
+    }
   });
   const markdown = `${frontmatter}\n\n# ${input.name}\n\n${input.body}\n`;
 
@@ -423,6 +427,6 @@ export function writeNarrative(
     filePath,
     memoryDir,
     indexPath,
-    indexSynced: index !== null,
+    indexSynced: index !== null
   };
 }

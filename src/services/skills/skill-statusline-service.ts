@@ -5,7 +5,10 @@ import { decideCompactStatusline } from '../compact-statusline/compact-statuslin
 import { getSessionIdCanonical } from '../session/session-manager.js';
 import { resolveActiveSkillForCaller } from '../audit/enforcers/active-skill-resolver.js';
 import { listPresenceLeases } from './presence-lease-service.js';
-import { readActiveDispatchIndex, type ActiveDispatchEntry } from '../dispatch/dispatch-record-writer.js';
+import {
+  readActiveDispatchIndex,
+  type ActiveDispatchEntry
+} from '../dispatch/dispatch-record-writer.js';
 import type { CompactStatuslineState } from '../compact-statusline/compact-statusline-service.js';
 
 /**
@@ -50,12 +53,14 @@ export type StatusLineStdin = {
    * `harness-context-witness.ts` — see that module for why
    * `context_window_size` is NOT a denominator.
    */
-  context_window?: {
-    context_window_size?: unknown;
-    used_percentage?: unknown;
-    remaining_percentage?: unknown;
-    current_usage?: Record<string, unknown> | undefined;
-  } | undefined;
+  context_window?:
+    | {
+        context_window_size?: unknown;
+        used_percentage?: unknown;
+        remaining_percentage?: unknown;
+        current_usage?: Record<string, unknown> | undefined;
+      }
+    | undefined;
 };
 
 export type StatusLineState = 'active' | 'idle' | 'stale' | 'invalid-presence';
@@ -139,7 +144,7 @@ export type TwentyFourHourOverlay = {
  */
 export function read24hOverlay(
   projectRoot: string,
-  sessionId: string,
+  sessionId: string
 ): TwentyFourHourOverlay | null {
   if (!projectRoot || !sessionId) return null;
   const path = join(projectRoot, '.peaks', '_runtime', sessionId, '24h-state.json');
@@ -183,7 +188,8 @@ export function parseStatusLineStdin(raw: string): StatusLineStdin | null {
       return parsed as StatusLineStdin;
     }
     return null;
-  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+  } catch {
+    // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     return null;
   }
 }
@@ -197,9 +203,8 @@ export function parseStatusLineStdin(raw: string): StatusLineStdin | null {
  *      single-file read for back-compat)
  */
 function resolveCallerId(stdin: StatusLineStdin | null): string | null {
-  const fromStdin = typeof stdin?.caller_id === 'string' && stdin.caller_id.length > 0
-    ? stdin.caller_id
-    : null;
+  const fromStdin =
+    typeof stdin?.caller_id === 'string' && stdin.caller_id.length > 0 ? stdin.caller_id : null;
   if (fromStdin !== null) return fromStdin;
   const fromEnv = process.env['CLAUDE_CODE_SESSION_ID'];
   if (typeof fromEnv === 'string' && fromEnv.length > 0) return fromEnv;
@@ -218,7 +223,7 @@ function resolveCallerId(stdin: StatusLineStdin | null): string | null {
  */
 function readActiveLeaf(
   projectRoot: string,
-  sessionId: string | null,
+  sessionId: string | null
 ): StatusLineActiveLeaf | null {
   if (sessionId === null) return null;
   let index: Record<string, ActiveDispatchEntry> = {};
@@ -235,8 +240,8 @@ function readActiveLeaf(
     'never-started',
     'unreadable',
     'stale',
-    'queued', // Slice 2026-08-05 fix: stale dispatch entries stuck at 'queued' should
-              // not pollute statusline as in-flight leaves.
+    'queued' // Slice 2026-08-05 fix: stale dispatch entries stuck at 'queued' should
+    // not pollute statusline as in-flight leaves.
   ]);
   const inFlight = Object.values(index).filter((e) => !terminalStatuses.has(e.status));
   if (inFlight.length === 0) return null;
@@ -272,7 +277,7 @@ function readActiveLeaf(
  */
 function readPresenceReadOnly(
   projectRoot: string,
-  callerId: string | null,
+  callerId: string | null
 ): { presence: StatusLinePresence | null; invalid: boolean } {
   if (callerId !== null) {
     let firstResolution: ReturnType<typeof resolveActiveSkillForCaller> | null = null;
@@ -285,9 +290,9 @@ function readPresenceReadOnly(
       return {
         presence: {
           skill: firstResolution.skill,
-          ...(firstResolution.mode !== null ? { mode: firstResolution.mode } : {}),
+          ...(firstResolution.mode !== null ? { mode: firstResolution.mode } : {})
         },
-        invalid: false,
+        invalid: false
       };
     }
     // callerId didn't match any lease — fall back to the session's most
@@ -341,13 +346,16 @@ function readPresenceReadOnly(
     presence: {
       skill: latest.skill,
       ...(latestMode !== undefined ? { mode: latestMode } : {}),
-      setAt: latest.startedAt,
+      setAt: latest.startedAt
     },
-    invalid: false,
+    invalid: false
   };
 }
 
-export function buildStatusLineModel(stdin: StatusLineStdin | null, nowMs: number): StatusLineModel {
+export function buildStatusLineModel(
+  stdin: StatusLineStdin | null,
+  nowMs: number
+): StatusLineModel {
   const cwd = resolveCwdFromStdin(stdin);
   const projectRoot = findProjectRoot(cwd);
 
@@ -370,17 +378,44 @@ export function buildStatusLineModel(stdin: StatusLineStdin | null, nowMs: numbe
   }
 
   if (projectRoot === null) {
-    return { state: 'idle', projectRoot: null, presence: null, ageMs: null, compact, activeLeaf: null, sessionId: null, twentyFourHourState: null };
+    return {
+      state: 'idle',
+      projectRoot: null,
+      presence: null,
+      ageMs: null,
+      compact,
+      activeLeaf: null,
+      sessionId: null,
+      twentyFourHourState: null
+    };
   }
 
   // callerId resolves the read-side isolation; back-compat is `null`.
   const callerId = resolveCallerId(stdin);
   const { presence, invalid } = readPresenceReadOnly(projectRoot, callerId);
   if (invalid) {
-    return { state: 'invalid-presence', projectRoot, presence: null, ageMs: null, compact, activeLeaf: null, sessionId, twentyFourHourState: null };
+    return {
+      state: 'invalid-presence',
+      projectRoot,
+      presence: null,
+      ageMs: null,
+      compact,
+      activeLeaf: null,
+      sessionId,
+      twentyFourHourState: null
+    };
   }
   if (presence === null) {
-    return { state: 'idle', projectRoot, presence: null, ageMs: null, compact, activeLeaf: null, sessionId, twentyFourHourState: null };
+    return {
+      state: 'idle',
+      projectRoot,
+      presence: null,
+      ageMs: null,
+      compact,
+      activeLeaf: null,
+      sessionId,
+      twentyFourHourState: null
+    };
   }
 
   // Session binding: when the presence was stamped with a Claude session id and
@@ -388,9 +423,19 @@ export function buildStatusLineModel(stdin: StatusLineStdin | null, nowMs: numbe
   // to a previous session — render idle instead of a stale "active" skill. When
   // either id is absent (legacy presence, or harness that omits session_id) we
   // fall back to the time-based behavior below for backward compatibility.
-  const liveSessionId = typeof stdin?.session_id === 'string' && stdin.session_id.length > 0 ? stdin.session_id : null;
+  const liveSessionId =
+    typeof stdin?.session_id === 'string' && stdin.session_id.length > 0 ? stdin.session_id : null;
   if (presence.claudeSessionId && liveSessionId && presence.claudeSessionId !== liveSessionId) {
-    return { state: 'idle', projectRoot, presence: null, ageMs: null, compact, activeLeaf: null, sessionId, twentyFourHourState: null };
+    return {
+      state: 'idle',
+      projectRoot,
+      presence: null,
+      ageMs: null,
+      compact,
+      activeLeaf: null,
+      sessionId,
+      twentyFourHourState: null
+    };
   }
 
   const setAtMs = presence.setAt ? Date.parse(presence.setAt) : Number.NaN;
@@ -417,7 +462,16 @@ export function buildStatusLineModel(stdin: StatusLineStdin | null, nowMs: numbe
   const twentyFourHourState: TwentyFourHourOverlay | null =
     state === 'active' ? read24hOverlay(projectRoot, sessionId ?? '') : null;
 
-  return { state, projectRoot, presence, ageMs, compact, activeLeaf, sessionId, twentyFourHourState };
+  return {
+    state,
+    projectRoot,
+    presence,
+    ageMs,
+    compact,
+    activeLeaf,
+    sessionId,
+    twentyFourHourState
+  };
 }
 
 /**
@@ -435,7 +489,7 @@ function readCompactState(projectRoot: string | null, nowMs: number): CompactSta
     return decideCompactStatusline({
       projectRoot,
       sessionId,
-      now: nowMs,
+      now: nowMs
     });
   } catch {
     // Read-only — never throw across the statusline boundary.

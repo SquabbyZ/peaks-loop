@@ -1,17 +1,35 @@
 import { Command } from 'commander';
-import { enforceBashCommand, recordGateBypass, GateBypassError } from '../../services/sop/gate-enforce-service.js';
-import { evaluateWorktreeAuth, type ToolCallKind } from '../../services/hooks/worktree-authorization-gate.js';
+import {
+  enforceBashCommand,
+  recordGateBypass,
+  GateBypassError
+} from '../../services/sop/gate-enforce-service.js';
+import {
+  evaluateWorktreeAuth,
+  type ToolCallKind
+} from '../../services/hooks/worktree-authorization-gate.js';
 import { getCurrentSessionId } from '../../services/skills/skill-presence-service.js';
 import { fail, ok } from 'peaks-loop-shared/result';
 
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
-import { detectIdeFromContext, parseClaudeShapeStdin, pluckObject, pluckString } from '../../services/ide/hook-translator.js';
+import {
+  detectIdeFromContext,
+  parseClaudeShapeStdin,
+  pluckObject,
+  pluckString
+} from '../../services/ide/hook-translator.js';
 import { DISPATCH_PROVENANCE_ENV } from '../../services/worktree/dispatch-provenance.js';
 import { getAdapter } from '../../services/ide/ide-registry.js';
 import { emitBlock, emitDecision, emitHint } from '../../services/hooks/output.js';
 
 type GateEnforceCliOptions = { project: string; json?: boolean };
-type GateBypassCliOptions = { sop: string; phase: string; reason: string; project: string; json?: boolean };
+type GateBypassCliOptions = {
+  sop: string;
+  phase: string;
+  reason: string;
+  project: string;
+  json?: boolean;
+};
 
 /**
  * Read the PreToolUse hook payload. `PEAKS_HOOK_STDIN` is a test seam; production
@@ -64,13 +82,21 @@ function extractIsolation(parsed: unknown): string | null {
 }
 
 export function registerGateCommands(program: Command, io: ProgramIO): void {
-  const gate = program.command('gate').description('SOP gate enforcement (PreToolUse hook handler and bypass)');
+  const gate = program
+    .command('gate')
+    .description('SOP gate enforcement (PreToolUse hook handler and bypass)');
 
   addJsonOption(
     gate
       .command('enforce')
-      .description('PreToolUse hook handler: deny a Bash command guarded by an unsatisfied SOP gate')
-      .option('--project <path>', 'project the gates evaluate against (default: current directory)', '.')
+      .description(
+        'PreToolUse hook handler: deny a Bash command guarded by an unsatisfied SOP gate'
+      )
+      .option(
+        '--project <path>',
+        'project the gates evaluate against (default: current directory)',
+        '.'
+      )
   ).action(async (options: GateEnforceCliOptions) => {
     // Trust red line: this runs on (potentially) every Bash call. Any failure to
     // decide must FAIL-OPEN (allow), never block the user's Claude Code.
@@ -80,7 +106,8 @@ export function registerGateCommands(program: Command, io: ProgramIO): void {
       if (raw.trim().length > 0) {
         try {
           parsedStdin = JSON.parse(raw);
-        } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+        } catch {
+          // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
           // Malformed JSON — fail-open. Detect + parse on null fall back to the
           // default adapter and yield empty tool/command, which short-circuits
           // to the "not a guarded surface" early exit below.
@@ -94,7 +121,10 @@ export function registerGateCommands(program: Command, io: ProgramIO): void {
       // change required.
       const { toolName, command } = parseClaudeShapeStdin(parsedStdin);
       const toolKind = classifyTool(toolName);
-      const isBashSurface = toolName === adapter.toolMatcher && typeof command === 'string' && command.trim().length > 0;
+      const isBashSurface =
+        toolName === adapter.toolMatcher &&
+        typeof command === 'string' &&
+        command.trim().length > 0;
       const isWorktreeToolSurface = toolKind === 'Agent' || toolKind === 'EnterWorktree';
       if (!isBashSurface && !isWorktreeToolSurface) {
         // Not a guarded surface — allow. Emit minimal JSON on stdout so Claude
@@ -139,10 +169,16 @@ export function registerGateCommands(program: Command, io: ProgramIO): void {
           sessionId,
           toolName: toolKind,
           command: toolKind === 'Bash' && typeof command === 'string' ? command : null,
-          isolation: toolKind === 'Agent' || toolKind === 'EnterWorktree' ? extractIsolation(parsedStdin) : null,
+          isolation:
+            toolKind === 'Agent' || toolKind === 'EnterWorktree'
+              ? extractIsolation(parsedStdin)
+              : null,
           requestId: null,
           leaseId: leaseId !== null && /^[a-f0-9]{16}$/.test(leaseId) ? leaseId : null,
-          containerLeaseId: containerLeaseId !== null && /^[a-f0-9]{16}$/.test(containerLeaseId) ? containerLeaseId : null,
+          containerLeaseId:
+            containerLeaseId !== null && /^[a-f0-9]{16}$/.test(containerLeaseId)
+              ? containerLeaseId
+              : null,
           dispatchProvenanceToken: process.env[DISPATCH_PROVENANCE_ENV] ?? null
         });
         if (!wtDecision.allow) {
@@ -150,9 +186,17 @@ export function registerGateCommands(program: Command, io: ProgramIO): void {
           // emitBlock writes the Claude Code permissionDecision:"deny" envelope and exits 2.
           // The reason includes the remediation hint so the LLM can run `peaks worktree auth grant`
           // and retry, and the user can read the deny text in the next-turn stderr.
-          emitBlock(io, `[worktree-gate:${wtDecision.code}] ${wtDecision.reason} — ${wtDecision.remediation}`);
+          emitBlock(
+            io,
+            `[worktree-gate:${wtDecision.code}] ${wtDecision.reason} — ${wtDecision.remediation}`
+          );
           if (options.json === true) {
-            emitHint(io, JSON.stringify(ok('gate.enforce', { decision: 'deny', layer: 'worktree-auth', ...wtDecision })));
+            emitHint(
+              io,
+              JSON.stringify(
+                ok('gate.enforce', { decision: 'deny', layer: 'worktree-auth', ...wtDecision })
+              )
+            );
           }
           return;
         }
@@ -239,23 +283,52 @@ export function registerGateCommands(program: Command, io: ProgramIO): void {
       .requiredOption('--sop <id>', 'SOP id whose guard to bypass')
       .requiredOption('--phase <phase>', 'phase whose gate to bypass')
       .requiredOption('--reason <text>', 'justification recorded for the bypass')
-      .option('--project <path>', 'project whose run-state holds the token (default: current directory)', '.')
+      .option(
+        '--project <path>',
+        'project whose run-state holds the token (default: current directory)',
+        '.'
+      )
   ).action((options: GateBypassCliOptions) => {
     try {
       if (options.reason.trim().length === 0) {
-        printResult(io, fail('gate.bypass', 'BYPASS_REASON_REQUIRED', '--reason must not be empty', { sop: options.sop, phase: options.phase }, ['Provide --reason "<why>"']), options.json);
+        printResult(
+          io,
+          fail(
+            'gate.bypass',
+            'BYPASS_REASON_REQUIRED',
+            '--reason must not be empty',
+            { sop: options.sop, phase: options.phase },
+            ['Provide --reason "<why>"']
+          ),
+          options.json
+        );
         process.exitCode = 1;
         return;
       }
       const result = recordGateBypass(options.project, options.sop, options.phase, options.reason);
       printResult(
         io,
-        ok('gate.bypass', { sop: options.sop, phase: options.phase, count: result.count }, [], ['The next guarded Bash command for this transition will be allowed once']),
+        ok(
+          'gate.bypass',
+          { sop: options.sop, phase: options.phase, count: result.count },
+          [],
+          ['The next guarded Bash command for this transition will be allowed once']
+        ),
         options.json
       );
     } catch (error) {
       const code = error instanceof GateBypassError ? error.code : 'GATE_BYPASS_FAILED';
-      printResult(io, fail('gate.bypass', code, getErrorMessage(error), { sop: options.sop, phase: options.phase }, ['Satisfy the gate instead of bypassing']), options.json);
+      printResult(
+        io,
+        fail(
+          'gate.bypass',
+          code,
+          getErrorMessage(error),
+          { sop: options.sop, phase: options.phase },
+          ['Satisfy the gate instead of bypassing']
+        ),
+        options.json
+      );
       process.exitCode = 1;
     }
   });

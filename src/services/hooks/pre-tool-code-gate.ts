@@ -36,7 +36,7 @@ export const HARD_BLOCKED_PATH_FAMILIES = [
   'tests/integration/',
   'config/',
   'bin/',
-  'scripts/',
+  'scripts/'
 ] as const;
 
 /** Allow-listed path prefixes / suffixes — orchestrator may freely Edit/Write these. */
@@ -47,7 +47,7 @@ export const ALLOW_LISTED_PATH_PATTERNS = [
   'docs/',
   '.md',
   'CHANGELOG.md',
-  'README.md',
+  'README.md'
 ] as const;
 
 export type GateVerdict =
@@ -81,7 +81,10 @@ function matchesAny(path: string, families: readonly string[]): string | null {
  * Pure decision function. Given the tool name + input object, return
  * the gate verdict. Tolerates malformed payloads (allow).
  */
-export function decideGateAction(tool: GateToolName, input: Readonly<Record<string, unknown>>): GateVerdict {
+export function decideGateAction(
+  tool: GateToolName,
+  input: Readonly<Record<string, unknown>>
+): GateVerdict {
   // Only gate Edit / Write / MultiEdit.
   if (tool !== 'Edit' && tool !== 'Write' && tool !== 'MultiEdit') {
     return { action: 'allow' };

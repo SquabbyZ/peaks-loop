@@ -31,7 +31,16 @@ import {
 } from '~/src/services/memory/project-memory-service/index';
 
 /** The 8 kinds that existed before the slice — must keep working unchanged. */
-const ORIGINAL_KINDS = ['project', 'rule', 'decision', 'reference', 'feedback', 'convention', 'module', 'lesson'] as const;
+const ORIGINAL_KINDS = [
+  'project',
+  'rule',
+  'decision',
+  'reference',
+  'feedback',
+  'convention',
+  'module',
+  'lesson'
+] as const;
 
 /** Values observed on disk with a real kind the index schema used to reject. */
 const EXPANDED_KINDS = [
@@ -108,7 +117,17 @@ describe('memory kind vocabulary', () => {
 
   it('resolves every expanded kind through the shared frontmatter parser', () => {
     for (const kind of EXPANDED_KINDS) {
-      const content = ['---', `name: sample-${kind}`, `description: ${kind} sample`, 'metadata:', `  type: ${kind}`, '---', '', 'Body.', ''].join('\n');
+      const content = [
+        '---',
+        `name: sample-${kind}`,
+        `description: ${kind} sample`,
+        'metadata:',
+        `  type: ${kind}`,
+        '---',
+        '',
+        'Body.',
+        ''
+      ].join('\n');
       const resolution = resolveMemoryKind(content);
       expect(resolution.kind).toBe(kind);
       expect(resolution.rawKind).toBe(kind);
@@ -116,7 +135,17 @@ describe('memory kind vocabulary', () => {
   });
 
   it('still reports a genuinely unknown kind as unclassified', () => {
-    const content = ['---', 'name: sample', 'description: sample', 'metadata:', '  type: not-a-real-kind', '---', '', 'Body.', ''].join('\n');
+    const content = [
+      '---',
+      'name: sample',
+      'description: sample',
+      'metadata:',
+      '  type: not-a-real-kind',
+      '---',
+      '',
+      'Body.',
+      ''
+    ].join('\n');
     const resolution = resolveMemoryKind(content);
     expect(resolution.kind).toBeNull();
     expect(resolution.rawKind).toBe('not-a-real-kind');
@@ -138,17 +167,21 @@ describe('expanded kinds in the index', () => {
   });
 
   function writeMemory(name: string, kind: string): void {
-    writeFileSync(join(memoryDir, `${name}.md`), [
-      '---',
-      `name: ${name}`,
-      `description: ${name}`,
-      'metadata:',
-      `  type: ${kind}`,
-      '---',
-      '',
-      `Body for ${name}.`,
-      ''
-    ].join('\n'), 'utf8');
+    writeFileSync(
+      join(memoryDir, `${name}.md`),
+      [
+        '---',
+        `name: ${name}`,
+        `description: ${name}`,
+        'metadata:',
+        `  type: ${kind}`,
+        '---',
+        '',
+        `Body for ${name}.`,
+        ''
+      ].join('\n'),
+      'utf8'
+    );
   }
 
   it('indexes every expanded kind into its declared tier bucket', () => {
@@ -166,7 +199,9 @@ describe('expanded kinds in the index', () => {
 
     for (const kind of EXPANDED_KINDS) {
       const bucket = MEMORY_KIND_TIER[kind] === 'hot' ? index.hot : index.warm;
-      expect(bucket[kind], `${kind} should be indexed in ${MEMORY_KIND_TIER[kind]}`).toHaveLength(1);
+      expect(bucket[kind], `${kind} should be indexed in ${MEMORY_KIND_TIER[kind]}`).toHaveLength(
+        1
+      );
       expect(bucket[kind]![0]!.kind).toBe(kind);
     }
   });
@@ -224,7 +259,8 @@ const KIND_OPTION = /--kind <([^>]*)>/g;
 /** A `kind:` line declaring the vocabulary: a pipe-joined list, optionally
  *  behind a `#` comment marker (the TXT procedure embeds the template inside a
  *  shell-comment block). */
-const KIND_BLOCK_DECLARATION = /^[ \t]*(?:#+[ \t]*)?kind:[ \t]*([a-z][a-z-]*(?:[ \t]*\|[ \t]*[a-z][a-z-]*)+)[ \t]*$/;
+const KIND_BLOCK_DECLARATION =
+  /^[ \t]*(?:#+[ \t]*)?kind:[ \t]*([a-z][a-z-]*(?:[ \t]*\|[ \t]*[a-z][a-z-]*)+)[ \t]*$/;
 
 /** A `kind:` line naming ONE value — a sample inside an example block. */
 const KIND_SAMPLE = /^[ \t]*(?:#+[ \t]*)?kind:[ \t]*([a-z][a-z-]*)[ \t]*$/;
@@ -239,10 +275,17 @@ type VocabularyDeclaration = {
 type VocabularySample = { file: string; line: number; declared: string };
 
 function splitPipeList(raw: string): string[] {
-  return raw.split('|').map((part) => part.trim()).filter((part) => part.length > 0);
+  return raw
+    .split('|')
+    .map((part) => part.trim())
+    .filter((part) => part.length > 0);
 }
 
-function collectVocabularySurfaces(): { declarations: VocabularyDeclaration[]; samples: VocabularySample[]; files: string[] } {
+function collectVocabularySurfaces(): {
+  declarations: VocabularyDeclaration[];
+  samples: VocabularySample[];
+  files: string[];
+} {
   const declarations: VocabularyDeclaration[] = [];
   const samples: VocabularySample[] = [];
   const files = VOCABULARY_DOC_ROOTS.flatMap((root) => walkMarkdown(root));
@@ -261,7 +304,12 @@ function collectVocabularySurfaces(): { declarations: VocabularyDeclaration[]; s
 
       const declaration = KIND_BLOCK_DECLARATION.exec(text);
       if (declaration !== null) {
-        declarations.push({ file, line, declared: splitPipeList(declaration[1] ?? ''), form: 'kind-block' });
+        declarations.push({
+          file,
+          line,
+          declared: splitPipeList(declaration[1] ?? ''),
+          form: 'kind-block'
+        });
         return;
       }
       const sample = KIND_SAMPLE.exec(text);
@@ -284,9 +332,18 @@ describe('LLM-facing kind vocabulary surfaces', () => {
     expect(SURFACES.declarations.length).toBeGreaterThanOrEqual(9);
 
     const txt = SURFACES.declarations.filter((d) => d.file === 'skills/bee/peaks-txt/SKILL.md');
-    expect(txt.length, 'peaks-txt must declare the vocabulary in its block template and its filter').toBeGreaterThanOrEqual(3);
-    expect(txt.some((d) => d.form === 'kind-block'), 'the memory-block template must be seen').toBe(true);
-    expect(txt.some((d) => d.form === 'kind-option'), 'the --kind filter must be seen').toBe(true);
+    expect(
+      txt.length,
+      'peaks-txt must declare the vocabulary in its block template and its filter'
+    ).toBeGreaterThanOrEqual(3);
+    expect(
+      txt.some((d) => d.form === 'kind-block'),
+      'the memory-block template must be seen'
+    ).toBe(true);
+    expect(
+      txt.some((d) => d.form === 'kind-option'),
+      'the --kind filter must be seen'
+    ).toBe(true);
 
     expect(SURFACES.samples.length, 'illustrative samples must be seen').toBeGreaterThanOrEqual(2);
   });
@@ -298,7 +355,9 @@ describe('LLM-facing kind vocabulary surfaces', () => {
       // Set equality, not sequence equality: a prose list has no ordering
       // semantics, so requiring the canonical order would fail a harmless
       // reorder. Membership is the drift-critical invariant.
-      expect(new Set(declared), `${where} must declare exactly PROJECT_MEMORY_KINDS`).toEqual(new Set(PROJECT_MEMORY_KINDS));
+      expect(new Set(declared), `${where} must declare exactly PROJECT_MEMORY_KINDS`).toEqual(
+        new Set(PROJECT_MEMORY_KINDS)
+      );
       expect(declared, `${where} must not repeat a kind`).toHaveLength(PROJECT_MEMORY_KINDS.length);
     }
   });
@@ -306,7 +365,10 @@ describe('LLM-facing kind vocabulary surfaces', () => {
   it('every illustrative kind sample is a real kind', () => {
     expect(SURFACES.samples.length).toBeGreaterThan(0);
     for (const { file, line, declared } of SURFACES.samples) {
-      expect(PROJECT_MEMORY_KINDS, `${file}:${line} sample '${declared}' must be a canonical kind`).toContain(declared);
+      expect(
+        PROJECT_MEMORY_KINDS,
+        `${file}:${line} sample '${declared}' must be a canonical kind`
+      ).toContain(declared);
     }
   });
 });
@@ -321,7 +383,8 @@ describe('LLM-facing kind vocabulary surfaces', () => {
  * This anchored single-quote scan deliberately does not match the derived
  * backtick form, so it flags only the regression it exists to prevent.
  */
-const CLI_HELP_KIND_LIST = /'[^'\n]*\b(?:project|decision|convention|rule|reference|feedback|module|lesson)\b\s*(?:,|\|)\s*\b(?:project|decision|convention|rule|reference|feedback|module|lesson)\b\s*(?:,|\|)[^'\n]*'/;
+const CLI_HELP_KIND_LIST =
+  /'[^'\n]*\b(?:project|decision|convention|rule|reference|feedback|module|lesson)\b\s*(?:,|\|)\s*\b(?:project|decision|convention|rule|reference|feedback|module|lesson)\b\s*(?:,|\|)[^'\n]*'/;
 
 function walkTypeScript(relativeDir: string): string[] {
   const found: string[] = [];
@@ -343,13 +406,18 @@ describe('CLI kind help is derived, never hand-maintained', () => {
 
     const projectCommands = `${REPO_ROOT}/src/cli/commands/project-commands.ts`;
     expect(files).toContain('src/cli/commands/project-commands.ts');
-    expect(readFileSync(projectCommands, 'utf8'), 'project memories --kind must derive its help').toContain('VALID_PROJECT_MEMORY_KINDS');
+    expect(
+      readFileSync(projectCommands, 'utf8'),
+      'project memories --kind must derive its help'
+    ).toContain('VALID_PROJECT_MEMORY_KINDS');
 
     const offenders: string[] = [];
     for (const file of files) {
-      readFileSync(join(REPO_ROOT, file), 'utf8').split(/\r?\n/).forEach((text, index) => {
-        if (CLI_HELP_KIND_LIST.test(text)) offenders.push(`${file}:${index + 1}`);
-      });
+      readFileSync(join(REPO_ROOT, file), 'utf8')
+        .split(/\r?\n/)
+        .forEach((text, index) => {
+          if (CLI_HELP_KIND_LIST.test(text)) offenders.push(`${file}:${index + 1}`);
+        });
     }
     expect(offenders, 'hand-maintained kind list(s) found in CLI help').toEqual([]);
   });
@@ -387,11 +455,13 @@ function collectMemoryMarkerSites(): { sites: MarkerSite[]; files: string[] } {
   const sites: MarkerSite[] = [];
   const files = VOCABULARY_DOC_ROOTS.flatMap((root) => walkMarkdown(root));
   for (const file of files) {
-    readFileSync(join(REPO_ROOT, file), 'utf8').split(/\r?\n/).forEach((text, index) => {
-      for (const match of text.matchAll(ANY_MEMORY_MARKER)) {
-        sites.push({ file, line: index + 1, found: match[0] });
-      }
-    });
+    readFileSync(join(REPO_ROOT, file), 'utf8')
+      .split(/\r?\n/)
+      .forEach((text, index) => {
+        for (const match of text.matchAll(ANY_MEMORY_MARKER)) {
+          sites.push({ file, line: index + 1, found: match[0] });
+        }
+      });
   }
   return { sites, files };
 }
@@ -401,7 +471,9 @@ const MARKER_SITES = collectMemoryMarkerSites();
 /** Every fenced ```markdown block in a doc that contains a start marker. */
 function fencedMemoryExamples(relativePath: string): string[] {
   const content = readFileSync(join(REPO_ROOT, relativePath), 'utf8');
-  const blocks = [...content.matchAll(/```markdown\n([\s\S]*?)```/g)].map((match) => match[1] ?? '');
+  const blocks = [...content.matchAll(/```markdown\n([\s\S]*?)```/g)].map(
+    (match) => match[1] ?? ''
+  );
   return blocks.filter((block) => block.includes(START_MARKER));
 }
 
@@ -409,7 +481,9 @@ describe('LLM-facing memory-block syntax matches what the parser searches for', 
   it('finds the marker sites it claims to guard (anti-vacuity)', () => {
     // If the walk or the regex silently stops matching, the assertion below
     // would pass on an empty list and guard nothing.
-    expect(MARKER_SITES.files.length, 'the skills walk must reach the live docs').toBeGreaterThan(100);
+    expect(MARKER_SITES.files.length, 'the skills walk must reach the live docs').toBeGreaterThan(
+      100
+    );
     expect(MARKER_SITES.sites.length, 'live docs embed memory markers').toBeGreaterThanOrEqual(20);
     const txt = MARKER_SITES.sites.filter((site) => site.file === 'skills/bee/peaks-txt/SKILL.md');
     expect(txt.length, 'peaks-txt must show a memory-block example').toBeGreaterThanOrEqual(2);
@@ -418,8 +492,14 @@ describe('LLM-facing memory-block syntax matches what the parser searches for', 
   it('every marker is the exact literal, so no doc can teach an unfindable block', () => {
     const offenders = MARKER_SITES.sites
       .filter((site) => site.found !== (site.found.includes(':start') ? START_MARKER : END_MARKER))
-      .map((site) => `${site.file}:${site.line} — ${JSON.stringify(site.found)} is not ${JSON.stringify(site.found.includes(':start') ? START_MARKER : END_MARKER)}; the parser searches for the literal, so this block would be invisible`);
-    expect(offenders, 'a marker with attributes is not a marker: the block is never found, never warned about, and lost').toEqual([]);
+      .map(
+        (site) =>
+          `${site.file}:${site.line} — ${JSON.stringify(site.found)} is not ${JSON.stringify(site.found.includes(':start') ? START_MARKER : END_MARKER)}; the parser searches for the literal, so this block would be invisible`
+      );
+    expect(
+      offenders,
+      'a marker with attributes is not a marker: the block is never found, never warned about, and lost'
+    ).toEqual([]);
   });
 
   it("the loading doc's own example survives a real parse", () => {
@@ -435,6 +515,9 @@ describe('LLM-facing memory-block syntax matches what the parser searches for', 
     expect(PROJECT_MEMORY_KINDS).toContain(memories[0]!.kind);
 
     // Parity with the plain projection, mirroring the M2 guard.
-    expect(extractStableProjectMemories(example, doc), 'diagnostics must not change acceptance').toEqual(memories);
+    expect(
+      extractStableProjectMemories(example, doc),
+      'diagnostics must not change acceptance'
+    ).toEqual(memories);
   });
 });

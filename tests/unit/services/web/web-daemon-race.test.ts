@@ -41,20 +41,21 @@ declareDimensions(
   ['behavior', 'integration'],
   [
     { dim: 'render', reason: 'no user-visible text: the callers are processes, not commands' },
-    { dim: 'a11y', reason: 'no CLI envelope or exit code is produced at this layer' },
-  ],
+    { dim: 'a11y', reason: 'no CLI envelope or exit code is produced at this layer' }
+  ]
 );
 
-import {
-  isProcessAlive,
-  readDaemonInfo
-} from '../../../../src/services/web/daemon-registry.js';
+import { isProcessAlive, readDaemonInfo } from '../../../../src/services/web/daemon-registry.js';
 import {
   interpreterArgs,
   stopDaemon,
   type StopDaemonResult
 } from '../../../../src/services/web/daemon-supervisor.js';
-import { webDaemonInfoPath, webLogPath, webSpawnLockPath } from '../../../../src/services/web/web-artifact-paths.js';
+import {
+  webDaemonInfoPath,
+  webLogPath,
+  webSpawnLockPath
+} from '../../../../src/services/web/web-artifact-paths.js';
 import { WebDaemonClient } from '../../../../src/services/web/web-client.js';
 
 const SESSION_ID = '2026-09-10-session-race01';
@@ -148,7 +149,10 @@ interface Reached {
 }
 
 /** Run one caller as a real process; the daemon it reached, or a rejection. */
-function raceCaller(projectRoot: string, trigger?: { ready: string; fire: string }): Promise<Reached> {
+function raceCaller(
+  projectRoot: string,
+  trigger?: { ready: string; fire: string }
+): Promise<Reached> {
   return new Promise<Reached>((settle, reject) => {
     // The same interpreter shape the daemon itself is launched with, so this
     // process has no grandchild escaping our windowsHide (see interpreterArgs).

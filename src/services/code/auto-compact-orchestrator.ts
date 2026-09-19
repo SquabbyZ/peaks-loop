@@ -39,7 +39,10 @@ import { getSessionIdCanonical } from '../session/session-manager.js';
 import { getSessionDir } from '../session/getSessionDir.js';
 import { resolveOuterSessionId } from '../session/binding-status-service.js';
 import { resolveCanonicalProjectRoot } from '../config/config-service.js';
-import { describeHarnessWindowSync, harnessWindowSyncWarning } from '../context/harness-window-config.js';
+import {
+  describeHarnessWindowSync,
+  harnessWindowSyncWarning
+} from '../context/harness-window-config.js';
 import {
   AUTO_COMPACT_PRE_COMPACT_RATIO,
   AUTO_COMPACT_RED_LINE_RATIO,
@@ -52,11 +55,7 @@ import {
 } from '../context/auto-compact-types.js';
 
 import type { CompactTarget } from '../context/auto-compact-dispatcher.js';
-import {
-  type AutoCompactMode,
-  describeMode,
-  thresholdFor
-} from './auto-compact-modes.js';
+import { type AutoCompactMode, describeMode, thresholdFor } from './auto-compact-modes.js';
 import { resolveAutoCompactProfile } from '../mode/mode-status-service.js';
 import type {
   CompactLifecycleRecord,
@@ -144,7 +143,8 @@ export interface AutoCompactInput {
    * only — it can neither change the threshold decision nor the
    * dispatch outcome, and a throwing observer is swallowed.
    */
-  readonly onLifecycleStage?: ((stage: CompactLifecycleStage, record: CompactLifecycleRecord) => void) | undefined;
+  readonly onLifecycleStage?:
+    ((stage: CompactLifecycleStage, record: CompactLifecycleRecord) => void) | undefined;
   /**
    * Test-only injection seams for lifecycle failure paths. NEVER set in
    * production — these exist so the unit suite can drive the `failed`
@@ -187,7 +187,10 @@ const PRE_COMPACT_REASON = 'pre-compact-auto' as const;
  * Default `'standard'` (0.85/0.95). `'partial'` (0.70/0.85) is used
  * when 24h long-run mode is active or `--mode partial` is passed.
  */
-export function evaluateCompactTrigger(ratio: number, mode: AutoCompactMode = 'standard'): CompactTrigger {
+export function evaluateCompactTrigger(
+  ratio: number,
+  mode: AutoCompactMode = 'standard'
+): CompactTrigger {
   const autoFire = thresholdFor(mode, 'autoFire');
   const preCompact = thresholdFor(mode, 'preCompact');
   const redLine = thresholdFor(mode, 'redLine');
@@ -297,9 +300,7 @@ export function evaluateAutoCompactDecision(input: {
   // `hasInFlightBatch`; the boolean reads truthiness.
   const rawProbe = input.inFlightBatch ?? input.inflightBatch;
   const probe: InFlightBatchProbe | undefined =
-    typeof rawProbe === 'boolean'
-      ? { hasInFlightBatch: rawProbe }
-      : rawProbe;
+    typeof rawProbe === 'boolean' ? { hasInFlightBatch: rawProbe } : rawProbe;
   if (trigger.kind === 'none') {
     return { shouldCompact: false, reason: 'below-threshold', trigger, action: 'ok' };
   }
@@ -328,7 +329,8 @@ export function evaluateAutoCompactDecision(input: {
   // Mac auto-compact silent-failure mode without an audit. No higher-priority
   // source is present (`claude-code-env` would have been P1, `statusline-poll`
   // P2, `user-overridden` P4) — Mac's only signal is `transcript-estimate`.
-  if (input.source === 'transcript-estimate' && input.ratio >= AUTO_COMPACT_PRE_COMPACT_RATIO) return { shouldCompact: true, reason: 'pre-compact', trigger, action: 'auto-compact-now' };
+  if (input.source === 'transcript-estimate' && input.ratio >= AUTO_COMPACT_PRE_COMPACT_RATIO)
+    return { shouldCompact: true, reason: 'pre-compact', trigger, action: 'auto-compact-now' };
   // Default: peaks-loop drives pre-compact autonomously.
   return { shouldCompact: true, reason: 'pre-compact', trigger, action: 'auto-compact-now' };
 }
@@ -355,9 +357,10 @@ export function buildConvergencePlan(input: {
     ratio: input.ratio,
     checkpointPath: input.checkpointPath,
     nextActions: [...input.nextActions],
-    resumeHint: input.redLine === true
-      ? 'RED-LINE compact requested from the harness; work CONTINUES (nothing is blocked). Re-probe with `peaks code context-now`; if the ratio is still ≥ 0.95 and the harness has not compacted, report it and hand control back to the user.'
-      : 'post-compact-detect shouldAutoResume → resume pre-compact plan from checkpoint'
+    resumeHint:
+      input.redLine === true
+        ? 'RED-LINE compact requested from the harness; work CONTINUES (nothing is blocked). Re-probe with `peaks code context-now`; if the ratio is still ≥ 0.95 and the harness has not compacted, report it and hand control back to the user.'
+        : 'post-compact-detect shouldAutoResume → resume pre-compact plan from checkpoint'
   };
 }
 
@@ -431,7 +434,8 @@ function writeMainSessionCompactIntent(input: {
     requestedAt: input.now.toISOString(),
     ratio: input.ratio,
     redLine: input.redLine,
-    nextAction: 'next LLM turn MUST fire `/compact` then `mv .peaks/_runtime/<sid>/txt/auto-compact-pending.json .peaks/_runtime/<sid>/txt/auto-compact-pending.consumed.json`'
+    nextAction:
+      'next LLM turn MUST fire `/compact` then `mv .peaks/_runtime/<sid>/txt/auto-compact-pending.json .peaks/_runtime/<sid>/txt/auto-compact-pending.consumed.json`'
   };
   writeFileSync(path, JSON.stringify(payload, null, 2), 'utf8');
 }
@@ -465,9 +469,10 @@ function writePreCompactCheckpoint(input: {
     // out of this JSON. We seed empty arrays; the post-compact LLM
     // rehydrates from the auto-decisions log + open question list.
     mode: 'full-auto',
-    currentPlan: input.redLine === true
-      ? 'RED-LINE compact REQUESTED from the harness (not executed by peaks-loop); work continues'
-      : 'auto-compact in progress; resume from auto-decisions.md',
+    currentPlan:
+      input.redLine === true
+        ? 'RED-LINE compact REQUESTED from the harness (not executed by peaks-loop); work continues'
+        : 'auto-compact in progress; resume from auto-decisions.md',
     openQuestions: [] as string[],
     recentDecisions: [] as string[],
     recentArtifactPaths: [] as string[],
@@ -527,8 +532,13 @@ export async function runAutoCompact(input: AutoCompactInput): Promise<AutoCompa
   // v2.13.0 zero-pause contract.
   const mode: AutoCompactMode = input.mode ?? resolveAutoCompactMode(input.projectRoot);
   // Lazy import to avoid the AC-1 module depending on the orchestrator.
-  const { readContextPercent, syncHarnessWindowForProject } = await import('../context/auto-compact-reader.js');
-  const outerSessionId = resolveOuterSessionId(input.projectRoot, sessionId, input.env ?? process.env);
+  const { readContextPercent, syncHarnessWindowForProject } =
+    await import('../context/auto-compact-reader.js');
+  const outerSessionId = resolveOuterSessionId(
+    input.projectRoot,
+    sessionId,
+    input.env ?? process.env
+  );
   const probe = readContextPercent({
     projectRoot: input.projectRoot,
     sessionId,
@@ -562,9 +572,10 @@ export async function runAutoCompact(input: AutoCompactInput): Promise<AutoCompa
     // sees a graph-backed value. When only the boolean is
     // supplied, we treat it as the test seam (the CLI gates it
     // behind `PEAKS_TEST_SEAM === '1'`).
-    inFlightBatch: input.probeInflightBatch !== undefined
-      ? { hasInFlightBatch: input.probeInflightBatch() }
-      : input.inFlightBatch,
+    inFlightBatch:
+      input.probeInflightBatch !== undefined
+        ? { hasInFlightBatch: input.probeInflightBatch() }
+        : input.inFlightBatch,
     force: input.force,
     bypassRedLine: input.bypassRedLine,
     mode,
@@ -603,17 +614,17 @@ export async function runAutoCompact(input: AutoCompactInput): Promise<AutoCompa
       settleRead !== null && !settleRead.lifecycleWritten
         ? null
         : (settleRead ??
-      // Repair R1 (`2026-09-13-compact-event-settle`): the HARNESS event may
-      // already have closed this run WITHOUT an honest post-compact number —
-      // in which case the call above finds nothing open, and without this the
-      // calibration pair stays blank for exactly the compactions the event path
-      // exists to witness. Fills the number the event owed.
-      fillEventSettledMeasurement({
-        projectRoot: input.projectRoot,
-        sessionId,
-        measuredRatio: probe.ratio,
-        source: probe.source
-      }));
+          // Repair R1 (`2026-09-13-compact-event-settle`): the HARNESS event may
+          // already have closed this run WITHOUT an honest post-compact number —
+          // in which case the call above finds nothing open, and without this the
+          // calibration pair stays blank for exactly the compactions the event path
+          // exists to witness. Fills the number the event owed.
+          fillEventSettledMeasurement({
+            projectRoot: input.projectRoot,
+            sessionId,
+            measuredRatio: probe.ratio,
+            source: probe.source
+          }));
     // Slice 2026-09-13-auto-compact-trigger-ownership (T4): a settle means a
     // dispatched compact demonstrably landed. Append an `observed` row
     // carrying the measured ratio, so `peaks compact history` can show
@@ -645,11 +656,13 @@ export async function runAutoCompact(input: AutoCompactInput): Promise<AutoCompa
     return {
       ok: true,
       code: decision.reason === 'in-flight-batch' ? 'AUTO_COMPACT_WAIT' : 'AUTO_COMPACT_SKIP',
-      message: `${decision.trigger.kind === 'soft-warn'
-        ? decision.trigger.message
-        : decision.reason === 'in-flight-batch'
-          ? `In-flight batch detected; deferring pre-compact (ratio=${(probe.ratio * 100).toFixed(1)}%); next probe will re-evaluate.`
-          : `Context at ${(probe.ratio * 100).toFixed(1)}%; below the ${(thresholdFor(mode, 'autoFire') * 100).toFixed(0)}% auto-fire threshold (mode=${mode}).`}${
+      message: `${
+        decision.trigger.kind === 'soft-warn'
+          ? decision.trigger.message
+          : decision.reason === 'in-flight-batch'
+            ? `In-flight batch detected; deferring pre-compact (ratio=${(probe.ratio * 100).toFixed(1)}%); next probe will re-evaluate.`
+            : `Context at ${(probe.ratio * 100).toFixed(1)}%; below the ${(thresholdFor(mode, 'autoFire') * 100).toFixed(0)}% auto-fire threshold (mode=${mode}).`
+      }${
         // No compact was needed, but the sync may still have rewritten the
         // harness's settings (the first probe of a project always does). The
         // notice is appended ONLY for an actual write — the other actions'
@@ -658,10 +671,12 @@ export async function runAutoCompact(input: AutoCompactInput): Promise<AutoCompa
         // the harness's pinned window disagreeing. That is the moment the ratio
         // stops describing the harness's trigger, so staying silent is exactly
         // the failure 要告知 exists to prevent.
-        harnessWindow !== null && harnessWindow !== undefined &&
+        harnessWindow !== null &&
+        harnessWindow !== undefined &&
         (harnessWindow.action === 'written' || harnessWindowSyncWarning(harnessWindow) !== null)
           ? ` ${describeHarnessWindowSync(harnessWindow)}`
-          : ''}`,
+          : ''
+      }`,
       data: {
         sessionId,
         ratio: probe.ratio,
@@ -935,15 +950,19 @@ export async function runAutoCompact(input: AutoCompactInput): Promise<AutoCompa
         // T4 calibration: the exact denominator this dispatch divided by, so
         // `beforeRatio * windowTokens` is the token point we asked for.
         windowTokens: probe.capacityTokens ?? null,
-        windowSource: probe.capacitySource ?? null,
-      },
+        windowSource: probe.capacitySource ?? null
+      }
     });
-  } catch { /* best-effort; do not fail the compact return */ }
+  } catch {
+    /* best-effort; do not fail the compact return */
+  }
 
   return {
     ok: dispatch.ok,
     code: dispatch.ok
-      ? (isRedLine ? 'AUTO_COMPACT_RED_LINE' : 'AUTO_COMPACT_DISPATCHED')
+      ? isRedLine
+        ? 'AUTO_COMPACT_RED_LINE'
+        : 'AUTO_COMPACT_DISPATCHED'
       : 'AUTO_COMPACT_DISPATCH_FAILED',
     message: dispatch.ok
       ? isRedLine
@@ -1037,7 +1056,9 @@ function appendObservedCompactEvent(input: {
 }): void {
   try {
     appendCompactHistoryEvent(input);
-  } catch { /* best-effort; the probe result is already settled */ }
+  } catch {
+    /* best-effort; the probe result is already settled */
+  }
 }
 // Keep dirname import live for symmetry with sibling services that
 // use it for path joins; tree-shaking removes it in builds.

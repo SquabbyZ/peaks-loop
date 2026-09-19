@@ -285,7 +285,10 @@ export function readContextPercent(input: ReadContextPercentInput): ContextPerce
       // peaks-loop is the one that wrote it, so the adapter may self-correct
       // its own earlier resolution without ever overruling a human's pin.
       ...(harnessWindowTokens !== undefined
-        ? { harnessWindowTokens, harnessWindowPeakWritten: harnessWindowState?.peakWritten === true }
+        ? {
+            harnessWindowTokens,
+            harnessWindowPeakWritten: harnessWindowState?.peakWritten === true
+          }
         : {})
     });
     if (fallback) return fallback;

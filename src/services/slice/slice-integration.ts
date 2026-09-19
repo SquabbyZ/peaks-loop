@@ -46,7 +46,9 @@ export interface IntegrateOptions {
 }
 
 /** Build a quick map: export name → owning slice + contract. */
-function buildExportIndex(contracts: readonly SliceContract[]): Map<string, { sliceId: string; contract: SliceContract }> {
+function buildExportIndex(
+  contracts: readonly SliceContract[]
+): Map<string, { sliceId: string; contract: SliceContract }> {
   const index = new Map<string, { sliceId: string; contract: SliceContract }>();
   for (const c of contracts) {
     for (const exp of c.exports) {
@@ -65,7 +67,7 @@ export function integrateSlices(opts: IntegrateOptions): IntegrationReport {
   const index = buildExportIndex(contracts);
 
   // 1. duplicate exports: the same export name declared by multiple slices.
-  const seen = new Map<string, string[]>();  // export → [sliceIds]
+  const seen = new Map<string, string[]>(); // export → [sliceIds]
   for (const c of contracts) {
     for (const exp of c.exports) {
       if (!seen.has(exp)) seen.set(exp, []);
@@ -85,7 +87,7 @@ export function integrateSlices(opts: IntegrateOptions): IntegrationReport {
   }
 
   // 2. signature drift: same export, different publicSignatures across slices.
-  const signatureByExport = new Map<string, Map<string, string[]>>();  // exp → signature → [sliceIds]
+  const signatureByExport = new Map<string, Map<string, string[]>>(); // exp → signature → [sliceIds]
   for (const c of contracts) {
     for (const sig of c.publicSignatures) {
       // sig format: "exportName:signature"

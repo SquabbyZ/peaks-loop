@@ -69,13 +69,9 @@ export class MemoryIndexReader {
       const raw: unknown = JSON.parse(readFileSync(indexPath, 'utf8'));
       const tiers = {
         hot: flattenBucket(raw, 'hot'),
-        warm: flattenBucket(raw, 'warm'),
+        warm: flattenBucket(raw, 'warm')
       };
-      const entries = [
-        ...tiers.hot,
-        ...tiers.warm,
-        ...flattenBucket(raw, 'cold'),
-      ];
+      const entries = [...tiers.hot, ...tiers.warm, ...flattenBucket(raw, 'cold')];
       this.cache = { mtimeMs, entries, tiers };
       return this.cache;
     } catch {
@@ -90,9 +86,7 @@ export class MemoryIndexReader {
 function bucketOf(raw: unknown, layer: string): Record<string, unknown> | null {
   if (!raw || typeof raw !== 'object') return null;
   const bucket = (raw as Record<string, unknown>)[layer];
-  return bucket && typeof bucket === 'object'
-    ? (bucket as Record<string, unknown>)
-    : null;
+  return bucket && typeof bucket === 'object' ? (bucket as Record<string, unknown>) : null;
 }
 
 function flattenBucket(raw: unknown, layer: string): MemoryIndexEntry[] {

@@ -31,7 +31,7 @@ function cli(args: string, cwd: string): { stdout: string; stderr: string; code:
       env: SPAWN_ENV,
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'pipe'],
-      windowsHide: true,
+      windowsHide: true
     });
     return { stdout, stderr: '', code: 0 };
   } catch (err: unknown) {
@@ -86,7 +86,10 @@ describe('peaks workspace clean CLI', () => {
       // 2026-06-27-archive-feature-removal. Commander should reject the
       // unknown option with a non-zero exit. We verify the binary does
       // not silently accept it (which would indicate a regression).
-      const { code, stderr } = cli(`workspace clean --sub-agents --invalid --apply --json`, project);
+      const { code, stderr } = cli(
+        `workspace clean --sub-agents --invalid --apply --json`,
+        project
+      );
       expect(code).not.toBe(0);
       expect(stderr.toLowerCase()).toMatch(/unknown option|--sub-agents|--invalid/);
     } finally {

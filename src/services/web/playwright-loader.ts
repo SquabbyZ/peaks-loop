@@ -268,9 +268,9 @@ function realpathOrNull(path: string): string | null {
 /** The version named by the `package.json` at `packageDir`, or `null`. */
 function packageJsonVersion(packageDir: string): string | null {
   try {
-    const parsed = JSON.parse(
-      readFileSync(join(packageDir, 'package.json'), 'utf8')
-    ) as { version?: unknown };
+    const parsed = JSON.parse(readFileSync(join(packageDir, 'package.json'), 'utf8')) as {
+      version?: unknown;
+    };
     return typeof parsed.version === 'string' ? parsed.version : null;
   } catch {
     return null;
@@ -294,8 +294,7 @@ export async function loadPlaywright(): Promise<PlaywrightModule> {
     );
   }
   const playwright = (loaded.chromium !== undefined ? loaded : loaded.default) as
-    | PlaywrightModule
-    | undefined;
+    PlaywrightModule | undefined;
   if (playwright === undefined || playwright.chromium === undefined) {
     throw new Error(`PLAYWRIGHT_SHAPE_UNEXPECTED: ${resolved} does not export a chromium module`);
   }

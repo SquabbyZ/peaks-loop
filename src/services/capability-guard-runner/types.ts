@@ -43,8 +43,9 @@ export interface GuardRunResult {
 }
 
 export type GuardErrorCode =
-  | 'GUARD_CONTRACT_MISSING_BASELINE_REF'
-  | 'GUARD_DIFF_DETECTED'
-  | 'GUARD_TEST_FLAKY';
+  'GUARD_CONTRACT_MISSING_BASELINE_REF' | 'GUARD_DIFF_DETECTED' | 'GUARD_TEST_FLAKY';
 
-export interface GuardError { readonly code: GuardErrorCode; readonly message: string; }
+export interface GuardError {
+  readonly code: GuardErrorCode;
+  readonly message: string;
+}

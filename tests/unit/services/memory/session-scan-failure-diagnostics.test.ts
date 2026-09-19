@@ -52,7 +52,10 @@ vi.mock('node:fs', async () => {
   };
 });
 
-import { describeSessionScanFailures, extractSessionMemories } from '~/src/services/memory/project-memory-service/index';
+import {
+  describeSessionScanFailures,
+  extractSessionMemories
+} from '~/src/services/memory/project-memory-service/index';
 
 const START = '<!-- peaks-memory:start -->';
 const END = '<!-- peaks-memory:end -->';
@@ -70,10 +73,18 @@ describe('extractSessionMemories names session artifacts it could not read', () 
     root = mkdtempSync(join(tmpdir(), 'peaks-n2-scan-'));
     mkdirSync(join(root, '.peaks', 'memory'), { recursive: true });
     mkdirSync(handoff(), { recursive: true });
-    writeFileSync(join(handoff(), 'good.md'), block('title: Good\nkind: lesson\n---\nReadable body.'), 'utf8');
+    writeFileSync(
+      join(handoff(), 'good.md'),
+      block('title: Good\nkind: lesson\n---\nReadable body.'),
+      'utf8'
+    );
     // This one WOULD yield a second memory if it could be read. It must not:
     // the fix adds a channel, not a read.
-    writeFileSync(join(handoff(), 'bad.md'), block('title: Bad\nkind: rule\n---\nNever read.'), 'utf8');
+    writeFileSync(
+      join(handoff(), 'bad.md'),
+      block('title: Bad\nkind: rule\n---\nNever read.'),
+      'utf8'
+    );
     __fsMocks.throwFor = null;
   });
 
@@ -139,7 +150,11 @@ describe('extractSessionMemories names session artifacts it could not read', () 
   });
 
   it('names every unreadable artifact, not just the first', () => {
-    writeFileSync(join(handoff(), 'worse.md'), block('title: Worse\nkind: rule\n---\nNever read.'), 'utf8');
+    writeFileSync(
+      join(handoff(), 'worse.md'),
+      block('title: Worse\nkind: rule\n---\nNever read.'),
+      'utf8'
+    );
     __fsMocks.throwFor = /(bad|worse)\.md$/;
     const result = extractSessionMemories({ projectRoot: root, sessionId, apply: false });
     expect(result.scanFailures.map((failure) => failure.file)).toEqual([
@@ -156,9 +171,24 @@ describe('extractSessionMemories names session artifacts it could not read', () 
     // module (pass-through at this point), plus a positive anchor so a rename
     // cannot make the negative assertion pass vacuously.
     __fsMocks.throwFor = null;
-    const source = readFileSync(join(process.cwd(), 'src', 'services', 'memory', 'project-memory-service', 'index', 'kind-dispatch.ts'), 'utf8');
-    expect(source, 'anti-vacuity: the file must actually have been read').toContain('export function extractSessionMemories');
+    const source = readFileSync(
+      join(
+        process.cwd(),
+        'src',
+        'services',
+        'memory',
+        'project-memory-service',
+        'index',
+        'kind-dispatch.ts'
+      ),
+      'utf8'
+    );
+    expect(source, 'anti-vacuity: the file must actually have been read').toContain(
+      'export function extractSessionMemories'
+    );
     expect(source, 'the catch must report rather than swallow').toContain('scanFailures.push(');
-    expect(source, 'the resolved TODO(g2) marker must be gone from this file').not.toContain('TODO(g2)');
+    expect(source, 'the resolved TODO(g2) marker must be gone from this file').not.toContain(
+      'TODO(g2)'
+    );
   });
 });

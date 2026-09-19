@@ -145,7 +145,12 @@ export type HookInstallPlan = {
 };
 
 export type HookInstallResult = HookInstallPlan & { applied: boolean };
-export type HookRemoveResult = { scope: HookScope; settingsPath: string; localSettingsPath?: string; removed: boolean };
+export type HookRemoveResult = {
+  scope: HookScope;
+  settingsPath: string;
+  localSettingsPath?: string;
+  removed: boolean;
+};
 export type HookStatus = {
   scope: HookScope;
   settingsPath: string;
@@ -179,19 +184,31 @@ function resolveSettingsRoot(scope: HookScope, projectRoot: string | undefined):
   return resolve(projectRoot);
 }
 
-function resolveSettingsPath(scope: HookScope, ide: IdeId, projectRoot: string | undefined): string {
+function resolveSettingsPath(
+  scope: HookScope,
+  ide: IdeId,
+  projectRoot: string | undefined
+): string {
   const root = resolveSettingsRoot(scope, projectRoot);
   const adapter = getAdapter(ide);
   return adapter.settings.resolveSettingsFile(scope, scope === 'global' ? homedir() : projectRoot);
 }
 
-function assertSafeSettingsPathCompat(scope: HookScope, ide: IdeId, root: string, settingsPath: string): void {
+function assertSafeSettingsPathCompat(
+  scope: HookScope,
+  ide: IdeId,
+  root: string,
+  settingsPath: string
+): void {
   const adapter = getAdapter(ide);
   assertSafeSettingsFile(scope, root, adapter.settings.dirName, adapter.settings.settingsFileName);
   // The compat path receives the already-computed settingsPath; double-check
   // that the computed path matches what assertSafeSettingsFile would have
   // produced. This guards against drift between the two resolvers.
-  const expected = adapter.settings.resolveSettingsFile(scope, scope === 'global' ? homedir() : root);
+  const expected = adapter.settings.resolveSettingsFile(
+    scope,
+    scope === 'global' ? homedir() : root
+  );
   if (expected !== settingsPath) {
     throw new Error(`settings path drift: ${expected} vs ${settingsPath}`);
   }
@@ -225,7 +242,11 @@ function assertSafeSettingsPathCompat(scope: HookScope, ide: IdeId, root: string
  * (`~/.claude/settings.json`) is already machine-local, so nothing needs
  * relocating there.
  */
-function resolveLocalSettingsPath(scope: HookScope, ide: IdeId, projectRoot: string | undefined): string | undefined {
+function resolveLocalSettingsPath(
+  scope: HookScope,
+  ide: IdeId,
+  projectRoot: string | undefined
+): string | undefined {
   if (scope === 'global') return undefined;
   const adapter = getAdapter(ide);
   const localFileName = adapter.settings.localSettingsFileName;
@@ -267,17 +288,31 @@ type HookTarget = {
   envExemptions?: boolean;
 };
 
-function resolveHookTargets(scope: HookScope, ide: IdeId, projectRoot: string | undefined): HookTarget[] {
+function resolveHookTargets(
+  scope: HookScope,
+  ide: IdeId,
+  projectRoot: string | undefined
+): HookTarget[] {
   const sharedPath = resolveSettingsPath(scope, ide, projectRoot);
   const localPath = resolveLocalSettingsPath(scope, ide, projectRoot);
   const wantsEnvExemptions = ide === 'claude-code';
   if (localPath === undefined || localPath === sharedPath) {
     // Global scope lands here: the user-level file is already machine-local,
     // so it is the safe target (there is no sibling to prefer).
-    return [{ settingsPath: sharedPath, entries: [...resolveHookEntries(ide)], envExemptions: wantsEnvExemptions }];
+    return [
+      {
+        settingsPath: sharedPath,
+        entries: [...resolveHookEntries(ide)],
+        envExemptions: wantsEnvExemptions
+      }
+    ];
   }
   const shared: HookTarget = { settingsPath: sharedPath, entries: [] };
-  const local: HookTarget = { settingsPath: localPath, entries: [], envExemptions: wantsEnvExemptions };
+  const local: HookTarget = {
+    settingsPath: localPath,
+    entries: [],
+    envExemptions: wantsEnvExemptions
+  };
   for (const entry of resolveHookEntries(ide)) {
     (entry.machineLocal === true ? local : shared).entries.push(entry);
   }
@@ -294,7 +329,11 @@ function targetIsSatisfied(target: HookTarget, allSentinels: ReadonlyArray<strin
 /** Flatten the resolved targets into one `{ matcher, sentinel, settingsPath }` row per entry. */
 function describeEntryTargets(targets: ReadonlyArray<HookTarget>): HookEntryTarget[] {
   return targets.flatMap((target) =>
-    target.entries.map((entry) => ({ matcher: entry.matcher, sentinel: entry.sentinel, settingsPath: target.settingsPath }))
+    target.entries.map((entry) => ({
+      matcher: entry.matcher,
+      sentinel: entry.sentinel,
+      settingsPath: target.settingsPath
+    }))
   );
 }
 
@@ -304,7 +343,10 @@ function readSettingsFile(settingsPath: string): Record<string, unknown> {
 }
 
 /** Read the existing hook array entries for the adapter's hookEvent (tolerant of any prior shape). */
-function readHookEventEntries(settings: Record<string, unknown>, eventKey: string): HookMatcherEntry[] {
+function readHookEventEntries(
+  settings: Record<string, unknown>,
+  eventKey: string
+): HookMatcherEntry[] {
   const hooks = settings.hooks;
   if (!hooks || typeof hooks !== 'object' || Array.isArray(hooks)) return [];
   const arr = (hooks as Record<string, unknown>)[eventKey];
@@ -312,7 +354,10 @@ function readHookEventEntries(settings: Record<string, unknown>, eventKey: strin
 }
 
 /** Read the existing hook array entries from a `settings.hooks` object (already extracted). */
-function readHookEntriesFromHooks(hooks: Record<string, unknown>, eventKey: string): HookMatcherEntry[] {
+function readHookEntriesFromHooks(
+  hooks: Record<string, unknown>,
+  eventKey: string
+): HookMatcherEntry[] {
   const arr = hooks[eventKey];
   return Array.isArray(arr) ? (arr as HookMatcherEntry[]) : [];
 }
@@ -408,9 +453,12 @@ export function withSuperpowersSkillDenylist(
   settings: Record<string, unknown>
 ): Record<string, unknown> {
   const ourEntries = SUPERPOWERS_DENIED_SKILLS.map(formatSuperpowersDenyEntry);
-  const permissions = (settings.permissions && typeof settings.permissions === 'object' && !Array.isArray(settings.permissions))
-    ? (settings.permissions as Record<string, unknown>)
-    : {};
+  const permissions =
+    settings.permissions &&
+    typeof settings.permissions === 'object' &&
+    !Array.isArray(settings.permissions)
+      ? (settings.permissions as Record<string, unknown>)
+      : {};
   const existingDeny: string[] = Array.isArray(permissions.deny)
     ? (permissions.deny as string[]).filter((d): d is string => typeof d === 'string')
     : [];
@@ -435,9 +483,12 @@ export function withSuperpowersSkillDenylist(
 export function withoutSuperpowersSkillDenylist(
   settings: Record<string, unknown>
 ): Record<string, unknown> {
-  const permissions = (settings.permissions && typeof settings.permissions === 'object' && !Array.isArray(settings.permissions))
-    ? (settings.permissions as Record<string, unknown>)
-    : {};
+  const permissions =
+    settings.permissions &&
+    typeof settings.permissions === 'object' &&
+    !Array.isArray(settings.permissions)
+      ? (settings.permissions as Record<string, unknown>)
+      : {};
   if (!Array.isArray(permissions.deny)) {
     return settings;
   }
@@ -468,17 +519,23 @@ export function listSuperpowersDenyEntries(): ReadonlyArray<string> {
   return SUPERPOWERS_DENIED_SKILLS.map(formatSuperpowersDenyEntry);
 }
 
-
-
 /** Default (claude-code) peaks-managed hook entries — kept as a stable export for tests. Slice #014: only the gate-enforce entry. */
 export const PEAKS_HOOK_ENTRIES: ReadonlyArray<PeaksHookEntry> = (() => {
   const spec = resolveHookSpec('claude-code');
   return [
-    { sentinel: spec.hookEnforceSentinel, matcher: spec.hookEnforceMatcher, command: spec.hookEnforceCommand, event: spec.hookEnforceEvent }
+    {
+      sentinel: spec.hookEnforceSentinel,
+      matcher: spec.hookEnforceMatcher,
+      command: spec.hookEnforceCommand,
+      event: spec.hookEnforceEvent
+    }
   ];
 })();
 
-function isInstalledForEntries(settings: Record<string, unknown>, entries: ReadonlyArray<PeaksHookEntry>): boolean {
+function isInstalledForEntries(
+  settings: Record<string, unknown>,
+  entries: ReadonlyArray<PeaksHookEntry>
+): boolean {
   const sentinels = entries.map((e) => e.sentinel);
   // Check every distinct event key our entries could be on.
   const eventKeys = new Set(entries.map((e) => e.event));
@@ -510,13 +567,17 @@ function shapeMatchesDesired(
     // the desired set must be per-event, or a target whose entries span two
     // event keys (claude-code: SessionStart + PreToolUse) would never look
     // installed and every `peaks hooks install` would rewrite the files.
-    const desiredSentinels = new Set(entries.filter((e) => e.event === eventKey).map((e) => e.sentinel));
+    const desiredSentinels = new Set(
+      entries.filter((e) => e.event === eventKey).map((e) => e.sentinel)
+    );
     const present = readHookEventEntries(settings, eventKey);
     const peaksPresent = present.filter((e) => entryIsPeaksManaged(e, allPeaksSentinels));
     // (a) every peaks-managed entry currently on disk must match the
     //     desired sentinel set (no stale entries the caller wants removed).
     for (const entry of peaksPresent) {
-      const entrySentinels = (entry.hooks ?? []).map((h) => allPeaksSentinels.find((s) => String(h.command ?? '').includes(s))).filter((s): s is string => Boolean(s));
+      const entrySentinels = (entry.hooks ?? [])
+        .map((h) => allPeaksSentinels.find((s) => String(h.command ?? '').includes(s)))
+        .filter((s): s is string => Boolean(s));
       if (entrySentinels.some((s) => !desiredSentinels.has(s))) {
         return false;
       }
@@ -542,7 +603,11 @@ function shapeMatchesDesired(
   return true;
 }
 
-export function planHookInstall(scope: HookScope, projectRoot?: string, options?: HookInstallOptions): HookInstallPlan {
+export function planHookInstall(
+  scope: HookScope,
+  projectRoot?: string,
+  options?: HookInstallOptions
+): HookInstallPlan {
   const ide = resolveIde(options);
   const _skipProgress = resolveSkipProgress(options);
   const root = resolveSettingsRoot(scope, projectRoot);
@@ -560,7 +625,10 @@ export function planHookInstall(scope: HookScope, projectRoot?: string, options?
     // claim "nothing to do" about a file the install is going to write.
     alreadyInstalled: targets.every((t) => {
       const settings = readSettingsFile(t.settingsPath);
-      return isInstalledForEntries(settings, t.entries) && (t.envExemptions !== true || hasExternalGateExemptions(settings));
+      return (
+        isInstalledForEntries(settings, t.entries) &&
+        (t.envExemptions !== true || hasExternalGateExemptions(settings))
+      );
     }),
     desiredCommand: spec.hookEnforceCommand,
     sentinel: spec.hookEnforceSentinel,
@@ -582,9 +650,10 @@ function withHooksInstalled(
   entries: ReadonlyArray<PeaksHookEntry>,
   allSentinels: ReadonlyArray<string>
 ): Record<string, unknown> {
-  const existingHooks = (settings.hooks && typeof settings.hooks === 'object' && !Array.isArray(settings.hooks))
-    ? (settings.hooks as Record<string, unknown>)
-    : {};
+  const existingHooks =
+    settings.hooks && typeof settings.hooks === 'object' && !Array.isArray(settings.hooks)
+      ? (settings.hooks as Record<string, unknown>)
+      : {};
 
   // Our entries may sit on more than one event key. Group by event so each
   // event array is independently merged.
@@ -611,7 +680,13 @@ function withHooksInstalled(
     const nonPeaks = existing.filter((entry) => !entryIsPeaksManaged(entry, allSentinels));
     const ourFormatted: HookMatcherEntry[] = (ourByEvent.get(eventKey) ?? []).map((spec) => ({
       matcher: spec.matcher,
-      hooks: [{ type: 'command', command: spec.command, ...(spec.shell !== undefined ? { shell: spec.shell } : {}) }]
+      hooks: [
+        {
+          type: 'command',
+          command: spec.command,
+          ...(spec.shell !== undefined ? { shell: spec.shell } : {})
+        }
+      ]
     }));
     const merged = [...nonPeaks, ...ourFormatted];
     if (merged.length > 0) {
@@ -626,7 +701,11 @@ function withHooksInstalled(
   };
 }
 
-export function applyHookInstall(scope: HookScope, projectRoot?: string, options?: HookInstallOptions): HookInstallResult {
+export function applyHookInstall(
+  scope: HookScope,
+  projectRoot?: string,
+  options?: HookInstallOptions
+): HookInstallResult {
   const ide = resolveIde(options);
   const _skipProgress = resolveSkipProgress(options);
   const root = resolveSettingsRoot(scope, projectRoot);
@@ -681,19 +760,28 @@ export function applyHookInstall(scope: HookScope, projectRoot?: string, options
   // Code, the third-party gate exemptions (machine-local by the same
   // argument as the hook `shell` pin).
   for (const target of targets) {
-    let next = withHooksInstalled(readSettingsFile(target.settingsPath), target.entries, allSentinels);
+    let next = withHooksInstalled(
+      readSettingsFile(target.settingsPath),
+      target.entries,
+      allSentinels
+    );
     if (target.envExemptions === true) {
       next = withExternalGateExemptions(next);
     }
-    const merged = target.settingsPath === settingsPath
-      ? withTriggeredDenyList(withSuperpowersSkillDenylist(next))
-      : next;
+    const merged =
+      target.settingsPath === settingsPath
+        ? withTriggeredDenyList(withSuperpowersSkillDenylist(next))
+        : next;
     atomicWriteJson(target.settingsPath, merged);
   }
   return { ...baseResult, alreadyInstalled: false, applied: true };
 }
 
-export function removeHookInstall(scope: HookScope, projectRoot?: string, options?: HookInstallOptions): HookRemoveResult {
+export function removeHookInstall(
+  scope: HookScope,
+  projectRoot?: string,
+  options?: HookInstallOptions
+): HookRemoveResult {
   const ide = resolveIde(options);
   const root = resolveSettingsRoot(scope, projectRoot);
   const settingsPath = resolveSettingsPath(scope, ide, projectRoot);
@@ -713,7 +801,9 @@ export function removeHookInstall(scope: HookScope, projectRoot?: string, option
       scope,
       settingsPath,
       removed: false,
-      ...(localSettingsPath !== undefined && localSettingsPath !== settingsPath ? { localSettingsPath } : {})
+      ...(localSettingsPath !== undefined && localSettingsPath !== settingsPath
+        ? { localSettingsPath }
+        : {})
     };
   }
   const targets = resolveHookTargets(scope, ide, projectRoot);
@@ -741,7 +831,10 @@ export function removeHookInstall(scope: HookScope, projectRoot?: string, option
     // Scan every event key on disk as well as the ones we install on:
     // entries may have been routed to the other settings file by a
     // previous install.
-    const eventKeys = new Set([...target.entries.map((e) => e.event), ...Object.keys(existingHooks)]);
+    const eventKeys = new Set([
+      ...target.entries.map((e) => e.event),
+      ...Object.keys(existingHooks)
+    ]);
     const nextHooks: Record<string, unknown> = { ...existingHooks };
     for (const eventKey of eventKeys) {
       const entries = readHookEntriesFromHooks(nextHooks, eventKey);
@@ -786,7 +879,11 @@ export function removeHookInstall(scope: HookScope, projectRoot?: string, option
   };
 }
 
-export function readHookStatus(scope: HookScope, projectRoot?: string, options?: HookInstallOptions): HookStatus {
+export function readHookStatus(
+  scope: HookScope,
+  projectRoot?: string,
+  options?: HookInstallOptions
+): HookStatus {
   const ide = resolveIde(options);
   const root = resolveSettingsRoot(scope, projectRoot);
   const settingsPath = resolveSettingsPath(scope, ide, projectRoot);
@@ -823,7 +920,10 @@ export function readHookStatus(scope: HookScope, projectRoot?: string, options?:
     settingsPath,
     exists,
     ...(localTarget !== undefined
-      ? { localSettingsPath: localTarget.settingsPath, localExists: existsSync(localTarget.settingsPath) }
+      ? {
+          localSettingsPath: localTarget.settingsPath,
+          localExists: existsSync(localTarget.settingsPath)
+        }
       : {}),
     installed: targets.some((t) => {
       const settings = readSettingsFile(t.settingsPath);
@@ -876,29 +976,32 @@ function formatTriggerDenyEntry(phrase: string): string {
   return `Edit(deny-trigger:${phrase})`;
 }
 
-export function withTriggeredDenyList(
-  settings: Record<string, unknown>
-): Record<string, unknown> {
+export function withTriggeredDenyList(settings: Record<string, unknown>): Record<string, unknown> {
   const existingDeny: string[] = Array.isArray(
     (settings.permissions as Record<string, unknown> | undefined)?.deny
   )
-    ? (((settings.permissions as Record<string, unknown>).deny as unknown[])
-        .filter((d): d is string => typeof d === 'string'))
+    ? ((settings.permissions as Record<string, unknown>).deny as unknown[]).filter(
+        (d): d is string => typeof d === 'string'
+      )
     : [];
   // Detect triggers in the existing allow + deny lists.
   const existingAllow: string[] = Array.isArray(
     (settings.permissions as Record<string, unknown> | undefined)?.allow
   )
-    ? (((settings.permissions as Record<string, unknown>).allow as unknown[])
-        .filter((d): d is string => typeof d === 'string'))
+    ? ((settings.permissions as Record<string, unknown>).allow as unknown[]).filter(
+        (d): d is string => typeof d === 'string'
+      )
     : [];
   const haystack = [...existingDeny, ...existingAllow].join('|');
   const triggered = TRIGGER_PHRASES.filter((p) => haystack.includes(p));
   if (triggered.length === 0) return settings;
   const triggeredEntries = triggered.map(formatTriggerDenyEntry);
-  const permissions = (settings.permissions && typeof settings.permissions === 'object' && !Array.isArray(settings.permissions))
-    ? (settings.permissions as Record<string, unknown>)
-    : {};
+  const permissions =
+    settings.permissions &&
+    typeof settings.permissions === 'object' &&
+    !Array.isArray(settings.permissions)
+      ? (settings.permissions as Record<string, unknown>)
+      : {};
   const otherDeny = existingDeny.filter((d) => !triggeredEntries.includes(d));
   return {
     ...settings,
@@ -910,9 +1013,12 @@ export function withTriggeredDenyList(
 export function withoutTriggeredDenyList(
   settings: Record<string, unknown>
 ): Record<string, unknown> {
-  const permissions = (settings.permissions && typeof settings.permissions === 'object' && !Array.isArray(settings.permissions))
-    ? (settings.permissions as Record<string, unknown>)
-    : {};
+  const permissions =
+    settings.permissions &&
+    typeof settings.permissions === 'object' &&
+    !Array.isArray(settings.permissions)
+      ? (settings.permissions as Record<string, unknown>)
+      : {};
   const existingDeny: string[] = Array.isArray(permissions.deny)
     ? (permissions.deny as string[]).filter((d): d is string => typeof d === 'string')
     : [];

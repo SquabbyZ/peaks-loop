@@ -34,7 +34,7 @@ import {
   type ClassifyAuditEntry,
   type ClassifyResult,
   type ClassifySignals,
-  type TaskLevel,
+  type TaskLevel
 } from './classify-types.js';
 import type { ClassifyConservatism } from '../preferences/preferences-types.js';
 
@@ -48,29 +48,53 @@ export interface ClassifyInput {
 }
 
 const FEATURE_KEYWORDS = ['fix', 'bug', 'broken', 'crash', 'regression'] as const;
-const MIGRATION_KEYWORDS = ['migrate', 'migration', 'codemod', 'backfill', 'schema', 'bump'] as const;
+const MIGRATION_KEYWORDS = [
+  'migrate',
+  'migration',
+  'codemod',
+  'backfill',
+  'schema',
+  'bump'
+] as const;
 const REFACTOR_KEYWORDS = ['refactor', 'rename', 'extract', 'inline', 'cleanup'] as const;
 
-function detectLevel(signals: ClassifySignals, featureThresholdFiles: number, featureThresholdLines: number): TaskLevel {
+function detectLevel(
+  signals: ClassifySignals,
+  featureThresholdFiles: number,
+  featureThresholdLines: number
+): TaskLevel {
   // 1. Migration takes priority.
   if (signals.touchesMigrationScripts) return 'migration';
   const lower = signals.keywords.map((k) => k.toLowerCase());
-  if (signals.touchesDependencies && lower.some((k) => MIGRATION_KEYWORDS.includes(k as typeof MIGRATION_KEYWORDS[number]))) {
+  if (
+    signals.touchesDependencies &&
+    lower.some((k) => MIGRATION_KEYWORDS.includes(k as (typeof MIGRATION_KEYWORDS)[number]))
+  ) {
     return 'migration';
   }
   if (signals.touchesDependencies) return 'migration';
-  if (signals.touchesDependencies === false && signals.isPureRefactor && signals.linesChanged > 50) {
+  if (
+    signals.touchesDependencies === false &&
+    signals.isPureRefactor &&
+    signals.linesChanged > 50
+  ) {
     return 'refactor';
   }
-  if (lower.some((k) => REFACTOR_KEYWORDS.includes(k as typeof REFACTOR_KEYWORDS[number])) && signals.isPureRefactor) {
+  if (
+    lower.some((k) => REFACTOR_KEYWORDS.includes(k as (typeof REFACTOR_KEYWORDS)[number])) &&
+    signals.isPureRefactor
+  ) {
     return 'refactor';
   }
   // 2. Feature threshold.
-  if (signals.filesChanged >= featureThresholdFiles || signals.linesChanged >= featureThresholdLines) {
+  if (
+    signals.filesChanged >= featureThresholdFiles ||
+    signals.linesChanged >= featureThresholdLines
+  ) {
     return 'feature';
   }
   // 3. Bug-fix keywords.
-  if (lower.some((k) => FEATURE_KEYWORDS.includes(k as typeof FEATURE_KEYWORDS[number]))) {
+  if (lower.some((k) => FEATURE_KEYWORDS.includes(k as (typeof FEATURE_KEYWORDS)[number]))) {
     return 'bug';
   }
   // 4. Small diff: typo.
@@ -94,7 +118,11 @@ function applyConservatism(level: TaskLevel, conservatism: ClassifyConservatism)
   return TASK_LEVELS[prev] ?? level;
 }
 
-function buildRationale(signals: ClassifySignals, level: TaskLevel, overrideApplied: boolean): string {
+function buildRationale(
+  signals: ClassifySignals,
+  level: TaskLevel,
+  overrideApplied: boolean
+): string {
   if (overrideApplied) return `level forced via override`;
   const parts: string[] = [];
   parts.push(`${signals.filesChanged} file(s), ${signals.linesChanged} line(s)`);
@@ -106,7 +134,11 @@ function buildRationale(signals: ClassifySignals, level: TaskLevel, overrideAppl
   return parts.join('; ');
 }
 
-export function classifyTask(input: ClassifyInput, featureThresholdFiles = 10, featureThresholdLines = 100): ClassifyResult {
+export function classifyTask(
+  input: ClassifyInput,
+  featureThresholdFiles = 10,
+  featureThresholdLines = 100
+): ClassifyResult {
   const heuristicLevel = detectLevel(input.signals, featureThresholdFiles, featureThresholdLines);
 
   let finalLevel: TaskLevel;
@@ -128,7 +160,7 @@ export function classifyTask(input: ClassifyInput, featureThresholdFiles = 10, f
     output: finalLevel,
     conservatism: input.conservatism,
     overrideApplied,
-    reason: input.override?.reason ?? rationale,
+    reason: input.override?.reason ?? rationale
   };
 
   return {
@@ -136,6 +168,6 @@ export function classifyTask(input: ClassifyInput, featureThresholdFiles = 10, f
     signals: input.signals,
     rationale,
     gateSet,
-    audit,
+    audit
   };
 }

@@ -20,10 +20,18 @@ import { Command } from 'commander';
 
 import { registerHooksCommands } from '~/src/cli/commands/hooks-commands';
 import { makeCapturedIo, withEnv } from '../_setup/io.js';
-import { resolveHookEntries, resolveHookShell, resolveHookSpec } from '~/src/services/skills/hooks-codegate-superpowers';
+import {
+  resolveHookEntries,
+  resolveHookShell,
+  resolveHookSpec
+} from '~/src/services/skills/hooks-codegate-superpowers';
 import { installAutoCompactHook } from '~/src/services/hooks/auto-compact-hook-install';
 import { applyHookInstall, planHookInstall } from '~/src/services/skills/hooks-settings-service';
-import { buildClaudeSettingsLocalJson, TEMPLATE_VERSION, templateContentMatches } from '~/src/services/workspace/claude-settings-template';
+import {
+  buildClaudeSettingsLocalJson,
+  TEMPLATE_VERSION,
+  templateContentMatches
+} from '~/src/services/workspace/claude-settings-template';
 
 /** Force `process.platform` for the duration of a case. */
 function stubPlatform(platform: NodeJS.Platform): void {
@@ -44,10 +52,13 @@ function readPreToolUseEntries(settingsPath: string): PreToolUseEntry[] {
   return parsed.hooks?.PreToolUse ?? [];
 }
 
-function findGateEnforceHandler(entries: PreToolUseEntry[]): { command?: string; shell?: string } | undefined {
+function findGateEnforceHandler(
+  entries: PreToolUseEntry[]
+): { command?: string; shell?: string } | undefined {
   for (const entry of entries) {
     for (const handler of entry.hooks ?? []) {
-      if (typeof handler.command === 'string' && handler.command.includes('peaks gate enforce')) return handler;
+      if (typeof handler.command === 'string' && handler.command.includes('peaks gate enforce'))
+        return handler;
     }
   }
   return undefined;
@@ -129,7 +140,9 @@ describe('behavior — gate-enforce hook shell is machine-specific', () => {
     const localHandler = findGateEnforceHandler(readPreToolUseEntries(local));
     expect(localHandler?.shell).toBe('powershell');
     expect(localHandler?.command).toMatch(/--json$/);
-    expect(findGateEnforceHandler(existsSync(shared) ? readPreToolUseEntries(shared) : [])).toBeUndefined();
+    expect(
+      findGateEnforceHandler(existsSync(shared) ? readPreToolUseEntries(shared) : [])
+    ).toBeUndefined();
   });
 
   it('when the install plan is built, should attribute every entry to the settings file it lands in', () => {
@@ -173,10 +186,15 @@ describe('behavior — gate-enforce hook shell is machine-specific', () => {
     const withoutLocalLayer = ['trae', 'cursor', 'codex', 'hermes', 'openclaw'] as const;
     for (const ide of withoutLocalLayer) {
       const plan = planHookInstall('project', tmpRoot, { ide });
-      expect(plan.localSettingsPath, `${ide} was attributed a machine-local settings file`).toBeUndefined();
+      expect(
+        plan.localSettingsPath,
+        `${ide} was attributed a machine-local settings file`
+      ).toBeUndefined();
       // One target, and it is the adapter's own settings file: the routing
       // decision, not just the absent key.
-      expect(plan.entryTargets.every((entry) => entry.settingsPath === plan.settingsPath)).toBe(true);
+      expect(plan.entryTargets.every((entry) => entry.settingsPath === plan.settingsPath)).toBe(
+        true
+      );
     }
     // ...and the contrast, in the same shape, so a version of this case that
     // passed because BOTH sides went undefined cannot be mistaken for a pass.
@@ -192,7 +210,9 @@ describe('behavior — gate-enforce hook shell is machine-specific', () => {
     applyHookInstall('project', tmpRoot, { ide: 'claude-code' });
     // then: the entry is routed by an entry flag, not by the ambient platform,
     //       so the committed shared file stays identical across platforms
-    const localHandler = findGateEnforceHandler(readPreToolUseEntries(join(tmpRoot, '.claude', 'settings.local.json')));
+    const localHandler = findGateEnforceHandler(
+      readPreToolUseEntries(join(tmpRoot, '.claude', 'settings.local.json'))
+    );
     expect(localHandler).toBeDefined();
     expect(localHandler?.shell).toBeUndefined();
   });
@@ -212,7 +232,13 @@ describe('behavior — gate-enforce hook shell is machine-specific', () => {
             PreToolUse: [
               {
                 matcher: 'Bash',
-                hooks: [{ type: 'command', command: 'peaks gate enforce --project "${CLAUDE_PROJECT_DIR}" --json', shell: 'powershell' }]
+                hooks: [
+                  {
+                    type: 'command',
+                    command: 'peaks gate enforce --project "${CLAUDE_PROJECT_DIR}" --json',
+                    shell: 'powershell'
+                  }
+                ]
               }
             ]
           }
@@ -226,7 +252,9 @@ describe('behavior — gate-enforce hook shell is machine-specific', () => {
     applyHookInstall('project', tmpRoot, { ide: 'claude-code' });
     // then: the entry is gone from the shared file and present in the local one
     expect(findGateEnforceHandler(readPreToolUseEntries(shared))).toBeUndefined();
-    expect(findGateEnforceHandler(readPreToolUseEntries(join(tmpRoot, '.claude', 'settings.local.json')))).toBeDefined();
+    expect(
+      findGateEnforceHandler(readPreToolUseEntries(join(tmpRoot, '.claude', 'settings.local.json')))
+    ).toBeDefined();
   });
 
   it('when the workspace-init template is built on win32, should pin every peaks Bash handler', () => {
@@ -234,11 +262,13 @@ describe('behavior — gate-enforce hook shell is machine-specific', () => {
     stubPlatform('win32');
     // when: the workspace-init template is built
     const template = buildClaudeSettingsLocalJson() as unknown as {
-      hooks: { PreToolUse: Array<{ matcher: string; hooks: Array<{ command?: string; shell?: string }> }> };
+      hooks: {
+        PreToolUse: Array<{ matcher: string; hooks: Array<{ command?: string; shell?: string }> }>;
+      };
     };
-    const bashHandlers = template.hooks.PreToolUse
-      .filter((entry) => entry.matcher === 'Bash')
-      .flatMap((entry) => entry.hooks);
+    const bashHandlers = template.hooks.PreToolUse.filter(
+      (entry) => entry.matcher === 'Bash'
+    ).flatMap((entry) => entry.hooks);
     // then: EVERY Bash-matcher handler that spawns the peaks CLI is pinned —
     //       both `gate enforce` and `gate-step-08` run on every Bash call, so
     //       leaving either unpinned leaves the console window in place
@@ -255,12 +285,14 @@ describe('behavior — gate-enforce hook shell is machine-specific', () => {
     stubPlatform('linux');
     // when: the workspace-init template is built
     const template = buildClaudeSettingsLocalJson() as unknown as {
-      hooks: { PreToolUse: Array<{ matcher: string; hooks: Array<{ command?: string; shell?: string }> }> };
+      hooks: {
+        PreToolUse: Array<{ matcher: string; hooks: Array<{ command?: string; shell?: string }> }>;
+      };
     };
     // then: no Bash handler carries a `shell` key, so the default shell holds
-    const bashHandlers = template.hooks.PreToolUse
-      .filter((entry) => entry.matcher === 'Bash')
-      .flatMap((entry) => entry.hooks);
+    const bashHandlers = template.hooks.PreToolUse.filter(
+      (entry) => entry.matcher === 'Bash'
+    ).flatMap((entry) => entry.hooks);
     expect(bashHandlers.every((h) => h.shell === undefined)).toBe(true);
   });
 
@@ -281,7 +313,9 @@ describe('behavior — gate-enforce hook shell is machine-specific', () => {
     // pinned to the installing Node version directory) and the exempting `env`
     // block is what remains.
     expect(TEMPLATE_VERSION).toBe('1.8.0');
-    expect(findGateEnforceHandler(readPreToolUseEntriesSync(serializedTemplate))?.shell).toBe('powershell');
+    expect(findGateEnforceHandler(readPreToolUseEntriesSync(serializedTemplate))?.shell).toBe(
+      'powershell'
+    );
   });
 
   it('when the auto-compact hook is installed on win32, should pin the shell on its Bash|Task matcher', () => {
@@ -295,7 +329,9 @@ describe('behavior — gate-enforce hook shell is machine-specific', () => {
     //       in the same machine-local file
     const serialized = readFileSync(result.settingsPath, 'utf8');
     const parsed = JSON.parse(serialized) as {
-      hooks: { PreToolUse: Array<{ matcher: string; hooks: Array<{ command?: string; shell?: string }> }> };
+      hooks: {
+        PreToolUse: Array<{ matcher: string; hooks: Array<{ command?: string; shell?: string }> }>;
+      };
     };
     const handler = parsed.hooks.PreToolUse.find((e) => e.matcher === 'Bash|Task')?.hooks[0];
     // `--project .` is required for the hook to RUN at all: the command
@@ -317,7 +353,9 @@ describe('behavior — gate-enforce hook shell is machine-specific', () => {
     const parsed = JSON.parse(readFileSync(result.settingsPath, 'utf8')) as {
       hooks: { PreToolUse: Array<{ matcher: string; hooks: Array<{ shell?: string }> }> };
     };
-    expect(parsed.hooks.PreToolUse.find((e) => e.matcher === 'Bash|Task')?.hooks[0]?.shell).toBeUndefined();
+    expect(
+      parsed.hooks.PreToolUse.find((e) => e.matcher === 'Bash|Task')?.hooks[0]?.shell
+    ).toBeUndefined();
   });
 
   it('when hooks install runs twice, should be a no-op the second time', () => {
@@ -333,11 +371,15 @@ describe('behavior — gate-enforce hook shell is machine-specific', () => {
     expect(second.applied).toBe(false);
     expect(second.alreadyInstalled).toBe(true);
     const local = readFileSync(join(tmpRoot, '.claude', 'settings.local.json'), 'utf8');
-    expect((local.match(/peaks gate enforce/g) ?? [])).toHaveLength(1);
+    expect(local.match(/peaks gate enforce/g) ?? []).toHaveLength(1);
   });
 
   /** Drive `peaks hooks install` in-process against a throwaway HOME. */
-  function runHooksInstall(args: ReadonlyArray<string>): { ok?: boolean; data?: Record<string, unknown>; text: string } {
+  function runHooksInstall(args: ReadonlyArray<string>): {
+    ok?: boolean;
+    data?: Record<string, unknown>;
+    text: string;
+  } {
     const { io, captured } = makeCapturedIo();
     const program = new Command();
     registerHooksCommands(program, io);
@@ -417,7 +459,10 @@ describe('behavior — gate-enforce hook shell is machine-specific', () => {
     const onDisk = readFileSync(join(tmpRoot, '.claude', 'settings.local.json'), 'utf8');
     // then: the entry is still present and the file still matches the
     //       template, so the next init is a no-op instead of a rewrite
-    expect(findGateEnforceHandler(readPreToolUseEntries(join(tmpRoot, '.claude', 'settings.local.json')))?.shell).toBe('powershell');
+    expect(
+      findGateEnforceHandler(readPreToolUseEntries(join(tmpRoot, '.claude', 'settings.local.json')))
+        ?.shell
+    ).toBe('powershell');
     expect(templateContentMatches(serializedTemplate, onDisk)).toBe(true);
   });
 });

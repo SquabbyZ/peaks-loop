@@ -58,7 +58,8 @@ function* walkSourceFiles(root: string, warnings: string[]): Generator<string> {
     for (const dirent of dirents) {
       const full = join(dir, dirent.name);
       if (dirent.isDirectory()) {
-        if (dirent.name === 'node_modules' || dirent.name === 'dist' || dirent.name.startsWith('.')) continue;
+        if (dirent.name === 'node_modules' || dirent.name === 'dist' || dirent.name.startsWith('.'))
+          continue;
         stack.push(full);
       } else if (dirent.isFile() && SOURCE_FILE.test(dirent.name)) {
         yield full;
@@ -73,7 +74,7 @@ function* walkSourceFiles(root: string, warnings: string[]): Generator<string> {
  */
 export function computeLiveEnforcers(
   projectRoot: string,
-  enforcerRefs: readonly string[],
+  enforcerRefs: readonly string[]
 ): LiveEnforcerScan {
   const srcRoot = join(projectRoot, 'src');
   const warnings: string[] = [];

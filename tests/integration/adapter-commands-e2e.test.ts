@@ -60,8 +60,10 @@ function runCli(args: readonly string[], cwd = REPO): RunResult {
       status?: number | null;
     };
     return {
-      stdout: typeof caught.stdout === 'string' ? caught.stdout : caught.stdout?.toString('utf8') ?? '',
-      stderr: typeof caught.stderr === 'string' ? caught.stderr : caught.stderr?.toString('utf8') ?? '',
+      stdout:
+        typeof caught.stdout === 'string' ? caught.stdout : (caught.stdout?.toString('utf8') ?? ''),
+      stderr:
+        typeof caught.stderr === 'string' ? caught.stderr : (caught.stderr?.toString('utf8') ?? ''),
       code: typeof caught.status === 'number' ? caught.status : 1
     };
   }
@@ -85,7 +87,7 @@ function expectRegisteredHelp(
   expect(result.stdout).toContain(`Usage: ${expectedUsage}`);
   expect(
     result.code === 0 ||
-    (result.stderr.includes('COMMAND_NOT_FOUND') && result.stderr.includes('combinedWithHelp'))
+      (result.stderr.includes('COMMAND_NOT_FOUND') && result.stderr.includes('combinedWithHelp'))
   ).toBe(true);
   return result;
 }
@@ -151,23 +153,32 @@ describe('peaks skill list (P2-B.4 adapter/distribution e2e)', () => {
 });
 
 describe('peaks skill sync (P2-B.4 adapter/distribution e2e)', () => {
-  test('dry-run reports all platform plans without applying them', () => {
-    const project = makeProject('peaks-p2b4-skill-sync-');
-    expectRegisteredHelp(['skill', 'sync'], 'peaks skill sync [options]', project);
-    const result = runCli(['skill', 'sync', '--project', project, '--dry-run', '--json'], project);
-    expect(result.code).toBe(0);
-    const envelope = parseJson<CliEnvelope<{
-      applied: boolean;
-      dryRun: boolean;
-      perPlatform: readonly unknown[];
-      failedCount: number;
-    }>>(result);
-    expect(envelope.ok).toBe(true);
-    expect(envelope.command).toBe('skill.sync');
-    expect(envelope.data.applied).toBe(false);
-    expect(envelope.data.dryRun).toBe(true);
-    expect(envelope.data.perPlatform.length).toBeGreaterThan(0);
-  }, BIN_TIMEOUT_MS);
+  test(
+    'dry-run reports all platform plans without applying them',
+    () => {
+      const project = makeProject('peaks-p2b4-skill-sync-');
+      expectRegisteredHelp(['skill', 'sync'], 'peaks skill sync [options]', project);
+      const result = runCli(
+        ['skill', 'sync', '--project', project, '--dry-run', '--json'],
+        project
+      );
+      expect(result.code).toBe(0);
+      const envelope = parseJson<
+        CliEnvelope<{
+          applied: boolean;
+          dryRun: boolean;
+          perPlatform: readonly unknown[];
+          failedCount: number;
+        }>
+      >(result);
+      expect(envelope.ok).toBe(true);
+      expect(envelope.command).toBe('skill.sync');
+      expect(envelope.data.applied).toBe(false);
+      expect(envelope.data.dryRun).toBe(true);
+      expect(envelope.data.perPlatform.length).toBeGreaterThan(0);
+    },
+    BIN_TIMEOUT_MS
+  );
 });
 
 describe('peaks skill install <name> (P2-B.4 adapter/distribution e2e)', () => {
@@ -191,30 +202,29 @@ describe('peaks skill search (P2-B.4 adapter/distribution e2e)', () => {
 });
 
 describe('peaks skill conformance (P2-B.4 adapter/distribution e2e)', () => {
-  test('is not registered; the top-level skills:audit-conformance replacement works', () => {
-    expectCommandNotRegistered(
-      ['skill', 'conformance'],
-      'peaks skill [options] [command]'
-    );
-    expectRegisteredHelp(
-      ['skills:audit-conformance'],
-      'peaks skills:audit-conformance [options]'
-    );
-    const replacement = runCli(['skills:audit-conformance', '--project', REPO, '--json']);
-    expect(replacement.code).toBe(0);
-    const envelope = parseJson<CliEnvelope<{ checked: number; checks: readonly unknown[] }>>(replacement);
-    expect(envelope.ok).toBe(true);
-    expect(envelope.command).toBe('skills.audit-conformance');
-    expect(envelope.data.checked).toBeGreaterThan(0);
-  }, BIN_TIMEOUT_MS);
+  test(
+    'is not registered; the top-level skills:audit-conformance replacement works',
+    () => {
+      expectCommandNotRegistered(['skill', 'conformance'], 'peaks skill [options] [command]');
+      expectRegisteredHelp(
+        ['skills:audit-conformance'],
+        'peaks skills:audit-conformance [options]'
+      );
+      const replacement = runCli(['skills:audit-conformance', '--project', REPO, '--json']);
+      expect(replacement.code).toBe(0);
+      const envelope =
+        parseJson<CliEnvelope<{ checked: number; checks: readonly unknown[] }>>(replacement);
+      expect(envelope.ok).toBe(true);
+      expect(envelope.command).toBe('skills.audit-conformance');
+      expect(envelope.data.checked).toBeGreaterThan(0);
+    },
+    BIN_TIMEOUT_MS
+  );
 });
 
 describe('peaks skill visibility (P2-B.4 adapter/distribution e2e)', () => {
   test('is not registered; the top-level skill:visibility replacement works', () => {
-    expectCommandNotRegistered(
-      ['skill', 'visibility'],
-      'peaks skill [options] [command]'
-    );
+    expectCommandNotRegistered(['skill', 'visibility'], 'peaks skill [options] [command]');
     expectRegisteredHelp(['skill:visibility'], 'peaks skill:visibility [options]');
     const replacement = runCli(['skill:visibility', '--list', '--json']);
     expect(replacement.code).toBe(0);
@@ -228,15 +238,19 @@ describe('peaks skill visibility (P2-B.4 adapter/distribution e2e)', () => {
 });
 
 describe('peaks skill doctor (P2-B.4 adapter/distribution e2e)', () => {
-  test('is registered and returns structured skill checks', () => {
-    expectRegisteredHelp(['skill', 'doctor'], 'peaks skill doctor [options]');
-    const result = runCli(['skill', 'doctor', '--json']);
-    const envelope = parseJson<CliEnvelope<{ checks: readonly unknown[]; ok: boolean }>>(result);
-    expect(envelope.ok).toBe(true);
-    expect(envelope.command).toBe('skill.doctor');
-    expect(Array.isArray(envelope.data.checks)).toBe(true);
-    expect(result.code).toBe(envelope.data.ok ? 0 : 1);
-  }, BIN_TIMEOUT_MS);
+  test(
+    'is registered and returns structured skill checks',
+    () => {
+      expectRegisteredHelp(['skill', 'doctor'], 'peaks skill doctor [options]');
+      const result = runCli(['skill', 'doctor', '--json']);
+      const envelope = parseJson<CliEnvelope<{ checks: readonly unknown[]; ok: boolean }>>(result);
+      expect(envelope.ok).toBe(true);
+      expect(envelope.command).toBe('skill.doctor');
+      expect(Array.isArray(envelope.data.checks)).toBe(true);
+      expect(result.code).toBe(envelope.data.ok ? 0 : 1);
+    },
+    BIN_TIMEOUT_MS
+  );
 });
 
 describe('peaks skill runbook (P2-B.4 adapter/distribution e2e)', () => {
@@ -247,11 +261,13 @@ describe('peaks skill runbook (P2-B.4 adapter/distribution e2e)', () => {
     );
     const result = runCli(['skill', 'runbook', 'peaks-code', '--json']);
     expect(result.code).toBe(0);
-    const envelope = parseJson<CliEnvelope<{
-      name: string;
-      hasRunbook: boolean;
-      peaksCommandCount: number;
-    }>>(result);
+    const envelope = parseJson<
+      CliEnvelope<{
+        name: string;
+        hasRunbook: boolean;
+        peaksCommandCount: number;
+      }>
+    >(result);
     expect(envelope.ok).toBe(true);
     expect(envelope.command).toBe('skill.runbook');
     expect(envelope.data.name).toBe('peaks-code');
@@ -273,127 +289,157 @@ describe('peaks skill presence (P2-B.4 adapter/distribution e2e)', () => {
 });
 
 describe('peaks skill presence:set (P2-B.4 adapter/distribution e2e)', () => {
-  test('sets a session-bound marker inside a temporary project', () => {
-    const project = makeProject('peaks-p2b4-presence-set-');
-    initWorkspace(project);
-    expectRegisteredHelp(
-      ['skill', 'presence:set', 'peaks-rd'],
-      'peaks skill presence:set [options] <name>',
-      project
-    );
-    const result = runCli([
-      'skill', 'presence:set', 'peaks-rd', '--project', project,
-      '--mode', 'strict', '--gate', 'p2-b4-e2e', '--json'
-    ], project);
-    expect(result.code).toBe(0);
-    const envelope = parseJson<CliEnvelope<{
-      active: boolean;
-      skill: string;
-      mode: string;
-      gate: string;
-    }>>(result);
-    expect(envelope.ok).toBe(true);
-    expect(envelope.command).toBe('skill.presence:set');
-    expect(envelope.data).toMatchObject({
-      active: true,
-      skill: 'peaks-rd',
-      mode: 'strict',
-      gate: 'p2-b4-e2e'
-    });
-  }, BIN_TIMEOUT_MS);
+  test(
+    'sets a session-bound marker inside a temporary project',
+    () => {
+      const project = makeProject('peaks-p2b4-presence-set-');
+      initWorkspace(project);
+      expectRegisteredHelp(
+        ['skill', 'presence:set', 'peaks-rd'],
+        'peaks skill presence:set [options] <name>',
+        project
+      );
+      const result = runCli(
+        [
+          'skill',
+          'presence:set',
+          'peaks-rd',
+          '--project',
+          project,
+          '--mode',
+          'strict',
+          '--gate',
+          'p2-b4-e2e',
+          '--json'
+        ],
+        project
+      );
+      expect(result.code).toBe(0);
+      const envelope = parseJson<
+        CliEnvelope<{
+          active: boolean;
+          skill: string;
+          mode: string;
+          gate: string;
+        }>
+      >(result);
+      expect(envelope.ok).toBe(true);
+      expect(envelope.command).toBe('skill.presence:set');
+      expect(envelope.data).toMatchObject({
+        active: true,
+        skill: 'peaks-rd',
+        mode: 'strict',
+        gate: 'p2-b4-e2e'
+      });
+    },
+    BIN_TIMEOUT_MS
+  );
 });
 
 describe('peaks skill presence:clear (P2-B.4 adapter/distribution e2e)', () => {
-  test('reports the lease it did not clear: an ad-hoc lease survives outside session exit', () => {
-    const project = makeProject('peaks-p2b4-presence-clear-');
-    initWorkspace(project);
-    runCli(['skill', 'presence:set', 'peaks-rd', '--project', project, '--json'], project);
-    const help = expectRegisteredHelp(
-      ['skill', 'presence:clear'],
-      'peaks skill presence:clear [options]',
-      project
-    );
-    // The help text used to promise a routing this command does not perform
-    // ("routes workflow leases through `workflow terminalize`"). A caller who
-    // believed it ran `presence:clear` expecting a live workflow lease to
-    // terminalize, got exit 0, and kept a running lease. Asserting the ABSENCE
-    // of the claim is the point of the case: the command must not describe
-    // itself as the terminalizer.
-    // Commander wraps the description to the terminal width, so compare on
-    // collapsed whitespace rather than on raw line breaks.
-    const helpText = help.stdout.replace(/\s+/g, ' ');
-    expect(helpText).not.toContain('routes workflow leases through');
-    expect(helpText).toContain('does NOT terminalize a live presence lease');
-    expect(helpText).toContain('peaks workflow terminalize');
-    const result = runCli(['skill', 'presence:clear', '--project', project, '--json'], project);
-    expect(result.code).toBe(0);
-    const envelope = parseJson<CliEnvelope<{
-      active: boolean;
-      removed: boolean;
-      cleared: boolean;
-      reason?: string;
-      projectContextUpdated: boolean;
-    }>>(result);
-    expect(envelope.ok).toBe(true);
-    expect(envelope.command).toBe('skill.presence:clear');
-    // Two independent facts, asserted separately:
-    //
-    //   `removed` — whether the DEPRECATED single-slot marker file
-    //   (`.peaks/_runtime/active-skill.json` / `.peaks/.active-skill.json`, both
-    //   pre-4.0.11) was actually unlinked. It is not "was a marker cleared".
-    //   Since 4.0.11 the live marker is the sid-scoped lease under
-    //   `.peaks/_runtime/<sid>/leases/`, and `clearSkillPresence` deliberately
-    //   does not touch it (workflow leases terminalize through
-    //   `terminalizeWorkflow`): `clearSkillPresence` @
-    //   src/services/skills/skill-presence-service.ts:731-775. This project
-    //   never carried a legacy file, so nothing was unlinked.
-    //
-    //   `active` — the LIVE state, re-read through the same projection
-    //   `peaks skill presence` serves. The lease above was set by
-    //   `presence:set` and is AD-HOC (no workflow binding), so
-    //   `presence:clear` must leave it running: only session exit may
-    //   terminalize an ad-hoc lease, and raw unlink is FORBIDDEN. The
-    //   envelope must report that truthfully — reporting `active: false`
-    //   here would be a state the command never reached, contradicted by
-    //   the very next `peaks skill presence` call.
-    expect(envelope.data).toMatchObject({ active: true, removed: false, cleared: false });
-    // ...and WHY it is still there. `active: true, removed: false` alone cannot
-    // distinguish "you ran the wrong command" from "this command has no opinion
-    // on live leases"; the two terminalization routes below are the whole
-    // answer, so the envelope has to carry them rather than leave the caller to
-    // infer them from the help text.
-    expect(envelope.data.reason).toBe('live-lease-survives-presence-clear');
-    const nextActions = envelope.nextActions.join('\n');
-    expect(nextActions).toContain('peaks workflow terminalize');
-    expect(nextActions).toContain('session exit');
+  test(
+    'reports the lease it did not clear: an ad-hoc lease survives outside session exit',
+    () => {
+      const project = makeProject('peaks-p2b4-presence-clear-');
+      initWorkspace(project);
+      runCli(['skill', 'presence:set', 'peaks-rd', '--project', project, '--json'], project);
+      const help = expectRegisteredHelp(
+        ['skill', 'presence:clear'],
+        'peaks skill presence:clear [options]',
+        project
+      );
+      // The help text used to promise a routing this command does not perform
+      // ("routes workflow leases through `workflow terminalize`"). A caller who
+      // believed it ran `presence:clear` expecting a live workflow lease to
+      // terminalize, got exit 0, and kept a running lease. Asserting the ABSENCE
+      // of the claim is the point of the case: the command must not describe
+      // itself as the terminalizer.
+      // Commander wraps the description to the terminal width, so compare on
+      // collapsed whitespace rather than on raw line breaks.
+      const helpText = help.stdout.replace(/\s+/g, ' ');
+      expect(helpText).not.toContain('routes workflow leases through');
+      expect(helpText).toContain('does NOT terminalize a live presence lease');
+      expect(helpText).toContain('peaks workflow terminalize');
+      const result = runCli(['skill', 'presence:clear', '--project', project, '--json'], project);
+      expect(result.code).toBe(0);
+      const envelope = parseJson<
+        CliEnvelope<{
+          active: boolean;
+          removed: boolean;
+          cleared: boolean;
+          reason?: string;
+          projectContextUpdated: boolean;
+        }>
+      >(result);
+      expect(envelope.ok).toBe(true);
+      expect(envelope.command).toBe('skill.presence:clear');
+      // Two independent facts, asserted separately:
+      //
+      //   `removed` — whether the DEPRECATED single-slot marker file
+      //   (`.peaks/_runtime/active-skill.json` / `.peaks/.active-skill.json`, both
+      //   pre-4.0.11) was actually unlinked. It is not "was a marker cleared".
+      //   Since 4.0.11 the live marker is the sid-scoped lease under
+      //   `.peaks/_runtime/<sid>/leases/`, and `clearSkillPresence` deliberately
+      //   does not touch it (workflow leases terminalize through
+      //   `terminalizeWorkflow`): `clearSkillPresence` @
+      //   src/services/skills/skill-presence-service.ts:731-775. This project
+      //   never carried a legacy file, so nothing was unlinked.
+      //
+      //   `active` — the LIVE state, re-read through the same projection
+      //   `peaks skill presence` serves. The lease above was set by
+      //   `presence:set` and is AD-HOC (no workflow binding), so
+      //   `presence:clear` must leave it running: only session exit may
+      //   terminalize an ad-hoc lease, and raw unlink is FORBIDDEN. The
+      //   envelope must report that truthfully — reporting `active: false`
+      //   here would be a state the command never reached, contradicted by
+      //   the very next `peaks skill presence` call.
+      expect(envelope.data).toMatchObject({ active: true, removed: false, cleared: false });
+      // ...and WHY it is still there. `active: true, removed: false` alone cannot
+      // distinguish "you ran the wrong command" from "this command has no opinion
+      // on live leases"; the two terminalization routes below are the whole
+      // answer, so the envelope has to carry them rather than leave the caller to
+      // infer them from the help text.
+      expect(envelope.data.reason).toBe('live-lease-survives-presence-clear');
+      const nextActions = envelope.nextActions.join('\n');
+      expect(nextActions).toContain('peaks workflow terminalize');
+      expect(nextActions).toContain('session exit');
 
-    const after = parseJson<CliEnvelope<{ active: boolean }>>(
-      runCli(['skill', 'presence', '--project', project, '--json'], project)
-    );
-    expect(after.data.active).toBe(true);
-  }, BIN_TIMEOUT_MS);
+      const after = parseJson<CliEnvelope<{ active: boolean }>>(
+        runCli(['skill', 'presence', '--project', project, '--json'], project)
+      );
+      expect(after.data.active).toBe(true);
+    },
+    BIN_TIMEOUT_MS
+  );
 
-  test('removes a planted pre-4.0.11 single-slot marker and reports removed:true', () => {
-    // The other half of the `removed` contract: the shim's own job. Planted so
-    // `removed` is exercised in both directions rather than only ever read as
-    // `false`.
-    const project = makeProject('peaks-p2b4-presence-clear-legacy-');
-    initWorkspace(project);
-    const legacyMarker = join(project, '.peaks', '_runtime', 'active-skill.json');
-    mkdirSync(join(project, '.peaks', '_runtime'), { recursive: true });
-    writeFileSync(legacyMarker, '{"skill":"peaks-rd"}\n', 'utf8');
+  test(
+    'removes a planted pre-4.0.11 single-slot marker and reports removed:true',
+    () => {
+      // The other half of the `removed` contract: the shim's own job. Planted so
+      // `removed` is exercised in both directions rather than only ever read as
+      // `false`.
+      const project = makeProject('peaks-p2b4-presence-clear-legacy-');
+      initWorkspace(project);
+      const legacyMarker = join(project, '.peaks', '_runtime', 'active-skill.json');
+      mkdirSync(join(project, '.peaks', '_runtime'), { recursive: true });
+      writeFileSync(legacyMarker, '{"skill":"peaks-rd"}\n', 'utf8');
 
-    const result = runCli(['skill', 'presence:clear', '--project', project, '--json'], project);
-    expect(result.code).toBe(0);
-    const envelope = parseJson<CliEnvelope<{ active: boolean; removed: boolean; cleared: boolean; reason?: string }>>(result);
-    expect(envelope.data).toMatchObject({ active: false, removed: true, cleared: true });
-    // The other direction of the `reason` contract: nothing survived, so there
-    // is nothing to explain. Asserted so `reason` is exercised both ways rather
-    // than only ever read as set.
-    expect(envelope.data.reason).toBeUndefined();
-    expect(envelope.nextActions).toEqual([]);
-    expect(existsSync(legacyMarker)).toBe(false);
-  }, BIN_TIMEOUT_MS);
+      const result = runCli(['skill', 'presence:clear', '--project', project, '--json'], project);
+      expect(result.code).toBe(0);
+      const envelope =
+        parseJson<
+          CliEnvelope<{ active: boolean; removed: boolean; cleared: boolean; reason?: string }>
+        >(result);
+      expect(envelope.data).toMatchObject({ active: false, removed: true, cleared: true });
+      // The other direction of the `reason` contract: nothing survived, so there
+      // is nothing to explain. Asserted so `reason` is exercised both ways rather
+      // than only ever read as set.
+      expect(envelope.data.reason).toBeUndefined();
+      expect(envelope.nextActions).toEqual([]);
+      expect(existsSync(legacyMarker)).toBe(false);
+    },
+    BIN_TIMEOUT_MS
+  );
 });
 
 interface HookIdeExpectation {
@@ -414,112 +460,170 @@ interface HookIdeExpectation {
 // `peaks hook handle`. The install path is now honest; the table must
 // match what is on disk, not what the old (lying) summary said.
 const HOOK_IDE_EXPECTATIONS: readonly HookIdeExpectation[] = [
-  { ide: 'trae', install: 'pass', matcher: 'terminal', sentinel: 'peaks hook handle', statusEntries: 1, removed: true },
-  { ide: 'codex', install: 'pass', matcher: 'shell', sentinel: 'peaks hook handle', statusEntries: 0, removed: false },
-  { ide: 'cursor', install: 'pass', matcher: 'Bash', sentinel: 'peaks hook handle', statusEntries: 0, removed: false },
+  {
+    ide: 'trae',
+    install: 'pass',
+    matcher: 'terminal',
+    sentinel: 'peaks hook handle',
+    statusEntries: 1,
+    removed: true
+  },
+  {
+    ide: 'codex',
+    install: 'pass',
+    matcher: 'shell',
+    sentinel: 'peaks hook handle',
+    statusEntries: 0,
+    removed: false
+  },
+  {
+    ide: 'cursor',
+    install: 'pass',
+    matcher: 'Bash',
+    sentinel: 'peaks hook handle',
+    statusEntries: 0,
+    removed: false
+  },
   { ide: 'qoder', install: 'unsupported', removed: false },
   { ide: 'tongyi-lingma', install: 'unsupported', removed: false },
-  { ide: 'hermes', install: 'pass', matcher: 'Bash', sentinel: 'peaks gate enforce', statusEntries: 1, removed: true },
-  { ide: 'openclaw', install: 'pass', matcher: 'Bash', sentinel: 'peaks gate enforce', statusEntries: 1, removed: true },
+  {
+    ide: 'hermes',
+    install: 'pass',
+    matcher: 'Bash',
+    sentinel: 'peaks gate enforce',
+    statusEntries: 1,
+    removed: true
+  },
+  {
+    ide: 'openclaw',
+    install: 'pass',
+    matcher: 'Bash',
+    sentinel: 'peaks gate enforce',
+    statusEntries: 1,
+    removed: true
+  },
   { ide: 'zcode', install: 'unsupported', removed: false }
 ];
 
 describe('peaks hooks install/status/uninstall --ide variants (P2-B.4 adapter/distribution e2e)', () => {
-  test.each(HOOK_IDE_EXPECTATIONS)('$ide returns its actual lifecycle envelope', (expected) => {
-    const project = makeProject(`peaks-p2b4-hooks-${expected.ide}-`);
-    expectRegisteredHelp(['hooks', 'install'], 'peaks hooks install [options]', project);
-    expectRegisteredHelp(['hooks', 'status'], 'peaks hooks status [options]', project);
-    expectRegisteredHelp(['hooks', 'uninstall'], 'peaks hooks uninstall [options]', project);
+  test.each(HOOK_IDE_EXPECTATIONS)(
+    '$ide returns its actual lifecycle envelope',
+    (expected) => {
+      const project = makeProject(`peaks-p2b4-hooks-${expected.ide}-`);
+      expectRegisteredHelp(['hooks', 'install'], 'peaks hooks install [options]', project);
+      expectRegisteredHelp(['hooks', 'status'], 'peaks hooks status [options]', project);
+      expectRegisteredHelp(['hooks', 'uninstall'], 'peaks hooks uninstall [options]', project);
 
-    const installResult = runCli([
-      'hooks', 'install', '--project', project, '--ide', expected.ide, '--json'
-    ], project);
-    const install = parseJson<CliEnvelope<{
-      ide: string;
-      applied: boolean;
-      settingsPath?: string;
-      entries?: ReadonlyArray<{ matcher: string; sentinel: string }>;
-    }>>(installResult);
-    expect(install.command).toBe('hooks.install');
+      const installResult = runCli(
+        ['hooks', 'install', '--project', project, '--ide', expected.ide, '--json'],
+        project
+      );
+      const install = parseJson<
+        CliEnvelope<{
+          ide: string;
+          applied: boolean;
+          settingsPath?: string;
+          entries?: ReadonlyArray<{ matcher: string; sentinel: string }>;
+        }>
+      >(installResult);
+      expect(install.command).toBe('hooks.install');
 
-    if (expected.install === 'unsupported') {
-      expect(installResult.code).toBe(1);
-      expect(install.ok).toBe(false);
-      expect(install.code).toBe('HOOKS_INSTALL_FAILED');
-      expect(install.data.applied).toBe(false);
+      if (expected.install === 'unsupported') {
+        expect(installResult.code).toBe(1);
+        expect(install.ok).toBe(false);
+        expect(install.code).toBe('HOOKS_INSTALL_FAILED');
+        expect(install.data.applied).toBe(false);
 
-      // `status` is the one verb of the three that stays idempotent-success for
-      // an IDE with no HOOK_COMMAND_BY_IDE entry. The QUERY succeeded — the disk
-      // was read and the answer is "nothing is installed", which is true and
-      // permanent — so the exit code says success and the payload carries the
-      // finding (`supportsHooks: false`). Carrying "this IDE cannot host hooks"
-      // on the exit code would make an ordinary query result look like a failed
-      // command, and the caller could not tell the two apart.
-      //
-      // `install` above is deliberately NOT symmetric: its success would claim
-      // an enforcement that cannot exist.
-      const statusResult = runCli([
-        'hooks', 'status', '--project', project, '--ide', expected.ide, '--json'
-      ], project);
-      const status = parseJson<CliEnvelope<{
-        ide: string;
-        installed: boolean;
-        supportsHooks: boolean;
-      }>>(statusResult);
-      expect(statusResult.code).toBe(0);
-      expect(status.ok).toBe(true);
-      expect(status.command).toBe('hooks.status');
-      expect(status.data.ide).toBe(expected.ide);
-      expect(status.data.supportsHooks).toBe(false);
-      expect(status.data.installed).toBe(false);
-      expect(status.warnings.join('\n')).toContain(expected.ide);
-    } else {
-      expect(installResult.code).toBe(0);
-      expect(install.ok).toBe(true);
-      expect(install.data.applied).toBe(true);
-      expect(install.data.entries?.[0]).toEqual({
-        matcher: expected.matcher,
-        sentinel: expected.sentinel
-      });
-      expect(install.data.settingsPath && existsSync(install.data.settingsPath)).toBe(true);
+        // `status` is the one verb of the three that stays idempotent-success for
+        // an IDE with no HOOK_COMMAND_BY_IDE entry. The QUERY succeeded — the disk
+        // was read and the answer is "nothing is installed", which is true and
+        // permanent — so the exit code says success and the payload carries the
+        // finding (`supportsHooks: false`). Carrying "this IDE cannot host hooks"
+        // on the exit code would make an ordinary query result look like a failed
+        // command, and the caller could not tell the two apart.
+        //
+        // `install` above is deliberately NOT symmetric: its success would claim
+        // an enforcement that cannot exist.
+        const statusResult = runCli(
+          ['hooks', 'status', '--project', project, '--ide', expected.ide, '--json'],
+          project
+        );
+        const status = parseJson<
+          CliEnvelope<{
+            ide: string;
+            installed: boolean;
+            supportsHooks: boolean;
+          }>
+        >(statusResult);
+        expect(statusResult.code).toBe(0);
+        expect(status.ok).toBe(true);
+        expect(status.command).toBe('hooks.status');
+        expect(status.data.ide).toBe(expected.ide);
+        expect(status.data.supportsHooks).toBe(false);
+        expect(status.data.installed).toBe(false);
+        expect(status.warnings.join('\n')).toContain(expected.ide);
+      } else {
+        expect(installResult.code).toBe(0);
+        expect(install.ok).toBe(true);
+        expect(install.data.applied).toBe(true);
+        expect(install.data.entries?.[0]).toEqual({
+          matcher: expected.matcher,
+          sentinel: expected.sentinel
+        });
+        expect(install.data.settingsPath && existsSync(install.data.settingsPath)).toBe(true);
 
-      const statusResult = runCli([
-        'hooks', 'status', '--project', project, '--ide', expected.ide, '--json'
-      ], project);
-      expect(statusResult.code).toBe(0);
-      const status = parseJson<CliEnvelope<{
-        installed: boolean;
-        supportsHooks: boolean;
-        entries: readonly unknown[];
-      }>>(statusResult);
-      expect(status.ok).toBe(true);
-      expect(status.command).toBe('hooks.status');
-      expect(status.data.installed).toBe(true);
-      // Asserted in both directions so `supportsHooks` is not a field that only
-      // ever reads `false` — it has to distinguish the two IDE classes.
-      expect(status.data.supportsHooks).toBe(true);
-      expect(status.data.entries).toHaveLength(expected.statusEntries ?? 0);
-    }
+        const statusResult = runCli(
+          ['hooks', 'status', '--project', project, '--ide', expected.ide, '--json'],
+          project
+        );
+        expect(statusResult.code).toBe(0);
+        const status = parseJson<
+          CliEnvelope<{
+            installed: boolean;
+            supportsHooks: boolean;
+            entries: readonly unknown[];
+          }>
+        >(statusResult);
+        expect(status.ok).toBe(true);
+        expect(status.command).toBe('hooks.status');
+        expect(status.data.installed).toBe(true);
+        // Asserted in both directions so `supportsHooks` is not a field that only
+        // ever reads `false` — it has to distinguish the two IDE classes.
+        expect(status.data.supportsHooks).toBe(true);
+        expect(status.data.entries).toHaveLength(expected.statusEntries ?? 0);
+      }
 
-    const uninstallResult = runCli([
-      'hooks', 'uninstall', '--project', project, '--ide', expected.ide, '--json'
-    ], project);
-    expect(uninstallResult.code).toBe(0);
-    const uninstall = parseJson<CliEnvelope<{ ide: string; removed: boolean }>>(uninstallResult);
-    expect(uninstall.ok).toBe(true);
-    expect(uninstall.command).toBe('hooks.uninstall');
-    expect(uninstall.data.removed).toBe(expected.removed);
-  }, BIN_TIMEOUT_MS);
+      const uninstallResult = runCli(
+        ['hooks', 'uninstall', '--project', project, '--ide', expected.ide, '--json'],
+        project
+      );
+      expect(uninstallResult.code).toBe(0);
+      const uninstall = parseJson<CliEnvelope<{ ide: string; removed: boolean }>>(uninstallResult);
+      expect(uninstall.ok).toBe(true);
+      expect(uninstall.command).toBe('hooks.uninstall');
+      expect(uninstall.data.removed).toBe(expected.removed);
+    },
+    BIN_TIMEOUT_MS
+  );
 });
 
 describe('peaks statusline install (P2-B.4 adapter/distribution e2e)', () => {
   test('dry-run returns the install plan without writing settings', () => {
     const project = makeProject('peaks-p2b4-statusline-install-');
     expectRegisteredHelp(['statusline', 'install'], 'peaks statusline install [options]', project);
-    const result = runCli([
-      'statusline', 'install', '--project', project, '--ide', 'claude-code',
-      '--dry-run', '--json'
-    ], project);
+    const result = runCli(
+      [
+        'statusline',
+        'install',
+        '--project',
+        project,
+        '--ide',
+        'claude-code',
+        '--dry-run',
+        '--json'
+      ],
+      project
+    );
     expect(result.code).toBe(0);
     // Drift: the child --json option currently emits data only, not a ResultEnvelope.
     const data = parseJson<{
@@ -537,9 +641,10 @@ describe('peaks statusline status (P2-B.4 adapter/distribution e2e)', () => {
   test('reports an uninstalled data-only status for a fresh project', () => {
     const project = makeProject('peaks-p2b4-statusline-status-');
     expectRegisteredHelp(['statusline', 'status'], 'peaks statusline status [options]', project);
-    const result = runCli([
-      'statusline', 'status', '--project', project, '--ide', 'claude-code', '--json'
-    ], project);
+    const result = runCli(
+      ['statusline', 'status', '--project', project, '--ide', 'claude-code', '--json'],
+      project
+    );
     expect(result.code).toBe(0);
     const data = parseJson<{
       scope: string;
@@ -596,36 +701,51 @@ describe('peaks dispatch top-level (P2-B.4 adapter/distribution e2e)', () => {
 });
 
 describe('peaks sub-agent dispatch <role> (P2-B.4 adapter/distribution e2e)', () => {
-  test('is registered and returns an IDE tool-call descriptor in a temporary session', () => {
-    const project = makeProject('peaks-p2b4-sub-agent-dispatch-');
-    const sessionId = initWorkspace(project);
-    expectRegisteredHelp(
-      ['sub-agent', 'dispatch', 'rd'],
-      'peaks sub-agent dispatch [options] <role>',
-      project
-    );
-    const result = runCli([
-      'sub-agent', 'dispatch', 'rd',
-      '--prompt', 'P2-B.4 adapter command integration probe',
-      '--request-id', REQUEST_ID,
-      '--session-id', sessionId,
-      '--project', project,
-      '--json'
-    ], project);
-    expect(result.code).toBe(0);
-    const envelope = parseJson<CliEnvelope<{
-      role: string;
-      ide: string;
-      toolCall: { name: string };
-      dispatchRecordPath: string;
-      batchId: string;
-    }>>(result);
-    expect(envelope.ok).toBe(true);
-    expect(envelope.command).toBe('sub-agent.dispatch');
-    expect(envelope.data.role).toBe('rd');
-    expect(envelope.data.toolCall.name).toBe('Task');
-    expect(existsSync(envelope.data.dispatchRecordPath)).toBe(true);
-  }, BIN_TIMEOUT_MS);
+  test(
+    'is registered and returns an IDE tool-call descriptor in a temporary session',
+    () => {
+      const project = makeProject('peaks-p2b4-sub-agent-dispatch-');
+      const sessionId = initWorkspace(project);
+      expectRegisteredHelp(
+        ['sub-agent', 'dispatch', 'rd'],
+        'peaks sub-agent dispatch [options] <role>',
+        project
+      );
+      const result = runCli(
+        [
+          'sub-agent',
+          'dispatch',
+          'rd',
+          '--prompt',
+          'P2-B.4 adapter command integration probe',
+          '--request-id',
+          REQUEST_ID,
+          '--session-id',
+          sessionId,
+          '--project',
+          project,
+          '--json'
+        ],
+        project
+      );
+      expect(result.code).toBe(0);
+      const envelope = parseJson<
+        CliEnvelope<{
+          role: string;
+          ide: string;
+          toolCall: { name: string };
+          dispatchRecordPath: string;
+          batchId: string;
+        }>
+      >(result);
+      expect(envelope.ok).toBe(true);
+      expect(envelope.command).toBe('sub-agent.dispatch');
+      expect(envelope.data.role).toBe('rd');
+      expect(envelope.data.toolCall.name).toBe('Task');
+      expect(existsSync(envelope.data.dispatchRecordPath)).toBe(true);
+    },
+    BIN_TIMEOUT_MS
+  );
 });
 
 describe('peaks dispatch-from-dag top-level (P2-B.4 adapter/distribution e2e)', () => {
@@ -676,10 +796,7 @@ describe('peaks capability list (P2-B.4 adapter/distribution e2e)', () => {
 
 describe('peaks capability install (P2-B.4 adapter/distribution e2e)', () => {
   test('is not registered, so no destructive capability install is attempted', () => {
-    expectCommandNotRegistered(
-      ['capability', 'install'],
-      'peaks capability [options] [command]'
-    );
+    expectCommandNotRegistered(['capability', 'install'], 'peaks capability [options] [command]');
   });
 });
 
@@ -698,11 +815,13 @@ describe('peaks adapter list (P2-B.4 adapter/distribution e2e)', () => {
     expectRegisteredHelp(['adapter', 'list'], 'peaks adapter list [options]', project);
     const result = runCli(['adapter', 'list', '--project', project, '--json'], project);
     expect(result.code).toBe(0);
-    const envelope = parseJson<CliEnvelope<{
-      file: string;
-      records: readonly unknown[];
-      count: number;
-    }>>(result);
+    const envelope = parseJson<
+      CliEnvelope<{
+        file: string;
+        records: readonly unknown[];
+        count: number;
+      }>
+    >(result);
     expect(envelope.ok).toBe(true);
     expect(envelope.command).toBe('adapter.list');
     expect(envelope.data.records).toHaveLength(0);

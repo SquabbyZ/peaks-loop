@@ -15,9 +15,10 @@ function run({ registry }: DoctorContext): readonly DoctorCheck[] {
     checks.push({
       id: `skill-name:${skill.directory}`,
       ok: skill.name === skill.directory,
-      message: skill.name === skill.directory
-        ? `Skill ${skill.name} matches its directory`
-        : `Skill ${skill.directory} declares mismatched name ${skill.name}`
+      message:
+        skill.name === skill.directory
+          ? `Skill ${skill.name} matches its directory`
+          : `Skill ${skill.directory} declares mismatched name ${skill.name}`
     });
   }
   return checks;

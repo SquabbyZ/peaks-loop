@@ -28,7 +28,14 @@
 // compaction should be in flight right now", which is the only state
 // where a missing heartbeat is real evidence of a stall.
 
-import { existsSync, mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  renameSync,
+  unlinkSync,
+  writeFileSync
+} from 'node:fs';
 import { dirname, join } from 'node:path';
 import { getSessionDir } from '../session/getSessionDir.js';
 
@@ -42,12 +49,9 @@ const ERROR_SUMMARY_MAX = 160;
  * `armed` is deliberately NOT here — see the header. It is a resting
  * state, not a heartbeat.
  */
-const ACTIVE_STAGES: ReadonlyArray<Exclude<CompactLifecycleStage, 'completed' | 'failed' | 'armed'>> = [
-  'queued',
-  'preparing',
-  'compacting',
-  'verifying',
-];
+const ACTIVE_STAGES: ReadonlyArray<
+  Exclude<CompactLifecycleStage, 'completed' | 'failed' | 'armed'>
+> = ['queued', 'preparing', 'compacting', 'verifying'];
 const ALL_STAGES: ReadonlyArray<CompactLifecycleStage> = [
   'queued',
   'preparing',
@@ -55,7 +59,7 @@ const ALL_STAGES: ReadonlyArray<CompactLifecycleStage> = [
   'armed',
   'verifying',
   'completed',
-  'failed',
+  'failed'
 ];
 
 export type CompactLifecycleStage =
@@ -117,35 +121,49 @@ function coerceRecord(raw: unknown): CompactLifecycleRecord {
     throw new Error('compact-lifecycle: root must be a JSON object');
   }
   if (raw['schemaVersion'] !== 1) {
-    throw new Error(`compact-lifecycle: schemaVersion must be 1 (got ${JSON.stringify(raw['schemaVersion'])})`);
+    throw new Error(
+      `compact-lifecycle: schemaVersion must be 1 (got ${JSON.stringify(raw['schemaVersion'])})`
+    );
   }
   if (typeof raw['runId'] !== 'string' || raw['runId'].length === 0) {
     throw new Error('compact-lifecycle: runId must be a non-empty string');
   }
   if (!isStage(raw['stage'])) {
-    throw new Error(`compact-lifecycle: stage must be one of ${ALL_STAGES.join('|')} (got ${JSON.stringify(raw['stage'])})`);
+    throw new Error(
+      `compact-lifecycle: stage must be one of ${ALL_STAGES.join('|')} (got ${JSON.stringify(raw['stage'])})`
+    );
   }
   if (typeof raw['updatedAt'] !== 'string' || Number.isNaN(Date.parse(raw['updatedAt']))) {
     throw new Error('compact-lifecycle: updatedAt must be an ISO 8601 string');
   }
   if (!isFiniteRatio(raw['triggerRatio'])) {
-    throw new Error(`compact-lifecycle: triggerRatio must be a finite number in [0,1] (got ${JSON.stringify(raw['triggerRatio'])})`);
+    throw new Error(
+      `compact-lifecycle: triggerRatio must be a finite number in [0,1] (got ${JSON.stringify(raw['triggerRatio'])})`
+    );
   }
   if (raw['afterRatio'] !== undefined && !isFiniteRatio(raw['afterRatio'])) {
-    throw new Error(`compact-lifecycle: afterRatio must be a finite number in [0,1] (got ${JSON.stringify(raw['afterRatio'])})`);
+    throw new Error(
+      `compact-lifecycle: afterRatio must be a finite number in [0,1] (got ${JSON.stringify(raw['afterRatio'])})`
+    );
   }
   if (typeof raw['redLine'] !== 'boolean') {
-    throw new Error(`compact-lifecycle: redLine must be a boolean (got ${JSON.stringify(raw['redLine'])})`);
+    throw new Error(
+      `compact-lifecycle: redLine must be a boolean (got ${JSON.stringify(raw['redLine'])})`
+    );
   }
   const stage = raw['stage'] as CompactLifecycleStage;
   if (stage === 'failed') {
     const failedAt = raw['failedAt'];
     if (!isStage(failedAt) || failedAt === 'failed' || failedAt === 'completed') {
-      throw new Error(`compact-lifecycle: failedAt must be one of the active stages (got ${JSON.stringify(failedAt)})`);
+      throw new Error(
+        `compact-lifecycle: failedAt must be one of the active stages (got ${JSON.stringify(failedAt)})`
+      );
     }
     const errorSummary = raw['errorSummary'];
     if (errorSummary !== undefined && typeof errorSummary !== 'string') {
-      throw new Error(`compact-lifecycle: errorSummary must be a string when provided (got ${JSON.stringify(errorSummary)})`);
+      throw new Error(
+        `compact-lifecycle: errorSummary must be a string when provided (got ${JSON.stringify(errorSummary)})`
+      );
     }
     return {
       schemaVersion: 1,
@@ -156,7 +174,7 @@ function coerceRecord(raw: unknown): CompactLifecycleRecord {
       redLine: raw['redLine'],
       failedAt: failedAt as Exclude<CompactLifecycleStage, 'failed' | 'completed'>,
       ...(raw['afterRatio'] !== undefined ? { afterRatio: raw['afterRatio'] as number } : {}),
-      ...(errorSummary !== undefined ? { errorSummary: errorSummary as string } : {}),
+      ...(errorSummary !== undefined ? { errorSummary: errorSummary as string } : {})
     };
   }
   // Non-failed records must NOT carry a failedAt or errorSummary.
@@ -173,7 +191,7 @@ function coerceRecord(raw: unknown): CompactLifecycleRecord {
     updatedAt: raw['updatedAt'],
     triggerRatio: raw['triggerRatio'],
     redLine: raw['redLine'],
-    ...(raw['afterRatio'] !== undefined ? { afterRatio: raw['afterRatio'] as number } : {}),
+    ...(raw['afterRatio'] !== undefined ? { afterRatio: raw['afterRatio'] as number } : {})
   };
 }
 
@@ -211,7 +229,7 @@ export function writeCompactLifecycle(input: {
   // (Re-coercing also catches cases where the caller bypassed TypeScript.)
   const validated = coerceRecord({
     ...input.record,
-    errorSummary: clampErrorSummary(input.record.errorSummary),
+    errorSummary: clampErrorSummary(input.record.errorSummary)
   });
 
   const tmp = `${path}.tmp-${process.pid}-${Date.now()}`;
@@ -262,7 +280,7 @@ export function readCompactLifecycle(input: {
   } catch (error) {
     return {
       kind: 'invalid',
-      reason: `compact-lifecycle: unable to read record file: ${(error as Error).message}`,
+      reason: `compact-lifecycle: unable to read record file: ${(error as Error).message}`
     };
   }
   let parsed: unknown;
@@ -271,7 +289,7 @@ export function readCompactLifecycle(input: {
   } catch (error) {
     return {
       kind: 'invalid',
-      reason: `compact-lifecycle: malformed JSON (${(error as Error).message})`,
+      reason: `compact-lifecycle: malformed JSON (${(error as Error).message})`
     };
   }
   let record: CompactLifecycleRecord;

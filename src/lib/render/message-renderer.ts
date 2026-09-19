@@ -65,10 +65,7 @@ const CODE_PATTERN = /`([^`\n]+?)`/g;
  *   - `mode === 'plain'`,
  *   - `noColor === true` (NO_COLOR / --no-color / --json opt-out).
  */
-export function renderMessage(
-  input: string,
-  options: MessageRenderOptions
-): string {
+export function renderMessage(input: string, options: MessageRenderOptions): string {
   if (typeof input !== 'string' || input.length === 0) {
     return input;
   }

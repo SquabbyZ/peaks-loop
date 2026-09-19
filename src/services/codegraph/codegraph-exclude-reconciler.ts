@@ -389,7 +389,11 @@ export function readTrackedFiles(projectRoot: string): ReadTrackedFiles {
 
 // Exported for S2's repair writer, which re-validates `exclude` on the
 // way out so the read and write paths agree on what a valid config is.
-export function assertStringArray(value: unknown, field: string, configPath: string): readonly string[] {
+export function assertStringArray(
+  value: unknown,
+  field: string,
+  configPath: string
+): readonly string[] {
   if (!Array.isArray(value) || value.some((entry) => typeof entry !== 'string')) {
     throw new Error(`codegraph config ${configPath}: "${field}" must be an array of strings`);
   }

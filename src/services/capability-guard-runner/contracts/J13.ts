@@ -1,7 +1,14 @@
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import type { GuardContext, GuardRunResult } from '../types.js';
-import { combineProbes, fail, missingSourceFiles, pass, probe, requireBaselineRow } from './_shared.js';
+import {
+  combineProbes,
+  fail,
+  missingSourceFiles,
+  pass,
+  probe,
+  requireBaselineRow
+} from './_shared.js';
 
 const SKILL_DIR = ['skills', 'peaks-content'];
 const SKILL_MD = [...SKILL_DIR, 'SKILL.md'];
@@ -61,10 +68,16 @@ export async function runJ13Contract(ctx: GuardContext): Promise<GuardRunResult>
   const result = combineProbes([
     probe(missing.length === 0, `baseline sourceFiles present (${row.sourceFiles.length})`),
     probe(body.length > 0, 'the peaks-content skill file is readable'),
-    probe(absentStages.length === 0, `every content stage is anchored on its bee (missing: ${absentStages.join(',') || 'none'})`),
+    probe(
+      absentStages.length === 0,
+      `every content stage is anchored on its bee (missing: ${absentStages.join(',') || 'none'})`
+    ),
     probe(toneGatePresent, 'the tone gate is still declared between draft and edit'),
     probe(files.length > 0, `the skill directory is non-empty (${String(files.length)} files)`),
-    probe(offenders.length === 0, `no skill file imports peaks-code internals (${offenders.join('; ') || 'none'})`)
+    probe(
+      offenders.length === 0,
+      `no skill file imports peaks-code internals (${offenders.join('; ') || 'none'})`
+    )
   ]);
 
   const artifact = row.sourceFiles[0] ?? 'skills/peaks-content/SKILL.md';

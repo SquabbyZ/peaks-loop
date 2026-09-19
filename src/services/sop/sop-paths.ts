@@ -28,7 +28,9 @@ export type SopScope = 'project' | 'global';
 /** Global Peaks home (`~/.peaks`), overridable via PEAKS_HOME for test isolation. */
 export function peaksHome(): string {
   const override = process.env.PEAKS_HOME;
-  return override !== undefined && override.length > 0 ? resolve(override) : join(homedir(), '.peaks');
+  return override !== undefined && override.length > 0
+    ? resolve(override)
+    : join(homedir(), '.peaks');
 }
 
 /** Global SOP definition directory: `~/.peaks/sops/<id>`. */
@@ -81,7 +83,11 @@ export function scopedSopDir(scope: SopScope, projectRoot: string | undefined, i
 }
 
 /** Manifest path for a scope. */
-export function scopedSopManifestPath(scope: SopScope, projectRoot: string | undefined, id: string): string {
+export function scopedSopManifestPath(
+  scope: SopScope,
+  projectRoot: string | undefined,
+  id: string
+): string {
   return join(scopedSopDir(scope, projectRoot, id), 'sop.json');
 }
 
@@ -98,7 +104,10 @@ export function scopedRegistryPath(scope: SopScope, projectRoot: string | undefi
  * Resolve where a SOP's manifest lives, project-first: the project layer wins
  * when present, otherwise global. Returns null when neither layer has it.
  */
-export function resolveSopManifestPath(id: string, projectRoot?: string): { path: string; scope: SopScope } | null {
+export function resolveSopManifestPath(
+  id: string,
+  projectRoot?: string
+): { path: string; scope: SopScope } | null {
   if (projectRoot !== undefined) {
     const projectPath = projectSopManifestPath(projectRoot, id);
     if (existsSync(projectPath)) {

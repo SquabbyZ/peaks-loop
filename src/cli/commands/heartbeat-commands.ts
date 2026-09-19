@@ -25,10 +25,7 @@ import {
 import { isStageLabel, type StageLabel } from '../../services/dispatch/stage-enum.js';
 import { assertSafeDispatchRecordPath } from '../../services/security/safe-settings-path.js';
 import { writeLogEntry } from '../../services/log/logger.js';
-import {
-  HeartbeatOptions,
-  HEARTBEAT_STATUSES
-} from './sub-agent-shared.js';
+import { HeartbeatOptions, HEARTBEAT_STATUSES } from './sub-agent-shared.js';
 
 export function registerHeartbeatCommand(parent: Command, io: ProgramIO): void {
   addJsonOption(
@@ -36,12 +33,15 @@ export function registerHeartbeatCommand(parent: Command, io: ProgramIO): void {
       .command('heartbeat')
       .description(
         'Append a heartbeat entry to a dispatch record. Fire-and-forget: ' +
-        'the parent Dispatcher polls this record during the batch-sync ' +
-        'wait and renders a status line. Sub-agents should call this at ' +
-        'least every 30s (configurable via SKILL.md heartbeatIntervalSec).'
+          'the parent Dispatcher polls this record during the batch-sync ' +
+          'wait and renders a status line. Sub-agents should call this at ' +
+          'least every 30s (configurable via SKILL.md heartbeatIntervalSec).'
       )
       .requiredOption('--record <path>', 'absolute path to a dispatch record JSON')
-      .requiredOption('--status <state>', 'queued | running | finalizing | done | failed | stale | cancelled | no-execution | never-started | unreadable')
+      .requiredOption(
+        '--status <state>',
+        'queued | running | finalizing | done | failed | stale | cancelled | no-execution | never-started | unreadable'
+      )
       .requiredOption('--progress <pct>', 'integer 0-100')
       .option('--note <text>', 'free-form progress note (≤ 200 chars)')
       // Slice 2026-07-29-dispatch-stall-governance / S5 (AC-5.2) —
@@ -49,36 +49,76 @@ export function registerHeartbeatCommand(parent: Command, io: ProgramIO): void {
       // src/services/dispatch/stage-enum.ts); an unknown value is
       // rejected with INVALID_STAGE so the watch surface never
       // accumulates typo'd labels.
-      .option('--stage <label>', 'bounded stage label (intake | planning | gathering | analyzing | writing | testing | reviewing | finalizing)')
-      .option('--project <path>', 'trusted project root (defaults to cwd); used for the R-2 path guard so a malicious --record cannot point at another project\'s dispatch record')
+      .option(
+        '--stage <label>',
+        'bounded stage label (intake | planning | gathering | analyzing | writing | testing | reviewing | finalizing)'
+      )
+      .option(
+        '--project <path>',
+        "trusted project root (defaults to cwd); used for the R-2 path guard so a malicious --record cannot point at another project's dispatch record"
+      )
   ).action((options: HeartbeatOptions & { stage?: string }) => {
     const asJson = options.json === true;
     if (!options.record || !existsSync(options.record)) {
-      printResult(io, fail('sub-agent.heartbeat', 'INVALID_RECORD_PATH', `record not found: ${options.record ?? '(empty)'}`, { recordPath: options.record ?? null, truncated: false } as never, [
-        'Pass the absolute path from the `peaks sub-agent dispatch` envelope.'
-      ]), asJson);
+      printResult(
+        io,
+        fail(
+          'sub-agent.heartbeat',
+          'INVALID_RECORD_PATH',
+          `record not found: ${options.record ?? '(empty)'}`,
+          { recordPath: options.record ?? null, truncated: false } as never,
+          ['Pass the absolute path from the `peaks sub-agent dispatch` envelope.']
+        ),
+        asJson
+      );
       process.exitCode = 1;
       return;
     }
     if (!HEARTBEAT_STATUSES.includes(options.status as HeartbeatStatus)) {
-      printResult(io, fail('sub-agent.heartbeat', 'INVALID_STATUS', `--status must be one of ${HEARTBEAT_STATUSES.join(' | ')} (got ${options.status})`, { recordPath: options.record, truncated: false } as never, [
-        'Use one of the documented statuses; poller compares lastBeatAt against now() - 5min to set `stale`.'
-      ]), asJson);
+      printResult(
+        io,
+        fail(
+          'sub-agent.heartbeat',
+          'INVALID_STATUS',
+          `--status must be one of ${HEARTBEAT_STATUSES.join(' | ')} (got ${options.status})`,
+          { recordPath: options.record, truncated: false } as never,
+          [
+            'Use one of the documented statuses; poller compares lastBeatAt against now() - 5min to set `stale`.'
+          ]
+        ),
+        asJson
+      );
       process.exitCode = 1;
       return;
     }
     const progress = Number.parseInt(options.progress ?? 'NaN', 10);
     if (!Number.isInteger(progress) || progress < 0 || progress > 100) {
-      printResult(io, fail('sub-agent.heartbeat', 'INVALID_PROGRESS', `--progress must be integer 0-100 (got ${options.progress})`, { recordPath: options.record, truncated: false } as never, [
-        'Use 0..100 inclusive.'
-      ]), asJson);
+      printResult(
+        io,
+        fail(
+          'sub-agent.heartbeat',
+          'INVALID_PROGRESS',
+          `--progress must be integer 0-100 (got ${options.progress})`,
+          { recordPath: options.record, truncated: false } as never,
+          ['Use 0..100 inclusive.']
+        ),
+        asJson
+      );
       process.exitCode = 1;
       return;
     }
     if (options.note !== undefined && options.note.length > 200) {
-      printResult(io, fail('sub-agent.heartbeat', 'NOTE_TOO_LONG', `--note must be ≤ 200 chars (got ${options.note.length})`, { recordPath: options.record, truncated: false } as never, [
-        'Shorten the note; the record file is not a log file.'
-      ]), asJson);
+      printResult(
+        io,
+        fail(
+          'sub-agent.heartbeat',
+          'NOTE_TOO_LONG',
+          `--note must be ≤ 200 chars (got ${options.note.length})`,
+          { recordPath: options.record, truncated: false } as never,
+          ['Shorten the note; the record file is not a log file.']
+        ),
+        asJson
+      );
       process.exitCode = 1;
       return;
     }
@@ -99,9 +139,17 @@ export function registerHeartbeatCommand(parent: Command, io: ProgramIO): void {
       let stageLabel: StageLabel | null = null;
       if (options.stage !== undefined && options.stage.length > 0) {
         if (!isStageLabel(options.stage)) {
-          printResult(io, fail('sub-agent.heartbeat', 'INVALID_STAGE', `--stage must be one of intake | planning | gathering | analyzing | writing | testing | reviewing | finalizing (got ${options.stage})`, { recordPath: options.record, truncated: false } as never, [
-            'Use one of the bounded stage labels; free-form text is not accepted.'
-          ]), asJson);
+          printResult(
+            io,
+            fail(
+              'sub-agent.heartbeat',
+              'INVALID_STAGE',
+              `--stage must be one of intake | planning | gathering | analyzing | writing | testing | reviewing | finalizing (got ${options.stage})`,
+              { recordPath: options.record, truncated: false } as never,
+              ['Use one of the bounded stage labels; free-form text is not accepted.']
+            ),
+            asJson
+          );
           process.exitCode = 1;
           return;
         }
@@ -130,21 +178,31 @@ export function registerHeartbeatCommand(parent: Command, io: ProgramIO): void {
       // The hint is opt-in via a flag so non-lease dispatches
       // do not pollute the envelope.
       const leaseId = result.record.leaseId ?? null;
-      const leaseHint = leaseId !== null
-        ? `You own lease \`${leaseId}\`. Run \`peaks worktree release --lease-id ${leaseId}\` before exit, or report a terminal status (done/failed/cancelled) to let peaks-loop auto-release.`
-        : null;
-      printResult(io, ok('sub-agent.heartbeat', {
-        // Slice 2026-06-23-audit-4th #E1: envelopeVersion marker
-        // Part 24: bumped to 2.2.0 to advertise the new `leaseHint`
-        // field; readers from 2.1.0 ignore the unknown field.
-        envelopeVersion: '2.2.0',
-        recordPath: options.record,
-        heartbeatCount: result.record.heartbeats.length,
-        lastBeatAt: result.record.lastBeatAt,
-        status: result.record.status,
-        truncated: result.truncated,
-        leaseHint
-      }, [], ['Continue business logic; heartbeat is fire-and-forget.']), asJson);
+      const leaseHint =
+        leaseId !== null
+          ? `You own lease \`${leaseId}\`. Run \`peaks worktree release --lease-id ${leaseId}\` before exit, or report a terminal status (done/failed/cancelled) to let peaks-loop auto-release.`
+          : null;
+      printResult(
+        io,
+        ok(
+          'sub-agent.heartbeat',
+          {
+            // Slice 2026-06-23-audit-4th #E1: envelopeVersion marker
+            // Part 24: bumped to 2.2.0 to advertise the new `leaseHint`
+            // field; readers from 2.1.0 ignore the unknown field.
+            envelopeVersion: '2.2.0',
+            recordPath: options.record,
+            heartbeatCount: result.record.heartbeats.length,
+            lastBeatAt: result.record.lastBeatAt,
+            status: result.record.status,
+            truncated: result.truncated,
+            leaseHint
+          },
+          [],
+          ['Continue business logic; heartbeat is fire-and-forget.']
+        ),
+        asJson
+      );
       // Slice 2026-07-29-worktree-l2-extended Part 3.A.2: when the
       // heartbeat reports a TERMINAL status (done / failed / cancelled
       // / no-execution) AND the dispatch owns a lease, fire the
@@ -157,16 +215,23 @@ export function registerHeartbeatCommand(parent: Command, io: ProgramIO): void {
       // + best-effort; a failure here cannot roll back the heartbeat
       // write (the printResult above already shipped the response).
       const terminalHeartbeatStatuses: ReadonlySet<HeartbeatStatus> = new Set([
-        'done', 'failed', 'cancelled', 'no-execution'
+        'done',
+        'failed',
+        'cancelled',
+        'no-execution'
       ]);
-      if (terminalHeartbeatStatuses.has(options.status as HeartbeatStatus) && result.record.leaseId !== null) {
+      if (
+        terminalHeartbeatStatuses.has(options.status as HeartbeatStatus) &&
+        result.record.leaseId !== null
+      ) {
         try {
           tryAutoReleaseLease({
             projectRoot: trustedRoot,
             sessionId: result.record.sessionId,
             leaseId: result.record.leaseId
           });
-        } catch { // best-effort
+        } catch {
+          // best-effort
           /* swallow */
         }
       }
@@ -185,14 +250,23 @@ export function registerHeartbeatCommand(parent: Command, io: ProgramIO): void {
             truncated: result.truncated
           }
         });
-      } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+      } catch {
+        // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
         /* best-effort */
       }
     } catch (error: unknown) {
       const code = (error as { code?: string }).code ?? 'HEARTBEAT_ERROR';
-      printResult(io, fail('sub-agent.heartbeat', code, getErrorMessage(error), { recordPath: options.record ?? null, truncated: false } as never, [
-        heartbeatErrorNextActions(code)
-      ]), asJson);
+      printResult(
+        io,
+        fail(
+          'sub-agent.heartbeat',
+          code,
+          getErrorMessage(error),
+          { recordPath: options.record ?? null, truncated: false } as never,
+          [heartbeatErrorNextActions(code)]
+        ),
+        asJson
+      );
       process.exitCode = 1;
     }
   });
@@ -232,20 +306,27 @@ export function heartbeat(input: {
   now?: string;
   lastHeartbeat?: string;
 }): Record<string, unknown> {
-  const status = (input.status ?? 'dispatched') as 'prepared' | 'dispatched' | 'running' | 'envelope-received' | 'consumed-by-parent' | 'terminalized' | 'lost';
+  const status = (input.status ?? 'dispatched') as
+    | 'prepared'
+    | 'dispatched'
+    | 'running'
+    | 'envelope-received'
+    | 'consumed-by-parent'
+    | 'terminalized'
+    | 'lost';
   if (status === 'dispatched') {
     return {
       status: 'running',
       lastHeartbeat: input.lastHeartbeat ?? input.now ?? new Date().toISOString(),
       graphNodeId: input.graphNodeId ?? null,
-      dispatchRef: input.dispatchRef ?? null,
+      dispatchRef: input.dispatchRef ?? null
     };
   }
   return {
     status: 'running',
     lastHeartbeat: input.lastHeartbeat ?? input.now ?? new Date().toISOString(),
     graphNodeId: input.graphNodeId ?? null,
-    dispatchRef: input.dispatchRef ?? null,
+    dispatchRef: input.dispatchRef ?? null
   };
 }
 
@@ -260,7 +341,9 @@ export function markLost(input: {
   reason?: string;
 }): Record<string, unknown> {
   if (input.status === 'consumed-by-parent' || input.status === 'terminalized') {
-    const err = new Error('PEAKS_NODE_TRANSITION_INVALID: cannot mark-lost a consumed/terminal node') as Error & { code: string };
+    const err = new Error(
+      'PEAKS_NODE_TRANSITION_INVALID: cannot mark-lost a consumed/terminal node'
+    ) as Error & { code: string };
     err.code = 'PEAKS_NODE_TRANSITION_INVALID';
     throw err;
   }
@@ -269,6 +352,6 @@ export function markLost(input: {
     status: 'lost',
     terminalReason: reason,
     graphNodeId: input.graphNodeId ?? null,
-    dispatchRef: input.dispatchRef ?? null,
+    dispatchRef: input.dispatchRef ?? null
   };
 }

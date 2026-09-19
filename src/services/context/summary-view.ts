@@ -53,7 +53,7 @@ function clipName(name: string, maxChars: number): string {
 export function boundedNames(names: readonly string[]): BoundedNames {
   return {
     count: names.length,
-    names: names.slice(0, SUMMARY_INITIAL_NAMES).map((n) => clipName(n, SUMMARY_NAME_MAX_CHARS)),
+    names: names.slice(0, SUMMARY_INITIAL_NAMES).map((n) => clipName(n, SUMMARY_NAME_MAX_CHARS))
   };
 }
 
@@ -70,7 +70,11 @@ function byteLength(value: unknown): number {
 }
 
 /** Collect every array (with its key path) nested in `node`. */
-function collectArrays(node: unknown, path: string, out: Array<{ path: string; array: unknown[] }>): void {
+function collectArrays(
+  node: unknown,
+  path: string,
+  out: Array<{ path: string; array: unknown[] }>
+): void {
   if (Array.isArray(node)) {
     out.push({ path, array: node });
     return;
@@ -91,7 +95,7 @@ function collectArrays(node: unknown, path: string, out: Array<{ path: string; a
  */
 export function fitSummaryToBytes<T extends Record<string, unknown>>(
   data: T,
-  maxBytes: number = SUMMARY_DATA_MAX_BYTES,
+  maxBytes: number = SUMMARY_DATA_MAX_BYTES
 ): T {
   let out: T;
   try {

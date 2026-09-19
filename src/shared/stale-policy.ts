@@ -56,7 +56,10 @@ export const DEFAULT_STALE_DAYS = 30;
  * is the "defensive — older index.json entries may lack the field" rule
  * from PRD R4.
  */
-export function isStale(updatedAt: string | undefined | null, options: StalePolicyOptions = {}): boolean {
+export function isStale(
+  updatedAt: string | undefined | null,
+  options: StalePolicyOptions = {}
+): boolean {
   const parsed = parseUpdatedAt(updatedAt);
   if (parsed === null) return false;
   const now = options.now ?? Date.now();
@@ -98,9 +101,7 @@ export function applyStalePolicy<T extends { updatedAt?: string | null }>(
     return { ...entry, stale, ageDays };
   });
 
-  const filtered = includeStale
-    ? annotated
-    : annotated.filter((entry) => !entry.stale);
+  const filtered = includeStale ? annotated : annotated.filter((entry) => !entry.stale);
 
   return {
     entries: filtered,

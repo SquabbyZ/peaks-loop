@@ -25,7 +25,9 @@ export function requireBaselineRow(ctx: GuardContext): CapabilityBaselineRow {
   const journeyId = ctx.contract.source.baselineRow;
   const r = readBaselineFile(ctx.projectRoot);
   if (!r.ok) {
-    throw new Error(`baseline unreadable at ${ctx.projectRoot} (${r.error.code}: ${r.error.message})`);
+    throw new Error(
+      `baseline unreadable at ${ctx.projectRoot} (${r.error.code}: ${r.error.message})`
+    );
   }
   const row = r.file.rows.find((x) => x.journeyId === journeyId);
   if (!row) {
@@ -39,14 +41,14 @@ export function requireBaselineRow(ctx: GuardContext): CapabilityBaselineRow {
  * files that carry the journey; a vanished file is drift, so this returns the
  * missing ones rather than filtering them out.
  */
-export function missingSourceFiles(ctx: GuardContext, row: CapabilityBaselineRow): ReadonlyArray<string> {
+export function missingSourceFiles(
+  ctx: GuardContext,
+  row: CapabilityBaselineRow
+): ReadonlyArray<string> {
   return row.sourceFiles.filter((f) => !existsSync(join(ctx.projectRoot, f)));
 }
 
-export function pass(
-  ctx: GuardContext,
-  artifactPath: string
-): GuardRunResult {
+export function pass(ctx: GuardContext, artifactPath: string): GuardRunResult {
   return {
     journeyId: ctx.contract.journeyId,
     contract: ctx.contract.kind,

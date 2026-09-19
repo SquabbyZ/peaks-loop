@@ -65,9 +65,7 @@ const targets = [
 
 let totalCopied = 0;
 for (const { src, dest, extensions } of targets) {
-  const before = statSync(dest, { throwIfNoEntry: false })
-    ? readdirSync(dest).length
-    : 0;
+  const before = statSync(dest, { throwIfNoEntry: false }) ? readdirSync(dest).length : 0;
   copyTree(src, dest, extensions);
   const after = readdirSync(dest).length;
   const added = after - before;

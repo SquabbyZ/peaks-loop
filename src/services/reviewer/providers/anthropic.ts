@@ -40,10 +40,16 @@ export async function callAnthropic(input: ProviderCallInput): Promise<ProviderC
     });
     if (!res.ok) {
       const detail = await safeReadError(res);
-      return { ok: false, error: `anthropic http ${res.status}: ${detail}`, latencyMs: Date.now() - start };
+      return {
+        ok: false,
+        error: `anthropic http ${res.status}: ${detail}`,
+        latencyMs: Date.now() - start
+      };
     }
     const json = (await res.json()) as { content?: Array<{ type?: string; text?: unknown }> };
-    const textBlock = (json.content ?? []).find((b) => b.type === 'text' && typeof b.text === 'string');
+    const textBlock = (json.content ?? []).find(
+      (b) => b.type === 'text' && typeof b.text === 'string'
+    );
     const text = typeof textBlock?.text === 'string' ? textBlock.text : '';
     return { ok: true, modelId: input.provider.model, text, latencyMs: Date.now() - start };
   } catch (err) {

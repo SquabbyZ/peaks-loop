@@ -34,8 +34,10 @@ function runCli(args: readonly string[], cwd: string): RunResult {
   } catch (error: unknown) {
     const caught = error as { stdout?: Buffer | string; stderr?: Buffer | string; status?: number };
     return {
-      stdout: typeof caught.stdout === 'string' ? caught.stdout : caught.stdout?.toString('utf8') ?? '',
-      stderr: typeof caught.stderr === 'string' ? caught.stderr : caught.stderr?.toString('utf8') ?? '',
+      stdout:
+        typeof caught.stdout === 'string' ? caught.stdout : (caught.stdout?.toString('utf8') ?? ''),
+      stderr:
+        typeof caught.stderr === 'string' ? caught.stderr : (caught.stderr?.toString('utf8') ?? ''),
       code: caught.status ?? 1
     };
   }
@@ -66,17 +68,38 @@ describe('rid-010 fix-claude-settings-template-hook-node-wrapper', () => {
     const settingsPath = join(project, '.claude', 'settings.local.json');
     const sessionArgs = ['--session-id', '2026-07-25-rid010-e2e'] as const;
 
-    const skipped = runCli([
-      'workspace', 'init', '--project', project, ...sessionArgs, '--install-hooks', 'skip',
-      '--no-claude-hooks', '--no-project-scan-bootstrap', '--json'
-    ], project);
+    const skipped = runCli(
+      [
+        'workspace',
+        'init',
+        '--project',
+        project,
+        ...sessionArgs,
+        '--install-hooks',
+        'skip',
+        '--no-claude-hooks',
+        '--no-project-scan-bootstrap',
+        '--json'
+      ],
+      project
+    );
     expect(skipped.code).toBe(0);
     expect(existsSync(settingsPath)).toBe(false);
 
-    const restored = runCli([
-      'workspace', 'init', '--project', project, ...sessionArgs, '--install-hooks', 'skip',
-      '--no-project-scan-bootstrap', '--json'
-    ], project);
+    const restored = runCli(
+      [
+        'workspace',
+        'init',
+        '--project',
+        project,
+        ...sessionArgs,
+        '--install-hooks',
+        'skip',
+        '--no-project-scan-bootstrap',
+        '--json'
+      ],
+      project
+    );
     expect(restored.code).toBe(0);
 
     const settings = JSON.parse(readFileSync(settingsPath, 'utf8')) as {
@@ -102,19 +125,28 @@ describe('rid-012 add-tech-dry-run-gate', () => {
     const project = makeProject('peaks-rid-012-');
     const changeId = 'e2e-tech-dry-run';
 
-    const planned = runCli([
-      'tech', 'plan-change-id', '--change-id', changeId,
-      '--goal', 'Verify the technical dry-run gate', '--json'
-    ], project);
+    const planned = runCli(
+      [
+        'tech',
+        'plan-change-id',
+        '--change-id',
+        changeId,
+        '--goal',
+        'Verify the technical dry-run gate',
+        '--json'
+      ],
+      project
+    );
     expect(planned.code).toBe(0);
     const plan = parseEnvelope<{ available: boolean; changeId: string }>(planned);
     expect(plan.ok).toBe(true);
     expect(plan.data.available).toBe(true);
     expect(plan.data.changeId).toBe(changeId);
 
-    const checked = runCli([
-      'tech', 'status-change-id', '--change-id', changeId, '--json'
-    ], project);
+    const checked = runCli(
+      ['tech', 'status-change-id', '--change-id', changeId, '--json'],
+      project
+    );
     expect(checked.code).toBe(0);
     const status = parseEnvelope<{ status: string; changeId: string }>(checked);
     expect(status.ok).toBe(true);
@@ -126,10 +158,18 @@ describe('rid-012 add-tech-dry-run-gate', () => {
 describe('rid-013 add-rd-swarm-dry-run-planner', () => {
   test('returns a non-empty worker task queue for an RD change-id plan', () => {
     const project = makeProject('peaks-rid-013-');
-    const planned = runCli([
-      'swarm', 'plan-change-id', '--change-id', 'e2e-rd-swarm',
-      '--goal', 'Verify the RD swarm dry-run planner', '--json'
-    ], project);
+    const planned = runCli(
+      [
+        'swarm',
+        'plan-change-id',
+        '--change-id',
+        'e2e-rd-swarm',
+        '--goal',
+        'Verify the RD swarm dry-run planner',
+        '--json'
+      ],
+      project
+    );
 
     expect(planned.code).toBe(0);
     const envelope = parseEnvelope<{ available: boolean; tasks: unknown[] }>(planned);
@@ -143,11 +183,20 @@ describe('rid-013 add-rd-swarm-dry-run-planner', () => {
 describe('rid-014 add-autonomous-rd-swarm-resume', () => {
   test('returns the autonomous goal package and resumable worker queue', () => {
     const project = makeProject('peaks-rid-014-');
-    const planned = runCli([
-      'autonomous-swarm', '--change-id', 'e2e-autonomous-swarm',
-      '--goal', 'Verify autonomous resume planning', '--mode', 'code',
-      '--dry-run', '--json'
-    ], project);
+    const planned = runCli(
+      [
+        'autonomous-swarm',
+        '--change-id',
+        'e2e-autonomous-swarm',
+        '--goal',
+        'Verify autonomous resume planning',
+        '--mode',
+        'code',
+        '--dry-run',
+        '--json'
+      ],
+      project
+    );
 
     expect(planned.code).toBe(0);
     const envelope = parseEnvelope<{
@@ -164,9 +213,7 @@ describe('rid-014 add-autonomous-rd-swarm-resume', () => {
 
 describe('rid-015 add-slice-topology-multipass', () => {
   test('plans at least two linked slices from the existing picked decomposition', () => {
-    const planned = runCli([
-      'slice', 'plan', PICKED_RID, '--project', REPO, '--json'
-    ], REPO);
+    const planned = runCli(['slice', 'plan', PICKED_RID, '--project', REPO, '--json'], REPO);
 
     expect(planned.code).toBe(0);
     const envelope = parseEnvelope<{

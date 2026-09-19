@@ -1,27 +1,27 @@
-import { readFileSync, mkdirSync, writeFileSync, existsSync, rmSync } from "node:fs";
-import { join } from "node:path";
-import type Database from "better-sqlite3";
-import { assertNotSystemPath } from "../sediment/pool-paths.js";
-import { runTar } from "./tar-runtime.js";
-import type { ExportPayload } from "./types.js";
+import { readFileSync, mkdirSync, writeFileSync, existsSync, rmSync } from 'node:fs';
+import { join } from 'node:path';
+import type Database from 'better-sqlite3';
+import { assertNotSystemPath } from '../sediment/pool-paths.js';
+import { runTar } from './tar-runtime.js';
+import type { ExportPayload } from './types.js';
 
 export function importRelease({
   db,
   blobsDir,
   inPath,
-  asName,
+  asName
 }: {
   db: Database.Database;
   blobsDir: string;
   inPath: string;
   asName?: string;
 }): void {
-  const stageDir = inPath + ".extract";
+  const stageDir = inPath + '.extract';
   if (existsSync(stageDir)) rmSync(stageDir, { recursive: true, force: true });
   mkdirSync(stageDir, { recursive: true });
   let extractOk = false;
   try {
-    runTar(["-xzf", inPath, "-C", stageDir]);
+    runTar(['-xzf', inPath, '-C', stageDir]);
     extractOk = true;
   } finally {
     if (!extractOk) rmSync(stageDir, { recursive: true, force: true });
@@ -31,7 +31,7 @@ export function importRelease({
   // into <stageDir>/manifest.json. Minor #13: replace the previous
   // inline anonymous type so producer and consumer stay in lock-step.
   const payload = JSON.parse(
-    readFileSync(join(stageDir, "manifest.json"), "utf-8")
+    readFileSync(join(stageDir, 'manifest.json'), 'utf-8')
   ) as ExportPayload;
   const beeName = asName ?? payload.bee_name;
   assertNotSystemPath(beeName);
@@ -39,14 +39,14 @@ export function importRelease({
   // fell through to a UNIQUE-constraint mid-INSERT failure). Whether
   // the user gave an explicit asName or relied on payload.bee_name, a
   // pre-existing row must be reported cleanly.
-  if (db.prepare("SELECT 1 FROM bee_release WHERE bee_name = ?").get(beeName)) {
-    throw new Error("IMPORT_NAME_COLLIDES");
+  if (db.prepare('SELECT 1 FROM bee_release WHERE bee_name = ?').get(beeName)) {
+    throw new Error('IMPORT_NAME_COLLIDES');
   }
   // Copy blobs
   for (const f of payload.fileRows) {
     const dest = join(blobsDir, f.sha256.slice(0, 2));
     mkdirSync(dest, { recursive: true });
-    writeFileSync(join(dest, f.sha256), readFileSync(join(stageDir, "blobs", f.sha256)));
+    writeFileSync(join(dest, f.sha256), readFileSync(join(stageDir, 'blobs', f.sha256)));
   }
   // Re-insert rows: pick a new release id, mirror payload rows.
   // M3 / spec §4.2: the new `shareable` and `desktop_visible` columns
@@ -58,15 +58,8 @@ export function importRelease({
     const ins = db.prepare(
       `INSERT INTO bee_release (bee_name, version, source, archived_at, archived_by, user_intent_raw, description, parent_version, changelog, shareable, desktop_visible) VALUES (?, ?, 'user', ?, 'user', ?, ?, ?, ?, 1, 1)`
     );
-    const id = ins.run(
-      beeName,
-      payload.version,
-      new Date().toISOString(),
-      null,
-      null,
-      null,
-      null
-    ).lastInsertRowid as number;
+    const id = ins.run(beeName, payload.version, new Date().toISOString(), null, null, null, null)
+      .lastInsertRowid as number;
     db.prepare(
       `INSERT OR REPLACE INTO bee_release_pointer (bee_name, latest_version, released_at) VALUES (?, ?, ?)`
     ).run(beeName, payload.version, new Date().toISOString());

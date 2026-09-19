@@ -24,7 +24,9 @@ import { normalizePath } from '../../shared/path-utils.js';
 
 export type VmHypervisor = 'kvm' | 'hyperkit' | 'hyperv';
 export const VM_HYPERVISORS: ReadonlyArray<VmHypervisor> = Object.freeze([
-  'kvm', 'hyperkit', 'hyperv'
+  'kvm',
+  'hyperkit',
+  'hyperv'
 ]);
 
 // PRD-002b slice 2 — extract lease-TTL primitives (same shape as
@@ -132,8 +134,18 @@ export function deserializeVmLease(raw: string): VmLease {
   }
   const obj = parsed as Record<string, unknown>;
   const required: ReadonlyArray<keyof VmLease> = [
-    'leaseId', 'rid', 'role', 'path', 'hypervisor', 'image', 'vmId',
-    'createdAt', 'expiresAt', 'purpose', 'status', 'consumedBySubAgents'
+    'leaseId',
+    'rid',
+    'role',
+    'path',
+    'hypervisor',
+    'image',
+    'vmId',
+    'createdAt',
+    'expiresAt',
+    'purpose',
+    'status',
+    'consumedBySubAgents'
   ];
   for (const k of required) {
     if (!(k in obj)) throw new Error(`vm lease missing field: ${k}`);

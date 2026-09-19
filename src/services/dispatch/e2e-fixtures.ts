@@ -35,7 +35,9 @@ export type E2EPlan =
   | { readonly kind: 'empty' }
   | { readonly kind: 'fixtures'; readonly fixtures: ReadonlyArray<E2EFixture> };
 
-function readMarkdownFixture(file: string): { url: string; matchers: ReadonlyArray<string> } | null {
+function readMarkdownFixture(
+  file: string
+): { url: string; matchers: ReadonlyArray<string> } | null {
   const raw = readFileSync(file, 'utf8');
   let url = '';
   const matchers: string[] = [];
@@ -72,7 +74,7 @@ export function readE2EPlan(input: { readonly dir: string }): E2EPlan {
         name: scenario,
         file: join(scenarioDir, file),
         url: parsed.url,
-        matchers: parsed.matchers,
+        matchers: parsed.matchers
       });
     }
   }

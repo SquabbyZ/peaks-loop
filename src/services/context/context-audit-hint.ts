@@ -109,8 +109,11 @@ function readCache(cachePath: string): ContextHintCacheEntry | null {
       tool: typeof parsed.tool === 'string' ? parsed.tool : null,
       key: typeof parsed.key === 'string' ? parsed.key : null,
       bytes: typeof parsed.bytes === 'number' && Number.isFinite(parsed.bytes) ? parsed.bytes : 0,
-      pctOfTotal: typeof parsed.pctOfTotal === 'number' && Number.isFinite(parsed.pctOfTotal) ? parsed.pctOfTotal : 0,
-      count: typeof parsed.count === 'number' && Number.isFinite(parsed.count) ? parsed.count : 0,
+      pctOfTotal:
+        typeof parsed.pctOfTotal === 'number' && Number.isFinite(parsed.pctOfTotal)
+          ? parsed.pctOfTotal
+          : 0,
+      count: typeof parsed.count === 'number' && Number.isFinite(parsed.count) ? parsed.count : 0
     };
   } catch {
     return null;
@@ -132,7 +135,7 @@ function probeRatioSafe(input: ContextAuditHintInput): number | null {
       projectRoot: input.projectRoot,
       sessionId: input.sessionId,
       outerSessionId: input.outerSessionId ?? undefined,
-      env: input.env ?? process.env,
+      env: input.env ?? process.env
     });
     return Number.isFinite(probe.ratio) ? probe.ratio : null;
   } catch {
@@ -163,7 +166,7 @@ export function buildContextAuditHint(input: ContextAuditHintInput): string | nu
     // Cache miss / stale → at most one scan per TTL window.
     const result = (input.runAudit ?? auditContext)({
       outerSessionId: input.outerSessionId ?? null,
-      topN: 1,
+      topN: 1
     });
     const top = result.available ? (result.entries[0] ?? null) : null;
     const entry: ContextHintCacheEntry = {
@@ -174,7 +177,7 @@ export function buildContextAuditHint(input: ContextAuditHintInput): string | nu
       key: top?.key ?? null,
       bytes: top?.bytes ?? 0,
       pctOfTotal: top?.pctOfTotal ?? 0,
-      count: top?.count ?? 0,
+      count: top?.count ?? 0
     };
     try {
       atomicWriteJson(cachePath, entry);

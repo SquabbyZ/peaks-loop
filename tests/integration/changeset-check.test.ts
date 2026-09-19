@@ -91,10 +91,7 @@ describe('peaks changeset check — integration', () => {
   // AC-7: hotfix blocked fixture — pending file → CHANGESET_BLOCKED.
   it('AC-7 — hotfix with staged changesets exits 1 with CHANGESET_BLOCKED', async () => {
     writeChangesetStaged(tmp, ['pending-change.md']);
-    const r = await runCli(
-      ['release', 'hotfix', '4.0.0-beta.99', '--project', tmp, '--json'],
-      tmp
-    );
+    const r = await runCli(['release', 'hotfix', '4.0.0-beta.99', '--project', tmp, '--json'], tmp);
     expect(r.code).toBe(1);
     const json = parseCliJson(r.stdout);
     expect(json.command).toBe('release.hotfix');

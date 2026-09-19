@@ -43,9 +43,7 @@ export const HERMES_ADAPTER: IdeAdapter = {
   subAgentDispatcher: traeSubAgentDispatcher,
   // Slice #010 G9: Hermes PreToolUse is the assumed hook path. UNVERIFIED.
   promptSizeAware: true,
-  installHints: [
-    'Restart Hermes (or reload the workspace) so the PreToolUse hooks take effect.'
-  ],
+  installHints: ['Restart Hermes (or reload the workspace) so the PreToolUse hooks take effect.'],
   capabilities: {
     gateEnforce: true,
     statusline: true
@@ -63,8 +61,10 @@ export const HERMES_ADAPTER: IdeAdapter = {
       const trimmed = candidate.trim();
       if (/^[a-zA-Z0-9._-]{1,200}$/.test(trimmed)) return trimmed;
     }
-    const err = new Error('PEAKS_CALLER_NOT_RESOLVED: Hermes vendor signal unverified') as Error & { code: string };
+    const err = new Error('PEAKS_CALLER_NOT_RESOLVED: Hermes vendor signal unverified') as Error & {
+      code: string;
+    };
     err.code = 'PEAKS_CALLER_NOT_RESOLVED';
     throw err;
-  },
+  }
 };

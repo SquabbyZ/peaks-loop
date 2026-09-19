@@ -11,12 +11,7 @@
  */
 
 import { findCatalogEntry } from './red-line-catalog.js';
-import type {
-  MarkdownLine,
-  RedLineEntry,
-  RedLineMarker,
-  RedLineSource,
-} from './types.js';
+import type { MarkdownLine, RedLineEntry, RedLineMarker, RedLineSource } from './types.js';
 
 const MARKER_PATTERN = /\b(MANDATORY|BLOCKING|MUST NOT|RED LINE)\b/;
 
@@ -113,7 +108,7 @@ export function classifyFile(input: ClassifyFileInput): ClassifyResult {
       file: input.file,
       line: idx + 1,
       marker,
-      context,
+      context
     };
 
     if (catalog) {
@@ -122,7 +117,7 @@ export function classifyFile(input: ClassifyFileInput): ClassifyResult {
         rule: catalog.rule,
         source,
         backing: catalog.enforcerRef === null ? 'prose-only' : 'cli-backed',
-        enforcerRef: catalog.enforcerRef,
+        enforcerRef: catalog.enforcerRef
       });
     } else {
       // Marker hit but no catalog match: discovered, not yet enforced.
@@ -138,7 +133,7 @@ export function classifyFile(input: ClassifyFileInput): ClassifyResult {
         source,
         backing: 'prose-only',
         enforcerRef: null,
-        informational: true,
+        informational: true
       });
     }
   }

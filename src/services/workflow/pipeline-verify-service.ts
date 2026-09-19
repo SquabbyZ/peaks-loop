@@ -17,7 +17,10 @@
 import { isRequestType, type RequestType } from '../artifacts/artifact-prerequisites.js';
 import { readSkipState } from './workflow-state-store.js';
 import { getSessionIdCanonical } from '../session/session-manager.js';
-import { listPromotionExempt, listUnpromotedFeedback } from '../feedback/feedback-promotion-service.js';
+import {
+  listPromotionExempt,
+  listUnpromotedFeedback
+} from '../feedback/feedback-promotion-service.js';
 import type { PipelineGate, PipelineVerification } from './pipeline-verify-types.js';
 import {
   QA_COMPLETE_STATES,
@@ -39,7 +42,9 @@ export async function verifyPipeline(options: {
   sessionId?: string;
   requestType?: string;
 }): Promise<PipelineVerification> {
-  const requestType = isRequestType(options.requestType ?? '') ? options.requestType as RequestType : 'feature';
+  const requestType = isRequestType(options.requestType ?? '')
+    ? (options.requestType as RequestType)
+    : 'feature';
   const violations: string[] = [];
   const nextActions: string[] = [];
 
@@ -97,8 +102,12 @@ export async function verifyPipeline(options: {
     rdGates[0]!.detail = `found at ${rdFile.path}`;
     resolvedChangeId = rdFile.sessionId;
   } else {
-    violations.push('RD phase skipped: peaks-rd was never invoked for this request (no RD request artifact found)');
-    nextActions.push('Invoke Skill(skill="peaks-rd") with the request-id, then run unit tests + code review + security review');
+    violations.push(
+      'RD phase skipped: peaks-rd was never invoked for this request (no RD request artifact found)'
+    );
+    nextActions.push(
+      'Invoke Skill(skill="peaks-rd") with the request-id, then run unit tests + code review + security review'
+    );
     rdGates[0]!.detail = 'not found';
   }
 
@@ -117,7 +126,11 @@ export async function verifyPipeline(options: {
   // binding-store is the preferred filesystem scope; falling through
   // to `options.rid` would make every missing-evidence path look like
   // a per-rid scope dir.
-  const rdEvidenceDir = resolvedChangeId || options.sessionId || getSessionIdCanonical(options.projectRoot) || options.rid;
+  const rdEvidenceDir =
+    resolvedChangeId ||
+    options.sessionId ||
+    getSessionIdCanonical(options.projectRoot) ||
+    options.rid;
   const rdTracker = resolveRdEvidencePaths(
     rdGates,
     rdEvidenceDir,
@@ -131,8 +144,12 @@ export async function verifyPipeline(options: {
 
   // Check if RD reached qa-handoff
   if (rdInvoked && !RD_QA_HANDOFF_STATES.has(rdState)) {
-    violations.push(`RD not ready for QA: state is "${rdState}" — must reach "qa-handoff" (unit tests, karpathy-guidelines §1 Think / §2 Simplicity / §3 Surgical / §4 Goal-Driven, code review, security review complete)`);
-    nextActions.push(`Complete RD gates → peaks request transition ${options.rid} --role rd --state qa-handoff`);
+    violations.push(
+      `RD not ready for QA: state is "${rdState}" — must reach "qa-handoff" (unit tests, karpathy-guidelines §1 Think / §2 Simplicity / §3 Surgical / §4 Goal-Driven, code review, security review complete)`
+    );
+    nextActions.push(
+      `Complete RD gates → peaks request transition ${options.rid} --role rd --state qa-handoff`
+    );
   }
 
   // Check QA phase
@@ -148,8 +165,12 @@ export async function verifyPipeline(options: {
     qaGates[0]!.detail = `found at ${qaFile.path}`;
     resolvedChangeId = qaFile.sessionId || resolvedChangeId;
   } else {
-    violations.push('QA phase skipped: peaks-qa was never invoked for this request (no QA request artifact found)');
-    nextActions.push('Invoke Skill(skill="peaks-qa") with the request-id for functional/performance/security testing');
+    violations.push(
+      'QA phase skipped: peaks-qa was never invoked for this request (no QA request artifact found)'
+    );
+    nextActions.push(
+      'Invoke Skill(skill="peaks-qa") with the request-id for functional/performance/security testing'
+    );
     qaGates[0]!.detail = 'not found';
   }
 
@@ -172,8 +193,12 @@ export async function verifyPipeline(options: {
 
   // Check if QA reached verdict-issued
   if (qaInvoked && !QA_COMPLETE_STATES.has(qaState)) {
-    violations.push(`QA not complete: state is "${qaState}" — must reach "verdict-issued" (functional + performance + security checks done)`);
-    nextActions.push(`Complete QA gates → peaks request transition ${options.rid} --role qa --state verdict-issued`);
+    violations.push(
+      `QA not complete: state is "${qaState}" — must reach "verdict-issued" (functional + performance + security checks done)`
+    );
+    nextActions.push(
+      `Complete QA gates → peaks request transition ${options.rid} --role qa --state verdict-issued`
+    );
   }
 
   // RD invoked without QA — check is moved to AFTER markIfSkipped
@@ -220,7 +245,9 @@ export async function verifyPipeline(options: {
   if (rdInvokedWithoutQaRaw) {
     const allQaSkipped = qaGates.every((g) => g.status === 'skipped');
     if (!allQaSkipped) {
-      violations.push('CRITICAL: peaks-rd was invoked but peaks-qa was NOT — QA functional/performance/security testing is mandatory after all RD work');
+      violations.push(
+        'CRITICAL: peaks-rd was invoked but peaks-qa was NOT — QA functional/performance/security testing is mandatory after all RD work'
+      );
       nextActions.push('MUST invoke Skill(skill="peaks-qa") before declaring workflow complete');
     }
   }
@@ -240,7 +267,8 @@ export async function verifyPipeline(options: {
   const feedbackGates: PipelineGate[] = [
     {
       name: 'feedback-promotion',
-      description: 'Every feedback memory is promoted to at least one enforcement layer (sop / hooks / hard-floor)',
+      description:
+        'Every feedback memory is promoted to at least one enforcement layer (sop / hooks / hard-floor)',
       passed: false,
       detail: ''
     }
@@ -251,9 +279,10 @@ export async function verifyPipeline(options: {
     // themselves out of the gate are reported, never dropped. An exemption the
     // gate does not show would be indistinguishable from a fixed violation.
     const exempt = listPromotionExempt({ projectRoot: options.projectRoot });
-    const exemptNote = exempt.length === 0
-      ? ''
-      : `; ${exempt.length} declared not-to-be-promoted: ${exempt.map((e) => `${e.name} (${e.code})`).join('; ')}`;
+    const exemptNote =
+      exempt.length === 0
+        ? ''
+        : `; ${exempt.length} declared not-to-be-promoted: ${exempt.map((e) => `${e.name} (${e.code})`).join('; ')}`;
     if (unpromoted.length === 0) {
       feedbackGates[0]!.passed = true;
       feedbackGates[0]!.detail = `0 unpromoted feedback memories in .peaks/memory/${exemptNote}`;
@@ -263,8 +292,12 @@ export async function verifyPipeline(options: {
       // artifact is absent, so `unpromoted` mixes "never promoted" with
       // "promoted on paper only" — the reason on each entry says which.
       feedbackGates[0]!.detail = `${unpromoted.length} feedback memor${unpromoted.length === 1 ? 'y' : 'ies'} without a backed promotion: ${unpromoted.map((u) => `${u.name} (${u.reason})`).join('; ')}${exemptNote}`;
-      violations.push(`Gate H feedback-promotion FAILED: ${unpromoted.length} feedback memor${unpromoted.length === 1 ? 'y is' : 'ies are'} not yet promoted to an enforcement layer with a real artifact (${unpromoted.map((u) => u.name).join(', ')})${exemptNote}. A marker alone does not count: layer A needs a registered SOP manifest, layer B a hook command that runs something named after the rule in .peaks/.claude-settings-template.json, layer C a hard-floor category in src/services/code/mode-gate.ts. Run \`peaks feedback promote <memory-file> --layer <A|B|C>\` for each and read what it reports. See sops/feedback-promotion-sop.md.`);
-      nextActions.push(`Run \`peaks feedback promote <memory-file> --layer <A|B|C>\` for each feedback memory without a backed promotion to satisfy Gate H.`);
+      violations.push(
+        `Gate H feedback-promotion FAILED: ${unpromoted.length} feedback memor${unpromoted.length === 1 ? 'y is' : 'ies are'} not yet promoted to an enforcement layer with a real artifact (${unpromoted.map((u) => u.name).join(', ')})${exemptNote}. A marker alone does not count: layer A needs a registered SOP manifest, layer B a hook command that runs something named after the rule in .peaks/.claude-settings-template.json, layer C a hard-floor category in src/services/code/mode-gate.ts. Run \`peaks feedback promote <memory-file> --layer <A|B|C>\` for each and read what it reports. See sops/feedback-promotion-sop.md.`
+      );
+      nextActions.push(
+        `Run \`peaks feedback promote <memory-file> --layer <A|B|C>\` for each feedback memory without a backed promotion to satisfy Gate H.`
+      );
     }
   } catch {
     // listUnpromotedFeedback swallows IO errors internally; the
@@ -272,14 +305,21 @@ export async function verifyPipeline(options: {
     // failures (e.g. permission denied). Treat as "no feedback" —
     // fail-open on gate infrastructure rather than blocking ship.
     feedbackGates[0]!.passed = true;
-    feedbackGates[0]!.detail = 'feedback-promotion scan skipped (memory dir unreadable; treating as no feedback)';
+    feedbackGates[0]!.detail =
+      'feedback-promotion scan skipped (memory dir unreadable; treating as no feedback)';
   }
   const allFeedbackGatesPassed = feedbackGates.every((g) => g.passed);
 
   const allRdGatesPassed = rdGates.every((g) => g.passed);
   const allQaGatesPassed = qaGates.every((g) => g.passed);
-  const complete = rdInvoked && qaInvoked && allRdGatesPassed && allQaGatesPassed && allFeedbackGatesPassed
-    && RD_QA_HANDOFF_STATES.has(rdState) && QA_COMPLETE_STATES.has(qaState);
+  const complete =
+    rdInvoked &&
+    qaInvoked &&
+    allRdGatesPassed &&
+    allQaGatesPassed &&
+    allFeedbackGatesPassed &&
+    RD_QA_HANDOFF_STATES.has(rdState) &&
+    QA_COMPLETE_STATES.has(qaState);
 
   // Slice 025 — derive the `acceptedForm` and `gateC` verdict. The form is
   // 'suffixed' when the contract's current path served the file and 'legacy'
@@ -301,7 +341,7 @@ export async function verifyPipeline(options: {
   const acceptedForm: 'suffixed' | 'legacy' | 'none' =
     !secGate?.passed && !perfGate?.passed
       ? 'none'
-      : (secForm === 'legacy' || perfForm === 'legacy')
+      : secForm === 'legacy' || perfForm === 'legacy'
         ? 'legacy'
         : 'suffixed';
   const gateC: 'pass' | 'fail' = allQaGatesPassed ? 'pass' : 'fail';

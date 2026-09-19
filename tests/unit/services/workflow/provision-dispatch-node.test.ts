@@ -57,19 +57,33 @@ describe('provisionDispatchNode', () => {
   });
 
   it('derives a workflowId from the session when none is supplied', () => {
-    const result = provisionDispatchNode({ projectRoot: freshProject(), sessionId: '2026-09-11-session-abc', role: 'rd' });
+    const result = provisionDispatchNode({
+      projectRoot: freshProject(),
+      sessionId: '2026-09-11-session-abc',
+      role: 'rd'
+    });
     expect(result.workflowId).toBe('dispatch-2026-09-11-session-abc');
     expect(result.graphRef).toBe('graphs/dispatch-2026-09-11-session-abc.json');
   });
 
   it('honours a well-formed workflowId and refuses to build a path from a malformed one', () => {
-    const ok = provisionDispatchNode({ projectRoot: freshProject(), sessionId: 'sid-1', role: 'rd', workflowId: 'my-flow' });
+    const ok = provisionDispatchNode({
+      projectRoot: freshProject(),
+      sessionId: 'sid-1',
+      role: 'rd',
+      workflowId: 'my-flow'
+    });
     expect(ok.workflowId).toBe('my-flow');
 
     // A malformed id must not reach the filesystem as a path segment; the
     // call falls back to the derived id instead of throwing, because the
     // whole point is that dispatch must not be blocked.
-    const bad = provisionDispatchNode({ projectRoot: freshProject(), sessionId: 'sid-1', role: 'rd', workflowId: '../escape' });
+    const bad = provisionDispatchNode({
+      projectRoot: freshProject(),
+      sessionId: 'sid-1',
+      role: 'rd',
+      workflowId: '../escape'
+    });
     expect(bad.workflowId).toBe('dispatch-sid-1');
   });
 

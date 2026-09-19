@@ -152,16 +152,25 @@ export function readPlan(args: ReadPlanArgs): ResultEnvelope<ReadPlanData> {
   // authoritative gate — every caller (CLI, skill, integration test)
   // benefits from the same rejection shape.
   if (!SESSION_ID_PATTERN.test(args.sessionId)) {
-    return fail('workflow.plan.read', 'INVALID_SESSION_ID', 'session id must match YYYY-MM-DD-slug pattern', {
-      type: args.type,
-      exists: false,
-      path: '',
-      hash: null,
-      refreshedAt: null,
-      source: 'missing'
-    } satisfies ReadPlanData);
+    return fail(
+      'workflow.plan.read',
+      'INVALID_SESSION_ID',
+      'session id must match YYYY-MM-DD-slug pattern',
+      {
+        type: args.type,
+        exists: false,
+        path: '',
+        hash: null,
+        refreshedAt: null,
+        source: 'missing'
+      } satisfies ReadPlanData
+    );
   }
-  const canonical = canonicalPath({ projectRoot: args.project, sessionId: args.sessionId, type: args.type });
+  const canonical = canonicalPath({
+    projectRoot: args.project,
+    sessionId: args.sessionId,
+    type: args.type
+  });
   if (existsSync(canonical)) {
     const guard = assertContained({
       expectedBase: getSessionDir(args.project, args.sessionId),
@@ -177,7 +186,10 @@ export function readPlan(args: ReadPlanArgs): ResultEnvelope<ReadPlanData> {
         source: 'missing'
       } satisfies ReadPlanData);
     }
-    return ok('workflow.plan.read', buildData({ type: args.type, path: canonical, source: 'canonical' }));
+    return ok(
+      'workflow.plan.read',
+      buildData({ type: args.type, path: canonical, source: 'canonical' })
+    );
   }
   const legacy = legacyPath({ projectRoot: args.project, type: args.type });
   const backCompatEnabled = process.env[BACK_COMPAT_FLAG] === '1';

@@ -22,10 +22,14 @@ import {
   parseRole,
   parseStateForRole,
   resolveDefaultFormat,
-  VALID_ROLES,
+  VALID_ROLES
 } from './request-format-helpers.js';
 import { ConfirmationRequiredError } from '../../services/mode/mode-enforcement.js';
-import { recordBypass, isBypassLimitReached, MAX_BYPASSES_PER_SESSION } from '../../services/mode/bypass-tracker.js';
+import {
+  recordBypass,
+  isBypassLimitReached,
+  MAX_BYPASSES_PER_SESSION
+} from '../../services/mode/bypass-tracker.js';
 import { lintRequestArtifact } from '../../services/artifacts/artifact-lint-service.js';
 import { getRepairCycleStatus } from '../../services/artifacts/repair-cycle-service.js';
 import { fail, ok } from 'peaks-loop-shared/result';
@@ -34,7 +38,7 @@ import { triggerBestPracticeScan } from '../../services/prd/best-practice-auto-t
 import {
   codegraphRefreshNotice,
   refreshCodegraphAfterSlice,
-  type CodegraphAutorefreshResult,
+  type CodegraphAutorefreshResult
 } from '../../services/codegraph/codegraph-autorefresh.js';
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
 import { isUnsafePathInput } from '../../shared/path-safety.js';
@@ -66,11 +70,13 @@ type RequestListOptions = {
  * `role/requestId (state)` labels for the first N entries. The full `items`
  * array (with paths + timestamps) is one flag away — omit `--summary`.
  */
-export function buildRequestListSummary(items: readonly RequestArtifactSummary[]): Record<string, unknown> {
+export function buildRequestListSummary(
+  items: readonly RequestArtifactSummary[]
+): Record<string, unknown> {
   const view = {
     view: 'summary',
     count: items.length,
-    items: boundedNames(items.map((i) => `${i.role}/${i.requestId} (${i.state})`)),
+    items: boundedNames(items.map((i) => `${i.role}/${i.requestId} (${i.state})`))
   };
   return fitSummaryToBytes(view);
 }
@@ -99,23 +105,35 @@ type RequestTransitionOptions = {
 };
 
 export function registerRequestCommands(program: Command, io: ProgramIO): void {
-  const request = program.command('request').description('Manage per-request Peaks role artifacts (PRD / UI / RD / QA)');
+  const request = program
+    .command('request')
+    .description('Manage per-request Peaks role artifacts (PRD / UI / RD / QA)');
 
   addJsonOption(
     request
       .command('init')
       .description('Create the per-request artifact template for a Peaks role (dry-run by default)')
       .requiredOption('--role <role>', `target role (${VALID_ROLES.join(' | ')})`, parseRole)
-      .requiredOption('--id <request-id>', 'request id, e.g. 2026-05-23-add-foo. With --apply, also pre-creates the canonical change-id scope dir at .peaks/_runtime/change/<id>/ so sub-agents never write .peaks/_runtime/<id>/ at top level.')
+      .requiredOption(
+        '--id <request-id>',
+        'request id, e.g. 2026-05-23-add-foo. With --apply, also pre-creates the canonical change-id scope dir at .peaks/_runtime/change/<id>/ so sub-agents never write .peaks/_runtime/<id>/ at top level.'
+      )
       .requiredOption('--project <path>', 'target project root')
       .option('--session-id <session>', 'override the default date-stamped session id')
       .option('--apply', 'write the artifact file (default: preview only)')
-      .option('--type <type>', `request type (${VALID_REQUEST_TYPES.join(' | ')}); default: feature`, parseRequestType)
+      .option(
+        '--type <type>',
+        `request type (${VALID_REQUEST_TYPES.join(' | ')}); default: feature`,
+        parseRequestType
+      )
       // Slice 020 — caller-keyed session binding. Per-invocation override
       // (D4 priority level 1). When set, the resolved callerId is surfaced
       // in the JSON envelope; the on-disk artifact records it in the
       // artifact body so future reads know which caller produced it.
-      .option('--caller-id <id>', 'Override the caller id for this invocation (D4 priority: flag beats env beats platform fallback). The resolved callerId is stamped on the artifact body and surfaced in the response envelope.')
+      .option(
+        '--caller-id <id>',
+        'Override the caller id for this invocation (D4 priority: flag beats env beats platform fallback). The resolved callerId is stamped on the artifact body and surfaced in the response envelope.'
+      )
   ).action(async (options: RequestInitOptions) => {
     try {
       // One-axis layout: --session-id is REQUIRED. The on-disk root
@@ -132,7 +150,10 @@ export function registerRequestCommands(program: Command, io: ProgramIO): void {
             'SESSION_ID_REQUIRED',
             '--session-id is required: the CLI writes envelopes only to .peaks/_runtime/<sessionId>/... (one-axis layout)',
             { role: options.role, requestId: options.id },
-            ['Re-run with --session-id <sid>', 'Or run `peaks workspace init` to create a session first']
+            [
+              'Re-run with --session-id <sid>',
+              'Or run `peaks workspace init` to create a session first'
+            ]
           ),
           options.json
         );
@@ -157,7 +178,8 @@ export function registerRequestCommands(program: Command, io: ProgramIO): void {
       // the caller passed a flag. D2 (no callerId available) and D5
       // (regex fail) both surface as `CALLER_ID_INVALID` with the inner
       // `CallerIdError.source` propagated for caller-side audit.
-      const { resolveCallerId, CallerIdError } = await import('../../services/session/resolve-caller-id.js');
+      const { resolveCallerId, CallerIdError } =
+        await import('../../services/session/resolve-caller-id.js');
       try {
         const callerId = resolveCallerId(
           options.callerId !== undefined ? { flagValue: options.callerId } : {}
@@ -170,16 +192,10 @@ export function registerRequestCommands(program: Command, io: ProgramIO): void {
           const code = error.code === 'EX_USAGE' ? 64 : 65;
           printResult(
             io,
-            fail(
-              'request.init',
-              'CALLER_ID_INVALID',
-              error.message,
-              { source: error.source },
-              [
-                'Set --caller-id to a value matching ^[a-zA-Z0-9._-]{1,200}$',
-                'Or set PEAKS_CALLER_ID env var (or CLAUDE_CODE_SESSION_ID for Claude Code)'
-              ]
-            ),
+            fail('request.init', 'CALLER_ID_INVALID', error.message, { source: error.source }, [
+              'Set --caller-id to a value matching ^[a-zA-Z0-9._-]{1,200}$',
+              'Or set PEAKS_CALLER_ID env var (or CLAUDE_CODE_SESSION_ID for Claude Code)'
+            ]),
             options.json
           );
           process.exitCode = code;
@@ -201,7 +217,13 @@ export function registerRequestCommands(program: Command, io: ProgramIO): void {
     } catch (error) {
       printResult(
         io,
-        fail('request.init', 'REQUEST_INIT_FAILED', getErrorMessage(error), { role: options.role, requestId: options.id }, ['Check role, request id, and project path before retrying']),
+        fail(
+          'request.init',
+          'REQUEST_INIT_FAILED',
+          getErrorMessage(error),
+          { role: options.role, requestId: options.id },
+          ['Check role, request id, and project path before retrying']
+        ),
         options.json
       );
       process.exitCode = 1;
@@ -215,10 +237,15 @@ export function registerRequestCommands(program: Command, io: ProgramIO): void {
       .requiredOption('--project <path>', 'target project root')
       .option('--session-id <session>', 'limit to a specific session id')
       .option('--role <role>', `limit to a single role (${VALID_ROLES.join(' | ')})`, parseRole)
-      .option('--summary', 'emit counts + names-of-first-N only (≤ 2 KB) instead of the full item array; the default envelope is unchanged')
+      .option(
+        '--summary',
+        'emit counts + names-of-first-N only (≤ 2 KB) instead of the full item array; the default envelope is unchanged'
+      )
   ).action(async (options: RequestListOptions) => {
     try {
-      const listOptions: Parameters<typeof listRequestArtifacts>[0] = { projectRoot: options.project };
+      const listOptions: Parameters<typeof listRequestArtifacts>[0] = {
+        projectRoot: options.project
+      };
       if (options.sessionId !== undefined) {
         listOptions.sessionId = options.sessionId;
       }
@@ -228,14 +255,19 @@ export function registerRequestCommands(program: Command, io: ProgramIO): void {
       const items = await listRequestArtifacts(listOptions);
       // Slice B: `--summary` is opt-in; the default `{count, items}` shape is
       // byte-identical to before.
-      const data = options.summary === true
-        ? buildRequestListSummary(items)
-        : { count: items.length, items };
+      const data =
+        options.summary === true ? buildRequestListSummary(items) : { count: items.length, items };
       printResult(io, ok('request.list', data), options.json);
     } catch (error) {
       printResult(
         io,
-        fail('request.list', 'REQUEST_LIST_FAILED', getErrorMessage(error), { projectRoot: options.project }, ['Check project path before retrying']),
+        fail(
+          'request.list',
+          'REQUEST_LIST_FAILED',
+          getErrorMessage(error),
+          { projectRoot: options.project },
+          ['Check project path before retrying']
+        ),
         options.json
       );
       process.exitCode = 1;
@@ -245,7 +277,9 @@ export function registerRequestCommands(program: Command, io: ProgramIO): void {
   addJsonOption(
     request
       .command('show')
-      .description('Show a single per-request artifact, optionally scoped to a session. R3: default body format is per-artifact (PRD/tech-doc pretty; everything else compact); pass --pretty or --compact to override uniformly.')
+      .description(
+        'Show a single per-request artifact, optionally scoped to a session. R3: default body format is per-artifact (PRD/tech-doc pretty; everything else compact); pass --pretty or --compact to override uniformly.'
+      )
       .argument('<request-id>', 'request id, e.g. 2026-05-23-add-foo')
       .requiredOption('--role <role>', `target role (${VALID_ROLES.join(' | ')})`, parseRole)
       .requiredOption('--project <path>', 'target project root')
@@ -266,7 +300,13 @@ export function registerRequestCommands(program: Command, io: ProgramIO): void {
       if (result === null) {
         printResult(
           io,
-          fail('request.show', 'REQUEST_NOT_FOUND', `No artifact found for role=${options.role} requestId=${requestId}`, { role: options.role, requestId }, ['Verify the request id, role, and session id']),
+          fail(
+            'request.show',
+            'REQUEST_NOT_FOUND',
+            `No artifact found for role=${options.role} requestId=${requestId}`,
+            { role: options.role, requestId },
+            ['Verify the request id, role, and session id']
+          ),
           options.json
         );
         process.exitCode = 1;
@@ -274,22 +314,24 @@ export function registerRequestCommands(program: Command, io: ProgramIO): void {
       }
       // R3: pick the per-artifact default format and apply the override
       // if either flag is set. Last-flag-wins if both are passed.
-      const override: 'pretty' | 'compact' | null = options.compact === true
-        ? 'compact'
-        : options.pretty === true
-          ? 'pretty'
-          : null;
+      const override: 'pretty' | 'compact' | null =
+        options.compact === true ? 'compact' : options.pretty === true ? 'pretty' : null;
       const artifactName = inferArtifactName(result, options.role);
       const format: 'pretty' | 'compact' = override ?? resolveDefaultFormat(artifactName);
       const transformed = applyPerArtifactFormat(result, override ?? format);
-      const payload = transformed === result
-        ? { ...(result as Record<string, unknown>), format }
-        : transformed;
+      const payload =
+        transformed === result ? { ...(result as Record<string, unknown>), format } : transformed;
       printResult(io, ok('request.show', payload), options.json);
     } catch (error) {
       printResult(
         io,
-        fail('request.show', 'REQUEST_SHOW_FAILED', getErrorMessage(error), { role: options.role, requestId }, ['Check role, request id, and project path before retrying']),
+        fail(
+          'request.show',
+          'REQUEST_SHOW_FAILED',
+          getErrorMessage(error),
+          { role: options.role, requestId },
+          ['Check role, request id, and project path before retrying']
+        ),
         options.json
       );
       process.exitCode = 1;
@@ -305,8 +347,14 @@ export function registerRequestCommands(program: Command, io: ProgramIO): void {
       .requiredOption('--state <state>', 'new state name; allowed values depend on role')
       .requiredOption('--project <path>', 'target project root')
       .option('--session-id <session>', 'restrict to a specific session id')
-      .option('--reason <text>', 'reason appended as a transition note; required when --allow-incomplete is set')
-      .option('--allow-incomplete', 'bypass artifact prerequisite checks; requires --reason and records the bypass in the artifact')
+      .option(
+        '--reason <text>',
+        'reason appended as a transition note; required when --allow-incomplete is set'
+      )
+      .option(
+        '--allow-incomplete',
+        'bypass artifact prerequisite checks; requires --reason and records the bypass in the artifact'
+      )
       .option('--confirm', 'skip the confirmation gate (for non-interactive / LLM contexts)')
       .option('--force-confirm', 'bypass mode-enforced confirmation (use with caution)')
   ).action(async (requestId: string, options: RequestTransitionOptions) => {
@@ -323,23 +371,41 @@ export function registerRequestCommands(program: Command, io: ProgramIO): void {
       if (resolvedSessionId !== undefined && isUnsafePathInput(resolvedSessionId)) {
         printResult(
           io,
-          fail('request.transition', 'INVALID_SESSION_ID', `Invalid session id: ${resolvedSessionId} (must be a single path segment)`, { provided: resolvedSessionId }, ['Pass a session id that is a single path segment']),
+          fail(
+            'request.transition',
+            'INVALID_SESSION_ID',
+            `Invalid session id: ${resolvedSessionId} (must be a single path segment)`,
+            { provided: resolvedSessionId },
+            ['Pass a session id that is a single path segment']
+          ),
           options.json
         );
         process.exitCode = 1;
         return;
       }
       if (resolvedSessionId === undefined) {
-        const { showRequestArtifact: showForSession } = await import('../../services/artifacts/request-artifact-service.js');
+        const { showRequestArtifact: showForSession } =
+          await import('../../services/artifacts/request-artifact-service.js');
         const located = await showForSession({ projectRoot: options.project, role, requestId });
         if (located !== null) {
           resolvedSessionId = located.sessionId;
         }
       }
-      if (options.allowIncomplete === true && (options.reason === undefined || options.reason.trim().length === 0)) {
+      if (
+        options.allowIncomplete === true &&
+        (options.reason === undefined || options.reason.trim().length === 0)
+      ) {
         printResult(
           io,
-          fail('request.transition', 'BYPASS_REASON_REQUIRED', '--allow-incomplete requires --reason explaining why prerequisites are skipped', { role, requestId }, ['Add --reason "<short justification>" or remove --allow-incomplete and produce the missing artifacts']),
+          fail(
+            'request.transition',
+            'BYPASS_REASON_REQUIRED',
+            '--allow-incomplete requires --reason explaining why prerequisites are skipped',
+            { role, requestId },
+            [
+              'Add --reason "<short justification>" or remove --allow-incomplete and produce the missing artifacts'
+            ]
+          ),
           options.json
         );
         process.exitCode = 1;
@@ -347,16 +413,22 @@ export function registerRequestCommands(program: Command, io: ProgramIO): void {
       }
       // Restrict --allow-incomplete in assisted/strict modes: require --confirm
       if (options.allowIncomplete === true && options.forceConfirm !== true) {
-        const { getSkillPresence } = await import('../../services/skills/skill-presence-service.js');
+        const { getSkillPresence } =
+          await import('../../services/skills/skill-presence-service.js');
         const presence = getSkillPresence(options.project);
         if (presence?.mode === 'assisted' || presence?.mode === 'strict') {
           if (options.confirm !== true) {
             printResult(
               io,
-              fail('request.transition', 'ALLOW_INCOMPLETE_RESTRICTED',
+              fail(
+                'request.transition',
+                'ALLOW_INCOMPLETE_RESTRICTED',
                 `--allow-incomplete requires --confirm in ${presence.mode} mode`,
                 { role, requestId, mode: presence.mode },
-                ['Ask the user via AskUserQuestion whether to proceed, then re-run with --confirm if they approve.']),
+                [
+                  'Ask the user via AskUserQuestion whether to proceed, then re-run with --confirm if they approve.'
+                ]
+              ),
               options.json
             );
             process.exitCode = 1;
@@ -370,14 +442,22 @@ export function registerRequestCommands(program: Command, io: ProgramIO): void {
           // canonical home is the same one `peaks session info --active`
           // resolves from `_runtime/session.json`, so all session-scoped
           // state (artifacts + bypass counter) now lives in one tree.
-          const sessionRoot = (await import('node:path')).join(options.project, '.peaks', '_runtime', resolvedSessionId ?? 'default');
+          const sessionRoot = (await import('node:path')).join(
+            options.project,
+            '.peaks',
+            '_runtime',
+            resolvedSessionId ?? 'default'
+          );
           if (isBypassLimitReached(sessionRoot)) {
             printResult(
               io,
-              fail('request.transition', 'BYPASS_LIMIT_REACHED',
+              fail(
+                'request.transition',
+                'BYPASS_LIMIT_REACHED',
                 `--allow-incomplete limit reached (${MAX_BYPASSES_PER_SESSION} per session)`,
                 { role, requestId, limit: MAX_BYPASSES_PER_SESSION },
-                ['Produce the missing artifacts instead of bypassing.']),
+                ['Produce the missing artifacts instead of bypassing.']
+              ),
               options.json
             );
             process.exitCode = 1;
@@ -409,8 +489,14 @@ export function registerRequestCommands(program: Command, io: ProgramIO): void {
       }
       // Type sanity check for PRD handoff
       if (role === 'prd' && newState === 'handed-off') {
-        const { showRequestArtifact: showForType } = await import('../../services/artifacts/request-artifact-service.js');
-        const showTypeOptions: { projectRoot: string; role: 'prd'; requestId: string; sessionId?: string } = {
+        const { showRequestArtifact: showForType } =
+          await import('../../services/artifacts/request-artifact-service.js');
+        const showTypeOptions: {
+          projectRoot: string;
+          role: 'prd';
+          requestId: string;
+          sessionId?: string;
+        } = {
           projectRoot: options.project,
           role: 'prd',
           requestId
@@ -420,14 +506,23 @@ export function registerRequestCommands(program: Command, io: ProgramIO): void {
         }
         const existing = await showForType(showTypeOptions);
         if (existing !== null) {
-          transitionOptions.typeSanityCheck = { projectRoot: options.project, declaredType: existing.requestType };
+          transitionOptions.typeSanityCheck = {
+            projectRoot: options.project,
+            declaredType: existing.requestType
+          };
         }
       }
       const result = await transitionRequestArtifact(transitionOptions);
       if (result === null) {
         printResult(
           io,
-          fail('request.transition', 'REQUEST_NOT_FOUND', `No artifact found for role=${role} requestId=${requestId}`, { role, requestId }, ['Verify the request id, role, and session id']),
+          fail(
+            'request.transition',
+            'REQUEST_NOT_FOUND',
+            `No artifact found for role=${role} requestId=${requestId}`,
+            { role, requestId },
+            ['Verify the request id, role, and session id']
+          ),
           options.json
         );
         process.exitCode = 1;
@@ -455,15 +550,14 @@ export function registerRequestCommands(program: Command, io: ProgramIO): void {
       let codegraphWarning: string | null = null;
       if (role === 'rd' && newState === 'qa-handoff') {
         try {
-          const { maybePreCompactCheckpoint } = await import('../../services/compact/request-transition-hook.js');
+          const { maybePreCompactCheckpoint } =
+            await import('../../services/compact/request-transition-hook.js');
           const hook = maybePreCompactCheckpoint({
             projectRoot: options.project,
             sessionId: result.sessionId,
             transitionKey: `${role}:${newState}`
           });
-          preCompact = hook.triggered
-            ? ok('request.transition.preCompact', hook)
-            : null;
+          preCompact = hook.triggered ? ok('request.transition.preCompact', hook) : null;
         } catch {
           // The hook is best-effort; never block the transition.
           preCompact = null;
@@ -472,7 +566,11 @@ export function registerRequestCommands(program: Command, io: ProgramIO): void {
           codegraphRefresh = await refreshCodegraphAfterSlice(options.project);
         } catch {
           // The refresh is best-effort; never block the transition.
-          codegraphRefresh = { refreshed: false, reason: 'unavailable', note: 'auto codegraph refresh failed after transition' };
+          codegraphRefresh = {
+            refreshed: false,
+            reason: 'unavailable',
+            note: 'auto codegraph refresh failed after transition'
+          };
         }
         // A2 (2026-09-17): never BLOCKING is kept; never VISIBLE is not. A
         // non-refresh while a codegraph store is in use becomes a warning
@@ -499,11 +597,12 @@ export function registerRequestCommands(program: Command, io: ProgramIO): void {
           sessionId: result.sessionId,
           requestId
         });
-        const handoffAutoRegen = regen.status === 'created'
-          ? { status: 'created', path: regen.path, sha256: regen.sha256 }
-          : regen.status === 'skipped-exists'
-            ? { status: 'skipped-exists', path: regen.path }
-            : { status: 'failed', reason: regen.reason };
+        const handoffAutoRegen =
+          regen.status === 'created'
+            ? { status: 'created', path: regen.path, sha256: regen.sha256 }
+            : regen.status === 'skipped-exists'
+              ? { status: 'skipped-exists', path: regen.path }
+              : { status: 'failed', reason: regen.reason };
         const notes: string[] = [];
         if (regen.status === 'failed') {
           notes.push(`prd handoff auto-regen failed: ${regen.reason}`);
@@ -537,7 +636,9 @@ export function registerRequestCommands(program: Command, io: ProgramIO): void {
             ...(preCompact !== null
               ? [
                   `Pre-compact checkpoint written at ratio=${
-                    typeof preCompact.data === 'object' && preCompact.data !== null && 'ratio' in preCompact.data
+                    typeof preCompact.data === 'object' &&
+                    preCompact.data !== null &&
+                    'ratio' in preCompact.data
                       ? String((preCompact.data as { ratio: number }).ratio)
                       : 'unknown'
                   } (zone=pre-compact)`
@@ -573,7 +674,9 @@ export function registerRequestCommands(program: Command, io: ProgramIO): void {
             },
             [
               ...error.missing.map((entry) => `Produce ${entry.path}: ${entry.description}`),
-              ...error.warnings.map((w) => `Soft-blocked (v2.13.3 back-compat window): ${w.path} — ${w.message}`),
+              ...error.warnings.map(
+                (w) => `Soft-blocked (v2.13.3 back-compat window): ${w.path} — ${w.message}`
+              ),
               'Once every required artifact exists, rerun this transition.',
               'For exceptional cases (docs-only / config-only change), bypass with: --allow-incomplete --reason "<justification>"'
             ]
@@ -609,7 +712,11 @@ export function registerRequestCommands(program: Command, io: ProgramIO): void {
             'request.transition',
             error.code,
             error.message,
-            { declaredType: error.declaredType, suggestedTypes: error.suggestedTypes, rationale: error.rationale },
+            {
+              declaredType: error.declaredType,
+              suggestedTypes: error.suggestedTypes,
+              rationale: error.rationale
+            },
             [
               `Re-classify the request — likely correct type: ${error.suggestedTypes.join(' | ')}`,
               'Or, if the declared type is correct, surface the mismatch reason to the user.'
@@ -629,7 +736,10 @@ export function registerRequestCommands(program: Command, io: ProgramIO): void {
             error.message,
             { violations: error.violations, threshold: error.threshold },
             [
-              ...error.violations.map((v) => `Split ${v.file} (${v.lines} lines) into smaller modules (< ${error.threshold} lines)`),
+              ...error.violations.map(
+                (v) =>
+                  `Split ${v.file} (${v.lines} lines) into smaller modules (< ${error.threshold} lines)`
+              ),
               'Or bypass with: --allow-incomplete --reason "<justification>"'
             ]
           ),
@@ -655,7 +765,13 @@ export function registerRequestCommands(program: Command, io: ProgramIO): void {
       }
       printResult(
         io,
-        fail('request.transition', 'REQUEST_TRANSITION_FAILED', getErrorMessage(error), { role: options.role, requestId }, ['Check role, request id, state, and project path before retrying']),
+        fail(
+          'request.transition',
+          'REQUEST_TRANSITION_FAILED',
+          getErrorMessage(error),
+          { role: options.role, requestId },
+          ['Check role, request id, state, and project path before retrying']
+        ),
         options.json
       );
       process.exitCode = 1;
@@ -665,95 +781,140 @@ export function registerRequestCommands(program: Command, io: ProgramIO): void {
   addJsonOption(
     request
       .command('lint')
-      .description('Scan a request artifact body for unfilled placeholders (<...>, TBD, bare bullets) before declaring it complete')
+      .description(
+        'Scan a request artifact body for unfilled placeholders (<...>, TBD, bare bullets) before declaring it complete'
+      )
       .argument('<request-id>', 'request id')
       .requiredOption('--role <role>', `target role (${VALID_ROLES.join(' | ')})`, parseRole)
       .requiredOption('--project <path>', 'target project root')
       .option('--session-id <session>', 'restrict to a specific session id')
-  ).action(async (requestId: string, options: { role: RequestArtifactRole; project: string; sessionId?: string; json?: boolean }) => {
-    try {
-      const lintOptions: Parameters<typeof lintRequestArtifact>[0] = {
-        projectRoot: options.project,
-        role: options.role,
-        requestId
-      };
-      if (options.sessionId !== undefined) {
-        lintOptions.sessionId = options.sessionId;
-      }
-      const report = await lintRequestArtifact(lintOptions);
-      if (report === null) {
+  ).action(
+    async (
+      requestId: string,
+      options: { role: RequestArtifactRole; project: string; sessionId?: string; json?: boolean }
+    ) => {
+      try {
+        const lintOptions: Parameters<typeof lintRequestArtifact>[0] = {
+          projectRoot: options.project,
+          role: options.role,
+          requestId
+        };
+        if (options.sessionId !== undefined) {
+          lintOptions.sessionId = options.sessionId;
+        }
+        const report = await lintRequestArtifact(lintOptions);
+        if (report === null) {
+          printResult(
+            io,
+            fail(
+              'request.lint',
+              'REQUEST_NOT_FOUND',
+              `No artifact found for role=${options.role} requestId=${requestId}`,
+              { role: options.role, requestId },
+              ['Verify the request id, role, and session id']
+            ),
+            options.json
+          );
+          process.exitCode = 1;
+          return;
+        }
+        const nextActions: string[] = [];
+        if (!report.ok) {
+          nextActions.push(
+            `Fix ${report.findings.filter((f) => f.severity === 'error').length} error finding(s) before transitioning this artifact.`
+          );
+        }
+        printResult(io, ok('request.lint', report, [], nextActions), options.json);
+        if (!report.ok) {
+          process.exitCode = 1;
+        }
+      } catch (error) {
         printResult(
           io,
-          fail('request.lint', 'REQUEST_NOT_FOUND', `No artifact found for role=${options.role} requestId=${requestId}`, { role: options.role, requestId }, ['Verify the request id, role, and session id']),
+          fail(
+            'request.lint',
+            'REQUEST_LINT_FAILED',
+            getErrorMessage(error),
+            { role: options.role, requestId },
+            ['Verify the artifact path before retrying']
+          ),
           options.json
         );
         process.exitCode = 1;
-        return;
       }
-      const nextActions: string[] = [];
-      if (!report.ok) {
-        nextActions.push(`Fix ${report.findings.filter((f) => f.severity === 'error').length} error finding(s) before transitioning this artifact.`);
-      }
-      printResult(io, ok('request.lint', report, [], nextActions), options.json);
-      if (!report.ok) {
-        process.exitCode = 1;
-      }
-    } catch (error) {
-      printResult(
-        io,
-        fail('request.lint', 'REQUEST_LINT_FAILED', getErrorMessage(error), { role: options.role, requestId }, ['Verify the artifact path before retrying']),
-        options.json
-      );
-      process.exitCode = 1;
     }
-  });
+  );
 
   addJsonOption(
     request
       .command('repair-status')
-      .description('Count RD↔QA repair cycles for a request from its RD artifact transition notes; reports cycle count and whether the 3-cycle cap is reached')
+      .description(
+        'Count RD↔QA repair cycles for a request from its RD artifact transition notes; reports cycle count and whether the 3-cycle cap is reached'
+      )
       .argument('<request-id>', 'request id')
       .requiredOption('--project <path>', 'target project root')
       .option('--session-id <session>', 'restrict to a specific session id')
       .option('--max-cycles <n>', 'override the default max cycle cap (default 3)')
-  ).action(async (requestId: string, options: { project: string; sessionId?: string; maxCycles?: string; json?: boolean }) => {
-    try {
-      const max = options.maxCycles !== undefined && /^\d+$/.test(options.maxCycles) ? Number(options.maxCycles) : 3;
-      const statusOptions: Parameters<typeof getRepairCycleStatus>[0] = {
-        projectRoot: options.project,
-        requestId,
-        maxCycles: max
-      };
-      if (options.sessionId !== undefined) {
-        statusOptions.sessionId = options.sessionId;
-      }
-      const report = await getRepairCycleStatus(statusOptions);
-      if (report === null) {
+  ).action(
+    async (
+      requestId: string,
+      options: { project: string; sessionId?: string; maxCycles?: string; json?: boolean }
+    ) => {
+      try {
+        const max =
+          options.maxCycles !== undefined && /^\d+$/.test(options.maxCycles)
+            ? Number(options.maxCycles)
+            : 3;
+        const statusOptions: Parameters<typeof getRepairCycleStatus>[0] = {
+          projectRoot: options.project,
+          requestId,
+          maxCycles: max
+        };
+        if (options.sessionId !== undefined) {
+          statusOptions.sessionId = options.sessionId;
+        }
+        const report = await getRepairCycleStatus(statusOptions);
+        if (report === null) {
+          printResult(
+            io,
+            fail(
+              'request.repair-status',
+              'REQUEST_NOT_FOUND',
+              `No RD artifact found for requestId=${requestId}`,
+              { requestId },
+              ['Verify the request id and session id']
+            ),
+            options.json
+          );
+          process.exitCode = 1;
+          return;
+        }
+        const nextActions: string[] = [];
+        if (report.atCap) {
+          nextActions.push(
+            `Repair cap reached (${report.cycleCount}/${report.maxCycles}). Emit a blocked TXT handoff and stop the loop.`
+          );
+        } else if (report.cycleCount > 0) {
+          nextActions.push(`${report.remaining} repair cycle(s) remaining before block.`);
+        }
+        printResult(io, ok('request.repair-status', report, [], nextActions), options.json);
+        if (report.atCap) {
+          process.exitCode = 1;
+        }
+      } catch (error) {
         printResult(
           io,
-          fail('request.repair-status', 'REQUEST_NOT_FOUND', `No RD artifact found for requestId=${requestId}`, { requestId }, ['Verify the request id and session id']),
+          fail(
+            'request.repair-status',
+            'REQUEST_REPAIR_STATUS_FAILED',
+            getErrorMessage(error),
+            { requestId },
+            ['Verify the artifact path before retrying']
+          ),
           options.json
         );
         process.exitCode = 1;
-        return;
       }
-      const nextActions: string[] = [];
-      if (report.atCap) {
-        nextActions.push(`Repair cap reached (${report.cycleCount}/${report.maxCycles}). Emit a blocked TXT handoff and stop the loop.`);
-      } else if (report.cycleCount > 0) {
-        nextActions.push(`${report.remaining} repair cycle(s) remaining before block.`);
-      }
-      printResult(io, ok('request.repair-status', report, [], nextActions), options.json);
-      if (report.atCap) {
-        process.exitCode = 1;
-      }
-    } catch (error) {
-      printResult(
-        io,
-        fail('request.repair-status', 'REQUEST_REPAIR_STATUS_FAILED', getErrorMessage(error), { requestId }, ['Verify the artifact path before retrying']),
-        options.json
-      );
-      process.exitCode = 1;
     }
-  });
+  );
 }

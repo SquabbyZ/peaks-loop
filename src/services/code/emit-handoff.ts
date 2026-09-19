@@ -36,8 +36,17 @@ export type EmitHandoffVerdict =
   | { readonly kind: 'allow-not-job' }
   | { readonly kind: 'allow-done'; readonly remaining: number }
   | { readonly kind: 'allow-force-override'; readonly remaining: number }
-  | { readonly kind: 'block-not-initialized'; readonly code: typeof JOB_NOT_INITIALIZED; readonly jobId: string }
-  | { readonly kind: 'block-remaining'; readonly code: typeof JOB_REMAINING_BLOCKED; readonly jobId: string; readonly remaining: number };
+  | {
+      readonly kind: 'block-not-initialized';
+      readonly code: typeof JOB_NOT_INITIALIZED;
+      readonly jobId: string;
+    }
+  | {
+      readonly kind: 'block-remaining';
+      readonly code: typeof JOB_REMAINING_BLOCKED;
+      readonly jobId: string;
+      readonly remaining: number;
+    };
 
 export interface EvaluateEmitHandoffInput {
   readonly projectRoot: string;

@@ -58,7 +58,8 @@ export function detect1xProjectState(cwd: string = process.cwd()): OneXState {
         signals.push(`global config at ${globalConfig} is 1.x (${raw['version']})`);
         if (configPath === null) configPath = globalConfig;
       }
-    } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+    } catch {
+      // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
       // ignore parse error — the 1.x detection is best-effort
     }
   }
@@ -70,9 +71,12 @@ export function detect1xProjectState(cwd: string = process.cwd()): OneXState {
       try {
         const body = readFileSync(devPref, 'utf8');
         if (/peaks progress/i.test(body)) {
-          signals.push(`${devPref} references "peaks progress" (1.x CLI surface, removed in slice #014)`);
+          signals.push(
+            `${devPref} references "peaks progress" (1.x CLI surface, removed in slice #014)`
+          );
         }
-      } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+      } catch {
+        // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
         // ignore
       }
     }
@@ -84,7 +88,9 @@ export function detect1xProjectState(cwd: string = process.cwd()): OneXState {
       try {
         const raw = JSON.parse(readFileSync(prefs, 'utf8')) as Record<string, unknown>;
         if (raw['schema_version'] !== '2.0.0') {
-          signals.push(`${prefs} has schema_version ${JSON.stringify(raw['schema_version'])}, expected '2.0.0'`);
+          signals.push(
+            `${prefs} has schema_version ${JSON.stringify(raw['schema_version'])}, expected '2.0.0'`
+          );
         }
       } catch {
         signals.push(`${prefs} exists but is not valid JSON`);
@@ -96,6 +102,6 @@ export function detect1xProjectState(cwd: string = process.cwd()): OneXState {
     isOneX: signals.length > 0,
     signals,
     projectRoot,
-    configPath,
+    configPath
   };
 }

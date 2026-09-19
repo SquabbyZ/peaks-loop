@@ -33,32 +33,35 @@ import { openStateDb } from '../../services/skillhub/sqlite-store.js';
 import {
   writeBundle,
   BundleNotShareableError,
-  BundleAssetNotFoundError,
+  BundleAssetNotFoundError
 } from '../../services/share/bundle-writer.js';
 import {
   readBundle,
   BundleMajorVersionMismatchError,
   BundleSchemaVersionsMismatchError,
   BundleImportToStableForbiddenError,
-  BundleMalformedError,
+  BundleMalformedError
 } from '../../services/share/bundle-reader.js';
 
 export function registerBeeCommands(program: Command, io: ProgramIO): void {
   // Reuse the existing `bee` parent if one is registered; the
   // add-a-new-subcommand-check-for-existing-top-level-first rule.
   const existing = program.commands.find((c) => c.name() === 'bee');
-  const bee = existing ?? program
-    .command('bee')
-    .description('M7: peaks bee export / import (spec §7A.2 / §10 RL-9)');
+  const bee =
+    existing ??
+    program.command('bee').description('M7: peaks bee export / import (spec §7A.2 / §10 RL-9)');
 
   // ---------- peaks bee export ----------
   addJsonOption(
     bee
       .command('export')
       .description(
-        "M7: export a bee_release as a peaks.bundle/1 tarball (spec §7A.2). Refuses to export when shareable=false."
+        'M7: export a bee_release as a peaks.bundle/1 tarball (spec §7A.2). Refuses to export when shareable=false.'
       )
-      .requiredOption('--bee <id>', 'bee_release numeric id (use `peaks asset status --bee <name>` to find the id)')
+      .requiredOption(
+        '--bee <id>',
+        'bee_release numeric id (use `peaks asset status --bee <name>` to find the id)'
+      )
       .requiredOption('--out <path>', 'output .tar.gz path')
       .option('--project <path>', 'target project root (defaults to cwd)')
   ).action((options: { bee: string; out: string; project?: string; json?: boolean }) => {
@@ -67,9 +70,13 @@ export function registerBeeCommands(program: Command, io: ProgramIO): void {
     if (!Number.isInteger(beeId) || beeId <= 0) {
       printResult(
         io,
-        fail('bee.export', 'INVALID_BEE_ID', `--bee must be a positive integer (got '${options.bee}')`, { bee: options.bee }, [
-          'Re-run with --bee <numeric-id>.',
-        ]),
+        fail(
+          'bee.export',
+          'INVALID_BEE_ID',
+          `--bee must be a positive integer (got '${options.bee}')`,
+          { bee: options.bee },
+          ['Re-run with --bee <numeric-id>.']
+        ),
         asJson
       );
       process.exitCode = 1;
@@ -87,7 +94,7 @@ export function registerBeeCommands(program: Command, io: ProgramIO): void {
           blobsDir: join(projectRoot, '.peaks', 'blobs'),
           kind: 'bee',
           id: beeId,
-          outPath: options.out,
+          outPath: options.out
         });
         printResult(
           io,
@@ -97,11 +104,11 @@ export function registerBeeCommands(program: Command, io: ProgramIO): void {
               outPath: result.outPath,
               kind: result.kind,
               assetId: result.assetId,
-              importedAs: 'candidate' as const,
+              importedAs: 'candidate' as const
             },
             [],
             [
-              `Receiver must run \`peaks bee import --in ${result.outPath}\` to land this bundle, then run an independent evolution_evaluation before any promote.`,
+              `Receiver must run \`peaks bee import --in ${result.outPath}\` to land this bundle, then run an independent evolution_evaluation before any promote.`
             ]
           ),
           asJson
@@ -111,20 +118,38 @@ export function registerBeeCommands(program: Command, io: ProgramIO): void {
       }
     } catch (error: unknown) {
       if (error instanceof BundleNotShareableError) {
-        printResult(io, fail('bee.export', error.code, error.message, { bee: options.bee } as never, [
-          'Set shareable=true on the bee_release row, or stop sharing.',
-        ]), asJson);
+        printResult(
+          io,
+          fail('bee.export', error.code, error.message, { bee: options.bee } as never, [
+            'Set shareable=true on the bee_release row, or stop sharing.'
+          ]),
+          asJson
+        );
         process.exitCode = 1;
         return;
       }
       if (error instanceof BundleAssetNotFoundError) {
-        printResult(io, fail('bee.export', error.code, error.message, { bee: options.bee } as never, [
-          'Verify the bee id with `peaks asset status --bee <name>`.',
-        ]), asJson);
+        printResult(
+          io,
+          fail('bee.export', error.code, error.message, { bee: options.bee } as never, [
+            'Verify the bee id with `peaks asset status --bee <name>`.'
+          ]),
+          asJson
+        );
         process.exitCode = 1;
         return;
       }
-      printResult(io, fail('bee.export', 'BEE_EXPORT_FAILED', getErrorMessage(error), { bee: options.bee } as never, ['Verify --bee id and --out path.']), asJson);
+      printResult(
+        io,
+        fail(
+          'bee.export',
+          'BEE_EXPORT_FAILED',
+          getErrorMessage(error),
+          { bee: options.bee } as never,
+          ['Verify --bee id and --out path.']
+        ),
+        asJson
+      );
       process.exitCode = 1;
     }
   });
@@ -152,7 +177,7 @@ export function registerBeeCommands(program: Command, io: ProgramIO): void {
           db,
           blobsDir: join(projectRoot, '.peaks', 'blobs'),
           inPath: options.in,
-          ...(options.as !== undefined ? { asName: options.as } : {}),
+          ...(options.as !== undefined ? { asName: options.as } : {})
         });
         printResult(
           io,
@@ -163,11 +188,11 @@ export function registerBeeCommands(program: Command, io: ProgramIO): void {
               kind: result.kind,
               importedAs: result.importedAs,
               warnings: result.warnings,
-              evidenceBriefCount: result.evidenceBriefCount,
+              evidenceBriefCount: result.evidenceBriefCount
             },
             result.warnings,
             [
-              `Run an independent evaluation against this release before promoting; peaks bee promote refuses without an evolution_evaluation row.`,
+              `Run an independent evaluation against this release before promoting; peaks bee promote refuses without an evolution_evaluation row.`
             ]
           ),
           asJson
@@ -177,34 +202,66 @@ export function registerBeeCommands(program: Command, io: ProgramIO): void {
       }
     } catch (error: unknown) {
       if (error instanceof BundleMajorVersionMismatchError) {
-        printResult(io, fail('bee.import', error.code, error.message, { receivedMajor: error.receivedMajor } as never, [
-          'Use the matching peaks.bundle/<major> reader; this peaks build only supports major=1.',
-        ]), asJson);
+        printResult(
+          io,
+          fail(
+            'bee.import',
+            error.code,
+            error.message,
+            { receivedMajor: error.receivedMajor } as never,
+            [
+              'Use the matching peaks.bundle/<major> reader; this peaks build only supports major=1.'
+            ]
+          ),
+          asJson
+        );
         process.exitCode = 1;
         return;
       }
       if (error instanceof BundleSchemaVersionsMismatchError) {
-        printResult(io, fail('bee.import', error.code, error.message, {} as never, [
-          'Source bundle did not declare the canonical schema versions; refuse the bundle.',
-        ]), asJson);
+        printResult(
+          io,
+          fail('bee.import', error.code, error.message, {} as never, [
+            'Source bundle did not declare the canonical schema versions; refuse the bundle.'
+          ]),
+          asJson
+        );
         process.exitCode = 1;
         return;
       }
       if (error instanceof BundleImportToStableForbiddenError) {
-        printResult(io, fail('bee.import', error.code, error.message, {} as never, [
-          'Bundles always land as candidate; promotion to stable requires an evolution_evaluation row (AC-26).',
-        ]), asJson);
+        printResult(
+          io,
+          fail('bee.import', error.code, error.message, {} as never, [
+            'Bundles always land as candidate; promotion to stable requires an evolution_evaluation row (AC-26).'
+          ]),
+          asJson
+        );
         process.exitCode = 1;
         return;
       }
       if (error instanceof BundleMalformedError) {
-        printResult(io, fail('bee.import', error.code, error.message, { inPath: options.in } as never, [
-          'Re-export from the source via `peaks bee export`.',
-        ]), asJson);
+        printResult(
+          io,
+          fail('bee.import', error.code, error.message, { inPath: options.in } as never, [
+            'Re-export from the source via `peaks bee export`.'
+          ]),
+          asJson
+        );
         process.exitCode = 1;
         return;
       }
-      printResult(io, fail('bee.import', 'BEE_IMPORT_FAILED', getErrorMessage(error), { inPath: options.in } as never, ['Verify the bundle path and integrity.']), asJson);
+      printResult(
+        io,
+        fail(
+          'bee.import',
+          'BEE_IMPORT_FAILED',
+          getErrorMessage(error),
+          { inPath: options.in } as never,
+          ['Verify the bundle path and integrity.']
+        ),
+        asJson
+      );
       process.exitCode = 1;
     }
   });

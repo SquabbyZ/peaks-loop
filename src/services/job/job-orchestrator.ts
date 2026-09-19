@@ -1,12 +1,21 @@
 import { JobStateStore, type JobInitInput } from './job-state-store.js';
-import {
-  type JobState,
-  type JobStatusSummary,
-} from './job-types.js';
+import { type JobState, type JobStatusSummary } from './job-types.js';
 
-export interface CheckpointDoneInput { jobId: string; sliceId: string; commitSha?: string; }
-export interface CheckpointSkipInput { jobId: string; sliceId: string; reason: string; }
-export interface BlockInput { jobId: string; sliceId: string; reason: string; }
+export interface CheckpointDoneInput {
+  jobId: string;
+  sliceId: string;
+  commitSha?: string;
+}
+export interface CheckpointSkipInput {
+  jobId: string;
+  sliceId: string;
+  reason: string;
+}
+export interface BlockInput {
+  jobId: string;
+  sliceId: string;
+  reason: string;
+}
 
 export class JobOrchestrator {
   constructor(private readonly store: JobStateStore) {}
@@ -51,9 +60,14 @@ export class JobOrchestrator {
         lastCheckpointAt: new Date().toISOString(),
         slices: s.slices.map((sl) =>
           sl.sliceId === input.sliceId
-            ? { ...sl, status: 'done', commitSha: input.commitSha, finishedAt: new Date().toISOString() }
-            : sl,
-        ),
+            ? {
+                ...sl,
+                status: 'done',
+                commitSha: input.commitSha,
+                finishedAt: new Date().toISOString()
+              }
+            : sl
+        )
       };
     });
   }
@@ -63,20 +77,29 @@ export class JobOrchestrator {
       ...s,
       lastCheckpointAt: new Date().toISOString(),
       slices: s.slices.map((sl) =>
-        sl.sliceId === input.sliceId ? { ...sl, status: 'skipped' } : sl,
-      ),
+        sl.sliceId === input.sliceId ? { ...sl, status: 'skipped' } : sl
+      )
     }));
   }
 
-  async checkpointFailed(input: { jobId: string; sliceId: string; reason: string }): Promise<JobState> {
+  async checkpointFailed(input: {
+    jobId: string;
+    sliceId: string;
+    reason: string;
+  }): Promise<JobState> {
     return this.mutate(input.jobId, (s) => ({
       ...s,
       lastCheckpointAt: new Date().toISOString(),
       slices: s.slices.map((sl) =>
         sl.sliceId === input.sliceId
-          ? { ...sl, status: 'failed', failureReason: input.reason, finishedAt: new Date().toISOString() }
-          : sl,
-      ),
+          ? {
+              ...sl,
+              status: 'failed',
+              failureReason: input.reason,
+              finishedAt: new Date().toISOString()
+            }
+          : sl
+      )
     }));
   }
 
@@ -86,9 +109,14 @@ export class JobOrchestrator {
       lastCheckpointAt: new Date().toISOString(),
       slices: s.slices.map((sl) =>
         sl.sliceId === input.sliceId
-          ? { ...sl, status: 'blocked', blockedReason: input.reason, finishedAt: new Date().toISOString() }
-          : sl,
-      ),
+          ? {
+              ...sl,
+              status: 'blocked',
+              blockedReason: input.reason,
+              finishedAt: new Date().toISOString()
+            }
+          : sl
+      )
     }));
   }
 
@@ -101,7 +129,9 @@ export class JobOrchestrator {
       else if (sl.status === 'blocked') counts.blocked++;
       else if (sl.status === 'skipped') counts.skipped++;
     }
-    const pendingIdx = s.slices.findIndex(sl => sl.status === 'pending' || sl.status === 'in-progress');
+    const pendingIdx = s.slices.findIndex(
+      (sl) => sl.status === 'pending' || sl.status === 'in-progress'
+    );
     return {
       total: s.slices.length,
       done: counts.done,
@@ -111,12 +141,15 @@ export class JobOrchestrator {
       currentSlice: pendingIdx >= 0 ? s.slices[pendingIdx]!.label : undefined,
       lastCheckpoint: s.lastCheckpointAt,
       mainLoopStrategy: s.mainLoopStrategy,
-      mainSessionCycle: s.mainSessionCycle,
+      mainSessionCycle: s.mainSessionCycle
     };
   }
 
   continueNow(jobId: string): { remaining: number; next: string | undefined } {
     const summary = this.status(jobId);
-    return { remaining: summary.total - summary.done - summary.skipped - summary.blocked - summary.failed, next: summary.currentSlice };
+    return {
+      remaining: summary.total - summary.done - summary.skipped - summary.blocked - summary.failed,
+      next: summary.currentSlice
+    };
   }
 }

@@ -235,17 +235,33 @@ export function resolveRunner(
   const entry = exists(pkgJsonPath) ? readBinEntry(pkgJsonPath, framework, read) : null;
 
   if (entry !== null && exists(entry)) {
-    return { ok: true, command: nodeExec, args: [entry, ...argv], via: `local ${entry}`, fromPath: false };
+    return {
+      ok: true,
+      command: nodeExec,
+      args: [entry, ...argv],
+      via: `local ${entry}`,
+      fromPath: false
+    };
   }
   if (shim !== null) {
-    return { ok: true, ...toSpawnable(shim, argv, platform, env), via: `local ${shim}`, fromPath: false };
+    return {
+      ok: true,
+      ...toSpawnable(shim, argv, platform, env),
+      via: `local ${shim}`,
+      fromPath: false
+    };
   }
 
   // 3. PATH — last resort.
   const onPath = resolveFromPath(framework, platform, env, exists);
   searched.push(`PATH lookup for "${framework}"`);
   if (onPath !== null) {
-    return { ok: true, ...toSpawnable(onPath, argv, platform, env), via: `PATH: ${onPath}`, fromPath: true };
+    return {
+      ok: true,
+      ...toSpawnable(onPath, argv, platform, env),
+      via: `PATH: ${onPath}`,
+      fromPath: true
+    };
   }
 
   return { ok: false, searched };
@@ -283,8 +299,12 @@ export function runRunner(
     });
     let stdout = '';
     let stderr = '';
-    proc.stdout.on('data', (chunk: Buffer) => { stdout += chunk.toString('utf8'); });
-    proc.stderr.on('data', (chunk: Buffer) => { stderr += chunk.toString('utf8'); });
+    proc.stdout.on('data', (chunk: Buffer) => {
+      stdout += chunk.toString('utf8');
+    });
+    proc.stderr.on('data', (chunk: Buffer) => {
+      stderr += chunk.toString('utf8');
+    });
     proc.on('error', (err: Error) => reject(err));
     proc.on('close', (code) => {
       resolveRun({ code: code ?? 0, stdout, stderr, notice });
@@ -296,18 +316,21 @@ export function registerTestCommands(program: Command, _io: ProgramIO): void {
   const test = program
     .command('test')
     .description(
-      'Wrap the consumer project\'s test framework (jest/vitest/mocha) ' +
-      'with a per-test fingerprint cache. Default args: <pattern...> ' +
-      'runs jest|vitest|mocha <pattern> --cache. Exit 0 on all-pass / ' +
-      'all-skip, exit 1 on any failure. (slice 2.5.0 sub-fix B)'
+      "Wrap the consumer project's test framework (jest/vitest/mocha) " +
+        'with a per-test fingerprint cache. Default args: <pattern...> ' +
+        'runs jest|vitest|mocha <pattern> --cache. Exit 0 on all-pass / ' +
+        'all-skip, exit 1 on any failure. (slice 2.5.0 sub-fix B)'
     )
     .argument('[patterns...]', 'test file pattern(s) to run (passed to the framework verbatim)')
     .option('--all', 'run the full suite (skip the pattern filter)')
     .option('--changed', 'only run tests in files changed since HEAD')
-    .option('--clear-cache', 'empty the fingerprint cache at .peaks/_runtime/test-cache/ and exit 0')
+    .option(
+      '--clear-cache',
+      'empty the fingerprint cache at .peaks/_runtime/test-cache/ and exit 0'
+    )
     .option('--no-cache-result', 'bypass the per-test fingerprint cache (always re-run)')
     .option('--no-cache', 'pass --no-cache to the underlying framework (overrides peaks default)')
-    .option('--passthrough', 'do NOT override the consumer\'s argv; pass patterns through verbatim')
+    .option('--passthrough', "do NOT override the consumer's argv; pass patterns through verbatim")
     .option('--framework <name>', `force a specific framework: ${FRAMEWORKS.join(', ')}`)
     .option('--project <path>', 'project root (defaults to current directory)', process.cwd())
     .option('--json', 'emit a JSON envelope { ok, data } to stdout')
@@ -319,12 +342,16 @@ export function registerTestCommands(program: Command, _io: ProgramIO): void {
         if (opts.clearCache === true) {
           const result = clearTestCache(projectRoot);
           if (opts.json === true) {
-            process.stdout.write(JSON.stringify({
-              ok: true,
-              data: { cleared: true, removed: result.removed, dir: '.peaks/_runtime/test-cache/' }
-            }) + '\n');
+            process.stdout.write(
+              JSON.stringify({
+                ok: true,
+                data: { cleared: true, removed: result.removed, dir: '.peaks/_runtime/test-cache/' }
+              }) + '\n'
+            );
           } else {
-            process.stdout.write(`cleared ${result.removed} cache file(s) from .peaks/_runtime/test-cache/\n`);
+            process.stdout.write(
+              `cleared ${result.removed} cache file(s) from .peaks/_runtime/test-cache/\n`
+            );
           }
           return;
         }
@@ -348,7 +375,8 @@ export function registerTestCommands(program: Command, _io: ProgramIO): void {
         }
 
         if (!framework) {
-          const msg = 'NO_TEST_FRAMEWORK: no supported test framework found in package.json (jest, vitest, or mocha). Install one and re-run, or pass --framework <name>.';
+          const msg =
+            'NO_TEST_FRAMEWORK: no supported test framework found in package.json (jest, vitest, or mocha). Install one and re-run, or pass --framework <name>.';
           if (opts.json === true) {
             process.stdout.write(JSON.stringify({ ok: false, error: msg }) + '\n');
           } else {
@@ -379,16 +407,18 @@ export function registerTestCommands(program: Command, _io: ProgramIO): void {
         }
 
         if (opts.json === true) {
-          process.stdout.write(JSON.stringify({
-            ok: result.code === 0,
-            data: {
-              framework,
-              argv,
-              exitCode: result.code,
-              fingerprintCache: opts.noCacheResult ? 'bypassed' : 'enabled',
-              cacheDir: '.peaks/_runtime/test-cache/'
-            }
-          }) + '\n');
+          process.stdout.write(
+            JSON.stringify({
+              ok: result.code === 0,
+              data: {
+                framework,
+                argv,
+                exitCode: result.code,
+                fingerprintCache: opts.noCacheResult ? 'bypassed' : 'enabled',
+                cacheDir: '.peaks/_runtime/test-cache/'
+              }
+            }) + '\n'
+          );
         }
       } catch (error) {
         if (opts.json === true) {

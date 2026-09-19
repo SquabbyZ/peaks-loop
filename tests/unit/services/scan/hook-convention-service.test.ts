@@ -23,7 +23,10 @@ function hookReturningObject(name: string): string {
 describe('scanHookConvention return shapes', () => {
   it('when a hook returns an object literal, should report its shape and sorted key signature', async () => {
     // given: one hook whose return object lists its keys out of order
-    seedFile('src/hooks/useUser.ts', 'export function useUser() {\n  return { loading, data, error };\n}\n');
+    seedFile(
+      'src/hooks/useUser.ts',
+      'export function useUser() {\n  return { loading, data, error };\n}\n'
+    );
     // when: the hook convention scan runs
     const report = await scanHookConvention({ projectRoot: ws().path, hookDirs: HOOK_DIRS });
     // then: the shape is object, with a deterministic (sorted) key signature
@@ -35,7 +38,10 @@ describe('scanHookConvention return shapes', () => {
 
   it('when a hook returns a tuple, should classify it as a tuple', async () => {
     // given: a hook that returns an array instead of an object
-    seedFile('src/hooks/useLegacyX.ts', 'export function useLegacyX() {\n  return [data, setData];\n}\n');
+    seedFile(
+      'src/hooks/useLegacyX.ts',
+      'export function useLegacyX() {\n  return [data, setData];\n}\n'
+    );
     // when: the hook convention scan runs
     const report = await scanHookConvention({ projectRoot: ws().path, hookDirs: HOOK_DIRS });
     // then: the distinctive return shape is classified, not flattened into "other"
@@ -69,7 +75,10 @@ describe('scanHookConvention return shapes', () => {
 
   it('when a module exports a non-function const, should not report it as a hook', async () => {
     // given: a hook file carrying a plain constant alongside the hook
-    seedFile('src/hooks/useUser.ts', "export const CACHE_KEY = 'user';\n" + hookReturningObject('useUser'));
+    seedFile(
+      'src/hooks/useUser.ts',
+      "export const CACHE_KEY = 'user';\n" + hookReturningObject('useUser')
+    );
     // when: the hook convention scan runs
     const report = await scanHookConvention({ projectRoot: ws().path, hookDirs: HOOK_DIRS });
     // then: only the functional export is reported
@@ -80,8 +89,16 @@ describe('scanHookConvention return shapes', () => {
 describe('scanHookConvention inconsistency reporting', () => {
   it('when one hook in a directory deviates in shape, should name it with the counts', async () => {
     // given: eight hooks returning an object and one returning a tuple
-    seedFile('src/hooks/useUsers.ts', Array.from({ length: 8 }, (_unused, index) => hookReturningObject(`useUsers${index}`)).join(''));
-    seedFile('src/hooks/useLegacyX.ts', 'export function useLegacyX() {\n  return [data, setData];\n}\n');
+    seedFile(
+      'src/hooks/useUsers.ts',
+      Array.from({ length: 8 }, (_unused, index) => hookReturningObject(`useUsers${index}`)).join(
+        ''
+      )
+    );
+    seedFile(
+      'src/hooks/useLegacyX.ts',
+      'export function useLegacyX() {\n  return [data, setData];\n}\n'
+    );
     // when: the hook convention scan runs
     const report = await scanHookConvention({ projectRoot: ws().path, hookDirs: HOOK_DIRS });
     // then: the deviant hook is named, with the dominant shape and its count
@@ -96,7 +113,10 @@ describe('scanHookConvention inconsistency reporting', () => {
   it('when an exported function omits the use prefix, should report mixed naming', async () => {
     // given: one `use`-prefixed export and one helper export in the same directory
     seedFile('src/hooks/useUser.ts', hookReturningObject('useUser'));
-    seedFile('src/hooks/fetchUser.ts', 'export function fetchUser() {\n  return { data: null };\n}\n');
+    seedFile(
+      'src/hooks/fetchUser.ts',
+      'export function fetchUser() {\n  return { data: null };\n}\n'
+    );
     // when: the hook convention scan runs
     const report = await scanHookConvention({ projectRoot: ws().path, hookDirs: HOOK_DIRS });
     // then: the naming pattern is mixed and the deviant name is surfaced
@@ -171,11 +191,17 @@ describe('scanHookConvention robustness', () => {
 describe('scanExistingSystem hook convention wiring', () => {
   it('when a legacy project has hooks, should add hookConvention and keep the existing fields', async () => {
     // given: a legacy-frontend fixture (no backend, >= 20 src files) with a hooks dir
-    seedFile('package.json', JSON.stringify({ name: 'fixture', dependencies: { react: '^18.0.0' } }));
+    seedFile(
+      'package.json',
+      JSON.stringify({ name: 'fixture', dependencies: { react: '^18.0.0' } })
+    );
     for (let index = 0; index < 20; index += 1) {
       seedFile(`src/pages/page${index}.ts`, 'export const page = 1;\n');
     }
-    seedFile('src/hooks/useLegacyX.ts', 'export function useLegacyX() {\n  return [data, setData];\n}\n');
+    seedFile(
+      'src/hooks/useLegacyX.ts',
+      'export function useLegacyX() {\n  return [data, setData];\n}\n'
+    );
     // when: the existing-system scan runs
     const report = await scanExistingSystem({ projectRoot: ws().path });
     // then: the new hook convention is present and the pre-slice fields are unchanged
@@ -193,12 +219,18 @@ describe('scanExistingSystem hook convention is not gated on the archetype', () 
   function seedHooksOnly(): void {
     seedFile('src/hooks/useUser.ts', hookReturningObject('useUser'));
     seedFile('src/hooks/useAccount.ts', hookReturningObject('useAccount'));
-    seedFile('src/hooks/useLegacyOrders.ts', 'export function useLegacyOrders() {\n  return [data, setData];\n}\n');
+    seedFile(
+      'src/hooks/useLegacyOrders.ts',
+      'export function useLegacyOrders() {\n  return [data, setData];\n}\n'
+    );
   }
 
   it('when a greenfield project has hooks, should still report the hook convention', async () => {
     // given: a react/vite frontend with no legacy signal at all
-    seedFile('package.json', JSON.stringify({ name: 'fixture', dependencies: { react: '^18.0.0', vite: '^5.0.0' } }));
+    seedFile(
+      'package.json',
+      JSON.stringify({ name: 'fixture', dependencies: { react: '^18.0.0', vite: '^5.0.0' } })
+    );
     seedHooksOnly();
     // when: the existing-system scan runs
     const report = await scanExistingSystem({ projectRoot: ws().path });
@@ -209,7 +241,9 @@ describe('scanExistingSystem hook convention is not gated on the archetype', () 
     expect(report.conventions.componentDir).toBeNull();
     expect(report.visualTokens.colors).toEqual([]);
     expect(report.conventions.hookConvention.directories[0]?.hookCount).toBe(3);
-    expect(report.conventions.hookConvention.directories[0]?.offShapeHooks).toEqual(['useLegacyOrders']);
+    expect(report.conventions.hookConvention.directories[0]?.offShapeHooks).toEqual([
+      'useLegacyOrders'
+    ]);
     expect(report.inconsistencies).toEqual([
       'hook return shape: 2 of 3 hooks in src/hooks return an object { data, error, loading }; deviating: useLegacyOrders (a tuple)'
     ]);
@@ -229,7 +263,10 @@ describe('scanExistingSystem hook convention is not gated on the archetype', () 
 
   it('when a frontend monorepo has hooks, should report the hook convention alongside the extraction', async () => {
     // given: a monorepo config with no backend sub-package
-    seedFile('package.json', JSON.stringify({ name: 'fixture', dependencies: { react: '^18.0.0' } }));
+    seedFile(
+      'package.json',
+      JSON.stringify({ name: 'fixture', dependencies: { react: '^18.0.0' } })
+    );
     seedFile('pnpm-workspace.yaml', 'packages:\n  - packages/*\n');
     seedHooksOnly();
     // when: the existing-system scan runs
@@ -238,13 +275,18 @@ describe('scanExistingSystem hook convention is not gated on the archetype', () 
     expect(report.archetype).toBe('frontend-monorepo');
     expect(report.scanned).toBe(true);
     expect(report.conventions.hookDir).toBe('src/hooks');
-    expect(report.conventions.hookConvention.directories[0]?.offShapeHooks).toEqual(['useLegacyOrders']);
+    expect(report.conventions.hookConvention.directories[0]?.offShapeHooks).toEqual([
+      'useLegacyOrders'
+    ]);
     expect(report.inconsistencies).toEqual(report.conventions.hookConvention.inconsistencies);
   });
 
   it('when a greenfield project has no hook directory, should report an empty convention and no inconsistency', async () => {
     // given: a greenfield frontend with no hooks directory
-    seedFile('package.json', JSON.stringify({ name: 'fixture', dependencies: { react: '^18.0.0', vite: '^5.0.0' } }));
+    seedFile(
+      'package.json',
+      JSON.stringify({ name: 'fixture', dependencies: { react: '^18.0.0', vite: '^5.0.0' } })
+    );
     // when: the existing-system scan runs
     const report = await scanExistingSystem({ projectRoot: ws().path });
     // then: nothing is invented and nothing throws
@@ -271,7 +313,12 @@ describe('scanHookConvention body location for arrow-const hooks', () => {
   it('when an arrow-const hook sits beside conventional hooks, should not invent a false deviant', async () => {
     // given: three conventional object hooks plus one arrow-const hook that
     // opens with `if (` — the form that used to be read as a tuple
-    seedFile('src/hooks/useUsers.ts', Array.from({ length: 3 }, (_unused, index) => hookReturningObject(`useUsers${index}`)).join(''));
+    seedFile(
+      'src/hooks/useUsers.ts',
+      Array.from({ length: 3 }, (_unused, index) => hookReturningObject(`useUsers${index}`)).join(
+        ''
+      )
+    );
     seedFile(
       'src/hooks/useOrders.ts',
       'export const useOrders = (id) => {\n  if (!id) { return []; }\n  return { data, loading, error };\n};\n'
@@ -286,22 +333,25 @@ describe('scanHookConvention body location for arrow-const hooks', () => {
 
   it('when an arrow-const hook nests a switch, a for and a callback, should read only its own return', async () => {
     // given: a body nesting every form that carries a `(` or an inner `{`
-    seedFile('src/hooks/useComplex.ts', [
-      'export const useComplex = (id) => {',
-      '  switch (id) {',
-      '    case 1: { return []; }',
-      '    default: break;',
-      '  }',
-      '  for (const item of items) {',
-      '    if (item) { return [item]; }',
-      '  }',
-      '  const load = async (x) => {',
-      '    return [x];',
-      '  };',
-      '  return { data, loading };',
-      '};',
-      ''
-    ].join('\n'));
+    seedFile(
+      'src/hooks/useComplex.ts',
+      [
+        'export const useComplex = (id) => {',
+        '  switch (id) {',
+        '    case 1: { return []; }',
+        '    default: break;',
+        '  }',
+        '  for (const item of items) {',
+        '    if (item) { return [item]; }',
+        '  }',
+        '  const load = async (x) => {',
+        '    return [x];',
+        '  };',
+        '  return { data, loading };',
+        '};',
+        ''
+      ].join('\n')
+    );
     // when: the hook convention scan runs
     const report = await scanHookConvention({ projectRoot: ws().path, hookDirs: HOOK_DIRS });
     // then: the top-level return decides, and nothing is flagged
@@ -319,7 +369,9 @@ describe('scanHookConvention body location for arrow-const hooks', () => {
     // then: neither falls through to "other" by accident
     const hooks = report.directories[0]?.hooks ?? [];
     expect(hooks.find((hook) => hook.name === 'useParen')?.returnShape).toBe('object');
-    expect(hooks.find((hook) => hook.name === 'useParen')?.returnSignature).toBe('{ data, loading }');
+    expect(hooks.find((hook) => hook.name === 'useParen')?.returnSignature).toBe(
+      '{ data, loading }'
+    );
     expect(hooks.find((hook) => hook.name === 'usePlainBody')?.returnShape).toBe('tuple');
   });
 
@@ -340,15 +392,18 @@ describe('scanHookConvention body location for arrow-const hooks', () => {
 describe('scanHookConvention ignores non-code text', () => {
   it('when a hook is commented out, should not count it as a hook', async () => {
     // given: a commented-out tuple hook ahead of a real object hook
-    seedFile('src/hooks/useOrders.ts', [
-      '// export function useLegacyOrders() {',
-      '//   return [data, setData];',
-      '// }',
-      'export function useOrders() {',
-      '  return { data, loading };',
-      '}',
-      ''
-    ].join('\n'));
+    seedFile(
+      'src/hooks/useOrders.ts',
+      [
+        '// export function useLegacyOrders() {',
+        '//   return [data, setData];',
+        '// }',
+        'export function useOrders() {',
+        '  return { data, loading };',
+        '}',
+        ''
+      ].join('\n')
+    );
     // when: the hook convention scan runs
     const report = await scanHookConvention({ projectRoot: ws().path, hookDirs: HOOK_DIRS });
     // then: only the real hook exists, so there is nothing to deviate from
@@ -373,15 +428,18 @@ describe('scanHookConvention ignores non-code text', () => {
   it('when a mapper import sits inside a block comment, should not count it as delegation', async () => {
     // given: a block comment whose line starts with `import`, which only the
     // masked text can tell apart from real code
-    seedFile('src/hooks/useOrders.ts', [
-      '/*',
-      "import { toOrderViewModel } from '@/mappers/order.mapper';",
-      '*/',
-      'export function useOrders() {',
-      '  return { data };',
-      '}',
-      ''
-    ].join('\n'));
+    seedFile(
+      'src/hooks/useOrders.ts',
+      [
+        '/*',
+        "import { toOrderViewModel } from '@/mappers/order.mapper';",
+        '*/',
+        'export function useOrders() {',
+        '  return { data };',
+        '}',
+        ''
+      ].join('\n')
+    );
     // when: the hook convention scan runs
     const report = await scanHookConvention({ projectRoot: ws().path, hookDirs: HOOK_DIRS });
     // then: it is not delegation
@@ -423,7 +481,10 @@ describe('scanHookConvention shape dominance', () => {
 
   it('when a hook returns a spread object, should not flag its unreadable keys as a deviant', async () => {
     // given: one readable object hook and one whose keys cannot be read
-    seedFile('src/hooks/useBase.ts', 'export function useBase() {\n  return { data, loading };\n}\n');
+    seedFile(
+      'src/hooks/useBase.ts',
+      'export function useBase() {\n  return { data, loading };\n}\n'
+    );
     seedFile('src/hooks/useSpread.ts', 'export function useSpread() {\n  return { ...base };\n}\n');
     // when: the hook convention scan runs
     const report = await scanHookConvention({ projectRoot: ws().path, hookDirs: HOOK_DIRS });

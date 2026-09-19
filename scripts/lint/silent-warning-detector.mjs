@@ -37,10 +37,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const REPO_ROOT = resolve(__dirname, '..', '..');
 
-const SELF_DIRS = [
-  'scripts/lint',
-  'tests/unit/lint',
-].map((p) => resolve(REPO_ROOT, p));
+const SELF_DIRS = ['scripts/lint', 'tests/unit/lint'].map((p) => resolve(REPO_ROOT, p));
 
 const SCAN_ROOTS = ['src'];
 const EXTENSIONS = new Set(['.ts', '.tsx', '.mts', '.cts', '.js', '.mjs', '.cjs']);
@@ -50,7 +47,9 @@ const EXTENSIONS = new Set(['.ts', '.tsx', '.mts', '.cts', '.js', '.mjs', '.cjs'
 let _ts = null;
 async function getTs() {
   if (_ts) return _ts;
-  const mod = await import(pathToFileURL(resolve(REPO_ROOT, 'node_modules/typescript/lib/typescript.js')).href);
+  const mod = await import(
+    pathToFileURL(resolve(REPO_ROOT, 'node_modules/typescript/lib/typescript.js')).href
+  );
   _ts = mod.default ?? mod;
   return _ts;
 }
@@ -82,7 +81,9 @@ function* walk(root) {
 }
 
 function isSelf(file) {
-  return SELF_DIRS.some((dir) => file === dir || file.startsWith(dir + '/') || file.startsWith(dir + '\\'));
+  return SELF_DIRS.some(
+    (dir) => file === dir || file.startsWith(dir + '/') || file.startsWith(dir + '\\')
+  );
 }
 
 // ---------- AST analysis -------------------------------------------------
@@ -105,7 +106,7 @@ function analyzeSource(tsArg, sourceArg, fileArg) {
     // the async path. The CLI uses the async path in main(); the unit
     // test imports this function with ts already initialised.
     throw new Error(
-      'analyzeSource(source, file): use the async variant `analyzeSourceAsync` or pass the resolved `ts` module.',
+      'analyzeSource(source, file): use the async variant `analyzeSourceAsync` or pass the resolved `ts` module.'
     );
   } else {
     ts = tsArg;
@@ -131,7 +132,7 @@ function analyzeSource(tsArg, sourceArg, fileArg) {
       line: line + 1,
       column: character + 1,
       message,
-      snippet: (snippet ?? txt).trim().slice(0, 200),
+      snippet: (snippet ?? txt).trim().slice(0, 200)
     });
   }
 
@@ -143,13 +144,13 @@ function analyzeSource(tsArg, sourceArg, fileArg) {
         record(
           'empty-catch',
           node,
-          'catch clause swallows error with empty body — emit to envelope.warnings or rethrow',
+          'catch clause swallows error with empty body — emit to envelope.warnings or rethrow'
         );
       } else if (body && firstMeaningfulStatementIs(ts, body, 'returnNullOrUndefined')) {
         record(
           'catch-return-null',
           body,
-          'catch clause returns null/undefined — caller cannot distinguish failure from success',
+          'catch clause returns null/undefined — caller cannot distinguish failure from success'
         );
       }
     }
@@ -163,7 +164,7 @@ function analyzeSource(tsArg, sourceArg, fileArg) {
         record(
           'promise-reject-no-cause',
           node,
-          'Promise.reject(x) — wrap original error with { cause: originalErr } or throw new Error(...).',
+          'Promise.reject(x) — wrap original error with { cause: originalErr } or throw new Error(...).'
         );
       }
     }
@@ -175,7 +176,7 @@ function analyzeSource(tsArg, sourceArg, fileArg) {
         record(
           'console-error-no-env',
           node,
-          'console.error(...) appears in a function that never references envelope.warnings — route through the envelope so QA can assert visibility.',
+          'console.error(...) appears in a function that never references envelope.warnings — route through the envelope so QA can assert visibility.'
         );
       }
     }
@@ -201,7 +202,10 @@ function firstMeaningfulStatementIs(ts, block, kind) {
         const t = stmt.expression.kind;
         if (t === ts.SyntaxKind.NullKeyword || t === ts.SyntaxKind.UndefinedKeyword) return true;
         // TS parses `return undefined` / `return null` as bare identifiers.
-        if (ts.isIdentifier(stmt.expression) && (stmt.expression.text === 'null' || stmt.expression.text === 'undefined')) {
+        if (
+          ts.isIdentifier(stmt.expression) &&
+          (stmt.expression.text === 'null' || stmt.expression.text === 'undefined')
+        ) {
           return true;
         }
         // `return foo ?? null` is also a "silent null" anti-pattern.
@@ -233,7 +237,10 @@ function isErrorLike(ts, arg) {
     const n = arg.expression.text;
     if (n === 'Error' || n.endsWith('Error')) return true;
   }
-  if (ts.isIdentifier(arg) && (arg.text === 'err' || arg.text === 'error' || /^[a-z]*(Err|Error)$/.test(arg.text))) {
+  if (
+    ts.isIdentifier(arg) &&
+    (arg.text === 'err' || arg.text === 'error' || /^[a-z]*(Err|Error)$/.test(arg.text))
+  ) {
     return true;
   }
   return false;
@@ -245,7 +252,7 @@ function hasCauseField(ts, arg) {
     (p) =>
       (ts.isPropertyAssignment(p) || ts.isShorthandPropertyAssignment(p)) &&
       ts.isIdentifier(p.name) &&
-      p.name.text === 'cause',
+      p.name.text === 'cause'
   );
 }
 
@@ -361,7 +368,9 @@ async function main() {
       // Parse errors are not silent-warning violations; surface them
       // separately so the user knows the detector failed to parse a file.
       if (!jsonOut) {
-        process.stderr.write(`[silent-warning-detector] parse error in ${relative(REPO_ROOT, file)}: ${err.message}\n`);
+        process.stderr.write(
+          `[silent-warning-detector] parse error in ${relative(REPO_ROOT, file)}: ${err.message}\n`
+        );
       }
     }
   }
@@ -381,18 +390,22 @@ async function main() {
           scannedFiles: scannedCount,
           violationCount: allViolations.length,
           byRule: Object.fromEntries([...byRule.entries()].map(([k, v]) => [k, v.length])),
-          violations: allViolations,
+          violations: allViolations
         },
         null,
-        2,
-      ) + '\n',
+        2
+      ) + '\n'
     );
   } else {
     process.stdout.write(`[silent-warning-detector] scanned ${scannedCount} files\n`);
     if (allViolations.length === 0) {
-      process.stdout.write(`[silent-warning-detector] OK — no silent-warning anti-patterns detected\n`);
+      process.stdout.write(
+        `[silent-warning-detector] OK — no silent-warning anti-patterns detected\n`
+      );
     } else {
-      process.stdout.write(`[silent-warning-detector] FAIL — ${allViolations.length} violation(s):\n`);
+      process.stdout.write(
+        `[silent-warning-detector] FAIL — ${allViolations.length} violation(s):\n`
+      );
       for (const v of allViolations) {
         process.stdout.write(`  ${v.file}:${v.line}:${v.column}  [${v.rule}]  ${v.message}\n`);
         process.stdout.write(`      | ${v.snippet}\n`);
@@ -422,8 +435,8 @@ function printHelp() {
       'Defaults to scanning src/. Pass explicit file paths to narrow scope.',
       'Self-exempt: scripts/lint/* and tests/unit/lint/* are never scanned.',
       'Grace marker: add `// TODO(g2):` on the offending line to suppress for one minor release.',
-      '',
-    ].join('\n'),
+      ''
+    ].join('\n')
   );
 }
 
@@ -438,12 +451,7 @@ if (_isMain) {
 
 // Exported for the unit test surface (AC A2.3 self-豁免 requires the test
 // file to import the detector and assert on its output directly).
-export {
-  analyzeSource,
-  analyzeSourceAsync,
-  isSelf,
-  walk,
-};
+export { analyzeSource, analyzeSourceAsync, isSelf, walk };
 
 /**
  * Convenience async wrapper so test code can pass (source, file) without

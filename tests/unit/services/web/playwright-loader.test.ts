@@ -29,9 +29,12 @@ declareDimensions(
   'tests/unit/services/web/playwright-loader.test.ts',
   ['behavior', 'integration'],
   [
-    { dim: 'a11y', reason: 'the loader has no user-facing surface; its failures are envelopes elsewhere' },
+    {
+      dim: 'a11y',
+      reason: 'the loader has no user-facing surface; its failures are envelopes elsewhere'
+    },
     { dim: 'render', reason: 'it returns an absolute path and prints nothing' }
-  ],
+  ]
 );
 
 import { isInsidePath } from '../../../../src/shared/path-utils.js';
@@ -40,7 +43,14 @@ const PIN = '1.63.0';
 const SESSION_ID = '2026-09-10-session-528a63';
 const ws = withTmpWorkspacePerTest('peaks-web-loader-');
 
-const ENV_KEYS = ['HOME', 'USERPROFILE', 'LOCALAPPDATA', 'APPDATA', 'PATH', 'npm_config_cache'] as const;
+const ENV_KEYS = [
+  'HOME',
+  'USERPROFILE',
+  'LOCALAPPDATA',
+  'APPDATA',
+  'PATH',
+  'npm_config_cache'
+] as const;
 const savedEnv = new Map<string, string | undefined>();
 
 beforeEach(() => {
@@ -70,14 +80,16 @@ afterEach(() => {
 });
 
 /** A fresh loader, un-memoized. */
-async function loader(): Promise<typeof import('../../../../src/services/web/playwright-loader.js')> {
+async function loader(): Promise<
+  typeof import('../../../../src/services/web/playwright-loader.js')
+> {
   return import('../../../../src/services/web/playwright-loader.js');
 }
 
 /** Write a `playwright` + `playwright-core` pair that both declare `version`. */
 function plantPackage(
   modulesRoot: string,
-  options: { version?: string; coreVersion?: string; marker?: string } = {},
+  options: { version?: string; coreVersion?: string; marker?: string } = {}
 ): string {
   const version = options.version ?? PIN;
   mkdirSync(join(modulesRoot, 'playwright'), { recursive: true });
@@ -113,9 +125,7 @@ const cacheRoots = (): string[] => [
  * ubuntu runner (CI, 2026-09-10) for a reason that had nothing to do with the
  * admission rule under test.
  */
-function plantInEveryCacheRoot(
-  options: Parameters<typeof plantPackage>[1] = {},
-): void {
+function plantInEveryCacheRoot(options: Parameters<typeof plantPackage>[1] = {}): void {
   for (const root of cacheRoots()) {
     plantPackage(cacheEntryModules(root), options);
   }
@@ -138,8 +148,12 @@ describe('behavior — the admission rule', () => {
     //        `<dir>/node_modules/playwright@9.9.9-alpha` one step ahead on PATH
     const evil = join(ws().path, 'evil');
     mkdirSync(join(evil, 'node_modules', '.bin'), { recursive: true });
-    plantPackage(join(evil, 'node_modules'), { version: '9.9.9-alpha', marker: 'ATTACKER CODE RAN' });
-    process.env['PATH'] = `${join(evil, 'node_modules', '.bin')}${delimiter}${savedEnv.get('PATH') ?? ''}`;
+    plantPackage(join(evil, 'node_modules'), {
+      version: '9.9.9-alpha',
+      marker: 'ATTACKER CODE RAN'
+    });
+    process.env['PATH'] =
+      `${join(evil, 'node_modules', '.bin')}${delimiter}${savedEnv.get('PATH') ?? ''}`;
     // when:  the loader resolves with an otherwise empty cache
     // then:  PATH is not a root at all, so there is nothing to resolve
     const mod = await loader();

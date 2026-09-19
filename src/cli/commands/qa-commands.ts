@@ -38,9 +38,7 @@ import {
   BrowserRestartDetector,
   type BrowserEvent
 } from '../../services/qa/browser-restart-detector.js';
-import {
-  BrowserEventLogger
-} from '../../services/qa/browser-event-logger.js';
+import { BrowserEventLogger } from '../../services/qa/browser-event-logger.js';
 import { BROWSER_REUSE_HINT } from '../../services/qa/browser-reuse-hint.js';
 // Plan 1 / Task 9 — auto-build peaks-context before peaks-qa runs.
 import { buildContext } from '../../services/context/context-builder.js';
@@ -52,7 +50,7 @@ import { loadMutReport, mutReportPath, type MutReportJson } from 'peaks-loop-mut
 
 function buildDocFetcher(sid: string): DocFetcher {
   return createDocCacheFetcher({
-    cacheDir: `.peaks/_runtime/${sid}/doc-cache`,
+    cacheDir: `.peaks/_runtime/${sid}/doc-cache`
     // remoteFetcher wired in a future slice.
   });
 }
@@ -67,7 +65,7 @@ async function ensureContextForQa(goal: string, project: string, sid: string): P
       depsMode: 'locked',
       docBudgetTokens: 8000,
       out,
-      fetcher: buildDocFetcher(sid),
+      fetcher: buildDocFetcher(sid)
     });
   } catch (error) {
     // Plan 1 / Task 9 — context is a pre-step, not a precondition.
@@ -300,13 +298,21 @@ export function readQaRunOptions(options: QaRunOptions): {
 export function registerQaCommands(program: Command, io: ProgramIO): void {
   const qa = program
     .command('qa', { hidden: true })
-    .description('peaks-qa slice: run QA gates (functional / security / browser E2E / mutation) for the active project');
+    .description(
+      'peaks-qa slice: run QA gates (functional / security / browser E2E / mutation) for the active project'
+    );
 
   addJsonOption(
     qa
       .command('run')
-      .description('Run the peaks-qa slice (PRD 2026-06-16-playwright-restart-loop; Plan 2 mut gate)')
-      .option('--project <path>', 'project the gates evaluate against (default: current directory)', '.')
+      .description(
+        'Run the peaks-qa slice (PRD 2026-06-16-playwright-restart-loop; Plan 2 mut gate)'
+      )
+      .option(
+        '--project <path>',
+        'project the gates evaluate against (default: current directory)',
+        '.'
+      )
       .option('--session-id <sid>', 'session id; defaults to "ad-hoc" for one-shot runs', 'ad-hoc')
       .option('--no-browser', 'skip the browser E2E gate entirely (PRD G5 / AC4)')
       .option(
@@ -316,7 +322,10 @@ export function registerQaCommands(program: Command, io: ProgramIO): void {
       )
       .option('--no-restart-detector', 'disable the restart-loop detector escape hatch (PRD AC6)')
       // Plan 2 / Task 8 — MUT.sig gate opt-out (mirrors --no-browser).
-      .option('--no-mutation', 'skip the mutation gate even if .peaks/_runtime/<sid>/mut/mut-report.json exists')
+      .option(
+        '--no-mutation',
+        'skip the mutation gate even if .peaks/_runtime/<sid>/mut/mut-report.json exists'
+      )
   ).action(async (options: QaRunOptions) => {
     try {
       const { browserEnabled, detectorEnabled, maxRestarts, mutationEnabled } =
@@ -333,7 +342,13 @@ export function registerQaCommands(program: Command, io: ProgramIO): void {
       if (isUnsafePathInput(qaSid)) {
         printResult(
           io,
-          fail('qa.gate', 'INVALID_SESSION_ID', `Invalid session id: ${qaSid} (must be a single path segment)`, { provided: qaSid }, ['Pass a session id that is a single path segment']),
+          fail(
+            'qa.gate',
+            'INVALID_SESSION_ID',
+            `Invalid session id: ${qaSid} (must be a single path segment)`,
+            { provided: qaSid },
+            ['Pass a session id that is a single path segment']
+          ),
           options.json
         );
         process.exitCode = 1;
@@ -344,9 +359,7 @@ export function registerQaCommands(program: Command, io: ProgramIO): void {
       // Returns null when peaks-mut was not run; the gate treats that
       // as `skipped`, never as `failed`. loadMutReport itself never
       // throws (per its docstring) so this is safe in the action.
-      const mutationReport = mutationEnabled
-        ? await loadMutReport(qaSid)
-        : null;
+      const mutationReport = mutationEnabled ? await loadMutReport(qaSid) : null;
       // Production slice: no synthetic events to feed; in real
       // dogfood the LLM tool dispatcher would push events into the
       // detector. Here we record an empty event log so the
@@ -375,9 +388,9 @@ export function registerQaCommands(program: Command, io: ProgramIO): void {
               'Re-run with --no-mutation to bypass the gate for this slice',
               `mut-report path: ${mutReportPath(qaSid)}`
             ]
-        : browserEnabled
-          ? ['No action required; browser gate passed']
-          : ['Browser E2E skipped; run without --no-browser when the slice needs E2E'];
+          : browserEnabled
+            ? ['No action required; browser gate passed']
+            : ['Browser E2E skipped; run without --no-browser when the slice needs E2E'];
       printResult(io, ok('qa.run', result, [], nextActions), options.json);
       if (result.detectorTriggered || mutationFailed) {
         process.exitCode = 2;
@@ -414,7 +427,11 @@ export function registerQaCommands(program: Command, io: ProgramIO): void {
           'project root into .peaks/_runtime/<session-id>/qa/screenshots/. ' +
           'Enforces peaks-qa SKILL.md Contract 1.'
       )
-      .option('--source <dir>', 'directory to scan for stray screenshots (default: project root)', '.')
+      .option(
+        '--source <dir>',
+        'directory to scan for stray screenshots (default: project root)',
+        '.'
+      )
       .option('--project <path>', 'project root (default: cwd)', '.')
       .option('--session-id <sid>', 'target session id; defaults to the active session', '')
   ).action((options: { source: string; project: string; sessionId?: string; json?: boolean }) => {

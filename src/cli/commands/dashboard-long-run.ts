@@ -21,9 +21,17 @@ function parseSince(raw: string | undefined): ParseResult {
   const match = SINCE_PATTERN.exec(raw);
   if (!match) return { ok: false, error: `--since must match <n><s|m|h|d> (got ${raw})` };
   const value = Number(match[1]);
-  if (!Number.isFinite(value) || value < 0) return { ok: false, error: `--since must be a non-negative integer (got ${raw})` };
+  if (!Number.isFinite(value) || value < 0)
+    return { ok: false, error: `--since must be a non-negative integer (got ${raw})` };
   const unit = (match[2] ?? 'h').toLowerCase();
-  const multiplier = unit === 'd' ? MS_PER_DAY : unit === 'h' ? MS_PER_HOUR : unit === 'm' ? MS_PER_MINUTE : MS_PER_SECOND;
+  const multiplier =
+    unit === 'd'
+      ? MS_PER_DAY
+      : unit === 'h'
+        ? MS_PER_HOUR
+        : unit === 'm'
+          ? MS_PER_MINUTE
+          : MS_PER_SECOND;
   return { ok: true, ms: Math.min(WINDOW_CAP_MS, value * multiplier) };
 }
 
@@ -36,7 +44,9 @@ function readSlices(projectRoot: string, sessionId: string): number {
   const path = join(projectRoot, '.peaks', '_runtime', sessionId, 'metrics', 'slices.jsonl');
   if (!existsSync(path)) return 0;
   try {
-    return readFileSync(path, 'utf8').split('\n').filter((line) => line.trim().length > 0).length;
+    return readFileSync(path, 'utf8')
+      .split('\n')
+      .filter((line) => line.trim().length > 0).length;
   } catch {
     return 0;
   }
@@ -57,7 +67,14 @@ function boundaryLabel(raw: string): Boundary {
   if (!match) return { key: 'valid', message: 'unparseable' };
   const value = Number(match[1]);
   const unit = (match[2] ?? 'h').toLowerCase();
-  const multiplier = unit === 'd' ? MS_PER_DAY : unit === 'h' ? MS_PER_HOUR : unit === 'm' ? MS_PER_MINUTE : MS_PER_SECOND;
+  const multiplier =
+    unit === 'd'
+      ? MS_PER_DAY
+      : unit === 'h'
+        ? MS_PER_HOUR
+        : unit === 'm'
+          ? MS_PER_MINUTE
+          : MS_PER_SECOND;
   if (value * multiplier > WINDOW_CAP_MS) {
     return { key: 'cap', message: 'since>24h is capped to the 24h window' };
   }
@@ -72,63 +89,98 @@ export function registerDashboardLongRunCommand(dashboard: Command, io: ProgramI
     .option('--project <path>', 'project root (defaults to current directory)')
     .option('--session-id <sessionId>', 'explicit session id')
     .option('--json', 'emit machine-readable JSON')
-    .action(async (options: { since?: string; project?: string; sessionId?: string; json?: boolean }) => {
-      const projectRoot = resolveCanonicalProjectRoot(options.project ?? process.cwd());
-      const parsed = parseSince(options.since);
-      if (!parsed.ok) {
-        io.stdout((options.json === true
-          ? JSON.stringify({ ok: false, code: 'INVALID_SINCE', message: parsed.error })
-          : `${parsed.error}\n`) + '\n');
-        process.exitCode = 1;
-        return;
+    .action(
+      async (options: { since?: string; project?: string; sessionId?: string; json?: boolean }) => {
+        const projectRoot = resolveCanonicalProjectRoot(options.project ?? process.cwd());
+        const parsed = parseSince(options.since);
+        if (!parsed.ok) {
+          io.stdout(
+            (options.json === true
+              ? JSON.stringify({ ok: false, code: 'INVALID_SINCE', message: parsed.error })
+              : `${parsed.error}\n`) + '\n'
+          );
+          process.exitCode = 1;
+          return;
+        }
+        const sid =
+          options.sessionId ??
+          (await (async () => {
+            const { getSessionIdCanonical } =
+              await import('../../services/session/session-manager.js');
+            return getSessionIdCanonical(projectRoot);
+          })());
+        if (!sid) {
+          io.stdout(
+            options.json === true
+              ? JSON.stringify({
+                  ok: false,
+                  code: 'NO_ACTIVE_SESSION',
+                  message: 'no --session-id and no canonical binding'
+                })
+              : 'NO_ACTIVE_SESSION: no --session-id and no canonical binding\n'
+          );
+          process.exitCode = 1;
+          return;
+        }
+        const boundary = boundaryLabel(options.since ?? '');
+        try {
+          const snapshot = read24hState(projectRoot, sid);
+          const sliceCount = readSlices(projectRoot, sid);
+          const checkpointAgeMs = readLastCheckpointAgeMs(snapshot);
+          const checkpointFrequency =
+            snapshot.checkpoints > 0 && snapshot.enteredAt
+              ? Math.max(
+                  1,
+                  Math.round(
+                    (Date.now() - Date.parse(snapshot.enteredAt)) /
+                      snapshot.checkpoints /
+                      MS_PER_MINUTE
+                  )
+                )
+              : null;
+          const indicators = {
+            dispatchCount: sliceCount,
+            autoCompactCount: snapshot.autoCompactCount,
+            monotonicTriggerCount: snapshot.monotonicGuards,
+            subAgentFailureCount: Object.values(snapshot.attempts).reduce((a, b) => a + b, 0),
+            checkpointFrequency
+          };
+          const payload = {
+            ok: true,
+            data: {
+              sessionId: sid,
+              since: options.since ?? null,
+              sinceMs: parsed.ms,
+              sinceCapped: parsed.ms === WINDOW_CAP_MS && boundary.key === 'cap',
+              boundary: boundary.key,
+              snapshot: {
+                state: snapshot.state,
+                enteredAt: snapshot.enteredAt,
+                lastCheckpointAt: snapshot.lastCheckpointAt
+              },
+              indicators,
+              checkpointAgeMs
+            }
+          };
+          io.stdout(
+            (options.json === true
+              ? JSON.stringify(payload)
+              : JSON.stringify(payload.data, null, 2)) + '\n'
+          );
+        } catch (error) {
+          io.stdout(
+            (options.json === true
+              ? JSON.stringify({
+                  ok: false,
+                  code: 'LONG_RUN_READ_FAILED',
+                  message: getErrorMessage(error)
+                })
+              : `LONG_RUN_READ_FAILED: ${getErrorMessage(error)}\n`) + '\n'
+          );
+          process.exitCode = 1;
+        }
       }
-      const sid = options.sessionId ?? (await (async () => {
-        const { getSessionIdCanonical } = await import('../../services/session/session-manager.js');
-        return getSessionIdCanonical(projectRoot);
-      })());
-      if (!sid) {
-        io.stdout((options.json === true
-          ? JSON.stringify({ ok: false, code: 'NO_ACTIVE_SESSION', message: 'no --session-id and no canonical binding' })
-          : 'NO_ACTIVE_SESSION: no --session-id and no canonical binding\n'));
-        process.exitCode = 1;
-        return;
-      }
-      const boundary = boundaryLabel(options.since ?? '');
-      try {
-        const snapshot = read24hState(projectRoot, sid);
-        const sliceCount = readSlices(projectRoot, sid);
-        const checkpointAgeMs = readLastCheckpointAgeMs(snapshot);
-        const checkpointFrequency = snapshot.checkpoints > 0 && snapshot.enteredAt
-          ? Math.max(1, Math.round((Date.now() - Date.parse(snapshot.enteredAt)) / snapshot.checkpoints / MS_PER_MINUTE))
-          : null;
-        const indicators = {
-          dispatchCount: sliceCount,
-          autoCompactCount: snapshot.autoCompactCount,
-          monotonicTriggerCount: snapshot.monotonicGuards,
-          subAgentFailureCount: Object.values(snapshot.attempts).reduce((a, b) => a + b, 0),
-          checkpointFrequency
-        };
-        const payload = {
-          ok: true,
-          data: {
-            sessionId: sid,
-            since: options.since ?? null,
-            sinceMs: parsed.ms,
-            sinceCapped: parsed.ms === WINDOW_CAP_MS && boundary.key === 'cap',
-            boundary: boundary.key,
-            snapshot: { state: snapshot.state, enteredAt: snapshot.enteredAt, lastCheckpointAt: snapshot.lastCheckpointAt },
-            indicators,
-            checkpointAgeMs
-          }
-        };
-        io.stdout((options.json === true ? JSON.stringify(payload) : JSON.stringify(payload.data, null, 2)) + '\n');
-      } catch (error) {
-        io.stdout((options.json === true
-          ? JSON.stringify({ ok: false, code: 'LONG_RUN_READ_FAILED', message: getErrorMessage(error) })
-          : `LONG_RUN_READ_FAILED: ${getErrorMessage(error)}\n`) + '\n');
-        process.exitCode = 1;
-      }
-    });
+    );
 }
 
 export const DASHBOARD_LONG_RUN_CONSTANTS = { WINDOW_CAP_HOURS, WINDOW_CAP_MS } as const;

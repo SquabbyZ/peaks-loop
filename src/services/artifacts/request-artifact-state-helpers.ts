@@ -15,15 +15,20 @@ export type RequestArtifactState =
   | 'handed-off'
   | 'blocked';
 
-export const ALLOWED_STATES_PER_ROLE: Record<RequestArtifactRole, ReadonlyArray<RequestArtifactState>> = {
+export const ALLOWED_STATES_PER_ROLE: Record<
+  RequestArtifactRole,
+  ReadonlyArray<RequestArtifactState>
+> = {
   prd: ['draft', 'confirmed-by-user', 'handed-off', 'blocked'],
-  ui:  ['draft', 'direction-locked', 'handed-off', 'blocked'],
-  rd:  ['draft', 'spec-locked', 'implemented', 'qa-handoff', 'handed-off', 'blocked'],
-  qa:  ['draft', 'running', 'verdict-issued', 'blocked'],
-  sc:  ['draft', 'impact-recorded', 'boundary-recorded', 'handed-off', 'blocked']
+  ui: ['draft', 'direction-locked', 'handed-off', 'blocked'],
+  rd: ['draft', 'spec-locked', 'implemented', 'qa-handoff', 'handed-off', 'blocked'],
+  qa: ['draft', 'running', 'verdict-issued', 'blocked'],
+  sc: ['draft', 'impact-recorded', 'boundary-recorded', 'handed-off', 'blocked']
 };
 
-export function allowedStatesForRole(role: RequestArtifactRole): ReadonlyArray<RequestArtifactState> {
+export function allowedStatesForRole(
+  role: RequestArtifactRole
+): ReadonlyArray<RequestArtifactState> {
   return ALLOWED_STATES_PER_ROLE[role];
 }
 
@@ -68,7 +73,7 @@ export class LintGateError extends Error {
   constructor(role: RequestArtifactRole, newState: RequestArtifactState, errorCount: number) {
     super(
       `Cannot transition ${role} to ${newState}: ${errorCount} lint error(s) found in artifact. ` +
-      'Fix lint errors or use --allow-incomplete to bypass.'
+        'Fix lint errors or use --allow-incomplete to bypass.'
     );
     this.name = 'LintGateError';
     this.role = role;
@@ -82,11 +87,15 @@ export class TypeSanityViolationError extends Error {
   readonly declaredType: RequestType;
   readonly suggestedTypes: ReadonlyArray<RequestType>;
   readonly rationale: string;
-  constructor(declaredType: RequestType, suggestedTypes: ReadonlyArray<RequestType>, rationale: string) {
+  constructor(
+    declaredType: RequestType,
+    suggestedTypes: ReadonlyArray<RequestType>,
+    rationale: string
+  ) {
     super(
       `Type sanity violation: declared --type=${declaredType} disagrees with changed files. ` +
-      `Suggested types: ${suggestedTypes.join(' | ')}. ` +
-      `Rationale: ${rationale}`
+        `Suggested types: ${suggestedTypes.join(' | ')}. ` +
+        `Rationale: ${rationale}`
     );
     this.name = 'TypeSanityViolationError';
     this.declaredType = declaredType;
@@ -103,8 +112,8 @@ export class FileSizeViolationError extends Error {
     const summary = violations.map((v) => `${v.file} (${v.lines} lines)`).join(', ');
     super(
       `File size violation: ${violations.length} file(s) exceed ${threshold} lines: ${summary}. ` +
-      'Split into smaller modules, or consider reusing existing components / existing API data ' +
-      '(karpathy-guidelines §2 Simplicity First), or use --allow-incomplete to bypass.'
+        'Split into smaller modules, or consider reusing existing components / existing API data ' +
+        '(karpathy-guidelines §2 Simplicity First), or use --allow-incomplete to bypass.'
     );
     this.name = 'FileSizeViolationError';
     this.violations = violations;
@@ -209,7 +218,12 @@ export function readArtifactState(markdown: string): string | null {
   return locateArtifactState(markdown.split(/\r?\n/)).state;
 }
 
-export function updateStatusBlock(markdown: string, newState: RequestArtifactState, timestamp: string, reason?: string): { updated: string; previousState: string } {
+export function updateStatusBlock(
+  markdown: string,
+  newState: RequestArtifactState,
+  timestamp: string,
+  reason?: string
+): { updated: string; previousState: string } {
   const lines = markdown.split(/\r?\n/);
   const { stateLineIndex, state } = locateArtifactState(lines);
   const previousState = state ?? 'unknown';

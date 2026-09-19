@@ -12,7 +12,10 @@ import type { GuardContract, GuardContext, GuardRunResult } from './types.js';
  * baseline, so a contract could name a journey / invariant that does not exist
  * in the frozen file and still run to a green result.
  */
-export function assertBaselineRef(contract: GuardContract, projectRoot: string): CapabilityBaselineRow {
+export function assertBaselineRef(
+  contract: GuardContract,
+  projectRoot: string
+): CapabilityBaselineRow {
   const r = readBaselineFile(projectRoot);
   if (!r.ok) {
     throw new Error(
@@ -27,7 +30,9 @@ export function assertBaselineRef(contract: GuardContract, projectRoot: string):
   }
   const declared = contract.source.invariant;
   if (typeof declared !== 'string' || declared.trim().length === 0) {
-    throw new Error(`GUARD_CONTRACT_MISSING_BASELINE_REF: ${contract.journeyId} declares an empty invariant`);
+    throw new Error(
+      `GUARD_CONTRACT_MISSING_BASELINE_REF: ${contract.journeyId} declares an empty invariant`
+    );
   }
   if (!row.invariants.includes(declared)) {
     throw new Error(
@@ -37,7 +42,10 @@ export function assertBaselineRef(contract: GuardContract, projectRoot: string):
   return row;
 }
 
-export async function runGuard(contract: GuardContract, ctx: GuardContext): Promise<GuardRunResult> {
+export async function runGuard(
+  contract: GuardContract,
+  ctx: GuardContext
+): Promise<GuardRunResult> {
   assertBaselineRef(contract, ctx.projectRoot);
   return contract.execute({ ...ctx, contract });
 }
@@ -51,7 +59,13 @@ export async function runGuard(contract: GuardContract, ctx: GuardContext): Prom
 export async function runAllGuards(
   contracts: ReadonlyArray<GuardContract>,
   ctx: GuardContext
-): Promise<{ readonly pass: number; readonly fail: number; readonly skipped: number; readonly total: number; readonly results: ReadonlyArray<GuardRunResult> }> {
+): Promise<{
+  readonly pass: number;
+  readonly fail: number;
+  readonly skipped: number;
+  readonly total: number;
+  readonly results: ReadonlyArray<GuardRunResult>;
+}> {
   const results: GuardRunResult[] = [];
   for (const c of contracts) {
     try {

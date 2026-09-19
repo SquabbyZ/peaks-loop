@@ -29,7 +29,7 @@ export function playwrightProfilePaths(input: {
     '_runtime',
     input.sessionId,
     'pw-profiles',
-    input.dispatchId,
+    input.dispatchId
   );
   return { userDataDir, profileName: `dispatch-${input.dispatchId}` };
 }

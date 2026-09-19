@@ -39,27 +39,9 @@ const repoRoot = join(__dirname, '..', '..', '..');
  *  drift of BOTH files pass silently. */
 const CADENCE = 20;
 
-const PERIODIC_REF = join(
-  repoRoot,
-  'skills',
-  'peaks-code',
-  'references',
-  'periodic-checkpoint.md'
-);
-const STARTUP_REF = join(
-  repoRoot,
-  'skills',
-  'peaks-code',
-  'references',
-  'startup-sequence.md'
-);
-const CHECKPOINT_CMD = join(
-  repoRoot,
-  'src',
-  'cli',
-  'commands',
-  'session-checkpoint-command.ts'
-);
+const PERIODIC_REF = join(repoRoot, 'skills', 'peaks-code', 'references', 'periodic-checkpoint.md');
+const STARTUP_REF = join(repoRoot, 'skills', 'peaks-code', 'references', 'startup-sequence.md');
+const CHECKPOINT_CMD = join(repoRoot, 'src', 'cli', 'commands', 'session-checkpoint-command.ts');
 
 /** Every `<n> tool calls` figure stated by a document. */
 function cadencesIn(body: string): number[] {

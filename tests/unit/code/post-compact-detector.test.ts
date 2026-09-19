@@ -62,7 +62,7 @@ import { declareDimensions } from '../_setup/4dim-template.js';
 const __fsMocks = vi.hoisted(() => ({
   // Default: pass-through to real implementation. Each test can override
   // before triggering the call.
-  readFileSync: null as unknown as ((...args: unknown[]) => unknown) | null,
+  readFileSync: null as unknown as ((...args: unknown[]) => unknown) | null
 }));
 
 vi.mock('node:fs', async () => {
@@ -74,13 +74,14 @@ vi.mock('node:fs', async () => {
         return __fsMocks.readFileSync(...args);
       }
       return (actual.readFileSync as (...a: unknown[]) => unknown)(...args);
-    },
+    }
   };
 });
 
 // Import AFTER the `vi.mock` above so the mocked `node:fs` is bound to the
 // module under test.
-const { detectPostCompactResume } = await import('../../../src/services/code/post-compact-detector.js');
+const { detectPostCompactResume } =
+  await import('../../../src/services/code/post-compact-detector.js');
 
 declareDimensions(
   'tests/unit/code/post-compact-detector.test.ts',
@@ -88,13 +89,15 @@ declareDimensions(
   [
     {
       dim: 'render',
-      reason: 'no user-visible text in this module; the public surface is a typed return object only',
+      reason:
+        'no user-visible text in this module; the public surface is a typed return object only'
     },
     {
       dim: 'a11y',
-      reason: 'no user-visible text in this module; this file is consumed by peaks-code Step 0.7, not rendered for humans',
-    },
-  ],
+      reason:
+        'no user-visible text in this module; this file is consumed by peaks-code Step 0.7, not rendered for humans'
+    }
+  ]
 );
 
 // Slice 2026-07-31-rid-post-compact-detector-silent-catch-sweep narrows the
@@ -112,8 +115,8 @@ declareDimensions(
 //           existing checkpoint file is STILL swallowed (backward-compat:
 //           no-checkpoint-today semantic preserved when the file is
 //           unreadable).
-describe("Scenario: behavior — safeReadCheckpoint catch narrows to IO errors only", () => {
-  it("when invoked, should Case A: SyntaxError from broken checkpoint JSON surfaces to caller (NOT swallowed)", async () => {
+describe('Scenario: behavior — safeReadCheckpoint catch narrows to IO errors only', () => {
+  it('when invoked, should Case A: SyntaxError from broken checkpoint JSON surfaces to caller (NOT swallowed)', async () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -131,7 +134,7 @@ describe("Scenario: behavior — safeReadCheckpoint catch narrows to IO errors o
     writeFileSync(
       join(runtimeDir, 'checkpoints', 'cp-bad.json'),
       '{ this is not valid JSON :: ',
-      'utf8',
+      'utf8'
     );
     // We expect detectPostCompactResume to re-throw the SyntaxError.
     // The presence-marker is not on disk so we pre-seed activeSkill to
@@ -140,12 +143,12 @@ describe("Scenario: behavior — safeReadCheckpoint catch narrows to IO errors o
       detectPostCompactResume({
         sessionId,
         projectRoot: tmpDir,
-        activeSkill: 'peaks-code',
-      }),
+        activeSkill: 'peaks-code'
+      })
     ).rejects.toThrow(SyntaxError);
   });
 
-  it("when invoked, should Case B: IO error from readFileSync against existing checkpoint returns no-checkpoint-today (still swallowed)", async () => {
+  it('when invoked, should Case B: IO error from readFileSync against existing checkpoint returns no-checkpoint-today (still swallowed)', async () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -166,23 +169,19 @@ describe("Scenario: behavior — safeReadCheckpoint catch narrows to IO errors o
     const sessionId = '2026-07-31-test-session';
     const runtimeDir = join(tmpDir, '.peaks', '_runtime', sessionId);
     mkdirSync(join(runtimeDir, 'checkpoints'), { recursive: true });
-    writeFileSync(
-      join(runtimeDir, 'checkpoints', 'cp-good.json'),
-      '{"mode":"rd"}',
-      'utf8',
-    );
+    writeFileSync(join(runtimeDir, 'checkpoints', 'cp-good.json'), '{"mode":"rd"}', 'utf8');
     __fsMocks.readFileSync = () => {
       throw Object.assign(new Error('EACCES: permission denied, open cp-good.json'), {
         code: 'EACCES',
         errno: -13,
-        syscall: 'open',
+        syscall: 'open'
       });
     };
     try {
       const out = await detectPostCompactResume({
         sessionId,
         projectRoot: tmpDir,
-        activeSkill: 'peaks-code',
+        activeSkill: 'peaks-code'
       });
       // IO error path → checkpoint unreadable → falls through to
       // no-checkpoint-today (no auto-resume).
@@ -193,7 +192,7 @@ describe("Scenario: behavior — safeReadCheckpoint catch narrows to IO errors o
     }
   });
 
-  it("when invoked, should Case C: a NON-IO error from readFileSync surfaces to caller (NOT swallowed)", async () => {
+  it('when invoked, should Case C: a NON-IO error from readFileSync surfaces to caller (NOT swallowed)', async () => {
     // S6 (2026-09-15) — the half the old rule got backwards.
     //
     // The pre-S6 catch rethrew `ReferenceError` and `SyntaxError` by name and
@@ -216,8 +215,8 @@ describe("Scenario: behavior — safeReadCheckpoint catch narrows to IO errors o
         detectPostCompactResume({
           sessionId,
           projectRoot: tmpDir,
-          activeSkill: 'peaks-code',
-        }),
+          activeSkill: 'peaks-code'
+        })
       ).rejects.toThrow(TypeError);
     } finally {
       __fsMocks.readFileSync = null;

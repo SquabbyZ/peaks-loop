@@ -43,7 +43,7 @@ export const TERMINAL_REASONS: ReadonlyArray<TerminalReason> = [
   'outer-session-mismatch',
   'parent-acked-no-envelope',
   'graph-corrupted',
-  'unknown',
+  'unknown'
 ];
 
 export type LeaseStatus = 'preparing' | 'running' | 'terminalized' | 'lost';
@@ -52,7 +52,7 @@ export const LEASE_STATUSES: ReadonlyArray<LeaseStatus> = [
   'preparing',
   'running',
   'terminalized',
-  'lost',
+  'lost'
 ];
 
 export const GRAPH_NODE_STATUSES: ReadonlyArray<GraphNodeStatus> = [
@@ -62,7 +62,7 @@ export const GRAPH_NODE_STATUSES: ReadonlyArray<GraphNodeStatus> = [
   'envelope-received',
   'consumed-by-parent',
   'terminalized',
-  'lost',
+  'lost'
 ];
 
 export interface WorkflowGraphEdge {

@@ -24,10 +24,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { resolveHookSpec } from '~/src/services/skills/hooks-codegate-superpowers';
-import {
-  applyHookInstall,
-  removeHookInstall
-} from '~/src/services/skills/hooks-settings-service';
+import { applyHookInstall, removeHookInstall } from '~/src/services/skills/hooks-settings-service';
 
 /** Adapter ids the registry knows but `HOOK_COMMAND_BY_IDE` does not table. */
 const HOOK_UNSUPPORTED_IDES = ['qoder', 'tongyi-lingma', 'zcode'] as const;

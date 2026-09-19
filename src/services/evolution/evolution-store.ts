@@ -1,12 +1,12 @@
-import type Database from "better-sqlite3";
+import type Database from 'better-sqlite3';
 import type {
   EvolutionEvaluation,
   EvolutionEvaluationInput,
   EvolutionProposal,
   EvolutionProposalInput,
   EvolutionTargetKind,
-  EvolutionVerdict,
-} from "./evolution-types.js";
+  EvolutionVerdict
+} from './evolution-types.js';
 
 /**
  * Low-level SQLite access for the `evolution_evaluation` table. The
@@ -28,7 +28,7 @@ import type {
  *     stores the persisted, validated row.
  */
 
-const SCHEMA_VERSION = "peaks.evolution/1" as const;
+const SCHEMA_VERSION = 'peaks.evolution/1' as const;
 
 /**
  * Re-apply the evolution_evaluation table migration against an
@@ -96,7 +96,7 @@ interface EvolutionEvaluationRow {
   rubric_json: string;
   red_lines_json: string;
   source_traces_json: string;
-  schema_version: "peaks.evolution/1";
+  schema_version: 'peaks.evolution/1';
   created_at: string;
 }
 
@@ -104,10 +104,7 @@ interface EvolutionEvaluationRow {
  * Compute the score_delta from before/after scores. Exported for
  * the service layer to use during proposal evaluation.
  */
-export function computeScoreDelta(
-  before: number,
-  after: number
-): number {
+export function computeScoreDelta(before: number, after: number): number {
   // Round to 6 decimals to avoid floating-point noise.
   return Math.round((after - before) * 1_000_000) / 1_000_000;
 }
@@ -146,7 +143,7 @@ export function buildProposal(
     red_lines: input.red_lines ?? [],
     source_traces: input.source_traces ?? [],
     schema_version: SCHEMA_VERSION,
-    created_at: createdAt ?? new Date().toISOString(),
+    created_at: createdAt ?? new Date().toISOString()
   };
 }
 
@@ -162,14 +159,8 @@ function rowToEvaluation(row: EvolutionEvaluationRow): EvolutionEvaluation {
       target_count: row.target_count,
       single_object: true,
       single_optimization_dimension: true,
-      before_snapshot: JSON.parse(row.before_snapshot_json) as Record<
-        string,
-        unknown
-      >,
-      after_snapshot: JSON.parse(row.after_snapshot_json) as Record<
-        string,
-        unknown
-      >,
+      before_snapshot: JSON.parse(row.before_snapshot_json) as Record<string, unknown>,
+      after_snapshot: JSON.parse(row.after_snapshot_json) as Record<string, unknown>,
       diff: JSON.parse(row.diff_json) as Record<string, unknown>,
       before_score: row.before_score,
       after_score: row.after_score,
@@ -180,7 +171,7 @@ function rowToEvaluation(row: EvolutionEvaluationRow): EvolutionEvaluation {
       red_lines: JSON.parse(row.red_lines_json) as string[],
       source_traces: JSON.parse(row.source_traces_json) as string[],
       schema_version: row.schema_version,
-      created_at: row.created_at,
+      created_at: row.created_at
     },
     evaluator_id: row.evaluator_id,
     skeptic_id: row.skeptic_id,
@@ -190,19 +181,19 @@ function rowToEvaluation(row: EvolutionEvaluationRow): EvolutionEvaluation {
       // the verdict derivation via the service layer.
       score: row.after_score,
       riskTags: [],
-      refuteParagraph: "",
+      refuteParagraph: ''
     },
     skeptic_result: {
       driftRisks: [],
       overfitRisks: [],
-      safetyRegressionRisks: [],
+      safetyRegressionRisks: []
     },
     verdict: row.verdict,
     user_confirmation_pointer: row.user_confirmation_pointer ?? undefined,
     brief_pointer: row.brief_pointer ?? undefined,
     schema_version: row.schema_version,
     created_at: row.created_at,
-    score_delta: row.score_delta,
+    score_delta: row.score_delta
   };
 }
 
@@ -239,10 +230,7 @@ export function insertEvolutionEvaluation(
     evalRow.proposal.before_score,
     evalRow.proposal.after_score,
     evalRow.proposal.score_delta_min,
-    computeScoreDelta(
-      evalRow.proposal.before_score,
-      evalRow.proposal.after_score
-    ),
+    computeScoreDelta(evalRow.proposal.before_score, evalRow.proposal.after_score),
     evalRow.proposal.author_id,
     evalRow.evaluator_id,
     evalRow.skeptic_id,
@@ -265,9 +253,8 @@ export function getEvolutionEvaluation(
   db: Database.Database,
   id: string
 ): EvolutionEvaluation | undefined {
-  const row = db
-    .prepare("SELECT * FROM evolution_evaluation WHERE id = ?")
-    .get(id) as EvolutionEvaluationRow | undefined;
+  const row = db.prepare('SELECT * FROM evolution_evaluation WHERE id = ?').get(id) as
+    EvolutionEvaluationRow | undefined;
   if (!row) return undefined;
   return rowToEvaluation(row);
 }
@@ -281,13 +268,12 @@ export function listEvolutionEvaluationsByTarget(
   opts: { target_kind: EvolutionTargetKind; target_release_id: string; verdict?: EvolutionVerdict }
 ): EvolutionEvaluation[] {
   const params: unknown[] = [opts.target_kind, opts.target_release_id];
-  let sql =
-    "SELECT * FROM evolution_evaluation WHERE target_kind = ? AND target_release_id = ?";
+  let sql = 'SELECT * FROM evolution_evaluation WHERE target_kind = ? AND target_release_id = ?';
   if (opts.verdict) {
-    sql += " AND verdict = ?";
+    sql += ' AND verdict = ?';
     params.push(opts.verdict);
   }
-  sql += " ORDER BY created_at DESC, id ASC";
+  sql += ' ORDER BY created_at DESC, id ASC';
   const rows = db.prepare(sql).all(...params) as EvolutionEvaluationRow[];
   return rows.map(rowToEvaluation);
 }
@@ -330,6 +316,6 @@ export function newEvaluationId(): string {
   // grep-friendly.
   const hex = Math.floor(Math.random() * 0x1_000_000_000_000)
     .toString(16)
-    .padStart(12, "0");
+    .padStart(12, '0');
   return `eval-${hex}`;
 }

@@ -1,13 +1,13 @@
-import { createHash } from "node:crypto";
-import { readFileSync, readdirSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
-import { join, relative } from "node:path";
-import type Database from "better-sqlite3";
-import type { BeeManifest } from "../sediment/types.js";
+import { createHash } from 'node:crypto';
+import { readFileSync, readdirSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
+import { join, relative } from 'node:path';
+import type Database from 'better-sqlite3';
+import type { BeeManifest } from '../sediment/types.js';
 
 /** Compute the sha256 hash and byte length of a single file. */
 export function sha256OfFile(p: string): { sha: string; bytes: number } {
   const buf = readFileSync(p);
-  return { sha: createHash("sha256").update(buf).digest("hex"), bytes: buf.length };
+  return { sha: createHash('sha256').update(buf).digest('hex'), bytes: buf.length };
 }
 
 /** Copy a file into the content-addressed blob store under `blobsDir/<aa>/<sha>`
@@ -25,7 +25,7 @@ export function* walk(root: string, base = root): Generator<{ abs: string; rel: 
     const abs = join(base, ent.name);
     if (ent.isDirectory()) yield* walk(root, abs);
     else {
-      const relPosix = relative(root, abs).split(/[\\/]/).join("/");
+      const relPosix = relative(root, abs).split(/[\\/]/).join('/');
       yield { abs, rel: relPosix };
     }
   }
@@ -36,7 +36,9 @@ function warnOverflow(column: string, length: number): void {
   // but a stale over-16KB row would silently break downstream readers
   // that assume <16KB. Surface it for ops review.
   // eslint-disable-next-line no-console
-  console.warn(`[release-retain] WARN: column ${column} overflowed 16KB guard (${length} bytes) — review and consider truncation`);
+  console.warn(
+    `[release-retain] WARN: column ${column} overflowed 16KB guard (${length} bytes) — review and consider truncation`
+  );
 }
 
 /**
@@ -48,7 +50,7 @@ function warnOverflow(column: string, length: number): void {
  * bee_segment_ref.side_effects.
  */
 function checkOverflow({ table, col }: { table: string; col: string }, value: string): void {
-  const len = Buffer.byteLength(value, "utf-8");
+  const len = Buffer.byteLength(value, 'utf-8');
   if (len > 16 * 1024) warnOverflow(`${table}.${col}`, len);
 }
 
@@ -59,7 +61,7 @@ export function retainRelease({
   manifest,
   version: explicitVersion,
   parentVersion,
-  changelog,
+  changelog
 }: {
   db: Database.Database;
   blobsDir: string;
@@ -69,7 +71,7 @@ export function retainRelease({
   parentVersion?: string;
   changelog?: string;
 }): number {
-  const version = explicitVersion ?? "0.1.0";
+  const version = explicitVersion ?? '0.1.0';
   const tx = db.transaction(() => {
     // M3 / spec §4.2: `shareable` and `desktop_visible` are written
     // with their spec defaults (true). M7 will add a CLI flag to
@@ -83,7 +85,7 @@ export function retainRelease({
       manifest.name,
       version,
       new Date().toISOString(),
-      "llm",
+      'llm',
       null,
       manifest.description,
       parentVersion ?? null,
@@ -96,10 +98,10 @@ export function retainRelease({
     for (const s of manifest.segments) {
       const inputsJson = JSON.stringify(s.inputs);
       const outputsJson = JSON.stringify(s.outputs);
-      const sideEffectsStr = s.sideEffects.join(",");
-      checkOverflow({ table: "bee_segment_ref", col: "inputs_json" }, inputsJson);
-      checkOverflow({ table: "bee_segment_ref", col: "outputs_json" }, outputsJson);
-      checkOverflow({ table: "bee_segment_ref", col: "side_effects" }, sideEffectsStr);
+      const sideEffectsStr = s.sideEffects.join(',');
+      checkOverflow({ table: 'bee_segment_ref', col: 'inputs_json' }, inputsJson);
+      checkOverflow({ table: 'bee_segment_ref', col: 'outputs_json' }, outputsJson);
+      checkOverflow({ table: 'bee_segment_ref', col: 'side_effects' }, sideEffectsStr);
       db.prepare(
         `INSERT INTO bee_segment_ref (release_id, segment_name, inputs_json, outputs_json, side_effects) VALUES (?, ?, ?, ?, ?)`
       ).run(id, s.name, inputsJson, outputsJson, sideEffectsStr);
@@ -108,7 +110,7 @@ export function retainRelease({
     // name list (can exceed 16KB if a bee advertises thousands of
     // segments).
     const segmentsJson = JSON.stringify(manifest.segments.map((s) => s.name));
-    checkOverflow({ table: "bee_manifest", col: "segments_json" }, segmentsJson);
+    checkOverflow({ table: 'bee_manifest', col: 'segments_json' }, segmentsJson);
     db.prepare(
       `INSERT INTO bee_manifest (release_id, schema_version, description, segments_json, entrypoint_preamble, promotion, min_cycles, requires_human, requires_smoke, retire_on_misses) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     ).run(
@@ -129,14 +131,14 @@ export function retainRelease({
     for (const f of walk(scratchDir)) {
       const { sha, bytes } = sha256OfFile(f.abs);
       const blobPath = ensureBlob(blobsDir, sha, f.abs);
-      const kind = f.rel.endsWith(".md")
-        ? "markdown"
-        : f.rel.startsWith("scripts/")
-          ? "script"
-          : f.rel.startsWith("references/")
-            ? "reference"
-            : "other";
-      insFile.run(id, "bee", manifest.name, f.rel, kind, bytes, sha, blobPath);
+      const kind = f.rel.endsWith('.md')
+        ? 'markdown'
+        : f.rel.startsWith('scripts/')
+          ? 'script'
+          : f.rel.startsWith('references/')
+            ? 'reference'
+            : 'other';
+      insFile.run(id, 'bee', manifest.name, f.rel, kind, bytes, sha, blobPath);
     }
     return id;
   });

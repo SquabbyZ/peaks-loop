@@ -66,7 +66,7 @@ export function resolveNpmInvocation() {
     const candidates = [
       `${dirname(process.execPath)}\\node_modules\\npm\\bin\\npm-cli.js`,
       'C:\\nvm4w\\nodejs\\node_modules\\npm\\bin\\npm-cli.js',
-      'C:\\Program Files\\nodejs\\node_modules\\npm\\bin\\npm-cli.js',
+      'C:\\Program Files\\nodejs\\node_modules\\npm\\bin\\npm-cli.js'
     ];
     for (const candidate of candidates) {
       if (existsSync(candidate)) return { bin: process.execPath, prefixArgs: [candidate] };
@@ -101,7 +101,7 @@ export function toPosixPath(p) {
 export function inspectTarball(tarball) {
   const out = execFileSync('tar', ['-xOf', toPosixPath(tarball), 'package/package.json'], {
     stdio: ['ignore', 'pipe', 'pipe'],
-    windowsHide: true,
+    windowsHide: true
   }).toString('utf8');
   return JSON.parse(out);
 }
@@ -128,10 +128,15 @@ export function verifyTarball(tarball, name, version, internalPackages) {
   try {
     manifest = inspectTarball(tarball);
   } catch (err) {
-    return { ok: false, errors: [`failed to read ${tarball}: ${err?.message ?? String(err)}`], manifest: null };
+    return {
+      ok: false,
+      errors: [`failed to read ${tarball}: ${err?.message ?? String(err)}`],
+      manifest: null
+    };
   }
   if (manifest.name !== name) errors.push(`manifest name = ${manifest.name}, expected ${name}`);
-  if (manifest.version !== version) errors.push(`manifest version = ${manifest.version}, expected ${version}`);
+  if (manifest.version !== version)
+    errors.push(`manifest version = ${manifest.version}, expected ${version}`);
   const raw = JSON.stringify(manifest);
   if (raw.includes('workspace:')) {
     errors.push('tarball leaked workspace: protocol; pnpm did not rewrite internal deps');

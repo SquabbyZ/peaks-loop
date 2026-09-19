@@ -33,7 +33,12 @@ import { CODEGRAPH_CONFIG_FILENAME } from '../../services/codegraph/codegraph-ex
 import { rollbackCodegraphConfig } from '../../services/codegraph/codegraph-config-repair-writer.js';
 import { fail, ok } from 'peaks-loop-shared/result';
 
-import { getErrorMessage, printResult, redactSensitiveErrorMessage, type ProgramIO } from '../cli-helpers.js';
+import {
+  getErrorMessage,
+  printResult,
+  redactSensitiveErrorMessage,
+  type ProgramIO
+} from '../cli-helpers.js';
 import {
   printCodegraphFailure,
   runCodegraphCommand,
@@ -219,11 +224,11 @@ async function runCodegraphRepairCommand(
   // in the third slot reads as a problem — and a real warning parked
   // there double-prefixes. Confirmations go to `nextActions`; only a
   // genuine `report.warning` reaches `warnings`, verbatim.
-  const confirmations: string[] = [
-    report.applied ? appliedRepairNote(report) : spec.noopNote
-  ];
+  const confirmations: string[] = [report.applied ? appliedRepairNote(report) : spec.noopNote];
   if (report.applied || mode === 'index') {
-    confirmations.push('Re-run `peaks codegraph status --project <root>` to confirm the gap is closed.');
+    confirmations.push(
+      'Re-run `peaks codegraph status --project <root>` to confirm the gap is closed.'
+    );
   }
 
   printResult(
@@ -430,16 +435,10 @@ async function runCodegraphConfigRestoreCommand(
     // `fail()` redacts) AND `data.reason`, and the exit code is this verb's
     // own. A restore that quietly reported success over a `.bak` it refused to
     // read is exactly the fail-silent family this release closed.
-    printConfigRestoreFailure(
-      io,
-      asJson,
-      result.error,
-      CODEGRAPH_CONFIG_RESTORE_EXIT_CODE,
-      [
-        `There is no usable rollback point at ${result.backupPath}.`,
-        'A restore needs the `.bak` that a previous `peaks codegraph repair-exclude` or `repair-index` left next to the config.'
-      ]
-    );
+    printConfigRestoreFailure(io, asJson, result.error, CODEGRAPH_CONFIG_RESTORE_EXIT_CODE, [
+      `There is no usable rollback point at ${result.backupPath}.`,
+      'A restore needs the `.bak` that a previous `peaks codegraph repair-exclude` or `repair-index` left next to the config.'
+    ]);
     return;
   }
 
@@ -475,7 +474,11 @@ async function runCodegraphConfigRestoreCommand(
  * On a successful upstream init, write the marker so the next run
  * hits the noop branch instead of the conflict branch.
  */
-async function runCodegraphInitCommand(io: ProgramIO, options: CommonCodegraphOptions, asJson?: boolean): Promise<void> {
+async function runCodegraphInitCommand(
+  io: ProgramIO,
+  options: CommonCodegraphOptions,
+  asJson?: boolean
+): Promise<void> {
   let projectRoot: string;
   try {
     const candidate = resolve(options.project);
@@ -522,11 +525,17 @@ async function runCodegraphInitCommand(io: ProgramIO, options: CommonCodegraphOp
     );
     printResult(
       io,
-      fail('codegraph.init', conflict.code, conflict.message, { codegraphDir: conflict.codegraphDir }, [
-        'Move or rename the foreign .codegraph/ directory before retrying.',
-        'Or remove .codegraph/ if you are sure no other tool owns it.',
-        'Or run `peaks codegraph init --project <path> --force` once the foreign-tool safety flag ships (tracked in rid-CG-006).'
-      ]),
+      fail(
+        'codegraph.init',
+        conflict.code,
+        conflict.message,
+        { codegraphDir: conflict.codegraphDir },
+        [
+          'Move or rename the foreign .codegraph/ directory before retrying.',
+          'Or remove .codegraph/ if you are sure no other tool owns it.',
+          'Or run `peaks codegraph init --project <path> --force` once the foreign-tool safety flag ships (tracked in rid-CG-006).'
+        ]
+      ),
       asJson
     );
     process.exitCode = conflict.exitCode;
@@ -554,7 +563,9 @@ async function runCodegraphInitCommand(io: ProgramIO, options: CommonCodegraphOp
         printCodegraphFailure(
           io,
           'codegraph.init',
-          new Error(result.stderr || result.stdout || `codegraph exited with code ${result.exitCode}`),
+          new Error(
+            result.stderr || result.stdout || `codegraph exited with code ${result.exitCode}`
+          ),
           true,
           result.exitCode ?? 1
         );
@@ -729,10 +740,14 @@ async function runCodegraphAffectedCommand(
 }
 
 export function registerCodegraphCommands(program: Command, io: ProgramIO): void {
-  const codegraph = program.command('codegraph').description('Run upstream codegraph commands through the Peaks launcher');
+  const codegraph = program
+    .command('codegraph')
+    .description('Run upstream codegraph commands through the Peaks launcher');
 
   addProjectOption(
-    codegraph.command('status').description('Show codegraph status, including the exclude integrity gate')
+    codegraph
+      .command('status')
+      .description('Show codegraph status, including the exclude integrity gate')
   ).action((options: CommonCodegraphOptions) =>
     runCodegraphStatusCommand(io, options, options.peaksJson)
   );
@@ -767,8 +782,10 @@ export function registerCodegraphCommands(program: Command, io: ProgramIO): void
     runCodegraphConfigRestoreCommand(io, options, options.peaksJson)
   );
 
-  addProjectOption(codegraph.command('init').description('Initialize codegraph for a project')).action(
-    (options: CommonCodegraphOptions) => runCodegraphInitCommand(io, options, options.peaksJson)
+  addProjectOption(
+    codegraph.command('init').description('Initialize codegraph for a project')
+  ).action((options: CommonCodegraphOptions) =>
+    runCodegraphInitCommand(io, options, options.peaksJson)
   );
 
   addProjectOption(
@@ -836,11 +853,19 @@ export function registerCodegraphCommands(program: Command, io: ProgramIO): void
     );
   });
 
-  addProjectOption(codegraph.command('context').description('Build task context with codegraph').argument('<task>', 'task text')).action(
-    async (task: string, options: CommonCodegraphOptions) => {
-      await runCodegraphCommand(io, 'codegraph.context', { subcommand: 'context', project: options.project, task }, options.peaksJson);
-    }
-  );
+  addProjectOption(
+    codegraph
+      .command('context')
+      .description('Build task context with codegraph')
+      .argument('<task>', 'task text')
+  ).action(async (task: string, options: CommonCodegraphOptions) => {
+    await runCodegraphCommand(
+      io,
+      'codegraph.context',
+      { subcommand: 'context', project: options.project, task },
+      options.peaksJson
+    );
+  });
 
   addProjectOption(
     codegraph
@@ -848,14 +873,12 @@ export function registerCodegraphCommands(program: Command, io: ProgramIO): void
       .description('Find code affected by files')
       .argument('<files...>', 'project-relative file paths')
       .option('--json', 'forward JSON output flag to upstream codegraph')
-      .option('--rid <rid>', 'request id for the codegraph-context envelope (default: env PEAKS_RD_RID or "unknown-rid")')
+      .option(
+        '--rid <rid>',
+        'request id for the codegraph-context envelope (default: env PEAKS_RD_RID or "unknown-rid")'
+      )
       .option('--write-envelope', 'write codegraph-context.md into the active session')
   ).action((files: string[], options: CodegraphAffectedOptions) =>
-    runCodegraphAffectedCommand(
-      io,
-      files,
-      options,
-      options.peaksJson
-    )
+    runCodegraphAffectedCommand(io, files, options, options.peaksJson)
   );
 }

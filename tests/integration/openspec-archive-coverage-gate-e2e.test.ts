@@ -26,9 +26,11 @@ function runCli(args: readonly string[], cwd: string): RunResult {
   } catch (error: unknown) {
     const caught = error as { stdout?: Buffer | string; stderr?: Buffer | string; status?: number };
     return {
-      stdout: typeof caught.stdout === 'string' ? caught.stdout : caught.stdout?.toString('utf8') ?? '',
-      stderr: typeof caught.stderr === 'string' ? caught.stderr : caught.stderr?.toString('utf8') ?? '',
-      code: caught.status ?? 1,
+      stdout:
+        typeof caught.stdout === 'string' ? caught.stdout : (caught.stdout?.toString('utf8') ?? ''),
+      stderr:
+        typeof caught.stderr === 'string' ? caught.stderr : (caught.stderr?.toString('utf8') ?? ''),
+      code: caught.status ?? 1
     };
   }
 }
@@ -45,17 +47,21 @@ function seedChangeWithEvidence(opts: {
   capabilityBlock?: string;
 }): void {
   const { projectRoot, changeId, hasSpecs = true } = opts;
-  const coverageBlock = opts.coverageBlock ?? [
-    '| capability | requirement | status | testAnchor |',
-    '| --- | --- | --- | --- |',
-    '| quality-gates | 100% coverage for included modules | covered | tests/unit/quality-gates.test.ts |',
-    '| quality-gates | MVP implementation verification commands | covered | tests/unit/quality-gates.test.ts |'
-  ].join('\n');
-  const capabilityBlock = opts.capabilityBlock ?? [
-    '| capability | source | testAnchor |',
-    '| --- | --- | --- |',
-    '| quality-gates | src/services/openspec/openspec-archive-service.ts | tests/unit/openspec-archive-service.test.ts |'
-  ].join('\n');
+  const coverageBlock =
+    opts.coverageBlock ??
+    [
+      '| capability | requirement | status | testAnchor |',
+      '| --- | --- | --- | --- |',
+      '| quality-gates | 100% coverage for included modules | covered | tests/unit/quality-gates.test.ts |',
+      '| quality-gates | MVP implementation verification commands | covered | tests/unit/quality-gates.test.ts |'
+    ].join('\n');
+  const capabilityBlock =
+    opts.capabilityBlock ??
+    [
+      '| capability | source | testAnchor |',
+      '| --- | --- | --- |',
+      '| quality-gates | src/services/openspec/openspec-archive-service.ts | tests/unit/openspec-archive-service.test.ts |'
+    ].join('\n');
 
   const changeRoot = join(projectRoot, 'openspec', 'changes', changeId);
   const fs = require('node:fs') as typeof import('node:fs');
@@ -101,7 +107,12 @@ function seedChangeWithEvidence(opts: {
     fs.writeFileSync(
       join(coverageDir, 'coverage-summary.json'),
       JSON.stringify({
-        total: { lines: { pct: 100, covered: 1, total: 1 }, statements: { pct: 100, covered: 1, total: 1 }, branches: { pct: 100, covered: 1, total: 1 }, functions: { pct: 100, covered: 1, total: 1 } },
+        total: {
+          lines: { pct: 100, covered: 1, total: 1 },
+          statements: { pct: 100, covered: 1, total: 1 },
+          branches: { pct: 100, covered: 1, total: 1 },
+          functions: { pct: 100, covered: 1, total: 1 }
+        },
         'src/services/openspec/openspec-archive-service.ts': {
           lines: { pct: 100, covered: 5, total: 5 },
           statements: { pct: 100, covered: 5, total: 5 },
@@ -120,7 +131,12 @@ function seedCoverageSummary(projectRoot: string, overrides: Record<string, unkn
   fs.mkdirSync(dir, { recursive: true });
   const p = join(dir, 'coverage-summary.json');
   const summary = {
-    total: { lines: { pct: 100, covered: 1, total: 1 }, statements: { pct: 100, covered: 1, total: 1 }, branches: { pct: 100, covered: 1, total: 1 }, functions: { pct: 100, covered: 1, total: 1 } },
+    total: {
+      lines: { pct: 100, covered: 1, total: 1 },
+      statements: { pct: 100, covered: 1, total: 1 },
+      branches: { pct: 100, covered: 1, total: 1 },
+      functions: { pct: 100, covered: 1, total: 1 }
+    },
     'src/services/openspec/openspec-archive-service.ts': {
       lines: { pct: 100, covered: 5, total: 5 },
       statements: { pct: 100, covered: 5, total: 5 },
@@ -156,7 +172,11 @@ describe('peaks openspec archive -- coverage gate (Pre-cond 2)', () => {
 
     expect(result.code, `stderr=${result.stderr}\nstdout=${result.stdout}`).toBe(0);
     expect(existsSync(join(projectRoot, 'openspec', 'changes', 'fully-covered'))).toBe(false);
-    expect(existsSync(join(projectRoot, 'openspec', 'changes', 'archive', 'fully-covered', 'proposal.md'))).toBe(true);
+    expect(
+      existsSync(
+        join(projectRoot, 'openspec', 'changes', 'archive', 'fully-covered', 'proposal.md')
+      )
+    ).toBe(true);
   });
 
   test('archive --apply without a Coverage Evidence block refuses the gate', () => {
@@ -183,10 +203,17 @@ describe('peaks openspec archive -- coverage gate (Pre-cond 2)', () => {
     );
 
     expect(result.code, `stderr=${result.stderr}\nstdout=${result.stdout}`).toBe(1);
-    const json = JSON.parse(result.stdout) as { ok: boolean; code: string; data: Record<string, unknown> };
+    const json = JSON.parse(result.stdout) as {
+      ok: boolean;
+      code: string;
+      data: Record<string, unknown>;
+    };
     expect(json.ok).toBe(false);
     expect(json.code).toBe('OPENSPEC_COVERAGE_GATE_FAILED');
-    expect(json.data).toMatchObject({ reason: 'no-coverage-evidence-block', changeId: 'no-evidence' });
+    expect(json.data).toMatchObject({
+      reason: 'no-coverage-evidence-block',
+      changeId: 'no-evidence'
+    });
     // No filesystem move happened.
     expect(existsSync(join(projectRoot, 'openspec', 'changes', 'no-evidence'))).toBe(true);
   });
@@ -202,7 +229,7 @@ describe('peaks openspec archive -- coverage gate (Pre-cond 2)', () => {
         '| --- | --- | --- | --- |',
         '| quality-gates | 100% coverage for included modules | covered | tests/unit/quality-gates.test.ts |',
         '| quality-gates | MVP implementation verification commands | partial | tests/unit/quality-gates.test.ts |'
-      ].join('\n'),
+      ].join('\n')
     });
 
     const result = runCli(
@@ -220,7 +247,10 @@ describe('peaks openspec archive -- coverage gate (Pre-cond 2)', () => {
     expect(json.code).toBe('OPENSPEC_COVERAGE_GATE_PARTIAL');
     expect(json.data.reason).toBe('requirement-not-fully-covered');
     expect(json.data.failing).toEqual([
-      expect.objectContaining({ requirement: 'MVP implementation verification commands', status: 'partial' })
+      expect.objectContaining({
+        requirement: 'MVP implementation verification commands',
+        status: 'partial'
+      })
     ]);
     expect(existsSync(join(projectRoot, 'openspec', 'changes', 'partial-coverage'))).toBe(true);
   });
@@ -235,11 +265,20 @@ describe('peaks openspec archive -- coverage gate (Pre-cond 2)', () => {
         '| capability | requirement | status | testAnchor |',
         '| --- | --- | --- | --- |',
         '| quality-gates | 100% coverage for included modules | uncovered | (none) |'
-      ].join('\n'),
+      ].join('\n')
     });
 
     const result = runCli(
-      ['openspec', 'archive', 'forced-archive', '--project', projectRoot, '--apply', '--force', '--json'],
+      [
+        'openspec',
+        'archive',
+        'forced-archive',
+        '--project',
+        projectRoot,
+        '--apply',
+        '--force',
+        '--json'
+      ],
       projectRoot
     );
 
@@ -253,7 +292,9 @@ describe('peaks openspec archive -- coverage gate (Pre-cond 2)', () => {
     expect(json.data.applied).toBe(true);
     expect(json.data.coverageGateBypassed).toBe(true);
     expect(json.warnings.some((w) => /bypassed via --force/.test(w))).toBe(true);
-    expect(existsSync(join(projectRoot, 'openspec', 'changes', 'archive', 'forced-archive'))).toBe(true);
+    expect(existsSync(join(projectRoot, 'openspec', 'changes', 'archive', 'forced-archive'))).toBe(
+      true
+    );
   });
 
   test('archive (dry-run) never blocks even when evidence is missing', () => {
@@ -263,7 +304,11 @@ describe('peaks openspec archive -- coverage gate (Pre-cond 2)', () => {
     const fs = require('node:fs') as typeof import('node:fs');
     fs.mkdirSync(join(changeRoot, 'specs', 'quality-gates'), { recursive: true });
     fs.writeFileSync(join(changeRoot, 'proposal.md'), '# Change: dry-run-no-evidence\n', 'utf8');
-    fs.writeFileSync(join(changeRoot, 'specs', 'quality-gates', 'spec.md'), '# Spec Delta: quality-gates\n', 'utf8');
+    fs.writeFileSync(
+      join(changeRoot, 'specs', 'quality-gates', 'spec.md'),
+      '# Spec Delta: quality-gates\n',
+      'utf8'
+    );
 
     const result = runCli(
       ['openspec', 'archive', 'dry-run-no-evidence', '--project', projectRoot, '--json'],
@@ -304,7 +349,9 @@ describe('peaks openspec archive -- Fix-6B coverage summary mismatch gate', () =
     );
 
     expect(result.code, `stderr=${result.stderr}\nstdout=${result.stdout}`).toBe(0);
-    expect(existsSync(join(projectRoot, 'openspec', 'changes', 'archive', 'with-summary'))).toBe(true);
+    expect(existsSync(join(projectRoot, 'openspec', 'changes', 'archive', 'with-summary'))).toBe(
+      true
+    );
   });
 
   test('archive --apply with stale coverage-summary.json refuses with OPENSPEC_COVERAGE_EVIDENCE_STALE', () => {
@@ -328,7 +375,11 @@ describe('peaks openspec archive -- Fix-6B coverage summary mismatch gate', () =
     );
 
     expect(result.code, `stderr=${result.stderr}\nstdout=${result.stdout}`).toBe(1);
-    const json = JSON.parse(result.stdout) as { ok: boolean; code: string; data: { staleFiles: string[] } };
+    const json = JSON.parse(result.stdout) as {
+      ok: boolean;
+      code: string;
+      data: { staleFiles: string[] };
+    };
     expect(json.ok).toBe(false);
     expect(json.code).toBe('OPENSPEC_COVERAGE_EVIDENCE_STALE');
     expect(json.data.staleFiles.length).toBeGreaterThan(0);
@@ -356,7 +407,12 @@ describe('peaks openspec archive -- Fix-6B coverage summary mismatch gate', () =
     const json = JSON.parse(result.stdout) as {
       ok: boolean;
       code: string;
-      data: { mismatches: Array<{ capability: string; failingFiles: Array<{ actual: { statements: number } }> }> };
+      data: {
+        mismatches: Array<{
+          capability: string;
+          failingFiles: Array<{ actual: { statements: number } }>;
+        }>;
+      };
     };
     expect(json.ok).toBe(false);
     expect(json.code).toBe('OPENSPEC_COVERAGE_EVIDENCE_MISMATCH');
@@ -390,6 +446,8 @@ describe('peaks openspec archive -- Fix-6B coverage summary mismatch gate', () =
     expect(json.ok).toBe(true);
     expect(json.data.applied).toBe(true);
     expect(json.data.coverageMismatchBypassed).toBe(true);
-    expect(json.warnings.some((w) => /Coverage summary mismatch bypassed via --force/.test(w))).toBe(true);
+    expect(
+      json.warnings.some((w) => /Coverage summary mismatch bypassed via --force/.test(w))
+    ).toBe(true);
   });
 });

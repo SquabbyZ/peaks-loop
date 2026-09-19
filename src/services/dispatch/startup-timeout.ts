@@ -95,7 +95,8 @@ export function evaluateStartupTimeout(
   options: StartupTimeoutOptions = {}
 ): StartupTimeoutEvaluation {
   const budgetMs = options.budgetMs ?? DEFAULT_STARTUP_BUDGET_MS;
-  const safeBudget = Number.isFinite(budgetMs) && budgetMs > 0 ? budgetMs : DEFAULT_STARTUP_BUDGET_MS;
+  const safeBudget =
+    Number.isFinite(budgetMs) && budgetMs > 0 ? budgetMs : DEFAULT_STARTUP_BUDGET_MS;
   const createdAt = parseIsoOrFallback(record.createdAt, now);
   const ageMs = Math.max(0, now().getTime() - createdAt.getTime());
 

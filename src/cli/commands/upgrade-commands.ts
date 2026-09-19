@@ -59,10 +59,22 @@ export function registerUpgradeCommands(program: Command, io: ProgramIO): void {
       )
       .option('--to <version>', 'target version (only "2.0" supported)', '2.0')
       .option('--project <path>', 'project root to upgrade (default: cwd)')
-      .option('--auto', 'non-interactive: accept soft-fail on any sub-step (used by the postinstall hook)')
-      .option('--detect-1x', 'read-only probe: returns the 1.x state as JSON (no file writes); consumed by peaks-code Step 0.55 to gate the AskUserQuestion')
-      .option('--gitignore-migrate', 'read-only probe: reports whether .gitignore needs the 1.x to 2.0 migration (no file writes)')
-      .option('--apply-init', 'slice 4 (slice 2026-06-13-selfheal-claude-settings-template): run initWorkspace so the drift-driven self-heal fires on the consumer-project .claude/settings.local.json and the offline .peaks/.claude-settings-template.json. Idempotent. Use after a peaks-loop version bump if you do not otherwise re-run init. Mutually exclusive with --detect-1x.')
+      .option(
+        '--auto',
+        'non-interactive: accept soft-fail on any sub-step (used by the postinstall hook)'
+      )
+      .option(
+        '--detect-1x',
+        'read-only probe: returns the 1.x state as JSON (no file writes); consumed by peaks-code Step 0.55 to gate the AskUserQuestion'
+      )
+      .option(
+        '--gitignore-migrate',
+        'read-only probe: reports whether .gitignore needs the 1.x to 2.0 migration (no file writes)'
+      )
+      .option(
+        '--apply-init',
+        'slice 4 (slice 2026-06-13-selfheal-claude-settings-template): run initWorkspace so the drift-driven self-heal fires on the consumer-project .claude/settings.local.json and the offline .peaks/.claude-settings-template.json. Idempotent. Use after a peaks-loop version bump if you do not otherwise re-run init. Mutually exclusive with --detect-1x.'
+      )
   ).action(async (options: UpgradeOptions, command: Command) => {
     const projectRoot = options.project ?? process.cwd();
     const positional = command.args[0];
@@ -104,7 +116,13 @@ export function registerUpgradeCommands(program: Command, io: ProgramIO): void {
         const message = getErrorMessage(error);
         printResult(
           io,
-          fail('upgrade.detect-1x', 'DETECT_1X_FAILED', message, { isOneX: false, signals: [], projectRoot: null, configPath: null }, [message]),
+          fail(
+            'upgrade.detect-1x',
+            'DETECT_1X_FAILED',
+            message,
+            { isOneX: false, signals: [], projectRoot: null, configPath: null },
+            [message]
+          ),
           options.json
         );
         process.exitCode = 1;
@@ -129,7 +147,13 @@ export function registerUpgradeCommands(program: Command, io: ProgramIO): void {
         const message = getErrorMessage(error);
         printResult(
           io,
-          fail('upgrade.gitignore-migrate', 'GITIGNORE_MIGRATE_FAILED', message, { appliedWrite: false }, [message]),
+          fail(
+            'upgrade.gitignore-migrate',
+            'GITIGNORE_MIGRATE_FAILED',
+            message,
+            { appliedWrite: false },
+            [message]
+          ),
           options.json
         );
         process.exitCode = 1;

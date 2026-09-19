@@ -31,7 +31,7 @@ import {
   runNpm,
   resolveNpmInvocation,
   verifyTarball,
-  toPosixPath,
+  toPosixPath
 } from './_release-shared.mjs';
 
 const projectRoot = resolve(fileURLToPath(import.meta.url), '..', '..');
@@ -82,8 +82,10 @@ function topoOrderSubpackages(pkgs) {
     pkgs.map((p) => [
       p.name,
       Object.keys({
-        ...(JSON.parse(readFileSync(resolve(projectRoot, p.dir, 'package.json'), 'utf8')).dependencies ?? {}),
-        ...(JSON.parse(readFileSync(resolve(projectRoot, p.dir, 'package.json'), 'utf8')).devDependencies ?? {})
+        ...(JSON.parse(readFileSync(resolve(projectRoot, p.dir, 'package.json'), 'utf8'))
+          .dependencies ?? {}),
+        ...(JSON.parse(readFileSync(resolve(projectRoot, p.dir, 'package.json'), 'utf8'))
+          .devDependencies ?? {})
       }).filter((n) => byName.has(n))
     ])
   );
@@ -105,7 +107,10 @@ function listInternalPackages() {
   // first; dependents follow; root `peaks-loop` publishes last. Order
   // is derived from the on-disk manifests so adding a subpackage no
   // longer requires editing this script.
-  return topoOrderSubpackages(discoverSubpackages()).map(({ name, version }) => ({ name, version }));
+  return topoOrderSubpackages(discoverSubpackages()).map(({ name, version }) => ({
+    name,
+    version
+  }));
 }
 
 // Stage under os.tmpdir() via mkdtemp; auto-clean unless
@@ -116,14 +121,18 @@ function cleanup() {
   if (cleanupDone) return;
   cleanupDone = true;
   if (process.env.PEAKS_KEEP_TARBALLS === '1') return;
-  try { rmSync(tarballDir, { recursive: true, force: true }); } catch { /* tmpdir reclaim */ }
+  try {
+    rmSync(tarballDir, { recursive: true, force: true });
+  } catch {
+    /* tmpdir reclaim */
+  }
 }
 
 function packOne(pkgDir) {
   const spec = readPackage(pkgDir);
   runPnpm(['pack', '--pack-destination', tarballDir], {
     cwd: resolve(projectRoot, pkgDir),
-    stdio: ['ignore', 'pipe', 'inherit'],
+    stdio: ['ignore', 'pipe', 'inherit']
   });
   const tarballName = `${spec.name.replace('@', '').replace(/\//g, '-')}-${spec.version}.tgz`;
   return { tarball: join(tarballDir, tarballName), name: spec.name, version: spec.version };
@@ -142,7 +151,7 @@ function isAlreadyPublished(name, version) {
   const probe = spawnSync(bin, [...prefixArgs, 'view', `${name}@${version}`, 'version', '--json'], {
     cwd: projectRoot,
     stdio: ['ignore', 'pipe', 'pipe'],
-    windowsHide: true,
+    windowsHide: true
   });
   if (probe.status !== 0) return false;
   const stdout = probe.stdout?.toString?.() ?? '';
@@ -169,9 +178,11 @@ function isRegistryStale(name, version, localTarball) {
     if (localVer === null) return false;
     const { bin, prefixArgs } = resolveNpmInvocation();
     execFileSync(bin, [...prefixArgs, 'pack', `${name}@${version}`, '--pack-destination', tmp], {
-      cwd: projectRoot, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true,
+      cwd: projectRoot,
+      stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true
     });
-    const tgz = readdirSync(tmp).find(f => f.endsWith('.tgz'));
+    const tgz = readdirSync(tmp).find((f) => f.endsWith('.tgz'));
     if (!tgz) {
       // No registry tarball yet (first publish of this version).
       // Not "stale" — there is nothing to compare against. Return
@@ -195,12 +206,17 @@ function isRegistryStale(name, version, localTarball) {
 function readVersionJsFromTarballSilent(tarball, label) {
   const tmp = mkdtempSync(join(os.tmpdir(), 'peaks-version-silent-'));
   try {
-    execFileSync('tar', ['-xzf', toPosixPath(tarball), '-C', toPosixPath(tmp)], { windowsHide: true });
+    execFileSync('tar', ['-xzf', toPosixPath(tarball), '-C', toPosixPath(tmp)], {
+      windowsHide: true
+    });
     const f = join(tmp, 'package', 'dist', 'version.js');
     if (!existsSync(f)) return null;
     return readFileSync(f, 'utf8');
-  } catch { return null; }
-  finally { rmSync(tmp, { recursive: true, force: true }); }
+  } catch {
+    return null;
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
 }
 
 // Read `package/dist/version.js` out of a tarball. Throws when the
@@ -213,13 +229,15 @@ function readVersionJsFromTarballSilent(tarball, label) {
 function readVersionJsFromTarball(tarball, label) {
   const tmp = mkdtempSync(join(os.tmpdir(), 'peaks-version-'));
   try {
-    execFileSync('tar', ['-xzf', toPosixPath(tarball), '-C', toPosixPath(tmp)], { windowsHide: true });
+    execFileSync('tar', ['-xzf', toPosixPath(tarball), '-C', toPosixPath(tmp)], {
+      windowsHide: true
+    });
     const f = join(tmp, 'package', 'dist', 'version.js');
     if (!existsSync(f)) {
       throw new Error(
         `[release-pack] ${label} tarball is missing package/dist/version.js — refusing to publish. ` +
-        `Layer 3 root cause: shared tsc incremental build silently skipped dist/version.js. ` +
-        `See .peaks/memory/peaks-stale-cli-version-2026-07-23-diagnosis.md`,
+          `Layer 3 root cause: shared tsc incremental build silently skipped dist/version.js. ` +
+          `See .peaks/memory/peaks-stale-cli-version-2026-07-23-diagnosis.md`
       );
     }
     return readFileSync(f, 'utf8');
@@ -241,7 +259,7 @@ function packAndInspectTarball(pkgDir) {
   const spec = readPackage(pkgDir);
   runPnpm(['pack', '--pack-destination', tarballDir], {
     cwd: resolve(projectRoot, pkgDir),
-    stdio: ['ignore', 'pipe', 'inherit'],
+    stdio: ['ignore', 'pipe', 'inherit']
   });
   const tarballName = `${spec.name.replace('@', '').replace(/\//g, '-')}-${spec.version}.tgz`;
   const tarball = join(tarballDir, tarballName);
@@ -256,12 +274,15 @@ function publishOne(pkgDir, internalPackages) {
   const packed = packAndInspectTarball(pkgDir);
   const { tarball, name, version } = packed;
   const cliVersion = packed.cliVersion;
-  const cliLabel = cliVersion !== undefined ? ` (CLI_VERSION from tarball: ${extractCliVersion(cliVersion) ?? '<unparseable>'})` : '';
+  const cliLabel =
+    cliVersion !== undefined
+      ? ` (CLI_VERSION from tarball: ${extractCliVersion(cliVersion) ?? '<unparseable>'})`
+      : '';
   console.log(`[release-pack] packed ${name}@${version} -> ${tarball}${cliLabel}`);
   const verdict = verifyTarball(tarball, name, version, internalPackages);
   if (!verdict.ok) {
     throw new Error(
-      `[release-pack] ${name}@${version} failed verification:\n  - ${verdict.errors.join('\n  - ')}`,
+      `[release-pack] ${name}@${version} failed verification:\n  - ${verdict.errors.join('\n  - ')}`
     );
   }
   // AC1 structural gate: the packed CLI_VERSION must equal the
@@ -280,8 +301,8 @@ function publishOne(pkgDir, internalPackages) {
     if (packedCli !== rootVersion) {
       throw new Error(
         `[release-pack] ${name}@${version} tarball CLI_VERSION does not match root version. ` +
-        `tarball=${packedCli ?? '<unparseable>'}, expected=${rootVersion} (root). ` +
-        `Refusing to publish a stale tarball.`,
+          `tarball=${packedCli ?? '<unparseable>'}, expected=${rootVersion} (root). ` +
+          `Refusing to publish a stale tarball.`
       );
     }
   }
@@ -299,7 +320,7 @@ function publishOne(pkgDir, internalPackages) {
   console.log(`[release-pack] publishing ${name}@${version} via npm OIDC ...`);
   runNpm(['publish', tarball, '--tag=latest', '--provenance=true'], {
     cwd: projectRoot,
-    stdio: 'inherit',
+    stdio: 'inherit'
   });
   console.log(`[release-pack] OK ${name}@${version}`);
 }
@@ -386,5 +407,5 @@ export {
   extractCliVersion,
   discoverSubpackages,
   topoOrderSubpackages,
-  ROOT_DIR,
+  ROOT_DIR
 };

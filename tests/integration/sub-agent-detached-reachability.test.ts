@@ -41,15 +41,15 @@ function runBin(args: readonly string[], cwd: string): RunResult {
       cwd,
       stdio: ['ignore', 'pipe', 'pipe'],
       windowsHide: true,
-      timeout: BIN_TIMEOUT_MS,
+      timeout: BIN_TIMEOUT_MS
     }).toString('utf8');
     return { stdout, stderr: '', code: 0 };
   } catch (err: unknown) {
     const e = err as { stdout?: Buffer | string; stderr?: Buffer | string; status?: number };
     return {
-      stdout: typeof e.stdout === 'string' ? e.stdout : e.stdout?.toString('utf8') ?? '',
-      stderr: typeof e.stderr === 'string' ? e.stderr : e.stderr?.toString('utf8') ?? '',
-      code: e.status ?? 1,
+      stdout: typeof e.stdout === 'string' ? e.stdout : (e.stdout?.toString('utf8') ?? ''),
+      stderr: typeof e.stderr === 'string' ? e.stderr : (e.stderr?.toString('utf8') ?? ''),
+      code: e.status ?? 1
     };
   }
 }
@@ -90,10 +90,14 @@ describe('peaks sub-agent dispatch --mode detached reachability (rid-001 anti-fa
 
     const r = runBin(
       [
-        'sub-agent', 'dispatch', 'rd',
-        '--prompt', 'rid-001 reachability probe — in-process default path',
-        '--graph-node', 'rid-001-reach-default',
-        '--json',
+        'sub-agent',
+        'dispatch',
+        'rd',
+        '--prompt',
+        'rid-001 reachability probe — in-process default path',
+        '--graph-node',
+        'rid-001-reach-default',
+        '--json'
       ],
       project
     );
@@ -109,8 +113,8 @@ describe('peaks sub-agent dispatch --mode detached reachability (rid-001 anti-fa
     } catch (err) {
       throw new Error(
         `dispatch rd --graph-node n1 --json (no --mode) returned non-JSON stdout; ` +
-        `code=${r.code} stdout=${JSON.stringify(r.stdout.slice(0, 200))} ` +
-        `stderr=${JSON.stringify(r.stderr.slice(0, 200))} err=${(err as Error).message}`
+          `code=${r.code} stdout=${JSON.stringify(r.stdout.slice(0, 200))} ` +
+          `stderr=${JSON.stringify(r.stderr.slice(0, 200))} err=${(err as Error).message}`
       );
     }
 
@@ -127,11 +131,16 @@ describe('peaks sub-agent dispatch --mode detached reachability (rid-001 anti-fa
 
     const r = runBin(
       [
-        'sub-agent', 'dispatch', 'rd',
-        '--prompt', 'rid-001 reachability probe — explicit in-process',
-        '--graph-node', 'rid-001-reach-explicit',
-        '--mode', 'in-process',
-        '--json',
+        'sub-agent',
+        'dispatch',
+        'rd',
+        '--prompt',
+        'rid-001 reachability probe — explicit in-process',
+        '--graph-node',
+        'rid-001-reach-explicit',
+        '--mode',
+        'in-process',
+        '--json'
       ],
       project
     );
@@ -144,8 +153,8 @@ describe('peaks sub-agent dispatch --mode detached reachability (rid-001 anti-fa
     } catch (err) {
       throw new Error(
         `dispatch rd --mode in-process --json returned non-JSON stdout; ` +
-        `code=${r.code} stdout=${JSON.stringify(r.stdout.slice(0, 200))} ` +
-        `stderr=${JSON.stringify(r.stderr.slice(0, 200))} err=${(err as Error).message}`
+          `code=${r.code} stdout=${JSON.stringify(r.stdout.slice(0, 200))} ` +
+          `stderr=${JSON.stringify(r.stderr.slice(0, 200))} err=${(err as Error).message}`
       );
     }
 

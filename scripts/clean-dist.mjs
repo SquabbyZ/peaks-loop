@@ -44,7 +44,6 @@ for (const entry of readdirSync(packagesRoot, { withFileTypes: true })) {
   if (!entry.isDirectory()) continue;
   rmSync(join(packagesRoot, entry.name, 'dist'), {
     recursive: true,
-    force: true,
+    force: true
   });
 }
-

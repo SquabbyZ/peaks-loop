@@ -46,7 +46,12 @@ import {
 declareDimensions(
   'tests/unit/context/harness-window-config.test.ts',
   ['render', 'behavior', 'integration'],
-  [{ dim: 'a11y', reason: 'pure file/JSON transform; the CLI renders these results, not this module' }],
+  [
+    {
+      dim: 'a11y',
+      reason: 'pure file/JSON transform; the CLI renders these results, not this module'
+    }
+  ]
 );
 
 const KEY = 'CLAUDE_CODE_AUTO_COMPACT_WINDOW';
@@ -57,9 +62,18 @@ function existingSettings(): Record<string, unknown> {
     env: { GATEGUARD_EXEMPT_GLOBS: '.peaks/**' },
     hooks: {
       PreToolUse: [
-        { matcher: 'Write|Edit|MultiEdit', hooks: [{ type: 'command', command: 'node "write-gate.js"', shell: 'powershell' }] },
-        { matcher: 'Bash', hooks: [{ type: 'command', command: 'peaks code gate-step-08', shell: 'powershell' }] },
-        { matcher: 'Bash', hooks: [{ type: 'command', command: 'peaks gate enforce', shell: 'powershell' }] }
+        {
+          matcher: 'Write|Edit|MultiEdit',
+          hooks: [{ type: 'command', command: 'node "write-gate.js"', shell: 'powershell' }]
+        },
+        {
+          matcher: 'Bash',
+          hooks: [{ type: 'command', command: 'peaks code gate-step-08', shell: 'powershell' }]
+        },
+        {
+          matcher: 'Bash',
+          hooks: [{ type: 'command', command: 'peaks gate enforce', shell: 'powershell' }]
+        }
       ]
     }
   };
@@ -75,7 +89,11 @@ describe('harness-window-config', () => {
   });
 
   afterEach(() => {
-    try { rmSync(root, { recursive: true, force: true }); } catch { /* best effort */ }
+    try {
+      rmSync(root, { recursive: true, force: true });
+    } catch {
+      /* best effort */
+    }
   });
 
   function writeSettings(value: unknown): void {
@@ -99,7 +117,20 @@ describe('harness-window-config', () => {
       expect(parseHarnessWindowTokens(1_000_000)).toBe(1_000_000);
       expect(parseHarnessWindowTokens('1000000')).toBe(1_000_000);
       expect(parseHarnessWindowTokens(' 850000 ')).toBe(850_000);
-      for (const bad of ['500k', '0', '-1', '1.5', 'abc', '', '  ', null, undefined, {}, [], true]) {
+      for (const bad of [
+        '500k',
+        '0',
+        '-1',
+        '1.5',
+        'abc',
+        '',
+        '  ',
+        null,
+        undefined,
+        {},
+        [],
+        true
+      ]) {
         expect(parseHarnessWindowTokens(bad)).toBeNull();
       }
     });
@@ -111,11 +142,16 @@ describe('harness-window-config', () => {
       const out = readHarnessWindow({ location, env: { [KEY]: '1000000' } as NodeJS.ProcessEnv });
       // then: the process env (this session) wins, and the file is reported as the source only when env is silent
       expect(out).toEqual({
-        tokens: 1_000_000, raw: '1000000', source: 'process-env', optedOut: false, peakWritten: false,
+        tokens: 1_000_000,
+        raw: '1000000',
+        source: 'process-env',
+        optedOut: false,
+        peakWritten: false,
         // ...while the FILE's own value is reported separately: it is the one
         // the ratio divides by (see resolveHarnessRatioWindow), because the env
         // copy is a snapshot the harness froze at session start.
-        fileTokens: 200_000, fileRaw: '200000'
+        fileTokens: 200_000,
+        fileRaw: '200000'
       });
     });
 
@@ -126,8 +162,13 @@ describe('harness-window-config', () => {
       const out = readHarnessWindow({ location, env: {} });
       // then: the file wins, source is settings-file
       expect(out).toEqual({
-        tokens: 850_000, raw: '850000', source: 'settings-file', optedOut: false, peakWritten: false,
-        fileTokens: 850_000, fileRaw: '850000'
+        tokens: 850_000,
+        raw: '850000',
+        source: 'settings-file',
+        optedOut: false,
+        peakWritten: false,
+        fileTokens: 850_000,
+        fileRaw: '850000'
       });
 
       // given: a garbage value on disk (hand-edited)
@@ -146,8 +187,13 @@ describe('harness-window-config', () => {
       const out = readHarnessWindow({ location, env: {} });
       // then: peaks-loop never invents a number it did not set
       expect(out).toEqual({
-        tokens: null, raw: undefined, source: null, optedOut: false, peakWritten: false,
-        fileTokens: null, fileRaw: undefined
+        tokens: null,
+        raw: undefined,
+        source: null,
+        optedOut: false,
+        peakWritten: false,
+        fileTokens: null,
+        fileRaw: undefined
       });
     });
   });
@@ -210,7 +256,11 @@ describe('harness-window-config', () => {
       syncHarnessWindow({ location, tokens: 1_000_000, env: {} });
       const afterFirst = readFileSync(location.settingsPath, 'utf8');
       // when: a later probe of the SAME session syncs the same value
-      const result = syncHarnessWindow({ location, tokens: 1_000_000, env: { [KEY]: '200000' } as NodeJS.ProcessEnv });
+      const result = syncHarnessWindow({
+        location,
+        tokens: 1_000_000,
+        env: { [KEY]: '200000' } as NodeJS.ProcessEnv
+      });
       // then: no rewrite — idempotence is a property of the file, not of the
       //       process env, or every probe of a running session would rewrite a
       //       byte-identical file
@@ -278,7 +328,11 @@ describe('harness-window-config', () => {
       //       which is the failure mode this layer's ORDER was chosen to avoid.
       //       This is the boundary of the B1 guard: it protects values we did
       //       NOT write, not values we did.
-      expect(result).toMatchObject({ action: 'written', tokens: 500_000, previousTokens: 1_000_000 });
+      expect(result).toMatchObject({
+        action: 'written',
+        tokens: 500_000,
+        previousTokens: 1_000_000
+      });
       expect(envBlock()[HARNESS_WINDOW_WRITTEN_KEY]).toBe('500000');
     });
 
@@ -288,7 +342,11 @@ describe('harness-window-config', () => {
       // when: a sync wants a different number
       const result = syncHarnessWindow({ location, tokens: 500_000, env: {} });
       // then: refused, and no marker appeared to claim ownership
-      expect(result).toMatchObject({ action: 'skipped', reason: 'not-peaks-owned', previousTokens: 400_000 });
+      expect(result).toMatchObject({
+        action: 'skipped',
+        reason: 'not-peaks-owned',
+        previousTokens: 400_000
+      });
       expect(envBlock()).toEqual({ [KEY]: '400000' });
     });
 
@@ -296,7 +354,11 @@ describe('harness-window-config', () => {
       // given: marker 200000, value re-typed by hand to 300000
       writeSettings({ env: { [KEY]: '300000', [HARNESS_WINDOW_WRITTEN_KEY]: '200000' } });
       // when: a sync runs
-      const result = syncHarnessWindow({ location, tokens: 300_000, env: { [KEY]: '200000' } as NodeJS.ProcessEnv });
+      const result = syncHarnessWindow({
+        location,
+        tokens: 300_000,
+        env: { [KEY]: '200000' } as NodeJS.ProcessEnv
+      });
       // then: unchanged, and the marker stays at the value peaks-loop actually wrote
       expect(result.action).toBe('unchanged');
       expect(envBlock()[HARNESS_WINDOW_WRITTEN_KEY]).toBe('200000');
@@ -309,7 +371,11 @@ describe('harness-window-config', () => {
       // when: the rescue raises the window
       const result = syncHarnessWindow({ location, tokens: 1_000_000, env: frozenEnv });
       // then: written, and the marker moves WITH the value (never split)
-      expect(result).toMatchObject({ action: 'written', tokens: 1_000_000, previousTokens: 200_000 });
+      expect(result).toMatchObject({
+        action: 'written',
+        tokens: 1_000_000,
+        previousTokens: 200_000
+      });
       expect(envBlock()[KEY]).toBe('1000000');
       expect(envBlock()[HARNESS_WINDOW_WRITTEN_KEY]).toBe('1000000');
     });
@@ -329,7 +395,11 @@ describe('harness-window-config', () => {
       // given: the key only in the process env (an outer settings layer)
       writeSettings(existingSettings());
       // when: the sync runs
-      const result = syncHarnessWindow({ location, tokens: 1_000_000, env: { [KEY]: '1000000' } as NodeJS.ProcessEnv });
+      const result = syncHarnessWindow({
+        location,
+        tokens: 1_000_000,
+        env: { [KEY]: '1000000' } as NodeJS.ProcessEnv
+      });
       // then: written — an empty slot is not a human's value
       expect(result.action).toBe('written');
       expect(envBlock()[KEY]).toBe('1000000');
@@ -390,7 +460,11 @@ describe('harness-window-config', () => {
       // when: a probe resolves 2M
       const result = syncHarnessWindow({ location, tokens: 2_000_000, env: {} });
       // then: refused — writing it would plant a key the harness will not honour
-      expect(result).toMatchObject({ action: 'skipped', reason: 'out-of-harness-range', requestedTokens: 2_000_000 });
+      expect(result).toMatchObject({
+        action: 'skipped',
+        reason: 'out-of-harness-range',
+        requestedTokens: 2_000_000
+      });
       expect(readFileSync(location.settingsPath, 'utf8')).toBe(before);
       expect(describeHarnessWindowSync(result)).toContain('2000000');
     });
@@ -435,7 +509,7 @@ describe('harness-window-config', () => {
   // starts there, so `--project .` put the write in the user's PERSONAL
   // `~/.claude/settings.local.json` — shared by every project they own. The
   // writer refuses that root; the shared resolver is deliberately untouched.
-  describe('(behavior) H1 — never write into the user\'s home directory', () => {
+  describe("(behavior) H1 — never write into the user's home directory", () => {
     it('when the project root IS the home directory, should skip and write nothing', () => {
       // given: a HOME-shaped target
       writeSettings(existingSettings());
@@ -621,7 +695,10 @@ describe('harness-window-config', () => {
     it('when the file holds no peaks rows, should report absent and leave the bytes alone', () => {
       // given: a personal settings file from another tool (permissions + env),
       //        with no window key and no provenance marker
-      writeSettings({ permissions: { allow: ['Bash(git status)'] }, env: { SOME_USER_KEY: 'keep-me' } });
+      writeSettings({
+        permissions: { allow: ['Bash(git status)'] },
+        env: { SOME_USER_KEY: 'keep-me' }
+      });
       const before = readFileSync(location.settingsPath, 'utf8');
       // when: the user runs the rollback
       const result = resetHarnessWindow({ location, env: {} });
@@ -708,7 +785,9 @@ describe('harness-window-config', () => {
     });
 
     it('when the opt-out is already recorded, should report it and rewrite nothing', () => {
-      writeSettings({ env: { [HARNESS_WINDOW_SYNC_OPTOUT_KEY]: HARNESS_WINDOW_SYNC_OPTOUT_VALUE } });
+      writeSettings({
+        env: { [HARNESS_WINDOW_SYNC_OPTOUT_KEY]: HARNESS_WINDOW_SYNC_OPTOUT_VALUE }
+      });
       const before = readFileSync(location.settingsPath, 'utf8');
       // when: the command runs a second time
       const result = disableHarnessWindowSync({ location });
@@ -745,7 +824,9 @@ describe('harness-window-config', () => {
       writeSettings(existingSettings());
       const before = readFileSync(location.settingsPath, 'utf8');
       // when: the opt-out is requested for that root
-      const result = disableHarnessWindowSync({ location: { ...location, projectRoot: homedir() } });
+      const result = disableHarnessWindowSync({
+        location: { ...location, projectRoot: homedir() }
+      });
       // then: refused, and the file is byte-identical — not even the opt-out row
       expect(result.action).toBe('refused-unsafe-project-root');
       expect(readFileSync(location.settingsPath, 'utf8')).toBe(before);
@@ -757,7 +838,9 @@ describe('harness-window-config', () => {
       //        `disableHarnessWindowSync` mkdirs the parent before writing, so
       //        "refused" must mean refused BEFORE any of that
       // when: the opt-out is requested
-      const result = disableHarnessWindowSync({ location: { ...location, projectRoot: homedir() } });
+      const result = disableHarnessWindowSync({
+        location: { ...location, projectRoot: homedir() }
+      });
       // then: refused, and neither the file nor its directory was created
       expect(result.action).toBe('refused-unsafe-project-root');
       expect(existsSync(location.settingsPath)).toBe(false);
@@ -839,7 +922,11 @@ describe('harness-window-config', () => {
       // given: the key only in the process env (a shell export), no file
       writeSettings(existingSettings());
       // when: the sync runs
-      const result = syncHarnessWindow({ location, tokens: 1_000_000, env: { [KEY]: '1000000' } as NodeJS.ProcessEnv });
+      const result = syncHarnessWindow({
+        location,
+        tokens: 1_000_000,
+        env: { [KEY]: '1000000' } as NodeJS.ProcessEnv
+      });
       // then: the file is written even though the read already saw the value —
       //       otherwise the value would vanish at the next session
       expect(result.action).toBe('written');
@@ -876,7 +963,10 @@ describe('harness-window-config', () => {
       const result = syncHarnessWindow({ location, tokens: 200_000, env: {} });
       // then: the file is created with the key and its provenance marker
       expect(result.action).toBe('written');
-      expect(readSettings()['env']).toEqual({ [KEY]: '200000', [HARNESS_WINDOW_WRITTEN_KEY]: '200000' });
+      expect(readSettings()['env']).toEqual({
+        [KEY]: '200000',
+        [HARNESS_WINDOW_WRITTEN_KEY]: '200000'
+      });
     });
   });
 

@@ -22,7 +22,11 @@ import { dirname, join } from 'node:path';
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
 import { fail, ok } from 'peaks-loop-shared/result';
 import { detectEslint } from '../../services/lint/detect-eslint.js';
-import { runEslint, type EslintRunOptions, type EslintRunResult } from '../../services/lint/eslint-runner.js';
+import {
+  runEslint,
+  type EslintRunOptions,
+  type EslintRunResult
+} from '../../services/lint/eslint-runner.js';
 
 type LintOptions = {
   scope?: string;
@@ -45,7 +49,11 @@ function parseTimeoutMs(value: string | undefined): number | undefined {
   return parsed;
 }
 
-function writeBaselineJson(cwd: string, baselineFile: string, result: EslintRunResult): { path: string; violations: number } {
+function writeBaselineJson(
+  cwd: string,
+  baselineFile: string,
+  result: EslintRunResult
+): { path: string; violations: number } {
   const fullPath = join(cwd, baselineFile);
   mkdirSync(dirname(fullPath), { recursive: true });
   const violations = result.findings.map((f) => ({
@@ -65,7 +73,10 @@ function writeBaselineJson(cwd: string, baselineFile: string, result: EslintRunR
   return { path: fullPath, violations: violations.length };
 }
 
-function writeRedLineSummary(cwd: string, result: EslintRunResult): { path: string; ruleIds: string[] } {
+function writeRedLineSummary(
+  cwd: string,
+  result: EslintRunResult
+): { path: string; ruleIds: string[] } {
   const fullPath = join(cwd, '.peaks/memory/lint-redline-summary.md');
   mkdirSync(dirname(fullPath), { recursive: true });
   const lines: string[] = [];
@@ -78,12 +89,16 @@ function writeRedLineSummary(cwd: string, result: EslintRunResult): { path: stri
   lines.push('');
   lines.push('# Lint red-line summary');
   lines.push('');
-  lines.push('> LLM-facing card. The next LLM invocation MUST read this file before writing JS/TS code under the peaks-rd Gate B5 surface.');
+  lines.push(
+    '> LLM-facing card. The next LLM invocation MUST read this file before writing JS/TS code under the peaks-rd Gate B5 surface.'
+  );
   lines.push('');
   lines.push('## Top ruleIds (sorted by baseline violation count)');
   lines.push('');
   if (result.redLine.length === 0) {
-    lines.push('No baseline violations recorded — project is lint-clean against the current baseline.');
+    lines.push(
+      'No baseline violations recorded — project is lint-clean against the current baseline.'
+    );
   } else {
     for (const entry of result.redLine) {
       lines.push(`- \`${entry.ruleId}\`: ${entry.count} occurrence${entry.count === 1 ? '' : 's'}`);
@@ -100,36 +115,61 @@ function writeRedLineSummary(cwd: string, result: EslintRunResult): { path: stri
 export function registerLintCommands(program: Command, io: ProgramIO): void {
   const lint = program
     .command('lint')
-    .description('Read-only ESLint verifier (peaks-rd Gate B5). Soft-fails when the toolchain is missing.');
+    .description(
+      'Read-only ESLint verifier (peaks-rd Gate B5). Soft-fails when the toolchain is missing.'
+    );
 
-  addJsonOption(lint
-    .command('detect-eslint', { isDefault: false })
-    .description('Read-only probe: returns the 5-state ESLint runtime envelope (ready / eslint-missing / config-error / npx-failed / detection-failed).')
+  addJsonOption(
+    lint
+      .command('detect-eslint', { isDefault: false })
+      .description(
+        'Read-only probe: returns the 5-state ESLint runtime envelope (ready / eslint-missing / config-error / npx-failed / detection-failed).'
+      )
   ).action((options: { json?: boolean }) => {
     const result = detectEslint();
-    const envelope = result.state === 'ready'
-      ? ok('code.lint.detect-eslint', result, [...result.warnings], [...result.nextActions])
-      : fail('code.lint.detect-eslint', result.state.toUpperCase().replace(/-/g, '_'), `eslint is not ready: ${result.state}`, result, [...result.nextActions]);
+    const envelope =
+      result.state === 'ready'
+        ? ok('code.lint.detect-eslint', result, [...result.warnings], [...result.nextActions])
+        : fail(
+            'code.lint.detect-eslint',
+            result.state.toUpperCase().replace(/-/g, '_'),
+            `eslint is not ready: ${result.state}`,
+            result,
+            [...result.nextActions]
+          );
     printResult(io, envelope, options.json);
     if (result.state !== 'ready') {
       process.exitCode = 0; // soft-fail
     }
   });
 
-  addJsonOption(lint
-    .command('check', { isDefault: true })
-    .description('Run the read-only ESLint verifier on diff hunks + apply baseline waiver + emit red-line (default Gate B5 entry).')
-    .option('--scope <path>', 'lint scope (default: project root)')
-    .option('--config <path>', 'explicit ESLint config path')
-    .option('--timeout-ms <ms>', 'subprocess timeout in milliseconds (default 60000)')
-    .option('--baseline-file <path>', 'baseline JSON path (default .peaks/lint/baseline.json)')
-    .option('--red-line', 'also write .peaks/memory/lint-redline-summary.md')
+  addJsonOption(
+    lint
+      .command('check', { isDefault: true })
+      .description(
+        'Run the read-only ESLint verifier on diff hunks + apply baseline waiver + emit red-line (default Gate B5 entry).'
+      )
+      .option('--scope <path>', 'lint scope (default: project root)')
+      .option('--config <path>', 'explicit ESLint config path')
+      .option('--timeout-ms <ms>', 'subprocess timeout in milliseconds (default 60000)')
+      .option('--baseline-file <path>', 'baseline JSON path (default .peaks/lint/baseline.json)')
+      .option('--red-line', 'also write .peaks/memory/lint-redline-summary.md')
   ).action((options: LintOptions) => {
     let timeoutMs: number | undefined;
     try {
       timeoutMs = parseTimeoutMs(options.timeoutMs);
     } catch (error: unknown) {
-      printResult(io, fail('code.lint', 'INVALID_TIMEOUT', getErrorMessage(error), { state: 'execution-failed' }, ['Re-run with --timeout-ms <positive integer>.']), options.json);
+      printResult(
+        io,
+        fail(
+          'code.lint',
+          'INVALID_TIMEOUT',
+          getErrorMessage(error),
+          { state: 'execution-failed' },
+          ['Re-run with --timeout-ms <positive integer>.']
+        ),
+        options.json
+      );
       return;
     }
     const cwd = process.cwd();
@@ -145,25 +185,48 @@ export function registerLintCommands(program: Command, io: ProgramIO): void {
     if (options.redLine === true) {
       extras.redLineSummary = writeRedLineSummary(cwd, result);
     }
-    const envelope = result.state === 'ok' || result.state === 'baseline-missing'
-      ? ok('code.lint', { ...result, ...extras }, [], [])
-      : fail('code.lint', result.state.toUpperCase().replace(/-/g, '_'), `peaks code lint state: ${result.state}`, { ...result, ...extras }, [`Re-run with --scope <path> or restore the ESLint toolchain.`]);
+    const envelope =
+      result.state === 'ok' || result.state === 'baseline-missing'
+        ? ok('code.lint', { ...result, ...extras }, [], [])
+        : fail(
+            'code.lint',
+            result.state.toUpperCase().replace(/-/g, '_'),
+            `peaks code lint state: ${result.state}`,
+            { ...result, ...extras },
+            [`Re-run with --scope <path> or restore the ESLint toolchain.`]
+          );
     printResult(io, envelope, options.json);
   });
 
-  addJsonOption(lint
-    .command('baseline')
-    .description('One-shot full-repo scan; writes .peaks/lint/baseline.json (project-level, gitignored by default).')
-    .option('--scope <path>', 'lint scope (default: project root)')
-    .option('--config <path>', 'explicit ESLint config path')
-    .option('--timeout-ms <ms>', 'subprocess timeout in milliseconds (default 60000)')
-    .option('--baseline-file <path>', 'baseline JSON output path (default .peaks/lint/baseline.json)')
+  addJsonOption(
+    lint
+      .command('baseline')
+      .description(
+        'One-shot full-repo scan; writes .peaks/lint/baseline.json (project-level, gitignored by default).'
+      )
+      .option('--scope <path>', 'lint scope (default: project root)')
+      .option('--config <path>', 'explicit ESLint config path')
+      .option('--timeout-ms <ms>', 'subprocess timeout in milliseconds (default 60000)')
+      .option(
+        '--baseline-file <path>',
+        'baseline JSON output path (default .peaks/lint/baseline.json)'
+      )
   ).action((options: LintOptions) => {
     let timeoutMs: number | undefined;
     try {
       timeoutMs = parseTimeoutMs(options.timeoutMs);
     } catch (error: unknown) {
-      printResult(io, fail('code.lint.baseline', 'INVALID_TIMEOUT', getErrorMessage(error), { state: 'execution-failed' }, ['Re-run with --timeout-ms <positive integer>.']), options.json);
+      printResult(
+        io,
+        fail(
+          'code.lint.baseline',
+          'INVALID_TIMEOUT',
+          getErrorMessage(error),
+          { state: 'execution-failed' },
+          ['Re-run with --timeout-ms <positive integer>.']
+        ),
+        options.json
+      );
       return;
     }
     const cwd = process.cwd();
@@ -177,7 +240,14 @@ export function registerLintCommands(program: Command, io: ProgramIO): void {
     const result = runEslint(runOptions);
     const baselineFile = options.baselineFile ?? '.peaks/lint/baseline.json';
     const written = writeBaselineJson(cwd, baselineFile, result);
-    const envelope = ok('code.lint.baseline', { state: result.state, findings: result.findings.length, ...written }, [], ['Commit baseline.json (or .gitignore it). Peak-loop ships its own baseline as a reference fixture.']);
+    const envelope = ok(
+      'code.lint.baseline',
+      { state: result.state, findings: result.findings.length, ...written },
+      [],
+      [
+        'Commit baseline.json (or .gitignore it). Peak-loop ships its own baseline as a reference fixture.'
+      ]
+    );
     printResult(io, envelope, options.json);
   });
 }

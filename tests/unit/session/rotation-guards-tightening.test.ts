@@ -22,7 +22,7 @@ import { join } from 'node:path';
 import { declareDimensions } from '../_setup/4dim-template.js';
 import {
   _resetLastResolvedOuterForTest,
-  ensureSessionWithRotation,
+  ensureSessionWithRotation
 } from '../../../src/services/session/session-binding-bridge.js';
 import { setSessionMeta } from '../../../src/services/session/session-manager.js';
 
@@ -30,9 +30,12 @@ declareDimensions(
   'tests/unit/session/rotation-guards-tightening.test.ts',
   ['behavior', 'integration'],
   [
-    { dim: 'render', reason: 'rotation guard returns JSON-shaped result; no formatted output surface' },
-    { dim: 'a11y', reason: 'no human-facing text in this path' },
-  ],
+    {
+      dim: 'render',
+      reason: 'rotation guard returns JSON-shaped result; no formatted output surface'
+    },
+    { dim: 'a11y', reason: 'no human-facing text in this path' }
+  ]
 );
 
 const SID = '2026-08-06-session-testbed-rotation';
@@ -59,13 +62,21 @@ afterEach(() => {
   else process.env.PEAKS_OUTER_SESSION_ID = prevPeaksEnv;
   if (prevClaudeEnv === undefined) delete process.env.CLAUDE_CODE_SESSION_ID;
   else process.env.CLAUDE_CODE_SESSION_ID = prevClaudeEnv;
-  try { process.chdir(prevCwd); } catch { /* best-effort */ }
+  try {
+    process.chdir(prevCwd);
+  } catch {
+    /* best-effort */
+  }
   _resetLastResolvedOuterForTest();
   // Capture the value BEFORE deferring: `workspace` is reassigned by the
   // next test's beforeEach, and a deferred read would delete the LIVE dir.
   const wsToRemove = workspace;
   setImmediate(() => {
-    try { rmSync(wsToRemove, { recursive: true, force: true }); } catch { /* best-effort */ }
+    try {
+      rmSync(wsToRemove, { recursive: true, force: true });
+    } catch {
+      /* best-effort */
+    }
   });
 });
 
@@ -74,7 +85,11 @@ function seedBinding(): void {
   mkdirSync(runtimeDir, { recursive: true });
   writeFileSync(
     join(runtimeDir, 'session.json'),
-    JSON.stringify({ sessionId: SID, createdAt: '2026-08-06T00:00:00.000Z', projectRoot: workspace }, null, 2),
+    JSON.stringify(
+      { sessionId: SID, createdAt: '2026-08-06T00:00:00.000Z', projectRoot: workspace },
+      null,
+      2
+    ),
     'utf8'
   );
 }
@@ -202,7 +217,7 @@ describe('Scenario: behavior — 4th same-process re-resolve guard', () => {
     // guard does NOT match). skipRotate is the deciding factor.
     process.env.PEAKS_OUTER_SESSION_ID = 'outer-b-skip';
     const result = await ensureSessionWithRotation(workspace, {
-      skipRotateOnOuterMismatch: true,
+      skipRotateOnOuterMismatch: true
     });
     expect(result.rotationReason).toBeNull();
     expect(result.previousSessionId).toBeNull();

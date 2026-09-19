@@ -2,7 +2,13 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { savePreferences } from '../preferences/preferences-service.js';
-import { providersConfigPath, proxyConfigPath, SIDECAR_SCHEMA_VERSION, workspacesConfigPath, writeSidecarJson } from './sidecar-store.js';
+import {
+  providersConfigPath,
+  proxyConfigPath,
+  SIDECAR_SCHEMA_VERSION,
+  workspacesConfigPath,
+  writeSidecarJson
+} from './sidecar-store.js';
 
 export const CONFIG_SCHEMA_VERSION_V2 = '2.0.0';
 const BACKUP_NAME = 'config.json.1.x.bak';
@@ -97,14 +103,14 @@ export function planMigration(opts: MigrationOptions): MigrationPlan {
       alreadyAtV2: true,
       detectedSchemaVersion,
       newConfigSchemaVersion: CONFIG_SCHEMA_VERSION_V2,
-      willMigrateFields: [],
+      willMigrateFields: []
     };
   }
   return {
     alreadyAtV2: false,
     detectedSchemaVersion,
     newConfigSchemaVersion: CONFIG_SCHEMA_VERSION_V2,
-    willMigrateFields,
+    willMigrateFields
   };
 }
 
@@ -151,7 +157,10 @@ export function executeMigration(opts: MigrationOptions & { apply: boolean }): M
       });
     }
   }
-  if (isPlainObject(original.proxy) && typeof (original.proxy as Record<string, unknown>).httpProxy === 'string') {
+  if (
+    isPlainObject(original.proxy) &&
+    typeof (original.proxy as Record<string, unknown>).httpProxy === 'string'
+  ) {
     const proxyPath = proxyConfigPath();
     if (!existsSync(proxyPath)) {
       writeSidecarJson(proxyPath, {
@@ -166,7 +175,8 @@ export function executeMigration(opts: MigrationOptions & { apply: boolean }): M
       writeSidecarJson(workspacesPath, {
         version: SIDECAR_SCHEMA_VERSION,
         workspaces: Array.isArray(original.workspaces) ? original.workspaces : [],
-        currentWorkspace: typeof original.currentWorkspace === 'string' ? original.currentWorkspace : null
+        currentWorkspace:
+          typeof original.currentWorkspace === 'string' ? original.currentWorkspace : null
       });
     }
   }
@@ -180,17 +190,25 @@ export function executeMigration(opts: MigrationOptions & { apply: boolean }): M
   //    auto-configured values, so the post-migration file MUST contain
   //    the `ocr.llm.*` block with empty defaults.
   mkdirSync(join(homedir(), '.peaks'), { recursive: true });
-  writeFileSync(configPath, JSON.stringify({
-    version: CONFIG_SCHEMA_VERSION_V2,
-    ocr: {
-      llm: {
-        url: '',
-        authToken: '',
-        model: '',
-        useAnthropic: false,
-        authHeader: 'authorization'
-      }
-    }
-  }, null, 2) + '\n', 'utf8');
+  writeFileSync(
+    configPath,
+    JSON.stringify(
+      {
+        version: CONFIG_SCHEMA_VERSION_V2,
+        ocr: {
+          llm: {
+            url: '',
+            authToken: '',
+            model: '',
+            useAnthropic: false,
+            authHeader: 'authorization'
+          }
+        }
+      },
+      null,
+      2
+    ) + '\n',
+    'utf8'
+  );
   return { ...plan, applied: true, backupPath: bak, newConfigPath: configPath };
 }

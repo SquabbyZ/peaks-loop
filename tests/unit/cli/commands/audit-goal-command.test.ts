@@ -29,9 +29,13 @@ function makeIo(): { io: ProgramIO; capture: Capture } {
   return {
     io: { stdout: (s: string) => stdout.push(s), stderr: (s: string) => stderr.push(s) },
     capture: {
-      get stdout() { return stdout.join(''); },
-      get stderr() { return stderr.join(''); },
-    },
+      get stdout() {
+        return stdout.join('');
+      },
+      get stderr() {
+        return stderr.join('');
+      }
+    }
   };
 }
 
@@ -84,7 +88,17 @@ describe('peaks audit goal', () => {
 
     // when: the stub provider runs the gate offline
     await newProgram(io).parseAsync(
-      ['audit', 'goal', '--project', projectRoot, '--need', 'ship the gate', '--llm-provider', 'stub', '--json'],
+      [
+        'audit',
+        'goal',
+        '--project',
+        projectRoot,
+        '--need',
+        'ship the gate',
+        '--llm-provider',
+        'stub',
+        '--json'
+      ],
       { from: 'user' }
     );
 
@@ -151,7 +165,17 @@ describe('peaks audit goal', () => {
 
     // when: the gate is invoked with it
     await newProgram(io).parseAsync(
-      ['audit', 'goal', '--project', projectRoot, '--need', 'ship the gate', '--llm-provider', 'gpt', '--json'],
+      [
+        'audit',
+        'goal',
+        '--project',
+        projectRoot,
+        '--need',
+        'ship the gate',
+        '--llm-provider',
+        'gpt',
+        '--json'
+      ],
       { from: 'user' }
     );
 
@@ -169,12 +193,24 @@ describe('peaks audit goal', () => {
 
     // when: the gate is invoked
     await newProgram(io).parseAsync(
-      ['audit', 'goal', '--project', join(projectRoot, 'missing'), '--need', 'ship the gate', '--json'],
+      [
+        'audit',
+        'goal',
+        '--project',
+        join(projectRoot, 'missing'),
+        '--need',
+        'ship the gate',
+        '--json'
+      ],
       { from: 'user' }
     );
 
     // then: the project error is reported with its own code
-    const envelope = JSON.parse(capture.stdout) as { ok: boolean; code: string; data: { providerBinding: string } };
+    const envelope = JSON.parse(capture.stdout) as {
+      ok: boolean;
+      code: string;
+      data: { providerBinding: string };
+    };
     expect(envelope.ok).toBe(false);
     expect(envelope.code).toBe('PROJECT_NOT_FOUND');
     expect(envelope.data.providerBinding).toBe('unresolved');

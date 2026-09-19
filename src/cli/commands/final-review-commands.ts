@@ -35,12 +35,12 @@ import {
   createAnthropicRunner,
   LlmBindingError,
   LlmRequestError,
-  resolveAnthropicConfig,
+  resolveAnthropicConfig
 } from '../../services/llm/anthropic-runner.js';
 import {
   IncompleteFinalReviewError,
   prepareFinalReview,
-  type LlmRunner,
+  type LlmRunner
 } from '../../services/final-review/final-review-service.js';
 import type { FinalReviewOutput } from '../../services/final-review/final-review-types.js';
 
@@ -116,7 +116,7 @@ function emptyFinalReviewData(
     auditGoalPath,
     serviceWired: false,
     providerBinding: 'unknown',
-    ...(missingEnv === undefined ? {} : { missingEnv }),
+    ...(missingEnv === undefined ? {} : { missingEnv })
   };
 }
 
@@ -128,7 +128,7 @@ function validateProjectRoot(
     return {
       ok: false,
       code: 'PROJECT_NOT_FOUND',
-      message: `project path does not exist: ${projectArg}`,
+      message: `project path does not exist: ${projectArg}`
     };
   }
   let stat;
@@ -141,7 +141,7 @@ function validateProjectRoot(
     return {
       ok: false,
       code: 'INVALID_PROJECT',
-      message: `project path is not a directory: ${projectArg}`,
+      message: `project path is not a directory: ${projectArg}`
     };
   }
   return { ok: true, projectRoot };
@@ -159,7 +159,7 @@ function validateSessionId(
     return {
       ok: false,
       code: 'MISSING_REQUIRED_FLAG',
-      message: '`--session-id` is required and must be a non-empty string',
+      message: '`--session-id` is required and must be a non-empty string'
     };
   }
   if (sessionId.includes('..') || sessionId.includes('/') || sessionId.includes('\\')) {
@@ -167,7 +167,7 @@ function validateSessionId(
       ok: false,
       code: 'INVALID_SESSION_ID',
       message:
-        '`--session-id` must not contain path-traversal or path-separator characters (rejected: "..", "/", "\\")',
+        '`--session-id` must not contain path-traversal or path-separator characters (rejected: "..", "/", "\\")'
     };
   }
   return { ok: true, sessionId };
@@ -181,7 +181,10 @@ export function registerFinalReviewCommands(program: Command, io: ProgramIO): vo
         'Prepare the 4-dimension business review (final-review primitive) for human acceptance (W2 T9 service; CLI surface in W5 M2)'
       )
       .requiredOption('--project <path>', 'target project root')
-      .requiredOption('--session-id <sid>', 'session id whose .peaks/_runtime/<sid>/audit-goal/<rid>.json is the approved goal source')
+      .requiredOption(
+        '--session-id <sid>',
+        'session id whose .peaks/_runtime/<sid>/audit-goal/<rid>.json is the approved goal source'
+      )
       .option(
         '--llm-provider <name>',
         `LLM provider name: ${SUPPORTED_LLM_PROVIDERS.join(' | ')} (default: ${DEFAULT_LLM_PROVIDER} — performs no review)`,
@@ -221,7 +224,7 @@ export function registerFinalReviewCommands(program: Command, io: ProgramIO): vo
           sessionValidation.message,
           emptyFinalReviewData(rid, options.sessionId, ''),
           [
-            'Pass a non-empty `--session-id` whose value is a single segment (no "..", "/", or "\\")',
+            'Pass a non-empty `--session-id` whose value is a single segment (no "..", "/", or "\\")'
           ]
         ),
         options.json
@@ -277,7 +280,7 @@ export function registerFinalReviewCommands(program: Command, io: ProgramIO): vo
           emptyFinalReviewData(rid, sessionValidation.sessionId, auditGoalPath),
           [
             'Run `peaks audit goal --project <path> --need <text>` first to produce the approved goal JSON.',
-            'Confirm `--session-id` matches the session that wrote the goal.',
+            'Confirm `--session-id` matches the session that wrote the goal.'
           ]
         ),
         options.json
@@ -299,7 +302,7 @@ export function registerFinalReviewCommands(program: Command, io: ProgramIO): vo
           `LLM provider "${provider}" is not implemented. Supported providers: ${SUPPORTED_LLM_PROVIDERS.join(', ')}.`,
           emptyFinalReviewData(rid, sessionValidation.sessionId, auditGoalPath),
           [
-            `Re-run with \`--llm-provider anthropic\` for a real 4-dim review, or \`--llm-provider ${DEFAULT_LLM_PROVIDER}\` for an offline scaffold.`,
+            `Re-run with \`--llm-provider anthropic\` for a real 4-dim review, or \`--llm-provider ${DEFAULT_LLM_PROVIDER}\` for an offline scaffold.`
           ]
         ),
         options.json
@@ -321,7 +324,7 @@ export function registerFinalReviewCommands(program: Command, io: ProgramIO): vo
         sessionId: sessionValidation.sessionId,
         auditGoalPath,
         serviceWired: true,
-        providerBinding: 'stub',
+        providerBinding: 'stub'
       };
       const envelope: ResultEnvelope<FinalReviewData> = ok(
         'final-review.prepare',
@@ -330,7 +333,7 @@ export function registerFinalReviewCommands(program: Command, io: ProgramIO): vo
         [
           'Stub provider: no 4-dim review was performed. This envelope only proves the route is wired and reachable.',
           `Audit-goal file is present at: ${auditGoalPath}`,
-          'Re-run with `--llm-provider anthropic` to produce a real review.',
+          'Re-run with `--llm-provider anthropic` to produce a real review.'
         ]
       );
       printResult(io, envelope, options.json);
@@ -349,7 +352,7 @@ export function registerFinalReviewCommands(program: Command, io: ProgramIO): vo
         projectRoot: projectValidation.projectRoot,
         sessionId: sessionValidation.sessionId,
         llmRunner,
-        ...(options.base === undefined ? {} : { baseRef: options.base }),
+        ...(options.base === undefined ? {} : { baseRef: options.base })
       });
       const data: FinalReviewData = {
         status: 'review-complete',
@@ -359,17 +362,19 @@ export function registerFinalReviewCommands(program: Command, io: ProgramIO): vo
         serviceWired: true,
         providerBinding: 'anthropic-messages-api',
         model: config.model,
-        review,
+        review
       };
       const envelope: ResultEnvelope<FinalReviewData> = ok(
         'final-review.prepare',
         data,
-        review.allPass ? [] : [
-          `Dimensions needing human attention: ${review.needsAttention.join(', ') || 'none flagged'}.`,
-        ],
+        review.allPass
+          ? []
+          : [
+              `Dimensions needing human attention: ${review.needsAttention.join(', ') || 'none flagged'}.`
+            ],
         [
           `4-dim review produced by anthropic-messages-api (model: ${config.model}).`,
-          `allPass: ${String(review.allPass)}.`,
+          `allPass: ${String(review.allPass)}.`
         ]
       );
       printResult(io, envelope, options.json);
@@ -418,19 +423,19 @@ function finalReviewNextActions(code: string): string[] {
     case 'LLM_CREDENTIAL_MISSING':
       return [
         'Export ANTHROPIC_AUTH_TOKEN (or ANTHROPIC_API_KEY) in the environment that launches peaks, then re-run.',
-        'For an offline scaffold instead of a review, re-run with `--llm-provider stub` — it performs NO review.',
+        'For an offline scaffold instead of a review, re-run with `--llm-provider stub` — it performs NO review.'
       ];
     case 'LLM_MODEL_MISSING':
       return [
-        'Export ANTHROPIC_MODEL (or CLAUDE_CODE_SUBAGENT_MODEL) in the environment that launches peaks, then re-run.',
+        'Export ANTHROPIC_MODEL (or CLAUDE_CODE_SUBAGENT_MODEL) in the environment that launches peaks, then re-run.'
       ];
     case 'LLM_REQUEST_FAILED':
       return [
-        'Check ANTHROPIC_BASE_URL and network reachability, then re-run — a transport failure produces no review.',
+        'Check ANTHROPIC_BASE_URL and network reachability, then re-run — a transport failure produces no review.'
       ];
     case 'INCOMPLETE_FINAL_REVIEW':
       return [
-        'The LLM reply was not valid JSON or omitted a required dimension; re-run so the gate is never read as complete.',
+        'The LLM reply was not valid JSON or omitted a required dimension; re-run so the gate is never read as complete.'
       ];
     default:
       return ['Re-run with `--llm-provider stub` to validate the CLI route without a real LLM.'];

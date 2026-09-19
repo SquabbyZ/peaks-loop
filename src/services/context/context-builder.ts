@@ -23,7 +23,7 @@ const BuildInputSchema = z.object({
   depsMode: z.enum(['locked', 'latest']),
   docBudgetTokens: z.number().int().gt(0).default(8000),
   out: z.string().min(1),
-  fetcher: z.function(),
+  fetcher: z.function()
 });
 
 export type BuildInput = z.infer<typeof BuildInputSchema>;
@@ -43,7 +43,7 @@ export async function buildContext(rawInput: unknown): Promise<ContextJson> {
     goal: input.goal,
     project: input.project,
     depsMode: input.depsMode,
-    out: input.out,
+    out: input.out
   });
 
   const docs = await retrieveDocs(collected.collector.deps, { fetcher: input.fetcher });
@@ -55,7 +55,7 @@ export async function buildContext(rawInput: unknown): Promise<ContextJson> {
     docBudgetTokens: input.docBudgetTokens,
     collector: collected.collector,
     docRetriever: docs,
-    tokenizer: tok,
+    tokenizer: tok
   };
   const renderer = render(renderInput);
 
@@ -68,7 +68,7 @@ export async function buildContext(rawInput: unknown): Promise<ContextJson> {
     collector: collected.collector,
     docRetriever: docs,
     tokenizer: tok,
-    renderer,
+    renderer
   };
   const sha256 = sha256OfContent(partial);
   const finalCtx: ContextJson = { ...partial, sha256 };

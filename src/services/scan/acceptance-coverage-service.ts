@@ -40,10 +40,10 @@ export type AcceptanceCoverageOptions = {
 };
 
 export type AcceptanceCoverageError =
-  | { kind: 'prd-not-found' }
-  | { kind: 'test-cases-not-found'; expectedPath: string };
+  { kind: 'prd-not-found' } | { kind: 'test-cases-not-found'; expectedPath: string };
 
-const ACCEPTANCE_SECTION_PATTERN = /^##\s+(?:Acceptance criteria|验收标准|Acceptance Criteria)\s*$/m;
+const ACCEPTANCE_SECTION_PATTERN =
+  /^##\s+(?:Acceptance criteria|验收标准|Acceptance Criteria)\s*$/m;
 
 function extractAcceptanceItems(prdBody: string): AcceptanceItem[] {
   const lines = prdBody.split(/\r?\n/);
@@ -96,7 +96,10 @@ function extractTestCases(qaBody: string): TestCase[] {
     if (current === null) continue;
     const acceptanceMatch = ACCEPTANCE_FIELD_PATTERN.exec(raw);
     if (acceptanceMatch !== null) {
-      const refs = (acceptanceMatch[1] ?? '').split(/[,\s]+/).map((part) => part.trim()).filter((part) => part.length > 0);
+      const refs = (acceptanceMatch[1] ?? '')
+        .split(/[,\s]+/)
+        .map((part) => part.trim())
+        .filter((part) => part.length > 0);
       current.ids.push(...refs);
     }
   }
@@ -106,7 +109,14 @@ function extractTestCases(qaBody: string): TestCase[] {
   return cases;
 }
 
-function buildCoverage(items: AcceptanceItem[], cases: TestCase[]): { coverage: CoverageEntry[]; uncovered: AcceptanceItem[]; invalidReferences: Array<{ testCaseTitle: string; reference: string }> } {
+function buildCoverage(
+  items: AcceptanceItem[],
+  cases: TestCase[]
+): {
+  coverage: CoverageEntry[];
+  uncovered: AcceptanceItem[];
+  invalidReferences: Array<{ testCaseTitle: string; reference: string }>;
+} {
   const itemMap = new Map<string, AcceptanceItem>();
   for (const item of items) itemMap.set(item.id, item);
 
@@ -135,7 +145,9 @@ function buildCoverage(items: AcceptanceItem[], cases: TestCase[]): { coverage: 
   return { coverage, uncovered, invalidReferences };
 }
 
-export async function getAcceptanceCoverage(options: AcceptanceCoverageOptions): Promise<AcceptanceCoverageReport | AcceptanceCoverageError> {
+export async function getAcceptanceCoverage(
+  options: AcceptanceCoverageOptions
+): Promise<AcceptanceCoverageReport | AcceptanceCoverageError> {
   const showOptions: Parameters<typeof showRequestArtifact>[0] = {
     projectRoot: options.projectRoot,
     role: 'prd',
@@ -157,7 +169,15 @@ export async function getAcceptanceCoverage(options: AcceptanceCoverageOptions):
   // `prdArtifact.sessionId` is the bare session id (the dir the PRD was
   // found in), so we route through `_runtime/` here.
   const sessionId = prdArtifact.sessionId;
-  const testCasesPath = join(options.projectRoot, '.peaks', '_runtime', sessionId, 'qa', 'test-cases', `${options.requestId}.md`);
+  const testCasesPath = join(
+    options.projectRoot,
+    '.peaks',
+    '_runtime',
+    sessionId,
+    'qa',
+    'test-cases',
+    `${options.requestId}.md`
+  );
   if (!(await pathExists(testCasesPath))) {
     return { kind: 'test-cases-not-found', expectedPath: testCasesPath };
   }
@@ -180,6 +200,8 @@ export async function getAcceptanceCoverage(options: AcceptanceCoverageOptions):
   };
 }
 
-export function isAcceptanceCoverageError(value: AcceptanceCoverageReport | AcceptanceCoverageError): value is AcceptanceCoverageError {
+export function isAcceptanceCoverageError(
+  value: AcceptanceCoverageReport | AcceptanceCoverageError
+): value is AcceptanceCoverageError {
   return (value as AcceptanceCoverageError).kind !== undefined;
 }

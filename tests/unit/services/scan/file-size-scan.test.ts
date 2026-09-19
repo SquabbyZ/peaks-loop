@@ -32,14 +32,14 @@ import { registerScanCommands } from '../../../../src/cli/commands/scan-commands
 import {
   DEFAULT_FILE_SIZE_THRESHOLD,
   isSizeCapExempt,
-  scanFileSize,
+  scanFileSize
 } from '../../../../src/services/scan/file-size-scan.js';
 
 declareDimensions('tests/unit/services/scan/file-size-scan.test.ts', [
   'render',
   'behavior',
   'integration',
-  'a11y',
+  'a11y'
 ]);
 
 const OVER_CAP = DEFAULT_FILE_SIZE_THRESHOLD + 50;
@@ -63,10 +63,7 @@ function makeRepoWithReindexCommit(): string {
   writeLines('src/small.ts', 5, root);
   writeLines(GENERATED_INDEX, OVER_CAP, root);
   git(root, ['add', '-A']);
-  git(root, [
-    '-c', 'user.email=t@t', '-c', 'user.name=t',
-    'commit', '-q', '-m', 'init',
-  ]);
+  git(root, ['-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-q', '-m', 'init']);
   // Touch both, mimicking "a slice reindexed memory and edited source".
   writeLines('src/small.ts', 6, root);
   writeLines(GENERATED_INDEX, OVER_CAP + 1, root);
@@ -185,7 +182,7 @@ describe('file-size scan — size-cap exemption', () => {
         'package-lock.json',
         'yarn.lock',
         'CHANGELOG.md',
-        'packages/peaks-loop-shared/CHANGELOG.md',
+        'packages/peaks-loop-shared/CHANGELOG.md'
       ]) {
         expect(isSizeCapExempt(file), file).toBe(true);
       }
@@ -203,7 +200,7 @@ describe('file-size scan — size-cap exemption', () => {
         'docs/peaks-lock.yaml.bak',
         'docs/CHANGELOG-history.md',
         'docs/superpowers/plans/2026-08-03-capability-baseline-guard-audit.md',
-        'CHANGELOG.md.bak',
+        'CHANGELOG.md.bak'
       ]) {
         expect(isSizeCapExempt(file), file).toBe(false);
       }
@@ -222,9 +219,14 @@ describe('file-size scan — size-cap exemption', () => {
       // given/when: any scan run
       const result = scanFileSize({ projectRoot: repo });
       // then: the exemption is auditable, not a silent skip
-      expect(Object.keys(result).sort()).toEqual(
-        ['checkedFiles', 'deletedFiles', 'exemptFiles', 'ok', 'threshold', 'violations'],
-      );
+      expect(Object.keys(result).sort()).toEqual([
+        'checkedFiles',
+        'deletedFiles',
+        'exemptFiles',
+        'ok',
+        'threshold',
+        'violations'
+      ]);
       expect(Array.isArray(result.exemptFiles)).toBe(true);
     });
   });

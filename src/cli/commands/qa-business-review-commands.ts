@@ -56,23 +56,35 @@ export function registerQaBusinessReviewCommands(program: Command, io: ProgramIO
       writeQaReview(projectRoot, review);
     }
     const scoredCount = review.items.filter((it) => it.score !== null).length;
-    const avg = review.items.filter((it) => it.score !== null).length === 0
-      ? null
-      : review.items.reduce((s, it) => s + (it.score ?? 0), 0) / scoredCount;
-    printResult(io, ok('qa.business-review', {
-      sessionId,
-      requestId,
-      decision: review.decision,
-      derivedDecision: deriveQaDecision(review),
-      items: review.items,
-      scoredCount,
-      averageScore: avg
-    }, review.decision === 'pending' ? [
-      `Score each item with: peaks qa business-score <rid> --item <id> --score <1-5>`,
-      'When all items are scored, run: peaks qa business-accept <rid>'
-    ] : [], review.decision === 'rejected' ? [
-      `Rejected: ${review.rejectionReason ?? '(no reason)'}`
-    ] : []), opts.json ?? false);
+    const avg =
+      review.items.filter((it) => it.score !== null).length === 0
+        ? null
+        : review.items.reduce((s, it) => s + (it.score ?? 0), 0) / scoredCount;
+    printResult(
+      io,
+      ok(
+        'qa.business-review',
+        {
+          sessionId,
+          requestId,
+          decision: review.decision,
+          derivedDecision: deriveQaDecision(review),
+          items: review.items,
+          scoredCount,
+          averageScore: avg
+        },
+        review.decision === 'pending'
+          ? [
+              `Score each item with: peaks qa business-score <rid> --item <id> --score <1-5>`,
+              'When all items are scored, run: peaks qa business-accept <rid>'
+            ]
+          : [],
+        review.decision === 'rejected'
+          ? [`Rejected: ${review.rejectionReason ?? '(no reason)'}`]
+          : []
+      ),
+      opts.json ?? false
+    );
   });
 
   // 2. business-score
@@ -88,39 +100,80 @@ export function registerQaBusinessReviewCommands(program: Command, io: ProgramIO
       .option('--note <text>', 'optional note')
       .option('--session-id <sid>', 'session id')
       .option('--project <path>', 'project root')
-  ).action((requestId: string, opts: { item: string; score: string; note?: string; sessionId?: string; project?: string; json?: boolean }) => {
-    const projectRoot = opts.project ?? findProjectRoot(process.cwd()) ?? process.cwd();
-    const sessionId = opts.sessionId ?? getCurrentSessionId(projectRoot) ?? 'unknown-sid';
-    const score = Number.parseInt(opts.score, 10);
-    if (Number.isNaN(score) || score < 1 || score > 5) {
-      printResult(io, fail('qa.business-score', 'INVALID_SCORE', `--score must be 1-5 (got "${opts.score}")`, { projectRoot }, []), opts.json ?? false);
-      process.exitCode = 1;
-      return;
+  ).action(
+    (
+      requestId: string,
+      opts: {
+        item: string;
+        score: string;
+        note?: string;
+        sessionId?: string;
+        project?: string;
+        json?: boolean;
+      }
+    ) => {
+      const projectRoot = opts.project ?? findProjectRoot(process.cwd()) ?? process.cwd();
+      const sessionId = opts.sessionId ?? getCurrentSessionId(projectRoot) ?? 'unknown-sid';
+      const score = Number.parseInt(opts.score, 10);
+      if (Number.isNaN(score) || score < 1 || score > 5) {
+        printResult(
+          io,
+          fail(
+            'qa.business-score',
+            'INVALID_SCORE',
+            `--score must be 1-5 (got "${opts.score}")`,
+            { projectRoot },
+            []
+          ),
+          opts.json ?? false
+        );
+        process.exitCode = 1;
+        return;
+      }
+      let review = readQaReview(projectRoot, sessionId, requestId);
+      if (review === null) {
+        review = buildEmptyQaReview(requestId, sessionId);
+      }
+      const validIds = QA_BUSINESS_ITEMS.map((i) => i.id);
+      if (!validIds.includes(opts.item)) {
+        printResult(
+          io,
+          fail(
+            'qa.business-score',
+            'UNKNOWN_ITEM',
+            `unknown item "${opts.item}" (valid: ${validIds.join(', ')})`,
+            { projectRoot },
+            []
+          ),
+          opts.json ?? false
+        );
+        process.exitCode = 1;
+        return;
+      }
+      const next = scoreQaItem(review, opts.item, score, opts.note);
+      writeQaReview(projectRoot, next);
+      printResult(
+        io,
+        ok(
+          'qa.business-score',
+          {
+            sessionId,
+            requestId,
+            item: opts.item,
+            score,
+            derivedDecision: deriveQaDecision(next)
+          },
+          [],
+          [
+            deriveQaDecision(next) === 'accepted'
+              ? 'All items now average >= 3. Run `peaks qa business-accept` to confirm.'
+              : 'Score recorded. Continue scoring other items.'
+          ]
+        ),
+        opts.json ?? false
+      );
     }
-    let review = readQaReview(projectRoot, sessionId, requestId);
-    if (review === null) {
-      review = buildEmptyQaReview(requestId, sessionId);
-    }
-    const validIds = QA_BUSINESS_ITEMS.map((i) => i.id);
-    if (!validIds.includes(opts.item)) {
-      printResult(io, fail('qa.business-score', 'UNKNOWN_ITEM', `unknown item "${opts.item}" (valid: ${validIds.join(', ')})`, { projectRoot }, []), opts.json ?? false);
-      process.exitCode = 1;
-      return;
-    }
-    const next = scoreQaItem(review, opts.item, score, opts.note);
-    writeQaReview(projectRoot, next);
-    printResult(io, ok('qa.business-score', {
-      sessionId,
-      requestId,
-      item: opts.item,
-      score,
-      derivedDecision: deriveQaDecision(next)
-    }, [], [
-      deriveQaDecision(next) === 'accepted'
-        ? 'All items now average >= 3. Run `peaks qa business-accept` to confirm.'
-        : 'Score recorded. Continue scoring other items.'
-    ]), opts.json ?? false);
-  });
+  );
 
   // 3. business-accept
   addJsonOption(
@@ -134,21 +187,48 @@ export function registerQaBusinessReviewCommands(program: Command, io: ProgramIO
     const sessionId = opts.sessionId ?? getCurrentSessionId(projectRoot) ?? 'unknown-sid';
     const review = readQaReview(projectRoot, sessionId, requestId);
     if (review === null) {
-      printResult(io, fail('qa.business-accept', 'NO_REVIEW', `no review found for request "${requestId}"`, { projectRoot }, []), opts.json ?? false);
+      printResult(
+        io,
+        fail(
+          'qa.business-accept',
+          'NO_REVIEW',
+          `no review found for request "${requestId}"`,
+          { projectRoot },
+          []
+        ),
+        opts.json ?? false
+      );
       process.exitCode = 1;
       return;
     }
     const derived = deriveQaDecision(review);
     if (derived !== 'accepted') {
-      printResult(io, fail('qa.business-accept', 'CANNOT_ACCEPT', `derived decision is "${derived}" — cannot accept`, { projectRoot, review }, []), opts.json ?? false);
+      printResult(
+        io,
+        fail(
+          'qa.business-accept',
+          'CANNOT_ACCEPT',
+          `derived decision is "${derived}" — cannot accept`,
+          { projectRoot, review },
+          []
+        ),
+        opts.json ?? false
+      );
       process.exitCode = 1;
       return;
     }
     const next = acceptQaReview(review);
     writeQaReview(projectRoot, next);
-    printResult(io, ok('qa.business-accept', { sessionId, requestId, decision: 'accepted', updatedAt: next.updatedAt }, [], [
-      'QA business layer accepted. Proceed to final review.'
-    ]), opts.json ?? false);
+    printResult(
+      io,
+      ok(
+        'qa.business-accept',
+        { sessionId, requestId, decision: 'accepted', updatedAt: next.updatedAt },
+        [],
+        ['QA business layer accepted. Proceed to final review.']
+      ),
+      opts.json ?? false
+    );
   });
 
   // 4. business-reject
@@ -159,19 +239,47 @@ export function registerQaBusinessReviewCommands(program: Command, io: ProgramIO
       .requiredOption('--reason <text>', 'rejection reason (required)')
       .option('--session-id <sid>', 'session id')
       .option('--project <path>', 'project root')
-  ).action((requestId: string, opts: { reason: string; sessionId?: string; project?: string; json?: boolean }) => {
-    const projectRoot = opts.project ?? findProjectRoot(process.cwd()) ?? process.cwd();
-    const sessionId = opts.sessionId ?? getCurrentSessionId(projectRoot) ?? 'unknown-sid';
-    const review = readQaReview(projectRoot, sessionId, requestId);
-    if (review === null) {
-      printResult(io, fail('qa.business-reject', 'NO_REVIEW', `no review found for request "${requestId}"`, { projectRoot }, []), opts.json ?? false);
-      process.exitCode = 1;
-      return;
+  ).action(
+    (
+      requestId: string,
+      opts: { reason: string; sessionId?: string; project?: string; json?: boolean }
+    ) => {
+      const projectRoot = opts.project ?? findProjectRoot(process.cwd()) ?? process.cwd();
+      const sessionId = opts.sessionId ?? getCurrentSessionId(projectRoot) ?? 'unknown-sid';
+      const review = readQaReview(projectRoot, sessionId, requestId);
+      if (review === null) {
+        printResult(
+          io,
+          fail(
+            'qa.business-reject',
+            'NO_REVIEW',
+            `no review found for request "${requestId}"`,
+            { projectRoot },
+            []
+          ),
+          opts.json ?? false
+        );
+        process.exitCode = 1;
+        return;
+      }
+      const next = rejectQaReview(review, opts.reason);
+      writeQaReview(projectRoot, next);
+      printResult(
+        io,
+        ok(
+          'qa.business-reject',
+          {
+            sessionId,
+            requestId,
+            decision: 'rejected',
+            reason: opts.reason,
+            updatedAt: next.updatedAt
+          },
+          [],
+          ['QA business layer rejected. Hand back to RD repair-loop.']
+        ),
+        opts.json ?? false
+      );
     }
-    const next = rejectQaReview(review, opts.reason);
-    writeQaReview(projectRoot, next);
-    printResult(io, ok('qa.business-reject', { sessionId, requestId, decision: 'rejected', reason: opts.reason, updatedAt: next.updatedAt }, [], [
-      'QA business layer rejected. Hand back to RD repair-loop.'
-    ]), opts.json ?? false);
-  });
+  );
 }

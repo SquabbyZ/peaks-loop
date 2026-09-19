@@ -62,7 +62,14 @@ interface SpawnEnvelope {
   readonly ok: true;
   readonly command: string;
   readonly data: {
-    readonly lease: { readonly leaseId: string; readonly path: string; readonly branch: string; readonly rid: string; readonly expiresAt: number; readonly status: string };
+    readonly lease: {
+      readonly leaseId: string;
+      readonly path: string;
+      readonly branch: string;
+      readonly rid: string;
+      readonly expiresAt: number;
+      readonly status: string;
+    };
     readonly sessionId: string;
     readonly projectRoot: string;
   };
@@ -87,20 +94,41 @@ interface ListEnvelope {
 interface StatusEnvelope {
   readonly ok: true;
   readonly data: {
-    readonly lease: { readonly leaseId: string; readonly status: string; readonly expiresAt: number };
+    readonly lease: {
+      readonly leaseId: string;
+      readonly status: string;
+      readonly expiresAt: number;
+    };
     readonly live: boolean;
-    readonly diagnostics: { readonly now: number; readonly remainingMs: number; readonly pathExists: boolean; readonly pathIsDirectory: boolean };
+    readonly diagnostics: {
+      readonly now: number;
+      readonly remainingMs: number;
+      readonly pathExists: boolean;
+      readonly pathIsDirectory: boolean;
+    };
   };
 }
 
 interface RenewEnvelope {
   readonly ok: true;
-  readonly data: { readonly lease: { readonly leaseId: string; readonly status: string; readonly expiresAt: number }; readonly previousExpiresAt: number; readonly ttlMs: number };
+  readonly data: {
+    readonly lease: {
+      readonly leaseId: string;
+      readonly status: string;
+      readonly expiresAt: number;
+    };
+    readonly previousExpiresAt: number;
+    readonly ttlMs: number;
+  };
 }
 
 interface ReleaseEnvelope {
   readonly ok: true;
-  readonly data: { readonly lease: { readonly leaseId: string; readonly status: string }; readonly alreadyReleased?: boolean; readonly gitWorktreeRemoveFailed: boolean };
+  readonly data: {
+    readonly lease: { readonly leaseId: string; readonly status: string };
+    readonly alreadyReleased?: boolean;
+    readonly gitWorktreeRemoveFailed: boolean;
+  };
 }
 
 interface GcEnvelope {
@@ -108,7 +136,12 @@ interface GcEnvelope {
   readonly data: {
     readonly dryRun: boolean;
     readonly candidates: number;
-    readonly swept: ReadonlyArray<{ readonly leaseId: string; readonly path: string; readonly prevStatus: string; readonly gitWorktreeRemoveFailed: boolean }>;
+    readonly swept: ReadonlyArray<{
+      readonly leaseId: string;
+      readonly path: string;
+      readonly prevStatus: string;
+      readonly gitWorktreeRemoveFailed: boolean;
+    }>;
   };
 }
 
@@ -116,7 +149,11 @@ const projects: string[] = [];
 afterEach(() => {
   while (projects.length > 0) {
     const p = projects.pop() as string;
-    try { rmSync(p, { recursive: true, force: true }); } catch { /* best-effort */ }
+    try {
+      rmSync(p, { recursive: true, force: true });
+    } catch {
+      /* best-effort */
+    }
   }
 });
 
@@ -124,31 +161,49 @@ function initRepo(): string {
   const project = mkdtempSync(join(tmpdir(), 'peaks-wt-lifecycle-'));
   projects.push(project);
   execFileSync('git', ['init', '-q', '-b', 'main', project], { stdio: 'pipe', windowsHide: true });
-  execFileSync('git', ['-C', project, 'config', 'user.email', 'lifecycle@test'], { stdio: 'pipe', windowsHide: true });
-  execFileSync('git', ['-C', project, 'config', 'user.name', 'lifecycle'], { stdio: 'pipe', windowsHide: true });
+  execFileSync('git', ['-C', project, 'config', 'user.email', 'lifecycle@test'], {
+    stdio: 'pipe',
+    windowsHide: true
+  });
+  execFileSync('git', ['-C', project, 'config', 'user.name', 'lifecycle'], {
+    stdio: 'pipe',
+    windowsHide: true
+  });
   // commit-1 establishes a real main branch so `git worktree add -b feat` succeeds
-  execFileSync('git', ['-C', project, 'commit', '--allow-empty', '-m', 'init', '-q'], { stdio: 'pipe', windowsHide: true });
+  execFileSync('git', ['-C', project, 'commit', '--allow-empty', '-m', 'init', '-q'], {
+    stdio: 'pipe',
+    windowsHide: true
+  });
   return project;
 }
 
 describe('peaks worktree lease lifecycle (Part 2.D)', () => {
   test('full lifecycle: spawn → list → status → renew → release → gc → list-empty', () => {
     const project = initRepo();
-    const sessionId = '2026-07-29-p2d-lifecycle-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
+    const sessionId =
+      '2026-07-29-p2d-lifecycle-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
     const rid = 'rid-2026-07-29-p2d-lifecycle';
     const role = 'rd';
     const purpose = 'part 2.D lifecycle e2e';
 
     // ── 1. spawn ───────────────────────────────────────────────────────
-    const spawnRes = runCli([
-      'spawn',
-      '--rid', rid,
-      '--role', role,
-      '--purpose', purpose,
-      '--session', sessionId,
-      '--project', project,
-      '--json'
-    ], project);
+    const spawnRes = runCli(
+      [
+        'spawn',
+        '--rid',
+        rid,
+        '--role',
+        role,
+        '--purpose',
+        purpose,
+        '--session',
+        sessionId,
+        '--project',
+        project,
+        '--json'
+      ],
+      project
+    );
     expect(spawnRes.code).toBe(0);
     const spawn = JSON.parse(spawnRes.stdout) as SpawnEnvelope;
     expect(spawn.ok).toBe(true);
@@ -160,7 +215,14 @@ describe('peaks worktree lease lifecycle (Part 2.D)', () => {
     expect(existsSync(spawn.data.lease.path)).toBe(true);
     expect(statSync(spawn.data.lease.path).isDirectory()).toBe(true);
     // The lease file got written
-    const leaseFile = join(project, '.peaks', '_runtime', sessionId, 'worktree-leases', spawn.data.lease.leaseId + '.json');
+    const leaseFile = join(
+      project,
+      '.peaks',
+      '_runtime',
+      sessionId,
+      'worktree-leases',
+      spawn.data.lease.leaseId + '.json'
+    );
     expect(existsSync(leaseFile)).toBe(true);
     const lid = spawn.data.lease.leaseId;
 
@@ -175,7 +237,10 @@ describe('peaks worktree lease lifecycle (Part 2.D)', () => {
     expect(l1.data.leases[0]?.live).toBe(true);
 
     // ── 3. status (verify diagnostics) ────────────────────────────────
-    const status = runCli(['lease-status', '--lease-id', lid, '--session', sessionId, '--project', project, '--json'], project);
+    const status = runCli(
+      ['lease-status', '--lease-id', lid, '--session', sessionId, '--project', project, '--json'],
+      project
+    );
     expect(status.code).toBe(0);
     const s = JSON.parse(status.stdout) as StatusEnvelope;
     expect(s.ok).toBe(true);
@@ -193,7 +258,21 @@ describe('peaks worktree lease lifecycle (Part 2.D)', () => {
     const onDiskBeforeRenew = JSON.parse(readFileSync(leaseFile, 'utf8')) as { expiresAt: number };
     const previousExpiresAt = onDiskBeforeRenew.expiresAt;
     const renewTtlMs = 24 * 60 * 60 * 1000;
-    const renew = runCli(['renew', '--lease-id', lid, '--ttl', String(renewTtlMs), '--session', sessionId, '--project', project, '--json'], project);
+    const renew = runCli(
+      [
+        'renew',
+        '--lease-id',
+        lid,
+        '--ttl',
+        String(renewTtlMs),
+        '--session',
+        sessionId,
+        '--project',
+        project,
+        '--json'
+      ],
+      project
+    );
     expect(renew.code).toBe(0);
     const r = JSON.parse(renew.stdout) as RenewEnvelope;
     expect(r.ok).toBe(true);
@@ -206,7 +285,10 @@ describe('peaks worktree lease lifecycle (Part 2.D)', () => {
     expect(existsSync(spawn.data.lease.path)).toBe(true);
 
     // ── 5. release (verify worktree removed + status=released) ─────────
-    const release = runCli(['release', '--lease-id', lid, '--session', sessionId, '--project', project, '--json'], project);
+    const release = runCli(
+      ['release', '--lease-id', lid, '--session', sessionId, '--project', project, '--json'],
+      project
+    );
     expect(release.code).toBe(0);
     const rel = JSON.parse(release.stdout) as ReleaseEnvelope;
     expect(rel.ok).toBe(true);
@@ -218,7 +300,10 @@ describe('peaks worktree lease lifecycle (Part 2.D)', () => {
     expect(releasedRaw.status).toBe('released');
 
     // ── 6. gc (mark 'gc' + git worktree prune) ───────────────────────
-    const gc = runCli(['gc', '--lease-id', lid, '--session', sessionId, '--project', project, '--json'], project);
+    const gc = runCli(
+      ['gc', '--lease-id', lid, '--session', sessionId, '--project', project, '--json'],
+      project
+    );
     expect(gc.code).toBe(0);
     const g = JSON.parse(gc.stdout) as GcEnvelope;
     expect(g.ok).toBe(true);
@@ -232,7 +317,10 @@ describe('peaks worktree lease lifecycle (Part 2.D)', () => {
     expect(gcRaw.status).toBe('gc');
 
     // ── 7. list (no active; total on disk still 1 but returned=0 with --status active filter) ───
-    const list2 = runCli(['list', '--status', 'active', '--session', sessionId, '--project', project, '--json'], project);
+    const list2 = runCli(
+      ['list', '--status', 'active', '--session', sessionId, '--project', project, '--json'],
+      project
+    );
     expect(list2.code).toBe(0);
     const l2 = JSON.parse(list2.stdout) as ListEnvelope;
     expect(l2.ok).toBe(true);
@@ -244,46 +332,90 @@ describe('peaks worktree lease lifecycle (Part 2.D)', () => {
     // git worktree add succeeds even if the previous branch is still
     // registered in git's worktree admin table — avoids a race between
     // the test's release→gc and the respawn.
-    const respawn = runCli([
-      'spawn',
-      '--rid', rid,
-      '--role', role,
-      '--branch', 'p2d-dry-run-branch',
-      '--purpose', 'part 2.D dry-run',
-      '--session', sessionId,
-      '--project', project,
-      '--json'
-    ], project);
+    const respawn = runCli(
+      [
+        'spawn',
+        '--rid',
+        rid,
+        '--role',
+        role,
+        '--branch',
+        'p2d-dry-run-branch',
+        '--purpose',
+        'part 2.D dry-run',
+        '--session',
+        sessionId,
+        '--project',
+        project,
+        '--json'
+      ],
+      project
+    );
     expect(respawn.code).toBe(0);
     const respawnEnv = JSON.parse(respawnRespawnStdout(respawn.stdout)) as SpawnEnvelope;
     const lid2 = respawnEnv.data.lease.leaseId;
     // Release so the lease becomes gc-eligible
-    const release2 = runCli(['release', '--lease-id', lid2, '--session', sessionId, '--project', project, '--json'], project);
+    const release2 = runCli(
+      ['release', '--lease-id', lid2, '--session', sessionId, '--project', project, '--json'],
+      project
+    );
     expect(release2.code).toBe(0);
     // Dry-run gc should report a candidate but NOT mutate
-    const dryRun = runCli(['gc', '--dry-run', '--session', sessionId, '--project', project, '--json'], project);
+    const dryRun = runCli(
+      ['gc', '--dry-run', '--session', sessionId, '--project', project, '--json'],
+      project
+    );
     expect(dryRun.code).toBe(0);
     const dr = JSON.parse(dryRun.stdout) as GcEnvelope;
     expect(dr.ok).toBe(true);
     expect(dr.data.dryRun).toBe(true);
     expect(dr.data.swept.length).toBeGreaterThanOrEqual(1);
     // The lease file is still 'released', not 'gc'
-    const leaseFile2 = join(project, '.peaks', '_runtime', sessionId, 'worktree-leases', lid2 + '.json');
+    const leaseFile2 = join(
+      project,
+      '.peaks',
+      '_runtime',
+      sessionId,
+      'worktree-leases',
+      lid2 + '.json'
+    );
     const stillReleased = JSON.parse(readFileSync(leaseFile2, 'utf8')) as { status: string };
     expect(stillReleased.status).toBe('released');
   });
 
   test('renew on a released lease → LEASE_NOT_RENEWABLE (fail-closed)', () => {
     const project = initRepo();
-    const sessionId = '2026-07-29-p2d-renew-released-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
-    const spawn = JSON.parse(runCli([
-      'spawn', '--rid', 'rid-r', '--role', 'rd', '--purpose', 'p',
-      '--session', sessionId, '--project', project, '--json'
-    ], project).stdout) as SpawnEnvelope;
+    const sessionId =
+      '2026-07-29-p2d-renew-released-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
+    const spawn = JSON.parse(
+      runCli(
+        [
+          'spawn',
+          '--rid',
+          'rid-r',
+          '--role',
+          'rd',
+          '--purpose',
+          'p',
+          '--session',
+          sessionId,
+          '--project',
+          project,
+          '--json'
+        ],
+        project
+      ).stdout
+    ) as SpawnEnvelope;
     const lid = spawn.data.lease.leaseId;
-    const release = runCli(['release', '--lease-id', lid, '--session', sessionId, '--project', project, '--json'], project);
+    const release = runCli(
+      ['release', '--lease-id', lid, '--session', sessionId, '--project', project, '--json'],
+      project
+    );
     expect(release.code).toBe(0);
-    const renew = runCli(['renew', '--lease-id', lid, '--session', sessionId, '--project', project, '--json'], project);
+    const renew = runCli(
+      ['renew', '--lease-id', lid, '--session', sessionId, '--project', project, '--json'],
+      project
+    );
     expect(renew.code).toBe(1);
     const env = JSON.parse(renew.stdout) as { ok: false; code: string };
     expect(env.ok).toBe(false);
@@ -292,8 +424,21 @@ describe('peaks worktree lease lifecycle (Part 2.D)', () => {
 
   test('status on a never-spawned lease id → LEASE_NOT_FOUND (fail-closed)', () => {
     const project = initRepo();
-    const sessionId = '2026-07-29-p2d-status-missing-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
-    const r = runCli(['lease-status', '--lease-id', 'ffffffffffffffff', '--session', sessionId, '--project', project, '--json'], project);
+    const sessionId =
+      '2026-07-29-p2d-status-missing-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
+    const r = runCli(
+      [
+        'lease-status',
+        '--lease-id',
+        'ffffffffffffffff',
+        '--session',
+        sessionId,
+        '--project',
+        project,
+        '--json'
+      ],
+      project
+    );
     expect(r.code).toBe(1);
     const env = JSON.parse(r.stdout) as { ok: false; code: string };
     expect(env.ok).toBe(false);

@@ -106,7 +106,9 @@ export const HARNESS_WINDOW_MAX_TOKENS = 1_000_000;
  * `null` (absent / unparseable) is NOT in band — there is no window at all.
  */
 export function isHarnessWindowInRange(tokens: number | null): boolean {
-  return tokens !== null && tokens >= HARNESS_WINDOW_MIN_TOKENS && tokens <= HARNESS_WINDOW_MAX_TOKENS;
+  return (
+    tokens !== null && tokens >= HARNESS_WINDOW_MIN_TOKENS && tokens <= HARNESS_WINDOW_MAX_TOKENS
+  );
 }
 
 /**
@@ -414,7 +416,8 @@ function skippedHarnessWindowClause(result: HarnessWindowSyncResult): string {
 function harnessWindowConflictClause(result: HarnessWindowSyncResult): string {
   const requested = result.requestedTokens;
   const pinned = result.previousTokens;
-  if (result.action !== 'skipped' || requested === null || pinned === null || requested === pinned) return '';
+  if (result.action !== 'skipped' || requested === null || pinned === null || requested === pinned)
+    return '';
   return ` CONFLICT: peaks-loop divided this ratio by ${requested} tokens, but ${result.settingsPath} pins ${pinned} — and the harness compacts on ITS own number, so this ratio does not describe when it fires. Nothing was written. Choose one: (1) make peaks-loop's number match the file (unset PEAKS_CONTEXT_WINDOW_TOKENS, or change \`context.windowTokens\`), (2) keep the file as your own setting and read this ratio as a share of ${requested}, or (3) \`peaks compact harness-window --reset\` to remove the key and hand it back to peaks-loop.`;
 }
 
@@ -431,7 +434,12 @@ function harnessWindowConflictClause(result: HarnessWindowSyncResult): string {
  * different window and the disk keeps claiming `500k` on every probe after it.
  */
 function unreadableWindowValueClause(result: HarnessWindowSyncResult): string {
-  if (result.action !== 'skipped' || result.previousTokens !== null || result.previousRawValue === undefined) return '';
+  if (
+    result.action !== 'skipped' ||
+    result.previousTokens !== null ||
+    result.previousRawValue === undefined
+  )
+    return '';
   const raw = JSON.stringify(result.previousRawValue);
   return ` The value in ${result.settingsPath} is ${raw}, which is not a plain token count: peaks-loop cannot read a window from it, so it resolved this ratio against its own fallback while the file keeps saying ${raw}. peaks-loop cannot align the two without overwriting a value it did not write — set the value to a plain token count, or run \`peaks compact harness-window --reset\` to remove the key and let the next probe write peaks-loop's number.`;
 }
@@ -514,7 +522,8 @@ export function readHarnessWindow(input: {
   readonly env?: NodeJS.ProcessEnv | undefined;
 }): HarnessWindowReadResult {
   const settings = readSettingsObject(input.location.settingsPath);
-  const optedOut = envString(settings, HARNESS_WINDOW_SYNC_OPTOUT_KEY) === HARNESS_WINDOW_SYNC_OPTOUT_VALUE;
+  const optedOut =
+    envString(settings, HARNESS_WINDOW_SYNC_OPTOUT_KEY) === HARNESS_WINDOW_SYNC_OPTOUT_VALUE;
 
   // Provenance is a property of the KEY — "is peaks-loop the current writer of
   // this key?" — so it is decided by the FILE's value against the marker,
@@ -535,16 +544,34 @@ export function readHarnessWindow(input: {
   const fromEnv = input.env?.[input.location.envVar];
   if (fromEnv !== undefined) {
     return {
-      tokens: parseHarnessWindowTokens(fromEnv), raw: fromEnv, source: 'process-env',
-      optedOut, peakWritten, fileTokens, fileRaw
+      tokens: parseHarnessWindowTokens(fromEnv),
+      raw: fromEnv,
+      source: 'process-env',
+      optedOut,
+      peakWritten,
+      fileTokens,
+      fileRaw
     };
   }
   if (fileRaw !== undefined) {
-    return { tokens: fileTokens, raw: fileRaw, source: 'settings-file', optedOut, peakWritten, fileTokens, fileRaw };
+    return {
+      tokens: fileTokens,
+      raw: fileRaw,
+      source: 'settings-file',
+      optedOut,
+      peakWritten,
+      fileTokens,
+      fileRaw
+    };
   }
   return {
-    tokens: null, raw: undefined, source: null, optedOut, peakWritten: false,
-    fileTokens: null, fileRaw: undefined
+    tokens: null,
+    raw: undefined,
+    source: null,
+    optedOut,
+    peakWritten: false,
+    fileTokens: null,
+    fileRaw: undefined
   };
 }
 
@@ -633,9 +660,10 @@ export function syncHarnessWindow(input: {
   }
 
   const settings = fileSettings ?? {};
-  const env = typeof settings.env === 'object' && settings.env !== null && !Array.isArray(settings.env)
-    ? (settings.env as Record<string, unknown>)
-    : {};
+  const env =
+    typeof settings.env === 'object' && settings.env !== null && !Array.isArray(settings.env)
+      ? (settings.env as Record<string, unknown>)
+      : {};
   const next = {
     ...settings,
     // A JSON env block is string-valued. `String(tokens)` is the plain token
@@ -702,9 +730,10 @@ export function resetHarnessWindow(input: {
     return { settingsPath, action: 'absent', previousTokens };
   }
 
-  const env = typeof settings.env === 'object' && settings.env !== null && !Array.isArray(settings.env)
-    ? { ...(settings.env as Record<string, unknown>) }
-    : {};
+  const env =
+    typeof settings.env === 'object' && settings.env !== null && !Array.isArray(settings.env)
+      ? { ...(settings.env as Record<string, unknown>) }
+      : {};
   delete env[input.location.envVar];
   // The provenance marker goes with the value it describes — a marker left
   // behind would claim ownership of whatever the user writes next.
@@ -767,11 +796,10 @@ export function resetHarnessWindow(input: {
  *
  * Idempotent: a second call reports `already-opted-out` and rewrites nothing.
  */
-export function disableHarnessWindowSync(input: {
-  readonly location: HarnessWindowLocation;
-}): {
+export function disableHarnessWindowSync(input: { readonly location: HarnessWindowLocation }): {
   readonly settingsPath: string;
-  readonly action: 'disabled' | 'already-opted-out' | 'unreadable-settings' | 'refused-unsafe-project-root';
+  readonly action:
+    'disabled' | 'already-opted-out' | 'unreadable-settings' | 'refused-unsafe-project-root';
 } {
   const settingsPath = input.location.settingsPath;
   // Checked FIRST, before `isEditable` and before any directory is created:
@@ -783,9 +811,10 @@ export function disableHarnessWindowSync(input: {
   if (!isEditable(settingsPath)) {
     return { settingsPath, action: 'unreadable-settings' };
   }
-  const env = typeof settings?.env === 'object' && settings.env !== null && !Array.isArray(settings.env)
-    ? { ...(settings.env as Record<string, unknown>) }
-    : {};
+  const env =
+    typeof settings?.env === 'object' && settings.env !== null && !Array.isArray(settings.env)
+      ? { ...(settings.env as Record<string, unknown>) }
+      : {};
   if (env[HARNESS_WINDOW_SYNC_OPTOUT_KEY] === HARNESS_WINDOW_SYNC_OPTOUT_VALUE) {
     return { settingsPath, action: 'already-opted-out' };
   }
@@ -800,15 +829,17 @@ export function disableHarnessWindowSync(input: {
  * Undo the opt-out (the companion of `resetHarnessWindow`) so peaks-loop
  * resumes owning the harness window.
  */
-export function reenableHarnessWindowSync(input: {
-  readonly location: HarnessWindowLocation;
-}): { readonly settingsPath: string; readonly action: 'reenabled' | 'absent' } {
+export function reenableHarnessWindowSync(input: { readonly location: HarnessWindowLocation }): {
+  readonly settingsPath: string;
+  readonly action: 'reenabled' | 'absent';
+} {
   const settingsPath = input.location.settingsPath;
   const settings = readSettingsObject(settingsPath);
   if (settings === null) return { settingsPath, action: 'absent' };
-  const env = typeof settings.env === 'object' && settings.env !== null && !Array.isArray(settings.env)
-    ? { ...(settings.env as Record<string, unknown>) }
-    : {};
+  const env =
+    typeof settings.env === 'object' && settings.env !== null && !Array.isArray(settings.env)
+      ? { ...(settings.env as Record<string, unknown>) }
+      : {};
   if (env[HARNESS_WINDOW_SYNC_OPTOUT_KEY] === undefined) return { settingsPath, action: 'absent' };
   delete env[HARNESS_WINDOW_SYNC_OPTOUT_KEY];
   writeFileSync(settingsPath, `${JSON.stringify({ ...settings, env }, null, 2)}\n`, 'utf8');

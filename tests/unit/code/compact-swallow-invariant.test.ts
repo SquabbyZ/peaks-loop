@@ -46,22 +46,25 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { declareDimensions } from '../_setup/4dim-template.js';
 import { runAutoCompact } from '~/src/services/code/auto-compact-orchestrator';
-import { readOpenDispatchRun, settleOpenLifecycleRun } from '~/src/services/code/auto-compact-lifecycle';
+import {
+  readOpenDispatchRun,
+  settleOpenLifecycleRun
+} from '~/src/services/code/auto-compact-lifecycle';
 import {
   readCompactLifecycle,
-  writeCompactLifecycle,
+  writeCompactLifecycle
 } from '~/src/services/compact-statusline/compact-lifecycle-store';
 import { getSessionDir, tryGetSessionDir } from '~/src/services/session/getSessionDir';
 import {
   emitObservabilityEvent,
-  readObservabilityEvents,
+  readObservabilityEvents
 } from '~/src/services/observability/observability-service';
 
 declareDimensions('tests/unit/code/compact-swallow-invariant.test.ts', [
   'render',
   'behavior',
   'integration',
-  'a11y',
+  'a11y'
 ]);
 
 const SID = '2026-09-15-session-r6-invariant';
@@ -81,7 +84,9 @@ function historyPath(root: string, sid: string): string {
 function historyRows(root: string, sid: string): number {
   const path = historyPath(root, sid);
   if (!existsSync(path)) return 0;
-  return readFileSync(path, 'utf8').split(/\r?\n/).filter((l) => l.length > 0).length;
+  return readFileSync(path, 'utf8')
+    .split(/\r?\n/)
+    .filter((l) => l.length > 0).length;
 }
 
 let projectRoot = '';
@@ -97,8 +102,8 @@ function plantArmedRun(root: string): void {
       stage: 'armed',
       updatedAt: new Date().toISOString(),
       triggerRatio: 0.86,
-      redLine: false,
-    },
+      redLine: false
+    }
   });
 }
 
@@ -126,7 +131,7 @@ describe('Scenario: integration — site 2, the same directory reached by two id
     expect(readOpenDispatchRun({ projectRoot, sessionId: SID })).toMatchObject({
       kind: 'open',
       runId: 'r6-armed-1',
-      stage: 'armed',
+      stage: 'armed'
     });
 
     // and the equivalent id must NOT collapse to "nothing is outstanding".
@@ -154,7 +159,9 @@ describe('Scenario: integration — site 2, the same directory reached by two id
 
   it('when invoked, should refuse the traversal id the same way, so no id outside the axis admits a dispatch', () => {
     plantArmedRun(projectRoot);
-    expect(readOpenDispatchRun({ projectRoot, sessionId: UNSAFE })).toMatchObject({ kind: 'unresolvable' });
+    expect(readOpenDispatchRun({ projectRoot, sessionId: UNSAFE })).toMatchObject({
+      kind: 'unresolvable'
+    });
   });
 });
 
@@ -165,7 +172,7 @@ describe('Scenario: behavior — site 3, the never-throws contract on the observ
       ts: new Date().toISOString(),
       sessionId: '',
       category: 'checkpoint' as const,
-      detail: {},
+      detail: {}
     }) as const;
 
   it('when invoked, should report an unresolvable session id as a reason instead of throwing', () => {
@@ -205,7 +212,7 @@ describe('Scenario: behavior — site 1 (AC3), a settle that could not write is 
       measuredRatio: 0.4,
       source: 'statusline',
       autoFireThreshold: 0.85,
-      failLifecycleWrite: true,
+      failLifecycleWrite: true
     });
 
     // then: the facts are real and returned, and the settle is NOT claimed
@@ -215,7 +222,12 @@ describe('Scenario: behavior — site 1 (AC3), a settle that could not write is 
 
     // and the run is demonstrably still where it was — this is why a caller
     // must not read the returned record as "settled".
-    const record = readCompactLifecycle({ projectRoot, sessionId: SID, nowMs: Date.now(), staleAfterMs: 60_000 });
+    const record = readCompactLifecycle({
+      projectRoot,
+      sessionId: SID,
+      nowMs: Date.now(),
+      staleAfterMs: 60_000
+    });
     expect(record.kind).toBe('valid');
     expect(record.kind === 'valid' ? record.record.stage : null).toBe('armed');
   });
@@ -227,10 +239,15 @@ describe('Scenario: behavior — site 1 (AC3), a settle that could not write is 
       sessionId: SID,
       measuredRatio: 0.4,
       source: 'statusline',
-      autoFireThreshold: 0.85,
+      autoFireThreshold: 0.85
     });
     expect(settled?.lifecycleWritten).toBe(true);
-    const record = readCompactLifecycle({ projectRoot, sessionId: SID, nowMs: Date.now(), staleAfterMs: 60_000 });
+    const record = readCompactLifecycle({
+      projectRoot,
+      sessionId: SID,
+      nowMs: Date.now(),
+      staleAfterMs: 60_000
+    });
     expect(record.kind === 'valid' ? record.record.stage : null).toBe('completed');
   });
 
@@ -241,7 +258,7 @@ describe('Scenario: behavior — site 1 (AC3), a settle that could not write is 
       projectRoot,
       sessionId: SID,
       env: envAtRatio(0.4),
-      testHooks: { failLifecycleWrite: true },
+      testHooks: { failLifecycleWrite: true }
     };
 
     // when: three consecutive probes all measure the drop

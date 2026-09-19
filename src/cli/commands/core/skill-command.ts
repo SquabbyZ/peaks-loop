@@ -3,7 +3,14 @@ import { runDoctor } from '../../../services/doctor/index.js';
 import { listSkills } from '../../../services/skills/skill-registry.js';
 import { runSkillSync, SYNC_PLATFORMS } from '../../../services/skills/sync-service.js';
 import { inspectSkillRunbook } from '../../../services/skills/skill-runbook-service.js';
-import { setSkillPresence, clearSkillPresence, getSkillPresence, isSkillPresenceMode, touchSkillHeartbeat, checkStalePresence } from '../../../services/skills/skill-presence-service.js';
+import {
+  setSkillPresence,
+  clearSkillPresence,
+  getSkillPresence,
+  isSkillPresenceMode,
+  touchSkillHeartbeat,
+  checkStalePresence
+} from '../../../services/skills/skill-presence-service.js';
 import { detectPresenceMarker } from '../../../services/hooks/presence-marker-detector.js';
 import { findProjectRoot } from '../../../services/config/config-safety.js';
 import { generateProjectContext } from '../../../services/memory/project-context-service.js';
@@ -54,7 +61,10 @@ import { detectStaleGeneratedArtifacts } from '../../../services/workspace/gener
  * Failure swallows to `null`: the hygiene verdict is advisory and must
  * never be able to break the presence read itself.
  */
-export function buildContextVerdict(ratio: number, mode: AutoCompactMode): {
+export function buildContextVerdict(
+  ratio: number,
+  mode: AutoCompactMode
+): {
   context: { ratioPct: string; action: string; mode: string };
   nextActions: string[];
 } {
@@ -62,7 +72,8 @@ export function buildContextVerdict(ratio: number, mode: AutoCompactMode): {
   const ratioPct = `${(ratio * 100).toFixed(1)}%`;
   // `auto-fire` belongs in the in-zone set: it is the tier where
   // peaks-loop preempts rather than asking the LLM to decide.
-  const inZone = trigger.kind === 'auto-fire' || trigger.kind === 'pre-compact' || trigger.kind === 'red-line';
+  const inZone =
+    trigger.kind === 'auto-fire' || trigger.kind === 'pre-compact' || trigger.kind === 'red-line';
   return {
     context: { ratioPct, action: trigger.kind, mode },
     nextActions: inZone
@@ -165,7 +176,12 @@ import { registerSkillSearchCommand } from '../skill-search-commands.js';
 export function registerSkillCommand(program: Command, io: ProgramIO): void {
   const skill = program.command('skill').description('Manage Peaks skills');
 
-  addJsonOption(skill.command('list').description('List skills derived from skills/*/SKILL.md').option('--include-internal', 'include skills with visibility: internal (default: hide them)')).action(async (options: { json?: boolean; includeInternal?: boolean }) => {
+  addJsonOption(
+    skill
+      .command('list')
+      .description('List skills derived from skills/*/SKILL.md')
+      .option('--include-internal', 'include skills with visibility: internal (default: hide them)')
+  ).action(async (options: { json?: boolean; includeInternal?: boolean }) => {
     let skills = await listSkills();
     if (options.includeInternal !== true) {
       skills = skills.filter((s) => s.visibility !== 'internal');
@@ -194,26 +210,28 @@ export function registerSkillCommand(program: Command, io: ProgramIO): void {
     }
   });
 
-  addJsonOption(skill.command('doctor').description('Run skill-related doctor checks')).action(async (options: { json?: boolean }) => {
-    const report = await runDoctor();
-    const skillChecks = report.checks.filter((check) => check.id.startsWith('skill'));
-    const failed = skillChecks.filter((check) => !check.ok).length;
-    if (options.json === true) {
-      printResult(io, ok('skill.doctor', { checks: skillChecks, ok: failed === 0 }), true);
-    } else {
-      for (const check of skillChecks) {
-        const icon = check.ok ? '+' : '×';
-        io.stdout(`  ${icon}  ${check.message}`);
+  addJsonOption(skill.command('doctor').description('Run skill-related doctor checks')).action(
+    async (options: { json?: boolean }) => {
+      const report = await runDoctor();
+      const skillChecks = report.checks.filter((check) => check.id.startsWith('skill'));
+      const failed = skillChecks.filter((check) => !check.ok).length;
+      if (options.json === true) {
+        printResult(io, ok('skill.doctor', { checks: skillChecks, ok: failed === 0 }), true);
+      } else {
+        for (const check of skillChecks) {
+          const icon = check.ok ? '+' : '×';
+          io.stdout(`  ${icon}  ${check.message}`);
+        }
+        io.stdout(`\n  ${skillChecks.length - failed} passed, ${failed} failed`);
+        if (failed > 0) {
+          io.stderr('\nOne or more skill checks failed.');
+        }
       }
-      io.stdout(`\n  ${skillChecks.length - failed} passed, ${failed} failed`);
       if (failed > 0) {
-        io.stderr('\nOne or more skill checks failed.');
+        process.exitCode = 1;
       }
     }
-    if (failed > 0) {
-      process.exitCode = 1;
-    }
-  });
+  );
 
   // Slice #12 final piece (per spec §9 line 1105):
   // `peaks skills sync 8 平台分发`. Idempotent: re-running is a
@@ -224,47 +242,69 @@ export function registerSkillCommand(program: Command, io: ProgramIO): void {
       .description(
         `Sync the peaks-* skill family to one or all of the 8 supported LLM-CLI platforms (${SYNC_PLATFORMS.join(', ')}). Idempotent.`
       )
-      .option('--platform <id>', `sync only one platform (default: --all). Valid: ${SYNC_PLATFORMS.join(', ')}`)
+      .option(
+        '--platform <id>',
+        `sync only one platform (default: --all). Valid: ${SYNC_PLATFORMS.join(', ')}`
+      )
       .option('--all', 'sync all 8 platforms (default if --platform is omitted)')
       .option('--dry-run', 'do not write; emit the same shape with applied=false')
-      .option('--reconcile-junctions', 'repair Peaks-managed skill Junctions whose targets were deleted with a host worktree')
+      .option(
+        '--reconcile-junctions',
+        'repair Peaks-managed skill Junctions whose targets were deleted with a host worktree'
+      )
       .option('--project <path>', 'project root (default: cwd)')
-  ).action(async (options: { platform?: string; all?: boolean; dryRun?: boolean; reconcileJunctions?: boolean; project?: string; json?: boolean }) => {
-    try {
-      const projectRoot = options.project ?? process.cwd();
-      const platforms = options.platform !== undefined ? [options.platform as never] : undefined;
-      const result = await runSkillSync({
-        projectRoot,
-        ...(platforms !== undefined ? { platforms } : {}),
-        ...(options.dryRun === true ? { dryRun: true } : {}),
-        ...(options.reconcileJunctions === true ? { reconcileJunctions: true } : {}),
-      });
-      const envelope = ok('skill.sync', result, [], [
-        `syncedCount: ${result.syncedCount}/${result.perPlatform.length} platforms`,
-        `totalInstalled: ${result.totalInstalled} skill symlinks`,
-        result.failedCount > 0
-          ? `failedCount: ${result.failedCount} (run \`peaks skill status\` for details)`
-          : 'no failures',
-      ]);
-      printResult(io, envelope, options.json);
-      if (result.failedCount > 0) {
+  ).action(
+    async (options: {
+      platform?: string;
+      all?: boolean;
+      dryRun?: boolean;
+      reconcileJunctions?: boolean;
+      project?: string;
+      json?: boolean;
+    }) => {
+      try {
+        const projectRoot = options.project ?? process.cwd();
+        const platforms = options.platform !== undefined ? [options.platform as never] : undefined;
+        const result = await runSkillSync({
+          projectRoot,
+          ...(platforms !== undefined ? { platforms } : {}),
+          ...(options.dryRun === true ? { dryRun: true } : {}),
+          ...(options.reconcileJunctions === true ? { reconcileJunctions: true } : {})
+        });
+        const envelope = ok(
+          'skill.sync',
+          result,
+          [],
+          [
+            `syncedCount: ${result.syncedCount}/${result.perPlatform.length} platforms`,
+            `totalInstalled: ${result.totalInstalled} skill symlinks`,
+            result.failedCount > 0
+              ? `failedCount: ${result.failedCount} (run \`peaks skill status\` for details)`
+              : 'no failures'
+          ]
+        );
+        printResult(io, envelope, options.json);
+        if (result.failedCount > 0) {
+          process.exitCode = 1;
+        }
+      } catch (error) {
+        const message = getErrorMessage(error);
+        printResult(
+          io,
+          fail('skill.sync', 'SKILL_SYNC_FAILED', message, { applied: false }, [message]),
+          options.json
+        );
         process.exitCode = 1;
       }
-    } catch (error) {
-      const message = getErrorMessage(error);
-      printResult(
-        io,
-        fail('skill.sync', 'SKILL_SYNC_FAILED', message, { applied: false }, [message]),
-        options.json
-      );
-      process.exitCode = 1;
     }
-  });
+  );
 
   addJsonOption(
     skill
       .command('runbook <name>')
-      .description('Inspect a skill Default runbook section and its --apply authorization-note status')
+      .description(
+        'Inspect a skill Default runbook section and its --apply authorization-note status'
+      )
   ).action(async (name: string, options: { json?: boolean }) => {
     try {
       const inspection = await inspectSkillRunbook(name);
@@ -278,7 +318,9 @@ export function registerSkillCommand(program: Command, io: ProgramIO): void {
               : `Skill ${inspection.name} is missing a ## Default runbook section`,
             inspection,
             inspection.hasRunbook
-              ? ['Add an authorization or --dry-run note next to destructive --apply lines in the runbook section']
+              ? [
+                  'Add an authorization or --dry-run note next to destructive --apply lines in the runbook section'
+                ]
               : ['Add a `## Default runbook` section to the skill SKILL.md']
           );
       printResult(io, result, options.json);
@@ -299,7 +341,10 @@ export function registerSkillCommand(program: Command, io: ProgramIO): void {
     skill
       .command('presence')
       .description('Show the currently active Peaks skill (alias: presence:get)')
-      .option('--check-stale', 'slice 002 (v2.15.0): also report whether the recorded outer session id still matches the current one. Default false (back-compat).')
+      .option(
+        '--check-stale',
+        'slice 002 (v2.15.0): also report whether the recorded outer session id still matches the current one. Default false (back-compat).'
+      )
       .option('--project <path>', 'project root (default: cwd)')
   ).action((options: { json?: boolean; checkStale?: boolean; project?: string }) => {
     const projectOption = canonicalizeProjectOption(options.project);
@@ -328,16 +373,21 @@ export function registerSkillCommand(program: Command, io: ProgramIO): void {
       const staleness = checkStalePresence({ projectRootOverride: projectOption });
       printResult(
         io,
-        ok('skill.presence', {
-          active: true,
-          ...presence,
-          stale: staleness.stale,
-          staleReason: staleness.reason,
-          currentOuterSessionId: staleness.currentOuterSessionId,
-          recordedOuterSessionId: staleness.recordedOuterSessionId,
-          ...(verdict.context !== null ? { context: verdict.context } : {}),
-          ...generatedConfig.field
-        }, generatedConfig.warnings, verdict.nextActions),
+        ok(
+          'skill.presence',
+          {
+            active: true,
+            ...presence,
+            stale: staleness.stale,
+            staleReason: staleness.reason,
+            currentOuterSessionId: staleness.currentOuterSessionId,
+            recordedOuterSessionId: staleness.recordedOuterSessionId,
+            ...(verdict.context !== null ? { context: verdict.context } : {}),
+            ...generatedConfig.field
+          },
+          generatedConfig.warnings,
+          verdict.nextActions
+        ),
         options.json
       );
       return;
@@ -346,7 +396,12 @@ export function registerSkillCommand(program: Command, io: ProgramIO): void {
       io,
       ok(
         'skill.presence',
-        { active: true, ...presence, ...(verdict.context !== null ? { context: verdict.context } : {}), ...generatedConfig.field },
+        {
+          active: true,
+          ...presence,
+          ...(verdict.context !== null ? { context: verdict.context } : {}),
+          ...generatedConfig.field
+        },
         generatedConfig.warnings,
         verdict.nextActions
       ),
@@ -357,78 +412,97 @@ export function registerSkillCommand(program: Command, io: ProgramIO): void {
   addJsonOption(
     skill
       .command('presence:set <name>')
-      .description('Set the currently active Peaks skill for session-wide visibility. Slice 4.0.8: requires a bound session and an adapter-resolved caller id (fail-closed); raw unlink is rejected.')
+      .description(
+        'Set the currently active Peaks skill for session-wide visibility. Slice 4.0.8: requires a bound session and an adapter-resolved caller id (fail-closed); raw unlink is rejected.'
+      )
       .option('--mode <mode>', 'execution mode')
       .option('--gate <gate>', 'current gate')
       .option('--project <path>', 'project root path (auto-detected from cwd when omitted)')
-  ).action((name: string, options: { mode?: string; gate?: string; project?: string; json?: boolean }) => {
-    const projectOption = canonicalizeProjectOption(options.project);
-    const projectRoot = projectOption ?? findProjectRoot(process.cwd()) ?? process.cwd();
-    if (options.mode !== undefined && !isSkillPresenceMode(options.mode)) {
-      printResult(
-        io,
-        fail('skill.presence:set', 'INVALID_MODE',
-          `Invalid mode: ${options.mode} (expected one of: full-auto, assisted, strict, 24h)`,
-          { name, mode: options.mode },
-          ['Use a valid mode: full-auto, assisted, strict, or 24h']),
-        options.json
-      );
-      process.exitCode = 1;
-      return;
+  ).action(
+    (name: string, options: { mode?: string; gate?: string; project?: string; json?: boolean }) => {
+      const projectOption = canonicalizeProjectOption(options.project);
+      const projectRoot = projectOption ?? findProjectRoot(process.cwd()) ?? process.cwd();
+      if (options.mode !== undefined && !isSkillPresenceMode(options.mode)) {
+        printResult(
+          io,
+          fail(
+            'skill.presence:set',
+            'INVALID_MODE',
+            `Invalid mode: ${options.mode} (expected one of: full-auto, assisted, strict, 24h)`,
+            { name, mode: options.mode },
+            ['Use a valid mode: full-auto, assisted, strict, or 24h']
+          ),
+          options.json
+        );
+        process.exitCode = 1;
+        return;
+      }
+      // Slice 4.0.8 (D1 + D2): `presence:set` is fail-closed. We refuse
+      // any write when (a) no peaks session is bound, or (b) the active
+      // IDE adapter cannot resolve a valid callerId. Both failures
+      // surface BEFORE any filesystem write. The legacy
+      // `setSkillPresence` wrapper is kept as a compat shim for tests
+      // and CLI flows that intentionally do not need a session — but
+      // production CLI traffic must go through this gate.
+      const boundSessionId = getSessionId(projectRoot);
+      if (boundSessionId === null) {
+        printResult(
+          io,
+          fail(
+            'skill.presence:set',
+            'PEAKS_SESSION_NOT_BOUND',
+            'No canonical peaks session is bound for this project (RD §3 D1).',
+            { projectRoot, name },
+            [
+              'Run `peaks workspace init --project <p>` first, then re-run `peaks skill presence:set`.'
+            ]
+          ),
+          options.json
+        );
+        process.exitCode = 1;
+        return;
+      }
+      try {
+        resolveCallerProjection({ projectRoot });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        printResult(
+          io,
+          fail(
+            'skill.presence:set',
+            'PEAKS_CALLER_NOT_RESOLVED',
+            `Active IDE adapter could not resolve a callerId (RD §3 D1): ${message}`,
+            { projectRoot, name },
+            [
+              'Ensure the active IDE is detected by `peaks` and the IDE session variable is set.',
+              'Or set PEAKS_CALLER_ID=<id> in the environment for scripted usage.'
+            ]
+          ),
+          options.json
+        );
+        process.exitCode = 1;
+        return;
+      }
+      const presence = setSkillPresence(name, options.mode, options.gate, projectOption);
+      // Session metadata is updated when a session is bound (read-only
+      // path: `getSessionId`). We do not auto-spawn a session.
+      if (boundSessionId !== null) {
+        setSessionMeta(projectRoot, boundSessionId, {
+          skill: name,
+          ...(options.mode ? { mode: options.mode } : {}),
+          ...(options.gate ? { gate: options.gate } : {})
+        });
+      }
+      printResult(io, ok('skill.presence:set', { active: true, ...presence }), options.json);
     }
-    // Slice 4.0.8 (D1 + D2): `presence:set` is fail-closed. We refuse
-    // any write when (a) no peaks session is bound, or (b) the active
-    // IDE adapter cannot resolve a valid callerId. Both failures
-    // surface BEFORE any filesystem write. The legacy
-    // `setSkillPresence` wrapper is kept as a compat shim for tests
-    // and CLI flows that intentionally do not need a session — but
-    // production CLI traffic must go through this gate.
-    const boundSessionId = getSessionId(projectRoot);
-    if (boundSessionId === null) {
-      printResult(
-        io,
-        fail('skill.presence:set', 'PEAKS_SESSION_NOT_BOUND',
-          'No canonical peaks session is bound for this project (RD §3 D1).',
-          { projectRoot, name },
-          ['Run `peaks workspace init --project <p>` first, then re-run `peaks skill presence:set`.']),
-        options.json
-      );
-      process.exitCode = 1;
-      return;
-    }
-    try {
-      resolveCallerProjection({ projectRoot });
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      printResult(
-        io,
-        fail('skill.presence:set', 'PEAKS_CALLER_NOT_RESOLVED',
-          `Active IDE adapter could not resolve a callerId (RD §3 D1): ${message}`,
-          { projectRoot, name },
-          ['Ensure the active IDE is detected by `peaks` and the IDE session variable is set.',
-           'Or set PEAKS_CALLER_ID=<id> in the environment for scripted usage.']),
-        options.json
-      );
-      process.exitCode = 1;
-      return;
-    }
-    const presence = setSkillPresence(name, options.mode, options.gate, projectOption);
-    // Session metadata is updated when a session is bound (read-only
-    // path: `getSessionId`). We do not auto-spawn a session.
-    if (boundSessionId !== null) {
-      setSessionMeta(projectRoot, boundSessionId, {
-        skill: name,
-        ...(options.mode ? { mode: options.mode } : {}),
-        ...(options.gate ? { gate: options.gate } : {})
-      });
-    }
-    printResult(io, ok('skill.presence:set', { active: true, ...presence }), options.json);
-  });
+  );
 
   addJsonOption(
     skill
       .command('presence:clear')
-      .description('Unlink the DEPRECATED pre-4.0.11 single-slot presence marker files (`.peaks/_runtime/active-skill.json`, `.peaks/.active-skill.json`). It does NOT terminalize a live presence lease — a workflow-bound lease terminalizes through `peaks workflow terminalize --workflow <id> --reason <reason>`, an ad-hoc lease only at session exit, and raw unlink is FORBIDDEN for both. The envelope reports what is still active.')
+      .description(
+        'Unlink the DEPRECATED pre-4.0.11 single-slot presence marker files (`.peaks/_runtime/active-skill.json`, `.peaks/.active-skill.json`). It does NOT terminalize a live presence lease — a workflow-bound lease terminalizes through `peaks workflow terminalize --workflow <id> --reason <reason>`, an ad-hoc lease only at session exit, and raw unlink is FORBIDDEN for both. The envelope reports what is still active.'
+      )
       .option('--project <path>', 'project root path (auto-detected from cwd when omitted)')
   ).action(async (options: { project?: string; json?: boolean }) => {
     const projectRoot = options.project ?? findProjectRoot(process.cwd()) ?? process.cwd();
@@ -448,7 +522,8 @@ export function registerSkillCommand(program: Command, io: ProgramIO): void {
     // signature; failure is still non-fatal so we don't block the clear.
     try {
       await generateProjectContext(projectRoot);
-    } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+    } catch {
+      // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
       // non-fatal: context update failure should not block presence clear
     }
     // Report the state the project is actually in, not the state this command
@@ -510,7 +585,9 @@ export function registerSkillCommand(program: Command, io: ProgramIO): void {
   addJsonOption(
     skill
       .command('lease gc')
-      .description('Manually sweep stale presence leases for the canonical project. Both predicates required: now - lastHeartbeat > 1h AND now - startedAt > 24h. Drained leases are classified; corrupt graphs surface as PEAKS_GRAPH_REF_BROKEN warnings and are excluded.')
+      .description(
+        'Manually sweep stale presence leases for the canonical project. Both predicates required: now - lastHeartbeat > 1h AND now - startedAt > 24h. Drained leases are classified; corrupt graphs surface as PEAKS_GRAPH_REF_BROKEN warnings and are excluded.'
+      )
       .option('--project <path>', 'project root (default: cwd)')
       .option('--now <iso>', 'override the current time (test seam)')
   ).action(async (options: { project?: string; now?: string; json?: boolean }) => {
@@ -519,22 +596,37 @@ export function registerSkillCommand(program: Command, io: ProgramIO): void {
       const result = await gcStalePresenceLeases({
         projectRoot,
         ...(options.now !== undefined ? { now: options.now } : {}),
-        trigger: 'manual',
+        trigger: 'manual'
       });
-      printResult(io, ok('skill.lease.gc', {
-        envelopeVersion: '4.0.8',
-        removed: result.removed,
-        retained: result.retained,
-        trigger: result.trigger,
-        inFlightBatch: result.inFlightBatch,
-        warnings: result.warnings,
-        errors: result.errors,
-      }, result.warnings.map((w) => `${w.code}: ${w.message}`), [
-        'GC predicate: now - lastHeartbeat > 1h AND now - startedAt > 24h (RD §3 D2 + D3).',
-        'Re-run `peaks workspace init` or `peaks skill presence:set` to sweep the same project on the bound trigger.',
-      ]), options.json);
+      printResult(
+        io,
+        ok(
+          'skill.lease.gc',
+          {
+            envelopeVersion: '4.0.8',
+            removed: result.removed,
+            retained: result.retained,
+            trigger: result.trigger,
+            inFlightBatch: result.inFlightBatch,
+            warnings: result.warnings,
+            errors: result.errors
+          },
+          result.warnings.map((w) => `${w.code}: ${w.message}`),
+          [
+            'GC predicate: now - lastHeartbeat > 1h AND now - startedAt > 24h (RD §3 D2 + D3).',
+            'Re-run `peaks workspace init` or `peaks skill presence:set` to sweep the same project on the bound trigger.'
+          ]
+        ),
+        options.json
+      );
     } catch (err) {
-      printResult(io, fail('skill.lease.gc', 'PEAKS_LEASE_GC_FAILED', getErrorMessage(err), { projectRoot }, ['Re-run with a valid --project and ensure the session is bound.']), options.json);
+      printResult(
+        io,
+        fail('skill.lease.gc', 'PEAKS_LEASE_GC_FAILED', getErrorMessage(err), { projectRoot }, [
+          'Re-run with a valid --project and ensure the session is bound.'
+        ]),
+        options.json
+      );
       process.exitCode = 1;
     }
   });
@@ -552,7 +644,10 @@ export function registerSkillCommand(program: Command, io: ProgramIO): void {
           'Pure read-only — does NOT clear the presence (use `peaks skill presence:clear` for that).'
       )
       .option('--project <path>', 'project root (default: cwd)')
-      .option('--current-outer <id>', 'override the current outer session id (test seam; default: read from PEAKS_OUTER_SESSION_ID / CLAUDE_CODE_SESSION_ID)')
+      .option(
+        '--current-outer <id>',
+        'override the current outer session id (test seam; default: read from PEAKS_OUTER_SESSION_ID / CLAUDE_CODE_SESSION_ID)'
+      )
   ).action((options: { project?: string; currentOuter?: string; json?: boolean }) => {
     // v2.15.0 slice 002 repair: do NOT pass `currentOuter: undefined`
     // when the user omits the flag. The service-layer branch
@@ -586,47 +681,64 @@ export function registerSkillCommand(program: Command, io: ProgramIO): void {
   });
 
   addJsonOption(
-    skill
-      .command('heartbeat')
-      .description('Show the heartbeat status of the active Peaks skill')
+    skill.command('heartbeat').description('Show the heartbeat status of the active Peaks skill')
   ).action((options: { json?: boolean }) => {
     const presence = getSkillPresence();
     if (presence === null) {
       printResult(io, ok('skill.heartbeat', { active: false, heartbeat: 'none' }), options.json);
       return;
     }
-    printResult(io, ok('skill.heartbeat', {
-      active: true,
-      skill: presence.skill,
-      gate: presence.gate ?? null,
-      lastHeartbeat: presence.lastHeartbeat ?? presence.setAt,
-      setAt: presence.setAt
-    }), options.json);
+    printResult(
+      io,
+      ok('skill.heartbeat', {
+        active: true,
+        skill: presence.skill,
+        gate: presence.gate ?? null,
+        lastHeartbeat: presence.lastHeartbeat ?? presence.setAt,
+        setAt: presence.setAt
+      }),
+      options.json
+    );
   });
 
   addJsonOption(
     skill
       .command('heartbeat:touch')
-      .description('Update the heartbeat timestamp (called by the LLM each turn to confirm peaks skill context is alive)')
+      .description(
+        'Update the heartbeat timestamp (called by the LLM each turn to confirm peaks skill context is alive)'
+      )
   ).action((options: { json?: boolean }) => {
     const updated = touchSkillHeartbeat();
     if (updated === null) {
-      printResult(io, ok('skill.heartbeat:touch', { active: false, heartbeat: 'none' }), options.json);
+      printResult(
+        io,
+        ok('skill.heartbeat:touch', { active: false, heartbeat: 'none' }),
+        options.json
+      );
       return;
     }
-    printResult(io, ok('skill.heartbeat:touch', {
-      active: true,
-      skill: updated.skill,
-      lastHeartbeat: updated.lastHeartbeat
-    }), options.json);
+    printResult(
+      io,
+      ok('skill.heartbeat:touch', {
+        active: true,
+        skill: updated.skill,
+        lastHeartbeat: updated.lastHeartbeat
+      }),
+      options.json
+    );
   });
 
   addJsonOption(
     skill
       .command('detect-marker-loss')
-      .description('Detect whether the latest assistant message lost the Peaks-Loop status header while a peaks skill is still active (slice 028 detection primitive).')
+      .description(
+        'Detect whether the latest assistant message lost the Peaks-Loop status header while a peaks skill is still active (slice 028 detection primitive).'
+      )
       .option('--project <path>', 'project root path (auto-detected from cwd when omitted)')
-      .option('--message <text>', 'latest assistant message text to scan (defaults to reading the most recent LLM response from the stdin pipe, or empty string when no pipe is attached)')
+      .option(
+        '--message <text>',
+        'latest assistant message text to scan (defaults to reading the most recent LLM response from the stdin pipe, or empty string when no pipe is attached)'
+      )
   ).action((options: { project?: string; message?: string; json?: boolean }) => {
     const projectRoot = options.project ?? findProjectRoot(process.cwd()) ?? process.cwd();
     const message = options.message ?? '';

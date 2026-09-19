@@ -30,14 +30,23 @@ export function registerVendorDetectCommand(program: Command, io: ProgramIO): vo
       .command('vendor-detect')
       .description(
         'Detect which vendor CLIs (claude / codex / copilot) are installed ' +
-        'on PATH and recommend a default for --mode detached dispatch. ' +
-        'Returns `{ installed: string[], recommended: <id|null> }`.'
+          'on PATH and recommend a default for --mode detached dispatch. ' +
+          'Returns `{ installed: string[], recommended: <id|null> }`.'
       )
   ).action(async (options: { json: boolean }) => {
     const result = await vendorDetect({ json: options.json === true });
-    printResult(io, ok('vendor-detect', result.data, [], [
-      'Pass the recommended vendor id to `peaks sub-agent dispatch --mode detached --vendor <id>`.',
-      'Re-run with --json to machine-parse.'
-    ]), options.json === true);
+    printResult(
+      io,
+      ok(
+        'vendor-detect',
+        result.data,
+        [],
+        [
+          'Pass the recommended vendor id to `peaks sub-agent dispatch --mode detached --vendor <id>`.',
+          'Re-run with --json to machine-parse.'
+        ]
+      ),
+      options.json === true
+    );
   });
 }

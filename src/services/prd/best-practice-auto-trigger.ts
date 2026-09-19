@@ -37,10 +37,7 @@ import { join } from 'node:path';
 import { showRequestArtifact } from '../artifacts/request-artifact-service.js';
 
 export type BestPracticeTriggerStatus =
-  | 'triggered'
-  | 'skipped-empty-goal'
-  | 'skipped-artifact-missing'
-  | 'failed';
+  'triggered' | 'skipped-empty-goal' | 'skipped-artifact-missing' | 'failed';
 
 export type BestPracticeTriggerResult = {
   readonly status: BestPracticeTriggerStatus;

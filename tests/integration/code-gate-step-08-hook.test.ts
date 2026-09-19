@@ -46,8 +46,8 @@ function runCli(args: readonly string[], cwd: string, stdinText?: string): RunRe
   } catch (err: unknown) {
     const e = err as { stdout?: Buffer | string; stderr?: Buffer | string; status?: number };
     return {
-      stdout: (typeof e.stdout === 'string' ? e.stdout : e.stdout?.toString('utf8') ?? ''),
-      stderr: (typeof e.stderr === 'string' ? e.stderr : e.stderr?.toString('utf8') ?? ''),
+      stdout: typeof e.stdout === 'string' ? e.stdout : (e.stdout?.toString('utf8') ?? ''),
+      stderr: typeof e.stderr === 'string' ? e.stderr : (e.stderr?.toString('utf8') ?? ''),
       code: e.status ?? 1
     };
   }
@@ -69,7 +69,12 @@ afterEach(() => {
   projects.length = 0;
 });
 
-function writeDecisionAndProgress(project: string, isJob: boolean, jid: string, progress?: { done: number; total: number; currentSlice: string }): void {
+function writeDecisionAndProgress(
+  project: string,
+  isJob: boolean,
+  jid: string,
+  progress?: { done: number; total: number; currentSlice: string }
+): void {
   writeJobShapeDecision(
     project,
     SESSION_ID,
@@ -134,20 +139,34 @@ describe('peaks code gate-step-08 (v3.1.2) hook integration', () => {
     const project = makeProject();
     projects.push(project);
     const r = runCli(
-      ['--project', project, '--session-id', SESSION_ID, '--prompt', '继续执行下个 slice,直到全部添加完,不用考虑费用', '--json'],
+      [
+        '--project',
+        project,
+        '--session-id',
+        SESSION_ID,
+        '--prompt',
+        '继续执行下个 slice,直到全部添加完,不用考虑费用',
+        '--json'
+      ],
       project
     );
     expect(r.code).toBe(2);
     expect(r.stderr).toMatch(/BLOCKED:/);
     expect(r.stderr).toMatch(/peaks code detect-job/);
-    const env = JSON.parse(r.stdout) as { ok: boolean; code: string; data: { promptSource: string; backupRegex: string } };
+    const env = JSON.parse(r.stdout) as {
+      ok: boolean;
+      code: string;
+      data: { promptSource: string; backupRegex: string };
+    };
     expect(env.ok).toBe(false);
     expect(env.code).toBe('STEP_08_BLOCKED');
     // The CLI surfaces promptSource (flag / last-prompt-file / stdin-empty)
     // and the backup regex in the failure envelope; the promptHit boolean
     // is internal to evaluateStep08.
     expect(env.data.promptSource).toBe('flag');
-    expect(env.data.backupRegex).toMatch(/until|全部|until all done|disavow cost|不用考虑费用|all of them/);
+    expect(env.data.backupRegex).toMatch(
+      /until|全部|until all done|disavow cost|不用考虑费用|all of them/
+    );
   });
 
   test('AC-4: no decision + innocuous prompt → exit 0 + mode=undecided-no-regex-hit', () => {

@@ -31,7 +31,7 @@ import {
   buildWorkspaceUnavailable,
   planArtifactPath,
   validateChangeId,
-  type Result,
+  type Result
 } from '../openspec/artifact-boundary.js';
 
 export type TechArtifactPathResult = PlanArtifactPathOutput;
@@ -99,7 +99,7 @@ export function planTechArtifactPath(input: {
     workspaceRoot: input.workspaceRoot,
     role: 'architecture',
     requestId: input.requestId,
-    template: `${TECH_ARCHITECTURE_ROOT}/tech-task-graph.json`,
+    template: `${TECH_ARCHITECTURE_ROOT}/tech-task-graph.json`
   });
   if (!taskGraphResult.ok) return taskGraphResult;
 
@@ -111,7 +111,7 @@ export function planTechArtifactPath(input: {
       workspaceRoot: input.workspaceRoot,
       role: 'architecture',
       requestId: input.requestId,
-      template: `${TECH_ARCHITECTURE_ROOT}/waves/wave-${index + 1}-${wave}.json`,
+      template: `${TECH_ARCHITECTURE_ROOT}/waves/wave-${index + 1}-${wave}.json`
     });
     if (!waveResult.ok) return waveResult;
     waveManifestResults.push(waveResult.value);
@@ -122,7 +122,7 @@ export function planTechArtifactPath(input: {
     workspaceRoot: input.workspaceRoot,
     role: 'architecture',
     requestId: input.requestId,
-    template: `${TECH_ARCHITECTURE_ROOT}/tech-review-checklist.md`,
+    template: `${TECH_ARCHITECTURE_ROOT}/tech-review-checklist.md`
   });
   if (!reviewChecklistResult.ok) return reviewChecklistResult;
 
@@ -131,7 +131,7 @@ export function planTechArtifactPath(input: {
     workspaceRoot: input.workspaceRoot,
     role: 'architecture',
     requestId: input.requestId,
-    template: `${TECH_ARCHITECTURE_ROOT}/tech-approval-record.template.md`,
+    template: `${TECH_ARCHITECTURE_ROOT}/tech-approval-record.template.md`
   });
   if (!approvalTemplateResult.ok) return approvalTemplateResult;
 
@@ -141,8 +141,8 @@ export function planTechArtifactPath(input: {
       taskGraph: taskGraphResult.value,
       waveManifests: waveManifestResults,
       reviewChecklist: reviewChecklistResult.value,
-      approvalTemplate: approvalTemplateResult.value,
-    },
+      approvalTemplate: approvalTemplateResult.value
+    }
   };
 }
 

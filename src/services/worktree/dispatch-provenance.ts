@@ -29,7 +29,7 @@ export function createDispatchProvenanceToken(input: {
 export function dispatchProvenanceFilePath(
   projectRoot: string,
   sessionId: string,
-  token: string,
+  token: string
 ): string {
   return join(projectRoot, '.peaks', '_runtime', sessionId, PROVENANCE_DIR, `${token}.json`);
 }
@@ -38,7 +38,11 @@ export function writeDispatchProvenance(input: {
   readonly projectRoot: string;
   readonly record: DispatchProvenance;
 }): void {
-  const path = dispatchProvenanceFilePath(input.projectRoot, input.record.sessionId, input.record.token);
+  const path = dispatchProvenanceFilePath(
+    input.projectRoot,
+    input.record.sessionId,
+    input.record.token
+  );
   mkdirSync(dirname(path), { recursive: true });
   const tempPath = `${path}.tmp-${process.pid}-${Date.now()}`;
   writeFileSync(tempPath, `${JSON.stringify(input.record, null, 2)}\n`, 'utf8');

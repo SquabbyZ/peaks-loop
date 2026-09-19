@@ -1,7 +1,12 @@
 import type { Command } from 'commander';
 import { addJsonOption, printResult, type ProgramIO } from '../../cli-helpers.js';
 import { findProjectRoot } from '../../../services/config/config-safety.js';
-import { loadBindingStatus, formatTable, formatJson, type BindingStatusFormat } from '../../../services/session/binding-status-service.js';
+import {
+  loadBindingStatus,
+  formatTable,
+  formatJson,
+  type BindingStatusFormat
+} from '../../../services/session/binding-status-service.js';
 import { fail, ok } from 'peaks-loop-shared/result';
 
 // v2.18.2 PATCH scope (follow-up issues #2). Read-only introspection
@@ -12,16 +17,20 @@ import { fail, ok } from 'peaks-loop-shared/result';
 // field in the JSON envelope, so downstream automation can act on it
 // without parsing CLI prose.
 export function registerBindingCommands(program: Command, io: ProgramIO): void {
-  const binding = program.command('binding').description('Inspect and manage the project-level binding store (v2.18.2)');
+  const binding = program
+    .command('binding')
+    .description('Inspect and manage the project-level binding store (v2.18.2)');
 
   addJsonOption(
     binding
       .command('status')
-      .description('Print the current binding-store contents (sids, callerIds, pids, lastHeartbeat, roles). Read-only.')
+      .description(
+        'Print the current binding-store contents (sids, callerIds, pids, lastHeartbeat, roles). Read-only.'
+      )
       .option('--project <path>', 'target project root (defaults to git root or cwd)')
       .option('--format <format>', 'output format: table (default for non-TTY) | json', 'table')
   ).action((options: { json?: boolean; project?: string; format?: string }) => {
-    const projectRoot = options.project ?? (findProjectRoot(process.cwd()) ?? process.cwd());
+    const projectRoot = options.project ?? findProjectRoot(process.cwd()) ?? process.cwd();
     const view = loadBindingStatus(projectRoot);
 
     // Mode resolution priority: --json flag beats --format. The
@@ -34,15 +43,23 @@ export function registerBindingCommands(program: Command, io: ProgramIO): void {
 
     if (useJson) {
       const payload = formatJson(view);
-      const result = view.binding === null
-        ? ok('binding.status', { ...payload, note: 'no binding found; run `peaks workspace init --project <repo>` to create one' })
-        : ok('binding.status', payload);
+      const result =
+        view.binding === null
+          ? ok('binding.status', {
+              ...payload,
+              note: 'no binding found; run `peaks workspace init --project <repo>` to create one'
+            })
+          : ok('binding.status', payload);
       printResult(io, result, true);
     } else {
       if (view.binding === null) {
-        const result = fail('binding.status', 'NO_BINDING', 'no binding found for the project', { projectRoot }, [
-          `Run \`peaks workspace init --project <repo>\` to create one`
-        ]);
+        const result = fail(
+          'binding.status',
+          'NO_BINDING',
+          'no binding found for the project',
+          { projectRoot },
+          [`Run \`peaks workspace init --project <repo>\` to create one`]
+        );
         printResult(io, result, false);
         process.exitCode = 1;
         return;
@@ -56,7 +73,9 @@ export function registerBindingCommands(program: Command, io: ProgramIO): void {
       io.stdout(`\n  source: ${view.source}`);
       io.stdout(`  instances: ${Object.keys(view.binding.instances).length}`);
       if (view.stale) {
-        io.stderr(`\n  warning: current outer-session-id (${view.outerSessionId}) does not match any binding callerId; this binding is stale (v2.15.0 sticky-mode contract)`);
+        io.stderr(
+          `\n  warning: current outer-session-id (${view.outerSessionId}) does not match any binding callerId; this binding is stale (v2.15.0 sticky-mode contract)`
+        );
       }
     }
   });

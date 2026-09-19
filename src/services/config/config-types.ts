@@ -22,10 +22,7 @@ export type ProxyConfig = {
 };
 
 // Token ref types (legacy, kept for back-compat reads)
-export type TokenRef =
-  | { env: string }
-  | { keychain: string }
-  | { ghCli: true };
+export type TokenRef = { env: string } | { keychain: string } | { ghCli: true };
 
 export type TokenConfig = {
   AnthropicApiKey?: TokenRef;

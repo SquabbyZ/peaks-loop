@@ -21,7 +21,12 @@
 
 import { z } from 'zod';
 
-import { appendMetricLine, pruneMetricsFiles, readMetricLines, tryMetricsFilePath } from './jsonl-store.js';
+import {
+  appendMetricLine,
+  pruneMetricsFiles,
+  readMetricLines,
+  tryMetricsFilePath
+} from './jsonl-store.js';
 
 export const OBSERVABILITY_SCHEMA_VERSION = 1 as const;
 
@@ -43,7 +48,7 @@ export const OBSERVABILITY_CATEGORIES = [
   // autoRelease-failed / autoRelease-skipped.
   'lease'
 ] as const;
-export type ObservabilityCategory = typeof OBSERVABILITY_CATEGORIES[number];
+export type ObservabilityCategory = (typeof OBSERVABILITY_CATEGORIES)[number];
 
 // v2.12.0 fan-out collapse: `security-reviewer` (in-process RD slot)
 // moved out to the standalone `peaks-security-audit` skill; the matching
@@ -60,7 +65,7 @@ export const OBSERVABILITY_SUBAGENT_ROLES = [
   'peaks-security-audit',
   'peaks-perf-audit'
 ] as const;
-export type ObservabilitySubagentRole = typeof OBSERVABILITY_SUBAGENT_ROLES[number];
+export type ObservabilitySubagentRole = (typeof OBSERVABILITY_SUBAGENT_ROLES)[number];
 
 export const ObservabilityEventSchema = z.object({
   schemaVersion: z.literal(OBSERVABILITY_SCHEMA_VERSION),
@@ -104,7 +109,10 @@ export type EmitResult = {
  * (`pruneMetricsFiles`). The prune is best-effort and cheap when the
  * session count is below `MAX_METRICS_FILES`.
  */
-export function emitObservabilityEvent(event: ObservabilityEvent, options: EmitOptions): EmitResult {
+export function emitObservabilityEvent(
+  event: ObservabilityEvent,
+  options: EmitOptions
+): EmitResult {
   // The session id is resolved through the axis's TOTAL entry, before anything
   // else. The contract two doc comments above is that this function never
   // throws; the previous first line called the axis's THROWING entry, so an
@@ -140,7 +148,10 @@ export function emitObservabilityEvent(event: ObservabilityEvent, options: EmitO
  * readable here", and this reader does not throw (repair R6: it used to,
  * via `readMetricLines` → `metricsFilePath`).
  */
-export function readObservabilityEvents(projectRoot: string, sessionId: string): ObservabilityEvent[] {
+export function readObservabilityEvents(
+  projectRoot: string,
+  sessionId: string
+): ObservabilityEvent[] {
   const lines = readMetricLines(projectRoot, sessionId);
   const events: ObservabilityEvent[] = [];
   for (const line of lines) {

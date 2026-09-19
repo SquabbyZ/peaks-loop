@@ -7,14 +7,20 @@
 
 import type { DependencyEdge, SccAnalysis } from './slice-decompose-types.js';
 
-export function findSCCs(nodeIds: readonly string[], edges: readonly DependencyEdge[]): SccAnalysis {
+export function findSCCs(
+  nodeIds: readonly string[],
+  edges: readonly DependencyEdge[]
+): SccAnalysis {
   const adj = buildAdjacencyList(nodeIds, edges);
   const sccs = runTarjan(nodeIds, adj);
   return summariseSccs(sccs, edges);
 }
 
 /** Build a forward adjacency map: nodeId → list of distinct neighbours. */
-function buildAdjacencyList(nodeIds: readonly string[], edges: readonly DependencyEdge[]): Map<string, string[]> {
+function buildAdjacencyList(
+  nodeIds: readonly string[],
+  edges: readonly DependencyEdge[]
+): Map<string, string[]> {
   const adj = new Map<string, string[]>();
   for (const id of nodeIds) adj.set(id, []);
   for (const e of edges) {
@@ -86,7 +92,10 @@ function finaliseRoot(visitor: TarjanVisitor, v: string): void {
  *  discovery order. Visitor state is hoisted to a named struct
  *  (`TarjanVisitor`) so the recursive body can be split into
  *  enterNode / relaxEdge / finaliseRoot without parameter sprawl. */
-function runTarjan(nodeIds: readonly string[], adj: ReadonlyMap<string, readonly string[]>): string[][] {
+function runTarjan(
+  nodeIds: readonly string[],
+  adj: ReadonlyMap<string, readonly string[]>
+): string[][] {
   const visitor = createTarjanVisitor();
 
   const strongconnect = (v: string): void => {

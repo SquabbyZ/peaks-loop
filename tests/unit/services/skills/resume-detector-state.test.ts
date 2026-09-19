@@ -33,8 +33,8 @@ declareDimensions(
   ['integration', 'behavior'],
   [
     { dim: 'render', reason: 'classifyResume returns data; it renders nothing' },
-    { dim: 'a11y', reason: 'no human-facing text or exit code in this path' },
-  ],
+    { dim: 'a11y', reason: 'no human-facing text or exit code in this path' }
+  ]
 );
 
 const SESSION_ID = '2026-09-14-session-dddd00';
@@ -62,7 +62,7 @@ const APPENDED_PRD = [
   '',
   '- state: handed-off',
   '- last update: 2026-09-14T00:00:00.000Z',
-  '',
+  ''
 ].join('\n');
 
 describe('Scenario: integration — the resume detector reads the newest state line', () => {

@@ -29,7 +29,11 @@ import { describe, expect, it } from 'vitest';
 
 import { declareDimensions } from '../_setup/4dim-template.js';
 import { withEnv } from '../_setup/io.js';
-import { getAdapter, listAdapterIds, tryGetAdapter } from '../../../src/services/ide/ide-registry.js';
+import {
+  getAdapter,
+  listAdapterIds,
+  tryGetAdapter
+} from '../../../src/services/ide/ide-registry.js';
 import type { IdeAdapter, IdeId } from '../../../src/services/ide/ide-types.js';
 
 declareDimensions(
@@ -37,8 +41,8 @@ declareDimensions(
   ['behavior', 'integration'],
   [
     { dim: 'render', reason: 'adapters render nothing; the CLI envelope is asserted elsewhere' },
-    { dim: 'a11y', reason: 'the single human-facing string is asserted as text under behavior' },
-  ],
+    { dim: 'a11y', reason: 'the single human-facing string is asserted as text under behavior' }
+  ]
 );
 
 /**
@@ -56,7 +60,7 @@ const EXPECTED_ORDER: readonly IdeId[] = [
   'openclaw',
   'qoder',
   'tongyi-lingma',
-  'zcode',
+  'zcode'
 ];
 
 interface ExpectedShape {
@@ -81,7 +85,7 @@ const EXPECTED_SHAPE: Readonly<Record<IdeId, ExpectedShape>> = {
     hookEvent: 'PreToolUse',
     toolMatcher: 'Bash',
     statusline: true,
-    promptSizeAware: true,
+    promptSizeAware: true
   },
   trae: {
     displayName: 'Trae',
@@ -93,7 +97,7 @@ const EXPECTED_SHAPE: Readonly<Record<IdeId, ExpectedShape>> = {
     hookEvent: 'beforeToolCall',
     toolMatcher: 'terminal',
     statusline: true,
-    promptSizeAware: true,
+    promptSizeAware: true
   },
   cursor: {
     displayName: 'Cursor',
@@ -102,7 +106,7 @@ const EXPECTED_SHAPE: Readonly<Record<IdeId, ExpectedShape>> = {
     hookEvent: 'beforeShellExecution',
     toolMatcher: 'Bash',
     statusline: true,
-    promptSizeAware: true,
+    promptSizeAware: true
   },
   codex: {
     displayName: 'Codex',
@@ -114,7 +118,7 @@ const EXPECTED_SHAPE: Readonly<Record<IdeId, ExpectedShape>> = {
     // Codex has no statusline UI and opts out of the G9 hook — the only
     // `false` in either column. Both are claimed, so both are pinned.
     statusline: false,
-    promptSizeAware: false,
+    promptSizeAware: false
   },
   hermes: {
     displayName: 'Hermes',
@@ -123,7 +127,7 @@ const EXPECTED_SHAPE: Readonly<Record<IdeId, ExpectedShape>> = {
     hookEvent: 'PreToolUse',
     toolMatcher: 'Bash',
     statusline: true,
-    promptSizeAware: true,
+    promptSizeAware: true
   },
   openclaw: {
     displayName: 'OpenClaw',
@@ -132,7 +136,7 @@ const EXPECTED_SHAPE: Readonly<Record<IdeId, ExpectedShape>> = {
     hookEvent: 'PreToolUse',
     toolMatcher: 'Bash',
     statusline: true,
-    promptSizeAware: true,
+    promptSizeAware: true
   },
   qoder: {
     displayName: 'Qoder',
@@ -141,7 +145,7 @@ const EXPECTED_SHAPE: Readonly<Record<IdeId, ExpectedShape>> = {
     hookEvent: 'PreToolUse',
     toolMatcher: 'Bash',
     statusline: true,
-    promptSizeAware: true,
+    promptSizeAware: true
   },
   'tongyi-lingma': {
     displayName: 'Tongyi Lingma',
@@ -154,7 +158,7 @@ const EXPECTED_SHAPE: Readonly<Record<IdeId, ExpectedShape>> = {
     hookEvent: 'PreToolUse',
     toolMatcher: 'Bash',
     statusline: true,
-    promptSizeAware: true,
+    promptSizeAware: true
   },
   zcode: {
     displayName: 'z-code',
@@ -163,8 +167,8 @@ const EXPECTED_SHAPE: Readonly<Record<IdeId, ExpectedShape>> = {
     hookEvent: 'PreToolUse',
     toolMatcher: 'Bash',
     statusline: true,
-    promptSizeAware: true,
-  },
+    promptSizeAware: true
+  }
 };
 
 /** The vendor variable each adapter reads a caller id from, by convention. */
@@ -263,7 +267,7 @@ describe('Scenario: behavior — the nine declarations stay mutually distinct wh
     // declaring it, the pin's reach widened and that is a decision, not a
     // detail.
     const declaring = EXPECTED_ORDER.filter(
-      (ide) => getAdapter(ide).settings.localSettingsFileName !== undefined,
+      (ide) => getAdapter(ide).settings.localSettingsFileName !== undefined
     );
     expect(declaring).toEqual(['claude-code']);
     expect(getAdapter('claude-code').settings.localSettingsFileName).toBe('settings.local.json');
@@ -278,7 +282,7 @@ describe('Scenario: behavior — the nine declarations stay mutually distinct wh
     expect(getAdapter('claude-code').compact).toMatchObject({
       compactPathway: 'ide-native',
       envVarForContextPercent: 'CLAUDE_CONTEXT_USAGE_PERCENT',
-      autoCompactWindowEnvVar: 'CLAUDE_CODE_AUTO_COMPACT_WINDOW',
+      autoCompactWindowEnvVar: 'CLAUDE_CODE_AUTO_COMPACT_WINDOW'
     });
   });
 });
@@ -336,7 +340,7 @@ describe('Scenario: behavior — caller id resolves from the adapter own vendor 
       // on that IDE knows which variable their install did not export
       expect((thrown as Error).message).toContain('PEAKS_CALLER_NOT_RESOLVED');
       expect((thrown as Error).message.toLowerCase()).toContain(
-        ide === 'zcode' ? 'z-code' : adapter.displayName.toLowerCase(),
+        ide === 'zcode' ? 'z-code' : adapter.displayName.toLowerCase()
       );
     }
   });
@@ -365,7 +369,7 @@ describe('Scenario: behavior — caller id resolves from the adapter own vendor 
     const overLimit = 'b'.repeat(201);
     expect(getAdapter('trae').resolveCallerId({ TRAE_SESSION_ID: atLimit })).toBe(atLimit);
     expect(() => getAdapter('trae').resolveCallerId({ TRAE_SESSION_ID: overLimit })).toThrow(
-      /PEAKS_CALLER_NOT_RESOLVED/,
+      /PEAKS_CALLER_NOT_RESOLVED/
     );
   });
 

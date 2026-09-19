@@ -50,11 +50,7 @@ import { resolveHandoffPath } from '../prd/handoff-service.js';
  *   - `envelope-malformed` — parent LLM returned a value that fails `isSecurityAuditEnvelope`
  */
 export type SecurityAuditDetectState =
-  | 'ready'
-  | 'handoff-missing'
-  | 'template-missing'
-  | 'dispatch-failed'
-  | 'envelope-malformed';
+  'ready' | 'handoff-missing' | 'template-missing' | 'dispatch-failed' | 'envelope-malformed';
 
 export interface SecurityAuditDetectResult {
   readonly state: SecurityAuditDetectState;
@@ -98,7 +94,12 @@ export function isSecurityAuditEnvelope(value: unknown): value is SecurityAuditE
     const vo = v as Record<string, unknown>;
     if (typeof vo.dimension !== 'string') return false;
     if (typeof vo.severity !== 'string') return false;
-    if (vo.severity !== 'CRITICAL' && vo.severity !== 'HIGH' && vo.severity !== 'MED' && vo.severity !== 'LOW') {
+    if (
+      vo.severity !== 'CRITICAL' &&
+      vo.severity !== 'HIGH' &&
+      vo.severity !== 'MED' &&
+      vo.severity !== 'LOW'
+    ) {
       return false;
     }
     if (typeof vo.file !== 'string') return false;
@@ -141,7 +142,8 @@ export function readAndVerifyHandoff(
   let raw: string;
   try {
     raw = readFileSync(handoffPath, 'utf8');
-  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+  } catch {
+    // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     return null;
   }
 
@@ -164,7 +166,7 @@ export function readAndVerifyHandoff(
 
   return {
     frontmatter: { sha256: sha256Expected, schemaVersion },
-    body,
+    body
   };
 }
 
@@ -179,7 +181,8 @@ export function readSecurityTemplate(projectRoot: string): string | null {
   if (!existsSync(templatePath)) return null;
   try {
     return readFileSync(templatePath, 'utf8');
-  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+  } catch {
+    // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     return null;
   }
 }
@@ -217,12 +220,7 @@ export function detectSecurityAudit(input: {
   });
   const handoffPresent = handoffPath !== null;
 
-  const templatePath = join(
-    input.projectRoot,
-    '.peaks',
-    'project-scan',
-    'security-template.md'
-  );
+  const templatePath = join(input.projectRoot, '.peaks', 'project-scan', 'security-template.md');
   const templatePresent = existsSync(templatePath);
 
   if (!handoffPresent) {
@@ -233,7 +231,9 @@ export function detectSecurityAudit(input: {
       warnings: [
         `peaks-prd handoff not found under ${join(input.projectRoot, '.peaks', '_runtime', input.sessionId, 'prd')}`,
         ...(input.requestId === undefined
-          ? ['No --rid was supplied, so only the pre-rid-scoping `prd/handoff.md` could be probed. Pass --rid to resolve this slice\'s `prd/handoff-<rid>.md`.']
+          ? [
+              "No --rid was supplied, so only the pre-rid-scoping `prd/handoff.md` could be probed. Pass --rid to resolve this slice's `prd/handoff-<rid>.md`."
+            ]
           : [])
       ],
       nextActions: [
@@ -311,18 +311,22 @@ export function renderSecurityAuditArtifact(
   }
   const criticalCount = counts['CRITICAL'] ?? 0;
 
-  const findingsBullets = env.violations.length === 0
-    ? '- (none)'
-    : env.violations.map((v) => `- [${v.severity}] ${v.dimension} @ ${v.file}:${v.line} — ${v.hint}`).join('\n');
+  const findingsBullets =
+    env.violations.length === 0
+      ? '- (none)'
+      : env.violations
+          .map((v) => `- [${v.severity}] ${v.dimension} @ ${v.file}:${v.line} — ${v.hint}`)
+          .join('\n');
 
-  const requiredFixes = env.violations.length === 0
-    ? ''
-    : [
-        '## Required fixes',
-        '',
-        ...env.violations.map((v) => `- [${v.severity}] ${v.file}:${v.line} — ${v.hint}`),
-        ''
-      ].join('\n');
+  const requiredFixes =
+    env.violations.length === 0
+      ? ''
+      : [
+          '## Required fixes',
+          '',
+          ...env.violations.map((v) => `- [${v.severity}] ${v.file}:${v.line} — ${v.hint}`),
+          ''
+        ].join('\n');
 
   const body = [
     '## Summary',
@@ -345,12 +349,14 @@ export function renderSecurityAuditArtifact(
     `verdict: ${env.verdict}`,
     `CRITICAL: ${criticalCount}`,
     ''
-  ].filter((s) => s.length > 0).join('\n');
+  ]
+    .filter((s) => s.length > 0)
+    .join('\n');
 
   return {
     body,
     violationsCount: env.violations.length,
-    verdict: env.verdict,
+    verdict: env.verdict
   };
 }
 
@@ -371,15 +377,11 @@ export function writeSecurityAuditArtifact(
   // unvalidated rid can OVERWRITE an arbitrary `.md` rather than merely create
   // one. Guarded here (not only at the CLI boundary) so no caller can skip it.
   if (!REQUEST_ID_PATTERN.test(rid)) {
-    throw new Error(`Invalid request id: ${rid} (expected letters, digits, dots, underscores, or dashes)`);
+    throw new Error(
+      `Invalid request id: ${rid} (expected letters, digits, dots, underscores, or dashes)`
+    );
   }
-  const targetDir = join(
-    projectRoot,
-    '.peaks',
-    '_runtime',
-    sessionId,
-    'audit'
-  );
+  const targetDir = join(projectRoot, '.peaks', '_runtime', sessionId, 'audit');
   mkdirSync(targetDir, { recursive: true });
   const targetPath = join(targetDir, `security-${rid}.md`);
   // tmp + rename for atomicity
@@ -431,7 +433,8 @@ export function runSecurityAudit(input: {
     sessionId: input.sessionId,
     requestId: input.rid
   });
-  const verified = handoffPath === null ? null : readAndVerifyHandoff(handoffPath, input.projectRoot);
+  const verified =
+    handoffPath === null ? null : readAndVerifyHandoff(handoffPath, input.projectRoot);
   const handoffHash = verified?.frontmatter.sha256 ?? 'unknown';
 
   const rendered = renderSecurityAuditArtifact(env, {

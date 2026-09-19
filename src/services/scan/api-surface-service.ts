@@ -69,10 +69,7 @@ const EXPORT_INTERFACE_RE = /^export\s+interface\s+([A-Za-z_$][\w$]*)/gm;
 const EXPORT_TYPE_RE = /^export\s+type\s+([A-Za-z_$][\w$]*)/gm;
 const EXPORT_ENUM_RE = /^export\s+enum\s+([A-Za-z_$][\w$]*)/gm;
 
-async function walkProject(
-  projectRoot: string,
-  includeDirs: string[]
-): Promise<string[]> {
+async function walkProject(projectRoot: string, includeDirs: string[]): Promise<string[]> {
   const files: string[] = [];
   for (const rel of includeDirs) {
     const abs = join(projectRoot, rel);
@@ -170,8 +167,14 @@ export async function scanApiSurface(options: ApiSurfaceOptions): Promise<ApiSur
     }
 
     if (rel.startsWith('src/services/')) {
-      for (const re of [EXPORT_FUNCTION_RE, EXPORT_CLASS_RE, EXPORT_CONST_RE,
-                        EXPORT_INTERFACE_RE, EXPORT_TYPE_RE, EXPORT_ENUM_RE]) {
+      for (const re of [
+        EXPORT_FUNCTION_RE,
+        EXPORT_CLASS_RE,
+        EXPORT_CONST_RE,
+        EXPORT_INTERFACE_RE,
+        EXPORT_TYPE_RE,
+        EXPORT_ENUM_RE
+      ]) {
         re.lastIndex = 0;
       }
 
@@ -180,7 +183,9 @@ export async function scanApiSurface(options: ApiSurfaceOptions): Promise<ApiSur
         service.push({
           name: m[1] as string,
           kind: 'function',
-          isAsync: /export\s+async\s+function/.test(content.slice(Math.max(0, m.index - 10), m.index + 30)),
+          isAsync: /export\s+async\s+function/.test(
+            content.slice(Math.max(0, m.index - 10), m.index + 30)
+          ),
           sourceFile: rel,
           line: lineOf(content, m.index)
         });
@@ -229,8 +234,9 @@ export async function scanApiSurface(options: ApiSurfaceOptions): Promise<ApiSur
   }
 
   const cliUnique = uniqueByName(cli).sort((a, b) => a.name.localeCompare(b.name));
-  const serviceUnique = uniqueByName(service).sort((a, b) =>
-    a.sourceFile.localeCompare(b.sourceFile) || a.name.localeCompare(b.name));
+  const serviceUnique = uniqueByName(service).sort(
+    (a, b) => a.sourceFile.localeCompare(b.sourceFile) || a.name.localeCompare(b.name)
+  );
   const typeUnique = uniqueByName(types).sort((a, b) => a.name.localeCompare(b.name));
   const constantUnique = uniqueByName(constants).sort((a, b) => a.name.localeCompare(b.name));
 
@@ -253,7 +259,10 @@ export async function scanApiSurface(options: ApiSurfaceOptions): Promise<ApiSur
 
 export function formatApiSurfaceMarkdown(
   report: ApiSurfaceReport,
-  opts: { maxPerKind?: number; truncatedCounts?: { cli: number; service: number; type: number; constant: number } } = {}
+  opts: {
+    maxPerKind?: number;
+    truncatedCounts?: { cli: number; service: number; type: number; constant: number };
+  } = {}
 ): string {
   const max = opts.maxPerKind ?? Number.POSITIVE_INFINITY;
   const truncated = opts.truncatedCounts;
@@ -262,7 +271,9 @@ export function formatApiSurfaceMarkdown(
   lines.push('');
   lines.push(`**Project:** ${report.projectRoot}`);
   lines.push(`**Generated:** ${report.scannedAt}`);
-  lines.push(`**Counts:** cli=${report.counts.cli} service=${report.counts.service} type=${report.counts.type} constant=${report.counts.constant}`);
+  lines.push(
+    `**Counts:** cli=${report.counts.cli} service=${report.counts.service} type=${report.counts.type} constant=${report.counts.constant}`
+  );
   lines.push('');
 
   const sections: Array<[string, number, (n: string) => string]> = [
@@ -274,12 +285,22 @@ export function formatApiSurfaceMarkdown(
 
   const arrays = [report.cli, report.service, report.type, report.constant];
   const trunc = truncated
-    ? [truncated.cli - report.cli.length, truncated.service - report.service.length, truncated.type - report.type.length, truncated.constant - report.constant.length]
+    ? [
+        truncated.cli - report.cli.length,
+        truncated.service - report.service.length,
+        truncated.type - report.type.length,
+        truncated.constant - report.constant.length
+      ]
     : [0, 0, 0, 0];
 
   for (let i = 0; i < sections.length; i++) {
     const [title, count, fmt] = sections[i] as [string, number, (n: string) => string];
-    const arr = arrays[i] as Array<{ name: string; sourceFile?: string; kind?: string; description?: string }>;
+    const arr = arrays[i] as Array<{
+      name: string;
+      sourceFile?: string;
+      kind?: string;
+      description?: string;
+    }>;
     const more = trunc[i] as number;
     lines.push(`### ${title} (${count})`);
     lines.push('');

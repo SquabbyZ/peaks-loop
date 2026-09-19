@@ -26,14 +26,14 @@ import { makeCapturedIo, withEnv } from '../../_setup/io.js';
 import { withTmpWorkspacePerTest } from '../../_setup/tmp-workspace.js';
 import {
   buildAutoCompactEnvelope,
-  registerCodeRuntimeCommands,
+  registerCodeRuntimeCommands
 } from '../../../../src/cli/commands/code-runtime-commands.js';
 import { syncHarnessWindowForProject } from '../../../../src/services/context/auto-compact-reader.js';
 import {
   describeHarnessWindowSync,
   harnessWindowSyncWarning,
   syncHarnessWindow,
-  type HarnessWindowLocation,
+  type HarnessWindowLocation
 } from '../../../../src/services/context/harness-window-config.js';
 import type { AutoCompactResult } from '../../../../src/services/code/auto-compact-orchestrator.js';
 
@@ -64,9 +64,7 @@ describe('peaks code context-now — single-rid / job-mode threshold parity', ()
     process.exitCode = undefined;
   });
 
-  async function runContextNow(
-    args: readonly string[],
-  ): Promise<ContextNowEnvelope> {
+  async function runContextNow(args: readonly string[]): Promise<ContextNowEnvelope> {
     const { io, captured } = makeCapturedIo();
     const program = new Command();
     const code = program.command('code');
@@ -100,9 +98,11 @@ describe('peaks code context-now — single-rid / job-mode threshold parity', ()
     withEnv('CLAUDE_CODE_ENTRYPOINT', 'cli');
     // when: the canonical probe runs with --enforce-job-mode
     const env = await runContextNow([
-      '--project', ws().path,
-      '--session-id', '2026-09-12-parity',
-      '--enforce-job-mode',
+      '--project',
+      ws().path,
+      '--session-id',
+      '2026-09-12-parity',
+      '--enforce-job-mode'
     ]);
     // then: only the label differs — the thresholds no longer do
     expect(env.data.action).toBe('auto-compact-now');
@@ -113,7 +113,12 @@ describe('peaks code context-now — single-rid / job-mode threshold parity', ()
   it('when invoked, should ratio=0.96 stays red-line in both modes', async () => {
     withEnv(RATIO_ENV, '0.96');
     withEnv('CLAUDE_CODE_ENTRYPOINT', 'cli');
-    const singleRid = await runContextNow(['--project', ws().path, '--session-id', '2026-09-12-parity']);
+    const singleRid = await runContextNow([
+      '--project',
+      ws().path,
+      '--session-id',
+      '2026-09-12-parity'
+    ]);
     expect(singleRid.data.action).toBe('red-line');
     expect(singleRid.data.verdict).toBe('red-line');
     expect(singleRid.data.next).toBe('peaks code auto-compact');
@@ -150,7 +155,13 @@ describe('peaks code context-now — single-rid / job-mode threshold parity', ()
       withEnv(RATIO_ENV, '0.87');
       withEnv('CLAUDE_CODE_ENTRYPOINT', 'cli');
       // when: the machine path runs
-      const { text } = await runRaw(['--json', '--project', ws().path, '--session-id', '2026-09-12-parity']);
+      const { text } = await runRaw([
+        '--json',
+        '--project',
+        ws().path,
+        '--session-id',
+        '2026-09-12-parity'
+      ]);
       // then: byte-compatible with the pre-round-2 behaviour — a bare envelope,
       //       no `next:` lines spliced into stdout
       const env = parseEnvelope(text);
@@ -192,7 +203,11 @@ describe('peaks code context-now — single-rid / job-mode threshold parity', ()
       // A hand-set window with no provenance marker → `not-peaks-owned`, so
       // the write is REFUSED while peaks-loop divides by its own number.
       writeFileSync(path, `${JSON.stringify({ env: { [KEY]: '150000' } }, null, 2)}\n`, 'utf8');
-      const location: HarnessWindowLocation = { settingsPath: path, envVar: KEY, projectRoot: ws().path };
+      const location: HarnessWindowLocation = {
+        settingsPath: path,
+        envVar: KEY,
+        projectRoot: ws().path
+      };
       return syncHarnessWindow({ location, tokens: 200_000, env: {} });
     }
 
@@ -211,8 +226,8 @@ describe('peaks code context-now — single-rid / job-mode threshold parity', ()
           ratio: 0.4,
           source: 'claude-code-env',
           decision: 'below-threshold',
-          harnessWindow,
-        },
+          harnessWindow
+        }
       };
     }
 
@@ -260,7 +275,8 @@ describe('peaks code context-now — single-rid / job-mode threshold parity', ()
     const env = await runContextNow(['--project', ws().path, '--session-id', '2026-09-12-parity']);
     // then: the field is present and says what happened — peaks-loop never
     //       invents a window it did not measure, and never writes silently
-    const harnessWindow = (env.data as { harnessWindow?: { action: string; reason?: string } }).harnessWindow;
+    const harnessWindow = (env.data as { harnessWindow?: { action: string; reason?: string } })
+      .harnessWindow;
     expect(harnessWindow).toBeDefined();
     expect(harnessWindow!.action).toBe('skipped');
     expect(harnessWindow!.reason).toBe('no-window-resolved');

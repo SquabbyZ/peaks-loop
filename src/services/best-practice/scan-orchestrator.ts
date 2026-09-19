@@ -63,7 +63,10 @@ const DEFAULT_CONTEXT7_TIMEOUT_MS = 30_000;
 const DEFAULT_CONTEXT7_DELAY_MS = 100;
 const DEFAULT_WEBSEARCH_DELAY_MS = 200;
 
-export type LookupFn = (intent: string, language: string) => Promise<{
+export type LookupFn = (
+  intent: string,
+  language: string
+) => Promise<{
   readonly ok: boolean;
   readonly results: readonly DocFragment[];
 }>;
@@ -117,7 +120,10 @@ export async function scanBestPractice(opts: ScanOptions): Promise<ScanResult> {
   try {
     const ctxPromise = context7Lookup(opts.intent, opts.language);
     const ctxTimer = new Promise<never>((_, reject) => {
-      setTimeout(() => reject(new Error(`context7 timeout after ${timeoutMs}ms`)), timeoutMs).unref();
+      setTimeout(
+        () => reject(new Error(`context7 timeout after ${timeoutMs}ms`)),
+        timeoutMs
+      ).unref();
     });
     context7Outcome = await Promise.race([ctxPromise, ctxTimer]);
   } catch (err) {
@@ -135,7 +141,9 @@ export async function scanBestPractice(opts: ScanOptions): Promise<ScanResult> {
     };
   }
 
-  opts.io.stdout(`[scan-orchestrator] falling back to websearch for "${opts.intent}" (${opts.language})`);
+  opts.io.stdout(
+    `[scan-orchestrator] falling back to websearch for "${opts.intent}" (${opts.language})`
+  );
   let webOutcome: { ok: boolean; results: readonly DocFragment[] } | null = null;
   let webError: string | null = null;
   try {

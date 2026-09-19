@@ -5,7 +5,12 @@
  * `export` keywords were added to the symbols the service still imports.
  */
 
-import { buildToolLabel, componentLibraryLabel, cssFrameworkLabel, type ProjectContext } from './project-context.js';
+import {
+  buildToolLabel,
+  componentLibraryLabel,
+  cssFrameworkLabel,
+  type ProjectContext
+} from './project-context.js';
 import type { StandardsLanguage } from './project-standards-service.js';
 
 function renderHeader(title: string): string {
@@ -21,12 +26,15 @@ function renderHeader(title: string): string {
 function renderProjectStackSection(ctx: ProjectContext): string {
   if (!ctx.hasPackageJson) return '';
   const lines: string[] = ['## Detected project stack', ''];
-  lines.push(`- Build tool: ${buildToolLabel(ctx.buildTool)}${ctx.buildConfigPath !== undefined ? ` (\`${ctx.buildConfigPath}\`)` : ''}`);
+  lines.push(
+    `- Build tool: ${buildToolLabel(ctx.buildTool)}${ctx.buildConfigPath !== undefined ? ` (\`${ctx.buildConfigPath}\`)` : ''}`
+  );
   lines.push(`- Component library: ${componentLibraryLabel(ctx.componentLibrary)}`);
   if (ctx.cssFrameworks.length > 0) {
     lines.push(`- CSS: ${ctx.cssFrameworks.map(cssFrameworkLabel).join(', ')}`);
   }
-  if (ctx.stateManagement.length > 0) lines.push(`- State management: ${ctx.stateManagement.join(', ')}`);
+  if (ctx.stateManagement.length > 0)
+    lines.push(`- State management: ${ctx.stateManagement.join(', ')}`);
   if (ctx.routing.length > 0) lines.push(`- Routing: ${ctx.routing.join(', ')}`);
   if (ctx.dataFetching.length > 0) lines.push(`- Data fetching: ${ctx.dataFetching.join(', ')}`);
   if (ctx.notableDeps.length > 0) lines.push(`- Notable deps: ${ctx.notableDeps.join(', ')}`);
@@ -81,22 +89,48 @@ export function renderCommonCodingStyle(ctx: ProjectContext): string {
   const lib = ctx.componentLibrary.name;
   if (lib === 'antd' || lib === 'antd-pro') {
     const major = ctx.componentLibrary.majorVersion ?? '5';
-    stackRules.push(`- Use existing antd v${major} components (\`Button\`, \`Form\`, \`Table\`, \`Modal\`, \`Select\`). Never mix antd v3/v4/v5 APIs.`);
-    stackRules.push(`- Customize antd via \`theme.token\` / \`ConfigProvider\` / \`className\` / \`styles\`. Do NOT apply TailwindCSS utility classes directly to antd components.`);
+    stackRules.push(
+      `- Use existing antd v${major} components (\`Button\`, \`Form\`, \`Table\`, \`Modal\`, \`Select\`). Never mix antd v3/v4/v5 APIs.`
+    );
+    stackRules.push(
+      `- Customize antd via \`theme.token\` / \`ConfigProvider\` / \`className\` / \`styles\`. Do NOT apply TailwindCSS utility classes directly to antd components.`
+    );
     if (ctx.componentLibrary.hasProSuite === true) {
-      stackRules.push('- Use `@ant-design/pro-components` (`ProTable`, `ProForm`, `ProLayout`) where the page is already pro-based — do not introduce a parallel non-pro table/form.');
+      stackRules.push(
+        '- Use `@ant-design/pro-components` (`ProTable`, `ProForm`, `ProLayout`) where the page is already pro-based — do not introduce a parallel non-pro table/form.'
+      );
     }
   }
-  if (lib === 'mui') stackRules.push('- Style MUI via `sx`, `styled()`, and `theme`. Do NOT apply TailwindCSS utility classes directly to MUI components.');
-  if (ctx.cssFrameworks.includes('tailwind') && (lib === 'antd' || lib === 'antd-pro' || lib === 'mui')) {
-    stackRules.push('- TailwindCSS is for layout/utility only; component-library tokens own component styling.');
+  if (lib === 'mui')
+    stackRules.push(
+      '- Style MUI via `sx`, `styled()`, and `theme`. Do NOT apply TailwindCSS utility classes directly to MUI components.'
+    );
+  if (
+    ctx.cssFrameworks.includes('tailwind') &&
+    (lib === 'antd' || lib === 'antd-pro' || lib === 'mui')
+  ) {
+    stackRules.push(
+      '- TailwindCSS is for layout/utility only; component-library tokens own component styling.'
+    );
   }
-  if (ctx.cssFrameworks.includes('less')) stackRules.push('- Less variables in `src/theme/*.less` (or equivalent) are the canonical design tokens — extend them, do not hardcode colors/spacing.');
-  if (ctx.stateManagement.length > 0) stackRules.push(`- Follow the existing state library (${ctx.stateManagement.join(', ')}); do not introduce a competing state library.`);
-  if (ctx.dataFetching.length > 0) stackRules.push(`- Reuse the existing data-fetching pattern (${ctx.dataFetching.join(', ')}) for new API calls.`);
+  if (ctx.cssFrameworks.includes('less'))
+    stackRules.push(
+      '- Less variables in `src/theme/*.less` (or equivalent) are the canonical design tokens — extend them, do not hardcode colors/spacing.'
+    );
+  if (ctx.stateManagement.length > 0)
+    stackRules.push(
+      `- Follow the existing state library (${ctx.stateManagement.join(', ')}); do not introduce a competing state library.`
+    );
+  if (ctx.dataFetching.length > 0)
+    stackRules.push(
+      `- Reuse the existing data-fetching pattern (${ctx.dataFetching.join(', ')}) for new API calls.`
+    );
   for (const signal of ctx.legacySignals) stackRules.push(`- ${signal}`);
 
-  const rules = stackRules.length > 0 ? [...baseRules, '', '## Project-specific rules', ...stackRules] : baseRules;
+  const rules =
+    stackRules.length > 0
+      ? [...baseRules, '', '## Project-specific rules', ...stackRules]
+      : baseRules;
   return `${renderHeader('Common Coding Standards')}${rules.join('\n')}\n`;
 }
 
@@ -110,16 +144,26 @@ export function renderCodeReview(ctx: ProjectContext): string {
   const extra: string[] = [];
   const lib = ctx.componentLibrary.name;
   if (lib === 'antd' || lib === 'antd-pro') {
-    extra.push('- Block PRs that introduce a second component library (MUI/Chakra) alongside antd.');
+    extra.push(
+      '- Block PRs that introduce a second component library (MUI/Chakra) alongside antd.'
+    );
     extra.push('- Block PRs that import antd v3/v4 APIs in this v5 project, or vice versa.');
   }
-  if (ctx.cssFrameworks.includes('tailwind') && (lib === 'antd' || lib === 'antd-pro' || lib === 'mui')) {
-    extra.push('- Flag Tailwind utility classes applied directly to component-library primitives; require component-library APIs instead.');
+  if (
+    ctx.cssFrameworks.includes('tailwind') &&
+    (lib === 'antd' || lib === 'antd-pro' || lib === 'mui')
+  ) {
+    extra.push(
+      '- Flag Tailwind utility classes applied directly to component-library primitives; require component-library APIs instead.'
+    );
   }
   if (ctx.legacySignals.length > 0) {
-    extra.push('- Verify new code in legacy modules preserves the existing patterns (see `.claude/rules/common/coding-style.md` "Project-specific rules").');
+    extra.push(
+      '- Verify new code in legacy modules preserves the existing patterns (see `.claude/rules/common/coding-style.md` "Project-specific rules").'
+    );
   }
-  const rules = extra.length > 0 ? [...baseRules, '', '## Project-specific review focus', ...extra] : baseRules;
+  const rules =
+    extra.length > 0 ? [...baseRules, '', '## Project-specific review focus', ...extra] : baseRules;
   return `${renderHeader('Code Review Standards')}${rules.join('\n')}\n`;
 }
 
@@ -131,12 +175,26 @@ export function renderSecurity(ctx: ProjectContext): string {
     '- Require explicit confirmation for destructive actions, external state changes, and credential use.'
   ];
   const extra: string[] = [];
-  if (ctx.buildTool === 'next') extra.push('- Validate request body / query / params at every API route boundary (`pages/api/**` or `app/api/**`).');
-  if (ctx.dataFetching.length > 0) extra.push(`- Sanitize and validate API responses before rendering or persisting (current fetchers: ${ctx.dataFetching.join(', ')}).`);
-  if (ctx.notableDeps.includes('monaco-editor') || ctx.notableDeps.includes('@monaco-editor/react')) {
-    extra.push('- Monaco editor content is untrusted; never `eval` or `Function`-construct user-authored code without an explicit, reviewed sandbox.');
+  if (ctx.buildTool === 'next')
+    extra.push(
+      '- Validate request body / query / params at every API route boundary (`pages/api/**` or `app/api/**`).'
+    );
+  if (ctx.dataFetching.length > 0)
+    extra.push(
+      `- Sanitize and validate API responses before rendering or persisting (current fetchers: ${ctx.dataFetching.join(', ')}).`
+    );
+  if (
+    ctx.notableDeps.includes('monaco-editor') ||
+    ctx.notableDeps.includes('@monaco-editor/react')
+  ) {
+    extra.push(
+      '- Monaco editor content is untrusted; never `eval` or `Function`-construct user-authored code without an explicit, reviewed sandbox.'
+    );
   }
-  const rules = extra.length > 0 ? [...baseRules, '', '## Project-specific security focus', ...extra] : baseRules;
+  const rules =
+    extra.length > 0
+      ? [...baseRules, '', '## Project-specific security focus', ...extra]
+      : baseRules;
   return `${renderHeader('Security Review Standards')}${rules.join('\n')}\n`;
 }
 
@@ -150,9 +208,17 @@ export function renderSecurity(ctx: ProjectContext): string {
 export function renderUiLibraryPriorityRule(ctx: ProjectContext): string | null {
   const lib = ctx.componentLibrary.name;
   const UI_LIB_NAMES = [
-    'antd', 'antd-pro', 'mui', 'shadcn',
-    'chakra', 'element-plus', 'element-ui',
-    'arco', 'tdesign', 'semi', 'nextui'
+    'antd',
+    'antd-pro',
+    'mui',
+    'shadcn',
+    'chakra',
+    'element-plus',
+    'element-ui',
+    'arco',
+    'tdesign',
+    'semi',
+    'nextui'
   ] as const;
   if (!UI_LIB_NAMES.includes(lib as (typeof UI_LIB_NAMES)[number])) {
     return null;
@@ -160,11 +226,16 @@ export function renderUiLibraryPriorityRule(ctx: ProjectContext): string | null 
   return `- UI library priority (peaks-loop, effective 2026-08-01): this project uses \`${lib}\`. Prefer the library's exported components over hand-rolled native DOM / HTML primitives. Native DOM is acceptable only for primitives the library does not ship; leave a one-line comment naming the library primitive that was unavailable. Library themes and tokens are the source of truth; do NOT introduce a parallel CSS framework or inline styles that fight the library.`;
 }
 
-export function renderLanguageCodingStyle(language: StandardsLanguage, ctx: ProjectContext): string {
-  const languageName = language === 'generic' ? 'Generic' : language[0]!.toUpperCase() + language.slice(1);
-  const typeSafetyRule = language === 'typescript' || language === 'javascript'
-    ? '- Do not add new `any` types; use explicit domain types, generics, or `unknown` with narrowing.\n'
-    : '';
+export function renderLanguageCodingStyle(
+  language: StandardsLanguage,
+  ctx: ProjectContext
+): string {
+  const languageName =
+    language === 'generic' ? 'Generic' : language[0]!.toUpperCase() + language.slice(1);
+  const typeSafetyRule =
+    language === 'typescript' || language === 'javascript'
+      ? '- Do not add new `any` types; use explicit domain types, generics, or `unknown` with narrowing.\n'
+      : '';
   const baseRules = [
     `- Apply project-local conventions before generic ${language} guidance.`,
     `- Keep public APIs typed or documented according to ${language} ecosystem norms.`,
@@ -174,14 +245,26 @@ export function renderLanguageCodingStyle(language: StandardsLanguage, ctx: Proj
   ].filter((line): line is string => line !== null);
 
   const extra: string[] = [];
-  if ((language === 'typescript' || language === 'javascript') && (ctx.componentLibrary.name === 'antd' || ctx.componentLibrary.name === 'antd-pro')) {
-    extra.push('- Type form values, table records, and API responses with named interfaces; do not rely on `Form.useForm()` inference for shared shapes.');
+  if (
+    (language === 'typescript' || language === 'javascript') &&
+    (ctx.componentLibrary.name === 'antd' || ctx.componentLibrary.name === 'antd-pro')
+  ) {
+    extra.push(
+      '- Type form values, table records, and API responses with named interfaces; do not rely on `Form.useForm()` inference for shared shapes.'
+    );
   }
-  if ((language === 'typescript' || language === 'javascript') && ctx.dataFetching.includes('@tanstack/react-query')) {
-    extra.push('- Declare query/mutation generics (`useQuery<TData, TError>`) so consumers get typed data.');
+  if (
+    (language === 'typescript' || language === 'javascript') &&
+    ctx.dataFetching.includes('@tanstack/react-query')
+  ) {
+    extra.push(
+      '- Declare query/mutation generics (`useQuery<TData, TError>`) so consumers get typed data.'
+    );
   }
   if ((language === 'typescript' || language === 'javascript') && ctx.buildTool === 'umi') {
-    extra.push('- Use the project\'s existing service-layer pattern (`src/services/**`) for API calls; do not hand-roll `fetch` in components.');
+    extra.push(
+      "- Use the project's existing service-layer pattern (`src/services/**`) for API calls; do not hand-roll `fetch` in components."
+    );
   }
   // UI library priority (effective 2026-08-01). Applies to any project whose
   // scan identified one of the supported component libraries; the rule
@@ -189,7 +272,8 @@ export function renderLanguageCodingStyle(language: StandardsLanguage, ctx: Proj
   // project through `peaks standards init/update`.
   const uiRule = renderUiLibraryPriorityRule(ctx);
   if (uiRule !== null) extra.push(uiRule);
-  const rules = extra.length > 0 ? [...baseRules, '', '## Project-specific rules', ...extra] : baseRules;
+  const rules =
+    extra.length > 0 ? [...baseRules, '', '## Project-specific rules', ...extra] : baseRules;
   return `${renderHeader(`${languageName} Coding Standards`)}${rules.join('\n')}\n`;
 }
 

@@ -38,8 +38,8 @@ export function registerSubAgentCommands(program: Command, io: ProgramIO): void 
     .command('sub-agent')
     .description(
       'Sub-agent dispatch primitive (skill-first / CLI-auxiliary). ' +
-      'These commands are the primitives that peaks-code / peaks-rd / ' +
-      'peaks-qa SKILL.md compose. Users do not invoke this directly.'
+        'These commands are the primitives that peaks-code / peaks-rd / ' +
+        'peaks-qa SKILL.md compose. Users do not invoke this directly.'
     );
 
   registerDispatchCommand(subAgent, io);

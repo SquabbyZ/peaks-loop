@@ -1,8 +1,8 @@
-import { writeFileSync, mkdirSync, renameSync } from "node:fs";
-import { join } from "node:path";
-import { assertNotSystemPath, resolveUserBeeDir } from "./pool-paths.js";
-import { lintManifestStrict } from "./manifest-lint.js";
-import type { BeeManifest } from "./types.js";
+import { writeFileSync, mkdirSync, renameSync } from 'node:fs';
+import { join } from 'node:path';
+import { assertNotSystemPath, resolveUserBeeDir } from './pool-paths.js';
+import { lintManifestStrict } from './manifest-lint.js';
+import type { BeeManifest } from './types.js';
 
 /**
  * Atomically writes a BeeManifest to <home>/.peaks/skills/bees/<name>/manifest.json.
@@ -19,9 +19,9 @@ export function writeBeeManifest({ home }: { home: string }, m: BeeManifest): vo
   const dir = resolveUserBeeDir({ home }, validated.name);
   assertNotSystemPath(dir);
   mkdirSync(dir, { recursive: true });
-  const file = join(dir, "manifest.json");
+  const file = join(dir, 'manifest.json');
   assertNotSystemPath(file);
-  const tmp = file + ".tmp";
-  writeFileSync(tmp, JSON.stringify(validated, null, 2) + "\n");
+  const tmp = file + '.tmp';
+  writeFileSync(tmp, JSON.stringify(validated, null, 2) + '\n');
   renameSync(tmp, file);
 }

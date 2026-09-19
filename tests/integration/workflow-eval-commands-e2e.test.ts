@@ -29,8 +29,10 @@ function runCli(args: readonly string[], cwd: string, extraEnv: NodeJS.ProcessEn
   } catch (error: unknown) {
     const caught = error as { stdout?: Buffer | string; stderr?: Buffer | string; status?: number };
     return {
-      stdout: typeof caught.stdout === 'string' ? caught.stdout : caught.stdout?.toString('utf8') ?? '',
-      stderr: typeof caught.stderr === 'string' ? caught.stderr : caught.stderr?.toString('utf8') ?? '',
+      stdout:
+        typeof caught.stdout === 'string' ? caught.stdout : (caught.stdout?.toString('utf8') ?? ''),
+      stderr:
+        typeof caught.stderr === 'string' ? caught.stderr : (caught.stderr?.toString('utf8') ?? ''),
       code: caught.status ?? 1
     };
   }
@@ -79,8 +81,16 @@ afterEach(() => {
 describe('peaks workflow route (P2-B.5 workflow e2e)', () => {
   test('returns a structured dry-run envelope with routePolicy + modelRouting', () => {
     const result = runCli(
-      ['workflow', 'route', '--mode', 'code', '--goal', 'p2-b5 workflow route verify',
-       '--dry-run', '--json'],
+      [
+        'workflow',
+        'route',
+        '--mode',
+        'code',
+        '--goal',
+        'p2-b5 workflow route verify',
+        '--dry-run',
+        '--json'
+      ],
       REPO
     );
     expect(result.code).toBe(0);
@@ -110,8 +120,16 @@ describe('peaks workflow route (P2-B.5 workflow e2e)', () => {
 describe('peaks workflow autonomous (P2-B.5 workflow e2e)', () => {
   test('returns a structured autonomous plan envelope with goalPackage', () => {
     const result = runCli(
-      ['workflow', 'autonomous', '--mode', 'code', '--goal', 'p2-b5 autonomous verify',
-       '--dry-run', '--json'],
+      [
+        'workflow',
+        'autonomous',
+        '--mode',
+        'code',
+        '--goal',
+        'p2-b5 autonomous verify',
+        '--dry-run',
+        '--json'
+      ],
       REPO
     );
     expect(result.code).toBe(0);
@@ -123,7 +141,10 @@ describe('peaks workflow autonomous (P2-B.5 workflow e2e)', () => {
       behavior?: string;
       dryRun?: boolean;
       goal?: string;
-      goalPackage?: { acceptanceCriteria?: ReadonlyArray<string>; nonGoals?: ReadonlyArray<string> };
+      goalPackage?: {
+        acceptanceCriteria?: ReadonlyArray<string>;
+        nonGoals?: ReadonlyArray<string>;
+      };
     };
     expect(data.dryRun).toBe(true);
     expect(data.goal).toContain('p2-b5');
@@ -143,8 +164,16 @@ describe('peaks workflow autonomous-resume init (P2-B.5 workflow e2e)', () => {
     const project = makeProject('peaks-p2b5-workflow-resume-');
     // Default mode is dry-run; do NOT pass --apply (would write artifacts).
     const result = runCli(
-      ['workflow', 'autonomous-resume', 'init', '--goal', 'p2-b5 resume init verify',
-       '--project', project, '--json'],
+      [
+        'workflow',
+        'autonomous-resume',
+        'init',
+        '--goal',
+        'p2-b5 resume init verify',
+        '--project',
+        project,
+        '--json'
+      ],
       project
     );
     expect(result.code).toBe(0);
@@ -168,8 +197,18 @@ describe('peaks workflow autonomous-resume init (P2-B.5 workflow e2e)', () => {
 describe('peaks workflow plan detect-trigger (P2-B.5 workflow e2e)', () => {
   test('returns a structured trigger-detection envelope for an existing rid', () => {
     const result = runCli(
-      ['workflow', 'plan', 'detect-trigger', '--rid', EXISTING_RID, '--project', REPO,
-       '--session-id', EXISTING_SESSION, '--json'],
+      [
+        'workflow',
+        'plan',
+        'detect-trigger',
+        '--rid',
+        EXISTING_RID,
+        '--project',
+        REPO,
+        '--session-id',
+        EXISTING_SESSION,
+        '--json'
+      ],
       REPO
     );
     expect(result.code).toBe(0);
@@ -195,10 +234,20 @@ describe('peaks workflow skip --dry-run (P2-B.5 workflow e2e)', () => {
     bindSession(project);
     // --dry-run does not write skip state — safe to exercise without --apply.
     const result = runCli(
-      ['workflow', 'skip', '--rid', '2026-07-25-p2-b5-skip-fixture',
-       '--project', project, '--gates', 'QA',
-       '--reason', 'p2-b5 workflow e2e fixture --dry-run',
-       '--dry-run', '--json'],
+      [
+        'workflow',
+        'skip',
+        '--rid',
+        '2026-07-25-p2-b5-skip-fixture',
+        '--project',
+        project,
+        '--gates',
+        'QA',
+        '--reason',
+        'p2-b5 workflow e2e fixture --dry-run',
+        '--dry-run',
+        '--json'
+      ],
       project
     );
     expect(result.stdout.length).toBeGreaterThan(0);
@@ -219,8 +268,17 @@ describe('peaks workflow skip --dry-run (P2-B.5 workflow e2e)', () => {
 describe('peaks verdict aggregate (P2-B.5 verdict e2e)', () => {
   test('returns a structured verdict envelope from the 5 envelope sources', () => {
     const result = runCli(
-      ['verdict', 'aggregate', '--from-rid', EXISTING_RID, '--sid', EXISTING_SESSION,
-       '--project', REPO, '--json'],
+      [
+        'verdict',
+        'aggregate',
+        '--from-rid',
+        EXISTING_RID,
+        '--sid',
+        EXISTING_SESSION,
+        '--project',
+        REPO,
+        '--json'
+      ],
       REPO
     );
     expect(result.code).toBe(0);
@@ -274,10 +332,15 @@ describe('peaks sop list (P2-B.5 sop e2e)', () => {
         {
           id: sopId,
           name: 'P2-B.5 fixture SOP',
-          description: 'integration fixture: a lint-clean manifest so `sop register` writes a real registry',
+          description:
+            'integration fixture: a lint-clean manifest so `sop register` writes a real registry',
           phases: ['draft', 'review'],
           gates: [
-            { id: 'draft-exists', phase: 'review', check: { type: 'file-exists', path: 'posts/draft.md' } }
+            {
+              id: 'draft-exists',
+              phase: 'review',
+              check: { type: 'file-exists', path: 'posts/draft.md' }
+            }
           ]
         },
         null,
@@ -286,7 +349,9 @@ describe('peaks sop list (P2-B.5 sop e2e)', () => {
       'utf8'
     );
 
-    const registered = runCli(['sop', 'register', '--id', sopId, '--json'], REPO, { PEAKS_HOME: home });
+    const registered = runCli(['sop', 'register', '--id', sopId, '--json'], REPO, {
+      PEAKS_HOME: home
+    });
     expect(registered.code).toBe(0);
     expect(parseEnvelope(registered).ok).toBe(true);
 
@@ -317,10 +382,7 @@ describe('peaks sop author (P2-B.5 sop e2e) — non-destructive scaffold preview
   test('sop init without --apply returns a structured preview envelope (no files written)', () => {
     // Default behavior is preview / no --apply. This exercises the `sop author`
     // scan path without writing any SOP file to the global layer.
-    const result = runCli(
-      ['sop', 'init', '--id', 'p2-b5-author-preview', '--json'],
-      REPO
-    );
+    const result = runCli(['sop', 'init', '--id', 'p2-b5-author-preview', '--json'], REPO);
     expect(result.code).toBe(0);
     const envelope = parseEnvelope(result);
     expect(envelope.command).toBe('sop.init');
@@ -379,8 +441,17 @@ describe('peaks sop apply (P2-B.5 sop e2e)', () => {
 describe('peaks sop check (P2-B.5 sop e2e)', () => {
   test('on a missing sop returns a structured SOP_NOT_FOUND envelope', () => {
     const result = runCli(
-      ['sop', 'check', '--id', 'p2-b5-nonexistent-sop', '--gate', 'g1',
-       '--project', REPO, '--json'],
+      [
+        'sop',
+        'check',
+        '--id',
+        'p2-b5-nonexistent-sop',
+        '--gate',
+        'g1',
+        '--project',
+        REPO,
+        '--json'
+      ],
       REPO
     );
     expect(result.stdout.length).toBeGreaterThan(0);
@@ -398,8 +469,7 @@ describe('peaks sop check (P2-B.5 sop e2e)', () => {
 describe('peaks sop advance (P2-B.5 sop e2e) --dry-run', () => {
   test('on a missing sop returns a structured SOP_NOT_FOUND envelope', () => {
     const result = runCli(
-      ['sop', 'advance', '--id', 'p2-b5-nonexistent-sop', '--to', 'review',
-       '--dry-run', '--json'],
+      ['sop', 'advance', '--id', 'p2-b5-nonexistent-sop', '--to', 'review', '--dry-run', '--json'],
       REPO
     );
     expect(result.stdout.length).toBeGreaterThan(0);
@@ -416,10 +486,7 @@ describe('peaks sop advance (P2-B.5 sop e2e) --dry-run', () => {
 
 describe('peaks sop enforce (P2-B.5 sop e2e) — surface is `sop lint`', () => {
   test('sop lint on a missing sop returns a structured SOP_NOT_FOUND envelope', () => {
-    const result = runCli(
-      ['sop', 'lint', '--id', 'p2-b5-nonexistent-sop', '--json'],
-      REPO
-    );
+    const result = runCli(['sop', 'lint', '--id', 'p2-b5-nonexistent-sop', '--json'], REPO);
     expect(result.stdout.length).toBeGreaterThan(0);
     const envelope = parseEnvelope(result);
     expect(envelope.command).toBe('sop.lint');
@@ -435,8 +502,7 @@ describe('peaks sop enforce (P2-B.5 sop e2e) — surface is `sop lint`', () => {
 describe('peaks qa (top-level) (P2-B.5 qa e2e)', () => {
   test('qa run --no-browser returns a structured gates envelope with browser-e2e skipped', () => {
     const result = runCli(
-      ['qa', 'run', '--project', REPO, '--session-id', EXISTING_SESSION,
-       '--no-browser', '--json'],
+      ['qa', 'run', '--project', REPO, '--session-id', EXISTING_SESSION, '--no-browser', '--json'],
       REPO
     );
     expect(result.code).toBe(0);
@@ -463,8 +529,15 @@ describe('peaks qa (top-level) (P2-B.5 qa e2e)', () => {
 describe('peaks qa-business-review (P2-B.5 qa e2e)', () => {
   test('for an existing rid returns a structured 6-item business checklist envelope', () => {
     const result = runCli(
-      ['qa-business-review', EXISTING_RID, '--project', REPO,
-       '--session-id', EXISTING_SESSION, '--json'],
+      [
+        'qa-business-review',
+        EXISTING_RID,
+        '--project',
+        REPO,
+        '--session-id',
+        EXISTING_SESSION,
+        '--json'
+      ],
       REPO
     );
     expect(result.code).toBe(0);
@@ -539,8 +612,15 @@ describe('peaks final-review check (P2-B.5 final-review e2e)', () => {
     const project = makeProject('peaks-p2b5-final-review-');
     bindSession(project);
     const result = runCli(
-      ['prepare-final-review', EXISTING_RID, '--project', project,
-       '--session-id', EXISTING_SESSION, '--json'],
+      [
+        'prepare-final-review',
+        EXISTING_RID,
+        '--project',
+        project,
+        '--session-id',
+        EXISTING_SESSION,
+        '--json'
+      ],
       project
     );
     expect(result.stdout.length).toBeGreaterThan(0);

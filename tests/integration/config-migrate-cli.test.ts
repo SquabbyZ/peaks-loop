@@ -47,7 +47,7 @@ function cli(args: string, cwd: string): { stdout: string; stderr: string; code:
       cwd,
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'pipe'],
-      windowsHide: true,
+      windowsHide: true
     });
     return { stdout, stderr: '', code: 0 };
   } catch (err: unknown) {
@@ -60,7 +60,11 @@ function makeProject(): string {
   const project = mkdtempSync(join(tmpdir(), 'peaks-cfg-cli-proj-'));
   mkdirSync(join(project, '.peaks'), { recursive: true });
   // Pre-populate preferences.json with valid schema_version (needed by Task 12 restoreField spec compliance)
-  writeFileSync(join(project, '.peaks/preferences.json'), JSON.stringify({ schema_version: '2.0.0' }), 'utf8');
+  writeFileSync(
+    join(project, '.peaks/preferences.json'),
+    JSON.stringify({ schema_version: '2.0.0' }),
+    'utf8'
+  );
   return project;
 }
 
@@ -89,7 +93,12 @@ describe('peaks config migrate', () => {
   });
 
   test('apply slims config.json + writes preferences.json + creates .bak', () => {
-    writeGlobal1x({ version: '1.4.2', economyMode: true, swarmMode: false, currentWorkspace: '/p' });
+    writeGlobal1x({
+      version: '1.4.2',
+      economyMode: true,
+      swarmMode: false,
+      currentWorkspace: '/p'
+    });
     const project = makeProject();
     try {
       const { stdout, code } = cli(`config migrate --project ${project} --apply --json`, project);
@@ -97,7 +106,18 @@ describe('peaks config migrate', () => {
       const out = JSON.parse(stdout);
       expect(out.data.applied).toBe(true);
       const newCfg = JSON.parse(readFileSync(join(HOME_DIR, '.peaks/config.json'), 'utf8'));
-      expect(newCfg).toEqual({ version: '2.0.0', ocr: { llm: { url: '', authToken: '', model: '', useAnthropic: false, authHeader: 'authorization' } } });
+      expect(newCfg).toEqual({
+        version: '2.0.0',
+        ocr: {
+          llm: {
+            url: '',
+            authToken: '',
+            model: '',
+            useAnthropic: false,
+            authHeader: 'authorization'
+          }
+        }
+      });
       expect(existsSync(join(HOME_DIR, '.peaks/config.json.1.x.bak'))).toBe(true);
       const prefs = JSON.parse(readFileSync(join(project, '.peaks/preferences.json'), 'utf8'));
       expect(prefs.swarmMode).toBe(false);

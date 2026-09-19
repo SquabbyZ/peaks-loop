@@ -6,18 +6,13 @@
  * inherited from slice #009); we use prompt size as the gate signal.
  */
 
-export const CONTEXT_CAPACITY_DEFAULT_BYTES = 256 * 1024;  // 256K
-export const THRESHOLD_SOFT_WARN_RATIO = 0.5;             // 50%
-export const THRESHOLD_NEAR_LIMIT_RATIO = 0.75;           // 75% — user red line
-export const THRESHOLD_HARD_REJECT_RATIO = 0.80;          // 80%
-export const THRESHOLD_EMERGENCY_RATIO = 0.90;            // 90%
+export const CONTEXT_CAPACITY_DEFAULT_BYTES = 256 * 1024; // 256K
+export const THRESHOLD_SOFT_WARN_RATIO = 0.5; // 50%
+export const THRESHOLD_NEAR_LIMIT_RATIO = 0.75; // 75% — user red line
+export const THRESHOLD_HARD_REJECT_RATIO = 0.8; // 80%
+export const THRESHOLD_EMERGENCY_RATIO = 0.9; // 90%
 
-export type ThresholdTier =
-  | 'ok'
-  | 'soft-warn'
-  | 'near-limit'
-  | 'hard-reject'
-  | 'emergency';
+export type ThresholdTier = 'ok' | 'soft-warn' | 'near-limit' | 'hard-reject' | 'emergency';
 
 export interface ThresholdEvaluation {
   readonly tier: ThresholdTier;

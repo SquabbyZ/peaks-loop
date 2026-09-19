@@ -77,16 +77,14 @@ export const CODEX_ADAPTER: IdeAdapter = {
   // dogfood confirms hook layer compatibility. The CLI 兜底 layer in
   // `peaks sub-agent dispatch` still enforces the threshold regardless.
   promptSizeAware: false,
-  installHints: [
-    'Restart Codex so the pre_tool_use hooks take effect.'
-  ],
+  installHints: ['Restart Codex so the pre_tool_use hooks take effect.'],
   capabilities: {
     gateEnforce: true,
     // Codex CLI does not have a statusline UI surface. Opt out of the
     // statusline capability; `peaks statusline install --ide codex` will
     // return a clear "not supported" stderr message (slice #008 P-5
     // capability-check contract preserved).
-    statusline: false,
+    statusline: false
   },
   // Slice 4.0.8 RD §5: Codex vendor signal reserved; fail closed.
   resolveCallerId: (env?: NodeJS.ProcessEnv): string => {
@@ -101,10 +99,12 @@ export const CODEX_ADAPTER: IdeAdapter = {
       const trimmed = candidate.trim();
       if (/^[a-zA-Z0-9._-]{1,200}$/.test(trimmed)) return trimmed;
     }
-    const err = new Error('PEAKS_CALLER_NOT_RESOLVED: Codex vendor signal reserved') as Error & { code: string };
+    const err = new Error('PEAKS_CALLER_NOT_RESOLVED: Codex vendor signal reserved') as Error & {
+      code: string;
+    };
     err.code = 'PEAKS_CALLER_NOT_RESOLVED';
     throw err;
-  },
+  }
   // Standards: UNVERIFIED — see slice #013+ (Codex real-install dogfood for
   // the `standardsProfile` and `skillInstall` fields). Until then, `peaks
   // standards init` on a Codex-detected project falls back to the Claude

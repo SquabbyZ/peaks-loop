@@ -23,7 +23,7 @@ import {
   MutReportSchema,
   type StrykerInvoker,
   type AssertionsReport,
-  type MutationReport,
+  type MutationReport
 } from 'peaks-loop-mut';
 import type { ProgramIO } from '../cli-helpers.js';
 
@@ -42,7 +42,7 @@ function emptyAssertions(): AssertionsReport {
     totalAssertions: 0,
     weakAssertions: 0,
     weakRate: 0,
-    weakPatterns: [],
+    weakPatterns: []
   };
 }
 
@@ -59,7 +59,7 @@ function emptyMutation(): MutationReport {
     mutantsSurvived: 0,
     mutantsTimeout: 0,
     killRate: 0,
-    byFile: [],
+    byFile: []
   };
 }
 
@@ -75,7 +75,9 @@ function emitSummary(
   if (json) {
     process.stdout.write(JSON.stringify(payload) + '\n');
   } else {
-    process.stdout.write(`mut-report.json: ${payload.path}\nsha256: ${payload.sha256}\npassed: ${payload.passed}\n`);
+    process.stdout.write(
+      `mut-report.json: ${payload.path}\nsha256: ${payload.sha256}\npassed: ${payload.passed}\n`
+    );
   }
 }
 
@@ -92,130 +94,147 @@ export function createMutCommands(opts: MutCommandsOptions): Command {
 
   mut
     .command('run')
-    .description('Run the full mut pipeline (Stryker + assertion scan + report). One-axis: --session-id required.')
+    .description(
+      'Run the full mut pipeline (Stryker + assertion scan + report). One-axis: --session-id required.'
+    )
     .requiredOption('--project <path>', 'project root')
     .requiredOption('--test-files <files...>', 'test files to mutate against')
     .requiredOption('--input-sig <hex>', 'TACT.sig (sha256) for chain')
-    .requiredOption('--session-id <sid>', 'session id; CLI writes artifacts only under .peaks/_runtime/<sid>/mut/ (one-axis layout)')
+    .requiredOption(
+      '--session-id <sid>',
+      'session id; CLI writes artifacts only under .peaks/_runtime/<sid>/mut/ (one-axis layout)'
+    )
     .requiredOption('--out <path>', 'output path for mut-report.json')
     .option('--json', 'machine-readable output', false)
-    .action(async (a: {
-      project: string;
-      testFiles: string[];
-      inputSig: string;
-      sessionId: string;
-      out: string;
-      json: boolean;
-    }) => {
-      const { mutation } = await runMutation({
-        project: a.project,
-        testFiles: a.testFiles,
-        invokeStryker: opts.invokeStryker,
-      });
-      const assertions = await scanAssertions({
-        project: a.project,
-        testFiles: a.testFiles,
-      });
-      const report = await buildMutReport({
-        inputSig: a.inputSig,
-        out: a.out,
-        mutation,
-        assertions,
-      });
-      emitSummary(a.json, {
-        ok: true,
-        sha256: report.sha256,
-        passed: report.thresholds.passed,
-        path: a.out,
-      });
-      if (!report.thresholds.passed) {
-        // H6: CLI裁决 — threshold breach is a non-zero exit so callers
-        // (peaks-rd, peaks-qa, CI) can block on it without parsing
-        // stdout.
-        process.exitCode = 1;
+    .action(
+      async (a: {
+        project: string;
+        testFiles: string[];
+        inputSig: string;
+        sessionId: string;
+        out: string;
+        json: boolean;
+      }) => {
+        const { mutation } = await runMutation({
+          project: a.project,
+          testFiles: a.testFiles,
+          invokeStryker: opts.invokeStryker
+        });
+        const assertions = await scanAssertions({
+          project: a.project,
+          testFiles: a.testFiles
+        });
+        const report = await buildMutReport({
+          inputSig: a.inputSig,
+          out: a.out,
+          mutation,
+          assertions
+        });
+        emitSummary(a.json, {
+          ok: true,
+          sha256: report.sha256,
+          passed: report.thresholds.passed,
+          path: a.out
+        });
+        if (!report.thresholds.passed) {
+          // H6: CLI裁决 — threshold breach is a non-zero exit so callers
+          // (peaks-rd, peaks-qa, CI) can block on it without parsing
+          // stdout.
+          process.exitCode = 1;
+        }
       }
-    });
+    );
 
   mut
     .command('mutants')
-    .description('Run Stryker only; write a stub-assertions mut-report.json. One-axis: --session-id required.')
+    .description(
+      'Run Stryker only; write a stub-assertions mut-report.json. One-axis: --session-id required.'
+    )
     .requiredOption('--project <path>', 'project root')
     .requiredOption('--test-files <files...>', 'test files to mutate against')
     .requiredOption('--input-sig <hex>', 'TACT.sig')
     .requiredOption('--session-id <sid>', 'session id')
     .requiredOption('--out <path>', 'output path for mut-report.json')
     .option('--json', 'machine-readable output', false)
-    .action(async (a: {
-      project: string;
-      testFiles: string[];
-      inputSig: string;
-      sessionId: string;
-      out: string;
-      json: boolean;
-    }) => {
-      const { mutation } = await runMutation({
-        project: a.project,
-        testFiles: a.testFiles,
-        invokeStryker: opts.invokeStryker,
-      });
-      const report = await buildMutReport({
-        inputSig: a.inputSig,
-        out: a.out,
-        mutation,
-        assertions: emptyAssertions(),
-      });
-      emitSummary(a.json, {
-        ok: true,
-        sha256: report.sha256,
-        passed: report.thresholds.passed,
-        path: a.out,
-      });
-      if (!report.thresholds.passed) {
-        process.exitCode = 1;
+    .action(
+      async (a: {
+        project: string;
+        testFiles: string[];
+        inputSig: string;
+        sessionId: string;
+        out: string;
+        json: boolean;
+      }) => {
+        const { mutation } = await runMutation({
+          project: a.project,
+          testFiles: a.testFiles,
+          invokeStryker: opts.invokeStryker
+        });
+        const report = await buildMutReport({
+          inputSig: a.inputSig,
+          out: a.out,
+          mutation,
+          assertions: emptyAssertions()
+        });
+        emitSummary(a.json, {
+          ok: true,
+          sha256: report.sha256,
+          passed: report.thresholds.passed,
+          path: a.out
+        });
+        if (!report.thresholds.passed) {
+          process.exitCode = 1;
+        }
       }
-    });
+    );
 
   mut
     .command('asserts')
-    .description('Run the assertion scan only; write a mut-report.json with empty mutation block. One-axis: --session-id required.')
+    .description(
+      'Run the assertion scan only; write a mut-report.json with empty mutation block. One-axis: --session-id required.'
+    )
     .requiredOption('--project <path>', 'project root')
     .requiredOption('--test-files <files...>', 'test files to scan')
     .requiredOption('--input-sig <hex>', 'TACT.sig')
     .requiredOption('--session-id <sid>', 'session id')
     .requiredOption('--out <path>', 'output path for mut-report.json')
     .option('--json', 'machine-readable output', false)
-    .action(async (a: {
-      project: string;
-      testFiles: string[];
-      inputSig: string;
-      sessionId: string;
-      out: string;
-      json: boolean;
-    }) => {
-      const assertions = await scanAssertions({
-        project: a.project,
-        testFiles: a.testFiles,
-      });
-      const report = await buildMutReport({
-        inputSig: a.inputSig,
-        out: a.out,
-        mutation: emptyMutation(),
-        assertions,
-      });
-      emitSummary(a.json, {
-        ok: true,
-        sha256: report.sha256,
-        passed: report.thresholds.passed,
-        path: a.out,
-      });
-      if (!report.thresholds.passed) {
-        process.exitCode = 1;
+    .action(
+      async (a: {
+        project: string;
+        testFiles: string[];
+        inputSig: string;
+        sessionId: string;
+        out: string;
+        json: boolean;
+      }) => {
+        const assertions = await scanAssertions({
+          project: a.project,
+          testFiles: a.testFiles
+        });
+        const report = await buildMutReport({
+          inputSig: a.inputSig,
+          out: a.out,
+          mutation: emptyMutation(),
+          assertions
+        });
+        emitSummary(a.json, {
+          ok: true,
+          sha256: report.sha256,
+          passed: report.thresholds.passed,
+          path: a.out
+        });
+        if (!report.thresholds.passed) {
+          process.exitCode = 1;
+        }
       }
-    });
+    );
 
   mut
     .command('report')
-    .description('Re-read a previously-written mut-report.json (no Stryker / scan invocation). One-axis: --session-id required for the audit trail.')
+    .description(
+      'Re-read a previously-written mut-report.json (no Stryker / scan invocation). One-axis: --session-id required for the audit trail.'
+    )
     .requiredOption('--in <path>', 'input mut-report.json path')
     .requiredOption('--session-id <sid>', 'session id')
     .option('--json', 'machine-readable output', false)
@@ -239,28 +258,30 @@ export function createMutCommands(opts: MutCommandsOptions): Command {
       const summary = {
         mutation: {
           tool: r.mutation.tool,
-          killRate: r.mutation.killRate,
+          killRate: r.mutation.killRate
         },
         assertions: {
           total: r.assertions.totalAssertions,
           weak: r.assertions.weakAssertions,
-          weakRate: r.assertions.weakRate,
+          weakRate: r.assertions.weakRate
         },
         thresholds: { passed: r.thresholds.passed },
         followups: r.followups.length,
         sha256: r.sha256,
-        sessionId: a.sessionId,
+        sessionId: a.sessionId
       };
       if (a.json) {
         process.stdout.write(JSON.stringify(summary) + '\n');
       } else {
-        process.stdout.write([
-          `mutation: tool=${r.mutation.tool} killRate=${(r.mutation.killRate * 100).toFixed(1)}%`,
-          `assertions: total=${r.assertions.totalAssertions} weak=${r.assertions.weakAssertions} rate=${(r.assertions.weakRate * 100).toFixed(1)}%`,
-          `thresholds: passed=${r.thresholds.passed}`,
-          `followups: ${r.followups.length}`,
-          `sha256: ${r.sha256}`,
-        ].join('\n') + '\n');
+        process.stdout.write(
+          [
+            `mutation: tool=${r.mutation.tool} killRate=${(r.mutation.killRate * 100).toFixed(1)}%`,
+            `assertions: total=${r.assertions.totalAssertions} weak=${r.assertions.weakAssertions} rate=${(r.assertions.weakRate * 100).toFixed(1)}%`,
+            `thresholds: passed=${r.thresholds.passed}`,
+            `followups: ${r.followups.length}`,
+            `sha256: ${r.sha256}`
+          ].join('\n') + '\n'
+        );
       }
       if (!r.thresholds.passed) {
         process.exitCode = 1;

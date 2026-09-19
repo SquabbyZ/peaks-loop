@@ -3,7 +3,11 @@ import { existsSync, lstatSync, readdirSync, type Stats } from 'node:fs';
 import { join } from 'node:path';
 import { isDirectory } from 'peaks-loop-shared/fs';
 
-import { getSessionIdCanonical, setCurrentSessionBinding, setSessionMeta } from '../session/session-manager.js';
+import {
+  getSessionIdCanonical,
+  setCurrentSessionBinding,
+  setSessionMeta
+} from '../session/session-manager.js';
 import { updateCallerBindingSessionId } from '../session/caller-binding-service.js';
 import { resolveCallerProjection } from '../session/resolve-caller-id.js';
 import { normalizePath } from '../../shared/path-utils.js';
@@ -25,7 +29,8 @@ function rebindCurrentCallerBinding(projectRoot: string, sessionId: string): boo
   let callerId: string;
   try {
     callerId = resolveCallerProjection({ projectRoot, env: process.env }).callerId;
-  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+  } catch {
+    // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     return false;
   }
   return updateCallerBindingSessionId(projectRoot, callerId, sessionId);
@@ -190,7 +195,14 @@ export type WorkspaceInitReport = {
 
 const SESSION_ID_PATTERN = /^\d{4}-\d{2}-\d{2}-[a-z][a-z0-9-]*[a-z0-9]$/;
 
-const PROHIBITED_SUFFIXES: ReadonlyArray<string> = ['session', 'work', 'task', 'test', 'temp', 'tmp'];
+const PROHIBITED_SUFFIXES: ReadonlyArray<string> = [
+  'session',
+  'work',
+  'task',
+  'test',
+  'temp',
+  'tmp'
+];
 
 // Auto-generated session ID pattern: YYYY-MM-DD-session-<6位hex>
 const AUTO_SESSION_PATTERN = /^\d{4}-\d{2}-\d{2}-session-[a-f0-9]{6}$/;
@@ -259,11 +271,11 @@ export class LegacyChangeIdSiblingError extends Error {
   ) {
     super(
       `peaks-loop 2.8.3+ forbids the legacy sibling dir ${legacyPath}. ` +
-      `Under the two-axis convention, change-id "${sessionId}" must live in the SESSION axis ` +
-      `(.peaks/_runtime/<sessionId>/), not as a top-level sibling of .peaks/_runtime/. ` +
-      `Migration: (1) inspect ${legacyPath} for user-authored content; ` +
-      `(2) move any desired files into .peaks/_runtime/<sessionId>/<role>/; ` +
-      `(3) delete ${legacyPath}; (4) re-run 'peaks workspace init --change-id ${sessionId}'.`
+        `Under the two-axis convention, change-id "${sessionId}" must live in the SESSION axis ` +
+        `(.peaks/_runtime/<sessionId>/), not as a top-level sibling of .peaks/_runtime/. ` +
+        `Migration: (1) inspect ${legacyPath} for user-authored content; ` +
+        `(2) move any desired files into .peaks/_runtime/<sessionId>/<role>/; ` +
+        `(3) delete ${legacyPath}; (4) re-run 'peaks workspace init --change-id ${sessionId}'.`
     );
     this.name = 'LegacyChangeIdSiblingError';
   }
@@ -276,20 +288,30 @@ export function validateSessionId(sessionId: string): void {
   }
 
   if (/^\d+$/.test(sessionId)) {
-    throw new InvalidSessionIdError(`Session id "${sessionId}" is numeric-only. Use the format YYYY-MM-DD-<kebab-slug> with a 2-5 word topic description.`);
+    throw new InvalidSessionIdError(
+      `Session id "${sessionId}" is numeric-only. Use the format YYYY-MM-DD-<kebab-slug> with a 2-5 word topic description.`
+    );
   }
   if (/^\d{8}T\d{6}$/.test(sessionId) || /^\d{8}$/.test(sessionId)) {
-    throw new InvalidSessionIdError(`Session id "${sessionId}" looks like a bare timestamp. Use YYYY-MM-DD-<kebab-slug>.`);
+    throw new InvalidSessionIdError(
+      `Session id "${sessionId}" looks like a bare timestamp. Use YYYY-MM-DD-<kebab-slug>.`
+    );
   }
   if (/^\d{4}-\d{2}-\d{2}$/.test(sessionId)) {
-    throw new InvalidSessionIdError(`Session id "${sessionId}" is a bare date. Append a 2-5 word topic slug (e.g. "${sessionId}-add-user-auth").`);
+    throw new InvalidSessionIdError(
+      `Session id "${sessionId}" is a bare date. Append a 2-5 word topic slug (e.g. "${sessionId}-add-user-auth").`
+    );
   }
   if (!SESSION_ID_PATTERN.test(sessionId)) {
-    throw new InvalidSessionIdError(`Session id "${sessionId}" must match YYYY-MM-DD-<kebab-slug>, all lowercase, dashes only.`);
+    throw new InvalidSessionIdError(
+      `Session id "${sessionId}" must match YYYY-MM-DD-<kebab-slug>, all lowercase, dashes only.`
+    );
   }
   const suffix = sessionId.slice(11); // strip "YYYY-MM-DD-"
   if (PROHIBITED_SUFFIXES.includes(suffix)) {
-    throw new InvalidSessionIdError(`Session id suffix "${suffix}" is a generic placeholder. Use a real topic slug (e.g. "add-user-auth", "v3-indicator-model").`);
+    throw new InvalidSessionIdError(
+      `Session id suffix "${suffix}" is a generic placeholder. Use a real topic slug (e.g. "add-user-auth", "v3-indicator-model").`
+    );
   }
 }
 
@@ -431,7 +453,7 @@ export async function initWorkspace(options: WorkspaceInitOptions): Promise<Work
     // Refuse to rebind without explicit authorization.
     previousSessionId = existingSessionId;
     const existingSessionDir = join(runtimeRoot, existingSessionId);
-    if (await isDirectory(existingSessionDir) && !options.allowSessionRebind) {
+    if ((await isDirectory(existingSessionDir)) && !options.allowSessionRebind) {
       const { readdirSync } = await import('node:fs');
       const entries = readdirSync(existingSessionDir);
       if (entries.length > 0) {
@@ -464,7 +486,8 @@ export async function initWorkspace(options: WorkspaceInitOptions): Promise<Work
   //     put it on stderr + into the JSON envelope's `data.standardsMissing`.
   //   - When `initStandards: true` AND the detector reports missing, run
   //     `executeProjectStandardsInit({ apply: true })` to auto-apply.
-  const detectedLanguage: StandardsLanguage = options.language ?? detectLanguage(options.projectRoot);
+  const detectedLanguage: StandardsLanguage =
+    options.language ?? detectLanguage(options.projectRoot);
   const standardsMissing = detectMissingProjectStandards(options.projectRoot, detectedLanguage);
   let standardsApplied: WorkspaceInitReport['standardsApplied'];
   if (options.initStandards === true && standardsMissing.missing) {

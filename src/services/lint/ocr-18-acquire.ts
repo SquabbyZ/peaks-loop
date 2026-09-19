@@ -57,7 +57,14 @@
  * confusion started.
  */
 import { spawnSync, type SpawnSyncOptions } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  renameSync,
+  unlinkSync,
+  writeFileSync
+} from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 
@@ -76,8 +83,7 @@ import { OCR_18_PACKAGE } from './ocr-multilang-adapter.js';
  * guessed number in a warning is worse than no number. What the user needs to
  * know before the block is that this touches the network and is one-time.
  */
-export const ACQUIRE_NETWORK_WARNING =
-  `fetching ${OCR_18_PACKAGE} from the npm registry (needs network, one time)`;
+export const ACQUIRE_NETWORK_WARNING = `fetching ${OCR_18_PACKAGE} from the npm registry (needs network, one time)`;
 
 /**
  * A held lock older than this is reclaimed even if its owner is alive.
@@ -213,7 +219,11 @@ export function releaseOcrLock(): void {
 }
 
 function isLiveLock(body: AcquireLockBody | null): boolean {
-  return body !== null && isProcessAlive(body.pid) && Date.now() - Date.parse(body.startedAt) <= ACQUIRE_LOCK_STALE_MS;
+  return (
+    body !== null &&
+    isProcessAlive(body.pid) &&
+    Date.now() - Date.parse(body.startedAt) <= ACQUIRE_LOCK_STALE_MS
+  );
 }
 
 function ownsLock(target: string): boolean {
@@ -223,7 +233,11 @@ function ownsLock(target: string): boolean {
 function tryCreateLock(target: string): boolean {
   const body: AcquireLockBody = { pid: process.pid, startedAt: new Date().toISOString() };
   try {
-    writeFileSync(target, JSON.stringify(body), { flag: 'wx', encoding: 'utf8', mode: LOCK_FILE_MODE });
+    writeFileSync(target, JSON.stringify(body), {
+      flag: 'wx',
+      encoding: 'utf8',
+      mode: LOCK_FILE_MODE
+    });
     return true;
   } catch {
     // `EEXIST` (held) and any other write failure both mean "not acquired".
@@ -263,7 +277,9 @@ export interface ResolveAcquireShellOptions {
  * Resolve the shell the acquisition runs through: Git Bash → PowerShell →
  * no shell. Never throws, and never returns a shell without a `note`.
  */
-export async function resolveAcquireShell(options: ResolveAcquireShellOptions = {}): Promise<AcquireShell> {
+export async function resolveAcquireShell(
+  options: ResolveAcquireShellOptions = {}
+): Promise<AcquireShell> {
   const platform = options.platform ?? process.platform;
   const env = options.env ?? process.env;
   const probeFile = options.probeFile ?? existsSync;
@@ -411,7 +427,11 @@ function runOcrAcquire(shell: AcquireShell, asJson: boolean): ReturnType<typeof 
   const stdio: SpawnSyncOptions['stdio'] = asJson ? ['ignore', 'ignore', 'inherit'] : 'inherit';
   const options: SpawnSyncOptions = { stdio, timeout: ACQUIRE_TIMEOUT_MS, windowsHide: true };
   if (shell.kind === 'powershell' && shell.path !== null) {
-    return spawnSync(shell.path, ['-NoProfile', '-NonInteractive', '-Command', acquireCommandLine()], options);
+    return spawnSync(
+      shell.path,
+      ['-NoProfile', '-NonInteractive', '-Command', acquireCommandLine()],
+      options
+    );
   }
   if (shell.kind === 'bash' && shell.path !== null) {
     return spawnSync(shell.path, ['-c', acquireCommandLine()], options);
@@ -420,14 +440,25 @@ function runOcrAcquire(shell: AcquireShell, asJson: boolean): ReturnType<typeof 
   // spawn in this repo does (see `resolveNpxInvocation`). `shell: true` is NOT
   // an alternative — it concatenates and splits the `--package` argv.
   const invocation = resolveNpxInvocation(acquireCommandArgs());
-  return spawnSync(invocation.command, [...invocation.args], { ...options, env: invocation.baseEnv });
+  return spawnSync(invocation.command, [...invocation.args], {
+    ...options,
+    env: invocation.baseEnv
+  });
 }
 
 function spawnFailure(error: Error, shell: AcquireShell, startedAt: number): AcquireOutcome {
-  const code = (error as NodeJS.ErrnoException).code === 'ETIMEDOUT' ? 'OCR18_ACQUIRE_TIMEOUT' : 'OCR18_ACQUIRE_FAILED';
+  const code =
+    (error as NodeJS.ErrnoException).code === 'ETIMEDOUT'
+      ? 'OCR18_ACQUIRE_TIMEOUT'
+      : 'OCR18_ACQUIRE_FAILED';
   return failure(code, `the acquisition did not complete: ${error.message}`, shell, startedAt);
 }
 
-function failure(code: string, message: string, shell: AcquireShell, startedAt: number): AcquireOutcome {
+function failure(
+  code: string,
+  message: string,
+  shell: AcquireShell,
+  startedAt: number
+): AcquireOutcome {
   return { ok: false, code, message, shell, durationMs: Date.now() - startedAt, warnings: [] };
 }

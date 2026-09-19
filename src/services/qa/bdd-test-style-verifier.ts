@@ -48,9 +48,7 @@ import ts from 'typescript';
 const TEST_NAMES = new Set(['it', 'test']);
 
 /** Structured failure reasons the verifier can return. */
-export type BddStyleFailureReason =
-  | 'missing-given-when-then'
-  | 'description-no-should-when';
+export type BddStyleFailureReason = 'missing-given-when-then' | 'description-no-should-when';
 
 /** Successful verdict — includes the count of inspected `it`/`test` calls. */
 export interface BddStyleOk {
@@ -110,7 +108,7 @@ export function verifyBddStyle(input: VerifyBddStyleInput): BddStyleVerdict {
       source,
       ts.ScriptTarget.ESNext,
       /* setParentNodes */ true,
-      ts.ScriptKind.TS,
+      ts.ScriptKind.TS
     );
     let earliestFail: BddStyleFail | null = null;
     const recordFail = (fail: BddStyleFail): void => {
@@ -158,7 +156,7 @@ export function verifyBddStyle(input: VerifyBddStyleInput): BddStyleVerdict {
 function checkDescription(
   call: ts.CallExpression,
   sourceFile: ts.SourceFile,
-  relPath: string,
+  relPath: string
 ): BddStyleFail | null {
   const firstArg = call.arguments[0];
   if (firstArg === undefined || !ts.isStringLiteralLike(firstArg)) {
@@ -170,7 +168,7 @@ function checkDescription(
       file: relPath,
       line: line + 1,
       description: '<non-literal first argument>',
-      expected: 'first argument must be a string literal containing "when" or "should"',
+      expected: 'first argument must be a string literal containing "when" or "should"'
     };
   }
   const description = firstArg.text;
@@ -183,7 +181,7 @@ function checkDescription(
       file: relPath,
       line: line + 1,
       description,
-      expected: 'description must contain the word "when" or "should" (BDD style)',
+      expected: 'description must contain the word "when" or "should" (BDD style)'
     };
   }
   return null;
@@ -210,7 +208,7 @@ function checkDescription(
 function checkBody(
   call: ts.CallExpression,
   sourceFile: ts.SourceFile,
-  relPath: string,
+  relPath: string
 ): BddStyleFail | null {
   const body = getCallbackBlock(call);
   if (body !== null) {
@@ -228,7 +226,7 @@ function checkBody(
     reason: 'missing-given-when-then',
     file: relPath,
     line: line + 1,
-    expected: 'block-body callback with // given: / // when: / // then: comments at the top',
+    expected: 'block-body callback with // given: / // when: / // then: comments at the top'
   };
 }
 
@@ -243,7 +241,7 @@ function getCallbackBlock(call: ts.CallExpression): ts.Block | null {
 function checkBlockLeadingComments(
   block: ts.Block,
   sourceFile: ts.SourceFile,
-  relPath: string,
+  relPath: string
 ): BddStyleFail | null {
   // TypeScript's `getLeadingCommentRanges` API is unreliable for
   // comment-only blocks: with `setParentNodes: true`, an empty
@@ -276,7 +274,7 @@ function checkBlockLeadingComments(
 function makeMissingCommentFailure(
   block: ts.Node,
   sourceFile: ts.SourceFile,
-  relPath: string,
+  relPath: string
 ): BddStyleFail {
   // Report the line of the opening `{` + 1 — the line that should
   // contain the first comment of the BDD triple. This gives the
@@ -288,7 +286,7 @@ function makeMissingCommentFailure(
     reason: 'missing-given-when-then',
     file: relPath,
     line: line + 1,
-    expected: '// given: / // when: / // then: triple at the top of the block body',
+    expected: '// given: / // when: / // then: triple at the top of the block body'
   };
 }
 
@@ -310,7 +308,7 @@ function matchesBddTriple(triple: readonly string[]): boolean {
   const patterns: readonly RegExp[] = [
     /^\s*\/\/\s*given\s*:/i,
     /^\s*\/\/\s*when\s*:/i,
-    /^\s*\/\/\s*then\s*:/i,
+    /^\s*\/\/\s*then\s*:/i
   ];
   return patterns.every((pat, i) => pat.test(triple[i] ?? ''));
 }

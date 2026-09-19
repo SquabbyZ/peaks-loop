@@ -48,17 +48,20 @@ export function assertDistFresh(projectRoot: string): string {
   }
 
   if (result.state === 'stale') {
-    const evidence = result.method === 'digest'
-      ? [
-          `  built digest:  ${result.builtDigest.slice(0, 12)}${result.builtAt === null ? '' : ` (${result.builtAt})`}`,
-          `  source digest: ${result.digest.slice(0, 12)}`,
-        ]
-      : [
-          '  No usable dist/.dist-stamp.json was present, so the weaker mtime rule ran.',
-          '  These source files are newer than every built artifact:',
-          ...result.newerSources.slice(0, MAX_NAMED).map((source) => `    ${source.path}`),
-          ...(result.newerSources.length > MAX_NAMED ? [`    … (+${result.newerSources.length - MAX_NAMED} more)`] : []),
-        ];
+    const evidence =
+      result.method === 'digest'
+        ? [
+            `  built digest:  ${result.builtDigest.slice(0, 12)}${result.builtAt === null ? '' : ` (${result.builtAt})`}`,
+            `  source digest: ${result.digest.slice(0, 12)}`
+          ]
+        : [
+            '  No usable dist/.dist-stamp.json was present, so the weaker mtime rule ran.',
+            '  These source files are newer than every built artifact:',
+            ...result.newerSources.slice(0, MAX_NAMED).map((source) => `    ${source.path}`),
+            ...(result.newerSources.length > MAX_NAMED
+              ? [`    … (+${result.newerSources.length - MAX_NAMED} more)`]
+              : [])
+          ];
 
     throw new Error(
       [
@@ -74,7 +77,7 @@ export function assertDistFresh(projectRoot: string): string {
         `    ${REBUILD_COMMAND}`,
         '',
         '  (`pnpm test:unit` is the suite that does not need a build.)',
-        '',
+        ''
       ].join('\n')
     );
   }

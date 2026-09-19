@@ -120,9 +120,7 @@ function gateEvidenceBlock(evidence: GateEvidence | undefined): string[] {
  * `---` and a trailing newline. Callers append the body verbatim, which keeps
  * the sha256 of the body independent of how the frontmatter renders.
  */
-export function serializeHandoffFrontmatter(
-  frontmatter: HandoffFrontmatter
-): string {
+export function serializeHandoffFrontmatter(frontmatter: HandoffFrontmatter): string {
   const lines = [
     '---',
     `requestId: ${yamlScalar(frontmatter.requestId)}`,
@@ -145,7 +143,7 @@ export function serializeHandoffFrontmatter(
     // indented lines only, leaving the top-level key set exactly as it was
     // for every capsule that declares no evidence.
     ...gateEvidenceBlock(frontmatter.gateEvidence),
-    '---',
+    '---'
   ];
   return `${lines.join('\n')}\n`;
 }

@@ -55,7 +55,7 @@ function captureIo() {
     restore() {
       process.stdout.write = origStdoutWrite;
       process.stderr.write = origStderrWrite;
-    },
+    }
   };
 }
 
@@ -88,7 +88,7 @@ async function runOne(req) {
     const timeoutPromise = new Promise((_, reject) => {
       timeoutHandle = setTimeout(
         () => reject(new Error(`__IPC_TIMEOUT__ after ${timeoutMs ?? 10000}ms`)),
-        timeoutMs ?? 10000,
+        timeoutMs ?? 10000
       );
     });
     try {
@@ -96,12 +96,19 @@ async function runOne(req) {
     } catch (err) {
       const code = err && typeof err === 'object' && 'code' in err ? err.code : null;
       const isCommanderHelp =
-        code === 'commander.helpDisplayed' || code === 'commander.help' || code === 'commander.version';
+        code === 'commander.helpDisplayed' ||
+        code === 'commander.help' ||
+        code === 'commander.version';
       if (isCommanderHelp) {
         status = 0;
-      } else if (err && typeof err === 'object' && 'code' in err &&
-                 (err.code === 'commander.unknownCommand' || err.code === 'commander.missingArgument' ||
-                  err.code === 'commander.unknownOption')) {
+      } else if (
+        err &&
+        typeof err === 'object' &&
+        'code' in err &&
+        (err.code === 'commander.unknownCommand' ||
+          err.code === 'commander.missingArgument' ||
+          err.code === 'commander.unknownOption')
+      ) {
         status = 1;
       } else if (err instanceof Error && err.message.startsWith('__IPC_TIMEOUT__')) {
         status = null;
@@ -155,7 +162,7 @@ async function runOne(req) {
   return {
     status,
     stdout: io.stdout(),
-    stderr: io.stderr(),
+    stderr: io.stderr()
   };
 }
 
@@ -172,14 +179,30 @@ process.stdin.on('data', (chunk) => {
     try {
       req = JSON.parse(line);
     } catch (err) {
-      process.stdout.write(JSON.stringify({ id: null, status: 1, stdout: '', stderr: `__IPC_BAD_REQUEST__ ${err.message}\n` }) + '\n');
+      process.stdout.write(
+        JSON.stringify({
+          id: null,
+          status: 1,
+          stdout: '',
+          stderr: `__IPC_BAD_REQUEST__ ${err.message}\n`
+        }) + '\n'
+      );
       continue;
     }
-    runOne(req).then((resp) => {
-      process.stdout.write(JSON.stringify({ id: req.id ?? null, ...resp }) + '\n');
-    }).catch((err) => {
-      process.stdout.write(JSON.stringify({ id: req.id ?? null, status: 1, stdout: '', stderr: `__IPC_RUNONE_ERR__ ${err.message}\n` }) + '\n');
-    });
+    runOne(req)
+      .then((resp) => {
+        process.stdout.write(JSON.stringify({ id: req.id ?? null, ...resp }) + '\n');
+      })
+      .catch((err) => {
+        process.stdout.write(
+          JSON.stringify({
+            id: req.id ?? null,
+            status: 1,
+            stdout: '',
+            stderr: `__IPC_RUNONE_ERR__ ${err.message}\n`
+          }) + '\n'
+        );
+      });
   }
 });
 

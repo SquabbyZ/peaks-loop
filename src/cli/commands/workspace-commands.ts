@@ -35,7 +35,7 @@ import { registerMigrateV2ToV11Command } from './migrate-v2-10-to-v2-11-command.
 export {
   resolveFirstTimeHooksInstall,
   type FirstTimeHooksInstallOutcome,
-  type ResolveFirstTimeHooksInstallOptions,
+  type ResolveFirstTimeHooksInstallOptions
 } from './workspace/init-command.js';
 
 export function registerWorkspaceCommands(program: Command, io: ProgramIO): void {

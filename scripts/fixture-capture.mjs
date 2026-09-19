@@ -41,13 +41,13 @@ const argv = process.argv.slice(2);
 if (argv.length === 0 || argv.includes('--help') || argv.includes('-h')) {
   process.stdout.write(
     'peaks fixture capture — Capture a real envelope as a replay fixture.\n' +
-    '\n' +
-    'Usage:\n' +
-    '  node scripts/fixture-capture.mjs --from-rid <rid> --sid <sid> --envelope <kind> [--out <dir>]\n' +
-    '  node scripts/fixture-capture.mjs --variant-from <path> --variant <edge-case> [--out <dir>]\n' +
-    '\n' +
-    'Envelope kinds: audit-security | audit-perf | karpathy-review | mut-report | qa-report | prd-handoff\n' +
-    'Edge cases:     chinese-colon | yaml-frontmatter-variation | double-format | empty-body | multi-findings\n'
+      '\n' +
+      'Usage:\n' +
+      '  node scripts/fixture-capture.mjs --from-rid <rid> --sid <sid> --envelope <kind> [--out <dir>]\n' +
+      '  node scripts/fixture-capture.mjs --variant-from <path> --variant <edge-case> [--out <dir>]\n' +
+      '\n' +
+      'Envelope kinds: audit-security | audit-perf | karpathy-review | mut-report | qa-report | prd-handoff\n' +
+      'Edge cases:     chinese-colon | yaml-frontmatter-variation | double-format | empty-body | multi-findings\n'
   );
   process.exit(argv.length === 0 ? 2 : 0);
 }

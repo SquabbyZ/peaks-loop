@@ -169,42 +169,52 @@ function run({ options }: DoctorContext): readonly DoctorCheck[] {
   try {
     const { hooksPath, hooks } = probe();
     if (hooksPath === null) {
-      return [{
-        id: CHECK_ID,
-        ok: true,
-        message:
-          'ECC plugin not installed (no `ecc@*` entry in ~/.claude/plugins/installed_plugins.json); no plugin hook schema drift to report'
-      }];
+      return [
+        {
+          id: CHECK_ID,
+          ok: true,
+          message:
+            'ECC plugin not installed (no `ecc@*` entry in ~/.claude/plugins/installed_plugins.json); no plugin hook schema drift to report'
+        }
+      ];
     }
     if (hooks === null) {
-      return [{
-        id: CHECK_ID,
-        ok: true,
-        message: `No readable ECC plugin hooks.json at ${hooksPath}; no plugin hook schema drift to report`
-      }];
+      return [
+        {
+          id: CHECK_ID,
+          ok: true,
+          message: `No readable ECC plugin hooks.json at ${hooksPath}; no plugin hook schema drift to report`
+        }
+      ];
     }
     const finding = findEccHooksSchemaDrift(hooks);
     if (finding.unknownKeyCount === 0) {
-      return [{
+      return [
+        {
+          id: CHECK_ID,
+          ok: true,
+          message: `ECC plugin hooks.json at ${hooksPath} carries only the keys Claude Code accepts (matcher/hooks per matcher group); the startup "unknown keys ... ignored" warning will not appear`
+        }
+      ];
+    }
+    const rootPart =
+      finding.rootKeys.length === 0 ? '' : `at the root: ${finding.rootKeys.join(', ')}; `;
+    return [
+      {
+        id: CHECK_ID,
+        ok: false,
+        severity: 'warning',
+        message: `ECC plugin hooks.json at ${hooksPath} carries ${finding.unknownKeyCount} key(s) that Claude Code's plugin hook schema ignores (${rootPart}on ${finding.entryCount} matcher group(s): ${finding.entryKeys.join(', ')}). Claude Code prints \`ecc: hooks.json: unknown keys ... ignored\` at startup; every hook still loads, so this warning is cosmetic. Source: the third-party ECC plugin (github.com/affaan-m/ECC) ships these keys in every release (v2.2.0 / v2.2.1 / main) — peaks-loop does NOT write this file. Fix: none inside peaks-loop; upstream ECC must drop them from its hooks/hooks.json (its scripts/ci/validate-hooks.js validates shape only, never a key allow-list, so ECC's own CI stays green). Upgrading ECC will not help.`
+      }
+    ];
+  } catch (error) {
+    return [
+      {
         id: CHECK_ID,
         ok: true,
-        message: `ECC plugin hooks.json at ${hooksPath} carries only the keys Claude Code accepts (matcher/hooks per matcher group); the startup "unknown keys ... ignored" warning will not appear`
-      }];
-    }
-    const rootPart = finding.rootKeys.length === 0 ? '' : `at the root: ${finding.rootKeys.join(', ')}; `;
-    return [{
-      id: CHECK_ID,
-      ok: false,
-      severity: 'warning',
-      message:
-        `ECC plugin hooks.json at ${hooksPath} carries ${finding.unknownKeyCount} key(s) that Claude Code's plugin hook schema ignores (${rootPart}on ${finding.entryCount} matcher group(s): ${finding.entryKeys.join(', ')}). Claude Code prints \`ecc: hooks.json: unknown keys ... ignored\` at startup; every hook still loads, so this warning is cosmetic. Source: the third-party ECC plugin (github.com/affaan-m/ECC) ships these keys in every release (v2.2.0 / v2.2.1 / main) — peaks-loop does NOT write this file. Fix: none inside peaks-loop; upstream ECC must drop them from its hooks/hooks.json (its scripts/ci/validate-hooks.js validates shape only, never a key allow-list, so ECC's own CI stays green). Upgrading ECC will not help.`
-    }];
-  } catch (error) {
-    return [{
-      id: CHECK_ID,
-      ok: true,
-      message: `ECC hooks schema-drift probe failed (${getErrorMessage(error)}); skipping check`
-    }];
+        message: `ECC hooks schema-drift probe failed (${getErrorMessage(error)}); skipping check`
+      }
+    ];
   }
 }
 

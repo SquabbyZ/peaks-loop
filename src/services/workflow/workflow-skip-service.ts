@@ -112,11 +112,17 @@ export async function canSkipSlice(
 ): Promise<CanSkipVerdict> {
   // Argument validation (no filesystem).
   if (args.reason.trim().length === 0) {
-    return { allowed: false, reason: 'skip requires --reason; what is the user-visible justification for this QA bypass?' };
+    return {
+      allowed: false,
+      reason: 'skip requires --reason; what is the user-visible justification for this QA bypass?'
+    };
   }
   const gates = parseGatesList(args.gatesRaw);
   if (gates.length === 0) {
-    return { allowed: false, reason: '--gates must list at least one gate name (e.g. "QA" or "QA,slice-check")' };
+    return {
+      allowed: false,
+      reason: '--gates must list at least one gate name (e.g. "QA" or "QA,slice-check")'
+    };
   }
 
   // Resolve caller kind.
@@ -132,7 +138,10 @@ export async function canSkipSlice(
   try {
     const rdArtifact = await showRequestArtifact({ projectRoot, role: 'rd', requestId: args.rid });
     if (rdArtifact === null) {
-      return { allowed: false, reason: `RD request artifact not found for rid "${args.rid}"; cannot determine slice type` };
+      return {
+        allowed: false,
+        reason: `RD request artifact not found for rid "${args.rid}"; cannot determine slice type`
+      };
     }
     sliceType = rdArtifact.requestType;
   } catch (error) {
@@ -178,7 +187,12 @@ export async function applySkip(
   sessionId: string,
   args: SkipArgs
 ): Promise<ApplySkipResult> {
-  const verdict = await canSkipSlice(projectRoot, sessionId, args, readSkipState(projectRoot, sessionId, args.rid));
+  const verdict = await canSkipSlice(
+    projectRoot,
+    sessionId,
+    args,
+    readSkipState(projectRoot, sessionId, args.rid)
+  );
   if (!verdict.allowed) {
     return {
       applied: false,
@@ -265,7 +279,8 @@ function resolveSkipAppliedBy(): string {
     if (trimmed.length > 0) {
       return trimmed;
     }
-  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+  } catch {
+    // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     // fall through
   }
   try {

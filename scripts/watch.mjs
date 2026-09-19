@@ -72,7 +72,10 @@ export function runCommand(command, args, options = {}) {
         return;
       }
 
-      settle(rejectPromise, new Error(`${command} ${args.join(' ')} failed with exit code ${code}`));
+      settle(
+        rejectPromise,
+        new Error(`${command} ${args.join(' ')} failed with exit code ${code}`)
+      );
     });
   });
 }
@@ -383,7 +386,10 @@ async function main() {
   await watchMode.start();
 }
 
-if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
+if (
+  process.argv[1] !== undefined &&
+  import.meta.url === pathToFileURL(resolve(process.argv[1])).href
+) {
   main().catch((error) => {
     process.stderr.write(`[peaks watch] ${getErrorMessage(error)}\n`);
     process.exitCode = 1;

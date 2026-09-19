@@ -28,17 +28,19 @@ vi.mock('peaks-loop-internal-runtime', () => ({
     pid: 1234,
     dispatchRecordPath: '/x/dispatch-r1.json',
     child: { on: vi.fn(), kill: vi.fn() },
-    spawnError: null,
+    spawnError: null
   })),
   ResourceBudgetGuard: class {
     constructor(_cfg: { maxRssMb: number; maxCpuPct: number }) {}
-    sample() { return { rssMb: 100, cpuPct: 1 }; }
+    sample() {
+      return { rssMb: 100, cpuPct: 1 };
+    }
     enforce(input: { active: number }, opts: { maxConcurrent: number }) {
       // Mock contract: throttle fires only when active fan-out > maxConcurrent.
       // With active=1 (production default) and maxConcurrent=8, throttle=false.
       return { throttle: input.active > opts.maxConcurrent };
     }
-  },
+  }
 }));
 
 import { dispatchDetached } from 'peaks-loop-internal-runtime';
@@ -53,7 +55,7 @@ describe('peaks sub-agent dispatch --mode detached', () => {
       mode: 'detached',
       vendor: 'claude',
       project: '.',
-      json: true,
+      json: true
     });
     expect(out.ok).toBe(true);
     expect(out.data.mode).toBe('detached');
@@ -71,7 +73,7 @@ describe('peaks sub-agent dispatch --mode detached', () => {
       vendor: 'claude',
       project: '.',
       json: true,
-      maxConcurrent: 8,
+      maxConcurrent: 8
     });
     expect(out1.ok).toBe(true); // mock returns throttle=false; only triggers when active > maxConcurrent
 
@@ -84,13 +86,11 @@ describe('peaks sub-agent dispatch --mode detached', () => {
       project: '.',
       json: true,
       maxConcurrent: 8,
-      noThrottle: true,
+      noThrottle: true
     });
     expect(out2.ok).toBe(true);
     // --no-throttle adds a warning
-    const hasNoThrottleWarn = (out2.warnings ?? []).some(
-      (w: string) => /no-throttle/i.test(w),
-    );
+    const hasNoThrottleWarn = (out2.warnings ?? []).some((w: string) => /no-throttle/i.test(w));
     expect(hasNoThrottleWarn).toBe(true);
   });
 
@@ -103,8 +103,8 @@ describe('peaks sub-agent dispatch --mode detached', () => {
         mode: 'in-process',
         vendor: 'claude',
         project: '.',
-        json: true,
-      }),
+        json: true
+      })
     ).rejects.toThrow(/detached/);
   });
 
@@ -136,7 +136,7 @@ describe('peaks sub-agent dispatch --mode detached', () => {
       pid: -1,
       dispatchRecordPath: '/x/dispatch-r5.json',
       child: undefined,
-      spawnError: enoent,
+      spawnError: enoent
     } as never);
     const out = await dispatch({
       role: 'rd',
@@ -145,17 +145,21 @@ describe('peaks sub-agent dispatch --mode detached', () => {
       mode: 'detached',
       vendor: 'codex',
       project: '.',
-      json: true,
+      json: true
     });
     expect(out.ok).toBe(false);
     expect(out.data.pid).toBe(-1);
     expect((out.data as { spawnError?: unknown }).spawnError).toEqual({
       code: 'ENOENT',
-      message: 'spawn codex ENOENT',
+      message: 'spawn codex ENOENT'
     });
     // The hint must not claim a spawn that did not happen.
-    expect((out.data as { orchestratorVisibleHint: string }).orchestratorVisibleHint).not.toMatch(/Spawning/);
-    expect((out.data as { orchestratorVisibleHint: string }).orchestratorVisibleHint).toMatch(/Could not launch/);
+    expect((out.data as { orchestratorVisibleHint: string }).orchestratorVisibleHint).not.toMatch(
+      /Spawning/
+    );
+    expect((out.data as { orchestratorVisibleHint: string }).orchestratorVisibleHint).toMatch(
+      /Could not launch/
+    );
     expect((out.nextActions ?? []).join(' ')).toMatch(/install the vendor CLI/i);
   });
 
@@ -169,7 +173,7 @@ describe('peaks sub-agent dispatch --mode detached', () => {
     // and never called" from "handler never attached".
     const src = readFileSync(
       join(__dirname, '..', '..', '..', 'src', 'cli', 'commands', 'sub-agent', 'detached.ts'),
-      'utf8',
+      'utf8'
     );
     expect(src).not.toMatch(/\.on\(\s*['"]error['"]/);
     expect(src).toMatch(/spawnError/);

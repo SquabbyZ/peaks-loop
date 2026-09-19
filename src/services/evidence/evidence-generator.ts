@@ -92,7 +92,12 @@ function lineCountsMd(lineCounts: Record<string, string>): string {
     .join('\n');
 }
 
-function buildCodeReview(rid: string, title: string, files: string[], lineCounts: Record<string, string>): string {
+function buildCodeReview(
+  rid: string,
+  title: string,
+  files: string[],
+  lineCounts: Record<string, string>
+): string {
   return `# Code Review — ${rid}
 
 - reviewer: peaks-code orchestrator (full-auto)
@@ -161,7 +166,12 @@ function buildKarpathyReview(rid: string, lineCounts: Record<string, string>): s
 `;
 }
 
-function buildTechDoc(rid: string, title: string, files: string[], lineCounts: Record<string, string>): string {
+function buildTechDoc(
+  rid: string,
+  title: string,
+  files: string[],
+  lineCounts: Record<string, string>
+): string {
   return `# Technical Design — ${rid}
 
 ## Architecture
@@ -294,7 +304,14 @@ function buildQaRequest(rid: string, sid: string, files: string[]): string {
  * producer/consumer divergence rid `2026-09-14-handoff-writer-gate-divergence`
  * exists to remove, surviving in a function the same slice edited.
  */
-function buildHandoff(rid: string, sid: string, title: string, files: string[], lineCounts: Record<string, string>, gateEvidence: GateEvidence | undefined): { content: string; hash: string } {
+function buildHandoff(
+  rid: string,
+  sid: string,
+  title: string,
+  files: string[],
+  lineCounts: Record<string, string>,
+  gateEvidence: GateEvidence | undefined
+): { content: string; hash: string } {
   const body = `# PRD Handoff — ${rid}
 
 ${title}. Mechanical verbatim module split; behavior-preserving.
@@ -339,7 +356,9 @@ async function resolveQaRequestPath(qaDir: string, rid: string): Promise<string>
   return join(qaDir, 'requests', `001-${rid}.md`);
 }
 
-export async function generateEvidence(options: EvidenceGenerateOptions): Promise<EvidenceGenerateResult> {
+export async function generateEvidence(
+  options: EvidenceGenerateOptions
+): Promise<EvidenceGenerateResult> {
   const { projectRoot, rid, title, files, lineCounts, sessionId } = options;
   // Both values become path segments below — the rid as a filename, the sid as
   // the session directory. Guard them BEFORE the first mkdir so a rejected run
@@ -351,7 +370,9 @@ export async function generateEvidence(options: EvidenceGenerateOptions): Promis
   // deeper rid wrote above the project root with the string echoed into the
   // artifact body.
   if (!REQUEST_ID_PATTERN.test(rid)) {
-    throw new Error(`Invalid request id: ${rid} (expected letters, digits, dots, underscores, or dashes)`);
+    throw new Error(
+      `Invalid request id: ${rid} (expected letters, digits, dots, underscores, or dashes)`
+    );
   }
   if (isUnsafePathInput(sessionId)) {
     throw new Error(`Invalid session id: ${sessionId} (must be a single path segment)`);
@@ -376,7 +397,11 @@ export async function generateEvidence(options: EvidenceGenerateOptions): Promis
   }
 
   const qaRequestPath = await resolveQaRequestPath(qaDir, rid);
-  const gateEvidence = await deriveGateEvidenceForRequest({ projectRoot, sessionId, requestId: rid });
+  const gateEvidence = await deriveGateEvidenceForRequest({
+    projectRoot,
+    sessionId,
+    requestId: rid
+  });
   const handoff = buildHandoff(rid, sessionId, title, files, lineCounts, gateEvidence);
 
   // Four of these twelve paths carry the rid because the `rd:qa-handoff` gate

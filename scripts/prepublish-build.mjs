@@ -52,11 +52,11 @@ try {
   }
   console.log('[prepublish-build] falling back to .ps1 variant');
   try {
-    execFileSync(
-      'powershell',
-      ['-ExecutionPolicy', 'Bypass', '-File', ps1],
-      { stdio: 'inherit', cwd: projectRoot, windowsHide: true },
-    );
+    execFileSync('powershell', ['-ExecutionPolicy', 'Bypass', '-File', ps1], {
+      stdio: 'inherit',
+      cwd: projectRoot,
+      windowsHide: true
+    });
   } catch (fallbackErr) {
     console.error('[prepublish-build] .ps1 fallback failed:', fallbackErr?.message ?? fallbackErr);
     process.exit(1);

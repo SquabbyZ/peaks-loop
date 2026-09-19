@@ -29,6 +29,8 @@ try {
   const { digest, fileCount } = writeDistStamp(projectRoot);
   process.stdout.write(`dist-stamp: ${fileCount} source file(s), digest ${digest.slice(0, 12)}\n`);
 } catch (error) {
-  process.stderr.write(`dist-stamp: FAILED to write dist/.dist-stamp.json: ${error?.message ?? String(error)}\n`);
+  process.stderr.write(
+    `dist-stamp: FAILED to write dist/.dist-stamp.json: ${error?.message ?? String(error)}\n`
+  );
   process.exit(1);
 }

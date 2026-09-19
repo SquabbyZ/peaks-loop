@@ -39,7 +39,12 @@ import {
 import { readCodegraphProjectInputs } from '../../services/codegraph/codegraph-exclude-reconciler.js';
 import { fail, ok } from 'peaks-loop-shared/result';
 
-import { getErrorMessage, printResult, redactSensitiveErrorMessage, type ProgramIO } from '../cli-helpers.js';
+import {
+  getErrorMessage,
+  printResult,
+  redactSensitiveErrorMessage,
+  type ProgramIO
+} from '../cli-helpers.js';
 import {
   printCodegraphFailure,
   rewriteBareCodegraphHints,
@@ -165,7 +170,11 @@ async function runCodegraphStatusJson(
       fail(
         'codegraph.status',
         'CODEGRAPH_COMMAND_FAILED',
-        redactSensitiveErrorMessage(upstream.stderr || upstream.stdout || `codegraph exited with code ${String(result.exitCode)}`),
+        redactSensitiveErrorMessage(
+          upstream.stderr ||
+            upstream.stdout ||
+            `codegraph exited with code ${String(result.exitCode)}`
+        ),
         data,
         ['Check the codegraph project path before retrying']
       ),
@@ -179,7 +188,9 @@ async function runCodegraphStatusJson(
         'CODEGRAPH_INDEX_INCOMPLETE',
         `codegraph index is incomplete: ${integrity.excludedTrackedCount} of ${integrity.trackedSourceCount} tracked source files are excluded by ${integrity.rulesToRemove.length} rule(s).`,
         data,
-        ['Run `peaks codegraph repair-exclude --project <root>` to drop the offending rules and rebuild the index.']
+        [
+          'Run `peaks codegraph repair-exclude --project <root>` to drop the offending rules and rebuild the index.'
+        ]
       ),
       true
     );
@@ -377,7 +388,9 @@ export async function runCodegraphStatusCommand(
       // every mode: the axis was attempted and failed, so this is not a
       // statement about the index. Distinct wording from the gap line so
       // the two can never be confused.
-      io.stdout(`[FAIL] codegraph index integrity could not be evaluated (the index was NOT measured): ${indexIntegrityWarning ?? 'unknown cause'}`);
+      io.stdout(
+        `[FAIL] codegraph index integrity could not be evaluated (the index was NOT measured): ${indexIntegrityWarning ?? 'unknown cause'}`
+      );
     } else if (indexIntegrity !== null) {
       for (const line of renderCodegraphIndexIntegrityLines(indexIntegrity, strict)) {
         io.stdout(line);

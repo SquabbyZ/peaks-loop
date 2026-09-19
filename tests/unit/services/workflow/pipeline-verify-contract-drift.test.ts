@@ -53,10 +53,12 @@ import {
   rdGatesForType
 } from '../../../../src/services/workflow/pipeline-verify-gate-support.js';
 
-declareDimensions(
-  'tests/unit/services/workflow/pipeline-verify-contract-drift.test.ts',
-  ['render', 'behavior', 'integration', 'a11y'],
-);
+declareDimensions('tests/unit/services/workflow/pipeline-verify-contract-drift.test.ts', [
+  'render',
+  'behavior',
+  'integration',
+  'a11y'
+]);
 
 const SESSION_ID = 'test-session-contract-drift';
 const RID = '2026-09-14-contract-drift-fixture';
@@ -76,7 +78,7 @@ const KARPATHY_REVIEW_BODY = [
   '### Surgical Changes',
   '',
   '### Goal-Driven Execution',
-  '',
+  ''
 ].join('\n');
 
 /** `prd/handoff.md` — `AUDIT_REQUIRES_HANDOFF` pins `schemaVersion: 2` and a
@@ -132,17 +134,24 @@ function write(projectRoot: string, relative: string, body: string): void {
  *  then lay down `evidence`. */
 async function seedSlice(
   ws: TmpWorkspace,
-  evidence: ReadonlyArray<[string, string]>,
+  evidence: ReadonlyArray<[string, string]>
 ): Promise<void> {
-  for (const [role, state] of [['rd', 'qa-handoff'], ['qa', 'verdict-issued']] as const) {
+  for (const [role, state] of [
+    ['rd', 'qa-handoff'],
+    ['qa', 'verdict-issued']
+  ] as const) {
     const created = await createRequestArtifact({
       role,
       requestId: RID,
       projectRoot: ws.path,
       sessionId: SESSION_ID,
-      apply: true,
+      apply: true
     });
-    writeFileSync(created.path, updateStatusBlock(readFileSync(created.path, 'utf8'), state, TS).updated, 'utf8');
+    writeFileSync(
+      created.path,
+      updateStatusBlock(readFileSync(created.path, 'utf8'), state, TS).updated,
+      'utf8'
+    );
   }
   for (const [relative, body] of evidence) write(ws.path, relative, body);
 }
@@ -155,34 +164,44 @@ describe('Scenario: behavior — the checker reads the contract, not a frozen co
     expect(contractEvidencePaths('rd', 'qa-handoff', 'feature', 'rd/security-review.md')).toEqual([
       'audit/security-<rid>.md',
       'audit/security.md',
-      'rd/security-review.md',
+      'rd/security-review.md'
     ]);
     expect(contractEvidencePaths('rd', 'qa-handoff', 'feature', 'rd/perf-baseline.md')).toEqual([
       'audit/perf-<rid>.md',
       'audit/perf.md',
-      'rd/perf-baseline.md',
+      'rd/perf-baseline.md'
     ]);
   });
 
   it('when the contract carries the artifact under its current name, should return that name first', () => {
-    expect(contractEvidencePaths('rd', 'qa-handoff', 'feature', 'rd/code-review.md')?.[0]).toBe('rd/code-review-<rid>.md');
-    expect(contractEvidencePaths('qa', 'verdict-issued', 'feature', 'qa/test-cases/<rid>.md')).toEqual([
-      'qa/test-cases/<rid>.md',
-    ]);
+    expect(contractEvidencePaths('rd', 'qa-handoff', 'feature', 'rd/code-review.md')?.[0]).toBe(
+      'rd/code-review-<rid>.md'
+    );
+    expect(
+      contractEvidencePaths('qa', 'verdict-issued', 'feature', 'qa/test-cases/<rid>.md')
+    ).toEqual(['qa/test-cases/<rid>.md']);
   });
 
   it('when the contract has dropped an artifact entirely, should report it as retired', () => {
     // These are the three requirements that made a compliant slice fail.
-    expect(contractEvidencePaths('qa', 'verdict-issued', 'feature', 'qa/security-findings-<rid>.md')).toBeNull();
-    expect(contractEvidencePaths('qa', 'verdict-issued', 'feature', 'qa/performance-findings-<rid>.md')).toBeNull();
+    expect(
+      contractEvidencePaths('qa', 'verdict-issued', 'feature', 'qa/security-findings-<rid>.md')
+    ).toBeNull();
+    expect(
+      contractEvidencePaths('qa', 'verdict-issued', 'feature', 'qa/performance-findings-<rid>.md')
+    ).toBeNull();
     // Sanity: the retirement is specific, not a lookup that always misses.
-    expect(contractEvidencePaths('qa', 'verdict-issued', 'feature', 'qa/test-reports/<rid>.md')).not.toBeNull();
+    expect(
+      contractEvidencePaths('qa', 'verdict-issued', 'feature', 'qa/test-reports/<rid>.md')
+    ).not.toBeNull();
   });
 
   it('when the request type has no audit surface, should follow the contract rather than a hardcoded list', () => {
     // CONFIG_TABLE keeps the v2.11.x single-file security slot and has no perf
     // entry at all — the checker must not invent one.
-    expect(contractEvidencePaths('rd', 'qa-handoff', 'config', 'rd/security-review.md')).toEqual(['rd/security-review.md']);
+    expect(contractEvidencePaths('rd', 'qa-handoff', 'config', 'rd/security-review.md')).toEqual([
+      'rd/security-review.md'
+    ]);
     expect(contractEvidencePaths('rd', 'qa-handoff', 'config', 'rd/perf-baseline.md')).toBeNull();
   });
 
@@ -194,11 +213,11 @@ describe('Scenario: behavior — the checker reads the contract, not a frozen co
     // request types that carry it are exactly the ones the table gives it to.
     expect(contractEvidencePaths('rd', 'qa-handoff', 'feature', 'prd/handoff.md')).toEqual([
       'prd/handoff-<rid>.md',
-      'prd/handoff.md',
+      'prd/handoff.md'
     ]);
     expect(contractEvidencePaths('rd', 'qa-handoff', 'bugfix', 'prd/handoff.md')).toEqual([
       'prd/handoff-<rid>.md',
-      'prd/handoff.md',
+      'prd/handoff.md'
     ]);
     expect(contractEvidencePaths('rd', 'qa-handoff', 'docs', 'prd/handoff.md')).toBeNull();
     expect(contractEvidencePaths('rd', 'qa-handoff', 'config', 'prd/handoff.md')).toBeNull();
@@ -210,7 +229,7 @@ describe('Scenario: render — the gate list the QA phase now evaluates', () => 
     expect(qaGatesForType('feature').map((g) => g.name)).toEqual([
       'qa-request-exists',
       'test-cases',
-      'test-report',
+      'test-report'
     ]);
   });
 
@@ -220,12 +239,15 @@ describe('Scenario: render — the gate list the QA phase now evaluates', () => 
       'prd-handoff',
       'code-review',
       'security-review',
-      'perf-baseline',
+      'perf-baseline'
     ]);
     // The retired design record gets no gate (R1), and the types the table
     // gives no handoff to get none either.
     expect(rdGatesForType('feature').map((g) => g.name)).not.toContain('tech-doc');
-    expect(rdGatesForType('config').map((g) => g.name)).toEqual(['rd-request-exists', 'security-review']);
+    expect(rdGatesForType('config').map((g) => g.name)).toEqual([
+      'rd-request-exists',
+      'security-review'
+    ]);
     // docs/chore carry no audit prereqs, so they get no audit gates.
     expect(rdGatesForType('docs').map((g) => g.name)).toEqual(['rd-request-exists']);
   });
@@ -234,7 +256,11 @@ describe('Scenario: render — the gate list the QA phase now evaluates', () => 
 describe('Scenario: integration — the checker agrees with `request transition` on the same trees', () => {
   it('when a slice satisfies the current contract, should complete (AC1)', async () => {
     await seedSlice(ws(), CURRENT_CONTRACT_EVIDENCE);
-    const result = await verifyPipeline({ projectRoot: ws().path, rid: RID, sessionId: SESSION_ID });
+    const result = await verifyPipeline({
+      projectRoot: ws().path,
+      rid: RID,
+      sessionId: SESSION_ID
+    });
     expect(result.violations).toEqual([]);
     expect(result.complete).toBe(true);
     expect(result.rdPhase.gates.every((g) => g.passed)).toBe(true);
@@ -243,7 +269,11 @@ describe('Scenario: integration — the checker agrees with `request transition`
 
   it('when a slice still sits on the pre-v2.12.0 layout, should stay green (back-compat, AC1)', async () => {
     await seedSlice(ws(), LEGACY_CONTRACT_EVIDENCE);
-    const result = await verifyPipeline({ projectRoot: ws().path, rid: RID, sessionId: SESSION_ID });
+    const result = await verifyPipeline({
+      projectRoot: ws().path,
+      rid: RID,
+      sessionId: SESSION_ID
+    });
     expect(result.violations).toEqual([]);
     expect(result.complete).toBe(true);
     // ...and the slice is told which form it used, without being failed for it.
@@ -254,8 +284,14 @@ describe('Scenario: integration — the checker agrees with `request transition`
   it('when security evidence is genuinely absent at every contract path, should still fail (AC3)', async () => {
     await seedSlice(ws(), CURRENT_CONTRACT_EVIDENCE);
     rmSync(join(ws().path, '.peaks', '_runtime', SESSION_ID, 'audit'), { recursive: true });
-    rmSync(join(ws().path, '.peaks', '_runtime', SESSION_ID, 'rd', 'security-review.md'), { force: true });
-    const result = await verifyPipeline({ projectRoot: ws().path, rid: RID, sessionId: SESSION_ID });
+    rmSync(join(ws().path, '.peaks', '_runtime', SESSION_ID, 'rd', 'security-review.md'), {
+      force: true
+    });
+    const result = await verifyPipeline({
+      projectRoot: ws().path,
+      rid: RID,
+      sessionId: SESSION_ID
+    });
     const security = result.rdPhase.gates.find((g) => g.name === 'security-review');
     expect(security?.passed).toBe(false);
     expect(result.complete).toBe(false);
@@ -264,15 +300,25 @@ describe('Scenario: integration — the checker agrees with `request transition`
   it('when performance evidence is genuinely absent at every contract path, should still fail (AC3)', async () => {
     await seedSlice(ws(), CURRENT_CONTRACT_EVIDENCE);
     rmSync(join(ws().path, '.peaks', '_runtime', SESSION_ID, 'audit', 'perf.md'));
-    const result = await verifyPipeline({ projectRoot: ws().path, rid: RID, sessionId: SESSION_ID });
+    const result = await verifyPipeline({
+      projectRoot: ws().path,
+      rid: RID,
+      sessionId: SESSION_ID
+    });
     expect(result.rdPhase.gates.find((g) => g.name === 'perf-baseline')?.passed).toBe(false);
     expect(result.complete).toBe(false);
   });
 
   it('when QA evidence is genuinely absent, should still fail (AC3 — the gates that never moved)', async () => {
     await seedSlice(ws(), CURRENT_CONTRACT_EVIDENCE);
-    rmSync(join(ws().path, '.peaks', '_runtime', SESSION_ID, 'qa', 'test-reports'), { recursive: true });
-    const result = await verifyPipeline({ projectRoot: ws().path, rid: RID, sessionId: SESSION_ID });
+    rmSync(join(ws().path, '.peaks', '_runtime', SESSION_ID, 'qa', 'test-reports'), {
+      recursive: true
+    });
+    const result = await verifyPipeline({
+      projectRoot: ws().path,
+      rid: RID,
+      sessionId: SESSION_ID
+    });
     expect(result.qaPhase.gates.find((g) => g.name === 'test-report')?.passed).toBe(false);
     expect(result.complete).toBe(false);
   });
@@ -284,7 +330,9 @@ describe('Scenario: integration — the checker and `request transition` agree (
     // The tree carries no design doc at all. `request transition` is the
     // component that decides what the contract requires — and it does not
     // require this.
-    expect(existsSync(join(ws().path, '.peaks', '_runtime', SESSION_ID, 'rd', 'tech-doc.md'))).toBe(false);
+    expect(existsSync(join(ws().path, '.peaks', '_runtime', SESSION_ID, 'rd', 'tech-doc.md'))).toBe(
+      false
+    );
 
     const prereqs = await checkPrerequisites({
       projectRoot: ws().path,
@@ -292,12 +340,16 @@ describe('Scenario: integration — the checker and `request transition` agree (
       role: 'rd',
       newState: 'qa-handoff',
       requestId: RID,
-      requestType: 'feature',
+      requestType: 'feature'
     });
     expect(prereqs.missing.map((m) => m.path)).not.toContain('rd/tech-doc.md');
     expect(prereqs.ok).toBe(true);
 
-    const result = await verifyPipeline({ projectRoot: ws().path, rid: RID, sessionId: SESSION_ID });
+    const result = await verifyPipeline({
+      projectRoot: ws().path,
+      rid: RID,
+      sessionId: SESSION_ID
+    });
     expect(result.rdPhase.gates.map((g) => g.name)).not.toContain('tech-doc');
     expect(result.violations).toEqual([]);
     expect(result.complete).toBe(true);
@@ -318,14 +370,20 @@ describe('Scenario: integration — the checker and `request transition` agree (
       role: 'rd',
       newState: 'qa-handoff',
       requestId: RID,
-      requestType: 'feature',
+      requestType: 'feature'
     });
     expect(prereqs.missing.map((m) => m.path)).toContain(`prd/handoff-${RID}.md`);
     expect(prereqs.ok).toBe(false);
 
-    const result = await verifyPipeline({ projectRoot: ws().path, rid: RID, sessionId: SESSION_ID });
+    const result = await verifyPipeline({
+      projectRoot: ws().path,
+      rid: RID,
+      sessionId: SESSION_ID
+    });
     expect(result.rdPhase.gates.find((g) => g.name === 'prd-handoff')?.passed).toBe(false);
-    expect(result.violations).toContain(`RD evidence missing: PRD handoff capsule (approved scope + non-goals) (prd/handoff-${RID}.md)`);
+    expect(result.violations).toContain(
+      `RD evidence missing: PRD handoff capsule (approved scope + non-goals) (prd/handoff-${RID}.md)`
+    );
     expect(result.complete).toBe(false);
   });
 
@@ -341,7 +399,11 @@ describe('Scenario: integration — the checker and `request transition` agree (
     // Overwrite the slice's OWN capsule (the rid-scoped one). Writing the bad
     // body at the bare legacy name instead would not reach the gate: the
     // rid-scoped file resolves first and it is the good one.
-    write(ws().path, `prd/handoff-${RID}.md`, '# PRD handoff\n\nschemaVersion: 1\nhandoffHash: "aa"\n');
+    write(
+      ws().path,
+      `prd/handoff-${RID}.md`,
+      '# PRD handoff\n\nschemaVersion: 1\nhandoffHash: "aa"\n'
+    );
 
     const prereqs = await checkPrerequisites({
       projectRoot: ws().path,
@@ -349,12 +411,16 @@ describe('Scenario: integration — the checker and `request transition` agree (
       role: 'rd',
       newState: 'qa-handoff',
       requestId: RID,
-      requestType: 'feature',
+      requestType: 'feature'
     });
     expect(prereqs.missing.map((m) => m.path)).toContain(`prd/handoff-${RID}.md`);
     expect(prereqs.ok).toBe(false);
 
-    const result = await verifyPipeline({ projectRoot: ws().path, rid: RID, sessionId: SESSION_ID });
+    const result = await verifyPipeline({
+      projectRoot: ws().path,
+      rid: RID,
+      sessionId: SESSION_ID
+    });
     const handoff = result.rdPhase.gates.find((g) => g.name === 'prd-handoff');
     expect(handoff?.passed).toBe(false);
     // Same vocabulary the table uses — one implementation, not a second copy.
@@ -368,19 +434,31 @@ describe('Scenario: a11y — what a human reads when the checker fails', () => {
   it('when security evidence is missing, should name a path that exists in the contract', async () => {
     await seedSlice(ws(), CURRENT_CONTRACT_EVIDENCE);
     rmSync(join(ws().path, '.peaks', '_runtime', SESSION_ID, 'audit'), { recursive: true });
-    rmSync(join(ws().path, '.peaks', '_runtime', SESSION_ID, 'rd', 'security-review.md'), { force: true });
-    const result = await verifyPipeline({ projectRoot: ws().path, rid: RID, sessionId: SESSION_ID });
+    rmSync(join(ws().path, '.peaks', '_runtime', SESSION_ID, 'rd', 'security-review.md'), {
+      force: true
+    });
+    const result = await verifyPipeline({
+      projectRoot: ws().path,
+      rid: RID,
+      sessionId: SESSION_ID
+    });
     // The contract's *current* path, not the retired `rd/security-review.md`
     // the checker used to demand.
     expect(result.violations).toContain(
       `RD evidence missing: Security review evidence (audit/security-${RID}.md)`
     );
-    expect(result.nextActions).toContain(`Create .peaks/_runtime/${SESSION_ID}/audit/security-${RID}.md`);
+    expect(result.nextActions).toContain(
+      `Create .peaks/_runtime/${SESSION_ID}/audit/security-${RID}.md`
+    );
   });
 
   it('when the retired findings artifacts are absent, should not mention them at all', async () => {
     await seedSlice(ws(), CURRENT_CONTRACT_EVIDENCE);
-    const result = await verifyPipeline({ projectRoot: ws().path, rid: RID, sessionId: SESSION_ID });
+    const result = await verifyPipeline({
+      projectRoot: ws().path,
+      rid: RID,
+      sessionId: SESSION_ID
+    });
     const text = [...result.violations, ...result.nextActions].join('\n');
     expect(text).not.toContain('security-findings');
     expect(text).not.toContain('performance-findings');

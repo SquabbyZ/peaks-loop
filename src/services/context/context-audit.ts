@@ -107,7 +107,10 @@ interface MutableGroup {
 
 /** Clamp a caller-supplied `--top` into the documented range. */
 export function normalizeTopN(value: unknown): number {
-  const n = typeof value === 'number' && Number.isFinite(value) ? Math.floor(value) : CONTEXT_AUDIT_DEFAULT_TOP;
+  const n =
+    typeof value === 'number' && Number.isFinite(value)
+      ? Math.floor(value)
+      : CONTEXT_AUDIT_DEFAULT_TOP;
   if (n < 1) return CONTEXT_AUDIT_DEFAULT_TOP;
   return Math.min(n, CONTEXT_AUDIT_MAX_TOP);
 }
@@ -167,9 +170,10 @@ function toolResultBytes(content: unknown): number {
         total += Buffer.byteLength(part, 'utf8');
       } else if (typeof part === 'object' && part !== null) {
         const text = (part as Record<string, unknown>).text;
-        total += typeof text === 'string'
-          ? Buffer.byteLength(text, 'utf8')
-          : Buffer.byteLength(JSON.stringify(part) ?? '', 'utf8');
+        total +=
+          typeof text === 'string'
+            ? Buffer.byteLength(text, 'utf8')
+            : Buffer.byteLength(JSON.stringify(part) ?? '', 'utf8');
       }
     }
     return total;
@@ -192,7 +196,7 @@ function emptyResult(partial: Partial<ContextAuditResult>): ContextAuditResult {
     groupCount: 0,
     topN: CONTEXT_AUDIT_DEFAULT_TOP,
     entries: [],
-    ...partial,
+    ...partial
   };
 }
 
@@ -247,9 +251,11 @@ function scanTranscript(filePath: string, topN: number): ContextAuditResult {
       bytes: g.bytes,
       // Percentage in [0, 100], one decimal — see ContextAuditEntry.pctOfTotal.
       pctOfTotal: totalBytes > 0 ? Math.round((g.bytes / totalBytes) * 1000) / 10 : 0,
-      count: g.count,
+      count: g.count
     }))
-    .sort((a, b) => b.bytes - a.bytes || a.tool.localeCompare(b.tool) || a.key.localeCompare(b.key));
+    .sort(
+      (a, b) => b.bytes - a.bytes || a.tool.localeCompare(b.tool) || a.key.localeCompare(b.key)
+    );
 
   return {
     available: true,
@@ -259,7 +265,7 @@ function scanTranscript(filePath: string, topN: number): ContextAuditResult {
     entryCount,
     groupCount: entries.length,
     topN,
-    entries: entries.slice(0, topN),
+    entries: entries.slice(0, topN)
   };
 }
 
@@ -271,7 +277,7 @@ function scanTranscript(filePath: string, topN: number): ContextAuditResult {
 function foldLine(
   line: string,
   toolUses: Map<string, ToolUseRef>,
-  groups: Map<string, MutableGroup>,
+  groups: Map<string, MutableGroup>
 ): { bytes: number; count: number } {
   let parsed: unknown;
   try {
@@ -365,9 +371,12 @@ export function auditContext(input: ContextAuditInput = {}): ContextAuditResult 
     transcriptPath = transcriptPathOrNull;
   }
 
-  const maxBytes = typeof input.maxTranscriptBytes === 'number' && Number.isFinite(input.maxTranscriptBytes) && input.maxTranscriptBytes >= 0
-    ? input.maxTranscriptBytes
-    : CONTEXT_AUDIT_MAX_TRANSCRIPT_BYTES;
+  const maxBytes =
+    typeof input.maxTranscriptBytes === 'number' &&
+    Number.isFinite(input.maxTranscriptBytes) &&
+    input.maxTranscriptBytes >= 0
+      ? input.maxTranscriptBytes
+      : CONTEXT_AUDIT_MAX_TRANSCRIPT_BYTES;
 
   try {
     const size = statSync(transcriptPath).size;
@@ -377,9 +386,12 @@ export function auditContext(input: ContextAuditInput = {}): ContextAuditResult 
     return scanTranscript(transcriptPath, topN);
   } catch (err) {
     const code = (err as { code?: string }).code;
-    const reason = code === 'ENOENT' ? 'transcript-not-found'
-      : code === 'EACCES' || code === 'EPERM' ? 'transcript-unreadable'
-      : 'audit-failed';
+    const reason =
+      code === 'ENOENT'
+        ? 'transcript-not-found'
+        : code === 'EACCES' || code === 'EPERM'
+          ? 'transcript-unreadable'
+          : 'audit-failed';
     return emptyResult({ reason, transcriptPath, topN });
   }
 }

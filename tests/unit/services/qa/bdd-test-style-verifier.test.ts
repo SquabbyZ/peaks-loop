@@ -27,10 +27,12 @@ import { tmpdir } from 'node:os';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { declareDimensions } from '../../_setup/4dim-template.js';
 
-declareDimensions(
-  'tests/unit/services/qa/bdd-test-style-verifier.test.ts',
-  ['render', 'behavior', 'integration', 'a11y'],
-);
+declareDimensions('tests/unit/services/qa/bdd-test-style-verifier.test.ts', [
+  'render',
+  'behavior',
+  'integration',
+  'a11y'
+]);
 
 import { verifyBddStyle, type BddStyleVerdict } from '~/src/services/qa/bdd-test-style-verifier';
 
@@ -39,7 +41,12 @@ const MIGRATOR_SCRIPT = join(__dirname, '..', '..', '..', '..', 'scripts', 'migr
 
 interface MigrateOutput {
   transformedSource: string;
-  rewrites: Array<{ kind: 'it' | 'test' | 'describe'; original: string; rewritten: string; location: string }>;
+  rewrites: Array<{
+    kind: 'it' | 'test' | 'describe';
+    original: string;
+    rewritten: string;
+    location: string;
+  }>;
   totalItRewritten: number;
   totalTestRewritten: number;
   totalDescribeRewritten: number;
@@ -53,12 +60,12 @@ function runMigrator(source: string): MigrateOutput {
     input: JSON.stringify({ source, dryRun: false }),
     encoding: 'utf8',
     maxBuffer: 16 * 1024 * 1024,
-    windowsHide: true,
+    windowsHide: true
   });
   if (result.error) throw result.error;
   if (result.status !== 0) {
     throw new Error(
-      `migrator exited with status ${result.status}; stderr:\n${result.stderr}\nstdout:\n${result.stdout}`,
+      `migrator exited with status ${result.status}; stderr:\n${result.stderr}\nstdout:\n${result.stdout}`
     );
   }
   return JSON.parse(result.stdout) as MigrateOutput;
@@ -85,7 +92,7 @@ function writeTestFile(relPath: string, contents: string): string {
 
 // ---- behavior: description rules -------------------------------------------
 
-describe("Scenario: behavior — description rules", () => {
+describe('Scenario: behavior — description rules', () => {
   it("when description contains 'should', should return ok", () => {
     const file = writeTestFile(
       'a.test.ts',
@@ -94,7 +101,7 @@ it('should do the thing', () => {
   // given: precondition
   // when:  action
   // then:  outcome
-});`,
+});`
     );
     const result = verifyBddStyle({ projectRoot, testFiles: [file] });
     expect(result).toEqual({ ok: true, scanned: 1 });
@@ -108,7 +115,7 @@ it('when the input is empty, returns the fallback', () => {
   // given: precondition
   // when:  action
   // then:  outcome
-});`,
+});`
     );
     const result = verifyBddStyle({ projectRoot, testFiles: [file] });
     expect(result).toEqual({ ok: true, scanned: 1 });
@@ -122,7 +129,7 @@ it('does the thing', () => {
   // given: precondition
   // when:  action
   // then:  outcome
-});`,
+});`
     );
     const result = verifyBddStyle({ projectRoot, testFiles: [file] });
     expect(result.ok).toBe(false);
@@ -136,8 +143,8 @@ it('does the thing', () => {
 
 // ---- behavior: body comment rules ------------------------------------------
 
-describe("Scenario: behavior — body comment rules", () => {
-  it("when body has full given/when/then triple at the top, should return ok", () => {
+describe('Scenario: behavior — body comment rules', () => {
+  it('when body has full given/when/then triple at the top, should return ok', () => {
     const file = writeTestFile(
       'd.test.ts',
       `import { it, expect } from 'vitest';
@@ -146,7 +153,7 @@ it('should compute a value', () => {
   // when:  the function is invoked
   // then:  the result equals the expected output
   expect(1 + 1).toBe(2);
-});`,
+});`
     );
     const result = verifyBddStyle({ projectRoot, testFiles: [file] });
     expect(result).toEqual({ ok: true, scanned: 1 });
@@ -160,7 +167,7 @@ it('should compute a value', () => {
   // when:  the function is invoked
   // then:  the result equals the expected output
   expect(1 + 1).toBe(2);
-});`,
+});`
     );
     const result = verifyBddStyle({ projectRoot, testFiles: [file] });
     expect(result.ok).toBe(false);
@@ -177,7 +184,7 @@ it('should compute a value', () => {
   // given: a non-empty input
   // then:  the result equals the expected output
   expect(1 + 1).toBe(2);
-});`,
+});`
     );
     const result = verifyBddStyle({ projectRoot, testFiles: [file] });
     expect(result.ok).toBe(false);
@@ -193,7 +200,7 @@ it('should compute a value', () => {
   // given: a non-empty input
   // when:  the function is invoked
   expect(1 + 1).toBe(2);
-});`,
+});`
     );
     const result = verifyBddStyle({ projectRoot, testFiles: [file] });
     expect(result.ok).toBe(false);
@@ -204,7 +211,7 @@ it('should compute a value', () => {
 
 // ---- behavior: AST robustness (no false positives) -------------------------
 
-describe("Scenario: behavior — AST robustness", () => {
+describe('Scenario: behavior — AST robustness', () => {
   it("when 'when' is only inside a string literal, should still fail on the description", () => {
     // The word "when" is inside an `it` title string but the
     // description itself ('returns the value when asked') actually
@@ -221,7 +228,7 @@ it('returns the value nowhere in particular', () => {
   // when:  the function is invoked
   // then:  the result equals the expected output
   expect(1).toBe(1);
-});`,
+});`
     );
     const result = verifyBddStyle({ projectRoot, testFiles: [file] });
     // "nowhere" contains "when" as a substring but NOT as a
@@ -246,7 +253,7 @@ it('renders the widget', () => {
   // when:  the function is invoked
   // then:  the result equals the expected output
   expect('when X happens').toBe('when X happens');
-});`,
+});`
     );
     const result = verifyBddStyle({ projectRoot, testFiles: [file] });
     expect(result.ok).toBe(false);
@@ -257,8 +264,8 @@ it('renders the widget', () => {
 
 // ---- behavior: nested describe / multiple files ---------------------------
 
-describe("Scenario: behavior — describe nesting + multi-file scan", () => {
-  it("when it is nested inside describe, should inspect every it in the tree", () => {
+describe('Scenario: behavior — describe nesting + multi-file scan', () => {
+  it('when it is nested inside describe, should inspect every it in the tree', () => {
     const file = writeTestFile(
       'j.test.ts',
       `import { it, expect, describe } from 'vitest';
@@ -277,13 +284,13 @@ describe('outer', () => {
       expect(1).toBe(1);
     });
   });
-});`,
+});`
     );
     const result = verifyBddStyle({ projectRoot, testFiles: [file] });
     expect(result).toEqual({ ok: true, scanned: 2 });
   });
 
-  it("when scanning multiple files, should return the first failure (file order, then line order)", () => {
+  it('when scanning multiple files, should return the first failure (file order, then line order)', () => {
     const ok = writeTestFile(
       'k-ok.test.ts',
       `import { it } from 'vitest';
@@ -291,7 +298,7 @@ it('should pass', () => {
   // given: precondition
   // when:  action
   // then:  outcome
-});`,
+});`
     );
     const bad = writeTestFile(
       'l-bad.test.ts',
@@ -300,7 +307,7 @@ it('plain text', () => {
   // given: precondition
   // when:  action
   // then:  outcome
-});`,
+});`
     );
     const result = verifyBddStyle({ projectRoot, testFiles: [ok, bad] });
     expect(result.ok).toBe(false);
@@ -312,14 +319,14 @@ it('plain text', () => {
 
 // ---- behavior: edge cases --------------------------------------------------
 
-describe("Scenario: behavior — edge cases", () => {
-  it("when the test file is empty, should return ok with scanned=0", () => {
+describe('Scenario: behavior — edge cases', () => {
+  it('when the test file is empty, should return ok with scanned=0', () => {
     const file = writeTestFile('empty.test.ts', '');
     const result = verifyBddStyle({ projectRoot, testFiles: [file] });
     expect(result).toEqual({ ok: true, scanned: 0 });
   });
 
-  it("when the test file is empty (no .test.ts) and the list is empty, should return ok with scanned=0", () => {
+  it('when the test file is empty (no .test.ts) and the list is empty, should return ok with scanned=0', () => {
     const result = verifyBddStyle({ projectRoot, testFiles: [] });
     expect(result).toEqual({ ok: true, scanned: 0 });
   });
@@ -327,8 +334,8 @@ describe("Scenario: behavior — edge cases", () => {
 
 // ---- behavior: round-trip with Slice A migrator ---------------------------
 
-describe("Scenario: behavior — round-trip with Slice A migrator", () => {
-  it("when a legacy AAA test file is migrated by Slice A, the verifier should accept the result", () => {
+describe('Scenario: behavior — round-trip with Slice A migrator', () => {
+  it('when a legacy AAA test file is migrated by Slice A, the verifier should accept the result', () => {
     // Take a known-AAA sample, run it through the Slice A migrator,
     // then verify the output. This is the only test that depends on
     // the migrator — it pins the contract between the two halves
@@ -341,13 +348,13 @@ describe("Scenario: behavior — round-trip with Slice A migrator", () => {
       `  // assert: the result is correct`,
       `  expect(1 + 1).toBe(2);`,
       `});`,
-      ``,
+      ``
     ].join('\n');
     const migrated = runMigrator(legacy);
     const file = writeTestFile('rt.test.ts', migrated.transformedSource);
     const result: BddStyleVerdict = verifyBddStyle({
       projectRoot,
-      testFiles: [file],
+      testFiles: [file]
     });
     expect(result).toEqual({ ok: true, scanned: 1 });
   });
@@ -355,8 +362,8 @@ describe("Scenario: behavior — round-trip with Slice A migrator", () => {
 
 // ---- render: verdict shape -------------------------------------------------
 
-describe("Scenario: render — verdict shape", () => {
-  it("when ok, should expose { ok: true, scanned } exactly", () => {
+describe('Scenario: render — verdict shape', () => {
+  it('when ok, should expose { ok: true, scanned } exactly', () => {
     const file = writeTestFile(
       'shape-ok.test.ts',
       `import { it } from 'vitest';
@@ -364,19 +371,19 @@ it('should render ok', () => {
   // given: a
   // when:  b
   // then:  c
-});`,
+});`
     );
     const result = verifyBddStyle({ projectRoot, testFiles: [file] });
     expect(Object.keys(result).sort()).toEqual(['ok', 'scanned']);
   });
 
-  it("when fail, should expose { ok, reason, file, line, expected } for missing-given-when-then", () => {
+  it('when fail, should expose { ok, reason, file, line, expected } for missing-given-when-then', () => {
     const file = writeTestFile(
       'shape-fail.test.ts',
       `import { it } from 'vitest';
 it('should render fail', () => {
   expect(1).toBe(1);
-});`,
+});`
     );
     const result = verifyBddStyle({ projectRoot, testFiles: [file] });
     expect(result.ok).toBe(false);
@@ -387,7 +394,7 @@ it('should render fail', () => {
     expect(typeof result.expected).toBe('string');
   });
 
-  it("when fail on description, should expose the original description for the caller to surface", () => {
+  it('when fail on description, should expose the original description for the caller to surface', () => {
     // The description must contain neither 'when' nor 'should' as a
     // whole word, so we use 'plain assertion' which has neither.
     const file = writeTestFile(
@@ -397,7 +404,7 @@ it('plain assertion that fails the description rule', () => {
   // given: a
   // when:  b
   // then:  c
-});`,
+});`
     );
     const result = verifyBddStyle({ projectRoot, testFiles: [file] });
     expect(result.ok).toBe(false);

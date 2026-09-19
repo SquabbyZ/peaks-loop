@@ -66,12 +66,10 @@ export const TRAE_ADAPTER: IdeAdapter = {
   // `peaks sub-agent-dispatch-guard`. Opt in (matches the byte-stable
   // slice #008 install entry shape).
   promptSizeAware: true,
-  installHints: [
-    'Restart Trae (or reload the workspace) so the beforeToolCall hooks take effect.'
-  ],
+  installHints: ['Restart Trae (or reload the workspace) so the beforeToolCall hooks take effect.'],
   capabilities: {
     gateEnforce: true,
-    statusline: true,
+    statusline: true
   },
   // Standards: UNVERIFIED — see slice #012+ (Trae real-install dogfood for
   // the `standardsProfile` and `skillInstall` fields). The slice #011
@@ -95,8 +93,10 @@ export const TRAE_ADAPTER: IdeAdapter = {
       const trimmed = v.trim();
       if (/^[a-zA-Z0-9._-]{1,200}$/.test(trimmed)) return trimmed;
     }
-    const err = new Error('PEAKS_CALLER_NOT_RESOLVED: no Trae session id available') as Error & { code: string };
+    const err = new Error('PEAKS_CALLER_NOT_RESOLVED: no Trae session id available') as Error & {
+      code: string;
+    };
     err.code = 'PEAKS_CALLER_NOT_RESOLVED';
     throw err;
-  },
+  }
 };

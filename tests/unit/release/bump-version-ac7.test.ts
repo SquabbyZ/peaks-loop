@@ -29,16 +29,26 @@
 //   - a11y:      human-readable no-op / bump messages are surfaced on stdout
 
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, writeFileSync, readFileSync, chmodSync, existsSync, rmSync } from 'node:fs';
+import {
+  mkdirSync,
+  mkdtempSync,
+  writeFileSync,
+  readFileSync,
+  chmodSync,
+  existsSync,
+  rmSync
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve, delimiter, isAbsolute } from 'node:path';
 import { afterAll, afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { declareDimensions } from '../_setup/4dim-template.js';
 
-declareDimensions(
-  'tests/unit/release/bump-version-ac7.test.ts',
-  ['render', 'behavior', 'integration', 'a11y'],
-);
+declareDimensions('tests/unit/release/bump-version-ac7.test.ts', [
+  'render',
+  'behavior',
+  'integration',
+  'a11y'
+]);
 
 // ---- harness ---------------------------------------------------------------
 
@@ -60,9 +70,7 @@ function writeFakeNpm(binDir: string, fakeLatest: string): void {
   // via execFileSync with shell: true on win32. We write a tiny npm.cmd (and
   // a bash npm) that ALWAYS prints the configured `fakeLatest` as JSON, so
   // every test can pin the registry value without touching the network.
-  const cmdBody =
-    `@echo off\r\n` +
-    `echo ${JSON.stringify(fakeLatest)}\r\n`;
+  const cmdBody = `@echo off\r\n` + `echo ${JSON.stringify(fakeLatest)}\r\n`;
   writeFileSync(join(binDir, 'npm.cmd'), cmdBody, 'utf8');
   const shBody = `#!/usr/bin/env bash\necho '${JSON.stringify(fakeLatest)}'\n`;
   const shPath = join(binDir, 'npm');
@@ -78,9 +86,9 @@ function writeFakePackage(cwd: string, version: string): void {
     JSON.stringify(
       { name: 'peaks-loop', version, description: 'test fixture', author: 'SquabbyZ' },
       null,
-      2,
+      2
     ) + '\n',
-    'utf8',
+    'utf8'
   );
 }
 
@@ -117,12 +125,12 @@ function runBumpVersion(args: string[]): { status: number | null; stdout: string
     env,
     encoding: 'utf8',
     shell: false,
-    windowsHide: true,
+    windowsHide: true
   });
   return {
     status: r.status,
     stdout: r.stdout ?? '',
-    stderr: r.stderr ?? '',
+    stderr: r.stderr ?? ''
   };
 }
 
@@ -143,8 +151,8 @@ afterAll(() => {
 
 // ---- render dimension ------------------------------------------------------
 
-describe("Scenario: (render) — no-op vs bump stdout lines are distinguishable", () => {
-  it("when invoked, should no-op path prints \"no-op: <current> already on registry as latest\"", () => {
+describe('Scenario: (render) — no-op vs bump stdout lines are distinguishable', () => {
+  it('when invoked, should no-op path prints "no-op: <current> already on registry as latest"', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -155,7 +163,7 @@ describe("Scenario: (render) — no-op vs bump stdout lines are distinguishable"
     expect(r.stdout).toContain('skipping bump');
   });
 
-  it("when invoked, should explicit --to prints the lockstep bump log line, not the no-op line", () => {
+  it('when invoked, should explicit --to prints the lockstep bump log line, not the no-op line', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -169,8 +177,8 @@ describe("Scenario: (render) — no-op vs bump stdout lines are distinguishable"
 
 // ---- behavior dimension ----------------------------------------------------
 
-describe("Scenario: (behavior) — explicit --to is honored even when registry === current", () => {
-  it("when invoked, should --to 4.0.4 + root=4.0.3 + registry=4.0.3 bumps root to 4.0.4 (was the regression)", () => {
+describe('Scenario: (behavior) — explicit --to is honored even when registry === current', () => {
+  it('when invoked, should --to 4.0.4 + root=4.0.3 + registry=4.0.3 bumps root to 4.0.4 (was the regression)', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -181,7 +189,7 @@ describe("Scenario: (behavior) — explicit --to is honored even when registry =
     expect(onDisk.version).toBe('4.0.4');
   });
 
-  it("when invoked, should no --to + root=4.0.3 + registry=4.0.3 leaves root at 4.0.3 (AC7 default behavior preserved)", () => {
+  it('when invoked, should no --to + root=4.0.3 + registry=4.0.3 leaves root at 4.0.3 (AC7 default behavior preserved)', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -192,7 +200,7 @@ describe("Scenario: (behavior) — explicit --to is honored even when registry =
     expect(onDisk.version).toBe('4.0.3');
   });
 
-  it("when invoked, should --to 5.0.0 + root=4.0.3 + registry=4.0.3 bumps root to 5.0.0 (major escape hatch also honored)", () => {
+  it('when invoked, should --to 5.0.0 + root=4.0.3 + registry=4.0.3 bumps root to 5.0.0 (major escape hatch also honored)', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -206,8 +214,8 @@ describe("Scenario: (behavior) — explicit --to is honored even when registry =
 
 // ---- integration dimension -------------------------------------------------
 
-describe("Scenario: (integration) — fake-npm on PATH replaces the real `npm view` call", () => {
-  it("when invoked, should does not require network: harness returns deterministic JSON from a stub binary", () => {
+describe('Scenario: (integration) — fake-npm on PATH replaces the real `npm view` call', () => {
+  it('when invoked, should does not require network: harness returns deterministic JSON from a stub binary', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -227,8 +235,8 @@ describe("Scenario: (integration) — fake-npm on PATH replaces the real `npm vi
 
 // ---- a11y dimension --------------------------------------------------------
 
-describe("Scenario: (a11y) — human-visible messages name the version and the operator intent", () => {
-  it("when invoked, should no-op log line names both the current version and the registry match", () => {
+describe('Scenario: (a11y) — human-visible messages name the version and the operator intent', () => {
+  it('when invoked, should no-op log line names both the current version and the registry match', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -237,7 +245,7 @@ describe("Scenario: (a11y) — human-visible messages name the version and the o
     expect(r.stdout).toMatch(/no-op:\s*4\.0\.3\s*already on registry/);
   });
 
-  it("when invoked, should bump log line shows both source and target versions on a single line", () => {
+  it('when invoked, should bump log line shows both source and target versions on a single line', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation

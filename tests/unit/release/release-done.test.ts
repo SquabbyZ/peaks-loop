@@ -44,7 +44,7 @@ declareDimensions('tests/unit/release/release-done.test.ts', [
   'render',
   'behavior',
   'integration',
-  'a11y',
+  'a11y'
 ]);
 
 const HOUR_MS = 60 * 60 * 1000;
@@ -52,7 +52,7 @@ const HOUR_MS = 60 * 60 * 1000;
 /** Write a `.peaks/release-state.json` with one active release at `stage`. */
 function seedReleaseState(
   ws: { path: string; peaksDir: string },
-  opts: { stage: string; promotedAt?: string; version?: string },
+  opts: { stage: string; promotedAt?: string; version?: string }
 ): void {
   mkdirSync(ws.peaksDir, { recursive: true });
   const now = new Date();
@@ -60,13 +60,13 @@ function seedReleaseState(
     version: opts.version ?? '9.9.9',
     currentStage: opts.stage,
     stageHistory: [{ stage: opts.stage, at: now.toISOString() }],
-    createdAt: now.toISOString(),
+    createdAt: now.toISOString()
   };
   if (opts.promotedAt !== undefined) record.promotedAt = opts.promotedAt;
   writeFileSync(
     join(ws.peaksDir, 'release-state.json'),
     JSON.stringify({ version: 1, active: record, history: [] }, null, 2),
-    'utf8',
+    'utf8'
   );
 }
 
@@ -147,7 +147,7 @@ describe('Scenario: a11y — the incomplete-window protection survives the guard
     writeFileSync(
       join(ws().peaksDir, 'release-state.json'),
       JSON.stringify({ version: 1, active: null, history: [] }, null, 2),
-      'utf8',
+      'utf8'
     );
 
     // when:  `peaks release done` runs
@@ -161,9 +161,7 @@ describe('Scenario: a11y — the incomplete-window protection survives the guard
 
 describe('Scenario: integration — the stage table admits promoted → done', () => {
   it('when asked, should report promoted → done as a valid transition', async () => {
-    const { isValidStageTransition } = await import(
-      '~/src/services/release/release-state.js'
-    );
+    const { isValidStageTransition } = await import('~/src/services/release/release-state.js');
     expect(isValidStageTransition('promoted', 'done')).toBe(true);
     // Guards on the neighbouring stages are NOT widened by this slice.
     expect(isValidStageTransition('planned', 'done')).toBe(false);

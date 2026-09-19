@@ -37,23 +37,27 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { declareDimensions } from '../_setup/4dim-template.js';
 import { makeCapturedIo } from '../_setup/io.js';
-import { cleanupTmpWorkspace, useTmpWorkspace, type TmpWorkspace } from '../_setup/tmp-workspace.js';
+import {
+  cleanupTmpWorkspace,
+  useTmpWorkspace,
+  type TmpWorkspace
+} from '../_setup/tmp-workspace.js';
 
 declareDimensions('tests/unit/cli/codegraph-init-envelopes.test.ts', [
   'render',
   'behavior',
   'integration',
-  'a11y',
+  'a11y'
 ]);
 
 const __m = vi.hoisted(() => ({
-  executeCodegraphInvocation: vi.fn(),
+  executeCodegraphInvocation: vi.fn()
 }));
 
 vi.mock('../../../src/services/codegraph/codegraph-service.js', async () => {
-  const actual = await vi.importActual<typeof import('../../../src/services/codegraph/codegraph-service.js')>(
-    '../../../src/services/codegraph/codegraph-service.js'
-  );
+  const actual = await vi.importActual<
+    typeof import('../../../src/services/codegraph/codegraph-service.js')
+  >('../../../src/services/codegraph/codegraph-service.js');
   return { ...actual, executeCodegraphInvocation: __m.executeCodegraphInvocation };
 });
 
@@ -75,7 +79,12 @@ type InitEnvelope = {
   nextActions: string[];
   data: {
     guard: string;
-    excludeRepair?: { applied: boolean; rulesRemoved: string[]; reindexed: boolean; warning: string | null };
+    excludeRepair?: {
+      applied: boolean;
+      rulesRemoved: string[];
+      reindexed: boolean;
+      warning: string | null;
+    };
   };
 };
 
@@ -93,15 +102,24 @@ function parseJson(captured: CapturedIo): InitEnvelope {
 // silently drops from the index.
 function seedGitProject(ws: TmpWorkspace): string {
   execFileSync('git', ['-C', ws.path, 'init', '-q'], { stdio: 'ignore', windowsHide: true });
-  execFileSync('git', ['-C', ws.path, 'config', 'user.email', 'peaks-test@example.com'], { stdio: 'ignore', windowsHide: true });
-  execFileSync('git', ['-C', ws.path, 'config', 'user.name', 'peaks test'], { stdio: 'ignore', windowsHide: true });
+  execFileSync('git', ['-C', ws.path, 'config', 'user.email', 'peaks-test@example.com'], {
+    stdio: 'ignore',
+    windowsHide: true
+  });
+  execFileSync('git', ['-C', ws.path, 'config', 'user.name', 'peaks test'], {
+    stdio: 'ignore',
+    windowsHide: true
+  });
 
   mkdirSync(join(ws.path, 'src'), { recursive: true });
   mkdirSync(join(ws.path, 'vendor'), { recursive: true });
   writeFileSync(join(ws.path, 'src', 'ok.ts'), 'export const ok = 1;\n', 'utf8');
   writeFileSync(join(ws.path, 'vendor', 'lib.ts'), 'export const lib = 1;\n', 'utf8');
   execFileSync('git', ['-C', ws.path, 'add', '-A'], { stdio: 'ignore', windowsHide: true });
-  execFileSync('git', ['-C', ws.path, 'commit', '-qm', 'fixture'], { stdio: 'ignore', windowsHide: true });
+  execFileSync('git', ['-C', ws.path, 'commit', '-qm', 'fixture'], {
+    stdio: 'ignore',
+    windowsHide: true
+  });
 
   return ws.path;
 }
@@ -137,13 +155,19 @@ describe('peaks codegraph init — success notes are not warnings', () => {
     // given: a fresh git project; the faked upstream init writes the
     //        default template with an offender, as the real one does
     const project = seedGitProject(ws);
-    __m.executeCodegraphInvocation.mockImplementation(async (invocation: { subcommand: string }) => {
-      if (invocation.subcommand === 'init') {
-        mkdirSync(join(project, '.codegraph'), { recursive: true });
-        writeFileSync(join(project, '.codegraph', 'config.json'), upstreamDefaultConfig(), 'utf8');
+    __m.executeCodegraphInvocation.mockImplementation(
+      async (invocation: { subcommand: string }) => {
+        if (invocation.subcommand === 'init') {
+          mkdirSync(join(project, '.codegraph'), { recursive: true });
+          writeFileSync(
+            join(project, '.codegraph', 'config.json'),
+            upstreamDefaultConfig(),
+            'utf8'
+          );
+        }
+        return { exitCode: 0, stdout: 'upstream ok\n', stderr: '' };
       }
-      return { exitCode: 0, stdout: 'upstream ok\n', stderr: '' };
-    });
+    );
 
     // when: init runs
     const captured = await runCodegraph(['init', '--project', project, '--peaks-json']);
@@ -173,7 +197,7 @@ describe('peaks codegraph init — success notes are not warnings', () => {
         '(**/*.mjs, **/*.cjs, **/*.pyw, **/*.hxx, **/*.rake).',
       'Removed 1 exclude rule(s) that blocked tracked source files, recovering 1 file(s); config backed up to ' +
         `${join(project, '.codegraph', 'config.json')}.bak.`,
-      'Rebuilt the codegraph index over the recovered files.',
+      'Rebuilt the codegraph index over the recovered files.'
     ]);
 
     // … and nothing positive lands in warnings.
@@ -197,14 +221,20 @@ describe('peaks codegraph init — a real warning is reported once, verbatim', (
   it('when the follow-up index fails, should keep the init successful and emit exactly one unprefixed warning', async () => {
     // given: init works but the post-repair reindex does not
     const project = seedGitProject(ws);
-    __m.executeCodegraphInvocation.mockImplementation(async (invocation: { subcommand: string }) => {
-      if (invocation.subcommand === 'init') {
-        mkdirSync(join(project, '.codegraph'), { recursive: true });
-        writeFileSync(join(project, '.codegraph', 'config.json'), upstreamDefaultConfig(), 'utf8');
-        return { exitCode: 0, stdout: 'upstream ok\n', stderr: '' };
+    __m.executeCodegraphInvocation.mockImplementation(
+      async (invocation: { subcommand: string }) => {
+        if (invocation.subcommand === 'init') {
+          mkdirSync(join(project, '.codegraph'), { recursive: true });
+          writeFileSync(
+            join(project, '.codegraph', 'config.json'),
+            upstreamDefaultConfig(),
+            'utf8'
+          );
+          return { exitCode: 0, stdout: 'upstream ok\n', stderr: '' };
+        }
+        return { exitCode: 3, stdout: '', stderr: 'index exploded\n' };
       }
-      return { exitCode: 3, stdout: '', stderr: 'index exploded\n' };
-    });
+    );
 
     // when: init runs (machine envelope)
     const captured = await runCodegraph(['init', '--project', project, '--peaks-json']);
@@ -236,7 +266,11 @@ describe('peaks codegraph init — a real warning is reported once, verbatim', (
     // given: peak-loop-managed `.codegraph/` (marker + codegraph.db)
     const project = ws.path;
     mkdirSync(join(project, '.codegraph'), { recursive: true });
-    writeFileSync(join(project, '.codegraph', '.peaks-loop-marker'), 'peaks-loop-managed\n', 'utf8');
+    writeFileSync(
+      join(project, '.codegraph', '.peaks-loop-marker'),
+      'peaks-loop-managed\n',
+      'utf8'
+    );
     writeFileSync(join(project, '.codegraph', 'codegraph.db'), 'schema\n', 'utf8');
 
     // when: init runs

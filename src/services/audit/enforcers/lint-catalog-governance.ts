@@ -49,24 +49,26 @@ function syntheticHit(catalogId: string, rule: string, matched: string): LintHit
     name: 'catalog',
     path: 'src/services/audit/red-line-catalog.ts',
     body: '',
-    lines: [],
+    lines: []
   };
   return {
     catalogId,
     rule,
     file: fake.path,
     line: 1,
-    matchedText: matched,
+    matchedText: matched
   };
 }
 
 export function lintCatalogSize(actualSize: number): readonly LintHit[] {
   if (actualSize >= CATALOG_SIZE_TARGET) return [];
-  return [syntheticHit(
-    'rl-catalog-total-001',
-    'Catalog governance: catalog size must grow to ≥ 40 (L2.3 P2-a target)',
-    `(catalog size ${actualSize} < target ${CATALOG_SIZE_TARGET})`,
-  )];
+  return [
+    syntheticHit(
+      'rl-catalog-total-001',
+      'Catalog governance: catalog size must grow to ≥ 40 (L2.3 P2-a target)',
+      `(catalog size ${actualSize} < target ${CATALOG_SIZE_TARGET})`
+    )
+  ];
 }
 
 /**
@@ -78,14 +80,16 @@ export function lintCatalogSize(actualSize: number): readonly LintHit[] {
  */
 export function lintCatalogProseOnlyRatio(
   catalogSize: number,
-  proseOnlyCount: number,
+  proseOnlyCount: number
 ): readonly LintHit[] {
   if (catalogSize === 0) return [];
   const ratio = proseOnlyCount / catalogSize;
   if (ratio <= PROSE_ONLY_RATIO_TARGET) return [];
-  return [syntheticHit(
-    'rl-catalog-prose-only-ratio-001',
-    'Catalog governance: prose-only ratio must stay ≤ 7% (v2.12.1 catalog governance; §10.2 L2 acceptance)',
-    `(prose-only ratio ${(ratio * 100).toFixed(1)}% > target ${PROSE_ONLY_RATIO_TARGET * 100}%; ${proseOnlyCount}/${catalogSize})`,
-  )];
+  return [
+    syntheticHit(
+      'rl-catalog-prose-only-ratio-001',
+      'Catalog governance: prose-only ratio must stay ≤ 7% (v2.12.1 catalog governance; §10.2 L2 acceptance)',
+      `(prose-only ratio ${(ratio * 100).toFixed(1)}% > target ${PROSE_ONLY_RATIO_TARGET * 100}%; ${proseOnlyCount}/${catalogSize})`
+    )
+  ];
 }

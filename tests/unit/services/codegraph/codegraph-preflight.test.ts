@@ -32,13 +32,13 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   buildCodegraphPreflightBlock,
   renderCodegraphStructureBlock,
-  CODEGRAPH_STRUCTURE_MAX_DIRS,
+  CODEGRAPH_STRUCTURE_MAX_DIRS
 } from '../../../../src/services/codegraph/codegraph-preflight-service.js';
 import {
   CODEGRAPH_DB_NAME,
   CODEGRAPH_MARKER_NAME,
   type CodegraphExecutionResult,
-  type CodegraphInvocation,
+  type CodegraphInvocation
 } from '../../../../src/services/codegraph/codegraph-service.js';
 import { declareDimensions } from '../../_setup/4dim-template.js';
 
@@ -48,9 +48,10 @@ declareDimensions(
   [
     {
       dim: 'render',
-      reason: 'the module returns typed result objects and prints nothing; return-shape assertions live under behavior',
-    },
-  ],
+      reason:
+        'the module returns typed result objects and prints nothing; return-shape assertions live under behavior'
+    }
+  ]
 );
 
 function freshProject(prefix: string): string {
@@ -62,7 +63,9 @@ function filesResult(paths: string[]): CodegraphExecutionResult {
   return { exitCode: 0, stdout: JSON.stringify(payload, null, 2), stderr: '' };
 }
 
-function scriptedRunner(script: Partial<Record<CodegraphInvocation['subcommand'], CodegraphExecutionResult>>) {
+function scriptedRunner(
+  script: Partial<Record<CodegraphInvocation['subcommand'], CodegraphExecutionResult>>
+) {
   return vi.fn(async (invocation: CodegraphInvocation): Promise<CodegraphExecutionResult> => {
     const canned = script[invocation.subcommand];
     if (canned === undefined) {
@@ -87,9 +90,9 @@ function upstreamInitRunner(project: string) {
         `${JSON.stringify(
           { version: 1, include: ['**/*.ts'], exclude: ['**/vendor/**', '**/node_modules/**'] },
           null,
-          2,
+          2
         )}\n`,
-        'utf8',
+        'utf8'
       );
       return { exitCode: 0, stdout: 'initialized\n', stderr: '' };
     }
@@ -110,10 +113,19 @@ function gitProjectWithTrackedVendorFile(prefix: string): string {
   writeFileSync(join(project, 'src', 'ok.ts'), 'export const ok = 1;\n', 'utf8');
   writeFileSync(join(project, 'vendor', 'lib.ts'), 'export const lib = 1;\n', 'utf8');
   execFileSync('git', ['-C', project, 'init', '-q'], { stdio: 'ignore', windowsHide: true });
-  execFileSync('git', ['-C', project, 'config', 'user.email', 'peaks-test@example.com'], { stdio: 'ignore', windowsHide: true });
-  execFileSync('git', ['-C', project, 'config', 'user.name', 'peaks test'], { stdio: 'ignore', windowsHide: true });
+  execFileSync('git', ['-C', project, 'config', 'user.email', 'peaks-test@example.com'], {
+    stdio: 'ignore',
+    windowsHide: true
+  });
+  execFileSync('git', ['-C', project, 'config', 'user.name', 'peaks test'], {
+    stdio: 'ignore',
+    windowsHide: true
+  });
   execFileSync('git', ['-C', project, 'add', '-A'], { stdio: 'ignore', windowsHide: true });
-  execFileSync('git', ['-C', project, 'commit', '-qm', 'fixture'], { stdio: 'ignore', windowsHide: true });
+  execFileSync('git', ['-C', project, 'commit', '-qm', 'fixture'], {
+    stdio: 'ignore',
+    windowsHide: true
+  });
   return project;
 }
 
@@ -121,7 +133,7 @@ describe('Scenario: behavior — renderCodegraphStructureBlock bounded output', 
   it('when directories exceed the cap, should truncate to CODEGRAPH_STRUCTURE_MAX_DIRS rows with a "more directories" marker', () => {
     // given: far more distinct directories than the documented cap
     const entries = Array.from({ length: CODEGRAPH_STRUCTURE_MAX_DIRS + 8 }, (_, i) => ({
-      path: `dir${String(i).padStart(2, '0')}/file${i}.ts`,
+      path: `dir${String(i).padStart(2, '0')}/file${i}.ts`
     }));
     // when: the pure renderer is invoked with default caps
     const summary = renderCodegraphStructureBlock(entries);
@@ -137,7 +149,7 @@ describe('Scenario: behavior — renderCodegraphStructureBlock bounded output', 
     const entries = [
       { path: './src/services/a.ts' },
       { path: './src/services/b.ts' },
-      { path: 'package.json' },
+      { path: 'package.json' }
     ];
     // when: the pure renderer is invoked
     const summary = renderCodegraphStructureBlock(entries);
@@ -157,7 +169,7 @@ describe('Scenario: integration — buildCodegraphPreflightBlock against a real 
     const runner = scriptedRunner({
       init: { exitCode: 0, stdout: 'initialized\n', stderr: '' },
       index: { exitCode: 0, stdout: 'indexed\n', stderr: '' },
-      files: filesResult(['src/services/a.ts', 'src/services/b.ts', 'src/cli/c.ts']),
+      files: filesResult(['src/services/a.ts', 'src/services/b.ts', 'src/cli/c.ts'])
     });
     try {
       // when: the preflight is invoked
@@ -177,10 +189,14 @@ describe('Scenario: integration — buildCodegraphPreflightBlock against a real 
     // given: a project whose `.codegraph/` carries the marker + db (initialized)
     const project = freshProject('peaks-cg-pre-i2-');
     mkdirSync(join(project, '.codegraph'), { recursive: true });
-    writeFileSync(join(project, '.codegraph', CODEGRAPH_MARKER_NAME), 'peaks-loop-managed\n', 'utf8');
+    writeFileSync(
+      join(project, '.codegraph', CODEGRAPH_MARKER_NAME),
+      'peaks-loop-managed\n',
+      'utf8'
+    );
     writeFileSync(join(project, '.codegraph', CODEGRAPH_DB_NAME), 'schema\n', 'utf8');
     const runner = scriptedRunner({
-      files: filesResult(['src/services/a.ts']),
+      files: filesResult(['src/services/a.ts'])
     });
     try {
       // when: the preflight is invoked
@@ -200,11 +216,15 @@ describe('Scenario: integration — buildCodegraphPreflightBlock against a real 
     // given: a dangling peaks-loop dir (marker present, no codegraph.db)
     const project = freshProject('peaks-cg-pre-i2b-');
     mkdirSync(join(project, '.codegraph'), { recursive: true });
-    writeFileSync(join(project, '.codegraph', CODEGRAPH_MARKER_NAME), 'peaks-loop-managed\n', 'utf8');
+    writeFileSync(
+      join(project, '.codegraph', CODEGRAPH_MARKER_NAME),
+      'peaks-loop-managed\n',
+      'utf8'
+    );
     const runner = scriptedRunner({
       init: { exitCode: 0, stdout: 'initialized\n', stderr: '' },
       index: { exitCode: 0, stdout: 'indexed\n', stderr: '' },
-      files: filesResult(['src/services/a.ts']),
+      files: filesResult(['src/services/a.ts'])
     });
     try {
       // when: the preflight is invoked
@@ -263,7 +283,7 @@ describe('Scenario: integration — buildCodegraphPreflightBlock against a real 
         '**/*.cjs',
         '**/*.pyw',
         '**/*.hxx',
-        '**/*.rake',
+        '**/*.rake'
       ]);
 
       // … the marker is stamped …
@@ -272,7 +292,9 @@ describe('Scenario: integration — buildCodegraphPreflightBlock against a real 
       // … and the tree is indexed exactly ONCE: the repair does not add a
       //    second (5-30 s) rebuild because the preflight's own index
       //    already covers the recovered files.
-      const subcommands = runner.mock.calls.map((call) => (call[0] as CodegraphInvocation).subcommand);
+      const subcommands = runner.mock.calls.map(
+        (call) => (call[0] as CodegraphInvocation).subcommand
+      );
       expect(subcommands).toEqual(['init', 'index', 'files']);
     } finally {
       rmSync(project, { recursive: true, force: true });
@@ -284,7 +306,7 @@ describe('Scenario: integration — buildCodegraphPreflightBlock against a real 
     const project = freshProject('peaks-cg-pre-i3-');
     const runner = scriptedRunner({
       init: { exitCode: 0, stdout: 'initialized\n', stderr: '' },
-      index: { exitCode: 2, stdout: '', stderr: 'schema lock conflict' },
+      index: { exitCode: 2, stdout: '', stderr: 'schema lock conflict' }
     });
     try {
       // when: the preflight is invoked
@@ -302,9 +324,11 @@ describe('Scenario: integration — buildCodegraphPreflightBlock against a real 
   it('when the runner rejects during init, should fail-soft with available:false and never throw', async () => {
     // given: a fresh project whose init command rejects (binary missing)
     const project = freshProject('peaks-cg-pre-i4-');
-    const runner = vi.fn(async (_invocation: CodegraphInvocation): Promise<CodegraphExecutionResult> => {
-      throw new Error('codegraph binary not found');
-    });
+    const runner = vi.fn(
+      async (_invocation: CodegraphInvocation): Promise<CodegraphExecutionResult> => {
+        throw new Error('codegraph binary not found');
+      }
+    );
     try {
       // when: the preflight is invoked
       // then: the failure is captured in the result, not thrown to the caller
@@ -323,7 +347,7 @@ describe('Scenario: integration — buildCodegraphPreflightBlock against a real 
     const runner = scriptedRunner({
       init: { exitCode: 0, stdout: 'initialized\n', stderr: '' },
       index: { exitCode: 0, stdout: 'indexed\n', stderr: '' },
-      files: { exitCode: 0, stdout: 'No files indexed. Run "codegraph index" first.\n', stderr: '' },
+      files: { exitCode: 0, stdout: 'No files indexed. Run "codegraph index" first.\n', stderr: '' }
     });
     try {
       // when: the preflight is invoked
@@ -343,9 +367,11 @@ describe('Scenario: a11y — fail-soft notes are human/LLM actionable', () => {
     // given: a project whose `.codegraph/` is an unmarked directory (foreign tool schema)
     const project = freshProject('peaks-cg-pre-a1-');
     mkdirSync(join(project, '.codegraph'), { recursive: true });
-    const runner = vi.fn(async (_invocation: CodegraphInvocation): Promise<CodegraphExecutionResult> => {
-      throw new Error('should not be called');
-    });
+    const runner = vi.fn(
+      async (_invocation: CodegraphInvocation): Promise<CodegraphExecutionResult> => {
+        throw new Error('should not be called');
+      }
+    );
     try {
       // when: the preflight is invoked
       const result = await buildCodegraphPreflightBlock(project, runner);

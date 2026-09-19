@@ -48,15 +48,15 @@ export interface WorkflowGate {
  *  conversion for the monotonic guard lives in
  *  `src/services/loop/monotonic-guard.ts`. */
 export type EvaluatorKind =
-  | 'karpathy'              // 4 Karpathy guidelines review
-  | 'code-review'           // peaks-rd code-reviewer
-  | 'security-review'       // peaks-security-audit
-  | 'perf-baseline'         // peaks-perf-audit
-  | 'verdict-aggregate'     // cross-source verdict merge
+  | 'karpathy' // 4 Karpathy guidelines review
+  | 'code-review' // peaks-rd code-reviewer
+  | 'security-review' // peaks-security-audit
+  | 'perf-baseline' // peaks-perf-audit
+  | 'verdict-aggregate' // cross-source verdict merge
   | 'monotonic-improvement' // Slice C: per-evaluator monotonic score check
-  | 'impact-scan'           // Slice D / G13: peaks impact scan
-  | 'smoke-run'             // Slice D / G14: peaks smoke run
-  | 'canary-watch';         // Slice D / G15: peaks release canary
+  | 'impact-scan' // Slice D / G13: peaks impact scan
+  | 'smoke-run' // Slice D / G14: peaks smoke run
+  | 'canary-watch'; // Slice D / G15: peaks release canary
 
 /** Evaluator binding — runtime calls `peaks loop eval` directly, no LLM scheduling. */
 export interface WorkflowEvaluator {

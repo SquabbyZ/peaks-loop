@@ -72,15 +72,24 @@ export type Fixture = {
  */
 export function seedProject(ws: TmpWorkspace, fixture: Fixture): string {
   execFileSync('git', ['-C', ws.path, 'init', '-q'], { stdio: 'ignore', windowsHide: true });
-  execFileSync('git', ['-C', ws.path, 'config', 'user.email', 'peaks-test@example.com'], { stdio: 'ignore', windowsHide: true });
-  execFileSync('git', ['-C', ws.path, 'config', 'user.name', 'peaks test'], { stdio: 'ignore', windowsHide: true });
+  execFileSync('git', ['-C', ws.path, 'config', 'user.email', 'peaks-test@example.com'], {
+    stdio: 'ignore',
+    windowsHide: true
+  });
+  execFileSync('git', ['-C', ws.path, 'config', 'user.name', 'peaks test'], {
+    stdio: 'ignore',
+    windowsHide: true
+  });
 
   mkdirSync(join(ws.path, 'src'), { recursive: true });
   mkdirSync(join(ws.path, 'scripts'), { recursive: true });
   writeFileSync(join(ws.path, 'src', 'ok.ts'), 'export const ok = 1;\n', 'utf8');
   writeFileSync(join(ws.path, 'scripts', 'tool.mjs'), 'export const tool = 1;\n', 'utf8');
   execFileSync('git', ['-C', ws.path, 'add', '-A'], { stdio: 'ignore', windowsHide: true });
-  execFileSync('git', ['-C', ws.path, 'commit', '-qm', 'fixture'], { stdio: 'ignore', windowsHide: true });
+  execFileSync('git', ['-C', ws.path, 'commit', '-qm', 'fixture'], {
+    stdio: 'ignore',
+    windowsHide: true
+  });
 
   mkdirSync(join(ws.path, '.codegraph'), { recursive: true });
   if (fixture.config !== false) {

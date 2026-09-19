@@ -35,7 +35,8 @@ export const NEW_TEMPLATE_TEXT =
   'Active Peaks-Loop skill presence: at the start of every response, run `peaks skill presence --json` to read the active skill marker. The CLI handles canonical-path resolution (`.peaks/_runtime/active-skill.json` with back-compat fallback to `.peaks/.active-skill.json`); do not read those files directly. When the response includes a valid skill name, display the compact status header: `Peaks-Loop Skill: <skill> | Peaks-Loop Gate: <gate> | Next: <one short action>`. Display the header on every turn while the CLI returns an active skill; omit when the CLI returns no active skill.';
 
 const LEGACY_BLOCK_OPENER_LINE = 'Peaks-Loop 心跳检测 (heartbeat check)';
-const LEGACY_BLOCK_CLOSER = 'External reference: https://github.com/affaan-m/everything-claude-code';
+const LEGACY_BLOCK_CLOSER =
+  'External reference: https://github.com/affaan-m/everything-claude-code';
 const LEGACY_MARKER_FALLBACK = 'Do NOT skip step 3-5. The CLI heartbeat:touch command';
 
 const FORBIDDEN_LEGACY_STRINGS = [
@@ -117,7 +118,10 @@ export function detectLegacyBlock(content: string): { found: boolean; start: num
   return { found: false, start: -1, end: -1 };
 }
 
-export function rewriteLegacyBlock(content: string, newText: string = NEW_TEMPLATE_TEXT): { rewritten: string; replaced: boolean } {
+export function rewriteLegacyBlock(
+  content: string,
+  newText: string = NEW_TEMPLATE_TEXT
+): { rewritten: string; replaced: boolean } {
   const detection = detectLegacyBlock(content);
   if (!detection.found) {
     return { rewritten: content, replaced: false };

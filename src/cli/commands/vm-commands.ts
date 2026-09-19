@@ -79,15 +79,27 @@ function resolveTtlMs(raw: string | undefined, role: string): number {
   return parsed;
 }
 
-function detectHypervisor(requested: VmHypervisor): { ok: true; binary: string } | { ok: false; stderr: string } {
+function detectHypervisor(
+  requested: VmHypervisor
+): { ok: true; binary: string } | { ok: false; stderr: string } {
   let binary: string;
   switch (requested) {
-    case 'kvm': binary = 'virsh'; break;
-    case 'hyperkit': binary = 'hvftool'; break;
-    case 'hyperv': binary = 'hvc'; break;
+    case 'kvm':
+      binary = 'virsh';
+      break;
+    case 'hyperkit':
+      binary = 'hvftool';
+      break;
+    case 'hyperv':
+      binary = 'hvc';
+      break;
   }
   try {
-    const v = execSync(`${binary} --version`, { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf8', windowsHide: true });
+    const v = execSync(`${binary} --version`, {
+      stdio: ['ignore', 'pipe', 'pipe'],
+      encoding: 'utf8',
+      windowsHide: true
+    });
     if (requested === 'kvm' && !existsSync('/dev/kvm')) {
       return { ok: false, stderr: 'KVM kernel module not loaded (/dev/kvm absent)' };
     }
@@ -122,7 +134,12 @@ function spawnVmWithHypervisor(args: {
 </domain>`;
     const xmlPath = `${args.workdir}/.peaks-vm-${args.leaseId}.xml`;
     require('node:fs').writeFileSync(xmlPath, xml, 'utf8');
-    const out = execSync(`virsh create ${xmlPath}`, { cwd: args.workdir, stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf8', windowsHide: true });
+    const out = execSync(`virsh create ${xmlPath}`, {
+      cwd: args.workdir,
+      stdio: ['ignore', 'pipe', 'pipe'],
+      encoding: 'utf8',
+      windowsHide: true
+    });
     return { vmId: out.trim() };
   }
   if (args.hypervisor === 'hyperkit') {
@@ -143,9 +160,15 @@ function spawnVmWithHypervisor(args: {
 function destroyVmWithHypervisor(args: { hypervisor: VmHypervisor; vmId: string }): boolean {
   try {
     if (args.hypervisor === 'kvm') {
-      execSync(`virsh destroy ${args.vmId}`, { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
+      execSync(`virsh destroy ${args.vmId}`, {
+        stdio: ['ignore', 'pipe', 'pipe'],
+        windowsHide: true
+      });
     } else if (args.hypervisor === 'hyperkit') {
-      execSync(`hvftool stop ${args.vmId}`, { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
+      execSync(`hvftool stop ${args.vmId}`, {
+        stdio: ['ignore', 'pipe', 'pipe'],
+        windowsHide: true
+      });
     } else {
       execSync(`hvc stop ${args.vmId}`, { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
     }
@@ -156,10 +179,15 @@ function destroyVmWithHypervisor(args: { hypervisor: VmHypervisor; vmId: string 
 }
 
 export function registerVmCommand(program: Command, io: ProgramIO): void {
-  const cmd = program.command('vm').description('L4 VM isolation: spawn/release VM leases via kvm | hyperkit | hyperv (Part 35; pairs with --isolation vm on dispatch).');
+  const cmd = program
+    .command('vm')
+    .description(
+      'L4 VM isolation: spawn/release VM leases via kvm | hyperkit | hyperv (Part 35; pairs with --isolation vm on dispatch).'
+    );
 
   addJsonOption(
-    cmd.command('spawn')
+    cmd
+      .command('spawn')
       .description(
         'Spawn a VM via the requested hypervisor (kvm | hyperkit | hyperv) and write a VM lease. ' +
           'Default TTL is role-aware (rd=30m / qa=15m / ui=1h); pass --ttl <ms> to override. ' +
@@ -168,16 +196,26 @@ export function registerVmCommand(program: Command, io: ProgramIO): void {
       .requiredOption('--rid <rid>', 'peaks request id the lease is associated with')
       .requiredOption('--role <role>', 'sub-agent role (rd | qa | ui | sc | prd | general-purpose)')
       .requiredOption('--purpose <text>', 'why this VM was spawned (audit log)')
-      .option('--hypervisor <name>', 'hypervisor to use: kvm | hyperkit | hyperv (default: auto-detect from host)')
+      .option(
+        '--hypervisor <name>',
+        'hypervisor to use: kvm | hyperkit | hyperv (default: auto-detect from host)'
+      )
       .option('--image <name>', `container image / vhdx to boot (default ${DEFAULT_VM_IMAGE})`)
-      .option('--ttl <ms>', 'time-to-live in ms (default role-aware; override with positive number)')
+      .option(
+        '--ttl <ms>',
+        'time-to-live in ms (default role-aware; override with positive number)'
+      )
       .option('--mount <path>', 'host path to mount as the VM working dir (default: <projectRoot>)')
       .option('--session <sid>', 'override session id')
       .option('--project <path>', 'project root (default: findProjectRoot(cwd))')
   ).action((options: SpawnOptions) => {
     try {
       const projectRoot = options.project ?? findProjectRoot(process.cwd()) ?? process.cwd();
-      const sessionId = options.session ?? process.env.PEAKS_SESSION_ID ?? getCurrentSessionId(projectRoot) ?? 'unknown-sid';
+      const sessionId =
+        options.session ??
+        process.env.PEAKS_SESSION_ID ??
+        getCurrentSessionId(projectRoot) ??
+        'unknown-sid';
       // Pick hypervisor: explicit > auto-detect.
       const explicit = options.hypervisor;
       const detected: VmHypervisor | null = explicit
@@ -191,11 +229,17 @@ export function registerVmCommand(program: Command, io: ProgramIO): void {
       if (detected === null) {
         printResult(
           io,
-          fail('vm.spawn', 'VM_HYPERVISOR_UNSPECIFIED', 'No --hypervisor given and the host does not advertise /dev/kvm. Pass --hypervisor hyperkit|hyperv to force one.', { rid: options.rid, sessionId }, [
-            'Linux KVM: ensure /dev/kvm exists and the kvm kernel module is loaded.',
-            'macOS HyperKit: install hvftool (brew install hyperkit) and pass --hypervisor hyperkit.',
-            'Windows Hyper-V: install the hvc shim and pass --hypervisor hyperv.'
-          ]),
+          fail(
+            'vm.spawn',
+            'VM_HYPERVISOR_UNSPECIFIED',
+            'No --hypervisor given and the host does not advertise /dev/kvm. Pass --hypervisor hyperkit|hyperv to force one.',
+            { rid: options.rid, sessionId },
+            [
+              'Linux KVM: ensure /dev/kvm exists and the kvm kernel module is loaded.',
+              'macOS HyperKit: install hvftool (brew install hyperkit) and pass --hypervisor hyperkit.',
+              'Windows Hyper-V: install the hvc shim and pass --hypervisor hyperv.'
+            ]
+          ),
           options.json
         );
         process.exitCode = 1;
@@ -205,10 +249,16 @@ export function registerVmCommand(program: Command, io: ProgramIO): void {
       if (!probe.ok) {
         printResult(
           io,
-          fail('vm.spawn', 'VM_RUNTIME_UNAVAILABLE', `${detected} runtime not available: ${probe.stderr}`, { rid: options.rid, hypervisor: detected, sessionId }, [
-            `Install the ${detected} runtime binary on PATH.`,
-            'The dispatch fail-fast prevents fallback to a different hypervisor (caller chose this mode for a reason).'
-          ]),
+          fail(
+            'vm.spawn',
+            'VM_RUNTIME_UNAVAILABLE',
+            `${detected} runtime not available: ${probe.stderr}`,
+            { rid: options.rid, hypervisor: detected, sessionId },
+            [
+              `Install the ${detected} runtime binary on PATH.`,
+              'The dispatch fail-fast prevents fallback to a different hypervisor (caller chose this mode for a reason).'
+            ]
+          ),
           options.json
         );
         process.exitCode = 1;
@@ -233,10 +283,16 @@ export function registerVmCommand(program: Command, io: ProgramIO): void {
       } catch (err) {
         printResult(
           io,
-          fail('vm.spawn', 'VM_SPAWN_FAILED', getErrorMessage(err), { rid: options.rid, hypervisor: detected, image, sessionId }, [
-            'Verify the image / vhdx is reachable on the host.',
-            `For ${detected}: the spawn helper expects domain XML / hvftool args / hvc shim.`
-          ]),
+          fail(
+            'vm.spawn',
+            'VM_SPAWN_FAILED',
+            getErrorMessage(err),
+            { rid: options.rid, hypervisor: detected, image, sessionId },
+            [
+              'Verify the image / vhdx is reachable on the host.',
+              `For ${detected}: the spawn helper expects domain XML / hvftool args / hvc shim.`
+            ]
+          ),
           options.json
         );
         process.exitCode = 1;
@@ -282,9 +338,18 @@ export function registerVmCommand(program: Command, io: ProgramIO): void {
     } catch (err) {
       printResult(
         io,
-        fail('vm.spawn', 'SPAWN_FAILED', getErrorMessage(err), { rid: options.rid, sessionId: options.session ?? process.env.PEAKS_SESSION_ID ?? 'unknown-sid' }, [
-          'See error message; if the lease was not written, retry after fixing the underlying issue.'
-        ]),
+        fail(
+          'vm.spawn',
+          'SPAWN_FAILED',
+          getErrorMessage(err),
+          {
+            rid: options.rid,
+            sessionId: options.session ?? process.env.PEAKS_SESSION_ID ?? 'unknown-sid'
+          },
+          [
+            'See error message; if the lease was not written, retry after fixing the underlying issue.'
+          ]
+        ),
         options.json
       );
       process.exitCode = 1;
@@ -292,23 +357,36 @@ export function registerVmCommand(program: Command, io: ProgramIO): void {
   });
 
   addJsonOption(
-    cmd.command('release')
-      .description('Transition a VM lease to released and run the hypervisor destroy command. Idempotent on already-released leases.')
+    cmd
+      .command('release')
+      .description(
+        'Transition a VM lease to released and run the hypervisor destroy command. Idempotent on already-released leases.'
+      )
       .requiredOption('--lease-id <id>', 'lease id returned by `peaks vm spawn`')
       .option('--session <sid>', 'override session id')
       .option('--project <path>', 'project root (default: findProjectRoot(cwd))')
   ).action((options: ReleaseOptions) => {
     try {
       const projectRoot = options.project ?? findProjectRoot(process.cwd()) ?? process.cwd();
-      const sessionId = options.session ?? process.env.PEAKS_SESSION_ID ?? getCurrentSessionId(projectRoot) ?? 'unknown-sid';
+      const sessionId =
+        options.session ??
+        process.env.PEAKS_SESSION_ID ??
+        getCurrentSessionId(projectRoot) ??
+        'unknown-sid';
       const file = vmLeaseFilePath(joinPathSession(projectRoot, sessionId), options.leaseId);
       if (!existsSync(file)) {
         printResult(
           io,
-          fail('vm.release', 'LEASE_NOT_FOUND', `no VM lease on disk at ${file}`, { leaseId: options.leaseId, file }, [
-            'Run `peaks vm list` (follow-up) to inspect active leases.',
-            'For a never-spawned lease, this is a no-op.'
-          ]),
+          fail(
+            'vm.release',
+            'LEASE_NOT_FOUND',
+            `no VM lease on disk at ${file}`,
+            { leaseId: options.leaseId, file },
+            [
+              'Run `peaks vm list` (follow-up) to inspect active leases.',
+              'For a never-spawned lease, this is a no-op.'
+            ]
+          ),
           options.json
         );
         process.exitCode = 1;
@@ -320,9 +398,13 @@ export function registerVmCommand(program: Command, io: ProgramIO): void {
       } catch (err) {
         printResult(
           io,
-          fail('vm.release', 'LEASE_FILE_INVALID', getErrorMessage(err), { leaseId: options.leaseId, file }, [
-            'Delete the malformed lease file manually and re-spawn.'
-          ]),
+          fail(
+            'vm.release',
+            'LEASE_FILE_INVALID',
+            getErrorMessage(err),
+            { leaseId: options.leaseId, file },
+            ['Delete the malformed lease file manually and re-spawn.']
+          ),
           options.json
         );
         process.exitCode = 1;
@@ -331,7 +413,12 @@ export function registerVmCommand(program: Command, io: ProgramIO): void {
       if (lease.status === 'released') {
         printResult(
           io,
-          ok('vm.release', { lease, sessionId, projectRoot, alreadyReleased: true }, [], [`Lease ${lease.leaseId} already released; nothing to do.`]),
+          ok(
+            'vm.release',
+            { lease, sessionId, projectRoot, alreadyReleased: true },
+            [],
+            [`Lease ${lease.leaseId} already released; nothing to do.`]
+          ),
           options.json
         );
         return;
@@ -344,7 +431,9 @@ export function registerVmCommand(program: Command, io: ProgramIO): void {
         ok(
           'vm.release',
           { lease: released, sessionId, projectRoot, vmDestroyed: destroyed },
-          destroyed ? [] : [`${lease.hypervisor} destroy command failed; the lease was marked released anyway.`],
+          destroyed
+            ? []
+            : [`${lease.hypervisor} destroy command failed; the lease was marked released anyway.`],
           [
             `Lease ${lease.leaseId} marked released.`,
             destroyed
@@ -357,9 +446,16 @@ export function registerVmCommand(program: Command, io: ProgramIO): void {
     } catch (err) {
       printResult(
         io,
-        fail('vm.release', 'RELEASE_FAILED', getErrorMessage(err), { leaseId: options.leaseId, sessionId: options.session ?? process.env.PEAKS_SESSION_ID ?? 'unknown-sid' }, [
-          'Verify the lease id and re-run.'
-        ]),
+        fail(
+          'vm.release',
+          'RELEASE_FAILED',
+          getErrorMessage(err),
+          {
+            leaseId: options.leaseId,
+            sessionId: options.session ?? process.env.PEAKS_SESSION_ID ?? 'unknown-sid'
+          },
+          ['Verify the lease id and re-run.']
+        ),
         options.json
       );
       process.exitCode = 1;

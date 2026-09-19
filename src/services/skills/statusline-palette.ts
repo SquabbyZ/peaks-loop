@@ -25,7 +25,7 @@ const BRAND = 'Peaks';
 const ATTENTION_GATE_LABELS: ReadonlyMap<string, string> = new Map([
   ['qa-validation', 'QA'],
   ['verdict-issued', 'Verdict'],
-  ['blocked', 'Blocked'],
+  ['blocked', 'Blocked']
 ]);
 
 export function isAttentionGate(gate: string | undefined): string | null {
@@ -56,9 +56,9 @@ export interface StatusPalette {
   readonly idle: string;
   readonly warning: string;
   readonly inlineSeparator: string; // between skill + gate
-  readonly trailSeparator: string;  // before project label
-  readonly idleLabel: string;       // token rendered when no presence
-  readonly invalidMessage: string;  // text after the warning glyph for invalid-presence
+  readonly trailSeparator: string; // before project label
+  readonly idleLabel: string; // token rendered when no presence
+  readonly invalidMessage: string; // text after the warning glyph for invalid-presence
   readonly compact: CompactPalette;
   readonly barFilled: string;
   readonly barEmpty: string;
@@ -175,12 +175,17 @@ function buildPalette(capability: StatusLineCapability, noColor: boolean): Statu
       idleLabel: 'empty',
       invalidMessage: 'presence unreadable',
       compact: {
-        queued: '[', preparing: '+', compacting: '+', armed: '~', verifying: '+',
-        completed: '*', failed,
+        queued: '[',
+        preparing: '+',
+        compacting: '+',
+        armed: '~',
+        verifying: '+',
+        completed: '*',
+        failed
       },
       barFilled: '#',
       barEmpty: '-',
-      ratioArrow: '->',
+      ratioArrow: '->'
     };
   }
   return {
@@ -205,11 +210,11 @@ function buildPalette(capability: StatusLineCapability, noColor: boolean): Statu
       armed: brandGlyph('◔'),
       verifying: brandGlyph('◓'),
       completed: brandGlyph('✓'),
-      failed,
+      failed
     },
     barFilled: brand('█'),
     barEmpty: dimBrand('░'),
-    ratioArrow: dimBrand('→'),
+    ratioArrow: dimBrand('→')
   };
 }
 
@@ -219,11 +224,16 @@ const BREATHING_PERIOD_MS = 600;
 
 function pickBreathingGlyph(capability: StatusLineCapability, nowMs: number): string {
   const set = capability === 'ascii' ? BREATHING_GLYPHS_ASCII : BREATHING_GLYPHS_UNICODE;
-  const index = Math.floor((nowMs % BREATHING_PERIOD_MS) / (BREATHING_PERIOD_MS / set.length)) % set.length;
+  const index =
+    Math.floor((nowMs % BREATHING_PERIOD_MS) / (BREATHING_PERIOD_MS / set.length)) % set.length;
   return set[index] as string;
 }
 
-export function renderActiveDot(capability: StatusLineCapability, nowMs: number, noColor: boolean): string {
+export function renderActiveDot(
+  capability: StatusLineCapability,
+  nowMs: number,
+  noColor: boolean
+): string {
   // Brief: the active dot carries the project accent (`#5A65D8` bold)
   // in both colored tiers. The breathing glyph is wrapped in a fresh
   // SGR on every render so the IDE sees a single accent per refresh.
@@ -250,6 +260,9 @@ export function brandText(capability: StatusLineCapability, noColor: boolean): s
  */
 export const DEFAULT_CAPABILITY: StatusLineCapability = 'unicode';
 
-export function paletteFor(capability: StatusLineCapability | undefined, noColor: boolean): StatusPalette {
+export function paletteFor(
+  capability: StatusLineCapability | undefined,
+  noColor: boolean
+): StatusPalette {
   return buildPalette(capability ?? DEFAULT_CAPABILITY, noColor);
 }

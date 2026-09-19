@@ -73,14 +73,16 @@ export const SANITIZE_RULES: ReadonlyArray<SanitizeRule> = [
     name: 'token-redaction',
     // Bearer tokens (Authorization: Bearer ...), JWTs (xxx.yyy.zzz),
     // and well-known API-key prefixes.
-    pattern: /(?:bearer\s+)[a-zA-Z0-9._\-+/=]{12,}|eyJ[a-zA-Z0-9._\-+/=]{20,}|(?:sk-|ghp_|gho_|ghs_|ghu_|ghr_|github_pat_|xox[abprs]-|AIza[0-9A-Za-z_\-]{35})[A-Za-z0-9_\-]+/gi,
+    pattern:
+      /(?:bearer\s+)[a-zA-Z0-9._\-+/=]{12,}|eyJ[a-zA-Z0-9._\-+/=]{20,}|(?:sk-|ghp_|gho_|ghs_|ghu_|ghr_|github_pat_|xox[abprs]-|AIza[0-9A-Za-z_\-]{35})[A-Za-z0-9_\-]+/gi,
     replacement: '<REDACTED-token>'
   },
   {
     name: 'sso-url-redaction',
     // SSO callback URLs with embedded tokens via `?` (e.g. `?token=`,
     // `?code=`, `?access_token=`) or via fragment `#access_token=`.
-    pattern: /\bhttps?:\/\/[^\s"'<>]*(?:[?&](?:token|code|access_token|id_token|assertion)=[^&\s"'<>]*|#[^/\s"'<>]*access_token=[^\s"'<>]*)/gi,
+    pattern:
+      /\bhttps?:\/\/[^\s"'<>]*(?:[?&](?:token|code|access_token|id_token|assertion)=[^&\s"'<>]*|#[^/\s"'<>]*access_token=[^\s"'<>]*)/gi,
     replacement: '<REDACTED-sso-url>'
   },
   {
@@ -111,13 +113,15 @@ export const SanitizationIssueSchema = z.object({
 
 export const SanitizationReportSchema = z.object({
   passed: z.boolean(),
-  rulesApplied: z.array(z.enum([
-    'cookie-redaction',
-    'token-redaction',
-    'sso-url-redaction',
-    'personal-email-redaction',
-    'username-path-segment-redaction'
-  ])),
+  rulesApplied: z.array(
+    z.enum([
+      'cookie-redaction',
+      'token-redaction',
+      'sso-url-redaction',
+      'personal-email-redaction',
+      'username-path-segment-redaction'
+    ])
+  ),
   issues: z.array(SanitizationIssueSchema)
 });
 

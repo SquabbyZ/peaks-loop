@@ -27,8 +27,10 @@ function runCli(args: readonly string[], cwd: string): RunResult {
   } catch (error: unknown) {
     const caught = error as { stdout?: Buffer | string; stderr?: Buffer | string; status?: number };
     return {
-      stdout: typeof caught.stdout === 'string' ? caught.stdout : caught.stdout?.toString('utf8') ?? '',
-      stderr: typeof caught.stderr === 'string' ? caught.stderr : caught.stderr?.toString('utf8') ?? '',
+      stdout:
+        typeof caught.stdout === 'string' ? caught.stdout : (caught.stdout?.toString('utf8') ?? ''),
+      stderr:
+        typeof caught.stderr === 'string' ? caught.stderr : (caught.stderr?.toString('utf8') ?? ''),
       code: caught.status ?? 1
     };
   }
@@ -94,10 +96,7 @@ describe('peaks prd handoff show (P2-B.6 misc e2e)', () => {
     // told, and the old envelope said only "command: cli" with empty
     // nextActions. See `src/cli/index.ts` (`commander.missingMandatoryOptionValue`).
     const project = makeProject('peaks-p2b6-prd-show-');
-    const result = runCli(
-      ['prd', 'handoff', 'show', '--project', project, '--json'],
-      project
-    );
+    const result = runCli(['prd', 'handoff', 'show', '--project', project, '--json'], project);
     expect(result.code).not.toBe(0);
     const envelope = parseEnvelope(result);
     expect(envelope.ok).toBe(false);
@@ -121,10 +120,7 @@ describe('peaks release canary (P2-B.6 misc e2e)', () => {
     // error exit, so it has to hold for every `.requiredOption()` in the tree,
     // not just the one that happened to be reported.
     const project = makeProject('peaks-p2b6-release-canary-');
-    const result = runCli(
-      ['release', 'canary', '--project', project, '--json'],
-      project
-    );
+    const result = runCli(['release', 'canary', '--project', project, '--json'], project);
     expect(result.code).not.toBe(0);
     const envelope = parseEnvelope(result);
     expect(envelope.ok).toBe(false);
@@ -153,7 +149,12 @@ describe('peaks prd check-blocks (P2-B.6 misc e2e)', () => {
     expect(envelope.command).toBe('prd.check-blocks');
     expect(envelope.ok).toBe(true);
     const data = envelope.data as {
-      findings?: ReadonlyArray<{ block?: number; name?: string; required?: boolean; present?: boolean }>;
+      findings?: ReadonlyArray<{
+        block?: number;
+        name?: string;
+        required?: boolean;
+        present?: boolean;
+      }>;
       artifactPath?: string;
     };
     expect(Array.isArray(data.findings)).toBe(true);
@@ -400,11 +401,16 @@ describe('peaks mut asserts (P2-B.6 misc e2e)', () => {
     const out = join(project, 'mut-report.json');
     const result = runCli(
       [
-        'mut', 'asserts',
-        '--project', project,
-        '--test-files', 'tests/integration/misc-commands-e2e.test.ts',
-        '--session-id', '2026-07-25-p2-b6-misc-e2e-mut-asserts',
-        '--out', out,
+        'mut',
+        'asserts',
+        '--project',
+        project,
+        '--test-files',
+        'tests/integration/misc-commands-e2e.test.ts',
+        '--session-id',
+        '2026-07-25-p2-b6-misc-e2e-mut-asserts',
+        '--out',
+        out,
         '--json'
       ],
       project
@@ -500,10 +506,14 @@ describe('peaks fixture capture (P2-B.6 misc e2e)', () => {
   test('returns a structured CAPTURE_FAILED envelope when the source rid has no handoff artifact', () => {
     const result = runCli(
       [
-        'fixture', 'capture',
-        '--from-rid', '2026-07-25-p2-b6-misc-fixture',
-        '--sid', '2026-07-25-session-6da9d9',
-        '--envelope', 'prd-handoff',
+        'fixture',
+        'capture',
+        '--from-rid',
+        '2026-07-25-p2-b6-misc-fixture',
+        '--sid',
+        '2026-07-25-session-6da9d9',
+        '--envelope',
+        'prd-handoff',
         '--json'
       ],
       REPO
@@ -622,16 +632,18 @@ describe('peaks bee import (P2-B.6 misc e2e)', () => {
 describe('peaks perf baseline (P2-B.6 misc e2e)', () => {
   test('returns a structured perf.baseline dry-run envelope without --apply', () => {
     const project = makeProject('peaks-p2b6-perf-baseline-');
-    const result = runCli(
-      ['perf', 'baseline', '--project', project, '--json'],
-      project
-    );
+    const result = runCli(['perf', 'baseline', '--project', project, '--json'], project);
     expect(result.code).toBe(0);
     const envelope = parseEnvelope(result);
     expect(envelope.command).toBe('perf.baseline');
     expect(envelope.ok).toBe(true);
     // The dry-run envelope uses `apply: boolean`, not `dryRun`/`applied`.
-    const data = envelope.data as { apply?: boolean; perfBaselinePath?: string | null; plannedWrites?: ReadonlyArray<unknown>; alreadyInitialized?: boolean };
+    const data = envelope.data as {
+      apply?: boolean;
+      perfBaselinePath?: string | null;
+      plannedWrites?: ReadonlyArray<unknown>;
+      alreadyInitialized?: boolean;
+    };
     expect(data.apply).toBe(false);
     expect(data.perfBaselinePath === null || typeof data.perfBaselinePath === 'string').toBe(true);
     expect(Array.isArray(data.plannedWrites)).toBe(true);
@@ -662,9 +674,12 @@ describe('peaks perf-audit run (P2-B.6 misc e2e)', () => {
   test('returns a structured perf-audit.run envelope for the given rid + sid (graceful missing-handoff)', () => {
     const result = runCli(
       [
-        'perf-audit', 'run',
-        '--rid', '2026-07-25-p2-b6-misc-fixture',
-        '--sid', '2026-07-25-session-6da9d9-p2b6',
+        'perf-audit',
+        'run',
+        '--rid',
+        '2026-07-25-p2-b6-misc-fixture',
+        '--sid',
+        '2026-07-25-session-6da9d9-p2b6',
         '--json'
       ],
       REPO

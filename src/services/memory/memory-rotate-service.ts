@@ -42,7 +42,12 @@
 import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, statSync } from 'node:fs';
 import { basename, join, relative, sep } from 'node:path';
 
-import { isInsidePath, resolveInputPath, stablePath, stableRealPath } from '../../shared/path-utils.js';
+import {
+  isInsidePath,
+  resolveInputPath,
+  stablePath,
+  stableRealPath
+} from '../../shared/path-utils.js';
 import type { ProjectMemoryKind } from './project-memory-service/types.js';
 import { parseMemoryFrontmatter } from './project-memory-service/parsers/frontmatter.js';
 import { MEMORY_MD_FILENAME } from './project-memory-service/index/reindex.js';
@@ -114,7 +119,11 @@ export interface MemoryRotateOptions {
 }
 
 /** Tier A — operational contracts. Never selected for rotation. */
-const TIER_A_KINDS: ReadonlySet<ProjectMemoryKind> = new Set<ProjectMemoryKind>(['rule', 'convention', 'project-rule']);
+const TIER_A_KINDS: ReadonlySet<ProjectMemoryKind> = new Set<ProjectMemoryKind>([
+  'rule',
+  'convention',
+  'project-rule'
+]);
 
 /** Tier B — descriptive governance. Never selected for rotation. */
 const TIER_B_KINDS: ReadonlySet<ProjectMemoryKind> = new Set<ProjectMemoryKind>([
@@ -131,11 +140,27 @@ const EXPLICIT_TIERS: ReadonlySet<string> = new Set(['A', 'B', 'C', 'D']);
 
 /** Files we are willing to read during the reference grep. */
 const REFERENCE_SCAN_EXTENSIONS: ReadonlySet<string> = new Set([
-  '.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs', '.md', '.json', '.yaml', '.yml', '.txt'
+  '.ts',
+  '.tsx',
+  '.js',
+  '.jsx',
+  '.mjs',
+  '.cjs',
+  '.md',
+  '.json',
+  '.yaml',
+  '.yml',
+  '.txt'
 ]);
 
 const REFERENCE_SCAN_SKIP_DIRS: ReadonlySet<string> = new Set([
-  'node_modules', '.git', 'dist', 'build', 'coverage', '.next', '.turbo'
+  'node_modules',
+  '.git',
+  'dist',
+  'build',
+  'coverage',
+  '.next',
+  '.turbo'
 ]);
 
 /** Bound the reference grep so a pathological tree cannot hang the command. */
@@ -289,8 +314,9 @@ export function executeMemoryRotate(options: MemoryRotateOptions): MemoryRotatio
   const memoryDir = assertSafeProjectMemoryDir(projectRoot);
   const archivedDir = join(memoryDir, MEMORY_ROTATION_ARCHIVED_DIRNAME);
   const now = options.now ?? new Date();
-  const referenceRoots = options.referenceRoots
-    ?? MEMORY_ROTATION_REFERENCE_ROOTS.map((root) => join(projectRoot, root));
+  const referenceRoots =
+    options.referenceRoots ??
+    MEMORY_ROTATION_REFERENCE_ROOTS.map((root) => join(projectRoot, root));
 
   const report: MemoryRotationReport = {
     apply,
@@ -326,7 +352,9 @@ export function executeMemoryRotate(options: MemoryRotateOptions): MemoryRotatio
   const cutoff = new Date(now);
   cutoff.setMonth(cutoff.getMonth() - retentionMonths);
 
-  const diskFiles = listMarkdownFiles(memoryDir).filter((filePath) => basename(filePath) !== MEMORY_MD_FILENAME);
+  const diskFiles = listMarkdownFiles(memoryDir).filter(
+    (filePath) => basename(filePath) !== MEMORY_MD_FILENAME
+  );
 
   for (const filePath of diskFiles) {
     const stem = basename(filePath, '.md');
@@ -350,7 +378,12 @@ export function executeMemoryRotate(options: MemoryRotateOptions): MemoryRotatio
     // (the interesting case); unpinned A/B files are simply not candidates.
     if (tier === 'A' || tier === 'B') {
       if (pinned) {
-        report.excluded.push({ name: parsed.name ?? stem, filePath, tier, reason: 'pinned in MEMORY.md index' });
+        report.excluded.push({
+          name: parsed.name ?? stem,
+          filePath,
+          tier,
+          reason: 'pinned in MEMORY.md index'
+        });
       }
       continue;
     }
@@ -366,7 +399,8 @@ export function executeMemoryRotate(options: MemoryRotateOptions): MemoryRotatio
         tier,
         tierReason,
         action: 'delete-candidate',
-        reason: 'tier D (ephemeral/archived) — reported as a delete-candidate only; peaks never deletes',
+        reason:
+          'tier D (ephemeral/archived) — reported as a delete-candidate only; peaks never deletes',
         ageDays,
         ageBasis: basis
       });
@@ -378,13 +412,21 @@ export function executeMemoryRotate(options: MemoryRotateOptions): MemoryRotatio
       continue; // within the retention window — not a candidate yet
     }
     if (pinned) {
-      report.excluded.push({ name: parsed.name ?? stem, filePath, tier, reason: 'pinned in MEMORY.md index' });
+      report.excluded.push({
+        name: parsed.name ?? stem,
+        filePath,
+        tier,
+        reason: 'pinned in MEMORY.md index'
+      });
       continue;
     }
 
     const hits = findReferenceHits(stem, referenceRoots);
     if (hits.length > 0) {
-      const preview = hits.slice(0, 2).map((hit) => relative(projectRoot, hit).replaceAll('\\', '/')).join(', ');
+      const preview = hits
+        .slice(0, 2)
+        .map((hit) => relative(projectRoot, hit).replaceAll('\\', '/'))
+        .join(', ');
       report.excluded.push({
         name: parsed.name ?? stem,
         filePath,
@@ -433,7 +475,9 @@ export function executeMemoryRotate(options: MemoryRotateOptions): MemoryRotatio
         if (stableMemoryDir === null || !isInsidePath(source, stableMemoryDir)) {
           report.gateFailures.push(`candidate escapes the memory directory: ${candidate.filePath}`);
           report.refused = true;
-          report.refusalReasons.push(`candidate escapes the memory directory: ${candidate.filePath}`);
+          report.refusalReasons.push(
+            `candidate escapes the memory directory: ${candidate.filePath}`
+          );
           break;
         }
         const destination = join(archivedDir, basename(candidate.filePath));

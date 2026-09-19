@@ -39,7 +39,7 @@ declareDimensions('tests/unit/cli/skill-presence-generated-config-drift.test.ts'
   'render',
   'behavior',
   'integration',
-  'a11y',
+  'a11y'
 ]);
 
 const getWs = withTmpWorkspacePerTest('peaks-presence-drift-');
@@ -57,7 +57,9 @@ async function runPresence(
   const { io, captured } = makeCapturedIo();
   const program = new Command();
   registerSkillCommand(program, io);
-  await program.parseAsync(['skill', 'presence', '--project', projectRoot, ...extraArgs], { from: 'user' });
+  await program.parseAsync(['skill', 'presence', '--project', projectRoot, ...extraArgs], {
+    from: 'user'
+  });
   return { stdout: captured.text(), stderr: captured.stderrText() };
 }
 
@@ -72,7 +74,9 @@ describe('Scenario: render — generated-config drift rides `skill presence`', (
     const envelope = JSON.parse(stdout) as {
       ok: boolean;
       warnings: string[];
-      data: { generatedArtifacts?: { stale: boolean; reasons: string[]; onDiskPackageVersion: string } };
+      data: {
+        generatedArtifacts?: { stale: boolean; reasons: string[]; onDiskPackageVersion: string };
+      };
     };
 
     expect(envelope.ok).toBe(true);
@@ -115,7 +119,13 @@ describe('Scenario: render — generated-config drift rides `skill presence`', (
 
     const { stdout } = await runPresence(ws.path, ['--json']);
     const envelope = JSON.parse(stdout) as {
-      data: { generatedArtifacts?: { stale: boolean; reasons: string[]; onDiskPackageVersion: string | null } };
+      data: {
+        generatedArtifacts?: {
+          stale: boolean;
+          reasons: string[];
+          onDiskPackageVersion: string | null;
+        };
+      };
     };
 
     expect(envelope.data.generatedArtifacts?.stale).toBe(true);

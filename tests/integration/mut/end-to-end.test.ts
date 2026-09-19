@@ -30,10 +30,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Command } from 'commander';
 import { createMutCommands } from '../../../src/cli/commands/mut-commands.js';
-import {
-  loadMutReport,
-  mutReportPath,
-} from 'peaks-loop-mut';
+import { loadMutReport, mutReportPath } from 'peaks-loop-mut';
 
 const HEX_SIG = 'a'.repeat(64);
 
@@ -67,13 +64,13 @@ describe('peaks-mut end-to-end', () => {
         "import { describe, it, expect } from 'vitest';",
         '',
         "describe('add', () => {",
-        '  it(\'adds\', () => {',
+        "  it('adds', () => {",
         '    expect(add(1, 2)).toBeDefined();',
         '    expect(add(2, 2)).toBe(4);',
         '    expect(add(0, 0)).toBe(0);',
         '  });',
         '});',
-        '',
+        ''
       ].join('\n')
     );
   });
@@ -98,24 +95,30 @@ describe('peaks-mut end-to-end', () => {
       mutantsKilled: 9,
       mutantsSurvived: 1,
       mutantsTimeout: 0,
-      perFile: [{ file: 'src/add.ts', killRate: 0.9, survived: [] }],
+      perFile: [{ file: 'src/add.ts', killRate: 0.9, survived: [] }]
     }));
 
-    const program = new Command().addCommand(
-      createMutCommands({ invokeStryker })
-    );
+    const program = new Command().addCommand(createMutCommands({ invokeStryker }));
     // Write to the canonical one-axis path so loadMutReport can find
     // it without any chdir tricks.
     const reportPath = join(workdir, mutReportPath(sessionId));
     const out = join(reportPath); // same canonical location
     await program.parseAsync([
-      'node', 'peaks', 'mut', 'run',
-      '--project', workdir,
-      '--test-files', 'src/add.test.ts',
-      '--input-sig', HEX_SIG,
-      '--session-id', sessionId,
-      '--out', out,
-      '--json',
+      'node',
+      'peaks',
+      'mut',
+      'run',
+      '--project',
+      workdir,
+      '--test-files',
+      'src/add.test.ts',
+      '--input-sig',
+      HEX_SIG,
+      '--session-id',
+      sessionId,
+      '--out',
+      out,
+      '--json'
     ]);
 
     // 1. The Stryker invoker was called exactly once.
@@ -168,23 +171,29 @@ describe('peaks-mut end-to-end', () => {
       mutantsKilled: 5,
       mutantsSurvived: 0,
       mutantsTimeout: 0,
-      perFile: [{ file: 'src/add.ts', killRate: 1.0, survived: [] }],
+      perFile: [{ file: 'src/add.ts', killRate: 1.0, survived: [] }]
     }));
 
     async function runOnce(outFile: string): Promise<{
       json: Record<string, unknown>;
       out: string;
     }> {
-      const program = new Command().addCommand(
-        createMutCommands({ invokeStryker })
-      );
+      const program = new Command().addCommand(createMutCommands({ invokeStryker }));
       await program.parseAsync([
-        'node', 'peaks', 'mut', 'run',
-        '--project', workdir,
-        '--test-files', 'src/add.test.ts',
-        '--input-sig', HEX_SIG,
-        '--session-id', sessionId,
-        '--out', outFile,
+        'node',
+        'peaks',
+        'mut',
+        'run',
+        '--project',
+        workdir,
+        '--test-files',
+        'src/add.test.ts',
+        '--input-sig',
+        HEX_SIG,
+        '--session-id',
+        sessionId,
+        '--out',
+        outFile
       ]);
       const json = JSON.parse(readFileSync(outFile, 'utf8'));
       return { json, out: outFile };
@@ -222,12 +231,12 @@ describe('peaks-mut end-to-end', () => {
         "import { describe, it, expect } from 'vitest';",
         '',
         "describe('add', () => {",
-        '  it(\'adds\', () => {',
+        "  it('adds', () => {",
         '    expect(add(2, 2)).toBe(4);',
         '    expect(add(0, 0)).toBe(0);',
         '  });',
         '});',
-        '',
+        ''
       ].join('\n')
     );
 
@@ -236,20 +245,26 @@ describe('peaks-mut end-to-end', () => {
       mutantsKilled: 3,
       mutantsSurvived: 0,
       mutantsTimeout: 0,
-      perFile: [{ file: 'src/add.ts', killRate: 1.0, survived: [] }],
+      perFile: [{ file: 'src/add.ts', killRate: 1.0, survived: [] }]
     }));
 
-    const program = new Command().addCommand(
-      createMutCommands({ invokeStryker })
-    );
+    const program = new Command().addCommand(createMutCommands({ invokeStryker }));
     const out = join(cleanDir, mutReportPath(sessionId));
     await program.parseAsync([
-      'node', 'peaks', 'mut', 'run',
-      '--project', cleanDir,
-      '--test-files', 'src/add.test.ts',
-      '--input-sig', HEX_SIG,
-      '--session-id', sessionId,
-      '--out', out,
+      'node',
+      'peaks',
+      'mut',
+      'run',
+      '--project',
+      cleanDir,
+      '--test-files',
+      'src/add.test.ts',
+      '--input-sig',
+      HEX_SIG,
+      '--session-id',
+      sessionId,
+      '--out',
+      out
     ]);
 
     const originalCwd = process.cwd();

@@ -29,7 +29,10 @@ import { tryGetSessionDir } from '../session/getSessionDir.js';
  * REGISTERED a trigger (slice 2026-09-12-compact-band-policy, defect B)
  * — see `resolveDispatchedStage`.
  */
-type ObservableDispatchStage = Extract<CompactLifecycleStage, 'queued' | 'preparing' | 'compacting' | 'armed'>;
+type ObservableDispatchStage = Extract<
+  CompactLifecycleStage,
+  'queued' | 'preparing' | 'compacting' | 'armed'
+>;
 
 /** Stage a failure is attributed to (mirrors the store's `failedAt` domain). */
 type FailableStage = Exclude<CompactLifecycleStage, 'failed' | 'completed'>;
@@ -206,7 +209,12 @@ export function readOpenDispatchRun(input: {
   if (read.kind === 'none') return { kind: 'none' };
   const record = read.record;
   if (record.stage !== 'armed' && record.stage !== 'compacting') return { kind: 'none' };
-  return { kind: 'open', runId: record.runId, stage: record.stage, triggerRatio: record.triggerRatio };
+  return {
+    kind: 'open',
+    runId: record.runId,
+    stage: record.stage,
+    triggerRatio: record.triggerRatio
+  };
 }
 
 /**
@@ -234,7 +242,8 @@ export class CompactLifecyclePublisher {
       readonly runId: string;
       readonly triggerRatio: number;
       readonly redLine: boolean;
-      readonly onLifecycleStage?: ((stage: CompactLifecycleStage, record: CompactLifecycleRecord) => void) | undefined;
+      readonly onLifecycleStage?:
+        ((stage: CompactLifecycleStage, record: CompactLifecycleRecord) => void) | undefined;
       readonly failLifecycleWrite?: boolean | undefined;
     }
   ) {}
@@ -316,7 +325,11 @@ export function summarizeLifecycleError(error: unknown): string {
   if (raw.length === 0) raw = 'unknown error';
   const firstLine = raw.split('\n')[0] ?? '';
   const collapsed = firstLine.replace(/\s+/g, ' ').trim();
-  return collapsed.length === 0 ? 'unknown error' : (collapsed.length > COLLAPSED_ERROR_MAX_CHARS ? collapsed.slice(0, COLLAPSED_ERROR_MAX_CHARS) : collapsed);
+  return collapsed.length === 0
+    ? 'unknown error'
+    : collapsed.length > COLLAPSED_ERROR_MAX_CHARS
+      ? collapsed.slice(0, COLLAPSED_ERROR_MAX_CHARS)
+      : collapsed;
 }
 
 /**
@@ -364,7 +377,8 @@ export function settleOpenLifecycleRun(input: {
   readonly measuredRatio: number;
   readonly source: string;
   readonly autoFireThreshold: number;
-  readonly onLifecycleStage?: ((stage: CompactLifecycleStage, record: CompactLifecycleRecord) => void) | undefined;
+  readonly onLifecycleStage?:
+    ((stage: CompactLifecycleStage, record: CompactLifecycleRecord) => void) | undefined;
   /** Failure injection for the write below — the seam `CompactLifecyclePublisher` already takes. */
   readonly failLifecycleWrite?: boolean | undefined;
 }): {
@@ -433,7 +447,12 @@ export function settleOpenLifecycleRun(input: {
   // `completed` = the measurement confirms the drop; publish it. This write
   // is the one that closes the run, so it is the one that is reported.
   const lifecycleWritten = emit('completed', true);
-  return { runId: prior.runId, triggerRatio: prior.triggerRatio, afterRatio: input.measuredRatio, lifecycleWritten };
+  return {
+    runId: prior.runId,
+    triggerRatio: prior.triggerRatio,
+    afterRatio: input.measuredRatio,
+    lifecycleWritten
+  };
 }
 
 /**
@@ -496,7 +515,8 @@ export function settleOpenLifecycleRunOnCompactEvent(input: {
   readonly projectRoot: string;
   readonly sessionId: string;
   readonly measuredRatio: number | null;
-  readonly onLifecycleStage?: ((stage: CompactLifecycleStage, record: CompactLifecycleRecord) => void) | undefined;
+  readonly onLifecycleStage?:
+    ((stage: CompactLifecycleStage, record: CompactLifecycleRecord) => void) | undefined;
   /** Failure injection for the write below — the seam `CompactLifecyclePublisher` already takes. */
   readonly failLifecycleWrite?: boolean | undefined;
 }): {
@@ -526,7 +546,9 @@ export function settleOpenLifecycleRunOnCompactEvent(input: {
   if (prior.stage !== 'compacting' && prior.stage !== 'armed') return null;
 
   const afterRatio =
-    input.measuredRatio !== null && input.measuredRatio < prior.triggerRatio ? input.measuredRatio : null;
+    input.measuredRatio !== null && input.measuredRatio < prior.triggerRatio
+      ? input.measuredRatio
+      : null;
 
   const record: CompactLifecycleRecord = {
     schemaVersion: 1,

@@ -13,7 +13,7 @@ import { join, posix } from 'node:path';
 
 const LEGACY_DOTFILES: readonly string[] = [
   '.peaks-init-hooks-decision.json',
-  '.peaks-openspec-opt-in.json',
+  '.peaks-openspec-opt-in.json'
 ];
 
 const STATE_DIR_NAME = '_state';

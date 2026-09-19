@@ -203,8 +203,7 @@ export const MAX_EVIDENCE_BYTES_TOTAL = 40 * 1024;
  * allocator below: the second reading is what let one byte of a 4,226-byte
  * artifact be counted as delivered evidence (F-BLOCK-1BYTE).
  */
-export const MAX_EVIDENCE_BYTES_PER_FILE =
-  MAX_EVIDENCE_BYTES_TOTAL / REQUIRED_DIMENSIONS.length;
+export const MAX_EVIDENCE_BYTES_PER_FILE = MAX_EVIDENCE_BYTES_TOTAL / REQUIRED_DIMENSIONS.length;
 
 /* ------------------------------------------------------------------ *
  * The anti-starvation reservation (the "floor").
@@ -443,8 +442,7 @@ export function resolveOutputBudget(
  * the conclusion" — checked at the only place the module can check it.
  */
 type DeliveryRule =
-  | { readonly kind: 'whole' }
-  | { readonly kind: 'conclusion'; readonly marker: string };
+  { readonly kind: 'whole' } | { readonly kind: 'conclusion'; readonly marker: string };
 
 interface EvidenceSource {
   /** Stable id quoted by the model in its citations. */
@@ -529,10 +527,7 @@ const GATE_SOURCE_FOR_DIMENSION: Partial<Record<DimensionKind, string>> = {
  * correct for the other nine sources; what changed is that a `pass` on this
  * dimension now requires the block to have been DELIVERED, not merely computed.
  */
-function evidenceSourcesFor(
-  rid: string,
-  prePostDiffAvailable: boolean
-): readonly EvidenceSource[] {
+function evidenceSourcesFor(rid: string, prePostDiffAvailable: boolean): readonly EvidenceSource[] {
   const sources: EvidenceSource[] = [
     {
       key: 'qa-test-report',
@@ -695,7 +690,7 @@ function readEvidence(
 ): readonly EvidenceCandidate[] {
   const runtimeRoot = join(projectRoot, '.peaks', '_runtime', sessionId);
 
-  return evidenceSourcesFor(rid, prePostDiffAvailable).map(source => {
+  return evidenceSourcesFor(rid, prePostDiffAvailable).map((source) => {
     // The canonical location first; an older one is tried only when the
     // canonical file is genuinely ABSENT (see `legacySegments`). A file that
     // is present but unreadable stops the walk — falling through to an older
@@ -722,7 +717,10 @@ function readEvidence(
         // A file that exists but cannot be read IS this source's file, so it
         // is also the path the report must name — walking on to an older copy
         // would silently swap the evidence this run reports.
-        if (read === 'unreadable') { resolved = segments; break; }
+        if (read === 'unreadable') {
+          resolved = segments;
+          break;
+        }
       }
     }
     return {
@@ -855,7 +853,7 @@ function collectEvidence(
   const candidates = readEvidence(projectRoot, sessionId, rid, prePostDiffAvailable);
   const holders = floorHolders(candidates);
   /** Every source's all-or-nothing unit, computed before any byte is spent. */
-  const units = candidates.map(candidate => sourceUnit(candidate));
+  const units = candidates.map((candidate) => sourceUnit(candidate));
   /** Holders that have not been served yet — the floors still owed. */
   const pending = new Set<number>(holders.keys());
   const collected: CollectedEvidence[] = [];
@@ -902,7 +900,7 @@ function collectEvidence(
     // last dimension's only chance at being reviewed. Reserved at the holder's
     // own unit, because under all-or-nothing a partial slice serves nothing.
     const reservedElsewhere = [...pending]
-      .filter(holder => holder !== index)
+      .filter((holder) => holder !== index)
       .reduce((sum, holder) => sum + (units[holder] ?? 0), 0);
     const allowance = budgetLeft - reservedElsewhere;
 
@@ -911,8 +909,10 @@ function collectEvidence(
     // slice would re-create the continuum F-BLOCK-1BYTE was found in.
     if (allowance < unit) {
       const waiting = [...pending]
-        .filter(holder => holder !== index)
-        .map(holder => `${holders.get(holder)} (source ${candidates[holder]?.source.key ?? '?'})`);
+        .filter((holder) => holder !== index)
+        .map(
+          (holder) => `${holders.get(holder)} (source ${candidates[holder]?.source.key ?? '?'})`
+        );
       collected.push({
         ...base,
         status: 'omitted',
@@ -1067,7 +1067,7 @@ function enforceEvidenceBackedVerdicts(
   dimensions: readonly DimensionEvidence[],
   evidenceAvailableFor: ReadonlySet<DimensionKind>
 ): readonly DimensionEvidence[] {
-  return dimensions.map(dimension => {
+  return dimensions.map((dimension) => {
     if (dimension.verdict !== 'pass') return dimension;
     if (evidenceAvailableFor.has(dimension.dimension)) return dimension;
     const downgraded: DimensionEvidence = {
@@ -1139,7 +1139,7 @@ function isDelivered(item: CollectedEvidence, dimension: DimensionKind): boolean
  * predicate; it does not re-decide anything.
  */
 function prePostDiffDelivered(collected: readonly CollectedEvidence[]): boolean {
-  const block = collected.find(item => item.source.key === PRE_POST_DIFF_SOURCE_KEY);
+  const block = collected.find((item) => item.source.key === PRE_POST_DIFF_SOURCE_KEY);
   return block !== undefined && isDelivered(block, 'existing-functionality-intact');
 }
 
@@ -1217,14 +1217,14 @@ export function undeliverableDimensions(
 ): readonly UndeliverableDimensionEvidence[] {
   const report: UndeliverableDimensionEvidence[] = [];
   for (const dimension of REQUIRED_DIMENSIONS) {
-    const supporting = collected.filter(item => item.source.supports.includes(dimension));
-    if (supporting.some(item => isDelivered(item, dimension))) continue;
-    const onDisk = supporting.filter(item => item.totalBytes > 0);
+    const supporting = collected.filter((item) => item.source.supports.includes(dimension));
+    if (supporting.some((item) => isDelivered(item, dimension))) continue;
+    const onDisk = supporting.filter((item) => item.totalBytes > 0);
     if (onDisk.length === 0) continue;
     if (!onDisk.every(isStructurallyUndeliverable)) continue;
     report.push({
       dimension,
-      sources: onDisk.map(item => ({
+      sources: onDisk.map((item) => ({
         key: item.source.key,
         relativePath: item.relativePath,
         totalBytes: item.totalBytes
@@ -1250,9 +1250,9 @@ function renderDeliveryReachabilityStatus(
   // Kept to one line per source and one line per dimension: this block rides
   // inside the same byte-capped prompt as the evidence it describes, and the
   // evidence blocks above already carry each source's path and status.
-  const lines = report.map(entry => {
+  const lines = report.map((entry) => {
     const sources = entry.sources
-      .map(item => `${item.key} (${String(item.totalBytes)} bytes)`)
+      .map((item) => `${item.key} (${String(item.totalBytes)} bytes)`)
       .join(', ');
     return `  - ${entry.dimension}: NO deliverable source. ${sources} exceeds the per-file cap of ${String(MAX_EVIDENCE_BYTES_PER_FILE)} bytes, and a source is inlined WHOLE or not at all.`;
   });
@@ -1281,14 +1281,14 @@ function enforceDeliveryReachability(
   report: readonly UndeliverableDimensionEvidence[]
 ): readonly DimensionEvidence[] {
   if (report.length === 0) return dimensions;
-  const byDimension = new Map(report.map(entry => [entry.dimension, entry]));
-  return dimensions.map(dimension => {
+  const byDimension = new Map(report.map((entry) => [entry.dimension, entry]));
+  return dimensions.map((dimension) => {
     const entry = byDimension.get(dimension.dimension);
     if (entry === undefined) return dimension;
     // The ENVELOPE is not byte-capped, so it names the path as well as the
     // size: the path is what a human has to act on to fix it.
     const detail = entry.sources
-      .map(item => `${item.key} at ${item.relativePath} (${String(item.totalBytes)} bytes)`)
+      .map((item) => `${item.key} at ${item.relativePath} (${String(item.totalBytes)} bytes)`)
       .join(', ');
     const marker = `[delivery-reachability: ${
       dimension.verdict === 'pass'
@@ -1355,7 +1355,7 @@ function enforcePrePostDiffAvailability(
     prePostDiff.status === 'computed'
       ? 'the artifact exists on disk but did not reach the reviewer'
       : prePostDiff.reason;
-  return dimensions.map(dimension => {
+  return dimensions.map((dimension) => {
     if (dimension.dimension !== 'existing-functionality-intact') return dimension;
     const marker = `[pre-post-diff-gate: ${
       dimension.verdict === 'pass'
@@ -1386,7 +1386,7 @@ function enforcePrePostDiffAvailability(
 function clampInconclusiveConfidence(
   dimensions: readonly DimensionEvidence[]
 ): readonly DimensionEvidence[] {
-  return dimensions.map(dimension => {
+  return dimensions.map((dimension) => {
     if (dimension.verdict !== 'inconclusive' || dimension.confidence !== 'high') return dimension;
     return {
       ...dimension,
@@ -1439,11 +1439,11 @@ function enforceScopeContractDelivery(
   dimensions: readonly DimensionEvidence[],
   collected: readonly CollectedEvidence[]
 ): readonly DimensionEvidence[] {
-  const block = collected.find(item => item.source.key === SCOPE_CONTRACT_SOURCE_KEY);
+  const block = collected.find((item) => item.source.key === SCOPE_CONTRACT_SOURCE_KEY);
   if (block === undefined || block.status === 'missing') return dimensions;
   if (isDelivered(block, 'functional-completeness')) return dimensions;
 
-  return dimensions.map(dimension => {
+  return dimensions.map((dimension) => {
     if (dimension.dimension !== 'functional-completeness') return dimension;
     const marker = `[scope-contract-gate: ${
       dimension.verdict === 'pass'
@@ -1486,10 +1486,10 @@ function attachPrePostDiffEvidence(
     description: prePostDiff.summary,
     artifact: prePostDiff.relativePath
   };
-  return dimensions.map(dimension => {
+  return dimensions.map((dimension) => {
     if (dimension.dimension !== 'existing-functionality-intact') return dimension;
     const alreadyPresent = dimension.evidence.some(
-      existing => existing.kind === 'pre-post-diff' && existing.artifact === item.artifact
+      (existing) => existing.kind === 'pre-post-diff' && existing.artifact === item.artifact
     );
     if (alreadyPresent) return dimension;
     return { ...dimension, evidence: [...dimension.evidence, item] };
@@ -1543,7 +1543,7 @@ function enforceStructuralDriftAttention(
       ? 'the delivered pre/post baseline diff reports STRUCTURAL DRIFT DETECTED'
       : 'the delivered pre/post baseline diff carries a VERDICT line this service cannot classify, so the comparison was never actually read';
   return {
-    dimensions: dimensions.map(dimension => {
+    dimensions: dimensions.map((dimension) => {
       if (dimension.dimension !== 'existing-functionality-intact') return dimension;
       return {
         ...dimension,
@@ -1662,7 +1662,7 @@ function summarizeVerdicts(
   readonly allPass: boolean;
   readonly needsAttention: readonly DimensionKind[];
 } {
-  const nonPass = dimensions.filter(d => d.verdict !== 'pass').map(d => d.dimension);
+  const nonPass = dimensions.filter((d) => d.verdict !== 'pass').map((d) => d.dimension);
   const flaggedByModel = Array.isArray(modelFlags.needsAttention)
     ? (modelFlags.needsAttention as readonly DimensionKind[])
     : [];
@@ -1695,9 +1695,7 @@ export async function prepareFinalReview(
       successCriteria: readonly string[];
     };
   } catch (err) {
-    throw new Error(
-      `Cannot read approved goal from ${auditGoalPath}: ${(err as Error).message}`
-    );
+    throw new Error(`Cannot read approved goal from ${auditGoalPath}: ${(err as Error).message}`);
   }
 
   // The pre/post baseline diff is produced BEFORE the read phase: it is the one
@@ -1758,11 +1756,7 @@ export async function prepareFinalReview(
   try {
     parsed = JSON.parse(response.output);
   } catch (err) {
-    const budget = describeOutputBudget(
-      maxTokens,
-      response.tokens.output,
-      response.output.length
-    );
+    const budget = describeOutputBudget(maxTokens, response.tokens.output, response.output.length);
     // N4 — the STRUCTURAL judgement is primary: `looksTruncated()` reads the
     // reply itself and needs no cooperation from the provider. The
     // `output_tokens >= maxTokens` comparison is kept as a corroborating
@@ -1788,7 +1782,7 @@ export async function prepareFinalReview(
   const presentDimensions = new Set<DimensionKind>(
     output.dimensions.map((d: DimensionEvidence) => d.dimension)
   );
-  const missing = REQUIRED_DIMENSIONS.filter(d => !presentDimensions.has(d));
+  const missing = REQUIRED_DIMENSIONS.filter((d) => !presentDimensions.has(d));
   if (missing.length > 0) {
     // A reply that stopped at the ceiling and still parsed is still a budget
     // problem, so the same diagnosis is attached here. N4: the structural
@@ -1808,7 +1802,7 @@ export async function prepareFinalReview(
   // assembled, because a detected drift has to reach `needsAttention` whatever
   // the reviewer answered. `null` — nothing delivered — is NOT
   // `indeterminate`: see `enforceStructuralDriftAttention`.
-  const ppdBlock = evidence.find(item => item.source.key === PRE_POST_DIFF_SOURCE_KEY);
+  const ppdBlock = evidence.find((item) => item.source.key === PRE_POST_DIFF_SOURCE_KEY);
   const ppdConclusion: PrePostDiffConclusion | null =
     ppdBlock !== undefined && ppdDelivered ? classifyPrePostDiffVerdict(ppdBlock.content) : null;
 
@@ -1845,14 +1839,19 @@ export async function prepareFinalReview(
   return { ...output, dimensions, allPass, needsAttention };
 }
 
-export function decideFifthDimension(input: { readonly audit: CapabilityAuditResult | null; readonly nowMs: number }): {
+export function decideFifthDimension(input: {
+  readonly audit: CapabilityAuditResult | null;
+  readonly nowMs: number;
+}): {
   readonly verdict: 'pass' | 'fail' | 'inconclusive';
   readonly reason: string;
 } {
   if (input.audit === null) return { verdict: 'inconclusive', reason: 'AUDIT_GUARD_NOT_RUN' };
-  if (isStale(input.audit.auditedAt, input.nowMs)) return { verdict: 'inconclusive', reason: 'AUDIT_STALE' };
-  if (input.audit.crossCheck.guardVsAudit === 'diverge') return { verdict: 'inconclusive', reason: 'AUDIT_CROSS_CHECK_DIVERGE' };
+  if (isStale(input.audit.auditedAt, input.nowMs))
+    return { verdict: 'inconclusive', reason: 'AUDIT_STALE' };
+  if (input.audit.crossCheck.guardVsAudit === 'diverge')
+    return { verdict: 'inconclusive', reason: 'AUDIT_CROSS_CHECK_DIVERGE' };
   if (input.audit.verdict === 'consistent') return { verdict: 'pass', reason: 'audit consistent' };
-  if (input.audit.verdict === 'drifted')    return { verdict: 'fail',  reason: 'audit drifted' };
+  if (input.audit.verdict === 'drifted') return { verdict: 'fail', reason: 'audit drifted' };
   return { verdict: 'inconclusive', reason: 'audit inconclusive' };
 }

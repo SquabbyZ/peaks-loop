@@ -58,19 +58,19 @@ export type SubAgentRole = string;
  * own environment with the provided `args`.
  */
 export interface SubAgentToolCall {
- readonly name: string;
- readonly args: Readonly<Record<string, unknown>>;
- /**
-  * Slice 2026-06-23-audit-4th #C2: toolCall version. The IDE's
-  * arg shape can change between versions (e.g. Claude Code's
-  * `subagent_type: "general-purpose"` may become
-  * `subagent_type: "claude-code-3.5"` in a future release). The
-  * dispatcher stamps this on `buildToolCall`; the dispatch record
-  * propagates it so a future reader can detect "this record is for
-  * v2.0 Task, current IDE is v3.0" without inspecting args.
-  * Pre-versioning records default to '2.0.0' on read.
-  */
- readonly toolCallVersion?: string;
+  readonly name: string;
+  readonly args: Readonly<Record<string, unknown>>;
+  /**
+   * Slice 2026-06-23-audit-4th #C2: toolCall version. The IDE's
+   * arg shape can change between versions (e.g. Claude Code's
+   * `subagent_type: "general-purpose"` may become
+   * `subagent_type: "claude-code-3.5"` in a future release). The
+   * dispatcher stamps this on `buildToolCall`; the dispatch record
+   * propagates it so a future reader can detect "this record is for
+   * v2.0 Task, current IDE is v3.0" without inspecting args.
+   * Pre-versioning records default to '2.0.0' on read.
+   */
+  readonly toolCallVersion?: string;
 }
 
 /**
@@ -79,10 +79,10 @@ export interface SubAgentToolCall {
  * (requestId, sessionId).
  */
 export interface SubAgentDispatchInput {
- readonly role: SubAgentRole;
- readonly prompt: string;
- readonly requestId: string;
- readonly sessionId: string;
+  readonly role: SubAgentRole;
+  readonly prompt: string;
+  readonly requestId: string;
+  readonly sessionId: string;
 }
 
 /**
@@ -92,41 +92,41 @@ export interface SubAgentDispatchInput {
  * IDE cannot dispatch sub-agents at all).
  */
 export interface SubAgentDispatcher {
- /**
- * Short label used in envelope `ide` field and CLI help text.
- * e.g. "claude-code" / "trae" / "null".
- */
- readonly label: string;
+  /**
+   * Short label used in envelope `ide` field and CLI help text.
+   * e.g. "claude-code" / "trae" / "null".
+   */
+  readonly label: string;
 
- /**
- * Whether this dispatcher supports dispatching a given role.
- * claude-code returns true for all non-empty strings; trae is
- * byte-identical (UNVERIFIED pending real Trae dogfood);
- * null-dispatcher always returns false.
- */
- supportsRole(role: SubAgentRole): boolean;
+  /**
+   * Whether this dispatcher supports dispatching a given role.
+   * claude-code returns true for all non-empty strings; trae is
+   * byte-identical (UNVERIFIED pending real Trae dogfood);
+   * null-dispatcher always returns false.
+   */
+  supportsRole(role: SubAgentRole): boolean;
 
- /**
- * Build the IDE-specific tool call descriptor for a dispatch.
- * Must be pure: no I/O, no side effects. The CLI wraps the
- * returned descriptor in its JSON envelope.
- */
- buildToolCall(input: SubAgentDispatchInput): SubAgentToolCall;
+  /**
+   * Build the IDE-specific tool call descriptor for a dispatch.
+   * Must be pure: no I/O, no side effects. The CLI wraps the
+   * returned descriptor in its JSON envelope.
+   */
+  buildToolCall(input: SubAgentDispatchInput): SubAgentToolCall;
 
- /**
- * 2.7.0 slice-dag-dispatcher MVP: join barrier for a batch of dispatched
- * sub-agents. Returns one BatchResult per dispatch in the batch.
- *
- * Default implementation in this MVP (1.2): claude-code holds an
- * in-process Promise queue (LRU-keyed by batchId); the four non-Claude
- * IDEs (trae / trae-cn / codex / cursor) return a
- * `awaitByLlm: true` marker so the calling LLM holds the await itself
- * — envelope shape is uniform. Real per-IDE implementations land in
- * 1.3.
- *
- * `nullSubAgentDispatcher` throws `SubAgentNotSupportedError` here.
- */
- awaitBatch?(input: SubAgentAwaitBatchInput): Promise<readonly SubAgentBatchResult[]>;
+  /**
+   * 2.7.0 slice-dag-dispatcher MVP: join barrier for a batch of dispatched
+   * sub-agents. Returns one BatchResult per dispatch in the batch.
+   *
+   * Default implementation in this MVP (1.2): claude-code holds an
+   * in-process Promise queue (LRU-keyed by batchId); the four non-Claude
+   * IDEs (trae / trae-cn / codex / cursor) return a
+   * `awaitByLlm: true` marker so the calling LLM holds the await itself
+   * — envelope shape is uniform. Real per-IDE implementations land in
+   * 1.3.
+   *
+   * `nullSubAgentDispatcher` throws `SubAgentNotSupportedError` here.
+   */
+  awaitBatch?(input: SubAgentAwaitBatchInput): Promise<readonly SubAgentBatchResult[]>;
 }
 
 /**
@@ -135,12 +135,12 @@ export interface SubAgentDispatcher {
  * call; `batchId` is the same one returned in the dispatch envelope.
  */
 export interface SubAgentAwaitBatchInput {
- readonly batchId: string;
- readonly dispatchCount: number;
- /** Per-dispatch record path; CLI already has this from the dispatch envelope. */
- readonly recordPaths: readonly string[];
- /** Optional cap on how long the join should wait. */
- readonly timeoutMs?: number;
+  readonly batchId: string;
+  readonly dispatchCount: number;
+  /** Per-dispatch record path; CLI already has this from the dispatch envelope. */
+  readonly recordPaths: readonly string[];
+  /** Optional cap on how long the join should wait. */
+  readonly timeoutMs?: number;
 }
 
 /**
@@ -148,11 +148,11 @@ export interface SubAgentAwaitBatchInput {
  * The CLI returns one of these per dispatch in the batch.
  */
 export interface SubAgentBatchResult {
- readonly dispatchIndex: number;
- readonly recordPath: string;
- readonly status: 'done' | 'failed' | 'cancelled' | 'timeout';
- readonly durationMs: number;
- readonly note: string | null;
+  readonly dispatchIndex: number;
+  readonly recordPath: string;
+  readonly status: 'done' | 'failed' | 'cancelled' | 'timeout';
+  readonly durationMs: number;
+  readonly note: string | null;
 }
 
 /**
@@ -165,25 +165,25 @@ export interface SubAgentBatchResult {
  * in Claude Code expects.
  */
 export const claudeCodeSubAgentDispatcher: SubAgentDispatcher = {
- label: 'claude-code',
- supportsRole: (role) => role.length >0,
- buildToolCall: ({ role, prompt, requestId }) => ({
- name: 'Task',
- args: {
- subagent_type: 'general-purpose',
- description: `${role} for rid=${requestId}`,
- prompt,
- },
- // Slice 2026-06-23-audit-4th #C2: stamp the IDE-arg shape
- // version. When Claude Code changes the Task args shape (e.g.
- // a new subagent_type value), bump this and the dispatch record
- // propagates it so a future reader can detect a stale record.
- toolCallVersion: '2.0.0',
- }),
- // 2.7.0 slice-dag-dispatcher MVP: real join barrier for claude-code.
- // The MVP harness uses an in-process promise queue keyed by batchId.
- // (1.2 阶段进程内 hold 即可;1.3 / 1.4 阶段若多进程 sub-agent 走共享文件 / heartbeat 轮询。)
- awaitBatch: async (input) => awaitClaudeCodeBatch(input),
+  label: 'claude-code',
+  supportsRole: (role) => role.length > 0,
+  buildToolCall: ({ role, prompt, requestId }) => ({
+    name: 'Task',
+    args: {
+      subagent_type: 'general-purpose',
+      description: `${role} for rid=${requestId}`,
+      prompt
+    },
+    // Slice 2026-06-23-audit-4th #C2: stamp the IDE-arg shape
+    // version. When Claude Code changes the Task args shape (e.g.
+    // a new subagent_type value), bump this and the dispatch record
+    // propagates it so a future reader can detect a stale record.
+    toolCallVersion: '2.0.0'
+  }),
+  // 2.7.0 slice-dag-dispatcher MVP: real join barrier for claude-code.
+  // The MVP harness uses an in-process promise queue keyed by batchId.
+  // (1.2 阶段进程内 hold 即可;1.3 / 1.4 阶段若多进程 sub-agent 走共享文件 / heartbeat 轮询。)
+  awaitBatch: async (input) => awaitClaudeCodeBatch(input)
 };
 
 /**
@@ -206,27 +206,27 @@ export const claudeCodeSubAgentDispatcher: SubAgentDispatcher = {
  * stays the same; only the per-IDE wiring breaks (intentionally).
  */
 export const traeSubAgentDispatcher: SubAgentDispatcher = {
- // UNVERIFIED — see file header
- label: 'trae',
- supportsRole: (role) => role.length >0,
- buildToolCall: ({ role, prompt, requestId }) => ({
- name: 'Task',
- args: {
- subagent_type: 'general-purpose',
- description: `${role} for rid=${requestId}`,
- prompt,
- },
- toolCallVersion: '2.0.0',
- }),
- // 2.7.0 slice-dag-dispatcher (slice 1.3): real file-polling awaitBatch
- // for Trae. Per-IDE wrapper around `pollDispatchRecords` with the
- // Trae-default heartbeat (30s). The fallback `awaitByLlm` marker is
- // gone — Trae now joins like claude-code.
- awaitBatch: async (input) =>
- pollDispatchRecords(input, {
- defaultTimeoutMs: 30_000,
- notePrefix: 'trae 1.3 real awaitBatch'
- })
+  // UNVERIFIED — see file header
+  label: 'trae',
+  supportsRole: (role) => role.length > 0,
+  buildToolCall: ({ role, prompt, requestId }) => ({
+    name: 'Task',
+    args: {
+      subagent_type: 'general-purpose',
+      description: `${role} for rid=${requestId}`,
+      prompt
+    },
+    toolCallVersion: '2.0.0'
+  }),
+  // 2.7.0 slice-dag-dispatcher (slice 1.3): real file-polling awaitBatch
+  // for Trae. Per-IDE wrapper around `pollDispatchRecords` with the
+  // Trae-default heartbeat (30s). The fallback `awaitByLlm` marker is
+  // gone — Trae now joins like claude-code.
+  awaitBatch: async (input) =>
+    pollDispatchRecords(input, {
+      defaultTimeoutMs: 30_000,
+      notePrefix: 'trae 1.3 real awaitBatch'
+    })
 };
 
 /**
@@ -240,22 +240,22 @@ export const traeSubAgentDispatcher: SubAgentDispatcher = {
  * slower per slice #13 R-3).
  */
 export const codexSubAgentDispatcher: SubAgentDispatcher = {
- label: 'codex',
- supportsRole: (role) => role.length >0,
- buildToolCall: ({ role, prompt, requestId }) => ({
- name: 'Task',
- args: {
- subagent_type: 'general-purpose',
- description: `${role} for rid=${requestId}`,
- prompt,
- },
- toolCallVersion: '2.0.0',
- }),
- awaitBatch: async (input) =>
- pollDispatchRecords(input, {
- defaultTimeoutMs: 45_000,
- notePrefix: 'codex 1.3 real awaitBatch'
- })
+  label: 'codex',
+  supportsRole: (role) => role.length > 0,
+  buildToolCall: ({ role, prompt, requestId }) => ({
+    name: 'Task',
+    args: {
+      subagent_type: 'general-purpose',
+      description: `${role} for rid=${requestId}`,
+      prompt
+    },
+    toolCallVersion: '2.0.0'
+  }),
+  awaitBatch: async (input) =>
+    pollDispatchRecords(input, {
+      defaultTimeoutMs: 45_000,
+      notePrefix: 'codex 1.3 real awaitBatch'
+    })
 };
 
 /**
@@ -267,22 +267,22 @@ export const codexSubAgentDispatcher: SubAgentDispatcher = {
  * 30s.
  */
 export const cursorSubAgentDispatcher: SubAgentDispatcher = {
- label: 'cursor',
- supportsRole: (role) => role.length >0,
- buildToolCall: ({ role, prompt, requestId }) => ({
- name: 'Task',
- args: {
- subagent_type: 'general-purpose',
- description: `${role} for rid=${requestId}`,
- prompt,
- },
- toolCallVersion: '2.0.0',
- }),
- awaitBatch: async (input) =>
- pollDispatchRecords(input, {
- defaultTimeoutMs: 30_000,
- notePrefix: 'cursor 1.3 real awaitBatch'
- })
+  label: 'cursor',
+  supportsRole: (role) => role.length > 0,
+  buildToolCall: ({ role, prompt, requestId }) => ({
+    name: 'Task',
+    args: {
+      subagent_type: 'general-purpose',
+      description: `${role} for rid=${requestId}`,
+      prompt
+    },
+    toolCallVersion: '2.0.0'
+  }),
+  awaitBatch: async (input) =>
+    pollDispatchRecords(input, {
+      defaultTimeoutMs: 30_000,
+      notePrefix: 'cursor 1.3 real awaitBatch'
+    })
 };
 
 /**
@@ -293,15 +293,15 @@ export const cursorSubAgentDispatcher: SubAgentDispatcher = {
  * `supportsRole` returns false.
  */
 export const nullSubAgentDispatcher: SubAgentDispatcher = {
- label: 'null',
- supportsRole: () => false,
- buildToolCall: ({ role }) => {
- throw new SubAgentNotSupportedError(role);
- },
- // 2.7.0 slice-dag-dispatcher MVP: null dispatcher never supports await either.
- awaitBatch: async ({ batchId }) => {
- throw new SubAgentNotSupportedError(`awaitBatch on batch ${batchId}`);
- },
+  label: 'null',
+  supportsRole: () => false,
+  buildToolCall: ({ role }) => {
+    throw new SubAgentNotSupportedError(role);
+  },
+  // 2.7.0 slice-dag-dispatcher MVP: null dispatcher never supports await either.
+  awaitBatch: async ({ batchId }) => {
+    throw new SubAgentNotSupportedError(`awaitBatch on batch ${batchId}`);
+  }
 };
 
 /**
@@ -310,11 +310,11 @@ export const nullSubAgentDispatcher: SubAgentDispatcher = {
  * this and returns the IDE_NOT_SUPPORTED error envelope.
  */
 export class SubAgentNotSupportedError extends Error {
- readonly code = 'IDE_NOT_SUPPORTED' as const;
- constructor(public readonly role: SubAgentRole) {
- super(`Sub-agent dispatch is not supported for role: ${role}`);
- this.name = 'SubAgentNotSupportedError';
- }
+  readonly code = 'IDE_NOT_SUPPORTED' as const;
+  constructor(public readonly role: SubAgentRole) {
+    super(`Sub-agent dispatch is not supported for role: ${role}`);
+    this.name = 'SubAgentNotSupportedError';
+  }
 }
 
 /* ──────────────────────────────────────────────────────────────────────────
@@ -342,51 +342,51 @@ const claudeCodeBatchAwaiters = new Map<string, Promise<readonly SubAgentBatchRe
  *    for the MVP; the real cross-process version uses heartbeat polling).
  */
 export async function awaitClaudeCodeBatch(
- input: SubAgentAwaitBatchInput
+  input: SubAgentAwaitBatchInput
 ): Promise<readonly SubAgentBatchResult[]> {
- // Slice 2026-07-29-dispatch-stall-governance / S4 (G8) — this
- // function is now a thin wrapper around the unified `awaitBatch`
- // service. The back-compat envelope shape is preserved (one
- // `SubAgentBatchResult` per record path) so the S3 characterization
- // test stays green; the underlying loop is identical to the trae /
- // codex / cursor wrappers below. The new typed outcome
- // lives on the unified service; the S4 fail-fast test pins it.
- //
- // Slice 2026-07-30-nightshift: claude-code does NOT use a
- // per-IDE note prefix. The 1.4 dogfood contract says the done
- // note is `null` (raw outcome) and the failed note is the raw
- // `outcome` string with no prefix. The 3 non-Claude IDEs
- // (trae / codex / cursor) prefix the note with their
- // per-IDE label so cross-IDE attribution is visible to the LLM.
- // Passing no `notePrefix` here keeps the legacy contract.
- const unified = await awaitBatchUnified(
- input.dispatchCount,
- input.recordPaths,
- input.timeoutMs,
- { defaultTimeoutMs: 60_000 }
- );
- // Touch batchId so the parameter remains in scope for any future
- // in-process queue wiring.
- void input.batchId;
- return unified.results;
+  // Slice 2026-07-29-dispatch-stall-governance / S4 (G8) — this
+  // function is now a thin wrapper around the unified `awaitBatch`
+  // service. The back-compat envelope shape is preserved (one
+  // `SubAgentBatchResult` per record path) so the S3 characterization
+  // test stays green; the underlying loop is identical to the trae /
+  // codex / cursor wrappers below. The new typed outcome
+  // lives on the unified service; the S4 fail-fast test pins it.
+  //
+  // Slice 2026-07-30-nightshift: claude-code does NOT use a
+  // per-IDE note prefix. The 1.4 dogfood contract says the done
+  // note is `null` (raw outcome) and the failed note is the raw
+  // `outcome` string with no prefix. The 3 non-Claude IDEs
+  // (trae / codex / cursor) prefix the note with their
+  // per-IDE label so cross-IDE attribution is visible to the LLM.
+  // Passing no `notePrefix` here keeps the legacy contract.
+  const unified = await awaitBatchUnified(input.dispatchCount, input.recordPaths, input.timeoutMs, {
+    defaultTimeoutMs: 60_000
+  });
+  // Touch batchId so the parameter remains in scope for any future
+  // in-process queue wiring.
+  void input.batchId;
+  return unified.results;
 }
 
 /** Best-effort outcome read for a dispatch record. Returns null if pending. */
-function readDispatchOutcome(recordPath: string): { status: SubAgentBatchResult['status']; note: string | null } | null {
- if (!recordPath) return null;
- try {
- if (!existsSync(recordPath)) return null;
- const raw = readFileSync(recordPath, 'utf8');
- const obj = JSON.parse(raw) as { status?: string; outcome?: string; lastBeatAt?: string };
- const s = obj.status;
- if (s === 'done' || s === 'success') return { status: 'done', note: null };
- if (s === 'failed') return { status: 'failed', note: obj.outcome ?? null };
- if (s === 'cancelled') return { status: 'cancelled', note: null };
- if (s === 'stale') return { status: 'timeout', note: 'stale' };
- return null;
- } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
- return null;
- }
+function readDispatchOutcome(
+  recordPath: string
+): { status: SubAgentBatchResult['status']; note: string | null } | null {
+  if (!recordPath) return null;
+  try {
+    if (!existsSync(recordPath)) return null;
+    const raw = readFileSync(recordPath, 'utf8');
+    const obj = JSON.parse(raw) as { status?: string; outcome?: string; lastBeatAt?: string };
+    const s = obj.status;
+    if (s === 'done' || s === 'success') return { status: 'done', note: null };
+    if (s === 'failed') return { status: 'failed', note: obj.outcome ?? null };
+    if (s === 'cancelled') return { status: 'cancelled', note: null };
+    if (s === 'stale') return { status: 'timeout', note: 'stale' };
+    return null;
+  } catch {
+    // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+    return null;
+  }
 }
 
 /**
@@ -405,31 +405,26 @@ function readDispatchOutcome(recordPath: string): { status: SubAgentBatchResult[
  * `awaitBatch` is a real implementation.
  */
 export interface PollDispatchRecordsOptions {
- readonly defaultTimeoutMs: number;
- readonly notePrefix: string;
+  readonly defaultTimeoutMs: number;
+  readonly notePrefix: string;
 }
 
 export async function pollDispatchRecords(
- input: SubAgentAwaitBatchInput,
- opts: PollDispatchRecordsOptions
+  input: SubAgentAwaitBatchInput,
+  opts: PollDispatchRecordsOptions
 ): Promise<readonly SubAgentBatchResult[]> {
- // Slice 2026-07-29-dispatch-stall-governance / S4 (G8) — this
- // function is now a thin wrapper around the unified `awaitBatch`
- // service. Pre-S4 it diverged from `awaitClaudeCodeBatch` in
- // (a) the default-fallback source and (b) the `Math.max(deadline, 0)`
- // step; the divergence is gone. The back-compat envelope (one
- // `SubAgentBatchResult` per record path, with the IDE-prefixed
- // note) is preserved.
- const unified = await awaitBatchUnified(
- input.dispatchCount,
- input.recordPaths,
- input.timeoutMs,
- {
- defaultTimeoutMs: opts.defaultTimeoutMs,
- notePrefix: opts.notePrefix
- }
- );
- return unified.results;
+  // Slice 2026-07-29-dispatch-stall-governance / S4 (G8) — this
+  // function is now a thin wrapper around the unified `awaitBatch`
+  // service. Pre-S4 it diverged from `awaitClaudeCodeBatch` in
+  // (a) the default-fallback source and (b) the `Math.max(deadline, 0)`
+  // step; the divergence is gone. The back-compat envelope (one
+  // `SubAgentBatchResult` per record path, with the IDE-prefixed
+  // note) is preserved.
+  const unified = await awaitBatchUnified(input.dispatchCount, input.recordPaths, input.timeoutMs, {
+    defaultTimeoutMs: opts.defaultTimeoutMs,
+    notePrefix: opts.notePrefix
+  });
+  return unified.results;
 }
 
 /**
@@ -437,11 +432,14 @@ export async function pollDispatchRecords(
  * to attach a resolver; not part of the dispatcher public surface).
  * Reserved for slice 1.3 cross-process upgrade.
  */
-export function registerClaudeCodeAwaiter(batchId: string, awaiter: Promise<readonly SubAgentBatchResult[]>): void {
- claudeCodeBatchAwaiters.set(batchId, awaiter);
- // Soft cap: keep at most 32 batches in memory; drop the oldest.
- if (claudeCodeBatchAwaiters.size > 32) {
- const oldest = claudeCodeBatchAwaiters.keys().next().value;
- if (oldest !== undefined) claudeCodeBatchAwaiters.delete(oldest);
- }
+export function registerClaudeCodeAwaiter(
+  batchId: string,
+  awaiter: Promise<readonly SubAgentBatchResult[]>
+): void {
+  claudeCodeBatchAwaiters.set(batchId, awaiter);
+  // Soft cap: keep at most 32 batches in memory; drop the oldest.
+  if (claudeCodeBatchAwaiters.size > 32) {
+    const oldest = claudeCodeBatchAwaiters.keys().next().value;
+    if (oldest !== undefined) claudeCodeBatchAwaiters.delete(oldest);
+  }
 }

@@ -106,7 +106,8 @@ type PrerequisiteTable = Partial<Record<TransitionKey, ReadonlyArray<ArtifactPre
 // security-review, perf-baseline, karpathy-review, unit tests) only.)
 const BUG_ANALYSIS: ArtifactPrerequisite = {
   relativePath: 'rd/bug-analysis.md',
-  description: 'Bug root-cause analysis (reproduction, affected paths, fix approach, regression test plan)',
+  description:
+    'Bug root-cause analysis (reproduction, affected paths, fix approach, regression test plan)',
   mustContain: ['## Root cause', '## Fix approach']
 };
 // Slice `2026-09-14-audit-artifact-rid-scoping`: the rid is part of the
@@ -123,7 +124,10 @@ const CODE_REVIEW: ArtifactPrerequisite = {
   description: 'Code review evidence (CRITICAL/HIGH must be fixed before handoff)',
   mustContain: ['## Findings', 'CRITICAL']
 };
-const SECURITY_REVIEW: ArtifactPrerequisite = { relativePath: 'rd/security-review.md', description: 'Security review evidence for the changed surface' };
+const SECURITY_REVIEW: ArtifactPrerequisite = {
+  relativePath: 'rd/security-review.md',
+  description: 'Security review evidence for the changed surface'
+};
 // Gate B9 — RD-side perf baseline (peaks-rd SKILL "Parallel review fan-out").
 // The file must exist; the body must either carry a Results table marker
 // (per peaks-rd SKILL "Mandatory perf-baseline output") or the explicit
@@ -316,7 +320,8 @@ const SECURITY_FINDINGS: ArtifactPrerequisite = {
 };
 const PERFORMANCE_FINDINGS: ArtifactPrerequisite = {
   relativePath: 'qa/performance-findings.md',
-  description: 'Performance test findings (record baseline/after numbers or explicit "not applicable" rationale)',
+  description:
+    'Performance test findings (record baseline/after numbers or explicit "not applicable" rationale)',
   mustContain: ['## Baseline']
 };
 
@@ -510,7 +515,8 @@ async function resolvePrerequisiteAbsolutePath(
   let entries: string[];
   try {
     entries = await readdir(dir);
-  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+  } catch {
+    // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     return null;
   }
   const match = entries.find((name) => /^\d+-/.test(name) && name.endsWith(targetSuffix));
@@ -536,9 +542,13 @@ export function prerequisiteBodyViolations(
   const violations: string[] = [];
   const lowered = body.toLowerCase();
   if (prerequisite.mustContain && prerequisite.mustContain.length > 0) {
-    const missingMarkers = prerequisite.mustContain.filter((marker) => !lowered.includes(marker.toLowerCase()));
+    const missingMarkers = prerequisite.mustContain.filter(
+      (marker) => !lowered.includes(marker.toLowerCase())
+    );
     if (missingMarkers.length > 0) {
-      violations.push(`${prerequisite.description} — missing section(s): ${missingMarkers.join(', ')}`);
+      violations.push(
+        `${prerequisite.description} — missing section(s): ${missingMarkers.join(', ')}`
+      );
     }
   }
   if (prerequisite.headingMustContain && prerequisite.headingMustContain.length > 0) {
@@ -555,13 +565,19 @@ export function prerequisiteBodyViolations(
       (marker) => !loweredHeadings.some((h) => h.includes(marker.toLowerCase()))
     );
     if (missingHeadings.length > 0) {
-      violations.push(`${prerequisite.description} — missing heading(s): ${missingHeadings.join(', ')}`);
+      violations.push(
+        `${prerequisite.description} — missing heading(s): ${missingHeadings.join(', ')}`
+      );
     }
   }
   if (prerequisite.mustContainAny && prerequisite.mustContainAny.length > 0) {
-    const hitAny = prerequisite.mustContainAny.some((marker) => lowered.includes(marker.toLowerCase()));
+    const hitAny = prerequisite.mustContainAny.some((marker) =>
+      lowered.includes(marker.toLowerCase())
+    );
     if (!hitAny) {
-      violations.push(`${prerequisite.description} — none of the escape-hatch markers present: ${prerequisite.mustContainAny.join(', ')}`);
+      violations.push(
+        `${prerequisite.description} — none of the escape-hatch markers present: ${prerequisite.mustContainAny.join(', ')}`
+      );
     }
   }
   return violations;
@@ -570,12 +586,16 @@ export function prerequisiteBodyViolations(
 /** True when `prerequisite` declares any body check at all. Guards the read so
  *  a prereq with no body contract is never opened (unchanged behaviour). */
 function hasBodyChecks(prerequisite: ArtifactPrerequisite): boolean {
-  return (prerequisite.mustContain?.length ?? 0) > 0
-    || (prerequisite.headingMustContain?.length ?? 0) > 0
-    || (prerequisite.mustContainAny?.length ?? 0) > 0;
+  return (
+    (prerequisite.mustContain?.length ?? 0) > 0 ||
+    (prerequisite.headingMustContain?.length ?? 0) > 0 ||
+    (prerequisite.mustContainAny?.length ?? 0) > 0
+  );
 }
 
-export async function checkPrerequisites(options: CheckPrerequisitesOptions): Promise<PrerequisiteCheckResult> {
+export async function checkPrerequisites(
+  options: CheckPrerequisitesOptions
+): Promise<PrerequisiteCheckResult> {
   const requirements = getPrerequisitesFor(options.role, options.newState, options.requestType);
   if (requirements.length === 0) {
     return { ok: true, missing: [], warnings: [] };
@@ -598,12 +618,12 @@ export async function checkPrerequisites(options: CheckPrerequisitesOptions): Pr
   //      back-compat).
   // The sessionId is preserved in the artifact body's frontmatter for
   // human navigation; it is no longer a filesystem path key.
-  const canonicalSessionRoot = options.sessionId !== undefined
-    ? join(options.projectRoot, '.peaks', '_runtime', options.sessionId)
-    : null;
-  const legacySessionRoot = options.sessionId !== undefined
-    ? join(options.projectRoot, '.peaks', options.sessionId)
-    : null;
+  const canonicalSessionRoot =
+    options.sessionId !== undefined
+      ? join(options.projectRoot, '.peaks', '_runtime', options.sessionId)
+      : null;
+  const legacySessionRoot =
+    options.sessionId !== undefined ? join(options.projectRoot, '.peaks', options.sessionId) : null;
   const missing: Array<{ path: string; description: string }> = [];
   const warnings: Array<{ path: string; code: string; message: string }> = [];
   for (const prerequisite of requirements) {
@@ -696,19 +716,22 @@ function emitPrereqTransitionEvent(opts: {
   result: PrerequisiteCheckResult;
 }): void {
   if (opts.sessionId === undefined) return;
-  emitObservabilityEvent({
-    schemaVersion: 1,
-    ts: new Date().toISOString(),
-    sessionId: opts.sessionId,
-    category: 'slice-transition',
-    sliceRid: opts.requestId,
-    detail: {
-      artifactRole: opts.role,
-      to: opts.newState,
-      prereqOk: opts.result.ok,
-      missingCount: opts.result.missing.length
-    }
-  }, { projectRoot: opts.projectRoot });
+  emitObservabilityEvent(
+    {
+      schemaVersion: 1,
+      ts: new Date().toISOString(),
+      sessionId: opts.sessionId,
+      category: 'slice-transition',
+      sliceRid: opts.requestId,
+      detail: {
+        artifactRole: opts.role,
+        to: opts.newState,
+        prereqOk: opts.result.ok,
+        missingCount: opts.result.missing.length
+      }
+    },
+    { projectRoot: opts.projectRoot }
+  );
 }
 
 /**

@@ -27,19 +27,41 @@
 // and renders nothing. The operator-facing text it drives is asserted under
 // `a11y`, on the preflight that consumes it.
 
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, utimesSync, writeFileSync } from 'node:fs';
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  utimesSync,
+  writeFileSync
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { assertDistFresh } from '../../integration/_dist-freshness-global-setup.js';
 import type { DistFreshness } from '../../../scripts/dist-freshness.mjs';
-import { computeSourceDigest, DIST_STAMP_RELATIVE_PATH, evaluateDistFreshness, REBUILD_COMMAND, writeDistStamp } from '../../../scripts/dist-freshness.mjs';
+import {
+  computeSourceDigest,
+  DIST_STAMP_RELATIVE_PATH,
+  evaluateDistFreshness,
+  REBUILD_COMMAND,
+  writeDistStamp
+} from '../../../scripts/dist-freshness.mjs';
 import { declareDimensions } from '../_setup/4dim-template.js';
 
-declareDimensions('tests/unit/scripts/dist-freshness.test.ts', ['behavior', 'integration', 'a11y'], [
-  { dim: 'render', reason: 'the module returns discriminated objects and renders nothing; its consumer text is covered by a11y' }
-]);
+declareDimensions(
+  'tests/unit/scripts/dist-freshness.test.ts',
+  ['behavior', 'integration', 'a11y'],
+  [
+    {
+      dim: 'render',
+      reason:
+        'the module returns discriminated objects and renders nothing; its consumer text is covered by a11y'
+    }
+  ]
+);
 
 /**
  * Narrow a verdict for assertion.
@@ -242,7 +264,9 @@ describe('Scenario: a11y — the preflight message', () => {
     utimesSync(join(root, 'src', 'a.ts'), future / 1000, future / 1000);
 
     expect(() => assertDistFresh(root)).toThrowError(
-      new RegExp(`dist/ is STALE[\\s\\S]*src/a\\.ts[\\s\\S]*${REBUILD_COMMAND.replace(/[/\\]/g, '\\$&')}`)
+      new RegExp(
+        `dist/ is STALE[\\s\\S]*src/a\\.ts[\\s\\S]*${REBUILD_COMMAND.replace(/[/\\]/g, '\\$&')}`
+      )
     );
   });
 

@@ -83,7 +83,7 @@ export const SOURCE_CODE_KEYWORDS: readonly string[] = [
   'workflows/',
   '.py',
   '.go',
-  '.rs',
+  '.rs'
 ] as const;
 
 /**
@@ -104,7 +104,7 @@ export const HARD_BLOCKED_PATH_FAMILIES: readonly string[] = [
   'tests/integration/',
   'config/',
   'bin/',
-  'scripts/',
+  'scripts/'
 ] as const;
 
 /** Decision-marker keywords that signal "needs user AskUserQuestion". */
@@ -116,7 +116,7 @@ export const DECISION_KEYWORDS: readonly string[] = [
   '选择',
   '决定',
   'design decision',
-  'user choice',
+  'user choice'
 ] as const;
 
 export interface ContextProbe {
@@ -209,7 +209,7 @@ export async function probeSubAgentAvailable(
     await execFileAsync(command, [...args, 'sub-agent', 'dispatch', '--role', 'rd', '--help'], {
       cwd: projectRoot,
       timeout: 5000,
-      windowsHide: true,
+      windowsHide: true
     });
     return true;
   } catch {
@@ -234,7 +234,7 @@ export async function probeContextRatio(
       {
         cwd: projectRoot,
         timeout: 10000,
-        windowsHide: true,
+        windowsHide: true
       }
     );
     const parsed = JSON.parse(stdout) as { data?: { ratio?: number; source?: string } };
@@ -250,13 +250,16 @@ export async function probeContextRatio(
  * Build the structured OrchestratorCanDoResult. Pure over the 4 Q
  * signals + sliceSpec. Decision rule is: canDoInSession === !blockers.
  */
-export function buildOrchestratorCanDoResult(input: OrchestratorCanDoInput, signals: {
-  q1SourceCodeTouched: boolean;
-  q1HardBlockedPath: boolean;
-  q2SubAgentAvailable: boolean;
-  q3RequiresUserDecision: boolean;
-  q4ContextRatio: number;
-}): OrchestratorCanDoResult {
+export function buildOrchestratorCanDoResult(
+  input: OrchestratorCanDoInput,
+  signals: {
+    q1SourceCodeTouched: boolean;
+    q1HardBlockedPath: boolean;
+    q2SubAgentAvailable: boolean;
+    q3RequiresUserDecision: boolean;
+    q4ContextRatio: number;
+  }
+): OrchestratorCanDoResult {
   const blockers: string[] = [];
   const warnings: string[] = [];
   const suggestions: string[] = [];
@@ -343,7 +346,9 @@ export function buildOrchestratorCanDoResult(input: OrchestratorCanDoInput, sign
   // surface a generic "do it" suggestion.
   const canDoInSession = blockers.length === 0;
   if (canDoInSession && !signals.q1SourceCodeTouched) {
-    suggestions.push(`non-source-code slice; orchestrator may handle in-session (e.g. via Write/Edit tools or directly)`);
+    suggestions.push(
+      `non-source-code slice; orchestrator may handle in-session (e.g. via Write/Edit tools or directly)`
+    );
   }
 
   return {
@@ -357,7 +362,7 @@ export function buildOrchestratorCanDoResult(input: OrchestratorCanDoInput, sign
     q1HardBlockedPath: signals.q1HardBlockedPath,
     q2SubAgentAvailable: signals.q2SubAgentAvailable,
     q3RequiresUserDecision: signals.q3RequiresUserDecision,
-    q4ContextRatio: signals.q4ContextRatio,
+    q4ContextRatio: signals.q4ContextRatio
   };
 }
 
@@ -365,7 +370,9 @@ export function buildOrchestratorCanDoResult(input: OrchestratorCanDoInput, sign
  * Evaluate a slice-spec end-to-end. Probes Q2/Q4 via subprocess
  * (overridable via test seams in `input`). Q1/Q3 are pure.
  */
-export async function evaluateOrchestratorCanDo(input: OrchestratorCanDoInput): Promise<OrchestratorCanDoResult> {
+export async function evaluateOrchestratorCanDo(
+  input: OrchestratorCanDoInput
+): Promise<OrchestratorCanDoResult> {
   if (!input.sliceSpec || input.sliceSpec.trim().length === 0) {
     throw new OrchestratorCanDoError('--slice-spec is required', 'MISSING_SLICE_SPEC');
   }
@@ -376,19 +383,15 @@ export async function evaluateOrchestratorCanDo(input: OrchestratorCanDoInput): 
 
   const probeSubAgent =
     input.probeSubAgentAvailable ?? (() => probeSubAgentAvailable(input.projectRoot));
-  const probeContext =
-    input.probeContextRatio ?? (() => probeContextRatio(input.projectRoot));
+  const probeContext = input.probeContextRatio ?? (() => probeContextRatio(input.projectRoot));
 
-  const [subAgentAvailable, ctxProbe] = await Promise.all([
-    probeSubAgent(),
-    probeContext(),
-  ]);
+  const [subAgentAvailable, ctxProbe] = await Promise.all([probeSubAgent(), probeContext()]);
 
   return buildOrchestratorCanDoResult(input, {
     q1SourceCodeTouched,
     q1HardBlockedPath,
     q2SubAgentAvailable: subAgentAvailable,
     q3RequiresUserDecision,
-    q4ContextRatio: ctxProbe.ratio,
+    q4ContextRatio: ctxProbe.ratio
   });
 }

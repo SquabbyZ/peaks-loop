@@ -90,8 +90,8 @@ for (const entry of readdirSync(packagesRoot, { withFileTypes: true })) {
     ...sources,
     ...loadExpectedExports(pkgName).filter((f) =>
       // Only count exports that map to a real .ts in src/.
-      sources.includes(f),
-    ),
+      sources.includes(f)
+    )
   ]);
 
   // Phantom-export detection: a package.json#exports entry
@@ -105,7 +105,7 @@ for (const entry of readdirSync(packagesRoot, { withFileTypes: true })) {
   for (const exportFile of loadExpectedExports(pkgName)) {
     if (!sources.includes(exportFile)) {
       errors.push(
-        `${pkgName}: package.json exports references src/${exportFile} but the source file is absent (phantom export)`,
+        `${pkgName}: package.json exports references src/${exportFile} but the source file is absent (phantom export)`
       );
     }
   }
@@ -145,9 +145,7 @@ for (const entry of readdirSync(packagesRoot, { withFileTypes: true })) {
 }
 
 if (errors.length > 0) {
-  process.stderr.write(
-    'build-integrity check failed:\n  ' + errors.join('\n  ') + '\n',
-  );
+  process.stderr.write('build-integrity check failed:\n  ' + errors.join('\n  ') + '\n');
   process.exit(1);
 }
 

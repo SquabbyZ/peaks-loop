@@ -25,15 +25,15 @@ declareDimensions(
   ['behavior', 'a11y'],
   [
     { dim: 'render', reason: 'the envelope is printed by the CLI layer, not here' },
-    { dim: 'integration', reason: 'pure function: no daemon, no filesystem, no process' },
-  ],
+    { dim: 'integration', reason: 'pure function: no daemon, no filesystem, no process' }
+  ]
 );
 
 import {
   degradedEnvelope,
   INSTALL_HINT,
   MCP_ROOT_DIR_WARNING,
-  MCP_TOOL_FOR_OP,
+  MCP_TOOL_FOR_OP
 } from '../../../../src/services/web/web-fallback.js';
 import { PLAYWRIGHT_VERSION_PIN } from '../../../../src/services/web/playwright-loader.js';
 import type { WebOp } from '../../../../src/services/web/web-protocol.js';
@@ -50,7 +50,7 @@ const ALL_OPS: readonly WebOp[] = [
   'install',
   'status',
   'stop',
-  'whoami',
+  'whoami'
 ];
 
 /** The ops that have a browser path, and therefore something to degrade. */
@@ -127,7 +127,10 @@ describe('behavior — the degraded envelope', () => {
     // given: a failed install reported as `CODE: detail`
     // when:  the envelope is built
     // then:  the code survives and the detail is the human sentence
-    const envelope = degradedEnvelope('open', 'WEB_INSTALL_FAILED: playwright install chromium exited with status 1');
+    const envelope = degradedEnvelope(
+      'open',
+      'WEB_INSTALL_FAILED: playwright install chromium exited with status 1'
+    );
     expect(envelope.code).toBe('WEB_INSTALL_FAILED');
     expect(envelope.message).toContain('exited with status 1');
     expect(envelope.message).not.toContain('WEB_INSTALL_FAILED');

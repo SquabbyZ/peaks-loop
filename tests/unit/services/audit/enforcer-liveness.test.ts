@@ -43,7 +43,7 @@ describe('computeLiveEnforcers', () => {
     // given: a caller that imports ./enforcers/live.js
     const root = makeProject({
       'src/services/audit/red-lines-service.ts': "import { x } from './enforcers/live.js';\n",
-      [LIVE]: 'export const x = 1;\n',
+      [LIVE]: 'export const x = 1;\n'
     });
 
     // when: liveness is computed for that ref
@@ -70,7 +70,7 @@ describe('computeLiveEnforcers', () => {
     // given: a dead enforcer importing another dead enforcer
     const root = makeProject({
       [DEAD]: `import { y } from './inner.js';\nexport const x = y;\n`,
-      [INNER]: 'export const y = 1;\n',
+      [INNER]: 'export const y = 1;\n'
     });
 
     // when: liveness is computed
@@ -97,7 +97,7 @@ describe('computeLiveEnforcers', () => {
     // given: a caller importing with an explicit ../ hop
     const root = makeProject({
       'src/other/caller.ts': "export { x } from '../services/audit/enforcers/live.js';\n",
-      [LIVE]: 'export const x = 1;\n',
+      [LIVE]: 'export const x = 1;\n'
     });
 
     // when: liveness is computed

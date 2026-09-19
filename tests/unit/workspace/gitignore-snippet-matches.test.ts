@@ -78,7 +78,10 @@ describe('the managed gitignore snippet ignores the paths it names', () => {
     // The specific regression: this file is machine-specific (it embeds the
     // installed peaks-loop path) and regenerated every init. Tracked, it read
     // as a leak on every release bump.
-    const result = git(['check-ignore', '--no-index', '-q', '.peaks/.claude-settings-template.json'], root);
+    const result = git(
+      ['check-ignore', '--no-index', '-q', '.peaks/.claude-settings-template.json'],
+      root
+    );
     expect(result.status).toBe(0);
   });
 
@@ -123,7 +126,7 @@ const LEGACY_BLOCK = [
   '# Consumer-project .claude/settings.local.json: written by `peaks workspace init`',
   '.claude/settings.local.json',
   '.peaks/.claude-settings-template.json',
-  LEGACY_FOOTER,
+  LEGACY_FOOTER
 ].join('\n');
 
 /**

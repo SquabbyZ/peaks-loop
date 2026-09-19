@@ -35,7 +35,7 @@
  * client reads via a separate channel.
  */
 
-import { z } from "zod";
+import { z } from 'zod';
 
 /* ---------------------------------------------------------------------- */
 /* Shape contract                                                            */
@@ -46,13 +46,7 @@ import { z } from "zod";
  * desktop-client UI renders the status badge; only the running bee
  * transitions between them.
  */
-export const RUN_STATE_STATUSES = [
-  "running",
-  "paused",
-  "done",
-  "failed",
-  "blocked",
-] as const;
+export const RUN_STATE_STATUSES = ['running', 'paused', 'done', 'failed', 'blocked'] as const;
 export type RunStateStatus = (typeof RUN_STATE_STATUSES)[number];
 
 /**
@@ -87,7 +81,7 @@ export const RunStateContractSchema = z
     /** NL summary of the latest evaluator verdict (or null when none). */
     last_evaluator_verdict: z.string().max(4000).nullable(),
     /** NL summary of the latest user choice (or null when none). */
-    last_user_choice: z.string().max(4000).nullable(),
+    last_user_choice: z.string().max(4000).nullable()
   })
   .strict();
 export type RunStateContract = z.infer<typeof RunStateContractSchema>;
@@ -119,9 +113,9 @@ export function safeParseRunStateContract(
   return {
     ok: false,
     findings: r.error.issues.map((i) => ({
-      path: i.path.join("."),
-      message: i.message,
-    })),
+      path: i.path.join('.'),
+      message: i.message
+    }))
   };
 }
 
@@ -155,6 +149,6 @@ export function buildRunState(args: {
     started_at: args.started_at,
     updated_at: args.updated_at,
     last_evaluator_verdict: args.last_evaluator_verdict ?? null,
-    last_user_choice: args.last_user_choice ?? null,
+    last_user_choice: args.last_user_choice ?? null
   }) as RunStateContract;
 }

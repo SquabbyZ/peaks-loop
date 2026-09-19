@@ -37,7 +37,9 @@ export type GuidedArtifactSetup = {
   guidance: string[];
 };
 
-function getRemoteUrl(artifactRepo: { provider: ArtifactProvider; owner: string; name: string } | undefined): string | null {
+function getRemoteUrl(
+  artifactRepo: { provider: ArtifactProvider; owner: string; name: string } | undefined
+): string | null {
   if (!artifactRepo) return null;
   if (artifactRepo.provider === 'github') {
     return `https://github.com/${artifactRepo.owner}/${artifactRepo.name}.git`;
@@ -80,7 +82,8 @@ export function createArtifactInitPlan(options: {
       `prepare local working copy at ${options.localPath ?? '.peaks-artifacts'}`,
       'write artifact repository creation report'
     ],
-    tokenPolicy: 'Use provider auth/CLI or environment tokens only; never write tokens to skills, artifacts, config, or reports.'
+    tokenPolicy:
+      'Use provider auth/CLI or environment tokens only; never write tokens to skills, artifacts, config, or reports.'
   };
 }
 
@@ -125,7 +128,9 @@ export function createGuidedArtifactSetup(): GuidedArtifactSetup {
       '  - Run: peaks artifacts workspace',
       '',
       'Step 4: Complete',
-      artifactRepo ? '  - Artifact sync is ready when workspace has remote artifact storage configured' : '  - Local artifact storage is ready'
+      artifactRepo
+        ? '  - Artifact sync is ready when workspace has remote artifact storage configured'
+        : '  - Local artifact storage is ready'
     ]
   };
 }

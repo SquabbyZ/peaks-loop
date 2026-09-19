@@ -53,7 +53,7 @@ function cli(args: string): { stdout: string; stderr: string; code: number } {
       cwd: PROJECT_DIR,
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'pipe'],
-      windowsHide: true,
+      windowsHide: true
     });
     return { stdout, stderr: '', code: 0 };
   } catch (err: unknown) {
@@ -78,9 +78,9 @@ describe('Slice 0.5 End-to-End Dogfood', () => {
         model: 'sonnet',
         tokens: {},
         providers: {},
-        proxy: {},
+        proxy: {}
       }),
-      'utf8',
+      'utf8'
     );
 
     // Set up project with valid preferences.json + legacy decision dotfiles
@@ -88,10 +88,18 @@ describe('Slice 0.5 End-to-End Dogfood', () => {
     writeFileSync(
       join(PROJECT_DIR, '.peaks/preferences.json'),
       JSON.stringify({ schema_version: '2.0.0' }),
-      'utf8',
+      'utf8'
     );
-    writeFileSync(join(PROJECT_DIR, '.peaks/.peaks-init-hooks-decision.json'), '{"hooks":true}', 'utf8');
-    writeFileSync(join(PROJECT_DIR, '.peaks/.peaks-openspec-opt-in.json'), '{"optIn":true}', 'utf8');
+    writeFileSync(
+      join(PROJECT_DIR, '.peaks/.peaks-init-hooks-decision.json'),
+      '{"hooks":true}',
+      'utf8'
+    );
+    writeFileSync(
+      join(PROJECT_DIR, '.peaks/.peaks-openspec-opt-in.json'),
+      '{"optIn":true}',
+      'utf8'
+    );
 
     // 2. Migrate config (1.x -> 2.0)
     const migrateResult = cli(`config migrate --project ${PROJECT_DIR} --apply --json`);
@@ -101,7 +109,12 @@ describe('Slice 0.5 End-to-End Dogfood', () => {
 
     // 3. Verify slim config.json
     const newCfg = JSON.parse(readFileSync(join(HOME_DIR, '.peaks/config.json'), 'utf8'));
-    expect(newCfg).toEqual({ version: '2.0.0', ocr: { llm: { url: '', authToken: '', model: '', useAnthropic: false, authHeader: 'authorization' } } });
+    expect(newCfg).toEqual({
+      version: '2.0.0',
+      ocr: {
+        llm: { url: '', authToken: '', model: '', useAnthropic: false, authHeader: 'authorization' }
+      }
+    });
 
     // 4. Verify .bak has 1.x fields
     const bak = JSON.parse(readFileSync(join(HOME_DIR, '.peaks/config.json.1.x.bak'), 'utf8'));
@@ -132,6 +145,11 @@ describe('Slice 0.5 End-to-End Dogfood', () => {
     const reMigrate = cli(`config migrate --project ${PROJECT_DIR} --apply --json`);
     expect(reMigrate.code).toBe(0);
     const reMigratedCfg = JSON.parse(readFileSync(join(HOME_DIR, '.peaks/config.json'), 'utf8'));
-    expect(reMigratedCfg).toEqual({ version: '2.0.0', ocr: { llm: { url: '', authToken: '', model: '', useAnthropic: false, authHeader: 'authorization' } } });
+    expect(reMigratedCfg).toEqual({
+      version: '2.0.0',
+      ocr: {
+        llm: { url: '', authToken: '', model: '', useAnthropic: false, authHeader: 'authorization' }
+      }
+    });
   });
 });

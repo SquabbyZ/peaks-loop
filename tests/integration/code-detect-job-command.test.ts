@@ -45,8 +45,8 @@ function runCli(args: readonly string[], cwd: string): RunResult {
   } catch (err: unknown) {
     const e = err as { stdout?: Buffer | string; stderr?: Buffer | string; status?: number };
     return {
-      stdout: (typeof e.stdout === 'string' ? e.stdout : e.stdout?.toString('utf8') ?? ''),
-      stderr: (typeof e.stderr === 'string' ? e.stderr : e.stderr?.toString('utf8') ?? ''),
+      stdout: typeof e.stdout === 'string' ? e.stdout : (e.stdout?.toString('utf8') ?? ''),
+      stderr: typeof e.stderr === 'string' ? e.stderr : (e.stderr?.toString('utf8') ?? ''),
       code: e.status ?? 1
     };
   }
@@ -64,8 +64,8 @@ function runCliRead(args: readonly string[], cwd: string): RunResult {
   } catch (err: unknown) {
     const e = err as { stdout?: Buffer | string; stderr?: Buffer | string; status?: number };
     return {
-      stdout: (typeof e.stdout === 'string' ? e.stdout : e.stdout?.toString('utf8') ?? ''),
-      stderr: (typeof e.stderr === 'string' ? e.stderr : e.stderr?.toString('utf8') ?? ''),
+      stdout: typeof e.stdout === 'string' ? e.stdout : (e.stdout?.toString('utf8') ?? ''),
+      stderr: typeof e.stderr === 'string' ? e.stderr : (e.stderr?.toString('utf8') ?? ''),
       code: e.status ?? 1
     };
   }
@@ -89,21 +89,35 @@ describe('peaks code detect-job / read-job-shape (v3.1.1 Step 0.8)', () => {
     const project = makeProject();
     projects.push(project);
     const sessionId = '2026-07-03-cli-jobshape-happy';
-    const r1 = runCli([
-      '--is-job', 'true',
-      '--rationale', 'multi-dir batch with 25 leaf slices — clearly Job-shaped',
-      '--suggested-job-id', 'cli-test-job-001',
-      '--suggested-strategy', 'single',
-      '--confidence', 'high',
-      '--session-id', sessionId,
-      '--project', project,
-      '--json'
-    ], project);
+    const r1 = runCli(
+      [
+        '--is-job',
+        'true',
+        '--rationale',
+        'multi-dir batch with 25 leaf slices — clearly Job-shaped',
+        '--suggested-job-id',
+        'cli-test-job-001',
+        '--suggested-strategy',
+        'single',
+        '--confidence',
+        'high',
+        '--session-id',
+        sessionId,
+        '--project',
+        project,
+        '--json'
+      ],
+      project
+    );
     expect(r1.code).toBe(0);
     const env1 = JSON.parse(r1.stdout) as {
       ok: boolean;
       command: string;
-      data: { sessionId: string; promptHash: string; decision: { isJob: boolean; suggestedJobId: string } };
+      data: {
+        sessionId: string;
+        promptHash: string;
+        decision: { isJob: boolean; suggestedJobId: string };
+      };
     };
     expect(env1.ok).toBe(true);
     expect(env1.command).toBe('code.detect-job');
@@ -113,18 +127,29 @@ describe('peaks code detect-job / read-job-shape (v3.1.1 Step 0.8)', () => {
     expect(env1.data.promptHash).toMatch(/^[a-f0-9]{16}$/);
     const filePath = join(project, '.peaks', '_runtime', sessionId, 'job-shape.json');
     expect(existsSync(filePath)).toBe(true);
-    const written = JSON.parse(readFileSync(filePath, 'utf8')) as { schemaVersion: number; sessionId: string };
+    const written = JSON.parse(readFileSync(filePath, 'utf8')) as {
+      schemaVersion: number;
+      sessionId: string;
+    };
     expect(written.schemaVersion).toBe(1);
     expect(written.sessionId).toBe(sessionId);
 
-    const r2 = runCli([
-      '--is-job', 'true',
-      '--rationale', 'second call should fail',
-      '--suggested-job-id', 'cli-test-job-002',
-      '--session-id', sessionId,
-      '--project', project,
-      '--json'
-    ], project);
+    const r2 = runCli(
+      [
+        '--is-job',
+        'true',
+        '--rationale',
+        'second call should fail',
+        '--suggested-job-id',
+        'cli-test-job-002',
+        '--session-id',
+        sessionId,
+        '--project',
+        project,
+        '--json'
+      ],
+      project
+    );
     expect(r2.code).toBe(1);
     const env2 = JSON.parse(r2.stdout) as { ok: boolean; code: string; message: string };
     expect(env2.ok).toBe(false);
@@ -134,14 +159,22 @@ describe('peaks code detect-job / read-job-shape (v3.1.1 Step 0.8)', () => {
   test('bad --is-job: yes → INVALID_FLAG', () => {
     const project = makeProject();
     projects.push(project);
-    const r = runCli([
-      '--is-job', 'yes',
-      '--rationale', 'bad flag',
-      '--suggested-job-id', 'cli-test-job-003',
-      '--session-id', '2026-07-03-cli-bad-isjob',
-      '--project', project,
-      '--json'
-    ], project);
+    const r = runCli(
+      [
+        '--is-job',
+        'yes',
+        '--rationale',
+        'bad flag',
+        '--suggested-job-id',
+        'cli-test-job-003',
+        '--session-id',
+        '2026-07-03-cli-bad-isjob',
+        '--project',
+        project,
+        '--json'
+      ],
+      project
+    );
     expect(r.code).toBe(1);
     const env = JSON.parse(r.stdout) as { ok: boolean; code: string };
     expect(env.ok).toBe(false);
@@ -151,14 +184,22 @@ describe('peaks code detect-job / read-job-shape (v3.1.1 Step 0.8)', () => {
   test('bad --suggested-job-id: spaces → INVALID_FLAG', () => {
     const project = makeProject();
     projects.push(project);
-    const r = runCli([
-      '--is-job', 'true',
-      '--rationale', 'bad slug',
-      '--suggested-job-id', 'Job With Spaces',
-      '--session-id', '2026-07-03-cli-bad-jid',
-      '--project', project,
-      '--json'
-    ], project);
+    const r = runCli(
+      [
+        '--is-job',
+        'true',
+        '--rationale',
+        'bad slug',
+        '--suggested-job-id',
+        'Job With Spaces',
+        '--session-id',
+        '2026-07-03-cli-bad-jid',
+        '--project',
+        project,
+        '--json'
+      ],
+      project
+    );
     expect(r.code).toBe(1);
     const env = JSON.parse(r.stdout) as { ok: boolean; code: string };
     expect(env.ok).toBe(false);
@@ -169,25 +210,39 @@ describe('peaks code detect-job / read-job-shape (v3.1.1 Step 0.8)', () => {
     const project = makeProject();
     projects.push(project);
     const sessionId = '2026-07-03-cli-readback';
-    const detectRes = runCli([
-      '--is-job', 'false',
-      '--rationale', 'not Job-shaped: one-off Q&A',
-      '--suggested-job-id', 'cli-test-readback-01',
-      '--confidence', 'medium',
-      '--session-id', sessionId,
-      '--project', project,
-      '--json'
-    ], project);
+    const detectRes = runCli(
+      [
+        '--is-job',
+        'false',
+        '--rationale',
+        'not Job-shaped: one-off Q&A',
+        '--suggested-job-id',
+        'cli-test-readback-01',
+        '--confidence',
+        'medium',
+        '--session-id',
+        sessionId,
+        '--project',
+        project,
+        '--json'
+      ],
+      project
+    );
     expect(detectRes.code).toBe(0);
-    const written = JSON.parse(detectRes.stdout) as { data: { decision: { isJob: boolean; suggestedJobId: string } } };
+    const written = JSON.parse(detectRes.stdout) as {
+      data: { decision: { isJob: boolean; suggestedJobId: string } };
+    };
 
-    const readRes = runCliRead([
-      '--session-id', sessionId,
-      '--project', project,
-      '--json'
-    ], project);
+    const readRes = runCliRead(
+      ['--session-id', sessionId, '--project', project, '--json'],
+      project
+    );
     expect(readRes.code).toBe(0);
-    const read = JSON.parse(readRes.stdout) as { ok: boolean; command: string; data: { sessionId: string; decision: { isJob: boolean; suggestedJobId: string } } };
+    const read = JSON.parse(readRes.stdout) as {
+      ok: boolean;
+      command: string;
+      data: { sessionId: string; decision: { isJob: boolean; suggestedJobId: string } };
+    };
     expect(read.ok).toBe(true);
     expect(read.command).toBe('code.read-job-shape');
     expect(read.data.sessionId).toBe(sessionId);
@@ -198,11 +253,10 @@ describe('peaks code detect-job / read-job-shape (v3.1.1 Step 0.8)', () => {
   test('read-job-shape on a fresh project returns JOB_SHAPE_NOT_DECIDED', () => {
     const project = makeProject();
     projects.push(project);
-    const r = runCliRead([
-      '--session-id', '2026-07-03-cli-fresh',
-      '--project', project,
-      '--json'
-    ], project);
+    const r = runCliRead(
+      ['--session-id', '2026-07-03-cli-fresh', '--project', project, '--json'],
+      project
+    );
     expect(r.code).toBe(1);
     const env = JSON.parse(r.stdout) as { ok: boolean; code: string };
     expect(env.ok).toBe(false);
@@ -213,26 +267,45 @@ describe('peaks code detect-job / read-job-shape (v3.1.1 Step 0.8)', () => {
     const project = makeProject();
     projects.push(project);
     const sessionId = '2026-07-03-cli-force';
-    const r1 = runCli([
-      '--is-job', 'true',
-      '--rationale', 'first call',
-      '--suggested-job-id', 'cli-test-force-001',
-      '--session-id', sessionId,
-      '--project', project,
-      '--json'
-    ], project);
+    const r1 = runCli(
+      [
+        '--is-job',
+        'true',
+        '--rationale',
+        'first call',
+        '--suggested-job-id',
+        'cli-test-force-001',
+        '--session-id',
+        sessionId,
+        '--project',
+        project,
+        '--json'
+      ],
+      project
+    );
     expect(r1.code).toBe(0);
-    const r2 = runCli([
-      '--is-job', 'false',
-      '--rationale', 'overwrite with --force',
-      '--suggested-job-id', 'cli-test-force-002',
-      '--session-id', sessionId,
-      '--project', project,
-      '--force',
-      '--json'
-    ], project);
+    const r2 = runCli(
+      [
+        '--is-job',
+        'false',
+        '--rationale',
+        'overwrite with --force',
+        '--suggested-job-id',
+        'cli-test-force-002',
+        '--session-id',
+        sessionId,
+        '--project',
+        project,
+        '--force',
+        '--json'
+      ],
+      project
+    );
     expect(r2.code).toBe(0);
-    const env = JSON.parse(r2.stdout) as { ok: boolean; data: { decision: { isJob: boolean; suggestedJobId: string } } };
+    const env = JSON.parse(r2.stdout) as {
+      ok: boolean;
+      data: { decision: { isJob: boolean; suggestedJobId: string } };
+    };
     expect(env.ok).toBe(true);
     expect(env.data.decision.isJob).toBe(false);
     expect(env.data.decision.suggestedJobId).toBe('cli-test-force-002');

@@ -49,7 +49,7 @@ function runVerify(cwd: string): { status: number | null; stdout: string; stderr
       cwd,
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'pipe'],
-      windowsHide: true,
+      windowsHide: true
     });
     return { status: 0, stdout, stderr: '' };
   } catch (error) {
@@ -57,7 +57,7 @@ function runVerify(cwd: string): { status: number | null; stdout: string; stderr
     return {
       status: e.status ?? null,
       stdout: e.stdout ?? '',
-      stderr: e.stderr ?? '',
+      stderr: e.stderr ?? ''
     };
   }
 }
@@ -72,7 +72,7 @@ function makeFixturePackageJson(files: string[]): string {
     version: '0.0.1',
     description: 'fixture for verify-codegraph-tarball.test.ts',
     type: 'module',
-    files,
+    files
   };
   writeFileSync(join(dir, 'package.json'), JSON.stringify(pkg, null, 2) + '\n', 'utf8');
   return dir;
@@ -82,17 +82,16 @@ describe('verify-codegraph-tarball (rid-CG-005)', () => {
   it('exits 0 when peaks-loop root package.json ships dist/services/codegraph/', () => {
     const result = runVerify(projectRoot);
     expect(result.status).toBe(0);
-    expect(result.stdout).toMatch(/verify-codegraph-tarball: OK \(\d+ file\(s\) under dist\/services\/codegraph\/\)/);
+    expect(result.stdout).toMatch(
+      /verify-codegraph-tarball: OK \(\d+ file\(s\) under dist\/services\/codegraph\/\)/
+    );
   }, 120_000);
 
   it('exits 1 when the files[] whitelist omits dist/services/codegraph/', () => {
     // Build a fixture whose whitelist is intentionally wrong.
     // The script's REQUIRED_PREFIX must NOT match anything in
     // this whitelist → the script must fail loud.
-    const fixtureDir = makeFixturePackageJson([
-      'README.md',
-      'CHANGELOG.md'
-    ]);
+    const fixtureDir = makeFixturePackageJson(['README.md', 'CHANGELOG.md']);
     try {
       const result = runVerify(fixtureDir);
       expect(result.status).toBe(1);
@@ -110,11 +109,7 @@ describe('verify-codegraph-tarball (rid-CG-005)', () => {
     // Fixture ships scripts/ + LICENSE but NO `dist/**/*`. This
     // catches the failure mode where the `dist/**/*.js` glob is
     // accidentally removed from files[] but `scripts/` stays.
-    const fixtureDir = makeFixturePackageJson([
-      'scripts/*.mjs',
-      'LICENSE',
-      'README.md'
-    ]);
+    const fixtureDir = makeFixturePackageJson(['scripts/*.mjs', 'LICENSE', 'README.md']);
     mkdirSync(join(fixtureDir, 'scripts'), { recursive: true });
     writeFileSync(join(fixtureDir, 'scripts', 'noop.mjs'), '// noop\n', 'utf8');
     try {

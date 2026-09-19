@@ -19,7 +19,10 @@
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { createHash } from 'node:crypto';
-import { showRequestArtifact, type RequestArtifactRole } from '../artifacts/request-artifact-service.js';
+import {
+  showRequestArtifact,
+  type RequestArtifactRole
+} from '../artifacts/request-artifact-service.js';
 import { serializeHandoffFrontmatter } from './handoff-frontmatter.js';
 import { deriveGateEvidence } from './gate-evidence-derivation.js';
 import { handoffRelativePath, sha256OfBody } from './handoff-service.js';

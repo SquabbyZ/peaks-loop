@@ -7,8 +7,13 @@ export function detectBinaryInstalled(binary: string): Promise<boolean> {
   const locator = process.platform === 'win32' ? 'where.exe' : 'which';
 
   return new Promise((resolve) => {
-    execFile(locator, [binary], { timeout: DETECT_TIMEOUT_MS, windowsHide: true }, (error, stdout) => {
-      resolve(error === null && stdout.trim().length > 0);
-    });
+    execFile(
+      locator,
+      [binary],
+      { timeout: DETECT_TIMEOUT_MS, windowsHide: true },
+      (error, stdout) => {
+        resolve(error === null && stdout.trim().length > 0);
+      }
+    );
   });
 }

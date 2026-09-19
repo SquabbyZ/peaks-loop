@@ -55,7 +55,9 @@ const SUGGESTED_JID_RE = /^[a-z0-9][a-z0-9-]{2,40}$/;
 const JobShapeDecisionSchema = z.object({
   isJob: z.boolean(),
   rationale: z.string().min(1).max(2000),
-  suggestedJobId: z.string().regex(SUGGESTED_JID_RE, 'suggestedJobId must match /^[a-z0-9][a-z0-9-]{2,40}$/'),
+  suggestedJobId: z
+    .string()
+    .regex(SUGGESTED_JID_RE, 'suggestedJobId must match /^[a-z0-9][a-z0-9-]{2,40}$/'),
   suggestedStrategy: z.enum(['single', 'rotating']),
   confidence: z.enum(['high', 'medium', 'low']),
   decidedAt: z.string().datetime()
@@ -69,9 +71,14 @@ const JobShapeRecordSchema = z.object({
 });
 
 export class JobShapeDecisionError extends Error {
-  public readonly code: typeof JOB_SHAPE_NOT_DECIDED | typeof JOB_SHAPE_ALREADY_DECIDED | typeof JOB_SHAPE_INVALID;
+  public readonly code:
+    typeof JOB_SHAPE_NOT_DECIDED | typeof JOB_SHAPE_ALREADY_DECIDED | typeof JOB_SHAPE_INVALID;
   public readonly details?: unknown;
-  public constructor(opts: { code: typeof JobShapeDecisionError.prototype.code; message: string; details?: unknown }) {
+  public constructor(opts: {
+    code: typeof JobShapeDecisionError.prototype.code;
+    message: string;
+    details?: unknown;
+  }) {
     super(opts.message);
     this.name = 'JobShapeDecisionError';
     this.code = opts.code;

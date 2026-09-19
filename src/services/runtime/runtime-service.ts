@@ -74,7 +74,10 @@ export class RuntimeService {
    *  a no-op result with a warning rather than throwing — vendor
    *  neutrality demands peaks-loop stay alive even when a vendor is
    *  not wired up. */
-  async compactVia(id: string, force: boolean | undefined): Promise<VendorCompactResult & { warning?: string }> {
+  async compactVia(
+    id: string,
+    force: boolean | undefined
+  ): Promise<VendorCompactResult & { warning?: string }> {
     const adapter = this.getBuiltInAdapter(id);
     if (adapter === undefined) {
       return {

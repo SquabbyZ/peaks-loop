@@ -12,7 +12,10 @@
  *   "single oversized exception" would let multiple oversized values
  *   accumulate without bound.
  */
-interface Entry { body: string; bytes: number; }
+interface Entry {
+  body: string;
+  bytes: number;
+}
 
 export class MemoryLruCache {
   private readonly store = new Map<string, Entry>();

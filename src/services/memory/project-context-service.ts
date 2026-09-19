@@ -43,7 +43,8 @@ function projectName(projectRoot: string): string {
   try {
     const pkg = JSON.parse(readFileSync(pkgPath, 'utf8'));
     return pkg.name ?? projectRoot.split(/[\\/]/).pop() ?? 'unknown';
-  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+  } catch {
+    // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     return projectRoot.split(/[\\/]/).pop() ?? 'unknown';
   }
 }
@@ -80,11 +81,18 @@ function extractOneLineSummary(sessionRoot: string): string | null {
       const lines = content.split(/\r?\n/);
       for (const line of lines) {
         const trimmed = line.trim();
-        if (!trimmed || trimmed.startsWith('#') || trimmed.startsWith('-') || trimmed.startsWith('`')) continue;
+        if (
+          !trimmed ||
+          trimmed.startsWith('#') ||
+          trimmed.startsWith('-') ||
+          trimmed.startsWith('`')
+        )
+          continue;
         if (trimmed.length > 10 && trimmed.length < 200) return trimmed;
         break;
       }
-    } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+    } catch {
+      // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
       // skip unreadable
     }
   }
@@ -127,7 +135,6 @@ function buildSessionHistory(projectRoot: string): string {
   return body;
 }
 
-
 export async function generateProjectContext(projectRoot: string): Promise<ProjectContextEnvelope> {
   const peaksDir = join(projectRoot, '.peaks');
   if (!existsSync(peaksDir)) {
@@ -148,10 +155,7 @@ export async function generateProjectContext(projectRoot: string): Promise<Proje
     const endIdx = existing.indexOf(MANAGED_BLOCK_END);
 
     // Update the Last-updated timestamp in the header
-    const updatedExisting = existing.replace(
-      /Last updated: .*/,
-      `Last updated: ${now}`
-    );
+    const updatedExisting = existing.replace(/Last updated: .*/, `Last updated: ${now}`);
 
     if (startIdx >= 0 && endIdx > startIdx) {
       // Replace managed block, preserve user content outside it
@@ -189,7 +193,8 @@ export function readProjectContext(projectRoot: string): string | null {
   if (!existsSync(contextPath)) return null;
   try {
     return readFileSync(contextPath, 'utf8');
-  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+  } catch {
+    // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     return null;
   }
 }

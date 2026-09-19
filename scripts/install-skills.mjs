@@ -1,5 +1,22 @@
 #!/usr/bin/env node
-import { closeSync, constants, existsSync, fchmodSync, fstatSync, lstatSync, mkdirSync, openSync, readFileSync, readlinkSync, realpathSync, readdirSync, renameSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
+import {
+  closeSync,
+  constants,
+  existsSync,
+  fchmodSync,
+  fstatSync,
+  lstatSync,
+  mkdirSync,
+  openSync,
+  readFileSync,
+  readlinkSync,
+  realpathSync,
+  readdirSync,
+  renameSync,
+  symlinkSync,
+  unlinkSync,
+  writeFileSync
+} from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { createHash, randomUUID } from 'node:crypto';
 import { homedir } from 'node:os';
@@ -35,7 +52,12 @@ function validateManagedMarkerPath(markerPath) {
 function validateOpenFile(fd, path, errorMessage) {
   const fdStats = fstatSync(fd);
   const pathStats = lstatSync(path);
-  if (!fdStats.isFile() || !pathStats.isFile() || fdStats.dev !== pathStats.dev || fdStats.ino !== pathStats.ino) {
+  if (
+    !fdStats.isFile() ||
+    !pathStats.isFile() ||
+    fdStats.dev !== pathStats.dev ||
+    fdStats.ino !== pathStats.ino
+  ) {
     throw new Error(errorMessage);
   }
   if (fdStats.nlink !== 1 || pathStats.nlink !== 1) {
@@ -54,11 +76,19 @@ function createFileIdentity(path) {
 function isSameFileIdentity(path, identity) {
   if (identity === null) return false;
   const stats = getPathStats(path);
-  return Boolean(stats?.isFile() && !stats.isSymbolicLink() && stats.nlink === 1 && stats.dev === identity.dev && stats.ino === identity.ino);
+  return Boolean(
+    stats?.isFile() &&
+    !stats.isSymbolicLink() &&
+    stats.nlink === 1 &&
+    stats.dev === identity.dev &&
+    stats.ino === identity.ino
+  );
 }
 
 function getSafeReadOpenFlags() {
-  return typeof constants.O_NOFOLLOW === 'number' ? constants.O_RDONLY | constants.O_NOFOLLOW : constants.O_RDONLY;
+  return typeof constants.O_NOFOLLOW === 'number'
+    ? constants.O_RDONLY | constants.O_NOFOLLOW
+    : constants.O_RDONLY;
 }
 
 function readFileSafely(path, errorMessage) {
@@ -83,7 +113,12 @@ function getManagedTarget(targetPath) {
 function markManagedPeaksLink(targetPath, sourcePath) {
   const markerPath = `${targetPath}.peaks-managed`;
   validateManagedMarkerPath(markerPath);
-  writeFileAtomically(markerPath, `${sourcePath}\n`, 'Peaks managed marker path changed during write', () => validateManagedMarkerPath(markerPath));
+  writeFileAtomically(
+    markerPath,
+    `${sourcePath}\n`,
+    'Peaks managed marker path changed during write',
+    () => validateManagedMarkerPath(markerPath)
+  );
 }
 
 function readPackageSourceFile(path) {
@@ -111,7 +146,13 @@ function parseManagedOutputStyleMarker(managedTarget) {
   if (managedTarget === null) return null;
   try {
     const marker = JSON.parse(managedTarget);
-    if (marker?.version !== 1 || marker?.kind !== 'output-style' || typeof marker.outputStyleName !== 'string' || typeof marker.sourcePath !== 'string' || typeof marker.contentSha256 !== 'string') {
+    if (
+      marker?.version !== 1 ||
+      marker?.kind !== 'output-style' ||
+      typeof marker.outputStyleName !== 'string' ||
+      typeof marker.sourcePath !== 'string' ||
+      typeof marker.contentSha256 !== 'string'
+    ) {
       return null;
     }
     return marker;
@@ -121,13 +162,28 @@ function parseManagedOutputStyleMarker(managedTarget) {
 }
 
 function isTrustedOutputStyleSource(marker, sourcePath, outputStyleName) {
-  return marker.outputStyleName === outputStyleName && resolve(marker.sourcePath) === resolve(sourcePath) && basename(resolve(marker.sourcePath)) === outputStyleName;
+  return (
+    marker.outputStyleName === outputStyleName &&
+    resolve(marker.sourcePath) === resolve(sourcePath) &&
+    basename(resolve(marker.sourcePath)) === outputStyleName
+  );
 }
 
-function getManagedPeaksOutputStyleIdentity(managedTarget, targetPath, sourcePath, outputStyleName) {
+function getManagedPeaksOutputStyleIdentity(
+  managedTarget,
+  targetPath,
+  sourcePath,
+  outputStyleName
+) {
   const marker = parseManagedOutputStyleMarker(managedTarget);
   const sourceHash = hashContent(readPackageSourceFile(sourcePath));
-  if (marker === null || !isTrustedOutputStyleSource(marker, sourcePath, outputStyleName) || !existsSync(targetPath) || hashFileContent(targetPath) !== sourceHash || marker.contentSha256 !== sourceHash) {
+  if (
+    marker === null ||
+    !isTrustedOutputStyleSource(marker, sourcePath, outputStyleName) ||
+    !existsSync(targetPath) ||
+    hashFileContent(targetPath) !== sourceHash ||
+    marker.contentSha256 !== sourceHash
+  ) {
     return null;
   }
   return createFileIdentity(targetPath);
@@ -172,15 +228,15 @@ function readPackageVersion(packageRoot = resolvePackageRoot()) {
 }
 
 function createConfigDefaults(packageRoot) {
-return {
+  return {
     version: readPackageVersion(packageRoot),
     currentWorkspace: null,
-  workspaces: [],
-  language: 'en',
-  economyMode: true,
-  swarmMode: true,
-  tokens: {},
-  proxy: {}
+    workspaces: [],
+    language: 'en',
+    economyMode: true,
+    swarmMode: true,
+    tokens: {},
+    proxy: {}
   };
 }
 
@@ -198,18 +254,21 @@ function isPlainObject(value) {
 }
 
 function mergeMissingConfigValues(existing, defaults) {
-  return Object.entries(defaults).reduce((next, [key, defaultValue]) => {
-    if (!(key in next)) {
-      return { ...next, [key]: defaultValue };
-    }
+  return Object.entries(defaults).reduce(
+    (next, [key, defaultValue]) => {
+      if (!(key in next)) {
+        return { ...next, [key]: defaultValue };
+      }
 
-    const existingValue = next[key];
-    if (isPlainObject(existingValue) && isPlainObject(defaultValue)) {
-      return { ...next, [key]: mergeMissingConfigValues(existingValue, defaultValue) };
-    }
+      const existingValue = next[key];
+      if (isPlainObject(existingValue) && isPlainObject(defaultValue)) {
+        return { ...next, [key]: mergeMissingConfigValues(existingValue, defaultValue) };
+      }
 
-    return next;
-  }, { ...existing });
+      return next;
+    },
+    { ...existing }
+  );
 }
 
 function readConfigFile(configPath, label) {
@@ -218,14 +277,21 @@ function readConfigFile(configPath, label) {
   }
 
   try {
-    const parsed = JSON.parse(readFileSafely(configPath, `${label} config path changed during read`));
+    const parsed = JSON.parse(
+      readFileSafely(configPath, `${label} config path changed during read`)
+    );
     if (!isPlainObject(parsed)) {
       throw new Error(`${label} config must contain a JSON object`);
     }
 
     return parsed;
   } catch (error) {
-    const message = error instanceof SyntaxError ? `${label} config must contain valid JSON` : error instanceof Error ? error.message : String(error);
+    const message =
+      error instanceof SyntaxError
+        ? `${label} config must contain valid JSON`
+        : error instanceof Error
+          ? error.message
+          : String(error);
     throw new Error(message);
   }
 }
@@ -234,7 +300,11 @@ function validateConfigPath(root, peaksRoot, configPath, label) {
   const rootReal = realpathSync(root);
   const peaksStats = lstatSync(peaksRoot);
   const peaksReal = realpathSync(peaksRoot);
-  if (!peaksStats.isDirectory() || peaksStats.isSymbolicLink() || peaksReal !== resolve(rootReal, '.peaks')) {
+  if (
+    !peaksStats.isDirectory() ||
+    peaksStats.isSymbolicLink() ||
+    peaksReal !== resolve(rootReal, '.peaks')
+  ) {
     throw new Error(`${label} config path must stay inside the ${label.toLowerCase()} root`);
   }
 
@@ -342,7 +412,9 @@ function writeFileAtomically(configPath, content, errorMessage, validateBeforeWr
 }
 
 function writeUserConfig(userRoot, peaksRoot, configPath, content) {
-  writeFileAtomically(configPath, content, 'User config path changed during write', () => validateUserConfigPaths(userRoot, peaksRoot, configPath));
+  writeFileAtomically(configPath, content, 'User config path changed during write', () =>
+    validateUserConfigPaths(userRoot, peaksRoot, configPath)
+  );
 }
 
 function resolveProjectRoot(options) {
@@ -387,7 +459,7 @@ export const IDE_DETECTION_DIRS = [
   { id: 'tongyi-lingma', dir: '.tongyi-lingma' },
   { id: 'zcode', dir: '.zcode' },
   { id: 'hermes', dir: '.hermes' },
-  { id: 'openclaw', dir: '.openclaw' },
+  { id: 'openclaw', dir: '.openclaw' }
 ];
 
 /**
@@ -418,15 +490,15 @@ export const IDE_SKILL_INSTALL_PROFILES = {
     agentsDir: join(homedir(), '.claude', 'agents'),
     envVar: 'PEAKS_CLAUDE_SKILLS_DIR',
     outputStylesEnvVar: 'PEAKS_CLAUDE_OUTPUT_STYLES_DIR',
-    agentsEnvVar: 'PEAKS_CLAUDE_AGENTS_DIR',
+    agentsEnvVar: 'PEAKS_CLAUDE_AGENTS_DIR'
   },
-  'trae': {
+  trae: {
     skillsDir: join(homedir(), '.trae', 'skills'),
     outputStylesDir: join(homedir(), '.trae', 'output-styles'),
     agentsDir: join(homedir(), '.trae', 'agents'),
     envVar: 'PEAKS_TRAE_SKILLS_DIR',
     outputStylesEnvVar: 'PEAKS_TRAE_OUTPUT_STYLES_DIR',
-    agentsEnvVar: 'PEAKS_TRAE_AGENTS_DIR',
+    agentsEnvVar: 'PEAKS_TRAE_AGENTS_DIR'
   },
   'trae-cn': {
     skillsDir: join(homedir(), '.trae-cn', 'skills'),
@@ -434,56 +506,56 @@ export const IDE_SKILL_INSTALL_PROFILES = {
     agentsDir: join(homedir(), '.trae-cn', 'agents'),
     envVar: 'PEAKS_TRAE_CN_SKILLS_DIR',
     outputStylesEnvVar: 'PEAKS_TRAE_CN_OUTPUT_STYLES_DIR',
-    agentsEnvVar: 'PEAKS_TRAE_CN_AGENTS_DIR',
+    agentsEnvVar: 'PEAKS_TRAE_CN_AGENTS_DIR'
   },
-  'codex': {
+  codex: {
     skillsDir: join(homedir(), '.codex', 'skills'),
     outputStylesDir: join(homedir(), '.codex', 'output-styles'),
     agentsDir: join(homedir(), '.codex', 'agents'),
     envVar: 'PEAKS_CODEX_SKILLS_DIR',
     outputStylesEnvVar: 'PEAKS_CODEX_OUTPUT_STYLES_DIR',
-    agentsEnvVar: 'PEAKS_CODEX_AGENTS_DIR',
+    agentsEnvVar: 'PEAKS_CODEX_AGENTS_DIR'
   },
-  'cursor': {
+  cursor: {
     skillsDir: join(homedir(), '.cursor', 'skills'),
     outputStylesDir: join(homedir(), '.cursor', 'output-styles'),
     agentsDir: join(homedir(), '.cursor', 'agents'),
     envVar: 'PEAKS_CURSOR_SKILLS_DIR',
     outputStylesEnvVar: 'PEAKS_CURSOR_OUTPUT_STYLES_DIR',
-    agentsEnvVar: 'PEAKS_CURSOR_AGENTS_DIR',
+    agentsEnvVar: 'PEAKS_CURSOR_AGENTS_DIR'
   },
-  'qoder': {
+  qoder: {
     skillsDir: join(homedir(), '.qoder', 'skills'),
     outputStylesDir: join(homedir(), '.qoder', 'output-styles'),
     envVar: 'PEAKS_QODER_SKILLS_DIR',
-    outputStylesEnvVar: 'PEAKS_QODER_OUTPUT_STYLES_DIR',
+    outputStylesEnvVar: 'PEAKS_QODER_OUTPUT_STYLES_DIR'
   },
   'tongyi-lingma': {
     skillsDir: join(homedir(), '.tongyi-lingma', 'skills'),
     outputStylesDir: join(homedir(), '.tongyi-lingma', 'output-styles'),
     envVar: 'PEAKS_TONGYI_SKILLS_DIR',
-    outputStylesEnvVar: 'PEAKS_TONGYI_OUTPUT_STYLES_DIR',
+    outputStylesEnvVar: 'PEAKS_TONGYI_OUTPUT_STYLES_DIR'
   },
-  'hermes': {
+  hermes: {
     skillsDir: join(homedir(), '.hermes', 'skills'),
     outputStylesDir: join(homedir(), '.hermes', 'output-styles'),
     envVar: 'PEAKS_HERMES_SKILLS_DIR',
-    outputStylesEnvVar: 'PEAKS_HERMES_OUTPUT_STYLES_DIR',
+    outputStylesEnvVar: 'PEAKS_HERMES_OUTPUT_STYLES_DIR'
   },
-  'openclaw': {
+  openclaw: {
     skillsDir: join(homedir(), '.openclaw', 'skills'),
     outputStylesDir: join(homedir(), '.openclaw', 'output-styles'),
     envVar: 'PEAKS_OPENCLAW_SKILLS_DIR',
-    outputStylesEnvVar: 'PEAKS_OPENCLAW_OUTPUT_STYLES_DIR',
+    outputStylesEnvVar: 'PEAKS_OPENCLAW_OUTPUT_STYLES_DIR'
   },
-  'zcode': {
+  zcode: {
     skillsDir: join(homedir(), '.zcode', 'skills'),
     outputStylesDir: join(homedir(), '.zcode', 'output-styles'),
     agentsDir: join(homedir(), '.zcode', 'agents'),
     envVar: 'PEAKS_ZCODE_SKILLS_DIR',
     outputStylesEnvVar: 'PEAKS_ZCODE_OUTPUT_STYLES_DIR',
-    agentsEnvVar: 'PEAKS_ZCODE_AGENTS_DIR',
-  },
+    agentsEnvVar: 'PEAKS_ZCODE_AGENTS_DIR'
+  }
 };
 
 function detectInstalledIdeId(projectRoot) {
@@ -535,7 +607,11 @@ function resolveIdeSkillInstallProfile(ideId) {
 function isPlatformPresent(ideId, profile, projectRoot) {
   if (profile.alwaysPresent === true) return true;
   const detection = IDE_DETECTION_DIRS.find((entry) => entry.id === ideId);
-  if (detection !== undefined && projectRoot !== null && existsSync(join(projectRoot, detection.dir))) {
+  if (
+    detection !== undefined &&
+    projectRoot !== null &&
+    existsSync(join(projectRoot, detection.dir))
+  ) {
     return true;
   }
   return existsSync(dirname(profile.skillsDir));
@@ -560,7 +636,10 @@ function warnNoIdeDetected(projectRoot) {
 
 function writeMergedConfig(configPath, label, defaults, writeConfig) {
   const existing = readConfigFile(configPath, label);
-  const next = { ...(existing === null ? defaults : mergeMissingConfigValues(existing, defaults)), version: defaults.version };
+  const next = {
+    ...(existing === null ? defaults : mergeMissingConfigValues(existing, defaults)),
+    version: defaults.version
+  };
   const currentJson = existing === null ? null : `${JSON.stringify(existing, null, 2)}\n`;
   const nextJson = `${JSON.stringify(next, null, 2)}\n`;
 
@@ -573,7 +652,10 @@ function writeMergedConfig(configPath, label, defaults, writeConfig) {
 }
 
 export function installUserConfig(options = {}) {
-  if (process.env.PEAKS_SKIP_SKILL_INSTALL === '1' || process.env.PEAKS_SKIP_USER_CONFIG_INSTALL === '1') {
+  if (
+    process.env.PEAKS_SKIP_SKILL_INSTALL === '1' ||
+    process.env.PEAKS_SKIP_USER_CONFIG_INSTALL === '1'
+  ) {
     return createConfigResult({ skipped: true });
   }
 
@@ -589,7 +671,12 @@ export function installUserConfig(options = {}) {
   }
   validateUserConfigPaths(userRoot, peaksRoot, configPath);
 
-  return writeMergedConfig(configPath, 'User', createConfigDefaults(options.packageRoot), (content) => writeUserConfig(userRoot, peaksRoot, configPath, content));
+  return writeMergedConfig(
+    configPath,
+    'User',
+    createConfigDefaults(options.packageRoot),
+    (content) => writeUserConfig(userRoot, peaksRoot, configPath, content)
+  );
 }
 
 /*
@@ -631,20 +718,32 @@ export function installBundledSkills(options = {}) {
   const detectedIdeId = detectInstalledIdeId(projectRoot);
   const detectedProfile = resolveIdeSkillInstallProfile(detectedIdeId);
 
-  if (options.targetRoot === undefined && options.ideId === undefined && detectedProfile === null && detectedIdeId !== null) {
+  if (
+    options.targetRoot === undefined &&
+    options.ideId === undefined &&
+    detectedProfile === null &&
+    detectedIdeId !== null
+  ) {
     warnUnverifiedIde(detectedIdeId, projectRoot ?? '(project root unknown)');
   }
-  if (options.targetRoot === undefined && options.ideId === undefined && detectedIdeId === null && projectRoot !== null) {
+  if (
+    options.targetRoot === undefined &&
+    options.ideId === undefined &&
+    detectedIdeId === null &&
+    projectRoot !== null
+  ) {
     warnNoIdeDetected(projectRoot);
   }
 
   const profileSkillsDir = detectedProfile?.skillsDir ?? null;
   const targetRoot = resolve(
-    options.targetRoot
-      ?? (options.ideId !== undefined ? resolveIdeSkillInstallProfile(options.ideId)?.skillsDir ?? null : null)
-      ?? process.env.PEAKS_CLAUDE_SKILLS_DIR
-      ?? profileSkillsDir
-      ?? join(homedir(), '.claude', 'skills')
+    options.targetRoot ??
+      (options.ideId !== undefined
+        ? (resolveIdeSkillInstallProfile(options.ideId)?.skillsDir ?? null)
+        : null) ??
+      process.env.PEAKS_CLAUDE_SKILLS_DIR ??
+      profileSkillsDir ??
+      join(homedir(), '.claude', 'skills')
   );
 
   const installed = [];
@@ -782,11 +881,13 @@ export function installBundledOutputStyles(options = {}) {
 
   const profileOutputStylesDir = detectedProfile?.outputStylesDir ?? null;
   const targetRoot = resolve(
-    options.targetRoot
-      ?? (options.ideId !== undefined ? resolveIdeSkillInstallProfile(options.ideId)?.outputStylesDir ?? null : null)
-      ?? process.env.PEAKS_CLAUDE_OUTPUT_STYLES_DIR
-      ?? profileOutputStylesDir
-      ?? join(homedir(), '.claude', 'output-styles')
+    options.targetRoot ??
+      (options.ideId !== undefined
+        ? (resolveIdeSkillInstallProfile(options.ideId)?.outputStylesDir ?? null)
+        : null) ??
+      process.env.PEAKS_CLAUDE_OUTPUT_STYLES_DIR ??
+      profileOutputStylesDir ??
+      join(homedir(), '.claude', 'output-styles')
   );
 
   const installed = [];
@@ -805,7 +906,12 @@ export function installBundledOutputStyles(options = {}) {
     const current = getPathStats(targetPath);
     if (current) {
       const managedTarget = getManagedTarget(targetPath);
-      const managedTargetIdentity = getManagedPeaksOutputStyleIdentity(managedTarget, targetPath, sourcePath, outputStyleName);
+      const managedTargetIdentity = getManagedPeaksOutputStyleIdentity(
+        managedTarget,
+        targetPath,
+        sourcePath,
+        outputStyleName
+      );
       if (isSameFileIdentity(targetPath, managedTargetIdentity)) {
         validateOutputStylesRoot();
         if (!isSameFileIdentity(targetPath, managedTargetIdentity)) {
@@ -826,12 +932,22 @@ export function installBundledOutputStyles(options = {}) {
       validateOutputStylesRoot();
       unlinkSync(markerPath);
     }
-    const createdTargetIdentity = writeFileExclusively(targetPath, readPackageSourceFile(sourcePath), 'Peaks output style path changed during write', validateOutputStylesRoot);
+    const createdTargetIdentity = writeFileExclusively(
+      targetPath,
+      readPackageSourceFile(sourcePath),
+      'Peaks output style path changed during write',
+      validateOutputStylesRoot
+    );
     try {
-      writeFileExclusively(markerPath, createManagedOutputStyleMarker(sourcePath, outputStyleName), 'Peaks managed marker path changed during write', () => {
-        validateOutputStylesRoot();
-        validateManagedMarkerPath(markerPath);
-      });
+      writeFileExclusively(
+        markerPath,
+        createManagedOutputStyleMarker(sourcePath, outputStyleName),
+        'Peaks managed marker path changed during write',
+        () => {
+          validateOutputStylesRoot();
+          validateManagedMarkerPath(markerPath);
+        }
+      );
     } catch (error) {
       validateOutputStylesRoot();
       if (isSameFileIdentity(targetPath, createdTargetIdentity)) {
@@ -883,14 +999,17 @@ function resolveSettingsFilePath(options = {}) {
 }
 
 export function installBundledOutputStyleDefault(options = {}) {
-  if (process.env.PEAKS_SKIP_SKILL_INSTALL === '1' || process.env.PEAKS_SKIP_OUTPUT_STYLE_DEFAULT === '1') {
+  if (
+    process.env.PEAKS_SKIP_SKILL_INSTALL === '1' ||
+    process.env.PEAKS_SKIP_OUTPUT_STYLE_DEFAULT === '1'
+  ) {
     return { skipped: true, reason: 'PEAKS_SKIP_OUTPUT_STYLE_DEFAULT=1' };
   }
 
   const bundledStylesDir = resolve(
-    options.targetRoot
-      ?? process.env.PEAKS_CLAUDE_OUTPUT_STYLES_DIR
-      ?? join(homedir(), '.claude', 'output-styles')
+    options.targetRoot ??
+      process.env.PEAKS_CLAUDE_OUTPUT_STYLES_DIR ??
+      join(homedir(), '.claude', 'output-styles')
   );
   const settingsPath = resolveSettingsFilePath(options);
   const bundledStyleName = 'peaks-skill-swarm.md';
@@ -938,13 +1057,21 @@ export function installBundledOutputStyleDefault(options = {}) {
   }
 
   // User-authored outputStyle wins — never overwrite.
-  if (existing !== null && typeof existing.outputStyle === 'string' && existing.outputStyle.length > 0) {
-    return { skipped: true, reason: `user-defined outputStyle already set: ${existing.outputStyle}` };
+  if (
+    existing !== null &&
+    typeof existing.outputStyle === 'string' &&
+    existing.outputStyle.length > 0
+  ) {
+    return {
+      skipped: true,
+      reason: `user-defined outputStyle already set: ${existing.outputStyle}`
+    };
   }
 
-  const next = existing === null
-    ? { outputStyle: 'peaks-skill-swarm' }
-    : { ...existing, outputStyle: 'peaks-skill-swarm' };
+  const next =
+    existing === null
+      ? { outputStyle: 'peaks-skill-swarm' }
+      : { ...existing, outputStyle: 'peaks-skill-swarm' };
 
   const existingJson = existing === null ? null : `${JSON.stringify(existing, null, 2)}\n`;
   const nextJson = `${JSON.stringify(next, null, 2)}\n`;
@@ -978,7 +1105,7 @@ export function installBundledOutputStyleDefault(options = {}) {
     created: existing === null,
     updated: existing !== null,
     settingsPath,
-    outputStyle: 'peaks-skill-swarm',
+    outputStyle: 'peaks-skill-swarm'
   };
 }
 
@@ -1013,7 +1140,13 @@ function parseManagedAgentMarker(managedTarget) {
   if (managedTarget === null) return null;
   try {
     const marker = JSON.parse(managedTarget);
-    if (marker?.version !== 1 || marker?.kind !== 'agent' || typeof marker.agentName !== 'string' || typeof marker.sourcePath !== 'string' || typeof marker.contentSha256 !== 'string') {
+    if (
+      marker?.version !== 1 ||
+      marker?.kind !== 'agent' ||
+      typeof marker.agentName !== 'string' ||
+      typeof marker.sourcePath !== 'string' ||
+      typeof marker.contentSha256 !== 'string'
+    ) {
       return null;
     }
     return marker;
@@ -1023,13 +1156,23 @@ function parseManagedAgentMarker(managedTarget) {
 }
 
 function isTrustedAgentSource(marker, sourcePath, agentName) {
-  return marker.agentName === agentName && resolve(marker.sourcePath) === resolve(sourcePath) && basename(resolve(marker.sourcePath)) === agentName;
+  return (
+    marker.agentName === agentName &&
+    resolve(marker.sourcePath) === resolve(sourcePath) &&
+    basename(resolve(marker.sourcePath)) === agentName
+  );
 }
 
 function getManagedPeaksAgentIdentity(managedTarget, targetPath, sourcePath, agentName) {
   const marker = parseManagedAgentMarker(managedTarget);
   const sourceHash = hashContent(readPackageSourceFile(sourcePath));
-  if (marker === null || !isTrustedAgentSource(marker, sourcePath, agentName) || !existsSync(targetPath) || hashFileContent(targetPath) !== sourceHash || marker.contentSha256 !== sourceHash) {
+  if (
+    marker === null ||
+    !isTrustedAgentSource(marker, sourcePath, agentName) ||
+    !existsSync(targetPath) ||
+    hashFileContent(targetPath) !== sourceHash ||
+    marker.contentSha256 !== sourceHash
+  ) {
     return null;
   }
   return createFileIdentity(targetPath);
@@ -1042,7 +1185,11 @@ export function installBundledAgents(options = {}) {
   // Per-IDE env-var override (claude-code only today): PEAKS_CLAUDE_AGENTS_DIR.
   // Universal escape hatch: PEAKS_SKIP_AGENT_INSTALL=1 (parallel to
   // PEAKS_SKIP_SKILL_INSTALL).
-  if (process.env.PEAKS_SKIP_SKILL_INSTALL === '1' || process.env.PEAKS_SKIP_AGENT_INSTALL === '1' || !existsSync(agentsRoot)) {
+  if (
+    process.env.PEAKS_SKIP_SKILL_INSTALL === '1' ||
+    process.env.PEAKS_SKIP_AGENT_INSTALL === '1' ||
+    !existsSync(agentsRoot)
+  ) {
     return createInstallResult();
   }
 
@@ -1053,11 +1200,13 @@ export function installBundledAgents(options = {}) {
 
   const profileAgentsDir = detectedProfile?.agentsDir ?? null;
   const targetRoot = resolve(
-    options.targetRoot
-      ?? (options.ideId !== undefined ? resolveIdeSkillInstallProfile(options.ideId)?.agentsDir ?? null : null)
-      ?? process.env.PEAKS_CLAUDE_AGENTS_DIR
-      ?? profileAgentsDir
-      ?? join(homedir(), '.claude', 'agents')
+    options.targetRoot ??
+      (options.ideId !== undefined
+        ? (resolveIdeSkillInstallProfile(options.ideId)?.agentsDir ?? null)
+        : null) ??
+      process.env.PEAKS_CLAUDE_AGENTS_DIR ??
+      profileAgentsDir ??
+      join(homedir(), '.claude', 'agents')
   );
 
   const installed = [];
@@ -1076,7 +1225,12 @@ export function installBundledAgents(options = {}) {
     const current = getPathStats(targetPath);
     if (current) {
       const managedTarget = getManagedTarget(targetPath);
-      const managedTargetIdentity = getManagedPeaksAgentIdentity(managedTarget, targetPath, sourcePath, agentFileName);
+      const managedTargetIdentity = getManagedPeaksAgentIdentity(
+        managedTarget,
+        targetPath,
+        sourcePath,
+        agentFileName
+      );
       if (isSameFileIdentity(targetPath, managedTargetIdentity)) {
         validateAgentsRoot();
         if (!isSameFileIdentity(targetPath, managedTargetIdentity)) {
@@ -1097,12 +1251,22 @@ export function installBundledAgents(options = {}) {
       validateAgentsRoot();
       unlinkSync(markerPath);
     }
-    const createdTargetIdentity = writeFileExclusively(targetPath, readPackageSourceFile(sourcePath), 'Peaks agent path changed during write', validateAgentsRoot);
+    const createdTargetIdentity = writeFileExclusively(
+      targetPath,
+      readPackageSourceFile(sourcePath),
+      'Peaks agent path changed during write',
+      validateAgentsRoot
+    );
     try {
-      writeFileExclusively(markerPath, createManagedAgentMarker(sourcePath, agentFileName), 'Peaks managed marker path changed during write', () => {
-        validateAgentsRoot();
-        validateManagedMarkerPath(markerPath);
-      });
+      writeFileExclusively(
+        markerPath,
+        createManagedAgentMarker(sourcePath, agentFileName),
+        'Peaks managed marker path changed during write',
+        () => {
+          validateAgentsRoot();
+          validateManagedMarkerPath(markerPath);
+        }
+      );
     } catch (error) {
       validateAgentsRoot();
       if (isSameFileIdentity(targetPath, createdTargetIdentity)) {
@@ -1149,20 +1313,19 @@ export function installBundledAgentsForAllPlatforms(options = {}) {
       // claude-code iteration, if the env var is set, use it as
       // `targetRoot` (so the env var takes priority over the profile).
       // For test mode, options.targetRoot also wins.
-      const envOverride = ideId === 'claude-code'
-        ? process.env.PEAKS_CLAUDE_AGENTS_DIR
-        : undefined;
-      const platformOpts = (envOverride !== undefined && envOverride.length > 0)
-        ? { ...options, ideId, targetRoot: envOverride }
-        : (options.targetRoot !== undefined
-          ? { ...options, ideId, targetRoot: options.targetRoot }
-          : { ...options, ideId });
+      const envOverride = ideId === 'claude-code' ? process.env.PEAKS_CLAUDE_AGENTS_DIR : undefined;
+      const platformOpts =
+        envOverride !== undefined && envOverride.length > 0
+          ? { ...options, ideId, targetRoot: envOverride }
+          : options.targetRoot !== undefined
+            ? { ...options, ideId, targetRoot: options.targetRoot }
+            : { ...options, ideId };
       const result = installBundledAgents(platformOpts);
       perPlatform.push({
         ideId,
         agentsDir: profile.agentsDir,
         installed: result.installed,
-        skipped: result.skipped,
+        skipped: result.skipped
       });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -1174,7 +1337,7 @@ export function installBundledAgentsForAllPlatforms(options = {}) {
         agentsDir: profile.agentsDir,
         installed: [],
         skipped: [],
-        error: message,
+        error: message
       });
     }
   }
@@ -1227,7 +1390,7 @@ export function installBundledSkillsForAllPlatforms(options = {}) {
         ideId,
         skillsDir: IDE_SKILL_INSTALL_PROFILES[ideId]?.skillsDir ?? '(unknown)',
         installed: result.installed,
-        skipped: result.skipped,
+        skipped: result.skipped
       });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -1239,7 +1402,7 @@ export function installBundledSkillsForAllPlatforms(options = {}) {
         skillsDir: IDE_SKILL_INSTALL_PROFILES[ideId]?.skillsDir ?? '(unknown)',
         installed: [],
         skipped: [],
-        error: message,
+        error: message
       });
     }
   }
@@ -1306,7 +1469,9 @@ export function detect1xProjectState(cwd = process.cwd()) {
       try {
         const body = readFileSync(devPref, 'utf8');
         if (/peaks progress/i.test(body)) {
-          signals.push(`${devPref} references "peaks progress" (1.x CLI surface, removed in slice #014)`);
+          signals.push(
+            `${devPref} references "peaks progress" (1.x CLI surface, removed in slice #014)`
+          );
         }
       } catch {
         // ignore
@@ -1320,7 +1485,9 @@ export function detect1xProjectState(cwd = process.cwd()) {
       try {
         const raw = JSON.parse(readFileSync(prefs, 'utf8'));
         if (raw.schema_version !== '2.0.0') {
-          signals.push(`${prefs} has schema_version ${JSON.stringify(raw.schema_version)}, expected '2.0.0'`);
+          signals.push(
+            `${prefs} has schema_version ${JSON.stringify(raw.schema_version)}, expected '2.0.0'`
+          );
         }
       } catch {
         signals.push(`${prefs} exists but is not valid JSON`);
@@ -1332,7 +1499,7 @@ export function detect1xProjectState(cwd = process.cwd()) {
     isOneX: signals.length > 0,
     signals,
     projectRoot,
-    configPath,
+    configPath
   };
 }
 
@@ -1368,12 +1535,16 @@ export async function autoUpgrade1xProjectIfPresent(options = {}) {
   // We shell out via spawnSync (synchronous; the postinstall
   // is already synchronous and the umbrella is fast).
   try {
-    const result = spawnSync('peaks', ['upgrade', '--to', '2.0', '--auto', '--project', state.projectRoot], {
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'pipe'],
-      timeout: 120_000,
-      windowsHide: true,
-    });
+    const result = spawnSync(
+      'peaks',
+      ['upgrade', '--to', '2.0', '--auto', '--project', state.projectRoot],
+      {
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'pipe'],
+        timeout: 120_000,
+        windowsHide: true
+      }
+    );
     return {
       ran: true,
       reason: 'auto-upgrade dispatched',
@@ -1381,7 +1552,7 @@ export async function autoUpgrade1xProjectIfPresent(options = {}) {
       projectRoot: state.projectRoot,
       exitCode: result.status,
       stdout: result.stdout ?? '',
-      stderr: result.stderr ?? '',
+      stderr: result.stderr ?? ''
     };
   } catch (err) {
     return {
@@ -1389,12 +1560,15 @@ export async function autoUpgrade1xProjectIfPresent(options = {}) {
       reason: 'auto-upgrade dispatched but failed',
       signals: state.signals,
       projectRoot: state.projectRoot,
-      error: err instanceof Error ? err.message : String(err),
+      error: err instanceof Error ? err.message : String(err)
     };
   }
 }
 
-if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
+if (
+  process.argv[1] !== undefined &&
+  import.meta.url === pathToFileURL(resolve(process.argv[1])).href
+) {
   try {
     // 2.0 fix for the 1.x Trae bug (per real user feedback
     // 2026-06-11): iterate every platform the user HAS, not just the
@@ -1439,10 +1613,14 @@ if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(resolve(p
       process.stderr.write(`Peaks user config was not installed: ${message}\n`);
     }
     if (outputStylesResult.installed.length > 0) {
-      process.stdout.write(`Peaks output styles installed: ${outputStylesResult.installed.join(', ')}\n`);
+      process.stdout.write(
+        `Peaks output styles installed: ${outputStylesResult.installed.join(', ')}\n`
+      );
     }
     if (outputStylesResult.skipped.length > 0) {
-      process.stderr.write(`Peaks output styles skipped because local files already exist: ${outputStylesResult.skipped.join(', ')}\n`);
+      process.stderr.write(
+        `Peaks output styles skipped because local files already exist: ${outputStylesResult.skipped.join(', ')}\n`
+      );
     }
 
     // Slice 2026-08-02 — auto-register bundled output style.
@@ -1465,9 +1643,11 @@ if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(resolve(p
     // style file was dispatched to an env-overridden dir, the
     // auto-register step checks THAT dir, not the user's homedir.
     try {
-      const dispatchTargetRoot = process.env.PEAKS_CLAUDE_OUTPUT_STYLES_DIR
-        ?? join(homedir(), '.claude', 'output-styles');
-      const styleDefaultResult = installBundledOutputStyleDefault({ targetRoot: dispatchTargetRoot });
+      const dispatchTargetRoot =
+        process.env.PEAKS_CLAUDE_OUTPUT_STYLES_DIR ?? join(homedir(), '.claude', 'output-styles');
+      const styleDefaultResult = installBundledOutputStyleDefault({
+        targetRoot: dispatchTargetRoot
+      });
       if (styleDefaultResult.installed) {
         process.stdout.write(
           `Peaks output style auto-registered: ${styleDefaultResult.outputStyle}\n` +

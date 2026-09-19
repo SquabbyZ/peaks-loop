@@ -9,7 +9,15 @@
  * canonical corruption is surfaced with `PEAKS_GRAPH_CORRUPTED`.
  */
 
-import { existsSync, mkdirSync, readFileSync, renameSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  renameSync,
+  statSync,
+  unlinkSync,
+  writeFileSync
+} from 'node:fs';
 import { dirname, isAbsolute, join, resolve, sep } from 'node:path';
 import {
   type WorkflowGraph,
@@ -19,7 +27,7 @@ import {
   type NodeId,
   WORKFLOW_ID_REGEX,
   NODE_ID_REGEX,
-  isSafeRelativeGraphRef,
+  isSafeRelativeGraphRef
 } from './workflow-graph-types.js';
 
 export const PEAKS_GRAPH_NOT_FOUND = 'PEAKS_GRAPH_NOT_FOUND';
@@ -63,7 +71,12 @@ function safeSessionRuntimeRoot(projectRoot: string, sessionId: string): string 
 }
 
 /** Compute the on-disk graph path. Validates `graphRef` stays under the session root. */
-export function graphPathFor(input: { projectRoot: string; sessionId: string; graphRef: string; workflowId: WorkflowId }): string {
+export function graphPathFor(input: {
+  projectRoot: string;
+  sessionId: string;
+  graphRef: string;
+  workflowId: WorkflowId;
+}): string {
   if (!isSafeRelativeGraphRef(input.graphRef, input.workflowId)) {
     throw makeError(PEAKS_GRAPH_REF_BROKEN, `graphRef is not safe: ${input.graphRef}`);
   }
@@ -95,7 +108,11 @@ function acquireLock(lockPath: string, holder: string, ttlMs = 30_000): void {
     const stat = statSync(lockPath);
     if (stat.mtimeMs + ttlMs < Date.now()) {
       // Stale lock — remove and continue.
-      try { unlinkSync(lockPath); } catch { /* swallow */ }
+      try {
+        unlinkSync(lockPath);
+      } catch {
+        /* swallow */
+      }
     } else {
       throw makeError('PEAKS_GRAPH_LOCK_HELD', `graph lock held: ${lockPath}`);
     }
@@ -106,7 +123,9 @@ function acquireLock(lockPath: string, holder: string, ttlMs = 30_000): void {
 function releaseLock(lockPath: string): void {
   try {
     if (existsSync(lockPath)) unlinkSync(lockPath);
-  } catch { /* swallow */ }
+  } catch {
+    /* swallow */
+  }
 }
 
 /** Detect cycles in a node-dependency graph. */
@@ -172,12 +191,18 @@ export function validateGraph(graph: unknown): WorkflowGraph {
     if (n.kind === 'terminal') terminalCount += 1;
     if (n.kind !== 'dispatch') {
       if (n.dispatchRef !== undefined || n.lastHeartbeat !== undefined) {
-        throw makeError(PEAKS_GRAPH_CORRUPTED, 'dispatchRef/lastHeartbeat only valid on dispatch nodes');
+        throw makeError(
+          PEAKS_GRAPH_CORRUPTED,
+          'dispatchRef/lastHeartbeat only valid on dispatch nodes'
+        );
       }
     }
   }
   if (terminalCount !== 1) {
-    throw makeError(PEAKS_GRAPH_CORRUPTED, `exactly one terminal node required (got ${terminalCount})`);
+    throw makeError(
+      PEAKS_GRAPH_CORRUPTED,
+      `exactly one terminal node required (got ${terminalCount})`
+    );
   }
   for (const e of g.edges as WorkflowGraphEdge[]) {
     if (typeof e.from !== 'string' || !ids.has(e.from)) {
@@ -211,14 +236,15 @@ export function readGraph(input: {
 }): WorkflowGraph {
   // Accept either a fully-resolved absolute graphPath or a (projectRoot,
   // sessionId, graphRef, workflowId) tuple.
-  const path = typeof input.graphPath === 'string' && input.graphPath.length > 0
-    ? input.graphPath
-    : graphPathFor({
-        projectRoot: input.projectRoot ?? '',
-        sessionId: input.sessionId ?? '',
-        graphRef: input.graphRef ?? '',
-        workflowId: input.workflowId ?? '',
-      });
+  const path =
+    typeof input.graphPath === 'string' && input.graphPath.length > 0
+      ? input.graphPath
+      : graphPathFor({
+          projectRoot: input.projectRoot ?? '',
+          sessionId: input.sessionId ?? '',
+          graphRef: input.graphRef ?? '',
+          workflowId: input.workflowId ?? ''
+        });
   if (!existsSync(path)) {
     throw makeError(PEAKS_GRAPH_NOT_FOUND, `graph not found: ${path}`);
   }
@@ -233,15 +259,27 @@ export function readGraph(input: {
     parsed = JSON.parse(raw);
   } catch (err) {
     // Canonical corruption — must escape; never substitute legacy marker.
-    throw makeError(PEAKS_GRAPH_CORRUPTED, `graph JSON malformed: ${(err as Error).message}`, false);
+    throw makeError(
+      PEAKS_GRAPH_CORRUPTED,
+      `graph JSON malformed: ${(err as Error).message}`,
+      false
+    );
   }
   // Confirm parsed graph's workflowId matches the supplied one (when provided);
   // otherwise it's a graphRef mismatch (e.g. stale graph swapped under the lease).
-  if (typeof input.workflowId === 'string' && input.workflowId.length > 0
-    && typeof parsed === 'object' && parsed !== null) {
+  if (
+    typeof input.workflowId === 'string' &&
+    input.workflowId.length > 0 &&
+    typeof parsed === 'object' &&
+    parsed !== null
+  ) {
     const wf = (parsed as { workflowId?: unknown }).workflowId;
     if (typeof wf === 'string' && wf !== input.workflowId) {
-      throw makeError(PEAKS_GRAPH_REF_BROKEN, `graphRef points at foreign workflow: ${wf} vs ${input.workflowId}`, false);
+      throw makeError(
+        PEAKS_GRAPH_REF_BROKEN,
+        `graphRef points at foreign workflow: ${wf} vs ${input.workflowId}`,
+        false
+      );
     }
   }
   return validateGraph(parsed);
@@ -269,7 +307,11 @@ export function writeGraph(input: {
 }
 
 /** Build a fresh empty graph with one terminal node. */
-export function emptyGraph(input: { workflowId: WorkflowId; rootSkill: string; parentWorkflowId?: WorkflowId }): WorkflowGraph {
+export function emptyGraph(input: {
+  workflowId: WorkflowId;
+  rootSkill: string;
+  parentWorkflowId?: WorkflowId;
+}): WorkflowGraph {
   const graph: WorkflowGraph = {
     workflowId: input.workflowId,
     rootSkill: input.rootSkill,
@@ -281,17 +323,22 @@ export function emptyGraph(input: { workflowId: WorkflowId; rootSkill: string; p
         label: 'workflow complete',
         status: 'prepared',
         dependsOn: [],
-        ackStatus: 'not-required',
-      },
+        ackStatus: 'not-required'
+      }
     ],
     edges: [],
-    schemaVersion: 1,
+    schemaVersion: 1
   };
   return graph;
 }
 
 /** Validate a `graphRef` is well-formed without writing. */
-export function validateGraphRef(input: { graphRef: string; workflowId: WorkflowId; projectRoot: string; sessionId: string }): { path: string } {
+export function validateGraphRef(input: {
+  graphRef: string;
+  workflowId: WorkflowId;
+  projectRoot: string;
+  sessionId: string;
+}): { path: string } {
   return { path: graphPathFor(input) };
 }
 

@@ -1,7 +1,10 @@
 import type { Command } from 'commander';
 import { resolveCanonicalProjectRoot } from '../../services/config/config-service.js';
 import { read24hState, write24hState, type State } from '../../services/24h-mode/index.js';
-import { applyAutoEngagePresenceMode, presenceModeAdvisory } from '../../services/24h-mode/auto-engage.js';
+import {
+  applyAutoEngagePresenceMode,
+  presenceModeAdvisory
+} from '../../services/24h-mode/auto-engage.js';
 import { getErrorMessage, type ProgramIO } from '../cli-helpers.js';
 
 export type CodeRun24hOptions = {
@@ -37,26 +40,56 @@ export function registerCodeRunCommand(code: Command, io: ProgramIO): void {
     .option('--json', 'emit machine-readable JSON')
     .action(async (changeId: string | undefined, options: CodeRun24hOptions) => {
       if (options['24h' as keyof CodeRun24hOptions] !== true) {
-        emit(io, { ok: false, code: 'CODE_RUN_24H_REQUIRED', message: 'code run requires --24h for this integration surface' }, options.json);
+        emit(
+          io,
+          {
+            ok: false,
+            code: 'CODE_RUN_24H_REQUIRED',
+            message: 'code run requires --24h for this integration surface'
+          },
+          options.json
+        );
         process.exitCode = 1;
         return;
       }
       const projectRoot = resolveCanonicalProjectRoot(options.project ?? process.cwd());
       const sid = await sessionId(options, projectRoot);
       if (!sid) {
-        emit(io, { ok: false, code: 'NO_ACTIVE_SESSION', message: 'no --session-id and no canonical binding' }, options.json);
+        emit(
+          io,
+          {
+            ok: false,
+            code: 'NO_ACTIVE_SESSION',
+            message: 'no --session-id and no canonical binding'
+          },
+          options.json
+        );
         process.exitCode = 1;
         return;
       }
-      const autoEngage = options.tier === 'T3' || options.tier === 'T4' || options.trigger === 'T3' || options.trigger === 'T4';
+      const autoEngage =
+        options.tier === 'T3' ||
+        options.tier === 'T4' ||
+        options.trigger === 'T3' ||
+        options.trigger === 'T4';
       try {
         const current = read24hState(projectRoot, sid);
         if (!autoEngage) {
-          emit(io, {
-            ok: true,
-            data: { changeId: changeId ?? null, mode: '24H_REQUESTED', state: current.state, brainstorming: 'reference-only', sessionId: sid },
-            next: 'Use the brainstorming reference-only bridge, then let peaks-code continue the normal runbook.'
-          }, options.json);
+          emit(
+            io,
+            {
+              ok: true,
+              data: {
+                changeId: changeId ?? null,
+                mode: '24H_REQUESTED',
+                state: current.state,
+                brainstorming: 'reference-only',
+                sessionId: sid
+              },
+              next: 'Use the brainstorming reference-only bridge, then let peaks-code continue the normal runbook.'
+            },
+            options.json
+          );
           return;
         }
         const nextState: State = '24H_ACTIVE';
@@ -77,15 +110,37 @@ export function registerCodeRunCommand(code: Command, io: ProgramIO): void {
         // stamp at the envelope level instead of leaving it unread in
         // `data.presenceMode`.
         const advisory = presenceModeAdvisory(presenceMode);
-        emit(io, {
-          ok: true,
-          data: { changeId: changeId ?? null, mode: '24H_ACTIVE', state: nextState, autoEngaged: true, trigger: options.trigger ?? options.tier, sessionId: sid, path: next.path, presenceMode },
-          warnings: [...advisory.warnings],
-          nextActions: [...advisory.nextActions],
-          next: 'Continue the existing 24H_ACTIVE flow; no brainstorming gate is required for T3/T4.'
-        }, options.json);
+        emit(
+          io,
+          {
+            ok: true,
+            data: {
+              changeId: changeId ?? null,
+              mode: '24H_ACTIVE',
+              state: nextState,
+              autoEngaged: true,
+              trigger: options.trigger ?? options.tier,
+              sessionId: sid,
+              path: next.path,
+              presenceMode
+            },
+            warnings: [...advisory.warnings],
+            nextActions: [...advisory.nextActions],
+            next: 'Continue the existing 24H_ACTIVE flow; no brainstorming gate is required for T3/T4.'
+          },
+          options.json
+        );
       } catch (error) {
-        emit(io, { ok: false, code: 'CODE_RUN_24H_FAILED', message: getErrorMessage(error), sessionId: sid }, options.json);
+        emit(
+          io,
+          {
+            ok: false,
+            code: 'CODE_RUN_24H_FAILED',
+            message: getErrorMessage(error),
+            sessionId: sid
+          },
+          options.json
+        );
         process.exitCode = 1;
       }
     });

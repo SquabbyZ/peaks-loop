@@ -15,7 +15,7 @@ const RULES_DIR = '.claude/rules';
 function walkRulesDir(
   projectRoot: string,
   dir: string,
-  out: { lines: MarkdownLine[]; warnings: ScanWarning[] },
+  out: { lines: MarkdownLine[]; warnings: ScanWarning[] }
 ): void {
   let entries;
   try {
@@ -23,7 +23,7 @@ function walkRulesDir(
   } catch (error) {
     out.warnings.push({
       file: relative(projectRoot, dir).split('\\').join('/'),
-      message: `readdir failed: ${error instanceof Error ? error.message : String(error)}`,
+      message: `readdir failed: ${error instanceof Error ? error.message : String(error)}`
     });
     return;
   }
@@ -38,7 +38,7 @@ function walkRulesDir(
       } catch (error) {
         out.warnings.push({
           file: relative(projectRoot, full).split('\\').join('/'),
-          message: `read failed: ${error instanceof Error ? error.message : String(error)}`,
+          message: `read failed: ${error instanceof Error ? error.message : String(error)}`
         });
         continue;
       }

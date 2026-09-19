@@ -29,21 +29,21 @@ import { registerPrdCommands } from '../../../src/cli/commands/prd-commands.js';
 import {
   checkPrerequisites,
   VALID_REQUEST_TYPES,
-  type RequestType,
+  type RequestType
 } from '../../../src/services/artifacts/artifact-prerequisites.js';
 import { createRequestArtifact } from '../../../src/services/artifacts/request-artifact-service.js';
 import { generateEvidence } from '../../../src/services/evidence/evidence-generator.js';
 import {
   checkDeclaredGateEvidence,
   deriveGateEvidence,
-  deriveGateEvidenceForRequest,
+  deriveGateEvidenceForRequest
 } from '../../../src/services/prd/gate-evidence-derivation.js';
 import { readHandoffGateEvidence } from '../../../src/services/prd/handoff-gate-evidence.js';
 import { autoRegenPrdHandoff } from '../../../src/services/prd/handoff-auto-regen.js';
 import {
   handoffRelativePath,
   initHandoff,
-  writeHandoff,
+  writeHandoff
 } from '../../../src/services/prd/handoff-service.js';
 import { GATE_EVIDENCE_KEYS, type GateEvidence } from '../../../src/services/prd/handoff-types.js';
 
@@ -51,7 +51,7 @@ declareDimensions('tests/unit/prd/gate-evidence-derivation.test.ts', [
   'render',
   'behavior',
   'integration',
-  'a11y',
+  'a11y'
 ]);
 
 const SESSION_ID = '2026-09-17-session-b2';
@@ -81,7 +81,7 @@ function capsulePathOf(root: string): string {
 /** Lay down a real PRD request artifact through the real service. */
 async function seedPrdArtifact(
   root: string,
-  requestType: 'feature' | 'bugfix' | 'refactor' | 'docs' | 'config' | 'chore',
+  requestType: 'feature' | 'bugfix' | 'refactor' | 'docs' | 'config' | 'chore'
 ): Promise<void> {
   // `createRequestArtifact` refuses a date-prefixed session id whose dir does
   // not exist yet (F21), so the session home comes first — exactly as
@@ -93,7 +93,7 @@ async function seedPrdArtifact(
     requestId: REQUEST_ID,
     sessionId: SESSION_ID,
     requestType,
-    apply: true,
+    apply: true
   });
 }
 
@@ -121,7 +121,7 @@ async function runHandoffInitCli(root: string): Promise<void> {
     '--project',
     root,
     '--apply',
-    '--json',
+    '--json'
   ]);
 }
 
@@ -143,39 +143,36 @@ const EXPECTED_KEYS_BY_TYPE: ReadonlyArray<{
 }> = [
   {
     type: 'feature',
-    keys: ['projectScan', 'prdHandoff', 'codeReview', 'securityReview', 'perfBaseline'],
+    keys: ['projectScan', 'prdHandoff', 'codeReview', 'securityReview', 'perfBaseline']
   },
   {
     type: 'bugfix',
-    keys: ['projectScan', 'prdHandoff', 'codeReview', 'securityReview', 'perfBaseline'],
+    keys: ['projectScan', 'prdHandoff', 'codeReview', 'securityReview', 'perfBaseline']
   },
   {
     type: 'refactor',
-    keys: ['projectScan', 'prdHandoff', 'codeReview', 'securityReview', 'perfBaseline'],
+    keys: ['projectScan', 'prdHandoff', 'codeReview', 'securityReview', 'perfBaseline']
   },
   { type: 'config', keys: ['projectScan', 'securityReview'] },
   { type: 'docs', keys: [] },
-  { type: 'chore', keys: [] },
+  { type: 'chore', keys: [] }
 ];
 
 describe('(render) the derived map declares exactly what the type must produce', () => {
-  it.each(EXPECTED_KEYS_BY_TYPE)(
-    'declares exactly $keys for a $type slice',
-    ({ type, keys }) => {
-      const evidence = deriveGateEvidence({
-        sessionId: SESSION_ID,
-        requestId: REQUEST_ID,
-        requestType: type,
-      });
-      expect(Object.keys(evidence).sort()).toEqual([...keys].sort());
-    },
-  );
+  it.each(EXPECTED_KEYS_BY_TYPE)('declares exactly $keys for a $type slice', ({ type, keys }) => {
+    const evidence = deriveGateEvidence({
+      sessionId: SESSION_ID,
+      requestId: REQUEST_ID,
+      requestType: type
+    });
+    expect(Object.keys(evidence).sort()).toEqual([...keys].sort());
+  });
 
   it('covers every request type the repo defines', () => {
     // A seventh type added without a row above would otherwise declare nothing
     // and no case would notice.
     expect(EXPECTED_KEYS_BY_TYPE.map((row) => row.type).sort()).toEqual(
-      [...VALID_REQUEST_TYPES].sort(),
+      [...VALID_REQUEST_TYPES].sort()
     );
   });
 
@@ -183,14 +180,14 @@ describe('(render) the derived map declares exactly what the type must produce',
     const evidence = deriveGateEvidence({
       sessionId: SESSION_ID,
       requestId: REQUEST_ID,
-      requestType: 'feature',
+      requestType: 'feature'
     });
     expect(evidence.prdHandoff).toBe(handoffRelativePath(SESSION_ID, REQUEST_ID));
     expect(evidence.codeReview).toBe(
-      join('.peaks', '_runtime', SESSION_ID, 'rd', `code-review-${REQUEST_ID}.md`),
+      join('.peaks', '_runtime', SESSION_ID, 'rd', `code-review-${REQUEST_ID}.md`)
     );
     expect(evidence.perfBaseline).toBe(
-      join('.peaks', '_runtime', SESSION_ID, 'audit', `perf-${REQUEST_ID}.md`),
+      join('.peaks', '_runtime', SESSION_ID, 'audit', `perf-${REQUEST_ID}.md`)
     );
     expect(evidence.projectScan).toBe(join('.peaks', 'project-scan', 'project-scan.md'));
   });
@@ -204,10 +201,10 @@ describe('(render) the derived map declares exactly what the type must produce',
     const evidence = deriveGateEvidence({
       sessionId: SESSION_ID,
       requestId: REQUEST_ID,
-      requestType: 'config',
+      requestType: 'config'
     });
     expect(evidence.securityReview).toBe(
-      join('.peaks', '_runtime', SESSION_ID, 'rd', 'security-review.md'),
+      join('.peaks', '_runtime', SESSION_ID, 'rd', 'security-review.md')
     );
     expect(evidence.prdHandoff).toBeUndefined();
     expect(evidence.perfBaseline).toBeUndefined();
@@ -224,8 +221,8 @@ describe('(behavior) an unresolvable type declares nothing at all', () => {
       await deriveGateEvidenceForRequest({
         projectRoot: root,
         sessionId: SESSION_ID,
-        requestId: REQUEST_ID,
-      }),
+        requestId: REQUEST_ID
+      })
     ).toBeUndefined();
   });
 
@@ -247,8 +244,8 @@ describe('(behavior) an unresolvable type declares nothing at all', () => {
       deriveGateEvidenceForRequest({
         projectRoot: root,
         sessionId: SESSION_ID,
-        requestId: '../no-traversal',
-      }),
+        requestId: '../no-traversal'
+      })
     ).rejects.toThrow(/Invalid request id/);
 
     // Both branches in one case, because the property being pinned is the
@@ -258,8 +255,8 @@ describe('(behavior) an unresolvable type declares nothing at all', () => {
       await deriveGateEvidenceForRequest({
         projectRoot: root,
         sessionId: SESSION_ID,
-        requestId: REQUEST_ID,
-      }),
+        requestId: REQUEST_ID
+      })
     ).toBeUndefined();
   });
 
@@ -271,14 +268,14 @@ describe('(behavior) an unresolvable type declares nothing at all', () => {
     const evidence = await deriveGateEvidenceForRequest({
       projectRoot: root,
       sessionId: SESSION_ID,
-      requestId: REQUEST_ID,
+      requestId: REQUEST_ID
     });
     expect(evidence === undefined ? [] : Object.keys(evidence).sort()).toEqual([
       'codeReview',
       'perfBaseline',
       'prdHandoff',
       'projectScan',
-      'securityReview',
+      'securityReview'
     ]);
   });
 
@@ -292,8 +289,8 @@ describe('(behavior) an unresolvable type declares nothing at all', () => {
       await deriveGateEvidenceForRequest({
         projectRoot: root,
         sessionId: SESSION_ID,
-        requestId: REQUEST_ID,
-      }),
+        requestId: REQUEST_ID
+      })
     ).toEqual({});
   });
 });
@@ -316,8 +313,8 @@ describe('(integration) the three producers put the field on disk', () => {
       deriveGateEvidence({
         sessionId: SESSION_ID,
         requestId: REQUEST_ID,
-        requestType: 'feature',
-      }),
+        requestType: 'feature'
+      })
     );
   });
 
@@ -357,14 +354,14 @@ describe('(integration) the three producers put the field on disk', () => {
       projectRoot: root,
       sessionId: SESSION_ID,
       requestId: REQUEST_ID,
-      role: 'prd',
+      role: 'prd'
     });
     expect(regen.status).toBe('created');
     if (regen.status !== 'created') throw new Error('unreachable');
 
     const read = await readHandoffGateEvidence(regen.path);
     expect(read.status === 'ok' ? Object.keys(read.evidence).sort() : []).toEqual(
-      [...GATE_EVIDENCE_KEYS].sort(),
+      [...GATE_EVIDENCE_KEYS].sort()
     );
   });
 
@@ -379,13 +376,13 @@ describe('(integration) the three producers put the field on disk', () => {
       title: 'third producer probe',
       files: [],
       lineCounts: {},
-      sessionId: SESSION_ID,
+      sessionId: SESSION_ID
     });
 
     const read = await readHandoffGateEvidence(out.handoffPath);
     expect(read.status).toBe('ok');
     expect(read.status === 'ok' ? read.evidence.securityReview : null).toBe(
-      join('.peaks', '_runtime', SESSION_ID, 'rd', 'security-review.md'),
+      join('.peaks', '_runtime', SESSION_ID, 'rd', 'security-review.md')
     );
   });
 });
@@ -401,7 +398,7 @@ describe('(integration) GATE C checks the declaration it is handed', () => {
       goals: [],
       acceptanceCriteria: [],
       preservedBehavior: [],
-      gateEvidence: evidence,
+      gateEvidence: evidence
     });
     await writeHandoff(handoff, root);
   }
@@ -413,7 +410,7 @@ describe('(integration) GATE C checks the declaration it is handed', () => {
       role: 'rd',
       newState: 'qa-handoff',
       requestId: REQUEST_ID,
-      requestType,
+      requestType
     });
     return result.missing.filter((row) => row.path.startsWith('gateEvidence'));
   }
@@ -423,7 +420,7 @@ describe('(integration) GATE C checks the declaration it is handed', () => {
     const declared = deriveGateEvidence({
       sessionId: SESSION_ID,
       requestId: REQUEST_ID,
-      requestType: 'feature',
+      requestType: 'feature'
     });
     await writeCapsule(root, declared);
     // Only the project scan exists; the four Gate C artifacts do not.
@@ -438,7 +435,7 @@ describe('(integration) GATE C checks the declaration it is handed', () => {
     expect(rows.map((row) => row.path).sort()).toEqual([
       'gateEvidence.codeReview',
       'gateEvidence.perfBaseline',
-      'gateEvidence.securityReview',
+      'gateEvidence.securityReview'
     ]);
   });
 
@@ -447,7 +444,7 @@ describe('(integration) GATE C checks the declaration it is handed', () => {
     const declared = deriveGateEvidence({
       sessionId: SESSION_ID,
       requestId: REQUEST_ID,
-      requestType: 'feature',
+      requestType: 'feature'
     });
     for (const declaredPath of Object.values(declared)) {
       if (declaredPath === undefined) continue;
@@ -469,7 +466,7 @@ describe('(integration) GATE C checks the declaration it is handed', () => {
       writtenAt: '2026-09-17T00:00:00.000Z',
       goals: [],
       acceptanceCriteria: [],
-      preservedBehavior: [],
+      preservedBehavior: []
     });
     await writeHandoff(handoff, root);
 
@@ -497,9 +494,9 @@ describe('(integration) GATE C checks the declaration it is handed', () => {
         'handoffPath: prd/handoff-' + REQUEST_ID + '.md',
         'gateEvidence: [a.md, b.md]',
         '---',
-        BODY,
+        BODY
       ].join('\n'),
-      'utf8',
+      'utf8'
     );
 
     const rows = await gateRows(root, 'feature');
@@ -543,15 +540,15 @@ describe('(integration) GATE C checks the declaration it is handed', () => {
         `handoffPath: prd/handoff-${REQUEST_ID}.md`,
         'gateEvidence: {}',
         '---',
-        BODY,
+        BODY
       ].join('\n'),
-      'utf8',
+      'utf8'
     );
     // Guard the guard: an empty map, not `field-absent`.
     expect(await readHandoffGateEvidence(capsulePathOf(root))).toEqual({
       status: 'ok',
       evidence: {},
-      unknownKeys: [],
+      unknownKeys: []
     });
 
     expect(await gateRows(root, 'feature')).toEqual([]);
@@ -561,7 +558,7 @@ describe('(integration) GATE C checks the declaration it is handed', () => {
       role: 'rd',
       newState: 'qa-handoff',
       requestId: REQUEST_ID,
-      requestType: 'feature',
+      requestType: 'feature'
     });
     // Still CLOSED, by the table, for the four artifacts a feature slice must
     // produce — and the capsule itself is one of them, so it resolves.
@@ -577,7 +574,7 @@ describe('(integration) GATE C checks the declaration it is handed', () => {
     const result = await checkDeclaredGateEvidence({
       projectRoot: root,
       sessionId: SESSION_ID,
-      requestId: REQUEST_ID,
+      requestId: REQUEST_ID
     });
     expect(result).toEqual({ ok: true, missing: [], warnings: [] });
   });
@@ -594,7 +591,7 @@ describe('(a11y) the failure names the key and the path a human must create', ()
       goals: [],
       acceptanceCriteria: [],
       preservedBehavior: [],
-      gateEvidence: { perfBaseline: '.peaks/_runtime/x/audit/perf-missing.md' },
+      gateEvidence: { perfBaseline: '.peaks/_runtime/x/audit/perf-missing.md' }
     });
     await writeHandoff(handoff, root);
 
@@ -610,26 +607,19 @@ describe('(a11y) the failure names the key and the path a human must create', ()
     mkdirSync(join(root, '.peaks', '_runtime', SESSION_ID, 'prd'), { recursive: true });
     writeFileSync(
       capsulePathOf(root),
-      [
-        '---',
-        'schemaVersion: 2',
-        'gateEvidence:',
-        '  projectScans: typo.md',
-        '---',
-        BODY,
-      ].join('\n'),
-      'utf8',
+      ['---', 'schemaVersion: 2', 'gateEvidence:', '  projectScans: typo.md', '---', BODY].join(
+        '\n'
+      ),
+      'utf8'
     );
 
     const result = await checkDeclaredGateEvidence({
       projectRoot: root,
       sessionId: SESSION_ID,
-      requestId: REQUEST_ID,
+      requestId: REQUEST_ID
     });
     expect(result.ok).toBe(true);
-    expect(result.warnings.map((warning) => warning.code)).toEqual([
-      'gate-evidence-unknown-key',
-    ]);
+    expect(result.warnings.map((warning) => warning.code)).toEqual(['gate-evidence-unknown-key']);
     expect(result.warnings[0]?.message).toContain('projectScans');
   });
 });
@@ -642,7 +632,7 @@ async function checkpointRows(root: string) {
     role: 'rd',
     newState: 'qa-handoff',
     requestId: REQUEST_ID,
-    requestType: 'feature',
+    requestType: 'feature'
   });
   return result.missing.filter((row) => row.path.startsWith('gateEvidence'));
 }

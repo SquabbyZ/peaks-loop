@@ -58,7 +58,8 @@ export const STEP_08_PROGRESS_FILE_NAME = 'progress.json' as const;
  *   不用考虑费用                        → 不用考虑费用 / disavow cost
  *   until all done                      → until all done
  */
-export const STEP_08_BACKUP_REGEX = /直到|全部|until all done|disavow cost|不用考虑费用|all of them/i;
+export const STEP_08_BACKUP_REGEX =
+  /直到|全部|until all done|disavow cost|不用考虑费用|all of them/i;
 
 export interface Step08Progress {
   readonly jobId: string;
@@ -70,9 +71,17 @@ export interface Step08Progress {
 }
 
 export type Step08Verdict =
-  | { readonly kind: 'allow-job'; readonly decision: import('./job-shape-decision.js').JobShapeDecision; readonly progress: Step08Progress | null }
+  | {
+      readonly kind: 'allow-job';
+      readonly decision: import('./job-shape-decision.js').JobShapeDecision;
+      readonly progress: Step08Progress | null;
+    }
   | { readonly kind: 'allow-single' }
-  | { readonly kind: 'block-missing-decision'; readonly promptHit: boolean; readonly promptSource: 'flag' | 'last-prompt-file' | 'stdin-empty' };
+  | {
+      readonly kind: 'block-missing-decision';
+      readonly promptHit: boolean;
+      readonly promptSource: 'flag' | 'last-prompt-file' | 'stdin-empty';
+    };
 
 export function runtimeSessionDir(projectRoot: string, sessionId: string): string {
   return join(projectRoot, '.peaks', '_runtime', sessionId);
@@ -88,7 +97,11 @@ function progressPath(projectRoot: string, sessionId: string, jid: string): stri
   return join(runtimeSessionDir(projectRoot, sessionId), 'job', jid, STEP_08_PROGRESS_FILE_NAME);
 }
 
-function readProgressIfAny(projectRoot: string, sessionId: string, jid: string): Step08Progress | null {
+function readProgressIfAny(
+  projectRoot: string,
+  sessionId: string,
+  jid: string
+): Step08Progress | null {
   const path = progressPath(projectRoot, sessionId, jid);
   if (!existsSync(path)) return null;
   try {
@@ -167,10 +180,15 @@ export function evaluateStep08(input: EvaluateStep08Input): EvaluateStep08Result
   try {
     const record = readJobShapeDecision(input.projectRoot, input.sessionId);
     if (record.decision.isJob) {
-      const progress = readProgressIfAny(input.projectRoot, input.sessionId, record.decision.suggestedJobId);
-      const nextSliceLine = progress !== null
-        ? `Next: slice #${progress.done + 1} of ${progress.total} (${progress.currentSlice})`
-        : null;
+      const progress = readProgressIfAny(
+        input.projectRoot,
+        input.sessionId,
+        record.decision.suggestedJobId
+      );
+      const nextSliceLine =
+        progress !== null
+          ? `Next: slice #${progress.done + 1} of ${progress.total} (${progress.currentSlice})`
+          : null;
       return {
         allow: true,
         verdict: { kind: 'allow-job', decision: record.decision, progress },
@@ -180,14 +198,27 @@ export function evaluateStep08(input: EvaluateStep08Input): EvaluateStep08Result
     return { allow: true, verdict: { kind: 'allow-single' }, nextSliceLine: null };
   } catch (err) {
     if (err instanceof JobShapeDecisionError && err.code === JOB_SHAPE_NOT_DECIDED) {
-      const promptText = input.prompt ?? readPromptFromLastPromptFile(input.projectRoot, input.sessionId);
+      const promptText =
+        input.prompt ?? readPromptFromLastPromptFile(input.projectRoot, input.sessionId);
       const hit = promptText.length > 0 && STEP_08_BACKUP_REGEX.test(promptText);
       const source: 'flag' | 'last-prompt-file' | 'stdin-empty' =
-        input.prompt !== undefined ? 'flag' : promptText.length > 0 ? 'last-prompt-file' : 'stdin-empty';
+        input.prompt !== undefined
+          ? 'flag'
+          : promptText.length > 0
+            ? 'last-prompt-file'
+            : 'stdin-empty';
       if (hit) {
-        return { allow: false, verdict: { kind: 'block-missing-decision', promptHit: true, promptSource: source }, nextSliceLine: null };
+        return {
+          allow: false,
+          verdict: { kind: 'block-missing-decision', promptHit: true, promptSource: source },
+          nextSliceLine: null
+        };
       }
-      return { allow: true, verdict: { kind: 'block-missing-decision', promptHit: false, promptSource: source }, nextSliceLine: null };
+      return {
+        allow: true,
+        verdict: { kind: 'block-missing-decision', promptHit: false, promptSource: source },
+        nextSliceLine: null
+      };
     }
     throw err;
   }

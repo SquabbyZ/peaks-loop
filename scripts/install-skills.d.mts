@@ -70,10 +70,14 @@ export interface ScriptOptions {
 
 export function installUserConfig(options?: ScriptOptions): ConfigResult;
 export function installBundledSkills(options?: ScriptOptions): InstallResult;
-export function installBundledSkillsForAllPlatforms(options?: ScriptOptions): PerPlatformInstallResult[];
+export function installBundledSkillsForAllPlatforms(
+  options?: ScriptOptions
+): PerPlatformInstallResult[];
 export function installBundledOutputStyles(options?: ScriptOptions): InstallResult;
 export function installBundledAgents(options?: ScriptOptions): InstallResult;
-export function installBundledAgentsForAllPlatforms(options?: ScriptOptions): PerPlatformInstallResult[];
+export function installBundledAgentsForAllPlatforms(
+  options?: ScriptOptions
+): PerPlatformInstallResult[];
 
 /**
  * Present only when the write succeeded; on the soft-fail paths the script

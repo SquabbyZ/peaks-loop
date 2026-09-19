@@ -2,16 +2,12 @@
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync, copyFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import type {
-  BaselineError,
-  BaselineLock,
-  CapabilityBaselineFile
-} from './types.js';
+import type { BaselineError, BaselineLock, CapabilityBaselineFile } from './types.js';
 
 const CURRENT_DIR = (root: string) => join(root, 'openspec', 'baselines', 'current');
-const FILE_PATH  = (root: string) => join(CURRENT_DIR(root), 'capability-baseline.json');
-const LOCK_PATH  = (root: string) => join(CURRENT_DIR(root), 'capability-baseline.lock');
-const POINTER    = (root: string, sessionId: string) =>
+const FILE_PATH = (root: string) => join(CURRENT_DIR(root), 'capability-baseline.json');
+const LOCK_PATH = (root: string) => join(CURRENT_DIR(root), 'capability-baseline.lock');
+const POINTER = (root: string, sessionId: string) =>
   join(root, '.peaks', '_runtime', sessionId, 'baselines', 'current.json');
 
 function hashFor(file: CapabilityBaselineFile): string {
@@ -33,16 +29,26 @@ export function verifyLock(
   lock: BaselineLock
 ): { readonly ok: true } | { readonly ok: false; readonly error: BaselineError } {
   if (lock.signedBy !== 'SquabbyZ') {
-    return { ok: false, error: { code: 'BASELINE_NOT_SIGNED', message: 'lock is not signed by SquabbyZ' } };
+    return {
+      ok: false,
+      error: { code: 'BASELINE_NOT_SIGNED', message: 'lock is not signed by SquabbyZ' }
+    };
   }
   if (hashFor(file) !== lock.baselineHash) {
-    return { ok: false, error: { code: 'BASELINE_HASH_MISMATCH', message: 'lock hash does not match file' } };
+    return {
+      ok: false,
+      error: { code: 'BASELINE_HASH_MISMATCH', message: 'lock hash does not match file' }
+    };
   }
   return { ok: true };
 }
 
-export function writeBaselineFile(input: { readonly projectRoot: string; readonly file: CapabilityBaselineFile }): {
-  readonly path: string; readonly lockPath: string;
+export function writeBaselineFile(input: {
+  readonly projectRoot: string;
+  readonly file: CapabilityBaselineFile;
+}): {
+  readonly path: string;
+  readonly lockPath: string;
 } {
   const path = FILE_PATH(input.projectRoot);
   const lockPath = LOCK_PATH(input.projectRoot);
@@ -59,12 +65,21 @@ export function writeBaselineFile(input: { readonly projectRoot: string; readonl
 }
 
 export function readBaselineFile(projectRoot: string):
-  | { readonly ok: true; readonly file: CapabilityBaselineFile; readonly lock: BaselineLock; readonly path: string; readonly lockPath: string }
+  | {
+      readonly ok: true;
+      readonly file: CapabilityBaselineFile;
+      readonly lock: BaselineLock;
+      readonly path: string;
+      readonly lockPath: string;
+    }
   | { readonly ok: false; readonly error: BaselineError } {
   const path = FILE_PATH(projectRoot);
   const lockPath = LOCK_PATH(projectRoot);
   if (!existsSync(path) || !existsSync(lockPath)) {
-    return { ok: false, error: { code: 'BASELINE_NOT_FOUND', message: `baseline missing at ${path}` } };
+    return {
+      ok: false,
+      error: { code: 'BASELINE_NOT_FOUND', message: `baseline missing at ${path}` }
+    };
   }
   let file: CapabilityBaselineFile;
   let lock: BaselineLock;
@@ -75,15 +90,22 @@ export function readBaselineFile(projectRoot: string):
     return { ok: false, error: { code: 'BASELINE_NOT_FOUND', message: (e as Error).message } };
   }
   if (file.signedBy !== 'SquabbyZ') {
-    return { ok: false, error: { code: 'BASELINE_NOT_SIGNED', message: 'baseline file is not signed by SquabbyZ' } };
+    return {
+      ok: false,
+      error: { code: 'BASELINE_NOT_SIGNED', message: 'baseline file is not signed by SquabbyZ' }
+    };
   }
   const v = verifyLock(file, lock);
   if (!v.ok) return v;
   return { ok: true, file, lock, path, lockPath };
 }
 
-export function historySnapshot(input: { readonly projectRoot: string; readonly version: string }): {
-  readonly path: string; readonly lockPath: string;
+export function historySnapshot(input: {
+  readonly projectRoot: string;
+  readonly version: string;
+}): {
+  readonly path: string;
+  readonly lockPath: string;
 } {
   const target = join(input.projectRoot, 'openspec', 'baselines', 'history', input.version);
   mkdirSync(target, { recursive: true });

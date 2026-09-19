@@ -22,13 +22,13 @@ declareDimensions(
   ['behavior', 'render'],
   [
     { dim: 'a11y', reason: 'pure planner, no user-visible text or exit code' },
-    { dim: 'integration', reason: 'pure function, no fs / subprocess boundary' },
-  ],
+    { dim: 'integration', reason: 'pure function, no fs / subprocess boundary' }
+  ]
 );
 
 import {
   planFileOverlapWaves,
-  type SliceFileDescriptor,
+  type SliceFileDescriptor
 } from '~/src/services/dispatch/file-overlap-wave-planner';
 
 const SHARED = 'src/cli/commands/code-runtime-commands.ts';
@@ -39,7 +39,7 @@ describe('Scenario: behavior — wave assignment', () => {
     const slices: SliceFileDescriptor[] = [
       { id: 's1', files: ['src/a.ts'] },
       { id: 's2', files: ['src/b.ts'] },
-      { id: 's3', files: ['src/c.ts'] },
+      { id: 's3', files: ['src/c.ts'] }
     ];
     // when:  the planner runs
     const plan = planFileOverlapWaves(slices);
@@ -54,7 +54,7 @@ describe('Scenario: behavior — wave assignment', () => {
     const slices: SliceFileDescriptor[] = [
       { id: 'slice-a', files: [SHARED, 'src/a.ts'] },
       { id: 'slice-b', files: [SHARED, 'src/b.ts'] },
-      { id: 'slice-c', files: ['src/c.ts'] },
+      { id: 'slice-c', files: ['src/c.ts'] }
     ];
     // when:  the planner runs
     const plan = planFileOverlapWaves(slices);
@@ -76,7 +76,7 @@ describe('Scenario: behavior — wave assignment', () => {
     const slices: SliceFileDescriptor[] = [
       { id: 's1', files: [SHARED] },
       { id: 's2', files: [SHARED] },
-      { id: 's3', files: [SHARED] },
+      { id: 's3', files: [SHARED] }
     ];
     // when:  the planner runs
     const plan = planFileOverlapWaves(slices);
@@ -90,7 +90,7 @@ describe('Scenario: behavior — wave assignment', () => {
     // given: a slice with an empty file list and one with a file
     const plan = planFileOverlapWaves([
       { id: 'no-files', files: [] },
-      { id: 'with-file', files: ['src/a.ts'] },
+      { id: 'with-file', files: ['src/a.ts'] }
     ]);
     // when:  the planner runs
     // then:  both land in wave 0
@@ -112,7 +112,7 @@ describe('Scenario: behavior — wave assignment', () => {
     // given: the same id twice with different files
     const plan = planFileOverlapWaves([
       { id: 's1', files: ['src/a.ts'] },
-      { id: 's1', files: ['src/b.ts'] },
+      { id: 's1', files: ['src/b.ts'] }
     ]);
     // when:  the planner runs
     // then:  the first descriptor wins and the duplicate is reported
@@ -127,7 +127,7 @@ describe('Scenario: behavior — wave assignment', () => {
     const slices: SliceFileDescriptor[] = [
       { id: 's1', files: ['src/a.ts', 'src/shared.ts'] },
       { id: 's2', files: ['src/shared.ts'] },
-      { id: 's3', files: ['src/b.ts'] },
+      { id: 's3', files: ['src/b.ts'] }
     ];
     // when:  the planner runs twice
     // then:  the plans are deep-equal
@@ -140,7 +140,7 @@ describe('Scenario: render — plan envelope shape', () => {
     // given: two colliding slices
     const plan = planFileOverlapWaves([
       { id: 's1', files: ['src/a.ts'] },
-      { id: 's2', files: ['src/a.ts'] },
+      { id: 's2', files: ['src/a.ts'] }
     ]);
     // when:  the first wave is inspected
     const wave = plan.waves[0];

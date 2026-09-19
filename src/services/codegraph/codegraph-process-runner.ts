@@ -6,7 +6,18 @@ const CODEGRAPH_PROCESS_TIMEOUT_MS = 600_000;
 const CODEGRAPH_OUTPUT_LIMIT_BYTES = 10 * 1024 * 1024;
 
 function createCodegraphEnvironment(sourceEnv: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
-  const preservedKeys = ['PATH', 'Path', 'HOME', 'USERPROFILE', 'APPDATA', 'LOCALAPPDATA', 'TEMP', 'TMP', 'SystemRoot', 'WINDIR'] as const;
+  const preservedKeys = [
+    'PATH',
+    'Path',
+    'HOME',
+    'USERPROFILE',
+    'APPDATA',
+    'LOCALAPPDATA',
+    'TEMP',
+    'TMP',
+    'SystemRoot',
+    'WINDIR'
+  ] as const;
   const environment: NodeJS.ProcessEnv = {};
 
   for (const key of preservedKeys) {
@@ -38,7 +49,11 @@ function terminateCodegraphProcess(childProcess: ChildProcess): void {
 
   if (process.platform === 'win32') {
     if (process.env.SystemRoot) {
-      spawn(join(process.env.SystemRoot, 'System32', 'taskkill.exe'), ['/pid', String(childProcess.pid), '/T', '/F'], { shell: false, stdio: 'ignore', windowsHide: true });
+      spawn(
+        join(process.env.SystemRoot, 'System32', 'taskkill.exe'),
+        ['/pid', String(childProcess.pid), '/T', '/F'],
+        { shell: false, stdio: 'ignore', windowsHide: true }
+      );
     } else {
       childProcess.kill();
     }
@@ -52,7 +67,9 @@ function terminateCodegraphProcess(childProcess: ChildProcess): void {
   }
 }
 
-export function defaultCodegraphProcessRunner(invocation: CodegraphInvocation): Promise<CodegraphExecutionResult> {
+export function defaultCodegraphProcessRunner(
+  invocation: CodegraphInvocation
+): Promise<CodegraphExecutionResult> {
   return new Promise((resolveResult, reject) => {
     const childProcess = spawn(invocation.executable, invocation.args, {
       cwd: invocation.cwd,

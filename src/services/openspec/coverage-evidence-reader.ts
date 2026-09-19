@@ -87,8 +87,7 @@ export type CapabilityCoverageMismatch = {
 };
 
 export type CoverageValidation =
-  | { ok: true }
-  | { ok: false; mismatches: ReadonlyArray<CapabilityCoverageMismatch> };
+  { ok: true } | { ok: false; mismatches: ReadonlyArray<CapabilityCoverageMismatch> };
 
 // ---------------------------------------------------------------------------
 // Discovery
@@ -96,7 +95,7 @@ export type CoverageValidation =
 
 const DEFAULT_DISCOVERY = [
   (root: string) => `${root}/coverage/coverage-summary.json`,
-  (root: string) => `${root}/openspec/coverage-summary.json`,
+  (root: string) => `${root}/openspec/coverage-summary.json`
 ];
 
 /**
@@ -123,7 +122,11 @@ export async function resolveCoverageSummaryPath(input: {
     if (await isReadable(abs)) {
       return ok(abs);
     }
-    return err({ code: 'not-readable', path: abs, message: `Cannot read coverage summary at ${abs}` });
+    return err({
+      code: 'not-readable',
+      path: abs,
+      message: `Cannot read coverage summary at ${abs}`
+    });
   }
 
   for (const factory of DEFAULT_DISCOVERY) {
@@ -197,7 +200,7 @@ export async function readC8Summary(path: string): Promise<CoverageSummary> {
       statements,
       branches,
       functions,
-      lines,
+      lines
     });
   }
 
@@ -205,7 +208,7 @@ export async function readC8Summary(path: string): Promise<CoverageSummary> {
   return {
     path,
     capturedAt: stat_.mtime.toISOString(),
-    files,
+    files
   };
 }
 
@@ -215,7 +218,8 @@ function asMetric(input: unknown): { pct: number; covered: number; total: number
   const pct = obj['pct'];
   const covered = obj['covered'];
   const total = obj['total'];
-  if (typeof pct !== 'number' || typeof covered !== 'number' || typeof total !== 'number') return null;
+  if (typeof pct !== 'number' || typeof covered !== 'number' || typeof total !== 'number')
+    return null;
   return { pct, covered, total };
 }
 
@@ -285,7 +289,10 @@ export async function parseCapabilityMapping(proposalPath: string): Promise<{
 function parseCapabilityRow(line: string): Omit<CapabilityMappingRow, 'line'> | null {
   const trimmed = line.trim();
   if (!trimmed.startsWith('|')) return null;
-  const cells = trimmed.split('|').slice(1, -1).map((c) => c.trim());
+  const cells = trimmed
+    .split('|')
+    .slice(1, -1)
+    .map((c) => c.trim());
   if (cells.length < 2) return null;
   const capability = cells[0];
   const source = cells[1];
@@ -295,7 +302,7 @@ function parseCapabilityRow(line: string): Omit<CapabilityMappingRow, 'line'> | 
   if (/^-+$/.test(capability.replace(/\s+/g, ''))) return null;
   const row: Omit<CapabilityMappingRow, 'line'> = {
     capability,
-    source: normalizePath(source).replace(/^\.\//, '').replace(/\/$/, ''),
+    source: normalizePath(source).replace(/^\.\//, '').replace(/\/$/, '')
   };
   if (testAnchor !== undefined && testAnchor !== '') {
     row.testAnchor = testAnchor;
@@ -387,7 +394,7 @@ export async function validateCapabilityCoverage(input: {
         failing.push({
           path: file,
           actual: { statements: 0, branches: 0, functions: 0, lines: 0 },
-          reason: 'missing-from-summary',
+          reason: 'missing-from-summary'
         });
         continue;
       }
@@ -403,9 +410,9 @@ export async function validateCapabilityCoverage(input: {
             statements: entry.statements.pct,
             branches: entry.branches.pct,
             functions: entry.functions.pct,
-            lines: entry.lines.pct,
+            lines: entry.lines.pct
           },
-          reason: 'below-threshold',
+          reason: 'below-threshold'
         });
       }
     }
@@ -414,7 +421,7 @@ export async function validateCapabilityCoverage(input: {
       mismatches.push({
         capability: row.capability,
         source: row.source,
-        failingFiles: failing,
+        failingFiles: failing
       });
     }
   }
@@ -450,7 +457,7 @@ export async function findStaleChangeFiles(input: {
   const candidates = [
     `${changeRoot}/proposal.md`,
     `${changeRoot}/tasks.md`,
-    `${changeRoot}/design.md`,
+    `${changeRoot}/design.md`
   ];
   // spec files
   const specsRoot = `${changeRoot}/specs`;

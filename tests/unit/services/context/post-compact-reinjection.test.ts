@@ -140,7 +140,11 @@ describe('behavior — post-compact re-injection card stays inside its budget', 
 
   it('when blocks are rendered, should order them by rank regardless of input order', () => {
     // given: the blocks handed over out of order
-    const blocks: ReinjectionBlock[] = [block(2, 'RULES', 30), block(0, 'TITLE', 20), block(1, 'POINTERS', 30)];
+    const blocks: ReinjectionBlock[] = [
+      block(2, 'RULES', 30),
+      block(0, 'TITLE', 20),
+      block(1, 'POINTERS', 30)
+    ];
     // when: the card is rendered with room for all of them
     const card = renderReinjectionCard({ blocks, budgetBytes: 1000 });
     // then: the emitted order is the rank order, not the caller's order
@@ -232,7 +236,11 @@ describe('behavior — post-compact re-injection reads only what exists', () => 
       }),
       'utf8'
     );
-    writeFileSync(join(sess, 'rd', 'requests', '2026-09-13-a2-post-compact-reinject.md'), 'x', 'utf8');
+    writeFileSync(
+      join(sess, 'rd', 'requests', '2026-09-13-a2-post-compact-reinject.md'),
+      'x',
+      'utf8'
+    );
     writeFileSync(
       join(sess, 'job-shape.json'),
       JSON.stringify({
@@ -287,7 +295,9 @@ describe('behavior — post-compact re-injection reads only what exists', () => 
     // then: every rank the renderer can emit is declared once, in order —
     //       the drop rule reads this list, so an unlisted rank would be a
     //       block that can never be prioritized
-    expect([...REINJECTION_BLOCK_RANKS]).toEqual([...REINJECTION_BLOCK_RANKS].slice().sort((a, b) => a - b));
+    expect([...REINJECTION_BLOCK_RANKS]).toEqual(
+      [...REINJECTION_BLOCK_RANKS].slice().sort((a, b) => a - b)
+    );
     expect(new Set(REINJECTION_BLOCK_RANKS).size).toBe(REINJECTION_BLOCK_RANKS.length);
     expect(REINJECTION_BLOCK_RANKS.length).toBeGreaterThan(0);
   });

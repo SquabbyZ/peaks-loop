@@ -19,7 +19,8 @@
 import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
-export type LegacyKind = 'todo' | 'console-log' | 'any-type' | 'large-file' | 'ts-ignore' | 'fixme' | 'hack';
+export type LegacyKind =
+  'todo' | 'console-log' | 'any-type' | 'large-file' | 'ts-ignore' | 'fixme' | 'hack';
 
 // (LegacyKind was a 5-string union; the rest (fixme, hack) are derived
 //  from the todo regex but counted into the summary separately. The 5 + 2
@@ -70,7 +71,12 @@ function scanFile(file: string): LegacyFinding[] {
     }
   }
   if (lines.length > LARGE_FILE_LINES) {
-    findings.push({ kind: 'large-file', file, line: null, excerpt: `${lines.length} lines (> ${LARGE_FILE_LINES})` });
+    findings.push({
+      kind: 'large-file',
+      file,
+      line: null,
+      excerpt: `${lines.length} lines (> ${LARGE_FILE_LINES})`
+    });
   }
   return findings;
 }
@@ -86,10 +92,23 @@ function walkFiles(root: string, maxDepth: number = 8): string[] {
       return;
     }
     for (const e of entries) {
-      if (e.name === 'node_modules' || e.name === '.git' || e.name === 'dist' || e.name === 'node_modules' || e.name.startsWith('.')) continue;
+      if (
+        e.name === 'node_modules' ||
+        e.name === '.git' ||
+        e.name === 'dist' ||
+        e.name === 'node_modules' ||
+        e.name.startsWith('.')
+      )
+        continue;
       const full = join(dir, e.name);
       if (e.isDirectory()) walk(full, depth + 1);
-      else if (e.isFile() && (e.name.endsWith('.ts') || e.name.endsWith('.js') || e.name.endsWith('.tsx') || e.name.endsWith('.jsx'))) {
+      else if (
+        e.isFile() &&
+        (e.name.endsWith('.ts') ||
+          e.name.endsWith('.js') ||
+          e.name.endsWith('.tsx') ||
+          e.name.endsWith('.jsx'))
+      ) {
         out.push(full);
       }
     }
@@ -101,7 +120,15 @@ function walkFiles(root: string, maxDepth: number = 8): string[] {
 export function detectLegacy(projectRoot: string, dir: string = 'src'): LegacyReport {
   const root = resolve(projectRoot, dir);
   if (!existsSync(root)) {
-    const empty: Record<LegacyKind, number> = { todo: 0, 'console-log': 0, 'any-type': 0, 'large-file': 0, 'ts-ignore': 0, fixme: 0, hack: 0 };
+    const empty: Record<LegacyKind, number> = {
+      todo: 0,
+      'console-log': 0,
+      'any-type': 0,
+      'large-file': 0,
+      'ts-ignore': 0,
+      fixme: 0,
+      hack: 0
+    };
     return { projectRoot, scannedFiles: 0, findings: [], summary: empty, smells: 'low' };
   }
   const files = walkFiles(root);
@@ -110,9 +137,17 @@ export function detectLegacy(projectRoot: string, dir: string = 'src'): LegacyRe
     findings.push(...scanFile(f));
   }
   // Re-key console-log to match the union
-  const mapped = findings.map((f) => f.kind === 'console-log' ? { ...f, kind: 'console-log' as LegacyKind } : f);
+  const mapped = findings.map((f) =>
+    f.kind === 'console-log' ? { ...f, kind: 'console-log' as LegacyKind } : f
+  );
   const summary: Record<LegacyKind, number> = {
-    todo: 0, 'console-log': 0, 'any-type': 0, 'large-file': 0, 'ts-ignore': 0, fixme: 0, hack: 0
+    todo: 0,
+    'console-log': 0,
+    'any-type': 0,
+    'large-file': 0,
+    'ts-ignore': 0,
+    fixme: 0,
+    hack: 0
   };
   for (const f of mapped) {
     // The todo pattern catches both TODO and FIXME/HACK; reflect into fixme/hack as well when applicable

@@ -1,11 +1,23 @@
 import { auditGoal, IncompleteAuditError } from '../../audit/audit-goal-service.js';
 import type { LlmRunner } from '../../audit/audit-goal-service.js';
 import type { GuardContext, GuardRunResult } from '../types.js';
-import { combineProbes, fail, missingSourceFiles, pass, probe, requireBaselineRow } from './_shared.js';
+import {
+  combineProbes,
+  fail,
+  missingSourceFiles,
+  pass,
+  probe,
+  requireBaselineRow
+} from './_shared.js';
 
 /** The six dimensions the frozen baseline names, in the baseline's own order. */
 const SIX_DIMENSIONS: ReadonlyArray<string> = [
-  'correctness', 'completeness', 'scope', 'risks', 'alternatives', 'constraints'
+  'correctness',
+  'completeness',
+  'scope',
+  'risks',
+  'alternatives',
+  'constraints'
 ];
 
 function runnerReturning(output: string): LlmRunner {
@@ -70,10 +82,19 @@ export async function runJ04Contract(ctx: GuardContext): Promise<GuardRunResult>
   const result = combineProbes([
     probe(missing.length === 0, `baseline sourceFiles present (${row.sourceFiles.length})`),
     probe(completeAccepted, 'six-dimension audit is accepted'),
-    probe(completeCount === 6, `accepted audit carries exactly 6 dimensions (saw ${completeCount})`),
+    probe(
+      completeCount === 6,
+      `accepted audit carries exactly 6 dimensions (saw ${completeCount})`
+    ),
     probe(fiveRejected, 'five-dimension audit is rejected'),
-    probe(rejectName === 'IncompleteAuditError', `rejection is IncompleteAuditError (saw ${rejectName}, ${IncompleteAuditError.name})`),
-    probe(eachDropRejected, `dropping any single dimension is rejected (accepted: ${[...accepted].join(',') || 'none'})`)
+    probe(
+      rejectName === 'IncompleteAuditError',
+      `rejection is IncompleteAuditError (saw ${rejectName}, ${IncompleteAuditError.name})`
+    ),
+    probe(
+      eachDropRejected,
+      `dropping any single dimension is rejected (accepted: ${[...accepted].join(',') || 'none'})`
+    )
   ]);
 
   const artifact = row.sourceFiles[0] ?? 'src/services/audit/audit-goal-service.ts';

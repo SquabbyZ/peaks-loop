@@ -12,7 +12,10 @@ export function isIdeKind(value: string): value is IdeKind {
 }
 
 export function detectIdeFromEnv(env: NodeJS.ProcessEnv = process.env): IdeKind {
-  if (typeof env['CLAUDE_CODE_ENTRYPOINT'] === 'string' && env['CLAUDE_CODE_ENTRYPOINT'].length > 0) {
+  if (
+    typeof env['CLAUDE_CODE_ENTRYPOINT'] === 'string' &&
+    env['CLAUDE_CODE_ENTRYPOINT'].length > 0
+  ) {
     return 'claude-code';
   }
   if (typeof env['CLAUDE_SESSION_ID'] === 'string' && env['CLAUDE_SESSION_ID'].length > 0) {

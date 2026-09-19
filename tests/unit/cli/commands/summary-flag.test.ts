@@ -29,8 +29,11 @@ declareDimensions(
   'tests/unit/cli/commands/summary-flag.test.ts',
   ['render', 'behavior', 'integration'],
   [
-    { dim: 'a11y', reason: 'the JSON envelope is the whole surface; no human-readable rendering is added' },
-  ],
+    {
+      dim: 'a11y',
+      reason: 'the JSON envelope is the whole surface; no human-readable rendering is added'
+    }
+  ]
 );
 
 const getWs = withTmpWorkspacePerTest('peaks-summary-');
@@ -40,7 +43,11 @@ function seedUnclassified(wsPath: string, n: number): void {
   const memoryDir = `${wsPath}/.peaks/memory`;
   mkdirSync(memoryDir, { recursive: true });
   for (let i = 0; i < n; i++) {
-    writeFileSync(`${memoryDir}/stray-${i}.md`, `# stray ${i}\n\nNo frontmatter, no kind.\n`, 'utf8');
+    writeFileSync(
+      `${memoryDir}/stray-${i}.md`,
+      `# stray ${i}\n\nNo frontmatter, no kind.\n`,
+      'utf8'
+    );
   }
 }
 
@@ -50,20 +57,33 @@ function seedUnclassified(wsPath: string, n: number): void {
  * otherwise race the assertion. One CLI-wiring test below proves the flag
  * reaches the run function.
  */
-async function runReindex(wsPath: string, summary: boolean): Promise<{ ok: boolean; data: Record<string, unknown> }> {
+async function runReindex(
+  wsPath: string,
+  summary: boolean
+): Promise<{ ok: boolean; data: Record<string, unknown> }> {
   const { io, captured } = makeCapturedIo();
-  await runMemoryReindex(io, summary ? { project: wsPath, json: true, summary: true } : { project: wsPath, json: true });
+  await runMemoryReindex(
+    io,
+    summary ? { project: wsPath, json: true, summary: true } : { project: wsPath, json: true }
+  );
   return JSON.parse(captured.text().trim()) as { ok: boolean; data: Record<string, unknown> };
 }
 
-async function runList(wsPath: string, summary: boolean): Promise<{ ok: boolean; data: Record<string, unknown> }> {
+async function runList(
+  wsPath: string,
+  summary: boolean
+): Promise<{ ok: boolean; data: Record<string, unknown> }> {
   const { io, captured } = makeCapturedIo();
-  await runMemoryList(io, summary ? { project: wsPath, json: true, summary: true } : { project: wsPath, json: true });
+  await runMemoryList(
+    io,
+    summary ? { project: wsPath, json: true, summary: true } : { project: wsPath, json: true }
+  );
   return JSON.parse(captured.text().trim()) as { ok: boolean; data: Record<string, unknown> };
 }
 
 /** Size AS PRINTED — the CLI serializes with `null, 2`. */
-const bytes = (value: unknown): number => Buffer.byteLength(JSON.stringify(value, null, 2) ?? '', 'utf8');
+const bytes = (value: unknown): number =>
+  Buffer.byteLength(JSON.stringify(value, null, 2) ?? '', 'utf8');
 
 describe('render — memory reindex --summary is bounded and additive', () => {
   beforeEach(() => {
@@ -119,8 +139,9 @@ describe('render — memory reindex --summary is bounded and additive', () => {
     expect(summary.data.scannedFiles).toBe(full.data.scannedFiles);
     expect(summary.data.indexed).toBe(full.data.indexed);
     expect(summary.data.indexPath).toBe(full.data.indexPath);
-    expect((summary.data.unclassified as { count: number }).count)
-      .toBe((full.data.unclassified as unknown[]).length);
+    expect((summary.data.unclassified as { count: number }).count).toBe(
+      (full.data.unclassified as unknown[]).length
+    );
   });
 });
 
@@ -141,16 +162,18 @@ describe('integration — the CLI flag reaches the run function', () => {
     const { io, captured } = makeCapturedIo();
     const program = new Command();
     registerMemoryCommand(program, io);
-    await program.parseAsync(
-      ['memory', 'reindex', '--summary', '--project', ws.path, '--json'],
-      { from: 'user' }
-    );
+    await program.parseAsync(['memory', 'reindex', '--summary', '--project', ws.path, '--json'], {
+      from: 'user'
+    });
     for (let i = 0; i < 200 && captured.text().trim().length === 0; i++) {
       await new Promise((resolve) => setTimeout(resolve, 10));
     }
 
     // then: the flag reached runMemoryReindex and produced the summary view
-    const envelope = JSON.parse(captured.text().trim()) as { ok: boolean; data: Record<string, unknown> };
+    const envelope = JSON.parse(captured.text().trim()) as {
+      ok: boolean;
+      data: Record<string, unknown>;
+    };
     expect(envelope.ok).toBe(true);
     expect(envelope.data.view).toBe('summary');
   });

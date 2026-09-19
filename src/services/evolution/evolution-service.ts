@@ -1,5 +1,5 @@
-import type Database from "better-sqlite3";
-import { ZodError } from "zod";
+import type Database from 'better-sqlite3';
+import { ZodError } from 'zod';
 import {
   EvolutionEvaluationSchema,
   EvolutionProposalInputSchema,
@@ -10,8 +10,8 @@ import {
   type EvolutionProposal,
   type EvolutionProposalInput,
   type EvolutionTargetKind,
-  type EvolutionVerdict,
-} from "./evolution-types.js";
+  type EvolutionVerdict
+} from './evolution-types.js';
 import {
   buildProposal,
   computeScoreDelta,
@@ -20,8 +20,8 @@ import {
   insertEvolutionEvaluation,
   listEvolutionEvaluationsByTarget,
   newEvaluationId,
-  updateEvolutionVerdict,
-} from "./evolution-store.js";
+  updateEvolutionVerdict
+} from './evolution-store.js';
 
 /**
  * EvolutionService — Darwin-style ratchet enforcement.
@@ -54,12 +54,12 @@ import {
 /* ---------------------------------------------------------------------- */
 
 export type EvolutionIntegrityErrorCode =
-  | "EVOLUTION_MULTI_OBJECT"
-  | "EVOLUTION_MULTI_DIMENSION"
-  | "EVOLUTION_SELF_SCORE"
-  | "EVOLUTION_DELTA_BELOW_THRESHOLD"
-  | "EVOLUTION_MISSING_USER_CONFIRMATION"
-  | "EVOLUTION_BELOW_RUBRIC";
+  | 'EVOLUTION_MULTI_OBJECT'
+  | 'EVOLUTION_MULTI_DIMENSION'
+  | 'EVOLUTION_SELF_SCORE'
+  | 'EVOLUTION_DELTA_BELOW_THRESHOLD'
+  | 'EVOLUTION_MISSING_USER_CONFIRMATION'
+  | 'EVOLUTION_BELOW_RUBRIC';
 
 export class EvolutionIntegrityError extends Error {
   readonly code: EvolutionIntegrityErrorCode;
@@ -71,7 +71,7 @@ export class EvolutionIntegrityError extends Error {
     findings: ReadonlyArray<{ path: string; message: string }> = []
   ) {
     super(message);
-    this.name = "EvolutionIntegrityError";
+    this.name = 'EvolutionIntegrityError';
     this.code = code;
     this.findings = findings;
   }
@@ -115,32 +115,31 @@ export class EvolutionService {
     // can assert on a single error code.
     let parsedInput: EvolutionProposalInput;
     try {
-      parsedInput =
-        EvolutionProposalInputSchema.parse(input) as EvolutionProposalInput;
+      parsedInput = EvolutionProposalInputSchema.parse(input) as EvolutionProposalInput;
     } catch (err) {
       if (err instanceof ZodError) {
         const issue = err.issues[0];
-        if (issue?.path[0] === "single_object") {
+        if (issue?.path[0] === 'single_object') {
           throw new EvolutionIntegrityError(
-            "EVOLUTION_MULTI_OBJECT",
-            "proposal must target exactly one object (single_object=true); split multi-object changes into multiple rounds",
+            'EVOLUTION_MULTI_OBJECT',
+            'proposal must target exactly one object (single_object=true); split multi-object changes into multiple rounds',
             [
               {
-                path: "single_object",
-                message: issue.message,
-              },
+                path: 'single_object',
+                message: issue.message
+              }
             ]
           );
         }
-        if (issue?.path[0] === "single_optimization_dimension") {
+        if (issue?.path[0] === 'single_optimization_dimension') {
           throw new EvolutionIntegrityError(
-            "EVOLUTION_MULTI_DIMENSION",
-            "proposal must declare exactly one optimization dimension (single_optimization_dimension=true); split multi-dimension changes into multiple rounds",
+            'EVOLUTION_MULTI_DIMENSION',
+            'proposal must declare exactly one optimization dimension (single_optimization_dimension=true); split multi-dimension changes into multiple rounds',
             [
               {
-                path: "single_optimization_dimension",
-                message: issue.message,
-              },
+                path: 'single_optimization_dimension',
+                message: issue.message
+              }
             ]
           );
         }
@@ -152,20 +151,20 @@ export class EvolutionService {
     // the literal(true), still enforce at the service boundary.
     if (parsedInput.single_object !== true) {
       throw new EvolutionIntegrityError(
-        "EVOLUTION_MULTI_OBJECT",
-        "proposal must target exactly one object (single_object=true); split multi-object changes into multiple rounds",
-        [{ path: "single_object", message: "must be true (AC-8)" }]
+        'EVOLUTION_MULTI_OBJECT',
+        'proposal must target exactly one object (single_object=true); split multi-object changes into multiple rounds',
+        [{ path: 'single_object', message: 'must be true (AC-8)' }]
       );
     }
     if (parsedInput.single_optimization_dimension !== true) {
       throw new EvolutionIntegrityError(
-        "EVOLUTION_MULTI_DIMENSION",
-        "proposal must declare exactly one optimization dimension (single_optimization_dimension=true); split multi-dimension changes into multiple rounds",
+        'EVOLUTION_MULTI_DIMENSION',
+        'proposal must declare exactly one optimization dimension (single_optimization_dimension=true); split multi-dimension changes into multiple rounds',
         [
           {
-            path: "single_optimization_dimension",
-            message: "must be true (AC-8)",
-          },
+            path: 'single_optimization_dimension',
+            message: 'must be true (AC-8)'
+          }
         ]
       );
     }
@@ -177,17 +176,21 @@ export class EvolutionService {
     const stub: EvolutionEvaluationInput = {
       id,
       proposal,
-      evaluator_id: "pending",
-      skeptic_id: "pending",
-      evaluator_result: { score: parsedInput.before_score, riskTags: [], refuteParagraph: "pending" },
+      evaluator_id: 'pending',
+      skeptic_id: 'pending',
+      evaluator_result: {
+        score: parsedInput.before_score,
+        riskTags: [],
+        refuteParagraph: 'pending'
+      },
       skeptic_result: {
         driftRisks: [],
         overfitRisks: [],
-        safetyRegressionRisks: [],
+        safetyRegressionRisks: []
       },
-      verdict: "needs-user-decision",
-      schema_version: "peaks.evolution/1",
-      created_at: proposal.created_at,
+      verdict: 'needs-user-decision',
+      schema_version: 'peaks.evolution/1',
+      created_at: proposal.created_at
     };
     insertEvolutionEvaluation(this.db, stub);
     return proposal;
@@ -219,8 +222,8 @@ export class EvolutionService {
     args: {
       evaluator_id: string;
       skeptic_id: string;
-      evaluator_result: import("./evolution-types.js").IndependentEvaluatorResult;
-      skeptic_result: import("./evolution-types.js").RegressionSkepticResult;
+      evaluator_result: import('./evolution-types.js').IndependentEvaluatorResult;
+      skeptic_result: import('./evolution-types.js').RegressionSkepticResult;
       brief_pointer?: string;
       user_confirmation_pointer?: string;
     }
@@ -228,49 +231,46 @@ export class EvolutionService {
     const existing = getEvolutionEvaluation(this.db, proposalId);
     if (!existing) {
       throw new EvolutionIntegrityError(
-        "EVOLUTION_BELOW_RUBRIC",
+        'EVOLUTION_BELOW_RUBRIC',
         `evolution_evaluation row '${proposalId}' not found`,
-        [{ path: "id", message: "row not found" }]
+        [{ path: 'id', message: 'row not found' }]
       );
     }
 
     // AC-10: scorer MUST NOT be the author.
     if (args.evaluator_id === existing.proposal.author_id) {
       throw new EvolutionIntegrityError(
-        "EVOLUTION_SELF_SCORE",
+        'EVOLUTION_SELF_SCORE',
         `evaluator_id '${args.evaluator_id}' equals author_id '${existing.proposal.author_id}'; self-scoring is forbidden (AC-10)`,
-        [{ path: "evaluator_id", message: "must differ from author_id" }]
+        [{ path: 'evaluator_id', message: 'must differ from author_id' }]
       );
     }
     // AC-12 / AC-14: skeptic and evaluator are SEPARATE agents.
     if (args.skeptic_id === existing.proposal.author_id) {
       throw new EvolutionIntegrityError(
-        "EVOLUTION_SELF_SCORE",
+        'EVOLUTION_SELF_SCORE',
         `skeptic_id '${args.skeptic_id}' equals author_id '${existing.proposal.author_id}'; the skeptic must be a separate agent (AC-14)`,
-        [{ path: "skeptic_id", message: "must differ from author_id" }]
+        [{ path: 'skeptic_id', message: 'must differ from author_id' }]
       );
     }
     if (args.skeptic_id === args.evaluator_id) {
       throw new EvolutionIntegrityError(
-        "EVOLUTION_SELF_SCORE",
+        'EVOLUTION_SELF_SCORE',
         `skeptic_id '${args.skeptic_id}' equals evaluator_id '${args.evaluator_id}'; the skeptic must be a separate agent from the evaluator (AC-12/AC-14)`,
-        [{ path: "skeptic_id", message: "must differ from evaluator_id" }]
+        [{ path: 'skeptic_id', message: 'must differ from evaluator_id' }]
       );
     }
 
     const after_score = args.evaluator_result.score;
-    const score_delta = computeScoreDelta(
-      existing.proposal.before_score,
-      after_score
-    );
+    const score_delta = computeScoreDelta(existing.proposal.before_score, after_score);
     const min = existing.proposal.score_delta_min;
 
     // Derive verdict. The skeptic's `blocker` is a hard revert.
-    let verdict: EvolutionVerdict = "needs-user-decision";
+    let verdict: EvolutionVerdict = 'needs-user-decision';
     if (args.skeptic_result.blocker !== undefined) {
-      verdict = "revert";
+      verdict = 'revert';
     } else if (score_delta < min) {
-      verdict = "revert";
+      verdict = 'revert';
     }
 
     const next: EvolutionEvaluationInput = {
@@ -278,7 +278,7 @@ export class EvolutionService {
       proposal: {
         ...existing.proposal,
         after_score,
-        score_delta,
+        score_delta
       },
       evaluator_id: args.evaluator_id,
       skeptic_id: args.skeptic_id,
@@ -289,13 +289,13 @@ export class EvolutionService {
       ...(args.user_confirmation_pointer !== undefined
         ? { user_confirmation_pointer: args.user_confirmation_pointer }
         : {}),
-      schema_version: "peaks.evolution/1",
-      created_at: new Date().toISOString(),
+      schema_version: 'peaks.evolution/1',
+      created_at: new Date().toISOString()
     };
 
     // AC-11 (delta threshold) explicit guard: if the caller
     // explicitly asks to mark `keep` but delta < min, throw.
-    if (verdict === "needs-user-decision" && score_delta < min) {
+    if (verdict === 'needs-user-decision' && score_delta < min) {
       // The auto-derivation already pinned verdict to `revert`; the
       // guard is for the explicit `markVerdict('keep')` path below.
     }
@@ -303,13 +303,11 @@ export class EvolutionService {
     // Re-validate before persisting.
     const validated = EvolutionEvaluationSchema.parse({
       ...next,
-      score_delta,
+      score_delta
     }) as EvolutionEvaluation;
 
     // Delete + re-insert keeps the row simple; volume is tiny.
-    this.db
-      .prepare("DELETE FROM evolution_evaluation WHERE id = ?")
-      .run(existing.id);
+    this.db.prepare('DELETE FROM evolution_evaluation WHERE id = ?').run(existing.id);
     insertEvolutionEvaluation(this.db, validated);
     return validated;
   }
@@ -336,56 +334,39 @@ export class EvolutionService {
     const existing = getEvolutionEvaluation(this.db, proposalId);
     if (!existing) return undefined;
 
-    if (verdict === "keep") {
+    if (verdict === 'keep') {
       if (existing.proposal.score_delta < existing.proposal.score_delta_min) {
         throw new EvolutionIntegrityError(
-          "EVOLUTION_DELTA_BELOW_THRESHOLD",
+          'EVOLUTION_DELTA_BELOW_THRESHOLD',
           `score_delta ${existing.proposal.score_delta} is below score_delta_min ${existing.proposal.score_delta_min}; cannot mark keep (AC-11)`,
           [
             {
-              path: "verdict",
-              message:
-                "score_delta below score_delta_min; revert instead or raise the score",
-            },
+              path: 'verdict',
+              message: 'score_delta below score_delta_min; revert instead or raise the score'
+            }
           ]
         );
       }
-      if (
-        userConfirmationPointer === undefined ||
-        userConfirmationPointer.trim().length === 0
-      ) {
+      if (userConfirmationPointer === undefined || userConfirmationPointer.trim().length === 0) {
         throw new EvolutionIntegrityError(
-          "EVOLUTION_MISSING_USER_CONFIRMATION",
+          'EVOLUTION_MISSING_USER_CONFIRMATION',
           "marking verdict='keep' requires a user_confirmation_pointer (AC-15)",
           [
             {
-              path: "user_confirmation_pointer",
-              message: "required for verdict='keep'",
-            },
+              path: 'user_confirmation_pointer',
+              message: "required for verdict='keep'"
+            }
           ]
         );
       }
     }
 
-    return updateEvolutionVerdict(
-      this.db,
-      proposalId,
-      verdict,
-      userConfirmationPointer
-    );
+    return updateEvolutionVerdict(this.db, proposalId, verdict, userConfirmationPointer);
   }
 
   /** Revert a proposal (universal recovery). Always allowed. */
-  revert(
-    proposalId: string,
-    userConfirmationPointer?: string
-  ): EvolutionEvaluation | undefined {
-    return updateEvolutionVerdict(
-      this.db,
-      proposalId,
-      "revert",
-      userConfirmationPointer
-    );
+  revert(proposalId: string, userConfirmationPointer?: string): EvolutionEvaluation | undefined {
+    return updateEvolutionVerdict(this.db, proposalId, 'revert', userConfirmationPointer);
   }
 
   /** Read an evolution evaluation by id. */
@@ -407,10 +388,7 @@ export class EvolutionService {
    * evaluations by verdict for the given target, plus the latest
    * evaluation id (if any).
    */
-  status(target: {
-    target_kind: EvolutionTargetKind;
-    target_release_id: string;
-  }): {
+  status(target: { target_kind: EvolutionTargetKind; target_release_id: string }): {
     target_kind: EvolutionTargetKind;
     target_release_id: string;
     total: number;
@@ -419,12 +397,12 @@ export class EvolutionService {
   } {
     const all = listEvolutionEvaluationsByTarget(this.db, {
       target_kind: target.target_kind,
-      target_release_id: target.target_release_id,
+      target_release_id: target.target_release_id
     });
     const byVerdict: Record<EvolutionVerdict, number> = {
       keep: 0,
       revert: 0,
-      "needs-user-decision": 0,
+      'needs-user-decision': 0
     };
     for (const row of all) byVerdict[row.verdict] += 1;
     const latest = all.length > 0 ? all[0] : undefined;
@@ -433,7 +411,7 @@ export class EvolutionService {
       target_release_id: target.target_release_id,
       total: all.length,
       byVerdict,
-      latest,
+      latest
     };
   }
 }

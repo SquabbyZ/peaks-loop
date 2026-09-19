@@ -91,7 +91,10 @@ export function tryGetSessionDir(
   // That would re-introduce the swallow this function exists to remove, and it
   // would also catch a throw from `join` for reasons that are not a bad id.
   if (isUnsafePathInput(sessionId)) {
-    return { ok: false, reason: `Invalid session id: ${sessionId} (must be a single path segment)` };
+    return {
+      ok: false,
+      reason: `Invalid session id: ${sessionId} (must be a single path segment)`
+    };
   }
   return { ok: true, dir: join(projectRoot, '.peaks', '_runtime', sessionId) };
 }

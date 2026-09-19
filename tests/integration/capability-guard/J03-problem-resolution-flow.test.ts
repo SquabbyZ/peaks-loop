@@ -12,7 +12,12 @@ const JOURNEY = 'J03' as const;
 describe('J03 problem-resolution-flow contract', () => {
   it('runs the repository AST guard and keeps silent-catch counts at or below the frozen ceilings', async () => {
     const contract = getGuardContract(JOURNEY)!;
-    const r = await runGuard(contract, { projectRoot: REPO, sessionId: JOURNEY, contract, baselineInvariant: 'auto' });
+    const r = await runGuard(contract, {
+      projectRoot: REPO,
+      sessionId: JOURNEY,
+      contract,
+      baselineInvariant: 'auto'
+    });
     expect(r.status).toBe('pass');
   }, 300_000);
 });

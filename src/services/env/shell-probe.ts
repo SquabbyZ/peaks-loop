@@ -94,7 +94,11 @@ export interface ShellProbeRunner {
    * throws (or returns `null`) on failure. The probe treats
    * `null`-returns the same as thrown errors.
    */
-  run(command: string, args: readonly string[], opts: { timeoutMs: number }): Promise<{ stdout: string } | null>;
+  run(
+    command: string,
+    args: readonly string[],
+    opts: { timeoutMs: number }
+  ): Promise<{ stdout: string } | null>;
 }
 
 const DEFAULT_TIMEOUT_MS = 3_000;
@@ -110,7 +114,10 @@ const defaultRunner: ShellProbeRunner = {
         resolveRun(value);
       };
       try {
-        const child = spawn(command, args, { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
+        const child = spawn(command, args, {
+          stdio: ['ignore', 'pipe', 'pipe'],
+          windowsHide: true
+        });
         let stdout = '';
         child.stdout?.on('data', (chunk) => {
           stdout += chunk.toString('utf8');
@@ -191,7 +198,10 @@ export async function probeShell(options: ShellProbeOptions = {}): Promise<Shell
   //    directory.
   const where = await runner.run('where', ['bash'], { timeoutMs });
   if (where !== null && where.stdout.trim().length > 0) {
-    const first = where.stdout.split(/\r?\n/).map((l) => l.trim()).find((l) => l.length > 0);
+    const first = where.stdout
+      .split(/\r?\n/)
+      .map((l) => l.trim())
+      .find((l) => l.length > 0);
     if (first !== undefined) {
       return {
         available: true,

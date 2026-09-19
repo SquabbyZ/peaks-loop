@@ -24,11 +24,15 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { declareDimensions } from '../../_setup/4dim-template.js';
 import { makeCapturedIo } from '../../_setup/io.js';
-import { cleanupTmpWorkspace, useTmpWorkspace, type TmpWorkspace } from '../../_setup/tmp-workspace.js';
+import {
+  cleanupTmpWorkspace,
+  useTmpWorkspace,
+  type TmpWorkspace
+} from '../../_setup/tmp-workspace.js';
 import { registerAwaitCommand } from '../../../../src/cli/commands/share-commands.js';
 import {
   markCompleted,
-  writeInitialDispatchRecord,
+  writeInitialDispatchRecord
 } from '../../../../src/services/dispatch/dispatch-record-writer.js';
 import type { SubAgentToolCall } from '../../../../src/services/dispatch/sub-agent-dispatcher.js';
 
@@ -36,7 +40,7 @@ declareDimensions('tests/unit/cli/commands/sub-agent-await-commands.test.ts', [
   'behavior',
   'render',
   'integration',
-  'a11y',
+  'a11y'
 ]);
 
 const SESSION_ID = '2026-09-16-session-n1await';
@@ -79,7 +83,7 @@ function seedRecord(ws: TmpWorkspace, requestId: string, batchId: string): strin
     prompt: `do ${requestId}`,
     toolCall: { name: 'Task', args: {} } satisfies SubAgentToolCall,
     batchId,
-    now: NOW,
+    now: NOW
   });
   return path;
 }
@@ -147,7 +151,13 @@ describe('behavior — a batch await reports what its records say', () => {
     expect(envelope.data?.results).toHaveLength(1);
     expect(envelope.data?.results?.[0]?.status).toBe('done');
     expect(envelope.data?.results?.[0]?.recordPath).toBe(recordPath);
-    expect(envelope.data?.summary).toEqual({ total: 1, done: 1, failed: 0, cancelled: 0, timeout: 0 });
+    expect(envelope.data?.summary).toEqual({
+      total: 1,
+      done: 1,
+      failed: 0,
+      cancelled: 0,
+      timeout: 0
+    });
     expect(process.exitCode).toBe(0);
   });
 

@@ -41,7 +41,7 @@ export const SYNC_PLATFORMS: readonly IdeId[] = [
   'qoder',
   'tongyi-lingma',
   'hermes',
-  'openclaw',
+  'openclaw'
 ];
 
 export interface PlatformSyncResult {
@@ -117,8 +117,8 @@ function noopInstaller(_opts: InstallBundledSkillsOptions): InstallResult {
   return {
     installed: [],
     skipped: [
-      'install-skills.mjs not found in project; skill sync skipped — bundled skills are installed via peaks-loop postinstall',
-    ],
+      'install-skills.mjs not found in project; skill sync skipped — bundled skills are installed via peaks-loop postinstall'
+    ]
   };
 }
 
@@ -135,7 +135,7 @@ const services: {
   loadInstallerForTest(scriptPath: string): Promise<InstallerFn | null>;
 } = {
   resolvePeaksCliInstallerPath,
-  loadInstallerForTest,
+  loadInstallerForTest
 };
 
 /**
@@ -162,7 +162,8 @@ export function resolvePeaksCliInstallerPath(): string | null {
       if (parent === cursor) break;
       cursor = parent;
     }
-  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+  } catch {
+    // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     // import.meta.url may be unavailable in some bundlers; fall through.
   }
 
@@ -183,7 +184,8 @@ export function resolvePeaksCliInstallerPath(): string | null {
         cursor = parent;
       }
     }
-  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+  } catch {
+    // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     // process.argv may be unavailable in some runtimes; fall through.
   }
 
@@ -203,15 +205,14 @@ export function resolvePeaksCliInstallerPath(): string | null {
  * `vi.spyOn` it to drive the three-tier probe without touching
  * the real filesystem.
  */
-export async function loadInstallerForTest(
-  scriptPath: string
-): Promise<InstallerFn | null> {
+export async function loadInstallerForTest(scriptPath: string): Promise<InstallerFn | null> {
   try {
     const mod = (await import(pathToFileURL(scriptPath).href)) as {
       installBundledSkills: InstallerFn;
     };
     return mod.installBundledSkills;
-  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+  } catch {
+    // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     return null;
   }
 }
@@ -297,14 +298,14 @@ export async function runSkillSync(input: SyncServiceInput): Promise<SyncService
         ideId: platform,
         projectRoot: input.projectRoot,
         ...(dryRun ? { dryRun: true } : {}),
-        ...(input.reconcileJunctions === true ? { reconcileJunctions: true } : {}),
+        ...(input.reconcileJunctions === true ? { reconcileJunctions: true } : {})
       });
       perPlatform.push({
         platform,
         ok: true,
         installed: result.installed,
         skipped: result.skipped,
-        durationMs: Date.now() - start,
+        durationMs: Date.now() - start
       });
       syncedCount += 1;
       totalInstalled += result.installed.length;
@@ -316,7 +317,7 @@ export async function runSkillSync(input: SyncServiceInput): Promise<SyncService
         installed: [],
         skipped: [],
         error: message,
-        durationMs: Date.now() - start,
+        durationMs: Date.now() - start
       });
       failedCount += 1;
     }
@@ -329,7 +330,7 @@ export async function runSkillSync(input: SyncServiceInput): Promise<SyncService
     perPlatform,
     syncedCount,
     failedCount,
-    totalInstalled,
+    totalInstalled
   };
 }
 
@@ -344,5 +345,5 @@ export const __testing = {
   services,
   resetInstallerCache(): void {
     cachedInstaller = null;
-  },
+  }
 };

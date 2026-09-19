@@ -1,6 +1,12 @@
 import { Command } from 'commander';
 import { addJsonOption, printResult, type ProgramIO } from '../cli-helpers.js';
-import { detectIdeFromContext, parseAdapterStdin, parseClaudeShapeStdin, pluckObject, pluckString } from '../../services/ide/hook-translator.js';
+import {
+  detectIdeFromContext,
+  parseAdapterStdin,
+  parseClaudeShapeStdin,
+  pluckObject,
+  pluckString
+} from '../../services/ide/hook-translator.js';
 import { buildCanonicalHook, formatDecisionResponse } from '../../services/ide/hook-protocol.js';
 import { getAdapter } from '../../services/ide/ide-registry.js';
 import { evaluateCodeBan } from '../../services/audit/enforcers/code-ban.js';
@@ -28,7 +34,9 @@ async function readStdin(): Promise<string> {
   return new Promise<string>((resolveStdin) => {
     let data = '';
     process.stdin.setEncoding('utf8');
-    process.stdin.on('data', (chunk) => { data += chunk; });
+    process.stdin.on('data', (chunk) => {
+      data += chunk;
+    });
     process.stdin.on('end', () => resolveStdin(data));
     process.stdin.on('error', () => resolveStdin(data));
   });
@@ -49,13 +57,23 @@ async function readStdin(): Promise<string> {
  * peaks hook handle 即可。Slice #3 删除旧命令。
  */
 export function registerHookHandleCommand(program: Command, io: ProgramIO): void {
-  const hook = program.command('hook').description('Peaks 自有 hook 协议单一入口（slice #1 新增；后续 slice 将逐步替代 gate enforce）');
+  const hook = program
+    .command('hook')
+    .description(
+      'Peaks 自有 hook 协议单一入口（slice #1 新增；后续 slice 将逐步替代 gate enforce）'
+    );
 
   addJsonOption(
     hook
       .command('handle')
-      .description('Read stdin hook payload, auto-detect IDE, dispatch to peaks gate-enforce logic, output IDE-formatted decision')
-      .option('--project <path>', 'project the gates evaluate against (default: current directory)', '.')
+      .description(
+        'Read stdin hook payload, auto-detect IDE, dispatch to peaks gate-enforce logic, output IDE-formatted decision'
+      )
+      .option(
+        '--project <path>',
+        'project the gates evaluate against (default: current directory)',
+        '.'
+      )
   ).action(async (options: HookHandleOptions) => {
     try {
       const raw = await readStdin();
@@ -69,7 +87,11 @@ export function registerHookHandleCommand(program: Command, io: ProgramIO): void
         }
       }
 
-      const ide = detectIdeFromContext({ env: process.env, cwd: process.cwd(), parsedStdin: parsed });
+      const ide = detectIdeFromContext({
+        env: process.env,
+        cwd: process.cwd(),
+        parsedStdin: parsed
+      });
       const adapter = getAdapter(ide);
 
       // Slice #3: per-adapter stdin parser dispatch. The detected IDE
@@ -79,8 +101,10 @@ export function registerHookHandleCommand(program: Command, io: ProgramIO): void
       // Also try the Claude parser as a secondary fallback so a Trae user who
       // accidentally pipes a Claude-shaped payload still gets the right fields.
       const claudeShape = parseClaudeShapeStdin(parsed);
-      const fallbackToolName = toolName ?? claudeShape.toolName ?? pluckString(parsed, ['toolName']);
-      const fallbackCommand = command ?? claudeShape.command ?? pluckString(parsed, ['toolInput', 'command']);
+      const fallbackToolName =
+        toolName ?? claudeShape.toolName ?? pluckString(parsed, ['toolName']);
+      const fallbackCommand =
+        command ?? claudeShape.command ?? pluckString(parsed, ['toolInput', 'command']);
 
       const projectRoot = process.env[adapter.envVar] ?? options.project;
 
@@ -94,7 +118,11 @@ export function registerHookHandleCommand(program: Command, io: ProgramIO): void
 
       // Dispatch by toolName. For slice #1+, we only handle Bash. Task tool sub-agent dispatch goes through `peaks sub-agent dispatch` (slice #009) and does not need a hook entry.
       // Other tools: allow (no-op; future events will be added here).
-      if (hook.toolName === 'Bash' && typeof fallbackCommand === 'string' && fallbackCommand.trim().length > 0) {
+      if (
+        hook.toolName === 'Bash' &&
+        typeof fallbackCommand === 'string' &&
+        fallbackCommand.trim().length > 0
+      ) {
         // L2.1 P0 #1: code-commit-ban. Deny `git commit` / `git apply` from peaks-* skills
         // BEFORE the SOP gate runs. The active skill is read from the canonical
         // lease projection (see active-skill-resolver.ts, slice 4.0.8).
@@ -103,12 +131,26 @@ export function registerHookHandleCommand(program: Command, io: ProgramIO): void
         // `canonical` for the lease + index path.
         const activeSkill = resolveActiveSkillForCaller(projectRoot);
         if (activeSkill.skill !== null) {
-          const codeDecision = evaluateCodeBan({ skill: activeSkill.skill, command: fallbackCommand });
+          const codeDecision = evaluateCodeBan({
+            skill: activeSkill.skill,
+            command: fallbackCommand
+          });
           if (codeDecision.denied) {
             const formatted = formatDecisionResponse(ide, 'deny', codeDecision.reason);
             emitDecision(io, formatted.stdout);
             if (options.json === true) {
-              emitHint(io, JSON.stringify(ok('hook.handle', { ide, tool: hook.toolName, decision: 'deny', reason: codeDecision.reason, enforcer: 'code-ban' })));
+              emitHint(
+                io,
+                JSON.stringify(
+                  ok('hook.handle', {
+                    ide,
+                    tool: hook.toolName,
+                    decision: 'deny',
+                    reason: codeDecision.reason,
+                    enforcer: 'code-ban'
+                  })
+                )
+              );
             }
             return;
           }
@@ -121,11 +163,21 @@ export function registerHookHandleCommand(program: Command, io: ProgramIO): void
           const formatted = formatDecisionResponse(ide, 'deny', decision.reason);
           emitDecision(io, formatted.stdout);
           if (options.json === true) {
-            emitHint(io, JSON.stringify(ok('hook.handle', { ide, tool: hook.toolName, decision: 'deny', reason: decision.reason })));
+            emitHint(
+              io,
+              JSON.stringify(
+                ok('hook.handle', {
+                  ide,
+                  tool: hook.toolName,
+                  decision: 'deny',
+                  reason: decision.reason
+                })
+              )
+            );
           }
           return;
         }
-        }
+      }
 
       // L2.2 P1 #1: login-gate. After code-commit-ban + gate-enforce pass,
       // flag destructive patterns (uninstall, force-push, --force, --hard,
@@ -134,26 +186,46 @@ export function registerHookHandleCommand(program: Command, io: ProgramIO): void
       if (hook.toolName === 'Bash' && typeof fallbackCommand === 'string') {
         const gate = checkLoginGate({ command: fallbackCommand });
         if (gate.destructive) {
-          emitHint(io, `warning: login-gate: destructive command detected (pattern: ${gate.matchedPattern}). Confirm with the user before proceeding.`);
+          emitHint(
+            io,
+            `warning: login-gate: destructive command detected (pattern: ${gate.matchedPattern}). Confirm with the user before proceeding.`
+          );
         }
-        }
+      }
 
       // L2.1 P0 #2: no-root-pollution. Deny Write/Edit to files outside the
       // root allowlist. file_path is read from toolInput.file_path (Claude
       // and most IDEs use the same shape). When the field is missing or the
       // path is not at depth 1, the enforcer allows (no-op).
-      if (hook.toolName === 'Write' || hook.toolName === 'Edit' || hook.toolName === 'MultiEdit' || hook.toolName === 'Create') {
-        const filePath = pluckString(parsed, ['tool_input', 'file_path'])
-          ?? pluckString(parsed, ['toolInput', 'file_path'])
-          ?? pluckString(parsed, ['tool_input', 'path'])
-          ?? pluckString(parsed, ['toolInput', 'path']);
+      if (
+        hook.toolName === 'Write' ||
+        hook.toolName === 'Edit' ||
+        hook.toolName === 'MultiEdit' ||
+        hook.toolName === 'Create'
+      ) {
+        const filePath =
+          pluckString(parsed, ['tool_input', 'file_path']) ??
+          pluckString(parsed, ['toolInput', 'file_path']) ??
+          pluckString(parsed, ['tool_input', 'path']) ??
+          pluckString(parsed, ['toolInput', 'path']);
         if (typeof filePath === 'string' && filePath.trim().length > 0) {
           const rootCheck = isRootWrite({ projectRoot, filePath });
           if (!rootCheck.allowed) {
             const formatted = formatDecisionResponse(ide, 'deny', rootCheck.denyReason);
             emitDecision(io, formatted.stdout);
             if (options.json === true) {
-              emitHint(io, JSON.stringify(ok('hook.handle', { ide, tool: hook.toolName, decision: 'deny', reason: rootCheck.denyReason, enforcer: 'no-root-pollution' })));
+              emitHint(
+                io,
+                JSON.stringify(
+                  ok('hook.handle', {
+                    ide,
+                    tool: hook.toolName,
+                    decision: 'deny',
+                    reason: rootCheck.denyReason,
+                    enforcer: 'no-root-pollution'
+                  })
+                )
+              );
             }
             return;
           }
@@ -167,9 +239,21 @@ export function registerHookHandleCommand(program: Command, io: ProgramIO): void
       }
     } catch (error) {
       // Fail-open: a bug in hook.handle must not brick Claude Code.
-      emitHint(io, `hook handle: internal error, allowing command (${error instanceof Error ? error.message : String(error)})`);
+      emitHint(
+        io,
+        `hook handle: internal error, allowing command (${error instanceof Error ? error.message : String(error)})`
+      );
       if (options.json === true) {
-        printResult(io, fail('hook.handle', 'HOOK_HANDLE_FAILED', error instanceof Error ? error.message : 'unknown', {}), true);
+        printResult(
+          io,
+          fail(
+            'hook.handle',
+            'HOOK_HANDLE_FAILED',
+            error instanceof Error ? error.message : 'unknown',
+            {}
+          ),
+          true
+        );
       }
     }
   });

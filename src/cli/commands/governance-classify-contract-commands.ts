@@ -30,13 +30,14 @@ import { Command } from 'commander';
 import { fail, ok, getErrorMessage } from 'peaks-loop-shared/result';
 
 import { addJsonOption, printResult, type ProgramIO } from '../cli-helpers.js';
-import {
-  writeContract,
-  type WriteContractInput
-} from '../../services/dispatch/contract-store.js';
+import { writeContract, type WriteContractInput } from '../../services/dispatch/contract-store.js';
 import { getCurrentSessionId } from '../../services/skills/skill-presence-service.js';
 import { classifyTask } from '../../services/classify/classify-service.js';
-import { TASK_LEVELS, type TaskLevel, type ClassifySignals } from '../../services/classify/classify-types.js';
+import {
+  TASK_LEVELS,
+  type TaskLevel,
+  type ClassifySignals
+} from '../../services/classify/classify-types.js';
 import { loadPreferences } from '../../services/preferences/preferences-service.js';
 
 // ===========================================================================
@@ -71,11 +72,11 @@ export function registerContractCommands(program: Command, io: ProgramIO): void 
     .command('contract')
     .description(
       'Slice contract store (skill-first / CLI-auxiliary). These commands ' +
-      'are primitives that peaks-code / peaks-rd SKILL.md compose. The LLM-side ' +
-      'runner (the IDE-resident sub-agent that finished a slice) calls ' +
-      '`peaks contract write` to persist the slice\'s public surface; the ' +
-      'orchestrator picks it up on the next dispatch run via listContracts() ' +
-      'and splices it into downstream prompts via formatContractInjection().'
+        'are primitives that peaks-code / peaks-rd SKILL.md compose. The LLM-side ' +
+        'runner (the IDE-resident sub-agent that finished a slice) calls ' +
+        "`peaks contract write` to persist the slice's public surface; the " +
+        'orchestrator picks it up on the next dispatch run via listContracts() ' +
+        'and splices it into downstream prompts via formatContractInjection().'
     );
 
   // ─────────────────────────────────────────────────────────────────
@@ -87,36 +88,62 @@ export function registerContractCommands(program: Command, io: ProgramIO): void 
     contract
       .command('write')
       .description(
-        '2.7.0 slice-dag-dispatcher MVP: persist a finished slice\'s public ' +
-        'surface (exports / types / publicSignatures) to disk at ' +
-        '.peaks/_runtime/<sessionId>/dispatch/contracts/<slice-id>.json. ' +
-        'The orchestrator picks it up on the next dispatch run. Idempotent: ' +
-        're-running with the same inputs overwrites in place; the SHA-256 ' +
-        'contractHash is content-derived so a contract write from a different ' +
-        'runner (re-execution) is detected as a content change.'
+        "2.7.0 slice-dag-dispatcher MVP: persist a finished slice's public " +
+          'surface (exports / types / publicSignatures) to disk at ' +
+          '.peaks/_runtime/<sessionId>/dispatch/contracts/<slice-id>.json. ' +
+          'The orchestrator picks it up on the next dispatch run. Idempotent: ' +
+          're-running with the same inputs overwrites in place; the SHA-256 ' +
+          'contractHash is content-derived so a contract write from a different ' +
+          'runner (re-execution) is detected as a content change.'
       )
       .option('--project <path>', 'target project root (defaults to cwd)')
-      .option('--session-id <sid>', 'session id (default: resolve from .peaks/_runtime/session.json; falls back to PEAKS_SESSION_ID env var; final fallback "unknown-sid")')
-      .requiredOption('--slice-id <id>', 'slice id; must be non-empty; used as the contract filename basename')
-      .option('--exports <list>', 'comma-separated public export names (e.g. "validateDag,topologicalLevels")')
+      .option(
+        '--session-id <sid>',
+        'session id (default: resolve from .peaks/_runtime/session.json; falls back to PEAKS_SESSION_ID env var; final fallback "unknown-sid")'
+      )
+      .requiredOption(
+        '--slice-id <id>',
+        'slice id; must be non-empty; used as the contract filename basename'
+      )
+      .option(
+        '--exports <list>',
+        'comma-separated public export names (e.g. "validateDag,topologicalLevels")'
+      )
       .option('--types <list>', 'comma-separated public type names (e.g. "SliceDag,SliceNode")')
-      .option('--signatures <list>', 'comma-separated public function/method signatures (e.g. "validateDag(dag: SliceDag): void")')
-      .option('--broadcast-to <list>', 'comma-separated downstream slice ids that should auto-inherit this contract (e.g. "B,C")')
+      .option(
+        '--signatures <list>',
+        'comma-separated public function/method signatures (e.g. "validateDag(dag: SliceDag): void")'
+      )
+      .option(
+        '--broadcast-to <list>',
+        'comma-separated downstream slice ids that should auto-inherit this contract (e.g. "B,C")'
+      )
       .option('--completed-at <iso>', 'ISO 8601 timestamp; defaults to now()')
   ).action((options: ContractWriteOptions) => {
     const asJson = options.json === true;
     const projectRoot = options.project ?? process.cwd();
     // Slice 2026-06-26-unknown-sid-fallback-fix: see dispatch-commands.ts.
-    const sid = options.sessionId
-      ?? process.env.PEAKS_SESSION_ID
-      ?? getCurrentSessionId(projectRoot)
-      ?? 'unknown-sid';
+    const sid =
+      options.sessionId ??
+      process.env.PEAKS_SESSION_ID ??
+      getCurrentSessionId(projectRoot) ??
+      'unknown-sid';
     const sliceId = options.sliceId;
 
     if (sliceId === undefined || sliceId.length === 0) {
-      printResult(io, fail('contract.write', 'MISSING_SLICE_ID', '--slice-id is required', { path: null, contract: null } as never, [
-        'Re-run with --slice-id <id> (must be non-empty; used as the contract filename basename).'
-      ]), asJson);
+      printResult(
+        io,
+        fail(
+          'contract.write',
+          'MISSING_SLICE_ID',
+          '--slice-id is required',
+          { path: null, contract: null } as never,
+          [
+            'Re-run with --slice-id <id> (must be non-empty; used as the contract filename basename).'
+          ]
+        ),
+        asJson
+      );
       process.exitCode = 1;
       return;
     }
@@ -137,9 +164,17 @@ export function registerContractCommands(program: Command, io: ProgramIO): void 
       broadcastTo.join(',').length +
       (options.completedAt?.length ?? 0);
     if (inputSize > INPUT_LIMIT_BYTES) {
-      printResult(io, fail('contract.write', 'INPUT_TOO_LARGE', `combined input size ${inputSize} bytes exceeds ${INPUT_LIMIT_BYTES} (likely oversized --exports/--types/--signatures lists)`, { path: null, contract: null } as never, [
-        'Split the slice into smaller surfaces or omit optional fields.'
-      ]), asJson);
+      printResult(
+        io,
+        fail(
+          'contract.write',
+          'INPUT_TOO_LARGE',
+          `combined input size ${inputSize} bytes exceeds ${INPUT_LIMIT_BYTES} (likely oversized --exports/--types/--signatures lists)`,
+          { path: null, contract: null } as never,
+          ['Split the slice into smaller surfaces or omit optional fields.']
+        ),
+        asJson
+      );
       process.exitCode = 1;
       return;
     }
@@ -155,24 +190,43 @@ export function registerContractCommands(program: Command, io: ProgramIO): void 
         ...(options.completedAt !== undefined ? { completedAt: options.completedAt } : {})
       };
       const result = writeContract(projectRoot, sid, input);
-      printResult(io, ok('contract.write', {
-        path: result.path,
-        contractHash: result.contract.contractHash,
-        sliceId: result.contract.sliceId,
-        sessionId: result.contract.sessionId,
-        completedAt: result.contract.completedAt,
-        exportCount: result.contract.exports.length,
-        typeCount: result.contract.types.length,
-        signatureCount: result.contract.publicSignatures.length,
-        broadcastTo: result.contract.broadcastTo ?? []
-      }, [], [
-        `Contract written; orchestrator will pick it up on the next \`peaks sub-agent dispatch --from-dag\` run.`,
-        `Re-running with the same inputs is idempotent (overwrites in place).`
-      ]), asJson);
+      printResult(
+        io,
+        ok(
+          'contract.write',
+          {
+            path: result.path,
+            contractHash: result.contract.contractHash,
+            sliceId: result.contract.sliceId,
+            sessionId: result.contract.sessionId,
+            completedAt: result.contract.completedAt,
+            exportCount: result.contract.exports.length,
+            typeCount: result.contract.types.length,
+            signatureCount: result.contract.publicSignatures.length,
+            broadcastTo: result.contract.broadcastTo ?? []
+          },
+          [],
+          [
+            `Contract written; orchestrator will pick it up on the next \`peaks sub-agent dispatch --from-dag\` run.`,
+            `Re-running with the same inputs is idempotent (overwrites in place).`
+          ]
+        ),
+        asJson
+      );
     } catch (err) {
-      printResult(io, fail('contract.write', 'WRITE_ERROR', getErrorMessage(err), { path: null, contract: null } as never, [
-        'See error message; check that --project is a writable directory and --slice-id is a valid filename basename (no path separators).'
-      ]), asJson);
+      printResult(
+        io,
+        fail(
+          'contract.write',
+          'WRITE_ERROR',
+          getErrorMessage(err),
+          { path: null, contract: null } as never,
+          [
+            'See error message; check that --project is a writable directory and --slice-id is a valid filename basename (no path separators).'
+          ]
+        ),
+        asJson
+      );
       process.exitCode = 1;
     }
   });
@@ -225,10 +279,17 @@ function getSignalsFromGitDiff(projectRoot: string): ClassifySignals {
       cwd: projectRoot,
       stdio: ['ignore', 'pipe', 'ignore'],
       maxBuffer: 32 * 1024 * 1024,
-      windowsHide: true,
+      windowsHide: true
     }).toString('utf8');
   } catch {
-    return { filesChanged: 0, linesChanged: 0, touchesDependencies: false, touchesMigrationScripts: false, isPureRefactor: true, keywords: [] };
+    return {
+      filesChanged: 0,
+      linesChanged: 0,
+      touchesDependencies: false,
+      touchesMigrationScripts: false,
+      isPureRefactor: true,
+      keywords: []
+    };
   }
 
   const lines = stdout.split('\n').filter((l) => l.trim().length > 0);
@@ -263,14 +324,18 @@ function getSignalsFromGitDiff(projectRoot: string): ClassifySignals {
     touchesDependencies,
     touchesMigrationScripts,
     isPureRefactor,
-    keywords: [],
+    keywords: []
   };
 }
 
 function appendAuditEntry(projectRoot: string, entry: unknown): void {
   const auditDir = join(projectRoot, '.peaks/_runtime');
   if (!existsSync(auditDir)) {
-    try { mkdirSync(auditDir, { recursive: true }); } catch { /* ignore */ } // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+    try {
+      mkdirSync(auditDir, { recursive: true });
+    } catch {
+      /* ignore */
+    } // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
   }
   const auditPath = join(auditDir, CLASSIFY_AUDIT_FILE);
   let body = '';
@@ -278,9 +343,15 @@ function appendAuditEntry(projectRoot: string, entry: unknown): void {
     if (existsSync(auditPath)) {
       body = readFileSync(auditPath, 'utf8');
     }
-  } catch { /* ignore */ } // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+  } catch {
+    /* ignore */
+  } // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
   body += JSON.stringify(entry) + '\n';
-  try { writeFileSync(auditPath, body); } catch { /* best-effort */ } // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+  try {
+    writeFileSync(auditPath, body);
+  } catch {
+    /* best-effort */
+  } // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
 }
 
 function isTaskLevel(value: string): value is TaskLevel {
@@ -290,14 +361,19 @@ function isTaskLevel(value: string): value is TaskLevel {
 export function registerClassifyCommands(program: Command, io: ProgramIO): void {
   const classify = program
     .command('classify')
-    .description('L1a task classification: 5-level heuristic (typo/bug/feature/refactor/migration) + override/upgrade + audit log');
+    .description(
+      'L1a task classification: 5-level heuristic (typo/bug/feature/refactor/migration) + override/upgrade + audit log'
+    );
 
   addJsonOption(
     classify
       .command('run')
       .description('Classify the current diff (git diff HEAD) into one of 5 task levels')
       .requiredOption('--project <path>', 'target project root')
-      .option('--override <level>', 'force a level (one of typo|bug|feature|refactor|migration); requires --reason')
+      .option(
+        '--override <level>',
+        'force a level (one of typo|bug|feature|refactor|migration); requires --reason'
+      )
       .option('--reason <text>', 'reason for the override (mandatory when --override is set)')
   ).action(async (options: RunOptions) => {
     try {
@@ -308,7 +384,13 @@ export function registerClassifyCommands(program: Command, io: ProgramIO): void 
         if (!isTaskLevel(options.override)) {
           printResult(
             io,
-            fail('classify.run', 'INVALID_LEVEL', `level must be one of: ${TASK_LEVELS.join(', ')}`, { provided: options.override }, ['Pass one of typo, bug, feature, refactor, migration']),
+            fail(
+              'classify.run',
+              'INVALID_LEVEL',
+              `level must be one of: ${TASK_LEVELS.join(', ')}`,
+              { provided: options.override },
+              ['Pass one of typo, bug, feature, refactor, migration']
+            ),
             options.json
           );
           process.exitCode = 1;
@@ -317,7 +399,13 @@ export function registerClassifyCommands(program: Command, io: ProgramIO): void 
         if (options.reason === undefined || options.reason.length === 0) {
           printResult(
             io,
-            fail('classify.run', 'REASON_REQUIRED', '--reason is required when --override is set', {}, ['Provide a non-empty reason for the override']),
+            fail(
+              'classify.run',
+              'REASON_REQUIRED',
+              '--reason is required when --override is set',
+              {},
+              ['Provide a non-empty reason for the override']
+            ),
             options.json
           );
           process.exitCode = 1;
@@ -330,17 +418,32 @@ export function registerClassifyCommands(program: Command, io: ProgramIO): void 
           ? { signals, conservatism: prefs.classifyConservatism, override }
           : { signals, conservatism: prefs.classifyConservatism },
         prefs.classifyRules.feature_threshold_files,
-        prefs.classifyRules.feature_threshold_lines,
+        prefs.classifyRules.feature_threshold_lines
       );
       appendAuditEntry(options.project, result.audit);
-      printResult(io, ok('classify.run', result, [], [
-        `gate set for level "${result.level}": ${result.gateSet.stages.join(', ')}`,
-        `audit log: .peaks/_runtime/${CLASSIFY_AUDIT_FILE}`,
-      ]), options.json);
+      printResult(
+        io,
+        ok(
+          'classify.run',
+          result,
+          [],
+          [
+            `gate set for level "${result.level}": ${result.gateSet.stages.join(', ')}`,
+            `audit log: .peaks/_runtime/${CLASSIFY_AUDIT_FILE}`
+          ]
+        ),
+        options.json
+      );
     } catch (error) {
       printResult(
         io,
-        fail('classify.run', 'CLASSIFY_RUN_FAILED', getErrorMessage(error), { projectRoot: options.project }, ['Run peaks classify --help for usage']),
+        fail(
+          'classify.run',
+          'CLASSIFY_RUN_FAILED',
+          getErrorMessage(error),
+          { projectRoot: options.project },
+          ['Run peaks classify --help for usage']
+        ),
         options.json
       );
       process.exitCode = 1;
@@ -350,7 +453,9 @@ export function registerClassifyCommands(program: Command, io: ProgramIO): void 
   // Downgrade is REFUSED per spec §4. Surface this as a hard fail.
   classify
     .command('downgrade')
-    .description('REFUSED per spec §4 — peaks-loop never downgrades a classification; ask the user to override explicitly')
+    .description(
+      'REFUSED per spec §4 — peaks-loop never downgrades a classification; ask the user to override explicitly'
+    )
     .requiredOption('--level <level>', 'attempted level')
     .requiredOption('--reason <text>', 'reason for the attempt (always rejected)')
     .requiredOption('--project <path>', 'target project root')
@@ -358,7 +463,13 @@ export function registerClassifyCommands(program: Command, io: ProgramIO): void 
     .action(async (options: DowngradeOptions) => {
       printResult(
         io,
-        fail('classify.downgrade', 'DOWNGRADE_REFUSED', 'peaks classify downgrade is refused per spec §4. Use --override (with reason) on `classify run` to force a level; the CLI never downgrades a classification unilaterally.', { attemptedLevel: options.level, reason: options.reason }, ['Use `peaks classify run --override <level> --reason "<text>"` instead']),
+        fail(
+          'classify.downgrade',
+          'DOWNGRADE_REFUSED',
+          'peaks classify downgrade is refused per spec §4. Use --override (with reason) on `classify run` to force a level; the CLI never downgrades a classification unilaterally.',
+          { attemptedLevel: options.level, reason: options.reason },
+          ['Use `peaks classify run --override <level> --reason "<text>"` instead']
+        ),
         options.json
       );
       process.exitCode = 2;

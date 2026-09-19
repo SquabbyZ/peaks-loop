@@ -47,7 +47,7 @@ export function mapServiceError(error: unknown): EnvelopeMapping {
   if (error instanceof ProviderNotConfiguredError) {
     return {
       code: 'INVALID_PROVIDERS',
-      nextActions: ['Configure provider model: peaks config provider <id> set --model <id>'],
+      nextActions: ['Configure provider model: peaks config provider <id> set --model <id>']
     };
   }
   if (error instanceof Error && GOAL_VALIDATION_MESSAGE_RE.test(error.message)) {

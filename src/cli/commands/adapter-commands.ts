@@ -9,8 +9,8 @@
  * Unknown verbs return an empty result so program.ts can render a
  * NOT_FOUND envelope without throwing.
  */
-import type { Command } from "commander";
-import type { ProgramIO } from "../cli-helpers.js";
+import type { Command } from 'commander';
+import type { ProgramIO } from '../cli-helpers.js';
 
 export interface AdapterResult {
   adapters?: string[];
@@ -24,10 +24,10 @@ export async function runAdapter(
   { home: _home }: { home: string }
 ): Promise<AdapterResult> {
   const verb = argv[0];
-  if (verb === "list") {
-    return { adapters: ["claude", "codex", "copilot"] };
+  if (verb === 'list') {
+    return { adapters: ['claude', 'codex', 'copilot'] };
   }
-  if (verb === "set-active") {
+  if (verb === 'set-active') {
     const name = argv[1];
     if (name === undefined) return {};
     return { active: name };
@@ -43,17 +43,14 @@ export async function runAdapter(
  *  precedent.
  */
 export function registerAdapterCommands(program: Command, io: ProgramIO): void {
-  const existingSkill = program.commands.find((c) => c.name() === "skill");
-  const skill =
-    existingSkill ??
-    program.command("skill").description("Manage Peaks skills");
+  const existingSkill = program.commands.find((c) => c.name() === 'skill');
+  const skill = existingSkill ?? program.command('skill').description('Manage Peaks skills');
 
   skill
-    .command("adapter <args...>")
-    .description("Adapter selection and detection")
+    .command('adapter <args...>')
+    .description('Adapter selection and detection')
     .action(async (args: string[]) => {
-      const home =
-        process.env.HOME ?? process.env.USERPROFILE ?? process.cwd();
+      const home = process.env.HOME ?? process.env.USERPROFILE ?? process.cwd();
       const r = await runAdapter(args, { home });
       io.stdout(JSON.stringify(r));
     });

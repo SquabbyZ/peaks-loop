@@ -14,7 +14,7 @@ const OPENSPEC_DIR = 'openspec/changes';
 function walkOpenSpecDir(
   projectRoot: string,
   dir: string,
-  out: { lines: MarkdownLine[]; warnings: ScanWarning[] },
+  out: { lines: MarkdownLine[]; warnings: ScanWarning[] }
 ): void {
   let entries;
   try {
@@ -22,7 +22,7 @@ function walkOpenSpecDir(
   } catch (error) {
     out.warnings.push({
       file: relative(projectRoot, dir).split('\\').join('/'),
-      message: `readdir failed: ${error instanceof Error ? error.message : String(error)}`,
+      message: `readdir failed: ${error instanceof Error ? error.message : String(error)}`
     });
     return;
   }
@@ -37,7 +37,7 @@ function walkOpenSpecDir(
       } catch (error) {
         out.warnings.push({
           file: relative(projectRoot, full).split('\\').join('/'),
-          message: `read failed: ${error instanceof Error ? error.message : String(error)}`,
+          message: `read failed: ${error instanceof Error ? error.message : String(error)}`
         });
         continue;
       }

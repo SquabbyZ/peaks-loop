@@ -64,10 +64,18 @@ function evaluateFileExists(projectRoot: string, path: string): GateVerdict {
   if (resolved === null) {
     return { result: 'blocked', reason: `path "${path}" escapes the project root` };
   }
-  return existsSync(resolved) ? { result: 'pass' } : { result: 'fail', reason: `file "${path}" does not exist` };
+  return existsSync(resolved)
+    ? { result: 'pass' }
+    : { result: 'fail', reason: `file "${path}" does not exist` };
 }
 
-function evaluateGrep(projectRoot: string, file: string, pattern: string, absent: boolean, stripMeta?: boolean): GateVerdict {
+function evaluateGrep(
+  projectRoot: string,
+  file: string,
+  pattern: string,
+  absent: boolean,
+  stripMeta?: boolean
+): GateVerdict {
   const resolved = resolveInsideProject(projectRoot, file);
   if (resolved === null) {
     return { result: 'blocked', reason: `file "${file}" escapes the project root` };
@@ -132,7 +140,13 @@ export function stripMetaForGrep(content: string): string {
   return result;
 }
 
-function evaluateCommand(projectRoot: string, run: string[], expectExitZero: boolean, allowCommands: boolean, timeoutMs: number): GateVerdict {
+function evaluateCommand(
+  projectRoot: string,
+  run: string[],
+  expectExitZero: boolean,
+  allowCommands: boolean,
+  timeoutMs: number
+): GateVerdict {
   if (!allowCommands) {
     return { result: 'blocked', reason: 'command checks require --allow-commands' };
   }
@@ -167,22 +181,44 @@ function evaluateCommand(projectRoot: string, run: string[], expectExitZero: boo
     if (typeof err.status === 'number') {
       exitCode = err.status;
     } else {
-      return { result: 'blocked', reason: `command could not be run (${String(err.code ?? 'spawn error')})` };
+      return {
+        result: 'blocked',
+        reason: `command could not be run (${String(err.code ?? 'spawn error')})`
+      };
     }
   }
   const zero = exitCode === 0;
   const pass = expectExitZero ? zero : !zero;
-  return pass ? { result: 'pass' } : { result: 'fail', reason: `command exited ${exitCode} (expectExitZero=${expectExitZero})` };
+  return pass
+    ? { result: 'pass' }
+    : { result: 'fail', reason: `command exited ${exitCode} (expectExitZero=${expectExitZero})` };
 }
 
-function evaluateCheck(projectRoot: string, check: SopGateCheck, allowCommands: boolean, timeoutMs: number): GateVerdict {
+function evaluateCheck(
+  projectRoot: string,
+  check: SopGateCheck,
+  allowCommands: boolean,
+  timeoutMs: number
+): GateVerdict {
   switch (check.type) {
     case 'file-exists':
       return evaluateFileExists(projectRoot, check.path);
     case 'grep':
-      return evaluateGrep(projectRoot, check.file, check.pattern, check.absent === true, check.stripMeta === true);
+      return evaluateGrep(
+        projectRoot,
+        check.file,
+        check.pattern,
+        check.absent === true,
+        check.stripMeta === true
+      );
     case 'command':
-      return evaluateCommand(projectRoot, check.run, check.expectExitZero !== false, allowCommands, timeoutMs);
+      return evaluateCommand(
+        projectRoot,
+        check.run,
+        check.expectExitZero !== false,
+        allowCommands,
+        timeoutMs
+      );
     default:
       return { result: 'blocked', reason: 'unknown check type' };
   }
@@ -194,8 +230,17 @@ export type EvaluateGateOptions = {
 };
 
 /** Evaluate a single gate's check to a pass/fail/blocked verdict. Shared by `sop check` and `sop advance`. */
-export function evaluateGate(projectRoot: string, gate: SopGate, options: EvaluateGateOptions = {}): GateVerdict {
-  return evaluateCheck(projectRoot, gate.check, options.allowCommands === true, options.commandTimeoutMs ?? GATE_COMMAND_TIMEOUT_MS);
+export function evaluateGate(
+  projectRoot: string,
+  gate: SopGate,
+  options: EvaluateGateOptions = {}
+): GateVerdict {
+  return evaluateCheck(
+    projectRoot,
+    gate.check,
+    options.allowCommands === true,
+    options.commandTimeoutMs ?? GATE_COMMAND_TIMEOUT_MS
+  );
 }
 
 export async function checkGate(options: CheckGateOptions): Promise<CheckGateResult> {
@@ -205,9 +250,14 @@ export async function checkGate(options: CheckGateOptions): Promise<CheckGateRes
   if (manifest === null) {
     throw new SopCheckError('SOP_NOT_FOUND', `No SOP found for id "${options.id}"`);
   }
-  const gate: SopGate | undefined = manifest.gates.find((candidate) => candidate.id === options.gateId);
+  const gate: SopGate | undefined = manifest.gates.find(
+    (candidate) => candidate.id === options.gateId
+  );
   if (gate === undefined) {
-    throw new SopCheckError('GATE_NOT_FOUND', `Gate "${options.gateId}" not found in SOP "${options.id}"`);
+    throw new SopCheckError(
+      'GATE_NOT_FOUND',
+      `Gate "${options.gateId}" not found in SOP "${options.id}"`
+    );
   }
   const evaluateOptions: EvaluateGateOptions = {};
   if (options.allowCommands !== undefined) {
@@ -217,7 +267,12 @@ export async function checkGate(options: CheckGateOptions): Promise<CheckGateRes
     evaluateOptions.commandTimeoutMs = options.commandTimeoutMs;
   }
   const verdict = evaluateGate(options.projectRoot, gate, evaluateOptions);
-  const result: CheckGateResult = { id: options.id, gateId: gate.id, phase: gate.phase, result: verdict.result };
+  const result: CheckGateResult = {
+    id: options.id,
+    gateId: gate.id,
+    phase: gate.phase,
+    result: verdict.result
+  };
   if (verdict.reason !== undefined) {
     result.reason = verdict.reason;
   }

@@ -15,8 +15,8 @@ const FORBIDDEN_PATTERN =
 const ROOTS = ['src', 'tests', '.peaks/standards'];
 const SELF_PATH = 'tests/unit/standards/capability-glossary.test.ts';
 
-describe("Scenario: capability-glossary", () => {
-  it("when invoked, should does not use any forbidden alias anywhere under the project (excluding test self)", () => {
+describe('Scenario: capability-glossary', () => {
+  it('when invoked, should does not use any forbidden alias anywhere under the project (excluding test self)', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -32,16 +32,8 @@ describe("Scenario: capability-glossary", () => {
     // would also have hidden a real git failure or a real matches-found result.
     const result = spawnSync(
       'git',
-      [
-        'grep',
-        '-nI',
-        '-E',
-        FORBIDDEN_PATTERN,
-        '--',
-        ...ROOTS,
-        `:!${SELF_PATH}`,
-      ],
-      { encoding: 'utf8', windowsHide: true },
+      ['grep', '-nI', '-E', FORBIDDEN_PATTERN, '--', ...ROOTS, `:!${SELF_PATH}`],
+      { encoding: 'utf8', windowsHide: true }
     );
 
     if (result.error) {
@@ -66,7 +58,7 @@ describe("Scenario: capability-glossary", () => {
 
     // Any other exit status (git error): surface stderr so we don't fake-green.
     throw new Error(
-      `git grep exited with unexpected status ${result.status} (signal=${result.signal ?? 'none'}): ${stderr}`,
+      `git grep exited with unexpected status ${result.status} (signal=${result.signal ?? 'none'}): ${stderr}`
     );
   });
 
@@ -99,7 +91,7 @@ describe("Scenario: capability-glossary", () => {
         const result = spawnSync(
           'git',
           ['grep', '--no-index', '-nI', '-E', FORBIDDEN_PATTERN, '--', ...paths],
-          { cwd: dir, encoding: 'utf8', windowsHide: true },
+          { cwd: dir, encoding: 'utf8', windowsHide: true }
         );
         return { status: result.status, stdout: result.stdout ?? '' };
       };

@@ -62,7 +62,7 @@
  * under `.peaks/memory/personal/`, raw `state.db` rows.
  */
 
-import { z } from "zod";
+import { z } from 'zod';
 
 /* ---------------------------------------------------------------------- */
 /* Format constant + version                                                */
@@ -73,7 +73,7 @@ import { z } from "zod";
  * `"peaks.bundle/1"`. The CLI is the only writer — see `bundle-writer.ts`.
  * A future format change requires a major-version bump + a new writer.
  */
-export const PEAKS_BUNDLE_FORMAT_CONSTANT = "peaks.bundle/1" as const;
+export const PEAKS_BUNDLE_FORMAT_CONSTANT = 'peaks.bundle/1' as const;
 
 /**
  * The required `format_version_major` for any current receiver.
@@ -99,10 +99,10 @@ export const PEAKS_BUNDLE_DEFAULT_MINOR_VERSION = 0 as const;
  * `SchemaVersionsMapping` enumeration below.
  */
 export const PEAKS_BUNDLE_SCHEMA_VERSIONS = {
-  loop: "peaks.loop/1",
-  bee: "peaks.bee/1",
-  loop_bee_relation: "peaks.loop-bee-relation/1",
-  crystallization: "peaks.crystallization/1",
+  loop: 'peaks.loop/1',
+  bee: 'peaks.bee/1',
+  loop_bee_relation: 'peaks.loop-bee-relation/1',
+  crystallization: 'peaks.crystallization/1'
 } as const;
 export type PeaksBundleSchemaVersionKey = keyof typeof PEAKS_BUNDLE_SCHEMA_VERSIONS;
 
@@ -123,7 +123,7 @@ export const SchemaVersionsMappingSchema = z
     loop: z.literal(PEAKS_BUNDLE_SCHEMA_VERSIONS.loop),
     bee: z.literal(PEAKS_BUNDLE_SCHEMA_VERSIONS.bee),
     loop_bee_relation: z.literal(PEAKS_BUNDLE_SCHEMA_VERSIONS.loop_bee_relation),
-    crystallization: z.literal(PEAKS_BUNDLE_SCHEMA_VERSIONS.crystallization),
+    crystallization: z.literal(PEAKS_BUNDLE_SCHEMA_VERSIONS.crystallization)
   })
   .strict();
 export type SchemaVersionsMapping = z.infer<typeof SchemaVersionsMappingSchema>;
@@ -143,9 +143,9 @@ export type SchemaVersionsMapping = z.infer<typeof SchemaVersionsMappingSchema>;
  */
 export const ExclusionManifestSchema = z
   .object({
-    private_run_state: z.literal("excluded"),
-    personal_memory: z.literal("excluded"),
-    state_db_rows: z.literal("excluded"),
+    private_run_state: z.literal('excluded'),
+    personal_memory: z.literal('excluded'),
+    state_db_rows: z.literal('excluded')
   })
   .strict();
 export type ExclusionManifest = z.infer<typeof ExclusionManifestSchema>;
@@ -160,7 +160,7 @@ export type ExclusionManifest = z.infer<typeof ExclusionManifestSchema>;
  * `bee_release` (loop-scoped relations may follow but are not
  * required).
  */
-export const PEAKS_BUNDLE_KINDS = ["loop", "bee"] as const;
+export const PEAKS_BUNDLE_KINDS = ['loop', 'bee'] as const;
 export type PeaksBundleKind = (typeof PEAKS_BUNDLE_KINDS)[number];
 
 /* ---------------------------------------------------------------------- */
@@ -244,26 +244,26 @@ export const BundleManifestSchema = z
      * Exclusion manifest — explicit declarations of the three
      * hard excludes per spec §7A.2.
      */
-    exclusion_manifest: ExclusionManifestSchema,
+    exclusion_manifest: ExclusionManifestSchema
   })
   .strict()
   .superRefine((m, ctx) => {
     // kind === 'loop' implies loop_release is required.
-    if (m.kind === "loop" && m.loop_release === undefined) {
+    if (m.kind === 'loop' && m.loop_release === undefined) {
       ctx.addIssue({
         code: 'custom',
         path: [],
         message:
-          "bundle manifest is inconsistent: kind='loop' requires loop_release; kind='bee' requires bee_release (spec §7A.2)",
+          "bundle manifest is inconsistent: kind='loop' requires loop_release; kind='bee' requires bee_release (spec §7A.2)"
       });
     }
     // kind === 'bee' implies bee_release is required.
-    if (m.kind === "bee" && m.bee_release === undefined) {
+    if (m.kind === 'bee' && m.bee_release === undefined) {
       ctx.addIssue({
         code: 'custom',
         path: [],
         message:
-          "bundle manifest is inconsistent: kind='loop' requires loop_release; kind='bee' requires bee_release (spec §7A.2)",
+          "bundle manifest is inconsistent: kind='loop' requires loop_release; kind='bee' requires bee_release (spec §7A.2)"
       });
     }
   });
@@ -299,48 +299,45 @@ export function parseBundleManifest(input: unknown): BundleManifest {
  * can be rendered as a structured error code rather than a thrown
  * `ZodError`.
  */
-export function safeParseBundleManifest(
-  input: unknown
-):
+export function safeParseBundleManifest(input: unknown):
   | { ok: true; manifest: BundleManifest }
   | {
       ok: false;
       code:
-        | "BUNDLE_FORMAT_CONSTANT_MISMATCH"
-        | "BUNDLE_MAJOR_VERSION_MISMATCH"
-        | "BUNDLE_SCHEMA_VERSIONS_MISMATCH"
-        | "BUNDLE_EXCLUSION_MANIFEST_MISSING"
-        | "BUNDLE_KIND_ANCHOR_MISMATCH";
+        | 'BUNDLE_FORMAT_CONSTANT_MISMATCH'
+        | 'BUNDLE_MAJOR_VERSION_MISMATCH'
+        | 'BUNDLE_SCHEMA_VERSIONS_MISMATCH'
+        | 'BUNDLE_EXCLUSION_MANIFEST_MISSING'
+        | 'BUNDLE_KIND_ANCHOR_MISMATCH';
       findings: Array<{ path: string; message: string }>;
     } {
   const r = BundleManifestSchema.safeParse(input);
   if (r.success) return { ok: true, manifest: r.data as BundleManifest };
   const findings = r.error.issues.map((i) => ({
-    path: i.path.join("."),
-    message: i.message,
+    path: i.path.join('.'),
+    message: i.message
   }));
-  const joined = findings.map((f) => f.path + ":" + f.message).join("|");
+  const joined = findings.map((f) => f.path + ':' + f.message).join('|');
   const code = detectManifestFailureCode(joined);
   return { ok: false, code, findings };
 }
 
-function detectManifestFailureCode(joinedIssues: string): Extract<
-  ReturnType<typeof safeParseBundleManifest>,
-  { ok: false }
->["code"] {
-  if (joinedIssues.includes("format_constant")) {
-    return "BUNDLE_FORMAT_CONSTANT_MISMATCH";
+function detectManifestFailureCode(
+  joinedIssues: string
+): Extract<ReturnType<typeof safeParseBundleManifest>, { ok: false }>['code'] {
+  if (joinedIssues.includes('format_constant')) {
+    return 'BUNDLE_FORMAT_CONSTANT_MISMATCH';
   }
-  if (joinedIssues.includes("format_version_major")) {
-    return "BUNDLE_MAJOR_VERSION_MISMATCH";
+  if (joinedIssues.includes('format_version_major')) {
+    return 'BUNDLE_MAJOR_VERSION_MISMATCH';
   }
-  if (joinedIssues.includes("schema_versions")) {
-    return "BUNDLE_SCHEMA_VERSIONS_MISMATCH";
+  if (joinedIssues.includes('schema_versions')) {
+    return 'BUNDLE_SCHEMA_VERSIONS_MISMATCH';
   }
-  if (joinedIssues.includes("exclusion_manifest")) {
-    return "BUNDLE_EXCLUSION_MANIFEST_MISSING";
+  if (joinedIssues.includes('exclusion_manifest')) {
+    return 'BUNDLE_EXCLUSION_MANIFEST_MISSING';
   }
-  return "BUNDLE_KIND_ANCHOR_MISMATCH";
+  return 'BUNDLE_KIND_ANCHOR_MISMATCH';
 }
 
 /* ---------------------------------------------------------------------- */
@@ -354,15 +351,15 @@ function detectManifestFailureCode(joinedIssues: string): Extract<
  */
 export const SHARE_BUNDLE_ERROR_CODES = {
   /** Major-version mismatch at read time — HARD block. */
-  MAJOR_VERSION_MISMATCH: "SHARE_BUNDLE_MAJOR_VERSION_MISMATCH",
+  MAJOR_VERSION_MISMATCH: 'SHARE_BUNDLE_MAJOR_VERSION_MISMATCH',
   /** Schema-version mapping is missing or carries non-canonical literals. */
-  SCHEMA_VERSIONS_MISMATCH: "SHARE_BUNDLE_SCHEMA_VERSIONS_MISMATCH",
+  SCHEMA_VERSIONS_MISMATCH: 'SHARE_BUNDLE_SCHEMA_VERSIONS_MISMATCH',
   /** Format constant is not the pinned "peaks.bundle/1". */
-  FORMAT_CONSTANT_MISMATCH: "SHARE_BUNDLE_FORMAT_CONSTANT_MISMATCH",
+  FORMAT_CONSTANT_MISMATCH: 'SHARE_BUNDLE_FORMAT_CONSTANT_MISMATCH',
   /** Source release has `shareable === false` — HARD block at write time. */
-  NOT_SHAREABLE: "SHARE_BUNDLE_NOT_SHAREABLE",
+  NOT_SHAREABLE: 'SHARE_BUNDLE_NOT_SHAREABLE',
   /** Receiver asked to land as `stable` (forbidden — bundles always land as candidate). */
-  IMPORT_TO_STABLE_FORBIDDEN: "SHARE_BUNDLE_IMPORT_TO_STABLE_FORBIDDEN",
+  IMPORT_TO_STABLE_FORBIDDEN: 'SHARE_BUNDLE_IMPORT_TO_STABLE_FORBIDDEN',
   /** Bundle tarball is malformed (missing manifest, bad payload). */
-  BUNDLE_MALFORMED: "SHARE_BUNDLE_MALFORMED",
+  BUNDLE_MALFORMED: 'SHARE_BUNDLE_MALFORMED'
 } as const;

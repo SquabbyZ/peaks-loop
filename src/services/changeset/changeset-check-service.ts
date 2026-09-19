@@ -15,10 +15,7 @@
 import { readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
-export type ChangesetGateState =
-  | 'staged-empty'
-  | 'staged-present'
-  | 'dir-missing';
+export type ChangesetGateState = 'staged-empty' | 'staged-present' | 'dir-missing';
 
 export interface ChangesetHardGateEnvelope {
   readonly ok: boolean;
@@ -46,9 +43,7 @@ export function runChangesetHardGate(projectRoot: string): ChangesetHardGateEnve
     // Unexpected I/O — fail closed (do NOT silently report clean).
     throw err;
   }
-  const staged = files
-    .filter((f) => f.endsWith('.md') && f !== 'README.md')
-    .sort();
+  const staged = files.filter((f) => f.endsWith('.md') && f !== 'README.md').sort();
   const ok = staged.length === 0;
   const state: ChangesetGateState = ok ? 'staged-empty' : 'staged-present';
   return {

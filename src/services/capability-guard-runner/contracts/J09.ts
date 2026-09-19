@@ -5,7 +5,14 @@ import { initSop } from '../../sop/sop-service.js';
 import { SOP_ID_PATTERN } from '../../sop/sop-types.js';
 import { registerSop, SopRegisterError } from '../../sop/sop-registry-service.js';
 import type { GuardContext, GuardRunResult } from '../types.js';
-import { combineProbes, fail, missingSourceFiles, pass, probe, requireBaselineRow } from './_shared.js';
+import {
+  combineProbes,
+  fail,
+  missingSourceFiles,
+  pass,
+  probe,
+  requireBaselineRow
+} from './_shared.js';
 
 const VALID_ID = 'guard-demo';
 
@@ -32,7 +39,9 @@ export async function runJ09Contract(ctx: GuardContext): Promise<GuardRunResult>
 
   const root = mkdtempSync(join(tmpdir(), 'cbl-J09-'));
   try {
-    const patternRejects = ['a.b', 'a/b', '../escape', 'Bad-Id', ''].every((id) => !SOP_ID_PATTERN.test(id));
+    const patternRejects = ['a.b', 'a/b', '../escape', 'Bad-Id', ''].every(
+      (id) => !SOP_ID_PATTERN.test(id)
+    );
     const patternAccepts = ['demo', 'my-sop', 'a', 'sop2'].every((id) => SOP_ID_PATTERN.test(id));
 
     const reservedRefused: string[] = [];
@@ -73,7 +82,10 @@ export async function runJ09Contract(ctx: GuardContext): Promise<GuardRunResult>
       writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
     } else {
       mkdirSync(join(root, '.peaks', 'sops', VALID_ID), { recursive: true });
-      writeFileSync(manifestPath, JSON.stringify({ id: 'not-the-directory-id', name: 'x', phases: ['p'], gates: [] }));
+      writeFileSync(
+        manifestPath,
+        JSON.stringify({ id: 'not-the-directory-id', name: 'x', phases: ['p'], gates: [] })
+      );
     }
     try {
       await registerSop({ id: VALID_ID, projectRoot: root });
@@ -87,11 +99,23 @@ export async function runJ09Contract(ctx: GuardContext): Promise<GuardRunResult>
       probe(missing.length === 0, `baseline sourceFiles present (${row.sourceFiles.length})`),
       probe(patternRejects, 'SOP_ID_PATTERN rejects dots, slashes, traversal and empty ids'),
       probe(patternAccepts, 'SOP_ID_PATTERN accepts lowercase kebab ids'),
-      probe(reservedRefused.length === 2, `reserved ids are refused (refused: ${reservedRefused.join(',') || 'none'})`),
+      probe(
+        reservedRefused.length === 2,
+        `reserved ids are refused (refused: ${reservedRefused.join(',') || 'none'})`
+      ),
       probe(traversalRefused, "initSop refuses '../escape'"),
-      probe(cleanRegisters, `a clean SOP registers and writes registry.json${registerError ? ` [${registerError}]` : ''}`),
-      probe(dirtyRefused, `a manifest that fails lint is refused with SOP_INVALID (saw ${dirtyCode})`),
-      probe(!wroteRegistryDespiteLintFailure, 'lint failure halts registration before registry.json is written')
+      probe(
+        cleanRegisters,
+        `a clean SOP registers and writes registry.json${registerError ? ` [${registerError}]` : ''}`
+      ),
+      probe(
+        dirtyRefused,
+        `a manifest that fails lint is refused with SOP_INVALID (saw ${dirtyCode})`
+      ),
+      probe(
+        !wroteRegistryDespiteLintFailure,
+        'lint failure halts registration before registry.json is written'
+      )
     ]);
 
     const artifact = row.sourceFiles[0] ?? 'src/services/sop/sop-service.ts';

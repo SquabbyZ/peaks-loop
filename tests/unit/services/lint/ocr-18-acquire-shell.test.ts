@@ -30,10 +30,13 @@ declareDimensions(
   'tests/unit/services/lint/ocr-18-acquire-shell.test.ts',
   ['integration'],
   [
-    { dim: 'behavior', reason: 'the preference is observable only through the fs/PATH boundary, which is integration' },
+    {
+      dim: 'behavior',
+      reason: 'the preference is observable only through the fs/PATH boundary, which is integration'
+    },
     { dim: 'a11y', reason: 'the resolver prints nothing and has no user-facing surface' },
-    { dim: 'render', reason: 'it returns a typed descriptor rather than rendering one' },
-  ],
+    { dim: 'render', reason: 'it returns a typed descriptor rather than rendering one' }
+  ]
 );
 
 const GIT_BASH = 'C:\\Program Files\\Git\\bin\\bash.exe';
@@ -55,7 +58,7 @@ describe('integration — the shell preference order (Git Bash, then PowerShell,
       platform: 'win32',
       env: {},
       probeFile: onlyPresent([GIT_BASH]),
-      runner: noBashOnPath,
+      runner: noBashOnPath
     });
 
     // then: bash, by absolute path, and the note names it rather than leaving
@@ -72,7 +75,7 @@ describe('integration — the shell preference order (Git Bash, then PowerShell,
       platform: 'win32',
       env: { SystemRoot: 'C:\\Windows' },
       probeFile: onlyPresent(['powershell.exe']),
-      runner: noBashOnPath,
+      runner: noBashOnPath
     });
 
     // then: PowerShell, and the note reports the fallback AND its cause — a
@@ -89,7 +92,7 @@ describe('integration — the shell preference order (Git Bash, then PowerShell,
       platform: 'win32',
       env: { SystemRoot: 'C:\\Windows' },
       probeFile: onlyPresent([]),
-      runner: noBashOnPath,
+      runner: noBashOnPath
     });
 
     // then: the no-shell branch is taken, reported, and carries no path to spawn

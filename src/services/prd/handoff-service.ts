@@ -38,7 +38,7 @@ import type {
   Handoff,
   HandoffFrontmatter,
   HandoffProbe,
-  HandoffSchemaVersion,
+  HandoffSchemaVersion
 } from './handoff-types.js';
 
 /** Required schema version for new handoffs. */
@@ -177,9 +177,7 @@ export function initHandoff(opts: {
    *  produces a map the other cannot. */
   gateEvidence?: GateEvidence;
 }): Handoff {
-  const handoffPath =
-    opts.handoffPath ??
-    handoffRelativePath(opts.sessionId, opts.requestId);
+  const handoffPath = opts.handoffPath ?? handoffRelativePath(opts.sessionId, opts.requestId);
   const handoffHash = sha256OfBody(opts.body);
   const frontmatter: HandoffFrontmatter = {
     requestId: opts.requestId,
@@ -196,7 +194,7 @@ export function initHandoff(opts: {
     // would also make `serializeHandoffFrontmatter`'s
     // `frontmatter.gateEvidence` key present-but-undefined for every caller
     // that declares nothing.
-    ...(opts.gateEvidence === undefined ? {} : { gateEvidence: opts.gateEvidence }),
+    ...(opts.gateEvidence === undefined ? {} : { gateEvidence: opts.gateEvidence })
   };
   return { frontmatter, body: opts.body };
 }
@@ -249,7 +247,7 @@ export async function verifyHandoff(filePath: string): Promise<HandoffProbe> {
     return {
       ok: false,
       reason: 'schema-version-mismatch',
-      actualHash: handoff.frontmatter.handoffHash,
+      actualHash: handoff.frontmatter.handoffHash
     };
   }
   const actualHash = sha256OfBody(handoff.body);
@@ -258,7 +256,7 @@ export async function verifyHandoff(filePath: string): Promise<HandoffProbe> {
       ok: false,
       reason: 'hash-mismatch',
       actualHash,
-      expectedHash: handoff.frontmatter.handoffHash,
+      expectedHash: handoff.frontmatter.handoffHash
     };
   }
   return { ok: true, actualHash, expectedHash: actualHash };

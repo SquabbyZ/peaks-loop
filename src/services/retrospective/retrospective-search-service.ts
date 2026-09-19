@@ -4,8 +4,16 @@ import { fuzzyMatchWithKey } from '../fuzzy-matching/fuzzy-match-service.js';
 
 // Re-export the canonical types from the existing retrospective service
 // so callers can use a single import surface.
-export type { RetrospectiveType, RetrospectiveOutcome, RetrospectiveEntry } from './retrospective-index.js';
-import type { RetrospectiveType, RetrospectiveOutcome, RetrospectiveEntry } from './retrospective-index.js';
+export type {
+  RetrospectiveType,
+  RetrospectiveOutcome,
+  RetrospectiveEntry
+} from './retrospective-index.js';
+import type {
+  RetrospectiveType,
+  RetrospectiveOutcome,
+  RetrospectiveEntry
+} from './retrospective-index.js';
 
 const DEFAULT_LIMIT = 6;
 
@@ -48,7 +56,9 @@ function readIndex(projectRoot: string): RetrospectiveEntry[] {
   const resolvedRoot = resolve(projectRoot);
   const indexPath = join(resolvedRoot, '.peaks', 'retrospective', 'index.json');
   if (!existsSync(indexPath)) {
-    const err = new Error(`INDEX_MISSING: retrospective index not found at ${indexPath}`) as Error & { code?: string };
+    const err = new Error(
+      `INDEX_MISSING: retrospective index not found at ${indexPath}`
+    ) as Error & { code?: string };
     err.code = 'INDEX_MISSING';
     throw err;
   }
@@ -56,7 +66,9 @@ function readIndex(projectRoot: string): RetrospectiveEntry[] {
   try {
     raw = readFileSync(indexPath, 'utf8');
   } catch (cause) {
-    const err = new Error(`INDEX_INVALID: failed to read retrospective index at ${indexPath}: ${(cause as Error).message}`) as Error & { code?: string };
+    const err = new Error(
+      `INDEX_INVALID: failed to read retrospective index at ${indexPath}: ${(cause as Error).message}`
+    ) as Error & { code?: string };
     err.code = 'INDEX_INVALID';
     throw err;
   }
@@ -64,7 +76,9 @@ function readIndex(projectRoot: string): RetrospectiveEntry[] {
   try {
     parsed = JSON.parse(raw);
   } catch (cause) {
-    const err = new Error(`INDEX_INVALID: malformed retrospective index at ${indexPath}: ${(cause as Error).message}`) as Error & { code?: string };
+    const err = new Error(
+      `INDEX_INVALID: malformed retrospective index at ${indexPath}: ${(cause as Error).message}`
+    ) as Error & { code?: string };
     err.code = 'INDEX_INVALID';
     throw err;
   }
@@ -80,7 +94,9 @@ function readIndex(projectRoot: string): RetrospectiveEntry[] {
  */
 export function searchRetrospective(input: RetrospectiveSearchInput): RetrospectiveSearchResult[] {
   if (input.query === '') {
-    const err = new Error('EMPTY_QUERY: searchRetrospective requires a non-empty query (use `peaks retrospective index` to list all)') as Error & { code?: string };
+    const err = new Error(
+      'EMPTY_QUERY: searchRetrospective requires a non-empty query (use `peaks retrospective index` to list all)'
+    ) as Error & { code?: string };
     err.code = 'EMPTY_QUERY';
     throw err;
   }
@@ -96,11 +112,11 @@ export function searchRetrospective(input: RetrospectiveSearchInput): Retrospect
     candidates = candidates.filter((e) => e.outcome === input.outcome);
   }
 
-  const matches = fuzzyMatchWithKey(
-    input.query,
-    candidates,
-    { keyFn: (e) => `${e.title} ${e.summary}`, limit, caseSensitive: false }
-  );
+  const matches = fuzzyMatchWithKey(input.query, candidates, {
+    keyFn: (e) => `${e.title} ${e.summary}`,
+    limit,
+    caseSensitive: false
+  });
 
   return matches.map((m) => {
     const entry = m.item;
@@ -113,7 +129,7 @@ export function searchRetrospective(input: RetrospectiveSearchInput): Retrospect
       outcome: entry.outcome,
       artifactPaths: entry.artifactPaths,
       score: m.score,
-      positions: m.positions,
+      positions: m.positions
     };
   });
 }

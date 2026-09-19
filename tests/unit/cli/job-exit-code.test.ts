@@ -46,9 +46,18 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { declareDimensions } from '../_setup/4dim-template.js';
 import { makeCapturedIo, withEnv } from '../_setup/io.js';
-import { cleanupTmpWorkspace, useTmpWorkspace, type TmpWorkspace } from '../_setup/tmp-workspace.js';
+import {
+  cleanupTmpWorkspace,
+  useTmpWorkspace,
+  type TmpWorkspace
+} from '../_setup/tmp-workspace.js';
 
-declareDimensions('tests/unit/cli/job-exit-code.test.ts', ['render', 'behavior', 'integration', 'a11y']);
+declareDimensions('tests/unit/cli/job-exit-code.test.ts', [
+  'render',
+  'behavior',
+  'integration',
+  'a11y'
+]);
 
 const __autorefresh = vi.hoisted(() => ({ refreshCodegraphAfterSlice: vi.fn() }));
 const __events = vi.hoisted(() => ({ shouldThrow: false }));
@@ -57,8 +66,10 @@ const __events = vi.hoisted(() => ({ shouldThrow: false }));
 // is NOT replaced: the real rule decides which refresh outcomes become a warning,
 // so the advisory control exercises the shipped policy rather than a stub.
 vi.mock('../../../src/services/codegraph/codegraph-autorefresh.js', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../../../src/services/codegraph/codegraph-autorefresh.js')>()),
-  refreshCodegraphAfterSlice: __autorefresh.refreshCodegraphAfterSlice,
+  ...(await importOriginal<
+    typeof import('../../../src/services/codegraph/codegraph-autorefresh.js')
+  >()),
+  refreshCodegraphAfterSlice: __autorefresh.refreshCodegraphAfterSlice
 }));
 
 // Only `job-commands.ts` imports this module, so a throwing emit reaches the two
@@ -66,7 +77,7 @@ vi.mock('../../../src/services/codegraph/codegraph-autorefresh.js', async (impor
 vi.mock('../../../src/services/job/job-event-emitter.js', () => ({
   emitJobEvent: () => {
     if (__events.shouldThrow) throw new Error('event sink unavailable');
-  },
+  }
 }));
 
 import { registerJobCommands } from '../../../src/cli/commands/job-commands.js';
@@ -88,7 +99,7 @@ function bindSession(wsPath: string): void {
   writeFileSync(
     join(runtimeDir, 'session.json'),
     JSON.stringify({ sessionId: SESSION_ID, projectRoot: wsPath }, null, 2) + '\n',
-    'utf8',
+    'utf8'
   );
 }
 
@@ -103,7 +114,7 @@ function bindSession(wsPath: string): void {
 async function runJobExit(
   args: readonly string[],
   projectPath: string,
-  json = false,
+  json = false
 ): Promise<{ captured: CapturedIo; exitCode: number }> {
   const previousExitCode = process.exitCode;
   process.exitCode = undefined;
@@ -122,7 +133,10 @@ async function runJobExit(
 /** Seed the job through the CLI itself, so the state under test is real. */
 async function seedJob(ws: TmpWorkspace): Promise<void> {
   bindSession(ws.path);
-  const { exitCode } = await runJobExit(['init', '--job-id', JOB_ID, '--slice-list', 's1,s2'], ws.path);
+  const { exitCode } = await runJobExit(
+    ['init', '--job-id', JOB_ID, '--slice-list', 's1,s2'],
+    ws.path
+  );
   expect(exitCode).toBe(0);
 }
 
@@ -151,7 +165,7 @@ const GENUINE_FAILURES: ReadonlyArray<{
     args: ['init', '--job-id', 'j-bare', '--slice-list', 's1'],
     bind: false,
     job: false,
-    expectStderr: 'NO_ACTIVE_SESSION: peaks job init requires --session-id',
+    expectStderr: 'NO_ACTIVE_SESSION: peaks job init requires --session-id'
   },
   {
     site: 'init/INVALID_INIT',
@@ -161,57 +175,67 @@ const GENUINE_FAILURES: ReadonlyArray<{
     args: ['init', '--job-id', 'j-bad', '--slice-list', ','],
     bind: true,
     job: false,
-    expectStderr: 'INVALID_INIT:',
+    expectStderr: 'INVALID_INIT:'
   },
   {
     site: 'checkpoint/INVALID_CHECKPOINT',
     args: ['checkpoint', '--job-id', JOB_ID, '--slice-id', 'slice-001', '--state', 'done'],
     bind: true,
     job: true,
-    expectStderr: 'INVALID_CHECKPOINT:',
+    expectStderr: 'INVALID_CHECKPOINT:'
   },
   {
     site: 'checkpoint/SLICE_NOT_FOUND',
-    args: ['checkpoint', '--job-id', JOB_ID, '--slice-id', 'no-such-slice', '--state', 'failed', '--reason', 'why'],
+    args: [
+      'checkpoint',
+      '--job-id',
+      JOB_ID,
+      '--slice-id',
+      'no-such-slice',
+      '--state',
+      'failed',
+      '--reason',
+      'why'
+    ],
     bind: true,
     job: true,
-    expectStderr: 'SLICE_NOT_FOUND: no slice "no-such-slice"',
+    expectStderr: 'SLICE_NOT_FOUND: no slice "no-such-slice"'
   },
   {
     site: 'block/INVALID_BLOCK',
     args: ['block', '--job-id', JOB_ID, '--slice-id', 'slice-001', '--reason', 'ab'],
     bind: true,
     job: true,
-    expectStderr: 'INVALID_BLOCK:',
+    expectStderr: 'INVALID_BLOCK:'
   },
   {
     site: 'block/SLICE_NOT_FOUND',
     args: ['block', '--job-id', JOB_ID, '--slice-id', 'no-such-slice', '--reason', 'why'],
     bind: true,
     job: true,
-    expectStderr: 'SLICE_NOT_FOUND: no slice "no-such-slice"',
+    expectStderr: 'SLICE_NOT_FOUND: no slice "no-such-slice"'
   },
   {
     site: 'progress/PROGRESS_READ_FAILED',
     args: ['progress', '--job-id', JOB_ID],
     bind: true,
     job: true,
-    expectStderr: 'PROGRESS_READ_FAILED:',
+    expectStderr: 'PROGRESS_READ_FAILED:'
   },
   {
     site: 'progress/NO_PROGRESS',
     args: ['progress', '--job-id', JOB_ID, '--allow-missing'],
     bind: true,
     job: true,
-    expectStderr: 'NO_PROGRESS:',
+    expectStderr: 'NO_PROGRESS:'
   },
   {
     site: 'karpathy-cost-check/NO_ACTIVE_SESSION',
     args: ['karpathy-cost-check', '--review-file', 'rd/karpathy-review.md'],
     bind: false,
     job: false,
-    expectStderr: 'NO_ACTIVE_SESSION: karpathy-cost-check requires --session-id',
-  },
+    expectStderr: 'NO_ACTIVE_SESSION: karpathy-cost-check requires --session-id'
+  }
 ];
 
 let ws: TmpWorkspace;
@@ -267,14 +291,34 @@ describe('Scenario: render — a non-zero exit always comes with ok: false', () 
     await seedJob(ws);
     // when: it runs both ways
     const withoutFlag = await runJobExit(
-      ['checkpoint', '--job-id', JOB_ID, '--slice-id', 'no-such-slice', '--state', 'failed', '--reason', 'why'],
+      [
+        'checkpoint',
+        '--job-id',
+        JOB_ID,
+        '--slice-id',
+        'no-such-slice',
+        '--state',
+        'failed',
+        '--reason',
+        'why'
+      ],
       ws.path,
-      false,
+      false
     );
     const withFlag = await runJobExit(
-      ['checkpoint', '--job-id', JOB_ID, '--slice-id', 'no-such-slice', '--state', 'failed', '--reason', 'why'],
+      [
+        'checkpoint',
+        '--job-id',
+        JOB_ID,
+        '--slice-id',
+        'no-such-slice',
+        '--state',
+        'failed',
+        '--reason',
+        'why'
+      ],
       ws.path,
-      true,
+      true
     );
     // then: no envelope at all without the flag, and ok:false with it
     expect(withoutFlag.exitCode).toBe(1);
@@ -292,13 +336,23 @@ describe('Scenario: behavior — the advisory paths still exit 0 (the control)',
     __autorefresh.refreshCodegraphAfterSlice.mockResolvedValue({
       refreshed: false,
       reason: 'index-failed',
-      note: 'auto codegraph refresh failed (exit 2): schema lock conflict. Run `peaks codegraph index --project <root>` to refresh the codegraph index.',
+      note: 'auto codegraph refresh failed (exit 2): schema lock conflict. Run `peaks codegraph index --project <root>` to refresh the codegraph index.'
     });
     // when: the checkpoint runs the way a human runs it
     const { captured, exitCode } = await runJobExit(
-      ['checkpoint', '--job-id', JOB_ID, '--slice-id', 'slice-001', '--state', 'done', '--commit-sha', COMMIT_SHA],
+      [
+        'checkpoint',
+        '--job-id',
+        JOB_ID,
+        '--slice-id',
+        'slice-001',
+        '--state',
+        'done',
+        '--commit-sha',
+        COMMIT_SHA
+      ],
       ws.path,
-      false,
+      false
     );
     // then: the checkpoint DID succeed, so the exit code stays 0 …
     expect(exitCode).toBe(0);
@@ -315,9 +369,19 @@ describe('Scenario: behavior — the advisory paths still exit 0 (the control)',
     __autorefresh.refreshCodegraphAfterSlice.mockRejectedValue(new Error('spawn EACCES'));
     // when: the checkpoint runs
     const { captured, exitCode } = await runJobExit(
-      ['checkpoint', '--job-id', JOB_ID, '--slice-id', 'slice-001', '--state', 'done', '--commit-sha', COMMIT_SHA],
+      [
+        'checkpoint',
+        '--job-id',
+        JOB_ID,
+        '--slice-id',
+        'slice-001',
+        '--state',
+        'done',
+        '--commit-sha',
+        COMMIT_SHA
+      ],
       ws.path,
-      false,
+      false
     );
     // then: exit 0, with the throw surfaced as an advisory note — never swallowed
     //       into silence, and never promoted into a checkpoint failure
@@ -331,7 +395,11 @@ describe('Scenario: behavior — the advisory paths still exit 0 (the control)',
     bindSession(ws.path);
     __events.shouldThrow = true;
     // when: a job is initialised successfully
-    const { exitCode } = await runJobExit(['init', '--job-id', 'j-advisory', '--slice-list', 's1'], ws.path, false);
+    const { exitCode } = await runJobExit(
+      ['init', '--job-id', 'j-advisory', '--slice-list', 's1'],
+      ws.path,
+      false
+    );
     // then: init succeeded, so the failed emit is invisible to the exit code
     expect(exitCode).toBe(0);
   });
@@ -350,17 +418,41 @@ describe('Scenario: behavior — the advisory paths still exit 0 (the control)',
   it('when an advisory outcome and a genuine failure share a command, should split them by exit code', async () => {
     // given: `job checkpoint` — the command that owns BOTH kinds of outcome
     await seedJob(ws);
-    __autorefresh.refreshCodegraphAfterSlice.mockResolvedValue({ refreshed: false, reason: 'index-failed', note: 'refresh did not run' });
+    __autorefresh.refreshCodegraphAfterSlice.mockResolvedValue({
+      refreshed: false,
+      reason: 'index-failed',
+      note: 'refresh did not run'
+    });
     // when: one advisory-only run and one genuinely unrunnable invocation
     const advisory = await runJobExit(
-      ['checkpoint', '--job-id', JOB_ID, '--slice-id', 'slice-001', '--state', 'done', '--commit-sha', COMMIT_SHA],
+      [
+        'checkpoint',
+        '--job-id',
+        JOB_ID,
+        '--slice-id',
+        'slice-001',
+        '--state',
+        'done',
+        '--commit-sha',
+        COMMIT_SHA
+      ],
       ws.path,
-      false,
+      false
     );
     const genuine = await runJobExit(
-      ['checkpoint', '--job-id', JOB_ID, '--slice-id', 'no-such-slice', '--state', 'failed', '--reason', 'why'],
+      [
+        'checkpoint',
+        '--job-id',
+        JOB_ID,
+        '--slice-id',
+        'no-such-slice',
+        '--state',
+        'failed',
+        '--reason',
+        'why'
+      ],
       ws.path,
-      false,
+      false
     );
     // then: the warning stays 0 and the failure is 1 — the fix did not turn
     //       every warning into a build breaker
@@ -372,12 +464,26 @@ describe('Scenario: behavior — the advisory paths still exit 0 (the control)',
     // given: a clean project
     bindSession(ws.path);
     // when: init, status and a green-refresh checkpoint all run
-    const init = await runJobExit(['init', '--job-id', JOB_ID, '--slice-list', 's1,s2'], ws.path, false);
+    const init = await runJobExit(
+      ['init', '--job-id', JOB_ID, '--slice-list', 's1,s2'],
+      ws.path,
+      false
+    );
     const status = await runJobExit(['status', '--job-id', JOB_ID], ws.path, false);
     const checkpoint = await runJobExit(
-      ['checkpoint', '--job-id', JOB_ID, '--slice-id', 'slice-001', '--state', 'done', '--commit-sha', COMMIT_SHA],
+      [
+        'checkpoint',
+        '--job-id',
+        JOB_ID,
+        '--slice-id',
+        'slice-001',
+        '--state',
+        'done',
+        '--commit-sha',
+        COMMIT_SHA
+      ],
       ws.path,
-      false,
+      false
     );
     // then: the fix did not make successful commands exit non-zero
     expect(init.exitCode).toBe(0);
@@ -391,7 +497,11 @@ describe('Scenario: integration — the exit code survives the real command wiri
     // given: a seeded job
     await seedJob(ws);
     // when: a failure runs, then a success
-    const failure = await runJobExit(['block', '--job-id', JOB_ID, '--slice-id', 'no-such-slice', '--reason', 'why'], ws.path, false);
+    const failure = await runJobExit(
+      ['block', '--job-id', JOB_ID, '--slice-id', 'no-such-slice', '--reason', 'why'],
+      ws.path,
+      false
+    );
     const success = await runJobExit(['status', '--job-id', JOB_ID], ws.path, false);
     // then: each invocation gets its own verdict — the failure set the code for
     //       its own process, and the success does not inherit it
@@ -405,13 +515,23 @@ describe('Scenario: integration — the exit code survives the real command wiri
     __autorefresh.refreshCodegraphAfterSlice.mockResolvedValue({
       refreshed: false,
       reason: 'index-failed',
-      note: 'refresh did not run',
+      note: 'refresh did not run'
     });
     // when: the advisory checkpoint runs
     const { captured, exitCode } = await runJobExit(
-      ['checkpoint', '--job-id', JOB_ID, '--slice-id', 'slice-001', '--state', 'done', '--commit-sha', COMMIT_SHA],
+      [
+        'checkpoint',
+        '--job-id',
+        JOB_ID,
+        '--slice-id',
+        'slice-001',
+        '--state',
+        'done',
+        '--commit-sha',
+        COMMIT_SHA
+      ],
       ws.path,
-      false,
+      false
     );
     // then: the 0 is not vacuous — the boundary really was reached, the slice
     //       really flipped, and the progress mirror really was written. A
@@ -419,10 +539,15 @@ describe('Scenario: integration — the exit code survives the real command wiri
     //       indistinguishable from a working one.
     expect(__autorefresh.refreshCodegraphAfterSlice).toHaveBeenCalledTimes(1);
     const state = JSON.parse(
-      readFileSync(join(ws.path, '.peaks', '_runtime', SESSION_ID, 'job', JOB_ID, 'state.json'), 'utf8'),
+      readFileSync(
+        join(ws.path, '.peaks', '_runtime', SESSION_ID, 'job', JOB_ID, 'state.json'),
+        'utf8'
+      )
     ) as { slices: Array<{ sliceId: string; status: string }> };
     expect(state.slices.find((s) => s.sliceId === 'slice-001')?.status).toBe('done');
-    expect(existsSync(join(ws.path, '.peaks', '_runtime', SESSION_ID, 'job', JOB_ID, 'progress.json'))).toBe(true);
+    expect(
+      existsSync(join(ws.path, '.peaks', '_runtime', SESSION_ID, 'job', JOB_ID, 'progress.json'))
+    ).toBe(true);
     expect(exitCode).toBe(0);
     expect(captured.stderrText()).toContain('warning: refresh did not run');
   });
@@ -435,7 +560,7 @@ describe('Scenario: integration — the exit code survives the real command wiri
     const failure = await runJobExit(
       ['block', '--job-id', JOB_ID, '--slice-id', 'no-such-slice', '--reason', 'why'],
       ws.path,
-      false,
+      false
     );
     // then: the CLI verdict was 1 …
     expect(failure.exitCode).toBe(1);

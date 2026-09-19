@@ -32,7 +32,9 @@ export function registerSkillConformanceCommands(program: Command, io: ProgramIO
           }
         }
         if (report.warned > 0) {
-          nextActions.push(`${report.warned} advisory warning(s); see envelope.checks for details.`);
+          nextActions.push(
+            `${report.warned} advisory warning(s); see envelope.checks for details.`
+          );
         }
         if (report.failed === 0 && report.warned === 0) {
           nextActions.push('All 13 skills pass the 5 alignment standards.');
@@ -41,7 +43,13 @@ export function registerSkillConformanceCommands(program: Command, io: ProgramIO
       } catch (error) {
         printResult(
           io,
-          fail('skills.audit-conformance', 'AUDIT_CONFORMANCE_FAILED', getErrorMessage(error), { projectRoot: options.project }, ['Verify the project path']),
+          fail(
+            'skills.audit-conformance',
+            'AUDIT_CONFORMANCE_FAILED',
+            getErrorMessage(error),
+            { projectRoot: options.project },
+            ['Verify the project path']
+          ),
           options.json
         );
         process.exitCode = 1;

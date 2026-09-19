@@ -21,7 +21,15 @@
 //     directory + index on first read of a stock project.
 // ---------------------------------------------------------------------------
 
-import { closeSync, constants, existsSync, openSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import {
+  closeSync,
+  constants,
+  existsSync,
+  openSync,
+  readFileSync,
+  statSync,
+  writeFileSync
+} from 'node:fs';
 import { basename, join } from 'node:path';
 
 import type { MemoryIndex, MemoryIndexEntry, ProjectMemoryKind } from '../types.js';
@@ -57,7 +65,8 @@ export function readStoredMemoryNames(memoryDir: string): Set<string> {
     try {
       const parsed = parseStoredMemoryFile(readFileSync(filePath, 'utf8'), filePath);
       if (parsed) names.add(parsed.name);
-    } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+    } catch {
+      // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
       // ignore unreadable files
     }
   }
@@ -135,7 +144,8 @@ export function readExistingIndex(indexPath: string): MemoryIndex | null {
     const parsed = JSON.parse(raw) as MemoryIndex;
     if (parsed.version === 1) return parsed;
     return null;
-  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+  } catch {
+    // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     return null;
   }
 }
@@ -185,7 +195,8 @@ export function readMemoryIndex(projectRoot: string): MemoryIndex | null {
   if (files.length > 0 && shouldRegenerateIndex(indexPath, files)) {
     try {
       generateMemoryIndexFile(normalizedRoot, memoryDir, indexPath);
-    } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+    } catch {
+      // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
       // fall through to read existing
     }
   }

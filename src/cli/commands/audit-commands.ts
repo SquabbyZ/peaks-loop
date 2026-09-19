@@ -13,12 +13,16 @@ import { resolve } from 'node:path';
 import { Command } from 'commander';
 import { runRedLinesAudit } from '../../services/audit/red-lines-service.js';
 import { runStaticAudit, type AgentShieldState } from '../../services/audit/static-service.js';
-import { auditGoal, IncompleteAuditError, type LlmRunner } from '../../services/audit/audit-goal-service.js';
+import {
+  auditGoal,
+  IncompleteAuditError,
+  type LlmRunner
+} from '../../services/audit/audit-goal-service.js';
 import {
   createAnthropicRunner,
   LlmBindingError,
   LlmRequestError,
-  resolveAnthropicConfig,
+  resolveAnthropicConfig
 } from '../../services/llm/anthropic-runner.js';
 import { createStubRunner } from '../../services/llm/stub-runner.js';
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
@@ -26,15 +30,21 @@ import { fail, ok, type ResultEnvelope } from 'peaks-loop-shared/result';
 
 import type { AuditGoalOutput } from '../../services/audit/audit-goal-types.js';
 import type { RedLineAudit } from '../../services/audit/types.js';
-import { type AuditDecisionRecord, writeAuditDecision } from '../../services/audit/decision-writer.js';
-import { computeProseRatio, type ProseRatioResult } from '../../services/audit/prose-ratio-calculator.js';
+import {
+  type AuditDecisionRecord,
+  writeAuditDecision
+} from '../../services/audit/decision-writer.js';
+import {
+  computeProseRatio,
+  type ProseRatioResult
+} from '../../services/audit/prose-ratio-calculator.js';
 import {
   writeDecision,
   writeMachineOutput,
   writeNarrative,
   writePrompt,
   type ArtifactKind,
-  type ArtifactWriteRecord,
+  type ArtifactWriteRecord
 } from '../../services/audit/artifact-writer.js';
 
 type RedLinesOptions = {
@@ -79,7 +89,7 @@ const SUPPORTED_ARTIFACT_KINDS: readonly ArtifactKind[] = [
   'decision',
   'prompt',
   'machine-output',
-  'narrative',
+  'narrative'
 ];
 
 function isSupportedArtifactKind(value: string): value is ArtifactKind {
@@ -122,10 +132,16 @@ export interface AuditGoalData {
   readonly missingEnv?: readonly string[];
 }
 
-function validateProjectRoot(projectArg: string): { ok: true; projectRoot: string } | { ok: false; code: string; message: string } {
+function validateProjectRoot(
+  projectArg: string
+): { ok: true; projectRoot: string } | { ok: false; code: string; message: string } {
   const projectRoot = resolve(projectArg);
   if (!existsSync(projectRoot)) {
-    return { ok: false, code: 'PROJECT_NOT_FOUND', message: `project path does not exist: ${projectArg}` };
+    return {
+      ok: false,
+      code: 'PROJECT_NOT_FOUND',
+      message: `project path does not exist: ${projectArg}`
+    };
   }
   let stat;
   try {
@@ -134,7 +150,11 @@ function validateProjectRoot(projectArg: string): { ok: true; projectRoot: strin
     return { ok: false, code: 'INVALID_PROJECT', message: getErrorMessage(error) };
   }
   if (!stat.isDirectory()) {
-    return { ok: false, code: 'INVALID_PROJECT', message: `project path is not a directory: ${projectArg}` };
+    return {
+      ok: false,
+      code: 'INVALID_PROJECT',
+      message: `project path is not a directory: ${projectArg}`
+    };
   }
   return { ok: true, projectRoot };
 }
@@ -154,14 +174,29 @@ export function registerAuditCommands(program: Command, io: ProgramIO): void {
   addJsonOption(
     audit
       .command('red-lines')
-      .description('Scan skills/, .claude/rules/, and openspec/changes/ for MANDATORY / BLOCKING / MUST NOT / RED LINE markers; classify each as cli-backed / partial / prose-only')
+      .description(
+        'Scan skills/, .claude/rules/, and openspec/changes/ for MANDATORY / BLOCKING / MUST NOT / RED LINE markers; classify each as cli-backed / partial / prose-only'
+      )
       .requiredOption('--project <path>', 'target project root')
   ).action(async (options: RedLinesOptions) => {
     const validation = validateProjectRoot(options.project);
     if (!validation.ok) {
       printResult(
         io,
-        fail<RedLineAudit>('audit.red-lines', validation.code, validation.message, { totalRedLines: 0, cliBacked: 0, partial: 0, proseOnly: 0, audit: [], enforcerFindings: [] }, ['Verify the project path exists and is a directory']),
+        fail<RedLineAudit>(
+          'audit.red-lines',
+          validation.code,
+          validation.message,
+          {
+            totalRedLines: 0,
+            cliBacked: 0,
+            partial: 0,
+            proseOnly: 0,
+            audit: [],
+            enforcerFindings: []
+          },
+          ['Verify the project path exists and is a directory']
+        ),
         options.json
       );
       process.exitCode = 1;
@@ -172,17 +207,39 @@ export function registerAuditCommands(program: Command, io: ProgramIO): void {
       const result = runRedLinesAudit({ projectRoot: validation.projectRoot });
       const nextActions: string[] = [];
       if (result.audit.proseOnly > 0) {
-        nextActions.push(`${result.audit.proseOnly} prose-only red lines remain. Plan P1/P2 enforcers in L2.2-L2.4.`);
+        nextActions.push(
+          `${result.audit.proseOnly} prose-only red lines remain. Plan P1/P2 enforcers in L2.2-L2.4.`
+        );
       }
       if (result.audit.cliBacked > 0) {
-        nextActions.push(`${result.audit.cliBacked} red lines are now cli-backed. Re-run after each enforcer lands to track the prose-only ratio.`);
+        nextActions.push(
+          `${result.audit.cliBacked} red lines are now cli-backed. Re-run after each enforcer lands to track the prose-only ratio.`
+        );
       }
-      const envelope: ResultEnvelope<RedLineAudit> = ok('audit.red-lines', result.audit, result.warnings.map((w) => `${w.file}: ${w.message}`), nextActions);
+      const envelope: ResultEnvelope<RedLineAudit> = ok(
+        'audit.red-lines',
+        result.audit,
+        result.warnings.map((w) => `${w.file}: ${w.message}`),
+        nextActions
+      );
       printResult(io, envelope, options.json);
     } catch (error) {
       printResult(
         io,
-        fail<RedLineAudit>('audit.red-lines', 'SCANNER_FAILED', getErrorMessage(error), { totalRedLines: 0, cliBacked: 0, partial: 0, proseOnly: 0, audit: [], enforcerFindings: [] }, ['Inspect scanner logs and re-run with the same --project path']),
+        fail<RedLineAudit>(
+          'audit.red-lines',
+          'SCANNER_FAILED',
+          getErrorMessage(error),
+          {
+            totalRedLines: 0,
+            cliBacked: 0,
+            partial: 0,
+            proseOnly: 0,
+            audit: [],
+            enforcerFindings: []
+          },
+          ['Inspect scanner logs and re-run with the same --project path']
+        ),
         options.json
       );
       process.exitCode = 1;
@@ -205,16 +262,30 @@ export function registerAuditCommands(program: Command, io: ProgramIO): void {
   addJsonOption(
     audit
       .command('static')
-      .description('Run the static audit (peaks-loop lint only; the ECC AgentShield subprocess was removed in 4.0.0-beta.11). Per spec §5.3.')
+      .description(
+        'Run the static audit (peaks-loop lint only; the ECC AgentShield subprocess was removed in 4.0.0-beta.11). Per spec §5.3.'
+      )
       .requiredOption('--project <path>', 'target project root')
-      .option('--record', 'persist the audit snapshot to .peaks/memory/audit-decisions/ as a project-memory decision')
-      .option('--rid <rid>', 'disambiguator for the decision record slug (used with --record; pairs multiple audits on the same day)')
+      .option(
+        '--record',
+        'persist the audit snapshot to .peaks/memory/audit-decisions/ as a project-memory decision'
+      )
+      .option(
+        '--rid <rid>',
+        'disambiguator for the decision record slug (used with --record; pairs multiple audits on the same day)'
+      )
   ).action(async (options: StaticAuditOptions) => {
     const validation = validateProjectRoot(options.project);
     if (!validation.ok) {
       printResult(
         io,
-        fail<StaticAuditData>('audit.static', validation.code, validation.message, emptyStaticAuditData(), ['Verify the project path exists and is a directory']),
+        fail<StaticAuditData>(
+          'audit.static',
+          validation.code,
+          validation.message,
+          emptyStaticAuditData(),
+          ['Verify the project path exists and is a directory']
+        ),
         options.json
       );
       process.exitCode = 1;
@@ -227,7 +298,13 @@ export function registerAuditCommands(program: Command, io: ProgramIO): void {
     if (options.rid && !options.record) {
       printResult(
         io,
-        fail<StaticAuditData>('audit.static', 'FLAGS_CONFLICT', '`--rid` requires `--record` (decision slug disambiguator has no effect without persistence)', emptyStaticAuditData(), ['Pass `--record` together with `--rid <id>`, or omit `--rid`']),
+        fail<StaticAuditData>(
+          'audit.static',
+          'FLAGS_CONFLICT',
+          '`--rid` requires `--record` (decision slug disambiguator has no effect without persistence)',
+          emptyStaticAuditData(),
+          ['Pass `--record` together with `--rid <id>`, or omit `--rid`']
+        ),
         options.json
       );
       process.exitCode = 1;
@@ -268,20 +345,28 @@ export function registerAuditCommands(program: Command, io: ProgramIO): void {
       // removed subprocess, removed flags, and a dead preference.
       if (decision) {
         nextActions.push(`Decision record written: ${decision.filePath}`);
-        nextActions.push(`Index synced: ${decision.indexSynced ? 'yes' : 'no'} (memory hot.decision[] now includes this audit)`);
+        nextActions.push(
+          `Index synced: ${decision.indexSynced ? 'yes' : 'no'} (memory hot.decision[] now includes this audit)`
+        );
       }
       const warnings = recordWarning ? [...result.warnings, recordWarning] : [...result.warnings];
       const envelope: ResultEnvelope<StaticAuditData> = ok(
         'audit.static',
         data,
         warnings,
-        nextActions,
+        nextActions
       );
       printResult(io, envelope, options.json);
     } catch (error) {
       printResult(
         io,
-        fail<StaticAuditData>('audit.static', 'SCANNER_FAILED', getErrorMessage(error), emptyStaticAuditData(), ['Inspect scanner logs and re-run with the same --project path']),
+        fail<StaticAuditData>(
+          'audit.static',
+          'SCANNER_FAILED',
+          getErrorMessage(error),
+          emptyStaticAuditData(),
+          ['Inspect scanner logs and re-run with the same --project path']
+        ),
         options.json
       );
       process.exitCode = 1;
@@ -296,7 +381,9 @@ export function registerAuditCommands(program: Command, io: ProgramIO): void {
   addJsonOption(
     audit
       .command('prose-ratio')
-      .description('Compute the prose-only ratio (informational entries excluded). Exits 1 if ratio > target (default 5%).')
+      .description(
+        'Compute the prose-only ratio (informational entries excluded). Exits 1 if ratio > target (default 5%).'
+      )
       .requiredOption('--project <path>', 'target project root')
       .option('--target <n>', 'maximum prose-only ratio (0-1, default 0.05)', '0.05')
   ).action(async (options: ProseRatioOptions) => {
@@ -304,7 +391,13 @@ export function registerAuditCommands(program: Command, io: ProgramIO): void {
     if (!validation.ok) {
       printResult(
         io,
-        fail<ProseRatioResult>('audit.prose-ratio', validation.code, validation.message, emptyProseRatioResult(), ['Verify the project path exists and is a directory']),
+        fail<ProseRatioResult>(
+          'audit.prose-ratio',
+          validation.code,
+          validation.message,
+          emptyProseRatioResult(),
+          ['Verify the project path exists and is a directory']
+        ),
         options.json
       );
       process.exitCode = 1;
@@ -315,7 +408,13 @@ export function registerAuditCommands(program: Command, io: ProgramIO): void {
     if (!Number.isFinite(target) || target < 0 || target > 1) {
       printResult(
         io,
-        fail<ProseRatioResult>('audit.prose-ratio', 'INVALID_TARGET', `--target must be a number between 0 and 1 (got "${options.target}")`, emptyProseRatioResult(), ['Pass --target 0.05 (default) or another number in [0, 1]']),
+        fail<ProseRatioResult>(
+          'audit.prose-ratio',
+          'INVALID_TARGET',
+          `--target must be a number between 0 and 1 (got "${options.target}")`,
+          emptyProseRatioResult(),
+          ['Pass --target 0.05 (default) or another number in [0, 1]']
+        ),
         options.json
       );
       process.exitCode = 1;
@@ -325,11 +424,16 @@ export function registerAuditCommands(program: Command, io: ProgramIO): void {
     try {
       const result = runStaticAudit({ projectRoot: validation.projectRoot });
       const ratio = computeProseRatio(result.audit.audit, { target });
-      const envelope: ResultEnvelope<ProseRatioResult> = ok('audit.prose-ratio', ratio, [], [
-        ratio.exceeds
-          ? `Prose-only ratio ${(ratio.ratio * 100).toFixed(2)}% exceeds target ${(ratio.target * 100).toFixed(2)}% (${ratio.proseOnly}/${ratio.totalRedLines})`
-          : `Prose-only ratio ${(ratio.ratio * 100).toFixed(2)}% within target ${(ratio.target * 100).toFixed(2)}% (${ratio.proseOnly}/${ratio.totalRedLines})`
-      ]);
+      const envelope: ResultEnvelope<ProseRatioResult> = ok(
+        'audit.prose-ratio',
+        ratio,
+        [],
+        [
+          ratio.exceeds
+            ? `Prose-only ratio ${(ratio.ratio * 100).toFixed(2)}% exceeds target ${(ratio.target * 100).toFixed(2)}% (${ratio.proseOnly}/${ratio.totalRedLines})`
+            : `Prose-only ratio ${(ratio.ratio * 100).toFixed(2)}% within target ${(ratio.target * 100).toFixed(2)}% (${ratio.proseOnly}/${ratio.totalRedLines})`
+        ]
+      );
       printResult(io, envelope, options.json);
       if (ratio.exceeds) {
         process.exitCode = 1;
@@ -337,7 +441,13 @@ export function registerAuditCommands(program: Command, io: ProgramIO): void {
     } catch (error) {
       printResult(
         io,
-        fail<ProseRatioResult>('audit.prose-ratio', 'SCANNER_FAILED', getErrorMessage(error), emptyProseRatioResult(), ['Inspect scanner logs and re-run with the same --project path']),
+        fail<ProseRatioResult>(
+          'audit.prose-ratio',
+          'SCANNER_FAILED',
+          getErrorMessage(error),
+          emptyProseRatioResult(),
+          ['Inspect scanner logs and re-run with the same --project path']
+        ),
         options.json
       );
       process.exitCode = 1;
@@ -358,9 +468,14 @@ export function registerAuditCommands(program: Command, io: ProgramIO): void {
   addJsonOption(
     audit
       .command('goal')
-      .description('Audit a human need across 6 dimensions and propose a goal (peaks-audit primitive)')
+      .description(
+        'Audit a human need across 6 dimensions and propose a goal (peaks-audit primitive)'
+      )
       .requiredOption('--project <path>', 'target project root')
-      .requiredOption('--need <text>', 'the human need to audit (becomes input.need for auditGoal())')
+      .requiredOption(
+        '--need <text>',
+        'the human need to audit (becomes input.need for auditGoal())'
+      )
       .option(
         '--llm-provider <name>',
         `LLM provider (${SUPPORTED_LLM_PROVIDERS.join(' | ')}); stub performs no audit`,
@@ -371,7 +486,13 @@ export function registerAuditCommands(program: Command, io: ProgramIO): void {
     if (!validation.ok) {
       printResult(
         io,
-        fail<AuditGoalData>('audit.goal', validation.code, validation.message, auditGoalFailureData(options.need, options.project), ['Verify the project path exists and is a directory']),
+        fail<AuditGoalData>(
+          'audit.goal',
+          validation.code,
+          validation.message,
+          auditGoalFailureData(options.need, options.project),
+          ['Verify the project path exists and is a directory']
+        ),
         options.json
       );
       process.exitCode = 1;
@@ -398,7 +519,9 @@ export function registerAuditCommands(program: Command, io: ProgramIO): void {
     }
 
     const isStub = provider === 'stub';
-    const providerBinding: AuditGoalData['providerBinding'] = isStub ? 'stub' : 'anthropic-messages-api';
+    const providerBinding: AuditGoalData['providerBinding'] = isStub
+      ? 'stub'
+      : 'anthropic-messages-api';
 
     try {
       let model: string | undefined;
@@ -418,15 +541,19 @@ export function registerAuditCommands(program: Command, io: ProgramIO): void {
         need: options.need,
         projectRoot: validation.projectRoot,
         result,
-        ...(model === undefined ? {} : { model }),
+        ...(model === undefined ? {} : { model })
       };
       const envelope: ResultEnvelope<AuditGoalData> = ok(
         'audit.goal',
         data,
         [],
         isStub
-          ? [`Stub provider: the 6 dimensions below are placeholders, not findings. Re-run with \`--llm-provider ${DEFAULT_LLM_PROVIDER}\` for a real audit.`]
-          : [`Audit produced by ${providerBinding}${model === undefined ? '' : ` (model: ${model})`}.`]
+          ? [
+              `Stub provider: the 6 dimensions below are placeholders, not findings. Re-run with \`--llm-provider ${DEFAULT_LLM_PROVIDER}\` for a real audit.`
+            ]
+          : [
+              `Audit produced by ${providerBinding}${model === undefined ? '' : ` (model: ${model})`}.`
+            ]
       );
       printResult(io, envelope, options.json);
     } catch (error) {
@@ -463,22 +590,29 @@ export function registerAuditCommands(program: Command, io: ProgramIO): void {
 
   const artifact = audit
     .command('artifact')
-    .description('Manage audit artifacts (decision / prompt / machine-output / narrative) under .peaks/memory/');
+    .description(
+      'Manage audit artifacts (decision / prompt / machine-output / narrative) under .peaks/memory/'
+    );
 
   addJsonOption(
     artifact
       .command('write')
-      .description('Persist a single audit artifact to .peaks/memory/ via the artifact-writer (canonical frontmatter)')
-      .requiredOption('--project <path>', 'target project root')
-      .requiredOption(
-        '--kind <kind>',
-        `artifact kind (${SUPPORTED_ARTIFACT_KINDS.join(' | ')})`,
+      .description(
+        'Persist a single audit artifact to .peaks/memory/ via the artifact-writer (canonical frontmatter)'
       )
-      .requiredOption('--input <path>', 'path to source file (markdown for prompt/narrative; JSON for machine-output)')
+      .requiredOption('--project <path>', 'target project root')
+      .requiredOption('--kind <kind>', `artifact kind (${SUPPORTED_ARTIFACT_KINDS.join(' | ')})`)
+      .requiredOption(
+        '--input <path>',
+        'path to source file (markdown for prompt/narrative; JSON for machine-output)'
+      )
       .option('--name <name>', 'display name (H1 in body); defaults to file basename')
-      .option('--description <text>', 'description field for frontmatter; defaults to a generic placeholder')
+      .option(
+        '--description <text>',
+        'description field for frontmatter; defaults to a generic placeholder'
+      )
       .option('--rid <id>', 'optional request id to disambiguate multiple writes on the same day')
-      .option('--dry-run', 'render the markdown but do not write to disk', false),
+      .option('--dry-run', 'render the markdown but do not write to disk', false)
   ).action((options: ArtifactWriteOptions) => {
     const validation = validateProjectRoot(options.project);
     if (!validation.ok) {
@@ -496,11 +630,11 @@ export function registerAuditCommands(program: Command, io: ProgramIO): void {
             filePath: '',
             memoryDir: '',
             indexPath: '',
-            indexSynced: false,
+            indexSynced: false
           },
-          ['Verify the project path exists and is a directory'],
+          ['Verify the project path exists and is a directory']
         ),
-        options.json,
+        options.json
       );
       process.exitCode = 1;
       return;
@@ -521,14 +655,14 @@ export function registerAuditCommands(program: Command, io: ProgramIO): void {
             filePath: '',
             memoryDir: '',
             indexPath: '',
-            indexSynced: false,
+            indexSynced: false
           },
           [
             `Re-run with --kind <one of ${SUPPORTED_ARTIFACT_KINDS.join(' | ')}>`,
-            'See .peaks/memory/audit-artifact-convention.md for the 4 artifact types.',
-          ],
+            'See .peaks/memory/audit-artifact-convention.md for the 4 artifact types.'
+          ]
         ),
-        options.json,
+        options.json
       );
       process.exitCode = 1;
       return;
@@ -550,11 +684,11 @@ export function registerAuditCommands(program: Command, io: ProgramIO): void {
             filePath: '',
             memoryDir: '',
             indexPath: '',
-            indexSynced: false,
+            indexSynced: false
           },
-          ['Verify the --input path is correct (relative paths resolve against cwd)'],
+          ['Verify the --input path is correct (relative paths resolve against cwd)']
         ),
-        options.json,
+        options.json
       );
       process.exitCode = 1;
       return;
@@ -567,7 +701,7 @@ export function registerAuditCommands(program: Command, io: ProgramIO): void {
     const writeOpts = {
       projectRoot: validation.projectRoot,
       dryRun: options.dryRun === true,
-      ...(options.rid ? { rid: options.rid } : {}),
+      ...(options.rid ? { rid: options.rid } : {})
     };
 
     let record: ArtifactWriteRecord;
@@ -605,11 +739,13 @@ export function registerAuditCommands(program: Command, io: ProgramIO): void {
                 filePath: '',
                 memoryDir: '',
                 indexPath: '',
-                indexSynced: false,
+                indexSynced: false
               },
-              ["Re-run with 'peaks audit static --record --project <root>' for RedLineAudit snapshots."],
+              [
+                "Re-run with 'peaks audit static --record --project <root>' for RedLineAudit snapshots."
+              ]
             ),
-            options.json,
+            options.json
           );
           process.exitCode = 1;
           return;
@@ -634,11 +770,11 @@ export function registerAuditCommands(program: Command, io: ProgramIO): void {
             filePath: '',
             memoryDir: '',
             indexPath: '',
-            indexSynced: false,
+            indexSynced: false
           },
-          ['Inspect the error message; for --kind machine-output ensure --input is valid JSON'],
+          ['Inspect the error message; for --kind machine-output ensure --input is valid JSON']
         ),
-        options.json,
+        options.json
       );
       process.exitCode = 1;
       return;
@@ -646,26 +782,38 @@ export function registerAuditCommands(program: Command, io: ProgramIO): void {
 
     printResult(
       io,
-      ok<ArtifactWriteRecord>('audit.artifact.write', record, [], [
-        `Artifact written via ${record.kind} writer.`,
-        record.indexSynced
-          ? 'Memory index regenerated; entry will appear in `peaks project memories` on next read.'
-          : 'Memory index NOT regenerated; run `peaks project memories --project <root>` to refresh.',
-      ]),
-      options.json,
+      ok<ArtifactWriteRecord>(
+        'audit.artifact.write',
+        record,
+        [],
+        [
+          `Artifact written via ${record.kind} writer.`,
+          record.indexSynced
+            ? 'Memory index regenerated; entry will appear in `peaks project memories` on next read.'
+            : 'Memory index NOT regenerated; run `peaks project memories --project <root>` to refresh.'
+        ]
+      ),
+      options.json
     );
   });
 }
 
 function emptyStaticAuditData(): StaticAuditData {
   return {
-    audit: { totalRedLines: 0, cliBacked: 0, partial: 0, proseOnly: 0, audit: [], enforcerFindings: [] },
+    audit: {
+      totalRedLines: 0,
+      cliBacked: 0,
+      partial: 0,
+      proseOnly: 0,
+      audit: [],
+      enforcerFindings: []
+    },
     agentShield: {
       spawned: false,
       installed: false,
       reason: 'flag-disabled',
-      findings: [],
-    },
+      findings: []
+    }
   };
 }
 
@@ -680,13 +828,17 @@ function auditGoalFailureData(
     providerBinding,
     need,
     projectRoot,
-    ...(missingEnv === undefined ? {} : { missingEnv }),
+    ...(missingEnv === undefined ? {} : { missingEnv })
   };
 }
 
 /** The slice-owned error codes are carried verbatim so callers can gate on them. */
 function auditGoalErrorCode(error: unknown): string {
-  if (error instanceof IncompleteAuditError || error instanceof LlmBindingError || error instanceof LlmRequestError) {
+  if (
+    error instanceof IncompleteAuditError ||
+    error instanceof LlmBindingError ||
+    error instanceof LlmRequestError
+  ) {
     return error.code;
   }
   return 'AUDIT_GOAL_FAILED';
@@ -697,12 +849,16 @@ function auditGoalNextActions(code: string): string[] {
     case 'LLM_CREDENTIAL_MISSING':
       return [
         'Export ANTHROPIC_AUTH_TOKEN (or ANTHROPIC_API_KEY) in the environment that launches peaks, then re-run.',
-        'For an offline scaffold instead of an audit, re-run with `--llm-provider stub` — it performs NO audit.',
+        'For an offline scaffold instead of an audit, re-run with `--llm-provider stub` — it performs NO audit.'
       ];
     case 'LLM_MODEL_MISSING':
-      return ['Export ANTHROPIC_MODEL (or CLAUDE_CODE_SUBAGENT_MODEL) in the environment that launches peaks, then re-run.'];
+      return [
+        'Export ANTHROPIC_MODEL (or CLAUDE_CODE_SUBAGENT_MODEL) in the environment that launches peaks, then re-run.'
+      ];
     case 'INCOMPLETE_AUDIT':
-      return ['The LLM reply omitted a required dimension; re-run so autonomous work never proceeds on a partial audit.'];
+      return [
+        'The LLM reply omitted a required dimension; re-run so autonomous work never proceeds on a partial audit.'
+      ];
     default:
       return ['Inspect the failure above, then re-run with the same --need.'];
   }
@@ -718,6 +874,6 @@ function emptyProseRatioResult(): ProseRatioResult {
     informational: 0,
     ratio: 0,
     target: 0.05,
-    exceeds: false,
+    exceeds: false
   };
 }

@@ -29,15 +29,15 @@ declareDimensions('tests/unit/cli/commands/web-lifecycle-commands.test.ts', [
   'render',
   'behavior',
   'integration',
-  'a11y',
+  'a11y'
 ]);
 
 import { registerWebCommands } from '../../../../src/cli/commands/web-commands.js';
-import { webDaemonInfoPath, webInstallLockPath } from '../../../../src/services/web/web-artifact-paths.js';
 import {
-  PROTOCOL_VERSION,
-  type WebOpResponse
-} from '../../../../src/services/web/web-protocol.js';
+  webDaemonInfoPath,
+  webInstallLockPath
+} from '../../../../src/services/web/web-artifact-paths.js';
+import { PROTOCOL_VERSION, type WebOpResponse } from '../../../../src/services/web/web-protocol.js';
 
 /**
  * The install seam, replaced at the module boundary: the real `installChromium`
@@ -51,7 +51,7 @@ const installSeam = vi.hoisted(() => ({
   installedAfter: true,
   probes: 0,
   calls: [] as Array<Record<string, unknown>>,
-  outcome: { ok: true, code: '', message: '', warnings: ['INSTALL_SIZE_WARNING_PLACEHOLDER'] },
+  outcome: { ok: true, code: '', message: '', warnings: ['INSTALL_SIZE_WARNING_PLACEHOLDER'] }
 }));
 
 vi.mock('../../../../src/services/web/web-install-service.js', async (importOriginal) => {
@@ -64,7 +64,8 @@ vi.mock('../../../../src/services/web/web-install-service.js', async (importOrig
     probeBrowserInstalled: () => {
       installSeam.probes += 1;
       return Promise.resolve({
-        installed: installSeam.calls.length > 0 ? installSeam.installedAfter : installSeam.installedBefore,
+        installed:
+          installSeam.calls.length > 0 ? installSeam.installedAfter : installSeam.installedBefore,
         version: '1.63.0',
         executablePath: join(process.cwd(), 'fake-chrome')
       });
@@ -549,7 +550,12 @@ describe('behavior — `peaks web install`', () => {
   it('when the download fails, should degrade to tier 3 rather than throw', async () => {
     // given: an installer that reports a failure (R2: never an exception)
     bindSession();
-    installSeam.outcome = { ok: false, code: 'WEB_INSTALL_FAILED', message: 'exited with status 1', warnings: [] };
+    installSeam.outcome = {
+      ok: false,
+      code: 'WEB_INSTALL_FAILED',
+      message: 'exited with status 1',
+      warnings: []
+    };
     // when: install runs
     // then: the envelope is the tier-3 degradation with a way forward
     const parsed = installEnvelope((await runWebArgv(['install'])).captured);

@@ -9,7 +9,10 @@
  * cannot mutate it. Use spread to derive new outputs in future slices.
  */
 import type {
-  CollectorOutput, DocRetrieverOutput, TokenizedItem, TokenizerOutput,
+  CollectorOutput,
+  DocRetrieverOutput,
+  TokenizedItem,
+  TokenizerOutput
 } from './types.js';
 
 function freshDecayScore(fetchedAt: string, now: Date): number {
@@ -23,7 +26,7 @@ function freshDecayScore(fetchedAt: string, now: Date): number {
 export function tokenize(
   collector: CollectorOutput,
   docRetriever: DocRetrieverOutput,
-  now: Date = new Date(),
+  now: Date = new Date()
 ): TokenizerOutput {
   const metadata: TokenizedItem[] = [];
 
@@ -35,7 +38,7 @@ export function tokenize(
       blastRadius: doc.sections.map((s) => s.title),
       conflictScore: 0, // v1: no cross-source conflict detection yet
       timeDecayScore: freshDecayScore(doc.fetchedAt, now),
-      tags: ['fetched', doc.source, doc.stale ? 'stale' : 'fresh'],
+      tags: ['fetched', doc.source, doc.stale ? 'stale' : 'fresh']
     });
   }
 
@@ -46,7 +49,7 @@ export function tokenize(
       blastRadius: [mem.title],
       conflictScore: 0,
       timeDecayScore: mem.relevanceScore,
-      tags: ['memory'],
+      tags: ['memory']
     });
   }
 
@@ -57,7 +60,7 @@ export function tokenize(
       blastRadius: [file.path],
       conflictScore: 0,
       timeDecayScore: 1,
-      tags: [file.kind],
+      tags: [file.kind]
     });
   }
 

@@ -55,7 +55,7 @@ import {
   readFileSync,
   rmSync,
   statSync,
-  writeFileSync,
+  writeFileSync
 } from 'node:fs';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
@@ -193,7 +193,7 @@ async function fetchReleaseJson(apiBase: string): Promise<{
 } | null> {
   try {
     const res = await fetch(apiBase, {
-      headers: { accept: 'application/vnd.github+json', 'user-agent': 'peaks-loop' },
+      headers: { accept: 'application/vnd.github+json', 'user-agent': 'peaks-loop' }
     });
     if (!res.ok) return null;
     return (await res.json()) as {
@@ -235,10 +235,7 @@ function asSha(value: string): string {
  * `node:zlib` ships with `gunzip` so the implementation is
  * self-contained.
  */
-async function extractAgentsFromTarGz(
-  buffer: Uint8Array,
-  outDir: string
-): Promise<string[]> {
+async function extractAgentsFromTarGz(buffer: Uint8Array, outDir: string): Promise<string[]> {
   if (!existsSync(outDir)) mkdirSync(outDir, { recursive: true });
   const extracted: string[] = [];
 
@@ -325,11 +322,7 @@ async function fetchBuffer(url: string, accept?: string): Promise<Uint8Array | n
   }
 }
 
-async function downloadTarball(
-  ref: string,
-  sha: string,
-  outDir: string
-): Promise<string[]> {
+async function downloadTarball(ref: string, sha: string, outDir: string): Promise<string[]> {
   // D-010 order (2026-09-09): tarball_url -> release asset -> PRD URL.
   // See the module header for why each step exists and which one works.
   let buffer: Uint8Array | null = null;
@@ -373,9 +366,7 @@ async function downloadTarball(
  * Throws `Error('fetch-failed')` on network failure so the CLI
  * layer can render the manual-install instructions.
  */
-export async function downloadToCache(
-  { ref }: { ref?: string } = {}
-): Promise<DownloadResult> {
+export async function downloadToCache({ ref }: { ref?: string } = {}): Promise<DownloadResult> {
   const requestedRef = ref ?? 'latest';
   let resolvedSha: string;
   if (requestedRef === 'latest') {
@@ -386,9 +377,9 @@ export async function downloadToCache(
     if (typeof tag !== 'string' || tag.length === 0) {
       throw new Error('fetch-failed');
     }
-    resolvedSha = asSha(await resolveCommitSha(tag) ?? tag);
+    resolvedSha = asSha((await resolveCommitSha(tag)) ?? tag);
   } else {
-    resolvedSha = asSha(await resolveCommitSha(requestedRef) ?? requestedRef);
+    resolvedSha = asSha((await resolveCommitSha(requestedRef)) ?? requestedRef);
   }
 
   const cacheDir = resolveEccCacheDir();
@@ -401,17 +392,26 @@ export async function downloadToCache(
     const agents = readdirSync(agentsDir)
       .filter((f) => f.endsWith('.md'))
       .map((f) => f.replace(/\.md$/i, ''));
-    writeManifest({ version: ECC_CACHE_VERSION, sha: resolvedSha, fetchedAt: new Date().toISOString(), agents });
+    writeManifest({
+      version: ECC_CACHE_VERSION,
+      sha: resolvedSha,
+      fetchedAt: new Date().toISOString(),
+      agents
+    });
     materializeBestEffort(cacheDir);
     return { sha: resolvedSha, agents: agents.length };
   }
 
-  const extracted = await downloadTarball(requestedRef === 'latest' ? resolvedSha : requestedRef, resolvedSha, agentsDir);
+  const extracted = await downloadTarball(
+    requestedRef === 'latest' ? resolvedSha : requestedRef,
+    resolvedSha,
+    agentsDir
+  );
   const manifest: CacheManifest = {
     version: ECC_CACHE_VERSION,
     sha: resolvedSha,
     fetchedAt: new Date().toISOString(),
-    agents: extracted,
+    agents: extracted
   };
   writeManifest(manifest);
   materializeBestEffort(cacheDir);
@@ -494,7 +494,9 @@ function fallbackMetadata(fileName: string): { name: string; description: string
   if (description.length > 80) description = `${description.slice(0, 77)}...`;
   if (!warnedAboutFallback) {
     try {
-      process.stderr.write(`warning: cached agent "${base}" has malformed frontmatter; falling back to filename + first body line\n`);
+      process.stderr.write(
+        `warning: cached agent "${base}" has malformed frontmatter; falling back to filename + first body line\n`
+      );
     } catch {
       /* best-effort */
     }
@@ -656,9 +658,14 @@ export function readMaterializedAgent(name: string, dirOverride?: string): strin
  * `targetDir` is the ONLY write root (plus `mkdirSync` on it). Nothing in
  * this function can reach `~/.claude/`.
  */
-export function materializeEccAgents(
-  { cacheDir, targetDir }: { cacheDir?: string; targetDir?: string } = {}
-): { targetDir: string; sha: string | null; materialized: string[] } {
+export function materializeEccAgents({
+  cacheDir,
+  targetDir
+}: { cacheDir?: string; targetDir?: string } = {}): {
+  targetDir: string;
+  sha: string | null;
+  materialized: string[];
+} {
   const resolvedTarget = targetDir ?? resolveEccMaterializedDir();
   const manifest = readManifestAt(cacheDir);
   if (manifest === null) {
@@ -716,7 +723,7 @@ export function materializeEccAgents(
     version: ECC_MATERIALIZE_VERSION,
     sha: manifest.sha,
     materializedAt: new Date().toISOString(),
-    agents: materialized,
+    agents: materialized
   };
   try {
     writeFileSync(
@@ -744,7 +751,7 @@ export function materializeEccAgents(
 export function cleanupStaleCache({
   retentionDays,
   nowMs,
-  dirOverride,
+  dirOverride
 }: {
   retentionDays: number;
   nowMs: number;

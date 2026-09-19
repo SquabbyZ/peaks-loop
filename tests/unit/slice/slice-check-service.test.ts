@@ -32,11 +32,15 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { declareDimensions } from '../_setup/4dim-template.js';
-import { cleanupTmpWorkspace, useTmpWorkspace, type TmpWorkspace } from '../_setup/tmp-workspace.js';
+import {
+  cleanupTmpWorkspace,
+  useTmpWorkspace,
+  type TmpWorkspace
+} from '../_setup/tmp-workspace.js';
 import {
   BINARY_UNRESOLVED_CODE,
   sliceCheck,
-  TYPECHECK_PREEXISTING_BASELINE,
+  TYPECHECK_PREEXISTING_BASELINE
 } from '~/src/services/slice/slice-check-service';
 import type { SliceCheckStage } from '~/src/services/slice/slice-check-types';
 
@@ -44,7 +48,7 @@ declareDimensions('tests/unit/slice/slice-check-service.test.ts', [
   'render',
   'behavior',
   'integration',
-  'a11y',
+  'a11y'
 ]);
 
 const REPO_ROOT = resolve(__dirname, '..', '..', '..');
@@ -61,7 +65,7 @@ function repoTypecheckStage(): Promise<SliceCheckStage> {
     projectRoot: REPO_ROOT,
     rid: RID,
     refreshFanout: false,
-    skipTests: true,
+    skipTests: true
   }).then((result) => {
     const stage = result.stages.find((s) => s.name === 'typecheck');
     if (stage === undefined) throw new Error('slice check produced no typecheck stage');
@@ -119,7 +123,7 @@ function writeSyntheticProject(
     moduleResolution: 'NodeNext',
     strict: true,
     skipLibCheck: true,
-    types: [],
+    types: []
   };
   writeFileSync(ws.rel('clean.ts'), 'export const ok: number = 1;\n');
   const buildErrors = opts.buildErrors ?? 0;
@@ -127,12 +131,15 @@ function writeSyntheticProject(
     ws.rel('build-broken.ts'),
     Array.from({ length: buildErrors }, (_, i) => `export const b${i}: string = 1;`).join('\n')
   );
-  writeFileSync(ws.rel('broken.ts'), Array.from({ length: opts.wideErrors }, (_, i) => `export const a${i}: string = 1;`).join('\n'));
+  writeFileSync(
+    ws.rel('broken.ts'),
+    Array.from({ length: opts.wideErrors }, (_, i) => `export const a${i}: string = 1;`).join('\n')
+  );
   writeFileSync(
     ws.rel('tsconfig.build.json'),
     JSON.stringify({
       compilerOptions,
-      include: buildErrors > 0 ? ['clean.ts', 'build-broken.ts'] : ['clean.ts'],
+      include: buildErrors > 0 ? ['clean.ts', 'build-broken.ts'] : ['clean.ts']
     })
   );
   writeFileSync(
@@ -173,7 +180,12 @@ describe('Scenario: behavior — typecheck stage decisions on synthetic projects
     // given: a project whose build config and wider config are both clean
     writeSyntheticProject(ws, { wideErrors: 0 });
     // when: slice check runs
-    const result = await sliceCheck({ projectRoot: ws.path, rid: RID, refreshFanout: false, skipTests: true });
+    const result = await sliceCheck({
+      projectRoot: ws.path,
+      rid: RID,
+      refreshFanout: false,
+      skipTests: true
+    });
     // then: the stage passes and reports zero pre-existing errors
     const stage = typecheckStageOf(result.stages);
     expect(stage.status).toBe('pass');
@@ -184,7 +196,12 @@ describe('Scenario: behavior — typecheck stage decisions on synthetic projects
     // given: a clean build config but a wider count above the recorded baseline
     writeSyntheticProject(ws, { wideErrors: TYPECHECK_PREEXISTING_BASELINE + 8 });
     // when: slice check runs
-    const result = await sliceCheck({ projectRoot: ws.path, rid: RID, refreshFanout: false, skipTests: true });
+    const result = await sliceCheck({
+      projectRoot: ws.path,
+      rid: RID,
+      refreshFanout: false,
+      skipTests: true
+    });
     // then: the growth is the failure, and it is named
     const stage = typecheckStageOf(result.stages);
     expect(stage.status).toBe('fail');
@@ -196,7 +213,12 @@ describe('Scenario: behavior — typecheck stage decisions on synthetic projects
     // given: a src-side (build config) type error, which is the real gate
     writeSyntheticProject(ws, { wideErrors: 0, buildErrors: 2 });
     // when: slice check runs
-    const result = await sliceCheck({ projectRoot: ws.path, rid: RID, refreshFanout: false, skipTests: true });
+    const result = await sliceCheck({
+      projectRoot: ws.path,
+      rid: RID,
+      refreshFanout: false,
+      skipTests: true
+    });
     // then: the gate fails on its own, independently of the wider count
     const stage = typecheckStageOf(result.stages);
     expect(stage.status).toBe('fail');
@@ -226,7 +248,12 @@ describe('Scenario: behavior — a project path containing a space', () => {
     writeLegacyTscCmdShim(ws);
     expect(ws.path).toContain(' ');
     // when: slice check runs
-    const result = await sliceCheck({ projectRoot: ws.path, rid: RID, refreshFanout: false, skipTests: true });
+    const result = await sliceCheck({
+      projectRoot: ws.path,
+      rid: RID,
+      refreshFanout: false,
+      skipTests: true
+    });
     // then: the gate passes — a spaced path is an argument, not a shell word
     const stage = typecheckStageOf(result.stages);
     expect(stage.status).toBe('pass');
@@ -242,7 +269,9 @@ describe('Scenario: integration — typecheck stage against this repository', ()
     // then: the stage passes — the residue is a baseline, not a blocker
     const stage = await repoTypecheckStage();
     expect(stage.status).toBe('pass');
-    expect(stage.data?.wideTsconfigErrors as number).toBeLessThanOrEqual(TYPECHECK_PREEXISTING_BASELINE);
+    expect(stage.data?.wideTsconfigErrors as number).toBeLessThanOrEqual(
+      TYPECHECK_PREEXISTING_BASELINE
+    );
   }, 120_000);
 });
 
@@ -259,7 +288,12 @@ describe('Scenario: a11y — an unresolvable CLI is named, not an ENOENT', () =>
     // given: a project whose dependencies were never installed
     mkdirSync(ws.peaksDir, { recursive: true });
     // when: slice check runs
-    const result = await sliceCheck({ projectRoot: ws.path, rid: RID, refreshFanout: false, skipTests: true });
+    const result = await sliceCheck({
+      projectRoot: ws.path,
+      rid: RID,
+      refreshFanout: false,
+      skipTests: true
+    });
     // then: a named code and the searched path — not an ENOENT-shaped exit 1
     //       that reads like a genuine typecheck failure
     const stage = typecheckStageOf(result.stages);
@@ -322,9 +356,15 @@ describe('Scenario: behavior — the review-fanout stage reads rid-scoped eviden
   }
 
   function writeRidScopedEvidence(): void {
-    writeEvidence(`rd/code-review-${EVIDENCE_RID}.md`, '# Code review\n\n## Findings\n\nCRITICAL: none.\n');
+    writeEvidence(
+      `rd/code-review-${EVIDENCE_RID}.md`,
+      '# Code review\n\n## Findings\n\nCRITICAL: none.\n'
+    );
     writeEvidence(`audit/security-${EVIDENCE_RID}.md`, '# Security audit\n\n## Verdict\n\npass\n');
-    writeEvidence(`audit/perf-${EVIDENCE_RID}.md`, '# Performance audit\n\n## Baseline\n\n| m | b | a |\n');
+    writeEvidence(
+      `audit/perf-${EVIDENCE_RID}.md`,
+      '# Performance audit\n\n## Baseline\n\n| m | b | a |\n'
+    );
   }
 
   it('when only the rid-scoped evidence exists, should pass the review-fanout stage', async () => {
@@ -332,7 +372,12 @@ describe('Scenario: behavior — the review-fanout stage reads rid-scoped eviden
     //        write — every evidence file carries the rid, none the bare name
     writeRidScopedEvidence();
     // when: the boundary gate runs
-    const result = await sliceCheck({ projectRoot: ws.path, rid: EVIDENCE_RID, refreshFanout: false, skipTests: true });
+    const result = await sliceCheck({
+      projectRoot: ws.path,
+      rid: EVIDENCE_RID,
+      refreshFanout: false,
+      skipTests: true
+    });
     // then: it passes. Pre-repair this same tree reported
     //       "Missing or empty: code-review, security-review, perf-baseline".
     const stage = fanoutStageOf(result.stages);
@@ -350,7 +395,12 @@ describe('Scenario: behavior — the review-fanout stage reads rid-scoped eviden
     //        still reject, rather than having been loosened into always-pass
     mkdirSync(ws.peaksDir, { recursive: true });
     // when: the boundary gate runs
-    const result = await sliceCheck({ projectRoot: ws.path, rid: EVIDENCE_RID, refreshFanout: false, skipTests: true });
+    const result = await sliceCheck({
+      projectRoot: ws.path,
+      rid: EVIDENCE_RID,
+      refreshFanout: false,
+      skipTests: true
+    });
     // then: all three are named missing
     const stage = fanoutStageOf(result.stages);
     expect(stage.status).toBe('fail');
@@ -360,15 +410,24 @@ describe('Scenario: behavior — the review-fanout stage reads rid-scoped eviden
   it('when a stale bare file sits beside this rid evidence, should resolve the rid-scoped one', async () => {
     // given: a bare `rd/code-review.md` from a sibling slice, plus this rid's
     //        own files. Ordering matters — the sibling's file must not win.
-    writeEvidence('rd/code-review.md', '# Code review (sibling slice)\n\n## Findings\n\nCRITICAL: none.\n');
+    writeEvidence(
+      'rd/code-review.md',
+      '# Code review (sibling slice)\n\n## Findings\n\nCRITICAL: none.\n'
+    );
     writeRidScopedEvidence();
     // when: the boundary gate runs
-    const result = await sliceCheck({ projectRoot: ws.path, rid: EVIDENCE_RID, refreshFanout: false, skipTests: true });
+    const result = await sliceCheck({
+      projectRoot: ws.path,
+      rid: EVIDENCE_RID,
+      refreshFanout: false,
+      skipTests: true
+    });
     // then: the reported path for code-review is this rid's own file
     const stage = fanoutStageOf(result.stages);
     expect(stage.status).toBe('pass');
     const found = stage.data?.found as ReadonlyArray<{ name: string; path: string }> | undefined;
-    expect(found?.find((entry) => entry.name === 'code-review')?.path)
-      .toContain(`code-review-${EVIDENCE_RID}.md`);
+    expect(found?.find((entry) => entry.name === 'code-review')?.path).toContain(
+      `code-review-${EVIDENCE_RID}.md`
+    );
   }, 120_000);
 });

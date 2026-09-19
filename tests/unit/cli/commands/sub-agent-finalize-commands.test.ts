@@ -30,15 +30,19 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { declareDimensions } from '../../_setup/4dim-template.js';
 import { makeCapturedIo } from '../../_setup/io.js';
-import { cleanupTmpWorkspace, useTmpWorkspace, type TmpWorkspace } from '../../_setup/tmp-workspace.js';
+import {
+  cleanupTmpWorkspace,
+  useTmpWorkspace,
+  type TmpWorkspace
+} from '../../_setup/tmp-workspace.js';
 import {
   registerFinalizeCommand,
   selectFinalizeTarget,
-  type FinalizeCandidate,
+  type FinalizeCandidate
 } from '../../../../src/cli/commands/share-commands.js';
 import {
   markCompleted,
-  writeInitialDispatchRecord,
+  writeInitialDispatchRecord
 } from '../../../../src/services/dispatch/dispatch-record-writer.js';
 import type { SubAgentToolCall } from '../../../../src/services/dispatch/sub-agent-dispatcher.js';
 
@@ -46,7 +50,7 @@ declareDimensions('tests/unit/cli/commands/sub-agent-finalize-commands.test.ts',
   'render',
   'behavior',
   'integration',
-  'a11y',
+  'a11y'
 ]);
 
 const SESSION_ID = '2026-09-12-session-e37ef0';
@@ -85,7 +89,7 @@ function dispatchRecordFor(ws: TmpWorkspace, requestId: string, now: () => Date 
     prompt: `do ${requestId}`,
     toolCall: { name: 'Task', args: {} } satisfies SubAgentToolCall,
     batchId: 'batch-11111111-2222-3333-4444-555555555555',
-    now,
+    now
   });
   return path;
 }
@@ -134,7 +138,10 @@ function seedNonRecordJson(ws: TmpWorkspace): void {
   );
 }
 
-async function runFinalize(ws: TmpWorkspace, argv: readonly string[]): Promise<{ envelope: FinalizeEnvelope; stderr: string }> {
+async function runFinalize(
+  ws: TmpWorkspace,
+  argv: readonly string[]
+): Promise<{ envelope: FinalizeEnvelope; stderr: string }> {
   const { io, captured } = makeCapturedIo();
   const program = new Command();
   registerFinalizeCommand(program, io);
@@ -155,7 +162,10 @@ async function runFinalize(ws: TmpWorkspace, argv: readonly string[]): Promise<{
   const text = captured.stdout.join('\n');
   const start = text.indexOf('{');
   if (start < 0) throw new Error(`no JSON envelope in stdout: ${text}`);
-  return { envelope: JSON.parse(text.slice(start)) as FinalizeEnvelope, stderr: captured.stderrText() };
+  return {
+    envelope: JSON.parse(text.slice(start)) as FinalizeEnvelope,
+    stderr: captured.stderrText()
+  };
 }
 
 let ws: TmpWorkspace;
@@ -186,12 +196,15 @@ describe('peaks sub-agent finalize --request-id — the scan reads records only'
     expect(envelope.ok).toBe(true);
     expect(envelope.data?.errors).toEqual([]);
     expect(envelope.data?.finalized).toEqual([
-      { recordPath, requestId: TARGET_RID, status: 'done' },
+      { recordPath, requestId: TARGET_RID, status: 'done' }
     ]);
     expect(process.exitCode).toBe(0);
 
     // the record on disk really moved out of `queued`
-    const record = JSON.parse(readFileSync(recordPath, 'utf8')) as { status: string; outcome: string };
+    const record = JSON.parse(readFileSync(recordPath, 'utf8')) as {
+      status: string;
+      outcome: string;
+    };
     expect(record.status).toBe('done');
     expect(record.outcome).toBe('success');
   });
@@ -223,7 +236,10 @@ describe('peaks sub-agent finalize --request-id — the scan reads records only'
     const recordPath = dispatchRecordFor(ws, TARGET_RID);
     seedNonRecordJson(ws);
 
-    const { envelope } = await runFinalize(ws, ['--batch', 'batch-11111111-2222-3333-4444-555555555555']);
+    const { envelope } = await runFinalize(ws, [
+      '--batch',
+      'batch-11111111-2222-3333-4444-555555555555'
+    ]);
 
     expect(envelope.ok).toBe(true);
     expect(envelope.data?.errors).toEqual([]);
@@ -265,7 +281,10 @@ describe('peaks sub-agent finalize — an unreadable record is skipped, not fata
     const recordPath = dispatchRecordFor(ws, TARGET_RID);
     const corruptPath = seedUnreadableDispatchRecord(ws);
 
-    const { envelope } = await runFinalize(ws, ['--batch', 'batch-11111111-2222-3333-4444-555555555555']);
+    const { envelope } = await runFinalize(ws, [
+      '--batch',
+      'batch-11111111-2222-3333-4444-555555555555'
+    ]);
 
     expect(envelope.ok).toBe(true);
     expect(envelope.data?.finalized.map((entry) => entry.recordPath)).toEqual([recordPath]);
@@ -304,7 +323,7 @@ describe('peaks sub-agent finalize --request-id — same selection rule as --bat
       now: () => new Date('2026-09-12T06:20:00.000Z'),
       status: 'done',
       outcome: 'success',
-      projectRoot: ws.path,
+      projectRoot: ws.path
     });
     const queuedPath = dispatchRecordFor(ws, TARGET_RID, LATER);
 
@@ -348,7 +367,7 @@ describe('peaks sub-agent finalize --request-id — same selection rule as --bat
       now: () => new Date('2026-09-12T06:20:00.000Z'),
       status: 'done',
       outcome: 'success',
-      projectRoot: ws.path,
+      projectRoot: ws.path
     });
 
     const { envelope } = await runFinalize(ws, ['--request-id', TARGET_RID]);
@@ -367,20 +386,20 @@ describe('peaks sub-agent finalize --request-id — same selection rule as --bat
       requestId: TARGET_RID,
       status: 'queued',
       createdAt: EARLIER().toISOString(),
-      ...o,
+      ...o
     });
     // A newer DONE record never beats an older queued one.
     expect(
       selectFinalizeTarget([
         candidate({ recordPath: 'done-new', status: 'done', createdAt: LATER().toISOString() }),
-        candidate({ recordPath: 'queued-old', createdAt: EARLIER().toISOString() }),
+        candidate({ recordPath: 'queued-old', createdAt: EARLIER().toISOString() })
       ])?.recordPath
     ).toBe('queued-old');
     // Among equals, newest createdAt wins.
     expect(
       selectFinalizeTarget([
         candidate({ recordPath: 'queued-new', createdAt: LATER().toISOString() }),
-        candidate({ recordPath: 'queued-old', createdAt: EARLIER().toISOString() }),
+        candidate({ recordPath: 'queued-old', createdAt: EARLIER().toISOString() })
       ])?.recordPath
     ).toBe('queued-new');
     // Identical createdAt: the filename embeds the dispatch timestamp, so the
@@ -388,7 +407,7 @@ describe('peaks sub-agent finalize --request-id — same selection rule as --bat
     expect(
       selectFinalizeTarget([
         candidate({ recordPath: 'dispatch-a-2026-09-12T06-08-03-210Z.json' }),
-        candidate({ recordPath: 'dispatch-a-2026-09-12T06-43-01-509Z.json' }),
+        candidate({ recordPath: 'dispatch-a-2026-09-12T06-43-01-509Z.json' })
       ])?.recordPath
     ).toBe('dispatch-a-2026-09-12T06-43-01-509Z.json');
     // Nothing queued -> nothing to do.

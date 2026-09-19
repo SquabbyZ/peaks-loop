@@ -30,7 +30,12 @@ const SCRIPT = resolve(__dirname, '..', '..', '..', 'scripts', 'migrate-to-bdd.m
 
 interface MigrateOutput {
   transformedSource: string;
-  rewrites: Array<{ kind: 'it' | 'test' | 'describe'; original: string; rewritten: string; location: string }>;
+  rewrites: Array<{
+    kind: 'it' | 'test' | 'describe';
+    original: string;
+    rewritten: string;
+    location: string;
+  }>;
   totalItRewritten: number;
   totalTestRewritten: number;
   totalDescribeRewritten: number;
@@ -45,12 +50,12 @@ function migrate(source: string, options: { dryRun?: boolean } = {}): MigrateOut
     input: payload,
     encoding: 'utf8',
     maxBuffer: 16 * 1024 * 1024,
-    windowsHide: true,
+    windowsHide: true
   });
   if (result.error) throw result.error;
   if (result.status !== 0) {
     throw new Error(
-      `migrator exited with status ${result.status}; stderr:\n${result.stderr}\nstdout:\n${result.stdout}`,
+      `migrator exited with status ${result.status}; stderr:\n${result.stderr}\nstdout:\n${result.stdout}`
     );
   }
   return JSON.parse(result.stdout) as MigrateOutput;

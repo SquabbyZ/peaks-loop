@@ -34,7 +34,7 @@ declareDimensions(
   [
     { dim: 'a11y', reason: 'lock acquisition has no user-facing surface' },
     { dim: 'render', reason: 'it returns a boolean and prints nothing' }
-  ],
+  ]
 );
 
 /** The real `node:fs`, kept reachable so the hook can act without re-entering itself. */
@@ -51,7 +51,12 @@ vi.mock('node:fs', async (importOriginal) => {
   const actual = await importOriginal<typeof import('node:fs')>();
   fsRef.actual = actual;
   const beforeMutation = (target: unknown): void => {
-    if (!hook.armed || hook.fired || typeof target !== 'string' || !target.endsWith('install.lock')) {
+    if (
+      !hook.armed ||
+      hook.fired ||
+      typeof target !== 'string' ||
+      !target.endsWith('install.lock')
+    ) {
       return;
     }
     hook.fired = true;
@@ -63,7 +68,10 @@ vi.mock('node:fs', async (importOriginal) => {
       beforeMutation(path);
       return actual.unlinkSync(path);
     },
-    renameSync: (from: Parameters<typeof actual.renameSync>[0], to: Parameters<typeof actual.renameSync>[1]) => {
+    renameSync: (
+      from: Parameters<typeof actual.renameSync>[0],
+      to: Parameters<typeof actual.renameSync>[1]
+    ) => {
       beforeMutation(from);
       return actual.renameSync(from, to);
     }
@@ -88,7 +96,11 @@ beforeEach(() => {
   const lock = webInstallLockPath();
   mkdirSync(dirname(lock), { recursive: true });
   // A stale lock: its owner is a pid that cannot exist.
-  writeFileSync(lock, JSON.stringify({ pid: 2_147_483_646, startedAt: new Date().toISOString() }), 'utf8');
+  writeFileSync(
+    lock,
+    JSON.stringify({ pid: 2_147_483_646, startedAt: new Date().toISOString() }),
+    'utf8'
+  );
 });
 
 afterEach(() => {
@@ -111,7 +123,11 @@ function racerTakesTheLock(): void {
   }
   const lock = webInstallLockPath();
   fs.renameSync(lock, `${lock}.a-claim`);
-  fs.writeFileSync(lock, JSON.stringify({ pid: process.pid, startedAt: new Date().toISOString() }), 'utf8');
+  fs.writeFileSync(
+    lock,
+    JSON.stringify({ pid: process.pid, startedAt: new Date().toISOString() }),
+    'utf8'
+  );
 }
 
 describe('behavior — the stale-lock reclaim', () => {

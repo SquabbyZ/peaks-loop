@@ -34,7 +34,8 @@ export interface DetectionResult {
 function detectClaudeCode(opts: RuntimeDetectorOptions): boolean {
   const env = opts.env ?? process.env;
   if (env.CLAUDE_CODE === '1' || env.CLAUDE_CODE === 'true') return true;
-  if (env.CLAUDE_CODE_ENTRYPOINT !== undefined && env.CLAUDE_CODE_ENTRYPOINT.length > 0) return true;
+  if (env.CLAUDE_CODE_ENTRYPOINT !== undefined && env.CLAUDE_CODE_ENTRYPOINT.length > 0)
+    return true;
   const home = opts.home ?? process.env.HOME ?? process.env.USERPROFILE ?? '';
   if (home.length > 0 && existsSync(join(home, '.claude'))) return true;
   return false;
@@ -62,7 +63,10 @@ function detectCopilot(opts: RuntimeDetectorOptions): boolean {
  *  unknown. The first match wins. */
 export function detectRuntime(opts: RuntimeDetectorOptions = {}): DetectionResult {
   if (detectClaudeCode(opts)) {
-    return { vendor: 'claude-code', reason: 'CLAUDE_CODE_ENTRYPOINT / CLAUDE_CODE / ~/.claude matched' };
+    return {
+      vendor: 'claude-code',
+      reason: 'CLAUDE_CODE_ENTRYPOINT / CLAUDE_CODE / ~/.claude matched'
+    };
   }
   if (detectCodex(opts)) {
     return { vendor: 'codex', reason: 'CODEX_HOME / ~/.codex matched' };

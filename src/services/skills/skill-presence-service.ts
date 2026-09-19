@@ -11,9 +11,7 @@ import { getSessionId, getSessionMeta } from '../session/session-manager.js';
 // the migration window and are referenced through the dynamic
 // `leaseMod.*` accessor at runtime.
 import { listPresenceLeases } from './presence-lease-service.js';
-import type {
-  SetPresenceLeaseResult,
-} from './presence-lease-service.js';
+import type { SetPresenceLeaseResult } from './presence-lease-service.js';
 // Re-export the 4.0.8 compat surface so legacy callers
 // (`presence-service` consumers in `code-mode-gate-commands.ts`,
 // `mode-enforcement.ts`, `code-job-shape-commands.ts`, etc.) keep
@@ -49,7 +47,9 @@ export function isSkillPresenceMode(value: string): value is SkillPresenceMode {
  * `undefined` so the caller can decide (drop the field, not the
  * presence). Never throws.
  */
-export function normalizeSkillPresenceMode(value: string | undefined | null): SkillPresenceMode | undefined {
+export function normalizeSkillPresenceMode(
+  value: string | undefined | null
+): SkillPresenceMode | undefined {
   if (typeof value !== 'string' || value.length === 0) return undefined;
   if (isSkillPresenceMode(value)) return value;
   return LEGACY_SKILL_PRESENCE_MODE_ALIASES[value];
@@ -171,10 +171,9 @@ export function getCurrentSessionId(projectRootOverride?: string): string | null
   if (!existsSync(pathToRead)) return null;
   try {
     const data = JSON.parse(readFileSync(pathToRead, 'utf8'));
-    return typeof data.sessionId === 'string' && data.sessionId.length > 0
-      ? data.sessionId
-      : null;
-  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+    return typeof data.sessionId === 'string' && data.sessionId.length > 0 ? data.sessionId : null;
+  } catch {
+    // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     return null;
   }
 }
@@ -354,7 +353,12 @@ function getActiveSkillFileForCallerPath(
   return resolve(projectRoot, '.peaks', '_runtime', peakSessionId, `active-skill-${callerId}.json`);
 }
 
-export function setSkillPresence(skill: string, mode?: string, gate?: string, projectRootOverride?: string): SkillPresence {
+export function setSkillPresence(
+  skill: string,
+  mode?: string,
+  gate?: string,
+  projectRootOverride?: string
+): SkillPresence {
   // Slice 4.0.8 compat wrapper: the canonical write path is
   // `presence-lease-service.setPresenceLease`. The legacy
   // `setSkillPresence` is retained as a thin shim so callers that
@@ -400,7 +404,8 @@ export function setSkillPresence(skill: string, mode?: string, gate?: string, pr
     const boundOuterSessionId = getBoundOuterSessionId(projectRootOverride);
     const outerChanged = previousOuterSessionId !== outerSessionId;
     const boundOuterMatches = boundOuterSessionId === outerSessionId;
-    const hasOuterSignal = previousOuterSessionId !== undefined || boundOuterSessionId !== undefined;
+    const hasOuterSignal =
+      previousOuterSessionId !== undefined || boundOuterSessionId !== undefined;
     if (hasOuterSignal && outerChanged && !boundOuterMatches && sessionId !== null) {
       presence.outerSessionMismatch = {
         ...(previousOuterSessionId !== undefined ? { previous: previousOuterSessionId } : {}),
@@ -432,7 +437,7 @@ export function setSkillPresence(skill: string, mode?: string, gate?: string, pr
       try {
         const [{ resolveCallerProjection }, leaseMod] = await Promise.all([
           import('../session/resolve-caller-id.js'),
-          import('./presence-lease-service.js'),
+          import('./presence-lease-service.js')
         ]);
         const projection = resolveCallerProjection({ projectRoot, env: process.env });
         // Slice 2026-08-06-session-cacde8-A.4: derive the legacy compat
@@ -457,7 +462,7 @@ export function setSkillPresence(skill: string, mode?: string, gate?: string, pr
           skill,
           now,
           ...(validatedMode !== undefined ? { mode: validatedMode } : {}),
-          ...(gate !== undefined ? { gate } : {}),
+          ...(gate !== undefined ? { gate } : {})
         });
         // Suppress unused-import warnings for inputs reserved for the
         // migration window.
@@ -465,7 +470,9 @@ export function setSkillPresence(skill: string, mode?: string, gate?: string, pr
         void (leaseMod.markPresenceLost as unknown);
         void (leaseMod.listPresenceLeases as unknown);
         void (result as SetPresenceLeaseResult);
-      } catch { /* fall through to legacy write */ }
+      } catch {
+        /* fall through to legacy write */
+      }
     })();
   }
 
@@ -561,9 +568,7 @@ export function checkStalePresence(opts?: {
   // `opts?.currentOuter === undefined` is the omitted-key case. A
   // falsy string `''` is an explicit "no signal" (used by tests to
   // simulate a CLI run with no harness env vars).
-  const current = opts && 'currentOuter' in opts
-    ? opts.currentOuter
-    : getCurrentOuterSessionId();
+  const current = opts && 'currentOuter' in opts ? opts.currentOuter : getCurrentOuterSessionId();
   if (result === null) {
     return {
       stale: true,
@@ -577,8 +582,9 @@ export function checkStalePresence(opts?: {
   // Suppress false-positives when NEITHER side recorded an outer
   // session id (legacy project, no harness signal). Two unknowns
   // are not a swap — they are "no signal available yet".
-  const hasSignal = (recorded !== undefined && recorded.length > 0)
-    || (current !== undefined && current.length > 0);
+  const hasSignal =
+    (recorded !== undefined && recorded.length > 0) ||
+    (current !== undefined && current.length > 0);
   if (!hasSignal) {
     return {
       stale: false,
@@ -776,7 +782,8 @@ export function clearSkillPresence(projectRootOverride?: string): boolean {
     try {
       unlinkSync(p);
       cleared = true;
-    } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+    } catch {
+      // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
       // best effort
     }
   }

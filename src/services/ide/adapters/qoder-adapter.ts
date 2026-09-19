@@ -49,9 +49,7 @@ export const QODER_ADAPTER: IdeAdapter = {
   // Slice 2026-07-25-qoder-adapter-ship: Qoder PreToolUse is the assumed hook
   // path. UNVERIFIED — will be re-evaluated against a real Qoder install.
   promptSizeAware: true,
-  installHints: [
-    'Restart Qoder (or reload the workspace) so the PreToolUse hooks take effect.'
-  ],
+  installHints: ['Restart Qoder (or reload the workspace) so the PreToolUse hooks take effect.'],
   capabilities: {
     gateEnforce: true,
     statusline: true
@@ -69,8 +67,10 @@ export const QODER_ADAPTER: IdeAdapter = {
       const trimmed = candidate.trim();
       if (/^[a-zA-Z0-9._-]{1,200}$/.test(trimmed)) return trimmed;
     }
-    const err = new Error('PEAKS_CALLER_NOT_RESOLVED: Qoder vendor signal unverified') as Error & { code: string };
+    const err = new Error('PEAKS_CALLER_NOT_RESOLVED: Qoder vendor signal unverified') as Error & {
+      code: string;
+    };
     err.code = 'PEAKS_CALLER_NOT_RESOLVED';
     throw err;
-  },
+  }
 };

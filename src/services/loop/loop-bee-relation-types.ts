@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { z } from 'zod';
 
 /**
  * LoopBeeRelation — spec §4.6.
@@ -28,19 +28,14 @@ import { z } from "zod";
  *   - `created_at` is server-stamped from the system clock; the input
  *     schema does not let clients supply it (would be a backdate hole).
  */
-export const LoopBeeRelationRoleSchema = z.enum([
-  "main",
-  "supporting",
-  "candidate",
-  "retired",
-]);
+export const LoopBeeRelationRoleSchema = z.enum(['main', 'supporting', 'candidate', 'retired']);
 export type LoopBeeRelationRole = z.infer<typeof LoopBeeRelationRoleSchema>;
 
 export const LOOP_BEE_RELATION_ROLES: readonly LoopBeeRelationRole[] = [
-  "main",
-  "supporting",
-  "candidate",
-  "retired",
+  'main',
+  'supporting',
+  'candidate',
+  'retired'
 ] as const;
 
 /**
@@ -60,20 +55,15 @@ export const LoopBeeRelationInputSchema = z.object({
     .min(1)
     .max(64)
     .regex(/^[a-z][a-z0-9]*(-[a-z0-9]+)*$/, {
-      message:
-        "loop_release_id must be kebab-case starting with a lowercase letter",
+      message: 'loop_release_id must be kebab-case starting with a lowercase letter'
     }),
   bee_release_id: z
     .number()
     .int()
     .gt(0)
-    .max(2 ** 31 - 1, "bee_release_id out of 32-bit range"),
+    .max(2 ** 31 - 1, 'bee_release_id out of 32-bit range'),
   role: LoopBeeRelationRoleSchema,
-  reason: z
-    .string()
-    .trim()
-    .min(1, "reason is required (LLM-authored NL explanation)")
-    .max(2000),
+  reason: z.string().trim().min(1, 'reason is required (LLM-authored NL explanation)').max(2000)
 });
 export type LoopBeeRelationInput = z.input<typeof LoopBeeRelationInputSchema>;
 
@@ -90,10 +80,8 @@ export type LoopBeeRelationInput = z.input<typeof LoopBeeRelationInputSchema>;
  */
 export const LoopBeeRelationSchema = LoopBeeRelationInputSchema.extend({
   id: z.number().int().gt(0),
-  schema_version: z
-    .literal("peaks.loop-bee-relation/1")
-    .default("peaks.loop-bee-relation/1"),
-  created_at: z.string().datetime(),
+  schema_version: z.literal('peaks.loop-bee-relation/1').default('peaks.loop-bee-relation/1'),
+  created_at: z.string().datetime()
 });
 export type LoopBeeRelation = z.infer<typeof LoopBeeRelationSchema>;
 
@@ -120,8 +108,8 @@ export function safeParseLoopBeeRelation(
   return {
     ok: false,
     findings: r.error.issues.map((i) => ({
-      path: i.path.join("."),
-      message: i.message,
-    })),
+      path: i.path.join('.'),
+      message: i.message
+    }))
   };
 }

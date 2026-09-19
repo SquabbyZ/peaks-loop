@@ -10,7 +10,7 @@ export {
   type SecurityAuditDetectState,
   type SecurityAuditDetectResult,
   type HandoffFrontmatter,
-  readAndVerifyHandoff,
+  readAndVerifyHandoff
 } from './security-audit-service.js';
 
 export {
@@ -23,5 +23,5 @@ export {
   type PerfAuditViolation,
   type PerfAuditVerdict,
   type PerfAuditDetectState,
-  type PerfAuditDetectResult,
+  type PerfAuditDetectResult
 } from './perf-audit-service.js';

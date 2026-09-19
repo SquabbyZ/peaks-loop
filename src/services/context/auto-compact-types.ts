@@ -44,7 +44,7 @@ export const AUTO_COMPACT_SOFT_WARN_RATIO = 0.5;
 // 0.80 so peaks-loop auto-fires compact without LLM involvement
 // — the LLM keeps working, peaks-loop preempts when ratio crosses
 // the new threshold.
-export const AUTO_COMPACT_AUTO_FIRE_RATIO = 0.80;
+export const AUTO_COMPACT_AUTO_FIRE_RATIO = 0.8;
 export const AUTO_COMPACT_PRE_COMPACT_RATIO = 0.85;
 export const AUTO_COMPACT_RED_LINE_RATIO = 0.95;
 export const AUTO_COMPACT_THRESHOLD_RATIO = AUTO_COMPACT_AUTO_FIRE_RATIO;
@@ -128,7 +128,11 @@ export type AutoCompactResult =
     }
   | {
       readonly ok: true;
-      readonly code: 'AUTO_COMPACT_SKIP' | 'AUTO_COMPACT_WAIT' | 'AUTO_COMPACT_ALREADY_ARMED' | 'AUTO_COMPACT_UNRESOLVED_SESSION';
+      readonly code:
+        | 'AUTO_COMPACT_SKIP'
+        | 'AUTO_COMPACT_WAIT'
+        | 'AUTO_COMPACT_ALREADY_ARMED'
+        | 'AUTO_COMPACT_UNRESOLVED_SESSION';
       readonly message: string;
       readonly data: {
         readonly sessionId: string;
@@ -143,7 +147,8 @@ export type AutoCompactResult =
          * "no", and admitting on one is how a gate ends up reading a string
          * instead of the artifact the string names.
          */
-        readonly decision: 'below-threshold' | 'in-flight-batch' | 'already-armed' | 'unresolved-session';
+        readonly decision:
+          'below-threshold' | 'in-flight-batch' | 'already-armed' | 'unresolved-session';
         /**
          * rid `2026-09-14-compact-dispatch-backoff`, `already-armed` only: the
          * ratio the open run was dispatched at, and its id. `ratio` above is the
@@ -164,7 +169,8 @@ export type AutoCompactResult =
     }
   | {
       readonly ok: boolean;
-      readonly code: 'AUTO_COMPACT_DISPATCHED' | 'AUTO_COMPACT_DISPATCH_FAILED' | 'AUTO_COMPACT_RED_LINE';
+      readonly code:
+        'AUTO_COMPACT_DISPATCHED' | 'AUTO_COMPACT_DISPATCH_FAILED' | 'AUTO_COMPACT_RED_LINE';
       readonly message: string;
       readonly data: {
         readonly sessionId: string;

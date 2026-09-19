@@ -266,7 +266,11 @@ export class BrowserSessionManager {
     return context;
   }
 
-  async open(dispatchId: string, url: string, profile?: string): Promise<{ url: string; title: string }> {
+  async open(
+    dispatchId: string,
+    url: string,
+    profile?: string
+  ): Promise<{ url: string; title: string }> {
     assertNavigableUrl(url);
     const page = await this.pageFor(dispatchId, profile);
     await page.goto(url, { waitUntil: 'load' });
@@ -317,7 +321,9 @@ export class BrowserSessionManager {
     const page = await this.pageFor(dispatchId);
     await page.locator(selector).click();
     // The interpolated title is page-controlled; only the selector is ours.
-    return { result: capText(`clicked ${selector} (page: ${await page.title()})`, MAX_TEXT_BYTES).text };
+    return {
+      result: capText(`clicked ${selector} (page: ${await page.title()})`, MAX_TEXT_BYTES).text
+    };
   }
 
   /**
@@ -387,7 +393,10 @@ export class BrowserSessionManager {
         stateWriteFailures.push({ dispatchId, reason: getErrorMessage(error) });
       }
       try {
-        await boundedTeardownStep(session.context.close(), `context close for dispatch ${dispatchId}`);
+        await boundedTeardownStep(
+          session.context.close(),
+          `context close for dispatch ${dispatchId}`
+        );
         closedContexts += 1;
       } catch {
         // Already closed, or wedged past its budget: teardown must still reach
@@ -462,7 +471,9 @@ function asAriaNodes(raw: unknown): readonly AriaNode[] {
   }
   const nodes = raw.filter(
     (node): node is AriaNode =>
-      typeof node === 'object' && node !== null && typeof (node as { role?: unknown }).role === 'string'
+      typeof node === 'object' &&
+      node !== null &&
+      typeof (node as { role?: unknown }).role === 'string'
   );
   if (nodes.length !== raw.length) {
     throw new Error(

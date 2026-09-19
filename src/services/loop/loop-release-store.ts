@@ -1,5 +1,5 @@
-import type Database from "better-sqlite3";
-import type { LoopRelease, LoopReleaseLifecycleStatus } from "./loop-release-types.js";
+import type Database from 'better-sqlite3';
+import type { LoopRelease, LoopReleaseLifecycleStatus } from './loop-release-types.js';
 
 /**
  * Low-level SQLite access for the `loop_release` table. The
@@ -77,7 +77,7 @@ interface LoopReleaseRow {
   crystallization_evidence_json: string;
   lifecycle_status: LoopReleaseLifecycleStatus;
   version: string;
-  schema_version: "peaks.loop/1";
+  schema_version: 'peaks.loop/1';
   archived_at: string;
   /** M3: 0/1 in SQLite, coerced to boolean on read. */
   shareable: 0 | 1;
@@ -86,7 +86,7 @@ interface LoopReleaseRow {
   /** M3: 0/1 in SQLite, coerced to boolean on read. */
   desktop_visible: 0 | 1;
   /** M3: pinned constant 'peaks.bundle/1'. */
-  export_bundle_format: "peaks.bundle/1";
+  export_bundle_format: 'peaks.bundle/1';
 }
 
 function rowToLoopRelease(row: LoopReleaseRow): LoopRelease {
@@ -111,7 +111,7 @@ function rowToLoopRelease(row: LoopReleaseRow): LoopRelease {
     shareable: row.shareable === 1,
     share_excluded_paths: JSON.parse(row.share_excluded_paths) as string[],
     desktop_visible: row.desktop_visible === 1,
-    export_bundle_format: row.export_bundle_format,
+    export_bundle_format: row.export_bundle_format
   };
 }
 
@@ -124,10 +124,7 @@ function rowToLoopRelease(row: LoopReleaseRow): LoopRelease {
  * same id throws a UNIQUE-constraint error; callers wanting upsert
  * semantics should use a separate path (M5 / crystallization event).
  */
-export function insertLoopRelease(
-  db: Database.Database,
-  row: LoopRelease
-): void {
+export function insertLoopRelease(db: Database.Database, row: LoopRelease): void {
   const stmt = db.prepare(
     `INSERT INTO loop_release (
        id, name, scenario, trigger_policy,
@@ -163,13 +160,9 @@ export function insertLoopRelease(
 }
 
 /** Read a single LoopRelease row by id; returns undefined if absent. */
-export function getLoopRelease(
-  db: Database.Database,
-  id: string
-): LoopRelease | undefined {
-  const row = db
-    .prepare("SELECT * FROM loop_release WHERE id = ?")
-    .get(id) as LoopReleaseRow | undefined;
+export function getLoopRelease(db: Database.Database, id: string): LoopRelease | undefined {
+  const row = db.prepare('SELECT * FROM loop_release WHERE id = ?').get(id) as
+    LoopReleaseRow | undefined;
   if (!row) return undefined;
   return rowToLoopRelease(row);
 }
@@ -180,7 +173,9 @@ export function listLoopReleasesByStatus(
   status: LoopReleaseLifecycleStatus
 ): LoopRelease[] {
   const rows = db
-    .prepare("SELECT * FROM loop_release WHERE lifecycle_status = ? ORDER BY archived_at DESC, id ASC")
+    .prepare(
+      'SELECT * FROM loop_release WHERE lifecycle_status = ? ORDER BY archived_at DESC, id ASC'
+    )
     .all(status) as LoopReleaseRow[];
   return rows.map(rowToLoopRelease);
 }
@@ -191,14 +186,11 @@ export function listLoopReleasesByStatus(
  * query is treated as a literal substring (no regex, no SQL
  * injection surface) — it is escaped via parameter binding.
  */
-export function searchLoopReleasesByScenario(
-  db: Database.Database,
-  query: string
-): LoopRelease[] {
+export function searchLoopReleasesByScenario(db: Database.Database, query: string): LoopRelease[] {
   const like = `%${query}%`;
   const rows = db
     .prepare(
-      "SELECT * FROM loop_release WHERE scenario LIKE ? COLLATE NOCASE ORDER BY archived_at DESC, id ASC"
+      'SELECT * FROM loop_release WHERE scenario LIKE ? COLLATE NOCASE ORDER BY archived_at DESC, id ASC'
     )
     .all(like) as LoopReleaseRow[];
   return rows.map(rowToLoopRelease);

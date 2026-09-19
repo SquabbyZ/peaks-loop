@@ -186,12 +186,12 @@ export const DEFAULT_PREFERENCES: ProjectPreferences = {
   classifyRules: {
     feature_threshold_files: 10,
     feature_threshold_lines: 100,
-    runtime_clean_grace_hours: 24,
+    runtime_clean_grace_hours: 24
   },
   swarmSpeculative: {
     enabled: true,
     maxConcurrent: 3,
-    minHitRate: 0.5,
+    minHitRate: 0.5
   },
   loopAutonomousEnabled: false,
   agentShieldEnabled: false,
@@ -215,6 +215,6 @@ export const DEFAULT_PREFERENCES: ProjectPreferences = {
     warmItemCap: 4,
     warmMinTokenHits: 1,
     selectionTimeBudgetMs: 200,
-    includeBodies: false,
-  },
+    includeBodies: false
+  }
 };

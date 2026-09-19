@@ -24,13 +24,13 @@ import { makeCapturedIo, withEnv } from '../_setup/io.js';
 declareDimensions(
   'tests/unit/cli/program.test.ts',
   ['render', 'behavior', 'a11y'],
-  [{ dim: 'integration', reason: 'createProgram() is the SUT; mocking it would mock the SUT.' }],
+  [{ dim: 'integration', reason: 'createProgram() is the SUT; mocking it would mock the SUT.' }]
 );
 
 import { createProgram, __resetBootstrapForTests } from '~/src/cli/program';
 import { CLI_VERSION } from 'peaks-loop-shared/version';
 
-describe("Scenario: render — stdout/stderr shape", () => {
+describe('Scenario: render — stdout/stderr shape', () => {
   withTmpWorkspacePerTest();
   withEnv('USERPROFILE', process.cwd());
   withEnv('HOME', process.cwd());
@@ -40,7 +40,7 @@ describe("Scenario: render — stdout/stderr shape", () => {
     __resetBootstrapForTests();
   });
 
-  it("when invoked, should bare `peaks` (no args) prints the super-command catalog", async () => {
+  it('when invoked, should bare `peaks` (no args) prints the super-command catalog', async () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -60,7 +60,7 @@ describe("Scenario: render — stdout/stderr shape", () => {
     expect(text).toMatch(/^status\b/m);
   });
 
-  it("when invoked, should --version prints CLI_VERSION verbatim (no decoration, no envelope)", async () => {
+  it('when invoked, should --version prints CLI_VERSION verbatim (no decoration, no envelope)', async () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -72,7 +72,7 @@ describe("Scenario: render — stdout/stderr shape", () => {
     expect(process.exitCode === undefined || process.exitCode === 0).toBe(true);
   });
 
-  it("when invoked, should -V (short) prints the same version", async () => {
+  it('when invoked, should -V (short) prints the same version', async () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -83,7 +83,7 @@ describe("Scenario: render — stdout/stderr shape", () => {
     expect(captured.text()).toBe(CLI_VERSION);
   });
 
-  it("when invoked, should help text advertises a quickstart and the most common commands", async () => {
+  it('when invoked, should help text advertises a quickstart and the most common commands', async () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -101,7 +101,7 @@ describe("Scenario: render — stdout/stderr shape", () => {
   });
 });
 
-describe("Scenario: behavior — routing", () => {
+describe('Scenario: behavior — routing', () => {
   withTmpWorkspacePerTest();
   withEnv('USERPROFILE', process.cwd());
   withEnv('HOME', process.cwd());
@@ -116,7 +116,7 @@ describe("Scenario: behavior — routing", () => {
     process.exitCode = 0;
   });
 
-  it("when invoked, should unknown command: emits COMMAND_NOT_FOUND envelope, sets exitCode = 1", async () => {
+  it('when invoked, should unknown command: emits COMMAND_NOT_FOUND envelope, sets exitCode = 1', async () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -134,7 +134,7 @@ describe("Scenario: behavior — routing", () => {
     expect(process.exitCode).toBe(1);
   });
 
-  it("when invoked, should unknown command envelope argv reflects the first non-option token, not later flags", async () => {
+  it('when invoked, should unknown command envelope argv reflects the first non-option token, not later flags', async () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -157,7 +157,7 @@ describe("Scenario: behavior — routing", () => {
     expect(parsed.data.argv).toBe('mystery');
   });
 
-  it("when invoked, should bootstrapRan guard: parsing twice in the same process only writes the start log line once", async () => {
+  it('when invoked, should bootstrapRan guard: parsing twice in the same process only writes the start log line once', async () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -180,7 +180,7 @@ describe("Scenario: behavior — routing", () => {
   });
 });
 
-describe("Scenario: a11y — human-visible error surface", () => {
+describe('Scenario: a11y — human-visible error surface', () => {
   withTmpWorkspacePerTest();
   withEnv('USERPROFILE', process.cwd());
   withEnv('HOME', process.cwd());
@@ -195,7 +195,7 @@ describe("Scenario: a11y — human-visible error surface", () => {
     process.exitCode = 0;
   });
 
-  it("when invoked, should unknown-command message text is a single sentence, English, mentions the bad token", async () => {
+  it('when invoked, should unknown-command message text is a single sentence, English, mentions the bad token', async () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -208,7 +208,7 @@ describe("Scenario: a11y — human-visible error surface", () => {
     expect(parsed.message).not.toMatch(/at .+:\d+/); // no stack trace
   });
 
-  it("when invoked, should unknown-command nextActions do NOT tell the user to type a CLI verb", async () => {
+  it('when invoked, should unknown-command nextActions do NOT tell the user to type a CLI verb', async () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -224,7 +224,7 @@ describe("Scenario: a11y — human-visible error surface", () => {
     }
   });
 
-  it("when invoked, should exit code is 1 on unknown command (machine-readable signal for CI / LLM judge)", async () => {
+  it('when invoked, should exit code is 1 on unknown command (machine-readable signal for CI / LLM judge)', async () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation

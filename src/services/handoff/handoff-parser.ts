@@ -66,9 +66,7 @@ export function parseHandoff(filePath: string): ParsedHandoff {
     (f) => (parsed as Record<RequiredField, unknown>)[f] === undefined
   );
   if (missing.length > 0) {
-    throw new IncompleteHandoffError(
-      `Missing required frontmatter fields: ${missing.join(', ')}`
-    );
+    throw new IncompleteHandoffError(`Missing required frontmatter fields: ${missing.join(', ')}`);
   }
 
   return {

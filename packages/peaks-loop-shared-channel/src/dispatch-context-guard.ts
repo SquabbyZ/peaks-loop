@@ -209,7 +209,7 @@ function sanitizeSegment(value: string, field: string): string {
   }
   for (let i = 0; i < value.length; i += 1) {
     const code = value.charCodeAt(i);
-    if (code <= 0x20 || code === 0x7F) {
+    if (code <= 0x20 || code === 0x7f) {
       throw new Error(`${field} must not contain whitespace or control characters`);
     }
   }

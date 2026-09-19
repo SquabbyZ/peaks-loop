@@ -1,4 +1,10 @@
-import { SIDECAR_SCHEMA_VERSION, ensureSidecarVersion, proxyConfigPath, readSidecarJson, writeSidecarJson } from './sidecar-store.js';
+import {
+  SIDECAR_SCHEMA_VERSION,
+  ensureSidecarVersion,
+  proxyConfigPath,
+  readSidecarJson,
+  writeSidecarJson
+} from './sidecar-store.js';
 
 /**
  * Proxy config (`httpProxy`) lives in `~/.peaks/proxy.json` — NOT in
@@ -23,7 +29,14 @@ const EMPTY_PROXY: ProxySidecar = { version: SIDECAR_SCHEMA_VERSION, httpProxy: 
 export function isValidProxyUrl(value: string): boolean {
   try {
     const url = new URL(value);
-    return (url.protocol === 'http:' || url.protocol === 'https:') && url.username.length === 0 && url.password.length === 0 && url.pathname === '/' && url.search.length === 0 && url.hash.length === 0;
+    return (
+      (url.protocol === 'http:' || url.protocol === 'https:') &&
+      url.username.length === 0 &&
+      url.password.length === 0 &&
+      url.pathname === '/' &&
+      url.search.length === 0 &&
+      url.hash.length === 0
+    );
   } catch {
     return false;
   }
@@ -39,7 +52,8 @@ export function validateProxyUrl(value: unknown): void {
 function loadProxySidecar(): ProxySidecar {
   const raw = readSidecarJson<Partial<ProxySidecar>>(proxyConfigPath(), EMPTY_PROXY);
   const version = ensureSidecarVersion(raw).version;
-  const httpProxy = typeof raw.httpProxy === 'string' && isValidProxyUrl(raw.httpProxy) ? raw.httpProxy : null;
+  const httpProxy =
+    typeof raw.httpProxy === 'string' && isValidProxyUrl(raw.httpProxy) ? raw.httpProxy : null;
   return { version, httpProxy };
 }
 

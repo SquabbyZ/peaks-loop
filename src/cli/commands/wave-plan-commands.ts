@@ -36,34 +36,51 @@ export function registerWavePlanCommand(parent: Command, io: ProgramIO): void {
       .command('wave-plan')
       .description(
         '§3 file-overlap-aware scheduling: read slice descriptors ' +
-        '({slices:[{id,files:[]}]}) and emit a wave plan where every wave is ' +
-        'pairwise file-disjoint. Overlapping slices are deferred to later ' +
-        'waves with the colliding file named. Machine-readable envelope; the ' +
-        'LLM runs this, users never type it.'
+          '({slices:[{id,files:[]}]}) and emit a wave plan where every wave is ' +
+          'pairwise file-disjoint. Overlapping slices are deferred to later ' +
+          'waves with the colliding file named. Machine-readable envelope; the ' +
+          'LLM runs this, users never type it.'
       )
-      .option('--slices <file>', 'path to a JSON file: { "slices": [{ "id": "s1", "files": ["src/a.ts"] }] }')
+      .option(
+        '--slices <file>',
+        'path to a JSON file: { "slices": [{ "id": "s1", "files": ["src/a.ts"] }] }'
+      )
       .option('--slices-json <json>', 'inline JSON with the same shape as --slices')
   ).action((options: WavePlanOptions) => {
     const asJson = options.json === true;
-    const source: SlicesSource | null = typeof options.slicesJson === 'string' && options.slicesJson.length > 0
-      ? { text: options.slicesJson }
-      : typeof options.slices === 'string' && options.slices.length > 0
-        ? readSlicesFile(options.slices)
-        : null;
+    const source: SlicesSource | null =
+      typeof options.slicesJson === 'string' && options.slicesJson.length > 0
+        ? { text: options.slicesJson }
+        : typeof options.slices === 'string' && options.slices.length > 0
+          ? readSlicesFile(options.slices)
+          : null;
     if (source === null) {
-      printResult(io, fail('sub-agent.wave-plan', 'MISSING_INPUT',
-        'pass --slices <file> or --slices-json <json>',
-        { ok: false, waves: [] } as never,
-        ['Provide slice descriptors as { "slices": [{ "id": "s1", "files": ["src/a.ts"] }] }.']),
-        asJson);
+      printResult(
+        io,
+        fail(
+          'sub-agent.wave-plan',
+          'MISSING_INPUT',
+          'pass --slices <file> or --slices-json <json>',
+          { ok: false, waves: [] } as never,
+          ['Provide slice descriptors as { "slices": [{ "id": "s1", "files": ["src/a.ts"] }] }.']
+        ),
+        asJson
+      );
       process.exitCode = 1;
       return;
     }
     if (source.error !== undefined) {
-      printResult(io, fail('sub-agent.wave-plan', 'INVALID_INPUT', source.error,
-        { ok: false, waves: [] } as never,
-        ['Check the JSON shape: { "slices": [{ "id": string, "files": string[] }] }.']),
-        asJson);
+      printResult(
+        io,
+        fail(
+          'sub-agent.wave-plan',
+          'INVALID_INPUT',
+          source.error,
+          { ok: false, waves: [] } as never,
+          ['Check the JSON shape: { "slices": [{ "id": string, "files": string[] }] }.']
+        ),
+        asJson
+      );
       process.exitCode = 1;
       return;
     }
@@ -72,42 +89,67 @@ export function registerWavePlanCommand(parent: Command, io: ProgramIO): void {
     try {
       parsed = JSON.parse(source.text);
     } catch (err) {
-      printResult(io, fail('sub-agent.wave-plan', 'INVALID_JSON', `input is not valid JSON: ${getErrorMessage(err)}`,
-        { ok: false, waves: [] } as never,
-        ['Fix the JSON syntax and re-run.']),
-        asJson);
+      printResult(
+        io,
+        fail(
+          'sub-agent.wave-plan',
+          'INVALID_JSON',
+          `input is not valid JSON: ${getErrorMessage(err)}`,
+          { ok: false, waves: [] } as never,
+          ['Fix the JSON syntax and re-run.']
+        ),
+        asJson
+      );
       process.exitCode = 1;
       return;
     }
 
     const descriptors = coerceDescriptors(parsed);
     if (descriptors === null) {
-      printResult(io, fail('sub-agent.wave-plan', 'INVALID_SHAPE',
-        'expected { "slices": [{ "id": string, "files": string[] }] }',
-        { ok: false, waves: [] } as never,
-        ['Each entry needs a non-empty string id and an array of file paths.']),
-        asJson);
+      printResult(
+        io,
+        fail(
+          'sub-agent.wave-plan',
+          'INVALID_SHAPE',
+          'expected { "slices": [{ "id": string, "files": string[] }] }',
+          { ok: false, waves: [] } as never,
+          ['Each entry needs a non-empty string id and an array of file paths.']
+        ),
+        asJson
+      );
       process.exitCode = 1;
       return;
     }
 
     const plan = planFileOverlapWaves(descriptors);
-    const warnings = plan.duplicateIds.length > 0
-      ? [`DUPLICATE_SLICE_IDS: ${plan.duplicateIds.join(', ')} (first descriptor wins; the rest were not scheduled)`]
-      : [];
-    printResult(io, ok('sub-agent.wave-plan', {
-      envelopeVersion: '2.1.0',
-      ok: true,
-      sliceCount: plan.sliceCount,
-      waveCount: plan.waves.length,
-      waves: plan.waves,
-      duplicateIds: plan.duplicateIds,
-      maxParallelism: plan.waves.reduce((max, w) => Math.max(max, w.slices.length), 0)
-    }, warnings, [
-      plan.waves.length <= 1
-        ? 'All slices are file-disjoint: dispatch them in a single wave.'
-        : `Dispatch wave 0 first, then each later wave after its predecessors finish; the deferred[] entries name the blocking file.`
-    ]), asJson);
+    const warnings =
+      plan.duplicateIds.length > 0
+        ? [
+            `DUPLICATE_SLICE_IDS: ${plan.duplicateIds.join(', ')} (first descriptor wins; the rest were not scheduled)`
+          ]
+        : [];
+    printResult(
+      io,
+      ok(
+        'sub-agent.wave-plan',
+        {
+          envelopeVersion: '2.1.0',
+          ok: true,
+          sliceCount: plan.sliceCount,
+          waveCount: plan.waves.length,
+          waves: plan.waves,
+          duplicateIds: plan.duplicateIds,
+          maxParallelism: plan.waves.reduce((max, w) => Math.max(max, w.slices.length), 0)
+        },
+        warnings,
+        [
+          plan.waves.length <= 1
+            ? 'All slices are file-disjoint: dispatch them in a single wave.'
+            : `Dispatch wave 0 first, then each later wave after its predecessors finish; the deferred[] entries name the blocking file.`
+        ]
+      ),
+      asJson
+    );
   });
 }
 
@@ -134,7 +176,10 @@ function coerceDescriptors(parsed: unknown): readonly SliceFileDescriptor[] | nu
     const id = (item as { id?: unknown }).id;
     const files = (item as { files?: unknown }).files;
     if (typeof id !== 'string' || id.length === 0) return null;
-    if (files !== undefined && (!Array.isArray(files) || files.some((f) => typeof f !== 'string'))) {
+    if (
+      files !== undefined &&
+      (!Array.isArray(files) || files.some((f) => typeof f !== 'string'))
+    ) {
       return null;
     }
     out.push({ id, files: (files as string[] | undefined) ?? [] });

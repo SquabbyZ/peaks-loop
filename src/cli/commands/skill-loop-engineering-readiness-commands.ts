@@ -38,7 +38,7 @@ import { join, resolve } from 'node:path';
 import type { Command } from 'commander';
 import {
   lintSkillLoopEngineeringReadiness,
-  type ReadinessLintResult,
+  type ReadinessLintResult
 } from '../../services/standards/loop-engineering-readiness-lint.js';
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
 import { fail, ok } from 'peaks-loop-shared/result';
@@ -96,9 +96,7 @@ export function runReadinessLint(rawPath: string): {
       code: 'SKILL_FILE_NOT_FOUND',
       message: `could not resolve SKILL.md from --path ${rawPath}`,
       data: { path: rawPath, category: LOOP_ENGINEERING_READINESS_CATEGORY, findings: [] },
-      nextActions: [
-        'Pass a directory containing SKILL.md or a direct path to a SKILL.md file.',
-      ],
+      nextActions: ['Pass a directory containing SKILL.md or a direct path to a SKILL.md file.']
     };
   }
   const text = readFileSync(skillMdPath, 'utf-8');
@@ -111,11 +109,11 @@ export function runReadinessLint(rawPath: string): {
       data: {
         path: skillMdPath,
         category: LOOP_ENGINEERING_READINESS_CATEGORY,
-        findings: [],
+        findings: []
       },
       nextActions: [
-        'The skill is allowed to participate in Loop Engineering (crystallization / evolution).',
-      ],
+        'The skill is allowed to participate in Loop Engineering (crystallization / evolution).'
+      ]
     };
   }
   return {
@@ -125,13 +123,13 @@ export function runReadinessLint(rawPath: string): {
     data: {
       path: skillMdPath,
       category: LOOP_ENGINEERING_READINESS_CATEGORY,
-      findings: result.findings,
+      findings: result.findings
     },
     nextActions: [
       'Address every finding listed in data.findings, then re-run the lint.',
       'See src/services/standards/loop-engineering-readiness-lint.ts for the rule definitions.',
-      'See .peaks/standards/loop-engineering-guidelines.md for the red lines the lint enforces.',
-    ],
+      'See .peaks/standards/loop-engineering-guidelines.md for the red lines the lint enforces.'
+    ]
   };
 }
 
@@ -144,11 +142,9 @@ function lintAction(options: LintOptions, io: ProgramIO): void {
         'UNKNOWN_LINT_CATEGORY',
         `only --category ${LOOP_ENGINEERING_READINESS_CATEGORY} is implemented in M6`,
         { category: options.category ?? null },
-        [
-          `Pass --category ${LOOP_ENGINEERING_READINESS_CATEGORY}.`,
-        ],
+        [`Pass --category ${LOOP_ENGINEERING_READINESS_CATEGORY}.`]
       ),
-      options.json,
+      options.json
     );
     process.exitCode = 1;
     return;
@@ -161,9 +157,9 @@ function lintAction(options: LintOptions, io: ProgramIO): void {
         'MISSING_PATH',
         '--path <skill-dir> is required',
         { category: options.category },
-        ['Pass --path pointing at a peaks-* skill directory containing SKILL.md.'],
+        ['Pass --path pointing at a peaks-* skill directory containing SKILL.md.']
       ),
-      options.json,
+      options.json
     );
     process.exitCode = 1;
     return;
@@ -177,14 +173,16 @@ function lintAction(options: LintOptions, io: ProgramIO): void {
     printResult(
       io,
       fail('skill.lint', envelope.code, envelope.message, envelope.data, envelope.nextActions),
-      options.json,
+      options.json
     );
     process.exitCode = 1;
   } catch (error) {
     printResult(
       io,
-      fail('skill.lint', 'SKILL_READINESS_ERROR', getErrorMessage(error), { path: options.path }, ['Verify the path is readable.']),
-      options.json,
+      fail('skill.lint', 'SKILL_READINESS_ERROR', getErrorMessage(error), { path: options.path }, [
+        'Verify the path is readable.'
+      ]),
+      options.json
     );
     process.exitCode = 1;
   }
@@ -192,7 +190,7 @@ function lintAction(options: LintOptions, io: ProgramIO): void {
 
 export function registerSkillLoopEngineeringReadinessCommands(
   program: Command,
-  io: ProgramIO,
+  io: ProgramIO
 ): void {
   // `peaks skill lint --category loop-engineering-readiness --path <skill-dir>`
   // — primary surface, named to match the spec §7.5 / §8.4 wording.
@@ -200,25 +198,27 @@ export function registerSkillLoopEngineeringReadinessCommands(
   // the add-a-new-subcommand-check-for-existing-top-level-first rule,
   // we never re-create `skill` when it's already there.
   const existingSkill = program.commands.find((c) => c.name() === 'skill');
-  const skill = existingSkill ?? program
-    .command('skill')
-    .description('skill operations (M6: lint --category loop-engineering-readiness)');
+  const skill =
+    existingSkill ??
+    program
+      .command('skill')
+      .description('skill operations (M6: lint --category loop-engineering-readiness)');
 
   addJsonOption(
     skill
       .command('lint')
       .description(
-        `M6: lint a peaks-* SKILL.md against a category. Currently supports --category ${LOOP_ENGINEERING_READINESS_CATEGORY} (spec §7.5 / §8.4 / RL-8).`,
+        `M6: lint a peaks-* SKILL.md against a category. Currently supports --category ${LOOP_ENGINEERING_READINESS_CATEGORY} (spec §7.5 / §8.4 / RL-8).`
       )
       .option(
         '--category <name>',
         `lint category; the M6 implementation only supports ${LOOP_ENGINEERING_READINESS_CATEGORY}`,
-        LOOP_ENGINEERING_READINESS_CATEGORY,
+        LOOP_ENGINEERING_READINESS_CATEGORY
       )
       .requiredOption(
         '--path <skill-dir>',
-        'path to a peaks-* skill directory (containing SKILL.md) or directly to a SKILL.md file',
-      ),
+        'path to a peaks-* skill directory (containing SKILL.md) or directly to a SKILL.md file'
+      )
   ).action((options: LintOptions) => lintAction(options, io));
 
   // `peaks skill ready --category loop-engineering-readiness --path <skill-dir>`
@@ -230,12 +230,12 @@ export function registerSkillLoopEngineeringReadinessCommands(
   skill
     .command('ready')
     .description(
-      `M6 alias for \`peaks skill lint --category ${LOOP_ENGINEERING_READINESS_CATEGORY}\`; same flags, same exit codes.`,
+      `M6 alias for \`peaks skill lint --category ${LOOP_ENGINEERING_READINESS_CATEGORY}\`; same flags, same exit codes.`
     )
     .option(
       '--category <name>',
       `lint category; the M6 implementation only supports ${LOOP_ENGINEERING_READINESS_CATEGORY}`,
-      LOOP_ENGINEERING_READINESS_CATEGORY,
+      LOOP_ENGINEERING_READINESS_CATEGORY
     )
     .requiredOption('--path <skill-dir>', 'path to a peaks-* skill directory or SKILL.md file')
     .option('--json', 'print machine-readable JSON envelope')

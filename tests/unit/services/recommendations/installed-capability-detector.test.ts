@@ -42,7 +42,9 @@ const CODEGRAPH_IDS = [
 describe('detectInstalledCapabilityIds', () => {
   it('returns nothing when neither the ECC cache nor any npm dep is present', () => {
     const root = tmpRoot();
-    expect(detectInstalledCapabilityIds({ projectRoot: root, eccCacheAvailable: false })).toEqual([]);
+    expect(detectInstalledCapabilityIds({ projectRoot: root, eccCacheAvailable: false })).toEqual(
+      []
+    );
   });
 
   it('reports every everything-claude-code capability when the ECC cache is populated', () => {

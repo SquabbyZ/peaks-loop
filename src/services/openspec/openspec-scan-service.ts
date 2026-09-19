@@ -50,7 +50,13 @@ function parseBullets(content: string): string[] {
     .map((line) => line.trim())
     .filter((line) => line.startsWith('- ') || line === '-')
     .map((line) => line.replace(/^-\s*/, '').trim())
-    .filter((line) => line.length > 0 && !line.startsWith('[ ]') && !line.startsWith('[x]') && !line.startsWith('[X]'));
+    .filter(
+      (line) =>
+        line.length > 0 &&
+        !line.startsWith('[ ]') &&
+        !line.startsWith('[x]') &&
+        !line.startsWith('[X]')
+    );
 }
 
 function parseProposal(markdown: string): OpenSpecProposal {
@@ -151,6 +157,7 @@ export async function loadOpenSpecChange(
     return null;
   }
   const summary = await buildSummary(changeId, changeRoot);
-  const proposal = summary.paths.proposal === null ? null : parseProposal(await readText(summary.paths.proposal));
+  const proposal =
+    summary.paths.proposal === null ? null : parseProposal(await readText(summary.paths.proposal));
   return { ...summary, proposal };
 }

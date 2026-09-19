@@ -42,7 +42,7 @@ export function shouldSubdivide(
   if (locExceeded || filesExceeded) {
     return {
       subdivide: true,
-      reason: `wu ${wu.id}: loc=${wu.loc} files=${wu.files.length} exceeds threshold`,
+      reason: `wu ${wu.id}: loc=${wu.loc} files=${wu.files.length} exceeds threshold`
     };
   }
   const locBorderline = wu.loc > thresholds.maxLoc * 0.8;
@@ -50,7 +50,7 @@ export function shouldSubdivide(
   if (locBorderline || filesBorderline) {
     return {
       subdivide: 'tie-break',
-      reason: `wu ${wu.id}: within 20% of threshold, needs LLM judgment`,
+      reason: `wu ${wu.id}: within 20% of threshold, needs LLM judgment`
     };
   }
   return { subdivide: false, reason: `wu ${wu.id}: under threshold` };

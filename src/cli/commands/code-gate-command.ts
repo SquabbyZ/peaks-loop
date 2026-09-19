@@ -24,7 +24,11 @@
 import type { Command } from 'commander';
 
 import { type ProgramIO, addJsonOption, printResult } from '../cli-helpers.js';
-import { decideGateAction, extractFilePath, type GateInput } from '../../services/hooks/pre-tool-code-gate.js';
+import {
+  decideGateAction,
+  extractFilePath,
+  type GateInput
+} from '../../services/hooks/pre-tool-code-gate.js';
 import { fail, ok } from 'peaks-loop-shared/result';
 
 export function registerCodeGateCommand(program: Command, io: ProgramIO): void {
@@ -62,7 +66,12 @@ export function registerCodeGateCommand(program: Command, io: ProgramIO): void {
       if (opts.dryRun === true) {
         printResult(
           io,
-          ok('code.gate', { action: 'allow', reason: 'empty-or-malformed-payload' }, [], ['no stdin payload; allowing']),
+          ok(
+            'code.gate',
+            { action: 'allow', reason: 'empty-or-malformed-payload' },
+            [],
+            ['no stdin payload; allowing']
+          ),
           opts.json
         );
         return;
@@ -73,9 +82,33 @@ export function registerCodeGateCommand(program: Command, io: ProgramIO): void {
     const verdict = decideGateAction(parsed.tool, parsed.input ?? {});
     if (opts.dryRun === true) {
       if (verdict.action === 'allow') {
-        printResult(io, ok('code.gate', { action: 'allow', tool: parsed.tool, filePath: extractFilePath(parsed.input ?? {}) }, [], []), opts.json);
+        printResult(
+          io,
+          ok(
+            'code.gate',
+            { action: 'allow', tool: parsed.tool, filePath: extractFilePath(parsed.input ?? {}) },
+            [],
+            []
+          ),
+          opts.json
+        );
       } else {
-        printResult(io, fail('code.gate', 'PEAKS_CODE_PROHIBITED_DIRECT_EDIT', verdict.message, { action: 'deny', tool: parsed.tool, filePath: verdict.filePath, reason: verdict.reason }, ['use peaks sub-agent dispatch rd']), opts.json);
+        printResult(
+          io,
+          fail(
+            'code.gate',
+            'PEAKS_CODE_PROHIBITED_DIRECT_EDIT',
+            verdict.message,
+            {
+              action: 'deny',
+              tool: parsed.tool,
+              filePath: verdict.filePath,
+              reason: verdict.reason
+            },
+            ['use peaks sub-agent dispatch rd']
+          ),
+          opts.json
+        );
       }
       return;
     }
@@ -92,7 +125,9 @@ function readStdin(): Promise<string> {
   return new Promise<string>((resolveFn, reject) => {
     let buf = '';
     process.stdin.setEncoding('utf8');
-    process.stdin.on('data', (chunk) => { buf += chunk; });
+    process.stdin.on('data', (chunk) => {
+      buf += chunk;
+    });
     process.stdin.on('end', () => resolveFn(buf));
     process.stdin.on('error', (err) => reject(err));
   });

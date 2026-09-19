@@ -192,7 +192,9 @@ export interface DecomposeOptions {
 export interface CodegraphRunner {
   query(text: string, projectRoot: string): Promise<readonly CodegraphQueryHit[]>;
   affected(files: readonly string[], projectRoot: string): Promise<CodegraphAffectedResult>;
-  status(projectRoot: string): Promise<{ indexed: boolean; nodes: number; edges: number; dbMB: number; freshness: string }>;
+  status(
+    projectRoot: string
+  ): Promise<{ indexed: boolean; nodes: number; edges: number; dbMB: number; freshness: string }>;
 }
 
 export interface CodegraphQueryHit {
@@ -223,6 +225,6 @@ export interface ImportEdgeRunner {
 
 export interface ImportEdge {
   from: string; // project-relative
-  to: string;   // project-relative
+  to: string; // project-relative
   evidence: string; // the import statement
 }

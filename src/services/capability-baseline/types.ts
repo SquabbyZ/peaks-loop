@@ -1,30 +1,63 @@
 // Capability baseline types: locked P0 journey ids, baseline row shape, baseline lock, error codes.
 export type JourneyId =
-  | 'J01' | 'J02' | 'J03' | 'J04' | 'J05'
-  | 'J06' | 'J07' | 'J08' | 'J09' | 'J10'
-  | 'J11' | 'J12' | 'J13' | 'J14' | 'J15';
+  | 'J01'
+  | 'J02'
+  | 'J03'
+  | 'J04'
+  | 'J05'
+  | 'J06'
+  | 'J07'
+  | 'J08'
+  | 'J09'
+  | 'J10'
+  | 'J11'
+  | 'J12'
+  | 'J13'
+  | 'J14'
+  | 'J15';
 
 export const P0_JOURNEY_IDS: ReadonlyArray<JourneyId> = [
-  'J01', 'J02', 'J03', 'J04', 'J05',
-  'J06', 'J07', 'J08', 'J09', 'J10',
-  'J11', 'J12', 'J13', 'J14', 'J15'
+  'J01',
+  'J02',
+  'J03',
+  'J04',
+  'J05',
+  'J06',
+  'J07',
+  'J08',
+  'J09',
+  'J10',
+  'J11',
+  'J12',
+  'J13',
+  'J14',
+  'J15'
 ];
 
-export interface InputCase  { readonly name: string; readonly shape: string; }
-export interface OutputCase { readonly name: string; readonly shape: string; }
-export interface ErrorCase  { readonly name: string; readonly code: string; }
+export interface InputCase {
+  readonly name: string;
+  readonly shape: string;
+}
+export interface OutputCase {
+  readonly name: string;
+  readonly shape: string;
+}
+export interface ErrorCase {
+  readonly name: string;
+  readonly code: string;
+}
 
 export interface CapabilityBaselineRow {
   readonly journeyId: JourneyId;
   readonly intent: string;
   readonly observable: {
-    readonly inputs:  ReadonlyArray<InputCase>;
+    readonly inputs: ReadonlyArray<InputCase>;
     readonly outputs: ReadonlyArray<OutputCase>;
-    readonly errors:  ReadonlyArray<ErrorCase>;
+    readonly errors: ReadonlyArray<ErrorCase>;
   };
-  readonly invariants:       ReadonlyArray<string>;
+  readonly invariants: ReadonlyArray<string>;
   readonly forbiddenChanges: ReadonlyArray<string>;
-  readonly sourceFiles:      ReadonlyArray<string>;
+  readonly sourceFiles: ReadonlyArray<string>;
 }
 
 export interface CapabilityBaselineFile {

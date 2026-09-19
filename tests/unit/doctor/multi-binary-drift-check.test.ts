@@ -242,8 +242,16 @@ describe('inspectMultiBinaryDrift (pure helper)', () => {
     const binB = join(parent, 'B');
     mkdirSync(binA, { recursive: true });
     mkdirSync(binB, { recursive: true });
-    writeFileSync(join(binA, 'package.json'), JSON.stringify({ name: 'peaks-loop', version: '4.0.12' }), 'utf8');
-    writeFileSync(join(binB, 'package.json'), JSON.stringify({ name: 'peaks-loop', version: '3.1.2' }), 'utf8');
+    writeFileSync(
+      join(binA, 'package.json'),
+      JSON.stringify({ name: 'peaks-loop', version: '4.0.12' }),
+      'utf8'
+    );
+    writeFileSync(
+      join(binB, 'package.json'),
+      JSON.stringify({ name: 'peaks-loop', version: '3.1.2' }),
+      'utf8'
+    );
     const binaryA = join(binA, 'peaks');
     const binaryB = join(binB, 'peaks');
     writeFileSync(binaryA, '#!/usr/bin/env node\n', 'utf8');
@@ -280,7 +288,11 @@ describe('inspectMultiBinaryDrift (pure helper)', () => {
     mkdirSync(binB, { recursive: true });
     const pkgRoot = join(parent, 'pkg');
     mkdirSync(pkgRoot, { recursive: true });
-    writeFileSync(join(pkgRoot, 'package.json'), JSON.stringify({ name: 'peaks-loop', version: '4.0.12' }), 'utf8');
+    writeFileSync(
+      join(pkgRoot, 'package.json'),
+      JSON.stringify({ name: 'peaks-loop', version: '4.0.12' }),
+      'utf8'
+    );
     const realBinary = join(pkgRoot, process.platform === 'win32' ? 'peaks.cmd' : 'peaks');
     writeFileSync(realBinary, '#!/usr/bin/env node\n', 'utf8');
     const linkA = join(binA, process.platform === 'win32' ? 'peaks.cmd' : 'peaks');
@@ -334,28 +346,37 @@ describe('check plugin (drift detection wrapper)', () => {
     const binB = join(parent, 'B');
     mkdirSync(binA, { recursive: true });
     mkdirSync(binB, { recursive: true });
-    writeFileSync(join(parent, 'A', 'package.json'), JSON.stringify({ name: 'peaks-loop', version: '4.0.12' }), 'utf8');
-    writeFileSync(join(parent, 'B', 'package.json'), JSON.stringify({ name: 'peaks-loop', version: '3.1.2' }), 'utf8');
+    writeFileSync(
+      join(parent, 'A', 'package.json'),
+      JSON.stringify({ name: 'peaks-loop', version: '4.0.12' }),
+      'utf8'
+    );
+    writeFileSync(
+      join(parent, 'B', 'package.json'),
+      JSON.stringify({ name: 'peaks-loop', version: '3.1.2' }),
+      'utf8'
+    );
     const binaryA = join(binA, process.platform === 'win32' ? 'peaks.cmd' : 'peaks');
     const binaryB = join(binB, process.platform === 'win32' ? 'peaks.cmd' : 'peaks');
     writeFileSync(binaryA, '#!/usr/bin/env node\n', 'utf8');
     writeFileSync(binaryB, '#!/usr/bin/env node\n', 'utf8');
 
     const ctx = makeContext();
-    ctx.options.multiBinaryDriftProbe = () => inspectMultiBinaryDrift({
-      pathEnv: [binA, binB].join(delimiter),
-      binaryExists: (p) => p === binaryA || p === binaryB,
-      binaryRealpath: (p) => p,
-      packageJsonReader: (p) => {
-        if (p.includes(sep + 'A' + sep + 'package.json')) {
-          return JSON.stringify({ name: 'peaks-loop', version: '4.0.12' });
+    ctx.options.multiBinaryDriftProbe = () =>
+      inspectMultiBinaryDrift({
+        pathEnv: [binA, binB].join(delimiter),
+        binaryExists: (p) => p === binaryA || p === binaryB,
+        binaryRealpath: (p) => p,
+        packageJsonReader: (p) => {
+          if (p.includes(sep + 'A' + sep + 'package.json')) {
+            return JSON.stringify({ name: 'peaks-loop', version: '4.0.12' });
+          }
+          if (p.includes(sep + 'B' + sep + 'package.json')) {
+            return JSON.stringify({ name: 'peaks-loop', version: '3.1.2' });
+          }
+          return null;
         }
-        if (p.includes(sep + 'B' + sep + 'package.json')) {
-          return JSON.stringify({ name: 'peaks-loop', version: '3.1.2' });
-        }
-        return null;
-      }
-    });
+      });
     const emitted = check.run(ctx);
     expect(emitted.length).toBe(1);
     const single = emitted[0]!;
@@ -406,8 +427,18 @@ describe('check plugin (drift detection wrapper)', () => {
   it('emits `ok: true` when multiple binaries share a single version (no drift)', () => {
     const ctx = makeContext();
     const records: PeaksBinaryRecord[] = [
-      { path: '/usr/local/bin/peaks', version: '4.0.12', installDate: null, realpath: '/usr/local/bin/peaks' },
-      { path: '/opt/other/bin/peaks', version: '4.0.12', installDate: null, realpath: '/opt/other/bin/peaks' }
+      {
+        path: '/usr/local/bin/peaks',
+        version: '4.0.12',
+        installDate: null,
+        realpath: '/usr/local/bin/peaks'
+      },
+      {
+        path: '/opt/other/bin/peaks',
+        version: '4.0.12',
+        installDate: null,
+        realpath: '/opt/other/bin/peaks'
+      }
     ];
     ctx.options.multiBinaryDriftProbe = () => ({
       binaries: records,

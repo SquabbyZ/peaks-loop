@@ -90,15 +90,17 @@ export async function runCli(args: string[], cwd: string): Promise<CliResult> {
       code !== 'commander.unknownOption'
     ) {
       const message = (err as Error)?.message ?? String(err);
-      stderrChunks.push(JSON.stringify({
-        ok: false,
-        command: 'cli',
-        code: 'UNHANDLED_ERROR',
-        message,
-        data: {},
-        warnings: [],
-        nextActions: []
-      }));
+      stderrChunks.push(
+        JSON.stringify({
+          ok: false,
+          command: 'cli',
+          code: 'UNHANDLED_ERROR',
+          message,
+          data: {},
+          warnings: [],
+          nextActions: []
+        })
+      );
       process.exitCode = 1;
     }
   } finally {

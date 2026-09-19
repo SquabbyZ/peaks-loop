@@ -19,7 +19,7 @@ const STUB_MARKER_PATTERNS: readonly RegExp[] = [
   /\bXXX\b/,
   /\bHACK\b/,
   /\bstub\b\s*[:=]/i,
-  /\bnot implemented\b/i,
+  /\bnot implemented\b/i
 ];
 
 export interface PrototypeFidelityInput {

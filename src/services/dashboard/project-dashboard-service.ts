@@ -1,4 +1,8 @@
-import { listRequestArtifacts, type RequestArtifactRole, type RequestArtifactSummary } from '../artifacts/request-artifact-service.js';
+import {
+  listRequestArtifacts,
+  type RequestArtifactRole,
+  type RequestArtifactSummary
+} from '../artifacts/request-artifact-service.js';
 import { scanOpenSpec } from '../openspec/openspec-scan-service.js';
 import type { OpenSpecChangeSummary } from '../openspec/openspec-types.js';
 import { seedCapabilityItems } from '../recommendations/capability-seed-items.js';
@@ -101,8 +105,16 @@ function defaultClock(): string {
   return new Date().toISOString();
 }
 
-function groupRequestsByRole(items: RequestArtifactSummary[]): Record<RequestArtifactRole, RequestArtifactSummary[]> {
-  const byRole: Record<RequestArtifactRole, RequestArtifactSummary[]> = { prd: [], ui: [], rd: [], qa: [], sc: [] };
+function groupRequestsByRole(
+  items: RequestArtifactSummary[]
+): Record<RequestArtifactRole, RequestArtifactSummary[]> {
+  const byRole: Record<RequestArtifactRole, RequestArtifactSummary[]> = {
+    prd: [],
+    ui: [],
+    rd: [],
+    qa: [],
+    sc: []
+  };
   for (const item of items) {
     byRole[item.role].push(item);
   }
@@ -173,7 +185,10 @@ function buildCapabilitiesSummary(sampleSize: number): ProjectDashboardCapabilit
   };
 }
 
-function buildSkillPresenceSummary(presence: SkillPresence | null | undefined, projectRoot: string): ProjectDashboardSkillPresence {
+function buildSkillPresenceSummary(
+  presence: SkillPresence | null | undefined,
+  projectRoot: string
+): ProjectDashboardSkillPresence {
   // When the caller doesn't supply presence, resolve it from the dashboard's
   // project root rather than the process cwd.
   const resolved = presence === undefined ? getSkillPresence(projectRoot) : presence;
@@ -181,7 +196,8 @@ function buildSkillPresenceSummary(presence: SkillPresence | null | undefined, p
     return { active: false, fresh: true };
   }
   const setAtMs = Date.parse(resolved.setAt);
-  const fresh = !Number.isNaN(setAtMs) && Date.now() - setAtMs <= SKILL_PRESENCE_FRESHNESS_THRESHOLD_MS;
+  const fresh =
+    !Number.isNaN(setAtMs) && Date.now() - setAtMs <= SKILL_PRESENCE_FRESHNESS_THRESHOLD_MS;
   return {
     active: true,
     fresh,
@@ -192,7 +208,9 @@ function buildSkillPresenceSummary(presence: SkillPresence | null | undefined, p
   };
 }
 
-export async function loadProjectDashboard(options: LoadProjectDashboardOptions): Promise<ProjectDashboard> {
+export async function loadProjectDashboard(
+  options: LoadProjectDashboardOptions
+): Promise<ProjectDashboard> {
   const clock = options.clock ?? defaultClock;
   const sampleSize = options.sampleCapabilities ?? 8;
   const okPolicy: DashboardOkPolicy = options.okPolicy ?? 'workspace-only';

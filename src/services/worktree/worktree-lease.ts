@@ -143,9 +143,7 @@ export function ttlForRole(role: string): number {
  * `status` defaults to `'active'`; `consumedBySubAgents` defaults to [].
  * Used by the CLI's atomicWriteJson call.
  */
-export function finalizeLease(
-  draft: WorktreeLeaseDraft
-): WorktreeLease {
+export function finalizeLease(draft: WorktreeLeaseDraft): WorktreeLease {
   return {
     ...draft,
     status: 'active',
@@ -169,10 +167,7 @@ export function markGc(lease: WorktreeLease): WorktreeLease {
 }
 
 /** Pure: append a sub-agent batch / dispatch id to the consumption log. Returns a new lease. */
-export function recordConsumption(
-  lease: WorktreeLease,
-  subAgentId: string
-): WorktreeLease {
+export function recordConsumption(lease: WorktreeLease, subAgentId: string): WorktreeLease {
   if (lease.consumedBySubAgents.includes(subAgentId)) return lease;
   return { ...lease, consumedBySubAgents: [...lease.consumedBySubAgents, subAgentId] };
 }
@@ -199,7 +194,11 @@ export interface LeaseReadError {
   readonly error: string;
 }
 export type LeaseListResult =
-  | { readonly kind: 'ok'; readonly leases: ReadonlyArray<WorktreeLease>; readonly errors: ReadonlyArray<LeaseReadError> }
+  | {
+      readonly kind: 'ok';
+      readonly leases: ReadonlyArray<WorktreeLease>;
+      readonly errors: ReadonlyArray<LeaseReadError>;
+    }
   | { readonly kind: 'store-missing'; readonly storeDir: string };
 
 /**
@@ -209,11 +208,14 @@ export type LeaseListResult =
  * does NOT mark anything expired. Callers (the `list` CLI) apply their
  * own sort/filter and run `markExpired` lazily.
  */
-export function listLeasesSync(storeDir: string, fs: {
-  readdir: (path: string) => ReadonlyArray<string>;
-  readFile: (path: string) => string;
-  existsSync: (path: string) => boolean;
-}): LeaseListResult {
+export function listLeasesSync(
+  storeDir: string,
+  fs: {
+    readdir: (path: string) => ReadonlyArray<string>;
+    readFile: (path: string) => string;
+    existsSync: (path: string) => boolean;
+  }
+): LeaseListResult {
   if (!fs.existsSync(storeDir)) {
     return { kind: 'store-missing', storeDir };
   }

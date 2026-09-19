@@ -157,7 +157,11 @@ function runCommand(command: string, args: string[], cwd: string, timeoutMs: num
 function tailLines(text: string, max: number): string {
   const lines = text.split('\n').filter((l) => l.trim().length > 0);
   if (lines.length <= max) return lines.join('\n');
-  return [...lines.slice(0, HEAD_LINES_IN_TAIL), `... (${lines.length - max} more lines) ...`, ...lines.slice(-max + HEAD_LINES_IN_TAIL)].join('\n');
+  return [
+    ...lines.slice(0, HEAD_LINES_IN_TAIL),
+    `... (${lines.length - max} more lines) ...`,
+    ...lines.slice(-max + HEAD_LINES_IN_TAIL)
+  ].join('\n');
 }
 
 async function runTypecheck(projectRoot: string): Promise<SliceCheckStage> {
@@ -190,17 +194,24 @@ async function runTypecheck(projectRoot: string): Promise<SliceCheckStage> {
   // The baseline comparison only applies when a clean build tsconfig gives it
   // a meaning; without one the gate above already IS this run.
   const wide = hasBuildConfig
-    ? runCommand(tsc.command, [...tsc.args, '-p', 'tsconfig.json', '--noEmit'], projectRoot, TYPECHECK_TIMEOUT_MS)
+    ? runCommand(
+        tsc.command,
+        [...tsc.args, '-p', 'tsconfig.json', '--noEmit'],
+        projectRoot,
+        TYPECHECK_TIMEOUT_MS
+      )
     : gate;
   const wideErrors = (wide.stdout + wide.stderr).match(/error TS\d+/g)?.length ?? 0;
   const wideLabel = hasBuildConfig ? 'tsconfig.json (src/** + tests/**)' : 'tsconfig.json';
-  const regressed = hasBuildConfig && gate.status === 'pass' && wideErrors > TYPECHECK_PREEXISTING_BASELINE;
+  const regressed =
+    hasBuildConfig && gate.status === 'pass' && wideErrors > TYPECHECK_PREEXISTING_BASELINE;
 
-  const reason = gate.status !== 'pass'
-    ? `tsc -p ${hasBuildConfig ? buildConfig : 'tsconfig.json'} --noEmit exited ${gate.exitCode}`
-    : regressed
-      ? `typecheck errors grew to ${wideErrors} (pre-existing baseline ${TYPECHECK_PREEXISTING_BASELINE})`
-      : '';
+  const reason =
+    gate.status !== 'pass'
+      ? `tsc -p ${hasBuildConfig ? buildConfig : 'tsconfig.json'} --noEmit exited ${gate.exitCode}`
+      : regressed
+        ? `typecheck errors grew to ${wideErrors} (pre-existing baseline ${TYPECHECK_PREEXISTING_BASELINE})`
+        : '';
 
   return {
     name: 'typecheck',
@@ -209,9 +220,10 @@ async function runTypecheck(projectRoot: string): Promise<SliceCheckStage> {
       : `tsc --noEmit (no JS emit, type-only check)`,
     status: reason.length === 0 ? 'pass' : 'fail',
     durationMs: Date.now() - start,
-    detail: reason.length === 0
-      ? `${hasBuildConfig ? `${buildConfig} (src/**) clean; ` : ''}${wideLabel}: ${wideErrors} pre-existing error(s), baseline ${TYPECHECK_PREEXISTING_BASELINE} — reported, not hidden.`
-      : `${reason}. ${tailLines(gate.status !== 'pass' ? gate.stdout + gate.stderr : wide.stdout + wide.stderr, TYPECHECK_TAIL_LINES)}`,
+    detail:
+      reason.length === 0
+        ? `${hasBuildConfig ? `${buildConfig} (src/**) clean; ` : ''}${wideLabel}: ${wideErrors} pre-existing error(s), baseline ${TYPECHECK_PREEXISTING_BASELINE} — reported, not hidden.`
+        : `${reason}. ${tailLines(gate.status !== 'pass' ? gate.stdout + gate.stderr : wide.stdout + wide.stderr, TYPECHECK_TAIL_LINES)}`,
     data: {
       exitCode: gate.exitCode,
       wideTsconfigErrors: wideErrors,
@@ -267,7 +279,12 @@ async function runUnitTests(projectRoot: string, runTests: boolean): Promise<Sli
   const description = runTests
     ? `vitest run (full test suite, coverage off)`
     : `vitest run --changed (tests for git-changed files only, coverage off)`;
-  const result = runCommand(vitest.command, [...vitest.args, ...vitestArgs], projectRoot, UNIT_TESTS_TIMEOUT_MS);
+  const result = runCommand(
+    vitest.command,
+    [...vitest.args, ...vitestArgs],
+    projectRoot,
+    UNIT_TESTS_TIMEOUT_MS
+  );
   const summary = parseVitestSummary(result.stdout, result.durationMs);
   // Vitest doesn't always print the per-bucket counts cleanly; infer "passed"
   // as total - failed - skipped when failed/skipped buckets are present.
@@ -277,9 +294,11 @@ async function runUnitTests(projectRoot: string, runTests: boolean): Promise<Sli
     description,
     status: result.status,
     durationMs: result.durationMs,
-    detail: result.status === 'pass'
-      ? `All tests passed in ${result.durationMs}ms.`
-      : tailLines(result.stdout + result.stderr, UNIT_TEST_TAIL_LINES) || `vitest exited with code ${result.exitCode}.`,
+    detail:
+      result.status === 'pass'
+        ? `All tests passed in ${result.durationMs}ms.`
+        : tailLines(result.stdout + result.stderr, UNIT_TEST_TAIL_LINES) ||
+          `vitest exited with code ${result.exitCode}.`,
     data: {
       tests: summary.tests,
       passed,
@@ -337,7 +356,8 @@ async function runReviewFanout(
       description: '3-way review fan-out (code-review + security-review + perf baseline)',
       status: 'skipped',
       durationMs: Date.now() - start,
-      detail: '3-way fan-out is dispatched via Skill(skill="peaks-rd"); invoke it to regenerate the review artifacts.',
+      detail:
+        '3-way fan-out is dispatched via Skill(skill="peaks-rd"); invoke it to regenerate the review artifacts.',
       data: { refresh: true, rid }
     };
   }
@@ -383,9 +403,10 @@ async function runReviewFanout(
     description: '3-way review fan-out (code-review + security-review + perf baseline)',
     status,
     durationMs: Date.now() - start,
-    detail: status === 'pass'
-      ? `All 3 review artifacts present (${found.map((f) => f.name).join(', ')}; scope: ${found[0]?.scope}).`
-      : `Missing or empty: ${missing.join(', ')}. Re-run with --refresh-fanout or invoke Skill(skill="peaks-rd") to regenerate.`,
+    detail:
+      status === 'pass'
+        ? `All 3 review artifacts present (${found.map((f) => f.name).join(', ')}; scope: ${found[0]?.scope}).`
+        : `Missing or empty: ${missing.join(', ')}. Re-run with --refresh-fanout or invoke Skill(skill="peaks-rd") to regenerate.`,
     data: { found, missing }
   };
 }
@@ -401,7 +422,8 @@ async function runGateVerifyPipeline(
     const duration = Date.now() - start;
     return {
       name: 'gate-verify-pipeline',
-      description: 'peaks workflow verify-pipeline (RD/QA gate checks against .peaks/_runtime/change/<sessionId>/)',
+      description:
+        'peaks workflow verify-pipeline (RD/QA gate checks against .peaks/_runtime/change/<sessionId>/)',
       status: result.complete ? 'pass' : 'fail',
       durationMs: duration,
       detail: result.complete
@@ -419,7 +441,8 @@ async function runGateVerifyPipeline(
   } catch (error: unknown) {
     return {
       name: 'gate-verify-pipeline',
-      description: 'peaks workflow verify-pipeline (RD/QA gate checks against .peaks/_runtime/change/<sessionId>/)',
+      description:
+        'peaks workflow verify-pipeline (RD/QA gate checks against .peaks/_runtime/change/<sessionId>/)',
       status: 'fail',
       durationMs: Date.now() - start,
       detail: error instanceof Error ? error.message : 'verify-pipeline threw',
@@ -438,7 +461,9 @@ export async function sliceCheck(options: SliceCheckOptions): Promise<SliceCheck
   // explicit `--rid` option only. The `current-change` binding file is
   // gone; the CLI is the single source of truth for the rid.
   if (options.rid === undefined) {
-    throw new Error('No --rid supplied. Pass --rid <id> on the CLI to identify which slice to check.');
+    throw new Error(
+      'No --rid supplied. Pass --rid <id> on the CLI to identify which slice to check.'
+    );
   }
   const rid = options.rid;
   // The rid becomes a filename in `runReviewFanout`'s candidate list and a
@@ -447,7 +472,9 @@ export async function sliceCheck(options: SliceCheckOptions): Promise<SliceCheck
   // already refuses anything else; apply the same guard here rather than
   // probing paths a hostile `--rid` steers.
   if (!REQUEST_ID_PATTERN.test(rid)) {
-    throw new Error(`Invalid request id: ${rid} (expected letters, digits, dots, underscores, or dashes)`);
+    throw new Error(
+      `Invalid request id: ${rid} (expected letters, digits, dots, underscores, or dashes)`
+    );
   }
 
   const totalStart = Date.now();
@@ -464,7 +491,8 @@ export async function sliceCheck(options: SliceCheckOptions): Promise<SliceCheck
       description: 'vitest run (skipped per --skip-tests)',
       status: 'skipped',
       durationMs: 0,
-      detail: 'Skipped: --skip-tests was set. Use the peaks-test skill to run the full suite manually.'
+      detail:
+        'Skipped: --skip-tests was set. Use the peaks-test skill to run the full suite manually.'
     });
     unitTestsRunMode = 'skipped';
   } else {
@@ -474,14 +502,12 @@ export async function sliceCheck(options: SliceCheckOptions): Promise<SliceCheck
     // fix. Does NOT affect the other 3 stages. Only meaningful when
     // the stage actually runs (skipped-tests bypass short-circuits
     // above).
-    if (
-      options.allowPreExistingFailures === true &&
-      unitTests.status === 'fail'
-    ) {
+    if (options.allowPreExistingFailures === true && unitTests.status === 'fail') {
       const failureCount = (unitTests.data?.failed as number | undefined) ?? 0;
       stages.push({
         name: 'unit-tests',
-        description: `vitest run ${options.runTests === true ? '' : '--changed '} (overridden via --allow-pre-existing-failures)`.trim(),
+        description:
+          `vitest run ${options.runTests === true ? '' : '--changed '} (overridden via --allow-pre-existing-failures)`.trim(),
         status: 'skipped',
         durationMs: unitTests.durationMs,
         detail: `pre-existing failures: ${failureCount} failing test(s) under coverage.exclude or unrelated to this slice; user opted in via --allow-pre-existing-failures. For the long-term fix, mark these tests .skip or move to coverage.exclude (see dogfood-2-f1-f4.md F17c).`,
@@ -522,8 +548,12 @@ export async function sliceCheck(options: SliceCheckOptions): Promise<SliceCheck
       nextActions.push(`Fix ${f.name}: ${f.detail.split('\n')[0]}`);
     }
   } else {
-    nextActions.push(`peaks request transition ${rid} --role rd --state qa-handoff --confirm --project <path>`);
-    nextActions.push(`peaks request transition ${rid} --role qa --state verdict-issued --confirm --project <path>`);
+    nextActions.push(
+      `peaks request transition ${rid} --role rd --state qa-handoff --confirm --project <path>`
+    );
+    nextActions.push(
+      `peaks request transition ${rid} --role qa --state verdict-issued --confirm --project <path>`
+    );
   }
 
   return {
@@ -537,7 +567,6 @@ export async function sliceCheck(options: SliceCheckOptions): Promise<SliceCheck
   };
 }
 
-
 async function runAuditRegression(projectRoot: string): Promise<SliceCheckStage> {
   const start = Date.now();
   try {
@@ -550,9 +579,10 @@ async function runAuditRegression(projectRoot: string): Promise<SliceCheckStage>
     if (result.audit.totalRedLines < AUDIT_MIN_RED_LINES) {
       issues.push(`totalRedLines ${result.audit.totalRedLines} < 60`);
     }
-    const orphanFindings = result.audit.enforcerFindings.filter((f) =>
-      f.enforcerId === 'rl-audit-no-orphan-enforcer-001' ||
-      f.enforcerId === 'rl-audit-no-orphan-catalog-001'
+    const orphanFindings = result.audit.enforcerFindings.filter(
+      (f) =>
+        f.enforcerId === 'rl-audit-no-orphan-enforcer-001' ||
+        f.enforcerId === 'rl-audit-no-orphan-catalog-001'
     );
     if (orphanFindings.length > 0) {
       issues.push(`${orphanFindings.length} orphan-enforcer / orphan-catalog finding(s)`);
@@ -563,7 +593,7 @@ async function runAuditRegression(projectRoot: string): Promise<SliceCheckStage>
         description: 'audit-regression: catalog integrity + runtime budget (L2.4 P2-b stage 6)',
         status: 'fail',
         durationMs,
-        detail: issues.join('; '),
+        detail: issues.join('; ')
       };
     }
     return {
@@ -571,7 +601,7 @@ async function runAuditRegression(projectRoot: string): Promise<SliceCheckStage>
       description: 'audit-regression: catalog integrity + runtime budget (L2.4 P2-b stage 6)',
       status: 'pass',
       durationMs,
-      detail: `catalog: ${result.audit.totalRedLines} entries (${result.audit.cliBacked} cli-backed, ${result.audit.proseOnly} prose-only); audit ran in ${durationMs}ms`,
+      detail: `catalog: ${result.audit.totalRedLines} entries (${result.audit.cliBacked} cli-backed, ${result.audit.proseOnly} prose-only); audit ran in ${durationMs}ms`
     };
   } catch (error: unknown) {
     return {
@@ -579,7 +609,7 @@ async function runAuditRegression(projectRoot: string): Promise<SliceCheckStage>
       description: 'audit-regression: catalog integrity + runtime budget (L2.4 P2-b stage 6)',
       status: 'fail',
       durationMs: Date.now() - start,
-      detail: 'audit-regression failed: ' + (error instanceof Error ? error.message : String(error)),
+      detail: 'audit-regression failed: ' + (error instanceof Error ? error.message : String(error))
     };
   }
 }
@@ -588,7 +618,12 @@ async function runMockPlacement(projectRoot: string): Promise<SliceCheckStage> {
   const start = Date.now();
   // List changed files via git. `--name-only` produces one path per line;
   // we filter to text files in scope and read each.
-  const diffResult = runCommand('git', ['diff', '--name-only', '--diff-filter=ACMR', 'HEAD'], projectRoot, GIT_DIFF_TIMEOUT_MS);
+  const diffResult = runCommand(
+    'git',
+    ['diff', '--name-only', '--diff-filter=ACMR', 'HEAD'],
+    projectRoot,
+    GIT_DIFF_TIMEOUT_MS
+  );
   if (diffResult.status !== 'pass') {
     return {
       name: 'mock-placement',
@@ -613,7 +648,9 @@ async function runMockPlacement(projectRoot: string): Promise<SliceCheckStage> {
   }
   const files = changed
     .filter((p) => p.startsWith('src/') || p.startsWith('skills/'))
-    .filter((p) => p.endsWith('.ts') || p.endsWith('.tsx') || p.endsWith('.js') || p.endsWith('.mjs'))
+    .filter(
+      (p) => p.endsWith('.ts') || p.endsWith('.tsx') || p.endsWith('.js') || p.endsWith('.mjs')
+    )
     .map((filePath) => {
       const abs = join(projectRoot, filePath);
       if (!existsSync(abs)) return null;
@@ -627,9 +664,17 @@ async function runMockPlacement(projectRoot: string): Promise<SliceCheckStage> {
     description: 'mock-placement: no inline mock data in src/ or skills/ (L2.1 P0 #5)',
     status: violations.length === 0 ? 'pass' : 'fail',
     durationMs: Date.now() - start,
-    detail: violations.length === 0
-      ? `Scanned ${files.length} changed file(s); no inline mock data found.`
-      : `${violations.length} violation(s): ${violations.map((v) => `${v.filePath} (${v.snippet})`).join('; ')}`,
-    data: { scannedFiles: files.length, violations: violations.map((v) => ({ filePath: v.filePath, pattern: v.pattern, snippet: v.snippet })) }
+    detail:
+      violations.length === 0
+        ? `Scanned ${files.length} changed file(s); no inline mock data found.`
+        : `${violations.length} violation(s): ${violations.map((v) => `${v.filePath} (${v.snippet})`).join('; ')}`,
+    data: {
+      scannedFiles: files.length,
+      violations: violations.map((v) => ({
+        filePath: v.filePath,
+        pattern: v.pattern,
+        snippet: v.snippet
+      }))
+    }
   };
 }

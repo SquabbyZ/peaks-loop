@@ -23,23 +23,40 @@ export function removeRegisteredWorktree(input: {
     execFileSync('git', ['worktree', 'remove', '--force', input.worktreePath], {
       cwd: input.projectRoot,
       stdio: ['ignore', 'pipe', 'pipe'],
-      windowsHide: true,
+      windowsHide: true
     });
-    execFileSync('git', ['worktree', 'prune'], { cwd: input.projectRoot, stdio: 'ignore', windowsHide: true });
+    execFileSync('git', ['worktree', 'prune'], {
+      cwd: input.projectRoot,
+      stdio: 'ignore',
+      windowsHide: true
+    });
     return { removed: !existsSync(input.worktreePath), strategy: 'git' };
   } catch (error) {
     if (process.platform !== 'win32') {
-      return { removed: false, strategy: 'none', error: error instanceof Error ? error.message : String(error) };
+      return {
+        removed: false,
+        strategy: 'none',
+        error: error instanceof Error ? error.message : String(error)
+      };
     }
     try {
-      rmSync(windowsLongPath(input.worktreePath), { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
-      execFileSync('git', ['worktree', 'prune'], { cwd: input.projectRoot, stdio: 'ignore', windowsHide: true });
+      rmSync(windowsLongPath(input.worktreePath), {
+        recursive: true,
+        force: true,
+        maxRetries: 3,
+        retryDelay: 100
+      });
+      execFileSync('git', ['worktree', 'prune'], {
+        cwd: input.projectRoot,
+        stdio: 'ignore',
+        windowsHide: true
+      });
       return { removed: !existsSync(input.worktreePath), strategy: 'windows-long-path' };
     } catch (fallbackError) {
       return {
         removed: false,
         strategy: 'none',
-        error: fallbackError instanceof Error ? fallbackError.message : String(fallbackError),
+        error: fallbackError instanceof Error ? fallbackError.message : String(fallbackError)
       };
     }
   }

@@ -5,10 +5,18 @@ import { join } from 'node:path';
 import { WORKSPACE_UNAVAILABLE_NEXT_ACTIONS } from '../../shared/planner-response.js';
 import { getLocalArtifactPath, hasValidArtifactWorkspace } from '../artifacts/workspace-service.js';
 import { createCapabilityMapPlan } from '../recommendations/capability-map-service.js';
-import type { CapabilityAvailabilityStatus, CapabilityItemType } from '../recommendations/recommendation-types.js';
+import type {
+  CapabilityAvailabilityStatus,
+  CapabilityItemType
+} from '../recommendations/recommendation-types.js';
 import type { ModelProviderConfig, WorkspaceConfig } from '../config/config-types.js';
 import { createRdSwarmPlan, type RdPlanResult } from '../rd/rd-service.js';
-import { createWorkflowRouterPlan, type CodeMode, type WorkflowMode, type WorkflowRouterPlan } from './workflow-router-service.js';
+import {
+  createWorkflowRouterPlan,
+  type CodeMode,
+  type WorkflowMode,
+  type WorkflowRouterPlan
+} from './workflow-router-service.js';
 import type {
   AutonomousCapabilityPlan,
   AutonomousGoalCommand,
@@ -32,8 +40,16 @@ import type {
 // `workflow-autonomous-resume-helpers.ts` module — see v2.18.3
 // file-split for the rationale. Function signatures and behaviour
 // are unchanged (verbatim move).
-import { getResumeRequiredArtifacts, getResumeArtifactsStatus, createResumePlan } from './workflow-autonomous-resume-helpers.js';
-export { getResumeRequiredArtifacts, getResumeArtifactsStatus, createResumePlan } from './workflow-autonomous-resume-helpers.js';
+import {
+  getResumeRequiredArtifacts,
+  getResumeArtifactsStatus,
+  createResumePlan
+} from './workflow-autonomous-resume-helpers.js';
+export {
+  getResumeRequiredArtifacts,
+  getResumeArtifactsStatus,
+  createResumePlan
+} from './workflow-autonomous-resume-helpers.js';
 
 // Public type declarations live in `workflow-autonomous-types.ts` (rid-006
 // split). Re-export them verbatim under their original names so existing
@@ -81,11 +97,21 @@ function normalizeGoal(goal: string): string {
 }
 
 function resolveArtifactWorkspacePath(request: AutonomousWorkflowRequest): string | undefined {
-  return request.artifactWorkspacePath ?? (request.workspace ? getLocalArtifactPath(request.workspace) : undefined);
+  return (
+    request.artifactWorkspacePath ??
+    (request.workspace ? getLocalArtifactPath(request.workspace) : undefined)
+  );
 }
 
-function hasArtifactWorkspace(request: AutonomousWorkflowRequest, artifactWorkspacePath: string | undefined): boolean {
-  return !!request.workspace && !!artifactWorkspacePath && hasValidArtifactWorkspace(request.workspace, artifactWorkspacePath);
+function hasArtifactWorkspace(
+  request: AutonomousWorkflowRequest,
+  artifactWorkspacePath: string | undefined
+): boolean {
+  return (
+    !!request.workspace &&
+    !!artifactWorkspacePath &&
+    hasValidArtifactWorkspace(request.workspace, artifactWorkspacePath)
+  );
 }
 
 function createGoalPackage(sessionId: string, goal: string): AutonomousGoalPackage {
@@ -142,14 +168,14 @@ function getCapabilityTrustLevel(sourceId: string): CapabilityTrustLevel {
   }
 
   if (
-    sourceId.startsWith('everything-claude-code')
-    || sourceId.startsWith('ruflo-')
-    || sourceId === 'superpowers'
-    || sourceId === 'openspec'
-    || sourceId === 'gstack'
-    || sourceId === 'impeccable'
-    || sourceId === 'andrej-karpathy-skills'
-    || sourceId === 'mattpocock-skills'
+    sourceId.startsWith('everything-claude-code') ||
+    sourceId.startsWith('ruflo-') ||
+    sourceId === 'superpowers' ||
+    sourceId === 'openspec' ||
+    sourceId === 'gstack' ||
+    sourceId === 'impeccable' ||
+    sourceId === 'andrej-karpathy-skills' ||
+    sourceId === 'mattpocock-skills'
   ) {
     return 'user-curated';
   }
@@ -157,7 +183,10 @@ function getCapabilityTrustLevel(sourceId: string): CapabilityTrustLevel {
   return 'third-party';
 }
 
-function getCapabilityPurpose(item: { category: string; itemType: CapabilityItemType }): CapabilityPurpose {
+function getCapabilityPurpose(item: {
+  category: string;
+  itemType: CapabilityItemType;
+}): CapabilityPurpose {
   switch (item.category) {
     case 'browser-validation':
     case 'browser-debug':
@@ -197,7 +226,10 @@ function getCapabilityPurpose(item: { category: string; itemType: CapabilityItem
   }
 }
 
-function getCapabilityActivation(status: CapabilityAvailabilityStatus, itemType: CapabilityItemType): CapabilityActivation {
+function getCapabilityActivation(
+  status: CapabilityAvailabilityStatus,
+  itemType: CapabilityItemType
+): CapabilityActivation {
   switch (status) {
     case 'available':
       return 'available';
@@ -212,11 +244,15 @@ function getCapabilityActivation(status: CapabilityAvailabilityStatus, itemType:
 }
 
 function createCapabilityPlan(request: AutonomousWorkflowRequest): AutonomousCapabilityPlan {
-  const catalogPlan = createCapabilityMapPlan({ installedCapabilityIds: request.workspace?.installedCapabilityIds ?? [] });
+  const catalogPlan = createCapabilityMapPlan({
+    installedCapabilityIds: request.workspace?.installedCapabilityIds ?? []
+  });
   const surfaceSummary = createCapabilitySurfaceSummary();
   const candidates: CapabilityCandidate[] = catalogPlan.items.map((item) => {
     const surface = getCapabilitySurface(item.itemType);
-    const availability = catalogPlan.availability.find((availability) => availability.capabilityId === item.capabilityId);
+    const availability = catalogPlan.availability.find(
+      (availability) => availability.capabilityId === item.capabilityId
+    );
 
     surfaceSummary[surface] += 1;
     return {
@@ -246,7 +282,12 @@ function createCapabilityPlan(request: AutonomousWorkflowRequest): AutonomousCap
   surfaceSummary.skill += 1;
 
   return {
-    sources: uniqueStrings(['docs/accessRepo.md', 'docs/mcpServer.md', 'skills/*/SKILL.md', ...catalogPlan.sources.map((source) => source.sourceId)]),
+    sources: uniqueStrings([
+      'docs/accessRepo.md',
+      'docs/mcpServer.md',
+      'skills/*/SKILL.md',
+      ...catalogPlan.sources.map((source) => source.sourceId)
+    ]),
     policy: [
       'reuse-curated-capabilities-before-custom-build',
       'plan-capability-use-before-activation',
@@ -258,7 +299,13 @@ function createCapabilityPlan(request: AutonomousWorkflowRequest): AutonomousCap
   };
 }
 
-function createMvpPackage(request: AutonomousWorkflowRequest, routePlan: WorkflowRouterPlan, rdPlan: RdPlanResult, capabilityPlan: AutonomousCapabilityPlan, ready: boolean): AutonomousMvpPackage {
+function createMvpPackage(
+  request: AutonomousWorkflowRequest,
+  routePlan: WorkflowRouterPlan,
+  rdPlan: RdPlanResult,
+  capabilityPlan: AutonomousCapabilityPlan,
+  ready: boolean
+): AutonomousMvpPackage {
   return {
     mode: request.mode,
     codeMode: routePlan.codeMode,
@@ -276,7 +323,8 @@ function createGoalCommand(goalPackage: AutonomousGoalPackage): AutonomousGoalCo
   return {
     command: `/goal ${goalPackage.doneCondition}`,
     durable: false,
-    reason: 'Claude Code /goal can help continue across turns in the current session, but Peaks artifacts remain the durable state.'
+    reason:
+      'Claude Code /goal can help continue across turns in the current session, but Peaks artifacts remain the durable state.'
   };
 }
 
@@ -284,13 +332,17 @@ function uniqueStrings(values: readonly string[]): string[] {
   return [...new Set(values)];
 }
 
-export function createAutonomousWorkflowPlan(request: AutonomousWorkflowRequest): AutonomousWorkflowPlan {
+export function createAutonomousWorkflowPlan(
+  request: AutonomousWorkflowRequest
+): AutonomousWorkflowPlan {
   // Slice 2026-06-29-change-id-root-removal: change-id is metadata-only;
   // no structural validation gate fires here.
   const goal = normalizeGoal(request.goal);
   const maxWorkers = request.maxWorkers ?? 40;
   const artifactWorkspacePath = resolveArtifactWorkspacePath(request);
-  const memoryBackupPath = artifactWorkspacePath ? join(artifactWorkspacePath, '.peaks', 'memory-backups', 'project-memory-primary') : null;
+  const memoryBackupPath = artifactWorkspacePath
+    ? join(artifactWorkspacePath, '.peaks', 'memory-backups', 'project-memory-primary')
+    : null;
   const sharedWorkspaceOptions = {
     ...(artifactWorkspacePath ? { artifactWorkspacePath } : {}),
     ...(request.workspace ? { workspace: request.workspace } : {})
@@ -318,9 +370,10 @@ export function createAutonomousWorkflowPlan(request: AutonomousWorkflowRequest)
     ...sharedWorkspaceOptions
   });
   const requiredArtifacts = getResumeRequiredArtifacts(request.sessionId);
-  const resumeArtifactsStatus = available && artifactWorkspacePath
-    ? getResumeArtifactsStatus(artifactWorkspacePath, requiredArtifacts, request.sessionId, goal)
-    : 'missing';
+  const resumeArtifactsStatus =
+    available && artifactWorkspacePath
+      ? getResumeArtifactsStatus(artifactWorkspacePath, requiredArtifacts, request.sessionId, goal)
+      : 'missing';
   const blockedReasons = uniqueStrings([
     ...routePlan.blockedReasons,
     ...rdPlan.blockedReasons,

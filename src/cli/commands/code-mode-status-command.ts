@@ -45,11 +45,16 @@ export function registerCodeModeStatusCommand(code: Command, io: ProgramIO): voi
       });
       printResult(
         io,
-        ok('code.mode.status', { projectRoot, ...status }, [], [
-          status.mode === null
-            ? 'No presence mode recorded — Step 1 mode selection has not run for this session.'
-            : `mode=${status.mode} (${status.modeSource}) → auto-compact profile=${status.autoCompactProfile}`
-        ]),
+        ok(
+          'code.mode.status',
+          { projectRoot, ...status },
+          [],
+          [
+            status.mode === null
+              ? 'No presence mode recorded — Step 1 mode selection has not run for this session.'
+              : `mode=${status.mode} (${status.modeSource}) → auto-compact profile=${status.autoCompactProfile}`
+          ]
+        ),
         options.json
       );
     } catch (error) {

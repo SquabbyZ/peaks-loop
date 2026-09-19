@@ -52,7 +52,9 @@ function bashHandlers(matcher: string): BashHandler[] {
   const template = buildClaudeSettingsLocalJson() as unknown as {
     hooks: { PreToolUse: Array<{ matcher: string; hooks: BashHandler[] }> };
   };
-  return template.hooks.PreToolUse.filter((entry) => entry.matcher === matcher).flatMap((entry) => entry.hooks);
+  return template.hooks.PreToolUse.filter((entry) => entry.matcher === matcher).flatMap(
+    (entry) => entry.hooks
+  );
 }
 
 /** Find the template handler whose command contains `needle`. */

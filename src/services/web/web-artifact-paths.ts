@@ -163,7 +163,7 @@ export function webLogPath(projectRoot: string, sessionId: string): string {
 export function webContextStatePath(
   projectRoot: string,
   sessionId: string,
-  dispatchId: string,
+  dispatchId: string
 ): string {
   assertValidSessionId(sessionId);
   const { userDataDir } = playwrightProfilePaths({ projectRoot, sessionId, dispatchId });

@@ -70,11 +70,7 @@ function makeProjectRoot(): string {
   // collapses to `state: 'idle'`. A bare `.peaks/config.json` is the
   // documented marker.
   mkdirSync(join(root, '.peaks'), { recursive: true });
-  writeFileSync(
-    join(root, '.peaks', 'config.json'),
-    JSON.stringify({ schemaVersion: 1 }),
-    'utf8',
-  );
+  writeFileSync(join(root, '.peaks', 'config.json'), JSON.stringify({ schemaVersion: 1 }), 'utf8');
   return root;
 }
 
@@ -88,11 +84,7 @@ function makeProjectRoot(): string {
 function makeSessionBinding(projectRoot: string, sessionId: string): void {
   const dir = join(projectRoot, '.peaks', '_runtime');
   mkdirSync(dir, { recursive: true });
-  writeFileSync(
-    join(dir, 'session.json'),
-    JSON.stringify({ sessionId, projectRoot }),
-    'utf8',
-  );
+  writeFileSync(join(dir, 'session.json'), JSON.stringify({ sessionId, projectRoot }), 'utf8');
 }
 
 /**
@@ -111,7 +103,7 @@ function writePresenceLease(
   mode: string,
   status: 'preparing' | 'running' | 'terminalized' | 'lost' = 'running',
   startedAt: string = '2026-08-05T11:55:00.000Z',
-  lastHeartbeat: string = '2026-08-05T11:59:00.000Z',
+  lastHeartbeat: string = '2026-08-05T11:59:00.000Z'
 ): void {
   const sessionDir = join(projectRoot, '.peaks', '_runtime', sessionId);
   const leaseDir = join(sessionDir, 'leases');
@@ -120,7 +112,7 @@ function writePresenceLease(
   writeFileSync(
     join(sessionDir, `presence-${callerId}-${workflowId}.json`),
     JSON.stringify({ stub: true }),
-    'utf8',
+    'utf8'
   );
   // The actual lease file the read dereferences.
   const leasePath = join(leaseDir, `presence-${callerId}-${workflowId}.json`);
@@ -136,13 +128,13 @@ function writePresenceLease(
       lastHeartbeat,
       status,
       mode,
-      schemaVersion: 1,
+      schemaVersion: 1
     }),
-    'utf8',
+    'utf8'
   );
 }
 
-describe("Scenario: behavior — read-side isolation across callers (Case A)", () => {
+describe('Scenario: behavior — read-side isolation across callers (Case A)', () => {
   it("when invoked, should returns only the matching callerId's lease; no project-level single-file fallback", () => {
     // given: two callers (A, B) under the same canonical session, each with
     //        their own lease; callerId A is the live stdin callerId
@@ -157,7 +149,7 @@ describe("Scenario: behavior — read-side isolation across callers (Case A)", (
     const stdin = {
       workspace: { current_dir: projectRoot },
       session_id: 'claude-code-outer-A',
-      caller_id: CALLER_A,
+      caller_id: CALLER_A
     };
     const model = buildStatusLineModel(stdin, NOW_MS);
     expect(model.state).toBe('active');
@@ -180,7 +172,7 @@ describe("Scenario: behavior — read-side isolation across callers (Case A)", (
     const stdin = {
       workspace: { current_dir: projectRoot },
       session_id: 'claude-code-outer-B',
-      caller_id: CALLER_B,
+      caller_id: CALLER_B
     };
     const model = buildStatusLineModel(stdin, NOW_MS);
     expect(model.state).toBe('active');
@@ -189,8 +181,8 @@ describe("Scenario: behavior — read-side isolation across callers (Case A)", (
   });
 });
 
-describe("Scenario: behavior — no leases present (Case B)", () => {
-  it("when invoked, should returns idle (presence=null) when the session has zero leases", () => {
+describe('Scenario: behavior — no leases present (Case B)', () => {
+  it('when invoked, should returns idle (presence=null) when the session has zero leases', () => {
     // given: an empty session dir — no leases, no active-skill.json
     // when:  buildStatusLineModel is called
     // then:  model.state='idle', model.presence=null — the canonical
@@ -200,7 +192,7 @@ describe("Scenario: behavior — no leases present (Case B)", () => {
     const stdin = {
       workspace: { current_dir: projectRoot },
       session_id: 'claude-code-outer-A',
-      caller_id: CALLER_A,
+      caller_id: CALLER_A
     };
     const model = buildStatusLineModel(stdin, NOW_MS);
     expect(model.state).toBe('idle');
@@ -208,7 +200,7 @@ describe("Scenario: behavior — no leases present (Case B)", () => {
   });
 });
 
-describe("Scenario: behavior — callerId with no matching lease (Case C — G1 fallback)", () => {
+describe('Scenario: behavior — callerId with no matching lease (Case C — G1 fallback)', () => {
   it("when invoked, should falls back to the session's most-recent in-flight lease when callerId matches none", () => {
     // given: one lease under CALLER_A; stdin carries CALLER_NONE — the
     //        resolver's callerId-filtered walk returns nothing, so the
@@ -233,7 +225,7 @@ describe("Scenario: behavior — callerId with no matching lease (Case C — G1 
     const stdin = {
       workspace: { current_dir: projectRoot },
       session_id: 'claude-code-outer-X',
-      caller_id: 'unknown-caller',
+      caller_id: 'unknown-caller'
     };
     const model = buildStatusLineModel(stdin, NOW_MS);
     expect(model.state).toBe('active');
@@ -243,8 +235,8 @@ describe("Scenario: behavior — callerId with no matching lease (Case C — G1 
   });
 });
 
-describe("Scenario: behavior — callerId=null picks the most recent in-flight lease (Case D)", () => {
-  it("when invoked, should returns the most recent in-flight lease across all callers when stdin omits caller_id", () => {
+describe('Scenario: behavior — callerId=null picks the most recent in-flight lease (Case D)', () => {
+  it('when invoked, should returns the most recent in-flight lease across all callers when stdin omits caller_id', () => {
     // given: 3 leases under different callers, with distinct lastHeartbeat
     //        timestamps; stdin has NO caller_id (back-compat non-IDE caller)
     // when:  buildStatusLineModel is called with caller_id undefined
@@ -253,26 +245,41 @@ describe("Scenario: behavior — callerId=null picks the most recent in-flight l
     const projectRoot = makeProjectRoot();
     makeSessionBinding(projectRoot, SID);
     writePresenceLease(
-      projectRoot, SID, CALLER_A, 'wf-a', 'peaks-code', 'full-auto',
+      projectRoot,
+      SID,
+      CALLER_A,
+      'wf-a',
+      'peaks-code',
+      'full-auto',
       'running',
       '2026-08-05T10:00:00.000Z',
-      '2026-08-05T11:30:00.000Z',
+      '2026-08-05T11:30:00.000Z'
     );
     writePresenceLease(
-      projectRoot, SID, CALLER_B, 'wf-b', 'peaks-rd', 'assisted',
+      projectRoot,
+      SID,
+      CALLER_B,
+      'wf-b',
+      'peaks-rd',
+      'assisted',
       'running',
       '2026-08-05T10:00:00.000Z',
-      '2026-08-05T11:45:00.000Z',
+      '2026-08-05T11:45:00.000Z'
     );
     writePresenceLease(
-      projectRoot, SID, 'ide-caller-c', 'wf-c', 'peaks-ui', 'strict',
+      projectRoot,
+      SID,
+      'ide-caller-c',
+      'wf-c',
+      'peaks-ui',
+      'strict',
       'running',
       '2026-08-05T10:00:00.000Z',
-      '2026-08-05T11:59:00.000Z', // newest
+      '2026-08-05T11:59:00.000Z' // newest
     );
     const stdin = {
       workspace: { current_dir: projectRoot },
-      session_id: 'claude-code-outer-A',
+      session_id: 'claude-code-outer-A'
       // caller_id intentionally absent
     };
     const model = runWithNoCallerIdEnv(() => buildStatusLineModel(stdin, NOW_MS));
@@ -282,16 +289,24 @@ describe("Scenario: behavior — callerId=null picks the most recent in-flight l
     expect(model.presence?.mode).toBe('strict');
   });
 
-  it("when invoked, should returns idle (presence=null) when callerId=null and only terminal leases exist", () => {
+  it('when invoked, should returns idle (presence=null) when callerId=null and only terminal leases exist', () => {
     // given: one terminalized lease under CALLER_A; stdin has no caller_id
     // when:  buildStatusLineModel is called
     // then:  model.state='idle' — terminal leases are not surfaced
     const projectRoot = makeProjectRoot();
     makeSessionBinding(projectRoot, SID);
-    writePresenceLease(projectRoot, SID, CALLER_A, 'wf-a', 'peaks-code', 'full-auto', 'terminalized');
+    writePresenceLease(
+      projectRoot,
+      SID,
+      CALLER_A,
+      'wf-a',
+      'peaks-code',
+      'full-auto',
+      'terminalized'
+    );
     const stdin = {
       workspace: { current_dir: projectRoot },
-      session_id: 'claude-code-outer-A',
+      session_id: 'claude-code-outer-A'
     };
     const model = runWithNoCallerIdEnv(() => buildStatusLineModel(stdin, NOW_MS));
     expect(model.state).toBe('idle');
@@ -299,8 +314,8 @@ describe("Scenario: behavior — callerId=null picks the most recent in-flight l
   });
 });
 
-describe("Scenario: mutation check — `.peaks/_runtime/active-skill.json` is NOT consulted", () => {
-  it("when invoked, should returns idle when only the legacy file exists (no canonical lease)", () => {
+describe('Scenario: mutation check — `.peaks/_runtime/active-skill.json` is NOT consulted', () => {
+  it('when invoked, should returns idle when only the legacy file exists (no canonical lease)', () => {
     // given: only the project-level `.peaks/_runtime/active-skill.json` is
     //        present (the 4.0.7 legacy write path). No canonical lease,
     //        no per-caller index.
@@ -316,12 +331,12 @@ describe("Scenario: mutation check — `.peaks/_runtime/active-skill.json` is NO
     writeFileSync(
       join(dir, 'active-skill.json'),
       JSON.stringify({ skill: 'peaks-legacy', mode: 'full-auto' }),
-      'utf8',
+      'utf8'
     );
     const stdin = {
       workspace: { current_dir: projectRoot },
       session_id: 'claude-code-outer-A',
-      caller_id: CALLER_A,
+      caller_id: CALLER_A
     };
     const model = buildStatusLineModel(stdin, NOW_MS);
     expect(model.state).toBe('idle');

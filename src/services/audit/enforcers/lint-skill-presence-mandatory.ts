@@ -29,7 +29,11 @@ const MANDATORY_MARKER = /\bMANDATORY\b/;
 
 const TARGET_SKILL_PREFIX = 'peaks-';
 
-function findSkillPresenceSection(lines: ReadonlyArray<string>): { heading: number | null; bodyOk: boolean; hasMarker: boolean } {
+function findSkillPresenceSection(lines: ReadonlyArray<string>): {
+  heading: number | null;
+  bodyOk: boolean;
+  hasMarker: boolean;
+} {
   let heading: number | null = null;
   let bodyOk = false;
   let hasMarker = false;
@@ -58,19 +62,20 @@ export function lintSkillPresenceMandatory(skill: SkillFile): ReadonlyArray<Lint
   if (!skill.name.startsWith(TARGET_SKILL_PREFIX)) return [];
   // Reconstruct lines from body (the SkillFile interface exposes body
   // and lines; for compatibility, prefer lines if non-empty).
-  const lines = skill.lines.length > 0
-    ? skill.lines
-    : skill.body.split(/\r?\n/);
+  const lines = skill.lines.length > 0 ? skill.lines : skill.body.split(/\r?\n/);
   const { heading, bodyOk, hasMarker } = findSkillPresenceSection(lines);
   if (heading !== null && bodyOk && hasMarker) return [];
-  const detail = heading === null
-    ? 'missing `## Skill presence (MANDATORY first action)` heading'
-    : `heading present at line ${heading} but body/marker incomplete (body=${bodyOk}, marker=${hasMarker})`;
-  return [{
-    catalogId: 'rl-skill-presence-mandatory-001',
-    rule: 'Skill presence (MANDATORY first action) — peaks-* bee SKILL.md must declare the section',
-    file: skill.path,
-    line: heading ?? 1,
-    matchedText: detail
-  }];
+  const detail =
+    heading === null
+      ? 'missing `## Skill presence (MANDATORY first action)` heading'
+      : `heading present at line ${heading} but body/marker incomplete (body=${bodyOk}, marker=${hasMarker})`;
+  return [
+    {
+      catalogId: 'rl-skill-presence-mandatory-001',
+      rule: 'Skill presence (MANDATORY first action) — peaks-* bee SKILL.md must declare the section',
+      file: skill.path,
+      line: heading ?? 1,
+      matchedText: detail
+    }
+  ];
 }

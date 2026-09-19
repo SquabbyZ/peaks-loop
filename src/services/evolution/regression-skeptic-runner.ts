@@ -2,12 +2,9 @@ import type {
   EvolutionProposal,
   EvolutionVerdict,
   IndependentEvaluatorResult,
-  RegressionSkepticResult,
-} from "./evolution-types.js";
-import {
-  buildEvaluationPackage,
-  type EvaluationPackage,
-} from "./independent-evaluator-runner.js";
+  RegressionSkepticResult
+} from './evolution-types.js';
+import { buildEvaluationPackage, type EvaluationPackage } from './independent-evaluator-runner.js';
 
 /**
  * RegressionSkepticRunner — spec §6.1 #4 / AC-14.
@@ -56,19 +53,19 @@ export function buildSkepticPrompt(
   evaluatorResult: IndependentEvaluatorResult
 ): string {
   return [
-    "You are the REGRESSION SKEPTIC for a Darwin-style ratchet.",
-    "Your job is to REFUTE the proposal. Find drift, overfit,",
-    "and safety regression risks. A `blocker` you emit is a HARD",
-    "REVERT signal: the proposal cannot be promoted while any",
-    "blocker stands (AC-14).",
-    "",
-    "Inputs:",
+    'You are the REGRESSION SKEPTIC for a Darwin-style ratchet.',
+    'Your job is to REFUTE the proposal. Find drift, overfit,',
+    'and safety regression risks. A `blocker` you emit is a HARD',
+    'REVERT signal: the proposal cannot be promoted while any',
+    'blocker stands (AC-14).',
+    '',
+    'Inputs:',
     `verdict (post-evaluator): ${verdict}`,
     `evaluator_score: ${evaluatorResult.score.toFixed(2)}`,
     `evaluator_riskTags: ${JSON.stringify(evaluatorResult.riskTags)}`,
     `evaluator_refuteParagraph: ${evaluatorResult.refuteParagraph}`,
-    "",
-    "Evaluation package:",
+    '',
+    'Evaluation package:',
     `target_kind: ${pkg.target_kind}`,
     `target_release_id: ${pkg.target_release_id}`,
     `optimization_dimension: ${pkg.optimization_dimension}`,
@@ -77,8 +74,8 @@ export function buildSkepticPrompt(
     `diff: ${JSON.stringify(pkg.diff)}`,
     `rubric: ${JSON.stringify(pkg.rubric)}`,
     `red_lines: ${JSON.stringify(pkg.red_lines)}`,
-    `source_traces: ${JSON.stringify(pkg.source_traces)}`,
-  ].join("\n");
+    `source_traces: ${JSON.stringify(pkg.source_traces)}`
+  ].join('\n');
 }
 
 /**
@@ -98,10 +95,7 @@ export function buildSkepticPrompt(
  * was dropped, or (b) the red_lines count grew by more than 0
  * (a "red line added" is treated as drift, not a hard blocker).
  */
-export const deterministicInvokeSkepticLlm: SkepticLlmInvoke = async (
-  pkg,
-  prompt
-) => {
+export const deterministicInvokeSkepticLlm: SkepticLlmInvoke = async (pkg, prompt) => {
   void prompt;
   const driftRisks: string[] = [];
   const overfitRisks: string[] = [];
@@ -111,9 +105,7 @@ export const deterministicInvokeSkepticLlm: SkepticLlmInvoke = async (
   // did not pass through. The deterministic stub treats any
   // package red_line as a drift signal.
   if (pkg.red_lines.length > 0) {
-    driftRisks.push(
-      `red_line(s) present but not addressed: ${pkg.red_lines.join("; ")}`
-    );
+    driftRisks.push(`red_line(s) present but not addressed: ${pkg.red_lines.join('; ')}`);
   }
 
   // (2) Overfit: a diff with `prompt_template` or `gates_weakening`
@@ -121,27 +113,22 @@ export const deterministicInvokeSkepticLlm: SkepticLlmInvoke = async (
   // weakening signal.
   const diffKeys = Object.keys(pkg.diff);
   const hasPromptTemplateChange =
-    diffKeys.includes("prompt_template") || diffKeys.includes("gates_weakening");
-  const rubricHasCounter =
-    Object.keys(pkg.rubric).length > 0;
+    diffKeys.includes('prompt_template') || diffKeys.includes('gates_weakening');
+  const rubricHasCounter = Object.keys(pkg.rubric).length > 0;
   if (hasPromptTemplateChange && !rubricHasCounter) {
     overfitRisks.push(
-      "diff touches prompt_template or gates_weakening without an explicit rubric counter — possible prompt inflation / gate weakening"
+      'diff touches prompt_template or gates_weakening without an explicit rubric counter — possible prompt inflation / gate weakening'
     );
   }
 
   // (3) Safety regression: dropped red_line is the canonical
   // signal; the stub flags it when the after_snapshot carries a
   // `dropped_red_lines` array.
-  const dropped = (pkg.after_snapshot as Record<string, unknown>)[
-    "dropped_red_lines"
-  ];
+  const dropped = (pkg.after_snapshot as Record<string, unknown>)['dropped_red_lines'];
   if (Array.isArray(dropped) && dropped.length > 0) {
     for (const entry of dropped) {
-      if (typeof entry === "string") {
-        safetyRegressionRisks.push(
-          `red_line dropped from after_snapshot: ${entry}`
-        );
+      if (typeof entry === 'string') {
+        safetyRegressionRisks.push(`red_line dropped from after_snapshot: ${entry}`);
       }
     }
   }
@@ -164,7 +151,7 @@ export const deterministicInvokeSkepticLlm: SkepticLlmInvoke = async (
     driftRisks,
     overfitRisks,
     safetyRegressionRisks,
-    ...(blocker !== undefined ? { blocker } : {}),
+    ...(blocker !== undefined ? { blocker } : {})
   };
 };
 

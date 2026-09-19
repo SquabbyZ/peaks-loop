@@ -67,10 +67,7 @@ export interface RunDagOptions {
   /** Test seam: replace the runner (default: a no-op that returns `done`). */
   readonly runSlice?: (spec: DispatchSpec) => Promise<SliceOutcome>;
   /** Test seam: replace the contract writer (default: `writeContract`). */
-  readonly writeContractFn?: (
-    sliceId: string,
-    publicSurface: PublicSurface
-  ) => SliceContract;
+  readonly writeContractFn?: (sliceId: string, publicSurface: PublicSurface) => SliceContract;
   /**
    * Pre-existing contracts from upstream slices (e.g. already completed in
    * a prior `peaks sub-agent dispatch --from-dag` invocation). The
@@ -116,20 +113,19 @@ const defaultRunner = async (_spec: DispatchSpec): Promise<SliceOutcome> => ({
   publicSurface: { exports: [], types: [], publicSignatures: [] }
 });
 
-const defaultWriter = (
-  projectRoot: string,
-  sessionId: string
-) => (sliceId: string, publicSurface: PublicSurface): SliceContract => {
-  const r = writeContract(projectRoot, sessionId, {
-    sliceId,
-    sessionId,
-    exports: publicSurface.exports,
-    types: publicSurface.types,
-    publicSignatures: publicSurface.publicSignatures,
-    ...(publicSurface.broadcastTo !== undefined ? { broadcastTo: publicSurface.broadcastTo } : {})
-  });
-  return r.contract;
-};
+const defaultWriter =
+  (projectRoot: string, sessionId: string) =>
+  (sliceId: string, publicSurface: PublicSurface): SliceContract => {
+    const r = writeContract(projectRoot, sessionId, {
+      sliceId,
+      sessionId,
+      exports: publicSurface.exports,
+      types: publicSurface.types,
+      publicSignatures: publicSurface.publicSignatures,
+      ...(publicSurface.broadcastTo !== undefined ? { broadcastTo: publicSurface.broadcastTo } : {})
+    });
+    return r.contract;
+  };
 
 /**
  * Build a single dispatch spec for `sliceId` given the current contract set.
@@ -181,9 +177,7 @@ export function buildDispatchSpec(
   //      see their inputs)
   //   4. states the handoff protocol (write contract, re-invoke for next level)
   const labelFragment = node.label ? ` — ${node.label}` : '';
-  const ancestorFragment = contractBlock
-    ? `\n\n${contractBlock}`
-    : '';
+  const ancestorFragment = contractBlock ? `\n\n${contractBlock}` : '';
   const prompt = [
     formatTestToolDetection(),
     '',
@@ -306,10 +300,7 @@ export async function runDag(dag: SliceDag, opts: RunDagOptions): Promise<DagRun
  * Pure planner; same I/O contract as `runDag`. The caller (CLI /
  * peaks-code LLM) executes the per-IDE tool calls.
  */
-export async function runLayeredDag(
-  dag: SliceDag,
-  opts: RunDagOptions
-): Promise<DagRunResult> {
+export async function runLayeredDag(dag: SliceDag, opts: RunDagOptions): Promise<DagRunResult> {
   try {
     validateDag(dag);
   } catch (err) {
@@ -425,9 +416,7 @@ export function planDispatchWaves(
 ): readonly Wave[] {
   validateDag(dag);
   if (opts.maxConcurrency <= 0) {
-    throw new DagPlanError(
-      `WaveOptions.maxConcurrency must be > 0 (got ${opts.maxConcurrency})`
-    );
+    throw new DagPlanError(`WaveOptions.maxConcurrency must be > 0 (got ${opts.maxConcurrency})`);
   }
   const levels = topologicalLevels(dag);
   const waves: Wave[] = [];
@@ -480,9 +469,7 @@ export async function runWaveWithArtifacts(
 ): Promise<WaveArtifact> {
   validateDag(dag);
   if (wave.slices.length === 0) {
-    throw new DagPlanError(
-      `runWaveWithArtifacts: wave ${wave.waveIndex} has no slices`
-    );
+    throw new DagPlanError(`runWaveWithArtifacts: wave ${wave.waveIndex} has no slices`);
   }
 
   const collectedContracts: Record<string, unknown> = {};

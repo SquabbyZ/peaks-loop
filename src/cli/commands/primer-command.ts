@@ -42,7 +42,10 @@ import type { Command } from 'commander';
 import type { ProgramIO } from '../cli-helpers.js';
 import { printResult } from '../cli-helpers.js';
 import { fail, ok } from 'peaks-loop-shared/result';
-import { resolveCanonicalProjectRootStrict, InvalidProjectRootError } from '../../services/config/config-safety.js';
+import {
+  resolveCanonicalProjectRootStrict,
+  InvalidProjectRootError
+} from '../../services/config/config-safety.js';
 import { ensureSessionWithRotation } from '../../services/session/session-manager.js';
 import { clearStalePresenceOnRotation } from '../../services/skills/skill-presence-service.js';
 import { gcStalePresenceLeases } from '../../services/skills/presence-lease-service.js';
@@ -114,9 +117,10 @@ export async function runPrimerAction(
   // src/services/session/session-binding-bridge.ts:461-527).
   // NOT the invented `runRotationCheck` from cycle-2 RD.
   const rotation = await ensureSessionWithRotation(projectRoot);
-  const rotationOccurred = rotation.previousSessionId !== null
-    && rotation.rotationReason === 'outer-session-mismatch';
-  let clearOutcome: { cleared: boolean; reason: string | null; recordedOuter?: string } | null = null;
+  const rotationOccurred =
+    rotation.previousSessionId !== null && rotation.rotationReason === 'outer-session-mismatch';
+  let clearOutcome: { cleared: boolean; reason: string | null; recordedOuter?: string } | null =
+    null;
   if (rotationOccurred) {
     // VERIFIED single-options-object signature (see
     // skill-presence-service.ts:584-588). Mirror the real caller
@@ -127,8 +131,8 @@ export async function runPrimerAction(
     // itself).
     clearOutcome = clearStalePresenceOnRotation({
       projectRootOverride: projectRoot,
-      currentOuterSessionId: process.env.PEAKS_OUTER_SESSION_ID
-        ?? process.env.CLAUDE_CODE_SESSION_ID,
+      currentOuterSessionId:
+        process.env.PEAKS_OUTER_SESSION_ID ?? process.env.CLAUDE_CODE_SESSION_ID,
       rotatedOutSessionId: rotation.previousSessionId
     });
   }
@@ -194,13 +198,9 @@ export function registerPrimerCommand(program: Command, io: ProgramIO): void {
         const message = error instanceof Error ? error.message : String(error);
         printResult(
           io,
-          fail(
-            'session.primer',
-            'PRIMER_FAILED',
-            message,
-            { project: opts.project },
-            ['Verify the project path exists, is writable, and is canonical']
-          ),
+          fail('session.primer', 'PRIMER_FAILED', message, { project: opts.project }, [
+            'Verify the project path exists, is writable, and is canonical'
+          ]),
           opts.json
         );
         process.exitCode = 1;

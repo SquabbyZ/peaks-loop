@@ -32,7 +32,11 @@ export function registerWorkspaceCleanCommand(workspace: Command, _io: ProgramIO
         '(with --grace-hours safety window).'
     )
     .option('--older-than <hours>', 'age threshold in hours (default 168 = 7d)', '168')
-    .option('--grace-hours <hours>', 'safety grace period in hours added to --older-than (default 24)', '24')
+    .option(
+      '--grace-hours <hours>',
+      'safety grace period in hours added to --older-than (default 24)',
+      '24'
+    )
     .option('--apply', 'actually write changes (default is dry-run)')
     .option('--project <path>', 'project root (defaults to current directory)', process.cwd())
     .option('--json', 'emit a JSON envelope { ok, data } to stdout')
@@ -46,7 +50,12 @@ export function registerWorkspaceCleanCommand(workspace: Command, _io: ProgramIO
           apply
         });
         if (opts.json === true) {
-          process.stdout.write(JSON.stringify({ ok: true, data: { dryRun: !apply, deleted: result.deleted, skipped: result.skipped } }) + '\n');
+          process.stdout.write(
+            JSON.stringify({
+              ok: true,
+              data: { dryRun: !apply, deleted: result.deleted, skipped: result.skipped }
+            }) + '\n'
+          );
         }
       } catch (error) {
         if (opts.json === true) {

@@ -39,7 +39,13 @@ export function formatSkillUsageLessonsPath(sessionId: string): string {
   return `.peaks/_runtime/${sessionId}/txt/skill-usage-lessons.md`;
 }
 
-function renderPrdTemplate(requestId: string, _sessionId: string, sessionId: string, timestamp: string, requestType: RequestType): string {
+function renderPrdTemplate(
+  requestId: string,
+  _sessionId: string,
+  sessionId: string,
+  timestamp: string,
+  requestType: RequestType
+): string {
   return `# PRD Request ${requestId}
 
 - session: ${sessionId}
@@ -87,7 +93,13 @@ function renderPrdTemplate(requestId: string, _sessionId: string, sessionId: str
 `;
 }
 
-function renderUiTemplate(requestId: string, _sessionId: string, sessionId: string, timestamp: string, requestType: RequestType): string {
+function renderUiTemplate(
+  requestId: string,
+  _sessionId: string,
+  sessionId: string,
+  timestamp: string,
+  requestType: RequestType
+): string {
   return `# UI Request ${requestId}
 
 - session: ${sessionId}
@@ -138,7 +150,13 @@ function renderUiTemplate(requestId: string, _sessionId: string, sessionId: stri
 `;
 }
 
-function renderRdTemplate(requestId: string, _sessionId: string, sessionId: string, timestamp: string, requestType: RequestType): string {
+function renderRdTemplate(
+  requestId: string,
+  _sessionId: string,
+  sessionId: string,
+  timestamp: string,
+  requestType: RequestType
+): string {
   return `# RD Request ${requestId}
 
 - session: ${sessionId}
@@ -196,7 +214,13 @@ function renderRdTemplate(requestId: string, _sessionId: string, sessionId: stri
 `;
 }
 
-function renderQaTemplate(requestId: string, _sessionId: string, sessionId: string, timestamp: string, requestType: RequestType): string {
+function renderQaTemplate(
+  requestId: string,
+  _sessionId: string,
+  sessionId: string,
+  timestamp: string,
+  requestType: RequestType
+): string {
   return `# QA Request ${requestId}
 
 - session: ${sessionId}
@@ -252,7 +276,13 @@ function renderQaTemplate(requestId: string, _sessionId: string, sessionId: stri
 `;
 }
 
-function renderScTemplate(requestId: string, _sessionId: string, sessionId: string, timestamp: string, requestType: RequestType): string {
+function renderScTemplate(
+  requestId: string,
+  _sessionId: string,
+  sessionId: string,
+  timestamp: string,
+  requestType: RequestType
+): string {
   return `# SC Request ${requestId}
 
 - session: ${sessionId}
@@ -305,7 +335,14 @@ function renderScTemplate(requestId: string, _sessionId: string, sessionId: stri
 `;
 }
 
-export function renderTemplate(role: RequestArtifactRole, requestId: string, sessionId: string, changeSlug: string, timestamp: string, requestType: RequestType): string {
+export function renderTemplate(
+  role: RequestArtifactRole,
+  requestId: string,
+  sessionId: string,
+  changeSlug: string,
+  timestamp: string,
+  requestType: RequestType
+): string {
   switch (role) {
     case 'prd':
       return renderPrdTemplate(requestId, sessionId, changeSlug, timestamp, requestType);

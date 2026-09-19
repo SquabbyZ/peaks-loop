@@ -5,12 +5,7 @@
 import type { Command } from 'commander';
 import { ok } from 'peaks-loop-shared/result';
 
-import {
-  hydrate,
-  listSpills,
-  spill,
-  spillDir
-} from '../../services/context/spillover-store.js';
+import { hydrate, listSpills, spill, spillDir } from '../../services/context/spillover-store.js';
 import { getSessionIdCanonical } from '../../services/session/session-manager.js';
 import { addJsonOption, printResult, type ProgramIO } from '../cli-helpers.js';
 

@@ -1,4 +1,9 @@
-import { PEAKS_HOOK_SCHEMA, type IdeId, type PeaksCanonicalHook, type PeaksDecisionTransport } from './ide-types.js';
+import {
+  PEAKS_HOOK_SCHEMA,
+  type IdeId,
+  type PeaksCanonicalHook,
+  type PeaksDecisionTransport
+} from './ide-types.js';
 
 export { PEAKS_HOOK_SCHEMA };
 export type { PeaksCanonicalHook, PeaksDecisionTransport };
@@ -13,7 +18,7 @@ export const CLAUDE_CODE_DENY_SHAPE: Record<string, unknown> = {
   hookSpecificOutput: {
     hookEventName: 'PreToolUse',
     permissionDecision: 'deny',
-    permissionDecisionReason: '__REASON__'  // replaced at format time
+    permissionDecisionReason: '__REASON__' // replaced at format time
   }
 };
 
@@ -36,7 +41,7 @@ export const TRAE_DENY_SHAPE: Record<string, unknown> = {
   hookSpecificOutput: {
     hookEventName: 'beforeToolCall',
     permissionDecision: 'deny',
-    permissionDecisionReason: '__REASON__'  // replaced at format time
+    permissionDecisionReason: '__REASON__' // replaced at format time
   }
 };
 
@@ -65,7 +70,9 @@ export function formatDecisionResponse(
   } else if (ide === 'trae') {
     shape = TRAE_DENY_SHAPE;
   } else {
-    throw new Error(`formatDecisionResponse: unsupported IDE ${ide} (not registered in adapter registry; future slice will add support)`);
+    throw new Error(
+      `formatDecisionResponse: unsupported IDE ${ide} (not registered in adapter registry; future slice will add support)`
+    );
   }
   const filled = JSON.stringify(shape).replace('"__REASON__"', JSON.stringify(reason ?? 'denied'));
   return { stdout: filled, exitCode: 0 };

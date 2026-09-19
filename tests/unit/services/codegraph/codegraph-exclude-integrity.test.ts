@@ -23,24 +23,26 @@ import { describe, expect, it } from 'vitest';
 import {
   CODEGRAPH_INTEGRITY_EXIT_CODE,
   renderCodegraphExcludeIntegrityLines,
-  type CodegraphExcludeIntegrityReport,
+  type CodegraphExcludeIntegrityReport
 } from '../../../../src/services/codegraph/codegraph-exclude-integrity.js';
 import { CODEGRAPH_INIT_CONFLICT_EXIT_CODE } from '../../../../src/services/codegraph/codegraph-service.js';
 import { declareDimensions } from '../../_setup/4dim-template.js';
 
-declareDimensions('tests/unit/services/codegraph/codegraph-exclude-integrity.test.ts', [
-  'render',
-  'behavior',
-  'a11y',
-], [
-  {
-    dim: 'integration',
-    reason:
-      'the inspector runs against real git work trees in codegraph-exclude-repair.test.ts and codegraph-status-integrity.test.ts; this file covers the pure renderer it feeds',
-  },
-]);
+declareDimensions(
+  'tests/unit/services/codegraph/codegraph-exclude-integrity.test.ts',
+  ['render', 'behavior', 'a11y'],
+  [
+    {
+      dim: 'integration',
+      reason:
+        'the inspector runs against real git work trees in codegraph-exclude-repair.test.ts and codegraph-status-integrity.test.ts; this file covers the pure renderer it feeds'
+    }
+  ]
+);
 
-function makeReport(overrides: Partial<CodegraphExcludeIntegrityReport> = {}): CodegraphExcludeIntegrityReport {
+function makeReport(
+  overrides: Partial<CodegraphExcludeIntegrityReport> = {}
+): CodegraphExcludeIntegrityReport {
   return {
     configPath: '/tmp/project/.codegraph/config.json',
     gap: false,
@@ -49,14 +51,14 @@ function makeReport(overrides: Partial<CodegraphExcludeIntegrityReport> = {}): C
     violations: [],
     rulesToRemove: [],
     ruleImpacts: [],
-    ...overrides,
+    ...overrides
   };
 }
 
 function makeViolations(count: number): CodegraphExcludeIntegrityReport['violations'] {
   return Array.from({ length: count }, (_unused, index) => ({
     path: `src/blocked/file-${index}.ts`,
-    matchedRule: '**/artifacts/**',
+    matchedRule: '**/artifacts/**'
   }));
 }
 
@@ -72,7 +74,7 @@ describe('renderCodegraphExcludeIntegrityLines', () => {
         excludedTrackedCount: 26,
         rulesToRemove: ['**/artifacts/**'],
         ruleImpacts: [{ rule: '**/artifacts/**', blockedCount: 26 }],
-        violations: makeViolations(2),
+        violations: makeViolations(2)
       })
     );
 
@@ -93,9 +95,9 @@ describe('renderCodegraphExcludeIntegrityLines', () => {
         rulesToRemove: Array.from({ length: 12 }, (_unused, index) => `**/rule-${index}/**`),
         ruleImpacts: Array.from({ length: 12 }, (_unused, index) => ({
           rule: `**/rule-${index}/**`,
-          blockedCount: 1,
+          blockedCount: 1
         })),
-        violations: makeViolations(30),
+        violations: makeViolations(30)
       })
     );
 

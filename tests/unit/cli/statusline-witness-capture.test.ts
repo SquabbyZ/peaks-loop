@@ -33,7 +33,13 @@ import { declareDimensions } from '../_setup/4dim-template.js';
 declareDimensions(
   'tests/unit/cli/statusline-witness-capture.test.ts',
   ['render', 'behavior', 'integration'],
-  [{ dim: 'a11y', reason: 'The rendered line is asserted byte-for-byte under (render); this slice adds no human-facing text.' }],
+  [
+    {
+      dim: 'a11y',
+      reason:
+        'The rendered line is asserted byte-for-byte under (render); this slice adds no human-facing text.'
+    }
+  ]
 );
 
 import { makeCapturedIo, withEnv } from '../_setup/io.js';
@@ -41,7 +47,7 @@ import { withTmpWorkspacePerTest } from '../_setup/tmp-workspace.js';
 import { runDefaultStatuslineRender } from '~/src/cli/commands/statusline-commands';
 import {
   harnessWitnessPath,
-  readHarnessWitness,
+  readHarnessWitness
 } from '~/src/services/context/harness-context-witness';
 
 const SID = '2026-09-13-session-renderwitness';
@@ -60,9 +66,9 @@ const PAYLOAD_WITH_CONTEXT = JSON.stringify({
       input_tokens: 300_000,
       cache_read_input_tokens: 100_000,
       cache_creation_input_tokens: 20_000,
-      output_tokens: 3_000,
-    },
-  },
+      output_tokens: 3_000
+    }
+  }
 });
 
 /** The same payload minus the context block (an older / other harness render). */
@@ -108,7 +114,7 @@ describe('peaks statusline — harness context witness capture', () => {
       writeFileSync(
         join(root, '.peaks', '_runtime', 'session.json'),
         JSON.stringify({ sessionId: SID, projectRoot: root }),
-        'utf8',
+        'utf8'
       );
     }
   }
@@ -135,7 +141,9 @@ describe('peaks statusline — harness context witness capture', () => {
       expect(witness!.modelWindowTokens).toBe(WINDOW);
       expect(witness!.usageTokens).toBe(420_000);
       expect(witness!.outerSessionId).toBe(OUTER);
-      expect(harnessWitnessPath(root, SID).startsWith(join(root, '.peaks', '_runtime', SID))).toBe(true);
+      expect(harnessWitnessPath(root, SID).startsWith(join(root, '.peaks', '_runtime', SID))).toBe(
+        true
+      );
       // and nothing was written into a harness-owned location
       expect(existsSync(join(root, '.claude', 'settings.json'))).toBe(false);
     });
@@ -218,7 +226,7 @@ describe('peaks statusline — harness context witness capture', () => {
       seedProject(root);
       const payload = JSON.stringify({
         session_id: OUTER,
-        context_window: { context_window_size: WINDOW, used_percentage: 150 },
+        context_window: { context_window_size: WINDOW, used_percentage: 150 }
       });
       // when
       const text = await render(root, payload);
@@ -242,8 +250,8 @@ describe('peaks statusline — harness context witness capture', () => {
         context_window: {
           context_window_size: WINDOW,
           used_percentage: 1,
-          current_usage: { input_tokens: 10_000 },
-        },
+          current_usage: { input_tokens: 10_000 }
+        }
       });
       // when
       await render(root, payload);

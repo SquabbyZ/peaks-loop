@@ -20,7 +20,13 @@
 
 import type { Command } from 'commander';
 
-import { type ProgramIO, addJsonOption, failUnsupportedNonDryRun, getErrorMessage, printResult } from '../cli-helpers.js';
+import {
+  type ProgramIO,
+  addJsonOption,
+  failUnsupportedNonDryRun,
+  getErrorMessage,
+  printResult
+} from '../cli-helpers.js';
 import { fail, ok } from 'peaks-loop-shared/result';
 import { mapServiceError } from './_cli-error-envelope.js';
 import { findProjectRoot } from '../../services/config/config-safety.js';
@@ -31,7 +37,7 @@ import {
   validateTechChangeId,
   type TechChangeArtifacts,
   type TechChangeStatus,
-  type WorkspaceConfig as _WorkspaceConfig,
+  type WorkspaceConfig as _WorkspaceConfig
 } from '../../services/tech/tech-change-id-service.js';
 
 // Re-export so callers can import from one place.
@@ -99,7 +105,17 @@ function runTechChangeIdPlan(io: ProgramIO, options: TechChangeIdPlanOptions): v
   // Validate change-id first — reject before any other work.
   const validation = validateTechChangeId(options.changeId);
   if (!validation.ok) {
-    printResult(io, fail('tech.plan.change-id', 'INVALID_CHANGE_ID', validation.error.message, { code: validation.error.code }, ['Use a change-id matching [A-Za-z0-9][A-Za-z0-9._-]*']), options.json);
+    printResult(
+      io,
+      fail(
+        'tech.plan.change-id',
+        'INVALID_CHANGE_ID',
+        validation.error.message,
+        { code: validation.error.code },
+        ['Use a change-id matching [A-Za-z0-9][A-Za-z0-9._-]*']
+      ),
+      options.json
+    );
     process.exitCode = 1;
     return;
   }
@@ -125,13 +141,13 @@ function runTechChangeIdPlan(io: ProgramIO, options: TechChangeIdPlanOptions): v
             `${validation.value.changeId}/architecture/waves/wave-1-scan.json`,
             `${validation.value.changeId}/architecture/waves/wave-2-document.json`,
             `${validation.value.changeId}/architecture/waves/wave-3-review.json`,
-            `${validation.value.changeId}/architecture/waves/wave-4-reducer.json`,
+            `${validation.value.changeId}/architecture/waves/wave-4-reducer.json`
           ],
           reviewChecklist: `${validation.value.changeId}/architecture/tech-review-checklist.md`,
-          approvalTemplate: `${validation.value.changeId}/architecture/tech-approval-record.template.md`,
+          approvalTemplate: `${validation.value.changeId}/architecture/tech-approval-record.template.md`
         },
         blockedReasons: [unavailable.reason],
-        nextActions: [...unavailable.nextActions],
+        nextActions: [...unavailable.nextActions]
       };
       printResult(io, ok('tech.plan.change-id', previewData), options.json);
       return;
@@ -142,10 +158,20 @@ function runTechChangeIdPlan(io: ProgramIO, options: TechChangeIdPlanOptions): v
     const planResult = planTechArtifactPath({
       changeId: validation.value.changeId,
       workspaceRoot: artifactWorkspacePath,
-      requestId: 'change-id',
+      requestId: 'change-id'
     });
     if (!planResult.ok) {
-      printResult(io, fail('tech.plan.change-id', 'INVALID_CHANGE_ID', planResult.error.message, { code: planResult.error.code }, ['Use a change-id matching [A-Za-z0-9][A-Za-z0-9._-]*']), options.json);
+      printResult(
+        io,
+        fail(
+          'tech.plan.change-id',
+          'INVALID_CHANGE_ID',
+          planResult.error.message,
+          { code: planResult.error.code },
+          ['Use a change-id matching [A-Za-z0-9][A-Za-z0-9._-]*']
+        ),
+        options.json
+      );
       process.exitCode = 1;
       return;
     }
@@ -159,12 +185,18 @@ function runTechChangeIdPlan(io: ProgramIO, options: TechChangeIdPlanOptions): v
       artifactRoot: `${validation.value.changeId}/architecture`,
       artifacts: flattenArtifacts(planResult.value),
       blockedReasons: [],
-      nextActions: [],
+      nextActions: []
     };
     printResult(io, ok('tech.plan.change-id', data), options.json);
   } catch (error) {
     const mapping = mapServiceError(error);
-    printResult(io, fail('tech.plan.change-id', mapping.code, getErrorMessage(error), {}, [...mapping.nextActions]), options.json);
+    printResult(
+      io,
+      fail('tech.plan.change-id', mapping.code, getErrorMessage(error), {}, [
+        ...mapping.nextActions
+      ]),
+      options.json
+    );
     process.exitCode = 1;
   }
 }
@@ -174,7 +206,7 @@ function flattenArtifacts(value: TechChangeArtifacts): TechChangeIdPlanResult['a
     taskGraph: value.taskGraph.jsonSafeRelativePath,
     waveManifests: value.waveManifests.map((w) => w.jsonSafeRelativePath),
     reviewChecklist: value.reviewChecklist.jsonSafeRelativePath,
-    approvalTemplate: value.approvalTemplate.jsonSafeRelativePath,
+    approvalTemplate: value.approvalTemplate.jsonSafeRelativePath
   };
 }
 
@@ -182,7 +214,17 @@ function runTechChangeIdStatus(io: ProgramIO, options: TechChangeIdStatusOptions
   // Validate change-id first — reject before any fs read.
   const validation = validateTechChangeId(options.changeId);
   if (!validation.ok) {
-    printResult(io, fail('tech.status.change-id', 'INVALID_CHANGE_ID', validation.error.message, { code: validation.error.code }, ['Use a change-id matching [A-Za-z0-9][A-Za-z0-9._-]*']), options.json);
+    printResult(
+      io,
+      fail(
+        'tech.status.change-id',
+        'INVALID_CHANGE_ID',
+        validation.error.message,
+        { code: validation.error.code },
+        ['Use a change-id matching [A-Za-z0-9][A-Za-z0-9._-]*']
+      ),
+      options.json
+    );
     process.exitCode = 1;
     return;
   }
@@ -199,7 +241,7 @@ function runTechChangeIdStatus(io: ProgramIO, options: TechChangeIdStatusOptions
         missingArtifacts: [],
         approvalRecord: null,
         blockedReasons: [unavailable.reason],
-        nextActions: [...unavailable.nextActions],
+        nextActions: [...unavailable.nextActions]
       };
       printResult(io, ok('tech.status.change-id', status), options.json);
       return;
@@ -214,11 +256,17 @@ function runTechChangeIdStatus(io: ProgramIO, options: TechChangeIdStatusOptions
       missingArtifacts: [],
       approvalRecord: `${validation.value.changeId}/architecture/tech-approval-record.md`,
       blockedReasons: [],
-      nextActions: [],
+      nextActions: []
     };
     printResult(io, ok('tech.status.change-id', status), options.json);
   } catch (error) {
-    printResult(io, fail('tech.status.change-id', 'TECH_STATUS_FAILED', getErrorMessage(error), {}, ['Verify the project setup']), options.json);
+    printResult(
+      io,
+      fail('tech.status.change-id', 'TECH_STATUS_FAILED', getErrorMessage(error), {}, [
+        'Verify the project setup'
+      ]),
+      options.json
+    );
     process.exitCode = 1;
   }
 }
@@ -262,10 +310,16 @@ export function registerTechCommands(program: Command, io: ProgramIO): void {
     // `registerWorkflowCommands` before this function runs. If it is
     // missing the caller has changed the wiring — fail loud so the
     // breakage is noticed at startup, not at first invocation.
-    throw new Error('peaks tech parent command is not registered; ensure registerWorkflowCommands runs before registerTechCommands');
+    throw new Error(
+      'peaks tech parent command is not registered; ensure registerWorkflowCommands runs before registerTechCommands'
+    );
   }
-  addTechChangeIdPlanOptions(tech.command('plan-change-id')).action((options: TechChangeIdPlanOptions) => runTechChangeIdPlan(io, options));
-  addTechChangeIdStatusOptions(tech.command('status-change-id')).action((options: TechChangeIdStatusOptions) => runTechChangeIdStatus(io, options));
+  addTechChangeIdPlanOptions(tech.command('plan-change-id')).action(
+    (options: TechChangeIdPlanOptions) => runTechChangeIdPlan(io, options)
+  );
+  addTechChangeIdStatusOptions(tech.command('status-change-id')).action(
+    (options: TechChangeIdStatusOptions) => runTechChangeIdStatus(io, options)
+  );
 }
 
 // Suppress unused import warning for the type-only WorkspaceConfig export.

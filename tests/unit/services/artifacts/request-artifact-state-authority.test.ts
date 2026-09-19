@@ -35,21 +35,25 @@ import { withTmpWorkspacePerTest } from '../../_setup/tmp-workspace.js';
 import {
   locateArtifactState,
   readArtifactState,
-  updateStatusBlock,
+  updateStatusBlock
 } from '../../../../src/services/artifacts/request-artifact-state-helpers.js';
 import { extractState as pipelineExtractState } from '../../../../src/services/workflow/pipeline-verify-gate-support.js';
 import {
   createRequestArtifact,
   showRequestArtifact,
-  transitionRequestArtifact,
+  transitionRequestArtifact
 } from '../../../../src/services/artifacts/request-artifact-service.js';
 
 declareDimensions(
   'tests/unit/services/artifacts/request-artifact-state-authority.test.ts',
   ['behavior', 'render', 'integration'],
   [
-    { dim: 'a11y', reason: 'the state line is machine-only; no human-facing text or exit code is produced by the resolver' },
-  ],
+    {
+      dim: 'a11y',
+      reason:
+        'the state line is machine-only; no human-facing text or exit code is produced by the resolver'
+    }
+  ]
 );
 
 const SESSION_ID = 'test-session';
@@ -75,8 +79,8 @@ function multiRoundArtifact(roundStates: ReadonlyArray<string>): string {
         `- last update: 2026-09-13T1${index}:00:00.000Z`,
         '',
         '---',
-        '',
-      ].join('\n'),
+        ''
+      ].join('\n')
     )
     .join('\n');
 }
@@ -130,7 +134,11 @@ describe('Scenario: behavior — one rule for "which state: line is the artifact
   });
 
   it('when the writer transitions a blocked artifact, should report the previous state the readers would have read', () => {
-    const { updated, previousState } = updateStatusBlock(multiRoundArtifact(['draft', 'qa-block']), 'verdict-issued', TS);
+    const { updated, previousState } = updateStatusBlock(
+      multiRoundArtifact(['draft', 'qa-block']),
+      'verdict-issued',
+      TS
+    );
     expect(previousState).toBe('qa-block');
     expect(readArtifactState(updated)).toBe('verdict-issued');
   });
@@ -142,7 +150,10 @@ describe('Scenario: behavior — one rule for "which state: line is the artifact
 
   it('when an artifact has no state line at all, should report absence without inventing a state', () => {
     const stateless = '# RD Request\n\n- session: test-session\n';
-    expect(locateArtifactState(stateless.split(/\r?\n/))).toEqual({ stateLineIndex: -1, state: null });
+    expect(locateArtifactState(stateless.split(/\r?\n/))).toEqual({
+      stateLineIndex: -1,
+      state: null
+    });
     expect(readArtifactState(stateless)).toBeNull();
     // Each caller keeps its own "no state" sentinel, so no consumer's
     // absence check changes meaning under the shared rule.
@@ -210,7 +221,12 @@ describe('Scenario: render — what updateStatusBlock writes', () => {
   });
 
   it('when a reason is given, should append it as a transition note without disturbing the state line', () => {
-    const { updated } = updateStatusBlock(multiRoundArtifact(['qa-pass']), 'verdict-issued', TS, 'user-requested-abandon');
+    const { updated } = updateStatusBlock(
+      multiRoundArtifact(['qa-pass']),
+      'verdict-issued',
+      TS,
+      'user-requested-abandon'
+    );
     expect(updated).toContain(`- transition note (${TS}): user-requested-abandon`);
     expect(readArtifactState(updated)).toBe('verdict-issued');
   });
@@ -225,7 +241,7 @@ describe('Scenario: integration — real artifacts on disk agree across both end
       requestId: REQUEST_ID,
       projectRoot: ws().path,
       sessionId: SESSION_ID,
-      apply: true,
+      apply: true
     });
     return created.path;
   }
@@ -236,7 +252,7 @@ describe('Scenario: integration — real artifacts on disk agree across both end
       projectRoot: ws().path,
       role: 'qa',
       requestId: REQUEST_ID,
-      sessionId: SESSION_ID,
+      sessionId: SESSION_ID
     });
     expect(shown?.state).toBe('draft');
     expect(pipelineExtractState(readFileSync(path, 'utf8'))).toBe('draft');
@@ -246,7 +262,11 @@ describe('Scenario: integration — real artifacts on disk agree across both end
     const path = await qaArtifactPath();
     // Simulate the QA rounds that append to the same artifact: two more
     // `## Status` blocks land above the one the template wrote.
-    writeFileSync(path, `${readFileSync(path, 'utf8')}\n${multiRoundArtifact(['qa-block', 'qa-pass'])}`, 'utf8');
+    writeFileSync(
+      path,
+      `${readFileSync(path, 'utf8')}\n${multiRoundArtifact(['qa-block', 'qa-pass'])}`,
+      'utf8'
+    );
 
     await transitionRequestArtifact({
       role: 'qa',
@@ -254,14 +274,14 @@ describe('Scenario: integration — real artifacts on disk agree across both end
       projectRoot: ws().path,
       newState: 'verdict-issued',
       confirmed: true,
-      allowIncomplete: true,
+      allowIncomplete: true
     });
 
     const shown = await showRequestArtifact({
       projectRoot: ws().path,
       role: 'qa',
       requestId: REQUEST_ID,
-      sessionId: SESSION_ID,
+      sessionId: SESSION_ID
     });
     const onDisk = readFileSync(path, 'utf8');
     // The regression: the first `- state:` line on disk is `draft`, so the
@@ -278,7 +298,7 @@ describe('Scenario: integration — real artifacts on disk agree across both end
       projectRoot: ws().path,
       role: 'qa',
       requestId: REQUEST_ID,
-      sessionId: SESSION_ID,
+      sessionId: SESSION_ID
     });
     expect(shown?.state).toBe('implemented');
     expect(pipelineExtractState(readFileSync(path, 'utf8'))).toBe('implemented');

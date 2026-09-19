@@ -96,7 +96,7 @@ export function restoreField(opts: { field: string; apply: boolean }): RestoreRe
     field: opts.field,
     value: bak[opts.field],
     source: 'config.json.1.x.bak',
-    restoredAt: new Date().toISOString(),
+    restoredAt: new Date().toISOString()
   };
   writeFileSync(sidecar, JSON.stringify(payload, null, 2) + '\n', 'utf8');
   return { available: true, field: opts.field, applied: true, sidecarPath: sidecar };

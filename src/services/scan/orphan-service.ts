@@ -79,12 +79,45 @@ const DEFAULT_DIRS = ['src/cli', 'src/services', 'skills', 'tests'] as const;
 // Skip orphan detection for them so sub-commands of these parents aren't
 // confused for top-level orphans.
 const PARENT_COMMANDS = new Set([
-  'scan', 'request', 'session', 'sub-agent', 'openspec', 'sop', 'workspace',
-  'qa', 'sc', 'txt', 'code-review', 'rd', 'sh', 'config', 'audit', 'codegraph',
-  'context', 'agent', 'capability', 'classify', 'gstack', 'gate',
-  'hook', 'hooks', 'log', 'loop', 'memory', 'perf', 'playwright', 'preferences',
-  'project', 'retrospective', 'slice', 'statusline', 'workflow',
-  'migrate', 'mcp', 'doctor', 'help'
+  'scan',
+  'request',
+  'session',
+  'sub-agent',
+  'openspec',
+  'sop',
+  'workspace',
+  'qa',
+  'sc',
+  'txt',
+  'code-review',
+  'rd',
+  'sh',
+  'config',
+  'audit',
+  'codegraph',
+  'context',
+  'agent',
+  'capability',
+  'classify',
+  'gstack',
+  'gate',
+  'hook',
+  'hooks',
+  'log',
+  'loop',
+  'memory',
+  'perf',
+  'playwright',
+  'preferences',
+  'project',
+  'retrospective',
+  'slice',
+  'statusline',
+  'workflow',
+  'migrate',
+  'mcp',
+  'doctor',
+  'help'
 ]);
 const SKIP_DIRS = new Set(['node_modules', '.git', 'dist', 'build', 'coverage']);
 
@@ -95,7 +128,8 @@ const EXPORT_INTERFACE_RE = /^export\s+interface\s+([A-Za-z_$][\w$]*)/gm;
 const EXPORT_TYPE_RE = /^export\s+type\s+([A-Za-z_$][\w$]*)/gm;
 const EXPORT_ENUM_RE = /^export\s+enum\s+([A-Za-z_$][\w$]*)/gm;
 // Slice 2.6.1.A.2: default-export detection (anonymous forms skipped — no name to track).
-const EXPORT_DEFAULT_FUNCTION_RE = /^export\s+default\s+(?:async\s+)?function\s+([A-Za-z_$][\w$]*)/gm;
+const EXPORT_DEFAULT_FUNCTION_RE =
+  /^export\s+default\s+(?:async\s+)?function\s+([A-Za-z_$][\w$]*)/gm;
 const EXPORT_DEFAULT_CLASS_RE = /^export\s+default\s+class\s+([A-Za-z_$][\w$]*)/gm;
 
 const COMMAND_RE = /\.command\(\s*['"]([a-z][a-z0-9-]*)['"]/g;
@@ -107,12 +141,10 @@ const RE_EXPORT_TYPE_RE = /export\s+type\s*\{([^}]+)\}\s*from\s*['"]([^'"]+)['"]
 const NAMED_IMPORT_RE = /import\s*\{([^}]+)\}\s*from\s*['"]([^'"]+)['"]/g;
 const SIDE_EFFECT_IMPORT_RE = /import\s+['"]([^'"]+)['"]/g;
 
-const TECH_DOC_API_SECTION_RE = /##\s*Existing API\s*\/\s*Component Inventory([\s\S]*?)(?=\n##\s|\Z)/g;
+const TECH_DOC_API_SECTION_RE =
+  /##\s*Existing API\s*\/\s*Component Inventory([\s\S]*?)(?=\n##\s|\Z)/g;
 
-async function walkProject(
-  projectRoot: string,
-  includeDirs: string[]
-): Promise<string[]> {
+async function walkProject(projectRoot: string, includeDirs: string[]): Promise<string[]> {
   const files: string[] = [];
   for (const rel of includeDirs) {
     const abs = join(projectRoot, rel);
@@ -190,24 +222,46 @@ function dedupeDocEndpointOrphans(items: DocEndpointOrphan[]): DocEndpointOrphan
   return out;
 }
 
-type ExportedSymbol = { name: string; kind: ExportOrphan['kind']; sourceFile: string; line: number };
+type ExportedSymbol = {
+  name: string;
+  kind: ExportOrphan['kind'];
+  sourceFile: string;
+  line: number;
+};
 
 function scanExportsInFile(content: string, sourceFile: string): ExportedSymbol[] {
   const out: ExportedSymbol[] = [];
-  for (const re of [EXPORT_FUNCTION_RE, EXPORT_CLASS_RE, EXPORT_CONST_RE,
-                    EXPORT_INTERFACE_RE, EXPORT_TYPE_RE, EXPORT_ENUM_RE,
-                    EXPORT_DEFAULT_FUNCTION_RE, EXPORT_DEFAULT_CLASS_RE]) {
+  for (const re of [
+    EXPORT_FUNCTION_RE,
+    EXPORT_CLASS_RE,
+    EXPORT_CONST_RE,
+    EXPORT_INTERFACE_RE,
+    EXPORT_TYPE_RE,
+    EXPORT_ENUM_RE,
+    EXPORT_DEFAULT_FUNCTION_RE,
+    EXPORT_DEFAULT_CLASS_RE
+  ]) {
     re.lastIndex = 0;
   }
   let m: RegExpExecArray | null;
   while ((m = EXPORT_FUNCTION_RE.exec(content)) !== null) {
-    out.push({ name: m[1] as string, kind: 'function', sourceFile, line: lineOf(content, m.index) });
+    out.push({
+      name: m[1] as string,
+      kind: 'function',
+      sourceFile,
+      line: lineOf(content, m.index)
+    });
   }
   while ((m = EXPORT_CLASS_RE.exec(content)) !== null) {
     out.push({ name: m[1] as string, kind: 'class', sourceFile, line: lineOf(content, m.index) });
   }
   while ((m = EXPORT_INTERFACE_RE.exec(content)) !== null) {
-    out.push({ name: m[1] as string, kind: 'interface', sourceFile, line: lineOf(content, m.index) });
+    out.push({
+      name: m[1] as string,
+      kind: 'interface',
+      sourceFile,
+      line: lineOf(content, m.index)
+    });
   }
   while ((m = EXPORT_TYPE_RE.exec(content)) !== null) {
     out.push({ name: m[1] as string, kind: 'type', sourceFile, line: lineOf(content, m.index) });
@@ -220,7 +274,12 @@ function scanExportsInFile(content: string, sourceFile: string): ExportedSymbol[
   }
   // Slice 2.6.1.A.2: track named default exports.
   while ((m = EXPORT_DEFAULT_FUNCTION_RE.exec(content)) !== null) {
-    out.push({ name: m[1] as string, kind: 'function', sourceFile, line: lineOf(content, m.index) });
+    out.push({
+      name: m[1] as string,
+      kind: 'function',
+      sourceFile,
+      line: lineOf(content, m.index)
+    });
   }
   while ((m = EXPORT_DEFAULT_CLASS_RE.exec(content)) !== null) {
     out.push({ name: m[1] as string, kind: 'class', sourceFile, line: lineOf(content, m.index) });
@@ -240,7 +299,9 @@ function buildExportIndex(files: string[], fileContents: Map<string, string>): E
   return all;
 }
 
-function scanNamedImportsInFile(content: string): Array<{ symbols: string[]; from: string; line: number }> {
+function scanNamedImportsInFile(
+  content: string
+): Array<{ symbols: string[]; from: string; line: number }> {
   const out: Array<{ symbols: string[]; from: string; line: number }> = [];
   NAMED_IMPORT_RE.lastIndex = 0;
   let m: RegExpExecArray | null;
@@ -249,7 +310,13 @@ function scanNamedImportsInFile(content: string): Array<{ symbols: string[]; fro
     const from = m[2] as string;
     const symbols = raw
       .split(',')
-      .map((s) => s.trim().split(/\s+as\s+/)[0]?.trim() ?? '')
+      .map(
+        (s) =>
+          s
+            .trim()
+            .split(/\s+as\s+/)[0]
+            ?.trim() ?? ''
+      )
       .filter((s) => s.length > 0);
     out.push({ symbols, from, line: lineOf(content, m.index) });
   }
@@ -292,12 +359,13 @@ function extractTechDocEndpoints(content: string): string[] {
   return Array.from(new Set(out));
 }
 
-function diffVsHead(projectRoot: string, baseRef?: string): { added: string[]; removed: string[]; modified: string[] } {
+function diffVsHead(
+  projectRoot: string,
+  baseRef?: string
+): { added: string[]; removed: string[]; modified: string[] } {
   // Slice 2.6.1.A.4: when a base ref is supplied, diff against that ref instead of HEAD.
   // Default behaviour (no baseRef) preserves backward compatibility.
-  const args = baseRef
-    ? ['diff', '--name-status', baseRef]
-    : ['diff', '--name-status', 'HEAD'];
+  const args = baseRef ? ['diff', '--name-status', baseRef] : ['diff', '--name-status', 'HEAD'];
   const res = spawnSync('git', args, {
     cwd: projectRoot,
     encoding: 'utf8',
@@ -315,11 +383,16 @@ function diffVsHead(projectRoot: string, baseRef?: string): { added: string[]; r
     const tab = line.indexOf('\t');
     if (tab < 0) continue;
     const status = line.slice(0, tab);
-    const path = line.slice(tab + 1).split('\t')[0]?.split(' ')[0] ?? '';
+    const path =
+      line
+        .slice(tab + 1)
+        .split('\t')[0]
+        ?.split(' ')[0] ?? '';
     if (!path) continue;
     if (status.startsWith('A')) added.push(path);
     else if (status.startsWith('D')) removed.push(path);
-    else if (status.startsWith('M') || status.startsWith('R') || status.startsWith('C')) modified.push(path);
+    else if (status.startsWith('M') || status.startsWith('R') || status.startsWith('C'))
+      modified.push(path);
   }
   return { added, removed, modified };
 }
@@ -337,17 +410,26 @@ function scanReExportsInFile(
   sourceFile: string,
   projectRoot: string
 ): Array<{ symbol: string; from: string; line: number; resolvedFrom: string | null }> {
-  const out: Array<{ symbol: string; from: string; line: number; resolvedFrom: string | null }> = [];
+  const out: Array<{ symbol: string; from: string; line: number; resolvedFrom: string | null }> =
+    [];
   for (const re of [RE_EXPORT_NAMED_RE, RE_EXPORT_TYPE_RE]) {
     re.lastIndex = 0;
     let m: RegExpExecArray | null;
     while ((m = re.exec(content)) !== null) {
       const raw = m[1] as string;
       const from = m[2] as string;
-      const resolved = from.startsWith('.') ? resolveImportPath(sourceFile, from, projectRoot) : null;
+      const resolved = from.startsWith('.')
+        ? resolveImportPath(sourceFile, from, projectRoot)
+        : null;
       const symbols = raw
         .split(',')
-        .map((s) => s.trim().split(/\s+as\s+/)[0]?.trim() ?? '')
+        .map(
+          (s) =>
+            s
+              .trim()
+              .split(/\s+as\s+/)[0]
+              ?.trim() ?? ''
+        )
         .filter((s) => s.length > 0);
       for (const sym of symbols) {
         out.push({ symbol: sym, from, line: lineOf(content, m!.index), resolvedFrom: resolved });
@@ -378,7 +460,10 @@ export async function scanOrphans(options: OrphanScanOptions): Promise<OrphanRep
     }
   }
 
-  const diff = scope === 'all' ? { added: files, removed: [], modified: files } : diffVsHead(options.projectRoot, options.baseRef);
+  const diff =
+    scope === 'all'
+      ? { added: files, removed: [], modified: files }
+      : diffVsHead(options.projectRoot, options.baseRef);
   const changedSet = new Set<string>([...diff.added, ...diff.modified]);
 
   const allExports = buildExportIndex(files, fileContents);
@@ -461,7 +546,9 @@ export async function scanOrphans(options: OrphanScanOptions): Promise<OrphanRep
   }
 
   // cliSubcommandOrphan: every `.command('x')` referenced exactly once
-  const cliFiles = files.filter((f) => f.startsWith('src/cli/commands/') && !f.endsWith('index.ts'));
+  const cliFiles = files.filter(
+    (f) => f.startsWith('src/cli/commands/') && !f.endsWith('index.ts')
+  );
   const declaredCommands = new Map<string, { sourceFile: string }>();
   for (const rel of cliFiles) {
     const content = fileContents.get(rel);
@@ -536,9 +623,15 @@ export async function scanOrphans(options: OrphanScanOptions): Promise<OrphanRep
       docEndpoint: dedupeDocEndpointOrphans(docEndpointOrphans).length
     },
     exportOrphans: uniqueByName(exportOrphans).sort((a, b) => a.name.localeCompare(b.name)),
-    importOrphans: dedupeImportOrphans(importOrphans).sort((a, b) => a.importer.localeCompare(b.importer) || a.line - b.line),
-    cliSubcommandOrphans: uniqueByName(cliSubcommandOrphans).sort((a, b) => a.name.localeCompare(b.name)),
-    docEndpointOrphans: dedupeDocEndpointOrphans(docEndpointOrphans).sort((a, b) => a.endpoint.localeCompare(b.endpoint)),
+    importOrphans: dedupeImportOrphans(importOrphans).sort(
+      (a, b) => a.importer.localeCompare(b.importer) || a.line - b.line
+    ),
+    cliSubcommandOrphans: uniqueByName(cliSubcommandOrphans).sort((a, b) =>
+      a.name.localeCompare(b.name)
+    ),
+    docEndpointOrphans: dedupeDocEndpointOrphans(docEndpointOrphans).sort((a, b) =>
+      a.endpoint.localeCompare(b.endpoint)
+    ),
     warnings
   };
 }
@@ -554,13 +647,18 @@ export function formatOrphanMarkdown(
   lines.push(`**Project:** ${report.projectRoot}`);
   lines.push(`**Generated:** ${report.scannedAt}`);
   lines.push(`**Scope:** ${report.scope}${report.strict ? ' (strict)' : ''}`);
-  lines.push(`**Counts:** export=${report.counts.export} import=${report.counts.import} cliSubcommand=${report.counts.cliSubcommand} docEndpoint=${report.counts.docEndpoint}`);
+  lines.push(
+    `**Counts:** export=${report.counts.export} import=${report.counts.import} cliSubcommand=${report.counts.cliSubcommand} docEndpoint=${report.counts.docEndpoint}`
+  );
   lines.push('');
 
   lines.push(`### Export orphans (declared but no in-repo importer) (${report.counts.export})`);
   lines.push('');
   {
-    const arr = report.exportOrphans.slice(0, Number.isFinite(max) ? max : report.exportOrphans.length);
+    const arr = report.exportOrphans.slice(
+      0,
+      Number.isFinite(max) ? max : report.exportOrphans.length
+    );
     for (const e of arr) {
       lines.push(`- \`${e.sourceFile}:${e.line}\` — \`${e.name}\` (${e.kind})`);
     }
@@ -573,9 +671,14 @@ export function formatOrphanMarkdown(
   lines.push(`### Import orphans (working-tree diff focus) (${report.counts.import})`);
   lines.push('');
   {
-    const arr = report.importOrphans.slice(0, Number.isFinite(max) ? max : report.importOrphans.length);
+    const arr = report.importOrphans.slice(
+      0,
+      Number.isFinite(max) ? max : report.importOrphans.length
+    );
     for (const e of arr) {
-      lines.push(`- \`${e.importer}:${e.line}\` imports \`${e.symbol}\` from \`${e.importedFrom}\` (not exported)`);
+      lines.push(
+        `- \`${e.importer}:${e.line}\` imports \`${e.symbol}\` from \`${e.importedFrom}\` (not exported)`
+      );
     }
     if (report.importOrphans.length > arr.length) {
       lines.push(`- ... and ${report.importOrphans.length - arr.length} more`);
@@ -583,10 +686,15 @@ export function formatOrphanMarkdown(
   }
   lines.push('');
 
-  lines.push(`### CLI subcommand orphans (declared but only used at declaration site) (${report.counts.cliSubcommand})`);
+  lines.push(
+    `### CLI subcommand orphans (declared but only used at declaration site) (${report.counts.cliSubcommand})`
+  );
   lines.push('');
   {
-    const arr = report.cliSubcommandOrphans.slice(0, Number.isFinite(max) ? max : report.cliSubcommandOrphans.length);
+    const arr = report.cliSubcommandOrphans.slice(
+      0,
+      Number.isFinite(max) ? max : report.cliSubcommandOrphans.length
+    );
     for (const e of arr) {
       lines.push(`- \`peaks ${e.name}\` declared in \`${e.sourceFile}\` — ${e.reason}`);
     }
@@ -596,10 +704,15 @@ export function formatOrphanMarkdown(
   }
   lines.push('');
 
-  lines.push(`### Doc endpoint orphans (tech-doc declares; codebase lacks) (${report.counts.docEndpoint})`);
+  lines.push(
+    `### Doc endpoint orphans (tech-doc declares; codebase lacks) (${report.counts.docEndpoint})`
+  );
   lines.push('');
   {
-    const arr = report.docEndpointOrphans.slice(0, Number.isFinite(max) ? max : report.docEndpointOrphans.length);
+    const arr = report.docEndpointOrphans.slice(
+      0,
+      Number.isFinite(max) ? max : report.docEndpointOrphans.length
+    );
     for (const e of arr) {
       lines.push(`- \`${e.endpoint}\` declared in \`${e.declaredIn}\` — not implemented in src/`);
     }

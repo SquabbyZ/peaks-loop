@@ -39,7 +39,10 @@ import { Command } from 'commander';
 import { declareDimensions } from '../_setup/4dim-template.js';
 import { makeCapturedIo } from '../_setup/io.js';
 import { emptySnapshot, write24hState } from '~/src/services/24h-mode/store';
-import { applyAutoEngagePresenceMode, presenceModeAdvisory } from '~/src/services/24h-mode/auto-engage';
+import {
+  applyAutoEngagePresenceMode,
+  presenceModeAdvisory
+} from '~/src/services/24h-mode/auto-engage';
 import {
   resolveAutoCompactProfile,
   resolveModeStatus,
@@ -59,7 +62,7 @@ declareDimensions('tests/unit/mode/h3-24h-threshold-wiring.test.ts', [
 const SID = '2026-09-17-session-h3-probe';
 
 /** The 现场 ratio band: at or above `partial.preCompact` (0.70), below `standard.autoFire` (0.80). */
-const FIELD_RATIOS = [0.70, 0.703, 0.75939, 0.799] as const;
+const FIELD_RATIOS = [0.7, 0.703, 0.75939, 0.799] as const;
 
 const tmpRoots: string[] = [];
 
@@ -81,7 +84,10 @@ function makeProjectRoot(): string {
 }
 
 /** Enter the 24h long run: state machine only, exactly as the 现场 had it. */
-function enter24hState(root: string, state: '24H_ACTIVE' | 'WAITING_USER' | 'IDLE' | 'HANDOFF'): void {
+function enter24hState(
+  root: string,
+  state: '24H_ACTIVE' | 'WAITING_USER' | 'IDLE' | 'HANDOFF'
+): void {
   write24hState(root, SID, {
     ...emptySnapshot(),
     state,
@@ -149,8 +155,16 @@ describe('Scenario: behavior — a 24h session in the 0.70–0.80 band triggers 
     const h24 = resolveAutoCompactProfile(root);
     const std = resolveAutoCompactProfile(makeProjectRoot());
     expect(h24).not.toBe(std);
-    expect(AUTO_COMPACT_THRESHOLDS.partial).toEqual({ autoFire: 0.65, preCompact: 0.70, redLine: 0.85 });
-    expect(AUTO_COMPACT_THRESHOLDS.standard).toEqual({ autoFire: 0.80, preCompact: 0.85, redLine: 0.95 });
+    expect(AUTO_COMPACT_THRESHOLDS.partial).toEqual({
+      autoFire: 0.65,
+      preCompact: 0.7,
+      redLine: 0.85
+    });
+    expect(AUTO_COMPACT_THRESHOLDS.standard).toEqual({
+      autoFire: 0.8,
+      preCompact: 0.85,
+      redLine: 0.95
+    });
   });
 
   it('when the run has ended, should fall back to `standard`', () => {
@@ -180,7 +194,11 @@ describe('Scenario: integration — the 24h state machine carries the mode when 
     // advertise a different profile than `peaks code auto-compact` applies.
     const status = resolveModeStatus({ projectRoot: root, sessionId: SID });
     expect(status.autoCompactProfile).toBe('partial');
-    expect(status.autoCompactThresholds).toEqual({ autoFire: 0.65, preCompact: 0.70, redLine: 0.85 });
+    expect(status.autoCompactThresholds).toEqual({
+      autoFire: 0.65,
+      preCompact: 0.7,
+      redLine: 0.85
+    });
   });
 
   it('when the snapshot is unreadable, should degrade to `standard` without throwing', () => {
@@ -214,8 +232,16 @@ describe('Scenario: render — the transition envelope surfaces the failed prese
     const session = program.command('session');
     registerSession24hModeCommand(session, io);
     await program.parseAsync([
-      'node', 'peaks', 'session', '24h-mode', 'transition',
-      '--state', '24H_ACTIVE', '--project', root, '--json'
+      'node',
+      'peaks',
+      'session',
+      '24h-mode',
+      'transition',
+      '--state',
+      '24H_ACTIVE',
+      '--project',
+      root,
+      '--json'
     ]);
 
     const envelope = JSON.parse(captured.text()) as {

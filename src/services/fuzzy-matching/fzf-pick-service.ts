@@ -82,7 +82,12 @@ export async function pickFromList<T>(options: FzfPickOptions<T>): Promise<FzfPi
   if (options.items.length === 0) {
     // Nothing to pick from. Still write an empty picked artifact so
     // downstream commands have a stable file contract.
-    const emptyPayload = { ...options.meta, pickedAt: new Date().toISOString(), fzfVersion, picked: [] };
+    const emptyPayload = {
+      ...options.meta,
+      pickedAt: new Date().toISOString(),
+      fzfVersion,
+      picked: []
+    };
     writeArtifact(options.outputPath, emptyPayload);
     return { picked: [], outputPath: options.outputPath, fzfVersion };
   }

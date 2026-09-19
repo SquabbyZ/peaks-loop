@@ -17,7 +17,15 @@ import {
 describe('buildShadcnInitArgs', () => {
   it('pins the upstream package and forwards preset via npx --package', () => {
     const args = buildShadcnInitArgs({ preset: 'abc123' });
-    expect(args).toEqual(['--package', SHADCN_PACKAGE, '--', 'shadcn', 'init', '--preset', 'abc123']);
+    expect(args).toEqual([
+      '--package',
+      SHADCN_PACKAGE,
+      '--',
+      'shadcn',
+      'init',
+      '--preset',
+      'abc123'
+    ]);
   });
 
   it('appends template and --yes only when supplied', () => {
@@ -26,7 +34,16 @@ describe('buildShadcnInitArgs', () => {
 
     const args = buildShadcnInitArgs({ preset: 'p', template: 'vite', yes: true });
     expect(args).toEqual([
-      '--package', SHADCN_PACKAGE, '--', 'shadcn', 'init', '--preset', 'p', '--template', 'vite', '--yes'
+      '--package',
+      SHADCN_PACKAGE,
+      '--',
+      'shadcn',
+      'init',
+      '--preset',
+      'p',
+      '--template',
+      'vite',
+      '--yes'
     ]);
   });
 
@@ -45,7 +62,9 @@ describe('registerShadcnCommands', () => {
     const init = shadcn?.commands.find((c) => c.name() === 'init');
     expect(init).toBeDefined();
     const longs = init?.options.map((o) => o.long) ?? [];
-    expect(longs).toEqual(expect.arrayContaining(['--preset', '--template', '--project', '--yes', '--json']));
+    expect(longs).toEqual(
+      expect.arrayContaining(['--preset', '--template', '--project', '--yes', '--json'])
+    );
   });
 
   it('requires --preset (the skill says to resolve an unknown preset first)', async () => {
@@ -54,8 +73,8 @@ describe('registerShadcnCommands', () => {
     program.configureOutput({ writeErr: () => {}, writeOut: () => {} });
     registerShadcnCommands(program, makeCapturedIo().io);
 
-    await expect(
-      program.parseAsync(['shadcn', 'init'], { from: 'user' })
-    ).rejects.toThrow(/required option/);
+    await expect(program.parseAsync(['shadcn', 'init'], { from: 'user' })).rejects.toThrow(
+      /required option/
+    );
   });
 });

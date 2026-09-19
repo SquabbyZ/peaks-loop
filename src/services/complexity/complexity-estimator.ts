@@ -49,7 +49,9 @@ export function estimateFileComplexity(file: string): FileComplexity | null {
   }
   const lines = content.split('\n').length;
   const exports = countMatches(content, /^export\s+/gm);
-  const hasAsync = /\basync\s+(function|\([^)]*\)\s*=>|[a-zA-Z_$][a-zA-Z0-9_$]*\s*\()/m.test(content);
+  const hasAsync = /\basync\s+(function|\([^)]*\)\s*=>|[a-zA-Z_$][a-zA-Z0-9_$]*\s*\()/m.test(
+    content
+  );
   let tier: ComplexityTier = 'trivial';
   if (lines > 200 || exports > 10 || hasAsync) tier = 'complex';
   else if (lines > 50 || exports > 3) tier = 'simple';
@@ -62,7 +64,10 @@ export function aggregateTier(tiers: readonly ComplexityTier[]): ComplexityTier 
   return 'trivial';
 }
 
-export function estimateComplexity(projectRoot: string, files: readonly string[]): ComplexityEstimate {
+export function estimateComplexity(
+  projectRoot: string,
+  files: readonly string[]
+): ComplexityEstimate {
   const results: FileComplexity[] = [];
   for (const f of files) {
     const path = resolve(projectRoot, f);

@@ -7,7 +7,8 @@ export type ScopePattern = {
   line: number;
 };
 
-export type FileClassification = 'in-scope' | 'out-of-scope-violation' | 'unclassified' | 'auto-allowed';
+export type FileClassification =
+  'in-scope' | 'out-of-scope-violation' | 'unclassified' | 'auto-allowed';
 
 export type ClassifiedFile = {
   path: string;
@@ -28,8 +29,7 @@ export type DiffScopeReport = {
   patternsDeclared: boolean;
 };
 
-export type DiffScopeError =
-  | { kind: 'rd-not-found' };
+export type DiffScopeError = { kind: 'rd-not-found' };
 
 export type DiffScopeOptions = {
   projectRoot: string;
@@ -40,19 +40,17 @@ export type DiffScopeOptions = {
 
 const RED_LINE_HEADER = /^##\s+Red-line scope\s*$/;
 const IN_SCOPE_SUBHEADER = /^(?:###?\s+)?(?:in[- ]scope|scope|allowed):\s*$/i;
-const OUT_OF_SCOPE_SUBHEADER = /^(?:###?\s+)?(?:out[- ]of[- ]scope|forbidden|excluded|not in scope|do not touch):\s*$/i;
-const OUT_OF_SCOPE_INLINE = /\b(?:out[- ]of[- ]scope|do not modify|do not touch|forbidden|excluded)\b/i;
+const OUT_OF_SCOPE_SUBHEADER =
+  /^(?:###?\s+)?(?:out[- ]of[- ]scope|forbidden|excluded|not in scope|do not touch):\s*$/i;
+const OUT_OF_SCOPE_INLINE =
+  /\b(?:out[- ]of[- ]scope|do not modify|do not touch|forbidden|excluded)\b/i;
 const PLACEHOLDER_PATTERNS = [
   /^<[^>]+>$/, // <placeholder>
   /^\.{2,}$/, // ...
   /^(?:in-scope|out-of-scope)\s+(?:files|surfaces)/i // bullet that is the template label, not a real path
 ];
 
-const AUTO_ALLOWED_PATHS = [
-  /^\.peaks\//,
-  /^\.peaks-artifacts\//,
-  /^\.git\//
-];
+const AUTO_ALLOWED_PATHS = [/^\.peaks\//, /^\.peaks-artifacts\//, /^\.git\//];
 const AUTO_ALLOWED_TEST_FILE = /\.(?:test|spec)\.[a-z]+$/i;
 const AUTO_ALLOWED_TEST_DIR = /(?:^|\/)(?:tests?|__tests__|__mocks__|test|spec)\//;
 
@@ -97,15 +95,19 @@ export function globToRegex(pattern: string): RegExp {
   }
   // If the pattern ends with no trailing slash and no extension wildcard, also allow it to match files under the path (treat as dir prefix)
   // E.g. `src/services/login` should match `src/services/login/handler.ts`.
-  body = (!trimmed.includes("*") && !trimmed.includes("?") && !trimmed.includes("."))
-    ? `${body}(?:/.*)?`
-    : body;
+  body =
+    !trimmed.includes('*') && !trimmed.includes('?') && !trimmed.includes('.')
+      ? `${body}(?:/.*)?`
+      : body;
   return new RegExp(`^${body}$`);
 }
 
 function classifyPatternLine(raw: string): { pattern: string | null } {
   // Strip leading "- ", "* ", numbered list, or trailing comments.
-  const cleaned = raw.replace(/^\s*[-*+]\s*/, '').replace(/^\s*\d+\.\s*/, '').trim();
+  const cleaned = raw
+    .replace(/^\s*[-*+]\s*/, '')
+    .replace(/^\s*\d+\.\s*/, '')
+    .trim();
   if (cleaned.length === 0) return { pattern: null };
   if (isPlaceholder(cleaned)) return { pattern: null };
   // Take the first word/path-like token before whitespace or backticks.
@@ -122,7 +124,11 @@ function classifyPatternLine(raw: string): { pattern: string | null } {
   return { pattern: null };
 }
 
-function parseRedLineScope(rdBody: string): { inScope: ScopePattern[]; outOfScope: ScopePattern[]; declared: boolean } {
+function parseRedLineScope(rdBody: string): {
+  inScope: ScopePattern[];
+  outOfScope: ScopePattern[];
+  declared: boolean;
+} {
   const lines = rdBody.split(/\r?\n/);
   let inSection = false;
   let mode: 'in' | 'out' | 'unspecified' = 'unspecified';
@@ -148,9 +154,10 @@ function parseRedLineScope(rdBody: string): { inScope: ScopePattern[]; outOfScop
     }
     const { pattern } = classifyPatternLine(raw);
     if (pattern === null) continue;
-    const target = mode === 'out' || (mode === 'unspecified' && OUT_OF_SCOPE_INLINE.test(raw))
-      ? outOfScope
-      : inScope;
+    const target =
+      mode === 'out' || (mode === 'unspecified' && OUT_OF_SCOPE_INLINE.test(raw))
+        ? outOfScope
+        : inScope;
     target.push({ raw: pattern, regex: globToRegex(pattern), line: i + 1 });
   }
 
@@ -158,12 +165,28 @@ function parseRedLineScope(rdBody: string): { inScope: ScopePattern[]; outOfScop
   return { inScope, outOfScope, declared };
 }
 
-function tryGitChangedFiles(projectRoot: string, baseRef: string): { ok: boolean; files: string[] } {
+function tryGitChangedFiles(
+  projectRoot: string,
+  baseRef: string
+): { ok: boolean; files: string[] } {
   try {
-    const trackedRaw = execFileSync('git', ['-C', projectRoot, 'diff', '--name-only', baseRef], { encoding: 'utf8', windowsHide: true });
-    const tracked = trackedRaw.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
-    const untrackedRaw = execFileSync('git', ['-C', projectRoot, 'ls-files', '--others', '--exclude-standard'], { encoding: 'utf8', windowsHide: true });
-    const untracked = untrackedRaw.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+    const trackedRaw = execFileSync('git', ['-C', projectRoot, 'diff', '--name-only', baseRef], {
+      encoding: 'utf8',
+      windowsHide: true
+    });
+    const tracked = trackedRaw
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean);
+    const untrackedRaw = execFileSync(
+      'git',
+      ['-C', projectRoot, 'ls-files', '--others', '--exclude-standard'],
+      { encoding: 'utf8', windowsHide: true }
+    );
+    const untracked = untrackedRaw
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean);
     return { ok: true, files: Array.from(new Set([...tracked, ...untracked])) };
   } catch {
     return { ok: false, files: [] };
@@ -183,20 +206,33 @@ function classifyFile(
   outOfScope: ScopePattern[]
 ): { classification: FileClassification; matchedPattern?: string; reason: string } {
   if (isAutoAllowed(path)) {
-    return { classification: 'auto-allowed', reason: 'Auto-allowed (test, mock, or Peaks artifact path)' };
+    return {
+      classification: 'auto-allowed',
+      reason: 'Auto-allowed (test, mock, or Peaks artifact path)'
+    };
   }
   const outMatch = outOfScope.find((pattern) => pattern.regex.test(path));
   if (outMatch !== undefined) {
-    return { classification: 'out-of-scope-violation', matchedPattern: outMatch.raw, reason: `Matches explicit out-of-scope pattern "${outMatch.raw}"` };
+    return {
+      classification: 'out-of-scope-violation',
+      matchedPattern: outMatch.raw,
+      reason: `Matches explicit out-of-scope pattern "${outMatch.raw}"`
+    };
   }
   const inMatch = inScope.find((pattern) => pattern.regex.test(path));
   if (inMatch !== undefined) {
-    return { classification: 'in-scope', matchedPattern: inMatch.raw, reason: `Matches in-scope pattern "${inMatch.raw}"` };
+    return {
+      classification: 'in-scope',
+      matchedPattern: inMatch.raw,
+      reason: `Matches in-scope pattern "${inMatch.raw}"`
+    };
   }
   return { classification: 'unclassified', reason: 'Does not match any declared scope pattern' };
 }
 
-export async function getDiffVsScope(options: DiffScopeOptions): Promise<DiffScopeReport | DiffScopeError> {
+export async function getDiffVsScope(
+  options: DiffScopeOptions
+): Promise<DiffScopeReport | DiffScopeError> {
   const baseRef = options.baseRef ?? 'HEAD';
   const showOptions: Parameters<typeof showRequestArtifact>[0] = {
     projectRoot: options.projectRoot,
@@ -220,7 +256,9 @@ export async function getDiffVsScope(options: DiffScopeOptions): Promise<DiffSco
     }
     return entry;
   });
-  const violations = changedFiles.filter((file) => file.classification === 'out-of-scope-violation');
+  const violations = changedFiles.filter(
+    (file) => file.classification === 'out-of-scope-violation'
+  );
   const unclassified = changedFiles.filter((file) => file.classification === 'unclassified');
   // ok if patterns are declared AND no violations AND no unclassified non-trivial files.
   // If patterns were NOT declared, treat as a warning (ok=false but with a clear "patterns missing" reason).

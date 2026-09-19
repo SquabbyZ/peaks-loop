@@ -386,7 +386,10 @@ async function probeDaemon(projectRoot: string, sessionId: string): Promise<Daem
  * survives its own stop request stays recorded too, so `status` and a second
  * `stop` still see it.
  */
-export async function stopDaemon(projectRoot: string, sessionId: string): Promise<StopDaemonResult> {
+export async function stopDaemon(
+  projectRoot: string,
+  sessionId: string
+): Promise<StopDaemonResult> {
   const info = readDaemonInfo(projectRoot, sessionId);
   const pids: number[] = [];
   const orphanedPids: number[] = [];

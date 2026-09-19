@@ -48,7 +48,12 @@ import { CopilotAdapter as PlaceholderCopilot } from '../../../src/services/adap
 declareDimensions(
   'tests/unit/runtime/vendor-adapter-layer.test.ts',
   ['behavior', 'integration', 'a11y'],
-  [{ dim: 'render', reason: 'the only rendered surface here is the typed error text, asserted under a11y' }],
+  [
+    {
+      dim: 'render',
+      reason: 'the only rendered surface here is the typed error text, asserted under a11y'
+    }
+  ]
 );
 
 const tmpDirs: string[] = [];
@@ -98,11 +103,15 @@ describe('Scenario: behavior — the live layer is the one that answers the envi
     // when / then: the ids are pinned, so wiring a placeholder in here — the
     //        exact confusion this slice is about — turns this red
     const service = new RuntimeService();
-    expect(service.listBuiltInAdapters().map((a) => a.id)).toEqual(['claude-code', 'codex', 'copilot']);
+    expect(service.listBuiltInAdapters().map((a) => a.id)).toEqual([
+      'claude-code',
+      'codex',
+      'copilot'
+    ]);
     expect(service.listBuiltInAdapters().map((a) => a.displayName)).toEqual([
       'Claude Code',
       'Codex',
-      'GitHub Copilot',
+      'GitHub Copilot'
     ]);
   });
 
@@ -162,7 +171,7 @@ describe('Scenario: a11y — the refusal names the layer it came from', () => {
     // when: the refusal is caught
     const error = await codex.resolveScratchDir().then(
       () => null,
-      (e: unknown) => e as Error,
+      (e: unknown) => e as Error
     );
 
     // then: both the vendor and the method are in the text, and the text

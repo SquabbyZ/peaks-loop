@@ -11,7 +11,7 @@
  *
  * The enforcer pattern-scans the peaks-prd SKILL.md for the
  * required guidance phrasing. Two hits (placement heading +
-  * prohibited-paths line) are both required for a clean
+ * prohibited-paths line) are both required for a clean
  * enforcer pass. A single missing item emits a synthetic hit
  * pointing at the line the user is most likely to look at
  * (the placement heading line, or line 1 if missing).
@@ -29,7 +29,11 @@ const PLACEMENT_HEADING = /^##\s+.*Document snapshot placement/im;
 const PROHIBITED_PATHS = /Prohibited paths/im;
 const SOURCE_SUBDIR = /\.peaks\/_runtime\/<session-id>\/prd\/source\//;
 
-function findPrdSourceSnapshotGuidance(lines: ReadonlyArray<string>): { placementLine: number | null; hasProhibited: boolean; hasSubdir: boolean } {
+function findPrdSourceSnapshotGuidance(lines: ReadonlyArray<string>): {
+  placementLine: number | null;
+  hasProhibited: boolean;
+  hasSubdir: boolean;
+} {
   let placementLine: number | null = null;
   let hasProhibited = false;
   let hasSubdir = false;
@@ -54,19 +58,20 @@ export function lintPrdSourceSnapshot(skill: SkillFile): ReadonlyArray<LintHit> 
   // Scope: peaks-prd only. Other bee skills do not have the
   // source-snapshot contract.
   if (skill.name !== 'peaks-prd') return [];
-  const lines = skill.lines.length > 0
-    ? skill.lines
-    : skill.body.split(/\r?\n/);
+  const lines = skill.lines.length > 0 ? skill.lines : skill.body.split(/\r?\n/);
   const { placementLine, hasProhibited, hasSubdir } = findPrdSourceSnapshotGuidance(lines);
   if (placementLine !== null && hasProhibited && hasSubdir) return [];
-  const detail = placementLine === null
-    ? 'missing `## Document snapshot placement` heading'
-    : `placement heading at line ${placementLine} but guidance incomplete (prohibited=${hasProhibited}, subdir=${hasSubdir})`;
-  return [{
-    catalogId: 'rl-prd-source-snapshot-placement-001',
-    rule: 'PRD source-snapshot placement (BLOCKING): external-document snapshots must land in .peaks/_runtime/<sessionId>/prd/source/, never project root',
-    file: skill.path,
-    line: placementLine ?? 1,
-    matchedText: detail
-  }];
+  const detail =
+    placementLine === null
+      ? 'missing `## Document snapshot placement` heading'
+      : `placement heading at line ${placementLine} but guidance incomplete (prohibited=${hasProhibited}, subdir=${hasSubdir})`;
+  return [
+    {
+      catalogId: 'rl-prd-source-snapshot-placement-001',
+      rule: 'PRD source-snapshot placement (BLOCKING): external-document snapshots must land in .peaks/_runtime/<sessionId>/prd/source/, never project root',
+      file: skill.path,
+      line: placementLine ?? 1,
+      matchedText: detail
+    }
+  ];
 }

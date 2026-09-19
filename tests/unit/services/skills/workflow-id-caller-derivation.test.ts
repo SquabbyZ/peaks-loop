@@ -22,9 +22,12 @@ declareDimensions(
   'tests/unit/services/skills/workflow-id-caller-derivation.test.ts',
   ['behavior', 'integration'],
   [
-    { dim: 'render', reason: 'workflowId is an internal string field; no formatted output surface' },
-    { dim: 'a11y', reason: 'no human-facing text in this path' },
-  ],
+    {
+      dim: 'render',
+      reason: 'workflowId is an internal string field; no formatted output surface'
+    },
+    { dim: 'a11y', reason: 'no human-facing text in this path' }
+  ]
 );
 
 const SID_A = '2026-08-06-session-testbed-A';
@@ -55,12 +58,20 @@ afterEach(() => {
   else process.env.PEAKS_OUTER_SESSION_ID = prevPeaksEnv;
   if (prevClaudeEnv === undefined) delete process.env.CLAUDE_CODE_SESSION_ID;
   else process.env.CLAUDE_CODE_SESSION_ID = prevClaudeEnv;
-  try { process.chdir(prevCwd); } catch { /* best-effort */ }
+  try {
+    process.chdir(prevCwd);
+  } catch {
+    /* best-effort */
+  }
   // Capture the value BEFORE deferring: `workspace` is reassigned by the
   // next test's beforeEach, and a deferred read would delete the LIVE dir.
   const wsToRemove = workspace;
   setImmediate(() => {
-    try { rmSync(wsToRemove, { recursive: true, force: true }); } catch { /* best-effort */ }
+    try {
+      rmSync(wsToRemove, { recursive: true, force: true });
+    } catch {
+      /* best-effort */
+    }
   });
 });
 
@@ -165,12 +176,7 @@ describe('Scenario: behavior — regression on the side-effect surface', () => {
     // chars. Pin the invariant.
     const callerIdRegex = /^[a-zA-Z0-9._-]{1,200}$/;
     const wfRegex = /^[a-zA-Z0-9._-]{1,200}$/;
-    const samples = [
-      'a',
-      'abc',
-      'a'.repeat(200),
-      'caller-with_underscores.and.dots',
-    ];
+    const samples = ['a', 'abc', 'a'.repeat(200), 'caller-with_underscores.and.dots'];
     for (const s of samples) {
       expect(callerIdRegex.test(s)).toBe(true);
       const wf = deriveWorkflowId(s);

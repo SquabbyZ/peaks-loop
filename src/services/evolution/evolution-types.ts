@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { z } from 'zod';
 
 /* ---------------------------------------------------------------------- */
 /* PRD-002b slice 2 — schema-limit constants extracted from inline         */
@@ -47,38 +47,28 @@ const EVO_POINTER_MAX = 512;
 /* Target kind — §4.4                                                      */
 /* ---------------------------------------------------------------------- */
 
-export const EvolutionTargetKindSchema = z.enum([
-  "loop",
-  "bee",
-  "policy",
-  "gate",
-  "evaluator",
-]);
+export const EvolutionTargetKindSchema = z.enum(['loop', 'bee', 'policy', 'gate', 'evaluator']);
 export type EvolutionTargetKind = z.infer<typeof EvolutionTargetKindSchema>;
 
 export const EVOLUTION_TARGET_KINDS: readonly EvolutionTargetKind[] = [
-  "loop",
-  "bee",
-  "policy",
-  "gate",
-  "evaluator",
+  'loop',
+  'bee',
+  'policy',
+  'gate',
+  'evaluator'
 ] as const;
 
 /* ---------------------------------------------------------------------- */
 /* Verdict — §4.4                                                          */
 /* ---------------------------------------------------------------------- */
 
-export const EvolutionVerdictSchema = z.enum([
-  "keep",
-  "revert",
-  "needs-user-decision",
-]);
+export const EvolutionVerdictSchema = z.enum(['keep', 'revert', 'needs-user-decision']);
 export type EvolutionVerdict = z.infer<typeof EvolutionVerdictSchema>;
 
 export const EVOLUTION_VERDICTS: readonly EvolutionVerdict[] = [
-  "keep",
-  "revert",
-  "needs-user-decision",
+  'keep',
+  'revert',
+  'needs-user-decision'
 ] as const;
 
 /* ---------------------------------------------------------------------- */
@@ -115,31 +105,27 @@ export const EvolutionProposalInputSchema = z.object({
   optimization_dimension: z
     .string()
     .trim()
-    .min(1, "optimization_dimension is required (single dimension per round)")
+    .min(1, 'optimization_dimension is required (single dimension per round)')
     .max(EVO_OPTIMIZATION_DIMENSION_MAX),
   before_snapshot: z.record(z.string(), z.unknown()).default({}),
   after_snapshot: z.record(z.string(), z.unknown()).default({}),
   diff: z.record(z.string(), z.unknown()).default({}),
   before_score: z
     .number()
-    .finite("before_score must be a finite number")
-    .min(0, "before_score must be >= 0")
-    .max(EVO_SCORING_SCALE_MAX, "before_score must be <= 10"),
+    .finite('before_score must be a finite number')
+    .min(0, 'before_score must be >= 0')
+    .max(EVO_SCORING_SCALE_MAX, 'before_score must be <= 10'),
   after_score: z
     .number()
-    .finite("after_score must be a finite number")
-    .min(0, "after_score must be >= 0")
-    .max(EVO_SCORING_SCALE_MAX, "after_score must be <= 10"),
+    .finite('after_score must be a finite number')
+    .min(0, 'after_score must be >= 0')
+    .max(EVO_SCORING_SCALE_MAX, 'after_score must be <= 10'),
   score_delta_min: z
     .number()
-    .finite("score_delta_min must be a finite number")
-    .min(0, "score_delta_min must be >= 0")
+    .finite('score_delta_min must be a finite number')
+    .min(0, 'score_delta_min must be >= 0')
     .default(1.0),
-  author_id: z
-    .string()
-    .trim()
-    .min(1, "author_id is required")
-    .max(EVO_AUTHOR_ID_MAX),
+  author_id: z.string().trim().min(1, 'author_id is required').max(EVO_AUTHOR_ID_MAX),
   /**
    * The LLM-side marker that this proposal targets a SINGLE object
    * (AC-8). Multi-object proposals must be split into multiple
@@ -148,7 +134,7 @@ export const EvolutionProposalInputSchema = z.object({
    */
   single_object: z.literal(true, {
     error: () =>
-      "single_object must be true (multi-object proposals must be split into multiple rounds)",
+      'single_object must be true (multi-object proposals must be split into multiple rounds)'
   }),
   /**
    * The LLM-side marker that this proposal targets a SINGLE
@@ -157,11 +143,11 @@ export const EvolutionProposalInputSchema = z.object({
    */
   single_optimization_dimension: z.literal(true, {
     error: () =>
-      "single_optimization_dimension must be true (multi-dimension proposals must be split into multiple rounds)",
+      'single_optimization_dimension must be true (multi-dimension proposals must be split into multiple rounds)'
   }),
   rubric: z.record(z.string(), z.unknown()).default({}),
   red_lines: z.array(z.string().min(1).max(EVO_RED_LINE_MAX)).default([]),
-  source_traces: z.array(z.string().min(1).max(EVO_SOURCE_TRACE_MAX)).default([]),
+  source_traces: z.array(z.string().min(1).max(EVO_SOURCE_TRACE_MAX)).default([])
 });
 export type EvolutionProposalInput = z.input<typeof EvolutionProposalInputSchema>;
 
@@ -177,18 +163,15 @@ export const EvolutionProposalSchema = EvolutionProposalInputSchema.extend({
     .min(1)
     .max(EVO_EVAL_ID_MAX)
     .regex(/^eval-[0-9a-f-]{8,}$/, {
-      message:
-        "id must start with 'eval-' followed by a hex/UUID-ish suffix",
+      message: "id must start with 'eval-' followed by a hex/UUID-ish suffix"
     }),
   dimensions: z
     .array(z.string().min(1).max(EVO_DIMENSION_ITEM_MAX))
-    .length(1, "dimensions must be exactly length 1 (AC-8)"),
+    .length(1, 'dimensions must be exactly length 1 (AC-8)'),
   target_count: z.literal(1),
-  schema_version: z
-    .literal("peaks.evolution/1")
-    .default("peaks.evolution/1"),
+  schema_version: z.literal('peaks.evolution/1').default('peaks.evolution/1'),
   created_at: z.string().datetime(),
-  score_delta: z.number().finite(),
+  score_delta: z.number().finite()
 });
 export type EvolutionProposal = z.infer<typeof EvolutionProposalSchema>;
 
@@ -204,18 +187,16 @@ export const IndependentEvaluatorResultSchema = z.object({
   score: z
     .number()
     .finite()
-    .min(0, "evaluator score must be >= 0")
-    .max(EVO_SCORING_SCALE_MAX, "evaluator score must be <= 10"),
+    .min(0, 'evaluator score must be >= 0')
+    .max(EVO_SCORING_SCALE_MAX, 'evaluator score must be <= 10'),
   riskTags: z.array(z.string().min(1).max(EVO_RISK_TAG_MAX)).default([]),
   refuteParagraph: z
     .string()
     .trim()
-    .min(1, "refuteParagraph is required (one paragraph of independent-context rebuttal)")
-    .max(EVO_REFUTE_PARAGRAPH_MAX),
+    .min(1, 'refuteParagraph is required (one paragraph of independent-context rebuttal)')
+    .max(EVO_REFUTE_PARAGRAPH_MAX)
 });
-export type IndependentEvaluatorResult = z.infer<
-  typeof IndependentEvaluatorResultSchema
->;
+export type IndependentEvaluatorResult = z.infer<typeof IndependentEvaluatorResultSchema>;
 
 /**
  * The regression skeptic's verdict. AC-14: a separate sub-agent
@@ -225,11 +206,9 @@ export const RegressionSkepticResultSchema = z.object({
   driftRisks: z.array(z.string().min(1).max(EVO_SKEPTIC_RISK_MAX)).default([]),
   overfitRisks: z.array(z.string().min(1).max(EVO_SKEPTIC_RISK_MAX)).default([]),
   safetyRegressionRisks: z.array(z.string().min(1).max(EVO_SKEPTIC_RISK_MAX)).default([]),
-  blocker: z.string().trim().min(1).max(EVO_SKEPTIC_RISK_MAX).optional(),
+  blocker: z.string().trim().min(1).max(EVO_SKEPTIC_RISK_MAX).optional()
 });
-export type RegressionSkepticResult = z.infer<
-  typeof RegressionSkepticResultSchema
->;
+export type RegressionSkepticResult = z.infer<typeof RegressionSkepticResultSchema>;
 
 /**
  * The full evolution evaluation row as persisted. Differs from the
@@ -251,19 +230,18 @@ export const EvolutionEvaluationInputSchema = z.object({
     .min(1)
     .max(EVO_EVAL_ID_MAX)
     .regex(/^eval-[0-9a-f-]{8,}$/, {
-      message:
-        "id must start with 'eval-' followed by a hex/UUID-ish suffix",
+      message: "id must start with 'eval-' followed by a hex/UUID-ish suffix"
     }),
   proposal: EvolutionProposalSchema,
   evaluator_id: z
     .string()
     .trim()
-    .min(1, "evaluator_id is required (independent scorer; AC-12)")
+    .min(1, 'evaluator_id is required (independent scorer; AC-12)')
     .max(EVO_AUTHOR_ID_MAX),
   skeptic_id: z
     .string()
     .trim()
-    .min(1, "skeptic_id is required (regression skeptic; AC-14)")
+    .min(1, 'skeptic_id is required (regression skeptic; AC-14)')
     .max(EVO_AUTHOR_ID_MAX),
   evaluator_result: IndependentEvaluatorResultSchema,
   skeptic_result: RegressionSkepticResultSchema,
@@ -271,30 +249,26 @@ export const EvolutionEvaluationInputSchema = z.object({
   user_confirmation_pointer: z
     .string()
     .trim()
-    .min(1, "user_confirmation_pointer is required (AC-15)")
+    .min(1, 'user_confirmation_pointer is required (AC-15)')
     .max(EVO_POINTER_MAX)
     .optional(),
   brief_pointer: z
     .string()
     .trim()
-    .min(1, "brief_pointer is required (spec §4.4)")
+    .min(1, 'brief_pointer is required (spec §4.4)')
     .max(EVO_POINTER_MAX)
     .optional(),
-  schema_version: z
-    .literal("peaks.evolution/1")
-    .default("peaks.evolution/1"),
-  created_at: z.string().datetime(),
+  schema_version: z.literal('peaks.evolution/1').default('peaks.evolution/1'),
+  created_at: z.string().datetime()
 });
-export type EvolutionEvaluationInput = z.input<
-  typeof EvolutionEvaluationInputSchema
->;
+export type EvolutionEvaluationInput = z.input<typeof EvolutionEvaluationInputSchema>;
 
 /**
  * The PERSISTED evolution evaluation row. Differs from the input
  * in that `score_delta` is computed and stored.
  */
 export const EvolutionEvaluationSchema = EvolutionEvaluationInputSchema.extend({
-  score_delta: z.number().finite(),
+  score_delta: z.number().finite()
 });
 export type EvolutionEvaluation = z.infer<typeof EvolutionEvaluationSchema>;
 
@@ -326,9 +300,9 @@ export function safeParseEvolutionEvaluation(
   return {
     ok: false,
     findings: r.error.issues.map((i) => ({
-      path: i.path.join("."),
-      message: i.message,
-    })),
+      path: i.path.join('.'),
+      message: i.message
+    }))
   };
 }
 

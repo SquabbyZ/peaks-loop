@@ -7,13 +7,10 @@ export {
   MAX_EVIDENCE_BYTES_TOTAL,
   assertFloorReservationAffordable,
   undeliverableDimensions,
-  type UndeliverableDimensionEvidence,
+  type UndeliverableDimensionEvidence
 } from './final-review-service.js';
 
-export {
-  classifyPrePostDiffVerdict,
-  type PrePostDiffConclusion,
-} from './pre-post-diff.js';
+export { classifyPrePostDiffVerdict, type PrePostDiffConclusion } from './pre-post-diff.js';
 
 export type {
   DimensionKind,
@@ -22,5 +19,5 @@ export type {
   DimensionConfidence,
   EvidenceItem,
   DimensionEvidence,
-  FinalReviewOutput,
+  FinalReviewOutput
 } from './final-review-types.js';

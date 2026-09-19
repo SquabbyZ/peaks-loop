@@ -55,17 +55,17 @@ import { declareDimensions } from '../_setup/4dim-template.js';
 import {
   ensureSession,
   ensureSessionWithRotation,
-  _resetLastResolvedOuterForTest,
+  _resetLastResolvedOuterForTest
 } from '../../../src/services/session/session-binding-bridge.js';
 import {
   getCallerBinding,
   resolveCallerBinding,
-  setCallerBinding,
+  setCallerBinding
 } from '../../../src/services/session/caller-binding-service.js';
 import {
   getSessionId,
   getSessionMeta,
-  type SessionMeta,
+  type SessionMeta
 } from '../../../src/services/session/session-manager.js';
 import type { CallerBinding } from '../../../src/services/session/caller-id-types.js';
 
@@ -74,8 +74,8 @@ declareDimensions(
   ['behavior', 'integration'],
   [
     { dim: 'render', reason: 'JSON-shaped results; no formatted output surface' },
-    { dim: 'a11y', reason: 'no human-facing text in this path' },
-  ],
+    { dim: 'a11y', reason: 'no human-facing text in this path' }
+  ]
 );
 
 const CALLER_A = 'caller-A-slice9';
@@ -113,14 +113,22 @@ afterEach(() => {
   else process.env.PEAKS_OUTER_SESSION_ID = prevPeaksOuterEnv;
   if (prevClaudeEnv === undefined) delete process.env.CLAUDE_CODE_SESSION_ID;
   else process.env.CLAUDE_CODE_SESSION_ID = prevClaudeEnv;
-  try { process.chdir(prevCwd); } catch { /* best-effort */ }
+  try {
+    process.chdir(prevCwd);
+  } catch {
+    /* best-effort */
+  }
   // Defer tmp cleanup; the rmSync races on Windows open-handle were
   // the source of the 5s hookTimeout flake (see slice 6 sediment).
   // Capture the value BEFORE deferring: `workspace` is reassigned by the
   // next test's beforeEach, and a deferred read would delete the LIVE dir.
   const wsToRemove = workspace;
   setImmediate(() => {
-    try { require('node:fs').rmSync(wsToRemove, { recursive: true, force: true }); } catch { /* best-effort */ }
+    try {
+      require('node:fs').rmSync(wsToRemove, { recursive: true, force: true });
+    } catch {
+      /* best-effort */
+    }
   });
 });
 
@@ -178,7 +186,7 @@ function seedLegacySessionMeta(sid: string, outerId: string): void {
     projectRoot: workspace,
     createdAt: '2026-08-07T00:00:00.000Z',
     lastActivity: '2026-08-07T00:00:00.000Z',
-    outerSessionId: outerId,
+    outerSessionId: outerId
   };
   writeFileSync(join(metaDir, 'session.json'), JSON.stringify(meta, null, 2), 'utf8');
 }
@@ -194,8 +202,12 @@ describe('Scenario: behavior — multi-tenant caller-binding isolation (D6)', ()
     expect(a?.peakSessionId).toBe(SID_OLD);
     expect(b?.peakSessionId).toBe(SID_OLD);
     // Both files must exist on disk and be distinct.
-    expect(existsSync(join(workspace, '.peaks', '_runtime', 'callers', `${CALLER_A}.json`))).toBe(true);
-    expect(existsSync(join(workspace, '.peaks', '_runtime', 'callers', `${CALLER_B}.json`))).toBe(true);
+    expect(existsSync(join(workspace, '.peaks', '_runtime', 'callers', `${CALLER_A}.json`))).toBe(
+      true
+    );
+    expect(existsSync(join(workspace, '.peaks', '_runtime', 'callers', `${CALLER_B}.json`))).toBe(
+      true
+    );
     // The two bindings do NOT collide (different filenames).
     expect(`${CALLER_A}.json`).not.toBe(`${CALLER_B}.json`);
   });
@@ -239,8 +251,12 @@ describe('Scenario: behavior — recovery after rotation', () => {
     expect(aAfter?.peakSessionId).toBe(SID_OLD);
     expect(bAfter?.peakSessionId).toBe(SID_OLD);
     // Both files still on disk (rotation does NOT wipe data).
-    expect(existsSync(join(workspace, '.peaks', '_runtime', 'callers', `${CALLER_A}.json`))).toBe(true);
-    expect(existsSync(join(workspace, '.peaks', '_runtime', 'callers', `${CALLER_B}.json`))).toBe(true);
+    expect(existsSync(join(workspace, '.peaks', '_runtime', 'callers', `${CALLER_A}.json`))).toBe(
+      true
+    );
+    expect(existsSync(join(workspace, '.peaks', '_runtime', 'callers', `${CALLER_B}.json`))).toBe(
+      true
+    );
   });
 
   it('G2.2: after rotation, fresh session has no caller-binding (rotation does NOT auto-migrate callers)', async () => {
@@ -350,7 +366,9 @@ describe('Scenario: behavior — rotation hygiene for caller-binding file paths 
 
     // Caller-binding file preserved (rotation operates on the legacy
     // single-file binding, NOT on the per-caller files).
-    expect(existsSync(join(workspace, '.peaks', '_runtime', 'callers', `${CALLER_A}.json`))).toBe(true);
+    expect(existsSync(join(workspace, '.peaks', '_runtime', 'callers', `${CALLER_A}.json`))).toBe(
+      true
+    );
     // Old peak dir preserved (data is never wiped on rotation).
     expect(existsSync(join(workspace, '.peaks', '_runtime', SID_OLD, 'session.json'))).toBe(true);
     // Caller-binding still points at the OLD peak — rotation does NOT

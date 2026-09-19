@@ -19,17 +19,26 @@ describe('context + ast-gate alignment', () => {
     try {
       mkdirSync(join(workdir, 'src'), { recursive: true });
       // 6.x API name (`FormV6`) — not present in 5.21.0 doc summary
-      writeFileSync(join(workdir, 'src', 'Login.tsx'), `
+      writeFileSync(
+        join(workdir, 'src', 'Login.tsx'),
+        `
         import { FormV6 } from 'antd';
         FormV6({ children: [] });
-      `);
-      writeFileSync(join(workdir, 'package.json'), JSON.stringify({
-        name: 'demo', dependencies: { antd: '5.21.0' },
-      }));
+      `
+      );
+      writeFileSync(
+        join(workdir, 'package.json'),
+        JSON.stringify({
+          name: 'demo',
+          dependencies: { antd: '5.21.0' }
+        })
+      );
       writeFileSync(join(workdir, 'pnpm-lock.yaml'), 'lockfileVersion: 9\n');
 
       const collected = await collectContext({
-        goal: 'add login form', project: workdir, depsMode: 'locked',
+        goal: 'add login form',
+        project: workdir,
+        depsMode: 'locked'
       });
       // DocRetriever returns 5.x summary (Form, Form.Item — NOT FormV6).
       const docs = await retrieveDocs(collected.collector.deps, {
@@ -38,11 +47,12 @@ describe('context + ast-gate alignment', () => {
             return { version: '5.21.0', excerpt: 'Form, Form.Item, Button' };
           }
           return null;
-        },
+        }
       });
       const docSummaries = docs.fetchedDocs.map((d) => ({
-        dep: d.dep, version: d.version,
-        apis: [...new Set(d.sections.flatMap((s) => s.excerpt.split(/[\s,]+/)).filter(Boolean))],
+        dep: d.dep,
+        version: d.version,
+        apis: [...new Set(d.sections.flatMap((s) => s.excerpt.split(/[\s,]+/)).filter(Boolean))]
       }));
 
       // H8: register STRAT.sig BEFORE runTacticalStage so the chain check
@@ -50,18 +60,20 @@ describe('context + ast-gate alignment', () => {
       // runTacticalStage JSDoc.)
       registerStratSig(workdir, 'a'.repeat(64));
 
-      await expect(runTacticalStage({
-        project: workdir,
-        changedFiles: ['src/Login.tsx'],
-        inputSig: 'a'.repeat(64),
-        context: {
-          deps: Object.fromEntries(
-            Object.entries(collected.collector.deps).map(([k, v]) => [k, v]),
-          ),
-          docSummaries,
-        },
-        out: join(workdir, 'impl.json'),
-      })).rejects.toThrow(/AST gate/);
+      await expect(
+        runTacticalStage({
+          project: workdir,
+          changedFiles: ['src/Login.tsx'],
+          inputSig: 'a'.repeat(64),
+          context: {
+            deps: Object.fromEntries(
+              Object.entries(collected.collector.deps).map(([k, v]) => [k, v])
+            ),
+            docSummaries
+          },
+          out: join(workdir, 'impl.json')
+        })
+      ).rejects.toThrow(/AST gate/);
     } finally {
       rmSync(workdir, { recursive: true, force: true });
     }

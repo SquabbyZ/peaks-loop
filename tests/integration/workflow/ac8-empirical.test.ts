@@ -31,7 +31,11 @@ const CLI = resolve(__dirname, '../../../bin/peaks.js');
     tempDir = mkdtempSync(join(tmpdir(), 'ac8-empirical-'));
     sessionDir = join(tempDir, '.peaks', '_runtime', SID);
     mkdirSync(join(sessionDir, 'qa'), { recursive: true });
-    writeFileSync(join(tempDir, 'package.json'), JSON.stringify({ name: 'ac8-fixture', dependencies: {} }, null, 2), 'utf8');
+    writeFileSync(
+      join(tempDir, 'package.json'),
+      JSON.stringify({ name: 'ac8-fixture', dependencies: {} }, null, 2),
+      'utf8'
+    );
   });
 
   afterAll(() => {
@@ -40,7 +44,10 @@ const CLI = resolve(__dirname, '../../../bin/peaks.js');
 
   it('reduction >= 40% on a 3-slice sequence', () => {
     const runPeaks = (args: string[]): string =>
-      execFileSync('node', [CLI, ...args, '--project', tempDir, '--session-id', SID, '--json'], { encoding: 'utf8', windowsHide: true });
+      execFileSync('node', [CLI, ...args, '--project', tempDir, '--session-id', SID, '--json'], {
+        encoding: 'utf8',
+        windowsHide: true
+      });
 
     // Step 1: write the project-level plans
     runPeaks(['workflow', 'plan', 'refresh', '--type', 'security', '--apply']);
@@ -52,7 +59,8 @@ const CLI = resolve(__dirname, '../../../bin/peaks.js');
     expect(statSync(planPerfPath).size).toBeGreaterThan(0);
 
     // Step 2: read plan hashes
-    const secHash = JSON.parse(runPeaks(['workflow', 'plan', 'read', '--type', 'security'])).data.hash;
+    const secHash = JSON.parse(runPeaks(['workflow', 'plan', 'read', '--type', 'security'])).data
+      .hash;
     const perfHash = JSON.parse(runPeaks(['workflow', 'plan', 'read', '--type', 'perf'])).data.hash;
 
     // Step 3: simulate 3 slices, each writing a lean delta
@@ -92,7 +100,8 @@ const CLI = resolve(__dirname, '../../../bin/peaks.js');
       resolve(__dirname, '../../fixtures/plan-cli-baseline/performance-findings-full.md'),
       'utf8'
     );
-    const baselineBytesPerSlice = Buffer.byteLength(baselineSec, 'utf8') + Buffer.byteLength(baselinePerf, 'utf8');
+    const baselineBytesPerSlice =
+      Buffer.byteLength(baselineSec, 'utf8') + Buffer.byteLength(baselinePerf, 'utf8');
     const baselineBytesTotal = baselineBytesPerSlice * 3;
 
     // Step 5: measure actual

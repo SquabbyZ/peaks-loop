@@ -29,7 +29,7 @@ export function collectResourceSnapshot(jobDir: string): ResourceSnapshot {
     cpuPercent,
     memMb,
     diskMb,
-    contextRatio,
+    contextRatio
   };
 }
 
@@ -41,7 +41,7 @@ Object.defineProperty(collectResourceSnapshot, 'dirSizeMb', {
   value: dirSizeMb,
   enumerable: false,
   writable: false,
-  configurable: false,
+  configurable: false
 });
 
 /**
@@ -78,4 +78,3 @@ function dirSizeMb(dir: string, opts?: { maxEntries?: number }): number {
   }
   return Math.round(total / 1024 / 1024);
 }
-

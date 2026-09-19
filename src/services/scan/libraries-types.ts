@@ -10,10 +10,7 @@
 export type Ecosystem = 'npm';
 
 export type DependencyScope =
-  | 'dependencies'
-  | 'devDependencies'
-  | 'peerDependencies'
-  | 'optionalDependencies';
+  'dependencies' | 'devDependencies' | 'peerDependencies' | 'optionalDependencies';
 
 export type LibraryEntry = {
   /** npm package name (e.g. "antd", "@mui/material", "react-router-dom"). */

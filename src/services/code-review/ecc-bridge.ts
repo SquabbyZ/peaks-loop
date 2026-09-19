@@ -230,28 +230,30 @@ export function adaptEccEnvelopeToRdCodeReview(
 
   const findingsSection = renderFindings(env.violations);
 
-  const requiredFixesSection = env.violations.length === 0
-    ? ''
-    : [
-        '## Required Fixes',
-        '',
-        ...env.violations.map((v, i) => {
-          const safeSnippet = escapeMarkdownCell(v.snippet);
-          const safeHint = escapeMarkdownCell(v.hint);
-          return `- [${v.kind} @ line ${v.line}] ${safeHint} (snippet: \`${safeSnippet}\`)`;
-        }),
-        ''
-      ].join('\n');
+  const requiredFixesSection =
+    env.violations.length === 0
+      ? ''
+      : [
+          '## Required Fixes',
+          '',
+          ...env.violations.map((v, i) => {
+            const safeSnippet = escapeMarkdownCell(v.snippet);
+            const safeHint = escapeMarkdownCell(v.hint);
+            return `- [${v.kind} @ line ${v.line}] ${safeHint} (snippet: \`${safeSnippet}\`)`;
+          }),
+          ''
+        ].join('\n');
 
-  const recommendedSection = env.gateAction === 'pass'
-    ? ''
-    : [
-        '## Recommended',
-        '',
-        '- Address each Required Fix before transitioning to `qa-handoff`.',
-        '- For non-blocking (`gateAction: warn`) violations, fix or defer with a written rationale in `rd/requests/<rid>.md`.',
-        ''
-      ].join('\n');
+  const recommendedSection =
+    env.gateAction === 'pass'
+      ? ''
+      : [
+          '## Recommended',
+          '',
+          '- Address each Required Fix before transitioning to `qa-handoff`.',
+          '- For non-blocking (`gateAction: warn`) violations, fix or defer with a written rationale in `rd/requests/<rid>.md`.',
+          ''
+        ].join('\n');
 
   // Gate B3 contract: the file MUST contain both `## Findings` and `CRITICAL`.
   // `pass` envelope → emit `CRITICAL: 0` so the gate's substring check still
@@ -265,13 +267,9 @@ export function adaptEccEnvelopeToRdCodeReview(
     ''
   ].join('\n');
 
-  const body = [
-    summary,
-    findingsSection,
-    requiredFixesSection,
-    recommendedSection,
-    verdictBlock
-  ].filter((s) => s.length > 0).join('\n');
+  const body = [summary, findingsSection, requiredFixesSection, recommendedSection, verdictBlock]
+    .filter((s) => s.length > 0)
+    .join('\n');
 
   return {
     body,
@@ -389,9 +387,7 @@ export function detectEcc(input: {
       state: 'agent-missing',
       pluginInstalled: true,
       agentAvailable: false,
-      warnings: [
-        '`ecc` is installed but its `code-reviewer` agent is not registered.'
-      ],
+      warnings: ['`ecc` is installed but its `code-reviewer` agent is not registered.'],
       nextActions: [
         'Verify the plugin is enabled in your Claude Code settings (MCP servers / agent registry).',
         `If your registry still exposes the old \`everything-claude-code\` plugin id, pin the native agent id explicitly (\`${DEFAULT_NATIVE_ECC_AGENT_ID}\`) instead of relying on detection.`,
@@ -470,7 +466,10 @@ export function runEccCodeReview(input: {
   // A dispatchable state implies input.envelope passed isEccEnvelope; the runtime
   // type is therefore EccEnvelope, not `unknown`. Cast is justified by detect's contract.
   const env = input.envelope as EccEnvelope;
-  return { detect, doc: adaptEccEnvelopeToRdCodeReview(env, { rid: input.rid, generatedAt: input.generatedAt }) };
+  return {
+    detect,
+    doc: adaptEccEnvelopeToRdCodeReview(env, { rid: input.rid, generatedAt: input.generatedAt })
+  };
 }
 
 /**

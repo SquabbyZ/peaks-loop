@@ -1,11 +1,11 @@
-import { execFileSync } from "node:child_process";
-import { existsSync } from "node:fs";
+import { execFileSync } from 'node:child_process';
+import { existsSync } from 'node:fs';
 
 /** Thrown when no usable tar binary can be located. */
 export class TAR_NOT_FOUND extends Error {
   constructor(msg: string) {
     super(`TAR_NOT_FOUND: ${msg}`);
-    this.name = "TAR_NOT_FOUND";
+    this.name = 'TAR_NOT_FOUND';
   }
 }
 
@@ -31,8 +31,8 @@ function resolveTarBin(): string {
   const envTar = process.env.TAR;
   if (envTar && envTar.length > 0) return envTar;
 
-  if (process.platform === "win32") {
-    const systemTar = "C:\\Windows\\System32\\tar.exe";
+  if (process.platform === 'win32') {
+    const systemTar = 'C:\\Windows\\System32\\tar.exe';
     if (existsSync(systemTar)) return systemTar;
     // Fall through to PATH lookup below — many dev setups install tar
     // under Git for Windows or WindowsApps rather than System32.
@@ -41,7 +41,7 @@ function resolveTarBin(): string {
   // PATH lookup. We can't stat `tar` directly (it's a name, not a path),
   // so we trust the resolution to execFileSync and surface a clean
   // TAR_NOT_FOUND error from the caller if it fails.
-  return "tar";
+  return 'tar';
 }
 
 /**
@@ -64,8 +64,8 @@ export function runTar(args: string[]): void {
   const cmd = resolveTarBin();
   try {
     execFileSync(cmd, args, {
-      stdio: ["ignore", "ignore", "pipe"],
-      windowsHide: true,
+      stdio: ['ignore', 'ignore', 'pipe'],
+      windowsHide: true
       // Surface stderr text rather than dumping a Buffer at the caller.
       // execFileSync with stdio: ["ignore","ignore","pipe"] captures the
       // stderr stream into the Error's `.stderr` Buffer when the child
@@ -73,9 +73,9 @@ export function runTar(args: string[]): void {
     });
   } catch (e: unknown) {
     // Distinguish "binary not found" from "binary ran but failed".
-    if (e && typeof e === "object" && "code" in e) {
+    if (e && typeof e === 'object' && 'code' in e) {
       const code = (e as { code?: unknown }).code;
-      if (code === "ENOENT") {
+      if (code === 'ENOENT') {
         throw new TAR_NOT_FOUND(
           `tar binary not found (cmd="${cmd}"). Set PEAKS_TAR_BIN to override, or install tar (Windows: bsdtar is bundled with Windows 10+).`
         );
@@ -85,15 +85,14 @@ export function runTar(args: string[]): void {
     const stderr = (e as { stderr?: Buffer | string } | null | undefined)?.stderr;
     const stderrText =
       stderr instanceof Buffer
-        ? stderr.toString("utf-8")
-        : typeof stderr === "string"
-        ? stderr
-        : "";
-    const baseMsg =
-      e instanceof Error ? e.message : typeof e === "string" ? e : String(e);
+        ? stderr.toString('utf-8')
+        : typeof stderr === 'string'
+          ? stderr
+          : '';
+    const baseMsg = e instanceof Error ? e.message : typeof e === 'string' ? e : String(e);
     const wrapped = new Error(
       `tar exited non-zero (cmd="${cmd}"): ${baseMsg}${
-        stderrText ? `\ntar stderr:\n${stderrText.trimEnd()}` : ""
+        stderrText ? `\ntar stderr:\n${stderrText.trimEnd()}` : ''
       }`
     );
     (wrapped as Error & { cause?: unknown }).cause = e;

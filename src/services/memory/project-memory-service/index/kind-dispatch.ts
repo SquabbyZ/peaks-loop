@@ -27,7 +27,12 @@
 import { copyFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
 
-import { isInsidePath, resolveInputPath, stablePath, stableRealPath } from '../../../../shared/path-utils.js';
+import {
+  isInsidePath,
+  resolveInputPath,
+  stablePath,
+  stableRealPath
+} from '../../../../shared/path-utils.js';
 import type {
   BackupPlanOptions,
   ExtractedProjectMemory,
@@ -44,7 +49,11 @@ import type {
   ProjectMemoryExtractSummary
 } from '../types.js';
 import { renderMemoryFile, slugify } from '../parsers/frontmatter.js';
-import { extractStableProjectMemoriesWithDiagnostics, summarizeBackupResult, summarizeExtractResult } from '../parsers/markdown-pure.js';
+import {
+  extractStableProjectMemoriesWithDiagnostics,
+  summarizeBackupResult,
+  summarizeExtractResult
+} from '../parsers/markdown-pure.js';
 import {
   assertInsideProject,
   assertSafeProjectMemoryDir,
@@ -56,7 +65,9 @@ import { assertSafeMemoryFileContent, writeNewFile } from '../store/atomic-write
 import { generateMemoryIndexFile, readStoredMemoryNames } from './ranking.js';
 import { listMarkdownFiles } from './search.js';
 
-export function createProjectMemoryExtractPlan(options: ExtractPlanOptions): ProjectMemoryExtractPlan {
+export function createProjectMemoryExtractPlan(
+  options: ExtractPlanOptions
+): ProjectMemoryExtractPlan {
   const projectRoot = normalizeRoot(options.projectRoot);
   const primaryMemoryDir = assertSafeProjectMemoryDir(projectRoot);
   const extractedMemories: ExtractedProjectMemory[] = [];
@@ -64,7 +75,10 @@ export function createProjectMemoryExtractPlan(options: ExtractPlanOptions): Pro
   for (const artifactPath of options.artifactPaths) {
     const safeArtifactPath = assertInsideProject(artifactPath, projectRoot);
     const relativeArtifactPath = relative(projectRoot, safeArtifactPath).replaceAll('\\', '/');
-    const extracted = extractStableProjectMemoriesWithDiagnostics(readFileSync(safeArtifactPath, 'utf8'), relativeArtifactPath);
+    const extracted = extractStableProjectMemoriesWithDiagnostics(
+      readFileSync(safeArtifactPath, 'utf8'),
+      relativeArtifactPath
+    );
     // Push order + the sort below are the pre-existing ordering contract:
     // artifacts in argument order, memories sorted by slug.
     extractedMemories.push(...extracted.memories);
@@ -77,7 +91,9 @@ export function createProjectMemoryExtractPlan(options: ExtractPlanOptions): Pro
     const slug = slugify(memory.title);
     slugCounts.set(slug, (slugCounts.get(slug) ?? 0) + 1);
   }
-  const duplicateTitles = [...slugCounts.entries()].filter(([, count]) => count > 1).map(([slug]) => slug);
+  const duplicateTitles = [...slugCounts.entries()]
+    .filter(([, count]) => count > 1)
+    .map(([slug]) => slug);
   if (duplicateTitles.length > 0) {
     throw new Error(`Duplicate memory titles are not allowed: ${duplicateTitles.join(', ')}`);
   }
@@ -99,7 +115,9 @@ export function createProjectMemoryExtractPlan(options: ExtractPlanOptions): Pro
   };
 }
 
-export function executeProjectMemoryExtract(options: ExtractPlanOptions): ProjectMemoryExtractResult {
+export function executeProjectMemoryExtract(
+  options: ExtractPlanOptions
+): ProjectMemoryExtractResult {
   const plan = createProjectMemoryExtractPlan(options);
   const writtenFiles: string[] = [];
 
@@ -121,7 +139,9 @@ export function executeProjectMemoryExtract(options: ExtractPlanOptions): Projec
       const targetPath = resolveInputPath(write.filePath);
       const stableTargetPath = stablePath(targetPath);
       if (!isInsidePath(stableTargetPath, stableRealPath(safeMemoryDir))) {
-        throw new Error('Project memory write target must stay inside the project memory directory');
+        throw new Error(
+          'Project memory write target must stay inside the project memory directory'
+        );
       }
       writeNewFile(targetPath, write.content);
       writtenFiles.push(targetPath);
@@ -152,7 +172,12 @@ export function createProjectMemoryBackupPlan(options: BackupPlanOptions): Proje
   }
 
   const primaryMemoryDir = assertSafeProjectMemoryDir(projectRoot);
-  const backupMemoryDir = join(artifactWorkspacePath, '.peaks', 'memory-backups', 'project-memory-primary');
+  const backupMemoryDir = join(
+    artifactWorkspacePath,
+    '.peaks',
+    'memory-backups',
+    'project-memory-primary'
+  );
   const plannedCopies = listMarkdownFiles(primaryMemoryDir).map((sourcePath) => {
     assertSafeMemoryFileContent(readFileSync(sourcePath, 'utf8'));
     const relativeMemoryPath = relative(primaryMemoryDir, sourcePath);
@@ -197,15 +222,21 @@ export function executeProjectMemoryBackup(options: BackupPlanOptions): ProjectM
   return { ...plan, copiedFiles };
 }
 
-export function summarizeProjectMemoryExtractResult(result: ProjectMemoryExtractResult): ProjectMemoryExtractSummary {
+export function summarizeProjectMemoryExtractResult(
+  result: ProjectMemoryExtractResult
+): ProjectMemoryExtractSummary {
   return summarizeExtractResult(result);
 }
 
-export function summarizeProjectMemoryBackupResult(result: ProjectMemoryBackupResult): ProjectMemoryBackupSummary {
+export function summarizeProjectMemoryBackupResult(
+  result: ProjectMemoryBackupResult
+): ProjectMemoryBackupSummary {
   return summarizeBackupResult(result);
 }
 
-export function extractSessionMemories(options: ExtractSessionMemoriesOptions): ExtractSessionMemoriesResult {
+export function extractSessionMemories(
+  options: ExtractSessionMemoriesOptions
+): ExtractSessionMemoriesResult {
   const projectRoot = normalizeRoot(options.projectRoot);
   const apply = options.apply ?? false;
   const primaryMemoryDir = assertSafeProjectMemoryDir(projectRoot);
@@ -267,7 +298,10 @@ export function extractSessionMemories(options: ExtractSessionMemoriesOptions): 
       // string arithmetic on two already-validated absolute path strings and
       // does not throw for them, so hoisting it cannot turn a path-join problem
       // into a fatal error that the old swallow would have absorbed.
-      scanFailures.push({ file: relativePath, detail: error instanceof Error ? error.message : String(error) });
+      scanFailures.push({
+        file: relativePath,
+        detail: error instanceof Error ? error.message : String(error)
+      });
     }
   }
 
@@ -292,7 +326,9 @@ export function extractSessionMemories(options: ExtractSessionMemoriesOptions): 
     const slug = slugify(memory.title);
     slugCounts.set(slug, (slugCounts.get(slug) ?? 0) + 1);
   }
-  const duplicateTitles = [...slugCounts.entries()].filter(([, count]) => count > 1).map(([slug]) => slug);
+  const duplicateTitles = [...slugCounts.entries()]
+    .filter(([, count]) => count > 1)
+    .map(([slug]) => slug);
   if (duplicateTitles.length > 0) {
     throw new Error(`Duplicate memory titles are not allowed: ${duplicateTitles.join(', ')}`);
   }
@@ -313,7 +349,9 @@ export function extractSessionMemories(options: ExtractSessionMemoriesOptions): 
       const safePath = resolveInputPath(targetPath);
       const stableSafePath = stablePath(safePath);
       if (!isInsidePath(stableSafePath, stableRealPath(primaryMemoryDir))) {
-        throw new Error('Project memory write target must stay inside the project memory directory');
+        throw new Error(
+          'Project memory write target must stay inside the project memory directory'
+        );
       }
       writeNewFile(safePath, renderMemoryFile(memory));
       writtenFiles.push(safePath);

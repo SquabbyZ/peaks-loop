@@ -134,13 +134,17 @@ export function registerWebCommands(program: Command, io: ProgramIO): void {
     // options object sits at the declared-argument count — not at the end.
     command.action(async (...actionArgs: unknown[]) => {
       const options = actionArgs[takesArgument ? 1 : 0] as
-        | { json?: boolean; profile?: string }
-        | undefined;
+        { json?: boolean; profile?: string } | undefined;
       const rawArgument = actionArgs[0];
       const positional = takesArgument
         ? [typeof rawArgument === 'string' ? rawArgument : undefined]
         : [];
-      await runWebOp(io, verb.op, verb.toArgs(positional, options?.profile), options?.json === true);
+      await runWebOp(
+        io,
+        verb.op,
+        verb.toArgs(positional, options?.profile),
+        options?.json === true
+      );
     });
   }
 
@@ -198,7 +202,13 @@ export async function runWebOp(
       } catch (error) {
         printResult(
           io,
-          fail(command, 'WEB_PROFILE_NAME_INVALID', profileRefusal(error), {}, PROFILE_NEXT_ACTIONS),
+          fail(
+            command,
+            'WEB_PROFILE_NAME_INVALID',
+            profileRefusal(error),
+            {},
+            PROFILE_NEXT_ACTIONS
+          ),
           asJson
         );
         process.exitCode = 1;
@@ -210,8 +220,7 @@ export async function runWebOp(
         ];
       }
     }
-    const opArgs: Record<string, unknown> =
-      profile === undefined ? args : { ...args, profile };
+    const opArgs: Record<string, unknown> = profile === undefined ? args : { ...args, profile };
 
     const projectRoot = resolveCanonicalProjectRoot(process.cwd());
     const sessionId = getCurrentSessionId(projectRoot);
@@ -258,7 +267,13 @@ export async function runWebOp(
               foldWarnings
             )
           : withFold(
-              fail(command, code, failureMessage(op, response.message, response.nextActions), {}, []),
+              fail(
+                command,
+                code,
+                failureMessage(op, response.message, response.nextActions),
+                {},
+                []
+              ),
               foldWarnings
             ),
         asJson
@@ -314,7 +329,9 @@ function profileRefusal(error: unknown): string {
 
 /** Prepend the fold notice to an envelope's warnings; never rewrite them away. */
 function withFold<T>(envelope: ResultEnvelope<T>, warnings: readonly string[]): ResultEnvelope<T> {
-  return warnings.length === 0 ? envelope : { ...envelope, warnings: [...warnings, ...envelope.warnings] };
+  return warnings.length === 0
+    ? envelope
+    : { ...envelope, warnings: [...warnings, ...envelope.warnings] };
 }
 
 /**
@@ -348,7 +365,9 @@ function failureMessage(op: WebOp, message: unknown, nextActions: readonly strin
     .filter((line) => line !== '')
     .join('\n');
   const wrapped = wrapDiagnostic(detail);
-  return wrapped === '' ? `peaks web ${op} failed in the daemon` : `peaks web ${op} failed in the daemon\n${wrapped}`;
+  return wrapped === ''
+    ? `peaks web ${op} failed in the daemon`
+    : `peaks web ${op} failed in the daemon\n${wrapped}`;
 }
 
 /**
@@ -356,7 +375,9 @@ function failureMessage(op: WebOp, message: unknown, nextActions: readonly strin
  * protocol-shaped identifier is accepted; anything else falls back to ours.
  */
 function safeDaemonCode(value: unknown): string {
-  return typeof value === 'string' && /^[A-Z][A-Z0-9_]{0,63}$/.test(value) ? value : 'WEB_OP_FAILED';
+  return typeof value === 'string' && /^[A-Z][A-Z0-9_]{0,63}$/.test(value)
+    ? value
+    : 'WEB_OP_FAILED';
 }
 
 interface WrappedPayload {
@@ -382,7 +403,11 @@ function wrapPageData(op: WebOp, raw: Record<string, unknown>): WrappedPayload {
     case 'text': {
       const value = wrapUntrusted(text(raw['text']));
       return {
-        data: { text: value, truncated: raw['truncated'] === true, droppedBytes: count(raw['droppedBytes']) },
+        data: {
+          text: value,
+          truncated: raw['truncated'] === true,
+          droppedBytes: count(raw['droppedBytes'])
+        },
         human: value
       };
     }

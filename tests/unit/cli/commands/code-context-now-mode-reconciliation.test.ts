@@ -52,7 +52,7 @@ const RATIO_ENV = 'CLAUDE_CONTEXT_USAGE_PERCENT';
 const SID = '2026-09-18-session-h4';
 
 /** The 现场 band: at/above `partial.preCompact` (0.70), below `standard.autoFire` (0.80). */
-const FIELD_RATIOS = [0.70, 0.75, 0.769469, 0.799] as const;
+const FIELD_RATIOS = [0.7, 0.75, 0.769469, 0.799] as const;
 
 const tmpRoots: string[] = [];
 
@@ -176,7 +176,7 @@ describe('Slice H4 — context-now classifies with the active mode', () => {
 
 describe('Slice H4 — context-now reconciles with the action component', () => {
   /** A ratio sweep that lands inside every band of both tables. */
-  const SWEEP = [0.40, 0.55, 0.66, 0.70, 0.75, 0.80, 0.86, 0.96] as const;
+  const SWEEP = [0.4, 0.55, 0.66, 0.7, 0.75, 0.8, 0.86, 0.96] as const;
 
   const ARMS: readonly (readonly [AutoCompactMode, () => string])[] = [
     ['standard', (): string => makeProject()],
@@ -204,7 +204,9 @@ describe('Slice H4 — context-now reconciles with the action component', () => 
           continue;
         }
         expect(env.data.action).toBe(decision.action);
-        expect(env.data.next === null).toBe(decision.action === 'ok' || decision.action === 'soft-warn');
+        expect(env.data.next === null).toBe(
+          decision.action === 'ok' || decision.action === 'soft-warn'
+        );
       }
     }
   });
@@ -216,7 +218,8 @@ describe('Slice H4 — context-now reconciles with the action component', () => 
         const ratio = pct / 100;
         const decision = evaluateAutoCompactDecision({ ratio, mode });
         const ours = contextNowActionFor(ratio, mode).action;
-        const expected = evaluateCompactTrigger(ratio, mode).kind === 'auto-fire' ? 'soft-warn' : decision.action;
+        const expected =
+          evaluateCompactTrigger(ratio, mode).kind === 'auto-fire' ? 'soft-warn' : decision.action;
         if (ours !== expected) divergentPct.push(pct);
       }
       expect(divergentPct).toEqual([]);
@@ -252,10 +255,10 @@ describe('Slice H4 — the trigger -> action mapping cannot drift', () => {
   });
 
   it('should keep `next` to the one dispatch verb, and null wherever nothing must be run', () => {
-    expect(contextNowActionFor(0.30, 'standard')).toEqual({ action: 'ok', next: null });
-    expect(contextNowActionFor(0.60, 'standard')).toEqual({ action: 'soft-warn', next: null });
+    expect(contextNowActionFor(0.3, 'standard')).toEqual({ action: 'ok', next: null });
+    expect(contextNowActionFor(0.6, 'standard')).toEqual({ action: 'soft-warn', next: null });
     expect(contextNowActionFor(0.82, 'standard')).toEqual({ action: 'soft-warn', next: null });
-    expect(contextNowActionFor(0.90, 'standard')).toEqual({
+    expect(contextNowActionFor(0.9, 'standard')).toEqual({
       action: 'auto-compact-now',
       next: 'peaks code auto-compact'
     });

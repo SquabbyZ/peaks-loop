@@ -30,8 +30,11 @@ declareDimensions(
   ['behavior', 'a11y'],
   [
     { dim: 'render', reason: 'returns a name or throws; the refusal text is asserted under a11y' },
-    { dim: 'integration', reason: 'string comparisons and throws only — no fs, env, clock or subprocess boundary' },
-  ],
+    {
+      dim: 'integration',
+      reason: 'string comparisons and throws only — no fs, env, clock or subprocess boundary'
+    }
+  ]
 );
 
 import {
@@ -48,7 +51,7 @@ describe('behavior — the profile name guard', () => {
     expect(resolveProfileName('work')).toBe('work');
     expect(webProfileDir('work')).toBe(join(homedir(), '.peaks', 'web-profiles', 'work'));
     expect(loginStorageStatePath('work')).toBe(
-      join(homedir(), '.peaks', 'web-profiles', 'work', 'storageState.json'),
+      join(homedir(), '.peaks', 'web-profiles', 'work', 'storageState.json')
     );
   });
 
@@ -64,7 +67,7 @@ describe('behavior — the profile name guard', () => {
       'has space',
       'back\\slash',
       '',
-      'semi;colon',
+      'semi;colon'
     ];
     // when:  each is resolved
     // then:  each throws WEB_PROFILE_NAME_INVALID rather than returning a path

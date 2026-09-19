@@ -45,7 +45,7 @@ import { readCompactHistory } from '../compact-history/compact-history-service.j
 import {
   readCompactLifecycle,
   type CompactLifecycleRecord,
-  type CompactLifecycleStage,
+  type CompactLifecycleStage
 } from './compact-lifecycle-store.js';
 
 export type CompactDisplayKind =
@@ -115,7 +115,7 @@ const CELL_BY_STAGE: ReadonlyMap<CompactLifecycleStage, 0 | 2 | 4 | 6 | 8> = new
   ['compacting', STAGE_CELL_COMPACTING],
   ['verifying', STAGE_CELL_VERIFYING],
   ['completed', STAGE_CELL_COMPLETED],
-  ['failed', STAGE_CELL_COMPACTING],
+  ['failed', STAGE_CELL_COMPACTING]
   // `armed` is not in the cell table: it renders WITHOUT a bar (see
   // renderCompactStatusline). Lookups therefore miss and fall back to 0.
 ]);
@@ -156,7 +156,7 @@ export function decideCompactStatusline(input: {
     projectRoot: input.projectRoot,
     sessionId: input.sessionId,
     nowMs: input.now,
-    staleAfterMs,
+    staleAfterMs
   });
 
   if (lifecycle.kind === 'valid') {
@@ -194,7 +194,7 @@ export function decideCompactStatusline(input: {
     return {
       kind: 'invalid',
       filledCells: 0,
-      detail: lifecycle.reason,
+      detail: lifecycle.reason
     };
   }
 
@@ -203,7 +203,7 @@ export function decideCompactStatusline(input: {
     projectRoot: input.projectRoot,
     sessionId: input.sessionId,
     sessionDir,
-    now: input.now,
+    now: input.now
   });
 }
 
@@ -215,7 +215,7 @@ function stateFromLifecycle(record: CompactLifecycleRecord): CompactStatuslineSt
       filledCells: CELL_BY_STAGE.get(failedAt) ?? STAGE_CELL_COMPACTING,
       triggerRatio: record.triggerRatio,
       redLine: record.redLine,
-      failedAt,
+      failedAt
     };
     if (record.errorSummary !== undefined) {
       return { ...state, detail: record.errorSummary };
@@ -227,7 +227,7 @@ function stateFromLifecycle(record: CompactLifecycleRecord): CompactStatuslineSt
     kind: record.stage,
     filledCells,
     triggerRatio: record.triggerRatio,
-    redLine: record.redLine,
+    redLine: record.redLine
   };
   if (record.stage === 'completed' && typeof record.afterRatio === 'number') {
     return { ...base, afterRatio: record.afterRatio };
@@ -237,14 +237,13 @@ function stateFromLifecycle(record: CompactLifecycleRecord): CompactStatuslineSt
 
 function stateFromStalled(record: CompactLifecycleRecord): CompactStatuslineState {
   const filledCells = CELL_BY_STAGE.get(record.stage) ?? STAGE_CELL_COMPACTING;
-  const detailText = record.stage === 'failed'
-    ? record.errorSummary
-    : `no heartbeat for ${record.stage} stage`;
+  const detailText =
+    record.stage === 'failed' ? record.errorSummary : `no heartbeat for ${record.stage} stage`;
   const state: CompactStatuslineState = {
     kind: 'stalled',
     filledCells,
     triggerRatio: record.triggerRatio,
-    redLine: record.redLine,
+    redLine: record.redLine
   };
   if (detailText !== undefined) {
     return { ...state, detail: detailText };
@@ -273,7 +272,7 @@ function decideLegacyFallback(input: {
           filledCells: 0,
           ...(typeof parsed.ratio === 'number' ? { triggerRatio: parsed.ratio } : {}),
           ...(parsed.redLine === true ? { redLine: true } : {}),
-          detail: pendingPath,
+          detail: pendingPath
         };
       }
     } catch {
@@ -315,7 +314,8 @@ function decideLegacyFallback(input: {
     const witnessed =
       read.kind === 'ok' &&
       read.events.some(
-        (row) => row.kind === 'observed' && now - Date.parse(row.ts) <= LEGACY_JUST_COMPACTED_WINDOW_MS
+        (row) =>
+          row.kind === 'observed' && now - Date.parse(row.ts) <= LEGACY_JUST_COMPACTED_WINDOW_MS
       );
     if (witnessed) {
       // CRITICAL: no invented after-ratio. The row may carry a measured
@@ -324,7 +324,7 @@ function decideLegacyFallback(input: {
       return {
         kind: 'completed',
         filledCells: 8,
-        detail: historyPath,
+        detail: historyPath
       };
     }
   } catch {

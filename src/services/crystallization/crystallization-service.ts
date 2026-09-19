@@ -1,22 +1,22 @@
-import type Database from "better-sqlite3";
-import { z, ZodError } from "zod";
+import type Database from 'better-sqlite3';
+import { z, ZodError } from 'zod';
 import {
   CrystallizationEventSchema,
   EvidenceBriefSchema,
   type CrystallizationEvent,
   type CrystallizationEventInput,
   type CrystallizationEventStatus,
-  type EvidenceBrief,
-} from "./crystallization-types.js";
-import { BriefSectionError } from "./evidence-brief-builder.js";
+  type EvidenceBrief
+} from './crystallization-types.js';
+import { BriefSectionError } from './evidence-brief-builder.js';
 import {
   CRYSTALLIZATION_SCHEMA_VERSION,
   ensureCrystallizationEventTable,
   getCrystallizationEvent,
   listCrystallizationEvents,
   newCrystallizationId,
-  updateCrystallizationEventStatus,
-} from "./crystallization-store.js";
+  updateCrystallizationEventStatus
+} from './crystallization-store.js';
 // Loop domain (loop-release / loop-bee-relation) lives in the main
 // peaks-loop package. Slice-4 (crystallization split) injects the
 // loop-side Zod schemas + insert helpers via CrystallizationOptions
@@ -26,7 +26,10 @@ import {
 type LoopReleaseRow = Record<string, unknown> & { id: string };
 type LoopBeeRelationRow = Record<string, unknown> & { id?: number; created_at?: string };
 type LoopReleaseZodSchema = { parse: (input: unknown) => unknown };
-type LoopBeeRelationZodSchema = { parse: (input: unknown) => unknown; omit: (keys: Record<string, true>) => { parse: (input: unknown) => unknown } };
+type LoopBeeRelationZodSchema = {
+  parse: (input: unknown) => unknown;
+  omit: (keys: Record<string, true>) => { parse: (input: unknown) => unknown };
+};
 type InsertLoopReleaseFn = (db: Database.Database, row: unknown) => void;
 type InsertLoopBeeRelationFn = (db: Database.Database, row: unknown) => unknown;
 
@@ -80,14 +83,13 @@ type InsertLoopBeeRelationFn = (db: Database.Database, row: unknown) => unknown;
 /* ---------------------------------------------------------------------- */
 
 export const CRYSTALLIZATION_TASK_STATUSES = [
-  "completed",
-  "in_progress",
-  "scratch",
-  "blocked",
-  "failed",
+  'completed',
+  'in_progress',
+  'scratch',
+  'blocked',
+  'failed'
 ] as const;
-export type CrystallizationTaskStatus =
-  (typeof CRYSTALLIZATION_TASK_STATUSES)[number];
+export type CrystallizationTaskStatus = (typeof CRYSTALLIZATION_TASK_STATUSES)[number];
 
 /**
  * The pre-run task state the service requires. Crystallization is
@@ -97,35 +99,30 @@ export type CrystallizationTaskStatus =
  */
 export const CrystallizationTaskStateSchema = z.object({
   task_id: z.string().trim().min(1).max(256),
-  task_status: z.literal("completed", {
-    error: () =>
-      "task_status must be 'completed' for crystallization (AC-4 / RL-2)",
+  task_status: z.literal('completed', {
+    error: () => "task_status must be 'completed' for crystallization (AC-4 / RL-2)"
   }),
   gates_passed: z.literal(true, {
-    error: () =>
-      "gates_passed must be true for crystallization (AC-4 / RL-2)",
+    error: () => 'gates_passed must be true for crystallization (AC-4 / RL-2)'
   }),
   evidence_collected: z.literal(true, {
-    error: () =>
-      "evidence_collected must be true for crystallization (AC-4 / RL-2)",
-  }),
+    error: () => 'evidence_collected must be true for crystallization (AC-4 / RL-2)'
+  })
 });
-export type CrystallizationTaskState = z.infer<
-  typeof CrystallizationTaskStateSchema
->;
+export type CrystallizationTaskState = z.infer<typeof CrystallizationTaskStateSchema>;
 
 /* ---------------------------------------------------------------------- */
 /* Domain error                                                           */
 /* ---------------------------------------------------------------------- */
 
 export type CrystallizationIntegrityErrorCode =
-  | "CRYSTALLIZATION_PRE_RUN"
-  | "CRYSTALLIZATION_INVALID_TASK_STATE"
-  | "CRYSTALLIZATION_TX_FAILED"
-  | "MISSING_BRIEF_SECTION";
+  | 'CRYSTALLIZATION_PRE_RUN'
+  | 'CRYSTALLIZATION_INVALID_TASK_STATE'
+  | 'CRYSTALLIZATION_TX_FAILED'
+  | 'MISSING_BRIEF_SECTION';
 
 export class CrystallizationIntegrityError extends Error {
-  readonly code: CrystallizationIntegrityErrorCode | "MISSING_BRIEF_SECTION";
+  readonly code: CrystallizationIntegrityErrorCode | 'MISSING_BRIEF_SECTION';
   readonly findings: ReadonlyArray<{ path: string; message: string }>;
 
   constructor(
@@ -134,7 +131,7 @@ export class CrystallizationIntegrityError extends Error {
     findings: ReadonlyArray<{ path: string; message: string }> = []
   ) {
     super(message);
-    this.name = "CrystallizationIntegrityError";
+    this.name = 'CrystallizationIntegrityError';
     this.code = code;
     this.findings = findings;
   }
@@ -175,7 +172,7 @@ export interface CrystallizePayload {
   /** Optional user decision summary (spec §4.5). */
   user_decision_summary?: string;
   /** Trigger classification (spec §5.4). */
-  trigger: CrystallizationEventInput["trigger"];
+  trigger: CrystallizationEventInput['trigger'];
 }
 
 /**
@@ -193,23 +190,21 @@ export interface CrystallizePayload {
 const BeeNameSchema = z
   .string()
   .trim()
-  .min(1, "bee_name is required")
+  .min(1, 'bee_name is required')
   .max(200)
   .regex(/^[a-z0-9][a-z0-9._-]*$/, {
-    message: "bee_name must be kebab-/snake-case starting with a lowercase letter or digit",
+    message: 'bee_name must be kebab-/snake-case starting with a lowercase letter or digit'
   });
 
 const BeeCrystallizeInputSchema = z.object({
   bee_name: BeeNameSchema,
-  version: z
-    .string()
-    .regex(/^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/, {
-      message: "version must be a semver string (e.g. 0.1.0)",
-    }),
+  version: z.string().regex(/^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/, {
+    message: 'version must be a semver string (e.g. 0.1.0)'
+  }),
   description: z.string().trim().min(1).max(4000),
   user_intent_raw: z.string().trim().max(4000).optional(),
   parent_version: z.string().trim().max(64).optional(),
-  changelog: z.string().trim().max(8000).optional(),
+  changelog: z.string().trim().max(8000).optional()
 });
 
 export interface BeeCrystallizeInput {
@@ -283,10 +278,7 @@ export class CrystallizationService {
    * §5.6 promotion happens on a separate `peaks loop promote` path).
    * `retired` is the dispose path (`peaks asset dispose`).
    */
-  updateStatus(
-    id: string,
-    next: CrystallizationEventStatus
-  ): CrystallizationEvent | undefined {
+  updateStatus(id: string, next: CrystallizationEventStatus): CrystallizationEvent | undefined {
     return updateCrystallizationEventStatus(this.db, id, next);
   }
 
@@ -305,13 +297,13 @@ export class CrystallizationService {
     } catch (err) {
       if (err instanceof ZodError) {
         const findings = err.issues.map((i) => ({
-          path: i.path.join("."),
-          message: i.message,
+          path: i.path.join('.'),
+          message: i.message
         }));
         const first = err.issues[0];
         throw new CrystallizationIntegrityError(
-          "CRYSTALLIZATION_PRE_RUN",
-          `pre-run gate failed: ${first?.message ?? "invalid task state"}`,
+          'CRYSTALLIZATION_PRE_RUN',
+          `pre-run gate failed: ${first?.message ?? 'invalid task state'}`,
           findings
         );
       }
@@ -319,19 +311,19 @@ export class CrystallizationService {
     }
     // Defense in depth — re-assert at the service boundary.
     if (
-      parsed.task_status !== "completed" ||
+      parsed.task_status !== 'completed' ||
       parsed.gates_passed !== true ||
       parsed.evidence_collected !== true
     ) {
       throw new CrystallizationIntegrityError(
-        "CRYSTALLIZATION_PRE_RUN",
-        "pre-run gate failed: task must be completed with gates_passed=true AND evidence_collected=true (AC-4 / RL-2)",
+        'CRYSTALLIZATION_PRE_RUN',
+        'pre-run gate failed: task must be completed with gates_passed=true AND evidence_collected=true (AC-4 / RL-2)',
         [
           {
-            path: "task",
+            path: 'task',
             message:
-              "task_status must equal 'completed' and gates_passed and evidence_collected must both be true",
-          },
+              "task_status must equal 'completed' and gates_passed and evidence_collected must both be true"
+          }
         ]
       );
     }
@@ -383,13 +375,13 @@ export class CrystallizationService {
         const findings =
           err instanceof ZodError
             ? err.issues.map((i) => ({
-                path: i.path.join("."),
-                message: i.message,
+                path: i.path.join('.'),
+                message: i.message
               }))
             : err.findings;
         throw new CrystallizationIntegrityError(
-          "MISSING_BRIEF_SECTION",
-          "evidence_brief is missing at least one of the 4 required sections (spec §4.7 / RL-7)",
+          'MISSING_BRIEF_SECTION',
+          'evidence_brief is missing at least one of the 4 required sections (spec §4.7 / RL-7)',
           [...findings]
         );
       }
@@ -398,7 +390,10 @@ export class CrystallizationService {
 
     // Re-validate loop_input via Zod so a hand-crafted caller input
     // cannot bypass the schema. (M8 dogfood follow-up.)
-    const loopRow = this.opts.loopReleaseSchema.parse(payload.loop_input) as { id: string; [k: string]: unknown };
+    const loopRow = this.opts.loopReleaseSchema.parse(payload.loop_input) as {
+      id: string;
+      [k: string]: unknown;
+    };
 
     // Re-validate bee_input.
     const beeRow = BeeCrystallizeInputSchema.parse(payload.bee_input);
@@ -407,15 +402,17 @@ export class CrystallizationService {
     // account the LLM authored). We validate the shape WITHOUT
     // bee_release_id (which is filled in by the bee insert below),
     // then validate the final tuple after the SQL writes.
-    const relationInputShape = this.opts.loopBeeRelationSchema.omit({
-      id: true,
-      created_at: true,
-      bee_release_id: true,
-    }).parse({
-      loop_release_id: loopRow.id,
-      role: "main",
-      reason: payload.bee_relation_reason,
-    }) as { loop_release_id: string; role: string; reason: string; bee_release_id?: number };
+    const relationInputShape = this.opts.loopBeeRelationSchema
+      .omit({
+        id: true,
+        created_at: true,
+        bee_release_id: true
+      })
+      .parse({
+        loop_release_id: loopRow.id,
+        role: 'main',
+        reason: payload.bee_relation_reason
+      }) as { loop_release_id: string; role: string; reason: string; bee_release_id?: number };
 
     const eventId = newCrystallizationId();
     const eventCreatedAt = new Date().toISOString();
@@ -445,7 +442,7 @@ export class CrystallizationService {
         beeRow.bee_name,
         beeRow.version,
         eventCreatedAt,
-        "llm",
+        'llm',
         beeRow.user_intent_raw ?? null,
         beeRow.description,
         beeRow.parent_version ?? null,
@@ -472,24 +469,22 @@ export class CrystallizationService {
              requires_human, requires_smoke, retire_on_misses
            ) VALUES (?, ?, ?, '[]', '', 'candidate', NULL, 0, 0, NULL)`
         )
-        .run(
-          beeReleaseId,
-          "peaks.bee/1",
-          beeRow.description
-        );
+        .run(beeReleaseId, 'peaks.bee/1', beeRow.description);
 
       // 4. Insert the loop_bee_relation row (FKs now valid). Re-parse
       // through the input schema so the bee_release_id is validated
       // too — defense in depth. `id` is autoincrement (not in input).
-      const fullRelation = this.opts.loopBeeRelationSchema.omit({
-        id: true,
-        created_at: true,
-      }).parse({
-        loop_release_id: relationInputShape.loop_release_id,
-        bee_release_id: beeReleaseId,
-        role: relationInputShape.role,
-        reason: relationInputShape.reason,
-      }) as { loop_release_id: string; bee_release_id: number; role: string; reason: string };
+      const fullRelation = this.opts.loopBeeRelationSchema
+        .omit({
+          id: true,
+          created_at: true
+        })
+        .parse({
+          loop_release_id: relationInputShape.loop_release_id,
+          bee_release_id: beeReleaseId,
+          role: relationInputShape.role,
+          reason: relationInputShape.reason
+        }) as { loop_release_id: string; bee_release_id: number; role: string; reason: string };
       const relationRow = this.opts.insertLoopBeeRelation(this.db, fullRelation) as { id: number };
       relationId = relationRow.id;
 
@@ -500,20 +495,15 @@ export class CrystallizationService {
         evidence_brief: brief,
         evidence_bullets: payload.evidence_bullets ?? [],
         source_trace_pointers: payload.source_trace_pointers ?? [],
-        evaluator_summary: payload.evaluator_summary ?? "",
-        user_decision_summary: payload.user_decision_summary ?? "",
+        evaluator_summary: payload.evaluator_summary ?? '',
+        user_decision_summary: payload.user_decision_summary ?? '',
         created_loop_release_id: loopReleaseId,
         created_bee_release_id: beeReleaseId,
         // updated_* are not set on a CREATE crystallization; they will
         // be set on future UPDATE crystallizations.
-        lifecycle_status: "candidate",
+        lifecycle_status: 'candidate'
       };
-      const persisted = insertCrystallizationEventRaw(
-        this.db,
-        eventInput,
-        eventId,
-        eventCreatedAt
-      );
+      const persisted = insertCrystallizationEventRaw(this.db, eventInput, eventId, eventCreatedAt);
       eventPersistedId = persisted.id;
     });
 
@@ -523,22 +513,18 @@ export class CrystallizationService {
       // Map known SQLite constraint errors to friendlier codes; raise
       // CrystallizationIntegrityError so the CLI can render the JSON
       // envelope.
-      if (
-        err instanceof CrystallizationIntegrityError ||
-        err instanceof BriefSectionError
-      ) {
+      if (err instanceof CrystallizationIntegrityError || err instanceof BriefSectionError) {
         throw err;
       }
       const message = err instanceof Error ? err.message : String(err);
       throw new CrystallizationIntegrityError(
-        "CRYSTALLIZATION_TX_FAILED",
+        'CRYSTALLIZATION_TX_FAILED',
         `crystallization transaction failed: ${message}`,
         [
           {
-            path: "tx",
-            message:
-              "transaction rolled back; verify loop/bee ids are unique and FK targets exist",
-          },
+            path: 'tx',
+            message: 'transaction rolled back; verify loop/bee ids are unique and FK targets exist'
+          }
         ]
       );
     }
@@ -552,7 +538,7 @@ export class CrystallizationService {
       bee_release_id: beeReleaseId,
       loop_bee_relation_id: relationId,
       crystallization_event_id: eventPersistedId,
-      loop_release_lifecycle_status: "candidate",
+      loop_release_lifecycle_status: 'candidate'
     };
   }
 }
@@ -573,7 +559,7 @@ function insertCrystallizationEventRaw(
     ...row,
     id,
     schema_version: CRYSTALLIZATION_SCHEMA_VERSION,
-    created_at: createdAt,
+    created_at: createdAt
   }) as CrystallizationEvent;
   const stmt = db.prepare(
     `INSERT INTO crystallization_event (

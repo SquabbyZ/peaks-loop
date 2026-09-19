@@ -2,7 +2,12 @@ import { type ModelProviderConfig, type WorkspaceConfig } from '../config/config
 import { getConfiguredExecutionModelId, getStrongestModelId } from '../config/model-routing.js';
 import { getLocalArtifactPath } from '../artifacts/workspace-service.js';
 import { createRdSwarmPlan, type RdPlanResult } from '../rd/rd-service.js';
-import { createTechPlan, getTechStatus, type TechPlanResult, type TechStatus } from '../tech/tech-service.js';
+import {
+  createTechPlan,
+  getTechStatus,
+  type TechPlanResult,
+  type TechStatus
+} from '../tech/tech-service.js';
 // Slice 2026-06-29-change-id-root-removal: `validateChangeIdOrThrow`
 // was removed with the change-id axis. Path-safety helpers now live
 // at `shared/path-safety.ts` if this module ever needs them.
@@ -13,7 +18,15 @@ export type CodeMode = 'full-auto' | 'guided' | 'rnd';
 export type ModelTier = 'top-tier' | 'mid-tier';
 export type ModelRole = 'strongest' | 'execution';
 export type WorkflowRoutePolicy = 'code-broad-multi-model' | 'team-rd-limited-multi-model';
-export type WorkflowStepStage = 'product-direction' | 'design-direction' | 'tech-direction' | 'tech-review' | 'rd-planning' | 'coding-execution' | 'unit-test-execution' | 'quality-review';
+export type WorkflowStepStage =
+  | 'product-direction'
+  | 'design-direction'
+  | 'tech-direction'
+  | 'tech-review'
+  | 'rd-planning'
+  | 'coding-execution'
+  | 'unit-test-execution'
+  | 'quality-review';
 export type WorkflowStepOwner = 'peaks-code' | 'peaks-rd' | 'peaks-tech' | 'human';
 
 export type WorkflowRouterRequest = {
@@ -104,8 +117,16 @@ const WORKFLOW_CONSTRAINTS = Object.freeze([
 ]);
 
 const EXECUTION_STAGES: readonly WorkflowStepStage[] = ['coding-execution', 'unit-test-execution'];
-const GUIDED_DECISION_STAGES: readonly WorkflowStepStage[] = ['product-direction', 'design-direction'];
-const GOVERNED_DECISION_STAGES: readonly WorkflowStepStage[] = ['product-direction', 'design-direction', 'tech-direction', 'tech-review'];
+const GUIDED_DECISION_STAGES: readonly WorkflowStepStage[] = [
+  'product-direction',
+  'design-direction'
+];
+const GOVERNED_DECISION_STAGES: readonly WorkflowStepStage[] = [
+  'product-direction',
+  'design-direction',
+  'tech-direction',
+  'tech-review'
+];
 
 export function isWorkflowMode(mode: string): mode is WorkflowMode {
   return mode === 'code' || mode === 'team';
@@ -131,7 +152,14 @@ function assertCodeModeAllowed(mode: WorkflowMode, codeMode: CodeMode | undefine
   }
 }
 
-function step(input: Omit<WorkflowRouterStep, 'dryRunOnly' | 'invokesAgents' | 'writesArtifacts' | 'modelRole' | 'modelId'>, executionModelId: string, strongestModelId: string): WorkflowRouterStep {
+function step(
+  input: Omit<
+    WorkflowRouterStep,
+    'dryRunOnly' | 'invokesAgents' | 'writesArtifacts' | 'modelRole' | 'modelId'
+  >,
+  executionModelId: string,
+  strongestModelId: string
+): WorkflowRouterStep {
   const modelRole: ModelRole = EXECUTION_STAGES.includes(input.stage) ? 'execution' : 'strongest';
   return {
     ...input,
@@ -164,9 +192,7 @@ function getDecisionProfileSummary(mode: WorkflowMode, codeMode: CodeMode | unde
 }
 
 function annotateSteps(steps: WorkflowRouterStep[], codeMode: CodeMode): WorkflowRouterStep[] {
-  const decisionStages = codeMode === 'guided'
-    ? GUIDED_DECISION_STAGES
-    : GOVERNED_DECISION_STAGES;
+  const decisionStages = codeMode === 'guided' ? GUIDED_DECISION_STAGES : GOVERNED_DECISION_STAGES;
   return steps.map((currentStep) => {
     const isDecisionStage = decisionStages.includes(currentStep.stage);
     const reasonPrefix = isDecisionStage
@@ -179,35 +205,227 @@ function annotateSteps(steps: WorkflowRouterStep[], codeMode: CodeMode): Workflo
   });
 }
 
-function createSoloSteps(executionModelId: string, strongestModelId: string, economyMode: boolean): WorkflowRouterStep[] {
+function createSoloSteps(
+  executionModelId: string,
+  strongestModelId: string,
+  economyMode: boolean
+): WorkflowRouterStep[] {
   const executionTier: ModelTier = economyMode === false ? 'top-tier' : 'mid-tier';
   return [
-    step({ id: 'code-product-direction', stage: 'product-direction', owner: 'peaks-code', modelTier: 'top-tier', reason: 'Product direction needs strong judgment before execution work is delegated.', dependsOn: [] }, executionModelId, strongestModelId),
-    step({ id: 'code-design-direction', stage: 'design-direction', owner: 'peaks-code', modelTier: 'top-tier', reason: 'Design direction uses the recommended default before cheaper implementation work.', dependsOn: ['code-product-direction'] }, executionModelId, strongestModelId),
-    step({ id: 'code-tech-direction', stage: 'tech-direction', owner: 'peaks-tech', modelTier: 'top-tier', reason: 'Technical boundaries and approval gates use the recommended default with high-confidence planning.', dependsOn: ['code-design-direction'] }, executionModelId, strongestModelId),
-    step({ id: 'code-tech-review', stage: 'tech-review', owner: 'peaks-tech', modelTier: 'top-tier', reason: 'Tech artifacts and gate decisions require strong review and a recommended default path.', dependsOn: ['code-tech-direction'] }, executionModelId, strongestModelId),
-    step({ id: 'code-rd-planning', stage: 'rd-planning', owner: 'peaks-rd', modelTier: 'top-tier', reason: 'RD task decomposition and acceptance criteria use the recommended default before execution delegation.', dependsOn: ['code-tech-review'] }, executionModelId, strongestModelId),
-    step({ id: 'code-coding-execution', stage: 'coding-execution', owner: 'peaks-rd', modelTier: executionTier, reason: `Coding and routine refactoring must use the configured execution worker model ${executionModelId}.`, dependsOn: ['code-rd-planning'] }, executionModelId, strongestModelId),
-    step({ id: 'code-unit-test-execution', stage: 'unit-test-execution', owner: 'peaks-rd', modelTier: executionTier, reason: `Unit test authoring and focused test runs must use the configured execution worker model ${executionModelId}.`, dependsOn: ['code-coding-execution'] }, executionModelId, strongestModelId),
-    step({ id: 'code-quality-review', stage: 'quality-review', owner: 'peaks-code', modelTier: 'top-tier', reason: 'Reducer and final quality gates need strong synthesis and risk review.', dependsOn: ['code-unit-test-execution'] }, executionModelId, strongestModelId)
+    step(
+      {
+        id: 'code-product-direction',
+        stage: 'product-direction',
+        owner: 'peaks-code',
+        modelTier: 'top-tier',
+        reason: 'Product direction needs strong judgment before execution work is delegated.',
+        dependsOn: []
+      },
+      executionModelId,
+      strongestModelId
+    ),
+    step(
+      {
+        id: 'code-design-direction',
+        stage: 'design-direction',
+        owner: 'peaks-code',
+        modelTier: 'top-tier',
+        reason: 'Design direction uses the recommended default before cheaper implementation work.',
+        dependsOn: ['code-product-direction']
+      },
+      executionModelId,
+      strongestModelId
+    ),
+    step(
+      {
+        id: 'code-tech-direction',
+        stage: 'tech-direction',
+        owner: 'peaks-tech',
+        modelTier: 'top-tier',
+        reason:
+          'Technical boundaries and approval gates use the recommended default with high-confidence planning.',
+        dependsOn: ['code-design-direction']
+      },
+      executionModelId,
+      strongestModelId
+    ),
+    step(
+      {
+        id: 'code-tech-review',
+        stage: 'tech-review',
+        owner: 'peaks-tech',
+        modelTier: 'top-tier',
+        reason:
+          'Tech artifacts and gate decisions require strong review and a recommended default path.',
+        dependsOn: ['code-tech-direction']
+      },
+      executionModelId,
+      strongestModelId
+    ),
+    step(
+      {
+        id: 'code-rd-planning',
+        stage: 'rd-planning',
+        owner: 'peaks-rd',
+        modelTier: 'top-tier',
+        reason:
+          'RD task decomposition and acceptance criteria use the recommended default before execution delegation.',
+        dependsOn: ['code-tech-review']
+      },
+      executionModelId,
+      strongestModelId
+    ),
+    step(
+      {
+        id: 'code-coding-execution',
+        stage: 'coding-execution',
+        owner: 'peaks-rd',
+        modelTier: executionTier,
+        reason: `Coding and routine refactoring must use the configured execution worker model ${executionModelId}.`,
+        dependsOn: ['code-rd-planning']
+      },
+      executionModelId,
+      strongestModelId
+    ),
+    step(
+      {
+        id: 'code-unit-test-execution',
+        stage: 'unit-test-execution',
+        owner: 'peaks-rd',
+        modelTier: executionTier,
+        reason: `Unit test authoring and focused test runs must use the configured execution worker model ${executionModelId}.`,
+        dependsOn: ['code-coding-execution']
+      },
+      executionModelId,
+      strongestModelId
+    ),
+    step(
+      {
+        id: 'code-quality-review',
+        stage: 'quality-review',
+        owner: 'peaks-code',
+        modelTier: 'top-tier',
+        reason: 'Reducer and final quality gates need strong synthesis and risk review.',
+        dependsOn: ['code-unit-test-execution']
+      },
+      executionModelId,
+      strongestModelId
+    )
   ];
 }
 
-function createSoloStepsForMode(codeMode: CodeMode, executionModelId: string, strongestModelId: string, economyMode: boolean): WorkflowRouterStep[] {
+function createSoloStepsForMode(
+  codeMode: CodeMode,
+  executionModelId: string,
+  strongestModelId: string,
+  economyMode: boolean
+): WorkflowRouterStep[] {
   return annotateSteps(createSoloSteps(executionModelId, strongestModelId, economyMode), codeMode);
 }
 
-function createTeamSteps(executionModelId: string, strongestModelId: string, economyMode: boolean): WorkflowRouterStep[] {
+function createTeamSteps(
+  executionModelId: string,
+  strongestModelId: string,
+  economyMode: boolean
+): WorkflowRouterStep[] {
   const executionTier: ModelTier = economyMode === false ? 'top-tier' : 'mid-tier';
   return [
-    step({ id: 'team-product-direction', stage: 'product-direction', owner: 'human', modelTier: 'top-tier', reason: 'Team product direction should stay on the governed planning path.', dependsOn: [] }, executionModelId, strongestModelId),
-    step({ id: 'team-design-direction', stage: 'design-direction', owner: 'human', modelTier: 'top-tier', reason: 'Team design direction should preserve reviewability and accountability.', dependsOn: ['team-product-direction'] }, executionModelId, strongestModelId),
-    step({ id: 'team-tech-direction', stage: 'tech-direction', owner: 'peaks-tech', modelTier: 'top-tier', reason: 'Team technical plans should remain strongly governed before RD execution.', dependsOn: ['team-design-direction'] }, executionModelId, strongestModelId),
-    step({ id: 'team-tech-review', stage: 'tech-review', owner: 'peaks-tech', modelTier: 'top-tier', reason: 'Team tech approval requires strong review before execution.', dependsOn: ['team-tech-direction'] }, executionModelId, strongestModelId),
-    step({ id: 'team-rd-planning', stage: 'rd-planning', owner: 'peaks-rd', modelTier: 'top-tier', reason: 'Team RD task decomposition remains on the governed strongest-model path.', dependsOn: ['team-tech-review'] }, executionModelId, strongestModelId),
-    step({ id: 'team-coding-execution', stage: 'coding-execution', owner: 'peaks-rd', modelTier: executionTier, reason: `Bounded coding tasks must use the configured execution worker model ${executionModelId}.`, dependsOn: ['team-rd-planning'] }, executionModelId, strongestModelId),
-    step({ id: 'team-unit-test-execution', stage: 'unit-test-execution', owner: 'peaks-rd', modelTier: executionTier, reason: `Unit-test tasks must use the configured execution worker model ${executionModelId}.`, dependsOn: ['team-coding-execution'] }, executionModelId, strongestModelId),
-    step({ id: 'team-quality-review', stage: 'quality-review', owner: 'peaks-rd', modelTier: 'top-tier', reason: 'Team RD outputs still need reducer and quality review gates.', dependsOn: ['team-unit-test-execution'] }, executionModelId, strongestModelId)
+    step(
+      {
+        id: 'team-product-direction',
+        stage: 'product-direction',
+        owner: 'human',
+        modelTier: 'top-tier',
+        reason: 'Team product direction should stay on the governed planning path.',
+        dependsOn: []
+      },
+      executionModelId,
+      strongestModelId
+    ),
+    step(
+      {
+        id: 'team-design-direction',
+        stage: 'design-direction',
+        owner: 'human',
+        modelTier: 'top-tier',
+        reason: 'Team design direction should preserve reviewability and accountability.',
+        dependsOn: ['team-product-direction']
+      },
+      executionModelId,
+      strongestModelId
+    ),
+    step(
+      {
+        id: 'team-tech-direction',
+        stage: 'tech-direction',
+        owner: 'peaks-tech',
+        modelTier: 'top-tier',
+        reason: 'Team technical plans should remain strongly governed before RD execution.',
+        dependsOn: ['team-design-direction']
+      },
+      executionModelId,
+      strongestModelId
+    ),
+    step(
+      {
+        id: 'team-tech-review',
+        stage: 'tech-review',
+        owner: 'peaks-tech',
+        modelTier: 'top-tier',
+        reason: 'Team tech approval requires strong review before execution.',
+        dependsOn: ['team-tech-direction']
+      },
+      executionModelId,
+      strongestModelId
+    ),
+    step(
+      {
+        id: 'team-rd-planning',
+        stage: 'rd-planning',
+        owner: 'peaks-rd',
+        modelTier: 'top-tier',
+        reason: 'Team RD task decomposition remains on the governed strongest-model path.',
+        dependsOn: ['team-tech-review']
+      },
+      executionModelId,
+      strongestModelId
+    ),
+    step(
+      {
+        id: 'team-coding-execution',
+        stage: 'coding-execution',
+        owner: 'peaks-rd',
+        modelTier: executionTier,
+        reason: `Bounded coding tasks must use the configured execution worker model ${executionModelId}.`,
+        dependsOn: ['team-rd-planning']
+      },
+      executionModelId,
+      strongestModelId
+    ),
+    step(
+      {
+        id: 'team-unit-test-execution',
+        stage: 'unit-test-execution',
+        owner: 'peaks-rd',
+        modelTier: executionTier,
+        reason: `Unit-test tasks must use the configured execution worker model ${executionModelId}.`,
+        dependsOn: ['team-coding-execution']
+      },
+      executionModelId,
+      strongestModelId
+    ),
+    step(
+      {
+        id: 'team-quality-review',
+        stage: 'quality-review',
+        owner: 'peaks-rd',
+        modelTier: 'top-tier',
+        reason: 'Team RD outputs still need reducer and quality review gates.',
+        dependsOn: ['team-unit-test-execution']
+      },
+      executionModelId,
+      strongestModelId
+    )
   ];
 }
 
@@ -215,7 +433,11 @@ function uniqueStrings(values: readonly string[]): string[] {
   return [...new Set(values)];
 }
 
-function createModelRouting(steps: readonly WorkflowRouterStep[], executionModelId: string, strongestModelId: string): WorkflowModelRouting {
+function createModelRouting(
+  steps: readonly WorkflowRouterStep[],
+  executionModelId: string,
+  strongestModelId: string
+): WorkflowModelRouting {
   return {
     strongestModel: {
       modelId: strongestModelId,
@@ -246,7 +468,13 @@ function getTechPlanNextActions(techPlan: TechPlanResult): string[] {
   return [...techPlan.nextActions];
 }
 
-function createModeStatus(economyMode: boolean, swarmMode: boolean, executionModelId: string, executionModelSource: string, strongestModelId: string): WorkflowModeStatus {
+function createModeStatus(
+  economyMode: boolean,
+  swarmMode: boolean,
+  executionModelId: string,
+  executionModelSource: string,
+  strongestModelId: string
+): WorkflowModeStatus {
   const economySummary = economyMode
     ? `Economy mode enabled: code worker and test worker strictly use ${executionModelId} from config providers.`
     : `Economy mode disabled: code worker and test worker use ${strongestModelId}, matching planner/reviewer.`;
@@ -295,26 +523,54 @@ export function createWorkflowRouterPlan(request: WorkflowRouterRequest): Workfl
   // providers at all. An explicit empty object (`config: { providers: {} }`)
   // still surfaces the "must be configured" error from
   // `getConfiguredExecutionModelId`.
-  const effectiveProviders: ModelProviderConfig = request.config?.providers ?? { anthropic: { model: 'claude-opus-4-7' } };
+  const effectiveProviders: ModelProviderConfig = request.config?.providers ?? {
+    anthropic: { model: 'claude-opus-4-7' }
+  };
   // Slice 2026-07-09 add-zcode-adapter (A.3): the strongest
   // planner/reviewer model is now resolved via `getStrongestModelId`,
   // which reads `config.model` (if present) or falls back to the
   // env-var-overridable default. This decouples the strongest-model
   // pick from any specific vendor constant.
   const strongestModelId = getStrongestModelId(request.config as { model?: unknown });
-  const executionModelId = economyMode !== false ? getConfiguredExecutionModelId(effectiveProviders) : strongestModelId;
-  const modeStatus = createModeStatus(economyMode, swarmMode, executionModelId, economyMode ? 'config.providers' : 'planner-reviewer-strongest-model', strongestModelId);
+  const executionModelId =
+    economyMode !== false ? getConfiguredExecutionModelId(effectiveProviders) : strongestModelId;
+  const modeStatus = createModeStatus(
+    economyMode,
+    swarmMode,
+    executionModelId,
+    economyMode ? 'config.providers' : 'planner-reviewer-strongest-model',
+    strongestModelId
+  );
   const codeMode = getCodeMode(request.mode, request.codeMode);
   const decisionProfile = getDecisionProfileSummary(request.mode, codeMode);
-  const artifactWorkspacePath = request.artifactWorkspacePath ?? (request.workspace ? getLocalArtifactPath(request.workspace) : undefined);
+  const artifactWorkspacePath =
+    request.artifactWorkspacePath ??
+    (request.workspace ? getLocalArtifactPath(request.workspace) : undefined);
   const sharedWorkspaceOptions = {
     ...(artifactWorkspacePath ? { artifactWorkspacePath } : {}),
     ...(request.workspace ? { workspace: request.workspace } : {})
   };
   const techStatus = getTechStatus({ sessionId: request.sessionId, ...sharedWorkspaceOptions });
-  const techPlan = createTechPlan({ sessionId: request.sessionId, goal, swarm: swarmMode, dryRun: true, ...sharedWorkspaceOptions });
-  const rdPlan = createRdSwarmPlan({ skill: 'rd', sessionId: request.sessionId, goal, maxWorkers, swarmMode, executionModelId, dryRun: true, ...sharedWorkspaceOptions });
-  const steps = codeMode ? createSoloStepsForMode(codeMode, executionModelId, strongestModelId, economyMode) : createTeamSteps(executionModelId, strongestModelId, economyMode);
+  const techPlan = createTechPlan({
+    sessionId: request.sessionId,
+    goal,
+    swarm: swarmMode,
+    dryRun: true,
+    ...sharedWorkspaceOptions
+  });
+  const rdPlan = createRdSwarmPlan({
+    skill: 'rd',
+    sessionId: request.sessionId,
+    goal,
+    maxWorkers,
+    swarmMode,
+    executionModelId,
+    dryRun: true,
+    ...sharedWorkspaceOptions
+  });
+  const steps = codeMode
+    ? createSoloStepsForMode(codeMode, executionModelId, strongestModelId, economyMode)
+    : createTeamSteps(executionModelId, strongestModelId, economyMode);
   const blockedReasons = uniqueStrings([
     ...techStatus.blockedReasons,
     ...getTechPlanBlockedReasons(techPlan),
@@ -322,7 +578,11 @@ export function createWorkflowRouterPlan(request: WorkflowRouterRequest): Workfl
   ]);
   const nextActions = blockedReasons.includes('artifact-workspace-unavailable')
     ? [...WORKSPACE_UNAVAILABLE_NEXT_ACTIONS]
-    : uniqueStrings([...techStatus.nextActions, ...getTechPlanNextActions(techPlan), ...rdPlan.nextActions]);
+    : uniqueStrings([
+        ...techStatus.nextActions,
+        ...getTechPlanNextActions(techPlan),
+        ...rdPlan.nextActions
+      ]);
 
   return {
     sessionId: request.sessionId,

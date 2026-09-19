@@ -23,7 +23,8 @@ export function findManagedSkillJunctionReferences(input: {
         if (!lstatSync(junctionPath).isSymbolicLink()) continue;
         const link = readlinkSync(junctionPath);
         const resolvedTarget = resolve(dirname(junctionPath), link);
-        if (isInside(targetRoot, resolvedTarget)) refs.push({ junctionPath, target: resolvedTarget });
+        if (isInside(targetRoot, resolvedTarget))
+          refs.push({ junctionPath, target: resolvedTarget });
       } catch {
         const managedTarget = readFileSync(markerPath, 'utf8').trim();
         if (managedTarget.length > 0 && isInside(targetRoot, managedTarget)) {
@@ -38,5 +39,9 @@ export function findManagedSkillJunctionReferences(input: {
 function isInside(parent: string, candidate: string): boolean {
   const normalizedParent = resolve(parent).toLowerCase();
   const normalizedCandidate = resolve(candidate).toLowerCase();
-  return normalizedCandidate === normalizedParent || normalizedCandidate.startsWith(`${normalizedParent}\\`) || normalizedCandidate.startsWith(`${normalizedParent}/`);
+  return (
+    normalizedCandidate === normalizedParent ||
+    normalizedCandidate.startsWith(`${normalizedParent}\\`) ||
+    normalizedCandidate.startsWith(`${normalizedParent}/`)
+  );
 }

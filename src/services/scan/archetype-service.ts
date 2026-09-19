@@ -2,7 +2,12 @@ import { readdir, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import { isDirectory, pathExists, readText } from 'peaks-loop-shared/fs';
 
-import type { ArchetypeReport, ArchetypeSignal, IntegrationMode, ProjectArchetype } from './scan-types.js';
+import type {
+  ArchetypeReport,
+  ArchetypeSignal,
+  IntegrationMode,
+  ProjectArchetype
+} from './scan-types.js';
 
 export type ArchetypeScanOptions = {
   projectRoot: string;
@@ -20,8 +25,22 @@ const BACKEND_DEP_NAMES = [
   'next' // treated separately for API routes
 ];
 
-const BACKEND_DIR_CANDIDATES = ['server', 'backend', 'api', 'apps/server', 'apps/api', 'packages/server', 'packages/api'];
-const MONOREPO_CONFIG_FILES = ['pnpm-workspace.yaml', 'lerna.json', 'turbo.json', 'nx.json', 'rush.json'];
+const BACKEND_DIR_CANDIDATES = [
+  'server',
+  'backend',
+  'api',
+  'apps/server',
+  'apps/api',
+  'packages/server',
+  'packages/api'
+];
+const MONOREPO_CONFIG_FILES = [
+  'pnpm-workspace.yaml',
+  'lerna.json',
+  'turbo.json',
+  'nx.json',
+  'rush.json'
+];
 
 /**
  * PRD-002b slice 2 — extract archetype-detection thresholds. Names
@@ -53,7 +72,9 @@ type PackageJsonRecord = {
   optionalDependencies?: Record<string, string>;
 };
 
-async function readPackageJsonDeps(projectRoot: string): Promise<{ exists: boolean; deps: Record<string, string> }> {
+async function readPackageJsonDeps(
+  projectRoot: string
+): Promise<{ exists: boolean; deps: Record<string, string> }> {
   const pkgPath = join(projectRoot, 'package.json');
   if (!(await pathExists(pkgPath))) {
     return { exists: false, deps: {} };
@@ -74,7 +95,9 @@ async function readPackageJsonDeps(projectRoot: string): Promise<{ exists: boole
 }
 
 async function detectBackendFrameworks(deps: Record<string, string>): Promise<string[]> {
-  return BACKEND_DEP_NAMES.filter((name) => name !== 'next' && Object.prototype.hasOwnProperty.call(deps, name));
+  return BACKEND_DEP_NAMES.filter(
+    (name) => name !== 'next' && Object.prototype.hasOwnProperty.call(deps, name)
+  );
 }
 
 async function detectNextApiRoutes(projectRoot: string, hasNext: boolean): Promise<boolean> {
@@ -162,20 +185,29 @@ async function lockfileAgeDays(projectRoot: string): Promise<number | null> {
   return null;
 }
 
-function decideArchetype(
-  detected: ArchetypeReport['detected']
-): { archetype: ProjectArchetype; confidence: 'high' | 'medium' | 'low'; signals: ArchetypeSignal[] } {
+function decideArchetype(detected: ArchetypeReport['detected']): {
+  archetype: ProjectArchetype;
+  confidence: 'high' | 'medium' | 'low';
+  signals: ArchetypeSignal[];
+} {
   const signals: ArchetypeSignal[] = [];
 
-  const hasBackend = detected.hasBackendFramework || detected.hasNextApiRoutes || detected.backendDirsPresent.length > 0;
+  const hasBackend =
+    detected.hasBackendFramework ||
+    detected.hasNextApiRoutes ||
+    detected.backendDirsPresent.length > 0;
   signals.push({
     name: 'backend-presence',
     matched: hasBackend,
     detail: hasBackend
       ? [
-          detected.backendFrameworks.length > 0 ? `framework: ${detected.backendFrameworks.join(', ')}` : null,
+          detected.backendFrameworks.length > 0
+            ? `framework: ${detected.backendFrameworks.join(', ')}`
+            : null,
           detected.hasNextApiRoutes ? 'next-api-routes' : null,
-          detected.backendDirsPresent.length > 0 ? `dirs: ${detected.backendDirsPresent.join(', ')}` : null
+          detected.backendDirsPresent.length > 0
+            ? `dirs: ${detected.backendDirsPresent.join(', ')}`
+            : null
         ]
           .filter(Boolean)
           .join('; ')
@@ -185,7 +217,9 @@ function decideArchetype(
   signals.push({
     name: 'swagger-or-proto',
     matched: detected.hasSwaggerOrProto,
-    detail: detected.hasSwaggerOrProto ? detected.swaggerPaths.join(', ') : 'no swagger/openapi/proto'
+    detail: detected.hasSwaggerOrProto
+      ? detected.swaggerPaths.join(', ')
+      : 'no swagger/openapi/proto'
   });
 
   signals.push({
@@ -238,17 +272,26 @@ function decideArchetype(
   const greenfieldSignalCount = greenfieldSignals.filter(Boolean).length;
   // Greenfield must show both a small src AND a fresh/missing lockfile — otherwise an empty-src legacy stub still looks like greenfield.
   if (!hasBackend && greenfieldSignals[0] === true && greenfieldSignals[1] === true) {
-    return { archetype: 'greenfield', confidence: greenfieldSignalCount === HIGH_CONFIDENCE_SIGNAL_COUNT ? 'high' : 'medium', signals };
+    return {
+      archetype: 'greenfield',
+      confidence: greenfieldSignalCount === HIGH_CONFIDENCE_SIGNAL_COUNT ? 'high' : 'medium',
+      signals
+    };
   }
 
   const legacySignalCount = [
     !hasBackend,
     !detected.hasSwaggerOrProto,
-    (detected.lockfileAgeDays !== null && detected.lockfileAgeDays > LOCKFILE_STALE_DAYS) || detected.srcFileCount >= LEGACY_MIN_SRC_FILES
+    (detected.lockfileAgeDays !== null && detected.lockfileAgeDays > LOCKFILE_STALE_DAYS) ||
+      detected.srcFileCount >= LEGACY_MIN_SRC_FILES
   ].filter(Boolean).length;
 
   if (!hasBackend && legacySignalCount >= 2) {
-    return { archetype: 'legacy-frontend', confidence: legacySignalCount === HIGH_CONFIDENCE_SIGNAL_COUNT ? 'high' : 'medium', signals };
+    return {
+      archetype: 'legacy-frontend',
+      confidence: legacySignalCount === HIGH_CONFIDENCE_SIGNAL_COUNT ? 'high' : 'medium',
+      signals
+    };
   }
 
   if (hasBackend) {
@@ -259,7 +302,10 @@ function decideArchetype(
 }
 
 /** The report before the derived mode fields are attached to it. */
-type ArchetypeFacts = Omit<ArchetypeReport, 'frontendOnly' | 'frontendOnlyReason' | 'integrationMode' | 'integrationModeReason'>;
+type ArchetypeFacts = Omit<
+  ArchetypeReport,
+  'frontendOnly' | 'frontendOnlyReason' | 'integrationMode' | 'integrationModeReason'
+>;
 
 function decideFrontendOnly(report: ArchetypeFacts): {
   frontendOnly: boolean;
@@ -268,11 +314,18 @@ function decideFrontendOnly(report: ArchetypeFacts): {
   if (report.archetype === 'legacy-frontend' || report.archetype === 'frontend-monorepo') {
     return { frontendOnly: true, reason: `archetype=${report.archetype}` };
   }
-  const noBackend = !report.detected.hasBackendFramework && !report.detected.hasNextApiRoutes && report.detected.backendDirsPresent.length === 0;
+  const noBackend =
+    !report.detected.hasBackendFramework &&
+    !report.detected.hasNextApiRoutes &&
+    report.detected.backendDirsPresent.length === 0;
   if (noBackend && !report.detected.hasSwaggerOrProto) {
     return { frontendOnly: true, reason: 'no-backend-no-swagger' };
   }
-  if (report.detected.hasBackendFramework || report.detected.hasNextApiRoutes || report.detected.backendDirsPresent.length > 0) {
+  if (
+    report.detected.hasBackendFramework ||
+    report.detected.hasNextApiRoutes ||
+    report.detected.backendDirsPresent.length > 0
+  ) {
     return { frontendOnly: false, reason: 'backend-detected' };
   }
   return { frontendOnly: false, reason: 'swagger-or-proto-present' };
@@ -291,7 +344,10 @@ function decideIntegrationMode(report: ArchetypeFacts): {
   integrationMode: IntegrationMode;
   reason: string;
 } {
-  const hasBackend = report.detected.hasBackendFramework || report.detected.hasNextApiRoutes || report.detected.backendDirsPresent.length > 0;
+  const hasBackend =
+    report.detected.hasBackendFramework ||
+    report.detected.hasNextApiRoutes ||
+    report.detected.backendDirsPresent.length > 0;
   if (hasBackend) {
     return { integrationMode: 'full-stack', reason: 'backend-detected' };
   }

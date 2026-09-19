@@ -25,7 +25,12 @@ import { join } from 'node:path';
 
 import { getErrorMessage } from 'peaks-loop-shared/result';
 
-import type { DoctorCheck, DoctorCheckPlugin, DoctorContext, WorkspaceLayoutInspection } from '../types.js';
+import type {
+  DoctorCheck,
+  DoctorCheckPlugin,
+  DoctorContext,
+  WorkspaceLayoutInspection
+} from '../types.js';
 
 const SESSION_DIR_PATTERN = /^\d{4}-\d{2}-\d{2}-session-[a-f0-9]+$/;
 
@@ -55,10 +60,7 @@ const LEGACY_DOTFILES: ReadonlyArray<string> = ['.session.json'];
 // specific issue ("stale single-slot presence") and the operator
 // can delete the file. The canonical sid-scoped lease at
 // `.peaks/_runtime/<sid>/leases/presence-*.json` is the source of truth.
-const STALE_SINGLE_SLOT_FILES: ReadonlyArray<string> = [
-  'active-skill.json',
-  '.active-skill.json'
-];
+const STALE_SINGLE_SLOT_FILES: ReadonlyArray<string> = ['active-skill.json', '.active-skill.json'];
 
 /**
  * Pure helper that inspects the on-disk workspace layout for
@@ -195,16 +197,24 @@ function defaultPerChangeIdDirScanner(projectRoot: string): string[] {
   return offenders;
 }
 
-function defaultWorkspaceLayoutProbe(projectRootResolver: () => string | null): WorkspaceLayoutInspection {
+function defaultWorkspaceLayoutProbe(
+  projectRootResolver: () => string | null
+): WorkspaceLayoutInspection {
   const projectRoot = projectRootResolver();
   if (projectRoot === null) {
-    return { topLevelSessionDirs: [], legacyDotfiles: [], perChangeIdDirs: [], staleSingleSlotFiles: [] };
+    return {
+      topLevelSessionDirs: [],
+      legacyDotfiles: [],
+      perChangeIdDirs: [],
+      staleSingleSlotFiles: []
+    };
   }
   return inspectWorkspaceLayout({ projectRoot });
 }
 
 function run({ options, projectRootResolver }: DoctorContext): readonly DoctorCheck[] {
-  const probe = options.workspaceLayoutProbe ?? (() => defaultWorkspaceLayoutProbe(projectRootResolver));
+  const probe =
+    options.workspaceLayoutProbe ?? (() => defaultWorkspaceLayoutProbe(projectRootResolver));
   try {
     const layout = probe();
     // Back-compat: probes injected by older tests (pre-slice-007)
@@ -220,11 +230,14 @@ function run({ options, projectRootResolver }: DoctorContext): readonly DoctorCh
       perChangeIdDirs.length === 0 &&
       staleSingleSlotFiles.length === 0
     ) {
-      return [{
-        id: 'build:workspace-layout-canonical',
-        ok: true,
-        message: 'Workspace layout is canonical: no top-level session dirs, no legacy runtime dotfiles, no per-change-id top-level dirs, no stale single-slot presence files'
-      }];
+      return [
+        {
+          id: 'build:workspace-layout-canonical',
+          ok: true,
+          message:
+            'Workspace layout is canonical: no top-level session dirs, no legacy runtime dotfiles, no per-change-id top-level dirs, no stale single-slot presence files'
+        }
+      ];
     }
     const offenders = [
       ...layout.topLevelSessionDirs.map((p) => `top-level session dir: ${p}`),
@@ -232,17 +245,21 @@ function run({ options, projectRootResolver }: DoctorContext): readonly DoctorCh
       ...perChangeIdDirs.map((p) => `per-change-id top-level dir: ${p}`),
       ...staleSingleSlotFiles.map((p) => `stale single-slot presence: ${p}`)
     ];
-    return [{
-      id: 'build:workspace-layout-canonical',
-      ok: false,
-      message: `Workspace layout is not canonical. Offenders: ${offenders.join('; ')}. Run \`peaks workspace migrate --to-runtime --project <repo> --apply\` to consolidate; delete stale single-slot presence files manually after migration.`
-    }];
+    return [
+      {
+        id: 'build:workspace-layout-canonical',
+        ok: false,
+        message: `Workspace layout is not canonical. Offenders: ${offenders.join('; ')}. Run \`peaks workspace migrate --to-runtime --project <repo> --apply\` to consolidate; delete stale single-slot presence files manually after migration.`
+      }
+    ];
   } catch (error) {
-    return [{
-      id: 'build:workspace-layout-canonical',
-      ok: false,
-      message: `Workspace layout check failed: ${getErrorMessage(error)}`
-    }];
+    return [
+      {
+        id: 'build:workspace-layout-canonical',
+        ok: false,
+        message: `Workspace layout check failed: ${getErrorMessage(error)}`
+      }
+    ];
   }
 }
 

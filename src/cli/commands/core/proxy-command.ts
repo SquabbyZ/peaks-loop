@@ -2,7 +2,13 @@ import type { Command } from 'commander';
 import { planProxyTest } from '../../../services/proxy/proxy-service.js';
 import { fail, ok } from 'peaks-loop-shared/result';
 
-import { addJsonOption, failUnsupportedNonDryRun, getErrorMessage, printResult, type ProgramIO } from '../../cli-helpers.js';
+import {
+  addJsonOption,
+  failUnsupportedNonDryRun,
+  getErrorMessage,
+  printResult,
+  type ProgramIO
+} from '../../cli-helpers.js';
 
 export function registerProxyCommand(program: Command, io: ProgramIO): void {
   const proxy = program.command('proxy').description('Manage proxy settings');
@@ -24,7 +30,13 @@ export function registerProxyCommand(program: Command, io: ProgramIO): void {
       const plan = planProxyTest(options.proxy, options.target, true);
       printResult(io, ok('proxy.test', plan), options.json);
     } catch (error) {
-      printResult(io, fail('proxy.test', 'INVALID_PROXY', getErrorMessage(error), {}, ['Use a proxy URL starting with http:// or https://']), options.json);
+      printResult(
+        io,
+        fail('proxy.test', 'INVALID_PROXY', getErrorMessage(error), {}, [
+          'Use a proxy URL starting with http:// or https://'
+        ]),
+        options.json
+      );
       process.exitCode = 1;
     }
   });

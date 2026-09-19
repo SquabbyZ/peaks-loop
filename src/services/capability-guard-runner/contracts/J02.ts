@@ -3,7 +3,14 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import type { GuardContext, GuardRunResult } from '../types.js';
-import { combineProbes, fail, missingSourceFiles, pass, probe, requireBaselineRow } from './_shared.js';
+import {
+  combineProbes,
+  fail,
+  missingSourceFiles,
+  pass,
+  probe,
+  requireBaselineRow
+} from './_shared.js';
 
 const STATES: ReadonlyArray<string> = ['spec-locked', 'implemented', 'qa-handoff', 'handed-off'];
 
@@ -46,12 +53,18 @@ export async function runJ02Contract(ctx: GuardContext): Promise<GuardRunResult>
       return { stdout, stderr: '' };
     } catch (e) {
       const err = e as Error & { stdout?: Buffer | string; stderr?: Buffer | string };
-      const stderr = typeof err.stderr === 'string'
-        ? err.stderr
-        : Buffer.isBuffer(err.stderr) ? err.stderr.toString('utf8') : '';
-      const stdout = typeof err.stdout === 'string'
-        ? err.stdout
-        : Buffer.isBuffer(err.stdout) ? err.stdout.toString('utf8') : '';
+      const stderr =
+        typeof err.stderr === 'string'
+          ? err.stderr
+          : Buffer.isBuffer(err.stderr)
+            ? err.stderr.toString('utf8')
+            : '';
+      const stdout =
+        typeof err.stdout === 'string'
+          ? err.stdout
+          : Buffer.isBuffer(err.stdout)
+            ? err.stdout.toString('utf8')
+            : '';
       // Preserve the original error type/message but attach stderr so the
       // outer try-catch's `e.message.slice(0, 160)` sees something useful.
       // Truncate stdout aggressively to keep the audit envelope bounded, but
@@ -70,63 +83,93 @@ export async function runJ02Contract(ctx: GuardContext): Promise<GuardRunResult>
     }
   };
   try {
-  const ws = run(['workspace', 'init', '--project', tmp, '--json']);
-  const { data: { sessionId } } = JSON.parse(ws.stdout) as { data: { sessionId: string } };
-  const rid = '2026-08-03-j02-fixture';
-  const initOut = run(['request', 'init', '--role', 'rd', '--id', rid, '--project', tmp, '--session-id', sessionId, '--apply', '--json']);
-  const initEnv = JSON.parse(initOut.stdout) as { data: { path: string } };
-  // `request init` writes the file as `NNN-<id-slug>.md`. The transition CLI accepts
-  // the file's basename (without .md) as the requestId. Derive it from data.path.
-  const baseName = initEnv.data.path.split(/[\\/]/).pop() ?? '';
-  const requestId = baseName.replace(/\.md$/i, '');
+    const ws = run(['workspace', 'init', '--project', tmp, '--json']);
+    const {
+      data: { sessionId }
+    } = JSON.parse(ws.stdout) as { data: { sessionId: string } };
+    const rid = '2026-08-03-j02-fixture';
+    const initOut = run([
+      'request',
+      'init',
+      '--role',
+      'rd',
+      '--id',
+      rid,
+      '--project',
+      tmp,
+      '--session-id',
+      sessionId,
+      '--apply',
+      '--json'
+    ]);
+    const initEnv = JSON.parse(initOut.stdout) as { data: { path: string } };
+    // `request init` writes the file as `NNN-<id-slug>.md`. The transition CLI accepts
+    // the file's basename (without .md) as the requestId. Derive it from data.path.
+    const baseName = initEnv.data.path.split(/[\\/]/).pop() ?? '';
+    const requestId = baseName.replace(/\.md$/i, '');
 
-  const transition = (state: string, extra: ReadonlyArray<string>): string =>
-    run([
-      'request', 'transition', requestId, '--role', 'rd', '--state', state,
-      '--project', tmp, '--session-id', sessionId, '--confirm',
-      '--reason', 'J02 contract fixture', ...extra, '--json'
-    ]).stdout;
+    const transition = (state: string, extra: ReadonlyArray<string>): string =>
+      run([
+        'request',
+        'transition',
+        requestId,
+        '--role',
+        'rd',
+        '--state',
+        state,
+        '--project',
+        tmp,
+        '--session-id',
+        sessionId,
+        '--confirm',
+        '--reason',
+        'J02 contract fixture',
+        ...extra,
+        '--json'
+      ]).stdout;
 
-  // Hard-gate probe, run FIRST: from the freshly initialised state, jumping
-  // straight to the terminal state skips every intermediate gate and must not
-  // be accepted without the explicit incomplete-work escape hatch. Doing this
-  // before the legal walk is what makes it a skip (from `qa-handoff` the move
-  // to `handed-off` is legal and proves nothing).
-  let gateSkipRefused = false;
-  let skipError = 'not attempted';
-  try {
-    transition('handed-off', []);
-    skipError = 'transition was accepted';
-  } catch (e) {
-    gateSkipRefused = true;
-    skipError = (e as Error).message.slice(0, 160);
-  }
-
-  let last = '';
-  try {
-    for (const s of STATES) {
-      const env = JSON.parse(transition(s, ['--allow-incomplete'])) as { data: { state: string } };
-      last = env.data.state;
+    // Hard-gate probe, run FIRST: from the freshly initialised state, jumping
+    // straight to the terminal state skips every intermediate gate and must not
+    // be accepted without the explicit incomplete-work escape hatch. Doing this
+    // before the legal walk is what makes it a skip (from `qa-handoff` the move
+    // to `handed-off` is legal and proves nothing).
+    let gateSkipRefused = false;
+    let skipError = 'not attempted';
+    try {
+      transition('handed-off', []);
+      skipError = 'transition was accepted';
+    } catch (e) {
+      gateSkipRefused = true;
+      skipError = (e as Error).message.slice(0, 160);
     }
-  } catch (e) {
-    last = `error: ${(e as Error).message.slice(0, 160)}`;
-  }
 
-  const result = combineProbes([
-    probe(missing.length === 0, `baseline sourceFiles present (${row.sourceFiles.length})`),
-    probe(gateSkipRefused, `an incomplete jump to handed-off is refused (${skipError})`),
-    probe(last === 'handed-off', `the RD state machine reaches handed-off (saw ${last})`)
-  ]);
+    let last = '';
+    try {
+      for (const s of STATES) {
+        const env = JSON.parse(transition(s, ['--allow-incomplete'])) as {
+          data: { state: string };
+        };
+        last = env.data.state;
+      }
+    } catch (e) {
+      last = `error: ${(e as Error).message.slice(0, 160)}`;
+    }
 
-  const artifact = row.sourceFiles[3] ?? 'tests/integration/job-e2e.test.ts';
-  if (result.ok) return pass(ctx, artifact);
-  return fail(
-    ctx,
-    artifact,
-    'every hard gate is enforced and the RD state machine still reaches handed-off',
-    result.detail,
-    'J02 invariant broken: the RD state machine or its hard-gate enforcement changed'
-  );
+    const result = combineProbes([
+      probe(missing.length === 0, `baseline sourceFiles present (${row.sourceFiles.length})`),
+      probe(gateSkipRefused, `an incomplete jump to handed-off is refused (${skipError})`),
+      probe(last === 'handed-off', `the RD state machine reaches handed-off (saw ${last})`)
+    ]);
+
+    const artifact = row.sourceFiles[3] ?? 'tests/integration/job-e2e.test.ts';
+    if (result.ok) return pass(ctx, artifact);
+    return fail(
+      ctx,
+      artifact,
+      'every hard gate is enforced and the RD state machine still reaches handed-off',
+      result.detail,
+      'J02 invariant broken: the RD state machine or its hard-gate enforcement changed'
+    );
   } finally {
     rmSync(tmp, { recursive: true, force: true });
   }

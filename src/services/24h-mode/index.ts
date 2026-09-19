@@ -20,12 +20,7 @@ export {
   type State24hSnapshot
 } from './state.js';
 
-export {
-  STATE_STORE_CONSTANTS,
-  emptySnapshot,
-  read24hState,
-  write24hState
-} from './store.js';
+export { STATE_STORE_CONSTANTS, emptySnapshot, read24hState, write24hState } from './store.js';
 
 export {
   AUTO_ENGAGE_TRIGGERS,

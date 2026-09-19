@@ -22,6 +22,6 @@ export const MigrateResultSchema = z.object({
   keyValueReplacements: z.number().int().gte(0),
   stringReplacements: z.number().int().gte(0),
   skipped: z.array(z.string()),
-  errors: z.array(z.string()),
+  errors: z.array(z.string())
 });
 export type MigrateResult = z.infer<typeof MigrateResultSchema>;

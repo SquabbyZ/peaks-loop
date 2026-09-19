@@ -150,7 +150,8 @@ export function extractFirstJsonObject(text: string): unknown | null {
         if (depth === 0) {
           try {
             return JSON.parse(candidate.slice(start, i + 1));
-          } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+          } catch {
+            // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
             // TODO(g2): brace-balanced scan may slice mid-string or trap on malformed JSON;
             // null sentinel is intentional for slice B-1 reviewer parser — caller distinguishes
             // via ParseResult.ok flag at the call site (extractFirstJsonObject contract).
@@ -231,7 +232,13 @@ export async function runReviewer(input: ReviewerRunInput): Promise<ReviewerRunO
   }
   const config: ReviewerConfig = status.config;
   const state = input.state ?? initialState();
-  const { result, nextState } = selectByMode(config.selection, config.providers, input.rid, state, input.rng);
+  const { result, nextState } = selectByMode(
+    config.selection,
+    config.providers,
+    input.rid,
+    state,
+    input.rng
+  );
   const prompt = buildPrompt(input);
   const callResult = await dispatchProvider(result.provider.name, {
     provider: result.provider,
@@ -289,10 +296,7 @@ export async function runReviewer(input: ReviewerRunInput): Promise<ReviewerRunO
  * reviewer's modelFamily differs from the karpathy reviewer's. AC-4.4
  * mandates this is a CI gate — equality fails the build.
  */
-export function distinctFromKarpathy(
-  thirdPartyFamily: string,
-  karpathyFamily: string
-): boolean {
+export function distinctFromKarpathy(thirdPartyFamily: string, karpathyFamily: string): boolean {
   if (thirdPartyFamily === 'skipped') return true;
   return thirdPartyFamily !== karpathyFamily;
 }

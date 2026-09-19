@@ -50,14 +50,20 @@ describe('memory path guard — "missing" is distinguishable from "escape"', () 
   it('a path that exists but escapes the project root still reports an escape attempt', () => {
     writeFileSync(join(outside, 'escaped.md'), '# escaped\n');
 
-    expect(() => assertInsideProject(join(outside, 'escaped.md'), root)).toThrowError(ESCAPE_MESSAGE);
+    expect(() => assertInsideProject(join(outside, 'escaped.md'), root)).toThrowError(
+      ESCAPE_MESSAGE
+    );
   });
 
   it('a missing project root reports the project root, not the artifact', () => {
     const missingRoot = join(root, 'no-such-project');
 
-    expect(() => assertInsideProject(join(missingRoot, 'a.md'), missingRoot)).toThrowError(/project root/i);
-    expect(() => assertInsideProject(join(missingRoot, 'a.md'), missingRoot)).not.toThrowError(ESCAPE_MESSAGE);
+    expect(() => assertInsideProject(join(missingRoot, 'a.md'), missingRoot)).toThrowError(
+      /project root/i
+    );
+    expect(() => assertInsideProject(join(missingRoot, 'a.md'), missingRoot)).not.toThrowError(
+      ESCAPE_MESSAGE
+    );
   });
 
   // The user-visible surface: this is the exact call `peaks memory extract` makes.

@@ -5,7 +5,14 @@
  * WRITE goes through `assertUnder` first — the slice-wide guard against an
  * artifact escaping `<root>/.peaks/_runtime/<sid>/web/` (AC1).
  */
-import { existsSync, mkdirSync, readFileSync, realpathSync, unlinkSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  realpathSync,
+  unlinkSync,
+  writeFileSync
+} from 'node:fs';
 import { dirname } from 'node:path';
 
 import {
@@ -60,7 +67,10 @@ export function writeDaemonInfo(projectRoot: string, sessionId: string, info: We
   const target = webDaemonInfoPath(projectRoot, sessionId);
   assertUnder(target, webDaemonDir(projectRoot, sessionId));
   mkdirSync(dirname(target), { recursive: true, mode: DAEMON_DIR_MODE });
-  writeFileSync(target, JSON.stringify(info, null, 2), { encoding: 'utf8', mode: DAEMON_FILE_MODE });
+  writeFileSync(target, JSON.stringify(info, null, 2), {
+    encoding: 'utf8',
+    mode: DAEMON_FILE_MODE
+  });
 }
 
 /**

@@ -44,7 +44,15 @@ describe('runEslint', () => {
 
   it('when npx is missing, should return state npx-failed', () => {
     // given: spawnSync reports an ENOENT for the npx binary
-    queueSpawnSequence([{ status: null, stdout: '', error: Object.assign(new Error('spawn npx ENOENT'), { code: 'ENOENT' } as NodeJS.ErrnoException) }]);
+    queueSpawnSequence([
+      {
+        status: null,
+        stdout: '',
+        error: Object.assign(new Error('spawn npx ENOENT'), {
+          code: 'ENOENT'
+        } as NodeJS.ErrnoException)
+      }
+    ]);
 
     // when: runEslint is invoked
     const result = runEslint({ cwd: process.cwd() });
@@ -72,7 +80,8 @@ describe('runEslint', () => {
     // given: eslint emits JSON with five messages; git diff covers src/a.ts lines 1-5
     const payload = [
       {
-        filePath: 'src/a.ts', messages: [
+        filePath: 'src/a.ts',
+        messages: [
           { ruleId: 'no-var', severity: 2, message: 'no var', line: 1, column: 1 },
           { ruleId: 'eqeqeq', severity: 2, message: 'eqeqeq', line: 2, column: 1 },
           { ruleId: 'no-magic-numbers', severity: 2, message: 'magic', line: 3, column: 1 },
@@ -83,7 +92,11 @@ describe('runEslint', () => {
     ];
     queueSpawnSequence([
       { status: 1, stdout: JSON.stringify(payload) },
-      { status: 0, stdout: 'diff --git a/src/a.ts b/src/a.ts\n--- a/src/a.ts\n+++ b/src/a.ts\n@@ -1,5 +1,5 @@\n+line1\n+line2\n+line3\n+line4\n+line5\n' }
+      {
+        status: 0,
+        stdout:
+          'diff --git a/src/a.ts b/src/a.ts\n--- a/src/a.ts\n+++ b/src/a.ts\n@@ -1,5 +1,5 @@\n+line1\n+line2\n+line3\n+line4\n+line5\n'
+      }
     ]);
 
     // when: runEslint is invoked
@@ -173,7 +186,13 @@ describe('runEslint', () => {
           generatedAt: '2026-08-06T00:00:00.000Z',
           toolVersion: 'peaks-loop-4.0.16+',
           violations: [
-            { ruleId: 'no-magic-numbers', file: 'src/foo.ts', line: 42, severity: 'error', message: 'magic 7' }
+            {
+              ruleId: 'no-magic-numbers',
+              file: 'src/foo.ts',
+              line: 42,
+              severity: 'error',
+              message: 'magic 7'
+            }
           ]
         }),
         'utf8'
@@ -181,7 +200,9 @@ describe('runEslint', () => {
       const payload = [
         {
           filePath: 'src/foo.ts',
-          messages: [{ ruleId: 'no-magic-numbers', severity: 2, message: 'magic 7', line: 42, column: 1 }]
+          messages: [
+            { ruleId: 'no-magic-numbers', severity: 2, message: 'magic 7', line: 42, column: 1 }
+          ]
         }
       ];
       queueSpawnSequence([
@@ -245,7 +266,13 @@ describe('runEslint', () => {
         {
           filePath: 'src/big.ts',
           messages: [
-            { ruleId: 'max-lines', severity: 2, message: 'file has 1000 lines, maximum is 400', line: 401, column: 1 }
+            {
+              ruleId: 'max-lines',
+              severity: 2,
+              message: 'file has 1000 lines, maximum is 400',
+              line: 401,
+              column: 1
+            }
           ]
         }
       ];
@@ -285,7 +312,8 @@ describe('runEslint', () => {
     const cfg = require(configPath) as { rules: Record<string, unknown> };
 
     // when: the no-magic-numbers rule is read
-    const ruleEntry = cfg.rules['no-magic-numbers'] as [string, Record<string, unknown>] | undefined;
+    const ruleEntry = cfg.rules['no-magic-numbers'] as
+      [string, Record<string, unknown>] | undefined;
 
     // then: severity is 'warn' (D5 no-touch-stockcode) and options are the slice-2 set
     expect(ruleEntry).toBeDefined();

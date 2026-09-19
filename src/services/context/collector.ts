@@ -8,14 +8,19 @@ import { readFile, readdir, stat } from 'node:fs/promises';
 import { join, relative } from 'node:path';
 import { z } from 'zod';
 import type {
-  CollectedFile, CollectorOutput, DepInfo, FileKind, GitStatus, MemoryEntry,
+  CollectedFile,
+  CollectorOutput,
+  DepInfo,
+  FileKind,
+  GitStatus,
+  MemoryEntry
 } from './types.js';
 
 const CollectInputSchema = z.object({
   goal: z.string().min(1),
   project: z.string().min(1),
   depsMode: z.enum(['locked', 'latest']),
-  out: z.string().optional(),
+  out: z.string().optional()
 });
 
 export type CollectInput = z.infer<typeof CollectInputSchema>;
@@ -61,7 +66,7 @@ async function scanFiles(root: string, exclude?: string): Promise<ReadonlyArray<
         path: rel,
         kind: classifyKind(relative(root, full)),
         lines: 0, // computed lazily; full line count is expensive
-        hash: '',  // computed lazily via content-hash-cache-pattern
+        hash: '' // computed lazily via content-hash-cache-pattern
       });
     }
   }
@@ -76,7 +81,7 @@ async function readGitStatus(project: string): Promise<GitStatus> {
   return {
     branch: 'main',
     lastCommit: 'unknown',
-    dirty: false,
+    dirty: false
   };
 }
 
@@ -92,7 +97,7 @@ async function readMemoryEntries(project: string): Promise<ReadonlyArray<MemoryE
         path: join('.peaks/memory', n),
         title: n,
         relevanceScore: 0,
-        excerptHash: '',
+        excerptHash: ''
       }));
   } catch {
     return [];
@@ -101,12 +106,12 @@ async function readMemoryEntries(project: string): Promise<ReadonlyArray<MemoryE
 
 async function readDeps(
   project: string,
-  depsMode: 'locked' | 'latest',
+  depsMode: 'locked' | 'latest'
 ): Promise<Record<string, DepInfo>> {
   if (depsMode === 'latest') {
     throw new Error(
       'BLOCKED: --deps-mode latest is forbidden by spec §4.1 (H2: locked only). ' +
-      'Configure the project lockfile to enable locked mode.'
+        'Configure the project lockfile to enable locked mode.'
     );
   }
   const pkgPath = join(project, 'package.json');
@@ -121,7 +126,7 @@ async function readDeps(
   if (Object.keys(deps).length === 0) {
     throw new Error(
       `BLOCKED: no locked version found in ${pkgPath}. ` +
-      'spec §4.1 forbids running with empty dependencies (H2).'
+        'spec §4.1 forbids running with empty dependencies (H2).'
     );
   }
   const result: Record<string, DepInfo> = {};
@@ -132,25 +137,26 @@ async function readDeps(
     result[name] = {
       version,
       source: 'package.json',
-      resolved: '', // filled by lockfile parser in a later slice
+      resolved: '' // filled by lockfile parser in a later slice
     };
   }
   return result;
 }
 
-export async function collectContext(rawInput: unknown): Promise<{ readonly goal: string; readonly collector: CollectorOutput }> {
+export async function collectContext(
+  rawInput: unknown
+): Promise<{ readonly goal: string; readonly collector: CollectorOutput }> {
   const input = CollectInputSchema.parse(rawInput);
-  const exclude = input.out !== undefined
-    ? relative(input.project, input.out).replaceAll('\\', '/')
-    : undefined;
+  const exclude =
+    input.out !== undefined ? relative(input.project, input.out).replaceAll('\\', '/') : undefined;
   const [files, gitStatus, memoryEntries, deps] = await Promise.all([
     scanFiles(input.project, exclude),
     readGitStatus(input.project),
     readMemoryEntries(input.project),
-    readDeps(input.project, input.depsMode),
+    readDeps(input.project, input.depsMode)
   ]);
   return {
     goal: input.goal,
-    collector: { files, gitStatus, memoryEntries, deps },
+    collector: { files, gitStatus, memoryEntries, deps }
   };
 }

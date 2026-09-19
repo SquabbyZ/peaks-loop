@@ -36,14 +36,26 @@ import { withTmpWorkspacePerTest } from '../../_setup/tmp-workspace.js';
 declareDimensions(
   'tests/unit/services/web/web-open-profile.test.ts',
   ['behavior', 'integration', 'a11y'],
-  [{ dim: 'render', reason: 'the daemon answers with structures; the CLI layer owns every text surface' }],
+  [
+    {
+      dim: 'render',
+      reason: 'the daemon answers with structures; the CLI layer owns every text surface'
+    }
+  ]
 );
 
 import { BrowserSessionManager } from '../../../../src/services/web/browser-session-manager.js';
-import type { PwBrowser, PwContext, PwPage } from '../../../../src/services/web/playwright-loader.js';
+import type {
+  PwBrowser,
+  PwContext,
+  PwPage
+} from '../../../../src/services/web/playwright-loader.js';
 import { routeOp } from '../../../../src/services/web/web-daemon-service.js';
 import { webContextStatePath } from '../../../../src/services/web/web-artifact-paths.js';
-import { loginStorageStatePath, webProfileDir } from '../../../../src/services/web/web-login-profile.js';
+import {
+  loginStorageStatePath,
+  webProfileDir
+} from '../../../../src/services/web/web-login-profile.js';
 
 const SESSION_ID = '2026-09-10-session-528a63';
 const URL_UNDER_TEST = 'https://example.test/';
@@ -81,12 +93,12 @@ function seedProfile(name: string, marker: string = MARKER): string {
           expires: -1,
           httpOnly: false,
           secure: false,
-          sameSite: 'Lax',
-        },
+          sameSite: 'Lax'
+        }
       ],
-      origins: [],
+      origins: []
     }),
-    'utf8',
+    'utf8'
   );
   return path;
 }
@@ -122,13 +134,13 @@ function recordingManager(root: string): Recording {
         title: async () => 'Fake Title',
         url: () => URL_UNDER_TEST,
         screenshot: async () => Buffer.from(''),
-        evaluate: async <T,>() => null as T,
+        evaluate: async <T>() => null as T,
         locator: () => ({
           click: async () => undefined,
           innerText: async () => '',
           ariaSnapshotJSON: async () => [],
-          screenshot: async () => Buffer.from(''),
-        }),
+          screenshot: async () => Buffer.from('')
+        })
       } as PwPage;
       return {
         newPage: async () => page,
@@ -136,16 +148,16 @@ function recordingManager(root: string): Recording {
         storageState: async (options?: { path?: string }) => {
           savedTo.push(options?.path);
         },
-        close: async () => undefined,
+        close: async () => undefined
       } as PwContext;
     },
     version: () => 'fake-1.63.0',
-    close: async () => undefined,
+    close: async () => undefined
   };
   return {
     contextOptions,
     savedTo,
-    manager: new BrowserSessionManager(browser, { projectRoot: root, sessionId: SESSION_ID }),
+    manager: new BrowserSessionManager(browser, { projectRoot: root, sessionId: SESSION_ID })
   };
 }
 
@@ -155,7 +167,11 @@ describe('behavior — which state a context is built from', () => {
     const profilePath = seedProfile('work');
     const { contextOptions, manager } = recordingManager(ws().path);
     // when: open is routed with the profile
-    const response = await routeOp('open', { url: URL_UNDER_TEST, profile: 'work' }, async () => manager);
+    const response = await routeOp(
+      'open',
+      { url: URL_UNDER_TEST, profile: 'work' },
+      async () => manager
+    );
     // then: the context was built from the profile's storage state, and the
     //       marker cookie is in the bytes that state carries
     expect(response.ok).toBe(true);
@@ -208,7 +224,11 @@ describe('behavior — which state a context is built from', () => {
     const { contextOptions, manager } = recordingManager(ws().path);
     await routeOp('open', { url: URL_UNDER_TEST, profile: 'work' }, async () => manager);
     // when: the same dispatch is asked for a different profile
-    const response = await routeOp('open', { url: URL_UNDER_TEST, profile: 'other' }, async () => manager);
+    const response = await routeOp(
+      'open',
+      { url: URL_UNDER_TEST, profile: 'other' },
+      async () => manager
+    );
     // then: it is refused by name instead of serving profile "other" with a
     //       browser logged in as "work"
     expect(response.ok).toBe(false);
@@ -222,7 +242,11 @@ describe('a11y — the refusals a caller receives', () => {
     // given: no profile named "work"
     const { contextOptions, manager } = recordingManager(ws().path);
     // when: open is routed with it
-    const response = await routeOp('open', { url: URL_UNDER_TEST, profile: 'work' }, async () => manager);
+    const response = await routeOp(
+      'open',
+      { url: URL_UNDER_TEST, profile: 'work' },
+      async () => manager
+    );
     // then: a named failure, no browser context, and no profile directory invented
     expect(response.ok).toBe(false);
     expect(response.code).toBe('WEB_PROFILE_NOT_FOUND');
@@ -235,7 +259,11 @@ describe('a11y — the refusals a caller receives', () => {
     // given: a payload that never went through the CLI's own check
     const { contextOptions, manager } = recordingManager(ws().path);
     // when: open is routed with a traversing name
-    const response = await routeOp('open', { url: URL_UNDER_TEST, profile: '../escape' }, async () => manager);
+    const response = await routeOp(
+      'open',
+      { url: URL_UNDER_TEST, profile: '../escape' },
+      async () => manager
+    );
     // then: the daemon's own guard rejects it, and no context was created
     expect(response.ok).toBe(false);
     expect(response.code).toBe('WEB_PROFILE_NAME_INVALID');
@@ -246,7 +274,11 @@ describe('a11y — the refusals a caller receives', () => {
     // given: a payload with a path separator in the name
     const { contextOptions, manager } = recordingManager(ws().path);
     // when: open is routed with it
-    const response = await routeOp('open', { url: URL_UNDER_TEST, profile: 'a/b' }, async () => manager);
+    const response = await routeOp(
+      'open',
+      { url: URL_UNDER_TEST, profile: 'a/b' },
+      async () => manager
+    );
     // then: it is refused by the same resolver, before any path is built
     expect(response.ok).toBe(false);
     expect(response.code).toBe('WEB_PROFILE_NAME_INVALID');
@@ -257,7 +289,11 @@ describe('a11y — the refusals a caller receives', () => {
     // given: `.con`, which the charset test alone would let through
     const { manager } = recordingManager(ws().path);
     // when: open is routed with it
-    const response = await routeOp('open', { url: URL_UNDER_TEST, profile: '.CON' }, async () => manager);
+    const response = await routeOp(
+      'open',
+      { url: URL_UNDER_TEST, profile: '.CON' },
+      async () => manager
+    );
     // then: the resolver's device-name refusal is the one that answers
     expect(response.ok).toBe(false);
     expect(response.code).toBe('WEB_PROFILE_NAME_INVALID');
@@ -289,7 +325,9 @@ describe('integration — the profile is READ-ONLY', () => {
     await manager.closeAll();
     // then: it was persisted to pw-profiles/<dispatchId>, never into the
     //       user-level tree the context was loaded from
-    expect(profileState).toBe(join(ws().path, '.peaks', 'web-profiles', 'work', 'storageState.json'));
+    expect(profileState).toBe(
+      join(ws().path, '.peaks', 'web-profiles', 'work', 'storageState.json')
+    );
     expect(savedTo).toEqual([webContextStatePath(ws().path, SESSION_ID, 'current')]);
     expect(readdirSync(webProfileDir('work'))).toEqual(['storageState.json']);
   });

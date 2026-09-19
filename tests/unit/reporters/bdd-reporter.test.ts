@@ -48,19 +48,9 @@ import { afterEach, describe, expect, it } from 'vitest';
  */
 const FIXTURE_BASE = join(process.cwd(), 'tests', 'fixtures', 'bdd-reporter-tmp');
 
-const FIXTURE_CONFIG = join(
-  process.cwd(),
-  'tests',
-  'fixtures',
-  'bdd-reporter.vitest.config.ts',
-);
+const FIXTURE_CONFIG = join(process.cwd(), 'tests', 'fixtures', 'bdd-reporter.vitest.config.ts');
 
-const REPORTER = join(
-  process.cwd(),
-  'src',
-  'reporters',
-  'bdd-reporter.ts',
-);
+const REPORTER = join(process.cwd(), 'src', 'reporters', 'bdd-reporter.ts');
 
 /** Per-case tmp dir so we never pollute the real tests/ tree. */
 let tmpDir = '';
@@ -97,12 +87,7 @@ interface RunResult {
  * through `node` is deterministic on every platform.
  */
 function runWithReporter(testFileAbsPath: string): RunResult {
-  const vitestBin = join(
-    process.cwd(),
-    'node_modules',
-    'vitest',
-    'vitest.mjs',
-  );
+  const vitestBin = join(process.cwd(), 'node_modules', 'vitest', 'vitest.mjs');
   const result = spawnSync(
     process.execPath,
     [
@@ -113,19 +98,19 @@ function runWithReporter(testFileAbsPath: string): RunResult {
       FIXTURE_CONFIG,
       '--reporter',
       REPORTER,
-      testFileAbsPath,
+      testFileAbsPath
     ],
     {
       encoding: 'utf8',
       maxBuffer: 8 * 1024 * 1024,
       env: { ...process.env, NO_COLOR: '1' },
-      windowsHide: true,
-    },
+      windowsHide: true
+    }
   );
   if (result.error) throw result.error;
   return {
     stdout: (result.stdout ?? '') + (result.stderr ?? ''),
-    status: result.status ?? 1,
+    status: result.status ?? 1
   };
 }
 
@@ -139,7 +124,7 @@ describe('happy path', () => {
     expect(1 + 1).toBe(2);
   });
 });
-`,
+`
     );
     const { stdout } = runWithReporter(file);
     expect(stdout).toMatch(/Feature: happy-path\.test\.ts/);
@@ -161,7 +146,7 @@ describe('broken path', () => {
     expect(1 / 0).toBe(42);
   });
 });
-`,
+`
     );
     const { stdout, status } = runWithReporter(file);
     expect(status).not.toBe(0);
@@ -192,7 +177,7 @@ describe('outer', () => {
     });
   });
 });
-`,
+`
     );
     const { stdout } = runWithReporter(file);
     expect(stdout).toMatch(/Feature: multi-describe\.test\.ts/);
@@ -212,7 +197,7 @@ describe('bdd-reporter — empty test file', () => {
 describe('no tests here', () => {
   // intentionally empty
 });
-`,
+`
     );
     const { stdout } = runWithReporter(file);
     expect(stdout).toMatch(/Feature: empty-suite\.test\.ts/);

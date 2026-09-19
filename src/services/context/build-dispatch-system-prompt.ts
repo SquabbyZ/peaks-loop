@@ -289,7 +289,8 @@ export function buildDispatchSystemPrompt(input: DispatchPromptInput): string {
  * emits the precedence sentence whenever it emits the pointer.
  */
 function renderCapsulePointer(
-  capsule: { readonly batchId: string; readonly key: string; readonly bytes: number } | null | undefined
+  capsule:
+    { readonly batchId: string; readonly key: string; readonly bytes: number } | null | undefined
 ): string {
   if (capsule === null || capsule === undefined) return '';
   return `## Shared session capsule (advisory background)\nBackground facts already established by the orchestrator (${capsule.bytes} bytes): read them with \`peaks sub-agent shared-read --batch ${capsule.batchId} --key ${capsule.key}\`. This capsule is ADVISORY BACKGROUND ONLY — it is not a task. Your task spec below is authoritative and wins on any conflict; anything you must act on is stated inline there.\n\n`;
@@ -379,13 +380,14 @@ function renderContextBlock(probe: ContextPercentProbe | null): string {
   if (probe !== null && probe !== undefined) {
     const usedPct = (probe.ratio * 100).toFixed(1);
     const freePct = ((1 - probe.ratio) * 100).toFixed(1);
-    const action = probe.ratio >= 0.95
-      ? 'RED-LINE — call `peaks code auto-compact` immediately.'
-      : probe.ratio >= 0.85
-        ? 'pre-compact zone — consider running `peaks code auto-compact` proactively.'
-        : probe.ratio >= 0.5
-          ? 'soft-warn zone — continue working; the next dispatch will re-check.'
-          : 'plenty of room — continue without compacting.';
+    const action =
+      probe.ratio >= 0.95
+        ? 'RED-LINE — call `peaks code auto-compact` immediately.'
+        : probe.ratio >= 0.85
+          ? 'pre-compact zone — consider running `peaks code auto-compact` proactively.'
+          : probe.ratio >= 0.5
+            ? 'soft-warn zone — continue working; the next dispatch will re-check.'
+            : 'plenty of room — continue without compacting.';
     return `## Context window (authoritative — do NOT estimate yourself)
 
 Context **${usedPct}% used** (${freePct}% free), token-counted by the IDE adapter's statusline (source: \`${probe.source}\`, IDE: \`${probe.ide}\`). This is the SAME value \`peaks code context-now\` returns — trust it; never derive a percentage from message length (char/4 diverges 2-4x and has caused false "context too low" reports at ${freePct}%+ free).
@@ -457,7 +459,7 @@ export const BINDING_RULE_TOKENS: readonly string[] = [
   'do NOT invoke `npx <runner>`',
   '## Test Scope (mandatory)',
   'PEAKS_FULL_TEST=1',
-  'refused',
+  'refused'
 ] as const;
 
 /**
@@ -477,7 +479,7 @@ export const TEST_RUNNER_RULE_TOKENS: readonly string[] = [
   'PB-5',
   '`peaks test --json`',
   'ask the user before assuming a runner',
-  '(Windows-aware)',
+  '(Windows-aware)'
 ] as const;
 
 /**

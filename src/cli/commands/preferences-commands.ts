@@ -5,7 +5,7 @@ import {
   loadPreferences,
   migratePreferences,
   preferencesPath,
-  savePreferences,
+  savePreferences
 } from '../../services/preferences/preferences-service.js';
 import type { ProjectPreferences } from '../../services/preferences/preferences-types.js';
 
@@ -17,7 +17,7 @@ const ALLOWED_KEYS: ReadonlySet<keyof ProjectPreferences> = new Set<keyof Projec
   'classifyConservatism',
   'classifyRules',
   'swarmSpeculative',
-  'loopAutonomousEnabled',
+  'loopAutonomousEnabled'
 ]);
 
 /**
@@ -109,7 +109,7 @@ export function registerPreferencesCommands(program: Command): void {
         // Stable ordering: source is computed, value reflects merged state.
         const envelope = {
           ok: true,
-          data: { key: opts.key, value, source },
+          data: { key: opts.key, value, source }
         };
         process.stdout.write(JSON.stringify(envelope, null, 2) + '\n');
       } catch (err) {
@@ -133,18 +133,19 @@ export function registerPreferencesCommands(program: Command): void {
         let parsed: unknown = opts.value;
         try {
           parsed = JSON.parse(opts.value);
-        } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+        } catch {
+          // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
           // Not valid JSON — keep the raw string.
         }
         const merged = savePreferences(opts.project, {
-          [opts.key]: parsed,
+          [opts.key]: parsed
         } as Partial<ProjectPreferences>);
         const envelope = {
           ok: true,
           data: {
             key: opts.key,
-            value: (merged as unknown as Record<string, unknown>)[opts.key],
-          },
+            value: (merged as unknown as Record<string, unknown>)[opts.key]
+          }
         };
         process.stdout.write(JSON.stringify(envelope, null, 2) + '\n');
       } catch (err) {
@@ -171,7 +172,7 @@ export function registerPreferencesCommands(program: Command): void {
         if (!existsSync(filePath)) {
           const envelope = {
             ok: true,
-            data: { key: opts.key, removed: false, reason: 'no-override-file' },
+            data: { key: opts.key, removed: false, reason: 'no-override-file' }
           };
           process.stdout.write(JSON.stringify(envelope) + '\n');
           return;
@@ -199,7 +200,7 @@ export function registerPreferencesCommands(program: Command): void {
         }
         const envelope = {
           ok: true,
-          data: { key: opts.key, removed: hadKey },
+          data: { key: opts.key, removed: hadKey }
         };
         process.stdout.write(JSON.stringify(envelope) + '\n');
       } catch (err) {
@@ -216,9 +217,14 @@ export function registerPreferencesCommands(program: Command): void {
   // LLM is stuck with no recovery path.
   prefs
     .command('migrate')
-    .description('Migrate a legacy preferences.json to the current schema_version (v1 → v2; dry-run by default)')
+    .description(
+      'Migrate a legacy preferences.json to the current schema_version (v1 → v2; dry-run by default)'
+    )
     .option('--project <path>', 'project root', process.cwd())
-    .option('--apply', 'write the migrated JSON to .peaks/preferences.json (default: dry-run preview)')
+    .option(
+      '--apply',
+      'write the migrated JSON to .peaks/preferences.json (default: dry-run preview)'
+    )
     .option('--json', 'JSON envelope output')
     .action((opts: MigrateOptions) => {
       try {
@@ -240,9 +246,9 @@ export function registerPreferencesCommands(program: Command): void {
             written: result.written,
             migrated: result.migrated
           },
-          warnings: result.written ? [] : [
-            'Dry-run only — re-run with --apply to write the migrated file.'
-          ]
+          warnings: result.written
+            ? []
+            : ['Dry-run only — re-run with --apply to write the migrated file.']
         };
         process.stdout.write(JSON.stringify(envelope, null, 2) + '\n');
       } catch (err) {

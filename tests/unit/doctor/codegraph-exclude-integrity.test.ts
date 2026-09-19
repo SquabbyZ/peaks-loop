@@ -52,7 +52,7 @@ declareDimensions('tests/unit/doctor/codegraph-exclude-integrity.test.ts', [
   'render',
   'behavior',
   'integration',
-  'a11y',
+  'a11y'
 ]);
 
 const CHECK_ID = 'capability:codegraph-exclude-integrity';
@@ -71,7 +71,7 @@ function makeContext(options: DoctorOptions = {}): DoctorContext {
     resolvedL3Root: '',
     projectRootResolver: () => null,
     isValidSessionId: () => true,
-    accumulatedChecks: [],
+    accumulatedChecks: []
   };
 }
 
@@ -89,8 +89,8 @@ const GAPPED: CodegraphExcludeIntegrityProbe = {
   rulesToRemove: ['**/vendor/**', '**/artifacts/**'],
   violations: [
     { path: 'src/vendor/client.ts', matchedRule: '**/vendor/**' },
-    { path: 'src/artifacts/report.ts', matchedRule: '**/artifacts/**' },
-  ],
+    { path: 'src/artifacts/report.ts', matchedRule: '**/artifacts/**' }
+  ]
 };
 
 const CLEAN: CodegraphExcludeIntegrityProbe = {
@@ -99,7 +99,7 @@ const CLEAN: CodegraphExcludeIntegrityProbe = {
   trackedSourceCount: 1117,
   excludedTrackedCount: 0,
   rulesToRemove: [],
-  violations: [],
+  violations: []
 };
 
 // A throwaway git work tree whose config blocks a tracked file AND
@@ -110,19 +110,28 @@ const CLEAN: CodegraphExcludeIntegrityProbe = {
 function createTempProjectWithEmptyRule(): string {
   const project = mkdtempSync(join(tmpdir(), 'peaks-doctor-cg-'));
   execFileSync('git', ['-C', project, 'init', '-q'], { stdio: 'ignore', windowsHide: true });
-  execFileSync('git', ['-C', project, 'config', 'user.email', 'peaks-test@example.com'], { stdio: 'ignore', windowsHide: true });
-  execFileSync('git', ['-C', project, 'config', 'user.name', 'peaks test'], { stdio: 'ignore', windowsHide: true });
+  execFileSync('git', ['-C', project, 'config', 'user.email', 'peaks-test@example.com'], {
+    stdio: 'ignore',
+    windowsHide: true
+  });
+  execFileSync('git', ['-C', project, 'config', 'user.name', 'peaks test'], {
+    stdio: 'ignore',
+    windowsHide: true
+  });
 
   mkdirSync(join(project, 'vendor'), { recursive: true });
   writeFileSync(join(project, 'vendor', 'lib.ts'), 'export const lib = 1;\n', 'utf8');
   execFileSync('git', ['-C', project, 'add', '-A'], { stdio: 'ignore', windowsHide: true });
-  execFileSync('git', ['-C', project, 'commit', '-qm', 'fixture'], { stdio: 'ignore', windowsHide: true });
+  execFileSync('git', ['-C', project, 'commit', '-qm', 'fixture'], {
+    stdio: 'ignore',
+    windowsHide: true
+  });
 
   mkdirSync(join(project, '.codegraph'), { recursive: true });
   writeFileSync(
     join(project, '.codegraph', 'config.json'),
     `${JSON.stringify({ version: 1, include: ['**/*.ts'], exclude: ['', '**/vendor/**'] }, null, 2)}\n`,
-    'utf8',
+    'utf8'
   );
 
   return project;
@@ -192,7 +201,7 @@ describe('capability:codegraph-exclude-integrity', () => {
       makeContext({
         codegraphIntegrityProbe: () => {
           throw new Error('fatal: not a git repository');
-        },
+        }
       })
     );
 
@@ -204,6 +213,8 @@ describe('capability:codegraph-exclude-integrity', () => {
   it('is registered in the doctor plugin list, right after capability:codegraph', () => {
     const names = PLUGINS.map((plugin) => plugin.name);
     expect(names).toContain('codegraph-exclude-integrity');
-    expect(names.indexOf('codegraph-exclude-integrity')).toBe(names.indexOf('codegraph-capability') + 1);
+    expect(names.indexOf('codegraph-exclude-integrity')).toBe(
+      names.indexOf('codegraph-capability') + 1
+    );
   });
 });

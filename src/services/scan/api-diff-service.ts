@@ -113,8 +113,14 @@ function compareLocation(
     const after = normalizeType(type);
     if (before !== after) {
       out.push({
-        confidence: 'exact', kind: 'changed', via: 'type-changed', method: operation.method,
-        path: operation.path, location, before: { field: name, type: before }, after: { field: name, type: after }
+        confidence: 'exact',
+        kind: 'changed',
+        via: 'type-changed',
+        method: operation.method,
+        path: operation.path,
+        location,
+        before: { field: name, type: before },
+        after: { field: name, type: after }
       });
     }
   }
@@ -127,15 +133,24 @@ function compareLocation(
   // left alone: a guessed pairing is invisible, an unpaired field is not.
   for (const docName of docOnly) {
     const docType = normalizeType(docFields.get(docName)!);
-    const docCandidates = docOnly.filter((other) => normalizeType(docFields.get(other)!) === docType);
-    const recordedCandidates = recordedOnly.filter((other) => recordedNormalized.get(other) === docType);
+    const docCandidates = docOnly.filter(
+      (other) => normalizeType(docFields.get(other)!) === docType
+    );
+    const recordedCandidates = recordedOnly.filter(
+      (other) => recordedNormalized.get(other) === docType
+    );
     if (docCandidates.length !== 1 || recordedCandidates.length !== 1) continue;
     const recordedName = recordedCandidates[0]!;
     consumedDoc.add(docName);
     consumedRecorded.add(recordedName);
     out.push({
-      confidence: 'exact', kind: 'changed', via: 'renamed', method: operation.method,
-      path: operation.path, location, before: { field: recordedName, type: docType },
+      confidence: 'exact',
+      kind: 'changed',
+      via: 'renamed',
+      method: operation.method,
+      path: operation.path,
+      location,
+      before: { field: recordedName, type: docType },
       after: { field: docName, type: docType }
     });
   }
@@ -145,8 +160,13 @@ function compareLocation(
     if (consumedDoc.has(docName)) continue;
     consumedDoc.add(docName);
     out.push({
-      confidence: 'exact', kind: 'changed', via: 'added-in-document', method: operation.method,
-      path: operation.path, location, before: { field: docName, type: ABSENT },
+      confidence: 'exact',
+      kind: 'changed',
+      via: 'added-in-document',
+      method: operation.method,
+      path: operation.path,
+      location,
+      before: { field: docName, type: ABSENT },
       after: { field: docName, type: normalizeType(docFields.get(docName)!) }
     });
   }
@@ -154,15 +174,23 @@ function compareLocation(
     if (consumedRecorded.has(recordedName)) continue;
     consumedRecorded.add(recordedName);
     out.push({
-      confidence: 'exact', kind: 'changed', via: 'removed-from-document', method: operation.method,
-      path: operation.path, location, before: { field: recordedName, type: recordedNormalized.get(recordedName)! },
+      confidence: 'exact',
+      kind: 'changed',
+      via: 'removed-from-document',
+      method: operation.method,
+      path: operation.path,
+      location,
+      before: { field: recordedName, type: recordedNormalized.get(recordedName)! },
       after: { field: recordedName, type: ABSENT }
     });
   }
 }
 
 /** Endpoint-level diff. Both sides parsed; `{id}` and `:id` are normalised to one spelling first. */
-function diffEndpoints(operations: readonly DocOperation[], recorded: readonly RecordedEndpoint[]): EndpointEntry[] {
+function diffEndpoints(
+  operations: readonly DocOperation[],
+  recorded: readonly RecordedEndpoint[]
+): EndpointEntry[] {
   const endpoints: EndpointEntry[] = [];
   if (recorded.length === 0) return endpoints;
   const key = (method: string, path: string): string => `${method} ${normalizeEndpointPath(path)}`;
@@ -172,12 +200,22 @@ function diffEndpoints(operations: readonly DocOperation[], recorded: readonly R
     const current = key(operation.method, operation.path);
     documentKeys.add(current);
     if (!recordedKeys.has(current)) {
-      endpoints.push({ confidence: 'exact', kind: 'added', method: operation.method, path: operation.path });
+      endpoints.push({
+        confidence: 'exact',
+        kind: 'added',
+        method: operation.method,
+        path: operation.path
+      });
     }
   }
   for (const entry of recorded) {
     if (!documentKeys.has(key(entry.method, entry.path))) {
-      endpoints.push({ confidence: 'exact', kind: 'removed', method: entry.method, path: entry.path });
+      endpoints.push({
+        confidence: 'exact',
+        kind: 'removed',
+        method: entry.method,
+        path: entry.path
+      });
     }
   }
   return endpoints;
@@ -189,19 +227,29 @@ function diffEndpoints(operations: readonly DocOperation[], recorded: readonly R
  * Deliberately no path-based or fuzzy fallback: a confident wrong pairing is
  * worse than an honest non-pairing, and the Exact label rests on that.
  */
-function unpairedNote(operations: readonly DocOperation[], interfaces: readonly RecordedInterface[]): string {
+function unpairedNote(
+  operations: readonly DocOperation[],
+  interfaces: readonly RecordedInterface[]
+): string {
   const operationIds = [
-    ...new Set(operations.map((operation) => operation.operationId).filter((id): id is string => id !== undefined))
+    ...new Set(
+      operations
+        .map((operation) => operation.operationId)
+        .filter((id): id is string => id !== undefined)
+    )
   ];
   const exampleId = operationIds[0];
-  const convention = exampleId === undefined
-    ? 'this document declares no `operationId`, so the pairing key falls back to `<method><path>`'
-    : `operationId \`${exampleId}\` would pair with an interface named \`${exampleId.charAt(0).toUpperCase()}${exampleId.slice(1)}Response\``;
-  return `0 of ${interfaces.length} recorded interface(s) paired with a document operation, so no field-level exact diff was produced. `
-    + `Pairing is name-only — lowercased, punctuation stripped, one trailing Response/Request/Dto/Payload/Body removed — so ${convention}. `
-    + `Document operationIds: ${summarizeList(operationIds)}. `
-    + `Unpaired interfaces: ${summarizeList(interfaces.map((iface) => iface.name))}. `
-    + 'Rename one side so the two names match; this command will not guess a pairing.';
+  const convention =
+    exampleId === undefined
+      ? 'this document declares no `operationId`, so the pairing key falls back to `<method><path>`'
+      : `operationId \`${exampleId}\` would pair with an interface named \`${exampleId.charAt(0).toUpperCase()}${exampleId.slice(1)}Response\``;
+  return (
+    `0 of ${interfaces.length} recorded interface(s) paired with a document operation, so no field-level exact diff was produced. ` +
+    `Pairing is name-only — lowercased, punctuation stripped, one trailing Response/Request/Dto/Payload/Body removed — so ${convention}. ` +
+    `Document operationIds: ${summarizeList(operationIds)}. ` +
+    `Unpaired interfaces: ${summarizeList(interfaces.map((iface) => iface.name))}. ` +
+    'Rename one side so the two names match; this command will not guess a pairing.'
+  );
 }
 
 export function diffApiDocument(input: { projectRoot: string; docPath: string }): ApiDiffReport {
@@ -225,19 +273,28 @@ export function diffApiDocument(input: { projectRoot: string; docPath: string })
     try {
       interfaces.push(...parseRecordedInterfaces(readFileSync(file, 'utf8'), file));
     } catch (error) {
-      notes.push(`could not read recorded interface file ${toDisplayPath(projectRoot, file)}: ${(error as Error).message}`);
+      notes.push(
+        `could not read recorded interface file ${toDisplayPath(projectRoot, file)}: ${(error as Error).message}`
+      );
     }
   }
   if (interfaces.length === 0) {
-    notes.push('no recorded interfaces found — exact field diff limited to document-internal changes.');
+    notes.push(
+      'no recorded interfaces found — exact field diff limited to document-internal changes.'
+    );
   }
 
   const handoff = findHandoffWithApiMigration(projectRoot);
-  const recordedEndpoints = handoff === null ? [] : parseHandoffEndpoints(readFileSync(handoff, 'utf8'));
+  const recordedEndpoints =
+    handoff === null ? [] : parseHandoffEndpoints(readFileSync(handoff, 'utf8'));
   if (handoff === null) {
-    notes.push('no TXT handoff with an `## API Migration` section found under .peaks/_runtime/*/txt/ — no recorded endpoint list to diff endpoints against.');
+    notes.push(
+      'no TXT handoff with an `## API Migration` section found under .peaks/_runtime/*/txt/ — no recorded endpoint list to diff endpoints against.'
+    );
   } else if (recordedEndpoints.length === 0) {
-    notes.push(`the \`## API Migration\` section in ${toDisplayPath(projectRoot, handoff)} lists no \`METHOD /path\` endpoint — no recorded endpoint list to diff endpoints against.`);
+    notes.push(
+      `the \`## API Migration\` section in ${toDisplayPath(projectRoot, handoff)} lists no \`METHOD /path\` endpoint — no recorded endpoint list to diff endpoints against.`
+    );
   }
 
   // Pairing is by name AND by role. An operation may legitimately pair with two
@@ -275,11 +332,15 @@ export function diffApiDocument(input: { projectRoot: string; docPath: string })
     const where = `${operation.method.toUpperCase()} ${operation.path}`;
     for (const [role, list] of byRole) {
       if (role === 'unknown') {
-        notes.push(`${where}: recorded interface(s) ${list.map((iface) => `\`${iface.name}\``).join(', ')} name neither a request nor a response, so this command cannot tell which part of the operation they describe — pairing refused rather than guessed; their fields are not in the exact diff.`);
+        notes.push(
+          `${where}: recorded interface(s) ${list.map((iface) => `\`${iface.name}\``).join(', ')} name neither a request nor a response, so this command cannot tell which part of the operation they describe — pairing refused rather than guessed; their fields are not in the exact diff.`
+        );
         continue;
       }
       if (list.length > 1) {
-        notes.push(`${where}: ${list.length} recorded ${role} interfaces match (${list.map((iface) => `\`${iface.name}\``).join(', ')}) — pairing refused rather than guessed; their fields are not in the exact diff.`);
+        notes.push(
+          `${where}: ${list.length} recorded ${role} interfaces match (${list.map((iface) => `\`${iface.name}\``).join(', ')}) — pairing refused rather than guessed; their fields are not in the exact diff.`
+        );
         continue;
       }
       const iface = list[0]!;
@@ -291,14 +352,18 @@ export function diffApiDocument(input: { projectRoot: string; docPath: string })
       // A response interface's name carries no status, so with more than one
       // JSON response body there is no way to know which one it describes.
       if (role === 'response' && roleLocations.length > 1) {
-        notes.push(`${where}: ${roleLocations.length} response statuses have JSON bodies (${roleLocations.map((location) => location.slice('response.'.length)).join(', ')}) and \`${iface.name}\` names no status, so this command cannot tell which one it describes — pairing refused rather than guessed; its fields are not in the exact diff.`);
+        notes.push(
+          `${where}: ${roleLocations.length} response statuses have JSON bodies (${roleLocations.map((location) => location.slice('response.'.length)).join(', ')}) and \`${iface.name}\` names no status, so this command cannot tell which one it describes — pairing refused rather than guessed; its fields are not in the exact diff.`
+        );
         continue;
       }
       operationsWithRecords.add(operation);
       if (roleLocations.length === 0) {
         // A pairing that yields no location must still be named, or it is a
         // silent hole: the interface looks consumed and nothing was diffed.
-        pairedWithoutLocation.push(`${where} (recorded \`${iface.name}\` describes the ${role === 'request' ? 'requestBody' : 'responses'})`);
+        pairedWithoutLocation.push(
+          `${where} (recorded \`${iface.name}\` describes the ${role === 'request' ? 'requestBody' : 'responses'})`
+        );
         continue;
       }
       for (const location of roleLocations) {
@@ -323,22 +388,33 @@ export function diffApiDocument(input: { projectRoot: string; docPath: string })
     } else if (unpairedOperations.length > 0) {
       // A MIX must never be silent: one paired operation used to be enough for
       // the document to report "(no exact differences)" with no note at all.
-      notes.push(`${unpairedOperations.length} document operation(s) matched no recorded interface, so their fields are not in the exact diff: ${summarizeList(unpairedOperations)}. Interfaces pair by name: operationId \`getUser\` pairs with an interface named \`GetUserResponse\`.`);
+      notes.push(
+        `${unpairedOperations.length} document operation(s) matched no recorded interface, so their fields are not in the exact diff: ${summarizeList(unpairedOperations)}. Interfaces pair by name: operationId \`getUser\` pairs with an interface named \`GetUserResponse\`.`
+      );
     }
   }
   if (incompleteLocations.length > 0) {
-    notes.push(`${incompleteLocations.length} document location(s) could not be fully read, so every exact line for them is suppressed rather than guessed: ${summarizeList(incompleteLocations)}.`);
+    notes.push(
+      `${incompleteLocations.length} document location(s) could not be fully read, so every exact line for them is suppressed rather than guessed: ${summarizeList(incompleteLocations)}.`
+    );
   }
   if (suppressedInterfaces.size > 0) {
     // The file is named too: a whole-file structural failure otherwise reads as
     // one stray interface, and the reader has no idea where to look.
     const listed = [...suppressedInterfaces]
-      .map(([iface, reason]) => `\`${iface.name}\` in ${toDisplayPath(projectRoot, iface.file)} (${reason})`)
+      .map(
+        ([iface, reason]) =>
+          `\`${iface.name}\` in ${toDisplayPath(projectRoot, iface.file)} (${reason})`
+      )
       .join('; ');
-    notes.push(`${suppressedInterfaces.size} recorded interface(s) are not fully readable even though the file parsed, so every exact line they would have produced is suppressed rather than guessed: ${summarizeList([listed])}.`);
+    notes.push(
+      `${suppressedInterfaces.size} recorded interface(s) are not fully readable even though the file parsed, so every exact line they would have produced is suppressed rather than guessed: ${summarizeList([listed])}.`
+    );
   }
   if (pairedWithoutLocation.length > 0) {
-    notes.push(`${pairedWithoutLocation.length} recorded interface(s) paired with an operation that declares no matching location, so no exact line was produced for them: ${summarizeList(pairedWithoutLocation)}.`);
+    notes.push(
+      `${pairedWithoutLocation.length} recorded interface(s) paired with an operation that declares no matching location, so no exact line was produced for them: ${summarizeList(pairedWithoutLocation)}.`
+    );
   }
   if (operationsWithRecords.size > 0) {
     const uncovered: string[] = [];
@@ -354,7 +430,9 @@ export function diffApiDocument(input: { projectRoot: string; docPath: string })
       }
     }
     if (uncovered.length > 0) {
-      notes.push(`${uncovered.length} document location(s) have no recorded interface of the matching role, so no exact line was produced for them: ${summarizeList(uncovered)}.`);
+      notes.push(
+        `${uncovered.length} document location(s) have no recorded interface of the matching role, so no exact line was produced for them: ${summarizeList(uncovered)}.`
+      );
     }
   }
 
@@ -369,19 +447,29 @@ export function diffApiDocument(input: { projectRoot: string; docPath: string })
     if (entry.before.type !== ABSENT) candidateNames.add(entry.before.field);
     if (entry.after.type !== ABSENT) candidateNames.add(entry.after.field);
   }
-  const { mentions, truncated, hitsTruncated } = grepCandidateMentions(projectRoot, [...candidateNames], [docPath]);
+  const { mentions, truncated, hitsTruncated } = grepCandidateMentions(
+    projectRoot,
+    [...candidateNames],
+    [docPath]
+  );
   if (truncated) {
-    notes.push(`candidate names capped at ${MAX_CANDIDATE_NAMES}; some changed fields were not name-grepped.`);
+    notes.push(
+      `candidate names capped at ${MAX_CANDIDATE_NAMES}; some changed fields were not name-grepped.`
+    );
   }
   if (hitsTruncated) {
-    notes.push('candidate hits are capped per name; some change-site lines were not listed, so treat those lists as examples rather than the full set.');
+    notes.push(
+      'candidate hits are capped per name; some change-site lines were not listed, so treat those lists as examples rather than the full set.'
+    );
   }
   if (fields.length === 0) {
     // Only claim "nothing was parsed" when that is actually the case — after a
     // suppression the interface WAS parsed, and saying otherwise misdirects.
-    notes.push(interfaces.length === 0
-      ? 'no candidate change-sites: change-site lookup needs a parsed recorded interface to know what changed.'
-      : 'no candidate change-sites: no exact field change was produced (see the notes above), so there is nothing to search for.');
+    notes.push(
+      interfaces.length === 0
+        ? 'no candidate change-sites: change-site lookup needs a parsed recorded interface to know what changed.'
+        : 'no candidate change-sites: no exact field change was produced (see the notes above), so there is nothing to search for.'
+    );
   } else if (mentions.length === 0) {
     notes.push('name-grep found no mentions of the changed names in this project.');
   }
@@ -411,9 +499,10 @@ export function diffApiDocument(input: { projectRoot: string; docPath: string })
 // ---------------------------------------------------------------------------
 
 function renderFieldLine(entry: FieldEntry): string {
-  const beforeRef = entry.before.field === entry.after.field
-    ? `${entry.location}.${entry.before.field}`
-    : `${entry.location}.${entry.before.field} -> ${entry.location}.${entry.after.field}`;
+  const beforeRef =
+    entry.before.field === entry.after.field
+      ? `${entry.location}.${entry.before.field}`
+      : `${entry.location}.${entry.before.field} -> ${entry.location}.${entry.after.field}`;
   return `  ${'CHANGED'.padEnd(9)} ${entry.method.toUpperCase()} ${entry.path}   ${beforeRef}   ${entry.before.type} -> ${entry.after.type}`;
 }
 
@@ -421,12 +510,16 @@ export function formatApiDiffText(report: ApiDiffReport): string {
   const lines: string[] = [];
   // The header names the two parsed sides; the parenthetical fixes the direction
   // of every `before -> after` line, which is otherwise ambiguous.
-  lines.push('Exact — document parsed vs recorded interfaces parsed (CHANGED reads recorded -> document)');
+  lines.push(
+    'Exact — document parsed vs recorded interfaces parsed (CHANGED reads recorded -> document)'
+  );
   if (report.exact.endpoints.length === 0 && report.exact.fields.length === 0) {
     lines.push('  (no exact differences)');
   }
   for (const entry of report.exact.endpoints) {
-    lines.push(`  ${(entry.kind === 'added' ? 'ADDED' : 'REMOVED').padEnd(9)} ${entry.method.toUpperCase()} ${entry.path}`);
+    lines.push(
+      `  ${(entry.kind === 'added' ? 'ADDED' : 'REMOVED').padEnd(9)} ${entry.method.toUpperCase()} ${entry.path}`
+    );
   }
   for (const entry of report.exact.fields) lines.push(renderFieldLine(entry));
   for (const note of report.notes) lines.push(`  note: ${note}`);

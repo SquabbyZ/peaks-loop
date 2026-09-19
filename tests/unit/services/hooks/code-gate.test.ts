@@ -32,15 +32,17 @@ import {
   extractFilePath,
   HARD_BLOCKED_PATH_FAMILIES,
   ALLOW_LISTED_PATH_PATTERNS,
-  type GateInput,
+  type GateInput
 } from '~/src/services/hooks/pre-tool-code-gate';
 import { spawn } from 'node:child_process';
 import { resolve } from 'node:path';
 
-declareDimensions(
-  'tests/unit/services/hooks/code-gate.test.ts',
-  ['render', 'behavior', 'integration', 'a11y']
-);
+declareDimensions('tests/unit/services/hooks/code-gate.test.ts', [
+  'render',
+  'behavior',
+  'integration',
+  'a11y'
+]);
 
 // ---------------------------------------------------------------------------
 // Pure helpers — extractFilePath + hard-blocked/allow-listed constants
@@ -73,7 +75,7 @@ describe('Scenario: render — HARD_BLOCKED_PATH_FAMILIES pins to the 6 deny fam
       'tests/integration/',
       'config/',
       'bin/',
-      'scripts/',
+      'scripts/'
     ]);
   });
 
@@ -225,7 +227,17 @@ describe('Scenario: a11y — deny message carries the LLM-readable next-action v
 // Integration — shell-hook smoke tests via child_process spawn
 // ---------------------------------------------------------------------------
 
-const HOOK_SCRIPT = resolve(__dirname, '..', '..', '..', '..', 'src', 'services', 'hooks', 'pre-tool-code-gate.sh');
+const HOOK_SCRIPT = resolve(
+  __dirname,
+  '..',
+  '..',
+  '..',
+  '..',
+  'src',
+  'services',
+  'hooks',
+  'pre-tool-code-gate.sh'
+);
 
 interface SpawnResult {
   readonly exitCode: number;
@@ -235,17 +247,24 @@ interface SpawnResult {
 
 async function runHook(input: GateInput): Promise<SpawnResult> {
   return new Promise<SpawnResult>((resolveFn, reject) => {
-    const child = spawn('bash', [HOOK_SCRIPT], { stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true });
+    const child = spawn('bash', [HOOK_SCRIPT], {
+      stdio: ['pipe', 'pipe', 'pipe'],
+      windowsHide: true
+    });
     let stdout = '';
     let stderr = '';
-    child.stdout.on('data', (chunk: Buffer) => { stdout += chunk.toString('utf8'); });
-    child.stderr.on('data', (chunk: Buffer) => { stderr += chunk.toString('utf8'); });
+    child.stdout.on('data', (chunk: Buffer) => {
+      stdout += chunk.toString('utf8');
+    });
+    child.stderr.on('data', (chunk: Buffer) => {
+      stderr += chunk.toString('utf8');
+    });
     child.on('error', (err) => reject(err));
     child.on('close', (code) => {
       resolveFn({
         exitCode: typeof code === 'number' ? code : -1,
         stdout: stdout.trim(),
-        stderr: stderr.trim(),
+        stderr: stderr.trim()
       });
     });
     child.stdin.end(JSON.stringify(input));
@@ -268,13 +287,19 @@ describe('Scenario: integration — shell hook smoke (real child_process)', () =
   });
 
   it('given Edit on skills/peaks-code/SKILL.md, when hook runs, then exit=0 (skill files allowed)', async () => {
-    const result = await runHook({ tool: 'Edit', input: { file_path: 'skills/peaks-code/SKILL.md' } });
+    const result = await runHook({
+      tool: 'Edit',
+      input: { file_path: 'skills/peaks-code/SKILL.md' }
+    });
     expect(result.exitCode).toBe(0);
     expect(result.stderr).not.toContain('PEAKS_CODE_PROHIBITED_DIRECT_EDIT');
   });
 
   it('given Edit on tests/unit/services/foo.test.ts, when hook runs, then exit=2', async () => {
-    const result = await runHook({ tool: 'Edit', input: { file_path: 'tests/unit/services/foo.test.ts' } });
+    const result = await runHook({
+      tool: 'Edit',
+      input: { file_path: 'tests/unit/services/foo.test.ts' }
+    });
     expect(result.exitCode).toBe(2);
     expect(result.stderr).toContain('PEAKS_CODE_PROHIBITED_DIRECT_EDIT');
   });
@@ -293,14 +318,25 @@ describe('Scenario: integration — shell hook smoke (real child_process)', () =
 
   it('given empty stdin, when hook runs, then exit=0 (tolerate empty payload)', async () => {
     const result = await new Promise<SpawnResult>((resolveFn, reject) => {
-      const child = spawn('bash', [HOOK_SCRIPT], { stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true });
+      const child = spawn('bash', [HOOK_SCRIPT], {
+        stdio: ['pipe', 'pipe', 'pipe'],
+        windowsHide: true
+      });
       let stdout = '';
       let stderr = '';
-      child.stdout.on('data', (chunk: Buffer) => { stdout += chunk.toString('utf8'); });
-      child.stderr.on('data', (chunk: Buffer) => { stderr += chunk.toString('utf8'); });
+      child.stdout.on('data', (chunk: Buffer) => {
+        stdout += chunk.toString('utf8');
+      });
+      child.stderr.on('data', (chunk: Buffer) => {
+        stderr += chunk.toString('utf8');
+      });
       child.on('error', (err) => reject(err));
       child.on('close', (code) => {
-        resolveFn({ exitCode: typeof code === 'number' ? code : -1, stdout: stdout.trim(), stderr: stderr.trim() });
+        resolveFn({
+          exitCode: typeof code === 'number' ? code : -1,
+          stdout: stdout.trim(),
+          stderr: stderr.trim()
+        });
       });
       child.stdin.end('');
     });
@@ -325,7 +361,17 @@ describe('Scenario: behavior — vendor-neutrality (no claude / anthropic string
 
   it('the service module must not reference claude, claude-code, anthropic, or us.anthropic', async () => {
     const fs = await import('node:fs/promises');
-    const servicePath = resolve(__dirname, '..', '..', '..', '..', 'src', 'services', 'hooks', 'pre-tool-code-gate.ts');
+    const servicePath = resolve(
+      __dirname,
+      '..',
+      '..',
+      '..',
+      '..',
+      'src',
+      'services',
+      'hooks',
+      'pre-tool-code-gate.ts'
+    );
     const src = await fs.readFile(servicePath, 'utf8');
     expect(src).not.toMatch(/\bclaude\b/i);
     expect(src).not.toMatch(/\bclaude-code\b/i);

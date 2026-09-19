@@ -28,15 +28,19 @@ import {
   contextAuditKey,
   CONTEXT_AUDIT_DEFAULT_TOP,
   CONTEXT_AUDIT_MAX_TOP,
-  normalizeTopN,
+  normalizeTopN
 } from '~/src/services/context/context-audit';
 
 declareDimensions(
   'tests/unit/services/context/context-audit.test.ts',
   ['behavior', 'render', 'integration'],
   [
-    { dim: 'a11y', reason: 'CLI rendering/exit codes are asserted at the command layer; this file exercises the pure service' },
-  ],
+    {
+      dim: 'a11y',
+      reason:
+        'CLI rendering/exit codes are asserted at the command layer; this file exercises the pure service'
+    }
+  ]
 );
 
 let dir: string;
@@ -52,14 +56,14 @@ afterEach(() => {
 function assistantToolUse(id: string, name: string, input: unknown): string {
   return JSON.stringify({
     type: 'assistant',
-    message: { role: 'assistant', content: [{ type: 'tool_use', id, name, input }] },
+    message: { role: 'assistant', content: [{ type: 'tool_use', id, name, input }] }
   });
 }
 
 function userToolResult(id: string, content: string): string {
   return JSON.stringify({
     type: 'user',
-    message: { role: 'user', content: [{ type: 'tool_result', tool_use_id: id, content }] },
+    message: { role: 'user', content: [{ type: 'tool_result', tool_use_id: id, content }] }
   });
 }
 
@@ -76,7 +80,7 @@ describe('behavior — grouping by (tool, key)', () => {
       assistantToolUse('a', 'Bash', { command: 'peaks memory reindex --json' }),
       userToolResult('a', 'x'.repeat(4000)),
       assistantToolUse('b', 'Bash', { command: 'peaks memory reindex --json' }),
-      userToolResult('b', 'y'.repeat(4000)),
+      userToolResult('b', 'y'.repeat(4000))
     ]);
 
     // when: the transcript is audited
@@ -104,7 +108,7 @@ describe('behavior — grouping by (tool, key)', () => {
       assistantToolUse('b', 'Read', { file_path: '/repo/src/services/doctor/index.ts' }),
       userToolResult('b', 'r'.repeat(800)),
       assistantToolUse('c', 'Grep', { pattern: 'TODO', path: 'src' }),
-      userToolResult('c', 'g'.repeat(500)),
+      userToolResult('c', 'g'.repeat(500))
     ]);
 
     // when: the transcript is audited
@@ -184,7 +188,10 @@ describe('behavior — fail-soft unavailability', () => {
   it('when the detected IDE has no registered adapter, should degrade instead of throwing', () => {
     // given: an env marker for an IDE with no peaks adapter (opencode)
     // when: the audit resolves the transcript
-    const result = auditContext({ outerSessionId: 'any-id', env: { OPENCODE: '1' } as NodeJS.ProcessEnv });
+    const result = auditContext({
+      outerSessionId: 'any-id',
+      env: { OPENCODE: '1' } as NodeJS.ProcessEnv
+    });
 
     // then: no throw — a typed reason, fail-soft
     expect(result.available).toBe(false);
@@ -214,7 +221,7 @@ describe('behavior — fail-soft unavailability', () => {
       userToolResult('a', '1'.repeat(100)),
       '{"type":"assistant","message":{BROKEN',
       assistantToolUse('b', 'Bash', { command: 'second' }),
-      userToolResult('b', '2'.repeat(100)),
+      userToolResult('b', '2'.repeat(100))
     ]);
 
     // when: the transcript is audited
@@ -232,7 +239,7 @@ describe('render — envelope shape and no content leak', () => {
     // given: a result carrying a recognisable secret payload
     const path = writeTranscript([
       assistantToolUse('a', 'Bash', { command: 'cat secrets' }),
-      userToolResult('a', 'SECRET_PAYLOAD_MARKER'.repeat(10)),
+      userToolResult('a', 'SECRET_PAYLOAD_MARKER'.repeat(10))
     ]);
 
     // when: the audit envelope is serialized

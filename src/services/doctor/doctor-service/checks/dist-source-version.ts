@@ -22,7 +22,12 @@ import { join } from 'node:path';
 
 import { getErrorMessage } from 'peaks-loop-shared/result';
 
-import type { DistVersionComparison, DoctorCheck, DoctorCheckPlugin, DoctorContext } from '../types.js';
+import type {
+  DistVersionComparison,
+  DoctorCheck,
+  DoctorCheckPlugin,
+  DoctorContext
+} from '../types.js';
 
 /**
  * Pure helper that compares the published dist `CLI_VERSION` against
@@ -52,7 +57,8 @@ export function compareDistVersion(opts: {
 function safeRead(reader: () => string | null): string | null {
   try {
     return reader();
-  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+  } catch {
+    // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     return null;
   }
 }
@@ -90,30 +96,38 @@ function run({ options, projectRootResolver }: DoctorContext): readonly DoctorCh
   try {
     const result = probe();
     if (!result.distReadable) {
-      return [{
-        id: 'build:dist-version-matches-source',
-        ok: true,
-        message: `dist/ is not present; run \`pnpm build\` to populate dist/shared/version.js (source version ${result.source})`
-      }];
+      return [
+        {
+          id: 'build:dist-version-matches-source',
+          ok: true,
+          message: `dist/ is not present; run \`pnpm build\` to populate dist/shared/version.js (source version ${result.source})`
+        }
+      ];
     }
     if (result.match) {
-      return [{
-        id: 'build:dist-version-matches-source',
-        ok: true,
-        message: `dist/shared/version.js ships CLI_VERSION ${result.dist} matching source ${result.source}`
-      }];
+      return [
+        {
+          id: 'build:dist-version-matches-source',
+          ok: true,
+          message: `dist/shared/version.js ships CLI_VERSION ${result.dist} matching source ${result.source}`
+        }
+      ];
     }
-    return [{
-      id: 'build:dist-version-matches-source',
-      ok: false,
-      message: `dist/shared/version.js ships CLI_VERSION ${result.dist} but source ${result.source} is in src/shared/version.ts; run \`pnpm build\` to refresh dist/`
-    }];
+    return [
+      {
+        id: 'build:dist-version-matches-source',
+        ok: false,
+        message: `dist/shared/version.js ships CLI_VERSION ${result.dist} but source ${result.source} is in src/shared/version.ts; run \`pnpm build\` to refresh dist/`
+      }
+    ];
   } catch (error) {
-    return [{
-      id: 'build:dist-version-matches-source',
-      ok: false,
-      message: `dist version check failed: ${getErrorMessage(error)}`
-    }];
+    return [
+      {
+        id: 'build:dist-version-matches-source',
+        ok: false,
+        message: `dist version check failed: ${getErrorMessage(error)}`
+      }
+    ];
   }
 }
 

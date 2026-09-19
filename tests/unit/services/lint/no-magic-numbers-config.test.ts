@@ -49,7 +49,11 @@ describe('PRD-002b slice 2 — no-magic-numbers rule wire-confirmation', () => {
     const rules = mod.rules as Record<string, unknown>;
     const ruleEntry = rules['no-magic-numbers'] as unknown[];
     expect(Array.isArray(ruleEntry)).toBe(true);
-    const options = ruleEntry[1] as { ignore: readonly number[]; ignoreArrayIndexes?: boolean; ignoreDefaultValues?: boolean };
+    const options = ruleEntry[1] as {
+      ignore: readonly number[];
+      ignoreArrayIndexes?: boolean;
+      ignoreDefaultValues?: boolean;
+    };
     expect(options.ignore).toEqual(expect.arrayContaining([-1, 0, 1, 2, 100, 1000]));
     // Sort-stable comparison (rule object may be authored with a different order).
     const sortedIgnore = [...options.ignore].sort((a, b) => a - b);
@@ -80,8 +84,13 @@ describe('PRD-002b slice 2 — no-magic-numbers rule wire-confirmation', () => {
 
   it('test file override disables the rule for tests/** (line 117 carve-out)', () => {
     const mod = loadConfig();
-    const overrides = mod.overrides as Array<{ files: readonly string[]; rules: Record<string, string> }>;
-    const testOverride = overrides.find((o) => o.files.includes('tests/**/*.ts') || o.files.includes('*.test.ts'));
+    const overrides = mod.overrides as Array<{
+      files: readonly string[];
+      rules: Record<string, string>;
+    }>;
+    const testOverride = overrides.find(
+      (o) => o.files.includes('tests/**/*.ts') || o.files.includes('*.test.ts')
+    );
     expect(testOverride).toBeDefined();
     expect(testOverride?.rules['no-magic-numbers']).toBe('off');
   });
@@ -98,11 +107,15 @@ describe('PRD-002b slice 2 — no-magic-numbers rule wire-confirmation', () => {
     // guarantees the file is part of the tsconfig project so the
     // type-aware parser resolves it; no tmp dir / parser error fallback.
     const candidate = join(ROOT, 'src', 'services', 'lint', 'eslint-runner.ts');
-    const result = spawnSync(process.execPath, [ESLINT_BIN, '--format', 'json', '--config', CONFIG_PATH, candidate], {
-      encoding: 'utf8',
-      cwd: ROOT,
-      windowsHide: true
-    });
+    const result = spawnSync(
+      process.execPath,
+      [ESLINT_BIN, '--format', 'json', '--config', CONFIG_PATH, candidate],
+      {
+        encoding: 'utf8',
+        cwd: ROOT,
+        windowsHide: true
+      }
+    );
     const stdout = typeof result.stdout === 'string' ? result.stdout : '';
     expect(stdout.length).toBeGreaterThan(0);
     const parsed = JSON.parse(stdout) as Array<{

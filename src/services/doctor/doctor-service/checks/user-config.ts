@@ -17,13 +17,15 @@ import type { DoctorCheck, DoctorCheckPlugin } from '../types.js';
 function run(): readonly DoctorCheck[] {
   const userConfigPath = join(homedir(), '.peaks', 'config.json');
   const hasUserConfig = existsSync(userConfigPath);
-  return [{
-    id: 'config:user',
-    ok: true,
-    message: hasUserConfig
-      ? 'User config exists at ~/.peaks/config.json'
-      : 'Optional user config not found at ~/.peaks/config.json'
-  }];
+  return [
+    {
+      id: 'config:user',
+      ok: true,
+      message: hasUserConfig
+        ? 'User config exists at ~/.peaks/config.json'
+        : 'Optional user config not found at ~/.peaks/config.json'
+    }
+  ];
 }
 
 export const check: DoctorCheckPlugin = {

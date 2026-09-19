@@ -82,7 +82,7 @@ export interface RerankChatMessage {
  */
 export type RerankChatFn = (
   messages: readonly RerankChatMessage[],
-  signal: AbortSignal,
+  signal: AbortSignal
 ) => Promise<string>;
 
 /**
@@ -172,7 +172,7 @@ function truncateForPrompt(text: string, maxChars: number): string {
  */
 export function renderRerankPrompt(
   query: string,
-  candidates: readonly MemorySearchResult[],
+  candidates: readonly MemorySearchResult[]
 ): string {
   const blocks = candidates.map((c, i) => {
     const desc = truncateForPrompt(c.description, MAX_DESCRIPTION_CHARS);
@@ -184,7 +184,7 @@ export function renderRerankPrompt(
     `Rank the following ${candidates.length} candidate memories by relevance to the query. Return a JSON array of the candidate indices in descending relevance. Return only the JSON — no prose, no markdown.`,
     '',
     'Candidates:',
-    ...blocks,
+    ...blocks
   ].join('\n');
 }
 
@@ -221,7 +221,8 @@ export function parseRerankResponse(raw: string): readonly number[] | null {
   let parsed: unknown;
   try {
     parsed = JSON.parse(candidate);
-  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+  } catch {
+    // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     return null;
   }
   if (!Array.isArray(parsed)) return null;
@@ -245,7 +246,7 @@ export function parseRerankResponse(raw: string): readonly number[] | null {
 export function applyRerankOrder(
   candidates: readonly MemorySearchResult[],
   order: readonly number[],
-  topK: number,
+  topK: number
 ): MemorySearchResult[] {
   const result: MemorySearchResult[] = [];
   const seen = new Set<number>();
@@ -285,7 +286,7 @@ export const noopRerankChat: RerankChatFn = async () => {
 export async function rerank(
   query: string,
   candidates: readonly MemorySearchResult[],
-  options: RerankOptions = {},
+  options: RerankOptions = {}
 ): Promise<RerankResult> {
   const topN = Math.min(Math.max(options.topN ?? DEFAULT_TOP_N, 1), MAX_CANDIDATES);
   const topK = Math.min(Math.max(options.topK ?? DEFAULT_TOP_K, 1), topN);
@@ -298,7 +299,7 @@ export async function rerank(
       topK: [],
       tokens: { promptTokens: 0, responseTokens: 0, total: 0 },
       degradation: 'noop-empty-input',
-      warning: null,
+      warning: null
     };
   }
 
@@ -309,7 +310,7 @@ export async function rerank(
       topK: candidates.slice(0, topK),
       tokens: { promptTokens: 0, responseTokens: 0, total: 0 },
       degradation: 'noop-empty-input',
-      warning: null,
+      warning: null
     };
   }
 
@@ -324,7 +325,7 @@ export async function rerank(
       topK: truncated.slice(0, topK),
       tokens: { promptTokens, responseTokens: 0, total: promptTokens },
       degradation: 'skipped-no-chat-fn',
-      warning: 'No chat function provided; returning original fuzzy order.',
+      warning: 'No chat function provided; returning original fuzzy order.'
     };
   }
 
@@ -344,7 +345,7 @@ export async function rerank(
       degradation: isTimeout ? 'timeout-fallback' : 'chat-failed-fallback',
       warning: isTimeout
         ? `Chat timeout after ${chatTimeoutMs}ms; returning original fuzzy order.`
-        : `Chat failed: ${message}; returning original fuzzy order.`,
+        : `Chat failed: ${message}; returning original fuzzy order.`
     };
   }
   clearTimeout(timeoutHandle);
@@ -357,7 +358,7 @@ export async function rerank(
       topK: truncated.slice(0, topK),
       tokens: { promptTokens, responseTokens, total: promptTokens + responseTokens },
       degradation: 'parse-failed-fallback',
-      warning: 'LLM response was not a valid JSON index array; returning original fuzzy order.',
+      warning: 'LLM response was not a valid JSON index array; returning original fuzzy order.'
     };
   }
 
@@ -367,6 +368,6 @@ export async function rerank(
     topK: topKResult,
     tokens: { promptTokens, responseTokens, total: promptTokens + responseTokens },
     degradation: 'reranked',
-    warning: null,
+    warning: null
   };
 }

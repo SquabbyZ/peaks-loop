@@ -36,7 +36,8 @@ const CLOSING_PROMPTS = [
   /\b随时 (欢迎 )?(联系|提问)/i
 ];
 
-const STATUS_HEADER_PATTERN = /Peaks-Loop Skill:\s*peaks-[a-z0-9-]+\s*\|\s*Peaks-Loop Gate:\s*[A-Za-z0-9_.-]+\s*\|\s*Next:\s*\S/;
+const STATUS_HEADER_PATTERN =
+  /Peaks-Loop Skill:\s*peaks-[a-z0-9-]+\s*\|\s*Peaks-Loop Gate:\s*[A-Za-z0-9_.-]+\s*\|\s*Next:\s*\S/;
 
 export function lintNoFluff(skill: SkillFile): readonly LintHit[] {
   const hits: LintHit[] = [];
@@ -88,13 +89,15 @@ export function lintStatusHeader(projectRoot: string, sessionId: string): readon
     return [];
   }
   if (!STATUS_HEADER_PATTERN.test(body)) {
-    return [{
-      catalogId: 'rl-output-style-status-header-001',
-      rule: 'Peaks-Loop status header on every response',
-      file: logPath,
-      line: 1,
-      matchedText: '(no Peaks-Loop Skill / Gate / Next header found in session.log)'
-    }];
+    return [
+      {
+        catalogId: 'rl-output-style-status-header-001',
+        rule: 'Peaks-Loop status header on every response',
+        file: logPath,
+        line: 1,
+        matchedText: '(no Peaks-Loop Skill / Gate / Next header found in session.log)'
+      }
+    ];
   }
   return [];
 }

@@ -47,12 +47,17 @@ describe('runtime-path seam — a new unguarded join is an authoring-time error'
     const root = runtimeRoot(PROJECT_ROOT);
 
     // Same join, same caller-supplied id, one guard applied. Green.
-    const resolved = root.join(guardRuntimeSegment(sessionId, 'session id'), guardRuntimeSegment('rd', 'role'));
+    const resolved = root.join(
+      guardRuntimeSegment(sessionId, 'session id'),
+      guardRuntimeSegment('rd', 'role')
+    );
 
-    expect(resolved).toBe(join(PROJECT_ROOT, '.peaks', '_runtime', '2026-09-15-session-abcd12', 'rd'));
+    expect(resolved).toBe(
+      join(PROJECT_ROOT, '.peaks', '_runtime', '2026-09-15-session-abcd12', 'rd')
+    );
   });
 
-  it('the guard\'s RESULT carries the brand (a guard one function away still types)', () => {
+  it("the guard's RESULT carries the brand (a guard one function away still types)", () => {
     const guarded = guardRuntimeSegment('rd', 'role');
     // No `@ts-expect-error` here on purpose: this line must compile, which is
     // what lets `requestArtifactRequestsDir` and `assertSafeHandoffIds` hand a
@@ -78,8 +83,19 @@ describe('runtime-path seam — behaviour is unchanged', () => {
     // The three measured carriers: `--session-id ../../../PWNED-R34`
     // (request-artifact-service R5), `--sid ../../../../SIDOUT` and
     // `--rid ../../../../../../README` (handoff-service).
-    for (const unsafe of ['../../../PWNED-R34', '../../../../SIDOUT', '../../../../../../README', '..', '', 'C:\\abs', '/abs', 'a\\b']) {
-      expect(() => guardRuntimeSegment(unsafe, 'session id')).toThrow(/must be a single path segment/);
+    for (const unsafe of [
+      '../../../PWNED-R34',
+      '../../../../SIDOUT',
+      '../../../../../../README',
+      '..',
+      '',
+      'C:\\abs',
+      '/abs',
+      'a\\b'
+    ]) {
+      expect(() => guardRuntimeSegment(unsafe, 'session id')).toThrow(
+        /must be a single path segment/
+      );
     }
   });
 

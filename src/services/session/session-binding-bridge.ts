@@ -24,10 +24,7 @@ import { dirname, join } from 'node:path';
 import { randomBytes } from 'node:crypto';
 import { initWorkspace } from '../workspace/workspace-service.js';
 import { projectRootsMatch, stableRealPath } from '../../shared/path-utils.js';
-import {
-  resolveCallerBinding,
-  setCallerBinding,
-} from './caller-binding-service.js';
+import { resolveCallerBinding, setCallerBinding } from './caller-binding-service.js';
 import type { CallerBinding } from './caller-id-types.js';
 import { resolveCallerProjection } from './resolve-caller-id.js';
 import {
@@ -69,7 +66,9 @@ function getSessionFilePath(projectRoot: string): string {
   return join(projectRoot, '.peaks', SESSION_FILE);
 }
 
-function readSessionFile(projectRoot: string): { sessionId: string; createdAt: string; projectRoot: string } | null {
+function readSessionFile(
+  projectRoot: string
+): { sessionId: string; createdAt: string; projectRoot: string } | null {
   const sessionFile = getSessionFilePath(projectRoot);
   const legacyFile = getLegacySessionFilePath(projectRoot);
   const pathToRead = existsSync(sessionFile) ? sessionFile : legacyFile;
@@ -85,12 +84,15 @@ function readSessionFile(projectRoot: string): { sessionId: string; createdAt: s
       return data as { sessionId: string; createdAt: string; projectRoot: string };
     }
     return null;
-  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+  } catch {
+    // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     return null;
   }
 }
 
-function readSessionFileCanonical(projectRoot: string): { sessionId: string; createdAt: string; projectRoot: string } | null {
+function readSessionFileCanonical(
+  projectRoot: string
+): { sessionId: string; createdAt: string; projectRoot: string } | null {
   const sessionFile = getSessionFilePath(projectRoot);
   const legacyFile = getLegacySessionFilePath(projectRoot);
   const pathToRead = existsSync(sessionFile) ? sessionFile : legacyFile;
@@ -106,12 +108,16 @@ function readSessionFileCanonical(projectRoot: string): { sessionId: string; cre
       return data as { sessionId: string; createdAt: string; projectRoot: string };
     }
     return null;
-  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+  } catch {
+    // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     return null;
   }
 }
 
-function writeSessionFile(projectRoot: string, info: { sessionId: string; createdAt: string; projectRoot: string }): void {
+function writeSessionFile(
+  projectRoot: string,
+  info: { sessionId: string; createdAt: string; projectRoot: string }
+): void {
   const sessionFile = getSessionFilePath(projectRoot);
   const dir = dirname(sessionFile);
   if (!existsSync(dir)) {
@@ -134,7 +140,13 @@ function getMetaFilePath(projectRoot: string, sessionId: string): string {
 function readSessionMeta(
   projectRoot: string,
   sessionId: string
-): { sessionId: string; projectRoot: string; createdAt: string; outerSessionId?: string; [k: string]: unknown } | null {
+): {
+  sessionId: string;
+  projectRoot: string;
+  createdAt: string;
+  outerSessionId?: string;
+  [k: string]: unknown;
+} | null {
   const metaPath = getMetaFilePath(projectRoot, sessionId);
   if (!existsSync(metaPath)) return null;
 
@@ -144,8 +156,15 @@ function readSessionMeta(
     if (typeof parsed?.sessionId !== 'string' || parsed.sessionId.length === 0) {
       return null;
     }
-    return parsed as { sessionId: string; projectRoot: string; createdAt: string; outerSessionId?: string; [k: string]: unknown };
-  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+    return parsed as {
+      sessionId: string;
+      projectRoot: string;
+      createdAt: string;
+      outerSessionId?: string;
+      [k: string]: unknown;
+    };
+  } catch {
+    // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     return null;
   }
 }
@@ -153,7 +172,13 @@ function readSessionMeta(
 function writeSessionMeta(
   projectRoot: string,
   sessionId: string,
-  meta: { sessionId: string; projectRoot: string; createdAt: string; outerSessionId?: string; [k: string]: unknown }
+  meta: {
+    sessionId: string;
+    projectRoot: string;
+    createdAt: string;
+    outerSessionId?: string;
+    [k: string]: unknown;
+  }
 ): void {
   const metaPath = getMetaFilePath(projectRoot, sessionId);
   const metaDir = dirname(metaPath);
@@ -201,11 +226,12 @@ function getCurrentOuterSessionId(projectRoot?: string): string | undefined {
               parsed !== null &&
               typeof parsed === 'object' &&
               typeof (parsed as { outerSessionId?: unknown }).outerSessionId === 'string' &&
-              ((parsed as { outerSessionId: string }).outerSessionId).length > 0
+              (parsed as { outerSessionId: string }).outerSessionId.length > 0
             ) {
               resolved = (parsed as { outerSessionId: string }).outerSessionId;
             }
-          } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+          } catch {
+            // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
             // fall through — file missing / malformed JSON / IO error → undefined
           }
         }
@@ -274,7 +300,8 @@ function resolveCallerBindingForEnsure(
   let projection;
   try {
     projection = resolveCallerProjection({ projectRoot, env: process.env });
-  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+  } catch {
+    // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     return null;
   }
   try {
@@ -285,7 +312,8 @@ function resolveCallerBindingForEnsure(
       createdAt: resolution.binding.createdAt,
       callerId: projection.callerId
     };
-  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+  } catch {
+    // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     return null;
   }
 }
@@ -395,7 +423,8 @@ export async function ensureSession(projectRoot: string): Promise<string> {
     };
     try {
       setCallerBinding(projectRoot, newCallerId, payload);
-    } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+    } catch {
+      // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
       // best effort; session.json write below is the legacy fallback
     }
   }

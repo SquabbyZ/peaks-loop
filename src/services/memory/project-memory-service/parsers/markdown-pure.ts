@@ -64,9 +64,9 @@ function describeUnrecognizedMarker(found: string): string {
 // summarizeMemoryBody was first introduced; locking them in as named
 // constants is a doc-as-code move so the truncation rule is no longer
 // "magic". Bump MAX_DESCRIPTION_LENGTH deliberately if downstream UIs grow.
-const MIN_BODY_SENTENCE_LENGTH = 20;   // skip fragments shorter than this when picking a leading sentence
-const MAX_DESCRIPTION_LENGTH = 120;    // hard cap on description length in the memory index entry
-const ELLIPSIS_RESERVE = 3;             // length of the trailing "..." when truncating with an ellipsis
+const MIN_BODY_SENTENCE_LENGTH = 20; // skip fragments shorter than this when picking a leading sentence
+const MAX_DESCRIPTION_LENGTH = 120; // hard cap on description length in the memory index entry
+const ELLIPSIS_RESERVE = 3; // length of the trailing "..." when truncating with an ellipsis
 
 export function summarizeMemoryBody(body: string): string {
   const cleaned = body
@@ -76,9 +76,9 @@ export function summarizeMemoryBody(body: string): string {
     .replace(/\n+/g, ' ')
     .trim();
 
-  const sentences = cleaned.split(/(?<=[.!?])\s+/).filter(
-    (s) => s.length > MIN_BODY_SENTENCE_LENGTH && !/^\[.+\]$/.test(s)
-  );
+  const sentences = cleaned
+    .split(/(?<=[.!?])\s+/)
+    .filter((s) => s.length > MIN_BODY_SENTENCE_LENGTH && !/^\[.+\]$/.test(s));
   if (sentences.length === 0) {
     return cleaned.slice(0, MAX_DESCRIPTION_LENGTH) || 'Project memory';
   }
@@ -104,7 +104,10 @@ export type ExtractedMemoryBlocks = {
  * extracted set is identical by construction — the diagnostics cannot change
  * which blocks are accepted.
  */
-export function extractStableProjectMemoriesWithDiagnostics(content: string, sourceArtifact: string): ExtractedMemoryBlocks {
+export function extractStableProjectMemoriesWithDiagnostics(
+  content: string,
+  sourceArtifact: string
+): ExtractedMemoryBlocks {
   const memories: ExtractedProjectMemory[] = [];
   // Kept as `{index, drop}` pairs so located-block drops and near-miss-marker
   // drops can be reported in DOCUMENT order through one channel. The index is
@@ -126,7 +129,10 @@ export function extractStableProjectMemoriesWithDiagnostics(content: string, sou
       assertSafeMemory(parsed.memory);
       memories.push(parsed.memory);
     } else {
-      drops.push({ index: start, drop: { sourceArtifact, reason: parsed.reason, detail: parsed.detail } });
+      drops.push({
+        index: start,
+        drop: { sourceArtifact, reason: parsed.reason, detail: parsed.detail }
+      });
     }
     searchStart = end + END_MARKER.length;
   }
@@ -144,18 +150,30 @@ export function extractStableProjectMemoriesWithDiagnostics(content: string, sou
     if (found === START_MARKER || found === END_MARKER) continue;
     const index = match.index ?? 0;
     if (locatedRanges.some(([from, to]) => index >= from && index < to)) continue;
-    drops.push({ index, drop: { sourceArtifact, reason: 'unrecognized-marker', detail: describeUnrecognizedMarker(found) } });
+    drops.push({
+      index,
+      drop: {
+        sourceArtifact,
+        reason: 'unrecognized-marker',
+        detail: describeUnrecognizedMarker(found)
+      }
+    });
   }
 
   drops.sort((left, right) => left.index - right.index);
 
   return {
-    memories: memories.sort((left, right) => slugify(left.title).localeCompare(slugify(right.title))),
+    memories: memories.sort((left, right) =>
+      slugify(left.title).localeCompare(slugify(right.title))
+    ),
     dropped: drops.map((entry) => entry.drop)
   };
 }
 
-export function extractStableProjectMemories(content: string, sourceArtifact: string): ExtractedProjectMemory[] {
+export function extractStableProjectMemories(
+  content: string,
+  sourceArtifact: string
+): ExtractedProjectMemory[] {
   return extractStableProjectMemoriesWithDiagnostics(content, sourceArtifact).memories;
 }
 
@@ -166,9 +184,10 @@ export function extractStableProjectMemories(content: string, sourceArtifact: st
  */
 export function describeMemoryBlockDrops(dropped: ReadonlyArray<MemoryBlockDrop>): string[] {
   return dropped.map((drop) => {
-    const hint = drop.reason === 'unknown-kind'
-      ? ` Accepted kinds: ${[...VALID_MEMORY_KINDS].join(', ')}.`
-      : '';
+    const hint =
+      drop.reason === 'unknown-kind'
+        ? ` Accepted kinds: ${[...VALID_MEMORY_KINDS].join(', ')}.`
+        : '';
     return `Skipped a memory block in ${drop.sourceArtifact}: ${drop.detail}.${hint}`;
   });
 }
@@ -179,10 +198,14 @@ export function describeMemoryBlockDrops(dropped: ReadonlyArray<MemoryBlockDrop>
  * whole file that never yielded blocks at all.
  */
 export function describeSessionScanFailures(failures: ReadonlyArray<SessionScanFailure>): string[] {
-  return failures.map((failure) => `Could not read the session artifact ${failure.file}: ${failure.detail}.`);
+  return failures.map(
+    (failure) => `Could not read the session artifact ${failure.file}: ${failure.detail}.`
+  );
 }
 
-export function summarizeExtractResult(result: ProjectMemoryExtractResult): ProjectMemoryExtractSummary {
+export function summarizeExtractResult(
+  result: ProjectMemoryExtractResult
+): ProjectMemoryExtractSummary {
   return {
     apply: result.apply,
     projectRoot: result.projectRoot,
@@ -199,7 +222,9 @@ export function summarizeExtractResult(result: ProjectMemoryExtractResult): Proj
   };
 }
 
-export function summarizeBackupResult(result: ProjectMemoryBackupResult): ProjectMemoryBackupSummary {
+export function summarizeBackupResult(
+  result: ProjectMemoryBackupResult
+): ProjectMemoryBackupSummary {
   return {
     apply: result.apply,
     projectRoot: result.projectRoot,

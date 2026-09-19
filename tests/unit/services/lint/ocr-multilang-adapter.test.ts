@@ -1,5 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { buildOcr18Args, OCR_18_LANGUAGES, OCR_18_PACKAGE, runOcr18 } from '../../../../src/services/lint/ocr-multilang-adapter.js';
+import {
+  buildOcr18Args,
+  OCR_18_LANGUAGES,
+  OCR_18_PACKAGE,
+  runOcr18
+} from '../../../../src/services/lint/ocr-multilang-adapter.js';
 
 interface ChildProcessMock {
   spawnSync: ReturnType<typeof vi.fn>;
@@ -64,7 +69,15 @@ describe('runOcr18', () => {
 
   it('when ocr18 is missing, should return state ocr18-missing', () => {
     // given: npx fails to spawn the ocr package
-    queueSpawnSequence([{ status: null, stdout: '', error: Object.assign(new Error('spawn npx ENOENT'), { code: 'ENOENT' } as NodeJS.ErrnoException) }]);
+    queueSpawnSequence([
+      {
+        status: null,
+        stdout: '',
+        error: Object.assign(new Error('spawn npx ENOENT'), {
+          code: 'ENOENT'
+        } as NodeJS.ErrnoException)
+      }
+    ]);
 
     // when: runOcr18 is invoked
     const result = runOcr18({ cwd: process.cwd(), language: 'python' });
@@ -76,7 +89,14 @@ describe('runOcr18', () => {
 
   it('when the spawn itself fails, should keep the launch error in rawOutput', () => {
     // given: the launch fails before ocr produces any output at all
-    queueSpawnSequence([{ status: null, stdout: '', stderr: '', error: Object.assign(new Error('spawn EINVAL'), { code: 'EINVAL' } as NodeJS.ErrnoException) }]);
+    queueSpawnSequence([
+      {
+        status: null,
+        stdout: '',
+        stderr: '',
+        error: Object.assign(new Error('spawn EINVAL'), { code: 'EINVAL' } as NodeJS.ErrnoException)
+      }
+    ]);
 
     // when: runOcr18 is invoked
     const result = runOcr18({ cwd: process.cwd(), language: 'ruby' });
@@ -97,7 +117,9 @@ describe('runOcr18', () => {
     expect(call[0]).toBe(SENTINEL_COMMAND);
     expect(call[0]).not.toBe('npx');
     expect(call[1].slice(0, SENTINEL_PREFIX.length)).toEqual(SENTINEL_PREFIX);
-    expect(call[1]).toEqual(expect.arrayContaining(['--package', OCR_18_PACKAGE, '--', 'ocr', 'review']));
+    expect(call[1]).toEqual(
+      expect.arrayContaining(['--package', OCR_18_PACKAGE, '--', 'ocr', 'review'])
+    );
     // then: the console window is hidden — an `ocr review` can run for minutes
     expect(call[2]).toMatchObject({ encoding: 'utf8', windowsHide: true });
   });
@@ -150,8 +172,20 @@ describe('runOcr18', () => {
     // given: a valid findings payload
     const payload = {
       findings: [
-        { file: 'src/main.py', line: 12, rule: 'sql-injection', severity: 'error', message: 'unsafe SQL' },
-        { file: 'src/main.py', line: 24, rule: 'npe', severity: 'warn', message: 'missing None check' }
+        {
+          file: 'src/main.py',
+          line: 12,
+          rule: 'sql-injection',
+          severity: 'error',
+          message: 'unsafe SQL'
+        },
+        {
+          file: 'src/main.py',
+          line: 24,
+          rule: 'npe',
+          severity: 'warn',
+          message: 'missing None check'
+        }
       ]
     };
     queueSpawnSequence([{ status: 0, stdout: JSON.stringify(payload) }]);
@@ -185,7 +219,9 @@ describe('OCR_18_LANGUAGES', () => {
     // when: its length is computed
     // then: it must cover the 8 PRD-mandated languages
     expect(OCR_18_LANGUAGES.length).toBe(8);
-    expect(OCR_18_LANGUAGES).toEqual(expect.arrayContaining(['python', 'go', 'java', 'rust', 'cpp', 'csharp', 'ruby', 'php']));
+    expect(OCR_18_LANGUAGES).toEqual(
+      expect.arrayContaining(['python', 'go', 'java', 'rust', 'cpp', 'csharp', 'ruby', 'php'])
+    );
   });
 });
 
@@ -194,6 +230,8 @@ describe('buildOcr18Args', () => {
     // given: an unsupported language
     // when: buildOcr18Args is called
     // then: the call rejects without spawning
-    expect(() => buildOcr18Args({ cwd: process.cwd(), language: 'cobol' })).toThrow(/unsupported language/);
+    expect(() => buildOcr18Args({ cwd: process.cwd(), language: 'cobol' })).toThrow(
+      /unsupported language/
+    );
   });
 });

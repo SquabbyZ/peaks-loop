@@ -114,13 +114,21 @@ export function matchGlob(pattern: string, path: string): boolean {
 
 /** Risk of a single file based on its path patterns. */
 function fileRisk(path: string): 'high' | 'medium' | 'low' {
-  if (matchGlob('**/auth/**', path) || matchGlob('**/permission/**', path) ||
-      matchGlob('**/rbac/**', path) || matchGlob('**/schema/**', path) ||
-      matchGlob('**/migrations/**', path) || matchGlob('**/prisma/**', path)) {
+  if (
+    matchGlob('**/auth/**', path) ||
+    matchGlob('**/permission/**', path) ||
+    matchGlob('**/rbac/**', path) ||
+    matchGlob('**/schema/**', path) ||
+    matchGlob('**/migrations/**', path) ||
+    matchGlob('**/prisma/**', path)
+  ) {
     return 'high';
   }
-  if (matchGlob('**/services/**', path) || matchGlob('**/api/**', path) ||
-      matchGlob('**/components/**', path)) {
+  if (
+    matchGlob('**/services/**', path) ||
+    matchGlob('**/api/**', path) ||
+    matchGlob('**/components/**', path)
+  ) {
     return 'medium';
   }
   return 'low';
@@ -149,7 +157,10 @@ export function runImpactScan(opts: ImpactScanOptions): ImpactScanReport {
   for (const [name, patterns] of flows) {
     const matches = changed.filter((f) => patterns.some((p) => matchGlob(p, f)));
     if (matches.length > 0) {
-      affectedFlows.push({ name, reason: `changes touch ${matches.length} file(s) in this flow: ${matches.slice(0, 3).join(', ')}` });
+      affectedFlows.push({
+        name,
+        reason: `changes touch ${matches.length} file(s) in this flow: ${matches.slice(0, 3).join(', ')}`
+      });
     }
   }
 
@@ -217,7 +228,10 @@ export function runImpactScan(opts: ImpactScanOptions): ImpactScanReport {
   // Overall risk = highest individual risk.
   let overallRisk: 'high' | 'medium' | 'low' = 'low';
   for (const f of dedupedImpacted) {
-    if (f.risk === 'high') { overallRisk = 'high'; break; }
+    if (f.risk === 'high') {
+      overallRisk = 'high';
+      break;
+    }
     if (f.risk === 'medium') overallRisk = 'medium';
   }
   if (affectedFlows.length > 3) overallRisk = 'high';

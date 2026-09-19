@@ -23,7 +23,9 @@ import { addJsonOption, printResult, type ProgramIO } from '../cli-helpers.js';
 export function registerDocCommands(program: Command, io: ProgramIO): void {
   const doc = program
     .command('doc')
-    .description('v2.15.0 follow-up G7: documentation auto-generation (skill skeletons + changelog suggestions).');
+    .description(
+      'v2.15.0 follow-up G7: documentation auto-generation (skill skeletons + changelog suggestions).'
+    );
 
   addJsonOption(
     doc
@@ -37,30 +39,55 @@ export function registerDocCommands(program: Command, io: ProgramIO): void {
       .requiredOption('--from <dir>', 'directory containing CLI command files')
       .option('--output <file>', 'write to file (default: stdout)')
       .option('--project <path>', 'project root (default: cwd)')
-  ).action((opts: { name: string; from: string; output?: string; project?: string; json?: boolean }) => {
-    const projectRoot = opts.project ?? findProjectRoot(process.cwd()) ?? process.cwd();
-    const dir = resolvePath(opts.from);
-    const skill = generateSkillFromCommands(opts.name, dir);
-    const md = renderSkillMarkdown(skill);
-    if (opts.output !== undefined) {
-      // Write to file
-      try {
-        const { writeFileSync, mkdirSync } = require('node:fs') as typeof import('node:fs');
-        mkdirSync(resolvePath(opts.output, '..'), { recursive: true });
-        writeFileSync(resolvePath(opts.output), md, 'utf8');
-        printResult(io, ok('doc.generate-skill', { projectRoot, output: opts.output, sections: skill.sections.length, bytes: md.length }, [], [
-          `Wrote ${md.length} bytes to ${opts.output}`
-        ]), opts.json ?? false);
-      } catch (err) {
-        printResult(io, fail('doc.generate-skill', 'WRITE_FAILED', (err as Error).message, { projectRoot }, []), opts.json ?? false);
-        process.exitCode = 1;
+  ).action(
+    (opts: { name: string; from: string; output?: string; project?: string; json?: boolean }) => {
+      const projectRoot = opts.project ?? findProjectRoot(process.cwd()) ?? process.cwd();
+      const dir = resolvePath(opts.from);
+      const skill = generateSkillFromCommands(opts.name, dir);
+      const md = renderSkillMarkdown(skill);
+      if (opts.output !== undefined) {
+        // Write to file
+        try {
+          const { writeFileSync, mkdirSync } = require('node:fs') as typeof import('node:fs');
+          mkdirSync(resolvePath(opts.output, '..'), { recursive: true });
+          writeFileSync(resolvePath(opts.output), md, 'utf8');
+          printResult(
+            io,
+            ok(
+              'doc.generate-skill',
+              {
+                projectRoot,
+                output: opts.output,
+                sections: skill.sections.length,
+                bytes: md.length
+              },
+              [],
+              [`Wrote ${md.length} bytes to ${opts.output}`]
+            ),
+            opts.json ?? false
+          );
+        } catch (err) {
+          printResult(
+            io,
+            fail('doc.generate-skill', 'WRITE_FAILED', (err as Error).message, { projectRoot }, []),
+            opts.json ?? false
+          );
+          process.exitCode = 1;
+        }
+        return;
       }
-      return;
+      printResult(
+        io,
+        ok(
+          'doc.generate-skill',
+          { projectRoot, markdown: md, sections: skill.sections.length },
+          [],
+          [`Generated ${skill.sections.length} section(s). Pipe into a .md file or redirect.`]
+        ),
+        opts.json ?? false
+      );
     }
-    printResult(io, ok('doc.generate-skill', { projectRoot, markdown: md, sections: skill.sections.length }, [], [
-      `Generated ${skill.sections.length} section(s). Pipe into a .md file or redirect.`
-    ]), opts.json ?? false);
-  });
+  );
 
   addJsonOption(
     doc
@@ -76,8 +103,15 @@ export function registerDocCommands(program: Command, io: ProgramIO): void {
     const projectRoot = opts.project ?? findProjectRoot(process.cwd()) ?? process.cwd();
     const entries = gitLogSince(projectRoot, opts.since);
     const md = suggestChangelog(entries);
-    printResult(io, ok('doc.changelog-suggest', { projectRoot, since: opts.since, entryCount: entries.length, markdown: md }, [], [
-      `Parsed ${entries.length} commit(s) since ${opts.since}.`
-    ]), opts.json ?? false);
+    printResult(
+      io,
+      ok(
+        'doc.changelog-suggest',
+        { projectRoot, since: opts.since, entryCount: entries.length, markdown: md },
+        [],
+        [`Parsed ${entries.length} commit(s) since ${opts.since}.`]
+      ),
+      opts.json ?? false
+    );
   });
 }

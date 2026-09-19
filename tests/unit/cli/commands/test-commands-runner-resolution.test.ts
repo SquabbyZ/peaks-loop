@@ -32,9 +32,10 @@ declareDimensions(
   [
     {
       dim: 'integration',
-      reason: 'fs, spawn, platform and env are injected fakes — no real subprocess or filesystem is touched',
-    },
-  ],
+      reason:
+        'fs, spawn, platform and env are injected fakes — no real subprocess or filesystem is touched'
+    }
+  ]
 );
 
 /** Host-normalized so the expectations hold on both Windows and POSIX CI.
@@ -44,8 +45,7 @@ const NODE_EXEC = join('fake', 'bin', 'node');
 const CMD_EXEC = join('fake', 'system32', 'cmd.exe');
 const binOf = (name: string): string => join(PROJECT, 'node_modules', '.bin', name);
 const pkgOf = (name: string): string => join(PROJECT, 'node_modules', name, 'package.json');
-const entryOf = (name: string, file: string): string =>
-  join(PROJECT, 'node_modules', name, file);
+const entryOf = (name: string, file: string): string => join(PROJECT, 'node_modules', name, file);
 
 const VITEST_ENTRY = entryOf('vitest', 'vitest.mjs');
 const VITEST_PKG = JSON.stringify({ name: 'vitest', bin: { vitest: './vitest.mjs' } });

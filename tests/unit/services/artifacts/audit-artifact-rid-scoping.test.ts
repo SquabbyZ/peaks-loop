@@ -47,7 +47,7 @@ import type { RequestArtifactRole } from '../../../../src/services/artifacts/req
 declareDimensions(
   'tests/unit/services/artifacts/audit-artifact-rid-scoping.test.ts',
   ['render', 'behavior', 'integration'],
-  [{ dim: 'a11y', reason: 'resolver returns a result envelope; prints nothing and exits nothing' }],
+  [{ dim: 'a11y', reason: 'resolver returns a result envelope; prints nothing and exits nothing' }]
 );
 
 const SESSION_ID = '2026-09-13-session-21878f';
@@ -61,7 +61,11 @@ const RID_SCOPED_ARTIFACTS: ReadonlyArray<{ name: string; ridPath: string; bareP
   { name: 'security audit', ridPath: 'audit/security-<rid>.md', barePath: 'audit/security.md' },
   { name: 'perf audit', ridPath: 'audit/perf-<rid>.md', barePath: 'audit/perf.md' },
   { name: 'code review', ridPath: 'rd/code-review-<rid>.md', barePath: 'rd/code-review.md' },
-  { name: 'karpathy review', ridPath: 'rd/karpathy-review-<rid>.md', barePath: 'rd/karpathy-review.md' }
+  {
+    name: 'karpathy review',
+    ridPath: 'rd/karpathy-review-<rid>.md',
+    barePath: 'rd/karpathy-review.md'
+  }
 ];
 
 /** The bare mut-report path — the ONE name the repo can produce
@@ -150,7 +154,11 @@ function posix(path: string): string {
  *  entirely also never emits it, and would still pass. `ok` cannot be faked
  *  that way. */
 function seedCompleteSlice(projectRoot: string, rid: string): void {
-  writeArtifact(projectRoot, 'prd/handoff.md', '---\nschemaVersion: 2\nsha256: deadbeef\n---\n\n# Handoff\n');
+  writeArtifact(
+    projectRoot,
+    'prd/handoff.md',
+    '---\nschemaVersion: 2\nsha256: deadbeef\n---\n\n# Handoff\n'
+  );
   writeArtifact(projectRoot, `audit/security-${rid}.md`, securityBody(rid));
   writeArtifact(projectRoot, `audit/perf-${rid}.md`, perfBody(rid));
   writeArtifact(projectRoot, `rd/code-review-${rid}.md`, codeReviewBody(rid));
@@ -275,7 +283,10 @@ describe('(integration) two slices coexist, and the old layouts still resolve', 
     // Both are on disk at once, and each still holds its OWN body — this is
     // the property the 2026-09-13 overwrite destroyed for `audit/perf.md`.
     for (const rid of [RID_A, RID_B]) {
-      const security = readFileSync(join(sessionRootOf(projectRoot), `audit/security-${rid}.md`), 'utf8');
+      const security = readFileSync(
+        join(sessionRootOf(projectRoot), `audit/security-${rid}.md`),
+        'utf8'
+      );
       const perf = readFileSync(join(sessionRootOf(projectRoot), `audit/perf-${rid}.md`), 'utf8');
       expect(security).toContain(rid);
       expect(perf).toContain(rid);
@@ -339,7 +350,11 @@ describe('(integration) two slices coexist, and the old layouts still resolve', 
     const projectRoot = makeProjectRoot();
     seedCompleteSlice(projectRoot, RID_A);
     seedCompleteSlice(projectRoot, RID_B);
-    writeArtifact(projectRoot, `audit/security-${RID_A}.md`, `# Security audit — \`${RID_A}\`\n\nno verdict header here\n`);
+    writeArtifact(
+      projectRoot,
+      `audit/security-${RID_A}.md`,
+      `# Security audit — \`${RID_A}\`\n\nno verdict header here\n`
+    );
     writeArtifact(projectRoot, 'audit/security.md', securityBody(RID_B));
 
     const a = await missingPaths(projectRoot, RID_A);
@@ -444,7 +459,14 @@ describe('(integration) two slices coexist, and the old layouts still resolve', 
     tempRoots.push(projectRoot);
 
     await expect(
-      generateEvidence({ projectRoot, rid: '../../../pwned', title: 'pwn', files: [], lineCounts: {}, sessionId: SESSION_ID })
+      generateEvidence({
+        projectRoot,
+        rid: '../../../pwned',
+        title: 'pwn',
+        files: [],
+        lineCounts: {},
+        sessionId: SESSION_ID
+      })
     ).rejects.toThrow(/Invalid request id/);
 
     // Refused before the first mkdir, so not even the session tree exists —
@@ -460,7 +482,14 @@ describe('(integration) two slices coexist, and the old layouts still resolve', 
     // slice. Measured with the real generator and the real gate before the
     // fix: `{"requestType":"config","ok":false,"missing":["rd/security-review.md"]}`.
     const projectRoot = makeProjectRoot();
-    await generateEvidence({ projectRoot, rid: RID_A, title: 'config probe', files: [], lineCounts: {}, sessionId: SESSION_ID });
+    await generateEvidence({
+      projectRoot,
+      rid: RID_A,
+      title: 'config probe',
+      files: [],
+      lineCounts: {},
+      sessionId: SESSION_ID
+    });
 
     const result = await checkPrerequisites({
       projectRoot,
@@ -471,8 +500,11 @@ describe('(integration) two slices coexist, and the old layouts still resolve', 
       requestId: RID_A
     });
 
-    expect(result.missing.map((m) => m.path.replace(/\\/g, '/').replace(`${sessionRootOf(projectRoot).replace(/\\/g, '/')}/`, '')))
-      .not.toContain('rd/security-review.md');
+    expect(
+      result.missing.map((m) =>
+        m.path.replace(/\\/g, '/').replace(`${sessionRootOf(projectRoot).replace(/\\/g, '/')}/`, '')
+      )
+    ).not.toContain('rd/security-review.md');
     expect(result.ok).toBe(true);
   });
 });

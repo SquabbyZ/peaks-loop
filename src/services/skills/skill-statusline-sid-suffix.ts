@@ -63,7 +63,7 @@ export function formatShortSid(sessionId: string): string {
 export function computeRootSuffix(
   model: StatusLineModel,
   rootLabelText: string,
-  palette: SidSuffixPalette,
+  palette: SidSuffixPalette
 ): string {
   if (!rootLabelText) return '';
   let suffix = `${palette.trailSeparator}${rootLabelText}`;

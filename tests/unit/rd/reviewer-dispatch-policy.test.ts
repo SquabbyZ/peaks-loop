@@ -12,7 +12,7 @@ import { describe, expect, it } from 'vitest';
 import {
   RD_DEPRECATED_REVIEWERS,
   isDeprecatedReviewer,
-  type RdDeprecatedReviewer,
+  type RdDeprecatedReviewer
 } from '../../../src/services/rd/reviewer-dispatch-policy.js';
 
 describe('isDeprecatedReviewer — AC-1 coverage', () => {
@@ -20,10 +20,7 @@ describe('isDeprecatedReviewer — AC-1 coverage', () => {
     // Behavior: the source array is the SOLE source of truth for which
     // reviewers are deprecated. Adding/removing a name here is the
     // operational contract; this test pins it so silent mutation breaks.
-    expect([...RD_DEPRECATED_REVIEWERS]).toEqual([
-      'security-reviewer',
-      'perf-baseline-reviewer',
-    ]);
+    expect([...RD_DEPRECATED_REVIEWERS]).toEqual(['security-reviewer', 'perf-baseline-reviewer']);
   });
 
   it('accepts every name listed in RD_DEPRECATED_REVIEWERS', () => {

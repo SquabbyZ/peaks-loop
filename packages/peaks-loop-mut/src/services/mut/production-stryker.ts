@@ -12,7 +12,15 @@ import type { StrykerInvoker, StrykerRawResult } from './mut-runner.js';
 // pulling @stryker-mutator/api as a direct dependency.
 interface StrykerMutant {
   readonly fileName: string;
-  readonly status: 'Killed' | 'Survived' | 'Timeout' | 'NoCoverage' | 'CompileError' | 'RuntimeError' | 'Ignored' | 'Pending';
+  readonly status:
+    | 'Killed'
+    | 'Survived'
+    | 'Timeout'
+    | 'NoCoverage'
+    | 'CompileError'
+    | 'RuntimeError'
+    | 'Ignored'
+    | 'Pending';
   readonly replacement: string;
   readonly location: { readonly start: { readonly line: number } };
   readonly statusReason?: string;
@@ -58,9 +66,10 @@ function normalize(mutants: ReadonlyArray<StrykerMutant>, project: string): Stry
     // project root so byFile[].file is repo-relative (e.g. "src/services/loop/...").
     // path.relative falls back to the absolute path when input is outside
     // project, which is the safest failure mode.
-    const file = isAbsolute(m.fileName) && m.fileName.startsWith(project)
-      ? relative(project, m.fileName)
-      : m.fileName;
+    const file =
+      isAbsolute(m.fileName) && m.fileName.startsWith(project)
+        ? relative(project, m.fileName)
+        : m.fileName;
     let bucket = byFile.get(file);
     if (!bucket) {
       bucket = { killed: 0, survived: 0, survivedEntries: [] };
@@ -72,7 +81,7 @@ function normalize(mutants: ReadonlyArray<StrykerMutant>, project: string): Stry
       bucket.survivedEntries.push({
         line: m.location.start.line + 1, // Stryker is 0-based; reports are 1-based.
         mutation: m.replacement,
-        survivedBecause: m.statusReason ?? '',
+        survivedBecause: m.statusReason ?? ''
       });
     }
   }
@@ -91,6 +100,6 @@ function normalize(mutants: ReadonlyArray<StrykerMutant>, project: string): Stry
     mutantsKilled,
     mutantsSurvived,
     mutantsTimeout,
-    perFile,
+    perFile
   };
 }

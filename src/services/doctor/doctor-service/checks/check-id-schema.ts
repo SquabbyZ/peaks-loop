@@ -37,43 +37,55 @@ interface SchemaShape {
 function runSelfCheck(schemaRoot: string, emittedIds: readonly string[]): readonly DoctorCheck[] {
   const schemaPath = join(schemaRoot, 'doctor-report.schema.json');
   if (!existsSync(schemaPath)) {
-    return [{
-      id: 'doctor-self:check-id-pattern',
-      ok: false,
-      message: `Failed to load doctor-report.schema.json for self-validation: ${getErrorMessage(new Error(`ENOENT: ${schemaPath}`))}`
-    }];
+    return [
+      {
+        id: 'doctor-self:check-id-pattern',
+        ok: false,
+        message: `Failed to load doctor-report.schema.json for self-validation: ${getErrorMessage(new Error(`ENOENT: ${schemaPath}`))}`
+      }
+    ];
   }
   try {
     const schemaText = readFileSync(schemaPath, 'utf8');
     const schema = JSON.parse(schemaText) as SchemaShape;
     const patternSource = schema.properties?.checks?.items?.properties?.id?.pattern;
     if (typeof patternSource !== 'string') {
-      return [{
-        id: 'doctor-self:check-id-pattern',
-        ok: false,
-        message: 'doctor-report.schema.json does not declare a check.id pattern'
-      }];
+      return [
+        {
+          id: 'doctor-self:check-id-pattern',
+          ok: false,
+          message: 'doctor-report.schema.json does not declare a check.id pattern'
+        }
+      ];
     }
     const pattern = new RegExp(patternSource);
     const mismatches = emittedIds.filter((id) => !pattern.test(id));
-    return [{
-      id: 'doctor-self:check-id-pattern',
-      ok: mismatches.length === 0,
-      message: mismatches.length === 0
-        ? 'All doctor check IDs match the doctor-report schema pattern'
-        : `Doctor check IDs missing from schema pattern: ${mismatches.join(', ')}`
-    }];
+    return [
+      {
+        id: 'doctor-self:check-id-pattern',
+        ok: mismatches.length === 0,
+        message:
+          mismatches.length === 0
+            ? 'All doctor check IDs match the doctor-report schema pattern'
+            : `Doctor check IDs missing from schema pattern: ${mismatches.join(', ')}`
+      }
+    ];
   } catch (error) {
-    return [{
-      id: 'doctor-self:check-id-pattern',
-      ok: false,
-      message: `Failed to load doctor-report.schema.json for self-validation: ${getErrorMessage(error)}`
-    }];
+    return [
+      {
+        id: 'doctor-self:check-id-pattern',
+        ok: false,
+        message: `Failed to load doctor-report.schema.json for self-validation: ${getErrorMessage(error)}`
+      }
+    ];
   }
 }
 
 function run({ schemaRoot, accumulatedChecks }: DoctorContext): readonly DoctorCheck[] {
-  return runSelfCheck(schemaRoot, accumulatedChecks.map((check) => check.id));
+  return runSelfCheck(
+    schemaRoot,
+    accumulatedChecks.map((check) => check.id)
+  );
 }
 
 export const check: DoctorCheckPlugin = {

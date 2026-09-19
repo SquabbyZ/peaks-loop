@@ -40,7 +40,10 @@ function childHasPeaks(dir: string): boolean {
  *  leading dots or dashes. Used when the dir name itself is the id
  *  (the common case). */
 function sanitizeId(name: string): string {
-  return name.toLowerCase().replace(/[^a-z0-9._-]+/g, '-').replace(/^[-.]+|[-.]+$/g, '');
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9._-]+/g, '-')
+    .replace(/^[-.]+|[-.]+$/g, '');
 }
 
 /** Walk the parent root at depth 1 and return discovered children. */

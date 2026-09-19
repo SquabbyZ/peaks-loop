@@ -42,7 +42,7 @@ export async function runMutation(input: RunMutationInput): Promise<RunMutationO
   try {
     raw = await input.invokeStryker({
       project: input.project,
-      testFiles: input.testFiles,
+      testFiles: input.testFiles
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
@@ -60,8 +60,8 @@ export async function runMutation(input: RunMutationInput): Promise<RunMutationO
       byFile: raw.perFile.map((f) => ({
         file: f.file,
         killRate: f.killRate,
-        survived: f.survived,
-      })),
-    },
+        survived: f.survived
+      }))
+    }
   };
 }

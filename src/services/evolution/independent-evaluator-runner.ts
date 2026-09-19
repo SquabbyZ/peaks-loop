@@ -1,7 +1,4 @@
-import type {
-  EvolutionProposal,
-  IndependentEvaluatorResult,
-} from "./evolution-types.js";
+import type { EvolutionProposal, IndependentEvaluatorResult } from './evolution-types.js';
 
 /**
  * IndependentEvaluatorRunner — spec §6.2 / AC-12 / AC-13.
@@ -44,8 +41,8 @@ import type {
  *   }
  */
 export interface EvaluationPackage {
-  readonly target_kind: EvolutionProposal["target_kind"];
-  readonly target_release_id: EvolutionProposal["target_release_id"];
+  readonly target_kind: EvolutionProposal['target_kind'];
+  readonly target_release_id: EvolutionProposal['target_release_id'];
   readonly optimization_dimension: string;
   readonly before_snapshot: Readonly<Record<string, unknown>>;
   readonly after_snapshot: Readonly<Record<string, unknown>>;
@@ -61,9 +58,7 @@ export interface EvaluationPackage {
  * session id, author reasoning, and recommendation framing are
  * explicitly NOT included.
  */
-export function buildEvaluationPackage(
-  proposal: EvolutionProposal
-): EvaluationPackage {
+export function buildEvaluationPackage(proposal: EvolutionProposal): EvaluationPackage {
   return Object.freeze({
     target_kind: proposal.target_kind,
     target_release_id: proposal.target_release_id,
@@ -73,7 +68,7 @@ export function buildEvaluationPackage(
     diff: Object.freeze({ ...proposal.diff }),
     rubric: Object.freeze({ ...proposal.rubric }),
     red_lines: Object.freeze([...proposal.red_lines]),
-    source_traces: Object.freeze([...proposal.source_traces]),
+    source_traces: Object.freeze([...proposal.source_traces])
   });
 }
 
@@ -96,16 +91,16 @@ export type LlmInvoke = (
 export function buildEvaluatorPrompt(pkg: EvaluationPackage): string {
   // Stringify in a deterministic order for test stability.
   return [
-    "You are the INDEPENDENT scorer for a Darwin-style ratchet.",
-    "You see ONLY the evaluation package below.",
+    'You are the INDEPENDENT scorer for a Darwin-style ratchet.',
+    'You see ONLY the evaluation package below.',
     "You MUST NOT see the author, the author's reasoning, or any",
     "framing of the proposal as a 'rec' (with -o-m-m-e-n-d appended).",
-    "",
-    "Rule (AC-13): produce a score in [0, 10] for the AFTER state on",
-    "the declared single optimization dimension. The AUTHOR claims",
-    "the after_score below; you MUST refute if you disagree and",
-    "produce a refute paragraph of independent-context evidence.",
-    "",
+    '',
+    'Rule (AC-13): produce a score in [0, 10] for the AFTER state on',
+    'the declared single optimization dimension. The AUTHOR claims',
+    'the after_score below; you MUST refute if you disagree and',
+    'produce a refute paragraph of independent-context evidence.',
+    '',
     `target_kind: ${pkg.target_kind}`,
     `target_release_id: ${pkg.target_release_id}`,
     `optimization_dimension: ${pkg.optimization_dimension}`,
@@ -114,8 +109,8 @@ export function buildEvaluatorPrompt(pkg: EvaluationPackage): string {
     `diff: ${JSON.stringify(pkg.diff)}`,
     `rubric: ${JSON.stringify(pkg.rubric)}`,
     `red_lines: ${JSON.stringify(pkg.red_lines)}`,
-    `source_traces: ${JSON.stringify(pkg.source_traces)}`,
-  ].join("\n");
+    `source_traces: ${JSON.stringify(pkg.source_traces)}`
+  ].join('\n');
 }
 
 /**
@@ -132,11 +127,9 @@ export const deterministicInvokeLlm: LlmInvoke = async (pkg) => {
   // ONLY IF it is present as a numeric field named `after_score`.
   // Otherwise default to 5.0 (mid-scale). The scorer MAY disagree
   // by emitting riskTags + a refuteParagraph.
-  const afterScoreRaw = pkg.after_snapshot["after_score"];
+  const afterScoreRaw = pkg.after_snapshot['after_score'];
   const authorClaim =
-    typeof afterScoreRaw === "number" && Number.isFinite(afterScoreRaw)
-      ? afterScoreRaw
-      : 5.0;
+    typeof afterScoreRaw === 'number' && Number.isFinite(afterScoreRaw) ? afterScoreRaw : 5.0;
 
   // Deterministic adjustment: -0.5 if the diff has 0 changes (no-op
   // change), -0.1 per red_line that the author flagged. This is a
@@ -146,16 +139,16 @@ export const deterministicInvokeLlm: LlmInvoke = async (pkg) => {
   score = Math.max(0, score - 0.1 * pkg.red_lines.length);
 
   const riskTags: string[] = [];
-  if (diffKeys.length === 0) riskTags.push("noop_change");
-  if (dim === "full_rewrite") riskTags.push("full_rewrite_blessing_required");
-  if (pkg.red_lines.length > 0) riskTags.push("red_line_pressure");
+  if (diffKeys.length === 0) riskTags.push('noop_change');
+  if (dim === 'full_rewrite') riskTags.push('full_rewrite_blessing_required');
+  if (pkg.red_lines.length > 0) riskTags.push('red_line_pressure');
 
   const refuteParagraph = [
     `Independent-context scorer reports on dimension '${pkg.optimization_dimension}':`,
     `observed ${diffKeys.length} diff key(s), ${pkg.red_lines.length} red-line(s), ${pkg.source_traces.length} source trace(s).`,
     `Author claim was ${authorClaim.toFixed(2)}; scorer emits ${score.toFixed(2)}.`,
-    `Risk tags: ${riskTags.length === 0 ? "(none)" : riskTags.join(", ")}.`,
-  ].join(" ");
+    `Risk tags: ${riskTags.length === 0 ? '(none)' : riskTags.join(', ')}.`
+  ].join(' ');
 
   return { score, riskTags, refuteParagraph };
 };
@@ -177,6 +170,6 @@ export async function runIndependentEvaluator(
   return {
     score: Math.max(0, Math.min(10, score)),
     riskTags,
-    refuteParagraph,
+    refuteParagraph
   };
 }

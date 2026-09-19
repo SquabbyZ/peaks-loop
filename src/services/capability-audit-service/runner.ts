@@ -26,7 +26,13 @@ export interface RunAuditInput {
   readonly baselineRows: ReadonlyArray<CapabilityBaselineRow>;
   /** The arming witness: which frozen invariants some contract enforces. */
   readonly contracts: ReadonlyArray<GuardContract>;
-  readonly guardSummary: { readonly pass: number; readonly fail: number; readonly skipped: number; readonly total: number; readonly results: ReadonlyArray<GuardRunResult> };
+  readonly guardSummary: {
+    readonly pass: number;
+    readonly fail: number;
+    readonly skipped: number;
+    readonly total: number;
+    readonly results: ReadonlyArray<GuardRunResult>;
+  };
 }
 
 function scoreFor(status: GuardRunResult['status']): number {
@@ -40,11 +46,11 @@ export async function runAudit(input: RunAuditInput): Promise<CapabilityAuditRes
   const check = degraded
     ? null
     : runIndependentCheck({
-      projectRoot: input.projectRoot,
-      baselineRows: input.baselineRows,
-      contracts: input.contracts,
-      guardResults: input.guardSummary.results
-    });
+        projectRoot: input.projectRoot,
+        baselineRows: input.baselineRows,
+        contracts: input.contracts,
+        guardResults: input.guardSummary.results
+      });
 
   const xc = crossCheck({
     guardPass: input.guardSummary.pass,
@@ -75,28 +81,37 @@ export async function runAudit(input: RunAuditInput): Promise<CapabilityAuditRes
     // instead of just "workflow-trace → fail". The summary is bounded so a
     // runaway diff can't bloat every dimension; the contract itself is the
     // authoritative source.
-    const detail = g.status === 'fail' && g.diff
-      ? ` | ${g.diff.reason}: ${g.diff.after}`.slice(0, 4000)
-      : '';
+    const detail =
+      g.status === 'fail' && g.diff ? ` | ${g.diff.reason}: ${g.diff.after}`.slice(0, 4000) : '';
     return {
       journeyId: g.journeyId,
       consistencyScore: scoreFor(g.status),
-      evidence: [{
-        kind: 'guard-run',
-        ref: `capability-guard-runner:${g.journeyId}`,
-        summary: `${g.contract} → ${g.status}${detail}`
-      }]
+      evidence: [
+        {
+          kind: 'guard-run',
+          ref: `capability-guard-runner:${g.journeyId}`,
+          summary: `${g.contract} → ${g.status}${detail}`
+        }
+      ]
     };
   });
   if (dimensions.length === 0) {
     dimensions.push({
       journeyId: input.journeyId,
       consistencyScore: verdict === 'consistent' ? 1 : verdict === 'drifted' ? 0 : 0.5,
-      evidence: [{ kind: 'guard-run', ref: 'capability-guard-runner:0', summary: 'no contract results were supplied' }]
+      evidence: [
+        {
+          kind: 'guard-run',
+          ref: 'capability-guard-runner:0',
+          summary: 'no contract results were supplied'
+        }
+      ]
     });
   }
 
-  const independentRef = degraded ? 'audit-independent-checker:stub' : 'audit-independent-checker:deterministic';
+  const independentRef = degraded
+    ? 'audit-independent-checker:stub'
+    : 'audit-independent-checker:deterministic';
   const first = dimensions[0]!;
   dimensions[0] = {
     ...first,
@@ -105,9 +120,10 @@ export async function runAudit(input: RunAuditInput): Promise<CapabilityAuditRes
       {
         kind: 'independent-eval',
         ref: independentRef,
-        summary: check === null
-          ? 'degraded: stub scorer (no independent context ran); the verdict was not derived from an evaluation'
-          : `independent verdict: ${check.verdict}; observations ${String(check.coverage.observations)}/${String(check.coverage.observationsExpected)}; invariants armed ${String(check.coverage.invariantsArmed)}/${String(check.coverage.invariantsFrozen)}; findings: ${check.findings.length === 0 ? 'none' : check.findings.map((f) => `${f.code}(${f.journeyId})`).join(',')}`
+        summary:
+          check === null
+            ? 'degraded: stub scorer (no independent context ran); the verdict was not derived from an evaluation'
+            : `independent verdict: ${check.verdict}; observations ${String(check.coverage.observations)}/${String(check.coverage.observationsExpected)}; invariants armed ${String(check.coverage.invariantsArmed)}/${String(check.coverage.invariantsFrozen)}; findings: ${check.findings.length === 0 ? 'none' : check.findings.map((f) => `${f.code}(${f.journeyId})`).join(',')}`
       }
     ]
   };

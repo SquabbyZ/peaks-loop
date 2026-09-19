@@ -88,6 +88,8 @@ describe('vitest config — worker concurrency cap (4.0.17 starvation fix)', () 
       .filter((line) => !/^\s*\/\//.test(line))
       .some((line) => /maxWorkers,?\s*$/.test(line));
 
-    expect(activeWiring, 'the worker cap must be wired on a line the config actually reads').toBe(true);
+    expect(activeWiring, 'the worker cap must be wired on a line the config actually reads').toBe(
+      true
+    );
   });
 });

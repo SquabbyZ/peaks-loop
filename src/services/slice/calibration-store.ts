@@ -59,7 +59,9 @@ export function calibrate(
   sampleSize: number
 ): WorkEstimate {
   if (!Number.isFinite(complexitySum) || complexitySum < 0) {
-    throw new RangeError(`calibrate: complexitySum must be a non-negative finite number, got ${complexitySum}`);
+    throw new RangeError(
+      `calibrate: complexitySum must be a non-negative finite number, got ${complexitySum}`
+    );
   }
   if (!Number.isInteger(testCount) || testCount < 0) {
     throw new RangeError(`calibrate: testCount must be a non-negative integer, got ${testCount}`);
@@ -71,9 +73,17 @@ export function calibrate(
     throw new RangeError(`calibrate: sampleSize must be a non-negative integer, got ${sampleSize}`);
   }
 
-  const minutesP50 = LOC_WEIGHT_PER_LINE * locSum + TEST_WEIGHT_PER_FILE * testCount + COMPLEXITY_WEIGHT_PER_NODE * complexitySum;
+  const minutesP50 =
+    LOC_WEIGHT_PER_LINE * locSum +
+    TEST_WEIGHT_PER_FILE * testCount +
+    COMPLEXITY_WEIGHT_PER_NODE * complexitySum;
   const minutesP90 = minutesP50 * P90_P50_RATIO;
-  const confidence: WorkEstimate['confidence'] = sampleSize >= HIGH_CONFIDENCE_MIN_SAMPLES ? 'high' : sampleSize >= MEDIUM_CONFIDENCE_MIN_SAMPLES ? 'medium' : 'low';
+  const confidence: WorkEstimate['confidence'] =
+    sampleSize >= HIGH_CONFIDENCE_MIN_SAMPLES
+      ? 'high'
+      : sampleSize >= MEDIUM_CONFIDENCE_MIN_SAMPLES
+        ? 'medium'
+        : 'low';
   const rationale =
     sampleSize === 0
       ? `v1 heuristic: ${LOC_WEIGHT_PER_LINE} min/LoC + ${TEST_WEIGHT_PER_FILE} min/test + ${COMPLEXITY_WEIGHT_PER_NODE} min/complexity; confidence low because no historical sample`

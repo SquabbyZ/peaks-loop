@@ -33,7 +33,10 @@ import {
 } from '~/src/services/workspace/claude-settings-template';
 import { materializeClaudeSettingsLocal } from '~/src/services/workspace/workspace-claude-settings-materializer';
 
-type PreToolUseEntry = { matcher: string; hooks: Array<{ type?: string; command?: string; shell?: string }> };
+type PreToolUseEntry = {
+  matcher: string;
+  hooks: Array<{ type?: string; command?: string; shell?: string }>;
+};
 
 const tmpRoots: string[] = [];
 
@@ -68,7 +71,10 @@ function seedLocalSettings(projectRoot: string, value: unknown): void {
 }
 
 function readLocalSettings(projectRoot: string): Record<string, unknown> {
-  return JSON.parse(readFileSync(localSettingsPath(projectRoot), 'utf8')) as Record<string, unknown>;
+  return JSON.parse(readFileSync(localSettingsPath(projectRoot), 'utf8')) as Record<
+    string,
+    unknown
+  >;
 }
 
 function readPreToolUse(projectRoot: string): PreToolUseEntry[] {
@@ -80,7 +86,10 @@ function matchers(projectRoot: string): string[] {
 }
 
 /** Hand-break the FIRST template-declared entry: the one real drift signal. */
-function breakFirstDeclaredEntry(projectRoot: string, command = 'echo hand-edited-by-a-user'): void {
+function breakFirstDeclaredEntry(
+  projectRoot: string,
+  command = 'echo hand-edited-by-a-user'
+): void {
   const settings = readLocalSettings(projectRoot) as {
     hooks: { PreToolUse: PreToolUseEntry[] };
     [key: string]: unknown;
@@ -128,7 +137,10 @@ describe('the local hooks list is owned per entry, not per key', () => {
     //       drift entirely
     expect(result.action).toBe('refreshed');
     expect(readFileSync(localSettingsPath(root), 'utf8')).not.toContain('hand-edited-by-a-user');
-    expect(readPreToolUse(root)[0]).toEqual({ matcher: 'Bash', hooks: [buildClaudeSettingsLocalJson().hooks.PreToolUse[0]!.hooks[0]] });
+    expect(readPreToolUse(root)[0]).toEqual({
+      matcher: 'Bash',
+      hooks: [buildClaudeSettingsLocalJson().hooks.PreToolUse[0]!.hooks[0]]
+    });
     expect(matchers(root)).toEqual(['Bash', 'Bash', 'Bash|Task']);
   });
 
@@ -138,7 +150,10 @@ describe('the local hooks list is owned per entry, not per key', () => {
     //        declared entry, so the rewrite path really runs
     const root = makeProject();
     await materializeClaudeSettingsLocal(root, false);
-    const settings = readLocalSettings(root) as { hooks: Record<string, unknown>; [key: string]: unknown };
+    const settings = readLocalSettings(root) as {
+      hooks: Record<string, unknown>;
+      [key: string]: unknown;
+    };
     const entry = { matcher: 'compact', hooks: [{ type: 'command', command: 'echo keep-me' }] };
     settings.hooks.SessionStart = [entry];
     writeFileSync(localSettingsPath(root), `${JSON.stringify(settings, null, 2)}\n`, 'utf8');
@@ -147,7 +162,9 @@ describe('the local hooks list is owned per entry, not per key', () => {
     const result = await materializeClaudeSettingsLocal(root, false);
     // then: the rewrite repaired the declared entry and preserved the event
     expect(result.action).toBe('refreshed');
-    expect((readLocalSettings(root).hooks as { SessionStart?: unknown }).SessionStart).toEqual([entry]);
+    expect((readLocalSettings(root).hooks as { SessionStart?: unknown }).SessionStart).toEqual([
+      entry
+    ]);
     expect(readFileSync(localSettingsPath(root), 'utf8')).not.toContain('hand-edited-by-a-user');
   });
 
@@ -156,7 +173,10 @@ describe('the local hooks list is owned per entry, not per key', () => {
     //        third, the user's own
     const root = makeProject();
     const seeded = buildClaudeSettingsLocalJson();
-    seeded.hooks.PreToolUse.push({ matcher: 'Bash', hooks: [{ type: 'command', command: 'echo user-added' }] });
+    seeded.hooks.PreToolUse.push({
+      matcher: 'Bash',
+      hooks: [{ type: 'command', command: 'echo user-added' }]
+    });
     seedLocalSettings(root, seeded);
     // when: the materializer runs
     const result = await materializeClaudeSettingsLocal(root, false);
@@ -199,7 +219,10 @@ describe('the local hooks list is owned per entry, not per key', () => {
     // given: the generated tree, and a file carrying it plus one more entry
     const generated = JSON.stringify(buildClaudeSettingsLocalJson());
     const superset = buildClaudeSettingsLocalJson();
-    superset.hooks.PreToolUse.push({ matcher: 'Bash|Task', hooks: [{ type: 'command', command: 'echo extra' }] });
+    superset.hooks.PreToolUse.push({
+      matcher: 'Bash|Task',
+      hooks: [{ type: 'command', command: 'echo extra' }]
+    });
     // when/then: extras neither break the match nor excuse a missing entry
     expect(templateContentMatches(generated, JSON.stringify(superset))).toBe(true);
     const truncated = buildClaudeSettingsLocalJson();
@@ -208,13 +231,19 @@ describe('the local hooks list is owned per entry, not per key', () => {
     // and: a surplus entry on a DECLARED matcher is just another extra — the
     //      template declares two `Bash` entries, this file carries three
     const extraBash = buildClaudeSettingsLocalJson();
-    extraBash.hooks.PreToolUse.push({ matcher: 'Bash', hooks: [{ type: 'command', command: 'echo user-added' }] });
+    extraBash.hooks.PreToolUse.push({
+      matcher: 'Bash',
+      hooks: [{ type: 'command', command: 'echo user-added' }]
+    });
     expect(templateContentMatches(generated, JSON.stringify(extraBash))).toBe(true);
     // and: matching is per entry, not per slot — replacing one declared `Bash`
     //      handler with a copy of its sibling leaves the count intact and is
     //      still drift
     const swapped = buildClaudeSettingsLocalJson();
-    swapped.hooks.PreToolUse[1] = { matcher: 'Bash', hooks: [swapped.hooks.PreToolUse[0]!.hooks[0]!] };
+    swapped.hooks.PreToolUse[1] = {
+      matcher: 'Bash',
+      hooks: [swapped.hooks.PreToolUse[0]!.hooks[0]!]
+    };
     expect(templateContentMatches(generated, JSON.stringify(swapped))).toBe(false);
   });
 
@@ -222,13 +251,20 @@ describe('the local hooks list is owned per entry, not per key', () => {
     // given: an on-disk tree with extras and a drifted declared entry
     const template = buildClaudeSettingsLocalJson().hooks.PreToolUse;
     const break0 = { matcher: 'Bash', hooks: [{ type: 'command', command: 'echo broken' }] };
-    const onDisk = [break0, ...template.slice(1), { matcher: 'Bash|Task', hooks: [{ type: 'command', command: 'echo extra' }] }];
+    const onDisk = [
+      break0,
+      ...template.slice(1),
+      { matcher: 'Bash|Task', hooks: [{ type: 'command', command: 'echo extra' }] }
+    ];
     // when: the merge is applied, then applied again to its own output
     const once = mergeTemplateOwnedHooks(onDisk, template);
     const twice = mergeTemplateOwnedHooks(once, template);
     // then: the declared entries win, the extras are kept, and the second pass
     //       changes nothing
-    expect(once).toEqual([...template, { matcher: 'Bash|Task', hooks: [{ type: 'command', command: 'echo extra' }] }]);
+    expect(once).toEqual([
+      ...template,
+      { matcher: 'Bash|Task', hooks: [{ type: 'command', command: 'echo extra' }] }
+    ]);
     expect(twice).toEqual(once);
   });
 
@@ -242,7 +278,8 @@ describe('the local hooks list is owned per entry, not per key', () => {
       hooks: [
         {
           type: 'command',
-          command: 'node "C:/Users/x/AppData/Local/nvm/v24.14.0/node_modules/peaks-loop/dist/services/hooks/write-gate.js"',
+          command:
+            'node "C:/Users/x/AppData/Local/nvm/v24.14.0/node_modules/peaks-loop/dist/services/hooks/write-gate.js"',
           shell: 'powershell'
         }
       ]
@@ -266,7 +303,8 @@ describe('the local hooks list is owned per entry, not per key', () => {
       hooks: [
         {
           type: 'command',
-          command: 'node "C:/Users/x/AppData/Local/nvm/v24.14.0/node_modules/peaks-loop/dist/services/hooks/write-gate.js"',
+          command:
+            'node "C:/Users/x/AppData/Local/nvm/v24.14.0/node_modules/peaks-loop/dist/services/hooks/write-gate.js"',
           shell: 'powershell'
         }
       ]
@@ -282,7 +320,10 @@ describe('the local hooks list is owned per entry, not per key', () => {
     };
     seedLocalSettings(root, seeded);
     expect(
-      templateContentMatches(JSON.stringify(buildClaudeSettingsLocalJson()), JSON.stringify(seeded)),
+      templateContentMatches(
+        JSON.stringify(buildClaudeSettingsLocalJson()),
+        JSON.stringify(seeded)
+      ),
       'a file carrying a retired entry must not compare as current'
     ).toBe(false);
 
@@ -301,7 +342,10 @@ describe('the local hooks list is owned per entry, not per key', () => {
     // given: the same matcher with a command that is NOT the retired handler —
     //        a user's own hook, or another tool's
     const template = buildClaudeSettingsLocalJson().hooks.PreToolUse;
-    const userOwned = { matcher: 'Write|Edit|MultiEdit', hooks: [{ type: 'command', command: 'echo mine' }] };
+    const userOwned = {
+      matcher: 'Write|Edit|MultiEdit',
+      hooks: [{ type: 'command', command: 'echo mine' }]
+    };
     // when: the merge runs
     const merged = mergeTemplateOwnedHooks([userOwned, ...template], template);
     // then: the retirement predicate did not reach it — a looser "drop anything

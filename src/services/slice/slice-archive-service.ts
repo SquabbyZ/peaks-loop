@@ -16,9 +16,21 @@
  * Lazy GC: `archiveSubAgentRecords` also scans the archive dir and
  * deletes entries older than 30 days. No cron, no background daemon.
  */
-import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, statSync, unlinkSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  renameSync,
+  statSync,
+  unlinkSync
+} from 'node:fs';
 import { join } from 'node:path';
-import { isDispatchStatus, isOutcome, type DispatchRecord } from '../dispatch/dispatch-record-writer.js';
+import {
+  isDispatchStatus,
+  isOutcome,
+  type DispatchRecord
+} from '../dispatch/dispatch-record-writer.js';
 
 export const ARCHIVE_RETENTION_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 
@@ -34,7 +46,11 @@ export function archiveDir(projectRoot: string, sessionId: string, sliceId: stri
 }
 
 /** Build the in-flight subdir (records not yet disposed). */
-export function inFlightArchiveDir(projectRoot: string, sessionId: string, sliceId: string): string {
+export function inFlightArchiveDir(
+  projectRoot: string,
+  sessionId: string,
+  sliceId: string
+): string {
   return join(archiveDir(projectRoot, sessionId, sliceId), 'in-flight');
 }
 
@@ -81,7 +97,12 @@ export function archiveSubAgentRecords(
 }
 
 function isCompletedOutcome(outcome: DispatchRecord['outcome']): boolean {
-  return outcome === 'success' || outcome === 'failed' || outcome === 'timeout' || outcome === 'cancelled';
+  return (
+    outcome === 'success' ||
+    outcome === 'failed' ||
+    outcome === 'timeout' ||
+    outcome === 'cancelled'
+  );
 }
 
 function readRecordOrNull(path: string): DispatchRecord | null {
@@ -93,7 +114,8 @@ function readRecordOrNull(path: string): DispatchRecord | null {
     if (!isOutcome(obj.outcome) || !isDispatchStatus(obj.status)) return null;
     if (typeof obj.disposed !== 'boolean') return null;
     return obj as unknown as DispatchRecord;
-  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+  } catch {
+    // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     return null;
   }
 }
@@ -114,7 +136,8 @@ function runGarbageCollection(dir: string, nowMs: number): number {
         unlinkSync(full);
         deleted += 1;
       }
-    } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+    } catch {
+      // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
       /* skip unreadable; do not crash the archive op */
     }
   }

@@ -103,7 +103,8 @@ export function degradedEnvelope(
   opArgs: Readonly<Record<string, unknown>> = {}
 ): ResultEnvelope<DegradedData> {
   const mcpTool = MCP_TOOL_FOR_OP[op];
-  const code = CODE_PREFIX_RE.exec(reason)?.[1] ?? (tier === 4 ? 'WEB_UNAVAILABLE' : 'WEB_DISABLED');
+  const code =
+    CODE_PREFIX_RE.exec(reason)?.[1] ?? (tier === 4 ? 'WEB_UNAVAILABLE' : 'WEB_DISABLED');
   const detail = reason.replace(CODE_PREFIX_RE, '') || reason;
   return {
     ...fail<DegradedData>(

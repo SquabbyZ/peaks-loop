@@ -10,7 +10,12 @@
  */
 import { createHash } from 'node:crypto';
 import { writeFile, rename, unlink } from 'node:fs/promises';
-import { ImplOutputSchema, type AstGateResult, type ExternalApiCall, type ImplOutput } from './types.js';
+import {
+  ImplOutputSchema,
+  type AstGateResult,
+  type ExternalApiCall,
+  type ImplOutput
+} from './types.js';
 
 export interface WriteImplInput {
   readonly out: string;
@@ -34,16 +39,16 @@ export async function writeImpl(input: WriteImplInput): Promise<ImplOutput> {
   if (!input.astGate.passed) {
     throw new Error(
       `BLOCKED: AST gate failed — ${input.astGate.violations.length} violations. ` +
-      'LLM MUST auto-fix and re-run before TACT.sig can be written. ' +
-      '(spec §4.2 战术审计)'
+        'LLM MUST auto-fix and re-run before TACT.sig can be written. ' +
+        '(spec §4.2 战术审计)'
     );
   }
   if (input.astGate.violations.length > 0) {
     throw new Error(
       `BLOCKED: AST gate state is inconsistent — passed=true but ` +
-      `${input.astGate.violations.length} violations present. ` +
-      'Refusing to write TACT.sig to prevent gate bypass. ' +
-      '(impl.ts: defense-in-depth check, audit R2-W2)'
+        `${input.astGate.violations.length} violations present. ` +
+        'Refusing to write TACT.sig to prevent gate bypass. ' +
+        '(impl.ts: defense-in-depth check, audit R2-W2)'
     );
   }
 
@@ -54,7 +59,7 @@ export async function writeImpl(input: WriteImplInput): Promise<ImplOutput> {
     inputSig: input.inputSig,
     changedFiles: [...input.changedFiles],
     externalApiCalls: [...input.externalApiCalls],
-    astGateResult: input.astGate,
+    astGateResult: input.astGate
   };
   const sha256 = sha256Of(partial);
   const final: ImplOutput = { ...partial, sha256 };

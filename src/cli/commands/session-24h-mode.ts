@@ -31,7 +31,10 @@ import {
   write24hState,
   type State
 } from '../../services/24h-mode/index.js';
-import { applyAutoEngagePresenceMode, presenceModeAdvisory } from '../../services/24h-mode/auto-engage.js';
+import {
+  applyAutoEngagePresenceMode,
+  presenceModeAdvisory
+} from '../../services/24h-mode/auto-engage.js';
 
 type ParentOptions = {
   json?: boolean;
@@ -66,7 +69,12 @@ function printJson(io: ProgramIO, payload: unknown, options: { json?: boolean })
   }
 }
 
-function printError(io: ProgramIO, code: string, message: string, options: { json?: boolean }): void {
+function printError(
+  io: ProgramIO,
+  code: string,
+  message: string,
+  options: { json?: boolean }
+): void {
   if (options.json === true) {
     io.stderr(JSON.stringify({ ok: false, code, error: message }) + '\n');
   } else {
@@ -127,7 +135,10 @@ export function registerSession24hModeCommand(session: Command, io: ProgramIO): 
     .description('Move the state machine to a new state')
     .requiredOption('--state <state>', `target state (one of: ${STATES.join(', ')})`)
     .option('--reason <text>', 'human-readable reason for the transition')
-    .option('--exit-condition <condition>', `HANDOFF exit condition (one of: ${HANDOFF_EXIT_CONDITIONS.join(', ')})`)
+    .option(
+      '--exit-condition <condition>',
+      `HANDOFF exit condition (one of: ${HANDOFF_EXIT_CONDITIONS.join(', ')})`
+    )
     .option('--active-slices <list>', 'comma-separated active slice ids (e.g. "rid-020a,rid-020b")')
     .action(async (subOpts: TransitionOptions) => {
       const parentOpts = cmd.opts<ParentOptions>();
@@ -140,18 +151,33 @@ export function registerSession24hModeCommand(session: Command, io: ProgramIO): 
         return;
       }
       if (!merged.state || !isState(merged.state)) {
-        printError(io, 'INVALID_STATE', `--state must be one of ${STATES.join(', ')} (got ${JSON.stringify(merged.state)})`, merged);
+        printError(
+          io,
+          'INVALID_STATE',
+          `--state must be one of ${STATES.join(', ')} (got ${JSON.stringify(merged.state)})`,
+          merged
+        );
         process.exitCode = 1;
         return;
       }
       const target = merged.state as State;
       if (merged.exitCondition !== undefined && !isHandoffExitCondition(merged.exitCondition)) {
-        printError(io, 'INVALID_EXIT_CONDITION', `--exit-condition must be one of ${HANDOFF_EXIT_CONDITIONS.join(', ')}`, merged);
+        printError(
+          io,
+          'INVALID_EXIT_CONDITION',
+          `--exit-condition must be one of ${HANDOFF_EXIT_CONDITIONS.join(', ')}`,
+          merged
+        );
         process.exitCode = 1;
         return;
       }
       if (target === 'HANDOFF' && !merged.exitCondition) {
-        printError(io, 'HANDOFF_REQUIRES_EXIT_CONDITION', 'transitioning to HANDOFF requires --exit-condition', merged);
+        printError(
+          io,
+          'HANDOFF_REQUIRES_EXIT_CONDITION',
+          'transitioning to HANDOFF requires --exit-condition',
+          merged
+        );
         process.exitCode = 1;
         return;
       }
@@ -165,30 +191,37 @@ export function registerSession24hModeCommand(session: Command, io: ProgramIO): 
           enteredAt: now,
           enteredFrom: current.state,
           activeSlices: sliceList.length > 0 ? sliceList : current.activeSlices,
-          exitCondition: target === 'HANDOFF' ? (merged.exitCondition ?? null) : current.exitCondition
+          exitCondition:
+            target === 'HANDOFF' ? (merged.exitCondition ?? null) : current.exitCondition
         };
         const result = write24hState(projectRoot, sid, next);
         // Slice 2026-09-09-mode-consolidation (Slice B): entering 24H_ACTIVE
         // is an auto-engage of the `24h` mode. Stamp it onto the presence
         // lease; every other target state leaves the mode untouched (the
         // guard in `applyAutoEngagePresenceMode` refuses non-24h modes).
-        const presenceMode = target === '24H_ACTIVE'
-          ? applyAutoEngagePresenceMode({ projectRoot, sessionId: sid })
-          : null;
+        const presenceMode =
+          target === '24H_ACTIVE'
+            ? applyAutoEngagePresenceMode({ projectRoot, sessionId: sid })
+            : null;
         // Slice H3 (rid=h3-24h-threshold-not-wired): a failed stamp used
         // to live only in `data.presenceMode`, where nothing read it.
         // Surface it at the envelope level so the caller cannot report a
         // 24h threshold shift that the mode layer never recorded.
-        const advisory = presenceMode === null
-          ? { warnings: [], nextActions: [] }
-          : presenceModeAdvisory(presenceMode);
-        printJson(io, {
-          ok: true,
-          command: 'session.24h-mode.transition',
-          data: { ...next, path: result.path, presenceMode },
-          warnings: [...advisory.warnings],
-          nextActions: [...advisory.nextActions]
-        }, merged);
+        const advisory =
+          presenceMode === null
+            ? { warnings: [], nextActions: [] }
+            : presenceModeAdvisory(presenceMode);
+        printJson(
+          io,
+          {
+            ok: true,
+            command: 'session.24h-mode.transition',
+            data: { ...next, path: result.path, presenceMode },
+            warnings: [...advisory.warnings],
+            nextActions: [...advisory.nextActions]
+          },
+          merged
+        );
       } catch (error) {
         printError(io, '24H_STATE_WRITE_FAILED', getErrorMessage(error), merged);
         process.exitCode = 1;
@@ -211,7 +244,11 @@ export function registerSession24hModeCommand(session: Command, io: ProgramIO): 
       }
       try {
         const snapshot = read24hState(projectRoot, sid);
-        printJson(io, { ok: true, data: { state: snapshot.state, attempts: snapshot.attempts } }, merged);
+        printJson(
+          io,
+          { ok: true, data: { state: snapshot.state, attempts: snapshot.attempts } },
+          merged
+        );
       } catch (error) {
         printError(io, '24H_STATE_READ_FAILED', getErrorMessage(error), merged);
         process.exitCode = 1;

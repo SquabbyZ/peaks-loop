@@ -10,7 +10,15 @@ const CODEGRAPH_PACKAGE_VERSION = '0.7.10';
 const CODEGRAPH_EXECUTABLE = process.execPath;
 const CODEGRAPH_BINARY_PATH = resolveCodegraphBinaryPath();
 const POSITIONAL_ARGUMENT_PREFIX = '-';
-const ALLOWED_SUBCOMMANDS = ['status', 'init', 'index', 'query', 'files', 'context', 'affected'] as const;
+const ALLOWED_SUBCOMMANDS = [
+  'status',
+  'init',
+  'index',
+  'query',
+  'files',
+  'context',
+  'affected'
+] as const;
 const NUMERIC_FLAG_NAMES = ['limit', 'maxDepth'] as const;
 const COMMON_OPTION_KEYS = ['subcommand', 'project'] as const;
 const ALLOWED_OPTIONS_BY_SUBCOMMAND = {
@@ -52,7 +60,8 @@ type NonContextCodegraphInvocationOptions = BaseCodegraphInvocationOptions & {
   task?: never;
 };
 
-export type CodegraphInvocationOptions = ContextCodegraphInvocationOptions | NonContextCodegraphInvocationOptions;
+export type CodegraphInvocationOptions =
+  ContextCodegraphInvocationOptions | NonContextCodegraphInvocationOptions;
 
 export type CodegraphInvocation = {
   executable: typeof CODEGRAPH_EXECUTABLE;
@@ -69,7 +78,9 @@ export type CodegraphExecutionResult = {
   stderr: string;
 };
 
-export type CodegraphProcessRunner = (invocation: CodegraphInvocation) => Promise<CodegraphExecutionResult>;
+export type CodegraphProcessRunner = (
+  invocation: CodegraphInvocation
+) => Promise<CodegraphExecutionResult>;
 
 function resolveCodegraphBinaryPath(): string {
   const require = createRequire(import.meta.url);
@@ -130,7 +141,9 @@ function assertPositionalArgument(value: string, argumentName: string): void {
 
 function assertSupportedOptions(options: CodegraphInvocationOptions): void {
   const allowedOptions = new Set<string>(ALLOWED_OPTIONS_BY_SUBCOMMAND[options.subcommand]);
-  const presentOptionKeys = Object.keys(options).filter((key) => !COMMON_OPTION_KEYS.includes(key as (typeof COMMON_OPTION_KEYS)[number]));
+  const presentOptionKeys = Object.keys(options).filter(
+    (key) => !COMMON_OPTION_KEYS.includes(key as (typeof COMMON_OPTION_KEYS)[number])
+  );
   const unsupportedOption = presentOptionKeys.find((key) => !allowedOptions.has(key));
 
   if (unsupportedOption) {
@@ -236,7 +249,9 @@ function buildCommandArgs(options: CodegraphInvocationOptions, projectRoot: stri
   return args;
 }
 
-export function createCodegraphInvocation(options: CodegraphInvocationOptions): CodegraphInvocation {
+export function createCodegraphInvocation(
+  options: CodegraphInvocationOptions
+): CodegraphInvocation {
   assertSupportedSubcommand(options.subcommand);
   const projectRoot = resolveProjectRoot(options.project);
   // Spawn the upstream binary with the project root as cwd so its
@@ -404,7 +419,10 @@ export class CodegraphInitConflictError extends Error {
   public readonly code = 'CODEGRAPH_INIT_CONFLICT';
   public readonly exitCode = CODEGRAPH_INIT_CONFLICT_EXIT_CODE;
 
-  public constructor(message: string, public readonly codegraphDir: string) {
+  public constructor(
+    message: string,
+    public readonly codegraphDir: string
+  ) {
     super(message);
     this.name = 'CodegraphInitConflictError';
   }

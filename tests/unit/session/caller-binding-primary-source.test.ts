@@ -23,11 +23,11 @@ import { declareDimensions } from '../_setup/4dim-template.js';
 import { ensureSession } from '../../../src/services/session/session-binding-bridge.js';
 import {
   getSessionId,
-  getSessionIdCanonical,
+  getSessionIdCanonical
 } from '../../../src/services/session/session-manager.js';
 import {
   getCallerBinding,
-  setCallerBinding,
+  setCallerBinding
 } from '../../../src/services/session/caller-binding-service.js';
 import type { CallerBinding } from '../../../src/services/session/caller-id-types.js';
 
@@ -36,8 +36,8 @@ declareDimensions(
   ['behavior', 'integration'],
   [
     { dim: 'render', reason: 'JSON-shaped results; no formatted output surface' },
-    { dim: 'a11y', reason: 'no human-facing text in this path' },
-  ],
+    { dim: 'a11y', reason: 'no human-facing text in this path' }
+  ]
 );
 
 const CALLER_ID = 'caller-test-primary';
@@ -72,12 +72,20 @@ afterEach(() => {
   else process.env.PEAKS_OUTER_SESSION_ID = prevPeaksEnv;
   if (prevClaudeEnv === undefined) delete process.env.CLAUDE_CODE_SESSION_ID;
   else process.env.CLAUDE_CODE_SESSION_ID = prevClaudeEnv;
-  try { process.chdir(prevCwd); } catch { /* best-effort */ }
+  try {
+    process.chdir(prevCwd);
+  } catch {
+    /* best-effort */
+  }
   // Capture the value BEFORE deferring: `workspace` is reassigned by the
   // next test's beforeEach, and a deferred read would delete the LIVE dir.
   const wsToRemove = workspace;
   setImmediate(() => {
-    try { rmSync(wsToRemove, { recursive: true, force: true }); } catch { /* best-effort */ }
+    try {
+      rmSync(wsToRemove, { recursive: true, force: true });
+    } catch {
+      /* best-effort */
+    }
   });
 });
 
@@ -170,11 +178,7 @@ describe('Scenario: behavior — callerId-unresolved fallback', () => {
     // Write a malformed per-caller file.
     const dir = join(workspace, '.peaks', '_runtime', 'callers');
     mkdirSync(dir, { recursive: true });
-    writeFileSync(
-      join(dir, `${CALLER_ID}.json`),
-      '{not valid json',
-      'utf8'
-    );
+    writeFileSync(join(dir, `${CALLER_ID}.json`), '{not valid json', 'utf8');
     seedLegacySessionJson(SID_FALLBACK);
     const binding = getCallerBinding(workspace, CALLER_ID);
     expect(binding).toBeNull();
@@ -218,7 +222,9 @@ describe('Scenario: behavior — atomic write hygiene (A.5b)', () => {
     // Atomic write leaves NO temp files behind in the callers dir.
     const { readdirSync } = require('node:fs');
     const dirEntries = readdirSync(join(workspace, '.peaks', '_runtime', 'callers'));
-    const tempFiles = dirEntries.filter((n: string) => n.startsWith('.settings.') && n.endsWith('.tmp'));
+    const tempFiles = dirEntries.filter(
+      (n: string) => n.startsWith('.settings.') && n.endsWith('.tmp')
+    );
     expect(tempFiles.length).toBe(0);
   });
 
@@ -243,7 +249,9 @@ describe('Scenario: behavior — dual-write ordering', () => {
     const sessionJsonPath = join(workspace, '.peaks', '_runtime', 'session.json');
     expect(existsSync(sessionJsonPath)).toBe(true);
     // Both files point at the same sessionId.
-    const callerRaw = JSON.parse(readFileSync(callerBindingPath, 'utf8')) as { peakSessionId: string };
+    const callerRaw = JSON.parse(readFileSync(callerBindingPath, 'utf8')) as {
+      peakSessionId: string;
+    };
     const sessionRaw = JSON.parse(readFileSync(sessionJsonPath, 'utf8')) as { sessionId: string };
     expect(callerRaw.peakSessionId).toBe(sessionRaw.sessionId);
     // Atomic-write hygiene: no leftover temp files in either dir.

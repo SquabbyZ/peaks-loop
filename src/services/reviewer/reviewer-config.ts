@@ -40,8 +40,7 @@ export type ReviewerConfig = {
 };
 
 export type ReviewerConfigStatus =
-  | { ok: true; config: ReviewerConfig }
-  | { ok: false; reason: 'no-reviewer-config' };
+  { ok: true; config: ReviewerConfig } | { ok: false; reason: 'no-reviewer-config' };
 
 const VALID_SELECTION: ReadonlyArray<ReviewerSelectionMode> = ['round-robin', 'hash', 'random'];
 const VALID_FALLBACK: ReadonlyArray<ReviewerFallbackMode> = ['skip', 'error'];
@@ -99,19 +98,23 @@ export function loadReviewerConfig(options: { path?: string } = {}): ReviewerCon
 
   const selectionRaw = reviewer['selection'];
   const selection: ReviewerSelectionMode =
-    typeof selectionRaw === 'string' && (VALID_SELECTION as ReadonlyArray<string>).includes(selectionRaw)
+    typeof selectionRaw === 'string' &&
+    (VALID_SELECTION as ReadonlyArray<string>).includes(selectionRaw)
       ? (selectionRaw as ReviewerSelectionMode)
       : 'round-robin';
 
   const fallbackRaw = reviewer['fallbackOnError'];
   const fallbackOnError: ReviewerFallbackMode =
-    typeof fallbackRaw === 'string' && (VALID_FALLBACK as ReadonlyArray<string>).includes(fallbackRaw)
+    typeof fallbackRaw === 'string' &&
+    (VALID_FALLBACK as ReadonlyArray<string>).includes(fallbackRaw)
       ? (fallbackRaw as ReviewerFallbackMode)
       : 'skip';
 
   const rdProviderNameRaw = reviewer['rdProviderName'];
   const rdProviderName =
-    rdProviderNameRaw === null || typeof rdProviderNameRaw === 'string' ? (rdProviderNameRaw as string | null) : null;
+    rdProviderNameRaw === null || typeof rdProviderNameRaw === 'string'
+      ? (rdProviderNameRaw as string | null)
+      : null;
 
   const requireDistinct = reviewer['requireDistinctModelFamily'];
   const requireDistinctModelFamily = typeof requireDistinct === 'boolean' ? requireDistinct : true;

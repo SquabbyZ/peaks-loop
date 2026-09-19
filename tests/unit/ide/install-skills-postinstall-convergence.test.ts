@@ -46,8 +46,8 @@ declareDimensions(
   ['behavior', 'integration'],
   [
     { dim: 'render', reason: 'build script; postinstall stdout is not asserted here' },
-    { dim: 'a11y', reason: 'no human-facing text' },
-  ],
+    { dim: 'a11y', reason: 'no human-facing text' }
+  ]
 );
 
 const FAKE_HOME = mkdtempSync(join(tmpdir(), 'peaks-fake-home-'));
@@ -65,7 +65,18 @@ afterAll(() => {
 });
 
 /** Tool homes this file may create inside the throwaway home. */
-const TOOL_HOME_DIRS = ['.claude', '.trae', '.trae-cn', '.codex', '.cursor', '.qoder', '.tongyi-lingma', '.zcode', '.hermes', '.openclaw'];
+const TOOL_HOME_DIRS = [
+  '.claude',
+  '.trae',
+  '.trae-cn',
+  '.codex',
+  '.cursor',
+  '.qoder',
+  '.tongyi-lingma',
+  '.zcode',
+  '.hermes',
+  '.openclaw'
+];
 
 beforeEach(() => {
   for (const dir of TOOL_HOME_DIRS) {
@@ -77,8 +88,12 @@ const mod = (await import('../../../scripts/install-skills.mjs')) as unknown as 
   IDE_DETECTION_DIRS: ReadonlyArray<{ id: string; dir: string }>;
   IDE_SKILL_INSTALL_PROFILES: Record<string, { skillsDir: string; agentsDir?: string }>;
   installBundledSkills: (options: Record<string, unknown>) => { installed: string[] };
-  installBundledSkillsForAllPlatforms: (options?: Record<string, unknown>) => Array<{ ideId: string }>;
-  installBundledAgentsForAllPlatforms: (options?: Record<string, unknown>) => Array<{ ideId: string }>;
+  installBundledSkillsForAllPlatforms: (
+    options?: Record<string, unknown>
+  ) => Array<{ ideId: string }>;
+  installBundledAgentsForAllPlatforms: (
+    options?: Record<string, unknown>
+  ) => Array<{ ideId: string }>;
 };
 
 const getWs = withTmpWorkspacePerTest('peaks-postinstall-');
@@ -93,7 +108,9 @@ function bareProject(root: string): string {
 describe('Scenario: behavior — postinstall platform selection', () => {
   it('D12: every install profile has a detection entry, so detection and installation agree', () => {
     const detectionIds = new Set(mod.IDE_DETECTION_DIRS.map((entry) => entry.id));
-    const orphans = Object.keys(mod.IDE_SKILL_INSTALL_PROFILES).filter((ideId) => !detectionIds.has(ideId));
+    const orphans = Object.keys(mod.IDE_SKILL_INSTALL_PROFILES).filter(
+      (ideId) => !detectionIds.has(ideId)
+    );
     // Before the fix this was exactly ['hermes', 'openclaw']: reachable only by
     // the every-platform fan-out, i.e. installed for users who do not have the
     // tool and detectable for nobody.
@@ -106,7 +123,9 @@ describe('Scenario: behavior — postinstall platform selection', () => {
 
   it('D9: with NO detected IDE and an empty $HOME, only claude-code is installed for', () => {
     const ws = getWs();
-    const perPlatform = mod.installBundledSkillsForAllPlatforms({ projectRoot: bareProject(ws.path) });
+    const perPlatform = mod.installBundledSkillsForAllPlatforms({
+      projectRoot: bareProject(ws.path)
+    });
     expect(perPlatform.map((p) => p.ideId)).toEqual(['claude-code']);
     // The point of D9, stated as a filesystem fact: the other nine tool homes
     // were NOT created.
@@ -121,7 +140,10 @@ describe('Scenario: behavior — postinstall platform selection', () => {
     const project = bareProject(ws.path);
     mkdirSync(join(project, '.trae'), { recursive: true });
 
-    const ids = mod.installBundledSkillsForAllPlatforms({ projectRoot: project }).map((p) => p.ideId).sort();
+    const ids = mod
+      .installBundledSkillsForAllPlatforms({ projectRoot: project })
+      .map((p) => p.ideId)
+      .sort();
     expect(ids).toEqual(['claude-code', 'trae']);
     expect(existsSync(join(FAKE_HOME, '.trae', 'skills'))).toBe(true);
   });
@@ -144,7 +166,10 @@ describe('Scenario: behavior — postinstall platform selection', () => {
     mkdirSync(join(project, '.trae'), { recursive: true });
     mkdirSync(join(project, '.qoder'), { recursive: true });
 
-    const ids = mod.installBundledAgentsForAllPlatforms({ projectRoot: project }).map((p) => p.ideId).sort();
+    const ids = mod
+      .installBundledAgentsForAllPlatforms({ projectRoot: project })
+      .map((p) => p.ideId)
+      .sort();
     // qoder is present but declares no sub-agent loader, so it is absent;
     // nothing that is NOT present appears at all.
     expect(ids).toEqual(['claude-code', 'trae']);

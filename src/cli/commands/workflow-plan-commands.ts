@@ -53,7 +53,13 @@ function resolveSessionId(
     if (!isValidSessionId(explicit)) {
       printResult(
         io,
-        fail(command, 'INVALID_SESSION_ID', 'session id must match YYYY-MM-DD-slug pattern', { sessionId: explicit }, ['Use --session-id <YYYY-MM-DD-slug>']),
+        fail(
+          command,
+          'INVALID_SESSION_ID',
+          'session id must match YYYY-MM-DD-slug pattern',
+          { sessionId: explicit },
+          ['Use --session-id <YYYY-MM-DD-slug>']
+        ),
         asJson === true
       );
       process.exitCode = 1;
@@ -65,7 +71,13 @@ function resolveSessionId(
   if (sid === null || sid === undefined) {
     printResult(
       io,
-      fail(command, 'NO_ACTIVE_SESSION', 'No active session — pass --session-id explicitly or run peaks workspace init', { projectRoot }, ['Run peaks workspace init or pass --session-id <YYYY-MM-DD-slug>']),
+      fail(
+        command,
+        'NO_ACTIVE_SESSION',
+        'No active session — pass --session-id explicitly or run peaks workspace init',
+        { projectRoot },
+        ['Run peaks workspace init or pass --session-id <YYYY-MM-DD-slug>']
+      ),
       asJson === true
     );
     process.exitCode = 1;
@@ -75,7 +87,13 @@ function resolveSessionId(
   if (!isValidSessionId(sid)) {
     printResult(
       io,
-      fail(command, 'INVALID_SESSION_ID', 'session id must match YYYY-MM-DD-slug pattern', { sessionId: sid }, ['Use --session-id <YYYY-MM-DD-slug>']),
+      fail(
+        command,
+        'INVALID_SESSION_ID',
+        'session id must match YYYY-MM-DD-slug pattern',
+        { sessionId: sid },
+        ['Use --session-id <YYYY-MM-DD-slug>']
+      ),
       asJson === true
     );
     process.exitCode = 1;
@@ -91,40 +109,76 @@ function resolveProjectRoot(projectArg: string | undefined): string {
   return projectArg;
 }
 
-function runPlanRead(io: ProgramIO, options: { type: string; project?: string; sessionId?: string; json?: boolean }): void {
+function runPlanRead(
+  io: ProgramIO,
+  options: { type: string; project?: string; sessionId?: string; json?: boolean }
+): void {
   if (!isPlanType(options.type)) {
     printResult(
       io,
-      fail('workflow.plan.read', 'INVALID_TYPE', `Unsupported plan type: ${options.type}`, { supportedTypes: VALID_TYPES }, ['Use --type security or --type perf']),
+      fail(
+        'workflow.plan.read',
+        'INVALID_TYPE',
+        `Unsupported plan type: ${options.type}`,
+        { supportedTypes: VALID_TYPES },
+        ['Use --type security or --type perf']
+      ),
       options.json === true
     );
     process.exitCode = 1;
     return;
   }
   const projectRoot = resolveProjectRoot(options.project);
-  const sessionId = resolveSessionId(io, 'workflow.plan.read', projectRoot, options.sessionId, options.json);
+  const sessionId = resolveSessionId(
+    io,
+    'workflow.plan.read',
+    projectRoot,
+    options.sessionId,
+    options.json
+  );
   if (sessionId === null) return;
   try {
     const result = readPlan({ type: options.type, project: projectRoot, sessionId });
     printResult(io, result, options.json === true);
   } catch (error) {
-    printResult(io, fail('workflow.plan.read', 'READ_FAILED', getErrorMessage(error), null, ['Check that --project is a valid repo root with a peaks session']), options.json === true);
+    printResult(
+      io,
+      fail('workflow.plan.read', 'READ_FAILED', getErrorMessage(error), null, [
+        'Check that --project is a valid repo root with a peaks session'
+      ]),
+      options.json === true
+    );
     process.exitCode = 1;
   }
 }
 
-function runPlanRefresh(io: ProgramIO, options: { type: string; project?: string; sessionId?: string; apply?: boolean; json?: boolean }): void {
+function runPlanRefresh(
+  io: ProgramIO,
+  options: { type: string; project?: string; sessionId?: string; apply?: boolean; json?: boolean }
+): void {
   if (!isPlanType(options.type)) {
     printResult(
       io,
-      fail('workflow.plan.refresh', 'INVALID_TYPE', `Unsupported plan type: ${options.type}`, { supportedTypes: VALID_TYPES }, ['Use --type security or --type perf']),
+      fail(
+        'workflow.plan.refresh',
+        'INVALID_TYPE',
+        `Unsupported plan type: ${options.type}`,
+        { supportedTypes: VALID_TYPES },
+        ['Use --type security or --type perf']
+      ),
       options.json === true
     );
     process.exitCode = 1;
     return;
   }
   const projectRoot = resolveProjectRoot(options.project);
-  const sessionId = resolveSessionId(io, 'workflow.plan.refresh', projectRoot, options.sessionId, options.json);
+  const sessionId = resolveSessionId(
+    io,
+    'workflow.plan.refresh',
+    projectRoot,
+    options.sessionId,
+    options.json
+  );
   if (sessionId === null) return;
   try {
     const result = refreshPlan({
@@ -135,16 +189,27 @@ function runPlanRefresh(io: ProgramIO, options: { type: string; project?: string
     });
     printResult(io, result, options.json === true);
   } catch (error) {
-    printResult(io, fail('workflow.plan.refresh', 'REFRESH_FAILED', getErrorMessage(error), null, ['Check that --project is a valid repo root and the session exists']), options.json === true);
+    printResult(
+      io,
+      fail('workflow.plan.refresh', 'REFRESH_FAILED', getErrorMessage(error), null, [
+        'Check that --project is a valid repo root and the session exists'
+      ]),
+      options.json === true
+    );
     process.exitCode = 1;
   }
 }
 
-function runPlanDetectTrigger(io: ProgramIO, options: { project?: string; rid?: string; sessionId?: string; refresh?: boolean; json?: boolean }): void {
+function runPlanDetectTrigger(
+  io: ProgramIO,
+  options: { project?: string; rid?: string; sessionId?: string; refresh?: boolean; json?: boolean }
+): void {
   if (options.rid === undefined || options.rid === '') {
     printResult(
       io,
-      fail('workflow.plan.detect-trigger', 'MISSING_RID', 'Missing --rid', null, ['Pass --rid <request-id>']),
+      fail('workflow.plan.detect-trigger', 'MISSING_RID', 'Missing --rid', null, [
+        'Pass --rid <request-id>'
+      ]),
       options.json === true
     );
     process.exitCode = 1;
@@ -153,14 +218,26 @@ function runPlanDetectTrigger(io: ProgramIO, options: { project?: string; rid?: 
   if (!isValidRequestId(options.rid)) {
     printResult(
       io,
-      fail('workflow.plan.detect-trigger', 'INVALID_RID', 'request id must match [A-Za-z0-9][A-Za-z0-9._-]*', { rid: options.rid }, ['Pass --rid <alphanumeric.request-id>']),
+      fail(
+        'workflow.plan.detect-trigger',
+        'INVALID_RID',
+        'request id must match [A-Za-z0-9][A-Za-z0-9._-]*',
+        { rid: options.rid },
+        ['Pass --rid <alphanumeric.request-id>']
+      ),
       options.json === true
     );
     process.exitCode = 1;
     return;
   }
   const projectRoot = resolveProjectRoot(options.project);
-  const sessionId = resolveSessionId(io, 'workflow.plan.detect-trigger', projectRoot, options.sessionId, options.json);
+  const sessionId = resolveSessionId(
+    io,
+    'workflow.plan.detect-trigger',
+    projectRoot,
+    options.sessionId,
+    options.json
+  );
   if (sessionId === null) return;
   try {
     const result = detectTrigger({
@@ -171,7 +248,13 @@ function runPlanDetectTrigger(io: ProgramIO, options: { project?: string; rid?: 
     });
     printResult(io, result, options.json === true);
   } catch (error) {
-    printResult(io, fail('workflow.plan.detect-trigger', 'DETECT_FAILED', getErrorMessage(error), null, ['Check that --project is a valid repo root and --rid is set']), options.json === true);
+    printResult(
+      io,
+      fail('workflow.plan.detect-trigger', 'DETECT_FAILED', getErrorMessage(error), null, [
+        'Check that --project is a valid repo root and --rid is set'
+      ]),
+      options.json === true
+    );
     process.exitCode = 1;
   }
 }
@@ -204,9 +287,17 @@ export function registerWorkflowPlanCommands(program: Command, io: ProgramIO): v
       .option('--project <path>', 'project root', process.cwd())
       .option('--session-id <sid>', 'session id (defaults to the active session)')
       .option('--apply', 'write the plan to disk (default is dry-run preview)')
-  ).action((options: { type: string; project?: string; sessionId?: string; apply?: boolean; json?: boolean }) => {
-    runPlanRefresh(io, options);
-  });
+  ).action(
+    (options: {
+      type: string;
+      project?: string;
+      sessionId?: string;
+      apply?: boolean;
+      json?: boolean;
+    }) => {
+      runPlanRefresh(io, options);
+    }
+  );
 
   addJsonOption(
     plan
@@ -216,9 +307,17 @@ export function registerWorkflowPlanCommands(program: Command, io: ProgramIO): v
       .option('--project <path>', 'project root', process.cwd())
       .option('--session-id <sid>', 'session id (defaults to the active session)')
       .option('--refresh', 'force triggered=true (manual override)')
-  ).action((options: { project?: string; rid?: string; sessionId?: string; refresh?: boolean; json?: boolean }) => {
-    runPlanDetectTrigger(io, options);
-  });
+  ).action(
+    (options: {
+      project?: string;
+      rid?: string;
+      sessionId?: string;
+      refresh?: boolean;
+      json?: boolean;
+    }) => {
+      runPlanDetectTrigger(io, options);
+    }
+  );
 }
 
 // Re-export for tests that need a programmatic entry point.

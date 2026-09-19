@@ -88,10 +88,7 @@ export const PRE_POST_DIFF_DRIFT_DETECTED = 'STRUCTURAL DRIFT DETECTED';
  * fact a human has to see — see `enforceStructuralDriftAttention`.
  */
 export type PrePostDiffConclusion =
-  | 'no-drift'
-  | 'additions-only'
-  | 'drift-detected'
-  | 'indeterminate';
+  'no-drift' | 'additions-only' | 'drift-detected' | 'indeterminate';
 
 /**
  * Classify the delivered conclusion. Pure and total: a caller passes the bytes
@@ -103,7 +100,9 @@ export type PrePostDiffConclusion =
  * prose masquerade as its conclusion.
  */
 export function classifyPrePostDiffVerdict(content: string): PrePostDiffConclusion {
-  const line = content.split(/\r?\n/).find(candidate => candidate.startsWith(PRE_POST_DIFF_VERDICT_MARKER));
+  const line = content
+    .split(/\r?\n/)
+    .find((candidate) => candidate.startsWith(PRE_POST_DIFF_VERDICT_MARKER));
   if (line === undefined) return 'indeterminate';
   const conclusion = line.slice(PRE_POST_DIFF_VERDICT_MARKER.length);
   if (conclusion.startsWith(PRE_POST_DIFF_DRIFT_DETECTED)) return 'drift-detected';
@@ -114,12 +113,7 @@ export function classifyPrePostDiffVerdict(content: string): PrePostDiffConclusi
 
 /** Test-file globs — the single definition both the file count and the case
  *  count use, so the two can never disagree about what a "test file" is. */
-export const TEST_FILE_GLOBS = [
-  '*.test.ts',
-  '*.test.tsx',
-  '*.spec.ts',
-  '*.spec.tsx'
-] as const;
+export const TEST_FILE_GLOBS = ['*.test.ts', '*.test.tsx', '*.spec.ts', '*.spec.tsx'] as const;
 
 /** Source globs for the public-API surface. */
 export const API_SOURCE_GLOBS = ['*.ts', '*.tsx'] as const;
@@ -254,8 +248,8 @@ function runGit(cwd: string, args: readonly string[]): GitRun {
 function lines(text: string): readonly string[] {
   return text
     .split(/\r?\n/)
-    .map(line => line.trim())
-    .filter(line => line.length > 0);
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
 }
 
 function isTestPath(path: string): boolean {
@@ -270,13 +264,13 @@ function isTestPath(path: string): boolean {
 function namesInExportList(body: string): readonly string[] {
   return body
     .split(',')
-    .map(part => part.replace(/^\s*type\s+/, '').trim())
-    .filter(part => part.length > 0)
-    .map(part => {
+    .map((part) => part.replace(/^\s*type\s+/, '').trim())
+    .filter((part) => part.length > 0)
+    .map((part) => {
       const alias = /\s+as\s+([A-Za-z_$][\w$]*)$/.exec(part);
       return alias === null ? part : (alias[1] as string);
     })
-    .filter(name => /^[A-Za-z_$][\w$]*$/.test(name));
+    .filter((name) => /^[A-Za-z_$][\w$]*$/.test(name));
 }
 
 /**
@@ -322,11 +316,7 @@ function countMatchingLines(source: string, re: RegExp): number {
  * its files while `git grep -- '*.ts'` (index-based) found them. A count that
  * quietly loses files makes a delta that looks like drift.
  */
-function countFilesMatching(
-  repoRoot: string,
-  paths: readonly string[],
-  re: RegExp
-): number {
+function countFilesMatching(repoRoot: string, paths: readonly string[], re: RegExp): number {
   let total = 0;
   for (const path of paths) {
     try {
@@ -362,7 +352,12 @@ interface BaseResolution {
 function resolveBaseRef(repoRoot: string, explicit?: string): BaseResolution {
   if (explicit !== undefined && explicit.trim() !== '') {
     const requested = explicit.trim();
-    const resolved = runGit(repoRoot, ['rev-parse', '--verify', '--quiet', `${requested}^{commit}`]);
+    const resolved = runGit(repoRoot, [
+      'rev-parse',
+      '--verify',
+      '--quiet',
+      `${requested}^{commit}`
+    ]);
     if (resolved.stdout.trim() !== '') {
       return { ok: true, ref: resolved.stdout.trim(), label: requested, reason: '' };
     }
@@ -440,10 +435,10 @@ function renderFileList(
 ): readonly string[] {
   const lines: string[] = [];
   if (netDelta < 0 && removed.length > 0) {
-    lines.push(`Removed ${label} (${String(removed.length)}):`, ...removed.map(p => `  - ${p}`));
+    lines.push(`Removed ${label} (${String(removed.length)}):`, ...removed.map((p) => `  - ${p}`));
   }
   if (netDelta > 0 && added.length > 0) {
-    lines.push(`Added ${label} (${String(added.length)}):`, ...added.map(p => `  + ${p}`));
+    lines.push(`Added ${label} (${String(added.length)}):`, ...added.map((p) => `  + ${p}`));
   }
   if (netDelta === 0 && (added.length > 0 || removed.length > 0)) {
     lines.push(
@@ -535,19 +530,17 @@ export function producePrePostDiff(opts: ProducePrePostDiffOptions): PrePostDiff
   const baseFiles = lines(
     runGit(repoRoot, ['ls-tree', '-r', '--name-only', '--full-tree', base.ref]).stdout
   );
-  const trackedFiles = lines(
-    runGit(repoRoot, ['ls-files', '-co', '--exclude-standard']).stdout
-  );
+  const trackedFiles = lines(runGit(repoRoot, ['ls-files', '-co', '--exclude-standard']).stdout);
   const untrackedFiles = lines(
     runGit(repoRoot, ['ls-files', '--others', '--exclude-standard']).stdout
   );
   // `ls-files` lists INDEX entries, and an entry can outlive its file on disk.
-  const afterFiles = trackedFiles.filter(path => existsSync(join(repoRoot, path)));
+  const afterFiles = trackedFiles.filter((path) => existsSync(join(repoRoot, path)));
 
   const testFilesBefore = baseFiles.filter(isTestPath);
   const testFilesAfter = afterFiles.filter(isTestPath);
-  const addedTestFiles = testFilesAfter.filter(path => !baseFiles.includes(path));
-  const removedTestFiles = testFilesBefore.filter(path => !afterFiles.includes(path));
+  const addedTestFiles = testFilesAfter.filter((path) => !baseFiles.includes(path));
+  const removedTestFiles = testFilesBefore.filter((path) => !afterFiles.includes(path));
 
   // F4 — the SOURCE FILE lists, so a deleted module is visible even when the
   // counts it would have moved do not move at all: a `.ts` module with no
@@ -560,15 +553,14 @@ export function producePrePostDiff(opts: ProducePrePostDiffOptions): PrePostDiff
   // never counted twice.
   const sourceFilesBefore = baseFiles.filter(isSourcePath);
   const sourceFilesAfter = afterFiles.filter(isSourcePath);
-  const addedSourceFiles = sourceFilesAfter.filter(path => !baseFiles.includes(path));
-  const removedSourceFiles = sourceFilesBefore.filter(path => !afterFiles.includes(path));
+  const addedSourceFiles = sourceFilesAfter.filter((path) => !baseFiles.includes(path));
+  const removedSourceFiles = sourceFilesBefore.filter((path) => !afterFiles.includes(path));
 
   // ---- test surface --------------------------------------------------------
   // Before: the base TREE (a tree grep cannot hit the ignore-walk trap above).
   // After: the working tree, read from the files `afterFiles` lists.
   const testCasesBefore = sumGrepCounts(
-    runGit(repoRoot, ['grep', '-c', '-E', TEST_CASE_ERE, base.ref, '--', ...TEST_FILE_GLOBS])
-      .stdout
+    runGit(repoRoot, ['grep', '-c', '-E', TEST_CASE_ERE, base.ref, '--', ...TEST_FILE_GLOBS]).stdout
   );
   const testCasesAfter = countFilesMatching(repoRoot, testFilesAfter, TEST_CASE_LINE_RE);
 
@@ -578,7 +570,7 @@ export function producePrePostDiff(opts: ProducePrePostDiffOptions): PrePostDiff
   // and the working-tree side must not either, or the two sides would count
   // different file sets. The FILE LISTS (`sourceFiles*`) are the disjoint
   // non-test surface used for the artifact and the removal rule.
-  const countedSourceAfter = afterFiles.filter(path => /\.(ts|tsx)$/.test(path));
+  const countedSourceAfter = afterFiles.filter((path) => /\.(ts|tsx)$/.test(path));
   const exportsBefore = sumGrepCounts(
     runGit(repoRoot, ['grep', '-c', '-E', EXPORT_LINE_ERE, base.ref, '--', ...API_SOURCE_GLOBS])
       .stdout
@@ -629,11 +621,11 @@ export function producePrePostDiff(opts: ProducePrePostDiffOptions): PrePostDiff
   }
   // Untracked files are invisible to `git diff`, and in this repo's workflow the
   // slice's new files are exactly the ones still untracked.
-  for (const path of untrackedFiles.filter(path => /\.(ts|tsx)$/.test(path))) {
+  for (const path of untrackedFiles.filter((path) => /\.(ts|tsx)$/.test(path))) {
     try {
       for (const name of readFileSync(join(repoRoot, path), 'utf8')
         .split(/\r?\n/)
-        .flatMap(line => extractExportedNames(line))) {
+        .flatMap((line) => extractExportedNames(line))) {
         addedExports.push({ name, path });
       }
     } catch {
@@ -699,7 +691,7 @@ export function producePrePostDiff(opts: ProducePrePostDiffOptions): PrePostDiff
     '## Verdict',
     verdict,
     '',
-    '# The verdict above is repeated nowhere: it is the file\'s conclusion. The method',
+    "# The verdict above is repeated nowhere: it is the file's conclusion. The method",
     '# and the raw counts it rests on follow, for a human who wants to check it.',
     '#',
     `# Base ref : ${base.label} (${base.ref})`,
@@ -717,7 +709,7 @@ export function producePrePostDiff(opts: ProducePrePostDiffOptions): PrePostDiff
     '#',
     '# METHOD — public API surface (changed .ts / .tsx files only)',
     '#   Top-level `export` statements (lines anchored at column 0) are counted with',
-    "#   `git grep -c` on both sides. The added/removed NAMES come from the changed",
+    '#   `git grep -c` on both sides. The added/removed NAMES come from the changed',
     "#   lines of `git diff -U0 <base> -- '*.ts' '*.tsx'`, plus any untracked file",
     '#   read from disk. The FILE lists below cover non-test `.ts` / `.tsx` files.',
     '#',
@@ -787,7 +779,9 @@ export function producePrePostDiff(opts: ProducePrePostDiffOptions): PrePostDiff
     `non-test source files ${delta(sourceFilesBefore.length, sourceFilesAfter.length)}, ` +
     `top-level export statements ${delta(exportsBefore, exportsAfter)}, ` +
     `+${String(addedExports.length)} / -${String(removedExports.length)} export names. ` +
-    (removals.length === 0 ? 'No structural removal detected.' : `Structural removals: ${removals.join('; ')}.`);
+    (removals.length === 0
+      ? 'No structural removal detected.'
+      : `Structural removals: ${removals.join('; ')}.`);
 
   return { status: 'computed', summary, relativePath, absolutePath, content };
 }

@@ -69,12 +69,14 @@ function renderGapMessage(
   violations: readonly { readonly path: string; readonly matchedRule: string }[]
 ): string {
   const namedRules = rulesToRemove.slice(0, MAX_NAMED).join(', ');
-  const elidedRules = rulesToRemove.length > MAX_NAMED ? `, … (+${rulesToRemove.length - MAX_NAMED})` : '';
+  const elidedRules =
+    rulesToRemove.length > MAX_NAMED ? `, … (+${rulesToRemove.length - MAX_NAMED})` : '';
   const namedFiles = violations
     .slice(0, MAX_NAMED)
     .map((violation) => `${violation.path} <- ${violation.matchedRule}`)
     .join('; ');
-  const elidedFiles = violations.length > MAX_NAMED ? `; … (+${violations.length - MAX_NAMED})` : '';
+  const elidedFiles =
+    violations.length > MAX_NAMED ? `; … (+${violations.length - MAX_NAMED})` : '';
 
   return `codegraph index is incomplete: ${excludedTrackedCount} of ${trackedSourceCount} tracked source files are blocked by ${rulesToRemove.length} exclude rule(s) [${namedRules}${elidedRules}]. Blocked: ${namedFiles}${elidedFiles}. Run \`peaks codegraph repair-exclude --project <root>\` to drop them and rebuild the index.`;
 }
@@ -86,40 +88,49 @@ function run({ options, resolvedL3Root }: DoctorContext): readonly DoctorCheck[]
   try {
     report = probe();
   } catch (error) {
-    return [{
-      id: CHECK_ID,
-      ok: false,
-      severity: 'warning',
-      message: `codegraph exclude integrity could not be evaluated: ${getErrorMessage(error)}`
-    }];
+    return [
+      {
+        id: CHECK_ID,
+        ok: false,
+        severity: 'warning',
+        message: `codegraph exclude integrity could not be evaluated: ${getErrorMessage(error)}`
+      }
+    ];
   }
 
   if (report === null) {
-    return [{
-      id: CHECK_ID,
-      ok: true,
-      message: 'codegraph is not initialized in this project (no .codegraph/config.json); the exclude list is not in play yet'
-    }];
+    return [
+      {
+        id: CHECK_ID,
+        ok: true,
+        message:
+          'codegraph is not initialized in this project (no .codegraph/config.json); the exclude list is not in play yet'
+      }
+    ];
   }
 
   if (!report.gap) {
-    return [{
-      id: CHECK_ID,
-      ok: true,
-      message: `codegraph exclude list drops no tracked source file (${report.trackedSourceCount} tracked source file(s) admitted by include)`
-    }];
+    return [
+      {
+        id: CHECK_ID,
+        ok: true,
+        message: `codegraph exclude list drops no tracked source file (${report.trackedSourceCount} tracked source file(s) admitted by include)`
+      }
+    ];
   }
 
-  return [{
-    id: CHECK_ID,
-    ok: false,
-    message: renderGapMessage(
-      report.excludedTrackedCount,
-      report.trackedSourceCount,
-      report.rulesToRemove,
-      report.violations
-    )
-  }];
+  return [
+    {
+      id: CHECK_ID,
+      ok: false,
+      message: renderGapMessage(
+        report.excludedTrackedCount,
+        report.trackedSourceCount,
+        report.rulesToRemove,
+        report.violations
+      )
+    }
+  ];
 }
 
 export const check: DoctorCheckPlugin = {

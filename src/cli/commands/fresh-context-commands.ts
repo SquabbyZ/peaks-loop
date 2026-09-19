@@ -29,9 +29,14 @@ export function registerFreshContextCommands(program: Command, io: ProgramIO): v
   addJsonOption(
     freshContext
       .command('preflight')
-      .description('Deterministic signal scan: report whether the prompt triggers a fresh-context search')
+      .description(
+        'Deterministic signal scan: report whether the prompt triggers a fresh-context search'
+      )
       .requiredOption('--prompt <text>', 'the user request text to scan for trigger keywords')
-      .option('--project <root>', 'target project root (accepted for surface parity; the scan is text + config only)')
+      .option(
+        '--project <root>',
+        'target project root (accepted for surface parity; the scan is text + config only)'
+      )
   ).action((options: FreshContextPreflightOptions) => {
     try {
       const enabled = isFreshContextEnabled();
@@ -40,7 +45,9 @@ export function registerFreshContextCommands(program: Command, io: ProgramIO): v
     } catch (error) {
       printResult(
         io,
-        fail('fresh-context.preflight', 'PREFLIGHT_FAILED', getErrorMessage(error), {}, ['Verify ~/.peaks/config.json is valid JSON']),
+        fail('fresh-context.preflight', 'PREFLIGHT_FAILED', getErrorMessage(error), {}, [
+          'Verify ~/.peaks/config.json is valid JSON'
+        ]),
         options.json
       );
       process.exitCode = 1;

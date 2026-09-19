@@ -33,27 +33,30 @@ type Dim = 'render' | 'behavior' | 'integration' | 'a11y';
 function declareDimensions(
   _file: string,
   covered: readonly Dim[],
-  omitted: ReadonlyArray<{ dim: Dim; reason: string }> = [],
+  omitted: ReadonlyArray<{ dim: Dim; reason: string }> = []
 ): void {
   const ALL: readonly Dim[] = ['render', 'behavior', 'integration', 'a11y'];
   const coveredSet = new Set(covered);
   const missing = ALL.filter((d) => !coveredSet.has(d) && !omitted.find((o) => o.dim === d));
   if (missing.length > 0) {
-    throw new Error(`[${_file}] missing dimensions ${missing.join(', ')}; add a describe(...) or pass an omitted[] entry.`);
+    throw new Error(
+      `[${_file}] missing dimensions ${missing.join(', ')}; add a describe(...) or pass an omitted[] entry.`
+    );
   }
 }
 
 declareDimensions(
   'packages/peaks-loop-mut/tests/thresholds.test.ts',
   ['render', 'behavior', 'integration'],
-  [{ dim: 'a11y', reason: 'no user-facing text or exit code' }],
+  [{ dim: 'a11y', reason: 'no user-facing text or exit code' }]
 );
 
+import { DEFAULT_THRESHOLDS, evaluateThresholds } from '../src/services/mut/thresholds.js';
 import {
-  DEFAULT_THRESHOLDS,
-  evaluateThresholds,
-} from '../src/services/mut/thresholds.js';
-import { loadMutReport, mutReportPath, MUT_REPORT_RELATIVE_PATH } from '../src/services/mut/report-loader.js';
+  loadMutReport,
+  mutReportPath,
+  MUT_REPORT_RELATIVE_PATH
+} from '../src/services/mut/report-loader.js';
 import { MutReportSchema, WeakPatternSchema } from '../src/services/mut/types.js';
 
 // We deliberately do NOT use withTmpWorkspacePerTest here: mut is a
@@ -80,28 +83,28 @@ function validMinimalReport(overrides: Record<string, unknown> = {}): Record<str
       mutantsSurvived: 2,
       mutantsTimeout: 0,
       killRate: 0.8,
-      byFile: [],
+      byFile: []
     },
     assertions: {
       totalAssertions: 100,
       weakAssertions: 3,
       weakRate: 0.03,
-      weakPatterns: [],
+      weakPatterns: []
     },
     thresholds: {
       mutationKillRateMin: 0.8,
       weakAssertionRateMax: 0.05,
-      passed: true,
+      passed: true
     },
     followups: [],
-    ...overrides,
+    ...overrides
   };
 }
 
 describe('render — DEFAULT_THRESHOLDS + WeakPattern + MutReportSchema', () => {
   it('DEFAULT_THRESHOLDS is frozen and has the documented values', () => {
     expect(Object.isFrozen(DEFAULT_THRESHOLDS)).toBe(true);
-    expect(DEFAULT_THRESHOLDS.mutationKillRateMin).toBe(0.80);
+    expect(DEFAULT_THRESHOLDS.mutationKillRateMin).toBe(0.8);
     expect(DEFAULT_THRESHOLDS.weakAssertionRateMax).toBe(0.05);
   });
 
@@ -144,24 +147,24 @@ describe('behavior — evaluateThresholds', () => {
     expect(out.violations).toHaveLength(1);
     expect(out.violations[0]?.kind).toBe('mutationKillRateMin');
     expect(out.violations[0]?.actual).toBe(0.5);
-    expect(out.violations[0]?.threshold).toBe(0.80);
+    expect(out.violations[0]?.threshold).toBe(0.8);
   });
 
   it('fails when actualWeakRate > weakAssertionRateMax (the only violation)', () => {
-    const out = evaluateThresholds(DEFAULT_THRESHOLDS, 0.85, 0.10);
+    const out = evaluateThresholds(DEFAULT_THRESHOLDS, 0.85, 0.1);
     expect(out.passed).toBe(false);
     expect(out.violations).toHaveLength(1);
     expect(out.violations[0]?.kind).toBe('weakAssertionRateMax');
   });
 
   it('reports both violations when both are out of bounds', () => {
-    const out = evaluateThresholds(DEFAULT_THRESHOLDS, 0.5, 0.10);
+    const out = evaluateThresholds(DEFAULT_THRESHOLDS, 0.5, 0.1);
     expect(out.passed).toBe(false);
     expect(out.violations).toHaveLength(2);
   });
 
   it('boundary: actualKillRate == mutationKillRateMin is in-budget (no violation)', () => {
-    const out = evaluateThresholds(DEFAULT_THRESHOLDS, 0.80, 0.02);
+    const out = evaluateThresholds(DEFAULT_THRESHOLDS, 0.8, 0.02);
     expect(out.passed).toBe(true);
   });
 
@@ -174,7 +177,7 @@ describe('behavior — evaluateThresholds', () => {
     const out = evaluateThresholds(
       { mutationKillRateMin: 0.99, weakAssertionRateMax: 0.01 },
       0.98,
-      0.005,
+      0.005
     );
     expect(out.passed).toBe(false);
     expect(out.violations[0]?.threshold).toBe(0.99);
@@ -193,38 +196,53 @@ describe('behavior — MutReportSchema rejects invalid input', () => {
   });
 
   it('rejects killRate > 1', () => {
-    const out = MutReportSchema.safeParse(validMinimalReport({
-      mutation: {
-        tool: 'stryker',
-        mutantsTotal: 10, mutantsKilled: 8, mutantsSurvived: 2, mutantsTimeout: 0,
-        killRate: 1.5,
-        byFile: [],
-      },
-    }));
+    const out = MutReportSchema.safeParse(
+      validMinimalReport({
+        mutation: {
+          tool: 'stryker',
+          mutantsTotal: 10,
+          mutantsKilled: 8,
+          mutantsSurvived: 2,
+          mutantsTimeout: 0,
+          killRate: 1.5,
+          byFile: []
+        }
+      })
+    );
     expect(out.success).toBe(false);
   });
 
   it('rejects killRate < 0', () => {
-    const out = MutReportSchema.safeParse(validMinimalReport({
-      mutation: {
-        tool: 'stryker',
-        mutantsTotal: 10, mutantsKilled: 8, mutantsSurvived: 2, mutantsTimeout: 0,
-        killRate: -0.1,
-        byFile: [],
-      },
-    }));
+    const out = MutReportSchema.safeParse(
+      validMinimalReport({
+        mutation: {
+          tool: 'stryker',
+          mutantsTotal: 10,
+          mutantsKilled: 8,
+          mutantsSurvived: 2,
+          mutantsTimeout: 0,
+          killRate: -0.1,
+          byFile: []
+        }
+      })
+    );
     expect(out.success).toBe(false);
   });
 
   it('rejects unknown mutation tool', () => {
-    const out = MutReportSchema.safeParse(validMinimalReport({
-      mutation: {
-        tool: 'not-a-tool',
-        mutantsTotal: 10, mutantsKilled: 8, mutantsSurvived: 2, mutantsTimeout: 0,
-        killRate: 0.8,
-        byFile: [],
-      },
-    }));
+    const out = MutReportSchema.safeParse(
+      validMinimalReport({
+        mutation: {
+          tool: 'not-a-tool',
+          mutantsTotal: 10,
+          mutantsKilled: 8,
+          mutantsSurvived: 2,
+          mutantsTimeout: 0,
+          killRate: 0.8,
+          byFile: []
+        }
+      })
+    );
     expect(out.success).toBe(false);
   });
 });

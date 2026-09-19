@@ -32,18 +32,18 @@ import { makeCapturedIo, withEnv } from '../_setup/io.js';
 import {
   cleanupTmpWorkspace,
   useTmpWorkspace,
-  type TmpWorkspace,
+  type TmpWorkspace
 } from '../_setup/tmp-workspace.js';
 
 declareDimensions('tests/unit/cli/job-slice-id-resolution.test.ts', [
   'render',
   'behavior',
   'integration',
-  'a11y',
+  'a11y'
 ]);
 
 const __autorefresh = vi.hoisted(() => ({
-  refreshCodegraphAfterSlice: vi.fn(),
+  refreshCodegraphAfterSlice: vi.fn()
 }));
 
 // A2 (2026-09-17): the checkpoint action also imports
@@ -51,8 +51,10 @@ const __autorefresh = vi.hoisted(() => ({
 // module and overrides only the process-spawning boundary — a hand-written
 // replacement module would be missing the export the action calls.
 vi.mock('../../../src/services/codegraph/codegraph-autorefresh.js', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../../../src/services/codegraph/codegraph-autorefresh.js')>()),
-  refreshCodegraphAfterSlice: __autorefresh.refreshCodegraphAfterSlice,
+  ...(await importOriginal<
+    typeof import('../../../src/services/codegraph/codegraph-autorefresh.js')
+  >()),
+  refreshCodegraphAfterSlice: __autorefresh.refreshCodegraphAfterSlice
 }));
 
 import { registerJobCommands } from '../../../src/cli/commands/job-commands.js';
@@ -71,8 +73,18 @@ async function runJob(args: string[], wsPath: string): Promise<CapturedIo> {
   return captured;
 }
 
-function parseJson(captured: CapturedIo): { ok: boolean; code?: string; message?: string; data: any } {
-  return JSON.parse(captured.stdout.join('\n')) as { ok: boolean; code?: string; message?: string; data: any };
+function parseJson(captured: CapturedIo): {
+  ok: boolean;
+  code?: string;
+  message?: string;
+  data: any;
+} {
+  return JSON.parse(captured.stdout.join('\n')) as {
+    ok: boolean;
+    code?: string;
+    message?: string;
+    data: any;
+  };
 }
 
 function bindSession(wsPath: string): void {
@@ -81,7 +93,7 @@ function bindSession(wsPath: string): void {
   writeFileSync(
     join(runtimeDir, 'session.json'),
     JSON.stringify({ sessionId: JOB_SID, projectRoot: wsPath }) + '\n',
-    'utf8',
+    'utf8'
   );
 }
 
@@ -89,10 +101,14 @@ function jobDir(wsPath: string): string {
   return join(wsPath, '.peaks', '_runtime', JOB_SID, 'job', JOB_ID);
 }
 
-function readSlices(wsPath: string): Array<{ sliceId: string; label: string; status: string; commitSha?: string }> {
-  return (JSON.parse(readFileSync(join(jobDir(wsPath), 'state.json'), 'utf8')) as {
-    slices: Array<{ sliceId: string; label: string; status: string; commitSha?: string }>;
-  }).slices;
+function readSlices(
+  wsPath: string
+): Array<{ sliceId: string; label: string; status: string; commitSha?: string }> {
+  return (
+    JSON.parse(readFileSync(join(jobDir(wsPath), 'state.json'), 'utf8')) as {
+      slices: Array<{ sliceId: string; label: string; status: string; commitSha?: string }>;
+    }
+  ).slices;
 }
 
 function readProgress(wsPath: string): any {
@@ -108,7 +124,9 @@ describe('Scenario: behavior — --slice-id accepts the label as an alias for it
     __autorefresh.refreshCodegraphAfterSlice.mockReset();
     __autorefresh.refreshCodegraphAfterSlice.mockResolvedValue({ refreshed: true });
   });
-  afterEach(() => { cleanupTmpWorkspace(); });
+  afterEach(() => {
+    cleanupTmpWorkspace();
+  });
 
   it('when checkpoint is called with the label S1, should mark slice-001 done', async () => {
     // given: a 4-slice job seeded from the documented `--slice-list "S1,S2,S3,S4"` form
@@ -116,8 +134,18 @@ describe('Scenario: behavior — --slice-id accepts the label as an alias for it
     await runJob(['init', '--job-id', JOB_ID, '--slice-list', 'S1,S2,S3,S4'], ws.path);
     // when: checkpoint runs with the LABEL rather than the canonical slice id
     const captured = await runJob(
-      ['checkpoint', '--job-id', JOB_ID, '--slice-id', 'S1', '--state', 'done', '--commit-sha', COMMIT_SHA],
-      ws.path,
+      [
+        'checkpoint',
+        '--job-id',
+        JOB_ID,
+        '--slice-id',
+        'S1',
+        '--state',
+        'done',
+        '--commit-sha',
+        COMMIT_SHA
+      ],
+      ws.path
     );
     // then: the envelope is ok and slice-001 — not nothing — carries the done state
     expect(parseJson(captured).ok).toBe(true);
@@ -134,7 +162,7 @@ describe('Scenario: behavior — --slice-id accepts the label as an alias for it
     // when: block runs with the second slice's label
     const captured = await runJob(
       ['block', '--job-id', JOB_ID, '--slice-id', 'S2', '--reason', 'waiting on review'],
-      ws.path,
+      ws.path
     );
     // then: slice-002 is the one that flipped
     expect(parseJson(captured).ok).toBe(true);
@@ -151,7 +179,9 @@ describe('Scenario: render — the checkpoint envelope and progress.json carry t
     __autorefresh.refreshCodegraphAfterSlice.mockReset();
     __autorefresh.refreshCodegraphAfterSlice.mockResolvedValue({ refreshed: true });
   });
-  afterEach(() => { cleanupTmpWorkspace(); });
+  afterEach(() => {
+    cleanupTmpWorkspace();
+  });
 
   it('when checkpoint is called with the label S1, should mirror canonical progress into progress.json', async () => {
     // given: a 4-slice job read via the label form
@@ -159,8 +189,18 @@ describe('Scenario: render — the checkpoint envelope and progress.json carry t
     await runJob(['init', '--job-id', JOB_ID, '--slice-list', 'S1,S2,S3,S4'], ws.path);
     // when: the first slice is checkpointed as done by label
     const captured = await runJob(
-      ['checkpoint', '--job-id', JOB_ID, '--slice-id', 'S1', '--state', 'done', '--commit-sha', COMMIT_SHA],
-      ws.path,
+      [
+        'checkpoint',
+        '--job-id',
+        JOB_ID,
+        '--slice-id',
+        'S1',
+        '--state',
+        'done',
+        '--commit-sha',
+        COMMIT_SHA
+      ],
+      ws.path
     );
     // then: the envelope reports the canonical id and the progress mirror advances
     const envelope = parseJson(captured);
@@ -183,7 +223,9 @@ describe('Scenario: integration — an unmatched --slice-id must not write anyth
     __autorefresh.refreshCodegraphAfterSlice.mockReset();
     __autorefresh.refreshCodegraphAfterSlice.mockResolvedValue({ refreshed: true });
   });
-  afterEach(() => { cleanupTmpWorkspace(); });
+  afterEach(() => {
+    cleanupTmpWorkspace();
+  });
 
   it('when --slice-id is a typo (slice-01), should fail loudly and leave state.json and progress.json untouched', async () => {
     // given: a seeded job and no progress.json yet
@@ -192,8 +234,18 @@ describe('Scenario: integration — an unmatched --slice-id must not write anyth
     expect(existsSync(join(jobDir(ws.path), 'progress.json'))).toBe(false);
     // when: checkpoint runs with a mistyped id
     const captured = await runJob(
-      ['checkpoint', '--job-id', JOB_ID, '--slice-id', 'slice-01', '--state', 'done', '--commit-sha', COMMIT_SHA],
-      ws.path,
+      [
+        'checkpoint',
+        '--job-id',
+        JOB_ID,
+        '--slice-id',
+        'slice-01',
+        '--state',
+        'done',
+        '--commit-sha',
+        COMMIT_SHA
+      ],
+      ws.path
     );
     // then: the envelope is a failure and no slice/progress write happened
     const envelope = parseJson(captured);
@@ -209,8 +261,18 @@ describe('Scenario: integration — an unmatched --slice-id must not write anyth
     await runJob(['init', '--job-id', JOB_ID, '--slice-list', 'S1,S2'], ws.path);
     // when: checkpoint runs with an unmatched id
     await runJob(
-      ['checkpoint', '--job-id', JOB_ID, '--slice-id', 'slice-09', '--state', 'done', '--commit-sha', COMMIT_SHA],
-      ws.path,
+      [
+        'checkpoint',
+        '--job-id',
+        JOB_ID,
+        '--slice-id',
+        'slice-09',
+        '--state',
+        'done',
+        '--commit-sha',
+        COMMIT_SHA
+      ],
+      ws.path
     );
     // then: the slice-complete boundary never fired
     expect(__autorefresh.refreshCodegraphAfterSlice).not.toHaveBeenCalled();
@@ -226,7 +288,9 @@ describe('Scenario: a11y — an unmatched --slice-id names the valid ids', () =>
     __autorefresh.refreshCodegraphAfterSlice.mockReset();
     __autorefresh.refreshCodegraphAfterSlice.mockResolvedValue({ refreshed: true });
   });
-  afterEach(() => { cleanupTmpWorkspace(); });
+  afterEach(() => {
+    cleanupTmpWorkspace();
+  });
 
   it('when the requested slice does not exist, should list every valid sliceId and label', async () => {
     // given: a seeded 4-slice job
@@ -234,14 +298,29 @@ describe('Scenario: a11y — an unmatched --slice-id names the valid ids', () =>
     await runJob(['init', '--job-id', JOB_ID, '--slice-list', 'S1,S2,S3,S4'], ws.path);
     // when: checkpoint runs with an id that matches nothing
     const captured = await runJob(
-      ['checkpoint', '--job-id', JOB_ID, '--slice-id', 'S9', '--state', 'done', '--commit-sha', COMMIT_SHA],
-      ws.path,
+      [
+        'checkpoint',
+        '--job-id',
+        JOB_ID,
+        '--slice-id',
+        'S9',
+        '--state',
+        'done',
+        '--commit-sha',
+        COMMIT_SHA
+      ],
+      ws.path
     );
     // then: the message names the offending id and every valid pair
     const envelope = parseJson(captured);
     expect(envelope.message).toContain('"S9"');
     expect(envelope.message).toContain('slice-001 (S1)');
     expect(envelope.message).toContain('slice-004 (S4)');
-    expect(envelope.data.validSliceIds).toEqual(['slice-001', 'slice-002', 'slice-003', 'slice-004']);
+    expect(envelope.data.validSliceIds).toEqual([
+      'slice-001',
+      'slice-002',
+      'slice-003',
+      'slice-004'
+    ]);
   });
 });

@@ -34,7 +34,9 @@ type Parsed = {
 describe('auto-compact hook install is a migration, not a presence check', () => {
   it('rewrites a stale command instead of reporting it as already installed', () => {
     const path = tempSettingsPath();
-    seed(path, [{ matcher: 'Bash|Task', hooks: [{ type: 'command', command: 'peaks code auto-compact' }] }]);
+    seed(path, [
+      { matcher: 'Bash|Task', hooks: [{ type: 'command', command: 'peaks code auto-compact' }] }
+    ]);
 
     const result = installAutoCompactHook({ projectRoot: '', settingsPath: path });
 
@@ -48,15 +50,22 @@ describe('auto-compact hook install is a migration, not a presence check', () =>
     const path = tempSettingsPath();
     seed(path, []);
 
-    expect(installAutoCompactHook({ projectRoot: '', settingsPath: path }).action).toBe('installed');
+    expect(installAutoCompactHook({ projectRoot: '', settingsPath: path }).action).toBe(
+      'installed'
+    );
     // Second run finds the CORRECT command and leaves the file alone.
-    expect(installAutoCompactHook({ projectRoot: '', settingsPath: path }).action).toBe('already-installed');
+    expect(installAutoCompactHook({ projectRoot: '', settingsPath: path }).action).toBe(
+      'already-installed'
+    );
   });
 
   it('preserves unrelated PreToolUse entries while repairing its own', () => {
     const path = tempSettingsPath();
     seed(path, [
-      { matcher: 'Write|Edit', hooks: [{ type: 'command', command: 'node "/some/other/gate.js"' }] },
+      {
+        matcher: 'Write|Edit',
+        hooks: [{ type: 'command', command: 'node "/some/other/gate.js"' }]
+      },
       { matcher: 'Bash|Task', hooks: [{ type: 'command', command: 'peaks code auto-compact' }] }
     ]);
 

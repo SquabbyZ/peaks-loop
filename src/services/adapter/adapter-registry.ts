@@ -76,13 +76,24 @@ class ProcessVendorAdapter implements VendorAdapter {
     const argv = [...this.extraArgs];
     if (args.force === true) argv.push('--force');
     return new Promise<VendorCompactResult>((resolveRun) => {
-      const proc = spawn(this.binary, argv, { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
+      const proc = spawn(this.binary, argv, {
+        stdio: ['ignore', 'pipe', 'pipe'],
+        windowsHide: true
+      });
       let stdout = '';
       let stderr = '';
-      proc.stdout.on('data', (chunk: Buffer) => { stdout += chunk.toString('utf8'); });
-      proc.stderr.on('data', (chunk: Buffer) => { stderr += chunk.toString('utf8'); });
+      proc.stdout.on('data', (chunk: Buffer) => {
+        stdout += chunk.toString('utf8');
+      });
+      proc.stderr.on('data', (chunk: Buffer) => {
+        stderr += chunk.toString('utf8');
+      });
       proc.on('error', (err) => {
-        resolveRun({ exitCode: 127, stdout, stderr: stderr + (stderr.length > 0 ? '\n' : '') + err.message });
+        resolveRun({
+          exitCode: 127,
+          stdout,
+          stderr: stderr + (stderr.length > 0 ? '\n' : '') + err.message
+        });
       });
       proc.on('close', (code) => {
         resolveRun({ exitCode: code ?? 0, stdout, stderr });
@@ -120,7 +131,10 @@ export class AdapterRegistry {
 
   /** Register a new adapter. When an adapter with the same id already
    *  exists, returns the existing record unless `force: true`. */
-  register(record: AdapterRecord, opts: RegisterOptions = {}): { record: AdapterRecord; created: boolean } {
+  register(
+    record: AdapterRecord,
+    opts: RegisterOptions = {}
+  ): { record: AdapterRecord; created: boolean } {
     const validationError = validateRecord(record);
     if (validationError !== undefined) {
       throw new Error(`invalid adapter record: ${validationError}`);
@@ -178,7 +192,9 @@ export class AdapterRegistry {
       throw new Error(`adapter registry at ${file} is not valid JSON: ${(err as Error).message}`);
     }
     if (!isPersistedRegistry(parsed)) {
-      throw new Error(`adapter registry at ${file} has unexpected shape (expected version=1 + adapters[])`);
+      throw new Error(
+        `adapter registry at ${file} has unexpected shape (expected version=1 + adapters[])`
+      );
     }
     this.records.clear();
     for (const rec of parsed.adapters) {
@@ -207,9 +223,12 @@ function isPersistedRegistry(value: unknown): value is PersistedAdapterRegistry 
   return v.adapters.every((a) => {
     if (typeof a !== 'object' || a === null) return false;
     const r = a as { id?: unknown; displayName?: unknown; binary?: unknown; args?: unknown };
-    return typeof r.id === 'string'
-      && typeof r.displayName === 'string'
-      && typeof r.binary === 'string'
-      && (r.args === undefined || (Array.isArray(r.args) && r.args.every((x) => typeof x === 'string')));
+    return (
+      typeof r.id === 'string' &&
+      typeof r.displayName === 'string' &&
+      typeof r.binary === 'string' &&
+      (r.args === undefined ||
+        (Array.isArray(r.args) && r.args.every((x) => typeof x === 'string')))
+    );
   });
 }

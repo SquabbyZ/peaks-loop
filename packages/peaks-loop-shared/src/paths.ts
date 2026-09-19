@@ -6,7 +6,10 @@ function findRepoRoot(startPath: string): string {
   let currentPath = startPath;
 
   while (currentPath !== dirname(currentPath)) {
-    if (existsSync(resolve(currentPath, 'package.json')) && existsSync(resolve(currentPath, 'skills'))) {
+    if (
+      existsSync(resolve(currentPath, 'package.json')) &&
+      existsSync(resolve(currentPath, 'skills'))
+    ) {
       return currentPath;
     }
     currentPath = dirname(currentPath);

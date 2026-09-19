@@ -4,11 +4,11 @@ import { describe, expect, it } from 'vitest';
 
 import {
   evaluateWorktreeAuth,
-  type WorktreeAuthCheckInput,
+  type WorktreeAuthCheckInput
 } from '~/src/services/hooks/worktree-authorization-gate';
 import {
   createDispatchProvenanceToken,
-  writeDispatchProvenance,
+  writeDispatchProvenance
 } from '~/src/services/worktree/dispatch-provenance';
 import { finalizeLease, serializeLease } from '~/src/services/worktree/worktree-lease';
 import { withTmpWorkspacePerTest } from '../_setup/tmp-workspace.js';
@@ -27,14 +27,14 @@ function baseInput(projectRoot: string): WorktreeAuthCheckInput {
     requestId: RID,
     leaseId: LEASE_ID,
     containerLeaseId: null,
-    dispatchProvenanceToken: null,
+    dispatchProvenanceToken: null
   };
 }
 
-describe("Scenario: host Agent worktree provenance gate", () => {
+describe('Scenario: host Agent worktree provenance gate', () => {
   withTmpWorkspacePerTest();
 
-  it("when invoked, should denies host isolation without Peaks provenance even when a lease id is supplied", () => {
+  it('when invoked, should denies host isolation without Peaks provenance even when a lease id is supplied', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -43,7 +43,7 @@ describe("Scenario: host Agent worktree provenance gate", () => {
     if (!decision.allow) expect(decision.code).toBe('HOST_AGENT_ISOLATION_UNMANAGED');
   });
 
-  it("when invoked, should allows worktree isolation only when provenance matches an active canonical lease", () => {
+  it('when invoked, should allows worktree isolation only when provenance matches an active canonical lease', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -58,10 +58,18 @@ describe("Scenario: host Agent worktree provenance gate", () => {
       branch: 'peaks/rid-host-governance',
       createdAt: Date.now(),
       expiresAt: Date.now() + 60_000,
-      purpose: 'test provenance',
+      purpose: 'test provenance'
     });
-    writeFileSync(join(runtime, 'worktree-leases', `${LEASE_ID}.json`), serializeLease(lease), 'utf8');
-    const token = createDispatchProvenanceToken({ sessionId: SID, requestId: RID, leaseId: LEASE_ID });
+    writeFileSync(
+      join(runtime, 'worktree-leases', `${LEASE_ID}.json`),
+      serializeLease(lease),
+      'utf8'
+    );
+    const token = createDispatchProvenanceToken({
+      sessionId: SID,
+      requestId: RID,
+      leaseId: LEASE_ID
+    });
     writeDispatchProvenance({
       projectRoot: root,
       record: {
@@ -71,8 +79,8 @@ describe("Scenario: host Agent worktree provenance gate", () => {
         requestId: RID,
         leaseId: LEASE_ID,
         isolation: 'worktree',
-        issuedAt: new Date().toISOString(),
-      },
+        issuedAt: new Date().toISOString()
+      }
     });
 
     const decision = evaluateWorktreeAuth({ ...baseInput(root), dispatchProvenanceToken: token });

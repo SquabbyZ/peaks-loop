@@ -38,11 +38,13 @@ function run({ resolvedL3Root, isValidSessionId }: DoctorContext): readonly Doct
   try {
     const runtimeDir = join(resolvedL3Root, '.peaks/_runtime');
     if (!existsSync(runtimeDir)) {
-      return [{
-        id: 'L3:l3-orphan-sessions',
-        ok: true,
-        message: 'No .peaks/_runtime/ directory; nothing to check.'
-      }];
+      return [
+        {
+          id: 'L3:l3-orphan-sessions',
+          ok: true,
+          message: 'No .peaks/_runtime/ directory; nothing to check.'
+        }
+      ];
     }
     const entries = readdirSync(runtimeDir, { withFileTypes: true })
       .filter((e) => e.isDirectory())
@@ -50,19 +52,24 @@ function run({ resolvedL3Root, isValidSessionId }: DoctorContext): readonly Doct
       .filter((name) => !RUNTIME_SYSTEM_SUBDIRS.has(name));
     const validSids = entries.filter((sid) => isValidSessionId(sid));
     const invalidSids = entries.filter((sid) => !isValidSessionId(sid));
-    return [{
-      id: 'L3:l3-orphan-sessions',
-      ok: invalidSids.length === 0,
-      message: invalidSids.length === 0
-        ? `All ${validSids.length} session(s) under .peaks/_runtime/ are valid (isValidSessionId)`
-        : `${invalidSids.length} orphan session(s) under .peaks/_runtime/ fail isValidSessionId: ${invalidSids.slice(0, 5).join(', ')}${invalidSids.length > 5 ? '...' : ''}. Run \`peaks workspace clean --project <repo>\` to archive.`
-    }];
+    return [
+      {
+        id: 'L3:l3-orphan-sessions',
+        ok: invalidSids.length === 0,
+        message:
+          invalidSids.length === 0
+            ? `All ${validSids.length} session(s) under .peaks/_runtime/ are valid (isValidSessionId)`
+            : `${invalidSids.length} orphan session(s) under .peaks/_runtime/ fail isValidSessionId: ${invalidSids.slice(0, 5).join(', ')}${invalidSids.length > 5 ? '...' : ''}. Run \`peaks workspace clean --project <repo>\` to archive.`
+      }
+    ];
   } catch (error) {
-    return [{
-      id: 'L3:l3-orphan-sessions',
-      ok: true,
-      message: `L3:l3-orphan-sessions probe failed (${getErrorMessage(error)}); skipping check`
-    }];
+    return [
+      {
+        id: 'L3:l3-orphan-sessions',
+        ok: true,
+        message: `L3:l3-orphan-sessions probe failed (${getErrorMessage(error)}); skipping check`
+      }
+    ];
   }
 }
 

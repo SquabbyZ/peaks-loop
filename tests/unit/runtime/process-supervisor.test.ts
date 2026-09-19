@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 vi.mock('node:child_process', () => ({
-  spawn: vi.fn(),
+  spawn: vi.fn()
 }));
 
 import { spawn } from 'node:child_process';
@@ -21,7 +21,11 @@ describe('ProcessSupervisor (F2 in-shell contract)', () => {
     // F2: caller-facing detach:true must be downgraded to detached:false
     // (in-shell background subprocess). The previous OS-detached
     // behavior (CREATE_NEW_PROCESS_GROUP / DETACHED_PROCESS) is gone.
-    expect(spawn).toHaveBeenCalledWith('/bin/echo', ['hi'], expect.objectContaining({ detached: false }));
+    expect(spawn).toHaveBeenCalledWith(
+      '/bin/echo',
+      ['hi'],
+      expect.objectContaining({ detached: false })
+    );
   });
 
   it('uses windowsHide:true on win32 but does NOT force detached:true', async () => {

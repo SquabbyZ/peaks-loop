@@ -64,6 +64,6 @@ export function detectAllResourceTargets(): readonly ResourceTarget[] {
   return listAdapterIds().map((ideId) => ({
     ideId,
     standardsProfile: getStandardsProfile(ideId),
-    skillInstall: getSkillInstall(ideId),
+    skillInstall: getSkillInstall(ideId)
   }));
 }

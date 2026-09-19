@@ -120,7 +120,10 @@ export type CatchGateOutcome =
   | { kind: 'alternative'; choice: RecommendationChoice; reason?: string }
   | { kind: 'reject'; reason: string };
 
-export function parseCatchGateReply(raw: string, recommended: RecommendationChoice): CatchGateOutcome {
+export function parseCatchGateReply(
+  raw: string,
+  recommended: RecommendationChoice
+): CatchGateOutcome {
   const trimmed = raw.trim();
   if (trimmed.length === 0) {
     return { kind: 'accept', choice: recommended };
@@ -171,9 +174,13 @@ export function registerBestPracticeScanCommand(program: Command, io: ProgramIO)
       if (intent.length === 0) {
         printResult(
           io,
-          fail('best-practice.scan', 'BEST_PRACTICE_SCAN_INTENT_REQUIRED', INTENT_REQUIRED_MESSAGE, { project: opts.project }, [
-            'Rerun with --intent "<business goal>" — the goal from the PRD artifact'
-          ]),
+          fail(
+            'best-practice.scan',
+            'BEST_PRACTICE_SCAN_INTENT_REQUIRED',
+            INTENT_REQUIRED_MESSAGE,
+            { project: opts.project },
+            ['Rerun with --intent "<business goal>" — the goal from the PRD artifact']
+          ),
           opts.json === true
         );
         process.exitCode = 1;
@@ -182,7 +189,9 @@ export function registerBestPracticeScanCommand(program: Command, io: ProgramIO)
 
       const detection = opts.lang === undefined ? detectLanguage(opts.project) : null;
       const language = opts.lang ?? detection?.language ?? 'unknown';
-      io.stdout(`[best-practice-scan] project=${opts.project} intent=${intent} language=${language}`);
+      io.stdout(
+        `[best-practice-scan] project=${opts.project} intent=${intent} language=${language}`
+      );
 
       const scan = await scanBestPractice({
         intent,
@@ -212,7 +221,10 @@ export function registerBestPracticeScanCommand(program: Command, io: ProgramIO)
               step25: 'skipped-synthetic-lookup',
               artifactPath: refusedPath
             },
-            ['Re-run once real Context7 / WebSearch wiring lands', `Skip record written to ${refusedPath}`]
+            [
+              'Re-run once real Context7 / WebSearch wiring lands',
+              `Skip record written to ${refusedPath}`
+            ]
           ),
           opts.json === true
         );
@@ -237,7 +249,9 @@ export function registerBestPracticeScanCommand(program: Command, io: ProgramIO)
 
       const forbiddenHits = findForbiddenTokens(table);
       if (forbiddenHits.length > 0) {
-        io.stderr(`[best-practice-scan] WARNING: forbidden tokens detected: ${forbiddenHits.join(', ')}`);
+        io.stderr(
+          `[best-practice-scan] WARNING: forbidden tokens detected: ${forbiddenHits.join(', ')}`
+        );
       }
 
       io.stdout('');
@@ -273,7 +287,13 @@ export function registerBestPracticeScanCommand(program: Command, io: ProgramIO)
     } catch (err) {
       printResult(
         io,
-        fail('best-practice.scan', 'BEST_PRACTICE_SCAN_FAILED', getErrorMessage(err), { stack: err instanceof Error ? err.stack : undefined }, ['Rerun with --json for machine-readable envelope']),
+        fail(
+          'best-practice.scan',
+          'BEST_PRACTICE_SCAN_FAILED',
+          getErrorMessage(err),
+          { stack: err instanceof Error ? err.stack : undefined },
+          ['Rerun with --json for machine-readable envelope']
+        ),
         opts.json === true
       );
       process.exitCode = 1;

@@ -13,10 +13,7 @@ import { existsSync, mkdtempSync, rmSync, writeFileSync, mkdirSync } from 'node:
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import {
-  buildArtifactMeta,
-  buildContextImpact
-} from '../../src/services/context/artifact-meta.js';
+import { buildArtifactMeta, buildContextImpact } from '../../src/services/context/artifact-meta.js';
 import { artifactPath, readSharedChannel, writeSharedEntry } from 'peaks-loop-shared-channel';
 
 let root: string;
@@ -48,14 +45,21 @@ describe('G7 dogfood: 3-sub-agent batch metadata view (~600 chars)', () => {
         rid: RID,
         role: ['rd', 'qa-business', 'qa-perf'][i] ?? 'rd',
         idx: 1,
-        summary: ['wrote RD tech-doc with 4 sub-roles', 'wrote 12 API test cases', 'wrote perf baseline p95 ≤ 200ms'][i] ?? ''
+        summary:
+          [
+            'wrote RD tech-doc with 4 sub-roles',
+            'wrote 12 API test cases',
+            'wrote perf baseline p95 ≤ 200ms'
+          ][i] ?? ''
       })
     );
 
     // Build the G7.4.e main LLM view
-    const view = metas.map((m) => {
-      return `- ${m.role} → ${m.path} (${m.size}B, sha256:${m.sha256.slice(0, 7)}) summary: "${m.summary}"`;
-    }).join('\n');
+    const view = metas
+      .map((m) => {
+        return `- ${m.role} → ${m.path} (${m.size}B, sha256:${m.sha256.slice(0, 7)}) summary: "${m.summary}"`;
+      })
+      .join('\n');
     // The full view should be well under 1KB (PRD budget: ~200 chars/sub-agent)
     expect(view.length).toBeLessThan(1000);
 
@@ -81,9 +85,12 @@ describe('G7 dogfood: 3-sub-agent batch metadata view (~600 chars)', () => {
         summary: `summary for ${roles[i]}`
       })
     );
-    const view = metas.map((m) =>
-      `- ${m.role} → ${m.path} (${m.size}B, sha256:${m.sha256.slice(0, 7)}) summary: "${m.summary}"`
-    ).join('\n');
+    const view = metas
+      .map(
+        (m) =>
+          `- ${m.role} → ${m.path} (${m.size}B, sha256:${m.sha256.slice(0, 7)}) summary: "${m.summary}"`
+      )
+      .join('\n');
     // PRD: 6-sub-agent batch should be ~1.2KB
     expect(view.length).toBeLessThan(1500);
   });

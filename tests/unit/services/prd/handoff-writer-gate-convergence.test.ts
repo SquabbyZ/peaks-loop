@@ -40,7 +40,7 @@ import {
   initHandoff,
   readHandoff,
   verifyHandoff,
-  writeHandoff,
+  writeHandoff
 } from '../../../../src/services/prd/handoff-service.js';
 import { autoRegenPrdHandoff } from '../../../../src/services/prd/handoff-auto-regen.js';
 import { generateEvidence } from '../../../../src/services/evidence/evidence-generator.js';
@@ -48,10 +48,12 @@ import { getPrerequisitesFor } from '../../../../src/services/artifacts/artifact
 import { readAndVerifyHandoff as readSecurityHandoff } from '../../../../src/services/audit-independent/security-audit-service.js';
 import { readAndVerifyHandoff as readPerfHandoff } from '../../../../src/services/audit-independent/perf-audit-service.js';
 
-declareDimensions(
-  'tests/unit/services/prd/handoff-writer-gate-convergence.test.ts',
-  ['render', 'behavior', 'integration', 'a11y'],
-);
+declareDimensions('tests/unit/services/prd/handoff-writer-gate-convergence.test.ts', [
+  'render',
+  'behavior',
+  'integration',
+  'a11y'
+]);
 
 const SESSION_ID = '2026-09-14-session-probe';
 const REQUEST_ID = '2026-09-14-probe';
@@ -93,7 +95,7 @@ function frontmatterOf(handoff: string): string {
  *  hardcoded, so the gate's contract cannot move underneath this file. */
 function gateMarkers(): readonly string[] {
   const prereq = getPrerequisitesFor('rd', 'qa-handoff', 'feature').find(
-    (candidate) => candidate.legacyRelativePath === 'prd/handoff.md',
+    (candidate) => candidate.legacyRelativePath === 'prd/handoff.md'
   );
   expect(prereq?.relativePath).toBe('prd/handoff-<rid>.md');
   expect(prereq?.mustContain).toBeDefined();
@@ -114,7 +116,7 @@ async function writeViaInit(root: string): Promise<string> {
     writtenAt: '2026-09-14T00:00:00.000Z',
     goals: ['G1', 'G2'],
     acceptanceCriteria: ['AC1'],
-    preservedBehavior: [],
+    preservedBehavior: []
   });
   const written = await writeHandoff(handoff, root);
   return written.path;
@@ -133,7 +135,7 @@ async function writeViaEvidenceGenerate(root: string, sessionId: string): Promis
     title: 'producer convergence probe',
     files: [],
     lineCounts: {},
-    sessionId,
+    sessionId
   });
   return handoffPathOf(root);
 }
@@ -148,7 +150,7 @@ async function writeViaAutoRegen(root: string, sessionId: string): Promise<strin
     projectRoot: root,
     sessionId,
     requestId: REQUEST_ID,
-    role: 'prd',
+    role: 'prd'
   });
   expect(result.status).toBe('created');
   if (result.status !== 'created') throw new Error('unreachable');
@@ -195,7 +197,7 @@ describe('(render) the canonical frontmatter shape', () => {
       'schemaVersion',
       'sessionId',
       'sha256',
-      'writtenAt',
+      'writtenAt'
     ]);
   });
 
@@ -207,7 +209,7 @@ describe('(render) the canonical frontmatter shape', () => {
     // emitted correctly.
     const handoff = await readHandoff(await writeViaInit(root));
     expect(handoff.frontmatter.handoffPath).toBe(
-      join('.peaks', '_runtime', SESSION_ID, 'prd', `handoff-${REQUEST_ID}.md`),
+      join('.peaks', '_runtime', SESSION_ID, 'prd', `handoff-${REQUEST_ID}.md`)
     );
   });
 });
@@ -217,12 +219,12 @@ describe('(integration) every producer satisfies all four consumers', () => {
     { name: 'peaks prd handoff init', make: writeViaInit },
     {
       name: 'handoff auto-regen',
-      make: (root: string) => writeViaAutoRegen(root, `${SESSION_ID}-regen`),
+      make: (root: string) => writeViaAutoRegen(root, `${SESSION_ID}-regen`)
     },
     {
       name: 'peaks evidence generate',
-      make: (root: string) => writeViaEvidenceGenerate(root, SESSION_ID),
-    },
+      make: (root: string) => writeViaEvidenceGenerate(root, SESSION_ID)
+    }
   ] as const;
 
   for (const { name, make } of cases) {
@@ -248,7 +250,7 @@ describe('(integration) every producer satisfies all four consumers', () => {
       expect(await verifyHandoff(await make(root))).toEqual({
         ok: true,
         actualHash: expect.any(String),
-        expectedHash: expect.any(String),
+        expectedHash: expect.any(String)
       });
     });
   }
@@ -280,9 +282,9 @@ describe('(behavior) the reader still accepts what is already on disk', () => {
         'preservedBehavior: []',
         'handoffPath: prd/handoff.md',
         '---',
-        BODY,
+        BODY
       ].join('\n'),
-      'utf8',
+      'utf8'
     );
 
     const handoff = await readHandoff(path);
@@ -296,7 +298,7 @@ describe('(a11y) the failure reasons a human reads on exit 1', () => {
     const root = makeProjectRoot();
     expect(await verifyHandoff(handoffPathOf(root))).toEqual({
       ok: false,
-      reason: 'file-missing',
+      reason: 'file-missing'
     });
   });
 
@@ -357,7 +359,7 @@ describe('(integration) AC5 control — a deliberately broken capsule is still r
     writeFileSync(
       brokenPath,
       readFileSync(path, 'utf8').replace(/^sha256: [a-f0-9]{64}$/m, `sha256: ${'b'.repeat(64)}`),
-      'utf8',
+      'utf8'
     );
 
     // The loaders recompute the body hash; the gate does not. They must agree

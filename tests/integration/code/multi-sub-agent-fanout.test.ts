@@ -33,10 +33,7 @@ import {
   type PublicSurface,
   type SliceOutcome
 } from '../../../src/services/code/dag-orchestrator.js';
-import {
-  topologicalLevels,
-  type SliceDag
-} from '../../../src/services/dispatch/slice-dag.js';
+import { topologicalLevels, type SliceDag } from '../../../src/services/dispatch/slice-dag.js';
 
 interface RecordedDispatch {
   readonly sliceId: string;
@@ -148,9 +145,7 @@ describe('peaks-code multi-sub-agent fan-out (slice 5 integration)', () => {
     // check that we did not accidentally serialise them with `await` in
     // a loop (which would still produce 3 recorded calls but violate
     // the "wall-time ≈ max, not sum" promise).
-    const leafTimestamps = [...firstLevelRecorded
-      .map((r) => r.emittedAt)]
-      .sort((a, b) => a - b);
+    const leafTimestamps = [...firstLevelRecorded.map((r) => r.emittedAt)].sort((a, b) => a - b);
     const wallTimeSpan =
       (leafTimestamps[leafTimestamps.length - 1] ?? 0) - (leafTimestamps[0] ?? 0);
     expect(wallTimeSpan).toBeLessThan(250);

@@ -50,7 +50,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { declareDimensions } from '../_setup/4dim-template.js';
 import { makeCapturedIo } from '../_setup/io.js';
-import { cleanupTmpWorkspace, useTmpWorkspace, type TmpWorkspace } from '../_setup/tmp-workspace.js';
+import {
+  cleanupTmpWorkspace,
+  useTmpWorkspace,
+  type TmpWorkspace
+} from '../_setup/tmp-workspace.js';
 import { CODEGRAPH_INTEGRITY_EXIT_CODE } from '../../../src/services/codegraph/codegraph-exclude-integrity.js';
 import {
   CODEGRAPH_INDEX_INTEGRITY_EXIT_CODE,
@@ -63,17 +67,17 @@ declareDimensions('tests/unit/cli/codegraph-status-index-integrity.test.ts', [
   'render',
   'behavior',
   'integration',
-  'a11y',
+  'a11y'
 ]);
 
 const __m = vi.hoisted(() => ({
-  executeCodegraphInvocation: vi.fn(),
+  executeCodegraphInvocation: vi.fn()
 }));
 
 vi.mock('../../../src/services/codegraph/codegraph-service.js', async () => {
-  const actual = await vi.importActual<typeof import('../../../src/services/codegraph/codegraph-service.js')>(
-    '../../../src/services/codegraph/codegraph-service.js'
-  );
+  const actual = await vi.importActual<
+    typeof import('../../../src/services/codegraph/codegraph-service.js')
+  >('../../../src/services/codegraph/codegraph-service.js');
   return { ...actual, executeCodegraphInvocation: __m.executeCodegraphInvocation };
 });
 
@@ -86,7 +90,6 @@ import {
   type CapturedIo,
   type Fixture
 } from './_codegraph-status-index-fixture.js';
-
 
 // Byte-for-byte the shape the real upstream binary prints on a clean run.
 const UPSTREAM_CLEAN_STDOUT =
@@ -102,7 +105,6 @@ async function runCodegraph(argv: readonly string[]): Promise<CapturedIo> {
   return captured;
 }
 
-
 let ws: TmpWorkspace;
 let savedExitCode: string | number | null | undefined;
 
@@ -115,7 +117,7 @@ beforeEach(() => {
   __m.executeCodegraphInvocation.mockResolvedValue({
     exitCode: 0,
     stdout: UPSTREAM_CLEAN_STDOUT,
-    stderr: '',
+    stderr: ''
   });
 });
 
@@ -132,7 +134,7 @@ describe('peaks codegraph status (include-axis gap)', () => {
     const project = seedProject(ws, {
       include: ['**/*.ts'],
       exclude: [],
-      indexedPaths: ['src/ok.ts'],
+      indexedPaths: ['src/ok.ts']
     });
 
     const captured = await runCodegraph(['status', '--project', project]);
@@ -171,7 +173,7 @@ describe('peaks codegraph status (include-axis gap)', () => {
     const project = seedProject(ws, {
       include: ['**/*.ts'],
       exclude: [],
-      indexedPaths: ['src/ok.ts'],
+      indexedPaths: ['src/ok.ts']
     });
 
     const captured = await withStrictMode(() => runCodegraph(['status', '--project', project]));
@@ -190,7 +192,7 @@ describe('peaks codegraph status (stale rows)', () => {
     const project = seedProject(ws, {
       include: ['**/*.ts', '**/*.mjs'],
       exclude: [],
-      indexedPaths: ['src/ok.ts', 'src/deleted.ts'],
+      indexedPaths: ['src/ok.ts', 'src/deleted.ts']
     });
 
     const captured = await runCodegraph(['status', '--project', project]);
@@ -209,7 +211,7 @@ describe('peaks codegraph status (stale rows)', () => {
     const project = seedProject(ws, {
       include: ['**/*.ts', '**/*.mjs'],
       exclude: [],
-      indexedPaths: ['src/ok.ts', 'src/deleted.ts'],
+      indexedPaths: ['src/ok.ts', 'src/deleted.ts']
     });
 
     await withStrictMode(() => runCodegraph(['status', '--project', project]));
@@ -225,7 +227,7 @@ describe('peaks codegraph status (clean control)', () => {
     const project = seedProject(ws, {
       include: ['**/*.ts', '**/*.mjs'],
       exclude: [],
-      indexedPaths: ['src/ok.ts'],
+      indexedPaths: ['src/ok.ts']
     });
 
     const captured = await runCodegraph(['status', '--project', project]);
@@ -244,10 +246,12 @@ describe('peaks codegraph status (clean control)', () => {
     const project = seedProject(ws, {
       include: ['**/*.ts', '**/*.mjs'],
       exclude: [],
-      indexedPaths: ['src/ok.ts'],
+      indexedPaths: ['src/ok.ts']
     });
 
-    const plain = stripAnsi((await runCodegraph(['status', '--project', project])).stdout.join('\n'));
+    const plain = stripAnsi(
+      (await runCodegraph(['status', '--project', project])).stdout.join('\n')
+    );
     process.exitCode = 0;
     const strict = stripAnsi(
       (await withStrictMode(() => runCodegraph(['status', '--project', project]))).stdout.join('\n')
@@ -278,7 +282,7 @@ describe('peaks codegraph status (index axis could not be evaluated)', () => {
       include: ['**/*.ts'],
       exclude: [],
       indexedPaths: [],
-      filesTable: false,
+      filesTable: false
     });
 
     const captured = await runCodegraph(['status', '--project', project]);
@@ -301,7 +305,7 @@ describe('peaks codegraph status (index axis could not be evaluated)', () => {
       include: ['**/*.ts'],
       exclude: [],
       indexedPaths: [],
-      filesTable: false,
+      filesTable: false
     });
 
     await withStrictMode(() => runCodegraph(['status', '--project', project]));
@@ -314,10 +318,12 @@ describe('peaks codegraph status (index axis could not be evaluated)', () => {
       include: ['**/*.ts'],
       exclude: [],
       indexedPaths: [],
-      filesTable: false,
+      filesTable: false
     });
 
-    const envelope = parseJson(await runCodegraph(['status', '--project', project, '--peaks-json']));
+    const envelope = parseJson(
+      await runCodegraph(['status', '--project', project, '--peaks-json'])
+    );
 
     expect(envelope.ok).toBe(false);
     expect(envelope.code).toBe('CODEGRAPH_INDEX_NOT_EVALUATED');
@@ -341,7 +347,12 @@ describe('peaks codegraph status (index present, config absent)', () => {
   // input was missing. Unevaluable is a verdict, not an absence of one.
   //
   // The fixture writes no config, so `include`/`exclude` below are inert.
-  const CONFIGLESS: Fixture = { include: [], exclude: [], indexedPaths: ['src/ok.ts'], config: false };
+  const CONFIGLESS: Fixture = {
+    include: [],
+    exclude: [],
+    indexedPaths: ['src/ok.ts'],
+    config: false
+  };
 
   it('should report the axis as unevaluable instead of skipping it in silence', async () => {
     const project = seedProject(ws, { ...CONFIGLESS });
@@ -379,7 +390,9 @@ describe('peaks codegraph status (index present, config absent)', () => {
   it('should carry the same verdict in the machine envelope', async () => {
     const project = seedProject(ws, { ...CONFIGLESS });
 
-    const envelope = parseJson(await runCodegraph(['status', '--project', project, '--peaks-json']));
+    const envelope = parseJson(
+      await runCodegraph(['status', '--project', project, '--peaks-json'])
+    );
 
     expect(envelope.ok).toBe(false);
     expect(envelope.code).toBe('CODEGRAPH_INDEX_NOT_EVALUATED');
@@ -398,7 +411,7 @@ describe('peaks codegraph status (index present, config absent)', () => {
       include: ['**/*.ts', '**/*.mjs'],
       exclude: [],
       indexedPaths: [],
-      database: false,
+      database: false
     });
 
     const captured = await runCodegraph(['status', '--project', project]);
@@ -424,7 +437,7 @@ describe('peaks codegraph status (both gates)', () => {
     const project = seedProject(ws, {
       include: ['**/*.ts'],
       exclude: ['**/ok.ts'],
-      indexedPaths: ['src/ok.ts', 'src/deleted.ts'],
+      indexedPaths: ['src/ok.ts', 'src/deleted.ts']
     });
 
     const captured = await runCodegraph(['status', '--project', project]);
@@ -441,7 +454,7 @@ describe('peaks codegraph status (both gates)', () => {
     const project = seedProject(ws, {
       include: ['**/*.ts'],
       exclude: ['**/ok.ts'],
-      indexedPaths: ['src/ok.ts', 'src/deleted.ts'],
+      indexedPaths: ['src/ok.ts', 'src/deleted.ts']
     });
 
     await withStrictMode(() => runCodegraph(['status', '--project', project]));
@@ -453,10 +466,12 @@ describe('peaks codegraph status (both gates)', () => {
     const project = seedProject(ws, {
       include: ['**/*.ts'],
       exclude: ['**/ok.ts'],
-      indexedPaths: ['src/ok.ts', 'src/deleted.ts'],
+      indexedPaths: ['src/ok.ts', 'src/deleted.ts']
     });
 
-    const envelope = parseJson(await runCodegraph(['status', '--project', project, '--peaks-json']));
+    const envelope = parseJson(
+      await runCodegraph(['status', '--project', project, '--peaks-json'])
+    );
 
     expect(envelope.code).toBe('CODEGRAPH_INDEX_INCOMPLETE');
     expect(envelope.data.integrity?.gap).toBe(true);
@@ -476,11 +491,17 @@ describe('peaks codegraph status (upstream failure precedence)', () => {
     const project = seedProject(ws, {
       include: ['**/*.ts'],
       exclude: [],
-      indexedPaths: ['src/ok.ts'],
+      indexedPaths: ['src/ok.ts']
     });
-    __m.executeCodegraphInvocation.mockResolvedValue({ exitCode: 5, stdout: '', stderr: 'upstream exploded\n' });
+    __m.executeCodegraphInvocation.mockResolvedValue({
+      exitCode: 5,
+      stdout: '',
+      stderr: 'upstream exploded\n'
+    });
 
-    const envelope = parseJson(await runCodegraph(['status', '--project', project, '--peaks-json']));
+    const envelope = parseJson(
+      await runCodegraph(['status', '--project', project, '--peaks-json'])
+    );
 
     expect(envelope.code).toBe('CODEGRAPH_COMMAND_FAILED');
     expect(envelope.data.indexIntegrity?.gap).toBe(true);
@@ -493,11 +514,17 @@ describe('peaks codegraph status (upstream failure precedence)', () => {
     const project = seedProject(ws, {
       include: ['**/*.ts'],
       exclude: ['**/ok.ts'],
-      indexedPaths: ['src/ok.ts'],
+      indexedPaths: ['src/ok.ts']
     });
-    __m.executeCodegraphInvocation.mockResolvedValue({ exitCode: 5, stdout: '', stderr: 'upstream exploded\n' });
+    __m.executeCodegraphInvocation.mockResolvedValue({
+      exitCode: 5,
+      stdout: '',
+      stderr: 'upstream exploded\n'
+    });
 
-    const envelope = parseJson(await runCodegraph(['status', '--project', project, '--peaks-json']));
+    const envelope = parseJson(
+      await runCodegraph(['status', '--project', project, '--peaks-json'])
+    );
 
     expect(envelope.code).toBe('CODEGRAPH_COMMAND_FAILED');
     expect(envelope.data.integrity?.gap).toBe(true);
@@ -513,9 +540,13 @@ describe('peaks codegraph status (upstream failure precedence)', () => {
     const project = seedProject(ws, {
       include: ['**/*.ts'],
       exclude: [],
-      indexedPaths: ['src/ok.ts'],
+      indexedPaths: ['src/ok.ts']
     });
-    __m.executeCodegraphInvocation.mockResolvedValue({ exitCode: 5, stdout: '', stderr: 'upstream exploded\n' });
+    __m.executeCodegraphInvocation.mockResolvedValue({
+      exitCode: 5,
+      stdout: '',
+      stderr: 'upstream exploded\n'
+    });
 
     await withStrictMode(() => runCodegraph(['status', '--project', project]));
 
@@ -527,9 +558,13 @@ describe('peaks codegraph status (upstream failure precedence)', () => {
     const project = seedProject(ws, {
       include: ['**/*.ts'],
       exclude: ['**/ok.ts'],
-      indexedPaths: ['src/ok.ts'],
+      indexedPaths: ['src/ok.ts']
     });
-    __m.executeCodegraphInvocation.mockResolvedValue({ exitCode: 5, stdout: '', stderr: 'upstream exploded\n' });
+    __m.executeCodegraphInvocation.mockResolvedValue({
+      exitCode: 5,
+      stdout: '',
+      stderr: 'upstream exploded\n'
+    });
 
     await runCodegraph(['status', '--project', project]);
 
@@ -545,7 +580,7 @@ describe('peaks codegraph status --peaks-json (index integrity)', () => {
     const project = seedProject(ws, {
       include: ['**/*.ts'],
       exclude: [],
-      indexedPaths: ['src/ok.ts', 'src/deleted.ts'],
+      indexedPaths: ['src/ok.ts', 'src/deleted.ts']
     });
 
     const captured = await runCodegraph(['status', '--project', project, '--peaks-json']);
@@ -571,7 +606,7 @@ describe('peaks codegraph status --peaks-json (index integrity)', () => {
     const project = seedProject(ws, {
       include: ['**/*.ts'],
       exclude: [],
-      indexedPaths: ['src/ok.ts', 'src/deleted.ts'],
+      indexedPaths: ['src/ok.ts', 'src/deleted.ts']
     });
 
     const envelope = parseJson(
@@ -587,10 +622,12 @@ describe('peaks codegraph status --peaks-json (index integrity)', () => {
     const project = seedProject(ws, {
       include: ['**/*.ts', '**/*.mjs'],
       exclude: [],
-      indexedPaths: ['src/ok.ts'],
+      indexedPaths: ['src/ok.ts']
     });
 
-    const envelope = parseJson(await runCodegraph(['status', '--project', project, '--peaks-json']));
+    const envelope = parseJson(
+      await runCodegraph(['status', '--project', project, '--peaks-json'])
+    );
 
     expect(envelope.ok).toBe(true);
     expect(envelope.data.indexIntegrityVerdict).toBe('clean');
@@ -625,14 +662,14 @@ describe('peaks codegraph status (read-only contract)', () => {
     'config.json',
     'codegraph.db',
     'codegraph.db-shm',
-    'codegraph.db-wal',
+    'codegraph.db-wal'
   ]);
 
   it('should not modify the config or the index, and add no unexpected file', async () => {
     const project = seedProject(ws, {
       include: ['**/*.ts'],
       exclude: [],
-      indexedPaths: ['src/ok.ts', 'src/deleted.ts'],
+      indexedPaths: ['src/ok.ts', 'src/deleted.ts']
     });
     const configPath = join('.codegraph', 'config.json');
     const dbPath = join('.codegraph', 'codegraph.db');
@@ -664,10 +701,13 @@ describe('peaks codegraph status (shared read)', () => {
     const project = seedProject(ws, {
       include: ['**/*.ts', '**/*.mjs'],
       exclude: [],
-      indexedPaths: ['src/ok.ts'],
+      indexedPaths: ['src/ok.ts']
     });
 
-    const tracePath = join(tmpdir(), `peaks-cg-trace-${String(Date.now())}-${String(process.pid)}.log`);
+    const tracePath = join(
+      tmpdir(),
+      `peaks-cg-trace-${String(Date.now())}-${String(process.pid)}.log`
+    );
     const previousTrace = process.env.GIT_TRACE;
     process.env.GIT_TRACE = tracePath;
     try {

@@ -66,8 +66,8 @@ declareDimensions(
     {
       dim: 'render',
       reason:
-        'the predicate returns a boolean and renders nothing; the report it feeds is rendered by renderCodegraphIndexIntegrityLines, whose own shape is pinned in codegraph-index-integrity.test.ts',
-    },
+        'the predicate returns a boolean and renders nothing; the report it feeds is rendered by renderCodegraphIndexIntegrityLines, whose own shape is pinned in codegraph-index-integrity.test.ts'
+    }
   ]
 );
 
@@ -79,7 +79,7 @@ declareDimensions(
 const __fs = vi.hoisted(() => ({
   existsCalls: [] as string[],
   readdirCalls: [] as string[],
-  realExists: null as unknown as (filePath: string) => boolean,
+  realExists: null as unknown as (filePath: string) => boolean
 }));
 
 vi.mock('node:fs', async (importOriginal) => {
@@ -93,8 +93,11 @@ vi.mock('node:fs', async (importOriginal) => {
     }) as unknown as typeof actual.existsSync,
     readdirSync: ((dirPath: string, options?: unknown) => {
       __fs.readdirCalls.push(String(dirPath));
-      return (actual.readdirSync as unknown as (a: string, b?: unknown) => unknown)(dirPath, options);
-    }) as unknown as typeof actual.readdirSync,
+      return (actual.readdirSync as unknown as (a: string, b?: unknown) => unknown)(
+        dirPath,
+        options
+      );
+    }) as unknown as typeof actual.readdirSync
   };
 });
 
@@ -103,7 +106,7 @@ import {
   createCodegraphIndexPathExists,
   inspectCodegraphIndexIntegrity,
   inspectCodegraphIndexIntegrityFrom,
-  renderCodegraphIndexIntegrityLines,
+  renderCodegraphIndexIntegrityLines
 } from '../../../../src/services/codegraph/codegraph-index-integrity.js';
 
 // ── fixture ──────────────────────────────────────────────────────────
@@ -166,7 +169,10 @@ function seedDirectory(root: string, relative: string, names: readonly string[])
  */
 function buildTrapFixture(): { root: string; present: string[]; gone: string[] } {
   const root = makeGitRoot('peaks-cg-path-exists-');
-  const committed = Array.from({ length: 4 }, (_unused, index) => `committed-${String(index + 1)}.ts`);
+  const committed = Array.from(
+    { length: 4 },
+    (_unused, index) => `committed-${String(index + 1)}.ts`
+  );
   const present = seedDirectory(root, 'src', committed);
   git(root, ['add', '-A']);
   git(root, ['commit', '-qm', 'fixture']);
@@ -183,9 +189,17 @@ function buildTrapFixture(): { root: string; present: string[]; gone: string[] }
 }
 
 function trackedFilesOf(root: string): ReadonlySet<string> {
-  const raw = execFileSync('git', ['-C', root, 'ls-files'], { encoding: 'utf8', windowsHide: true });
+  const raw = execFileSync('git', ['-C', root, 'ls-files'], {
+    encoding: 'utf8',
+    windowsHide: true
+  });
 
-  return new Set(raw.split(/\r?\n/).map((line) => line.trim()).filter(Boolean));
+  return new Set(
+    raw
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean)
+  );
 }
 
 // ── behavior: equivalence with the per-row stat ──────────────────────
@@ -210,7 +224,7 @@ describe('codegraph index path-exists predicate (equivalence)', () => {
       'goodjunc/new-1.ts',
       'brokenjunc/new-1.ts',
       'SRC/NEW-1.TS',
-      'src/new-1.ts/',
+      'src/new-1.ts/'
     ];
 
     const resolver = createCodegraphIndexPathExists();
@@ -244,7 +258,9 @@ describe('codegraph index path-exists predicate (equivalence)', () => {
     // case-differing row is a miss and falls through to the stat. A resolver
     // that answered from the listing alone would be WRONG on a
     // case-sensitive filesystem and would not stat here.
-    expect(__fs.existsCalls.filter((filePath) => filePath === join(root, 'SRC/NEW-1.TS'))).toHaveLength(1);
+    expect(
+      __fs.existsCalls.filter((filePath) => filePath === join(root, 'SRC/NEW-1.TS'))
+    ).toHaveLength(1);
   });
 });
 
@@ -290,7 +306,10 @@ describe('codegraph index path-exists predicate (bounded calls)', () => {
     const perDir = Math.ceil(liveRowCount / dirCount);
     const liveRows: string[] = [];
     for (let dir = 0; dir < dirCount; dir += 1) {
-      const names = Array.from({ length: perDir }, (_unused, index) => `live-${String(dir)}-${String(index)}.ts`);
+      const names = Array.from(
+        { length: perDir },
+        (_unused, index) => `live-${String(dir)}-${String(index)}.ts`
+      );
       liveRows.push(...seedDirectory(root, `pkg${String(dir)}`, names));
     }
     const live = liveRows.slice(0, liveRowCount);
@@ -302,7 +321,10 @@ describe('codegraph index path-exists predicate (bounded calls)', () => {
       'utf8'
     );
 
-    const deadRows = Array.from({ length: deadRowCount }, (_unused, index) => `pkg0/gone-${String(index)}.ts`);
+    const deadRows = Array.from(
+      { length: deadRowCount },
+      (_unused, index) => `pkg0/gone-${String(index)}.ts`
+    );
     const db = new Database(join(root, '.codegraph', 'codegraph.db'));
     db.pragma('journal_mode = WAL');
     db.exec(FILES_TABLE_SQL);
@@ -335,7 +357,9 @@ describe('codegraph index path-exists predicate (bounded calls)', () => {
     expect(__fs.existsCalls.filter((filePath) => liveRowPaths.has(filePath))).toEqual([]);
 
     // Only the misses fall through to the stat, and only once each.
-    expect(__fs.existsCalls.filter((filePath) => deadRowPaths.has(filePath))).toHaveLength(deadRows.length);
+    expect(__fs.existsCalls.filter((filePath) => deadRowPaths.has(filePath))).toHaveLength(
+      deadRows.length
+    );
 
     // Each distinct parent directory is listed exactly once (the memo), so
     // the listing count is bounded by the directories the index names — 3
@@ -360,7 +384,7 @@ describe('codegraph index path-exists predicate (human report)', () => {
       include: ['**/*.ts'],
       indexedPaths: [...present, ...gone],
       supportsPath: () => true,
-      pathExists: (row) => pathExists(root, row),
+      pathExists: (row) => pathExists(root, row)
     });
 
     expect(report.deadRows).toEqual(gone);

@@ -47,7 +47,9 @@ export type ShadcnInitResult = {
  * Pure argv builder. `--package <pin> --` makes npx resolve the pinned
  * upstream CLI without installing it into the project.
  */
-export function buildShadcnInitArgs(options: Pick<ShadcnInitOptions, 'preset' | 'template' | 'yes'>): string[] {
+export function buildShadcnInitArgs(
+  options: Pick<ShadcnInitOptions, 'preset' | 'template' | 'yes'>
+): string[] {
   const args = ['--package', SHADCN_PACKAGE, '--', 'shadcn', 'init', '--preset', options.preset];
   if (options.template !== undefined && options.template.length > 0) {
     args.push('--template', options.template);
@@ -111,51 +113,71 @@ export function runShadcnInit(options: ShadcnInitOptions): ShadcnInitResult {
 export function registerShadcnCommands(program: Command, io: ProgramIO): void {
   const shadcn = program
     .command('shadcn')
-    .description('Dynamic wrapper for the upstream shadcn CLI (obtained via `npx --package`; no hard dependency).');
+    .description(
+      'Dynamic wrapper for the upstream shadcn CLI (obtained via `npx --package`; no hard dependency).'
+    );
 
   addJsonOption(
     shadcn
       .command('init')
       .description('Scaffold/init a shadcn/ui project by forwarding to upstream `shadcn init`.')
-      .requiredOption('--preset <code>', 'shadcn registry preset code (resolve it before scaffolding when unknown)')
+      .requiredOption(
+        '--preset <code>',
+        'shadcn registry preset code (resolve it before scaffolding when unknown)'
+      )
       .option('--template <name>', 'project template, e.g. vite or next')
       .option('--project <path>', 'target project root', '.')
       .option('--yes', 'forward --yes to upstream (skip its confirmation prompts)', false)
-  ).action((options: { preset: string; template?: string; project: string; yes?: boolean; json?: boolean }) => {
-    const asJson = options.json === true;
-    const result = runShadcnInit({
-      cwd: options.project,
-      preset: options.preset,
-      ...(options.template !== undefined && options.template.length > 0 ? { template: options.template } : {}),
-      ...(options.yes === true ? { yes: true } : {})
-    });
+  ).action(
+    (options: {
+      preset: string;
+      template?: string;
+      project: string;
+      yes?: boolean;
+      json?: boolean;
+    }) => {
+      const asJson = options.json === true;
+      const result = runShadcnInit({
+        cwd: options.project,
+        preset: options.preset,
+        ...(options.template !== undefined && options.template.length > 0
+          ? { template: options.template }
+          : {}),
+        ...(options.yes === true ? { yes: true } : {})
+      });
 
-    if (result.state === 'ok') {
+      if (result.state === 'ok') {
+        printResult(
+          io,
+          ok(
+            'shadcn.init',
+            result,
+            [],
+            [
+              `Upstream argv: npx ${result.argv.join(' ')}`,
+              'Generated projects must be TypeScript-only (no JavaScript source or config files).'
+            ]
+          ),
+          asJson
+        );
+        return;
+      }
+
+      const code = result.state === 'shadcn-missing' ? 'SHADCN_UNAVAILABLE' : 'SHADCN_INIT_FAILED';
+      const message =
+        result.state === 'shadcn-missing'
+          ? `could not resolve ${SHADCN_PACKAGE} via npx`
+          : `upstream shadcn init exited with code ${result.exitCode}`;
       printResult(
         io,
-        ok('shadcn.init', result, [], [
-          `Upstream argv: npx ${result.argv.join(' ')}`,
-          'Generated projects must be TypeScript-only (no JavaScript source or config files).'
+        fail('shadcn.init', code, message, result, [
+          `Pinned package: ${SHADCN_PACKAGE}`,
+          'Ensure Node.js >= 20 with npm is on PATH and the network allows the npm registry.',
+          `Retry with: npx --package ${SHADCN_PACKAGE} -- shadcn init --preset <code>`
         ]),
         asJson
       );
-      return;
+      process.exitCode = 1;
     }
-
-    const code = result.state === 'shadcn-missing' ? 'SHADCN_UNAVAILABLE' : 'SHADCN_INIT_FAILED';
-    const message =
-      result.state === 'shadcn-missing'
-        ? `could not resolve ${SHADCN_PACKAGE} via npx`
-        : `upstream shadcn init exited with code ${result.exitCode}`;
-    printResult(
-      io,
-      fail('shadcn.init', code, message, result, [
-        `Pinned package: ${SHADCN_PACKAGE}`,
-        'Ensure Node.js >= 20 with npm is on PATH and the network allows the npm registry.',
-        `Retry with: npx --package ${SHADCN_PACKAGE} -- shadcn init --preset <code>`
-      ]),
-      asJson
-    );
-    process.exitCode = 1;
-  });
+  );
 }

@@ -17,7 +17,11 @@ const CD_OUT_PATTERN = /\bcd\s+(\.\.[\\/]|[A-Z]:[\\/])/g;
 const CP_MV_LN_TMP_PATTERN = /\b(cp|mv|ln)\b[^\n]*\/tmp\b/g;
 
 /** Theme E — reference integrity. */
-export function lintRefPathResolves(skillsRoot: string, name: string, refs: readonly string[]): readonly LintHit[] {
+export function lintRefPathResolves(
+  skillsRoot: string,
+  name: string,
+  refs: readonly string[]
+): readonly LintHit[] {
   const hits: LintHit[] = [];
   for (const ref of refs) {
     const path = join(skillsRoot, name, 'references', ref);

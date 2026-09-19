@@ -123,7 +123,9 @@ describe('findEccHooksSchemaDrift (pure key scan)', () => {
   it('when a hooks.json carries only schema-allowed keys, should report no drift', () => {
     // given: a clean payload ({ matcher, hooks } groups and a root `hooks` key only)
     const payload = {
-      hooks: { PreToolUse: [{ matcher: 'Bash', hooks: [{ type: 'command', command: 'node ok.js' }] }] }
+      hooks: {
+        PreToolUse: [{ matcher: 'Bash', hooks: [{ type: 'command', command: 'node ok.js' }] }]
+      }
     };
 
     // when: the pure drift scan runs over the parsed payload
@@ -140,7 +142,9 @@ describe('findEccHooksSchemaDrift (pure key scan)', () => {
     // given: a payload using the documented-legal top-level `description` field
     const payload = {
       description: 'ECC consolidated plugin hooks',
-      hooks: { PreToolUse: [{ matcher: 'Bash', hooks: [{ type: 'command', command: 'node ok.js' }] }] }
+      hooks: {
+        PreToolUse: [{ matcher: 'Bash', hooks: [{ type: 'command', command: 'node ok.js' }] }]
+      }
     };
 
     // when: the pure drift scan runs over the parsed payload
@@ -153,7 +157,10 @@ describe('findEccHooksSchemaDrift (pure key scan)', () => {
 
   it('when the drifting ECC layout also gains a top-level description, should still count only the 47 illegal keys', () => {
     // given: the ECC v2.2.0 layout ($schema + 23 groups with description/id) plus a legal top-level description
-    const payload = { ...(buildEccShapedHooks() as Record<string, unknown>), description: 'consolidated' };
+    const payload = {
+      ...(buildEccShapedHooks() as Record<string, unknown>),
+      description: 'consolidated'
+    };
 
     // when: the pure drift scan runs over the parsed payload
     const finding = findEccHooksSchemaDrift(payload);
@@ -167,7 +174,10 @@ describe('findEccHooksSchemaDrift (pure key scan)', () => {
 
   it('when the hooks value is not an object, should still report the root-level drift', () => {
     // given: a payload whose unknown root key sits beside a malformed (non-object) hooks value
-    const payload = { $schema: 'https://example.invalid/hooks.schema.json', hooks: ['not-an-object'] };
+    const payload = {
+      $schema: 'https://example.invalid/hooks.schema.json',
+      hooks: ['not-an-object']
+    };
 
     // when: the pure drift scan runs over the parsed payload
     const finding = findEccHooksSchemaDrift(payload);
@@ -266,7 +276,9 @@ describe('default probe (temp home, never the real ~/.claude)', () => {
     const fromNonArray = readEccInstallPath(
       writeManifest(nonArrayHome, { plugins: { 'ecc@ecc': { installPath: '/nope' } } })
     );
-    const fromEmptyArray = readEccInstallPath(writeManifest(emptyArrayHome, { plugins: { 'ecc@ecc': [] } }));
+    const fromEmptyArray = readEccInstallPath(
+      writeManifest(emptyArrayHome, { plugins: { 'ecc@ecc': [] } })
+    );
 
     // then: neither shape yields an install path
     expect(fromNonArray).toBeNull();
@@ -353,7 +365,9 @@ describe('check plugin', () => {
     const ctx = makeContext({
       eccHooksDriftProbe: () => ({
         hooksPath: FIXTURE_HOOKS_PATH,
-        hooks: { hooks: { PreToolUse: [{ matcher: 'Bash', hooks: [], id: 'pre:bash:dispatcher' }] } }
+        hooks: {
+          hooks: { PreToolUse: [{ matcher: 'Bash', hooks: [], id: 'pre:bash:dispatcher' }] }
+        }
       })
     });
 
@@ -373,7 +387,11 @@ describe('check plugin', () => {
     const ctx = makeContext({
       eccHooksDriftProbe: () => ({
         hooksPath: FIXTURE_HOOKS_PATH,
-        hooks: { hooks: { PreToolUse: [{ matcher: 'Bash', hooks: [{ type: 'command', command: 'node ok.js' }] }] } }
+        hooks: {
+          hooks: {
+            PreToolUse: [{ matcher: 'Bash', hooks: [{ type: 'command', command: 'node ok.js' }] }]
+          }
+        }
       })
     });
 
@@ -385,7 +403,9 @@ describe('check plugin', () => {
     expect(emitted[0]!.id).toBe(CHECK_ID);
     expect(emitted[0]!.ok).toBe(true);
     expect(emitted[0]!.severity).toBeUndefined();
-    expect(emitted[0]!.message).toContain('the startup "unknown keys ... ignored" warning will not appear');
+    expect(emitted[0]!.message).toContain(
+      'the startup "unknown keys ... ignored" warning will not appear'
+    );
   });
 
   it('when upstream consolidates the per-matcher descriptions into a top-level description, should pass', () => {
@@ -395,7 +415,9 @@ describe('check plugin', () => {
         hooksPath: FIXTURE_HOOKS_PATH,
         hooks: {
           description: 'ECC consolidated plugin hooks',
-          hooks: { PreToolUse: [{ matcher: 'Bash', hooks: [{ type: 'command', command: 'node ok.js' }] }] }
+          hooks: {
+            PreToolUse: [{ matcher: 'Bash', hooks: [{ type: 'command', command: 'node ok.js' }] }]
+          }
         }
       })
     });
@@ -426,7 +448,9 @@ describe('check plugin', () => {
 
   it('when the plugin path resolves but hooks.json is unreadable, should pass', () => {
     // given: a probe whose path resolved yet yielded no parsable payload
-    const ctx = makeContext({ eccHooksDriftProbe: () => ({ hooksPath: FIXTURE_HOOKS_PATH, hooks: null }) });
+    const ctx = makeContext({
+      eccHooksDriftProbe: () => ({ hooksPath: FIXTURE_HOOKS_PATH, hooks: null })
+    });
 
     // when: the check runs
     const emitted = runCheck(ctx);

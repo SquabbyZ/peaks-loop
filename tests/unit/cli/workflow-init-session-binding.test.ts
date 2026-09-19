@@ -36,9 +36,7 @@ import { registerWorkflowLifecycleCommand } from '../../../src/cli/commands/work
 declareDimensions(
   'tests/unit/cli/workflow-init-session-binding.test.ts',
   ['behavior', 'integration', 'render'],
-  [
-    { dim: 'a11y', reason: 'the CLI envelope is data; no human-facing rendering in this path' },
-  ],
+  [{ dim: 'a11y', reason: 'the CLI envelope is data; no human-facing rendering in this path' }]
 );
 
 const BOUND_SESSION = '2026-09-15-session-784bf0';
@@ -117,7 +115,9 @@ describe('Scenario: behavior — `workflow init` resolves the session binding', 
     ]);
 
     expect(result.exitCode).toBe(0);
-    expect(existsSync(join(ws.path, '.peaks', '_runtime', '2026-09-15-session-explicit', 'graphs'))).toBe(true);
+    expect(
+      existsSync(join(ws.path, '.peaks', '_runtime', '2026-09-15-session-explicit', 'graphs'))
+    ).toBe(true);
     expect(existsSync(join(ws.path, '.peaks', '_runtime', BOUND_SESSION, 'graphs'))).toBe(false);
   });
 
@@ -130,7 +130,9 @@ describe('Scenario: behavior — `workflow init` resolves the session binding', 
     const result = await runWorkflowInit(['--skill', 'peaks-code', '--project', ws.path, '--json']);
 
     expect(result.exitCode).toBe(0);
-    expect(existsSync(join(ws.path, '.peaks', '_runtime', '2026-09-15-session-from-env', 'graphs'))).toBe(true);
+    expect(
+      existsSync(join(ws.path, '.peaks', '_runtime', '2026-09-15-session-from-env', 'graphs'))
+    ).toBe(true);
     expect(existsSync(join(ws.path, '.peaks', '_runtime', BOUND_SESSION, 'graphs'))).toBe(false);
   });
 

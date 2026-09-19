@@ -94,10 +94,8 @@ export async function decompose(
   resetArbitratorBudget();
 
   const granularity: Granularity = opts.granularity ?? 'both';
-  const wantService =
-    granularity === 'service' || granularity === 'both' || granularity === 'auto';
-  const wantFile =
-    granularity === 'file' || granularity === 'both' || granularity === 'auto';
+  const wantService = granularity === 'service' || granularity === 'both' || granularity === 'auto';
+  const wantFile = granularity === 'file' || granularity === 'both' || granularity === 'auto';
 
   const passes: PassResult[] = [];
   let codegraph: CodegraphEnvelope = zeroCodegraph();
@@ -109,9 +107,7 @@ export async function decompose(
     passes.push({
       passNumber: 1,
       granularity: 'service',
-      slices: result1.workUnits.map((wu) =>
-        workUnitToSliceV2(wu, 'service')
-      ),
+      slices: result1.workUnits.map((wu) => workUnitToSliceV2(wu, 'service')),
       internalEdges: v1EdgesToV2(result1.dependencyDAG.edges)
     });
     codegraph = result1.codegraph;
@@ -123,19 +119,12 @@ export async function decompose(
       // shouldSubdivide is not explicitly false qualify.
       const qualifyingParents =
         granularity === 'auto'
-          ? pass1WorkUnits.filter(
-              (wu) => shouldSubdivide(wu).subdivide !== false
-            )
+          ? pass1WorkUnits.filter((wu) => shouldSubdivide(wu).subdivide !== false)
           : pass1WorkUnits;
 
       const pass2Results = await Promise.all(
         qualifyingParents.map(async (parent) => {
-          const result = await decomposeSlices(
-            rid,
-            prdMarkdown,
-            projectRoot,
-            opts
-          );
+          const result = await decomposeSlices(rid, prdMarkdown, projectRoot, opts);
           const filtered = filterWorkUnitsByScope(result.workUnits, parent.files);
           const pass2Slices: SliceV2[] = filtered.map((wu, i) =>
             workUnitToSliceV2(wu, 'file', {
@@ -157,9 +146,7 @@ export async function decompose(
       // file-only mode: call decomposeSlices once on the full scope and
       // treat the result as Pass 2 (no parent subdivision).
       const result = await decomposeSlices(rid, prdMarkdown, projectRoot, opts);
-      const slices: SliceV2[] = result.workUnits.map((wu) =>
-        workUnitToSliceV2(wu, 'file')
-      );
+      const slices: SliceV2[] = result.workUnits.map((wu) => workUnitToSliceV2(wu, 'file'));
       passes.push({
         passNumber: 2,
         granularity: 'file',
@@ -225,10 +212,7 @@ function workUnitToSliceV2(
  * Used to scope Pass 2 results to their parent slice's file set, since the
  * 6-stage algorithm does not accept a `scopeFilter` option.
  */
-function filterWorkUnitsByScope(
-  wus: readonly WorkUnit[],
-  scope: readonly string[]
-): WorkUnit[] {
+function filterWorkUnitsByScope(wus: readonly WorkUnit[], scope: readonly string[]): WorkUnit[] {
   const scopeSet = new Set(scope);
   return wus.filter((wu) => wu.files.some((f) => scopeSet.has(f)));
 }
@@ -279,4 +263,3 @@ function zeroCodegraph(): CodegraphEnvelope {
     note: 'no decomposition run'
   };
 }
-

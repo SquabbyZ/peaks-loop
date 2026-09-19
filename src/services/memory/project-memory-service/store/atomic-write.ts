@@ -83,20 +83,32 @@ const SENSITIVE_MEMORY_REFUSAL = 'Refusing to store sensitive memory content';
  * predicate exists to end.
  */
 const SENSITIVE_PROSE_TERMS: ReadonlySet<string> = new Set([
-  'apikey', 'apikeys',
-  'accesskey', 'accesskeys',
-  'privatekey', 'privatekeys',
-  'secretkey', 'secretkeys',
-  'accesstoken', 'accesstokens',
-  'authtoken', 'authtokens',
-  'authkey', 'authkeys',
-  'refreshtoken', 'refreshtokens',
-  'token', 'tokens',
-  'secret', 'secrets',
-  'password', 'passwords',
+  'apikey',
+  'apikeys',
+  'accesskey',
+  'accesskeys',
+  'privatekey',
+  'privatekeys',
+  'secretkey',
+  'secretkeys',
+  'accesstoken',
+  'accesstokens',
+  'authtoken',
+  'authtokens',
+  'authkey',
+  'authkeys',
+  'refreshtoken',
+  'refreshtokens',
+  'token',
+  'tokens',
+  'secret',
+  'secrets',
+  'password',
+  'passwords',
   'passwd',
   'bearer',
-  'credential', 'credentials'
+  'credential',
+  'credentials'
 ]);
 
 /** A lower→upper transition: the boundary between the words of `apiKey`. */
@@ -134,16 +146,18 @@ export function findSensitiveMemoryTitleTerm(title: string): string | null {
 }
 
 export function hasSensitiveMemoryContent(content: string): boolean {
-  return /(?:api[_-]?key|token|secret|password|credential|bearer)\s*[:=]/i.test(content)
-    || /\bauthorization\s*:\s*bearer\s+\S+/i.test(content)
-    || /\bbearer\s+[A-Za-z0-9._~+/=-]{12,}\b/i.test(content)
-    || /\bsk-[A-Za-z0-9_-]{6,}\b/.test(content)
-    || /\bgh[pousr]_[A-Za-z0-9_]{20,}\b/.test(content)
-    || /\bgithub_pat_[A-Za-z0-9_]{20,}\b/.test(content)
-    || /\bglpat-[A-Za-z0-9_-]{20,}\b/.test(content)
-    || /\bAKIA[0-9A-Z]{16}\b/.test(content)
-    || /-----BEGIN [A-Z ]*PRIVATE KEY-----/.test(content)
-    || /\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b/.test(content);
+  return (
+    /(?:api[_-]?key|token|secret|password|credential|bearer)\s*[:=]/i.test(content) ||
+    /\bauthorization\s*:\s*bearer\s+\S+/i.test(content) ||
+    /\bbearer\s+[A-Za-z0-9._~+/=-]{12,}\b/i.test(content) ||
+    /\bsk-[A-Za-z0-9_-]{6,}\b/.test(content) ||
+    /\bgh[pousr]_[A-Za-z0-9_]{20,}\b/.test(content) ||
+    /\bgithub_pat_[A-Za-z0-9_]{20,}\b/.test(content) ||
+    /\bglpat-[A-Za-z0-9_-]{20,}\b/.test(content) ||
+    /\bAKIA[0-9A-Z]{16}\b/.test(content) ||
+    /-----BEGIN [A-Z ]*PRIVATE KEY-----/.test(content) ||
+    /\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b/.test(content)
+  );
 }
 
 /**
@@ -191,7 +205,10 @@ export function assertSafeMemory(memory: ExtractedProjectMemory): void {
   const content = `${memory.title}\n${memory.kind}\n${memory.body}`;
   const metadata = { title: memory.title, kind: memory.kind, body: memory.body };
   if (containsSensitiveConfigValue(metadata)) {
-    throw new UnsafeMemoryError(SENSITIVE_MEMORY_CHECKS.metadataKey, 'matched a credential key in the memory metadata');
+    throw new UnsafeMemoryError(
+      SENSITIVE_MEMORY_CHECKS.metadataKey,
+      'matched a credential key in the memory metadata'
+    );
   }
   if (hasSensitiveMemoryContent(content)) {
     // The match is deliberately NOT echoed, in the message or in the error's
@@ -205,11 +222,18 @@ export function assertSafeMemory(memory: ExtractedProjectMemory): void {
     // "an [redacted] / [redacted] / [redacted] assignment" — a remedy sentence
     // redacted into uselessness by the very policy it agrees with. Measured on
     // the real CLI, both wordings; this one survives intact.
-    throw new UnsafeMemoryError(SENSITIVE_MEMORY_CHECKS.content, 'matched a credential value in the memory content (a `key=value` credential assignment, a Bearer header, a PEM private key, a JWT, or a provider credential)');
+    throw new UnsafeMemoryError(
+      SENSITIVE_MEMORY_CHECKS.content,
+      'matched a credential value in the memory content (a `key=value` credential assignment, a Bearer header, a PEM private key, a JWT, or a provider credential)'
+    );
   }
   const titleTerm = findSensitiveMemoryTitleTerm(memory.title);
   if (titleTerm !== null) {
-    throw new UnsafeMemoryError(SENSITIVE_MEMORY_CHECKS.title, `matched the credential term "${titleTerm}" in memory.title`, titleTerm);
+    throw new UnsafeMemoryError(
+      SENSITIVE_MEMORY_CHECKS.title,
+      `matched the credential term "${titleTerm}" in memory.title`,
+      titleTerm
+    );
   }
 }
 

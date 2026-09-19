@@ -56,8 +56,7 @@
 export type LintFinding = string;
 
 export type ReadinessLintResult =
-  | { ok: true; findings: [] }
-  | { ok: false; findings: LintFinding[] };
+  { ok: true; findings: [] } | { ok: false; findings: LintFinding[] };
 
 /**
  * The shared guideline file that every Loop-Engineering-participating
@@ -70,7 +69,7 @@ export type ReadinessLintResult =
  * with a slash prefix and sometimes without. We accept both.
  */
 export const LOOP_ENGINEERING_GUIDELINE_PATHS = [
-  '.peaks/standards/loop-engineering-guidelines.md',
+  '.peaks/standards/loop-engineering-guidelines.md'
 ] as const;
 
 /**
@@ -123,7 +122,7 @@ export const ALLOWED_CLI_VERBS = new Set<string>([
   'lint',
   'standards',
   'skill',
-  'ready',
+  'ready'
 ]);
 
 /**
@@ -152,7 +151,7 @@ export const JSON_HAND_AUTHORING_PHRASES: ReadonlyArray<string> = [
   'open the manifest and',
   'open the manifest.json and',
   'manually edit the manifest',
-  'manually edit the json',
+  'manually edit the json'
 ];
 
 /**
@@ -176,7 +175,7 @@ export const JSON_REFERENCE_ALLOWLIST: ReadonlyArray<string> = [
   'schema_version',
   'peaks.bundle/1',
   'peaks.loop/1',
-  'peaks.bee/1',
+  'peaks.bee/1'
 ];
 
 // ---------------------------------------------------------------------------
@@ -189,15 +188,13 @@ export const JSON_REFERENCE_ALLOWLIST: ReadonlyArray<string> = [
  * @param skillMdText raw markdown text of a peaks-* SKILL.md
  * @returns a ReadinessLintResult
  */
-export function lintSkillLoopEngineeringReadiness(
-  skillMdText: string,
-): ReadinessLintResult {
+export function lintSkillLoopEngineeringReadiness(skillMdText: string): ReadinessLintResult {
   const findings: string[] = [];
 
   if (typeof skillMdText !== 'string' || skillMdText.trim().length === 0) {
     return {
       ok: false,
-      findings: ['skill-md-empty: SKILL.md text is empty or missing'],
+      findings: ['skill-md-empty: SKILL.md text is empty or missing']
     };
   }
 
@@ -226,7 +223,7 @@ function checkGuidelineReference(text: string, findings: string[]): void {
     }
   }
   findings.push(
-    `missing-guideline-reference: SKILL.md must reference ${LOOP_ENGINEERING_GUIDELINE_PATHS[0]} (spec §7.5 / §8.4 / RL-8)`,
+    `missing-guideline-reference: SKILL.md must reference ${LOOP_ENGINEERING_GUIDELINE_PATHS[0]} (spec §7.5 / §8.4 / RL-8)`
   );
 }
 
@@ -253,7 +250,7 @@ function checkCliVerbBypass(text: string, findings: string[]): void {
       if (!ALLOWED_CLI_VERBS.has(verb)) {
         const excerpt = line.trim().slice(0, 120);
         findings.push(
-          `cli-verb-bypass: line ${i + 1} introduces CLI verb \`peaks ${verb}\` to be typed by the user (${excerpt}) — only LLM-coordinated verbs from the sediment/asset/evolution surface are allowed (RL-1)`,
+          `cli-verb-bypass: line ${i + 1} introduces CLI verb \`peaks ${verb}\` to be typed by the user (${excerpt}) — only LLM-coordinated verbs from the sediment/asset/evolution surface are allowed (RL-1)`
         );
       }
     }
@@ -266,19 +263,15 @@ function checkJsonHandAuthoring(text: string, findings: string[]): void {
     const line = lines[i]!;
     const lowered = line.toLowerCase();
 
-    const matchedPhrase = JSON_HAND_AUTHORING_PHRASES.find((p) =>
-      lowered.includes(p),
-    );
+    const matchedPhrase = JSON_HAND_AUTHORING_PHRASES.find((p) => lowered.includes(p));
     if (!matchedPhrase) continue;
 
-    const isAllowlisted = JSON_REFERENCE_ALLOWLIST.some((p) =>
-      lowered.includes(p),
-    );
+    const isAllowlisted = JSON_REFERENCE_ALLOWLIST.some((p) => lowered.includes(p));
     if (isAllowlisted) continue;
 
     const excerpt = line.trim().slice(0, 120);
     findings.push(
-      `json-hand-authoring: line ${i + 1} introduces JSON / manifest hand-authoring surface ("${matchedPhrase}") — ${excerpt} (RL-1: user only picks or describes in NL)`,
+      `json-hand-authoring: line ${i + 1} introduces JSON / manifest hand-authoring surface ("${matchedPhrase}") — ${excerpt} (RL-1: user only picks or describes in NL)`
     );
   }
 }

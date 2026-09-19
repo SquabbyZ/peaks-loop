@@ -157,16 +157,16 @@ export async function startWebDaemon(config: WebDaemonConfig): Promise<RunningWe
     }
     shutdown = (async (): Promise<CloseAllResult> => {
       const closed: CloseAllResult =
-        manager === null
-          ? { closedContexts: 0, stateWriteFailures: [] }
-          : await manager.closeAll();
+        manager === null ? { closedContexts: 0, stateWriteFailures: [] } : await manager.closeAll();
       if (browser !== null) {
         // Closing the browser ends the chromium process. Without this the
         // daemon could record a clean stop while the browser outlived it —
         // the exact false pass AC6 is written against.
         await boundedTeardownStep(browser.close(), 'browser.close').catch(reportTeardownFailure);
       }
-      await boundedTeardownStep(stopListening(server), 'stopListening').catch(reportTeardownFailure);
+      await boundedTeardownStep(stopListening(server), 'stopListening').catch(
+        reportTeardownFailure
+      );
       removeDaemonInfo(projectRoot, sessionId);
       return closed;
     })();
@@ -192,12 +192,20 @@ export async function startWebDaemon(config: WebDaemonConfig): Promise<RunningWe
       return;
     }
     if (!isAuthorized(request, token)) {
-      sendJson(response, 401, failureResponse(new Error('WEB_DAEMON_UNAUTHORIZED: bad or missing bearer token')));
+      sendJson(
+        response,
+        401,
+        failureResponse(new Error('WEB_DAEMON_UNAUTHORIZED: bad or missing bearer token'))
+      );
       return;
     }
     const request_ = parseOpRequest(await readBody(request));
     if (request_ === null) {
-      sendJson(response, 400, failureResponse(new Error('WEB_DAEMON_BAD_REQUEST: body is not a WebOpRequest')));
+      sendJson(
+        response,
+        400,
+        failureResponse(new Error('WEB_DAEMON_BAD_REQUEST: body is not a WebOpRequest'))
+      );
       return;
     }
     if (request_.op === 'whoami') {
@@ -331,7 +339,8 @@ export async function routeOp(
  * (`PLAYWRIGHT_NOT_RESOLVABLE`, a broken package) is permanent for the daemon's
  * lifetime and is latched.
  */
-const TRANSIENT_ACQUIRE_FAILURE_RE = /^(WEB_INSTALL_REQUIRED|WEB_INSTALL_BUSY|WEB_INSTALL_TIMEOUT)\b/;
+const TRANSIENT_ACQUIRE_FAILURE_RE =
+  /^(WEB_INSTALL_REQUIRED|WEB_INSTALL_BUSY|WEB_INSTALL_TIMEOUT)\b/;
 
 function isTransientAcquireFailure(error: unknown): boolean {
   return TRANSIENT_ACQUIRE_FAILURE_RE.test(getErrorMessage(error));
@@ -415,9 +424,10 @@ function parseOpRequest(body: string): { op: WebOp; args: Record<string, unknown
   }
   return {
     op: op as WebOp,
-    args: typeof args === 'object' && args !== null && !Array.isArray(args)
-      ? (args as Record<string, unknown>)
-      : {}
+    args:
+      typeof args === 'object' && args !== null && !Array.isArray(args)
+        ? (args as Record<string, unknown>)
+        : {}
   };
 }
 

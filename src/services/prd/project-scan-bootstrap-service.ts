@@ -30,10 +30,7 @@ import { scanArchetype } from '../scan/archetype-service.js';
 import { scanLibraries } from '../scan/libraries-service.js';
 import type { ArchetypeReport } from '../scan/scan-types.js';
 import type { LibraryReport } from '../scan/libraries-types.js';
-import {
-  TEMPLATE_FILES,
-  readTemplateStrict
-} from '../workspace/templates/project-scan/index.js';
+import { TEMPLATE_FILES, readTemplateStrict } from '../workspace/templates/project-scan/index.js';
 
 export type BootstrapProjectScanOptions = {
   readonly projectRoot: string;
@@ -76,11 +73,7 @@ const SOURCE_FILE_EXTENSIONS = /\.(tsx?|jsx?|vue|svelte)$/;
  *   here — those projects should be detected via `package.json`
  *   workspaces[] field below.
  */
-const MONOREPO_ROOT_CONFIGS = [
-  'pnpm-workspace.yaml',
-  'turbo.json',
-  'nx.json'
-] as const;
+const MONOREPO_ROOT_CONFIGS = ['pnpm-workspace.yaml', 'turbo.json', 'nx.json'] as const;
 
 /** True iff the project root declares pnpm / yarn / npm workspaces. */
 function projectHasWorkspacesInPackageJson(projectRoot: string): boolean {

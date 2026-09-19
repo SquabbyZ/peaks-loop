@@ -34,7 +34,13 @@ import { declareDimensions } from '../../_setup/4dim-template.js';
 declareDimensions(
   'tests/unit/cli/commands/code-context-now-witness.test.ts',
   ['render', 'behavior', 'integration'],
-  [{ dim: 'a11y', reason: 'The one-way sentence is asserted under (behavior); no new user prompt or CLI verb exists to check.' }],
+  [
+    {
+      dim: 'a11y',
+      reason:
+        'The one-way sentence is asserted under (behavior); no new user prompt or CLI verb exists to check.'
+    }
+  ]
 );
 
 // os.homedir must be mocked for the transcript fixture to be found: the probe
@@ -62,7 +68,7 @@ vi.mock('~/src/services/config/config-service.js', async (importOriginal) => {
     resolveCanonicalProjectRoot: (startPath: string) => {
       __resolutions.count += 1;
       return actual.resolveCanonicalProjectRoot(startPath);
-    },
+    }
   };
 });
 
@@ -71,7 +77,7 @@ import { withTmpWorkspacePerTest } from '../../_setup/tmp-workspace.js';
 import { registerCodeRuntimeCommands } from '~/src/cli/commands/code-runtime-commands';
 import {
   WITNESS_SCHEMA_VERSION,
-  harnessWitnessPath,
+  harnessWitnessPath
 } from '~/src/services/context/harness-context-witness';
 
 const SID = '2026-09-13-session-ctxnowwitness';
@@ -146,10 +152,14 @@ describe('peaks code context-now — harness context witness', () => {
         type: 'assistant',
         message: {
           model: 'claude-3-5-sonnet-20241022',
-          usage: { input_tokens: 120_000, cache_read_input_tokens: 45_000, cache_creation_input_tokens: 15_000 },
-        },
+          usage: {
+            input_tokens: 120_000,
+            cache_read_input_tokens: 45_000,
+            cache_creation_input_tokens: 15_000
+          }
+        }
       })}\n`,
-      'utf8',
+      'utf8'
     );
   }
 
@@ -170,9 +180,9 @@ describe('peaks code context-now — harness context witness', () => {
         usedPercentageUnit: 'fraction',
         modelWindowTokens: WINDOW,
         usageTokens,
-        outerSessionId: OUTER,
+        outerSessionId: OUTER
       })}\n`,
-      'utf8',
+      'utf8'
     );
   }
 
@@ -191,7 +201,7 @@ describe('peaks code context-now — harness context witness', () => {
       'ANTHROPIC_DEFAULT_SONNET_MODEL',
       'ANTHROPIC_DEFAULT_HAIKU_MODEL',
       'ANTHROPIC_DEFAULT_FABLE_MODEL',
-      'CLAUDE_CODE_SUBAGENT_MODEL',
+      'CLAUDE_CODE_SUBAGENT_MODEL'
     ]) {
       withEnv(name, undefined);
     }
@@ -205,9 +215,12 @@ describe('peaks code context-now — harness context witness', () => {
     const program = new Command();
     const code = program.command('code');
     registerCodeRuntimeCommands(code, io);
-    await program.parseAsync(['code', 'context-now', '--json', '--project', projectRoot, '--session-id', SID], {
-      from: 'user',
-    });
+    await program.parseAsync(
+      ['code', 'context-now', '--json', '--project', projectRoot, '--session-id', SID],
+      {
+        from: 'user'
+      }
+    );
     return JSON.parse(captured.text()) as Envelope;
   }
 

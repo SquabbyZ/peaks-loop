@@ -22,12 +22,12 @@ export class PromptBuilder {
       i.userTask,
       ``,
       `## Files (read-only)`,
-      ...i.files.map(f => `- ${f}`),
+      ...i.files.map((f) => `- ${f}`),
       ``,
       `## References`,
-      ...i.refs.map(r => `- ${r}`),
+      ...i.refs.map((r) => `- ${r}`),
       ``,
-      ...(i.verbatimBlocks ?? []),
+      ...(i.verbatimBlocks ?? [])
     ];
     const out = parts.join('\n');
     if (out.includes(FORBIDDEN)) throw new Error('forbidden marker leak');
