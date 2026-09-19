@@ -361,15 +361,50 @@ async function repoMode() {
   }
 
   let tscErrors = 0;
+  let tscLines = [];
   try {
     execFileSync('node', ['node_modules/typescript/bin/tsc', '-p', 'tsconfig.json', '--noEmit'], {
       cwd: ROOT,
       encoding: 'utf8'
     });
   } catch (err) {
-    tscErrors = `${err.stdout ?? ''}${err.stderr ?? ''}`
+    tscLines = `${err.stdout ?? ''}${err.stderr ?? ''}`
       .split('\n')
-      .filter((l) => /error TS\d+/.test(l)).length;
+      .filter((l) => /error TS\d+/.test(l));
+    tscErrors = tscLines.length;
+  }
+
+  // `tsc -p tsconfig.json` RESOLVES SUBPATH EXPORTS INTO UNTRACKED BUILD OUTPUT.
+  // `peaks-loop-shared/version` and its siblings point at `packages/*/dist`, which
+  // no commit contains — that is why ci.yml runs `npm run build` BEFORE any tsc
+  // step. This gate skipped that step, so on 2026-09-19 it went red with 7 errors
+  // that had nothing to do with the source: a stale `dist/` was missing
+  // `version.d.ts`. A bare error count sent the investigation to the wrong place.
+  // Detect that shape precisely and say what to do instead of reporting it as a
+  // type regression: every error is a module-resolution failure naming an internal
+  // workspace package.
+  //
+  // TWO CODES, NOT ONE — and finding that out cost a failed injection. If the whole
+  // build output is absent, tsc says TS2307 (`Cannot find module`). If only the
+  // declaration file is missing while the JS is there, it says TS7016 (`Could not
+  // find a declaration file for module`). The first draft matched TS2307 only, so
+  // the injection that moved a single `.d.ts` sailed past it and the gate reported
+  // a bare type regression. The detector has to key on the property — a module
+  // path that belongs to this workspace — not on one spelling of the symptom.
+  const onlyMissingWorkspaceDist =
+    tscErrors > 0 &&
+    tscLines.every((l) => /error TS(?:2307|7016)/.test(l) && /'peaks-loop-[^']*'/.test(l));
+  if (onlyMissingWorkspaceDist) {
+    console.error(
+      `\npeaks-gate: REFUSING to report ${tscErrors} error(s) as a type regression.\n` +
+        'Every one is a module-resolution failure (TS2307 or TS7016) naming an internal\n' +
+        'workspace package, which resolves into untracked `packages/*/dist` output. That\n' +
+        'build output is stale or absent — this is an artifact problem, not a source\n' +
+        'problem. Run `pnpm build` first, then re-run.\n\n' +
+        tscLines.slice(0, 3).join('\n') +
+        '\n'
+    );
+    return 1;
   }
 
   const c = baseline.ceilings;
