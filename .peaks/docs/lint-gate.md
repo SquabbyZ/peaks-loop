@@ -194,3 +194,77 @@ file, not committed:
 End-to-end through real git, not just the script:
 `git hook run pre-commit` with a dirty new file → **exit 1** with the exact fix
 command; with a clean new file → **exit 0**.
+
+---
+
+## 8. 执行实录（2026-09-19）—— 计划被现实改写的地方
+
+§4 是出发时的计划。实际走下来有几处**必须记住的偏离**，因为它们是这个仓库的
+真实性质，而不是执行失误。
+
+### 8.1 走完的片
+
+| 片 | 内容 | 效果 |
+|---|---|---|
+| S1 | eslint 配置三处"没生效/没覆盖" | phantom 2390→0、coverageGap 71→0、never-linted 0 |
+| S3a–S3f | `tsc -p tsconfig.json` **142 → 0**（六片） | 上限到 0 = 该腿自动成为硬门禁 |
+| S4b | 全仓 `prettier --write`（1129 文件） | prettierUnformatted **→ 0** |
+| S5a | 格式化暴露的两个阻塞项 | J03 抑制标记锚点、`sync-version` 输出 |
+| S5b | 重钉 15 个源文件行号 | 套件从 13 个失败降到 4 个 |
+
+### 8.2 计划与现实的三处偏离
+
+**(1) "格式化"与"行数上限"直接冲突 —— 已裁决。**
+
+格式化让 867/1269 个文件变长，共 **+26,653 有效行**，于是 `eslintFindings` 上升 **+164**
+（`max-lines` +28、`max-lines-per-function` +136，两者相加精确相等）。
+
+而这两条规则**故意把单元测试排除在外**（`tests` 的 `max-lines-per-function` 是 `off`），
+所以只有文件级上限影响测试。
+
+**裁决（用户）：先格式化，再按格式化后的形态重定上限。**
+
+**最终裁决（用户）：上限保持不变（`max-lines` 400 / `max-lines-per-function` 50）。**
+零新工作量；扫荡带来的 +164 被基线吸收并**逐条归因**。债务（101 个文件 + 559 个函数）
+作为债务留着。
+
+方向性事实值得记住：**抬高阈值会降低 `eslintFindings`，所以"抬高"是 ratchet 合法的；
+"降低"才会顶破上限。**
+
+**(2) 格式化暴露了整类缺陷：行位置耦合的守卫。**
+
+三条，形状相同 —— 都是"仓库自己的机制在跟自己的格式化器打架"：
+
+- **抑制标记按行锚定**：`// TODO(g2)` 原本在 `} catch {` 同一行，prettier 把它挪到下一行，
+  于是**131 处抑制被静默关掉**（`catch-return-null` 41→106、`empty-catch` 59→125）。
+  而 41/59 **正是 J03 的上限** —— 也就是说那次格式化**同时突破了 J03 的两条线**，
+  而"未绿"这个标签没能说出这一点。修法：锚改成**节点自身的行区间**，
+  而不是起始行。另一条路（让标记在格式化后仍锚定）**实测不可行** —— 三种写法都被 prettier 破坏。
+- **断言钉着源文件行号**：15 处。**漂移不是 ±1**（有两处 +63 / +83，因为单行 `catch` 块被炸开）。
+  重钉必须**按内容**，不许照抄失败信息里的数字。
+- **`.gitignore` 的 `best-practice/` 把 6 个 tracked 源文件蒙住了** ——
+  prettier 自己读 `.gitignore`，所以 `prettier --check` 会对它**从未打开过**的文件报"全部合规"。
+  这是这个 bug 类的**第三次**（前两次：eslint 的 `'skills/'`、codegraph 的 excludes）。
+  三次都是同一个误读：带尾斜杠、内部无斜杠的模式，匹配**任意深度**的同名目录。
+
+**(3) `prettierUnformatted: 0` 曾经不可维持。**
+
+`scripts/sync-version.mjs` 用 `JSON.stringify` 写 `version.ts`（双引号），
+而配置要 `singleQuote`。它在 `build`/`prepack`/`pretest` 里都跑 ——
+**每次构建都把 tracked 文件写脏、把门禁转红**。已修。
+（它同时会**故意删掉** `packages/*/dist/version.*` 以强制重建 —— 这是设计行为。）
+
+### 8.3 剩余的两条轴
+
+| 轴 | 当前 | 说明 |
+|---|---|---|
+| `eslintFindings` | **5379** / 上限 5380 | 这是**最后一条大轴**。里面包含格式化带来的 164 条行数违规（已裁决保留）。清它需要按规则族逐片做 |
+| 慢测试超时 | 4 个 | 都是 30 秒默认超时；单独跑都能过。**push 门禁会把间歇性抖动变成阻断**，所以必须处理 |
+
+### 8.4 一条流程缺口（已修）
+
+**`tsc -p tsconfig.json` 依赖未跟踪的 `packages/*/dist`**，而 CI 之所以在 tsc 前先
+`npm run build` 正是这个原因。门禁最初漏了这一步，于是它曾因**派生产物**而红，
+报出 7 个与源码无关的错误。现已改成对这种形态报"先跑 `pnpm build`"。
+
+**循环因此增加一步：跑 `pnpm test:unit` 之前先 `pnpm build`。**
