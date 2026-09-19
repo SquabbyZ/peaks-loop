@@ -435,7 +435,7 @@ function applyEdgeCaseVariant(
       // No Findings section — duplicate the first body line after
       // frontmatter (or after line 0 if no frontmatter).
       const fmEnd = raw.match(/^---\n[\s\S]*?\n---\n/);
-      const bodyStart = fmEnd !== null ? fmEnd[0]!.length : 0;
+      const bodyStart = fmEnd !== null ? fmEnd[0].length : 0;
       const firstNewlineAfter = raw.indexOf('\n', bodyStart);
       if (firstNewlineAfter === -1) return raw;
       const firstBodyLine = raw.slice(bodyStart, firstNewlineAfter + 1);

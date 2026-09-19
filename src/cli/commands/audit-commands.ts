@@ -10,7 +10,7 @@
 
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { Command } from 'commander';
+import type { Command } from 'commander';
 import { runRedLinesAudit } from '../../services/audit/red-lines-service.js';
 import { runStaticAudit, type AgentShieldState } from '../../services/audit/static-service.js';
 import {
@@ -39,7 +39,6 @@ import {
   type ProseRatioResult
 } from '../../services/audit/prose-ratio-calculator.js';
 import {
-  writeDecision,
   writeMachineOutput,
   writeNarrative,
   writePrompt,
@@ -93,7 +92,7 @@ const SUPPORTED_ARTIFACT_KINDS: readonly ArtifactKind[] = [
 ];
 
 function isSupportedArtifactKind(value: string): value is ArtifactKind {
-  return (SUPPORTED_ARTIFACT_KINDS as readonly string[]).includes(value as ArtifactKind);
+  return (SUPPORTED_ARTIFACT_KINDS as readonly string[]).includes(value);
 }
 
 /** Whitelist of supported `--llm-provider` values for `peaks audit goal`. */

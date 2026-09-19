@@ -264,5 +264,5 @@ export function loaderMock(
     // call sites stay typed; the assertion below is the seam where the fake's
     // narrower shape is accepted on purpose. (Inline in `vi.mock` this was
     // implicit in the factory's own loose type.)
-  } as typeof import('../../../../src/services/web/playwright-loader.js');
+  };
 }

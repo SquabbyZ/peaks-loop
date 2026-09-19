@@ -139,7 +139,7 @@ export function registerPreferencesCommands(program: Command): void {
         }
         const merged = savePreferences(opts.project, {
           [opts.key]: parsed
-        } as Partial<ProjectPreferences>);
+        });
         const envelope = {
           ok: true,
           data: {

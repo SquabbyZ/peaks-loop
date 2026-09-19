@@ -17,8 +17,7 @@ import { join } from 'node:path';
 import {
   arbitrate,
   resetArbitratorBudget,
-  type ArbitratorOptions,
-  type ArbitrateResult
+  type ArbitratorOptions
 } from '../../../src/services/slice/llm-arbitrator.js';
 import type { LlmRunner } from '../../../src/services/audit/audit-goal-service.js';
 

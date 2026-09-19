@@ -44,7 +44,6 @@ import {
   getPrerequisitesFor,
   type ArtifactPrerequisite
 } from '../../../../src/services/artifacts/artifact-prerequisites.js';
-import type { RequestArtifactRole } from '../../../../src/services/artifacts/request-artifact-service.js';
 
 declareDimensions(
   'tests/unit/services/artifacts/unit-tests-marker-idiom.test.ts',
@@ -181,7 +180,7 @@ async function runGate(projectRoot: string): Promise<{ ok: boolean; missing: str
   const result = await checkPrerequisites({
     projectRoot,
     sessionId: SESSION_ID,
-    role: 'rd' as RequestArtifactRole,
+    role: 'rd',
     newState: 'qa-handoff',
     requestType: 'feature',
     requestId: RID

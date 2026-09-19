@@ -1,4 +1,4 @@
-import { JobStateStore } from './job-state-store.js';
+import type { JobStateStore } from './job-state-store.js';
 
 export interface WrapInput {
   jobId: string;

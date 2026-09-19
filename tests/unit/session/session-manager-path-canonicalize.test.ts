@@ -26,7 +26,7 @@
 //                  no formatted output surface.
 //   - a11y:        omitted — no human-facing text in this module.
 
-import { describe, expect, it, beforeEach } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { declareDimensions } from '../_setup/4dim-template.js';

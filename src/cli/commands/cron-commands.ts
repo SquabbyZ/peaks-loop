@@ -127,7 +127,7 @@ export function readSchedule(projectRoot: string): ScheduleFile {
       id: ent.id,
       name: ent.name,
       command: ent.command,
-      args: ent.args as ReadonlyArray<string>,
+      args: ent.args,
       intervalMs: ent.intervalMs,
       lastRunAt: typeof ent.lastRunAt === 'number' ? ent.lastRunAt : null,
       enabled: ent.enabled !== false,

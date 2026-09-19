@@ -18,7 +18,7 @@
  * tree.
  */
 
-import { Command } from 'commander';
+import type { Command } from 'commander';
 
 import { findProjectRoot } from '../../services/config/config-safety.js';
 import { resolveCanonicalProjectRoot } from '../../services/config/config-service.js';

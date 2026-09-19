@@ -80,7 +80,7 @@ export function lintLoopEngineeringGuidelines(raw: string): LintResult {
       continue;
     }
     for (const section of REQUIRED_SECTIONS) {
-      if (!rl.sections[section] || rl.sections[section]!.trim().length === 0) {
+      if (!rl.sections[section] || rl.sections[section].trim().length === 0) {
         findings.push(`${id} is missing section "${section}"`);
       }
     }

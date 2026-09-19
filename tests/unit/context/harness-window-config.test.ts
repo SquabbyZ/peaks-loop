@@ -139,7 +139,7 @@ describe('harness-window-config', () => {
       // given: the file says 200000 and the running session's env says 1000000
       writeSettings({ env: { [KEY]: '200000' } });
       // when: the window is read
-      const out = readHarnessWindow({ location, env: { [KEY]: '1000000' } as NodeJS.ProcessEnv });
+      const out = readHarnessWindow({ location, env: { [KEY]: '1000000' } });
       // then: the process env (this session) wins, and the file is reported as the source only when env is silent
       expect(out).toEqual({
         tokens: 1_000_000,
@@ -259,7 +259,7 @@ describe('harness-window-config', () => {
       const result = syncHarnessWindow({
         location,
         tokens: 1_000_000,
-        env: { [KEY]: '200000' } as NodeJS.ProcessEnv
+        env: { [KEY]: '200000' }
       });
       // then: no rewrite — idempotence is a property of the file, not of the
       //       process env, or every probe of a running session would rewrite a
@@ -357,7 +357,7 @@ describe('harness-window-config', () => {
       const result = syncHarnessWindow({
         location,
         tokens: 300_000,
-        env: { [KEY]: '200000' } as NodeJS.ProcessEnv
+        env: { [KEY]: '200000' }
       });
       // then: unchanged, and the marker stays at the value peaks-loop actually wrote
       expect(result.action).toBe('unchanged');
@@ -398,7 +398,7 @@ describe('harness-window-config', () => {
       const result = syncHarnessWindow({
         location,
         tokens: 1_000_000,
-        env: { [KEY]: '1000000' } as NodeJS.ProcessEnv
+        env: { [KEY]: '1000000' }
       });
       // then: written — an empty slot is not a human's value
       expect(result.action).toBe('written');
@@ -925,7 +925,7 @@ describe('harness-window-config', () => {
       const result = syncHarnessWindow({
         location,
         tokens: 1_000_000,
-        env: { [KEY]: '1000000' } as NodeJS.ProcessEnv
+        env: { [KEY]: '1000000' }
       });
       // then: the file is written even though the read already saw the value —
       //       otherwise the value would vanish at the next session

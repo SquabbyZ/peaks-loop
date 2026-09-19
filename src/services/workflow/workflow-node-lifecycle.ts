@@ -27,7 +27,6 @@ import {
   PEAKS_DEPENDENCY_NOT_CONSUMED,
   PEAKS_GRAPH_CYCLE,
   PEAKS_GRAPH_NODE_REQUIRED,
-  PEAKS_GRAPH_NODE_NOT_PREPARED,
   PEAKS_GRAPH_NODE_KIND_INVALID,
   PEAKS_GRAPH_CORRUPTED,
   PEAKS_GRAPH_REF_BROKEN,
@@ -390,8 +389,7 @@ export function prepareNodeAction(input: NodeLifecycleInput): WorkflowGraphNode 
   if (input.cycle === true) {
     throw lifeError(PEAKS_GRAPH_CYCLE, 'cycle detected');
   }
-  const kind: 'step' | 'dispatch' | 'terminal' =
-    (input.graphNode?.kind as 'step' | 'dispatch' | 'terminal' | undefined) ?? 'step';
+  const kind: 'step' | 'dispatch' | 'terminal' = input.graphNode?.kind ?? 'step';
   if (kind !== 'step' && kind !== 'dispatch' && kind !== 'terminal') {
     throw lifeError(PEAKS_GRAPH_NODE_KIND_INVALID, `invalid kind: ${kind}`);
   }
@@ -489,7 +487,7 @@ export function prepareNode(
     return _purePrepareNode(arg1 as WorkflowGraph, arg2);
   }
   // Wrapper form: prepareNode(input).
-  return prepareNodeAction(arg1 as NodeLifecycleInput);
+  return prepareNodeAction(arg1);
 }
 export const nodePrepare = prepareNodeAction;
 export const nodePreparePure = _purePrepareNode;

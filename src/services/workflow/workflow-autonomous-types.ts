@@ -15,10 +15,7 @@
  * File budget: ≤ 400 lines (rid-006 split).
  */
 
-import type {
-  CapabilityAvailabilityStatus,
-  CapabilityItemType
-} from '../recommendations/recommendation-types.js';
+import type { CapabilityItemType } from '../recommendations/recommendation-types.js';
 import type { ModelProviderConfig, WorkspaceConfig } from '../config/config-types.js';
 import type { RdPlanResult } from '../rd/rd-service.js';
 import type { CodeMode, WorkflowMode, WorkflowRouterPlan } from './workflow-router-service.js';

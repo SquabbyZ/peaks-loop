@@ -1,5 +1,3 @@
-import { execFileSync } from 'node:child_process';
-
 export type MergePlan =
   | { readonly kind: 'fast-forward'; readonly command: ReadonlyArray<string> }
   | { readonly kind: 'no-ff'; readonly command: ReadonlyArray<string> }

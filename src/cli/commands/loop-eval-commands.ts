@@ -15,7 +15,7 @@
  * Karpathy §2: separate file from workflow-commands.ts to stay under
  * the 800-line budget.
  */
-import { Command } from 'commander';
+import type { Command } from 'commander';
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { isUnsafePathInput } from '../../shared/path-safety.js';
@@ -24,11 +24,7 @@ import {
   planWorkflow,
   planWorkflowRun
 } from '../../services/workflow/workflow-loader.js';
-import {
-  lintWorkflowSpec,
-  type EvaluatorKind,
-  type WorkflowSpec
-} from '../../services/workflow/workflow-spec.js';
+import { type EvaluatorKind } from '../../services/workflow/workflow-spec.js';
 import {
   dispatchEvaluator,
   type EvaluatorVerdictEnvelope

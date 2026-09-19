@@ -413,7 +413,7 @@ export function readInstalledEntriesFromSettings(
   const hooksRoot = settings.hooks;
   if (!hooksRoot || typeof hooksRoot !== 'object' || Array.isArray(hooksRoot)) return [];
   const result: { matcher: string; sentinel: string }[] = [];
-  for (const eventKey of Object.keys(hooksRoot as Record<string, unknown>)) {
+  for (const eventKey of Object.keys(hooksRoot)) {
     const entries = readHookEntriesFromHooks(hooksRoot as Record<string, unknown>, eventKey);
     for (const entry of entries) {
       if (!entryIsPeaksManaged(entry, sentinels)) continue;
@@ -505,7 +505,7 @@ export function withoutSuperpowersSkillDenylist(
     // The whole `permissions` object is empty (no deny, no allow, no other
     // sub-fields). Drop it to avoid leaving an empty object on disk.
     const { permissions: _omit, ...rest } = settings;
-    return rest as Record<string, unknown>;
+    return rest;
   }
   return { ...settings, permissions: nextPermissions };
 }

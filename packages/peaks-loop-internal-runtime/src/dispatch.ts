@@ -8,9 +8,7 @@ import { ClaudeAdapter } from './vendor/claude-adapter.js';
 import { CodexAdapter } from './vendor/codex-adapter.js';
 import { CopilotAdapter } from './vendor/copilot-adapter.js';
 import { PromptBuilder } from './prompt-builder.js';
-import { StatusProtocol } from './status-protocol.js';
 import { AutoCompactAdapter } from './auto-compact-adapter.js';
-import { ResourceBudgetGuard } from './guards/resource-budget.js';
 
 export interface DispatchInput {
   sid: string;

@@ -9,7 +9,7 @@
  *
  * File budget: ≤ 150 lines (Karpathy §2).
  */
-import { Command } from 'commander';
+import type { Command } from 'commander';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
@@ -23,10 +23,8 @@ import {
   parseQaEnvelope,
   parseSecurityEnvelope,
   parsePerfEnvelope,
-  envelopesToAggregatorInput,
-  type AnyEnvelope
+  envelopesToAggregatorInput
 } from '../../services/verdict/envelopes.js';
-import { loadMutReport } from 'peaks-loop-mut';
 import { addJsonOption, printResult, type ProgramIO } from '../cli-helpers.js';
 import { fail, ok } from 'peaks-loop-shared/result';
 import { isUnsafePathInput } from '../../shared/path-safety.js';

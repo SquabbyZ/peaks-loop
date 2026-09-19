@@ -8,7 +8,7 @@
  * These are pattern-based: the audit framework invokes the helper
  * with a skill's body and the helper returns lint hits.
  */
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import type { LintHit, SkillFile } from './lint-style.js';
 

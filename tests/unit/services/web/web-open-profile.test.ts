@@ -45,11 +45,7 @@ declareDimensions(
 );
 
 import { BrowserSessionManager } from '../../../../src/services/web/browser-session-manager.js';
-import type {
-  PwBrowser,
-  PwContext,
-  PwPage
-} from '../../../../src/services/web/playwright-loader.js';
+import type { PwBrowser, PwPage } from '../../../../src/services/web/playwright-loader.js';
 import { routeOp } from '../../../../src/services/web/web-daemon-service.js';
 import { webContextStatePath } from '../../../../src/services/web/web-artifact-paths.js';
 import {
@@ -149,7 +145,7 @@ function recordingManager(root: string): Recording {
           savedTo.push(options?.path);
         },
         close: async () => undefined
-      } as PwContext;
+      };
     },
     version: () => 'fake-1.63.0',
     close: async () => undefined

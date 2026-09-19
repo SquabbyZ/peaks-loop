@@ -18,7 +18,7 @@ import {
 import { mkdir as mkdirAsync } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { randomBytes } from 'node:crypto';
-import { projectRootsMatch, resolveInputPath, stableRealPath } from '../../shared/path-utils.js';
+import { projectRootsMatch, stableRealPath } from '../../shared/path-utils.js';
 import { ensureSession } from './session-binding-bridge.js';
 import {
   getCallerBinding,

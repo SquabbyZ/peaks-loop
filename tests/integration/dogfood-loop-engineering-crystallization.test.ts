@@ -38,9 +38,7 @@ import { LoopBeeRelationSchema } from '../../src/services/loop/loop-bee-relation
 import { insertLoopBeeRelation } from '../../src/services/loop/loop-bee-relation-store.js';
 
 const crystallizationOptions: ConstructorParameters<typeof CrystallizationService>[1] = {
-  loopReleaseSchema: LoopReleaseSchema as unknown as ConstructorParameters<
-    typeof CrystallizationService
-  >[1]['loopReleaseSchema'],
+  loopReleaseSchema: LoopReleaseSchema,
   loopBeeRelationSchema: LoopBeeRelationSchema as unknown as ConstructorParameters<
     typeof CrystallizationService
   >[1]['loopBeeRelationSchema'],
@@ -67,7 +65,7 @@ describe('M8 dogfood: real crystallization of the Loop Engineering work', () => 
 
   beforeAll(() => {
     tmpDir = mkdtempSync(join(tmpdir(), 'peaks-dogfood-'));
-    db = openStateDb(join(tmpDir, 'state.db')) as unknown as Database.Database;
+    db = openStateDb(join(tmpDir, 'state.db'));
   });
 
   afterAll(() => {
@@ -106,7 +104,7 @@ describe('M8 dogfood: real crystallization of the Loop Engineering work', () => 
           trigger_policy: 'x',
           shareable: true,
           desktop_visible: true
-        } as never,
+        },
         bee_input: { name: 'bee-shoo', description: 'x' } as never,
         bee_relation_reason: 'x',
         evidence_brief: brief,
@@ -130,7 +128,7 @@ describe('M8 dogfood: real crystallization of the Loop Engineering work', () => 
       svc.crystallize({
         task: {
           task_id: 'm8-test-gate-block',
-          task_status: 'completed' as never,
+          task_status: 'completed',
           gates_passed: false as never,
           evidence_collected: true
         },
@@ -140,7 +138,7 @@ describe('M8 dogfood: real crystallization of the Loop Engineering work', () => 
           trigger_policy: 'x',
           shareable: true,
           desktop_visible: true
-        } as never,
+        },
         bee_input: { name: 'bee-shoo2', description: 'x' } as never,
         bee_relation_reason: 'x',
         evidence_brief: brief,
@@ -205,7 +203,7 @@ describe('M8 dogfood: real crystallization of the Loop Engineering work', () => 
     const result = svc.crystallize({
       task: {
         task_id: 'm8-dogfood-loop-engineering-2026-07-07',
-        task_status: 'completed' as never,
+        task_status: 'completed',
         gates_passed: true,
         evidence_collected: true
       },
@@ -229,13 +227,13 @@ describe('M8 dogfood: real crystallization of the Loop Engineering work', () => 
         evaluator_policy: ['Independent scorer (RL-5)', 'Regression skeptic (RL-4)'],
         lifecycle_status: 'candidate' as never,
         version: '0.1.0'
-      } as never,
+      },
       bee_input: {
         bee_name: 'bee-loop-engineering-crystallization-implementer',
         description:
           'Dispatch RD sub-agents to ship M0..M7 schema/service/CLI/tests; crystallize the work into loop + bee + crystallization_event.',
         version: '0.1.0'
-      } as never,
+      },
       bee_relation_reason:
         'The implementation bee that shipped the schema, service, CLI, and tests for the loop-engineering crystallization design.',
       evidence_brief: brief,

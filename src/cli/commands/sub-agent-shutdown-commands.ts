@@ -88,9 +88,7 @@ export function registerSubAgentShutdownCommands(program: Command, io: ProgramIO
   // parent via `findCommand` so we do not double-register. Fall back
   // to a standalone `peaks sub-agent-shutdown` parent if the parent
   // is not yet registered (e.g. when this file is loaded in isolation).
-  const existing = (program.commands as ReadonlyArray<Command>).find(
-    (c) => c.name() === 'sub-agent'
-  );
+  const existing = program.commands.find((c) => c.name() === 'sub-agent');
   const root: Command =
     existing ??
     program

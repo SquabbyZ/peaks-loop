@@ -168,8 +168,8 @@ function collectScenarios(
   const visited = new WeakSet<object>();
   const walk = (node: unknown, scenarioLabel: string): void => {
     if (node === null || typeof node !== 'object') return;
-    if (visited.has(node as object)) return;
-    visited.add(node as object);
+    if (visited.has(node)) return;
+    visited.add(node);
     const obj = node as {
       name?: string;
       children?: {

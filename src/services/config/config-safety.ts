@@ -15,7 +15,7 @@ import {
 } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { basename, dirname, isAbsolute, relative, resolve } from 'node:path';
+import { dirname, isAbsolute, relative, resolve } from 'node:path';
 import { homedir } from 'node:os';
 
 import { projectRootsMatch } from '../../shared/path-utils.js';

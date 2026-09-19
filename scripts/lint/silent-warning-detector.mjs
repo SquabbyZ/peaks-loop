@@ -32,7 +32,7 @@
 //     can re-assert the same data (consistent with the static-scan
 //     pattern in scripts/static-scan-mcp-removed.mjs).
 
-import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { dirname, extname, join, relative, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 

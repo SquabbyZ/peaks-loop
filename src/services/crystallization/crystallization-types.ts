@@ -238,7 +238,7 @@ export type CrystallizationEvent = z.infer<typeof CrystallizationEventSchema>;
  * Use this at every parse boundary (CLI input, store insertion).
  */
 export function parseCrystallizationEvent(input: unknown): CrystallizationEvent {
-  return CrystallizationEventSchema.parse(input) as CrystallizationEvent;
+  return CrystallizationEventSchema.parse(input);
 }
 
 /**
@@ -246,7 +246,7 @@ export function parseCrystallizationEvent(input: unknown): CrystallizationEvent 
  * EvidenceBrief. Throws ZodError on failure.
  */
 export function parseEvidenceBrief(input: unknown): EvidenceBrief {
-  return EvidenceBriefSchema.parse(input) as EvidenceBrief;
+  return EvidenceBriefSchema.parse(input);
 }
 
 /**
@@ -265,7 +265,7 @@ export function safeParseCrystallizationEvent(input: unknown):
       findings: Array<{ path: string; message: string }>;
     } {
   const r = CrystallizationEventSchema.safeParse(input);
-  if (r.success) return { ok: true, row: r.data as CrystallizationEvent };
+  if (r.success) return { ok: true, row: r.data };
   const findings = r.error.issues.map((i) => ({
     path: i.path.join('.'),
     message: i.message
@@ -287,7 +287,7 @@ export function safeParseEvidenceBrief(input: unknown):
       findings: Array<{ path: string; message: string }>;
     } {
   const r = EvidenceBriefSchema.safeParse(input);
-  if (r.success) return { ok: true, row: r.data as EvidenceBrief };
+  if (r.success) return { ok: true, row: r.data };
   const findings = r.error.issues.map((i) => ({
     path: i.path.join('.'),
     message: i.message

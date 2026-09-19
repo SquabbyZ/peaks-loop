@@ -28,7 +28,6 @@ import { basename, join, relative } from 'node:path';
 import type { MemoryIndex, MemoryIndexEntry, ProjectMemoryKind } from '../types.js';
 import { MEMORY_KIND_TIER } from '../types.js';
 import { parseMemoryFrontmatter, parseStoredMemoryFile } from '../parsers/frontmatter.js';
-import { summarizeMemoryBody } from '../parsers/markdown-pure.js';
 import { assertSafeProjectMemoryDir, normalizeRoot } from '../store/paths.js';
 import { buildMemoryIndex, generateMemoryIndexFile, readExistingIndex } from './ranking.js';
 import { listMarkdownFiles, readProjectMemories } from './search.js';

@@ -32,8 +32,7 @@ import {
   PROMOTION_LAYER_DETAILS,
   PROMOTION_LAYERS,
   promoteFeedback,
-  promotionArtifactChecks,
-  type PromotionLayer
+  promotionArtifactChecks
 } from '../../services/feedback/feedback-promotion-service.js';
 import { fail, ok } from 'peaks-loop-shared/result';
 
@@ -167,7 +166,7 @@ export function registerFeedbackCommands(program: Command, io: ProgramIO): void 
           process.exitCode = 1;
           return;
         }
-        const layer = opts.layer as PromotionLayer;
+        const layer = opts.layer;
         const sessionId = getCurrentSessionId(projectRoot) ?? 'unknown-sid';
         const promotedBy = opts.promotedBy ?? 'peaks-rd fork agent';
         const envelope = await promoteFeedback({

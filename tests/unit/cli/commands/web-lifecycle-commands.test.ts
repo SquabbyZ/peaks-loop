@@ -37,7 +37,7 @@ import {
   webDaemonInfoPath,
   webInstallLockPath
 } from '../../../../src/services/web/web-artifact-paths.js';
-import { PROTOCOL_VERSION, type WebOpResponse } from '../../../../src/services/web/web-protocol.js';
+import { PROTOCOL_VERSION } from '../../../../src/services/web/web-protocol.js';
 
 /**
  * The install seam, replaced at the module boundary: the real `installChromium`

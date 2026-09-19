@@ -15,7 +15,7 @@
 //   - render:      omitted — JSON-shaped results, no formatted output.
 //   - a11y:        omitted — no human-facing text in this path.
 
-import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
+import { describe, expect, it, beforeEach, afterEach } from 'vitest';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';

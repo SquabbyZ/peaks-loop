@@ -73,13 +73,7 @@
 // test request goes over a line-delimited JSON protocol on stdio. The
 // helper script is `tests/unit/cli/_statusline-rpc-helper.mjs` (TEST
 // INFRASTRUCTURE only — not part of the production CLI binary).
-import {
-  fork,
-  spawnSync,
-  type ChildProcess,
-  type ForkOptions,
-  type SpawnSyncReturns
-} from 'node:child_process';
+import { fork, type ChildProcess, type ForkOptions } from 'node:child_process';
 import {
   existsSync,
   mkdirSync,

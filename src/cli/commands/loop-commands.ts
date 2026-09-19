@@ -23,7 +23,7 @@
  * surface.
  */
 
-import { Command } from 'commander';
+import type { Command } from 'commander';
 import { existsSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';

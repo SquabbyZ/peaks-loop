@@ -99,7 +99,7 @@ export function fitSummaryToBytes<T extends Record<string, unknown>>(
 ): T {
   let out: T;
   try {
-    out = structuredClone(data) as T;
+    out = structuredClone(data);
   } catch {
     try {
       out = JSON.parse(JSON.stringify(data)) as T;

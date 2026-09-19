@@ -1,4 +1,4 @@
-import { Command } from 'commander';
+import type { Command } from 'commander';
 import { registerCapabilityCommands } from './capability-commands.js';
 import { registerConfigCommands } from './config-commands.js';
 import { registerSCCommands } from './sc-commands.js';

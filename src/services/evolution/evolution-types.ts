@@ -282,7 +282,7 @@ export const EVOLUTION_DEFAULT_DELTA_MIN = 1.0;
  * EvolutionEvaluation row. Throws ZodError on failure.
  */
 export function parseEvolutionEvaluation(input: unknown): EvolutionEvaluation {
-  return EvolutionEvaluationSchema.parse(input) as EvolutionEvaluation;
+  return EvolutionEvaluationSchema.parse(input);
 }
 
 /**
@@ -296,7 +296,7 @@ export function safeParseEvolutionEvaluation(
   | { ok: true; row: EvolutionEvaluation }
   | { ok: false; findings: Array<{ path: string; message: string }> } {
   const r = EvolutionEvaluationSchema.safeParse(input);
-  if (r.success) return { ok: true, row: r.data as EvolutionEvaluation };
+  if (r.success) return { ok: true, row: r.data };
   return {
     ok: false,
     findings: r.error.issues.map((i) => ({
@@ -311,5 +311,5 @@ export function safeParseEvolutionEvaluation(
  * EvolutionProposal. Throws ZodError on failure.
  */
 export function parseEvolutionProposal(input: unknown): EvolutionProposal {
-  return EvolutionProposalSchema.parse(input) as EvolutionProposal;
+  return EvolutionProposalSchema.parse(input);
 }

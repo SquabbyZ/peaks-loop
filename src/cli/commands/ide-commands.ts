@@ -20,7 +20,7 @@
  * registered adapter. This file does NOT import any specific
  * adapter.
  */
-import { Command } from 'commander';
+import type { Command } from 'commander';
 import { detectCurrentIdeModel } from '../../services/ide/current-model-detector.js';
 import { addJsonOption, printResult, type ProgramIO } from '../cli-helpers.js';
 import { fail, ok } from 'peaks-loop-shared/result';

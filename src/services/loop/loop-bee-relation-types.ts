@@ -91,7 +91,7 @@ export type LoopBeeRelation = z.infer<typeof LoopBeeRelationSchema>;
  * boundary.
  */
 export function parseLoopBeeRelation(input: unknown): LoopBeeRelation {
-  return LoopBeeRelationSchema.parse(input) as LoopBeeRelation;
+  return LoopBeeRelationSchema.parse(input);
 }
 
 /**
@@ -104,7 +104,7 @@ export function safeParseLoopBeeRelation(
   | { ok: true; row: LoopBeeRelation }
   | { ok: false; findings: Array<{ path: string; message: string }> } {
   const r = LoopBeeRelationSchema.safeParse(input);
-  if (r.success) return { ok: true, row: r.data as LoopBeeRelation };
+  if (r.success) return { ok: true, row: r.data };
   return {
     ok: false,
     findings: r.error.issues.map((i) => ({

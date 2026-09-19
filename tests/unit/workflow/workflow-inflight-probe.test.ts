@@ -2,7 +2,7 @@
 // TC coverage: TC-IF-01..09.
 // Omitted render: this probe returns graph-derived state, not UI output.
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { declareDimensions } from '../_setup/4dim-template.js';
 
 declareDimensions(

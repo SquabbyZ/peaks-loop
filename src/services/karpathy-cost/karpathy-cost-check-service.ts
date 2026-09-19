@@ -21,7 +21,7 @@
 // not silently downgrade a 'block').
 
 import { readFileSync } from 'node:fs';
-import { ok, fail, type ResultEnvelope } from 'peaks-loop-shared/result';
+import { ok, type ResultEnvelope } from 'peaks-loop-shared/result';
 
 /** Threshold above which a `'block'` is downgraded to `'warn'`. */
 export const KARPATHY_COST_DOWNGRADE_THRESHOLD = 10;

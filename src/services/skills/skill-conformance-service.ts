@@ -19,7 +19,7 @@
  *      this is the "CLI-back 注解 100% 覆盖" check)
  */
 
-import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { readFileSync, statSync } from 'node:fs';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 

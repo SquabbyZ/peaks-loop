@@ -172,7 +172,7 @@ export type LoopRelease = z.infer<typeof LoopReleaseSchema>;
  * Throws ZodError on failure. This is the public validation boundary.
  */
 export function parseLoopRelease(input: unknown): LoopRelease {
-  return LoopReleaseSchema.parse(input) as LoopRelease;
+  return LoopReleaseSchema.parse(input);
 }
 
 /**
@@ -185,7 +185,7 @@ export function safeParseLoopRelease(
   | { ok: true; row: LoopRelease }
   | { ok: false; findings: Array<{ path: string; message: string }> } {
   const r = LoopReleaseSchema.safeParse(input);
-  if (r.success) return { ok: true, row: r.data as LoopRelease };
+  if (r.success) return { ok: true, row: r.data };
   return {
     ok: false,
     findings: r.error.issues.map((i) => ({

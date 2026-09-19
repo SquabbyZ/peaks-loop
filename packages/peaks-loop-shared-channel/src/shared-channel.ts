@@ -318,11 +318,11 @@ function readChannelOrEmpty(channelFile: string, batchId: string): SharedChannel
     const now = new Date().toISOString();
     return { batchId, createdAt: now, updatedAt: now, entries: {} };
   }
-  const obj = parsed as Record<string, unknown>;
+  const obj = parsed;
   const batchIdField = typeof obj.batchId === 'string' ? obj.batchId : batchId;
   const createdAt = typeof obj.createdAt === 'string' ? obj.createdAt : new Date().toISOString();
   const updatedAt = typeof obj.updatedAt === 'string' ? obj.updatedAt : createdAt;
-  const entriesField = isObject(obj.entries) ? (obj.entries as Record<string, unknown>) : {};
+  const entriesField = isObject(obj.entries) ? obj.entries : {};
   const entries: Record<string, SharedChannelEntry> = {};
   for (const [k, v] of Object.entries(entriesField)) {
     if (isValidEntry(v)) {

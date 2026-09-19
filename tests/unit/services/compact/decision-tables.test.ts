@@ -39,7 +39,6 @@ import {
   buildSuggestedCompactMessage,
   isPhase,
   lookupPhaseTransition,
-  type Phase,
   type Severity
 } from '~/src/services/compact/decision-tables';
 

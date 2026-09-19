@@ -49,7 +49,7 @@ export async function runJ02Contract(ctx: GuardContext): Promise<GuardRunResult>
         // this artifact, so the synthetic id cannot collide with anything
         // real a developer is working on.
         env: { ...process.env, PEAKS_CALLER_ID: `guard-J02-${ctx.sessionId}` }
-      }) as unknown as string;
+      });
       return { stdout, stderr: '' };
     } catch (e) {
       const err = e as Error & { stdout?: Buffer | string; stderr?: Buffer | string };

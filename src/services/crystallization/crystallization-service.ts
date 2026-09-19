@@ -560,7 +560,7 @@ function insertCrystallizationEventRaw(
     id,
     schema_version: CRYSTALLIZATION_SCHEMA_VERSION,
     created_at: createdAt
-  }) as CrystallizationEvent;
+  });
   const stmt = db.prepare(
     `INSERT INTO crystallization_event (
        id, trigger, evidence_brief_json, evidence_bullets_json,

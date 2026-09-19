@@ -1,6 +1,6 @@
 import { existsSync, lstatSync, readFileSync, readdirSync, realpathSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
-import { join, relative, resolve } from 'node:path';
+import { join, resolve } from 'node:path';
 import { isInsidePath } from '../../shared/path-utils.js';
 import { getWorkspaceConfigForPath } from '../config/config-service.js';
 import {
@@ -661,7 +661,7 @@ export function validateArtifactRetention(sliceId: string): {
       };
     }
     const missingArtifacts = modernRequirementRelativePaths(sliceId).filter(
-      (rel) => !existsSync(join(resolvedPeaksSessionDir as string, rel))
+      (rel) => !existsSync(join(resolvedPeaksSessionDir, rel))
     );
     return {
       valid: missingArtifacts.length === 0,

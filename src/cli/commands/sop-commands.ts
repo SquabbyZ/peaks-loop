@@ -1,4 +1,4 @@
-import { Command } from 'commander';
+import type { Command } from 'commander';
 import { mkdirSync } from 'node:fs';
 import { initSop, lintSop } from '../../services/sop/sop-service.js';
 import {

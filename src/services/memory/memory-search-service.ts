@@ -101,8 +101,8 @@ export function loadMemoryIndex(projectRoot: string): MemoryIndexSnapshot {
     cold?: MemoryIndexEntry[];
   };
   const hot = index.hot ?? {};
-  const flatFromHot = Object.values(hot).flat() as MemoryIndexEntry[];
-  const flatFromCold = (index.cold ?? []) as MemoryIndexEntry[];
+  const flatFromHot = Object.values(hot).flat();
+  const flatFromCold = index.cold ?? [];
   const entries = [...flatFromHot, ...flatFromCold];
 
   return {

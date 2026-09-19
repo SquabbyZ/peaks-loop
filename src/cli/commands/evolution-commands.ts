@@ -23,7 +23,7 @@
  * into the service payload.
  */
 
-import { Command } from 'commander';
+import type { Command } from 'commander';
 import { existsSync, mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { openStateDb } from '../../services/skillhub/sqlite-store.js';
@@ -38,7 +38,6 @@ import {
 } from '../../services/evolution/evolution-types.js';
 import { findProjectRoot } from '../../services/config/config-safety.js';
 import { runIndependentEvaluator } from '../../services/evolution/independent-evaluator-runner.js';
-import { runRegressionSkeptic } from '../../services/evolution/regression-skeptic-runner.js';
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
 import { fail, ok } from 'peaks-loop-shared/result';
 

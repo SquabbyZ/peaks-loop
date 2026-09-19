@@ -320,7 +320,7 @@ function parseManifest(raw: unknown): BundleManifest {
     typeof candidate.format_version_major === 'number' &&
     candidate.format_version_major !== PEAKS_BUNDLE_FORMAT_VERSION_MAJOR
   ) {
-    throw new BundleMajorVersionMismatchError(candidate.format_version_major as number);
+    throw new BundleMajorVersionMismatchError(candidate.format_version_major);
   }
   if (typeof candidate.format_constant !== 'string') {
     throw new BundleMalformedError('manifest is missing format_constant');
@@ -339,7 +339,7 @@ function parseManifest(raw: unknown): BundleManifest {
     throw new BundleSchemaVersionsMismatchError(undefined);
   }
   try {
-    return BundleManifestSchema.parse(raw) as BundleManifest;
+    return BundleManifestSchema.parse(raw);
   } catch (err: unknown) {
     if (err instanceof ZodError) {
       const schemaIssue = err.issues.find((i) => i.path[0] === 'schema_versions');
@@ -699,10 +699,10 @@ function insertBeeManifestRow(
     JSON.stringify(manifest.segments_json ?? []),
     strOrNull(manifest.entrypoint_preamble),
     String(manifest.promotion ?? 'manual'),
-    (manifest.min_cycles as number | null) ?? null,
+    manifest.min_cycles ?? null,
     manifest.requires_human === undefined ? 1 : Number(manifest.requires_human),
     manifest.requires_smoke === undefined ? 1 : Number(manifest.requires_smoke),
-    (manifest.retire_on_misses as number | null) ?? null
+    manifest.retire_on_misses ?? null
   );
 }
 

@@ -20,7 +20,7 @@
 //
 // Run with: pnpm vitest run tests/unit/services/dispatch/batch-counter.test.ts
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { declareDimensions } from '../../_setup/4dim-template.js';
 import { withTmpWorkspacePerTest } from '../../_setup/tmp-workspace.js';
 import { withEnv } from '../../_setup/io.js';

@@ -1,12 +1,4 @@
-import {
-  closeSync,
-  fstatSync,
-  lstatSync,
-  openSync,
-  readSync,
-  realpathSync,
-  statSync
-} from 'node:fs';
+import { closeSync, fstatSync, lstatSync, openSync, readSync, statSync } from 'node:fs';
 import { isAbsolute, join, relative, resolve } from 'node:path';
 import { stableRealPath } from '../../shared/path-utils.js';
 import { WORKSPACE_UNAVAILABLE_NEXT_ACTIONS } from '../../shared/planner-response.js';
@@ -45,12 +37,7 @@ const RD_TASK_ID_PAD_WIDTH = 3;
  */
 const DEFAULT_EXECUTION_MODEL_ID = 'claude-opus-4-7';
 import { getTechStatus, TECH_REQUIRED_ARTIFACTS } from '../tech/tech-service.js';
-import {
-  buildRdStandardsGateList,
-  detectMissingProjectStandards,
-  type RdStandardGate,
-  resolveRdStartupStandardsCheck
-} from './standards-diagnostic.js';
+import { type RdStandardGate, resolveRdStartupStandardsCheck } from './standards-diagnostic.js';
 import { runStrategicStage, type RunStrategicInput } from './strategic-stage.js';
 import { runTacticalStage, type RunTacticalInput } from './tactical-stage.js';
 

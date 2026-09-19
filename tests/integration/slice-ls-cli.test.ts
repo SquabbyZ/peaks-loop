@@ -11,8 +11,8 @@
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, dirname } from 'node:path';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { join } from 'node:path';
+import { afterEach, describe, expect, it } from 'vitest';
 
 const BIN_PATH = join(process.cwd(), 'bin', 'peaks.js');
 const BIN_TIMEOUT_MS = 30_000;

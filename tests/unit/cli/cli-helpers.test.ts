@@ -28,7 +28,7 @@
 //   - integration: OMITTED — cli-helpers.ts is a pure module; no
 //                fs/clock/env boundary to test.
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { declareDimensions } from '../_setup/4dim-template.js';
 import { makeCapturedIo } from '../_setup/io.js';
 import { withTmpWorkspacePerTest } from '../_setup/tmp-workspace.js';
@@ -52,8 +52,7 @@ import {
   printErrorEnvelope,
   printInvalidConfigLayer,
   printResult,
-  printSuperCommandCatalog,
-  type ProgramIO
+  printSuperCommandCatalog
 } from '~/src/cli/cli-helpers';
 import { fail, ok } from 'peaks-loop-shared/result';
 

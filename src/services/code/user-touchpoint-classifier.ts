@@ -149,25 +149,23 @@ const RAW_CLASSIFICATION: readonly RawGate[] = [
 ];
 
 export function classifyAllGates(): readonly GateClassification[] {
-  return RAW_CLASSIFICATION.slice() as readonly GateClassification[];
+  return RAW_CLASSIFICATION.slice();
 }
 
 /** Look up a single gate's classification. Returns null when the step is not in the table. */
 export function classifyGate(step: string): GateClassification | null {
   const raw = RAW_CLASSIFICATION.find((g) => g.step === step);
-  return raw === undefined ? null : (raw as GateClassification);
+  return raw === undefined ? null : raw;
 }
 
 /** List all gates the user must review (per the 12 Gaps positioning). */
 export function userMustReviewGates(): readonly GateClassification[] {
-  return RAW_CLASSIFICATION.filter(
-    (g) => g.userShouldReview !== 'never'
-  ) as readonly GateClassification[];
+  return RAW_CLASSIFICATION.filter((g) => g.userShouldReview !== 'never');
 }
 
 /** List all gates AI auto-decides in full-auto. */
 export function aiAutoDecidesGates(): readonly GateClassification[] {
-  return RAW_CLASSIFICATION.filter((g) => g.fullAutoCanProceed) as readonly GateClassification[];
+  return RAW_CLASSIFICATION.filter((g) => g.fullAutoCanProceed);
 }
 
 export const COMMIT_BOUNDARY_ACTIONS_LIST: readonly { id: string; description: string }[] = [

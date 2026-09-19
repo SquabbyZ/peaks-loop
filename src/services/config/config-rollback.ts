@@ -1,6 +1,4 @@
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
-import { homedir } from 'node:os';
-import { join } from 'node:path';
 import { backupConfigPath, globalConfigPath } from './config-migration.js';
 
 export interface RollbackPlan {

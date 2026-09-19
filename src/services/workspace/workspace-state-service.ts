@@ -19,7 +19,7 @@ const LEGACY_DOTFILES: readonly string[] = [
 const STATE_DIR_NAME = '_state';
 
 export function isLegacyDecisionDotfile(name: string): boolean {
-  return (LEGACY_DOTFILES as readonly string[]).includes(name);
+  return LEGACY_DOTFILES.includes(name);
 }
 
 export function stateDirPath(projectRoot: string): string {

@@ -28,7 +28,7 @@
  * never silently blocked from running the real runner — they can set
  * the env vars and re-run.
  */
-import { Command } from 'commander';
+import type { Command } from 'commander';
 import { spawn as nodeSpawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';

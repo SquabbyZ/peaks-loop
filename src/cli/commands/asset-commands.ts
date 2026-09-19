@@ -41,16 +41,14 @@
  * translates flags into the service payload.
  */
 
-import { Command } from 'commander';
+import type { Command } from 'commander';
 import { existsSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { openStateDb } from '../../services/skillhub/sqlite-store.js';
 import {
   CrystallizationService,
   CrystallizationIntegrityError,
-  type CrystallizationOptions,
   BriefSectionError,
-  renderRecommendationPayload,
   safeRenderRecommendationPayload,
   CRYSTALLIZATION_TRIGGERS,
   type CrystallizationTrigger,
@@ -301,9 +299,7 @@ export function registerAssetCommands(program: Command, io: ProgramIO): void {
         const db = openStateDb(join(projectRoot, '.peaks', 'state.db'));
         try {
           const svc = new CrystallizationService(db, {
-            loopReleaseSchema: LoopReleaseSchema as unknown as ConstructorParameters<
-              typeof CrystallizationService
-            >[1]['loopReleaseSchema'],
+            loopReleaseSchema: LoopReleaseSchema,
             loopBeeRelationSchema: LoopBeeRelationSchema as unknown as ConstructorParameters<
               typeof CrystallizationService
             >[1]['loopBeeRelationSchema'],
@@ -480,9 +476,7 @@ export function registerAssetCommands(program: Command, io: ProgramIO): void {
         const db = openStateDb(join(projectRoot, '.peaks', 'state.db'));
         try {
           const svc = new CrystallizationService(db, {
-            loopReleaseSchema: LoopReleaseSchema as unknown as ConstructorParameters<
-              typeof CrystallizationService
-            >[1]['loopReleaseSchema'],
+            loopReleaseSchema: LoopReleaseSchema,
             loopBeeRelationSchema: LoopBeeRelationSchema as unknown as ConstructorParameters<
               typeof CrystallizationService
             >[1]['loopBeeRelationSchema'],
@@ -607,9 +601,7 @@ export function registerAssetCommands(program: Command, io: ProgramIO): void {
       const db = openStateDb(join(projectRoot, '.peaks', 'state.db'));
       try {
         const svc = new CrystallizationService(db, {
-          loopReleaseSchema: LoopReleaseSchema as unknown as ConstructorParameters<
-            typeof CrystallizationService
-          >[1]['loopReleaseSchema'],
+          loopReleaseSchema: LoopReleaseSchema,
           loopBeeRelationSchema: LoopBeeRelationSchema as unknown as ConstructorParameters<
             typeof CrystallizationService
           >[1]['loopBeeRelationSchema'],

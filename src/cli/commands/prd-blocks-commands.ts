@@ -17,7 +17,7 @@
 import type { Command } from 'commander';
 import { findProjectRoot } from '../../services/config/config-safety.js';
 import { checkPrdBlocks } from '../../services/prd/prd-blocks-checker.js';
-import { fail, ok } from 'peaks-loop-shared/result';
+import { ok } from 'peaks-loop-shared/result';
 
 import { addJsonOption, printResult, type ProgramIO } from '../cli-helpers.js';
 

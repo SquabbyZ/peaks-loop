@@ -25,7 +25,7 @@
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { Command } from 'commander';
+import type { Command } from 'commander';
 
 import { fail, ok, getErrorMessage } from 'peaks-loop-shared/result';
 

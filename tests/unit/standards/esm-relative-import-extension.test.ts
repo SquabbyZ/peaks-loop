@@ -310,7 +310,12 @@ describe('Scenario: integration — the guard walks the real src/ + tests/ trees
     // `.js` extension the rule requires, so — as with S3c, S3e and S5a — the
     // violation assertion below is unaffected. `scan.files.length` moved by +1 as
     // well, in the pin above.
-    expect(scan.specifiers.length).toBe(2727);
+    // 2727 -> 2710 (slice rid-s7-mechanical-and-type-quality): −17, the net
+    // number of relative specifiers removed when that slice deleted unused
+    // import bindings. The removed names are all relative modules, so the
+    // violation assertion below is unaffected — no `.js` extension was
+    // dropped, a whole specifier was. `scan.files.length` is unchanged.
+    expect(scan.specifiers.length).toBe(2710);
   });
 
   it('reaches every relative specifier that crosses into packages/*/src', () => {

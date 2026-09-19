@@ -3,7 +3,7 @@
  * env var named in `provider.apiKeyEnv` (default `ANTHROPIC_API_KEY`).
  * Per A4 prohibition, NO SDK; we use fetch directly.
  */
-import type { ReviewerProviderConfig } from '../reviewer-config.js';
+
 import type { ProviderCallInput, ProviderCallResult } from './ollama.js';
 
 const ANTHROPIC_ENDPOINT = 'https://api.anthropic.com/v1/messages';

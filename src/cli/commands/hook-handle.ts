@@ -1,4 +1,4 @@
-import { Command } from 'commander';
+import type { Command } from 'commander';
 import { addJsonOption, printResult, type ProgramIO } from '../cli-helpers.js';
 import {
   detectIdeFromContext,
@@ -12,7 +12,6 @@ import { getAdapter } from '../../services/ide/ide-registry.js';
 import { evaluateCodeBan } from '../../services/audit/enforcers/code-ban.js';
 import { isRootWrite } from '../../services/audit/enforcers/no-root-pollution.js';
 import { checkLoginGate } from '../../services/audit/enforcers/login-gate.js';
-import { getSessionIdCanonical } from '../../services/session/session-manager.js';
 import { resolveActiveSkillForCaller } from '../../services/audit/enforcers/active-skill-resolver.js';
 import { fail, ok } from 'peaks-loop-shared/result';
 

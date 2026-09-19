@@ -21,8 +21,7 @@ afterEach(async () => {
 });
 
 async function loadDispatch(): Promise<DispatchModule> {
-  const module =
-    (await import('../../src/services/dispatch/dispatch-sub-agent.js')) as unknown as DispatchModule;
+  const module = await import('../../src/services/dispatch/dispatch-sub-agent.js');
   expect(typeof module.dispatchSubAgent).toBe('function');
   return module;
 }

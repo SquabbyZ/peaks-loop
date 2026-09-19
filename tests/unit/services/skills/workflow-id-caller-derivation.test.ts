@@ -12,7 +12,7 @@
 //   - a11y:        omitted — no human-facing text in this path.
 
 import { describe, expect, it, beforeEach, afterEach } from 'vitest';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { declareDimensions } from '../../_setup/4dim-template.js';

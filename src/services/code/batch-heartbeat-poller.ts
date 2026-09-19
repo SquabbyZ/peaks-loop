@@ -164,9 +164,7 @@ export class BatchHeartbeatPoller {
     } else if (
       recs.length > 0 &&
       recs.every(
-        (r) =>
-          TERMINAL_RECORD_STATUSES.includes(r.status) ||
-          TERMINAL_STATUSES.includes(r.status as HeartbeatStatus)
+        (r) => TERMINAL_RECORD_STATUSES.includes(r.status) || TERMINAL_STATUSES.includes(r.status)
       )
     ) {
       this.handlers.onDone?.({ kind: 'done', summary });

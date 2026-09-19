@@ -97,7 +97,7 @@ export type RunStateContract = z.infer<typeof RunStateContractSchema>;
  * dispatch flow (separate write path).
  */
 export function parseRunStateContract(input: unknown): RunStateContract {
-  return RunStateContractSchema.parse(input) as RunStateContract;
+  return RunStateContractSchema.parse(input);
 }
 
 /**
@@ -109,7 +109,7 @@ export function safeParseRunStateContract(
   | { ok: true; contract: RunStateContract }
   | { ok: false; findings: Array<{ path: string; message: string }> } {
   const r = RunStateContractSchema.safeParse(input);
-  if (r.success) return { ok: true, contract: r.data as RunStateContract };
+  if (r.success) return { ok: true, contract: r.data };
   return {
     ok: false,
     findings: r.error.issues.map((i) => ({
@@ -150,5 +150,5 @@ export function buildRunState(args: {
     updated_at: args.updated_at,
     last_evaluator_verdict: args.last_evaluator_verdict ?? null,
     last_user_choice: args.last_user_choice ?? null
-  }) as RunStateContract;
+  });
 }

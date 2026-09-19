@@ -7,10 +7,7 @@ import type {
 } from './skill-statusline-service.js';
 import type { CompactStatuslineState } from '../compact-statusline/compact-statusline-service.js';
 import { AUTO_COMPACT_RED_LINE_RATIO } from '../context/auto-compact-types.js';
-import {
-  computeRootSuffix as computeRootSuffixImpl,
-  formatShortSid
-} from './skill-statusline-sid-suffix.js';
+import { computeRootSuffix as computeRootSuffixImpl } from './skill-statusline-sid-suffix.js';
 
 // Re-export so existing test imports
 // (`import { formatShortSid, computeRootSuffix } from '.../skill-statusline-renderer'`)

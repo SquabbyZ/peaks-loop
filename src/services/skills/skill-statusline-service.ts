@@ -185,7 +185,7 @@ export function parseStatusLineStdin(raw: string): StatusLineStdin | null {
   try {
     const parsed: unknown = JSON.parse(trimmed);
     if (parsed && typeof parsed === 'object') {
-      return parsed as StatusLineStdin;
+      return parsed;
     }
     return null;
   } catch {

@@ -1,5 +1,5 @@
 import { readFile } from 'node:fs/promises';
-import { Command } from 'commander';
+import type { Command } from 'commander';
 import {
   loadOpenSpecChange,
   scanOpenSpec,
@@ -20,10 +20,7 @@ import {
   OpenSpecArchiveError,
   type OpenSpecArchiveOptions
 } from '../../services/openspec/openspec-archive-service.js';
-import {
-  executeOpenSpecInit,
-  type OpenSpecInitOptions
-} from '../../services/openspec/openspec-init-service.js';
+import { executeOpenSpecInit } from '../../services/openspec/openspec-init-service.js';
 import {
   proposeFromDoctor,
   type DoctorFinding

@@ -12,7 +12,6 @@
 import type { Command } from 'commander';
 import { findProjectRoot } from '../../services/config/config-safety.js';
 import {
-  DEFAULT_PERMISSIONS,
   DEFAULT_SENIOR_FE_ROLE,
   grantPermission,
   readRoleRegistry,

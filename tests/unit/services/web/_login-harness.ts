@@ -26,7 +26,7 @@ import {
   loginStorageStatePath,
   webProfileDir
 } from '../../../../src/services/web/web-login-profile.js';
-import { pw, resetPw } from './_login-fake.js';
+import { resetPw } from './_login-fake.js';
 
 export { pw } from './_login-fake.js';
 

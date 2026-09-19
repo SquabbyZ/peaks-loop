@@ -58,7 +58,7 @@ export function findLeakedDispatchRecords(
     if (Number.isNaN(createdMs)) continue;
     const ageMs = nowMs - createdMs;
     if (ageMs < thresholdMs) continue;
-    out.push({ path: fullPath, record: parsed as DispatchRecord, ageMs });
+    out.push({ path: fullPath, record: parsed, ageMs });
   }
   return out;
 }

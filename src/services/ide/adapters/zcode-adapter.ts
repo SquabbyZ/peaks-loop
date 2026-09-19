@@ -90,7 +90,7 @@ export function resolveZcodeCurrentModel(
   if (envOverride !== undefined && envOverride !== '') {
     const target = (providers as Record<string, unknown>)[envOverride];
     if (target && typeof target === 'object') {
-      const modelId = pickFirstModelId(target as { models?: unknown });
+      const modelId = pickFirstModelId(target);
       if (modelId) return modelId;
     }
   }
@@ -99,7 +99,7 @@ export function resolveZcodeCurrentModel(
   for (const [uuid, entry] of Object.entries(providers as Record<string, unknown>)) {
     if (uuid.startsWith('builtin:')) continue;
     if (!entry || typeof entry !== 'object') continue;
-    const modelId = pickFirstModelId(entry as { models?: unknown });
+    const modelId = pickFirstModelId(entry);
     if (modelId) return modelId;
   }
 
@@ -108,7 +108,7 @@ export function resolveZcodeCurrentModel(
     if (!entry || typeof entry !== 'object') continue;
     const enabled = (entry as { enabled?: unknown }).enabled;
     if (enabled === true) {
-      const modelId = pickFirstModelId(entry as { models?: unknown });
+      const modelId = pickFirstModelId(entry);
       if (modelId) return modelId;
     }
   }
@@ -116,7 +116,7 @@ export function resolveZcodeCurrentModel(
   // P4: first provider at all.
   for (const entry of Object.values(providers as Record<string, unknown>)) {
     if (!entry || typeof entry !== 'object') continue;
-    const modelId = pickFirstModelId(entry as { models?: unknown });
+    const modelId = pickFirstModelId(entry);
     if (modelId) return modelId;
   }
 
@@ -126,7 +126,7 @@ export function resolveZcodeCurrentModel(
 function pickFirstModelId(provider: { models?: unknown }): string | undefined {
   const models = provider.models;
   if (!models || typeof models !== 'object') return undefined;
-  for (const key of Object.keys(models as Record<string, unknown>)) {
+  for (const key of Object.keys(models)) {
     if (typeof key === 'string' && key.trim().length > 0) return key.trim();
   }
   return undefined;

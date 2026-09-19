@@ -297,8 +297,8 @@ export function registerCompactCommands(program: Command, io: ProgramIO): void {
         process.exitCode = 1;
         return;
       }
-      const envelope = buildRecommendEnvelopePure(options.from as Phase, options.to as Phase);
-      const lookup = lookupPhaseTransition(options.from as Phase, options.to as Phase);
+      const envelope = buildRecommendEnvelopePure(options.from, options.to);
+      const lookup = lookupPhaseTransition(options.from, options.to);
       printResult(
         io,
         ok(

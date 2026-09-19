@@ -8,7 +8,7 @@
  */
 
 import type { Command } from 'commander';
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { getCurrentSessionId } from '../../services/skills/skill-presence-service.js';
 import { isUnsafePathInput } from '../../shared/path-safety.js';

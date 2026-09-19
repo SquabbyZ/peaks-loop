@@ -1,7 +1,7 @@
 import { existsSync, copyFileSync, mkdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { Command } from 'commander';
+import type { Command } from 'commander';
 import { fail, ok } from 'peaks-loop-shared/result';
 
 import { addJsonOption, printResult, getErrorMessage, type ProgramIO } from '../cli-helpers.js';

@@ -25,7 +25,7 @@
  * Per the "Enhancement, not new AI CLI" tenet: this command is a
  * download + read-only access layer. There is no `peaks ecc run`.
  */
-import { Command } from 'commander';
+import type { Command } from 'commander';
 import {
   downloadToCache,
   listCachedAgents,

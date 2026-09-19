@@ -259,7 +259,7 @@ describe('peaks sub-agent dispatch rd (P1-7 e2e)', () => {
     // The toolCall carries the lease id for adapters that surface it
     // (and so the sub-agent can set PEAKS_WORKTREE_LEASE_ID locally).
     expect(env.data.toolCall.args.isolation).toBe('worktree');
-    const env2 = (env.data.toolCall.args.env ?? {}) as Record<string, string>;
+    const env2 = env.data.toolCall.args.env ?? {};
     expect(env2.PEAKS_WORKTREE_LEASE_ID).toBe(env.data.leaseId);
 
     // The on-disk lease file exists and is valid JSON.

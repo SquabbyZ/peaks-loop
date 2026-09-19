@@ -109,15 +109,15 @@ export function buildMemoryIndex(projectRoot: string): MemoryIndex {
   }
 
   for (const kind of [...Object.keys(hot), ...Object.keys(warm)]) {
-    const arr = hot[kind as keyof typeof hot] ?? warm[kind as keyof typeof warm];
+    const arr = hot[kind] ?? warm[kind];
     if (arr) arr.sort((a, b) => a.name.localeCompare(b.name));
   }
 
   return {
     version: 1,
     updatedAt: new Date().toISOString(),
-    hot: hot as Record<ProjectMemoryKind, MemoryIndexEntry[]>,
-    warm: warm as Record<ProjectMemoryKind, MemoryIndexEntry[]>
+    hot: hot,
+    warm: warm
   };
 }
 

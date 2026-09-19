@@ -61,7 +61,7 @@
  * exits 0 when the card cannot be built.
  */
 
-import { existsSync, readdirSync, statSync } from 'node:fs';
+import { readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { readJobShapeDecision } from '../code/job-shape-decision.js';

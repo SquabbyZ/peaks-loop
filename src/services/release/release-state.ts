@@ -204,7 +204,7 @@ export function hotfixRelease(
     state: { ...currentState, active: record },
     record,
     ...(priorRecord !== null ? { rolledBack: priorRecord } : {})
-  } as { state: ReleaseState; record: ReleaseRecord };
+  };
 }
 
 /** Compute the watch window. */

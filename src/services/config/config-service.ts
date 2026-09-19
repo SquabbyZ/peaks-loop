@@ -1,4 +1,4 @@
-import { existsSync, lstatSync, mkdirSync, realpathSync } from 'node:fs';
+import { existsSync, mkdirSync } from 'node:fs';
 import { dirname, isAbsolute, resolve } from 'node:path';
 import {
   DEFAULT_CONFIG,
@@ -24,7 +24,6 @@ import {
   getUserConfigPath,
   isInsidePath,
   readConfigFileSafely,
-  resolveCanonicalProjectRoot,
   resolveProjectRootForConfig,
   validateArtifactWorkspaceMarkerPath,
   validateArtifactWorkspaceRoot,
@@ -102,15 +101,15 @@ function promoteLegacyGlobalFieldsToSidecars(raw: Record<string, unknown>): void
     });
     const mergedProviders = {
       ...(existing.providers ?? {}),
-      ...(raw.providers as Record<string, unknown>)
+      ...raw.providers
     };
     writeSidecarJson(providersConfigPath(), {
       version: SIDECAR_SCHEMA_VERSION,
       providers: mergedProviders
     });
   }
-  if (isRecord(raw.proxy) && typeof (raw.proxy as Record<string, unknown>).httpProxy === 'string') {
-    const httpProxy = (raw.proxy as Record<string, unknown>).httpProxy as string;
+  if (isRecord(raw.proxy) && typeof raw.proxy.httpProxy === 'string') {
+    const httpProxy = raw.proxy.httpProxy;
     if (!sidecarExists(proxyConfigPath())) {
       writeSidecarJson(proxyConfigPath(), { version: SIDECAR_SCHEMA_VERSION, httpProxy });
     }
@@ -272,7 +271,7 @@ function removeProjectSensitiveConfig(config: Partial<PeaksConfig>): Partial<Pea
     Object.entries(safeConfig).filter(
       ([key, value]) => !isSecretKey(key) && !containsSensitiveConfigValue(value)
     )
-  ) as Partial<PeaksConfig>;
+  );
 }
 
 export function isConfigLayer(value: string): value is ConfigLayer {
@@ -694,7 +693,7 @@ export function readConfig(projectRoot?: string | null): PeaksConfig {
     ...DEFAULT_CONFIG,
     ...userConfig,
     ...projectConfigWithoutProxy
-  } as PeaksConfig;
+  };
 }
 
 function sanitizeWorkspacePartial(partial: Record<string, unknown>): Record<string, unknown> {
@@ -768,7 +767,7 @@ export function getConfig(options: ConfigGetOptions = {}): unknown {
     : source;
 
   if (options.key !== undefined) {
-    return getNestedValue(config as Record<string, unknown>, options.key);
+    return getNestedValue(config, options.key);
   }
 
   return config;

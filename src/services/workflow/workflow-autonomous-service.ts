@@ -9,21 +9,13 @@ import type {
   CapabilityAvailabilityStatus,
   CapabilityItemType
 } from '../recommendations/recommendation-types.js';
-import type { ModelProviderConfig, WorkspaceConfig } from '../config/config-types.js';
 import { createRdSwarmPlan, type RdPlanResult } from '../rd/rd-service.js';
-import {
-  createWorkflowRouterPlan,
-  type CodeMode,
-  type WorkflowMode,
-  type WorkflowRouterPlan
-} from './workflow-router-service.js';
+import { createWorkflowRouterPlan, type WorkflowRouterPlan } from './workflow-router-service.js';
 import type {
   AutonomousCapabilityPlan,
   AutonomousGoalCommand,
   AutonomousGoalPackage,
   AutonomousMvpPackage,
-  AutonomousResumePlan,
-  AutonomousStoragePlan,
   AutonomousWorkflowPlan,
   AutonomousWorkflowRequest,
   CapabilityActivation,

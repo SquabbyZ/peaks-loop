@@ -154,14 +154,14 @@ const CENSUS: readonly Entry[] = [
   {
     file: 'src/services/code/auto-compact-orchestrator.ts',
     rule: 'empty-catch',
-    line: 956,
+    line: 955,
     frame: 'dispatch history append',
     reason: 'telemetry must not fail the compact return'
   },
   {
     file: 'src/services/code/auto-compact-orchestrator.ts',
     rule: 'empty-catch',
-    line: 1059,
+    line: 1058,
     frame: 'appendObservedCompactEvent',
     reason: 'same best-effort discipline on the post-compact measurement row'
   }

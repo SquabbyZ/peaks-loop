@@ -24,7 +24,7 @@
 //     rebuilt against the current directory.
 // ---------------------------------------------------------------------------
 
-import { copyFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
+import { copyFileSync, mkdirSync, readFileSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
 
 import {

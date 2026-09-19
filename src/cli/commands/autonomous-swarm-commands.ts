@@ -1,4 +1,4 @@
-import { Command } from 'commander';
+import type { Command } from 'commander';
 import { fail, ok } from 'peaks-loop-shared/result';
 import { getWorkspaceConfigForPath } from '../../services/config/config-service.js';
 import { getLocalArtifactPath } from '../../services/artifacts/workspace-service.js';

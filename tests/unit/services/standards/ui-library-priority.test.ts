@@ -63,7 +63,7 @@ function renderFor(componentLibrary: string): string | null {
   const ctx: ProjectContext = {
     hasPackageJson: true,
     buildTool: 'vite',
-    componentLibrary: { name: componentLibrary as 'antd' } as ProjectContext['componentLibrary'],
+    componentLibrary: { name: componentLibrary as 'antd' },
     cssFrameworks: ['tailwind'],
     cssConflicts: [],
     stateManagement: [],

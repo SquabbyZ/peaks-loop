@@ -14,7 +14,7 @@ import { retrieveDocs, type DocFetcher } from './doc-retriever.js';
 import { tokenize } from './tokenizer.js';
 import { render, type RenderInput } from './renderer.js';
 import { ContextJsonSchema } from './context-schema.js';
-import type { Audience, ContextJson } from './types.js';
+import type { ContextJson } from './types.js';
 
 const BuildInputSchema = z.object({
   goal: z.string().min(1),
@@ -51,7 +51,7 @@ export async function buildContext(rawInput: unknown): Promise<ContextJson> {
 
   const renderInput: RenderInput = {
     goal: input.goal,
-    audience: input.audience as Audience,
+    audience: input.audience,
     docBudgetTokens: input.docBudgetTokens,
     collector: collected.collector,
     docRetriever: docs,

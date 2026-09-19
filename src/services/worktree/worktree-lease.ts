@@ -58,7 +58,7 @@ export const DEFAULT_TTL_BY_ROLE: Readonly<Record<string, number>> = Object.free
   sc: LEASE_SC_TTL_MINUTES * MS_PER_MINUTE,
   prd: LEASE_PRD_TTL_MINUTES * MS_PER_MINUTE,
   general: LEASE_GENERAL_TTL_MINUTES * MS_PER_MINUTE
-}) as Readonly<Record<string, number>>;
+});
 
 export const DEFAULT_TTL_MS = DEFAULT_TTL_BY_ROLE.rd;
 

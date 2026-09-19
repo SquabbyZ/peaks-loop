@@ -19,7 +19,7 @@
 
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { createHash } from 'node:crypto';
-import { dirname, join, resolve } from 'node:path';
+import { join, resolve } from 'node:path';
 import { atomicWriteJson } from '../ide/shared/atomic-json.js';
 import { CALLER_ID_REGEX, type CallerBinding } from './caller-id-types.js';
 import { getSessionDir } from './getSessionDir.js';

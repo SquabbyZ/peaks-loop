@@ -22,7 +22,7 @@
  */
 
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
-import { dirname, join, resolve, isAbsolute } from 'node:path';
+import { join, resolve, isAbsolute } from 'node:path';
 import { createHash } from 'node:crypto';
 import { REQUEST_ID_PATTERN } from '../artifacts/request-artifact-service.js';
 import { resolveHandoffPath } from '../prd/handoff-service.js';

@@ -480,7 +480,7 @@ export function withExternalGateExemptions(
   const env: Record<string, unknown> = isPlainObject(settings.env) ? { ...settings.env } : {};
   let changed = false;
   for (const [key, glob] of Object.entries(EXTERNAL_GATE_EXEMPT_ENV)) {
-    const current = typeof env[key] === 'string' ? (env[key] as string) : '';
+    const current = typeof env[key] === 'string' ? env[key] : '';
     const existing = splitGlobList(current);
     if (existing.includes(glob)) continue;
     env[key] = [...existing, glob].join(',');

@@ -29,7 +29,6 @@ import {
 // session-id-shaped directories at the `.peaks/_runtime/` sibling
 // level.
 import { ensureSessionWithRotation } from '../../../services/session/session-manager.js';
-import { resolveCanonicalProjectRoot } from '../../../services/config/config-service.js';
 import {
   resolveWritableProjectRoot,
   UnsafeProjectRootError

@@ -157,7 +157,7 @@ export function parseWorkflowYaml(raw: string, expectedId: string): WorkflowSpec
         // We push a new frame so subsequent `- ` lines belong to the inner array.
         stack.push({
           kind: 'array',
-          container: top.container as unknown as unknown[],
+          container: top.container,
           key: childKey
         });
         // Replace top's last item with the placeholder object — but we

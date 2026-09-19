@@ -16,7 +16,7 @@
 
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
-import type { RedLineBacking, RedLineEntry } from './types.js';
+import type { RedLineEntry } from './types.js';
 
 const PARTIAL_PHRASES = [
   'if llm cooperates',

@@ -275,7 +275,7 @@ export function setPresenceLease(input: SetPresenceLeaseInput): SetPresenceLease
     lease,
     index,
     gc
-  } as SetPresenceLeaseResult & SkillPresenceLease;
+  };
 }
 
 /**

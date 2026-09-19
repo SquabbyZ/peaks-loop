@@ -78,7 +78,7 @@ const VIOLATION_KINDS: ReadonlyArray<string> = [
 const GATE_ACTIONS: ReadonlyArray<ReviewerEnvelope['gateAction']> = ['block', 'allow', 'warn'];
 
 function isViolationKind(value: unknown): value is ReviewerViolation['kind'] {
-  return typeof value === 'string' && (VIOLATION_KINDS as ReadonlyArray<string>).includes(value);
+  return typeof value === 'string' && VIOLATION_KINDS.includes(value);
 }
 
 function isGateAction(value: unknown): value is ReviewerEnvelope['gateAction'] {
@@ -107,22 +107,22 @@ export function validateReviewerEnvelope(value: unknown): ReviewerEnvelope | nul
     if (typeof r['line'] !== 'number' || !Number.isInteger(r['line']) || r['line'] < 0) return null;
     if (typeof r['hint'] !== 'string' || r['hint'].length === 0) return null;
     violations.push({
-      kind: r['kind'] as ReviewerViolation['kind'],
-      file: r['file'] as string,
-      line: r['line'] as number,
-      hint: r['hint'] as string
+      kind: r['kind'],
+      file: r['file'],
+      line: r['line'],
+      hint: r['hint']
     });
   }
   if (!isGateAction(v['gateAction'])) return null;
   if (typeof v['reason'] !== 'string' || v['reason'].length === 0) return null;
   return {
-    reviewerId: v['reviewerId'] as string,
-    modelId: v['modelId'] as string,
-    modelFamily: v['modelFamily'] as string,
-    passed: v['passed'] as boolean,
+    reviewerId: v['reviewerId'],
+    modelId: v['modelId'],
+    modelFamily: v['modelFamily'],
+    passed: v['passed'],
     violations,
-    gateAction: v['gateAction'] as ReviewerEnvelope['gateAction'],
-    reason: v['reason'] as string
+    gateAction: v['gateAction'],
+    reason: v['reason']
   };
 }
 

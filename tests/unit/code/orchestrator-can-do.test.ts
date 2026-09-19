@@ -31,7 +31,7 @@
 //                 the LLM can copy-paste; no human-facing CLI hint
 //                 in error path
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { resolve } from 'node:path';
 import { declareDimensions } from '../_setup/4dim-template.js';
 import { makeCapturedIo } from '../_setup/io.js';

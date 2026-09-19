@@ -13,7 +13,7 @@
  */
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import type { DocFetcher, FetcherPayload } from './doc-retriever.js';
+import type { DocFetcher } from './doc-retriever.js';
 
 export interface DocCacheFetcherOptions {
   readonly cacheDir: string;

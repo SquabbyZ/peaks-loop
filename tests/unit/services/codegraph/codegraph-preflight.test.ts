@@ -178,7 +178,7 @@ describe('Scenario: integration — buildCodegraphPreflightBlock against a real 
       expect(result.available).toBe(true);
       if (!result.available) throw new Error('unreachable');
       expect(result.block).toContain('## Codegraph structure');
-      const subcommands = runner.mock.calls.map((c) => (c[0] as CodegraphInvocation).subcommand);
+      const subcommands = runner.mock.calls.map((c) => c[0].subcommand);
       expect(subcommands).toEqual(['init', 'index', 'files']);
     } finally {
       rmSync(project, { recursive: true, force: true });
@@ -203,7 +203,7 @@ describe('Scenario: integration — buildCodegraphPreflightBlock against a real 
       const result = await buildCodegraphPreflightBlock(project, runner);
       // then: no redundant re-index — the runner was only asked for files
       expect(result.available).toBe(true);
-      const subcommands = runner.mock.calls.map((c) => (c[0] as CodegraphInvocation).subcommand);
+      const subcommands = runner.mock.calls.map((c) => c[0].subcommand);
       expect(subcommands).toEqual(['files']);
       expect(subcommands).not.toContain('init');
       expect(subcommands).not.toContain('index');
@@ -232,7 +232,7 @@ describe('Scenario: integration — buildCodegraphPreflightBlock against a real 
       // then: it self-heals by running init → index → files in order
       expect(result.available).toBe(true);
       if (!result.available) throw new Error('unreachable');
-      const subcommands = runner.mock.calls.map((c) => (c[0] as CodegraphInvocation).subcommand);
+      const subcommands = runner.mock.calls.map((c) => c[0].subcommand);
       expect(subcommands).toEqual(['init', 'index', 'files']);
     } finally {
       rmSync(project, { recursive: true, force: true });
@@ -292,9 +292,7 @@ describe('Scenario: integration — buildCodegraphPreflightBlock against a real 
       // … and the tree is indexed exactly ONCE: the repair does not add a
       //    second (5-30 s) rebuild because the preflight's own index
       //    already covers the recovered files.
-      const subcommands = runner.mock.calls.map(
-        (call) => (call[0] as CodegraphInvocation).subcommand
-      );
+      const subcommands = runner.mock.calls.map((call) => call[0].subcommand);
       expect(subcommands).toEqual(['init', 'index', 'files']);
     } finally {
       rmSync(project, { recursive: true, force: true });

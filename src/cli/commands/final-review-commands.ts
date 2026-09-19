@@ -27,7 +27,7 @@
 
 import { existsSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { Command } from 'commander';
+import type { Command } from 'commander';
 import { REQUEST_ID_PATTERN } from '../../services/artifacts/request-artifact-service.js';
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
 import { fail, ok, type ResultEnvelope } from 'peaks-loop-shared/result';

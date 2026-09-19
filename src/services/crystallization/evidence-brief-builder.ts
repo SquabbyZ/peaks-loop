@@ -196,7 +196,7 @@ export function buildEvidenceBrief(
   // primary), but the surface is preserved for callers via
   // `renderRecommendationPayload` below.
   void evaluatorSummary;
-  return result.data as EvidenceBrief;
+  return result.data;
 }
 
 /**

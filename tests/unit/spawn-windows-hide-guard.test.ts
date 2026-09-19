@@ -743,10 +743,12 @@ const formatViolation = (entry: { readonly file: string; readonly site: SpawnSit
  * list, which could only ever fail for a path someone had already added.
  */
 const NO_RESOLVED_CALL_SITES: readonly { readonly file: string; readonly why: string }[] = [
-  {
-    file: 'src/services/dispatch/post-merge.ts',
-    why: 'imports `execFileSync` and never calls it — a dead import left by the merge-back refactor; the real git spawn is in `merge-back-runner.ts`.'
-  }
+  // Empty by intent, not by omission. The one entry this list ever held —
+  // `src/services/dispatch/post-merge.ts`, "imports `execFileSync` and never
+  // calls it — a dead import left by the merge-back refactor" — was paid off by
+  // slice S7, which removed the dead import. Per the doctrine above ("stops
+  // importing ... fails here"), paying the debt deletes the entry: the file no
+  // longer imports `child_process`, so it cannot be a silent zero-site file.
 ];
 
 /**

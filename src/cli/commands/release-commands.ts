@@ -65,9 +65,7 @@ export function executeCanaryAction(
   // Layers C/D default warning → do not block canary; --strict upgrade would
   // be a separate flag (out of scope for rid-010).
   const precheck = runAllLayers({ projectRoot, strict: false });
-  const blockerEntry = (Object.entries(precheck.layers) as Array<[string, LayerResult]>).find(
-    ([, l]) => l.status === 'blocker'
-  );
+  const blockerEntry = Object.entries(precheck.layers).find(([, l]) => l.status === 'blocker');
   if (blockerEntry !== undefined) {
     const [name, result] = blockerEntry;
     return {
@@ -92,7 +90,7 @@ export function executeCanaryAction(
     };
   }
   const state = readReleaseState(projectRoot);
-  const targetStage = CANARY_PERCENTS[percent as 10 | 50];
+  const targetStage = CANARY_PERCENTS[percent];
   const result = transitionRelease(state, targetStage, opts.note);
   if ('error' in result) {
     return {

@@ -14,7 +14,7 @@
  */
 
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
 import { execSync } from 'node:child_process';
 
 export interface SkillSection {

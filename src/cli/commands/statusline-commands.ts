@@ -1,4 +1,4 @@
-import { Command } from 'commander';
+import type { Command } from 'commander';
 import { fail, ok } from 'peaks-loop-shared/result';
 
 import { addJsonOption, printResult, getErrorMessage, type ProgramIO } from '../cli-helpers.js';
@@ -212,7 +212,7 @@ export function registerStatusLineCommands(program: Command, io: ProgramIO): voi
   // rest. The implementation is wrapped in `peekDefaultStatuslineRender` so
   // it can be exercised in isolation by unit tests.
   statusline.action(async (_parentOptions: RenderOptions, command: Command) => {
-    await runDefaultStatuslineRender(command.opts() as RenderOptions, io);
+    await runDefaultStatuslineRender(command.opts(), io);
   });
 
   // Hidden render subcommand. Preserved for callers that want to invoke
@@ -425,7 +425,7 @@ export function registerStatusLineCommands(program: Command, io: ProgramIO): voi
             now?: number | string;
           } = {
             ...options,
-            ...(command.optsWithGlobals?.() as { json?: boolean })
+            ...command.optsWithGlobals?.()
           };
           try {
             const projectRoot =

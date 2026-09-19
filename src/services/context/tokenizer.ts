@@ -64,5 +64,5 @@ export function tokenize(
     });
   }
 
-  return Object.freeze({ metadata: Object.freeze(metadata) as ReadonlyArray<TokenizedItem> });
+  return Object.freeze({ metadata: Object.freeze(metadata) });
 }

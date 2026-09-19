@@ -70,7 +70,7 @@ export class ProcessSupervisor {
     // construction, whatever caller writes it. Capturing it here turns the
     // failure into a typed value on `settled` and removes the crash.
     const settled = new Promise<NodeJS.ErrnoException | null>((resolve) => {
-      child.on('error', (err: Error) => resolve(err as NodeJS.ErrnoException));
+      child.on('error', (err: Error) => resolve(err));
       child.on('spawn', () => resolve(null));
     });
 

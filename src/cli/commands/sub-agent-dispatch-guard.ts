@@ -20,7 +20,7 @@
  * The `peaks hooks install` command reads `IdeAdapter.promptSizeAware`
  * to decide whether to register this hook for a given IDE.
  */
-import { Command } from 'commander';
+import type { Command } from 'commander';
 import {
   evaluatePromptSize,
   type ContextGuardDecision

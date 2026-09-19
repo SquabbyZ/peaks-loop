@@ -153,19 +153,16 @@ export function executeMigration(opts: MigrationOptions & { apply: boolean }): M
     if (!existsSync(providersPath)) {
       writeSidecarJson(providersPath, {
         version: SIDECAR_SCHEMA_VERSION,
-        providers: original.providers as Record<string, unknown>
+        providers: original.providers
       });
     }
   }
-  if (
-    isPlainObject(original.proxy) &&
-    typeof (original.proxy as Record<string, unknown>).httpProxy === 'string'
-  ) {
+  if (isPlainObject(original.proxy) && typeof original.proxy.httpProxy === 'string') {
     const proxyPath = proxyConfigPath();
     if (!existsSync(proxyPath)) {
       writeSidecarJson(proxyPath, {
         version: SIDECAR_SCHEMA_VERSION,
-        httpProxy: (original.proxy as Record<string, unknown>).httpProxy as string
+        httpProxy: original.proxy.httpProxy
       });
     }
   }

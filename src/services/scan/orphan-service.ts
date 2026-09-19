@@ -432,7 +432,7 @@ function scanReExportsInFile(
         )
         .filter((s) => s.length > 0);
       for (const sym of symbols) {
-        out.push({ symbol: sym, from, line: lineOf(content, m!.index), resolvedFrom: resolved });
+        out.push({ symbol: sym, from, line: lineOf(content, m.index), resolvedFrom: resolved });
       }
     }
   }

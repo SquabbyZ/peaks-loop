@@ -198,7 +198,7 @@ function loadMostRecentCycleFromDir(dir: string, rid: string): MonotonicCycle | 
   if (!fs.existsSync(dir)) return null;
   const readdir: LoadResult<string[]> = (() => {
     try {
-      return { ok: true, value: fs.readdirSync(dir) as string[] };
+      return { ok: true, value: fs.readdirSync(dir) };
     } catch (err) {
       return { ok: false, reason: classifyFsError(err) };
     }

@@ -1,7 +1,5 @@
-import { readdirSync, existsSync } from 'node:fs';
-import { join } from 'node:path';
 import { Command } from 'commander';
-import { skillsDir, repoRoot } from 'peaks-loop-shared/paths';
+import { repoRoot } from 'peaks-loop-shared/paths';
 
 import { CLI_VERSION } from 'peaks-loop-shared/version';
 
@@ -24,7 +22,7 @@ import { registerPrimerCommand } from './commands/primer-command.js';
 import { registerReinjectCommand } from './commands/reinject-command.js';
 import { applyRetention, cleanupEccCache } from '../services/log/retention.js';
 import { writeLogEntry, maybeWriteStderr } from '../services/log/logger.js';
-import { printErrorEnvelope, printSuperCommandCatalog, type ProgramIO } from './cli-helpers.js';
+import { printSuperCommandCatalog, type ProgramIO } from './cli-helpers.js';
 
 export { printErrorEnvelope, printResult, type ProgramIO } from './cli-helpers.js';
 

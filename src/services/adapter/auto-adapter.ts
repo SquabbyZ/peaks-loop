@@ -11,7 +11,7 @@
  * (`src/cli/commands/adapter-commands.ts`) echoes back the name it was given
  * and reads no adapter file.
  */
-import { Adapter } from './adapter.js';
+import type { Adapter } from './adapter.js';
 
 type Detectable = Pick<Adapter, 'name' | 'detect'>;
 

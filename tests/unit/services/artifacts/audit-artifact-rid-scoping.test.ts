@@ -42,7 +42,6 @@ import {
   type ArtifactPrerequisite
 } from '../../../../src/services/artifacts/artifact-prerequisites.js';
 import { generateEvidence } from '../../../../src/services/evidence/evidence-generator.js';
-import type { RequestArtifactRole } from '../../../../src/services/artifacts/request-artifact-service.js';
 
 declareDimensions(
   'tests/unit/services/artifacts/audit-artifact-rid-scoping.test.ts',
@@ -180,7 +179,7 @@ async function missingPaths(
   const result = await checkPrerequisites({
     projectRoot,
     sessionId: SESSION_ID,
-    role: 'rd' as RequestArtifactRole,
+    role: 'rd',
     newState: 'qa-handoff',
     requestType: 'feature',
     requestId

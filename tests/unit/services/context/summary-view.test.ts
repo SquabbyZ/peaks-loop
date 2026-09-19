@@ -77,7 +77,7 @@ describe('behavior — fitSummaryToBytes', () => {
     // then: ≤ 2 KB, scalars untouched, array shorter
     expect(bytes(out)).toBeLessThanOrEqual(SUMMARY_MAX_BYTES);
     expect(out.count).toBe(2000);
-    expect((out.nested as { names: string[] }).names.length).toBeLessThan(2000);
+    expect(out.nested.names.length).toBeLessThan(2000);
   });
 
   it('when no array can be shrunk, should return the input without throwing', () => {

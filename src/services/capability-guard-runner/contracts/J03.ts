@@ -71,7 +71,7 @@ export async function runJ03Contract(ctx: GuardContext): Promise<GuardRunResult>
   if (counts !== null) {
     for (const rule of Object.keys(CEILING)) {
       if (counts[rule] === undefined) missingRules.push(rule);
-      else if (counts[rule]! > CEILING[rule]!)
+      else if (counts[rule] > CEILING[rule]!)
         grew.push(`${rule}: ${String(counts[rule])} > ${String(CEILING[rule])}`);
     }
   }

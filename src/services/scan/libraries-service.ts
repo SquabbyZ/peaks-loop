@@ -210,7 +210,7 @@ async function discoverWorkspacePackageJsons(
       const lernaRaw = await readText(lernaPath);
       const lerna = JSON.parse(lernaRaw) as { packages?: unknown };
       if (Array.isArray(lerna.packages) && lerna.packages.every((p) => typeof p === 'string')) {
-        const paths = await expandWorkspaceGlobs(projectRoot, lerna.packages as string[], warnings);
+        const paths = await expandWorkspaceGlobs(projectRoot, lerna.packages, warnings);
         return { paths, source: 'lerna' };
       }
     } catch (error) {

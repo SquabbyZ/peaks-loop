@@ -12,14 +12,7 @@
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { getSessionDir } from '../session/getSessionDir.js';
-import {
-  emptyAttempts,
-  isDecisionKey,
-  isState,
-  type DecisionKey,
-  type State,
-  type State24hSnapshot
-} from './state.js';
+import { emptyAttempts, isDecisionKey, isState, type State24hSnapshot } from './state.js';
 
 const STATE_FILENAME = '24h-state.json';
 
@@ -82,19 +75,19 @@ function coerceSnapshot(raw: unknown): State24hSnapshot {
     if (typeof v !== 'number' || !Number.isInteger(v) || v < 0) {
       throw new Error(`24H_STATE_INVALID: attempts.${k} must be a non-negative integer`);
     }
-    attempts[k as DecisionKey] = v;
+    attempts[k] = v;
   }
   return {
-    state: raw['state'] as State,
+    state: raw['state'],
     enteredAt: raw['enteredAt'],
-    enteredFrom: raw['enteredFrom'] as State | null,
-    activeSlices: raw['activeSlices'] as string[],
-    monotonicGuards: raw['monotonicGuards'] as number,
-    autoCompactCount: raw['autoCompactCount'] as number,
-    checkpoints: raw['checkpoints'] as number,
-    lastCheckpointAt: raw['lastCheckpointAt'] as string | null,
+    enteredFrom: raw['enteredFrom'],
+    activeSlices: raw['activeSlices'],
+    monotonicGuards: raw['monotonicGuards'],
+    autoCompactCount: raw['autoCompactCount'],
+    checkpoints: raw['checkpoints'],
+    lastCheckpointAt: raw['lastCheckpointAt'],
     attempts,
-    exitCondition: raw['exitCondition'] as string | null
+    exitCondition: raw['exitCondition']
   };
 }
 

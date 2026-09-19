@@ -25,7 +25,6 @@ import {
 import {
   CODEGRAPH_INDEX_INTEGRITY_EXIT_CODE,
   CODEGRAPH_INDEX_STRICT_ENV_VAR,
-  CODEGRAPH_INDEX_UNEVALUABLE_EXIT_CODE,
   CODEGRAPH_REPAIR_INDEX_COMMAND,
   codegraphIndexIntegrityExitCode,
   inspectCodegraphIndexIntegrity,

@@ -15,7 +15,7 @@ vi.mock('node:child_process', () => ({
  * the bare PATH shim fallback (`command === 'npx'`).
  */
 const { invocation } = vi.hoisted(() => ({
-  invocation: { command: 'npx', args: [] as readonly string[], baseEnv: {} as NodeJS.ProcessEnv }
+  invocation: { command: 'npx', args: [] as readonly string[], baseEnv: {} }
 }));
 
 vi.mock('../../../../src/services/lint/npx-resolver.js', () => ({

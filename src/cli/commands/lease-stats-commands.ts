@@ -31,7 +31,7 @@
  * is the answer.
  */
 
-import { Command } from 'commander';
+import type { Command } from 'commander';
 import { fail, ok } from 'peaks-loop-shared/result';
 
 import { addJsonOption, printResult, type ProgramIO } from '../cli-helpers.js';
@@ -98,7 +98,7 @@ export function computeLeaseStats(args: {
   const isoTally = new Map<string, number>();
   for (const ev of allEvents as ReadonlyArray<{ detail: Record<string, unknown> }>) {
     const detail = ev.detail;
-    const iso = typeof detail['isolation'] === 'string' ? (detail['isolation'] as string) : 'none';
+    const iso = typeof detail['isolation'] === 'string' ? detail['isolation'] : 'none';
     isoTally.set(iso, (isoTally.get(iso) ?? 0) + 1);
   }
 
@@ -137,7 +137,7 @@ export function registerLeaseStatsCommand(parent: Command, io: ProgramIO): void 
       const { sessions } = readAllSessionLeaseEvents(projectRoot);
       const eventsBySession = sessions.map((s) => ({
         sessionId: s.sessionId,
-        events: s.events.map((e) => ({ detail: (e.detail ?? {}) as Record<string, unknown> }))
+        events: s.events.map((e) => ({ detail: e.detail ?? {} }))
       }));
       const stats = computeLeaseStats({ projectRoot, eventsBySession });
       printResult(

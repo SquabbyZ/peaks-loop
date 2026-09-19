@@ -16,7 +16,7 @@
  * Pure function. No I/O. The CLI is `peaks legacy detect`.
  */
 
-import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs';
+import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
 export type LegacyKind =

@@ -13,15 +13,14 @@
 //
 // Not a spec: the leading `_` keeps it out of vitest's `*.test.ts` glob.
 
-import { Command } from 'commander';
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import Database from 'better-sqlite3';
 
-import { makeCapturedIo } from '../_setup/io.js';
+import type { makeCapturedIo } from '../_setup/io.js';
 import type { TmpWorkspace } from '../_setup/tmp-workspace.js';
-import { registerCodegraphCommands } from '../../../src/cli/commands/codegraph-commands.js';
+
 import { CODEGRAPH_INDEX_STRICT_ENV_VAR } from '../../../src/services/codegraph/codegraph-index-integrity.js';
 
 export type CapturedIo = ReturnType<typeof makeCapturedIo>['captured'];

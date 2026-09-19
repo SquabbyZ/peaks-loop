@@ -5,9 +5,9 @@
  * 800-line cap, outputStyle).
  */
 
-import { Command } from 'commander';
+import type { Command } from 'commander';
 import { auditSkillConformance } from '../../services/skills/skill-conformance-service.js';
-import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
+import { getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
 import { fail, ok } from 'peaks-loop-shared/result';
 
 type AuditConformanceOptions = {

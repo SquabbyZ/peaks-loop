@@ -52,7 +52,7 @@
 
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
+import { join, resolve } from 'node:path';
 
 /** Bumped only if the digest's input definition changes. */
 export const DIST_STAMP_VERSION = 1;

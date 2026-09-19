@@ -9,7 +9,7 @@
  * has no `reviewer` section, both commands emit a structured skip envelope
  * and exit 0 (consistent with A4.3 fallbackOnError=skip).
  */
-import { Command } from 'commander';
+import type { Command } from 'commander';
 import {
   runReviewer,
   REVIEWER_ID,

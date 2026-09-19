@@ -1,4 +1,4 @@
-import { Command } from 'commander';
+import type { Command } from 'commander';
 import { createRdSwarmPlan } from '../../services/rd/rd-service.js';
 import { createTechPlan, getTechStatus } from '../../services/tech/tech-service.js';
 import {

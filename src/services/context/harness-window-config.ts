@@ -474,7 +474,7 @@ function readSettingsObject(settingsPath: string): SettingsFileShape | null {
   try {
     const parsed: unknown = JSON.parse(readFileSync(settingsPath, 'utf8'));
     if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return null;
-    return parsed as SettingsFileShape;
+    return parsed;
   } catch {
     return null;
   }
@@ -505,7 +505,7 @@ function isUserHome(candidate: string): boolean {
 function envString(settings: SettingsFileShape | null, key: string): unknown {
   const env = settings?.env;
   if (typeof env !== 'object' || env === null || Array.isArray(env)) return undefined;
-  return (env as Record<string, unknown>)[key];
+  return env[key];
 }
 
 /**
@@ -662,7 +662,7 @@ export function syncHarnessWindow(input: {
   const settings = fileSettings ?? {};
   const env =
     typeof settings.env === 'object' && settings.env !== null && !Array.isArray(settings.env)
-      ? (settings.env as Record<string, unknown>)
+      ? settings.env
       : {};
   const next = {
     ...settings,
@@ -732,7 +732,7 @@ export function resetHarnessWindow(input: {
 
   const env =
     typeof settings.env === 'object' && settings.env !== null && !Array.isArray(settings.env)
-      ? { ...(settings.env as Record<string, unknown>) }
+      ? { ...settings.env }
       : {};
   delete env[input.location.envVar];
   // The provenance marker goes with the value it describes — a marker left
@@ -813,7 +813,7 @@ export function disableHarnessWindowSync(input: { readonly location: HarnessWind
   }
   const env =
     typeof settings?.env === 'object' && settings.env !== null && !Array.isArray(settings.env)
-      ? { ...(settings.env as Record<string, unknown>) }
+      ? { ...settings.env }
       : {};
   if (env[HARNESS_WINDOW_SYNC_OPTOUT_KEY] === HARNESS_WINDOW_SYNC_OPTOUT_VALUE) {
     return { settingsPath, action: 'already-opted-out' };
@@ -838,7 +838,7 @@ export function reenableHarnessWindowSync(input: { readonly location: HarnessWin
   if (settings === null) return { settingsPath, action: 'absent' };
   const env =
     typeof settings.env === 'object' && settings.env !== null && !Array.isArray(settings.env)
-      ? { ...(settings.env as Record<string, unknown>) }
+      ? { ...settings.env }
       : {};
   if (env[HARNESS_WINDOW_SYNC_OPTOUT_KEY] === undefined) return { settingsPath, action: 'absent' };
   delete env[HARNESS_WINDOW_SYNC_OPTOUT_KEY];

@@ -68,12 +68,7 @@ async function readOptionalFile(projectRoot: string, relativePath: string): Prom
 }
 
 function isEnoent(error: unknown): boolean {
-  return (
-    typeof error === 'object' &&
-    error !== null &&
-    'code' in error &&
-    (error as { code: unknown }).code === 'ENOENT'
-  );
+  return typeof error === 'object' && error !== null && 'code' in error && error.code === 'ENOENT';
 }
 
 function parseProjectScanContent(content: string): ProjectScan {

@@ -13,7 +13,7 @@
  * already covered by `tests/unit/log/log-commands.test.ts`.
  */
 
-import { Command } from 'commander';
+import type { Command } from 'commander';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
 import { tailLog, listLogFiles } from '../../services/log/log-commands-service.js';

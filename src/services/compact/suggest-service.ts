@@ -25,7 +25,6 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  PHASE_TRANSITIONS,
   lookupPhaseTransition,
   buildSuggestedCompactMessage,
   SURVIVAL_TABLE,
@@ -242,7 +241,7 @@ export function dryRunCompact(options: DryRunOptions): DryRunResult {
   });
   const hasPhase = options.from !== undefined && options.to !== undefined;
   const recommend = hasPhase
-    ? buildRecommendEnvelope(options.from as Phase, options.to as Phase)
+    ? buildRecommendEnvelope(options.from, options.to)
     : {
         from: null,
         to: null,

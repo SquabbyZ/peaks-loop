@@ -28,8 +28,7 @@ import {
   isHandoffExitCondition,
   isState,
   read24hState,
-  write24hState,
-  type State
+  write24hState
 } from '../../services/24h-mode/index.js';
 import {
   applyAutoEngagePresenceMode,
@@ -160,7 +159,7 @@ export function registerSession24hModeCommand(session: Command, io: ProgramIO): 
         process.exitCode = 1;
         return;
       }
-      const target = merged.state as State;
+      const target = merged.state;
       if (merged.exitCondition !== undefined && !isHandoffExitCondition(merged.exitCondition)) {
         printError(
           io,

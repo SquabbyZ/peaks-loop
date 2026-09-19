@@ -89,8 +89,8 @@ export function emptyIndex(): MemoryIndex {
   return {
     version: 1,
     updatedAt: new Date().toISOString(),
-    hot: hot as unknown as Record<ProjectMemoryKind, MemoryIndexEntry[]>,
-    warm: warm as unknown as Record<ProjectMemoryKind, MemoryIndexEntry[]>
+    hot: hot,
+    warm: warm
   };
 }
 

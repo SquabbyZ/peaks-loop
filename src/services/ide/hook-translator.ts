@@ -70,7 +70,7 @@ export function pluckString(obj: unknown, path: readonly string[]): string | und
   let cur: unknown = obj;
   for (const seg of path) {
     if (!isObject(cur) || !(seg in cur)) return undefined;
-    cur = (cur as Record<string, unknown>)[seg];
+    cur = cur[seg];
   }
   return typeof cur === 'string' ? cur : undefined;
 }
@@ -82,7 +82,7 @@ export function pluckObject(
   let cur: unknown = obj;
   for (const seg of path) {
     if (!isObject(cur) || !(seg in cur)) return undefined;
-    cur = (cur as Record<string, unknown>)[seg];
+    cur = cur[seg];
   }
   return isObject(cur) ? cur : undefined;
 }

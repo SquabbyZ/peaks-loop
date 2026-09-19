@@ -39,8 +39,8 @@ import {
   rmSync
 } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, resolve, delimiter, isAbsolute } from 'node:path';
-import { afterAll, afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { join, resolve, delimiter } from 'node:path';
+import { afterAll, afterEach, describe, expect, it } from 'vitest';
 import { declareDimensions } from '../_setup/4dim-template.js';
 
 declareDimensions('tests/unit/release/bump-version-ac7.test.ts', [

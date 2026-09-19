@@ -153,10 +153,10 @@ export function registerHeartbeatCommand(parent: Command, io: ProgramIO): void {
           process.exitCode = 1;
           return;
         }
-        stageLabel = options.stage as StageLabel;
+        stageLabel = options.stage;
       }
       const result = appendHeartbeat({
-        recordPath: options.record as string,
+        recordPath: options.record,
         status: options.status as HeartbeatStatus,
         progress,
         ...(options.note !== undefined ? { note: options.note } : {})
@@ -167,7 +167,7 @@ export function registerHeartbeatCommand(parent: Command, io: ProgramIO): void {
       // setStage is a separate file-locked read-modify-write on the
       // same record.
       if (stageLabel !== null) {
-        setStage({ recordPath: options.record as string, stage: stageLabel });
+        setStage({ recordPath: options.record, stage: stageLabel });
       }
       // Slice 2026-07-29-worktree-l2-extended Part 24: the
       // heartbeat envelope surfaces a `leaseHint` field when the

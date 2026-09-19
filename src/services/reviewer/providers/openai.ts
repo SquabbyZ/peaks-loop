@@ -3,7 +3,7 @@
  * env var named in `provider.apiKeyEnv` (default `OPENAI_API_KEY`).
  * Per A4 prohibition, NO SDK; we use fetch directly.
  */
-import type { ReviewerProviderConfig } from '../reviewer-config.js';
+
 import type { ProviderCallInput, ProviderCallResult } from './ollama.js';
 
 const DEFAULT_ENDPOINT = 'https://api.openai.com/v1/chat/completions';
@@ -50,7 +50,7 @@ export async function callOpenAI(input: ProviderCallInput): Promise<ProviderCall
     const json = (await res.json()) as { choices?: Array<{ message?: { content?: unknown } }> };
     const text =
       typeof json.choices?.[0]?.message?.content === 'string'
-        ? (json.choices[0].message.content as string)
+        ? json.choices[0].message.content
         : '';
     return { ok: true, modelId: input.provider.model, text, latencyMs: Date.now() - start };
   } catch (err) {

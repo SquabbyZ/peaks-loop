@@ -20,15 +20,7 @@
  * Default: dry-run. Pass `--apply` to actually move.
  */
 
-import {
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  readdirSync,
-  renameSync,
-  rmSync,
-  writeFileSync
-} from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 
 export const PER_SESSION_ARTIFACT_TYPES = [

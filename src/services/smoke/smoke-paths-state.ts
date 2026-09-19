@@ -11,7 +11,7 @@
  */
 
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, resolve } from 'node:path';
 
 export type CriticalPathSource =
   | 'prd-business-scenario' // from prd 业务场景块

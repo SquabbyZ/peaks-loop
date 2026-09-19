@@ -11,8 +11,8 @@
  * - `refresh`        (3) destructive write needs explicit `--apply`.
  * - `detect-trigger` (2) JSON-gated — slice workflow needs the verdict.
  */
-import { Command } from 'commander';
-import { fail, getErrorMessage, ok } from 'peaks-loop-shared/result';
+import type { Command } from 'commander';
+import { fail, getErrorMessage } from 'peaks-loop-shared/result';
 
 import { addJsonOption, printResult, type ProgramIO } from '../cli-helpers.js';
 import { readPlan, type PlanType } from '../../services/workflow/plan-reader.js';

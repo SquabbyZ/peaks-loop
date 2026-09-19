@@ -21,7 +21,6 @@
 import { basename } from 'node:path';
 import { calibrate } from './calibration-store.js';
 import type {
-  CodegraphAffectedResult,
   CodegraphQueryHit,
   CodegraphRunner,
   DecomposeOptions,

@@ -28,7 +28,7 @@
  *     screenshots/ dir contents.
  */
 
-import { existsSync, mkdirSync, readdirSync, renameSync, statSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, renameSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
 export type ScreenshotExtension = '.png' | '.jpg' | '.jpeg';

@@ -1,4 +1,4 @@
-import { Command } from 'commander';
+import type { Command } from 'commander';
 import {
   enforceBashCommand,
   recordGateBypass,
@@ -214,7 +214,7 @@ export function registerGateCommands(program: Command, io: ProgramIO): void {
         return;
       }
 
-      const decision = await enforceBashCommand(options.project, command as string);
+      const decision = await enforceBashCommand(options.project, command);
       if (decision.decision === 'deny') {
         // PRD#2 (2026-06-16-fact-forcing-gate-format): a true SOP gate failure is
         // a HARD block. emitBlock writes the Claude Code permissionDecision:"deny"

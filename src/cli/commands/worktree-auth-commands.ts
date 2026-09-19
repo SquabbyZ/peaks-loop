@@ -25,7 +25,7 @@
  * `skills/peaks-code/SKILL.md` "Worktree authorization" red line).
  */
 
-import { Command } from 'commander';
+import type { Command } from 'commander';
 import { fail, ok } from 'peaks-loop-shared/result';
 
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';

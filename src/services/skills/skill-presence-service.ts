@@ -469,7 +469,7 @@ export function setSkillPresence(
         void (leaseMod.readPresenceLease as unknown);
         void (leaseMod.markPresenceLost as unknown);
         void (leaseMod.listPresenceLeases as unknown);
-        void (result as SetPresenceLeaseResult);
+        void result;
       } catch {
         /* fall through to legacy write */
       }

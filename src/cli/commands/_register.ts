@@ -6,10 +6,8 @@ import { registerAdapterS2ACommands } from './adapter-commands-s2a.js';
 import { registerAssetCommands } from './asset-commands.js';
 import { registerAuditCommands } from './audit-commands.js';
 import { registerBaselineCommands } from './baseline-commands.js';
-import { registerAutonomousSwarmCommands } from './autonomous-swarm-commands.js';
 import { registerBeeCommands } from './bee-commands.js';
 import { registerBestPracticeScanCommand } from './best-practice-scan-command.js';
-import { registerCapabilityCommands } from './capability-commands.js';
 import { registerCapabilityWorkerConfigAndSCCommands } from './capability-worker-config-sc-commands.js';
 import { registerCodeCommands } from './code-commands.js';
 import { registerCodeGateCommand } from './code-gate-command.js';
@@ -18,7 +16,6 @@ import { registerCodeReviewCommands } from './code-review-commands.js';
 import { registerCodegraphCommands } from './codegraph-commands.js';
 import { registerCompactCommands } from './compact-command.js';
 import { registerComplexityCommands } from './complexity-commands.js';
-import { registerConfigCommands } from './config-commands.js';
 import { registerContextCommands } from './context-commands.js';
 import { registerCoreAndArtifactCommands } from './core-artifact-commands.js';
 import { registerDocCommands } from './doc-commands.js';
@@ -68,7 +65,6 @@ import { registerRetrospectiveCommands } from './retrospective-commands.js';
 import { registerReviewerCommands } from './reviewer-commands.js';
 import { registerRoleCommands } from './role-commands.js';
 import { registerRuntimeCommands } from './runtime-commands.js';
-import { registerSCCommands } from './sc-commands.js';
 import { registerScanCommands } from './scan-commands.js';
 import { registerApiDiffCommands } from './api-diff-commands.js';
 import { registerShadcnCommands } from './shadcn-commands.js';
@@ -76,7 +72,6 @@ import { registerSecurityAuditCommands } from './security-audit-commands.js';
 import { registerSedimentCommands } from './sediment-commands.js';
 import { registerSkillConformanceCommands } from './skill-conformance-commands.js';
 import { registerSkillLoopEngineeringReadinessCommands } from './skill-loop-engineering-readiness-commands.js';
-import { registerSkillVisibilityCommand } from './skill-visibility.js';
 import { registerSliceCommands } from './slice-commands.js';
 import { registerSliceIntegrateCommands } from './slice-integrate-commands.js';
 import { registerSliceReviewCommands } from './slice-review-commands.js';
@@ -87,8 +82,6 @@ import { registerSpillDemoCommand } from './spill-demo-command.js';
 import { registerSubAgentCommands } from './sub-agent-commands.js';
 import { registerSubAgentShutdownCommands } from './sub-agent-shutdown-commands.js';
 import { registerSubAgentDispatchGuard } from './sub-agent-dispatch-guard.js';
-import { registerSwarmCommands } from './swarm-commands.js';
-import { registerTechCommands } from './tech-commands.js';
 import { registerTestCommands } from './test-commands.js';
 import { registerVendorDetectCommand } from './vendor-detect.js';
 import { registerUpgradeCommands } from './upgrade-commands.js';
@@ -213,7 +206,7 @@ function dispatchRegister(register: RegisterFn, program: Command, io: ProgramIO)
   if (register.length <= 1) {
     (register as (program: Command) => void)(program);
   } else {
-    (register as (program: Command, io: ProgramIO) => void)(program, io);
+    register(program, io);
   }
 }
 

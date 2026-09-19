@@ -13,7 +13,7 @@
  */
 
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, resolve } from 'node:path';
 
 export interface ForkBaseline {
   /** Upstream repo identifier (e.g. "github.com/xxx/hermes"). */

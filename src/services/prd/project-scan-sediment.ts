@@ -539,12 +539,7 @@ async function readOptionalFile(absolutePath: string): Promise<string | null> {
 }
 
 function isEnoent(error: unknown): boolean {
-  return (
-    typeof error === 'object' &&
-    error !== null &&
-    'code' in error &&
-    (error as { code: unknown }).code === 'ENOENT'
-  );
+  return typeof error === 'object' && error !== null && 'code' in error && error.code === 'ENOENT';
 }
 
 /** Serialize a `BusinessKnowledge` to the markdown-table body format.

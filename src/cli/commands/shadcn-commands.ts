@@ -15,7 +15,7 @@
  * does not reimplement scaffolding and does not inject its own prompts.
  */
 import { spawnSync } from 'node:child_process';
-import { Command } from 'commander';
+import type { Command } from 'commander';
 import { resolveNpxInvocation } from '../../services/lint/npx-resolver.js';
 import { fail, ok } from 'peaks-loop-shared/result';
 

@@ -156,10 +156,7 @@ export class LoopBeeRelationService {
     try {
       return insertLoopBeeRelation(this.db, parsed);
     } catch (err: unknown) {
-      const code =
-        typeof err === 'object' && err !== null && 'code' in err
-          ? (err as { code: unknown }).code
-          : undefined;
+      const code = typeof err === 'object' && err !== null && 'code' in err ? err.code : undefined;
       // Partial unique index on (loop_release_id) WHERE role='main'.
       // better-sqlite3 surfaces this as SQLITE_CONSTRAINT_UNIQUE with
       // a message naming only `loop_bee_relation.loop_release_id`
@@ -250,10 +247,7 @@ export class LoopBeeRelationService {
     try {
       return updateLoopBeeRelationRole(this.db, id, newRole);
     } catch (err: unknown) {
-      const code =
-        typeof err === 'object' && err !== null && 'code' in err
-          ? (err as { code: unknown }).code
-          : undefined;
+      const code = typeof err === 'object' && err !== null && 'code' in err ? err.code : undefined;
       if (code === 'SQLITE_CONSTRAINT_UNIQUE') {
         const existing = getLoopBeeRelation(this.db, id);
         const loopId = existing?.loop_release_id ?? '<unknown>';

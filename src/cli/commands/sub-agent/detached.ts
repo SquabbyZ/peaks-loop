@@ -71,7 +71,7 @@ export async function dispatch(f: DispatchFlags) {
     sid,
     rid: f.requestId,
     role: f.role as 'rd' | 'qa' | 'ui' | 'txt' | 'general-purpose',
-    vendor: (f.vendor ?? 'claude') as 'claude' | 'codex' | 'copilot',
+    vendor: f.vendor ?? 'claude',
     userTask: f.prompt,
     files: [],
     refs: [],

@@ -18,7 +18,7 @@
 //          one without it)
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
+import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { dispatchArtifact } from '../../../../src/services/polyrepo/polyrepo-dispatcher.js';
 import type { PolyrepoManifest } from '../../../../src/services/polyrepo/polyrepo-types.js';

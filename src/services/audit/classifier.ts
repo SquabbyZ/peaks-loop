@@ -11,7 +11,7 @@
  */
 
 import { findCatalogEntry } from './red-line-catalog.js';
-import type { MarkdownLine, RedLineEntry, RedLineMarker, RedLineSource } from './types.js';
+import type { RedLineEntry, RedLineMarker, RedLineSource } from './types.js';
 
 const MARKER_PATTERN = /\b(MANDATORY|BLOCKING|MUST NOT|RED LINE)\b/;
 

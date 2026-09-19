@@ -20,7 +20,7 @@
 
 import { existsSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import { Command } from 'commander';
+import type { Command } from 'commander';
 import { fail, ok } from 'peaks-loop-shared/result';
 
 import { addJsonOption, printResult, type ProgramIO } from '../cli-helpers.js';
@@ -79,7 +79,7 @@ function aggregateLeaseEvents(leaseEvents: ReadonlyArray<ObservabilityEvent>): {
     reason: string | null;
   }> = [];
   for (const ev of leaseEvents) {
-    const detail = (ev.detail ?? {}) as Record<string, unknown>;
+    const detail = ev.detail ?? {};
     const kind = typeof detail['kind'] === 'string' ? detail['kind'] : 'unknown';
     const leaseId = typeof detail['leaseId'] === 'string' ? detail['leaseId'] : '';
     const rid = typeof detail['rid'] === 'string' ? detail['rid'] : null;
@@ -128,7 +128,7 @@ export function recomputeRate(leaseEvents: ReadonlyArray<ObservabilityEvent>): R
   // Count per-kind in one pass.
   const counts: Record<string, number> = { ...EMPTY_COUNTS };
   for (const ev of leaseEvents) {
-    const detail = (ev.detail ?? {}) as Record<string, unknown>;
+    const detail = ev.detail ?? {};
     const kind = typeof detail['kind'] === 'string' ? detail['kind'] : 'unknown';
     if (kind in counts) {
       counts[kind] = (counts[kind] ?? 0) + 1;
@@ -145,12 +145,12 @@ export function recomputeRate(leaseEvents: ReadonlyArray<ObservabilityEvent>): R
   const firstTerminal = new Map<string, number>();
   const tsOf = (ev: ObservabilityEvent): number => Date.parse(ev.ts);
   const leaseIdOf = (ev: ObservabilityEvent): string => {
-    const d = (ev.detail ?? {}) as Record<string, unknown>;
-    return typeof d['leaseId'] === 'string' ? (d['leaseId'] as string) : '';
+    const d = ev.detail ?? {};
+    return typeof d['leaseId'] === 'string' ? d['leaseId'] : '';
   };
   const kindOf = (ev: ObservabilityEvent): string => {
-    const d = (ev.detail ?? {}) as Record<string, unknown>;
-    return typeof d['kind'] === 'string' ? (d['kind'] as string) : 'unknown';
+    const d = ev.detail ?? {};
+    return typeof d['kind'] === 'string' ? d['kind'] : 'unknown';
   };
   for (const ev of leaseEvents) {
     const id = leaseIdOf(ev);

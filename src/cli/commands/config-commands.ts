@@ -1,4 +1,4 @@
-import { Command } from 'commander';
+import type { Command } from 'commander';
 import { executeMigration, planMigration } from '../../services/config/config-migration.js';
 import {
   getConfig,
@@ -17,7 +17,6 @@ import {
   parseConfigLayer,
   printInvalidConfigLayer,
   printResult,
-  redactSensitiveErrorMessage,
   type ProgramIO
 } from '../cli-helpers.js';
 

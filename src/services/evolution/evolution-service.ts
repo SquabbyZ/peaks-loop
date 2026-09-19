@@ -3,7 +3,6 @@ import { ZodError } from 'zod';
 import {
   EvolutionEvaluationSchema,
   EvolutionProposalInputSchema,
-  EvolutionProposalSchema,
   EVOLUTION_DEFAULT_DELTA_MIN,
   type EvolutionEvaluation,
   type EvolutionEvaluationInput,
@@ -115,7 +114,7 @@ export class EvolutionService {
     // can assert on a single error code.
     let parsedInput: EvolutionProposalInput;
     try {
-      parsedInput = EvolutionProposalInputSchema.parse(input) as EvolutionProposalInput;
+      parsedInput = EvolutionProposalInputSchema.parse(input);
     } catch (err) {
       if (err instanceof ZodError) {
         const issue = err.issues[0];
@@ -304,7 +303,7 @@ export class EvolutionService {
     const validated = EvolutionEvaluationSchema.parse({
       ...next,
       score_delta
-    }) as EvolutionEvaluation;
+    });
 
     // Delete + re-insert keeps the row simple; volume is tiny.
     this.db.prepare('DELETE FROM evolution_evaluation WHERE id = ?').run(existing.id);

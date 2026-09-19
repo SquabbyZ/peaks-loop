@@ -290,7 +290,7 @@ export type BundleManifest = z.infer<typeof BundleManifestSchema>;
  * own specific error code without catching Zod errors).
  */
 export function parseBundleManifest(input: unknown): BundleManifest {
-  return BundleManifestSchema.parse(input) as BundleManifest;
+  return BundleManifestSchema.parse(input);
 }
 
 /**
@@ -312,7 +312,7 @@ export function safeParseBundleManifest(input: unknown):
       findings: Array<{ path: string; message: string }>;
     } {
   const r = BundleManifestSchema.safeParse(input);
-  if (r.success) return { ok: true, manifest: r.data as BundleManifest };
+  if (r.success) return { ok: true, manifest: r.data };
   const findings = r.error.issues.map((i) => ({
     path: i.path.join('.'),
     message: i.message

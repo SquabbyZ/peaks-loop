@@ -102,10 +102,10 @@ beforeEach(() => {
   // The acquisition announces the network wait on stderr; in a test that is
   // noise, so it is captured instead of printed — and kept, because one test
   // asserts it happens at all.
-  vi.spyOn(process.stderr, 'write').mockImplementation(((chunk: unknown) => {
+  vi.spyOn(process.stderr, 'write').mockImplementation((chunk: unknown) => {
     events.push(String(chunk).trim());
     return true;
-  }) as typeof process.stderr.write);
+  });
   for (const key of HOME_KEYS) savedEnv.set(key, process.env[key]);
   // The lock is machine-global (`<homedir>/.peaks/ocr/install.lock`); relocating
   // the home is the only way it lands in the workspace rather than on the

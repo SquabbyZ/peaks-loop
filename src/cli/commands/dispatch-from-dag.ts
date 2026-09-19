@@ -42,12 +42,7 @@ import type {
   PublicSurface,
   SliceOutcome
 } from '../../services/code/dag-orchestrator.js';
-import {
-  SliceDagModule,
-  DagOrchestratorModule,
-  ContractStoreModule,
-  type DispatchOptions
-} from './sub-agent-shared.js';
+import { type DispatchOptions } from './sub-agent-shared.js';
 
 export async function runDispatchFromDag(
   role: string,
@@ -76,9 +71,9 @@ export async function runDispatchFromDag(
   // calls in the same process.
   const [{ readFileSync }, sliceDagMod, dagOrchestratorMod, contractStoreMod] = await Promise.all([
     import('node:fs'),
-    import('../../services/dispatch/slice-dag.js') as Promise<SliceDagModule>,
-    import('../../services/code/dag-orchestrator.js') as Promise<DagOrchestratorModule>,
-    import('../../services/dispatch/contract-store.js') as Promise<ContractStoreModule>
+    import('../../services/dispatch/slice-dag.js'),
+    import('../../services/code/dag-orchestrator.js'),
+    import('../../services/dispatch/contract-store.js')
   ]);
   const { validateDag, topologicalLevels, isSliceComplexity } = sliceDagMod;
   const { runLayeredDag } = dagOrchestratorMod;

@@ -15,7 +15,7 @@
  */
 
 import { readFile } from 'node:fs/promises';
-import { Command } from 'commander';
+import type { Command } from 'commander';
 import {
   initHandoff,
   readHandoff,

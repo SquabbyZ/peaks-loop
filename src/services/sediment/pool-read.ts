@@ -1,6 +1,6 @@
-import { readdirSync, readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
+import { readdirSync, readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { resolvePoolRoot, resolveUserBeesDir, resolveSegmentsDir } from './pool-paths.js';
+import { resolveUserBeesDir, resolveSegmentsDir } from './pool-paths.js';
 import { lintManifest } from './manifest-lint.js';
 import type { IndexFile, IndexEntry, BeeManifest } from './types.js';
 

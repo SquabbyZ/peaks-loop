@@ -27,7 +27,7 @@
  *
  * File budget: ≤ 200 lines (Karpathy §2).
  */
-import { Command } from 'commander';
+import type { Command } from 'commander';
 import { resolve } from 'node:path';
 import {
   captureDerivedVariant,

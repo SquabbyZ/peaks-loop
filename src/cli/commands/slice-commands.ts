@@ -1,4 +1,4 @@
-import { Command } from 'commander';
+import type { Command } from 'commander';
 import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { resolveCanonicalProjectRoot } from '../../services/config/config-service.js';
@@ -761,7 +761,7 @@ export function parsePickedFile(pickedPath: string): PickedEnvelope {
     if (typeof it.label !== 'string' || it.label.length === 0) {
       throw new Error(`picked[${idx}] is missing required string field 'label'`);
     }
-    return { rid: it.rid, files: it.files as readonly string[], label: it.label };
+    return { rid: it.rid, files: it.files, label: it.label };
   });
   return { rid: obj.rid, picked };
 }

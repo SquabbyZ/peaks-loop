@@ -45,8 +45,7 @@ import {
 } from '~/src/services/compact-history/compact-history-service';
 import {
   decideCompactStatusline,
-  renderCompactStatusline,
-  type CompactStatuslineState
+  renderCompactStatusline
 } from '~/src/services/compact-statusline/compact-statusline-service';
 import {
   readCompactLifecycle,

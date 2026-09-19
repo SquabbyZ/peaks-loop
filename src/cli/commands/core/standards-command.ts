@@ -2,8 +2,6 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import type { Command } from 'commander';
 import {
-  executeProjectStandardsInit,
-  executeProjectStandardsUpdate,
   summarizeProjectStandardsInitResult,
   summarizeProjectStandardsUpdateResult
 } from '../../../services/standards/project-standards-service.js';

@@ -72,7 +72,7 @@ export function loadPreferences(projectRoot: string): ProjectPreferences {
       );
     }
   }
-  return mergePreferences(DEFAULT_PREFERENCES, raw as Partial<ProjectPreferences>);
+  return mergePreferences(DEFAULT_PREFERENCES, raw);
 }
 
 export function savePreferences(
@@ -183,7 +183,7 @@ export function migratePreferences(
     return {
       fromVersion,
       toVersion: PREFERENCES_SCHEMA_VERSION,
-      migrated: mergePreferences(DEFAULT_PREFERENCES, raw as Partial<ProjectPreferences>),
+      migrated: mergePreferences(DEFAULT_PREFERENCES, raw),
       changes: [],
       written: false
     };

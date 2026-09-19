@@ -70,7 +70,6 @@ declareDimensions(
 );
 
 import {
-  MIN_DETECTABLE_WINDOW_DIFFERENCE,
   WITNESS_NUMERATOR_FRACTION,
   WITNESS_PERCENT_ROUNDING_FRACTION,
   WITNESS_SCHEMA_VERSION,
@@ -137,7 +136,7 @@ function payloadOf(overrides: HarnessPayload = {}): StatusLineStdin {
       }
     },
     ...overrides
-  } as StatusLineStdin;
+  };
 }
 
 /** The `usageTokens` the payload above must parse to (output_tokens excluded). */
@@ -389,7 +388,7 @@ describe('harness context witness — capture (AC1)', () => {
 
     it('when the payload has no context_window, should record the render without inventing a number', () => {
       const parsed = parseHarnessWitness({
-        stdin: { session_id: 'x' } as StatusLineStdin,
+        stdin: { session_id: 'x' },
         nowMs: 0
       });
       expect(parsed).not.toBeNull();
@@ -418,9 +417,7 @@ describe('harness context witness — capture (AC1)', () => {
       expect(parsed!.usedPercentageRaw).toBeNull();
       expect(parsed!.modelWindowTokens).toBeNull();
       expect(parsed!.usageTokens).toBeNull();
-      expect(parsed).toEqual(
-        parseHarnessWitness({ stdin: { session_id: 'x' } as StatusLineStdin, nowMs: 0 })
-      );
+      expect(parsed).toEqual(parseHarnessWitness({ stdin: { session_id: 'x' }, nowMs: 0 }));
     });
 
     it('when there is no payload at all, should record nothing (a TTY render is not a harness render)', () => {
@@ -469,7 +466,7 @@ describe('harness context witness — capture (AC1)', () => {
       const written = writeHarnessWitness({
         projectRoot: root,
         sessionId: SID,
-        stdin: { session_id: 'x' } as StatusLineStdin,
+        stdin: { session_id: 'x' },
         nowMs: 0
       });
       // then: a render DID happen here, and the file says so — that is what

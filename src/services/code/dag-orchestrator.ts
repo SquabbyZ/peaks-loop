@@ -30,7 +30,6 @@ import {
   InvalidSliceDagError,
   topologicalLevels,
   validateDag,
-  DEFAULT_MAX_CONCURRENCY,
   DEFAULT_WAVE_OPTIONS,
   type SliceDag,
   type Wave,

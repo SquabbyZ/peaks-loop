@@ -9,8 +9,7 @@ import { acquireOcr18 } from '../../services/lint/ocr-18-acquire.js';
 import {
   OCR_18_LANGUAGES,
   OCR_18_PACKAGE,
-  runOcr18,
-  type Ocr18Language
+  runOcr18
 } from '../../services/lint/ocr-multilang-adapter.js';
 
 const SUPPORTED_LANGUAGES_SET = new Set<string>(OCR_18_LANGUAGES);
@@ -208,7 +207,7 @@ export function registerCodeReviewCommands(program: Command, io: ProgramIO): voi
     }
     const result = runOcr18({
       cwd: process.cwd(),
-      language: language as Ocr18Language,
+      language: language,
       ...(options.from !== undefined ? { from: options.from } : {}),
       ...(options.to !== undefined ? { to: options.to } : {}),
       ...(options.commit !== undefined ? { commit: options.commit } : {}),

@@ -40,7 +40,6 @@
 // downstream consumer.
 
 import { spawnSync } from 'node:child_process';
-import { resolve } from 'node:path';
 import { resolveNpmInvocation } from './_release-shared.mjs';
 
 const REQUIRED_PREFIX = 'dist/services/codegraph/';

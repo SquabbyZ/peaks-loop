@@ -1,4 +1,4 @@
-import { DEFAULT_CONFIG, type ModelProviderConfig, type PeaksConfig } from './config-types.js';
+import { type ModelProviderConfig, type PeaksConfig } from './config-types.js';
 import { detectCurrentIdeModel } from '../ide/current-model-detector.js';
 
 /**

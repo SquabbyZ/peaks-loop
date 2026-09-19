@@ -45,7 +45,7 @@ export class LoopReleaseService {
    * Zod schema; throws ZodError on failure.
    */
   create(input: LoopReleaseInput): LoopRelease {
-    const row = LoopReleaseSchema.parse(input) as LoopRelease;
+    const row = LoopReleaseSchema.parse(input);
     insertLoopRelease(this.db, row);
     return row;
   }

@@ -190,7 +190,7 @@ describe('behavior — fail-soft unavailability', () => {
     // when: the audit resolves the transcript
     const result = auditContext({
       outerSessionId: 'any-id',
-      env: { OPENCODE: '1' } as NodeJS.ProcessEnv
+      env: { OPENCODE: '1' }
     });
 
     // then: no throw — a typed reason, fail-soft

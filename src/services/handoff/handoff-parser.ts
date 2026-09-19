@@ -19,7 +19,7 @@
 
 import { readFileSync } from 'node:fs';
 import { parse as parseYaml } from 'yaml';
-import type { HandoffFrontmatter, HandoffStatus } from './handoff-types.js';
+import type { HandoffFrontmatter } from './handoff-types.js';
 
 export class IncompleteHandoffError extends Error {
   readonly code = 'INCOMPLETE_HANDOFF' as const;
@@ -82,7 +82,7 @@ function legacyDefaults(content: string): ParsedHandoff {
       slice_id: 'unknown',
       agent_id: 'unknown',
       schema_version: '0',
-      status: 'unknown' as HandoffStatus,
+      status: 'unknown',
       created_at: new Date(0).toISOString()
     },
     body: content

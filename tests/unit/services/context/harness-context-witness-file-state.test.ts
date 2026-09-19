@@ -104,7 +104,7 @@ function payloadOf(): StatusLineStdin {
         cache_creation_input_tokens: 10_000
       }
     }
-  } as StatusLineStdin;
+  };
 }
 
 /** A contextless payload — the shape a render that carries nothing usable has. */

@@ -20,7 +20,7 @@
  * probe returns the JSON envelope from the
  * 1x-detector-service; it does NOT modify any files.
  */
-import { Command } from 'commander';
+import type { Command } from 'commander';
 import { runUpgrade } from '../../services/upgrade/upgrade-service.js';
 import { detect1xProjectState } from '../../services/upgrade/1x-detector-service.js';
 import { migrateGitignoreFile } from '../../services/upgrade/gitignore-migrate-service.js';

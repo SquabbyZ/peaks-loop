@@ -112,9 +112,7 @@ export function loadReviewerConfig(options: { path?: string } = {}): ReviewerCon
 
   const rdProviderNameRaw = reviewer['rdProviderName'];
   const rdProviderName =
-    rdProviderNameRaw === null || typeof rdProviderNameRaw === 'string'
-      ? (rdProviderNameRaw as string | null)
-      : null;
+    rdProviderNameRaw === null || typeof rdProviderNameRaw === 'string' ? rdProviderNameRaw : null;
 
   const requireDistinct = reviewer['requireDistinctModelFamily'];
   const requireDistinctModelFamily = typeof requireDistinct === 'boolean' ? requireDistinct : true;

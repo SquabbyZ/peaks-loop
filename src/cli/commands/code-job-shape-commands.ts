@@ -17,9 +17,7 @@ import {
   writeJobShapeDecision,
   JobShapeDecisionError,
   JOB_SHAPE_NOT_DECIDED,
-  JOB_SHAPE_ALREADY_DECIDED,
-  type JobStrategy,
-  type JobConfidence
+  JOB_SHAPE_ALREADY_DECIDED
 } from '../../services/code/job-shape-decision.js';
 import { findProjectRoot } from '../../services/config/config-safety.js';
 import { getSkillPresence } from '../../services/skills/skill-presence-service.js';
@@ -193,8 +191,8 @@ export function registerCodeJobShapeCommands(code: Command, io: ProgramIO): void
             isJob: opts.isJob === 'true',
             rationale: opts.rationale,
             suggestedJobId: opts.suggestedJobId,
-            suggestedStrategy: opts.suggestedStrategy as JobStrategy,
-            confidence: opts.confidence as JobConfidence,
+            suggestedStrategy: opts.suggestedStrategy,
+            confidence: opts.confidence,
             prompt: promptText
           },
           { force: opts.force === true }

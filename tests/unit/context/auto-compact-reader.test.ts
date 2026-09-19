@@ -231,7 +231,7 @@ describe('Scenario: behavior — the ratio divides by the FILE, not the frozen e
       // when: the ratio's window is resolved
       const state = readHarnessWindowState({
         projectRoot: root,
-        env: { FAKEIDE_AUTO_COMPACT_WINDOW: '200000' } as NodeJS.ProcessEnv
+        env: { FAKEIDE_AUTO_COMPACT_WINDOW: '200000' }
       });
       // then: the file's 150000 is what the ratio must divide by...
       expect(resolveHarnessRatioWindow(state)).toBe('150000');
@@ -256,7 +256,7 @@ describe('Scenario: behavior — the ratio divides by the FILE, not the frozen e
       // when: the ratio's window is resolved
       const state = readHarnessWindowState({
         projectRoot: root,
-        env: { FAKEIDE_AUTO_COMPACT_WINDOW: '200000' } as NodeJS.ProcessEnv
+        env: { FAKEIDE_AUTO_COMPACT_WINDOW: '200000' }
       });
       // then: the env is the only signal, so it is used
       expect(resolveHarnessRatioWindow(state)).toBe('200000');

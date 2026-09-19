@@ -223,7 +223,7 @@ describe('Scenario: integration — dangling marker self-heal and foreign skip',
       const result = await refreshCodegraphAfterSlice(project, runner);
       // then: the refresh self-heals (init → index) and reports refreshed
       expect(result.refreshed).toBe(true);
-      const subcommands = runner.mock.calls.map((c) => (c[0] as CodegraphInvocation).subcommand);
+      const subcommands = runner.mock.calls.map((c) => c[0].subcommand);
       expect(subcommands).toEqual(['init', 'index']);
     } finally {
       rmSync(project, { recursive: true, force: true });
@@ -319,7 +319,7 @@ describe('Scenario: integration — dangling marker self-heal and foreign skip',
 
       // … and exactly one index ran (the repair does not add a second
       //    rebuild when the caller indexes right after).
-      const subcommands = runner.mock.calls.map((c) => (c[0] as CodegraphInvocation).subcommand);
+      const subcommands = runner.mock.calls.map((c) => c[0].subcommand);
       expect(subcommands).toEqual(['init', 'index']);
     } finally {
       rmSync(project, { recursive: true, force: true });

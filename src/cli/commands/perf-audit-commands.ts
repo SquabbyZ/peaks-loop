@@ -17,13 +17,12 @@
  * This CLI is the I/O + validation shell, mirroring the ecc-bridge
  * pattern (slice 7 Group D).
  */
-import { Command } from 'commander';
+import type { Command } from 'commander';
 import { readFileSync } from 'node:fs';
 import {
   detectPerfAudit,
   isPerfAuditEnvelope,
-  runPerfAudit,
-  type PerfAuditEnvelope
+  runPerfAudit
 } from '../../services/audit-independent/index.js';
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
 import { fail, ok } from 'peaks-loop-shared/result';
@@ -227,7 +226,7 @@ export function registerPerfAuditCommands(program: Command, io: ProgramIO): void
         sessionId: sid,
         rid,
         generatedAt: new Date().toISOString(),
-        envelope: envelopeValue as PerfAuditEnvelope
+        envelope: envelopeValue
       });
       if (result.detect.state !== 'ready' || result.artifactPath === null) {
         printResult(

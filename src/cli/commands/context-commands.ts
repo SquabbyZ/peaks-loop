@@ -18,8 +18,8 @@
 
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { Command } from 'commander';
-import { searchMemory, loadMemoryIndex } from '../../services/memory/memory-search-service.js';
+import type { Command } from 'commander';
+import { searchMemory } from '../../services/memory/memory-search-service.js';
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
 import { fail, ok } from 'peaks-loop-shared/result';
 

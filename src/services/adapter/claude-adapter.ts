@@ -12,7 +12,7 @@
  */
 import { writeFileSync, mkdirSync, rmSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { Adapter, AdapterEnvelope, AdapterSegment } from './adapter.js';
+import type { Adapter, AdapterEnvelope, AdapterSegment } from './adapter.js';
 
 export class ClaudeAdapter implements Adapter {
   readonly name = 'claude' as const;

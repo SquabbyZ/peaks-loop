@@ -120,7 +120,7 @@ function schemaToTypeString(schema: unknown, doc: Record<string, unknown>, depth
     base = (node['type'] as unknown[])
       .map((entry) =>
         typeof entry === 'string' && SCALAR_TYPES[entry] !== undefined
-          ? SCALAR_TYPES[entry]!
+          ? SCALAR_TYPES[entry]
           : String(entry)
       )
       .join(' | ');

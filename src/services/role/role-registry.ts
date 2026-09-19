@@ -12,7 +12,7 @@
  */
 
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, resolve } from 'node:path';
 
 export interface Role {
   /** Unique role name (e.g. "senior-fe", "backend-lead", "admin"). */

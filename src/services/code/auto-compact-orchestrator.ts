@@ -45,7 +45,6 @@ import {
 } from '../context/harness-window-config.js';
 import {
   AUTO_COMPACT_PRE_COMPACT_RATIO,
-  AUTO_COMPACT_RED_LINE_RATIO,
   DEPRECATED_ENVELOPE_FIELDS,
   type CompactDispatchResult,
   type CompactTrigger,

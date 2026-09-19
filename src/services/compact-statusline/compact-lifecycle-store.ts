@@ -151,7 +151,7 @@ function coerceRecord(raw: unknown): CompactLifecycleRecord {
       `compact-lifecycle: redLine must be a boolean (got ${JSON.stringify(raw['redLine'])})`
     );
   }
-  const stage = raw['stage'] as CompactLifecycleStage;
+  const stage = raw['stage'];
   if (stage === 'failed') {
     const failedAt = raw['failedAt'];
     if (!isStage(failedAt) || failedAt === 'failed' || failedAt === 'completed') {
@@ -172,9 +172,9 @@ function coerceRecord(raw: unknown): CompactLifecycleRecord {
       updatedAt: raw['updatedAt'],
       triggerRatio: raw['triggerRatio'],
       redLine: raw['redLine'],
-      failedAt: failedAt as Exclude<CompactLifecycleStage, 'failed' | 'completed'>,
-      ...(raw['afterRatio'] !== undefined ? { afterRatio: raw['afterRatio'] as number } : {}),
-      ...(errorSummary !== undefined ? { errorSummary: errorSummary as string } : {})
+      failedAt: failedAt,
+      ...(raw['afterRatio'] !== undefined ? { afterRatio: raw['afterRatio'] } : {}),
+      ...(errorSummary !== undefined ? { errorSummary: errorSummary } : {})
     };
   }
   // Non-failed records must NOT carry a failedAt or errorSummary.
@@ -191,7 +191,7 @@ function coerceRecord(raw: unknown): CompactLifecycleRecord {
     updatedAt: raw['updatedAt'],
     triggerRatio: raw['triggerRatio'],
     redLine: raw['redLine'],
-    ...(raw['afterRatio'] !== undefined ? { afterRatio: raw['afterRatio'] as number } : {})
+    ...(raw['afterRatio'] !== undefined ? { afterRatio: raw['afterRatio'] } : {})
   };
 }
 

@@ -123,7 +123,7 @@ function readSettings(settingsPath: string): ClaudeSettingsLocal {
   try {
     const raw = readFileSync(settingsPath, 'utf8');
     const parsed: unknown = JSON.parse(raw);
-    return isObject(parsed) ? (parsed as ClaudeSettingsLocal) : {};
+    return isObject(parsed) ? parsed : {};
   } catch {
     // Malformed JSON → start fresh so install doesn't error. The
     // caller is the human / CLI, not an LLM (idempotency matters

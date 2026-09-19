@@ -1,7 +1,7 @@
 import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { isDirectory, listDirectories, pathExists } from 'peaks-loop-shared/fs';
+import { isDirectory, listDirectories } from 'peaks-loop-shared/fs';
 
 import {
   checkPrerequisites,
@@ -578,7 +578,6 @@ export type TransitionRequestArtifactResult = RequestArtifactSummary & {
 // behaviour are unchanged (verbatim move).
 import {
   ALLOWED_STATES_PER_ROLE,
-  allowedStatesForRole,
   FileSizeViolationError,
   LintGateError,
   PrerequisitesNotSatisfiedError,

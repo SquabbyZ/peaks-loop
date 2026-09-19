@@ -27,7 +27,7 @@
  * only.
  */
 
-import { execSync, spawn } from 'node:child_process';
+import { execSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import type { Command } from 'commander';
 import { fail, getErrorMessage, ok } from 'peaks-loop-shared/result';
@@ -37,7 +37,6 @@ import { findProjectRoot } from '../../services/config/config-safety.js';
 import { getCurrentSessionId } from '../../services/skills/skill-presence-service.js';
 import { atomicWriteJson } from '../../services/ide/shared/atomic-json.js';
 import {
-  DEFAULT_TTL_BY_ROLE,
   DEFAULT_VM_IMAGE,
   deserializeVmLease,
   finalizeVmLease,
@@ -219,9 +218,9 @@ export function registerVmCommand(program: Command, io: ProgramIO): void {
       // Pick hypervisor: explicit > auto-detect.
       const explicit = options.hypervisor;
       const detected: VmHypervisor | null = explicit
-        ? (explicit as VmHypervisor)
+        ? explicit
         : (() => {
-            if (existsSync('/dev/kvm')) return 'kvm' as VmHypervisor;
+            if (existsSync('/dev/kvm')) return 'kvm';
             // No platform detector for hyperkit / hyperv — those
             // require explicit --hypervisor.
             return null;

@@ -11,7 +11,7 @@ export function upgradeRecord(parsed: unknown): DispatchRecord {
   if (!isObject(parsed)) {
     throw new Error('Dispatch record root must be an object');
   }
-  const obj = parsed as Record<string, unknown>;
+  const obj = parsed;
   // Slice 4.0.8: 3.2 → 4.0.0 schema bump. Phase A Task 8: 4.0.0 → 4.1.0
   // (additive). The literal type narrows to '4.1.0' but legacy v4.0.0 /
   // v3.2 / v3.1 / 3 / 2 / 1 records are accepted transparently and
@@ -107,16 +107,14 @@ function parseUpgradeRecordLegacyFields(obj: Record<string, unknown>): {
     throw new Error('Dispatch record toolCall must be { name, args }');
   }
   const toolCall: SubAgentToolCall = {
-    name: rawToolCall.name as string,
-    args: (isObject(rawToolCall.args) ? rawToolCall.args : {}) as Readonly<Record<string, unknown>>,
+    name: rawToolCall.name,
+    args: isObject(rawToolCall.args) ? rawToolCall.args : {},
     ...(typeof rawToolCall.toolCallVersion === 'string'
       ? { toolCallVersion: rawToolCall.toolCallVersion }
       : { toolCallVersion: '2.0.0' })
   };
   const createdAt = stringField(obj, 'createdAt');
-  const heartbeats = Array.isArray(obj.heartbeats)
-    ? (obj.heartbeats.filter(isValidHeartbeat) as Heartbeat[])
-    : [];
+  const heartbeats = Array.isArray(obj.heartbeats) ? obj.heartbeats.filter(isValidHeartbeat) : [];
   const lastBeatAt = typeof obj.lastBeatAt === 'string' ? obj.lastBeatAt : null;
   // Slice 2026-07-29-dispatch-stall-governance / S1 (UQ-1) — `no-execution`
   // keeps its natural "dispatched, never executed" reading; an unparseable

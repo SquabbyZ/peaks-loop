@@ -1,4 +1,4 @@
-import { Command } from 'commander';
+import type { Command } from 'commander';
 import { readConfig } from '../../services/config/config-service.js';
 import { findProjectRoot } from '../../services/config/config-safety.js';
 import type { PeaksConfig } from '../../services/config/config-types.js';
