@@ -261,7 +261,12 @@ describe('Scenario: integration — the guard walks the real src/ + tests/ trees
     //
     // 1192 -> 1193 (slice S3c): +1 is `tests/unit/_setup/first-of.ts`, the shared
     // `firstOf` helper that replaces 29 unchecked `result[0]` reads.
-    expect(scan.files.length).toBe(1193);
+    //
+    // 1193 -> 1194 (slice S5a): +1 is
+    // `tests/unit/lint/silent-warning-grace-marker.test.ts`, which pins the
+    // silent-warning grace marker against the real prettier. A new file is the
+    // documented reason this pin moves.
+    expect(scan.files.length).toBe(1194);
   });
 
   it('visits every relative specifier in those files (the recursion is pinned)', () => {
@@ -286,7 +291,13 @@ describe('Scenario: integration — the guard walks the real src/ + tests/ trees
     // carries the `.js` extension the rule requires, so — as with S3c — the
     // violation assertion below is unaffected. `scan.files.length` did NOT move:
     // no `.ts` file was added or removed.
-    expect(scan.specifiers.length).toBe(2718);
+    //
+    // 2718 -> 2719 (slice S5a): +1 is the `'../_setup/4dim-template.js'` import in
+    // the new `tests/unit/lint/silent-warning-grace-marker.test.ts`. It carries
+    // the `.js` extension the rule requires, so — as with S3c and S3e — the
+    // violation assertion below is unaffected. `scan.files.length` moved by +1
+    // as well, in the pin above.
+    expect(scan.specifiers.length).toBe(2719);
   });
 
   it('reaches every relative specifier that crosses into packages/*/src', () => {
