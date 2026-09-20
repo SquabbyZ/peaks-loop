@@ -25,6 +25,7 @@
  *   SHA-256 hash is therefore reproducible for the same logical DAG.
  */
 import { createHash } from 'node:crypto';
+import { isArray } from '../../shared/array-guards.js';
 
 /**
  * Slice complexity tier (v2.15.0 follow-up, G2 in 12 Gaps).
@@ -115,7 +116,12 @@ export class SliceDagCycleError extends Error {
  * Pure. Cheap. No I/O.
  */
 export function validateDag(dag: SliceDag): void {
-  if (!dag || !Array.isArray(dag.nodes) || !Array.isArray(dag.edges)) {
+  // `isArray` (not `Array.isArray`): at runtime this is the identical check, but
+  // `Array.isArray` is typed `arg is any[]` and so widens `dag.nodes` /
+  // `dag.edges` — already `readonly SliceNode[]` / `readonly DependsOn[]` — to
+  // `any[]` for the rest of the function, which is where this file's 43
+  // `no-unsafe-*` findings came from. See `src/shared/array-guards.ts`.
+  if (!dag || !isArray(dag.nodes) || !isArray(dag.edges)) {
     throw new InvalidSliceDagError('dag must have nodes and edges arrays');
   }
   if (dag.nodes.length === 0) {
@@ -169,8 +175,7 @@ export function validateDag(dag: SliceDag): void {
     // present so pre-existing DAGs stay valid.
     if (
       n.files !== undefined &&
-      (!Array.isArray(n.files) ||
-        n.files.some((f: unknown) => typeof f !== 'string' || f.length === 0))
+      (!isArray(n.files) || n.files.some((f: unknown) => typeof f !== 'string' || f.length === 0))
     ) {
       throw new InvalidSliceDagError(
         `node ${n.id} files must be an array of non-empty strings when present`

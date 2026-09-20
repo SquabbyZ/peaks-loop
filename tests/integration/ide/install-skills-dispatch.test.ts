@@ -14,6 +14,7 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  readdirSync,
   readlinkSync,
   rmSync,
   writeFileSync
@@ -108,7 +109,7 @@ describe('install-skills.mjs — IDE-aware dispatch (slice #011)', () => {
       const result = await runInstallSkills({ PEAKS_CLAUDE_SKILLS_DIR: customSkills }, project);
       expect(result.code).toBe(0);
       // At least one peaks skill should now be symlinked under the custom dir.
-      const entries = require('node:fs').readdirSync(customSkills);
+      const entries = readdirSync(customSkills);
       expect(entries.length).toBeGreaterThan(0);
       // The installed entry is a symlink to <packageRoot>/skills/<skillName>.
       const first = entries[0]!;
@@ -165,7 +166,7 @@ describe('install-skills.mjs — IDE-aware dispatch (slice #011)', () => {
       // fan-out in `installBundledSkillsForAllPlatforms` now
       // honors — see the precedence fix in
       // `scripts/install-skills.mjs`).
-      const entries = require('node:fs').readdirSync(customSkills);
+      const entries = readdirSync(customSkills);
       expect(entries.length).toBeGreaterThan(0);
       // Trae is verified in 2.0, so the 1.x-era warning
       // ("no skillInstall profile declared") does NOT fire.

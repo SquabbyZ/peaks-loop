@@ -98,18 +98,24 @@ const EXCLUDED: readonly string[] = ['dist', 'node_modules', 'coverage'];
  * "the same 14" from "13 of the old ones and a new one", and the whole point of
  * the guard is that a human can inspect the list.
  *
- * This list moves for exactly two reasons:
+ * This list moves for exactly three reasons:
  *   - a site left the class (an `await` was added, a `Promise<…>` annotation was
  *     written, or the `async` was removed) — that is the guard working;
  *   - a new `async` with no `await`, no contract and no `throw` was written —
- *     that is the guard working too.
- * Both are edits to THIS list, made by hand, with the reason recorded here.
+ *     that is the guard working too;
+ *   - an unrelated edit above one of these sites shifted its LINE NUMBER, with
+ *     the same 14 functions still in the class (slice rid-s10-any-roots-ts,
+ *     2026-09-20: the three `job-commands.ts` entries moved 349/354/371 ->
+ *     429/434/451, a uniform +80, when the option interfaces for that file's
+ *     eleven Commander actions were inserted above them. Same three functions,
+ *     same reasons they are in the class; only the line moved).
+ * All three are edits to THIS list, made by hand, with the reason recorded here.
  */
 const PINNED_SITES: readonly string[] = [
   'src/cli/commands/code-job-shape-commands.ts:55',
-  'src/cli/commands/job-commands.ts:349',
-  'src/cli/commands/job-commands.ts:354',
-  'src/cli/commands/job-commands.ts:371',
+  'src/cli/commands/job-commands.ts:429',
+  'src/cli/commands/job-commands.ts:434',
+  'src/cli/commands/job-commands.ts:451',
   'src/services/adapter/codex-adapter.ts:17',
   'src/services/adapter/copilot-adapter.ts:17',
   'src/services/capability-guard-runner/contracts/J04.ts:24',
@@ -381,7 +387,10 @@ describe('Scenario: integration — the guard walks the real src/ + packages/ tr
     // A probe that samples nothing reports green for the whole space. This pin
     // moves only when a `.ts` file is added to or removed from `src/` or
     // `packages/` — 817 at the moment the guard landed.
-    expect(result.files).toBe(817);
+    // 817 -> 818 (slice rid-s10-any-roots-ts): +1 is `src/shared/array-guards.ts`,
+    // the non-narrowing `isArray` helper. A new file is the documented reason
+    // this pin moves.
+    expect(result.files).toBe(818);
   });
 
   it('visits every async function in those files (the recursion is pinned)', () => {

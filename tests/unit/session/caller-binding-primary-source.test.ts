@@ -16,7 +16,15 @@
 //   - a11y:        omitted — no human-facing text in this path.
 
 import { describe, expect, it, beforeEach, afterEach } from 'vitest';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  writeFileSync
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { declareDimensions } from '../_setup/4dim-template.js';
@@ -220,7 +228,6 @@ describe('Scenario: behavior — atomic write hygiene (A.5b)', () => {
     expect(parsed.callerId).toBe(CALLER_ID);
     expect(parsed.peakSessionId).toBe(SID);
     // Atomic write leaves NO temp files behind in the callers dir.
-    const { readdirSync } = require('node:fs');
     const dirEntries = readdirSync(join(workspace, '.peaks', '_runtime', 'callers'));
     const tempFiles = dirEntries.filter(
       (n: string) => n.startsWith('.settings.') && n.endsWith('.tmp')
@@ -233,7 +240,6 @@ describe('Scenario: behavior — atomic write hygiene (A.5b)', () => {
     // atomicWriteJson on rename-failure would unlink the temp file
     // (best-effort). On success, no .settings.<uuid>.tmp is left
     // behind. Verify by listing the parent dir.
-    const { readdirSync } = require('node:fs');
     const dirEntries = readdirSync(join(workspace, '.peaks', '_runtime', 'callers'));
     expect(dirEntries).toEqual([`${CALLER_ID}.json`]);
   });
@@ -255,7 +261,6 @@ describe('Scenario: behavior — dual-write ordering', () => {
     const sessionRaw = JSON.parse(readFileSync(sessionJsonPath, 'utf8')) as { sessionId: string };
     expect(callerRaw.peakSessionId).toBe(sessionRaw.sessionId);
     // Atomic-write hygiene: no leftover temp files in either dir.
-    const { readdirSync } = require('node:fs');
     const callerDir = readdirSync(join(workspace, '.peaks', '_runtime', 'callers'));
     const sessionDir = readdirSync(join(workspace, '.peaks', '_runtime'));
     expect(callerDir.some((n: string) => n.endsWith('.tmp'))).toBe(false);

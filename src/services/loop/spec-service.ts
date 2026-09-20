@@ -25,6 +25,7 @@
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, isAbsolute } from 'node:path';
+import { isArray } from '../../shared/array-guards.js';
 
 /** Spec origin — exposed as part of `peaks loop spec` output. */
 export type SpecOrigin =
@@ -94,21 +95,43 @@ export function resolveLoopSpec(
  *  Note: numeric range validation is the lint layer's responsibility;
  *  `buildSpec` preserves raw values so out-of-range entries surface in
  *  `lintLoopSpec` rather than being silently clamped. */
+/** `evaluators[]` from a JSON-derived payload, or `[]` when absent / not an
+ *  array. Each entry is still inspected field-by-field; `kind` falls back to
+ *  `''` so `lintLoopSpec` reports it rather than this function throwing.
+ *
+ *  S10 (2026-09-20): extracted from `buildSpec` for two reasons. (1) The inline
+ *  form used `Array.isArray`, typed `arg is any[]`, which widened
+ *  `input.evaluators` — already `readonly SpecEvaluatorEntry[] | undefined` —
+ *  to `any[]` and made `e.kind` an `any` access; `isArray` does not widen.
+ *  (2) Keeping it inline would have cost `buildSpec` two extra branches, and its
+ *  complexity was already exactly at the rule's limit — extracting instead
+ *  lowers it. See `src/shared/array-guards.ts`. */
+function toEvaluatorEntries(
+  value: readonly SpecEvaluatorEntry[] | undefined
+): SpecEvaluatorEntry[] {
+  if (value === undefined) return [];
+  if (!isArray(value)) return [];
+  return value.map((e) => ({
+    kind: typeof e.kind === 'string' ? e.kind : '',
+    ...(typeof e.gate === 'string' ? { gate: e.gate } : {}),
+    ...(typeof e.scope === 'string' ? { scope: e.scope } : {})
+  }));
+}
+
+/** `sla[]` from a JSON-derived payload, or `[]` when absent / not an array. */
+function toSlaEntries(value: readonly SpecSlaEntry[] | undefined): SpecSlaEntry[] {
+  if (value === undefined) return [];
+  if (!isArray(value)) return [];
+  return value.map((s) => ({
+    evaluator: typeof s.evaluator === 'string' ? s.evaluator : '',
+    maxScore:
+      typeof s.maxScore === 'number' && Number.isFinite(s.maxScore) ? s.maxScore : Number.NaN
+  }));
+}
+
 export function buildSpec(input: Partial<LoopSpec>, expectedRid: string): LoopSpec {
-  const evaluators = Array.isArray(input.evaluators)
-    ? input.evaluators.map((e) => ({
-        kind: typeof e.kind === 'string' ? e.kind : '',
-        ...(typeof e.gate === 'string' ? { gate: e.gate } : {}),
-        ...(typeof e.scope === 'string' ? { scope: e.scope } : {})
-      }))
-    : [];
-  const sla = Array.isArray(input.sla)
-    ? input.sla.map((s) => ({
-        evaluator: typeof s.evaluator === 'string' ? s.evaluator : '',
-        maxScore:
-          typeof s.maxScore === 'number' && Number.isFinite(s.maxScore) ? s.maxScore : Number.NaN
-      }))
-    : [];
+  const evaluators = toEvaluatorEntries(input.evaluators);
+  const sla = toSlaEntries(input.sla);
   const term = input.termination ?? { strategy: 'manual' };
   const strategy: SpecTerminationStrategy =
     term.strategy === 'max-cycles' ||

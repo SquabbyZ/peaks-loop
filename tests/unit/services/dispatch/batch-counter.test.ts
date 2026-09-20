@@ -41,7 +41,8 @@ import {
   resetBatch,
   type BatchCounterRecord
 } from '~/src/services/dispatch/batch-counter';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { dirname } from 'node:path';
 
 const SID = '2026-07-30-test-counter';
 const BATCH = 'batch-001';
@@ -161,8 +162,7 @@ describe('Scenario: behavior — increment + reset', () => {
     // then:  the result matches the expectation
     const ws = process.cwd();
     const path = batchCounterPath(ws, SID, 'corrupt');
-    const { mkdirSync, writeFileSync } = require('node:fs') as typeof import('node:fs');
-    mkdirSync(require('node:path').dirname(path), { recursive: true });
+    mkdirSync(dirname(path), { recursive: true });
     writeFileSync(path, 'this is not json', 'utf8');
     expect(readBatchCount(ws, SID, 'corrupt')).toBe(0);
   });

@@ -28,7 +28,7 @@
  */
 
 import { execSync } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import type { Command } from 'commander';
 import { fail, getErrorMessage, ok } from 'peaks-loop-shared/result';
 
@@ -132,7 +132,7 @@ function spawnVmWithHypervisor(args: {
   </devices>
 </domain>`;
     const xmlPath = `${args.workdir}/.peaks-vm-${args.leaseId}.xml`;
-    require('node:fs').writeFileSync(xmlPath, xml, 'utf8');
+    writeFileSync(xmlPath, xml, 'utf8');
     const out = execSync(`virsh create ${xmlPath}`, {
       cwd: args.workdir,
       stdio: ['ignore', 'pipe', 'pipe'],

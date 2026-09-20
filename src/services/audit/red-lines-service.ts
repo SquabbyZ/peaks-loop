@@ -267,7 +267,7 @@ export function runRedLinesAudit(input: RedLinesServiceInput): RedLinesServiceRe
   //    for the current session.
   if (existsSync(sessionJsonPath)) {
     try {
-      const sessionData = JSON.parse(require('node:fs').readFileSync(sessionJsonPath, 'utf8')) as {
+      const sessionData = JSON.parse(readFileSync(sessionJsonPath, 'utf8')) as {
         peakSessionId?: string;
       };
       if (typeof sessionData.peakSessionId === 'string' && sessionData.peakSessionId.length > 0) {
@@ -307,7 +307,7 @@ export function runRedLinesAudit(input: RedLinesServiceInput): RedLinesServiceRe
   const peaksDir = `${input.projectRoot}/.peaks`;
   if (existsSync(peaksDir)) {
     try {
-      const entries = require('node:fs').readdirSync(peaksDir) as string[];
+      const entries = readdirSync(peaksDir);
       for (const entry of entries) {
         if (entry === '_runtime' || entry === '_sub_agents' || entry.startsWith('.')) continue;
         const designCheck = checkDesignDraftConfirmation({
@@ -338,7 +338,7 @@ export function runRedLinesAudit(input: RedLinesServiceInput): RedLinesServiceRe
     if (existsSync(srcDir)) {
       const allFiles: string[] = [];
       const walk = (dir: string) => {
-        const ents = require('node:fs').readdirSync(dir, { withFileTypes: true });
+        const ents = readdirSync(dir, { withFileTypes: true });
         for (const e of ents) {
           const full = `${dir}/${e.name}`;
           if (e.isDirectory()) {

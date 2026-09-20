@@ -43,7 +43,13 @@ import {
 // envelope instead of on stderr as `warning: `. `job progress` always passed
 // `opts.json`; the rest of this file did not, and E1 (2026-09-17) brought them
 // in line. Do not reintroduce the object form.
-function asJson(opts: any): boolean {
+//
+// S10 (2026-09-20): the parameter is now `JobJsonOpts` rather than `any`. The
+// gate above is about which VALUE is passed, not about the parameter's type —
+// declaring the one field this function reads is what stops every `opts.<x>`
+// call site in the file from being an `any` access. See the option-interface
+// block above `registerJobCommands`.
+function asJson(opts: JobJsonOpts): boolean {
   return opts.json === true;
 }
 
@@ -74,12 +80,12 @@ function asJson(opts: any): boolean {
  * are annotated in place; `tests/unit/cli/job-exit-code.test.ts` pins both
  * directions so a future blanket "every warning exits 1" edit turns red.
  */
-function failResult(io: ProgramIO, result: ResultEnvelope<unknown>, opts: any): void {
+function failResult(io: ProgramIO, result: ResultEnvelope<unknown>, opts: JobJsonOpts): void {
   printResult(io, result, asJson(opts));
   process.exitCode = 1;
 }
 
-function projectRoot(opts: any): string {
+function projectRoot(opts: JobProjectOpts): string {
   // Reuse the workspace root resolver from peaks CLI; for now, CWD as a safe placeholder.
   return opts.project ?? process.cwd();
 }
@@ -135,7 +141,7 @@ function findSessionHoldingJob(project: string, jobId: string): string | null {
  * caller with a bare "no state for <job> at <other-sid>" path.
  */
 function resolveJobStateRoot(
-  opts: any,
+  opts: JobRootOpts,
   jobId?: string
 ): { rootDir: string; sessionId: string; projectRoot: string } {
   const project = projectRoot(opts);
@@ -186,6 +192,80 @@ function resolveSliceId(
   };
 }
 
+/**
+ * S10 (2026-09-20) — the option shapes the `job` subcommands read.
+ *
+ * WHY. Commander types an action's `opts` as `any`, so every `opts.<field>`
+ * access in this file was an `any` access: 109 `no-unsafe-*` findings, the
+ * largest single TS root in the S10 census. The root is the *entrance* — the
+ * untyped `opts` parameter — not the 109 sites, so the fix is to declare it.
+ *
+ * Each interface names exactly the options its own command READS, plus `--json`
+ * (added by `addJsonOption`). So a field absent here is a field that command
+ * does not read, and reading it is now a compile error instead of an `any`
+ * access. (A command may declare more than it reads — `job status` declares
+ * `--show-cost` and never looks at it; that option is deliberately not listed.)
+ * `readonly` is honest: these are read-only inputs; Commander owns the object.
+ *
+ * The four helpers above (`asJson`, `failResult`, `projectRoot`,
+ * `resolveJobStateRoot`) take the narrowest structural type each one actually
+ * reads, so all eleven action callbacks remain assignable to them.
+ */
+interface JobJsonOpts {
+  readonly json?: boolean;
+}
+
+interface JobProjectOpts {
+  readonly project?: string;
+}
+
+interface JobRootOpts extends JobProjectOpts {
+  readonly sessionId?: string;
+}
+
+interface JobInitOpts extends JobRootOpts, JobJsonOpts {
+  readonly jobId: string;
+  readonly sliceList: string;
+  readonly parallelismHint?: string;
+  readonly exitPolicy?: string;
+  readonly mainLoopStrategy?: string;
+  readonly rotateEvery?: string;
+}
+
+interface JobStatusOpts extends JobRootOpts, JobJsonOpts {
+  readonly jobId: string;
+  readonly watch?: boolean;
+}
+
+interface JobIdOnlyOpts extends JobRootOpts, JobJsonOpts {
+  readonly jobId: string;
+}
+
+interface JobSubagentCleanupOpts extends JobIdOnlyOpts {
+  readonly batchId: string;
+  readonly force?: boolean;
+}
+
+interface JobCheckpointOpts extends JobIdOnlyOpts {
+  readonly sliceId: string;
+  readonly state: string;
+  readonly commitSha?: string;
+  readonly reason?: string;
+}
+
+interface JobBlockOpts extends JobIdOnlyOpts {
+  readonly sliceId: string;
+  readonly reason: string;
+}
+
+interface JobProgressOpts extends JobIdOnlyOpts {
+  readonly allowMissing?: boolean;
+}
+
+interface JobCostCheckOpts extends JobRootOpts, JobJsonOpts {
+  readonly reviewFile: string;
+}
+
 export function registerJobCommands(
   program: Command,
   io: ProgramIO = {
@@ -207,7 +287,7 @@ export function registerJobCommands(
     .option('--rotate-every <n>', 'rotate every N slices (rotating mode)', '3')
     .option('--session-id <sid>', SESSION_ID_HELP)
     .option('--project <repo>')
-    .action((opts) => {
+    .action((opts: JobInitOpts) => {
       const project = projectRoot(opts);
       // Resolve sessionId: explicit flag > PEAKS_SESSION_ID > caller-first session binding
       // (this caller's binding, else the project-global session.json) > FAIL.
@@ -293,7 +373,7 @@ export function registerJobCommands(
     .option('--show-cost', 'overlay cost from peaks budget')
     .option('--session-id <sid>', SESSION_ID_HELP)
     .option('--project <repo>')
-    .action((opts) => {
+    .action((opts: JobStatusOpts) => {
       const store = new JobStateStore(resolveJobStateRoot(opts, opts.jobId).rootDir);
       const orch = new JobOrchestrator(store);
       const s = orch.status(opts.jobId);
@@ -342,7 +422,7 @@ export function registerJobCommands(
     .requiredOption('--job-id <jid>')
     .option('--session-id <sid>', SESSION_ID_HELP)
     .option('--project <repo>')
-    .action(async (opts) => {
+    .action(async (opts: JobIdOnlyOpts) => {
       const store = new JobStateStore(resolveJobStateRoot(opts, opts.jobId).rootDir);
       const rotation = new JobRotation(
         store,
@@ -365,7 +445,7 @@ export function registerJobCommands(
     .option('--force')
     .option('--session-id <sid>', SESSION_ID_HELP)
     .option('--project <repo>')
-    .action(async (opts) => {
+    .action(async (opts: JobSubagentCleanupOpts) => {
       const wrapper = new SubAgentJobWrapper(
         new JobStateStore(resolveJobStateRoot(opts, opts.jobId).rootDir),
         async () => ({ batchId: opts.batchId })
@@ -389,7 +469,7 @@ export function registerJobCommands(
     .option('--reason <text>')
     .option('--session-id <sid>', SESSION_ID_HELP)
     .option('--project <repo>')
-    .action(async (opts) => {
+    .action(async (opts: JobCheckpointOpts) => {
       const parsed = JobCheckpointInputSchema.safeParse({
         jobId: opts.jobId,
         sliceId: opts.sliceId,
@@ -517,7 +597,7 @@ export function registerJobCommands(
     .requiredOption('--reason <text>')
     .option('--session-id <sid>', SESSION_ID_HELP)
     .option('--project <repo>')
-    .action(async (opts) => {
+    .action(async (opts: JobBlockOpts) => {
       const parsed = JobBlockInputSchema.safeParse({
         jobId: opts.jobId,
         sliceId: opts.sliceId,
@@ -563,7 +643,7 @@ export function registerJobCommands(
     .requiredOption('--job-id <jid>')
     .option('--session-id <sid>', SESSION_ID_HELP)
     .option('--project <repo>')
-    .action((opts) => {
+    .action((opts: JobIdOnlyOpts) => {
       const store = new JobStateStore(resolveJobStateRoot(opts, opts.jobId).rootDir);
       const orch = new JobOrchestrator(store);
       const r = orch.continueNow(opts.jobId);
@@ -576,7 +656,7 @@ export function registerJobCommands(
     .requiredOption('--job-id <jid>')
     .option('--session-id <sid>', SESSION_ID_HELP)
     .option('--project <repo>')
-    .action((opts) => {
+    .action((opts: JobIdOnlyOpts) => {
       const store = new JobStateStore(resolveJobStateRoot(opts, opts.jobId).rootDir);
       const orch = new JobOrchestrator(store);
       const s = orch.status(opts.jobId);
@@ -617,7 +697,7 @@ export function registerJobCommands(
       '--allow-missing',
       'report an absent progress.json as NO_PROGRESS (expected absence) rather than PROGRESS_READ_FAILED (read error); the command still exits non-zero'
     )
-    .action((opts) => {
+    .action((opts: JobProgressOpts) => {
       try {
         const jobRoot = resolveJobStateRoot(opts, opts.jobId);
         const sessId = jobRoot.sessionId;
@@ -685,7 +765,7 @@ export function registerJobCommands(
     .requiredOption('--job-id <jid>')
     .option('--session-id <sid>', SESSION_ID_HELP)
     .option('--project <repo>')
-    .action((opts) => {
+    .action((opts: JobIdOnlyOpts) => {
       const store = new JobStateStore(resolveJobStateRoot(opts, opts.jobId).rootDir);
       const orch = new JobOrchestrator(store);
       const s = orch.status(opts.jobId);
@@ -708,7 +788,7 @@ export function registerJobCommands(
     )
     .option('--project <repo>')
     .option('--session-id <sid>', SESSION_ID_HELP)
-    .action((opts) => {
+    .action((opts: JobCostCheckOpts) => {
       const project = projectRoot(opts);
       const sessionId =
         opts.sessionId ?? process.env.PEAKS_SESSION_ID ?? getCurrentSessionId(project);

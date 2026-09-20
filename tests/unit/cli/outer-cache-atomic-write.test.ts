@@ -16,7 +16,7 @@
 //   - a11y:        omitted — no human-facing text in this path.
 
 import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, existsSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { declareDimensions } from '../_setup/4dim-template.js';
@@ -115,7 +115,6 @@ describe('Scenario: behavior — atomic write hygiene (A.5c)', () => {
     await invokeOuterCacheWrite();
     // Atomic write via temp + rename: success leaves no temp files
     // behind. Verify by listing the runtime dir.
-    const { readdirSync } = require('node:fs');
     const entries = readdirSync(join(workspace, '.peaks', '_runtime'));
     const tempFiles = entries.filter(
       (n: string) => n.startsWith('.settings.') && n.endsWith('.tmp')

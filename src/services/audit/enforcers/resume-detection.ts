@@ -8,7 +8,7 @@
  *     {spec-locked, implemented, qa-handoff} (resumable states)
  */
 
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
 export interface ResumeDetectionInput {
@@ -45,7 +45,7 @@ export function checkResume(input: ResumeDetectionInput): ResumeDetectionResult 
   let requestStatePath = '';
   if (existsSync(rdDir)) {
     try {
-      const files = require('node:fs').readdirSync(rdDir) as string[];
+      const files = readdirSync(rdDir);
       for (const file of files) {
         if (!file.endsWith('.md')) continue;
         const path = join(rdDir, file);

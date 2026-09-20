@@ -48,7 +48,7 @@
 //   - a11y:        omitted — no human-facing text in this path.
 
 import { describe, expect, it, beforeEach, afterEach } from 'vitest';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { declareDimensions } from '../_setup/4dim-template.js';
@@ -125,7 +125,7 @@ afterEach(() => {
   const wsToRemove = workspace;
   setImmediate(() => {
     try {
-      require('node:fs').rmSync(wsToRemove, { recursive: true, force: true });
+      rmSync(wsToRemove, { recursive: true, force: true });
     } catch {
       /* best-effort */
     }

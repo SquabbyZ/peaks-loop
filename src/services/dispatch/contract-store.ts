@@ -19,6 +19,7 @@
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { isArray } from '../../shared/array-guards.js';
 
 /** Public surface of a finished slice. */
 export interface SliceContract {
@@ -123,11 +124,7 @@ export function writeContract(
   if (!input.sliceId || input.sliceId.length === 0) {
     throw new ContractStoreError('sliceId is required');
   }
-  if (
-    !Array.isArray(input.exports) ||
-    !Array.isArray(input.types) ||
-    !Array.isArray(input.publicSignatures)
-  ) {
+  if (!isArray(input.exports) || !isArray(input.types) || !isArray(input.publicSignatures)) {
     throw new ContractStoreError('exports, types, publicSignatures must be arrays');
   }
   const completedAt = input.completedAt ?? new Date().toISOString();

@@ -19,6 +19,7 @@ import {
   writeFileSync
 } from 'node:fs';
 import { dirname, isAbsolute, join, resolve, sep } from 'node:path';
+import { isArray } from '../../shared/array-guards.js';
 import {
   type WorkflowGraph,
   type WorkflowGraphNode,
@@ -168,8 +169,17 @@ export function validateGraph(graph: unknown): WorkflowGraph {
   if (g.parentWorkflowId !== undefined && typeof g.parentWorkflowId !== 'string') {
     throw makeError(PEAKS_GRAPH_CORRUPTED, 'parentWorkflowId must be a string when present');
   }
-  if (!Array.isArray(g.nodes)) throw makeError(PEAKS_GRAPH_CORRUPTED, 'nodes missing');
-  if (!Array.isArray(g.edges)) throw makeError(PEAKS_GRAPH_CORRUPTED, 'edges missing');
+  // `isArray` (not `Array.isArray`, which is typed `arg is any[]`): the guard
+  // here is the same runtime check, but the built-in would widen `g.nodes` /
+  // `g.edges` from `readonly WorkflowNode[]` / `readonly WorkflowEdge[]` to
+  // `any[]`, making every access in the loops below an `any` access. The
+  // `=== undefined` half is the explicit price of a `boolean` helper — it
+  // cannot narrow, so defined-ness is stated in the open. See
+  // `src/shared/array-guards.ts`.
+  if (g.nodes === undefined || !isArray(g.nodes))
+    throw makeError(PEAKS_GRAPH_CORRUPTED, 'nodes missing');
+  if (g.edges === undefined || !isArray(g.edges))
+    throw makeError(PEAKS_GRAPH_CORRUPTED, 'edges missing');
   if (g.schemaVersion !== 1) throw makeError(PEAKS_GRAPH_CORRUPTED, 'schemaVersion must be 1');
   const ids = new Set<NodeId>();
   let terminalCount = 0;
@@ -185,7 +195,7 @@ export function validateGraph(graph: unknown): WorkflowGraph {
     if (typeof n.label !== 'string' || n.label.length === 0) {
       throw makeError(PEAKS_GRAPH_CORRUPTED, 'label missing');
     }
-    if (!Array.isArray(n.dependsOn)) {
+    if (!isArray(n.dependsOn)) {
       throw makeError(PEAKS_GRAPH_CORRUPTED, 'dependsOn must be an array');
     }
     if (n.kind === 'terminal') terminalCount += 1;
@@ -212,14 +222,19 @@ export function validateGraph(graph: unknown): WorkflowGraph {
       throw makeError(PEAKS_GRAPH_CORRUPTED, `edge to unknown node: ${String(e.to)}`);
     }
   }
-  for (const n of g.nodes as WorkflowGraphNode[]) {
+  // S10: the two `as WorkflowGraphNode[]` casts that used to be here are gone.
+  // They existed only to undo the `Array.isArray` widening above; with `isArray`
+  // the receiver is already `readonly WorkflowGraphNode[]`, `detectCycle`
+  // already accepts that, so the casts were `no-unnecessary-type-assertion`
+  // after the fix and are simply deleted.
+  for (const n of g.nodes) {
     for (const dep of n.dependsOn) {
       if (!ids.has(dep)) {
         throw makeError(PEAKS_GRAPH_CORRUPTED, `dependsOn references unknown node: ${dep}`);
       }
     }
   }
-  if (detectCycle(g.nodes as WorkflowGraphNode[])) {
+  if (detectCycle(g.nodes)) {
     throw makeError(PEAKS_GRAPH_CORRUPTED, 'graph contains a cycle');
   }
   return graph as WorkflowGraph;

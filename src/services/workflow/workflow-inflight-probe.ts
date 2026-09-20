@@ -14,6 +14,7 @@ import {
   type GraphNodeStatus,
   type WorkflowId
 } from './workflow-graph-types.js';
+import { isArray } from '../../shared/array-guards.js';
 
 export const FRESH_RUNNING_THRESHOLD_MS = 30 * 60 * 1000; // 30 minutes
 export const PEAKS_HEARTBEAT_MISSING = 'PEAKS_HEARTBEAT_MISSING';
@@ -84,7 +85,11 @@ export function probeInFlightBatch(input: ProbeInput): ProbeResult {
       });
       continue;
     }
-    if (!graph.nodes || !Array.isArray(graph.nodes)) {
+    // `isArray` (not `Array.isArray`, typed `arg is any[]`), so `graph.nodes`
+    // keeps its declared `ReadonlyArray<{...}>` and the loop below reads typed
+    // `node` fields. The `!graph.nodes` half already covers undefined. See
+    // `src/shared/array-guards.ts`.
+    if (!graph.nodes || !isArray(graph.nodes)) {
       errors.push({
         code: PEAKS_GRAPH_CORRUPTED,
         message: 'graph.nodes missing',

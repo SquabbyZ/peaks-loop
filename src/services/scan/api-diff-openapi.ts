@@ -209,6 +209,23 @@ function schemaOf(media: unknown): unknown {
   return isRecord(media) ? media['schema'] : undefined;
 }
 
+/**
+ * The `parameters` array of an OpenAPI object, or `[]` when absent.
+ *
+ * S10 (2026-09-20): the call sites used to inline
+ * `Array.isArray(x['parameters']) ? x['parameters'] : []`, and because
+ * `Array.isArray` is typed `arg is any[]` the ternary's type was `any[]` —
+ * which then flowed into `collectParameters`. Returning `readonly unknown[]`
+ * stops the `any` at this function boundary without asserting anything about
+ * the elements: `collectParameters` already narrows each entry itself
+ * (`Array.isArray` + `isRecord`), and that is the only place that knows what a
+ * parameter may contain.
+ */
+function parametersOf(record: Record<string, unknown>): readonly unknown[] {
+  const value = record['parameters'];
+  return Array.isArray(value) ? value : [];
+}
+
 function collectParameters(parameters: unknown, locations: Map<string, Map<string, string>>): void {
   if (!Array.isArray(parameters)) return;
   for (const raw of parameters) {
@@ -257,8 +274,8 @@ export function parseOpenApiDocument(file: string, doc: Record<string, unknown>)
         if (read.incompleteReason !== null) locationIssues.set(location, read.incompleteReason);
       };
 
-      const shared = Array.isArray(pathItem['parameters']) ? pathItem['parameters'] : [];
-      const own = Array.isArray(opRaw['parameters']) ? opRaw['parameters'] : [];
+      const shared = parametersOf(pathItem);
+      const own = parametersOf(opRaw);
       collectParameters([...shared, ...own], locations);
 
       const requestBody = opRaw['requestBody'];

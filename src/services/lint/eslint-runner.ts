@@ -20,6 +20,7 @@
 import { spawnSync, type SpawnSyncOptions } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
+import { isArray } from '../../shared/array-guards.js';
 import { resolveNpxInvocation } from './npx-resolver.js';
 
 /**
@@ -230,7 +231,13 @@ function loadBaseline(cwd: string, baselineFile: string): readonly BaselineViola
   } catch {
     return [];
   }
-  const violations = Array.isArray(parsed.violations) ? parsed.violations : [];
+  // `isArray` (not `Array.isArray`, typed `arg is any[]`), so `parsed.violations`
+  // keeps the `ReadonlyArray<{ruleId?: unknown; …}>` shape declared by
+  // `BaselineFile` and `v` below is a typed read. The `!== undefined` half is
+  // required because a `boolean` helper cannot narrow. See
+  // `src/shared/array-guards.ts`.
+  const violations =
+    parsed.violations !== undefined && isArray(parsed.violations) ? parsed.violations : [];
   const out: BaselineViolation[] = [];
   for (const v of violations) {
     if (typeof v.ruleId !== 'string' || typeof v.file !== 'string' || typeof v.line !== 'number')

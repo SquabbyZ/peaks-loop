@@ -275,7 +275,12 @@ describe('Scenario: integration — the guard walks the real src/ + tests/ trees
     // that carries `@typescript-eslint/require-await`'s residual signal after
     // that rule was turned off repo-wide. As in S3c, S5a and S6, a new file is
     // the documented reason this pin moves.
-    expect(scan.files.length).toBe(1196);
+    // 1196 -> 1197 (slice rid-s10-any-roots-ts): +1 is
+    // `src/shared/array-guards.ts`, the non-narrowing `isArray` helper that
+    // replaces `Array.isArray` at the seven call sites where its `arg is any[]`
+    // signature was widening an already-typed array to `any[]`. As in S3c, S5a,
+    // S6 and S9, a new file is the documented reason this pin moves.
+    expect(scan.files.length).toBe(1197);
   });
 
   it('visits every relative specifier in those files (the recursion is pinned)', () => {
@@ -326,7 +331,15 @@ describe('Scenario: integration — the guard walks the real src/ + tests/ trees
     // `.js` extension the rule requires, so — as with S3c, S3e, S5a and S6 —
     // the violation assertion below is unaffected. `scan.files.length` moved by
     // +1 as well, in the pin above.
-    expect(scan.specifiers.length).toBe(2711);
+    // 2711 -> 2717 (slice rid-s10-any-roots-ts): +6 is one
+    // `'../../shared/array-guards.js'` import added to each of the six src
+    // modules that had an `Array.isArray` widening — slice-dag,
+    // workflow-graph-store, workflow-inflight-probe, spec-service,
+    // contract-store and eslint-runner. All six carry the `.js` extension the
+    // rule requires, so — as with S3c, S3e, S5a, S6 and S9 — the violation
+    // assertion below is unaffected. `scan.files.length` moved by +1 as well,
+    // in the pin above.
+    expect(scan.specifiers.length).toBe(2717);
   });
 
   it('reaches every relative specifier that crosses into packages/*/src', () => {
