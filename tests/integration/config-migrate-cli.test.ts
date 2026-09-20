@@ -23,6 +23,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
+import { parseCliEnvelope } from '../../src/cli/cli-envelope.js';
 
 const CLI_BIN = resolve(__dirname, '../../bin/peaks.js');
 
@@ -81,7 +82,7 @@ describe('peaks config migrate', () => {
     try {
       const { stdout, code } = cli(`config migrate --project ${project} --dry-run --json`, project);
       expect(code).toBe(0);
-      const out = JSON.parse(stdout);
+      const out = parseCliEnvelope(stdout);
       expect(out.ok).toBe(true);
       expect(out.data.applied).toBe(false);
       expect(out.data.willMigrateFields).toContain('economyMode');
@@ -103,7 +104,7 @@ describe('peaks config migrate', () => {
     try {
       const { stdout, code } = cli(`config migrate --project ${project} --apply --json`, project);
       expect(code).toBe(0);
-      const out = JSON.parse(stdout);
+      const out = parseCliEnvelope(stdout);
       expect(out.data.applied).toBe(true);
       const newCfg = JSON.parse(readFileSync(join(HOME_DIR, '.peaks/config.json'), 'utf8'));
       expect(newCfg).toEqual({
@@ -155,7 +156,7 @@ describe('peaks config rollback', () => {
       const { code, stdout, stderr } = cli(`config rollback --apply --json`, project);
       expect(code).toBe(0);
       expect(stderr).not.toMatch(/NO_BACKUP/);
-      const out = JSON.parse(stdout);
+      const out = parseCliEnvelope(stdout);
       expect(out.ok).toBe(true);
       expect(out.data.available).toBe(false);
       expect(out.data.applied).toBe(false);
@@ -172,7 +173,7 @@ describe('peaks config restore', () => {
       const { code, stdout, stderr } = cli(`config restore --list --json`, project);
       expect(code).toBe(0);
       expect(stderr).not.toMatch(/NO_BACKUP/);
-      const out = JSON.parse(stdout);
+      const out = parseCliEnvelope(stdout);
       expect(out.ok).toBe(true);
       expect(out.data.available).toBe(false);
       expect(out.data.fields).toEqual([]);
@@ -186,7 +187,7 @@ describe('peaks config restore', () => {
     try {
       const { code, stdout } = cli(`config restore --field language --apply --json`, project);
       expect(code).toBe(0);
-      const out = JSON.parse(stdout);
+      const out = parseCliEnvelope(stdout);
       expect(out.ok).toBe(true);
       expect(out.data.available).toBe(false);
       expect(out.data.applied).toBe(false);
@@ -206,7 +207,7 @@ describe('peaks config restore', () => {
       cli(`config migrate --project ${project} --apply`, project);
       const { code, stdout } = cli(`config restore --field doesNotExist --json`, project);
       expect(code).not.toBe(0);
-      const out = JSON.parse(stdout);
+      const out = parseCliEnvelope(stdout);
       expect(out.ok).toBe(false);
       expect(out.code).toBe('FIELD_NOT_FOUND');
       expect(out.data.available).toBe(true);
@@ -222,7 +223,7 @@ describe('peaks config restore', () => {
       cli(`config migrate --project ${project} --apply`, project);
       const { code, stdout } = cli(`config restore --list --json`, project);
       expect(code).toBe(0);
-      const out = JSON.parse(stdout);
+      const out = parseCliEnvelope(stdout);
       expect(out.data.available).toBe(true);
       expect(out.data.fields).toContain('language');
     } finally {

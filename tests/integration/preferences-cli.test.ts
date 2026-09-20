@@ -3,6 +3,7 @@ import { mkdtempSync, rmSync, existsSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { describe, expect, test } from 'vitest';
+import { parseCliEnvelope } from '../../src/cli/cli-envelope.js';
 
 function makeProject(): string {
   return mkdtempSync(join(tmpdir(), 'peaks-prefs-cli-'));
@@ -34,7 +35,7 @@ describe('peaks preferences CLI', () => {
     try {
       const { stdout, code } = cli(`preferences get --key swarmMode --json`, project);
       expect(code).toBe(0);
-      const out = JSON.parse(stdout);
+      const out = parseCliEnvelope(stdout);
       expect(out.ok).toBe(true);
       expect(out.data.key).toBe('swarmMode');
       expect(out.data.value).toBe(true);
@@ -64,7 +65,7 @@ describe('peaks preferences CLI', () => {
       cli(`preferences set --key uaPrompt --value skip-forever --json`, project);
       cli(`preferences reset --key uaPrompt --json`, project);
       const { stdout } = cli(`preferences get --key uaPrompt --json`, project);
-      const out = JSON.parse(stdout);
+      const out = parseCliEnvelope(stdout);
       expect(out.data.source).toBe('default');
       expect(out.data.value).toBe('unset');
     } finally {

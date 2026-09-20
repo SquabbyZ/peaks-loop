@@ -17,6 +17,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { describe, expect, test } from 'vitest';
 import { runCli } from './_cli-helper.js';
+import { parseCliEnvelope } from '../../src/cli/cli-envelope.js';
 
 const REPO_ROOT = resolve(__dirname, '..', '..');
 
@@ -71,7 +72,7 @@ describe('peaks skill lint --category loop-engineering-readiness (M6)', () => {
         project
       );
       expect(result.code).toBe(0);
-      const envelope = JSON.parse(result.stdout);
+      const envelope = parseCliEnvelope(result.stdout);
       expect(envelope.ok).toBe(true);
       expect(envelope.data.category).toBe('loop-engineering-readiness');
       expect(envelope.data.findings).toEqual([]);
@@ -92,7 +93,7 @@ describe('peaks skill lint --category loop-engineering-readiness (M6)', () => {
         project
       );
       expect(result.code).toBe(1);
-      const envelope = JSON.parse(result.stdout);
+      const envelope = parseCliEnvelope(result.stdout);
       expect(envelope.ok).toBe(false);
       expect(envelope.code).toBe('SKILL_READINESS_FAILED');
       const codes = (envelope.data.findings as string[]).map((f) => f.split(':')[0]);
@@ -118,7 +119,7 @@ describe('peaks skill lint --category loop-engineering-readiness (M6)', () => {
         project
       );
       expect(result.code).toBe(1);
-      const envelope = JSON.parse(result.stdout);
+      const envelope = parseCliEnvelope(result.stdout);
       expect(envelope.ok).toBe(false);
       const codes = (envelope.data.findings as string[]).map((f) => f.split(':')[0]);
       expect(codes).toContain('cli-verb-bypass');
@@ -139,7 +140,7 @@ describe('peaks skill lint --category loop-engineering-readiness (M6)', () => {
         project
       );
       expect(result.code).toBe(1);
-      const envelope = JSON.parse(result.stdout);
+      const envelope = parseCliEnvelope(result.stdout);
       expect(envelope.code).toBe('UNKNOWN_LINT_CATEGORY');
     } finally {
       rmSync(project, { recursive: true, force: true });
@@ -179,7 +180,7 @@ describe('peaks skill lint --category loop-engineering-readiness (M6)', () => {
         project
       );
       expect(result.code).toBe(0);
-      const envelope = JSON.parse(result.stdout);
+      const envelope = parseCliEnvelope(result.stdout);
       expect(envelope.ok).toBe(true);
       expect(envelope.data.category).toBe('loop-engineering-readiness');
     } finally {

@@ -81,6 +81,9 @@ vi.mock('../../../src/services/job/job-event-emitter.js', () => ({
 }));
 
 import { registerJobCommands } from '../../../src/cli/commands/job-commands.js';
+import { z } from 'zod';
+import { parseCliEnvelope, type CliEnvelope } from '~/src/cli/cli-envelope';
+import { parseJson } from '~/src/shared/json-parse';
 
 const JOB_ID = 'f1-job';
 const SESSION_ID = '2026-09-17-session-f1';
@@ -140,9 +143,18 @@ async function seedJob(ws: TmpWorkspace): Promise<void> {
   expect(exitCode).toBe(0);
 }
 
-function asEnvelope(captured: CapturedIo): { ok: boolean; warnings: string[] } {
-  return JSON.parse(captured.stdout.join('\n')) as { ok: boolean; warnings: string[] };
+function asEnvelope(captured: CapturedIo): CliEnvelope {
+  return parseCliEnvelope(captured.stdout.join('\n'));
 }
+
+// The `job checkpoint` / `job status` stdout WITHOUT `--json` is the bare
+// payload (`printResult` writes `result.data` when `asJson` is false), so
+// these sites validate the payload itself, not an envelope. (S12.)
+const checkpointPayload = z.looseObject({ status: z.string() });
+const codegraphRefreshPayload = z.looseObject({
+  codegraph: z.looseObject({ refreshed: z.boolean(), note: z.string() })
+});
+const jobStatusPayload = z.looseObject({ total: z.number() });
 
 /**
  * The nine failure-reporting sites in `job-commands.ts`, one row per site.
@@ -360,7 +372,7 @@ describe('Scenario: behavior — the advisory paths still exit 0 (the control)',
     expect(captured.stderrText()).toContain('warning: auto codegraph refresh failed');
     expect(captured.stderrText()).toContain('schema lock conflict');
     // … and the payload confirms the checkpoint itself landed
-    expect(JSON.parse(captured.stdout.join('\n')).status).toBe('done');
+    expect(parseJson(captured.stdout.join('\n'), checkpointPayload).status).toBe('done');
   });
 
   it('when the codegraph refresh THROWS, should still exit 0 — a rebuildable index is not a failed checkpoint', async () => {
@@ -386,8 +398,12 @@ describe('Scenario: behavior — the advisory paths still exit 0 (the control)',
     // then: exit 0, with the throw surfaced as an advisory note — never swallowed
     //       into silence, and never promoted into a checkpoint failure
     expect(exitCode).toBe(0);
-    expect(JSON.parse(captured.stdout.join('\n')).codegraph.refreshed).toBe(false);
-    expect(JSON.parse(captured.stdout.join('\n')).codegraph.note).toContain('spawn EACCES');
+    expect(parseJson(captured.stdout.join('\n'), codegraphRefreshPayload).codegraph.refreshed).toBe(
+      false
+    );
+    expect(parseJson(captured.stdout.join('\n'), codegraphRefreshPayload).codegraph.note).toContain(
+      'spawn EACCES'
+    );
   });
 
   it('when the telemetry emit throws on job init, should still exit 0', async () => {
@@ -412,7 +428,7 @@ describe('Scenario: behavior — the advisory paths still exit 0 (the control)',
     const { captured, exitCode } = await runJobExit(['status', '--job-id', JOB_ID], ws.path, false);
     // then: the read succeeded; the emit did not, and that is not a CLI failure
     expect(exitCode).toBe(0);
-    expect(JSON.parse(captured.stdout.join('\n')).total).toBe(2);
+    expect(parseJson(captured.stdout.join('\n'), jobStatusPayload).total).toBe(2);
   });
 
   it('when an advisory outcome and a genuine failure share a command, should split them by exit code', async () => {

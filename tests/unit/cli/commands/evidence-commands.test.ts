@@ -16,6 +16,7 @@ import { join } from 'node:path';
 import { withTmpWorkspacePerTest, type TmpWorkspace } from '../../_setup/tmp-workspace.js';
 import { makeCapturedIo } from '../../_setup/io.js';
 import { registerEvidenceCommands } from '~/src/cli/commands/evidence-commands';
+import { parseCliEnvelope } from '~/src/cli/cli-envelope';
 
 const getWs = withTmpWorkspacePerTest('peaks-evidence-');
 
@@ -72,7 +73,7 @@ describe('registerEvidenceCommands', () => {
       { from: 'user' }
     );
 
-    const envelope = JSON.parse(captured.text().trim());
+    const envelope = parseCliEnvelope(captured.text().trim());
     expect(envelope.ok).toBe(true);
     expect(process.exitCode === undefined || process.exitCode === 0).toBe(true);
 
@@ -189,7 +190,7 @@ describe('registerEvidenceCommands', () => {
       { from: 'user' }
     );
 
-    const envelope = JSON.parse(captured.text().trim());
+    const envelope = parseCliEnvelope(captured.text().trim());
     expect(envelope.ok).toBe(true);
 
     expect(existsSync(join(qaRequestsDir, `007-${RID}.md`))).toBe(true);

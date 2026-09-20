@@ -17,6 +17,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { promisify } from 'node:util';
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { parseCliEnvelope } from '../../../src/cli/cli-envelope.js';
 
 const execFileAsync = promisify(execFile);
 const CLI = resolve(__dirname, '../../../bin/peaks.js');
@@ -96,7 +97,7 @@ describe('peaks workflow plan * — integration (gated on PEAKS_BUILD_AVAILABLE=
         projectRoot
       );
       expect(r.code).toBe(0);
-      const json = JSON.parse(r.stdout);
+      const json = parseCliEnvelope(r.stdout);
       expect(json.ok).toBe(true);
       expect(json.data.exists).toBe(false);
       expect(json.data.path).toBe(
@@ -124,7 +125,7 @@ describe('peaks workflow plan * — integration (gated on PEAKS_BUILD_AVAILABLE=
         projectRoot
       );
       expect(r.code).toBe(0);
-      const json = JSON.parse(r.stdout);
+      const json = parseCliEnvelope(r.stdout);
       expect(json.ok).toBe(true);
       expect(json.data.exists).toBe(false);
       expect(json.data.path).toBe(
@@ -153,7 +154,7 @@ describe('peaks workflow plan * — integration (gated on PEAKS_BUILD_AVAILABLE=
         projectRoot
       );
       expect(r1.code).toBe(0);
-      const j1 = JSON.parse(r1.stdout);
+      const j1 = parseCliEnvelope(r1.stdout);
       expect(j1.ok).toBe(true);
       expect(j1.data.dryRun).toBe(false);
       const target = join(
@@ -184,7 +185,7 @@ describe('peaks workflow plan * — integration (gated on PEAKS_BUILD_AVAILABLE=
         projectRoot
       );
       expect(r2.code).toBe(0);
-      const j2 = JSON.parse(r2.stdout);
+      const j2 = parseCliEnvelope(r2.stdout);
       expect(j2.data.hash).toBe(j1.data.hash);
       const bytes2 = readFileSync(target, 'utf8');
       expect(Buffer.compare(Buffer.from(bytes1, 'utf8'), Buffer.from(bytes2, 'utf8'))).toBe(0);
@@ -209,7 +210,7 @@ describe('peaks workflow plan * — integration (gated on PEAKS_BUILD_AVAILABLE=
       projectRoot
     );
     expect(r1.code).toBe(0);
-    const j1 = JSON.parse(r1.stdout);
+    const j1 = parseCliEnvelope(r1.stdout);
     expect(j1.ok).toBe(true);
     const target = join(projectRoot, '.peaks', '_runtime', sessionId, 'qa', 'perf-baseline.md');
     expect(existsSync(target)).toBe(true);
@@ -230,7 +231,7 @@ describe('peaks workflow plan * — integration (gated on PEAKS_BUILD_AVAILABLE=
       ],
       projectRoot
     );
-    const j2 = JSON.parse(r2.stdout);
+    const j2 = parseCliEnvelope(r2.stdout);
     expect(j2.data.hash).toBe(j1.data.hash);
   });
 
@@ -253,7 +254,7 @@ describe('peaks workflow plan * — integration (gated on PEAKS_BUILD_AVAILABLE=
         projectRoot
       );
       expect(r.code).toBe(0);
-      const j = JSON.parse(r.stdout);
+      const j = parseCliEnvelope(r.stdout);
       expect(j.ok).toBe(true);
       expect(j.data.triggered).toBe(false);
       expect(j.data.reason).toBe('no-triggering-change');
@@ -280,7 +281,7 @@ describe('peaks workflow plan * — integration (gated on PEAKS_BUILD_AVAILABLE=
         projectRoot
       );
       expect(r.code).toBe(0);
-      const j = JSON.parse(r.stdout);
+      const j = parseCliEnvelope(r.stdout);
       expect(j.data.triggered).toBe(true);
       expect(j.data.reason).toBe('manual-override');
     }

@@ -93,6 +93,15 @@ import {
   writeCompactLifecycle,
   type CompactLifecycleRecord
 } from '~/src/services/compact-statusline/compact-lifecycle-store';
+import { z } from 'zod';
+import { parseCliEnvelope, parseCliEnvelopeWith } from '~/src/cli/cli-envelope';
+
+// The `data` payload `peaks statusline compact --json` returns, read at
+// depth >= 2 (`state.kind` / `state.filledCells`). (S12.)
+const statuslineCompactPayload = z.looseObject({
+  label: z.string(),
+  state: z.looseObject({ kind: z.string(), filledCells: z.number() })
+});
 
 declareDimensions('tests/unit/cli/statusline-cli-integration.test.ts', [
   'render',
@@ -977,7 +986,7 @@ describe('Scenario: behavior — `peaks statusline compact --json` emits the doc
     );
     const r = await runStatuslineCompact(active, ['--json']);
     expect(r.status === 0 || r.signal === 'SIGTERM').toBe(true);
-    const env = JSON.parse(r.stdout);
+    const env = parseCliEnvelopeWith(r.stdout, statuslineCompactPayload);
     expect(env.ok).toBe(true);
     expect(env.command).toBe('statusline.compact');
     expect(typeof env.data.label).toBe('string');
@@ -1000,7 +1009,7 @@ describe('Scenario: behavior — `peaks statusline compact --json` emits the doc
       { env: {} }
     );
     expect(r.status === 0 || r.signal === 'SIGTERM').toBe(true);
-    const env = JSON.parse(r.stdout);
+    const env = parseCliEnvelope(r.stdout);
     expect(env.ok).toBe(true);
     expect(env.data.label).toBe('compact [░░░░░░░░]');
   });

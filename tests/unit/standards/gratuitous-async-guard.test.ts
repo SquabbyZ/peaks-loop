@@ -390,7 +390,10 @@ describe('Scenario: integration — the guard walks the real src/ + packages/ tr
     // 817 -> 818 (slice rid-s10-any-roots-ts): +1 is `src/shared/array-guards.ts`,
     // the non-narrowing `isArray` helper. A new file is the documented reason
     // this pin moves.
-    expect(result.files).toBe(818);
+    // 818 -> 821 (slice rid-s12-json-parse-root): +3 is `src/shared/json-parse.ts`,
+    // `src/cli/cli-envelope.ts` and `src/services/session/session-file-schema.ts`.
+    // Same reason as S10.
+    expect(result.files).toBe(821);
   });
 
   it('visits every async function in those files (the recursion is pinned)', () => {

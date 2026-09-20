@@ -4,6 +4,7 @@ import { spawnSync } from 'node:child_process';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { parseCliEnvelope } from '../../src/cli/cli-envelope.js';
 
 // Built CLI entry point. Path must stay in sync with tsconfig.build.json
 // (rootDir = "src" → tsc emits src/cli/index.ts → dist/cli/index.js, NOT
@@ -95,7 +96,7 @@ describe('peaks job — 8-slice E2E (rotating mode)', () => {
       workdir
     );
     expect(status.status, `status failed: ${status.stderr}`).toBe(0);
-    const j = JSON.parse(status.stdout).data;
+    const j = parseCliEnvelope(status.stdout).data;
     expect(j.done).toBe(8);
     expect(j.total).toBe(8);
   });
@@ -146,7 +147,7 @@ describe('peaks job — strict block propagation', () => {
       workdir
     );
     expect(block.status).toBe(0);
-    const s = JSON.parse(
+    const s = parseCliEnvelope(
       peaks(['job', 'status', '--job-id', 'bj', '--project', workdir], workdir).stdout
     ).data;
     expect(s.blocked).toBe(1);

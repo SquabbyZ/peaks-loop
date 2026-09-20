@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { execSync } from 'node:child_process';
 import { describe, expect, test } from 'vitest';
+import { parseCliEnvelope } from '../../src/cli/cli-envelope.js';
 
 const CLI_BIN = resolve(__dirname, '../../bin/peaks.js');
 
@@ -55,7 +56,7 @@ describe('peaks workspace clean CLI', () => {
       touchDir(join(project, '.peaks/_runtime/2026-06-10-session-aaa111'), 100);
       const { stdout, code } = cli(`workspace clean --older-than 1 --json`, project);
       expect(code).toBe(0);
-      const out = JSON.parse(stdout);
+      const out = parseCliEnvelope(stdout);
       expect(out.ok).toBe(true);
       expect(out.data.dryRun).toBe(true);
       expect(out.data.deleted).toEqual(['2026-06-10-session-aaa111']);
@@ -71,7 +72,7 @@ describe('peaks workspace clean CLI', () => {
       touchDir(join(project, '.peaks/_runtime', sid), 100);
       const { stdout, code } = cli(`workspace clean --older-than 1 --apply --json`, project);
       expect(code).toBe(0);
-      const out = JSON.parse(stdout);
+      const out = parseCliEnvelope(stdout);
       expect(out.data.dryRun).toBe(false);
       expect(existsSync(join(project, '.peaks/_runtime', sid))).toBe(false);
     } finally {

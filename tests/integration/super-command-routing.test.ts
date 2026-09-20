@@ -1,5 +1,16 @@
 import { describe, expect, it } from 'vitest';
+import { z } from 'zod';
 import { runCli } from './_cli-helper.js';
+import { parseCliEnvelope, parseCliEnvelopeWith } from '../../src/cli/cli-envelope.js';
+
+// The `data` payloads this file reads at depth >= 2 (S12), replacing three
+// hand-written `as { … }` casts on the parse result.
+const routingPayload = z.looseObject({ routedSkill: z.string(), confidence: z.number() });
+const routingWithAlternativesPayload = z.looseObject({
+  routedSkill: z.string(),
+  confidence: z.number(),
+  alternatives: z.array(z.string())
+});
 
 const cwd = process.cwd();
 const cases: Array<[string, string, string]> = [
@@ -29,10 +40,7 @@ describe('super-command routing (rid-009)', () => {
   for (const [command, input, skill] of cases) {
     it(`routes ${command} ${input}`, async () => {
       const result = await runCli([command, input], cwd);
-      const envelope = JSON.parse(result.stdout) as {
-        ok: boolean;
-        data: { routedSkill: string; confidence: number };
-      };
+      const envelope = parseCliEnvelopeWith(result.stdout, routingPayload);
       expect(envelope.ok).toBe(true);
       expect(envelope.data.routedSkill).toBe(skill);
       expect(envelope.data.confidence).toBeGreaterThan(0.5);
@@ -41,7 +49,7 @@ describe('super-command routing (rid-009)', () => {
 
   it('routes ask to peaks-solo', async () => {
     const result = await runCli(['ask', 'which skill fits this request'], cwd);
-    expect(JSON.parse(result.stdout).data.routedSkill).toBe('peaks-solo');
+    expect(parseCliEnvelope(result.stdout).data.routedSkill).toBe('peaks-solo');
   });
   it('returns fixed ops envelopes', async () => {
     for (const [command, skill] of [
@@ -50,7 +58,7 @@ describe('super-command routing (rid-009)', () => {
       ['status', 'peaks-status']
     ] as const) {
       const result = await runCli([command], cwd);
-      expect(JSON.parse(result.stdout).data.routedSkill).toBe(skill);
+      expect(parseCliEnvelope(result.stdout).data.routedSkill).toBe(skill);
     }
   });
   it('prints the nine-entry catalog for bare peaks', async () => {
@@ -62,10 +70,7 @@ describe('super-command routing (rid-009)', () => {
 
   it('routes multi-word NL input via keyword disambiguation', async () => {
     const result = await runCli(['make', 'help me ship this feature end-to-end'], cwd);
-    const envelope = JSON.parse(result.stdout) as {
-      ok: boolean;
-      data: { routedSkill: string; confidence: number };
-    };
+    const envelope = parseCliEnvelopeWith(result.stdout, routingPayload);
     expect(envelope.ok).toBe(true);
     expect(envelope.data.routedSkill).toBe('peaks-code');
     expect(envelope.data.confidence).toBeGreaterThan(0.5);
@@ -73,10 +78,7 @@ describe('super-command routing (rid-009)', () => {
 
   it('reports alternatives array for ambiguous goal with low confidence', async () => {
     const result = await runCli(['make', 'xyz123 random gibberish text'], cwd);
-    const envelope = JSON.parse(result.stdout) as {
-      ok: boolean;
-      data: { routedSkill: string; confidence: number; alternatives: string[] };
-    };
+    const envelope = parseCliEnvelopeWith(result.stdout, routingWithAlternativesPayload);
     expect(envelope.ok).toBe(true);
     expect(envelope.data.routedSkill).toBe('peaks-code');
     expect(envelope.data.confidence).toBeLessThan(0.7);

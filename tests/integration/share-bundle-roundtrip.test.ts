@@ -30,6 +30,14 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from 'vitest';
 import { runCli } from './_cli-helper.js';
+import { z } from 'zod';
+import { parseCliEnvelope, parseCliEnvelopeWith } from '../../src/cli/cli-envelope.js';
+
+// The `data` payload `peaks evolution status` returns, read at depth >= 2 (S12).
+const evolutionStatusPayload = z.looseObject({
+  total: z.number(),
+  byVerdict: z.record(z.string(), z.number())
+});
 
 // In-process CLI invocation (see tests/integration/_cli-helper.ts).
 // Replaces the previous `execFileSync(TSX, ...)` spawn which became
@@ -100,7 +108,7 @@ async function seedLoopRelease(project: string, loopId: string): Promise<void> {
     project
   );
   expect(r.code).toBe(0);
-  const out = JSON.parse(r.stdout);
+  const out = parseCliEnvelope(r.stdout);
   expect(out.ok).toBe(true);
 }
 
@@ -118,7 +126,7 @@ describe('share-bundle round-trip — AC-25', () => {
         sender
       );
       expect(exportResult.code).toBe(0);
-      const exportOut = JSON.parse(exportResult.stdout);
+      const exportOut = parseCliEnvelope(exportResult.stdout);
       expect(exportOut.ok).toBe(true);
       expect(exportOut.data.kind).toBe('loop');
       expect(exportOut.data.assetId).toBe('loop-share-bundle');
@@ -134,7 +142,7 @@ describe('share-bundle round-trip — AC-25', () => {
         );
       }
       expect(importResult.code).toBe(0);
-      const importOut = JSON.parse(importResult.stdout);
+      const importOut = parseCliEnvelope(importResult.stdout);
       expect(importOut.ok).toBe(true);
       // AC-25 (hard rule): importedAs MUST be 'candidate'.
       expect(importOut.data.importedAs).toBe('candidate');
@@ -167,7 +175,7 @@ describe('share-bundle round-trip — AC-25', () => {
       // resulting tarball exists. The shareable=false block at the
       // same surface is locked by the corresponding unit test.
       expect(exportResult.code).toBe(0);
-      const parsed = JSON.parse(exportResult.stdout);
+      const parsed = parseCliEnvelope(exportResult.stdout);
       expect(parsed.ok).toBe(true);
       expect(parsed.data.kind).toBe('loop');
       expect(parsed.data.assetId).toBe('loop-private');
@@ -217,7 +225,7 @@ describe('share-bundle round-trip — AC-26 (no promote without evaluation)', ()
 
       const importResult = await cli(['loop', 'import', '--in', bundlePath, '--json'], receiver);
       expect(importResult.code).toBe(0);
-      const importOut = JSON.parse(importResult.stdout);
+      const importOut = parseCliEnvelope(importResult.stdout);
       expect(importOut.data.importedAs).toBe('candidate');
 
       // Receiver-side: peaks evolution status reports
@@ -229,7 +237,7 @@ describe('share-bundle round-trip — AC-26 (no promote without evaluation)', ()
         receiver
       );
       expect(statusResult.code).toBe(0);
-      const statusOut = JSON.parse(statusResult.stdout);
+      const statusOut = parseCliEnvelopeWith(statusResult.stdout, evolutionStatusPayload);
       expect(statusOut.ok).toBe(true);
       expect(statusOut.data.total).toBe(0);
       // byVerdict is the canonical aggregate that promotes read

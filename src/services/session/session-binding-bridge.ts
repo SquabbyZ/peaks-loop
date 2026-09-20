@@ -24,6 +24,12 @@ import { dirname, join } from 'node:path';
 import { randomBytes } from 'node:crypto';
 import { initWorkspace } from '../workspace/workspace-service.js';
 import { projectRootsMatch, stableRealPath } from '../../shared/path-utils.js';
+import { tryParseJson } from '../../shared/json-parse.js';
+import {
+  SessionBindingSchema,
+  SessionFileSchema,
+  type SessionBinding
+} from './session-file-schema.js';
 import { resolveCallerBinding, setCallerBinding } from './caller-binding-service.js';
 import type { CallerBinding } from './caller-id-types.js';
 import { resolveCallerProjection } from './resolve-caller-id.js';
@@ -66,22 +72,16 @@ function getSessionFilePath(projectRoot: string): string {
   return join(projectRoot, '.peaks', SESSION_FILE);
 }
 
-function readSessionFile(
-  projectRoot: string
-): { sessionId: string; createdAt: string; projectRoot: string } | null {
+function readSessionFile(projectRoot: string): SessionBinding | null {
   const sessionFile = getSessionFilePath(projectRoot);
   const legacyFile = getLegacySessionFilePath(projectRoot);
   const pathToRead = existsSync(sessionFile) ? sessionFile : legacyFile;
   if (!existsSync(pathToRead)) return null;
 
   try {
-    const data = JSON.parse(readFileSync(pathToRead, 'utf8'));
-    if (
-      data.sessionId &&
-      typeof data.projectRoot === 'string' &&
-      projectRootsMatch(data.projectRoot, projectRoot)
-    ) {
-      return data as { sessionId: string; createdAt: string; projectRoot: string };
+    const parsed = tryParseJson(readFileSync(pathToRead, 'utf8'), SessionBindingSchema);
+    if (parsed !== null && projectRootsMatch(parsed.projectRoot, projectRoot)) {
+      return parsed;
     }
     return null;
   } catch {
@@ -90,22 +90,16 @@ function readSessionFile(
   }
 }
 
-function readSessionFileCanonical(
-  projectRoot: string
-): { sessionId: string; createdAt: string; projectRoot: string } | null {
+function readSessionFileCanonical(projectRoot: string): SessionBinding | null {
   const sessionFile = getSessionFilePath(projectRoot);
   const legacyFile = getLegacySessionFilePath(projectRoot);
   const pathToRead = existsSync(sessionFile) ? sessionFile : legacyFile;
   if (!existsSync(pathToRead)) return null;
 
   try {
-    const data = JSON.parse(readFileSync(pathToRead, 'utf8'));
-    if (
-      data.sessionId &&
-      typeof data.projectRoot === 'string' &&
-      projectRootsMatch(data.projectRoot, projectRoot)
-    ) {
-      return data as { sessionId: string; createdAt: string; projectRoot: string };
+    const parsed = tryParseJson(readFileSync(pathToRead, 'utf8'), SessionBindingSchema);
+    if (parsed !== null && projectRootsMatch(parsed.projectRoot, projectRoot)) {
+      return parsed;
     }
     return null;
   } catch {
@@ -144,25 +138,16 @@ function readSessionMeta(
   sessionId: string;
   projectRoot: string;
   createdAt: string;
-  outerSessionId?: string;
+  // `| undefined` for the same reason as `SessionMeta`: the value now comes
+  // from a zod `.optional()` field (see `session-file-schema.ts`).
+  outerSessionId?: string | undefined;
   [k: string]: unknown;
 } | null {
   const metaPath = getMetaFilePath(projectRoot, sessionId);
   if (!existsSync(metaPath)) return null;
 
   try {
-    const raw = readFileSync(metaPath, 'utf8');
-    const parsed = JSON.parse(raw);
-    if (typeof parsed?.sessionId !== 'string' || parsed.sessionId.length === 0) {
-      return null;
-    }
-    return parsed as {
-      sessionId: string;
-      projectRoot: string;
-      createdAt: string;
-      outerSessionId?: string;
-      [k: string]: unknown;
-    };
+    return tryParseJson(readFileSync(metaPath, 'utf8'), SessionFileSchema);
   } catch {
     // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     return null;

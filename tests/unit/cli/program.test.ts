@@ -29,6 +29,9 @@ declareDimensions(
 
 import { createProgram, __resetBootstrapForTests } from '~/src/cli/program';
 import { CLI_VERSION } from 'peaks-loop-shared/version';
+import { z } from 'zod';
+import { parseCliEnvelope } from '~/src/cli/cli-envelope';
+import { parseJson } from '~/src/shared/json-parse';
 
 describe('Scenario: render — stdout/stderr shape', () => {
   withTmpWorkspacePerTest();
@@ -124,7 +127,7 @@ describe('Scenario: behavior — routing', () => {
     const program = createProgram(io);
     await program.parseAsync(['node', 'peaks', 'totally-not-a-real-command']);
 
-    const parsed = JSON.parse(captured.text().trim());
+    const parsed = parseCliEnvelope(captured.text().trim());
     expect(parsed.ok).toBe(false);
     expect(parsed.code).toBe('COMMAND_NOT_FOUND');
     expect(parsed.command).toBe('cli');
@@ -152,7 +155,7 @@ describe('Scenario: behavior — routing', () => {
     const program = createProgram(io);
     await program.parseAsync(['node', 'peaks', 'mystery', 'value1', 'value2']);
 
-    const parsed = JSON.parse(captured.text().trim());
+    const parsed = parseCliEnvelope(captured.text().trim());
     expect(parsed.code).toBe('COMMAND_NOT_FOUND');
     expect(parsed.data.argv).toBe('mystery');
   });
@@ -203,7 +206,7 @@ describe('Scenario: a11y — human-visible error surface', () => {
     const program = createProgram(io);
     await program.parseAsync(['node', 'peaks', 'mystery-token-xyz']);
 
-    const parsed = JSON.parse(captured.text().trim());
+    const parsed = parseCliEnvelope(captured.text().trim());
     expect(parsed.message).toMatch(/Unknown command: mystery-token-xyz/);
     expect(parsed.message).not.toMatch(/at .+:\d+/); // no stack trace
   });
@@ -216,7 +219,14 @@ describe('Scenario: a11y — human-visible error surface', () => {
     const program = createProgram(io);
     await program.parseAsync(['node', 'peaks', 'mystery-token-xyz']);
 
-    const parsed = JSON.parse(captured.text().trim());
+    // `nextActions` is optional in `CliEnvelope` (`peaks workspace clean
+    // --json` writes `{ ok, data }` with neither), so this test names the
+    // shape it needs instead of looping over an optional — a missing array
+    // must FAIL here, not make the loop below run zero times and pass.
+    const parsed = parseJson(
+      captured.text().trim(),
+      z.looseObject({ ok: z.boolean(), nextActions: z.array(z.string()) })
+    );
     for (const action of parsed.nextActions) {
       // The LLM runs CLI on the user's behalf; the envelope must never
       // instruct the user to hand-type `peaks <verb>`.

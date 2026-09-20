@@ -280,7 +280,12 @@ describe('Scenario: integration — the guard walks the real src/ + tests/ trees
     // replaces `Array.isArray` at the seven call sites where its `arg is any[]`
     // signature was widening an already-typed array to `any[]`. As in S3c, S5a,
     // S6 and S9, a new file is the documented reason this pin moves.
-    expect(scan.files.length).toBe(1197);
+    // 1197 -> 1201 (slice rid-s12-json-parse-root): +4 is the validating-parse
+    // slice's three new src modules — `src/shared/json-parse.ts`,
+    // `src/cli/cli-envelope.ts`, `src/services/session/session-file-schema.ts` —
+    // plus its guard, `tests/unit/cli/cli-envelope.test.ts`. Same reason as S3c,
+    // S5a, S6, S9 and S10: a new file is the documented reason this pin moves.
+    expect(scan.files.length).toBe(1201);
   });
 
   it('visits every relative specifier in those files (the recursion is pinned)', () => {
@@ -339,7 +344,14 @@ describe('Scenario: integration — the guard walks the real src/ + tests/ trees
     // rule requires, so — as with S3c, S3e, S5a, S6 and S9 — the violation
     // assertion below is unaffected. `scan.files.length` moved by +1 as well,
     // in the pin above.
-    expect(scan.specifiers.length).toBe(2717);
+    // 2717 -> 2738 (slice rid-s12-json-parse-root): +21 relative specifiers.
+    // Three come from the new src modules (`json-parse` imported by
+    // `cli-envelope`, `skill-presence-service` and the session readers;
+    // `session-file-schema` imported by `session-manager` and the bridge) and
+    // eighteen from the validating-parse imports added to the converted test
+    // files. All carry the `.js` extension the rule requires, so the violation
+    // assertion below is unaffected.
+    expect(scan.specifiers.length).toBe(2738);
   });
 
   it('reaches every relative specifier that crosses into packages/*/src', () => {

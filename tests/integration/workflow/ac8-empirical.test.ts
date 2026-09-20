@@ -18,6 +18,8 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync }
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { z } from 'zod';
+import { parseCliEnvelopeWith } from '../../../src/cli/cli-envelope.js';
 
 const SKIP = process.env.PEAKS_BUILD_AVAILABLE !== '1';
 const SID = '2026-06-10-session-c4a2be';
@@ -59,9 +61,15 @@ const CLI = resolve(__dirname, '../../../bin/peaks.js');
     expect(statSync(planPerfPath).size).toBeGreaterThan(0);
 
     // Step 2: read plan hashes
-    const secHash = JSON.parse(runPeaks(['workflow', 'plan', 'read', '--type', 'security'])).data
-      .hash;
-    const perfHash = JSON.parse(runPeaks(['workflow', 'plan', 'read', '--type', 'perf'])).data.hash;
+    const readPlanPayload = z.looseObject({ hash: z.string() });
+    const secHash = parseCliEnvelopeWith(
+      runPeaks(['workflow', 'plan', 'read', '--type', 'security']),
+      readPlanPayload
+    ).data.hash;
+    const perfHash = parseCliEnvelopeWith(
+      runPeaks(['workflow', 'plan', 'read', '--type', 'perf']),
+      readPlanPayload
+    ).data.hash;
 
     // Step 3: simulate 3 slices, each writing a lean delta
     const rids = ['slice-a', 'slice-b', 'slice-c'];

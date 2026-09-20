@@ -19,6 +19,12 @@ import { mkdir as mkdirAsync } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { randomBytes } from 'node:crypto';
 import { projectRootsMatch, stableRealPath } from '../../shared/path-utils.js';
+import { tryParseJson } from '../../shared/json-parse.js';
+import {
+  SessionBindingSchema,
+  SessionFileSchema,
+  type SessionBinding
+} from './session-file-schema.js';
 import { ensureSession } from './session-binding-bridge.js';
 import {
   getCallerBinding,
@@ -33,14 +39,20 @@ export type SessionInfo = {
   projectRoot: string;
 };
 
+// The optional members carry an explicit `| undefined` (S12, 2026-09-20).
+// `SessionFileSchema` is what produces this shape now, and a zod `.optional()`
+// field infers as `T | undefined`; under `exactOptionalPropertyTypes` that is
+// not assignable to `title?: string`. The widening is type-only and strictly
+// more permissive — no caller changes behaviour — and it is what lets the
+// readers return the validated value instead of asserting it with `as`.
 export type SessionMeta = {
   sessionId: string;
-  title?: string;
-  skill?: string;
-  mode?: string;
-  gate?: string;
+  title?: string | undefined;
+  skill?: string | undefined;
+  mode?: string | undefined;
+  gate?: string | undefined;
   createdAt: string;
-  lastActivity?: string;
+  lastActivity?: string | undefined;
   projectRoot: string;
   /**
    * The outer (harness / IDE / plugin) session id that
@@ -53,7 +65,7 @@ export type SessionMeta = {
    * have it undefined; presence-mismatch detection skips those
    * (no false positives on legacy data).
    */
-  outerSessionId?: string;
+  outerSessionId?: string | undefined;
 };
 
 // As of slice 2026-06-05-peaks-runtime-layer the project-level session
@@ -157,7 +169,7 @@ function getSessionFilePath(projectRoot: string): string {
  * `tests/unit/session/session-manager-path-canonicalize.test.ts`), so
  * the "no session bound" code path other modules depend on is intact.
  */
-function readSessionFile(projectRoot: string): SessionInfo | null {
+function readSessionFile(projectRoot: string): SessionBinding | null {
   const sessionFile = getSessionFilePath(projectRoot);
   const legacyFile = getLegacySessionFilePath(projectRoot);
   // Back-compat window: prefer the new canonical path; fall back to the
@@ -167,13 +179,9 @@ function readSessionFile(projectRoot: string): SessionInfo | null {
   if (!existsSync(pathToRead)) return null;
 
   try {
-    const data = JSON.parse(readFileSync(pathToRead, 'utf8'));
-    if (
-      data.sessionId &&
-      typeof data.projectRoot === 'string' &&
-      projectRootsMatch(data.projectRoot, projectRoot)
-    ) {
-      return data as SessionInfo;
+    const parsed = tryParseJson(readFileSync(pathToRead, 'utf8'), SessionBindingSchema);
+    if (parsed !== null && projectRootsMatch(parsed.projectRoot, projectRoot)) {
+      return parsed;
     }
     return null;
   } catch {
@@ -191,7 +199,7 @@ function readSessionFile(projectRoot: string): SessionInfo | null {
  * `getSessionIdCanonical` can use it; not part of the
  * public API otherwise.
  */
-function readSessionFileCanonical(projectRoot: string): SessionInfo | null {
+function readSessionFileCanonical(projectRoot: string): SessionBinding | null {
   const sessionFile = getSessionFilePath(projectRoot);
   const legacyFile = getLegacySessionFilePath(projectRoot);
   // Back-compat window: prefer the new canonical path; fall back to the
@@ -200,15 +208,13 @@ function readSessionFileCanonical(projectRoot: string): SessionInfo | null {
   if (!existsSync(pathToRead)) return null;
 
   try {
-    const data = JSON.parse(readFileSync(pathToRead, 'utf8'));
-    const storedRaw = typeof data.projectRoot === 'string' ? data.projectRoot : null;
+    const parsed = tryParseJson(readFileSync(pathToRead, 'utf8'), SessionBindingSchema);
     if (
-      data.sessionId &&
-      storedRaw !== null &&
-      resolveStoredAgainstCaller(storedRaw, projectRoot) ===
+      parsed !== null &&
+      resolveStoredAgainstCaller(parsed.projectRoot, projectRoot) ===
         resolveStoredAgainstCaller(projectRoot, projectRoot)
     ) {
-      return data as SessionInfo;
+      return parsed;
     }
     return null;
   } catch {
@@ -372,12 +378,7 @@ function readSessionMeta(projectRoot: string, sessionId: string): SessionMeta | 
   if (!existsSync(metaPath)) return null;
 
   try {
-    const raw = readFileSync(metaPath, 'utf8');
-    const parsed = JSON.parse(raw);
-    if (typeof parsed?.sessionId !== 'string' || parsed.sessionId.length === 0) {
-      return null;
-    }
-    return parsed as SessionMeta;
+    return tryParseJson(readFileSync(metaPath, 'utf8'), SessionFileSchema);
   } catch {
     // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     return null;
@@ -492,12 +493,7 @@ function readSessionMetaCompat(peaksRoot: string, sessionId: string): SessionMet
   const metaPath = join(peaksRoot, sessionId, META_FILE);
   if (!existsSync(metaPath)) return null;
   try {
-    const raw = readFileSync(metaPath, 'utf8');
-    const parsed = JSON.parse(raw);
-    if (typeof parsed?.sessionId !== 'string' || parsed.sessionId.length === 0) {
-      return null;
-    }
-    return parsed as SessionMeta;
+    return tryParseJson(readFileSync(metaPath, 'utf8'), SessionFileSchema);
   } catch {
     // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     return null;

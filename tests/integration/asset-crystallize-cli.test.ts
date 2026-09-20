@@ -2,7 +2,28 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from 'vitest';
+import { z } from 'zod';
 import { runCli } from './_cli-helper.js';
+import { parseCliEnvelope, parseCliEnvelopeWith } from '../../src/cli/cli-envelope.js';
+
+// The `data` payloads this file reads at depth >= 2 (S12). `parseCliEnvelope`
+// checks the envelope head; these say what the payload must hold, so the
+// assertions below read a value that was checked rather than an `any`.
+const crystallizePayload = z.looseObject({
+  recommendation: z.looseObject({
+    brief: z.looseObject({ what_action: z.string(), what_happened: z.string() })
+  }),
+  result: z.looseObject({
+    crystallization_event_id: z.string(),
+    loop_release_id: z.string(),
+    bee_release_id: z.number()
+  })
+});
+const assetStatusPayload = z.looseObject({
+  crystallization_events: z.number(),
+  events: z.array(z.looseObject({ created_loop_release_id: z.string() })),
+  loop_release_counts_by_lifecycle: z.record(z.string(), z.number())
+});
 
 // In-process CLI invocation (see tests/integration/_cli-helper.ts).
 // Replaces the previous `execFileSync(TSX, ...)` spawn which became
@@ -87,7 +108,7 @@ describe('peaks asset CLI integration — M5', () => {
         console.error('STDOUT:', result.stdout, '\nSTDERR:', result.stderr, '\nCODE:', result.code);
       }
       expect(result.code).toBe(0);
-      const out = JSON.parse(result.stdout);
+      const out = parseCliEnvelopeWith(result.stdout, crystallizePayload);
       expect(out.ok).toBe(true);
       expect(out.data.recommendation.brief.what_action).toMatch(/Promote/);
       expect(out.data.recommendation.brief.what_happened).toMatch(/Walked/);
@@ -172,7 +193,7 @@ describe('peaks asset CLI integration — M5', () => {
       // Find the JSON envelope in either stream.
       const jsonMatch = combined.match(/\{[\s\S]*\}/);
       expect(jsonMatch).not.toBeNull();
-      const out = JSON.parse(jsonMatch![0]);
+      const out = parseCliEnvelope(jsonMatch![0]);
       expect(out.ok).toBe(false);
       expect(out.code === 'MISSING_BRIEF_SECTION' || out.code === 'MISSING_REQUIRED_OPTION').toBe(
         true
@@ -245,10 +266,13 @@ describe('peaks asset CLI integration — M5', () => {
       // dashboard reflects the asset.
       const status = await cli(['asset', 'status', '--loop', 'loop-status', '--json'], project);
       expect(status.code).toBe(0);
-      const out = JSON.parse(status.stdout);
+      const out = parseCliEnvelopeWith(status.stdout, assetStatusPayload);
       expect(out.ok).toBe(true);
       expect(out.data.crystallization_events).toBe(1);
-      expect(out.data.events[0].created_loop_release_id).toBe('loop-status');
+      // `?.` because the payload schema types `events` as an array, so
+      // element 0 is `possibly undefined` under `noUncheckedIndexedAccess`.
+      // The assertion is unchanged: an empty array still fails it.
+      expect(out.data.events[0]?.created_loop_release_id).toBe('loop-status');
       expect(out.data.loop_release_counts_by_lifecycle['candidate']).toBeGreaterThan(0);
     } finally {
       rmSync(project, { recursive: true, force: true });
@@ -307,7 +331,7 @@ describe('peaks asset CLI integration — M5', () => {
         project
       );
       expect(crys.code).toBe(0);
-      const crysOut = JSON.parse(crys.stdout);
+      const crysOut = parseCliEnvelopeWith(crys.stdout, crystallizePayload);
       const eventId = crysOut.data.result.crystallization_event_id;
 
       const dispose = await cli(
@@ -315,7 +339,7 @@ describe('peaks asset CLI integration — M5', () => {
         project
       );
       expect(dispose.code).toBe(0);
-      const disposeOut = JSON.parse(dispose.stdout);
+      const disposeOut = parseCliEnvelope(dispose.stdout);
       expect(disposeOut.ok).toBe(true);
       expect(disposeOut.data.mode).toBe('trace_only');
       expect(disposeOut.data.lifecycle_status).toBe('retired');

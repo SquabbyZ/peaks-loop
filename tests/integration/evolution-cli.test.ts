@@ -2,7 +2,14 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from 'vitest';
+import { z } from 'zod';
+import { parseCliEnvelope, parseCliEnvelopeWith } from '../../src/cli/cli-envelope.js';
 import { runCli } from './_cli-helper.js';
+
+// The two `data` payloads this file reads at depth >= 2. `parseCliEnvelope`
+// checks the envelope head; these say what the payload must hold. (S12.)
+const proposePayload = z.looseObject({ proposal: z.looseObject({ id: z.string() }) });
+const statusPayload = z.looseObject({ byVerdict: z.record(z.string(), z.number()) });
 
 // In-process CLI invocation (see tests/integration/_cli-helper.ts).
 // Replaces the previous `execFileSync(TSX, ...)` spawn which became
@@ -19,9 +26,9 @@ function cli(args: string[], cwd: string) {
 }
 
 function extractProposalId(stdout: string): string {
-  const out = JSON.parse(stdout);
+  const out = parseCliEnvelopeWith(stdout, proposePayload);
   if (!out.ok) throw new Error('propose returned ok=false: ' + stdout);
-  return out.data.proposal.id as string;
+  return out.data.proposal.id;
 }
 
 describe('peaks evolution CLI integration', () => {
@@ -55,7 +62,7 @@ describe('peaks evolution CLI integration', () => {
         project
       );
       expect(statusResult.code).toBe(0);
-      const statusOut = JSON.parse(statusResult.stdout);
+      const statusOut = parseCliEnvelopeWith(statusResult.stdout, statusPayload);
       expect(statusOut.ok).toBe(true);
       expect(statusOut.data.target_kind).toBe('loop');
       expect(statusOut.data.target_release_id).toBe('loop-1');
@@ -75,7 +82,7 @@ describe('peaks evolution CLI integration', () => {
         project
       );
       expect(revertResult.code).toBe(0);
-      const revertOut = JSON.parse(revertResult.stdout);
+      const revertOut = parseCliEnvelope(revertResult.stdout);
       expect(revertOut.ok).toBe(true);
       expect(revertOut.data.verdict).toBe('revert');
       expect(revertOut.data.user_confirmation_pointer).toBe('user-pick-revert');
@@ -125,7 +132,7 @@ describe('peaks evolution CLI integration', () => {
         project
       );
       expect(evalResult.code).toBe(0);
-      const evalOut = JSON.parse(evalResult.stdout);
+      const evalOut = parseCliEnvelope(evalResult.stdout);
       expect(evalOut.ok).toBe(true);
       expect(evalOut.data.verdict).toBe('needs-user-decision');
       expect(evalOut.data.score_delta).toBe(3.0);
@@ -174,7 +181,7 @@ describe('peaks evolution CLI integration', () => {
         project
       );
       expect(evalResult.code).not.toBe(0);
-      const out = JSON.parse(evalResult.stdout);
+      const out = parseCliEnvelope(evalResult.stdout);
       expect(out.ok).toBe(false);
       expect(out.code).toBe('EVOLUTION_SELF_SCORE');
     } finally {
@@ -221,7 +228,7 @@ describe('peaks evolution CLI integration', () => {
         project
       );
       expect(evalResult.code).not.toBe(0);
-      const out = JSON.parse(evalResult.stdout);
+      const out = parseCliEnvelope(evalResult.stdout);
       expect(out.ok).toBe(false);
       expect(out.code).toBe('EVOLUTION_SELF_SCORE');
     } finally {
@@ -269,7 +276,7 @@ describe('peaks evolution CLI integration', () => {
       );
       // verdict='revert' is a non-zero exit (failure).
       expect(evalResult.code).not.toBe(0);
-      const out = JSON.parse(evalResult.stdout);
+      const out = parseCliEnvelope(evalResult.stdout);
       expect(out.ok).toBe(true);
       expect(out.data.verdict).toBe('revert');
       expect(out.data.score_delta).toBeCloseTo(0.5, 5);
@@ -329,7 +336,7 @@ describe('peaks evolution CLI integration', () => {
         project
       );
       expect(keepResult.code).not.toBe(0);
-      const out = JSON.parse(keepResult.stdout);
+      const out = parseCliEnvelope(keepResult.stdout);
       expect(out.ok).toBe(false);
       expect(out.code).toBe('EVOLUTION_DELTA_BELOW_THRESHOLD');
     } finally {
@@ -380,7 +387,7 @@ describe('peaks evolution CLI integration', () => {
         project
       );
       expect(keepResult.code).not.toBe(0);
-      const out = JSON.parse(keepResult.stdout);
+      const out = parseCliEnvelope(keepResult.stdout);
       expect(out.ok).toBe(false);
       expect(out.code).toBe('EVOLUTION_MISSING_USER_CONFIRMATION');
     } finally {
@@ -439,7 +446,7 @@ describe('peaks evolution CLI integration', () => {
         project
       );
       expect(keepResult.code).toBe(0);
-      const out = JSON.parse(keepResult.stdout);
+      const out = parseCliEnvelope(keepResult.stdout);
       expect(out.ok).toBe(true);
       expect(out.data.verdict).toBe('keep');
     } finally {
@@ -469,7 +476,7 @@ describe('peaks evolution CLI integration', () => {
         project
       );
       expect(result.code).not.toBe(0);
-      const out = JSON.parse(result.stdout);
+      const out = parseCliEnvelope(result.stdout);
       expect(out.ok).toBe(false);
       expect(out.code).toBe('EVOLUTION_INVALID_TARGET');
     } finally {

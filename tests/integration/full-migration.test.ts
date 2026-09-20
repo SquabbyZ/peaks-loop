@@ -26,6 +26,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
+import { parseCliEnvelope } from '../../src/cli/cli-envelope.js';
 
 const CLI_BIN = resolve(__dirname, '../../bin/peaks.js');
 
@@ -104,7 +105,7 @@ describe('Slice 0.5 End-to-End Dogfood', () => {
     // 2. Migrate config (1.x -> 2.0)
     const migrateResult = cli(`config migrate --project ${PROJECT_DIR} --apply --json`);
     expect(migrateResult.code).toBe(0);
-    const migrateData = JSON.parse(migrateResult.stdout);
+    const migrateData = parseCliEnvelope(migrateResult.stdout);
     expect(migrateData.data.applied).toBe(true);
 
     // 3. Verify slim config.json

@@ -1,8 +1,10 @@
 import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { findProjectRoot } from '../config/config-safety.js';
+import { tryParseJson } from '../../shared/json-parse.js';
 import { ensureMemoryBootstrap } from '../memory/project-memory-service.js';
 import { getSessionId, getSessionMeta } from '../session/session-manager.js';
+import { SessionIdentitySchema } from '../session/session-file-schema.js';
 // Slice 4.0.8 compat shim: the canonical write path lives in
 // `presence-lease-service.ts`. The legacy shim dynamically imports
 // it inside `setSkillPresence` so the cold path of the legacy
@@ -170,8 +172,7 @@ export function getCurrentSessionId(projectRootOverride?: string): string | null
   const pathToRead = existsSync(sessionPath) ? sessionPath : legacyPath;
   if (!existsSync(pathToRead)) return null;
   try {
-    const data = JSON.parse(readFileSync(pathToRead, 'utf8'));
-    return typeof data.sessionId === 'string' && data.sessionId.length > 0 ? data.sessionId : null;
+    return tryParseJson(readFileSync(pathToRead, 'utf8'), SessionIdentitySchema)?.sessionId ?? null;
   } catch {
     // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     return null;

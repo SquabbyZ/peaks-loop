@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Command } from 'commander';
+import { parseCliEnvelope } from '~/src/cli/cli-envelope';
 
 interface ChildProcessMock {
   spawnSync: ReturnType<typeof vi.fn>;
@@ -92,8 +93,8 @@ describe('registerLintCommands', () => {
 
     // then: stdout must contain parseable JSON
     const out = capture.stdout.trim();
-    expect(() => JSON.parse(out)).not.toThrow();
-    const parsed = JSON.parse(out) as { data?: { state?: string } };
+    expect(() => parseCliEnvelope(out)).not.toThrow();
+    const parsed = parseCliEnvelope(out);
     expect(parsed.data).toBeDefined();
   });
 });
