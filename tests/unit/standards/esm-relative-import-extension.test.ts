@@ -270,7 +270,12 @@ describe('Scenario: integration — the guard walks the real src/ + tests/ trees
     // `tests/unit/_setup/subprocess-timeouts.ts`, the shared measured budgets for
     // the tests whose cost is a real process spawn. As in S3c and S5a, a new file
     // is the documented reason this pin moves.
-    expect(scan.files.length).toBe(1195);
+    // 1195 -> 1196 (slice rid-s9-require-await-decision): +1 is
+    // `tests/unit/standards/gratuitous-async-guard.test.ts`, the tsc-API guard
+    // that carries `@typescript-eslint/require-await`'s residual signal after
+    // that rule was turned off repo-wide. As in S3c, S5a and S6, a new file is
+    // the documented reason this pin moves.
+    expect(scan.files.length).toBe(1196);
   });
 
   it('visits every relative specifier in those files (the recursion is pinned)', () => {
@@ -315,7 +320,13 @@ describe('Scenario: integration — the guard walks the real src/ + tests/ trees
     // import bindings. The removed names are all relative modules, so the
     // violation assertion below is unaffected — no `.js` extension was
     // dropped, a whole specifier was. `scan.files.length` is unchanged.
-    expect(scan.specifiers.length).toBe(2710);
+    // 2710 -> 2711 (slice rid-s9-require-await-decision): +1 is the
+    // `'../_setup/4dim-template.js'` import in the new
+    // `tests/unit/standards/gratuitous-async-guard.test.ts`. It carries the
+    // `.js` extension the rule requires, so — as with S3c, S3e, S5a and S6 —
+    // the violation assertion below is unaffected. `scan.files.length` moved by
+    // +1 as well, in the pin above.
+    expect(scan.specifiers.length).toBe(2711);
   });
 
   it('reaches every relative specifier that crosses into packages/*/src', () => {

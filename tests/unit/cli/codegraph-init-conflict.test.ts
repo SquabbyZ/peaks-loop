@@ -161,7 +161,7 @@ describe('defaultCodegraphInitGuard (rid-CG-006)', () => {
 describe('peaks codegraph init action (CLI wiring)', () => {
   withTmpWorkspacePerTest();
 
-  it('prints a CODEGRAPH_INIT_CONFLICT envelope when .codegraph/ already exists without marker', async () => {
+  it('prints a CODEGRAPH_INIT_CONFLICT envelope when .codegraph/ already exists without marker', () => {
     // The action spawns the upstream codegraph binary for the 'fresh'
     // and 'noop' paths; both would block the test for the full
     // 600 s timeout. We only need to verify the conflict branch —

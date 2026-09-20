@@ -201,7 +201,7 @@ describe('Scenario: integration — cache file round-trip with ensureSession', (
     expect(getSessionMeta(workspace, sessionId2)?.outerSessionId).toBe(outerB);
   });
 
-  it('cache file lives under .peaks/_runtime/ — gitignored by the repo rule', async () => {
+  it('cache file lives under .peaks/_runtime/ — gitignored by the repo rule', () => {
     const path = writeCacheFile(
       JSON.stringify({ outerSessionId: 'x', capturedAt: '2026-08-06T00:00:00.000Z' })
     );

@@ -210,7 +210,7 @@ describe('peaks-code multi-sub-agent fan-out (slice 5 integration)', () => {
     expect(result.failed).toEqual([]);
   });
 
-  it('buildDispatchSpec renders per-slice prompt for each leaf independently', async () => {
+  it('buildDispatchSpec renders per-slice prompt for each leaf independently', () => {
     // The CLI's --from-dag path calls buildDispatchSpec once per slice.
     // This test guards that the per-slice prompt content differs by
     // slice id (so 3 parallel leaves do not all get the same prompt).

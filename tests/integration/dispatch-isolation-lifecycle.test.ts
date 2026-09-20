@@ -278,7 +278,7 @@ describe('peaks sub-agent dispatch --isolation worktree auto-release (Part 3.A.3
     expect(existsSync(wtPath)).toBe(true);
   });
 
-  test('heartbeat on a record without leaseId is a clean no-op (no spawn, no crash)', async () => {
+  test('heartbeat on a record without leaseId is a clean no-op (no spawn, no crash)', () => {
     const project = initRepo();
     const sessionId = '2026-07-29-p3a3-nolease';
     const requestId = '2026-07-29-p3a3-nolease-rid';

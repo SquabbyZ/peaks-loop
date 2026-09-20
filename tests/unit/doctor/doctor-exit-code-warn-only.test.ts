@@ -134,7 +134,7 @@ describe('doctor exit-code gate — severity-aware (slice repair cycle)', () => 
     expect(exitCode).toBe(0);
   });
 
-  it('exits 1 when a genuine (non-warning) failure is present (back-compat)', async () => {
+  it('exits 1 when a genuine (non-warning) failure is present (back-compat)', () => {
     // Synthesise a report with one genuine failure (no severity tag).
     // Mirrors the pre-repair behaviour: a check with `ok: false` and no
     // severity still flips `summary.ok` and the exit-code gate.
@@ -150,7 +150,7 @@ describe('doctor exit-code gate — severity-aware (slice repair cycle)', () => 
     expect(exitCode).toBe(1);
   });
 
-  it('exits 1 when stale binding entries are present regardless of severity-aware summary', async () => {
+  it('exits 1 when stale binding entries are present regardless of severity-aware summary', () => {
     // Synthesise a healthy report (no failing checks, no warnings),
     // then simulate the CLI dispatcher's stale-binding scan finding
     // 2 stale instances. The dispatcher flips exit 1 on this branch
@@ -166,7 +166,7 @@ describe('doctor exit-code gate — severity-aware (slice repair cycle)', () => 
     expect(exitCode).toBe(1);
   });
 
-  it('exits 0 with a fully clean report (baseline sanity)', async () => {
+  it('exits 0 with a fully clean report (baseline sanity)', () => {
     const report = buildReportForChecks([
       { id: 'a', ok: true, message: 'ok' },
       { id: 'b', ok: true, message: 'ok' }

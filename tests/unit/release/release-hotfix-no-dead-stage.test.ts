@@ -95,7 +95,7 @@ describe('Scenario: behavior — no transition reaches the deleted hotfixed stag
     }
   });
 
-  it('when the deleted stage is the SOURCE, should not throw and should offer nothing', async () => {
+  it('when the deleted stage is the SOURCE, should not throw and should offer nothing', () => {
     // A stale or hand-edited `.peaks/release-state.json` must fail as an
     // invalid transition, not as a TypeError out of the table lookup.
     expect(() => isValidStageTransition(DELETED_STAGE, 'done')).not.toThrow();

@@ -121,7 +121,7 @@ describe('Scenario: generated-artifact version stamp', () => {
     expect(staleness.expected.templateVersion).toBe(TEMPLATE_VERSION);
   });
 
-  it('generated artifacts with NO stamp are reported stale (unstamped) — the population that reported the defect', async () => {
+  it('generated artifacts with NO stamp are reported stale (unstamped) — the population that reported the defect', () => {
     const ws = getWs();
     mkdirSync(join(ws.path, '.claude'), { recursive: true });
     writeFileSync(join(ws.path, '.claude', 'settings.local.json'), '{}\n', 'utf8');

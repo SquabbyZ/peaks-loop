@@ -274,7 +274,7 @@ describe('(behavior) per-rid resolution', () => {
 });
 
 describe('(integration) two slices coexist, and the old layouts still resolve', () => {
-  it('keeps both slices evidence retrievable with distinct contents (AC1)', async () => {
+  it('keeps both slices evidence retrievable with distinct contents (AC1)', () => {
     const projectRoot = makeProjectRoot();
     seedCompleteSlice(projectRoot, RID_A);
     seedCompleteSlice(projectRoot, RID_B);

@@ -177,7 +177,42 @@ module.exports = {
     // Use ESLint built-in `no-duplicate-imports` — `@typescript-eslint/no-duplicate-imports`
     // does NOT exist in @typescript-eslint/eslint-plugin@8.66.0 (broken ruleId, all 820
     // phantom entries were `Definition for rule ... was not found`). PRD-002b 2026-08-07.
-    'no-duplicate-imports': 'warn'
+    'no-duplicate-imports': 'warn',
+
+    // 2026-09-20 rid-s9-require-await-decision — DELIBERATE divergence, measured.
+    //
+    // INHERITED, not chosen. This rule arrives via
+    // `plugin:@typescript-eslint/recommended-type-checked` in `extends` above;
+    // nothing in this file ever turned it on. Its inherited default is `error`.
+    // An absent line here would therefore NOT be "we never enabled it" — it
+    // would keep firing at error severity, silently. That is why the override is
+    // written out explicitly rather than left out.
+    //
+    // WHY OFF. Measured over all 291 findings in this repo, classified 291/291
+    // by AST: 259 (89%) are the rule being wrong, not debt. `async` here is
+    // load-bearing in two ways the rule does not model —
+    //   (a) it is the mechanism that moves a `throw` out of the synchronous path
+    //       and into the rejection channel (19 src sites), and
+    //   (b) it IS the interface contract (`readonly execute: (ctx) => Promise<…>`,
+    //       with the implementation written `execute: async () => ({…})`).
+    // The rule also does NOT exempt an explicit `Promise<…>` annotation — the
+    // declared type is consulted only by its autofix suggestion, to rewrite
+    // `Promise<T>` → `T`. Acting on that suggestion is a tsc error (measured:
+    // stripping `async` from the 314 candidate sites produced 363 tsc errors),
+    // so "just remove them" was always an interface rewrite, not a cleanup.
+    // Driving the number to zero would mean 259 knowingly-false entries inside
+    // the one ratchet axis that is supposed to mean "lint debt".
+    //
+    // WHAT REPLACES IT. The residual signal — "a later `await` added at the top
+    // of this function would silently make everything below it asynchronous" —
+    // is carried by an AST + tsc-type-checker guard at
+    // `tests/unit/standards/gratuitous-async-guard.test.ts`, which runs with
+    // `pnpm test:unit` and is pinned to exactly 14 sites. The 18 genuinely
+    // gratuitous `it`/`test` `async` callbacks in `tests/` were removed.
+    //
+    // Full evidence, the probe table, and the "when to reconsider" triggers:
+    // `.peaks/docs/lint-rule-divergences.md` § `@typescript-eslint/require-await`.
+    '@typescript-eslint/require-await': 'off'
   },
   overrides: [
     {

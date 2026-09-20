@@ -213,7 +213,7 @@ describe('peaks compact harness-window — show / rollback', () => {
     expect(envBlock()[KEY]).toBe('1000000');
   });
 
-  it('when --disable is NOT used, should be the control: the same probe writes the key (integration)', async () => {
+  it('when --disable is NOT used, should be the control: the same probe writes the key (integration)', () => {
     // given: the identical fresh project, without the opt-out. Control for the
     //        case above — without it, a probe that failed for any unrelated
     //        reason would look exactly like the opt-out working.

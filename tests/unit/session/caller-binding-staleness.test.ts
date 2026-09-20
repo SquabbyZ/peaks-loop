@@ -341,7 +341,7 @@ describe('Scenario: integration — rotation cannot be re-entered through a stal
     expect(existsSync(join(ws.path, '.peaks', '_runtime', SID_ROTATED, 'job'))).toBe(false);
   });
 
-  it('when one caller rotates, should leave another caller binding untouched', async () => {
+  it('when one caller rotates, should leave another caller binding untouched', () => {
     // given: callers A and B are both bound to the session being rotated out
     seedBoundCaller(ws.path, CALLER_A, SID_ROTATED);
     seedBoundCaller(ws.path, CALLER_B, SID_ROTATED);

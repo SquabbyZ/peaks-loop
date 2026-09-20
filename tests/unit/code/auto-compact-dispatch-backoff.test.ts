@@ -322,7 +322,7 @@ describe('Scenario: integration — AC4, the history file is append-only and sta
     expect(raw.split('\n').filter((l) => l.length > 0)).toHaveLength(3);
   });
 
-  it('when invoked, should Case 12 (AC4): every seeded legacy row still parses, and the CALIBRATION view reads them without error', async () => {
+  it('when invoked, should Case 12 (AC4): every seeded legacy row still parses, and the CALIBRATION view reads them without error', () => {
     // given: the measured session's exact shape — a `dispatch` row that carries
     //        no `kind`-specific extras and, critically, no following observation
     mkdirSync(join(projectRoot, '.peaks', '_runtime', SID), { recursive: true });

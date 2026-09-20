@@ -70,7 +70,7 @@ describe('peaks-solo dispatcher flow — dogfood: 获取 GitHub top 10', () => {
     expect(result.stdout).toContain('peaks-solo');
   });
 
-  test('T-2: peaks-solo SKILL.md frontmatter has Dispatcher role + NOT clause for all 5 leaves', async () => {
+  test('T-2: peaks-solo SKILL.md frontmatter has Dispatcher role + NOT clause for all 5 leaves', () => {
     const skillPath = resolve(REPO_ROOT, 'skills/peaks-solo/SKILL.md');
     expect(existsSync(skillPath)).toBe(true);
     const skill = readFileSync(skillPath, 'utf8');
@@ -109,13 +109,13 @@ describe('peaks-solo dispatcher flow — dogfood: 获取 GitHub top 10', () => {
     expect(parsed[0]!.name).toBe('peaks-code');
   });
 
-  test('T-5: peaks-solo SKILL.md references ≥ 1 fallback tool (deep-search / WebSearch / Bash / Edit)', async () => {
+  test('T-5: peaks-solo SKILL.md references ≥ 1 fallback tool (deep-search / WebSearch / Bash / Edit)', () => {
     const skillPath = resolve(REPO_ROOT, 'skills/peaks-solo/SKILL.md');
     const skill = readFileSync(skillPath, 'utf8');
     expect(/deep-search|WebSearch|Bash|Edit/.test(skill)).toBe(true);
   });
 
-  test('T-6: sediment-prompt-template.md has 4 options (a)/(b)/(c)/(d) + default is NOT (d)', async () => {
+  test('T-6: sediment-prompt-template.md has 4 options (a)/(b)/(c)/(d) + default is NOT (d)', () => {
     const tplPath = resolve(REPO_ROOT, 'skills/peaks-solo/references/sediment-prompt-template.md');
     expect(existsSync(tplPath)).toBe(true);
     const tpl = readFileSync(tplPath, 'utf8');
@@ -130,7 +130,7 @@ describe('peaks-solo dispatcher flow — dogfood: 获取 GitHub top 10', () => {
     expect(tpl).not.toMatch(/默认推荐\s*=\s*\(d\)/);
   });
 
-  test('T-7: S0+S1+S2 regression scope is green (no regressions introduced)', async () => {
+  test('T-7: S0+S1+S2 regression scope is green (no regressions introduced)', () => {
     // Run the locked regression scope of S0 (skill-search) + S1
     // (peaks-solo) + S2 (surface) per S3 brief §Workflow step 12.
     // The full `pnpm vitest run` is the main-session final gate

@@ -671,7 +671,7 @@ async function runStatuslineCompact(
 // ---------------------------------------------------------------------------
 
 describe('Scenario: suite guards', () => {
-  it('when invoked, should dist/cli/index.js exists at suite start (rejection #5: build before subprocess tests)', async () => {
+  it('when invoked, should dist/cli/index.js exists at suite start (rejection #5: build before subprocess tests)', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
