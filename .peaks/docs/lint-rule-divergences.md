@@ -51,7 +51,13 @@ removing `async` changes the return type from `Promise<T>` to `T`.
 
 ### The evidence
 
-291 findings, classified over all of them by AST (291/291 resolved):
+The figure carried through the decision process was **291** — `src`, `tests` and
+`packages`. **`scripts/` carries 2 more, so the true before-count was 293**, and
+the `scripts` sites were never exempted from anything. The table below is the 291
+that were classified; the guard added at the end of this section reports 0 in
+`scripts/`, because the two there are contract-bearing.
+
+Classification, by AST over all of them:
 
 | scope | n | explicit `Promise<…>` | own-body `throw` | gratuitous |
 |---|---|---|---|---|
@@ -120,14 +126,39 @@ listed in `plugins`**, so it is not active; and core `8.7.1` vs `vitest-runner`
 
 - **18 gratuitous `it`/`test` `async` callbacks were removed** (vitest awaits the
   returned value either way, so the `async` was pure redundancy).
-- **A guard in `tests/unit/standards/` flags the residual class**: an `async`
-  function with no `await` in its own scope, **no explicit `Promise<…>` return
-  annotation**, no bare `throw` in its own body, a non-empty body, and not an
-  async generator — over `src/` and `packages/` (tests are exempt, matching the
-  existing `tests/**` overrides). It carries the "a later `await` would silently
-  reorder this" signal **without** the 259 false positives.
-- The guard runs with `pnpm test:unit`, and pins how many files and async
-  functions it visits, so a broken traversal cannot pass as a clean one.
+- **A guard in `tests/unit/standards/gratuitous-async-guard.test.ts`** carries the
+  residual class. `tests/` is exempt, matching the existing `tests/**` overrides,
+  so it covers **`src/` and `packages/`**. It reports **exactly 14** sites, each
+  listed below. It runs with `pnpm test:unit` (~3 s, `ts.createProgram` + checker)
+  and pins its own reach — **817 files, 578 async functions, 577 type-checked** —
+  so a broken traversal cannot pass as a clean one.
+
+  The 14: `src/cli/commands/{code-job-shape-commands:55, job-commands:349,354,371}`,
+  `src/services/adapter/{codex,copilot}-adapter:17`,
+  `capability-guard-runner/contracts/{J04:24, J05:76}`,
+  `evolution/{independent-evaluator-runner:122, regression-skeptic-runner:98}`,
+  `llm/stub-runner:35`, `slice/slice-decompose-runners:{39,89,153}`.
+  `packages/` contributes 0.
+
+### A spec correction worth keeping
+
+The predicate as first specified had **five** conditions and reported **21**, not
+14. The seven extras all return a thenable — `awaitBatch: async (x) =>
+pollDispatchRecords(x)` (×4) and `query: async (…) => { …; return base.query(…) }`
+(×3). **The rule being replaced exempts a thenable return expression**, so those
+seven were never findings and were never candidates; the predicate was missing
+the rule's own exemption.
+
+Adding it — a type-checker thenable test, the same basis the rule uses — yields
+exactly 14. **Both numbers are pinned separately in the guard (21 without the
+exemption, 14 with), so the sixth condition is auditable rather than smuggled.**
+Anyone changing the predicate should expect both pins to move, and should be able
+to say why.
+
+That is the whole argument for replacing a rule with a guard rather than simply
+disabling it: the guard's replacement is precise enough to state, and precise
+enough to be wrong about. A predicate that "looked right" would have reported 21
+and nobody would have noticed the 7.
 
 Upstream context, for whoever revisits this:
 [typescript-eslint#11731](https://github.com/typescript-eslint/typescript-eslint/issues/11731)
