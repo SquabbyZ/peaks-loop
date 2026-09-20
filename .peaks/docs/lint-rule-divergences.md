@@ -176,3 +176,62 @@ agreed upon.
   directly contradict each other, and this override would need re-reading.
 - If a future `async`-removal mutator lands in Stryker **and** the `mutate` glob
   grows to cover code where this pattern matters.
+
+---
+
+## `@typescript-eslint/no-unsafe-*` on JavaScript files — OFF for JS (2026-09-20)
+
+**Status:** five type-aware rules turned off for `**/*.js`, `**/*.jsx`, `**/*.cjs`
+and `**/*.mjs`, via one appended `overrides` entry in
+`config/eslint/.peaks-rules.cjs`.
+
+### The contradiction this fixes
+
+`config/eslint/tsconfig.lint.json` sets `allowJs: true` with **`checkJs: false`** —
+the configuration **deliberately does not establish types** for JavaScript files.
+And then a **type-checked** rule family is applied to them.
+
+**A rule that demands a property the config explicitly declines to establish is not
+strictness; it is a contradiction.** There is no type there to be unsafe about.
+
+956 findings across 23 files — 54% of the whole `no-unsafe-*` family. The five that
+actually fire: `no-unsafe-member-access` 389, `-assignment` 214, `-argument` 156,
+`-call` 146, `-return` 51.
+
+### `no-unsafe-*` is a NAME, not a class
+
+The rule names share a prefix; they do not share a mechanism. **Turning the family
+off by name would have switched off checks that have nothing to do with types:**
+
+| rule | origin | type-aware? | on JS |
+|---|---|---|---|
+| `no-unsafe-member-access` / `-assignment` / `-argument` / `-call` / `-return` | `@typescript-eslint` | **yes** | **exempted** |
+| `no-unsafe-finally` | **ESLint core** | **no** | still `error` |
+| `no-unsafe-negation`, `no-unsafe-optional-chaining` | **ESLint core** | no | still `error` |
+| `no-unsafe-declaration-merging`, `-enum-comparison`, `-function-type`, `-unary-minus` | `@typescript-eslint` | **no** | still `error` |
+
+`--print-config` was used to confirm each of the untouched rules still reports on
+JS. The cut is by **type-awareness**, not by prefix.
+
+### Reach, evidenced per (file, rule)
+
+The way to get this wrong is to cut wider than claimed — the mirror of the guards
+this repo has repeatedly found narrower than advertised. So the cut is evidenced
+per `(file, rule)` rather than by totals:
+
+| | before | after |
+|---|---|---|
+| TS side, type-aware family | 538 | **538** (equal) |
+| TS rule map and per-file totals | — | byte-identical; **0 TS files changed** |
+| JS side, non-family rules | 80 | **80** (equal) |
+| JS per-file per-rule diff, 32 files | — | **not one non-family finding moved** |
+| the five rules, 85 `(file, rule)` pairs | 956 | **0** |
+
+No rule rose on either side.
+
+### When to reconsider
+
+If `scripts/**` is ever migrated to TypeScript, or `checkJs` is turned on for it,
+this exemption stops being a contradiction fix and becomes a real hole — at which
+point the type-aware family should come back for those files, and the 956 should
+be treated as genuine debt rather than a category error.
