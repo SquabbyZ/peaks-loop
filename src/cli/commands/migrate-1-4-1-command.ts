@@ -33,7 +33,7 @@ export function registerMigrate1_4_1Command(workspace: Command, io: ProgramIO): 
         'actually rename the files and remove empty legacy dirs (destructive); without it, dry-run only',
         false
       )
-  ).action(async (options: { project: string; apply?: boolean; json?: boolean }) => {
+  ).action((options: { project: string; apply?: boolean; json?: boolean }) => {
     try {
       const projectRoot = resolveCanonicalProjectRoot(options.project);
       const apply = options.apply === true;

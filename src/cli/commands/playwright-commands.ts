@@ -367,7 +367,7 @@ export function registerPlaywrightCommands(program: Command, _io: ProgramIO): vo
     )
     .option('--project <path>', 'project root (defaults to current directory)', process.cwd())
     .option('--json', 'emit a JSON envelope { ok, data: { sessions } }')
-    .action(async (opts: { project?: string; json?: boolean }) => {
+    .action((opts: { project?: string; json?: boolean }) => {
       try {
         const projectRoot = resolveCanonicalProjectRoot(opts.project ?? process.cwd());
         const sessions = listSessions(projectRoot);
@@ -398,7 +398,7 @@ export function registerPlaywrightCommands(program: Command, _io: ProgramIO): vo
     .option('--terminal <id>', "terminal id to stop (default: this shell's derived terminal id)")
     .option('--project <path>', 'project root (defaults to current directory)', process.cwd())
     .option('--json', 'emit a JSON envelope { ok, data }')
-    .action(async (opts: { terminal?: string; project?: string; json?: boolean }) => {
+    .action((opts: { terminal?: string; project?: string; json?: boolean }) => {
       try {
         const projectRoot = resolveCanonicalProjectRoot(opts.project ?? process.cwd());
         const terminalId = opts.terminal ?? deriveTerminalId();

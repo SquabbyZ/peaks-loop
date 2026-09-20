@@ -21,7 +21,7 @@ export function registerSkillConformanceCommands(program: Command, io: ProgramIO
     .description('Slice #12: audit all 12 peaks-* SKILL.md against the 5 alignment standards')
     .requiredOption('--project <path>', 'target project root')
     .option('--json', 'print machine-readable JSON envelope')
-    .action(async (options: AuditConformanceOptions) => {
+    .action((options: AuditConformanceOptions) => {
       try {
         const report = auditSkillConformance({ projectRoot: options.project });
         const nextActions: string[] = [];

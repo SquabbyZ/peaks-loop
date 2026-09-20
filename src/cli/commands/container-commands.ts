@@ -152,7 +152,7 @@ export function registerContainerCommand(program: Command, io: ProgramIO): void 
       )
       .option('--session <sid>', 'override session id')
       .option('--project <path>', 'project root (default: findProjectRoot(cwd))')
-  ).action(async (options: SpawnOptions) => {
+  ).action((options: SpawnOptions) => {
     const projectRoot = options.project ?? findProjectRoot(process.cwd()) ?? process.cwd();
     const sessionId =
       options.session ??

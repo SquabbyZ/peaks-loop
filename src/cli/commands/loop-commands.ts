@@ -84,7 +84,7 @@ export function registerLoopCommands(program: Command, io: ProgramIO): void {
       )
       .requiredOption('--project <path>', 'target project root')
       .requiredOption('--goal <text>', 'the high-level goal to compose')
-  ).action(async (options: GoalComposeOptions) => {
+  ).action((options: GoalComposeOptions) => {
     try {
       printResult(
         io,
@@ -200,7 +200,7 @@ export function registerLoopCommands(program: Command, io: ProgramIO): void {
         '14.2: pre-run sanity checks (placeholder; future slice runs peaks doctor + peaks audit before each loop iter)'
       )
       .requiredOption('--project <path>', 'target project root')
-  ).action(async (options: LoopPreflightOptions) => {
+  ).action((options: LoopPreflightOptions) => {
     printResult(
       io,
       ok(
@@ -230,7 +230,7 @@ export function registerLoopCommands(program: Command, io: ProgramIO): void {
         '14.3: detect repeating patterns across past sessions (placeholder; future slice uses peaks retrospective search)'
       )
       .requiredOption('--project <path>', 'target project root')
-  ).action(async (options: LoopDetectPatternOptions) => {
+  ).action((options: LoopDetectPatternOptions) => {
     printResult(
       io,
       ok(
@@ -260,7 +260,7 @@ export function registerLoopCommands(program: Command, io: ProgramIO): void {
         '14.4: verify state consistency (placeholder; future slice compares .peaks/_runtime across sessions)'
       )
       .requiredOption('--project <path>', 'target project root')
-  ).action(async (options: LoopCheckConsistencyOptions) => {
+  ).action((options: LoopCheckConsistencyOptions) => {
     printResult(
       io,
       ok(

@@ -207,7 +207,7 @@ export function registerJobCommands(
     .option('--rotate-every <n>', 'rotate every N slices (rotating mode)', '3')
     .option('--session-id <sid>', SESSION_ID_HELP)
     .option('--project <repo>')
-    .action(async (opts) => {
+    .action((opts) => {
       const project = projectRoot(opts);
       // Resolve sessionId: explicit flag > PEAKS_SESSION_ID > caller-first session binding
       // (this caller's binding, else the project-global session.json) > FAIL.
@@ -293,7 +293,7 @@ export function registerJobCommands(
     .option('--show-cost', 'overlay cost from peaks budget')
     .option('--session-id <sid>', SESSION_ID_HELP)
     .option('--project <repo>')
-    .action(async (opts) => {
+    .action((opts) => {
       const store = new JobStateStore(resolveJobStateRoot(opts, opts.jobId).rootDir);
       const orch = new JobOrchestrator(store);
       const s = orch.status(opts.jobId);
@@ -563,7 +563,7 @@ export function registerJobCommands(
     .requiredOption('--job-id <jid>')
     .option('--session-id <sid>', SESSION_ID_HELP)
     .option('--project <repo>')
-    .action(async (opts) => {
+    .action((opts) => {
       const store = new JobStateStore(resolveJobStateRoot(opts, opts.jobId).rootDir);
       const orch = new JobOrchestrator(store);
       const r = orch.continueNow(opts.jobId);
@@ -576,7 +576,7 @@ export function registerJobCommands(
     .requiredOption('--job-id <jid>')
     .option('--session-id <sid>', SESSION_ID_HELP)
     .option('--project <repo>')
-    .action(async (opts) => {
+    .action((opts) => {
       const store = new JobStateStore(resolveJobStateRoot(opts, opts.jobId).rootDir);
       const orch = new JobOrchestrator(store);
       const s = orch.status(opts.jobId);
@@ -617,7 +617,7 @@ export function registerJobCommands(
       '--allow-missing',
       'report an absent progress.json as NO_PROGRESS (expected absence) rather than PROGRESS_READ_FAILED (read error); the command still exits non-zero'
     )
-    .action(async (opts) => {
+    .action((opts) => {
       try {
         const jobRoot = resolveJobStateRoot(opts, opts.jobId);
         const sessId = jobRoot.sessionId;
@@ -685,7 +685,7 @@ export function registerJobCommands(
     .requiredOption('--job-id <jid>')
     .option('--session-id <sid>', SESSION_ID_HELP)
     .option('--project <repo>')
-    .action(async (opts) => {
+    .action((opts) => {
       const store = new JobStateStore(resolveJobStateRoot(opts, opts.jobId).rootDir);
       const orch = new JobOrchestrator(store);
       const s = orch.status(opts.jobId);
@@ -708,7 +708,7 @@ export function registerJobCommands(
     )
     .option('--project <repo>')
     .option('--session-id <sid>', SESSION_ID_HELP)
-    .action(async (opts) => {
+    .action((opts) => {
       const project = projectRoot(opts);
       const sessionId =
         opts.sessionId ?? process.env.PEAKS_SESSION_ID ?? getCurrentSessionId(project);

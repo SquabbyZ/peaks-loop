@@ -460,7 +460,7 @@ export function registerClassifyCommands(program: Command, io: ProgramIO): void 
     .requiredOption('--reason <text>', 'reason for the attempt (always rejected)')
     .requiredOption('--project <path>', 'target project root')
     .option('--json', 'print machine-readable JSON envelope')
-    .action(async (options: DowngradeOptions) => {
+    .action((options: DowngradeOptions) => {
       printResult(
         io,
         fail(

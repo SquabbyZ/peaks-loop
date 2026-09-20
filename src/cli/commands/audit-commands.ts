@@ -177,7 +177,7 @@ export function registerAuditCommands(program: Command, io: ProgramIO): void {
         'Scan skills/, .claude/rules/, and openspec/changes/ for MANDATORY / BLOCKING / MUST NOT / RED LINE markers; classify each as cli-backed / partial / prose-only'
       )
       .requiredOption('--project <path>', 'target project root')
-  ).action(async (options: RedLinesOptions) => {
+  ).action((options: RedLinesOptions) => {
     const validation = validateProjectRoot(options.project);
     if (!validation.ok) {
       printResult(
@@ -273,7 +273,7 @@ export function registerAuditCommands(program: Command, io: ProgramIO): void {
         '--rid <rid>',
         'disambiguator for the decision record slug (used with --record; pairs multiple audits on the same day)'
       )
-  ).action(async (options: StaticAuditOptions) => {
+  ).action((options: StaticAuditOptions) => {
     const validation = validateProjectRoot(options.project);
     if (!validation.ok) {
       printResult(
@@ -385,7 +385,7 @@ export function registerAuditCommands(program: Command, io: ProgramIO): void {
       )
       .requiredOption('--project <path>', 'target project root')
       .option('--target <n>', 'maximum prose-only ratio (0-1, default 0.05)', '0.05')
-  ).action(async (options: ProseRatioOptions) => {
+  ).action((options: ProseRatioOptions) => {
     const validation = validateProjectRoot(options.project);
     if (!validation.ok) {
       printResult(

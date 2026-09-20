@@ -51,7 +51,7 @@ export function registerMigrateV2ToV11Command(workspace: Command, io: ProgramIO)
         'actually prepend the deprecation banner to each `rd/tech-doc.md` (idempotent); without it, dry-run only',
         false
       )
-  ).action(async (options: MigrateV2ToV11Options) => {
+  ).action((options: MigrateV2ToV11Options) => {
     try {
       const projectRoot = resolveCanonicalProjectRoot(options.project);
       const apply = options.apply === true;

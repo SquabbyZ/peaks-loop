@@ -324,7 +324,7 @@ export function registerSessionCommand(program: Command, io: ProgramIO): void {
         '--reason <text>',
         'human-readable reason for the rotation, recorded in the response data'
       )
-  ).action(async (options: { project?: string; reason?: string; json?: boolean }) => {
+  ).action((options: { project?: string; reason?: string; json?: boolean }) => {
     try {
       // Canonicalise the project root before touching the binding.
       // `peaks workspace init` writes the binding with the
