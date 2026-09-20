@@ -223,6 +223,66 @@ module.exports = {
         'max-lines-per-function': 'off',
         '@typescript-eslint/no-explicit-any': 'off'
       }
+    },
+    // 2026-09-20 rid-s11-js-type-aware-exemption — a type-aware rule family
+    // applied to files the project deliberately refuses to type-check.
+    // DELIBERATE divergence, measured; not a blanket rule switch-off.
+    //
+    // THE CONTRADICTION. `config/eslint/tsconfig.lint.json` sets
+    // `allowJs: true` together with `checkJs: false`. Those two are one
+    // deliberate statement: a JS file is *parsed* (so it can be linted at all)
+    // and is deliberately NOT type-checked — no types are ever established for
+    // it. `no-unsafe-*` is a *type-aware* family; every finding it reports is
+    // the answer to "what type does this expression have?". Asking that of a
+    // property the configuration explicitly declines to establish is not
+    // strictness — it is a self-contradiction. Where there are no types, `any`
+    // is not a defect the author introduced; it is the only answer the compiler
+    // was ever allowed to give.
+    //
+    // MEASURED REACH (census by file extension, taken before this entry
+    // existed; 1273 files in the gate's scope, 1036 findings on JS). Exactly
+    // five ruleIds account for 956 of those 1036, on 23 files:
+    //   no-unsafe-member-access 389, no-unsafe-assignment 214,
+    //   no-unsafe-argument 156, no-unsafe-call 146, no-unsafe-return 51.
+    // No other `no-unsafe-*` rule fires on JS anywhere in the repo. The globs
+    // below are the four JS extensions: 31 `.mjs` + 1 `.js` exist today, 0
+    // `.cjs` and 0 `.jsx`; the latter two are carried so a new file cannot
+    // reopen this hole by being written with a different extension.
+    //
+    // WHAT IS *NOT* SWITCHED OFF — the reach of this entry is the whole point:
+    //   - `.ts`/`.tsx`/`.mts`/`.cts` are not matched. The 538 type-aware
+    //     findings there are real: the root tsconfig.json runs `strict: true`,
+    //     so a type question has a genuine answer to reject. TS counts must not
+    //     move by one.
+    //   - `no-unsafe-finally` is deliberately ABSENT from the list. It is the
+    //     ESLint *core* rule of that name (control flow out of a `finally`
+    //     block) — NOT `@typescript-eslint/no-unsafe-finally` — and it needs no
+    //     type information. It fires twice on JS here, and both are genuine.
+    //   - every rule that is not type-aware keeps firing on JS (74 findings):
+    //     no-magic-numbers, complexity, max-lines-per-function, max-lines,
+    //     no-unused-vars, no-duplicate-imports, prefer-const,
+    //     no-inner-declarations, no-require-imports.
+    //   - the type-aware rules OUTSIDE this family also keep firing (6
+    //     findings): only-throw-error, restrict-plus-operands,
+    //     no-floating-promises, prefer-promise-reject-errors. They are
+    //     type-aware but not `no-unsafe-*`, so this authorisation does not reach
+    //     them. Widening these globs to cover them is a different decision that
+    //     needs its own evidence.
+    //   - `no-explicit-any` does NOT fire on JS (0 findings, measured — it does
+    //     not appear in the JS census at all). JS has no type annotations, so
+    //     there is no place to write `any` and nothing for the rule to match.
+    //
+    // Reasoning, the census, and the "when to reconsider" triggers:
+    // `.peaks/docs/lint-rule-divergences.md`
+    {
+      files: ['**/*.js', '**/*.jsx', '**/*.cjs', '**/*.mjs'],
+      rules: {
+        '@typescript-eslint/no-unsafe-argument': 'off',
+        '@typescript-eslint/no-unsafe-assignment': 'off',
+        '@typescript-eslint/no-unsafe-call': 'off',
+        '@typescript-eslint/no-unsafe-member-access': 'off',
+        '@typescript-eslint/no-unsafe-return': 'off'
+      }
     }
   ]
 };
