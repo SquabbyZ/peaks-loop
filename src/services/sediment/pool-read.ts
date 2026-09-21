@@ -1,23 +1,32 @@
 import { readdirSync, readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { resolveUserBeesDir, resolveSegmentsDir } from './pool-paths.js';
-import { lintManifest } from './manifest-lint.js';
-import type { IndexFile, IndexEntry, BeeManifest } from './types.js';
+import { BeeManifestSchema } from './json-schema.js';
+import type { IndexFile, IndexEntry } from './types.js';
 
 export class POOL_READ_ERROR extends Error {}
-
-function readJsonIfExists<T>(p: string): T | null {
-  if (!existsSync(p)) return null;
-  return JSON.parse(readFileSync(p, 'utf-8')) as T;
-}
 
 function readBeeDir(home: string, name: string): IndexEntry | null {
   const dir = join(resolveUserBeesDir({ home }), name);
   const manifestPath = join(dir, 'manifest.json');
-  const m = readJsonIfExists<BeeManifest>(manifestPath);
-  if (!m) return null;
-  const r = lintManifest(m);
-  if (!r.ok) return null;
+  if (!existsSync(manifestPath)) return null;
+  // The two failures must stay DISTINCT here, and neither shipped primitive
+  // keeps them apart: `tryParseJson` maps both to `null`, and `parseJson`
+  // throws on both (`schema.parse(JSON.parse(raw))`). So the two steps are
+  // written out.
+  //
+  //   not JSON        -> `JSON.parse` throws -> `peaks sediment list` fails loudly
+  //   wrong shape     -> `safeParse` fails   -> this bee is skipped
+  //
+  // `: unknown` is not decoration: `JSON.parse` is typed `any`, so an
+  // un-annotated binding would be an `any` entering the file
+  // (`no-unsafe-assignment`). Annotating it is the shape the repo's other 20
+  // bare `JSON.parse` reads already use, and `safeParse` accepts `unknown`,
+  // so handing it on is not a `no-unsafe-argument` either.
+  const decoded: unknown = JSON.parse(readFileSync(manifestPath, 'utf-8'));
+  const parsed = BeeManifestSchema.safeParse(decoded);
+  if (!parsed.success) return null;
+  const m = parsed.data;
   return {
     name: m.name,
     kind: 'bee',

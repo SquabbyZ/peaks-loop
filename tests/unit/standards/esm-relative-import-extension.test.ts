@@ -285,7 +285,7 @@ describe('Scenario: integration — the guard walks the real src/ + tests/ trees
     // `src/cli/cli-envelope.ts`, `src/services/session/session-file-schema.ts` —
     // plus its guard, `tests/unit/cli/cli-envelope.test.ts`. Same reason as S3c,
     // S5a, S6, S9 and S10: a new file is the documented reason this pin moves.
-    expect(scan.files.length).toBe(1201);
+    expect(scan.files.length).toBe(1202);
   });
 
   it('visits every relative specifier in those files (the recursion is pinned)', () => {
@@ -360,7 +360,23 @@ describe('Scenario: integration — the guard walks the real src/ + tests/ trees
     // `mut/end-to-end` (`shared/json-parse`). All carry the `.js` extension the
     // rule requires, so the violation assertion below is unaffected.
     // `scan.files.length` did NOT move: no `.ts` file was added or removed.
-    expect(scan.specifiers.length).toBe(2786);
+    //
+    // 2786 -> 2792 (slice rid-s15-costume-as-helpers): +6 relative specifiers,
+    // every one of them a validating-parse or schema import added to a file
+    // that already existed. +1 each in `tests/integration/five-new-rids-e2e.test.ts`,
+    // `scan-commands-e2e.test.ts` and `business-capability-e2e.test.ts` (all
+    // three now import `src/cli/cli-envelope.js` instead of asserting a local
+    // `parseEnvelope<T>`); +2 in `adapter-commands-e2e.test.ts`
+    // (`cli-envelope`, plus `shared/json-parse` for the four call sites whose
+    // stdout is NOT a `ResultEnvelope` — a bare array from `skill search`,
+    // `{ ok, skills }` from `skill:visibility`, and the two data-only
+    // `statusline` shapes); +1 net in `src/services/sediment/pool-read.ts`
+    // (`+./json-schema`, `+../../shared/json-parse`, `−./manifest-lint`, whose
+    // only consumer this slice removed). All carry the `.js` extension the rule
+    // requires, so — as with S3c, S3e, S5a, S6, S9, S10, S12 and S13 — the
+    // violation assertion below is unaffected. `scan.files.length` did NOT move:
+    // no `.ts` file was added or removed.
+    expect(scan.specifiers.length).toBe(2793);
   });
 
   it('reaches every relative specifier that crosses into packages/*/src', () => {

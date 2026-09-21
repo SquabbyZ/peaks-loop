@@ -34,50 +34,66 @@ const PROJECT_ROOT = resolve(__dirname, '..', '..', '..');
 
 describe('F5 anti-fake-green: --must-ls-files frontmatter + verification envelope', () => {
   describe('runGitLsFiles helper', () => {
-    it('when given a matching glob, should return the tracked files (anti-fake-green positive)', () => {
-      // given: the real peaks-loop repo (projectRoot, with `.git`)
-      // when:  runGitLsFiles('src/cli/commands/dispatch-commands.ts') is invoked
-      // then:  the returned list contains the exact file (proves the helper
-      //        actually shells out to git and parses stdout byte-perfectly)
-      const files = runGitLsFiles(PROJECT_ROOT, 'src/cli/commands/dispatch-commands.ts');
-      expect(files.length).toBeGreaterThan(0);
-      expect(files).toContain('src/cli/commands/dispatch-commands.ts');
-    });
+    it(
+      'when given a matching glob, should return the tracked files (anti-fake-green positive)',
+      () => {
+        // given: the real peaks-loop repo (projectRoot, with `.git`)
+        // when:  runGitLsFiles('src/cli/commands/dispatch-commands.ts') is invoked
+        // then:  the returned list contains the exact file (proves the helper
+        //        actually shells out to git and parses stdout byte-perfectly)
+        const files = runGitLsFiles(PROJECT_ROOT, 'src/cli/commands/dispatch-commands.ts');
+        expect(files.length).toBeGreaterThan(0);
+        expect(files).toContain('src/cli/commands/dispatch-commands.ts');
+      },
+      SUBPROCESS_TEST_TIMEOUT_MS
+    );
 
-    it('when given a wildcard glob, should return all matching tracked files', () => {
-      // given: the real peaks-loop repo
-      // when:  runGitLsFiles('src/cli/commands/dispatch-*.ts') is invoked
-      // then:  every returned entry is a tracked dispatch-* command file
-      const files = runGitLsFiles(PROJECT_ROOT, 'src/cli/commands/dispatch-*.ts');
-      expect(files.length).toBeGreaterThan(0);
-      for (const f of files) {
-        expect(f).toMatch(/^src\/cli\/commands\/dispatch-.+\.ts$/);
-      }
-    });
+    it(
+      'when given a wildcard glob, should return all matching tracked files',
+      () => {
+        // given: the real peaks-loop repo
+        // when:  runGitLsFiles('src/cli/commands/dispatch-*.ts') is invoked
+        // then:  every returned entry is a tracked dispatch-* command file
+        const files = runGitLsFiles(PROJECT_ROOT, 'src/cli/commands/dispatch-*.ts');
+        expect(files.length).toBeGreaterThan(0);
+        for (const f of files) {
+          expect(f).toMatch(/^src\/cli\/commands\/dispatch-.+\.ts$/);
+        }
+      },
+      SUBPROCESS_TEST_TIMEOUT_MS
+    );
 
-    it('when given a glob with zero matches, should return an empty array (exists:false branch)', () => {
-      // given: the real peaks-loop repo
-      // when:  runGitLsFiles('totally/fake/never-exists-*.ghost') is invoked
-      // then:  an empty array (the dispatch envelope will render exists:false)
-      const files = runGitLsFiles(PROJECT_ROOT, 'totally/fake/never-exists-*.ghost');
-      expect(files).toEqual([]);
-      expect(Array.isArray(files)).toBe(true);
-    });
-
-    it('when projectRoot is not a git repo, should return empty array (never throws)', () => {
-      // given: a tmp workspace that is NOT a git repo
-      // when:  runGitLsFiles(tmpPath, '*.ts') is invoked
-      // then:  empty array (git's non-zero exit is swallowed per the
-      //        failure-mode contract documented on runGitLsFiles)
-      const tmp = mkdtempSync(join(tmpdir(), 'f5-notgit-'));
-      try {
-        writeFileSync(join(tmp, 'a.ts'), 'export const a = 1;\n');
-        const files = runGitLsFiles(tmp, '*.ts');
+    it(
+      'when given a glob with zero matches, should return an empty array (exists:false branch)',
+      () => {
+        // given: the real peaks-loop repo
+        // when:  runGitLsFiles('totally/fake/never-exists-*.ghost') is invoked
+        // then:  an empty array (the dispatch envelope will render exists:false)
+        const files = runGitLsFiles(PROJECT_ROOT, 'totally/fake/never-exists-*.ghost');
         expect(files).toEqual([]);
-      } finally {
-        rmSync(tmp, { recursive: true, force: true });
-      }
-    });
+        expect(Array.isArray(files)).toBe(true);
+      },
+      SUBPROCESS_TEST_TIMEOUT_MS
+    );
+
+    it(
+      'when projectRoot is not a git repo, should return empty array (never throws)',
+      () => {
+        // given: a tmp workspace that is NOT a git repo
+        // when:  runGitLsFiles(tmpPath, '*.ts') is invoked
+        // then:  empty array (git's non-zero exit is swallowed per the
+        //        failure-mode contract documented on runGitLsFiles)
+        const tmp = mkdtempSync(join(tmpdir(), 'f5-notgit-'));
+        try {
+          writeFileSync(join(tmp, 'a.ts'), 'export const a = 1;\n');
+          const files = runGitLsFiles(tmp, '*.ts');
+          expect(files).toEqual([]);
+        } finally {
+          rmSync(tmp, { recursive: true, force: true });
+        }
+      },
+      SUBPROCESS_TEST_TIMEOUT_MS
+    );
   });
 
   describe('DispatchOptions back-compat surface', () => {

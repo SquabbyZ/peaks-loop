@@ -529,12 +529,16 @@ describe('Scenario: integration — read-only adapters against a real git work t
     }
   );
 
-  it('throws (never silently returns []) when the project is not a git work tree', () => {
-    const project = mkdtempSync(join(tmpdir(), 'peaks-cg-nogit-'));
-    tempProjects.push(project);
+  it(
+    'throws (never silently returns []) when the project is not a git work tree',
+    () => {
+      const project = mkdtempSync(join(tmpdir(), 'peaks-cg-nogit-'));
+      tempProjects.push(project);
 
-    expect(() => readTrackedFiles(project)).toThrow();
-  });
+      expect(() => readTrackedFiles(project)).toThrow();
+    },
+    SUBPROCESS_TEST_TIMEOUT_MS
+  );
 
   it(
     'throws when `.codegraph/config.json` is absent',

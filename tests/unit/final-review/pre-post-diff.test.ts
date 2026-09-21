@@ -286,37 +286,45 @@ describe('producePrePostDiff — an uncomputable baseline', () => {
     }
   );
 
-  it('does not fabricate a diff for an unusable --base, and clears any stale artifact', () => {
-    // FAILS BEFORE THE CHANGE: there was no `--base` handling and no artifact
-    // lifecycle at all, so a stale file from an earlier run could be read as
-    // this run's evidence.
-    const root = makeRepo({ 'src/a.ts': 'export const alpha = 1;\n' });
-    const stale = write(root, ARTIFACT_RELATIVE, 'VERDICT: NO STRUCTURAL DRIFT\n');
+  it(
+    'does not fabricate a diff for an unusable --base, and clears any stale artifact',
+    () => {
+      // FAILS BEFORE THE CHANGE: there was no `--base` handling and no artifact
+      // lifecycle at all, so a stale file from an earlier run could be read as
+      // this run's evidence.
+      const root = makeRepo({ 'src/a.ts': 'export const alpha = 1;\n' });
+      const stale = write(root, ARTIFACT_RELATIVE, 'VERDICT: NO STRUCTURAL DRIFT\n');
 
-    const result = producePrePostDiff({
-      projectRoot: root,
-      sessionId: SESSION_ID,
-      baseRef: 'no-such-ref-anywhere'
-    });
+      const result = producePrePostDiff({
+        projectRoot: root,
+        sessionId: SESSION_ID,
+        baseRef: 'no-such-ref-anywhere'
+      });
 
-    expect(result.status).toBe('unavailable');
-    if (result.status !== 'unavailable') return;
-    expect(result.reason).toContain('no-such-ref-anywhere');
-    expect(result.reason).toContain('does not resolve to a commit');
-    expect(existsSync(stale)).toBe(false);
-  });
+      expect(result.status).toBe('unavailable');
+      if (result.status !== 'unavailable') return;
+      expect(result.reason).toContain('no-such-ref-anywhere');
+      expect(result.reason).toContain('does not resolve to a commit');
+      expect(existsSync(stale)).toBe(false);
+    },
+    SUBPROCESS_TEST_TIMEOUT_MS
+  );
 
-  it('reports a non-git project as unavailable without pretending otherwise', () => {
-    const root = mkdtempSync(join(tmpdir(), 'peaks-pre-post-diff-plain-'));
-    tempRoots.push(root);
+  it(
+    'reports a non-git project as unavailable without pretending otherwise',
+    () => {
+      const root = mkdtempSync(join(tmpdir(), 'peaks-pre-post-diff-plain-'));
+      tempRoots.push(root);
 
-    const result = producePrePostDiff({ projectRoot: root, sessionId: SESSION_ID });
+      const result = producePrePostDiff({ projectRoot: root, sessionId: SESSION_ID });
 
-    expect(result.status).toBe('unavailable');
-    if (result.status !== 'unavailable') return;
-    expect(result.inGitWorkTree).toBe(false);
-    expect(result.reason).toContain('not inside a git work tree');
-  });
+      expect(result.status).toBe('unavailable');
+      if (result.status !== 'unavailable') return;
+      expect(result.inGitWorkTree).toBe(false);
+      expect(result.reason).toContain('not inside a git work tree');
+    },
+    SUBPROCESS_TEST_TIMEOUT_MS
+  );
 });
 
 describe('producePrePostDiff — no drift', () => {

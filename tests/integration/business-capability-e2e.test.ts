@@ -3,12 +3,52 @@ import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { afterEach, describe, expect, test } from 'vitest';
+import { z } from 'zod';
+import { parseCliEnvelope, parseCliEnvelopeWith } from '../../src/cli/cli-envelope.js';
 
 const BIN = resolve(__dirname, '../../bin/peaks.js');
 const REPO = resolve(__dirname, '../..');
 const BIN_TIMEOUT_MS = 120_000;
 const EXISTING_RID = '2026-07-25-p1-7-sub-agent-dispatch-e2e';
 const EXISTING_SESSION = '2026-07-25-session-6da9d9';
+
+// The `data` payloads this file reads at depth >= 2, one per invocation.
+//
+// WHAT THIS REPLACES, AND WHY IT IS HALF OF A TWO-HALF SLICE (S15). The former
+// helper was
+//
+//   function parseEnvelope(result: RunResult): Record<string, any> {
+//     return JSON.parse(result.stdout) as Record<string, any>;
+//   }
+//
+// The `Record<string, any>` did not merely fail to validate — it SMUGGLED `any`
+// back into the type flow, so all 19 `no-unsafe-member-access` findings below
+// were the helper's fault, not the test's. Every schema here names the field
+// the test actually reads, which is what removes those 19 findings. The
+// sibling helpers written as `parseEnvelope<T>` (`tests/integration/
+// five-new-rids-e2e.test.ts`, `scan-commands-e2e.test.ts`, `modify-commands-
+// e2e.test.ts`) hid the same non-check behind a type parameter and produced
+// zero findings — the ratchet is structurally blind to `as T`. Fixing those is
+// the other half of this slice and moves no number.
+const hooksInstallPayload = z.looseObject({
+  applied: z.boolean(),
+  settingsPath: z.string(),
+  localSettingsPath: z.string()
+});
+const hooksUninstallPayload = z.looseObject({ removed: z.boolean() });
+const workspaceInitPayload = z.looseObject({
+  sessionId: z.string(),
+  bound: z.boolean().optional()
+});
+const requestInitPayload = z.looseObject({ applied: z.boolean() });
+const requestStatePayload = z.looseObject({ state: z.string() });
+const projectContextPayload = z.looseObject({ path: z.string(), projectScan: z.unknown() });
+const detectJobPayload = z.looseObject({ decision: z.looseObject({ isJob: z.boolean() }) });
+const sliceCheckPayload = z.looseObject({
+  stages: z.array(z.unknown()),
+  boundaryReady: z.boolean().optional()
+});
+const verifyPipelinePayload = z.looseObject({ violations: z.array(z.unknown()) });
 
 interface RunResult {
   readonly stdout: string;
@@ -38,10 +78,6 @@ function runCli(args: readonly string[], cwd: string): RunResult {
   }
 }
 
-function parseEnvelope(result: RunResult): Record<string, any> {
-  return JSON.parse(result.stdout) as Record<string, any>;
-}
-
 const projects: string[] = [];
 
 function makeProject(prefix: string): string {
@@ -65,10 +101,10 @@ describe('peaks hooks install --ide claude-code (P1-2 e2e)', () => {
       project
     );
     expect(install.code).toBe(0);
-    const installed = parseEnvelope(install);
+    const installed = parseCliEnvelopeWith(install.stdout, hooksInstallPayload);
     expect(installed.ok).toBe(true);
     expect(installed.data.applied).toBe(true);
-    expect(existsSync(installed.data.settingsPath as string)).toBe(true);
+    expect(existsSync(installed.data.settingsPath)).toBe(true);
 
     // The gate-enforce entry carries a machine-specific `shell` on Windows,
     // so it is materialized into the machine-local, gitignored file rather
@@ -87,26 +123,30 @@ describe('peaks hooks install --ide claude-code (P1-2 e2e)', () => {
     expect(readManaged(localSettingsPath)).toHaveLength(1);
     expect(readFileSync(settingsPath, 'utf8')).not.toContain('peaks gate enforce');
 
-    const reinstall = parseEnvelope(
+    const reinstall = parseCliEnvelopeWith(
       runCli(['hooks', 'install', '--project', project, '--ide', 'claude-code', '--json'], project)
+        .stdout,
+      hooksInstallPayload
     );
     expect(reinstall.data.applied).toBe(false);
     const afterReinstall = readFileSync(localSettingsPath, 'utf8');
     expect(afterReinstall.match(/peaks gate enforce/g) ?? []).toHaveLength(1);
 
-    const uninstall = parseEnvelope(
+    const uninstall = parseCliEnvelopeWith(
       runCli(
         ['hooks', 'uninstall', '--project', project, '--ide', 'claude-code', '--json'],
         project
-      )
+      ).stdout,
+      hooksUninstallPayload
     );
     expect(uninstall.data.removed).toBe(true);
     expect(readFileSync(localSettingsPath, 'utf8')).not.toContain('peaks gate enforce');
-    const secondUninstall = parseEnvelope(
+    const secondUninstall = parseCliEnvelopeWith(
       runCli(
         ['hooks', 'uninstall', '--project', project, '--ide', 'claude-code', '--json'],
         project
-      )
+      ).stdout,
+      hooksUninstallPayload
     );
     expect(secondUninstall.data.removed).toBe(false);
   });
@@ -115,15 +155,16 @@ describe('peaks hooks install --ide claude-code (P1-2 e2e)', () => {
 describe('peaks request transition state machine (P1-3 e2e)', () => {
   test('walks an RD request from spec-locked through handed-off', () => {
     const project = makeProject('peaks-p1-3-request-');
-    const workspace = parseEnvelope(
-      runCli(['workspace', 'init', '--project', project, '--json'], project)
+    const workspace = parseCliEnvelopeWith(
+      runCli(['workspace', 'init', '--project', project, '--json'], project).stdout,
+      workspaceInitPayload
     );
     expect(workspace.ok).toBe(true);
-    const sessionId = workspace.data.sessionId as string;
+    const sessionId = workspace.data.sessionId;
     expect(sessionId.length).toBeGreaterThan(0);
 
     const requestId = '2026-07-25-p1-3-fake';
-    const initialized = parseEnvelope(
+    const initialized = parseCliEnvelopeWith(
       runCli(
         [
           'request',
@@ -140,7 +181,8 @@ describe('peaks request transition state machine (P1-3 e2e)', () => {
           '--json'
         ],
         project
-      )
+      ).stdout,
+      requestInitPayload
     );
     expect(initialized.data.applied).toBe(true);
 
@@ -169,10 +211,10 @@ describe('peaks request transition state machine (P1-3 e2e)', () => {
         project
       );
       expect(transitioned.code).toBe(0);
-      expect(parseEnvelope(transitioned).data.state).toBe(state);
+      expect(parseCliEnvelopeWith(transitioned.stdout, requestStatePayload).data.state).toBe(state);
     }
 
-    const shown = parseEnvelope(
+    const shown = parseCliEnvelopeWith(
       runCli(
         [
           'request',
@@ -187,7 +229,8 @@ describe('peaks request transition state machine (P1-3 e2e)', () => {
           '--json'
         ],
         project
-      )
+      ).stdout,
+      requestStatePayload
     );
     expect(shown.data.state).toBe('handed-off');
   });
@@ -200,16 +243,18 @@ describe('workspace init + project context + code detect-job (P1-4 e2e)', () => 
     writeFileSync(join(project, 'package.json'), JSON.stringify({ name: 'tmp-e2e-p1-4' }));
     writeFileSync(join(project, 'src', 'index.ts'), "export const hello = 'world';\n");
 
-    const workspace = parseEnvelope(
-      runCli(['workspace', 'init', '--project', project, '--json'], project)
+    const workspace = parseCliEnvelopeWith(
+      runCli(['workspace', 'init', '--project', project, '--json'], project).stdout,
+      workspaceInitPayload
     );
     expect(workspace.ok).toBe(true);
     expect(workspace.data.bound).toBe(true);
-    const sessionId = workspace.data.sessionId as string;
+    const sessionId = workspace.data.sessionId;
     expect(sessionId.length).toBeGreaterThan(0);
 
-    const context = parseEnvelope(
-      runCli(['project', 'context', '--project', project, '--json'], project)
+    const context = parseCliEnvelopeWith(
+      runCli(['project', 'context', '--project', project, '--json'], project).stdout,
+      projectContextPayload
     );
     expect(context.ok).toBe(true);
     expect(context.data.path).toBe(join(project, '.peaks', 'PROJECT.md'));
@@ -236,7 +281,7 @@ describe('workspace init + project context + code detect-job (P1-4 e2e)', () => 
       project
     );
     expect(job.code).toBe(0);
-    const jobEnvelope = parseEnvelope(job);
+    const jobEnvelope = parseCliEnvelopeWith(job.stdout, detectJobPayload);
     expect(jobEnvelope.ok).toBe(true);
     expect(jobEnvelope.data.decision.isJob).toBe(false);
   });
@@ -248,7 +293,7 @@ describe('peaks slice check --rid (P1-5 e2e)', () => {
     () => {
       const missing = runCli(['slice', 'check', '--project', REPO, '--json', '--skip-tests'], REPO);
       expect(missing.code).not.toBe(0);
-      const missingEnvelope = parseEnvelope(missing);
+      const missingEnvelope = parseCliEnvelope(missing.stdout);
       expect(missingEnvelope.ok).toBe(false);
       expect(`${missingEnvelope.message} ${JSON.stringify(missingEnvelope.nextActions)}`).toMatch(
         /rid/i
@@ -258,7 +303,7 @@ describe('peaks slice check --rid (P1-5 e2e)', () => {
         ['slice', 'check', '--rid', EXISTING_RID, '--project', REPO, '--json', '--skip-tests'],
         REPO
       );
-      const checkedEnvelope = parseEnvelope(checked);
+      const checkedEnvelope = parseCliEnvelopeWith(checked.stdout, sliceCheckPayload);
       expect(checkedEnvelope.command).toBe('slice.check');
       expect(Array.isArray(checkedEnvelope.data.stages)).toBe(true);
       expect(checkedEnvelope.data.stages.length).toBeGreaterThan(0);
@@ -287,7 +332,7 @@ describe('peaks workflow plan + verify-pipeline (P1-6 e2e)', () => {
       REPO
     );
     expect(planned.code).toBe(0);
-    const planEnvelope = parseEnvelope(planned);
+    const planEnvelope = parseCliEnvelope(planned.stdout);
     expect(planEnvelope.ok).toBe(true);
     expect(planEnvelope.command).toBe('workflow.plan.detect-trigger');
 
@@ -305,7 +350,7 @@ describe('peaks workflow plan + verify-pipeline (P1-6 e2e)', () => {
       ],
       REPO
     );
-    const verifyEnvelope = parseEnvelope(verified);
+    const verifyEnvelope = parseCliEnvelopeWith(verified.stdout, verifyPipelinePayload);
     expect(verifyEnvelope.command).toBe('workflow.verify-pipeline');
     expect(verifyEnvelope.data).toBeDefined();
     expect(Array.isArray(verifyEnvelope.data.violations)).toBe(true);

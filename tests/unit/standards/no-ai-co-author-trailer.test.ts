@@ -221,23 +221,28 @@ describe('behavior — the trailer checker', () => {
 });
 
 describe('integration — the real commit history', () => {
-  it('holds no AI-attribution trailer in any reachable commit', () => {
-    const messages = readCommitMessages(REPO_ROOT);
+  it(
+    'holds no AI-attribution trailer in any reachable commit',
+    () => {
+      const messages = readCommitMessages(REPO_ROOT);
 
-    // The read must not be vacuous. `git log` returning nothing would make the
-    // assertion below pass while checking nothing at all, which is the exact
-    // failure mode this file exists to avoid.
-    expect(messages.length, 'git log returned no commits — the guard read nothing').toBeGreaterThan(
-      0
-    );
+      // The read must not be vacuous. `git log` returning nothing would make the
+      // assertion below pass while checking nothing at all, which is the exact
+      // failure mode this file exists to avoid.
+      expect(
+        messages.length,
+        'git log returned no commits — the guard read nothing'
+      ).toBeGreaterThan(0);
 
-    const findings = findAiAttributionTrailers(messages);
-    expect(
-      findings,
-      `AI-attribution trailer(s) in commit history:\n${describeFindings(findings, messages)}\n` +
-        'Rewriting the offending commit before it is pushed is the remedy; see the red rule in CLAUDE.md.'
-    ).toEqual([]);
-  });
+      const findings = findAiAttributionTrailers(messages);
+      expect(
+        findings,
+        `AI-attribution trailer(s) in commit history:\n${describeFindings(findings, messages)}\n` +
+          'Rewriting the offending commit before it is pushed is the remedy; see the red rule in CLAUDE.md.'
+      ).toEqual([]);
+    },
+    SUBPROCESS_TEST_TIMEOUT_MS
+  );
 
   it(
     'flags a repository that really has the trailer — the injection control',

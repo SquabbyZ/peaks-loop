@@ -3,22 +3,37 @@ import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { afterEach, describe, expect, test } from 'vitest';
+import { z } from 'zod';
+import { parseCliEnvelopeWith } from '../../src/cli/cli-envelope.js';
 
 const BIN = resolve(__dirname, '../../bin/peaks.js');
 const REPO = resolve(__dirname, '../..');
 const BIN_TIMEOUT_MS = 120_000;
 const PICKED_RID = '2026-06-13-slice-decompose-impl';
 
+// The `data` payloads this file reads at depth >= 2, one per invocation. The
+// previous local helper `parseEnvelope<T>` promised each of these with a type
+// parameter and delivered it with `JSON.parse(...) as CliEnvelope<T>` — a
+// claim about a check that never ran. `parseCliEnvelopeWith` runs the schema
+// instead, so the type is derived rather than asserted. (S15.)
+const techPlanPayload = z.looseObject({ available: z.boolean(), changeId: z.string() });
+const techStatusPayload = z.looseObject({ status: z.string(), changeId: z.string() });
+const swarmPlanPayload = z.looseObject({ available: z.boolean(), tasks: z.array(z.unknown()) });
+const autonomousPayload = z.looseObject({
+  goalPackage: z.looseObject({ autonomyMode: z.string() }),
+  workerQueue: z.array(z.unknown()),
+  resumeInstructions: z.looseObject({ steps: z.array(z.string()) })
+});
+const slicePlanPayload = z.looseObject({
+  parentRid: z.string(),
+  plan: z.array(z.looseObject({ dependsOn: z.array(z.string()) })),
+  apply: z.boolean()
+});
+
 interface RunResult {
   readonly stdout: string;
   readonly stderr: string;
   readonly code: number;
-}
-
-interface CliEnvelope<T> {
-  readonly ok: boolean;
-  readonly command: string;
-  readonly data: T;
 }
 
 function runCli(args: readonly string[], cwd: string): RunResult {
@@ -41,10 +56,6 @@ function runCli(args: readonly string[], cwd: string): RunResult {
       code: caught.status ?? 1
     };
   }
-}
-
-function parseEnvelope<T>(result: RunResult): CliEnvelope<T> {
-  return JSON.parse(result.stdout) as CliEnvelope<T>;
 }
 
 const projects: string[] = [];
@@ -138,7 +149,7 @@ describe('rid-012 add-tech-dry-run-gate', () => {
       project
     );
     expect(planned.code).toBe(0);
-    const plan = parseEnvelope<{ available: boolean; changeId: string }>(planned);
+    const plan = parseCliEnvelopeWith(planned.stdout, techPlanPayload);
     expect(plan.ok).toBe(true);
     expect(plan.data.available).toBe(true);
     expect(plan.data.changeId).toBe(changeId);
@@ -148,7 +159,7 @@ describe('rid-012 add-tech-dry-run-gate', () => {
       project
     );
     expect(checked.code).toBe(0);
-    const status = parseEnvelope<{ status: string; changeId: string }>(checked);
+    const status = parseCliEnvelopeWith(checked.stdout, techStatusPayload);
     expect(status.ok).toBe(true);
     expect(status.data.status.length).toBeGreaterThan(0);
     expect(status.data.changeId).toBe(changeId);
@@ -172,7 +183,7 @@ describe('rid-013 add-rd-swarm-dry-run-planner', () => {
     );
 
     expect(planned.code).toBe(0);
-    const envelope = parseEnvelope<{ available: boolean; tasks: unknown[] }>(planned);
+    const envelope = parseCliEnvelopeWith(planned.stdout, swarmPlanPayload);
     expect(envelope.ok).toBe(true);
     expect(envelope.data.available).toBe(true);
     expect(Array.isArray(envelope.data.tasks)).toBe(true);
@@ -199,11 +210,7 @@ describe('rid-014 add-autonomous-rd-swarm-resume', () => {
     );
 
     expect(planned.code).toBe(0);
-    const envelope = parseEnvelope<{
-      goalPackage: { autonomyMode: string };
-      workerQueue: unknown[];
-      resumeInstructions: { steps: string[] };
-    }>(planned);
+    const envelope = parseCliEnvelopeWith(planned.stdout, autonomousPayload);
     expect(envelope.ok).toBe(true);
     expect(envelope.data.goalPackage.autonomyMode).toBe('dry-run');
     expect(envelope.data.workerQueue.length).toBeGreaterThan(0);
@@ -216,11 +223,7 @@ describe('rid-015 add-slice-topology-multipass', () => {
     const planned = runCli(['slice', 'plan', PICKED_RID, '--project', REPO, '--json'], REPO);
 
     expect(planned.code).toBe(0);
-    const envelope = parseEnvelope<{
-      parentRid: string;
-      plan: Array<{ dependsOn: string[] }>;
-      apply: boolean;
-    }>(planned);
+    const envelope = parseCliEnvelopeWith(planned.stdout, slicePlanPayload);
     expect(envelope.ok).toBe(true);
     expect(envelope.data.parentRid).toBe(PICKED_RID);
     expect(envelope.data.plan.length).toBeGreaterThanOrEqual(2);

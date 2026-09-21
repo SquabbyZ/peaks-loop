@@ -166,106 +166,126 @@ afterEach(() => {
 // ── render: the envelope ─────────────────────────────────────────────
 
 describe('render — the config-restore envelope', () => {
-  it('should report the restored pair as `from` and `to`, with a null reason', async () => {
-    const project = seedProject(ws);
-    await repairOnce(project);
+  it(
+    'should report the restored pair as `from` and `to`, with a null reason',
+    async () => {
+      const project = seedProject(ws);
+      await repairOnce(project);
 
-    const captured = await runCodegraph(['config-restore', '--project', project, '--peaks-json']);
-    const envelope = parseJson(captured);
+      const captured = await runCodegraph(['config-restore', '--project', project, '--peaks-json']);
+      const envelope = parseJson(captured);
 
-    expect(envelope.ok).toBe(true);
-    expect(envelope.command).toBe('codegraph.config-restore');
-    expect(envelope.data.restored).toBe(true);
-    // `from` is the rollback POINT the bytes came out of, `to` is the config
-    // they landed in. Named individually rather than as one boolean, so a
-    // consumer can tell a restore from a "nothing needed doing".
-    expect(envelope.data.from).toBe(backupPathOf(project));
-    expect(envelope.data.to).toBe(configPathOf(project));
-    expect(envelope.data.reason).toBeNull();
-  });
+      expect(envelope.ok).toBe(true);
+      expect(envelope.command).toBe('codegraph.config-restore');
+      expect(envelope.data.restored).toBe(true);
+      // `from` is the rollback POINT the bytes came out of, `to` is the config
+      // they landed in. Named individually rather than as one boolean, so a
+      // consumer can tell a restore from a "nothing needed doing".
+      expect(envelope.data.from).toBe(backupPathOf(project));
+      expect(envelope.data.to).toBe(configPathOf(project));
+      expect(envelope.data.reason).toBeNull();
+    },
+    SUBPROCESS_TEST_TIMEOUT_MS
+  );
 
-  it('on the human path, should print the same fields and name the next step', async () => {
-    const project = seedProject(ws);
-    await repairOnce(project);
+  it(
+    'on the human path, should print the same fields and name the next step',
+    async () => {
+      const project = seedProject(ws);
+      await repairOnce(project);
 
-    const captured = await runCodegraph(['config-restore', '--project', project]);
+      const captured = await runCodegraph(['config-restore', '--project', project]);
 
-    const printed = captured.text();
-    expect(printed).toContain('"restored": true');
-    expect(printed).toContain('"reason": null');
-    // A restore does NOT rebuild the index, so the operator is told rather than
-    // left to infer it.
-    expect(printed).toContain('next: Run `peaks codegraph index`');
-  });
+      const printed = captured.text();
+      expect(printed).toContain('"restored": true');
+      expect(printed).toContain('"reason": null');
+      // A restore does NOT rebuild the index, so the operator is told rather than
+      // left to infer it.
+      expect(printed).toContain('next: Run `peaks codegraph index`');
+    },
+    SUBPROCESS_TEST_TIMEOUT_MS
+  );
 });
 
 // ── behavior: restored vs refused ────────────────────────────────────
 
 describe('behavior — every refusal shape, and what survives it', () => {
-  it('should refuse when there is no backup, and invent no restore point', async () => {
-    const project = seedProject(ws);
-    const before = readFileSync(configPathOf(project), 'utf8');
-    expect(existsSync(backupPathOf(project))).toBe(false);
+  it(
+    'should refuse when there is no backup, and invent no restore point',
+    async () => {
+      const project = seedProject(ws);
+      const before = readFileSync(configPathOf(project), 'utf8');
+      expect(existsSync(backupPathOf(project))).toBe(false);
 
-    const captured = await runCodegraph(['config-restore', '--project', project, '--peaks-json']);
-    const envelope = parseJson(captured);
+      const captured = await runCodegraph(['config-restore', '--project', project, '--peaks-json']);
+      const envelope = parseJson(captured);
 
-    // Loud, not silent: `ok: false`, a machine-readable reason, a named cause.
-    expect(envelope.ok).toBe(false);
-    expect(envelope.data.restored).toBe(false);
-    expect(envelope.data.reason).toContain('cannot read');
-    expect(envelope.data.reason).toContain(backupPathOf(project));
-    expect(envelope.data.from).toBeNull();
-    expect(envelope.data.to).toBeNull();
-    // Fails closed: the config keeps the bytes it had.
-    expect(readFileSync(configPathOf(project), 'utf8')).toBe(before);
-  });
+      // Loud, not silent: `ok: false`, a machine-readable reason, a named cause.
+      expect(envelope.ok).toBe(false);
+      expect(envelope.data.restored).toBe(false);
+      expect(envelope.data.reason).toContain('cannot read');
+      expect(envelope.data.reason).toContain(backupPathOf(project));
+      expect(envelope.data.from).toBeNull();
+      expect(envelope.data.to).toBeNull();
+      // Fails closed: the config keeps the bytes it had.
+      expect(readFileSync(configPathOf(project), 'utf8')).toBe(before);
+    },
+    SUBPROCESS_TEST_TIMEOUT_MS
+  );
 
-  it('should refuse a HARD LINK at the backup path, leaving both files alone', async () => {
-    const project = seedProject(ws);
-    // The shape this platform always allows, and the one that matters: reading
-    // through it would publish a file nobody reviewed into the config.
-    const victim = join(project, 'victim.json');
-    writeFileSync(victim, '{"INJECTED":true}\n', 'utf8');
-    linkSync(victim, backupPathOf(project));
-    const before = readFileSync(configPathOf(project), 'utf8');
+  it(
+    'should refuse a HARD LINK at the backup path, leaving both files alone',
+    async () => {
+      const project = seedProject(ws);
+      // The shape this platform always allows, and the one that matters: reading
+      // through it would publish a file nobody reviewed into the config.
+      const victim = join(project, 'victim.json');
+      writeFileSync(victim, '{"INJECTED":true}\n', 'utf8');
+      linkSync(victim, backupPathOf(project));
+      const before = readFileSync(configPathOf(project), 'utf8');
 
-    const captured = await runCodegraph(['config-restore', '--project', project, '--peaks-json']);
-    const envelope = parseJson(captured);
+      const captured = await runCodegraph(['config-restore', '--project', project, '--peaks-json']);
+      const envelope = parseJson(captured);
 
-    expect(envelope.ok).toBe(false);
-    expect(envelope.data.reason).toContain('refusing to restore through a hard link');
-    expect(readFileSync(configPathOf(project), 'utf8')).toBe(before);
-    expect(readFileSync(victim, 'utf8')).toBe('{"INJECTED":true}\n');
-  });
+      expect(envelope.ok).toBe(false);
+      expect(envelope.data.reason).toContain('refusing to restore through a hard link');
+      expect(readFileSync(configPathOf(project), 'utf8')).toBe(before);
+      expect(readFileSync(victim, 'utf8')).toBe('{"INJECTED":true}\n');
+    },
+    SUBPROCESS_TEST_TIMEOUT_MS
+  );
 
-  it('should refuse a SYMBOLIC LINK at the backup path — the write-side guard, mirrored', async () => {
-    const project = seedProject(ws);
-    const victim = join(project, 'victim.json');
-    writeFileSync(victim, '{"INJECTED":true}\n', 'utf8');
+  it(
+    'should refuse a SYMBOLIC LINK at the backup path — the write-side guard, mirrored',
+    async () => {
+      const project = seedProject(ws);
+      const victim = join(project, 'victim.json');
+      writeFileSync(victim, '{"INJECTED":true}\n', 'utf8');
 
-    try {
-      symlinkSync(victim, backupPathOf(project), 'file');
-    } catch (error) {
-      const code = (error as NodeJS.ErrnoException).code;
-      if (code !== 'EPERM' && code !== 'EACCES' && code !== 'UNKNOWN') {
-        throw error;
+      try {
+        symlinkSync(victim, backupPathOf(project), 'file');
+      } catch (error) {
+        const code = (error as NodeJS.ErrnoException).code;
+        if (code !== 'EPERM' && code !== 'EACCES' && code !== 'UNKNOWN') {
+          throw error;
+        }
+        // Windows without Developer Mode cannot create a file symlink. A junction
+        // is the link this platform can always build and Node reports
+        // `isSymbolicLink()` for it, so the case still exercises the branch it
+        // names. The real file-symlink branch runs on POSIX CI.
+        symlinkSync(join(project, '.codegraph'), backupPathOf(project), 'junction');
       }
-      // Windows without Developer Mode cannot create a file symlink. A junction
-      // is the link this platform can always build and Node reports
-      // `isSymbolicLink()` for it, so the case still exercises the branch it
-      // names. The real file-symlink branch runs on POSIX CI.
-      symlinkSync(join(project, '.codegraph'), backupPathOf(project), 'junction');
-    }
 
-    const captured = await runCodegraph(['config-restore', '--project', project, '--peaks-json']);
+      const captured = await runCodegraph(['config-restore', '--project', project, '--peaks-json']);
 
-    expect(parseJson(captured).ok).toBe(false);
-    expect(parseJson(captured).data.reason).toContain(
-      'refusing to restore through a symbolic link'
-    );
-    expect(readFileSync(configPathOf(project), 'utf8')).not.toContain('INJECTED');
-  });
+      expect(parseJson(captured).ok).toBe(false);
+      expect(parseJson(captured).data.reason).toContain(
+        'refusing to restore through a symbolic link'
+      );
+      expect(readFileSync(configPathOf(project), 'utf8')).not.toContain('INJECTED');
+    },
+    SUBPROCESS_TEST_TIMEOUT_MS
+  );
 
   it(
     'should refuse a DIRECTORY at the backup path',
@@ -308,100 +328,120 @@ describe('integration — repair then restore, against real files', () => {
     }
   );
 
-  it('should hand the backup`s own mode back to the config', async () => {
-    const project = seedProject(ws);
-    await repairOnce(project);
-    // READ-ONLY, chosen rather than arbitrary: `chmod` on Windows only toggles
-    // the read-only bit (0o640 and 0o600 both read back as 0o666), so a 0o640
-    // assertion would pass here whatever the restore did.
-    chmodSync(backupPathOf(project), 0o444);
-    const backupMode = statSync(backupPathOf(project)).mode & 0o777;
+  it(
+    'should hand the backup`s own mode back to the config',
+    async () => {
+      const project = seedProject(ws);
+      await repairOnce(project);
+      // READ-ONLY, chosen rather than arbitrary: `chmod` on Windows only toggles
+      // the read-only bit (0o640 and 0o600 both read back as 0o666), so a 0o640
+      // assertion would pass here whatever the restore did.
+      chmodSync(backupPathOf(project), 0o444);
+      const backupMode = statSync(backupPathOf(project)).mode & 0o777;
 
-    const captured = await runCodegraph(['config-restore', '--project', project, '--peaks-json']);
+      const captured = await runCodegraph(['config-restore', '--project', project, '--peaks-json']);
 
-    expect(parseJson(captured).data.restored).toBe(true);
-    expect(statSync(configPathOf(project)).mode & 0o777).toBe(backupMode);
+      expect(parseJson(captured).data.restored).toBe(true);
+      expect(statSync(configPathOf(project)).mode & 0o777).toBe(backupMode);
 
-    // cleanup: leave the fixture removable on Windows
-    chmodSync(configPathOf(project), 0o666);
-  });
+      // cleanup: leave the fixture removable on Windows
+      chmodSync(configPathOf(project), 0o666);
+    },
+    SUBPROCESS_TEST_TIMEOUT_MS
+  );
 
-  it('should spawn NO upstream subprocess — it only touches the config file', async () => {
-    const project = seedProject(ws);
-    await repairOnce(project);
-    __m.executeCodegraphInvocation.mockClear();
+  it(
+    'should spawn NO upstream subprocess — it only touches the config file',
+    async () => {
+      const project = seedProject(ws);
+      await repairOnce(project);
+      __m.executeCodegraphInvocation.mockClear();
 
-    const captured = await runCodegraph(['config-restore', '--project', project, '--peaks-json']);
+      const captured = await runCodegraph(['config-restore', '--project', project, '--peaks-json']);
 
-    expect(parseJson(captured).data.restored).toBe(true);
-    expect(__m.executeCodegraphInvocation).not.toHaveBeenCalled();
+      expect(parseJson(captured).data.restored).toBe(true);
+      expect(__m.executeCodegraphInvocation).not.toHaveBeenCalled();
 
-    // Non-vacuity: the counter is live — the verb the `.bak` came from DID
-    // spawn upstream, so "not called" is a property of this verb and not of a
-    // counter that can never move.
-    __m.executeCodegraphInvocation.mockClear();
-    await runCodegraph(['repair-index', '--project', project, '--peaks-json']);
-    expect(__m.executeCodegraphInvocation).toHaveBeenCalled();
-  });
+      // Non-vacuity: the counter is live — the verb the `.bak` came from DID
+      // spawn upstream, so "not called" is a property of this verb and not of a
+      // counter that can never move.
+      __m.executeCodegraphInvocation.mockClear();
+      await runCodegraph(['repair-index', '--project', project, '--peaks-json']);
+      expect(__m.executeCodegraphInvocation).toHaveBeenCalled();
+    },
+    SUBPROCESS_TEST_TIMEOUT_MS
+  );
 });
 
 // ── a11y: exit codes and the loud text ──────────────────────────────
 
 describe('a11y — exit codes and the refusal text', () => {
-  it('should exit 0 on a restore', async () => {
-    const project = seedProject(ws);
-    await repairOnce(project);
+  it(
+    'should exit 0 on a restore',
+    async () => {
+      const project = seedProject(ws);
+      await repairOnce(project);
 
-    await runCodegraph(['config-restore', '--project', project, '--peaks-json']);
+      await runCodegraph(['config-restore', '--project', project, '--peaks-json']);
 
-    expect(process.exitCode).toBe(0);
-  });
+      expect(process.exitCode).toBe(0);
+    },
+    SUBPROCESS_TEST_TIMEOUT_MS
+  );
 
-  it('should exit with its OWN code, distinct from a broken invocation — measured at runtime', async () => {
-    const project = seedProject(ws);
-    mkdirSync(backupPathOf(project));
+  it(
+    'should exit with its OWN code, distinct from a broken invocation — measured at runtime',
+    async () => {
+      const project = seedProject(ws);
+      mkdirSync(backupPathOf(project));
 
-    // Both numbers come from REAL runs of this verb, not from comparing two
-    // literals: `expect(77).not.toBe(1)` is decided by the compiler and can
-    // never fail, so it proved nothing about what the command does. These two
-    // runs are the two failure CLASSES the verb has to keep apart.
-    process.exitCode = 0;
-    await runCodegraph([
-      'config-restore',
-      '--project',
-      join(ws.path, 'does-not-exist'),
-      '--peaks-json'
-    ]);
-    const preconditionExit = process.exitCode;
+      // Both numbers come from REAL runs of this verb, not from comparing two
+      // literals: `expect(77).not.toBe(1)` is decided by the compiler and can
+      // never fail, so it proved nothing about what the command does. These two
+      // runs are the two failure CLASSES the verb has to keep apart.
+      process.exitCode = 0;
+      await runCodegraph([
+        'config-restore',
+        '--project',
+        join(ws.path, 'does-not-exist'),
+        '--peaks-json'
+      ]);
+      const preconditionExit = process.exitCode;
 
-    process.exitCode = 0;
-    await runCodegraph(['config-restore', '--project', project, '--peaks-json']);
-    const refusalExit = process.exitCode;
+      process.exitCode = 0;
+      await runCodegraph(['config-restore', '--project', project, '--peaks-json']);
+      const refusalExit = process.exitCode;
 
-    expect(refusalExit).toBe(CONFIG_RESTORE_EXIT_CODE);
-    expect(preconditionExit).toBe(1);
-    // The claim the tautology was trying to make: a refused restore is NOT
-    // reported with the code a mis-aimed invocation gets, so a CI job can tell
-    // "your rollback point is unusable" from "your command was wrong".
-    //
-    // This is the SECOND assertion for that claim, not the first. Merging the
-    // two codes trips the pin above — `expect(preconditionExit).toBe(1)` sees
-    // 77 — and vitest stops there, so this line never runs. It adds no power of
-    // its own; it is here to STATE the requirement, which the two pinned values
-    // imply but never say out loud.
-    expect(refusalExit).not.toBe(preconditionExit);
-  });
+      expect(refusalExit).toBe(CONFIG_RESTORE_EXIT_CODE);
+      expect(preconditionExit).toBe(1);
+      // The claim the tautology was trying to make: a refused restore is NOT
+      // reported with the code a mis-aimed invocation gets, so a CI job can tell
+      // "your rollback point is unusable" from "your command was wrong".
+      //
+      // This is the SECOND assertion for that claim, not the first. Merging the
+      // two codes trips the pin above — `expect(preconditionExit).toBe(1)` sees
+      // 77 — and vitest stops there, so this line never runs. It adds no power of
+      // its own; it is here to STATE the requirement, which the two pinned values
+      // imply but never say out loud.
+      expect(refusalExit).not.toBe(preconditionExit);
+    },
+    SUBPROCESS_TEST_TIMEOUT_MS
+  );
 
-  it('on the human path, should name the reason on STDERR (a refusal is not stdout news)', async () => {
-    const project = seedProject(ws);
+  it(
+    'on the human path, should name the reason on STDERR (a refusal is not stdout news)',
+    async () => {
+      const project = seedProject(ws);
 
-    const captured = await runCodegraph(['config-restore', '--project', project]);
+      const captured = await runCodegraph(['config-restore', '--project', project]);
 
-    const stderr = captured.stderr.join('\n');
-    expect(stderr).toContain('CODEGRAPH_CONFIG_RESTORE_FAILED');
-    expect(stderr).toContain('cannot read');
-    expect(captured.text()).not.toContain('"restored": true');
-  });
+      const stderr = captured.stderr.join('\n');
+      expect(stderr).toContain('CODEGRAPH_CONFIG_RESTORE_FAILED');
+      expect(stderr).toContain('cannot read');
+      expect(captured.text()).not.toContain('"restored": true');
+    },
+    SUBPROCESS_TEST_TIMEOUT_MS
+  );
 
   it('should carry a reason on the unusable-project path, not an empty data object', async () => {
     const captured = await runCodegraph([

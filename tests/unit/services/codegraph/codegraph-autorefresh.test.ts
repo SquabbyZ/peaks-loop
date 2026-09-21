@@ -206,30 +206,34 @@ describe('Scenario: integration — refresh runs codegraph index against a real 
 });
 
 describe('Scenario: integration — dangling marker self-heal and foreign skip', () => {
-  it('when .codegraph/ has the marker but no db (dangling), should self-heal via init then index', async () => {
-    // given: a project whose `.codegraph/` carries the marker but no db
-    const project = freshProject('peaks-cg-auto-d1-');
-    danglingCodegraph(project);
-    const runner = vi.fn(
-      async (invocation: CodegraphInvocation): Promise<CodegraphExecutionResult> => {
-        if (invocation.subcommand === 'init')
-          return { exitCode: 0, stdout: 'initialized\n', stderr: '' };
-        if (invocation.subcommand === 'index')
-          return { exitCode: 0, stdout: 'indexed\n', stderr: '' };
-        return { exitCode: 1, stdout: '', stderr: 'unexpected subcommand' };
+  it(
+    'when .codegraph/ has the marker but no db (dangling), should self-heal via init then index',
+    async () => {
+      // given: a project whose `.codegraph/` carries the marker but no db
+      const project = freshProject('peaks-cg-auto-d1-');
+      danglingCodegraph(project);
+      const runner = vi.fn(
+        async (invocation: CodegraphInvocation): Promise<CodegraphExecutionResult> => {
+          if (invocation.subcommand === 'init')
+            return { exitCode: 0, stdout: 'initialized\n', stderr: '' };
+          if (invocation.subcommand === 'index')
+            return { exitCode: 0, stdout: 'indexed\n', stderr: '' };
+          return { exitCode: 1, stdout: '', stderr: 'unexpected subcommand' };
+        }
+      );
+      try {
+        // when: refreshCodegraphAfterSlice is invoked
+        const result = await refreshCodegraphAfterSlice(project, runner);
+        // then: the refresh self-heals (init → index) and reports refreshed
+        expect(result.refreshed).toBe(true);
+        const subcommands = runner.mock.calls.map((c) => c[0].subcommand);
+        expect(subcommands).toEqual(['init', 'index']);
+      } finally {
+        rmSync(project, { recursive: true, force: true });
       }
-    );
-    try {
-      // when: refreshCodegraphAfterSlice is invoked
-      const result = await refreshCodegraphAfterSlice(project, runner);
-      // then: the refresh self-heals (init → index) and reports refreshed
-      expect(result.refreshed).toBe(true);
-      const subcommands = runner.mock.calls.map((c) => c[0].subcommand);
-      expect(subcommands).toEqual(['init', 'index']);
-    } finally {
-      rmSync(project, { recursive: true, force: true });
-    }
-  });
+    },
+    SUBPROCESS_TEST_TIMEOUT_MS
+  );
 
   it(
     'when the self-heal init writes upstream default exclude rules that block tracked source, should repair the config',

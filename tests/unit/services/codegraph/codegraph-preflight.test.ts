@@ -164,27 +164,31 @@ describe('Scenario: behavior — renderCodegraphStructureBlock bounded output', 
 });
 
 describe('Scenario: integration — buildCodegraphPreflightBlock against a real fs .codegraph dir', () => {
-  it('when .codegraph/ is absent, should init + index (best-effort) then read a bounded structure block', async () => {
-    // given: a fresh project with no `.codegraph/` and a runner that scripts init/index/files
-    const project = freshProject('peaks-cg-pre-i1-');
-    const runner = scriptedRunner({
-      init: { exitCode: 0, stdout: 'initialized\n', stderr: '' },
-      index: { exitCode: 0, stdout: 'indexed\n', stderr: '' },
-      files: filesResult(['src/services/a.ts', 'src/services/b.ts', 'src/cli/c.ts'])
-    });
-    try {
-      // when: the preflight is invoked
-      const result = await buildCodegraphPreflightBlock(project, runner);
-      // then: the block is available and the runner saw init → index → files in order
-      expect(result.available).toBe(true);
-      if (!result.available) throw new Error('unreachable');
-      expect(result.block).toContain('## Codegraph structure');
-      const subcommands = runner.mock.calls.map((c) => c[0].subcommand);
-      expect(subcommands).toEqual(['init', 'index', 'files']);
-    } finally {
-      rmSync(project, { recursive: true, force: true });
-    }
-  });
+  it(
+    'when .codegraph/ is absent, should init + index (best-effort) then read a bounded structure block',
+    async () => {
+      // given: a fresh project with no `.codegraph/` and a runner that scripts init/index/files
+      const project = freshProject('peaks-cg-pre-i1-');
+      const runner = scriptedRunner({
+        init: { exitCode: 0, stdout: 'initialized\n', stderr: '' },
+        index: { exitCode: 0, stdout: 'indexed\n', stderr: '' },
+        files: filesResult(['src/services/a.ts', 'src/services/b.ts', 'src/cli/c.ts'])
+      });
+      try {
+        // when: the preflight is invoked
+        const result = await buildCodegraphPreflightBlock(project, runner);
+        // then: the block is available and the runner saw init → index → files in order
+        expect(result.available).toBe(true);
+        if (!result.available) throw new Error('unreachable');
+        expect(result.block).toContain('## Codegraph structure');
+        const subcommands = runner.mock.calls.map((c) => c[0].subcommand);
+        expect(subcommands).toEqual(['init', 'index', 'files']);
+      } finally {
+        rmSync(project, { recursive: true, force: true });
+      }
+    },
+    SUBPROCESS_TEST_TIMEOUT_MS
+  );
 
   it('when .codegraph/ exists with a peaks-loop marker AND codegraph.db, should skip init/index (fresh) and only read files', async () => {
     // given: a project whose `.codegraph/` carries the marker + db (initialized)
@@ -213,32 +217,36 @@ describe('Scenario: integration — buildCodegraphPreflightBlock against a real 
     }
   });
 
-  it('when .codegraph/ has the marker but no db (dangling), should self-heal via init + index then read', async () => {
-    // given: a dangling peaks-loop dir (marker present, no codegraph.db)
-    const project = freshProject('peaks-cg-pre-i2b-');
-    mkdirSync(join(project, '.codegraph'), { recursive: true });
-    writeFileSync(
-      join(project, '.codegraph', CODEGRAPH_MARKER_NAME),
-      'peaks-loop-managed\n',
-      'utf8'
-    );
-    const runner = scriptedRunner({
-      init: { exitCode: 0, stdout: 'initialized\n', stderr: '' },
-      index: { exitCode: 0, stdout: 'indexed\n', stderr: '' },
-      files: filesResult(['src/services/a.ts'])
-    });
-    try {
-      // when: the preflight is invoked
-      const result = await buildCodegraphPreflightBlock(project, runner);
-      // then: it self-heals by running init → index → files in order
-      expect(result.available).toBe(true);
-      if (!result.available) throw new Error('unreachable');
-      const subcommands = runner.mock.calls.map((c) => c[0].subcommand);
-      expect(subcommands).toEqual(['init', 'index', 'files']);
-    } finally {
-      rmSync(project, { recursive: true, force: true });
-    }
-  });
+  it(
+    'when .codegraph/ has the marker but no db (dangling), should self-heal via init + index then read',
+    async () => {
+      // given: a dangling peaks-loop dir (marker present, no codegraph.db)
+      const project = freshProject('peaks-cg-pre-i2b-');
+      mkdirSync(join(project, '.codegraph'), { recursive: true });
+      writeFileSync(
+        join(project, '.codegraph', CODEGRAPH_MARKER_NAME),
+        'peaks-loop-managed\n',
+        'utf8'
+      );
+      const runner = scriptedRunner({
+        init: { exitCode: 0, stdout: 'initialized\n', stderr: '' },
+        index: { exitCode: 0, stdout: 'indexed\n', stderr: '' },
+        files: filesResult(['src/services/a.ts'])
+      });
+      try {
+        // when: the preflight is invoked
+        const result = await buildCodegraphPreflightBlock(project, runner);
+        // then: it self-heals by running init → index → files in order
+        expect(result.available).toBe(true);
+        if (!result.available) throw new Error('unreachable');
+        const subcommands = runner.mock.calls.map((c) => c[0].subcommand);
+        expect(subcommands).toEqual(['init', 'index', 'files']);
+      } finally {
+        rmSync(project, { recursive: true, force: true });
+      }
+    },
+    SUBPROCESS_TEST_TIMEOUT_MS
+  );
 
   it(
     'when a fresh init writes upstream default exclude rules that block tracked source, should self-heal the config before indexing',
@@ -304,25 +312,29 @@ describe('Scenario: integration — buildCodegraphPreflightBlock against a real 
     }
   );
 
-  it('when the index fails after a fresh init, should fail-soft with available:false and never throw', async () => {
-    // given: a fresh project whose index command exits non-zero
-    const project = freshProject('peaks-cg-pre-i3-');
-    const runner = scriptedRunner({
-      init: { exitCode: 0, stdout: 'initialized\n', stderr: '' },
-      index: { exitCode: 2, stdout: '', stderr: 'schema lock conflict' }
-    });
-    try {
-      // when: the preflight is invoked
-      // then: the result is a best-effort failure (no throw) naming exit 2
-      const result = await buildCodegraphPreflightBlock(project, runner);
-      expect(result.available).toBe(false);
-      if (result.available) throw new Error('unreachable');
-      expect(result.note).toContain('exit 2');
-      expect(result.note).toContain('schema lock conflict');
-    } finally {
-      rmSync(project, { recursive: true, force: true });
-    }
-  });
+  it(
+    'when the index fails after a fresh init, should fail-soft with available:false and never throw',
+    async () => {
+      // given: a fresh project whose index command exits non-zero
+      const project = freshProject('peaks-cg-pre-i3-');
+      const runner = scriptedRunner({
+        init: { exitCode: 0, stdout: 'initialized\n', stderr: '' },
+        index: { exitCode: 2, stdout: '', stderr: 'schema lock conflict' }
+      });
+      try {
+        // when: the preflight is invoked
+        // then: the result is a best-effort failure (no throw) naming exit 2
+        const result = await buildCodegraphPreflightBlock(project, runner);
+        expect(result.available).toBe(false);
+        if (result.available) throw new Error('unreachable');
+        expect(result.note).toContain('exit 2');
+        expect(result.note).toContain('schema lock conflict');
+      } finally {
+        rmSync(project, { recursive: true, force: true });
+      }
+    },
+    SUBPROCESS_TEST_TIMEOUT_MS
+  );
 
   it('when the runner rejects during init, should fail-soft with available:false and never throw', async () => {
     // given: a fresh project whose init command rejects (binary missing)
@@ -344,25 +356,33 @@ describe('Scenario: integration — buildCodegraphPreflightBlock against a real 
     }
   });
 
-  it('when files returns non-JSON, should fail-soft and suggest running codegraph index', async () => {
-    // given: a fresh project initialized+indexed but files returns the upstream text hint
-    const project = freshProject('peaks-cg-pre-i5-');
-    const runner = scriptedRunner({
-      init: { exitCode: 0, stdout: 'initialized\n', stderr: '' },
-      index: { exitCode: 0, stdout: 'indexed\n', stderr: '' },
-      files: { exitCode: 0, stdout: 'No files indexed. Run "codegraph index" first.\n', stderr: '' }
-    });
-    try {
-      // when: the preflight is invoked
-      // then: it degrades to an unavailable note that names the recovery command
-      const result = await buildCodegraphPreflightBlock(project, runner);
-      expect(result.available).toBe(false);
-      if (result.available) throw new Error('unreachable');
-      expect(result.note).toContain('peaks codegraph index');
-    } finally {
-      rmSync(project, { recursive: true, force: true });
-    }
-  });
+  it(
+    'when files returns non-JSON, should fail-soft and suggest running codegraph index',
+    async () => {
+      // given: a fresh project initialized+indexed but files returns the upstream text hint
+      const project = freshProject('peaks-cg-pre-i5-');
+      const runner = scriptedRunner({
+        init: { exitCode: 0, stdout: 'initialized\n', stderr: '' },
+        index: { exitCode: 0, stdout: 'indexed\n', stderr: '' },
+        files: {
+          exitCode: 0,
+          stdout: 'No files indexed. Run "codegraph index" first.\n',
+          stderr: ''
+        }
+      });
+      try {
+        // when: the preflight is invoked
+        // then: it degrades to an unavailable note that names the recovery command
+        const result = await buildCodegraphPreflightBlock(project, runner);
+        expect(result.available).toBe(false);
+        if (result.available) throw new Error('unreachable');
+        expect(result.note).toContain('peaks codegraph index');
+      } finally {
+        rmSync(project, { recursive: true, force: true });
+      }
+    },
+    SUBPROCESS_TEST_TIMEOUT_MS
+  );
 });
 
 describe('Scenario: a11y — fail-soft notes are human/LLM actionable', () => {

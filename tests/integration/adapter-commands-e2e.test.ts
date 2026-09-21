@@ -3,6 +3,9 @@ import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { afterEach, describe, expect, test } from 'vitest';
+import { z } from 'zod';
+import { parseCliEnvelopeWith } from '../../src/cli/cli-envelope.js';
+import { parseJson } from '../../src/shared/json-parse.js';
 
 const BIN = resolve(__dirname, '../../bin/peaks.js');
 const REPO = resolve(__dirname, '../..');
@@ -33,15 +36,95 @@ interface RunResult {
   readonly code: number;
 }
 
-interface CliEnvelope<T> {
-  readonly ok: boolean;
-  readonly command: string;
-  readonly code?: string;
-  readonly message?: string;
-  readonly data: T;
-  readonly warnings: readonly unknown[];
-  readonly nextActions: readonly string[];
-}
+// The `data` payloads this file reads at depth >= 2, one per invocation.
+//
+// WHAT THIS REPLACES, AND WHY IT MOVES NO NUMBER (S15). The former helper was
+//
+//   function parseJson<T>(result: RunResult): T {
+//     return JSON.parse(result.stdout) as T;
+//   }
+//
+// Its `as T` hid the missing check from the ratchet: `any` never entered the
+// type flow, so `no-unsafe-*` reported zero here and still reports zero after.
+// The value of naming a schema per call site is that the claim is now CHECKED
+// at run time; it is deliberately not counted as a finding reduction. Three of
+// these calls are NOT `ResultEnvelope`s and must not go through
+// `parseCliEnvelope` — see the comments at each one. (S15.)
+const workspaceInitPayload = z.looseObject({ sessionId: z.string(), bound: z.boolean() });
+const skillListPayload = z.looseObject({ skills: z.array(z.looseObject({ name: z.string() })) });
+const skillSyncPayload = z.looseObject({
+  applied: z.boolean(),
+  dryRun: z.boolean(),
+  perPlatform: z.array(z.unknown()),
+  failedCount: z.number()
+});
+const skillSearchPayload = z.array(z.looseObject({ name: z.string(), matchScore: z.number() }));
+const skillVisibilityPayload = z.looseObject({
+  ok: z.boolean(),
+  skills: z.array(z.looseObject({ name: z.string(), visibility: z.string() }))
+});
+const auditConformancePayload = z.looseObject({
+  checked: z.number(),
+  checks: z.array(z.unknown())
+});
+const skillDoctorPayload = z.looseObject({ checks: z.array(z.unknown()), ok: z.boolean() });
+const skillRunbookPayload = z.looseObject({
+  name: z.string(),
+  hasRunbook: z.boolean(),
+  peaksCommandCount: z.number()
+});
+const skillActivePayload = z.looseObject({ active: z.boolean() });
+const presenceSetPayload = z.looseObject({
+  active: z.boolean(),
+  skill: z.string(),
+  mode: z.string(),
+  gate: z.string()
+});
+const presenceClearPayload = z.looseObject({
+  active: z.boolean(),
+  removed: z.boolean(),
+  cleared: z.boolean(),
+  reason: z.string().optional(),
+  projectContextUpdated: z.boolean().optional()
+});
+const hooksInstallPayload = z.looseObject({
+  ide: z.string(),
+  applied: z.boolean(),
+  settingsPath: z.string().optional(),
+  entries: z.array(z.looseObject({ matcher: z.string(), sentinel: z.string() })).optional()
+});
+const hooksStatusPayload = z.looseObject({
+  ide: z.string().optional(),
+  installed: z.boolean(),
+  supportsHooks: z.boolean(),
+  entries: z.array(z.unknown()).optional()
+});
+const hooksUninstallPayload = z.looseObject({ ide: z.string(), removed: z.boolean() });
+const statuslineInstallPayload = z.looseObject({
+  scope: z.string(),
+  settingsPath: z.string(),
+  applied: z.boolean(),
+  dryRun: z.boolean()
+});
+const statuslineStatusPayload = z.looseObject({
+  scope: z.string(),
+  installed: z.boolean(),
+  ide: z.string(),
+  command: z.string()
+});
+const statuslineRenderPayload = z.looseObject({ text: z.string() });
+const subAgentDispatchPayload = z.looseObject({
+  role: z.string(),
+  ide: z.string(),
+  toolCall: z.looseObject({ name: z.string() }),
+  dispatchRecordPath: z.string(),
+  batchId: z.string()
+});
+const adapterListPayload = z.looseObject({
+  file: z.string(),
+  records: z.array(z.unknown()),
+  count: z.number()
+});
 
 function runCli(args: readonly string[], cwd = REPO): RunResult {
   try {
@@ -67,10 +150,6 @@ function runCli(args: readonly string[], cwd = REPO): RunResult {
       code: typeof caught.status === 'number' ? caught.status : 1
     };
   }
-}
-
-function parseJson<T>(result: RunResult): T {
-  return JSON.parse(result.stdout) as T;
 }
 
 /**
@@ -126,7 +205,7 @@ function makeProject(prefix: string): string {
 function initWorkspace(project: string): string {
   const result = runCli(['workspace', 'init', '--project', project, '--json'], project);
   expect(result.code).toBe(0);
-  const envelope = parseJson<CliEnvelope<{ sessionId: string; bound: boolean }>>(result);
+  const envelope = parseCliEnvelopeWith(result.stdout, workspaceInitPayload);
   expect(envelope.ok).toBe(true);
   expect(envelope.command).toBe('workspace.init');
   expect(envelope.data.bound).toBe(true);
@@ -145,7 +224,7 @@ describe('peaks skill list (P2-B.4 adapter/distribution e2e)', () => {
     expectRegisteredHelp(['skill', 'list'], 'peaks skill list [options]');
     const result = runCli(['skill', 'list', '--json']);
     expect(result.code).toBe(0);
-    const envelope = parseJson<CliEnvelope<{ skills: ReadonlyArray<{ name: string }> }>>(result);
+    const envelope = parseCliEnvelopeWith(result.stdout, skillListPayload);
     expect(envelope.ok).toBe(true);
     expect(envelope.command).toBe('skill.list');
     expect(envelope.data.skills.length).toBeGreaterThan(0);
@@ -163,14 +242,7 @@ describe('peaks skill sync (P2-B.4 adapter/distribution e2e)', () => {
         project
       );
       expect(result.code).toBe(0);
-      const envelope = parseJson<
-        CliEnvelope<{
-          applied: boolean;
-          dryRun: boolean;
-          perPlatform: readonly unknown[];
-          failedCount: number;
-        }>
-      >(result);
+      const envelope = parseCliEnvelopeWith(result.stdout, skillSyncPayload);
       expect(envelope.ok).toBe(true);
       expect(envelope.command).toBe('skill.sync');
       expect(envelope.data.applied).toBe(false);
@@ -195,7 +267,9 @@ describe('peaks skill search (P2-B.4 adapter/distribution e2e)', () => {
     expectRegisteredHelp(['skill', 'search'], 'peaks skill search [options]');
     const result = runCli(['skill', 'search', '--query', 'code']);
     expect(result.code).toBe(0);
-    const skills = parseJson<ReadonlyArray<{ name: string; matchScore: number }>>(result);
+    // NOT an envelope: `peaks skill search --json` writes a bare result array
+    // (the case name says so). Feeding it to `parseCliEnvelope` would throw.
+    const skills = parseJson(result.stdout, skillSearchPayload);
     expect(skills.length).toBeGreaterThan(0);
     expect(skills.every(({ name, matchScore }) => name.length > 0 && matchScore > 0)).toBe(true);
   });
@@ -212,8 +286,7 @@ describe('peaks skill conformance (P2-B.4 adapter/distribution e2e)', () => {
       );
       const replacement = runCli(['skills:audit-conformance', '--project', REPO, '--json']);
       expect(replacement.code).toBe(0);
-      const envelope =
-        parseJson<CliEnvelope<{ checked: number; checks: readonly unknown[] }>>(replacement);
+      const envelope = parseCliEnvelopeWith(replacement.stdout, auditConformancePayload);
       expect(envelope.ok).toBe(true);
       expect(envelope.command).toBe('skills.audit-conformance');
       expect(envelope.data.checked).toBeGreaterThan(0);
@@ -228,10 +301,10 @@ describe('peaks skill visibility (P2-B.4 adapter/distribution e2e)', () => {
     expectRegisteredHelp(['skill:visibility'], 'peaks skill:visibility [options]');
     const replacement = runCli(['skill:visibility', '--list', '--json']);
     expect(replacement.code).toBe(0);
-    const output = parseJson<{
-      ok: boolean;
-      skills: ReadonlyArray<{ name: string; visibility: string }>;
-    }>(replacement);
+    // NOT an envelope: `skill:visibility --list --json` writes
+    // `{ ok, skills }` with no `command` / `data` head
+    // (`src/cli/commands/skill-visibility.ts`). `parseCliEnvelope` would throw.
+    const output = parseJson(replacement.stdout, skillVisibilityPayload);
     expect(output.ok).toBe(true);
     expect(output.skills.length).toBeGreaterThan(0);
   });
@@ -243,7 +316,7 @@ describe('peaks skill doctor (P2-B.4 adapter/distribution e2e)', () => {
     () => {
       expectRegisteredHelp(['skill', 'doctor'], 'peaks skill doctor [options]');
       const result = runCli(['skill', 'doctor', '--json']);
-      const envelope = parseJson<CliEnvelope<{ checks: readonly unknown[]; ok: boolean }>>(result);
+      const envelope = parseCliEnvelopeWith(result.stdout, skillDoctorPayload);
       expect(envelope.ok).toBe(true);
       expect(envelope.command).toBe('skill.doctor');
       expect(Array.isArray(envelope.data.checks)).toBe(true);
@@ -261,13 +334,7 @@ describe('peaks skill runbook (P2-B.4 adapter/distribution e2e)', () => {
     );
     const result = runCli(['skill', 'runbook', 'peaks-code', '--json']);
     expect(result.code).toBe(0);
-    const envelope = parseJson<
-      CliEnvelope<{
-        name: string;
-        hasRunbook: boolean;
-        peaksCommandCount: number;
-      }>
-    >(result);
+    const envelope = parseCliEnvelopeWith(result.stdout, skillRunbookPayload);
     expect(envelope.ok).toBe(true);
     expect(envelope.command).toBe('skill.runbook');
     expect(envelope.data.name).toBe('peaks-code');
@@ -281,7 +348,7 @@ describe('peaks skill presence (P2-B.4 adapter/distribution e2e)', () => {
     expectRegisteredHelp(['skill', 'presence'], 'peaks skill presence [options]', project);
     const result = runCli(['skill', 'presence', '--project', project, '--json'], project);
     expect(result.code).toBe(0);
-    const envelope = parseJson<CliEnvelope<{ active: boolean }>>(result);
+    const envelope = parseCliEnvelopeWith(result.stdout, skillActivePayload);
     expect(envelope.ok).toBe(true);
     expect(envelope.command).toBe('skill.presence');
     expect(envelope.data.active).toBe(false);
@@ -315,14 +382,7 @@ describe('peaks skill presence:set (P2-B.4 adapter/distribution e2e)', () => {
         project
       );
       expect(result.code).toBe(0);
-      const envelope = parseJson<
-        CliEnvelope<{
-          active: boolean;
-          skill: string;
-          mode: string;
-          gate: string;
-        }>
-      >(result);
+      const envelope = parseCliEnvelopeWith(result.stdout, presenceSetPayload);
       expect(envelope.ok).toBe(true);
       expect(envelope.command).toBe('skill.presence:set');
       expect(envelope.data).toMatchObject({
@@ -362,15 +422,7 @@ describe('peaks skill presence:clear (P2-B.4 adapter/distribution e2e)', () => {
       expect(helpText).toContain('peaks workflow terminalize');
       const result = runCli(['skill', 'presence:clear', '--project', project, '--json'], project);
       expect(result.code).toBe(0);
-      const envelope = parseJson<
-        CliEnvelope<{
-          active: boolean;
-          removed: boolean;
-          cleared: boolean;
-          reason?: string;
-          projectContextUpdated: boolean;
-        }>
-      >(result);
+      const envelope = parseCliEnvelopeWith(result.stdout, presenceClearPayload);
       expect(envelope.ok).toBe(true);
       expect(envelope.command).toBe('skill.presence:clear');
       // Two independent facts, asserted separately:
@@ -400,12 +452,19 @@ describe('peaks skill presence:clear (P2-B.4 adapter/distribution e2e)', () => {
       // answer, so the envelope has to carry them rather than leave the caller to
       // infer them from the help text.
       expect(envelope.data.reason).toBe('live-lease-survives-presence-clear');
-      const nextActions = envelope.nextActions.join('\n');
+      // `nextActions` is OPTIONAL on the real envelope (`src/cli/cli-envelope.ts`)
+      // — S12 measured that `ok` and `data` are its only universal members. The
+      // local `CliEnvelope<T>` this replaced declared it required, so the `?? []`
+      // preserves the assertion's strength rather than loosening it: an absent
+      // array still fails `toContain` below, it just fails on `''` not on a
+      // TypeError.
+      const nextActions = (envelope.nextActions ?? []).join('\n');
       expect(nextActions).toContain('peaks workflow terminalize');
       expect(nextActions).toContain('session exit');
 
-      const after = parseJson<CliEnvelope<{ active: boolean }>>(
-        runCli(['skill', 'presence', '--project', project, '--json'], project)
+      const after = parseCliEnvelopeWith(
+        runCli(['skill', 'presence', '--project', project, '--json'], project).stdout,
+        skillActivePayload
       );
       expect(after.data.active).toBe(true);
     },
@@ -426,15 +485,14 @@ describe('peaks skill presence:clear (P2-B.4 adapter/distribution e2e)', () => {
 
       const result = runCli(['skill', 'presence:clear', '--project', project, '--json'], project);
       expect(result.code).toBe(0);
-      const envelope =
-        parseJson<
-          CliEnvelope<{ active: boolean; removed: boolean; cleared: boolean; reason?: string }>
-        >(result);
+      const envelope = parseCliEnvelopeWith(result.stdout, presenceClearPayload);
       expect(envelope.data).toMatchObject({ active: false, removed: true, cleared: true });
       // The other direction of the `reason` contract: nothing survived, so there
       // is nothing to explain. Asserted so `reason` is exercised both ways rather
       // than only ever read as set.
       expect(envelope.data.reason).toBeUndefined();
+      // Left un-`??`ed on purpose: `toEqual([])` already distinguishes "an empty
+      // array" from "absent", so a `?? []` here WOULD be a strength reduction.
       expect(envelope.nextActions).toEqual([]);
       expect(existsSync(legacyMarker)).toBe(false);
     },
@@ -518,14 +576,7 @@ describe('peaks hooks install/status/uninstall --ide variants (P2-B.4 adapter/di
         ['hooks', 'install', '--project', project, '--ide', expected.ide, '--json'],
         project
       );
-      const install = parseJson<
-        CliEnvelope<{
-          ide: string;
-          applied: boolean;
-          settingsPath?: string;
-          entries?: ReadonlyArray<{ matcher: string; sentinel: string }>;
-        }>
-      >(installResult);
+      const install = parseCliEnvelopeWith(installResult.stdout, hooksInstallPayload);
       expect(install.command).toBe('hooks.install');
 
       if (expected.install === 'unsupported') {
@@ -548,20 +599,14 @@ describe('peaks hooks install/status/uninstall --ide variants (P2-B.4 adapter/di
           ['hooks', 'status', '--project', project, '--ide', expected.ide, '--json'],
           project
         );
-        const status = parseJson<
-          CliEnvelope<{
-            ide: string;
-            installed: boolean;
-            supportsHooks: boolean;
-          }>
-        >(statusResult);
+        const status = parseCliEnvelopeWith(statusResult.stdout, hooksStatusPayload);
         expect(statusResult.code).toBe(0);
         expect(status.ok).toBe(true);
         expect(status.command).toBe('hooks.status');
         expect(status.data.ide).toBe(expected.ide);
         expect(status.data.supportsHooks).toBe(false);
         expect(status.data.installed).toBe(false);
-        expect(status.warnings.join('\n')).toContain(expected.ide);
+        expect((status.warnings ?? []).join('\n')).toContain(expected.ide);
       } else {
         expect(installResult.code).toBe(0);
         expect(install.ok).toBe(true);
@@ -577,13 +622,7 @@ describe('peaks hooks install/status/uninstall --ide variants (P2-B.4 adapter/di
           project
         );
         expect(statusResult.code).toBe(0);
-        const status = parseJson<
-          CliEnvelope<{
-            installed: boolean;
-            supportsHooks: boolean;
-            entries: readonly unknown[];
-          }>
-        >(statusResult);
+        const status = parseCliEnvelopeWith(statusResult.stdout, hooksStatusPayload);
         expect(status.ok).toBe(true);
         expect(status.command).toBe('hooks.status');
         expect(status.data.installed).toBe(true);
@@ -598,7 +637,7 @@ describe('peaks hooks install/status/uninstall --ide variants (P2-B.4 adapter/di
         project
       );
       expect(uninstallResult.code).toBe(0);
-      const uninstall = parseJson<CliEnvelope<{ ide: string; removed: boolean }>>(uninstallResult);
+      const uninstall = parseCliEnvelopeWith(uninstallResult.stdout, hooksUninstallPayload);
       expect(uninstall.ok).toBe(true);
       expect(uninstall.command).toBe('hooks.uninstall');
       expect(uninstall.data.removed).toBe(expected.removed);
@@ -625,13 +664,9 @@ describe('peaks statusline install (P2-B.4 adapter/distribution e2e)', () => {
       project
     );
     expect(result.code).toBe(0);
-    // Drift: the child --json option currently emits data only, not a ResultEnvelope.
-    const data = parseJson<{
-      scope: string;
-      settingsPath: string;
-      applied: boolean;
-      dryRun: boolean;
-    }>(result);
+    // Drift: the child --json option currently emits data only, not a
+    // ResultEnvelope — so this is `parseJson`, NOT `parseCliEnvelope`.
+    const data = parseJson(result.stdout, statuslineInstallPayload);
     expect(data).toMatchObject({ scope: 'project', applied: false, dryRun: true });
     expect(existsSync(data.settingsPath)).toBe(false);
   });
@@ -646,12 +681,8 @@ describe('peaks statusline status (P2-B.4 adapter/distribution e2e)', () => {
       project
     );
     expect(result.code).toBe(0);
-    const data = parseJson<{
-      scope: string;
-      installed: boolean;
-      ide: string;
-      command: string;
-    }>(result);
+    // Data-only, like `statusline install` above: no envelope head to validate.
+    const data = parseJson(result.stdout, statuslineStatusPayload);
     expect(data).toMatchObject({
       scope: 'project',
       installed: false,
@@ -686,7 +717,7 @@ describe('peaks statusline default (P2-B.4 adapter/distribution e2e)', () => {
 
     const result = runCli(['statusline', 'default', '--project', project, '--json'], project);
     expect(result.code).toBe(0);
-    const envelope = parseJson<{ ok: boolean; command: string; data: { text: string } }>(result);
+    const envelope = parseCliEnvelopeWith(result.stdout, statuslineRenderPayload);
     expect(envelope.ok).toBe(true);
     expect(envelope.command).toBe('statusline.render');
     // `data.text` carries the same SGR bytes as the raw render path.
@@ -729,15 +760,7 @@ describe('peaks sub-agent dispatch <role> (P2-B.4 adapter/distribution e2e)', ()
         project
       );
       expect(result.code).toBe(0);
-      const envelope = parseJson<
-        CliEnvelope<{
-          role: string;
-          ide: string;
-          toolCall: { name: string };
-          dispatchRecordPath: string;
-          batchId: string;
-        }>
-      >(result);
+      const envelope = parseCliEnvelopeWith(result.stdout, subAgentDispatchPayload);
       expect(envelope.ok).toBe(true);
       expect(envelope.command).toBe('sub-agent.dispatch');
       expect(envelope.data.role).toBe('rd');
@@ -815,13 +838,7 @@ describe('peaks adapter list (P2-B.4 adapter/distribution e2e)', () => {
     expectRegisteredHelp(['adapter', 'list'], 'peaks adapter list [options]', project);
     const result = runCli(['adapter', 'list', '--project', project, '--json'], project);
     expect(result.code).toBe(0);
-    const envelope = parseJson<
-      CliEnvelope<{
-        file: string;
-        records: readonly unknown[];
-        count: number;
-      }>
-    >(result);
+    const envelope = parseCliEnvelopeWith(result.stdout, adapterListPayload);
     expect(envelope.ok).toBe(true);
     expect(envelope.command).toBe('adapter.list');
     expect(envelope.data.records).toHaveLength(0);

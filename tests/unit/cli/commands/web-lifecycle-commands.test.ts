@@ -253,38 +253,50 @@ function plantDaemonInfo(pid: number, port: number): void {
 }
 
 describe('render — the status envelope', () => {
-  it('when no daemon is running, should print an empty instance list', async () => {
-    // given: a bound session with no daemon
-    bindSession();
-    // when: status runs with --json
-    const captured = await runWeb('status');
-    // then: the envelope is ok and lists nothing
-    const result = envelope(captured.captured);
-    expect(result.ok).toBe(true);
-    expect(result.data['instances']).toEqual([]);
-  });
+  it(
+    'when no daemon is running, should print an empty instance list',
+    async () => {
+      // given: a bound session with no daemon
+      bindSession();
+      // when: status runs with --json
+      const captured = await runWeb('status');
+      // then: the envelope is ok and lists nothing
+      const result = envelope(captured.captured);
+      expect(result.ok).toBe(true);
+      expect(result.data['instances']).toEqual([]);
+    },
+    SUBPROCESS_TEST_TIMEOUT_MS
+  );
 
-  it('when a daemon record is stale, should render the state and not report it live', async () => {
-    // given: a bound session with a dead pid recorded
-    bindSession();
-    plantDaemonInfo(2_147_483_646, 59_996);
-    // when: status runs
-    const captured = await runWeb('status');
-    // then: the instance is reported as stale
-    const instances = envelope(captured.captured).data['instances'] as Array<{ state: string }>;
-    expect(instances.map((instance) => instance.state)).toEqual(['stale']);
-  });
+  it(
+    'when a daemon record is stale, should render the state and not report it live',
+    async () => {
+      // given: a bound session with a dead pid recorded
+      bindSession();
+      plantDaemonInfo(2_147_483_646, 59_996);
+      // when: status runs
+      const captured = await runWeb('status');
+      // then: the instance is reported as stale
+      const instances = envelope(captured.captured).data['instances'] as Array<{ state: string }>;
+      expect(instances.map((instance) => instance.state)).toEqual(['stale']);
+    },
+    SUBPROCESS_TEST_TIMEOUT_MS
+  );
 });
 
 describe('a11y — status without a session', () => {
-  it('when no session is bound, should fail with NO_SESSION and a next action', async () => {
-    // given: a project root with no session.json
-    // when: status runs
-    const captured = await runWeb('status');
-    // then: the failure names the cause and sets the exit code
-    expect(envelope(captured.captured).code).toBe('NO_SESSION');
-    expect(process.exitCode).toBe(1);
-  });
+  it(
+    'when no session is bound, should fail with NO_SESSION and a next action',
+    async () => {
+      // given: a project root with no session.json
+      // when: status runs
+      const captured = await runWeb('status');
+      // then: the failure names the cause and sets the exit code
+      expect(envelope(captured.captured).code).toBe('NO_SESSION');
+      expect(process.exitCode).toBe(1);
+    },
+    SUBPROCESS_TEST_TIMEOUT_MS
+  );
 });
 
 describe('behavior — stop', () => {
@@ -308,19 +320,23 @@ describe('behavior — stop', () => {
     }
   );
 
-  it('when the recorded pid is already gone, should still clear the record', async () => {
-    // given: a bound session with a stale record
-    bindSession();
-    plantDaemonInfo(2_147_483_646, 59_995);
-    // when: stop runs
-    const captured = await runWeb('stop');
-    // then: the command succeeds, reports nothing stopped, and clears the record
-    const result = envelope(captured.captured);
-    expect(result.ok).toBe(true);
-    expect(result.data['stopped']).toBe(0);
-    expect(result.data['pids']).toEqual([]);
-    expect(existsSync(webDaemonInfoPath(ws().path, SESSION_ID))).toBe(false);
-  });
+  it(
+    'when the recorded pid is already gone, should still clear the record',
+    async () => {
+      // given: a bound session with a stale record
+      bindSession();
+      plantDaemonInfo(2_147_483_646, 59_995);
+      // when: stop runs
+      const captured = await runWeb('stop');
+      // then: the command succeeds, reports nothing stopped, and clears the record
+      const result = envelope(captured.captured);
+      expect(result.ok).toBe(true);
+      expect(result.data['stopped']).toBe(0);
+      expect(result.data['pids']).toEqual([]);
+      expect(existsSync(webDaemonInfoPath(ws().path, SESSION_ID))).toBe(false);
+    },
+    SUBPROCESS_TEST_TIMEOUT_MS
+  );
 
   it(
     'when a daemon is alive but silent, should keep its record and warn that the process was left',
@@ -496,89 +512,113 @@ describe('behavior — `peaks web install`', () => {
     expect(installSeam.calls).toEqual([]);
   });
 
-  it('when the browser is already present, should report it and install nothing', async () => {
-    // given: a probe that finds the browser, and no --force
-    bindSession();
-    installSeam.installedBefore = true;
-    // when: install runs
-    // then: it is a no-op that says so
-    const parsed = installEnvelope((await runWebArgv(['install'])).captured);
-    expect(parsed.ok).toBe(true);
-    expect(parsed.data['installed']).toBe(true);
-    expect(parsed.data['downloaded']).toBe(false);
-    expect(installSeam.calls).toEqual([]);
-  });
+  it(
+    'when the browser is already present, should report it and install nothing',
+    async () => {
+      // given: a probe that finds the browser, and no --force
+      bindSession();
+      installSeam.installedBefore = true;
+      // when: install runs
+      // then: it is a no-op that says so
+      const parsed = installEnvelope((await runWebArgv(['install'])).captured);
+      expect(parsed.ok).toBe(true);
+      expect(parsed.data['installed']).toBe(true);
+      expect(parsed.data['downloaded']).toBe(false);
+      expect(installSeam.calls).toEqual([]);
+    },
+    SUBPROCESS_TEST_TIMEOUT_MS
+  );
 
-  it('when the download succeeds, should report it and warn about the size', async () => {
-    // given: a successful install outcome
-    bindSession();
-    // when: install runs
-    // then: the envelope says it downloaded, and the size warning is carried
-    const parsed = installEnvelope((await runWebArgv(['install'])).captured);
-    expect(parsed.ok).toBe(true);
-    expect(parsed.data['downloaded']).toBe(true);
-    expect(parsed.warnings).toContain(INSTALL_SIZE_WARNING);
-    expect(installSeam.calls.length).toBe(1);
-  });
+  it(
+    'when the download succeeds, should report it and warn about the size',
+    async () => {
+      // given: a successful install outcome
+      bindSession();
+      // when: install runs
+      // then: the envelope says it downloaded, and the size warning is carried
+      const parsed = installEnvelope((await runWebArgv(['install'])).captured);
+      expect(parsed.ok).toBe(true);
+      expect(parsed.data['downloaded']).toBe(true);
+      expect(parsed.warnings).toContain(INSTALL_SIZE_WARNING);
+      expect(installSeam.calls.length).toBe(1);
+    },
+    SUBPROCESS_TEST_TIMEOUT_MS
+  );
 
-  it('when --force is given, should pass it to the installer', async () => {
-    // given: R6's recovery flag
-    bindSession();
-    installSeam.installedBefore = true;
-    // when: install --force runs, despite the probe reporting it installed
-    const captured = await runWebArgv(['install', '--force']);
-    // then: the installer was reached, and it was told to force
-    expect(installEnvelope(captured.captured).ok).toBe(true);
-    expect(installSeam.calls).toEqual([{ force: true }]);
-  });
+  it(
+    'when --force is given, should pass it to the installer',
+    async () => {
+      // given: R6's recovery flag
+      bindSession();
+      installSeam.installedBefore = true;
+      // when: install --force runs, despite the probe reporting it installed
+      const captured = await runWebArgv(['install', '--force']);
+      // then: the installer was reached, and it was told to force
+      expect(installEnvelope(captured.captured).ok).toBe(true);
+      expect(installSeam.calls).toEqual([{ force: true }]);
+    },
+    SUBPROCESS_TEST_TIMEOUT_MS
+  );
 
-  it('when the installer exits 0 without landing the browser, should fail and name --force', async () => {
-    // given: an installer that reports success, and a probe that still cannot
-    //        find the browser launch() needs — a filtered CDN, a pinned npx
-    //        resolving into another cache root, a partial install (R7)
-    bindSession();
-    installSeam.installedAfter = false;
-    // when: install runs
-    const parsed = installEnvelope((await runWebArgv(['install'])).captured);
-    // then: it is a FAILURE with a way out, not `ok: true, downloaded: true,
-    //       installed: false` and exit 0
-    expect(parsed.ok).toBe(false);
-    expect(parsed.code).toBe('WEB_INSTALL_INCOMPLETE');
-    expect(parsed.nextActions.join('\n')).toContain('--force');
-    expect(process.exitCode).toBe(1);
-  });
+  it(
+    'when the installer exits 0 without landing the browser, should fail and name --force',
+    async () => {
+      // given: an installer that reports success, and a probe that still cannot
+      //        find the browser launch() needs — a filtered CDN, a pinned npx
+      //        resolving into another cache root, a partial install (R7)
+      bindSession();
+      installSeam.installedAfter = false;
+      // when: install runs
+      const parsed = installEnvelope((await runWebArgv(['install'])).captured);
+      // then: it is a FAILURE with a way out, not `ok: true, downloaded: true,
+      //       installed: false` and exit 0
+      expect(parsed.ok).toBe(false);
+      expect(parsed.code).toBe('WEB_INSTALL_INCOMPLETE');
+      expect(parsed.nextActions.join('\n')).toContain('--force');
+      expect(process.exitCode).toBe(1);
+    },
+    SUBPROCESS_TEST_TIMEOUT_MS
+  );
 
-  it('when the browser is already present, should still name --force as the escape', async () => {
-    // given: the short-circuit path — the only one a user reaches when browser
-    //        ops keep failing against a probe that says installed
-    bindSession();
-    installSeam.installedBefore = true;
-    // when: install runs
-    const parsed = installEnvelope((await runWebArgv(['install'])).captured);
-    // then: the no-op success carries the recovery flag, so the loop has an exit
-    expect(parsed.ok).toBe(true);
-    expect(parsed.nextActions.join('\n')).toContain('--force');
-  });
+  it(
+    'when the browser is already present, should still name --force as the escape',
+    async () => {
+      // given: the short-circuit path — the only one a user reaches when browser
+      //        ops keep failing against a probe that says installed
+      bindSession();
+      installSeam.installedBefore = true;
+      // when: install runs
+      const parsed = installEnvelope((await runWebArgv(['install'])).captured);
+      // then: the no-op success carries the recovery flag, so the loop has an exit
+      expect(parsed.ok).toBe(true);
+      expect(parsed.nextActions.join('\n')).toContain('--force');
+    },
+    SUBPROCESS_TEST_TIMEOUT_MS
+  );
 
-  it('when the download fails, should degrade to tier 3 rather than throw', async () => {
-    // given: an installer that reports a failure (R2: never an exception)
-    bindSession();
-    installSeam.outcome = {
-      ok: false,
-      code: 'WEB_INSTALL_FAILED',
-      message: 'exited with status 1',
-      warnings: []
-    };
-    // when: install runs
-    // then: the envelope is the tier-3 degradation with a way forward
-    const parsed = installEnvelope((await runWebArgv(['install'])).captured);
-    expect(parsed.ok).toBe(false);
-    expect(parsed.code).toBe('WEB_INSTALL_FAILED');
-    expect(parsed.data['tier']).toBe(3);
-    expect(parsed.data['mcpTool']).toBe('mcp__playwright__browser_install');
-    // The failed-download envelope must offer `--force` too: it is the only
-    // recovery for a partial download (R7).
-    expect(parsed.nextActions.join('\n')).toContain('--force');
-    expect(existsSync(webInstallLockPath())).toBe(false);
-  });
+  it(
+    'when the download fails, should degrade to tier 3 rather than throw',
+    async () => {
+      // given: an installer that reports a failure (R2: never an exception)
+      bindSession();
+      installSeam.outcome = {
+        ok: false,
+        code: 'WEB_INSTALL_FAILED',
+        message: 'exited with status 1',
+        warnings: []
+      };
+      // when: install runs
+      // then: the envelope is the tier-3 degradation with a way forward
+      const parsed = installEnvelope((await runWebArgv(['install'])).captured);
+      expect(parsed.ok).toBe(false);
+      expect(parsed.code).toBe('WEB_INSTALL_FAILED');
+      expect(parsed.data['tier']).toBe(3);
+      expect(parsed.data['mcpTool']).toBe('mcp__playwright__browser_install');
+      // The failed-download envelope must offer `--force` too: it is the only
+      // recovery for a partial download (R7).
+      expect(parsed.nextActions.join('\n')).toContain('--force');
+      expect(existsSync(webInstallLockPath())).toBe(false);
+    },
+    SUBPROCESS_TEST_TIMEOUT_MS
+  );
 });

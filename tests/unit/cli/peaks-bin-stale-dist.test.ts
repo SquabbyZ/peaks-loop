@@ -173,14 +173,18 @@ describe('(behavior) happy path is unchanged; non-internal errors rethrow', () =
     }
   );
 
-  it.skipIf(!existsSync(REAL_DIST_ENTRY))('real repo shim still runs the real CLI', () => {
-    const stdout = execFileSync(process.execPath, [REAL_BIN, '--version'], {
-      cwd: REPO_ROOT,
-      encoding: 'utf8',
-      windowsHide: true
-    });
-    expect(stdout.trim()).toMatch(/^\d+\.\d+\.\d+/);
-  });
+  it.skipIf(!existsSync(REAL_DIST_ENTRY))(
+    'real repo shim still runs the real CLI',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    () => {
+      const stdout = execFileSync(process.execPath, [REAL_BIN, '--version'], {
+        cwd: REPO_ROOT,
+        encoding: 'utf8',
+        windowsHide: true
+      });
+      expect(stdout.trim()).toMatch(/^\d+\.\d+\.\d+/);
+    }
+  );
 });
 
 describe('(integration) real subprocess against real tmp dirs', () => {

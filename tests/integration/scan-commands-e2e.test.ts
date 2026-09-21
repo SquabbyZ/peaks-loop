@@ -3,24 +3,100 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { afterEach, describe, expect, test } from 'vitest';
+import { z } from 'zod';
+import { parseCliEnvelopeWith } from '../../src/cli/cli-envelope.js';
 
 const BIN = resolve(__dirname, '../../bin/peaks.js');
 const REPO = resolve(__dirname, '../..');
 const BIN_TIMEOUT_MS = 120_000;
 
+// The `data` payloads this file reads at depth >= 2, one per scan verb. The
+// local `parseEnvelope<T>` these replace promised each shape with a type
+// parameter and delivered it with `JSON.parse(result.stdout) as
+// CliEnvelope<T>` — a claim about a check that never ran. `parseCliEnvelopeWith`
+// runs these schemas instead. (S15.)
+const archetypePayload = z.looseObject({
+  archetype: z.string(),
+  confidence: z.string(),
+  signals: z.array(z.looseObject({ name: z.string(), matched: z.boolean(), detail: z.string() })),
+  detected: z.looseObject({ hasPackageJson: z.boolean() })
+});
+const librariesPayload = z.looseObject({
+  libraries: z.array(
+    z.looseObject({
+      name: z.string(),
+      version: z.string(),
+      scope: z.string(),
+      ecosystem: z.string()
+    })
+  ),
+  totalCount: z.number(),
+  byScope: z.record(z.string(), z.number())
+});
+const apiSurfacePayload = z.looseObject({
+  counts: z.looseObject({
+    cli: z.number(),
+    service: z.number(),
+    type: z.number(),
+    constant: z.number()
+  }),
+  cli: z.array(z.unknown()),
+  service: z.array(z.unknown()),
+  type: z.array(z.unknown()),
+  constant: z.array(z.unknown())
+});
+const requestTypeSanityPayload = z.looseObject({
+  declaredType: z.string(),
+  gitAvailable: z.boolean(),
+  changedFiles: z.array(z.string()),
+  breakdown: z.array(z.unknown()),
+  suggestedTypes: z.array(z.string()),
+  consistent: z.boolean(),
+  rationale: z.string()
+});
+const orphanPayload = z.looseObject({
+  scope: z.string(),
+  counts: z.looseObject({
+    export: z.number(),
+    import: z.number(),
+    cliSubcommand: z.number(),
+    docEndpoint: z.number()
+  }),
+  exportOrphans: z.array(z.unknown()),
+  importOrphans: z.array(z.unknown()),
+  cliSubcommandOrphans: z.array(z.unknown()),
+  docEndpointOrphans: z.array(z.unknown())
+});
+const diffVsScopePayload = z.looseObject({
+  ok: z.boolean(),
+  rdArtifactPath: z.string(),
+  changedFiles: z.array(z.unknown()),
+  violations: z.array(z.unknown()),
+  unclassified: z.array(z.unknown()),
+  gitAvailable: z.boolean(),
+  patternsDeclared: z.boolean()
+});
+const complexityEstimatePayload = z.looseObject({
+  projectRoot: z.string(),
+  report: z.looseObject({
+    files: z.array(
+      z.looseObject({
+        file: z.string(),
+        lines: z.number(),
+        exports: z.number(),
+        hasAsync: z.boolean(),
+        tier: z.string()
+      })
+    ),
+    overall: z.string(),
+    summary: z.looseObject({ trivial: z.number(), simple: z.number(), complex: z.number() })
+  })
+});
+
 interface RunResult {
   readonly stdout: string;
   readonly stderr: string;
   readonly code: number;
-}
-
-interface CliEnvelope<T> {
-  readonly ok: boolean;
-  readonly command: string;
-  readonly code?: string;
-  readonly data: T;
-  readonly warnings: readonly unknown[];
-  readonly nextActions: readonly string[];
 }
 
 function runCli(args: readonly string[], cwd: string = REPO): RunResult {
@@ -47,10 +123,6 @@ function runCli(args: readonly string[], cwd: string = REPO): RunResult {
       code: typeof caught.status === 'number' ? caught.status : 1
     };
   }
-}
-
-function parseEnvelope<T>(result: RunResult): CliEnvelope<T> {
-  return JSON.parse(result.stdout) as CliEnvelope<T>;
 }
 
 const projects: string[] = [];
@@ -132,12 +204,7 @@ describe('peaks scan archetype', () => {
       const result = runCli(['scan', 'archetype', '--project', REPO, '--json']);
       expect(result.code).toBe(0);
 
-      const envelope = parseEnvelope<{
-        archetype: string;
-        confidence: string;
-        signals: Array<{ name: string; matched: boolean; detail: string }>;
-        detected: { hasPackageJson: boolean };
-      }>(result);
+      const envelope = parseCliEnvelopeWith(result.stdout, archetypePayload);
       expect(envelope.ok).toBe(true);
       expect(envelope.command).toBe('scan.archetype');
       expect(envelope.data.archetype).toMatch(/\S/);
@@ -155,11 +222,7 @@ describe('peaks scan libraries', () => {
       const result = runCli(['scan', 'libraries', '--project', REPO, '--json']);
       expect(result.code).toBe(0);
 
-      const envelope = parseEnvelope<{
-        libraries: Array<{ name: string; version: string; scope: string; ecosystem: string }>;
-        totalCount: number;
-        byScope: Record<string, number>;
-      }>(result);
+      const envelope = parseCliEnvelopeWith(result.stdout, librariesPayload);
       expect(envelope.ok).toBe(true);
       expect(envelope.command).toBe('scan.libraries');
       expect(envelope.data.libraries.length).toBeGreaterThan(0);
@@ -187,13 +250,7 @@ describe('peaks scan api-surface', () => {
       ]);
       expect(result.code).toBe(0);
 
-      const envelope = parseEnvelope<{
-        counts: { cli: number; service: number; type: number; constant: number };
-        cli: readonly unknown[];
-        service: readonly unknown[];
-        type: readonly unknown[];
-        constant: readonly unknown[];
-      }>(result);
+      const envelope = parseCliEnvelopeWith(result.stdout, apiSurfacePayload);
       expect(envelope.ok).toBe(true);
       expect(envelope.command).toBe('scan.api-surface');
       expect(Object.values(envelope.data.counts).every(Number.isInteger)).toBe(true);
@@ -223,15 +280,7 @@ describe('peaks scan request-type-sanity', () => {
         'feature',
         '--json'
       ]);
-      const envelope = parseEnvelope<{
-        declaredType: string;
-        gitAvailable: boolean;
-        changedFiles: readonly string[];
-        breakdown: readonly unknown[];
-        suggestedTypes: readonly string[];
-        consistent: boolean;
-        rationale: string;
-      }>(result);
+      const envelope = parseCliEnvelopeWith(result.stdout, requestTypeSanityPayload);
 
       expect(envelope.ok).toBe(true);
       expect(envelope.command).toBe('scan.request-type-sanity');
@@ -262,14 +311,7 @@ describe('peaks scan orphan', () => {
       ]);
       expect(result.code).toBe(0);
 
-      const envelope = parseEnvelope<{
-        scope: string;
-        counts: { export: number; import: number; cliSubcommand: number; docEndpoint: number };
-        exportOrphans: readonly unknown[];
-        importOrphans: readonly unknown[];
-        cliSubcommandOrphans: readonly unknown[];
-        docEndpointOrphans: readonly unknown[];
-      }>(result);
+      const envelope = parseCliEnvelopeWith(result.stdout, orphanPayload);
       expect(envelope.ok).toBe(true);
       expect(envelope.command).toBe('scan.orphan');
       expect(envelope.data.scope).toBe('working-tree');
@@ -306,15 +348,7 @@ describe('peaks scan diff-vs-scope', () => {
         ],
         project
       );
-      const envelope = parseEnvelope<{
-        ok: boolean;
-        rdArtifactPath: string;
-        changedFiles: readonly unknown[];
-        violations: readonly unknown[];
-        unclassified: readonly unknown[];
-        gitAvailable: boolean;
-        patternsDeclared: boolean;
-      }>(result);
+      const envelope = parseCliEnvelopeWith(result.stdout, diffVsScopePayload);
 
       expect(envelope.ok).toBe(true);
       expect(envelope.command).toBe('scan.diff-vs-scope');
@@ -343,20 +377,7 @@ describe('peaks complexity-estimate (replacement for missing scan complexity)', 
       ]);
       expect(result.code).toBe(0);
 
-      const envelope = parseEnvelope<{
-        projectRoot: string;
-        report: {
-          files: Array<{
-            file: string;
-            lines: number;
-            exports: number;
-            hasAsync: boolean;
-            tier: string;
-          }>;
-          overall: string;
-          summary: { trivial: number; simple: number; complex: number };
-        };
-      }>(result);
+      const envelope = parseCliEnvelopeWith(result.stdout, complexityEstimatePayload);
       expect(envelope.ok).toBe(true);
       expect(envelope.command).toBe('complexity-estimate');
       expect(envelope.data.report.files).toHaveLength(1);
