@@ -13,8 +13,31 @@
 //
 //     one `git <sub>` spawn ..................... 0.42 s   (measured)
 //     a 9-spawn git fixture (init + 2 commits) ... 6.78 s   (measured)
-//     one `taskkill /T /F /PID <missing>` ....... 18.7-28.7 s (6 samples)
+//     one `taskkill /T /F /PID <missing>` ....... 18.7-28.7 s (6 samples, S6)
+//     one `taskkill /T /F /PID <missing>` ....... 27-155 s    (12 samples, B1)
 //     one `prepareFinalReview()` call ........... 11-13 git spawns
+//
+//   THE `taskkill` ROW IS A HOST PROPERTY, NOT A BUDGET PROPERTY (slice B1,
+//   re-measured 2026-09-22; recorded here because it is the one term in this
+//   table that no budget in this file can absorb):
+//
+//     `cmd /c ver` (a bare spawn) ....................  1.2 s
+//     `taskkill /?` (loads taskkill, no PID lookup) ...  1.6 s
+//     `taskkill /T /F /PID 99998` (missing) ........... 27-155 s
+//     `taskkill /T /F /PID <live child>` .............. 155 s AND FAILED
+//                                                        (status 128)
+//     `tasklist /FI "PID eq 99998"` ................... 23.5 s
+//     `process.kill(99998, 'SIGKILL')` ................ 0 ms (ESRCH, correctly)
+//     `process.kill(<live child>, 'SIGKILL')` ......... 1 ms (works)
+//
+//   So the cost is NOT process spawn, NOT the shell, NOT a retry loop and NOT a
+//   wait timeout: it is Windows process ENUMERATION, which `taskkill` and
+//   `tasklist` share, and it is degraded on this host independently of load
+//   (263 processes; a full `tasklist` dump takes 46.6 s). It is not in the
+//   repository. That is why `service-shutdown.test.ts` sits ON its 240 s budget
+//   (223 s in a green run, 287 s in S16's red one) rather than safely under it.
+//   Before concluding a budget is too small, run the four commands above: a
+//   healthy host finishes all of them in about the cost of one bare spawn.
 //
 //   and the same test's cost moves 2-3x between runs: the 2-spawn
 //   `service-shutdown` test measured 44.0 s alone and 97.5 s inside the full

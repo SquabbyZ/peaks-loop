@@ -28,6 +28,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { declareDimensions } from '../_setup/4dim-template.js';
 import { makeCapturedIo } from '../_setup/io.js';
+import { SUBPROCESS_TEST_TIMEOUT_MS } from '../_setup/subprocess-timeouts.js';
 import { registerSubAgentCommands } from '../../../src/cli/commands/sub-agent-commands.js';
 import {
   deprecatedReviewerWarnings,
@@ -171,14 +172,18 @@ describe('(integration) the dispatch chokepoint calls the policy', () => {
     expect(env.warnings).toEqual([]);
   });
 
-  it('when dispatching an ordinary role, should leave the envelope untouched', async () => {
-    // given: `rd`, a role the policy never governs
-    // when:  the dispatch action runs
-    // then:  the envelope is byte-identical in its warnings surface
-    const env = await runDispatch('rd');
-    expect(env.ok).toBe(true);
-    expect(env.warnings).toEqual([]);
-  });
+  it(
+    'when dispatching an ordinary role, should leave the envelope untouched',
+    async () => {
+      // given: `rd`, a role the policy never governs
+      // when:  the dispatch action runs
+      // then:  the envelope is byte-identical in its warnings surface
+      const env = await runDispatch('rd');
+      expect(env.ok).toBe(true);
+      expect(env.warnings).toEqual([]);
+    },
+    SUBPROCESS_TEST_TIMEOUT_MS
+  );
 });
 
 describe('(render) envelope shape', () => {

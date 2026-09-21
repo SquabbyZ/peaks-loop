@@ -21,6 +21,7 @@ import { homedir, tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
+import { SUBPROCESS_TEST_TIMEOUT_MS } from '../_setup/subprocess-timeouts.js';
 import {
   UnsafeProjectRootError,
   assertWritableProjectRoot,
@@ -68,22 +69,30 @@ describe('the user’s home directory is never a writable project root', () => {
     expect(() => assertWritableProjectRoot(sibling)).not.toThrow();
   });
 
-  it('when resolving for a write, should refuse a start path that resolves to home', () => {
-    // given: the exact CLI shape of the incident — `--project .` with cwd=$HOME
-    // when/then: the WRITE resolver refuses what the read resolver returns
-    expect(() => resolveWritableProjectRoot(homedir())).toThrow(UnsafeProjectRootError);
-  });
+  it(
+    'when resolving for a write, should refuse a start path that resolves to home',
+    () => {
+      // given: the exact CLI shape of the incident — `--project .` with cwd=$HOME
+      // when/then: the WRITE resolver refuses what the read resolver returns
+      expect(() => resolveWritableProjectRoot(homedir())).toThrow(UnsafeProjectRootError);
+    },
+    SUBPROCESS_TEST_TIMEOUT_MS
+  );
 
-  it('when resolving for a write, should return the same root as the read resolver otherwise', () => {
-    // given: an ordinary directory that is not the home directory
-    const project = mkdtempSync(join(tmpdir(), 'peaks-writable-root-'));
-    try {
-      // when/then: the guarded helper is the unguarded one plus the refusal —
-      //            it must not otherwise change the answer (no demotion, no
-      //            extra canonicalisation)
-      expect(resolveWritableProjectRoot(project)).toBe(resolve(project));
-    } finally {
-      rmSync(project, { recursive: true, force: true });
-    }
-  });
+  it(
+    'when resolving for a write, should return the same root as the read resolver otherwise',
+    () => {
+      // given: an ordinary directory that is not the home directory
+      const project = mkdtempSync(join(tmpdir(), 'peaks-writable-root-'));
+      try {
+        // when/then: the guarded helper is the unguarded one plus the refusal —
+        //            it must not otherwise change the answer (no demotion, no
+        //            extra canonicalisation)
+        expect(resolveWritableProjectRoot(project)).toBe(resolve(project));
+      } finally {
+        rmSync(project, { recursive: true, force: true });
+      }
+    },
+    SUBPROCESS_TEST_TIMEOUT_MS
+  );
 });

@@ -34,9 +34,43 @@
 //   forward (load-bearing): every relative specifier in every `.ts` file under
 //            `src/` and `tests/` ends in `.js` / `.mjs` / `.cjs`.
 //   reach   (the anti-weakening arm): the walk really visited the tree — the
-//            number of files and the number of relative specifiers are pinned,
-//            so a walk that returns early, drops `ExportDeclaration`, or
-//            quietly narrows its root fails HERE instead of passing below.
+//            file set and the specifier set are both CROSS-MEASURED against
+//            independent sources, so a walk that returns early, drops
+//            `ExportDeclaration`, or quietly narrows its root fails HERE
+//            instead of passing below.
+//
+// WHY THE REACH ARM IS CROSS-MEASURED AND NOT SELF-DERIVED (slice rid-b1)
+//
+// The reach arm used to be two hand-kept literals: `scan.files.length` and
+// `scan.specifiers.length`. Every new file or new import moved them, and one
+// integer made five round trips (1197→1201→1202; 2738→2748→2786→2792→2793).
+// A literal that must be edited on every legitimate change is a tax — but
+// replacing it with a number computed by the very traversal it guards would be
+// strictly worse: that guard is green forever and means nothing.
+//
+// The reach arm is therefore TWO measurements, from TWO sources, that must
+// agree. Neither is read back out of the guarded walk, and neither needs an edit
+// when the tree grows:
+//
+//   1. FILE SET — compared, set for set, against `git ls-files` (tracked ∪
+//      untracked-not-ignored). That enumeration comes from git's index, not from
+//      the `readdirSync` recursion guarded here, and it sees a new file at the
+//      same moment the walk does. A walk that returns early, drops a subtree or
+//      narrows its root stops matching.
+//
+//   2. SPECIFIER SET — compared against a SECOND collector that shares no
+//      traversal with the first: no recursion, no `forEachChild`, one flat pass
+//      over the file's top-level statements. Import/export declarations are
+//      top-level statements, so the two mechanisms must agree exactly; measured
+//      on this tree they do, 2793 both ways across 1202 files.
+//
+// The residual assumption is that both mechanisms could be broken TOGETHER. The
+// `injection` describe below refuses to leave that unexamined: it drives the
+// real traversal through deliberately damaged configurations and requires the
+// damage to be visible. Because each damage is requested through the same
+// parameter the real walk reads, deleting a real arm turns the matching
+// injection into a no-op — and that injection case then fails, instead of
+// silently agreeing with the damaged walk.
 //
 // SCOPE — and the one boundary this guard deliberately does not cross
 //
@@ -59,7 +93,16 @@
 // own — it produces no stdout, no exit code and no user-facing message. The
 // vitest assertion text it fails with is covered by `render`.
 
-import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  writeFileSync
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, relative as relativePath, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -97,10 +140,9 @@ const TREES: readonly string[] = ['src', 'tests'];
  *
  * `tests/fixtures/bdd-reporter-tmp` is the entry that earns its keep.
  * `tests/unit/reporters/bdd-reporter.test.ts` writes transient
- * `case-XXXX/*.test.ts` files there and removes them in `afterEach`, so a walk
- * that did not skip that directory could observe a fixture mid-flight and move
- * the pinned specifier total by ±1. A pin that is right only when it loses a
- * race is worse than no pin at all.
+ * `case-XXXX/*.test.ts` files there and removes them in `afterEach`. The whole
+ * directory is gitignored, so git never sees those files either — which is what
+ * keeps the cross-check below from reporting a race as a reach regression.
  */
 const EXCLUDED: readonly string[] = ['dist', 'node_modules', 'tests/fixtures/bdd-reporter-tmp'];
 
@@ -115,6 +157,27 @@ interface Specifier {
   readonly line: number;
   readonly text: string;
 }
+
+/**
+ * Which arms of the traversal to run. The default is every arm; the non-default
+ * values exist only for the injection cases, which require the damage they
+ * request to be observable.
+ *
+ * The point of routing the damage through the SAME parameters the real walk
+ * reads is that a future edit which removes an arm from this file also removes
+ * the ability to honour the matching injection — so `continueWalk: false`, for
+ * instance, stops truncating the walk, the injection stops losing specifiers,
+ * and the injection case fails. A private copy of the walk for the injections
+ * would not have that property.
+ */
+interface Arm {
+  readonly imports: boolean;
+  readonly exports: boolean;
+  /** `false` models an early `return`: the walk halts at its first match. */
+  readonly continueWalk: boolean;
+}
+
+const FULL_ARM: Arm = { imports: true, exports: true, continueWalk: true };
 
 function toPosix(path: string): string {
   return path.split(sep).join('/');
@@ -135,6 +198,42 @@ function listTsFiles(dir: string, root: string, out: string[] = []): string[] {
   return out;
 }
 
+/**
+ * The `.ts` files under TREES as GIT reports them — `--cached` (in the index)
+ * unioned with `--others --exclude-standard` (on disk, not ignored). This is the
+ * independent enumeration the reach arm cross-checks the walk against, and the
+ * reason a new file costs no literal edit: git sees it, the walk sees it, and
+ * the two are compared rather than a number being compared to a number.
+ *
+ * One difference between git and a worktree is repaired rather than asserted: a
+ * tracked file deleted but not yet staged is still listed by `--cached`, and it
+ * is not a file the walk can see, so the index entry is dropped by an existence
+ * check. That check repairs the enumeration; it is not where the expectation
+ * comes from.
+ */
+function listTsFilesFromGit(root: string): string[] {
+  const listed = execFileSync(
+    'git',
+    ['ls-files', '--cached', '--others', '--exclude-standard', '-z', '--', ...TREES],
+    {
+      cwd: root,
+      encoding: 'utf8',
+      maxBuffer: 32 * 1024 * 1024,
+      // Repo standard (`tests/unit/spawn-windows-hide-guard.test.ts`): every
+      // child_process call site pins this, or Windows flashes a console window.
+      windowsHide: true
+    }
+  );
+  return listed
+    .split('\u0000')
+    .filter((path) => path.length > 0 && path.endsWith('.ts'))
+    .filter(
+      (path) => !EXCLUDED.some((excluded) => path === excluded || path.startsWith(`${excluded}/`))
+    )
+    .filter((path) => existsSync(join(root, path)))
+    .sort();
+}
+
 function parse(file: string): ts.SourceFile {
   return ts.createSourceFile(
     file,
@@ -149,59 +248,114 @@ function isRelativeSpecifier(text: string): boolean {
   return text.startsWith('./') || text.startsWith('../');
 }
 
+/** The relative specifier a single import/export declaration writes, if any. */
+function specifierAt(
+  node: ts.Node,
+  sourceFile: ts.SourceFile,
+  file: string,
+  root: string
+): Specifier | undefined {
+  if (!ts.isImportDeclaration(node) && !ts.isExportDeclaration(node)) return undefined;
+  const specifier = node.moduleSpecifier;
+  if (specifier === undefined) return undefined;
+  if (!ts.isStringLiteral(specifier)) return undefined;
+  if (!isRelativeSpecifier(specifier.text)) return undefined;
+  const { line } = sourceFile.getLineAndCharacterOfPosition(specifier.getStart(sourceFile));
+  return {
+    file: toPosix(relativePath(root, file)),
+    line: line + 1,
+    text: specifier.text
+  };
+}
+
 /**
- * Every RELATIVE module specifier written by an import OR export declaration.
+ * Every RELATIVE module specifier written by an import OR export declaration —
+ * mechanism 1, the recursive one the forward assertion is stated over.
  *
  * The walk recurses with `forEachChild` on every node it visits — including the
  * declarations it already matched — so nothing is skipped by an early return.
+ * `arm.continueWalk` is the one exception, and it exists so that an early return
+ * can be *injected* and seen.
  */
 function collectRelativeSpecifiers(
   sourceFile: ts.SourceFile,
   file: string,
-  root: string
+  root: string,
+  arm: Arm = FULL_ARM
 ): Specifier[] {
   const found: Specifier[] = [];
-  const visit = (node: ts.Node): void => {
-    if (ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) {
-      const specifier = node.moduleSpecifier;
-      if (
-        specifier !== undefined &&
-        ts.isStringLiteral(specifier) &&
-        isRelativeSpecifier(specifier.text)
-      ) {
-        const { line } = sourceFile.getLineAndCharacterOfPosition(specifier.getStart(sourceFile));
-        found.push({
-          file: toPosix(relativePath(root, file)),
-          line: line + 1,
-          text: specifier.text
-        });
+  const visit = (node: ts.Node): boolean | undefined => {
+    const matched =
+      (arm.imports && ts.isImportDeclaration(node)) ||
+      (arm.exports && ts.isExportDeclaration(node));
+    if (matched) {
+      const specifier = specifierAt(node, sourceFile, file, root);
+      if (specifier !== undefined) {
+        found.push(specifier);
+        // A truthy `forEachChild` callback stops the sibling iteration as well:
+        // this is what makes `continueWalk: false` model "the walk stops early"
+        // rather than merely "this node's children are skipped".
+        if (!arm.continueWalk) return true;
       }
     }
-    ts.forEachChild(node, visit);
+    return ts.forEachChild(node, visit);
   };
   ts.forEachChild(sourceFile, visit);
   return found;
 }
 
+/**
+ * The same question — "which relative specifiers are written in this file?" —
+ * answered by mechanism 2, which shares no traversal with mechanism 1: no
+ * recursion, no `forEachChild`, one flat pass over the file's top-level
+ * statements.
+ *
+ * This is sound because import and export declarations are TOP-LEVEL statements
+ * in TypeScript; nothing nests them. Measured on this tree, the two mechanisms
+ * agree exactly — same count, same order — which is the whole basis of the
+ * reach cross-check.
+ */
+function collectRelativeSpecifiersFlat(
+  sourceFile: ts.SourceFile,
+  file: string,
+  root: string
+): Specifier[] {
+  const found: Specifier[] = [];
+  for (const statement of sourceFile.statements) {
+    if (!ts.isImportDeclaration(statement) && !ts.isExportDeclaration(statement)) continue;
+    const specifier = specifierAt(statement, sourceFile, file, root);
+    if (specifier !== undefined) found.push(specifier);
+  }
+  return found;
+}
+
 interface TreeScan {
   readonly files: readonly string[];
+  /** Mechanism 1 — the recursion the forward assertion is stated over. */
   readonly specifiers: readonly Specifier[];
+  /** Mechanism 2 — the flat pass that independently measures the same reach. */
+  readonly specifiersFlat: readonly Specifier[];
 }
 
 /**
  * Walk a source tree. `root` is a parameter rather than the module constant so
- * the decision below can be driven from a fixture (see the behavior cases).
+ * the decision below can be driven from a fixture (see the behavior cases);
+ * `arm` is a parameter so the injection cases can drive the same walk damaged.
+ * Each file is parsed ONCE and handed to both mechanisms.
  */
-function scanTree(root: string): TreeScan {
+function scanTree(root: string, arm: Arm = FULL_ARM): TreeScan {
   const files: string[] = [];
   const specifiers: Specifier[] = [];
+  const specifiersFlat: Specifier[] = [];
   for (const tree of TREES) {
     for (const file of listTsFiles(join(root, tree), root)) {
       files.push(file);
-      specifiers.push(...collectRelativeSpecifiers(parse(file), file, root));
+      const sourceFile = parse(file);
+      specifiers.push(...collectRelativeSpecifiers(sourceFile, file, root, arm));
+      specifiersFlat.push(...collectRelativeSpecifiersFlat(sourceFile, file, root));
     }
   }
-  return { files, specifiers };
+  return { files, specifiers, specifiersFlat };
 }
 
 /** Relative specifiers that omit the extension NodeNext requires. */
@@ -253,145 +407,90 @@ function withFixtureTree(
 describe('Scenario: integration — the guard walks the real src/ + tests/ trees', () => {
   const scan = scanTree(REPO_ROOT);
   const violations = decide(scan);
+  // Enumerated once, from git, and reused by both reach assertions below.
+  const filesFromGit = listTsFilesFromGit(REPO_ROOT);
 
-  it('visits every .ts file under src/ + tests/ (the root is pinned, not sampled)', () => {
-    // A probe that samples nothing reports green for the whole space. These two
-    // pins are asserted separately so a reader can tell WHICH one moved: this one
-    // moves only when a `.ts` file is added to or removed from `src/` or `tests/`.
-    //
-    // 1192 -> 1193 (slice S3c): +1 is `tests/unit/_setup/first-of.ts`, the shared
-    // `firstOf` helper that replaces 29 unchecked `result[0]` reads.
-    //
-    // 1193 -> 1194 (slice S5a): +1 is
-    // `tests/unit/lint/silent-warning-grace-marker.test.ts`, which pins the
-    // silent-warning grace marker against the real prettier. A new file is the
-    // documented reason this pin moves.
-    // 1194 -> 1195 (slice rid-s6-slow-test-timeouts): +1 is
-    // `tests/unit/_setup/subprocess-timeouts.ts`, the shared measured budgets for
-    // the tests whose cost is a real process spawn. As in S3c and S5a, a new file
-    // is the documented reason this pin moves.
-    // 1195 -> 1196 (slice rid-s9-require-await-decision): +1 is
-    // `tests/unit/standards/gratuitous-async-guard.test.ts`, the tsc-API guard
-    // that carries `@typescript-eslint/require-await`'s residual signal after
-    // that rule was turned off repo-wide. As in S3c, S5a and S6, a new file is
-    // the documented reason this pin moves.
-    // 1196 -> 1197 (slice rid-s10-any-roots-ts): +1 is
-    // `src/shared/array-guards.ts`, the non-narrowing `isArray` helper that
-    // replaces `Array.isArray` at the seven call sites where its `arg is any[]`
-    // signature was widening an already-typed array to `any[]`. As in S3c, S5a,
-    // S6 and S9, a new file is the documented reason this pin moves.
-    // 1197 -> 1201 (slice rid-s12-json-parse-root): +4 is the validating-parse
-    // slice's three new src modules — `src/shared/json-parse.ts`,
-    // `src/cli/cli-envelope.ts`, `src/services/session/session-file-schema.ts` —
-    // plus its guard, `tests/unit/cli/cli-envelope.test.ts`. Same reason as S3c,
-    // S5a, S6, S9 and S10: a new file is the documented reason this pin moves.
-    expect(scan.files.length).toBe(1202);
+  it('reaches exactly the .ts files git reports under src/ + tests/', () => {
+    // Set equality, not a count: a duplicate, a dropped subtree and a narrowed
+    // root each break it, and a NEW FILE does not — both sides see it. This is
+    // what replaced `expect(scan.files.length).toBe(1202)`.
+    const walked = scan.files.map((file) => toPosix(relativePath(REPO_ROOT, file))).sort();
+    expect(walked).toEqual(filesFromGit);
   });
 
-  it('visits every relative specifier in those files (the recursion is pinned)', () => {
-    // A walk that stops early, or that drops one node kind, reports green for
-    // everything it no longer reaches — measured: deleting `isExportDeclaration`
-    // from the condition below left the violation assertion GREEN while silently
-    // dropping 109 specifiers, and only this pin caught it.
-    //
-    // So this number is a PIN, not trivia. It moves when a relative import or
-    // export is added to or removed from `src/` or `tests/`. A change that leaves
-    // the tree alone but moves this number means the WALK changed — read the
-    // `collectRelativeSpecifiers` recursion before touching the constant.
-    //
-    // 2715 -> 2717 (slice S3c): +2 is the `'../_setup/first-of.js'` import added
-    // to `codegraph-capability-fallback.test.ts` and
-    // `codegraph-resolved-path-capability.test.ts`. Both carry the `.js` extension
-    // the rule requires, which is why the violation assertion below is unaffected.
-    //
-    // 2717 -> 2718 (slice S3e): +1 is the `type SkillPresenceLease` import added
-    // to `tests/integration/skill-presence-lease-gc.test.ts` so its `stale` lease
-    // fixture is declared as the contract type instead of an untyped literal. It
-    // carries the `.js` extension the rule requires, so — as with S3c — the
-    // violation assertion below is unaffected. `scan.files.length` did NOT move:
-    // no `.ts` file was added or removed.
-    //
-    // 2718 -> 2719 (slice S5a): +1 is the `'../_setup/4dim-template.js'` import in
-    // the new `tests/unit/lint/silent-warning-grace-marker.test.ts`. It carries
-    // the `.js` extension the rule requires, so — as with S3c and S3e — the
-    // violation assertion below is unaffected. `scan.files.length` moved by +1
-    // as well, in the pin above.
-    // 2719 -> 2727 (slice rid-s6-slow-test-timeouts): +8 is the
-    // `'../_setup/subprocess-timeouts.js'` / `'../../_setup/subprocess-timeouts.js'`
-    // import added to each of the eight test files that now carry an explicit
-    // budget — service-shutdown, the two final-review suites,
-    // codegraph-config-restore, codegraph-config-repair, codegraph-exclude-repair,
-    // pre-tool-superpowers-bridge and no-ai-co-author-trailer. All eight carry the
-    // `.js` extension the rule requires, so — as with S3c, S3e and S5a — the
-    // violation assertion below is unaffected. `scan.files.length` moved by +1 as
-    // well, in the pin above.
-    // 2727 -> 2710 (slice rid-s7-mechanical-and-type-quality): −17, the net
-    // number of relative specifiers removed when that slice deleted unused
-    // import bindings. The removed names are all relative modules, so the
-    // violation assertion below is unaffected — no `.js` extension was
-    // dropped, a whole specifier was. `scan.files.length` is unchanged.
-    // 2710 -> 2711 (slice rid-s9-require-await-decision): +1 is the
-    // `'../_setup/4dim-template.js'` import in the new
-    // `tests/unit/standards/gratuitous-async-guard.test.ts`. It carries the
-    // `.js` extension the rule requires, so — as with S3c, S3e, S5a and S6 —
-    // the violation assertion below is unaffected. `scan.files.length` moved by
-    // +1 as well, in the pin above.
-    // 2711 -> 2717 (slice rid-s10-any-roots-ts): +6 is one
-    // `'../../shared/array-guards.js'` import added to each of the six src
-    // modules that had an `Array.isArray` widening — slice-dag,
-    // workflow-graph-store, workflow-inflight-probe, spec-service,
-    // contract-store and eslint-runner. All six carry the `.js` extension the
-    // rule requires, so — as with S3c, S3e, S5a, S6 and S9 — the violation
-    // assertion below is unaffected. `scan.files.length` moved by +1 as well,
-    // in the pin above.
-    // 2717 -> 2738 (slice rid-s12-json-parse-root): +21 relative specifiers.
-    // Three come from the new src modules (`json-parse` imported by
-    // `cli-envelope`, `skill-presence-service` and the session readers;
-    // `session-file-schema` imported by `session-manager` and the bridge) and
-    // eighteen from the validating-parse imports added to the converted test
-    // files. All carry the `.js` extension the rule requires, so the violation
-    // assertion below is unaffected.
-    // 2738 -> 2748 (slice rid-s13-file-read-schemas): +10 relative specifiers,
-    // all of them validating-parse imports added to five existing test files —
-    // `job-slice-id-resolution` (+3: `job-types`, `job-progress-store`,
-    // `shared/json-parse`), and +2 each in `job-session-addressing`,
-    // `caller-first-session-resolution`, `binding-store/multi-process`
-    // (`job-types` or `binding-store`, plus `shared/json-parse`) and +1 in
-    // `mut/end-to-end` (`shared/json-parse`). All carry the `.js` extension the
-    // rule requires, so the violation assertion below is unaffected.
-    // `scan.files.length` did NOT move: no `.ts` file was added or removed.
-    //
-    // 2786 -> 2792 (slice rid-s15-costume-as-helpers): +6 relative specifiers,
-    // every one of them a validating-parse or schema import added to a file
-    // that already existed. +1 each in `tests/integration/five-new-rids-e2e.test.ts`,
-    // `scan-commands-e2e.test.ts` and `business-capability-e2e.test.ts` (all
-    // three now import `src/cli/cli-envelope.js` instead of asserting a local
-    // `parseEnvelope<T>`); +2 in `adapter-commands-e2e.test.ts`
-    // (`cli-envelope`, plus `shared/json-parse` for the four call sites whose
-    // stdout is NOT a `ResultEnvelope` — a bare array from `skill search`,
-    // `{ ok, skills }` from `skill:visibility`, and the two data-only
-    // `statusline` shapes); +1 net in `src/services/sediment/pool-read.ts`
-    // (`+./json-schema`, `+../../shared/json-parse`, `−./manifest-lint`, whose
-    // only consumer this slice removed). All carry the `.js` extension the rule
-    // requires, so — as with S3c, S3e, S5a, S6, S9, S10, S12 and S13 — the
-    // violation assertion below is unaffected. `scan.files.length` did NOT move:
-    // no `.ts` file was added or removed.
-    expect(scan.specifiers.length).toBe(2793);
+  it('reaches every relative specifier, as measured by a second, non-recursive pass', () => {
+    // The anti-weakening arm. `specifiersFlat` comes from mechanism 2, which
+    // never recurses and never consults `arm`; a walk that stops early or drops
+    // `ExportDeclaration` (109 specifiers, measured) can no longer agree with
+    // it. This is what replaced `expect(scan.specifiers.length).toBe(2793)`.
+    expect(scan.specifiers).toEqual(scan.specifiersFlat);
+  });
+
+  it('reaches at least one relative specifier per file git reports (a collapse floor)', () => {
+    // A floor, deliberately loose, tied to the INDEPENDENT file enumeration: it
+    // cannot detect a subtle drop — the cross-check above is what does that —
+    // but it cannot pass a walk that has collapsed to nothing either, which is
+    // the failure mode two agreeing-but-empty mechanisms would otherwise hide.
+    expect(scan.specifiers.length).toBeGreaterThanOrEqual(filesFromGit.length);
   });
 
   it('reaches every relative specifier that crosses into packages/*/src', () => {
-    // The class that prompted the slice, pinned separately: 17 of the 22
-    // measured TS2835 errors pointed here (the other 5 pointed into `src/**`),
-    // plus 2 that were already correct — `tests/unit/runtime/process-supervisor.test.ts`
+    // The class that prompted the slice, measured separately: 17 of the 22
+    // TS2835 errors pointed here (the other 5 pointed into `src/**`), plus 2
+    // that were already correct — `tests/unit/runtime/process-supervisor.test.ts`
     // and `tests/unit/services/ecc/ecc-materialize.test.ts`.
+    //
+    // The exact count used to be pinned here too; it is now carried by the
+    // cross-check above, which is strict and needs no edit when a
+    // `packages/*/src` import is added. What is asserted here is that the arm is
+    // still REACHED at all.
     const inPackagesScope = scan.specifiers.filter((specifier) =>
       PACKAGES_SRC.test(specifier.text)
     );
-    expect(inPackagesScope.length).toBe(19);
+    const flatInPackagesScope = scan.specifiersFlat.filter((specifier) =>
+      PACKAGES_SRC.test(specifier.text)
+    );
+    expect(inPackagesScope.length).toBe(flatInPackagesScope.length);
+    expect(inPackagesScope.length).toBeGreaterThan(0);
   });
 
   it('finds no relative specifier missing its ESM extension', () => {
     expect(violations, describeViolations(violations)).toEqual([]);
+  });
+});
+
+// ── injection: damaging the traversal must be visible ────────────────
+
+describe('Scenario: injection — damage to the traversal is visible, not absorbed', () => {
+  const full = scanTree(REPO_ROOT);
+
+  it('loses specifiers when the ExportDeclaration arm is dropped', () => {
+    // The concrete regression this refuses to leave uncovered: deleting
+    // `isExportDeclaration` from the walk. Measured on this tree that arm
+    // carries 109 of the 2793 specifiers.
+    const withoutExports = scanTree(REPO_ROOT, { ...FULL_ARM, exports: false });
+    expect(withoutExports.specifiers.length).toBeLessThan(full.specifiers.length);
+  });
+
+  it('loses specifiers when the ImportDeclaration arm is dropped', () => {
+    const withoutImports = scanTree(REPO_ROOT, { ...FULL_ARM, imports: false });
+    expect(withoutImports.specifiers.length).toBeLessThan(full.specifiers.length);
+  });
+
+  it('loses specifiers when the walk halts at its first match', () => {
+    // An early `return` in the recursion. Measured: 900 of the 2793 survive.
+    const truncated = scanTree(REPO_ROOT, { ...FULL_ARM, continueWalk: false });
+    expect(truncated.specifiers.length).toBeLessThan(full.specifiers.length);
+  });
+
+  it('makes the two mechanisms DISAGREE, which is the arm that catches it', () => {
+    // The three cases above show the damage is real; this one shows the guard
+    // NOTICES. `specifiersFlat` is mechanism 2 and is untouched by `arm`, so a
+    // damaged mechanism 1 is exactly the situation the integration cross-check
+    // fails on. If a future edit removes an arm from the real walk, the matching
+    // injection stops damaging anything and this assertion fails with it.
+    const damaged = scanTree(REPO_ROOT, { ...FULL_ARM, exports: false });
+    expect(damaged.specifiers.length).not.toBe(damaged.specifiersFlat.length);
   });
 });
 

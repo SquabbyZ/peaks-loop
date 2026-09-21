@@ -31,6 +31,18 @@ declareDimensions(
       // spawning tests carry HEAVY_SUBPROCESS_TEST_TIMEOUT_MS. The dimension is
       // still omitted: no describe here tests the SPAWN contract itself (which
       // pid tree, which signal), only the skip/order mapping around it.
+      //
+      // CLASS C, RE-MEASURED 2026-09-22 (slice B1): one `taskkill /T /F /PID
+      // <missing>` now costs 27-155 s, up from the 18.7-28.7 s of S6. This file
+      // therefore runs ON its 240 s budget, not under it — the order test
+      // measured 223 s green in one run and 287 s red in S16's. The cost is
+      // Windows process ENUMERATION (`taskkill /?` costs 1.6 s while the same
+      // binary with a PID argument costs up to 155 s; `tasklist` is 23.5 s for
+      // the same question; `process.kill(pid, 'SIGKILL')` answers it in 0-1 ms).
+      // It is a property of this host, not of this repository, so NO BUDGET
+      // HERE CAN HOLD IT and raising the number would only move the failure.
+      // The derivation and the four commands that tell a degraded host from an
+      // undersized budget are in `tests/unit/_setup/subprocess-timeouts.ts`.
       reason:
         'no integration describe: the real taskkill spawn is incidental to the skip/order assertions'
     },

@@ -18,6 +18,7 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { runAllLayers } from '~/src/services/release/version-precheck-service';
+import { SUBPROCESS_TEST_TIMEOUT_MS } from '../_setup/subprocess-timeouts.js';
 
 let root: string;
 
@@ -65,29 +66,33 @@ describe('release precheck — an unreadable root package.json is a structured b
 
   // The regression half: a well-formed fixture must still reach a non-blocker
   // verdict, so the guard did not turn every run into a blocker.
-  it('a well-formed project still reports rootVsShared ok', () => {
-    writeFileSync(
-      join(root, 'package.json'),
-      JSON.stringify({
-        name: 'x',
-        version: '4.0.0',
-        dependencies: { 'peaks-loop-shared': 'workspace:*' }
-      })
-    );
-    mkdirSync(join(root, 'packages', 'peaks-loop-shared', 'dist'), { recursive: true });
-    writeFileSync(
-      join(root, 'packages', 'peaks-loop-shared', 'dist', 'version.js'),
-      'export const CLI_VERSION = "4.0.0";\n'
-    );
-    writeFileSync(
-      join(root, 'packages', 'peaks-loop-shared', 'package.json'),
-      JSON.stringify({ name: 'peaks-loop-shared', version: '4.0.0' })
-    );
+  it(
+    'a well-formed project still reports rootVsShared ok',
+    () => {
+      writeFileSync(
+        join(root, 'package.json'),
+        JSON.stringify({
+          name: 'x',
+          version: '4.0.0',
+          dependencies: { 'peaks-loop-shared': 'workspace:*' }
+        })
+      );
+      mkdirSync(join(root, 'packages', 'peaks-loop-shared', 'dist'), { recursive: true });
+      writeFileSync(
+        join(root, 'packages', 'peaks-loop-shared', 'dist', 'version.js'),
+        'export const CLI_VERSION = "4.0.0";\n'
+      );
+      writeFileSync(
+        join(root, 'packages', 'peaks-loop-shared', 'package.json'),
+        JSON.stringify({ name: 'peaks-loop-shared', version: '4.0.0' })
+      );
 
-    const envelope = runAllLayers({ projectRoot: root });
+      const envelope = runAllLayers({ projectRoot: root });
 
-    expect(envelope.layers.rootVsShared.status).toBe('ok');
-    expect(envelope.layers.workspaceLockstep.status).toBe('ok');
-    expect(envelope.rootVersion).toBe('4.0.0');
-  });
+      expect(envelope.layers.rootVsShared.status).toBe('ok');
+      expect(envelope.layers.workspaceLockstep.status).toBe('ok');
+      expect(envelope.rootVersion).toBe('4.0.0');
+    },
+    SUBPROCESS_TEST_TIMEOUT_MS
+  );
 });
