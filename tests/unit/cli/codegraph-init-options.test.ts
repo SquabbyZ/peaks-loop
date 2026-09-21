@@ -62,6 +62,7 @@ vi.mock('../../../src/services/codegraph/codegraph-service.js', async () => {
 
 import { registerCodegraphCommands } from '../../../src/cli/commands/codegraph-commands.js';
 import { createCodegraphInvocation } from '../../../src/services/codegraph/codegraph-service.js';
+import { SUBPROCESS_TEST_TIMEOUT_MS } from '../_setup/subprocess-timeouts.js';
 
 function initCommand(): Command {
   const { io } = makeCapturedIo();
@@ -131,26 +132,30 @@ describe('peaks codegraph init — the --yes flag is gone from every layer', () 
     ).toThrow(/Unsupported option yes/);
   });
 
-  it('should spawn upstream init with no --yes in argv', async () => {
-    const project = seedGitProject(ws);
-    const { io } = makeCapturedIo();
-    const program = new Command();
-    registerCodegraphCommands(program, io);
+  it(
+    'should spawn upstream init with no --yes in argv',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    async () => {
+      const project = seedGitProject(ws);
+      const { io } = makeCapturedIo();
+      const program = new Command();
+      registerCodegraphCommands(program, io);
 
-    await program.parseAsync(['codegraph', 'init', '--project', project, '--peaks-json'], {
-      from: 'user'
-    });
+      await program.parseAsync(['codegraph', 'init', '--project', project, '--peaks-json'], {
+        from: 'user'
+      });
 
-    expect(__m.executeCodegraphInvocation).toHaveBeenCalledTimes(1);
-    const invocation = __m.executeCodegraphInvocation.mock.calls[0]?.[0] as {
-      args: string[];
-      subcommand: string;
-    };
+      expect(__m.executeCodegraphInvocation).toHaveBeenCalledTimes(1);
+      const invocation = __m.executeCodegraphInvocation.mock.calls[0]?.[0] as {
+        args: string[];
+        subcommand: string;
+      };
 
-    expect(invocation.subcommand).toBe('init');
-    expect(invocation.args).not.toContain('--yes');
-    // args[0] is the resolved upstream binary; nothing but the bare
-    // subcommand follows it.
-    expect(invocation.args.slice(1)).toEqual(['init']);
-  });
+      expect(invocation.subcommand).toBe('init');
+      expect(invocation.args).not.toContain('--yes');
+      // args[0] is the resolved upstream binary; nothing but the bare
+      // subcommand follows it.
+      expect(invocation.args.slice(1)).toEqual(['init']);
+    }
+  );
 });

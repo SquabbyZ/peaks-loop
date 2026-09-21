@@ -33,6 +33,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
 import { declareDimensions } from '../_setup/4dim-template.js';
+import { SUBPROCESS_TEST_TIMEOUT_MS } from '../_setup/subprocess-timeouts.js';
 
 declareDimensions(
   'tests/unit/cli/verify-codegraph-tarball.test.ts',
@@ -79,45 +80,57 @@ function makeFixturePackageJson(files: string[]): string {
 }
 
 describe('verify-codegraph-tarball (rid-CG-005)', () => {
-  it('exits 0 when peaks-loop root package.json ships dist/services/codegraph/', () => {
-    const result = runVerify(projectRoot);
-    expect(result.status).toBe(0);
-    expect(result.stdout).toMatch(
-      /verify-codegraph-tarball: OK \(\d+ file\(s\) under dist\/services\/codegraph\/\)/
-    );
-  }, 120_000);
+  it(
+    'exits 0 when peaks-loop root package.json ships dist/services/codegraph/',
+    () => {
+      const result = runVerify(projectRoot);
+      expect(result.status).toBe(0);
+      expect(result.stdout).toMatch(
+        /verify-codegraph-tarball: OK \(\d+ file\(s\) under dist\/services\/codegraph\/\)/
+      );
+    },
+    SUBPROCESS_TEST_TIMEOUT_MS
+  );
 
-  it('exits 1 when the files[] whitelist omits dist/services/codegraph/', () => {
-    // Build a fixture whose whitelist is intentionally wrong.
-    // The script's REQUIRED_PREFIX must NOT match anything in
-    // this whitelist → the script must fail loud.
-    const fixtureDir = makeFixturePackageJson(['README.md', 'CHANGELOG.md']);
-    try {
-      const result = runVerify(fixtureDir);
-      expect(result.status).toBe(1);
-      // Failure message must name the offending prefix AND hint
-      // at the files[] whitelist so the operator can grep the
-      // right file.
-      expect(result.stderr).toContain('dist/services/codegraph/');
-      expect(result.stderr).toContain('package.json#files[]');
-    } finally {
-      rmSync(fixtureDir, { recursive: true, force: true });
-    }
-  }, 120_000);
+  it(
+    'exits 1 when the files[] whitelist omits dist/services/codegraph/',
+    () => {
+      // Build a fixture whose whitelist is intentionally wrong.
+      // The script's REQUIRED_PREFIX must NOT match anything in
+      // this whitelist → the script must fail loud.
+      const fixtureDir = makeFixturePackageJson(['README.md', 'CHANGELOG.md']);
+      try {
+        const result = runVerify(fixtureDir);
+        expect(result.status).toBe(1);
+        // Failure message must name the offending prefix AND hint
+        // at the files[] whitelist so the operator can grep the
+        // right file.
+        expect(result.stderr).toContain('dist/services/codegraph/');
+        expect(result.stderr).toContain('package.json#files[]');
+      } finally {
+        rmSync(fixtureDir, { recursive: true, force: true });
+      }
+    },
+    SUBPROCESS_TEST_TIMEOUT_MS
+  );
 
-  it('exits 1 when a partial whitelist drops only the dist glob (no false-positive)', () => {
-    // Fixture ships scripts/ + LICENSE but NO `dist/**/*`. This
-    // catches the failure mode where the `dist/**/*.js` glob is
-    // accidentally removed from files[] but `scripts/` stays.
-    const fixtureDir = makeFixturePackageJson(['scripts/*.mjs', 'LICENSE', 'README.md']);
-    mkdirSync(join(fixtureDir, 'scripts'), { recursive: true });
-    writeFileSync(join(fixtureDir, 'scripts', 'noop.mjs'), '// noop\n', 'utf8');
-    try {
-      const result = runVerify(fixtureDir);
-      expect(result.status).toBe(1);
-      expect(result.stderr).toContain('dist/services/codegraph/');
-    } finally {
-      rmSync(fixtureDir, { recursive: true, force: true });
-    }
-  }, 120_000);
+  it(
+    'exits 1 when a partial whitelist drops only the dist glob (no false-positive)',
+    () => {
+      // Fixture ships scripts/ + LICENSE but NO `dist/**/*`. This
+      // catches the failure mode where the `dist/**/*.js` glob is
+      // accidentally removed from files[] but `scripts/` stays.
+      const fixtureDir = makeFixturePackageJson(['scripts/*.mjs', 'LICENSE', 'README.md']);
+      mkdirSync(join(fixtureDir, 'scripts'), { recursive: true });
+      writeFileSync(join(fixtureDir, 'scripts', 'noop.mjs'), '// noop\n', 'utf8');
+      try {
+        const result = runVerify(fixtureDir);
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain('dist/services/codegraph/');
+      } finally {
+        rmSync(fixtureDir, { recursive: true, force: true });
+      }
+    },
+    SUBPROCESS_TEST_TIMEOUT_MS
+  );
 });

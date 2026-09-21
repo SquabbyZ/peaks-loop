@@ -24,6 +24,7 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { SUBPROCESS_TEST_TIMEOUT_MS } from '../_setup/subprocess-timeouts.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SCRIPT = resolve(__dirname, '..', '..', '..', 'scripts', 'migrate-to-bdd.mjs');
@@ -62,8 +63,11 @@ function migrate(source: string, options: { dryRun?: boolean } = {}): MigrateOut
 }
 
 describe('bdd-migration-roundtrip — description rewriting', () => {
-  it('case 1: it description without "should" gets prefixed with "when ... should ..."', () => {
-    const src = `
+  it(
+    'case 1: it description without "should" gets prefixed with "when ... should ..."',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    () => {
+      const src = `
 import { describe, expect, it } from 'vitest';
 describe('suite', () => {
   it('adds two positive numbers', () => {
@@ -71,20 +75,24 @@ describe('suite', () => {
   });
 });
 `;
-    const out = migrate(src);
-    const itRewrite = out.rewrites.find((r) => r.kind === 'it');
-    expect(itRewrite).toBeDefined();
-    // The new description must mention both 'when' and 'should' so the
-    // downstream BDD reporter can classify it as a BDD test.
-    expect(itRewrite!.rewritten.toLowerCase()).toContain('when');
-    expect(itRewrite!.rewritten.toLowerCase()).toContain('should');
-    // Behavior: the test is still wrapped in it() and contains the assertion.
-    expect(out.transformedSource).toMatch(/it\(/);
-    expect(out.transformedSource).toMatch(/expect\(1 \+ 1\)/);
-  });
+      const out = migrate(src);
+      const itRewrite = out.rewrites.find((r) => r.kind === 'it');
+      expect(itRewrite).toBeDefined();
+      // The new description must mention both 'when' and 'should' so the
+      // downstream BDD reporter can classify it as a BDD test.
+      expect(itRewrite!.rewritten.toLowerCase()).toContain('when');
+      expect(itRewrite!.rewritten.toLowerCase()).toContain('should');
+      // Behavior: the test is still wrapped in it() and contains the assertion.
+      expect(out.transformedSource).toMatch(/it\(/);
+      expect(out.transformedSource).toMatch(/expect\(1 \+ 1\)/);
+    }
+  );
 
-  it('case 2: it description with "should" already gets a "when" prefix (preserves the existing should text)', () => {
-    const src = `
+  it(
+    'case 2: it description with "should" already gets a "when" prefix (preserves the existing should text)',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    () => {
+      const src = `
 import { describe, expect, it } from 'vitest';
 describe('suite', () => {
   it('should reverse an array', () => {
@@ -92,31 +100,39 @@ describe('suite', () => {
   });
 });
 `;
-    const out = migrate(src);
-    const itRewrite = out.rewrites.find((r) => r.kind === 'it');
-    expect(itRewrite).toBeDefined();
-    const rewritten = itRewrite!.rewritten;
-    expect(rewritten.toLowerCase()).toContain('when');
-    // The original "should" clause is preserved (not removed and re-added).
-    expect(rewritten.toLowerCase()).toContain('should');
-    expect(rewritten.toLowerCase()).toContain('reverse an array');
-  });
+      const out = migrate(src);
+      const itRewrite = out.rewrites.find((r) => r.kind === 'it');
+      expect(itRewrite).toBeDefined();
+      const rewritten = itRewrite!.rewritten;
+      expect(rewritten.toLowerCase()).toContain('when');
+      // The original "should" clause is preserved (not removed and re-added).
+      expect(rewritten.toLowerCase()).toContain('should');
+      expect(rewritten.toLowerCase()).toContain('reverse an array');
+    }
+  );
 
-  it('case 3: empty it body gets placeholder given/when/then comments (3 lines)', () => {
-    const src = `
+  it(
+    'case 3: empty it body gets placeholder given/when/then comments (3 lines)',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    () => {
+      const src = `
 import { it } from 'vitest';
 it('does something', () => {});
 `;
-    const out = migrate(src);
-    expect(out.transformedSource).toMatch(/\/\/ given: /);
-    expect(out.transformedSource).toMatch(/\/\/ when: /);
-    expect(out.transformedSource).toMatch(/\/\/ then: /);
-  });
+      const out = migrate(src);
+      expect(out.transformedSource).toMatch(/\/\/ given: /);
+      expect(out.transformedSource).toMatch(/\/\/ when: /);
+      expect(out.transformedSource).toMatch(/\/\/ then: /);
+    }
+  );
 });
 
 describe('bdd-migration-roundtrip — comment block rewrite', () => {
-  it('case 4: existing legacy // arrange: comments are replaced by given/when/then', () => {
-    const src = `
+  it(
+    'case 4: existing legacy // arrange: comments are replaced by given/when/then',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    () => {
+      const src = `
 import { describe, expect, it } from 'vitest';
 describe('suite', () => {
   it('parses CSV row', () => {
@@ -129,22 +145,26 @@ describe('suite', () => {
   });
 });
 `;
-    const out = migrate(src);
-    // The legacy AAA comments are gone.
-    expect(out.transformedSource).not.toMatch(/\/\/ arrange: /);
-    expect(out.transformedSource).not.toMatch(/\/\/ act: /);
-    expect(out.transformedSource).not.toMatch(/\/\/ assert: /);
-    // The new BDD comment block is present.
-    expect(out.transformedSource).toMatch(/\/\/ given: /);
-    expect(out.transformedSource).toMatch(/\/\/ when: /);
-    expect(out.transformedSource).toMatch(/\/\/ then: /);
-    // The test body is intact — migration is non-destructive on actual code.
-    expect(out.transformedSource).toMatch(/const row = 'a,b,c'/);
-    expect(out.transformedSource).toMatch(/row\.split/);
-  });
+      const out = migrate(src);
+      // The legacy AAA comments are gone.
+      expect(out.transformedSource).not.toMatch(/\/\/ arrange: /);
+      expect(out.transformedSource).not.toMatch(/\/\/ act: /);
+      expect(out.transformedSource).not.toMatch(/\/\/ assert: /);
+      // The new BDD comment block is present.
+      expect(out.transformedSource).toMatch(/\/\/ given: /);
+      expect(out.transformedSource).toMatch(/\/\/ when: /);
+      expect(out.transformedSource).toMatch(/\/\/ then: /);
+      // The test body is intact — migration is non-destructive on actual code.
+      expect(out.transformedSource).toMatch(/const row = 'a,b,c'/);
+      expect(out.transformedSource).toMatch(/row\.split/);
+    }
+  );
 
-  it('case 5: nested describe still has inner it() rewritten', () => {
-    const src = `
+  it(
+    'case 5: nested describe still has inner it() rewritten',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    () => {
+      const src = `
 import { describe, expect, it } from 'vitest';
 describe('outer', () => {
   describe('inner', () => {
@@ -154,14 +174,15 @@ describe('outer', () => {
   });
 });
 `;
-    const out = migrate(src);
-    // Both describes are recorded.
-    const describes = out.rewrites.filter((r) => r.kind === 'describe');
-    expect(describes.length).toBe(2);
-    // The inner it is rewritten.
-    const itRewrites = out.rewrites.filter((r) => r.kind === 'it');
-    expect(itRewrites.length).toBe(1);
-    expect(itRewrites[0]?.rewritten.toLowerCase()).toContain('when');
-    expect(out.transformedSource).toMatch(/\/\/ given: /);
-  });
+      const out = migrate(src);
+      // Both describes are recorded.
+      const describes = out.rewrites.filter((r) => r.kind === 'describe');
+      expect(describes.length).toBe(2);
+      // The inner it is rewritten.
+      const itRewrites = out.rewrites.filter((r) => r.kind === 'it');
+      expect(itRewrites.length).toBe(1);
+      expect(itRewrites[0]?.rewritten.toLowerCase()).toContain('when');
+      expect(out.transformedSource).toMatch(/\/\/ given: /);
+    }
+  );
 });

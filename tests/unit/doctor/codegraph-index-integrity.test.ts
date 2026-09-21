@@ -56,6 +56,7 @@ import type {
   DoctorOptions
 } from '~/src/services/doctor/doctor-service/types';
 import { declareDimensions } from '../_setup/4dim-template.js';
+import { SUBPROCESS_TEST_TIMEOUT_MS } from '../_setup/subprocess-timeouts.js';
 
 declareDimensions('tests/unit/doctor/codegraph-index-integrity.test.ts', [
   'render',
@@ -342,88 +343,96 @@ describe('capability:codegraph-index-integrity (integration)', () => {
     );
   });
 
-  it('should report a real include gap and a real dead row from a real SQLite index', () => {
-    // A throwaway git project with the exact defect shape: `include`
-    // admits `.ts` but not `.mjs`, one tracked file is supported but not
-    // admitted, and the index carries a row for a file that is gone.
-    const root = mkdtempSync(join(tmpdir(), 'peaks-cg-index-integrity-'));
-    try {
-      execFileSync('git', ['-C', root, 'init', '-q'], { stdio: 'ignore', windowsHide: true });
-      execFileSync('git', ['-C', root, 'config', 'user.email', 'peaks-test@example.com'], {
-        stdio: 'ignore',
-        windowsHide: true
-      });
-      execFileSync('git', ['-C', root, 'config', 'user.name', 'peaks test'], {
-        stdio: 'ignore',
-        windowsHide: true
-      });
+  it(
+    'should report a real include gap and a real dead row from a real SQLite index',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    () => {
+      // A throwaway git project with the exact defect shape: `include`
+      // admits `.ts` but not `.mjs`, one tracked file is supported but not
+      // admitted, and the index carries a row for a file that is gone.
+      const root = mkdtempSync(join(tmpdir(), 'peaks-cg-index-integrity-'));
+      try {
+        execFileSync('git', ['-C', root, 'init', '-q'], { stdio: 'ignore', windowsHide: true });
+        execFileSync('git', ['-C', root, 'config', 'user.email', 'peaks-test@example.com'], {
+          stdio: 'ignore',
+          windowsHide: true
+        });
+        execFileSync('git', ['-C', root, 'config', 'user.name', 'peaks test'], {
+          stdio: 'ignore',
+          windowsHide: true
+        });
 
-      mkdirSync(join(root, 'src'), { recursive: true });
-      mkdirSync(join(root, 'scripts'), { recursive: true });
-      writeFileSync(join(root, 'src', 'ok.ts'), 'export const ok = 1;\n', 'utf8');
-      writeFileSync(join(root, 'scripts', 'tool.mjs'), 'export const tool = 1;\n', 'utf8');
-      execFileSync('git', ['-C', root, 'add', '-A'], { stdio: 'ignore', windowsHide: true });
-      execFileSync('git', ['-C', root, 'commit', '-qm', 'fixture'], {
-        stdio: 'ignore',
-        windowsHide: true
-      });
+        mkdirSync(join(root, 'src'), { recursive: true });
+        mkdirSync(join(root, 'scripts'), { recursive: true });
+        writeFileSync(join(root, 'src', 'ok.ts'), 'export const ok = 1;\n', 'utf8');
+        writeFileSync(join(root, 'scripts', 'tool.mjs'), 'export const tool = 1;\n', 'utf8');
+        execFileSync('git', ['-C', root, 'add', '-A'], { stdio: 'ignore', windowsHide: true });
+        execFileSync('git', ['-C', root, 'commit', '-qm', 'fixture'], {
+          stdio: 'ignore',
+          windowsHide: true
+        });
 
-      mkdirSync(join(root, '.codegraph'), { recursive: true });
-      writeFileSync(
-        join(root, '.codegraph', 'config.json'),
-        `${JSON.stringify({ version: 1, include: ['**/*.ts'], exclude: [] }, null, 2)}\n`,
-        'utf8'
-      );
+        mkdirSync(join(root, '.codegraph'), { recursive: true });
+        writeFileSync(
+          join(root, '.codegraph', 'config.json'),
+          `${JSON.stringify({ version: 1, include: ['**/*.ts'], exclude: [] }, null, 2)}\n`,
+          'utf8'
+        );
 
-      // A real index db with upstream's real `files` schema.
-      const db = new Database(join(root, '.codegraph', 'codegraph.db'));
-      db.exec(
-        'CREATE TABLE files (path TEXT PRIMARY KEY, content_hash TEXT NOT NULL, language TEXT NOT NULL, size INTEGER NOT NULL, modified_at INTEGER NOT NULL, indexed_at INTEGER NOT NULL, node_count INTEGER DEFAULT 0, errors TEXT)'
-      );
-      const insert = db.prepare(
-        'INSERT INTO files (path, content_hash, language, size, modified_at, indexed_at) VALUES (?, ?, ?, 0, 0, 0)'
-      );
-      insert.run('src/ok.ts', 'h', 'typescript');
-      insert.run('src/deleted.ts', 'h', 'typescript');
-      db.close();
+        // A real index db with upstream's real `files` schema.
+        const db = new Database(join(root, '.codegraph', 'codegraph.db'));
+        db.exec(
+          'CREATE TABLE files (path TEXT PRIMARY KEY, content_hash TEXT NOT NULL, language TEXT NOT NULL, size INTEGER NOT NULL, modified_at INTEGER NOT NULL, indexed_at INTEGER NOT NULL, node_count INTEGER DEFAULT 0, errors TEXT)'
+        );
+        const insert = db.prepare(
+          'INSERT INTO files (path, content_hash, language, size, modified_at, indexed_at) VALUES (?, ?, ?, 0, 0, 0)'
+        );
+        insert.run('src/ok.ts', 'h', 'typescript');
+        insert.run('src/deleted.ts', 'h', 'typescript');
+        db.close();
 
-      const report = inspectCodegraphIndexIntegrity(root);
+        const report = inspectCodegraphIndexIntegrity(root);
 
-      expect(report.gap).toBe(true);
-      expect(report.includeGap).toEqual(['scripts/tool.mjs']);
-      expect(report.deadRows).toEqual(['src/deleted.ts']);
-      expect(report.trackedSourceCount).toBe(2);
-      expect(report.admittedTrackedCount).toBe(1);
-      expect(report.indexedFileCount).toBe(2);
+        expect(report.gap).toBe(true);
+        expect(report.includeGap).toEqual(['scripts/tool.mjs']);
+        expect(report.deadRows).toEqual(['src/deleted.ts']);
+        expect(report.trackedSourceCount).toBe(2);
+        expect(report.admittedTrackedCount).toBe(1);
+        expect(report.indexedFileCount).toBe(2);
 
-      // And the check built on it blocks.
-      const checks = runCheck(makeContext({ codegraphIndexIntegrityProbe: () => report }));
-      expect(checks[0]?.ok).toBe(false);
-    } finally {
-      rmSync(root, { recursive: true, force: true });
+        // And the check built on it blocks.
+        const checks = runCheck(makeContext({ codegraphIndexIntegrityProbe: () => report }));
+        expect(checks[0]?.ok).toBe(false);
+      } finally {
+        rmSync(root, { recursive: true, force: true });
+      }
     }
-  });
+  );
 
-  it('should find no index to inspect on a project whose codegraph dir holds only a config', () => {
-    // This is WHY the default probe is guarded on the index's presence:
-    // the inspector opens the db with `fileMustExist`, so a config-only
-    // (pre-init / dangling) project throws instead of reporting a
-    // 100%-stale index. The guard is load-bearing, not decoration.
-    const root = mkdtempSync(join(tmpdir(), 'peaks-cg-noindex-'));
-    try {
-      // A git work tree, so the ONLY thing missing is the index itself.
-      execFileSync('git', ['-C', root, 'init', '-q'], { stdio: 'ignore', windowsHide: true });
-      mkdirSync(join(root, '.codegraph'), { recursive: true });
-      writeFileSync(
-        join(root, '.codegraph', 'config.json'),
-        `${JSON.stringify({ version: 1, include: ['**/*.ts'], exclude: [] }, null, 2)}\n`,
-        'utf8'
-      );
+  it(
+    'should find no index to inspect on a project whose codegraph dir holds only a config',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    () => {
+      // This is WHY the default probe is guarded on the index's presence:
+      // the inspector opens the db with `fileMustExist`, so a config-only
+      // (pre-init / dangling) project throws instead of reporting a
+      // 100%-stale index. The guard is load-bearing, not decoration.
+      const root = mkdtempSync(join(tmpdir(), 'peaks-cg-noindex-'));
+      try {
+        // A git work tree, so the ONLY thing missing is the index itself.
+        execFileSync('git', ['-C', root, 'init', '-q'], { stdio: 'ignore', windowsHide: true });
+        mkdirSync(join(root, '.codegraph'), { recursive: true });
+        writeFileSync(
+          join(root, '.codegraph', 'config.json'),
+          `${JSON.stringify({ version: 1, include: ['**/*.ts'], exclude: [] }, null, 2)}\n`,
+          'utf8'
+        );
 
-      expect(existsSync(join(root, '.codegraph', 'codegraph.db'))).toBe(false);
-      expect(() => inspectCodegraphIndexIntegrity(root)).toThrow(/codegraph\.db/);
-    } finally {
-      rmSync(root, { recursive: true, force: true });
+        expect(existsSync(join(root, '.codegraph', 'codegraph.db'))).toBe(false);
+        expect(() => inspectCodegraphIndexIntegrity(root)).toThrow(/codegraph\.db/);
+      } finally {
+        rmSync(root, { recursive: true, force: true });
+      }
     }
-  });
+  );
 });

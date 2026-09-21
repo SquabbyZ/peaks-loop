@@ -108,6 +108,7 @@ import {
   inspectCodegraphIndexIntegrityFrom,
   renderCodegraphIndexIntegrityLines
 } from '../../../../src/services/codegraph/codegraph-index-integrity.js';
+import { SUBPROCESS_TEST_TIMEOUT_MS } from '../../_setup/subprocess-timeouts.js';
 
 // ── fixture ──────────────────────────────────────────────────────────
 
@@ -205,85 +206,97 @@ function trackedFilesOf(root: string): ReadonlySet<string> {
 // ── behavior: equivalence with the per-row stat ──────────────────────
 
 describe('codegraph index path-exists predicate (equivalence)', () => {
-  it('should answer every row exactly as the per-row stat does', () => {
-    const { root, present, gone } = buildTrapFixture();
+  it(
+    'should answer every row exactly as the per-row stat does',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    () => {
+      const { root, present, gone } = buildTrapFixture();
 
-    // Every class the cache must not silently change: a plain file, an
-    // uncommitted-but-present file, a row that is gone, a directory, a
-    // trailing-slash row, the empty row, a junction, a broken junction, a
-    // path THROUGH a junction, a path through a broken junction, a
-    // case-differing path, and a trailing slash on a FILE.
-    const rows = [
-      ...present,
-      ...gone,
-      'src',
-      'src/',
-      '',
-      'goodjunc',
-      'brokenjunc',
-      'goodjunc/new-1.ts',
-      'brokenjunc/new-1.ts',
-      'SRC/NEW-1.TS',
-      'src/new-1.ts/'
-    ];
+      // Every class the cache must not silently change: a plain file, an
+      // uncommitted-but-present file, a row that is gone, a directory, a
+      // trailing-slash row, the empty row, a junction, a broken junction, a
+      // path THROUGH a junction, a path through a broken junction, a
+      // case-differing path, and a trailing slash on a FILE.
+      const rows = [
+        ...present,
+        ...gone,
+        'src',
+        'src/',
+        '',
+        'goodjunc',
+        'brokenjunc',
+        'goodjunc/new-1.ts',
+        'brokenjunc/new-1.ts',
+        'SRC/NEW-1.TS',
+        'src/new-1.ts/'
+      ];
 
-    const resolver = createCodegraphIndexPathExists();
-    const oracle = rows.map((row) => __fs.realExists(join(root, row)));
-    const actual = rows.map((row) => resolver(root, row));
+      const resolver = createCodegraphIndexPathExists();
+      const oracle = rows.map((row) => __fs.realExists(join(root, row)));
+      const actual = rows.map((row) => resolver(root, row));
 
-    // The oracle must carry BOTH outcomes, or this test cannot fail for the
-    // right reason: a fixture of all-true rows would pass under any
-    // predicate that simply returns true.
-    expect(oracle).toContain(true);
-    expect(oracle).toContain(false);
+      // The oracle must carry BOTH outcomes, or this test cannot fail for the
+      // right reason: a fixture of all-true rows would pass under any
+      // predicate that simply returns true.
+      expect(oracle).toContain(true);
+      expect(oracle).toContain(false);
 
-    expect(actual).toEqual(oracle);
-  });
+      expect(actual).toEqual(oracle);
+    }
+  );
 
-  it('should MISS the cache on a case-differing row and let the stat decide', () => {
-    const { root } = buildTrapFixture();
-    const resolver = createCodegraphIndexPathExists();
+  it(
+    'should MISS the cache on a case-differing row and let the stat decide',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    () => {
+      const { root } = buildTrapFixture();
+      const resolver = createCodegraphIndexPathExists();
 
-    // `caseFoldingFs` is a runtime probe of the actual filesystem, not an
-    // assumption about the platform: the same code must produce the disk's
-    // answer on a case-insensitive Windows volume AND on a case-sensitive
-    // Linux ext4 checkout.
-    const caseFoldingFs = __fs.realExists(join(root, 'SRC'));
+      // `caseFoldingFs` is a runtime probe of the actual filesystem, not an
+      // assumption about the platform: the same code must produce the disk's
+      // answer on a case-insensitive Windows volume AND on a case-sensitive
+      // Linux ext4 checkout.
+      const caseFoldingFs = __fs.realExists(join(root, 'SRC'));
 
-    resetCounters();
-    const answer = resolver(root, 'SRC/NEW-1.TS');
+      resetCounters();
+      const answer = resolver(root, 'SRC/NEW-1.TS');
 
-    expect(answer).toBe(caseFoldingFs);
-    // The mechanism, pinned: the listing carries the ON-DISK spelling, so the
-    // case-differing row is a miss and falls through to the stat. A resolver
-    // that answered from the listing alone would be WRONG on a
-    // case-sensitive filesystem and would not stat here.
-    expect(
-      __fs.existsCalls.filter((filePath) => filePath === join(root, 'SRC/NEW-1.TS'))
-    ).toHaveLength(1);
-  });
+      expect(answer).toBe(caseFoldingFs);
+      // The mechanism, pinned: the listing carries the ON-DISK spelling, so the
+      // case-differing row is a miss and falls through to the stat. A resolver
+      // that answered from the listing alone would be WRONG on a
+      // case-sensitive filesystem and would not stat here.
+      expect(
+        __fs.existsCalls.filter((filePath) => filePath === join(root, 'SRC/NEW-1.TS'))
+      ).toHaveLength(1);
+    }
+  );
 });
 
 // ── behavior: the 11-vs-4 trap ───────────────────────────────────────
 
 describe('codegraph index path-exists predicate (absent-from-disk, not git-membership)', () => {
-  it('should call an uncommitted-but-present file alive, where git membership calls it dead', () => {
-    const { root, present, gone } = buildTrapFixture();
-    const rows = [...present, ...gone];
-    const resolver = createCodegraphIndexPathExists();
+  it(
+    'should call an uncommitted-but-present file alive, where git membership calls it dead',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    () => {
+      const { root, present, gone } = buildTrapFixture();
+      const rows = [...present, ...gone];
+      const resolver = createCodegraphIndexPathExists();
 
-    const deadByDisk = rows.filter((row) => !resolver(root, row));
-    const tracked = trackedFilesOf(root);
-    const deadByGit = rows.filter((row) => !tracked.has(row));
+      const deadByDisk = rows.filter((row) => !resolver(root, row));
+      const tracked = trackedFilesOf(root);
+      const deadByGit = rows.filter((row) => !tracked.has(row));
 
-    // The trap, pinned as a DISCRIMINATOR: the two predicates must disagree,
-    // and in the recorded direction (11 vs 4). A fixture where they agreed
-    // would prove nothing about which one this module implements.
-    expect(deadByGit).toEqual([...present.slice(4), ...gone]);
-    expect(deadByGit).toHaveLength(11);
-    expect(deadByDisk).toEqual(gone);
-    expect(deadByDisk).toHaveLength(4);
-  });
+      // The trap, pinned as a DISCRIMINATOR: the two predicates must disagree,
+      // and in the recorded direction (11 vs 4). A fixture where they agreed
+      // would prove nothing about which one this module implements.
+      expect(deadByGit).toEqual([...present.slice(4), ...gone]);
+      expect(deadByGit).toHaveLength(11);
+      expect(deadByDisk).toEqual(gone);
+      expect(deadByDisk).toHaveLength(4);
+    }
+  );
 });
 
 // ── integration: the production entry point stays bounded ────────────
@@ -339,62 +352,70 @@ describe('codegraph index path-exists predicate (bounded calls)', () => {
     return { root, liveRows: live, deadRows };
   }
 
-  it('should read each named directory once and stat only the rows it could not confirm', () => {
-    const { root, liveRows, deadRows } = buildIndexedProject(240, 3, 5);
-    const liveRowPaths = new Set(liveRows.map((row) => join(root, row)));
-    const deadRowPaths = new Set(deadRows.map((row) => join(root, row)));
+  it(
+    'should read each named directory once and stat only the rows it could not confirm',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    () => {
+      const { root, liveRows, deadRows } = buildIndexedProject(240, 3, 5);
+      const liveRowPaths = new Set(liveRows.map((row) => join(root, row)));
+      const deadRowPaths = new Set(deadRows.map((row) => join(root, row)));
 
-    resetCounters();
-    const report = inspectCodegraphIndexIntegrity(root, readCodegraphProjectInputs(root));
+      resetCounters();
+      const report = inspectCodegraphIndexIntegrity(root, readCodegraphProjectInputs(root));
 
-    // The answer is unchanged: exactly the rows that are gone.
-    expect(report.deadRows).toEqual(deadRows);
-    expect(report.includeGap).toEqual([]);
+      // The answer is unchanged: exactly the rows that are gone.
+      expect(report.deadRows).toEqual(deadRows);
+      expect(report.includeGap).toEqual([]);
 
-    // THE BOUND. A live row is confirmed from a listing, so no `existsSync`
-    // may ever name a live row's own path. Reverting `inspectCodegraphIndex
-    // Integrity` to the bare per-row stat makes this 240 long.
-    expect(__fs.existsCalls.filter((filePath) => liveRowPaths.has(filePath))).toEqual([]);
+      // THE BOUND. A live row is confirmed from a listing, so no `existsSync`
+      // may ever name a live row's own path. Reverting `inspectCodegraphIndex
+      // Integrity` to the bare per-row stat makes this 240 long.
+      expect(__fs.existsCalls.filter((filePath) => liveRowPaths.has(filePath))).toEqual([]);
 
-    // Only the misses fall through to the stat, and only once each.
-    expect(__fs.existsCalls.filter((filePath) => deadRowPaths.has(filePath))).toHaveLength(
-      deadRows.length
-    );
+      // Only the misses fall through to the stat, and only once each.
+      expect(__fs.existsCalls.filter((filePath) => deadRowPaths.has(filePath))).toHaveLength(
+        deadRows.length
+      );
 
-    // Each distinct parent directory is listed exactly once (the memo), so
-    // the listing count is bounded by the directories the index names — 3
-    // here — and not by its 245 rows.
-    const listedDirectories = insideRoot(root, __fs.readdirCalls);
-    expect(new Set(listedDirectories).size).toBe(3);
-    expect(listedDirectories).toHaveLength(3);
-  });
+      // Each distinct parent directory is listed exactly once (the memo), so
+      // the listing count is bounded by the directories the index names — 3
+      // here — and not by its 245 rows.
+      const listedDirectories = insideRoot(root, __fs.readdirCalls);
+      expect(new Set(listedDirectories).size).toBe(3);
+      expect(listedDirectories).toHaveLength(3);
+    }
+  );
 });
 
 // ── a11y: the operator-visible consequence ───────────────────────────
 
 describe('codegraph index path-exists predicate (human report)', () => {
-  it('should not print a live-but-uncommitted file as a stale row', () => {
-    const { root, present, gone } = buildTrapFixture();
-    const pathExists = createCodegraphIndexPathExists();
+  it(
+    'should not print a live-but-uncommitted file as a stale row',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    () => {
+      const { root, present, gone } = buildTrapFixture();
+      const pathExists = createCodegraphIndexPathExists();
 
-    const report = inspectCodegraphIndexIntegrityFrom({
-      configPath: join(root, '.codegraph', 'config.json'),
-      databasePath: join(root, '.codegraph', 'codegraph.db'),
-      trackedFiles: [...present],
-      include: ['**/*.ts'],
-      indexedPaths: [...present, ...gone],
-      supportsPath: () => true,
-      pathExists: (row) => pathExists(root, row)
-    });
+      const report = inspectCodegraphIndexIntegrityFrom({
+        configPath: join(root, '.codegraph', 'config.json'),
+        databasePath: join(root, '.codegraph', 'codegraph.db'),
+        trackedFiles: [...present],
+        include: ['**/*.ts'],
+        indexedPaths: [...present, ...gone],
+        supportsPath: () => true,
+        pathExists: (row) => pathExists(root, row)
+      });
 
-    expect(report.deadRows).toEqual(gone);
+      expect(report.deadRows).toEqual(gone);
 
-    const lines = renderCodegraphIndexIntegrityLines(report, false);
-    const staleLines = lines.filter((line) => line.startsWith('  stale: '));
+      const lines = renderCodegraphIndexIntegrityLines(report, false);
+      const staleLines = lines.filter((line) => line.startsWith('  stale: '));
 
-    expect(staleLines).toHaveLength(gone.length);
-    for (const row of gone) {
-      expect(staleLines).toContain(`  stale: ${row}`);
+      expect(staleLines).toHaveLength(gone.length);
+      for (const row of gone) {
+        expect(staleLines).toContain(`  stale: ${row}`);
+      }
     }
-  });
+  );
 });

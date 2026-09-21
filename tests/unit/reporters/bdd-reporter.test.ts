@@ -26,6 +26,7 @@ import { spawnSync } from 'node:child_process';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
+import { SUBPROCESS_TEST_TIMEOUT_MS } from '../_setup/subprocess-timeouts.js';
 
 /**
  * The fixture test files must live OUTSIDE `vitest.config.ts`'s include glob
@@ -114,56 +115,66 @@ function runWithReporter(testFileAbsPath: string): RunResult {
 }
 
 describe('bdd-reporter — passing tests', () => {
-  it('case 1: passing test emits Feature + Scenario + Given/When/Then pass line', () => {
-    const file = writeTestFile(
-      'happy-path',
-      `import { describe, expect, it } from 'vitest';
+  it(
+    'case 1: passing test emits Feature + Scenario + Given/When/Then pass line',
+    () => {
+      const file = writeTestFile(
+        'happy-path',
+        `import { describe, expect, it } from 'vitest';
 describe('happy path', () => {
   it('when adding two numbers, should sum them', () => {
     expect(1 + 1).toBe(2);
   });
 });
 `
-    );
-    const { stdout } = runWithReporter(file);
-    expect(stdout).toMatch(/Feature: happy-path\.test\.ts/);
-    expect(stdout).toMatch(/Scenario: happy path/);
-    expect(stdout).toMatch(/Given when adding two numbers, should sum them/);
-    expect(stdout).toMatch(/Then\s+should pass/);
-    // Failing-only branch must NOT appear on a green run.
-    expect(stdout).not.toMatch(/FAILED:/);
-  }, 60_000);
+      );
+      const { stdout } = runWithReporter(file);
+      expect(stdout).toMatch(/Feature: happy-path\.test\.ts/);
+      expect(stdout).toMatch(/Scenario: happy path/);
+      expect(stdout).toMatch(/Given when adding two numbers, should sum them/);
+      expect(stdout).toMatch(/Then\s+should pass/);
+      // Failing-only branch must NOT appear on a green run.
+      expect(stdout).not.toMatch(/FAILED:/);
+    },
+    SUBPROCESS_TEST_TIMEOUT_MS
+  );
 });
 
 describe('bdd-reporter — failing tests', () => {
-  it('case 2: failing test emits FAILED: <name> + error reason', () => {
-    const file = writeTestFile(
-      'broken-path',
-      `import { describe, expect, it } from 'vitest';
+  it(
+    'case 2: failing test emits FAILED: <name> + error reason',
+    () => {
+      const file = writeTestFile(
+        'broken-path',
+        `import { describe, expect, it } from 'vitest';
 describe('broken path', () => {
   it('when dividing by zero, should throw', () => {
     expect(1 / 0).toBe(42);
   });
 });
 `
-    );
-    const { stdout, status } = runWithReporter(file);
-    expect(status).not.toBe(0);
-    expect(stdout).toMatch(/Feature: broken-path\.test\.ts/);
-    expect(stdout).toMatch(/FAILED: when dividing by zero, should throw/);
-    // The truncated error reason must include the assertion failure text.
-    // vitest 4.x emits "expected <actual> to be <expected>" — we assert
-    // loosely on the actual + expected values to stay format-stable.
-    expect(stdout).toMatch(/Infinity/);
-    expect(stdout).toMatch(/42/);
-  }, 60_000);
+      );
+      const { stdout, status } = runWithReporter(file);
+      expect(status).not.toBe(0);
+      expect(stdout).toMatch(/Feature: broken-path\.test\.ts/);
+      expect(stdout).toMatch(/FAILED: when dividing by zero, should throw/);
+      // The truncated error reason must include the assertion failure text.
+      // vitest 4.x emits "expected <actual> to be <expected>" — we assert
+      // loosely on the actual + expected values to stay format-stable.
+      expect(stdout).toMatch(/Infinity/);
+      expect(stdout).toMatch(/42/);
+    },
+    SUBPROCESS_TEST_TIMEOUT_MS
+  );
 });
 
 describe('bdd-reporter — nested describes', () => {
-  it('case 3: multiple nested describes produce multiple Scenarios under one Feature', () => {
-    const file = writeTestFile(
-      'multi-describe',
-      `import { describe, expect, it } from 'vitest';
+  it(
+    'case 3: multiple nested describes produce multiple Scenarios under one Feature',
+    () => {
+      const file = writeTestFile(
+        'multi-describe',
+        `import { describe, expect, it } from 'vitest';
 describe('outer', () => {
   describe('inner-a', () => {
     it('when A, should produce A', () => {
@@ -177,33 +188,39 @@ describe('outer', () => {
   });
 });
 `
-    );
-    const { stdout } = runWithReporter(file);
-    expect(stdout).toMatch(/Feature: multi-describe\.test\.ts/);
-    // At least two distinct Scenario labels must appear.
-    const scenarios = stdout.match(/Scenario: [^\n]+/g) ?? [];
-    expect(scenarios.length).toBeGreaterThanOrEqual(2);
-    expect(stdout).toMatch(/Scenario: inner-a/);
-    expect(stdout).toMatch(/Scenario: inner-b/);
-  }, 60_000);
+      );
+      const { stdout } = runWithReporter(file);
+      expect(stdout).toMatch(/Feature: multi-describe\.test\.ts/);
+      // At least two distinct Scenario labels must appear.
+      const scenarios = stdout.match(/Scenario: [^\n]+/g) ?? [];
+      expect(scenarios.length).toBeGreaterThanOrEqual(2);
+      expect(stdout).toMatch(/Scenario: inner-a/);
+      expect(stdout).toMatch(/Scenario: inner-b/);
+    },
+    SUBPROCESS_TEST_TIMEOUT_MS
+  );
 });
 
 describe('bdd-reporter — empty test file', () => {
-  it('case 4: test file with no it() blocks emits Feature line but zero Scenarios', () => {
-    const file = writeTestFile(
-      'empty-suite',
-      `import { describe, expect, it } from 'vitest';
+  it(
+    'case 4: test file with no it() blocks emits Feature line but zero Scenarios',
+    () => {
+      const file = writeTestFile(
+        'empty-suite',
+        `import { describe, expect, it } from 'vitest';
 describe('no tests here', () => {
   // intentionally empty
 });
 `
-    );
-    const { stdout } = runWithReporter(file);
-    expect(stdout).toMatch(/Feature: empty-suite\.test\.ts/);
-    // No Scenario lines for the empty describe — it never ran a test.
-    // (The header may still print "no tests ran" — we only assert
-    // Scenario: lines are absent.)
-    expect(stdout).not.toMatch(/Scenario: no tests here/);
-    expect(stdout).not.toMatch(/FAILED:/);
-  }, 60_000);
+      );
+      const { stdout } = runWithReporter(file);
+      expect(stdout).toMatch(/Feature: empty-suite\.test\.ts/);
+      // No Scenario lines for the empty describe — it never ran a test.
+      // (The header may still print "no tests ran" — we only assert
+      // Scenario: lines are absent.)
+      expect(stdout).not.toMatch(/Scenario: no tests here/);
+      expect(stdout).not.toMatch(/FAILED:/);
+    },
+    SUBPROCESS_TEST_TIMEOUT_MS
+  );
 });

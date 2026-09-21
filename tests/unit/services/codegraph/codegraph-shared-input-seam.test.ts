@@ -55,6 +55,7 @@ import {
 import { inspectCodegraphExcludeIntegrity } from '../../../../src/services/codegraph/codegraph-exclude-integrity.js';
 import { inspectCodegraphIndexIntegrity } from '../../../../src/services/codegraph/codegraph-index-integrity.js';
 import { declareDimensions } from '../../_setup/4dim-template.js';
+import { HEAVY_SUBPROCESS_TEST_TIMEOUT_MS } from '../../_setup/subprocess-timeouts.js';
 
 declareDimensions(
   'tests/unit/services/codegraph/codegraph-shared-input-seam.test.ts',
@@ -188,207 +189,250 @@ describe('behavior — what an empty tracked list actually means', () => {
 // ── behavior + integration: back-compat of the six verified probe shapes ──
 
 describe('behavior — every verified probe shape still matches the no-seam call', () => {
-  it('should be bit-identical on the exclude axis', () => {
-    const root = makeGappedRoot();
-    const noSeam = inspectCodegraphExcludeIntegrity(root);
+  it(
+    'should be bit-identical on the exclude axis',
+    { timeout: HEAVY_SUBPROCESS_TEST_TIMEOUT_MS },
+    () => {
+      const root = makeGappedRoot();
+      const noSeam = inspectCodegraphExcludeIntegrity(root);
 
-    // Clean control FIRST: equivalence between two clean reports would be
-    // vacuous, so the baseline must be a real gap before it is compared.
-    expect(noSeam.gap).toBe(true);
-    expect(noSeam.trackedSourceCount).toBe(1);
-    expect(noSeam.violations).toEqual([{ path: 'src/ok.ts', matchedRule: '**/ok.ts' }]);
+      // Clean control FIRST: equivalence between two clean reports would be
+      // vacuous, so the baseline must be a real gap before it is compared.
+      expect(noSeam.gap).toBe(true);
+      expect(noSeam.trackedSourceCount).toBe(1);
+      expect(noSeam.violations).toEqual([{ path: 'src/ok.ts', matchedRule: '**/ok.ts' }]);
 
-    const realTracked = readTrackedFiles(root);
-    const realConfig = readCodegraphExcludeConfig(root);
+      const realTracked = readTrackedFiles(root);
+      const realConfig = readCodegraphExcludeConfig(root);
 
-    const shapes: readonly { readonly name: string; readonly probe: () => unknown }[] = [
-      { name: '{} (empty object)', probe: () => inspectCodegraphExcludeIntegrity(root, {}) },
-      {
-        name: '{trackedFiles: undefined, config: undefined}',
-        probe: () =>
-          inspectCodegraphExcludeIntegrity(root, { trackedFiles: undefined, config: undefined })
-      },
-      {
-        name: 'config-only (tracked omitted -> real read)',
-        probe: () => inspectCodegraphExcludeIntegrity(root, { config: realConfig })
-      },
-      {
-        name: 'tracked-only (config omitted -> real read)',
-        probe: () => inspectCodegraphExcludeIntegrity(root, { trackedFiles: realTracked })
-      },
-      {
-        name: 'the full shared read',
-        probe: () => inspectCodegraphExcludeIntegrity(root, readCodegraphProjectInputs(root))
+      const shapes: readonly { readonly name: string; readonly probe: () => unknown }[] = [
+        { name: '{} (empty object)', probe: () => inspectCodegraphExcludeIntegrity(root, {}) },
+        {
+          name: '{trackedFiles: undefined, config: undefined}',
+          probe: () =>
+            inspectCodegraphExcludeIntegrity(root, { trackedFiles: undefined, config: undefined })
+        },
+        {
+          name: 'config-only (tracked omitted -> real read)',
+          probe: () => inspectCodegraphExcludeIntegrity(root, { config: realConfig })
+        },
+        {
+          name: 'tracked-only (config omitted -> real read)',
+          probe: () => inspectCodegraphExcludeIntegrity(root, { trackedFiles: realTracked })
+        },
+        {
+          name: 'the full shared read',
+          probe: () => inspectCodegraphExcludeIntegrity(root, readCodegraphProjectInputs(root))
+        }
+      ];
+
+      for (const shape of shapes) {
+        expect(JSON.stringify(shape.probe()), shape.name).toBe(JSON.stringify(noSeam));
       }
-    ];
-
-    for (const shape of shapes) {
-      expect(JSON.stringify(shape.probe()), shape.name).toBe(JSON.stringify(noSeam));
     }
-  });
+  );
 
-  it('should be bit-identical on the index axis', () => {
-    const root = makeGappedRoot();
-    const adapters = { readIndexedPaths: () => [...INDEXED_PATHS] };
-    const noSeam = inspectCodegraphIndexIntegrity(root, adapters);
+  it(
+    'should be bit-identical on the index axis',
+    { timeout: HEAVY_SUBPROCESS_TEST_TIMEOUT_MS },
+    () => {
+      const root = makeGappedRoot();
+      const adapters = { readIndexedPaths: () => [...INDEXED_PATHS] };
+      const noSeam = inspectCodegraphIndexIntegrity(root, adapters);
 
-    expect(noSeam.gap).toBe(true);
-    expect(noSeam.trackedSourceCount).toBe(2);
-    expect(noSeam.admittedTrackedCount).toBe(1);
-    expect(noSeam.includeGap).toEqual(['scripts/tool.mjs']);
+      expect(noSeam.gap).toBe(true);
+      expect(noSeam.trackedSourceCount).toBe(2);
+      expect(noSeam.admittedTrackedCount).toBe(1);
+      expect(noSeam.includeGap).toEqual(['scripts/tool.mjs']);
 
-    const realTracked = readTrackedFiles(root);
-    const realConfig = readCodegraphExcludeConfig(root);
+      const realTracked = readTrackedFiles(root);
+      const realConfig = readCodegraphExcludeConfig(root);
 
-    const shapes: readonly { readonly name: string; readonly probe: () => unknown }[] = [
-      {
-        name: '{} (empty object)',
-        probe: () => inspectCodegraphIndexIntegrity(root, { ...adapters })
-      },
-      {
-        name: '{trackedFiles: undefined, config: undefined}',
-        probe: () =>
-          inspectCodegraphIndexIntegrity(root, {
-            ...adapters,
-            trackedFiles: undefined,
-            config: undefined
-          })
-      },
-      {
-        name: 'config-only (tracked omitted -> real read)',
-        probe: () => inspectCodegraphIndexIntegrity(root, { ...adapters, config: realConfig })
-      },
-      {
-        name: 'tracked-only (config omitted -> real read)',
-        probe: () =>
-          inspectCodegraphIndexIntegrity(root, { ...adapters, trackedFiles: realTracked })
-      },
-      {
-        name: 'the full shared read',
-        probe: () =>
-          inspectCodegraphIndexIntegrity(root, { ...adapters, ...readCodegraphProjectInputs(root) })
+      const shapes: readonly { readonly name: string; readonly probe: () => unknown }[] = [
+        {
+          name: '{} (empty object)',
+          probe: () => inspectCodegraphIndexIntegrity(root, { ...adapters })
+        },
+        {
+          name: '{trackedFiles: undefined, config: undefined}',
+          probe: () =>
+            inspectCodegraphIndexIntegrity(root, {
+              ...adapters,
+              trackedFiles: undefined,
+              config: undefined
+            })
+        },
+        {
+          name: 'config-only (tracked omitted -> real read)',
+          probe: () => inspectCodegraphIndexIntegrity(root, { ...adapters, config: realConfig })
+        },
+        {
+          name: 'tracked-only (config omitted -> real read)',
+          probe: () =>
+            inspectCodegraphIndexIntegrity(root, { ...adapters, trackedFiles: realTracked })
+        },
+        {
+          name: 'the full shared read',
+          probe: () =>
+            inspectCodegraphIndexIntegrity(root, {
+              ...adapters,
+              ...readCodegraphProjectInputs(root)
+            })
+        }
+      ];
+
+      for (const shape of shapes) {
+        expect(JSON.stringify(shape.probe()), shape.name).toBe(JSON.stringify(noSeam));
       }
-    ];
-
-    for (const shape of shapes) {
-      expect(JSON.stringify(shape.probe()), shape.name).toBe(JSON.stringify(noSeam));
     }
-  });
+  );
 });
 
 // ── integration: an empty READ is still legal, only a fabricated one is not ──
 
 describe('integration — a legitimately empty read is not the thing being refused', () => {
-  it('should accept an empty tracked list that the reader really produced', () => {
-    const root = makeEmptyRoot();
+  it(
+    'should accept an empty tracked list that the reader really produced',
+    { timeout: HEAVY_SUBPROCESS_TEST_TIMEOUT_MS },
+    () => {
+      const root = makeEmptyRoot();
 
-    // The reader's own answer for a repo that tracks nothing IS `[]`. The
-    // discriminator is provenance, not emptiness: refusing this would report
-    // a spurious warning on an empty repository.
-    expect(readTrackedFiles(root)).toEqual([]);
+      // The reader's own answer for a repo that tracks nothing IS `[]`. The
+      // discriminator is provenance, not emptiness: refusing this would report
+      // a spurious warning on an empty repository.
+      expect(readTrackedFiles(root)).toEqual([]);
 
-    const noSeam = inspectCodegraphExcludeIntegrity(root);
-    const withSeam = inspectCodegraphExcludeIntegrity(root, readCodegraphProjectInputs(root));
+      const noSeam = inspectCodegraphExcludeIntegrity(root);
+      const withSeam = inspectCodegraphExcludeIntegrity(root, readCodegraphProjectInputs(root));
 
-    expect(noSeam.gap).toBe(false);
-    expect(noSeam.trackedSourceCount).toBe(0);
-    expect(JSON.stringify(withSeam)).toBe(JSON.stringify(noSeam));
-  });
+      expect(noSeam.gap).toBe(false);
+      expect(noSeam.trackedSourceCount).toBe(0);
+      expect(JSON.stringify(withSeam)).toBe(JSON.stringify(noSeam));
+    }
+  );
 
-  it('should accept an empty tracked list on the index axis too', () => {
-    const root = makeEmptyRoot();
-    const adapters = { readIndexedPaths: () => [] };
+  it(
+    'should accept an empty tracked list on the index axis too',
+    { timeout: HEAVY_SUBPROCESS_TEST_TIMEOUT_MS },
+    () => {
+      const root = makeEmptyRoot();
+      const adapters = { readIndexedPaths: () => [] };
 
-    const noSeam = inspectCodegraphIndexIntegrity(root, adapters);
-    const withSeam = inspectCodegraphIndexIntegrity(root, {
-      ...adapters,
-      ...readCodegraphProjectInputs(root)
-    });
+      const noSeam = inspectCodegraphIndexIntegrity(root, adapters);
+      const withSeam = inspectCodegraphIndexIntegrity(root, {
+        ...adapters,
+        ...readCodegraphProjectInputs(root)
+      });
 
-    expect(noSeam.gap).toBe(false);
-    expect(JSON.stringify(withSeam)).toBe(JSON.stringify(noSeam));
-  });
+      expect(noSeam.gap).toBe(false);
+      expect(JSON.stringify(withSeam)).toBe(JSON.stringify(noSeam));
+    }
+  );
 });
 
 // ── behavior + a11y: the fabricated value is refused, loudly ──────────
 
 describe('behavior — an explicit empty value is refused on both axes', () => {
-  it('should refuse a hand-built empty tracked list on the exclude axis', () => {
-    const root = makeGappedRoot();
+  it(
+    'should refuse a hand-built empty tracked list on the exclude axis',
+    { timeout: HEAVY_SUBPROCESS_TEST_TIMEOUT_MS },
+    () => {
+      const root = makeGappedRoot();
 
-    expect(() =>
-      inspectCodegraphExcludeIntegrity(root, { trackedFiles: forgedTrackedFiles })
-    ).toThrow(/"trackedFiles" did not come from readTrackedFiles/);
-  });
-
-  it('should refuse a hand-built empty config on the exclude axis', () => {
-    const root = makeGappedRoot();
-
-    expect(() => inspectCodegraphExcludeIntegrity(root, { config: forgedConfig })).toThrow(
-      /"config" did not come from readCodegraphExcludeConfig/
-    );
-  });
-
-  it('should refuse a hand-built empty tracked list on the index axis', () => {
-    const root = makeGappedRoot();
-
-    expect(() =>
-      inspectCodegraphIndexIntegrity(root, {
-        readIndexedPaths: () => [...INDEXED_PATHS],
-        trackedFiles: forgedTrackedFiles
-      })
-    ).toThrow(/"trackedFiles" did not come from readTrackedFiles/);
-  });
-
-  it('should refuse a hand-built empty config on the index axis', () => {
-    const root = makeGappedRoot();
-
-    expect(() =>
-      inspectCodegraphIndexIntegrity(root, {
-        readIndexedPaths: () => [...INDEXED_PATHS],
-        config: forgedConfig
-      })
-    ).toThrow(/"config" did not come from readCodegraphExcludeConfig/);
-  });
-
-  it('should name the producer and the remedy, so the message is actionable', () => {
-    const root = makeGappedRoot();
-    let message = '';
-
-    try {
-      inspectCodegraphExcludeIntegrity(root, { trackedFiles: forgedTrackedFiles });
-    } catch (error) {
-      message = error instanceof Error ? error.message : String(error);
+      expect(() =>
+        inspectCodegraphExcludeIntegrity(root, { trackedFiles: forgedTrackedFiles })
+      ).toThrow(/"trackedFiles" did not come from readTrackedFiles/);
     }
+  );
 
-    expect(message).toContain('readCodegraphProjectInputs(projectRoot)');
-    expect(message).toContain('CLEAN on both codegraph axes');
-  });
+  it(
+    'should refuse a hand-built empty config on the exclude axis',
+    { timeout: HEAVY_SUBPROCESS_TEST_TIMEOUT_MS },
+    () => {
+      const root = makeGappedRoot();
+
+      expect(() => inspectCodegraphExcludeIntegrity(root, { config: forgedConfig })).toThrow(
+        /"config" did not come from readCodegraphExcludeConfig/
+      );
+    }
+  );
+
+  it(
+    'should refuse a hand-built empty tracked list on the index axis',
+    { timeout: HEAVY_SUBPROCESS_TEST_TIMEOUT_MS },
+    () => {
+      const root = makeGappedRoot();
+
+      expect(() =>
+        inspectCodegraphIndexIntegrity(root, {
+          readIndexedPaths: () => [...INDEXED_PATHS],
+          trackedFiles: forgedTrackedFiles
+        })
+      ).toThrow(/"trackedFiles" did not come from readTrackedFiles/);
+    }
+  );
+
+  it(
+    'should refuse a hand-built empty config on the index axis',
+    { timeout: HEAVY_SUBPROCESS_TEST_TIMEOUT_MS },
+    () => {
+      const root = makeGappedRoot();
+
+      expect(() =>
+        inspectCodegraphIndexIntegrity(root, {
+          readIndexedPaths: () => [...INDEXED_PATHS],
+          config: forgedConfig
+        })
+      ).toThrow(/"config" did not come from readCodegraphExcludeConfig/);
+    }
+  );
+
+  it(
+    'should name the producer and the remedy, so the message is actionable',
+    { timeout: HEAVY_SUBPROCESS_TEST_TIMEOUT_MS },
+    () => {
+      const root = makeGappedRoot();
+      let message = '';
+
+      try {
+        inspectCodegraphExcludeIntegrity(root, { trackedFiles: forgedTrackedFiles });
+      } catch (error) {
+        message = error instanceof Error ? error.message : String(error);
+      }
+
+      expect(message).toContain('readCodegraphProjectInputs(projectRoot)');
+      expect(message).toContain('CLEAN on both codegraph axes');
+    }
+  );
 });
 
 // ── behavior: the type system refuses it too (the compile-time half) ──
 
 describe('behavior — the type system refuses a fabricated value as well', () => {
-  it('should reject an empty literal at compile time and at run time', () => {
-    // The compile-time half: with the read mark on the seam's field types,
-    // each line below is a type error, which is what `@ts-expect-error`
-    // asserts. Remove the mark and `tsc` fails on the now-unused directives.
-    // @ts-expect-error R9 — `[]` is not a read-provenance value
-    const typeLevelRejectedTracked: ReadTrackedFiles = [];
-    // @ts-expect-error R9 — a hand-built config is not a read-provenance value
-    const typeLevelRejectedConfig: ReadCodegraphExcludeConfig = { include: [], exclude: [] };
+  it(
+    'should reject an empty literal at compile time and at run time',
+    { timeout: HEAVY_SUBPROCESS_TEST_TIMEOUT_MS },
+    () => {
+      // The compile-time half: with the read mark on the seam's field types,
+      // each line below is a type error, which is what `@ts-expect-error`
+      // asserts. Remove the mark and `tsc` fails on the now-unused directives.
+      // @ts-expect-error R9 — `[]` is not a read-provenance value
+      const typeLevelRejectedTracked: ReadTrackedFiles = [];
+      // @ts-expect-error R9 — a hand-built config is not a read-provenance value
+      const typeLevelRejectedConfig: ReadCodegraphExcludeConfig = { include: [], exclude: [] };
 
-    // The run-time half, on the very values those declarations produce: the
-    // literal IS `[]` at run time, and `[]` is exactly what the seam refuses.
-    expect(typeLevelRejectedTracked).toEqual([]);
-    expect(typeLevelRejectedConfig).toEqual({ include: [], exclude: [] });
+      // The run-time half, on the very values those declarations produce: the
+      // literal IS `[]` at run time, and `[]` is exactly what the seam refuses.
+      expect(typeLevelRejectedTracked).toEqual([]);
+      expect(typeLevelRejectedConfig).toEqual({ include: [], exclude: [] });
 
-    const root = makeGappedRoot();
-    expect(() =>
-      inspectCodegraphExcludeIntegrity(root, { trackedFiles: typeLevelRejectedTracked })
-    ).toThrow(/did not come from readTrackedFiles/);
-    expect(() =>
-      inspectCodegraphExcludeIntegrity(root, { config: typeLevelRejectedConfig })
-    ).toThrow(/did not come from readCodegraphExcludeConfig/);
-  });
+      const root = makeGappedRoot();
+      expect(() =>
+        inspectCodegraphExcludeIntegrity(root, { trackedFiles: typeLevelRejectedTracked })
+      ).toThrow(/did not come from readTrackedFiles/);
+      expect(() =>
+        inspectCodegraphExcludeIntegrity(root, { config: typeLevelRejectedConfig })
+      ).toThrow(/did not come from readCodegraphExcludeConfig/);
+    }
+  );
 });

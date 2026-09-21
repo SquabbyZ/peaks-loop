@@ -44,6 +44,7 @@ import ts from 'typescript';
 import { describe, expect, it } from 'vitest';
 
 import { declareDimensions } from '../_setup/4dim-template.js';
+import { SUBPROCESS_TEST_TIMEOUT_MS } from '../_setup/subprocess-timeouts.js';
 
 declareDimensions(
   'tests/unit/lint/eslint-rules-config-coverage.test.ts',
@@ -245,16 +246,20 @@ describe('(behavior) the config names no @typescript-eslint ruleId the plugin la
 // ── dimension: integration ────────────────────────────────────────────────
 
 describe('(integration) ignorePatterns swallow no tracked source file', () => {
-  it('no git-tracked code file under src|tests|packages|scripts is ignored', async () => {
-    const files = trackedInScopeFiles();
-    expect(files.length).toBeGreaterThan(1000);
+  it(
+    'no git-tracked code file under src|tests|packages|scripts is ignored',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    async () => {
+      const files = trackedInScopeFiles();
+      expect(files.length).toBeGreaterThan(1000);
 
-    const ignored = await ignoredMap(files);
-    const swallowed = files.filter((f) => ignored.get(f) === true);
-    // Asserted as an empty list rather than a length so a failure names the
-    // directories that collided.
-    expect(swallowed).toEqual([]);
-  });
+      const ignored = await ignoredMap(files);
+      const swallowed = files.filter((f) => ignored.get(f) === true);
+      // Asserted as an empty list rather than a length so a failure names the
+      // directories that collided.
+      expect(swallowed).toEqual([]);
+    }
+  );
 
   it('the repo-root prose / artifact directories are still excluded', async () => {
     const probes = [
@@ -289,59 +294,71 @@ describe('(integration) ignorePatterns swallow no tracked source file', () => {
 });
 
 describe('(integration) parserOptions.project covers scripts/ and packages/', () => {
-  it('eslint lints a scripts/ and a packages/*/src/ sample with no coverage gap', () => {
-    const samples = ['scripts/watch.mjs', 'packages/peaks-loop-mut/src/index.ts'];
-    const results = eslintCli(samples);
-    expect(results.length).toBe(samples.length);
+  it(
+    'eslint lints a scripts/ and a packages/*/src/ sample with no coverage gap',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    () => {
+      const samples = ['scripts/watch.mjs', 'packages/peaks-loop-mut/src/index.ts'];
+      const results = eslintCli(samples);
+      expect(results.length).toBe(samples.length);
 
-    for (const result of results) {
-      // A file eslint skipped is not a clean file — the same fail-closed rule
-      // the husky gate applies. Both failure modes here are silent-by-default:
-      // an uncovered file yields a fatal parse error, an ignored one yields a
-      // warning, and either way "0 lint findings" would be a lie.
-      expect([
-        result.filePath,
-        result.messages.filter((m) => COVERAGE_GAP_RE.test(m.message)).length
-      ]).toEqual([result.filePath, 0]);
-      expect([
-        result.filePath,
-        result.messages.filter((m) => IGNORED_RE.test(m.message)).length
-      ]).toEqual([result.filePath, 0]);
+      for (const result of results) {
+        // A file eslint skipped is not a clean file — the same fail-closed rule
+        // the husky gate applies. Both failure modes here are silent-by-default:
+        // an uncovered file yields a fatal parse error, an ignored one yields a
+        // warning, and either way "0 lint findings" would be a lie.
+        expect([
+          result.filePath,
+          result.messages.filter((m) => COVERAGE_GAP_RE.test(m.message)).length
+        ]).toEqual([result.filePath, 0]);
+        expect([
+          result.filePath,
+          result.messages.filter((m) => IGNORED_RE.test(m.message)).length
+        ]).toEqual([result.filePath, 0]);
+      }
     }
-  });
+  );
 
-  it('the ESLint-only tsconfig contains every tracked in-scope file', () => {
-    // Wiring first: a perfect tsconfig that nothing points at covers nothing,
-    // and without this assertion dropping the project entry is only caught by
-    // the much slower CLI arm above.
-    expect(loadConfig().parserOptions?.project).toContain(`./${LINT_TSCONFIG_REL}`);
+  it(
+    'the ESLint-only tsconfig contains every tracked in-scope file',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    () => {
+      // Wiring first: a perfect tsconfig that nothing points at covers nothing,
+      // and without this assertion dropping the project entry is only caught by
+      // the much slower CLI arm above.
+      expect(loadConfig().parserOptions?.project).toContain(`./${LINT_TSCONFIG_REL}`);
 
-    const abs = join(REPO_ROOT, LINT_TSCONFIG_REL);
-    // Wrapped, not passed detached: `ts.sys.readFile` is a method, and handing
-    // it over unbound trips @typescript-eslint/unbound-method (the tsconfig
-    // hold this file lives in is scanned by the same rules as src/).
-    const raw = ts.readConfigFile(abs, (filePath) => ts.sys.readFile(filePath));
-    expect(raw.error).toBeUndefined();
+      const abs = join(REPO_ROOT, LINT_TSCONFIG_REL);
+      // Wrapped, not passed detached: `ts.sys.readFile` is a method, and handing
+      // it over unbound trips @typescript-eslint/unbound-method (the tsconfig
+      // hold this file lives in is scanned by the same rules as src/).
+      const raw = ts.readConfigFile(abs, (filePath) => ts.sys.readFile(filePath));
+      expect(raw.error).toBeUndefined();
 
-    const parsed = ts.parseJsonConfigFileContent(raw.config, ts.sys, dirname(abs));
-    expect(parsed.errors.map((e) => e.messageText)).toEqual([]);
+      const parsed = ts.parseJsonConfigFileContent(raw.config, ts.sys, dirname(abs));
+      expect(parsed.errors.map((e) => e.messageText)).toEqual([]);
 
-    // TypeScript's extension-priority pass drops a .mjs when a same-named
-    // .d.mts exists, so this arm also covers the manually-listed files in
-    // tsconfig.lint.json — a newly shadowed pair fails here.
-    const separators = /\\/g;
-    const norm = (p: string): string => p.replace(separators, '/').toLowerCase();
-    const inProgram = new Set(parsed.fileNames.map(norm));
-    const missing = trackedInScopeFiles().filter((f) => !inProgram.has(norm(join(REPO_ROOT, f))));
-    expect(missing).toEqual([]);
-  });
+      // TypeScript's extension-priority pass drops a .mjs when a same-named
+      // .d.mts exists, so this arm also covers the manually-listed files in
+      // tsconfig.lint.json — a newly shadowed pair fails here.
+      const separators = /\\/g;
+      const norm = (p: string): string => p.replace(separators, '/').toLowerCase();
+      const inProgram = new Set(parsed.fileNames.map(norm));
+      const missing = trackedInScopeFiles().filter((f) => !inProgram.has(norm(join(REPO_ROOT, f))));
+      expect(missing).toEqual([]);
+    }
+  );
 
   // ARM 2 of 2 — a real gap must still be reported as one, or the arms above
   // are asserting that an always-empty check is empty.
-  it('CONTROL: a file genuinely outside the project is still reported as a gap', () => {
-    const [result] = eslintCli([KNOWN_UNCOVERED_FILE]);
-    expect(result).toBeDefined();
-    const gaps = (result?.messages ?? []).filter((m) => COVERAGE_GAP_RE.test(m.message));
-    expect(gaps.length).toBeGreaterThan(0);
-  });
+  it(
+    'CONTROL: a file genuinely outside the project is still reported as a gap',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    () => {
+      const [result] = eslintCli([KNOWN_UNCOVERED_FILE]);
+      expect(result).toBeDefined();
+      const gaps = (result?.messages ?? []).filter((m) => COVERAGE_GAP_RE.test(m.message));
+      expect(gaps.length).toBeGreaterThan(0);
+    }
+  );
 });

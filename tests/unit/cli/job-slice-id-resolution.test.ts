@@ -34,6 +34,12 @@ import {
   useTmpWorkspace,
   type TmpWorkspace
 } from '../_setup/tmp-workspace.js';
+import { JobStateSchema, type SliceState } from '../../../src/services/job/job-types.js';
+import {
+  JobProgressSchema,
+  type JobProgress
+} from '../../../src/services/job/job-progress-store.js';
+import { parseJson as parseJsonWithSchema } from '../../../src/shared/json-parse.js';
 
 declareDimensions('tests/unit/cli/job-slice-id-resolution.test.ts', [
   'render',
@@ -101,18 +107,18 @@ function jobDir(wsPath: string): string {
   return join(wsPath, '.peaks', '_runtime', JOB_SID, 'job', JOB_ID);
 }
 
-function readSlices(
-  wsPath: string
-): Array<{ sliceId: string; label: string; status: string; commitSha?: string }> {
-  return (
-    JSON.parse(readFileSync(join(jobDir(wsPath), 'state.json'), 'utf8')) as {
-      slices: Array<{ sliceId: string; label: string; status: string; commitSha?: string }>;
-    }
+function readSlices(wsPath: string): SliceState[] {
+  return parseJsonWithSchema(
+    readFileSync(join(jobDir(wsPath), 'state.json'), 'utf8'),
+    JobStateSchema
   ).slices;
 }
 
-function readProgress(wsPath: string): any {
-  return JSON.parse(readFileSync(join(jobDir(wsPath), 'progress.json'), 'utf8'));
+function readProgress(wsPath: string): JobProgress {
+  return parseJsonWithSchema(
+    readFileSync(join(jobDir(wsPath), 'progress.json'), 'utf8'),
+    JobProgressSchema
+  );
 }
 
 describe('Scenario: behavior — --slice-id accepts the label as an alias for its sliceId', () => {

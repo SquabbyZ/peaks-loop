@@ -35,6 +35,7 @@ declareDimensions('tests/unit/services/qa/bdd-test-style-verifier.test.ts', [
 ]);
 
 import { verifyBddStyle, type BddStyleVerdict } from '~/src/services/qa/bdd-test-style-verifier';
+import { SUBPROCESS_TEST_TIMEOUT_MS } from '../../_setup/subprocess-timeouts.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const MIGRATOR_SCRIPT = join(__dirname, '..', '..', '..', '..', 'scripts', 'migrate-to-bdd.mjs');
@@ -335,29 +336,33 @@ describe('Scenario: behavior — edge cases', () => {
 // ---- behavior: round-trip with Slice A migrator ---------------------------
 
 describe('Scenario: behavior — round-trip with Slice A migrator', () => {
-  it('when a legacy AAA test file is migrated by Slice A, the verifier should accept the result', () => {
-    // Take a known-AAA sample, run it through the Slice A migrator,
-    // then verify the output. This is the only test that depends on
-    // the migrator — it pins the contract between the two halves
-    // of the BDD enforcement stack.
-    const legacy = [
-      `import { it, expect } from 'vitest';`,
-      `it('does the legacy AAA thing', () => {`,
-      `  // arrange: a value`,
-      `  // act: call the function`,
-      `  // assert: the result is correct`,
-      `  expect(1 + 1).toBe(2);`,
-      `});`,
-      ``
-    ].join('\n');
-    const migrated = runMigrator(legacy);
-    const file = writeTestFile('rt.test.ts', migrated.transformedSource);
-    const result: BddStyleVerdict = verifyBddStyle({
-      projectRoot,
-      testFiles: [file]
-    });
-    expect(result).toEqual({ ok: true, scanned: 1 });
-  });
+  it(
+    'when a legacy AAA test file is migrated by Slice A, the verifier should accept the result',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    () => {
+      // Take a known-AAA sample, run it through the Slice A migrator,
+      // then verify the output. This is the only test that depends on
+      // the migrator — it pins the contract between the two halves
+      // of the BDD enforcement stack.
+      const legacy = [
+        `import { it, expect } from 'vitest';`,
+        `it('does the legacy AAA thing', () => {`,
+        `  // arrange: a value`,
+        `  // act: call the function`,
+        `  // assert: the result is correct`,
+        `  expect(1 + 1).toBe(2);`,
+        `});`,
+        ``
+      ].join('\n');
+      const migrated = runMigrator(legacy);
+      const file = writeTestFile('rt.test.ts', migrated.transformedSource);
+      const result: BddStyleVerdict = verifyBddStyle({
+        projectRoot,
+        testFiles: [file]
+      });
+      expect(result).toEqual({ ok: true, scanned: 1 });
+    }
+  );
 });
 
 // ---- render: verdict shape -------------------------------------------------

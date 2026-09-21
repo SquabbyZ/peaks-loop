@@ -90,6 +90,7 @@ import {
   type CapturedIo,
   type Fixture
 } from './_codegraph-status-index-fixture.js';
+import { HEAVY_SUBPROCESS_TEST_TIMEOUT_MS } from '../_setup/subprocess-timeouts.js';
 
 // Byte-for-byte the shape the real upstream binary prints on a clean run.
 const UPSTREAM_CLEAN_STDOUT =
@@ -261,17 +262,21 @@ describe('peaks codegraph status (clean control)', () => {
     expect(process.exitCode).toBe(0);
   });
 
-  it('when codegraph was never initialized, should stay silent instead of warning', async () => {
-    execFileSync('git', ['-C', ws.path, 'init', '-q'], { stdio: 'ignore', windowsHide: true });
-    writeFileSync(join(ws.path, 'a.ts'), 'export const a = 1;\n', 'utf8');
+  it(
+    'when codegraph was never initialized, should stay silent instead of warning',
+    { timeout: HEAVY_SUBPROCESS_TEST_TIMEOUT_MS },
+    async () => {
+      execFileSync('git', ['-C', ws.path, 'init', '-q'], { stdio: 'ignore', windowsHide: true });
+      writeFileSync(join(ws.path, 'a.ts'), 'export const a = 1;\n', 'utf8');
 
-    const captured = await runCodegraph(['status', '--project', ws.path]);
-    const visible = stripAnsi(captured.stdout.join('\n'));
+      const captured = await runCodegraph(['status', '--project', ws.path]);
+      const visible = stripAnsi(captured.stdout.join('\n'));
 
-    expect(visible).not.toContain('[FAIL]');
-    expect(visible).not.toContain('[WARN]');
-    expect(process.exitCode).toBe(0);
-  });
+      expect(visible).not.toContain('[FAIL]');
+      expect(visible).not.toContain('[WARN]');
+      expect(process.exitCode).toBe(0);
+    }
+  );
 });
 
 // ── behavior: the unevaluable axis (R1) ──────────────────────────────
@@ -635,21 +640,25 @@ describe('peaks codegraph status --peaks-json (index integrity)', () => {
     expect(process.exitCode).toBe(0);
   });
 
-  it('should report a not-applicable verdict when there is no index to inspect', async () => {
-    execFileSync('git', ['-C', ws.path, 'init', '-q'], { stdio: 'ignore', windowsHide: true });
+  it(
+    'should report a not-applicable verdict when there is no index to inspect',
+    { timeout: HEAVY_SUBPROCESS_TEST_TIMEOUT_MS },
+    async () => {
+      execFileSync('git', ['-C', ws.path, 'init', '-q'], { stdio: 'ignore', windowsHide: true });
 
-    const captured = await runCodegraph(['status', '--project', ws.path, '--peaks-json']);
-    const envelope = parseJson(captured);
+      const captured = await runCodegraph(['status', '--project', ws.path, '--peaks-json']);
+      const envelope = parseJson(captured);
 
-    expect(envelope.ok).toBe(true);
-    expect(envelope.data.indexIntegrity).toBeNull();
-    // "There is nothing to inspect" — NOT "I could not inspect it".
-    expect(envelope.data.indexIntegrityVerdict).toBe('not-applicable');
-    // No finding, so no severity — `'warning'` here would read as
-    // "something was wrong but advisory".
-    expect(envelope.data.indexIntegritySeverity).toBeNull();
-    expect(process.exitCode).toBe(0);
-  });
+      expect(envelope.ok).toBe(true);
+      expect(envelope.data.indexIntegrity).toBeNull();
+      // "There is nothing to inspect" — NOT "I could not inspect it".
+      expect(envelope.data.indexIntegrityVerdict).toBe('not-applicable');
+      // No finding, so no severity — `'warning'` here would read as
+      // "something was wrong but advisory".
+      expect(envelope.data.indexIntegritySeverity).toBeNull();
+      expect(process.exitCode).toBe(0);
+    }
+  );
 });
 
 // ── integration: detection only — nothing is repaired ────────────────

@@ -30,7 +30,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Command } from 'commander';
 import { createMutCommands } from '../../../src/cli/commands/mut-commands.js';
-import { loadMutReport, mutReportPath } from 'peaks-loop-mut';
+import { parseJson } from '../../../src/shared/json-parse.js';
+import { loadMutReport, mutReportPath, MutReportSchema } from 'peaks-loop-mut';
 
 const HEX_SIG = 'a'.repeat(64);
 
@@ -125,7 +126,7 @@ describe('peaks-mut end-to-end', () => {
     expect(invokeStryker).toHaveBeenCalledTimes(1);
 
     // 2. The CLI wrote the file at the canonical path AND at --out.
-    const json = JSON.parse(readFileSync(out, 'utf8'));
+    const json = parseJson(readFileSync(out, 'utf8'), MutReportSchema);
     expect(json.version).toBe('1.0');
     expect(json.mutation.tool).toBe('stryker');
     expect(json.mutation.killRate).toBeGreaterThanOrEqual(0.8);
@@ -195,7 +196,7 @@ describe('peaks-mut end-to-end', () => {
         '--out',
         outFile
       ]);
-      const json = JSON.parse(readFileSync(outFile, 'utf8'));
+      const json = parseJson(readFileSync(outFile, 'utf8'), MutReportSchema);
       return { json, out: outFile };
     }
 

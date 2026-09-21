@@ -37,6 +37,7 @@ import {
 } from '../../../../src/services/web/web-artifact-paths.js';
 import { PROTOCOL_VERSION } from '../../../../src/services/web/web-protocol.js';
 import { buildStatusReport } from '../../../../src/services/web/web-status-report.js';
+import { SUBPROCESS_TEST_TIMEOUT_MS } from '../../_setup/subprocess-timeouts.js';
 
 const SESSION_ID = '2026-09-10-session-528a63';
 const ws = withTmpWorkspacePerTest('peaks-web-status-');
@@ -106,14 +107,18 @@ describe('behavior — buildStatusReport', () => {
     expect(report.instances.map((instance) => instance.state)).toEqual(['stale']);
   });
 
-  it('when the pid is alive but /health does not answer, should classify the instance as orphaned', async () => {
-    // given: a live process on a port with no listener
-    plantDaemonInfo(spawnSilentProcess(), 59_998);
-    // when: the report is built
-    const report = await buildStatusReport(ws().path, SESSION_ID);
-    // then: it is an orphan, and never reported as live
-    expect(report.instances.map((instance) => instance.state)).toEqual(['orphaned']);
-  });
+  it(
+    'when the pid is alive but /health does not answer, should classify the instance as orphaned',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    async () => {
+      // given: a live process on a port with no listener
+      plantDaemonInfo(spawnSilentProcess(), 59_998);
+      // when: the report is built
+      const report = await buildStatusReport(ws().path, SESSION_ID);
+      // then: it is an orphan, and never reported as live
+      expect(report.instances.map((instance) => instance.state)).toEqual(['orphaned']);
+    }
+  );
 
   it('when a daemon answers /health, should classify it as live', async () => {
     // given: a real loopback server answering /health on a port we hold

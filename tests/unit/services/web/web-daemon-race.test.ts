@@ -57,11 +57,14 @@ import {
   webSpawnLockPath
 } from '../../../../src/services/web/web-artifact-paths.js';
 import { WebDaemonClient } from '../../../../src/services/web/web-client.js';
+import { SUBPROCESS_TEST_TIMEOUT_MS } from '../../_setup/subprocess-timeouts.js';
 
 const SESSION_ID = '2026-09-10-session-race01';
 const RACER = resolve(__dirname, '..', '..', '..', 'fixtures', 'web', 'ensure-daemon-racer.ts');
-/** A cold start pays npx + tsx + boot; the readiness budget inside is 20 s. */
-const RACE_TIMEOUT_MS = 90_000;
+// The three race cases below budget a cold start (npx + tsx + boot; the
+// readiness budget inside is 20 s) with the shared, measured S6 subprocess
+// constant. Before slice S14 it was a local `const RACE_TIMEOUT_MS = 90_000`
+// — a second copy of that value, free to drift from it.
 
 /**
  * How long to wait for the winner to take the cold-start lock before giving up
@@ -310,7 +313,7 @@ describe('behavior — two callers, one session', () => {
         expect(existsSync(webSpawnLockPath(projectRoot, SESSION_ID))).toBe(false);
       });
     },
-    RACE_TIMEOUT_MS
+    SUBPROCESS_TEST_TIMEOUT_MS
   );
 
   it(
@@ -337,7 +340,7 @@ describe('behavior — two callers, one session', () => {
         expect(bootCount(projectRoot)).toBe(1);
       });
     },
-    RACE_TIMEOUT_MS
+    SUBPROCESS_TEST_TIMEOUT_MS
   );
 
   it(
@@ -355,7 +358,7 @@ describe('behavior — two callers, one session', () => {
         expect(existsSync(webDaemonInfoPath(projectRoot, SESSION_ID))).toBe(true);
       });
     },
-    RACE_TIMEOUT_MS
+    SUBPROCESS_TEST_TIMEOUT_MS
   );
 });
 

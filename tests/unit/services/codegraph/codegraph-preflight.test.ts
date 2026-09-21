@@ -41,6 +41,7 @@ import {
   type CodegraphInvocation
 } from '../../../../src/services/codegraph/codegraph-service.js';
 import { declareDimensions } from '../../_setup/4dim-template.js';
+import { SUBPROCESS_TEST_TIMEOUT_MS } from '../../_setup/subprocess-timeouts.js';
 
 declareDimensions(
   'tests/unit/services/codegraph/codegraph-preflight.test.ts',
@@ -239,65 +240,69 @@ describe('Scenario: integration — buildCodegraphPreflightBlock against a real 
     }
   });
 
-  it('when a fresh init writes upstream default exclude rules that block tracked source, should self-heal the config before indexing', async () => {
-    // Regression (repair round M4). The preflight is the FIRST thing a
-    // fresh clone runs — it init'd and stamped the peaks-loop marker over
-    // an index missing every tracked file behind an offending default
-    // rule, and from then on `peaks codegraph init` hit
-    // `noop-already-peaks-loop`, so the CLI's own self-heal was
-    // unreachable. The preflight must run the same exclude repair.
-    //
-    // given: a fresh git work tree with a tracked file under vendor/
-    const project = gitProjectWithTrackedVendorFile('peaks-cg-pre-i4-');
-    const runner = upstreamInitRunner(project);
-    try {
-      // when: the preflight is invoked
-      const result = await buildCodegraphPreflightBlock(project, runner);
+  it(
+    'when a fresh init writes upstream default exclude rules that block tracked source, should self-heal the config before indexing',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    async () => {
+      // Regression (repair round M4). The preflight is the FIRST thing a
+      // fresh clone runs — it init'd and stamped the peaks-loop marker over
+      // an index missing every tracked file behind an offending default
+      // rule, and from then on `peaks codegraph init` hit
+      // `noop-already-peaks-loop`, so the CLI's own self-heal was
+      // unreachable. The preflight must run the same exclude repair.
+      //
+      // given: a fresh git work tree with a tracked file under vendor/
+      const project = gitProjectWithTrackedVendorFile('peaks-cg-pre-i4-');
+      const runner = upstreamInitRunner(project);
+      try {
+        // when: the preflight is invoked
+        const result = await buildCodegraphPreflightBlock(project, runner);
 
-      // then: the preflight still succeeds …
-      expect(result.available).toBe(true);
+        // then: the preflight still succeeds …
+        expect(result.available).toBe(true);
 
-      // … the offending rule is gone from the config, with a backup …
-      const configPath = join(project, '.codegraph', 'config.json');
-      const config = JSON.parse(readFileSync(configPath, 'utf8')) as {
-        include: string[];
-        exclude: string[];
-      };
-      expect(config.exclude).toEqual(['**/node_modules/**']);
-      expect(existsSync(`${configPath}.bak`)).toBe(true);
+        // … the offending rule is gone from the config, with a backup …
+        const configPath = join(project, '.codegraph', 'config.json');
+        const config = JSON.parse(readFileSync(configPath, 'utf8')) as {
+          include: string[];
+          exclude: string[];
+        };
+        expect(config.exclude).toEqual(['**/node_modules/**']);
+        expect(existsSync(`${configPath}.bak`)).toBe(true);
 
-      // … and the INCLUDE axis landed in the SAME write (D1, D-round).
-      //    This seam is the automatic delivery mechanism for the include
-      //    fix in every downstream project that has no index yet, so the
-      //    invariant is pinned here rather than left to be inferred from
-      //    the exclude assertion beside it. The fixture's init template
-      //    names only `**/*.ts`; upstream's own extractor supports five
-      //    more extensions that no template pattern admits, and the seam
-      //    must append exactly those, in that order, without reordering
-      //    or dropping the caller's entry. Reddens if the seam stops
-      //    passing through the shared repair entry point or starts
-      //    short-circuiting when there is no exclude rule to remove.
-      expect(config.include).toEqual([
-        '**/*.ts',
-        '**/*.mjs',
-        '**/*.cjs',
-        '**/*.pyw',
-        '**/*.hxx',
-        '**/*.rake'
-      ]);
+        // … and the INCLUDE axis landed in the SAME write (D1, D-round).
+        //    This seam is the automatic delivery mechanism for the include
+        //    fix in every downstream project that has no index yet, so the
+        //    invariant is pinned here rather than left to be inferred from
+        //    the exclude assertion beside it. The fixture's init template
+        //    names only `**/*.ts`; upstream's own extractor supports five
+        //    more extensions that no template pattern admits, and the seam
+        //    must append exactly those, in that order, without reordering
+        //    or dropping the caller's entry. Reddens if the seam stops
+        //    passing through the shared repair entry point or starts
+        //    short-circuiting when there is no exclude rule to remove.
+        expect(config.include).toEqual([
+          '**/*.ts',
+          '**/*.mjs',
+          '**/*.cjs',
+          '**/*.pyw',
+          '**/*.hxx',
+          '**/*.rake'
+        ]);
 
-      // … the marker is stamped …
-      expect(existsSync(join(project, '.codegraph', CODEGRAPH_MARKER_NAME))).toBe(true);
+        // … the marker is stamped …
+        expect(existsSync(join(project, '.codegraph', CODEGRAPH_MARKER_NAME))).toBe(true);
 
-      // … and the tree is indexed exactly ONCE: the repair does not add a
-      //    second (5-30 s) rebuild because the preflight's own index
-      //    already covers the recovered files.
-      const subcommands = runner.mock.calls.map((call) => call[0].subcommand);
-      expect(subcommands).toEqual(['init', 'index', 'files']);
-    } finally {
-      rmSync(project, { recursive: true, force: true });
+        // … and the tree is indexed exactly ONCE: the repair does not add a
+        //    second (5-30 s) rebuild because the preflight's own index
+        //    already covers the recovered files.
+        const subcommands = runner.mock.calls.map((call) => call[0].subcommand);
+        expect(subcommands).toEqual(['init', 'index', 'files']);
+      } finally {
+        rmSync(project, { recursive: true, force: true });
+      }
     }
-  });
+  );
 
   it('when the index fails after a fresh init, should fail-soft with available:false and never throw', async () => {
     // given: a fresh project whose index command exits non-zero

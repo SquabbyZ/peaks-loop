@@ -45,6 +45,17 @@ import {
 } from '../../../../src/services/code/auto-compact-orchestrator.js';
 import { resolveAutoCompactProfile } from '../../../../src/services/mode/mode-status-service.js';
 import type { AutoCompactMode } from '../../../../src/services/code/auto-compact-modes.js';
+// This file writes no `child_process` call of its own — but the command it
+// dispatches does. `context-now` resolves the project root through
+// `resolveCanonicalProjectRoot` -> `execFileSync('git', ['rev-parse',
+// '--show-toplevel'])` (src/services/config/config-safety.ts:241), so every
+// `runContextNow()` below pays one REAL process spawn, and the sweeps pay one
+// per iteration (4, 4 and 16 of them). That makes this file the indirect-spawn
+// member of the same class the S6 budgets cover, not a non-subprocess case.
+import {
+  HEAVY_SUBPROCESS_TEST_TIMEOUT_MS,
+  SUBPROCESS_TEST_TIMEOUT_MS
+} from '../../_setup/subprocess-timeouts.js';
 
 /** The ratio is forced through the canonical Claude Code env seam. */
 const RATIO_ENV = 'CLAUDE_CONTEXT_USAGE_PERCENT';
@@ -122,52 +133,64 @@ afterEach(() => {
 // ---------------------------------------------------------------------------
 
 describe('Slice H4 — context-now classifies with the active mode', () => {
-  it('when a 24h run is engaged, should report the `partial` action across [0.70, 0.80), NOT soft-warn', async () => {
-    // given: the 现场 coexistence — 24H_ACTIVE, and the profile it resolves to
-    const root = enter24h(makeProject());
-    expect(resolveAutoCompactProfile(root)).toBe('partial');
+  it(
+    'when a 24h run is engaged, should report the `partial` action across [0.70, 0.80), NOT soft-warn',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    async () => {
+      // given: the 现场 coexistence — 24H_ACTIVE, and the profile it resolves to
+      const root = enter24h(makeProject());
+      expect(resolveAutoCompactProfile(root)).toBe('partial');
 
-    // when/then: every ratio in the field band is mandatory compaction
-    for (const ratio of FIELD_RATIOS) {
-      const env = await runContextNow(root, ratio);
-      expect(env.data.ratio).toBeCloseTo(ratio, 5);
-      expect(env.data.action).not.toBe('soft-warn');
+      // when/then: every ratio in the field band is mandatory compaction
+      for (const ratio of FIELD_RATIOS) {
+        const env = await runContextNow(root, ratio);
+        expect(env.data.ratio).toBeCloseTo(ratio, 5);
+        expect(env.data.action).not.toBe('soft-warn');
+        expect(env.data.action).toBe('auto-compact-now');
+        expect(env.data.verdict).toBe('pre-compact');
+        expect(env.data.next).toBe('peaks code auto-compact');
+      }
+    }
+  );
+
+  it(
+    'CONTROL: a standard session at the SAME ratios is unchanged (soft-warn, next null, same prose)',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    async () => {
+      // given: no 24h snapshot at all — the control arm
+      const root = makeProject();
+      expect(resolveAutoCompactProfile(root)).toBe('standard');
+
+      for (const ratio of FIELD_RATIOS) {
+        const env = await runContextNow(root, ratio);
+        // then: byte-identical to the pre-H4 output
+        expect(env.data.action).toBe('soft-warn');
+        expect(env.data.verdict).toBe('soft-warn');
+        expect(env.data.next).toBeNull();
+        expect(env.nextActions[0]).toBe(
+          'Soft warn (50–85%). Continue working; the next `peaks code auto-compact` will re-check.'
+        );
+        expect(env.nextActions[1]).toBe(
+          'Single-rid mode: the same ≥0.85 / ≥0.95 thresholds apply — ≥0.85 is MANDATORY auto-compact, not advisory.'
+        );
+      }
+    }
+  );
+
+  it(
+    'when the 24h run pauses at WAITING_USER, should still be `partial`',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    async () => {
+      const root = makeProject();
+      write24hState(root, SID, {
+        ...emptySnapshot(),
+        state: 'WAITING_USER',
+        enteredAt: '2026-09-18T14:00:00.000Z'
+      });
+      const env = await runContextNow(root, 0.75);
       expect(env.data.action).toBe('auto-compact-now');
-      expect(env.data.verdict).toBe('pre-compact');
-      expect(env.data.next).toBe('peaks code auto-compact');
     }
-  });
-
-  it('CONTROL: a standard session at the SAME ratios is unchanged (soft-warn, next null, same prose)', async () => {
-    // given: no 24h snapshot at all — the control arm
-    const root = makeProject();
-    expect(resolveAutoCompactProfile(root)).toBe('standard');
-
-    for (const ratio of FIELD_RATIOS) {
-      const env = await runContextNow(root, ratio);
-      // then: byte-identical to the pre-H4 output
-      expect(env.data.action).toBe('soft-warn');
-      expect(env.data.verdict).toBe('soft-warn');
-      expect(env.data.next).toBeNull();
-      expect(env.nextActions[0]).toBe(
-        'Soft warn (50–85%). Continue working; the next `peaks code auto-compact` will re-check.'
-      );
-      expect(env.nextActions[1]).toBe(
-        'Single-rid mode: the same ≥0.85 / ≥0.95 thresholds apply — ≥0.85 is MANDATORY auto-compact, not advisory.'
-      );
-    }
-  });
-
-  it('when the 24h run pauses at WAITING_USER, should still be `partial`', async () => {
-    const root = makeProject();
-    write24hState(root, SID, {
-      ...emptySnapshot(),
-      state: 'WAITING_USER',
-      enteredAt: '2026-09-18T14:00:00.000Z'
-    });
-    const env = await runContextNow(root, 0.75);
-    expect(env.data.action).toBe('auto-compact-now');
-  });
+  );
 });
 
 // ---------------------------------------------------------------------------
@@ -183,33 +206,37 @@ describe('Slice H4 — context-now reconciles with the action component', () => 
     ['partial', (): string => enter24h(makeProject())]
   ];
 
-  it('should agree with `evaluateAutoCompactDecision` on every tier except the one it does not own', async () => {
-    for (const [mode, build] of ARMS) {
-      const root = build();
-      expect(resolveAutoCompactProfile(root)).toBe(mode);
-      for (const ratio of SWEEP) {
-        const env = await runContextNow(root, ratio);
-        // The action component's OWN decision — the pure function
-        // `runAutoCompact` calls (auto-compact-orchestrator.ts:555).
-        const decision = evaluateAutoCompactDecision({ ratio, mode });
-        const kind = evaluateCompactTrigger(ratio, mode).kind;
-        if (kind === 'auto-fire') {
-          // The ONE documented carve-out, asserted rather than skipped:
-          // the auto-fire tier belongs to `peaks skill presence` (the
-          // every-turn probe, already mode-correct), so `context-now`
-          // reports it as soft-warn in BOTH modes. Realising it as
-          // `auto-compact-now` here would change every non-24h session's
-          // output, which slice H4 forbids.
-          expect(env.data.action).toBe('soft-warn');
-          continue;
+  it(
+    'should agree with `evaluateAutoCompactDecision` on every tier except the one it does not own',
+    { timeout: HEAVY_SUBPROCESS_TEST_TIMEOUT_MS },
+    async () => {
+      for (const [mode, build] of ARMS) {
+        const root = build();
+        expect(resolveAutoCompactProfile(root)).toBe(mode);
+        for (const ratio of SWEEP) {
+          const env = await runContextNow(root, ratio);
+          // The action component's OWN decision — the pure function
+          // `runAutoCompact` calls (auto-compact-orchestrator.ts:555).
+          const decision = evaluateAutoCompactDecision({ ratio, mode });
+          const kind = evaluateCompactTrigger(ratio, mode).kind;
+          if (kind === 'auto-fire') {
+            // The ONE documented carve-out, asserted rather than skipped:
+            // the auto-fire tier belongs to `peaks skill presence` (the
+            // every-turn probe, already mode-correct), so `context-now`
+            // reports it as soft-warn in BOTH modes. Realising it as
+            // `auto-compact-now` here would change every non-24h session's
+            // output, which slice H4 forbids.
+            expect(env.data.action).toBe('soft-warn');
+            continue;
+          }
+          expect(env.data.action).toBe(decision.action);
+          expect(env.data.next === null).toBe(
+            decision.action === 'ok' || decision.action === 'soft-warn'
+          );
         }
-        expect(env.data.action).toBe(decision.action);
-        expect(env.data.next === null).toBe(
-          decision.action === 'ok' || decision.action === 'soft-warn'
-        );
       }
     }
-  });
+  );
 
   it('should diverge ONLY inside the auto-fire band, in both modes (nothing wider)', () => {
     for (const mode of ['standard', 'partial'] as const) {

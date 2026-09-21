@@ -15,6 +15,7 @@ import { describe, expect, it } from 'vitest';
 import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { SUBPROCESS_TEST_TIMEOUT_MS } from '../../_setup/subprocess-timeouts.js';
 
 const ROOT = join(__dirname, '..', '..', '..', '..');
 const CONFIG_PATH = join(ROOT, 'config', 'eslint', '.peaks-rules.cjs');
@@ -95,40 +96,44 @@ describe('PRD-002b slice 2 — no-magic-numbers rule wire-confirmation', () => {
     expect(testOverride?.rules['no-magic-numbers']).toBe('off');
   });
 
-  it('rule fires as warn (severity=1) on existing src/utilities magic numbers above the ignore ceiling', () => {
-    if (!existsSync(ESLINT_BIN)) {
-      // Skip gracefully when ESLint binary is not installed (CI sandbox
-      // preinstall may have stripped devDeps). The unit test surface
-      // for the rule schema above is sufficient contract coverage.
-      return;
-    }
-    // Use a real, repo-tracked source file whose content already has
-    // large numeric literals (above the 1000 ignore ceiling). This
-    // guarantees the file is part of the tsconfig project so the
-    // type-aware parser resolves it; no tmp dir / parser error fallback.
-    const candidate = join(ROOT, 'src', 'services', 'lint', 'eslint-runner.ts');
-    const result = spawnSync(
-      process.execPath,
-      [ESLINT_BIN, '--format', 'json', '--config', CONFIG_PATH, candidate],
-      {
-        encoding: 'utf8',
-        cwd: ROOT,
-        windowsHide: true
+  it(
+    'rule fires as warn (severity=1) on existing src/utilities magic numbers above the ignore ceiling',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    () => {
+      if (!existsSync(ESLINT_BIN)) {
+        // Skip gracefully when ESLint binary is not installed (CI sandbox
+        // preinstall may have stripped devDeps). The unit test surface
+        // for the rule schema above is sufficient contract coverage.
+        return;
       }
-    );
-    const stdout = typeof result.stdout === 'string' ? result.stdout : '';
-    expect(stdout.length).toBeGreaterThan(0);
-    const parsed = JSON.parse(stdout) as Array<{
-      filePath: string;
-      messages: Array<{ ruleId: string | null; severity: number }>;
-    }>;
-    const row = parsed.find((r) => r.filePath.endsWith('eslint-runner.ts'));
-    const magicHits = row?.messages.filter((m) => m.ruleId === 'no-magic-numbers') ?? [];
-    expect(magicHits.length).toBeGreaterThan(0);
-    // severity 1 = warn in ESLint. The contract test forbids error (severity 2).
-    for (const hit of magicHits) {
-      expect(hit.severity).toBe(1);
-      expect(hit.severity).not.toBe(2);
+      // Use a real, repo-tracked source file whose content already has
+      // large numeric literals (above the 1000 ignore ceiling). This
+      // guarantees the file is part of the tsconfig project so the
+      // type-aware parser resolves it; no tmp dir / parser error fallback.
+      const candidate = join(ROOT, 'src', 'services', 'lint', 'eslint-runner.ts');
+      const result = spawnSync(
+        process.execPath,
+        [ESLINT_BIN, '--format', 'json', '--config', CONFIG_PATH, candidate],
+        {
+          encoding: 'utf8',
+          cwd: ROOT,
+          windowsHide: true
+        }
+      );
+      const stdout = typeof result.stdout === 'string' ? result.stdout : '';
+      expect(stdout.length).toBeGreaterThan(0);
+      const parsed = JSON.parse(stdout) as Array<{
+        filePath: string;
+        messages: Array<{ ruleId: string | null; severity: number }>;
+      }>;
+      const row = parsed.find((r) => r.filePath.endsWith('eslint-runner.ts'));
+      const magicHits = row?.messages.filter((m) => m.ruleId === 'no-magic-numbers') ?? [];
+      expect(magicHits.length).toBeGreaterThan(0);
+      // severity 1 = warn in ESLint. The contract test forbids error (severity 2).
+      for (const hit of magicHits) {
+        expect(hit.severity).toBe(1);
+        expect(hit.severity).not.toBe(2);
+      }
     }
-  });
+  );
 });

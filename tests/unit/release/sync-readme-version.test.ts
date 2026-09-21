@@ -27,6 +27,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { afterAll, afterEach, describe, expect, it } from 'vitest';
 import { declareDimensions } from '../_setup/4dim-template.js';
+import { SUBPROCESS_TEST_TIMEOUT_MS } from '../_setup/subprocess-timeouts.js';
 
 declareDimensions('tests/unit/release/sync-readme-version.test.ts', [
   'render',
@@ -121,123 +122,166 @@ afterAll(() => {
 // ---- render dimension ------------------------------------------------------
 
 describe('Scenario: (render) — updated vs already-in-sync lines are distinguishable', () => {
-  it('when invoked, should print one "updated" line per file and a total line', () => {
-    // given: a stale tree at package.json 4.0.37
-    setupHarness({ version: '4.0.37' });
-    // when:  the script runs
-    const r = runSync();
-    // then:  each file reports its own update
-    expect(r.status).toBe(0);
-    expect(r.stdout).toContain(
-      '[sync-readme-version] updated README.md (1 occurrence(s)) -> 4.0.37'
-    );
-    expect(r.stdout).toContain(
-      '[sync-readme-version] updated README-en.md (1 occurrence(s)) -> 4.0.37'
-    );
-    expect(r.stdout).toContain('[sync-readme-version] total 2 occurrence(s) updated to 4.0.37');
-  });
+  it(
+    'when invoked, should print one "updated" line per file and a total line',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    () => {
+      // given: a stale tree at package.json 4.0.37
+      setupHarness({ version: '4.0.37' });
+      // when:  the script runs
+      const r = runSync();
+      // then:  each file reports its own update
+      expect(r.status).toBe(0);
+      expect(r.stdout).toContain(
+        '[sync-readme-version] updated README.md (1 occurrence(s)) -> 4.0.37'
+      );
+      expect(r.stdout).toContain(
+        '[sync-readme-version] updated README-en.md (1 occurrence(s)) -> 4.0.37'
+      );
+      expect(r.stdout).toContain('[sync-readme-version] total 2 occurrence(s) updated to 4.0.37');
+    }
+  );
 
-  it('when invoked, should a second run reports "already in sync" and exits 0', () => {
-    // given: an already-synced tree (the script just ran)
-    setupHarness({ version: '4.0.37' });
-    runSync();
-    // when:  it runs again
-    const r = runSync();
-    // then:  idempotent — no write, no failure, and it says so
-    expect(r.status).toBe(0);
-    expect(r.stdout).toContain('README.md already in sync (1 row(s) matched) -> 4.0.37');
-    expect(r.stdout).toContain('total 0 occurrence(s) updated to 4.0.37');
-  });
+  it(
+    'when invoked, should a second run reports "already in sync" and exits 0',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    () => {
+      // given: an already-synced tree (the script just ran)
+      setupHarness({ version: '4.0.37' });
+      runSync();
+      // when:  it runs again
+      const r = runSync();
+      // then:  idempotent — no write, no failure, and it says so
+      expect(r.status).toBe(0);
+      expect(r.stdout).toContain('README.md already in sync (1 row(s) matched) -> 4.0.37');
+      expect(r.stdout).toContain('total 0 occurrence(s) updated to 4.0.37');
+    }
+  );
 });
 
 // ---- behavior dimension ----------------------------------------------------
 
 describe('Scenario: (behavior) — only the version label moves', () => {
-  it('when invoked, should rewrites both rows to the current version', () => {
-    setupHarness({ version: '4.0.37' });
-    const r = runSync();
-    expect(r.status).toBe(0);
-    expect(read('README.md')).toBe(readme(rowZh('4.0.37', '2026-09-10'), '代码'));
-    expect(read('README-en.md')).toBe(readme(rowEn('4.0.37', '2026-09-10'), 'Code'));
-  });
+  it(
+    'when invoked, should rewrites both rows to the current version',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    () => {
+      setupHarness({ version: '4.0.37' });
+      const r = runSync();
+      expect(r.status).toBe(0);
+      expect(read('README.md')).toBe(readme(rowZh('4.0.37', '2026-09-10'), '代码'));
+      expect(read('README-en.md')).toBe(readme(rowEn('4.0.37', '2026-09-10'), 'Code'));
+    }
+  );
 
-  it("when invoked, should keeps each file's own spacing before the date", () => {
-    // given: README.md uses `4.0.32(…<date>)`, README-en.md uses `4.0.17 (…<date>)`
-    setupHarness({ version: '4.0.37' });
-    // when:  the script runs
-    runSync();
-    // then:  neither spacing was "fixed" — the no-space and space forms survive
-    expect(read('README.md')).toContain('— 4.0.37(2026-09-10) |');
-    expect(read('README-en.md')).toContain('— 4.0.37 (2026-09-10) |');
-  });
+  it(
+    "when invoked, should keeps each file's own spacing before the date",
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    () => {
+      // given: README.md uses `4.0.32(…<date>)`, README-en.md uses `4.0.17 (…<date>)`
+      setupHarness({ version: '4.0.37' });
+      // when:  the script runs
+      runSync();
+      // then:  neither spacing was "fixed" — the no-space and space forms survive
+      expect(read('README.md')).toContain('— 4.0.37(2026-09-10) |');
+      expect(read('README-en.md')).toContain('— 4.0.37 (2026-09-10) |');
+    }
+  );
 
-  it('when invoked, should replaces a non-4.0.0 label (the old pattern was hardcoded)', () => {
-    // given: the row carries a prerelease label the literal `4\.0\.0` pattern never matched
-    setupHarness({ version: '4.0.37', zhRow: rowZh('4.0.0-beta.27', '2026-07-01') });
-    // when:  the script runs
-    const r = runSync();
-    // then:  it is matched and replaced
-    expect(r.status).toBe(0);
-    expect(read('README.md')).toContain('— 4.0.37(2026-09-10) |');
-  });
+  it(
+    'when invoked, should replaces a non-4.0.0 label (the old pattern was hardcoded)',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    () => {
+      // given: the row carries a prerelease label the literal `4\.0\.0` pattern never matched
+      setupHarness({ version: '4.0.37', zhRow: rowZh('4.0.0-beta.27', '2026-07-01') });
+      // when:  the script runs
+      const r = runSync();
+      // then:  it is matched and replaced
+      expect(r.status).toBe(0);
+      expect(read('README.md')).toContain('— 4.0.37(2026-09-10) |');
+    }
+  );
 
-  it('when invoked, should keeps the row date when CHANGELOG has no heading for the version', () => {
-    // given: a CHANGELOG that does not mention 4.0.37
-    setupHarness({ version: '4.0.37', changelog: '# Changelog\n\n## 4.0.36 — 2026-09-01 (old)\n' });
-    // when:  the script runs
-    const r = runSync();
-    // then:  the version moves, the date is NOT invented
-    expect(r.status).toBe(0);
-    expect(read('README.md')).toBe(readme(rowZh('4.0.37', '2026-09-08'), '代码'));
-    expect(r.stderr).toContain('keeping each README row');
-  });
+  it(
+    'when invoked, should keeps the row date when CHANGELOG has no heading for the version',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    () => {
+      // given: a CHANGELOG that does not mention 4.0.37
+      setupHarness({
+        version: '4.0.37',
+        changelog: '# Changelog\n\n## 4.0.36 — 2026-09-01 (old)\n'
+      });
+      // when:  the script runs
+      const r = runSync();
+      // then:  the version moves, the date is NOT invented
+      expect(r.status).toBe(0);
+      expect(read('README.md')).toBe(readme(rowZh('4.0.37', '2026-09-08'), '代码'));
+      expect(r.stderr).toContain('keeping each README row');
+    }
+  );
 });
 
 // ---- integration dimension -------------------------------------------------
 
 describe('Scenario: (integration) — date comes from the release CHANGELOG, runs from a tmp cwd', () => {
-  it('when invoked, should takes the date from the `## <version> — <date>` heading', () => {
-    setupHarness({ version: '4.0.37', changelog: '# Changelog\n\n## 4.0.37 — 2026-09-10 (h)\n' });
-    const r = runSync();
-    expect(r.status).toBe(0);
-    expect(read('README.md')).toContain('— 4.0.37(2026-09-10) |');
-    expect(r.stdout).not.toContain('warn:');
-  });
+  it(
+    'when invoked, should takes the date from the `## <version> — <date>` heading',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    () => {
+      setupHarness({ version: '4.0.37', changelog: '# Changelog\n\n## 4.0.37 — 2026-09-10 (h)\n' });
+      const r = runSync();
+      expect(r.status).toBe(0);
+      expect(read('README.md')).toContain('— 4.0.37(2026-09-10) |');
+      expect(r.stdout).not.toContain('warn:');
+    }
+  );
 
-  it('when invoked, should still sync (exit 0) when CHANGELOG.md is missing entirely', () => {
-    setupHarness({ version: '4.0.37', changelog: null });
-    const r = runSync();
-    expect(r.status).toBe(0);
-    expect(read('README.md')).toContain('— 4.0.37(2026-09-08) |');
-  });
+  it(
+    'when invoked, should still sync (exit 0) when CHANGELOG.md is missing entirely',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    () => {
+      setupHarness({ version: '4.0.37', changelog: null });
+      const r = runSync();
+      expect(r.status).toBe(0);
+      expect(read('README.md')).toContain('— 4.0.37(2026-09-08) |');
+    }
+  );
 });
 
 // ---- a11y dimension --------------------------------------------------------
 
 describe('Scenario: (a11y) — an unmatched row aborts the publish instead of passing quietly', () => {
-  it('when invoked, should exit 1 and name the file when one row is unrecognisable', () => {
-    // given: README-en.md's row was reformatted into a shape the pattern does not describe
-    setupHarness({ version: '4.0.37', enRow: '| **Release** | — 4.0.17 (2026-08-07) |' });
-    // when:  the script runs
-    const r = runSync();
-    // then:  loud failure, not the pre-fix "no-op (pattern not found)" + exit 0
-    expect(r.status).toBe(1);
-    expect(r.stderr).toContain('ERROR: version row not found in README-en.md');
-    expect(r.stderr).toContain('Refusing to exit 0 with a stale version row');
-    // and the still-matching file is left correctly synced
-    expect(read('README.md')).toContain('— 4.0.37(2026-09-10) |');
-  });
+  it(
+    'when invoked, should exit 1 and name the file when one row is unrecognisable',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    () => {
+      // given: README-en.md's row was reformatted into a shape the pattern does not describe
+      setupHarness({ version: '4.0.37', enRow: '| **Release** | — 4.0.17 (2026-08-07) |' });
+      // when:  the script runs
+      const r = runSync();
+      // then:  loud failure, not the pre-fix "no-op (pattern not found)" + exit 0
+      expect(r.status).toBe(1);
+      expect(r.stderr).toContain('ERROR: version row not found in README-en.md');
+      expect(r.stderr).toContain('Refusing to exit 0 with a stale version row');
+      // and the still-matching file is left correctly synced
+      expect(read('README.md')).toContain('— 4.0.37(2026-09-10) |');
+    }
+  );
 
-  it('when invoked, should exit 1 without touching either file when both rows are unrecognisable', () => {
-    setupHarness({
-      version: '4.0.37',
-      zhRow: '| **版本** | 4.0.32 |',
-      enRow: '| **Version** | 4.0.17 |'
-    });
-    const r = runSync();
-    expect(r.status).toBe(1);
-    expect(r.stderr).toContain('README.md, README-en.md');
-    expect(read('README.md')).toContain('| **版本** | 4.0.32 |');
-    expect(read('README-en.md')).toContain('| **Version** | 4.0.17 |');
-  });
+  it(
+    'when invoked, should exit 1 without touching either file when both rows are unrecognisable',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    () => {
+      setupHarness({
+        version: '4.0.37',
+        zhRow: '| **版本** | 4.0.32 |',
+        enRow: '| **Version** | 4.0.17 |'
+      });
+      const r = runSync();
+      expect(r.status).toBe(1);
+      expect(r.stderr).toContain('README.md, README-en.md');
+      expect(read('README.md')).toContain('| **版本** | 4.0.32 |');
+      expect(read('README-en.md')).toContain('| **Version** | 4.0.17 |');
+    }
+  );
 });

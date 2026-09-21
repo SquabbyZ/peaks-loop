@@ -28,6 +28,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterAll, describe, expect, it } from 'vitest';
 import { declareDimensions } from '../_setup/4dim-template.js';
+import { SUBPROCESS_TEST_TIMEOUT_MS } from '../_setup/subprocess-timeouts.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '..', '..', '..');
@@ -88,73 +89,89 @@ afterAll(() => {
 });
 
 describe('(render) stale-dist message names the missing module + the fix', () => {
-  it('prints the specifier and `npm run build` when the entry module is missing', () => {
-    const dir = track(makeShimDir());
-    const out = runShim(dir, ['--version']);
-    expect(out.status).toBe(1);
-    expect(out.stderr).toContain('npm run build');
-    expect(out.stderr).toContain('missing:');
-    expect(out.stderr).toContain('dist/cli/index.js');
-    // No raw Node stack trace leaks into the friendly path.
-    expect(out.stderr).not.toContain('at ModuleLoader');
-    expect(out.stdout).toBe('');
-  });
+  it(
+    'prints the specifier and `npm run build` when the entry module is missing',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    () => {
+      const dir = track(makeShimDir());
+      const out = runShim(dir, ['--version']);
+      expect(out.status).toBe(1);
+      expect(out.stderr).toContain('npm run build');
+      expect(out.stderr).toContain('missing:');
+      expect(out.stderr).toContain('dist/cli/index.js');
+      // No raw Node stack trace leaks into the friendly path.
+      expect(out.stderr).not.toContain('at ModuleLoader');
+      expect(out.stdout).toBe('');
+    }
+  );
 
-  it('prints the internal PACKAGE specifier when a workspace dist file is unlinked', () => {
-    const dir = track(makeShimDir());
-    mkdirSync(join(dir, 'dist', 'cli'), { recursive: true });
-    mkdirSync(join(dir, 'node_modules', 'peaks-loop-shared', 'dist'), { recursive: true });
-    writeFileSync(
-      join(dir, 'node_modules', 'peaks-loop-shared', 'package.json'),
-      JSON.stringify({
-        name: 'peaks-loop-shared',
-        version: '0.0.0',
-        type: 'module',
-        exports: { './version': { default: './dist/version.js' } }
-      }),
-      'utf8'
-    );
-    writeFileSync(
-      join(dir, 'dist', 'cli', 'index.js'),
-      "import 'peaks-loop-shared/version';\n",
-      'utf8'
-    );
-    const out = runShim(dir, ['anything']);
-    expect(out.status).toBe(1);
-    expect(out.stderr).toContain('peaks-loop-shared');
-    expect(out.stderr).toContain('npm run build');
-  });
+  it(
+    'prints the internal PACKAGE specifier when a workspace dist file is unlinked',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    () => {
+      const dir = track(makeShimDir());
+      mkdirSync(join(dir, 'dist', 'cli'), { recursive: true });
+      mkdirSync(join(dir, 'node_modules', 'peaks-loop-shared', 'dist'), { recursive: true });
+      writeFileSync(
+        join(dir, 'node_modules', 'peaks-loop-shared', 'package.json'),
+        JSON.stringify({
+          name: 'peaks-loop-shared',
+          version: '0.0.0',
+          type: 'module',
+          exports: { './version': { default: './dist/version.js' } }
+        }),
+        'utf8'
+      );
+      writeFileSync(
+        join(dir, 'dist', 'cli', 'index.js'),
+        "import 'peaks-loop-shared/version';\n",
+        'utf8'
+      );
+      const out = runShim(dir, ['anything']);
+      expect(out.status).toBe(1);
+      expect(out.stderr).toContain('peaks-loop-shared');
+      expect(out.stderr).toContain('npm run build');
+    }
+  );
 });
 
 describe('(behavior) happy path is unchanged; non-internal errors rethrow', () => {
-  it('passes argv through and preserves the entry module exit code', () => {
-    const dir = track(makeShimDir());
-    mkdirSync(join(dir, 'dist', 'cli'), { recursive: true });
-    writeFileSync(
-      join(dir, 'dist', 'cli', 'index.js'),
-      'process.stdout.write(JSON.stringify(process.argv.slice(2)));\nprocess.exitCode = 7;\n',
-      'utf8'
-    );
-    const out = runShim(dir, ['memory', 'reindex', '--project', '.']);
-    expect(out.status).toBe(7);
-    expect(JSON.parse(out.stdout)).toEqual(['memory', 'reindex', '--project', '.']);
-    expect(out.stderr).toBe('');
-  });
+  it(
+    'passes argv through and preserves the entry module exit code',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    () => {
+      const dir = track(makeShimDir());
+      mkdirSync(join(dir, 'dist', 'cli'), { recursive: true });
+      writeFileSync(
+        join(dir, 'dist', 'cli', 'index.js'),
+        'process.stdout.write(JSON.stringify(process.argv.slice(2)));\nprocess.exitCode = 7;\n',
+        'utf8'
+      );
+      const out = runShim(dir, ['memory', 'reindex', '--project', '.']);
+      expect(out.status).toBe(7);
+      expect(JSON.parse(out.stdout)).toEqual(['memory', 'reindex', '--project', '.']);
+      expect(out.stderr).toBe('');
+    }
+  );
 
-  it('rethrows a third-party resolution failure unchanged (no friendly message)', () => {
-    const dir = track(makeShimDir());
-    mkdirSync(join(dir, 'dist', 'cli'), { recursive: true });
-    writeFileSync(
-      join(dir, 'dist', 'cli', 'index.js'),
-      "import 'totally-missing-thirdparty-xyz';\n",
-      'utf8'
-    );
-    const out = runShim(dir, ['anything']);
-    expect(out.status).toBe(1);
-    expect(out.stderr).toContain('ERR_MODULE_NOT_FOUND');
-    expect(out.stderr).toContain('totally-missing-thirdparty-xyz');
-    expect(out.stderr).not.toContain('npm run build');
-  });
+  it(
+    'rethrows a third-party resolution failure unchanged (no friendly message)',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    () => {
+      const dir = track(makeShimDir());
+      mkdirSync(join(dir, 'dist', 'cli'), { recursive: true });
+      writeFileSync(
+        join(dir, 'dist', 'cli', 'index.js'),
+        "import 'totally-missing-thirdparty-xyz';\n",
+        'utf8'
+      );
+      const out = runShim(dir, ['anything']);
+      expect(out.status).toBe(1);
+      expect(out.stderr).toContain('ERR_MODULE_NOT_FOUND');
+      expect(out.stderr).toContain('totally-missing-thirdparty-xyz');
+      expect(out.stderr).not.toContain('npm run build');
+    }
+  );
 
   it.skipIf(!existsSync(REAL_DIST_ENTRY))('real repo shim still runs the real CLI', () => {
     const stdout = execFileSync(process.execPath, [REAL_BIN, '--version'], {
@@ -167,20 +184,28 @@ describe('(behavior) happy path is unchanged; non-internal errors rethrow', () =
 });
 
 describe('(integration) real subprocess against real tmp dirs', () => {
-  it('exits non-zero with an empty stdout and a non-empty stderr on a stale build', () => {
-    const dir = track(makeShimDir());
-    const out = runShim(dir);
-    expect(out.status).not.toBe(0);
-    expect(out.status).not.toBeNull();
-    expect(out.stderr.length).toBeGreaterThan(0);
-  });
+  it(
+    'exits non-zero with an empty stdout and a non-empty stderr on a stale build',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    () => {
+      const dir = track(makeShimDir());
+      const out = runShim(dir);
+      expect(out.status).not.toBe(0);
+      expect(out.status).not.toBeNull();
+      expect(out.stderr.length).toBeGreaterThan(0);
+    }
+  );
 });
 
 describe('(a11y) the message tells a human exactly what to run next', () => {
-  it('contains an actionable fix command and the package root', () => {
-    const dir = track(makeShimDir());
-    const out = runShim(dir, ['--version']);
-    expect(out.stderr).toMatch(/run `npm run build` in /);
-    expect(out.stderr).toContain(dir);
-  });
+  it(
+    'contains an actionable fix command and the package root',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    () => {
+      const dir = track(makeShimDir());
+      const out = runShim(dir, ['--version']);
+      expect(out.stderr).toMatch(/run `npm run build` in /);
+      expect(out.stderr).toContain(dir);
+    }
+  );
 });

@@ -95,6 +95,7 @@ import {
 } from '~/src/services/compact-statusline/compact-lifecycle-store';
 import { z } from 'zod';
 import { parseCliEnvelope, parseCliEnvelopeWith } from '~/src/cli/cli-envelope';
+import { SUBPROCESS_TEST_TIMEOUT_MS } from '../_setup/subprocess-timeouts.js';
 
 // The `data` payload `peaks statusline compact --json` returns, read at
 // depth >= 2 (`state.kind` / `state.filledCells`). (S12.)
@@ -680,12 +681,16 @@ async function runStatuslineCompact(
 // ---------------------------------------------------------------------------
 
 describe('Scenario: suite guards', () => {
-  it('when invoked, should dist/cli/index.js exists at suite start (rejection #5: build before subprocess tests)', () => {
-    // given: the test setup
-    // when:  the function under test is invoked
-    // then:  the result matches the expectation
-    expect(existsSync(DIST_ENTRY)).toBe(true);
-  });
+  it(
+    'when invoked, should dist/cli/index.js exists at suite start (rejection #5: build before subprocess tests)',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    () => {
+      // given: the test setup
+      // when:  the function under test is invoked
+      // then:  the result matches the expectation
+      expect(existsSync(DIST_ENTRY)).toBe(true);
+    }
+  );
 });
 
 // ---------------------------------------------------------------------------
@@ -711,142 +716,166 @@ describe('Scenario: render — primary `peaks statusline` with stdin renders the
     rmSync(join(sessionDir, 'txt', 'auto-compact-pending.json'), { force: true });
   });
 
-  it('when invoked, should normal C1 (no lifecycle): "Peaks ● peaks-rd › <basename>"', async () => {
-    // given: the test setup
-    // when:  the function under test is invoked
-    // then:  the result matches the expectation
-    if (!active) throw new Error('harness not active');
-    writeSessionFile(active);
-    writePresence(active);
-    rmSync(active.lifecyclePath, { force: true });
-    const r = await runStatuslineStdin(active);
-    expect(r.status === 0 || r.signal === 'SIGTERM').toBe(true);
-    // The brand prefix + a breathing active glyph + skill + (gate hidden
-    // — `implementation` is not in ATTENTION_GATE_LABELS) + root label.
-    // CLI appends a trailing newline; the primary line consumer (Claude
-    // Code) reads it as-is. The active glyph rotates through the
-    // breathing set every 480ms (`●◐◑◒◓`), so we assert on the stable
-    // substrings rather than pinning the exact glyph.
-    //
-    // Slice 2026-08-04 rid-005 + slice 4-B/C: the renderer dropped the
-    // `↑peaks-code` bee-tier parent marker. With NO in-flight leaf
-    // dispatch seeded, `activeLeaf === null` and the line collapses to
-    // `${dot} ${skill}${modeToken}` — so the expected shape is
-    // `● peaks-rd [full-auto]`.
-    expect(stripped(r.stdout)).toMatch(/^Peaks [●◐◑◒◓] peaks-rd \[full-auto\] → /);
-    expect(stripped(r.stdout)).toContain(basename(active.projectRoot));
-  });
+  it(
+    'when invoked, should normal C1 (no lifecycle): "Peaks ● peaks-rd › <basename>"',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    async () => {
+      // given: the test setup
+      // when:  the function under test is invoked
+      // then:  the result matches the expectation
+      if (!active) throw new Error('harness not active');
+      writeSessionFile(active);
+      writePresence(active);
+      rmSync(active.lifecyclePath, { force: true });
+      const r = await runStatuslineStdin(active);
+      expect(r.status === 0 || r.signal === 'SIGTERM').toBe(true);
+      // The brand prefix + a breathing active glyph + skill + (gate hidden
+      // — `implementation` is not in ATTENTION_GATE_LABELS) + root label.
+      // CLI appends a trailing newline; the primary line consumer (Claude
+      // Code) reads it as-is. The active glyph rotates through the
+      // breathing set every 480ms (`●◐◑◒◓`), so we assert on the stable
+      // substrings rather than pinning the exact glyph.
+      //
+      // Slice 2026-08-04 rid-005 + slice 4-B/C: the renderer dropped the
+      // `↑peaks-code` bee-tier parent marker. With NO in-flight leaf
+      // dispatch seeded, `activeLeaf === null` and the line collapses to
+      // `${dot} ${skill}${modeToken}` — so the expected shape is
+      // `● peaks-rd [full-auto]`.
+      expect(stripped(r.stdout)).toMatch(/^Peaks [●◐◑◒◓] peaks-rd \[full-auto\] → /);
+      expect(stripped(r.stdout)).toContain(basename(active.projectRoot));
+    }
+  );
 
-  it('when invoked, should queued lifecycle: primary line carries the queued compact segment', async () => {
-    // given: the test setup
-    // when:  the function under test is invoked
-    // then:  the result matches the expectation
-    if (!active) throw new Error('harness not active');
-    writeSessionFile(active);
-    writePresence(active);
-    seedLifecycle(
-      active,
-      makeRecord({ stage: 'queued', updatedAt: new Date(TEST_NOW_MS).toISOString() })
-    );
-    const r = await runStatuslineStdin(active);
-    expect(r.status === 0 || r.signal === 'SIGTERM').toBe(true);
-    expect(stripped(r.stdout)).toContain('queued');
-    expect(stripped(r.stdout)).toContain('[░░░░░░░░]');
-  });
+  it(
+    'when invoked, should queued lifecycle: primary line carries the queued compact segment',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    async () => {
+      // given: the test setup
+      // when:  the function under test is invoked
+      // then:  the result matches the expectation
+      if (!active) throw new Error('harness not active');
+      writeSessionFile(active);
+      writePresence(active);
+      seedLifecycle(
+        active,
+        makeRecord({ stage: 'queued', updatedAt: new Date(TEST_NOW_MS).toISOString() })
+      );
+      const r = await runStatuslineStdin(active);
+      expect(r.status === 0 || r.signal === 'SIGTERM').toBe(true);
+      expect(stripped(r.stdout)).toContain('queued');
+      expect(stripped(r.stdout)).toContain('[░░░░░░░░]');
+    }
+  );
 
-  it('when invoked, should compacting lifecycle: primary line carries the 4-cell compact segment', async () => {
-    // given: the test setup
-    // when:  the function under test is invoked
-    // then:  the result matches the expectation
-    if (!active) throw new Error('harness not active');
-    writeSessionFile(active);
-    writePresence(active);
-    seedLifecycle(
-      active,
-      makeRecord({ stage: 'compacting', updatedAt: new Date(TEST_NOW_MS).toISOString() })
-    );
-    const r = await runStatuslineStdin(active);
-    expect(r.status === 0 || r.signal === 'SIGTERM').toBe(true);
-    expect(stripped(r.stdout)).toContain('[████░░░░]');
-    expect(stripped(r.stdout)).toContain('compacting');
-  });
+  it(
+    'when invoked, should compacting lifecycle: primary line carries the 4-cell compact segment',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    async () => {
+      // given: the test setup
+      // when:  the function under test is invoked
+      // then:  the result matches the expectation
+      if (!active) throw new Error('harness not active');
+      writeSessionFile(active);
+      writePresence(active);
+      seedLifecycle(
+        active,
+        makeRecord({ stage: 'compacting', updatedAt: new Date(TEST_NOW_MS).toISOString() })
+      );
+      const r = await runStatuslineStdin(active);
+      expect(r.status === 0 || r.signal === 'SIGTERM').toBe(true);
+      expect(stripped(r.stdout)).toContain('[████░░░░]');
+      expect(stripped(r.stdout)).toContain('compacting');
+    }
+  );
 
-  it('when invoked, should completed lifecycle (within 10s window): primary line carries the 8-cell compact segment with after-ratio', async () => {
-    // given: the test setup
-    // when:  the function under test is invoked
-    // then:  the result matches the expectation
-    if (!active) throw new Error('harness not active');
-    writeSessionFile(active);
-    writePresence(active);
-    // Slice 2026-08-07-statusline-flake: pin `updatedAt` to the suite's
-    // pinned `TEST_NOW_MS` (same clock the subprocess receives via
-    // `--now`) so the 10s completed-expiry window check is in-range by
-    // construction, not by race. The subprocess may sit descheduled
-    // for several seconds under full-suite concurrency, which previously
-    // aged the lifecycle out of the window and collapsed the primary
-    // line to the C1 baseline.
-    const updatedAt = new Date(TEST_NOW_MS).toISOString();
-    seedLifecycle(active, makeRecord({ stage: 'completed', afterRatio: 0.42, updatedAt }));
-    const r = await runStatuslineStdin(active);
-    expect(r.status === 0 || r.signal === 'SIGTERM').toBe(true);
-    expect(stripped(r.stdout)).toContain('[████████]');
-    // The primary line formats the after-ratio as a percentage (`.toFixed(0)`),
-    // not the raw 0..1 decimal. The compact subcommand path preserves the
-    // raw decimal (`→ 0.42`); the primary line strips the leading zero for
-    // visual density.
-    expect(stripped(r.stdout)).toContain('42%');
-  });
+  it(
+    'when invoked, should completed lifecycle (within 10s window): primary line carries the 8-cell compact segment with after-ratio',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    async () => {
+      // given: the test setup
+      // when:  the function under test is invoked
+      // then:  the result matches the expectation
+      if (!active) throw new Error('harness not active');
+      writeSessionFile(active);
+      writePresence(active);
+      // Slice 2026-08-07-statusline-flake: pin `updatedAt` to the suite's
+      // pinned `TEST_NOW_MS` (same clock the subprocess receives via
+      // `--now`) so the 10s completed-expiry window check is in-range by
+      // construction, not by race. The subprocess may sit descheduled
+      // for several seconds under full-suite concurrency, which previously
+      // aged the lifecycle out of the window and collapsed the primary
+      // line to the C1 baseline.
+      const updatedAt = new Date(TEST_NOW_MS).toISOString();
+      seedLifecycle(active, makeRecord({ stage: 'completed', afterRatio: 0.42, updatedAt }));
+      const r = await runStatuslineStdin(active);
+      expect(r.status === 0 || r.signal === 'SIGTERM').toBe(true);
+      expect(stripped(r.stdout)).toContain('[████████]');
+      // The primary line formats the after-ratio as a percentage (`.toFixed(0)`),
+      // not the raw 0..1 decimal. The compact subcommand path preserves the
+      // raw decimal (`→ 0.42`); the primary line strips the leading zero for
+      // visual density.
+      expect(stripped(r.stdout)).toContain('42%');
+    }
+  );
 
-  it('when invoked, should failed lifecycle: primary line carries the failed segment + failedAt (errorSummary is in the compact subcommand, not the primary line)', async () => {
-    // given: the test setup
-    // when:  the function under test is invoked
-    // then:  the result matches the expectation
-    if (!active) throw new Error('harness not active');
-    writeSessionFile(active);
-    writePresence(active);
-    seedLifecycle(
-      active,
-      makeRecord({
-        stage: 'failed',
-        failedAt: 'compacting',
-        errorSummary: 'synthetic failure for integration test',
-        updatedAt: new Date(TEST_NOW_MS).toISOString()
-      })
-    );
-    const r = await runStatuslineStdin(active);
-    expect(r.status === 0 || r.signal === 'SIGTERM').toBe(true);
-    // The primary line shows the failed segment + failedAt cell. The
-    // errorSummary is intentionally NOT in the primary line (it's a noisy
-    // long field) — it surfaces on the compact subcommand via
-    // `peaks statusline compact`, which IS what the diagnostic surface is.
-    expect(stripped(r.stdout)).toContain('[████░░░░]');
-    expect(stripped(r.stdout)).toContain('failed');
-    expect(stripped(r.stdout)).toContain('compacting');
-  });
+  it(
+    'when invoked, should failed lifecycle: primary line carries the failed segment + failedAt (errorSummary is in the compact subcommand, not the primary line)',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    async () => {
+      // given: the test setup
+      // when:  the function under test is invoked
+      // then:  the result matches the expectation
+      if (!active) throw new Error('harness not active');
+      writeSessionFile(active);
+      writePresence(active);
+      seedLifecycle(
+        active,
+        makeRecord({
+          stage: 'failed',
+          failedAt: 'compacting',
+          errorSummary: 'synthetic failure for integration test',
+          updatedAt: new Date(TEST_NOW_MS).toISOString()
+        })
+      );
+      const r = await runStatuslineStdin(active);
+      expect(r.status === 0 || r.signal === 'SIGTERM').toBe(true);
+      // The primary line shows the failed segment + failedAt cell. The
+      // errorSummary is intentionally NOT in the primary line (it's a noisy
+      // long field) — it surfaces on the compact subcommand via
+      // `peaks statusline compact`, which IS what the diagnostic surface is.
+      expect(stripped(r.stdout)).toContain('[████░░░░]');
+      expect(stripped(r.stdout)).toContain('failed');
+      expect(stripped(r.stdout)).toContain('compacting');
+    }
+  );
 
-  it('when invoked, should back to normal (lifecycle removed): primary line returns to the C1 baseline', async () => {
-    // given: the test setup
-    // when:  the function under test is invoked
-    // then:  the result matches the expectation
-    if (!active) throw new Error('harness not active');
-    writeSessionFile(active);
-    writePresence(active);
-    seedLifecycle(
-      active,
-      makeRecord({
-        stage: 'completed',
-        afterRatio: 0.5,
-        updatedAt: new Date(TEST_NOW_MS).toISOString()
-      })
-    );
-    // Remove the lifecycle to simulate "compact done, indicator expires".
-    // The 10s expiry is tested separately below.
-    rmSync(active.lifecyclePath, { force: true });
-    const r = await runStatuslineStdin(active);
-    expect(r.status === 0 || r.signal === 'SIGTERM').toBe(true);
-    expect(stripped(r.stdout)).toMatch(/^Peaks [●◐◑◒◓] peaks-rd \[full-auto\] → /);
-    expect(stripped(r.stdout)).toContain(basename(active.projectRoot));
-  });
+  it(
+    'when invoked, should back to normal (lifecycle removed): primary line returns to the C1 baseline',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    async () => {
+      // given: the test setup
+      // when:  the function under test is invoked
+      // then:  the result matches the expectation
+      if (!active) throw new Error('harness not active');
+      writeSessionFile(active);
+      writePresence(active);
+      seedLifecycle(
+        active,
+        makeRecord({
+          stage: 'completed',
+          afterRatio: 0.5,
+          updatedAt: new Date(TEST_NOW_MS).toISOString()
+        })
+      );
+      // Remove the lifecycle to simulate "compact done, indicator expires".
+      // The 10s expiry is tested separately below.
+      rmSync(active.lifecyclePath, { force: true });
+      const r = await runStatuslineStdin(active);
+      expect(r.status === 0 || r.signal === 'SIGTERM').toBe(true);
+      expect(stripped(r.stdout)).toMatch(/^Peaks [●◐◑◒◓] peaks-rd \[full-auto\] → /);
+      expect(stripped(r.stdout)).toContain(basename(active.projectRoot));
+    }
+  );
 });
 
 // ---------------------------------------------------------------------------
@@ -854,62 +883,70 @@ describe('Scenario: render — primary `peaks statusline` with stdin renders the
 // ---------------------------------------------------------------------------
 
 describe('Scenario: behavior — completed lifecycle EXPIRES after 10s in the primary state (rejection design requirement)', () => {
-  it('when invoked, should completed lifecycle recorded 15s ago → primary line falls back to C1 baseline (no green ✓)', async () => {
-    // given: the test setup
-    // when:  the function under test is invoked
-    // then:  the result matches the expectation
-    if (!active) throw new Error('harness not active');
-    writeSessionFile(active);
-    writePresence(active);
-    // Use 15s ago (well past the 10s expiry) so the test is robust to
-    // wall-clock elapsed during the suite. Slice 2026-08-07-statusline-
-    // flake: offset from the suite's pinned `TEST_NOW_MS` (NOT from
-    // `Date.now()`) so the offset is measured against the subprocess's
-    // `--now` clock, not the test runner's wall clock.
-    const fifteenSecondsAgo = new Date(TEST_NOW_MS - 15_000).toISOString();
-    seedLifecycle(
-      active,
-      makeRecord({
-        stage: 'completed',
-        afterRatio: 0.42,
-        updatedAt: fifteenSecondsAgo
-      })
-    );
-    const r = await runStatuslineStdin(active);
-    expect(r.status === 0 || r.signal === 'SIGTERM').toBe(true);
-    // The 10-second expiry has elapsed: the compact segment is suppressed,
-    // the primary line returns to the C1 baseline (active presence + brand).
-    expect(stripped(r.stdout)).toMatch(/^Peaks [●◐◑◒◓] peaks-rd \[full-auto\] → /);
-    expect(stripped(r.stdout)).toContain(basename(active.projectRoot));
-    expect(stripped(r.stdout)).not.toContain('✓');
-    expect(stripped(r.stdout)).not.toMatch(/\[[█░]+]/);
-  });
+  it(
+    'when invoked, should completed lifecycle recorded 15s ago → primary line falls back to C1 baseline (no green ✓)',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    async () => {
+      // given: the test setup
+      // when:  the function under test is invoked
+      // then:  the result matches the expectation
+      if (!active) throw new Error('harness not active');
+      writeSessionFile(active);
+      writePresence(active);
+      // Use 15s ago (well past the 10s expiry) so the test is robust to
+      // wall-clock elapsed during the suite. Slice 2026-08-07-statusline-
+      // flake: offset from the suite's pinned `TEST_NOW_MS` (NOT from
+      // `Date.now()`) so the offset is measured against the subprocess's
+      // `--now` clock, not the test runner's wall clock.
+      const fifteenSecondsAgo = new Date(TEST_NOW_MS - 15_000).toISOString();
+      seedLifecycle(
+        active,
+        makeRecord({
+          stage: 'completed',
+          afterRatio: 0.42,
+          updatedAt: fifteenSecondsAgo
+        })
+      );
+      const r = await runStatuslineStdin(active);
+      expect(r.status === 0 || r.signal === 'SIGTERM').toBe(true);
+      // The 10-second expiry has elapsed: the compact segment is suppressed,
+      // the primary line returns to the C1 baseline (active presence + brand).
+      expect(stripped(r.stdout)).toMatch(/^Peaks [●◐◑◒◓] peaks-rd \[full-auto\] → /);
+      expect(stripped(r.stdout)).toContain(basename(active.projectRoot));
+      expect(stripped(r.stdout)).not.toContain('✓');
+      expect(stripped(r.stdout)).not.toMatch(/\[[█░]+]/);
+    }
+  );
 
-  it('when invoked, should completed lifecycle recorded 1s ago → primary line STILL shows the compact segment (within window)', async () => {
-    // given: the test setup
-    // when:  the function under test is invoked
-    // then:  the result matches the expectation
-    if (!active) throw new Error('harness not active');
-    writeSessionFile(active);
-    writePresence(active);
-    // Use 1s ago (not 9s) so the test is robust to the 30+ second
-    // wall-clock the full 24-test suite can take. The 9s case would
-    // race the 10s expiry on a slow CI run. Slice 2026-08-07-statusline-
-    // flake: offset from the suite's pinned `TEST_NOW_MS` so the offset
-    // is measured against the subprocess's `--now` clock.
-    const oneSecondAgo = new Date(TEST_NOW_MS - 1_000).toISOString();
-    seedLifecycle(
-      active,
-      makeRecord({
-        stage: 'completed',
-        afterRatio: 0.42,
-        updatedAt: oneSecondAgo
-      })
-    );
-    const r = await runStatuslineStdin(active);
-    expect(r.status === 0 || r.signal === 'SIGTERM').toBe(true);
-    expect(stripped(r.stdout)).toContain('[████████]');
-  });
+  it(
+    'when invoked, should completed lifecycle recorded 1s ago → primary line STILL shows the compact segment (within window)',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    async () => {
+      // given: the test setup
+      // when:  the function under test is invoked
+      // then:  the result matches the expectation
+      if (!active) throw new Error('harness not active');
+      writeSessionFile(active);
+      writePresence(active);
+      // Use 1s ago (not 9s) so the test is robust to the 30+ second
+      // wall-clock the full 24-test suite can take. The 9s case would
+      // race the 10s expiry on a slow CI run. Slice 2026-08-07-statusline-
+      // flake: offset from the suite's pinned `TEST_NOW_MS` so the offset
+      // is measured against the subprocess's `--now` clock.
+      const oneSecondAgo = new Date(TEST_NOW_MS - 1_000).toISOString();
+      seedLifecycle(
+        active,
+        makeRecord({
+          stage: 'completed',
+          afterRatio: 0.42,
+          updatedAt: oneSecondAgo
+        })
+      );
+      const r = await runStatuslineStdin(active);
+      expect(r.status === 0 || r.signal === 'SIGTERM').toBe(true);
+      expect(stripped(r.stdout)).toContain('[████████]');
+    }
+  );
 });
 
 // ---------------------------------------------------------------------------
@@ -917,57 +954,69 @@ describe('Scenario: behavior — completed lifecycle EXPIRES after 10s in the pr
 // ---------------------------------------------------------------------------
 
 describe('Scenario: behavior — PEAKS_STATUSLINE_ASCII=1 env override drops the renderer to the ASCII palette (rejection #2)', () => {
-  it('when invoked, should primary line under PEAKS_STATUSLINE_ASCII=1 is byte-identical ASCII (no Unicode-extra glyphs)', async () => {
-    // given: the test setup
-    // when:  the function under test is invoked
-    // then:  the result matches the expectation
-    if (!active) throw new Error('harness not active');
-    writeSessionFile(active);
-    writePresence(active);
-    seedLifecycle(
-      active,
-      makeRecord({ stage: 'compacting', updatedAt: new Date(TEST_NOW_MS).toISOString() })
-    );
-    const r = await runStatuslineStdin(active, { PEAKS_STATUSLINE_ASCII: '1' });
-    expect(r.status === 0 || r.signal === 'SIGTERM').toBe(true);
-    // ASCII palette uses `+` for compacting and `#`/`-` for the bar.
-    // No `●`, no `█`, no `░` — those are Unicode-extra glyphs.
-    expect(r.stdout).toContain('+');
-    expect(r.stdout).toContain('####');
-    expect(r.stdout).not.toContain('●');
-    expect(r.stdout).not.toContain('█');
-    expect(r.stdout).not.toContain('░');
-  });
+  it(
+    'when invoked, should primary line under PEAKS_STATUSLINE_ASCII=1 is byte-identical ASCII (no Unicode-extra glyphs)',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    async () => {
+      // given: the test setup
+      // when:  the function under test is invoked
+      // then:  the result matches the expectation
+      if (!active) throw new Error('harness not active');
+      writeSessionFile(active);
+      writePresence(active);
+      seedLifecycle(
+        active,
+        makeRecord({ stage: 'compacting', updatedAt: new Date(TEST_NOW_MS).toISOString() })
+      );
+      const r = await runStatuslineStdin(active, { PEAKS_STATUSLINE_ASCII: '1' });
+      expect(r.status === 0 || r.signal === 'SIGTERM').toBe(true);
+      // ASCII palette uses `+` for compacting and `#`/`-` for the bar.
+      // No `●`, no `█`, no `░` — those are Unicode-extra glyphs.
+      expect(r.stdout).toContain('+');
+      expect(r.stdout).toContain('####');
+      expect(r.stdout).not.toContain('●');
+      expect(r.stdout).not.toContain('█');
+      expect(r.stdout).not.toContain('░');
+    }
+  );
 
-  it('when invoked, should NO_COLOR=1 takes precedence over PEAKS_STATUSLINE_ASCII="": default unicode, no ANSI', async () => {
-    // given: the test setup
-    // when:  the function under test is invoked
-    // then:  the result matches the expectation
-    if (!active) throw new Error('harness not active');
-    writeSessionFile(active);
-    writePresence(active);
-    const r = await runStatuslineStdin(active, {
-      NO_COLOR: '1',
-      PEAKS_STATUSLINE_ASCII: ''
-    });
-    expect(r.status === 0 || r.signal === 'SIGTERM').toBe(true);
-    // Breathing glyph rotates through ●◐◑◒◓ every 480ms; assert the
-    // set rather than pinning the exact glyph.
-    expect(stripped(r.stdout)).toMatch(/[●◐◑◒◓]/);
-    expect(r.stdout).not.toContain('\x1b[');
-  });
+  it(
+    'when invoked, should NO_COLOR=1 takes precedence over PEAKS_STATUSLINE_ASCII="": default unicode, no ANSI',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    async () => {
+      // given: the test setup
+      // when:  the function under test is invoked
+      // then:  the result matches the expectation
+      if (!active) throw new Error('harness not active');
+      writeSessionFile(active);
+      writePresence(active);
+      const r = await runStatuslineStdin(active, {
+        NO_COLOR: '1',
+        PEAKS_STATUSLINE_ASCII: ''
+      });
+      expect(r.status === 0 || r.signal === 'SIGTERM').toBe(true);
+      // Breathing glyph rotates through ●◐◑◒◓ every 480ms; assert the
+      // set rather than pinning the exact glyph.
+      expect(stripped(r.stdout)).toMatch(/[●◐◑◒◓]/);
+      expect(r.stdout).not.toContain('\x1b[');
+    }
+  );
 
-  it('when invoked, should PEAKS_STATUSLINE_ASCII=0 is treated as "unset" (does not force ASCII)', async () => {
-    // given: the test setup
-    // when:  the function under test is invoked
-    // then:  the result matches the expectation
-    if (!active) throw new Error('harness not active');
-    writeSessionFile(active);
-    writePresence(active);
-    const r = await runStatuslineStdin(active, { PEAKS_STATUSLINE_ASCII: '0' });
-    expect(r.status === 0 || r.signal === 'SIGTERM').toBe(true);
-    expect(stripped(r.stdout)).toMatch(/[●◐◑◒◓]/);
-  });
+  it(
+    'when invoked, should PEAKS_STATUSLINE_ASCII=0 is treated as "unset" (does not force ASCII)',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    async () => {
+      // given: the test setup
+      // when:  the function under test is invoked
+      // then:  the result matches the expectation
+      if (!active) throw new Error('harness not active');
+      writeSessionFile(active);
+      writePresence(active);
+      const r = await runStatuslineStdin(active, { PEAKS_STATUSLINE_ASCII: '0' });
+      expect(r.status === 0 || r.signal === 'SIGTERM').toBe(true);
+      expect(stripped(r.stdout)).toMatch(/[●◐◑◒◓]/);
+    }
+  );
 });
 
 // ---------------------------------------------------------------------------
@@ -975,61 +1024,73 @@ describe('Scenario: behavior — PEAKS_STATUSLINE_ASCII=1 env override drops the
 // ---------------------------------------------------------------------------
 
 describe('Scenario: behavior — `peaks statusline compact --json` emits the documented envelope (rejection #3 fix)', () => {
-  it('when invoked, should compact --json: returns the {ok: true, command: "statusline.compact", data: {label, state}} envelope', async () => {
-    // given: the test setup
-    // when:  the function under test is invoked
-    // then:  the result matches the expectation
-    if (!active) throw new Error('harness not active');
-    seedLifecycle(
-      active,
-      makeRecord({ stage: 'compacting', updatedAt: new Date(TEST_NOW_MS).toISOString() })
-    );
-    const r = await runStatuslineCompact(active, ['--json']);
-    expect(r.status === 0 || r.signal === 'SIGTERM').toBe(true);
-    const env = parseCliEnvelopeWith(r.stdout, statuslineCompactPayload);
-    expect(env.ok).toBe(true);
-    expect(env.command).toBe('statusline.compact');
-    expect(typeof env.data.label).toBe('string');
-    expect(env.data.label).toBe('compact [████░░░░]');
-    expect(env.data.state.kind).toBe('compacting');
-    expect(env.data.state.filledCells).toBe(4);
-  });
+  it(
+    'when invoked, should compact --json: returns the {ok: true, command: "statusline.compact", data: {label, state}} envelope',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    async () => {
+      // given: the test setup
+      // when:  the function under test is invoked
+      // then:  the result matches the expectation
+      if (!active) throw new Error('harness not active');
+      seedLifecycle(
+        active,
+        makeRecord({ stage: 'compacting', updatedAt: new Date(TEST_NOW_MS).toISOString() })
+      );
+      const r = await runStatuslineCompact(active, ['--json']);
+      expect(r.status === 0 || r.signal === 'SIGTERM').toBe(true);
+      const env = parseCliEnvelopeWith(r.stdout, statuslineCompactPayload);
+      expect(env.ok).toBe(true);
+      expect(env.command).toBe('statusline.compact');
+      expect(typeof env.data.label).toBe('string');
+      expect(env.data.label).toBe('compact [████░░░░]');
+      expect(env.data.state.kind).toBe('compacting');
+      expect(env.data.state.filledCells).toBe(4);
+    }
+  );
 
-  it('when invoked, should compact --json without --project: still emits the envelope (auto-detect from cwd)', async () => {
-    // given: the test setup
-    // when:  the function under test is invoked
-    // then:  the result matches the expectation
-    if (!active) throw new Error('harness not active');
-    seedLifecycle(
-      active,
-      makeRecord({ stage: 'queued', updatedAt: new Date(TEST_NOW_MS).toISOString() })
-    );
-    const r = await spawnCli(
-      ['statusline', 'compact', '--session-id', active.sessionId, '--json'],
-      { env: {} }
-    );
-    expect(r.status === 0 || r.signal === 'SIGTERM').toBe(true);
-    const env = parseCliEnvelope(r.stdout);
-    expect(env.ok).toBe(true);
-    expect(env.data.label).toBe('compact [░░░░░░░░]');
-  });
+  it(
+    'when invoked, should compact --json without --project: still emits the envelope (auto-detect from cwd)',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    async () => {
+      // given: the test setup
+      // when:  the function under test is invoked
+      // then:  the result matches the expectation
+      if (!active) throw new Error('harness not active');
+      seedLifecycle(
+        active,
+        makeRecord({ stage: 'queued', updatedAt: new Date(TEST_NOW_MS).toISOString() })
+      );
+      const r = await spawnCli(
+        ['statusline', 'compact', '--session-id', active.sessionId, '--json'],
+        { env: {} }
+      );
+      expect(r.status === 0 || r.signal === 'SIGTERM').toBe(true);
+      const env = parseCliEnvelope(r.stdout);
+      expect(env.ok).toBe(true);
+      expect(env.data.label).toBe('compact [░░░░░░░░]');
+    }
+  );
 
-  it('when invoked, should compact WITHOUT --json: emits the plain label only (no JSON envelope braces)', async () => {
-    // given: the test setup
-    // when:  the function under test is invoked
-    // then:  the result matches the expectation
-    if (!active) throw new Error('harness not active');
-    seedLifecycle(
-      active,
-      makeRecord({ stage: 'compacting', updatedAt: new Date(TEST_NOW_MS).toISOString() })
-    );
-    const r = await runStatuslineCompact(active);
-    expect(r.status === 0 || r.signal === 'SIGTERM').toBe(true);
-    expect(r.stdout).toBe('compact [████░░░░]\n');
-    // No JSON envelope braces; the bar brackets `[` `]` are the compact
-    // indicator's framing and are part of the documented plain-text shape.
-    expect(r.stdout).not.toMatch(/[{}]/);
-  });
+  it(
+    'when invoked, should compact WITHOUT --json: emits the plain label only (no JSON envelope braces)',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    async () => {
+      // given: the test setup
+      // when:  the function under test is invoked
+      // then:  the result matches the expectation
+      if (!active) throw new Error('harness not active');
+      seedLifecycle(
+        active,
+        makeRecord({ stage: 'compacting', updatedAt: new Date(TEST_NOW_MS).toISOString() })
+      );
+      const r = await runStatuslineCompact(active);
+      expect(r.status === 0 || r.signal === 'SIGTERM').toBe(true);
+      expect(r.stdout).toBe('compact [████░░░░]\n');
+      // No JSON envelope braces; the bar brackets `[` `]` are the compact
+      // indicator's framing and are part of the documented plain-text shape.
+      expect(r.stdout).not.toMatch(/[{}]/);
+    }
+  );
 });
 
 // ---------------------------------------------------------------------------
@@ -1037,66 +1098,78 @@ describe('Scenario: behavior — `peaks statusline compact --json` emits the doc
 // ---------------------------------------------------------------------------
 
 describe('Scenario: integration — the CLI reads the lifecycle + presence from the spawned cwd (no global state)', () => {
-  it('when invoked, should changing the lifecycle record between runs changes the rendered output', async () => {
-    // given: the test setup
-    // when:  the function under test is invoked
-    // then:  the result matches the expectation
-    if (!active) throw new Error('harness not active');
-    seedLifecycle(
-      active,
-      makeRecord({ stage: 'compacting', updatedAt: new Date(TEST_NOW_MS).toISOString() })
-    );
-    const first = await runStatuslineCompact(active);
-    expect(first.stdout).toBe('compact [████░░░░]\n');
+  it(
+    'when invoked, should changing the lifecycle record between runs changes the rendered output',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    async () => {
+      // given: the test setup
+      // when:  the function under test is invoked
+      // then:  the result matches the expectation
+      if (!active) throw new Error('harness not active');
+      seedLifecycle(
+        active,
+        makeRecord({ stage: 'compacting', updatedAt: new Date(TEST_NOW_MS).toISOString() })
+      );
+      const first = await runStatuslineCompact(active);
+      expect(first.stdout).toBe('compact [████░░░░]\n');
 
-    seedLifecycle(
-      active,
-      makeRecord({
-        stage: 'completed',
-        afterRatio: 0.5,
-        updatedAt: new Date(TEST_NOW_MS).toISOString()
-      })
-    );
-    const second = await runStatuslineCompact(active);
-    expect(second.stdout).toBe('compact [████████] → 0.50\n');
-  });
+      seedLifecycle(
+        active,
+        makeRecord({
+          stage: 'completed',
+          afterRatio: 0.5,
+          updatedAt: new Date(TEST_NOW_MS).toISOString()
+        })
+      );
+      const second = await runStatuslineCompact(active);
+      expect(second.stdout).toBe('compact [████████] → 0.50\n');
+    }
+  );
 
-  it('when invoked, should invalid lifecycle JSON surfaces the honest "status unreadable" label, not a fake progress bar', async () => {
-    // given: the test setup
-    // when:  the function under test is invoked
-    // then:  the result matches the expectation
-    if (!active) throw new Error('harness not active');
-    mkdirSync(dirname(active.lifecyclePath), { recursive: true });
-    writeFileSync(active.lifecyclePath, '{not valid json', 'utf8');
-    const r = await runStatuslineCompact(active);
-    expect(r.status === 0 || r.signal === 'SIGTERM').toBe(true);
-    expect(r.stdout).not.toMatch(/████/);
-    expect(r.stdout).toContain('status unreadable');
-  });
+  it(
+    'when invoked, should invalid lifecycle JSON surfaces the honest "status unreadable" label, not a fake progress bar',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    async () => {
+      // given: the test setup
+      // when:  the function under test is invoked
+      // then:  the result matches the expectation
+      if (!active) throw new Error('harness not active');
+      mkdirSync(dirname(active.lifecyclePath), { recursive: true });
+      writeFileSync(active.lifecyclePath, '{not valid json', 'utf8');
+      const r = await runStatuslineCompact(active);
+      expect(r.status === 0 || r.signal === 'SIGTERM').toBe(true);
+      expect(r.stdout).not.toMatch(/████/);
+      expect(r.stdout).toContain('status unreadable');
+    }
+  );
 
-  it('when invoked, should primary `peaks statusline` with stdin honors the active-skill presence + root label', async () => {
-    // given: the test setup
-    // when:  the function under test is invoked
-    // then:  the result matches the expectation
-    if (!active) throw new Error('harness not active');
-    writeSessionFile(active);
-    writePresence(active, { skill: 'peaks-qa', gate: 'qa-validation' });
-    const r = await runStatuslineStdin(active);
-    expect(r.status === 0 || r.signal === 'SIGTERM').toBe(true);
-    // The canonical lease projection (slice 2026-08-05-statusline-sid-scoped-lease)
-    // surfaces `skill` + `mode` only — `gate` is intentionally NOT part of
-    // the typed `SkillPresenceLease` (presence-lease-types.ts) and the
-    // canonical resolver (active-skill-resolver.ts) does not project it
-    // into the statusline model. The QA attention-gate warning glyph +
-    // `QA` label render path is therefore NOT exercised by this slice's
-    // canonical fixture; the legacy active-skill.json path that surfaced
-    // `gate` is removed. We assert the canonical shape: presence skill
-    // rendered with the brand glyph, root label appended. (See
-    // skill-statusline-renderer.test.ts for the attention-gate render
-    // surface, which is unit-tested at the pure renderer level.)
-    expect(stripped(r.stdout)).toMatch(/^Peaks [●◐◑◒◓] peaks-qa \[full-auto\] → /);
-    expect(stripped(r.stdout)).toContain(basename(active.projectRoot));
-  });
+  it(
+    'when invoked, should primary `peaks statusline` with stdin honors the active-skill presence + root label',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    async () => {
+      // given: the test setup
+      // when:  the function under test is invoked
+      // then:  the result matches the expectation
+      if (!active) throw new Error('harness not active');
+      writeSessionFile(active);
+      writePresence(active, { skill: 'peaks-qa', gate: 'qa-validation' });
+      const r = await runStatuslineStdin(active);
+      expect(r.status === 0 || r.signal === 'SIGTERM').toBe(true);
+      // The canonical lease projection (slice 2026-08-05-statusline-sid-scoped-lease)
+      // surfaces `skill` + `mode` only — `gate` is intentionally NOT part of
+      // the typed `SkillPresenceLease` (presence-lease-types.ts) and the
+      // canonical resolver (active-skill-resolver.ts) does not project it
+      // into the statusline model. The QA attention-gate warning glyph +
+      // `QA` label render path is therefore NOT exercised by this slice's
+      // canonical fixture; the legacy active-skill.json path that surfaced
+      // `gate` is removed. We assert the canonical shape: presence skill
+      // rendered with the brand glyph, root label appended. (See
+      // skill-statusline-renderer.test.ts for the attention-gate render
+      // surface, which is unit-tested at the pure renderer level.)
+      expect(stripped(r.stdout)).toMatch(/^Peaks [●◐◑◒◓] peaks-qa \[full-auto\] → /);
+      expect(stripped(r.stdout)).toContain(basename(active.projectRoot));
+    }
+  );
 });
 
 // ---------------------------------------------------------------------------
@@ -1114,29 +1187,33 @@ describe('Scenario: a11y — rendered labels stay single-line English, no `?`, n
   ];
 
   for (const stage of STAGES) {
-    it(`${stage}: compact output is single-line, no '?', no 'peaks <verb>'`, async () => {
-      // given: the test setup
-      // when:  the function under test is invoked
-      // then:  the result matches the expectation
-      if (!active) throw new Error('harness not active');
-      const overrides: Partial<CompactLifecycleRecord> =
-        stage === 'failed'
-          ? {
-              failedAt: 'compacting',
-              errorSummary: 'integration-test failure',
-              updatedAt: new Date(TEST_NOW_MS).toISOString()
-            }
-          : stage === 'completed'
-            ? { afterRatio: 0.42, updatedAt: new Date(TEST_NOW_MS).toISOString() }
-            : {};
-      seedLifecycle(active, makeRecord({ stage, ...overrides }));
-      const r = await runStatuslineCompact(active);
-      expect(r.status === 0 || r.signal === 'SIGTERM').toBe(true);
-      const line = r.stdout.replace(/\n$/, '');
-      expect(line).not.toMatch(/\n/);
-      expect(line).not.toMatch(/\?/);
-      expect(line).not.toMatch(/\bpeaks\s+(install|uninstall|render|compact|status)\b/);
-    });
+    it(
+      `${stage}: compact output is single-line, no '?', no 'peaks <verb>'`,
+      { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+      async () => {
+        // given: the test setup
+        // when:  the function under test is invoked
+        // then:  the result matches the expectation
+        if (!active) throw new Error('harness not active');
+        const overrides: Partial<CompactLifecycleRecord> =
+          stage === 'failed'
+            ? {
+                failedAt: 'compacting',
+                errorSummary: 'integration-test failure',
+                updatedAt: new Date(TEST_NOW_MS).toISOString()
+              }
+            : stage === 'completed'
+              ? { afterRatio: 0.42, updatedAt: new Date(TEST_NOW_MS).toISOString() }
+              : {};
+        seedLifecycle(active, makeRecord({ stage, ...overrides }));
+        const r = await runStatuslineCompact(active);
+        expect(r.status === 0 || r.signal === 'SIGTERM').toBe(true);
+        const line = r.stdout.replace(/\n$/, '');
+        expect(line).not.toMatch(/\n/);
+        expect(line).not.toMatch(/\?/);
+        expect(line).not.toMatch(/\bpeaks\s+(install|uninstall|render|compact|status)\b/);
+      }
+    );
   }
 });
 

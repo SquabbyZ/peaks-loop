@@ -47,6 +47,7 @@ import type {
   DoctorOptions
 } from '~/src/services/doctor/doctor-service/types';
 import { declareDimensions } from '../_setup/4dim-template.js';
+import { SUBPROCESS_TEST_TIMEOUT_MS } from '../_setup/subprocess-timeouts.js';
 
 declareDimensions('tests/unit/doctor/codegraph-exclude-integrity.test.ts', [
   'render',
@@ -174,27 +175,31 @@ describe('capability:codegraph-exclude-integrity', () => {
     expect(message).toContain('peaks codegraph repair-exclude');
   });
 
-  it('with an empty rule in the config, should still block on the real gap', () => {
-    // Regression from the picomatch delegation: the empty rule made the
-    // inspector throw, and the check downgraded that to
-    // `severity: 'warning'` — a non-blocking verdict over an index that
-    // was still provably incomplete. The junk rule must not change the
-    // severity of a real gap.
-    const project = createTempProjectWithEmptyRule();
-    try {
-      const checks = runCheck(
-        makeContext({ codegraphIntegrityProbe: () => inspectCodegraphExcludeIntegrity(project) })
-      );
+  it(
+    'with an empty rule in the config, should still block on the real gap',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    () => {
+      // Regression from the picomatch delegation: the empty rule made the
+      // inspector throw, and the check downgraded that to
+      // `severity: 'warning'` — a non-blocking verdict over an index that
+      // was still provably incomplete. The junk rule must not change the
+      // severity of a real gap.
+      const project = createTempProjectWithEmptyRule();
+      try {
+        const checks = runCheck(
+          makeContext({ codegraphIntegrityProbe: () => inspectCodegraphExcludeIntegrity(project) })
+        );
 
-      expect(checks[0]?.ok).toBe(false);
-      // No explicit severity => the doctor's default, i.e. blocking.
-      expect(checks[0]?.severity).toBeUndefined();
-      expect(checks[0]?.message).toContain('**/vendor/**');
-      expect(checks[0]?.message).toContain('vendor/lib.ts');
-    } finally {
-      rmSync(project, { recursive: true, force: true });
+        expect(checks[0]?.ok).toBe(false);
+        // No explicit severity => the doctor's default, i.e. blocking.
+        expect(checks[0]?.severity).toBeUndefined();
+        expect(checks[0]?.message).toContain('**/vendor/**');
+        expect(checks[0]?.message).toContain('vendor/lib.ts');
+      } finally {
+        rmSync(project, { recursive: true, force: true });
+      }
     }
-  });
+  );
 
   it('when the probe throws, should warn instead of blocking', () => {
     const checks = runCheck(

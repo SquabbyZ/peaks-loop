@@ -67,6 +67,7 @@ vi.mock(
 );
 
 import { repairCodegraphExcludeFromProject } from '../../../../src/services/codegraph/codegraph-exclude-repair.js';
+import { SUBPROCESS_TEST_TIMEOUT_MS } from '../../_setup/subprocess-timeouts.js';
 
 const cleanups: string[] = [];
 
@@ -112,35 +113,43 @@ const runner = async (): Promise<{ exitCode: number; stdout: string; stderr: str
 });
 
 describe('repairCodegraphExcludeFromProject — an upstream adapter failure is a warning, not a throw', () => {
-  it('should resolve with a warning naming the upstream cause instead of throwing', async () => {
-    const projectRoot = makeFixture();
-    const before = readFileSync(join(projectRoot, '.codegraph', 'config.json'), 'utf8');
-    adapter.fail = true;
+  it(
+    'should resolve with a warning naming the upstream cause instead of throwing',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    async () => {
+      const projectRoot = makeFixture();
+      const before = readFileSync(join(projectRoot, '.codegraph', 'config.json'), 'utf8');
+      adapter.fail = true;
 
-    // The load-bearing assertion: before the fix this REJECTED, and the
-    // rejection escaped past every caller (the repair verbs have no
-    // surrounding try, and init's caller is inside its own catch).
-    const report = await repairCodegraphExcludeFromProject(projectRoot, runner);
+      // The load-bearing assertion: before the fix this REJECTED, and the
+      // rejection escaped past every caller (the repair verbs have no
+      // surrounding try, and init's caller is inside its own catch).
+      const report = await repairCodegraphExcludeFromProject(projectRoot, runner);
 
-    expect(report.applied).toBe(false);
-    expect(report.warning).toContain('reconcile skipped');
-    expect(report.warning).toContain('injected upstream dist-layout failure');
-    // Nothing was written and no upstream process ran: an unreadable oracle
-    // must not silently produce a "clean" repair either.
-    expect(report.includePatternsAdded).toEqual([]);
-    expect(report.reindexed).toBe(false);
-    expect(readFileSync(join(projectRoot, '.codegraph', 'config.json'), 'utf8')).toBe(before);
-  });
+      expect(report.applied).toBe(false);
+      expect(report.warning).toContain('reconcile skipped');
+      expect(report.warning).toContain('injected upstream dist-layout failure');
+      // Nothing was written and no upstream process ran: an unreadable oracle
+      // must not silently produce a "clean" repair either.
+      expect(report.includePatternsAdded).toEqual([]);
+      expect(report.reindexed).toBe(false);
+      expect(readFileSync(join(projectRoot, '.codegraph', 'config.json'), 'utf8')).toBe(before);
+    }
+  );
 
-  it('should repair the SAME fixture when the adapter does not fail — the clean control', async () => {
-    const projectRoot = makeFixture();
+  it(
+    'should repair the SAME fixture when the adapter does not fail — the clean control',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    async () => {
+      const projectRoot = makeFixture();
 
-    const report = await repairCodegraphExcludeFromProject(projectRoot, runner);
+      const report = await repairCodegraphExcludeFromProject(projectRoot, runner);
 
-    // Without this control the warning above would be consistent with a
-    // fixture that could never be repaired for some other reason.
-    expect(report.applied).toBe(true);
-    expect(report.warning).toBeNull();
-    expect(report.includePatternsAdded.length).toBeGreaterThan(0);
-  });
+      // Without this control the warning above would be consistent with a
+      // fixture that could never be repaired for some other reason.
+      expect(report.applied).toBe(true);
+      expect(report.warning).toBeNull();
+      expect(report.includePatternsAdded.length).toBeGreaterThan(0);
+    }
+  );
 });

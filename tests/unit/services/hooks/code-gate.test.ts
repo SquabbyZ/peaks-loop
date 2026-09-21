@@ -36,6 +36,7 @@ import {
 } from '~/src/services/hooks/pre-tool-code-gate';
 import { spawn } from 'node:child_process';
 import { resolve } from 'node:path';
+import { SUBPROCESS_TEST_TIMEOUT_MS } from '../../_setup/subprocess-timeouts.js';
 
 declareDimensions('tests/unit/services/hooks/code-gate.test.ts', [
   'render',
@@ -272,76 +273,107 @@ async function runHook(input: GateInput): Promise<SpawnResult> {
 }
 
 describe('Scenario: integration — shell hook smoke (real child_process)', () => {
-  it('given Edit on src/services/foo.ts, when hook runs, then exit=2 + stderr contains PEAKS_CODE_PROHIBITED_DIRECT_EDIT', async () => {
-    const result = await runHook({ tool: 'Edit', input: { file_path: 'src/services/foo.ts' } });
-    expect(result.exitCode).toBe(2);
-    expect(result.stderr).toContain('PEAKS_CODE_PROHIBITED_DIRECT_EDIT');
-    expect(result.stderr).toContain('src/services/foo.ts');
-    expect(result.stderr).toContain('peaks sub-agent dispatch rd');
-  });
+  it(
+    'given Edit on src/services/foo.ts, when hook runs, then exit=2 + stderr contains PEAKS_CODE_PROHIBITED_DIRECT_EDIT',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    async () => {
+      const result = await runHook({ tool: 'Edit', input: { file_path: 'src/services/foo.ts' } });
+      expect(result.exitCode).toBe(2);
+      expect(result.stderr).toContain('PEAKS_CODE_PROHIBITED_DIRECT_EDIT');
+      expect(result.stderr).toContain('src/services/foo.ts');
+      expect(result.stderr).toContain('peaks sub-agent dispatch rd');
+    }
+  );
 
-  it('given Edit on .peaks/memory/notes.md, when hook runs, then exit=0 (allow)', async () => {
-    const result = await runHook({ tool: 'Edit', input: { file_path: '.peaks/memory/notes.md' } });
-    expect(result.exitCode).toBe(0);
-    expect(result.stderr).not.toContain('PEAKS_CODE_PROHIBITED_DIRECT_EDIT');
-  });
-
-  it('given Edit on skills/peaks-code/SKILL.md, when hook runs, then exit=0 (skill files allowed)', async () => {
-    const result = await runHook({
-      tool: 'Edit',
-      input: { file_path: 'skills/peaks-code/SKILL.md' }
-    });
-    expect(result.exitCode).toBe(0);
-    expect(result.stderr).not.toContain('PEAKS_CODE_PROHIBITED_DIRECT_EDIT');
-  });
-
-  it('given Edit on tests/unit/services/foo.test.ts, when hook runs, then exit=2', async () => {
-    const result = await runHook({
-      tool: 'Edit',
-      input: { file_path: 'tests/unit/services/foo.test.ts' }
-    });
-    expect(result.exitCode).toBe(2);
-    expect(result.stderr).toContain('PEAKS_CODE_PROHIBITED_DIRECT_EDIT');
-  });
-
-  it('given MultiEdit on bin/peaks.js, when hook runs, then exit=2', async () => {
-    const result = await runHook({ tool: 'MultiEdit', input: { file_path: 'bin/peaks.js' } });
-    expect(result.exitCode).toBe(2);
-    expect(result.stderr).toContain('PEAKS_CODE_PROHIBITED_DIRECT_EDIT');
-  });
-
-  it('given Bash tool call, when hook runs, then exit=0 (not gated)', async () => {
-    const result = await runHook({ tool: 'Bash', input: { command: 'ls' } });
-    expect(result.exitCode).toBe(0);
-    expect(result.stderr).not.toContain('PEAKS_CODE_PROHIBITED_DIRECT_EDIT');
-  });
-
-  it('given empty stdin, when hook runs, then exit=0 (tolerate empty payload)', async () => {
-    const result = await new Promise<SpawnResult>((resolveFn, reject) => {
-      const child = spawn('bash', [HOOK_SCRIPT], {
-        stdio: ['pipe', 'pipe', 'pipe'],
-        windowsHide: true
+  it(
+    'given Edit on .peaks/memory/notes.md, when hook runs, then exit=0 (allow)',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    async () => {
+      const result = await runHook({
+        tool: 'Edit',
+        input: { file_path: '.peaks/memory/notes.md' }
       });
-      let stdout = '';
-      let stderr = '';
-      child.stdout.on('data', (chunk: Buffer) => {
-        stdout += chunk.toString('utf8');
+      expect(result.exitCode).toBe(0);
+      expect(result.stderr).not.toContain('PEAKS_CODE_PROHIBITED_DIRECT_EDIT');
+    }
+  );
+
+  it(
+    'given Edit on skills/peaks-code/SKILL.md, when hook runs, then exit=0 (skill files allowed)',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    async () => {
+      const result = await runHook({
+        tool: 'Edit',
+        input: { file_path: 'skills/peaks-code/SKILL.md' }
       });
-      child.stderr.on('data', (chunk: Buffer) => {
-        stderr += chunk.toString('utf8');
+      expect(result.exitCode).toBe(0);
+      expect(result.stderr).not.toContain('PEAKS_CODE_PROHIBITED_DIRECT_EDIT');
+    }
+  );
+
+  it(
+    'given Edit on tests/unit/services/foo.test.ts, when hook runs, then exit=2',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    async () => {
+      const result = await runHook({
+        tool: 'Edit',
+        input: { file_path: 'tests/unit/services/foo.test.ts' }
       });
-      child.on('error', (err) => reject(err));
-      child.on('close', (code) => {
-        resolveFn({
-          exitCode: typeof code === 'number' ? code : -1,
-          stdout: stdout.trim(),
-          stderr: stderr.trim()
+      expect(result.exitCode).toBe(2);
+      expect(result.stderr).toContain('PEAKS_CODE_PROHIBITED_DIRECT_EDIT');
+    }
+  );
+
+  it(
+    'given MultiEdit on bin/peaks.js, when hook runs, then exit=2',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    async () => {
+      const result = await runHook({ tool: 'MultiEdit', input: { file_path: 'bin/peaks.js' } });
+      expect(result.exitCode).toBe(2);
+      expect(result.stderr).toContain('PEAKS_CODE_PROHIBITED_DIRECT_EDIT');
+    }
+  );
+
+  it(
+    'given Bash tool call, when hook runs, then exit=0 (not gated)',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    async () => {
+      const result = await runHook({ tool: 'Bash', input: { command: 'ls' } });
+      expect(result.exitCode).toBe(0);
+      expect(result.stderr).not.toContain('PEAKS_CODE_PROHIBITED_DIRECT_EDIT');
+    }
+  );
+
+  it(
+    'given empty stdin, when hook runs, then exit=0 (tolerate empty payload)',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    async () => {
+      const result = await new Promise<SpawnResult>((resolveFn, reject) => {
+        const child = spawn('bash', [HOOK_SCRIPT], {
+          stdio: ['pipe', 'pipe', 'pipe'],
+          windowsHide: true
         });
+        let stdout = '';
+        let stderr = '';
+        child.stdout.on('data', (chunk: Buffer) => {
+          stdout += chunk.toString('utf8');
+        });
+        child.stderr.on('data', (chunk: Buffer) => {
+          stderr += chunk.toString('utf8');
+        });
+        child.on('error', (err) => reject(err));
+        child.on('close', (code) => {
+          resolveFn({
+            exitCode: typeof code === 'number' ? code : -1,
+            stdout: stdout.trim(),
+            stderr: stderr.trim()
+          });
+        });
+        child.stdin.end('');
       });
-      child.stdin.end('');
-    });
-    expect(result.exitCode).toBe(0);
-  });
+      expect(result.exitCode).toBe(0);
+    }
+  );
 });
 
 // ---------------------------------------------------------------------------

@@ -351,7 +351,16 @@ describe('Scenario: integration — the guard walks the real src/ + tests/ trees
     // eighteen from the validating-parse imports added to the converted test
     // files. All carry the `.js` extension the rule requires, so the violation
     // assertion below is unaffected.
-    expect(scan.specifiers.length).toBe(2738);
+    // 2738 -> 2748 (slice rid-s13-file-read-schemas): +10 relative specifiers,
+    // all of them validating-parse imports added to five existing test files —
+    // `job-slice-id-resolution` (+3: `job-types`, `job-progress-store`,
+    // `shared/json-parse`), and +2 each in `job-session-addressing`,
+    // `caller-first-session-resolution`, `binding-store/multi-process`
+    // (`job-types` or `binding-store`, plus `shared/json-parse`) and +1 in
+    // `mut/end-to-end` (`shared/json-parse`). All carry the `.js` extension the
+    // rule requires, so the violation assertion below is unaffected.
+    // `scan.files.length` did NOT move: no `.ts` file was added or removed.
+    expect(scan.specifiers.length).toBe(2786);
   });
 
   it('reaches every relative specifier that crosses into packages/*/src', () => {

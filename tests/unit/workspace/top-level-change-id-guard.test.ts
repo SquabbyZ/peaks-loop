@@ -42,6 +42,7 @@ import {
   initWorkspace,
   LegacyChangeIdSiblingError
 } from '../../../src/services/workspace/workspace-service.js';
+import { SUBPROCESS_TEST_TIMEOUT_MS } from '../_setup/subprocess-timeouts.js';
 
 declareDimensions(
   'tests/unit/workspace/top-level-change-id-guard.test.ts',
@@ -137,35 +138,43 @@ describe('Scenario: integration — the root .gitignore still blocks a date-stam
     ).not.toContain(DEFENSE_RULE);
   });
 
-  it('when git evaluates a synthetic date-stamped sibling path, should ignore it via that rule', () => {
-    // given: a path shaped like the 2.8.0-era orphan, which need not exist on disk
-    // when: git check-ignore resolves it
-    // then: the matching pattern is the defensive rule
-    const result = git(
-      ['check-ignore', '-v', '.peaks/2026-01-01-fake-sibling/rd/note.md'],
-      REPO_ROOT
-    );
-    expect(result.status).toBe(0);
-    expect(result.stdout).toContain(DEFENSE_RULE);
-  });
+  it(
+    'when git evaluates a synthetic date-stamped sibling path, should ignore it via that rule',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    () => {
+      // given: a path shaped like the 2.8.0-era orphan, which need not exist on disk
+      // when: git check-ignore resolves it
+      // then: the matching pattern is the defensive rule
+      const result = git(
+        ['check-ignore', '-v', '.peaks/2026-01-01-fake-sibling/rd/note.md'],
+        REPO_ROOT
+      );
+      expect(result.status).toBe(0);
+      expect(result.stdout).toContain(DEFENSE_RULE);
+    }
+  );
 
-  it('when git evaluates a bare-date sibling path, should leave it alone', () => {
-    // given: `.peaks/<YYYY-MM-DD>/` — a plain date, no slug, which is NOT the
-    //        auto-generated session shape the ban targets
-    // when: git check-ignore resolves it
-    // then: nothing ignores it: the rule's scope is `YYYY-MM-DD-*`, and a rule
-    //       that also swallowed bare dates would ban paths the ban is not about
-    //
-    // This case deliberately probes a date-prefixed sibling rather than a
-    // session dir under the runtime tree. A probe naming `.peaks/_runtime/…`
-    // against the repo root is exactly what `tests/unit/runtime/no-runtime-input-guard.test.ts`
-    // exists to reject, and it is red on CI by construction — the runtime tree
-    // is gitignored session state, and no test may take it as an input, not even
-    // to assert a `.gitignore` pattern about it.
-    const result = git(['check-ignore', '-v', '.peaks/2026-01-01/note.md'], REPO_ROOT);
-    expect(result.status).toBe(1);
-    expect(result.stdout).not.toContain(DEFENSE_RULE);
-  });
+  it(
+    'when git evaluates a bare-date sibling path, should leave it alone',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    () => {
+      // given: `.peaks/<YYYY-MM-DD>/` — a plain date, no slug, which is NOT the
+      //        auto-generated session shape the ban targets
+      // when: git check-ignore resolves it
+      // then: nothing ignores it: the rule's scope is `YYYY-MM-DD-*`, and a rule
+      //       that also swallowed bare dates would ban paths the ban is not about
+      //
+      // This case deliberately probes a date-prefixed sibling rather than a
+      // session dir under the runtime tree. A probe naming `.peaks/_runtime/…`
+      // against the repo root is exactly what `tests/unit/runtime/no-runtime-input-guard.test.ts`
+      // exists to reject, and it is red on CI by construction — the runtime tree
+      // is gitignored session state, and no test may take it as an input, not even
+      // to assert a `.gitignore` pattern about it.
+      const result = git(['check-ignore', '-v', '.peaks/2026-01-01/note.md'], REPO_ROOT);
+      expect(result.status).toBe(1);
+      expect(result.stdout).not.toContain(DEFENSE_RULE);
+    }
+  );
 
   it('when the working tree is scanned, should hold no date-stamped sibling dir under .peaks/', () => {
     // given: the live repository tree
@@ -183,19 +192,23 @@ describe('Scenario: integration — the root .gitignore still blocks a date-stam
     expect(orphans).toEqual([]);
   });
 
-  it('when git lists the tracked .peaks entries, should hold no top-level date-stamped path', () => {
-    // given: the index, which a `--force-add` could have poisoned
-    // when: git ls-files enumerates tracked paths under .peaks/
-    // then: none of them is a top-level date-stamped entry
-    const result = git(['ls-files', '.peaks/'], REPO_ROOT);
-    expect(result.status).toBe(0);
-    const offenders = result.stdout
-      .split('\n')
-      .map((line) => line.trim())
-      .filter((line) => line.length > 0 && !line.startsWith('.peaks/_runtime/'))
-      .filter((line) => isDateStamped(line.slice('.peaks/'.length).split('/')[0] ?? ''));
-    expect(offenders).toEqual([]);
-  });
+  it(
+    'when git lists the tracked .peaks entries, should hold no top-level date-stamped path',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    () => {
+      // given: the index, which a `--force-add` could have poisoned
+      // when: git ls-files enumerates tracked paths under .peaks/
+      // then: none of them is a top-level date-stamped entry
+      const result = git(['ls-files', '.peaks/'], REPO_ROOT);
+      expect(result.status).toBe(0);
+      const offenders = result.stdout
+        .split('\n')
+        .map((line) => line.trim())
+        .filter((line) => line.length > 0 && !line.startsWith('.peaks/_runtime/'))
+        .filter((line) => isDateStamped(line.slice('.peaks/'.length).split('/')[0] ?? ''));
+      expect(offenders).toEqual([]);
+    }
+  );
 
   it('when the two ban documents are read, should name the rule that blocks the pattern in live prose', () => {
     // given: the two documents layer 4 consists of

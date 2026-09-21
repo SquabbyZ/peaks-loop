@@ -66,6 +66,7 @@ import {
   repairCodegraphExcludeFromProject
 } from '../../../../src/services/codegraph/codegraph-exclude-repair.js';
 import { assertCodegraphDirContained } from '../../../../src/services/codegraph/codegraph-service.js';
+import { SUBPROCESS_TEST_TIMEOUT_MS } from '../../_setup/subprocess-timeouts.js';
 
 declareDimensions(
   'tests/unit/services/codegraph/codegraph-dir-containment.test.ts',
@@ -295,33 +296,37 @@ describe('repairCodegraphExcludeFromProject — a refusal names itself', () => {
    * a non-zero exit (the explicit repair verbs), so the throw is what makes
    * the refusal REPORTABLE. This case is that conversion, end to end.
    */
-  it('should report a refusal as a warning naming the containment, and write nothing', async () => {
-    const { projectRoot, foreignDir } = makeInjectionFixture();
-    seedTrackedFile(projectRoot, join('src', 'ok.ts'), 'export const ok = 1;\n');
-    seedTrackedFile(projectRoot, join('vendor', 'v.ts'), 'export const v = 1;\n');
-    git(projectRoot, ['add', '-A']);
-    git(projectRoot, ['commit', '-qm', 'fixture']);
-    // The link is created AFTER the commit, so the fixture's index never sees
-    // it — what a consumer repo would commit is the link itself, which is the
-    // reachability argument this case shares with H1.
-    if (!linkDir(foreignDir, codegraphDirOf(projectRoot))) {
-      expect(existsSync(codegraphDirOf(projectRoot))).toBe(false);
-      return;
+  it(
+    'should report a refusal as a warning naming the containment, and write nothing',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    async () => {
+      const { projectRoot, foreignDir } = makeInjectionFixture();
+      seedTrackedFile(projectRoot, join('src', 'ok.ts'), 'export const ok = 1;\n');
+      seedTrackedFile(projectRoot, join('vendor', 'v.ts'), 'export const v = 1;\n');
+      git(projectRoot, ['add', '-A']);
+      git(projectRoot, ['commit', '-qm', 'fixture']);
+      // The link is created AFTER the commit, so the fixture's index never sees
+      // it — what a consumer repo would commit is the link itself, which is the
+      // reachability argument this case shares with H1.
+      if (!linkDir(foreignDir, codegraphDirOf(projectRoot))) {
+        expect(existsSync(codegraphDirOf(projectRoot))).toBe(false);
+        return;
+      }
+
+      const report = await repairCodegraphExcludeFromProject(
+        projectRoot,
+        async () => ({ exitCode: 0, stdout: 'indexed\n', stderr: '' }),
+        { reindex: false }
+      );
+
+      expect(report.applied).toBe(false);
+      expect(report.warning).not.toBeNull();
+      expect(report.warning ?? '').toContain('refusing to write through it');
+      // Nothing was written and nothing was "read-and-blessed": the refusal is
+      // reported as a reason, not as a repair that found no work.
+      expect(report.rulesRemoved).toEqual([]);
+      expect(readFileSync(join(foreignDir, 'config.json'), 'utf8')).toBe(CONFIG_TEXT);
+      expect(readdirSync(foreignDir)).toEqual(['config.json']);
     }
-
-    const report = await repairCodegraphExcludeFromProject(
-      projectRoot,
-      async () => ({ exitCode: 0, stdout: 'indexed\n', stderr: '' }),
-      { reindex: false }
-    );
-
-    expect(report.applied).toBe(false);
-    expect(report.warning).not.toBeNull();
-    expect(report.warning ?? '').toContain('refusing to write through it');
-    // Nothing was written and nothing was "read-and-blessed": the refusal is
-    // reported as a reason, not as a repair that found no work.
-    expect(report.rulesRemoved).toEqual([]);
-    expect(readFileSync(join(foreignDir, 'config.json'), 'utf8')).toBe(CONFIG_TEXT);
-    expect(readdirSync(foreignDir)).toEqual(['config.json']);
-  });
+  );
 });

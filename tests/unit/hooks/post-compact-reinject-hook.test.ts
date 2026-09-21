@@ -57,6 +57,7 @@ import {
 } from '~/src/services/skills/hooks-codegate-superpowers';
 import { applyHookInstall, removeHookInstall } from '~/src/services/skills/hooks-settings-service';
 import { POST_COMPACT_REINJECTION_BYTE_BUDGET } from '~/src/services/context/post-compact-reinjection';
+import { SUBPROCESS_TEST_TIMEOUT_MS } from '../_setup/subprocess-timeouts.js';
 
 /** Repo root — this file lives at `<root>/tests/unit/hooks/`. */
 const ROOT = join(__dirname, '..', '..', '..');
@@ -267,150 +268,162 @@ describe('behavior — the post-compact re-injection hook entry', () => {
     expect(readFileSync(sharedPath, 'utf8')).toBe(installedShape);
   });
 
-  it('when the installed command runs, should print a card inside the budget', () => {
-    // given: a project whose session tree carries a job, a request and progress
-    const tmpRoot = makeTempProjectRoot();
-    const sid = '2026-09-12-session-hookst';
-    const sess = join(tmpRoot, '.peaks', '_runtime', sid);
-    // The session binding. Without it the CLI cannot resolve a session at all
-    // (`getSessionIdCanonical`), so the job/request blocks would be omitted and
-    // this case would pass while proving nothing about them.
-    mkdirSync(join(tmpRoot, '.peaks', '_runtime'), { recursive: true });
-    writeFileSync(
-      join(tmpRoot, '.peaks', '_runtime', 'session.json'),
-      JSON.stringify({
-        sessionId: sid,
-        projectRoot: realpathSync(tmpRoot),
-        createdAt: '2026-09-13T05:00:00.000Z'
-      }),
-      'utf8'
-    );
-    mkdirSync(join(sess, 'job', 'j-hook-1'), { recursive: true });
-    mkdirSync(join(sess, 'rd', 'requests'), { recursive: true });
-    writeFileSync(
-      join(sess, 'rd', 'requests', '2026-09-13-a2-post-compact-reinject.md'),
-      'x',
-      'utf8'
-    );
-    writeFileSync(
-      join(sess, 'job-shape.json'),
-      JSON.stringify({
-        sessionId: sid,
-        promptHash: 'b'.repeat(16),
-        decision: {
-          isJob: true,
-          rationale: 'multi-slice work',
-          suggestedJobId: 'j-hook-1',
-          suggestedStrategy: 'rotating',
-          confidence: 'high',
-          decidedAt: '2026-09-13T05:00:00.000Z'
-        },
-        schemaVersion: 1
-      }),
-      'utf8'
-    );
-    writeFileSync(
-      join(sess, 'job', 'j-hook-1', 'progress.json'),
-      JSON.stringify({
-        schemaVersion: 1,
-        jobId: 'j-hook-1',
-        done: 3,
-        total: 9,
-        currentSlice: 'a2-post-compact-reinject',
-        lastCommitSha: null,
-        updatedAt: '2026-09-13T06:00:00.000Z'
-      }),
-      'utf8'
-    );
-    // when: the command the hook runs is executed against that project
-    const run = spawnSync(
-      process.execPath,
-      [
-        '--import',
-        'tsx',
-        join(ROOT, 'src', 'cli', 'index.ts'),
-        'session',
-        'reinject',
-        '--project',
-        tmpRoot
-      ],
-      {
-        cwd: ROOT,
-        encoding: 'utf8',
-        windowsHide: true,
-        env: { ...process.env, CLAUDE_PROJECT_DIR: tmpRoot }
-      }
-    );
-    // then: it succeeded, printed a card, and the card is the re-anchoring
-    //       state — not an empty string that would silently re-inject nothing
-    expect(run.status).toBe(0);
-    expect(run.stdout.length).toBeGreaterThan(0);
-    expect(run.stdout).toContain('[peaks-loop] post-compact state card');
-    expect(run.stdout).toContain(sid);
-    expect(run.stdout).toContain('3/9');
-    expect(run.stdout).toContain('--import tsx');
-    // ...and it is inside the declared budget, measured on the REAL output
-    const bytes = Buffer.byteLength(run.stdout.trimEnd(), 'utf8');
-    expect(bytes).toBeLessThanOrEqual(POST_COMPACT_REINJECTION_BYTE_BUDGET);
-  });
+  it(
+    'when the installed command runs, should print a card inside the budget',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    () => {
+      // given: a project whose session tree carries a job, a request and progress
+      const tmpRoot = makeTempProjectRoot();
+      const sid = '2026-09-12-session-hookst';
+      const sess = join(tmpRoot, '.peaks', '_runtime', sid);
+      // The session binding. Without it the CLI cannot resolve a session at all
+      // (`getSessionIdCanonical`), so the job/request blocks would be omitted and
+      // this case would pass while proving nothing about them.
+      mkdirSync(join(tmpRoot, '.peaks', '_runtime'), { recursive: true });
+      writeFileSync(
+        join(tmpRoot, '.peaks', '_runtime', 'session.json'),
+        JSON.stringify({
+          sessionId: sid,
+          projectRoot: realpathSync(tmpRoot),
+          createdAt: '2026-09-13T05:00:00.000Z'
+        }),
+        'utf8'
+      );
+      mkdirSync(join(sess, 'job', 'j-hook-1'), { recursive: true });
+      mkdirSync(join(sess, 'rd', 'requests'), { recursive: true });
+      writeFileSync(
+        join(sess, 'rd', 'requests', '2026-09-13-a2-post-compact-reinject.md'),
+        'x',
+        'utf8'
+      );
+      writeFileSync(
+        join(sess, 'job-shape.json'),
+        JSON.stringify({
+          sessionId: sid,
+          promptHash: 'b'.repeat(16),
+          decision: {
+            isJob: true,
+            rationale: 'multi-slice work',
+            suggestedJobId: 'j-hook-1',
+            suggestedStrategy: 'rotating',
+            confidence: 'high',
+            decidedAt: '2026-09-13T05:00:00.000Z'
+          },
+          schemaVersion: 1
+        }),
+        'utf8'
+      );
+      writeFileSync(
+        join(sess, 'job', 'j-hook-1', 'progress.json'),
+        JSON.stringify({
+          schemaVersion: 1,
+          jobId: 'j-hook-1',
+          done: 3,
+          total: 9,
+          currentSlice: 'a2-post-compact-reinject',
+          lastCommitSha: null,
+          updatedAt: '2026-09-13T06:00:00.000Z'
+        }),
+        'utf8'
+      );
+      // when: the command the hook runs is executed against that project
+      const run = spawnSync(
+        process.execPath,
+        [
+          '--import',
+          'tsx',
+          join(ROOT, 'src', 'cli', 'index.ts'),
+          'session',
+          'reinject',
+          '--project',
+          tmpRoot
+        ],
+        {
+          cwd: ROOT,
+          encoding: 'utf8',
+          windowsHide: true,
+          env: { ...process.env, CLAUDE_PROJECT_DIR: tmpRoot }
+        }
+      );
+      // then: it succeeded, printed a card, and the card is the re-anchoring
+      //       state — not an empty string that would silently re-inject nothing
+      expect(run.status).toBe(0);
+      expect(run.stdout.length).toBeGreaterThan(0);
+      expect(run.stdout).toContain('[peaks-loop] post-compact state card');
+      expect(run.stdout).toContain(sid);
+      expect(run.stdout).toContain('3/9');
+      expect(run.stdout).toContain('--import tsx');
+      // ...and it is inside the declared budget, measured on the REAL output
+      const bytes = Buffer.byteLength(run.stdout.trimEnd(), 'utf8');
+      expect(bytes).toBeLessThanOrEqual(POST_COMPACT_REINJECTION_BYTE_BUDGET);
+    }
+  );
 
-  it('when there is nothing to re-inject, should print nothing and still exit 0', () => {
-    // The failure-soft contract, and it has a sharp edge: stdout IS context
-    // here. A hook that printed `REINJECT_FAILED: ...` would inject that line
-    // into the model's context as a fact, mid-slice, and a hook that exited
-    // non-zero would surface on session start — the one place this feature
-    // must not be able to break anything.
-    // given: a directory that is not a peaks project at all
-    const tmpRoot = makeTempProjectRoot();
-    // when: the command runs against it
-    const run = spawnSync(
-      process.execPath,
-      [
-        '--import',
-        'tsx',
-        join(ROOT, 'src', 'cli', 'index.ts'),
-        'session',
-        'reinject',
-        '--project',
-        tmpRoot
-      ],
-      {
-        cwd: ROOT,
-        encoding: 'utf8',
-        windowsHide: true,
-        env: { ...process.env, CLAUDE_PROJECT_DIR: tmpRoot }
-      }
-    );
-    // then: exit 0, and a card that carries no session-specific claim but is
-    //       still a valid pointer + rules card rather than an error message
-    expect(run.status).toBe(0);
-    expect(run.stdout).not.toContain('REINJECT_FAILED');
-    expect(run.stdout).toContain('session: unbound');
-  });
+  it(
+    'when there is nothing to re-inject, should print nothing and still exit 0',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    () => {
+      // The failure-soft contract, and it has a sharp edge: stdout IS context
+      // here. A hook that printed `REINJECT_FAILED: ...` would inject that line
+      // into the model's context as a fact, mid-slice, and a hook that exited
+      // non-zero would surface on session start — the one place this feature
+      // must not be able to break anything.
+      // given: a directory that is not a peaks project at all
+      const tmpRoot = makeTempProjectRoot();
+      // when: the command runs against it
+      const run = spawnSync(
+        process.execPath,
+        [
+          '--import',
+          'tsx',
+          join(ROOT, 'src', 'cli', 'index.ts'),
+          'session',
+          'reinject',
+          '--project',
+          tmpRoot
+        ],
+        {
+          cwd: ROOT,
+          encoding: 'utf8',
+          windowsHide: true,
+          env: { ...process.env, CLAUDE_PROJECT_DIR: tmpRoot }
+        }
+      );
+      // then: exit 0, and a card that carries no session-specific claim but is
+      //       still a valid pointer + rules card rather than an error message
+      expect(run.status).toBe(0);
+      expect(run.stdout).not.toContain('REINJECT_FAILED');
+      expect(run.stdout).toContain('session: unbound');
+    }
+  );
 
-  it('when the project root is not usable, should print nothing and exit 0', () => {
-    // given: a path that does not exist (this is what a hostile or stale
-    //        ${CLAUDE_PROJECT_DIR} looks like)
-    const missing = join(tmpdir(), 'peaks-reinject-does-not-exist-9f3a');
-    // when: the command runs against it
-    const run = spawnSync(
-      process.execPath,
-      [
-        '--import',
-        'tsx',
-        join(ROOT, 'src', 'cli', 'index.ts'),
-        'session',
-        'reinject',
-        '--project',
-        missing
-      ],
-      { cwd: ROOT, encoding: 'utf8', windowsHide: true }
-    );
-    // then: nothing on stdout at all — no error text for the model to read as
-    //       a task — and exit 0 so the session starts regardless
-    expect(run.status).toBe(0);
-    expect(run.stdout).toBe('');
-  });
+  it(
+    'when the project root is not usable, should print nothing and exit 0',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    () => {
+      // given: a path that does not exist (this is what a hostile or stale
+      //        ${CLAUDE_PROJECT_DIR} looks like)
+      const missing = join(tmpdir(), 'peaks-reinject-does-not-exist-9f3a');
+      // when: the command runs against it
+      const run = spawnSync(
+        process.execPath,
+        [
+          '--import',
+          'tsx',
+          join(ROOT, 'src', 'cli', 'index.ts'),
+          'session',
+          'reinject',
+          '--project',
+          missing
+        ],
+        { cwd: ROOT, encoding: 'utf8', windowsHide: true }
+      );
+      // then: nothing on stdout at all — no error text for the model to read as
+      //       a task — and exit 0 so the session starts regardless
+      expect(run.status).toBe(0);
+      expect(run.stdout).toBe('');
+    }
+  );
 });
 
 describe('behavior — workspace init does not disturb the re-injection entry', () => {

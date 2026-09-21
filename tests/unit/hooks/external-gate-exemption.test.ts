@@ -49,6 +49,7 @@ import {
   templateContentMatches
 } from '~/src/services/workspace/claude-settings-template';
 import { materializeClaudeSettingsLocal } from '~/src/services/workspace/workspace-claude-settings-materializer';
+import { SUBPROCESS_TEST_TIMEOUT_MS } from '../_setup/subprocess-timeouts.js';
 
 /**
  * The third-party variable the adapter table maps Peaks' workspace-tree
@@ -191,29 +192,33 @@ describe('behavior — Peaks declares its external fact-forcing gate exemption',
     expect(readEnvObject(localSettingsPath(tmpRoot))[VENDOR_KEY]).toBe(PEAKS_WORKSPACE_GLOB);
   });
 
-  it('when the exemption is written, should be visible to a spawned process', () => {
-    // given: a project whose machine-local file the installer wrote
-    const tmpRoot = makeTempProjectRoot();
-    applyHookInstall('project', tmpRoot, { ide: 'claude-code' });
-    const writtenEnv = readEnvObject(localSettingsPath(tmpRoot));
-    // when: a child process is spawned with that file's env block applied —
-    //        the variable is deleted from the parent env first, so the child
-    //        can only have learned it from the file
-    const base: NodeJS.ProcessEnv = { ...process.env };
-    delete base[VENDOR_KEY];
-    const child = spawnSync(
-      process.execPath,
-      ['-e', `process.stdout.write(String(process.env.${VENDOR_KEY}))`],
-      {
-        env: { ...base, ...writtenEnv },
-        encoding: 'utf8',
-        windowsHide: true
-      }
-    );
-    // then: the subprocess reads the glob — the environment, not the file
-    expect(child.status).toBe(0);
-    expect(child.stdout).toBe(PEAKS_WORKSPACE_GLOB);
-  });
+  it(
+    'when the exemption is written, should be visible to a spawned process',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    () => {
+      // given: a project whose machine-local file the installer wrote
+      const tmpRoot = makeTempProjectRoot();
+      applyHookInstall('project', tmpRoot, { ide: 'claude-code' });
+      const writtenEnv = readEnvObject(localSettingsPath(tmpRoot));
+      // when: a child process is spawned with that file's env block applied —
+      //        the variable is deleted from the parent env first, so the child
+      //        can only have learned it from the file
+      const base: NodeJS.ProcessEnv = { ...process.env };
+      delete base[VENDOR_KEY];
+      const child = spawnSync(
+        process.execPath,
+        ['-e', `process.stdout.write(String(process.env.${VENDOR_KEY}))`],
+        {
+          env: { ...base, ...writtenEnv },
+          encoding: 'utf8',
+          windowsHide: true
+        }
+      );
+      // then: the subprocess reads the glob — the environment, not the file
+      expect(child.status).toBe(0);
+      expect(child.stdout).toBe(PEAKS_WORKSPACE_GLOB);
+    }
+  );
 
   it('when hooks uninstall runs, should strip our glob and leave the user’s env intact', () => {
     // given: a project with the install applied over a hand-edited env

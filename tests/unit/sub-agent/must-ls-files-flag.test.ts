@@ -28,6 +28,7 @@ import { resolve } from 'node:path';
 
 import { runGitLsFiles } from '../../../src/services/dispatch/dispatch-sub-agent.js';
 import type { DispatchOptions } from '../../../src/cli/commands/sub-agent-shared.js';
+import { SUBPROCESS_TEST_TIMEOUT_MS } from '../_setup/subprocess-timeouts.js';
 
 const PROJECT_ROOT = resolve(__dirname, '..', '..', '..');
 
@@ -117,31 +118,35 @@ describe('F5 anti-fake-green: --must-ls-files frontmatter + verification envelop
   });
 
   describe('git ls-files integration cross-check', () => {
-    it('when run from a real tmp git repo, should round-trip via shell + runGitLsFiles', () => {
-      // given: a fresh tmp git repo with one tracked .ts file
-      // when:  we git-add the file and run runGitLsFiles(projectRoot, '*.ts')
-      // then:  the helper returns exactly the path we added
-      //        (anti-fake-green: the file MUST be in `git ls-files`,
-      //         not merely on the disk — this is the contract that
-      //         closes the rid-001 Lesson 1 defect)
-      const tmp = mkdtempSync(join(tmpdir(), 'f5-realrepo-'));
-      try {
-        mkdirSync(join(tmp, 'src'), { recursive: true });
-        const target = join(tmp, 'src', 'real.ts');
-        writeFileSync(target, 'export const x = 1;\n');
-        execFileSync('git', ['init', '-q'], { cwd: tmp, windowsHide: true });
-        execFileSync('git', ['add', 'src/real.ts'], { cwd: tmp, windowsHide: true });
-        execFileSync(
-          'git',
-          ['-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-q', '-m', 'init'],
-          { cwd: tmp, windowsHide: true }
-        );
+    it(
+      'when run from a real tmp git repo, should round-trip via shell + runGitLsFiles',
+      { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+      () => {
+        // given: a fresh tmp git repo with one tracked .ts file
+        // when:  we git-add the file and run runGitLsFiles(projectRoot, '*.ts')
+        // then:  the helper returns exactly the path we added
+        //        (anti-fake-green: the file MUST be in `git ls-files`,
+        //         not merely on the disk — this is the contract that
+        //         closes the rid-001 Lesson 1 defect)
+        const tmp = mkdtempSync(join(tmpdir(), 'f5-realrepo-'));
+        try {
+          mkdirSync(join(tmp, 'src'), { recursive: true });
+          const target = join(tmp, 'src', 'real.ts');
+          writeFileSync(target, 'export const x = 1;\n');
+          execFileSync('git', ['init', '-q'], { cwd: tmp, windowsHide: true });
+          execFileSync('git', ['add', 'src/real.ts'], { cwd: tmp, windowsHide: true });
+          execFileSync(
+            'git',
+            ['-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-q', '-m', 'init'],
+            { cwd: tmp, windowsHide: true }
+          );
 
-        const files = runGitLsFiles(tmp, '*.ts');
-        expect(files).toEqual(['src/real.ts']);
-      } finally {
-        rmSync(tmp, { recursive: true, force: true });
+          const files = runGitLsFiles(tmp, '*.ts');
+          expect(files).toEqual(['src/real.ts']);
+        } finally {
+          rmSync(tmp, { recursive: true, force: true });
+        }
       }
-    });
+    );
   });
 });

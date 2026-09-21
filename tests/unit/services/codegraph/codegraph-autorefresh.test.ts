@@ -49,6 +49,7 @@ import {
   type CodegraphInvocation
 } from '../../../../src/services/codegraph/codegraph-service.js';
 import { declareDimensions } from '../../_setup/4dim-template.js';
+import { SUBPROCESS_TEST_TIMEOUT_MS } from '../../_setup/subprocess-timeouts.js';
 
 declareDimensions(
   'tests/unit/services/codegraph/codegraph-autorefresh.test.ts',
@@ -230,101 +231,109 @@ describe('Scenario: integration — dangling marker self-heal and foreign skip',
     }
   });
 
-  it('when the self-heal init writes upstream default exclude rules that block tracked source, should repair the config', async () => {
-    // Regression (repair round M4). The dangling self-heal ran upstream
-    // `init` — which writes the default `exclude` template — and then
-    // `index`, without ever reconciling. The marker is already present
-    // on this path (that is what "dangling" means), so from then on
-    // `peaks codegraph init` no-ops and the gap is permanent. The
-    // autorefresh must run the same exclude repair the CLI does.
-    //
-    // given: a real git work tree with a tracked file under vendor/, and
-    //        a dangling peaks-loop `.codegraph/`
-    const project = realpathSync.native(mkdtempSync(join(tmpdir(), 'peaks-cg-auto-d1b-')));
-    mkdirSync(join(project, 'src'), { recursive: true });
-    mkdirSync(join(project, 'vendor'), { recursive: true });
-    writeFileSync(join(project, 'src', 'ok.ts'), 'export const ok = 1;\n', 'utf8');
-    writeFileSync(join(project, 'vendor', 'lib.ts'), 'export const lib = 1;\n', 'utf8');
-    execFileSync('git', ['-C', project, 'init', '-q'], { stdio: 'ignore', windowsHide: true });
-    execFileSync('git', ['-C', project, 'config', 'user.email', 'peaks-test@example.com'], {
-      stdio: 'ignore',
-      windowsHide: true
-    });
-    execFileSync('git', ['-C', project, 'config', 'user.name', 'peaks test'], {
-      stdio: 'ignore',
-      windowsHide: true
-    });
-    execFileSync('git', ['-C', project, 'add', '-A'], { stdio: 'ignore', windowsHide: true });
-    execFileSync('git', ['-C', project, 'commit', '-qm', 'fixture'], {
-      stdio: 'ignore',
-      windowsHide: true
-    });
-    danglingCodegraph(project);
+  it(
+    'when the self-heal init writes upstream default exclude rules that block tracked source, should repair the config',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    async () => {
+      // Regression (repair round M4). The dangling self-heal ran upstream
+      // `init` — which writes the default `exclude` template — and then
+      // `index`, without ever reconciling. The marker is already present
+      // on this path (that is what "dangling" means), so from then on
+      // `peaks codegraph init` no-ops and the gap is permanent. The
+      // autorefresh must run the same exclude repair the CLI does.
+      //
+      // given: a real git work tree with a tracked file under vendor/, and
+      //        a dangling peaks-loop `.codegraph/`
+      const project = realpathSync.native(mkdtempSync(join(tmpdir(), 'peaks-cg-auto-d1b-')));
+      mkdirSync(join(project, 'src'), { recursive: true });
+      mkdirSync(join(project, 'vendor'), { recursive: true });
+      writeFileSync(join(project, 'src', 'ok.ts'), 'export const ok = 1;\n', 'utf8');
+      writeFileSync(join(project, 'vendor', 'lib.ts'), 'export const lib = 1;\n', 'utf8');
+      execFileSync('git', ['-C', project, 'init', '-q'], { stdio: 'ignore', windowsHide: true });
+      execFileSync('git', ['-C', project, 'config', 'user.email', 'peaks-test@example.com'], {
+        stdio: 'ignore',
+        windowsHide: true
+      });
+      execFileSync('git', ['-C', project, 'config', 'user.name', 'peaks test'], {
+        stdio: 'ignore',
+        windowsHide: true
+      });
+      execFileSync('git', ['-C', project, 'add', '-A'], { stdio: 'ignore', windowsHide: true });
+      execFileSync('git', ['-C', project, 'commit', '-qm', 'fixture'], {
+        stdio: 'ignore',
+        windowsHide: true
+      });
+      danglingCodegraph(project);
 
-    const runner = vi.fn(
-      async (invocation: CodegraphInvocation): Promise<CodegraphExecutionResult> => {
-        if (invocation.subcommand === 'init') {
-          writeFileSync(
-            join(project, '.codegraph', 'config.json'),
-            `${JSON.stringify(
-              { version: 1, include: ['**/*.ts'], exclude: ['**/vendor/**', '**/node_modules/**'] },
-              null,
-              2
-            )}\n`,
-            'utf8'
-          );
-          return { exitCode: 0, stdout: 'initialized\n', stderr: '' };
+      const runner = vi.fn(
+        async (invocation: CodegraphInvocation): Promise<CodegraphExecutionResult> => {
+          if (invocation.subcommand === 'init') {
+            writeFileSync(
+              join(project, '.codegraph', 'config.json'),
+              `${JSON.stringify(
+                {
+                  version: 1,
+                  include: ['**/*.ts'],
+                  exclude: ['**/vendor/**', '**/node_modules/**']
+                },
+                null,
+                2
+              )}\n`,
+              'utf8'
+            );
+            return { exitCode: 0, stdout: 'initialized\n', stderr: '' };
+          }
+          if (invocation.subcommand === 'index')
+            return { exitCode: 0, stdout: 'indexed\n', stderr: '' };
+          return { exitCode: 1, stdout: '', stderr: 'unexpected subcommand' };
         }
-        if (invocation.subcommand === 'index')
-          return { exitCode: 0, stdout: 'indexed\n', stderr: '' };
-        return { exitCode: 1, stdout: '', stderr: 'unexpected subcommand' };
+      );
+
+      try {
+        // when: refreshCodegraphAfterSlice is invoked
+        const result = await refreshCodegraphAfterSlice(project, runner);
+
+        // then: the refresh still succeeds …
+        expect(result.refreshed).toBe(true);
+
+        // … the offending rule is gone, with a rollback copy …
+        const configPath = join(project, '.codegraph', 'config.json');
+        const config = JSON.parse(readFileSync(configPath, 'utf8')) as {
+          include: string[];
+          exclude: string[];
+        };
+        expect(config.exclude).toEqual(['**/node_modules/**']);
+        expect(existsSync(`${configPath}.bak`)).toBe(true);
+
+        // … and the INCLUDE axis landed in the SAME write (D1, D-round).
+        //    The slice-complete auto-refresh is the second automatic seam,
+        //    and the only one a downstream project reaches without any
+        //    operator action — so the include invariant is pinned here, not
+        //    left implicit in the exclude assertion beside it. The fixture's
+        //    self-heal init template names only `**/*.ts`; the seam must
+        //    append exactly the five extensions upstream's extractor
+        //    supports and its own template omits, in that order, keeping the
+        //    caller's entry first. Reddens if the seam stops passing through
+        //    the shared repair entry point or starts short-circuiting when
+        //    there is no exclude rule to remove.
+        expect(config.include).toEqual([
+          '**/*.ts',
+          '**/*.mjs',
+          '**/*.cjs',
+          '**/*.pyw',
+          '**/*.hxx',
+          '**/*.rake'
+        ]);
+
+        // … and exactly one index ran (the repair does not add a second
+        //    rebuild when the caller indexes right after).
+        const subcommands = runner.mock.calls.map((c) => c[0].subcommand);
+        expect(subcommands).toEqual(['init', 'index']);
+      } finally {
+        rmSync(project, { recursive: true, force: true });
       }
-    );
-
-    try {
-      // when: refreshCodegraphAfterSlice is invoked
-      const result = await refreshCodegraphAfterSlice(project, runner);
-
-      // then: the refresh still succeeds …
-      expect(result.refreshed).toBe(true);
-
-      // … the offending rule is gone, with a rollback copy …
-      const configPath = join(project, '.codegraph', 'config.json');
-      const config = JSON.parse(readFileSync(configPath, 'utf8')) as {
-        include: string[];
-        exclude: string[];
-      };
-      expect(config.exclude).toEqual(['**/node_modules/**']);
-      expect(existsSync(`${configPath}.bak`)).toBe(true);
-
-      // … and the INCLUDE axis landed in the SAME write (D1, D-round).
-      //    The slice-complete auto-refresh is the second automatic seam,
-      //    and the only one a downstream project reaches without any
-      //    operator action — so the include invariant is pinned here, not
-      //    left implicit in the exclude assertion beside it. The fixture's
-      //    self-heal init template names only `**/*.ts`; the seam must
-      //    append exactly the five extensions upstream's extractor
-      //    supports and its own template omits, in that order, keeping the
-      //    caller's entry first. Reddens if the seam stops passing through
-      //    the shared repair entry point or starts short-circuiting when
-      //    there is no exclude rule to remove.
-      expect(config.include).toEqual([
-        '**/*.ts',
-        '**/*.mjs',
-        '**/*.cjs',
-        '**/*.pyw',
-        '**/*.hxx',
-        '**/*.rake'
-      ]);
-
-      // … and exactly one index ran (the repair does not add a second
-      //    rebuild when the caller indexes right after).
-      const subcommands = runner.mock.calls.map((c) => c[0].subcommand);
-      expect(subcommands).toEqual(['init', 'index']);
-    } finally {
-      rmSync(project, { recursive: true, force: true });
     }
-  });
+  );
 
   it('when the dangling self-heal init fails, should fail-silent with an init-naming note', async () => {
     // given: a dangling dir whose init step exits non-zero

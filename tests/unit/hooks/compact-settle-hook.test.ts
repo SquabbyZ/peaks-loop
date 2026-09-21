@@ -52,6 +52,7 @@ import {
 import { applyHookInstall, removeHookInstall } from '~/src/services/skills/hooks-settings-service';
 import { writeCompactLifecycle } from '~/src/services/compact-statusline/compact-lifecycle-store';
 import { materializeClaudeSettingsLocal } from '~/src/services/workspace/workspace-claude-settings-materializer';
+import { SUBPROCESS_TEST_TIMEOUT_MS } from '../_setup/subprocess-timeouts.js';
 
 /** Repo root — this file lives at `<root>/tests/unit/hooks/`. */
 const ROOT = join(__dirname, '..', '..', '..');
@@ -263,125 +264,149 @@ describe('behavior — a corrupted matcher is seen and repaired (R2)', () => {
 });
 
 describe('behavior — the hook fires and the run settles at once (AC1)', () => {
-  it('when the harness reports a compaction, should settle immediately and print nothing', () => {
-    // given: a bound session with a compact run open at 92%
-    const root = makeProject();
-    bindSession(root);
-    openRun(root, 0.92);
-    expect(readHistory(root)).toEqual([]);
-    // when: the command the hook runs is executed
-    const run = runSettleCommand(root, JSON.stringify({ trigger: 'auto' }));
-    // then: it exited cleanly and said NOTHING — stdout may be added to the
-    //       model's context, so a sentence there is a fact peaks-loop appears
-    //       to be asserting
-    expect(run.status).toBe(0);
-    expect(run.stdout).toBe('');
-    // ...and the row is on disk IMMEDIATELY, with no probe run in between —
-    //    which is the whole difference from the inference this replaces
-    const rows = readHistory(root);
-    expect(rows).toHaveLength(1);
-    expect(rows[0]?.kind).toBe('observed');
-    expect(rows[0]?.pathway).toBe('post-compact-hook');
-    expect(rows[0]?.beforeRatio).toBe(0.92);
-  });
+  it(
+    'when the harness reports a compaction, should settle immediately and print nothing',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    () => {
+      // given: a bound session with a compact run open at 92%
+      const root = makeProject();
+      bindSession(root);
+      openRun(root, 0.92);
+      expect(readHistory(root)).toEqual([]);
+      // when: the command the hook runs is executed
+      const run = runSettleCommand(root, JSON.stringify({ trigger: 'auto' }));
+      // then: it exited cleanly and said NOTHING — stdout may be added to the
+      //       model's context, so a sentence there is a fact peaks-loop appears
+      //       to be asserting
+      expect(run.status).toBe(0);
+      expect(run.stdout).toBe('');
+      // ...and the row is on disk IMMEDIATELY, with no probe run in between —
+      //    which is the whole difference from the inference this replaces
+      const rows = readHistory(root);
+      expect(rows).toHaveLength(1);
+      expect(rows[0]?.kind).toBe('observed');
+      expect(rows[0]?.pathway).toBe('post-compact-hook');
+      expect(rows[0]?.beforeRatio).toBe(0.92);
+    }
+  );
 
-  it('when no run is open, should add no row and still print nothing', () => {
-    // The counterexample that makes the case above meaningful: the same command
-    // on a project with nothing to attribute writes nothing. Without it, "a row
-    // appeared" could be a row that always appears.
-    // given: a bound session with NO compact run open
-    const root = makeProject();
-    bindSession(root);
-    // when: the command runs
-    const run = runSettleCommand(root, JSON.stringify({ trigger: 'auto' }));
-    // then: exit 0, empty stdout, and no history file at all
-    expect(run.status).toBe(0);
-    expect(run.stdout).toBe('');
-    expect(readHistory(root)).toEqual([]);
-    expect(existsSync(historyPath(root))).toBe(false);
-  });
+  it(
+    'when no run is open, should add no row and still print nothing',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    () => {
+      // The counterexample that makes the case above meaningful: the same command
+      // on a project with nothing to attribute writes nothing. Without it, "a row
+      // appeared" could be a row that always appears.
+      // given: a bound session with NO compact run open
+      const root = makeProject();
+      bindSession(root);
+      // when: the command runs
+      const run = runSettleCommand(root, JSON.stringify({ trigger: 'auto' }));
+      // then: exit 0, empty stdout, and no history file at all
+      expect(run.status).toBe(0);
+      expect(run.stdout).toBe('');
+      expect(readHistory(root)).toEqual([]);
+      expect(existsSync(historyPath(root))).toBe(false);
+    }
+  );
 
-  it('when the project root is not usable, should print nothing and exit 0', () => {
-    // given: a path that does not exist, which is what a stale
-    //        ${CLAUDE_PROJECT_DIR} looks like
-    const missing = join(tmpdir(), 'peaks-compact-settle-does-not-exist-7c1e');
-    // when: the command runs against it
-    const run = runSettleCommand(missing, '{ not json at all');
-    // then: nothing on stdout — no error text for the model to read as a task —
-    //       and exit 0, because a hook must not break the harness's own path
-    expect(run.status).toBe(0);
-    expect(run.stdout).toBe('');
-  });
+  it(
+    'when the project root is not usable, should print nothing and exit 0',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    () => {
+      // given: a path that does not exist, which is what a stale
+      //        ${CLAUDE_PROJECT_DIR} looks like
+      const missing = join(tmpdir(), 'peaks-compact-settle-does-not-exist-7c1e');
+      // when: the command runs against it
+      const run = runSettleCommand(missing, '{ not json at all');
+      // then: nothing on stdout — no error text for the model to read as a task —
+      //       and exit 0, because a hook must not break the harness's own path
+      expect(run.status).toBe(0);
+      expect(run.stdout).toBe('');
+    }
+  );
 });
 
 describe('behavior — the row carries the harness trigger (AC2)', () => {
-  it('when two triggers are reported, should persist two different rows', () => {
-    // given: two bound sessions, each with a run open
-    const rootA = makeProject();
-    const rootB = makeProject();
-    bindSession(rootA);
-    bindSession(rootB);
-    openRun(rootA);
-    openRun(rootB);
-    // when: the harness reports `auto` on one and `manual` on the other
-    runSettleCommand(rootA, JSON.stringify({ trigger: 'auto' }));
-    runSettleCommand(rootB, JSON.stringify({ trigger: 'manual' }));
-    // then: the persisted rows differ in that field — an inequality, which is
-    //       the form that also catches a hardcoded literal
-    expect(readHistory(rootA)[0]?.trigger).toBe('auto');
-    expect(readHistory(rootB)[0]?.trigger).toBe('manual');
-  });
+  it(
+    'when two triggers are reported, should persist two different rows',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    () => {
+      // given: two bound sessions, each with a run open
+      const rootA = makeProject();
+      const rootB = makeProject();
+      bindSession(rootA);
+      bindSession(rootB);
+      openRun(rootA);
+      openRun(rootB);
+      // when: the harness reports `auto` on one and `manual` on the other
+      runSettleCommand(rootA, JSON.stringify({ trigger: 'auto' }));
+      runSettleCommand(rootB, JSON.stringify({ trigger: 'manual' }));
+      // then: the persisted rows differ in that field — an inequality, which is
+      //       the form that also catches a hardcoded literal
+      expect(readHistory(rootA)[0]?.trigger).toBe('auto');
+      expect(readHistory(rootB)[0]?.trigger).toBe('manual');
+    }
+  );
 
-  it('when no trigger is reported, should omit the field rather than default it', () => {
-    // given: a bound session with a run open
-    const root = makeProject();
-    bindSession(root);
-    openRun(root);
-    // when: the harness payload is an empty object — an EXPECTED input, since
-    //       PostCompact's schema is truncated in the retrievable docs
-    const run = runSettleCommand(root, '{}');
-    // then: the run still settled on the event...
-    expect(run.status).toBe(0);
-    const row = readHistory(root)[0]!;
-    expect(row.kind).toBe('observed');
-    // ...and the row does NOT claim a cause it was never told
-    expect('trigger' in row).toBe(false);
-  });
+  it(
+    'when no trigger is reported, should omit the field rather than default it',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    () => {
+      // given: a bound session with a run open
+      const root = makeProject();
+      bindSession(root);
+      openRun(root);
+      // when: the harness payload is an empty object — an EXPECTED input, since
+      //       PostCompact's schema is truncated in the retrievable docs
+      const run = runSettleCommand(root, '{}');
+      // then: the run still settled on the event...
+      expect(run.status).toBe(0);
+      const row = readHistory(root)[0]!;
+      expect(row.kind).toBe('observed');
+      // ...and the row does NOT claim a cause it was never told
+      expect('trigger' in row).toBe(false);
+    }
+  );
 });
 
 describe('behavior — the payload session is checked before this project settles (B)', () => {
-  it('when the payload names another session, should leave this run alone', () => {
-    // The transport half of the attribution guard: the command used to keep
-    // only `trigger` out of the payload and throw `session_id` away, so a
-    // `PostCompact` from another session closed this project's open run and
-    // filed the row as if the main session had fired it.
-    // given: a bound session with a run open
-    const root = makeProject();
-    bindSession(root);
-    openRun(root, 0.92);
-    // when: the hook fires with a payload naming a DIFFERENT harness session
-    const other = runSettleCommand(
-      root,
-      JSON.stringify({ trigger: 'auto', session_id: 'harness-session-theirs' }),
-      { PEAKS_OUTER_SESSION_ID: 'harness-session-ours' }
-    );
-    // then: exit 0 and silence, as always on the hook path — but nothing
-    //       settled and no row invented
-    expect(other.status).toBe(0);
-    expect(other.stdout).toBe('');
-    expect(readHistory(root)).toEqual([]);
-    // ...and the SAME command on the SAME project settles once the payload
-    //    names this session, so "no row" above is the guard talking rather
-    //    than a command that never writes anything
-    const own = runSettleCommand(
-      root,
-      JSON.stringify({ trigger: 'auto', session_id: 'harness-session-ours' }),
-      { PEAKS_OUTER_SESSION_ID: 'harness-session-ours' }
-    );
-    expect(own.status).toBe(0);
-    expect(readHistory(root)).toHaveLength(1);
-    expect(readHistory(root)[0]?.target).toBe('main');
-  });
+  it(
+    'when the payload names another session, should leave this run alone',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    () => {
+      // The transport half of the attribution guard: the command used to keep
+      // only `trigger` out of the payload and throw `session_id` away, so a
+      // `PostCompact` from another session closed this project's open run and
+      // filed the row as if the main session had fired it.
+      // given: a bound session with a run open
+      const root = makeProject();
+      bindSession(root);
+      openRun(root, 0.92);
+      // when: the hook fires with a payload naming a DIFFERENT harness session
+      const other = runSettleCommand(
+        root,
+        JSON.stringify({ trigger: 'auto', session_id: 'harness-session-theirs' }),
+        { PEAKS_OUTER_SESSION_ID: 'harness-session-ours' }
+      );
+      // then: exit 0 and silence, as always on the hook path — but nothing
+      //       settled and no row invented
+      expect(other.status).toBe(0);
+      expect(other.stdout).toBe('');
+      expect(readHistory(root)).toEqual([]);
+      // ...and the SAME command on the SAME project settles once the payload
+      //    names this session, so "no row" above is the guard talking rather
+      //    than a command that never writes anything
+      const own = runSettleCommand(
+        root,
+        JSON.stringify({ trigger: 'auto', session_id: 'harness-session-ours' }),
+        { PEAKS_OUTER_SESSION_ID: 'harness-session-ours' }
+      );
+      expect(own.status).toBe(0);
+      expect(readHistory(root)).toHaveLength(1);
+      expect(readHistory(root)[0]?.target).toBe('main');
+    }
+  );
 });
 
 describe('behavior — the entry survives a settings refresh (AC3)', () => {

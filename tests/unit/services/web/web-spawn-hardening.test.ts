@@ -43,6 +43,7 @@ import {
   interpreterArgs,
   supportsImportFlag
 } from '../../../../src/services/web/daemon-supervisor.js';
+import { SUBPROCESS_TEST_TIMEOUT_MS } from '../../_setup/subprocess-timeouts.js';
 
 declareDimensions(
   'tests/unit/services/web/web-spawn-hardening.test.ts',
@@ -316,22 +317,26 @@ describe('behavior — the daemon spawn chain', () => {
     expect(shellish).toEqual([]);
   });
 
-  it('when the daemon argv is executed, should be one process with no wrapper between us and it', async () => {
-    // given: a probe launched with exactly the daemon's argv construction
-    const probe = join(ROOT, 'tests', 'fixtures', 'web', 'spawn-hop-probe.ts');
-    const invocation = daemonSpawnCommand();
-    // when: it is spawned the way the daemon is
-    const child = spawn(process.execPath, [...invocation.args.slice(0, -1), probe], {
-      stdio: ['ignore', 'pipe', 'ignore'],
-      windowsHide: true
-    });
-    const reported = await collectExit(child);
-    // then: the process we spawned IS the probe (no shell in between), and its
-    // parent is this process (no wrapper above it either)
-    expect(reported.pid).toBe(child.pid);
-    expect(reported.ppid).toBe(process.pid);
-    expect(basename(invocation.command)).toBe(basename(process.execPath));
-  }, 30_000);
+  it(
+    'when the daemon argv is executed, should be one process with no wrapper between us and it',
+    async () => {
+      // given: a probe launched with exactly the daemon's argv construction
+      const probe = join(ROOT, 'tests', 'fixtures', 'web', 'spawn-hop-probe.ts');
+      const invocation = daemonSpawnCommand();
+      // when: it is spawned the way the daemon is
+      const child = spawn(process.execPath, [...invocation.args.slice(0, -1), probe], {
+        stdio: ['ignore', 'pipe', 'ignore'],
+        windowsHide: true
+      });
+      const reported = await collectExit(child);
+      // then: the process we spawned IS the probe (no shell in between), and its
+      // parent is this process (no wrapper above it either)
+      expect(reported.pid).toBe(child.pid);
+      expect(reported.ppid).toBe(process.pid);
+      expect(basename(invocation.command)).toBe(basename(process.execPath));
+    },
+    SUBPROCESS_TEST_TIMEOUT_MS
+  );
 
   it('when the entry is TypeScript, should load it in-process through the loader flags', () => {
     // given: a TypeScript entry in the source tree

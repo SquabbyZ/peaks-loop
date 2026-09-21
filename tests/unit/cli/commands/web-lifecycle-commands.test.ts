@@ -78,6 +78,7 @@ vi.mock('../../../../src/services/web/web-install-service.js', async (importOrig
 });
 
 import { INSTALL_SIZE_WARNING } from '../../../../src/services/web/web-install-service.js';
+import { SUBPROCESS_TEST_TIMEOUT_MS } from '../../_setup/subprocess-timeouts.js';
 
 const SESSION_ID = '2026-09-10-session-528a63';
 const ws = withTmpWorkspacePerTest('peaks-web-lifecycle-');
@@ -287,21 +288,25 @@ describe('a11y — status without a session', () => {
 });
 
 describe('behavior — stop', () => {
-  it('when a daemon is running, should stop it and clear its record', async () => {
-    // given: a bound session and a real daemon process that answers /health
-    bindSession();
-    const daemon = await startStopableDaemon();
-    plantDaemonInfo(daemon.pid, daemon.port);
-    // when: stop runs
-    const captured = await runWeb('stop');
-    // then: the daemon is gone by the time stop returns, and so is its record
-    const result = envelope(captured.captured);
-    expect(result.ok).toBe(true);
-    expect(result.data['stopped']).toBe(1);
-    expect(result.data['pids']).toEqual([daemon.pid]);
-    expect(daemon.isGone()).toBe(true);
-    expect(existsSync(webDaemonInfoPath(ws().path, SESSION_ID))).toBe(false);
-  });
+  it(
+    'when a daemon is running, should stop it and clear its record',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    async () => {
+      // given: a bound session and a real daemon process that answers /health
+      bindSession();
+      const daemon = await startStopableDaemon();
+      plantDaemonInfo(daemon.pid, daemon.port);
+      // when: stop runs
+      const captured = await runWeb('stop');
+      // then: the daemon is gone by the time stop returns, and so is its record
+      const result = envelope(captured.captured);
+      expect(result.ok).toBe(true);
+      expect(result.data['stopped']).toBe(1);
+      expect(result.data['pids']).toEqual([daemon.pid]);
+      expect(daemon.isGone()).toBe(true);
+      expect(existsSync(webDaemonInfoPath(ws().path, SESSION_ID))).toBe(false);
+    }
+  );
 
   it('when the recorded pid is already gone, should still clear the record', async () => {
     // given: a bound session with a stale record
@@ -317,49 +322,57 @@ describe('behavior — stop', () => {
     expect(existsSync(webDaemonInfoPath(ws().path, SESSION_ID))).toBe(false);
   });
 
-  it('when a daemon is alive but silent, should keep its record and warn that the process was left', async () => {
-    // given: a bound session whose record names a live process with no listener
-    bindSession();
-    const silent = spawn(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], {
-      detached: true,
-      stdio: 'ignore',
-      windowsHide: true
-    });
-    silent.unref();
-    closers.push(async () => {
-      silent.kill();
-    });
-    plantDaemonInfo(silent.pid ?? 0, 59_994);
-    // when: stop runs
-    const captured = await runWeb('stop');
-    // then: the orphan is reported, left alone, and still recorded — dropping
-    // the record would leave a live process no verb can ever reach, and would
-    // let the next cold start spawn a second daemon beside it
-    const result = envelope(captured.captured);
-    expect(result.ok).toBe(true);
-    expect(result.data['orphanedPids']).toEqual([silent.pid]);
-    expect(result.warnings.join('\n')).toContain('could not be proven');
-    expect(existsSync(webDaemonInfoPath(ws().path, SESSION_ID))).toBe(true);
-    expect(result.data['stopped']).toBe(0);
-  });
+  it(
+    'when a daemon is alive but silent, should keep its record and warn that the process was left',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    async () => {
+      // given: a bound session whose record names a live process with no listener
+      bindSession();
+      const silent = spawn(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], {
+        detached: true,
+        stdio: 'ignore',
+        windowsHide: true
+      });
+      silent.unref();
+      closers.push(async () => {
+        silent.kill();
+      });
+      plantDaemonInfo(silent.pid ?? 0, 59_994);
+      // when: stop runs
+      const captured = await runWeb('stop');
+      // then: the orphan is reported, left alone, and still recorded — dropping
+      // the record would leave a live process no verb can ever reach, and would
+      // let the next cold start spawn a second daemon beside it
+      const result = envelope(captured.captured);
+      expect(result.ok).toBe(true);
+      expect(result.data['orphanedPids']).toEqual([silent.pid]);
+      expect(result.warnings.join('\n')).toContain('could not be proven');
+      expect(existsSync(webDaemonInfoPath(ws().path, SESSION_ID))).toBe(true);
+      expect(result.data['stopped']).toBe(0);
+    }
+  );
 
-  it('when the record names a live pid that only answers 2xx, should not signal it', async () => {
-    // given: a bound session whose record names a live process that is not a
-    // daemon — it answers 2xx to /health and to /op with no identity at all
-    bindSession();
-    const unrelated = await startHelper(UNRELATED_LISTENER_SCRIPT);
-    plantDaemonInfo(unrelated.pid, unrelated.port);
-    // when: stop runs
-    const captured = await runWeb('stop');
-    // then: it is reported as an orphan and survives — "something answered 2xx"
-    // is not ownership, and signalling on that proof is how a recycled pid
-    // becomes a `TerminateProcess` on an unrelated process
-    const result = envelope(captured.captured);
-    expect(result.ok).toBe(true);
-    expect(result.data['orphanedPids']).toEqual([unrelated.pid]);
-    expect(unrelated.isGone()).toBe(false);
-    expect(existsSync(webDaemonInfoPath(ws().path, SESSION_ID))).toBe(true);
-  });
+  it(
+    'when the record names a live pid that only answers 2xx, should not signal it',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    async () => {
+      // given: a bound session whose record names a live process that is not a
+      // daemon — it answers 2xx to /health and to /op with no identity at all
+      bindSession();
+      const unrelated = await startHelper(UNRELATED_LISTENER_SCRIPT);
+      plantDaemonInfo(unrelated.pid, unrelated.port);
+      // when: stop runs
+      const captured = await runWeb('stop');
+      // then: it is reported as an orphan and survives — "something answered 2xx"
+      // is not ownership, and signalling on that proof is how a recycled pid
+      // becomes a `TerminateProcess` on an unrelated process
+      const result = envelope(captured.captured);
+      expect(result.ok).toBe(true);
+      expect(result.data['orphanedPids']).toEqual([unrelated.pid]);
+      expect(unrelated.isGone()).toBe(false);
+      expect(existsSync(webDaemonInfoPath(ws().path, SESSION_ID))).toBe(true);
+    }
+  );
 });
 
 // ---------------------------------------------------------------------------

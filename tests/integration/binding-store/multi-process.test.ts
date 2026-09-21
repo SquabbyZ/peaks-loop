@@ -32,6 +32,8 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:f
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { afterAll, afterEach, beforeAll, describe, expect, test } from 'vitest';
+import { BindingSchema } from '../../../src/services/session/binding-store.js';
+import { parseJson } from '../../../src/shared/json-parse.js';
 
 const REPO_ROOT = resolve(__dirname, '..', '..', '..');
 const DRIVER = join(REPO_ROOT, 'scripts', 'fixtures', 'ci-binding-driver.mjs');
@@ -159,7 +161,7 @@ describe('binding-store — two-Claude-windows integration (v2.18.0 REDO)', () =
     // entries (one per child).
     const bindingPath = join(projectRoot, '.peaks', '_runtime', 'session.json');
     expect(existsSync(bindingPath)).toBe(true);
-    const binding = JSON.parse(readFileSync(bindingPath, 'utf8'));
+    const binding = parseJson(readFileSync(bindingPath, 'utf8'), BindingSchema);
     const instanceSids = Object.keys(binding.instances);
     expect(instanceSids.length).toBe(2);
     expect(instanceSids).toContain(a.sid);
@@ -167,8 +169,7 @@ describe('binding-store — two-Claude-windows integration (v2.18.0 REDO)', () =
 
     // Sanity: each instance's callerId is the pid-suffixed form, not
     // the bare shared env signal.
-    for (const sid of instanceSids) {
-      const inst = binding.instances[sid];
+    for (const inst of Object.values(binding.instances)) {
       expect(inst.callerId).toMatch(/^simulated-claude-session-aaa#\d+$/);
       expect(inst.callerId).not.toBe(sharedEnvSignal);
     }

@@ -41,6 +41,8 @@ import {
 } from '../../../src/services/session/session-manager.js';
 import type { CallerBinding } from '../../../src/services/session/caller-id-types.js';
 import { registerJobCommands } from '../../../src/cli/commands/job-commands.js';
+import { JobStateSchema } from '../../../src/services/job/job-types.js';
+import { parseJson } from '../../../src/shared/json-parse.js';
 
 declareDimensions(
   'tests/unit/skills/caller-first-session-resolution.test.ts',
@@ -229,7 +231,7 @@ describe('Scenario: integration — a job lands in the caller-bound session', ()
       'state.json'
     );
     expect(existsSync(statePath)).toBe(true);
-    expect(JSON.parse(readFileSync(statePath, 'utf8')).sessionId).toBe(SID_A);
+    expect(parseJson(readFileSync(statePath, 'utf8'), JobStateSchema).sessionId).toBe(SID_A);
     // ... and the other window's session stays untouched
     expect(existsSync(join(ws.path, '.peaks', '_runtime', SID_B))).toBe(false);
   });

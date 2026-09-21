@@ -26,6 +26,7 @@ import { spawnSync } from 'node:child_process';
 import { describe, expect, it } from 'vitest';
 
 import { materializeClaudeSettingsLocal } from '~/src/services/workspace/workspace-claude-settings-materializer';
+import { SUBPROCESS_TEST_TIMEOUT_MS } from '../_setup/subprocess-timeouts.js';
 
 /**
  * `windowsHide: true` is repo convention for every spawn, and it matters
@@ -47,43 +48,55 @@ async function materializedProject(): Promise<{ root: string; patterns: string[]
 }
 
 describe('the managed gitignore snippet ignores the paths it names', () => {
-  it('writes its snippet to the root .gitignore, not .peaks/', async () => {
-    const root = mkdtempSync(join(tmpdir(), 'peaks-gitignore-'));
-    git(['init', '-q'], root);
-    await materializeClaudeSettingsLocal(root, false);
+  it(
+    'writes its snippet to the root .gitignore, not .peaks/',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    async () => {
+      const root = mkdtempSync(join(tmpdir(), 'peaks-gitignore-'));
+      git(['init', '-q'], root);
+      await materializeClaudeSettingsLocal(root, false);
 
-    const rootEntries = readFileSync(join(root, '.gitignore'), 'utf8');
-    expect(rootEntries).toContain('.claude/settings.local.json');
-    expect(rootEntries).toContain('.peaks/.claude-settings-template.json');
-  });
-
-  it('every emitted pattern actually ignores the path it names', async () => {
-    const { root, patterns } = await materializedProject();
-    expect(patterns.length).toBeGreaterThan(0);
-
-    for (const pattern of patterns) {
-      // Materialize the path the pattern names, so check-ignore has a target
-      // that is not already the .gitignore itself.
-      const target = join(root, pattern);
-      mkdirSync(dirname(target), { recursive: true });
-      writeFileSync(target, '', 'utf8');
-
-      const result = git(['check-ignore', '--no-index', '-q', pattern], root);
-      expect(result.status, `pattern "${pattern}" fails to ignore "${pattern}"`).toBe(0);
+      const rootEntries = readFileSync(join(root, '.gitignore'), 'utf8');
+      expect(rootEntries).toContain('.claude/settings.local.json');
+      expect(rootEntries).toContain('.peaks/.claude-settings-template.json');
     }
-  });
+  );
 
-  it('the offline template copy is ignored, which is what kept it out of git', async () => {
-    const { root } = await materializedProject();
-    // The specific regression: this file is machine-specific (it embeds the
-    // installed peaks-loop path) and regenerated every init. Tracked, it read
-    // as a leak on every release bump.
-    const result = git(
-      ['check-ignore', '--no-index', '-q', '.peaks/.claude-settings-template.json'],
-      root
-    );
-    expect(result.status).toBe(0);
-  });
+  it(
+    'every emitted pattern actually ignores the path it names',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    async () => {
+      const { root, patterns } = await materializedProject();
+      expect(patterns.length).toBeGreaterThan(0);
+
+      for (const pattern of patterns) {
+        // Materialize the path the pattern names, so check-ignore has a target
+        // that is not already the .gitignore itself.
+        const target = join(root, pattern);
+        mkdirSync(dirname(target), { recursive: true });
+        writeFileSync(target, '', 'utf8');
+
+        const result = git(['check-ignore', '--no-index', '-q', pattern], root);
+        expect(result.status, `pattern "${pattern}" fails to ignore "${pattern}"`).toBe(0);
+      }
+    }
+  );
+
+  it(
+    'the offline template copy is ignored, which is what kept it out of git',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    async () => {
+      const { root } = await materializedProject();
+      // The specific regression: this file is machine-specific (it embeds the
+      // installed peaks-loop path) and regenerated every init. Tracked, it read
+      // as a leak on every release bump.
+      const result = git(
+        ['check-ignore', '--no-index', '-q', '.peaks/.claude-settings-template.json'],
+        root
+      );
+      expect(result.status).toBe(0);
+    }
+  );
 
   // A3 of rid `2026-09-17-codegraph-msg-and-refresh`. The exposure is
   // downstream-only: THIS repo ignores `.codegraph/` wholesale, but a consumer
@@ -97,26 +110,36 @@ describe('the managed gitignore snippet ignores the paths it names', () => {
   //
   // Asserted through git, not by reading the pattern list: the previous round
   // of this file exists because a pattern that LOOKS right can be inert.
-  it('the codegraph rollback copy is ignored — the file every repair seam rewrites', async () => {
-    const { root } = await materializedProject();
+  it(
+    'the codegraph rollback copy is ignored — the file every repair seam rewrites',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    async () => {
+      const { root } = await materializedProject();
 
-    const result = git(['check-ignore', '--no-index', '-v', '.codegraph/config.json.bak'], root);
+      const result = git(['check-ignore', '--no-index', '-v', '.codegraph/config.json.bak'], root);
 
-    expect(result.status, `git check-ignore said nothing about .codegraph/config.json.bak`).toBe(0);
-    expect(result.stdout).toContain('.codegraph/config.json.bak');
-  });
+      expect(result.status, `git check-ignore said nothing about .codegraph/config.json.bak`).toBe(
+        0
+      );
+      expect(result.stdout).toContain('.codegraph/config.json.bak');
+    }
+  );
 
-  it('the codegraph config itself stays committable (the backup is the churn, not the policy)', async () => {
-    // The narrow half of the same rule: upstream deliberately keeps
-    // `config.json` out of its own .gitignore — it is a project's
-    // include/exclude policy, and committing it is how a team shares it.
-    // Ignoring it would hide a file people mean to commit.
-    const { root } = await materializedProject();
+  it(
+    'the codegraph config itself stays committable (the backup is the churn, not the policy)',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    async () => {
+      // The narrow half of the same rule: upstream deliberately keeps
+      // `config.json` out of its own .gitignore — it is a project's
+      // include/exclude policy, and committing it is how a team shares it.
+      // Ignoring it would hide a file people mean to commit.
+      const { root } = await materializedProject();
 
-    const result = git(['check-ignore', '--no-index', '-q', '.codegraph/config.json'], root);
+      const result = git(['check-ignore', '--no-index', '-q', '.codegraph/config.json'], root);
 
-    expect(result.status).toBe(1); // 1 = not ignored
-  });
+      expect(result.status).toBe(1); // 1 = not ignored
+    }
+  );
 });
 
 const LEGACY_HEADER = '# >>> peaks-loop managed snippet (slice 2.0.1-bug3) — do not edit by hand';

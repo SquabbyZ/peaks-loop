@@ -43,6 +43,8 @@ declareDimensions('tests/unit/cli/job-session-addressing.test.ts', [
 ]);
 
 import { registerJobCommands } from '../../../src/cli/commands/job-commands.js';
+import { JobStateSchema } from '../../../src/services/job/job-types.js';
+import { parseJson as parseJsonWithSchema } from '../../../src/shared/json-parse.js';
 
 const JOB_SID = '2026-09-10-session-d6-job';
 const OTHER_SID = '2026-09-10-session-d6-other';
@@ -109,9 +111,7 @@ function readJobState(
   jobId: string
 ): { slices: Array<{ sliceId: string; label: string; status: string }> } {
   const p = join(wsPath, '.peaks', '_runtime', sid, 'job', jobId, 'state.json');
-  return JSON.parse(readFileSync(p, 'utf8')) as {
-    slices: Array<{ sliceId: string; label: string; status: string }>;
-  };
+  return parseJsonWithSchema(readFileSync(p, 'utf8'), JobStateSchema);
 }
 
 async function seedJob(

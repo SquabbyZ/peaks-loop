@@ -64,6 +64,7 @@ vi.mock('../../../src/services/codegraph/codegraph-service.js', async () => {
 });
 
 import { registerCodegraphCommands } from '../../../src/cli/commands/codegraph-commands.js';
+import { HEAVY_SUBPROCESS_TEST_TIMEOUT_MS } from '../_setup/subprocess-timeouts.js';
 
 type CapturedIo = ReturnType<typeof makeCapturedIo>['captured'];
 
@@ -153,66 +154,78 @@ beforeEach(() => {
 });
 
 describe('Scenario: render — the repair sentence attributes each count to its own axis', () => {
-  it('when only the include axis admitted files, should name the include delta instead of a bare zero', async () => {
-    // given: a project whose include axis has 2 tracked files to admit and
-    //        whose exclude axis has nothing to remove
-    const project = seedIncludeHeavyProject();
+  it(
+    'when only the include axis admitted files, should name the include delta instead of a bare zero',
+    { timeout: HEAVY_SUBPROCESS_TEST_TIMEOUT_MS },
+    async () => {
+      // given: a project whose include axis has 2 tracked files to admit and
+      //        whose exclude axis has nothing to remove
+      const project = seedIncludeHeavyProject();
 
-    // when: the repair runs (human output, no --peaks-json)
-    const captured = await runRepair(project);
-    const out = captured.stdout.join('\n');
+      // when: the repair runs (human output, no --peaks-json)
+      const captured = await runRepair(project);
+      const out = captured.stdout.join('\n');
 
-    // then: the sentence names BOTH axes' numbers and the reader can tell
-    //       which is which — the include clause carries the include delta …
-    expect(out).toContain('Added 5 include pattern(s)');
-    expect(out).toContain('newly admitting 2 tracked source file(s)');
-    // … and the exclude clause carries the exclude count, described as what
-    //     it is (files a rule had been hiding), so its 0 is not read as a
-    //     verdict on the include work above it.
-    expect(out).toContain('removed 0 exclude rule(s)');
-    expect(out).toContain('recovering 0 tracked source file(s) that a rule had been hiding');
-  });
+      // then: the sentence names BOTH axes' numbers and the reader can tell
+      //       which is which — the include clause carries the include delta …
+      expect(out).toContain('Added 5 include pattern(s)');
+      expect(out).toContain('newly admitting 2 tracked source file(s)');
+      // … and the exclude clause carries the exclude count, described as what
+      //     it is (files a rule had been hiding), so its 0 is not read as a
+      //     verdict on the include work above it.
+      expect(out).toContain('removed 0 exclude rule(s)');
+      expect(out).toContain('recovering 0 tracked source file(s) that a rule had been hiding');
+    }
+  );
 
-  it('should not print the old single-counter wording, which could only report the exclude axis', async () => {
-    // The regression guard. "include pattern(s) and removed" is the exact
-    // join the old sentence used to attach ONE "recovering N" to BOTH axes;
-    // that join is what made the include axis invisible, so its return is the
-    // defect returning.
-    const project = seedIncludeHeavyProject();
+  it(
+    'should not print the old single-counter wording, which could only report the exclude axis',
+    { timeout: HEAVY_SUBPROCESS_TEST_TIMEOUT_MS },
+    async () => {
+      // The regression guard. "include pattern(s) and removed" is the exact
+      // join the old sentence used to attach ONE "recovering N" to BOTH axes;
+      // that join is what made the include axis invisible, so its return is the
+      // defect returning.
+      const project = seedIncludeHeavyProject();
 
-    const captured = await runRepair(project);
-    const out = captured.stdout.join('\n');
+      const captured = await runRepair(project);
+      const out = captured.stdout.join('\n');
 
-    expect(out).not.toContain('include pattern(s) and removed');
-    // and the include delta is not printed as the exclude axis' number either
-    expect(out).not.toContain('include pattern(s), newly admitting 0 tracked source file(s)');
-  });
+      expect(out).not.toContain('include pattern(s) and removed');
+      // and the include delta is not printed as the exclude axis' number either
+      expect(out).not.toContain('include pattern(s), newly admitting 0 tracked source file(s)');
+    }
+  );
 
-  it('when a rule really did hide a file, should still report that file on the exclude side', async () => {
-    // given: a rule that blocks a tracked file (the other axis, so the two
-    //        counts cannot be swapped without this failing)
-    const project = seedIncludeHeavyProject();
-    mkdirSync(join(project, 'vendor'), { recursive: true });
-    writeFileSync(join(project, 'vendor', 'lib.ts'), 'export const lib = 1;\n', 'utf8');
-    execFileSync('git', ['-C', project, 'add', '-A'], { stdio: 'ignore', windowsHide: true });
-    execFileSync('git', ['-C', project, 'commit', '-qm', 'vendor'], {
-      stdio: 'ignore',
-      windowsHide: true
-    });
-    const configPath = join(project, '.codegraph', 'config.json');
-    const config = JSON.parse(readFileSync(configPath, 'utf8')) as { exclude: string[] };
-    config.exclude = ['**/node_modules/**', '**/vendor/**'];
-    writeFileSync(configPath, `${JSON.stringify(config, null, 2)}\n`, 'utf8');
+  it(
+    'when a rule really did hide a file, should still report that file on the exclude side',
+    { timeout: HEAVY_SUBPROCESS_TEST_TIMEOUT_MS },
+    async () => {
+      // given: a rule that blocks a tracked file (the other axis, so the two
+      //        counts cannot be swapped without this failing)
+      const project = seedIncludeHeavyProject();
+      mkdirSync(join(project, 'vendor'), { recursive: true });
+      writeFileSync(join(project, 'vendor', 'lib.ts'), 'export const lib = 1;\n', 'utf8');
+      execFileSync('git', ['-C', project, 'add', '-A'], { stdio: 'ignore', windowsHide: true });
+      execFileSync('git', ['-C', project, 'commit', '-qm', 'vendor'], {
+        stdio: 'ignore',
+        windowsHide: true
+      });
+      const configPath = join(project, '.codegraph', 'config.json');
+      const config = JSON.parse(readFileSync(configPath, 'utf8')) as { exclude: string[] };
+      config.exclude = ['**/node_modules/**', '**/vendor/**'];
+      writeFileSync(configPath, `${JSON.stringify(config, null, 2)}\n`, 'utf8');
 
-    // when: the repair runs
-    const captured = await runRepair(project);
-    const out = captured.stdout.join('\n');
+      // when: the repair runs
+      const captured = await runRepair(project);
+      const out = captured.stdout.join('\n');
 
-    // then: both axes report their OWN file count in the same sentence
-    expect(out).toContain('newly admitting 2 tracked source file(s)');
-    expect(out).toContain('removed 1 exclude rule(s)');
-    expect(out).toContain('recovering 1 tracked source file(s)');
-  });
+      // then: both axes report their OWN file count in the same sentence
+      expect(out).toContain('newly admitting 2 tracked source file(s)');
+      expect(out).toContain('removed 1 exclude rule(s)');
+      expect(out).toContain('recovering 1 tracked source file(s)');
+    }
+  );
 });
 
 // ── the "confirm the gap is closed" confirmation is EARNED ────────────
@@ -234,67 +247,81 @@ describe('Scenario: render — the gap-closed confirmation is earned, not assume
   const CLOSED_NOTE =
     'Re-run `peaks codegraph status --project <root>` to confirm the gap is closed.';
 
-  it('when the repair wrote the config, should make the promise and leave the repaired bytes behind', async () => {
-    const project = seedIncludeHeavyProject();
+  it(
+    'when the repair wrote the config, should make the promise and leave the repaired bytes behind',
+    { timeout: HEAVY_SUBPROCESS_TEST_TIMEOUT_MS },
+    async () => {
+      const project = seedIncludeHeavyProject();
 
-    const captured = await runRepair(project);
-    const out = captured.stdout.join('\n');
+      const captured = await runRepair(project);
+      const out = captured.stdout.join('\n');
 
-    expect(out).toContain(CLOSED_NOTE);
-    // The premise of the promise, asserted rather than assumed: the repaired
-    // config is the one on disk, so re-running `status` really does find the
-    // gap closed (the re-read itself is pinned in
-    // `codegraph-status-integrity.test.ts`).
-    const config = JSON.parse(readFileSync(join(project, '.codegraph', 'config.json'), 'utf8')) as {
-      include: string[];
-      exclude: string[];
-    };
-    expect(config.include).toContain('**/*.mjs');
-    expect(config.exclude).toEqual(['**/node_modules/**']);
-  });
+      expect(out).toContain(CLOSED_NOTE);
+      // The premise of the promise, asserted rather than assumed: the repaired
+      // config is the one on disk, so re-running `status` really does find the
+      // gap closed (the re-read itself is pinned in
+      // `codegraph-status-integrity.test.ts`).
+      const config = JSON.parse(
+        readFileSync(join(project, '.codegraph', 'config.json'), 'utf8')
+      ) as {
+        include: string[];
+        exclude: string[];
+      };
+      expect(config.include).toContain('**/*.mjs');
+      expect(config.exclude).toEqual(['**/node_modules/**']);
+    }
+  );
 
-  it('when repair-exclude wrote nothing, should NOT claim a gap was closed', async () => {
-    const project = seedIncludeHeavyProject();
-    await runRepair(project);
+  it(
+    'when repair-exclude wrote nothing, should NOT claim a gap was closed',
+    { timeout: HEAVY_SUBPROCESS_TEST_TIMEOUT_MS },
+    async () => {
+      const project = seedIncludeHeavyProject();
+      await runRepair(project);
 
-    // The second run re-derives nothing to do, so it must report that instead
-    // of promising a confirmation it did not earn.
-    const second = await runRepair(project);
-    const out = second.stdout.join('\n');
+      // The second run re-derives nothing to do, so it must report that instead
+      // of promising a confirmation it did not earn.
+      const second = await runRepair(project);
+      const out = second.stdout.join('\n');
 
-    expect(out).toContain('Nothing to repair in the codegraph config; nothing was written.');
-    expect(out).not.toContain(CLOSED_NOTE);
-  });
+      expect(out).toContain('Nothing to repair in the codegraph config; nothing was written.');
+      expect(out).not.toContain(CLOSED_NOTE);
+    }
+  );
 
-  it('when repair-index wrote nothing, should still make the promise — and the gate agrees it is closed', async () => {
-    // A REAL gap, opened on this case's own copy of the fixture: a tracked file
-    // under a rule that blocks it. Without it "the gap is already closed" would
-    // be a state the fixture was born in, and `false` below would say nothing.
-    const project = seedIncludeHeavyProject();
-    mkdirSync(join(project, 'vendor'), { recursive: true });
-    writeFileSync(join(project, 'vendor', 'lib.ts'), 'export const lib = 1;\n', 'utf8');
-    execFileSync('git', ['-C', project, 'add', '-A'], { stdio: 'ignore', windowsHide: true });
-    execFileSync('git', ['-C', project, 'commit', '-qm', 'vendor'], {
-      stdio: 'ignore',
-      windowsHide: true
-    });
-    const configPath = join(project, '.codegraph', 'config.json');
-    const config = JSON.parse(readFileSync(configPath, 'utf8')) as { exclude: string[] };
-    config.exclude = ['**/node_modules/**', '**/vendor/**'];
-    writeFileSync(configPath, `${JSON.stringify(config, null, 2)}\n`, 'utf8');
+  it(
+    'when repair-index wrote nothing, should still make the promise — and the gate agrees it is closed',
+    { timeout: HEAVY_SUBPROCESS_TEST_TIMEOUT_MS },
+    async () => {
+      // A REAL gap, opened on this case's own copy of the fixture: a tracked file
+      // under a rule that blocks it. Without it "the gap is already closed" would
+      // be a state the fixture was born in, and `false` below would say nothing.
+      const project = seedIncludeHeavyProject();
+      mkdirSync(join(project, 'vendor'), { recursive: true });
+      writeFileSync(join(project, 'vendor', 'lib.ts'), 'export const lib = 1;\n', 'utf8');
+      execFileSync('git', ['-C', project, 'add', '-A'], { stdio: 'ignore', windowsHide: true });
+      execFileSync('git', ['-C', project, 'commit', '-qm', 'vendor'], {
+        stdio: 'ignore',
+        windowsHide: true
+      });
+      const configPath = join(project, '.codegraph', 'config.json');
+      const config = JSON.parse(readFileSync(configPath, 'utf8')) as { exclude: string[] };
+      config.exclude = ['**/node_modules/**', '**/vendor/**'];
+      writeFileSync(configPath, `${JSON.stringify(config, null, 2)}\n`, 'utf8');
 
-    // The premise, measured rather than assumed — a gate that could only ever
-    // report `false` would satisfy the assertion at the end of this case.
-    expect(await statusGap(project)).toBe(true);
+      // The premise, measured rather than assumed — a gate that could only ever
+      // report `false` would satisfy the assertion at the end of this case.
+      expect(await statusGap(project)).toBe(true);
 
-    await runRepair(project, 'repair-index');
-    const second = await runRepair(project, 'repair-index');
+      await runRepair(project, 'repair-index');
+      const second = await runRepair(project, 'repair-index');
 
-    expect(second.stdout.join('\n')).toContain(CLOSED_NOTE);
-    // …and the note's claim is TRUE, CHECKED rather than restated. This is the
-    // assertion the case name was always promising: a `repair-index` that
-    // restored its own config write would print the note over a re-opened gap,
-    // and it fails here and nowhere else.
-    expect(await statusGap(project)).toBe(false);
-  });
+      expect(second.stdout.join('\n')).toContain(CLOSED_NOTE);
+      // …and the note's claim is TRUE, CHECKED rather than restated. This is the
+      // assertion the case name was always promising: a `repair-index` that
+      // restored its own config write would print the note over a re-opened gap,
+      // and it fails here and nowhere else.
+      expect(await statusGap(project)).toBe(false);
+    }
+  );
 });

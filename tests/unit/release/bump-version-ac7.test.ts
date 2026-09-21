@@ -42,6 +42,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve, delimiter } from 'node:path';
 import { afterAll, afterEach, describe, expect, it } from 'vitest';
 import { declareDimensions } from '../_setup/4dim-template.js';
+import { SUBPROCESS_TEST_TIMEOUT_MS } from '../_setup/subprocess-timeouts.js';
 
 declareDimensions('tests/unit/release/bump-version-ac7.test.ts', [
   'render',
@@ -152,105 +153,137 @@ afterAll(() => {
 // ---- render dimension ------------------------------------------------------
 
 describe('Scenario: (render) — no-op vs bump stdout lines are distinguishable', () => {
-  it('when invoked, should no-op path prints "no-op: <current> already on registry as latest"', () => {
-    // given: the test setup
-    // when:  the function under test is invoked
-    // then:  the result matches the expectation
-    setupHarness('4.0.3', '4.0.3');
-    const r = runBumpVersion([]);
-    expect(r.status).toBe(0);
-    expect(r.stdout).toContain('[bump-version] no-op: 4.0.3 already on registry as latest');
-    expect(r.stdout).toContain('skipping bump');
-  });
+  it(
+    'when invoked, should no-op path prints "no-op: <current> already on registry as latest"',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    () => {
+      // given: the test setup
+      // when:  the function under test is invoked
+      // then:  the result matches the expectation
+      setupHarness('4.0.3', '4.0.3');
+      const r = runBumpVersion([]);
+      expect(r.status).toBe(0);
+      expect(r.stdout).toContain('[bump-version] no-op: 4.0.3 already on registry as latest');
+      expect(r.stdout).toContain('skipping bump');
+    }
+  );
 
-  it('when invoked, should explicit --to prints the lockstep bump log line, not the no-op line', () => {
-    // given: the test setup
-    // when:  the function under test is invoked
-    // then:  the result matches the expectation
-    setupHarness('4.0.3', '4.0.3');
-    const r = runBumpVersion(['--to', '4.0.4']);
-    expect(r.status).toBe(0);
-    expect(r.stdout).not.toContain('no-op');
-    expect(r.stdout).toContain('[bump-version] peaks-loop 4.0.3 -> 4.0.4');
-  });
+  it(
+    'when invoked, should explicit --to prints the lockstep bump log line, not the no-op line',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    () => {
+      // given: the test setup
+      // when:  the function under test is invoked
+      // then:  the result matches the expectation
+      setupHarness('4.0.3', '4.0.3');
+      const r = runBumpVersion(['--to', '4.0.4']);
+      expect(r.status).toBe(0);
+      expect(r.stdout).not.toContain('no-op');
+      expect(r.stdout).toContain('[bump-version] peaks-loop 4.0.3 -> 4.0.4');
+    }
+  );
 });
 
 // ---- behavior dimension ----------------------------------------------------
 
 describe('Scenario: (behavior) — explicit --to is honored even when registry === current', () => {
-  it('when invoked, should --to 4.0.4 + root=4.0.3 + registry=4.0.3 bumps root to 4.0.4 (was the regression)', () => {
-    // given: the test setup
-    // when:  the function under test is invoked
-    // then:  the result matches the expectation
-    setupHarness('4.0.3', '4.0.3');
-    const r = runBumpVersion(['--to', '4.0.4']);
-    expect(r.status).toBe(0);
-    const onDisk = JSON.parse(readFileSync(join(active!.cwd, 'package.json'), 'utf8'));
-    expect(onDisk.version).toBe('4.0.4');
-  });
+  it(
+    'when invoked, should --to 4.0.4 + root=4.0.3 + registry=4.0.3 bumps root to 4.0.4 (was the regression)',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    () => {
+      // given: the test setup
+      // when:  the function under test is invoked
+      // then:  the result matches the expectation
+      setupHarness('4.0.3', '4.0.3');
+      const r = runBumpVersion(['--to', '4.0.4']);
+      expect(r.status).toBe(0);
+      const onDisk = JSON.parse(readFileSync(join(active!.cwd, 'package.json'), 'utf8'));
+      expect(onDisk.version).toBe('4.0.4');
+    }
+  );
 
-  it('when invoked, should no --to + root=4.0.3 + registry=4.0.3 leaves root at 4.0.3 (AC7 default behavior preserved)', () => {
-    // given: the test setup
-    // when:  the function under test is invoked
-    // then:  the result matches the expectation
-    setupHarness('4.0.3', '4.0.3');
-    const r = runBumpVersion([]);
-    expect(r.status).toBe(0);
-    const onDisk = JSON.parse(readFileSync(join(active!.cwd, 'package.json'), 'utf8'));
-    expect(onDisk.version).toBe('4.0.3');
-  });
+  it(
+    'when invoked, should no --to + root=4.0.3 + registry=4.0.3 leaves root at 4.0.3 (AC7 default behavior preserved)',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    () => {
+      // given: the test setup
+      // when:  the function under test is invoked
+      // then:  the result matches the expectation
+      setupHarness('4.0.3', '4.0.3');
+      const r = runBumpVersion([]);
+      expect(r.status).toBe(0);
+      const onDisk = JSON.parse(readFileSync(join(active!.cwd, 'package.json'), 'utf8'));
+      expect(onDisk.version).toBe('4.0.3');
+    }
+  );
 
-  it('when invoked, should --to 5.0.0 + root=4.0.3 + registry=4.0.3 bumps root to 5.0.0 (major escape hatch also honored)', () => {
-    // given: the test setup
-    // when:  the function under test is invoked
-    // then:  the result matches the expectation
-    setupHarness('4.0.3', '4.0.3');
-    const r = runBumpVersion(['--to', '5.0.0']);
-    expect(r.status).toBe(0);
-    const onDisk = JSON.parse(readFileSync(join(active!.cwd, 'package.json'), 'utf8'));
-    expect(onDisk.version).toBe('5.0.0');
-  });
+  it(
+    'when invoked, should --to 5.0.0 + root=4.0.3 + registry=4.0.3 bumps root to 5.0.0 (major escape hatch also honored)',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    () => {
+      // given: the test setup
+      // when:  the function under test is invoked
+      // then:  the result matches the expectation
+      setupHarness('4.0.3', '4.0.3');
+      const r = runBumpVersion(['--to', '5.0.0']);
+      expect(r.status).toBe(0);
+      const onDisk = JSON.parse(readFileSync(join(active!.cwd, 'package.json'), 'utf8'));
+      expect(onDisk.version).toBe('5.0.0');
+    }
+  );
 });
 
 // ---- integration dimension -------------------------------------------------
 
 describe('Scenario: (integration) — fake-npm on PATH replaces the real `npm view` call', () => {
-  it('when invoked, should does not require network: harness returns deterministic JSON from a stub binary', () => {
-    // given: the test setup
-    // when:  the function under test is invoked
-    // then:  the result matches the expectation
-    // Sanity check that the fake-npm setup actually replaces the real one.
-    // If PATH ordering were wrong, spawnSync would hit registry.npmjs.org
-    // and either time out or return a different version string.
-    setupHarness('4.0.3', '9.9.9-unreachable-from-real-npm');
-    const r = runBumpVersion([]);
-    expect(r.status).toBe(0);
-    // The stub says latest = 9.9.9 which != 4.0.3, so the script MUST NOT
-    // short-circuit; it should fall through to default policy (4.0.3 -> 4.0.4).
-    expect(r.stdout).not.toContain('no-op');
-    const onDisk = JSON.parse(readFileSync(join(active!.cwd, 'package.json'), 'utf8'));
-    expect(onDisk.version).toBe('4.0.4');
-  });
+  it(
+    'when invoked, should does not require network: harness returns deterministic JSON from a stub binary',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    () => {
+      // given: the test setup
+      // when:  the function under test is invoked
+      // then:  the result matches the expectation
+      // Sanity check that the fake-npm setup actually replaces the real one.
+      // If PATH ordering were wrong, spawnSync would hit registry.npmjs.org
+      // and either time out or return a different version string.
+      setupHarness('4.0.3', '9.9.9-unreachable-from-real-npm');
+      const r = runBumpVersion([]);
+      expect(r.status).toBe(0);
+      // The stub says latest = 9.9.9 which != 4.0.3, so the script MUST NOT
+      // short-circuit; it should fall through to default policy (4.0.3 -> 4.0.4).
+      expect(r.stdout).not.toContain('no-op');
+      const onDisk = JSON.parse(readFileSync(join(active!.cwd, 'package.json'), 'utf8'));
+      expect(onDisk.version).toBe('4.0.4');
+    }
+  );
 });
 
 // ---- a11y dimension --------------------------------------------------------
 
 describe('Scenario: (a11y) — human-visible messages name the version and the operator intent', () => {
-  it('when invoked, should no-op log line names both the current version and the registry match', () => {
-    // given: the test setup
-    // when:  the function under test is invoked
-    // then:  the result matches the expectation
-    setupHarness('4.0.3', '4.0.3');
-    const r = runBumpVersion([]);
-    expect(r.stdout).toMatch(/no-op:\s*4\.0\.3\s*already on registry/);
-  });
+  it(
+    'when invoked, should no-op log line names both the current version and the registry match',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    () => {
+      // given: the test setup
+      // when:  the function under test is invoked
+      // then:  the result matches the expectation
+      setupHarness('4.0.3', '4.0.3');
+      const r = runBumpVersion([]);
+      expect(r.stdout).toMatch(/no-op:\s*4\.0\.3\s*already on registry/);
+    }
+  );
 
-  it('when invoked, should bump log line shows both source and target versions on a single line', () => {
-    // given: the test setup
-    // when:  the function under test is invoked
-    // then:  the result matches the expectation
-    setupHarness('4.0.3', '4.0.3');
-    const r = runBumpVersion(['--to', '4.0.4']);
-    expect(r.stdout).toMatch(/peaks-loop\s+4\.0\.3\s+->\s+4\.0\.4/);
-  });
+  it(
+    'when invoked, should bump log line shows both source and target versions on a single line',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    () => {
+      // given: the test setup
+      // when:  the function under test is invoked
+      // then:  the result matches the expectation
+      setupHarness('4.0.3', '4.0.3');
+      const r = runBumpVersion(['--to', '4.0.4']);
+      expect(r.stdout).toMatch(/peaks-loop\s+4\.0\.3\s+->\s+4\.0\.4/);
+    }
+  );
 });

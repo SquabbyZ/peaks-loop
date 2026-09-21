@@ -62,6 +62,7 @@ vi.mock('../../../src/services/codegraph/codegraph-service.js', async () => {
 });
 
 import { registerCodegraphCommands } from '../../../src/cli/commands/codegraph-commands.js';
+import { SUBPROCESS_TEST_TIMEOUT_MS } from '../_setup/subprocess-timeouts.js';
 
 type CapturedIo = ReturnType<typeof makeCapturedIo>['captured'];
 
@@ -151,116 +152,126 @@ afterEach(() => {
 // ── render ───────────────────────────────────────────────────────────
 
 describe('peaks codegraph init — success notes are not warnings', () => {
-  it('when a fresh init fully succeeds, should report no warnings and carry the notes as next actions', async () => {
-    // given: a fresh git project; the faked upstream init writes the
-    //        default template with an offender, as the real one does
-    const project = seedGitProject(ws);
-    __m.executeCodegraphInvocation.mockImplementation(
-      async (invocation: { subcommand: string }) => {
-        if (invocation.subcommand === 'init') {
-          mkdirSync(join(project, '.codegraph'), { recursive: true });
-          writeFileSync(
-            join(project, '.codegraph', 'config.json'),
-            upstreamDefaultConfig(),
-            'utf8'
-          );
+  it(
+    'when a fresh init fully succeeds, should report no warnings and carry the notes as next actions',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    async () => {
+      // given: a fresh git project; the faked upstream init writes the
+      //        default template with an offender, as the real one does
+      const project = seedGitProject(ws);
+      __m.executeCodegraphInvocation.mockImplementation(
+        async (invocation: { subcommand: string }) => {
+          if (invocation.subcommand === 'init') {
+            mkdirSync(join(project, '.codegraph'), { recursive: true });
+            writeFileSync(
+              join(project, '.codegraph', 'config.json'),
+              upstreamDefaultConfig(),
+              'utf8'
+            );
+          }
+          return { exitCode: 0, stdout: 'upstream ok\n', stderr: '' };
         }
-        return { exitCode: 0, stdout: 'upstream ok\n', stderr: '' };
-      }
-    );
+      );
 
-    // when: init runs
-    const captured = await runCodegraph(['init', '--project', project, '--peaks-json']);
+      // when: init runs
+      const captured = await runCodegraph(['init', '--project', project, '--peaks-json']);
 
-    // then: everything positive lands in nextActions …
-    const envelope = parseJson(captured);
-    expect(envelope.ok).toBe(true);
-    // Slice-002 widened this repair to the include axis, so a fresh init now
-    // also reports the include patterns it appended. The fixture tracks only
-    // `.ts` files and its `include` is `['**/*.ts']`, so the five appended
-    // patterns admit no tracked file YET — which is why the note carries no
-    // "Include now admits …" clause (that clause is asserted separately, on
-    // a fixture that does track a `.mjs`). The pattern list is still exact:
-    // all five come from upstream's own tables, not from a list in the code.
-    //
-    // A1 (2026-09-17): the note now also carries the include axis' own FILE
-    // delta, printed unconditionally like the exclude side's. "0" here is the
-    // honest measurement for THIS fixture (no `.mjs`/`.cjs` file is tracked,
-    // so the appended patterns admit none of them) and not a placeholder —
-    // the case where the axis does admit files is pinned by
-    // tests/unit/cli/codegraph-repair-note.test.ts and by the
-    // include-adapter cases below.
-    expect(envelope.nextActions).toEqual([
-      `Stamped peaks-loop marker at ${join(project, '.codegraph')}/.peaks-loop-marker`,
-      "Added 5 include pattern(s) upstream's extractor supports but its default template omits, " +
-        'newly admitting 0 tracked source file(s) ' +
-        '(**/*.mjs, **/*.cjs, **/*.pyw, **/*.hxx, **/*.rake).',
-      'Removed 1 exclude rule(s) that blocked tracked source files, recovering 1 file(s); config backed up to ' +
-        `${join(project, '.codegraph', 'config.json')}.bak.`,
-      'Rebuilt the codegraph index over the recovered files.'
-    ]);
+      // then: everything positive lands in nextActions …
+      const envelope = parseJson(captured);
+      expect(envelope.ok).toBe(true);
+      // Slice-002 widened this repair to the include axis, so a fresh init now
+      // also reports the include patterns it appended. The fixture tracks only
+      // `.ts` files and its `include` is `['**/*.ts']`, so the five appended
+      // patterns admit no tracked file YET — which is why the note carries no
+      // "Include now admits …" clause (that clause is asserted separately, on
+      // a fixture that does track a `.mjs`). The pattern list is still exact:
+      // all five come from upstream's own tables, not from a list in the code.
+      //
+      // A1 (2026-09-17): the note now also carries the include axis' own FILE
+      // delta, printed unconditionally like the exclude side's. "0" here is the
+      // honest measurement for THIS fixture (no `.mjs`/`.cjs` file is tracked,
+      // so the appended patterns admit none of them) and not a placeholder —
+      // the case where the axis does admit files is pinned by
+      // tests/unit/cli/codegraph-repair-note.test.ts and by the
+      // include-adapter cases below.
+      expect(envelope.nextActions).toEqual([
+        `Stamped peaks-loop marker at ${join(project, '.codegraph')}/.peaks-loop-marker`,
+        "Added 5 include pattern(s) upstream's extractor supports but its default template omits, " +
+          'newly admitting 0 tracked source file(s) ' +
+          '(**/*.mjs, **/*.cjs, **/*.pyw, **/*.hxx, **/*.rake).',
+        'Removed 1 exclude rule(s) that blocked tracked source files, recovering 1 file(s); config backed up to ' +
+          `${join(project, '.codegraph', 'config.json')}.bak.`,
+        'Rebuilt the codegraph index over the recovered files.'
+      ]);
 
-    // … and nothing positive lands in warnings.
-    expect(envelope.warnings).toEqual([]);
+      // … and nothing positive lands in warnings.
+      expect(envelope.warnings).toEqual([]);
 
-    // and the repair really happened (not just reported)
-    expect(envelope.data.excludeRepair?.applied).toBe(true);
-    expect(envelope.data.excludeRepair?.rulesRemoved).toEqual(['**/vendor/**']);
-    const config = JSON.parse(readFileSync(join(project, '.codegraph', 'config.json'), 'utf8')) as {
-      exclude: string[];
-    };
-    expect(config.exclude).toEqual(['**/node_modules/**']);
-    expect(existsSync(join(project, '.codegraph', 'config.json.bak'))).toBe(true);
-    expect(process.exitCode).toBe(0);
-  });
+      // and the repair really happened (not just reported)
+      expect(envelope.data.excludeRepair?.applied).toBe(true);
+      expect(envelope.data.excludeRepair?.rulesRemoved).toEqual(['**/vendor/**']);
+      const config = JSON.parse(
+        readFileSync(join(project, '.codegraph', 'config.json'), 'utf8')
+      ) as {
+        exclude: string[];
+      };
+      expect(config.exclude).toEqual(['**/node_modules/**']);
+      expect(existsSync(join(project, '.codegraph', 'config.json.bak'))).toBe(true);
+      expect(process.exitCode).toBe(0);
+    }
+  );
 });
 
 // ── behavior + a11y ──────────────────────────────────────────────────
 
 describe('peaks codegraph init — a real warning is reported once, verbatim', () => {
-  it('when the follow-up index fails, should keep the init successful and emit exactly one unprefixed warning', async () => {
-    // given: init works but the post-repair reindex does not
-    const project = seedGitProject(ws);
-    __m.executeCodegraphInvocation.mockImplementation(
-      async (invocation: { subcommand: string }) => {
-        if (invocation.subcommand === 'init') {
-          mkdirSync(join(project, '.codegraph'), { recursive: true });
-          writeFileSync(
-            join(project, '.codegraph', 'config.json'),
-            upstreamDefaultConfig(),
-            'utf8'
-          );
-          return { exitCode: 0, stdout: 'upstream ok\n', stderr: '' };
+  it(
+    'when the follow-up index fails, should keep the init successful and emit exactly one unprefixed warning',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    async () => {
+      // given: init works but the post-repair reindex does not
+      const project = seedGitProject(ws);
+      __m.executeCodegraphInvocation.mockImplementation(
+        async (invocation: { subcommand: string }) => {
+          if (invocation.subcommand === 'init') {
+            mkdirSync(join(project, '.codegraph'), { recursive: true });
+            writeFileSync(
+              join(project, '.codegraph', 'config.json'),
+              upstreamDefaultConfig(),
+              'utf8'
+            );
+            return { exitCode: 0, stdout: 'upstream ok\n', stderr: '' };
+          }
+          return { exitCode: 3, stdout: '', stderr: 'index exploded\n' };
         }
-        return { exitCode: 3, stdout: '', stderr: 'index exploded\n' };
-      }
-    );
+      );
 
-    // when: init runs (machine envelope)
-    const captured = await runCodegraph(['init', '--project', project, '--peaks-json']);
+      // when: init runs (machine envelope)
+      const captured = await runCodegraph(['init', '--project', project, '--peaks-json']);
 
-    // then: exactly one warning, carrying the reason and nothing else …
-    const envelope = parseJson(captured);
-    expect(envelope.warnings).toHaveLength(1);
-    // The warning names BOTH axes and the counts that actually moved, so it
-    // cannot understate a repair that widened `include` (slice-002) — and
-    // the two counts are asserted exactly, not loosely matched.
-    expect(envelope.warnings[0]).toMatch(
-      /^codegraph config repaired \(1 exclude rule\(s\) removed, 5 include pattern\(s\) added\) but the follow-up index failed \(exit 3\)/
-    );
-    expect(envelope.warnings[0]).not.toMatch(/^warning:/);
+      // then: exactly one warning, carrying the reason and nothing else …
+      const envelope = parseJson(captured);
+      expect(envelope.warnings).toHaveLength(1);
+      // The warning names BOTH axes and the counts that actually moved, so it
+      // cannot understate a repair that widened `include` (slice-002) — and
+      // the two counts are asserted exactly, not loosely matched.
+      expect(envelope.warnings[0]).toMatch(
+        /^codegraph config repaired \(1 exclude rule\(s\) removed, 5 include pattern\(s\) added\) but the follow-up index failed \(exit 3\)/
+      );
+      expect(envelope.warnings[0]).not.toMatch(/^warning:/);
 
-    // … the init itself still succeeded (a repair failure never fails init)
-    expect(envelope.ok).toBe(true);
-    expect(process.exitCode).toBe(0);
+      // … the init itself still succeeded (a repair failure never fails init)
+      expect(envelope.ok).toBe(true);
+      expect(process.exitCode).toBe(0);
 
-    // … and on the human path it is rendered exactly once, with a single
-    // `warning: ` prefix supplied by the printer rather than by the note.
-    const human = await runCodegraph(['init', '--project', project]);
-    const warningLines = human.stderr.filter((line) => line.startsWith('warning: '));
-    expect(warningLines).toEqual([`warning: ${envelope.warnings[0] ?? ''}`]);
-    expect(human.stderr.join('\n')).not.toContain('warning: warning:');
-  });
+      // … and on the human path it is rendered exactly once, with a single
+      // `warning: ` prefix supplied by the printer rather than by the note.
+      const human = await runCodegraph(['init', '--project', project]);
+      const warningLines = human.stderr.filter((line) => line.startsWith('warning: '));
+      expect(warningLines).toEqual([`warning: ${envelope.warnings[0] ?? ''}`]);
+      expect(human.stderr.join('\n')).not.toContain('warning: warning:');
+    }
+  );
 
   it('when the init is a no-op because peaks-loop already owns the schema, should not warn', async () => {
     // given: peak-loop-managed `.codegraph/` (marker + codegraph.db)

@@ -46,6 +46,7 @@ import {
   reconcileCodegraphExcludeFromProject
 } from '../../../../src/services/codegraph/codegraph-exclude-reconciler.js';
 import { declareDimensions } from '../../_setup/4dim-template.js';
+import { SUBPROCESS_TEST_TIMEOUT_MS } from '../../_setup/subprocess-timeouts.js';
 
 declareDimensions('tests/unit/services/codegraph/codegraph-exclude-reconciler.test.ts', [
   'render',
@@ -453,68 +454,80 @@ describe('Scenario: behavior — idempotency', () => {
 // ── integration ─────────────────────────────────────────────────────
 
 describe('Scenario: integration — read-only adapters against a real git work tree', () => {
-  it('reads tracked files from git and ignores untracked ones', () => {
-    const project = createGitProject([
-      'src/services/artifacts/artifact-service.ts',
-      'bin/peaks.js'
-    ]);
-    writeFileSync(join(project, 'untracked.ts'), 'export const x = 1;\n', 'utf8');
+  it(
+    'reads tracked files from git and ignores untracked ones',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    () => {
+      const project = createGitProject([
+        'src/services/artifacts/artifact-service.ts',
+        'bin/peaks.js'
+      ]);
+      writeFileSync(join(project, 'untracked.ts'), 'export const x = 1;\n', 'utf8');
 
-    expect([...readTrackedFiles(project)].sort()).toEqual([
-      'bin/peaks.js',
-      'src/services/artifacts/artifact-service.ts'
-    ]);
-  });
+      expect([...readTrackedFiles(project)].sort()).toEqual([
+        'bin/peaks.js',
+        'src/services/artifacts/artifact-service.ts'
+      ]);
+    }
+  );
 
-  it('reconciles a real project from disk and is idempotent end to end', () => {
-    const project = createGitProject([
-      'src/services/artifacts/artifact-service.ts',
-      'src/services/release/release-state.ts',
-      'bin/peaks.js',
-      'src/index.ts'
-    ]);
-    const exclude = [ARTIFACTS_RULE, RELEASE_RULE, BIN_RULE, ...HARMLESS_EXCLUDES];
-    writeCodegraphConfig(project, INCLUDE, exclude);
+  it(
+    'reconciles a real project from disk and is idempotent end to end',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    () => {
+      const project = createGitProject([
+        'src/services/artifacts/artifact-service.ts',
+        'src/services/release/release-state.ts',
+        'bin/peaks.js',
+        'src/index.ts'
+      ]);
+      const exclude = [ARTIFACTS_RULE, RELEASE_RULE, BIN_RULE, ...HARMLESS_EXCLUDES];
+      writeCodegraphConfig(project, INCLUDE, exclude);
 
-    const readBack = readCodegraphExcludeConfig(project);
-    expect(readBack.include).toEqual(INCLUDE);
-    expect(readBack.exclude).toEqual(exclude);
+      const readBack = readCodegraphExcludeConfig(project);
+      expect(readBack.include).toEqual(INCLUDE);
+      expect(readBack.exclude).toEqual(exclude);
 
-    const first = reconcileCodegraphExcludeFromProject(project);
-    expect(first.trackedSourceCount).toBe(4);
-    expect(first.excludedTrackedCount).toBe(3);
-    expect(first.rulesToRemove).toEqual([ARTIFACTS_RULE, RELEASE_RULE, BIN_RULE]);
+      const first = reconcileCodegraphExcludeFromProject(project);
+      expect(first.trackedSourceCount).toBe(4);
+      expect(first.excludedTrackedCount).toBe(3);
+      expect(first.rulesToRemove).toEqual([ARTIFACTS_RULE, RELEASE_RULE, BIN_RULE]);
 
-    writeCodegraphConfig(
-      project,
-      INCLUDE,
-      exclude.filter((rule) => !first.rulesToRemove.includes(rule))
-    );
-    const second = reconcileCodegraphExcludeFromProject(project);
-    expect(second.rulesToRemove).toEqual([]);
-    expect(second.excludedTrackedCount).toBe(0);
-  });
+      writeCodegraphConfig(
+        project,
+        INCLUDE,
+        exclude.filter((rule) => !first.rulesToRemove.includes(rule))
+      );
+      const second = reconcileCodegraphExcludeFromProject(project);
+      expect(second.rulesToRemove).toEqual([]);
+      expect(second.excludedTrackedCount).toBe(0);
+    }
+  );
 
-  it('reports the real upstream default template as the source of the defect', () => {
-    // A fresh clone gets the full 99-entry default template back because
-    // `.codegraph/` is gitignored — this is the scenario the reconciler
-    // exists to catch. The five offending rules are represented here by
-    // their real strings.
-    const project = createGitProject(['src/services/artifacts/artifact-service.ts']);
-    writeCodegraphConfig(project, INCLUDE, [
-      ...HARMLESS_EXCLUDES,
-      ARTIFACTS_RULE,
-      RELEASE_RULE,
-      VENDOR_RULE,
-      BIN_RULE,
-      PUBLISH_RULE
-    ]);
+  it(
+    'reports the real upstream default template as the source of the defect',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    () => {
+      // A fresh clone gets the full 99-entry default template back because
+      // `.codegraph/` is gitignored — this is the scenario the reconciler
+      // exists to catch. The five offending rules are represented here by
+      // their real strings.
+      const project = createGitProject(['src/services/artifacts/artifact-service.ts']);
+      writeCodegraphConfig(project, INCLUDE, [
+        ...HARMLESS_EXCLUDES,
+        ARTIFACTS_RULE,
+        RELEASE_RULE,
+        VENDOR_RULE,
+        BIN_RULE,
+        PUBLISH_RULE
+      ]);
 
-    const result = reconcileCodegraphExcludeFromProject(project);
+      const result = reconcileCodegraphExcludeFromProject(project);
 
-    expect(result.violations.map((violation) => violation.matchedRule)).toEqual([ARTIFACTS_RULE]);
-    expect(result.rulesToRemove).toEqual([ARTIFACTS_RULE]);
-  });
+      expect(result.violations.map((violation) => violation.matchedRule)).toEqual([ARTIFACTS_RULE]);
+      expect(result.rulesToRemove).toEqual([ARTIFACTS_RULE]);
+    }
+  );
 
   it('throws (never silently returns []) when the project is not a git work tree', () => {
     const project = mkdtempSync(join(tmpdir(), 'peaks-cg-nogit-'));
@@ -523,52 +536,68 @@ describe('Scenario: integration — read-only adapters against a real git work t
     expect(() => readTrackedFiles(project)).toThrow();
   });
 
-  it('throws when `.codegraph/config.json` is absent', () => {
-    const project = createGitProject(['src/index.ts']);
+  it(
+    'throws when `.codegraph/config.json` is absent',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    () => {
+      const project = createGitProject(['src/index.ts']);
 
-    expect(() => readCodegraphExcludeConfig(project)).toThrow();
-  });
+      expect(() => readCodegraphExcludeConfig(project)).toThrow();
+    }
+  );
 });
 
 // ── a11y ────────────────────────────────────────────────────────────
 
 describe('Scenario: a11y — failures name the file and the field', () => {
-  it('names the config path and the offending field when `exclude` is not a string array', () => {
-    const project = createGitProject(['src/index.ts']);
-    mkdirSync(join(project, '.codegraph'), { recursive: true });
-    writeFileSync(
-      join(project, '.codegraph', 'config.json'),
-      JSON.stringify({ include: INCLUDE, exclude: ['ok.ts', 42] }),
-      'utf8'
-    );
+  it(
+    'names the config path and the offending field when `exclude` is not a string array',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    () => {
+      const project = createGitProject(['src/index.ts']);
+      mkdirSync(join(project, '.codegraph'), { recursive: true });
+      writeFileSync(
+        join(project, '.codegraph', 'config.json'),
+        JSON.stringify({ include: INCLUDE, exclude: ['ok.ts', 42] }),
+        'utf8'
+      );
 
-    expect(() => readCodegraphExcludeConfig(project)).toThrow(/config\.json/);
-    expect(() => readCodegraphExcludeConfig(project)).toThrow(
-      /"exclude" must be an array of strings/
-    );
-  });
+      expect(() => readCodegraphExcludeConfig(project)).toThrow(/config\.json/);
+      expect(() => readCodegraphExcludeConfig(project)).toThrow(
+        /"exclude" must be an array of strings/
+      );
+    }
+  );
 
-  it('rejects a config that is not a JSON object at all', () => {
-    const project = createGitProject(['src/index.ts']);
-    mkdirSync(join(project, '.codegraph'), { recursive: true });
-    writeFileSync(join(project, '.codegraph', 'config.json'), '"not-an-object"', 'utf8');
+  it(
+    'rejects a config that is not a JSON object at all',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    () => {
+      const project = createGitProject(['src/index.ts']);
+      mkdirSync(join(project, '.codegraph'), { recursive: true });
+      writeFileSync(join(project, '.codegraph', 'config.json'), '"not-an-object"', 'utf8');
 
-    expect(() => readCodegraphExcludeConfig(project)).toThrow(/expected a JSON object/);
-  });
+      expect(() => readCodegraphExcludeConfig(project)).toThrow(/expected a JSON object/);
+    }
+  );
 
-  it('names the field when `include` is missing entirely', () => {
-    const project = createGitProject(['src/index.ts']);
-    mkdirSync(join(project, '.codegraph'), { recursive: true });
-    writeFileSync(
-      join(project, '.codegraph', 'config.json'),
-      JSON.stringify({ exclude: [] }),
-      'utf8'
-    );
+  it(
+    'names the field when `include` is missing entirely',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    () => {
+      const project = createGitProject(['src/index.ts']);
+      mkdirSync(join(project, '.codegraph'), { recursive: true });
+      writeFileSync(
+        join(project, '.codegraph', 'config.json'),
+        JSON.stringify({ exclude: [] }),
+        'utf8'
+      );
 
-    expect(() => readCodegraphExcludeConfig(project)).toThrow(
-      /"include" must be an array of strings/
-    );
-  });
+      expect(() => readCodegraphExcludeConfig(project)).toThrow(
+        /"include" must be an array of strings/
+      );
+    }
+  );
 
   it('surfaces the literal config rule string so an operator can grep it', () => {
     const result = reconcile(['bin/peaks.js'], [BIN_RULE]);
