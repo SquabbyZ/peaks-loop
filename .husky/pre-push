@@ -1,19 +1,71 @@
 #!/usr/bin/env sh
-# peaks-loop push gate. Design: .husky/peaks-gate.mjs
+# peaks-loop push gate. Design + why-it-is-a-ratchet: .husky/peaks-gate.mjs
 #
-# Two legs, and they are different KINDS of gate on purpose:
+# Both legs are scoped to WHAT YOU ARE PUSHING (slice B5, 2026-09-23). Nothing
+# here looks at the whole repo any more.
 #
-#   1. `repo` mode — a RATCHET. Whole-repo eslint / prettier / tsc totals may
-#      not grow. It is a ratchet only because those three are not yet clean
-#      repo-wide (6668 findings / 1178 files / 142 errors, measured
-#      2026-09-19). The ceilings in .peaks/lint/gate-baseline.json come down
-#      slice by slice; at zero, this same script is a plain strict check.
+#   1. `changed` mode — the SAME per-file ratchet as the commit gate, applied to
+#      `git diff --name-only origin/main...HEAD` instead of the index. A file you
+#      touched may not be worse than its own line in
+#      .peaks/lint/gate-baseline.json; a file the diff ADDS must be clean; a file
+#      the diff DELETES contributes 0 and is not handed to eslint.
 #
-#   2. the unit suite — a HARD gate, not a ratchet. It is green today
-#      (305 files, 3405 tests, ~6m53s measured 2026-09-19), so there is no
-#      debt to tolerate here and any red is a real regression.
+#   2. `pnpm test:changed` — the repo's EXISTING affected-tests mechanism
+#      (scripts/test-changed.mjs, wired since slice 2 as `test:changed`). Not a
+#      new script: it classifies the same diff and runs the tests that diff
+#      implies, falling back to the FULL unit suite for a change it declines to
+#      reason about (package.json / pnpm-lock.yaml / vitest.config.ts /
+#      tsconfig.json / scripts/ / .claude/ / .peaks/, or an empty diff).
 #
-# The ratchet runs first so a regression fails in ~90s instead of after ~7min.
+#      KNOW WHAT THAT MEANS IN PRACTICE (measured 2026-09-23): `.peaks/` is one
+#      of those triggers, and every slice regenerates
+#      `.peaks/lint/gate-baseline.json` — so on this repo leg 2 IS the full unit
+#      suite, not a subset. Measured end to end on this host: leg 1 = 101s over
+#      the 1207 pushed files, leg 2 = 936s (311 files / 3468 tests), hook total
+#      1057s. The subset path in scripts/test-changed.mjs exists and works; the
+#      trigger list is what sends this repo to the full suite. Narrowing it is a
+#      decision about what a config change can affect, which is why it was NOT
+#      made as a rider on this slice — see the B5 report for the measurement and
+#      the two options. Do not read the paragraph above as a promise that this
+#      hook is fast today. It is not, and that is a known, measured gap.
+#
+# WHY THIS IS NOT A WEAKER GATE THAN THE WHOLE-REPO ONE IT REPLACED
+# -----------------------------------------------------------------
+# The baseline stores a number PER FILE, so the per-file check is not a proxy
+# for the total check — it is the total check, decomposed:
+#
+#     every changed file ≤ its own baseline        (leg 1, per file)
+#     AND every new file contributes 0             (leg 1, per file)
+#     AND every deleted file contributes 0         (leg 1 drops it entirely)
+#   ⟹ total = Σ(untouched files' baselines) + Σ(changed files' actuals) + 0
+#            ≤ Σ(all baselines) ≤ the whole-repo ceiling.
+#
+# Measured against the 2026-09-22 baseline: Σ(per-file eslint baselines) = 2878,
+# exactly the `eslintFindings` ceiling — an identity here, not an approximation.
+# So if this file passes, the whole-repo totals it used to check CANNOT have
+# grown upward. That is an entailment; the old check was the special case of it.
+#
+# What the per-file check cannot see: growth on a file NOBODY touched, caused by
+# CONFIG DRIFT (a rule quietly switched off or on, a phantom rule appearing, a
+# coverage hole opening). That class is rare, real, and is nobody's commit — so
+# it is paid for by a machine instead of by a human waiting to push. CI owns it:
+# `.github/workflows/ci.yml`, `vitest + build` job, step "Whole-repo lint
+# ratchet", runs `node .husky/peaks-gate.mjs repo`. That job already ran the full
+# unit suite (`npx vitest run`), so the ratchet was the only missing piece — the
+# two coexist and do not overlap (the ratchet contains no tests).
+#
+# WHY IT MOVED AT ALL: `repo` mode is ~9 type-aware eslint programs (each
+# rebuilding the TS program) plus a whole-program `tsc`, and its cost is a
+# function of the WHOLE REPO. The changed mode's cost is a function of the DIFF:
+# measured on this host 2026-09-23, the whole-repo gate took 126s, the same gate
+# over a 49-file slice took 7s. (The slice that requested this change recorded
+# 8+ minutes for the repo gate; that number did NOT reproduce here — 126s on
+# re-measurement — and this repo has been burned before by a number taken while
+# other work ran on the same box. Neither figure is the point: the point is that
+# the pre-push cost no longer grows with the size of the repository.) A push gate
+# that costs minutes stops being a "check it before I push" and becomes a thing
+# people skip with `--no-verify` — and a gate people skip is worse than no gate,
+# because it is also believed.
 set -e
-node .husky/peaks-gate.mjs repo
-pnpm test:unit
+node .husky/peaks-gate.mjs changed
+pnpm test:changed -- origin/main

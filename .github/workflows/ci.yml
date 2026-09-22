@@ -60,6 +60,42 @@ jobs:
         # as publish.yml).
         run: npm run build
 
+      - name: Whole-repo lint ratchet
+        # Slice B5 (2026-09-23) moved the whole-repo ratchet OFF the push path
+        # and INTO CI. The push gate now checks only the files being pushed: a
+        # file you touch may not be worse than its own line in
+        # `.peaks/lint/gate-baseline.json`, a file the diff adds must be clean,
+        # a file the diff deletes contributes 0. Because the baseline stores a
+        # number PER FILE, that per-file check ENTAILS the whole-repo total
+        # check (Σ per-file baselines = 2878 = the `eslintFindings` ceiling,
+        # measured on the 2026-09-22 baseline — an identity, not an estimate).
+        #
+        # The one thing the per-file check cannot see is growth on a file NOBODY
+        # touched — config drift (a rule switched off/on, a phantom rule, a
+        # coverage hole opening) rather than debt someone wrote. Rare, real, and
+        # nobody's commit, so it is measured here instead of on a human's push.
+        # This step is the whole reason the removal is safe; without it the
+        # ratchet would simply have been deleted, which is not what happened.
+        #
+        # PLACEMENT IS LOAD-BEARING: `repo` mode's `tsc -p tsconfig.json` leg
+        # resolves the shared `./version` subpath export into `packages/*/dist`,
+        # which only the `Build` step above creates. This gate refuses to report
+        # the resulting module-resolution errors as a type regression (it names
+        # the cause instead), but on a fresh checkout the honest fix is to keep
+        # it after `npm run build` — which is where it is.
+        #
+        # NO HISTORY NEEDED: this mode calls `git ls-files`, never `git diff`,
+        # so it does not care about `origin/main`, remotes, or the depth-1
+        # default checkout. It also contains NO tests — the `Test` step below
+        # owns those — so the two coexist rather than overlap.
+        #
+        # It runs INSIDE the OS matrix deliberately: the ceiling is a single
+        # number and it has to hold on every platform this repo supports, on the
+        # same reasoning as the macOS cell above. A red on a non-Windows runner
+        # is a finding about the product or the ceiling — triage it, and do not
+        # drop this step or narrow the matrix to make it go away.
+        run: node .husky/peaks-gate.mjs repo
+
       - name: Test
         # github-actions reporter surfaces each failure as a GitHub
         # annotation, which is readable without repo-admin rights — the

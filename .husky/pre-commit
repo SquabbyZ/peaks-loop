@@ -8,8 +8,15 @@
 #
 # Deliberately NOT here:
 #   - tsc        whole-program; it cannot be scoped to a file list, so a
-#                single-file commit would pay for the entire repo anyway. It
-#                runs in the push gate.
-#   - unit tests ~7 min; they run in the push gate.
+#                single-file commit would pay for the entire repo anyway.
+#                It runs in CI: `npm run build` in .github/workflows/ci.yml
+#                does the canonical typecheck (`tsc -p tsconfig.build.json`).
+#                (This line said "it runs in the push gate" until slice B5,
+#                2026-09-23. That was true then and is false now: the push
+#                gate checks only the files being pushed, and no longer runs
+#                a whole-program tsc.)
+#   - unit tests ~7 min; CI runs the full suite in the `vitest + build` job.
+#                The push gate runs only the tests the pushed diff implies
+#                (`pnpm test:changed`, see .husky/pre-push).
 set -e
 pnpm exec lint-staged
