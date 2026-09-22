@@ -20,6 +20,8 @@
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { join, relative, dirname } from 'node:path';
+import { z } from 'zod';
+import { parseJson } from '../../shared/json-parse.js';
 import { resolveNpxInvocation } from '../lint/npx-resolver.js';
 // 2026-09-10: the D1 fix (`orchestrator-can-do.ts`) resolved this tree's own CLI
 // entry so a bare `peaks` never had to be resolved through a Windows `.cmd`
@@ -34,6 +36,39 @@ import type {
   ImportEdgeRunner
 } from './slice-decompose-types.js';
 
+/**
+ * The two `codegraph … --json` stdout shapes these runners consume.
+ *
+ * WHY THESE EXIST (batch B4). `JSON.parse(stdout)` is `any`, so `runCodegraph`
+ * — a subprocess whose stdout is not under this module's control — was the
+ * entry for eight `no-unsafe-*` findings: three `no-unsafe-assignment` on the
+ * parse plus five reads (`parsed.changedFiles`, `.affectedTests`,
+ * `.totalDependentsTraversed`) with nothing behind them. The declarations in
+ * `slice-decompose-types.js` (`CodegraphAffectedResult`) are the contract these
+ * two schemas now actually enforce, instead of the parse silently claiming it.
+ *
+ * `query`'s schema is `z.array(z.unknown())` and NOT a deeper envelope, and
+ * that is a measured choice: an element without `node` is DROPPED by the
+ * per-entry guard below rather than failing the whole response, and the guard
+ * tolerates `id` / `kind` / `name` / `filePath` / `score` being any JSON value
+ * (each is run through `String(...)` / `Number(...)`). A stricter element
+ * schema would turn one odd upstream row into an empty result set.
+ */
+const codegraphQueryOutputSchema = z.array(z.unknown());
+
+/**
+ * `codegraph affected --json` stdout. Every field is `.optional()` because the
+ * `?? files` / `?? []` / `?? 0` defaults below were already the reading of a
+ * missing field — and because the `catch` fallback is those same three values,
+ * a response that misses this schema lands on exactly the value the old
+ * `any`-typed read produced.
+ */
+const codegraphAffectedOutputSchema = z.object({
+  changedFiles: z.array(z.string()).optional(),
+  affectedTests: z.array(z.string()).optional(),
+  totalDependentsTraversed: z.number().optional()
+});
+
 export function defaultCodegraphRunner(): CodegraphRunner {
   return {
     async query(text, projectRoot) {
@@ -42,30 +77,33 @@ export function defaultCodegraphRunner(): CodegraphRunner {
           ['query', text, '--json', '--project', projectRoot],
           projectRoot
         );
-        const parsed = JSON.parse(stdout);
-        if (Array.isArray(parsed)) {
-          // Upstream envelope: { node: {id, kind, name, filePath, ...}, score }
-          // Flatten to our CodegraphQueryHit shape.
-          return parsed
-            .map((entry: unknown) => {
-              if (entry && typeof entry === 'object' && 'node' in entry) {
-                const node = (entry as { node: Record<string, unknown> }).node;
-                return {
-                  id: String(node.id ?? ''),
-                  kind: String(node.kind ?? 'unknown'),
-                  name: String(node.name ?? ''),
-                  filePath: String(node.filePath ?? ''),
-                  score: Number((entry as { score?: number }).score ?? 0)
-                };
-              }
-              return null;
-            })
-            .filter(
-              (h: CodegraphQueryHit | null): h is CodegraphQueryHit =>
-                h !== null && h.filePath !== ''
-            );
-        }
-        return [];
+        // The envelope is an ARRAY; the elements are heterogeneous — an entry
+        // that carries no `node` is dropped by the guard below rather than
+        // rejected as a whole, which is what the per-entry check has always
+        // done. `z.array(z.unknown())` is therefore the exact replacement for
+        // the `Array.isArray(parsed)` guard it supersedes: a non-array now
+        // misses the schema and lands in the same `catch` as a non-parseable
+        // stdout, whose fallback (`[]`) is what the old `return []` returned.
+        const parsed = parseJson(stdout, codegraphQueryOutputSchema);
+        // Upstream envelope: { node: {id, kind, name, filePath, ...}, score }
+        // Flatten to our CodegraphQueryHit shape.
+        return parsed
+          .map((entry: unknown) => {
+            if (entry && typeof entry === 'object' && 'node' in entry) {
+              const node = (entry as { node: Record<string, unknown> }).node;
+              return {
+                id: String(node.id ?? ''),
+                kind: String(node.kind ?? 'unknown'),
+                name: String(node.name ?? ''),
+                filePath: String(node.filePath ?? ''),
+                score: Number((entry as { score?: number }).score ?? 0)
+              };
+            }
+            return null;
+          })
+          .filter(
+            (h: CodegraphQueryHit | null): h is CodegraphQueryHit => h !== null && h.filePath !== ''
+          );
       } catch {
         return [];
       }
@@ -76,7 +114,7 @@ export function defaultCodegraphRunner(): CodegraphRunner {
           ['affected', ...files, '--json', '--project', projectRoot],
           projectRoot
         );
-        const parsed = JSON.parse(stdout);
+        const parsed = parseJson(stdout, codegraphAffectedOutputSchema);
         return {
           changedFiles: parsed.changedFiles ?? files,
           affectedTests: parsed.affectedTests ?? [],

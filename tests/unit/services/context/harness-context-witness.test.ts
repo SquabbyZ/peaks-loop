@@ -83,6 +83,8 @@ import {
   type HarnessContextWitness
 } from '~/src/services/context/harness-context-witness';
 import type { StatusLineStdin } from '~/src/services/skills/skill-statusline-service';
+import { z } from 'zod';
+import { parseJson } from '~/src/shared/json-parse';
 
 const SID = '2026-09-13-session-witness';
 const WINDOW = 1_000_000;
@@ -207,6 +209,16 @@ function compareWith(
 const FRESH_TOLERANCE =
   (WITNESS_PERCENT_ROUNDING_FRACTION * WINDOW + WITNESS_NUMERATOR_FRACTION * PEAKS_TOKENS_FIXTURE) /
   WINDOW;
+
+/**
+ * The field this case reads back off the witness file on disk.
+ *
+ * The case is "the sample landed in exactly one file, not an append log", and
+ * the file's own `schemaVersion` is how the read path decides it is talking to
+ * a v1 witness. Naming it keeps the read from being an `any` read against
+ * nothing the moment the writer stops stamping it.
+ */
+const harnessWitnessFile = z.looseObject({ schemaVersion: z.number() });
 
 describe('harness context witness — capture (AC1)', () => {
   describe('(behavior)', () => {
@@ -494,9 +506,10 @@ describe('harness context witness — capture (AC1)', () => {
       expect(read!.usedPercentage).toBeCloseTo(0.61, 10);
       expect(read!.usageTokens).toBe(610_000);
       // then: exactly one file, not an append log
-      expect(JSON.parse(readFileSync(harnessWitnessPath(root, SID), 'utf8')).schemaVersion).toBe(
-        WITNESS_SCHEMA_VERSION
-      );
+      expect(
+        parseJson(readFileSync(harnessWitnessPath(root, SID), 'utf8'), harnessWitnessFile)
+          .schemaVersion
+      ).toBe(WITNESS_SCHEMA_VERSION);
     });
 
     it('when the rename cannot replace the file, should still land the sample', () => {

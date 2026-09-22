@@ -21,6 +21,7 @@
 // Run with: pnpm vitest run tests/unit/services/dispatch/batch-counter.test.ts
 
 import { describe, expect, it } from 'vitest';
+import { SUBPROCESS_TEST_TIMEOUT_MS } from '../../_setup/subprocess-timeouts.js';
 import { declareDimensions } from '../../_setup/4dim-template.js';
 import { withTmpWorkspacePerTest } from '../../_setup/tmp-workspace.js';
 import { withEnv } from '../../_setup/io.js';
@@ -189,7 +190,7 @@ describe('Scenario: integration — real fs writes under a file lock', () => {
 
   it(
     'when invoked, should 50 sequential notes produce a final count of 50, never losing updates',
-    { timeout: 90_000 },
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
     () => {
       // given: the test setup
       // when:  the function under test is invoked
@@ -205,7 +206,7 @@ describe('Scenario: integration — real fs writes under a file lock', () => {
 
   it(
     'when invoked, should parallel noteDispatched calls do not lose updates (file lock)',
-    { timeout: 90_000 },
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
     async () => {
       // given: the test setup
       // when:  the function under test is invoked

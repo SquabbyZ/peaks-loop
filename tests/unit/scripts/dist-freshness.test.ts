@@ -49,6 +49,8 @@ import {
   REBUILD_COMMAND,
   writeDistStamp
 } from '../../../scripts/dist-freshness.mjs';
+import { z } from 'zod';
+import { parseJson } from '../../../src/shared/json-parse.js';
 import { declareDimensions } from '../_setup/4dim-template.js';
 
 declareDimensions(
@@ -122,6 +124,16 @@ function builtTree(): void {
 
 // ── integration: the real filesystem ─────────────────────────────────
 
+/**
+ * The stamp file `writeDistStamp` puts in `dist/`.
+ *
+ * The assertion below is "the digest the evaluator reads equals the digest the
+ * writer returned", so the stamp's own shape is the thing under test — and an
+ * `any` read of it could not distinguish "the stamp carries the right digest"
+ * from "the stamp carries no digest at all".
+ */
+const distStampFile = z.looseObject({ digest: z.string() });
+
 describe('Scenario: integration — the real filesystem', () => {
   it('reports no-dist when nothing is built', () => {
     writeSource('a.ts', SOURCE_A);
@@ -135,7 +147,7 @@ describe('Scenario: integration — the real filesystem', () => {
     const written = writeDistStamp(root);
 
     const stampRaw = readFileSync(join(root, 'dist', DIST_STAMP_RELATIVE_PATH), 'utf8');
-    expect(JSON.parse(stampRaw).digest).toBe(written.digest);
+    expect(parseJson(stampRaw, distStampFile).digest).toBe(written.digest);
     expect(written.fileCount).toBe(1);
 
     const result = fresh(evaluateDistFreshness(root));

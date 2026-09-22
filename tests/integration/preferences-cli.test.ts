@@ -3,7 +3,9 @@ import { mkdtempSync, rmSync, existsSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { describe, expect, test } from 'vitest';
+import { z } from 'zod';
 import { parseCliEnvelope } from '../../src/cli/cli-envelope.js';
+import { parseJson } from '../../src/shared/json-parse.js';
 
 function makeProject(): string {
   return mkdtempSync(join(tmpdir(), 'peaks-prefs-cli-'));
@@ -29,6 +31,15 @@ function cli(args: string, cwd: string): { stdout: string; stderr: string; code:
   }
 }
 
+/**
+ * The field this case reads back off `.peaks/preferences.json`.
+ *
+ * The read is RAW on purpose — it proves what `preferences set` WROTE, so it
+ * must not go through the service's own defaults. Naming the field is what
+ * stops the read from being an `any` read against nothing.
+ */
+const preferencesFileFields = z.looseObject({ economyMode: z.boolean().optional() });
+
 describe('peaks preferences CLI', () => {
   test('peaks preferences get returns JSON envelope with default value for unknown key', () => {
     const project = makeProject();
@@ -52,7 +63,7 @@ describe('peaks preferences CLI', () => {
       expect(code).toBe(0);
       const file = join(project, '.peaks/preferences.json');
       expect(existsSync(file)).toBe(true);
-      const written = JSON.parse(readFileSync(file, 'utf8'));
+      const written = parseJson(readFileSync(file, 'utf8'), preferencesFileFields);
       expect(written.economyMode).toBe(false);
     } finally {
       rmSync(project, { recursive: true, force: true });

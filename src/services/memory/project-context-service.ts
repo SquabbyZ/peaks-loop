@@ -1,5 +1,7 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { z } from 'zod';
+import { parseJson } from '../../shared/json-parse.js';
 import { listSessionMetas } from '../session/session-manager.js';
 import { getSessionDir } from '../session/getSessionDir.js';
 import {
@@ -37,11 +39,25 @@ const CONTEXT_HEADER = `# Peaks Project Context
 const MANAGED_BLOCK_START = '<!-- peaks-managed:session-history-start -->';
 const MANAGED_BLOCK_END = '<!-- peaks-managed:session-history-end -->';
 
+/**
+ * The one field `projectName` reads out of a `package.json` on disk.
+ *
+ * `looseObject` on purpose: a package.json carries far more than this reader
+ * consumes, and validation is not licence to reject the rest of the file.
+ * `name` is optional, which is a measured fact — a package.json with no `name`
+ * is exactly what the folder-name fallback in `projectName` exists for.
+ */
+const packageNameFileSchema = z.looseObject({ name: z.string().optional() });
+
 function projectName(projectRoot: string): string {
   const pkgPath = join(projectRoot, 'package.json');
   if (!existsSync(pkgPath)) return projectRoot.split(/[\\/]/).pop() ?? 'unknown';
   try {
-    const pkg = JSON.parse(readFileSync(pkgPath, 'utf8'));
+    // Only `name` is consumed. Naming it here is what stops the read from
+    // being an `any` read: the folder name fallback below is reached for a
+    // package.json that is malformed OR has no `name`, which is already the
+    // behaviour this `try`/`catch` pair encodes.
+    const pkg = parseJson(readFileSync(pkgPath, 'utf8'), packageNameFileSchema);
     return pkg.name ?? projectRoot.split(/[\\/]/).pop() ?? 'unknown';
   } catch {
     // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)

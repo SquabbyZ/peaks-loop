@@ -17,6 +17,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { declareDimensions } from '../../_setup/4dim-template.js';
 import { WORKFLOW_ID_REGEX } from '../../../../src/services/workflow/workflow-graph-types.js';
+import { z } from 'zod';
+import { parseJson } from '../../../../src/shared/json-parse.js';
 
 declareDimensions(
   'tests/unit/services/skills/workflow-id-caller-derivation.test.ts',
@@ -84,6 +86,16 @@ afterEach(() => {
 function deriveWorkflowId(callerId: string): string {
   return `wf-${callerId.slice(0, 189)}-compat`;
 }
+
+/**
+ * The legacy lease's on-disk shape, as far as this case reads it.
+ *
+ * The round-trip through JSON is kept: it is what makes "the legacy shape is
+ * just a different string" a statement about a SERIALISED lease rather than
+ * about an in-memory literal. What changed is that the value coming back is now
+ * the named field instead of an `any` behind an inline cast.
+ */
+const leaseContentFile = z.looseObject({ workflowId: z.string() });
 
 describe('Scenario: behavior — workflowId derivation from callerId', () => {
   it('AC1: short callerId (abc123) → workflowId = wf-abc123-compat (16 chars, well under 200 regex cap)', () => {
@@ -153,8 +165,8 @@ describe('Scenario: integration — back-compat legacy leases still readable', (
       startedAt: '2026-08-06T00:00:00.000Z',
       lastHeartbeat: '2026-08-06T00:00:00.000Z'
     };
-    const parsed = JSON.parse(JSON.stringify(legacyLeaseContent));
-    expect((parsed as { workflowId: string }).workflowId).toBe(legacyWorkflowId);
+    const parsed = parseJson(JSON.stringify(legacyLeaseContent), leaseContentFile);
+    expect(parsed.workflowId).toBe(legacyWorkflowId);
   });
 });
 

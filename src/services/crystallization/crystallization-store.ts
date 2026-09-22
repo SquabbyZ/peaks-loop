@@ -1,10 +1,31 @@
 import type Database from 'better-sqlite3';
+import { z } from 'zod';
+import { parseJson } from '../../shared/json-parse.js';
 import {
   CrystallizationEventSchema,
+  EvidenceBriefSchema,
   type CrystallizationEvent,
   type CrystallizationEventInput,
   type CrystallizationEventStatus
 } from './crystallization-types.js';
+
+/**
+ * The two string-list JSON columns of `crystallization_event`, as they come
+ * back OUT of SQLite.
+ *
+ * WHY THIS EXISTS (batch B4). `JSON.parse(text)` is `any`, so
+ * `rowToCrystallizationEvent` handed three `any` values straight into a
+ * `CrystallizationEvent`; `evidence_bullets` / `source_trace_pointers` were
+ * papered over with an `as string[]` costume cast, and `evidence_brief` leaked
+ * a `no-unsafe-assignment` finding because it had no cast at all. The declared
+ * column type (`CrystallizationEventRow.evidence_bullets_json: string`) is the
+ * schema's job to re-establish, because SQLite stores TEXT and does not.
+ *
+ * The read schema is the SAME `EvidenceBriefSchema` the write path validates
+ * with: a row that no longer matches it is a defect at the boundary, not a
+ * value to hand onward with an unchecked claim attached.
+ */
+const StringListJsonSchema = z.array(z.string());
 
 /**
  * Low-level SQLite access for the `crystallization_event` table.
@@ -96,9 +117,9 @@ function rowToCrystallizationEvent(row: CrystallizationEventRow): Crystallizatio
   return {
     id: row.id,
     trigger: row.trigger as CrystallizationEvent['trigger'],
-    evidence_brief: JSON.parse(row.evidence_brief_json),
-    evidence_bullets: JSON.parse(row.evidence_bullets_json) as string[],
-    source_trace_pointers: JSON.parse(row.source_trace_pointers_json) as string[],
+    evidence_brief: parseJson(row.evidence_brief_json, EvidenceBriefSchema),
+    evidence_bullets: parseJson(row.evidence_bullets_json, StringListJsonSchema),
+    source_trace_pointers: parseJson(row.source_trace_pointers_json, StringListJsonSchema),
     evaluator_summary: row.evaluator_summary,
     user_decision_summary: row.user_decision_summary,
     created_loop_release_id: row.created_loop_release_id ?? undefined,

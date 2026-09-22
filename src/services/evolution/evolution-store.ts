@@ -1,4 +1,6 @@
 import type Database from 'better-sqlite3';
+import { z } from 'zod';
+import { parseJson } from '../../shared/json-parse.js';
 import type {
   EvolutionEvaluation,
   EvolutionEvaluationInput,
@@ -29,6 +31,24 @@ import type {
  */
 
 const SCHEMA_VERSION = 'peaks.evolution/1' as const;
+
+/**
+ * `optimization_dimensions_json` as it comes back OUT of SQLite.
+ *
+ * WHY THIS EXISTS (batch B4). The column is TEXT, so the row type only says
+ * `string`; `JSON.parse` said `any`, and `rowToEvaluation` read `[0]` off it.
+ * The declared domain type (`EvolutionProposal.optimization_dimension: string`,
+ * min length 1) is what the value has to satisfy, and this code is the only
+ * place that can establish it — SQLite cannot.
+ *
+ * `.min(1)` is the domain invariant, not a convenience: line 130 below writes
+ * `JSON.stringify([input.optimization_dimension])`, and a proposal round
+ * carries exactly one dimension (`single_optimization_dimension: true`). The
+ * fixed first element is what lets `dimensions[0]` be read as `string` without
+ * a fallback: a row whose array is empty cannot have come from this writer, and
+ * reading it as `undefined` under a `string` type was the defect this replaces.
+ */
+const OptimizationDimensionsJsonSchema = z.tuple([z.string()]).rest(z.string());
 
 /**
  * Re-apply the evolution_evaluation table migration against an
@@ -148,14 +168,18 @@ export function buildProposal(
 }
 
 function rowToEvaluation(row: EvolutionEvaluationRow): EvolutionEvaluation {
+  // Parsed ONCE and used twice below: `optimization_dimension` is the scalar
+  // projection of `dimensions`, so re-parsing the same column would be two
+  // chances to disagree about the same bytes.
+  const dimensions = parseJson(row.optimization_dimensions_json, OptimizationDimensionsJsonSchema);
   return {
     id: row.id,
     proposal: {
       id: row.id,
       target_kind: row.target_kind,
       target_release_id: row.target_release_id,
-      optimization_dimension: JSON.parse(row.optimization_dimensions_json)[0],
-      dimensions: JSON.parse(row.optimization_dimensions_json) as string[],
+      optimization_dimension: dimensions[0],
+      dimensions,
       target_count: row.target_count,
       single_object: true,
       single_optimization_dimension: true,

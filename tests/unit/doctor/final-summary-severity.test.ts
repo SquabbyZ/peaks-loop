@@ -28,9 +28,28 @@
 //   pnpm vitest run tests/unit/doctor/final-summary-severity.test.ts
 
 import { describe, expect, it } from 'vitest';
+import { z } from 'zod';
+import { parseJson } from '~/src/shared/json-parse';
 
 import { buildReport } from '~/src/services/doctor/doctor-service/report/final-summary';
 import type { DoctorCheck } from '~/src/services/doctor/doctor-service/types';
+
+/**
+ * The `summary` block `buildReport` emits, as it survives a JSON round-trip.
+ *
+ * The round-trip below exists to prove the report is JSON-serialisable; naming
+ * the four counters keeps that property AND makes the read of them a checked
+ * one. Before this, the parse returned `any` and all four assertions read off
+ * nothing — the test could not have failed on a renamed field.
+ */
+const doctorReportSummary = z.looseObject({
+  summary: z.looseObject({
+    ok: z.boolean(),
+    warnings: z.number(),
+    failed: z.number(),
+    passed: z.number()
+  })
+});
 
 describe('buildReport — severity-aware aggregation', () => {
   it('returns ok=true when all checks pass (back-compat)', () => {
@@ -122,7 +141,7 @@ describe('buildReport — severity-aware aggregation', () => {
     const report = buildReport(checks);
     // Round-trip via JSON.stringify to assert no non-serialisable
     // values (functions, symbols, BigInt) sneak through.
-    const roundTrip = JSON.parse(JSON.stringify(report));
+    const roundTrip = parseJson(JSON.stringify(report), doctorReportSummary);
     expect(roundTrip.summary.ok).toBe(true);
     expect(roundTrip.summary.warnings).toBe(1);
     expect(roundTrip.summary.failed).toBe(0);

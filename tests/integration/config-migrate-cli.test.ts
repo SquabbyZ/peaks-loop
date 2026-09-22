@@ -23,9 +23,34 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
+import { z } from 'zod';
 import { parseCliEnvelope } from '../../src/cli/cli-envelope.js';
+import { parseJson } from '../../src/shared/json-parse.js';
 
 const CLI_BIN = resolve(__dirname, '../../bin/peaks.js');
+
+/**
+ * The fields these cases read back off the two files migration owns.
+ *
+ * These stay RAW file reads on purpose — the assertions below prove what the
+ * migration WROTE, and a `readRecord`-style helper would default the very
+ * fields under test. But "raw" used to mean an unvalidated parse, and every
+ * read through it was an `any` read against nothing. Naming the fields makes a
+ * malformed file a schema error instead of a confusing `undefined`, and leaves
+ * `toEqual` below doing the same job it did before.
+ *
+ * `looseObject` + `.optional()` mirror `full-migration.test.ts`, the sibling of
+ * this file: the migrated 2.0 config is slim, the 1.x `.bak` carries fields the
+ * 2.0 file does not, and validation is not licence to reject the rest.
+ */
+const configFileFields = z.looseObject({
+  version: z.string(),
+  economyMode: z.boolean().optional()
+});
+const preferencesFileFields = z.looseObject({
+  swarmMode: z.boolean().optional(),
+  economyMode: z.boolean().optional()
+});
 
 let HOME_DIR: string;
 const origHome = process.env.HOME;
@@ -106,7 +131,10 @@ describe('peaks config migrate', () => {
       expect(code).toBe(0);
       const out = parseCliEnvelope(stdout);
       expect(out.data.applied).toBe(true);
-      const newCfg = JSON.parse(readFileSync(join(HOME_DIR, '.peaks/config.json'), 'utf8'));
+      const newCfg = parseJson(
+        readFileSync(join(HOME_DIR, '.peaks/config.json'), 'utf8'),
+        configFileFields
+      );
       expect(newCfg).toEqual({
         version: '2.0.0',
         ocr: {
@@ -120,7 +148,10 @@ describe('peaks config migrate', () => {
         }
       });
       expect(existsSync(join(HOME_DIR, '.peaks/config.json.1.x.bak'))).toBe(true);
-      const prefs = JSON.parse(readFileSync(join(project, '.peaks/preferences.json'), 'utf8'));
+      const prefs = parseJson(
+        readFileSync(join(project, '.peaks/preferences.json'), 'utf8'),
+        preferencesFileFields
+      );
       expect(prefs.swarmMode).toBe(false);
       expect(prefs.economyMode).toBe(true);
     } finally {
@@ -137,7 +168,10 @@ describe('peaks config rollback', () => {
       cli(`config migrate --project ${project} --apply`, project);
       const { code } = cli(`config rollback --apply --json`, project);
       expect(code).toBe(0);
-      const restored = JSON.parse(readFileSync(join(HOME_DIR, '.peaks/config.json'), 'utf8'));
+      const restored = parseJson(
+        readFileSync(join(HOME_DIR, '.peaks/config.json'), 'utf8'),
+        configFileFields
+      );
       expect(restored.version).toBe('1.4.2');
       expect(restored.economyMode).toBe(false);
     } finally {

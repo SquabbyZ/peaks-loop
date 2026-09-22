@@ -42,6 +42,8 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import type Database from 'better-sqlite3';
+import { z } from 'zod';
+import { parseJson } from '../../shared/json-parse.js';
 import { runTar } from '../skillhub/tar-runtime.js';
 import {
   PEAKS_BUNDLE_DEFAULT_MINOR_VERSION,
@@ -56,6 +58,22 @@ import {
 /* ---------------------------------------------------------------------- */
 /* Inputs                                                                   */
 /* ---------------------------------------------------------------------- */
+
+/**
+ * The three JSON TEXT columns of `crystallization_event`, as they come back
+ * OUT of SQLite.
+ *
+ * WHY THIS EXISTS (batch B4). `SELECT *` reaches this module as
+ * `Record<string, unknown>`, so the only thing the compiler knew about these
+ * three values was that `JSON.parse` had returned `any`. They are re-serialized
+ * verbatim into the bundle's `evidence_briefs/*.json`, which is why the read
+ * schema is the SHAPE OF THE COLUMN and not a deep domain schema: this module
+ * copies the stored value, it does not reinterpret it. What it must establish
+ * — and SQLite cannot — is the top-level shape its own `?? '{}'` / `?? '[]'`
+ * defaults already assume.
+ */
+const storedJsonObjectSchema = z.record(z.string(), z.unknown());
+const storedStringListSchema = z.array(z.string());
 
 /**
  * Inputs to `writeBundle`. `kind` decides which asset table the
@@ -248,9 +266,12 @@ function readEvidenceBriefsForAsset(
   return rows.map((row) => ({
     id: row.id,
     trigger: row.trigger,
-    evidence_brief: JSON.parse(String(row.evidence_brief_json ?? '{}')),
-    evidence_bullets: JSON.parse(String(row.evidence_bullets_json ?? '[]')),
-    source_trace_pointers: JSON.parse(String(row.source_trace_pointers_json ?? '[]')),
+    evidence_brief: parseJson(String(row.evidence_brief_json ?? '{}'), storedJsonObjectSchema),
+    evidence_bullets: parseJson(String(row.evidence_bullets_json ?? '[]'), storedStringListSchema),
+    source_trace_pointers: parseJson(
+      String(row.source_trace_pointers_json ?? '[]'),
+      storedStringListSchema
+    ),
     evaluator_summary: row.evaluator_summary,
     user_decision_summary: row.user_decision_summary,
     created_loop_release_id: row.created_loop_release_id ?? undefined,

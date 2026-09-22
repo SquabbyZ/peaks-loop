@@ -47,6 +47,8 @@ import {
   type ExtractedProjectMemory,
   type ProjectMemoryKind
 } from '../../src/services/memory/project-memory-service/index.js';
+import { z } from 'zod';
+import { parseJson } from '../../src/shared/json-parse.js';
 
 interface MemoryFixture {
   readonly title: string;
@@ -138,6 +140,20 @@ function buildArtifact(fixtures: readonly MemoryFixture[]): string {
   );
   return blocks.join('\n');
 }
+
+/**
+ * The `.peaks/memory/index.json` shape `ensureMemoryBootstrap` writes.
+ *
+ * `version` and the two tier maps are the fields this case reads; `hot` / `warm`
+ * are `Record<string, unknown>` because the assertion is about their KEY COUNT
+ * (against `HOT_MEMORY_KINDS` / `WARM_MEMORY_KINDS`), not their entries — the
+ * entry shape is pinned by the read-side tests elsewhere in this file.
+ */
+const memoryIndexFile = z.looseObject({
+  version: z.number(),
+  hot: z.record(z.string(), z.unknown()),
+  warm: z.record(z.string(), z.unknown())
+});
 
 describe('project memory filesystem round-trip', () => {
   test('writes 10 memory files, reads them back, validates metadata', () => {
@@ -288,7 +304,7 @@ describe('project memory filesystem round-trip', () => {
     expect(existsSync(memDir)).toBe(true);
     const indexPath = join(memDir, 'index.json');
     expect(existsSync(indexPath)).toBe(true);
-    const parsed = JSON.parse(readFileSync(indexPath, 'utf8'));
+    const parsed = parseJson(readFileSync(indexPath, 'utf8'), memoryIndexFile);
     expect(parsed.version).toBe(1);
     // Hot + warm together cover the full kind union with empty arrays.
     // Derived from the declaration (not a literal count) so growing the union

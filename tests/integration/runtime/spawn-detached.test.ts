@@ -2,7 +2,18 @@ import { describe, it, expect } from 'vitest';
 import { mkdirSync, existsSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { z } from 'zod';
 import { dispatchDetached } from '../../../packages/peaks-loop-internal-runtime/src/index.js';
+import { parseJson } from '../../../src/shared/json-parse.js';
+
+/**
+ * The one field this case reads back off the dispatch record on disk.
+ *
+ * `status` is typed `string`, not a literal union: the assertion below is what
+ * decides whether "failed" or "running" is correct, and re-stating the union
+ * here would make this schema a second, drifting copy of the domain type.
+ */
+const dispatchRecordFile = z.looseObject({ status: z.string() });
 
 describe('spawn detached mock vendor', () => {
   it('writes pid file, log file path placeholder, status.json, owner-session', async () => {
@@ -57,7 +68,7 @@ describe('spawn detached mock vendor', () => {
 
     // The record on disk must agree with the outcome instead of claiming a
     // running child that was never spawned.
-    const record = JSON.parse(readFileSync(r.dispatchRecordPath, 'utf8'));
+    const record = parseJson(readFileSync(r.dispatchRecordPath, 'utf8'), dispatchRecordFile);
     expect(record.status).toBe(r.spawnError ? 'failed' : 'running');
 
     rmSync(root, { recursive: true, force: true });

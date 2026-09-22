@@ -30,6 +30,8 @@ import {
   type ContextHintCacheEntry
 } from '~/src/services/context/context-audit-hint.js';
 import type { ContextAuditResult } from '~/src/services/context/context-audit.js';
+import { z } from 'zod';
+import { parseJson } from '~/src/shared/json-parse';
 
 declareDimensions('tests/unit/context/context-audit-hint.test.ts', [
   'render',
@@ -83,6 +85,15 @@ function cacheEntry(overrides: Partial<ContextHintCacheEntry> = {}): ContextHint
     ...overrides
   };
 }
+
+/**
+ * The field this case reads back off the hint cache file.
+ *
+ * `readCache` in `context-audit-hint.ts` already treats a non-boolean
+ * `available` as "no cache"; the assertion here is about the value the FAILURE
+ * path cached, so only that field is named.
+ */
+const contextHintCacheFile = z.looseObject({ available: z.boolean() });
 
 describe('(render) the hint is exactly one actionable line', () => {
   it('names the tool, the key, the share, the call count and the ratio', () => {
@@ -198,7 +209,7 @@ describe('(behavior) threshold / cache / TTL decision table', () => {
     // Second call inside the TTL must not rescan (cached failure).
     expect(buildContextAuditHint({ ...base, nowMs: 3_000_000 + 1000 })).toBeNull();
     expect(runAudit).toHaveBeenCalledTimes(1);
-    expect(JSON.parse(readFileSync(cachePath, 'utf8')).available).toBe(false);
+    expect(parseJson(readFileSync(cachePath, 'utf8'), contextHintCacheFile).available).toBe(false);
   });
 
   it('emits nothing when the audit has no groups', () => {

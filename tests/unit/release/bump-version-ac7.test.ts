@@ -41,8 +41,20 @@ import {
 import { tmpdir } from 'node:os';
 import { join, resolve, delimiter } from 'node:path';
 import { afterAll, afterEach, describe, expect, it } from 'vitest';
+import { z } from 'zod';
+import { parseJson } from '../../../src/shared/json-parse.js';
 import { declareDimensions } from '../_setup/4dim-template.js';
 import { SUBPROCESS_TEST_TIMEOUT_MS } from '../_setup/subprocess-timeouts.js';
+
+/**
+ * The one field this suite reads back off the harness's `package.json`.
+ *
+ * `parseJson` replaces `JSON.parse` here for the same reason it does in `src/`:
+ * the parse is where `any` enters, and the four assertions below are all about
+ * the `version` string. `looseObject` because a real package.json carries far
+ * more than `version` and validation is not licence to reject the rest.
+ */
+const packageJsonVersion = z.looseObject({ version: z.string() });
 
 declareDimensions('tests/unit/release/bump-version-ac7.test.ts', [
   'render',
@@ -197,7 +209,10 @@ describe('Scenario: (behavior) — explicit --to is honored even when registry =
       setupHarness('4.0.3', '4.0.3');
       const r = runBumpVersion(['--to', '4.0.4']);
       expect(r.status).toBe(0);
-      const onDisk = JSON.parse(readFileSync(join(active!.cwd, 'package.json'), 'utf8'));
+      const onDisk = parseJson(
+        readFileSync(join(active!.cwd, 'package.json'), 'utf8'),
+        packageJsonVersion
+      );
       expect(onDisk.version).toBe('4.0.4');
     }
   );
@@ -212,7 +227,10 @@ describe('Scenario: (behavior) — explicit --to is honored even when registry =
       setupHarness('4.0.3', '4.0.3');
       const r = runBumpVersion([]);
       expect(r.status).toBe(0);
-      const onDisk = JSON.parse(readFileSync(join(active!.cwd, 'package.json'), 'utf8'));
+      const onDisk = parseJson(
+        readFileSync(join(active!.cwd, 'package.json'), 'utf8'),
+        packageJsonVersion
+      );
       expect(onDisk.version).toBe('4.0.3');
     }
   );
@@ -227,7 +245,10 @@ describe('Scenario: (behavior) — explicit --to is honored even when registry =
       setupHarness('4.0.3', '4.0.3');
       const r = runBumpVersion(['--to', '5.0.0']);
       expect(r.status).toBe(0);
-      const onDisk = JSON.parse(readFileSync(join(active!.cwd, 'package.json'), 'utf8'));
+      const onDisk = parseJson(
+        readFileSync(join(active!.cwd, 'package.json'), 'utf8'),
+        packageJsonVersion
+      );
       expect(onDisk.version).toBe('5.0.0');
     }
   );
@@ -252,7 +273,10 @@ describe('Scenario: (integration) — fake-npm on PATH replaces the real `npm vi
       // The stub says latest = 9.9.9 which != 4.0.3, so the script MUST NOT
       // short-circuit; it should fall through to default policy (4.0.3 -> 4.0.4).
       expect(r.stdout).not.toContain('no-op');
-      const onDisk = JSON.parse(readFileSync(join(active!.cwd, 'package.json'), 'utf8'));
+      const onDisk = parseJson(
+        readFileSync(join(active!.cwd, 'package.json'), 'utf8'),
+        packageJsonVersion
+      );
       expect(onDisk.version).toBe('4.0.4');
     }
   );

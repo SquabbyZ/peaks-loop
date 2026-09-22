@@ -57,6 +57,8 @@ import {
   type HarnessContextWitness
 } from '~/src/services/context/harness-context-witness';
 import type { StatusLineStdin } from '~/src/services/skills/skill-statusline-service';
+import { z } from 'zod';
+import { parseJson } from '~/src/shared/json-parse';
 
 const SID = '2026-09-13-session-filestate';
 const WINDOW = 1_000_000;
@@ -124,6 +126,16 @@ function recordJson(): string {
   };
   return `${JSON.stringify(witness, null, 2)}\n`;
 }
+
+/**
+ * The field this case reads back off the witness file on disk.
+ *
+ * It is read RAW on purpose — the point of the case is the downgrade decision,
+ * and `readHarnessWitness` (asserted two lines above) normalizes the record.
+ * `usageTokens` is `number | null` because a sample with no context block is
+ * persisted as `null`, which the read side then treats as "no signal".
+ */
+const harnessWitnessFile = z.looseObject({ usageTokens: z.number().nullable() });
 
 describe('harness context witness — on-disk state (repair cycle 3)', () => {
   describe('(integration)', () => {
@@ -223,9 +235,10 @@ describe('harness context witness — on-disk state (repair cycle 3)', () => {
       expect(kept.kind === 'valid' && kept.witness.usedPercentage).toBeCloseTo(0.3, 10);
       expect(kept.kind === 'valid' && kept.witness.usageTokens).toBe(PAYLOAD_USAGE_TOKENS);
       expect(kept.kind === 'valid' && kept.witness.capturedAt).toBe(new Date(0).toISOString());
-      expect(JSON.parse(readFileSync(harnessWitnessPath(root, SID), 'utf8')).usageTokens).toBe(
-        PAYLOAD_USAGE_TOKENS
-      );
+      expect(
+        parseJson(readFileSync(harnessWitnessPath(root, SID), 'utf8'), harnessWitnessFile)
+          .usageTokens
+      ).toBe(PAYLOAD_USAGE_TOKENS);
     });
   });
 });

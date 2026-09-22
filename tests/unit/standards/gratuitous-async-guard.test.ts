@@ -43,14 +43,50 @@
 // WHAT IT ASSERTS
 //
 //   violations (load-bearing): exactly the pinned 14 sites, listed `file:line`.
-//   reach (the anti-weakening arm): the number of files, async functions and
-//            type-checked candidates the walk actually consumed is pinned, so a
-//            traversal that returns early, drops a node kind or narrows its root
-//            fails HERE instead of passing below. "Proving it can go red" is not
+//   reach (the anti-weakening arm): the file set, the async-function count and
+//            the type-checked count the walk actually consumed are each
+//            CROSS-MEASURED against a source outside this traversal, so a walk
+//            that returns early, drops a node kind or narrows its root fails
+//            HERE instead of passing below. "Proving it can go red" is not
 //            enough: a guard that visits nothing also reports nothing.
 //   arms (behavior): the contract-less `async` goes red; the `Promise<…>`-
 //            annotated one stays green; a nested `await` does NOT excuse its
 //            outer function.
+//
+// WHY THE REACH ARM IS CROSS-MEASURED AND NOT A LITERAL (slice rid-b4)
+//
+// The reach arm used to be three hand-kept literals: `result.files` (823),
+// `result.asyncFunctions` (578) and `result.checked` (577). The file one moved
+// four times in four slices (817→818→821→823), each time because a slice added a
+// file for a reason the guard had nothing to say about. A literal that must be
+// edited on every legitimate change is a tax — but replacing it with a number
+// computed by the very traversal it guards would be strictly worse: that guard
+// is green forever and means nothing.
+//
+// The reach arm is therefore THREE measurements from sources that do not read
+// back out of the guarded walk, and none needs an edit when the tree grows:
+//
+//   1. FILE SET — compared, set for set, against `git ls-files` (tracked ∪
+//      untracked-not-ignored), because git's index is not this walk's recursion.
+//   2. ASYNC-FUNCTION COUNT and TYPE-CHECKED COUNT — compared against a SECOND
+//      traversal that shares none of the first's mechanism: an explicit worklist
+//      over `node.getChildren()` instead of `forEachChild` recursion.
+//   3. COLLAPSE FLOOR — a loose floor tied to the git-reported file count, whose
+//      only job is to stop two agreeing-but-EMPTY mechanisms.
+//
+// The residual assumption is that both mechanisms could be broken TOGETHER (they
+// share `isFunctionLikeDeclaration` and `isEmptyBody`). The `injection` describe
+// below refuses to leave that unexamined: it drives the real walk through
+// deliberately damaged arms and requires the damage to be visible — and requires
+// the two mechanisms to then DISAGREE, which is the state the cross-check fails
+// on. Because each damage is requested through the same parameter the real walk
+// reads, deleting a real arm turns the matching injection into a no-op, and that
+// injection case then fails instead of silently agreeing with the damaged walk.
+//
+// What this does NOT remove: `PINNED_SITES` is still `file:line`, so an unrelated
+// edit above one of the 14 sites still moves three entries by hand. That list is a
+// deliberate spec pin — the guard's whole point is that a human can read the 14 —
+// and it is the one place a line shift is meant to be seen.
 //
 // SCOPE — `src/` + `packages/` only. `tests/**` is exempt, matching the
 // `tests/**` overrides already in `config/eslint/.peaks-rules.cjs` (the 18
@@ -61,16 +97,41 @@
 // Omitting the `a11y` dimension: this guard has no human-visible surface of its
 // own — it emits no stdout, no exit code and no message. The vitest assertion
 // text it fails with is covered by `render`.
+//
+// WHERE THE WALK LIVES. The traversal, its second mechanism, the git
+// enumeration and the memoised program are in the bare `.ts` sibling
+// `./_gratuitous-async-scan.ts`, extracted there in slice rid-b4 when the new
+// reach arm pushed this file to 439 non-comment lines against the repo's 400
+// `max-lines` cap and 835 physical lines against the 800-line file cap. The
+// extraction moved CODE, not prose: `max-lines` is configured with
+// `skipComments: true`, so trimming the explanations here would not have
+// changed a single counted line. What stays in THIS file is the part that is a
+// claim about this repository — `PINNED_SITES`, the failure message, the fixture
+// lifecycle, and the assertions.
 
-import { mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, join, relative as relativePath, resolve, sep } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
 
 import * as ts from 'typescript';
 import { describe, expect, it } from 'vitest';
 
 import { declareDimensions } from '../_setup/4dim-template.js';
+import {
+  FULL_ARM,
+  REPO_ROOT,
+  TREES,
+  listTsFiles,
+  listTsFilesFromGit,
+  programForRepo,
+  reachRepo,
+  repoCompilerOptions,
+  scan,
+  scanRepo,
+  scopedFileNames,
+  type Scan,
+  type Site
+} from './_gratuitous-async-scan.js';
 
 declareDimensions(
   'tests/unit/standards/gratuitous-async-guard.test.ts',
@@ -82,14 +143,6 @@ declareDimensions(
     }
   ]
 );
-
-const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
-
-/** The trees this guard is stated over. `tests/` is deliberately NOT a member. */
-const TREES: readonly string[] = ['src', 'packages'];
-
-/** Generated output — never part of "the code this guard is stated over". */
-const EXCLUDED: readonly string[] = ['dist', 'node_modules', 'coverage'];
 
 /**
  * The 14 sites this guard exists to keep visible, as `file:line`.
@@ -110,6 +163,16 @@ const EXCLUDED: readonly string[] = ['dist', 'node_modules', 'coverage'];
  *     eleven Commander actions were inserted above them. Same three functions,
  *     same reasons they are in the class; only the line moved).
  * All three are edits to THIS list, made by hand, with the reason recorded here.
+ *
+ * THE LAST EDIT, AND WHY IT IS NOT THE ONE THIS GUARD WAS SUPPOSED TO STOP NEEDING
+ *
+ * Slice rid-b4 (2026-09-22): the three `slice-decompose-runners.ts` entries moved
+ * 39/89/153 -> 74/127/191, a uniform +35, when Task 1 of that slice replaced the
+ * two `JSON.parse(stdout)` sites in that file with `parseJson(stdout, schema)` and
+ * the schemas' docblocks were inserted above them. Same three functions, same
+ * reasons they are in the class; only the line moved. This is the third reason
+ * above, and it is the ONE list whose entries are `file:line` — the reach
+ * numbers next to it no longer need a hand edit at all (see the reach arm below).
  */
 const PINNED_SITES: readonly string[] = [
   'src/cli/commands/code-job-shape-commands.ts:55',
@@ -123,220 +186,10 @@ const PINNED_SITES: readonly string[] = [
   'src/services/evolution/independent-evaluator-runner.ts:122',
   'src/services/evolution/regression-skeptic-runner.ts:98',
   'src/services/llm/stub-runner.ts:35',
-  'src/services/slice/slice-decompose-runners.ts:39',
-  'src/services/slice/slice-decompose-runners.ts:89',
-  'src/services/slice/slice-decompose-runners.ts:153'
+  'src/services/slice/slice-decompose-runners.ts:74',
+  'src/services/slice/slice-decompose-runners.ts:127',
+  'src/services/slice/slice-decompose-runners.ts:191'
 ];
-
-interface Site {
-  /** Repo-relative, POSIX separators — the form an operator can paste. */
-  readonly file: string;
-  readonly line: number;
-}
-
-interface Scan {
-  /** `.ts` files under the scanned trees that the program actually offered. */
-  readonly files: number;
-  /** Every async function-like node found in those files. */
-  readonly asyncFunctions: number;
-  /** Of those, the ones that reached the type-checked stage. */
-  readonly checked: number;
-  /** Candidates that would be flagged WITHOUT the thenable-return exemption. */
-  readonly withoutThenableExemption: readonly Site[];
-  /** The residual class: what this guard protects. */
-  readonly violations: readonly Site[];
-}
-
-function toPosix(path: string): string {
-  return path.split(sep).join('/');
-}
-
-function isExcluded(full: string, root: string): boolean {
-  const rel = toPosix(relativePath(root, full));
-  return EXCLUDED.some((excluded) => rel === excluded || rel.startsWith(`${excluded}/`));
-}
-
-function listTsFiles(dir: string, root: string, out: string[] = []): string[] {
-  for (const entry of readdirSync(dir, { withFileTypes: true })) {
-    const full = join(dir, entry.name);
-    if (isExcluded(full, root)) continue;
-    if (entry.isDirectory()) listTsFiles(full, root, out);
-    else if (entry.isFile() && entry.name.endsWith('.ts')) out.push(full);
-  }
-  return out;
-}
-
-/**
- * `tsconfig.json`'s compilerOptions, so a fixture is judged under the same lib
- * and the same `strict` settings as the code it stands in for.
- */
-function repoCompilerOptions(): ts.CompilerOptions {
-  // The reader is wrapped rather than passed as `ts.sys.readFile`: an unbound
-  // method reference trips `@typescript-eslint/unbound-method`, and `ts.sys` is
-  // an interface whose `readFile` is a method, not a free function.
-  const readFile = (path: string): string | undefined => ts.sys.readFile(path);
-  const configFile = ts.readConfigFile(join(REPO_ROOT, 'tsconfig.json'), readFile);
-  const parsed = ts.parseJsonConfigFileContent(configFile.config, ts.sys, REPO_ROOT);
-  return { ...parsed.options, noEmit: true, skipLibCheck: true };
-}
-
-function isAsync(node: ts.FunctionLikeDeclaration): boolean {
-  const modifiers = ts.canHaveModifiers(node) ? ts.getModifiers(node) : undefined;
-  return (modifiers ?? []).some((m) => m.kind === ts.SyntaxKind.AsyncKeyword);
-}
-
-/**
- * Condition 2 — the **explicit** annotation. Never the inferred type: an
- * `async` function's inferred return type is always a Promise, so an
- * inferred-type test reads every site as "has a contract" and reports nothing.
- */
-function hasPromiseAnnotation(node: ts.FunctionLikeDeclaration): boolean {
-  const annotation = node.type;
-  if (annotation === undefined || !ts.isTypeReferenceNode(annotation)) return false;
-  const name = annotation.typeName.getText();
-  return name === 'Promise' || name.endsWith('.Promise');
-}
-
-/** A body-less node (signature, `declare`, abstract) and `{}` both count as empty. */
-function isEmptyBody(node: ts.FunctionLikeDeclaration): boolean {
-  const body = node.body;
-  if (body === undefined) return true;
-  if (ts.isBlock(body)) return body.statements.length === 0;
-  return false;
-}
-
-/**
- * The only type-level question this guard asks, and the reason it needs a
- * checker: does this return expression produce a thenable? Mirrors the rule's
- * `isThenableType` — a `then` property that is callable with an argument.
- */
-function isThenableType(checker: ts.TypeChecker, node: ts.Expression): boolean {
-  const type = checker.getTypeAtLocation(node);
-  for (const part of type.isUnion() ? type.types : [type]) {
-    const then = checker.getApparentType(part).getProperty('then');
-    if (then === undefined) continue;
-    const thenType = checker.getTypeOfSymbolAtLocation(then, node);
-    for (const candidate of thenType.isUnion() ? thenType.types : [thenType]) {
-      for (const signature of candidate.getCallSignatures()) {
-        if (signature.parameters.length !== 0) return true;
-      }
-    }
-  }
-  return false;
-}
-
-interface OwnScope {
-  readonly hasAwait: boolean;
-  readonly hasThrow: boolean;
-  readonly returnsThenable: boolean;
-}
-
-/**
- * Conditions 1 and 3, judged **by scope**: the walk stops at every nested
- * function-like node, so an `await` (or a `throw`) inside a callback does not
- * excuse the function that encloses it. This is the same boundary the ESLint
- * rule draws with its scope stack, and the reason a line-window grep is not a
- * substitute — it mis-hits a nested `await` a few lines down.
- */
-function inspectOwnScope(checker: ts.TypeChecker, node: ts.FunctionLikeDeclaration): OwnScope {
-  let hasAwait = false;
-  let hasThrow = false;
-  let returnsThenable = false;
-  const visit = (child: ts.Node): void => {
-    if (child !== node && ts.isFunctionLike(child)) return;
-    if (ts.isAwaitExpression(child)) hasAwait = true;
-    else if (ts.isThrowStatement(child)) hasThrow = true;
-    else if (
-      ts.isReturnStatement(child) &&
-      child.expression !== undefined &&
-      isThenableType(checker, child.expression)
-    ) {
-      returnsThenable = true;
-    }
-    ts.forEachChild(child, visit);
-  };
-  if (node.body !== undefined) visit(node.body);
-  return { hasAwait, hasThrow, returnsThenable };
-}
-
-/** An expression-bodied arrow returns its body: `async () => somePromise`. */
-function expressionBodyIsThenable(
-  checker: ts.TypeChecker,
-  node: ts.FunctionLikeDeclaration
-): boolean {
-  if (!ts.isArrowFunction(node) || ts.isBlock(node.body)) return false;
-  return isThenableType(checker, node.body);
-}
-
-function isFunctionLikeDeclaration(node: ts.Node): node is ts.FunctionLikeDeclaration {
-  return (
-    ts.isFunctionDeclaration(node) ||
-    ts.isFunctionExpression(node) ||
-    ts.isArrowFunction(node) ||
-    ts.isMethodDeclaration(node) ||
-    ts.isGetAccessor(node) ||
-    ts.isSetAccessor(node)
-  );
-}
-
-/**
- * Walk a program's `src/` + `packages/` files and classify every async
- * function-like node. `root` is a parameter rather than the module constant so
- * the behavior arms can drive the same decision from a fixture.
- */
-function scan(program: ts.Program, checker: ts.TypeChecker, root: string): Scan {
-  let files = 0;
-  let asyncFunctions = 0;
-  let checked = 0;
-  const withoutThenableExemption: Site[] = [];
-  const violations: Site[] = [];
-
-  for (const sourceFile of program.getSourceFiles()) {
-    if (sourceFile.isDeclarationFile) continue;
-    const rel = toPosix(relativePath(root, sourceFile.fileName));
-    if (!TREES.some((tree) => rel.startsWith(`${tree}/`))) continue;
-    files += 1;
-
-    const visit = (node: ts.Node): void => {
-      if (isFunctionLikeDeclaration(node) && isAsync(node)) {
-        asyncFunctions += 1;
-        // Conditions 4 and 5, and the cheap half of "is there anything to say".
-        if (!isEmptyBody(node) && node.asteriskToken === undefined) {
-          checked += 1;
-          const own = inspectOwnScope(checker, node);
-          const exemptAsThenable = own.returnsThenable || expressionBodyIsThenable(checker, node);
-          if (!own.hasAwait && !own.hasThrow && !hasPromiseAnnotation(node)) {
-            const site: Site = {
-              file: rel,
-              line: sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile)).line + 1
-            };
-            withoutThenableExemption.push(site);
-            if (!exemptAsThenable) violations.push(site);
-          }
-        }
-      }
-      ts.forEachChild(node, visit);
-    };
-    ts.forEachChild(sourceFile, visit);
-  }
-
-  return { files, asyncFunctions, checked, withoutThenableExemption, violations };
-}
-
-let repoScan: Scan | undefined;
-
-/** Built once per worker process: a full program is ~1.5 s, a fixture is ~50 ms. */
-function scanRepo(): Scan {
-  if (repoScan === undefined) {
-    const program = ts.createProgram(
-      TREES.flatMap((tree) => listTsFiles(join(REPO_ROOT, tree), REPO_ROOT)),
-      repoCompilerOptions()
-    );
-    repoScan = scan(program, program.getTypeChecker(), REPO_ROOT);
-  }
-  return repoScan;
-}
-
 function describeViolations(violations: readonly Site[]): string {
   if (violations.length === 0) return '';
   return (
@@ -382,35 +235,51 @@ function withFixtureProgram(
 
 describe('Scenario: integration — the guard walks the real src/ + packages/ trees', () => {
   const result = scanRepo();
+  // Measured once, from git, and reused by the reach assertions below.
+  const filesFromGit = listTsFilesFromGit(REPO_ROOT);
 
-  it('visits every .ts file under src/ + packages/ (the root is pinned, not sampled)', () => {
-    // A probe that samples nothing reports green for the whole space. This pin
-    // moves only when a `.ts` file is added to or removed from `src/` or
-    // `packages/` — 817 at the moment the guard landed.
-    // 817 -> 818 (slice rid-s10-any-roots-ts): +1 is `src/shared/array-guards.ts`,
-    // the non-narrowing `isArray` helper. A new file is the documented reason
-    // this pin moves.
-    // 818 -> 821 (slice rid-s12-json-parse-root): +3 is `src/shared/json-parse.ts`,
-    // `src/cli/cli-envelope.ts` and `src/services/session/session-file-schema.ts`.
-    // Same reason as S10.
-    // 821 -> 823 (slice rid-b2-any-roots-batch): +2 is
-    // `packages/peaks-loop-internal-runtime/src/guards/json-object.ts` (the one
-    // `unknown -> Record<string, unknown>` check that package's two readers
-    // share) and
-    // `packages/peaks-loop-internal-runtime/src/vendor/progress-line.ts` (the
-    // stream-json progress-line parser the three vendor adapters each carried a
-    // copy of). Same reason as S10 and S12 — and, as in those two slices, this
-    // pin is the ONE literal a new file still moves. B1's "a new file no longer
-    // needs any literal changed" does not hold here.
-    expect(result.files).toBe(823);
+  it('reaches exactly the .ts files git reports under src/ + packages/', () => {
+    // Set equality, not a count: a duplicate, a dropped subtree and a narrowed
+    // root each break it, and a NEW FILE does not — both sides see it. This is
+    // what replaced `expect(result.files).toBe(823)` (817 -> 818 -> 821 -> 823,
+    // four hand edits for four slices that each added a file).
+    //
+    // `scan` skips declaration files before counting, and so does the git
+    // enumeration, which is why both sides are the same set rather than the git
+    // set minus a number.
+    const walked = scopedFileNames(programForRepo(), REPO_ROOT);
+    expect(walked).toEqual(filesFromGit);
+    // Guard against the degenerate agreement this arm could otherwise hide: an
+    // empty enumeration is a set that equals an empty walk.
+    expect(walked.length).toBeGreaterThan(0);
   });
 
-  it('visits every async function in those files (the recursion is pinned)', () => {
-    // A walk that stops early, or that drops one node kind, reports green for
-    // everything it no longer reaches. 578 async function-likes, of which 577
-    // are non-empty and not generators and therefore reach the type checker.
-    expect(result.asyncFunctions).toBe(578);
-    expect(result.checked).toBe(577);
+  it('reaches every async function-like, as measured by a second, non-recursive walk', () => {
+    // The anti-weakening arm. `reachRepo()` comes from `collectAsyncReach`,
+    // which uses an explicit worklist over `node.getChildren()` and never
+    // recurses with `forEachChild`; a walk that stops early (measured: 349 of
+    // 578 survive) or drops the ArrowFunction arm (measured: 412) can no longer
+    // agree with it. This is what replaced `expect(result.asyncFunctions)
+    // .toBe(578)` / `expect(result.checked).toBe(577)`.
+    const reach = reachRepo();
+    expect(result.asyncFunctions).toBe(reach.asyncFunctions);
+    expect(result.checked).toBe(reach.checked);
+  });
+
+  it('reaches a non-collapsed number of async functions (a collapse floor)', () => {
+    // A floor, deliberately loose, tied to the INDEPENDENT file enumeration: two
+    // mechanisms that agreed on ZERO would satisfy the cross-check above and mean
+    // nothing. This cannot detect a subtle drop — the cross-check does that — but
+    // it cannot pass a walk that has collapsed to nothing either.
+    //
+    // The ratio is arbitrary and is not a claim about the tree (measured today
+    // it is 578 against a floor of 206); its only job is to be far above zero
+    // while staying far below anything a real edit could move.
+    expect(result.asyncFunctions).toBeGreaterThanOrEqual(Math.ceil(filesFromGit.length / 4));
+    // Structural invariant: `checked` is a SUBSET of `asyncFunctions`, so a
+    // counter wired to the wrong branch of the walk breaks here.
+    expect(result.checked).toBeGreaterThan(0);
+    expect(result.checked).toBeLessThanOrEqual(result.asyncFunctions);
   });
 
   it('keys the class on the rule own thenable exemption, and that exemption is worth 7 sites', () => {
@@ -433,6 +302,47 @@ describe('Scenario: integration — the guard walks the real src/ + packages/ tr
     expect([...result.violations.map(site)].sort(), describeViolations(result.violations)).toEqual(
       [...PINNED_SITES].sort()
     );
+  });
+});
+
+// ── injection: damaging the traversal must be visible ────────────────
+
+describe('Scenario: injection — damage to the traversal is visible, not absorbed', () => {
+  const full = scanRepo();
+  const reach = reachRepo();
+
+  it('loses async functions when the walk does not descend (an early return)', () => {
+    // The concrete regression this refuses to leave uncovered: a `visit` that
+    // stops after classifying the node it is standing on. Measured on this tree,
+    // 349 of the 578 survive.
+    const truncated = scanRepo({ ...FULL_ARM, recurse: false });
+    expect(truncated.asyncFunctions).toBeLessThan(full.asyncFunctions);
+  });
+
+  it('loses async functions when the ArrowFunction arm is dropped', () => {
+    // One node kind removed from `isFunctionLikeDeclaration`. Measured: 412 of
+    // the 578 survive, i.e. that arm carries 166 of them.
+    const withoutArrows = scanRepo({ ...FULL_ARM, arrows: false });
+    expect(withoutArrows.asyncFunctions).toBeLessThan(full.asyncFunctions);
+  });
+
+  it('makes the two mechanisms DISAGREE, which is the arm that catches it', () => {
+    // The two cases above show the damage is real; this one shows the guard
+    // NOTICES. `collectAsyncReach` is mechanism 2 and is untouched by `arm`, so a
+    // damaged mechanism 1 is exactly the situation the integration cross-check
+    // fails on. If a future edit removes an arm from the real walk, the matching
+    // injection stops damaging anything and this assertion fails with it.
+    const damaged = scanRepo({ ...FULL_ARM, arrows: false });
+    expect(damaged.asyncFunctions).not.toBe(reach.asyncFunctions);
+  });
+
+  it('leaves the file reach untouched, so the two arms cannot mask each other', () => {
+    // The file axis has its own cross-check (against git) and is not routed
+    // through `arm`. Stated as a test rather than left implicit: if a later edit
+    // made the damage also shrink the file set, this case goes red and says so,
+    // instead of the file arm silently absorbing a traversal defect.
+    const damaged = scanRepo({ ...FULL_ARM, recurse: false, arrows: false });
+    expect(damaged.files).toBe(full.files);
   });
 });
 

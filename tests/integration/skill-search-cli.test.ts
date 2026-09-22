@@ -19,9 +19,24 @@
  */
 import { resolve } from 'node:path';
 import { describe, expect, test } from 'vitest';
+import { z } from 'zod';
+import { SkillSearchResultSchema } from '../../src/services/skill/skill-search-service.js';
+import { parseJson } from '../../src/shared/json-parse.js';
 import { runCli } from './_cli-helper.js';
 
 const REPO_ROOT = resolve(__dirname, '..', '..');
+
+/**
+ * `peaks skill search --json` stdout is a BARE ARRAY, not a `ResultEnvelope`.
+ *
+ * That is the locked contract this file exists to pin ("Exit 0 + JSON array on
+ * success (even on no-match)"), and it is why this suite must NOT go through
+ * `parseCliEnvelope`: that call would reject every response here. The array
+ * element is the service's own `SkillSearchResultSchema`, reused rather than
+ * restated, so a field the command stops emitting is a failure here and not
+ * an `undefined` two assertions later.
+ */
+const skillSearchOutput = z.array(SkillSearchResultSchema);
 
 function cli(args: string[]) {
   return runCli(args, REPO_ROOT);
@@ -32,9 +47,9 @@ describe('peaks skill search — CLI integration (S0)', () => {
     const result = await cli(['skill', 'search', '--query', 'code']);
     expect(result.code).toBe(0);
     expect(result.stderr).toBe('');
-    const parsed = JSON.parse(result.stdout);
+    const parsed = parseJson(result.stdout, skillSearchOutput);
     expect(Array.isArray(parsed)).toBe(true);
-    const names = parsed.map((r: { name: string }) => r.name);
+    const names = parsed.map((r) => r.name);
     expect(names).toContain('peaks-code');
   });
 
@@ -42,7 +57,7 @@ describe('peaks skill search — CLI integration (S0)', () => {
     const result = await cli(['skill', 'search', '--query', 'xxxxxxxxxxxxx']);
     expect(result.code).toBe(0);
     // stdout may have a trailing newline; trim before parsing.
-    const parsed = JSON.parse(result.stdout.trim());
+    const parsed = parseJson(result.stdout.trim(), skillSearchOutput);
     expect(parsed).toEqual([]);
   });
 
@@ -57,13 +72,13 @@ describe('peaks skill search — CLI integration (S0)', () => {
   test('I-4: CLI exits 0 with --tag filter; output is a JSON array (may be empty when no skill has tags)', async () => {
     const result = await cli(['skill', 'search', '--tag', 'orchestrator']);
     expect(result.code).toBe(0);
-    const parsed = JSON.parse(result.stdout);
+    const parsed = parseJson(result.stdout, skillSearchOutput);
     expect(Array.isArray(parsed)).toBe(true);
     // When a tag matches no skill (current SKILL.md frontmatter does
     // not carry metadata.tags), the array is empty; that is still
     // a valid v1 contract.
     if (parsed.length > 0) {
-      for (const r of parsed as Array<{ tags: string[] }>) {
+      for (const r of parsed) {
         expect(r.tags).toContain('orchestrator');
       }
     }
@@ -91,12 +106,12 @@ describe('peaks skill search — CLI integration (S0)', () => {
   test('I-7 (Slice 2 AC2.6): peaks skill search hides visibility:internal unless --include-internal', async () => {
     const hidden = await cli(['skill', 'search', '--query', 'doctor']);
     expect(hidden.code).toBe(0);
-    const hiddenNames = JSON.parse(hidden.stdout).map((r: { name: string }) => r.name);
+    const hiddenNames = parseJson(hidden.stdout, skillSearchOutput).map((r) => r.name);
     expect(hiddenNames).not.toContain('peaks-doctor');
 
     const included = await cli(['skill', 'search', '--query', 'doctor', '--include-internal']);
     expect(included.code).toBe(0);
-    const includedNames = JSON.parse(included.stdout).map((r: { name: string }) => r.name);
+    const includedNames = parseJson(included.stdout, skillSearchOutput).map((r) => r.name);
     expect(includedNames).toContain('peaks-doctor');
   });
 
