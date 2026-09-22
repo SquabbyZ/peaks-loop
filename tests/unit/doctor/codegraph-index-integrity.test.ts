@@ -55,6 +55,7 @@ import type {
   DoctorContext,
   DoctorOptions
 } from '~/src/services/doctor/doctor-service/types';
+import { isArray } from '~/src/shared/array-guards';
 import { declareDimensions } from '../_setup/4dim-template.js';
 import { SUBPROCESS_TEST_TIMEOUT_MS } from '../_setup/subprocess-timeouts.js';
 
@@ -88,7 +89,16 @@ function makeContext(options: DoctorOptions = {}): DoctorContext {
 function runCheck(ctx: DoctorContext): readonly DoctorCheck[] {
   const result = check.run(ctx);
 
-  return Array.isArray(result) ? result : [];
+  // `isArray` and NOT `Array.isArray`. The built-in is declared
+  // `(arg: any) => arg is any[]`, so its true branch narrows this union to
+  // `any[]` and the `return` below became an unchecked `any` return — the
+  // finding was about the RETURN, caused by the guard. `isArray` returns a
+  // plain `boolean` and asserts nothing, so `result` keeps the union type and
+  // the `instanceof` check is what removes the promise arm. A promise reaches
+  // `[]` exactly as before: `Array.isArray(promise)` was also false.
+  if (result instanceof Promise || !isArray(result)) return [];
+
+  return result;
 }
 
 /**

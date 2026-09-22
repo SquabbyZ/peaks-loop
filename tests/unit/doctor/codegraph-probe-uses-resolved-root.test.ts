@@ -76,6 +76,7 @@ import type {
   DoctorContext,
   DoctorOptions
 } from '~/src/services/doctor/doctor-service/types';
+import { isArray } from '~/src/shared/array-guards';
 import { declareDimensions } from '../_setup/4dim-template.js';
 
 declareDimensions(
@@ -100,6 +101,12 @@ const RESOLVED_ROOT = '/tmp/resolved-doctor-root';
  * `DoctorCheckPlugin.run` may return a promise; both checks here are
  * synchronous, so this narrows the union the same way the sibling doctor
  * suites do rather than indexing into the union directly.
+ *
+ * `isArray` (not `Array.isArray`): the built-in is declared
+ * `(arg: any) => arg is any[]`, so its true branch narrowed the union to
+ * `any[]` and the `return` was an unchecked `any` return — the finding was
+ * caused by the guard, not by the value. `isArray` returns a plain `boolean`
+ * and asserts nothing; the `instanceof` check is what drops the promise arm.
  */
 function runPlugin(
   plugin: {
@@ -109,7 +116,9 @@ function runPlugin(
 ): readonly DoctorCheck[] {
   const result = plugin.run(context);
 
-  return Array.isArray(result) ? result : [];
+  if (result instanceof Promise || !isArray(result)) return [];
+
+  return result;
 }
 
 function makeContext(resolvedL3Root: string, options: DoctorOptions = {}): DoctorContext {

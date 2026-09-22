@@ -27,6 +27,8 @@ import { Command } from 'commander';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { z } from 'zod';
+import { parseCliEnvelope, parseCliEnvelopeWith } from '../../../src/cli/cli-envelope.js';
 import { declareDimensions } from '../_setup/4dim-template.js';
 import { makeCapturedIo, withEnv } from '../_setup/io.js';
 import {
@@ -79,18 +81,35 @@ async function runJob(args: string[], wsPath: string): Promise<CapturedIo> {
   return captured;
 }
 
-function parseJson(captured: CapturedIo): {
-  ok: boolean;
-  code?: string;
-  message?: string;
-  data: any;
-} {
-  return JSON.parse(captured.stdout.join('\n')) as {
-    ok: boolean;
-    code?: string;
-    message?: string;
-    data: any;
-  };
+/**
+ * The `data` payloads this suite reads at depth >= 2 (S12). `parseJson` above
+ * used to declare `data: any` and cast `JSON.parse`'s result to that shape, so
+ * `envelope.data.sliceId` / `.status` / `.validSliceIds` were `any` reads
+ * against nothing. Naming the shapes makes each of those a CHECKED read, and
+ * `parseJson` keeps only the job that has no payload to name: the envelope head
+ * (`ok` / `code` / `message`), which `parseCliEnvelope` validates for real.
+ */
+const checkpointPayload = z.looseObject({
+  sliceId: z.string(),
+  status: z.string()
+});
+const sliceNotFoundPayload = z.looseObject({
+  validSliceIds: z.array(z.string())
+});
+
+/** The envelope head alone — `ok` / `code` / `message` are validated there. */
+function parseJson(captured: CapturedIo) {
+  return parseCliEnvelope(captured.stdout.join('\n'));
+}
+
+/** The envelope plus the `job checkpoint` payload it carries. */
+function parseCheckpoint(captured: CapturedIo) {
+  return parseCliEnvelopeWith(captured.stdout.join('\n'), checkpointPayload);
+}
+
+/** The envelope plus the SLICE_NOT_FOUND payload it carries. */
+function parseSliceNotFound(captured: CapturedIo) {
+  return parseCliEnvelopeWith(captured.stdout.join('\n'), sliceNotFoundPayload);
 }
 
 function bindSession(wsPath: string): void {
@@ -209,7 +228,7 @@ describe('Scenario: render — the checkpoint envelope and progress.json carry t
       ws.path
     );
     // then: the envelope reports the canonical id and the progress mirror advances
-    const envelope = parseJson(captured);
+    const envelope = parseCheckpoint(captured);
     expect(envelope.data.sliceId).toBe('slice-001');
     expect(envelope.data.status).toBe('done');
     const progress = readProgress(ws.path);
@@ -318,7 +337,7 @@ describe('Scenario: a11y — an unmatched --slice-id names the valid ids', () =>
       ws.path
     );
     // then: the message names the offending id and every valid pair
-    const envelope = parseJson(captured);
+    const envelope = parseSliceNotFound(captured);
     expect(envelope.message).toContain('"S9"');
     expect(envelope.message).toContain('slice-001 (S1)');
     expect(envelope.message).toContain('slice-004 (S4)');

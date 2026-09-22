@@ -2,26 +2,54 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import type { SpawnOptions } from 'node:child_process';
+
+/**
+ * The subset of `ChildProcess` these cases hand back from the mocked `spawn`,
+ * named instead of erased behind `as any`. `pid: undefined` is a state this
+ * suite tests deliberately (a launch the OS never confirmed), so `pid` is a
+ * required `number | undefined` rather than an optional property — under
+ * `exactOptionalPropertyTypes` the two are not interchangeable.
+ */
+interface FakeChild {
+  pid: number | undefined;
+  on: () => void;
+  kill: () => void;
+}
+
+type SpawnCall = (binary: string, args: readonly string[], opts: SpawnOptions) => FakeChild;
+
+const spawnMock = vi.hoisted(() => vi.fn<SpawnCall>());
 
 vi.mock('node:child_process', () => ({
-  spawn: vi.fn()
+  spawn: spawnMock
 }));
 
-import { spawn } from 'node:child_process';
 import { ProcessSupervisor } from '../../../packages/peaks-loop-internal-runtime/src/process-supervisor.js';
+
+/**
+ * The options the FIRST `spawn` call received. Fails loudly when `spawn` was
+ * never called: `mock.calls[0]` is possibly-undefined under
+ * `noUncheckedIndexedAccess`, and reading through it would be a bare TypeError.
+ */
+function firstSpawnOpts(): SpawnOptions {
+  const call = spawnMock.mock.calls[0];
+  if (call === undefined) throw new Error('spawn was never called');
+  return call[2];
+}
 
 describe('ProcessSupervisor (F2 in-shell contract)', () => {
   beforeEach(() => vi.clearAllMocks());
 
   it('spawns with detached:false even when caller passes detach=true and writes pid file', async () => {
-    (spawn as any).mockReturnValue({ pid: 1234, on: vi.fn(), kill: vi.fn() });
+    spawnMock.mockReturnValue({ pid: 1234, on: vi.fn(), kill: vi.fn() });
     const sup = new ProcessSupervisor({ runtimeDir: '/tmp/x' });
     const handle = await sup.spawn('/bin/echo', ['hi'], { detach: true, rid: 'r1' });
     expect(handle.pid).toBe(1234);
     // F2: caller-facing detach:true must be downgraded to detached:false
     // (in-shell background subprocess). The previous OS-detached
     // behavior (CREATE_NEW_PROCESS_GROUP / DETACHED_PROCESS) is gone.
-    expect(spawn).toHaveBeenCalledWith(
+    expect(spawnMock).toHaveBeenCalledWith(
       '/bin/echo',
       ['hi'],
       expect.objectContaining({ detached: false })
@@ -31,10 +59,10 @@ describe('ProcessSupervisor (F2 in-shell contract)', () => {
   it('uses windowsHide:true on win32 but does NOT force detached:true', async () => {
     const orig = process.platform;
     Object.defineProperty(process, 'platform', { value: 'win32' });
-    (spawn as any).mockReturnValue({ pid: 1, on: vi.fn(), kill: vi.fn() });
+    spawnMock.mockReturnValue({ pid: 1, on: vi.fn(), kill: vi.fn() });
     const sup = new ProcessSupervisor({ runtimeDir: '/tmp/x' });
     await sup.spawn('claude', ['-p', 'x'], { detach: true, rid: 'r1' });
-    const opts = (spawn as any).mock.calls[0][2];
+    const opts = firstSpawnOpts();
     expect(opts.windowsHide).toBe(true);
     // F2: pre-F2 forced `detached:true` on Windows (CREATE_NEW_PROCESS_GROUP + DETACHED_PROCESS);
     // post-F2 the child stays in the parent's process group (no detached flag) and the
@@ -58,7 +86,7 @@ describe('ProcessSupervisor (F2 in-shell contract)', () => {
     const runtimeDir = mkdtempSync(join(tmpdir(), 'ps-pid-'));
     try {
       // given: a spawn that never produced an OS pid (missing binary)
-      (spawn as any).mockReturnValue({ pid: undefined, on: vi.fn(), kill: vi.fn() });
+      spawnMock.mockReturnValue({ pid: undefined, on: vi.fn(), kill: vi.fn() });
       const sup = new ProcessSupervisor({ runtimeDir });
       // when: the supervisor spawns
       const failed = await sup.spawn('no-such-binary', [], { detach: false, rid: 'r-fail' });
@@ -71,7 +99,7 @@ describe('ProcessSupervisor (F2 in-shell contract)', () => {
 
       // contrast, same shape: a confirmed launch DOES write the real pid, so
       // the case above cannot pass because the write was dropped entirely
-      (spawn as any).mockReturnValue({ pid: 4242, on: vi.fn(), kill: vi.fn() });
+      spawnMock.mockReturnValue({ pid: 4242, on: vi.fn(), kill: vi.fn() });
       const ok = await sup.spawn('node', ['-v'], { detach: false, rid: 'r-ok' });
       expect(ok.pid).toBe(4242);
       expect(readFileSync(join(runtimeDir, 'r-ok', 'pid'), 'utf8')).toBe('4242');

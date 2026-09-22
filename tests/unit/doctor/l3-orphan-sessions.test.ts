@@ -35,6 +35,7 @@ import { check } from '~/src/services/doctor/doctor-service/checks/l3-orphan-ses
 import type { DoctorCheck, DoctorContext } from '~/src/services/doctor/doctor-service/types';
 import { isValidSessionId } from '~/src/services/workspace/sid-naming-guard';
 import { RUNTIME_SYSTEM_ENTRIES } from '~/src/services/workspace/runtime-layout';
+import { isArray } from '~/src/shared/array-guards';
 import { declareDimensions } from '../_setup/4dim-template.js';
 
 declareDimensions(
@@ -81,11 +82,19 @@ function makeContext(): DoctorContext {
   };
 }
 
-/** `DoctorCheckPlugin.run` may return a promise; this check is synchronous. */
+/**
+ * `DoctorCheckPlugin.run` may return a promise; this check is synchronous.
+ *
+ * `isArray` (not `Array.isArray`): the built-in narrows to `any[]`, which made
+ * the return an unchecked `any` return. `isArray` returns a plain `boolean`;
+ * the `instanceof` check is what drops the promise arm.
+ */
 function runCheck(): readonly DoctorCheck[] {
   const result = check.run(makeContext());
 
-  return Array.isArray(result) ? result : [];
+  if (result instanceof Promise || !isArray(result)) return [];
+
+  return result;
 }
 
 function run(): DoctorCheck {

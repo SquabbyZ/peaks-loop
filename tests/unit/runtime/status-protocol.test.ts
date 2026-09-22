@@ -1,10 +1,19 @@
 import { describe, it, expect } from 'vitest';
-import { StatusProtocol } from '../../../packages/peaks-loop-internal-runtime/src/status-protocol.js';
+import {
+  StatusProtocol,
+  type CompactedStatusRecord,
+  type StatusRecord
+} from '../../../packages/peaks-loop-internal-runtime/src/status-protocol.js';
 
 describe('StatusProtocol', () => {
   it('merges heartbeat into record and updates status', () => {
     const sp = new StatusProtocol();
-    const rec: any = { mode: 'detached', vendor: 'claude', heartbeats: [], status: 'running' };
+    const rec: StatusRecord = {
+      mode: 'detached',
+      vendor: 'claude',
+      heartbeats: [],
+      status: 'running'
+    };
     const merged = sp.merge(rec, {
       rid: 'r1',
       vendor: 'claude',
@@ -26,7 +35,7 @@ describe('StatusProtocol', () => {
 
   it('appends autoCompactEvents to record (G8)', () => {
     const sp = new StatusProtocol();
-    const rec: any = { autoCompactEvents: [] };
+    const rec: CompactedStatusRecord = { autoCompactEvents: [] };
     const merged = sp.appendCompactEvent(rec, {
       at: 1,
       threshold: '0.85',

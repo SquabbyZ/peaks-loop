@@ -393,7 +393,16 @@ describe('Scenario: integration — the guard walks the real src/ + packages/ tr
     // 818 -> 821 (slice rid-s12-json-parse-root): +3 is `src/shared/json-parse.ts`,
     // `src/cli/cli-envelope.ts` and `src/services/session/session-file-schema.ts`.
     // Same reason as S10.
-    expect(result.files).toBe(821);
+    // 821 -> 823 (slice rid-b2-any-roots-batch): +2 is
+    // `packages/peaks-loop-internal-runtime/src/guards/json-object.ts` (the one
+    // `unknown -> Record<string, unknown>` check that package's two readers
+    // share) and
+    // `packages/peaks-loop-internal-runtime/src/vendor/progress-line.ts` (the
+    // stream-json progress-line parser the three vendor adapters each carried a
+    // copy of). Same reason as S10 and S12 — and, as in those two slices, this
+    // pin is the ONE literal a new file still moves. B1's "a new file no longer
+    // needs any literal changed" does not hold here.
+    expect(result.files).toBe(823);
   });
 
   it('visits every async function in those files (the recursion is pinned)', () => {

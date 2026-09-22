@@ -1,6 +1,7 @@
 import type { VendorAdapter } from './adapter.js';
 import type { ChildStatus } from '../types.js';
 import { detectBinaryInstalled } from './detect-binary.js';
+import { parseProgressLine } from './progress-line.js';
 
 export class ClaudeAdapter implements VendorAdapter {
   readonly id = 'claude' as const;
@@ -12,21 +13,9 @@ export class ClaudeAdapter implements VendorAdapter {
     return ['-p', injected, '--output-format', 'json', '--include-partial-messages'];
   }
 
+  /** The line format is shared with the other two vendors — see `progress-line.ts`. */
   parseStatusLine(stdout: string): ChildStatus | null {
-    try {
-      const obj = JSON.parse(stdout);
-      if (typeof obj.progress !== 'number') return null;
-      return {
-        rid: String(obj.rid ?? ''),
-        vendor: 'claude',
-        progress: obj.progress,
-        state: obj.state,
-        note: String(obj.note ?? ''),
-        ts: Number(obj.ts ?? Date.now())
-      };
-    } catch {
-      return null;
-    }
+    return parseProgressLine(stdout, 'claude');
   }
 
   async detectInstalled(): Promise<boolean> {

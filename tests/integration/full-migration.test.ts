@@ -26,7 +26,30 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
+import { z } from 'zod';
 import { parseCliEnvelope } from '../../src/cli/cli-envelope.js';
+import { parseJson } from '../../src/shared/json-parse.js';
+
+/**
+ * The fields these cases read back off the two files migration owns.
+ *
+ * They are read as RAW files on purpose: the assertions below exist to prove
+ * what the migration WROTE, and `readRecord`-style helpers default the very
+ * fields under test — a missing write would then pass. But "raw" was
+ * `JSON.parse(...)` and every read through it was an `any` read against
+ * nothing. Naming the fields keeps the write proving write proving, and makes
+ * a malformed file a schema error instead of a confusing `undefined`.
+ */
+const configFileFields = z.looseObject({
+  version: z.string(),
+  /** Present on the 1.x `.bak`; the migrated 2.0 file may not carry it. */
+  currentWorkspace: z.string().optional()
+});
+const preferencesFileFields = z.looseObject({
+  swarmMode: z.boolean().optional(),
+  economyMode: z.boolean().optional(),
+  uaPrompt: z.string().optional()
+});
 
 const CLI_BIN = resolve(__dirname, '../../bin/peaks.js');
 
@@ -109,7 +132,10 @@ describe('Slice 0.5 End-to-End Dogfood', () => {
     expect(migrateData.data.applied).toBe(true);
 
     // 3. Verify slim config.json
-    const newCfg = JSON.parse(readFileSync(join(HOME_DIR, '.peaks/config.json'), 'utf8'));
+    const newCfg = parseJson(
+      readFileSync(join(HOME_DIR, '.peaks/config.json'), 'utf8'),
+      configFileFields
+    );
     expect(newCfg).toEqual({
       version: '2.0.0',
       ocr: {
@@ -118,18 +144,27 @@ describe('Slice 0.5 End-to-End Dogfood', () => {
     });
 
     // 4. Verify .bak has 1.x fields
-    const bak = JSON.parse(readFileSync(join(HOME_DIR, '.peaks/config.json.1.x.bak'), 'utf8'));
+    const bak = parseJson(
+      readFileSync(join(HOME_DIR, '.peaks/config.json.1.x.bak'), 'utf8'),
+      configFileFields
+    );
     expect(bak.version).toBe('1.4.2');
     expect(bak.currentWorkspace).toBe('/some/proj');
 
     // 5. Verify preferences.json has per-project fields migrated
-    const prefs = JSON.parse(readFileSync(join(PROJECT_DIR, '.peaks/preferences.json'), 'utf8'));
+    const prefs = parseJson(
+      readFileSync(join(PROJECT_DIR, '.peaks/preferences.json'), 'utf8'),
+      preferencesFileFields
+    );
     expect(prefs.swarmMode).toBe(false);
     expect(prefs.economyMode).toBe(true);
 
     // 6. Use preferences CLI to override uaPrompt
     cli(`preferences set --key uaPrompt --value skip-forever --project ${PROJECT_DIR} --json`);
-    const updated = JSON.parse(readFileSync(join(PROJECT_DIR, '.peaks/preferences.json'), 'utf8'));
+    const updated = parseJson(
+      readFileSync(join(PROJECT_DIR, '.peaks/preferences.json'), 'utf8'),
+      preferencesFileFields
+    );
     expect(updated.uaPrompt).toBe('skip-forever');
 
     // 7. Restore archived field (language) via sidecar
@@ -139,13 +174,19 @@ describe('Slice 0.5 End-to-End Dogfood', () => {
     // 8. Rollback to 1.x
     const rollbackResult = cli(`config rollback --apply --json`);
     expect(rollbackResult.code).toBe(0);
-    const restored = JSON.parse(readFileSync(join(HOME_DIR, '.peaks/config.json'), 'utf8'));
+    const restored = parseJson(
+      readFileSync(join(HOME_DIR, '.peaks/config.json'), 'utf8'),
+      configFileFields
+    );
     expect(restored.version).toBe('1.4.2');
 
     // 9. Re-migrate to verify round-trip / idempotency
     const reMigrate = cli(`config migrate --project ${PROJECT_DIR} --apply --json`);
     expect(reMigrate.code).toBe(0);
-    const reMigratedCfg = JSON.parse(readFileSync(join(HOME_DIR, '.peaks/config.json'), 'utf8'));
+    const reMigratedCfg = parseJson(
+      readFileSync(join(HOME_DIR, '.peaks/config.json'), 'utf8'),
+      configFileFields
+    );
     expect(reMigratedCfg).toEqual({
       version: '2.0.0',
       ocr: {

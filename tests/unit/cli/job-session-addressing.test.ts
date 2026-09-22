@@ -27,6 +27,8 @@ import { Command } from 'commander';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { z } from 'zod';
+import { parseCliEnvelope, parseCliEnvelopeWith } from '../../../src/cli/cli-envelope.js';
 import { declareDimensions } from '../_setup/4dim-template.js';
 import { makeCapturedIo, withEnv } from '../_setup/io.js';
 import {
@@ -80,18 +82,28 @@ async function runJob(args: string[], wsPath: string): Promise<CapturedIo> {
   return captured;
 }
 
-function parseJson(captured: CapturedIo): {
-  ok: boolean;
-  code?: string;
-  message?: string;
-  data: any;
-} {
-  return JSON.parse(captured.stdout.join('\n')) as {
-    ok: boolean;
-    code?: string;
-    message?: string;
-    data: any;
-  };
+/**
+ * The `data` payload `job status` writes, as this suite reads it —
+ * `src/cli/commands/job-commands.ts` emits `{ done, total }` and adds
+ * `currentSlice` only when there is a pending slice. Naming the shape here is
+ * what makes `envelope.data.total` below a CHECKED read: the local helper this
+ * replaces declared `data: any` and cast `JSON.parse`'s result to it, so every
+ * one of those reads was an `any` read against nothing.
+ */
+const jobStatusPayload = z.looseObject({
+  done: z.number(),
+  total: z.number(),
+  currentSlice: z.string().optional()
+});
+
+/** Parse the envelope head only — for the cases that assert `ok` alone. */
+function parseEnvelope(captured: CapturedIo) {
+  return parseCliEnvelope(captured.stdout.join('\n'));
+}
+
+/** Parse the envelope AND the `job status` payload it carries. */
+function parseJobStatus(captured: CapturedIo) {
+  return parseCliEnvelopeWith(captured.stdout.join('\n'), jobStatusPayload);
 }
 
 /** Point the single per-project session binding at `sessionId`. */
@@ -146,7 +158,7 @@ describe('Scenario: render — every job subcommand declares --session-id', () =
       // when: job status is read
       const captured = await runJob(['status', '--job-id', 'render-job'], ws.path);
       // then: the envelope is ok and carries the job summary
-      const envelope = parseJson(captured);
+      const envelope = parseJobStatus(captured);
       expect(envelope.ok).toBe(true);
       expect(envelope.data.total).toBe(2);
       expect(envelope.data.done).toBe(0);
@@ -179,7 +191,7 @@ describe('Scenario: behavior — session resolution precedence is flag > env > b
       ws.path
     );
     // then: the flag wins over the env var
-    const envelope = parseJson(captured);
+    const envelope = parseJobStatus(captured);
     expect(envelope.ok).toBe(true);
     expect(envelope.data.total).toBe(2);
   });
@@ -192,7 +204,7 @@ describe('Scenario: behavior — session resolution precedence is flag > env > b
     // when: status is read without --session-id
     const captured = await runJob(['status', '--job-id', 'beta'], ws.path);
     // then: the env tier is consulted before the binding
-    const envelope = parseJson(captured);
+    const envelope = parseJobStatus(captured);
     expect(envelope.ok).toBe(true);
     expect(envelope.data.total).toBe(3);
   });
@@ -204,7 +216,7 @@ describe('Scenario: behavior — session resolution precedence is flag > env > b
     // when: status is read without any override
     const captured = await runJob(['status', '--job-id', 'gamma'], ws.path);
     // then: the binding tier still works (no regression for the single-session case)
-    const envelope = parseJson(captured);
+    const envelope = parseJobStatus(captured);
     expect(envelope.ok).toBe(true);
     expect(envelope.data.total).toBe(4);
   });
@@ -231,7 +243,7 @@ describe('Scenario: integration — a job stays addressable while the binding po
       ws.path
     );
     // then: the read succeeds against the job's own session
-    const envelope = parseJson(captured);
+    const envelope = parseJobStatus(captured);
     expect(envelope.ok).toBe(true);
     expect(envelope.data.total).toBe(4);
   });
@@ -256,7 +268,7 @@ describe('Scenario: integration — a job stays addressable while the binding po
       ws.path
     );
     // then: the envelope is ok and the write landed in JOB_SID, not the bound session
-    expect(parseJson(captured).ok).toBe(true);
+    expect(parseEnvelope(captured).ok).toBe(true);
     expect(readJobState(ws.path, JOB_SID, 'peaks-web').slices[0]!.status).toBe('blocked');
   });
 });

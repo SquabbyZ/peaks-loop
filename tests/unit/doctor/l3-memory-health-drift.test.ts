@@ -18,6 +18,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { check } from '~/src/services/doctor/doctor-service/checks/l3-memory-health';
 import type { DoctorCheck, DoctorContext } from '~/src/services/doctor/doctor-service/types';
+import { isArray } from '~/src/shared/array-guards';
 
 let root: string;
 let memoryDir: string;
@@ -49,11 +50,19 @@ function makeContext(resolvedL3Root: string): DoctorContext {
   };
 }
 
-/** `DoctorCheckPlugin.run` may return a promise; this check is synchronous. */
+/**
+ * `DoctorCheckPlugin.run` may return a promise; this check is synchronous.
+ *
+ * `isArray` (not `Array.isArray`): the built-in narrows to `any[]`, which made
+ * the return an unchecked `any` return. `isArray` returns a plain `boolean`;
+ * the `instanceof` check is what drops the promise arm.
+ */
 function run(): readonly DoctorCheck[] {
   const result = check.run(makeContext(root));
 
-  return Array.isArray(result) ? result : [];
+  if (result instanceof Promise || !isArray(result)) return [];
+
+  return result;
 }
 
 function byId(checks: readonly DoctorCheck[], id: string): DoctorCheck {

@@ -13,6 +13,45 @@ import {
 import { mkdtempSync, writeFileSync, readFileSync, rmSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { z } from 'zod';
+import { parseJson } from '../../../../src/shared/json-parse.js';
+
+/**
+ * The persisted record fields these cases read back.
+ *
+ * They read the RAW file on purpose, and that is the point of the suite:
+ * `readRecord` UPGRADES a record, supplying `mode: 'in-process'` and
+ * `vendor: null` when the file does not carry them — so a case that proved a
+ * field was written by going through `readRecord` would pass even if the write
+ * were dropped. That is why the fields under test cannot simply be read with
+ * the typed accessor. They can, however, be read with a named shape: this
+ * schema is what turns `rec.mode` / `rec.vendor` from `any` reads into checked
+ * ones, and a record that does not match fails here instead of silently
+ * yielding `undefined` at the assertion.
+ *
+ * Every field is optional-and-nullable because the two "not provided" cases
+ * exist to assert absence, and the writer records that absence as an explicit
+ * `null` (measured here: `tokenUsage` is `null`, not missing). Requiring a
+ * value here would replace the assertion's failure with a schema error, which
+ * would make the suite pass for the wrong reason.
+ */
+const persistedRecordFields = z.looseObject({
+  mode: z.string().optional(),
+  vendor: z.string().nullable().optional(),
+  autoCompactEvents: z
+    .array(z.looseObject({ threshold: z.string() }))
+    .nullable()
+    .optional(),
+  tokenUsage: z
+    .looseObject({ promptTokens: z.number(), completionTokens: z.number() })
+    .nullable()
+    .optional()
+});
+
+/** Read the record file as written — no upgrade, no defaults. */
+function readPersistedRecord(path: string) {
+  return parseJson(readFileSync(path, 'utf8'), persistedRecordFields);
+}
 
 describe('DispatchRecord mode/vendor/autoCompact fields', () => {
   const stubToolCall = {
@@ -35,7 +74,7 @@ describe('DispatchRecord mode/vendor/autoCompact fields', () => {
         mode: 'detached',
         vendor: 'claude'
       });
-      const rec = JSON.parse(readFileSync(out.path, 'utf8'));
+      const rec = readPersistedRecord(out.path);
       expect(rec.mode).toBe('detached');
       expect(rec.vendor).toBe('claude');
     } finally {
@@ -55,7 +94,7 @@ describe('DispatchRecord mode/vendor/autoCompact fields', () => {
         toolCall: stubToolCall,
         batchId: 'b1'
       });
-      const rec = JSON.parse(readFileSync(out.path, 'utf8'));
+      const rec = readPersistedRecord(out.path);
       expect(rec.mode).toBe('in-process');
       expect(rec.vendor ?? null).toBe(null);
     } finally {
@@ -81,9 +120,9 @@ describe('DispatchRecord mode/vendor/autoCompact fields', () => {
         ],
         tokenUsage: { promptTokens: 50, completionTokens: 20 }
       });
-      const rec = JSON.parse(readFileSync(out.path, 'utf8'));
+      const rec = readPersistedRecord(out.path);
       expect(rec.autoCompactEvents).toHaveLength(1);
-      expect(rec.autoCompactEvents[0]).toMatchObject({ threshold: '0.85' });
+      expect(rec.autoCompactEvents?.[0]).toMatchObject({ threshold: '0.85' });
       expect(rec.tokenUsage).toMatchObject({ promptTokens: 50, completionTokens: 20 });
     } finally {
       rmSync(tmp, { recursive: true, force: true });

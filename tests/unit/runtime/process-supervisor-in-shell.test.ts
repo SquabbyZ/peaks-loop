@@ -18,13 +18,47 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import type { SpawnOptions } from 'node:child_process';
+
+/**
+ * The subset of `ChildProcess` these cases hand back from the mocked `spawn`,
+ * named instead of erased behind `as any`. The point is not the shape for its
+ * own sake: it is that `mockReturnValue` is now checked against something, and
+ * `spawnMock.mock.calls[0][2]` comes back as `SpawnOptions` — so the
+ * `opts.detached` / `opts.stdio` / `opts.windowsHide` reads below are typed
+ * reads of the real spawn option type, not `any` reads the compiler cannot see.
+ */
+interface FakeChild {
+  /** `undefined` until the OS confirms the launch — a state this suite tests. */
+  pid: number | undefined;
+  on: () => void;
+  kill: () => void;
+  stdout?: { on: () => void; pipe: () => void };
+  stderr?: { on: () => void; pipe: () => void };
+  unref?: () => void;
+}
+
+type SpawnCall = (binary: string, args: readonly string[], opts: SpawnOptions) => FakeChild;
+
+const spawnMock = vi.hoisted(() => vi.fn<SpawnCall>());
 
 vi.mock('node:child_process', () => ({
-  spawn: vi.fn()
+  spawn: spawnMock
 }));
 
-import { spawn } from 'node:child_process';
 import { ProcessSupervisor } from '../../../packages/peaks-loop-internal-runtime/src/process-supervisor.js';
+
+/**
+ * The options the FIRST `spawn` call received. Fails loudly when `spawn` was
+ * never called — `mock.calls[0][2]` under `noUncheckedIndexedAccess` is
+ * possibly-undefined, and reading through it would otherwise be a TypeError
+ * from inside the assertion helper.
+ */
+function firstSpawnOpts(): SpawnOptions {
+  const call = spawnMock.mock.calls[0];
+  if (call === undefined) throw new Error('spawn was never called');
+  return call[2];
+}
 
 const SUPERVISOR_PATH = resolve(
   __dirname,
@@ -37,10 +71,10 @@ describe('ProcessSupervisor in-shell (F2 detached-arch revision)', () => {
   it('1a) POSIX: spawn is called with { detached:false, stdio:"pipe" } and no windowsHide flag', async () => {
     const orig = process.platform;
     Object.defineProperty(process, 'platform', { value: 'linux' });
-    (spawn as any).mockReturnValue({ pid: 555, on: vi.fn(), kill: vi.fn() });
+    spawnMock.mockReturnValue({ pid: 555, on: vi.fn(), kill: vi.fn() });
     const sup = new ProcessSupervisor({ runtimeDir: '/tmp/x' });
     await sup.spawn('/bin/echo', ['hi'], { detach: true, rid: 'r-posix' });
-    const opts = (spawn as any).mock.calls[0][2];
+    const opts = firstSpawnOpts();
     expect(opts.detached).toBe(false);
     expect(opts.stdio).toBe('pipe');
     // windowsHide is irrelevant on POSIX; the supervisor only sets it on win32.
@@ -51,10 +85,10 @@ describe('ProcessSupervisor in-shell (F2 detached-arch revision)', () => {
   it('1b) Windows: spawn is called with { detached:false, windowsHide:true, stdio:"pipe" }', async () => {
     const orig = process.platform;
     Object.defineProperty(process, 'platform', { value: 'win32' });
-    (spawn as any).mockReturnValue({ pid: 666, on: vi.fn(), kill: vi.fn() });
+    spawnMock.mockReturnValue({ pid: 666, on: vi.fn(), kill: vi.fn() });
     const sup = new ProcessSupervisor({ runtimeDir: '/tmp/x' });
     await sup.spawn('claude', ['-p', 'x'], { detach: true, rid: 'r-win' });
-    const opts = (spawn as any).mock.calls[0][2];
+    const opts = firstSpawnOpts();
     expect(opts.detached).toBe(false);
     expect(opts.stdio).toBe('pipe');
     expect(opts.windowsHide).toBe(true);
@@ -77,8 +111,8 @@ describe('ProcessSupervisor in-shell (F2 detached-arch revision)', () => {
   });
 
   it('3) SpawnHandle.child is the same ChildProcess reference spawn() returned (F1 contract)', async () => {
-    const fakeChild = { pid: 7777, on: vi.fn(), kill: vi.fn() };
-    (spawn as any).mockReturnValue(fakeChild);
+    const fakeChild: FakeChild = { pid: 7777, on: vi.fn(), kill: vi.fn() };
+    spawnMock.mockReturnValue(fakeChild);
     const sup = new ProcessSupervisor({ runtimeDir: '/tmp/x' });
     const handle = await sup.spawn('node', ['-e', '0'], { detach: false, rid: 'r-child' });
     // F1: DispatchResult.child is the same object the supervisor returned.
@@ -100,18 +134,18 @@ describe('ProcessSupervisor in-shell (F2 detached-arch revision)', () => {
     // it in vitest would require an unmocked child_process module.
     const stdoutLike = { on: vi.fn(), pipe: vi.fn() };
     const stderrLike = { on: vi.fn(), pipe: vi.fn() };
-    const fakeChild: any = {
+    const fakeChild: FakeChild = {
       pid: 8888,
       on: vi.fn(),
       kill: vi.fn(),
       stdout: stdoutLike,
       stderr: stderrLike
     };
-    (spawn as any).mockReturnValue(fakeChild);
+    spawnMock.mockReturnValue(fakeChild);
     const sup = new ProcessSupervisor({ runtimeDir: '/tmp/x' });
     const handle = await sup.spawn('node', ['-e', '0'], { detach: false, rid: 'r-pipe' });
     // a) spawn was called with stdio:'pipe' (parent retains pipe end)
-    const opts = (spawn as any).mock.calls[0][2];
+    const opts = firstSpawnOpts();
     expect(opts.stdio).toBe('pipe');
     // b) the returned child exposes stdout/stderr streams the parent can subscribe to
     expect(handle.child.stdout).toBe(stdoutLike);

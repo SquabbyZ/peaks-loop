@@ -22,11 +22,29 @@ import {
 import { homedir, tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { promisify } from 'node:util';
+import { z } from 'zod';
 import { installBundledOutputStyleDefault } from '../../../scripts/install-skills.mjs';
+import { parseJson } from '../../../src/shared/json-parse.js';
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 
 const execFileAsync = promisify(execFile);
 const SCRIPT_PATH = resolve(__dirname, '../../../scripts/install-skills.mjs');
+
+/**
+ * The Claude Code `settings.json` fields these cases read back.
+ *
+ * Why read the file at all: the assertions are about what the install step
+ * WROTE to disk, so going through a settings-loading helper would test the
+ * helper. But the read used to be `JSON.parse(...)`, so every `settings.theme`
+ * / `settings.env` below was an `any` read that could not fail for the right
+ * reason. Naming the fields keeps the read raw and makes it checked; all three
+ * are optional because the point of several cases is their ABSENCE.
+ */
+const claudeSettingsFields = z.looseObject({
+  outputStyle: z.string().optional(),
+  theme: z.string().optional(),
+  env: z.record(z.string(), z.string()).optional()
+});
 
 interface RunResult {
   readonly stdout: string;
@@ -270,7 +288,7 @@ describe('install-skills.mjs — IDE-aware dispatch (slice #011)', () => {
       return;
     }
     expect(existsSync(home.settingsFile)).toBe(true);
-    const settings = JSON.parse(readFileSync(home.settingsFile, 'utf8'));
+    const settings = parseJson(readFileSync(home.settingsFile, 'utf8'), claudeSettingsFields);
     expect(settings.outputStyle).toBe('peaks-skill-swarm');
   });
 
@@ -292,7 +310,7 @@ describe('install-skills.mjs — IDE-aware dispatch (slice #011)', () => {
     expect(result.code).toBe(0);
     const installed = existsSync(join(home.stylesDir, 'peaks-skill-swarm.md'));
     if (!installed) return;
-    const settings = JSON.parse(readFileSync(home.settingsFile, 'utf8'));
+    const settings = parseJson(readFileSync(home.settingsFile, 'utf8'), claudeSettingsFields);
     expect(settings.outputStyle).toBe('peaks-skill-swarm');
     expect(settings.theme).toBe('dark-ansi');
     expect(settings.env).toEqual({ FOO: 'bar' });
@@ -316,7 +334,7 @@ describe('install-skills.mjs — IDE-aware dispatch (slice #011)', () => {
     expect(result.code).toBe(0);
     const installed = existsSync(join(home.stylesDir, 'peaks-skill-swarm.md'));
     if (!installed) return;
-    const settings = JSON.parse(readFileSync(home.settingsFile, 'utf8'));
+    const settings = parseJson(readFileSync(home.settingsFile, 'utf8'), claudeSettingsFields);
     expect(settings.outputStyle).toBe('concise');
     expect(settings.theme).toBe('dark');
   });
@@ -369,7 +387,7 @@ describe('install-skills.mjs — IDE-aware dispatch (slice #011)', () => {
       // (a) bundled file present at dispatched location
       // (b) settings.json updated with outputStyle
       expect(existsSync(join(stylesDir, 'peaks-skill-swarm.md'))).toBe(true);
-      const settings = JSON.parse(readFileSync(home.settingsFile, 'utf8'));
+      const settings = parseJson(readFileSync(home.settingsFile, 'utf8'), claudeSettingsFields);
       expect(settings.outputStyle).toBe('peaks-skill-swarm');
       expect(settings.theme).toBe('dark-ansi');
     } finally {
@@ -395,7 +413,7 @@ describe('install-skills.mjs — IDE-aware dispatch (slice #011)', () => {
       });
       expect(result.skipped).toBe(true);
       expect(result.reason).toMatch(/bundled output style not present/);
-      const settings = JSON.parse(readFileSync(settingsFile, 'utf8'));
+      const settings = parseJson(readFileSync(settingsFile, 'utf8'), claudeSettingsFields);
       expect(settings.outputStyle).toBeUndefined();
       expect(settings.theme).toBe('dark-ansi');
     } finally {
