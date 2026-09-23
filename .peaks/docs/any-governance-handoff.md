@@ -5,12 +5,13 @@
 
 ## Where things stand
 
-- **HEAD `c1c99c03`, PUSHED** — `origin/main` is at the same commit, 0 unpushed.
+- **HEAD `c189bb19`, PUSHED** — `origin/main` is at the same commit, 0 unpushed.
 - **Ratchet ceiling: `eslintFindings = 2878`**, ratified after B4 (it was left at
   2943 until the gate could be re-run; see "The one gap" below, now closed).
-- Last full `test:unit`: **311 files / 3468 passed / 0 failed / 3 skipped**.
+- Last full `test:unit`: **311 files / 3468 passed / 0 failed / 3 skipped**, in
+  **273.88 s** on a freshly booted host — the same suite took 936 s degraded.
 
-## The suite is LOAD-FLAKY on this host, and here is the decisive evidence
+## A red full-suite run here is NOT evidence of a regression — the evidence
 
 Two runs of the *same* 36-commit tree, back to back, during the push:
 
@@ -19,10 +20,14 @@ Two runs of the *same* 36-commit tree, back to back, during the push:
 | first (blocked the push) | 6 files failed, 17 tests failed | **2170 s** |
 | second (pushed) | 311 files passed, 0 failed | **1128 s** |
 
-Identical code. The only variable was load — the host was ~2x faster the second
-time. **Every one of those 17 failures also passed in isolation** (86/86 across
-the 6 files). So a red full-suite run on this box is NOT by itself evidence of a
-regression; check the wall clock first, and re-run before diagnosing.
+Identical code. **Every one of those 17 failures also passed in isolation** (86/86
+across the 6 files). So a red full-suite run on this box is NOT by itself evidence
+of a regression; check the wall clock first, and re-run before diagnosing.
+
+**"Load" was the wrong variable, and the real one was found the same day — see
+"The lead was WRONG: the discriminator is UPTIME" below.** The same 311-file /
+3468-test suite ran in **273.88 s, green on the first try**, on a freshly booted
+host. Nothing about the code changed; the host did.
 
 `--no-verify` is **blocked by a project hook** (`BLOCKED: --no-verify flag is not
 allowed with git push`). Do not try to route around it.
@@ -36,8 +41,13 @@ families:
 - **Real symlinks** (`'dir'`/`'file'`) need Windows Developer Mode; `EPERM`
   without it. `codegraph-dir-containment.test.ts` already DOCUMENTS this and
   adapts via `linkDir()`; the others may not.
-- **Subprocess-heavy tests** need a host that is not 7–10x slow. The budgets were
-  recalibrated once (batch B3) but the host keeps moving.
+- **Subprocess-heavy tests** need a host that is not ~20–80x slow. B3 recalibrated
+  the budgets for a *degraded* host, but the degradation turned out to track
+  **uptime** and resets on reboot — so the real prerequisite is the **inverse** of
+  the obvious one: not "this machine is fast" but **"this boot is recent"**
+  (`LastBootUpTime`). That is a thing a test can actually check and say, rather
+  than a budget that quietly flaps. See "The lead was WRONG: the discriminator is
+  UPTIME" below.
 
 The principled fix is to make a test **state its prerequisite** when the
 prerequisite is absent — not to skip it and not to weaken an assertion. That is a
@@ -61,40 +71,64 @@ and `.peaks/_runtime/2026-09-19-session-b7530f/rd/b4-report.txt`.
 (`no-unsafe-finally`) is not an `any` root at all — it is **core ESLint** control
 flow, swept in because the bucketer matched on the **name** `no-unsafe-*`.
 
-## The one gap in this state
+## The one gap in this state — CLOSED
 
 **`pnpm gate:repo` was killed by the harness for low system memory** part-way
-through, so batch B4 carries **no independently measured findings total, no
+through, so batch B4 carried **no independently measured findings total, no
 per-rule census, and no full-suite run**. The agent reported 2878 findings
-against the 2943 ceiling and a 309/311 full run with 2 host timeouts; those are
-**its** measurements and are recorded as **unconfirmed**.
+against the 2943 ceiling and a 309/311 full run with 2 host timeouts; those were
+**its** measurements and were recorded as **unconfirmed**.
 
-**First task next session:** re-run `node .husky/peaks-gate.mjs repo` and the
-per-rule census. If 2878 holds, ratchet the ceiling 2943 → 2878. Then run the
-full `pnpm test:unit`.
+**Closed 2026-09-23** (commit `ce8d9af3`, whose message records it): the gate was
+re-run, **2878 was confirmed exactly**, and the ceiling was ratcheted 2943 → 2878.
+`.peaks/lint/gate-baseline.json` now reads `eslintFindings: 2878`, with the
+per-file map regenerated too. The 309/311-vs-311/311 discrepancy was the host, not
+the code — see the uptime section below. **There is nothing to re-run here.**
 
-## The lead worth chasing first
+## The lead was WRONG: the discriminator is UPTIME
 
-**The host's process-spawn latency is degraded, and it is probably not Windows.**
+**Falsified 2026-09-23, ~14 minutes after a reboot.** The reading below was real;
+its causal attribution was wrong in both of the ways it could have been.
 
-The discriminator, from the fingerprint table in
-`tests/unit/_setup/subprocess-timeouts.ts`:
+| operation | B3 (09-22) | now (fresh boot) | ratio |
+|---|---|---|---|
+| `node -e 0` | med 1.45 s | **med 69 ms** | 21× faster |
+| `git --version` | med 1.76 s | **med 22 ms** | 80× faster |
+| `taskkill /T /F /PID 99998` | med 37.6 s (max 89.7) | **med 0.6 s** | 63× faster |
+| `tasklist /FI "PID eq 99998"` | 23.5 s | **med 296 ms** | 79× faster |
+| full `tasklist` dump | **46.6 s @ 263 procs** (B1) | **0.433 s @ 293 procs** | 108× faster |
 
-| operation | measured |
-|---|---|
-| `process.kill(99998, 'SIGKILL')` | **0 ms** — a syscall, creates no process |
-| `node -e 0` | **1.45 s** |
-| `git --version` | **1.76 s** |
-| `taskkill /T /F /PID <missing>` | **37–90 s** |
+**`360tray` is RUNNING right now and the host is healthy** — its presence is not
+the cause, so the "configure exclusions" lead is dead. The second alternative dies
+too: there are MORE processes now (293 vs 263) and the dump is 108× faster, so the
+count is not the mechanism either.
 
-**Everything that CREATES a process is slow; the one thing that does not is
-instant.** Pure enumeration would not spare the non-spawning path. A running
-`360tray` (360 Total Security) intercepting process creation fits every data
-point — and would make this fixable with **exclusions** rather than a permanent
-property of the machine. It would also supersede B1/B3's "Windows process
-enumeration degraded" reading.
+**The variable that fits every data point is uptime.** System event log 6005: the
+host booted `09-18 19:21` and ran **continuously until `09-23 19:11`** — so S6,
+B1, B3, the B4 gate run, AND the "load-flaky" table above ALL ran inside one
+~4.5-day boot. Inside it `git --version` climbed monotonically with age (0.42 s at
+~1 day → 1.4 s → 1.76 s at ~4 days), and a reboot returned it to 0.022 s.
+`process.kill` stays 0 ms and pure file I/O stays 0 ms in both states — so this
+degrades process CREATION and ENUMERATION, not syscalls generally.
 
-This matters beyond test speed: it inflates every sub-agent dispatch.
+**What this changes:**
+- **Do NOT chase 360 exclusions.** That lead is falsified.
+- Before diagnosing a red full-suite run, read the uptime:
+  `powershell -NoProfile -Command "(Get-CimInstance Win32_OperatingSystem).LastBootUpTime"`.
+  Over ~1 day old: reboot, re-run, re-measure. It is not a regression.
+- The pre-push hook's leg 2 measured **936 s degraded → 274 s fresh** (hook total
+  1057 s → 294 s) — same suite, same 311 files / 3468 tests, green first try.
+- **Not settled:** whether 360 merely *amplifies* the slope. Untested — it needs a
+  multi-day experiment or turning the AV off, and neither was done. Do not assert
+  it either way.
+
+**The budget consequence is a DECISION, not a mechanical change.**
+`SUBPROCESS_TEST_TIMEOUT_MS = 300_000` / `HEAVY_SUBPROCESS_TEST_TIMEOUT_MS =
+400_000` were sized against a DEGRADED host, where the worst spawn now measures
+~0.6–0.9 s. The file itself states the direction-of-error argument: an
+over-generous budget costs **speed of signal** — a genuinely hung test waits
+300–400 s to report. But lowering them to healthy-host numbers would go red again
+on day 2 of an uptime window. That is the user's call, not a rider on anything.
 
 ## What is deliberately NOT done
 
@@ -137,6 +171,13 @@ A wall-clock timeout **in a file you never touched** is the known host problem.
 (S6 / B1 / B3 columns) precisely so you can tell "the host changed" from "the
 tests got slower". Report such a failure; do not widen a budget for it and do not
 re-open it as a regression.
+
+**Check UPTIME first — it is the discriminator, not load.** See "The lead was
+WRONG" above: the S6/B1/B3 columns are three points on ONE degradation curve
+inside a single ~4.5-day boot, and a reboot resets it (a fresh boot put the same
+suite at 273.88 s, green). If the fingerprint's `taskkill` row reads tens of
+seconds, read `LastBootUpTime`; over ~1 day old, reboot and re-run before
+touching anything.
 
 The budgets were recalibrated in batch B3 by S6's own method (worst measured
 member × 4), and the file documents the direction-of-error argument: an
