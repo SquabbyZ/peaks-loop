@@ -18,7 +18,7 @@
 //   - a11y:        not applicable (no user-facing surface)
 //   - render:      not applicable (returns a path, prints nothing)
 
-import { mkdirSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { lstatSync, mkdirSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { delimiter, join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -211,6 +211,15 @@ describe('behavior — the admission rule', () => {
     const outside = join(ws().path, 'outside');
     plantPackage(join(outside, 'node_modules'));
     const entries = cacheRoots().map((root) => cacheEntryModules(root));
+    // Capability check, not a silent pass — the shape
+    // `codegraph-exclude-repair-hardening.test.ts` established. The precondition
+    // is stated honestly: a junction is the one directory link Windows builds
+    // WITHOUT elevation, which is why the codegraph fixtures fall back to it
+    // when a `'file'` symlink is refused, so this branch is not expected to fire
+    // here at all. It is kept NARROW and ASSERTED rather than left as a bare
+    // `catch` because a bare catch cannot tell "the platform refused the
+    // fixture" from "the fixture code has a bug" — it reported a green test that
+    // executed nothing, and that is the failure mode this edit removes.
     try {
       for (const entryModules of entries) {
         mkdirSync(entryModules, { recursive: true });
@@ -220,9 +229,16 @@ describe('behavior — the admission rule', () => {
           'junction'
         );
       }
-    } catch {
-      // Windows without the privilege: the containment rule under test is the
-      // same one the walk-up case above exercises, so skip rather than pretend.
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code;
+      if (code !== 'EPERM' && code !== 'EACCES' && code !== 'UNKNOWN') throw error;
+      // The platform refused. Recording that no link was built is what makes this
+      // an executed assertion rather than a skip that reads as a pass.
+      for (const entryModules of entries) {
+        expect(
+          lstatSync(join(entryModules, 'playwright'), { throwIfNoEntry: false })
+        ).toBeUndefined();
+      }
       return;
     }
     // when:  the loader resolves

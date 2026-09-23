@@ -37,15 +37,22 @@ host. Nothing about the code changed; the host did.
 `--no-verify` is **blocked by a project hook** (`BLOCKED: --no-verify flag is not
 allowed with git push`). Do not try to route around it.
 
-### The structural gap this exposes (not yet fixed)
+### The structural gap this exposes — one family was a phantom, one instance survived
 
 Tests that depend on an environment prerequisite express "the environment is not
 satisfied" and "the code is broken" **with the same signal — a red test**. Two
-families:
+families, and only one of them held up:
 
-- **Real symlinks** (`'dir'`/`'file'`) need Windows Developer Mode; `EPERM`
-  without it. `codegraph-dir-containment.test.ts` already DOCUMENTS this and
-  adapts via `linkDir()`; the others may not.
+- **Real symlinks — FALSIFIED 2026-09-23, no work remains.** This bullet used to
+  read "`codegraph-dir-containment.test.ts` already DOCUMENTS this and adapts via
+  `linkDir()`; **the others may not**." Enumerating every link-creating site in
+  the repository: 18 sites across 7 test files, and every one is either a
+  `'junction'` (**Windows needs no elevation for a directory junction** — it is
+  precisely the fallback the codegraph fixtures use when `'file'` is refused), a
+  `linkSync` hard link (unprivileged within one NTFS volume), or already guarded
+  by an explicit `EPERM`/`EACCES`/`UNKNOWN` capability check. **There are ZERO
+  unguarded `'dir'`/`'file'` sites.** The speculation was wrong, and it was wrong
+  in the direction that costs a session: it named a slice that did not exist.
 - **Subprocess-heavy tests** need a host that is not ~20–80x slow. B3 recalibrated
   the budgets for a *degraded* host, but the degradation turned out to track
   **uptime** and resets on reboot — so the real prerequisite is the **inverse** of
@@ -54,10 +61,20 @@ families:
   than a budget that quietly flaps. See "The lead was WRONG: the discriminator is
   UPTIME" below.
 
-The principled fix is to make a test **state its prerequisite** when the
-prerequisite is absent — not to skip it and not to weaken an assertion. That is a
-real test-quality slice, and it is the difference between a gate that means
-something and a gate that flaps.
+The principled fix — make a test **state its prerequisite** when the prerequisite
+is absent, not skip it and not weaken an assertion — did find exactly ONE surviving
+instance, in neither of the places named above. `tests/unit/services/web/playwright-loader.test.ts`
+wrapped its junction fixture in a bare `catch { return; }`, so a genuine fixture bug
+would have reported **a green test that executed nothing**. It is now the shape
+`codegraph-exclude-repair-hardening.test.ts` established: catch narrowed to the
+privilege codes, everything else rethrown, and the refusal branch ASSERTED so the
+skip is recorded rather than silent.
+
+**Note where it survived, because that is the reusable part:** the repository's
+silent-catch guard scans `SCAN_ROOTS = ['src']`, and J03's invariant names
+`src/services/**`. A test that silently skips therefore sits outside every guard
+that looks for exactly this shape — which is why the one instance left had to be
+found by reading, not by a gate.
 
 ### The any program is essentially closed
 
