@@ -5,11 +5,16 @@
 
 ## Where things stand
 
-- **HEAD `c189bb19`, PUSHED** — `origin/main` is at the same commit, 0 unpushed.
+- **HEAD `21f48860`, PUSHED — and CI is GREEN on it: all 6 jobs.** It was red on
+  the two preceding pushes (`c1c99c03`, `c189bb19`: each failed 4 of 6), from a
+  single cause. See "The CI was red, and it was one line" below before touching
+  anything there.
 - **Ratchet ceiling: `eslintFindings = 2878`**, ratified after B4 (it was left at
   2943 until the gate could be re-run; see "The one gap" below, now closed).
-- Last full `test:unit`: **311 files / 3468 passed / 0 failed / 3 skipped**, in
-  **273.88 s** on a freshly booted host — the same suite took 936 s degraded.
+- Last full `test:unit`: **312 files / 3476 passed / 0 failed / 3 skipped**, in
+  **177.22 s** on a host ~1.7 h into its boot. The same suite took **273.88 s** at
+  ~14 min of uptime and **936 s** degraded. The 312/3476 is 311/3468 plus the new
+  `tests/unit/shared/json-parse.test.ts`.
 
 ## A red full-suite run here is NOT evidence of a regression — the evidence
 
@@ -129,6 +134,39 @@ degrades process CREATION and ENUMERATION, not syscalls generally.
 over-generous budget costs **speed of signal** — a genuinely hung test waits
 300–400 s to report. But lowering them to healthy-host numbers would go red again
 on day 2 of an uptime window. That is the user's call, not a rider on anything.
+
+## The CI was red, and it was one line
+
+`c1c99c03` and `c189bb19` each failed FOUR of the six jobs — `vitest + build` on
+ubuntu, macos AND windows (`Run capability guards`), plus the integration suite.
+ONE test caused all four: `tests/integration/capability-guard/J03-problem-resolution-flow.test.ts`,
+whose contract runs `scripts/lint/silent-warning-detector.mjs` and compares its
+per-rule counts against a frozen ceiling.
+
+    catch-return-null = 42   against a CEILING of 41
+
+The +1 was `src/shared/json-parse.ts`'s `tryParseJson`, whose `T | null` return
+collapsed "the text is not JSON" and "the text is JSON of the wrong shape" — the
+exact shape that ratchet exists to catch. It was NOT a newly swallowed error:
+`JSON.parse` makes the catch unavoidable, and the user had adjudicated this
+primitive's semantics on 2026-09-21 (parsing must fail loudly; a wrong shape is
+skipped). What was missing was any way to SAY that — which is why
+`src/services/sediment/pool-read.ts` had to hand-roll its parse in two steps.
+
+`21f48860` gives the primitive a discriminated `TryParse<S>`
+(`{ ok: false, reason: 'malformed' | 'shape' }`). **The ceiling was NOT raised** —
+the ratchet's unit is a count, and raising it would have recorded a real capability
+as debt. Eight call sites across three module-private helpers (`session-binding-bridge`,
+`session-manager`, `skill-presence-service`; all already `| null`, so nothing
+cascaded) collapse the result at their own call site.
+
+**The method generalises, so it is recorded rather than only the answer.** To find
+WHICH site is the new one, intersecting the 42 with "files changed since the last
+green CI" gave 40 candidates out of 728 changed files — useless. What worked:
+run the SAME detector against the last known-good tree (`3285e205`) and diff the
+two lists, then pair added↔removed per file. 30 of the 31 "added" were the same
+sites shifted a few lines; exactly one had no counterpart. A count-ratchet tells
+you the total moved; it never tells you which line did it.
 
 ## What is deliberately NOT done
 
