@@ -5,10 +5,15 @@
 
 ## Where things stand
 
-- **HEAD `21f48860`, PUSHED — and CI is GREEN on it: all 6 jobs.** It was red on
-  the two preceding pushes (`c1c99c03`, `c189bb19`: each failed 4 of 6), from a
-  single cause. See "The CI was red, and it was one line" below before touching
+- **CI is GREEN — all 6 jobs, since `21f48860` (the J03 fix; see below).** It was
+  red on the two preceding pushes (`c1c99c03`, `c189bb19`: each failed 4 of 6) from
+  a single cause. Read "The CI was red, and it was one line" before touching
   anything there.
+- **This block deliberately does NOT pin HEAD.** It did, and it went stale TWICE
+  inside the session that wrote it — the stale line is what sent that session down
+  the falsified 360 lead first. `git log -1` is the only correct answer to "what is
+  HEAD"; a doc cannot keep that promise, so it does not make it. Same for
+  "0 unpushed": `git status -sb`.
 - **Ratchet ceiling: `eslintFindings = 2878`**, ratified after B4 (it was left at
   2943 until the gate could be re-run; see "The one gap" below, now closed).
 - Last full `test:unit`: **312 files / 3476 passed / 0 failed / 3 skipped**, in
