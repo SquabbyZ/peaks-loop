@@ -180,8 +180,8 @@ function readSessionFile(projectRoot: string): SessionBinding | null {
 
   try {
     const parsed = tryParseJson(readFileSync(pathToRead, 'utf8'), SessionBindingSchema);
-    if (parsed !== null && projectRootsMatch(parsed.projectRoot, projectRoot)) {
-      return parsed;
+    if (parsed.ok && projectRootsMatch(parsed.value.projectRoot, projectRoot)) {
+      return parsed.value;
     }
     return null;
   } catch {
@@ -210,11 +210,11 @@ function readSessionFileCanonical(projectRoot: string): SessionBinding | null {
   try {
     const parsed = tryParseJson(readFileSync(pathToRead, 'utf8'), SessionBindingSchema);
     if (
-      parsed !== null &&
-      resolveStoredAgainstCaller(parsed.projectRoot, projectRoot) ===
+      parsed.ok &&
+      resolveStoredAgainstCaller(parsed.value.projectRoot, projectRoot) ===
         resolveStoredAgainstCaller(projectRoot, projectRoot)
     ) {
-      return parsed;
+      return parsed.value;
     }
     return null;
   } catch {
@@ -378,7 +378,8 @@ function readSessionMeta(projectRoot: string, sessionId: string): SessionMeta | 
   if (!existsSync(metaPath)) return null;
 
   try {
-    return tryParseJson(readFileSync(metaPath, 'utf8'), SessionFileSchema);
+    const parsed = tryParseJson(readFileSync(metaPath, 'utf8'), SessionFileSchema);
+    return parsed.ok ? parsed.value : null;
   } catch {
     // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     return null;
@@ -493,7 +494,8 @@ function readSessionMetaCompat(peaksRoot: string, sessionId: string): SessionMet
   const metaPath = join(peaksRoot, sessionId, META_FILE);
   if (!existsSync(metaPath)) return null;
   try {
-    return tryParseJson(readFileSync(metaPath, 'utf8'), SessionFileSchema);
+    const parsed = tryParseJson(readFileSync(metaPath, 'utf8'), SessionFileSchema);
+    return parsed.ok ? parsed.value : null;
   } catch {
     // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     return null;

@@ -38,18 +38,46 @@ export function parseJson<S extends z.ZodType>(raw: string, schema: S): z.infer<
 }
 
 /**
- * Parse `raw` and return it only if it matches `schema`; `null` when the text
- * is not JSON, or is JSON of the wrong shape. Use where "absent or malformed"
- * and "absent" are the same outcome for the caller — the file-backed readers
- * in this repo, whose existing `catch { return null }` already said so.
+ * The outcome of {@link tryParseJson}. A DISCRIMINATED result rather than
+ * `T | null`, because "the text is not JSON" and "the text is JSON of the wrong
+ * shape" are different failures and a caller that must treat them differently
+ * has to be able to say so.
+ *
+ * WHY NOT `T | null` (2026-09-23). Collapsing both to `null` is precisely the
+ * shape this repository's own `catch-return-null` ratchet exists to catch —
+ * "caller cannot distinguish failure from success" — and it had already cost a
+ * real defect rather than merely risking one. `readJsonIfExists` in
+ * `src/services/sediment/pool-read.ts` had no `catch` and THREW on malformed
+ * JSON, so replacing it with the `T | null` form silently downgraded "the whole
+ * command fails" to "this bee is skipped". Neither primitive could restore the
+ * pair — the old `tryParseJson` mapped both failures to `null`, and `parseJson`
+ * throws on both — so that reader had to hand-roll its parse in two steps. The
+ * user adjudicated on 2026-09-21 that parsing must fail loudly while a wrong
+ * shape is skipped; `reason` is what finally lets a caller reproduce that pair
+ * without hand-rolling it. See
+ * `tests/unit/services/sediment/pool-read-semantics.test.ts`.
  */
-export function tryParseJson<S extends z.ZodType>(raw: string, schema: S): z.infer<S> | null {
+export type TryParse<S extends z.ZodType> =
+  { ok: true; value: z.infer<S> } | { ok: false; reason: 'malformed' | 'shape' };
+
+/**
+ * Parse `raw` into `schema`, reporting WHICH failure occurred when it fails.
+ * Never throws: `malformed` is text that is not JSON, `shape` is JSON the
+ * schema rejected.
+ *
+ * Callers whose two failures are the same outcome collapse it at their own call
+ * site (`r.ok ? r.value : null`) — visibly, and outside a `catch` — which is
+ * the shape those file-backed readers already had. Callers that must keep the
+ * failures apart switch on `reason`. Use `parseJson` when every failure is a
+ * defect that must be visible.
+ */
+export function tryParseJson<S extends z.ZodType>(raw: string, schema: S): TryParse<S> {
   let decoded: unknown;
   try {
     decoded = JSON.parse(raw);
   } catch {
-    return null;
+    return { ok: false, reason: 'malformed' };
   }
   const result = schema.safeParse(decoded);
-  return result.success ? result.data : null;
+  return result.success ? { ok: true, value: result.data } : { ok: false, reason: 'shape' };
 }

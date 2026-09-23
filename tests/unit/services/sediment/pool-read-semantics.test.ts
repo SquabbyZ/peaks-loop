@@ -27,11 +27,18 @@
 // decision that is not pinned is not a decision, so each case below names the
 // exact failure it would have caught.
 //
-// NOTE ON THE FIX. Neither shipped primitive restores the pair, which is why
-// `pool-read.ts` parses in two steps rather than swapping one for the other:
-// `tryParseJson` maps BOTH failures to `null`, and `parseJson` throws on BOTH
-// (`schema.parse(JSON.parse(raw))`). A later "tidy-up" that reaches for either
-// one turns case 1 (or both) red — that is what these cases are for.
+// NOTE ON THE FIX. When this file was written, neither shipped primitive
+// restored the pair, which is why `pool-read.ts` parses in two steps rather than
+// swapping one for the other: `tryParseJson` mapped BOTH failures to `null`, and
+// `parseJson` throws on BOTH (`schema.parse(JSON.parse(raw))`).
+//
+// UPDATED 2026-09-23: `tryParseJson` now returns a discriminated `TryParse<S>`
+// (`{ ok: false, reason: 'malformed' | 'shape' }`), so a `reason`-aware call CAN
+// express the pair. `pool-read.ts` still writes the two steps out — see the
+// comment there — because the loud failure must remain `JSON.parse`'s own throw.
+// The cases below are unchanged and still hold. What changed is only this note's
+// old red-proof: a swap that collapses both failures to `null` STILL turns case
+// 1 red, but a swap that switches on `reason` no longer would.
 //
 // Dimensions covered:
 //   - behavior:    which failure throws and which failure is skipped
@@ -107,11 +114,13 @@ describe('Scenario: behavior — a not-JSON manifest fails LOUDLY, it is not ski
     const home = makeHome();
     writeManifest(home, 'bee-unparseable', '{ this is not json');
 
-    // The assertion that gives this case its teeth. `tryParseJson` returns
-    // `null` for this input, and `readBeeDir` maps `null` to "skip this bee",
-    // so under the S15 implementation this call returns an empty index
-    // INSTEAD of throwing. Measured: reverting `pool-read.ts` to
-    // `tryParseJson` turns this case red (see the slice report).
+    // The assertion that gives this case its teeth. A `tryParseJson` call that
+    // collapses this input to `null` makes `readBeeDir` map it to "skip this
+    // bee", so that implementation returns an empty index INSTEAD of throwing.
+    // Measured: reverting `pool-read.ts` to a COLLAPSING `tryParseJson` call
+    // turns this case red (see the slice report). A `reason`-aware call would
+    // not — that variant is deliberately not shipped; see the 2026-09-23 note
+    // in the file header.
     expect(() => readPool({ home })).toThrow();
   });
 });

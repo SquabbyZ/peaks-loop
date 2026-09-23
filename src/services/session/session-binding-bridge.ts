@@ -80,8 +80,8 @@ function readSessionFile(projectRoot: string): SessionBinding | null {
 
   try {
     const parsed = tryParseJson(readFileSync(pathToRead, 'utf8'), SessionBindingSchema);
-    if (parsed !== null && projectRootsMatch(parsed.projectRoot, projectRoot)) {
-      return parsed;
+    if (parsed.ok && projectRootsMatch(parsed.value.projectRoot, projectRoot)) {
+      return parsed.value;
     }
     return null;
   } catch {
@@ -98,8 +98,8 @@ function readSessionFileCanonical(projectRoot: string): SessionBinding | null {
 
   try {
     const parsed = tryParseJson(readFileSync(pathToRead, 'utf8'), SessionBindingSchema);
-    if (parsed !== null && projectRootsMatch(parsed.projectRoot, projectRoot)) {
-      return parsed;
+    if (parsed.ok && projectRootsMatch(parsed.value.projectRoot, projectRoot)) {
+      return parsed.value;
     }
     return null;
   } catch {
@@ -147,7 +147,8 @@ function readSessionMeta(
   if (!existsSync(metaPath)) return null;
 
   try {
-    return tryParseJson(readFileSync(metaPath, 'utf8'), SessionFileSchema);
+    const parsed = tryParseJson(readFileSync(metaPath, 'utf8'), SessionFileSchema);
+    return parsed.ok ? parsed.value : null;
   } catch {
     // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     return null;

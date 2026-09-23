@@ -10,13 +10,20 @@ function readBeeDir(home: string, name: string): IndexEntry | null {
   const dir = join(resolveUserBeesDir({ home }), name);
   const manifestPath = join(dir, 'manifest.json');
   if (!existsSync(manifestPath)) return null;
-  // The two failures must stay DISTINCT here, and neither shipped primitive
-  // keeps them apart: `tryParseJson` maps both to `null`, and `parseJson`
-  // throws on both (`schema.parse(JSON.parse(raw))`). So the two steps are
-  // written out.
+  // The two failures must stay DISTINCT here, so the two steps are written out
+  // rather than delegated.
   //
   //   not JSON        -> `JSON.parse` throws -> `peaks sediment list` fails loudly
   //   wrong shape     -> `safeParse` fails   -> this bee is skipped
+  //
+  // This used to be FORCED: neither shipped primitive could keep the pair apart
+  // (`tryParseJson` mapped both failures to `null`; `parseJson` throws on both,
+  // `schema.parse(JSON.parse(raw))`). As of 2026-09-23 `tryParseJson` returns a
+  // discriminated `TryParse<S>`, so a `reason`-aware call CAN express this pair.
+  // The steps stay written out anyway, because the loud failure must remain
+  // `JSON.parse`'s OWN throw: substituting a hand-made error would change what
+  // `peaks sediment list` reports, and this pair is pinned by
+  // `tests/unit/services/sediment/pool-read-semantics.test.ts`.
   //
   // `: unknown` is not decoration: `JSON.parse` is typed `any`, so an
   // un-annotated binding would be an `any` entering the file

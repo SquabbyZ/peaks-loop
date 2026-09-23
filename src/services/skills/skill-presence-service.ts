@@ -172,7 +172,8 @@ export function getCurrentSessionId(projectRootOverride?: string): string | null
   const pathToRead = existsSync(sessionPath) ? sessionPath : legacyPath;
   if (!existsSync(pathToRead)) return null;
   try {
-    return tryParseJson(readFileSync(pathToRead, 'utf8'), SessionIdentitySchema)?.sessionId ?? null;
+    const parsed = tryParseJson(readFileSync(pathToRead, 'utf8'), SessionIdentitySchema);
+    return parsed.ok ? parsed.value.sessionId : null;
   } catch {
     // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     return null;
