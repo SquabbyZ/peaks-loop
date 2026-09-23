@@ -5,12 +5,44 @@
 
 ## Where things stand
 
-- **HEAD `913b453c`**, working tree **clean**, **33 commits ahead of `origin/main`**
-  (nothing has been pushed).
-- **Ratchet ceiling: `eslintFindings = 2943`.** It was NOT tightened after batch B4
-  — see "The one gap in this state" below.
-- Last full `test:unit` the orchestrator ran: **311 files / 3463 passed / 0 failed
-  / 3 skipped**.
+- **HEAD `c1c99c03`, PUSHED** — `origin/main` is at the same commit, 0 unpushed.
+- **Ratchet ceiling: `eslintFindings = 2878`**, ratified after B4 (it was left at
+  2943 until the gate could be re-run; see "The one gap" below, now closed).
+- Last full `test:unit`: **311 files / 3468 passed / 0 failed / 3 skipped**.
+
+## The suite is LOAD-FLAKY on this host, and here is the decisive evidence
+
+Two runs of the *same* 36-commit tree, back to back, during the push:
+
+| run | result | wall clock |
+|---|---|---|
+| first (blocked the push) | 6 files failed, 17 tests failed | **2170 s** |
+| second (pushed) | 311 files passed, 0 failed | **1128 s** |
+
+Identical code. The only variable was load — the host was ~2x faster the second
+time. **Every one of those 17 failures also passed in isolation** (86/86 across
+the 6 files). So a red full-suite run on this box is NOT by itself evidence of a
+regression; check the wall clock first, and re-run before diagnosing.
+
+`--no-verify` is **blocked by a project hook** (`BLOCKED: --no-verify flag is not
+allowed with git push`). Do not try to route around it.
+
+### The structural gap this exposes (not yet fixed)
+
+Tests that depend on an environment prerequisite express "the environment is not
+satisfied" and "the code is broken" **with the same signal — a red test**. Two
+families:
+
+- **Real symlinks** (`'dir'`/`'file'`) need Windows Developer Mode; `EPERM`
+  without it. `codegraph-dir-containment.test.ts` already DOCUMENTS this and
+  adapts via `linkDir()`; the others may not.
+- **Subprocess-heavy tests** need a host that is not 7–10x slow. The budgets were
+  recalibrated once (batch B3) but the host keeps moving.
+
+The principled fix is to make a test **state its prerequisite** when the
+prerequisite is absent — not to skip it and not to weaken an assertion. That is a
+real test-quality slice, and it is the difference between a gate that means
+something and a gate that flaps.
 
 ### The any program is essentially closed
 
