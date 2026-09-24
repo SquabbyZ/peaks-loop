@@ -44,11 +44,20 @@
 // THE POLICY: BUILD WHAT IS MISSING, REFUSE WHAT IS STALE
 //
 //   missing  No `dist/` at all. Build it once, in workspace dependency order,
-//            then proceed. This is not an error: it is the state of every clean
-//            checkout, and `pnpm -r --filter "./packages/*" run build` already
-//            resolves the topology, so hand-rolling per-package builds would be
-//            a second thing to keep in sync. The run LOGS that it built, so a
-//            green can never be silent about an implicit build.
+//            then proceed — after RE-TAKING the verdict and asserting it. The
+//            build's exit code is not the claim: `pnpm -r run <script>` SKIPS a
+//            package that does not declare that script and still exits 0, so a
+//            package whose `build` script is missing, or one whose build did not
+//            emit, comes back from a green command with no `dist/`. That is
+//            refused, naming the same remedy the other refusals do, because "the
+//            tests below are running against these artifacts" is otherwise a
+//            sentence about artifacts that do not exist. The run LOGS that it
+//            built, so a green can never be silent about an implicit build.
+//
+//            A verdict that covers NO package is refused as well, and it is the
+//            same property one level up: an absent `packages/` reads exactly
+//            like a root that is not this repository, and this module cannot
+//            tell the two apart. Vouching for either is the silent green.
 //   stale    `dist/` exists but was NOT built from the `src/` on disk, OR it
 //            does not hold the emit of that `src/`. THROW, naming the packages
 //            and the exact command that fixes it. A silent rebuild here would
@@ -410,6 +419,73 @@ export function staleMessage(stale) {
 }
 
 /**
+ * The refusal for a tree this guard found no package in — an absent `packages/`
+ * directory, or one holding no `src/` to compile.
+ *
+ * Not a no-op, and that is the whole point: an empty search and a search from
+ * the wrong root are the same reading from in here, so this is the one case
+ * where refusing to answer is the only honest answer. It is deliberately not
+ * `staleMessage` either — that one names packages that were classified, and
+ * here there are none.
+ *
+ * @param {string} root the resolved project root that was searched
+ */
+function noPackagesMessage(root) {
+  const packagesDir = join(root, 'packages');
+  return [
+    '',
+    `Test suite refused to start: no workspace package under ${packagesDir} has a src/ to build.`,
+    '',
+    '  A verdict that covers no package is not a green one — this prerequisite',
+    '  cannot vouch for a tree it found nothing to check in, and "the root is not',
+    '  this repository" reads exactly like "there is nothing here to build".',
+    '',
+    `  searched: ${packagesDir}`,
+    '',
+    '  Point this guard at a checkout of this repository, then re-run.',
+    ''
+  ].join('\n');
+}
+
+/**
+ * The refusal for a build that RAN and did not satisfy the prerequisite.
+ *
+ * Separate from `staleMessage` for two reasons. Its list is different — a
+ * package with no `dist/` at all was never classified `stale`, and saying "a
+ * dist/ that was not built from their current src/" about a package that has no
+ * `dist/` would be false. And its cause is different: the command reported
+ * success, so what needs naming is that `pnpm -r run <script>` skips a package
+ * that does not declare that script and exits 0 regardless.
+ *
+ * @param {{ missing: readonly string[], stale: readonly string[] }} after
+ */
+function unbuiltMessage(after) {
+  const group = (label, names) =>
+    names.length === 0
+      ? []
+      : [
+          `  ${label}`,
+          ...names.slice(0, MAX_NAMED).map((name) => `    packages/${name}/dist`),
+          ...(names.length > MAX_NAMED ? [`    … (+${names.length - MAX_NAMED} more)`] : [])
+        ];
+  return [
+    '',
+    `Test suite refused to start: ${PACKAGES_BUILD_COMMAND} returned, but ${after.missing.length + after.stale.length} workspace package(s) are not built from their current src/.`,
+    '',
+    ...group('no dist/ at all:', after.missing),
+    ...group('dist/ present but not the emit of the current src/:', after.stale),
+    '',
+    '  The build command reports success while building nothing: `pnpm -r run',
+    '  <script>` skips a package that does not declare that script and still',
+    '  exits 0. A package whose `build` script is missing, or one whose build did',
+    '  not finish, is what the list above is. Rebuild, then re-run:',
+    '',
+    `    ${REBUILD_COMMAND}`,
+    ''
+  ].join('\n');
+}
+
+/**
  * The exclusive lock for one project root. Keyed by the resolved root so two
  * checkouts (or two worktrees) never contend for the same file.
  *
@@ -515,7 +591,9 @@ function defaultRunBuild(projectRoot) {
 
 /**
  * The prerequisite itself. Throws on stale; builds once when something is
- * missing; returns the verdict that the caller can log.
+ * missing, and throws again if that build did not satisfy the prerequisite;
+ * throws when there is no package to check at all; otherwise returns the
+ * verdict that the caller can log.
  *
  * @param {string} projectRoot
  * @param {{
@@ -541,29 +619,67 @@ export function ensurePackagesBuilt(projectRoot, options = {}) {
   const takeLock = options.acquireLock ?? acquireLock;
 
   const before = evaluatePackages(root);
-  if (before.stale.length > 0) throw new Error(staleMessage(before.stale));
+  refuseUnvouchable(before, root);
   if (before.missing.length === 0) return { built: false, ...before };
 
   const lock = lockPath(root);
   takeLock(lock, waitMs, pollMs);
   try {
-    // Re-read INSIDE the lock. A process that queued behind another's build
-    // sees the finished artifacts here and builds nothing.
-    const now = evaluatePackages(root);
-    if (now.stale.length > 0) throw new Error(staleMessage(now.stale));
-    if (now.missing.length === 0) return { built: false, ...now };
-
-    log(
-      `[packages-build] no dist/ for ${now.missing.join(', ')} — building: ${PACKAGES_BUILD_COMMAND}\n`
-    );
-    runBuild(root);
-    writePackageDistStamps(root);
-    const after = evaluatePackages(root);
-    log(
-      `[packages-build] built ${after.fresh.length} package(s); the tests below are running against these artifacts\n`
-    );
-    return { built: true, ...after };
+    return buildInsideLock(root, log, runBuild);
   } finally {
     releaseLock(lock);
   }
+}
+
+/**
+ * The verdicts this guard refuses to vouch for, in one place so the pre-lock
+ * read and the in-lock re-read cannot disagree about what "not actionable"
+ * means. Takes the verdict rather than returning one: a refusal here is a
+ * throw, and there is nothing to hand back.
+ *
+ * @param {{ missing: readonly string[], stale: readonly string[], fresh: readonly string[] }} verdict
+ * @param {string} root
+ */
+function refuseUnvouchable(verdict, root) {
+  if (verdict.stale.length > 0) throw new Error(staleMessage(verdict.stale));
+  // The three buckets are total and disjoint over `listPackageRoots`, so an
+  // empty `missing` AND an empty `fresh` is the set itself being empty. Not a
+  // green: see `noPackagesMessage`.
+  if (verdict.missing.length === 0 && verdict.fresh.length === 0) {
+    throw new Error(noPackagesMessage(root));
+  }
+}
+
+/**
+ * The build leg, and the only place a `built: true` verdict is produced.
+ *
+ * Re-reads INSIDE the lock first: a process that queued behind another's build
+ * sees the finished artifacts here and builds nothing. Then it builds once, and
+ * then asserts what the build left behind — the build's EXIT CODE is not this
+ * guard's evidence, because a skipped package or an unfinished emit comes out
+ * of a green command, and the log line below would otherwise be a claim about
+ * artifacts that are not there.
+ *
+ * @param {string} root
+ * @param {(line: string) => void} log
+ * @param {(projectRoot: string) => void} runBuild
+ */
+function buildInsideLock(root, log, runBuild) {
+  const now = evaluatePackages(root);
+  refuseUnvouchable(now, root);
+  if (now.missing.length === 0) return { built: false, ...now };
+
+  log(
+    `[packages-build] no dist/ for ${now.missing.join(', ')} — building: ${PACKAGES_BUILD_COMMAND}\n`
+  );
+  runBuild(root);
+  writePackageDistStamps(root);
+  const after = evaluatePackages(root);
+  if (after.missing.length > 0 || after.stale.length > 0) {
+    throw new Error(unbuiltMessage(after));
+  }
+  log(
+    `[packages-build] built ${after.fresh.length} package(s); the tests below are running against these artifacts\n`
+  );
+  return { built: true, ...after };
 }

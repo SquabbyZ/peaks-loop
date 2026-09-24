@@ -43,6 +43,19 @@
 //               return is a different arm, and deleting the re-read used to
 //               leave this whole suite green — so the one property the module's
 //               idempotency claim stands on rested on nothing a run could fail.
+//   result   -> a build that RAN is held to the verdict it left behind. The
+//               command is given and its result is asserted, so a
+//               `pnpm -r --filter "./packages/*" run build` that exits 0 over a
+//               package it skipped is refused instead of logged as "the tests
+//               below are running against these artifacts". The stub has to be
+//               a build that does NOT emit: `recordingBuild` satisfies the
+//               assertion by emitting, so it can only ever have pinned the
+//               stub, never the module's own post-build verdict.
+//   root     -> the guard's root is the repository, taken from the setup file's
+//               own location, not `process.cwd()`. From a subdirectory a
+//               cwd-based root finds no `packages/` at all, and a search that
+//               finds nothing is refused rather than reported as a green run
+//               that had nothing to check.
 //   reach    -> the walk really visited the packages, cross-measured against
 //               two enumerations that share no traversal with it: git's index,
 //               and the `node_modules` links the tests actually resolve
@@ -55,24 +68,20 @@
 // the operator an implicit build happened, which is the answer to "does the
 // test runner quietly mask a missing CI build step?".
 
-import { execFileSync } from 'node:child_process';
 import {
   existsSync,
   mkdirSync,
-  mkdtempSync,
-  readdirSync,
   readFileSync,
   rmSync,
   statSync,
   utimesSync,
   writeFileSync
 } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { dirname, join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { join } from 'node:path';
 
-import { afterEach, describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
+import setup from '../../_global-setup/packages-build.js';
 import { REBUILD_COMMAND } from '../../../scripts/dist-freshness.mjs';
 import {
   ensurePackagesBuilt,
@@ -87,6 +96,18 @@ import {
   writePackageDistStamps
 } from '../../../scripts/packages-build-prerequisite.mjs';
 import { declareDimensions } from '../_setup/4dim-template.js';
+import {
+  BUILT,
+  collectLog,
+  fixture,
+  packageNamesFromGit,
+  packageNamesFromNodeModules,
+  recordingBuild,
+  REPO_ROOT,
+  SOURCE_A,
+  SOURCE_B,
+  writeBuilt
+} from '../_setup/packages-build-fixture.js';
 
 declareDimensions('tests/unit/scripts/packages-build-prerequisite.test.ts', [
   'render',
@@ -95,110 +116,12 @@ declareDimensions('tests/unit/scripts/packages-build-prerequisite.test.ts', [
   'a11y'
 ]);
 
-const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
-
-/** Same length on purpose: the "content changed, mtime restored" case below. */
-const SOURCE_A = 'export const a = 1;\n';
-const SOURCE_B = 'export const a = 2;\n';
-
-const BUILT = 'export const built = true;\n';
-
-let roots: string[] = [];
-
-afterEach(() => {
-  for (const root of roots) {
-    // The lock lives in os.tmpdir(), not under the fixture, so it outlives the
-    // rmSync below — a case that holds one on purpose must not leak it.
-    // `recursive` because the "cannot be created" case makes it a directory.
-    rmSync(lockPath(root), { recursive: true, force: true });
-    rmSync(root, { recursive: true, force: true });
-  }
-  roots = [];
-});
-
-/**
- * A throwaway tree with `packages/<name>/src/index.ts` and NO `dist/` — the
- * state of a clean checkout as far as this prerequisite is concerned.
- */
-function fixture(sources: Readonly<Record<string, string>>): string {
-  const root = mkdtempSync(join(tmpdir(), 'peaks-packages-build-'));
-  roots.push(root);
-  mkdirSync(join(root, 'packages'), { recursive: true });
-  for (const [name, source] of Object.entries(sources)) {
-    const src = join(root, 'packages', name, 'src');
-    mkdirSync(src, { recursive: true });
-    writeFileSync(join(src, 'index.ts'), source, 'utf8');
-  }
-  return root;
-}
-
-/** A built artifact, so the package reads as "built" rather than missing. */
-function writeBuilt(root: string, name: string): string {
-  const dist = join(root, 'packages', name, 'dist');
-  mkdirSync(dist, { recursive: true });
-  const file = join(dist, 'index.js');
-  writeFileSync(file, BUILT, 'utf8');
-  return file;
-}
-
-/**
- * A stand-in for `pnpm -r --filter "./packages/*" run build`. It records the
- * call — which is the independently-sourced evidence that a build happened —
- * and materialises the artifacts a real build would.
- */
-function recordingBuild(calls: string[]): (root: string) => void {
-  return (root: string): void => {
-    calls.push(root);
-    for (const pkg of listPackageRoots(root)) writeBuilt(root, pkg.name);
-  };
-}
-
-function collectLog(): { lines: string[]; log: (line: string) => void } {
-  const lines: string[] = [];
-  return { lines, log: (line) => lines.push(line) };
-}
-
 // ── integration: the real tree ───────────────────────────────────────
 
 describe('Scenario: integration — the walk covers the real packages/*', () => {
   const walked = listPackageRoots(REPO_ROOT)
     .map((pkg) => pkg.name)
     .sort();
-
-  /**
-   * Independent source 1 — git's index. It enumerates from tracked paths, not
-   * from a `readdirSync` recursion, and it sees a new package at the same
-   * moment the walk does.
-   */
-  function packageNamesFromGit(): string[] {
-    const listed = execFileSync('git', ['ls-files', '-z', '--', 'packages'], {
-      cwd: REPO_ROOT,
-      encoding: 'utf8',
-      maxBuffer: 32 * 1024 * 1024,
-      // Repo standard (`tests/unit/spawn-windows-hide-guard.test.ts`).
-      windowsHide: true
-    });
-    const names = new Set<string>();
-    for (const path of listed.split('\u0000')) {
-      const segments = path.split('/');
-      if (segments.length === 3 && segments[2] === 'package.json') {
-        names.add(segments[1] ?? '');
-      }
-    }
-    return [...names].sort();
-  }
-
-  /**
-   * Independent source 2 — the resolution path the tests themselves take. Every
-   * workspace package is a root dependency, so `node_modules` links exactly the
-   * packages that a `tests/**` import can resolve to. This is the set that
-   * makes the prerequisite necessary at all.
-   */
-  function packageNamesFromNodeModules(): string[] {
-    return readdirSync(join(REPO_ROOT, 'node_modules'))
-      .filter((name) => name.startsWith('peaks-loop-'))
-      .sort();
-  }
 
   it('reaches every package git reports under packages/', () => {
     // Set equality, not a count: a dropped subtree or a narrowed root breaks it,
@@ -241,6 +164,44 @@ describe('Scenario: integration — the walk covers the real packages/*', () => 
     expect(PACKAGE_STAMP_RELATIVE_PATH.startsWith('packages/')).toBe(true);
     expect(PACKAGE_STAMP_RELATIVE_PATH.split('/')).toHaveLength(2);
   });
+
+  it('guards the repository when the runner is started in a subdirectory, because its root is not the cwd', () => {
+    // The recorded failure: `cd tests && vitest run --config ../vitest.config.ts
+    // unit/cli/vendor-detect.test.ts` printed `[packages-build] 0 workspace
+    // package(s) already built from their current src/` and exited 0, while
+    // vitest's own root was the repository (`RUN v4.1.10 D:/peaks-loop`). The
+    // setup was passing `process.cwd()` — `tests/` — and `tests/packages` does
+    // not exist, so `listPackageRoots` answered `[]`, every verdict array was
+    // empty, and the prerequisite checked nothing while reporting success. On a
+    // clean checkout that is the un-guarded run the preflight exists to prevent.
+    // The mutant this case pins is that one line: hand the setup
+    // `process.cwd()` back and the line it writes reports 0 packages from a
+    // subdirectory.
+    //
+    // The setup writes its line straight to `process.stdout` — it has no `io`
+    // seam to inject the way the CLI does — so the line is read by capturing it.
+    // What is called is the real entry point, not a helper: the property has to
+    // hold for the thing vitest actually runs.
+    const cwd = process.cwd();
+    const captured: string[] = [];
+    const stdout = vi.spyOn(process.stdout, 'write').mockImplementation((chunk) => {
+      if (typeof chunk === 'string') captured.push(chunk);
+      return true;
+    });
+
+    try {
+      process.chdir(join(REPO_ROOT, 'tests'));
+      expect(() => setup()).not.toThrow();
+    } finally {
+      stdout.mockRestore();
+      process.chdir(cwd);
+    }
+
+    // The count is deliberately not pinned: this file must not depend on whether
+    // the working tree is built right now, and what is pinned is that the guard
+    // found the repository's packages instead of none.
+    expect(captured.join('')).not.toContain('0 workspace package(s)');
+  });
 });
 
 // ── behavior: missing, stale, and idempotency ────────────────────────
@@ -258,6 +219,72 @@ describe('Scenario: behavior — a missing dist/ is built, exactly once', () => 
     expect([...result.fresh]).toEqual(['a', 'b']);
     expect(evaluatePackages(root).missing).toEqual([]);
     expect(lines.join('')).toContain(PACKAGES_BUILD_COMMAND);
+  });
+
+  it('refuses when the build it ran produced no dist/ at all, instead of reporting the tree as built', () => {
+    // `pnpm -r --filter "./packages/*" run build` SKIPS a package that does not
+    // declare a `build` script and exits 0 (measured: `None of the selected
+    // packages has a "zz-no-such-script" script`, EXIT=0), so a package added
+    // with a `src/` and no `build` script gets here with no `dist/` at all. The
+    // stub is the shape this case exists for: every other missing-dist case is
+    // given `recordingBuild`, which really emits, so those cases only ever pin
+    // the STUB's effect. A case about the module's own post-build verdict has to
+    // be given a build that does not emit.
+    const root = fixture({ 'probe-pkg': SOURCE_A });
+    const { lines, log } = collectLog();
+
+    expect(() => ensurePackagesBuilt(root, { runBuild: () => {}, log })).toThrowError(
+      /refused to start[\s\S]*packages\/probe-pkg\/dist[\s\S]*pnpm build/
+    );
+
+    // The control half: the build leg was really reached — the log line below is
+    // written before the build runs — and it left no `dist/` to vouch for.
+    expect(lines.join('')).toContain('building:');
+    expect(existsSync(join(root, 'packages', 'probe-pkg', 'dist'))).toBe(false);
+    // And the sentence that made this a silent green is gone: nothing may claim
+    // the tests below run against artifacts that do not exist.
+    expect(lines.join('')).not.toContain('running against these artifacts');
+  });
+
+  it('refuses when the build leaves an incomplete emit, instead of counting it built', () => {
+    // The same assertion, other bucket. `dist/` exists here, so the package is
+    // not `missing` — the build simply did not emit everything `src/` requires,
+    // which is the shape `scripts/sync-version.mjs` produces on every `predev` /
+    // `pretest` / `build` by deleting one emitted file. Exit 0, `stale`
+    // non-empty, no assertion, and the suite dies one level in with
+    // `Cannot find package …` instead of here.
+    const root = fixture({ a: SOURCE_A });
+    // Written before the build runs, so the stamps taken afterwards cover it:
+    // the only thing wrong with this tree is that the artifact is absent.
+    writeFileSync(join(root, 'packages', 'a', 'src', 'extra.ts'), SOURCE_A, 'utf8');
+
+    expect(() =>
+      // Emits `index.js` and nothing else — the build did not finish the job.
+      ensurePackagesBuilt(root, { runBuild: (stubRoot: string) => writeBuilt(stubRoot, 'a') })
+    ).toThrowError(/refused to start[\s\S]*packages\/a\/dist[\s\S]*pnpm build/);
+
+    // Control: the build did emit — so this is not the `missing` bucket — and
+    // the absent artifact is the whole difference.
+    expect(existsSync(join(root, 'packages', 'a', 'dist', 'index.js'))).toBe(true);
+    expect(existsSync(join(root, 'packages', 'a', 'dist', 'extra.js'))).toBe(false);
+  });
+
+  it('refuses a root with no package to check, instead of returning a verdict it did not establish', () => {
+    // The generalisation, and the amplifier behind the cwd defect below: for ANY
+    // absent `packages/` the verdict is all-empty by construction —
+    // `listPackageRoots` answers `[]` for a directory it cannot read — and an
+    // empty verdict is exactly what a wrong root looks like from inside the
+    // module. A no-op that reports success is the class this module exists to
+    // remove, so the entry point refuses instead of vouching.
+    const root = fixture({});
+
+    // Control half: the CLASSIFIER's answer for this tree is empty, and that is
+    // the right answer for a classifier — it reports what it saw. Refusing to
+    // vouch for that reading is the entry point's job, so it is pinned there.
+    expect(evaluatePackages(root)).toEqual({ missing: [], stale: [], fresh: [] });
+    expect(() => ensurePackagesBuilt(root, { runBuild: () => {} })).toThrowError(
+      /refused to start[\s\S]*packages/
+    );
   });
 
   it('does not build a second time — the second call sees the first call’s artifacts', () => {

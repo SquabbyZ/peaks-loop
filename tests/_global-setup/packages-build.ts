@@ -62,10 +62,34 @@
 // recorded in the slice handoff's backlog section rather than widened here
 // (that would make the heavier root `tsc` build implicit on every test run).
 
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
 import { ensurePackagesBuilt } from '../../scripts/packages-build-prerequisite.mjs';
 
+/**
+ * The repository root, taken from THIS file's location — never `process.cwd()`.
+ *
+ * `globalSetup` runs in a process whose cwd is wherever the runner was invoked,
+ * while the config's `root` (and every path in this preflight) is the
+ * repository. Measured on the real config and a real entry point, before this
+ * was fixed: `cd tests && vitest run --config ../vitest.config.ts
+ * unit/cli/vendor-detect.test.ts` printed `[packages-build] 0 workspace
+ * package(s) already built from their current src/` and exited 0, while vitest's
+ * own root was the repository (`RUN v4.1.10 D:/peaks-loop`). The guard had been
+ * pointed at `tests/packages`, which does not exist, so every verdict array was
+ * empty and the prerequisite checked nothing while reporting success. On a clean
+ * checkout that is exactly the un-guarded run this file exists to prevent.
+ *
+ * The configs compute their own root the same way, from their own location, so
+ * this derivation tracks them; and a derivation that drifts is no longer silent,
+ * because a root with no `packages/` in it is now refused by
+ * `ensurePackagesBuilt` rather than answered with an empty verdict.
+ */
+const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
+
 export default function setup(): void {
-  const result = ensurePackagesBuilt(process.cwd(), {
+  const result = ensurePackagesBuilt(projectRoot, {
     log: (line) => {
       process.stdout.write(line);
     }

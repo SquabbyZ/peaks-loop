@@ -75,7 +75,10 @@ export declare function staleMessage(stale: readonly string[]): string;
 /** The exclusive build lock for one project root. */
 export declare function lockPath(projectRoot: string): string;
 
-/** Throws on stale; builds once when something is missing. */
+/**
+ * Throws on stale; builds once when something is missing, and throws when that
+ * build did not satisfy the prerequisite or when there is no package to check.
+ */
 export declare function ensurePackagesBuilt(
   projectRoot: string,
   options?: EnsurePackagesBuiltOptions
