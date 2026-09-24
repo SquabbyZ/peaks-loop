@@ -8,6 +8,13 @@
 > here is a guess: if an item says "measured", a command was run. If it says "not measured", that is stated too —
 > the session's single most common defect shape was a claim whose evidence was never gathered, so the absence of a
 > measurement is written down rather than hidden.
+>
+> **Revised 2026-09-24** — an audit pass, not a new session, and not by the session that wrote the rest.
+> Changed and marked inline: **1.2, 1.3, 2 preamble, 2.1, 2.4, 2.9, 2.10 (new), 2.11 (new), 3, 6.1, 6.2**.
+> The pass began as a re-measurement of §3, and its finding turned out to be about this document:
+> **`cf21d188` — the 1129-file reformat — invalidated the line numbers quoted throughout**, and two items
+> were wrong beyond that (§2.9's file size, §2.4's second half). Every correction is a measurement and its
+> command is given inline. Where something is unverified, that is said.
 
 ---
 
@@ -48,6 +55,15 @@ Every item below is one instance. The corollary that decided how each was handle
 - **Decided by the user**: stale historical sediment should be **fixed or discarded**.
 - **Still open**: the remaining 83. They include the `skills/peaks-rd/` → `skills/bee/peaks-rd/` move and the
   `packages/peaks-loop-mut/` extraction.
+- **One sub-class sized 2026-09-24** (measured; the other half deliberately not): the skill-move class is
+  **8 occurrences across 7 files** — `grep -ro 'skills/peaks-rd' .peaks/memory/ | wc -l` → 8, across 7 files, of
+  which **2 sit under `archived/`**. `skills/peaks-rd` does not exist and `skills/bee/peaks-rd` does, so these
+  are stale as described. Note `archived/` is sediment being kept for the record — whether *it* should be
+  rewritten at all is part of the decision, not a mechanical consequence of it.
+- **The `packages/peaks-loop-mut/` half was NOT checked, and cannot be by existence alone.** That bullet means
+  pointers broken by files *moving into* the package, not pointers *to* it — and the package does exist, so
+  "the path resolves" would refute nothing. Checking it needs the 1584-path traversal, which this pass did not
+  re-run. The 83 is therefore still the 2026-09-19 number, not a fresh one.
 - **Note**: `.peaks/memory/` is **not** in the citation guard's corpus, so nothing will flag these automatically.
 
 ### 1.3 `test-style-contract.md` moved — downstream unverified
@@ -57,16 +73,59 @@ Every item below is one instance. The corollary that decided how each was handle
   `node_modules/peaks-loop/contracts/test-style-contract.md`.
 - **Measured**: no runtime reader in `src/`/`scripts/`/`packages/`; both `npm pack` and `pnpm pack` include it.
 - **Still open**: **no downstream consumer was checked.** If any project reads the old path, it breaks silently.
+- **Narrowed 2026-09-24 — closed as far as it can be closed from this repo:**
+  - `contracts/test-style-contract.md` exists (4839 bytes) and **is** in `package.json#files` (`:88`), so it
+    ships. The entry is **pinned** by `tests/unit/publish/files-entries-resolve.test.ts:290`, and that guard
+    has a **negative arm** (`:157`/`:164` assert a non-existent entry like `docs/test-style-contract.md` IS
+    reported) — so the pin is falsifiable, not decorative.
+  - **No shipped instruction points at the old path.** A repo-wide grep for `test-style-contract` over
+    `*.ts` / `*.mjs` / `*.js` / `*.json` / `*.md` finds the old path only in `CHANGELOG.md:1046` (historical
+    entry, correctly historical) and as the negative fixture above. Nothing under `skills/**` or `README*`
+    tells a consumer to read `docs/…`.
+  - **What remains is inherently unverifiable here**: whether some *external* project hard-coded the old
+    path. That cannot be settled from this checkout, and no further in-repo check will settle it.
 - **Why it moved**: it is a published contract, and `.peaks/` reads as private tool state; `contracts/` reads public.
 
 ---
 
 ## 2. Real defects, verified, not fixed
 
+> **Citations re-verified 2026-09-24.** `cf21d188` reformatted 1129 files, so the line numbers
+> this section quotes were invalidated by a commit that changed no semantics. Re-checked against
+> the current tree, item by item — the **substances all still hold**; several citations had rotted.
+> Paths were written loosely here (bare filenames), which is why some do not resolve verbatim.
+>
+> | Item | Cited | Actual now | Substance |
+> |---|---|---|---|
+> | 2.1 | `dispatch-commands.ts:196` / `:199` | **`:262-264`** / **`:266`** | **live** — the `--from-dag` branch still returns before `validateRole` |
+> | 2.1 | `sub-agent-dispatcher.ts:169` | `:169` — `src/services/dispatch/` | **live, exact** |
+> | 2.2 | `reviewer-dispatch-policy` | `src/services/rd/reviewer-dispatch-policy.ts` | **live, exact** — re-measured: 13 exports, exactly **11** with zero refs |
+> | 2.3 | `skill-command.ts:57` | **`:71-78`** | **live, and sharper** — see below |
+> | 2.5 | `index.ts:100` | `:100` | **live, exact** |
+> | 2.4 | `src/services/release/` | `release-state.ts:85-100` | **half falsified → narrowed**; see below |
+> | 2.6 | `vitest-concurrency-guard.test.ts` | 95 lines | file exists; §2.9's size for it was wrong |
+>
+> **Not re-verified**: 2.7, 2.8. Said plainly rather than left implied.
+>
+> **2.4 lost its second half.** It claimed `rollbackRelease` and siblings skip `isValidStageTransition`;
+> they do not (`:160`, `:135`). The defect is the **reader** only, which makes it a contained fix rather
+> than a release-safety hole. Details inline at 2.4.
+>
+> **2.3 is understated as written.** It says `auto-fire` "has no `action` equivalent". The actual
+> code (`code-runtime-commands.ts:80`) is `kind === 'none' ? 'ok' : 'soft-warn'` — so `auto-fire`
+> is **reported as `soft-warn`**, an actively wrong label, not a missing one. `skill-command.ts:78`
+> publishes `action: trigger.kind` verbatim and so is correct. That matters because `auto-fire`
+> (≥ 0.80) is the tier that mandates compaction, while the probe a reader trusts says everything is
+> merely soft — a silent under-report the peaks-code skill itself acknowledges in prose.
+
 ### 2.1 `--from-dag` validates no role
 
-- **Where**: `src/cli/commands/dispatch-commands.ts:196` returns **before** `validateRole` at `:199` — its only call
-  site. The path's only check is `supportsRole: role => role.length > 0` (`sub-agent-dispatcher.ts:169`).
+- **Where**: `src/cli/commands/dispatch-commands.ts:262-264` — the `--from-dag` branch calls
+  `runDispatchFromDag` and returns — **before** `validateRole` at `:266`, which is still its only call
+  site repo-wide (defined at `sub-agent-shared.ts:185`, re-exported `sub-agent-commands.ts:34`). The
+  path's only check remains `supportsRole: (role) => role.length > 0`
+  (`src/services/dispatch/sub-agent-dispatcher.ts:169`). *Cited as `:196`/`:199` before 2026-09-24;
+  those lines rotted in the reformat — see the §2 preamble.*
 - **Consequence**: the deprecated-reviewer policy F2 wired into the warm path is bypassed entirely by `--from-dag`.
   Same validator, one of two paths missing it.
 
@@ -86,10 +145,22 @@ Every item below is one instance. The corollary that decided how each was handle
 
 ### 2.4 `readReleaseState` trusts an unvalidated `currentStage`
 
-- **Where**: `src/services/release/` — `readReleaseState` does not validate `currentStage`, and
-  `rollbackRelease` and siblings do not pass through `isValidStageTransition`.
+- **Where**: `src/services/release/release-state.ts:85-100` — `readReleaseState` casts
+  (`JSON.parse(raw) as Partial<ReleaseState>`, `:90`) and returns `parsed.active` verbatim (`:94`). It
+  checks only `parsed.version !== 1`. The validator that would catch this **exists** —
+  `isReleaseStage(value): value is ReleaseStage` at `:52` — and `readReleaseState` never calls it.
 - **Consequence**: a state file with an unknown or retired stage (e.g. the dropped `hotfixed`) is read as-is.
-  H2 hardened `isValidStageTransition` itself (`(VALID_TRANSITIONS[from] ?? [])`) but not these readers.
+  H2 hardened `isValidStageTransition` itself (`(VALID_TRANSITIONS[from] ?? [])`, `:49`) but not this reader.
+- **CORRECTED 2026-09-24 — the second half of this item was wrong, and the correction narrows it.**
+  It read "`rollbackRelease` and siblings do not pass through `isValidStageTransition`". They **do**:
+  `rollbackRelease` calls it at `:160`, and the transition path calls it at `:135`. So the hole is
+  **only the reader**, not the transitions.
+  - **The real impact is therefore smaller than it looked**: an unknown stage is accepted on read and then
+    surfaces in output/typing (a state file claiming a stage the table no longer has), but every
+    *transition out of it* is already refused — `VALID_TRANSITIONS[from] ?? []` yields `[]`, so
+    `isValidStageTransition` returns `false`. It is a **display/typing lie, not a transition-safety hole.**
+  - That matters for prioritisation: §2.4 is a small, contained fix (validate on read, e.g. via
+    `isReleaseStage`, and decide what to do with a stage that fails), not a release-safety defect.
 
 ### 2.5 `metadataKey` check is unreachable for object input
 
@@ -126,18 +197,135 @@ Every item below is one instance. The corollary that decided how each was handle
 - **Measured**: of the corrected **46 stations**, only **22** have had mutation runs.
 - Guards in `scripts/**` / CI jobs / `packages/*/tests/**` **were never enumerated** — all five enumeration
   strategies keyed on `tests/**/*.test.ts`.
-- The concurrency guard file is **1292 lines** against an 800 cap (pre-existing, grown twice in-session).
+- The concurrency guard file is **95 lines** — corrected 2026-09-24; it is not 1292, and no larger
+  file of that name exists. `tests/unit/vitest-concurrency-guard.test.ts` is the only match
+  (95 lines / 4975 bytes). The 1292 in this bullet is the **citation** guard's number, carried over
+  from §3. See §3 for the real cap — which is not 800 either.
+
+### 2.10 The D5 no-touch-stockcode waiver is INERT on every checkout but one (found 2026-09-24)
+
+- **Where**: `.peaks/lint/baseline.json` — **tracked in git**. 192 violations, 29 distinct paths,
+  22 ruleIds (`max-lines` 5, `max-lines-per-function` 17).
+- **Measured**: every `file` key is an **absolute** path rooted at
+  `C:\Users\smallMark\Desktop\peaks-loop\`. `matchBaseline` (`src/services/lint/eslint-runner.ts:256`)
+  compares `ruleId` + `file` + `line` by **exact string equality**, `finding.filePath` is ESLint's own
+  absolute path (`:409-419`), and `loadBaseline` (`:220`) never normalizes. So on this checkout
+  (`D:\peaks-loop`) nothing can ever match.
+- **Measured, not inferred**: `peaks lint check --json` on the current tree returns
+  **`baselineWaived: 0`**, and its `redLine` hot spots name `C:\Users\smallMark\Desktop\…` paths that do
+  not exist here. This is not partial degradation — the waiver is null.
+- **Why it stays invisible**: `peaks lint check` is **diff-scoped** (`inDiff`, `:453`), so an untouched
+  file never surfaces anything. It bites the moment you edit a file that IS in the baseline — its
+  pre-existing violations stop being waived and present as **new** findings. That is precisely the
+  false-regression shape
+  `.peaks/memory/comparing-counts-across-rounds-guarantees-a-false-regression-report.md` warns about.
+- **Also stale**: `generatedAt: 2026-08-07`, `toolVersion: peaks-loop-4.0.16+` (current is 4.0.54).
+- **Side effect**: a personal absolute path is committed to the repository.
+- **Not fixed, and the fix is a decision**: regenerating is `peaks lint baseline`, but that re-roots the
+  file at whichever machine ran it — the **format**, not just the contents, is the portability bug.
+  Either normalize to repo-relative keys in `matchBaseline` (source change → RD), or untrack the file
+  and keep it per-machine (policy change → you).
+
+### 2.11 `pnpm test:unit` skips the build its own suite requires (found 2026-09-24)
+
+- **Measured, on a fresh setup** (`node_modules` installed 02:36; `dist/` never built), on a host booted
+  ten minutes earlier — so neither uptime nor load is in play:
+  - `pnpm test:unit` → **166 of 312 files FAILED**, `Tests 13 failed | 1573 passed`. Dominant error:
+    `Cannot find package 'peaks-loop-shared/result' imported from src/cli/cli-helpers.ts`.
+  - `pnpm build` (exit 0) → `pnpm test:unit` again → **312 passed, 3476 passed / 3 skipped / 0 failed,
+    210.85 s.** Identical source. The only difference is a built `dist/`.
+- **Mechanism**: `package.json#scripts.pretest` exists and runs
+  `sync-version.mjs && pnpm --filter peaks-loop-shared build && check-build-integrity.mjs`. That hook fires
+  for **`test`** — not for **`test:unit`**, whose npm/pnpm pre-hook would have to be named `pretest:unit`,
+  and no such script exists. So the one command everyone runs (and the one the handoff quotes as the
+  full-suite record) is exactly the one that skips the build.
+- **Why it matters — this is a SECOND, deterministic cause of a red full suite.** The handoff's
+  "a red full-suite run here is NOT evidence of a regression" section names the host (uptime) as the cause
+  and tells the reader to check wall clock first. This failure is the opposite: reproducible, fast (105 s),
+  and deterministic — while wearing the same signal, a red test. An agent reaching for the uptime
+  explanation here would be exactly as wrong as the three misattributions §6 records.
+- **It is also the class the handoff declared closed.** That section states the principled fix: a test
+  should **state its prerequisite** when the prerequisite is absent. Here the prerequisite (a built
+  workspace) is absent and 166 files report it as a red test instead. The handoff found **one** surviving
+  instance by reading source; this one is 166 files and was found by running the command the doc recommends.
+- **Not fixed — and the fix is a decision, not a drive-by.** Add a `pretest:unit` hook, or have `test:unit`
+  build the shared package first. Both make every unit run pay a build; neither is obviously right, and
+  `test:unit` is the command the whole workflow is timed against. A build-contract change belongs in a slice.
+- **Reproduce**: on an unbuilt tree, `pnpm test:unit`; then `pnpm build`; then `pnpm test:unit`.
+- **Related and confirmed clean — do not re-open**: `pretest` also runs `sync-version.mjs`, and S5a's fix
+  (§6.2) holds. `git status` is unchanged after a full `pnpm build` **and** after a full `pnpm test:unit`:
+  neither dirties a tracked file. Verified twice, in that order.
 
 ---
 
-## 3. File-size debt (800-line cap)
+## 3. File-size debt
 
-| File | Lines | Note |
+> **Corrected 2026-09-24.** This section used to be a table titled "800-line cap" whose numbers were
+> measured before `cf21d188`. Both the title's number and every row were wrong by the time you read
+> them. Re-measure rather than carry these forward — this table has already gone stale once, by
+> exactly the mechanism §3.3 records.
+
+### 3.1 Which cap is real
+
+Two constants, and they disagree — deliberately, not by accident:
+
+| Constant | Where | Unit / scope |
 |---|---|---|
-| `src/cli/commands/code-runtime-commands.ts` | **799** | **one line from the cap** — the next addition needs a split |
-| `src/cli/commands/dispatch-commands.ts` | 836 | over before the session; grew +3 |
-| `tests/unit/standards/repo-citation-integrity.test.ts` | 1292 | over before the session; grew +80 |
-| `src/services/artifacts/artifact-prerequisites.ts` | 768 | F2/H-series deliberately avoided touching it |
+| `max-lines: 400` (error) | `config/eslint/.peaks-rules.cjs:102`, with `skipBlankLines: true, skipComments: true` | **effective** lines (blank + comment lines excluded) — this is the enforced cap |
+| `DEFAULT_FILE_SIZE_THRESHOLD = 800` | `src/services/scan/file-size-scan.ts:5` | **raw** lines, and **diff-scoped** only |
+
+`.peaks/docs/lint-gate.md:84` recorded the disagreement (400 effective vs 800 raw) and proposed
+unifying them "in ONE place". That proposal was **not** adopted — the ruling at `lint-gate.md:227`
+keeps `max-lines` 400 / `max-lines-per-function` 50. The disagreement stands.
+
+**`peaks scan file-size` does not audit the tree.** It checks the git diff against `--base-ref`
+(default `HEAD`), so on a clean tree it reports `checkedFiles: 0`. That is correct behaviour, not a
+broken gate — and it is why a repo-wide reformat can carry a file past the threshold with no
+diff-gate moment that names it.
+
+### 3.2 Measured at `9a375262`
+
+| File | raw | **effective** (the number that counts) | vs 400 |
+|---|---|---|---|
+| `src/cli/commands/code-runtime-commands.ts` | 947 | **738** | +338 |
+| `src/cli/commands/dispatch-commands.ts` | 1076 | **790** | +390 |
+| `tests/unit/standards/repo-citation-integrity.test.ts` | 1409 | **557** | +157 |
+| `src/services/artifacts/artifact-prerequisites.ts` | 791 | **410** | +10 |
+
+All four are over. The old table called `code-runtime-commands.ts` "**one line from the cap**" — it
+was one line from *800 raw*, which is not the cap.
+
+`tests/**` is **not** exempt: the override at `.peaks-rules.cjs:217` turns off `no-magic-numbers`,
+`complexity`, `max-lines-per-function` and `no-explicit-any`, but **not** `max-lines`.
+
+Reproduce — `max: 0` makes eslint print its own effective count per file:
+
+    npx eslint --no-eslintrc --no-ignore --parser @typescript-eslint/parser \
+      --rule '{"max-lines":["error",{"max":0,"skipBlankLines":true,"skipComments":true}]}' <files>
+
+**They are NOT waived** — an earlier revision of this section claimed they were, and that claim is
+false. `.peaks/lint/baseline.json` cannot match them at all; see §2.10. What keeps them quiet in an
+ordinary run is that `peaks lint check` is **diff-scoped**, not the waiver.
+
+### 3.3 Why the numbers moved — and it was one commit
+
+At `ae46e118` (where the old table was measured) three of the four reproduce exactly: **799 / 836 /
+768**. The fourth reads **1297**, five above the table's 1292 — consistent with the table being
+measured slightly earlier in the session that wrote it.
+
+Every one of them then moved in the **same** commit: `cf21d188`, "style: format the repository
+(1129 files)". That commit is **pure formatting**, proven rather than asserted — the `ae46e118` blob
+of a file, run through the repository's prettier config, equals the `cf21d188` blob **byte-for-byte**
+(`diff lines: 0`). So 799 → 947 on `code-runtime-commands.ts` is 148 lines of reflow, zero semantics.
+
+This is the **known, user-adjudicated cost** of `cf21d188`, not a new defect. Its own message records
+the plan "format first, then re-derive the line-size caps from the post-format distribution" and
+attributes the ceiling movement exactly (`max-lines` 73 → 101, `max-lines-per-function` 423 → 559,
++28 + +136 = +164). What that plan did not include was updating this table.
+
+**Do not read these four rows as a worklist unless someone decides they are one.** The caps were
+ruled to stay; what is over is over by decision. The honest description is "known debt, waived by
+`baseline.json`", not "about to be split".
 
 ---
 
@@ -211,3 +399,39 @@ prettier 会重写的那些**，改动**纯格式化**、语义为零。四次�
 
 **现行缓解（已生效四次）**：每次提交前跑那套逐字判据，把重排块**显式标注在提交信息里**，
 而不是默默吸收。这至少保证"夹带"是可见的、可审计的。
+
+### 6.1 症状已被结构性压制（2026-09-24 补记）
+
+`cf21d188`（2026-09-19，1129 文件全量格式化）之后，本仓库**每个文件都已是 prettier-clean**，
+而这个性质被**棘轮**钉住：`.peaks/lint/gate-baseline.json` 的 `prettierUnformatted: 0`
+（2026-09-22 生成；同表还有 `eslintFindings: 2878`、`eslintErrors: 1032`、`tscErrors: 0`）。于是——
+
+> 一个「纯格式化」的改写者，现在**跑完什么都不会改**。
+
+§6 的现象（"出现一批不该脏的文件，内容恰好是 prettier 会重写的那些"）因此**无法再产生脏**：
+已经没有剩余的可改写内容。旁证一致：`cf21d188` 之后的 25 个提交里**没有一个**带 §6 要求的那种
+重排标注，该现象也未再出现。
+
+**这对"要不要花一整片去定位它"是决定性的**：症状已消失且被棘轮守住，于是那一整片工作的收益
+从"止住污染"降级为"好奇心"。
+
+**但两条限制必须写明**：
+
+1. "25 个提交没复发"是**弱证据**——§6 的缓解是人工的（提交前跑判据、显式标注），没人跑就没人记。
+   真正的证据是 `prettierUnformatted: 0` 这条**结构性**论证。
+2. **责任者仍未定位。** 症状被压制 ≠ 那个 agent 不再做别的事。判据：若某天
+   `prettierUnformatted` 从 0 上升到 1，§6 的定位工作**立刻**重新变成高优先级——那一刻正是它
+   重新有信号的时刻。
+
+### 6.2 一个已命名、已修的同类机制（不要与 §6 混淆）
+
+`scripts/sync-version.mjs` 曾用 `JSON.stringify` 发射版本字面量（**双引号**），而仓库 prettier 配置
+是 `singleQuote: true`（`package.json#prettier`）。该脚本挂在 `build` / `prepublish` / `predev` /
+`pretest` / `test:ci` 上，所以**每一次构建都弄脏一个 tracked 文件**——§2.9 与 §6 说的"不该脏"有它一份。
+
+**已修**（slice S5a，2026-09-19）：现在发射单引号字面量，且版本号无法写成单引号字面量时**抛错**
+而不是转义（转义等于静默产出坏源码）。见 `cf21d188` 提交信息里的 blocker (i)。
+
+注意它是**两个文件**（`packages/peaks-loop-shared/src/version.ts` 与 internal-runtime 的
+`RUNTIME_VERSION`），而 §6 描述的是**一批**文件——所以它是同类机制，不是 §6 的答案。§6 的
+批量成因仍未定位，只是已无症状。
