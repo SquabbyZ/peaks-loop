@@ -21,11 +21,11 @@ const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)));
 
 const srcAlias = {
   find: /^~\/src\/(.*)$/,
-  replacement: resolve(projectRoot, 'src', '$1'),
+  replacement: resolve(projectRoot, 'src', '$1')
 };
 const jsToTsAlias = {
   find: /^~\/src\/(.*)\.js$/,
-  replacement: resolve(projectRoot, 'src', '$1') + '.ts',
+  replacement: resolve(projectRoot, 'src', '$1') + '.ts'
 };
 
 // 4.0.17: cap vitest worker concurrency to end full-suite starvation timeouts.
@@ -47,7 +47,7 @@ const maxWorkers = workerCount;
 export default defineConfig({
   root: projectRoot,
   resolve: {
-    alias: [srcAlias, jsToTsAlias],
+    alias: [srcAlias, jsToTsAlias]
   },
   test: {
     include: ['tests/unit/**/*.test.ts'],
@@ -60,15 +60,23 @@ export default defineConfig({
       // product coverage. It stays at this path (the standards doc cites it)
       // but runs from vitest.config.e2e.ts, outside the unit total.
       'tests/unit/_samples/**',
-      'node_modules/**',
+      'node_modules/**'
     ],
     setupFiles: ['./tests/unit/_setup/index.ts'],
+    // The workspace packages are NOT aliased to their `src/` (see the aliases
+    // above): they resolve through `node_modules` to built `dist/`, because
+    // their `dist/` is the separately published artifact under test. That makes
+    // a package build a real prerequisite of every file that imports one, and
+    // this preflight is where it is enforced — build it once when it is
+    // missing, refuse to run when it is stale. See
+    // `tests/_global-setup/packages-build.ts` for the coverage of each entry
+    // point and `scripts/packages-build-prerequisite.mjs` for the policy.
+    globalSetup: ['./tests/_global-setup/packages-build.ts'],
     testTimeout: 30_000,
     hookTimeout: 30_000,
     pool: 'forks',
     fileParallelism: true,
     maxWorkers,
-    passWithNoTests: true,
-  },
+    passWithNoTests: true
+  }
 });
-

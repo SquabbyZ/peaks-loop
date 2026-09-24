@@ -44,11 +44,27 @@
 // are normalised (CRLF -> LF) before hashing: the working tree's eol setting
 // must not be able to read as a source change.
 //
-// Claim about the sibling axis (deliberately not covered): `packages/*/src` is
-// a separate emit into `packages/*/dist`, and `scripts/sync-version.mjs`
-// rewrites `packages/peaks-loop-shared/src/version.ts` on EVERY `pretest` and
-// `prebuild`. An mtime rule spanning that file would fire on every test run;
-// a digest rule for it is possible but is a different axis. Not attempted here.
+// THE SIBLING AXIS (`packages/*/src` -> `packages/*/dist`), and who covers it
+//
+// This module does NOT, and must not pretend to: it reads a stamp from the
+// `dist/` it is pointed at, and the four package builds are `tsc -p
+// tsconfig.json` runs that write no stamp here. The axis is covered instead by
+// `scripts/packages-build-prerequisite.mjs`, which reuses `computeSourceDigest`
+// and `DIST_STAMP_VERSION` from this file, keeps its stamps in ONE file outside
+// every package (`packages/.dist-stamps.json`), and checks the emit as well as
+// the digest — a `dist/` missing a file its `src/` would compile is not fresh
+// there, the same file-for-file rule `scripts/check-build-integrity.mjs` uses.
+//
+// Why that axis cannot use the mtime fallback at all, which is why mtime is not
+// offered there: `scripts/sync-version.mjs` rewrites
+// `packages/peaks-loop-shared/src/version.ts` on EVERY `predev`, `pretest` and
+// `build` run (there is no `prebuild` script; `build` invokes it directly), so
+// an mtime rule spanning that file fires on every test run
+// whether or not anything changed. Measured consequence: the touch-shaped false
+// "stale" that this module tolerates as a documented weakness on its own axis
+// is the NORMAL state of that one, where it would make the guard cry wolf on
+// every run. Identity is therefore the only rule used there, and a `dist/` with
+// no recorded digest is reported as stale rather than guessed at.
 
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';

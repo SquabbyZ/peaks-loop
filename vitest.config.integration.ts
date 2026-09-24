@@ -21,11 +21,11 @@ const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)));
 
 const srcAlias = {
   find: /^~\/src\/(.*)$/,
-  replacement: resolve(projectRoot, 'src', '$1'),
+  replacement: resolve(projectRoot, 'src', '$1')
 };
 const jsToTsAlias = {
   find: /^~\/src\/(.*)\.js$/,
-  replacement: resolve(projectRoot, 'src', '$1') + '.ts',
+  replacement: resolve(projectRoot, 'src', '$1') + '.ts'
 };
 
 // PEAKS_BUILD_AVAILABLE — diagnosis E2 (2026-09-15).
@@ -45,14 +45,13 @@ const jsToTsAlias = {
 const binPeaks = resolve(projectRoot, 'bin', 'peaks.js');
 const distProgram = resolve(projectRoot, 'dist', 'cli', 'program.js');
 if (process.env.PEAKS_BUILD_AVAILABLE === undefined) {
-  process.env.PEAKS_BUILD_AVAILABLE =
-    existsSync(binPeaks) && existsSync(distProgram) ? '1' : '0';
+  process.env.PEAKS_BUILD_AVAILABLE = existsSync(binPeaks) && existsSync(distProgram) ? '1' : '0';
 }
 
 export default defineConfig({
   root: projectRoot,
   resolve: {
-    alias: [srcAlias, jsToTsAlias],
+    alias: [srcAlias, jsToTsAlias]
   },
   test: {
     // Shared with the other three configs so the value cannot drift; see
@@ -68,12 +67,22 @@ export default defineConfig({
     // there is no build to check. See `scripts/dist-freshness.mjs` for the
     // comparison and `tests/integration/_dist-freshness-global-setup.ts` for
     // the policy.
-    globalSetup: ['./tests/integration/_dist-freshness-global-setup.ts'],
+    //
+    // The FIRST entry is the sibling prerequisite: 9 files under
+    // `tests/integration/` import a workspace package, and those resolve
+    // through `node_modules` to `packages/*/dist`, not to `src/`. This config
+    // previously covered only the root `dist/` axis. Both run, in this order,
+    // and the package build happens before the root-dist verdict so that a
+    // missing package build is reported as itself rather than as a stale root.
+    globalSetup: [
+      './tests/_global-setup/packages-build.ts',
+      './tests/integration/_dist-freshness-global-setup.ts'
+    ],
     setupFiles: ['./tests/unit/_setup/index.ts'],
     testTimeout: 60_000,
     hookTimeout: 60_000,
     pool: 'forks',
     fileParallelism: false,
-    passWithNoTests: true,
-  },
+    passWithNoTests: true
+  }
 });

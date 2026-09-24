@@ -15,6 +15,19 @@
 > **`cf21d188` — the 1129-file reformat — invalidated the line numbers quoted throughout**, and two items
 > were wrong beyond that (§2.9's file size, §2.4's second half). Every correction is a measurement and its
 > command is given inline. Where something is unverified, that is said.
+>
+> **Later the same day — §2.11 was fixed** (rid `rid-muf2sasw`), and the work changed three of this
+> document's own entries. §2.11 now records what shipped, and that **its first implementation was wrong
+> in exactly the shape this document is about** (a `fresh` verdict over an incomplete `dist/`, reachable
+> from `pnpm dev`) — caught by an independent QA agent, not by its author. **§2.12 and §2.13 are both new, and §2.12 is the more serious.** §2.12: the emit check walks
+> only the **top level** of `src/`, so **19 of 37 sources** are invisible to it — the §2.11 shape one
+> directory down, because a nested emit *is* imported. It is **pre-existing** (`bef907a4`, 2026-07-30,
+> proven with `git log -S`), so it must not be attributed to §2.11. §2.13 is the root-`dist/` axis:
+> **two** files rather than the one an earlier pass claimed, and one of the two fails *without* any
+> remediation text. Note also that three competent measurements of the same import count (190 / 192 / 195)
+> disagree, which is why those numbers were dropped rather than pinned — a permanently-reproducible wrong
+> number is worse than no number. The same disease appears on a *timing*: four measurements of one
+> `pnpm build` spread **8.89 s – 14.2 s**, and that spread is host variance, so §2.13 carries a range.
 
 ---
 
@@ -88,8 +101,12 @@ Every item below is one instance. The corollary that decided how each was handle
 
 ---
 
-## 2. Real defects, verified, not fixed
+## 2. Real defects, verified — one now fixed, the rest not
 
+> **§2.11 is FIXED** (2026-09-24, rid `rid-muf2sasw`) and its entry records what shipped. Everything else
+> in this section is still open. The section keeps its name for the rest of the items; read §2.11's entry,
+> not this heading, for its state.
+>
 > **Citations re-verified 2026-09-24.** `cf21d188` reformatted 1129 files, so the line numbers
 > this section quotes were invalidated by a commit that changed no semantics. Re-checked against
 > the current tree, item by item — the **substances all still hold**; several citations had rotted.
@@ -248,13 +265,103 @@ Every item below is one instance. The corollary that decided how each was handle
   should **state its prerequisite** when the prerequisite is absent. Here the prerequisite (a built
   workspace) is absent and 166 files report it as a red test instead. The handoff found **one** surviving
   instance by reading source; this one is 166 files and was found by running the command the doc recommends.
-- **Not fixed — and the fix is a decision, not a drive-by.** Add a `pretest:unit` hook, or have `test:unit`
-  build the shared package first. Both make every unit run pay a build; neither is obviously right, and
-  `test:unit` is the command the whole workflow is timed against. A build-contract change belongs in a slice.
-- **Reproduce**: on an unbuilt tree, `pnpm test:unit`; then `pnpm build`; then `pnpm test:unit`.
+- **FIXED 2026-09-24** (rid `rid-muf2sasw`). The decision the paragraph above called for was made by the
+  user — a vitest `globalSetup` that **builds what is missing** and **refuses on what is stale** — and the
+  tradeoff turned out smaller than the framing implied: `pnpm -r --filter "./packages/*" run build` costs
+  **2170 ms** against a 177–210 s `test:unit`, ~1.1 %. Not a real tradeoff; the framing had assumed it was.
+- **The defect was larger than this item recorded: `pretest` was broken TWICE.** Besides building 1 of the
+  4 required packages, its `check-build-integrity.mjs` step **requires all four already built**, so on a
+  clean checkout it failed outright. Measured, one unit file, three states: no `dist/` → fail (does not
+  even collect); **`peaks-loop-shared` built only — i.e. exactly what `pretest` did — still fails**; all
+  four built → passes. The error it produces blames the wrong thing:
+  `Failed to resolve entry for package "peaks-loop-internal-runtime" … may have incorrect main/module/exports`.
+  It is not configuration; it is an absent artifact.
+- **What shipped**: `tests/_global-setup/packages-build.ts` (the `globalSetup`, wired into `vitest.config.ts`
+  and `vitest.config.integration.ts`), `scripts/packages-build-prerequisite.mjs` (verdict + lock + build +
+  refusal), `scripts/write-package-dist-stamps.mjs`; `pretest` now builds 4 of 4.
+- **Staleness is content-derived, and on this axis that is forced, not preferred.** It reuses the existing
+  `computeSourceDigest` — **no mtime comparison anywhere**, because `sync-version.mjs` rewrites
+  `peaks-loop-shared/src/version.ts` on every `pretest`, so an mtime rule would report that package stale
+  on every run. Stamps live in `packages/.dist-stamps.json`: **measured with `npm pack`**, a stamp placed
+  inside a package's `dist/` **ships** (the three curated packages declare `files:["dist/**"]`), and
+  `peaks-loop-internal-runtime` has no `files` field at all (70 files in its tarball, its whole `src/`).
+- **The first implementation was WRONG, and independent QA caught it — recorded here because it is this
+  document's own shape.** The guard digested `src/` only and never checked the **emit** was complete.
+  `sync-version.mjs` **unlinks** `packages/peaks-loop-shared/dist/version.js` on every run, and `predev`
+  runs it with **no following build**. So `pnpm dev` → guard reports **`fresh ×4`** → the next `test:unit`
+  fails with `Cannot find package 'peaks-loop-shared/version' imported from src/cli/program.ts` — **a
+  missing artifact read as a module-resolution error**, the exact shape this item exists to remove.
+  Reproduced by the orchestrator on the real repo with the repo's own script, then fixed by adding an
+  `emitIsComplete` conjunct (the rule `check-build-integrity.mjs` already encodes). The incomplete case is
+  bucketed **`stale`, not `missing`**: QA's proposed alternative was measured, on the same input, to
+  silently *rebuild* — which would also swallow a package whose content had moved on.
+- **Reproduce**: on an unbuilt tree, `pnpm test:unit`; then `pnpm build`; then `pnpm test:unit`. For the
+  false-fresh: `node scripts/sync-version.mjs` then `node -e "import('./scripts/packages-build-prerequisite.mjs')\
+  .then(m=>console.log(m.evaluatePackages(process.cwd())))"` — it must report `stale`, not `fresh`.
+- **Behaviour change worth a CHANGELOG line**: on a tree whose `dist/` predates the stamp step, the first
+  test run **refuses once** and names the packages plus `pnpm build`. Deliberate: unstamped is reported
+  stale rather than guessed fresh.
 - **Related and confirmed clean — do not re-open**: `pretest` also runs `sync-version.mjs`, and S5a's fix
   (§6.2) holds. `git status` is unchanged after a full `pnpm build` **and** after a full `pnpm test:unit`:
   neither dirties a tracked file. Verified twice, in that order.
+
+### 2.12 The emit check walks only the **top level** of `src/` — 19 of 37 sources it cannot see (found 2026-09-24)
+
+- **Where**: `scripts/check-build-integrity.mjs` (the gate) **and** the emit conjunct of
+  `scripts/packages-build-prerequisite.mjs` (the §2.11 guard). Both `readdirSync` the top level of each
+  package's `src/`; **neither recurses**. Measured: of **37** `src/*.ts` across the four packages,
+  **18 are top-level and 19 are nested** — 2 of 4 packages have nested `src/` (`internal-runtime` 9,
+  `mut` 10) — so **51 % of the surface is invisible to the check**.
+- **The honest statement of the defect.** It is **not** "19 sources have no emit" — that count is
+  **0**, because `tsc` emits recursively and the digest walk is recursive too (a nested *source* edit
+  does produce `stale`). It is: **the check cannot see 19 nested sources**, so a nested emit can vanish
+  with both guards green. Both readings were live in this session's own notes; only the second is true.
+- **Pre-existing, and proven rather than assumed.** The gate is unmodified against `HEAD`; the
+  top-level `readdirSync(srcDir)` was already there when the walk was added in **`bef907a4`
+  (2026-07-30)**, and `git log -S listFiles` shows it was never recursive. This is **not** a regression
+  of §2.11 and must not be attributed to that slice.
+- **Measured consequence.** Delete the nested emit
+  `packages/peaks-loop-mut/dist/services/mut/report-loader.js` → the §2.11 guard reports **`fresh`**,
+  and the gate prints **`build-integrity: OK`** (exit 0). Two green gates over a tree missing an
+  artifact.
+- **It outranks §2.13 — for the reason §2.11 itself exists.** A nested emit **is imported**, so this is
+  the §2.11 shape one directory down: a missing artifact that surfaces as a module-resolution error.
+  §2.13's root-`dist/` axis is the weaker case.
+- **Not fixed here, deliberately.** §2.11's guard states its scope as the gate's own top-level rule, and
+  changing the walk touches the gate that every build consumer shares. **A recursive walk is the fix**;
+  it belongs in its own slice.
+- **And the doc defect that hid it**: the §2.11 module header calls its check "complete" without ever
+  sizing what it excludes. It glosses "complete" as the gate's top-level rule at `:73-75` and *does*
+  record the nested case at `:102-109` — so it **bounds** the claim rather than falsifying it — but the
+  isolated sentence at `:58-60` is false as written, and **51 %** is the number it should have carried.
+
+### 2.13 A second prerequisite on the **root** `dist/` axis — two unit files, one of them misleading (found 2026-09-24)
+
+- **Where**: the repo-root `dist/`, **not** `packages/*/dist`. `src/` is tested as TS through the vitest
+  alias, but the root `dist/cli/index.js` is spawned by exactly one unit file
+  (`tests/unit/cli/_statusline-rpc-helper.mjs` → `../../../dist/cli/program.js`).
+- **Measured** with the root `dist/` moved aside: **`Test Files 2 failed (2)`**,
+  `Tests 1 failed | 2 passed (3)`.
+  - `tests/unit/cli/statusline-cli-integration.test.ts` — **loud and directed**; it throws
+    `Run "pnpm build" in the repo root before running this test`.
+  - `tests/unit/cli/verify-codegraph-tarball.test.ts:87` — **`AssertionError: expected 1 to be +0`
+    with no remediation text at all.** That is the *misleading* shape, not the loud one.
+- **Deliberately NOT covered by the §2.11 fix, and the reason is cost.** Covering it means an implicit
+  root `tsc` on every test run — full `pnpm build` at **≈9–14 s** (see the next bullet), against the
+  2170 ms the package axis costs. The earlier justification for leaving it out — "exactly **one** file
+  fails, and it fails loudly, so it is not this defect's shape" — was **falsified**: it is two files, and
+  the second one *is* the misleading shape. The scope call survives; the reason given for it did not.
+- **A number four measurements disagreed about — recorded because it is this document's own disease.**
+  Three agents measured the same command and got **8.89 s → 11 153 ms → 13 731 / 14 178 ms → 9277 /
+  8909 / 8946 ms**. Three quiet runs at ≈8.9 s reproduce the *first* figure, and no `tsbuildinfo` exists
+  (and `clean-dist` wipes `dist/`), so all four measurements did the same work: this is **host variance
+  of ~60 %, not error**. Two consequences. Quote a **range (≈9–14 s, load-dependent)**, never a single
+  figure — and note that the intermediate "≈11–14 s" range was itself wrong, because it *excluded* a
+  value that reproduces 3 times out of 3. A single measurement of a host-sensitive command is not a
+  fact about the command.
+- **Open, two ways out**: accept the ~9–14 s, or give `verify-codegraph-tarball.test.ts` a stated
+  prerequisite so its failure is directed rather than a bare `-0 +1` assertion diff. The second is
+  cheaper and matches the pattern the handoff already ruled correct.
 
 ---
 
@@ -331,6 +438,17 @@ ruled to stay; what is over is over by decision. The honest description is "know
 
 ## 4. Smaller, recorded
 
+- **The ESLint coverage guard has an untracked-pair window** (`tests/unit/lint/eslint-rules-config-coverage.test.ts`
+  enumerates **`git ls-files`**). Found 2026-09-24 while adding `scripts/packages-build-prerequisite.mjs`:
+  a new `.mjs` shadowed by its own new `.d.mts` sits **outside the lint program**, and the guard is
+  **green while the pair is untracked** — it only reddens on the commit that tracks them. Measured: with
+  the pre-fix config and the file staged, the guard names exactly
+  `['scripts/packages-build-prerequisite.mjs']`; with the shipped config, `[]`. The fix shipped (one path
+  added to `config/eslint/tsconfig.lint.json`, program **+1 member / −0**, so no pre-existing file got
+  stricter), and all five untracked in-scope files of that commit were driven through to show the fix was
+  **complete** — but the **window itself is unfixed**: a contributor whose commit is the first to track
+  such a pair sees the guard fail on a commit that already contains its remedy. Recorded here because the
+  only earlier copy of this was in a **gitignored** handoff.
 - **`handoff-service.ts` is not routed to the `RuntimeRoot` seam** — inline `join('.peaks','_runtime',…)` string
   building. Rationale for not doing it (4.0.49) is recorded: wiring its relative form reintroduces a fragment
   round-trip carrier.

@@ -1,6 +1,12 @@
 node_modules/
 dist/
 coverage/
+# The content digests of packages/*/src, recorded by the build so the test
+# entry points can tell a fresh packages/*/dist from a stale one. It lives
+# OUTSIDE every package on purpose: `files: ["dist/**"]` would otherwise ship
+# it in the published tarball (measured), and `peaks-loop-internal-runtime`
+# declares no `files` field at all.
+packages/.dist-stamps.json
 .env
 *.log
 .DS_Store
