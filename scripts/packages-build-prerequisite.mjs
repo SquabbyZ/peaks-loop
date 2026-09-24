@@ -82,8 +82,10 @@
 // `emitIsComplete` is a containment test (`src` ⊆ `dist`), so a `dist/` holding
 // an artifact whose source is gone — an orphan — still reads `fresh`, where
 // `check-build-integrity.mjs` exits 1 on the same tree (its rule 2). Measured
-// on this repository: with `packages/peaks-loop-mut/src/zz-rd-emit-probe.ts`
-// removed and its `dist/` artifact left in place, `fresh` x4 against
+// on this repository with a probe source written for the measurement and
+// deleted once it was taken: a top-level `zz-rd-emit-probe.ts`, added under
+// `packages/peaks-loop-mut`, built, and then removed with its `dist/` emit left
+// in place. On that tree, `fresh` x4 against
 // `orphan dist/zz-rd-emit-probe.js` / exit 1. That boundary is deliberate. The
 // refusal below says "a dist/ that was not built from their current src/", and
 // for an orphan that sentence would be FALSE — the dist WAS built from the
