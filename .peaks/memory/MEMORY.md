@@ -141,7 +141,7 @@
 - [src-services-ide-module-is-the-single-source-of-truth-for-ide-aware-behavior](src-services-ide-module-is-the-single-source-of-truth-for-ide-aware-behavior.md) — The  module is the single source of truth for IDE-aware behavior.
 - [src-services-session-canonical-workspace-resolver](src-services-session-canonical-workspace-resolver.md) — is the canonical home for the per-session workspace.
 
-## lesson (88)
+## lesson (89)
 
 - [2026-06-26-unknown-sid-root-cause](archived/2026-06-26-unknown-sid-root-cause.md) — Root cause + remediation log for the  and  orphan session dirs.
 - [2026-07-28-rid-034-handoff-no-sediment-block](2026-07-28-rid-034-handoff-no-sediment-block.md) — rid-034 收尾遇 sediment 反向 — no peaks-memory:start/end 闭合块 **Date:** 2026-07-28 **Rid:** 2026-07-28-rid-034-v2-13-0-clea...
@@ -156,6 +156,7 @@
 - [a-gate-invoked-with-no-file-arguments-passes-vacuously-and-exits-0](a-gate-invoked-with-no-file-arguments-passes-vacuously-and-exits-0.md) — with zero in-scope files prints  and **returns 0** (, ).
 - [a-hand-maintained-allow-list-that-points-at-an-old-machine-path-is-a-silent-gate-not-a-working-one](a-hand-maintained-allow-list-that-points-at-an-old-machine-path-is-a-silent-gate-not-a-working-one.md) — failed on every workspace that used caller bindings because  listed only one of the eight runtime dirs the code actua...
 - [a-multi-slice-job-that-shares-one-rid-reopens-the-evidence-collision-hole-rid-scoping-was-built-to-close](a-multi-slice-job-that-shares-one-rid-reopens-the-evidence-collision-hole-rid-scoping-was-built-to-close.md) — Gate C's evidence paths are rid-scoped (, , …) so two slices cannot occupy one slot.
+- [a-self-check-whose-file-set-comes-from-the-diff-covers-neither-agent-s-window](a-self-check-whose-file-set-comes-from-the-diff-covers-neither-agent-s-window.md) — An RD reported "eslint + prettier --check clean **on the new test file**" — singular.
 - [a-silent-push-on-this-repo-is-the-pre-push-hook-running-the-full-suite](a-silent-push-on-this-repo-is-the-pre-push-hook-running-the-full-suite.md) — On 2026-09-25,  produced **zero bytes of output for over two minutes**.
 - [a-single-measurement-of-a-host-sensitive-command-is-not-a-fact-about-the-command](a-single-measurement-of-a-host-sensitive-command-is-not-a-fact-about-the-command.md) — Four measurements of one  on this repo spread **8.89 s – 14.2 s** (~60 %): , from three different agents.
 - [a-slice-whose-core-behaviour-no-artifact-specifies-costs-multiples-of-its-peers](a-slice-whose-core-behaviour-no-artifact-specifies-costs-multiples-of-its-peers.md) — S1, S2 and S3 of  each needed **one** repair pass.

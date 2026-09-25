@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-09-25T14:08:32.535Z",
+  "updatedAt": "2026-09-25T16:10:49.404Z",
   "hot": {
     "rule": [
       {
@@ -1076,6 +1076,14 @@
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\a-multi-slice-job-that-shares-one-rid-reopens-the-evidence-collision-hole-rid-scoping-was-built-to-close.md",
         "sourceArtifact": ".peaks/_runtime/2026-09-16-session-5bcf09/txt/handoff.md",
         "updatedAt": "2026-09-23"
+      },
+      {
+        "name": "a-self-check-whose-file-set-comes-from-the-diff-covers-neither-agent-s-window",
+        "kind": "lesson",
+        "description": "An RD reported \"eslint + prettier --check clean **on the new test file**\" — singular.",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\a-self-check-whose-file-set-comes-from-the-diff-covers-neither-agent-s-window.md",
+        "sourceArtifact": ".peaks/_runtime/2026-09-25-session-0cf437/rd/rid-4134eb10-repair-2.md",
+        "updatedAt": "2026-09-25"
       },
       {
         "name": "a-silent-push-on-this-repo-is-the-pre-push-hook-running-the-full-suite",
