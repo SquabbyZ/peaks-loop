@@ -900,6 +900,32 @@ built to stop numbers being carried forward. Untouched by request.
   the triple present in order — a **false refusal**). The second is being collapsed to one line as a rider
   so both readings are satisfied; the checker stays wrong.
 
+### 2.18 The gate skips a package with no `.ts` source, so a sourceless tree prints `OK` (found 2026-09-25)
+
+- **Where**: `scripts/check-build-integrity.mjs:119` — the gate **skips a package with no `.ts` source**,
+  so a tree of zero source-bearing packages prints **`build-integrity: OK`** and exits 0.
+- **What covers it, and how far.** The S3 refusal added in `rid-4134eb10` closes the **empty-record** case:
+  `write-package-dist-stamps.mjs` now refuses a `{"packages":{}}` write instead of exiting 0, and both
+  `build` and `pretest` put that writer **first under `&&`**, so the chain stops before the gate runs.
+  **QA measured that this masking is real for the empty set but NOT complete**: a package that is
+  **sourceless but not empty** — `src/` holding entries and no `.ts`, e.g. `src/services/` left behind
+  after its sources were deleted — was, at the time QA measured it, still walked, still recorded
+  (`1 package(s) recorded`, `fileCount: 0`), and the gate still printed `OK`.
+
+  **That middle half is no longer true.** `rid-4134eb10`'s repair 1 aligned the guard's drop criterion
+  with the gate's rule — `readdirSync(src).length > 0` became `listFiles(src).some(n => n.endsWith('.ts')
+  && !n.endsWith('.d.ts'))`, which is `listTsSources` verbatim — so such a package is now **dropped by the
+  guard and skipped by the gate together**, and a `.d.ts`-only `src/` was a second instance of the same
+  thing, also closed. What **remains** here is only the last clause: **a tree of zero source-bearing
+  packages still prints `OK`**.
+- **Why it went unnoticed for so long**: the two guards answer different questions and neither is the
+  other's superset. The gate's rule is a **recursive `.ts`** test; the guard's drop criterion was a
+  **top-level listing** — a mismatch `rid-4134eb10`'s first docblock asserted was an "alignment" and QA
+  refuted with zero edits.
+- **Not fixed here.** It is the residual of a residual: the alignment closes the *reachable* path, and this
+  records that a zero-package tree can still print `OK`. Fixing it means deciding what a gate with nothing
+  to check should say — which is a policy question about the gate, not a predicate in a walk.
+
 ---
 
 ## 3. File-size debt

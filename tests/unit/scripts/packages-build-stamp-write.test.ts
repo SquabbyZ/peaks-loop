@@ -165,6 +165,32 @@ describe('Scenario: behavior — the walk is defined by `src/`, not by a manifes
   });
 });
 
+describe('Scenario: behavior — a package whose src/ is an empty directory is dropped', () => {
+  it('when packages/<dir>/src exists and holds nothing, should not walk it and not classify it either way', () => {
+    // given: one ordinary package beside a REAL directory whose `src/` is an empty directory — the tree this walk drops
+    // when: the walk enumerates that root and the verdict classifies it
+    // then: the empty-src/ directory is in no bucket at all: never missing, never stale, never vouched for
+    const root = fixture({ a: SOURCE_A });
+    mkdirSync(join(root, 'packages', 'empty-src', 'src'), { recursive: true });
+
+    const walked = listPackageRoots(root).map((pkg) => pkg.name);
+    const verdict = evaluatePackages(root);
+
+    // Also a scope disclosure, and the trade runs the OTHER way from the
+    // manifest-only case above: there it is a manifest the walk cannot honour,
+    // here the drop is load-bearing. An empty `include` is `TS18003: No inputs
+    // were found` (measured with this repository's own tsc), so an empty-`src/`
+    // package can never acquire a `dist/` — which makes the drop the reason the
+    // post-build assertion is assertable at all. Without it the package is
+    // `missing` forever and `REBUILD_COMMAND` is a remedy that cannot clear it.
+    // Pinned so that trade cannot move in either direction unnoticed: closing
+    // the drop turns this arm red, and so does widening it past a src/ that
+    // cannot compile.
+    expect(walked).toEqual(['a']);
+    expect([...verdict.missing, ...verdict.stale, ...verdict.fresh]).toEqual(['a']);
+  });
+});
+
 // ── integration: a real filesystem state the guard cannot read ───────
 
 describe('Scenario: integration — a stamp path that is not a readable file', () => {

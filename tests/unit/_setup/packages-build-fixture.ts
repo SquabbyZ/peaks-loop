@@ -2,9 +2,10 @@
 //
 // The fixture scaffolding of `tests/unit/scripts/packages-build-prerequisite.
 // test.ts`, split out when the cases added by rid-muf2sasw repair 5 took that
-// file past its `max-lines` ceiling (400 code lines, `skipComments`). Nothing
-// here is new: the four exported helpers and the tmp-root cleanup are the
-// versions that file already carried.
+// file past its `max-lines` ceiling (400 code lines, `skipComments`). The four
+// helpers that file already carried and the tmp-root cleanup are unchanged;
+// `nestedOnlyFixture` was added beside `nestedFixture` by rid-4134eb10, for the
+// one package shape the guard's `hasBuild` could not see at all.
 //
 // Why `_setup/`: it is this repo's home for shared test scaffolding
 // (`4dim-template.ts`, `tmp-workspace.ts`, `io.ts`, `clock.ts`), and a helper
@@ -93,6 +94,43 @@ export function nestedFixture(): string {
   writeFileSync(source, SOURCE_A, 'utf8');
   writeFileSync(join(root, 'packages', 'a', 'dist', 'index.js'), BUILT, 'utf8');
   writeFileSync(emit, BUILT, 'utf8');
+  return root;
+}
+
+/**
+ * The SECOND of the two nested emits `nestedOnlyFixture()` writes — the one its
+ * arm deletes, leaving the other behind.
+ *
+ * Two are needed, not one, and that is not decoration: `hasBuild` answers "is
+ * there any built JavaScript at ALL", so deleting a package's only emit leaves
+ * an empty `dist/` and `missing` is then the module's real verdict ("BUILD WHAT
+ * IS MISSING"). Keeping one emit behind is what makes the deletion arm a
+ * statement about the emit rule instead.
+ */
+export const NESTED_ONLY_EMIT = 'dist/sub/other.js';
+
+/**
+ * A throwaway tree with ONE package (`a`) whose EVERY source is nested: no
+ * top-level `src/` entry AND no top-level `dist/` entry. `outDir`/`rootDir` are
+ * per-package, so a package whose whole source tree sits under `src/sub/` has
+ * its whole emit under `dist/sub/` — the legal shape `hasBuild`'s top-level
+ * `readdirSync(dist)` read as "no build output at all" (rid-4134eb10).
+ *
+ * `nestedFixture()` cannot express it: it keeps a top-level `src/index.ts` and
+ * a top-level `dist/index.js` beside the nested pair, which is exactly what
+ * makes that tree's `hasBuild` answer true for the wrong reason.
+ */
+export function nestedOnlyFixture(): string {
+  const root = mkdtempSync(join(tmpdir(), 'peaks-packages-nested-only-'));
+  roots.push(root);
+  const src = join(root, 'packages', 'a', 'src', 'sub');
+  const dist = join(root, 'packages', 'a', 'dist', 'sub');
+  mkdirSync(src, { recursive: true });
+  mkdirSync(dist, { recursive: true });
+  writeFileSync(join(src, 'index.ts'), SOURCE_A, 'utf8');
+  writeFileSync(join(src, 'other.ts'), SOURCE_A, 'utf8');
+  writeFileSync(join(dist, 'index.js'), BUILT, 'utf8');
+  writeFileSync(join(root, 'packages', 'a', NESTED_ONLY_EMIT), BUILT, 'utf8');
   return root;
 }
 

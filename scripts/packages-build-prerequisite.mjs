@@ -372,6 +372,49 @@ const LOCK_KEY_HEX_CHARS = 16;
  * `packageManager` field does not measure this repository's pnpm at all — or
  * when `PACKAGES_BUILD_COMMAND` changes.
  *
+ * THE PER-PACKAGE DROP BELOW IS LOAD-BEARING, said here because it reads like a
+ * redundancy and is not one. A directory entry with no `.ts` source under its
+ * `src/` — an empty directory, one holding only a `.d.ts`, a `README.md` or a
+ * subdirectory of neither, or an unreadable one through the same `catch` — is
+ * dropped from the guard entirely: never `missing`, never `stale`, never
+ * vouched for. Removing the drop does not make the guard keener, it makes it
+ * refuse a tree `REBUILD_COMMAND` can never repair. Measured 2026-09-25: a
+ * package whose `src/` holds no `.ts` has a tsc `include` that matches nothing,
+ * and this repository's own tsc refuses it — `TS18003: No inputs were found`
+ * (exit 2) — so such a package can never acquire a `dist/`, it reads `missing`
+ * for good, and the post-build assertion then names a remedy that cannot clear
+ * it.
+ *
+ * THE CRITERION IS THE GATE'S — and unlike the sentence this replaced, that is
+ * now DEMONSTRATED rather than asserted. It is `check-build-integrity.mjs`'s
+ * `listTsSources(...).length === 0 → continue`: this walk recurses, and filters
+ * by the same `.ts` and not `.d.ts`, as `listTsSources` does. THE EARLIER TEXT
+ * HERE CLAIMED THIS ALIGNMENT WHILE THE CODE HELD A TOP-LEVEL
+ * `readdirSync(src).length`, and the two rules diverged on the one neighbouring
+ * shape — a `src/` holding entries and no `.ts` anywhere under it, e.g.
+ * `src/services/` left behind after its sources were deleted. There the guard
+ * walked the package, recorded `fileCount: 0` for it, and read it `fresh` over
+ * a `dist/` nothing had rebuilt, while the gate skipped it and printed
+ * `build-integrity: OK`. Both halves are measured, on constructed trees, in
+ * `tests/unit/scripts/packages-build-scope-alignment.test.ts`, which runs the
+ * gate itself against the same tree it asks this walk about — because a claim
+ * of alignment is a claim about TWO rules, and one made from reading only this
+ * file is how the divergence outlived its own docblock
+ * (`.peaks/docs/backlog.md` §2.14 site 2).
+ *
+ * ONE INPUT SITS OUTSIDE THAT ALIGNMENT, and it is named rather than folded
+ * into the claim. An UNREADABLE `src/` — a permissions failure — is dropped
+ * here, through the `catch` below, while the gate reaches its own `readdirSync`
+ * and throws, so the gate dies loudly where this walk is silent. The divergence
+ * is in this guard's favour and it is not closed: it is reasoned from the two
+ * sources rather than measured, because no permission state was reproduced on
+ * this host.
+ *
+ * The recursion is what keeps the correction from over-reaching in the other
+ * direction: a package whose only `.ts` sits one directory down under `src/` is
+ * still walked, because `listTsSources` sees it too. That shape's other half is
+ * a different axis, and `hasBuild` below owns it.
+ *
  * @param {string} projectRoot
  * @returns {Array<{ name: string, root: string }>}
  */
@@ -388,7 +431,10 @@ export function listPackageRoots(projectRoot) {
     .map((entry) => ({ name: entry.name, root: join(packagesRoot, entry.name) }))
     .filter((pkg) => {
       try {
-        return readdirSync(join(pkg.root, 'src')).length > 0;
+        // The gate's rule, one predicate — see the docblock above.
+        return listFiles(join(pkg.root, 'src')).some(
+          (name) => name.endsWith('.ts') && !name.endsWith('.d.ts')
+        );
       } catch {
         return false;
       }
@@ -530,10 +576,38 @@ export function writePackageDistStamps(projectRoot) {
   return packages;
 }
 
-/** Does this package have any built JavaScript at all? */
+/**
+ * Does this package have any built JavaScript at all — anywhere under `dist/`?
+ *
+ * "Anywhere", not "at the top of it", and the difference is a FALSE REFUSAL
+ * rather than a blind spot (rid-4134eb10; `backlog.md` §2.16). `outDir` and
+ * `rootDir` are per-package, so a package whose every source sits under
+ * `src/<sub>/` has its every emit under `dist/<sub>/`, and this walk used to be
+ * the THIRD top-level `readdirSync` in this module — the one §2.12 left behind
+ * when it made the other two recurse. Measured 2026-09-25 on a nested-only
+ * fixture: `evaluatePackages` read the package `missing` while its nested emit
+ * was on disk, and `ensurePackagesBuilt` refused the tree with *"no dist/ at
+ * all: packages/a/dist"* although the build had succeeded — a refusal no
+ * rebuild clears, over a tree `scripts/check-build-integrity.mjs` calls
+ * `build-integrity: OK`, which is the cost this module's own header says its
+ * rule must not pay. With the recursive walk the same tree is `fresh`, or
+ * `stale` when the emit is gone: the emit rule decides it, not this one.
+ *
+ * The `.js` FILTER is deliberately untouched. A stray `.js` under `dist/`
+ * reading as "built" is the direction §2.14 examined and cleared — the digest +
+ * emit pair then refuses rather than vouches — and that judgment is about the
+ * filter. This is the walk's REACH; the two are different properties of this
+ * function and must not be changed together.
+ *
+ * Named rather than left to be found: the `catch` still maps an UNREADABLE
+ * `dist/` to `false`, i.e. to the same "no build output at all" answer, so a
+ * permissions failure produces a false refusal of this family. That is the
+ * `catch` and not the walk, the recursion above leaves it byte-identical, no
+ * live instance exists, and it is not this change's axis.
+ */
 function hasBuild(pkgRoot) {
   try {
-    return readdirSync(join(pkgRoot, 'dist')).some((name) => name.endsWith('.js'));
+    return listFiles(join(pkgRoot, 'dist')).some((name) => name.endsWith('.js'));
   } catch {
     return false;
   }
@@ -580,6 +654,33 @@ function listFiles(dir) {
  * missing, over a tree the gate calls OK. (The top-level `readdirSync(dist)`
  * this replaced also carried directory entries; no `.js` lookup ever matched
  * one, so dropping them is not a rule change.)
+ *
+ * THE VACUOUS-TRUE CASE NEVER ARRIVES HERE, and after rid-4134eb10 repair 1
+ * that is a property of the walk above rather than an assumption about it.
+ * `.every()` over no files is `true`; the digest of nothing is a constant
+ * (`computeSourceDigest` hashes the empty input and returns `fileCount: 0`);
+ * and `writePackageDistStamps` records that constant happily. Composed, those
+ * two safe-looking helpers read `fresh` over a `dist/` built from sources that
+ * have been DELETED. That composition is the reason `listPackageRoots` drops by
+ * the gate's recursive `.ts` test instead of the top-level listing it used to
+ * carry: the empty-set input has to be gone before it gets here, and the
+ * earlier text claimed that as "safe only because nothing reaches it" while a
+ * `src/` holding a `README.md` and no `.ts` reached it in one edit
+ * (`backlog.md` §2.14 site 2). The reachability is now closed by construction,
+ * not by argument: this function's only caller is `evaluatePackages`, which
+ * iterates `listPackageRoots`, and the filter at the bottom of THIS function is
+ * the same `.ts`-and-not-`.d.ts` predicate over the same recursive
+ * `listFiles(src)` walk as the one that admitted the package — so the file list
+ * `.every()` runs over holds at least one entry. Measured on a constructed
+ * tree in `tests/unit/scripts/packages-build-scope-alignment.test.ts`: such a
+ * package is in no bucket at all. An absent `src/` is `false`, through the
+ * `catch`.
+ *
+ * It is still not repaired here, on purpose: a second rule for an empty `src/`
+ * would be a rule with no reachable red, and two gates disagreeing one directory
+ * at a time. What has to survive is the composition — the filter that gates it
+ * is load-bearing, and this paragraph is where the next reader finds that out
+ * instead of re-deriving it.
  *
  * @param {string} pkgRoot
  */
