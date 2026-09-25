@@ -611,7 +611,7 @@ describe('Scenario: integration — the build lock', () => {
     // fresh container is exactly where this lands, and a raw `ENOENT` there
     // names neither the file nor the fix. The lock path is pointed at a
     // directory that does not exist rather than mocked, so this is the real
-    // `openSync` failing.
+    // `writeFileSync` failing — the `wx` create that takes the lock.
     const root = fixture({ a: SOURCE_A });
     const previous = { TMPDIR: process.env.TMPDIR, TMP: process.env.TMP, TEMP: process.env.TEMP };
     let thrown: Error | undefined;

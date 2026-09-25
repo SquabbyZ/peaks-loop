@@ -37,6 +37,11 @@
 > remain deliberately unfixed, and §2.15's four findings were **decided the same day — queued as work
 > items, not accepted** (the call was the user's, and it is recorded in the entry rather than left
 > implied).
+>
+> **Same day, later again.** §2.15's F3 and F4 were then taken as job `pkg-build-guard-lows` slice 1
+> and are **fixed** — see §2.15's Outcome block, which also records a third defect the slice found. So
+> §2.15 is no longer a queue entry for all four findings; **F5 and F6 remain queued** as slice 2. §2.8
+> gained one entry from the same slice.
 
 ---
 
@@ -217,6 +222,17 @@ Every item below is one instance. The corollary that decided how each was handle
   **exists**, so it is a live citation behind the blind spot.
 - Backticked bare filenames (no `tests/` prefix, no slash) remain invisible; closing it is a resolution-contract
   change, not a candidate widening.
+- **The guard admits a citation by EXCLUSION as well as by resolution** (found by QA in `rid-30cc31f7`'s
+  cycle 2, 2026-09-25). `repo-citation-integrity.test.ts:1267` accepts a path that either `existsSync`es
+  **or** `isGitIgnored`s. A cited `.peaks/_runtime/**` artifact therefore passes because **git never tracks
+  it**, not because it resolves — prune the artifact and the citation dangles green. The distinction matters
+  because "ignored" is a property of the git configuration, not of the file: a citation into a gitignored
+  tree is unverifiable by this guard by construction, so a claim resting on one is only as durable as the
+  gitignore rule that hides it. The `rid-30cc31f7` provenance happened to survive on a second, tracked leg
+  (`backlog.md` §2.13), which is what made the gap visible rather than harmful there — a citation whose
+  *only* leg is gitignored would have none. Note this is a scope statement, not a proposed widening: the
+  guard's own header argues the ignored-leg was deliberate, and closing it would mean deciding what a
+  citation into a gitignored tree is even supposed to assert.
 
 ### 2.9 Coverage of the guard audit itself
 
@@ -413,7 +429,12 @@ Every item below is one instance. The corollary that decided how each was handle
 - **Not fixed, deliberately**: repair 5's scope was F1 / F2a / F2b, and no executable line near these
   three was changed.
 
-### 2.15 Four `low` findings on the same guard — measured, queued as work (rescued 2026-09-25)
+### 2.15 Four `low` findings on the same guard — F3+F4 fixed, F5+F6 queued (rescued 2026-09-25)
+
+**STATUS 2026-09-25, later the same day.** F3 and F4 were taken as job `pkg-build-guard-lows` slice 1
+(rid `rid-30cc31f7`). Both are **fixed**, and a third defect the slice uncovered is fixed with them.
+F5 and F6 remain queued as slice 2 of the same job. The paragraph below is the entry as rescued; the
+outcome block after it records what changed.
 
 - **Where**: `scripts/packages-build-prerequisite.mjs` (lock + stamp semantics).
 - **Source of record**: `qa/security-rid-muf2sasw.md` — also a **gitignored** artifact. Rescued here
@@ -423,6 +444,51 @@ Every item below is one instance. The corollary that decided how each was handle
   carries the reachability analysis that explains why — but "no reachable path on this host" is a
   measurement about *this host*, not a verdict that the shape is fine. Fixing any of them touches
   `scripts/`, so each is an RD slice, not an orchestrator edit.
+
+#### Outcome (rid-30cc31f7)
+
+- **F4 — closed.** The lock file now carries its holder's token, written by the same
+  `O_CREAT|O_EXCL` create that makes the file, and `releaseLock(lock, token)` unlinks **only** a lock
+  whose content is its own token. The `:182` killed-process property survives: a stale lock is still
+  broken by a later run. Falsified by mutation, not by assertion — two independently written harnesses
+  (RD's and QA's) killed 5/5 and 5/5, including QA's `q4` (token threading dropped) which the RD's
+  harness did not contain, and `r4a` (a falsy token treated as ours).
+- **F3 — closed, and its reachability corrected while closing it.** The review framed reachability
+  around *another local user* planting a lock and showed that on this host one cannot; but the guard's
+  **own** process is a lock source, and a run killed between its `open` and its `finally` leaves one.
+  That path needs no second user and no permissive platform. The `LOCK_WAIT_MS` / `LOCK_STALE_MS`
+  ordering is kept, with the reason now written where the constant is.
+- **D1 — a third defect, found by QA cycle 1 and fixed here with the user's explicit approval.**
+  `unlinkSync` failing `EPERM` on a **directory** at the lock path was swallowed, and the `continue`
+  then fired **before** the deadline check and before the `sleep` — a tight infinite loop. QA measured
+  it spinning at 15 s; the orchestrator then found a **live instance on this host**, an empty
+  directory at `%TEMP%/peaks-packages-build-a946aeb543aca482.lock` (not this repository's lock path).
+  The check now precedes the stale break and the `continue` is gone. The A/B is the point: moving the
+  check alone terminates but burns **~969 ms CPU** in the 1000 ms window; removing the `continue` as
+  well gives **1025 ms wall / 0 ms CPU**. Pre-existing at `HEAD`, not a repair-0 regression.
+- **The `LOCK_WAIT_MS` rider is done, and the number it carried was wrong twice over.** The retired
+  sentence quoted "2.94 s … ~20x". Repair 1 first corrected the classification (2.94 s is **below** the
+  8.89–14.2 s spread, not a member of it), then found the deeper error: those five values are
+  **`pnpm build`** runs — the whole `package.json#scripts.build` chain, which *includes* the packages
+  build as one step — while the command this lock actually guards, `PACKAGES_BUILD_COMMAND`, measures
+  **2.94 s** on a warm tree. QA then proved the classification harder than the RD had, by noticing each
+  log line carries `build-integrity:OK=true`, a `scripts.build`/`pretest` step and not a step of the
+  guarded command (`pretest` = 3.12 s). So the range is an **upper proxy** and the quoted margins are
+  the conservative ones (6.7× fastest / 4.2× slowest; ~20× against the guarded command itself).
+- **Two claims the repair wrote, and then had to make true.** Repair 1's handoff *said* it had narrowed
+  the window claim to "cannot be unlinked"; QA read the text and the narrowing was **not there** — two
+  sentences still said every pass either acquires, refuses, or sleeps, which is false for the
+  `statSync`-failure pass. Repair 2 scoped both and **named the exception beside the claim**. That
+  sentence was previously an assertion; it is now a consequence.
+- **Residual, disclosed and not fixed**: the `statSync`-failure `continue` still precedes both bounds
+  and the sleep. QA could not route it on this host — a dangling symlink's create **succeeds through
+  the link**, an absent target parent gives `ENOENT`, and a symlink loop gives `ELOOP`, each a directed
+  refusal. The POSIX route is **reasoned, not measured**. This entry owns that routing. Closing it
+  would need a refusal for a lock of unknown age, which is a design change, not a repair.
+- **A limitation that must not be over-read**: the shipped `unbroke` case reddens the **pre-fix**
+  route (unbounded spin) but stays **green** under the half-fix (bound moved, `continue` kept) — a
+  bounded-but-busy spin. The test falsifies the defect, not every partial fix; the header ledger says
+  so, and the CPU figure is pinned by the A/B probe rather than by a timing assertion in the suite.
 
 **F3 — the pre-created-lock wedge is real but narrower than its header implies, and platform-gated.**
 Measured: a lock file this process did not create, with a fresh mtime, is waited out and then refused —
