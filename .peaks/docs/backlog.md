@@ -40,8 +40,15 @@
 >
 > **Same day, later again.** §2.15's F3 and F4 were then taken as job `pkg-build-guard-lows` slice 1
 > and are **fixed** — see §2.15's Outcome block, which also records a third defect the slice found. So
-> §2.15 is no longer a queue entry for all four findings; **F5 and F6 remain queued** as slice 2. §2.8
-> gained one entry from the same slice.
+> §2.15 is no longer a queue entry for all four findings; **F5 and F6 were taken as slice 2 of the
+> same job and are now dispositioned** — F5 closed, F6 closed as a claim (F6.4 accepted on the
+> boundary, F6.5 **DOCUMENTABLE**).
+> Slice 2 then **failed its own QA cycle on one claim and was repaired**: F6.5's premise was first
+> measured FALSE against pnpm **12.6.0** (the global binary) and, at this repository's own pinned
+> **10.11.0**, measures TRUE — the guard's package set and the build's set are defined by two different
+> rules and do **not** agree. Repair 1's block below owns that correction, the three other items the
+> review raised, and the rule that came out of it: **a measurement about pnpm must name the pnpm
+> version it was taken under.** §2.8 gained one entry from the same slice.
 
 ---
 
@@ -429,12 +436,15 @@ Every item below is one instance. The corollary that decided how each was handle
 - **Not fixed, deliberately**: repair 5's scope was F1 / F2a / F2b, and no executable line near these
   three was changed.
 
-### 2.15 Four `low` findings on the same guard — F3+F4 fixed, F5+F6 queued (rescued 2026-09-25)
+### 2.15 Four `low` findings on the same guard — F3+F4 fixed, F5 closed, F6 dispositioned (rescued 2026-09-25)
 
 **STATUS 2026-09-25, later the same day.** F3 and F4 were taken as job `pkg-build-guard-lows` slice 1
 (rid `rid-30cc31f7`). Both are **fixed**, and a third defect the slice uncovered is fixed with them.
-F5 and F6 remain queued as slice 2 of the same job. The paragraph below is the entry as rescued; the
-outcome block after it records what changed.
+F5 and F6 were then taken as slice 2 of the same job: F5 is **closed**, and F6 is **closed as a claim**
+— F6.4 accepted on the boundary, F6.5 **DOCUMENTABLE** (its premise was first measured false against the
+wrong pnpm and holds at this repository's own — see repair 1 below), F6.6 closed by narrowing the text
+rather than the defect. The paragraph below is the entry as rescued; the outcome blocks after it record
+what changed.
 
 - **Where**: `scripts/packages-build-prerequisite.mjs` (lock + stamp semantics).
 - **Source of record**: `qa/security-rid-muf2sasw.md` — also a **gitignored** artifact. Rescued here
@@ -489,6 +499,200 @@ outcome block after it records what changed.
   route (unbounded spin) but stays **green** under the half-fix (bound moved, `continue` kept) — a
   bounded-but-busy spin. The test falsifies the defect, not every partial fix; the header ledger says
   so, and the CPU figure is pinned by the A/B probe rather than by a timing assertion in the suite.
+
+#### Outcome — slice 2: F5 + F6 (rid-30cc31f7)
+
+Taken 2026-09-25 as slice 2 of `pkg-build-guard-lows`. The sort of each sub-item, with its evidence, is
+`rd/rid-30cc31f7-slice2-plan.md`; the deltas and the sha256 of every file are
+`rd/rid-30cc31f7-slice2-handoff.md`. The mutation battery is `rd/slice2-mutations.mjs`.
+
+- **F5.1 (non-atomic write) — closed.** `writePackageDistStamps` writes a process-unique temp name in
+  the stamp's own directory and `renameSync`s it over the target, unlinking the temp if the rename
+  fails. Falsified by mutation, not by assertion: a hard link made to the old stamp keeps the old bytes
+  across a rewrite, and M1 (the pre-fix line, writing the target in place) reddens that case.
+  **The trade it made, disclosed in repair 1 (it was undisclosed in the slice-2 handoff).** A rename
+  needs DELETE access to the directory entry, so this write now fails `EPERM` whenever another handle
+  holds the stamp open — measured `rd/repair2-probes/probe-v2-f64-and-open-handle.mjs`: **20 of 20**
+  writes threw with one reader holding it open, against **0 of 20** for the in-place `writeFileSync` it
+  replaced and **0 of 20** for the new writer with nothing holding it (control). No pnpm participates in
+  that arm, so no pnpm version qualifies the figure — the axis that matters here is the filesystem, not
+  the toolchain. In-module exposure is nil (both `readStamps` and `stampPathBlocked` open and close,
+  5 000 read+write pairs, 0 throws); the exposure is **external** holders — an AV scanner mid-scan, an
+  indexer, an editor. It is loud (`FAILED`, exit 1) and a retry clears it, and it is accepted rather
+  than reverted because the tear it removed was **silent** and made every package read `stale`.
+- **F5.2 (no lock on the writer) — closed by F5.1, and deliberately NOT by a lock.** Atomicity is what
+  the race needed: no reader can observe a partial stamp, and two writers are last-rename-wins over two
+  COMPLETE files. Adding the lock would have been a net regression — this writer records `src/`
+  digests, so taking the builder's lock would make a 215-byte write queue up to `LOCK_WAIT_MS` (60 s)
+  behind an unrelated build, or refuse. The reason is in the function's own doc comment, where the next
+  editor of the write reads it.
+- **F5.3 (misdiagnosis and its failing remedy) — closed, both halves.** `stampPathBlocked` separates
+  "nothing recorded yet" (`ENOENT`, the ordinary tree) from "something in the way", and
+  `refuseUnvouchable` — the single choke point both refusal sites already passed through — picks
+  `stampBlockedMessage` for the second. That refusal names the stamp path, says the `dist/` may be
+  current, and does NOT name a rebuild, because a rebuild cannot clear it
+  (`scripts/write-package-dist-stamps.mjs` is **step 4 of the 8** `&&`-joined steps of
+  `package.json#scripts.build` — index 3, after sync-version, `clean-dist.mjs` and the packages build —
+  so step 2 `rmSync`s the root `dist` and every package `dist/` under `packages/`, step 3 remakes the
+  packages' dists only, and the root `dist` is **not remade at all** (the step that would, `tsc`, is
+  later and is never reached), and only then does the write hit the same obstacle, exit 1, and leave the
+  chain short of `tsc`). `staleMessage`'s own text is untouched — that was a non-goal. **Repair 1
+  the mechanism sentence here**: slice 2 and three other places said the write was the *first* step,
+  which is false, and the truth is the stronger argument for the remedy the message names, because a
+  rebuild destroys the artifacts that were fine before it stops.
+- **F6.4 (a symlink at the stamp path) — ACCEPT, on the boundary; the reason was wrong in BOTH
+  directions and repair 1 restates it per half.** What the finding claimed was **real, not
+  hypothetical**: pre-fix the write followed the link and **clobbered a file outside the tree** (the
+  victim held the stamp JSON; the path stayed a symlink — measured, `probe-v2`). The **write half is
+  closed**, and not by design — `renameSync` replaces the directory entry rather than writing through
+  it, so post-fix the victim is untouched and the stamp path becomes a **207-byte regular file**. The
+  slice-2 handoff's residual ("the write still follows a symlink at the stamp path") was therefore
+  false as of the fix. The **read half is open and accepted**: with the stamp path symlinked to a stamp
+  file outside the tree, `evaluatePackages` returns `{"missing":[],"stale":[],"fresh":["a"]}` — an
+  out-of-tree file is honoured as the stamp. Accepted on the boundary: the writer runs as the
+  developer, in a checkout the developer owns, on a gitignored path that cannot be committed, and an
+  actor who can plant that symlink has write access to `packages/` and can write the artifacts
+  directly — strictly stronger than redirecting one generated file, so a check here would only fail
+  louder for the same principal. **The read side therefore needs no disposition of its own**: it is a
+  strict subset of F6.6 below, where the same actor who can plant that link can forge the stamp or the
+  artifacts outright. No code change.
+- **F6.5 (the guard is blind to a package the build produces) — DOCUMENTABLE, and the premise HOLDS.
+  The slice-2 version of this bullet said the opposite; it was wrong, and the error was the pnpm
+  version.** Slice 2 measured on pnpm **12.6.0** — the global binary, reached because the probe root
+  carried no `packageManager` field — and concluded the guard's set and the build's set AGREE. At
+  **10.11.0**, which is what this repository runs, they do **not**. `listPackageRoots` is a
+  directory-entry walk whose rule is *a directory entry with a non-empty `src/`*; pnpm's rule is *a
+  workspace project with a `package.json`*. The rules are **not nested**, so neither set contains the
+  other and no single rule change makes them agree. Measured 2026-09-25,
+  `rd/repair2-probes/probe-v1-pnpm-version-and-sets.mjs`, two probe roots identical but for the
+  `packageManager` field, one arm each (guard set from the shipped module; build set read off marker
+  files each package's `build` writes):
+
+  | pnpm | guard `listPackageRoots` | `pnpm -r --filter "./packages/*" run build` ran in | built, guard-blind |
+  | --- | --- | --- | --- |
+  | **10.11.0** (this repo's pin) | `real-pkg`, `real-src-nopkg` | `link-pkg`, `real-nosrc`, `real-pkg` | **`link-pkg`, `real-nosrc`** |
+  | 12.6.0 (no `packageManager`) | same | `real-nosrc`, `real-pkg` | **`real-nosrc`** |
+
+  Three consequences, and the third is why the slice-2 conclusion was wrong twice over: (a) a
+  **symlinked** `packages/<dir>` with a manifest is BUILT at 10.11.0 and never walked — `withFileTypes`
+  reports a symlink as a symlink, so `entry.isDirectory()` is false; (b) a **real** `packages/<dir>`
+  with a manifest and no `src/` is BUILT at BOTH versions and never walked — so the divergence is not
+  symlink-shaped at all; (c) the other direction, a real dir with `src/` and no manifest, is walked and
+  NOT built, which is the loud "the build reports success while building nothing" refusal — that
+  direction is by design, and it is why the rule is `src/` and not `package.json`. **The consequence
+  named, not hidden**: for the entries in the right-hand column, a `dist/` that disagrees with its
+  `src/` is never freshness-checked, and nothing warns. **DOCUMENTABLE rather than CLOSEABLE — and the
+  two halves are blocked by DIFFERENT mechanisms, so the reason is stated per half (repair 2; QA
+  measured them apart).** The **(a) symlink half is version-bound**: closing it means following the
+  link, and QA's FIX-2 measured what that buys — the patched walk then demands a `dist/` for the link,
+  which pnpm never builds at 12.6.0 (`missing:["link-pkg"]`), where the same root without the pin builds
+  neither the link nor lists it. So any alignment the guard implements is alignment with ONE pnpm
+  version, silently, and the mismatch moves rather than closes. The **(b) `real-nosrc` half is NOT
+  version-related**: QA's FIX-3 aligned for it and measured guard set == build set at **BOTH** pins, so
+  the version is not its blocker — `emitIsComplete` is, because it reads completeness off `src/` and a
+  package with no `src/` can therefore never read `fresh` (measured, FIX-1: `stale` forever with a
+  `dist/`, `missing` forever without one). Adopting pnpm's manifest rule without deciding what
+  "complete" means for a package with no `src/` turns the blind spot into a permanent refusal — a design
+  decision this entry does not name, not a version bind. `listPackageRoots`'s doc now states the
+  two rules, both directions, this table's finding and the corrected **re-measure trigger: a change to
+  the `packageManager` PIN (and the pnpm it resolves to), not a pnpm major — a probe root without that
+  field does not measure this repository's pnpm at all.**
+- **F6.6 (forged staleness) — DOCUMENTABLE, closed as a claim rather than as a defect.** Authenticating
+  the stamp needs a verification input the forger lacks, and at this boundary there is none: the
+  writer, the verifier and any key between them are files in one checkout written by one principal, so
+  an actor who can forge the stamp can forge the artifacts or replace the module instead. It is
+  **unclosable in principle, not merely expensive**, which is why no code change answers it. What
+  shipped is the narrowed claim: the header's new "WHAT `fresh` VOUCHES FOR, AND WHAT IT CANNOT" says
+  `fresh` means the RECORDED digest matches the disk, that the stamp is unauthenticated and gitignored
+  (so a forged or hand-edited one is invisible to `git status` and to review), and that the guard
+  reports the records it read rather than vouching for who wrote them.
+- **A claim that was already in the text, and is now true.** The header's stale bullet said "'We cannot
+  prove this was built from these sources' and 'it is stale' are not the same sentence, so the message
+  below says which one it means." It did not — one message covered both — and closing F5.3 is what
+  makes it true. The bullet now names which case each message covers.
+- **Residual, disclosed and not fixed.** When the stamp path is blocked AND the package has no `dist/`,
+  the verdict is `missing`, so the guard builds and then surfaces the filesystem error raw rather than
+  through the new refusal. No reachable path to that state was found in slice 1's survey, and this
+  slice added none.
+
+#### Outcome — slice 2, repair 1: the falsification measured the wrong pnpm (rid-30cc31f7)
+
+QA cycle 1 on slice 2 returned **FAIL — repair required**. The suite was green and the pre-fix 2-of-5,
+M1–M4, the atomicity result (4 532 torn / 35 all-stale pre-fix vs **0 / 0**), the no-lock conclusion
+**measured as forced** (the writer is called at `:974`, inside the lock `ensurePackagesBuilt` takes at
+`:916`, i.e. from `buildInsideLock`, which that lock wraps — so a lock-taking writer would contend with
+its own holder. Those are **this repair's** line numbers: slice 2 quoted `:930`/`:872` and repair 1's own
+edits moved them by 44 lines, which is why the durable form here is the FUNCTION names and the numbers
+are a convenience) and F6.6's narrowing in the shipped text all
+reproduced. What failed was the headline claim and some of the text around it. Measurements:
+`rd/repair2-probes/probe-v1-pnpm-version-and-sets.mjs` and `…-v2-f64-and-open-handle.mjs`; deltas and
+sha256: `rd/rid-30cc31f7-slice2-repair-1-handoff.md`.
+
+- **The trap, named.** `pnpm -v` is **10.11.0** in this repository (`packageManager`) and **12.6.0**
+  anywhere else (the global binary). Slice 2's probe root carried no `packageManager` field, so it
+  measured a pnpm this repository never runs — and its conclusion reversed at the one this repository
+  does. **Every measurement about pnpm must name the version it was taken under**; a number about a
+  tool whose version varies by directory is not a fact about the tool.
+- **The four corrections.** F6.5 re-dispositioned above, with the corrected table; `listPackageRoots`'s
+  doc sentence rewritten to the real claim (two rules, neither nested in the other, both directions);
+  the F6.5 bullet above rewritten; and the re-measure trigger re-axised from "a pnpm major" to the
+  **`packageManager` pin** — the axis that actually fired.
+- **The mechanism sentence was false in SIX shipped places, not four.** The review named four ("the
+  FIRST step of `scripts.build`"): the refusal message, `stampBlockedMessage`'s doc comment, the
+  backlog bullet and the test header. Two more carried it — `stampPathBlocked`'s doc comment and an
+  inline comment in the a11y case. All six now say **step 4 of the 8** and state the `dist/` sequence
+  that runs first: step 2, `clean-dist.mjs`, `rmSync`s the root `dist` and every `packages/*/dist`;
+  step 3 rebuilds the packages' dists only, and the root `dist` is not rebuilt at all (step 5's `tsc`
+  would, and the chain stops before reaching it); step 4 is the write that stops on the obstacle.
+- **F6.4 restated per half** — the write half is closed by the rename (and the slice-2 handoff's
+  "the write still follows a symlink" was false), the read half is open and accepted. See its bullet.
+- **The battery now checks what it claims.** `rd/slice2-mutations.mjs` compares the SET of reddened case
+  names against the mutant's declared aim and exits non-zero on any mismatch; before repair 1 it
+  compared nothing but a failure count, so a mis-aimed mutant was reported exactly like a clean one.
+  M5 is kept and **relabelled BLUNT** — it deletes the refusal path, three cases redden, and that set is
+  now predicted and verified rather than unnoticed. A mutant aimed at `integration` **alone** cannot
+  exist: the `integration` and `a11y` cases assert one scenario at two layers (verdict, then message).
+
+**Knowingly not done in repair 1.** No new test case. A case pinning "a symlinked entry is not a
+package" would pin a *deliberate, documented* limitation as a contract and would make a future close of
+the gap look like a regression; and a case for the divergence itself would have to depend on a pnpm
+binary *and its version*, which a unit test must not do. The claim is carried by the two probes and by
+the corrected text, both named here.
+
+#### Outcome — slice 2, repair 2: four text corrections after a PASS (rid-30cc31f7)
+
+QA cycle 2 on slice 2 returned **PASS** with F1–F4 recommended before merge. All four are taken; two of
+them reach further than the review's count, and the count is recorded rather than the claim widened
+quietly. **Nothing executable changed** except the wording of one operator-facing string literal.
+
+- **F1 — the reason is now stated per half, in TWO places.** The bullet below gave one reason ("the
+  reason is the version") for a two-part finding. QA measured the halves apart: the **symlink** half is
+  version-bound (following the link makes the walk demand a `dist/` pnpm never builds at 12.6.0 —
+  FIX-2), while the **`real-nosrc`** half is version-INDEPENDENT (alignment measured to agree with the
+  build set at BOTH pins — FIX-3), and its real blocker is `emitIsComplete`, which reads completeness off
+  `src/` so a package with no `src/` can never read `fresh` (FIX-1: `stale` forever with a `dist/`,
+  `missing` without one). The review named the backlog bullet; `listPackageRoots`'s own doc comment
+  carried the same one-reason-for-two-halves defect and is corrected with it.
+- **F2 — the exclusion is now PINNED as a labelled scope disclosure**, rather than deliberately omitted.
+  One case in `packages-build-stamp-write.test.ts` holds a real manifest-only `packages/<dir>` beside an
+  ordinary package and pins that the walk drops it, labelled the way the citation guard's two residual
+  cases are: a scope disclosure, not a satisfied goal. It needs no pnpm, and it reddens the moment
+  anyone aligns the rule.
+- **F3 — the `dist/` sequence corrected everywhere it is stated, not only in the four named places.**
+  The claim "the two steps before it wipe … and then rebuild them" is true of `packages/*/dist` and
+  false of the root `dist`. Corrected in the module's two doc comments, its operator message, the test
+  file's header, the a11y case's inline comment, the `F5.3` bullet below and the repair-1 record bullet
+  above. The true sequence: step 2 wipes both the root `dist` and every `packages/*/dist`; step 3 remakes
+  **only the packages' dists**; the root `dist` would be remade by step 5's `tsc`, which this chain never
+  reaches. The old wording erred in the safe direction — it understated the harm — and the corrected
+  wording is the stronger argument for the remedy the message withholds.
+- **F4 — one sentence**, connecting F6.4's read side to F6.6 as the source of its argument, so a reader
+  meets one reasoning rather than two.
+
+**Knowingly not changed.** The four `:182`/`:206`-class line citations and the backlog's pre-existing
+prettier redness are out of scope: no guard reads line numbers (`LINE_SUFFIX` is stripped), and the
+redness is pre-existing at `HEAD`. Repair 1's "no new test case" holds for the *divergence*; repair 2
+pins the DISCLOSURE, which is a different claim and does not pin the limitation as a contract.
 
 **F3 — the pre-created-lock wedge is real but narrower than its header implies, and platform-gated.**
 Measured: a lock file this process did not create, with a fresh mtime, is waited out and then refused —

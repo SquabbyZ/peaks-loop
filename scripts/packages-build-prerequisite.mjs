@@ -86,6 +86,20 @@
 // `build-integrity: OK`, and the remediation this module names would then never
 // clear it.
 //
+// WHAT `fresh` VOUCHES FOR, AND WHAT IT CANNOT
+//
+// `fresh` means "the RECORDED digest matches the `src/` on disk, and every
+// top-level `src/*.ts` has its `dist/*.js`". It is not provenance. The stamp is
+// unauthenticated — nothing links it to the artifacts it describes — so a
+// hand-written stamp makes a `dist/` built from OLD `src/` read `fresh`, which
+// is the failure this module refuses in the other direction. That is not merely
+// expensive to close, it is unclosable here: the writer, the verifier and any key
+// between them are files in one checkout written by one principal, so an actor
+// able to forge the stamp can forge the artifacts or replace this module
+// instead. The stamp is gitignored as well, so a forged or hand-edited one is
+// invisible to `git status` and to review. The guard reports the records it read;
+// it does not vouch for who wrote them.
+//
 // THE RULE CHECKS ONE DIRECTION, AND THE OTHER IS RECORDED HERE ON PURPOSE
 //
 // `emitIsComplete` is a containment test (`src` ⊆ `dist`), so a `dist/` holding
@@ -139,7 +153,10 @@
 //   - the digest is recorded by `writePackageDistStamps` at build time;
 //   - a `dist/` with no RECORDED digest is reported STALE, never guessed at.
 //     "We cannot prove this was built from these sources" and "it is stale" are
-//     not the same sentence, so the message below says which one it means.
+//     not the same sentence, so the refusal separates the two cases that reach
+//     it: a stamp path that cannot be READ as a file at all is refused as that,
+//     with the message saying the `dist/` may be current, while a `dist/` whose
+//     recorded digest disagrees with its `src/` gets the stale sentence.
 //
 // WHY THE STAMPS LIVE OUTSIDE EVERY PACKAGE (`packages/.dist-stamps.json`)
 //
@@ -192,7 +209,14 @@
 
 import { execSync } from 'node:child_process';
 import { createHash, randomUUID } from 'node:crypto';
-import { readFileSync, readdirSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
+import {
+  readFileSync,
+  readdirSync,
+  renameSync,
+  statSync,
+  unlinkSync,
+  writeFileSync
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
@@ -300,8 +324,44 @@ const INT32_BYTES = 4;
 const LOCK_KEY_HEX_CHARS = 16;
 
 /**
- * Every package under `packages/` that has a `src/` tree to compile, i.e. every
- * package whose `dist/` this prerequisite is responsible for.
+ * Every DIRECTORY ENTRY under `packages/` that has a `src/` tree to compile,
+ * i.e. every package whose `dist/` this prerequisite is responsible for.
+ *
+ * This set is defined by a DIFFERENT RULE than the build's, and the two rules
+ * are not nested, so the two sets do NOT agree. This walk takes *a directory
+ * entry with a non-empty `src/`*; the build takes *a workspace project with a
+ * `package.json`*. Measured 2026-09-25 with pnpm **10.11.0** — this
+ * repository's own, selected by its `packageManager` pin — on one probe
+ * workspace with one root per arm
+ * (`rd/repair2-probes/probe-v1-pnpm-version-and-sets.mjs`):
+ *
+ *   - real `packages/<dir>`, manifest, NO `src/`     → BUILT here, not walked;
+ *   - `packages/<dir>` a symlink with a manifest     → BUILT here, not walked
+ *     (`withFileTypes` reports a symlink as a symlink, so `entry.isDirectory()`
+ *     is false and the entry is dropped);
+ *   - real `packages/<dir>`, `src/`, NO manifest     → walked, NOT built. That
+ *     direction is the "the build command reports success while building
+ *     nothing" refusal below, it refuses loudly, and it is why this rule is
+ *     `src/` and not `package.json`.
+ *
+ * The first two are packages whose `dist/` is never freshness-checked.
+ * DOCUMENTABLE rather than CLOSEABLE — and the two halves are blocked by
+ * DIFFERENT mechanisms, so the reason is stated per half. The **symlinked** entry
+ * is VERSION-bound: closing it means following the link, and the SAME probe root
+ * without a `packageManager` field runs pnpm **12.6.0** and builds neither the
+ * link nor lists it, so the alignment would be alignment with one pnpm version
+ * silently and the mismatch would move rather than close. The **manifest, no
+ * `src/`** entry is NOT version-bound: it is built at BOTH pins, so alignment for
+ * it is version-independent, and what blocks it is `emitIsComplete` below —
+ * completeness is read off `src/`, so a tree with no `src/` can never read
+ * `fresh` (measured: `stale` with a `dist/`, `missing` without one). That is a
+ * design decision this module does not name, not a version bind.
+ * `.peaks/docs/backlog.md` §2.15 owns the finding and the probe.
+ *
+ * Re-measure when the `packageManager` PIN changes — the axis is the pin and the
+ * pnpm it resolves to, NOT a pnpm major, because a probe root that carries no
+ * `packageManager` field does not measure this repository's pnpm at all — or
+ * when `PACKAGES_BUILD_COMMAND` changes.
  *
  * @param {string} projectRoot
  * @returns {Array<{ name: string, root: string }>}
@@ -354,9 +414,76 @@ function readStamps(projectRoot) {
 }
 
 /**
+ * Is there something at the stamp path that cannot be read AS A FILE?
+ *
+ * `readStamps` above answers `null` for two situations that are not the same
+ * refusal, and the whole point of this function is that the message must not
+ * confuse them:
+ *
+ *   - nothing recorded yet — the ordinary stale tree, whose remedy is a rebuild
+ *     and a rebuild clears it;
+ *   - something in the way — a directory, a broken link, a permissions problem,
+ *     where a rebuild does NOT clear it: the step that writes this very file is
+ *     the FOURTH of the eight `&&`-joined steps of `package.json#scripts.build`,
+ *     and step 2 wipes the root `dist` and every package `dist/` under
+ *     `packages/` while step 3 remakes the packages' dists only — the root
+ *     `dist` is remade by step 5's `tsc`, which this chain never reaches — so a
+ *     rebuild destroys the artifacts first and only then stops on the same
+ *     obstacle.
+ *
+ * Only the second is reported, and `ENOENT` — the first one, the common case —
+ * is explicitly not it. A readable file whose JSON does not parse is also not
+ * it: the rebuild truncates that away.
+ *
+ * The file is read a second time here rather than carried out of `readStamps` on
+ * the verdict, because the verdict's shape is what `evaluatePackages`'s callers
+ * read and assert as a whole. This runs only on the refusal path, where the
+ * guard is about to throw anyway — and it is a 215-byte file.
+ *
+ * @param {string} projectRoot
+ */
+function stampPathBlocked(projectRoot) {
+  try {
+    readFileSync(stampPath(projectRoot), 'utf8');
+    return false;
+  } catch (error) {
+    return error?.code !== 'ENOENT';
+  }
+}
+
+/**
  * Record the digest of every package's sources. Called after a build, by
  * `scripts/write-package-dist-stamps.mjs` (wired into `build` and `pretest`)
  * and by `ensurePackagesBuilt` below.
+ *
+ * The write REPLACES the file — a temp name in the same directory, then
+ * `renameSync` — and not by reflex: `writeFileSync` is open-TRUNC + write, so a
+ * reader arriving between the two sees a partial file, `readStamps` maps that to
+ * `null`, and `null` makes EVERY package `stale`. The rename is atomic within a
+ * filesystem, and the temp is in the stamp's own directory so it cannot cross
+ * one.
+ *
+ * That is also why this writer takes NO lock, which is worth stating because
+ * `ensurePackagesBuilt` does. The lock is the BUILDER's, held across a build;
+ * this function records digests of `src/`, which is a read of the tree. Taking
+ * the lock here would turn a 215-byte write into a run that queues up to
+ * `LOCK_WAIT_MS` behind an unrelated build, or refuses — a worse failure mode
+ * than the race it would be closing. Atomicity is what the race needed: no
+ * reader can observe a half-written stamp, and two concurrent writers are
+ * last-rename-wins over two COMPLETE files, which is the same verdict either
+ * way because both read the same `src/`.
+ *
+ * THE TRADE THIS MADE, measured 2026-09-25
+ * (`rd/repair2-probes/probe-v2-f64-and-open-handle.mjs`; no pnpm participates in
+ * this arm, so no pnpm version qualifies the figure): the rename needs DELETE
+ * access to the directory entry, so this write fails `EPERM` while another
+ * handle holds the stamp open — 20 of 20 writes threw with one reader holding
+ * it, against 0 of 20 for the in-place `writeFileSync` it replaced and 0 of 20
+ * for this writer while nothing held it open (control). The exposure is
+ * EXTERNAL holders only: `readStamps` and `stampPathBlocked` both open and
+ * close, and 5 000 read+write pairs of that reader threw 0. It is loud
+ * (`FAILED`, exit 1) and a retry clears it. Accepted rather than reverted: the
+ * tear it removed was silent and made every package read `stale`.
  *
  * @param {string} projectRoot
  */
@@ -368,11 +495,29 @@ export function writePackageDistStamps(projectRoot) {
     const { digest, fileCount } = computeSourceDigest(pkg.root);
     packages[pkg.name] = { digest, fileCount, builtAt: new Date().toISOString() };
   }
-  writeFileSync(
-    stampPath(root),
-    `${JSON.stringify({ version: DIST_STAMP_VERSION, packages }, null, 2)}\n`,
-    'utf8'
-  );
+  const target = stampPath(root);
+  // Unique to this process, so two writers never share one temp file — sharing
+  // it would put the tear back, into a file the rename then promotes.
+  const temp = `${target}.${process.pid}.tmp`;
+  try {
+    writeFileSync(
+      temp,
+      `${JSON.stringify({ version: DIST_STAMP_VERSION, packages }, null, 2)}\n`,
+      'utf8'
+    );
+    renameSync(temp, target);
+  } catch (error) {
+    // The temp is inside `packages/`, whose only gitignore entry is the stamp
+    // itself, so one left behind would surface as an untracked file. Best
+    // effort: the throw below is the error the caller needs, and this is
+    // housekeeping for it.
+    try {
+      unlinkSync(temp);
+    } catch {
+      // Either it was never created, or it cannot be removed — nothing to add.
+    }
+    throw error;
+  }
   return packages;
 }
 
@@ -390,8 +535,9 @@ function hasBuild(pkgRoot) {
  *
  * `hasBuild` above answers a different question — whether there is any build
  * output at all — and a `dist/` with one file missing in it answers that one
- * yes. This is the second half of a `fresh` verdict: the digest proves the
- * SOURCE side, and this proves the artifacts are all there.
+ * yes. This is the second half of a `fresh` verdict: the digest RECORDS the
+ * SOURCE side — records it, it does not vouch for who wrote the record, see the
+ * header — and this checks the artifacts are all there.
  *
  * The rule is `scripts/check-build-integrity.mjs`'s, and deliberately not a
  * stricter one — see the header. Unreadable `src/` or `dist/` counts as
@@ -468,6 +614,52 @@ export function staleMessage(stale) {
     '  exists, so it is not rebuilt silently on your behalf. Rebuild, then re-run:',
     '',
     `    ${REBUILD_COMMAND}`,
+    ''
+  ].join('\n');
+}
+
+/**
+ * The refusal for a tree whose stamps could not be READ, as distinct from one
+ * whose `dist/` disagrees with its `src/`.
+ *
+ * Separate from `staleMessage` for the reason that one's sentence would be false
+ * here: the packages are not stale, the RECORDS could not be read, and the
+ * `dist/` may be perfectly current. Its remedy is wrong here too, and that half
+ * is the load-bearing one — `pnpm build` cannot clear this state, because
+ * `scripts/write-package-dist-stamps.mjs` is the FOURTH of the eight
+ * `&&`-joined steps of `package.json#scripts.build` (index 3: sync-version,
+ * clean-dist, the packages build, this write, tsc, …), so the steps before it
+ * run first — `clean-dist.mjs` at step 2 `rmSync`s the root `dist` and every
+ * package `dist/` under `packages/`; step 3 remakes the packages' dists only,
+ * and the root `dist` would be remade by step 5's `tsc`, which this chain never
+ * reaches — and only then does the write hit the same obstacle, print `FAILED`
+ * and exit 1. A refusal that names a command which cannot work costs the
+ * operator a full build cycle AND the artifacts that were fine before it, so
+ * this message names the state instead.
+ *
+ * @param {string} root
+ */
+function stampBlockedMessage(root) {
+  return [
+    '',
+    'Test suite refused to start: the package stamps could not be read as a file.',
+    '',
+    `  ${PACKAGE_STAMP_RELATIVE_PATH} is not an ordinary readable file — a directory, a`,
+    '  broken link, or a permissions problem — so every package reads `stale` for',
+    '  that reason alone. This is NOT a statement that a `dist/` disagrees with its',
+    '  `src/`: nothing here could compare the two, and the artifacts may be current.',
+    '',
+    `  stamp file: ${stampPath(root)}`,
+    '',
+    '  A rebuild does not clear this, and it is not the first thing that happens',
+    '  either: this file is written by step 4 of the 8 steps of',
+    '  `package.json#scripts.build`. Step 2 wipes every `packages/*/dist` and the',
+    '  root `dist`; step 3 remakes only the package dists, and the root `dist` is',
+    '  not remade at all, because the step that would remake it (step 5) is later',
+    '  than this one. So a rebuild destroys the artifacts first, still stops here,',
+    '  and never reaches `tsc`.',
+    '  That path must be an ordinary file, or absent. Remove or repair whatever is',
+    '  at it, then re-run.',
     ''
   ].join('\n');
 }
@@ -746,11 +938,19 @@ export function ensurePackagesBuilt(projectRoot, options = {}) {
  * means. Takes the verdict rather than returning one: a refusal here is a
  * throw, and there is nothing to hand back.
  *
+ * The `stale` arm asks one further question — whether the stamps could be read at
+ * all — because the answer decides which of the two sentences is TRUE, and both
+ * callers reach that question through here.
+ *
  * @param {{ missing: readonly string[], stale: readonly string[], fresh: readonly string[] }} verdict
  * @param {string} root
  */
 function refuseUnvouchable(verdict, root) {
-  if (verdict.stale.length > 0) throw new Error(staleMessage(verdict.stale));
+  if (verdict.stale.length > 0) {
+    throw new Error(
+      stampPathBlocked(root) ? stampBlockedMessage(root) : staleMessage(verdict.stale)
+    );
+  }
   // The three buckets are total and disjoint over `listPackageRoots`, so an
   // empty `missing` AND an empty `fresh` is the set itself being empty. Not a
   // green: see `noPackagesMessage`.
