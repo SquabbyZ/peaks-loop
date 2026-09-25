@@ -28,6 +28,15 @@
 > disagree, which is why those numbers were dropped rather than pinned — a permanently-reproducible wrong
 > number is worse than no number. The same disease appears on a *timing*: four measurements of one
 > `pnpm build` spread **8.89 s – 14.2 s**, and that spread is host variance, so §2.13 carries a range.
+>
+> **Revised 2026-09-25 — a rescue, not an audit.** §2.14 and §2.15 are new. Both record material that
+> existed **only in gitignored session artifacts** (`rd/…-repair-5-handoff.md` §4 and
+> `qa/security-…md`), whose home does not survive the session that wrote them. Nothing here was
+> re-measured — every number is quoted from the report named inline, and where a claim was never
+> measured that is said rather than smoothed over. The rescue changed no verdict: §2.14's three sites
+> remain deliberately unfixed, and §2.15's four findings were **decided the same day — queued as work
+> items, not accepted** (the call was the user's, and it is recorded in the entry rather than left
+> implied).
 
 ---
 
@@ -362,6 +371,128 @@ Every item below is one instance. The corollary that decided how each was handle
 - **Open, two ways out**: accept the ~9–14 s, or give `verify-codegraph-tarball.test.ts` a stated
   prerequisite so its failure is directed rather than a bare `-0 +1` assertion diff. The second is
   cheaper and matches the pattern the handoff already ruled correct.
+
+### 2.14 Three more places the build guard returns green without establishing anything (rescued 2026-09-25)
+
+- **Where**: `scripts/packages-build-prerequisite.mjs` (the §2.11 guard) and
+  `scripts/write-package-dist-stamps.mjs` (its writer-side twin).
+- **Source of record**: `rd/rid-muf2sasw-repair-5-handoff.md` §4 — a **gitignored** artifact from
+  session `2026-09-24-session-b714c7`. Rescued 2026-09-25 because its home does not survive the
+  session; **not re-measured**, so every claim below is that report's.
+- **The three**, examined by that repair and deliberately left:
+
+1. **`listPackageRoots`'s per-package drop criterion.** A package whose `src/` is empty — or
+   unreadable, via the same `catch { return false }` — is dropped from the guard entirely: never
+   `missing`, never `stale`, never vouched for either. **No live instance**: two existing cases pin
+   the walk against git's index and against the `node_modules` links, and both agree on the real
+   tree. The filter is now **load-bearing in the other direction** — without it a package with an
+   empty `src/` would be `missing` forever (tsc emits nothing for it), so F1's post-build assertion
+   would refuse a tree that `REBUILD_COMMAND` can never repair. The drop is what makes the assertion
+   assertable; it is named here because it is the same "an entry can disappear from the guard
+   silently" shape.
+2. **`emitIsComplete` composed with `computeSourceDigest`.** `emitIsComplete` over an **absent**
+   `src/` is `false` (its `catch` covers both `readdirSync`s), but over an **empty** `src/` dir it is
+   `true` (`.every()` on no files) — and the digest of nothing is a constant that
+   `writePackageDistStamps` would happily record, leaving a package reading `fresh` over a `dist/`
+   built from deleted sources. Gated by the same empty-`src/` filter as (1), so no exported entry
+   point reaches it. The same "two safe-looking helpers compose into a vouch" shape, **one predicate
+   away from reachable**.
+3. **`scripts/write-package-dist-stamps.mjs`'s `0 package(s) recorded` exit-0 path.** With
+   `packages/` present but holding no src-bearing package it writes `{"packages":{}}`, prints
+   `0 package(s) recorded` and exits 0 — the writer's version of F2b. (An *absent* `packages/` fails
+   loudly with ENOENT on the stamp path, so only the empty-but-present case is quiet.) Its output
+   makes every real package `stale` in the guard, i.e. the safe direction, and the guard now refuses
+   the empty case outright — so this is **reported, not fixed**; the repair belongs to whoever next
+   owns that script.
+
+- **Examined in the same sweep and judged fine — do not re-sweep**: `hasBuild`'s `.js` filter (a
+  stray `.js` in `dist/` reads as "built"; the digest + emit pair then refuses rather than vouches);
+  the globalSetup reading only `result.built` (sound *only because the module throws* — the invariant
+  is "returned ⇒ established"); and the battery-level lesson that a test pinning a collaborator's
+  effect can stand in for the module's own contract and read as an arm that does not exist.
+- **Not fixed, deliberately**: repair 5's scope was F1 / F2a / F2b, and no executable line near these
+  three was changed.
+
+### 2.15 Four `low` findings on the same guard — measured, queued as work (rescued 2026-09-25)
+
+- **Where**: `scripts/packages-build-prerequisite.mjs` (lock + stamp semantics).
+- **Source of record**: `qa/security-rid-muf2sasw.md` — also a **gitignored** artifact. Rescued here
+  2026-09-25; the numbers are that report's, **not re-measured**.
+- **Disposition — decided 2026-09-25: these are work items, not accepted.** The decision was the
+  user's, as the previous session left it; the answer is "queue them". They remain `low`, and each
+  carries the reachability analysis that explains why — but "no reachable path on this host" is a
+  measurement about *this host*, not a verdict that the shape is fine. Fixing any of them touches
+  `scripts/`, so each is an RD slice, not an orchestrator edit.
+
+**F3 — the pre-created-lock wedge is real but narrower than its header implies, and platform-gated.**
+Measured: a lock file this process did not create, with a fresh mtime, is waited out and then refused —
+
+```
+THREW after 8111ms
+  msg: Another peaks-loop process holds the packages build lock (age 8s), so this run gave up after 8s.
+```
+
+— and it is **never broken**, because `LOCK_STALE_MS` (10 min) exceeds `LOCK_WAIT_MS` (60 s), so a
+repeated pre-create wedges every clean-checkout run at the full 60 s bound each time. Two corrections
+to the header's implication: the lock is taken **only when something is `missing`**, so a `fresh`
+tree never touches it (the wedge hits clean checkouts and CI, not warm trees); and on this platform
+another local user **cannot** create that file (`icacls %TEMP%` names only SYSTEM, Administrators,
+SMALL\small). The wedge *would* be reachable on a POSIX host with a shared `/tmp` (the sticky bit
+prevents deleting others' files, not creating one). **Not determinable on this host.** Collision
+(`LOCK_KEY_HEX_CHARS = 16` = 64 bits, `peaks-packages-build-…-8.lock` measured) is ~2^64 by accident;
+a *deliberate* targeted collision is ~2^32 and needs the same platform gate. Worst reached:
+serialization, plus a misleading message.
+
+**F4 — a lock broken as stale lets a non-holder delete the new holder's lock.** `acquireLock` unlinks
+a lock older than `LOCK_STALE_MS` and then loops to `openSync(…, 'wx')`; `releaseLock` unconditionally
+unlinks inside a `finally`; and there is no owner token (the file is empty). So A holds the lock for
+>10 min → B breaks it as stale and acquires → A's `finally` unlinks **B's** lock → C may then acquire
+concurrently with B. Same ABA with no collision at all. Reachable only if `PACKAGES_BUILD_COMMAND`
+exceeds 10 minutes, and **no reachable path was found on this host** — the repository's own
+`qa/cycle3/build-timings.log` records 9277 / 8909 / 8946 ms, all `exit=0`.
+
+**F5 — the stamp write is non-atomic and unlocked; the refusal misdiagnoses an unreadable stamp, and
+its named remedy fails.** `writeFileSync` (open-TRUNC + write) is not atomic, and `readStamps` maps
+any read or parse failure to `null`, which makes **every** package `stale`. **Recovery is real: this
+is NOT a permanent wedge** — both `build` and `pretest` run `write-package-dist-stamps.mjs`, which
+rewrites the file (measured: healthy → truncated → recovered by one `writePackageDistStamps`), and
+the refusal names `pnpm build`, so a torn stamp costs one refusal and one rebuild. Two things are
+still wrong at the edge. **No lock on the writer**: `write-package-dist-stamps.mjs` takes no lock
+while `ensurePackagesBuilt` does, so `pretest`'s stamp write can race a concurrent globalSetup write
+on the same 215-byte file — reachable with terminal A `pnpm test` and terminal B `pnpm test:unit`;
+the interleaved truncate is readable as an empty file, which parses to `null` and produces a spurious
+refusal that goes away on re-run. **And the message is false when the stamp path is unreadable as a
+file**: with the stamp path a directory and `dist/` present, the verdict is `stale` and the text
+blames `dist/` ("not built from their current src/") — which is false, the stamps are unreadable and
+the `dist/` is fine — while the remedy it names does not clear it (`Q3a writePackageDistStamps =>
+THREW EISDIR`, caught into `… FAILED` + `process.exit(1)`, so the `&&` chain in `build` never reaches
+`tsc`; read-only gives `EPERM` the same shape). **No reachable path was found** that puts a directory
+or a read-only file at `packages/.dist-stamps.json` — nothing in the repository does — which is why
+this is `low` and not the "un-clearable refusal" class cycle 2 found.
+
+**F6 — the stamp is followed out of the repository, and the guard's trust in it is unverifiable.**
+`packages/.dist-stamps.json` being a symlink makes `writeFileSync` overwrite the link **target**,
+outside the repository (measured: the target is no longer original), so a symlink there is a write
+primitive to any path the invoking user can write. **No reachable path was found that crosses a trust
+boundary** — the module runs as the developer, and an actor who can plant that symlink already has
+write access to `packages/` and can write `packages/*/dist` directly. The read side is read-only. One
+asymmetry: `listPackageRoots` uses `readdirSync(…, {withFileTypes:true})` + `entry.isDirectory()`,
+which does **not** follow symlinks, so a symlinked package directory is silently invisible to the
+guard — the safe direction for the guard, but it means the guard's package set can differ from pnpm's
+`--filter "./packages/*"` glob. **Forged staleness**: the stamp is content-derived but
+unauthenticated, and nothing links it to the `dist/` it describes (`emitIsComplete` checks existence
+only) — a hand-written stamp makes a `dist/` built from **old** `src/` read `fresh`, and the suite
+would then test code that is not the current `src/`, which is the exact failure the guard refuses in
+the `stale` direction. The stamp is **gitignored**, so a forged or hand-edited stamp is invisible to
+`git status` and to review. A repo-write attacker can forge the artifacts outright, so this is a
+**guard-integrity observation, not an escalation**: `info`.
+
+**And the comment defect that rides on F4** — the module's own `LOCK_WAIT_MS` comment (`:206`)
+justifies the 60 s bound as "measured at 2.94 s on a warm tree … ~20x that". This repository's own
+`qa/cycle3/build-timings.log` says **8.9–9.3 s**, and §2.13 records 8.89 s–14.2 s across four
+measurements. The bound is still adequate (~6.6× headroom, not 20×), so this is **comment accuracy,
+not behaviour** — but the comment presents a low outlier as the fact, inside the module that was
+built to stop numbers being carried forward. Untouched by request.
 
 ---
 
