@@ -5,9 +5,15 @@
  * incremental-first / no-touch-stockcode options to the CLI surface.
  *
  *   - `peaks lint baseline` — one-shot full-repo scan; writes
- *     `.peaks/lint/baseline.json` (project-level, gitignored by
- *     default). Each project regenerates its own baseline; the file
- *     is project-aware (D6 binding).
+ *     `.peaks/lint/baseline.json`. Each project regenerates its own
+ *     baseline (the file is project-aware, D6 binding). Whether that
+ *     file is committed is the project's choice, and this repository
+ *     commits it — `git ls-files` matches it here and `git check-ignore`
+ *     reports it is NOT ignored (measured on this checkout). It is
+ *     tracked deliberately, as the reference fixture the `baseline`
+ *     subcommand's own nextAction describes. `file` keys are written
+ *     repo-relative (`repoRelativeKey`), so a committed baseline stays
+ *     valid on a different checkout — an absolute key would not.
  *   - `peaks lint check` — default; diffOnly=true + baselineFile
  *     waiver + redLineMode='baseline-aware'. This is the LLM-facing
  *     Gate B5 entry point.
@@ -21,8 +27,11 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
 import { fail, ok } from 'peaks-loop-shared/result';
+import { CLI_VERSION } from 'peaks-loop-shared/version';
+import { repoRelativeKey } from '../../shared/path-utils.js';
 import { detectEslint } from '../../services/lint/detect-eslint.js';
 import {
+  resolveProjectRoot,
   runEslint,
   type EslintRunOptions,
   type EslintRunResult
@@ -50,15 +59,18 @@ function parseTimeoutMs(value: string | undefined): number | undefined {
 }
 
 function writeBaselineJson(
-  cwd: string,
+  projectRoot: string,
   baselineFile: string,
   result: EslintRunResult
 ): { path: string; violations: number } {
-  const fullPath = join(cwd, baselineFile);
+  const fullPath = join(projectRoot, baselineFile);
   mkdirSync(dirname(fullPath), { recursive: true });
+  // Write the SAME key the reader matches on. Writing ESLint's absolute
+  // `filePath` here is what re-rooted the file on whichever machine ran
+  // the command, so the next checkout inherited keys it could not match.
   const violations = result.findings.map((f) => ({
     ruleId: f.ruleId,
-    file: f.filePath,
+    file: repoRelativeKey(f.filePath, projectRoot),
     line: f.line,
     severity: f.severity,
     message: f.message
@@ -66,7 +78,7 @@ function writeBaselineJson(
   const payload = {
     version: 1,
     generatedAt: new Date().toISOString(),
-    toolVersion: 'peaks-loop-4.0.16+',
+    toolVersion: `peaks-loop-${CLI_VERSION}`,
     violations
   };
   writeFileSync(fullPath, JSON.stringify(payload, null, 2), 'utf8');
@@ -202,7 +214,7 @@ export function registerLintCommands(program: Command, io: ProgramIO): void {
     lint
       .command('baseline')
       .description(
-        'One-shot full-repo scan; writes .peaks/lint/baseline.json (project-level, gitignored by default).'
+        'One-shot full-repo scan; writes .peaks/lint/baseline.json with repo-relative file keys (project-level; this repository commits it as a reference fixture).'
       )
       .option('--scope <path>', 'lint scope (default: project root)')
       .option('--config <path>', 'explicit ESLint config path')
@@ -239,7 +251,7 @@ export function registerLintCommands(program: Command, io: ProgramIO): void {
     };
     const result = runEslint(runOptions);
     const baselineFile = options.baselineFile ?? '.peaks/lint/baseline.json';
-    const written = writeBaselineJson(cwd, baselineFile, result);
+    const written = writeBaselineJson(resolveProjectRoot(cwd), baselineFile, result);
     const envelope = ok(
       'code.lint.baseline',
       { state: result.state, findings: result.findings.length, ...written },

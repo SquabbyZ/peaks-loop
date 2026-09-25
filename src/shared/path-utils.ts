@@ -19,6 +19,32 @@ export function pathsEqual(a: string, b: string): boolean {
   return normalizePath(a) === normalizePath(b);
 }
 
+/**
+ * The comparison key for a file path that must survive a different checkout:
+ * repo-relative with POSIX separators.
+ *
+ * Rationale (lint baseline, measured 2026-09-25): ESLint reports `filePath`
+ * absolute for the machine it ran on (`D:\peaks-loop\src\cli\commands\…`),
+ * a committed baseline has to mean the same file on a *different* root, and
+ * `git diff` reports repo-relative paths. Comparing those forms by `!==` is
+ * false on every machine — which silently made both the baseline waiver and
+ * the diff gate inert. Every side of every such comparison must be reduced
+ * through this one function; reducing only one side is the same defect with
+ * an extra step.
+ *
+ * A path that cannot be expressed relative to `projectRoot` — another drive,
+ * or an already-relative key — is returned normalized-but-absolute, so it
+ * still compares consistently: it simply will not match a path rooted
+ * elsewhere. That is deliberate. A stale absolute key keeps working on the
+ * machine that wrote it and stays inert everywhere else, exactly as before.
+ */
+export function repoRelativeKey(filePath: string, projectRoot: string): string {
+  const normalized = normalizePath(filePath);
+  if (!isAbsolute(filePath)) return normalized.replace(/^\.\//, '');
+  const rel = normalizePath(relative(projectRoot, filePath));
+  return rel.length === 0 || rel.startsWith('..') || isAbsolute(rel) ? normalized : rel;
+}
+
 export function localPath(p: string, targetPlatform: Platform = platform): string {
   return localPathConverters[targetPlatform](p);
 }

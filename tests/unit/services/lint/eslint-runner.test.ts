@@ -207,7 +207,7 @@ describe('runEslint', () => {
       ];
       queueSpawnSequence([
         { status: 1, stdout: JSON.stringify(payload) }, // npx eslint: finding emitted
-        { status: 0, stdout: '' } // git diff: no hunks — finding filtered, then no baseline match possible
+        { status: 0, stdout: '' } // unused: diffOnly=false never consults git diff
       ]);
 
       // when: runEslint is invoked with diffOnly=false (so diff filter doesn't drop the finding)

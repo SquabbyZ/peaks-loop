@@ -5,1344 +5,1344 @@
   "violations": [
     {
       "ruleId": null,
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\packages\\peaks-loop-mut\\src\\index.ts",
+      "file": "packages/peaks-loop-mut/src/index.ts",
       "line": 0,
       "severity": "error",
       "message": "Parsing error: \"parserOptions.project\" has been provided for @typescript-eslint/parser.\nThe file was not found in any of the provided project(s): packages\\peaks-loop-mut\\src\\index.ts"
     },
     {
       "ruleId": null,
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\packages\\peaks-loop-mut\\src\\services\\agent\\ecc-cache-service.ts",
+      "file": "packages/peaks-loop-mut/src/services/agent/ecc-cache-service.ts",
       "line": 0,
       "severity": "error",
       "message": "Parsing error: \"parserOptions.project\" has been provided for @typescript-eslint/parser.\nThe file was not found in any of the provided project(s): packages\\peaks-loop-mut\\src\\services\\agent\\ecc-cache-service.ts"
     },
     {
       "ruleId": null,
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\packages\\peaks-loop-mut\\src\\services\\mut\\assert-scanner.ts",
+      "file": "packages/peaks-loop-mut/src/services/mut/assert-scanner.ts",
       "line": 0,
       "severity": "error",
       "message": "Parsing error: \"parserOptions.project\" has been provided for @typescript-eslint/parser.\nThe file was not found in any of the provided project(s): packages\\peaks-loop-mut\\src\\services\\mut\\assert-scanner.ts"
     },
     {
       "ruleId": null,
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\packages\\peaks-loop-mut\\src\\services\\mut\\index.ts",
+      "file": "packages/peaks-loop-mut/src/services/mut/index.ts",
       "line": 0,
       "severity": "error",
       "message": "Parsing error: \"parserOptions.project\" has been provided for @typescript-eslint/parser.\nThe file was not found in any of the provided project(s): packages\\peaks-loop-mut\\src\\services\\mut\\index.ts"
     },
     {
       "ruleId": null,
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\packages\\peaks-loop-mut\\src\\services\\mut\\mut-runner.ts",
+      "file": "packages/peaks-loop-mut/src/services/mut/mut-runner.ts",
       "line": 0,
       "severity": "error",
       "message": "Parsing error: \"parserOptions.project\" has been provided for @typescript-eslint/parser.\nThe file was not found in any of the provided project(s): packages\\peaks-loop-mut\\src\\services\\mut\\mut-runner.ts"
     },
     {
       "ruleId": null,
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\packages\\peaks-loop-mut\\src\\services\\mut\\production-stryker.ts",
+      "file": "packages/peaks-loop-mut/src/services/mut/production-stryker.ts",
       "line": 0,
       "severity": "error",
       "message": "Parsing error: \"parserOptions.project\" has been provided for @typescript-eslint/parser.\nThe file was not found in any of the provided project(s): packages\\peaks-loop-mut\\src\\services\\mut\\production-stryker.ts"
     },
     {
       "ruleId": null,
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\packages\\peaks-loop-mut\\src\\services\\mut\\report-builder.ts",
+      "file": "packages/peaks-loop-mut/src/services/mut/report-builder.ts",
       "line": 0,
       "severity": "error",
       "message": "Parsing error: \"parserOptions.project\" has been provided for @typescript-eslint/parser.\nThe file was not found in any of the provided project(s): packages\\peaks-loop-mut\\src\\services\\mut\\report-builder.ts"
     },
     {
       "ruleId": null,
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\packages\\peaks-loop-mut\\src\\services\\mut\\report-loader.ts",
+      "file": "packages/peaks-loop-mut/src/services/mut/report-loader.ts",
       "line": 0,
       "severity": "error",
       "message": "Parsing error: \"parserOptions.project\" has been provided for @typescript-eslint/parser.\nThe file was not found in any of the provided project(s): packages\\peaks-loop-mut\\src\\services\\mut\\report-loader.ts"
     },
     {
       "ruleId": null,
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\packages\\peaks-loop-mut\\src\\services\\mut\\thresholds.ts",
+      "file": "packages/peaks-loop-mut/src/services/mut/thresholds.ts",
       "line": 0,
       "severity": "error",
       "message": "Parsing error: \"parserOptions.project\" has been provided for @typescript-eslint/parser.\nThe file was not found in any of the provided project(s): packages\\peaks-loop-mut\\src\\services\\mut\\thresholds.ts"
     },
     {
       "ruleId": null,
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\packages\\peaks-loop-mut\\src\\services\\mut\\types.ts",
+      "file": "packages/peaks-loop-mut/src/services/mut/types.ts",
       "line": 0,
       "severity": "error",
       "message": "Parsing error: \"parserOptions.project\" has been provided for @typescript-eslint/parser.\nThe file was not found in any of the provided project(s): packages\\peaks-loop-mut\\src\\services\\mut\\types.ts"
     },
     {
       "ruleId": null,
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\packages\\peaks-loop-mut\\src\\shared\\frontmatter.ts",
+      "file": "packages/peaks-loop-mut/src/shared/frontmatter.ts",
       "line": 0,
       "severity": "error",
       "message": "Parsing error: \"parserOptions.project\" has been provided for @typescript-eslint/parser.\nThe file was not found in any of the provided project(s): packages\\peaks-loop-mut\\src\\shared\\frontmatter.ts"
     },
     {
       "ruleId": null,
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\packages\\peaks-loop-mut\\tests\\thresholds.test.ts",
+      "file": "packages/peaks-loop-mut/tests/thresholds.test.ts",
       "line": 0,
       "severity": "error",
       "message": "Parsing error: \"parserOptions.project\" has been provided for @typescript-eslint/parser.\nThe file was not found in any of the provided project(s): packages\\peaks-loop-mut\\tests\\thresholds.test.ts"
     },
     {
       "ruleId": null,
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\packages\\peaks-loop-mut\\vitest.config.ts",
+      "file": "packages/peaks-loop-mut/vitest.config.ts",
       "line": 0,
       "severity": "error",
       "message": "Parsing error: \"parserOptions.project\" has been provided for @typescript-eslint/parser.\nThe file was not found in any of the provided project(s): packages\\peaks-loop-mut\\vitest.config.ts"
     },
     {
       "ruleId": null,
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\packages\\peaks-loop-shared-channel\\src\\dispatch-context-guard.ts",
+      "file": "packages/peaks-loop-shared-channel/src/dispatch-context-guard.ts",
       "line": 0,
       "severity": "error",
       "message": "Parsing error: \"parserOptions.project\" has been provided for @typescript-eslint/parser.\nThe file was not found in any of the provided project(s): packages\\peaks-loop-shared-channel\\src\\dispatch-context-guard.ts"
     },
     {
       "ruleId": null,
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\packages\\peaks-loop-shared-channel\\src\\file-lock.ts",
+      "file": "packages/peaks-loop-shared-channel/src/file-lock.ts",
       "line": 0,
       "severity": "error",
       "message": "Parsing error: \"parserOptions.project\" has been provided for @typescript-eslint/parser.\nThe file was not found in any of the provided project(s): packages\\peaks-loop-shared-channel\\src\\file-lock.ts"
     },
     {
       "ruleId": null,
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\packages\\peaks-loop-shared-channel\\src\\index.ts",
+      "file": "packages/peaks-loop-shared-channel/src/index.ts",
       "line": 0,
       "severity": "error",
       "message": "Parsing error: \"parserOptions.project\" has been provided for @typescript-eslint/parser.\nThe file was not found in any of the provided project(s): packages\\peaks-loop-shared-channel\\src\\index.ts"
     },
     {
       "ruleId": null,
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\packages\\peaks-loop-shared-channel\\src\\shared-channel.ts",
+      "file": "packages/peaks-loop-shared-channel/src/shared-channel.ts",
       "line": 0,
       "severity": "error",
       "message": "Parsing error: \"parserOptions.project\" has been provided for @typescript-eslint/parser.\nThe file was not found in any of the provided project(s): packages\\peaks-loop-shared-channel\\src\\shared-channel.ts"
     },
     {
       "ruleId": null,
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\packages\\peaks-loop-shared-channel\\tests\\shared-channel.test.ts",
+      "file": "packages/peaks-loop-shared-channel/tests/shared-channel.test.ts",
       "line": 0,
       "severity": "error",
       "message": "Parsing error: \"parserOptions.project\" has been provided for @typescript-eslint/parser.\nThe file was not found in any of the provided project(s): packages\\peaks-loop-shared-channel\\tests\\shared-channel.test.ts"
     },
     {
       "ruleId": null,
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\packages\\peaks-loop-shared-channel\\vitest.config.ts",
+      "file": "packages/peaks-loop-shared-channel/vitest.config.ts",
       "line": 0,
       "severity": "error",
       "message": "Parsing error: \"parserOptions.project\" has been provided for @typescript-eslint/parser.\nThe file was not found in any of the provided project(s): packages\\peaks-loop-shared-channel\\vitest.config.ts"
     },
     {
       "ruleId": null,
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\packages\\peaks-loop-shared\\src\\fs.ts",
+      "file": "packages/peaks-loop-shared/src/fs.ts",
       "line": 0,
       "severity": "error",
       "message": "Parsing error: \"parserOptions.project\" has been provided for @typescript-eslint/parser.\nThe file was not found in any of the provided project(s): packages\\peaks-loop-shared\\src\\fs.ts"
     },
     {
       "ruleId": null,
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\packages\\peaks-loop-shared\\src\\index.ts",
+      "file": "packages/peaks-loop-shared/src/index.ts",
       "line": 0,
       "severity": "error",
       "message": "Parsing error: \"parserOptions.project\" has been provided for @typescript-eslint/parser.\nThe file was not found in any of the provided project(s): packages\\peaks-loop-shared\\src\\index.ts"
     },
     {
       "ruleId": null,
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\packages\\peaks-loop-shared\\src\\paths.ts",
+      "file": "packages/peaks-loop-shared/src/paths.ts",
       "line": 0,
       "severity": "error",
       "message": "Parsing error: \"parserOptions.project\" has been provided for @typescript-eslint/parser.\nThe file was not found in any of the provided project(s): packages\\peaks-loop-shared\\src\\paths.ts"
     },
     {
       "ruleId": null,
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\packages\\peaks-loop-shared\\src\\result.ts",
+      "file": "packages/peaks-loop-shared/src/result.ts",
       "line": 0,
       "severity": "error",
       "message": "Parsing error: \"parserOptions.project\" has been provided for @typescript-eslint/parser.\nThe file was not found in any of the provided project(s): packages\\peaks-loop-shared\\src\\result.ts"
     },
     {
       "ruleId": null,
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\packages\\peaks-loop-shared\\src\\version.ts",
+      "file": "packages/peaks-loop-shared/src/version.ts",
       "line": 0,
       "severity": "error",
       "message": "Parsing error: \"parserOptions.project\" has been provided for @typescript-eslint/parser.\nThe file was not found in any of the provided project(s): packages\\peaks-loop-shared\\src\\version.ts"
     },
     {
       "ruleId": null,
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\packages\\peaks-loop-shared\\vitest.config.ts",
+      "file": "packages/peaks-loop-shared/vitest.config.ts",
       "line": 0,
       "severity": "error",
       "message": "Parsing error: \"parserOptions.project\" has been provided for @typescript-eslint/parser.\nThe file was not found in any of the provided project(s): packages\\peaks-loop-shared\\vitest.config.ts"
     },
     {
       "ruleId": null,
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\scripts\\_release-shared.d.mts",
+      "file": "scripts/_release-shared.d.mts",
       "line": 0,
       "severity": "error",
       "message": "Parsing error: \"parserOptions.project\" has been provided for @typescript-eslint/parser.\nThe file was not found in any of the provided project(s): scripts\\_release-shared.d.mts"
     },
     {
       "ruleId": null,
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\scripts\\fix-dispatcher.js",
+      "file": "scripts/fix-dispatcher.js",
       "line": 0,
       "severity": "error",
       "message": "Parsing error: \"parserOptions.project\" has been provided for @typescript-eslint/parser.\nThe file was not found in any of the provided project(s): scripts\\fix-dispatcher.js"
     },
     {
       "ruleId": null,
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\scripts\\release-pack.d.mts",
+      "file": "scripts/release-pack.d.mts",
       "line": 0,
       "severity": "error",
       "message": "Parsing error: \"parserOptions.project\" has been provided for @typescript-eslint/parser.\nThe file was not found in any of the provided project(s): scripts\\release-pack.d.mts"
     },
     {
       "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\commands\\cron-commands.ts",
+      "file": "src/cli/commands/cron-commands.ts",
       "line": 51,
       "severity": "warn",
       "message": "No magic number: 5."
     },
     {
       "ruleId": "complexity",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\commands\\cron-commands.ts",
+      "file": "src/cli/commands/cron-commands.ts",
       "line": 92,
       "severity": "warn",
       "message": "Function 'readSchedule' has a complexity of 18. Maximum allowed is 10."
     },
     {
       "ruleId": "@typescript-eslint/no-unnecessary-type-assertion",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\commands\\cron-commands.ts",
+      "file": "src/cli/commands/cron-commands.ts",
       "line": 123,
       "severity": "error",
       "message": "This assertion is unnecessary since the receiver accepts the original type of the expression."
     },
     {
       "ruleId": "max-lines-per-function",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\commands\\cron-commands.ts",
+      "file": "src/cli/commands/cron-commands.ts",
       "line": 206,
       "severity": "error",
       "message": "Function 'registerCronCommand' has too many lines (130). Maximum allowed is 50."
     },
     {
       "ruleId": "@typescript-eslint/no-unused-vars",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\commands\\cron-commands.ts",
+      "file": "src/cli/commands/cron-commands.ts",
       "line": 305,
       "severity": "error",
       "message": "'now' is assigned a value but never used."
     },
     {
       "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\commands\\dashboard-long-run.ts",
+      "file": "src/cli/commands/dashboard-long-run.ts",
       "line": 11,
       "severity": "warn",
       "message": "No magic number: 60."
     },
     {
       "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\commands\\dashboard-long-run.ts",
+      "file": "src/cli/commands/dashboard-long-run.ts",
       "line": 12,
       "severity": "warn",
       "message": "No magic number: 60."
     },
     {
       "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\commands\\dashboard-long-run.ts",
+      "file": "src/cli/commands/dashboard-long-run.ts",
       "line": 13,
       "severity": "warn",
       "message": "No magic number: 24."
     },
     {
       "ruleId": "complexity",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\commands\\dashboard-long-run.ts",
+      "file": "src/cli/commands/dashboard-long-run.ts",
       "line": 46,
       "severity": "warn",
       "message": "Function 'boundaryLabel' has a complexity of 11. Maximum allowed is 10."
     },
     {
       "ruleId": "max-lines-per-function",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\commands\\dashboard-long-run.ts",
+      "file": "src/cli/commands/dashboard-long-run.ts",
       "line": 61,
       "severity": "error",
       "message": "Function 'registerDashboardLongRunCommand' has too many lines (66). Maximum allowed is 50."
     },
     {
       "ruleId": "max-lines-per-function",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\commands\\dashboard-long-run.ts",
+      "file": "src/cli/commands/dashboard-long-run.ts",
       "line": 69,
       "severity": "error",
       "message": "Async arrow function has too many lines (57). Maximum allowed is 50."
     },
     {
       "ruleId": "complexity",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\commands\\dashboard-long-run.ts",
+      "file": "src/cli/commands/dashboard-long-run.ts",
       "line": 69,
       "severity": "warn",
       "message": "Async arrow function has a complexity of 15. Maximum allowed is 10."
     },
     {
       "ruleId": "max-lines-per-function",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\commands\\slice-commands.ts",
+      "file": "src/cli/commands/slice-commands.ts",
       "line": 28,
       "severity": "error",
       "message": "Function 'registerSliceCommands' has too many lines (334). Maximum allowed is 50."
     },
     {
       "ruleId": "complexity",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\commands\\slice-commands.ts",
+      "file": "src/cli/commands/slice-commands.ts",
       "line": 100,
       "severity": "warn",
       "message": "Arrow function has a complexity of 15. Maximum allowed is 10."
     },
     {
       "ruleId": "max-lines-per-function",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\commands\\slice-commands.ts",
+      "file": "src/cli/commands/slice-commands.ts",
       "line": 172,
       "severity": "error",
       "message": "Async arrow function has too many lines (99). Maximum allowed is 50."
     },
     {
       "ruleId": "complexity",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\commands\\slice-commands.ts",
+      "file": "src/cli/commands/slice-commands.ts",
       "line": 172,
       "severity": "warn",
       "message": "Async arrow function has a complexity of 21. Maximum allowed is 10."
     },
     {
       "ruleId": "@typescript-eslint/require-await",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\commands\\slice-commands.ts",
+      "file": "src/cli/commands/slice-commands.ts",
       "line": 341,
       "severity": "error",
       "message": "Async arrow function has no 'await' expression."
     },
     {
       "ruleId": "@typescript-eslint/no-non-null-assertion",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\commands\\slice-commands.ts",
+      "file": "src/cli/commands/slice-commands.ts",
       "line": 355,
       "severity": "warn",
       "message": "Forbidden non-null assertion."
     },
     {
       "ruleId": "max-lines",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\commands\\slice-commands.ts",
+      "file": "src/cli/commands/slice-commands.ts",
       "line": 440,
       "severity": "error",
       "message": "File has too many lines (517). Maximum allowed is 400."
     },
     {
       "ruleId": "@typescript-eslint/no-unnecessary-type-assertion",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\commands\\slice-commands.ts",
+      "file": "src/cli/commands/slice-commands.ts",
       "line": 595,
       "severity": "error",
       "message": "This assertion is unnecessary since the receiver accepts the original type of the expression."
     },
     {
       "ruleId": "max-params",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\audit\\enforcers\\lint-reference-shape.ts",
+      "file": "src/services/audit/enforcers/lint-reference-shape.ts",
       "line": 71,
       "severity": "warn",
       "message": "Function 'hit' has too many parameters (5). Maximum allowed is 4."
     },
     {
       "ruleId": "complexity",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\audit\\enforcers\\lint-reference-shape.ts",
+      "file": "src/services/audit/enforcers/lint-reference-shape.ts",
       "line": 165,
       "severity": "warn",
       "message": "Function 'lintNoOrphanLink' has a complexity of 12. Maximum allowed is 10."
     },
     {
       "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\audit\\enforcers\\lint-reference-shape.ts",
+      "file": "src/services/audit/enforcers/lint-reference-shape.ts",
       "line": 195,
       "severity": "warn",
       "message": "No magic number: 800."
     },
     {
       "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\audit\\enforcers\\lint-reference-shape.ts",
+      "file": "src/services/audit/enforcers/lint-reference-shape.ts",
       "line": 207,
       "severity": "warn",
       "message": "No magic number: 12."
     },
     {
       "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\code\\auto-compact-orchestrator.ts",
+      "file": "src/services/code/auto-compact-orchestrator.ts",
       "line": 184,
       "severity": "warn",
       "message": "No magic number: 0.5."
     },
     {
       "ruleId": "complexity",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\code\\auto-compact-orchestrator.ts",
+      "file": "src/services/code/auto-compact-orchestrator.ts",
       "line": 237,
       "severity": "warn",
       "message": "Function 'evaluateAutoCompactDecision' has a complexity of 11. Maximum allowed is 10."
     },
     {
       "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\code\\auto-compact-orchestrator.ts",
+      "file": "src/services/code/auto-compact-orchestrator.ts",
       "line": 463,
       "severity": "warn",
       "message": "No magic number: 16."
     },
     {
       "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\code\\auto-compact-orchestrator.ts",
+      "file": "src/services/code/auto-compact-orchestrator.ts",
       "line": 463,
       "severity": "warn",
       "message": "No magic number: 8."
     },
     {
       "ruleId": "@typescript-eslint/no-base-to-string",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\code\\auto-compact-orchestrator.ts",
+      "file": "src/services/code/auto-compact-orchestrator.ts",
       "line": 601,
       "severity": "error",
       "message": "'error' will use Object's default stringification format ('[object Object]') when stringified."
     },
     {
       "ruleId": "max-lines-per-function",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\code\\auto-compact-orchestrator.ts",
+      "file": "src/services/code/auto-compact-orchestrator.ts",
       "line": 703,
       "severity": "error",
       "message": "Async function 'runAutoCompact' has too many lines (196). Maximum allowed is 50."
     },
     {
       "ruleId": "complexity",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\code\\auto-compact-orchestrator.ts",
+      "file": "src/services/code/auto-compact-orchestrator.ts",
       "line": 703,
       "severity": "warn",
       "message": "Async function 'runAutoCompact' has a complexity of 25. Maximum allowed is 10."
     },
     {
       "ruleId": "max-lines",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\code\\auto-compact-orchestrator.ts",
+      "file": "src/services/code/auto-compact-orchestrator.ts",
       "line": 774,
       "severity": "error",
       "message": "File has too many lines (574). Maximum allowed is 400."
     },
     {
       "ruleId": "complexity",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\compact-statusline\\compact-statusline-service.ts",
+      "file": "src/services/compact-statusline/compact-statusline-service.ts",
       "line": 299,
       "severity": "warn",
       "message": "Function 'renderCompactStatusline' has a complexity of 11. Maximum allowed is 10."
     },
     {
       "ruleId": "@typescript-eslint/no-unnecessary-type-assertion",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\container\\container-lease.ts",
+      "file": "src/services/container/container-lease.ts",
       "line": 49,
       "severity": "error",
       "message": "This assertion is unnecessary since the receiver accepts the original type of the expression."
     },
     {
       "ruleId": "complexity",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\container\\container-lease.ts",
+      "file": "src/services/container/container-lease.ts",
       "line": 139,
       "severity": "warn",
       "message": "Function 'deserializeContainerLease' has a complexity of 14. Maximum allowed is 10."
     },
     {
       "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\crystallization\\crystallization-types.ts",
+      "file": "src/services/crystallization/crystallization-types.ts",
       "line": 13,
       "severity": "warn",
       "message": "No magic number: 31."
     },
     {
       "ruleId": "@typescript-eslint/no-unnecessary-type-assertion",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\crystallization\\crystallization-types.ts",
+      "file": "src/services/crystallization/crystallization-types.ts",
       "line": 265,
       "severity": "error",
       "message": "This assertion is unnecessary since it does not change the type of the expression."
     },
     {
       "ruleId": "@typescript-eslint/no-unnecessary-type-assertion",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\crystallization\\crystallization-types.ts",
+      "file": "src/services/crystallization/crystallization-types.ts",
       "line": 273,
       "severity": "error",
       "message": "This assertion is unnecessary since it does not change the type of the expression."
     },
     {
       "ruleId": "@typescript-eslint/no-unnecessary-type-assertion",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\crystallization\\crystallization-types.ts",
+      "file": "src/services/crystallization/crystallization-types.ts",
       "line": 294,
       "severity": "error",
       "message": "This assertion is unnecessary since it does not change the type of the expression."
     },
     {
       "ruleId": "@typescript-eslint/no-unnecessary-type-assertion",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\crystallization\\crystallization-types.ts",
+      "file": "src/services/crystallization/crystallization-types.ts",
       "line": 320,
       "severity": "error",
       "message": "This assertion is unnecessary since it does not change the type of the expression."
     },
     {
       "ruleId": "@typescript-eslint/only-throw-error",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\crystallization\\evidence-brief-builder.ts",
+      "file": "src/services/crystallization/evidence-brief-builder.ts",
       "line": 183,
       "severity": "error",
       "message": "Expected an error object to be thrown."
     },
     {
       "ruleId": "@typescript-eslint/no-unnecessary-type-assertion",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\crystallization\\evidence-brief-builder.ts",
+      "file": "src/services/crystallization/evidence-brief-builder.ts",
       "line": 211,
       "severity": "error",
       "message": "This assertion is unnecessary since it does not change the type of the expression."
     },
     {
       "ruleId": "@typescript-eslint/no-unused-vars",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\dispatch\\dispatch-record-writer.ts",
+      "file": "src/services/dispatch/dispatch-record-writer.ts",
       "line": 296,
       "severity": "error",
       "message": "'REDACTION_MAX_SCAN_DEPTH' is assigned a value but never used."
     },
     {
       "ruleId": "max-lines-per-function",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\dispatch\\dispatch-record-writer.ts",
+      "file": "src/services/dispatch/dispatch-record-writer.ts",
       "line": 299,
       "severity": "error",
       "message": "Function 'writeInitialDispatchRecord' has too many lines (58). Maximum allowed is 50."
     },
     {
       "ruleId": "complexity",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\dispatch\\dispatch-record-writer.ts",
+      "file": "src/services/dispatch/dispatch-record-writer.ts",
       "line": 299,
       "severity": "warn",
       "message": "Function 'writeInitialDispatchRecord' has a complexity of 14. Maximum allowed is 10."
     },
     {
       "ruleId": "complexity",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\dispatch\\dispatch-record-writer.ts",
+      "file": "src/services/dispatch/dispatch-record-writer.ts",
       "line": 469,
       "severity": "warn",
       "message": "Function 'unregisterActiveDispatch' has a complexity of 16. Maximum allowed is 10."
     },
     {
       "ruleId": "prefer-const",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\dispatch\\dispatch-record-writer.ts",
+      "file": "src/services/dispatch/dispatch-record-writer.ts",
       "line": 477,
       "severity": "warn",
       "message": "'index' is never reassigned. Use 'const' instead."
     },
     {
       "ruleId": "@typescript-eslint/no-non-null-assertion",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\dispatch\\dispatch-record-writer.ts",
+      "file": "src/services/dispatch/dispatch-record-writer.ts",
       "line": 492,
       "severity": "warn",
       "message": "Forbidden non-null assertion."
     },
     {
       "ruleId": "@typescript-eslint/no-unused-vars",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\dispatch\\dispatch-record-writer.ts",
+      "file": "src/services/dispatch/dispatch-record-writer.ts",
       "line": 586,
       "severity": "error",
       "message": "'truncated' is assigned a value but never used."
     },
     {
       "ruleId": "@typescript-eslint/no-unused-vars",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\dispatch\\dispatch-record-writer.ts",
+      "file": "src/services/dispatch/dispatch-record-writer.ts",
       "line": 587,
       "severity": "error",
       "message": "'next' is assigned a value but never used."
     },
     {
       "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\dispatch\\dispatch-record-writer.ts",
+      "file": "src/services/dispatch/dispatch-record-writer.ts",
       "line": 627,
       "severity": "warn",
       "message": "No magic number: -100."
     },
     {
       "ruleId": "max-lines-per-function",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\dispatch\\dispatch-record-writer.ts",
+      "file": "src/services/dispatch/dispatch-record-writer.ts",
       "line": 660,
       "severity": "error",
       "message": "Function 'tryAutoReleaseLease' has too many lines (62). Maximum allowed is 50."
     },
     {
       "ruleId": "max-lines",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\dispatch\\dispatch-record-writer.ts",
+      "file": "src/services/dispatch/dispatch-record-writer.ts",
       "line": 705,
       "severity": "error",
       "message": "File has too many lines (699). Maximum allowed is 400."
     },
     {
       "ruleId": "max-lines-per-function",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\dispatch\\dispatch-record-writer.ts",
+      "file": "src/services/dispatch/dispatch-record-writer.ts",
       "line": 751,
       "severity": "error",
       "message": "Function 'markCompleted' has too many lines (71). Maximum allowed is 50."
     },
     {
       "ruleId": "complexity",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\dispatch\\dispatch-record-writer.ts",
+      "file": "src/services/dispatch/dispatch-record-writer.ts",
       "line": 751,
       "severity": "warn",
       "message": "Function 'markCompleted' has a complexity of 12. Maximum allowed is 10."
     },
     {
       "ruleId": "max-lines-per-function",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\dispatch\\dispatch-record-writer.ts",
+      "file": "src/services/dispatch/dispatch-record-writer.ts",
       "line": 948,
       "severity": "error",
       "message": "Function 'upgradeRecord' has too many lines (82). Maximum allowed is 50."
     },
     {
       "ruleId": "complexity",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\dispatch\\dispatch-record-writer.ts",
+      "file": "src/services/dispatch/dispatch-record-writer.ts",
       "line": 948,
       "severity": "warn",
       "message": "Function 'upgradeRecord' has a complexity of 36. Maximum allowed is 10."
     },
     {
       "ruleId": "@typescript-eslint/no-unnecessary-type-assertion",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\dispatch\\dispatch-record-writer.ts",
+      "file": "src/services/dispatch/dispatch-record-writer.ts",
       "line": 952,
       "severity": "error",
       "message": "This assertion is unnecessary since it does not change the type of the expression."
     },
     {
       "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\dispatch\\dispatch-record-writer.ts",
+      "file": "src/services/dispatch/dispatch-record-writer.ts",
       "line": 957,
       "severity": "warn",
       "message": "No magic number: 3."
     },
     {
       "ruleId": "@typescript-eslint/no-unnecessary-type-assertion",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\dispatch\\dispatch-record-writer.ts",
+      "file": "src/services/dispatch/dispatch-record-writer.ts",
       "line": 975,
       "severity": "error",
       "message": "This assertion is unnecessary since it does not change the type of the expression."
     },
     {
       "ruleId": "@typescript-eslint/no-unnecessary-type-assertion",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\dispatch\\dispatch-record-writer.ts",
+      "file": "src/services/dispatch/dispatch-record-writer.ts",
       "line": 976,
       "severity": "error",
       "message": "This assertion is unnecessary since the receiver accepts the original type of the expression."
     },
     {
       "ruleId": "@typescript-eslint/no-unnecessary-type-assertion",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\dispatch\\dispatch-record-writer.ts",
+      "file": "src/services/dispatch/dispatch-record-writer.ts",
       "line": 981,
       "severity": "error",
       "message": "This assertion is unnecessary since it does not change the type of the expression."
     },
     {
       "ruleId": "@typescript-eslint/no-unnecessary-type-assertion",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\evolution\\evolution-types.ts",
+      "file": "src/services/evolution/evolution-types.ts",
       "line": 315,
       "severity": "error",
       "message": "This assertion is unnecessary since it does not change the type of the expression."
     },
     {
       "ruleId": "@typescript-eslint/no-unnecessary-type-assertion",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\evolution\\evolution-types.ts",
+      "file": "src/services/evolution/evolution-types.ts",
       "line": 329,
       "severity": "error",
       "message": "This assertion is unnecessary since it does not change the type of the expression."
     },
     {
       "ruleId": "@typescript-eslint/no-unnecessary-type-assertion",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\evolution\\evolution-types.ts",
+      "file": "src/services/evolution/evolution-types.ts",
       "line": 344,
       "severity": "error",
       "message": "This assertion is unnecessary since it does not change the type of the expression."
     },
     {
       "ruleId": "@typescript-eslint/no-unused-vars",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\feedback\\feedback-promotion-service.ts",
+      "file": "src/services/feedback/feedback-promotion-service.ts",
       "line": 39,
       "severity": "error",
       "message": "'STDERR_TRUNCATE_BYTES' is assigned a value but never used."
     },
     {
       "ruleId": "max-lines-per-function",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\feedback\\feedback-promotion-service.ts",
+      "file": "src/services/feedback/feedback-promotion-service.ts",
       "line": 92,
       "severity": "error",
       "message": "Function 'parseFeedbackMemory' has too many lines (65). Maximum allowed is 50."
     },
     {
       "ruleId": "complexity",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\feedback\\feedback-promotion-service.ts",
+      "file": "src/services/feedback/feedback-promotion-service.ts",
       "line": 92,
       "severity": "warn",
       "message": "Function 'parseFeedbackMemory' has a complexity of 23. Maximum allowed is 10."
     },
     {
       "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\feedback\\feedback-promotion-service.ts",
+      "file": "src/services/feedback/feedback-promotion-service.ts",
       "line": 102,
       "severity": "warn",
       "message": "No magic number: 4."
     },
     {
       "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\feedback\\feedback-promotion-service.ts",
+      "file": "src/services/feedback/feedback-promotion-service.ts",
       "line": 105,
       "severity": "warn",
       "message": "No magic number: 4."
     },
     {
       "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\feedback\\feedback-promotion-service.ts",
+      "file": "src/services/feedback/feedback-promotion-service.ts",
       "line": 170,
       "severity": "warn",
       "message": "No magic number: -3."
     },
     {
       "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\feedback\\feedback-promotion-service.ts",
+      "file": "src/services/feedback/feedback-promotion-service.ts",
       "line": 226,
       "severity": "warn",
       "message": "No magic number: 4."
     },
     {
       "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\feedback\\feedback-promotion-service.ts",
+      "file": "src/services/feedback/feedback-promotion-service.ts",
       "line": 228,
       "severity": "warn",
       "message": "No magic number: 4."
     },
     {
       "ruleId": "max-lines-per-function",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\feedback\\feedback-promotion-service.ts",
+      "file": "src/services/feedback/feedback-promotion-service.ts",
       "line": 291,
       "severity": "error",
       "message": "Function 'promoteFeedback' has too many lines (71). Maximum allowed is 50."
     },
     {
       "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\feedback\\feedback-promotion-service.ts",
+      "file": "src/services/feedback/feedback-promotion-service.ts",
       "line": 325,
       "severity": "warn",
       "message": "No magic number: 4."
     },
     {
       "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\lint\\eslint-runner.ts",
+      "file": "src/services/lint/eslint-runner.ts",
       "line": 37,
       "severity": "warn",
       "message": "No magic number: 16."
     },
     {
       "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\lint\\eslint-runner.ts",
+      "file": "src/services/lint/eslint-runner.ts",
       "line": 38,
       "severity": "warn",
       "message": "No magic number: 32."
     },
     {
       "ruleId": "complexity",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\lint\\eslint-runner.ts",
+      "file": "src/services/lint/eslint-runner.ts",
       "line": 158,
       "severity": "warn",
       "message": "Function 'loadDiffRanges' has a complexity of 16. Maximum allowed is 10."
     },
     {
       "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\lint\\eslint-runner.ts",
+      "file": "src/services/lint/eslint-runner.ts",
       "line": 173,
       "severity": "warn",
       "message": "No magic number: 4."
     },
     {
       "ruleId": "@typescript-eslint/no-unsafe-member-access",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\lint\\eslint-runner.ts",
+      "file": "src/services/lint/eslint-runner.ts",
       "line": 239,
       "severity": "error",
       "message": "Unsafe member access .ruleId on an `any` value."
     },
     {
       "ruleId": "@typescript-eslint/no-unsafe-member-access",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\lint\\eslint-runner.ts",
+      "file": "src/services/lint/eslint-runner.ts",
       "line": 239,
       "severity": "error",
       "message": "Unsafe member access .file on an `any` value."
     },
     {
       "ruleId": "@typescript-eslint/no-unsafe-member-access",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\lint\\eslint-runner.ts",
+      "file": "src/services/lint/eslint-runner.ts",
       "line": 239,
       "severity": "error",
       "message": "Unsafe member access .line on an `any` value."
     },
     {
       "ruleId": "@typescript-eslint/no-unsafe-assignment",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\lint\\eslint-runner.ts",
+      "file": "src/services/lint/eslint-runner.ts",
       "line": 241,
       "severity": "error",
       "message": "Unsafe assignment of an `any` value."
     },
     {
       "ruleId": "@typescript-eslint/no-unsafe-member-access",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\lint\\eslint-runner.ts",
+      "file": "src/services/lint/eslint-runner.ts",
       "line": 241,
       "severity": "error",
       "message": "Unsafe member access .ruleId on an `any` value."
     },
     {
       "ruleId": "@typescript-eslint/no-unsafe-assignment",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\lint\\eslint-runner.ts",
+      "file": "src/services/lint/eslint-runner.ts",
       "line": 242,
       "severity": "error",
       "message": "Unsafe assignment of an `any` value."
     },
     {
       "ruleId": "@typescript-eslint/no-unsafe-member-access",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\lint\\eslint-runner.ts",
+      "file": "src/services/lint/eslint-runner.ts",
       "line": 242,
       "severity": "error",
       "message": "Unsafe member access .file on an `any` value."
     },
     {
       "ruleId": "@typescript-eslint/no-unsafe-assignment",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\lint\\eslint-runner.ts",
+      "file": "src/services/lint/eslint-runner.ts",
       "line": 243,
       "severity": "error",
       "message": "Unsafe assignment of an `any` value."
     },
     {
       "ruleId": "@typescript-eslint/no-unsafe-member-access",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\lint\\eslint-runner.ts",
+      "file": "src/services/lint/eslint-runner.ts",
       "line": 243,
       "severity": "error",
       "message": "Unsafe member access .line on an `any` value."
     },
     {
       "ruleId": "@typescript-eslint/no-unsafe-member-access",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\lint\\eslint-runner.ts",
+      "file": "src/services/lint/eslint-runner.ts",
       "line": 244,
       "severity": "error",
       "message": "Unsafe member access .severity on an `any` value."
     },
     {
       "ruleId": "@typescript-eslint/no-unsafe-assignment",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\lint\\eslint-runner.ts",
+      "file": "src/services/lint/eslint-runner.ts",
       "line": 245,
       "severity": "error",
       "message": "Unsafe assignment of an `any` value."
     },
     {
       "ruleId": "@typescript-eslint/no-unsafe-member-access",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\lint\\eslint-runner.ts",
+      "file": "src/services/lint/eslint-runner.ts",
       "line": 245,
       "severity": "error",
       "message": "Unsafe member access .message on an `any` value."
     },
     {
       "ruleId": "@typescript-eslint/no-unsafe-member-access",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\lint\\eslint-runner.ts",
+      "file": "src/services/lint/eslint-runner.ts",
       "line": 245,
       "severity": "error",
       "message": "Unsafe member access .message on an `any` value."
     },
     {
       "ruleId": "max-lines-per-function",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\lint\\eslint-runner.ts",
+      "file": "src/services/lint/eslint-runner.ts",
       "line": 324,
       "severity": "error",
       "message": "Function 'runEslint' has too many lines (113). Maximum allowed is 50."
     },
     {
       "ruleId": "complexity",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\lint\\eslint-runner.ts",
+      "file": "src/services/lint/eslint-runner.ts",
       "line": 324,
       "severity": "warn",
       "message": "Function 'runEslint' has a complexity of 43. Maximum allowed is 10."
     },
     {
       "ruleId": "prefer-const",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\lint\\eslint-runner.ts",
+      "file": "src/services/lint/eslint-runner.ts",
       "line": 380,
       "severity": "warn",
       "message": "'findings' is never reassigned. Use 'const' instead."
     },
     {
       "ruleId": "@typescript-eslint/no-unnecessary-type-assertion",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\loop\\loop-release-types.ts",
+      "file": "src/services/loop/loop-release-types.ts",
       "line": 189,
       "severity": "error",
       "message": "This assertion is unnecessary since it does not change the type of the expression."
     },
     {
       "ruleId": "@typescript-eslint/no-unnecessary-type-assertion",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\loop\\loop-release-types.ts",
+      "file": "src/services/loop/loop-release-types.ts",
       "line": 200,
       "severity": "error",
       "message": "This assertion is unnecessary since it does not change the type of the expression."
     },
     {
       "ruleId": "@typescript-eslint/no-unused-vars",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\rd\\rd-service.ts",
+      "file": "src/services/rd/rd-service.ts",
       "line": 41,
       "severity": "error",
       "message": "'buildRdStandardsGateList' is defined but never used."
     },
     {
       "ruleId": "@typescript-eslint/no-unused-vars",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\rd\\rd-service.ts",
+      "file": "src/services/rd/rd-service.ts",
       "line": 42,
       "severity": "error",
       "message": "'detectMissingProjectStandards' is defined but never used."
     },
     {
       "ruleId": "@typescript-eslint/consistent-type-imports",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\rd\\rd-service.ts",
+      "file": "src/services/rd/rd-service.ts",
       "line": 146,
       "severity": "warn",
       "message": "`import()` type annotations are forbidden."
     },
     {
       "ruleId": "@typescript-eslint/consistent-type-imports",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\rd\\rd-service.ts",
+      "file": "src/services/rd/rd-service.ts",
       "line": 176,
       "severity": "warn",
       "message": "`import()` type annotations are forbidden."
     },
     {
       "ruleId": "@typescript-eslint/no-non-null-assertion",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\rd\\rd-service.ts",
+      "file": "src/services/rd/rd-service.ts",
       "line": 251,
       "severity": "warn",
       "message": "Forbidden non-null assertion."
     },
     {
       "ruleId": "@typescript-eslint/no-non-null-assertion",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\rd\\rd-service.ts",
+      "file": "src/services/rd/rd-service.ts",
       "line": 252,
       "severity": "warn",
       "message": "Forbidden non-null assertion."
     },
     {
       "ruleId": "complexity",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\rd\\rd-service.ts",
+      "file": "src/services/rd/rd-service.ts",
       "line": 291,
       "severity": "warn",
       "message": "Function 'readArtifactFile' has a complexity of 19. Maximum allowed is 10."
     },
     {
       "ruleId": "@typescript-eslint/consistent-type-imports",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\rd\\rd-service.ts",
+      "file": "src/services/rd/rd-service.ts",
       "line": 382,
       "severity": "warn",
       "message": "`import()` type annotations are forbidden."
     },
     {
       "ruleId": "max-lines-per-function",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\rd\\rd-service.ts",
+      "file": "src/services/rd/rd-service.ts",
       "line": 410,
       "severity": "error",
       "message": "Function 'buildPlan' has too many lines (174). Maximum allowed is 50."
     },
     {
       "ruleId": "complexity",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\rd\\rd-service.ts",
+      "file": "src/services/rd/rd-service.ts",
       "line": 410,
       "severity": "warn",
       "message": "Function 'buildPlan' has a complexity of 14. Maximum allowed is 10."
     },
     {
       "ruleId": "max-lines",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\rd\\rd-service.ts",
+      "file": "src/services/rd/rd-service.ts",
       "line": 525,
       "severity": "error",
       "message": "File has too many lines (516). Maximum allowed is 400."
     },
     {
       "ruleId": "complexity",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\rd\\rd-service.ts",
+      "file": "src/services/rd/rd-service.ts",
       "line": 534,
       "severity": "warn",
       "message": "Arrow function has a complexity of 12. Maximum allowed is 10."
     },
     {
       "ruleId": "@typescript-eslint/require-await",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\scan\\archetype-service.ts",
+      "file": "src/services/scan/archetype-service.ts",
       "line": 76,
       "severity": "error",
       "message": "Async function 'detectBackendFrameworks' has no 'await' expression."
     },
     {
       "ruleId": "complexity",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\scan\\archetype-service.ts",
+      "file": "src/services/scan/archetype-service.ts",
       "line": 127,
       "severity": "warn",
       "message": "Async function 'countSrcFiles' has a complexity of 11. Maximum allowed is 10."
     },
     {
       "ruleId": "max-lines-per-function",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\scan\\archetype-service.ts",
+      "file": "src/services/scan/archetype-service.ts",
       "line": 165,
       "severity": "error",
       "message": "Function 'decideArchetype' has too many lines (73). Maximum allowed is 50."
     },
     {
       "ruleId": "complexity",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\scan\\archetype-service.ts",
+      "file": "src/services/scan/archetype-service.ts",
       "line": 165,
       "severity": "warn",
       "message": "Function 'decideArchetype' has a complexity of 27. Maximum allowed is 10."
     },
     {
       "ruleId": "complexity",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\slice\\calibration-store.ts",
+      "file": "src/services/slice/calibration-store.ts",
       "line": 55,
       "severity": "warn",
       "message": "Function 'calibrate' has a complexity of 13. Maximum allowed is 10."
     },
     {
       "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\slice\\slice-check-service.ts",
+      "file": "src/services/slice/slice-check-service.ts",
       "line": 27,
       "severity": "warn",
       "message": "No magic number: 32."
     },
     {
       "ruleId": "max-params",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\slice\\slice-check-service.ts",
+      "file": "src/services/slice/slice-check-service.ts",
       "line": 84,
       "severity": "warn",
       "message": "Function 'runCommand' has too many parameters (5). Maximum allowed is 4."
     },
     {
       "ruleId": "@typescript-eslint/no-explicit-any",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\slice\\slice-check-service.ts",
+      "file": "src/services/slice/slice-check-service.ts",
       "line": 101,
       "severity": "error",
       "message": "Unexpected any. Specify a different type."
     },
     {
       "ruleId": "@typescript-eslint/no-unsafe-assignment",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\slice\\slice-check-service.ts",
+      "file": "src/services/slice/slice-check-service.ts",
       "line": 102,
       "severity": "error",
       "message": "Unsafe assignment of an `any` value."
     },
     {
       "ruleId": "@typescript-eslint/no-unsafe-call",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\slice\\slice-check-service.ts",
+      "file": "src/services/slice/slice-check-service.ts",
       "line": 102,
       "severity": "error",
       "message": "Unsafe call of an `any` typed value."
     },
     {
       "ruleId": "@typescript-eslint/no-unsafe-member-access",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\slice\\slice-check-service.ts",
+      "file": "src/services/slice/slice-check-service.ts",
       "line": 102,
       "severity": "error",
       "message": "Unsafe member access .stdout on an `any` value."
     },
     {
       "ruleId": "@typescript-eslint/no-unsafe-member-access",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\slice\\slice-check-service.ts",
+      "file": "src/services/slice/slice-check-service.ts",
       "line": 102,
       "severity": "error",
       "message": "Unsafe member access .toString on an `any` value."
     },
     {
       "ruleId": "@typescript-eslint/no-unsafe-assignment",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\slice\\slice-check-service.ts",
+      "file": "src/services/slice/slice-check-service.ts",
       "line": 103,
       "severity": "error",
       "message": "Unsafe assignment of an `any` value."
     },
     {
       "ruleId": "@typescript-eslint/no-unsafe-call",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\slice\\slice-check-service.ts",
+      "file": "src/services/slice/slice-check-service.ts",
       "line": 103,
       "severity": "error",
       "message": "Unsafe call of an `any` typed value."
     },
     {
       "ruleId": "@typescript-eslint/no-unsafe-member-access",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\slice\\slice-check-service.ts",
+      "file": "src/services/slice/slice-check-service.ts",
       "line": 103,
       "severity": "error",
       "message": "Unsafe member access .stderr on an `any` value."
     },
     {
       "ruleId": "@typescript-eslint/no-unsafe-member-access",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\slice\\slice-check-service.ts",
+      "file": "src/services/slice/slice-check-service.ts",
       "line": 103,
       "severity": "error",
       "message": "Unsafe member access .toString on an `any` value."
     },
     {
       "ruleId": "@typescript-eslint/no-unsafe-assignment",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\slice\\slice-check-service.ts",
+      "file": "src/services/slice/slice-check-service.ts",
       "line": 106,
       "severity": "error",
       "message": "Unsafe assignment of an `any` value."
     },
     {
       "ruleId": "@typescript-eslint/no-unsafe-assignment",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\slice\\slice-check-service.ts",
+      "file": "src/services/slice/slice-check-service.ts",
       "line": 107,
       "severity": "error",
       "message": "Unsafe assignment of an `any` value."
     },
     {
       "ruleId": "@typescript-eslint/no-unsafe-assignment",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\slice\\slice-check-service.ts",
+      "file": "src/services/slice/slice-check-service.ts",
       "line": 108,
       "severity": "error",
       "message": "Unsafe assignment of an `any` value."
     },
     {
       "ruleId": "@typescript-eslint/no-unsafe-member-access",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\slice\\slice-check-service.ts",
+      "file": "src/services/slice/slice-check-service.ts",
       "line": 108,
       "severity": "error",
       "message": "Unsafe member access .status on an `any` value."
     },
     {
       "ruleId": "@typescript-eslint/no-unsafe-member-access",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\slice\\slice-check-service.ts",
+      "file": "src/services/slice/slice-check-service.ts",
       "line": 108,
       "severity": "error",
       "message": "Unsafe member access .status on an `any` value."
     },
     {
       "ruleId": "@typescript-eslint/require-await",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\slice\\slice-check-service.ts",
+      "file": "src/services/slice/slice-check-service.ts",
       "line": 120,
       "severity": "error",
       "message": "Async function 'runTypecheck' has no 'await' expression."
     },
     {
       "ruleId": "@typescript-eslint/no-unused-vars",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\slice\\slice-check-service.ts",
+      "file": "src/services/slice/slice-check-service.ts",
       "line": 121,
       "severity": "error",
       "message": "'start' is assigned a value but never used."
     },
     {
       "ruleId": "@typescript-eslint/no-unused-vars",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\slice\\slice-check-service.ts",
+      "file": "src/services/slice/slice-check-service.ts",
       "line": 129,
       "severity": "error",
       "message": "'testFiles' is assigned a value but never used."
     },
     {
       "ruleId": "@typescript-eslint/no-non-null-assertion",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\slice\\slice-check-service.ts",
+      "file": "src/services/slice/slice-check-service.ts",
       "line": 159,
       "severity": "warn",
       "message": "Forbidden non-null assertion."
     },
     {
       "ruleId": "@typescript-eslint/no-non-null-assertion",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\slice\\slice-check-service.ts",
+      "file": "src/services/slice/slice-check-service.ts",
       "line": 161,
       "severity": "warn",
       "message": "Forbidden non-null assertion."
     },
     {
       "ruleId": "@typescript-eslint/no-non-null-assertion",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\slice\\slice-check-service.ts",
+      "file": "src/services/slice/slice-check-service.ts",
       "line": 162,
       "severity": "warn",
       "message": "Forbidden non-null assertion."
     },
     {
       "ruleId": "@typescript-eslint/no-non-null-assertion",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\slice\\slice-check-service.ts",
+      "file": "src/services/slice/slice-check-service.ts",
       "line": 163,
       "severity": "warn",
       "message": "Forbidden non-null assertion."
     },
     {
       "ruleId": "@typescript-eslint/require-await",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\slice\\slice-check-service.ts",
+      "file": "src/services/slice/slice-check-service.ts",
       "line": 167,
       "severity": "error",
       "message": "Async function 'runUnitTests' has no 'await' expression."
     },
     {
       "ruleId": "@typescript-eslint/no-unused-vars",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\slice\\slice-check-service.ts",
+      "file": "src/services/slice/slice-check-service.ts",
       "line": 168,
       "severity": "error",
       "message": "'start' is assigned a value but never used."
     },
     {
       "ruleId": "max-lines-per-function",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\slice\\slice-check-service.ts",
+      "file": "src/services/slice/slice-check-service.ts",
       "line": 226,
       "severity": "error",
       "message": "Async function 'runReviewFanout' has too many lines (53). Maximum allowed is 50."
     },
     {
       "ruleId": "@typescript-eslint/require-await",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\slice\\slice-check-service.ts",
+      "file": "src/services/slice/slice-check-service.ts",
       "line": 226,
       "severity": "error",
       "message": "Async function 'runReviewFanout' has no 'await' expression."
     },
     {
       "ruleId": "complexity",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\slice\\slice-check-service.ts",
+      "file": "src/services/slice/slice-check-service.ts",
       "line": 226,
       "severity": "warn",
       "message": "Async function 'runReviewFanout' has a complexity of 12. Maximum allowed is 10."
     },
     {
       "ruleId": "@typescript-eslint/no-explicit-any",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\slice\\slice-check-service.ts",
+      "file": "src/services/slice/slice-check-service.ts",
       "line": 324,
       "severity": "error",
       "message": "Unexpected any. Specify a different type."
     },
     {
       "ruleId": "@typescript-eslint/no-unsafe-assignment",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\slice\\slice-check-service.ts",
+      "file": "src/services/slice/slice-check-service.ts",
       "line": 330,
       "severity": "error",
       "message": "Unsafe assignment of an `any` value."
     },
     {
       "ruleId": "@typescript-eslint/no-unsafe-member-access",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\slice\\slice-check-service.ts",
+      "file": "src/services/slice/slice-check-service.ts",
       "line": 330,
       "severity": "error",
       "message": "Unsafe member access .message on an `any` value."
     },
     {
       "ruleId": "max-lines-per-function",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\slice\\slice-check-service.ts",
+      "file": "src/services/slice/slice-check-service.ts",
       "line": 336,
       "severity": "error",
       "message": "Async function 'sliceCheck' has too many lines (68). Maximum allowed is 50."
     },
     {
       "ruleId": "complexity",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\slice\\slice-check-service.ts",
+      "file": "src/services/slice/slice-check-service.ts",
       "line": 336,
       "severity": "warn",
       "message": "Async function 'sliceCheck' has a complexity of 12. Maximum allowed is 10."
     },
     {
       "ruleId": "@typescript-eslint/require-await",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\slice\\slice-check-service.ts",
+      "file": "src/services/slice/slice-check-service.ts",
       "line": 438,
       "severity": "error",
       "message": "Async function 'runAuditRegression' has no 'await' expression."
     },
     {
       "ruleId": "@typescript-eslint/no-explicit-any",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\slice\\slice-check-service.ts",
+      "file": "src/services/slice/slice-check-service.ts",
       "line": 473,
       "severity": "error",
       "message": "Unexpected any. Specify a different type."
     },
     {
       "ruleId": "@typescript-eslint/no-unsafe-member-access",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\slice\\slice-check-service.ts",
+      "file": "src/services/slice/slice-check-service.ts",
       "line": 479,
       "severity": "error",
       "message": "Unsafe member access .message on an `any` value."
     },
     {
       "ruleId": "@typescript-eslint/require-await",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\slice\\slice-check-service.ts",
+      "file": "src/services/slice/slice-check-service.ts",
       "line": 484,
       "severity": "error",
       "message": "Async function 'runMockPlacement' has no 'await' expression."
     },
     {
       "ruleId": "max-lines",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\slice\\slice-check-service.ts",
+      "file": "src/services/slice/slice-check-service.ts",
       "line": 531,
       "severity": "error",
       "message": "File has too many lines (402). Maximum allowed is 400."
     },
     {
       "ruleId": "@typescript-eslint/no-unnecessary-type-assertion",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\vm\\vm-lease.ts",
+      "file": "src/services/vm/vm-lease.ts",
       "line": 42,
       "severity": "error",
       "message": "This assertion is unnecessary since the receiver accepts the original type of the expression."
     },
     {
       "ruleId": "complexity",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\vm\\vm-lease.ts",
+      "file": "src/services/vm/vm-lease.ts",
       "line": 128,
       "severity": "warn",
       "message": "Function 'deserializeVmLease' has a complexity of 17. Maximum allowed is 10."
     },
     {
       "ruleId": "@typescript-eslint/no-unnecessary-type-assertion",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\worktree\\worktree-lease.ts",
+      "file": "src/services/worktree/worktree-lease.ts",
       "line": 54,
       "severity": "error",
       "message": "This assertion is unnecessary since the receiver accepts the original type of the expression."
     },
     {
       "ruleId": "complexity",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\worktree\\worktree-lease.ts",
+      "file": "src/services/worktree/worktree-lease.ts",
       "line": 270,
       "severity": "warn",
       "message": "Function 'deserializeLease' has a complexity of 13. Maximum allowed is 10."
     },
     {
       "ruleId": null,
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\stryker.conf.js",
+      "file": "stryker.conf.js",
       "line": 0,
       "severity": "error",
       "message": "Parsing error: \"parserOptions.project\" has been provided for @typescript-eslint/parser.\nThe file was not found in any of the provided project(s): stryker.conf.js"
     },
     {
       "ruleId": "@typescript-eslint/no-require-imports",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\tests\\unit\\services\\lint\\eslint-runner.test.ts",
+      "file": "tests/unit/services/lint/eslint-runner.test.ts",
       "line": 285,
       "severity": "error",
       "message": "A `require()` style import is forbidden."
     },
     {
       "ruleId": "no-explicit-any",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\tests\\unit\\services\\lint\\no-magic-numbers-config.test.ts",
+      "file": "tests/unit/services/lint/no-magic-numbers-config.test.ts",
       "line": 1,
       "severity": "error",
       "message": "Definition for rule 'no-explicit-any' was not found."
     },
     {
       "ruleId": "@typescript-eslint/no-implicit-any",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\tests\\unit\\services\\lint\\no-magic-numbers-config.test.ts",
+      "file": "tests/unit/services/lint/no-magic-numbers-config.test.ts",
       "line": 1,
       "severity": "error",
       "message": "Definition for rule '@typescript-eslint/no-implicit-any' was not found."
     },
     {
       "ruleId": "@typescript-eslint/no-restricted-syntax",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\tests\\unit\\services\\lint\\no-magic-numbers-config.test.ts",
+      "file": "tests/unit/services/lint/no-magic-numbers-config.test.ts",
       "line": 1,
       "severity": "error",
       "message": "Definition for rule '@typescript-eslint/no-restricted-syntax' was not found."
     },
     {
       "ruleId": "@typescript-eslint/no-require-imports",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\tests\\unit\\services\\lint\\no-magic-numbers-config.test.ts",
+      "file": "tests/unit/services/lint/no-magic-numbers-config.test.ts",
       "line": 27,
       "severity": "error",
       "message": "A `require()` style import is forbidden."
     },
     {
       "ruleId": null,
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\vitest.config.integration.ts",
+      "file": "vitest.config.integration.ts",
       "line": 0,
       "severity": "error",
       "message": "Parsing error: \"parserOptions.project\" has been provided for @typescript-eslint/parser.\nThe file was not found in any of the provided project(s): vitest.config.integration.ts"
     },
     {
       "ruleId": null,
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\vitest.config.ts",
+      "file": "vitest.config.ts",
       "line": 0,
       "severity": "error",
       "message": "Parsing error: \"parserOptions.project\" has been provided for @typescript-eslint/parser.\nThe file was not found in any of the provided project(s): vitest.config.ts"

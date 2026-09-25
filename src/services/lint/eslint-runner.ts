@@ -21,6 +21,7 @@ import { spawnSync, type SpawnSyncOptions } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { isArray } from '../../shared/array-guards.js';
+import { repoRelativeKey } from '../../shared/path-utils.js';
 import { resolveNpxInvocation } from './npx-resolver.js';
 
 /**
@@ -136,7 +137,7 @@ type DiffRange = { readonly file: string; readonly lines: readonly number[] };
  * touched line number. Falls back to [] on any parse error so the
  * caller treats all findings as out-of-diff (no silent zero-result).
  */
-function resolveProjectRoot(cwd: string): string {
+export function resolveProjectRoot(cwd: string): string {
   // ESLint 8 auto-discovers `.eslintrc.*` from cwd upward. When the
   // CLI is launched via `node bin/peaks.js`, cwd is the bin/ dir and
   // ESLint fails to find the config. Walk up until we see
@@ -217,8 +218,8 @@ type BaselineFile = {
   }>;
 };
 
-function loadBaseline(cwd: string, baselineFile: string): readonly BaselineViolation[] {
-  const fullPath = join(cwd, baselineFile);
+function loadBaseline(projectRoot: string, baselineFile: string): readonly BaselineViolation[] {
+  const fullPath = join(projectRoot, baselineFile);
   let raw: string;
   try {
     raw = readFileSync(fullPath, 'utf8');
@@ -244,7 +245,9 @@ function loadBaseline(cwd: string, baselineFile: string): readonly BaselineViola
       continue;
     out.push({
       ruleId: v.ruleId,
-      file: v.file,
+      // Reduce to the comparison key on load, so `matchBaseline` and the
+      // red-line aggregation both read one canonical form.
+      file: repoRelativeKey(v.file, projectRoot),
       line: v.line,
       severity: severityFor(v.severity),
       message: typeof v.message === 'string' ? v.message : ''
@@ -253,10 +256,17 @@ function loadBaseline(cwd: string, baselineFile: string): readonly BaselineViola
   return out;
 }
 
-function matchBaseline(finding: EslintFinding, baseline: readonly BaselineViolation[]): boolean {
+function matchBaseline(
+  finding: EslintFinding,
+  baseline: readonly BaselineViolation[],
+  projectRoot: string
+): boolean {
+  // The finding side is reduced by the SAME key the baseline was loaded
+  // through — this is the half that made the waiver inert across machines.
+  const findingKey = repoRelativeKey(finding.filePath, projectRoot);
   for (const v of baseline) {
     if (v.ruleId !== finding.ruleId) continue;
-    if (v.file !== finding.filePath) continue;
+    if (v.file !== findingKey) continue;
     if (v.line !== finding.line) continue;
     return true;
   }
@@ -444,19 +454,25 @@ export function runEslint(options: EslintRunOptions): EslintRunResult {
   const diffOnly = options.diffOnly !== false;
   const redLineMode: RedLineMode = options.redLineMode ?? 'baseline-aware';
   const baselinePath = options.baselineFile ?? '.peaks/lint/baseline.json';
-  const baseline = loadBaseline(options.cwd, baselinePath);
-  const diffRanges = diffOnly ? loadDiffRanges(options.cwd) : EMPTY_DIFF_RANGE;
+  const baseline = loadBaseline(projectRoot, baselinePath);
+  const diffRanges = diffOnly ? loadDiffRanges(projectRoot) : EMPTY_DIFF_RANGE;
 
   let activeFindings: EslintFinding[] = findings;
   let waived: EslintFinding[] = [];
   if (diffOnly) {
-    activeFindings = findings.filter((f) => inDiff(f.filePath, f.line, diffRanges));
+    // `git diff` reports repo-relative paths; ESLint reports absolute ones.
+    // Reducing the finding through the same key is what lets the diff gate
+    // match at all (measured: without it, every finding is dropped as
+    // out-of-diff on every machine).
+    activeFindings = findings.filter((f) =>
+      inDiff(repoRelativeKey(f.filePath, projectRoot), f.line, diffRanges)
+    );
   }
   if (baseline.length > 0) {
     const next: EslintFinding[] = [];
     waived = [];
     for (const f of activeFindings) {
-      if (matchBaseline(f, baseline)) {
+      if (matchBaseline(f, baseline, projectRoot)) {
         waived.push(f);
       } else {
         next.push(f);

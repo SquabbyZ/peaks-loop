@@ -253,8 +253,13 @@ Every item below is one instance. The corollary that decided how each was handle
 
 ### 2.10 The D5 no-touch-stockcode waiver is INERT on every checkout but one (found 2026-09-24)
 
-- **Where**: `.peaks/lint/baseline.json` — **tracked in git**. 192 violations, 29 distinct paths,
-  22 ruleIds (`max-lines` 5, `max-lines-per-function` 17).
+- **Where**: `.peaks/lint/baseline.json` — **tracked in git**. 192 violations, **53 distinct files**,
+  22 distinct `ruleId`s. *(An earlier revision of this line read "29 distinct paths, 22 ruleIds
+  (`max-lines` 5, `max-lines-per-function` 17)". The 29 never reproduced on any reading — current and
+  `HEAD` both measure 53, and the five revisions are all 53 or 851. It was introduced by `1daa42e4`,
+  the commit whose stated purpose was fixing falsified claims. The parenthesised pair are **entry**
+  counts, not ruleIds; that 22 coincides with the distinct count is a coincidence. See the Outcome
+  block.)*
 - **Measured**: every `file` key is an **absolute** path rooted at
   `C:\Users\smallMark\Desktop\peaks-loop\`. `matchBaseline` (`src/services/lint/eslint-runner.ts:256`)
   compares `ruleId` + `file` + `line` by **exact string equality**, `finding.filePath` is ESLint's own
@@ -274,6 +279,49 @@ Every item below is one instance. The corollary that decided how each was handle
   file at whichever machine ran it — the **format**, not just the contents, is the portability bug.
   Either normalize to repo-relative keys in `matchBaseline` (source change → RD), or untrack the file
   and keep it per-machine (policy change → you).
+
+#### Outcome (rid-6f1df581, 2026-09-25) — FIXED, repo-relative
+
+The user chose the normalize direction. **The waiver now waives, demonstrated through the command's own
+path**: with a whitespace-only edit at an in-baseline line, the pre-fix logic reports `findings 0,
+waived 0` and the shipped logic reports `findings 0, waived 1`. A clean tree reports `0 / 0` either way,
+which is why a green run proves nothing here.
+
+- **There was a SECOND, upstream cause, and this entry named only the first.** `inDiff` (`:453`)
+  compared ESLint's **absolute** `filePath` against git diff's **relative** path with `!==` — dead on
+  every machine — and it runs **before** the waiver at `:459`. So under `diffOnly: true` (this
+  command's default) **nothing ever reached `matchBaseline`** at all. Reverting only the diff-gate call
+  site on the real tree restores `waived 0` with the same edit. Both comparands are now normalized at
+  the gate; `matchBaseline` was not papered over downstream.
+- **Four things changed, not one**: the reader (`matchBaseline` / `loadBaseline`), the diff gate
+  (`inDiff`), the generator (`writeBaselineJson`, now emitting relative keys with
+  `toolVersion: peaks-loop-${CLI_VERSION}`), and the committed data.
+- **The data was re-rooted IN PLACE, not regenerated, and the reason is measured.**
+  `peaks lint baseline` writes `2881 = full scan MINUS what the existing baseline covers` — all 7
+  reader-waived tuples are absent, `2881 + 7 = 2888` — so it is **not a snapshot**. Regenerating would
+  have traded 192 reviewed waivers for 2881 unreviewed ones (53 files → 692). Fidelity of the
+  transform was checked as a multiset: `ruleId|file|line|severity|message` identical before and after,
+  0 added, 0 dropped. The `192 vs 185` gap is 6 tuple-collision groups contributing 7 extra entries —
+  genuinely distinct violations that share a line.
+- **A false comment in the same file, fixed**: `lint-commands.ts:8` called the baseline "project-level,
+  gitignored by default". It is neither — `git ls-files` matches it and `git check-ignore` reports it is
+  **not** ignored.
+- **A residual defect, reported not closed**: the file's `generatedAt: 2026-08-07` and `toolVersion:
+  peaks-loop-4.0.16+` are byte-identical to `HEAD`, while its **keys** were rewritten 2026-09-25 by
+  4.0.54. Nothing in the repository said so — the only explanation lived in a gitignored handoff, which
+  is the same class as the comment above. `.peaks/lint/README.md` now carries the provenance.
+- **Residual risk, named**: the mutation arm that guards the **baseline-side** normalization has exactly
+  **one** killer fixture (`file: 'src\\foo.ts'`). On the real tree that mutant is a no-op — the baseline
+  is already relative — so it is **not independently guarded** by the suite. Treat it as guarded by one
+  case, not by the battery.
+- **Not closed, and left as open items**: `peaks lint baseline` is **not idempotent** — its read side
+  ignores `--baseline-file`, so measuring against a scratch path does not subtract what the real file
+  covers. **31 line-0 parsing errors can never be diff-scoped.** And `smallMark` remains in dozens of
+  `.peaks/memory` prose files, left as history.
+- **A caveat for anyone reading a future full-scan number**: `.peaks/` is **not** in ESLint's
+  `ignorePatterns`, so agent-harness `.ts` files are linted (0 findings when measured here). Pre-fix
+  full scans measured 2887 / 2890 / 2888 depending on which runner file was in place — a spread that is
+  the runner's own findings, not an unreproduced number. Clean + fixed is **2888 = 2881 + 7**.
 
 ### 2.11 `pnpm test:unit` skips the build its own suite requires (found 2026-09-24)
 
