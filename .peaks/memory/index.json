@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-09-25T07:56:18.892Z",
+  "updatedAt": "2026-09-25T13:01:55.710Z",
   "hot": {
     "rule": [
       {
@@ -1332,6 +1332,14 @@
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\2026-08-07-perf-slice3-revert.md",
         "sourceArtifact": null,
         "updatedAt": "2026-09-23"
+      },
+      {
+        "name": "pnpm-version-varies-by-directory-so-a-probe-outside-the-repo-measures-a-different-pnpm",
+        "kind": "lesson",
+        "description": "is not a fact about pnpm.",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\pnpm-version-varies-by-directory-so-a-probe-outside-the-repo-measures-a-different-pnpm.md",
+        "sourceArtifact": ".peaks/_runtime/2026-09-25-session-0cf437/sc/commit-msg-slice2.txt",
+        "updatedAt": "2026-09-25"
       },
       {
         "name": "point-the-verification-at-the-property-not-at-the-proxy-you-can-measure-cheaply",
