@@ -70,6 +70,32 @@ export function writeBuilt(root: string, name: string): string {
   return file;
 }
 
+/** The nested emit a nested source is expected to produce, repo-relative. */
+export const NESTED_EMIT = 'dist/services/mut/report-loader.js';
+
+/**
+ * A throwaway tree with ONE package (`a`) that carries a nested source AND its
+ * nested emit, on top of the top-level pair `fixture()` + `writeBuilt()` make.
+ * `fixture()` cannot express it: it writes `src/index.ts` and nothing deeper.
+ *
+ * The nested path is the one measured on the real tree
+ * (`packages/peaks-loop-mut/src/services/mut/report-loader.ts`), because that
+ * is the file whose emit deletion two green gates failed to notice.
+ */
+export function nestedFixture(): string {
+  const root = mkdtempSync(join(tmpdir(), 'peaks-packages-nested-'));
+  roots.push(root);
+  const source = join(root, 'packages', 'a', 'src', 'services', 'mut', 'report-loader.ts');
+  const emit = join(root, 'packages', 'a', NESTED_EMIT);
+  mkdirSync(dirname(source), { recursive: true });
+  mkdirSync(dirname(emit), { recursive: true });
+  writeFileSync(join(root, 'packages', 'a', 'src', 'index.ts'), SOURCE_A, 'utf8');
+  writeFileSync(source, SOURCE_A, 'utf8');
+  writeFileSync(join(root, 'packages', 'a', 'dist', 'index.js'), BUILT, 'utf8');
+  writeFileSync(emit, BUILT, 'utf8');
+  return root;
+}
+
 /**
  * A stand-in for `pnpm -r --filter "./packages/*" run build`. It records the
  * call — which is the independently-sourced evidence that a build happened —

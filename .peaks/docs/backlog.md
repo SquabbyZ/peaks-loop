@@ -385,35 +385,78 @@ which is why a green run proves nothing here.
   (§6.2) holds. `git status` is unchanged after a full `pnpm build` **and** after a full `pnpm test:unit`:
   neither dirties a tracked file. Verified twice, in that order.
 
-### 2.12 The emit check walks only the **top level** of `src/` — 19 of 37 sources it cannot see (found 2026-09-24)
+### 2.12 The emit check walks only the **top level** of `src/` — 19 of 37 sources it could not see (found 2026-09-24, **fixed 2026-09-25**)
 
 - **Where**: `scripts/check-build-integrity.mjs` (the gate) **and** the emit conjunct of
-  `scripts/packages-build-prerequisite.mjs` (the §2.11 guard). Both `readdirSync` the top level of each
-  package's `src/`; **neither recurses**. Measured: of **37** `src/*.ts` across the four packages,
+  `scripts/packages-build-prerequisite.mjs` (the §2.11 guard). Both `readdirSync`ed the top level of each
+  package's `src/`; **neither recursed**. Measured: of **37** `src/*.ts` across the four packages,
   **18 are top-level and 19 are nested** — 2 of 4 packages have nested `src/` (`internal-runtime` 9,
-  `mut` 10) — so **51 % of the surface is invisible to the check**.
-- **The honest statement of the defect.** It is **not** "19 sources have no emit" — that count is
+  `mut` 10) — so **51 % of the surface was invisible to the check**.
+- **The honest statement of the defect.** It was **not** "19 sources have no emit" — that count is
   **0**, because `tsc` emits recursively and the digest walk is recursive too (a nested *source* edit
-  does produce `stale`). It is: **the check cannot see 19 nested sources**, so a nested emit can vanish
-  with both guards green. Both readings were live in this session's own notes; only the second is true.
-- **Pre-existing, and proven rather than assumed.** The gate is unmodified against `HEAD`; the
-  top-level `readdirSync(srcDir)` was already there when the walk was added in **`bef907a4`
-  (2026-07-30)**, and `git log -S listFiles` shows it was never recursive. This is **not** a regression
-  of §2.11 and must not be attributed to that slice.
+  does produce `stale`). It was: **the check could not see 19 nested sources**, so a nested emit could
+  vanish with both guards green. Both readings were live in the session that found it; only the second
+  is true.
+- **Pre-existing, and proven rather than assumed.** The top-level `readdirSync(srcDir)` was already there
+  when the walk was added in **`bef907a4` (2026-07-30)**, and `git log -S listFiles` showed it was never
+  recursive. This was **not** a regression of §2.11 and must not be attributed to that slice.
 - **Measured consequence.** Delete the nested emit
-  `packages/peaks-loop-mut/dist/services/mut/report-loader.js` → the §2.11 guard reports **`fresh`**,
-  and the gate prints **`build-integrity: OK`** (exit 0). Two green gates over a tree missing an
+  `packages/peaks-loop-mut/dist/services/mut/report-loader.js` → the §2.11 guard reported **`fresh`**,
+  and the gate printed **`build-integrity: OK`** (exit 0). Two green gates over a tree missing an
   artifact.
-- **It outranks §2.13 — for the reason §2.11 itself exists.** A nested emit **is imported**, so this is
+- **It outranked §2.13 — for the reason §2.11 itself exists.** A nested emit **is imported**, so this was
   the §2.11 shape one directory down: a missing artifact that surfaces as a module-resolution error.
   §2.13's root-`dist/` axis is the weaker case.
-- **Not fixed here, deliberately.** §2.11's guard states its scope as the gate's own top-level rule, and
-  changing the walk touches the gate that every build consumer shares. **A recursive walk is the fix**;
-  it belongs in its own slice.
-- **And the doc defect that hid it**: the §2.11 module header calls its check "complete" without ever
-  sizing what it excludes. It glosses "complete" as the gate's top-level rule at `:73-75` and *does*
-  record the nested case at `:102-109` — so it **bounds** the claim rather than falsifying it — but the
-  isolated sentence at `:58-60` is false as written, and **51 %** is the number it should have carried.
+- **It was not fixed in place, deliberately.** §2.11's guard states its scope as the gate's own top-level
+  rule, and changing the walk touches the gate that every build consumer shares. **A recursive walk was
+  the fix**; it went to its own slice — see the Outcome block.
+- **And the doc defect that hid it**: the §2.11 module header called its check "complete" without ever
+  sizing what it excludes. It glossed "complete" as the gate's top-level rule at `:73-75` and *does*
+  record the nested case at `:102-109` — so it **bounded** the claim rather than falsifying it — but the
+  isolated sentence at `:58-60` was false as written, and **51 %** is the number it should have carried.
+
+#### Outcome (rid-5b6d975f, 2026-09-25) — FIXED, both sides recurse
+
+Both walks now recurse on **relative paths**, in the gate and in `emitIsComplete`, and the guard got a
+new throw-on-unreadable `listFiles` so it stays fail-closed. Reproduced on the real tree: with the nested
+emit deleted, the **pre-fix** gate exited 0 while the guard said `fresh ×4`; the **shipped** gate exits 1
+naming `missing dist/services/mut/report-loader.js (source: src/services/mut/report-loader.ts)` and the
+guard says `stale: ['peaks-loop-mut']`. A test file (`packages-build-nested-emit.test.ts`) pins the
+control + deletion pair.
+
+**The risk that had to be answered first, and how.** `scripts/check-build-integrity.mjs` is shared by
+every build consumer, so a recursive walk *widens* what it can refuse — a legal tree could start failing.
+Measured independently, applying **both** gate rules and `emitIsComplete` in **both** directions over
+every `packages/*/src|dist`: **zero divergence**, gate errors 0 vs 0, **recursive-only refusals 0**,
+`emitIsComplete` true ×4. The recursive source set equals tsc's input set (all four tsconfigs include
+`src/**/*`). QA tried to falsify this and **failed**: its four synthetic arms that *do* newly refuse each
+need a config this repository does not have (no exclude reaches inside `src/`, `declaration: true`, no
+`allowJs`, and `copy-templates` writes the **root** `dist`). **The scope of the widening is
+configuration, not tree.**
+
+**It also removed a false refusal.** The pre-fix gate rejected a legal nested *file-style* sub-export as a
+"phantom export". A widening that both finds more and refuses less is the shape to aim for; the pre-fix
+behaviour was wrong in both directions at once.
+
+**The one-sided revert is a trap, and the two halves are not symmetric.** Leaving only the `dist` side
+top-level makes the gate print `OK` while the guard reads `stale` and the global setup refuses the
+**entire** run. Leaving only the **`src`** side top-level is the **silent** half: the real tree reads
+`fresh ×4`, the suite starts, and only the new test catches it (2 failed). A partial revert of this change
+is worse than no change.
+
+**`hasBuild` is the next blind spot, measured here and NOT fixed.** A legal **nested-only** package — one
+whose top-level `src/` holds nothing — passes the gate, while `ensurePackagesBuilt` refuses it with *"no
+dist/ at all"* **although the build succeeded and the nested emit is on disk**: a false refusal no rebuild
+clears. No live instance today (top-level `dist` js = 8 / 1 / 5 / 4), pre-existing, and **not** covered by
+§2.14's "do not re-sweep" — that bullet is about `hasBuild`'s `.js` **filter**, not its walk's **reach**.
+Recorded as §2.16.
+
+**And one close from QA that the first repair did not cover**: no test executed or imported the gate, so
+reverting the gate's walk alone left **60/60 green** — the rule **unasserted in the file that enforces
+it**. QA also showed "hard to test" did not stand (a run-time copy of the gate into a temp root makes the
+copy's own location the fixture root, and it ran 9 such arms with no production change). Armed in the
+slice's repair 1, and the gate's own header — which still described the top-level reach — corrected with
+it.
 
 ### 2.13 A second prerequisite on the **root** `dist/` axis — two unit files, one of them misleading (found 2026-09-24)
 
@@ -811,6 +854,51 @@ justifies the 60 s bound as "measured at 2.94 s on a warm tree … ~20x that". T
 measurements. The bound is still adequate (~6.6× headroom, not 20×), so this is **comment accuracy,
 not behaviour** — but the comment presents a low outlier as the fact, inside the module that was
 built to stop numbers being carried forward. Untouched by request.
+
+### 2.16 `hasBuild` is blind to a nested-only package — a false refusal no rebuild clears (found 2026-09-25)
+
+- **Where**: `scripts/packages-build-prerequisite.mjs` — `hasBuild`, which asks only
+  `readdirSync(join(pkgRoot, 'dist')).some((name) => name.endsWith('.js'))`. **Top level only.**
+- **Measured by QA in `rid-5b6d975f`**: a legal **nested-only** package — one whose top-level `src/` holds
+  nothing, so its every emit is nested — passes the **gate**, while `ensurePackagesBuilt` refuses it with
+  *"no dist/ at all: packages/a/dist"* **although the build succeeded and the nested emit is on disk**.
+  That is a **false refusal that no rebuild clears**: the remedy the message implies cannot change the
+  condition, because the condition is a walk that does not look where the artifact is.
+- **No live instance**: top-level `dist` `.js` counts across the four packages are 8 / 1 / 5 / 4, so every
+  package has at least one top-level emit today. Pre-existing.
+- **It is NOT covered by §2.14's "do not re-sweep".** That bullet is about `hasBuild`'s **`.js` filter** —
+  a stray `.js` in `dist/` reading as "built". This is about the walk's **reach**. Same function, different
+  property; the earlier clearance does not extend to it.
+- **Not fixed.** Named here so a future slice finds it; §2.12 fixed the sibling reach (the emit walk) and
+  deliberately left this one, which is a **refusal** rather than a blind spot, so its fix has a different
+  shape — the guard must decide what a nested-only package *should* be.
+
+### 2.17 `verifyBddStyle` counts LINES where its contract says COMMENTS — and it refuses inputs the contract permits (found 2026-09-25)
+
+- **Where**: `src/services/qa/bdd-test-style-verifier.ts` — the `missing-given-when-then` check.
+- **Measured by QA in `rid-5b6d975f`**: the checker's unit is the **line slot**, not the comment. Its case
+  matrix shows it is wrong in **both** directions: **5** leading comment lines **pass**, **4** **fail**.
+  A `given:` wrapped onto a second line therefore shifts `when:` into slot 3 and the case is refused —
+  even though `contracts/test-style-contract.md:41` says the body must start with "exactly these 3 leading
+  **comments**", and TS returns **4 ranges** for a wrapped two-line `given:`. The contract's own docblock
+  says "ranges"; the code counts lines. Three artefacts, three different units.
+- **Scale, measured over 319 files**: **42** ok, **96** description-only, **181**
+  `missing-given-when-then` — of which **7 are false refusals**, **103 are keywords split by code** (the
+  `given:` followed by statements before `when:`), and 71 genuinely lack the triple. **A checker that
+  refuses 57 % of the suite is not a style gate; it is noise.**
+- **It has no production caller.** The rule reaches tests only as an **LLM mandate** in
+  `skills/bee/peaks-qa/references/qa-sub-agent-dispatch.md`, and that mandate's own recipe —
+  `git diff --name-only HEAD~1` — **cannot see untracked files**, which is exactly how a slice's own new
+  test escapes the check. So the one place the rule is applied is the one place it cannot look.
+- **Its reported line is off by one** — it points at the `it(` line rather than at the body.
+- **Not fixed.** This is a refusal-side defect of the same family as §2.12/§2.16, one layer up: a checker
+  that rejects inputs its contract permits. Fixing it means deciding the unit (comments, not lines) and
+  giving it a caller that can see untracked files; both are a slice of their own. Two files were flagged by
+  it during `rid-5b6d975f`: `packages-build-lock.test.ts:140` (**merged**, `given:` one line followed by six
+  statements, `when:` ~10 lines later — a true positive under the line reading) and
+  `packages-build-nested-emit.test.ts:55` (**this slice's own untracked file**, wrapped `given:`/`when:` with
+  the triple present in order — a **false refusal**). The second is being collapsed to one line as a rider
+  so both readings are satisfied; the checker stays wrong.
 
 ---
 

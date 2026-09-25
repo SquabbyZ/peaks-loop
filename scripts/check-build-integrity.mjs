@@ -9,10 +9,17 @@
 // the moment any subcommand touches doctor-service.
 //
 // This script walks every package under packages/*, counts
-// its src/*.ts entry points, and verifies dist contains the
+// every source under src/ — recursively, the reach tsc's
+// own `include` has — and verifies dist contains the
 // expected triple per source (.js + .d.ts + .js.map). Any
 // mismatch throws with the package name + the specific file
-// it's missing or carrying extra of.
+// it's missing or carrying extra of. Both sides of every
+// comparison below recurse together (`listFiles`): one
+// recursive side against a top-level one compares paths that
+// can never be equal, which is why neither may move alone.
+// The recursion also removes a false refusal — the
+// phantom-export check below used to fire on a nested
+// file-style sub-export whose source was right there.
 //
 // Why not rely on tsc --noEmit? Because the bug is not a
 // type error — it's a successful (silent) skip of a file
@@ -62,18 +69,43 @@ function loadExpectedExports(pkgName) {
   return expected;
 }
 
+/**
+ * Every file under `dir`, recursively, as `/`-separated paths relative to it.
+ * `[]` when `dir` is absent.
+ *
+ * Recursive because tsc's `include` is: every package's tsconfig compiles
+ * `src/**`, and two of the four carry nested `src/` trees that emit into
+ * nested `dist/` subdirectories. A walk of one directory level saw 19 of the
+ * 37 TypeScript sources under `src/` (51%) as nothing at all — so a nested
+ * emit could go missing while this gate and
+ * `packages-build-prerequisite.mjs` both stayed green. Both sides of the
+ * comparison below read through here, and the guard reads through the same
+ * shape: one recursive side against one top-level side would compare paths
+ * that can never be equal, which is worse than the blindness it would replace.
+ */
+function listFiles(dir) {
+  if (!existsSync(dir)) return [];
+  const files = [];
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    if (entry.isDirectory()) {
+      for (const nested of listFiles(join(dir, entry.name))) {
+        files.push(`${entry.name}/${nested}`);
+      }
+    } else {
+      files.push(entry.name);
+    }
+  }
+  return files;
+}
+
 function listTsSources(pkgName) {
-  const srcDir = join(packagesRoot, pkgName, 'src');
-  if (!existsSync(srcDir)) return [];
-  return readdirSync(srcDir)
+  return listFiles(join(packagesRoot, pkgName, 'src'))
     .filter((f) => f.endsWith('.ts') && !f.endsWith('.d.ts'))
     .sort();
 }
 
 function listDistJs(pkgName) {
-  const distDir = join(packagesRoot, pkgName, 'dist');
-  if (!existsSync(distDir)) return [];
-  return readdirSync(distDir)
+  return listFiles(join(packagesRoot, pkgName, 'dist'))
     .filter((f) => f.endsWith('.js'))
     .sort();
 }
@@ -95,7 +127,7 @@ for (const entry of readdirSync(packagesRoot, { withFileTypes: true })) {
   ]);
 
   // Phantom-export detection: a package.json#exports entry
-  // whose sub-path does NOT resolve to a src/*.ts is a drift
+  // whose sub-path does NOT resolve to a source under src/ is a drift
   // hazard — a downstream `import('pkg/<sub>')` would resolve
   // to a missing file at runtime, the same shape as the
   // 2026-07-30 peaks-loop-shared/version.js miss that crashed
@@ -112,7 +144,8 @@ for (const entry of readdirSync(packagesRoot, { withFileTypes: true })) {
 
   const distJs = new Set(listDistJs(pkgName));
 
-  // 1. Every src/*.ts must have a matching dist/*.js.
+  // 1. Every source under src/, recursively, must have a
+  //    matching dist/*.js.
   for (const ts of expected) {
     const expectedJs = ts.replace(/\.ts$/, '.js');
     if (!distJs.has(expectedJs)) {
@@ -120,7 +153,8 @@ for (const entry of readdirSync(packagesRoot, { withFileTypes: true })) {
     }
   }
 
-  // 2. Every dist/*.js must correspond to a src/*.ts.
+  // 2. Every dist/*.js, recursively, must correspond to a
+  //    source under src/.
   for (const js of distJs) {
     const expectedTs = js.replace(/\.js$/, '.ts');
     if (!expected.has(expectedTs)) {

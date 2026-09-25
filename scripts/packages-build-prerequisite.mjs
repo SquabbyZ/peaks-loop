@@ -66,9 +66,13 @@
 //            one directed message, not a hunt.
 //   fresh    Proceed silently — and this is a claim about TWO things, because
 //            the source side alone is not one. The recorded digest must match
-//            the `src/` on disk AND `dist/` must contain the emit of it. With
-//            only the first half, this was measured live: `pnpm dev` — whose
-//            first step, `sync-version.mjs`, DELETES
+//            the `src/` on disk AND `dist/` must contain the emit of it —
+//            recursively, on both sides, and that qualifier is load-bearing:
+//            until rid-5b6d975f made both walks recurse, this sentence was
+//            FALSE as written, and 51 % of the surface (19 of the 37 sources,
+//            `peaks-loop-mut` the extreme at 10 of 11) was compared to
+//            nothing. With only the first half, this was measured live:
+//            `pnpm dev` — whose first step, `sync-version.mjs`, DELETES
 //            `packages/peaks-loop-shared/dist/version.js` and its `.d.ts`
 //            siblings — leaves a tree that reads `fresh` x4 while the next
 //            `test:unit` dies with
@@ -80,25 +84,25 @@
 // says — no build output at all, the clean checkout, where building is the only
 // repair — while a partial emit is a build that did not finish, and the guard
 // does not vouch for it. The rule for "complete" is the one
-// `scripts/check-build-integrity.mjs` already encodes (every top-level
-// `src/*.ts` has its `dist/*.js`) and deliberately not a stricter one: a
-// stricter rule here would refuse a tree the build pipeline's own gate calls
-// `build-integrity: OK`, and the remediation this module names would then never
-// clear it.
+// `scripts/check-build-integrity.mjs` already encodes (every source under
+// `src/`, recursively, has its emit under `dist/`) and deliberately not a
+// stricter one: a stricter rule here would refuse a tree the build pipeline's
+// own gate calls `build-integrity: OK`, and the remediation this module names
+// would then never clear it.
 //
 // WHAT `fresh` VOUCHES FOR, AND WHAT IT CANNOT
 //
 // `fresh` means "the RECORDED digest matches the `src/` on disk, and every
-// top-level `src/*.ts` has its `dist/*.js`". It is not provenance. The stamp is
-// unauthenticated — nothing links it to the artifacts it describes — so a
-// hand-written stamp makes a `dist/` built from OLD `src/` read `fresh`, which
-// is the failure this module refuses in the other direction. That is not merely
-// expensive to close, it is unclosable here: the writer, the verifier and any key
-// between them are files in one checkout written by one principal, so an actor
-// able to forge the stamp can forge the artifacts or replace this module
-// instead. The stamp is gitignored as well, so a forged or hand-edited one is
-// invisible to `git status` and to review. The guard reports the records it read;
-// it does not vouch for who wrote them.
+// source under `src/`, recursively, has its emit under `dist/`". It is not
+// provenance. The stamp is unauthenticated — nothing links it to the artifacts
+// it describes — so a hand-written stamp makes a `dist/` built from OLD `src/`
+// read `fresh`, which is the failure this module refuses in the other
+// direction. That is not merely expensive to close, it is unclosable here: the
+// writer, the verifier and any key between them are files in one checkout
+// written by one principal, so an actor able to forge the stamp can forge the
+// artifacts or replace this module instead. The stamp is gitignored as well,
+// so a forged or hand-edited one is invisible to `git status` and to review.
+// The guard reports the records it read; it does not vouch for who wrote them.
 //
 // THE RULE CHECKS ONE DIRECTION, AND THE OTHER IS RECORDED HERE ON PURPOSE
 //
@@ -124,14 +128,19 @@
 // own. A `fresh` over an orphan is therefore always downstream of the louder
 // refusal, never a substitute for it.
 //
-// Both walks are also TOP-LEVEL-ONLY, this module's and rule 1's alike — and
-// two of the four packages carry nested `src/` trees. Measured: with
+// BOTH WALKS ARE RECURSIVE, AND THEY COMPARE RELATIVE PATHS — this module's and
+// rule 1's alike, as of rid-5b6d975f, which closed the blind spot this paragraph
+// used to record here. It was pre-existing in `check-build-integrity.mjs`
+// (`bef907a4`, 2026-07-30 — never a regression of §2.11), and it was measured
+// rather than inferred: with
 // `packages/peaks-loop-mut/dist/services/mut/report-loader.js` deleted and its
-// source untouched, this module reads `fresh` and the gate prints
-// `build-integrity: OK`. That blind spot is pre-existing in
-// `check-build-integrity.mjs`, not introduced here, and it is left alone for the
-// reason above: one definition, owned by the gate, and this module deliberately
-// does not get ahead of it.
+// source untouched, this module read `fresh` and the gate printed
+// `build-integrity: OK` — two green gates over a tree missing an artifact its
+// own `index.js` imports. It is closed rather than merely recorded because the
+// reason the paragraph gave for leaving it — one definition, owned by the gate —
+// only holds while both sides of that definition agree: a recursive source list
+// read against a top-level `dist` set can never match for a nested source, so
+// every one of them reads as a missing artifact over a tree the gate calls OK.
 //
 // THE STALENESS SIGNAL IS CONTENT-DERIVED, NOT MTIME — and on this axis it has
 // to be, because mtime is not merely weak here, it is unusable:
@@ -531,6 +540,28 @@ function hasBuild(pkgRoot) {
 }
 
 /**
+ * Every file under `dir`, recursively, as `/`-separated paths relative to it.
+ *
+ * Throws when `dir` is unreadable — which is what `emitIsComplete`'s `catch`
+ * is for. A walker that returned `[]` on a read failure would answer "nothing
+ * is missing" about a directory it never read, and `.every()` over an empty
+ * list is `true`: this module's own silent-green shape, one predicate away.
+ */
+function listFiles(dir) {
+  const files = [];
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    if (entry.isDirectory()) {
+      for (const nested of listFiles(join(dir, entry.name))) {
+        files.push(`${entry.name}/${nested}`);
+      }
+    } else {
+      files.push(entry.name);
+    }
+  }
+  return files;
+}
+
+/**
  * Does this package's `dist/` hold the EMIT of its `src/`?
  *
  * `hasBuild` above answers a different question — whether there is any build
@@ -543,12 +574,19 @@ function hasBuild(pkgRoot) {
  * stricter one — see the header. Unreadable `src/` or `dist/` counts as
  * incomplete, which is the safe direction (it refuses rather than vouches).
  *
+ * Both sides are the SAME recursive walk, on relative paths. One side
+ * recursive against one side top-level is not a weaker check but a comparison
+ * that can never match — every nested source would read as an artifact that is
+ * missing, over a tree the gate calls OK. (The top-level `readdirSync(dist)`
+ * this replaced also carried directory entries; no `.js` lookup ever matched
+ * one, so dropping them is not a rule change.)
+ *
  * @param {string} pkgRoot
  */
 function emitIsComplete(pkgRoot) {
   try {
-    const built = new Set(readdirSync(join(pkgRoot, 'dist')));
-    return readdirSync(join(pkgRoot, 'src'))
+    const built = new Set(listFiles(join(pkgRoot, 'dist')));
+    return listFiles(join(pkgRoot, 'src'))
       .filter((name) => name.endsWith('.ts') && !name.endsWith('.d.ts'))
       .every((name) => built.has(name.replace(/\.ts$/, '.js')));
   } catch {
