@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-09-24T07:59:42.383Z",
+  "updatedAt": "2026-09-25T07:56:18.892Z",
   "hot": {
     "rule": [
       {
@@ -1076,6 +1076,14 @@
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\a-multi-slice-job-that-shares-one-rid-reopens-the-evidence-collision-hole-rid-scoping-was-built-to-close.md",
         "sourceArtifact": ".peaks/_runtime/2026-09-16-session-5bcf09/txt/handoff.md",
         "updatedAt": "2026-09-23"
+      },
+      {
+        "name": "a-silent-push-on-this-repo-is-the-pre-push-hook-running-the-full-suite",
+        "kind": "lesson",
+        "description": "On 2026-09-25,  produced **zero bytes of output for over two minutes**.",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\a-silent-push-on-this-repo-is-the-pre-push-hook-running-the-full-suite.md",
+        "sourceArtifact": ".peaks/_runtime/2026-09-25-session-0cf437/sc/push-closure.md",
+        "updatedAt": "2026-09-25"
       },
       {
         "name": "a-single-measurement-of-a-host-sensitive-command-is-not-a-fact-about-the-command",
