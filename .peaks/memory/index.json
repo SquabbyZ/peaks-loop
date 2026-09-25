@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-09-25T13:01:55.710Z",
+  "updatedAt": "2026-09-25T14:08:32.535Z",
   "hot": {
     "rule": [
       {
@@ -1124,6 +1124,14 @@
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\2026-09-01-auto-compact-context-probe-root-cause.md",
         "sourceArtifact": null,
         "updatedAt": "2026-09-23"
+      },
+      {
+        "name": "calling-a-finding-pre-existing-without-consulting-a-prior-is-recognition-not-measurement",
+        "kind": "lesson",
+        "description": "An RD reported that  on its five changed files showed **10 messages, all pre-existing**.",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\calling-a-finding-pre-existing-without-consulting-a-prior-is-recognition-not-measurement.md",
+        "sourceArtifact": ".peaks/_runtime/2026-09-25-session-0cf437/rd/rid-6f1df581-repair-1-handoff.md",
+        "updatedAt": "2026-09-25"
       },
       {
         "name": "codegraph 8 子任务集成 closure — 7 ship + 1 spike PARTIAL verdict (CG-006/007/001/009/005/008/002 ship; CG-003 spike 4 follow-ups)",
