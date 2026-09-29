@@ -1,22 +1,24 @@
 import { z } from 'zod';
+import {
+  EVO_AUTHOR_ID_MAX,
+  EVO_DIMENSION_ITEM_MAX,
+  EVO_EVAL_ID_MAX,
+  EVO_OPTIMIZATION_DIMENSION_MAX,
+  EVO_POINTER_MAX,
+  EVO_RED_LINE_MAX,
+  EVO_SCORING_SCALE_MAX,
+  EVO_SOURCE_TRACE_MAX,
+  EVO_TARGET_RELEASE_ID_MAX,
+  IndependentEvaluatorResultSchema,
+  RegressionSkepticResultSchema
+} from './evolution-constraints.js';
 
-/* ---------------------------------------------------------------------- */
-/* PRD-002b slice 2 — schema-limit constants extracted from inline         */
-/* `.max(N)` calls so the no-magic-numbers rule stops flagging the        */
-/* constraint values. Names describe the field, not just the number.     */
-/* ---------------------------------------------------------------------- */
-const EVO_TARGET_RELEASE_ID_MAX = 256;
-const EVO_OPTIMIZATION_DIMENSION_MAX = 200;
-const EVO_AUTHOR_ID_MAX = 200;
-const EVO_RISK_TAG_MAX = 200;
-const EVO_RED_LINE_MAX = 2000;
-const EVO_SOURCE_TRACE_MAX = 256;
-const EVO_EVAL_ID_MAX = 128;
-const EVO_DIMENSION_ITEM_MAX = 200;
-const EVO_SCORING_SCALE_MAX = 10;
-const EVO_REFUTE_PARAGRAPH_MAX = 8000;
-const EVO_SKEPTIC_RISK_MAX = 2000;
-const EVO_POINTER_MAX = 512;
+export {
+  IndependentEvaluatorResultSchema,
+  RegressionSkepticResultSchema,
+  type IndependentEvaluatorResult,
+  type RegressionSkepticResult
+} from './evolution-constraints.js';
 
 /**
  * EvolutionEvaluation — spec §4.4 / §6.
@@ -178,37 +180,6 @@ export type EvolutionProposal = z.infer<typeof EvolutionProposalSchema>;
 /* ---------------------------------------------------------------------- */
 /* Evaluation — post-skeptic aggregation.                                   */
 /* ---------------------------------------------------------------------- */
-
-/**
- * The independent evaluator's verdict. AC-12 / AC-13: the evaluator
- * is a SEPARATE sub-agent that only sees the evaluation package.
- */
-export const IndependentEvaluatorResultSchema = z.object({
-  score: z
-    .number()
-    .finite()
-    .min(0, 'evaluator score must be >= 0')
-    .max(EVO_SCORING_SCALE_MAX, 'evaluator score must be <= 10'),
-  riskTags: z.array(z.string().min(1).max(EVO_RISK_TAG_MAX)).default([]),
-  refuteParagraph: z
-    .string()
-    .trim()
-    .min(1, 'refuteParagraph is required (one paragraph of independent-context rebuttal)')
-    .max(EVO_REFUTE_PARAGRAPH_MAX)
-});
-export type IndependentEvaluatorResult = z.infer<typeof IndependentEvaluatorResultSchema>;
-
-/**
- * The regression skeptic's verdict. AC-14: a separate sub-agent
- * that attempts to refute the proposal.
- */
-export const RegressionSkepticResultSchema = z.object({
-  driftRisks: z.array(z.string().min(1).max(EVO_SKEPTIC_RISK_MAX)).default([]),
-  overfitRisks: z.array(z.string().min(1).max(EVO_SKEPTIC_RISK_MAX)).default([]),
-  safetyRegressionRisks: z.array(z.string().min(1).max(EVO_SKEPTIC_RISK_MAX)).default([]),
-  blocker: z.string().trim().min(1).max(EVO_SKEPTIC_RISK_MAX).optional()
-});
-export type RegressionSkepticResult = z.infer<typeof RegressionSkepticResultSchema>;
 
 /**
  * The full evolution evaluation row as persisted. Differs from the
