@@ -68,6 +68,23 @@ against real debt:
 | `prettierUnformatted` | 1178 | files `prettier --check` would rewrite |
 | `prettierUnparsableFiles` | 1 | prettier cannot parse it at all |
 | `tscErrors` | 142 | from `tsc -p tsconfig.json --noEmit` |
+| `silentWarningCatchReturnNull` | 41 *(seeded 2026-09-29)* | `catch { return null; }` — the caller cannot tell failure from absence |
+| `silentWarningEmptyCatch` | 59 *(seeded 2026-09-29)* | `catch { /* nothing */ }` — the error vanishes and the run stays green |
+
+Those last two are counted by the repo's own AST reporter,
+`scripts/lint/silent-warning-detector.mjs`, over **its own scope** — a walk of
+`src/` (781 files measured 2026-09-29), not the 1298-file `git ls-files` set the
+rows above use. The divergence is recorded rather than reconciled. Sites carrying
+a `// TODO(g2):` grace marker are subtracted by the detector itself, and the
+ceiling is seeded by the regenerator reading the detector's `--json` envelope —
+never typed in, the same rule `phantomRules` follows.
+
+They were added because the detector was referenced by nothing but
+`package.json#test:ci`, which no workflow calls: **100 red violations that could
+block nothing and grow unseen**. They are enforced in `repo` mode and in the
+named `Silent-warning ratchet` CI step, and both refuse (exit 1) when the
+detector cannot run — a leg that could not measure contributes no row, and
+certainly no zero.
 
 ## 4. The descent schedule
 
@@ -81,10 +98,50 @@ so the cap must be settled *after* the bulk format, not before.
 | 2 | Fix `scripts/bench/memory-search-token-cost.mjs` (syntax error since 2.8.0) | `prettierUnparsableFiles` → 0 |
 | 3 | `tsc -p tsconfig.json` — fix all 142 | `tscErrors` → 0 → **flip this leg to hard-fail** |
 | 4 | `prettier --write` the whole scope | `prettierUnformatted` → 0 → **flip this leg to hard-fail** |
-| 5 | Set the file-size cap to **300 raw lines for `src`/`packages`, 500 for `tests`** — in ONE place, currently `max-lines` in `.peaks-rules.cjs` and `DEFAULT_FILE_SIZE_THRESHOLD` in `file-size-scan.ts` disagree (400 effective vs 800 raw), then split what exceeds it | `eslintFindings` ↓ (**237 files** over the new cap: 180 `src` + 57 `tests`) |
-| 6..n | eslint by rule family, largest first: `no-unsafe-member-access` (635), `no-magic-numbers` (551), `no-non-null-assertion` (549), `complexity` (414), `max-lines-per-function` (397), `require-await` (310), `no-unused-vars` (273), … | `eslintFindings` → 0 → **flip this leg to hard-fail** |
+| 5 | Set the file-size cap to **300 raw lines for `src`/`packages`, 500 for `tests`** — in ONE place, currently `max-lines` in `.peaks-rules.cjs` and `DEFAULT_FILE_SIZE_THRESHOLD` in `file-size-scan.ts` disagree (400 effective vs 800 raw), then split what exceeds it. **Re-measured 2026-09-29: still NOT landed, and the two places still disagree** (`max-lines: [error, {max: 400, skipBlankLines, skipComments}]` vs `DEFAULT_FILE_SIZE_THRESHOLD = 800`). Over the decided cap today: **263 files** — `src` 210, `tests` 42, `packages` 4, `scripts` 7 — 65,926 excess lines. The original **237 (180 src + 57 tests)** was a 2026-09-19 count over two dirs only. The cap fires today as **101 `max-lines` findings** under the current 400-effective rule. Sequence constraint this row does not state: the cap may not be tightened before the splits land, or the ceiling would go UP, which §5 forbids. | `eslintFindings` ↓ |
+| 6..n | eslint by rule family, largest first. **The 2026-09-19 ordering below is stale** — measured 2026-09-29 over the gate's own 1298-file scope, `no-unsafe-member-access` (listed first, 635) is down to **14**, and `require-await` (310) no longer appears at all; both were cleared by the 4.0.5x ratchets. Today, largest first: `no-magic-numbers` **634**, `max-lines-per-function` **559** *(error)*, `no-non-null-assertion` **550**, `complexity` **451**, `no-unused-vars` **161** *(error)*, `consistent-type-imports` **112**, `max-lines` **101** *(error)*, `max-params` 59, `no-base-to-string` 39, `no-require-imports` 26, `no-duplicate-imports` 25, … The first four are **2,194 of 2,878 (76.2%)**; by dir: `src` 2169, `tests` 576, `scripts` 73, `packages` 60. Original plan text kept for provenance: `no-unsafe-member-access` (635), `no-magic-numbers` (551), `no-non-null-assertion` (549), `complexity` (414), `max-lines-per-function` (397), `require-await` (310), `no-unused-vars` (273), … | `eslintFindings` → 0 → **flip this leg to hard-fail** |
 
-**The cap is decided: 300 raw for `src`/`packages`, 500 for `tests`** — the tight
+**Status of rows 1–4 — landed and held.** Verified by measurement on 2026-09-29, not by
+reading this table: `eslintPhantomFindings` 2390 → **0**, `eslintCoverageGapFiles` 71 → **0**,
+`prettierUnparsableFiles` 1 → **0**, `prettierUnformatted` 1178 → **0** (and `prettier --check` over
+the four `format:check` globs independently says *"All matched files use Prettier code style!"*),
+`tscErrors` 142 → **0** — plus 0 in each of the four package `tsconfig.json` programs, which the
+root program does **not** include (`include: ["src/**/*.ts","tests/**/*.ts"]`), so a package
+regression is invisible to the gate's `tsc` leg.
+
+### 4b. Measurement-surface holes, found 2026-09-29
+
+The gate held every ceiling and the unit suite was green (320 files / 3540 tests / 3 skipped), yet
+four measurements on that green tree did not mean what they appeared to mean. Recorded because
+"the gate is green" was being read as "the remediation is complete" — and each hole below makes a
+red or absent signal look like a passing one.
+
+| # | Hole | Measured |
+|---|---|---|
+| 1 | `package.json#scripts.lint` measured a **different file set** than the gate: `--ext .ts src tests packages` never passed `scripts/**`, and excluded `mts/cts/mjs/cjs/js`. | old set 1259 files → 2798 findings / 998 errors; the gate's 1298 → **2878 / 1032**. Invisible: 39 files, 80 findings, 34 errors (73 of them in `scripts/**`). Fixed by `a1`. |
+| 2 | `packages/peaks-loop-shared` **exited 0 while collecting zero tests** — `passWithNoTests: true`, set on 2026-09-24 so an empty workspace would not fail `pnpm -r run test`, after `08e92d8f` deleted the root mirror tests on the premise that package tests existed. They never did. | `No test files found, exiting with code 0` inside an aggregate that reported green. Fixed by `a2`. |
+| 3 | The silent-warning detector was **red and ungated**: 100 violations, exit 1, referenced only by `package.json#test:ci`, which no workflow calls and no husky hook runs. | `catch-return-null=41`, `empty-catch=59`, scanned 781 files. Fixed by `a3` (two new ceiling rows, §3). |
+| 4 | §4's slice-6 family ordering **was 6 days stale** and pointed the next work at a family that had already been cleared. | `no-unsafe-member-access` 635 → 14; `require-await` 310 → absent. Corrected above. |
+
+**What landed for these four** (branch `strict-remediation-abc`, 2026-09-29): rows 1-3 fixed, row 4
+corrected above. Measured on the combined tree after the repair cycle — `node .husky/peaks-gate.mjs repo`
+checks **1298** files with all 11 rows held and exit 0; `pnpm lint` reports the same 1298 files and the
+same `2878 / 1032`; `vitest run tests/unit` is **322 files / 3559 passed / 3 skipped**; each package's
+own leg runs in CI.
+
+Two things this section still does not close, stated because each is the same defect shape one row up:
+
+1. **The scope rule has three spellings left.** The gate's own copy is gone (it imports
+   `scripts/lint/lint-file-list.mjs`, and the parity arms now spawn `repo` mode — the copy it used to
+   keep could be weakened to 1259 files while still exiting 0 and printing `ceilings held`). But
+   `.husky/peaks-gate-baseline.mjs:59-60` keeps `CODE_EXT` + a hardcoded `TOP_DIRS`, and
+   `tests/unit/lint/eslint-rules-config-coverage.test.ts:88-89` keeps a third. The generator's copy is
+   the worse one: it **writes** `scope.dirs` into the baseline (line 340), so drift there does not blind
+   a gate, it **poisons a ceiling** — and nothing observes it.
+2. **The root `tsc` leg cannot see `packages/*/src`.** `tsconfig.json` is `include: ["src/**/*.ts",
+   "tests/**/*.ts"]`, so a package type error is invisible to the gate; only the per-package
+   `tsc -p tsconfig.json` that `pnpm -r build` runs catches it. Measured 2026-09-29: all four package
+   programs report 0 errors, but that is not what the gate asserts.
 end of the industry band. ESLint's own `max-lines` default is 300; SonarQube S104
 defaults to 750–1000; ~400/500 is the common TypeScript landing zone. The repo's
 current posture is ~706 raw (400 effective) plus an 800 raw scan, i.e. the loose
