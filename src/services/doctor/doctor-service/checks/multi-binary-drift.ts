@@ -39,21 +39,14 @@ import type {
   DoctorContext,
   MultiBinaryDriftInspection
 } from '../types.js';
+import {
+  candidateBinaryNames,
+  dedupeVersions,
+  existsSafe,
+  type PeaksBinaryRecord
+} from './multi-binary-drift-helpers.js';
 
-/**
- * Local record shape — same as the canonical
- * `MultiBinaryDriftInspection.binaries[number]`. Re-declared so the
- * helper signature carries the concrete shape (the canonical
- * `MultiBinaryDriftInspection` widens `version` + `installDate` to
- * `string | null` so external consumers do not depend on the
- * field being nullable).
- */
-export type PeaksBinaryRecord = {
-  readonly path: string;
-  readonly version: string | null;
-  readonly installDate: string | null;
-  readonly realpath: string;
-};
+export type { PeaksBinaryRecord } from './multi-binary-drift-helpers.js';
 
 /**
  * Pure helper. Inspects `process.env.PATH` (or the injected
@@ -128,17 +121,6 @@ export function inspectMultiBinaryDrift(opts?: {
 }
 
 /**
- * Cross-platform candidate names. Windows shims the executable as
- * `peaks.cmd` and `peaks.ps1` (npm writes both); POSIX names the
- * binary `peaks`. We probe all three names on every platform —
- * probing a non-existent file is a no-op, so cross-list probing is
- * safe.
- */
-function candidateBinaryNames(dir: string): ReadonlyArray<string> {
-  return [join(dir, 'peaks'), join(dir, 'peaks.cmd'), join(dir, 'peaks.ps1')];
-}
-
-/**
  * Walk from the binary to its `node_modules/peaks-loop/package.json`.
  *
  * Common layouts handled:
@@ -183,14 +165,6 @@ function locatePackageJson(realpathPath: string, originalCandidate: string): str
   return null;
 }
 
-function existsSafe(p: string): boolean {
-  try {
-    return existsSync(p);
-  } catch {
-    return false;
-  }
-}
-
 function readBinaryRecord(
   candidate: string,
   realpathPath: string,
@@ -231,25 +205,6 @@ function readBinaryRecord(
     installDate,
     realpath: realpathPath
   };
-}
-
-/**
- * `version === null` means we could not read the package.json (or
- * its `name` did not equal `peaks-loop`). Those records stay in
- * `binaries` for the report but do NOT contribute to
- * `uniqueVersions` — including null would falsely trigger drift
- * detection when the only failures are unreadable binaries.
- */
-function dedupeVersions(versions: ReadonlyArray<string | null>): ReadonlyArray<string> {
-  const seen = new Set<string>();
-  const out: string[] = [];
-  for (const v of versions) {
-    if (typeof v !== 'string' || v.length === 0) continue;
-    if (seen.has(v)) continue;
-    seen.add(v);
-    out.push(v);
-  }
-  return out;
 }
 
 function run({ options }: DoctorContext): readonly DoctorCheck[] {

@@ -7,6 +7,9 @@ import {
   type BoundaryError
 } from '../openspec/artifact-boundary.js';
 import { getTechStatus as getLegacyTechStatus } from '../tech/tech-service.js';
+import type { RdTask, RdTaskGraph, RdWaveName } from './rd-swarm-types.js';
+
+export type { RdConflictGroup, RdTask, RdTaskGraph, RdWaveName } from './rd-swarm-types.js';
 
 type Result<T, E> = { ok: true; value: T } | { ok: false; error: E };
 
@@ -20,46 +23,6 @@ export type RdSwarmPlanRequest = {
   targetRepoRoot?: string;
   requiresTechApproval?: boolean;
   workspace?: WorkspaceConfig;
-};
-
-export type RdWaveName =
-  'discovery' | 'planning' | 'implementation candidates' | 'quality gates' | 'reducer';
-export type RdTask = {
-  taskId: string;
-  wave: RdWaveName;
-  workerKind: string;
-  purpose: string;
-  inputs: string[];
-  outputs: [string, ...string[]];
-  dependsOn: string[];
-  conflictGroup: string;
-  targetArea: string;
-  expectedEvidence: string;
-};
-export type RdConflictGroup = {
-  groupId: string;
-  ownedPaths: string[];
-  parallelismPolicy: 'parallel' | 'sequential';
-  reason: string;
-};
-export type RdTaskGraph = {
-  changeId: string;
-  goal: string;
-  available: boolean;
-  workerTarget: number;
-  waves: Array<{ name: RdWaveName; taskIds: string[] }>;
-  tasks: RdTask[];
-  conflictGroups: RdConflictGroup[];
-  artifactRoot: string;
-  outputs: {
-    taskGraph: string;
-    waveManifests: string[];
-    workerBriefs: string[];
-    reducerReport: string;
-  };
-  gateStatus: { techApprovalRequired: boolean; techStatus: string; skipReason?: string };
-  blockedReasons: string[];
-  nextActions: string[];
 };
 
 type GateStatus = RdTaskGraph['gateStatus'];

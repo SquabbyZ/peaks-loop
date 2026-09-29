@@ -43,36 +43,27 @@ import {
 } from './codegraph-service.js';
 import { defaultCodegraphProcessRunner } from './codegraph-process-runner.js';
 import { repairCodegraphExcludeFromProject } from './codegraph-exclude-repair.js';
+import {
+  CODEGRAPH_STRUCTURE_MAX_DIRS,
+  CODEGRAPH_STRUCTURE_MAX_ROOT_FILES,
+  normalizeCodegraphPath,
+  parseFilesPayload,
+  type CodegraphPreflightResult,
+  type CodegraphStructureFileEntry,
+  type CodegraphStructureRenderOptions,
+  type CodegraphStructureSummary
+} from './codegraph-preflight-structure.js';
 
-export type CodegraphPreflightResult =
-  | { available: true; block: string; fileCount: number; truncated: boolean }
-  | { available: false; note: string };
-
-/** Cap for the directory histogram in the rendered structure block. */
-export const CODEGRAPH_STRUCTURE_MAX_DIRS = 40;
-/** Cap for bare root files listed in the rendered structure block. */
-export const CODEGRAPH_STRUCTURE_MAX_ROOT_FILES = 12;
-
-export interface CodegraphStructureFileEntry {
-  readonly path: string;
-}
-
-export interface CodegraphStructureRenderOptions {
-  readonly maxDirs?: number;
-  readonly maxRootFiles?: number;
-}
-
-export interface CodegraphStructureSummary {
-  /** Full `## Codegraph structure` markdown block, ending on its own paragraph. */
-  block: string;
-  total: number;
-  truncated: boolean;
-}
-
-/** Strip a leading `./` (upstream codegraph paths may carry it). */
-function normalizeCodegraphPath(path: string): string {
-  return path.startsWith('./') ? path.slice(2) : path;
-}
+export {
+  CODEGRAPH_STRUCTURE_MAX_DIRS,
+  CODEGRAPH_STRUCTURE_MAX_ROOT_FILES
+} from './codegraph-preflight-structure.js';
+export type {
+  CodegraphPreflightResult,
+  CodegraphStructureFileEntry,
+  CodegraphStructureRenderOptions,
+  CodegraphStructureSummary
+} from './codegraph-preflight-structure.js';
 
 /**
  * Pure renderer: turn the codegraph `files --json` payload into a bounded
@@ -148,30 +139,6 @@ function firstMeaningfulLine(text: string): string {
   if (trimmed.length === 0) return 'no upstream output';
   const first = trimmed.split(/\r?\n/)[0];
   return first !== undefined ? first.slice(0, 200) : 'no upstream output';
-}
-
-function parseFilesPayload(stdout: string): {
-  ok: boolean;
-  entries: CodegraphStructureFileEntry[];
-} {
-  try {
-    const parsed: unknown = JSON.parse(stdout);
-    if (Array.isArray(parsed)) {
-      const entries = parsed
-        .filter(
-          (entry): entry is { path: unknown } =>
-            typeof entry === 'object' && entry !== null && 'path' in entry
-        )
-        .map((entry) => ({ path: typeof entry.path === 'string' ? entry.path : '' }))
-        .filter((entry) => entry.path.length > 0);
-      return { ok: true, entries };
-    }
-    // JSON but not an array — not the shape we expect.
-    return { ok: false, entries: [] };
-  } catch {
-    // Not JSON at all — e.g. the upstream text path ("No files indexed…").
-    return { ok: false, entries: [] };
-  }
 }
 
 async function readStructure(
