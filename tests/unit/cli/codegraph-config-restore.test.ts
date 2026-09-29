@@ -23,17 +23,19 @@
 //   - integration: real git + real fs + a real repair→restore round trip
 //   - a11y:        the exit codes (0 / 77 / 1) and the loud refusal text
 //
+// Split (b1 filesplit campaign): this file keeps render / behavior /
+// integration; the a11y dimension (exit codes and the loud refusal text)
+// lives in codegraph-config-restore-exit-codes.test.ts. Shared fixtures are
+// in codegraph-config-restore-support.ts, moved verbatim.
+//
 // Run with: pnpm vitest run tests/unit/cli/codegraph-config-restore.test.ts
 
-import { Command } from 'commander';
-import { execFileSync } from 'node:child_process';
 import {
   chmodSync,
   existsSync,
   linkSync,
   mkdirSync,
   readFileSync,
-  realpathSync,
   statSync,
   symlinkSync,
   writeFileSync
@@ -42,20 +44,32 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { declareDimensions } from '../_setup/4dim-template.js';
-import { makeCapturedIo } from '../_setup/io.js';
 import { SUBPROCESS_TEST_TIMEOUT_MS } from '../_setup/subprocess-timeouts.js';
 import {
   cleanupTmpWorkspace,
   useTmpWorkspace,
   type TmpWorkspace
 } from '../_setup/tmp-workspace.js';
+import {
+  backupPathOf,
+  configPathOf,
+  parseJson,
+  repairOnce,
+  runCodegraph,
+  seedProject
+} from './codegraph-config-restore-support.js';
 
-declareDimensions('tests/unit/cli/codegraph-config-restore.test.ts', [
-  'render',
-  'behavior',
-  'integration',
-  'a11y'
-]);
+declareDimensions(
+  'tests/unit/cli/codegraph-config-restore.test.ts',
+  ['render', 'behavior', 'integration'],
+  [
+    {
+      dim: 'a11y',
+      reason:
+        'the exit codes and the loud refusal text live in codegraph-config-restore-exit-codes.test.ts'
+    }
+  ]
+);
 
 const __m = vi.hoisted(() => ({
   executeCodegraphInvocation: vi.fn()
@@ -67,85 +81,6 @@ vi.mock('../../../src/services/codegraph/codegraph-service.js', async () => {
   >('../../../src/services/codegraph/codegraph-service.js');
   return { ...actual, executeCodegraphInvocation: __m.executeCodegraphInvocation };
 });
-
-import { registerCodegraphCommands } from '../../../src/cli/commands/codegraph-commands.js';
-
-type CapturedIo = ReturnType<typeof makeCapturedIo>['captured'];
-
-// The restore's own exit code (its cause is operator-actionable, so it is not
-// conflated with the generic 1 that a broken command produces).
-const CONFIG_RESTORE_EXIT_CODE = 77;
-
-async function runCodegraph(argv: readonly string[]): Promise<CapturedIo> {
-  const { io, captured } = makeCapturedIo();
-  const program = new Command();
-  registerCodegraphCommands(program, io);
-  await program.parseAsync(['codegraph', ...argv], { from: 'user' });
-  return captured;
-}
-
-function parseJson(captured: CapturedIo): {
-  ok: boolean;
-  code?: string;
-  message?: string;
-  command?: string;
-  data: {
-    restored?: boolean;
-    from?: string | null;
-    to?: string | null;
-    reason?: string | null;
-    applied?: boolean;
-  };
-  nextActions?: string[];
-} {
-  return JSON.parse(captured.stdout.join('\n')) as ReturnType<typeof parseJson>;
-}
-
-// Canonicalized through `realpathSync.native`, because that is what the verb's
-// own `resolveProjectRoot` does: on Windows an `mkdtemp` path arrives in 8.3
-// short form (`SMALLM~1`) and the CLI reports the long form, so a comparison
-// against the raw fixture path would fail on the platform rather than on the
-// behaviour. Idempotent for an already-canonical path.
-const configPathOf = (project: string): string =>
-  join(realpathSync.native(project), '.codegraph', 'config.json');
-const backupPathOf = (project: string): string => `${configPathOf(project)}.bak`;
-
-function git(dir: string, args: readonly string[]): void {
-  execFileSync('git', ['-C', dir, ...args], { stdio: 'ignore', windowsHide: true });
-}
-
-// A real temp git work tree with a tracked source file the `exclude` config
-// blocks (so a repair has work to do and therefore leaves a `.bak`).
-function seedProject(ws: TmpWorkspace): string {
-  git(ws.path, ['init', '-q']);
-  git(ws.path, ['config', 'user.email', 'peaks-test@example.com']);
-  git(ws.path, ['config', 'user.name', 'peaks test']);
-  mkdirSync(join(ws.path, 'src'), { recursive: true });
-  mkdirSync(join(ws.path, 'vendor'), { recursive: true });
-  writeFileSync(join(ws.path, 'src', 'ok.ts'), 'export const ok = 1;\n', 'utf8');
-  writeFileSync(join(ws.path, 'vendor', 'lib.ts'), 'export const lib = 1;\n', 'utf8');
-  git(ws.path, ['add', '-A']);
-  git(ws.path, ['commit', '-qm', 'fixture']);
-
-  mkdirSync(join(ws.path, '.codegraph'), { recursive: true });
-  writeFileSync(
-    configPathOf(ws.path),
-    `${JSON.stringify(
-      { version: 1, include: ['**/*.ts'], exclude: ['**/vendor/**', '**/node_modules/**'] },
-      null,
-      2
-    )}\n`,
-    'utf8'
-  );
-
-  return ws.path;
-}
-
-// The real repair verb, so the `.bak` under test is the one production writes.
-async function repairOnce(project: string): Promise<void> {
-  await runCodegraph(['repair-exclude', '--project', project, '--peaks-json']);
-  process.exitCode = 0;
-}
 
 let ws: TmpWorkspace;
 let savedExitCode: string | number | null | undefined;
@@ -371,134 +306,4 @@ describe('integration — repair then restore, against real files', () => {
     },
     SUBPROCESS_TEST_TIMEOUT_MS
   );
-});
-
-// ── a11y: exit codes and the loud text ──────────────────────────────
-
-describe('a11y — exit codes and the refusal text', () => {
-  it(
-    'should exit 0 on a restore',
-    async () => {
-      const project = seedProject(ws);
-      await repairOnce(project);
-
-      await runCodegraph(['config-restore', '--project', project, '--peaks-json']);
-
-      expect(process.exitCode).toBe(0);
-    },
-    SUBPROCESS_TEST_TIMEOUT_MS
-  );
-
-  it(
-    'should exit with its OWN code, distinct from a broken invocation — measured at runtime',
-    async () => {
-      const project = seedProject(ws);
-      mkdirSync(backupPathOf(project));
-
-      // Both numbers come from REAL runs of this verb, not from comparing two
-      // literals: `expect(77).not.toBe(1)` is decided by the compiler and can
-      // never fail, so it proved nothing about what the command does. These two
-      // runs are the two failure CLASSES the verb has to keep apart.
-      process.exitCode = 0;
-      await runCodegraph([
-        'config-restore',
-        '--project',
-        join(ws.path, 'does-not-exist'),
-        '--peaks-json'
-      ]);
-      const preconditionExit = process.exitCode;
-
-      process.exitCode = 0;
-      await runCodegraph(['config-restore', '--project', project, '--peaks-json']);
-      const refusalExit = process.exitCode;
-
-      expect(refusalExit).toBe(CONFIG_RESTORE_EXIT_CODE);
-      expect(preconditionExit).toBe(1);
-      // The claim the tautology was trying to make: a refused restore is NOT
-      // reported with the code a mis-aimed invocation gets, so a CI job can tell
-      // "your rollback point is unusable" from "your command was wrong".
-      //
-      // This is the SECOND assertion for that claim, not the first. Merging the
-      // two codes trips the pin above — `expect(preconditionExit).toBe(1)` sees
-      // 77 — and vitest stops there, so this line never runs. It adds no power of
-      // its own; it is here to STATE the requirement, which the two pinned values
-      // imply but never say out loud.
-      expect(refusalExit).not.toBe(preconditionExit);
-    },
-    SUBPROCESS_TEST_TIMEOUT_MS
-  );
-
-  it(
-    'on the human path, should name the reason on STDERR (a refusal is not stdout news)',
-    async () => {
-      const project = seedProject(ws);
-
-      const captured = await runCodegraph(['config-restore', '--project', project]);
-
-      const stderr = captured.stderr.join('\n');
-      expect(stderr).toContain('CODEGRAPH_CONFIG_RESTORE_FAILED');
-      expect(stderr).toContain('cannot read');
-      expect(captured.text()).not.toContain('"restored": true');
-    },
-    SUBPROCESS_TEST_TIMEOUT_MS
-  );
-
-  it('should carry a reason on the unusable-project path, not an empty data object', async () => {
-    const captured = await runCodegraph([
-      'config-restore',
-      '--project',
-      join(ws.path, 'does-not-exist'),
-      '--peaks-json'
-    ]);
-
-    const envelope = parseJson(captured);
-    expect(envelope.ok).toBe(false);
-    expect(envelope.code).toBe('CODEGRAPH_CONFIG_RESTORE_FAILED');
-    // The requirement this case owns: EVERY failure path carries all four
-    // `data` keys. A consumer reads `restored` and `reason` unconditionally, so
-    // a `data: {}` envelope leaves it unable to tell a refused restore from a
-    // mis-aimed command without string-matching the message.
-    expect(envelope.data.restored).toBe(false);
-    expect(envelope.data.from).toBeNull();
-    expect(envelope.data.to).toBeNull();
-    expect(envelope.data.reason).toBeTruthy();
-    expect(envelope.data.reason).toContain('Project path must exist and be a directory');
-    // The PRECONDITION class: nothing ever examined a rollback point, so the run
-    // must not be reported with the code that means "your backup is unusable".
-    // Same ordering as the case above: the pin is FIRST and the exclusion below
-    // it is the second assertion for the same requirement — a merged code trips
-    // the pin, so the exclusion cannot fail independently. It is kept as the
-    // explicit statement of the requirement.
-    expect(process.exitCode).toBe(1);
-    expect(process.exitCode).not.toBe(CONFIG_RESTORE_EXIT_CODE);
-  });
-
-  it('should carry the containment guard`s own reason when `.codegraph` resolves outside the project', async () => {
-    // A project root that is a SUBDIRECTORY of the workspace, so `.codegraph`
-    // has a real directory outside it to point at. Junction on Windows (no
-    // privilege needed), directory symlink on POSIX — the same shapes the repair
-    // seam's own containment test uses.
-    const project = join(ws.path, 'project');
-    const outside = join(ws.path, 'outside', '.codegraph');
-    mkdirSync(outside, { recursive: true });
-    mkdirSync(project, { recursive: true });
-    symlinkSync(
-      outside,
-      join(project, '.codegraph'),
-      process.platform === 'win32' ? 'junction' : 'dir'
-    );
-
-    const captured = await runCodegraph(['config-restore', '--project', project, '--peaks-json']);
-
-    const envelope = parseJson(captured);
-    expect(envelope.ok).toBe(false);
-    expect(envelope.data.restored).toBe(false);
-    expect(envelope.data.reason).toBeTruthy();
-    // The GUARD's own words, not a generic "something failed": that is what
-    // makes the reason actionable, and it is why the envelope is built from the
-    // thrown error rather than from a fixed string.
-    expect(envelope.data.reason).toContain('refusing to write through it');
-    expect(envelope.data.reason).toContain('which is not inside the project root');
-    expect(process.exitCode).toBe(1);
-  });
 });
