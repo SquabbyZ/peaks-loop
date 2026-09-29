@@ -99,7 +99,24 @@ so the cap must be settled *after* the bulk format, not before.
 | 3 | `tsc -p tsconfig.json` — fix all 142 | `tscErrors` → 0 → **flip this leg to hard-fail** |
 | 4 | `prettier --write` the whole scope | `prettierUnformatted` → 0 → **flip this leg to hard-fail** |
 | 5 | Set the file-size cap to **300 raw lines for `src`/`packages`, 500 for `tests`** — in ONE place, currently `max-lines` in `.peaks-rules.cjs` and `DEFAULT_FILE_SIZE_THRESHOLD` in `file-size-scan.ts` disagree (400 effective vs 800 raw), then split what exceeds it. **Re-measured 2026-09-29: still NOT landed, and the two places still disagree** (`max-lines: [error, {max: 400, skipBlankLines, skipComments}]` vs `DEFAULT_FILE_SIZE_THRESHOLD = 800`). Over the decided cap today: **263 files** — `src` 210, `tests` 42, `packages` 4, `scripts` 7 — 65,926 excess lines. The original **237 (180 src + 57 tests)** was a 2026-09-19 count over two dirs only. The cap fires today as **101 `max-lines` findings** under the current 400-effective rule. Sequence constraint this row does not state: the cap may not be tightened before the splits land, or the ceiling would go UP, which §5 forbids. | `eslintFindings` ↓ |
-| 6..n | eslint by rule family, largest first. **The 2026-09-19 ordering below is stale** — measured 2026-09-29 over the gate's own 1298-file scope, `no-unsafe-member-access` (listed first, 635) is down to **14**, and `require-await` (310) no longer appears at all; both were cleared by the 4.0.5x ratchets. Today, largest first: `no-magic-numbers` **634**, `max-lines-per-function` **559** *(error)*, `no-non-null-assertion` **550**, `complexity` **451**, `no-unused-vars` **161** *(error)*, `consistent-type-imports` **112**, `max-lines` **101** *(error)*, `max-params` 59, `no-base-to-string` 39, `no-require-imports` 26, `no-duplicate-imports` 25, … The first four are **2,194 of 2,878 (76.2%)**; by dir: `src` 2169, `tests` 576, `scripts` 73, `packages` 60. Original plan text kept for provenance: `no-unsafe-member-access` (635), `no-magic-numbers` (551), `no-non-null-assertion` (549), `complexity` (414), `max-lines-per-function` (397), `require-await` (310), `no-unused-vars` (273), … | `eslintFindings` → 0 → **flip this leg to hard-fail** |
+| 6..n | eslint by rule family. **Ordering by family size is the wrong lever** — re-measured 2026-09-30 against the files still over the line cap: cleaning `no-magic-numbers` (the largest family) unlocks **2** blocked files, `complexity` (smaller) unlocks **36**, and all four large families together unlock only **47 of 124** — **22 of those 124 cannot be unlocked by any lint cleaning**, because the blocking code references module-local state. So run slice C **file-scoped and interleaved with the split**, not as four repo-wide sweeps: 47 blocked files have ≥70 % of their shortfall inside a single `register*Commands()` function, where cleaning the family *is* the split. Family sizes today: `no-magic-numbers` **633**, `max-lines-per-function` **559**, `no-non-null-assertion` **547**, `complexity` **450**, `no-unused-vars` 161, `consistent-type-imports` 112, `max-lines` 101. Original 2026-09-19 plan text kept for provenance: `no-unsafe-member-access` (635), `no-magic-numbers` (551), `no-non-null-assertion` (549), `complexity` (414), `max-lines-per-function` (397), `require-await` (310), `no-unused-vars` (273), … — both 635 and 310 are now near-zero (measured **14** and absent on 2026-09-29). | `eslintFindings` → 0 → **flip this leg to hard-fail** |
+
+**Cap reading, decided 2026-09-30:** `packages/*/tests/*.test.ts` counts at **300**, the same as its parent
+scope — not the 500 a root `tests/**` file gets. That puts
+`packages/peaks-loop-mut/tests/thresholds.test.ts` (313) and
+`packages/peaks-loop-shared-channel/tests/shared-channel.test.ts` (321) in the queue, and it is why the
+package test file created by slice A was split into two files under 300.
+
+**How the remaining split work is classified** (read-only planning pass, 2026-09-30, over the gate's own
+scope — its eslint run returned 2872 findings, exactly the ceiling, so it measured what the gate measures):
+of **236** over-cap files, **44** clear by hoisting finding-free top-level declarations only (class A — a
+lower bound), **124** are blocked because the shortfall sits inside code that already carries a finding
+(class B), **55** need a real split because the mass is `describe()` bodies or long literals rather than
+declarations (class C), and **13** are too mixed to call. Class B is only reachable through slice C, which
+is why the two interleave. The structural reason extraction runs out: **"a NEW file must be clean
+outright" means a finding-carrying chunk cannot be relocated into a new file**, so a file whose residual
+mass is one complex function cannot be shortened by moving declarations — and renaming its literals into
+constants to get around that is family-debt work wearing a split's clothes.
 
 **Status of rows 1–4 — landed and held.** Verified by measurement on 2026-09-29, not by
 reading this table: `eslintPhantomFindings` 2390 → **0**, `eslintCoverageGapFiles` 71 → **0**,
@@ -142,6 +159,27 @@ Two things this section still does not close, stated because each is the same de
    "tests/**/*.ts"]`, so a package type error is invisible to the gate; only the per-package
    `tsc -p tsconfig.json` that `pnpm -r build` runs catches it. Measured 2026-09-29: all four package
    programs report 0 errors, but that is not what the gate asserts.
+
+### 4c. Two pins that read source TEXT, not behaviour (found while splitting, 2026-09-30)
+
+The campaign moves declarations between files. Two guards in this repo read a file's **text at a fixed
+path**, so a mechanically-correct split breaks them for reasons no type check can see:
+
+| pin | what it reads | consequence |
+|---|---|---|
+| `tests/unit/lint/session-path-swallow-census.test.ts` | `{file, rule, **line**, frame, reason}` for 5 files, asserted with `toEqual` | moving a pinned `catch` shifts its line number and reddens the suite. Pinned and still over cap: `src/services/observability/observability-service.ts` (surplus 11), `src/services/code/auto-compact-orchestrator.ts`, `src/services/code/auto-compact-lifecycle.ts` |
+| `src/services/feedback/promotion-artifact-evidence.ts` | regex over `src/services/code/mode-gate.ts` to recover `HardFloorCategory` and `HARD_FLOOR_CATEGORIES`, exercised by `feedback-promotion-artifact.test.ts:846` against the real repo file | hoisting those two names into a sibling makes a *different* module's parse return nothing. The leaf that found this left both names in place rather than edit the reader |
+
+Neither was in the planning model, which reasoned about declaration entanglement, not about text reads.
+**Rule for every future split leaf: before hoisting a top-level name, grep the repo for that name being
+read by path.** The two above are the only instances found so far; the planning pass modelled declaration
+entanglement, not text reads, so the class is under-counted by construction.
+
+Also measured, because "the suite is green" hid it: `sync-service.ts`, `evolution-store.ts` and
+`workflow-autonomous-resume-helpers.ts` have **no unit test that imports them**. Their only coverage
+spawns `bin/peaks.js`, i.e. needs a fresh `dist/`, which is why the integration preflight
+(`_dist-freshness-global-setup`) refuses to run while `src/` is being edited — a real cost this campaign
+pays by rebuilding `dist/` once per wave and re-running those files at convergence.
 end of the industry band. ESLint's own `max-lines` default is 300; SonarQube S104
 defaults to 750–1000; ~400/500 is the common TypeScript landing zone. The repo's
 current posture is ~706 raw (400 effective) plus an 800 raw scan, i.e. the loose
