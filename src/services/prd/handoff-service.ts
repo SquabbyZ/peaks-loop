@@ -24,124 +24,34 @@
  */
 
 import { createHash } from 'node:crypto';
-import { existsSync } from 'node:fs';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { parse as parseYaml } from 'yaml';
 
-import { isUnsafePathInput } from '../../shared/path-safety.js';
-import { REQUEST_ID_PATTERN } from '../artifacts/request-artifact-service.js';
-import { serializeHandoffFrontmatter } from './handoff-frontmatter.js';
 import { classifyGateEvidence } from './handoff-gate-evidence.js';
-import type {
-  GateEvidence,
-  Handoff,
-  HandoffFrontmatter,
-  HandoffProbe,
-  HandoffSchemaVersion
-} from './handoff-types.js';
+import {
+  HANDOFF_SCHEMA_VERSION,
+  isGateEvidence,
+  isSchemaVersion2,
+  serializeHandoff
+} from './handoff-frontmatter-shape.js';
+import { handoffRelativePath } from './handoff-path-resolution.js';
+import type { GateEvidence, Handoff, HandoffFrontmatter, HandoffProbe } from './handoff-types.js';
 
-/** Required schema version for new handoffs. */
-const HANDOFF_SCHEMA_VERSION: HandoffSchemaVersion = '2';
+// Slice `b1-filesplit-campaign` (wave 3): the capsule PATH layer
+// (`assertSafeHandoffIds` / `handoffRelativePath` / `resolveHandoffPath`) and the
+// frontmatter field primitives (`HANDOFF_SCHEMA_VERSION` / `serializeHandoff` /
+// `isSchemaVersion2` / `isGateEvidence`) moved VERBATIM to
+// `./handoff-path-resolution.ts` and `./handoff-frontmatter-shape.ts` so this
+// file clears the 300 raw-line cap. The public names below are re-exported from
+// this path, so no importer changed; the id->path guard these joins carry is
+// still measured — the new module is named in rule D's scanned set in
+// `tests/unit/runtime/no-runtime-input-guard.test.ts`.
+export { handoffRelativePath, resolveHandoffPath } from './handoff-path-resolution.js';
 
 /** Compute the lowercase hex sha256 of a UTF-8 string. */
 export function sha256OfBody(body: string): string {
   return createHash('sha256').update(body, 'utf8').digest('hex');
-}
-
-/**
- * Both ids in a handoff path are caller-supplied path segments, so both are
- * checked at the join. Added 2026-09-14 (repair R1, security audit F2 of
- * `2026-09-14-cli-id-escape-instrumentation`).
- *
- * This function was introduced by `0536d5bd` — the commit that instrumented
- * this defect class — with neither id checked, and it sat outside rule D's
- * scanned layer, so the instrument could not see its own new member.
- * Measured on the pre-fix tree (`prd handoff init --apply`, temp project,
- * `ok: true` both times):
- *
- *   --rid '../../../../../../README'  replaced the project-root README.md
- *   --sid '../../../../SIDOUT'        wrote 4 levels above the project root
- *
- * The two axes need two different controls, for a recorded reason: the rid has
- * a pinned format (`REQUEST_ID_PATTERN`, no separator, no dot-dot, no drive)
- * and the sid has none, so it gets the segment check. `isUnsafePathInput`
- * alone is NOT enough for the rid — it admits `a/b` (two non-empty segments),
- * which `request-artifact-service.ts` would reject.
- *
- * Guarding HERE rather than at the three `prd`/`env` flags means every producer
- * that writes through this constructor — `initHandoff`'s default,
- * `handoff-auto-regen.ts`, `evidence-generator.ts` — is covered by the join
- * itself, not by each caller re-deciding.
- */
-function assertSafeHandoffIds(sessionId: string, requestId: string): void {
-  if (!REQUEST_ID_PATTERN.test(requestId)) {
-    throw new Error(
-      `Invalid request id: ${requestId} (expected letters, digits, dots, underscores, or dashes)`
-    );
-  }
-  if (isUnsafePathInput(sessionId)) {
-    throw new Error(`Invalid session id: ${sessionId} (must be a single path segment)`);
-  }
-}
-
-/**
- * The canonical capsule path for ONE SLICE, relative to the project root.
- *
- * Slice `2026-09-14-prd-capsule-rid-scoping`: the capsule used to be one slot
- * per SESSION (`prd/handoff.md`), so the second slice's handoff silently
- * overwrote the first slice's — and `AUDIT_REQUIRES_HANDOFF` stayed green
- * because it never checked WHOSE rid the file named. Measured on
- * `2026-09-13-session-21878f`: a four-slice job passed that prerequisite on a
- * capsule left by a different line of work.
- *
- * This is the WRITE target, so it always carries the rid — a consumer-side
- * fallback here would leave a rid-scoped requirement with a bare-name writer,
- * which is the defect shape this slice exists to remove. Readers that must
- * tolerate pre-rid-scoping sessions call `resolveHandoffPath` instead.
- */
-export function handoffRelativePath(sessionId: string, requestId: string): string {
-  assertSafeHandoffIds(sessionId, requestId);
-  return join('.peaks', '_runtime', sessionId, 'prd', `handoff-${requestId}.md`);
-}
-
-/**
- * The capsule a CONSUMER should read for (session, requestId): the rid-scoped
- * path when it is on disk, else the pre-rid-scoping bare name. Returns null
- * when neither exists.
- *
- * Three sessions on disk still hold only the bare file
- * (`2026-09-06-session-a87ca4`, `2026-09-12-session-e37ef0`,
- * `2026-09-13-session-21878f`), so the legacy tier has to keep resolving for
- * the gate and for every reader below.
- *
- * `requestId` is optional because the detect-only audit surface reaches its
- * service without one. Such a caller can name only the bare path: a session
- * holding nothing but rid-scoped capsules reports missing rather than picking
- * among its siblings' capsules, which would re-open the cross-slice mix-up
- * this scoping exists to close (fail closed, not "some capsule is there").
- */
-export function resolveHandoffPath(opts: {
-  projectRoot: string;
-  sessionId: string;
-  requestId?: string;
-}): string | null {
-  // The legacy bare-name candidate below is a second join of the same sid, in a
-  // second function, so it needs the sid guarded in its own right — the
-  // optional-requestId branch reaches `handoffRelativePath` (guarded there), but
-  // the branch that is taken when a caller has NO rid reaches this join only.
-  if (isUnsafePathInput(opts.sessionId)) {
-    throw new Error(`Invalid session id: ${opts.sessionId} (must be a single path segment)`);
-  }
-  const candidates = [
-    ...(opts.requestId !== undefined ? [handoffRelativePath(opts.sessionId, opts.requestId)] : []),
-    join('.peaks', '_runtime', opts.sessionId, 'prd', 'handoff.md')
-  ];
-  for (const relative of candidates) {
-    const absolute = join(opts.projectRoot, relative);
-    if (existsSync(absolute)) return absolute;
-  }
-  return null;
 }
 
 /** Pure: produce a Handoff with the frontmatter populated. Hash is
@@ -314,36 +224,6 @@ function parseHandoffContent(content: string): Handoff {
   };
 }
 
-function serializeHandoff(handoff: Handoff): string {
-  // The one canonical frontmatter rendering, shared with
-  // `handoff-auto-regen.ts`. `yaml.stringify` used to render this block and
-  // emitted `schemaVersion: "2"` + a bare `handoffHash:`, which the
-  // `AUDIT_REQUIRES_HANDOFF` gate and both audit loaders all reject.
-  return `${serializeHandoffFrontmatter(handoff.frontmatter)}${handoff.body}`;
-}
-
-/**
- * N1: accept BOTH shapes of `schemaVersion` — the string `'2'` and the bare
- * YAML number `2` — and reject any other value.
- *
- * The reader used to require `typeof v.schemaVersion === 'string'`. That made
- * `readHandoff` refuse `prd/handoff.md` written by `handoff-auto-regen.ts`,
- * which emits the unquoted `schemaVersion: 2`, while the
- * `AUDIT_REQUIRES_HANDOFF` prereq — a SUBSTRING check for `schemaVersion: 2` —
- * happily passed the same bytes. So the gate that exists to guarantee a
- * readable handoff was satisfied by a handoff the parser would not read, and
- * `peaks prd handoff verify` exited 1 on a healthy file.
- *
- * Slice `2026-09-14-handoff-writer-gate-divergence` then fixed the other half:
- * the writer no longer emits the quoted form at all (see
- * `handoff-frontmatter.ts`). This tolerance stays because handoffs already on
- * disk were written by the old writer and by hand; the writer fix must not
- * retroactively make them unreadable.
- */
-function isSchemaVersion2(value: unknown): boolean {
-  return value === HANDOFF_SCHEMA_VERSION || value === 2;
-}
-
 /**
  * The READER's shape check — deliberately looser than `verifyHandoff`:
  * `handoffHash` must be a string, and nothing about its VALUE is validated here.
@@ -377,27 +257,4 @@ function isHandoffFrontmatter(value: unknown): value is HandoffFrontmatter {
     typeof v.handoffPath === 'string' &&
     isGateEvidence(v.gateEvidence)
   );
-}
-
-/**
- * B1: `gateEvidence` is optional, but when present it MUST be a map of
- * strings — an ARRAY here is the pre-B1 shape its own test file used to
- * write, and it is a broken declaration, not a claim.
- *
- * F2 of `rid-b1-qa` removed this function's own copy of the shape rule. It
- * used to be a second predicate (same boundary, different downstream result)
- * that let the same bytes read one way here and another way through
- * `readHandoffGateEvidence`; both now ask `classifyGateEvidence`. Only
- * `absent` and `ok` are accepted: a malformed declaration must be refused by
- * `readHandoff` (which is documented to throw on malformed input) exactly as
- * the reader refuses it, so the two can never disagree about the same file.
- *
- * Unknown keys are still accepted HERE — the map is normalized to the five
- * known keys by the caller — because refusing them would make a typo render
- * a whole capsule unreadable, and the reader's `unknownKeys` is the surface
- * that makes the typo diagnosable instead.
- */
-function isGateEvidence(value: unknown): boolean {
-  const kind = classifyGateEvidence(value).kind;
-  return kind === 'absent' || kind === 'ok';
 }

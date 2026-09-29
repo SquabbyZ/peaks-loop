@@ -867,6 +867,13 @@ const MEASURED_ESCAPE_MODULES: readonly string[] = [
   'src/services/qa/qa-business-review-state.ts',
   'src/services/slice/slice-review-state.ts',
   'src/services/prd/handoff-service.ts',
+  // Slice `b1-filesplit-campaign` wave 3: `handoffRelativePath` /
+  // `resolveHandoffPath` and their guard moved VERBATIM out of
+  // `handoff-service.ts` into this sibling. The joins did not change and neither
+  // did the guard, so the module joins the scanned set in its predecessor's
+  // place — leaving it out would have narrowed rule D's reach by a file split,
+  // which is the R1 defect shape this list exists to prevent.
+  'src/services/prd/handoff-path-resolution.ts',
   'src/services/artifacts/artifact-lint-service.ts',
   'src/services/artifacts/artifact-prerequisites.ts',
   'src/services/artifacts/artifact-service.ts',

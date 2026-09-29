@@ -27,133 +27,36 @@
  * Cross-reference: PRD #002 G1 (AC-1..AC-5); RD tech-doc-002 §2.
  */
 import { existsSync, readFileSync } from 'node:fs';
-// Slice 2026-07-29-dispatch-stall-governance / S4 — the two near-
-// identical poll loops in this file are now thin wrappers around
-// `awaitBatch` (the unified implementation in ./await-batch.ts). The
-// back-compat envelopes are preserved so the pre-S4 S3 character-
-// ization tests + the existing call sites do not have to migrate in
-// the same slice.
-import { awaitBatch as awaitBatchUnified } from './await-batch.js';
 
-/**
- * Role string namespace. Soft whitelist — the CLI does NOT hard-validate
- * specific role names. Empirically observed (peaks-qa SKILL.md):3 top
- * roles +3 sub-roles + arbitrary business subdivisions:
- *
- * - top: rd | qa | ui | txt | general-purpose
- * - qa sub-roles: qa-business | qa-perf | qa-security
- * - business细分: qa-business-regression | qa-business-api
- * | qa-business-frontend | ...
- * - promotable: prd-business | prd-technical | prd-ux |
- * ui-visual | ui-flow | ui-component | ...
- *
- * Any non-empty string is a valid role. CLI emits a "soft whitelist"
- * hint in --help but does not reject unknown values.
- */
-export type SubAgentRole = string;
+// Slice `b1-filesplit-campaign` (wave 3) — two verbatim extractions keep this
+// module (the dispatch engine) under the 300 raw-line cap: the six contract
+// declarations moved to `./sub-agent-dispatcher-types.ts` and the two
+// back-compat `awaitBatch` wrappers moved to `./sub-agent-batch-await.ts`. Both
+// sets are re-exported from THIS path below, so no importer changed, the
+// envelope schema the dispatcher tests pin is the same schema, and the
+// dispatch-record / heartbeat file layout read by `readDispatchOutcome` (which
+// stayed here, next to the in-process awaiter queue it belongs to) is unchanged
+// byte for byte.
+import {
+  type SubAgentBatchResult,
+  type SubAgentDispatcher,
+  type SubAgentRole
+} from './sub-agent-dispatcher-types.js';
+import { awaitClaudeCodeBatch, pollDispatchRecords } from './sub-agent-batch-await.js';
 
-/**
- * IDE-private tool-call descriptor. The LLM, upon receiving this in
- * the CLI's JSON envelope, must invoke the tool named `name` in its
- * own environment with the provided `args`.
- */
-export interface SubAgentToolCall {
-  readonly name: string;
-  readonly args: Readonly<Record<string, unknown>>;
-  /**
-   * Slice 2026-06-23-audit-4th #C2: toolCall version. The IDE's
-   * arg shape can change between versions (e.g. Claude Code's
-   * `subagent_type: "general-purpose"` may become
-   * `subagent_type: "claude-code-3.5"` in a future release). The
-   * dispatcher stamps this on `buildToolCall`; the dispatch record
-   * propagates it so a future reader can detect "this record is for
-   * v2.0 Task, current IDE is v3.0" without inspecting args.
-   * Pre-versioning records default to '2.0.0' on read.
-   */
-  readonly toolCallVersion?: string;
-}
-
-/**
- * Input to `buildToolCall`. The CLI assembles this from the user's
- * command-line args (role, prompt) + state-machine lookups
- * (requestId, sessionId).
- */
-export interface SubAgentDispatchInput {
-  readonly role: SubAgentRole;
-  readonly prompt: string;
-  readonly requestId: string;
-  readonly sessionId: string;
-}
-
-/**
- * Per-IDE sub-agent dispatcher contract. Each IdeAdapter exposes
- * one of these; the CLI calls `buildToolCall` after validating
- * `supportsRole` (and `null-dispatcher` is the fallback when an
- * IDE cannot dispatch sub-agents at all).
- */
-export interface SubAgentDispatcher {
-  /**
-   * Short label used in envelope `ide` field and CLI help text.
-   * e.g. "claude-code" / "trae" / "null".
-   */
-  readonly label: string;
-
-  /**
-   * Whether this dispatcher supports dispatching a given role.
-   * claude-code returns true for all non-empty strings; trae is
-   * byte-identical (UNVERIFIED pending real Trae dogfood);
-   * null-dispatcher always returns false.
-   */
-  supportsRole(role: SubAgentRole): boolean;
-
-  /**
-   * Build the IDE-specific tool call descriptor for a dispatch.
-   * Must be pure: no I/O, no side effects. The CLI wraps the
-   * returned descriptor in its JSON envelope.
-   */
-  buildToolCall(input: SubAgentDispatchInput): SubAgentToolCall;
-
-  /**
-   * 2.7.0 slice-dag-dispatcher MVP: join barrier for a batch of dispatched
-   * sub-agents. Returns one BatchResult per dispatch in the batch.
-   *
-   * Default implementation in this MVP (1.2): claude-code holds an
-   * in-process Promise queue (LRU-keyed by batchId); the four non-Claude
-   * IDEs (trae / trae-cn / codex / cursor) return a
-   * `awaitByLlm: true` marker so the calling LLM holds the await itself
-   * — envelope shape is uniform. Real per-IDE implementations land in
-   * 1.3.
-   *
-   * `nullSubAgentDispatcher` throws `SubAgentNotSupportedError` here.
-   */
-  awaitBatch?(input: SubAgentAwaitBatchInput): Promise<readonly SubAgentBatchResult[]>;
-}
-
-/**
- * 2.7.0 slice-dag-dispatcher MVP: input to the optional `awaitBatch` method.
- * MVP dispatch is one batch per top-level `peaks sub-agent dispatch --from-dag`
- * call; `batchId` is the same one returned in the dispatch envelope.
- */
-export interface SubAgentAwaitBatchInput {
-  readonly batchId: string;
-  readonly dispatchCount: number;
-  /** Per-dispatch record path; CLI already has this from the dispatch envelope. */
-  readonly recordPaths: readonly string[];
-  /** Optional cap on how long the join should wait. */
-  readonly timeoutMs?: number;
-}
-
-/**
- * 2.7.0 slice-dag-dispatcher MVP: per-dispatch result of a join barrier.
- * The CLI returns one of these per dispatch in the batch.
- */
-export interface SubAgentBatchResult {
-  readonly dispatchIndex: number;
-  readonly recordPath: string;
-  readonly status: 'done' | 'failed' | 'cancelled' | 'timeout';
-  readonly durationMs: number;
-  readonly note: string | null;
-}
+export {
+  awaitClaudeCodeBatch,
+  pollDispatchRecords,
+  type PollDispatchRecordsOptions
+} from './sub-agent-batch-await.js';
+export type {
+  SubAgentAwaitBatchInput,
+  SubAgentBatchResult,
+  SubAgentDispatchInput,
+  SubAgentDispatcher,
+  SubAgentRole,
+  SubAgentToolCall
+} from './sub-agent-dispatcher-types.js';
 
 /**
  * Claude Code dispatcher. Real, byte-level implementation.
@@ -317,56 +220,12 @@ export class SubAgentNotSupportedError extends Error {
   }
 }
 
-/* ──────────────────────────────────────────────────────────────────────────
- * 2.7.0 slice-dag-dispatcher MVP (slice 1.2.a) — awaitBatch implementation
- * ────────────────────────────────────────────────────────────────────────── */
-
 /**
  * In-process LRU promise queue for claude-code. Keyed by batchId.
  * Populated by `awaitClaudeCodeBatch` callers; consumed by the same.
  * MVP-scope only: 1.3 / 1.4 may replace with cross-process heartbeat polling.
  */
 const claudeCodeBatchAwaiters = new Map<string, Promise<readonly SubAgentBatchResult[]>>();
-
-/**
- * Real awaitBatch for claude-code (MVP). In 1.2, dispatch + await are
- * both in the same process; we record the batch size and resolve after
- * `dispatchCount` heartbeats land for the given `recordPaths`, or after
- * `timeoutMs` elapses (per-dispatch `timeout` status).
- *
- * Implementation contract (MVP):
- *  - We poll each `recordPaths[i]` for an `outcome: success | failed` or
- *    `status: done | failed` field; if absent after `timeoutMs`, that
- *    dispatch is reported as `timeout`.
- *  - The poll interval is 50ms (fast enough for unit tests, cheap enough
- *    for the MVP; the real cross-process version uses heartbeat polling).
- */
-export async function awaitClaudeCodeBatch(
-  input: SubAgentAwaitBatchInput
-): Promise<readonly SubAgentBatchResult[]> {
-  // Slice 2026-07-29-dispatch-stall-governance / S4 (G8) — this
-  // function is now a thin wrapper around the unified `awaitBatch`
-  // service. The back-compat envelope shape is preserved (one
-  // `SubAgentBatchResult` per record path) so the S3 characterization
-  // test stays green; the underlying loop is identical to the trae /
-  // codex / cursor wrappers below. The new typed outcome
-  // lives on the unified service; the S4 fail-fast test pins it.
-  //
-  // Slice 2026-07-30-nightshift: claude-code does NOT use a
-  // per-IDE note prefix. The 1.4 dogfood contract says the done
-  // note is `null` (raw outcome) and the failed note is the raw
-  // `outcome` string with no prefix. The 3 non-Claude IDEs
-  // (trae / codex / cursor) prefix the note with their
-  // per-IDE label so cross-IDE attribution is visible to the LLM.
-  // Passing no `notePrefix` here keeps the legacy contract.
-  const unified = await awaitBatchUnified(input.dispatchCount, input.recordPaths, input.timeoutMs, {
-    defaultTimeoutMs: 60_000
-  });
-  // Touch batchId so the parameter remains in scope for any future
-  // in-process queue wiring.
-  void input.batchId;
-  return unified.results;
-}
 
 /** Best-effort outcome read for a dispatch record. Returns null if pending. */
 function readDispatchOutcome(
@@ -387,44 +246,6 @@ function readDispatchOutcome(
     // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     return null;
   }
-}
-
-/**
- * Slice 1.3 — shared per-IDE polling core for trae / codex / cursor.
- * Same polling loop shape as `awaitClaudeCodeBatch`, with per-IDE
- * default timeout + note prefix. The 3 IDEs differ only in
- * (a) `defaultTimeoutMs` (Trae / Cursor = 30s, Codex = 45s per slice
- * #13 R-3) and (b) the `note` label surfaced when an IDE times out
- * (so 1.4 dogfood can attribute a timeout to the right IDE).
- *
- * MVP rationale (per Karpathy §2 Simplicity First): the 3 IDEs
- * currently share the same file-based polling transport. The only
- * per-IDE distinction is the timeout + label. Future per-IDE
- * divergence (real IPC / shell hooks) is a 1.4 dogfood concern —
- * here we keep the dispatcher interface uniform while each IDE's
- * `awaitBatch` is a real implementation.
- */
-export interface PollDispatchRecordsOptions {
-  readonly defaultTimeoutMs: number;
-  readonly notePrefix: string;
-}
-
-export async function pollDispatchRecords(
-  input: SubAgentAwaitBatchInput,
-  opts: PollDispatchRecordsOptions
-): Promise<readonly SubAgentBatchResult[]> {
-  // Slice 2026-07-29-dispatch-stall-governance / S4 (G8) — this
-  // function is now a thin wrapper around the unified `awaitBatch`
-  // service. Pre-S4 it diverged from `awaitClaudeCodeBatch` in
-  // (a) the default-fallback source and (b) the `Math.max(deadline, 0)`
-  // step; the divergence is gone. The back-compat envelope (one
-  // `SubAgentBatchResult` per record path, with the IDE-prefixed
-  // note) is preserved.
-  const unified = await awaitBatchUnified(input.dispatchCount, input.recordPaths, input.timeoutMs, {
-    defaultTimeoutMs: opts.defaultTimeoutMs,
-    notePrefix: opts.notePrefix
-  });
-  return unified.results;
 }
 
 /**

@@ -47,54 +47,30 @@
  * the union member while the array enforces it.
  */
 
-export type PromotionEvidence =
-  /** A SOP manifest: a JSON object whose `id` is the SOP's and whose `gates` is an array. */
-  | 'sop-manifest'
-  /** An entry with the SOP's `id` inside `<registry>.sops[]` — what `readRegistry()` enumerates. */
-  | 'sop-registry-entry'
-  /** A hook registration (hook command) inside `hooks` that runs something named after the rule. */
-  | 'hook-registration'
-  /** A member of `HARD_FLOOR_CATEGORIES` — the array `isHardFloorCategory` reads — that names the rule. */
-  | 'hard-floor-category';
+// Slice `b1-filesplit-campaign` (wave 3): the JSON-artifact shape predicates and
+// the comment / vocabulary-member machinery moved VERBATIM into two sibling
+// modules so this file clears the 300 raw-line cap. The two public type names are
+// re-exported from here, so no importer changed.
+import {
+  isRecord,
+  isToolMatcher,
+  manifestFailure,
+  type PromotionArtifactCheck,
+  registryFailure
+} from './promotion-artifact-json-evidence.js';
+import {
+  citedMemories,
+  type CommentSpan,
+  commentSpans,
+  maskComments,
+  mergeByLiteral,
+  type VocabularyMember
+} from './promotion-source-comments.js';
 
-export type PromotionArtifactCheck = {
-  /** Project-relative POSIX path whose CONTENT must carry the evidence. */
-  path: string;
-  evidence: PromotionEvidence;
-  /** The rule id the evidence must name (a SOP id for layer A, a memory name for B and C). */
-  id: string;
-};
-
-/** Is `value` a JSON object (not null, not an array)? */
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function manifestFailure(parsed: unknown, id: string): string | null {
-  if (!isRecord(parsed)) return 'not a JSON object';
-  if (parsed.id !== id) return `does not declare id "${id}"`;
-  if (!Array.isArray(parsed.gates)) return 'has no "gates" array';
-  return null;
-}
-
-function registryFailure(parsed: unknown, id: string): string | null {
-  if (!isRecord(parsed)) return 'not a JSON object';
-  if (!Array.isArray(parsed.sops)) return 'has no "sops" array';
-  const registered = parsed.sops.some((entry) => isRecord(entry) && entry.id === id);
-  return registered ? null : `registry has no SOP entry with id "${id}"`;
-}
-
-/**
- * A tool selector: `Name` or `Name(pattern)`, one or more separated by `|` —
- * `Bash`, `Write|Edit|MultiEdit`, `Bash(git push:*)`. A segment that is not a
- * tool-name token (a hyphenated rule name, say) makes the selector malformed.
- */
-const MATCHER_SEGMENT_RE = /^[A-Za-z_][A-Za-z0-9_]*\s*(\(.*\))?$/;
-
-function isToolMatcher(matcher: string): boolean {
-  const segments = matcher.split('|');
-  return segments.every((segment) => MATCHER_SEGMENT_RE.test(segment.trim()));
-}
+export type {
+  PromotionArtifactCheck,
+  PromotionEvidence
+} from './promotion-artifact-json-evidence.js';
 
 /**
  * Split a hook command the way a shell does: whitespace separates words, and
@@ -188,41 +164,6 @@ function hookFailure(parsed: unknown, id: string): string | null {
 }
 
 /**
- * One pattern, used by BOTH the masker and the doc reader, so a comment can
- * never be blanked by one and read as a doc by the other.
- */
-const COMMENT_RE = /\/\*[\s\S]*?\*\/|\/\/[^\n]*/g;
-
-/** Comments are blanked to spaces, which keeps every offset in the file valid. */
-function maskComments(text: string): string {
-  return text.replace(COMMENT_RE, (comment) => ' '.repeat(comment.length));
-}
-
-type CommentSpan = { start: number; end: number; text: string };
-
-function commentSpans(source: string): CommentSpan[] {
-  const spans: CommentSpan[] = [];
-  COMMENT_RE.lastIndex = 0;
-  let match: RegExpExecArray | null;
-  while ((match = COMMENT_RE.exec(source)) !== null) {
-    spans.push({ start: match.index, end: match.index + match[0].length, text: match[0] });
-  }
-  return spans;
-}
-
-type VocabularyMember = {
-  literal: string;
-  doc: string;
-  /**
-   * R10: does this member sit in the declaration that ENFORCES — the
-   * `HARD_FLOOR_CATEGORIES` array `isHardFloorCategory` reads? A member of the
-   * `HardFloorCategory` union alone is a type; it pauses nothing, so it is not
-   * evidence that a rule is a hard floor.
-   */
-  enforcing: boolean;
-};
-
-/**
  * Collect the members of the hard-floor vocabulary, each with the comment text
  * that governs it. `masked` decides where a member STARTS (so a quoted string
  * inside a comment is not a member, and no comment can inject the `;` / `]` that
@@ -288,43 +229,6 @@ function vocabularyMembers(source: string): VocabularyMember[] {
     }
   }
   return mergeByLiteral(raw);
-}
-
-/**
- * R10 — one entry per literal, and `enforcing` is only ever set by the array.
- *
- * Reading the two declarations as one flat member list let a member of the
- * `HardFloorCategory` union ALONE satisfy this check while
- * `isHardFloorCategory` — and therefore `shouldPauseAtGate` — did not recognise
- * it. The gate reported BACKED for a hard floor that paused nothing. Splitting
- * the provenance of `enforcing` out of the member list is what makes the two
- * agree: what the predicate accepts is exactly what the array contains.
- *
- * The docs are joined across occurrences rather than kept per-declaration,
- * because a category's doc belongs to the CATEGORY. This repo's own layer-C
- * promotion cites `.peaks/memory/2026-06-28-full-auto-boundary.md` from the
- * comment beside the UNION member of `commit-boundary-side-effect`, while the
- * ARRAY is what enforces it; reading the doc from one declaration only would
- * make that citation unreadable — a false negative on a file already known good.
- */
-function mergeByLiteral(members: readonly VocabularyMember[]): VocabularyMember[] {
-  const merged = new Map<string, VocabularyMember>();
-  for (const member of members) {
-    const previous = merged.get(member.literal);
-    merged.set(member.literal, {
-      literal: member.literal,
-      doc: [previous?.doc, member.doc].filter((doc) => doc !== undefined && doc !== '').join('\n'),
-      enforcing: (previous?.enforcing ?? false) || member.enforcing
-    });
-  }
-  return [...merged.values()];
-}
-
-/** A memory cited by path, the way this repo cites one (`mode-gate.ts:41`). */
-const MEMORY_CITATION_RE = /\.peaks\/memory\/([A-Za-z0-9._-]+)\.md/g;
-
-function citedMemories(doc: string): string[] {
-  return Array.from(doc.matchAll(MEMORY_CITATION_RE), (match) => match[1] as string);
 }
 
 /**

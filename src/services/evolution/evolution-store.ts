@@ -1,6 +1,11 @@
 import type Database from 'better-sqlite3';
 import { z } from 'zod';
 import { parseJson } from '../../shared/json-parse.js';
+import {
+  EVOLUTION_EVALUATION_MIGRATION,
+  type EvolutionEvaluationRow,
+  SCHEMA_VERSION
+} from './evolution-evaluation-schema.js';
 import type {
   EvolutionEvaluation,
   EvolutionEvaluationInput,
@@ -30,8 +35,6 @@ import type {
  *     stores the persisted, validated row.
  */
 
-const SCHEMA_VERSION = 'peaks.evolution/1' as const;
-
 /**
  * `optimization_dimensions_json` as it comes back OUT of SQLite.
  *
@@ -56,68 +59,7 @@ const OptimizationDimensionsJsonSchema = z.tuple([z.string()]).rest(z.string());
  * without the openStateDb pipeline. Idempotent.
  */
 export function ensureEvolutionEvaluationTable(db: Database.Database): void {
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS evolution_evaluation (
-      id                          TEXT PRIMARY KEY,
-      target_kind                 TEXT NOT NULL CHECK (target_kind IN ('loop','bee','policy','gate','evaluator')),
-      target_release_id           TEXT NOT NULL,
-      optimization_dimensions_json TEXT NOT NULL,
-      target_count                INTEGER NOT NULL DEFAULT 1 CHECK (target_count = 1),
-      before_snapshot_json        TEXT NOT NULL DEFAULT '{}',
-      after_snapshot_json         TEXT NOT NULL DEFAULT '{}',
-      diff_json                   TEXT NOT NULL DEFAULT '{}',
-      before_score                REAL NOT NULL,
-      after_score                 REAL NOT NULL,
-      score_delta_min             REAL NOT NULL DEFAULT 1.0 CHECK (score_delta_min >= 0),
-      score_delta                 REAL NOT NULL,
-      author_id                   TEXT NOT NULL,
-      evaluator_id                TEXT NOT NULL,
-      skeptic_id                  TEXT NOT NULL,
-      verdict                     TEXT NOT NULL CHECK (verdict IN ('keep','revert','needs-user-decision')),
-      user_confirmation_pointer   TEXT,
-      brief_pointer               TEXT,
-      rubric_json                 TEXT NOT NULL DEFAULT '{}',
-      red_lines_json              TEXT NOT NULL DEFAULT '[]',
-      source_traces_json          TEXT NOT NULL DEFAULT '[]',
-      schema_version              TEXT NOT NULL CHECK (schema_version = 'peaks.evolution/1'),
-      created_at                  TEXT NOT NULL,
-      CHECK (length(id) > 0)
-    );
-    CREATE INDEX IF NOT EXISTS idx_evolution_evaluation_target
-      ON evolution_evaluation(target_kind, target_release_id);
-    CREATE INDEX IF NOT EXISTS idx_evolution_evaluation_verdict
-      ON evolution_evaluation(verdict);
-    CREATE INDEX IF NOT EXISTS idx_evolution_evaluation_author
-      ON evolution_evaluation(author_id);
-    CREATE INDEX IF NOT EXISTS idx_evolution_evaluation_evaluator
-      ON evolution_evaluation(evaluator_id);
-  `);
-}
-
-interface EvolutionEvaluationRow {
-  id: string;
-  target_kind: EvolutionTargetKind;
-  target_release_id: string;
-  optimization_dimensions_json: string;
-  target_count: 1;
-  before_snapshot_json: string;
-  after_snapshot_json: string;
-  diff_json: string;
-  before_score: number;
-  after_score: number;
-  score_delta_min: number;
-  score_delta: number;
-  author_id: string;
-  evaluator_id: string;
-  skeptic_id: string;
-  verdict: EvolutionVerdict;
-  user_confirmation_pointer: string | null;
-  brief_pointer: string | null;
-  rubric_json: string;
-  red_lines_json: string;
-  source_traces_json: string;
-  schema_version: 'peaks.evolution/1';
-  created_at: string;
+  db.exec(EVOLUTION_EVALUATION_MIGRATION);
 }
 
 /**
