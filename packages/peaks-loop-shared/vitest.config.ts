@@ -27,7 +27,9 @@ export default defineConfig({
     // ("No test files found, exiting with code 0", measured on the aggregate
     // `pnpm -r --filter ./packages/* run test`). An empty test set now fails,
     // the way vitest.config.e2e.ts:56 and vitest.config.lint.ts:29 already
-    // require, and tests/shared.test.ts is what this collects.
+    // require, and tests/paths-fs.test.ts + tests/result-version.test.ts are
+    // what this collects (split from tests/shared.test.ts on 2026-09-29,
+    // slice b1-filesplit-campaign, for the §4 row-5 line cap).
     passWithNoTests: false
   }
 });
