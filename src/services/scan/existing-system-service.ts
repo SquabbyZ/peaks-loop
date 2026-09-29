@@ -1,9 +1,17 @@
 import { readdir, stat } from 'node:fs/promises';
 import { basename, join, relative } from 'node:path';
-import { isDirectory, pathExists, readText } from 'peaks-loop-shared/fs';
+import { isDirectory, readText } from 'peaks-loop-shared/fs';
 
 import { scanArchetype } from './archetype-service.js';
 import { scanHookConvention } from './hook-convention-service.js';
+import {
+  classifyToken,
+  dedupeTokens,
+  extractTailwindTokens,
+  findInconsistencies,
+  parseCssVars,
+  parseLessOrSassVars
+} from './existing-system-visual-tokens.js';
 import type {
   ConventionSample,
   ExistingSystemReport,
@@ -20,63 +28,12 @@ export type ExistingSystemScanOptions = {
 const DEFAULT_MAX_TOKENS = 40;
 const DEFAULT_SAMPLES = 5;
 
-const COLOR_KEYWORDS = [
-  'color',
-  'primary',
-  'success',
-  'warning',
-  'error',
-  'danger',
-  'info',
-  'bg',
-  'background',
-  'border',
-  'text'
-];
-const SPACING_KEYWORDS = ['spacing', 'gap', 'padding', 'margin', 'size'];
-const TYPO_KEYWORDS = ['font', 'text-size', 'line-height', 'letter-spacing', 'heading'];
-const RADIUS_KEYWORDS = ['radius', 'rounded'];
-
 const STYLE_DIRS = ['src/styles', 'src/style', 'styles', 'src/assets/styles', 'src/theme', 'theme'];
 const COMPONENT_DIRS = ['src/components', 'src/Components', 'components'];
 const SERVICE_DIRS = ['src/services', 'src/service', 'src/api', 'src/apis'];
 const HOOK_DIRS = ['src/hooks', 'src/hook', 'src/composables'];
 
 type FileSample = { path: string; mtimeMs: number };
-
-function classifyToken(name: string): 'color' | 'spacing' | 'typography' | 'radius' | null {
-  const lower = name.toLowerCase();
-  if (RADIUS_KEYWORDS.some((kw) => lower.includes(kw))) return 'radius';
-  if (TYPO_KEYWORDS.some((kw) => lower.includes(kw))) return 'typography';
-  if (SPACING_KEYWORDS.some((kw) => lower.includes(kw))) return 'spacing';
-  if (COLOR_KEYWORDS.some((kw) => lower.includes(kw))) return 'color';
-  return null;
-}
-
-function parseLessOrSassVars(content: string, sourceRel: string): VisualToken[] {
-  const tokens: VisualToken[] = [];
-  // Match `@var: value;` (Less) or `$var: value;` (Sass)
-  const regex = /^\s*[@$]([a-zA-Z][\w-]*)\s*:\s*([^;]+);/gm;
-  let match: RegExpExecArray | null;
-  while ((match = regex.exec(content)) !== null) {
-    const [, rawName, rawValue] = match;
-    if (rawName === undefined || rawValue === undefined) continue;
-    tokens.push({ name: rawName, value: rawValue.trim(), source: sourceRel });
-  }
-  return tokens;
-}
-
-function parseCssVars(content: string, sourceRel: string): VisualToken[] {
-  const tokens: VisualToken[] = [];
-  const regex = /--([a-zA-Z][\w-]*)\s*:\s*([^;]+);/g;
-  let match: RegExpExecArray | null;
-  while ((match = regex.exec(content)) !== null) {
-    const [, rawName, rawValue] = match;
-    if (rawName === undefined || rawValue === undefined) continue;
-    tokens.push({ name: `--${rawName}`, value: rawValue.trim(), source: sourceRel });
-  }
-  return tokens;
-}
 
 async function walkStyleFiles(projectRoot: string): Promise<string[]> {
   const found: string[] = [];
@@ -105,38 +62,6 @@ async function walkStyleFiles(projectRoot: string): Promise<string[]> {
     }
   }
   return found;
-}
-
-async function extractTailwindTokens(
-  projectRoot: string
-): Promise<{ tokens: VisualToken[]; source: VisualTokenSource | null }> {
-  const candidates = [
-    'tailwind.config.js',
-    'tailwind.config.ts',
-    'tailwind.config.cjs',
-    'tailwind.config.mjs'
-  ];
-  for (const candidate of candidates) {
-    const full = join(projectRoot, candidate);
-    if (await pathExists(full)) {
-      const content = await readText(full);
-      const tokens: VisualToken[] = [];
-      // Heuristic: extract keys under theme.extend.* via simple regex.
-      const colorBlock = /colors\s*:\s*\{([\s\S]*?)\}/.exec(content);
-      if (colorBlock?.[1] !== undefined) {
-        const colorRegex = /([a-zA-Z_][\w-]*)\s*:\s*['"`]([^'"`]+)['"`]/g;
-        let match: RegExpExecArray | null;
-        while ((match = colorRegex.exec(colorBlock[1])) !== null) {
-          const [, name, value] = match;
-          if (name !== undefined && value !== undefined) {
-            tokens.push({ name, value, source: candidate });
-          }
-        }
-      }
-      return { tokens, source: { path: candidate, kind: 'tailwind-config' } };
-    }
-  }
-  return { tokens: [], source: null };
 }
 
 async function listFilesByMtime(dir: string, exts: RegExp, max: number): Promise<FileSample[]> {
@@ -196,37 +121,6 @@ async function firstExistingDir(projectRoot: string, candidates: string[]): Prom
     }
   }
   return null;
-}
-
-function dedupeTokens(tokens: VisualToken[], max: number): VisualToken[] {
-  const seen = new Set<string>();
-  const out: VisualToken[] = [];
-  for (const token of tokens) {
-    const key = `${token.name}=${token.value}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    out.push(token);
-    if (out.length >= max) break;
-  }
-  return out;
-}
-
-function findInconsistencies(tokens: VisualToken[]): string[] {
-  const issues: string[] = [];
-  const byName = new Map<string, Set<string>>();
-  for (const token of tokens) {
-    const set = byName.get(token.name) ?? new Set<string>();
-    set.add(token.value);
-    byName.set(token.name, set);
-  }
-  for (const [name, values] of byName.entries()) {
-    if (values.size > 1) {
-      issues.push(
-        `token "${name}" has ${values.size} different values across sources: ${[...values].join(' | ')}`
-      );
-    }
-  }
-  return issues;
 }
 
 export async function scanExistingSystem(

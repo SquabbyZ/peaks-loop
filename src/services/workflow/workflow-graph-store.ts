@@ -18,79 +18,47 @@ import {
   unlinkSync,
   writeFileSync
 } from 'node:fs';
-import { dirname, isAbsolute, join, resolve, sep } from 'node:path';
+import { dirname } from 'node:path';
 import { isArray } from '../../shared/array-guards.js';
 import {
   type WorkflowGraph,
-  type WorkflowGraphNode,
   type WorkflowGraphEdge,
   type WorkflowId,
   type NodeId,
   WORKFLOW_ID_REGEX,
-  NODE_ID_REGEX,
-  isSafeRelativeGraphRef
+  NODE_ID_REGEX
 } from './workflow-graph-types.js';
-
-export const PEAKS_GRAPH_NOT_FOUND = 'PEAKS_GRAPH_NOT_FOUND';
-export const PEAKS_GRAPH_CORRUPTED = 'PEAKS_GRAPH_CORRUPTED';
-export const PEAKS_GRAPH_CYCLE = 'PEAKS_GRAPH_CYCLE';
-export const PEAKS_GRAPH_REF_BROKEN = 'PEAKS_GRAPH_REF_BROKEN';
-export const PEAKS_GRAPH_NODE_REQUIRED = 'PEAKS_GRAPH_NODE_REQUIRED';
-export const PEAKS_GRAPH_NODE_NOT_PREPARED = 'PEAKS_GRAPH_NODE_NOT_PREPARED';
-export const PEAKS_GRAPH_NODE_KIND_INVALID = 'PEAKS_GRAPH_NODE_KIND_INVALID';
-export const PEAKS_NODE_EXISTS = 'PEAKS_NODE_EXISTS';
-export const PEAKS_NODE_TRANSITION_INVALID = 'PEAKS_NODE_TRANSITION_INVALID';
-export const PEAKS_ENVELOPE_NOT_RECEIVED = 'PEAKS_ENVELOPE_NOT_RECEIVED';
-export const PEAKS_ENVELOPE_GRAPH_MISMATCH = 'PEAKS_ENVELOPE_GRAPH_MISMATCH';
-export const PEAKS_TERMINAL_REASON_INVALID = 'PEAKS_TERMINAL_REASON_INVALID';
-export const PEAKS_TERMINALIZE_ATOMICITY_FAILED = 'PEAKS_TERMINALIZE_ATOMICITY_FAILED';
-export const PEAKS_UNCONSUMED_ENVELOPE = 'PEAKS_UNCONSUMED_ENVELOPE';
-export const PEAKS_DEPENDENCY_NOT_CONSUMED = 'PEAKS_DEPENDENCY_NOT_CONSUMED';
-export const PEAKS_WORKFLOW_OWNS_PRESENCE_CLEAR = 'PEAKS_WORKFLOW_OWNS_PRESENCE_CLEAR';
-export const PEAKS_SESSION_NOT_BOUND = 'PEAKS_SESSION_NOT_BOUND';
-export const PEAKS_CALLER_NOT_RESOLVED = 'PEAKS_CALLER_NOT_RESOLVED';
-
-export interface GraphStoreError extends Error {
-  readonly code: string;
-  readonly legacyFallback: boolean;
-}
-
-function makeError(code: string, message: string, legacyFallback = false): GraphStoreError {
-  const err = new Error(message) as GraphStoreError;
-  err.name = 'GraphStoreError';
-  (err as { code: string }).code = code;
-  (err as { legacyFallback: boolean }).legacyFallback = legacyFallback;
-  return err;
-}
-
-function safeSessionRuntimeRoot(projectRoot: string, sessionId: string): string {
-  if (!WORKFLOW_ID_REGEX.test(sessionId)) {
-    throw makeError(PEAKS_GRAPH_REF_BROKEN, `invalid sessionId: ${sessionId}`);
-  }
-  const root = resolve(projectRoot);
-  return join(root, '.peaks', '_runtime', sessionId);
-}
-
-/** Compute the on-disk graph path. Validates `graphRef` stays under the session root. */
-export function graphPathFor(input: {
-  projectRoot: string;
-  sessionId: string;
-  graphRef: string;
-  workflowId: WorkflowId;
-}): string {
-  if (!isSafeRelativeGraphRef(input.graphRef, input.workflowId)) {
-    throw makeError(PEAKS_GRAPH_REF_BROKEN, `graphRef is not safe: ${input.graphRef}`);
-  }
-  if (!WORKFLOW_ID_REGEX.test(input.workflowId)) {
-    throw makeError(PEAKS_GRAPH_REF_BROKEN, `workflowId is not safe: ${input.workflowId}`);
-  }
-  const sessionRoot = safeSessionRuntimeRoot(input.projectRoot, input.sessionId);
-  const resolved = resolve(sessionRoot, input.graphRef);
-  if (!resolved.startsWith(sessionRoot + sep) && resolved !== sessionRoot) {
-    throw makeError(PEAKS_GRAPH_REF_BROKEN, `graphRef escapes session root: ${input.graphRef}`);
-  }
-  return resolved;
-}
+import {
+  detectCycle,
+  graphPathFor,
+  makeError,
+  PEAKS_GRAPH_NOT_FOUND,
+  PEAKS_GRAPH_CORRUPTED,
+  PEAKS_GRAPH_REF_BROKEN
+} from './workflow-graph-store-helpers.js';
+export {
+  PEAKS_GRAPH_NOT_FOUND,
+  PEAKS_GRAPH_CORRUPTED,
+  PEAKS_GRAPH_CYCLE,
+  PEAKS_GRAPH_REF_BROKEN,
+  PEAKS_GRAPH_NODE_REQUIRED,
+  PEAKS_GRAPH_NODE_NOT_PREPARED,
+  PEAKS_GRAPH_NODE_KIND_INVALID,
+  PEAKS_NODE_EXISTS,
+  PEAKS_NODE_TRANSITION_INVALID,
+  PEAKS_ENVELOPE_NOT_RECEIVED,
+  PEAKS_ENVELOPE_GRAPH_MISMATCH,
+  PEAKS_TERMINAL_REASON_INVALID,
+  PEAKS_TERMINALIZE_ATOMICITY_FAILED,
+  PEAKS_UNCONSUMED_ENVELOPE,
+  PEAKS_DEPENDENCY_NOT_CONSUMED,
+  PEAKS_WORKFLOW_OWNS_PRESENCE_CLEAR,
+  PEAKS_SESSION_NOT_BOUND,
+  PEAKS_CALLER_NOT_RESOLVED,
+  graphPathFor,
+  emptyGraph
+} from './workflow-graph-store-helpers.js';
+export type { GraphStoreError } from './workflow-graph-store-helpers.js';
 
 /** Atomically write a graph: tmp + rename. */
 function writeAtomic(targetPath: string, body: string): void {
@@ -127,31 +95,6 @@ function releaseLock(lockPath: string): void {
   } catch {
     /* swallow */
   }
-}
-
-/** Detect cycles in a node-dependency graph. */
-function detectCycle(nodes: readonly WorkflowGraphNode[]): boolean {
-  const map = new Map<NodeId, WorkflowGraphNode>();
-  for (const n of nodes) map.set(n.id, n);
-  const color = new Map<NodeId, number>();
-  const visiting = (id: NodeId): boolean => {
-    const c = color.get(id) ?? 0;
-    if (c === 1) return true;
-    if (c === 2) return false;
-    color.set(id, 1);
-    const node = map.get(id);
-    if (node) {
-      for (const dep of node.dependsOn) {
-        if (visiting(dep)) return true;
-      }
-    }
-    color.set(id, 2);
-    return false;
-  };
-  for (const n of nodes) {
-    if (visiting(n.id)) return true;
-  }
-  return false;
 }
 
 /** Validate a graph shape; throw `PEAKS_GRAPH_CORRUPTED` on any violation. */
@@ -321,32 +264,6 @@ export function writeGraph(input: {
   return { path };
 }
 
-/** Build a fresh empty graph with one terminal node. */
-export function emptyGraph(input: {
-  workflowId: WorkflowId;
-  rootSkill: string;
-  parentWorkflowId?: WorkflowId;
-}): WorkflowGraph {
-  const graph: WorkflowGraph = {
-    workflowId: input.workflowId,
-    rootSkill: input.rootSkill,
-    ...(input.parentWorkflowId ? { parentWorkflowId: input.parentWorkflowId } : {}),
-    nodes: [
-      {
-        id: 'terminal',
-        kind: 'terminal',
-        label: 'workflow complete',
-        status: 'prepared',
-        dependsOn: [],
-        ackStatus: 'not-required'
-      }
-    ],
-    edges: [],
-    schemaVersion: 1
-  };
-  return graph;
-}
-
 /** Validate a `graphRef` is well-formed without writing. */
 export function validateGraphRef(input: {
   graphRef: string;
@@ -358,5 +275,4 @@ export function validateGraphRef(input: {
 }
 
 /** Suppress unused import warnings. */
-void isAbsolute;
 void dirname;
