@@ -12,12 +12,7 @@
 
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import {
-  type WorkflowGraph,
-  type WorkflowId,
-  type TerminalReason,
-  TERMINAL_REASONS
-} from './workflow-graph-types.js';
+import { type WorkflowGraph, type WorkflowId, TERMINAL_REASONS } from './workflow-graph-types.js';
 import {
   emptyGraph,
   readGraph,
@@ -34,52 +29,21 @@ import {
   readPresenceLease,
   markPresenceLost
 } from '../skills/presence-lease-service.js';
-import type { SkillPresenceLease, PresenceIndex } from '../skills/presence-lease-types.js';
+import {
+  type InitWorkflowInput,
+  type InitWorkflowResult,
+  type TerminalizeWorkflowInput,
+  type TerminalizeWorkflowResult,
+  type TerminalizeError
+} from './workflow-presence-lifecycle-types.js';
 
-export interface InitWorkflowInput {
-  readonly projectRoot: string;
-  readonly sessionId: string;
-  readonly callerId: string;
-  readonly skill: string;
-  readonly workflowId?: WorkflowId;
-  readonly parentWorkflowId?: WorkflowId;
-  readonly graphRef?: string;
-  readonly depth?: number;
-  readonly now?: string;
-}
-
-export interface InitWorkflowResult {
-  readonly workflowId: WorkflowId;
-  readonly graphRef: string;
-  readonly graph: WorkflowGraph;
-  readonly lease: SkillPresenceLease;
-  readonly index: PresenceIndex;
-  readonly events: ReadonlyArray<Record<string, unknown>>;
-}
-
-export interface TerminalizeWorkflowInput {
-  readonly projectRoot: string;
-  readonly sessionId: string;
-  readonly callerId: string;
-  readonly workflowId: WorkflowId;
-  readonly graphRef: string;
-  readonly reason: TerminalReason;
-  readonly requireConsumed?: boolean;
-  readonly now?: string;
-}
-
-export interface TerminalizeWorkflowResult {
-  readonly lease: SkillPresenceLease;
-  readonly graph: WorkflowGraph;
-  readonly events: ReadonlyArray<Record<string, unknown>>;
-  readonly indexCleared: boolean;
-}
-
-export interface TerminalizeError extends Error {
-  readonly code: string;
-  readonly successEventCount?: number;
-  readonly consistent?: boolean;
-}
+export type {
+  InitWorkflowInput,
+  InitWorkflowResult,
+  TerminalizeWorkflowInput,
+  TerminalizeWorkflowResult,
+  TerminalizeError
+} from './workflow-presence-lifecycle-types.js';
 
 function lifeError(
   code: string,
