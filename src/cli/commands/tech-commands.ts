@@ -29,14 +29,11 @@ import {
 } from '../cli-helpers.js';
 import { fail, ok } from 'peaks-loop-shared/result';
 import { mapServiceError } from './_cli-error-envelope.js';
-import { findProjectRoot } from '../../services/config/config-safety.js';
 import type { WorkspaceConfig } from '../../services/config/config-types.js';
 import {
   buildTechWorkspaceUnavailable,
   planTechArtifactPath,
   validateTechChangeId,
-  type TechChangeArtifacts,
-  type TechChangeStatus,
   type WorkspaceConfig as _WorkspaceConfig
 } from '../../services/tech/tech-change-id-service.js';
 
@@ -44,55 +41,24 @@ import {
 export type { WorkspaceConfig };
 
 // --- Types ----------------------------------------------------------------
+// The change-id declarations live in `./tech-commands-helpers.js` (file-size
+// cap campaign); they stay importable from this module via the re-export.
 
-export interface TechChangeIdPlanOptions {
-  changeId: string;
-  goal: string;
-  swarm?: boolean;
-  dryRun?: boolean;
-  json?: boolean;
-}
+export type {
+  TechChangeIdPlanOptions,
+  TechChangeIdStatusOptions,
+  TechChangeIdPlanResult,
+  TechChangeIdStatusResult
+} from './tech-commands-helpers.js';
 
-export interface TechChangeIdStatusOptions {
-  changeId: string;
-  json?: boolean;
-}
-
-export type TechChangeIdPlanResult = {
-  available: true;
-  changeId: string;
-  goal: string;
-  swarm: boolean;
-  dryRun: true;
-  artifactRoot: string;
-  artifacts: {
-    taskGraph: string;
-    waveManifests: string[];
-    reviewChecklist: string;
-    approvalTemplate: string;
-  };
-  blockedReasons: string[];
-  nextActions: string[];
-};
-
-export type TechChangeIdStatusResult = TechChangeStatus;
-
-// --- Workspace resolution -------------------------------------------------
-
-interface ChangeIdWorkspaceContext {
-  projectRoot?: string;
-  workspace?: WorkspaceConfig;
-  artifactWorkspacePath?: string;
-}
-
-function resolveChangeIdWorkspaceContext(): ChangeIdWorkspaceContext {
-  try {
-    const projectRoot = findProjectRoot(process.cwd()) ?? process.cwd();
-    return { projectRoot };
-  } catch {
-    return {};
-  }
-}
+import {
+  flattenArtifacts,
+  resolveChangeIdWorkspaceContext,
+  type TechChangeIdPlanOptions,
+  type TechChangeIdPlanResult,
+  type TechChangeIdStatusOptions,
+  type TechChangeIdStatusResult
+} from './tech-commands-helpers.js';
 
 // --- Handlers -------------------------------------------------------------
 
@@ -199,15 +165,6 @@ function runTechChangeIdPlan(io: ProgramIO, options: TechChangeIdPlanOptions): v
     );
     process.exitCode = 1;
   }
-}
-
-function flattenArtifacts(value: TechChangeArtifacts): TechChangeIdPlanResult['artifacts'] {
-  return {
-    taskGraph: value.taskGraph.jsonSafeRelativePath,
-    waveManifests: value.waveManifests.map((w) => w.jsonSafeRelativePath),
-    reviewChecklist: value.reviewChecklist.jsonSafeRelativePath,
-    approvalTemplate: value.approvalTemplate.jsonSafeRelativePath
-  };
 }
 
 function runTechChangeIdStatus(io: ProgramIO, options: TechChangeIdStatusOptions): void {
