@@ -22,7 +22,7 @@
  * No writes (caller logs the decision via the auto-decisions channel).
  */
 
-import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { getSkillPresence, type SkillPresenceMode } from '../skills/skill-presence-service.js';
@@ -30,6 +30,13 @@ import { isExpectedFsMiss } from '../../shared/fs-utils.js';
 
 import { emitObservabilityEvent } from '../observability/observability-service.js';
 
+import {
+  CHECKPOINT_EXT,
+  CHECKPOINTS_DIR,
+  type CheckpointFile,
+  isToday,
+  safeReadCheckpoint
+} from './post-compact-checkpoint.js';
 import { isCodeMode, type CodeMode } from './mode-gate.js';
 
 export type PostCompactResumeReason =
@@ -76,73 +83,6 @@ export interface DetectPostCompactResumeOptions {
   readonly activeSkill?: string | undefined;
   /** Override mode read from presence (test seam). */
   readonly presenceModeOverride?: SkillPresenceMode | undefined;
-}
-
-const CHECKPOINTS_DIR = 'checkpoints';
-const CHECKPOINT_EXT = '.json';
-
-interface CheckpointFile {
-  readonly path: string;
-  readonly mtime: Date;
-  readonly content: CheckpointContent;
-}
-
-interface CheckpointContent {
-  readonly currentPlan?: string;
-  readonly openQuestions?: readonly string[];
-  readonly recentDecisions?: readonly string[];
-  readonly mode?: string;
-}
-
-function isToday(d: Date, now: Date): boolean {
-  return (
-    d.getUTCFullYear() === now.getUTCFullYear() &&
-    d.getUTCMonth() === now.getUTCMonth() &&
-    d.getUTCDate() === now.getUTCDate()
-  );
-}
-
-function safeReadCheckpoint(absPath: string): CheckpointFile | null {
-  try {
-    const stat = statSync(absPath);
-    const raw = readFileSync(absPath, 'utf8');
-    const parsed = JSON.parse(raw) as Record<string, unknown>;
-    const mutable: {
-      currentPlan?: string;
-      openQuestions?: readonly string[];
-      recentDecisions?: readonly string[];
-      mode?: string;
-    } = {};
-    if (typeof parsed['currentPlan'] === 'string') {
-      mutable.currentPlan = parsed['currentPlan'];
-    }
-    if (Array.isArray(parsed['openQuestions'])) {
-      mutable.openQuestions = (parsed['openQuestions'] as unknown[]).filter(
-        (q): q is string => typeof q === 'string'
-      );
-    }
-    if (Array.isArray(parsed['recentDecisions'])) {
-      mutable.recentDecisions = (parsed['recentDecisions'] as unknown[]).filter(
-        (d): d is string => typeof d === 'string'
-      );
-    }
-    if (typeof parsed['mode'] === 'string') {
-      mutable.mode = parsed['mode'];
-    }
-    const content: CheckpointContent = mutable;
-    return { path: absPath, mtime: stat.mtime, content };
-  } catch (err) {
-    // P1 site (S6, 2026-09-15). The TODO(g2) marker this replaces said the
-    // catch "narrows to IO errors only" — it did not. It rethrew the two JS
-    // error classes it happened to name and swallowed everything else,
-    // including the ReferenceError an ESM `require()` bug produces on the one
-    // platform this file's whole defence exists for. Corrupt JSON stays loud
-    // (we cannot read a checkpoint we cannot parse); every non-fs-miss error
-    // now propagates. See `isExpectedFsMiss`.
-    if (err instanceof SyntaxError) throw err;
-    if (!isExpectedFsMiss(err)) throw err;
-    return null;
-  }
 }
 
 function readLatestTodayCheckpoint(

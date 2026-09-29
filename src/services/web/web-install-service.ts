@@ -21,24 +21,26 @@
  *     the `install.lock` around the spawn so two callers cannot download 700 MB
  *     each (R6). The lock is released on every path, including a thrown spawn.
  */
-import {
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  readdirSync,
-  renameSync,
-  unlinkSync,
-  writeFileSync
-} from 'node:fs';
-import { dirname, join, sep } from 'node:path';
+import { mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs';
+import { dirname } from 'node:path';
 import { spawnSync } from 'node:child_process';
 
 import { getErrorMessage } from 'peaks-loop-shared/result';
 
 import { resolveNpxInvocation } from '../lint/npx-resolver.js';
 import { isProcessAlive } from './daemon-registry.js';
-import { loadPlaywright, PLAYWRIGHT_VERSION_PIN, playwrightVersion } from './playwright-loader.js';
+import { PLAYWRIGHT_VERSION_PIN } from './playwright-loader.js';
 import { webInstallLockPath } from './web-artifact-paths.js';
+import { type InstallLockBody, type InstallOutcome } from './web-install-types.js';
+
+// The probe and the path derivations it reads live in `browser-cache-probe.ts`,
+// and the three record shapes in `web-install-types.ts` (wave-3 file-size cap
+// split; declarations moved verbatim). `probeBrowserInstalled`, `BrowserProbe`
+// and `InstallOutcome` are re-exported here so importers keep resolving them
+// from `web-install-service.js` unchanged; `InstallLockBody` was module-private
+// and is imported for use only.
+export { probeBrowserInstalled } from './browser-cache-probe.js';
+export type { BrowserProbe, InstallOutcome } from './web-install-types.js';
 
 /**
  * R2: the size of the one-time download, named so it is never a surprise.
@@ -71,28 +73,6 @@ const INSTALL_TIMEOUT_MS = 20 * 60_000;
 /** Lock and log are ours; 0600 mirrors the daemon record's reasoning. */
 const LOCK_FILE_MODE = 0o600;
 
-interface InstallLockBody {
-  readonly pid: number;
-  readonly startedAt: string;
-}
-
-/** What the cache says, without downloading anything (tech-doc §5.3). */
-export interface BrowserProbe {
-  readonly installed: boolean;
-  /** The resolved Playwright PACKAGE version, or `null` when the package is absent. */
-  readonly version: string | null;
-  readonly executablePath: string | null;
-}
-
-export interface InstallOutcome {
-  readonly ok: boolean;
-  /** `''` on success, otherwise `WEB_INSTALL_BUSY` | `WEB_INSTALL_FAILED` | `WEB_INSTALL_TIMEOUT`. */
-  readonly code: string;
-  readonly message: string;
-  /** The size warning whenever this call actually ran the installer. */
-  readonly warnings: readonly string[];
-}
-
 /**
  * `PEAKS_WEB_DISABLED=1`, and nothing else. `'0'`, `'true'`, `''` and `'1 '`
  * are all "not disabled" — the flag is an explicit opt-out, so a typo must fail
@@ -100,105 +80,6 @@ export interface InstallOutcome {
  */
 export function isWebDisabled(env: NodeJS.ProcessEnv): boolean {
   return env['PEAKS_WEB_DISABLED'] === '1';
-}
-
-/**
- * Is the pinned browser on disk? Never throws, never spawns, never downloads.
- *
- * **It answers about the artifact `launch()` starts** (R6). `executablePath()`
- * names the `chromium` build, but `chromium.launch()` with no options and
- * `headless` defaulting true resolves `chromium-headless-shell`
- * (`registry.getExecutableName`) — a SEPARATE ~271 MiB download. Probing the
- * full chromium therefore answered "installed" for a machine on which no op
- * could launch: `launch()` failed, S1's net downloaded, the probe kept saying
- * installed, and `peaks web install` short-circuited to a no-op success. See
- * `headlessShellDir` for how the right path is obtained.
- *
- * `version` is reported even when the executable is missing, because "the
- * package is cached but its browser is not" is a different diagnosis from
- * "nothing is installed" — the first is one `peaks web install` away.
- */
-export async function probeBrowserInstalled(): Promise<BrowserProbe> {
-  const version = await playwrightVersion();
-  if (version === null) {
-    return { installed: false, version: null, executablePath: null };
-  }
-  try {
-    const chromiumPath = (await loadPlaywright()).chromium.executablePath();
-    const shellDir = headlessShellDir(chromiumPath);
-    if (shellDir === null) {
-      // Not a registry shape we recognise: answer about the path Playwright
-      // handed us, exactly as this probe did before R6, rather than about a
-      // directory we invented.
-      return { installed: existsSync(chromiumPath), version, executablePath: chromiumPath };
-    }
-    // Absent is the answer, and the whole point: `null` here is what steers
-    // `peaks web install` to download and `acquireChromium` to refuse.
-    const executablePath = headlessShellExecutable(shellDir);
-    return { installed: executablePath !== null, version, executablePath };
-  } catch {
-    // The package resolved but would not load — a broken cache, not a download.
-    return { installed: false, version, executablePath: null };
-  }
-}
-
-/**
- * The `chromium_headless_shell-<rev>` directory that sits beside
- * `chromiumExecutablePath`'s own revision directory, or `null` when the path is
- * not shaped like Playwright's registry.
- *
- * Playwright's public API cannot name the shell — `BrowserType.executablePath()`
- * takes no options and always answers with the `chromium` build — so it is
- * derived from the one path Playwright does hand out. One naming rule is
- * assumed, and it is the one the cache itself shows: `<rev>` directories are
- * named after the browser, `chromium-1243` beside `chromium_headless_shell-1243`.
- */
-function headlessShellDir(chromiumExecutablePath: string): string | null {
-  const segments = chromiumExecutablePath.split(/[\\/]/);
-  let revision = -1;
-  for (let i = segments.length - 1; i > 0; i -= 1) {
-    if (/^chromium-\d+$/.test(segments[i] ?? '')) {
-      revision = i;
-      break;
-    }
-  }
-  const revisionDir = segments[revision];
-  if (revision <= 0 || revisionDir === undefined) {
-    return null;
-  }
-  return join(
-    segments.slice(0, revision).join(sep),
-    revisionDir.replace('chromium-', 'chromium_headless_shell-')
-  );
-}
-
-/**
- * The shell executable inside `shellDir`, or `null`.
- *
- * The shell's own platform directory is deliberately NOT assumed — it is
- * `chrome-headless-shell-<platform>` where chromium's is `chrome-<platform>` —
- * so the file is looked for rather than named from a copy of Playwright's
- * per-platform path table.
- */
-function headlessShellExecutable(shellDir: string): string | null {
-  for (const entry of safeReaddir(shellDir)) {
-    const platformDir = join(shellDir, entry);
-    for (const file of safeReaddir(platformDir)) {
-      if (/^chrome-headless-shell(\.exe)?$/.test(file)) {
-        return join(platformDir, file);
-      }
-    }
-  }
-  return null;
-}
-
-function safeReaddir(dir: string): string[] {
-  try {
-    return readdirSync(dir);
-  } catch {
-    // Absent is the normal case on a machine that never installed the shell.
-    return [];
-  }
 }
 
 /**

@@ -23,95 +23,42 @@ import {
   type ObservabilityEvent,
   type ObservabilitySubagentRole
 } from './observability-service.js';
-import { listSessionDirsWithMetrics } from './jsonl-store.js';
+import {
+  REPAIR_CYCLE_CAP,
+  TERMINAL_FAIL_STATES,
+  TERMINAL_HAPPY_STATES,
+  ZERO_FANOUT,
+  type DashboardMetrics,
+  type FanoutBreakdown,
+  type Period,
+  type RepairCycleReport,
+  type SliceRollup,
+  type StatusAggregate
+} from './aggregation-types.js';
+import {
+  computeRepairCyclesBySlice,
+  durationMsBetween,
+  isSliceTransition,
+  transitionTo
+} from './aggregation-helpers.js';
 
-// ----- types -----
-
-export type StatusAggregate = {
-  totalEvents: number;
-  totalSlices: number;
-  successCount: number;
-  failCount: number;
-  repairCyclePeak: number;
-  fanoutCostTotal: number;
-};
-
-export type SliceRollup = {
-  sliceRid: string;
-  transitions: number;
-  firstTs: string | null;
-  lastTs: string | null;
-  durationMs: number | null;
-  finalState: string | null;
-  fanoutCount: number;
-  repairCycleCount: number;
-  success: boolean;
-};
-
-export type FanoutBreakdown = {
-  total: number;
-  perRole: Record<ObservabilitySubagentRole, number>;
-};
-
-export type RepairCycleReport = {
-  totalCycles: number;
-  cap: number;
-  capHit: boolean;
-  capHitCount: number;
-  perSlice: Array<{ sliceRid: string; cycleCount: number }>;
-};
-
-// Slice lifecycle terminal states. Anything not listed is in-flight
-// (draft / spec-locked / implemented / qa-handoff / running).
-const TERMINAL_HAPPY_STATES: ReadonlySet<string> = new Set([
-  'handed-off',
-  'verdict-issued',
-  'impact-recorded',
-  'boundary-recorded'
-]);
-const TERMINAL_FAIL_STATES: ReadonlySet<string> = new Set(['blocked']);
-
-/** RD/QA repair-loop cap (matches the peaks-code repair-loop contract). */
-export const REPAIR_CYCLE_CAP = 3;
-
-// v2.12.0 fan-out collapse: see OBSERVABILITY_SUBAGENT_ROLES for the
-// rationale on why `security-reviewer` was dropped and `peaks-security-audit`
-// + `peaks-perf-audit` were added.
-const ZERO_FANOUT: Record<ObservabilitySubagentRole, number> = {
-  rd: 0,
-  qa: 0,
-  'code-reviewer': 0,
-  'karpathy-reviewer': 0,
-  'peaks-security-audit': 0,
-  'peaks-perf-audit': 0
-};
-
-// ----- internal helpers -----
-
-function isSliceTransition(
-  event: ObservabilityEvent
-): event is ObservabilityEvent & { sliceRid: string } {
-  return event.category === 'slice-transition' && typeof event.sliceRid === 'string';
-}
-
-function artifactRole(event: ObservabilityEvent): string {
-  const detail = event.detail as { artifactRole?: unknown };
-  return typeof detail.artifactRole === 'string' ? detail.artifactRole : '';
-}
-
-function transitionTo(event: ObservabilityEvent): string | null {
-  const detail = event.detail as { to?: unknown };
-  return typeof detail.to === 'string' ? detail.to : null;
-}
-
-function durationMsBetween(firstTs: string, lastTs: string): number {
-  const a = new Date(firstTs).getTime();
-  const b = new Date(lastTs).getTime();
-  if (!Number.isFinite(a) || !Number.isFinite(b)) {
-    return 0;
-  }
-  return Math.max(0, b - a);
-}
+// The result shapes and their data (terminal states, repair-loop cap, zeroed
+// fan-out row) live in `aggregation-types.ts`; the event-detail readers, the
+// per-slice cycle count and the event-source helpers live in
+// `aggregation-helpers.ts` (wave-3 file-size cap split; declarations moved
+// verbatim). Every PUBLIC name is re-exported below so importers keep
+// resolving it from `aggregation.js` unchanged; the module-private readers are
+// imported for use here and not re-exported.
+export { REPAIR_CYCLE_CAP } from './aggregation-types.js';
+export { readAllSessionEvents, readSessionEvents } from './aggregation-helpers.js';
+export type {
+  DashboardMetrics,
+  FanoutBreakdown,
+  Period,
+  RepairCycleReport,
+  SliceRollup,
+  StatusAggregate
+} from './aggregation-types.js';
 
 // ----- per-slice rollup (shared by status + slices queries) -----
 
@@ -150,24 +97,6 @@ function rollupSlices(events: readonly ObservabilityEvent[]): Map<string, SliceR
     }
   }
   return bySlice;
-}
-
-function computeRepairCyclesBySlice(events: readonly ObservabilityEvent[]): Map<string, number> {
-  // Repair cycle = each rd → qa transition within one slice (proxy for the
-  // RD→QA→RD loop). For each slice we count qa transitions that follow an
-  // rd transition. Multiple qa transitions on the same slice are capped by
-  // REPAIR_CYCLE_CAP at the report level — the per-slice count here is the
-  // raw observation count.
-  const cyclesBySlice = new Map<string, number>();
-  for (const event of events) {
-    if (!isSliceTransition(event)) continue;
-    const rid = event.sliceRid;
-    const role = artifactRole(event);
-    if (role === 'qa') {
-      cyclesBySlice.set(rid, (cyclesBySlice.get(rid) ?? 0) + 1);
-    }
-  }
-  return cyclesBySlice;
 }
 
 // ----- public aggregations -----
@@ -237,8 +166,6 @@ export function aggregateRepairCycles(events: readonly ObservabilityEvent[]): Re
 
 // ----- period rollup (AC-5 — Slice D, but helpers live here) -----
 
-export type Period = 'day' | 'week' | 'month';
-
 export function periodStartIso(period: Period, now: () => Date = () => new Date()): string {
   const d = now();
   if (period === 'day') {
@@ -266,40 +193,7 @@ export function filterByPeriod(
   return events.filter((e) => e.ts >= start);
 }
 
-// ----- event-source helpers (CLI calls these; tests use pure functions) -----
-
-export function readAllSessionEvents(projectRoot: string): ObservabilityEvent[] {
-  const sessions = listSessionDirsWithMetrics(projectRoot);
-  const all: ObservabilityEvent[] = [];
-  for (const { sessionId } of sessions) {
-    for (const event of readObservabilityEvents(projectRoot, sessionId)) {
-      all.push(event);
-    }
-  }
-  all.sort((a, b) => a.ts.localeCompare(b.ts));
-  return all;
-}
-
-export function readSessionEvents(projectRoot: string, sessionId: string): ObservabilityEvent[] {
-  return readObservabilityEvents(projectRoot, sessionId);
-}
-
 // ----- rid-030 F-direction: 5-metric dashboard summary -----
-
-/**
- * Cumulative 5-metric surface for the `peaks dashboard summary` CLI.
- * All values are derived from raw observability events (per-event
- * counting), not from state files — semantics differ from
- * `peaks dashboard long-run`, which derives indicators from
- * `.peaks/_runtime/<sid>/24h-state.json`.
- */
-export type DashboardMetrics = {
-  readonly cycleCount: number;
-  readonly tokenCount: number;
-  readonly dispatchCount: number;
-  readonly compactCount: number;
-  readonly monotonicTriggerCount: number;
-};
 
 /**
  * Aggregate the 5 dashboard metric classes for a single session, filtered
