@@ -21,6 +21,10 @@
  *                  being pushed touched. Same comparison, different source of
  *                  the file list. This is what pre-push runs.
  *   repo mode    — the whole-repo totals may not grow. CI only (slice B5).
+ *   silent-warning mode — the two silent-warning legs on their own: same
+ *                  detector, same `check`, same ceilings as `repo` mode, without
+ *                  eslint / prettier / tsc. It exists so a unit test can inject
+ *                  a swallow and watch THIS leg go red (slice a3).
  *
  * The ceilings in `.peaks/lint/gate-baseline.json` are lowered slice by slice
  * by the cleanup program. At zero these same hooks are the strict gates,
@@ -47,6 +51,12 @@ import { existsSync, readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import prettier from 'prettier';
+import {
+  EXTENSIONS,
+  filterScopeFiles,
+  lintFileList,
+  scopeDirs
+} from '../scripts/lint/lint-file-list.mjs';
 
 // Slash-normalised ONCE, at the definition. `resolve()` returns backslashes on
 // Windows, so a `p.split('\\').join('/')` path can never match a `${ROOT}/`
@@ -60,12 +70,21 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
   .join('/');
 const BASELINE_PATH = resolve(ROOT, '.peaks/lint/gate-baseline.json');
 const ESLINT_CONFIG = 'config/eslint/.peaks-rules.cjs';
-const CODE_EXT = /\.(ts|tsx|mts|cts|mjs|cjs|js)$/;
 const COVERAGE_GAP = /was not found in any of the provided project/;
 
 const BATCH = 150; // keep argv well under the Windows command-line limit
 const baseline = JSON.parse(readFileSync(BASELINE_PATH, 'utf8'));
-const SCOPE_DIRS = baseline.scope.dirs;
+// The scope rule is `scripts/lint/lint-file-list.mjs`, not a copy in this file.
+// It used to be a local `CODE_EXT` regex x `baseline.scope.dirs`, i.e. a second
+// spelling of the rule `pnpm lint` also measures — and `tests/unit/lint/`
+// observed the module, the baseline and `package.json`, but NOTHING observed
+// this file's copy. Measured 2026-09-29: cutting the local regex to `ts|tsx`
+// made `repo` mode check 1259 files instead of 1298, lose 80 findings, and still
+// print `all whole-repo ceilings held` with exit 0. One list, one filter, both
+// imported here, is what closes that class;
+// `tests/unit/lint/lint-file-list-parity.test.ts` runs THIS file's `repo` mode
+// and compares the count it reports against the published rule.
+const SCOPE_DIRS = scopeDirs();
 
 // RuleIds the config names but the pinned plugin does not define. ESLint reports
 // each one on EVERY parsed file, so they are config bugs, not lint debt: leaving
@@ -76,7 +95,10 @@ const PHANTOM_RULES = new Set(baseline.phantomRules ?? []);
 const isPhantom = (m) => m.ruleId !== null && PHANTOM_RULES.has(m.ruleId);
 
 const rel = (p) => p.split('\\').join('/').replace(`${ROOT}/`, '');
-const inScope = (p) => CODE_EXT.test(p) && SCOPE_DIRS.some((d) => p.startsWith(`${d}/`));
+// Per-path, so `staged` / `changed` keep their own filter step. The list is the
+// files ONE commit touches, so calling the batch filter once per path costs
+// nothing measurable and keeps one spelling of the rule.
+const inScope = (p) => filterScopeFiles([p], SCOPE_DIRS, EXTENSIONS).length === 1;
 
 /** Split eslint messages into the classes the baseline distinguishes. */
 function classify(messages) {
@@ -493,13 +515,125 @@ async function changedMode() {
 }
 
 // ---------------------------------------------------------------------------
+// the ceiling comparison — ONE row printer for every total
+// ---------------------------------------------------------------------------
+// Hoisted out of `repoMode` so `silent-warning` mode prints through it too. A
+// second copy of this comparison would be exactly the thing this file's history
+// warns about: a leg that reads green in one place and red in another.
+function makeCheck(failures) {
+  return (label, actual, ceiling) => {
+    const ok = actual <= ceiling;
+    console.log(
+      `  ${ok ? '✓' : '✗'} ${label.padEnd(26)} ${String(actual).padStart(6)}   (ceiling ${ceiling})`
+    );
+    if (!ok) failures.push(`${label}: ${actual} > ceiling ${ceiling} (+${actual - ceiling})`);
+  };
+}
+
+// ---------------------------------------------------------------------------
+// silent-warning legs — read off the detector, never hardcoded
+// ---------------------------------------------------------------------------
+// `scripts/lint/silent-warning-detector.mjs` has reported `catch-return-null`
+// and `empty-catch` since slice A.2, but until slice a3 NOTHING on a gate path
+// read its numbers: the detector was referenced only by `package.json#test:ci`,
+// and no workflow calls `test:ci`. A leg that is red on arrival and ungated can
+// grow in silence, so the two counts join the ratchet as ceiling lines that may
+// only go DOWN.
+//
+// MEASURED, not typed in — the same rule the regenerator follows for
+// `phantomRules`: the number comes off the tool in this run. The tool runs as a
+// child process with `--json`, so what this gate reports is exactly what
+// `pnpm test:ci` would have reported, grace markers (`// TODO(g2):`) subtracted
+// by the detector itself.
+//
+// FAIL-CLOSED, like `notLinted` and the `REFUSING to measure` prettier branch:
+// a detector that cannot run, or that scanned nothing, ABORTS the gate. It is
+// never read as a zero, because a zero is what "no swallows found" looks like —
+// and the only reason to have this leg is to tell those two states apart.
+const SW_DETECTOR = 'scripts/lint/silent-warning-detector.mjs';
+
+/** [detector rule, baseline ceiling key, table label] */
+const SW_RULES = [
+  ['catch-return-null', 'silentWarningCatchReturnNull', 'silent-warn return-null'],
+  ['empty-catch', 'silentWarningEmptyCatch', 'silent-warn empty-catch']
+];
+
+/**
+ * `files` narrows the scan for a control arm of the unit test. An empty list
+ * asks the detector for its OWN default scope — a walk of `src/`, 781 files
+ * measured 2026-09-29 — which is NOT this gate's `git ls-files` set (1298).
+ * The divergence is recorded, not reconciled: retargeting the detector is a
+ * different slice.
+ */
+function measureSilentWarnings(files = []) {
+  let raw = '';
+  try {
+    raw = execFileSync('node', [SW_DETECTOR, '--json', ...files], {
+      cwd: ROOT,
+      encoding: 'utf8',
+      maxBuffer: 512 * 1024 * 1024
+    });
+  } catch (err) {
+    // The detector exits 1 whenever it finds a violation; the envelope is still
+    // on stdout — the same shape as eslint's report above.
+    raw = err.stdout ?? '';
+  }
+  const refuse = (why) => ({ failure: why, scannedFiles: 0, counts: {} });
+  let env;
+  try {
+    env = JSON.parse(raw);
+  } catch {
+    return refuse(`${SW_DETECTOR} --json produced no parseable envelope`);
+  }
+  if (!Number.isInteger(env.scannedFiles) || env.scannedFiles <= 0) {
+    return refuse(`${SW_DETECTOR} scanned 0 files, so it measured nothing`);
+  }
+  if (typeof env.byRule !== 'object' || env.byRule === null) {
+    return refuse(`${SW_DETECTOR} produced an envelope with no byRule object`);
+  }
+  const counts = {};
+  for (const [rule] of SW_RULES) counts[rule] = env.byRule[rule] ?? 0;
+  return { failure: null, scannedFiles: env.scannedFiles, counts };
+}
+
+/**
+ * Print the two rows through `check`. Returns `{ refusal, scannedFiles }`: a
+ * non-null `refusal` means the caller must fail the run — a leg that could not
+ * be measured contributes no row, let alone a zero.
+ */
+function silentWarningLeg(check, ceilings, files) {
+  const m = measureSilentWarnings(files);
+  if (m.failure !== null) {
+    return {
+      refusal:
+        `REFUSING to measure the silent-warning legs — ${m.failure}.\n` +
+        `  A detector that cannot run is a gate FAILURE, not a zero. Run \`node ${SW_DETECTOR}\` to see why.`,
+      scannedFiles: 0
+    };
+  }
+  const missing = SW_RULES.map(([, key]) => key).filter((k) => !Number.isInteger(ceilings[k]));
+  if (missing.length > 0) {
+    return {
+      refusal:
+        `REFUSING to measure the silent-warning legs — the baseline has no ceiling for ` +
+        `${missing.join(', ')}.\n` +
+        '  Regenerate it: node .husky/peaks-gate-baseline.mjs',
+      scannedFiles: m.scannedFiles
+    };
+  }
+  for (const [rule, key, label] of SW_RULES) check(label, m.counts[rule], ceilings[key]);
+  return { refusal: null, scannedFiles: m.scannedFiles };
+}
+
+// ---------------------------------------------------------------------------
 // repo mode — invoked by CI
 // ---------------------------------------------------------------------------
 async function repoMode() {
-  const files = execFileSync('git', ['ls-files'], { cwd: ROOT, encoding: 'utf8' })
-    .trim()
-    .split('\n')
-    .filter(inScope);
+  // The same list `pnpm lint` lints: `git ls-files` x the published scope, from
+  // the one module that owns it. This used to be a local `execFileSync('git',
+  // ['ls-files'])…filter(inScope)` with `inScope` built from this file's own
+  // `CODE_EXT`, i.e. a second copy that no test read (see the SCOPE_DIRS note).
+  const files = lintFileList();
 
   console.log(`peaks-gate: checking ${files.length} file(s) against the whole-repo ceilings...`);
 
@@ -604,13 +738,7 @@ async function repoMode() {
 
   const c = baseline.ceilings;
   const failures = [];
-  const check = (label, actual, ceiling) => {
-    const ok = actual <= ceiling;
-    console.log(
-      `  ${ok ? '✓' : '✗'} ${label.padEnd(26)} ${String(actual).padStart(6)}   (ceiling ${ceiling})`
-    );
-    if (!ok) failures.push(`${label}: ${actual} > ceiling ${ceiling} (+${actual - ceiling})`);
-  };
+  const check = makeCheck(failures);
 
   console.log('');
   check('eslint findings', findings, c.eslintFindings);
@@ -622,6 +750,15 @@ async function repoMode() {
   check('unlinted files (config)', coverageGapFiles, c.eslintCoverageGapFiles);
   check('syntax errors', syntaxErrorFiles, c.eslintSyntaxErrorFiles);
   check('unparsable files', unparsable.length, c.prettierUnparsableFiles);
+  const sw = silentWarningLeg(check, c, []);
+  if (sw.refusal !== null) {
+    console.error(`\npeaks-gate: ${sw.refusal}\n`);
+    return 1;
+  }
+  console.log(
+    `  scope note: the silent-warning detector scanned ${sw.scannedFiles} file(s) of its own \`src/\` ` +
+      `walk, not the ${files.length} files in this gate's scope. Recorded, not reconciled.`
+  );
   console.log('');
 
   if (unparsable.length > 0) {
@@ -642,6 +779,43 @@ async function repoMode() {
 }
 
 // ---------------------------------------------------------------------------
+// silent-warning mode — the two legs, without eslint / prettier / tsc
+// ---------------------------------------------------------------------------
+// WHY THIS MODE EXISTS. `repo` mode is the enforcement surface, and it costs
+// minutes. The unit test for this leg has to add a swallow to a scratch file and
+// watch THE SAME leg go red — and a test that re-implemented the comparison to
+// stay cheap would prove nothing about the gate. So it spawns this mode instead:
+// one measurement, one `check`, the same ceilings, ~1s.
+//
+// Path arguments narrow the detector's scan for a control arm; with none it
+// ratchets exactly what `repo` mode ratchets.
+async function silentWarningMode(argv) {
+  const files = argv.map(rel).filter((f) => f !== '');
+  const failures = [];
+  const check = makeCheck(failures);
+
+  console.log('');
+  const sw = silentWarningLeg(check, baseline.ceilings, files);
+  console.log('');
+  if (sw.refusal !== null) {
+    console.error(`peaks-gate: ${sw.refusal}\n`);
+    return 1;
+  }
+
+  if (failures.length > 0) {
+    console.error('peaks-gate: silent-warning ratchet breached — a total grew.\n');
+    for (const f of failures) console.error(`  ✗ ${f}`);
+    console.error(
+      '\nThese totals only ever go DOWN. Fix the regression; do not raise a ceiling.\n'
+    );
+    return 1;
+  }
+
+  console.log(`peaks-gate: silent-warning ceilings held (${sw.scannedFiles} file(s) scanned).`);
+  return 0;
+}
+
+// ---------------------------------------------------------------------------
 const mode = process.argv[2];
 const code =
   mode === 'staged'
@@ -650,5 +824,8 @@ const code =
       ? await changedMode()
       : mode === 'repo'
         ? await repoMode()
-        : (console.error('usage: peaks-gate.mjs <staged|changed|repo> [files...]'), 2);
+        : mode === 'silent-warning'
+          ? await silentWarningMode(process.argv.slice(3))
+          : (console.error('usage: peaks-gate.mjs <staged|changed|repo|silent-warning> [files...]'),
+            2);
 process.exit(code);

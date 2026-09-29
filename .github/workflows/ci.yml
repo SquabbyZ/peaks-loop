@@ -60,6 +60,31 @@ jobs:
         # as publish.yml).
         run: npm run build
 
+      - name: Silent-warning ratchet (catch swallows)
+        # Slice a3 (2026-09-29). `scripts/lint/silent-warning-detector.mjs` had
+        # been reporting 41 `catch-return-null` + 59 `empty-catch` since slice
+        # A.2 while being referenced by NOTHING but `package.json#test:ci` — and
+        # no workflow in this repo calls `test:ci`. A leg that is red on arrival
+        # and wired to no executor can neither block a commit nor be seen, and
+        # its count can grow in silence.
+        #
+        # It is now a ratchet leg: the two counts are ceiling lines in
+        # `.peaks/lint/gate-baseline.json` (seeded from the detector by
+        # `.husky/peaks-gate-baseline.mjs`, never typed in) and may only go DOWN.
+        # `repo` mode below carries the same two rows through the same
+        # comparison; this step is the same measurement on its own, so a breach
+        # is attributed to the leg by NAME and in ~1s instead of surfacing at the
+        # end of a minutes-long step. Deliberate overlap, not a second gate.
+        #
+        # FAIL-CLOSED: if the detector cannot run, or scans nothing, the gate
+        # refuses (exit 1) rather than reporting a zero — the same posture as the
+        # `REFUSING to measure` prettier branch and the `never linted` row.
+        #
+        # The detector's scope is its own `src/` walk (781 files measured
+        # 2026-09-29), NOT the 1298-file `git ls-files` set the other legs use.
+        # Recorded divergence; retargeting it is a different slice.
+        run: node .husky/peaks-gate.mjs silent-warning
+
       - name: Whole-repo lint ratchet
         # Slice B5 (2026-09-23) moved the whole-repo ratchet OFF the push path
         # and INTO CI. The push gate now checks only the files being pushed: a
@@ -103,6 +128,35 @@ jobs:
         run: npx vitest run --reporter=default --reporter=github-actions
         env:
           # Suppress per-platform timing flake; tests stub Date where needed.
+          TZ: UTC
+
+      - name: Test workspace packages
+        # Slice a5 (2026-09-29) — the package leg, scheduled. `pnpm -r
+        # --filter "./packages/*" run test` is what runs each package's OWN
+        # vitest config (shared 19, mut 22, shared-channel 20, internal-runtime
+        # 113 cases measured 2026-09-29). Nothing in CI did that before: the
+        # `Test` step above uses the ROOT config, whose `include` is
+        # `tests/unit/**` and which collects ZERO paths under `packages/`
+        # (`vitest list` measured), and `test:full` / `test:ci` — the only
+        # scripts that reach the packages — are referenced by no workflow step.
+        # So a published package could ship a red test, or an empty one, and CI
+        # would never run it. That is the same shape the step above this one
+        # exists to close for the silent-warning detector: a check that reports
+        # nothing because nothing calls it.
+        #
+        # NOT `test:full`: it adds `--include-workspace-root`, i.e. it re-runs
+        # the entire root suite the `Test` step just ran, and it drags in the
+        # e2e / integration / lint configs each package-root script selects.
+        # The filter is the point: package tests only, once.
+        #
+        # PLACEMENT: after `Build`, because `peaks-loop-shared/version` and its
+        # siblings resolve into `packages/*/dist`, which only `Build` creates.
+        # Inside the OS matrix on purpose — `fs.ts` / `paths.ts` behaviour
+        # (path separators, directory walks) is exactly the class that differs by
+        # platform, and this is where the Windows and macOS cells get that signal.
+        # No `continue-on-error`, no `|| true`: a red here is a regression.
+        run: pnpm -r --filter "./packages/*" run test
+        env:
           TZ: UTC
 
       - name: Test e2e + documented-example suites
