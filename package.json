@@ -131,7 +131,7 @@
     "audit:prose-ratio": "peaks audit prose-ratio --project .",
     "dogfood:sediment": "bash scripts/dogfood-sediment-cycle.sh",
     "prepare": "husky",
-    "lint": "eslint --config config/eslint/.peaks-rules.cjs --ext .ts src tests packages",
+    "lint": "node ./scripts/lint/run-lint.mjs",
     "format:check": "prettier --check \"src/**/*.{ts,mts,mjs,js}\" \"tests/**/*.{ts,mts,mjs,js}\" \"packages/**/*.{ts,mts,mjs,js}\" \"scripts/**/*.{ts,mts,mjs,js}\"",
     "format": "prettier --write \"src/**/*.{ts,mts,mjs,js}\" \"tests/**/*.{ts,mts,mjs,js}\" \"packages/**/*.{ts,mts,mjs,js}\" \"scripts/**/*.{ts,mts,mjs,js}\"",
     "gate:staged": "node .husky/peaks-gate.mjs staged",
