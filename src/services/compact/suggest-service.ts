@@ -31,53 +31,22 @@ import {
   type Phase,
   type Severity
 } from './decision-tables.js';
+import {
+  DEFAULT_TOOL_CALL_THRESHOLD,
+  DEFAULT_CONTEXT_THRESHOLD_200K,
+  DEFAULT_CONTEXT_THRESHOLD_1M,
+  DEFAULT_CONTEXT_INTERVAL,
+  type WindowKind,
+  type SuggestOptions,
+  type SuggestResult,
+  type UsageRow,
+  type DryRunOptions,
+  type DryRunResult
+} from './suggest-types.js';
 
 /** Snapshot of the survival table for the dry-run envelope. */
 const SURVIVAL_TABLE_PERSISTS = SURVIVAL_TABLE.persists;
 const SURVIVAL_TABLE_LOST = SURVIVAL_TABLE.lost;
-
-/** Token window sizes supported by the suggest service. */
-export type WindowKind = '200k' | '1m';
-
-export interface SuggestOptions {
-  readonly projectRoot: string;
-  readonly sessionId: string | null;
-  readonly env?: NodeJS.ProcessEnv;
-}
-
-export interface SuggestResult {
-  readonly shouldSuggest: boolean;
-  readonly reason: string;
-  readonly ratio: number;
-  readonly windowKind: WindowKind;
-  readonly tokensUsed: number;
-  readonly toolCalls: number;
-  readonly thresholds: {
-    readonly contextTokens: number;
-    readonly contextInterval: number;
-    readonly toolCalls: number;
-  };
-  readonly dataUnavailable: boolean;
-  readonly source: 'usage-jsonl' | 'env-vars' | 'none';
-}
-
-/** Default tool-call threshold before first suggestion. */
-export const DEFAULT_TOOL_CALL_THRESHOLD = 50;
-/** Default additional tool calls before the suggestion repeats. */
-export const TOOL_CALL_REMIND_STEP = 25;
-/** Default context-size threshold on a 200k window. */
-export const DEFAULT_CONTEXT_THRESHOLD_200K = 160_000;
-/** Default context-size threshold on a 1M window. */
-export const DEFAULT_CONTEXT_THRESHOLD_1M = 250_000;
-/** Default re-remind interval for context size. */
-export const DEFAULT_CONTEXT_INTERVAL = 60_000;
-
-interface UsageRow {
-  ts?: string;
-  tokens?: number;
-  toolCalls?: number;
-  modelKind?: '200k' | '1m';
-}
 
 function readLatestUsageRow(projectRoot: string, sessionId: string): UsageRow | null {
   const path = join(projectRoot, '.peaks', '_runtime', sessionId, 'usage.jsonl');
@@ -202,37 +171,6 @@ export function suggestCompact(options: SuggestOptions): SuggestResult {
   };
 }
 
-/**
- * `peaks compact dry-run` envelope — composed of (a) suggest, (b)
- * recommend, (c) survival. Pure composition over the helpers; no
- * additional I/O. The CLI emits this so the LLM can decide in one
- * tool-call whether to act.
- */
-export interface DryRunOptions {
-  readonly projectRoot: string;
-  readonly sessionId: string | null;
-  readonly from?: Phase;
-  readonly to?: Phase;
-  readonly env?: NodeJS.ProcessEnv;
-}
-
-export interface DryRunResult {
-  readonly action: 'compact' | 'skip';
-  readonly suggest: SuggestResult;
-  readonly recommend: {
-    readonly from: Phase | null;
-    readonly to: Phase | null;
-    readonly shouldCompact: boolean;
-    readonly severity: Severity | null;
-    readonly rationale: string | null;
-    readonly suggestedMessage: string | null;
-  };
-  readonly survival: {
-    readonly persists: readonly string[];
-    readonly lost: readonly string[];
-  };
-}
-
 export function dryRunCompact(options: DryRunOptions): DryRunResult {
   const suggest = suggestCompact({
     projectRoot: options.projectRoot,
@@ -313,3 +251,20 @@ export {
   SURVIVAL_TABLE
 } from './decision-tables.js';
 export type { Phase, Severity } from './decision-tables.js';
+
+// The public types and default thresholds live in suggest-types.ts; they are
+// re-exported here so importers keep using this same path.
+export {
+  DEFAULT_TOOL_CALL_THRESHOLD,
+  TOOL_CALL_REMIND_STEP,
+  DEFAULT_CONTEXT_THRESHOLD_200K,
+  DEFAULT_CONTEXT_THRESHOLD_1M,
+  DEFAULT_CONTEXT_INTERVAL
+} from './suggest-types.js';
+export type {
+  WindowKind,
+  SuggestOptions,
+  SuggestResult,
+  DryRunOptions,
+  DryRunResult
+} from './suggest-types.js';

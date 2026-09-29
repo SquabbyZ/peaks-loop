@@ -11,54 +11,27 @@
 
 import { readdir, readFile, stat } from 'node:fs/promises';
 import { join, relative } from 'node:path';
+import { lineOf, parseIncludeDirs, uniqueByName } from './api-surface-helpers.js';
+import type {
+  ApiSurfaceOptions,
+  ApiSurfaceReport,
+  CliEntry,
+  ConstantEntry,
+  ServiceEntry,
+  TypeEntry
+} from './api-surface-types.js';
 
-export type ApiSurfaceOptions = {
-  projectRoot: string;
-  /** Maximum entries per kind in output (after filtering). */
-  maxPerKind?: number;
-  /** Comma-separated globs (substring match) to limit the walk. */
-  includeDirs?: string;
+// Re-exported so every importer keeps resolving these names from THIS path
+// (300-line cap split; the declarations live in `api-surface-types.ts`).
+export type {
+  ApiSurfaceOptions,
+  CliEntry,
+  ServiceEntry,
+  TypeEntry,
+  ConstantEntry,
+  ApiSurfaceReport
 };
 
-export type CliEntry = {
-  name: string;
-  description: string;
-  sourceFile: string;
-};
-
-export type ServiceEntry = {
-  name: string;
-  kind: 'function' | 'class' | 'const';
-  isAsync: boolean;
-  sourceFile: string;
-  line: number;
-};
-
-export type TypeEntry = {
-  name: string;
-  kind: 'interface' | 'type' | 'enum';
-  sourceFile: string;
-  line: number;
-};
-
-export type ConstantEntry = {
-  name: string;
-  sourceFile: string;
-  line: number;
-};
-
-export type ApiSurfaceReport = {
-  projectRoot: string;
-  scannedAt: string;
-  counts: { cli: number; service: number; type: number; constant: number };
-  cli: CliEntry[];
-  service: ServiceEntry[];
-  type: TypeEntry[];
-  constant: ConstantEntry[];
-  warnings: string[];
-};
-
-const DEFAULT_DIRS = ['src/cli', 'src/services'] as const;
 const SKIP_DIRS = new Set(['node_modules', '.git', 'dist', 'build', 'coverage']);
 
 const COMMAND_RE = /\.command\(\s*['"]([^'"]+)['"]\s*\)\s*\.description\(\s*['"]([^'"]+)['"]/g;
@@ -103,29 +76,6 @@ async function isDir(p: string): Promise<boolean> {
   } catch {
     return false;
   }
-}
-
-function lineOf(content: string, matchIndex: number): number {
-  return content.slice(0, matchIndex).split('\n').length;
-}
-
-function uniqueByName<T extends { name: string }>(items: T[]): T[] {
-  const seen = new Set<string>();
-  const out: T[] = [];
-  for (const item of items) {
-    if (seen.has(item.name)) continue;
-    seen.add(item.name);
-    out.push(item);
-  }
-  return out;
-}
-
-function parseIncludeDirs(raw: string | undefined): string[] {
-  if (!raw) return [...DEFAULT_DIRS];
-  return raw
-    .split(',')
-    .map((s) => s.trim())
-    .filter((s) => s.length > 0);
 }
 
 /**
