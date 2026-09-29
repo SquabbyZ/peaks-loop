@@ -14,30 +14,11 @@
  * is applied by the caller, because only a byte count can bound the rendering.
  */
 import { MAX_SNAP_DEPTH, MAX_SNAP_NODES } from './bounded-output.js';
+import type { AriaNode } from './aria-node.js';
 
-/**
- * A node of the `ariaSnapshotJSON()` tree. Fields follow the documented format
- * (`role` is `"text"` for static text fragments; state flags and element
- * attributes are optional).
- */
-export interface AriaNode {
-  readonly role: string;
-  readonly name?: string;
-  readonly text?: string;
-  readonly children?: readonly AriaNode[];
-  readonly checked?: boolean | 'mixed';
-  readonly disabled?: boolean;
-  readonly expanded?: boolean;
-  readonly active?: boolean;
-  readonly invalid?: boolean | 'mixed';
-  readonly level?: number;
-  readonly pressed?: boolean | 'mixed';
-  readonly selected?: boolean;
-  readonly url?: string;
-  readonly placeholder?: string;
-  readonly ref?: string;
-  readonly cursor?: string;
-}
+// Re-exported so every importer keeps resolving this name from THIS path
+// (300-line cap split; the declaration lives in `aria-node.ts`).
+export type { AriaNode };
 
 /**
  * Roles that carry no information on their own. A node of one of these roles

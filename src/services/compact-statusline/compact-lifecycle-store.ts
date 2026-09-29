@@ -38,6 +38,15 @@ import {
 } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { getSessionDir } from '../session/getSessionDir.js';
+import type {
+  CompactLifecycleRead,
+  CompactLifecycleRecord,
+  CompactLifecycleStage
+} from './compact-lifecycle-types.js';
+
+// Re-exported so every importer keeps resolving these names from THIS path
+// (300-line cap split; the declarations live in `compact-lifecycle-types.ts`).
+export type { CompactLifecycleRead, CompactLifecycleRecord, CompactLifecycleStage };
 
 const LIFECYCLE_FILENAME = 'compact-lifecycle.json';
 const ERROR_SUMMARY_MAX = 160;
@@ -61,40 +70,6 @@ const ALL_STAGES: ReadonlyArray<CompactLifecycleStage> = [
   'completed',
   'failed'
 ];
-
-export type CompactLifecycleStage =
-  | 'queued'
-  | 'preparing'
-  | 'compacting'
-  /**
-   * Slice 2026-09-12-compact-band-policy: a compact trigger was
-   * REGISTERED but no compaction has started — e.g. claude-code's
-   * `ide-native` pathway only installs the PreToolUse hook, which
-   * compacts in-band at ratio ≥ 0.95. In the 0.80–0.95 band nothing
-   * is in flight, so claiming `compacting` was a false heartbeat.
-   */
-  | 'armed'
-  | 'verifying'
-  | 'completed'
-  | 'failed';
-
-export interface CompactLifecycleRecord {
-  readonly schemaVersion: 1;
-  readonly runId: string;
-  readonly stage: CompactLifecycleStage;
-  readonly updatedAt: string;
-  readonly triggerRatio: number;
-  readonly afterRatio?: number;
-  readonly redLine: boolean;
-  readonly failedAt?: Exclude<CompactLifecycleStage, 'failed' | 'completed'>;
-  readonly errorSummary?: string;
-}
-
-export type CompactLifecycleRead =
-  | { readonly kind: 'missing' }
-  | { readonly kind: 'valid'; readonly record: CompactLifecycleRecord }
-  | { readonly kind: 'invalid'; readonly reason: string }
-  | { readonly kind: 'stalled'; readonly record: CompactLifecycleRecord };
 
 function lifecyclePath(projectRoot: string, sessionId: string): string {
   return join(getSessionDir(projectRoot, sessionId), LIFECYCLE_FILENAME);

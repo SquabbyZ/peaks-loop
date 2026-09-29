@@ -146,7 +146,7 @@ const CENSUS: readonly Entry[] = [
   {
     file: 'src/services/compact-statusline/compact-lifecycle-store.ts',
     rule: 'empty-catch',
-    line: 242,
+    line: 217,
     frame: 'writeCompactLifecycle',
     reason:
       'tmp-file unlink is best effort, and `throw error` follows the catch — nothing is swallowed'
