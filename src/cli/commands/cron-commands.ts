@@ -23,154 +23,42 @@
  *   .peaks/cron/schedule.json — registered tasks with their
  *     interval + lastRunAt
  *   .peaks/cron/history.jsonl — append-only run history
+ *
+ * Module layout (wave 3 split, job strict-remediation-abc, slice
+ * c1-eslint-family-sweep): the schedule model lives in
+ * `cron-commands-schedule.ts` and the three action handlers in
+ * `cron-commands-actions.ts`. Every name exported from this path before the
+ * split is still importable from here. `runTask` stays here together with
+ * its exec-timeout constant (that constant carries this file's baseline
+ * `no-magic-numbers` warning; new siblings must be clean outright).
  */
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
-import { randomUUID } from 'node:crypto';
 import { execSync } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
 import type { Command } from 'commander';
-import { fail, getErrorMessage, ok } from 'peaks-loop-shared/result';
+import { getErrorMessage } from 'peaks-loop-shared/result';
 
-import { addJsonOption, printResult, type ProgramIO } from '../cli-helpers.js';
-import { findProjectRoot } from '../../services/config/config-safety.js';
+import { addJsonOption, type ProgramIO } from '../cli-helpers.js';
+import {
+  appendHistory,
+  MINUTES_PER_HOUR,
+  MS_PER_SECOND,
+  SECONDS_PER_MINUTE,
+  type RunRecord,
+  type ScheduleEntry
+} from './cron-commands-schedule.js';
+import { handleCronInit, handleCronList, handleCronRun } from './cron-commands-actions.js';
 
-const SCHEDULE_VERSION = 1 as const;
-const SCHEDULE_FILENAME = 'schedule.json';
-const HISTORY_FILENAME = 'history.jsonl';
+export { readSchedule, appendHistory, listDueTasks } from './cron-commands-schedule.js';
+export type { ScheduleEntry, ScheduleFile, RunRecord } from './cron-commands-schedule.js';
+
 /**
- * PRD-002b slice 2 — extract cron-orchestration magic numbers (24h
- * default interval, 5-minute exec timeout, stderr-message truncation
- * lengths in the renderer).
+ * PRD-002b slice 2 — cron-orchestration magic numbers, exec half. The
+ * interval/truncation constants live with the code that renders them
+ * (`cron-commands-schedule.ts` / `cron-commands-actions.ts`).
  */
-const MS_PER_SECOND = 1_000;
-const MINUTES_PER_HOUR = 60;
-const SECONDS_PER_MINUTE = 60;
-const HOURS_PER_DAY = 24;
-const DEFAULT_INTERVAL_MS = HOURS_PER_DAY * MINUTES_PER_HOUR * SECONDS_PER_MINUTE * MS_PER_SECOND;
 const EXEC_TIMEOUT_MS = 5 * MINUTES_PER_HOUR * SECONDS_PER_MINUTE * MS_PER_SECOND;
 const STDERR_RECORD_TRUNCATE_BYTES = 2000;
-const STDERR_NEXT_ACTIONS_TRUNCATE_CHARS = 200;
-
-export type ScheduleEntry = {
-  readonly id: string;
-  readonly name: string;
-  readonly command: string;
-  readonly args: ReadonlyArray<string>;
-  readonly intervalMs: number;
-  readonly lastRunAt: number | null;
-  readonly enabled: boolean;
-  readonly createdAt: number;
-};
-
-export type ScheduleFile = {
-  readonly version: typeof SCHEDULE_VERSION;
-  readonly entries: ReadonlyArray<ScheduleEntry>;
-};
-
-export type RunRecord = {
-  readonly id: string;
-  readonly taskId: string;
-  readonly startedAt: number;
-  readonly finishedAt: number;
-  readonly exitCode: number;
-  readonly stderr: string;
-};
-
-function cronDir(projectRoot: string): string {
-  return join(projectRoot, '.peaks', 'cron');
-}
-
-function schedulePath(projectRoot: string): string {
-  return join(cronDir(projectRoot), SCHEDULE_FILENAME);
-}
-
-function historyPath(projectRoot: string): string {
-  return join(cronDir(projectRoot), HISTORY_FILENAME);
-}
-
-export function readSchedule(projectRoot: string): ScheduleFile {
-  const path = schedulePath(projectRoot);
-  if (!existsSync(path)) return { version: SCHEDULE_VERSION, entries: [] };
-  const raw = readFileSync(path, 'utf8');
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(raw);
-  } catch (err) {
-    throw new Error(`schedule.json malformed: ${(err as Error).message}`);
-  }
-  if (typeof parsed !== 'object' || parsed === null) {
-    throw new Error('schedule.json root must be an object');
-  }
-  const obj = parsed as { version?: number; entries?: ReadonlyArray<unknown> };
-  if (obj.version !== SCHEDULE_VERSION) {
-    throw new Error(
-      `schedule.json version mismatch (got ${String(obj.version)}, expected ${SCHEDULE_VERSION})`
-    );
-  }
-  if (!Array.isArray(obj.entries)) {
-    throw new Error('schedule.json entries must be an array');
-  }
-  const entries: ScheduleEntry[] = [];
-  for (const e of obj.entries) {
-    if (typeof e !== 'object' || e === null) continue;
-    const ent = e as Record<string, unknown>;
-    if (
-      typeof ent.id !== 'string' ||
-      typeof ent.name !== 'string' ||
-      typeof ent.command !== 'string'
-    )
-      continue;
-    if (!Array.isArray(ent.args) || !ent.args.every((a) => typeof a === 'string')) continue;
-    if (typeof ent.intervalMs !== 'number' || typeof ent.createdAt !== 'number') continue;
-    entries.push({
-      id: ent.id,
-      name: ent.name,
-      command: ent.command,
-      args: ent.args,
-      intervalMs: ent.intervalMs,
-      lastRunAt: typeof ent.lastRunAt === 'number' ? ent.lastRunAt : null,
-      enabled: ent.enabled !== false,
-      createdAt: ent.createdAt
-    });
-  }
-  return { version: SCHEDULE_VERSION, entries };
-}
-
-function writeSchedule(projectRoot: string, file: ScheduleFile): void {
-  const dir = cronDir(projectRoot);
-  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
-  writeFileSync(schedulePath(projectRoot), `${JSON.stringify(file, null, 2)}\n`, 'utf8');
-}
-
-export function appendHistory(projectRoot: string, record: RunRecord): void {
-  const dir = cronDir(projectRoot);
-  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
-  const path = historyPath(projectRoot);
-  const line = `${JSON.stringify(record)}\n`;
-  if (!existsSync(path)) {
-    writeFileSync(path, line, 'utf8');
-  } else {
-    // Append — small file, OK to read+write
-    const existing = readFileSync(path, 'utf8');
-    writeFileSync(path, existing + line, 'utf8');
-  }
-}
-
-function ensureLeaseGcEntry(file: ScheduleFile): ScheduleFile {
-  if (file.entries.some((e) => e.id === 'lease-gc-daily')) return file;
-  const entry: ScheduleEntry = {
-    id: 'lease-gc-daily',
-    name: 'Daily lease listing — refresh the alive-lease set; operators run peaks worktree gc --lease-id <id> manually on stale entries',
-    command: 'worktree',
-    args: ['list'],
-    intervalMs: DEFAULT_INTERVAL_MS,
-    lastRunAt: null,
-    enabled: true,
-    createdAt: Date.now()
-  };
-  return { version: SCHEDULE_VERSION, entries: [...file.entries, entry] };
-}
 
 export function runTask(projectRoot: string, task: ScheduleEntry): RunRecord {
   const id = randomUUID();
@@ -205,18 +93,6 @@ export function runTask(projectRoot: string, task: ScheduleEntry): RunRecord {
   return record;
 }
 
-export function listDueTasks(
-  projectRoot: string,
-  now: number = Date.now()
-): ReadonlyArray<ScheduleEntry> {
-  const file = readSchedule(projectRoot);
-  return file.entries.filter((e) => {
-    if (!e.enabled) return false;
-    if (e.lastRunAt === null) return true;
-    return now - e.lastRunAt >= e.intervalMs;
-  });
-}
-
 export function registerCronCommand(program: Command, io: ProgramIO): void {
   const cmd = program
     .command('cron')
@@ -231,92 +107,14 @@ export function registerCronCommand(program: Command, io: ProgramIO): void {
         'Create .peaks/cron/schedule.json with the built-in tasks (currently: lease-gc-daily). Idempotent.'
       )
       .option('--project <path>', 'project root (default: findProjectRoot(cwd))')
-  ).action((options: { project?: string; json?: boolean }) => {
-    try {
-      const projectRoot = options.project ?? findProjectRoot(process.cwd()) ?? process.cwd();
-      const file = readSchedule(projectRoot);
-      const updated = ensureLeaseGcEntry(file);
-      writeSchedule(projectRoot, updated);
-      const added = updated.entries.length - file.entries.length;
-      printResult(
-        io,
-        ok(
-          'cron.init',
-          {
-            projectRoot,
-            schedulePath: schedulePath(projectRoot),
-            totalEntries: updated.entries.length,
-            added
-          },
-          [],
-          [
-            added > 0
-              ? `Added ${added} built-in task(s). Use 'peaks cron list' to inspect.`
-              : 'Schedule already contains the built-in tasks; no change made.'
-          ]
-        ),
-        options.json
-      );
-    } catch (err) {
-      printResult(
-        io,
-        fail(
-          'cron.init',
-          'CRON_INIT_FAILED',
-          getErrorMessage(err),
-          { projectRoot: options.project },
-          [
-            'Verify the project root is a peaks-loop project (.peaks/ exists).',
-            'Check filesystem permissions.'
-          ]
-        ),
-        options.json
-      );
-      process.exitCode = 1;
-    }
-  });
+  ).action((options: { project?: string; json?: boolean }) => handleCronInit(io, options));
 
   addJsonOption(
     cmd
       .command('list')
       .description('List all registered cron tasks + their due status (relative to now).')
       .option('--project <path>', 'project root (default: findProjectRoot(cwd))')
-  ).action((options: { project?: string; json?: boolean }) => {
-    try {
-      const projectRoot = options.project ?? findProjectRoot(process.cwd()) ?? process.cwd();
-      const file = readSchedule(projectRoot);
-      const now = Date.now();
-      const annotated = file.entries.map((e) => ({
-        ...e,
-        due: e.enabled && (e.lastRunAt === null || now - e.lastRunAt >= e.intervalMs),
-        nextDueAt: e.lastRunAt === null ? now : e.lastRunAt + e.intervalMs
-      }));
-      annotated.sort((a, b) => a.nextDueAt - b.nextDueAt);
-      printResult(
-        io,
-        ok(
-          'cron.list',
-          { projectRoot, schedulePath: schedulePath(projectRoot), entries: annotated },
-          [],
-          [`${annotated.length} task(s); ${annotated.filter((e) => e.due).length} due now.`]
-        ),
-        options.json
-      );
-    } catch (err) {
-      printResult(
-        io,
-        fail(
-          'cron.list',
-          'CRON_LIST_FAILED',
-          getErrorMessage(err),
-          { projectRoot: options.project },
-          ["If schedule.json is missing, run 'peaks cron init' first."]
-        ),
-        options.json
-      );
-      process.exitCode = 1;
-    }
-  });
+  ).action((options: { project?: string; json?: boolean }) => handleCronList(io, options));
 
   addJsonOption(
     cmd
@@ -326,70 +124,7 @@ export function registerCronCommand(program: Command, io: ProgramIO): void {
       )
       .option('--id <taskId>', 'task id to run (default: all due tasks)')
       .option('--project <path>', 'project root (default: findProjectRoot(cwd))')
-  ).action((options: { id?: string; project?: string; json?: boolean }) => {
-    try {
-      const projectRoot = options.project ?? findProjectRoot(process.cwd()) ?? process.cwd();
-      const file = readSchedule(projectRoot);
-      const targets = options.id
-        ? file.entries.filter((e) => e.id === options.id)
-        : listDueTasks(projectRoot);
-      if (targets.length === 0) {
-        printResult(
-          io,
-          ok(
-            'cron.run',
-            { projectRoot, ran: 0, records: [] },
-            [],
-            ['No due tasks; nothing to run.']
-          ),
-          options.json
-        );
-        return;
-      }
-      const records: RunRecord[] = [];
-      const updatedEntries: ScheduleEntry[] = [];
-      const now = Date.now();
-      for (const task of file.entries) {
-        if (!targets.some((t) => t.id === task.id)) {
-          updatedEntries.push(task);
-          continue;
-        }
-        const record = runTask(projectRoot, task);
-        records.push(record);
-        updatedEntries.push({ ...task, lastRunAt: record.finishedAt });
-      }
-      writeSchedule(projectRoot, { version: SCHEDULE_VERSION, entries: updatedEntries });
-      printResult(
-        io,
-        ok(
-          'cron.run',
-          { projectRoot, ran: records.length, records },
-          records
-            .filter((r) => r.exitCode !== 0)
-            .map(
-              (r) =>
-                `Task ${r.taskId} failed (exit=${r.exitCode}): ${r.stderr.slice(0, STDERR_NEXT_ACTIONS_TRUNCATE_CHARS)}`
-            ),
-          [
-            `Ran ${records.length} task(s); ${records.filter((r) => r.exitCode === 0).length} succeeded.`
-          ]
-        ),
-        options.json
-      );
-      if (records.some((r) => r.exitCode !== 0)) process.exitCode = 1;
-    } catch (err) {
-      printResult(
-        io,
-        fail(
-          'cron.run',
-          'CRON_RUN_FAILED',
-          getErrorMessage(err),
-          { projectRoot: options.project },
-          ["If schedule.json is missing, run 'peaks cron init' first."]
-        ),
-        options.json
-      );
-      process.exitCode = 1;
-    }
-  });
+  ).action((options: { id?: string; project?: string; json?: boolean }) =>
+    handleCronRun(io, options)
+  );
 }
