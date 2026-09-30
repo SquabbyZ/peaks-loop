@@ -28,70 +28,25 @@ import {
   toScoreRow,
   DEFAULT_MONOTONIC_THRESHOLD,
   type MonotonicCycle,
-  type MonotonicScoreRow,
-  type MonotonicReport
+  type MonotonicScoreRow
 } from './monotonic-guard.js';
 import { appendMetricLine, readMetricLines } from '../observability/jsonl-store.js';
 import { findProjectRoot } from '../config/config-safety.js';
+import {
+  classifyFsError,
+  MONOTONIC_CYCLE_KIND,
+  WALKED_EVALUATORS,
+  type LoadResult,
+  type MonotonicCycleLine,
+  type RunMonotonicOptions,
+  type RunMonotonicResult
+} from './monotonic-runner-types.js';
 
-/** Local discriminated result for IO. Internal callers coalesce
- *  `ok: false` to `null` so the public `loadPreviousCycle`
- *  signature stays `MonotonicCycle | null` (BC — see
- *  `monotonic-guard.test.ts:199`). */
-type LoadResult<T> =
-  | { readonly ok: true; readonly value: T }
-  | { readonly ok: false; readonly reason: 'NOT_FOUND' | 'IO_ERROR' | 'PARSE_ERROR' };
-
-function classifyFsError(err: unknown): 'NOT_FOUND' | 'IO_ERROR' {
-  const code = (err as { code?: string } | null)?.code;
-  if (code === 'ENOENT') return 'NOT_FOUND';
-  return 'IO_ERROR';
-}
-
-/** Tag for cycle lines in the jsonl-store. */
-const MONOTONIC_CYCLE_KIND = 'monotonic-cycle';
-
-interface MonotonicCycleLine {
-  readonly kind: typeof MONOTONIC_CYCLE_KIND;
-  readonly rid: string;
-  readonly cycle: number;
-  readonly persistedAt: string;
-  readonly scores: readonly MonotonicScoreRow[];
-}
-
-/** Set of evaluator kinds the loop walker actually scores — keeps the
- *  guard surface tight (the verdict-aggregate is the cross-source merge
- *  and not a per-cycle input). */
-const WALKED_EVALUATORS = ['karpathy', 'code-review', 'security-review', 'perf-baseline'] as const;
-type WalkedKind = (typeof WALKED_EVALUATORS)[number];
-
-export interface RunMonotonicOptions {
-  readonly projectRoot: string;
-  readonly sid: string;
-  readonly rid: string;
-  /** Threshold (0..1 scale). Default 0.05 (5%). */
-  readonly threshold?: number;
-  /** When set, write the current cycle score rows to disk (default: true). */
-  readonly persist?: boolean;
-  /** When set, override the auto-derived cycle index. */
-  readonly cycle?: number;
-  /** Override the peaks binary path (default: `node bin/peaks.js`). */
-  readonly peaksBin?: string;
-}
-
-export interface RunMonotonicResult {
-  readonly projectRoot: string;
-  readonly sid: string;
-  readonly rid: string;
-  readonly currentCycle: number;
-  readonly previousCycle: number | null;
-  readonly persistedAt: string | null;
-  readonly rows: readonly MonotonicScoreRow[];
-  readonly report: MonotonicReport;
-  /** Additive surface for non-fatal persistence warnings (e.g. append
-   *  failure). Optional so existing destructures keep compiling. */
-  readonly warnings?: readonly string[];
-}
+export type {
+  RunMonotonicOptions,
+  RunMonotonicResult,
+  WalkedKind
+} from './monotonic-runner-types.js';
 
 /** Resolve the slice dir — kept for API/BC (run-driver.ts uses it to
  *  derive `cyclesDir`). The monotonic-runner writer no longer writes
@@ -335,6 +290,3 @@ export function resolveMonotonicContext(opts: { project?: string; session: strin
   const projectRoot = opts.project ?? findProjectRoot(process.cwd()) ?? process.cwd();
   return { projectRoot, sid: opts.session, rid: opts.rid };
 }
-
-/** Suppress unused-import lint when only the typedefs are exported. */
-export type { WalkedKind };

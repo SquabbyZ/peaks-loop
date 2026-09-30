@@ -18,11 +18,46 @@
  *     red-line. Enforces D6 + supplementary S2.
  */
 import { spawnSync, type SpawnSyncOptions } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
-import { isArray } from '../../shared/array-guards.js';
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
 import { repoRelativeKey } from '../../shared/path-utils.js';
 import { resolveNpxInvocation } from './npx-resolver.js';
+import {
+  ESLINT_PACKAGE_PINS,
+  type EslintFinding,
+  type EslintMessage,
+  type EslintRunOptions,
+  type EslintRunResult,
+  type EslintState,
+  type RedLineMode
+} from './eslint-runner-types.js';
+import {
+  aggregateRedLine,
+  buildEslintArgs,
+  EMPTY_DIFF_RANGE,
+  EMPTY_REDLINE,
+  emptyResult,
+  inDiff,
+  loadBaseline,
+  matchBaseline,
+  resolveProjectRoot,
+  severityFor,
+  summarize,
+  type DiffRange
+} from './eslint-runner-support.js';
+
+export { ESLINT_PACKAGE_PINS } from './eslint-runner-types.js';
+export { buildEslintArgs, resolveProjectRoot } from './eslint-runner-support.js';
+export type {
+  BaselineViolation,
+  EslintFinding,
+  EslintRunOptions,
+  EslintRunResult,
+  EslintState,
+  EslintSummary,
+  RedLineEntry,
+  RedLineMode
+} from './eslint-runner-types.js';
 
 /**
  * PRD-002b slice 2 — extract runner-pipeline magic numbers (ESLint
@@ -30,128 +65,12 @@ import { resolveNpxInvocation } from './npx-resolver.js';
  * depth, red-line top-N aggregation cap, base severity defaults).
  * Values are bytewise-identical to the original literals.
  */
-const ESLINT_SEVERITY_ERROR = 2;
-const ESLINT_SEVERITY_WARN = 1;
 const ESLINT_DEFAULT_TIMEOUT_MS = 60_000;
 const KB_PER_MB = 1024;
 const BYTES_PER_KB = 1024;
 const MB_TO_BYTES = KB_PER_MB * BYTES_PER_KB;
 const DIFF_BUFFER_BYTES = 16 * MB_TO_BYTES;
 const OUTPUT_BUFFER_BYTES = 32 * MB_TO_BYTES;
-const PROJECT_ROOT_WALK_MAX_DEPTH = 8;
-const RED_LINE_TOP_FILES = 5;
-
-export const ESLINT_PACKAGE_PINS = {
-  eslint: '8.57.1',
-  typescriptEslintParser: '8.66.0',
-  typescriptEslintPlugin: '8.66.0'
-} as const;
-
-export type RedLineMode = 'none' | 'baseline-aware';
-
-export type EslintState =
-  'ok' | 'eslint-missing' | 'npx-failed' | 'execution-failed' | 'baseline-missing';
-
-export type EslintFinding = {
-  readonly filePath: string;
-  readonly line: number;
-  readonly column: number;
-  readonly ruleId: string | null;
-  readonly severity: 'error' | 'warn' | 'info';
-  readonly message: string;
-};
-
-export type EslintSummary = {
-  readonly error: number;
-  readonly warn: number;
-  readonly info: number;
-};
-
-export type BaselineViolation = {
-  readonly ruleId: string;
-  readonly file: string;
-  readonly line: number;
-  readonly severity: 'error' | 'warn' | 'info';
-  readonly message: string;
-};
-
-export type RedLineEntry = {
-  readonly ruleId: string;
-  readonly count: number;
-  readonly topFiles: ReadonlyArray<{ readonly file: string; readonly count: number }>;
-};
-
-export type EslintRunResult = {
-  readonly state: EslintState;
-  readonly findings: readonly EslintFinding[];
-  readonly summary: EslintSummary;
-  readonly durationMs: number;
-  readonly rawOutput: string;
-  readonly baselineWaived: readonly EslintFinding[];
-  readonly redLine: readonly RedLineEntry[];
-};
-
-export type EslintRunOptions = {
-  readonly cwd: string;
-  readonly scope?: string;
-  readonly configPath?: string;
-  readonly fix?: boolean;
-  readonly write?: boolean;
-  readonly timeoutMs?: number;
-  readonly diffOnly?: boolean;
-  readonly baselineFile?: string;
-  readonly redLineMode?: RedLineMode;
-};
-
-type EslintMessage = {
-  filePath?: unknown;
-  line?: unknown;
-  column?: unknown;
-  ruleId?: unknown;
-  severity?: unknown;
-  message?: unknown;
-};
-
-function severityFor(value: unknown): 'error' | 'warn' | 'info' {
-  if (value === ESLINT_SEVERITY_ERROR) return 'error';
-  if (value === ESLINT_SEVERITY_WARN) return 'warn';
-  return 'info';
-}
-
-function summarize(findings: readonly EslintFinding[]): EslintSummary {
-  let error = 0;
-  let warn = 0;
-  let info = 0;
-  for (const f of findings) {
-    if (f.severity === 'error') error++;
-    else if (f.severity === 'warn') warn++;
-    else info++;
-  }
-  return { error, warn, info };
-}
-
-type DiffRange = { readonly file: string; readonly lines: readonly number[] };
-
-/**
- * Read `git diff HEAD --unified=0` and parse every `+` line as a
- * touched line number. Falls back to [] on any parse error so the
- * caller treats all findings as out-of-diff (no silent zero-result).
- */
-export function resolveProjectRoot(cwd: string): string {
-  // ESLint 8 auto-discovers `.eslintrc.*` from cwd upward. When the
-  // CLI is launched via `node bin/peaks.js`, cwd is the bin/ dir and
-  // ESLint fails to find the config. Walk up until we see
-  // `config/eslint/.peaks-rules.cjs` and use that as the project root.
-  const marker = join('config', 'eslint', '.peaks-rules.cjs');
-  let current = cwd;
-  for (let depth = 0; depth < PROJECT_ROOT_WALK_MAX_DEPTH; depth += 1) {
-    if (existsSync(join(current, marker))) return current;
-    const parent = dirname(current);
-    if (parent === current) break;
-    current = parent;
-  }
-  return cwd;
-}
 
 function loadDiffRanges(cwd: string): readonly DiffRange[] {
   const ranges: DiffRange[] = [];
@@ -192,151 +111,6 @@ function loadDiffRanges(cwd: string): readonly DiffRange[] {
     return [];
   }
   return ranges;
-}
-
-function inDiff(filePath: string, line: number, ranges: readonly DiffRange[]): boolean {
-  if (ranges.length === 0) return false;
-  for (const r of ranges) {
-    if (r.file !== filePath) continue;
-    for (const ln of r.lines) {
-      if (Math.abs(ln - line) <= 0) return true;
-    }
-  }
-  return false;
-}
-
-type BaselineFile = {
-  readonly version?: unknown;
-  readonly generatedAt?: unknown;
-  readonly toolVersion?: unknown;
-  readonly violations?: ReadonlyArray<{
-    ruleId?: unknown;
-    file?: unknown;
-    line?: unknown;
-    severity?: unknown;
-    message?: unknown;
-  }>;
-};
-
-function loadBaseline(projectRoot: string, baselineFile: string): readonly BaselineViolation[] {
-  const fullPath = join(projectRoot, baselineFile);
-  let raw: string;
-  try {
-    raw = readFileSync(fullPath, 'utf8');
-  } catch {
-    return [];
-  }
-  let parsed: BaselineFile;
-  try {
-    parsed = JSON.parse(raw) as BaselineFile;
-  } catch {
-    return [];
-  }
-  // `isArray` (not `Array.isArray`, typed `arg is any[]`), so `parsed.violations`
-  // keeps the `ReadonlyArray<{ruleId?: unknown; …}>` shape declared by
-  // `BaselineFile` and `v` below is a typed read. The `!== undefined` half is
-  // required because a `boolean` helper cannot narrow. See
-  // `src/shared/array-guards.ts`.
-  const violations =
-    parsed.violations !== undefined && isArray(parsed.violations) ? parsed.violations : [];
-  const out: BaselineViolation[] = [];
-  for (const v of violations) {
-    if (typeof v.ruleId !== 'string' || typeof v.file !== 'string' || typeof v.line !== 'number')
-      continue;
-    out.push({
-      ruleId: v.ruleId,
-      // Reduce to the comparison key on load, so `matchBaseline` and the
-      // red-line aggregation both read one canonical form.
-      file: repoRelativeKey(v.file, projectRoot),
-      line: v.line,
-      severity: severityFor(v.severity),
-      message: typeof v.message === 'string' ? v.message : ''
-    });
-  }
-  return out;
-}
-
-function matchBaseline(
-  finding: EslintFinding,
-  baseline: readonly BaselineViolation[],
-  projectRoot: string
-): boolean {
-  // The finding side is reduced by the SAME key the baseline was loaded
-  // through — this is the half that made the waiver inert across machines.
-  const findingKey = repoRelativeKey(finding.filePath, projectRoot);
-  for (const v of baseline) {
-    if (v.ruleId !== finding.ruleId) continue;
-    if (v.file !== findingKey) continue;
-    if (v.line !== finding.line) continue;
-    return true;
-  }
-  return false;
-}
-
-function aggregateRedLine(baseline: readonly BaselineViolation[]): readonly RedLineEntry[] {
-  const byRule = new Map<string, { count: number; fileCounts: Map<string, number> }>();
-  for (const v of baseline) {
-    const existing = byRule.get(v.ruleId);
-    if (existing === undefined) {
-      const fileCounts = new Map<string, number>();
-      fileCounts.set(v.file, 1);
-      byRule.set(v.ruleId, { count: 1, fileCounts });
-    } else {
-      existing.count += 1;
-      existing.fileCounts.set(v.file, (existing.fileCounts.get(v.file) ?? 0) + 1);
-    }
-  }
-  const out: RedLineEntry[] = [];
-  for (const [ruleId, agg] of byRule.entries()) {
-    const topFiles = [...agg.fileCounts.entries()]
-      .map(([file, count]) => ({ file, count }))
-      .sort((a, b) => b.count - a.count)
-      .slice(0, RED_LINE_TOP_FILES);
-    out.push({ ruleId, count: agg.count, topFiles });
-  }
-  out.sort((a, b) => b.count - a.count);
-  return out;
-}
-
-const EMPTY_DIFF_RANGE: readonly DiffRange[] = [];
-const EMPTY_REDLINE: readonly RedLineEntry[] = [];
-
-function emptyResult(state: EslintState, start: number, rawOutput: string): EslintRunResult {
-  return {
-    state,
-    findings: [],
-    summary: { error: 0, warn: 0, info: 0 },
-    durationMs: Date.now() - start,
-    rawOutput,
-    baselineWaived: [],
-    redLine: EMPTY_REDLINE
-  };
-}
-
-export function buildEslintArgs(options: EslintRunOptions): string[] {
-  if (options.fix === true || options.write === true) {
-    throw Object.assign(
-      new Error('peaks code lint is read-only; --fix and --write are forbidden'),
-      {
-        code: 'LINT_FIX_FORBIDDEN'
-      }
-    );
-  }
-  // The runner now uses the locally-installed eslint binary
-  // (`./node_modules/eslint/bin/eslint.js`) instead of the npx
-  // --package wrapper, which is broken on Windows (npm 10.9.4 chdirs
-  // the child to its own cache bin, breaking config auto-discovery).
-  // The pin constants are kept for detect-eslint's npm-registry
-  // probe + for the npx-resolver fallback path.
-  const args: string[] = ['--format', 'json'];
-  // Always pass the legacy .peaks-rules.cjs path; ESLint 8
-  // auto-discovers only `.eslintrc.*` files and our config lives at
-  // `config/eslint/.peaks-rules.cjs`. Callers may override via
-  // `options.configPath`.
-  const effectiveConfigPath = options.configPath ?? join('config', 'eslint', '.peaks-rules.cjs');
-  args.push('--config', effectiveConfigPath);
-  args.push(...(options.scope !== undefined && options.scope.length > 0 ? [options.scope] : ['.']));
-  return args;
 }
 
 export function runEslint(options: EslintRunOptions): EslintRunResult {

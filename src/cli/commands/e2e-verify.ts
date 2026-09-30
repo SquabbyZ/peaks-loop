@@ -30,28 +30,17 @@
  */
 import type { Command } from 'commander';
 import { spawn as nodeSpawn } from 'node:child_process';
-import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { readE2EPlan, type E2EFixture } from '../../services/dispatch/e2e-fixtures.js';
 import { fail, getErrorMessage, ok } from 'peaks-loop-shared/result';
 import { addJsonOption, printResult, type ProgramIO } from '../cli-helpers.js';
+import {
+  resolvePlaywrightEnv,
+  type E2EVerifyInput,
+  type E2EVerifyResult
+} from './e2e-verify-env.js';
 
-export type E2EVerifyInput = {
-  readonly projectRoot: string;
-  readonly slice: string;
-  readonly dispatchId?: string;
-};
-export type E2EVerifyResult = {
-  readonly outcome: 'pass' | 'fail' | 'skipped' | 'no-fixtures';
-  readonly passCount: number;
-  readonly failCount: number;
-  readonly skippedReason?: string;
-  /** When the real Playwright runner is used, the chromium-exit summary. */
-  readonly runner?: 'playwright' | 'stub';
-};
-
-const PLAYWRIGHT_USER_DATA_DIR_ENV = 'PEAKS_PLAYWRIGHT_USER_DATA_DIR';
-const PLAYWRIGHT_PROFILE_NAME_ENV = 'PEAKS_PLAYWRIGHT_PROFILE_NAME';
+export type { E2EVerifyInput, E2EVerifyResult } from './e2e-verify-env.js';
 
 /**
  * Probe whether a Chromium binary is callable on this host. The probe
@@ -100,17 +89,6 @@ async function probeChromiumBinary(): Promise<boolean> {
     }
   }
   return false;
-}
-
-function resolvePlaywrightEnv(): {
-  readonly userDataDir: string;
-  readonly profileName: string;
-} | null {
-  const userDataDir = process.env[PLAYWRIGHT_USER_DATA_DIR_ENV];
-  const profileName = process.env[PLAYWRIGHT_PROFILE_NAME_ENV];
-  if (!userDataDir || !profileName) return null;
-  if (!existsSync(userDataDir)) return null;
-  return { userDataDir, profileName };
 }
 
 /**
