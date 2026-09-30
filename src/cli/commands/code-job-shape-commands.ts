@@ -13,7 +13,6 @@ import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../
 import { isUnsafePathInput } from '../../shared/path-safety.js';
 import { fail, ok } from 'peaks-loop-shared/result';
 import {
-  readJobShapeDecision,
   writeJobShapeDecision,
   JobShapeDecisionError,
   JOB_SHAPE_NOT_DECIDED,
@@ -21,6 +20,7 @@ import {
 } from '../../services/code/job-shape-decision.js';
 import { findProjectRoot } from '../../services/config/config-safety.js';
 import { getSkillPresence } from '../../services/skills/skill-presence-service.js';
+import { registerCodeJobShapeReadCommand } from './code-job-shape-commands-read-job-shape.js';
 
 export function registerCodeJobShapeCommands(code: Command, io: ProgramIO): void {
   // v3.1.1 Step 0.8 — Job-shape decision recorder.
@@ -249,76 +249,10 @@ export function registerCodeJobShapeCommands(code: Command, io: ProgramIO): void
 
   // v3.1.1 Step 0.8 — read-only validator. Downstream steps call this
   // to refuse to proceed if the LLM has not yet recorded a decision.
-  addJsonOption(
-    code
-      .command('read-job-shape')
-      .description(
-        'v3.1.1 Step 0.8: return the recorded Job-shape decision. ' +
-          'Returns JOB_SHAPE_NOT_DECIDED when the LLM has not yet recorded a verdict.'
-      )
-      .option('--session-id <sid>', 'override session id (default: read from active presence)')
-      .option('--project <path>', 'target project root (default: findProjectRoot(cwd))')
-  ).action((opts: { sessionId?: string; project?: string; json?: boolean }) => {
-    try {
-      const projectRoot = opts.project ?? findProjectRoot(process.cwd()) ?? process.cwd();
-      const sessionId = opts.sessionId ?? readActiveSidForJobShape(projectRoot);
-      if (sessionId === null) {
-        printResult(
-          io,
-          fail(
-            'code.read-job-shape',
-            'NO_ACTIVE_SESSION',
-            'no active session id; pass --session-id or set presence via `peaks skill presence:set peaks-code`',
-            null,
-            ['Re-run with --session-id <sid>']
-          ),
-          opts.json
-        );
-        process.exitCode = 1;
-        return;
-      }
-      const record = readJobShapeDecision(projectRoot, sessionId);
-      printResult(
-        io,
-        ok(
-          'code.read-job-shape',
-          {
-            sessionId: record.sessionId,
-            promptHash: record.promptHash,
-            decision: record.decision,
-            schemaVersion: record.schemaVersion
-          },
-          [],
-          [
-            `Decision on file: isJob=${record.decision.isJob} strategy=${record.decision.suggestedStrategy} confidence=${record.decision.confidence}`
-          ]
-        ),
-        opts.json
-      );
-    } catch (err) {
-      if (err instanceof JobShapeDecisionError) {
-        printResult(
-          io,
-          fail('code.read-job-shape', err.code, err.message, err.details ?? null, [
-            err.code === JOB_SHAPE_NOT_DECIDED
-              ? 'Run `peaks code detect-job` to record a decision.'
-              : 'Investigate the decision file integrity.'
-          ]),
-          opts.json
-        );
-        process.exitCode = 1;
-        return;
-      }
-      printResult(
-        io,
-        fail('code.read-job-shape', 'READ_JOB_SHAPE_FAILED', getErrorMessage(err), null, [
-          'Verify the project path and try again'
-        ]),
-        opts.json
-      );
-      process.exitCode = 1;
-    }
-  });
+  // The command lives in code-job-shape-commands-read-job-shape.ts (wave 4 near-cap
+  // split); the active-sid reader is passed in so the presence-reading
+  // `catch` is not duplicated into a second silent-swallow site.
+  registerCodeJobShapeReadCommand(code, io, readActiveSidForJobShape);
 }
 
 // Local helper (was `readActiveSid` in code-commands.ts before rid-024 split).
