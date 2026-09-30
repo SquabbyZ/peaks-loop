@@ -33,42 +33,34 @@
  *
  * Pure-function module. The CLI shim (code-orchestrator-can-do.ts)
  * adapts the envelope into the program's `ResultEnvelope<T>` shape.
+ *
+ * Slice c2w1 (strict-remediation-abc) hoisted two cohesive halves out of this
+ * file into siblings, both re-exported here so nothing else moved:
+ * `./orchestrator-can-do-probes.js` (the Q2/Q4 subprocess probes) and
+ * `./orchestrator-can-do-advisories.js` (the Q1/Q2/Q3/Q4 message builders,
+ * incl. the 0.95 / 0.85 thresholds).
  */
 
-import { execFile } from 'node:child_process';
-import { promisify } from 'node:util';
 import { randomUUID } from 'node:crypto';
 
-// 2026-09-10 D1: both probes used to spawn a bare `peaks`. On Windows that name
-// resolves to a `.cmd` shim, which `execFile` cannot run: it does not apply
-// PATHEXT, and Node >= 20 refuses to spawn `.cmd`/`.bat` at all without
-// `shell: true` (CVE-2024-27980). So Q2 reported "sub-agent dispatch
-// unavailable" and Q4 reported ratio 0 for every slice-spec on Windows —
-// phantom blockers produced by the spawn, not by the CLI. Running this tree's
-// own CLI entry through `process.execPath` needs no shell and no shim.
-import { cliEntryPath, interpreterArgs } from '../web/daemon-supervisor.js';
+import {
+  probeContextRatio,
+  probeSubAgentAvailable,
+  type ContextProbe
+} from './orchestrator-can-do-probes.js';
+import {
+  boundaryAdvisories,
+  ORCHESTRATOR_PRECOMPACT_RATIO,
+  ORCHESTRATOR_REDLINE_RATIO
+} from './orchestrator-can-do-advisories.js';
 
-const execFileAsync = promisify(execFile);
-
-/** Sentinel: no explicit binary was injected, so resolve this tree's own CLI. */
-const DEFAULT_PEAKS_BIN = 'peaks';
-
-/**
- * Spawn argv for the peaks CLI. An explicitly injected `peaksBin` (the
- * `--peaks-bin` test seam) is spawned verbatim; the default sentinel resolves
- * to this tree's own CLI entry, interpreted by the running Node.
- */
-function peaksSpawn(peaksBin: string): { command: string; args: readonly string[] } {
-  if (peaksBin !== DEFAULT_PEAKS_BIN) {
-    return { command: peaksBin, args: [] };
-  }
-  return { command: process.execPath, args: interpreterArgs(cliEntryPath()) };
-}
-
-/** Slice 2026-08-05-orchestrator-can-do-probe: red-line threshold. */
-export const ORCHESTRATOR_REDLINE_RATIO = 0.95;
-/** Slice 2026-08-05-orchestrator-can-do-probe: pre-compact threshold. */
-export const ORCHESTRATOR_PRECOMPACT_RATIO = 0.85;
+// The probes, the thresholds and `ContextProbe` keep THIS module path as their
+// public surface: the CLI shim reaches the two probes through
+// `await import('../../services/code/orchestrator-can-do.js')`, so the
+// re-export below is load-bearing, not cosmetic.
+export { probeContextRatio, probeSubAgentAvailable };
+export { ORCHESTRATOR_PRECOMPACT_RATIO, ORCHESTRATOR_REDLINE_RATIO };
+export type { ContextProbe };
 
 /** Source-code keywords that signal "do NOT Edit/Write directly". */
 export const SOURCE_CODE_KEYWORDS: readonly string[] = [
@@ -118,13 +110,6 @@ export const DECISION_KEYWORDS: readonly string[] = [
   'design decision',
   'user choice'
 ] as const;
-
-export interface ContextProbe {
-  /** 0.0–1.0; ≥0.85 = pre-compact; ≥0.95 = red-line. */
-  readonly ratio: number;
-  /** Source tag from `peaks code context-now`. */
-  readonly source: string;
-}
 
 export interface OrchestratorCanDoInput {
   readonly sliceSpec: string;
@@ -195,55 +180,18 @@ export function detectRequiresUserDecision(sliceSpec: string): boolean {
   return DECISION_KEYWORDS.some((kw) => lower.includes(kw.toLowerCase()));
 }
 
-/**
- * Q2: probe `peaks sub-agent dispatch --role rd --help`. Returns
- * true when the subprocess exits 0. Resolves to false on spawn
- * failure or non-zero exit.
- */
-export async function probeSubAgentAvailable(
-  projectRoot: string,
-  peaksBin: string = DEFAULT_PEAKS_BIN
-): Promise<boolean> {
-  try {
-    const { command, args } = peaksSpawn(peaksBin);
-    await execFileAsync(command, [...args, 'sub-agent', 'dispatch', '--role', 'rd', '--help'], {
-      cwd: projectRoot,
-      timeout: 5000,
-      windowsHide: true
-    });
-    return true;
-  } catch {
-    return false;
-  }
-}
+/** Suggestion surfaced when canDoInSession=true and no source code is touched. */
+const NON_SOURCE_CODE_SLICE_SUGGESTION =
+  'non-source-code slice; orchestrator may handle in-session (e.g. via Write/Edit tools or directly)';
 
 /**
- * Q4: probe `peaks code context-now --json`. Parses the data.ratio
- * field. Falls back to {ratio: 0, source: 'unavailable'} when the
- * subprocess fails or returns malformed JSON.
+ * The concrete delegation verb for a source-code slice, with a fresh
+ * `--request-id` and `--batch-id` on every call (as before).
  */
-export async function probeContextRatio(
-  projectRoot: string,
-  peaksBin: string = DEFAULT_PEAKS_BIN
-): Promise<ContextProbe> {
-  try {
-    const { command, args } = peaksSpawn(peaksBin);
-    const { stdout } = await execFileAsync(
-      command,
-      [...args, 'code', 'context-now', '--project', projectRoot, '--json'],
-      {
-        cwd: projectRoot,
-        timeout: 10000,
-        windowsHide: true
-      }
-    );
-    const parsed = JSON.parse(stdout) as { data?: { ratio?: number; source?: string } };
-    const ratio = typeof parsed.data?.ratio === 'number' ? parsed.data.ratio : 0;
-    const source = typeof parsed.data?.source === 'string' ? parsed.data.source : 'unavailable';
-    return { ratio, source };
-  } catch {
-    return { ratio: 0, source: 'unavailable' };
-  }
+function subAgentDispatchSuggestion(projectRoot: string): string {
+  const batchId = randomUUID();
+  const rid = 'rid-' + Date.now().toString(36);
+  return `peaks sub-agent dispatch rd --prompt "<slice-spec>" --request-id ${rid} --project ${projectRoot} --batch-id ${batchId}`;
 }
 
 /**
@@ -264,91 +212,26 @@ export function buildOrchestratorCanDoResult(
   const warnings: string[] = [];
   const suggestions: string[] = [];
 
-  // Slice 2026-08-06-codegate-vendor-neutral — Q1 HARD BLOCKER. When
-  // the slice-spec mentions any hard-blocked path family
-  // (src/, tests/unit/, tests/integration/, config/, bin/, scripts/),
-  // the orchestrator MUST refuse direct execution and force sub-agent
-  // dispatch. This is the LLM-side complement to the
-  // `pre-tool-code-gate.sh` PreToolUse hook.
-  if (signals.q1HardBlockedPath) {
-    blockers.push(
-      'requires-sub-agent-dispatch: slice-spec mentions a hard-blocked path family ' +
-        '(src/, tests/unit/, tests/integration/, config/, bin/, scripts/); ' +
-        'orchestrator MUST NOT Edit/Write these directly. Use peaks sub-agent dispatch rd.'
-    );
-  }
-
-  // Q2 — sub-agent availability is a hard precondition.
-  if (!signals.q2SubAgentAvailable) {
-    blockers.push('sub-agent dispatch unavailable (peaks sub-agent dispatch --help failed)');
-    suggestions.push('verify peaks CLI is on PATH; check `peaks --version`');
-  }
-
-  // Q4 — context ratio. ≥0.95 → red-line; ≥0.85 → pre-compact. A WARNING, not
-  // a blocker, and the difference is deliberate (E3, rid 2026-09-13-defects-e).
-  //
-  // Why this is not a blocker any more, and why it is not an oversight:
-  //
-  //   The peak this answers is "can this slice run in the current session".
-  //   Context ratio cannot answer "no" to it. The reason is the one the
-  //   T3 slice (2026-09-13-auto-compact-trigger-ownership) landed on the
-  //   OTHER face of this same threshold: peaks-loop has no executor for a
-  //   running session, so it cannot compact its way out of a high ratio —
-  //   `evaluateCompactTrigger` therefore says of the red line "peaks-loop has
-  //   asked the harness to compact and is WAITING for it — sub-agent dispatch
-  //   is NOT blocked; carry on and re-probe". A probe that returned
-  //   `canDoInSession: false` here would contradict that sentence for the same
-  //   0.95 on the same number, and its only programmatic consumer
-  //   (`code-orchestrator-can-do.ts`) turns the false into exit code 1 — i.e.
-  //   it would re-open, at the CLI layer, exactly the deadlock T3 deleted.
-  //
-  //   Nor does the pre-compact zone (0.85–0.95) earn a blocker: the trigger's
-  //   message there is "peaks-loop already fired the auto-compact pathway; the
-  //   LLM does not need to act", which is the opposite of "you may not proceed".
-  //
-  //   What a blocker would still need to be true: THE ORCHESTRATOR itself
-  //   cannot continue. It can — the slice's edits are delegated to a sub-agent
-  //   (Q1), and the orchestrator's own context is only spent co-ordinating.
-  //
-  //   So the ratio is reported, warned about, and given a next action; the
-  //   verdict is left to the blockers that really are un-survivable (a
-  //   hard-blocked path family, an unreachable sub-agent dispatcher).
-  if (signals.q4ContextRatio >= ORCHESTRATOR_REDLINE_RATIO) {
-    warnings.push(
-      `context red-line (ratio=${signals.q4ContextRatio.toFixed(2)} ≥ ${ORCHESTRATOR_REDLINE_RATIO}): peaks-loop has asked the harness to compact and is waiting for it; dispatch is NOT blocked — carry on and re-probe with \`peaks code context-now\``
-    );
-    suggestions.push('peaks code auto-compact');
-  } else if (signals.q4ContextRatio >= ORCHESTRATOR_PRECOMPACT_RATIO) {
-    warnings.push(
-      `context near limit (ratio=${signals.q4ContextRatio.toFixed(2)} ≥ ${ORCHESTRATOR_PRECOMPACT_RATIO}): in the pre-compact band; peaks-loop fires the auto-compact pathway itself and dispatch is NOT blocked`
-    );
-    suggestions.push('peaks code auto-compact');
-  }
-
-  // Q3 — user-decision keywords → soft warning, NOT a blocker. The
-  // LLM should AskUserQuestion, which is cheap.
-  if (signals.q3RequiresUserDecision) {
-    warnings.push('slice-spec contains decision keywords; AskUserQuestion before proceeding');
-  }
+  // Q1 (hard) / Q2 / Q4 / Q3 — the messages, in the order they were always
+  // pushed. The reasoning that keeps the context ratio a WARNING and never a
+  // blocker rides along in `boundaryAdvisories` (orchestrator-can-do-advisories).
+  const boundary = boundaryAdvisories(signals);
+  blockers.push(...boundary.blockers);
+  warnings.push(...boundary.warnings);
+  suggestions.push(...boundary.suggestions);
 
   // Q1 (soft) — source-code touched is a sub-agent-dispatch hint. When
   // not already hard-blocked (above), surface the dispatch verb. When
   // already hard-blocked the blocker line carries the same instruction.
   if (signals.q1SourceCodeTouched && signals.q2SubAgentAvailable) {
-    const batchId = randomUUID();
-    const rid = 'rid-' + Date.now().toString(36);
-    suggestions.push(
-      `peaks sub-agent dispatch rd --prompt "<slice-spec>" --request-id ${rid} --project ${input.projectRoot} --batch-id ${batchId}`
-    );
+    suggestions.push(subAgentDispatchSuggestion(input.projectRoot));
   }
 
   // When canDoInSession=true and there's no source code touched,
   // surface a generic "do it" suggestion.
   const canDoInSession = blockers.length === 0;
   if (canDoInSession && !signals.q1SourceCodeTouched) {
-    suggestions.push(
-      `non-source-code slice; orchestrator may handle in-session (e.g. via Write/Edit tools or directly)`
-    );
+    suggestions.push(NON_SOURCE_CODE_SLICE_SUGGESTION);
   }
 
   return {
