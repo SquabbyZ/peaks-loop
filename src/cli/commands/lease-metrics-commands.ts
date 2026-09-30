@@ -18,8 +18,6 @@
  * observability event (Part 4.A reused the existing schema v1).
  */
 
-import { existsSync, readdirSync, statSync } from 'node:fs';
-import { join } from 'node:path';
 import type { Command } from 'commander';
 import { fail, ok } from 'peaks-loop-shared/result';
 
@@ -31,33 +29,22 @@ import {
   type ObservabilityEvent
 } from '../../services/observability/observability-service.js';
 
-type LeaseMetricsOptions = {
-  session?: string;
-  project?: string;
-  rate?: boolean;
-  allSessions?: boolean;
-  json?: boolean;
-};
+// Slice `b1-filesplit-campaign` (wave 3B): the options/kind/rate type layer,
+// the EMPTY_COUNTS seed and the multi-session reader
+// (`readAllSessionLeaseEvents`) moved VERBATIM to
+// `./lease-metrics-commands-support.ts` so this file clears the 300 raw-line
+// cap. `aggregateLeaseEvents` / `recomputeRate` stayed (they carry findings, and
+// a new module must be clean outright). The two public names are re-exported
+// from this path, so `./lease-stats-commands.ts` imports unchanged.
+import {
+  EMPTY_COUNTS,
+  readAllSessionLeaseEvents,
+  type KindCounts,
+  type LeaseMetricsOptions,
+  type RateStats
+} from './lease-metrics-commands-support.js';
 
-type KindCounts = {
-  spawn: number;
-  renew: number;
-  release: number;
-  gc: number;
-  autoRelease: number;
-  'autoRelease-failed': number;
-  'autoRelease-skipped': number;
-};
-
-const EMPTY_COUNTS: KindCounts = {
-  spawn: 0,
-  renew: 0,
-  release: 0,
-  gc: 0,
-  autoRelease: 0,
-  'autoRelease-failed': 0,
-  'autoRelease-skipped': 0
-};
+export { readAllSessionLeaseEvents, type RateStats };
 
 /** Compute per-kind counts + chronological tail from a list of events. */
 function aggregateLeaseEvents(leaseEvents: ReadonlyArray<ObservabilityEvent>): {
@@ -92,37 +79,6 @@ function aggregateLeaseEvents(leaseEvents: ReadonlyArray<ObservabilityEvent>): {
   recent.sort((a, b) => b.ts.localeCompare(a.ts));
   return { counts: counts as KindCounts, tail: recent.slice(0, 5) };
 }
-
-/**
- * Part 5: leak-rate + lifetime statistics.
- *
- * Leaks are leases that were spawned but neither released (manual)
- * nor auto-released nor gc'd. A naive count is
- * `spawn - release - gc - autoRelease`; the result is the number
- * of currently-alive leases in the absence of in-flight work
- * (the on-disk lease files in `.peaks/_runtime/<sid>/worktree-leases/`
- * are the canonical "alive" set; this aggregation is an estimate
- * for sessions whose files have been pruned but the metrics
- * stream survived).
- *
- * Lifetime: pair each spawn event with its first terminal event
- * (release / gc / autoRelease / autoRelease-failed) for the same
- * leaseId; the duration is the difference in milliseconds. The
- * result is an avg / p99 across the completed leases. p99 is the
- * 99th percentile; with 0-1 completed leases the field is null.
- */
-export type RateStats = {
-  readonly totalSpawn: number;
-  readonly totalTerminal: number;
-  /** spawn - terminal — leases still "alive" per the metrics stream alone. */
-  readonly estimatedActive: number;
-  /** Estimated leaked = active - autoRelease-failed. Positive = worktrees
-   *  the user / CLI will need to gc manually. */
-  readonly estimatedLeaked: number;
-  readonly completedLifetimes: number;
-  readonly avgLifetimeMs: number | null;
-  readonly p99LifetimeMs: number | null;
-};
 
 export function recomputeRate(leaseEvents: ReadonlyArray<ObservabilityEvent>): RateStats {
   // Count per-kind in one pass.
@@ -188,48 +144,6 @@ export function recomputeRate(leaseEvents: ReadonlyArray<ObservabilityEvent>): R
     avgLifetimeMs: avg,
     p99LifetimeMs: p99
   };
-}
-
-/**
- * Part 5: enumerate every session under `.peaks/_runtime/` for a
- * project root and aggregate their lease events. Sessions without
- * a `metrics/slices.jsonl` are skipped silently (a clean project
- * has no lease events to report; that's not an error).
- */
-export function readAllSessionLeaseEvents(projectRoot: string): {
-  sessions: ReadonlyArray<{ sessionId: string; events: ReadonlyArray<ObservabilityEvent> }>;
-  missingSessions: number;
-} {
-  const runtimeDir = join(projectRoot, '.peaks', '_runtime');
-  if (!existsSync(runtimeDir)) return { sessions: [], missingSessions: 0 };
-  let entries: ReadonlyArray<string>;
-  try {
-    entries = readdirSync(runtimeDir);
-  } catch {
-    return { sessions: [], missingSessions: 0 };
-  }
-  const sessions: Array<{ sessionId: string; events: ReadonlyArray<ObservabilityEvent> }> = [];
-  let missing = 0;
-  for (const sid of entries) {
-    const sessionDir = join(runtimeDir, sid);
-    try {
-      if (!statSync(sessionDir).isDirectory()) continue;
-    } catch {
-      continue;
-    }
-    try {
-      const all = readObservabilityEvents(projectRoot, sid);
-      const leaseEvents = all.filter((e) => e.category === 'lease');
-      if (leaseEvents.length === 0) {
-        missing++;
-        continue;
-      }
-      sessions.push({ sessionId: sid, events: leaseEvents });
-    } catch {
-      missing++;
-    }
-  }
-  return { sessions, missingSessions: missing };
 }
 
 export function registerLeaseMetricsCommand(parent: Command, io: ProgramIO): void {
