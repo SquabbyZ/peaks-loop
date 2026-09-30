@@ -146,6 +146,15 @@ const c8Args = [
   '--exclude=src/services/recommendations/recommendation-types.ts',
   '--exclude=src/services/artifacts/artifact-service.ts',
   '--exclude=src/services/artifacts/workspace-service.ts',
+  // Wave 3B split: this exclusion is by PATH, so when workspace-service.ts was
+  // brought under the 300-line cap, `workspace-artifact-helpers.ts` — code
+  // moved VERBATIM out of the excluded entry — inherited no exclusion and
+  // silently entered the gate's scope. The exclusion follows the code (same
+  // rule as the codegraph pair above): the intent of line 148 is to keep that
+  // module's sync/status plumbing out of the 100% bar, not to punish it for
+  // being extracted. Without this line, coverage scope changed as a side
+  // effect of a line-budget edit.
+  '--exclude=src/services/artifacts/workspace-artifact-helpers.ts',
   '--exclude=src/services/config/config-service.ts',
   '--exclude=src/services/config/config-safety.ts',
   '--exclude=src/shared/frontmatter.ts',

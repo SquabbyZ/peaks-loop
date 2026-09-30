@@ -37,6 +37,20 @@ import type { GateEvidence, HandoffFrontmatter } from '../prd/handoff-types.js';
 import { getSessionDir } from '../session/getSessionDir.js';
 import { REQUEST_ID_PATTERN } from '../artifacts/request-artifact-service.js';
 import { isUnsafePathInput } from '../../shared/path-safety.js';
+import {
+  buildCodeReview,
+  buildKarpathyReview,
+  buildPerfAudit,
+  buildPerformanceFindings,
+  buildQaRequest,
+  buildSecurityFindings,
+  buildSecurityReview,
+  buildTechDoc,
+  buildTestCases,
+  buildTestReport,
+  filesMd,
+  lineCountsMd
+} from './evidence-body-builders.js';
 
 export type EvidenceGenerateOptions = {
   projectRoot: string;
@@ -80,214 +94,6 @@ export function parseLineCounts(raw: string): Record<string, string> {
     if (key.length > 0) out[key] = value;
   }
   return out;
-}
-
-function filesMd(files: string[]): string {
-  return files.map((f) => `- \`${f}\``).join('\n');
-}
-
-function lineCountsMd(lineCounts: Record<string, string>): string {
-  return Object.entries(lineCounts)
-    .map(([k, v]) => `- \`${k}\`: ${v} lines`)
-    .join('\n');
-}
-
-function buildCodeReview(
-  rid: string,
-  title: string,
-  files: string[],
-  lineCounts: Record<string, string>
-): string {
-  return `# Code Review — ${rid}
-
-- reviewer: peaks-code orchestrator (full-auto)
-- reviewed: ${files.join(', ')}
-
-## Findings
-
-**CRITICAL: none**
-**HIGH: none**
-
-## Assessment
-
-Mechanical verbatim module split; no logic change; behavior-preserving. ${title}.
-
-Line counts:
-${lineCountsMd(lineCounts)}
-
-## Verdict
-
-Approve.
-`;
-}
-
-function buildSecurityReview(rid: string): string {
-  return `# Security Review — ${rid}
-
-- reviewer: peaks-code orchestrator (full-auto)
-
-## Findings
-
-**CRITICAL: none**
-**HIGH: none**
-
-## Assessment
-
-Pure verbatim module extraction; no new security surface.
-
-## Verdict
-
-Approve.
-`;
-}
-
-function buildKarpathyReview(rid: string, lineCounts: Record<string, string>): string {
-  // Matches the reference prototype: the line-count markdown list joined with
-  // `; ` (its `lc_lines.replace('\n', '; ')`).
-  const lcInline = lineCountsMd(lineCounts).replace(/\n/g, '; ');
-  return `# Karpathy Review — ${rid}
-
-## Karpathy-Gate
-
-- gate: PASS
-- verdict: \`{"passed":true,"violations":[],"gateAction":"pass"}\`
-
-## Think Before Coding
-- Assumption: extracted blocks are self-contained top-level boundaries.
-
-## Simplicity First
-- No new abstraction; plain module extraction sized to fit the 800-line cap.
-
-## Surgical Changes
-- Verbatim move only; no opportunistic cleanup; no orphan imports (tsc clean).
-
-## Goal-Driven Execution
-- Verified: ${lcInline} — all ≤ 800; tsc clean; scoped tests pass.
-`;
-}
-
-function buildTechDoc(
-  rid: string,
-  title: string,
-  files: string[],
-  lineCounts: Record<string, string>
-): string {
-  return `# Technical Design — ${rid}
-
-## Architecture
-
-${title}. Split so every module ≤ 800 lines (behavior-preserving).
-
-Changed files:
-${filesMd(files)}
-
-Line counts:
-${lineCountsMd(lineCounts)}
-
-## Acceptance checks
-
-All modules ≤ 800; rd→implemented passes without --allow-incomplete; tsc clean; scoped tests pass.
-`;
-}
-
-function buildPerfAudit(rid: string): string {
-  return `# Performance Audit — ${rid}
-
-- auditor: peaks-code orchestrator (full-auto)
-- type: refactor
-
-## Results
-
-N/A — no perf surface. Pure verbatim module extraction, no behavior change.
-
-## Verdict
-
-Approve.
-`;
-}
-
-function buildTestCases(rid: string): string {
-  return `# QA Test Cases — ${rid}
-
-- type: refactor
-
-## Test cases
-
-Existing \`it(...)\` / \`test(...)\` blocks exercise the split (no new tests; behavior preserved).
-
-| # | When | Then |
-|---|------|------|
-| 1 | modules split | every module ≤ 800 lines |
-| 2 | imports updated | tsc clean (no orphans) |
-| 3 | scoped tests run | all pass |
-`;
-}
-
-function buildTestReport(rid: string): string {
-  return `# Test Report — ${rid}
-
-## Test execution
-
-- scoped dispatch/record test suites → pass
-- \`./node_modules/.bin/tsc -p tsconfig.build.json --noEmit\` → clean
-`;
-}
-
-function buildSecurityFindings(rid: string): string {
-  return `# Security Findings — ${rid}
-
-## Findings
-
-No findings. Pure verbatim module extraction; no new security surface.
-`;
-}
-
-function buildPerformanceFindings(rid: string): string {
-  return `# Performance Findings — ${rid}
-
-## Baseline
-
-N/A — no perf surface. Pure verbatim module extraction.
-`;
-}
-
-function buildQaRequest(rid: string, sid: string, files: string[]): string {
-  return `# QA Request ${rid}
-
-- session: ${sid}
-- type: refactor
-
-## Red-line boundary check
-- in-scope: ${files.join(', ')}
-- verdict: clean
-
-## OpenSpec exit gate (when openspec/ exists)
-- change-id: ${rid}
-- openspec/ dir: not present — skipped (N/A)
-- issues: none
-
-## Acceptance checks
-- all modules ≤ 800: pass
-- rd implemented without allow-incomplete: pass
-- tsc clean: pass
-- scoped tests pass: pass
-
-## Mandatory validation gates
-- unit tests: pass
-- API validation: N/A
-- browser E2E: N/A
-- security: no findings
-- performance: N/A
-
-## Regression matrix
-- behavior preserved: pass
-
-## Verdict
-- overall: pass
-
-## Status
-- state: draft
-`;
 }
 
 /**
