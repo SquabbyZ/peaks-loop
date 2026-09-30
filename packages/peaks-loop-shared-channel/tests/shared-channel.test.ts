@@ -30,9 +30,8 @@
 //
 // Run with: pnpm --filter peaks-loop-shared-channel test
 
-import { mkdirSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 type Dim = 'render' | 'behavior' | 'integration' | 'a11y';
 function declareDimensions(
@@ -52,8 +51,15 @@ function declareDimensions(
 
 declareDimensions(
   'packages/peaks-loop-shared-channel/tests/shared-channel.test.ts',
-  ['render', 'behavior', 'integration'],
-  [{ dim: 'a11y', reason: 'no user-facing text or exit code' }]
+  ['render', 'behavior'],
+  [
+    {
+      dim: 'integration',
+      reason:
+        'the round-trip + file-lock + eviction integration cases moved to shared-channel-integration.test.ts'
+    },
+    { dim: 'a11y', reason: 'no user-facing text or exit code' }
+  ]
 );
 
 import {
@@ -62,7 +68,6 @@ import {
   SHARED_CHANNEL_SOFT_VALUE_WARN,
   SHARED_CHANNEL_TTL_DAYS,
   compileKeyPattern,
-  readSharedChannel,
   writeSharedEntry
 } from '../src/shared-channel.js';
 import { assertSafeSharedChannelPath, sharedChannelPath } from '../src/dispatch-context-guard.js';
@@ -193,128 +198,5 @@ describe('behavior — writeSharedEntry input validation', () => {
       value: null as unknown as Record<string, unknown>
     });
     expect(out.ok).toBe(false);
-  });
-});
-
-describe('integration — writeSharedEntry + readSharedChannel round-trip', () => {
-  let tmpRoot: string;
-
-  beforeEach(() => {
-    tmpRoot = join(process.cwd(), '.tmp-shared-channel-' + Math.random().toString(36).slice(2, 8));
-    mkdirSync(tmpRoot, { recursive: true });
-  });
-
-  afterEach(() => {
-    try {
-      rmSync(tmpRoot, { recursive: true, force: true });
-    } catch {
-      /* best-effort */
-    }
-  });
-
-  it('writes a single entry and reads it back', () => {
-    const w = writeSharedEntry({
-      projectRoot: tmpRoot,
-      sid: 's1',
-      rid: 'r1',
-      batchId: 'b1',
-      key: 'rd.completed',
-      from: 'rd',
-      value: { result: 'success' }
-    });
-    expect(w.ok).toBe(true);
-    if (w.ok) {
-      expect(w.lastWriteWins).toBe(false);
-      expect(w.softWarning).toBe(false);
-    }
-    const r = readSharedChannel({ projectRoot: tmpRoot, sid: 's1', rid: 'r1', batchId: 'b1' });
-    expect(r.entries['rd.completed']?.value).toEqual({ result: 'success' });
-  });
-
-  it('flags lastWriteWins=true when overwriting an existing key', () => {
-    writeSharedEntry({
-      projectRoot: tmpRoot,
-      sid: 's',
-      rid: 'r',
-      batchId: 'b',
-      key: 'k',
-      from: 'a',
-      value: { v: 1 }
-    });
-    const w = writeSharedEntry({
-      projectRoot: tmpRoot,
-      sid: 's',
-      rid: 'r',
-      batchId: 'b',
-      key: 'k',
-      from: 'b',
-      value: { v: 2 }
-    });
-    expect(w.ok).toBe(true);
-    if (w.ok) expect(w.lastWriteWins).toBe(true);
-    const r = readSharedChannel({ projectRoot: tmpRoot, sid: 's', rid: 'r', batchId: 'b' });
-    expect(r.entries['k']?.value).toEqual({ v: 2 });
-    expect(r.entries['k']?.from).toBe('b');
-  });
-
-  it('flags softWarning=true when value > 1KB but < 64KB', () => {
-    const big = 'x'.repeat(2000); // 2KB stringified
-    const w = writeSharedEntry({
-      projectRoot: tmpRoot,
-      sid: 's',
-      rid: 'r',
-      batchId: 'b',
-      key: 'k',
-      from: 'a',
-      value: { payload: big }
-    });
-    expect(w.ok).toBe(true);
-    if (w.ok) expect(w.softWarning).toBe(true);
-  });
-
-  it('rejects a value at or above the 64KB hard limit', () => {
-    // Build a value that JSON.stringify produces >= 65536 bytes.
-    // The value itself is a single big string field.
-    const huge = 'x'.repeat(70_000);
-    const w = writeSharedEntry({
-      projectRoot: tmpRoot,
-      sid: 's',
-      rid: 'r',
-      batchId: 'b',
-      key: 'k',
-      from: 'a',
-      value: { payload: huge }
-    });
-    expect(w.ok).toBe(false);
-    if (!w.ok) expect(w.code).toBe('VALUE_TOO_LARGE');
-  });
-
-  it('readSharedChannel returns an empty channel for a never-written batch', () => {
-    const r = readSharedChannel({ projectRoot: tmpRoot, sid: 's', rid: 'r', batchId: 'never' });
-    expect(Object.keys(r.entries)).toEqual([]);
-  });
-
-  it('5 concurrent writes to the same channel do not lose entries', async () => {
-    const N = 5;
-    await Promise.all(
-      Array.from({ length: N }, (_, i) =>
-        Promise.resolve().then(() =>
-          writeSharedEntry({
-            projectRoot: tmpRoot,
-            sid: 's',
-            rid: 'r',
-            batchId: 'b',
-            key: `k-${i}`,
-            from: `from-${i}`,
-            value: { i }
-          })
-        )
-      )
-    );
-    const r = readSharedChannel({ projectRoot: tmpRoot, sid: 's', rid: 'r', batchId: 'b' });
-    expect(Object.keys(r.entries).sort()).toEqual(['k-0', 'k-1', 'k-2', 'k-3', 'k-4']);
-    for (let i = 0; i < N; i++) {
-      expect(r.entries[`k-${i}`]?.value).toEqual({ i });
-    }
   });
 });
