@@ -98,14 +98,25 @@ so the cap must be settled *after* the bulk format, not before.
 | 2 | Fix `scripts/bench/memory-search-token-cost.mjs` (syntax error since 2.8.0) | `prettierUnparsableFiles` → 0 |
 | 3 | `tsc -p tsconfig.json` — fix all 142 | `tscErrors` → 0 → **flip this leg to hard-fail** |
 | 4 | `prettier --write` the whole scope | `prettierUnformatted` → 0 → **flip this leg to hard-fail** |
-| 5 | Set the file-size cap to **300 raw lines for `src`/`packages`, 500 for `tests`** — in ONE place, currently `max-lines` in `.peaks-rules.cjs` and `DEFAULT_FILE_SIZE_THRESHOLD` in `file-size-scan.ts` disagree (400 effective vs 800 raw), then split what exceeds it. **Re-measured 2026-09-29: still NOT landed, and the two places still disagree** (`max-lines: [error, {max: 400, skipBlankLines, skipComments}]` vs `DEFAULT_FILE_SIZE_THRESHOLD = 800`). Over the decided cap today: **263 files** — `src` 210, `tests` 42, `packages` 4, `scripts` 7 — 65,926 excess lines. The original **237 (180 src + 57 tests)** was a 2026-09-19 count over two dirs only. The cap fires today as **101 `max-lines` findings** under the current 400-effective rule. Sequence constraint this row does not state: the cap may not be tightened before the splits land, or the ceiling would go UP, which §5 forbids. | `eslintFindings` ↓ |
-| 6..n | eslint by rule family. **Ordering by family size is the wrong lever** — re-measured 2026-09-30 against the files still over the line cap: cleaning `no-magic-numbers` (the largest family) unlocks **2** blocked files, `complexity` (smaller) unlocks **36**, and all four large families together unlock only **47 of 124** — **22 of those 124 cannot be unlocked by any lint cleaning**, because the blocking code references module-local state. So run slice C **file-scoped and interleaved with the split**, not as four repo-wide sweeps: 47 blocked files have ≥70 % of their shortfall inside a single `register*Commands()` function, where cleaning the family *is* the split. Family sizes today: `no-magic-numbers` **633**, `max-lines-per-function` **559**, `no-non-null-assertion` **547**, `complexity` **450**, `no-unused-vars` 161, `consistent-type-imports` 112, `max-lines` 101. Original 2026-09-19 plan text kept for provenance: `no-unsafe-member-access` (635), `no-magic-numbers` (551), `no-non-null-assertion` (549), `complexity` (414), `max-lines-per-function` (397), `require-await` (310), `no-unused-vars` (273), … — both 635 and 310 are now near-zero (measured **14** and absent on 2026-09-29). | `eslintFindings` → 0 → **flip this leg to hard-fail** |
+| 5 | Set the file-size cap to **300 raw lines for `src`/`packages`, 500 for `tests`** — in ONE place, currently `max-lines` in `.peaks-rules.cjs` and `DEFAULT_FILE_SIZE_THRESHOLD` in `file-size-scan.ts` disagree (400 effective vs 800 raw), then split what exceeds it. **Re-measured 2026-09-29: still NOT landed, and the two places still disagree** (`max-lines: [error, {max: 400, skipBlankLines, skipComments}]` vs `DEFAULT_FILE_SIZE_THRESHOLD = 800`). Over the decided cap: **263 files** as measured 2026-09-29, **184 files** re-measured 2026-09-30 after waves B1–B3 and C1–C3 — `src` 142, `tests` 35, `packages` 2, `scripts` 5 — 61,352 excess lines. The original **237 (180 src + 57 tests)** was a 2026-09-19 count over two dirs only. The cap fires today as **98 `max-lines` findings** under the current 400-effective rule (was 101). Sequence constraint this row does not state: the cap may not be tightened before the splits land, or the ceiling would go UP, which §5 forbids. | `eslintFindings` ↓ |
+| 6..n | eslint by rule family. **Ordering by family size is the wrong lever** — re-measured 2026-09-30 against the files still over the line cap: cleaning `no-magic-numbers` (the largest family) unlocks **2** blocked files, `complexity` (smaller) unlocks **36**, and all four large families together unlock only **47 of 124** — **22 of those 124 cannot be unlocked by any lint cleaning**, because the blocking code references module-local state. So run slice C **file-scoped and interleaved with the split**, not as four repo-wide sweeps: 47 blocked files have ≥70 % of their shortfall inside a single `register*Commands()` function, where cleaning the family *is* the split. Family sizes re-measured 2026-09-30 at the close of C wave 3: `no-magic-numbers` **624**, `no-non-null-assertion` **547**, `max-lines-per-function` **540**, `complexity` **438**, `no-unused-vars` 160, `consistent-type-imports` 111, `max-lines` 98, `max-params` 58 (measured 2026-09-29: 633 / 559 / 547 / 450 / 161 / 112 / 101). Original 2026-09-19 plan text kept for provenance: `no-unsafe-member-access` (635), `no-magic-numbers` (551), `no-non-null-assertion` (549), `complexity` (414), `max-lines-per-function` (397), `require-await` (310), `no-unused-vars` (273), … — both 635 and 310 are now near-zero (measured **14** and absent on 2026-09-29). | `eslintFindings` → 0 → **flip this leg to hard-fail** |
 
 **Cap reading, decided 2026-09-30:** `packages/*/tests/*.test.ts` counts at **300**, the same as its parent
 scope — not the 500 a root `tests/**` file gets. That puts
 `packages/peaks-loop-mut/tests/thresholds.test.ts` (313) and
 `packages/peaks-loop-shared-channel/tests/shared-channel.test.ts` (321) in the queue, and it is why the
 package test file created by slice A was split into two files under 300.
+
+**Where the 300 / 500 sits.** It is the tight
+end of the industry band. ESLint's own `max-lines` default is 300; SonarQube S104
+defaults to 750–1000; ~400/500 is the common TypeScript landing zone. The repo's
+current posture is ~706 raw (400 effective) plus an 800 raw scan, i.e. the loose
+end, and the two numbers are the *same policy written twice in two units*: the 69
+files violating `max-lines: 400` back on 2026-09-19 had raw counts of min 544 /
+median 706 / max 2271 (re-measured 2026-09-30: the rule now fires **98** findings,
+one per file, so 98 files). `scripts/` is a hard-blocked family for the orchestrator, so every slice in
+this table that touches `src`/`tests`/`config` goes through
+`peaks sub-agent dispatch rd`.
 
 **How the remaining split work is classified** (read-only planning pass, 2026-09-30, over the gate's own
 scope — its eslint run returned 2872 findings, exactly the ceiling, so it measured what the gate measures):
@@ -229,14 +240,49 @@ Also measured, because "the suite is green" hid it: `sync-service.ts`, `evolutio
 spawns `bin/peaks.js`, i.e. needs a fresh `dist/`, which is why the integration preflight
 (`_dist-freshness-global-setup`) refuses to run while `src/` is being edited — a real cost this campaign
 pays by rebuilding `dist/` once per wave and re-running those files at convergence.
-end of the industry band. ESLint's own `max-lines` default is 300; SonarQube S104
-defaults to 750–1000; ~400/500 is the common TypeScript landing zone. The repo's
-current posture is ~706 raw (400 effective) plus an 800 raw scan, i.e. the loose
-end, and the two numbers are the *same policy written twice in two units*: the 69
-files violating `max-lines: 400` have raw counts of min 544 / median 706 / max
-2271. `scripts/` is a hard-blocked family for the orchestrator, so every slice in
-this table that touches `src`/`tests`/`config` goes through
-`peaks sub-agent dispatch rd`.
+
+### 4e. What a split cannot move verbatim (C waves 2–3, 2026-09-30)
+
+**Wave 2 was lost to a quota, not to code.** All five leaves died on
+`daily usage limit for Chat`. Two rules came out of it: a leaf that dies mid-split leaves a
+half-moved file, so the budget rule is now **revert to HEAD and report "not attempted"** rather than
+leave partials for the orchestrator to reconstruct; and the only verified half of that wave was
+committed on its own (`90674217`), with the other file parked as
+`.peaks/_runtime/2026-09-29-session-b7cf21/rd/pending-watch-split.patch` (161 lines, needs tests or a
+verbatim redo). A chained four-contract brief also failed at startup with a 138,096-character context
+request, which is why every leaf brief since then is self-contained.
+
+**Wave 3 landed three files** — `cron-commands.ts` 396→130, `worktree-auth-commands.ts` 397→78,
+`context-audit.ts` 398→130 — and moved the repo from `eslintFindings 2845 → 2823`,
+`eslintErrors 1016 → 1008`, scope `1396 → 1404`, over-cap `188 → 184`. tsc 0, prettier 0, silent-warnings
+held at 41/59, and the unit suite re-measured at 326 files / 3559 passed / 3 skipped both before the
+commits and after the baseline regeneration.
+
+The wave's actual product is a **method**, because the contract "move the chunk verbatim" is not
+achievable on these files. A new file must be **clean outright**, so whatever the chunk carries has to be
+*fixed* while it moves: `readSchedule`'s `complexity 18` became `assertScheduleRoot` / `toScheduleEntry` /
+`isStringArray`, and `256*1024*1024` became a named const of identical value. That makes the review surface
+"which lines are NOT in HEAD", and eyeballing a 400-line file for that does not work. The check that does:
+strip comments, normalise whitespace, build a multiset of the HEAD file's code lines, then report (a) every
+line in the new tree with no HEAD counterpart and (b) every HEAD line with no counterpart in the new tree.
+Orphans are the added structure; leftovers are the deleted behaviour. Run over both wave-3 leaves it
+returned 32 HEAD leftovers for cron, and **the single interesting one was the leaf's declared deviation** —
+`const now = Date.now();` at HEAD:351 — which grep then confirmed was never read in its own loop.
+The leftovers that were not interesting were prettier re-wrapping (`ok(` → one line) and `continue` →
+`return null` at a new helper boundary. This is a *review aid, not a gate*: it cannot see a re-ordering
+that keeps every line, and it says nothing about behaviour.
+
+One deviation worth keeping visible: `cron-commands.ts` ↔ `cron-commands-actions.ts` is now a deliberate
+import cycle, because `cron-scheduler-commands.ts` imports `runTask` from the registration file and the
+campaign may not move a public import path to save a line count. Safe under `module: NodeNext` +
+`"type": "module"` (hoisted function declaration, resolved at call time) — and no gate leg checks cycles,
+so nothing in CI would have noticed if it were not.
+
+**§4b's index hole, measured again in a benign shape:** convergence ran `gate repo` at 1396 files while
+eight new files already existed on disk, because `git ls-files` is the *index*. The wave's own numbers are
+only true after `git add`. Adding the files raised scope by 8 and left the totals where they were, which is
+the expected result for new files that are clean outright — but a wave that added a finding-carrying file
+would have been invisible until it was staged.
 
 ## 5. Lowering a ceiling
 
