@@ -1,13 +1,27 @@
-// Single source of truth for the vitest worker count, shared by all four
-// vitest configs (unit / integration / lint / e2e).
+// Single source of truth for the vitest worker count, shared by all SEVEN
+// vitest configs: the four at this root (`vitest.config.ts` unit /
+// `vitest.config.integration.ts` / `vitest.config.lint.ts` /
+// `vitest.config.e2e.ts`) and the three package configs
+// (`packages/peaks-loop-mut`, `packages/peaks-loop-shared`,
+// `packages/peaks-loop-shared-channel`, each importing this file as
+// `../../vitest.workers.js`).
 //
 // Why this file exists: the value used to live only in `vitest.config.ts`,
-// so the other three configs silently inherited vitest's own default (one
+// so the other configs silently inherited vitest's own default (one
 // worker per core). Any change to the policy therefore had to be repeated in
-// four places, and a half-applied change would be invisible — each config
+// every config, and a half-applied change would be invisible — each config
 // would keep working, just with a different concurrency. That is the same
 // hand-maintained-duplicate failure this repository has hit before, so the
 // number is defined once and imported everywhere.
+//
+// The claim above is now measured, not asserted: this header used to read "all
+// four vitest configs", and by the time slice c5-verifier-concurrency counted
+// them there were seven, three of which imported nothing and set nothing. A
+// prose census rots. `tests/unit/standards/vitest-worker-cap.test.ts` walks the
+// filesystem for every `vitest.config*.ts` (this root and `packages/*/`), loads
+// each one the way vitest loads it, and fails — naming the file — when a config
+// declares no cap, hard-codes a literal instead of importing this module, or
+// resolves to something other than the value below.
 //
 // History (kept because the number is a measured choice, not a guess):
 //   `floor(cpus/2)` was chosen for the 2026-07-30 test-rebuild epic after
@@ -33,4 +47,5 @@ function parseOverride(raw: string | undefined): number | null {
   return Math.floor(parsed);
 }
 
-export const maxWorkers = parseOverride(process.env.PEAKS_VITEST_MAX_WORKERS) ?? DEFAULT_MAX_WORKERS;
+export const maxWorkers =
+  parseOverride(process.env.PEAKS_VITEST_MAX_WORKERS) ?? DEFAULT_MAX_WORKERS;
