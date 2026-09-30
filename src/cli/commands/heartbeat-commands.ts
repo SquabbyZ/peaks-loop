@@ -10,22 +10,17 @@
  * R-2 path guard: `assertSafeDispatchRecordPath` ensures the record
  * lives under `.peaks/_sub_agents/` so a malicious `--record` arg can't
  * point at a sensitive file outside the runtime tree.
+ *
+ * Slice c1-eslint-family-sweep / leaf c1w1-heartbeat-commands: the action the
+ * `.action()` below wires lives in `heartbeat-commands-action.ts` (write path)
+ * and `heartbeat-commands-validation.ts` (argument checks and reject envelopes)
+ * — the option surface and the graph-node projections stayed here.
  */
-import { existsSync } from 'node:fs';
 import type { Command } from 'commander';
-import { fail, getErrorMessage, ok } from 'peaks-loop-shared/result';
 
-import { addJsonOption, printResult, type ProgramIO } from '../cli-helpers.js';
-import {
-  appendHeartbeat,
-  setStage,
-  tryAutoReleaseLease,
-  type HeartbeatStatus
-} from '../../services/dispatch/dispatch-record-writer.js';
-import { isStageLabel, type StageLabel } from '../../services/dispatch/stage-enum.js';
-import { assertSafeDispatchRecordPath } from '../../services/security/safe-settings-path.js';
-import { writeLogEntry } from '../../services/log/logger.js';
-import { HeartbeatOptions, HEARTBEAT_STATUSES } from './sub-agent-shared.js';
+import { addJsonOption, type ProgramIO } from '../cli-helpers.js';
+import { runHeartbeatAction } from './heartbeat-commands-action.js';
+import type { HeartbeatActionOptions } from './heartbeat-commands-validation.js';
 
 export function registerHeartbeatCommand(parent: Command, io: ProgramIO): void {
   addJsonOption(
@@ -57,255 +52,43 @@ export function registerHeartbeatCommand(parent: Command, io: ProgramIO): void {
         '--project <path>',
         "trusted project root (defaults to cwd); used for the R-2 path guard so a malicious --record cannot point at another project's dispatch record"
       )
-  ).action((options: HeartbeatOptions & { stage?: string }) => {
-    const asJson = options.json === true;
-    if (!options.record || !existsSync(options.record)) {
-      printResult(
-        io,
-        fail(
-          'sub-agent.heartbeat',
-          'INVALID_RECORD_PATH',
-          `record not found: ${options.record ?? '(empty)'}`,
-          { recordPath: options.record ?? null, truncated: false } as never,
-          ['Pass the absolute path from the `peaks sub-agent dispatch` envelope.']
-        ),
-        asJson
-      );
-      process.exitCode = 1;
-      return;
-    }
-    if (!HEARTBEAT_STATUSES.includes(options.status as HeartbeatStatus)) {
-      printResult(
-        io,
-        fail(
-          'sub-agent.heartbeat',
-          'INVALID_STATUS',
-          `--status must be one of ${HEARTBEAT_STATUSES.join(' | ')} (got ${options.status})`,
-          { recordPath: options.record, truncated: false } as never,
-          [
-            'Use one of the documented statuses; poller compares lastBeatAt against now() - 5min to set `stale`.'
-          ]
-        ),
-        asJson
-      );
-      process.exitCode = 1;
-      return;
-    }
-    const progress = Number.parseInt(options.progress ?? 'NaN', 10);
-    if (!Number.isInteger(progress) || progress < 0 || progress > 100) {
-      printResult(
-        io,
-        fail(
-          'sub-agent.heartbeat',
-          'INVALID_PROGRESS',
-          `--progress must be integer 0-100 (got ${options.progress})`,
-          { recordPath: options.record, truncated: false } as never,
-          ['Use 0..100 inclusive.']
-        ),
-        asJson
-      );
-      process.exitCode = 1;
-      return;
-    }
-    if (options.note !== undefined && options.note.length > 200) {
-      printResult(
-        io,
-        fail(
-          'sub-agent.heartbeat',
-          'NOTE_TOO_LONG',
-          `--note must be ≤ 200 chars (got ${options.note.length})`,
-          { recordPath: options.record, truncated: false } as never,
-          ['Shorten the note; the record file is not a log file.']
-        ),
-        asJson
-      );
-      process.exitCode = 1;
-      return;
-    }
-
-    try {
-      // R-2 guard (slice 2026-06-23-audit-3rd): trust --project or process.cwd(),
-      // NOT the --record path. deriveProjectRoot(recordPath) walked the path
-      // itself, which let an attacker point --record at any other project's
-      // .peaks/_sub_agents/ tree and slip past the guard. The relative()
-      // backstop still applies — the record must live under the trusted
-      // root's .peaks/_sub_agents/ subdir.
-      const trustedRoot = options.project ?? process.cwd();
-      assertSafeDispatchRecordPath(options.record, trustedRoot);
-      // Slice 2026-07-29-dispatch-stall-governance / S5 (AC-5.2) —
-      // validate the optional --stage against the bounded enum
-      // BEFORE the heartbeat write so the caller gets a specific
-      // INVALID_STAGE error rather than a generic HEARTBEAT_ERROR.
-      let stageLabel: StageLabel | null = null;
-      if (options.stage !== undefined && options.stage.length > 0) {
-        if (!isStageLabel(options.stage)) {
-          printResult(
-            io,
-            fail(
-              'sub-agent.heartbeat',
-              'INVALID_STAGE',
-              `--stage must be one of intake | planning | gathering | analyzing | writing | testing | reviewing | finalizing (got ${options.stage})`,
-              { recordPath: options.record, truncated: false } as never,
-              ['Use one of the bounded stage labels; free-form text is not accepted.']
-            ),
-            asJson
-          );
-          process.exitCode = 1;
-          return;
-        }
-        stageLabel = options.stage;
-      }
-      const result = appendHeartbeat({
-        recordPath: options.record,
-        status: options.status as HeartbeatStatus,
-        progress,
-        ...(options.note !== undefined ? { note: options.note } : {})
-      });
-      // S5 — promote the stage if --stage was supplied. setStage
-      // re-validates and is a no-op when stage is null. The
-      // appendHeartbeat call above already wrote the heartbeat;
-      // setStage is a separate file-locked read-modify-write on the
-      // same record.
-      if (stageLabel !== null) {
-        setStage({ recordPath: options.record, stage: stageLabel });
-      }
-      // Slice 2026-07-29-worktree-l2-extended Part 24: the
-      // heartbeat envelope surfaces a `leaseHint` field when the
-      // dispatch owns a lease. The hint is a one-line reminder
-      // for the sub-agent that the lease is the L2 surface it
-      // should clean up before exiting (or, per Part 3.A.2, the
-      // auto-release hook will fire on the next terminal status).
-      // The hint is opt-in via a flag so non-lease dispatches
-      // do not pollute the envelope.
-      const leaseId = result.record.leaseId ?? null;
-      const leaseHint =
-        leaseId !== null
-          ? `You own lease \`${leaseId}\`. Run \`peaks worktree release --lease-id ${leaseId}\` before exit, or report a terminal status (done/failed/cancelled) to let peaks-loop auto-release.`
-          : null;
-      printResult(
-        io,
-        ok(
-          'sub-agent.heartbeat',
-          {
-            // Slice 2026-06-23-audit-4th #E1: envelopeVersion marker
-            // Part 24: bumped to 2.2.0 to advertise the new `leaseHint`
-            // field; readers from 2.1.0 ignore the unknown field.
-            envelopeVersion: '2.2.0',
-            recordPath: options.record,
-            heartbeatCount: result.record.heartbeats.length,
-            lastBeatAt: result.record.lastBeatAt,
-            status: result.record.status,
-            truncated: result.truncated,
-            leaseHint
-          },
-          [],
-          ['Continue business logic; heartbeat is fire-and-forget.']
-        ),
-        asJson
-      );
-      // Slice 2026-07-29-worktree-l2-extended Part 3.A.2: when the
-      // heartbeat reports a TERMINAL status (done / failed / cancelled
-      // / no-execution) AND the dispatch owns a lease, fire the
-      // detached release. This is the common path: most sub-agents
-      // finalize via heartbeat before the share-reducer calls
-      // markCompleted, so the heartbeat path is the more frequent
-      // release trigger in practice. markCompleted's hook (Part 3.A.1)
-      // remains as the safety net for sub-agents that finalize via
-      // share without a terminal heartbeat. The release is detached
-      // + best-effort; a failure here cannot roll back the heartbeat
-      // write (the printResult above already shipped the response).
-      const terminalHeartbeatStatuses: ReadonlySet<HeartbeatStatus> = new Set([
-        'done',
-        'failed',
-        'cancelled',
-        'no-execution'
-      ]);
-      if (
-        terminalHeartbeatStatuses.has(options.status as HeartbeatStatus) &&
-        result.record.leaseId !== null
-      ) {
-        try {
-          tryAutoReleaseLease({
-            projectRoot: trustedRoot,
-            sessionId: result.record.sessionId,
-            leaseId: result.record.leaseId
-          });
-        } catch {
-          // best-effort
-          /* swallow */
-        }
-      }
-      // Slice 2026-06-23-audit-4th #B1: structured log on success.
-      try {
-        writeLogEntry({
-          ts: new Date().toISOString(),
-          level: 'info',
-          command: 'sub-agent.heartbeat',
-          msg: 'heartbeat',
-          batchId: result.record.batchId,
-          data: {
-            recordPath: options.record,
-            status: result.record.status,
-            heartbeatCount: result.record.heartbeats.length,
-            truncated: result.truncated
-          }
-        });
-      } catch {
-        // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
-        /* best-effort */
-      }
-    } catch (error: unknown) {
-      const code = (error as { code?: string }).code ?? 'HEARTBEAT_ERROR';
-      printResult(
-        io,
-        fail(
-          'sub-agent.heartbeat',
-          code,
-          getErrorMessage(error),
-          { recordPath: options.record ?? null, truncated: false } as never,
-          [heartbeatErrorNextActions(code)]
-        ),
-        asJson
-      );
-      process.exitCode = 1;
-    }
+  ).action((options: HeartbeatActionOptions) => {
+    runHeartbeatAction(io, options);
   });
-}
-
-/**
- * Slice 2026-06-23-audit-3rd #9: branch nextActions on `error.code` so
- * the LLM-side runner gets a specific hint instead of the generic
- * "see error message" fallback.
- */
-function heartbeatErrorNextActions(code: string): string {
-  if (code === 'LOCK_TIMEOUT') {
-    return 'A concurrent writer (markCompleted or another heartbeat) holds the record lock for >5s; retry, or check for a crashed holder (the .lock file is reaped after 30s).';
-  }
-  if (code === 'RECORD_NOT_FOUND') {
-    return 'The dispatch record does not exist on disk. Re-run `peaks sub-agent dispatch <role>` to materialize a fresh record path; the previous batch may have been garbage-collected.';
-  }
-  if (code === 'INVALID_RECORD_JSON') {
-    return 'The record file is corrupted (truncated mid-write or hand-edited). Delete it and re-run `peaks sub-agent dispatch`; the parent Dispatcher will treat this as a fresh dispatch.';
-  }
-  if (code === 'INVALID_PROGRESS' || code === 'NOTE_TOO_LONG') {
-    return 'Pass --progress as integer 0..100 and --note as ≤ 200 chars. Both are validated by the CLI before reaching the writer.';
-  }
-  return 'See error message; if the record file is missing or corrupted, the parent Dispatcher will mark the sub-agent as stale after 5 minutes.';
 }
 
 /* ---------- Slice 4.0.8 RD §4 D4b: graph-node heartbeat projection ---------- */
 
-/**
- * Programmatic `heartbeat` projection used by
- * tests/integration/sub-agent-graph-heartbeat.test.ts.
- */
-export function heartbeat(input: {
+/** The graph-node input both projections below read. */
+type GraphNodeHeartbeatInput = {
   dispatchRef?: string;
   graphNodeId?: string;
   status?: string;
   now?: string;
   lastHeartbeat?: string;
-}): Record<string, unknown> {
+};
+
+/**
+ * The `running` projection both arms of `heartbeat` return. The two arms were
+ * already literal-for-literal identical in the source (a dispatched node and a
+ * running node both project to `status: 'running'`); the branch is kept because
+ * merging it is a behaviour decision, not a lint one — this extraction only
+ * moves the shared object literal so the function fits `complexity`.
+ */
+function runningHeartbeatProjection(input: GraphNodeHeartbeatInput): Record<string, unknown> {
+  return {
+    status: 'running',
+    lastHeartbeat: input.lastHeartbeat ?? input.now ?? new Date().toISOString(),
+    graphNodeId: input.graphNodeId ?? null,
+    dispatchRef: input.dispatchRef ?? null
+  };
+}
+
+/**
+ * Programmatic `heartbeat` projection used by
+ * tests/integration/sub-agent-graph-heartbeat.test.ts.
+ */
+export function heartbeat(input: GraphNodeHeartbeatInput): Record<string, unknown> {
   const status = (input.status ?? 'dispatched') as
     | 'prepared'
     | 'dispatched'
@@ -315,19 +98,9 @@ export function heartbeat(input: {
     | 'terminalized'
     | 'lost';
   if (status === 'dispatched') {
-    return {
-      status: 'running',
-      lastHeartbeat: input.lastHeartbeat ?? input.now ?? new Date().toISOString(),
-      graphNodeId: input.graphNodeId ?? null,
-      dispatchRef: input.dispatchRef ?? null
-    };
+    return runningHeartbeatProjection(input);
   }
-  return {
-    status: 'running',
-    lastHeartbeat: input.lastHeartbeat ?? input.now ?? new Date().toISOString(),
-    graphNodeId: input.graphNodeId ?? null,
-    dispatchRef: input.dispatchRef ?? null
-  };
+  return runningHeartbeatProjection(input);
 }
 
 /**
