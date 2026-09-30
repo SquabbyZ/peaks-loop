@@ -1,8 +1,10 @@
 // packages/peaks-loop-mut/tests/thresholds.test.ts
 //
-// 4-dimension unit test for peaks-loop-mut's pure threshold + types
-// surface (src/services/mut/thresholds.ts + src/services/mut/types.ts)
-// and the real-fs read in src/services/mut/report-loader.ts).
+// render + behavior half of the former 4-dimension test for peaks-loop-mut's
+// pure threshold + types surface (src/services/mut/thresholds.ts +
+// src/services/mut/types.ts) and the report-loader path composition. The
+// `integration` dimension (loadMutReport over the real fs) split to
+// thresholds-integration.test.ts for the 300-line file cap.
 //
 // `declareDimensions` is inlined here because the root helper at
 // tests/unit/_setup/4dim-template.ts lives behind a '~' vitest alias
@@ -14,20 +16,16 @@
 // Dimensions covered:
 //   - render:    DEFAULT_THRESHOLDS shape + frozen; WeakPattern union
 //                has the 5 documented values; MutReportSchema accepts
-//                a minimal valid envelope
+//                a minimal valid envelope; mutReportPath composition
 //   - behavior:  evaluateThresholds pass / fail / both-violated / boundary
 //                semantics; MutReportSchema rejects invalid versions,
 //                non-hex sha256, out-of-range killRate
-//   - integration: loadMutReport returns null on missing file, null on
-//                  corrupt JSON, null on schema-invalid, the parsed
-//                  report on schema-valid (real fs reads in tmp)
+//   - integration: covered by thresholds-integration.test.ts
 //   - a11y:      not applicable — no user-facing text surface
 //
 // Run with: pnpm --filter peaks-loop-mut test
 
-import { mkdirSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 type Dim = 'render' | 'behavior' | 'integration' | 'a11y';
 function declareDimensions(
@@ -47,28 +45,16 @@ function declareDimensions(
 
 declareDimensions(
   'packages/peaks-loop-mut/tests/thresholds.test.ts',
-  ['render', 'behavior', 'integration'],
-  [{ dim: 'a11y', reason: 'no user-facing text or exit code' }]
+  ['render', 'behavior'],
+  [
+    { dim: 'integration', reason: 'covered by thresholds-integration.test.ts' },
+    { dim: 'a11y', reason: 'no user-facing text or exit code' }
+  ]
 );
 
 import { DEFAULT_THRESHOLDS, evaluateThresholds } from '../src/services/mut/thresholds.js';
-import {
-  loadMutReport,
-  mutReportPath,
-  MUT_REPORT_RELATIVE_PATH
-} from '../src/services/mut/report-loader.js';
+import { MUT_REPORT_RELATIVE_PATH, mutReportPath } from '../src/services/mut/report-loader.js';
 import { MutReportSchema, WeakPatternSchema } from '../src/services/mut/types.js';
-
-// We deliberately do NOT use withTmpWorkspacePerTest here: mut is a
-// workspace package whose tests are run from packages/peaks-loop-mut/
-// (vitest root), and the file we read is computed RELATIVE to
-// process.cwd(). loadMutReport joins '.peaks', '_runtime', sessionId,
-// and the relative path under process.cwd(). chdir-ing via the root
-// helper would put us in a directory that has no `.peaks/` to read.
-// Instead we plant the file in a deterministic relative path under
-// the package root and chdir into its parent before each test.
-
-const TMP_PARENT = join(process.cwd(), '.tmp-mut-test');
 
 function validMinimalReport(overrides: Record<string, unknown> = {}): Record<string, unknown> {
   return {
@@ -244,69 +230,5 @@ describe('behavior — MutReportSchema rejects invalid input', () => {
       })
     );
     expect(out.success).toBe(false);
-  });
-});
-
-describe('integration — loadMutReport over real fs', () => {
-  beforeEach(() => {
-    mkdirSync(TMP_PARENT, { recursive: true });
-    process.chdir(TMP_PARENT);
-  });
-
-  afterEach(() => {
-    process.chdir(join(TMP_PARENT, '..'));
-  });
-
-  it('returns null when the report file does not exist', async () => {
-    const out = await loadMutReport('no-such-sid');
-    expect(out).toBeNull();
-  });
-
-  it('returns null for corrupt JSON (writes a stderr line, but no throw)', async () => {
-    const sid = 'corrupt-sid';
-    const dir = join(TMP_PARENT, '.peaks', '_runtime', sid, 'mut');
-    mkdirSync(dir, { recursive: true });
-    writeFileSync(join(dir, 'mut-report.json'), 'not valid json {', 'utf8');
-
-    const stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
-    try {
-      const out = await loadMutReport(sid);
-      expect(out).toBeNull();
-      expect(stderrSpy).toHaveBeenCalled();
-      const msg = String(stderrSpy.mock.calls[0]?.[0] ?? '');
-      expect(msg).toMatch(/not valid JSON/);
-    } finally {
-      stderrSpy.mockRestore();
-    }
-  });
-
-  it('returns null for schema-invalid JSON (writes a stderr line)', async () => {
-    const sid = 'invalid-sid';
-    const dir = join(TMP_PARENT, '.peaks', '_runtime', sid, 'mut');
-    mkdirSync(dir, { recursive: true });
-    writeFileSync(join(dir, 'mut-report.json'), JSON.stringify({ version: '2.0' }), 'utf8');
-
-    const stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
-    try {
-      const out = await loadMutReport(sid);
-      expect(out).toBeNull();
-      expect(stderrSpy).toHaveBeenCalled();
-      const msg = String(stderrSpy.mock.calls[0]?.[0] ?? '');
-      expect(msg).toMatch(/failed schema validation/);
-    } finally {
-      stderrSpy.mockRestore();
-    }
-  });
-
-  it('returns the parsed report for a schema-valid file', async () => {
-    const sid = 'valid-sid';
-    const dir = join(TMP_PARENT, '.peaks', '_runtime', sid, 'mut');
-    mkdirSync(dir, { recursive: true });
-    writeFileSync(join(dir, 'mut-report.json'), JSON.stringify(validMinimalReport()), 'utf8');
-
-    const out = await loadMutReport(sid);
-    expect(out).not.toBeNull();
-    expect(out?.version).toBe('1.0');
-    expect(out?.mutation.killRate).toBe(0.8);
   });
 });

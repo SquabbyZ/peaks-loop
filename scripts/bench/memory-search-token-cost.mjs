@@ -33,8 +33,7 @@
  * Outputs a markdown report on stdout.
  */
 
-import { readFileSync, readdirSync } from 'node:fs';
-import { join } from 'node:path';
+import { MEMORY_DIR, QUERIES, loadMemoryCorpus } from './token-cost-corpus.mjs';
 
 const BYTES_PER_TOKEN = 4;
 const HEADROOM_BALANCED_RATIO = 0.4; // from headroom-client.ts:104-106
@@ -44,52 +43,6 @@ const HEADROOM_BALANCED_RATIO = 0.4; // from headroom-client.ts:104-106
 // audit (2026-06-19) found the previous 30-token value underestimated L2 cost.
 const RERANK_PROMPT_OVERHEAD_TOKENS = 56;
 const RERANK_RESPONSE_TOKENS = 50; // estimated output for a JSON array of up to 10 indices
-
-const MEMORY_DIR = join(process.cwd(), '.peaks', 'memory');
-
-const QUERIES = [
-  'idempotency',
-  'sub-agent context',
-  'audit decision',
-  'headroom compression',
-  'red line rule',
-  'workspace underscore',
-  'ide adapter',
-  'gitignore peaks',
-  'rerank LLM',
-  'skill first CLI'
-];
-
-function parseMemoryFrontmatter(text) {
-  const fmMatch = /^---\n([\s\S]*?)\n---/.exec(text);
-  if (fmMatch === null) return null;
-  const block = fmMatch[1];
-  const nameMatch = /^name:\s*(.+)$/m.exec(block);
-  const descMatch = /^description:\s*(.+)$/m.exec(block);
-  if (nameMatch === null) return null;
-  return {
-    name: nameMatch[1].trim(),
-    description: descMatch !== null ? descMatch[1].trim() : ''
-  };
-}
-
-function loadMemoryCorpus() {
-  let files;
-  try {
-    files = readdirSync(MEMORY_DIR).filter((f) => f.endsWith('.md'));
-  } catch (e) {
-    console.error(`ERROR: cannot read ${MEMORY_DIR}: ${e.message}`);
-    process.exit(1);
-  }
-  const corpus = [];
-  for (const f of files) {
-    const text = readFileSync(join(MEMORY_DIR, f), 'utf8');
-    const fm = parseMemoryFrontmatter(text);
-    if (fm === null) continue;
-    corpus.push(fm);
-  }
-  return corpus;
-}
 
 function score(memory, query) {
   const terms = query
