@@ -165,12 +165,23 @@ Two things this section still does not close, stated because each is the same de
 The campaign moves declarations between files. Two guards in this repo read a file's **text at a fixed
 path**, so a mechanically-correct split breaks them for reasons no type check can see:
 
-| pin | what it reads | consequence |
+| pin | what it reads | consequence for a split |
 |---|---|---|
-| `tests/unit/lint/session-path-swallow-census.test.ts` | `{file, rule, **line**, frame, reason}` for 5 files, asserted with `toEqual` | moving a pinned `catch` shifts its line number and reddens the suite. Pinned and still over cap: `src/services/observability/observability-service.ts` (surplus 11), `src/services/code/auto-compact-orchestrator.ts`, `src/services/code/auto-compact-lifecycle.ts` |
+| `tests/unit/lint/session-path-swallow-census.test.ts` | **two mechanisms.** (1) the main assertion compares the measured set against `CENSUS` entries that carry an exact `line:` — line-sensitive; (2) a second assertion demands **zero** swallowing frames for three named paths (`src/services/session/getSessionDir.ts`, `src/services/observability/observability-service.ts`, `src/services/observability/jsonl-store.ts`) — line-insensitive but **path-keyed** | (1) moving a pinned `catch` in `code/auto-compact-lifecycle.ts`, `code/auto-compact-orchestrator.ts` or `compact-statusline/compact-lifecycle-store.ts` reddens the suite unless the entry is reconciled. (2) is the sharper one: **splitting a zero-swallow file moves code into a sibling the guard does not name, so the guard silently shrinks.** Nothing catches it. A split leaf must therefore show the detector reports 0 for the new sibling, not just for the named file. |
 | `src/services/feedback/promotion-artifact-evidence.ts` | regex over `src/services/code/mode-gate.ts` to recover `HardFloorCategory` and `HARD_FLOOR_CATEGORIES`, exercised by `feedback-promotion-artifact.test.ts:846` against the real repo file | hoisting those two names into a sibling makes a *different* module's parse return nothing. The leaf that found this left both names in place rather than edit the reader |
 
-Neither was in the planning model, which reasoned about declaration entanglement, not about text reads.
+Both were discovered by leaves, not by the planning model, which reasoned about declaration entanglement
+rather than about text reads and path-keyed lists. The general form:
+
+> **any policy keyed on a file PATH must be re-declared for the sibling a split creates** — the census
+> zero-swallow list, `scripts/coverage-c8.mjs`'s `--exclude` list (measured: counting one new sibling
+> would have added 151 statements, 100 uncovered, to a `--100` gate), and
+> `no-runtime-input-guard.test.ts`'s `MEASURED_ESCAPE_MODULES`. Three instances, same cause, all three
+> invisible to `tsc`.
+
+So the standing rule for every split leaf is two greps before a move and one list-check after it: grep the
+**symbol** for text readers, grep the **path** for path-keyed policies.
+
 **Rule for every future split leaf: before hoisting a top-level name, grep the repo for that name being
 read by path.** The two above are the only instances found so far; the planning pass modelled declaration
 entanglement, not text reads, so the class is under-counted by construction.
