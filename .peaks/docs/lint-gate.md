@@ -186,6 +186,44 @@ So the standing rule for every split leaf is two greps before a move and one lis
 read by path.** The two above are the only instances found so far; the planning pass modelled declaration
 entanglement, not text reads, so the class is under-counted by construction.
 
+### 4d. What C wave 1 cost, and what caught it (2026-09-30)
+
+Decomposing long functions (not moving declarations) worked: five files went
+366→292, 369→48, 336→208, 358→131, 327→87, and the repo totals fell
+`eslintFindings 2867 → 2846`, `eslintErrors 1029 → 1017`, over-cap `193 → 188`.
+
+It also produced a breach that **no leaf's own check could see** — and the first diagnosis of it, mine, was
+wrong in a way worth recording. A C-wave decomposition moved a `catch` body into a new sibling and moved
+its `// TODO(g2):` grace marker into the sibling's JSDoc. The marker was suppressed in HEAD **because it
+sat inside the catch's node span** (`silent-warning-detector.mjs:149-151`); relocate the comment and the
+swallow is live again. Repo total: `59 → 60`, ceiling 59.
+
+    ✗ silent-warn empty-catch  60 (ceiling 59)     peaks-gate repo, exit 1
+    FAIL tests/unit/lint/silent-warning-gate-leg.test.ts > should hold both ceilings
+
+The per-file comparison that "proved" a newly invented swallow was mine, and it was an artefact of reading
+the detector's count as *presence of a catch* when it is really *presence of an unsuppressed catch*: HEAD
+reported `empty=0` for `gate-commands.ts` not because there was no catch but because there was a
+grace-suppressed one. Deleting the `try` on that reading would have changed observable behaviour —
+malformed stdin currently answers `stdout {}` / exit 0 (fail-open, which is what the PreToolUse contract
+needs); without the catch the throw reaches the outer handler and answers a stderr hint with **no stdout**.
+The repair re-pinned the marker to its HEAD position instead. Retiring the swallow for real is a
+G2 grace-expiry task, not something to smuggle into a decomposition.
+
+Two rules follow, and they are this wave's actual product:
+
+1. **A split leaf's verification list must include the silent-warning detector over both parent and new
+   sibling**, per file, not just eslint — eslint ceilings, `tsc` and prettier cannot see a swallow. And a
+   count delta must be explained by reading *the code*, not by reading the number: compare grace markers
+   and their positions, or you will "diagnose" a defect that is a comment moving.
+2. **Grace markers are node-span-sensitive — a sixth path/position-keyed policy.** `TODO(g2)` above a
+   statement, inside it, or in a doc comment are three different answers to the detector. Any move of a
+   `catch` must keep its marker inside the same node span, and the wave's totals are the check that it did.
+
+Also counted: **a fifth path-keyed policy.** The vendor-neutral identity guard's `KNOWN_DEBT` census pins
+a `vendor === 'codex' | 'claude' | 'copilot'` comparison **to its file path**, which is why wave C's
+record-upgrade leaf left that comparison in the parent and paid one extra parameter rather than hoist it.
+
 Also measured, because "the suite is green" hid it: `sync-service.ts`, `evolution-store.ts` and
 `workflow-autonomous-resume-helpers.ts` have **no unit test that imports them**. Their only coverage
 spawns `bin/peaks.js`, i.e. needs a fresh `dist/`, which is why the integration preflight
