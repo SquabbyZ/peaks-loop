@@ -1,50 +1,16 @@
-import { execFileSync } from 'node:child_process';
-import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { afterEach, describe, expect, test } from 'vitest';
 
-const BIN = resolve(__dirname, '../../bin/peaks.js');
-const REPO = resolve(__dirname, '../..');
-const BIN_TIMEOUT_MS = 120_000;
-
-interface RunResult {
-  readonly stdout: string;
-  readonly stderr: string;
-  readonly code: number;
-}
-
-function runCli(args: readonly string[], cwd: string): RunResult {
-  try {
-    const stdout = execFileSync('node', [BIN, ...args], {
-      cwd,
-      stdio: ['ignore', 'pipe', 'pipe'],
-      windowsHide: true,
-      timeout: BIN_TIMEOUT_MS,
-      env: { ...process.env, PEAKS_CALLER_ID: 'cross-cutting-e2e' }
-    }).toString('utf8');
-    return { stdout, stderr: '', code: 0 };
-  } catch (error: unknown) {
-    const caught = error as { stdout?: Buffer | string; stderr?: Buffer | string; status?: number };
-    return {
-      stdout:
-        typeof caught.stdout === 'string' ? caught.stdout : (caught.stdout?.toString('utf8') ?? ''),
-      stderr:
-        typeof caught.stderr === 'string' ? caught.stderr : (caught.stderr?.toString('utf8') ?? ''),
-      code: caught.status ?? 1
-    };
-  }
-}
-
-interface Envelope {
-  ok: boolean;
-  command: string;
-  code?: string;
-  message?: string;
-  data: unknown;
-  warnings: readonly unknown[];
-  nextActions: readonly string[];
-}
+import {
+  makeProject,
+  projects,
+  REPO,
+  runCli,
+  seedCanaryPrecheckFixture,
+  type Envelope,
+  type RunResult
+} from './_cross-cutting-e2e-harness.js';
 
 /**
  * Commander prints "{ok:false envelope}" to STDERR (not stdout) when an
@@ -69,64 +35,12 @@ function parseEnvelope(result: RunResult): Envelope {
   throw lastError ?? new Error('parseEnvelope: no JSON envelope found in stdout/stderr');
 }
 
-const projects: string[] = [];
-
-function makeProject(prefix: string): string {
-  const project = mkdtempSync(join(tmpdir(), prefix));
-  projects.push(project);
-  return project;
-}
-
 afterEach(() => {
   for (const project of projects) {
     if (existsSync(project)) rmSync(project, { recursive: true, force: true });
   }
   projects.length = 0;
 });
-
-/**
- * Build the peaks-loop repo shape `peaks release canary` requires.
- *
- * Since rid-010 the canary action runs the 4-layer version precheck before it
- * transitions anything (`release-commands.ts:167-205` → `executeCanaryAction`
- * → `runAllLayers`), and two of those layers read a real repo layout:
- * `rootVsShared` compares root `package.json#version` against
- * `packages/peaks-loop-shared/dist/version.js`, and `workspaceLockstep` wants
- * `peaks-loop-shared` workspace-linked with a clean semver
- * (`version-precheck-service.ts:152-219`, `:328-394`). A bare tmp dir therefore
- * can never reach canary — it fails closed with `PRECHECK_BLOCKER` before the
- * lifecycle is touched, which is the precheck working, not the release
- * lifecycle regressing. Three files, all written by this test; no git needed
- * (the tag-collision layer degrades to a warning outside a repository).
- */
-function seedCanaryPrecheckFixture(project: string, version: string): void {
-  const sharedDir = join(project, 'packages', 'peaks-loop-shared');
-  mkdirSync(join(sharedDir, 'dist'), { recursive: true });
-  writeFileSync(
-    join(project, 'package.json'),
-    `${JSON.stringify(
-      {
-        name: 'p2d-release-fixture',
-        version,
-        private: true,
-        dependencies: { 'peaks-loop-shared': 'workspace:*' }
-      },
-      null,
-      2
-    )}\n`,
-    'utf8'
-  );
-  writeFileSync(
-    join(sharedDir, 'package.json'),
-    `${JSON.stringify({ name: 'peaks-loop-shared', version, private: true }, null, 2)}\n`,
-    'utf8'
-  );
-  writeFileSync(
-    join(sharedDir, 'dist', 'version.js'),
-    `export const CLI_VERSION = "${version}";\n`,
-    'utf8'
-  );
-}
 
 // ============================================================================
 // peaks release lifecycle (P2-D cross-cutting e2e)

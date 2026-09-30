@@ -30,7 +30,7 @@
 //   - a11y:        omitted — the resolver returns an envelope, it prints
 //                  nothing and exits nothing
 
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -38,40 +38,36 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { declareDimensions } from '../../_setup/4dim-template.js';
 import {
   checkPrerequisites,
-  getPrerequisitesFor,
-  type ArtifactPrerequisite
+  getPrerequisitesFor
 } from '../../../../src/services/artifacts/artifact-prerequisites.js';
 import { generateEvidence } from '../../../../src/services/evidence/evidence-generator.js';
+
+import {
+  codeReviewBody,
+  karpathyBody,
+  makeProjectRoot,
+  missingPath,
+  missingPaths,
+  MUT_REPORT_BARE,
+  perfBody,
+  posix,
+  RID_A,
+  RID_B,
+  ridScopedPrereqs,
+  RID_SCOPED_ARTIFACTS,
+  securityBody,
+  seedCompleteSlice,
+  SESSION_ID,
+  sessionRootOf,
+  tempRoots,
+  writeArtifact
+} from './_audit-artifact-rid-fixtures.js';
 
 declareDimensions(
   'tests/unit/services/artifacts/audit-artifact-rid-scoping.test.ts',
   ['render', 'behavior', 'integration'],
   [{ dim: 'a11y', reason: 'resolver returns a result envelope; prints nothing and exits nothing' }]
 );
-
-const SESSION_ID = '2026-09-13-session-21878f';
-const RID_A = '2026-09-13-compact-event-settle';
-const RID_B = '2026-09-13-statusline-window-witness';
-
-/** The four artifacts this slice rid-scoped, and their bare pre-rid form.
- *  The mut report is deliberately NOT one of them — see the dedicated test
- *  at the bottom of the `(integration)` block. */
-const RID_SCOPED_ARTIFACTS: ReadonlyArray<{ name: string; ridPath: string; barePath: string }> = [
-  { name: 'security audit', ridPath: 'audit/security-<rid>.md', barePath: 'audit/security.md' },
-  { name: 'perf audit', ridPath: 'audit/perf-<rid>.md', barePath: 'audit/perf.md' },
-  { name: 'code review', ridPath: 'rd/code-review-<rid>.md', barePath: 'rd/code-review.md' },
-  {
-    name: 'karpathy review',
-    ridPath: 'rd/karpathy-review-<rid>.md',
-    barePath: 'rd/karpathy-review.md'
-  }
-];
-
-/** The bare mut-report path — the ONE name the repo can produce
- *  (`mutReportPath()` in packages/peaks-loop-mut/.../report-loader.ts). */
-const MUT_REPORT_BARE = 'mut/mut-report.json';
-
-const tempRoots: string[] = [];
 
 afterEach(() => {
   while (tempRoots.length > 0) {
@@ -81,122 +77,6 @@ afterEach(() => {
     }
   }
 });
-
-function makeProjectRoot(): string {
-  const root = mkdtempSync(join(tmpdir(), 'peaks-rid-scoping-'));
-  tempRoots.push(root);
-  mkdirSync(join(root, '.peaks', '_runtime', SESSION_ID, 'audit'), { recursive: true });
-  return root;
-}
-
-function sessionRootOf(projectRoot: string): string {
-  return join(projectRoot, '.peaks', '_runtime', SESSION_ID);
-}
-
-function writeArtifact(projectRoot: string, relativePath: string, body: string): string {
-  const absolute = join(sessionRootOf(projectRoot), relativePath);
-  mkdirSync(join(absolute, '..'), { recursive: true });
-  writeFileSync(absolute, body, 'utf8');
-  return absolute;
-}
-
-/** Body satisfying AUDIT_SECURITY's `mustContainAny` and carrying a rid so the
- *  two rids' files are distinguishable by content, not merely by name. */
-function securityBody(rid: string): string {
-  return `---\nschemaVersion: 1\nartifactKind: security-audit\nrid: ${rid}\n---\n\n# Security audit — \`${rid}\`\n\n## Verdict\n\nwarn\n`;
-}
-
-function perfBody(rid: string): string {
-  return `# Performance audit — rid \`${rid}\`\n\n## Baseline\n\n| metric | before | after |\n|---|---|---|\n`;
-}
-
-function codeReviewBody(rid: string): string {
-  return `# Code review — rid \`${rid}\`\n\n## Findings\n\nCRITICAL: none.\n`;
-}
-
-function karpathyBody(rid: string): string {
-  return [
-    `# Karpathy review — \`${rid}\``,
-    '',
-    '## Karpathy-Gate',
-    '',
-    '## Think Before Coding',
-    '## Simplicity First',
-    '## Surgical Changes',
-    '## Goal-Driven Execution',
-    ''
-  ].join('\n');
-}
-
-/** `PrerequisiteCheckResult.missing[].path` carries the `<rid>`-SUBSTITUTED
- *  path, not the raw placeholder — so an assertion written against
- *  `'audit/security-<rid>.md'` would pass vacuously (it can never appear).
- *  Every `missing` assertion goes through this. */
-function missingPath(ridPath: string, rid: string): string {
-  return ridPath.replace('<rid>', rid);
-}
-
-/** Compare a `join()`-built absolute path against a repo-relative literal.
- *  `join()` yields backslashes on Windows, so `endsWith('audit/perf.md')` is
- *  ALWAYS false there — the same vacuity this file's `missingPath()` helper
- *  exists to prevent, one segment further out. Normalise separators first. */
-function posix(path: string): string {
-  return path.replace(/\\/g, '/');
-}
-
-/** Seed every artifact the rd:qa-handoff FEATURE gate needs, into the RID
- *  SCOPED locations only. Returns the paths written.
- *
- *  The point of seeding the COMPLETE set is that the assertion can then be
- *  `ok === true`, not `missing` does not contain X. An assertion on a string
- *  the resolver never emits is vacuously true: a version that ignores `<rid>`
- *  entirely also never emits it, and would still pass. `ok` cannot be faked
- *  that way. */
-function seedCompleteSlice(projectRoot: string, rid: string): void {
-  writeArtifact(
-    projectRoot,
-    'prd/handoff.md',
-    '---\nschemaVersion: 2\nsha256: deadbeef\n---\n\n# Handoff\n'
-  );
-  writeArtifact(projectRoot, `audit/security-${rid}.md`, securityBody(rid));
-  writeArtifact(projectRoot, `audit/perf-${rid}.md`, perfBody(rid));
-  writeArtifact(projectRoot, `rd/code-review-${rid}.md`, codeReviewBody(rid));
-  writeArtifact(projectRoot, `rd/karpathy-review-${rid}.md`, karpathyBody(rid));
-  // UNIT_TESTS pins the literal `## Test cases` (h2) plus ONE of the two test
-  // idioms — `test(` OR `it(` (`mustContainAny`, see R10 of rid
-  // `2026-09-16-codegraph-index-integrity`). This fixture deliberately keeps
-  // the LESS common idiom (`test(`: 372 vs `it(`: 3015 across `tests/`) so the
-  // full rd:qa-handoff gate still exercises the legacy-idiom path; the `it(`
-  // path is pinned in `unit-tests-marker-idiom.test.ts`.
-  writeArtifact(projectRoot, `qa/test-cases/${rid}.md`, `## Test cases\n\ntest('x', () => {});\n`);
-  writeArtifact(projectRoot, 'qa/.initiated', '');
-}
-
-async function missingPaths(
-  projectRoot: string,
-  requestId: string
-): Promise<{ missing: string[]; warnings: string[]; ok: boolean }> {
-  const result = await checkPrerequisites({
-    projectRoot,
-    sessionId: SESSION_ID,
-    role: 'rd',
-    newState: 'qa-handoff',
-    requestType: 'feature',
-    requestId
-  });
-  return {
-    missing: result.missing.map((entry) => entry.path),
-    warnings: result.warnings.map((entry) => entry.path),
-    ok: result.ok
-  };
-}
-
-/** The five prereqs this slice own, keyed by their bare pre-rid path. */
-function ridScopedPrereqs(): ReadonlyArray<{ ridPath: string; prereq: ArtifactPrerequisite }> {
-  return getPrerequisitesFor('rd', 'qa-handoff', 'feature')
-    .filter((prereq) => prereq.relativePath.includes('<rid>'))
-    .map((prereq) => ({ ridPath: prereq.relativePath, prereq }));
-}
 
 describe('(render) the declared naming contract', () => {
   it('names each audit/review artifact with the rid in the filename', () => {
