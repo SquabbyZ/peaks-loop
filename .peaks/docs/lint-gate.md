@@ -98,7 +98,7 @@ so the cap must be settled *after* the bulk format, not before.
 | 2 | Fix `scripts/bench/memory-search-token-cost.mjs` (syntax error since 2.8.0) | `prettierUnparsableFiles` → 0 |
 | 3 | `tsc -p tsconfig.json` — fix all 142 | `tscErrors` → 0 → **flip this leg to hard-fail** |
 | 4 | `prettier --write` the whole scope | `prettierUnformatted` → 0 → **flip this leg to hard-fail** |
-| 5 | Set the file-size cap to **300 raw lines for `src`/`packages`, 500 for `tests`** — in ONE place, currently `max-lines` in `.peaks-rules.cjs` and `DEFAULT_FILE_SIZE_THRESHOLD` in `file-size-scan.ts` disagree (400 effective vs 800 raw), then split what exceeds it. **Re-measured 2026-09-29: still NOT landed, and the two places still disagree** (`max-lines: [error, {max: 400, skipBlankLines, skipComments}]` vs `DEFAULT_FILE_SIZE_THRESHOLD = 800`). Over the decided cap: **263 files** as measured 2026-09-29, **184 files** re-measured 2026-09-30 after waves B1–B3 and C1–C3 — `src` 142, `tests` 35, `packages` 2, `scripts` 5 — 61,352 excess lines. The original **237 (180 src + 57 tests)** was a 2026-09-19 count over two dirs only. The cap fires today as **98 `max-lines` findings** under the current 400-effective rule (was 101). Sequence constraint this row does not state: the cap may not be tightened before the splits land, or the ceiling would go UP, which §5 forbids. | `eslintFindings` ↓ |
+| 5 | Set the file-size cap to **300 raw lines for `src`/`packages`, 500 for `tests`** — in ONE place, currently `max-lines` in `.peaks-rules.cjs` and `DEFAULT_FILE_SIZE_THRESHOLD` in `file-size-scan.ts` disagree (400 effective vs 800 raw), then split what exceeds it. **Re-measured 2026-09-29: still NOT landed, and the two places still disagree** (`max-lines: [error, {max: 400, skipBlankLines, skipComments}]` vs `DEFAULT_FILE_SIZE_THRESHOLD = 800`). Over the decided cap: **263 files** as measured 2026-09-29, **184 files** re-measured 2026-09-30 after waves B1–B3 and C1–C3 — `src` 142, `tests` 35, `packages` 2, `scripts` 5 — 61,352 excess lines, and **174 files** after C wave 4 (`src` 134, `tests` 34, `packages` 1, `scripts` 5; 60,982 excess lines on the same count). The original **237 (180 src + 57 tests)** was a 2026-09-19 count over two dirs only. The cap fires today as **98 `max-lines` findings** under the current 400-effective rule (was 101). Sequence constraint this row does not state: the cap may not be tightened before the splits land, or the ceiling would go UP, which §5 forbids. | `eslintFindings` ↓ |
 | 6..n | eslint by rule family. **Ordering by family size is the wrong lever** — re-measured 2026-09-30 against the files still over the line cap: cleaning `no-magic-numbers` (the largest family) unlocks **2** blocked files, `complexity` (smaller) unlocks **36**, and all four large families together unlock only **47 of 124** — **22 of those 124 cannot be unlocked by any lint cleaning**, because the blocking code references module-local state. So run slice C **file-scoped and interleaved with the split**, not as four repo-wide sweeps: 47 blocked files have ≥70 % of their shortfall inside a single `register*Commands()` function, where cleaning the family *is* the split. Family sizes re-measured 2026-09-30 at the close of C wave 3: `no-magic-numbers` **624**, `no-non-null-assertion` **547**, `max-lines-per-function` **540**, `complexity` **438**, `no-unused-vars` 160, `consistent-type-imports` 111, `max-lines` 98, `max-params` 58 (measured 2026-09-29: 633 / 559 / 547 / 450 / 161 / 112 / 101). Original 2026-09-19 plan text kept for provenance: `no-unsafe-member-access` (635), `no-magic-numbers` (551), `no-non-null-assertion` (549), `complexity` (414), `max-lines-per-function` (397), `require-await` (310), `no-unused-vars` (273), … — both 635 and 310 are now near-zero (measured **14** and absent on 2026-09-29). | `eslintFindings` → 0 → **flip this leg to hard-fail** |
 
 **Cap reading, decided 2026-09-30:** `packages/*/tests/*.test.ts` counts at **300**, the same as its parent
@@ -283,6 +283,92 @@ eight new files already existed on disk, because `git ls-files` is the *index*. 
 only true after `git add`. Adding the files raised scope by 8 and left the totals where they were, which is
 the expected result for new files that are clean outright — but a wave that added a finding-carrying file
 would have been invisible until it was staged.
+
+### 4f. C wave 4: the ten cheapest files, and what integration caught (2026-09-30)
+
+Ten files sitting **12–59 raw lines over the line cap** went to five leaves, two files each, disjoint sets.
+All ten cleared. Repo totals moved `eslintFindings 2823 → 2803`, `eslintErrors 1008 → 997`, scope
+`1404 → 1422` (18 siblings added, every one of them 0 findings — the staged gate refuses a new file that
+carries anything, so that is enforced rather than asserted), and over-cap `184 → 174` files
+(61,352 → 60,982 excess lines on the split-newline count, 60,808 on `wc -l`; both conventions agree the
+count is 174). Re-measured at quiescence: gate repo all-pass, tsc 0, prettier 0 of 1422, silent-warnings
+held at 41/59, root unit suite 327 files / 3559 passed / 3 skipped / 0 failed, and all four workspace
+package suites Done (shared-channel now 2 files / 20 cases = 14 + 6, up from 1 file / 20).
+
+Per-file findings after the wave, measured by the orchestrator: `smoke-commands.ts` 0,
+`code-mode-gate-commands.ts` 0, `retrospective-commands.ts` 0, `crystallization-types.ts` 0,
+`capability-seed-sources.ts` 0, both split test files 0; `fork-commands.ts` 1 and
+`code-job-shape-commands.ts` 3 (the latter is the file whose inline action at `:55` is pinned by
+`gratuitous-async-guard.test.ts`'s `PINNED_SITES` — the leaf extracted a *different* action, so the pin
+still describes its site); `artifact-templates.ts` keeps its 6 `max-params` warnings in the parent, because
+a `max-params` finding cannot move into a file that must be clean outright.
+
+**Byte-identity was re-measured, not inherited from the leaves.** Two throwaway harnesses imported HEAD's
+module and the split module side by side: 80 `renderTemplate` combinations (5 roles × 4 request types × 16
+inputs including backticks, `${}`, `$&`, CRLF and empty strings) with **0** differences plus the three path
+helpers identical, and 145 schema comparisons on the crystallization vertical (boundary `bee_release_id`
+2147483646/2147483647/2147483648, section lengths 3999/4000/4001, missing/empty/non-string keys) with every
+outcome, issue path and message matching, plus `seedCapabilitySources` 32 = 32 elements with
+`JSON.stringify` equal and `sourceId` order preserved. That is how the one non-verbatim line in the wave —
+`CRYS_BEE_ID_MAX_I32` re-spelled from `2 ** 31 - 1` to `2147483647` because `no-magic-numbers` does not fold
+the expression — was shown to be value-identical rather than assumed to be.
+
+**What the first integration run in this campaign found was my own regression.** See §4g.
+
+### 4g. A directory whose file COUNT is asserted (the seventh policy shape)
+
+`src/services/capability-guard-runner/contracts/J11.ts:56-59` reads
+`readdirSync('src/services/doctor/doctor-service/checks').filter(f => f.endsWith('.ts'))` and `:88-91`
+asserts that length equals `PLUGINS.length`. Commit `108ebcea` (this campaign, 2026-09-29) shortened
+`checks/multi-binary-drift.ts` by hoisting its pure helpers into a sibling **placed in that same directory**,
+so the census went 22 plugins / 23 checks and the guard reported that the registry had missed a plugin.
+
+It stayed red for two days and nothing in the campaign's convergence loop could see it: the whole-repo lint
+gate, `tsc`, prettier and the 326-file unit suite all pass, because the assertion lives in
+`tests/integration/capability-guard/J11-doctor-cli-snapshot.test.ts`, which runs under
+`vitest.config.integration.ts`. It surfaced the moment `pnpm test:integration` was run (1 failed / 471
+passed), and after the fix `5ed275fe` it is **472 passed / 0 failed** over 93 files.
+
+Two rules come out of this, and they are different from the path/symbol pins in §4c:
+
+1. **Ask whether a target directory is READ, not just referenced.** Grep the path (that is how §4c's pins are
+   found) does not help here — nothing names the sibling file. `grep -rn "readdirSync" src/` over the
+   directory's ancestors, and look for a length comparison, does. J11's doc comment now states that the
+   checks directory is counted, so the invariant is written next to the rule that depends on it.
+2. **Integration belongs in the convergence checklist of any slice that MOVES files**, not only slices that
+   change behaviour. It requires a rebuilt `dist/` (its preflight refuses a stale one, measured: 882 source
+   files must match the digest), which is exactly why it had been skipped — the cost is real
+   (`pnpm build` ≈ 60 s, `pnpm test:integration` ≈ 410 s at one worker) and it is what caught this.
+
+### 4h. Verification concurrency: the host is part of the gate (2026-09-30)
+
+This development host (16 logical cores, 15.75 GB) took four `Kernel-Power 41` bugchecks with stop code
+**`0x10E PFN_LIST_CORRUPT`** (2026-09-28 20:58, 2026-09-28 23:02, 2026-09-30 18:10, 2026-09-30 19:45;
+minidumps in `C:\Windows\Minidump\`). Measured cost of the individual commands: one whole-program
+`tsc --noEmit` is **803,436K ≈ 786 MB over 1773 files**, one type-aware eslint batch (150 files) is
+**≈ 985 MB** peak RSS. Five RD leaves each finishing with a whole-program `tsc` is ~4 GB before the
+orchestrator adds anything, and the orchestrator had `pnpm build && pnpm test:integration` running in the
+background under a foreground full unit run. Node began dying on `VirtualAlloc`
+(exit `3221225794`) — which reads exactly like "0 findings" if you do not check the exit code.
+
+**Rules.** One heavy command at a time, foreground; a `run_in_background` slot is for reads and greps, not
+for build / integration / gate-repo / full-suite; and an allocation failure is **"did not run"**, never a
+clean measurement. Note that `0x10E` is a page-frame-number list corruption, not a plain out-of-memory —
+memory pressure is the trigger, but a driver or DIMM is what makes it a bugcheck instead of a killed
+process, and that part is not settled from here.
+
+**The gap this uncovered in the repo.** `vitest.workers.ts` is the declared single source of truth for the
+worker count and says in its own header that it is "shared by all four vitest configs (unit / integration /
+lint / e2e)". The repo has **seven** configs. The three `packages/*/vitest.config.ts` imported nothing and
+declared no `pool` / `maxWorkers` / `fileParallelism` (verified by grep), so each ran at vitest's own
+default of one fork per core; the only reason that was harmless is that every package currently holds two
+test files. `6853ba94` wired them to the same policy and added
+`tests/unit/standards/vitest-worker-cap.test.ts`, which enumerates the configs by walking the filesystem —
+because a hand-maintained list is precisely how the "all four" claim rotted — asserts each declares a cap
+that traces to `vitest.workers` rather than a literal, and carries a positive control per arm in a temp dir
+plus a live-tree proof that stripping one cap turns it red. Declared and **not** fixed:
+`packages/peaks-loop-internal-runtime` ships no `vitest.config.ts` at all, so it inherits the root config
+and the census cannot see it.
 
 ## 5. Lowering a ceiling
 
