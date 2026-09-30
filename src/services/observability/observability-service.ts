@@ -19,85 +19,43 @@
  * result (fire-and-forget by convention).
  */
 
-import { z } from 'zod';
-
 import {
   appendMetricLine,
   pruneMetricsFiles,
   readMetricLines,
   tryMetricsFilePath
 } from './jsonl-store.js';
+import {
+  OBSERVABILITY_SCHEMA_VERSION,
+  ObservabilityEventSchema,
+  type EmitOptions,
+  type EmitResult,
+  type ObservabilityEvent,
+  type ObservabilitySubagentRole
+} from './observability-schema.js';
 
-export const OBSERVABILITY_SCHEMA_VERSION = 1 as const;
-
-export const OBSERVABILITY_CATEGORIES = [
-  'slice-transition',
-  'dispatch',
-  'checkpoint',
-  'mode-gate',
-  'context-trigger',
-  'post-compact',
-  'cycle',
-  'token-usage',
-  'monotonic-trigger',
-  // Slice 2026-07-29-worktree-l2-extended Part 4.A: lease lifecycle
-  // metrics. Emitted by `peaks worktree spawn / renew / release /
-  // gc` and by the auto-release hook in dispatch finalization (Part
-  // 3.A). Read by `peaks lease metrics`. The `detail.kind` field
-  // discriminates spawn / renew / release / gc / autoRelease /
-  // autoRelease-failed / autoRelease-skipped.
-  'lease'
-] as const;
-export type ObservabilityCategory = (typeof OBSERVABILITY_CATEGORIES)[number];
-
-// v2.12.0 fan-out collapse: `security-reviewer` (in-process RD slot)
-// moved out to the standalone `peaks-security-audit` skill; the matching
-// perf slot was `perf-baseline-reviewer` which is replaced by the
-// standalone `peaks-perf-audit` skill. The 1-minor-release back-compat
-// window keeps `security-reviewer` readable as a deprecated alias (see
-// the dispatcher in `src/services/rd/reviewer-dispatch-policy.ts`);
-// observability drops it because no new events carry that role tag.
-export const OBSERVABILITY_SUBAGENT_ROLES = [
-  'rd',
-  'qa',
-  'code-reviewer',
-  'karpathy-reviewer',
-  'peaks-security-audit',
-  'peaks-perf-audit'
-] as const;
-export type ObservabilitySubagentRole = (typeof OBSERVABILITY_SUBAGENT_ROLES)[number];
-
-export const ObservabilityEventSchema = z.object({
-  schemaVersion: z.literal(OBSERVABILITY_SCHEMA_VERSION),
-  ts: z.string().datetime({ offset: true }),
-  sessionId: z.string().min(1),
-  category: z.enum(OBSERVABILITY_CATEGORIES),
-  sliceRid: z.string().min(1).optional(),
-  role: z.enum(OBSERVABILITY_SUBAGENT_ROLES).optional(),
-  detail: z.record(z.string(), z.unknown())
-});
-
-export type ObservabilityEvent = z.infer<typeof ObservabilityEventSchema>;
-
-export type EmitOptions = {
-  /** Absolute path to the project root (where `.peaks/_runtime/` lives). */
-  projectRoot: string;
-};
-
-export type EmitFailureReason = 'invalid-schema' | 'write-failed' | 'invalid-session-id';
-
-export type EmitResult = {
-  /** True when the JSONL line was appended; false on any error path. */
-  written: boolean;
-  /**
-   * Absolute path to the metrics file the event was written to (or would
-   * be). Empty string when the session id named no session directory —
-   * there is no path to report, and `reason` says so.
-   */
-  path: string;
-  /** Set only when `written` is false. */
-  reason?: EmitFailureReason;
-};
+// The schema version, the category / subagent-role vocabularies, the zod
+// schema, the emit contract types and the `OBSERVABILITY_CONSTANTS` roll-up
+// live in `observability-schema.ts` (wave-3C file-size cap split — those
+// declarations moved verbatim and nothing else changed). Every PUBLIC name is
+// re-exported below so importers keep resolving it from
+// `observability-service.js` unchanged; the names this module calls are
+// imported for use just above.
+export {
+  OBSERVABILITY_CATEGORIES,
+  OBSERVABILITY_CONSTANTS,
+  OBSERVABILITY_SCHEMA_VERSION,
+  OBSERVABILITY_SUBAGENT_ROLES,
+  ObservabilityEventSchema
+} from './observability-schema.js';
+export type {
+  EmitFailureReason,
+  EmitOptions,
+  EmitResult,
+  ObservabilityCategory,
+  ObservabilityEvent,
+  ObservabilitySubagentRole
+} from './observability-schema.js';
 
 /**
  * Append a single observability event to the session's JSONL metrics
@@ -178,12 +136,6 @@ export function readObservabilityEvents(
 export function isCurrentSchemaVersion(record: unknown): record is ObservabilityEvent {
   return ObservabilityEventSchema.safeParse(record).success;
 }
-
-export const OBSERVABILITY_CONSTANTS = {
-  SCHEMA_VERSION: OBSERVABILITY_SCHEMA_VERSION,
-  CATEGORIES: OBSERVABILITY_CATEGORIES,
-  SUBAGENT_ROLES: OBSERVABILITY_SUBAGENT_ROLES
-} as const;
 
 /**
  * Slice 2026-07-29-worktree-l2-extended Part 4.A: lease lifecycle
