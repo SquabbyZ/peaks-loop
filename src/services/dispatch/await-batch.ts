@@ -34,8 +34,27 @@
  * from process.env at module load). When set, the loop falls back to
  * the pre-S4 silent return so a stuck session can be unblocked by
  * flipping the env var rather than rebuilding.
+ *
+ * Slice `strict-remediation-abc` (C wave 1, leaf `c1w1-await-batch`): the
+ * per-slot half of the loop — record reader, slot table, one-tick observation
+ * pass, no-progress predicate, poll sleep, result/note rendering — moved
+ * VERBATIM into `./await-batch-helpers.ts`. `awaitBatch` was 155 lines at
+ * complexity 40, so it held a `max-lines-per-function` error AND a `complexity`
+ * warning; that pairing is why no declaration hoist could shorten this file.
+ * The bodies did not change. `awaitBatch` keeps this export path because
+ * `tests/unit/services/dispatch/sub-agent-dispatcher-timeouts.test.ts` stubs
+ * `~/src/services/dispatch/await-batch.js` by path; the budget and outcome
+ * rules stay here because they are what the public types above describe.
  */
-import { existsSync, readFileSync } from 'node:fs';
+import {
+  buildBatchResults,
+  createSlotTable,
+  defaultReadOutcome,
+  hasNoProgress,
+  pollSlotsOnce,
+  sleepTick,
+  type AwaitBatchSlotResult
+} from './await-batch-helpers.js';
 
 export type AwaitBatchOutcome = 'completed' | 'timed-out' | 'clamped' | 'no-progress';
 
@@ -85,13 +104,7 @@ export interface AwaitBatchOptions {
 
 export interface AwaitBatchResult {
   /** Per-dispatch slot, in dispatchIndex order. */
-  readonly results: ReadonlyArray<{
-    readonly dispatchIndex: number;
-    readonly recordPath: string;
-    readonly status: 'done' | 'failed' | 'cancelled' | 'timeout';
-    readonly durationMs: number;
-    readonly note: string | null;
-  }>;
+  readonly results: ReadonlyArray<AwaitBatchSlotResult>;
   /** Batch-level outcome — distinct, machine-readable. */
   readonly outcome: AwaitBatchOutcome;
   /** What the caller asked for (or the IDE default, when omitted). */
@@ -104,7 +117,6 @@ export interface AwaitBatchResult {
 
 const DEFAULT_HARD_CAP_MS = 120_000;
 const DEFAULT_NO_PROGRESS_MS = 60_000;
-const DEFAULT_POLL_INTERVAL_MS = 50;
 
 /**
  * Fail-fast de-escalation: the env var is read once at module load
@@ -128,25 +140,98 @@ export async function awaitBatch(
   options: AwaitBatchOptions = { defaultTimeoutMs: 60_000 }
 ): Promise<AwaitBatchResult> {
   if (dispatchCount <= 0 || recordPaths.length === 0) {
-    const requested = timeoutMs ?? options.defaultTimeoutMs;
-    return {
-      results: [],
-      outcome: 'completed',
-      requestedTimeoutMs: requested,
-      effectiveTimeoutMs: 0,
-      hardCapMs: options.hardCapMs ?? DEFAULT_HARD_CAP_MS
-    };
+    return emptyBatchResult(timeoutMs, options);
   }
 
+  const budgets = resolveBudgets(timeoutMs, options);
+  const seams = resolveSeams(options);
+  const startedAt = seams.now();
+  const table = createSlotTable(recordPaths, startedAt);
+
+  let batchOutcome: AwaitBatchOutcome = 'completed';
+
+  while (table.slots.size > 0 && seams.now() - startedAt < budgets.effective) {
+    if (pollSlotsOnce(table, seams.readOutcome, seams.readRecord, seams.now)) {
+      break;
+    }
+
+    // No-progress watchdog: only while the effective budget still holds.
+    if (seams.now() - startedAt < budgets.effective) {
+      if (hasNoProgress(table, seams.now, budgets.noProgressBudget)) {
+        batchOutcome = 'no-progress';
+        break;
+      }
+    }
+
+    // Sleep a tick.
+    await sleepTick(seams.schedule);
+  }
+
+  batchOutcome = resolveBatchOutcome(batchOutcome, table.slots, budgets.requestedClamped);
+
+  // Build the per-dispatch results in dispatchIndex order.
+  const results = buildBatchResults(table, options.notePrefix, budgets.effective);
+
+  // Fail-fast de-escalation: when the env var is set, surface the
+  // typed outcome but do not let it influence the per-dispatch
+  // results. This preserves the pre-S4 silent-return shape so a
+  // stuck session can be unblocked by flipping the flag.
+  batchOutcome = deescalateOutcome(batchOutcome, FAILFAST_DISABLED);
+
+  return {
+    results,
+    outcome: batchOutcome,
+    requestedTimeoutMs: budgets.requested,
+    effectiveTimeoutMs: budgets.effective,
+    hardCapMs: budgets.hardCap
+  };
+}
+
+/** The zero-slot return: nothing to poll, so nothing was waited. */
+function emptyBatchResult(
+  timeoutMs: number | undefined,
+  options: AwaitBatchOptions
+): AwaitBatchResult {
+  const requested = timeoutMs ?? options.defaultTimeoutMs;
+  return {
+    results: [],
+    outcome: 'completed',
+    requestedTimeoutMs: requested,
+    effectiveTimeoutMs: 0,
+    hardCapMs: options.hardCapMs ?? DEFAULT_HARD_CAP_MS
+  };
+}
+
+/**
+ * The wait budget. S4 (AC-3.2) — surface the clamp. A caller-supplied
+ * timeout above the hard cap is reported as `clamped`; the effective
+ * budget is what the loop actually waited.
+ */
+function resolveBudgets(
+  timeoutMs: number | undefined,
+  options: AwaitBatchOptions
+): {
+  readonly hardCap: number;
+  readonly requested: number;
+  readonly requestedClamped: boolean;
+  readonly effective: number;
+  readonly noProgressBudget: number;
+} {
   const hardCap = options.hardCapMs ?? DEFAULT_HARD_CAP_MS;
   const requested = timeoutMs ?? options.defaultTimeoutMs;
-  // S4 (AC-3.2) — surface the clamp. A caller-supplied timeout above
-  // the hard cap is reported as `clamped`; the effective budget is
-  // what the loop actually waited.
   const requestedClamped = requested > hardCap;
   const effective = Math.min(Math.max(requested, 0), hardCap);
   const noProgressBudget = options.noProgressMs ?? DEFAULT_NO_PROGRESS_MS;
+  return { hardCap, requested, requestedClamped, effective, noProgressBudget };
+}
 
+/** Resolve the test seams, keeping the production defaults. */
+function resolveSeams(options: AwaitBatchOptions): {
+  readonly now: () => number;
+  readonly schedule: (cb: () => void, ms: number) => void;
+  readonly readOutcome: (recordPath: string) => string | null;
+  readonly readRecord: (recordPath: string) => { status: string | null; outcome: string | null };
+} {
   const now = options.now ?? (() => Date.now());
   const schedule =
     options.schedule ??
@@ -157,209 +242,50 @@ export async function awaitBatch(
     });
   const readOutcome = options.readOutcome ?? ((p: string) => defaultReadOutcome(p).status);
   const readRecord = options.readRecord ?? defaultReadOutcome;
-
-  const startedAt = now();
-  const slots = new Map<
-    number,
-    {
-      recordPath: string;
-      status: 'done' | 'failed' | 'cancelled' | 'timeout';
-      note: string | null;
-      finishedAt: number | null;
-      lastProgress: number;
-    }
-  >();
-  for (let i = 0; i < recordPaths.length; i += 1) {
-    const recordPath = recordPaths[i] ?? '';
-    slots.set(i, {
-      recordPath,
-      status: 'timeout',
-      note: null,
-      finishedAt: null,
-      lastProgress: 0
-    });
-  }
-
-  // Track last observed progress per slot to power the no-progress
-  // watchdog. The watchdog advances on any per-tick observation
-  // change in the slot's progress hint (read from the file's
-  // `progress` field when available, else from the `heartbeats`
-  // array's last entry).
-  const lastProgressAt = new Map<number, number>();
-  for (const [idx] of slots) {
-    lastProgressAt.set(idx, startedAt);
-  }
-
-  let batchOutcome: AwaitBatchOutcome = 'completed';
-
-  while (slots.size > 0 && now() - startedAt < effective) {
-    let allDone = true;
-    for (const [idx, slot] of slots) {
-      if (slot.finishedAt !== null) continue;
-      const outcome = readOutcome(slot.recordPath);
-      if (outcome === null) {
-        allDone = false;
-        continue;
-      }
-      // The default readOutcome returns the on-disk `status`. We map
-      // a small set of values to the per-dispatch status union.
-      // Slice 2026-07-30-nightshift: also capture the optional
-      // `outcome` field so the per-IDE note can surface the human
-      // reason (e.g. "mock failure at leaf-2"). The `outcome` is read
-      // alongside the `status` via `readRecord` and surfaced into
-      // `slot.note` for failed dispatches; for done/cancelled the
-      // note is left null (matches the pre-nightshift contract).
-      // `stale` is mapped to `timeout` so the per-IDE note preserves
-      // the human-readable reason (cursor / claude-code both surface
-      // `stale` on the wire but the BatchResult.status union only
-      // knows `timeout`).
-      const record = readRecord(slot.recordPath);
-      if (outcome === 'done' || outcome === 'success') {
-        slot.status = 'done';
-        slot.note = null;
-        slot.finishedAt = now();
-        lastProgressAt.set(idx, now());
-      } else if (outcome === 'failed') {
-        slot.status = 'failed';
-        slot.note = record.outcome ?? null;
-        slot.finishedAt = now();
-        lastProgressAt.set(idx, now());
-      } else if (outcome === 'cancelled') {
-        slot.status = 'cancelled';
-        slot.note = null;
-        slot.finishedAt = now();
-        lastProgressAt.set(idx, now());
-      } else if (outcome === 'stale') {
-        slot.status = 'timeout';
-        slot.note = 'stale';
-        slot.finishedAt = now();
-        lastProgressAt.set(idx, now());
-      } else {
-        // Any other status (queued / running / finalizing /
-        // never-started / unreadable) means the dispatch has not
-        // reached a terminal state yet.
-        allDone = false;
-      }
-    }
-    if (allDone) break;
-
-    // No-progress watchdog: if every slot has been without observable
-    // progress for `noProgressBudget`, escalate.
-    if (now() - startedAt < effective) {
-      const allStalled = Array.from(slots.entries()).every(
-        ([idx, slot]) =>
-          slot.finishedAt !== null ||
-          now() - (lastProgressAt.get(idx) ?? startedAt) >= noProgressBudget
-      );
-      if (allStalled && slots.size > 0) {
-        batchOutcome = 'no-progress';
-        break;
-      }
-    }
-
-    // Sleep a tick.
-    await new Promise<void>((resolveSleep) =>
-      schedule(() => resolveSleep(), DEFAULT_POLL_INTERVAL_MS)
-    );
-  }
-
-  // Post-loop batch outcome:
-  //   - `completed` — every slot reached a terminal state
-  //   - `timed-out` — at least one slot is still pending and the
-  //     effective budget elapsed
-  //   - `clamped` — the caller's `requestedTimeoutMs` exceeded the
-  //     hard cap (AC-3.2). The loop still ran the effective budget;
-  //     `clamped` takes precedence over `timed-out` because the
-  //     caller specifically asked for more than the cap and the
-  //     caller needs to know the cap was applied (the timeout is
-  //     secondary information).
-  //   - `no-progress` — the watchdog fired (AC-3.4)
-  if (batchOutcome === 'completed' && slots.size > 0) {
-    const allReached = Array.from(slots.values()).every((s) => s.finishedAt !== null);
-    if (!allReached) {
-      batchOutcome = requestedClamped ? 'clamped' : 'timed-out';
-    }
-  }
-  if (batchOutcome === 'completed' && requestedClamped) {
-    batchOutcome = 'clamped';
-  }
-
-  // Build the per-dispatch results in dispatchIndex order.
-  // Slice 2026-07-30-nightshift: the per-IDE note construction is
-  // rewritten to match the 1.4 dogfood contract:
-  //   - claude-code (no notePrefix): note = slot.note (the raw
-  //     outcome, or null when done/cancelled)
-  //   - other IDEs (notePrefix set):
-  //       - on timeout:                  `${notePrefix} (timeout)`
-  //       - on failed (with outcome):    `${notePrefix} — ${outcome}`
-  //       - on failed (no outcome):      `${notePrefix}`
-  //       - on done / cancelled:         `${notePrefix}`
-  const results: AwaitBatchResult['results'] = Array.from(slots.entries())
-    .sort(([a], [b]) => a - b)
-    .map(([idx, slot]) => {
-      const finishedAt = slot.finishedAt ?? startedAt + effective;
-      const baseNote = options.notePrefix ?? null;
-      let note: string | null;
-      if (baseNote === null) {
-        // Claude-Code path: surface the raw outcome (no per-IDE prefix).
-        note = slot.note;
-      } else if (slot.finishedAt === null) {
-        // Timed-out slot: keep the legacy ` (timeout)` suffix.
-        note = `${baseNote} (timeout)`;
-      } else if (slot.status === 'failed' && slot.note !== null && slot.note.length > 0) {
-        // Failed with a human reason: `${notePrefix} — ${outcome}`.
-        note = `${baseNote} — ${slot.note}`;
-      } else if (slot.note !== null && slot.note.length > 0) {
-        // Non-failed terminal slot with a non-null note (e.g. cursor /
-        // claude-code `stale` → status=timeout, note='stale'):
-        // `${notePrefix} — ${note}` so the human reason is surfaced.
-        // Slice 2026-07-30-nightshift: previously this branch dropped
-        // the slot's note entirely (the bare-prefix else swallowed
-        // it). The 1.4 dogfood for `stale` flips the contract.
-        note = `${baseNote} — ${slot.note}`;
-      } else {
-        // Done / cancelled / failed-without-reason: bare prefix.
-        note = baseNote;
-      }
-      return {
-        dispatchIndex: idx,
-        recordPath: slot.recordPath,
-        status: slot.status,
-        durationMs: finishedAt - startedAt,
-        note
-      };
-    });
-
-  // Fail-fast de-escalation: when the env var is set, surface the
-  // typed outcome but do not let it influence the per-dispatch
-  // results. This preserves the pre-S4 silent-return shape so a
-  // stuck session can be unblocked by flipping the flag.
-  if (
-    FAILFAST_DISABLED &&
-    (batchOutcome === 'timed-out' || batchOutcome === 'no-progress' || batchOutcome === 'clamped')
-  ) {
-    batchOutcome = 'completed';
-  }
-
-  return {
-    results,
-    outcome: batchOutcome,
-    requestedTimeoutMs: requested,
-    effectiveTimeoutMs: effective,
-    hardCapMs: hardCap
-  };
+  return { now, schedule, readOutcome, readRecord };
 }
 
-function defaultReadOutcome(recordPath: string): { status: string | null; outcome: string | null } {
-  if (!recordPath) return { status: null, outcome: null };
-  try {
-    if (!existsSync(recordPath)) return { status: null, outcome: null };
-    const raw = readFileSync(recordPath, 'utf8');
-    const obj = JSON.parse(raw) as { status?: unknown; outcome?: unknown };
-    const status = typeof obj.status === 'string' ? obj.status : null;
-    const outcome = typeof obj.outcome === 'string' ? obj.outcome : null;
-    return { status, outcome };
-  } catch {
-    return { status: null, outcome: null };
+/**
+ * Post-loop batch outcome:
+ *   - `completed` — every slot reached a terminal state
+ *   - `timed-out` — at least one slot is still pending and the
+ *     effective budget elapsed
+ *   - `clamped` — the caller's `requestedTimeoutMs` exceeded the
+ *     hard cap (AC-3.2). The loop still ran the effective budget;
+ *     `clamped` takes precedence over `timed-out` because the
+ *     caller specifically asked for more than the cap and the
+ *     caller needs to know the cap was applied (the timeout is
+ *     secondary information).
+ *   - `no-progress` — the watchdog fired (AC-3.4)
+ */
+function resolveBatchOutcome(
+  batchOutcome: AwaitBatchOutcome,
+  slots: Map<number, { finishedAt: number | null }>,
+  requestedClamped: boolean
+): AwaitBatchOutcome {
+  let outcome = batchOutcome;
+  if (outcome === 'completed' && slots.size > 0) {
+    const allReached = Array.from(slots.values()).every((s) => s.finishedAt !== null);
+    if (!allReached) {
+      outcome = requestedClamped ? 'clamped' : 'timed-out';
+    }
   }
+  if (outcome === 'completed' && requestedClamped) {
+    outcome = 'clamped';
+  }
+  return outcome;
+}
+
+/** The de-escalation itself: the flag only ever downgrades to `completed`. */
+function deescalateOutcome(
+  batchOutcome: AwaitBatchOutcome,
+  failfastDisabled: boolean
+): AwaitBatchOutcome {
+  if (
+    failfastDisabled &&
+    (batchOutcome === 'timed-out' || batchOutcome === 'no-progress' || batchOutcome === 'clamped')
+  ) {
+    return 'completed';
+  }
+  return batchOutcome;
 }
