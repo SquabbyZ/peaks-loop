@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-09-25T16:10:49.404Z",
+  "updatedAt": "2026-09-30T03:36:20.729Z",
   "hot": {
     "rule": [
       {
@@ -1062,6 +1062,14 @@
         "updatedAt": "2026-09-24"
       },
       {
+        "name": "a-guard-keyed-on-a-file-path-shrinks-silently-when-you-split-that-file",
+        "kind": "lesson",
+        "description": "Three independent guards in this repo decide what to measure by PATH, so moving code into a sibling removes it from c...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\a-guard-keyed-on-a-file-path-shrinks-silently-when-you-split-that-file.md",
+        "sourceArtifact": ".peaks/_runtime/2026-09-29-session-b7cf21/txt/handoff.md",
+        "updatedAt": "2026-09-30"
+      },
+      {
         "name": "a-hand-maintained-allow-list-that-points-at-an-old-machine-path-is-a-silent-gate-not-a-working-one",
         "kind": "lesson",
         "description": "failed on every workspace that used caller bindings because  listed only one of the eight runtime dirs the code actua...",
@@ -1188,6 +1196,14 @@
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\2026-08-11-f2-detached-arch-closure-and-4-0-21-publish-sediment.md",
         "sourceArtifact": null,
         "updatedAt": "2026-09-23"
+      },
+      {
+        "name": "five-leaves-per-file-no-finding-rise-summed-to-a-repo-wide-rise-of-four",
+        "kind": "lesson",
+        "description": "A ratchet that only bounds totals is blind to where the total came from, and a leaf verifying its own two files canno...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\five-leaves-per-file-no-finding-rise-summed-to-a-repo-wide-rise-of-four.md",
+        "sourceArtifact": ".peaks/_runtime/2026-09-29-session-b7cf21/txt/handoff.md",
+        "updatedAt": "2026-09-30"
       },
       {
         "name": "formal-rigor-in-argument-is-not-goal-attainment",
