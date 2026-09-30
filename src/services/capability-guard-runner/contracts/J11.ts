@@ -48,6 +48,11 @@ const FORBIDDEN_SHIM_PATTERNS: ReadonlyArray<RegExp> = [
  * The previous version listed doctor/audit/openspec files and passed if any of
  * them mentioned "doctor", "audit", "openspec" or "health" — `doctor-service.ts`
  * satisfies that from its own filename.
+ *
+ * The `checks/` directory is counted, not merely read: it must contain ONLY
+ * check modules, because `PLUGINS.length === <its file count>` is the
+ * invariant — a helper placed there reads as a check with no registered
+ * plugin, which is how a pure hoist silently broke this gate.
  */
 export async function runJ11Contract(ctx: GuardContext): Promise<GuardRunResult> {
   const row = requireBaselineRow(ctx);

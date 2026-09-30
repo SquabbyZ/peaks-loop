@@ -44,9 +44,9 @@ import {
   dedupeVersions,
   existsSafe,
   type PeaksBinaryRecord
-} from './multi-binary-drift-helpers.js';
+} from '../multi-binary-drift-helpers.js';
 
-export type { PeaksBinaryRecord } from './multi-binary-drift-helpers.js';
+export type { PeaksBinaryRecord } from '../multi-binary-drift-helpers.js';
 
 /**
  * Pure helper. Inspects `process.env.PATH` (or the injected
