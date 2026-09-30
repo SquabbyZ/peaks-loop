@@ -730,19 +730,12 @@ export function registerRequestCommands(program: Command, io: ProgramIO): void {
       if (error instanceof FileSizeViolationError) {
         printResult(
           io,
-          fail(
-            'request.transition',
-            error.code,
-            error.message,
-            { violations: error.violations, threshold: error.threshold },
-            [
-              ...error.violations.map(
-                (v) =>
-                  `Split ${v.file} (${v.lines} lines) into smaller modules (< ${error.threshold} lines)`
-              ),
-              'Or bypass with: --allow-incomplete --reason "<justification>"'
-            ]
-          ),
+          fail('request.transition', error.code, error.message, { violations: error.violations }, [
+            ...error.violations.map(
+              (v) => `Split ${v.file} (${v.lines} lines) below its ${v.cap}-line cap`
+            ),
+            'Or bypass with: --allow-incomplete --reason "<justification>"'
+          ]),
           options.json
         );
         process.exitCode = 1;

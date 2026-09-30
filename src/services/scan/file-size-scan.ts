@@ -2,7 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
-export const DEFAULT_FILE_SIZE_THRESHOLD = 800;
+import { countRawLines, fileSizeCapFor } from './file-size-policy.js';
 
 /**
  * Paths exempt from the file-size cap. The cap is Karpathy's "Simplicity
@@ -66,11 +66,17 @@ export function isSizeCapExempt(file: string): boolean {
 export type FileSizeViolation = {
   file: string;
   lines: number;
+  /** The cap this file was measured against, resolved per path by the policy
+   *  module (300 raw lines; 500 under root `tests/`), or the caller's override. */
+  cap: number;
 };
 
 export type FileSizeScanResult = {
   ok: boolean;
-  threshold: number;
+  /** The caller's `threshold` override, or `null` when every file was measured
+   *  against its own policy cap. One number cannot describe a two-cap policy,
+   *  so the number that decided a file travels on that file's violation. */
+  threshold: number | null;
   checkedFiles: number;
   /** Paths skipped by SIZE_CAP_EXEMPT_PATTERNS (tool output + append-only
    *  records). Reported so the exemption is auditable rather than a silent
@@ -87,7 +93,11 @@ export type FileSizeScanOptions = {
   projectRoot: string;
   /** Compare working tree against this ref. Default 'HEAD'. */
   baseRef?: string;
-  /** Line count threshold. Default 800. */
+  /**
+   * Line count threshold applied to EVERY file. When omitted, each file is
+   * measured against the cap `file-size-policy.ts` defines for its directory —
+   * the policy is the default, this option only overrides it.
+   */
   threshold?: number;
 };
 
@@ -122,13 +132,14 @@ function getChangedFiles(projectRoot: string, baseRef: string): string[] {
 }
 
 function countLines(filePath: string): number {
-  const content = readFileSync(filePath, 'utf8');
-  return content.split(/\r?\n/).length;
+  return countRawLines(readFileSync(filePath, 'utf8'));
 }
 
 export function scanFileSize(options: FileSizeScanOptions): FileSizeScanResult {
   const baseRef = options.baseRef ?? 'HEAD';
-  const threshold = options.threshold ?? DEFAULT_FILE_SIZE_THRESHOLD;
+  // `null` here means "the policy decides, per file" — the cap is a property of
+  // the path (300 raw lines; 500 under root `tests/`), not of the run.
+  const override = options.threshold ?? null;
   const files = getChangedFiles(options.projectRoot, baseRef);
   const violations: FileSizeViolation[] = [];
   const deletedFiles: string[] = [];
@@ -162,14 +173,15 @@ export function scanFileSize(options: FileSizeScanOptions): FileSizeScanResult {
     }
     checkedFiles += 1;
     const lines = countLines(absolute);
-    if (lines > threshold) {
-      violations.push({ file, lines });
+    const cap = override ?? fileSizeCapFor(file);
+    if (lines > cap) {
+      violations.push({ file, lines, cap });
     }
   }
 
   return {
     ok: violations.length === 0,
-    threshold,
+    threshold: override,
     checkedFiles,
     exemptFiles,
     deletedFiles,

@@ -7,7 +7,11 @@ import {
   isAcceptanceCoverageError
 } from '../../services/scan/acceptance-coverage-service.js';
 import { getDiffVsScope, isDiffScopeError } from '../../services/scan/diff-scope-service.js';
-import { scanFileSize, DEFAULT_FILE_SIZE_THRESHOLD } from '../../services/scan/file-size-scan.js';
+import { scanFileSize } from '../../services/scan/file-size-scan.js';
+import {
+  FILE_SIZE_CAP_DEFAULT,
+  FILE_SIZE_CAP_TESTS
+} from '../../services/scan/file-size-policy.js';
 import { scanLibraries } from '../../services/scan/libraries-service.js';
 import {
   scanApiSurface,
@@ -388,7 +392,10 @@ export function registerScanCommands(program: Command, io: ProgramIO): void {
       )
       .requiredOption('--project <path>', 'target project root')
       .option('--base-ref <ref>', 'compare working tree against this git ref (default: HEAD)')
-      .option('--threshold <n>', `line count threshold (default: ${DEFAULT_FILE_SIZE_THRESHOLD})`)
+      .option(
+        '--threshold <n>',
+        `line count applied to EVERY file (default: the file-size policy's per-directory cap — ${FILE_SIZE_CAP_DEFAULT} raw lines, ${FILE_SIZE_CAP_TESTS} under root tests/)`
+      )
   ).action((options: FileSizeScanOptions) => {
     try {
       const threshold =
@@ -403,7 +410,7 @@ export function registerScanCommands(program: Command, io: ProgramIO): void {
       const nextActions: string[] = [];
       if (!result.ok) {
         nextActions.push(
-          `${result.violations.length} file(s) exceed ${result.threshold} lines. Split into smaller modules.`
+          `${result.violations.length} file(s) exceed their file-size cap. Split into smaller modules.`
         );
       }
       printResult(io, ok('scan.file-size', result, [], nextActions), options.json);

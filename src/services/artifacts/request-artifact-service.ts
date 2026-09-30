@@ -704,7 +704,7 @@ export async function transitionRequestArtifact(
   ) {
     const sizeResult = scanFileSize({ projectRoot: options.projectRoot });
     if (!sizeResult.ok) {
-      throw new FileSizeViolationError(sizeResult.violations, sizeResult.threshold);
+      throw new FileSizeViolationError(sizeResult.violations);
     }
   }
 

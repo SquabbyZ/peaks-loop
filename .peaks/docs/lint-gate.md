@@ -70,6 +70,7 @@ against real debt:
 | `tscErrors` | 142 | from `tsc -p tsconfig.json --noEmit` |
 | `silentWarningCatchReturnNull` | 41 *(seeded 2026-09-29)* | `catch { return null; }` — the caller cannot tell failure from absence |
 | `silentWarningEmptyCatch` | 59 *(seeded 2026-09-29)* | `catch { /* nothing */ }` — the error vanishes and the run stays green |
+| `fileSizeOverCap` | **174** *(seeded 2026-09-30)* | files over the decided raw-line cap — **300** for `src`/`packages`/`scripts`, **500** for the root `tests/` tree — counted as `readFileSync(f,'utf8').split('\n').length` over `git ls-files` in those four directories. **Not** the `max-lines` finding count: 98 findings under 400-effective is a different population from 174 files over 300/500 raw (§4 slice 5). |
 
 Those last two are counted by the repo's own AST reporter,
 `scripts/lint/silent-warning-detector.mjs`, over **its own scope** — a walk of
@@ -86,6 +87,31 @@ named `Silent-warning ratchet` CI step, and both refuse (exit 1) when the
 detector cannot run — a leg that could not measure contributes no row, and
 certainly no zero.
 
+`fileSizeOverCap` is the third measured-only row and the fourth excluded class: the
+file-size policy is **not** tradable against lint debt either, so it does not live
+inside `eslintFindings`. The policy itself is one module —
+`src/services/scan/file-size-policy.ts`: 300 raw lines for `src/`, `packages/`
+(a `tests/` directory inside a package keeps its parent's 300) and `scripts/`, 500
+for the root `tests/` tree, a line counted as `readFileSync(f,'utf8').split('\n').length`.
+That unit is part of the number: on the same 174 files, split-newline gives 60,982
+excess lines and `wc -l` gives 60,808 — one per file — so the artifact records the
+convention next to the ceiling (`fileSizeLineConvention`).
+`scripts/` is inside the scope because the 174 counts 5 files in it; a row that
+silently excluded them would not equal its own measurement (the §4b class of hole).
+
+The count comes from `scripts/lint/file-size-census.ts` — the only tool that
+imports the `.ts` policy — run through tsx (`node node_modules/tsx/dist/cli.mjs
+scripts/lint/file-size-census.ts --json`) over `git ls-files` of the policy's four
+directories, 1424 files measured 2026-09-30. The gate and the regenerator both
+spawn that one tool, so the seeded ceiling and the row the gate compares are the
+same measurement; nothing types 174. It is enforced in `repo` mode and in the
+named `file-size` mode, and both **refuse (exit 1) when the census cannot run or
+counted nothing** — a leg that could not measure contributes no row, and certainly
+no zero. `tests/unit/standards/file-size-cap.test.ts` holds the claim open by
+counting the tree a third way (a filesystem walk) and asserting the four readings
+agree, and `tests/unit/lint/file-size-gate-leg.test.ts` watches the row go RED on
+one more over-cap file than the ceiling.
+
 ## 4. The descent schedule
 
 Each slice lowers specific ceilings. The order is not arbitrary: **formatting
@@ -98,7 +124,7 @@ so the cap must be settled *after* the bulk format, not before.
 | 2 | Fix `scripts/bench/memory-search-token-cost.mjs` (syntax error since 2.8.0) | `prettierUnparsableFiles` → 0 |
 | 3 | `tsc -p tsconfig.json` — fix all 142 | `tscErrors` → 0 → **flip this leg to hard-fail** |
 | 4 | `prettier --write` the whole scope | `prettierUnformatted` → 0 → **flip this leg to hard-fail** |
-| 5 | Set the file-size cap to **300 raw lines for `src`/`packages`, 500 for `tests`** — in ONE place, currently `max-lines` in `.peaks-rules.cjs` and `DEFAULT_FILE_SIZE_THRESHOLD` in `file-size-scan.ts` disagree (400 effective vs 800 raw), then split what exceeds it. **Re-measured 2026-09-29: still NOT landed, and the two places still disagree** (`max-lines: [error, {max: 400, skipBlankLines, skipComments}]` vs `DEFAULT_FILE_SIZE_THRESHOLD = 800`). Over the decided cap: **263 files** as measured 2026-09-29, **184 files** re-measured 2026-09-30 after waves B1–B3 and C1–C3 — `src` 142, `tests` 35, `packages` 2, `scripts` 5 — 61,352 excess lines, and **174 files** after C wave 4 (`src` 134, `tests` 34, `packages` 1, `scripts` 5; 60,982 excess lines on the same count). The original **237 (180 src + 57 tests)** was a 2026-09-19 count over two dirs only. The cap fires today as **98 `max-lines` findings** under the current 400-effective rule (was 101). Sequence constraint this row does not state: the cap may not be tightened before the splits land, or the ceiling would go UP, which §5 forbids. | `eslintFindings` ↓ |
+| 5 | **POLICY HALF LANDED 2026-09-30 (rid `2026-09-30-cap-unify-01`); the splits are the remaining work.** The cap is now decided in ONE module, `src/services/scan/file-size-policy.ts` — **300 raw lines for `src`/`packages`/`scripts`, 500 for the root `tests/` tree** (a `tests/` dir inside a package keeps its parent's 300), with a line counted as `readFileSync(f,'utf8').split('\n').length`. `DEFAULT_FILE_SIZE_THRESHOLD = 800` is gone: `peaks scan file-size` resolves every changed file's cap from that module, and the whole-tree count has its own ceiling row `fileSizeOverCap` (§3), seeded from `scripts/lint/file-size-census.ts`. **TWO POPULATIONS, MEASURED IN TWO UNITS — do not conflate them.** (i) the lint rule `max-lines: [error, {max: 400, skipBlankLines, skipComments}]` fires **98 findings** (was 101) on **effective** lines; (ii) the decided policy puts **174 files** over **raw** 300/500 — `src` 134, `tests` 34, `packages` 1, `scripts` 5 — with 60,982 excess raw lines (60,808 under `wc -l`; the difference is one line per file). 98 ≠ 174 because blank/comment lines are invisible to (i) and because 400-effective sits above 300-raw. **The eslint rule value is intentionally UNCHANGED until the splits land** — tightening it would move `eslintFindings`, which §5 says may only go DOWN, and (i) is not the number the raw policy needs watched; `fileSizeOverCap` is. Provenance of 174: 263 files measured 2026-09-29, 184 after waves B1–B3 and C1–C3 (`src` 142, `tests` 35, `packages` 2, `scripts` 5; 61,352 excess), **174 after C wave 4** (60,982 excess); the 237 (180 src + 57 tests) was a 2026-09-19 count over two dirs only. What this row now makes visible: any wave that pushes a file past 300 raw reddens a row that previously passed — intended, and the reason the ceiling can only descend by splitting, never by re-deciding the cap. **Second consequence, same decision:** `peaks scan file-size` is diff-scoped and takes its threshold from the same module, and `request transition` (rd → `implemented`, unless `--allow-incomplete`) calls it — so a commit that touches one of the 174 unsplit files now reds that transition too, where 800 raw used to let it through. That is the policy being enforced, not a new bug; the fix is the split, and the documented bypass is `--allow-incomplete --reason`. | `fileSizeOverCap` ↓ (lint rule value and `eslintFindings` untouched) |
 | 6..n | eslint by rule family. **Ordering by family size is the wrong lever** — re-measured 2026-09-30 against the files still over the line cap: cleaning `no-magic-numbers` (the largest family) unlocks **2** blocked files, `complexity` (smaller) unlocks **36**, and all four large families together unlock only **47 of 124** — **22 of those 124 cannot be unlocked by any lint cleaning**, because the blocking code references module-local state. So run slice C **file-scoped and interleaved with the split**, not as four repo-wide sweeps: 47 blocked files have ≥70 % of their shortfall inside a single `register*Commands()` function, where cleaning the family *is* the split. Family sizes re-measured 2026-09-30 at the close of C wave 3: `no-magic-numbers` **624**, `no-non-null-assertion` **547**, `max-lines-per-function` **540**, `complexity` **438**, `no-unused-vars` 160, `consistent-type-imports` 111, `max-lines` 98, `max-params` 58 (measured 2026-09-29: 633 / 559 / 547 / 450 / 161 / 112 / 101). Original 2026-09-19 plan text kept for provenance: `no-unsafe-member-access` (635), `no-magic-numbers` (551), `no-non-null-assertion` (549), `complexity` (414), `max-lines-per-function` (397), `require-await` (310), `no-unused-vars` (273), … — both 635 and 310 are now near-zero (measured **14** and absent on 2026-09-29). | `eslintFindings` → 0 → **flip this leg to hard-fail** |
 
 **Cap reading, decided 2026-09-30:** `packages/*/tests/*.test.ts` counts at **300**, the same as its parent
@@ -150,8 +176,10 @@ red or absent signal look like a passing one.
 | 2 | `packages/peaks-loop-shared` **exited 0 while collecting zero tests** — `passWithNoTests: true`, set on 2026-09-24 so an empty workspace would not fail `pnpm -r run test`, after `08e92d8f` deleted the root mirror tests on the premise that package tests existed. They never did. | `No test files found, exiting with code 0` inside an aggregate that reported green. Fixed by `a2`. |
 | 3 | The silent-warning detector was **red and ungated**: 100 violations, exit 1, referenced only by `package.json#test:ci`, which no workflow calls and no husky hook runs. | `catch-return-null=41`, `empty-catch=59`, scanned 781 files. Fixed by `a3` (two new ceiling rows, §3). |
 | 4 | §4's slice-6 family ordering **was 6 days stale** and pointed the next work at a family that had already been cleared. | `no-unsafe-member-access` 635 → 14; `require-await` 310 → absent. Corrected above. |
+| 5 | The `fileSizeOverCap` row **cannot see the gate itself**: `.husky/` is not one of the policy's four scope dirs, so the largest file the gate owns is never counted by the row it emits. Found by the QA leaf of rid `2026-09-30-cap-unify-01`, 2026-09-30. | `peaks-gate.mjs` = **985 raw lines**, 3.3× the cap it enforces; `git ls-files .husky` = 2 files, `fileSizeOverCap` contribution **0**. Recorded as a scope decision, not fixed: widening the scope to `.husky` would seed the row at 175 the moment it shipped, i.e. the ceiling would rise by re-deciding the scope, which §5 forbids. The honest statement is that the row watches `src`/`tests`/`packages`/`scripts` and does not watch the tooling that reports it. |
+| 6 | The census and `peaks scan file-size` **count different file sets on the untracked axis**: the census reads `git ls-files`, the scan reads the working tree. A 350-line `src/` file that exists on disk but is not staged is visible to the scan and invisible to the row. | Proved on 2026-09-30: with one untracked 350-line `src/` file present, `overCap` stayed **174**. This is the §4e index-versus-worktree gap wearing a third face. It is intended (the row must describe what a commit can contain), and the walk-guard test in `tests/unit/standards/file-size-cap.test.ts` asserts walk == git == tool == artifact so a drift here reddens a test rather than passing quietly. |
 
-**What landed for these four** (branch `strict-remediation-abc`, 2026-09-29): rows 1-3 fixed, row 4
+**What landed for holes 1–4** (branch `strict-remediation-abc`, 2026-09-29): rows 1-3 fixed, row 4
 corrected above. Measured on the combined tree after the repair cycle — `node .husky/peaks-gate.mjs repo`
 checks **1298** files with all 11 rows held and exit 0; `pnpm lint` reports the same 1298 files and the
 same `2878 / 1032`; `vitest run tests/unit` is **322 files / 3559 passed / 3 skipped**; each package's

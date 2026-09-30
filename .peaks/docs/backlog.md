@@ -937,16 +937,19 @@ built to stop numbers being carried forward. Untouched by request.
 
 ### 3.1 Which cap is real
 
-Two constants, and they disagree — deliberately, not by accident:
+**Corrected 2026-09-30 (rid `2026-09-30-cap-unify-01`): the raw-line policy has one
+home now, and `DEFAULT_FILE_SIZE_THRESHOLD = 800` is gone.** Two numbers still
+describe the tree, because they measure different things — that divergence is now
+documented rather than accidental:
 
-| Constant | Where | Unit / scope |
+| Rule | Where | Unit / scope |
 |---|---|---|
-| `max-lines: 400` (error) | `config/eslint/.peaks-rules.cjs:102`, with `skipBlankLines: true, skipComments: true` | **effective** lines (blank + comment lines excluded) — this is the enforced cap |
-| `DEFAULT_FILE_SIZE_THRESHOLD = 800` | `src/services/scan/file-size-scan.ts:5` | **raw** lines, and **diff-scoped** only |
+| **300 raw lines** (`src/`, `packages/`, `scripts/`), **500** for the root `tests/` tree | `src/services/scan/file-size-policy.ts` — read by `src/services/scan/file-size-scan.ts` (diff-scoped `peaks scan file-size`) and counted whole-tree by `scripts/lint/file-size-census.ts`, which seeds the gate's `fileSizeOverCap` ceiling (**174** files as measured 2026-09-30) | **raw** lines, `readFileSync(f,'utf8').split('\n').length` |
+| `max-lines: 400` (error) | `config/eslint/.peaks-rules.cjs:102`, with `skipBlankLines: true, skipComments: true` | **effective** lines (blank + comment lines excluded) — a lint finding, **98** of them. Intentionally unchanged until the splits land; tightening it would raise `eslintFindings`, which `lint-gate.md` §5 forbids. |
 
-`.peaks/docs/lint-gate.md:84` recorded the disagreement (400 effective vs 800 raw) and proposed
-unifying them "in ONE place". That proposal was **not** adopted — the ruling at `lint-gate.md:227`
-keeps `max-lines` 400 / `max-lines-per-function` 50. The disagreement stands.
+`.peaks/docs/lint-gate.md` §4 slice 5 keeps the two populations side by side (98 vs
+174) and §3 carries the `fileSizeOverCap` row; the descent happens by splitting
+files, never by re-deciding the cap.
 
 **`peaks scan file-size` does not audit the tree.** It checks the git diff against `--base-ref`
 (default `HEAD`), so on a clean tree it reports `checkedFiles: 0`. That is correct behaviour, not a

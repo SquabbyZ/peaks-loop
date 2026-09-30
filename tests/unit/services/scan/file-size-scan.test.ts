@@ -1,7 +1,7 @@
 // tests/unit/services/scan/file-size-scan.test.ts
 //
-// 2026-09-10 — `peaks scan file-size` is diff-scoped and flags any changed
-// file over the 800-line cap. `.peaks/memory/index.json` is 2657 lines and is
+// 2026-09-10 — `peaks scan file-size` is diff-scoped and flags any changed file
+// over the cap. `.peaks/memory/index.json` is 2657 lines and is
 // rebuilt wholesale by `peaks memory reindex`, so every commit that reindexes
 // memory reported a violation on a derived index. 2026-09-11 — the same gate
 // fired on every release, on CHANGELOG.md (4747 lines), which no one can
@@ -10,9 +10,17 @@
 // halves of the contract:
 //   - an exempt path (tool output OR append-only record) is skipped and
 //     reported in `exemptFiles`;
-//   - a >800-line change in a REAL source file is still a violation —
+//   - an over-cap change in a REAL source file is still a violation —
 //     an exemption that also hides source files would be worse than the
 //     false positive it removes.
+//
+// THE CAP IS NOT THIS FILE'S EITHER (rid 2026-09-30-cap-unify-01). It used to
+// read `DEFAULT_FILE_SIZE_THRESHOLD = 800`, a number this module owned; the scan
+// now resolves each file's threshold from `file-size-policy.ts` — 300 raw lines,
+// 500 under root `tests/` — the same module the husky gate's `fileSizeOverCap`
+// row counts against. Every cap here is derived from that module, so a change to
+// the policy moves these cases instead of contradicting them, and
+// `tests/unit/standards/file-size-cap.test.ts` fails if a number reappears.
 //
 // Dimensions covered: render (result shape), behavior (matcher + verdicts),
 // integration (real git repo on disk), a11y (CLI exit code / human text).
@@ -29,11 +37,11 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { declareDimensions } from '../../_setup/4dim-template.js';
 import { makeCapturedIo } from '../../_setup/io.js';
 import { registerScanCommands } from '../../../../src/cli/commands/scan-commands.js';
+import { isSizeCapExempt, scanFileSize } from '../../../../src/services/scan/file-size-scan.js';
 import {
-  DEFAULT_FILE_SIZE_THRESHOLD,
-  isSizeCapExempt,
-  scanFileSize
-} from '../../../../src/services/scan/file-size-scan.js';
+  FILE_SIZE_CAP_DEFAULT,
+  FILE_SIZE_CAP_TESTS
+} from '../../../../src/services/scan/file-size-policy.js';
 import { SUBPROCESS_TEST_TIMEOUT_MS } from '../../_setup/subprocess-timeouts.js';
 
 declareDimensions('tests/unit/services/scan/file-size-scan.test.ts', [
@@ -43,7 +51,8 @@ declareDimensions('tests/unit/services/scan/file-size-scan.test.ts', [
   'a11y'
 ]);
 
-const OVER_CAP = DEFAULT_FILE_SIZE_THRESHOLD + 50;
+const OVER_CAP = FILE_SIZE_CAP_DEFAULT + 50;
+const TESTS_OVER_CAP = FILE_SIZE_CAP_TESTS + 50;
 const GENERATED_INDEX = '.peaks/memory/index.json';
 
 function writeLines(relativePath: string, count: number, root: string): void {
@@ -108,16 +117,20 @@ describe('file-size scan — size-cap exemption', () => {
     );
 
     it(
-      'when a >800-line file is added under src/, should still report it as a violation (exemption is not weakened)',
+      'when an over-cap file is added under src/, should still report it as a violation (exemption is not weakened)',
       { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
       () => {
-        // given: a new 850-line module in the real source tree
+        // given: a new over-cap module in the real source tree
         writeLines('src/huge.ts', OVER_CAP, repo);
         // when:  the scan runs
         const result = scanFileSize({ projectRoot: repo });
-        // then:  the acceptance case holds — source is NOT exempt
+        // then:  the acceptance case holds — source is NOT exempt, and the row
+        //        carries the cap that decided it (the policy's, not a default)
         expect(result.ok).toBe(false);
-        expect(result.violations).toEqual([{ file: 'src/huge.ts', lines: OVER_CAP + 1 }]);
+        expect(result.threshold).toBeNull();
+        expect(result.violations).toEqual([
+          { file: 'src/huge.ts', lines: OVER_CAP + 1, cap: FILE_SIZE_CAP_DEFAULT }
+        ]);
         // and the generated index is still exempt in the same run
         expect(result.exemptFiles).toEqual([GENERATED_INDEX]);
       }
@@ -133,22 +146,73 @@ describe('file-size scan — size-cap exemption', () => {
         // when:  the scan runs
         const result = scanFileSize({ projectRoot: repo });
         // then:  the exemption does not reach the tracked diff path either
-        expect(result.violations).toEqual([{ file: 'src/small.ts', lines: OVER_CAP + 1 }]);
+        expect(result.violations).toEqual([
+          { file: 'src/small.ts', lines: OVER_CAP + 1, cap: FILE_SIZE_CAP_DEFAULT }
+        ]);
       }
     );
 
     it(
-      'when a >800-line file is added under tests/, should still report it as a violation',
+      'when an over-cap file is added under tests/, should report it against the tests cap',
       { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
       () => {
-        // given: an oversized test file (tests/ is source too)
-        writeLines('tests/unit/huge.test.ts', OVER_CAP, repo);
+        // given: an oversized test file (tests/ is source too, at 500 raw lines)
+        writeLines('tests/unit/huge.test.ts', TESTS_OVER_CAP, repo);
         // when:  the scan runs
         const result = scanFileSize({ projectRoot: repo });
-        // then:  it is reported
+        // then:  it is reported, and the cap named in the row is the `tests/` one
+        //        — the two-cap policy is a property of the path, not of the run
         expect(result.violations).toEqual([
-          { file: 'tests/unit/huge.test.ts', lines: OVER_CAP + 1 }
+          { file: 'tests/unit/huge.test.ts', lines: TESTS_OVER_CAP + 1, cap: FILE_SIZE_CAP_TESTS }
         ]);
+      }
+    );
+
+    it(
+      'when a tests/ file is over the src cap but under its own, should report no violation',
+      { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+      () => {
+        // given: 400 raw lines — over `FILE_SIZE_CAP_DEFAULT`, under the 500 the
+        //        policy grants the root `tests/` tree
+        writeLines('tests/unit/mid.test.ts', FILE_SIZE_CAP_DEFAULT + 100, repo);
+        // when:  the scan runs
+        const result = scanFileSize({ projectRoot: repo });
+        // then:  the dir-specific cap was applied, not the default one
+        expect(result.violations).toEqual([]);
+        expect(result.ok).toBe(true);
+      }
+    );
+
+    it(
+      'when a package tests file sits over the default cap, should be reported at 300 not 500',
+      { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+      () => {
+        // given: the reading decided 2026-09-30 — a `tests/` dir INSIDE a package
+        //        keeps the package scope's 300, so 350 lines is already a breach
+        writeLines('packages/peaks-loop-shared/tests/x.test.ts', OVER_CAP, repo);
+        // when/then
+        const result = scanFileSize({ projectRoot: repo });
+        expect(result.violations).toEqual([
+          {
+            file: 'packages/peaks-loop-shared/tests/x.test.ts',
+            lines: OVER_CAP + 1,
+            cap: FILE_SIZE_CAP_DEFAULT
+          }
+        ]);
+      }
+    );
+
+    it(
+      'when the caller passes --threshold, should apply it to every file instead of the policy',
+      { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+      () => {
+        // given: a 6-line source file and an override below it
+        // when:  the scan runs with the override
+        const result = scanFileSize({ projectRoot: repo, threshold: 4 });
+        // then:  the override is echoed, and each row carries the cap that was
+        //        used — the policy's 300 would have passed this file
+        expect(result.threshold).toBe(4);
+        expect(result.violations).toEqual([{ file: 'src/small.ts', lines: 7, cap: 4 }]);
       }
     );
 
@@ -170,7 +234,7 @@ describe('file-size scan — size-cap exemption', () => {
       'when a release commit appends an over-cap CHANGELOG.md entry, should exempt it and still check the source it touched (the reported 4.0.37 case)',
       { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
       () => {
-        // given: a >800-line CHANGELOG plus a real source change, both in the diff
+        // given: an over-cap CHANGELOG plus a real source change, both in the diff
         writeLines('CHANGELOG.md', OVER_CAP, repo);
         writeLines('src/small.ts', OVER_CAP, repo);
         // when:  the scan runs
@@ -180,7 +244,9 @@ describe('file-size scan — size-cap exemption', () => {
         expect(result.exemptFiles).toContain('CHANGELOG.md');
         // ...and the exemption is not a blanket amnesty: the source file in the
         // same commit is still counted and still reported.
-        expect(result.violations).toEqual([{ file: 'src/small.ts', lines: OVER_CAP + 1 }]);
+        expect(result.violations).toEqual([
+          { file: 'src/small.ts', lines: OVER_CAP + 1, cap: FILE_SIZE_CAP_DEFAULT }
+        ]);
         expect(result.ok).toBe(false);
       }
     );

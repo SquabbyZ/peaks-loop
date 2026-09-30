@@ -310,6 +310,67 @@ console.error(
     `(detector scanned ${sw.scannedFiles} of its own \`src/\` files, not the ${scope.length} above)`
 );
 
+// ---- file-size census ------------------------------------------------------
+// The third measured-only ceiling, and the one this slice exists to add. The
+// policy — 300 raw lines for `src`/`packages`/`scripts`, 500 for the root
+// `tests/` tree — lives in `src/services/scan/file-size-policy.ts`; the census is
+// the only tool that imports it and counts the whole scope, so the ceiling and
+// the gate's own reading of `fileSizeOverCap` come from ONE measurement path.
+// Nothing here may type the number: 174 is what this run's census reported, and a
+// literal would freeze the ceiling in place of the count — the same defect the
+// silent-warning legs were added to end.
+//
+// FAIL-CLOSED on the same terms as the silent-warning step below: a census that
+// cannot run, or that counted no file, aborts the run BEFORE anything is written.
+// Writing a zero here would seed a ceiling of zero for a number that was never
+// measured, and the ratchet could then never be satisfied again.
+const FS_CENSUS = 'scripts/lint/file-size-census.ts';
+const TSX_CLI = 'node_modules/tsx/dist/cli.mjs';
+
+function measureFileSizeOverCap() {
+  let raw = '';
+  try {
+    raw = execFileSync('node', [TSX_CLI, FS_CENSUS, '--json'], {
+      cwd: ROOT,
+      encoding: 'utf8',
+      maxBuffer: 64 * 1024 * 1024
+    });
+  } catch (err) {
+    raw = err.stdout ?? ''; // exit 1 means over-cap files exist; the envelope is still on stdout
+  }
+  let env;
+  try {
+    env = JSON.parse(raw);
+  } catch {
+    return { failure: `${FS_CENSUS} --json produced no parseable envelope` };
+  }
+  if (!Number.isInteger(env.overCap) || env.overCap < 0) {
+    return { failure: `${FS_CENSUS} produced an envelope with no integer overCap` };
+  }
+  if (!Number.isInteger(env.scope?.countedFiles) || env.scope.countedFiles <= 0) {
+    return { failure: `${FS_CENSUS} counted 0 files, so it measured nothing` };
+  }
+  return { failure: null, env };
+}
+
+console.error('running the file-size census...');
+const size = measureFileSizeOverCap();
+if (size.failure !== null) {
+  console.error(
+    `\nREFUSING to write ${rel(OUT_PATH)}: ${size.failure}.\n` +
+      '  Nothing has been written; the existing ceilings are untouched.\n'
+  );
+  process.exit(1);
+}
+const sizeBuckets = Object.entries(size.env.byDir ?? {})
+  .map(([dir, totals]) => `${dir} ${totals.files}`)
+  .join(', ');
+console.error(
+  `file-size: ${size.env.overCap} of ${size.env.scope.countedFiles} file(s) over the policy cap ` +
+    `(${size.env.caps.defaultCap}/${size.env.caps.testsCap} raw lines; ${sizeBuckets}; ` +
+    `${size.env.excessLines} excess lines)`
+);
+
 // ---- write -----------------------------------------------------------------
 const files = {};
 for (const file of scope) {
@@ -350,8 +411,14 @@ writeFileSync(
         prettierUnparsableFiles: unparsable.length,
         tscErrors,
         silentWarningCatchReturnNull: sw.catchReturnNull,
-        silentWarningEmptyCatch: sw.emptyCatch
+        silentWarningEmptyCatch: sw.emptyCatch,
+        fileSizeOverCap: size.env.overCap
       },
+      // The unit the row above is counted in, copied off the census envelope
+      // rather than restated: `split('\n').length` and `wc -l` differ by one per
+      // file, so 174 files is a 174-line ambiguity unless the artifact says
+      // which convention produced it.
+      fileSizeLineConvention: size.env.convention,
       coverageGapFiles,
       syntaxErrorFiles,
       notLinted,

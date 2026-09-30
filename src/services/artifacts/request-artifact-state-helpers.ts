@@ -106,18 +106,16 @@ export class TypeSanityViolationError extends Error {
 
 export class FileSizeViolationError extends Error {
   readonly code = 'FILE_SIZE_VIOLATION';
-  readonly violations: Array<{ file: string; lines: number }>;
-  readonly threshold: number;
-  constructor(violations: Array<{ file: string; lines: number }>, threshold: number) {
-    const summary = violations.map((v) => `${v.file} (${v.lines} lines)`).join(', ');
+  readonly violations: Array<{ file: string; lines: number; cap: number }>;
+  constructor(violations: Array<{ file: string; lines: number; cap: number }>) {
+    const summary = violations.map((v) => `${v.file} (${v.lines} lines, cap ${v.cap})`).join(', ');
     super(
-      `File size violation: ${violations.length} file(s) exceed ${threshold} lines: ${summary}. ` +
+      `File size violation: ${violations.length} file(s) exceed their file-size cap: ${summary}. ` +
         'Split into smaller modules, or consider reusing existing components / existing API data ' +
         '(karpathy-guidelines §2 Simplicity First), or use --allow-incomplete to bypass.'
     );
     this.name = 'FileSizeViolationError';
     this.violations = violations;
-    this.threshold = threshold;
   }
 }
 
