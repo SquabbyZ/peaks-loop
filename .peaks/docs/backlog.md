@@ -1456,3 +1456,21 @@ name is what an operator greps for when a transition fails. A filename that look
 invites exactly the kind of "is this stale / from another run?" misjudgement this campaign keeps
 recording. Not fixed here: it is a naming bug in the init path, it needs a test that asserts the written
 filename equals the rid, and that test must fail against today's behavior before anything changes.
+
+### 2.26 The request-record placeholder lint flags real shell syntax, and `LINT_GATE_FAILED` never says which artifact (found 2026-10-01, C wave 6)
+
+`peaks request transition --role rd --state implemented` refused C wave 6 with **"6 lint error(s)
+found in artifact"** and no path. `peaks request lint --role rd` on the same rid reported **ok:true**,
+which is how it was traced: the two commands do not lint the same set, and the refusing one names
+nothing. The six findings were the literal instruction **`git show HEAD:<path>`** — text a brief author
+writes to tell a leaf how to get HEAD content — being reported as "Contains an unfilled `<placeholder>`
+token". Two separate defects, both cheap to describe and neither fixed here:
+
+1. **The placeholder heuristic cannot tell a template slot from shell/CLI syntax.** Any honest envelope
+   that quotes a command with a metavariable (`HEAD:<path>`, `--project <path>`, `--files <list>`) is
+   now a lint error, so the more precisely an implementer documents what it ran, the more likely the
+   gate refuses it. Reproduce: put `` `git show HEAD:<path>` `` in any `rd/requests/*.md` for a fresh rid
+   and attempt `implemented`.
+2. **A refusal that names no artifact is undiagnosable from the user's side.** The envelope should carry
+   the path it linted (and the sibling set it covered) — otherwise the only way to find out is to
+   grep every file in the session dir for `<`, which is what happened here.
