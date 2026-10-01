@@ -1201,7 +1201,45 @@ becomes a multi-hour memory outage on a 15.75 GB box. Fix is a constant — `5 *
 that asserts the value is 300000 and that a task exceeding it is killed, so the unit cannot silently
 return. Test first: today no test reads `EXEC_TIMEOUT_MS` at all.
 
+**RESOLVED 2026-10-01 (rid `2026-10-01-cron-exec-timeout-01`, test-first).** `EXEC_TIMEOUT_MS` is now
+`5 * SECONDS_PER_MINUTE * MS_PER_SECOND` = **300,000 ms (5 minutes)** — the arithmetic no longer mixes
+`MINUTES_PER_HOUR` into a per-minute value, and `MINUTES_PER_HOUR` was dropped from the import so it is
+not left unused. It is also `export`ed and `runTask` gained a defaulted test seam
+(`timeoutMs: number = EXEC_TIMEOUT_MS`) so the timeout can be proven — production callers pass nothing
+and are byte-identical; this is NOT the deferred per-entry `timeoutMs` and is not read from config.
+
+Evidence — written red first, then green:
+- Red (before the constant change), `tests/unit/cli/commands/cron-exec-timeout.test.ts`:
+  `AssertionError: expected 18000000 to be 300000` — the guard measured the buggy 5-hour value.
+- Green (after): 6/6 pass. The guard asserts (a) `EXEC_TIMEOUT_MS === 300000` and `!== 5 h`; (b) a real
+  `execSync` child that outlives a short injected timeout is reported `ETIMEDOUT`/killed; (c) `runTask`
+  with a short injected timeout records a non-zero exit (does not return success); (d) **positive
+  control** — the same task with a generous timeout exits 0, so (c) cannot pass by the child never
+  running.
+- Whole-repo ratchet held: `node .husky/peaks-gate.mjs repo` exit 0 with eslintFindings 2803 /
+  eslintErrors 997 / fileSizeOverCap 166 **unchanged** (the constant keeps exactly its one baseline
+  `no-magic-numbers` warning on the `5`; the new test file carries 0 findings). `pnpm test:unit` exit 0:
+  331 files / 3620 passed / 3 skipped (baseline 330 / 3614 / 3, +this file / +6 tests). `pnpm build` exit 0.
+
+**This closes the AMPLIFIER only.** The *emitter* — what spawns the `peaks worktree list` burst in the
+first place — remains unidentified (`.peaks/docs/diagnosis-2026-10-01-worktree-list-population.md` §8);
+a shorter timeout reaps a stalled child faster, it does not stop the spawn. The leak watcher stays armed.
+
+**Deliberately deferred (recorded follow-up, not this slice):** a per-entry `timeoutMs` on
+`ScheduleEntry` (or config) so a legitimately long task can opt out of the 5-minute ceiling. Honoring
+five minutes is safe today — the only built-in task (`lease-gc-daily` → `peaks worktree list`) completes
+in 745–767 ms — but a downstream consumer with a >5-minute task would need this knob, and it belongs in
+its own slice rather than smuggled in behind a constant fix.
+
 ### 2.22 `cron-commands.ts`'s header comment describes a task the code does not register (found 2026-10-01)
+
+**RESOLVED 2026-10-01 (rid `2026-10-01-cron-exec-timeout-01`, comment-only).** The header was corrected
+to describe what `cron-commands-schedule.ts` actually registers: `lease-gc-daily` runs `peaks worktree
+list` (a daily LISTING that refreshes the alive-lease set; operators prune a stale lease manually with
+`peaks worktree gc --lease-id <id>`), not `peaks worktree gc --all-sessions`. No intent had to be
+guessed — the registered `command:'worktree', args:['list']` and the entry's own `name`
+("Daily lease listing …") both say `list`, so the header was simply stale and was made to match the
+code. No behavior changed.
 
 The file header says the built-in `lease-gc-daily` "runs `peaks worktree gc --all-sessions`";
 `cron-commands-schedule.ts:164` registers `command: 'worktree'`, `args: ['list']`. The shipped 4.0.54

@@ -8,10 +8,13 @@
  * (`skills/peaks-code/`) checks on every session start.
  *
  * Built-in tasks (the only ones auto-registered today):
- *   - `lease-gc-daily` — runs `peaks worktree gc --all-sessions
- *     --project .` once every 24h. Cleans up orphan leases that
- *     leaked past their auto-release hook (Part 3.A) — the
- *     safety net for the safety net.
+ *   - `lease-gc-daily` — runs `peaks worktree list` once every 24h. This is a
+ *     daily lease LISTING that refreshes the alive-lease set; operators prune
+ *     a specific stale lease on demand with `peaks worktree gc --lease-id
+ *     <id>`. (Fixed in rid 2026-10-01-cron-exec-timeout-01 §2.22: this header
+ *     previously claimed the task ran `peaks worktree gc --all-sessions`,
+ *     which is not what `cron-commands-schedule.ts` registers — the code and
+ *     the entry's own name say `list`.)
  *
  * Why a JSON file (not a real cron daemon): peaks-loop is a CLI
  * tool, not a service. The schedule is best-effort: the runbook
@@ -41,7 +44,6 @@ import { getErrorMessage } from 'peaks-loop-shared/result';
 import { addJsonOption, type ProgramIO } from '../cli-helpers.js';
 import {
   appendHistory,
-  MINUTES_PER_HOUR,
   MS_PER_SECOND,
   SECONDS_PER_MINUTE,
   type RunRecord,
@@ -56,11 +58,28 @@ export type { ScheduleEntry, ScheduleFile, RunRecord } from './cron-commands-sch
  * PRD-002b slice 2 — cron-orchestration magic numbers, exec half. The
  * interval/truncation constants live with the code that renders them
  * (`cron-commands-schedule.ts` / `cron-commands-actions.ts`).
+ *
+ * Per-task exec timeout — FIVE MINUTES (300,000 ms). `runTask` hands this to
+ * `execSync(…, { timeout })`, so a task child that stalls is reaped within five
+ * minutes rather than inherited. Fixed in rid 2026-10-01-cron-exec-timeout-01:
+ * this constant previously read `5 * MINUTES_PER_HOUR * SECONDS_PER_MINUTE *
+ * MS_PER_SECOND`, and `MINUTES_PER_HOUR * SECONDS_PER_MINUTE * MS_PER_SECOND`
+ * is one HOUR, so the value was 18,000,000 ms (5 h) — five times too long,
+ * contradicting the name and the intent. See backlog §2.21.
  */
-const EXEC_TIMEOUT_MS = 5 * MINUTES_PER_HOUR * SECONDS_PER_MINUTE * MS_PER_SECOND;
+export const EXEC_TIMEOUT_MS = 5 * SECONDS_PER_MINUTE * MS_PER_SECOND;
 const STDERR_RECORD_TRUNCATE_BYTES = 2000;
 
-export function runTask(projectRoot: string, task: ScheduleEntry): RunRecord {
+export function runTask(
+  projectRoot: string,
+  task: ScheduleEntry,
+  // Test seam only: defaults to EXEC_TIMEOUT_MS so every production caller
+  // (`runTargets`, the scheduler loop) is byte-identical. This is NOT a
+  // per-entry `timeoutMs` (deferred follow-up) and is not read from config;
+  // it exists so a test can inject a short timeout and prove a stalled
+  // child is reaped rather than inherited.
+  timeoutMs: number = EXEC_TIMEOUT_MS
+): RunRecord {
   const id = randomUUID();
   const startedAt = Date.now();
   let exitCode = 0;
@@ -72,7 +91,7 @@ export function runTask(projectRoot: string, task: ScheduleEntry): RunRecord {
         cwd: projectRoot,
         stdio: ['ignore', 'pipe', 'pipe'],
         encoding: 'utf8',
-        timeout: EXEC_TIMEOUT_MS,
+        timeout: timeoutMs,
         windowsHide: true
       }
     );
