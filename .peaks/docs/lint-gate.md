@@ -663,3 +663,50 @@ command; with a clean new file → **exit 0**.
 报出 7 个与源码无关的错误。现已改成对这种形态报"先跑 `pnpm build`"。
 
 **循环因此增加一步：跑 `pnpm test:unit` 之前先 `pnpm build`。**
+
+### 4k. What 2803 is actually made of (full histogram, measured 2026-10-01)
+
+Reproduced with the regenerator's own invocation — `git ls-files` filtered to the four top dirs and the
+seven extensions (**1444 files**), `eslint --config config/eslint/.peaks-rules.cjs --no-ignore
+--format json`, batches of 150, fatal messages excluded, phantom rules subtracted. **Total 2803, exactly
+the ceiling; 997 errors, 1806 warnings; 33 distinct ruleIds; 0 null-ruleId messages.** 674 files carry
+everything and **770 files are clean**, so this is a concentrated debt, not a diffuse one: the ten
+dirtiest files hold 292 findings (10.4 % of the total).
+
+| ruleId | findings | sev2 |
+|---|---|---|
+| `no-magic-numbers` | 623 | 0 |
+| `@typescript-eslint/no-non-null-assertion` | 547 | 0 |
+| `max-lines-per-function` | 529 | 529 |
+| `complexity` | 431 | 0 |
+| `@typescript-eslint/no-unused-vars` | 160 | 160 |
+| `@typescript-eslint/consistent-type-imports` | 111 | 0 |
+| `max-lines` | 98 | 98 |
+| `max-params` | 58 | 0 |
+| `@typescript-eslint/no-base-to-string` | 39 | 39 |
+| `@typescript-eslint/no-require-imports` | 26 | 26 |
+| `no-duplicate-imports` 22, `no-useless-escape` 16, `no-unnecessary-type-assertion` 16, `no-control-regex` 15, `prefer-const` 14, `no-unsafe-member-access` 14, `await-thenable` 11, then 16 rules at ≤ 9 | 246 | — |
+
+**The intersection that decides slice 5/6 ordering.** Of the **166** files over the 300/500 raw-line cap,
+they hold **1263 findings (45.1 % of 2803), 519 of them errors** — and **only 3 of the 166 are
+lint-clean**: `scripts/packages-build-prerequisite.mjs` (+834),
+`src/services/codegraph/codegraph-index-integrity.ts` (+367) and
+`tests/unit/scripts/packages-build-prerequisite.test.ts` (+221). Because a new file must be clean
+outright, class A is effectively extinct in the remaining queue: 163 of 166 files require finding-fixing
+before they can be shortened, and the families sitting inside them are exactly the ones already at the
+top — `max-lines-per-function` 277, `no-non-null-assertion` 240, `no-magic-numbers` 219, `complexity` 211,
+`max-lines` 96. This is §4 row 6's "run slice C file-scoped and interleaved with the split" measured
+again, and it says the interleaving is no longer a strategy preference but the only remaining shape.
+
+**A measurement-surface hole this run exposed.** §4 row 6 records family sizes as a top-eight list, and
+that list is all the campaign has ever kept. Between the wave-3 record (624 / 547 / 540 / 438 / 160 / 111
+/ 98 / 58) and this one the top eight fell by **19**, while `eslintFindings` stayed **2803** — so 19
+findings moved into the tail and **nothing in the docs can say which rules**, because no prior full
+histogram exists. The fix is not a new rule, it is a habit: a composition claim needs the whole tail
+recorded, or the number can shift between families without ever tripping the single ceiling that is being
+ratcheted. The full 33-rule breakdown is now committed in this section, so the next such move is visible.
+
+Also correcting my own earlier citation: the histogram quoted in the C wave 5 and cap-unify commit
+messages (619 / 545 / 524 / 423 over a total of 2823) was measured over **1485 files including parse
+messages and files outside the gate's four dirs** — a different measurement surface from the gate's. The
+gate-scope numbers are the ones in this section.
