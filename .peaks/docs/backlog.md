@@ -1179,3 +1179,37 @@ positive control that a moved line turns it red (the `vitest-worker-cap.test.ts`
 cap → the guard goes red), or it asserts existence only, in which case the docs must stop writing
 `:NN` as if it were checked, because a reader will trust a precision the guard does not provide.
 C wave 5's record is written with both the old and the new locations for exactly that reason.
+
+### 2.21 `EXEC_TIMEOUT_MS` is 5 hours, not 5 minutes — a hung cron task is never reaped (found 2026-10-01)
+
+`src/cli/commands/cron-commands.ts` computes the per-task exec timeout as
+
+```
+const EXEC_TIMEOUT_MS = 5 * MINUTES_PER_HOUR * SECONDS_PER_MINUTE * MS_PER_SECOND;
+```
+
+`MINUTES_PER_HOUR * SECONDS_PER_MINUTE * MS_PER_SECOND` is one **hour**, so the value is 18,000,000 ms
+= 5 hours, while the name and the surrounding comments mean five minutes. `runTask()` passes this
+straight to `execSync(…, { timeout })`, so a task child that blocks — which is what happens to a full
+CLI start when the host is out of memory — is left alive for five hours rather than reaped in minutes.
+That is the accumulation shape measured in
+`diagnosis-2026-10-01-worktree-list-population.md` §1: 385 identical `peaks worktree "list"` node
+processes holding 4.4 GB, then draining within ~10 minutes once the load that slowed them ended.
+
+Not the emitter (that is still unidentified) but the amplifier: any burst of `runTask` children
+becomes a multi-hour memory outage on a 15.75 GB box. Fix is a constant — `5 * 60_000` — plus a test
+that asserts the value is 300000 and that a task exceeding it is killed, so the unit cannot silently
+return. Test first: today no test reads `EXEC_TIMEOUT_MS` at all.
+
+### 2.22 `cron-commands.ts`'s header comment describes a task the code does not register (found 2026-10-01)
+
+The file header says the built-in `lease-gc-daily` "runs `peaks worktree gc --all-sessions`";
+`cron-commands-schedule.ts:164` registers `command: 'worktree'`, `args: ['list']`. The shipped 4.0.54
+build matches the **code**, so this is a stale comment rather than a packaging divergence — I asserted
+a source-versus-shipped divergence from the comment and was wrong.
+
+It matters beyond tidiness: during the leak investigation the comment was the reason a wrong hypothesis
+survived an extra round of testing, because "gc" and "list" imply different lifetimes and different
+side effects. A comment that describes a different command than the one it registers is a misleading
+index into the very code path being debugged. Fix: correct the comment, or change the task to `gc
+--all-sessions` if that was the intent — but decide it, do not leave the two disagreeing.

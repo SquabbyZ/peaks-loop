@@ -1,0 +1,154 @@
+# Diagnosis — the `peaks worktree list` process population (opened 2026-09-30, still open 2026-10-01)
+
+**Status: root cause NOT established. No fix is proposed in this document, and none should be written
+until the emitter is caught red-handed.** Two genuine defects did fall out of the investigation and
+are recorded in `.peaks/docs/backlog.md` (§2.21, §2.22).
+
+## 1. What was actually observed (measurement, not inference)
+
+Population, counted by `Get-CimInstance Win32_Process` grouped on the full command line:
+
+| Time | Identical `node.exe` on `"...peaks-loop\bin\peaks.js" worktree "list"` | Free RAM |
+|---|---|---|
+| 2026-09-30 20:31 | 385 (of 388 node processes, 4.4 GB total, max 101 MB each) | 0.43 GB / 15.75 GB |
+| 2026-09-30 20:33 | 416 → 428 | 0.22 GB |
+| 2026-09-30 ~20:40 | 0 | 7.75 GB |
+| 2026-10-01 22:12–22:15 | 158 alive at 22:15, then 523 node processes | 0.61 GB |
+| 2026-10-01 ~22:25 | 0 | 6.14 GB |
+
+Each leaked process's immediate parent is `cmd.exe /d /s /c "peaks worktree "list""` — that string was
+never truncated in the log and is unambiguous.
+
+Consequences measured while the population was alive: `pnpm test:integration` exited 1 with **0 failed
+tests** and 3 vitest `spawn UNKNOWN` unhandled errors (three test files never started);
+`packages/peaks-loop-shared` died with `0xC0000409` and `Committing semi space failed`; and
+`peaks code context-now` — a trivial CLI call — died with `young object promotion failed` on a
+~30 MB heap. Per the campaign's own rule (§4h) all three are **"did not run"**, not results.
+
+## 2. Fingerprint the emitter must satisfy (these are hard constraints, from observation)
+
+1. It invokes **through a shell string with a quoted argument**: `peaks worktree "list"`. That is not
+   what `execFileSync('peaks', ['worktree','list'])` produces, and no such call exists in the repo.
+2. It sustained roughly **8 processes/minute for ~22 minutes** and stopped within ~2 minutes of the
+   heavy work stopping; the population then drained by itself in ~10 minutes.
+3. Its rate **correlates with heavy CPU/IO load on this host**: both bursts fell entirely inside
+   windows where the orchestrator was running `gate repo` / `test:unit` / `build` / `test:integration`
+   / four wave-5 leaves.
+4. Each child is a full CLI start (measured 785–1459 ms on an idle host, exit 0), so under contention
+   they queue rather than pile up as crashes.
+
+## 3. Hypotheses tested and eliminated (with the measurement that killed each)
+
+| # | Hypothesis | Test | Result |
+|---|---|---|---|
+| 1 | Qoder scheduled automation re-invoking it | `qoder_cron list` | **0 tasks** — eliminated |
+| 2 | A peaks cron-scheduler daemon is running | `peaks cron-scheduler status` on both roots; process scan for `cron-scheduler` | **pid null, alive false, 0 schedule entries** in both roots; 0 daemon processes — eliminated *for these roots* (an unknown third root is not excluded) |
+| 3 | A user SOP's command gate runs it | `peaks gate enforce` path read (`sop-check-service.evaluateCommand` → `execFileSync(bin, args)`); `.peaks/sops/**` in both trees + `~/.peaks/sops` | no `worktree` gate anywhere; and `execFileSync` argv cannot produce the quoted shape — eliminated |
+| 4 | The test suite spawns orphans | grep `tests/**` for `worktree list` | only `execFileSync('git', ['worktree','list','--porcelain'])` — eliminated |
+| 5 | `peaks worktree list` re-invokes itself | probe: run it and sample children for 6 s | exit 0, **785 ms, 0 children** — self-recursion eliminated. (The earlier 2026-09-30 conclusion said "not reproducible after reboot"; it was right for the wrong reason — see §5.) |
+| 6 | `peaks statusline` / `peaks code gate-step-08` / `peaks gate enforce` / `peaks session primer` / `peaks cron list` / `peaks workspace init` emit it | same probe, each command | **0 children each** — eliminated |
+| 7 | Static grep for the call site | searched the installed 4.0.54 `dist/` and the branch `src/` for the quoting shape | the **only** code in the shipped build that emits `peaks <cmd> "<arg>"` is `runTask()` (`cron-commands.js:147`), whose built-in `lease-gc-daily` task is exactly `command:'worktree', args:['list']` (`src/cli/commands/cron-commands-schedule.ts:164`). Consistent with the fingerprint, but nothing on this machine was found driving it. |
+
+## 4. Two real defects that fell out (detailed in backlog §2.21 / §2.22)
+
+- `EXEC_TIMEOUT_MS = 5 * MINUTES_PER_HOUR * SECONDS_PER_MINUTE * MS_PER_SECOND` — the identifier says
+  five minutes, the arithmetic yields **5 hours** (18,000,000 ms). A hung task child is therefore not
+  reaped for five hours, which is exactly the accumulation shape observed.
+- The comment block at `src/cli/commands/cron-commands.ts:11` states the built-in task runs
+  `peaks worktree gc --all-sessions`; the code at `cron-commands-schedule.ts:164` runs
+  `worktree` + `['list']`. I asserted a source-versus-shipped divergence from the comment and was
+  wrong: the comment lies, the code matches the shipped build.
+
+## 5. Instrumentation errors I made, because they are the reason this is still open
+
+1. **My parent-chain logger truncated command lines to 90 characters** — a length that ends *exactly*
+   where the arguments begin. That turned "the parent is `peaks worktree "list"`" into something I read
+   as self-recursion, and it hid the possibility that the parent was a peaks command whose `--project`
+   path merely contains `.qoder-cn\worktrees\`. Fixed: the watcher no longer truncates.
+2. **My filter `-match 'worktree'` over-matches**, because the session path itself contains
+   `worktrees`. Counts of "worktree processes" from that filter are untrustworthy; the grouped full
+   command lines in §1 are not (they were read off the displayed string, not off the filter).
+3. **I concluded "not reproducible" by looking for leftovers.** A child that finishes leaves nothing.
+   The correct question is "how many children did this invocation *create*", which needs sampling
+   during the run — and sampling by **parent pid**, not by command-line substring.
+4. My 200 ms sampler in `fingerprint.ps1` captured 1 line for a run that provably executed (the
+   history record exists: `lease-gc-daily`, exit 0, 767 ms), so it missed the child. The fix is to
+   attach the sampler to the known parent pid, and to `Add-Content` from the caller rather than from
+   a `Start-Job` whose working directory is not the one under test.
+
+## 6. What would settle it
+
+Keep the corrected watcher (`leak/watch.ps1`, untruncated, matches `worktree` **and** `cron`) armed
+across the next heavy run, and when the population appears, take **one full command line plus its
+ancestor chain to the root** — that names the emitter without guessing. If no recurrence happens, the
+next-best evidence is a controlled experiment in a scratch project root that already holds a
+`schedule.json`: run `peaks cron run` under a parent-pid-anchored sampler and count children per tick,
+then check whether anything on the machine can reach that command at ~8/minute. Not to be attempted
+while free RAM is under ~4 GB: the failure mode of a burst on this host is a `0x10E` bugcheck, and a
+bugcheck costs the uncommitted work of every leaf running at the time.
+
+## 7. The instruments, inlined so they survive the gitignore
+
+### `leak/watch.ps1` — untruncated parent-chain watcher (4 s poll)
+
+```powershell
+$ErrorActionPreference = 'SilentlyContinue'
+$log = 'C:\Users\small\.qoder-cn\worktrees\app\1e2aef\peaks-loop\.peaks\_runtime\2026-09-30-session-3e3d50\leak\spawn.log'
+$seen = @{}
+function Chain($p) {
+  $parts = @()
+  $cur = $p
+  for ($i = 0; $i -lt 6; $i++) {
+    if (-not $cur) { break }
+    $c = $cur.CommandLine
+    $parts += ("[" + $cur.ProcessId + "]" + $cur.Name + " " + $c)
+    $cur = Get-CimInstance Win32_Process -Filter "ProcessId=$($cur.ParentProcessId)"
+  }
+  return ($parts -join ' << ')
+}
+while ($true) {
+  $procs = @(Get-CimInstance Win32_Process -Filter "Name='node.exe'" | Where-Object { $_.CommandLine -match 'peaks' -and ($_.CommandLine -match 'worktree' -or $_.CommandLine -match 'cron') })
+  foreach ($p in $procs) {
+    $k = [string]$p.ProcessId
+    if (-not $seen.ContainsKey($k)) {
+      $seen[$k] = $true
+      $line = (Get-Date).ToString('HH:mm:ss') + " NEW pid=" + $p.ProcessId +
+        " created=" + $p.CreationDate.ToString('HH:mm:ss') + " alive_count=" + $procs.Count +
+        " chain=" + (Chain $p)
+      Add-Content -Path $log -Value $line
+    }
+  }
+  Start-Sleep -Seconds 4
+}
+```
+
+### `leak/probe.ps1` — per-command child census
+
+```powershell
+param([string]$Cmd)
+function Snapshot {
+  @(Get-CimInstance Win32_Process -Filter "Name='node.exe'" | Where-Object {
+      $_.CommandLine -match 'peaks-loop' -and $_.CommandLine -match 'worktree'
+    })
+}
+$before = @{}
+foreach ($p in Snapshot) { $before[[string]$p.ProcessId] = $true }
+Write-Output ("matching_before=" + $before.Count)
+$sw = [System.Diagnostics.Stopwatch]::StartNew()
+$out = & cmd /c $Cmd 2>&1
+$code = $LASTEXITCODE
+$sw.Stop()
+Write-Output ("cmd_exit=" + $code + " cmd_wall_ms=" + [int]$sw.ElapsedMilliseconds + " out_chars=" + (($out | Out-String).Length))
+$newTotal = 0
+for ($i = 0; $i -lt 6; $i++) {
+  Start-Sleep -Seconds 1
+  $snap = Snapshot
+  $new = @($snap | Where-Object { -not $before.ContainsKey([string]$_.ProcessId) })
+  $newTotal = [Math]::Max($newTotal, $new.Count)
+  foreach ($n in ($new | Select-Object -First 3)) {
+    Write-Output ("  NEW t=" + ($i + 1) + " pid=" + $n.ProcessId + " ppid=" + $n.ParentProcessId + " cmd=" + $n.CommandLine)
+  }
+  Write-Output ("  t=" + ($i + 1) + " alive_matching=" + $snap.Count + " new=" + $new.Count)
+}
+Write-Output ("max_new_seen=" + $newTotal)
+```
