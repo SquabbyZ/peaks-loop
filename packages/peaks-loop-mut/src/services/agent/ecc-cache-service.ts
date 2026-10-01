@@ -793,16 +793,38 @@ export function cleanupStaleCache({
     } else {
       ageMs = nowMs - stat.mtimeMs;
     }
-    if (ageMs > retentionDays * dayMs) {
-      try {
-        rmSync(fullPath, { recursive: true, force: true });
-        removed.push(fullPath);
-      } catch {
-        /* best-effort */
-      }
-    }
+    removeExpiredCacheDir({ ageMs, retentionDays, dayMs, fullPath, removed });
   }
 
+  invalidateManifestIfActiveRemoved({ activeSha, removed, cacheDir });
+
+  return { removed };
+}
+
+function removeExpiredCacheDir(ctx: {
+  ageMs: number;
+  retentionDays: number;
+  dayMs: number;
+  fullPath: string;
+  removed: string[];
+}): void {
+  const { ageMs, retentionDays, dayMs, fullPath, removed } = ctx;
+  if (ageMs > retentionDays * dayMs) {
+    try {
+      rmSync(fullPath, { recursive: true, force: true });
+      removed.push(fullPath);
+    } catch {
+      /* best-effort */
+    }
+  }
+}
+
+function invalidateManifestIfActiveRemoved(ctx: {
+  activeSha: string | null;
+  removed: string[];
+  cacheDir: string;
+}): void {
+  const { activeSha, removed, cacheDir } = ctx;
   // Invalidate manifest if active cache was removed.
   if (activeSha !== null && removed.some((p) => p.includes(`ecc-${activeSha}`))) {
     try {
@@ -811,6 +833,4 @@ export function cleanupStaleCache({
       /* best-effort */
     }
   }
-
-  return { removed };
 }

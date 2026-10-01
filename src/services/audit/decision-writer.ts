@@ -122,6 +122,19 @@ function severityCounts(findings: RedLineAudit['enforcerFindings']): {
   return { fail, warn, pass };
 }
 
+function buildSummaryTable(audit: RedLineAudit, sev: ReturnType<typeof severityCounts>): string {
+  const summaryTable = [
+    '| Metric | Count |',
+    '| --- | --- |',
+    `| Total red lines | ${audit.totalRedLines} |`,
+    `| CLI-backed | ${audit.cliBacked} |`,
+    `| Partial | ${audit.partial} |`,
+    `| Prose-only | ${audit.proseOnly} |`,
+    `| Enforcer findings (pass / warn / fail) | ${sev.pass} / ${sev.warn} / ${sev.fail} |`
+  ].join('\n');
+  return summaryTable;
+}
+
 /**
  * Pure: render the decision markdown body. No I/O. Used by both the
  * writer and the test suite for byte-exact assertions.
@@ -156,15 +169,7 @@ export function renderDecisionMarkdown(
     '---'
   ].join('\n');
 
-  const summaryTable = [
-    '| Metric | Count |',
-    '| --- | --- |',
-    `| Total red lines | ${audit.totalRedLines} |`,
-    `| CLI-backed | ${audit.cliBacked} |`,
-    `| Partial | ${audit.partial} |`,
-    `| Prose-only | ${audit.proseOnly} |`,
-    `| Enforcer findings (pass / warn / fail) | ${sev.pass} / ${sev.warn} / ${sev.fail} |`
-  ].join('\n');
+  const summaryTable = buildSummaryTable(audit, sev);
 
   const ruleSection = renderPerRuleSection(audit);
   const enforcerSection = renderEnforcerSection(audit.enforcerFindings);

@@ -411,48 +411,60 @@ export function settleOpenLifecycleRun(input: {
   // landed, and this is the only open run to attribute it to.
   if (prior.stage !== 'compacting' && prior.stage !== 'armed') return null;
 
-  const emit = (stage: 'verifying' | 'completed', withAfterRatio: boolean): boolean => {
-    const record: CompactLifecycleRecord = {
-      schemaVersion: 1,
-      runId: prior.runId,
-      stage,
-      updatedAt: new Date().toISOString(),
-      triggerRatio: prior.triggerRatio,
-      redLine: prior.redLine,
-      ...(withAfterRatio ? { afterRatio: input.measuredRatio } : {})
-    };
-    try {
-      if (input.failLifecycleWrite) throw new Error('lifecycle store unavailable');
-      writeCompactLifecycle({
-        projectRoot: input.projectRoot,
-        sessionId: input.sessionId,
-        record
-      });
-    } catch {
-      // Best-effort telemetry, as everywhere in this file — but the failure is
-      // REPORTED to the caller as `lifecycleWritten: false` rather than folded
-      // into a record that reads as settled.
-      return false;
-    }
-    try {
-      input.onLifecycleStage?.(stage, record);
-    } catch {
-      // Observer failures are not ours to propagate.
-    }
-    return true;
-  };
-
   // `verifying` = we hold a measurement and are checking it.
-  emit('verifying', false);
+  emitLifecycleStage(prior, input, 'verifying', false);
   // `completed` = the measurement confirms the drop; publish it. This write
   // is the one that closes the run, so it is the one that is reported.
-  const lifecycleWritten = emit('completed', true);
+  const lifecycleWritten = emitLifecycleStage(prior, input, 'completed', true);
   return {
     runId: prior.runId,
     triggerRatio: prior.triggerRatio,
     afterRatio: input.measuredRatio,
     lifecycleWritten
   };
+}
+
+/**
+ * Publish one lifecycle stage for an open run (the `emit` closure of
+ * `settleOpenLifecycleRun`, moved verbatim to a module-level function to
+ * clear that function's `max-lines-per-function` arm; behavior unchanged).
+ * Returns `false` when the store write failed, `true` when the record was
+ * written (observer failures are not propagated — see the two catches).
+ */
+function emitLifecycleStage(
+  prior: CompactLifecycleRecord,
+  input: Parameters<typeof settleOpenLifecycleRun>[0],
+  stage: 'verifying' | 'completed',
+  withAfterRatio: boolean
+): boolean {
+  const record: CompactLifecycleRecord = {
+    schemaVersion: 1,
+    runId: prior.runId,
+    stage,
+    updatedAt: new Date().toISOString(),
+    triggerRatio: prior.triggerRatio,
+    redLine: prior.redLine,
+    ...(withAfterRatio ? { afterRatio: input.measuredRatio } : {})
+  };
+  try {
+    if (input.failLifecycleWrite) throw new Error('lifecycle store unavailable');
+    writeCompactLifecycle({
+      projectRoot: input.projectRoot,
+      sessionId: input.sessionId,
+      record
+    });
+  } catch {
+    // Best-effort telemetry, as everywhere in this file — but the failure is
+    // REPORTED to the caller as `lifecycleWritten: false` rather than folded
+    // into a record that reads as settled.
+    return false;
+  }
+  try {
+    input.onLifecycleStage?.(stage, record);
+  } catch {
+    // Observer failures are not ours to propagate.
+  }
+  return true;
 }
 
 /**

@@ -41,14 +41,7 @@ export function createProductionStrykerInvoker(): StrykerInvoker {
 }
 
 function normalize(mutants: ReadonlyArray<StrykerMutant>, project: string): StrykerRawResult {
-  let mutantsKilled = 0;
-  let mutantsSurvived = 0;
-  let mutantsTimeout = 0;
-  for (const m of mutants) {
-    if (m.status === 'Killed') mutantsKilled++;
-    else if (m.status === 'Survived') mutantsSurvived++;
-    else if (m.status === 'Timeout') mutantsTimeout++;
-  }
+  const { mutantsKilled, mutantsSurvived, mutantsTimeout } = countStatuses(mutants);
 
   // Bucket mutants by fileName to populate perFile. deriveFollowups iterates
   // m.byFile to emit per-file followups (e.g. low_kill_rate) — leaving this
@@ -102,4 +95,20 @@ function normalize(mutants: ReadonlyArray<StrykerMutant>, project: string): Stry
     mutantsTimeout,
     perFile
   };
+}
+
+function countStatuses(mutants: ReadonlyArray<StrykerMutant>): {
+  mutantsKilled: number;
+  mutantsSurvived: number;
+  mutantsTimeout: number;
+} {
+  let mutantsKilled = 0;
+  let mutantsSurvived = 0;
+  let mutantsTimeout = 0;
+  for (const m of mutants) {
+    if (m.status === 'Killed') mutantsKilled++;
+    else if (m.status === 'Survived') mutantsSurvived++;
+    else if (m.status === 'Timeout') mutantsTimeout++;
+  }
+  return { mutantsKilled, mutantsSurvived, mutantsTimeout };
 }

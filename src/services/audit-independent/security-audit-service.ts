@@ -318,15 +318,7 @@ export function renderSecurityAuditArtifact(
           .map((v) => `- [${v.severity}] ${v.dimension} @ ${v.file}:${v.line} — ${v.hint}`)
           .join('\n');
 
-  const requiredFixes =
-    env.violations.length === 0
-      ? ''
-      : [
-          '## Required fixes',
-          '',
-          ...env.violations.map((v) => `- [${v.severity}] ${v.file}:${v.line} — ${v.hint}`),
-          ''
-        ].join('\n');
+  const requiredFixes = buildRequiredFixes(env);
 
   const body = [
     '## Summary',
@@ -358,6 +350,19 @@ export function renderSecurityAuditArtifact(
     violationsCount: env.violations.length,
     verdict: env.verdict
   };
+}
+
+function buildRequiredFixes(env: SecurityAuditEnvelope): string {
+  const requiredFixes =
+    env.violations.length === 0
+      ? ''
+      : [
+          '## Required fixes',
+          '',
+          ...env.violations.map((v) => `- [${v.severity}] ${v.file}:${v.line} — ${v.hint}`),
+          ''
+        ].join('\n');
+  return requiredFixes;
 }
 
 /**

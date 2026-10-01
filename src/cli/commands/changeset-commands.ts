@@ -30,48 +30,52 @@ export function registerChangesetCommands(program: Command, io: ProgramIO): void
       )
       .option('--project <path>', 'project root (default: cwd)')
   ).action((opts: { project?: string; json?: boolean }) => {
-    const projectRoot = opts.project ?? findProjectRoot(process.cwd()) ?? process.cwd();
-    const gate = runChangesetHardGate(projectRoot);
-    if (gate.ok) {
-      printResult(
-        io,
-        ok(
-          'changeset.check',
-          {
-            root: gate.root,
-            state: gate.state,
-            stagedFiles: gate.stagedFiles,
-            snapshotAt: gate.snapshotAt
-          },
-          [],
-          []
-        ),
-        opts.json ?? false
-      );
-      return;
-    }
-    process.exitCode = 1;
+    changesetCheckAction(opts, io);
+  });
+}
+
+function changesetCheckAction(opts: { project?: string; json?: boolean }, io: ProgramIO): void {
+  const projectRoot = opts.project ?? findProjectRoot(process.cwd()) ?? process.cwd();
+  const gate = runChangesetHardGate(projectRoot);
+  if (gate.ok) {
     printResult(
       io,
-      fail(
+      ok(
         'changeset.check',
-        'CHANGESET_BLOCKED',
-        `${gate.stagedFiles.length} staged .changeset/*.md file(s) — refusing to proceed`,
         {
           root: gate.root,
           state: gate.state,
           stagedFiles: gate.stagedFiles,
           snapshotAt: gate.snapshotAt
         },
-        [
-          `Drain pending changesets before proceeding: drain `.concat(
-            gate.stagedFiles.join(', '),
-            ' via the coordinating LLM (e.g. `pnpm changeset version` or `peaks changeset publish` if installed).'
-          ),
-          'Then re-run `peaks changeset check` to confirm a clean state.'
-        ]
+        [],
+        []
       ),
       opts.json ?? false
     );
-  });
+    return;
+  }
+  process.exitCode = 1;
+  printResult(
+    io,
+    fail(
+      'changeset.check',
+      'CHANGESET_BLOCKED',
+      `${gate.stagedFiles.length} staged .changeset/*.md file(s) — refusing to proceed`,
+      {
+        root: gate.root,
+        state: gate.state,
+        stagedFiles: gate.stagedFiles,
+        snapshotAt: gate.snapshotAt
+      },
+      [
+        `Drain pending changesets before proceeding: drain `.concat(
+          gate.stagedFiles.join(', '),
+          ' via the coordinating LLM (e.g. `pnpm changeset version` or `peaks changeset publish` if installed).'
+        ),
+        'Then re-run `peaks changeset check` to confirm a clean state.'
+      ]
+    ),
+    opts.json ?? false
+  );
 }

@@ -97,6 +97,29 @@ function inferHint(block) {
   };
 }
 
+function applyDescriptionRewrite({ node, kind, sourceFile, fileName, rewrites, edits }) {
+  // 1) Description rewrite (first arg must be a string literal).
+  if (node.arguments.length > 0 && ts.isStringLiteralLike(node.arguments[0])) {
+    const arg0 = node.arguments[0];
+    const original = arg0.text;
+    const rewritten = rewriteDescription(original, kind);
+    const start = sourceFile.getLineAndCharacterOfPosition(arg0.getStart(sourceFile));
+    rewrites.push({
+      kind,
+      original,
+      rewritten,
+      location: `${fileName}:${start.line + 1}:${start.character + 1}`
+    });
+    if (rewritten !== original) {
+      edits.push({
+        startPos: arg0.getStart(sourceFile),
+        endPos: arg0.getEnd(),
+        text: JSON.stringify(rewritten)
+      });
+    }
+  }
+}
+
 /**
  * Core migrator. Returns the rewritten source and a list of rewrites.
  *
@@ -116,26 +139,7 @@ export function migrateSource(source, fileName = 'inline.ts') {
       const callee = node.expression;
       if (ts.isIdentifier(callee) && TEST_BODIES.has(callee.text)) {
         const kind = /** @type {'it'|'test'|'describe'} */ (callee.text);
-        // 1) Description rewrite (first arg must be a string literal).
-        if (node.arguments.length > 0 && ts.isStringLiteralLike(node.arguments[0])) {
-          const arg0 = node.arguments[0];
-          const original = arg0.text;
-          const rewritten = rewriteDescription(original, kind);
-          const start = sourceFile.getLineAndCharacterOfPosition(arg0.getStart(sourceFile));
-          rewrites.push({
-            kind,
-            original,
-            rewritten,
-            location: `${fileName}:${start.line + 1}:${start.character + 1}`
-          });
-          if (rewritten !== original) {
-            edits.push({
-              startPos: arg0.getStart(sourceFile),
-              endPos: arg0.getEnd(),
-              text: JSON.stringify(rewritten)
-            });
-          }
-        }
+        applyDescriptionRewrite({ node, kind, sourceFile, fileName, rewrites, edits });
         // 2) Comment-block insertion on the callback body (it / test only).
         if (kind === 'it' || kind === 'test') {
           const body = getCallbackBlock(node);

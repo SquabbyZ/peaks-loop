@@ -132,6 +132,57 @@ function firstMeaningfulLine(text: string): string {
 }
 
 /**
+ * Self-heal a `.codegraph/` dir that exists without a `codegraph.db`
+ * (extracted verbatim from `refreshCodegraphAfterSlice` to clear the
+ * `max-lines-per-function` arm; behavior unchanged). Returns a terminal
+ * result when the refresh must stop, `null` when the caller may proceed
+ * to the index step.
+ */
+async function selfHealUninitializedCodegraph(
+  projectRoot: string,
+  runner?: CodegraphProcessRunner
+): Promise<CodegraphAutorefreshResult | null> {
+  // A `.codegraph/` dir without a `codegraph.db` is uninitialized:
+  //   - NOT peaks-loop-managed → foreign schema, never touch it.
+  //   - peaks-loop-managed → the dangling state left by the pre-fix
+  //     rid-CG-001 auto-stake (marker stamped, no upstream init). Run
+  //     init (fast, offline-safe — no full index) so the subsequent
+  //     index has a schema to write into.
+  if (!isCodegraphInitialized(projectRoot)) {
+    if (!isCodegraphPeaksLoopManaged(projectRoot)) {
+      return {
+        refreshed: false,
+        reason: 'no-codegraph-dir',
+        note: `auto codegraph refresh skipped: ${CODEGRAPH_DIR_NAME}/ exists without a codegraph.db and is not peaks-loop-managed. Run \`peaks codegraph init\` once to enable post-slice auto-refresh.`
+      };
+    }
+    const initResult = await executeCodegraphInvocation(
+      createCodegraphInvocation({ subcommand: 'init', project: projectRoot }),
+      runner
+    );
+    if (initResult.exitCode !== 0) {
+      return {
+        refreshed: false,
+        reason: 'index-failed',
+        note: `auto codegraph refresh self-heal init failed (exit ${String(initResult.exitCode)}): ${firstMeaningfulLine(initResult.stderr || initResult.stdout)}. ${REFRESH_REMEDY}`
+      };
+    }
+    // That init just wrote upstream's 99-rule default `exclude`
+    // template, some of which block tracked source files — the same
+    // self-heal the CLI's `peaks codegraph init` performs, via the
+    // same shared helper. Skipped, this path would stamp the
+    // peaks-loop marker over an incomplete index that no later
+    // `init` (it would no-op) could ever repair.
+    //
+    // Never throws (the helper catches everything), and
+    // `reindex: false` because the index call below covers the
+    // recovered files.
+    await repairCodegraphExcludeFromProject(projectRoot, runner, { reindex: false });
+  }
+  return null;
+}
+
+/**
  * Run a best-effort `codegraph index` refresh for `projectRoot` after a
  * slice-complete boundary. NEVER throws — every failure path returns a
  * non-refreshed result so the caller keeps its ok envelope.
@@ -152,43 +203,8 @@ export async function refreshCodegraphAfterSlice(
   }
 
   try {
-    // A `.codegraph/` dir without a `codegraph.db` is uninitialized:
-    //   - NOT peaks-loop-managed → foreign schema, never touch it.
-    //   - peaks-loop-managed → the dangling state left by the pre-fix
-    //     rid-CG-001 auto-stake (marker stamped, no upstream init). Run
-    //     init (fast, offline-safe — no full index) so the subsequent
-    //     index has a schema to write into.
-    if (!isCodegraphInitialized(projectRoot)) {
-      if (!isCodegraphPeaksLoopManaged(projectRoot)) {
-        return {
-          refreshed: false,
-          reason: 'no-codegraph-dir',
-          note: `auto codegraph refresh skipped: ${CODEGRAPH_DIR_NAME}/ exists without a codegraph.db and is not peaks-loop-managed. Run \`peaks codegraph init\` once to enable post-slice auto-refresh.`
-        };
-      }
-      const initResult = await executeCodegraphInvocation(
-        createCodegraphInvocation({ subcommand: 'init', project: projectRoot }),
-        runner
-      );
-      if (initResult.exitCode !== 0) {
-        return {
-          refreshed: false,
-          reason: 'index-failed',
-          note: `auto codegraph refresh self-heal init failed (exit ${String(initResult.exitCode)}): ${firstMeaningfulLine(initResult.stderr || initResult.stdout)}. ${REFRESH_REMEDY}`
-        };
-      }
-      // That init just wrote upstream's 99-rule default `exclude`
-      // template, some of which block tracked source files — the same
-      // self-heal the CLI's `peaks codegraph init` performs, via the
-      // same shared helper. Skipped, this path would stamp the
-      // peaks-loop marker over an incomplete index that no later
-      // `init` (it would no-op) could ever repair.
-      //
-      // Never throws (the helper catches everything), and
-      // `reindex: false` because the index call below covers the
-      // recovered files.
-      await repairCodegraphExcludeFromProject(projectRoot, runner, { reindex: false });
-    }
+    const selfHeal = await selfHealUninitializedCodegraph(projectRoot, runner);
+    if (selfHeal !== null) return selfHeal;
 
     const invocation = createCodegraphInvocation({
       subcommand: 'index',

@@ -36,6 +36,23 @@ function parseCounts(stdout: string): Record<string, number> | null {
   return counts;
 }
 
+/** Compare parsed detector counts against the frozen `CEILING` ratchet. */
+function collectRatchetDrift(counts: Record<string, number> | null): {
+  readonly grew: string[];
+  readonly missingRules: string[];
+} {
+  const grew: string[] = [];
+  const missingRules: string[] = [];
+  if (counts !== null) {
+    for (const rule of Object.keys(CEILING)) {
+      if (counts[rule] === undefined) missingRules.push(rule);
+      else if (counts[rule] > CEILING[rule]!)
+        grew.push(`${rule}: ${String(counts[rule])} > ${String(CEILING[rule])}`);
+    }
+  }
+  return { grew, missingRules };
+}
+
 /**
  * Behavioural probe of the "no silent-catch / fake-green reintroduced"
  * invariant.
@@ -66,15 +83,7 @@ export async function runJ03Contract(ctx: GuardContext): Promise<GuardRunResult>
   const counts = parseCounts(stdout);
   const scanned = /scanned (\d+) files/.exec(stdout);
 
-  const grew: string[] = [];
-  const missingRules: string[] = [];
-  if (counts !== null) {
-    for (const rule of Object.keys(CEILING)) {
-      if (counts[rule] === undefined) missingRules.push(rule);
-      else if (counts[rule] > CEILING[rule]!)
-        grew.push(`${rule}: ${String(counts[rule])} > ${String(CEILING[rule])}`);
-    }
-  }
+  const { grew, missingRules } = collectRatchetDrift(counts);
 
   const result = combineProbes([
     probe(missing.length === 0, `baseline sourceFiles present (${row.sourceFiles.length})`),

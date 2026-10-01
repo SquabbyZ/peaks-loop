@@ -121,21 +121,21 @@ const CENSUS: readonly Entry[] = [
   {
     file: 'src/services/code/auto-compact-lifecycle.ts',
     rule: 'empty-catch',
-    line: 439,
-    frame: 'settleOpenLifecycleRun (emit)',
+    line: 464,
+    frame: 'emitLifecycleStage (ex-settleOpenLifecycleRun emit)',
     reason: 'same observer contract as above, on the probe settle path'
   },
   {
     file: 'src/services/code/auto-compact-lifecycle.ts',
     rule: 'empty-catch',
-    line: 580,
+    line: 592,
     frame: 'settleOpenLifecycleRunOnCompactEvent',
     reason: 'same observer contract, on the harness-event settle path'
   },
   {
     file: 'src/services/code/auto-compact-lifecycle.ts',
     rule: 'catch-return-null',
-    line: 653,
+    line: 665,
     frame: 'fillEventSettledMeasurement',
     reason:
       'the ONLY remaining catch-return-null on the surface. null means "no number was filled", ' +
@@ -201,7 +201,7 @@ describe('Scenario: behavior — the swallow census on the session-path surface'
   it('when scanned, should keep exactly ONE catch-return-null, at the site the census names', async () => {
     const measured = await measuredCensus();
     expect(measured.filter((v) => v.rule === 'catch-return-null')).toEqual([
-      { file: 'src/services/code/auto-compact-lifecycle.ts', rule: 'catch-return-null', line: 653 }
+      { file: 'src/services/code/auto-compact-lifecycle.ts', rule: 'catch-return-null', line: 665 }
     ]);
   });
 

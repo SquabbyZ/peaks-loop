@@ -83,6 +83,12 @@ export async function dispatchDetached(i: DispatchInput): Promise<DispatchResult
   const spawnError = (await handle.settled) ?? null;
   lo.register(handle.pid, i.rid, i.sid);
 
+  const recPath = writeDispatchRecord(i, spawnError);
+
+  return { pid: handle.pid, dispatchRecordPath: recPath, child: handle.child, spawnError };
+}
+
+function writeDispatchRecord(i: DispatchInput, spawnError: NodeJS.ErrnoException | null): string {
   // Write dispatch record (placeholder — final shape per Task 8 schema)
   const recPath = join(i.subAgentsDir, `dispatch-${i.rid}-${Date.now()}.json`);
   mkdirSync(i.subAgentsDir, { recursive: true });
@@ -106,6 +112,5 @@ export async function dispatchDetached(i: DispatchInput): Promise<DispatchResult
       2
     )
   );
-
-  return { pid: handle.pid, dispatchRecordPath: recPath, child: handle.child, spawnError };
+  return recPath;
 }

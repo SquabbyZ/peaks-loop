@@ -166,10 +166,7 @@ function collectScenarios(
   out: RenderedScenario[]
 ): void {
   const visited = new WeakSet<object>();
-  const walk = (node: unknown, scenarioLabel: string): void => {
-    if (node === null || typeof node !== 'object') return;
-    if (visited.has(node)) return;
-    visited.add(node);
+  const asWalkable = (node: unknown) => {
     const obj = node as {
       name?: string;
       children?: {
@@ -179,6 +176,13 @@ function collectScenarios(
       type?: string;
       result?: () => unknown;
     };
+    return obj;
+  };
+  const walk = (node: unknown, scenarioLabel: string): void => {
+    if (node === null || typeof node !== 'object') return;
+    if (visited.has(node)) return;
+    visited.add(node);
+    const obj = asWalkable(node);
     if (obj.type === 'test') {
       const tc = node as unknown as BddTestCaseLike;
       const result = tc.result ? tc.result() : undefined;

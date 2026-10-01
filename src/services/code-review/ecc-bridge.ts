@@ -201,6 +201,21 @@ function countByKind(violations: ReadonlyArray<EccViolation>): Readonly<Record<s
   return counts;
 }
 
+function renderRequiredFixes(env: EccEnvelope): string {
+  return env.violations.length === 0
+    ? ''
+    : [
+        '## Required Fixes',
+        '',
+        ...env.violations.map((v, i) => {
+          const safeSnippet = escapeMarkdownCell(v.snippet);
+          const safeHint = escapeMarkdownCell(v.hint);
+          return `- [${v.kind} @ line ${v.line}] ${safeHint} (snippet: \`${safeSnippet}\`)`;
+        }),
+        ''
+      ].join('\n');
+}
+
 /**
  * Render an ECC envelope to the canonical `rd/code-review.md` shape.
  * Verdict → sections:
@@ -230,19 +245,7 @@ export function adaptEccEnvelopeToRdCodeReview(
 
   const findingsSection = renderFindings(env.violations);
 
-  const requiredFixesSection =
-    env.violations.length === 0
-      ? ''
-      : [
-          '## Required Fixes',
-          '',
-          ...env.violations.map((v, i) => {
-            const safeSnippet = escapeMarkdownCell(v.snippet);
-            const safeHint = escapeMarkdownCell(v.hint);
-            return `- [${v.kind} @ line ${v.line}] ${safeHint} (snippet: \`${safeSnippet}\`)`;
-          }),
-          ''
-        ].join('\n');
+  const requiredFixesSection = renderRequiredFixes(env);
 
   const recommendedSection =
     env.gateAction === 'pass'

@@ -124,20 +124,7 @@ export function registerAdapterS2ACommands(program: Command, io: ProgramIO): voi
       try {
         result = reg.register(record, { force: options.force === true });
       } catch (validationError) {
-        printResult(
-          io,
-          fail(
-            'adapter.register',
-            'INVALID_ADAPTER_RECORD',
-            getErrorMessage(validationError),
-            { id },
-            [
-              'Use --id with /^[a-z0-9][a-z0-9._-]*$/, --binary as a binary name (no path separators).'
-            ]
-          ),
-          options.json
-        );
-        process.exitCode = 1;
+        printAdapterRegisterInvalidRecord(io, options, id, validationError);
         return;
       }
 
@@ -172,4 +159,20 @@ export function registerAdapterS2ACommands(program: Command, io: ProgramIO): voi
       process.exitCode = 1;
     }
   });
+}
+
+function printAdapterRegisterInvalidRecord(
+  io: ProgramIO,
+  options: AdapterRegisterOptions,
+  id: string,
+  validationError: unknown
+): void {
+  printResult(
+    io,
+    fail('adapter.register', 'INVALID_ADAPTER_RECORD', getErrorMessage(validationError), { id }, [
+      'Use --id with /^[a-z0-9][a-z0-9._-]*$/, --binary as a binary name (no path separators).'
+    ]),
+    options.json
+  );
+  process.exitCode = 1;
 }

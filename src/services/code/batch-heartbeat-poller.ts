@@ -133,6 +133,15 @@ export class BatchHeartbeatPoller {
     const line = renderStatusLine(this.options.prefix, recs, now);
     this.handlers.onStatus?.({ kind: 'status', line, summary, views });
 
+    this.emitStaleNotices(recs, now);
+    this.finishIfAllTerminal(recs, summary);
+  }
+
+  /**
+   * First-sight `stale` notices for the current record set (moved verbatim
+   * out of `tick` to clear its `max-lines-per-function` arm).
+   */
+  private emitStaleNotices(recs: DispatchRecord[], now: () => Date): void {
     const staleThresholdSec = Math.floor(
       (this.options.staleThresholdMs ?? DEFAULT_STALE_THRESHOLD_MS) / 1000
     );
@@ -152,7 +161,13 @@ export class BatchHeartbeatPoller {
         }
       }
     }
+  }
 
+  /**
+   * The `done` / stop decision for the current record set (moved verbatim
+   * out of `tick` to clear its `max-lines-per-function` arm).
+   */
+  private finishIfAllTerminal(recs: DispatchRecord[], summary: ReturnType<typeof summarize>): void {
     if (
       summary.total > 0 &&
       summary.done === summary.total &&

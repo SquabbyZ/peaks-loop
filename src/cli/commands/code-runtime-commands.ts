@@ -138,6 +138,21 @@ export function buildAutoCompactEnvelope(result: AutoCompactResult): ResultEnvel
   };
 }
 
+function printPostCompactNoActiveSession(io: ProgramIO, opts: { json?: boolean }): void {
+  printResult(
+    io,
+    fail(
+      'code.post-compact-detect',
+      'NO_ACTIVE_SESSION',
+      'no active session id; pass --session-id or set presence via `peaks skill presence:set peaks-code`',
+      null,
+      ['Re-run with --session-id <sid>']
+    ),
+    opts.json
+  );
+  process.exitCode = 1;
+}
+
 export function registerCodeRuntimeCommands(code: Command, io: ProgramIO): void {
   addJsonOption(
     code
@@ -158,18 +173,7 @@ export function registerCodeRuntimeCommands(code: Command, io: ProgramIO): void 
       try {
         const sessionId = opts.sessionId ?? readActiveSid(opts.project);
         if (sessionId === null) {
-          printResult(
-            io,
-            fail(
-              'code.post-compact-detect',
-              'NO_ACTIVE_SESSION',
-              'no active session id; pass --session-id or set presence via `peaks skill presence:set peaks-code`',
-              null,
-              ['Re-run with --session-id <sid>']
-            ),
-            opts.json
-          );
-          process.exitCode = 1;
+          printPostCompactNoActiveSession(io, opts);
           return;
         }
         const probe = await detectPostCompactResume({

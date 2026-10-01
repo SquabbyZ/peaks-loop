@@ -127,6 +127,42 @@ const defaultWriter =
   };
 
 /**
+ * The MVP structured fallback prompt, moved verbatim out of
+ * `buildDispatchSpec` to clear its `max-lines-per-function` arm; the
+ * returned text is identical to what the inline block produced.
+ */
+function buildMvpFallbackPrompt(
+  sliceId: string,
+  node: SliceDag['nodes'][number],
+  contractBlock: string
+): string {
+  // MVP (1.2) structured fallback prompt. Slice 1.4 will land per-domain
+  // prompt templates (one per role), but for the MVP dogfood we ship a
+  // single structured prompt that:
+  //   1. names the slice id + role + label (so the LLM knows what to do)
+  //   2. states the MVP scope explicitly (avoid confusion with full prod)
+  //   3. includes the ancestor contract injection (so downstream slices
+  //      see their inputs)
+  //   4. states the handoff protocol (write contract, re-invoke for next level)
+  const labelFragment = node.label ? ` — ${node.label}` : '';
+  const ancestorFragment = contractBlock ? `\n\n${contractBlock}` : '';
+  return [
+    formatTestToolDetection(),
+    '',
+    `[slice-dag-dispatcher MVP 1.2] execute slice "${sliceId}" (role=${node.role})${labelFragment}.`,
+    '',
+    'Scope: this is the 2.7.0 MVP dogfood of peaks-loop DAG-aware dispatch. You are one leaf in a multi-slice plan; the orchestrator has already validated the DAG, built a topological order, and injected your upstream contracts above.',
+    '',
+    'Handoff protocol (REQUIRED — orchestrator depends on this):',
+    '  1. Execute the slice to completion.',
+    `  2. Write your public contract via \`peaks contract write --project <root> --session-id <sid> --slice-id ${sliceId} --exports <...> --types <...> --signatures <...>\`. The orchestrator will pick it up on the next dispatch run.`,
+    '  3. Do NOT re-invoke `peaks sub-agent dispatch --from-dag` yourself — the parent orchestrator (peaks-code) drives level advancement.',
+    '',
+    `After your contract is on disk, the orchestrator will auto-advance to the next topological level (if any) by re-invoking \`peaks sub-agent dispatch --from-dag\` with the same batch-id. Your slice will appear in its ancestors via \`formatContractInjection\`.${ancestorFragment}`
+  ].join('\n');
+}
+
+/**
  * Build a single dispatch spec for `sliceId` given the current contract set.
  *
  * When `node.prompt` is set on the DAG node, that wins verbatim (the
@@ -167,30 +203,7 @@ export function buildDispatchSpec(
       contractBlock
     };
   }
-  // MVP (1.2) structured fallback prompt. Slice 1.4 will land per-domain
-  // prompt templates (one per role), but for the MVP dogfood we ship a
-  // single structured prompt that:
-  //   1. names the slice id + role + label (so the LLM knows what to do)
-  //   2. states the MVP scope explicitly (avoid confusion with full prod)
-  //   3. includes the ancestor contract injection (so downstream slices
-  //      see their inputs)
-  //   4. states the handoff protocol (write contract, re-invoke for next level)
-  const labelFragment = node.label ? ` — ${node.label}` : '';
-  const ancestorFragment = contractBlock ? `\n\n${contractBlock}` : '';
-  const prompt = [
-    formatTestToolDetection(),
-    '',
-    `[slice-dag-dispatcher MVP 1.2] execute slice "${sliceId}" (role=${node.role})${labelFragment}.`,
-    '',
-    'Scope: this is the 2.7.0 MVP dogfood of peaks-loop DAG-aware dispatch. You are one leaf in a multi-slice plan; the orchestrator has already validated the DAG, built a topological order, and injected your upstream contracts above.',
-    '',
-    'Handoff protocol (REQUIRED — orchestrator depends on this):',
-    '  1. Execute the slice to completion.',
-    `  2. Write your public contract via \`peaks contract write --project <root> --session-id <sid> --slice-id ${sliceId} --exports <...> --types <...> --signatures <...>\`. The orchestrator will pick it up on the next dispatch run.`,
-    '  3. Do NOT re-invoke `peaks sub-agent dispatch --from-dag` yourself — the parent orchestrator (peaks-code) drives level advancement.',
-    '',
-    `After your contract is on disk, the orchestrator will auto-advance to the next topological level (if any) by re-invoking \`peaks sub-agent dispatch --from-dag\` with the same batch-id. Your slice will appear in its ancestors via \`formatContractInjection\`.${ancestorFragment}`
-  ].join('\n');
+  const prompt = buildMvpFallbackPrompt(sliceId, node, contractBlock);
   return {
     sliceId,
     role: node.role,

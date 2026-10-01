@@ -131,6 +131,23 @@ async function probePrepareFinalReview(): Promise<{
   }
 }
 
+/** Measure the output-budget clamp and the refusal of a bad override. */
+function probeOutputBudget(): {
+  readonly floor: number;
+  readonly ceiling: number;
+  readonly badOverrideThrows: boolean;
+} {
+  const floor = outputBudgetForEvidence(0);
+  const ceiling = outputBudgetForEvidence(Number.MAX_SAFE_INTEGER);
+  let badOverrideThrows = false;
+  try {
+    resolveOutputBudget(0, { PEAKS_FINAL_REVIEW_MAX_OUTPUT_TOKENS: 'abc' });
+  } catch {
+    badOverrideThrows = true;
+  }
+  return { floor, ceiling, badOverrideThrows };
+}
+
 export async function runJ05Contract(ctx: GuardContext): Promise<GuardRunResult> {
   const row = requireBaselineRow(ctx);
   const missing = missingSourceFiles(ctx, row);
@@ -145,14 +162,7 @@ export async function runJ05Contract(ctx: GuardContext): Promise<GuardRunResult>
     undeliverableSource(FIFTH_DIMENSION, MAX_EVIDENCE_BYTES_PER_FILE + 1000)
   ] as UndeliverableInput);
 
-  const floor = outputBudgetForEvidence(0);
-  const ceiling = outputBudgetForEvidence(Number.MAX_SAFE_INTEGER);
-  let badOverrideThrows = false;
-  try {
-    resolveOutputBudget(0, { PEAKS_FINAL_REVIEW_MAX_OUTPUT_TOKENS: 'abc' });
-  } catch {
-    badOverrideThrows = true;
-  }
+  const { floor, ceiling, badOverrideThrows } = probeOutputBudget();
 
   const result = combineProbes([
     probe(missing.length === 0, `baseline sourceFiles present (${row.sourceFiles.length})`),

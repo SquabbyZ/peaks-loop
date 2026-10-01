@@ -81,19 +81,7 @@ function sectionBody(lines: readonly string[], headingLine: number): readonly st
   return body;
 }
 
-/** Theme A — section structure. Returns lint hits (positive = rule
- *  satisfied, so a missing heading fires the lint hit; downstream
- *  audit service decides whether to WARN or pass).
- *
- *  A11 of the 2026-09-15 diagnosis: the `Hard contracts` rule used to
- *  match the *heading text* and stop there. `peaks-perf-audit/SKILL.md`
- *  carries `## Hard contracts (BLOCKING)` — the word BLOCKING is in the
- *  heading — while every bullet beneath it is unmarked prose, so the
- *  audit counted a BLOCKING red line with no contract behind it. The
- *  rule now also requires at least one marker line inside the section
- *  body, which is what makes a contract visible to the classifier. */
-export function lintSectionShape(skill: SkillFile): readonly LintHit[] {
-  const hits: LintHit[] = [];
+function buildShapeRules() {
   const rules: ReadonlyArray<{
     id: string;
     rule: string;
@@ -123,6 +111,23 @@ export function lintSectionShape(skill: SkillFile): readonly LintHit[] {
       pattern: SECTION_NAMING_AXIOM_HEADING
     }
   ];
+  return rules;
+}
+
+/** Theme A — section structure. Returns lint hits (positive = rule
+ *  satisfied, so a missing heading fires the lint hit; downstream
+ *  audit service decides whether to WARN or pass).
+ *
+ *  A11 of the 2026-09-15 diagnosis: the `Hard contracts` rule used to
+ *  match the *heading text* and stop there. `peaks-perf-audit/SKILL.md`
+ *  carries `## Hard contracts (BLOCKING)` — the word BLOCKING is in the
+ *  heading — while every bullet beneath it is unmarked prose, so the
+ *  audit counted a BLOCKING red line with no contract behind it. The
+ *  rule now also requires at least one marker line inside the section
+ *  body, which is what makes a contract visible to the classifier. */
+export function lintSectionShape(skill: SkillFile): readonly LintHit[] {
+  const hits: LintHit[] = [];
+  const rules = buildShapeRules();
   for (const r of rules) {
     const line = findLine(skill.lines, r.pattern);
     if (line === -1) {

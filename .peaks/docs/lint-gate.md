@@ -710,3 +710,40 @@ Also correcting my own earlier citation: the histogram quoted in the C wave 5 an
 messages (619 / 545 / 524 / 423 over a total of 2823) was measured over **1485 files including parse
 messages and files outside the gate's four dirs** — a different measurement surface from the gate's. The
 gate-scope numbers are the ones in this section.
+
+### 4l. C wave 6 — the marginal band, and what hoisting actually costs (2026-10-01)
+
+Planned from the §4k measurement rather than from a file list: of the 529 `max-lines-per-function` arms,
+**105 are 51-60 lines** — one to ten over the cap — and they sit in 98 files. Wave 6 took 20 of them in
+20 files across 5 directory-disjoint leaves. **19 cleared, 1 rejected with a measurement**
+(`scripts/lint/apply-g2-grace-markers.mjs`: the only verbatim-movable block gives the new helper
+`complexity 13`, a fresh warning, and the remainder still 17 lines over; the other blocks are walled by
+three `continue`s and a closure write to `dirty`).
+
+Repo movement, all re-measured after the wave: `eslintFindings 2803 → 2780`, `eslintErrors 997 → 978`,
+`max-lines-per-function 529 → 510`, the 51-60 band `105 → 86`, files carrying the rule `301 → 289`.
+Ceilings were regenerated and exactly two rows fell — `anyRaise: false`. `pnpm build`, `pnpm test:unit`
+(333 files / 3641 passed / 3 skipped) and `pnpm test:integration` (93 / 472 / 2) all exit 0, the
+capability-guard J-contracts included.
+
+**The cost nobody should gloss:** `fileSizeOverCap` stayed **166**, but the *excess* grew —
+60,204 → **60,271** lines. Clearing a body-length cap by hoisting a helper into the same file makes the
+file **longer**: every leaf reported net line growth (e.g. `dag-orchestrator.ts` 514 → 527,
+`ecc-bridge.ts` 526 → 529, `auto-compact-lifecycle.ts` 657 → 669). So the two rows can move in opposite
+directions, and this wave spent 67 lines of split-debt to buy 19 lint findings. That is not a reason to
+skip the work — 110 of the 166 over-cap files carry MLPF arms, so the rule has to be cleared for the split
+queue to move at all — but it is a reason to **plan hoists into siblings rather than in-file when the file
+is already under its cap**, which is what kept every under-cap file under cap this wave (checked per file
+by each leaf; `J03/J04/J05` and `dispatch.ts` all stayed small).
+
+Two hazards paid off as designed. `w6-4` checked whether `capability-guard-runner/contracts/` is
+enumerated before creating any sibling and found registration is **name-based static imports** in
+`registry.ts`, not a directory count — so it created zero siblings anyway. `w6-5` hit the line-pinned
+swallow census (§4b row 2): moving `settleOpenLifecycleRun` shifted pinned catches 439/580/653, the test
+caught it red on the first run, and the leaf reconciled both the `CENSUS` entries and an **inline** `653`
+literal the census list does not own — a second copy of the same fact that no `CENSUS` diff would have
+shown. Both files then exit 0.
+
+Still open after this wave: 86 marginal arms in the 51-60 band, 165 in 61-80, and the
+700-930-line `register*Commands()` cohort, which is where §4 row 6's "cleaning the family *is* the split"
+actually applies.

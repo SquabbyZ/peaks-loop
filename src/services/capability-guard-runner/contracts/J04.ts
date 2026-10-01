@@ -36,6 +36,26 @@ function envelope(dimensions: ReadonlyArray<string>, severity = 'info'): string 
   });
 }
 
+async function probeEachDimensionDrop(): Promise<{
+  readonly eachDropRejected: boolean;
+  readonly accepted: Set<string>;
+}> {
+  // Any one dimension dropped must be refused — not just the last one.
+  let eachDropRejected = true;
+  const accepted = new Set<string>();
+  for (const dropped of SIX_DIMENSIONS) {
+    const dims = SIX_DIMENSIONS.filter((d) => d !== dropped);
+    try {
+      await auditGoal({ need: 'n' }, runnerReturning(envelope(dims)));
+      eachDropRejected = false;
+      accepted.add(dropped);
+    } catch {
+      /* expected */
+    }
+  }
+  return { eachDropRejected, accepted };
+}
+
 /**
  * Behavioural probe: drive `auditGoal()` with a complete and an incomplete
  * payload and assert it accepts exactly one of them. Counting `dimension`
@@ -65,19 +85,7 @@ export async function runJ04Contract(ctx: GuardContext): Promise<GuardRunResult>
     rejectName = (e as Error).name;
   }
 
-  // Any one dimension dropped must be refused — not just the last one.
-  let eachDropRejected = true;
-  const accepted = new Set<string>();
-  for (const dropped of SIX_DIMENSIONS) {
-    const dims = SIX_DIMENSIONS.filter((d) => d !== dropped);
-    try {
-      await auditGoal({ need: 'n' }, runnerReturning(envelope(dims)));
-      eachDropRejected = false;
-      accepted.add(dropped);
-    } catch {
-      /* expected */
-    }
-  }
+  const { eachDropRejected, accepted } = await probeEachDimensionDrop();
 
   const result = combineProbes([
     probe(missing.length === 0, `baseline sourceFiles present (${row.sourceFiles.length})`),
