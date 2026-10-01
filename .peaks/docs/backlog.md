@@ -1530,3 +1530,58 @@ come out of it, and they are this campaign's shape, not a style preference:
 Not fixed here: it is a test-semantics change with its own acceptance criteria (make the guard cover all
 thirteen modules, add the shrink arm, prove the arm red-then-green), and leaving it as a green-but-blind
 guard while shipping the split is honest only if it is written down somewhere. It is now.
+
+### 2.29 `peaks job subagent-cleanup` reports `cleaned: true` while removing nothing, because its pending set lives in the dispatching process's memory (found 2026-10-02, C wave 7 closure)
+
+C wave 7's closure step ran `peaks job subagent-cleanup --job-id 2026-10-01-c-wave7-excess --batch-id <uuid>
+--json` for all five leaf batches plus the `file-size-excess-row` batch. All six returned
+`{"cleaned": true}`. Measured afterwards: `find .peaks/_sub_agents/<sessionId>/ -type f -mmin -10` was
+**empty** (no file in the ledger had been touched), and `active-dispatches.json` still held **38** entries
+including all six.
+
+The cause is in the wiring, not in a corner case: `src/services/job/subagent-job-wrapper.ts:32` keeps
+`dispatchedBatches` as an **in-memory `Map<jobId, Set<batchId>>`**, and `src/cli/commands/job-commands.ts:449`
+constructs a *new* wrapper for every CLI invocation. A fresh process therefore always reaches
+`subagent-job-wrapper.ts:65` — `if (!set?.has(input.batchId)) return { cleaned: true }` — so the success
+response *is* the "this process never dispatched anything" path. `--force` is declared
+(`job-commands.ts:445`) and never read by `cleanup()`, and the injected `JobStateStore` is unused there.
+
+What actually works is `peaks sub-agent finalize --batch <uuid> --outcome done`, which is disk-backed: the
+same six batches took the ledger from 38 → 32 active entries and flipped their dispatch records from
+`queued` to `done` (both re-measured after the command, not taken from its envelope).
+
+Why it matters: a hygiene command whose only output is a self-vouch is worse than no command, because the
+orchestrator records it as done. Two acceptance items for whoever fixes it — (1) the pending set must be
+read from the on-disk ledger so a CLI invocation observes what the dispatching run left there; (2) `cleaned`
+must be `false` (or the command must fail) when the named batch is absent from the ledger, so "nothing to
+clean" is distinguishable from "cleaned it".
+
+### 2.30 The request state machine refuses real shell syntax but accepts an unfilled template (found 2026-10-02; extends §2.25 and §2.26)
+
+§2.26 recorded `request transition` refusing an honest envelope over the literal token
+`` `git show HEAD:<path>` ``. It now has a mirror-image counterpart, and the pair together says the lint is
+aimed at the wrong thing: `2030-2026-10-01-c-wave6-mlpf` was moved to **`implemented`** while its body was
+still the generator's 55-line template — `grep -cE "<[a-z-]+>|TBD"` returns **6** unfilled tokens in that
+file, and `2027`/`2028`/`2029`/`2031` carry **5** each and are still sitting at `draft`.
+
+So the gate that blocks a record describing what was actually run does not block a record that says nothing.
+The fix is not to loosen the placeholder heuristic (§2.26 already asks for that separately) but to make
+`implemented` require *this* artifact's own `peaks request lint` to pass on the file being transitioned, and
+to have `request init --apply` refuse to mint a second artifact for a rid that already has a hand-authored
+record — the `20NN-` counter prefix in §2.25 is what created the duplicate in the first place.
+
+### 2.31 Leaf stderr scratch reached the repo root and was committed at convergence (introduced by C wave 7 `w7-1`, found 2026-10-02)
+
+`git show --stat 78f764cb` listed, among the 29 source and test files, five zero-byte files **at the
+repository root**: `final-review-service-{delivery-judgement,evidence-budget,fact-states-and-guard,
+provider-budget,whole-or-nothing}.err`. Their names match w7-1's five new sibling suites exactly — they are
+`2> name.err` captures from per-file test runs, redirected relative to cwd.
+
+Nothing in the tree or the gates noticed: `git status` was clean (they were *tracked*), the file-size census
+does not read `.err`, and eslint does not lint them. The only reason they surfaced is that the convergence
+audit listed root-level tracked files. They are removed by the commit that adds this entry.
+
+Two rules, both cheap: (1) a wave's convergence audit must sweep for scratch by **shape** (root-level files
+whose basename matches a leaf's target, 0-byte tracked files) and not only by `git status`; (2) a leaf's
+brief must pin scratch destinations to an absolute path under the session's runtime dir — a redirect that
+depends on cwd is a leak waiting for the next `cd`.
