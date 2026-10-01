@@ -28,7 +28,10 @@
  *   file-size mode — the over-cap census leg on its own: same census, same
  *                  `check`, same ceiling as `repo` mode, for the same reason — a
  *                  unit test has to hand it one over-cap file and watch THIS leg
- *                  go red (rid 2026-09-30-cap-unify-01).
+ *                  go red (rid 2026-09-30-cap-unify-01). A named-file list needs
+ *                  `--control-arm`: a subset cannot fail a whole-tree row, so
+ *                  without the flag the leg refuses instead of printing one
+ *                  (repair cycle F1).
  *
  * The ceilings in `.peaks/lint/gate-baseline.json` are lowered slice by slice
  * by the cleanup program. At zero these same hooks are the strict gates,
@@ -61,6 +64,29 @@ import {
   lintFileList,
   scopeDirs
 } from '../scripts/lint/lint-file-list.mjs';
+// `../.husky/`, NOT `./`: a gate COPY has to be able to load. `lintFileList` is
+// reached the same way (`../scripts/lint/…`) because `tests/unit/lint/lint-file-list-parity.test.ts`
+// runs a scratch copy of THIS file from `.tmp/` — one level under the repo root, so
+// `<copy dir>/..` is the repo root — to prove its own CONTROL arm goes red. When
+// this file grew a sibling helper (repair cycle F5) the copy stopped loading at
+// all: `ERR_MODULE_NOT_FOUND` on `.tmp/peaks-gate-file-size.mjs`, exit 1, no output,
+// and the control arm failed with "the gate exited (1) before printing its scope
+// line" — a guard that cannot be watched failing is a guard that is decoration. The
+// copy-safe spelling costs nothing in-tree (`../.husky/x` from `.husky/x` is the
+// same file) and is what keeps the enforcement surface copyable. If you are about
+// to "clean this up" to `./`, run that parity test first.
+import {
+  FS_CEILING_KEY,
+  FS_CENSUS,
+  FS_ROW_LABEL,
+  TSX_CLI,
+  describeInputTrips,
+  fileSizeInputTrips,
+  measureFileSizeOverCap,
+  parseFileSizeArgv,
+  printFileSizeLeg,
+  refuseScopedSubset
+} from '../.husky/peaks-gate-file-size.mjs';
 
 // Slash-normalised ONCE, at the definition. `resolve()` returns backslashes on
 // Windows, so a `p.split('\\').join('/')` path can never match a `${ROOT}/`
@@ -650,62 +676,42 @@ function silentWarningLeg(check, ceilings, files) {
 // ceiling, which is why the seeded number cannot be a transcription error.
 //
 // FAIL-CLOSED, exactly like the silent-warning legs above: a census that cannot
-// run, or that counted nothing, ABORTS the leg with exit 1. It is never read as
-// a zero — a zero is what "every file is under the cap" looks like, and the
-// whole point of the row is to tell those two states apart.
-const FS_CENSUS = 'scripts/lint/file-size-census.ts';
-const TSX_CLI = 'node_modules/tsx/dist/cli.mjs';
-const FS_CEILING_KEY = 'fileSizeOverCap';
-const FS_ROW_LABEL = 'file-size over cap';
+// run, that counted nothing, or that is no longer measuring the policy the ceiling
+// was seeded under, ABORTS the leg with exit 1. It is never read as a zero — a zero
+// is what "every file is under the cap" looks like, and the whole point of the row
+// is to tell those two states apart.
+//
+// THE MEASUREMENT PATH IS SHARED (F5). `measureFileSizeOverCap` and its refusal
+// conditions used to be duplicated here and in `.husky/peaks-gate-baseline.mjs`,
+// already drifted on one option; they live in `.husky/peaks-gate-file-size.mjs`,
+// which this file and the generator both import.
 
 /**
- * `files` narrows the count for a control arm of the unit test (the same
- * posture as `measureSilentWarnings`). An empty list asks the census for its
- * own scope: `git ls-files` over the policy's four directories.
+ * The row, through `check`. Returns `{ refusal, ... }`: a non-null `refusal` means
+ * the caller must fail the run — a leg that could not be measured contributes no
+ * row, let alone a zero.
+ *
+ * Two refusals the slice did not have before the repair cycle:
+ *   F1 — a named-file subset that did not opt into `--control-arm`. One existing
+ *        file cannot contain an over-cap file the whole-tree row does not already
+ *        count, so printing `✓ … 0 (ceiling 174) … ceiling held` for it vouched
+ *        for a measurement that had not been made.
+ *   F2 — the census's policy inputs (caps, scope dirs, extensions, line
+ *        convention) are not the ones recorded under the ceiling. Re-deciding the
+ *        cap moved the number the row ratchets and stayed green; the row now
+ *        refuses to compare against a ceiling produced by a different policy.
  */
-function measureFileSizeOverCap(files = []) {
-  let raw = '';
-  try {
-    raw = execFileSync('node', [TSX_CLI, FS_CENSUS, '--json', ...files], {
-      cwd: ROOT,
-      encoding: 'utf8',
-      windowsHide: true,
-      maxBuffer: 64 * 1024 * 1024
-    });
-  } catch (err) {
-    // Exit 1 means the census FOUND over-cap files; the envelope is still on
-    // stdout — the same shape as eslint's report and the detector's.
-    raw = err.stdout ?? '';
-  }
-  const refuse = (why) => ({ failure: why, envelope: null });
-  let env;
-  try {
-    env = JSON.parse(raw);
-  } catch {
-    return refuse(`${FS_CENSUS} --json produced no parseable envelope`);
-  }
-  if (!Number.isInteger(env.overCap) || env.overCap < 0) {
-    return refuse(`${FS_CENSUS} produced an envelope with no integer overCap`);
-  }
-  if (!Number.isInteger(env.scope?.countedFiles) || env.scope.countedFiles <= 0) {
-    return refuse(`${FS_CENSUS} counted 0 files, so it measured nothing`);
-  }
-  return { failure: null, envelope: env };
-}
-
-/**
- * Print the row through `check`. Returns `{ refusal, ... }`: a non-null
- * `refusal` means the caller must fail the run — a leg that could not be
- * measured contributes no row, let alone a zero.
- */
-function fileSizeLeg(check, ceilings, files) {
-  const m = measureFileSizeOverCap(files);
+function fileSizeLeg(check, ceilings, files, controlArm = false) {
+  const subset = refuseScopedSubset({ controlArm, files });
+  if (subset !== null) return { refusal: subset, envelope: null, controlArm };
+  const m = measureFileSizeOverCap(files, ROOT);
   if (m.failure !== null) {
     return {
       refusal:
         `REFUSING to measure the file-size leg — ${m.failure}.\n` +
         `  A census that cannot run is a gate FAILURE, not a zero. Run \`node ${TSX_CLI} ${FS_CENSUS}\` to see why.`,
-      envelope: null
+      envelope: null,
+      controlArm
     };
   }
   if (!Number.isInteger(ceilings[FS_CEILING_KEY])) {
@@ -713,23 +719,16 @@ function fileSizeLeg(check, ceilings, files) {
       refusal:
         `REFUSING to measure the file-size leg — the baseline has no ceiling for ${FS_CEILING_KEY}.\n` +
         '  Regenerate it: node .husky/peaks-gate-baseline.mjs',
-      envelope: m.envelope
+      envelope: m.env,
+      controlArm
     };
   }
-  check(FS_ROW_LABEL, m.envelope.overCap, ceilings[FS_CEILING_KEY]);
-  return { refusal: null, envelope: m.envelope };
-}
-
-/** One line of evidence under the row, so the number is never bare. */
-function describeFileSizeEnvelope(env) {
-  const buckets = Object.entries(env.byDir ?? {})
-    .map(([dir, totals]) => `${dir} ${totals.files}`)
-    .join(', ');
-  return (
-    `  scope note: the census counted ${env.scope.countedFiles} file(s) in ${env.scope.source} ` +
-    `against caps ${env.caps.defaultCap}/${env.caps.testsCap} raw lines (${env.convention}); ` +
-    `${env.overCap} over cap, ${env.excessLines} excess lines (${buckets}).`
-  );
+  const trips = fileSizeInputTrips(m.env, baseline);
+  if (trips.length > 0) {
+    return { refusal: describeInputTrips(trips), envelope: m.env, controlArm };
+  }
+  check(FS_ROW_LABEL, m.env.overCap, ceilings[FS_CEILING_KEY]);
+  return { refusal: null, envelope: m.env, controlArm };
 }
 
 // ---------------------------------------------------------------------------
@@ -867,11 +866,11 @@ async function repoMode() {
       `walk, not the ${files.length} files in this gate's scope. Recorded, not reconciled.`
   );
   const size = fileSizeLeg(check, c, []);
-  if (size.refusal !== null) {
-    console.error(`\npeaks-gate: ${size.refusal}\n`);
-    return 1;
-  }
-  console.log(describeFileSizeEnvelope(size.envelope));
+  // The measurement is printed WHETHER OR NOT the leg then refuses (repair cycle 2):
+  // the run that trips the policy-input binding is exactly the run whose numbers a
+  // reader needs. `printFileSizeLeg` returns false on a refusal, which still fails
+  // the run with exit 1 — evidence first, verdict second, same exit code.
+  if (!printFileSizeLeg(size, c[FS_CEILING_KEY])) return 1;
   console.log('');
 
   if (unparsable.length > 0) {
@@ -937,27 +936,42 @@ async function silentWarningMode(argv) {
 // test that re-implemented the comparison to stay cheap would prove nothing
 // about the gate.
 //
-// Path arguments narrow the census for a control arm; with none it ratchets
-// exactly what `repo` mode ratchets.
+// A named-file list needs `--control-arm`, because a subset is not the row (F1):
+// with the flag the leg runs the SAME measurement and the SAME `check` against the
+// SAME ceiling and says plainly that it measured only the named files; without it
+// the leg refuses. With no paths at all it ratchets exactly what `repo` mode does,
+// and that is the only run that may say the word "held".
 function fileSizeMode(argv) {
-  const files = argv.map(rel).filter((f) => f !== '');
+  const { controlArm, files } = parseFileSizeArgv(argv);
+  const scoped = files.map(rel).filter((f) => f !== '');
   const failures = [];
   const check = makeCheck(failures);
+  const ceiling = baseline.ceilings[FS_CEILING_KEY];
 
   console.log('');
-  const size = fileSizeLeg(check, baseline.ceilings, files);
-  if (size.refusal !== null) {
-    console.error(`peaks-gate: ${size.refusal}\n`);
-    return 1;
-  }
-  console.log(describeFileSizeEnvelope(size.envelope));
+  const size = fileSizeLeg(check, baseline.ceilings, scoped, controlArm);
+  // Evidence before verdict, in both modes and for every refusal that has an
+  // envelope behind it — see `printFileSizeLeg`. Exit 1 is unchanged.
+  if (!printFileSizeLeg(size, ceiling)) return 1;
   console.log('');
 
   if (failures.length > 0) {
-    console.error('peaks-gate: file-size ratchet breached — the over-cap count grew.\n');
+    console.error(
+      `peaks-gate: file-size ${size.controlArm ? 'CONTROL ARM ' : ''}breached — ` +
+        `${size.envelope.overCap} over-cap file(s) against ceiling ${ceiling}.\n`
+    );
     for (const f of failures) console.error(`  ✗ ${f}`);
     console.error('\nThis total only ever goes DOWN. Split the file; do not raise the ceiling.\n');
     return 1;
+  }
+
+  if (size.controlArm) {
+    console.log(
+      `peaks-gate: file-size CONTROL ARM within the ceiling (${size.envelope.overCap} of ` +
+        `${size.envelope.scope.countedFiles} named file(s) over cap, ceiling ${ceiling}). ` +
+        'The repo row was not measured and is not claimed by this run.\n'
+    );
+    return 0;
   }
 
   console.log(`peaks-gate: file-size ceiling held (${size.envelope.overCap} file(s) over cap).`);
@@ -978,7 +992,8 @@ const code =
           : mode === 'file-size'
             ? fileSizeMode(process.argv.slice(3))
             : (console.error(
-                'usage: peaks-gate.mjs <staged|changed|repo|silent-warning|file-size> [files...]'
+                'usage: peaks-gate.mjs <staged|changed|repo|silent-warning|file-size> ' +
+                  '[--control-arm] [files...]'
               ),
               2);
 process.exit(code);

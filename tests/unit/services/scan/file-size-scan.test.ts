@@ -217,6 +217,67 @@ describe('file-size scan — size-cap exemption', () => {
     );
 
     it(
+      'when a changed file is outside the policy scope, should report it as out of scope instead of inventing a cap for it',
+      { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+      () => {
+        // given: F3 of rid 2026-09-30-cap-unify-01. `fileSizeCapFor` answers 300 for
+        //        anything that is not under root `tests/`, and the scan used to ask
+        //        it about EVERY changed file. So a 320-line file under `.husky/` —
+        //        a directory the policy does not measure, contributing 0 to the
+        //        `fileSizeOverCap` row — reddened `request transition` with no
+        //        ceiling to descend and no split campaign that could clear it.
+        //        Three shapes of "not the policy's": another dir, another extension,
+        //        and a root-level file.
+        writeLines('.husky/big-hook.mjs', OVER_CAP, repo);
+        writeLines('docs/notes.md', OVER_CAP, repo);
+        writeLines('src/config.json', OVER_CAP, repo);
+        // when:  the scan runs
+        const result = scanFileSize({ projectRoot: repo });
+        // then:  none of them is a violation...
+        expect(result.violations).toEqual([]);
+        expect(result.ok).toBe(true);
+        // ...and none of them is silently skipped either: the verdict is named.
+        expect(result.outOfScopeFiles.sort()).toEqual(
+          ['.husky/big-hook.mjs', 'docs/notes.md', 'src/config.json'].sort()
+        );
+        expect(result.checkedFiles).toBe(1); // src/small.ts, the only measured change
+      }
+    );
+
+    it(
+      'when an out-of-scope file changed next to an over-cap source file, should report only the source file',
+      { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+      () => {
+        // given: the scope rule must not become an amnesty — the in-scope half of
+        //        the same diff is still counted against its policy cap.
+        writeLines('.husky/big-hook.mjs', OVER_CAP, repo);
+        writeLines('src/huge.ts', OVER_CAP, repo);
+        // when/then
+        const result = scanFileSize({ projectRoot: repo });
+        expect(result.violations).toEqual([
+          { file: 'src/huge.ts', lines: OVER_CAP + 1, cap: FILE_SIZE_CAP_DEFAULT }
+        ]);
+        expect(result.outOfScopeFiles).toEqual(['.husky/big-hook.mjs']);
+      }
+    );
+
+    it(
+      'when the caller names --threshold, should measure every changed file including one outside the scope',
+      { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+      () => {
+        // given: an out-of-scope file over the caller's own number
+        writeLines('.husky/big-hook.mjs', OVER_CAP, repo);
+        // when:  the scan runs with an override
+        const result = scanFileSize({ projectRoot: repo, threshold: 4 });
+        // then:  the override means "apply this to EVERY file" — its documented
+        //        meaning — so the scope rule does not narrow it, and nothing is
+        //        reported as out of scope.
+        expect(result.outOfScopeFiles).toEqual([]);
+        expect(result.violations.map((v) => v.file).sort()).toContain('.husky/big-hook.mjs');
+      }
+    );
+
+    it(
       'when an over-cap lockfile changed, should exempt it',
       { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
       () => {
@@ -325,21 +386,25 @@ describe('file-size scan — size-cap exemption', () => {
 
   describe('(render) result shape', () => {
     it(
-      'when the scan completes, should report exemptFiles alongside the existing counters',
+      'when the scan completes, should report exemptFiles and outOfScopeFiles alongside the existing counters',
       { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
       () => {
         // given/when: any scan run
         const result = scanFileSize({ projectRoot: repo });
-        // then: the exemption is auditable, not a silent skip
+        // then: the exemption is auditable, not a silent skip — and so is the
+        //       scope rule, which is a DIFFERENT verdict (the policy has no cap for
+        //       these paths; it does not say they are small enough).
         expect(Object.keys(result).sort()).toEqual([
           'checkedFiles',
           'deletedFiles',
           'exemptFiles',
           'ok',
+          'outOfScopeFiles',
           'threshold',
           'violations'
         ]);
         expect(Array.isArray(result.exemptFiles)).toBe(true);
+        expect(Array.isArray(result.outOfScopeFiles)).toBe(true);
       }
     );
   });

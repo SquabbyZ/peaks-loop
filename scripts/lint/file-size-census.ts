@@ -46,7 +46,7 @@ import {
   fileSizeCapFor,
   fileSizeCaps,
   fileSizeScopeBucket,
-  hasPolicyExtension,
+  isPolicyMeasuredFile,
   normalizePolicyPath
 } from '../../src/services/scan/file-size-policy.js';
 
@@ -73,6 +73,12 @@ type CensusBucket = {
 /**
  * Every tracked file inside the policy's scope, as POSIX repo-relative paths —
  * the same enumeration `pnpm lint` and the gate's `repo` mode run over.
+ *
+ * The filter is `isPolicyMeasuredFile`, the same predicate `file-size-scan.ts`
+ * uses, so the row and the diff scan cannot each have their own idea of what the
+ * policy covers (F3 of the repair cycle). `git ls-files` already limits the list
+ * to the scope dirs; restating that here is what keeps the extension half from
+ * being the only thing applied.
  */
 function scopedTrackedFiles(): string[] {
   const raw = execFileSync('git', ['ls-files', '--', ...FILE_SIZE_SCOPE_DIRS], {
@@ -83,7 +89,7 @@ function scopedTrackedFiles(): string[] {
   return raw
     .split('\n')
     .filter((line) => line !== '')
-    .filter((file) => hasPolicyExtension(file));
+    .filter((file) => isPolicyMeasuredFile(file));
 }
 
 /**

@@ -2,7 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { countRawLines, fileSizeCapFor } from './file-size-policy.js';
+import { countRawLines, fileSizeCapFor, isPolicyMeasuredFile } from './file-size-policy.js';
 
 /**
  * Paths exempt from the file-size cap. The cap is Karpathy's "Simplicity
@@ -86,6 +86,24 @@ export type FileSizeScanResult = {
    *  deleted in the working tree). Pre-#015 the scan crashed on these via
    *  ENOENT; now they are reported here as informational data. */
   deletedFiles: string[];
+  /** Changed files the file-size policy does not measure at all: outside its
+   *  four scope directories, or with an extension it does not count. Reported
+   *  rather than silently skipped, for the same reason `exemptFiles` is.
+   *
+   *  WHY THEY ARE NOT VIOLATIONS (F3, rid 2026-09-30-cap-unify-01). Every file
+   *  the scan checked used to be measured against `fileSizeCapFor`, whose
+   *  else-branch is 300 — a number that is only defined for `src`/`packages`/
+   *  `scripts`. So an out-of-scope path (a `.md`, a file under `.husky/`) could
+   *  redden `request transition` at 301 lines while contributing nothing to the
+   *  `fileSizeOverCap` row that ratchets the policy: no ceiling to descend, no
+   *  split campaign with a duty to clear it, and no verdict a contributor could
+   *  act on. Enforcing the cap wider than the declared scope is not a stricter
+   *  gate, it is an unauditable one.
+   *
+   *  A caller that names `threshold` explicitly opts out of the scope rule —
+   *  "apply this number to every changed file" is the documented meaning of the
+   *  flag — and then nothing is out of scope. */
+  outOfScopeFiles: string[];
   violations: FileSizeViolation[];
 };
 
@@ -135,6 +153,26 @@ function countLines(filePath: string): number {
   return countRawLines(readFileSync(filePath, 'utf8'));
 }
 
+/**
+ * The number a changed file is measured against, or `null` when the policy has no
+ * number for it.
+ *
+ * `null` is a VERDICT, not a missing value: the file is outside the policy's scope
+ * (a directory it does not cover, or an extension it does not count), so it is
+ * neither under the cap nor over it. Keeping the decision in one function is what
+ * stops the scan loop from asking `fileSizeCapFor` about a path that function was
+ * never defined for — the defect the repair cycle found (F3), where the
+ * else-branch's 300 was applied to `.husky/` and `docs/` alike.
+ *
+ * An explicit `threshold` is the caller's own number, so it wins over the scope
+ * rule: `--threshold 4` means "every changed file, at 4", which is what the flag
+ * has always promised.
+ */
+function policyCapFor(file: string, override: number | null): number | null {
+  if (override !== null) return override;
+  return isPolicyMeasuredFile(file) ? fileSizeCapFor(file) : null;
+}
+
 export function scanFileSize(options: FileSizeScanOptions): FileSizeScanResult {
   const baseRef = options.baseRef ?? 'HEAD';
   // `null` here means "the policy decides, per file" — the cap is a property of
@@ -144,6 +182,7 @@ export function scanFileSize(options: FileSizeScanOptions): FileSizeScanResult {
   const violations: FileSizeViolation[] = [];
   const deletedFiles: string[] = [];
   const exemptFiles: string[] = [];
+  const outOfScopeFiles: string[] = [];
   let checkedFiles = 0;
 
   for (const file of files) {
@@ -171,9 +210,17 @@ export function scanFileSize(options: FileSizeScanOptions): FileSizeScanResult {
         continue;
       }
     }
+    // The cap is decided BEFORE the file is counted, because for a path outside the
+    // policy there is no cap to decide: it is reported in `outOfScopeFiles` instead
+    // of being measured against a number the `fileSizeOverCap` row cannot see and
+    // no split campaign can descend. See `policyCapFor`.
+    const cap = policyCapFor(file, override);
+    if (cap === null) {
+      outOfScopeFiles.push(file);
+      continue;
+    }
     checkedFiles += 1;
     const lines = countLines(absolute);
-    const cap = override ?? fileSizeCapFor(file);
     if (lines > cap) {
       violations.push({ file, lines, cap });
     }
@@ -185,6 +232,7 @@ export function scanFileSize(options: FileSizeScanOptions): FileSizeScanResult {
     checkedFiles,
     exemptFiles,
     deletedFiles,
+    outOfScopeFiles,
     violations
   };
 }

@@ -29,6 +29,22 @@
 // `tests`, but the 174 the ceiling was seeded from counts 5 `scripts/` files.
 // A row that silently excluded them would not equal its own measurement — the
 // same class of hole as lint-gate §4b (a surface asserted but never counted).
+//
+// NUMBERS THIS MODULE DOES NOT OWN, DECIDED 2026-09-30 (F6 of the repair cycle).
+// A line-count constant elsewhere in the repo is a second copy of THIS policy only
+// if it decides the same question — "may this file be committed at this size?".
+// Three that do not, recorded here so the next reader does not re-litigate them:
+//   - `config/eslint/.peaks-rules.cjs` `max-lines: 400` EFFECTIVE lines: the same
+//     question in a different unit, deliberately left at 400 until the splits land
+//     (lint-gate §4 slice 5; 98 findings ≠ 174 files).
+//   - `src/services/legacy/legacy-detector.ts` `LARGE_FILE_LINES = 500`: a smell
+//     DETECTOR's "is this file big enough to look legacy?" threshold. It reports a
+//     suspicion, blocks nothing, and descends no ceiling, so it is NOT a copy of
+//     this cap and is NOT folded into it — folding it in would silently change what
+//     the legacy report says. Its name does not match the census's `CAP_NAME`
+//     second-copy rule on purpose; see lint-gate §4b row 7.
+//   - `src/services/skills/lint-reference-shape.ts` 800: the shape of an
+//     example lint report, not a cap.
 
 /** Raw-line cap for `src/`, `scripts/` and `packages/` — including a `tests` directory inside a package. */
 export const FILE_SIZE_CAP_DEFAULT = 300;
@@ -79,9 +95,33 @@ export function inFileSizeScope(file: string): boolean {
 }
 
 /**
+ * THE one definition of "a file the policy measures": under a scope directory AND
+ * of a scope extension. Both consumers read this instead of each carrying its own
+ * half of the rule.
+ *
+ * WHY IT MATTERS (F3 of the repair cycle, rid `2026-09-30-cap-unify-01`). The
+ * census enumerated its scope with `git ls-files <dirs>` plus the extension test,
+ * while the scan measured EVERY changed non-exempt file at `fileSizeCapFor`'s
+ * else-branch 300 — including paths in neither list. The two disagreed about the
+ * same policy, and the disagreement was not harmless: an out-of-scope file (e.g.
+ * under `.husky/`, or a `.json`) could redden a `request transition` at 300 lines
+ * while contributing nothing to `fileSizeOverCap`, so there was no ratchet row to
+ * descend and no split campaign that would ever clear it. Enforcement wider than
+ * the declared scope is enforcement nobody can satisfy.
+ */
+export function isPolicyMeasuredFile(file: string): boolean {
+  return inFileSizeScope(file) && hasPolicyExtension(file);
+}
+
+/**
  * The cap a path is measured against: 500 for the root `tests/` tree, 300 for
  * everything else in scope — including a `tests` directory inside a package,
  * which keeps its parent scope's cap by the reading decided 2026-09-30.
+ *
+ * PRECONDITION: `isPolicyMeasuredFile(file)`. The else-branch is `src`,
+ * `packages` and `scripts` ONLY because that is what the policy decided; handed a
+ * path outside the scope it would invent a cap for a file the row cannot see, so
+ * callers must gate on the predicate above first (`file-size-scan.ts` does).
  */
 export function fileSizeCapFor(file: string): number {
   return normalizePolicyPath(file).startsWith('tests/')

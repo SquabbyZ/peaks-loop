@@ -48,6 +48,15 @@ import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import prettier from 'prettier';
+// `./` here, `../.husky/` in `.husky/peaks-gate.mjs`, for the SAME file — not drift
+// to "fix": the gate is run from a scratch copy by the parity test's control arm and
+// has to resolve its helper from one level under the repo root, while this generator
+// is only ever run in place (see the comment on that import).
+import {
+  FS_CEILING_KEY,
+  FS_WHOLE_SCOPE_SOURCE,
+  measureFileSizeOverCap
+} from './peaks-gate-file-size.mjs';
 
 // Slash-normalised once, at the definition — `resolve()` returns backslashes on
 // Windows and a `${ROOT}/` built from that can never match a normalised path.
@@ -324,37 +333,14 @@ console.error(
 // cannot run, or that counted no file, aborts the run BEFORE anything is written.
 // Writing a zero here would seed a ceiling of zero for a number that was never
 // measured, and the ratchet could then never be satisfied again.
-const FS_CENSUS = 'scripts/lint/file-size-census.ts';
-const TSX_CLI = 'node_modules/tsx/dist/cli.mjs';
-
-function measureFileSizeOverCap() {
-  let raw = '';
-  try {
-    raw = execFileSync('node', [TSX_CLI, FS_CENSUS, '--json'], {
-      cwd: ROOT,
-      encoding: 'utf8',
-      maxBuffer: 64 * 1024 * 1024
-    });
-  } catch (err) {
-    raw = err.stdout ?? ''; // exit 1 means over-cap files exist; the envelope is still on stdout
-  }
-  let env;
-  try {
-    env = JSON.parse(raw);
-  } catch {
-    return { failure: `${FS_CENSUS} --json produced no parseable envelope` };
-  }
-  if (!Number.isInteger(env.overCap) || env.overCap < 0) {
-    return { failure: `${FS_CENSUS} produced an envelope with no integer overCap` };
-  }
-  if (!Number.isInteger(env.scope?.countedFiles) || env.scope.countedFiles <= 0) {
-    return { failure: `${FS_CENSUS} counted 0 files, so it measured nothing` };
-  }
-  return { failure: null, env };
-}
-
+//
+// THE MEASUREMENT PATH IS SHARED with the gate (`.husky/peaks-gate-file-size.mjs`,
+// F5 of the repair cycle). These two callers used to carry near-verbatim copies of
+// the spawn and its four refusal conditions, already drifted on one option; the
+// ceiling and the row the gate compares must come from one code path, not two that
+// happen to look alike.
 console.error('running the file-size census...');
-const size = measureFileSizeOverCap();
+const size = measureFileSizeOverCap([], ROOT);
 if (size.failure !== null) {
   console.error(
     `\nREFUSING to write ${rel(OUT_PATH)}: ${size.failure}.\n` +
@@ -370,6 +356,18 @@ console.error(
     `(${size.env.caps.defaultCap}/${size.env.caps.testsCap} raw lines; ${sizeBuckets}; ` +
     `${size.env.excessLines} excess lines)`
 );
+
+// The ceiling describes the ROW, so it may only be seeded from the census's own
+// whole-scope run. An explicit-path run counts whatever it is handed.
+if (size.env.scope.source !== FS_WHOLE_SCOPE_SOURCE) {
+  console.error(
+    `\nREFUSING to write ${rel(OUT_PATH)}: the census reported source ` +
+      `"${size.env.scope.source}" instead of "${FS_WHOLE_SCOPE_SOURCE}", so its overCap is not ` +
+      'the number the gate ratchets.\n  Nothing has been written; the existing ceilings are ' +
+      'untouched.\n'
+  );
+  process.exit(1);
+}
 
 // ---- write -----------------------------------------------------------------
 const files = {};
@@ -419,6 +417,22 @@ writeFileSync(
       // file, so 174 files is a 174-line ambiguity unless the artifact says
       // which convention produced it.
       fileSizeLineConvention: size.env.convention,
+      // THE CEILING'S INPUTS, RECORDED WITH THE CEILING (repair cycle F2). Binding
+      // only the convention left the number free to mean anything: measured by the
+      // security audit on 2026-09-30, caps 300/500 → 174, 400/600 → 162, retiring
+      // the cap to 800 → **40 and a GREEN gate**, and dropping `ts` from the
+      // extension list → 5 over cap out of 43 counted files, which the
+      // `countedFiles <= 0` trip cannot see. A ratchet whose input can be
+      // re-decided underneath it is not a ratchet, so `.husky/peaks-gate.mjs` now
+      // re-derives these four fields from a live census run and REFUSES the leg on
+      // any mismatch. They come from the envelope, never from a literal, so this
+      // generator cannot record an input it did not measure.
+      fileSizePolicyInputs: {
+        defaultCap: size.env.caps.defaultCap,
+        testsCap: size.env.caps.testsCap,
+        scopeDirs: size.env.scope.dirs,
+        scopeExtensions: size.env.scope.extensions
+      },
       coverageGapFiles,
       syntaxErrorFiles,
       notLinted,

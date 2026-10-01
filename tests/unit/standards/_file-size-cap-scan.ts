@@ -35,11 +35,12 @@ import {
   FILE_SIZE_CAP_DEFAULT,
   FILE_SIZE_CAP_TESTS,
   FILE_SIZE_LINE_CONVENTION,
+  FILE_SIZE_SCOPE_DIRS,
   countRawLines,
   fileSizeCapFor,
   fileSizeCaps,
   hasPolicyExtension,
-  inFileSizeScope
+  isPolicyMeasuredFile
 } from '../../../src/services/scan/file-size-policy.js';
 
 export const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
@@ -127,7 +128,7 @@ export function listCodeFiles(relRoot: string, absDir: string, out: string[]): s
 
 /** The policy's scope applied to a filesystem walk of `root`. */
 export function walkScopedFiles(root: string): string[] {
-  return listCodeFiles('', root, []).filter((file) => inFileSizeScope(file));
+  return listCodeFiles('', root, []).filter((file) => isPolicyMeasuredFile(file));
 }
 
 /**
@@ -144,7 +145,29 @@ export function gitScopedFiles(root: string): string[] {
   return raw
     .split('\n')
     .filter((line) => line !== '')
-    .filter((file) => hasPolicyExtension(file) && inFileSizeScope(file));
+    .filter((file) => isPolicyMeasuredFile(file));
+}
+
+/**
+ * The TRACKED scope, the way the census enumerates it — `git ls-files` over the
+ * policy's directories, filtered by the policy's own predicate. Separate from
+ * `gitScopedFiles` because the artifact can only describe a committed file: an
+ * untracked scratch file is not a missing baseline entry.
+ *
+ * This is the set the F4 coverage guard walks: every file the row counts must
+ * also have a per-file entry in `.peaks/lint/gate-baseline.json`, or that artifact
+ * is stale on the axis the gate's per-file legs read.
+ */
+export function censusCountedFiles(root: string): string[] {
+  const raw = execFileSync('git', ['ls-files', '--', ...FILE_SIZE_SCOPE_DIRS], {
+    cwd: root,
+    encoding: 'utf8',
+    windowsHide: true
+  });
+  return raw
+    .split('\n')
+    .filter((line) => line !== '')
+    .filter((file) => isPolicyMeasuredFile(file));
 }
 
 // ---------------------------------------------------------------------------

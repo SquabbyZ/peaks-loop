@@ -47,7 +47,13 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import { declareDimensions } from '../_setup/4dim-template.js';
-import { FILE_SIZE_CAP_DEFAULT } from '../../../src/services/scan/file-size-policy.js';
+import {
+  FILE_SIZE_CAP_DEFAULT,
+  FILE_SIZE_CAP_TESTS,
+  FILE_SIZE_SCOPE_DIRS,
+  FILE_SIZE_SCOPE_EXTENSIONS,
+  isPolicyMeasuredFile
+} from '../../../src/services/scan/file-size-policy.js';
 import {
   BASELINE_PATH,
   CENSUS_TOOL_PATH,
@@ -55,6 +61,7 @@ import {
   POLICY_MODULE_PATH,
   REPO_ROOT,
   capCopyFindings,
+  censusCountedFiles,
   censusRun,
   describeFindings,
   gitScopedFiles,
@@ -75,6 +82,13 @@ declareDimensions(
 type PublishedBaseline = {
   ceilings: Record<string, unknown>;
   fileSizeLineConvention?: string;
+  fileSizePolicyInputs?: {
+    defaultCap: number;
+    testsCap: number;
+    scopeDirs: string[];
+    scopeExtensions: string[];
+  };
+  files?: Record<string, unknown>;
 };
 
 function published(): PublishedBaseline {
@@ -235,6 +249,31 @@ describe('Scenario: behavior — a second copy of the cap is reported', () => {
     );
   });
 
+  it('leaves a line-count number that answers a different question alone, and says so (F6)', () => {
+    // `legacy-detector.ts` holds a 500 that the name-based rule above cannot see.
+    // It is NOT a copy of the cap — it reports a smell, it does not decide what may
+    // be committed, and folding it into the policy would silently turn all 134
+    // over-cap `src/` files into "legacy" findings. The decision is what this arm
+    // protects: the adjudication has to stay readable where the number lives, and
+    // the cap has to stay 300/500, which the artifact's recorded inputs pin.
+    const detector = readFileSync(
+      join(REPO_ROOT, 'src', 'services', 'legacy', 'legacy-detector.ts'),
+      'utf8'
+    );
+    const at = detector.indexOf('const LARGE_FILE_LINES');
+    expect(at).toBeGreaterThan(-1);
+    const declared = detector.slice(0, at);
+    expect(declared).toContain('NOT the file-size cap');
+    expect(declared).toContain('file-size-policy');
+    expect(declared).toContain('lint-gate.md');
+    // ...and it is not the policy's number: the caps the artifact was seeded under
+    // are still the two this module defines.
+    expect(POLICY.caps).toEqual({
+      defaultCap: FILE_SIZE_CAP_DEFAULT,
+      testsCap: FILE_SIZE_CAP_TESTS
+    });
+  });
+
   it('accepts the policy module itself, and a consumer that reads it', () => {
     // The rules must be able to PASS, otherwise the cases above prove only that
     // they never return [].
@@ -320,13 +359,101 @@ describe('Scenario: a11y — the census reports 0 only when it means 0', () => {
     expect(() => censusRun([join(REPO_ROOT, 'src', 'not-there-file-size.ts')])).toThrow();
   });
 
-  it('is the tool the gate spawns, by name', () => {
+  it('is the tool the gate spawns, through one shared measurement path', () => {
     // Wiring matters: a census nothing points at enforces nothing — the posture
-    // `lint-file-list-parity.test.ts` takes for `pnpm lint`.
+    // `lint-file-list-parity.test.ts` takes for `pnpm lint`. Since repair cycle F5
+    // the two callers reach it through `.husky/peaks-gate-file-size.mjs` instead of
+    // each spawning it, so the assertion follows the spawn rather than the file.
     const gate = readFileSync(join(REPO_ROOT, '.husky', 'peaks-gate.mjs'), 'utf8');
     const generator = readFileSync(join(REPO_ROOT, '.husky', 'peaks-gate-baseline.mjs'), 'utf8');
-    expect(gate).toContain(CENSUS_TOOL_PATH);
-    expect(generator).toContain(CENSUS_TOOL_PATH);
-    expect(gate).toContain('fileSizeOverCap');
+    const shared = readFileSync(join(REPO_ROOT, '.husky', 'peaks-gate-file-size.mjs'), 'utf8');
+    expect(shared).toContain(CENSUS_TOOL_PATH);
+    expect(gate).toContain('peaks-gate-file-size.mjs');
+    expect(generator).toContain('peaks-gate-file-size.mjs');
+    // The row's key is spelled once, in the shared module, and read by both callers
+    // through `FS_CEILING_KEY` — the same single-source posture the cap itself has.
+    expect(shared).toContain('fileSizeOverCap');
+    expect(gate).toContain('FS_CEILING_KEY');
+  });
+
+  it('refuses a named-file subset and disclaims the control arm it does accept (F1)', () => {
+    // The leg may not report `ceiling held` for a run that measured one file.
+    const shared = readFileSync(join(REPO_ROOT, '.husky', 'peaks-gate-file-size.mjs'), 'utf8');
+    expect(shared).toContain('refuseScopedSubset');
+    expect(shared).toContain('CONTROL ARM');
+    expect(shared).not.toMatch(/function refuseScopedSubset[\s\S]{0,400}ceiling held/);
+  });
+
+  it('binds fileSizeOverCap to the policy inputs that produced it (F2)', () => {
+    // The artifact carried the line convention and nothing else, so re-deciding the
+    // cap re-decided the number the row ratchets: measured 300/500 → 174, 400/600 →
+    // 162, 800 → 40 GREEN. The recorded inputs are what turn that into a refusal.
+    const artifact = published();
+    const inputs = artifact.fileSizePolicyInputs;
+    expect(inputs, 'the baseline must record the caps it was seeded under').toBeDefined();
+    expect(inputs?.defaultCap).toBe(POLICY.defaultCap);
+    expect(inputs?.testsCap).toBe(POLICY.testsCap);
+    expect(inputs?.scopeDirs).toEqual([...FILE_SIZE_SCOPE_DIRS]);
+    expect(inputs?.scopeExtensions).toEqual([...FILE_SIZE_SCOPE_EXTENSIONS]);
+    // And the envelope the gate reads carries the same fields, so the leg has
+    // something to re-derive: a recorded input with no live counterpart is a
+    // comparison that can never run.
+    const envelope = runCensus();
+    expect(envelope.caps).toEqual({
+      defaultCap: inputs?.defaultCap,
+      testsCap: inputs?.testsCap
+    });
+    expect(envelope.scope.dirs).toEqual(inputs?.scopeDirs);
+    expect(envelope.scope.extensions).toEqual(inputs?.scopeExtensions);
+    const generator = readFileSync(join(REPO_ROOT, '.husky', 'peaks-gate-baseline.mjs'), 'utf8');
+    expect(generator).toContain('fileSizePolicyInputs');
+    const gate = readFileSync(join(REPO_ROOT, '.husky', 'peaks-gate.mjs'), 'utf8');
+    expect(gate).toContain('fileSizeInputTrips(');
+  });
+
+  it('measures one scope in the scan and in the census, not two (F3)', () => {
+    // The census filtered `git ls-files` by the extension half; the scan filtered
+    // nothing at all, so a 320-line file under `.husky/` reddened a transition the
+    // row could never see or descend. Both now read `isPolicyMeasuredFile`.
+    const scan = readFileSync(
+      join(REPO_ROOT, 'src', 'services', 'scan', 'file-size-scan.ts'),
+      'utf8'
+    );
+    const census = readFileSync(join(REPO_ROOT, CENSUS_TOOL_PATH), 'utf8');
+    expect(scan).toContain('isPolicyMeasuredFile');
+    expect(census).toContain('isPolicyMeasuredFile');
+    expect(scan).toContain('outOfScopeFiles');
+    // A file outside the scope is not "under the cap", it is UNMEASURED by the
+    // policy: naming it keeps the two verdicts from being conflated.
+    for (const file of ['.husky/peaks-gate.mjs', 'docs/a.md', 'package.json', 'src/a.json']) {
+      expect(isPolicyMeasuredFile(file), file).toBe(false);
+    }
+    for (const file of [
+      'src/a.ts',
+      'tests/a.ts',
+      'packages/p/src/a.tsx',
+      'scripts/lint/a.mjs',
+      'src/a.cjs'
+    ]) {
+      expect(isPolicyMeasuredFile(file), file).toBe(true);
+    }
+  });
+
+  it('records a baseline entry for every file the census counts (F4)', () => {
+    // The other half of the artifact's contract: the ceilings are cross-measured by
+    // the arms above, but the per-file entries the staged and changed legs read have
+    // no guard, and on 2026-09-30 the committed artifact was 1424 entries against a
+    // 1429-file scope — the slice's own five new files were simply absent, and a
+    // gate that has never seen a file cannot say it did not get worse.
+    const counted = censusCountedFiles(REPO_ROOT);
+    const entries = published().files ?? {};
+    const missing = counted.filter((file) => !(file in entries));
+    expect(
+      missing,
+      `gate-baseline.json has no files[] entry for: ${missing.join(', ')} — ` +
+        'run node .husky/peaks-gate-baseline.mjs'
+    ).toEqual([]);
+    // Measured zero is not a missing scope: the census's own count must agree.
+    expect(counted.length).toBe(runCensus().scope.countedFiles);
   });
 });

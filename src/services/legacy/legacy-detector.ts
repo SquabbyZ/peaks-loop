@@ -50,6 +50,25 @@ const PATTERNS: ReadonlyArray<{ kind: LegacyKind; regex: RegExp }> = [
   { kind: 'ts-ignore', regex: /@ts-(?:ignore|expect-error|nocheck)/ }
 ];
 
+/**
+ * NOT the file-size cap, and NOT a second copy of it — decided 2026-09-30, rid
+ * `2026-09-30-cap-unify-01` repair cycle (F6), and recorded in
+ * `.peaks/docs/lint-gate.md` §4b row 7 so the next reader does not re-litigate it.
+ *
+ * This is a legacy SMELL heuristic: a number above which a file is big enough to
+ * be worth a second look. It reports a suspicion; it blocks nothing, reddens no
+ * gate, and descends no ceiling — whereas `src/services/scan/file-size-policy.ts`
+ * (300 raw for `src`/`packages`/`scripts`, 500 for root `tests/`) decides whether
+ * a file may be COMMITTED, and its whole-tree count is ratcheted by
+ * `fileSizeOverCap`. Two constants answering two questions.
+ *
+ * FOLDING IT IN WAS CONSIDERED AND REJECTED: lowering this to 300 would make
+ * every one of the 134 over-cap `src/` files also a "legacy" finding, i.e. it
+ * would silently change what `peaks scan legacy` reports in order to satisfy a
+ * naming rule. The census's `CAP_NAME` rule cannot see this constant — the name
+ * does not match — which is exactly why the decision is written here instead of
+ * being left for the rule to make.
+ */
 const LARGE_FILE_LINES = 500;
 
 function scanFile(file: string): LegacyFinding[] {
