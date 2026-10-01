@@ -5,8 +5,10 @@
 // * MS_PER_SECOND`, and `MINUTES_PER_HOUR * SECONDS_PER_MINUTE * MS_PER_SECOND`
 // is ONE HOUR, so the value was 18,000,000 ms (5 h) while its name, its
 // comment and `runTask`'s intent mean five MINUTES (300,000 ms). `runTask`
-// hands that number to `execSync(…, { timeout })`, so a stalled task child was
-// left running for five hours instead of being reaped — the *amplifier* of the
+// handed that number to `execSync(…, { timeout })` — the shell shape that rid
+// 2026-10-01-cron-task-tree-kill-01 later replaced with
+// `spawnSync(process.execPath, [entry, …])` — so a stalled task child was left
+// running for five hours instead of being reaped — the *amplifier* of the
 // process population measured in
 // `.peaks/docs/diagnosis-2026-10-01-worktree-list-population.md` §1.
 //
@@ -16,7 +18,11 @@
 //
 // Dimensions (per `.peaks/standards/typescript/testing.md`):
 //   render      — the exported numeric constant itself.
-//   behavior    — execSync's timeout mechanism reports a killed/timed-out child.
+//   behavior    — RAW `execSync`'s timeout mechanism reports a killed/timed-out
+//                 child. Since rid 2026-10-01-cron-task-tree-kill-01 this block
+//                 measures the mechanism §2.21 shipped with, not `runTask`'s
+//                 current spawn shape; the wiring guard is
+//                 `cron-task-tree-kill.test.ts`.
 //   integration — runTask wires a real subprocess across the timeout boundary,
 //                 with a positive control so the assertion cannot be satisfied
 //                 by the child simply never running.
@@ -80,6 +86,11 @@ describe('render — EXEC_TIMEOUT_MS means five minutes, not five hours', () => 
   });
 });
 
+// Measures RAW `execSync`, i.e. the mechanism §2.21 shipped with — `runTask` has
+// used `spawnSync(process.execPath, [entry, …])` since rid
+// 2026-10-01-cron-task-tree-kill-01. Kept because the constant's unit test is
+// about the number this call site hands to a timeout; the CURRENT wiring is
+// guarded by `cron-task-tree-kill.test.ts` and by the integration block below.
 describe('behavior — execSync honors an injected short timeout on a real stalled child', () => {
   it('reports a command that outlives its timeout as ETIMEDOUT / killed', () => {
     let caught: unknown;

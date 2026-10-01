@@ -1289,6 +1289,67 @@ A fix must kill the whole tree (e.g. `spawn` with `detached:false` and kill by p
 `killed: true` or a dedicated exit sentinel — instead of collapsing it to "failed with exit 1". Test first,
 with a positive control proving the child would otherwise have survived.
 
+**RESOLVED 2026-10-01 (rid `2026-10-01-cron-task-tree-kill-01`, test-first).** `runTask` no longer runs a
+shell. It spawns `process.execPath` + the CLI's JS `bin/peaks.js` with an **argv array**
+(`spawnSync(…, { timeout, killSignal: 'SIGKILL', windowsHide: true })`), the same shape
+`slice-check-service.ts` / `npx-resolver.ts` settled on after measuring the `.cmd`-shim EINVAL, so the
+timeout now acts on the task process itself instead of on an intermediate `cmd.exe`. There is no
+platform-branched kill to get wrong: no shell, no `taskkill` call site, and the entry lookup **fails
+closed** — a candidate `bin/peaks.js` is used only when its package is BUILT (the shim imports
+`../dist/cli/index.js` relative to ITSELF, so an unbuilt checkout or worktree has the file without the
+build), the running package's own entry takes the task when the project root is not a built peaks
+package — which is what the pre-fix PATH `peaks` shim resolved to — and a root where neither can boot
+records a non-zero run naming the reason, never a silently skipped task (F1, repair cycle 1 of this rid).
+
+**§2.23's own requirement, "A fix must kill the whole tree", is met for the TASK PROCESS only.** Nothing
+in the fix asks for a descendant kill — no `taskkill /T`, no job object, no process group, and on POSIX
+the same call signals one pid. Descendants were observed to die with their parent on win32 (an
+independent reviewer's four probes of `runTask`'s exact options each saw the marked process family go
+2 → 0, every zero backed by a live count of 2 taken just before the kill, including an
+`execFileSync('git')` shape and a non-node holder), but the mechanism is unidentified, so **tree reaping
+is not a guarantee** and no committed arm asserts it.
+
+Evidence — every survivor number below is a count of OS processes read from the process table
+(`Get-CimInstance Win32_Process` on win32, `ps` on POSIX), for processes whose **argv carries a per-run
+UUID marker** the fixture writes; nothing is counted by a path fragment (diagnosis §5). A failed
+enumeration throws, so "did not run" can never be read as "zero survivors".
+
+- Red, measured against today's `runTask` (`tests/unit/cli/commands/cron-task-tree-kill.test.ts`,
+  `assertion: expected { immediate: 1, settled: 1 } to deeply equal { immediate: 0, settled: 0 }`): one
+  node task process survived, at the check point and again 1.5 s later, and the record written for that
+  run was `{"exitCode":1,"stderr":""}` while the task still held for 30 s.
+- Green: `survivorCommandLineCount=0`, record
+  `{"exitCode":1,"stderr":"killed: task exceeded its 1500 ms exec timeout and its process was killed","killed":true}`,
+  10/10 arms pass (9 in the first cycle, +1 entry arm in repair cycle 1). Positive control included — the
+  same fake entry under a generous timeout exits 0 and its own argv dump proves the child really started,
+  so the kill arm cannot pass by the child never running.
+- Entry selection (repair cycle 1, review F1): `bin/peaks.js` imports `../dist/cli/index.js` relative to
+  ITSELF, so an unbuilt checkout or worktree has the entry without the build. Red against the pre-repair
+  rule, in the suite: `AssertionError: expected true to be false` on `existsSync(<ws>/argv.json)` — the
+  task really was scheduled into the unbootable entry. Green: that entry is never spawned; the task runs
+  the running package's own built entry instead (the arm's `peaks --version` exits 0), and if neither
+  package is built the same arm expects the fail-closed record naming `task not run`.
+- Descendants: measured separately (a task that spawns its own 20 s node child, proven by a provenance
+  line from each pid) — survivor count 0 on win32 across three runs. That is **observed, not implemented:
+  no code here asks for a descendant kill**, so it is not asserted by the suite and no claim is made
+  about other platforms.
+- Argv integrity: an argument containing a space and one containing a `"` arrive as single argv elements
+  (`expect(argvDump).toEqual([command, 'two words', 'say "hi"', marker])`).
+- `node .husky/peaks-gate.mjs repo` exit 0, 1442 files, ceilings byte-identical (2803 / 997 / 166 /
+  41 / 59, everything else 0); `cron-commands.ts` keeps its one baseline `no-magic-numbers` warning and
+  the two edited/new files carry 0 findings. `pnpm test:unit` exit 0: 332 files / 3630 passed / 3 skipped
+  (baseline 331 / 3620 / 3 → +this file / +10). `pnpm build` exit 0. `pnpm test:integration` exit 0: 93
+  files / 472 passed / 2 skipped.
+- Re-measured in repair cycle 1 (after F1 / F2 / F5 / F6), each with its real exit code: the two cron test
+  files together exit 0 (2 files / 16 passed, 21.7 s); `pnpm build` exit 0 (`build-integrity: OK`,
+  dist-stamp 892 files); `node .husky/peaks-gate.mjs repo` exit 0 at **1442** files with 2803 / 997 / 166 /
+  41 / 59 and every other ceiling 0; `pnpm test:unit` exit 0: 332 files / 3630 passed / 3 skipped. The
+  1442 is the count the staged `.peaks/lint/gate-baseline.json` carries (the new test file entering
+  `git ls-files` made 1441 → 1442); `pnpm test:integration` was **not** re-run in the repair cycle.
+
+What this does **not** close: §2.24 below (the rate half), and the unidentified emitter of the
+2026-09-30/10-01 population (diagnosis §9). See the §9 addendum for what changes for that population.
+
 ### 2.24 The scheduler's `tick()` never persists `lastRunAt`, so a due task re-fires every tick (read 2026-10-01)
 
 `src/cli/commands/cron-scheduler-commands.ts` — the daemon tick:
@@ -1314,3 +1375,10 @@ within the searched depth on this machine, so it is a mechanism without a confir
 Fix: persist `lastRunAt` after every task in both paths (write the schedule inside the tick), with a test
 that a 24 h task fires once across N ticks. Order matters: §2.24 controls the rate, §2.23 controls what a
 single slow invocation leaves behind; both are needed before a burst is bounded.
+
+**STILL OPEN (read 2026-10-01).** §2.23 was fixed the same day (rid `2026-10-01-cron-task-tree-kill-01`),
+which changed what this entry costs but not what it does: a due task is still re-spawned every 60-second
+tick and the record is still discarded, but a stalled fire now dies with its own timeout instead of
+leaving a survivor behind it. Read together with §2.23, the burst is bounded in *size* (only the fires
+still in flight at any moment) and still unbounded in *rate*. Deliberately not fixed in §2.23's slice:
+the two have independent tests and conflating them makes either one ambiguous.

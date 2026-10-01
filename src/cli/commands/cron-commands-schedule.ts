@@ -56,6 +56,18 @@ export type RunRecord = {
   readonly finishedAt: number;
   readonly exitCode: number;
   readonly stderr: string;
+  /**
+   * Present (and `true`) ONLY when the task was killed for exceeding its exec
+   * timeout — i.e. when there is no child exit status behind `exitCode` and the
+   * work may have been mid-flight. Added by rid 2026-10-01-cron-task-tree-kill-01
+   * so a killed run cannot be read as a clean `exitCode 1` failure.
+   *
+   * OPTIONAL on purpose: `appendHistory` is the only writer of
+   * `history.jsonl` and nothing in this repo reads it back, so the smallest
+   * representation that consumers can carry is "the key is absent unless the
+   * task was killed" — every pre-existing row shape is unchanged.
+   */
+  readonly killed?: true;
 };
 
 function cronDir(projectRoot: string): string {

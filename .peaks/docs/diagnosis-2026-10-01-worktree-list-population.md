@@ -216,3 +216,36 @@ irrecoverably-gone parent — the two cases this document has now learned to tel
 The lesson worth keeping, stated plainly because I am the one who made the error: I wrote a claim about
 what a timeout *does* while holding evidence only about what a timeout *is*. Arithmetic was measured;
 reaping was assumed. An independent reviewer with a 30-second probe caught it.
+
+### 9.1 Addendum — §2.23 fixed the same day, and what that does and does not close
+(rid `2026-10-01-cron-task-tree-kill-01`)
+
+`runTask` now spawns the task through `process.execPath` + `bin/peaks.js` with an argv array: there is no
+`cmd.exe` between the scheduler and the task, so the exec timeout acts on the task process itself.
+Measured with the marker-in-argv process count of `tests/unit/cli/commands/cron-task-tree-kill.test.ts`
+(same instrument as §7, same 1500 ms injected timeout, a 30 s task body): survivors **1 → 0**, and the
+record that used to read `exitCode 1, stderr ''` now reads
+`killed: true` with a stderr naming the timeout.
+
+**Does this close the accumulation half of the mechanism above? For the shape this document measured,
+yes — with two limits, both stated rather than assumed.**
+
+1. The population in §1 was node processes whose parent `cmd.exe` had been killed. That indirection is
+   gone, so *that* accumulation can no longer be produced by a stalled cron task: a stalled fire is now
+   dead within `EXEC_TIMEOUT_MS` — **dead for the task process, which is all the code asks for.** "And
+   leaves nothing" was the wrong phrase, and this file has now overclaimed reaping twice: nothing in
+   `runTask` requests a descendant kill (no `taskkill /T`, no job object, no process group, and on POSIX
+   the same call signals one pid), so the honest record is the measurement, not a guarantee — the
+   independent reviewer's four win32 probes of `runTask`'s exact options each saw the marked process
+   family go **2 → 0** (an async node grandchild, an `execFileSync('git')` shape, a non-node holder),
+   every zero backed by a live count of 2 taken just before the kill; the mechanism by which the
+   descendants died is not understood, so **tree reaping is not a guarantee** and the committed suite
+   asserts the task process only. It does **not** follow that the 2026-09-30/10-01
+   population was cron — §8's negative result stands, no caller was ever observed, and the emitter is
+   still unnamed. The watcher stays armed.
+2. Reaping is asserted for the task process. A task that spawns descendants of its own was measured on
+   win32 (three runs, zero survivors, both roles proven to have started by a per-pid provenance line)
+   but no code in the fix asks for a descendant kill, so that is an observation about this host's process
+   handling, not a guarantee, and the suite does not assert it. `lastRunAt` is still not persisted by the
+   daemon tick (§2.24), so the *rate* at which fires happen is unchanged: what changes is that each fire
+   now cleans up after itself.

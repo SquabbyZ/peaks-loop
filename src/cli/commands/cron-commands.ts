@@ -36,10 +36,12 @@
  * `no-magic-numbers` warning; new siblings must be clean outright).
  */
 
-import { execSync } from 'node:child_process';
+import { spawnSync, type SpawnSyncReturns } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
+import { existsSync } from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import type { Command } from 'commander';
-import { getErrorMessage } from 'peaks-loop-shared/result';
 
 import { addJsonOption, type ProgramIO } from '../cli-helpers.js';
 import {
@@ -60,15 +62,149 @@ export type { ScheduleEntry, ScheduleFile, RunRecord } from './cron-commands-sch
  * (`cron-commands-schedule.ts` / `cron-commands-actions.ts`).
  *
  * Per-task exec timeout — FIVE MINUTES (300,000 ms). `runTask` hands this to
- * `execSync(…, { timeout })`, so a task child that stalls is reaped within five
- * minutes rather than inherited. Fixed in rid 2026-10-01-cron-exec-timeout-01:
- * this constant previously read `5 * MINUTES_PER_HOUR * SECONDS_PER_MINUTE *
- * MS_PER_SECOND`, and `MINUTES_PER_HOUR * SECONDS_PER_MINUTE * MS_PER_SECOND`
- * is one HOUR, so the value was 18,000,000 ms (5 h) — five times too long,
- * contradicting the name and the intent. See backlog §2.21.
+ * `spawnSync(…, { timeout })`, which — with no shell in the way, see
+ * `resolveTaskEntry` — kills THE TASK PROCESS itself, so a task child that
+ * stalls is reaped within five minutes rather than inherited. Fixed in rid
+ * 2026-10-01-cron-exec-timeout-01: this constant previously read `5 *
+ * MINUTES_PER_HOUR * SECONDS_PER_MINUTE * MS_PER_SECOND`, and `MINUTES_PER_HOUR
+ * * SECONDS_PER_MINUTE * MS_PER_SECOND` is one HOUR, so the value was 18,000,000
+ * ms (5 h) — five times too long, contradicting the name and the intent. See
+ * backlog §2.21.
  */
 export const EXEC_TIMEOUT_MS = 5 * SECONDS_PER_MINUTE * MS_PER_SECOND;
 const STDERR_RECORD_TRUNCATE_BYTES = 2000;
+
+/**
+ * The exit code recorded when there is no child status to record (killed, or
+ * never spawned) — the same value the pre-fix `err.status ?? 1` collapsed to.
+ */
+const NO_CHILD_STATUS_EXIT_CODE = 1;
+
+/**
+ * What a task run produced, before it is folded into a `RunRecord`.
+ * `killed` is deliberately a plain boolean here and an ABSENT key on the
+ * record: `history.jsonl` rows that did not time out keep the exact byte shape
+ * they had before rid 2026-10-01-cron-task-tree-kill-01.
+ */
+type TaskRun = {
+  readonly exitCode: number;
+  readonly stderr: string;
+  readonly killed: boolean;
+};
+
+function truncateStderr(text: string): string {
+  return text.slice(0, STDERR_RECORD_TRUNCATE_BYTES);
+}
+
+/**
+ * A `bin/peaks.js` can boot only if the build it imports is there: the shim does
+ * `await import('../dist/cli/index.js')` relative to ITSELF (see `bin/peaks.js`).
+ * Every git worktree and bare checkout has the entry WITHOUT that build, so an
+ * existence test alone selects an entry that answers
+ * `exitCode 1 / "peaks-loop: internal module not found — the local build is
+ * stale or incomplete"` on every fire. Measured in
+ * `tests/unit/cli/commands/cron-task-tree-kill.test.ts` (F1, repair cycle 1 of
+ * rid 2026-10-01-cron-task-tree-kill-01).
+ */
+function isBootableTaskEntry(entry: string): boolean {
+  return existsSync(entry) && existsSync(resolve(dirname(entry), '..', 'dist', 'cli', 'index.js'));
+}
+
+/**
+ * The JS entry a task runs through.
+ *
+ * Two candidates, in this order, each a JS file spawned via `process.execPath`
+ * with an argv ARRAY — never a shell. The pre-fix shape was
+ * `execSync(\`peaks ${command} "${arg}"\`)`, which (a) put `cmd.exe` between the
+ * scheduler and the task, so `execSync`'s timeout killed the SHELL and orphaned
+ * the node grandchild (backlog §2.23, measured in diagnosis §9), and (b) relied
+ * on hand-quoting arguments because `shell: true` concatenates rather than
+ * escapes. This is the same shape `slice-check-service.ts` and
+ * `npx-resolver.ts` settled on after measuring that a `.cmd` shim cannot be
+ * spawned without a shell at all (EINVAL, Node 20+).
+ *
+ * The project's own entry wins so a task runs against the project it was
+ * scheduled for; when the project root is not a BUILT peaks package
+ * (`isBootableTaskEntry`) the running package's own entry takes the task, which
+ * is what the pre-fix PATH `peaks` shim resolved to. `null` means neither can
+ * boot — a loud fail-closed run, never work scheduled into a broken entry.
+ */
+function resolveTaskEntry(projectRoot: string): string | null {
+  const here = dirname(fileURLToPath(import.meta.url));
+  for (const candidate of [
+    join(projectRoot, 'bin', 'peaks.js'),
+    // dist/cli/commands/cron-commands.js → <package root>/bin/peaks.js
+    resolve(here, '..', '..', '..', 'bin', 'peaks.js')
+  ]) {
+    if (isBootableTaskEntry(candidate)) return candidate;
+  }
+  return null;
+}
+
+/**
+ * Fails CLOSED. There is no safe fallback spawn shape left to try: a `.cmd`
+ * shim needs a shell, and a shell re-introduces the orphan this slice removes.
+ * An entry that is missing OR unbuildable is therefore a loud non-zero run with
+ * a naming stderr, never a task silently skipped.
+ */
+function unresolvedEntryRun(): TaskRun {
+  return {
+    exitCode: NO_CHILD_STATUS_EXIT_CODE,
+    stderr: truncateStderr(
+      'task not run: no bootable `bin/peaks.js` (one needs its `dist/cli/index.js`) in the project root or in this CLI package root'
+    ),
+    killed: false
+  };
+}
+
+function isTimeoutError(err: Error): boolean {
+  return (err as { code?: string }).code === 'ETIMEDOUT';
+}
+
+/**
+ * Map a spawn outcome onto the record fields.
+ *
+ * A timeout is its OWN branch. The pre-fix code read `err.status ?? 1` and
+ * `err.stderr ?? ''`, so a timed-out task — whose status is null — was recorded
+ * as `exitCode 1, stderr ''`: a definite failure for work that, because the
+ * shell had been killed and the task process left running, might still succeed.
+ * `history.jsonl` consumers read `exitCode` + `stderr`, and both now say what
+ * actually happened.
+ */
+function toTaskRun(result: SpawnSyncReturns<string>, timeoutMs: number): TaskRun {
+  const childStderr = truncateStderr(result.stderr ?? '');
+  const err = result.error;
+  if (err !== undefined) {
+    if (isTimeoutError(err)) {
+      return {
+        exitCode: NO_CHILD_STATUS_EXIT_CODE,
+        stderr: truncateStderr(
+          `killed: task exceeded its ${String(timeoutMs)} ms exec timeout and its process was killed${childStderr}`
+        ),
+        killed: true
+      };
+    }
+    return {
+      exitCode: NO_CHILD_STATUS_EXIT_CODE,
+      stderr: truncateStderr(`${err.message}${childStderr}`),
+      killed: false
+    };
+  }
+  if (typeof result.status === 'number') {
+    return {
+      exitCode: result.status,
+      stderr: result.status === 0 ? '' : childStderr,
+      killed: false
+    };
+  }
+  // No status and no timeout error ⇒ the task died on a signal from somewhere
+  // else. That is still "killed", not "failed with exit 1".
+  return {
+    exitCode: NO_CHILD_STATUS_EXIT_CODE,
+    stderr: truncateStderr(`killed: task died on signal ${String(result.signal)}`),
+    killed: true
+  };
+}
 
 export function runTask(
   projectRoot: string,
@@ -82,31 +218,32 @@ export function runTask(
 ): RunRecord {
   const id = randomUUID();
   const startedAt = Date.now();
-  let exitCode = 0;
-  let stderr = '';
-  try {
-    execSync(
-      `peaks ${task.command} ${task.args.map((a) => `"${a.replace(/"/g, '\\"')}"`).join(' ')}`,
-      {
-        cwd: projectRoot,
-        stdio: ['ignore', 'pipe', 'pipe'],
-        encoding: 'utf8',
-        timeout: timeoutMs,
-        windowsHide: true
-      }
-    );
-  } catch (err) {
-    const e = err as { status?: number; stderr?: string };
-    exitCode = typeof e.status === 'number' ? e.status : 1;
-    stderr = (e.stderr ?? getErrorMessage(err)).slice(0, STDERR_RECORD_TRUNCATE_BYTES);
-  }
+  const entry = resolveTaskEntry(projectRoot);
+  const run =
+    entry === null
+      ? unresolvedEntryRun()
+      : toTaskRun(
+          spawnSync(process.execPath, [entry, task.command, ...task.args], {
+            cwd: projectRoot,
+            stdio: ['ignore', 'pipe', 'pipe'],
+            encoding: 'utf8',
+            timeout: timeoutMs,
+            // The contract of this slice is that the task is GONE when
+            // `runTask` returns; a kill signal the task can ignore would
+            // reintroduce the ownerless survivor.
+            killSignal: 'SIGKILL',
+            windowsHide: true
+          }),
+          timeoutMs
+        );
   const record: RunRecord = {
     id,
     taskId: task.id,
     startedAt,
     finishedAt: Date.now(),
-    exitCode,
-    stderr
+    exitCode: run.exitCode,
+    stderr: run.stderr,
+    ...(run.killed ? { killed: true } : {})
   };
   appendHistory(projectRoot, record);
   return record;
