@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-01T11:18:50.886Z",
+  "updatedAt": "2026-10-01T17:24:17.753Z",
   "hot": {
     "rule": [
       {
@@ -1148,6 +1148,14 @@
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\a-slice-whose-core-behaviour-no-artifact-specifies-costs-multiples-of-its-peers.md",
         "sourceArtifact": ".peaks/_runtime/2026-09-10-session-528a63/txt/handoff-s4.md",
         "updatedAt": "2026-09-23"
+      },
+      {
+        "name": "a-wave-is-accepted-by-the-total-that-its-leaves-cannot-see",
+        "kind": "lesson",
+        "description": "C wave 7 drove  60,271 → 54,318.",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\a-wave-is-accepted-by-the-total-that-its-leaves-cannot-see.md",
+        "sourceArtifact": ".peaks/_runtime/2026-09-29-session-b7cf21/rd/requests/2032-2026-10-01-c-wave7-excess.md",
+        "updatedAt": "2026-10-01"
       },
       {
         "name": "ac-pass-list-is-not-a-completion-bar",
