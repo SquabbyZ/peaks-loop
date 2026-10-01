@@ -1119,3 +1119,44 @@ prettier 会重写的那些**，改动**纯格式化**、语义为零。四次�
 注意它是**两个文件**（`packages/peaks-loop-shared/src/version.ts` 与 internal-runtime 的
 `RUNTIME_VERSION`），而 §6 描述的是**一批**文件——所以它是同类机制，不是 §6 的答案。§6 的
 批量成因仍未定位，只是已无症状。
+
+## 2.19 Gate H is satisfiable by an enforcement stub that enforces nothing (found 2026-10-01)
+
+`peaks request transition … --state qa-handoff` on a `refactor` slice ends with one violation that
+no amount of slice work can clear:
+
+```
+Gate H feedback-promotion FAILED: 5 feedback memories are not yet promoted to an enforcement
+layer with a real artifact (a-fixture-that-forces-failure-by-file-mode-is-platform-scoped,
+a-review-that-measured-against-the-real-artifact, check-ci-on-every-push-and-run-wide-tsc,
+peaks-current-directory-scope, …)
+```
+
+That is a **standing repo debt**, not a property of the slice: the five memories predate rid
+`2026-09-30-cap-unify-01` by weeks, and `verify-pipeline` reports it for every refactor slice
+regardless of what that slice touched. Measured on `2026-09-29-session-b7cf21`: a brand-new slice
+with all 12 evidence artifacts present, all 12 gate rows held and three suites green still returns
+`PIPELINE_INCOMPLETE` on this one item alone.
+
+The defect is the second half of the sentence. `peaks feedback promote <memory> --layer B --dry-run`
+prints the enforcement it would install:
+
+```json
+{ "matcher": "Bash",
+  "hooks": [ { "type": "command", "command": "node -e \"process.exit(0)\"" } ] }
+```
+
+and the layer-A stub is a `sop.json` whose body says `Author the rule's gates in the generated
+manifest`. **The promotion primitive's default product is a hook that always allows.** So Gate H can
+be turned from red to green by running five commands that install five no-ops, and the check that
+was written to force a lesson into enforcement would then certify enforcement that cannot deny
+anything — the same shape as §2.9's "coverage of the guard audit itself" and
+`.peaks/memory/a-gate-that-verifies-the-label-instead-of-the-thing.md`.
+
+Not fixed here, and deliberately not promoted: authoring five real rules is a slice of its own,
+and each needs a decision about what would actually be denied. What is needed first is a change to
+`peaks feedback promote` so the stub it writes is **not accepted by Gate H** — e.g. require the
+promoted artifact to name a matcher that denies something, and prove it with a positive control in
+the style of `tests/unit/standards/vitest-worker-cap.test.ts` (strip the cap → the guard turns red).
+Until then Gate H is a gate whose green state is weaker than its red state, and any workflow that
+reports "pipeline complete" by clearing it with stubs has told the truth about nothing.
