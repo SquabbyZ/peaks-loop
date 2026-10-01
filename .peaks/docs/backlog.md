@@ -1160,3 +1160,22 @@ promoted artifact to name a matcher that denies something, and prove it with a p
 the style of `tests/unit/standards/vitest-worker-cap.test.ts` (strip the cap → the guard turns red).
 Until then Gate H is a gate whose green state is weaker than its red state, and any workflow that
 reports "pipeline complete" by clearing it with stubs has told the truth about nothing.
+
+## 2.20 `repo-citation-integrity` strips `:NN`, so a line-anchored citation can be wrong and green (found 2026-10-01, C wave 5)
+
+The guard resolves the file and the symbol, then discards the line number before comparing. So a
+claim of the form "`X.ts:330` is `isTestFile`" passes whenever `X.ts` exists and mentions
+`isTestFile` anywhere — and it passed while the cited line was already wrong (the symbol sat at
+361, measured by the wave-5 planning pass).
+
+C wave 5 then moved `isTestFile` into a new sibling
+(`src/services/slice/cross-pass-edge-static-scan-support.ts:132`), which is the sharper case: the
+citation now names a file that no longer contains the symbol at all, and the check that is supposed
+to catch dangling references still reports 33/33. Existence is not accuracy.
+
+Not fixed here. A real fix has to decide what the guard is for — either it asserts the line, in
+which case every line-anchored claim in `.peaks/docs` needs re-measuring and the guard needs a
+positive control that a moved line turns it red (the `vitest-worker-cap.test.ts` shape: strip the
+cap → the guard goes red), or it asserts existence only, in which case the docs must stop writing
+`:NN` as if it were checked, because a reader will trust a precision the guard does not provide.
+C wave 5's record is written with both the old and the new locations for exactly that reason.

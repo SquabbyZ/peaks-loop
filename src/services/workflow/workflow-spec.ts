@@ -19,48 +19,20 @@
  * pair. Anything more elaborate (e.g. conditionals on outputs) belongs
  * in a future minor.
  *
- * File budget: ≤ 400 lines (rid-006 split). This file now holds the
- * parser + private constants + private build helpers; types live in
+ * File budget: 300 raw lines (the cap decided by
+ * `src/services/scan/file-size-policy.ts`). This file holds the parser;
+ * the private constants and build helpers live in
+ * `workflow-spec-builders.ts` (wave-5 hoist); types live in
  * `workflow-spec-types.ts`; YAML field helpers live in
  * `workflow-spec-yaml.ts`; lint lives in `workflow-spec-lint.ts`.
- * The re-export shim at the bottom preserves the original public
- * surface so external callers (`workflow-loader.ts`,
- * `loop-eval-commands.ts`, `evaluator-dispatcher.ts`) compile
- * unchanged.
+ * The re-export shim at the bottom preserves the original public surface
+ * so external callers (`workflow-loader.ts`, `loop-eval-commands.ts`,
+ * `evaluator-dispatcher.ts`) compile unchanged.
  */
 
-import {
-  arrayField,
-  leadingSpaces,
-  numberField,
-  objectField,
-  parseScalar,
-  stringArrayField,
-  stringField
-} from './workflow-spec-yaml.js';
-import type {
-  EvaluatorKind,
-  WorkflowBudget,
-  WorkflowContextSnapshot,
-  WorkflowEvaluator,
-  WorkflowGate,
-  WorkflowPhase,
-  WorkflowSpec
-} from './workflow-spec-types.js';
-
-const VALID_EVALUATORS: ReadonlySet<EvaluatorKind> = new Set<EvaluatorKind>([
-  'karpathy',
-  'code-review',
-  'security-review',
-  'perf-baseline',
-  'verdict-aggregate',
-  'monotonic-improvement',
-  'impact-scan',
-  'smoke-run',
-  'canary-watch'
-]);
-
-const ID_PATTERN = /^[a-z][a-z0-9-]*$/;
+import { leadingSpaces, parseScalar } from './workflow-spec-yaml.js';
+import { buildSpec } from './workflow-spec-builders.js';
+import type { WorkflowSpec } from './workflow-spec-types.js';
 
 /** Parse a raw yaml string into a workflow spec. Pure (no IO), throws on
  *  unparseable input. Use `lintWorkflowSpec` after parsing for semantic checks. */
@@ -237,109 +209,6 @@ export function parseWorkflowYaml(raw: string, expectedId: string): WorkflowSpec
 
   // Build the typed spec.
   return buildSpec(root, expectedId);
-}
-
-function buildSpec(root: Record<string, unknown>, expectedId: string): WorkflowSpec {
-  const id = stringField(root, 'id', expectedId);
-  if (id !== expectedId) {
-    throw new Error(`workflow yaml: id "${id}" does not match filename "${expectedId}"`);
-  }
-  const schemaVersion = numberField(root, 'schemaVersion', 1);
-  if (schemaVersion !== 1) {
-    throw new Error(`workflow yaml: unsupported schemaVersion ${schemaVersion} (expected 1)`);
-  }
-  const phasesRaw = arrayField(root, 'phases');
-  const gatesRaw = arrayField(root, 'gates');
-  const evaluatorsRaw = arrayField(root, 'evaluators');
-  const snapshotRaw = objectField(root, 'contextSnapshot');
-  const budgetRaw = objectField(root, 'budget');
-
-  const phases: WorkflowPhase[] = phasesRaw.map((p) => buildPhase(p));
-  const gates: WorkflowGate[] = gatesRaw.map((g) => buildGate(g));
-  const evaluators: WorkflowEvaluator[] = evaluatorsRaw.map((e) => buildEvaluator(e));
-  const contextSnapshot: WorkflowContextSnapshot = {
-    files: stringArrayField(snapshotRaw, 'files'),
-    memory: stringArrayField(snapshotRaw, 'memory')
-  };
-  const budget: WorkflowBudget = {
-    ...(budgetRaw['tokens'] !== undefined ? { tokens: numberField(budgetRaw, 'tokens') } : {}),
-    ...(budgetRaw['wallSeconds'] !== undefined
-      ? { wallSeconds: numberField(budgetRaw, 'wallSeconds') }
-      : {}),
-    ...(budgetRaw['cycles'] !== undefined ? { cycles: numberField(budgetRaw, 'cycles') } : {})
-  };
-
-  return {
-    schemaVersion: 1,
-    id,
-    label: stringField(root, 'label', id),
-    description: stringField(root, 'description', ''),
-    phases,
-    gates,
-    evaluators,
-    contextSnapshot,
-    budget
-  };
-}
-
-function buildPhase(raw: unknown): WorkflowPhase {
-  const obj = objectField({ phase: raw }, 'phase');
-  const id = stringField(obj, 'id');
-  if (!ID_PATTERN.test(id)) {
-    throw new Error(`workflow phase id "${id}" must match ${ID_PATTERN.source}`);
-  }
-  const role = stringField(obj, 'role');
-  if (!role.startsWith('peaks-')) {
-    throw new Error(`workflow phase "${id}" role "${role}" must start with "peaks-"`);
-  }
-  const gatesRaw = obj['gates'];
-  const gates = Array.isArray(gatesRaw) ? gatesRaw.map((g) => String(g)) : [];
-  const outputRaw = obj['outputContract'];
-  const outputContract = Array.isArray(outputRaw) ? outputRaw.map((g) => String(g)) : [];
-  const dependsOnRaw = obj['dependsOn'];
-  const dependsOn = Array.isArray(dependsOnRaw) ? dependsOnRaw.map((g) => String(g)) : undefined;
-  const parallelGroup = typeof obj['parallelGroup'] === 'string' ? obj['parallelGroup'] : undefined;
-  return {
-    id,
-    role,
-    promptTemplate: stringField(obj, 'promptTemplate'),
-    gates,
-    outputContract,
-    ...(dependsOn !== undefined ? { dependsOn } : {}),
-    ...(parallelGroup !== undefined ? { parallelGroup } : {})
-  };
-}
-
-function buildGate(raw: unknown): WorkflowGate {
-  const obj = objectField({ gate: raw }, 'gate');
-  const id = stringField(obj, 'id');
-  const sopId = stringField(obj, 'sopId');
-  const description = typeof obj['description'] === 'string' ? obj['description'] : undefined;
-  return {
-    id,
-    sopId,
-    ...(description !== undefined ? { description } : {})
-  };
-}
-
-function buildEvaluator(raw: unknown): WorkflowEvaluator {
-  const obj = objectField({ evaluator: raw }, 'evaluator');
-  const typeRaw = stringField(obj, 'type');
-  if (!VALID_EVALUATORS.has(typeRaw as EvaluatorKind)) {
-    throw new Error(
-      `workflow evaluator type "${typeRaw}" is not a native evaluator (allowed: ${[...VALID_EVALUATORS].join(', ')})`
-    );
-  }
-  const type = typeRaw as EvaluatorKind;
-  const gate = typeof obj['gate'] === 'string' ? obj['gate'] : undefined;
-  const scope = typeof obj['scope'] === 'string' ? obj['scope'] : undefined;
-  const threshold = typeof obj['threshold'] === 'string' ? obj['threshold'] : undefined;
-  return {
-    type,
-    ...(gate !== undefined ? { gate } : {}),
-    ...(scope !== undefined ? { scope } : {}),
-    ...(threshold !== undefined ? { threshold } : {})
-  };
 }
 
 // ─── verbatim re-export shim (rid-006) ────────────────────────────────────

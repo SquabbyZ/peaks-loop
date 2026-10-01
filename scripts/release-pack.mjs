@@ -20,19 +20,19 @@
  *   PEAKS_SKIP=root      publish subpackages only (skip root)
  *   PEAKS_KEEP_TARBALLS=1 keep staged tarballs for QA inspection
  */
-import { mkdtempSync, readFileSync, rmSync, existsSync, readdirSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, existsSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import os from 'node:os';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { execFileSync, spawnSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 
+import { runPnpm, runNpm, verifyTarball, toPosixPath } from './_release-shared.mjs';
 import {
-  runPnpm,
-  runNpm,
-  resolveNpmInvocation,
-  verifyTarball,
-  toPosixPath
-} from './_release-shared.mjs';
+  discoverSubpackages,
+  listInternalPackages,
+  topoOrderSubpackages
+} from './release-pack-packages-graph.mjs';
+import { isAlreadyPublished, isRegistryStale } from './release-pack-registry.mjs';
 
 const projectRoot = resolve(fileURLToPath(import.meta.url), '..', '..');
 
@@ -40,77 +40,6 @@ const ROOT_DIR = '.';
 
 function readPackage(pkgDir) {
   return JSON.parse(readFileSync(resolve(projectRoot, pkgDir, 'package.json'), 'utf8'));
-}
-
-/**
- * Discover every publishable subpackage by scanning `packages/`.
- *
- * 2026-07-27 rid-014: removed the hardcoded `SUBPACKAGE_DIRECTORIES` array
- * (the pre-014 list lived in source and required a code edit + commit
- * to add/remove a subpackage). The workspace contract is now the single
- * source of truth: `pnpm-workspace.yaml` declares `./packages/*`, and
- * each directory that ships a `package.json` with a `name` is a
- * publishable subpackage. Hidden layouts — `node_modules`, dotfiles, the
- * workspace root itself — are filtered out so `pnpm -r publish` and
- * `release-pack.mjs` always agree.
- */
-function discoverSubpackages() {
-  const packagesDir = resolve(projectRoot, 'packages');
-  const entries = readdirSync(packagesDir, { withFileTypes: true });
-  const out = [];
-  for (const entry of entries) {
-    if (!entry.isDirectory()) continue;
-    if (entry.name.startsWith('.')) continue;
-    const pkgJsonPath = resolve(packagesDir, entry.name, 'package.json');
-    if (!existsSync(pkgJsonPath)) continue;
-    const spec = JSON.parse(readFileSync(pkgJsonPath, 'utf8'));
-    if (typeof spec.name !== 'string' || spec.name.length === 0) continue;
-    out.push({ dir: `packages/${entry.name}`, name: spec.name, version: spec.version });
-  }
-  return out;
-}
-
-/**
- * Topologically order subpackages so dependents publish AFTER their
- * `dependencies`. `peaks-loop-shared` has no workspace deps, so it sorts
- * first; root `peaks-loop` (added separately) sorts last. Falls back
- * to lexical name order on cycles so the behavior is stable.
- */
-function topoOrderSubpackages(pkgs) {
-  const byName = new Map(pkgs.map((p) => [p.name, p]));
-  const depsByName = new Map(
-    pkgs.map((p) => [
-      p.name,
-      Object.keys({
-        ...(JSON.parse(readFileSync(resolve(projectRoot, p.dir, 'package.json'), 'utf8'))
-          .dependencies ?? {}),
-        ...(JSON.parse(readFileSync(resolve(projectRoot, p.dir, 'package.json'), 'utf8'))
-          .devDependencies ?? {})
-      }).filter((n) => byName.has(n))
-    ])
-  );
-  const seen = new Set();
-  const out = [];
-  function visit(name) {
-    if (seen.has(name)) return;
-    seen.add(name);
-    for (const dep of depsByName.get(name) ?? []) visit(dep);
-    const pkg = byName.get(name);
-    if (pkg !== undefined) out.push(pkg);
-  }
-  for (const p of pkgs) visit(p.name);
-  return out;
-}
-
-function listInternalPackages() {
-  // Dependency-safe publish order: `peaks-loop-shared` publishes
-  // first; dependents follow; root `peaks-loop` publishes last. Order
-  // is derived from the on-disk manifests so adding a subpackage no
-  // longer requires editing this script.
-  return topoOrderSubpackages(discoverSubpackages()).map(({ name, version }) => ({
-    name,
-    version
-  }));
 }
 
 // Stage under os.tmpdir() via mkdtemp; auto-clean unless
@@ -138,72 +67,13 @@ function packOne(pkgDir) {
   return { tarball: join(tarballDir, tarballName), name: spec.name, version: spec.version };
 }
 
-function isAlreadyPublished(name, version) {
-  // Probe npmjs for an existing version of `name`. The CI runner
-  // is a fresh container; the `npm view` call goes over OIDC-
-  // compatible public registry egress and does NOT require any
-  // write access. We return true when the version is already on
-  // the registry so the publish step can be skipped; otherwise
-  // the npm CLI rejects `npm publish <same version>` with the
-  // "cannot publish over the previously published versions" error.
-  // 2026-09-10: shell-free npm (see `resolveNpmInvocation` in _release-shared).
-  const { bin, prefixArgs } = resolveNpmInvocation();
-  const probe = spawnSync(bin, [...prefixArgs, 'view', `${name}@${version}`, 'version', '--json'], {
-    cwd: projectRoot,
-    stdio: ['ignore', 'pipe', 'pipe'],
-    windowsHide: true
-  });
-  if (probe.status !== 0) return false;
-  const stdout = probe.stdout?.toString?.() ?? '';
-  return /"\d+\.\d+\.\d+/.test(stdout) || /\d+\.\d+\.\d+/.test(stdout);
-}
-
-// 2026-07-23 follow-up (peaks-publish-stale fix, AC5): when the
-// LOCAL tarball is missing `package/dist/version.js`, fail-loud
-// instead of returning null/false. The prior `null && regVer` short
-// circuit caused the silent SKIP that let stale CLI_VERSION tarballs
-// onto npm — peaks-loop@<new> shipping peaks-loop-shared@<new> with
-// NO version.js file at all. We refuse to publish such a tarball;
-// the upstream publish.yml `gate-cli-version` step is the parallel
-// gate for the on-disk state, this is the tarball-level gate.
-function isRegistryStale(name, version, localTarball) {
-  const tmp = mkdtempSync(join(os.tmpdir(), 'peaks-stale-'));
-  try {
-    // Local tarball may not ship `dist/version.js` (e.g.
-    // peaks-loop-shared-channel has no CLI_VERSION export). The
-    // staleness check only applies to packages that carry a
-    // version.js file. Use the silent helper that returns null on
-    // missing file instead of throwing.
-    const localVer = readVersionJsFromTarballSilent(localTarball, `local ${name}@${version}`);
-    if (localVer === null) return false;
-    const { bin, prefixArgs } = resolveNpmInvocation();
-    execFileSync(bin, [...prefixArgs, 'pack', `${name}@${version}`, '--pack-destination', tmp], {
-      cwd: projectRoot,
-      stdio: ['ignore', 'pipe', 'pipe'],
-      windowsHide: true
-    });
-    const tgz = readdirSync(tmp).find((f) => f.endsWith('.tgz'));
-    if (!tgz) {
-      // No registry tarball yet (first publish of this version).
-      // Not "stale" — there is nothing to compare against. Return
-      // false so the publish proceeds.
-      return false;
-    }
-    const regVer = readVersionJsFromTarballSilent(join(tmp, tgz), `registry ${name}@${version}`);
-    if (regVer === null) return false;
-    return localVer !== regVer;
-  } finally {
-    rmSync(tmp, { recursive: true, force: true });
-  }
-}
-
 // Silent counterpart of `readVersionJsFromTarball`: returns null
 // (instead of throwing) when `package/dist/version.js` is missing
 // or when tar extraction fails. Used by `isRegistryStale` for
 // packages that don't ship a CLI_VERSION file (peaks-loop-shared-
 // channel, -job-snapshot, -mut, -doctor, -crystallization,
 // -final-review, -audit-independent).
-function readVersionJsFromTarballSilent(tarball, label) {
+export function readVersionJsFromTarballSilent(tarball, label) {
   const tmp = mkdtempSync(join(os.tmpdir(), 'peaks-version-silent-'));
   try {
     execFileSync('tar', ['-xzf', toPosixPath(tarball), '-C', toPosixPath(tmp)], {

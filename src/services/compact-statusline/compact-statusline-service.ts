@@ -42,97 +42,27 @@ import { existsSync, readFileSync } from 'node:fs';
 import { getSessionDir } from '../session/getSessionDir.js';
 import { AUTO_COMPACT_RED_LINE_RATIO } from '../context/auto-compact-types.js';
 import { readCompactHistory } from '../compact-history/compact-history-service.js';
+import { readCompactLifecycle } from './compact-lifecycle-store.js';
 import {
-  readCompactLifecycle,
-  type CompactLifecycleRecord,
-  type CompactLifecycleStage
-} from './compact-lifecycle-store.js';
+  CELL_BY_STAGE,
+  COMPLETED_EXPIRY_MS,
+  DEFAULT_STALE_AFTER_MS,
+  LEGACY_JUST_COMPACTED_WINDOW_MS,
+  NO_AFTER_RATIO_HINT,
+  renderBar,
+  renderLegacyBar,
+  STAGE_CELL_COMPACTING,
+  STAGE_CELL_VERIFYING,
+  STAGE_CELL_COMPLETED,
+  type CompactStatuslineState
+} from './compact-statusline-cell-table.js';
+import { stateFromLifecycle, stateFromStalled } from './compact-statusline-state.js';
 
-export type CompactDisplayKind =
-  | 'none'
-  | 'queued'
-  | 'preparing'
-  | 'compacting'
-  | 'verifying'
-  | 'completed'
-  | 'failed'
-  | 'stalled'
-  | 'invalid'
-  | 'armed';
-
-export interface CompactStatuslineState {
-  readonly kind: CompactDisplayKind;
-  // eslint-disable-next-line no-magic-numbers -- type-position literal union for the cell-table contract
-  readonly filledCells: 0 | 2 | 4 | 6 | 8;
-  readonly triggerRatio?: number;
-  readonly afterRatio?: number;
-  readonly redLine?: boolean;
-  readonly failedAt?: CompactLifecycleStage;
-  readonly detail?: string;
-}
-
-/**
- * Concrete first-version stale timeout. Adjustable after real timing
- * evidence from the auto-compact orchestrator (it currently writes a
- * heartbeat on every state transition; 120 s is the longest realistic
- * gap between a heartbeat and an actual stall).
- */
-const DEFAULT_STALE_AFTER_MS = 120_000;
-
-/**
- * 10-second completed-window expiry. The brief (Task 6 design requirement)
- * calls out: once a compact lifecycle reaches `completed`, the primary
- * statusline should surface the success indicator for at most 10 seconds,
- * then fall back to the C1 baseline so the consumer (the IDE) does not
- * keep a green ✓ pinned on the status bar indefinitely. The narrow window
- * is sufficient for the human to see "we just compacted" and long enough
- * to not flap on subsequent reads. Adjustable after real timing feedback.
- */
-export const COMPLETED_EXPIRY_MS = 10_000;
-
-/**
- * How recently the last history row must itself have been written for the
- * legacy path to report it as "just compacted". Measured against the row's own
- * `ts` — the fact — rather than the file's mtime, which is only a proxy for it
- * and is also moved by rows that record no compaction (repair R9).
- */
-const LEGACY_JUST_COMPACTED_WINDOW_MS = 30_000;
-
-// PRD-002b slice 2 — extract cell-table magic numbers (4/6/8) into named
-// consts so the no-magic-numbers lint rule stops flagging the typed
-// literal-union cell-table values. Values match the documented contract.
-const STAGE_CELL_COMPACTING = 4;
-const STAGE_CELL_VERIFYING = 6;
-const STAGE_CELL_COMPLETED = 8;
-
-/* eslint-disable no-magic-numbers -- cell-table contract uses literal-type unions (`0 | 2 | 4 | 6 | 8`); these are type-position discriminators, not runtime values. Magic-number extraction is done at the runtime call sites via STAGE_CELL_* constants above. */
-const CELL_BY_STAGE: ReadonlyMap<CompactLifecycleStage, 0 | 2 | 4 | 6 | 8> = new Map<
-  CompactLifecycleStage,
-  0 | 2 | 4 | 6 | 8
->([
-  ['queued', 0],
-  ['preparing', 2],
-  ['compacting', STAGE_CELL_COMPACTING],
-  ['verifying', STAGE_CELL_VERIFYING],
-  ['completed', STAGE_CELL_COMPLETED],
-  ['failed', STAGE_CELL_COMPACTING]
-  // `armed` is not in the cell table: it renders WITHOUT a bar (see
-  // renderCompactStatusline). Lookups therefore miss and fall back to 0.
-]);
-
-const FILLED = '█';
-const EMPTY = '░';
-const BAR_WIDTH = STAGE_CELL_COMPLETED;
-const NO_AFTER_RATIO_HINT = 'after-ratio not recorded';
-
-function renderBar(filledCells: 0 | 2 | 4 | 6 | 8): string {
-  return `[${FILLED.repeat(filledCells)}${EMPTY.repeat(BAR_WIDTH - filledCells)}]`;
-}
-
-function renderLegacyBar(filledCells: 0 | 2 | 4 | 6 | 8): string {
-  return renderBar(filledCells);
-}
-/* eslint-enable no-magic-numbers */
+// Re-export shims (wave-5 split): these public names moved to the cell-table
+// sibling; './compact-statusline-service.js' stays their import path.
+export type { CompactDisplayKind } from './compact-statusline-cell-table.js';
+export type { CompactStatuslineState } from './compact-statusline-cell-table.js';
+export { COMPLETED_EXPIRY_MS } from './compact-statusline-cell-table.js';
 
 export function decideCompactStatusline(input: {
   readonly projectRoot: string;
@@ -205,50 +135,6 @@ export function decideCompactStatusline(input: {
     sessionDir,
     now: input.now
   });
-}
-
-function stateFromLifecycle(record: CompactLifecycleRecord): CompactStatuslineState {
-  if (record.stage === 'failed') {
-    const failedAt = record.failedAt ?? 'compacting';
-    const state: CompactStatuslineState = {
-      kind: 'failed',
-      filledCells: CELL_BY_STAGE.get(failedAt) ?? STAGE_CELL_COMPACTING,
-      triggerRatio: record.triggerRatio,
-      redLine: record.redLine,
-      failedAt
-    };
-    if (record.errorSummary !== undefined) {
-      return { ...state, detail: record.errorSummary };
-    }
-    return state;
-  }
-  const filledCells = CELL_BY_STAGE.get(record.stage) ?? 0;
-  const base: CompactStatuslineState = {
-    kind: record.stage,
-    filledCells,
-    triggerRatio: record.triggerRatio,
-    redLine: record.redLine
-  };
-  if (record.stage === 'completed' && typeof record.afterRatio === 'number') {
-    return { ...base, afterRatio: record.afterRatio };
-  }
-  return base;
-}
-
-function stateFromStalled(record: CompactLifecycleRecord): CompactStatuslineState {
-  const filledCells = CELL_BY_STAGE.get(record.stage) ?? STAGE_CELL_COMPACTING;
-  const detailText =
-    record.stage === 'failed' ? record.errorSummary : `no heartbeat for ${record.stage} stage`;
-  const state: CompactStatuslineState = {
-    kind: 'stalled',
-    filledCells,
-    triggerRatio: record.triggerRatio,
-    redLine: record.redLine
-  };
-  if (detailText !== undefined) {
-    return { ...state, detail: detailText };
-  }
-  return state;
 }
 
 function decideLegacyFallback(input: {

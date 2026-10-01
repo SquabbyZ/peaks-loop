@@ -70,7 +70,7 @@ against real debt:
 | `tscErrors` | 142 | from `tsc -p tsconfig.json --noEmit` |
 | `silentWarningCatchReturnNull` | 41 *(seeded 2026-09-29)* | `catch { return null; }` — the caller cannot tell failure from absence |
 | `silentWarningEmptyCatch` | 59 *(seeded 2026-09-29)* | `catch { /* nothing */ }` — the error vanishes and the run stays green |
-| `fileSizeOverCap` | **174** *(seeded 2026-09-30, inputs re-seeded by the repair cycle)* | files over the decided raw-line cap — **300** for `src`/`packages`/`scripts`, **500** for the root `tests/` tree — counted as `readFileSync(f,'utf8').split('\n').length` over `git ls-files` in those four directories. **Not** the `max-lines` finding count: 98 findings under 400-effective is a different population from 174 files over 300/500 raw (§4 slice 5). The row is bound to those inputs, not just to the unit: the artifact records `fileSizePolicyInputs` (`defaultCap`, `testsCap`, `scopeDirs`, `scopeExtensions`) and `fileSizeLineConvention`, and the leg re-derives all five from a live census run and **refuses** on a mismatch — so re-deciding the cap cannot quietly redefine the number it ratchets (§4b rows 7-9). |
+| `fileSizeOverCap` | **166** *(seeded 174 on 2026-09-30, inputs re-seeded by the repair cycle, lowered to 166 by C wave 5 on 2026-10-01)* | files over the decided raw-line cap — **300** for `src`/`packages`/`scripts`, **500** for the root `tests/` tree — counted as `readFileSync(f,'utf8').split('\n').length` over `git ls-files` in those four directories. **Not** the `max-lines` finding count: 98 findings under 400-effective is a different population from 174 files over 300/500 raw (§4 slice 5). The row is bound to those inputs, not just to the unit: the artifact records `fileSizePolicyInputs` (`defaultCap`, `testsCap`, `scopeDirs`, `scopeExtensions`) and `fileSizeLineConvention`, and the leg re-derives all five from a live census run and **refuses** on a mismatch — so re-deciding the cap cannot quietly redefine the number it ratchets (§4b rows 7-9). |
 
 Those last two are counted by the repo's own AST reporter,
 `scripts/lint/silent-warning-detector.mjs`, over **its own scope** — a walk of
@@ -424,6 +424,70 @@ that traces to `vitest.workers` rather than a literal, and carries a positive co
 plus a live-tree proof that stripping one cap turns it red. Declared and **not** fixed:
 `packages/peaks-loop-internal-runtime` ships no `vitest.config.ts` at all, so it inherits the root config
 and the census cannot see it.
+
+### 4i. C wave 5: the first wave planned against the row it had just built (2026-10-01)
+
+Wave 5 is the first cut of the split campaign scheduled by the tooling this program was built to
+produce, and it measured the population differently from the way §4 row 5 had been quoting it for
+two weeks, so the numbers here supersede the "44 class-A files" planning figure for the near term.
+
+**The band structure changed.** The census over the current tree reports 174 over-cap files whose
+excess distribution is **61–120 lines: 23 files, 121–300: 76, 301+: 75 — and ZERO files within 60
+lines of the cap.** Wave 4 cleared the 12–59 band, so the cheapest remaining file is
+`workflow-spec.ts` at +63. A wave that keeps taking "the ten cheapest" is now taking files with
+three digits of excess, which is why wave 5 was planned by class rather than by price.
+
+**Classification of the 23** (read-only pass, one type-aware eslint batch over exactly those files,
+band total 107 findings / 44 errors): **class A 8** (hoist finding-free top-level declarations),
+**class B 11** (shortfall sits inside code that already carries a finding — a hoist-upper-bound
+below the excess, arithmetic not judgement: `cron-commands` −5, `standards-command` −5,
+`watch.mjs` −4, `workflow-autonomous` −3, and `pipeline-verify`, `dispatch-from-dag`,
+`session-command` with **zero** finding-free top-level mass), **class C 4** (all test files whose
+mass is `describe()` bodies). Class B is 11 of 23, which is the §4 row 6 finding restated on the
+cheapest band: the remaining splits are mostly not separable from lint-family cleaning.
+
+**Wave 5 ran 4 leaves × 2 files, dirs disjoint, and cleared all 8** —
+`workflow-spec.ts` 363→232 (+149), `bundle-types.ts` 366→289 (+118),
+`cross-pass-edge-merger.ts` 389→297 (+143), `api-diff-openapi.ts` 414→294 (+166),
+`compact-statusline-service.ts` 410→296 (+100/+60), `version-precheck-service.ts` 417→296 (+118/+48),
+`envelopes.ts` 407→261 (+185), `release-pack.mjs` 412→282 (+90/+89). Repo totals:
+`fileSizeOverCap 174 → 166`, excess 60,982 → 60,204 lines, scope 1429 → 1440 files, and — stated
+plainly because it is the wave's least flattering number — **`eslintFindings` 2803 → 2803 and
+`eslintErrors` 997 → 997**. Eight files hoisted for zero lint progress, exactly as the plan
+predicted. Convergence, measured by the orchestrator, serially: `gate repo` exit 0 at 1440 files
+with all twelve rows held; `pnpm build` exit 0 (892 source files); `pnpm test:unit` exit 0
+(330 files / 3614 passed / 3 skipped); `pnpm test:integration` exit 0 (93 files / 472 passed /
+2 skipped); J11's counted-directory census held, so §4g's hazard did not fire in any of the eight.
+
+**Three hazards this wave added to the record, none of which the previous waves had:**
+
+1. **A line-anchored citation rots silently, not red.** `repo-citation-integrity` strips the `:NN`
+   suffix before checking, so a citation that names a real file and a wrong line passes. The
+   planning pass found one already wrong (`cross-pass-edge-merger.ts:330` citing `isTestFile`,
+   which was at 361), and wave 5 then moved `isTestFile` to
+   `cross-pass-edge-static-scan-support.ts:132` — a different *file*, with the checker still green.
+   The guard verifies existence, not accuracy. Recorded in the backlog rather than fixed here,
+   because fixing it means changing what the test asserts.
+2. **A DAG's "covered by the tests" claim is not evidence.** The wave-5 DAG said these modules were
+   covered by loader/eval tests; leaf `w5-1` grepped and found **no test imports either module**, so
+   the hoist was proven by a HEAD-vs-split identity harness (80 checks, 0 diffs) plus a 9-file
+   `createProgram` probe instead. A planned coverage claim must be re-verified by the leaf, not
+   inherited.
+3. **Two things that look like a leaf's failure were the orchestrator's job.** `file-size-cap.test.ts`
+   went red with `expected 174 to be 166` in two leaves — that is the stale ceiling the
+   orchestrator must regenerate *after* `git add` (§4e's index hole, now with a row that proves it).
+   And `statusline-cli-integration.test.ts` reported 24 tests skipped with the file failed: its
+   preflight refuses a stale `dist/`, and the wave had changed `src/` since the last build. Both
+   resolved by `pnpm build` + re-running the named files, not by touching the leaves' code.
+   The unit suite red at 329/1 is worth re-running *after a rebuild* before it is read as a
+   regression.
+
+Also worth keeping visible: leaf `w5-4` reported it could not clear `release-pack.mjs` without
+creating a **second** bidirectional cycle and chose to accept it with a runtime proof
+(`discover`/`topo`/`list` byte-identical, cycle loads) rather than reject the file; and leaf `w5-2`
+had to widen `api-diff-openapi-schema-read.ts` by exporting `schemaToTypeString`, which extends
+`api-diff-service.ts:60`'s `export *` by one previously-private name. Both are the cost of the
+"new file must be clean outright" contract, and both are the kind of thing no gate leg checks.
 
 ## 5. Lowering a ceiling
 
