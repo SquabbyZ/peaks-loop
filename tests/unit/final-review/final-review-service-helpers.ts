@@ -252,7 +252,6 @@ function dimensionsCovered(prompt: string): ReadonlySet<string> {
   return covered;
 }
 
-
 // ---------------------------------------------------------------------------
 // Round 6 — the module-level sweep.
 //

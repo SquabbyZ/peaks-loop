@@ -10,7 +10,7 @@ import {
   MAX_EVIDENCE_BYTES_PER_FILE,
   MAX_EVIDENCE_BYTES_TOTAL,
   assertFloorReservationAffordable,
-  prepareFinalReview,
+  prepareFinalReview
 } from '~/src/services/final-review/final-review-service';
 import {
   RID,
@@ -22,7 +22,7 @@ import {
   parseRenderedSources,
   reviewJson,
   writeAllEvidence,
-  writeAuditGoal,
+  writeAuditGoal
 } from './final-review-service-helpers.js';
 import {
   HEAVY_SUBPROCESS_TEST_TIMEOUT_MS,

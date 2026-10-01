@@ -26,7 +26,7 @@ import {
   MAX_OUTPUT_TOKENS,
   MIN_OUTPUT_TOKENS,
   outputBudgetForEvidence,
-  prepareFinalReview,
+  prepareFinalReview
 } from '~/src/services/final-review/final-review-service';
 import {
   RID,
@@ -39,7 +39,7 @@ import {
   reviewJson,
   writeAllEvidence,
   writeAuditGoal,
-  type Verdict,
+  type Verdict
 } from './final-review-service-helpers.js';
 import { HEAVY_SUBPROCESS_TEST_TIMEOUT_MS } from '../_setup/subprocess-timeouts.js';
 

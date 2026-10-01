@@ -17,7 +17,7 @@ import {
   makeGitProject,
   reviewJson,
   writeAuditGoal,
-  writeRealSizedEvidence,
+  writeRealSizedEvidence
 } from './final-review-service-helpers.js';
 import {
   HEAVY_SUBPROCESS_TEST_TIMEOUT_MS,

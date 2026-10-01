@@ -20,7 +20,7 @@ import {
   outputBudgetForEvidence,
   prepareFinalReview,
   resolveOutputBudget,
-  type LlmRunner,
+  type LlmRunner
 } from '~/src/services/final-review/final-review-service';
 import {
   RID,
@@ -36,7 +36,7 @@ import {
   reviewJson,
   writeAllEvidence,
   writeAuditGoal,
-  writeRealSizedEvidence,
+  writeRealSizedEvidence
 } from './final-review-service-helpers.js';
 import {
   HEAVY_SUBPROCESS_TEST_TIMEOUT_MS,
