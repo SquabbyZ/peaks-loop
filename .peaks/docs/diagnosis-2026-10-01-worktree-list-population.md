@@ -177,3 +177,42 @@ operation. The observed population therefore needs the **load precondition** —
 to overlap the invocation rate — and can only be attributed by catching it live. That is what the
 corrected watcher in §7 is for, and why §6's advice (do not run the experiment under <4 GB free) stands.
 The sampler's blind spot is a named defect of the instrument, not evidence about the leak.
+
+## 9. The mechanism the review found (2026-10-01) — accumulation explained, invoker still not named
+
+An independent review of the `EXEC_TIMEOUT_MS` fix came back **BLOCKED with 1 CRITICAL**, and the reason
+was about my prose, not the constant: I had written that reaping happens within minutes. Re-measured by
+the orchestrator with `runTask`'s exact options:
+
+```
+{"caught":true,"code":"ETIMEDOUT","signal":"SIGTERM","elapsed_ms":1519}
+{"after_ms":0,"survivors_of_the_killed_task":1}
+{"after_ms":3000,"survivors_of_the_killed_task":1}
+{"after_ms":6000,"survivors_of_the_killed_task":1}
+```
+
+The task was `node -e "setTimeout(…, 60000)"` under a 1500 ms timeout. `execSync`'s timeout kills the
+shell — on Windows `cmd.exe` — and **orphaned the node grandchild, which lived on.** So two things change:
+
+1. §2.21's fix is real but narrower than I claimed: it stops a blocked `runTask` caller waiting five
+   hours; it does not stop a stalled task child from surviving. Recorded as backlog §2.23, with the
+   related honesty problem that a timed-out record reports `exitCode 1` / `stderr ''` while the task may
+   still succeed — the history lies.
+2. The fingerprints in §2 now have a mechanism. `cmd.exe /d /s /c "peaks worktree "list""` is exactly the
+   process `execSync` kills, and the surviving node child is exactly the population we counted. It also
+   fits a sample I took at 20:36 and dismissed: a leaked node whose parent process **could not be
+   resolved** — I read that as noise; under this mechanism it is the expected shape of an orphan.
+   And backlog §2.24 is the rate half: the daemon's `tick()` calls `runTask` and **discards the record
+   without writing `lastRunAt`**, so a 24-hour task stays permanently due and re-fires every 60-second
+   tick, each slow fire leaving another orphan behind.
+
+What is still NOT established: an instance. No `peaks-cron-scheduler` process, no `scheduler.pid`, and no
+`.peaks/cron` directory exists anywhere within the depth searched on this machine, and `cron-scheduler
+status` reports `pid null / alive false / 0 entries` in both peaks-loop roots. A mechanism without a
+confirmed caller is not a root cause, so §5–§8 stand: the watcher stays armed, and the next recurrence
+must be answered by taking one **full** command line plus the ancestor chain to a resolved or
+irrecoverably-gone parent — the two cases this document has now learned to tell apart.
+
+The lesson worth keeping, stated plainly because I am the one who made the error: I wrote a claim about
+what a timeout *does* while holding evidence only about what a timeout *is*. Arithmetic was measured;
+reaping was assumed. An independent reviewer with a 30-second probe caught it.

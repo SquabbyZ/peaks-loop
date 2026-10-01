@@ -1251,3 +1251,66 @@ survived an extra round of testing, because "gc" and "list" imply different life
 side effects. A comment that describes a different command than the one it registers is a misleading
 index into the very code path being debugged. Fix: correct the comment, or change the task to `gc
 --all-sessions` if that was the intent — but decide it, do not leave the two disagreeing.
+
+### 2.21a Correction to §2.21 — the constant is right, the accumulation is NOT bounded (measured 2026-10-01)
+
+The fix landed (`822b13ef`): `EXEC_TIMEOUT_MS` is now `5 * SECONDS_PER_MINUTE * MS_PER_SECOND` = 300,000 ms.
+But the commit message and the original §2.21 text both claim the change means a stalled task child is
+**reaped** in minutes rather than hours. An independent review probed it and the orchestrator re-measured
+it: **that is false.** `execSync`'s `timeout` kills the shell it spawned, not the grandchild, so the task
+process survives its own parent's death. The prose was written from the arithmetic, not from the behavior,
+and the arithmetic was the thing I was confident about.
+
+Measured, same options `runTask` uses (`timeout`, `stdio: 'ignore'`, `windowsHide`), 2026-10-01:
+
+```
+{"caught":true,"code":"ETIMEDOUT","signal":"SIGTERM","elapsed_ms":1519}
+{"after_ms":0,   "survivors_of_the_killed_task":1}
+{"after_ms":3000, "survivors_of_the_killed_task":1}
+{"after_ms":6000, "survivors_of_the_killed_task":1}
+```
+
+The task was `node -e "setTimeout(…, 60000)"` with a 1500 ms timeout. The parent gave up at 1519 ms with
+ETIMEDOUT; the node child was still alive at +6 s and would have run its full 60 s. So the constant's unit
+error is closed, and the *reaping* property never existed. What the fix actually buys is that a blocked
+`runTask` caller is released after five minutes instead of five hours — the parent stops waiting, the
+child keeps running.
+
+### 2.23 `runTask` orphans its task child on timeout (found 2026-10-01, §2.21a measured it)
+
+`execSync(cmd, { timeout })` sends SIGTERM to the shell. On Windows the shell is `cmd.exe`, and the node
+process it launched is not in that kill set — it is orphaned and finishes on its own. Consequence: any
+task that stalls leaves a live grandchild that nothing owns, and the history record reports
+`exitCode 1` / `stderr ''` (status is null on a timed-out `execSync`) while the real work is still
+running and may still succeed. The history therefore lies about a task it did not finish.
+
+A fix must kill the whole tree (e.g. `spawn` with `detached:false` and kill by pid, or Windows
+`taskkill /T /F /PID`, or a `timeout`-aware wrapper), and must mark a timed-out record distinctly — say
+`killed: true` or a dedicated exit sentinel — instead of collapsing it to "failed with exit 1". Test first,
+with a positive control proving the child would otherwise have survived.
+
+### 2.24 The scheduler's `tick()` never persists `lastRunAt`, so a due task re-fires every tick (read 2026-10-01)
+
+`src/cli/commands/cron-scheduler-commands.ts` — the daemon tick:
+
+```ts
+const tick = (): void => {
+  const due = listDueTasks(args.projectRoot);
+  for (const task of due) {
+    runTask(args.projectRoot, task);   // record discarded, writeSchedule never called
+  }
+};
+```
+
+and `run-once` (:299-300) does `due.map((t) => runTask(projectRoot, t))` and prints the records without
+writing the schedule back. Only the `peaks cron run` action persists `lastRunAt`
+(`cron-commands-actions.ts` writes the updated entries). So a 24 h task under a daemon stays
+**permanently due** and is re-spawned every 60-second tick; combined with §2.23 each stalled spawn leaves
+another orphan. This is the strongest accumulation mechanism found in the whole investigation and it is a
+plausible answer to the "who repeats it" question that the diagnosis document still records as open —
+though note that no scheduler daemon, no `scheduler.pid` and no `.peaks/cron` directory exists anywhere
+within the searched depth on this machine, so it is a mechanism without a confirmed instance.
+
+Fix: persist `lastRunAt` after every task in both paths (write the schedule inside the tick), with a test
+that a 24 h task fires once across N ticks. Order matters: §2.24 controls the rate, §2.23 controls what a
+single slow invocation leaves behind; both are needed before a burst is bounded.
