@@ -78,11 +78,14 @@ import {
 import {
   FS_CEILING_KEY,
   FS_CENSUS,
+  FS_EXCESS_CEILING_KEY,
+  FS_EXCESS_ROW_LABEL,
   FS_ROW_LABEL,
   TSX_CLI,
   describeInputTrips,
   fileSizeInputTrips,
   measureFileSizeOverCap,
+  missingFileSizeCeilings,
   parseFileSizeArgv,
   printFileSizeLeg,
   refuseScopedSubset
@@ -656,7 +659,7 @@ function silentWarningLeg(check, ceilings, files) {
 }
 
 // ---------------------------------------------------------------------------
-// file-size leg — the whole-tree count over the policy cap
+// file-size legs — the whole-tree count over the policy cap, and the lines over it
 // ---------------------------------------------------------------------------
 // THE POLICY ITSELF lives in `src/services/scan/file-size-policy.ts`: 300 raw
 // lines for `src/`, `packages/` and `scripts/`, 500 for the root `tests/` tree,
@@ -714,20 +717,21 @@ function fileSizeLeg(check, ceilings, files, controlArm = false) {
       controlArm
     };
   }
-  if (!Number.isInteger(ceilings[FS_CEILING_KEY])) {
-    return {
-      refusal:
-        `REFUSING to measure the file-size leg — the baseline has no ceiling for ${FS_CEILING_KEY}.\n` +
-        '  Regenerate it: node .husky/peaks-gate-baseline.mjs',
-      envelope: m.env,
-      controlArm
-    };
+  const missingCeiling = missingFileSizeCeilings(ceilings);
+  if (missingCeiling !== null) {
+    return { refusal: missingCeiling, envelope: m.env, controlArm };
   }
   const trips = fileSizeInputTrips(m.env, baseline);
   if (trips.length > 0) {
     return { refusal: describeInputTrips(trips), envelope: m.env, controlArm };
   }
+  // TWO ROWS, ONE CENSUS (rid `2026-10-01-file-size-excess-row`). `fileSizeOverCap`
+  // counts the files over the cap; `fileSizeExcessLines` counts the lines over it —
+  // the figure wave 6 moved by +67 while the file count held at 166. Both read the
+  // same envelope, so every refusal above applies to both, and neither can print a
+  // number the census did not produce.
   check(FS_ROW_LABEL, m.env.overCap, ceilings[FS_CEILING_KEY]);
+  check(FS_EXCESS_ROW_LABEL, m.env.excessLines, ceilings[FS_EXCESS_CEILING_KEY]);
   return { refusal: null, envelope: m.env, controlArm };
 }
 

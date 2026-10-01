@@ -329,6 +329,11 @@ console.error(
 // literal would freeze the ceiling in place of the count — the same defect the
 // silent-warning legs were added to end.
 //
+// THE SAME ENVELOPE SEEDS THE SECOND FILE-SIZE ROW, `fileSizeExcessLines` — the
+// LINES over those caps, which `overCap` cannot see (rid `2026-10-01-file-size-excess-row`;
+// C wave 6 paid 67 excess lines to buy 19 lint findings while the file count held).
+// It is copied off `size.env.excessLines` under the same rule: never typed.
+//
 // FAIL-CLOSED on the same terms as the silent-warning step below: a census that
 // cannot run, or that counted no file, aborts the run BEFORE anything is written.
 // Writing a zero here would seed a ceiling of zero for a number that was never
@@ -410,7 +415,12 @@ writeFileSync(
         tscErrors,
         silentWarningCatchReturnNull: sw.catchReturnNull,
         silentWarningEmptyCatch: sw.emptyCatch,
-        fileSizeOverCap: size.env.overCap
+        fileSizeOverCap: size.env.overCap,
+        // THE SAME ENVELOPE, THE OTHER UNIT (rid `2026-10-01-file-size-excess-row`):
+        // the files over cap above, and the LINES over those caps. Nothing may type
+        // this number either — it is the census's own `excessLines`, the figure the
+        // gate prints in its scope note and, from this row on, enforces.
+        fileSizeExcessLines: size.env.excessLines
       },
       // The unit the row above is counted in, copied off the census envelope
       // rather than restated: `split('\n').length` and `wc -l` differ by one per

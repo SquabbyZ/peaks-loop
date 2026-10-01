@@ -27,6 +27,22 @@ export const TSX_CLI = 'node_modules/tsx/dist/cli.mjs';
 export const FS_CEILING_KEY = 'fileSizeOverCap';
 /** The label `check()` prints for the row. */
 export const FS_ROW_LABEL = 'file-size over cap';
+/**
+ * The SECOND ceiling row this leg ratchets: the SUM of the lines over those caps,
+ * not the count of the files carrying them.
+ *
+ * WHY IT HAD TO BE ITS OWN ROW (rid `2026-10-01-file-size-excess-row`, measured by
+ * C wave 6). `fileSizeOverCap` counts FILES, so a hoist that lengthens an
+ * already-over-cap file moves nothing it watches: wave 6 paid 67 lines of extra
+ * excess (60,204 → 60,271) to buy 19 lint findings while `fileSizeOverCap` held at
+ * 166 and `gate repo` exited 0. The number was printed in the row's scope note and
+ * enforced by nothing. Folding it into the over-cap row would make one ceiling two
+ * quantities — the conflation §3's per-class rows exist to prevent — so it gets its
+ * own key, its own line, and this leg's already-shared measurement.
+ */
+export const FS_EXCESS_CEILING_KEY = 'fileSizeExcessLines';
+/** The label `check()` prints for the excess row. */
+export const FS_EXCESS_ROW_LABEL = 'file-size excess lines';
 /** The string the census uses when it counted its own scope — i.e. the row itself. */
 export const FS_WHOLE_SCOPE_SOURCE = 'git ls-files <policy dirs>';
 
@@ -82,6 +98,11 @@ export function measureFileSizeOverCap(files = [], cwd = process.cwd()) {
   if (!Number.isInteger(env.overCap) || env.overCap < 0) {
     return refuse(`${FS_CENSUS} produced an envelope with no integer overCap`);
   }
+  if (!Number.isInteger(env.excessLines) || env.excessLines < 0) {
+    // The same trip, one row down: `0` is also what "nothing is over cap" looks
+    // like, so an envelope without the sum cannot seed or check `fileSizeExcessLines`.
+    return refuse(`${FS_CENSUS} produced an envelope with no integer excessLines`);
+  }
   if (!Number.isInteger(env.scope?.countedFiles) || env.scope.countedFiles <= 0) {
     return refuse(`${FS_CENSUS} counted 0 files, so it measured nothing`);
   }
@@ -110,6 +131,28 @@ export function refuseScopedSubset({ controlArm, files }) {
     'never measured against.\n' +
     `  Run \`node .husky/peaks-gate.mjs file-size\` with no paths to measure ${FS_CEILING_KEY}, ` +
     'or pass `--control-arm` to test the leg on a subset deliberately.'
+  );
+}
+
+/**
+ * The refusal for a baseline that carries no ceiling for one or both of this leg's
+ * rows, or `null` when the leg has numbers to compare against.
+ *
+ * WHY IT IS HERE AND WHY IT KNOWS BOTH KEYS. The leg's rows share one census run, so
+ * a missing ceiling has to take BOTH down: seeding `fileSizeExcessLines` while
+ * leaving the guard keyed on `fileSizeOverCap` alone would let the over-cap row print
+ * a green next to a number that was never measured against anything. The gate used to
+ * spell this refusal inline for one key; the key list and the text now live beside
+ * the measurement they guard (F5 of the cap-unify review).
+ */
+export function missingFileSizeCeilings(ceilings) {
+  const missing = [FS_CEILING_KEY, FS_EXCESS_CEILING_KEY].filter(
+    (key) => !Number.isInteger(ceilings[key])
+  );
+  if (missing.length === 0) return null;
+  return (
+    `REFUSING to measure the file-size leg — the baseline has no ceiling for ${missing.join(', ')}.\n` +
+    '  Regenerate it: node .husky/peaks-gate-baseline.mjs'
   );
 }
 

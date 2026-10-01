@@ -71,6 +71,7 @@ against real debt:
 | `silentWarningCatchReturnNull` | 41 *(seeded 2026-09-29)* | `catch { return null; }` — the caller cannot tell failure from absence |
 | `silentWarningEmptyCatch` | 59 *(seeded 2026-09-29)* | `catch { /* nothing */ }` — the error vanishes and the run stays green |
 | `fileSizeOverCap` | **166** *(seeded 174 on 2026-09-30, inputs re-seeded by the repair cycle, lowered to 166 by C wave 5 on 2026-10-01)* | files over the decided raw-line cap — **300** for `src`/`packages`/`scripts`, **500** for the root `tests/` tree — counted as `readFileSync(f,'utf8').split('\n').length` over `git ls-files` in those four directories. **Not** the `max-lines` finding count: 98 findings under 400-effective is a different population from 174 files over 300/500 raw (§4 slice 5). The row is bound to those inputs, not just to the unit: the artifact records `fileSizePolicyInputs` (`defaultCap`, `testsCap`, `scopeDirs`, `scopeExtensions`) and `fileSizeLineConvention`, and the leg re-derives all five from a live census run and **refuses** on a mismatch — so re-deciding the cap cannot quietly redefine the number it ratchets (§4b rows 7-9). |
+| `fileSizeExcessLines` | **60271** *(seeded 2026-10-01 from the same census envelope; C wave 6 is the reason it exists — 60,204 → 60,271 while `fileSizeOverCap` held at 166 and `gate repo` exited 0)* | the **lines** over those caps, summed — the other half of one census run, and the quantity a file count cannot see: hoisting into a file that is already over cap adds lines without adding files. Seeded by `.husky/peaks-gate-baseline.mjs:423` copying `size.env.excessLines` (never typed), enforced beside the row above in `repo` mode and in `file-size` mode at `.husky/peaks-gate.mjs:734`; it reads `✗ file-size excess lines … > ceiling … (+1)` and exits 1 on one line more than the ceiling, and stays green as it descends. |
 
 Those last two are counted by the repo's own AST reporter,
 `scripts/lint/silent-warning-detector.mjs`, over **its own scope** — a walk of
@@ -135,6 +136,27 @@ new files, with nothing guarding that freshness);
 `tests/unit/lint/file-size-gate-leg.test.ts` watches the row go RED on one more
 over-cap file than the ceiling, and RED on refusing a subset it was not told to
 measure.
+
+`fileSizeExcessLines` is the **fourth measured-only row** and the thirteenth ceiling
+(rid `2026-10-01-file-size-excess-row`). It exists because the two file-size
+quantities move independently: wave 6 cleared 19 `max-lines-per-function` findings by
+hoisting helpers *into files that were already over cap*, so the file count held at
+166, the lint rows fell, and the repo's excess lines rose by 67 — a trade the gate
+printed in the scope note and enforced nowhere. It is a SUM, not a count, so the
+equality the campaign wants has to be intentional: one hoist that lengthens a file by
+20 lines and shortens another by 20 is net zero, and the row makes that visible rather
+than accidental.
+
+Both rows come from **one** census invocation — `.husky/peaks-gate.mjs:710`, the single
+`measureFileSizeOverCap` call site, whose fail-closed trips and key list live in
+`.husky/peaks-gate-file-size.mjs` (`missingFileSizeCeilings` at line 148 names both
+keys). That sharing is deliberate: a census that cannot run, an envelope with no
+integer `excessLines`, or a baseline that has seeded only one of the two ceilings takes
+**both** rows down — refusal text, neither row printed, exit 1. A per-row second spawn
+would be finding F5 of the cap-unify review happening again.
+`tests/unit/lint/file-size-excess-gate-leg.test.ts` holds that open: RED on one excess
+line more than the published ceiling (`+1`, exit 1) while the over-cap row in the same
+run holds, green one line below it, and neither row printed when the census fails.
 
 ## 4. The descent schedule
 
@@ -734,7 +756,9 @@ directions, and this wave spent 67 lines of split-debt to buy 19 lint findings. 
 skip the work — 110 of the 166 over-cap files carry MLPF arms, so the rule has to be cleared for the split
 queue to move at all — but it is a reason to **plan hoists into siblings rather than in-file when the file
 is already under its cap**, which is what kept every under-cap file under cap this wave (checked per file
-by each leaf; `J03/J04/J05` and `dispatch.ts` all stayed small).
+by each leaf; `J03/J04/J05` and `dispatch.ts` all stayed small). That trade now has a ceiling of its own:
+`fileSizeExcessLines` (§3) was seeded the next day at the 60,271 this wave ended on, so paying split-debt to
+buy lint findings moves a row the gate refuses to let rise.
 
 Two hazards paid off as designed. `w6-4` checked whether `capability-guard-runner/contracts/` is
 enumerated before creating any sibling and found registration is **name-based static imports** in
