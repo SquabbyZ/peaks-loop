@@ -1474,3 +1474,59 @@ token". Two separate defects, both cheap to describe and neither fixed here:
 2. **A refusal that names no artifact is undiagnosable from the user's side.** The envelope should carry
    the path it linted (and the sibling set it covered) — otherwise the only way to find out is to
    grep every file in the session dir for `<`, which is what happened here.
+
+### 2.27 `peaks-gate-baseline.mjs` has no monotonicity check — it raised `prettierUnformatted` 0 → 7 and wrote it (found 2026-10-01, C wave 7 convergence)
+
+§5 and the artifact's own `note` both say *"Every ceiling may only go DOWN — if a regeneration raises
+one, that is a regression to fix, not a number to commit."* The generator does not implement that. It
+diffed nothing: after C wave 7 staged 29 new files, seven of which were not prettier-formatted,
+`node .husky/peaks-gate-baseline.mjs` exited 0 and wrote `prettierUnformatted: 7` over the previous 0.
+`gate repo` then reported "all thirteen ceilings held", because the ceiling had absorbed the
+regression it was supposed to refuse.
+
+Caught only because the orchestrator diffed the new ceilings against HEAD's as a habit:
+
+```
+{"diff":["eslintFindings 2780->2768","eslintErrors 978->971",
+         "prettierUnformatted 0->7","fileSizeOverCap 166->162","fileSizeExcessLines 60271->54318"],
+ "raised":["prettierUnformatted"]}
+```
+
+The prose in the file (`Ratchet baseline … may only go DOWN`, and four "Nothing has been written"
+refusal paths) is about **measurement failure**, not about a raised ceiling — grep confirms no code path
+compares new ceilings to the previous artifact. So the ratchet is currently one command away from
+self-erasing: any wave that regresses a formatted/linted metric can regenerate it away.
+
+Fix: before writing, read the existing baseline and **refuse to raise any key**, naming the key and
+both values and leaving the file untouched — the same "fails closed, writes nothing" shape the leg
+already uses when the census cannot run. Needs a test with a positive control (raise one value in a
+temp baseline → the generator exits 1 and the artifact is byte-identical afterwards), because the
+current state passes every existing test.
+
+### 2.28 A source-text guard lost 86% of its subject in a split and still passed (introduced by C wave 7 `w7-2`, found at convergence 2026-10-01)
+
+`tests/unit/final-review/final-review-service-fact-states-and-guard.test.ts:286` reads
+`src/services/final-review/final-review-service.ts` as **text** and asserts the delivery invariant over
+it — "only `isDelivered` may decide delivery; every other function must ASK it" — with a deliberate
+anti-deletion arm so the guard cannot be satisfied by removing the judgement.
+
+C wave 7 moved ten cohesive regions of that 1,858-line service into twelve siblings. The parent is now
+273 lines. The guard reads only the parent, so it now examines **273 of 1,858 lines (15%)** and its
+anti-deletion arm still passes because `isDelivered` itself stayed put. It is green, and it is blind.
+
+Why no gate caught it: this is §4c's "two pins that read source TEXT, not behaviour" hazard and the
+same class as §4b row 2's path-keyed swallow census — an assertion about a *file*, so splitting the file
+shrinks what is examined without changing any count the suite reports. The leaf itself named it in its
+report ("its source-table check now covers 1-of-10 entries") and handed it to another leaf; neither
+fixed it, which is the expected outcome when an inherited gap has no artifact of its own. Two rules
+come out of it, and they are this campaign's shape, not a style preference:
+
+1. A guard that reads one file's source text must read the **module set** after a split — parent plus
+   siblings it delegates to — and the fix is mechanical once the split names them.
+2. Any such guard needs an arm that **fails when the subject shrinks**: assert the byte count or the
+   symbol census it read, not only the invariant over what it happened to read. A guard whose coverage is
+   itself unmeasured will be silently amputated by the next refactor.
+
+Not fixed here: it is a test-semantics change with its own acceptance criteria (make the guard cover all
+thirteen modules, add the shrink arm, prove the arm red-then-green), and leaving it as a green-but-blind
+guard while shipping the split is honest only if it is written down somewhere. It is now.

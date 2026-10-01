@@ -771,3 +771,34 @@ shown. Both files then exit 0.
 Still open after this wave: 86 marginal arms in the 51-60 band, 165 in 61-80, and the
 700-930-line `register*Commands()` cohort, which is where §4 row 6's "cleaning the family *is* the split"
 actually applies.
+
+### 4m. C wave 7 — the first wave whose target was a line count, and what it cost to measure (2026-10-01)
+
+`fileSizeExcessLines` had just become a ceiling (§4l's +67 was the last straw), so wave 7 aimed at the
+number rather than at the file list: the 5 largest files, **7,346 excess lines (12.2 % of the repo
+total)**, one file per leaf, five leaves, directories disjoint by construction.
+
+**Result: 4 cleared, 1 rejected with a blocker nobody had written down.** Repo movement, measured before
+and after with the census: `fileSizeExcessLines 60,271 → 54,318` (**−5,953, −9.9 %**),
+`fileSizeOverCap 166 → 162`, `eslintFindings 2780 → 2768`, `eslintErrors 978 → 971`,
+`countedFiles 1,445 → 1,474` (+29 siblings). Unit: **344 files (+10) with the case count unchanged at
+3,651 passed / 3 skipped** — the number that proves splitting four suites moved cases and did not lose
+them. Build 0, integration 0 at 93 files / 472 passed / 2 skipped.
+
+The rejection is the more useful half. `scripts/install-skills.mjs` (1,393 excess) could not be split by
+the leaf that tried: `package.json#files` lists **that path concretely**, npm tarball membership does not
+follow imports, and the entry's main block statically reaches the whole module graph — so hoisting a
+region ships a global install whose postinstall dies `ERR_MODULE_NOT_FOUND`. No gate sees it:
+`tests/unit/publish/files-entries-resolve.test.ts` checks entries→disk, not disk→entries, which is the
+silent-short-tarball direction its own header already names. The unblock is a `package.json`-owning slice
+plus interleaved lint cleaning (the file also carries 11 errors/11 warnings, so no chunk relocates into
+a must-be-clean sibling). Recorded in the leaf envelope, not worked around.
+
+**Three things convergence caught that the leaves' own reports did not contain**, which is the argument
+for the orchestrator re-measuring instead of reading: seven of the new files were prettier-unformatted
+(their eslint was genuinely clean, so their self-checks were truthful and incomplete); the baseline
+generator **raised `prettierUnformatted 0 → 7` and wrote it** because it has no monotonicity check at all
+(backlog §2.27 — the ratchet is one command away from erasing itself); and a guard that reads the
+service's source **text** now covers 273 of the 1,858 lines it used to examine, passes, and is blind
+(backlog §2.28, with the two rules it implies: a text guard must read the module set after a split, and
+it needs an arm that fails when its own subject shrinks).
