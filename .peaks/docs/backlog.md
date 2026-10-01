@@ -1383,6 +1383,64 @@ leaving a survivor behind it. Read together with §2.23, the burst is bounded in
 still in flight at any moment) and still unbounded in *rate*. Deliberately not fixed in §2.23's slice:
 the two have independent tests and conflating them makes either one ambiguous.
 
+**FIXED 2026-10-01** (rid `2026-10-01-cron-last-run-at-01`, repair cycle 1 same day). The tick now keeps the
+records its runs produced and folds them into `schedule.json` through `persistLastRunAt`
+(`src/cli/commands/cron-scheduler-persist.ts`, the file that holds the rule; new and eslint-clean outright);
+`run-once` calls the same function with the `records` it was already printing, and — the repair — so does
+`peaks cron run`, which is what makes the rule one rule instead of two.
+
+Measured before/after by counting `runTask` invocations across ticks
+(`tests/unit/cli/commands/cron-last-run-at.test.ts`, 9 arms after the repair, 6 before — `readSchedule` /
+`listDueTasks` / `writeSchedule` stay the real fs-backed ones and only `runTask` is replaced, so a unit arm
+can count fires without booting a CLI per fire):
+
+- **before: 6 `runTask` invocations across 6 ticks** for one entry with `intervalMs` 86,400,000 at the
+  60,000 ms daemon period — the tick arm's own failure line reads `AssertionError: expected 6 to be 1`.
+  `run-once` fired on both of two consecutive invocations (`AssertionError: expected 1 to be +0` on its
+  `ran` field), which is why §2.24 named it as sharing the defect.
+- **after: 1 invocation across the same 6 ticks**, `lastRunAt` equals the record's `finishedAt`, and
+  `listDueTasks(project, finishedAt + 60_000)` returns 0 entries — the second tick's due list is empty
+  because the first tick wrote the file.
+- **a killed run is deliberately not stamped — in every writer.** A record carrying `killed: true` leaves
+  `lastRunAt` null, so work cut off mid-flight is not counted as a day's work: across 3 ticks it fired 3 times
+  and `lastRunAt` stayed null. The retry rate is bounded by `runTask` itself — it blocks in `spawnSync` until
+  the child is gone (`cron-commands.ts:226`) and a timed-out child is killed at `EXEC_TIMEOUT_MS` =
+  300,000 ms (`cron-commands.ts:74`) — **and that bound is now measured, not argued** (`tests/unit/cli/commands/cron-exec-timeout.test.ts`,
+"a killed fire is spaced by the injected timeout, not by the tick", 2 arms): an injected 3,000 ms
+  timeout cost its caller **3,019 ms and 3,020 ms** of wall clock (its positive control
+  concludes the same wiring in 67 ms and 71 ms), so a permanently stuck entry costs at
+  most 3,600,000 / 300,000 = 12 fires per hour instead of one per 60,000 ms tick. It is
+  the *timeout* class only: on win32 a child killed from outside came back `exitCode 1`
+  with no `killed` key in 383 ms and 410 ms (419 ms in review F3's probe), takes the
+  concluded branch and IS stamped. Repair cycle 1 also
+  removed the cross-command split — at `9badd1ac` `peaks cron run` stamped killed runs
+  (`cron-commands-actions.ts:174` of that commit) while the scheduler path did not, so one killed fire was
+  due under the daemon and silent for a full `intervalMs` under `cron run`; all three writers now fold through
+  `persistLastRunAt`, and an arm drives the same killed fire through both entry points and asserts ONE
+  resulting schedule (`cron-last-run-at.test.ts`, "when the same killed fire runs through the daemon tick and
+  through peaks cron run, should leave one identical schedule"; the byte-for-byte assertion is
+  `readFileSync(schedule.json)` of the two projects against each other). A run with a definite exit code (0 or non-zero) IS stamped to `finishedAt`, so it goes
+  quiet for exactly its own `intervalMs` (asserted at `finishedAt + DAY_MS - 1` not due, `finishedAt + DAY_MS`
+  due).
+- **every entry the schedule file holds survives the write.** Parsed entries are re-written from a schedule
+  RE-READ at write time instead of taken from the tick's earlier snapshot: an arm adds a second task while the
+  first is "still running" and asserts both entries are on disk and the added one is field-for-field what the
+  operator wrote. Repair cycle 1 closed two holes in that sentence. (1) F5: entries `toScheduleEntry`
+  (`cron-commands-schedule.ts:129-150`) rejects were silently **deleted** by the daemon's first write — the
+  chosen behavior is to carry their raw JSON through, so a hand-edited entry with a missing field survives
+  (arm: "…an entry the schedule reader rejects…"), the one exception being an unparseable entry that reuses a
+  parsed entry's `id`. (2) F4: `peaks cron run` read the schedule before its runs, which block up to
+  300,000 ms per task, and rewrote the whole file from that snapshot — reverting a stamp the daemon had landed
+  back to `null`, i.e. re-opening this very entry; it calls `persistLastRunAt` now, and an arm lands a write
+  mid-fire and asserts the revert is gone. **No file lock is implemented** — `writeSchedule` is a plain
+  `writeFileSync` (`cron-commands-schedule.ts:170-174`) — so a concurrent writer that lands between this
+  re-read and this write can still be clobbered, and last-writer-wins on the value remains; that needs the
+  locking / atomic-write framework this slice does not take on.
+
+What this does **not** close: the emitter of the 2026-09-30/10-01 process population is still unnamed.
+§2.24 was a mechanism without a confirmed instance, and this slice closes the rate half of the mechanism,
+not the hunt (diagnosis §9.2).
+
 ### 2.25 `peaks request init` prefixes request artifacts with a year that is not this year (found 2026-10-01)
 
 On 2026-10-01, two `peaks request init --role qa --id 2026-…` calls wrote artifacts named

@@ -15,6 +15,17 @@
  * action was never read (it carried a `no-unused-vars` baseline ERROR on the
  * original file). Removing an unread, effect-free assignment changes no branch,
  * throw, exit code, or emitted byte — and a new sibling must be clean outright.
+ *
+ * ONE thing has since been restructured, and it is not the verbatim move above:
+ * rid `2026-10-01-cron-last-run-at-01` repair cycle 1 replaced `runCronTasks`'s
+ * own fold-and-write (a `runTargets` that built the next file from the snapshot
+ * read before the runs, stamping every record including killed ones) with the
+ * scheduler's `persistLastRunAt`, so one rule and one write-time re-read cover
+ * all three `lastRunAt` writers. The `ran` / `records` envelope, the exit-code
+ * branch and every emitted message are unchanged; what changed on disk is that a
+ * killed run no longer advances `lastRunAt` here, and that entries another writer
+ * added mid-run are no longer reverted. The rule is in
+ * `cron-scheduler-persist.ts`.
  */
 
 import { fail, getErrorMessage, ok } from 'peaks-loop-shared/result';
@@ -26,12 +37,12 @@ import {
   listDueTasks,
   readSchedule,
   schedulePath,
-  SCHEDULE_VERSION,
   writeSchedule,
   type RunRecord,
   type ScheduleEntry
 } from './cron-commands-schedule.js';
 import { runTask } from './cron-commands.js';
+import { persistLastRunAt } from './cron-scheduler-persist.js';
 
 const STDERR_NEXT_ACTIONS_TRUNCATE_CHARS = 200;
 
@@ -152,28 +163,23 @@ function runCronTasks(
     );
     return;
   }
-  const { records, updatedEntries } = runTargets(projectRoot, file.entries, targets);
-  writeSchedule(projectRoot, { version: SCHEDULE_VERSION, entries: updatedEntries });
+  const records = runTargets(projectRoot, targets);
+  // ONE rule, ONE writer (rid `2026-10-01-cron-last-run-at-01`, repair cycle 1).
+  // This call is the third site of the `lastRunAt` fold, whose rule and platform
+  // costs live in `cron-scheduler-persist.ts`. Two things it replaces: a fold that
+  // stamped EVERY record, killed ones included (so the same killed fire went quiet
+  // here and stayed due under the daemon), and a write built from the `file`
+  // snapshot read above — taken up to `EXEC_TIMEOUT_MS` (300,000 ms) of synchronous
+  // runs before the write, so it reverted any stamp the daemon landed in between,
+  // back to `null`. `persistLastRunAt` re-reads at write time instead.
+  persistLastRunAt(projectRoot, records);
   printRunOutcome(io, options, projectRoot, records);
 }
 
-function runTargets(
-  projectRoot: string,
-  entries: ReadonlyArray<ScheduleEntry>,
-  targets: ReadonlyArray<ScheduleEntry>
-): { records: RunRecord[]; updatedEntries: ScheduleEntry[] } {
+function runTargets(projectRoot: string, targets: ReadonlyArray<ScheduleEntry>): RunRecord[] {
   const records: RunRecord[] = [];
-  const updatedEntries: ScheduleEntry[] = [];
-  for (const task of entries) {
-    if (!targets.some((t) => t.id === task.id)) {
-      updatedEntries.push(task);
-      continue;
-    }
-    const record = runTask(projectRoot, task);
-    records.push(record);
-    updatedEntries.push({ ...task, lastRunAt: record.finishedAt });
-  }
-  return { records, updatedEntries };
+  for (const task of targets) records.push(runTask(projectRoot, task));
+  return records;
 }
 
 function printRunOutcome(

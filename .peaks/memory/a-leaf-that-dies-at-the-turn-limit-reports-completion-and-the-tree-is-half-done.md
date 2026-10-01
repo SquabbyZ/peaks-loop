@@ -25,3 +25,19 @@ and report the exit codes you got. Expect a mid-work death to leave working code
 documentation, so the next dispatch must state what is verified and inherit only the rest. A
 repair cycle's first job is to falsify the brief it was given, including the orchestrator's
 diagnosis in it.
+
+## Second occurrence, with a sharper lesson (2026-10-01, rid `2026-10-01-cron-last-run-at-01`)
+
+The repair leaf died at the same limit and left +948 lines across 9 files with no envelope. This time the
+partial work turned out to be **substantively complete** — the arms the review demanded (both-entry-point
+equality, the mid-fire revert window, the rejected-entry carry-through) were all present in the test file,
+and every leg the orchestrator then measured came back green (unit 333/3641, gate 1442→1444 with
+`fileSizeOverCap 166` unmoved, build 0, integration 93/472). So a mid-work death is not the same thing as
+a failed slice, and reverting to HEAD would have thrown away a finished fix.
+
+The discriminating question is not "did it finish?" but **"does the tree build, and do the arms the
+review asked for exist by name?"** — `pnpm build`, then enumerate the `it(` headings and compare them to
+the finding list. That is cheap, and it is what separated "inherited and sound" from "inherited and
+unproven". Record which of the leaf's own numbers you did not watch: its red-phase counts stayed
+unverified here and were written down as such, because "the file is green now" is not evidence that the
+test was ever red.

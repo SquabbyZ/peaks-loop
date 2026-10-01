@@ -38,6 +38,7 @@ import { fail, getErrorMessage, ok } from 'peaks-loop-shared/result';
 import { addJsonOption, printResult, type ProgramIO } from '../cli-helpers.js';
 import { findProjectRoot } from '../../services/config/config-safety.js';
 import { readSchedule, listDueTasks, runTask, type ScheduleFile } from './cron-commands.js';
+import { persistLastRunAt } from './cron-scheduler-persist.js';
 
 const SCHEDULER_TICK_MS = 60_000; // 1 minute
 const PID_FILENAME = 'scheduler.pid';
@@ -298,6 +299,9 @@ export function registerCronSchedulerCommand(program: Command, io: ProgramIO): v
       const projectRoot = options.project ?? findProjectRoot(process.cwd()) ?? process.cwd();
       const due = listDueTasks(projectRoot);
       const records = due.map((t) => runTask(projectRoot, t));
+      // §2.24 applied to the one-shot path too: without it `run-once` under an
+      // external crontab re-ran the same task on every invocation.
+      persistLastRunAt(projectRoot, records);
       printResult(
         io,
         ok(
@@ -354,9 +358,15 @@ export async function runSchedulerLoop(args: {
   const tick = (): void => {
     try {
       const due = listDueTasks(args.projectRoot);
-      for (const task of due) {
-        runTask(args.projectRoot, task);
-      }
+      const records = due.map((task) => runTask(args.projectRoot, task));
+      // backlog §2.24: this write-back is what makes a fired task stop being
+      // due. Without it `lastRunAt` stays null, `listDueTasks` keeps the entry
+      // due, and a 24 h task re-fires on every 60,000 ms tick (measured: 6 fires
+      // across 6 ticks, 1 after the write). Killed runs are deliberately NOT
+      // stamped — here, in `run-once` above, and since repair cycle 1 in `peaks
+      // cron run` too; the rule and its per-platform costs are in
+      // `cron-scheduler-persist.ts`.
+      persistLastRunAt(args.projectRoot, records);
     } catch (err) {
       process.stderr.write(`[cron-scheduler] tick error: ${getErrorMessage(err)}\n`);
     }

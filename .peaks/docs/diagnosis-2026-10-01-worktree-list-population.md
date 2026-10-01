@@ -246,6 +246,33 @@ yes — with two limits, both stated rather than assumed.**
 2. Reaping is asserted for the task process. A task that spawns descendants of its own was measured on
    win32 (three runs, zero survivors, both roles proven to have started by a per-pid provenance line)
    but no code in the fix asks for a descendant kill, so that is an observation about this host's process
-   handling, not a guarantee, and the suite does not assert it. `lastRunAt` is still not persisted by the
-   daemon tick (§2.24), so the *rate* at which fires happen is unchanged: what changes is that each fire
-   now cleans up after itself.
+   handling, not a guarantee, and the suite does not assert it. `lastRunAt` was still not persisted by the
+   daemon tick when this addendum was written (§2.24, closed later the same day — see §9.2), so the *rate*
+   at which fires happen was unchanged: what changed is that each fire now cleans up after itself.
+
+### 9.2 Addendum — the rate half of §9 is closed for concluded runs (rid `2026-10-01-cron-last-run-at-01`, same day; qualified in repair cycle 1)
+
+The daemon tick now writes `lastRunAt` from the record it used to discard
+(`src/cli/commands/cron-scheduler-persist.ts`), measured as **6 `runTask` invocations
+across 6 ticks → 1** by `tests/unit/cli/commands/cron-last-run-at.test.ts`, so the
+1440× rate error of §2.24 is gone **for the runs that reach a conclusion**: a 24 h task
+whose fire returns an exit code — 0 or non-zero — now fires once per its interval
+instead of once per minute. The class this fix deliberately leaves repeating is the
+killed one: a record carrying `killed: true` is not stamped, so the entry stays due and
+is retried, and the spacing of that retry is the exec timeout rather than the 60,000 ms
+tick because a killed fire blocks its caller first — measured at **3,019 ms and
+3,020 ms of block for an injected 3,000 ms timeout** by
+`tests/unit/cli/commands/cron-exec-timeout.test.ts` ("a killed fire is spaced by the
+injected timeout, not by the tick", 2 arms, whose positive control brings a concluding
+fire back in 67 ms and 71 ms), which at the production `EXEC_TIMEOUT_MS` of 300,000 ms
+bounds a permanently stuck entry to 3,600,000 / 300,000 = **12 fires per hour**, not 60.
+Two honest limits on that number: it is the *timeout* class only, and on win32 it is the
+only class that reaches `killed: true` — a child killed from outside came back
+`exitCode 1` with no `killed` key in **383 ms and 410 ms** (419 ms in review F3's probe),
+so it takes the concluded branch and is stamped. Repair cycle 1 also removed the
+cross-command split: `peaks cron run` used to stamp killed runs while the daemon tick
+did not, and an arm now drives one killed fire through both writers and asserts ONE
+resulting schedule. **The emitter of the 2026-09-30/10-01
+population is still unnamed** — §5–§8 stand, this document never observed a caller, and closing the rate
+half of a mechanism is not the same as proving the mechanism ran. The watcher stays armed.
+

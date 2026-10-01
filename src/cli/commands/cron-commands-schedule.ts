@@ -120,7 +120,13 @@ function assertScheduleRoot(parsed: unknown): {
   return obj;
 }
 
-function toScheduleEntry(e: unknown): ScheduleEntry | null {
+/**
+ * The one "can this raw JSON entry be represented?" predicate. Exported because
+ * a writer that must NOT lose an entry needs to know which ones the reader
+ * dropped (rid `2026-10-01-cron-last-run-at-01`, repair cycle 1, F5 — see
+ * `persistLastRunAt` in `cron-scheduler-persist.ts`).
+ */
+export function toScheduleEntry(e: unknown): ScheduleEntry | null {
   if (typeof e !== 'object' || e === null) return null;
   const ent = e as Record<string, unknown>;
   if (typeof ent.id !== 'string' || typeof ent.name !== 'string' || typeof ent.command !== 'string')
@@ -147,7 +153,21 @@ function isStringArray(a: unknown): a is ReadonlyArray<string> {
   return Array.isArray(a) && a.every((s) => typeof s === 'string');
 }
 
-export function writeSchedule(projectRoot: string, file: ScheduleFile): void {
+/**
+ * The write half's input shape: a version plus the entries to store.
+ *
+ * `entries` is `ReadonlyArray<unknown>`, not `ReadonlyArray<ScheduleEntry>`, for one
+ * caller: `persistLastRunAt` re-writes the raw JSON of entries `toScheduleEntry`
+ * refused, so that a daemon write cannot delete an operator's hand-edited entry
+ * (rid `2026-10-01-cron-last-run-at-01` repair cycle 1, F5). Every other caller
+ * passes a `ScheduleFile`, which satisfies this shape.
+ */
+export type ScheduleWrite = {
+  readonly version: typeof SCHEDULE_VERSION;
+  readonly entries: ReadonlyArray<unknown>;
+};
+
+export function writeSchedule(projectRoot: string, file: ScheduleWrite): void {
   const dir = cronDir(projectRoot);
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
   writeFileSync(schedulePath(projectRoot), `${JSON.stringify(file, null, 2)}\n`, 'utf8');
