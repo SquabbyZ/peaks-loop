@@ -152,3 +152,28 @@ for ($i = 0; $i -lt 6; $i++) {
 }
 Write-Output ("max_new_seen=" + $newTotal)
 ```
+
+## 8. Negative result from the controlled experiment (2026-10-01, idle host)
+
+A scratch project root (`%TEMP%\leakprobe`, its own git repo) was given the fixture
+`.peaks/cron/schedule.json` with `lease-gc-daily` — `command:'worktree'`, `args:['list']`,
+`intervalMs:86400000`. Two runs, `peaks cron run --project .` and `peaks cron run --id
+lease-gc-daily --project .`, both exited 0 and wrote both history records:
+
+```
+{"taskId":"lease-gc-daily","startedAt":1790826962996,"finishedAt":1790826963763,"exitCode":0,"stderr":""}  → 767 ms
+{"taskId":"lease-gc-daily","startedAt":1790827444236,"finishedAt":1790827444981,"exitCode":0,"stderr":""}  → 745 ms
+```
+
+So the task does execute, its child completes in under a second, **and nothing accumulates on an idle
+host** — including the first run's child, which the 200 ms census saw zero of, and the second, which
+the parent-pid-anchored sampler at 60 ms also missed. Either the sampler cannot see a 745 ms grandchild
+of a `Start-Process` grandchild (most likely; `descendants=4` with duplicate rows for already-exited
+pids is consistent with that), or the child is not the process shape the leak showed. Either way this
+is not a reproduction, and the emitter remains unnamed.
+
+What the two runs do establish: `runTask` on a healthy host is a ~750 ms, exit-0, non-accumulating
+operation. The observed population therefore needs the **load precondition** — children slowed enough
+to overlap the invocation rate — and can only be attributed by catching it live. That is what the
+corrected watcher in §7 is for, and why §6's advice (do not run the experiment under <4 GB free) stands.
+The sampler's blind spot is a named defect of the instrument, not evidence about the leak.
