@@ -1382,3 +1382,19 @@ tick and the record is still discarded, but a stalled fire now dies with its own
 leaving a survivor behind it. Read together with §2.23, the burst is bounded in *size* (only the fires
 still in flight at any moment) and still unbounded in *rate*. Deliberately not fixed in §2.23's slice:
 the two have independent tests and conflating them makes either one ambiguous.
+
+### 2.25 `peaks request init` prefixes request artifacts with a year that is not this year (found 2026-10-01)
+
+On 2026-10-01, two `peaks request init --role qa --id 2026-…` calls wrote artifacts named
+`2027-2026-10-01-cron-exec-timeout-01.md` and `2028-2026-10-01-cron-task-tree-kill-01.md`. The prefix is
+not the current year, and it incremented between the two calls, which is the signature of a counter
+being read as a year (or a year derived from a value that advances). The `--id` the caller passed is
+preserved in the body and in `requestId`, so the artifact is findable, but the filename is wrong in a
+way that breaks the single-scope-axis convention this repo states in every SKILL.md — a request should
+be addressable by its rid, and `2028-` reads like a date that has not happened.
+
+Why it matters beyond tidiness: the QA record is the file `request transition --role qa` lints, and its
+name is what an operator greps for when a transition fails. A filename that looks like a future date
+invites exactly the kind of "is this stale / from another run?" misjudgement this campaign keeps
+recording. Not fixed here: it is a naming bug in the init path, it needs a test that asserts the written
+filename equals the rid, and that test must fail against today's behavior before anything changes.
