@@ -143,7 +143,7 @@
 - [src-services-ide-module-is-the-single-source-of-truth-for-ide-aware-behavior](src-services-ide-module-is-the-single-source-of-truth-for-ide-aware-behavior.md) — The  module is the single source of truth for IDE-aware behavior.
 - [src-services-session-canonical-workspace-resolver](src-services-session-canonical-workspace-resolver.md) — is the canonical home for the per-session workspace.
 
-## lesson (95)
+## lesson (96)
 
 - [2026-06-26-unknown-sid-root-cause](archived/2026-06-26-unknown-sid-root-cause.md) — Root cause + remediation log for the  and  orphan session dirs.
 - [2026-07-28-rid-034-handoff-no-sediment-block](2026-07-28-rid-034-handoff-no-sediment-block.md) — rid-034 收尾遇 sediment 反向 — no peaks-memory:start/end 闭合块 **Date:** 2026-07-28 **Rid:** 2026-07-28-rid-034-v2-13-0-clea...
@@ -160,6 +160,7 @@
 - [a-hand-maintained-allow-list-that-points-at-an-old-machine-path-is-a-silent-gate-not-a-working-one](a-hand-maintained-allow-list-that-points-at-an-old-machine-path-is-a-silent-gate-not-a-working-one.md) — failed on every workspace that used caller bindings because  listed only one of the eight runtime dirs the code actua...
 - [a-leaf-that-dies-at-the-turn-limit-reports-completion-and-the-tree-is-half-done](a-leaf-that-dies-at-the-turn-limit-reports-completion-and-the-tree-is-half-done.md) — Two dispatches in one rid ended with  and a "partial result" that read like a status line ( / ).
 - [a-multi-slice-job-that-shares-one-rid-reopens-the-evidence-collision-hole-rid-scoping-was-built-to-close](a-multi-slice-job-that-shares-one-rid-reopens-the-evidence-collision-hole-rid-scoping-was-built-to-close.md) — Gate C's evidence paths are rid-scoped (, , …) so two slices cannot occupy one slot.
+- [a-prose-claim-about-what-a-timeout-does-while-holding-evidence-only-of-what-it-is](a-prose-claim-about-what-a-timeout-does-while-holding-evidence-only-of-what-it-is.md) — 断言行为之前，先测行为；断言不存在之前，先确认自己读到了输出 案例一：算式是真的，回收是假的（2026-10-01，rid ）  求值成 18,000,000 ms （5 小时），而命名与注释要的是 300,000 ms。这一半是**...
 - [a-self-check-whose-file-set-comes-from-the-diff-covers-neither-agent-s-window](a-self-check-whose-file-set-comes-from-the-diff-covers-neither-agent-s-window.md) — An RD reported "eslint + prettier --check clean **on the new test file**" — singular.
 - [a-silent-push-on-this-repo-is-the-pre-push-hook-running-the-full-suite](a-silent-push-on-this-repo-is-the-pre-push-hook-running-the-full-suite.md) — On 2026-09-25,  produced **zero bytes of output for over two minutes**.
 - [a-single-measurement-of-a-host-sensitive-command-is-not-a-fact-about-the-command](a-single-measurement-of-a-host-sensitive-command-is-not-a-fact-about-the-command.md) — Four measurements of one  on this repo spread **8.89 s – 14.2 s** (~60 %): , from three different agents.
