@@ -65,6 +65,7 @@ import {
   censusRun,
   describeFindings,
   gateModuleText,
+  generatorModuleTextUnder,
   gitScopedFiles,
   overCapFixture,
   overCapFromWalk,
@@ -374,7 +375,10 @@ describe('Scenario: a11y — the census reports 0 only when it means 0', () => {
     // walks `.husky/gate/` and reads all of it — the two arms after this one are what
     // prove the pool is a check and not a cushion.
     const gate = gateModuleText();
-    const generator = readFileSync(join(REPO_ROOT, '.husky', 'peaks-gate-baseline.mjs'), 'utf8');
+    // POOLED over the generator's module set for the same reason (rid
+    // 2026-10-02-wave9-generator-split): the region that imports the shared leg is now
+    // `.husky/baseline/census-leg.mjs`, and the walk finds it wherever it lives.
+    const generator = generatorModuleTextUnder(REPO_ROOT);
     const shared = readFileSync(join(REPO_ROOT, '.husky', 'peaks-gate-file-size.mjs'), 'utf8');
     expect(shared).toContain(CENSUS_TOOL_PATH);
     expect(gate).toContain('peaks-gate-file-size.mjs');
@@ -414,7 +418,7 @@ describe('Scenario: a11y — the census reports 0 only when it means 0', () => {
     });
     expect(envelope.scope.dirs).toEqual(inputs?.scopeDirs);
     expect(envelope.scope.extensions).toEqual(inputs?.scopeExtensions);
-    const generator = readFileSync(join(REPO_ROOT, '.husky', 'peaks-gate-baseline.mjs'), 'utf8');
+    const generator = generatorModuleTextUnder(REPO_ROOT);
     expect(generator).toContain('fileSizePolicyInputs');
     // Pooled, for the reason in the wiring arm above: the binding check is part of
     // the file-size LEG, and the leg is now `.husky/gate/legs.mjs`.

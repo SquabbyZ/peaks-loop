@@ -54,7 +54,7 @@ import {
   type FixtureArtifact
 } from './_file-size-hooks-fixture.js';
 import { monotonicModuleTextUnder } from './_monotonic-module-set.js';
-import { REPO_ROOT } from '../standards/_file-size-cap-scan.js';
+import { REPO_ROOT, generatorModuleTextUnder } from '../standards/_file-size-cap-scan.js';
 import {
   FILE_SIZE_CAP_HOOKS,
   HOOKS_FILE_SIZE_SCOPE_DIRS,
@@ -288,7 +288,9 @@ describe('Scenario: behavior — the new rows are ordinary ceilings, not exempt 
     const at = (needle: string): number => keys.indexOf(needle);
     expect(at(`'${HOOKS_OVER_CAP_KEY}'`)).toBeGreaterThan(-1);
     expect(at(`'${HOOKS_EXCESS_KEY}'`)).toBeLessThan(at("'fileSizeExcessLines'"));
-    const generator = fixture.read(join('.husky', 'peaks-gate-baseline.mjs'));
+    // Pooled over the walked GENERATOR set, the same way (rid wave 9 slice 3): the rows
+    // are one contiguous literal in one module of it, so this order survives the split.
+    const generator = generatorModuleTextUnder(fixture.root);
     expect(generator.indexOf('fileSizeHooksExcessLines:')).toBeLessThan(
       generator.indexOf('fileSizeExcessLines: size.env.excessLines')
     );

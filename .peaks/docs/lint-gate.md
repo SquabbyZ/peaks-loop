@@ -1091,3 +1091,31 @@ The syntactic-only eslint pass (the only lint that can read `.husky` at all — 
 leaf's own first cut: `notes.mjs` was missing the `bullet` import, invisible to `file-size`, `silent-warning`
 and `staged` modes because only the generator path executes it. That is the second slice in a row where an
 undeclared import in the gate survived every gate, and it is the concrete argument for §2.37's option (2).
+
+### 4u. Wave 9 slice 3 — the generator split, and a proof that had to be built after being claimed (2026-10-02, rids `2026-10-02-wave9-generator-split` + `-repair1`)
+
+`.husky/peaks-gate-baseline.mjs` 799 raw → a 106-line entry plus ten `.husky/baseline/*.mjs` (largest 205).
+This one could not be a verbatim move: the file is a top-level-`await` script, so the regions became functions
+that take the bindings their producer built and return what a later region read — measured honestly as a
+multiset diff, 24 lines homeless and 274 added, all of them imports, `const` bindings and wrapper prose. That
+buys nothing on its own, so the standard here was **behavioural equivalence**, and the first version of the slice
+only *said* it had it: the entry's header claimed a fixture comparison against `git show HEAD:` that no test
+performed, the tree did not type-check, and 8 arms were red — 7 of them a real `ReferenceError` reachable only
+through a fixture injection (a seeded row computed from `scope.length`, while the rows moved into a function that
+never binds `scope`), plus an inherited 5-parameter leg that would have raised `eslintFindings` at convergence.
+The repair cycle built the arm for real (11 arms, five states × exit code / artifact bytes / stdout / stderr,
+byte-identical stubs, real prettier, explicit reference-side verdicts) and proved it able to fail with three
+mutation controls — dropped refusal reddening exit code and bytes, reflowed refusal sentence reddening **only**
+stderr, one reworded note reddening **only** bytes — which is the pair the claim needs: it must be able to see
+the difference, and able to see nothing else moving.
+
+Measured at convergence, by the orchestrator: `fileSizeHooksOverCap 2 → 1`, `fileSizeHooksExcessLines 610 → 111`
+(only `peaks-gate-file-size.mjs` 411 remains), main rows 162 / 54,318 untouched for the third slice running;
+hooks scope 18 → 28 files. `tsc` exit 0; `tests/unit/lint` + `tests/unit/standards` **283/283**; repo-wide unit
+**3,770 passed / 3 skipped**; `gate repo` exit 0 across 15 rows. The generator refused to seed twice on its own
+merits: once for a legitimately un-formatted helper (`prettierUnformatted 0 → 1`, §2.27's own failure caught by
+the guard that entry created), and once the descent itself was accepted with `CLEARED`.
+
+The rule this slice is the evidence for: **inside the gate, a comment asserting a proof is a claim under test.**
+If it is not backed by an arm that can go red, it does not belong in the file — and a refactor whose only novel
+risk is silent behaviour change needs its equivalence arm to be shown discriminating, not merely green.

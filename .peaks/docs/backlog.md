@@ -2009,3 +2009,28 @@ one, same state, artifact bytes equal except `generatedAt`, stderr equal for the
 three §2.33 attacks) before any of it is trusted or committed. Rule taken from it: a leaf's claim that something
 was proven is accepted only as a test that exists and runs; a comment saying so is treated as the assertion to be
 tested, never as its evidence.
+
+**CLOSED 2026-10-02 (repair cycle 1, rid `2026-10-02-wave9-generator-split-repair1`).** The claim was made
+true before anything was trusted. `tests/unit/lint/baseline-split-equivalence.test.ts` (476 raw, 11 arms) runs
+two fixture repos with identical inputs — one the generator from `git show HEAD:.husky/peaks-gate-baseline.mjs`
+plus its real dependency closure (`-file-size.mjs`, `-baseline-monotonic.mjs`, `.husky/monotonic/*`), one the
+split entry plus `.husky/baseline/*` — with byte-identical stubs for eslint/tsc/detector/census and real
+prettier, comparing exit code, artifact bytes modulo `generatedAt`, stdout and stderr across five states: the
+seed path, the legitimate second run, and the three §2.33 attacks. Each arm carries an explicit reference-side
+verdict so two crashes cannot agree their way to green. Three mutation controls prove it able to fail: dropping
+a refusal in `anchor.mjs` reddens exit code and bytes, reflowing the refusal sentence in `paths.mjs` reddens
+**only** stderr, changing one word of a note in `artifact.mjs` reddens **only** bytes — each restored in
+`finally` under a byte-equality assertion, plus an out-of-band working-tree mutation that went red (3 failed /
+2 passed) and came back to sha256 `7992c749e185ef3b…`. The header comment now cites that file, and the one clause
+that could not be measured was measured instead of trusted (`FS_CEILING_KEY`: one hit at HEAD:64, absent from the
+whole generator set).
+
+Two inherited defects the repair found, neither visible to any check that existed. The slice was **not green**:
+8 arms red, 7 of them because `baseline-monotonicity-seeding.test.ts` injects a seeded ceiling row computed from
+`scope.length`, while after the split the rows are assembled in `buildCeilings(…)`, which never binds `scope` —
+`ReferenceError: scope is not defined` at `.husky/baseline/artifact.mjs:80`, reachable only through a fixture
+path no gate runs. And the same edit pushed a leg to five parameters where HEAD had four, which would have moved
+`eslintFindings` 2768 → 2769 at convergence. Both fixed; `tsc` exits 0, the two affected directories are
+**283/283** after seeding. The guard then caught a third thing by itself: `prettierUnformatted 0 → 1` from one
+un-formatted helper (`tests/unit/standards/_file-size-cap-scan.ts`) — this entry's own failure mode, now
+refused rather than committed.

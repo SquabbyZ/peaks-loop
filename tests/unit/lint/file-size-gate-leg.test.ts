@@ -61,6 +61,8 @@ import {
   REPO_ROOT,
   gateModulePaths,
   gateModuleText,
+  generatorModulePathsUnder,
+  generatorModuleTextUnder,
   overCapFixture,
   runCensus
 } from '../standards/_file-size-cap-scan.js';
@@ -81,7 +83,6 @@ declareDimensions(
 
 const GATE = join('.husky', 'peaks-gate.mjs');
 const SHARED_LEG = join('.husky', 'peaks-gate-file-size.mjs');
-const GENERATOR = join('.husky', 'peaks-gate-baseline.mjs');
 const ROW = 'file-size over cap';
 const CEILING_KEY = 'fileSizeOverCap';
 const CONTROL_ARM = '--control-arm';
@@ -275,7 +276,7 @@ describe('Scenario: integration — the leg measures the census, not its own ide
     const gate = gateModuleText();
     expect(gate).toMatch(/fileSizeLeg\(check, c, \[\]\)/);
     expect(gate).toMatch(/mode === 'file-size'/);
-    const generator = readFileSync(join(REPO_ROOT, GENERATOR), 'utf8');
+    const generator = generatorModuleTextUnder(REPO_ROOT);
     expect(generator).toContain('fileSizeOverCap: size.env.overCap');
   });
 
@@ -288,7 +289,11 @@ describe('Scenario: integration — the leg measures the census, not its own ide
     // Every module the gate is made of — walked, not listed — plus the generator. The
     // split made the single-file caller a module SET, so the prohibition widened to
     // match it: no part of the gate may spawn the census or re-define the measurement.
-    for (const caller of [...gateModulePaths(), GENERATOR]) {
+    // Every module the gate is made of — walked, not listed — plus every module the
+    // GENERATOR is made of. The two splits made each single-file caller a module SET, so
+    // the prohibition widened to match both: no part of either may spawn the census or
+    // re-define the measurement.
+    for (const caller of [...gateModulePaths(), ...generatorModulePathsUnder(REPO_ROOT)]) {
       const text = readFileSync(join(REPO_ROOT, caller), 'utf8');
       // Neither caller may spawn the census itself any more: the shared module is
       // the only place `TSX_CLI, FS_CENSUS` appears. (`--json` on its own is not
@@ -299,7 +304,7 @@ describe('Scenario: integration — the leg measures the census, not its own ide
     // And the shared module IS reached: by the gate somewhere in its set (whichever
     // module owns the leg now), and by the generator by name.
     expect(gateModuleText()).toContain('peaks-gate-file-size.mjs');
-    expect(readFileSync(join(REPO_ROOT, GENERATOR), 'utf8')).toContain('peaks-gate-file-size.mjs');
+    expect(generatorModuleTextUnder(REPO_ROOT)).toContain('peaks-gate-file-size.mjs');
   });
 
   it('binds the ceiling to the inputs that produced it (repair cycle F2)', () => {

@@ -392,3 +392,58 @@ export function gateModuleText(root: string = REPO_ROOT): string {
     .map((file) => readFileSync(join(root, file), 'utf8'))
     .join('\n// ─── gate module break ───\n');
 }
+
+/**
+ * THE GENERATOR'S MODULE SET (rid `2026-10-02-wave9-generator-split`).
+ *
+ * Same problem, same rule: the generator was 799 raw lines of straight-line script and
+ * its regions are now `.husky/baseline/*.mjs`, so a pin that read the ENTRY alone would
+ * pin a file that no longer speaks. `gateModulePaths` above is the precedent this
+ * follows, and it reuses `listCodeFiles` rather than adding a second recursion. The
+ * spellings here are FORWARD-SLASH, because the set composes with `hooksScopeFilesUnder`
+ * (the fixtures' staging walk) and a `join()`-built path here would silently compare
+ * false against it — the Windows trap that cost slice 2 seven arms.
+ */
+export const GENERATOR_ENTRY_REL = '.husky/peaks-gate-baseline.mjs';
+export const GENERATOR_DIR_REL = '.husky/baseline/';
+/** The last assembled ceiling row followed by the object's closing `};`. */
+export const CEILINGS_TAIL_ANCHOR = /fileSizeExcessLines: size\.env\.excessLines\r?\n[ \t]*\};/;
+
+/** The generator entry plus every walked `.husky/baseline/` sibling, entry first. */
+export function generatorModulePathsUnder(root: string): string[] {
+  const husky = join(root, '.husky');
+  const walked = existsSync(husky)
+    ? listCodeFiles('', husky, []).map((rel) => `.husky/${rel}`)
+    : [];
+  const set = walked.filter(
+    (rel) => rel === GENERATOR_ENTRY_REL || rel.startsWith(GENERATOR_DIR_REL)
+  );
+  return [GENERATOR_ENTRY_REL, ...set.filter((rel) => rel !== GENERATOR_ENTRY_REL).sort()];
+}
+
+/** The pooled TEXT of that set — what a pin about the generator SET must read. */
+export function generatorModuleTextUnder(root: string): string {
+  return generatorModulePathsUnder(root)
+    .map((rel) => readFileSync(join(root, rel), 'utf8'))
+    .join('\n// ─── generator module break ───\n');
+}
+
+/**
+ * The ONE module that assembles the last ceiling row — the file a caller must PATCH to
+ * add a row, found by the row's own anchor and never by a name. Zero holders is stale
+ * (a reader aimed at a file that no longer holds the rows) and two is the second-copy
+ * defect, so both throw.
+ */
+export function generatorCeilingsFileUnder(root: string): string {
+  const hits = generatorModulePathsUnder(root).filter((rel) =>
+    CEILINGS_TAIL_ANCHOR.test(readFileSync(join(root, rel), 'utf8'))
+  );
+  const [holder] = hits;
+  if (hits.length !== 1 || holder === undefined) {
+    throw new Error(
+      `the assembled ceiling rows must live in exactly one module of the generator set ` +
+        `— found ${hits.length} (${hits.join(', ') || 'none'}) under ${root}`
+    );
+  }
+  return holder;
+}

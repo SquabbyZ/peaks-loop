@@ -143,7 +143,7 @@
 - [src-services-ide-module-is-the-single-source-of-truth-for-ide-aware-behavior](src-services-ide-module-is-the-single-source-of-truth-for-ide-aware-behavior.md) — The  module is the single source of truth for IDE-aware behavior.
 - [src-services-session-canonical-workspace-resolver](src-services-session-canonical-workspace-resolver.md) — is the canonical home for the per-session workspace.
 
-## lesson (99)
+## lesson (100)
 
 - [2026-06-26-unknown-sid-root-cause](archived/2026-06-26-unknown-sid-root-cause.md) — Root cause + remediation log for the  and  orphan session dirs.
 - [2026-07-28-rid-034-handoff-no-sediment-block](2026-07-28-rid-034-handoff-no-sediment-block.md) — rid-034 收尾遇 sediment 反向 — no peaks-memory:start/end 闭合块 **Date:** 2026-07-28 **Rid:** 2026-07-28-rid-034-v2-13-0-clea...
@@ -209,6 +209,7 @@
 - [r3-format-compact-defaults-by-artifact-type](r3-format-compact-defaults-by-artifact-type.md) — r3 — per-artifact compact-by-default Slice 023 (R3).
 - [r3-retrospective-defaults-to-index-compact](r3-retrospective-defaults-to-index-compact.md) — r3 — retrospective reads come from index.json Slice 023 (R3).
 - [real-cmdline-regression-test-for-spawn](real-cmdline-regression-test-for-spawn.md) — For any  call on Windows that goes through , assertion-only dogfood (e.g.
+- [refactoring-a-guard-into-pieces-needs-an-arm-that-can-see-the-difference](refactoring-a-guard-into-pieces-needs-an-arm-that-can-see-the-difference.md) — Three slices of wave 9 split the ratchet's own files (gate entry 1019 → 102 + 8 modules; monotonicity 672 → 125 6; ge...
 - [registry-check-after-publish-hits-subpackage-lag](registry-check-after-publish-hits-subpackage-lag.md) — 的 dependencies 对四个子包版本做**精确 pin**。发布后立刻查 registry， /  可能仍显示旧版本（表现为 MISSING）；而 pin 指向的新版本尚不存在时， 会直接失败。等待数十秒后重查即恢复正常 ——...
 - [rid-001 redo fake-green recovery closure — 9 文件 commit landed e8fb5ed9](2026-08-11-rid-001-redo-fake-green-recovery-closure.md) — rid-001 redo closure — fake-green recovery 完整 cycle > **优先级**：项目级 hard lesson。任何 "新增 CLI 表面" slice 都必须按本 sediment 的 a...
 - [security-perf-plan-result-split](security-perf-plan-result-split.md) — Security + Perf plan/result split (slice 025) > Source: project-local lesson, captured 2026-06-10 from slice 025.

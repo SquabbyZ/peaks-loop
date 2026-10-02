@@ -52,7 +52,7 @@ import { afterAll, describe, expect, it } from 'vitest';
 
 import { declareDimensions } from '../_setup/4dim-template.js';
 import { SUBPROCESS_TEST_TIMEOUT_MS } from '../_setup/subprocess-timeouts.js';
-import { gateModuleText } from '../standards/_file-size-cap-scan.js';
+import { gateModuleText, generatorModuleTextUnder } from '../standards/_file-size-cap-scan.js';
 import {
   HOOKS_EXCESS_KEY,
   HOOKS_EXCESS_ROW,
@@ -79,7 +79,6 @@ declareDimensions(
 
 const fixture: Fixture = createFixture('hooks-leg');
 const LEG_REL = join('.husky', 'peaks-gate-file-size.mjs');
-const GENERATOR_REL = join('.husky', 'peaks-gate-baseline.mjs');
 
 afterAll(() => {
   fixture.cleanup();
@@ -385,7 +384,7 @@ describe('Scenario: integration — the rows are wired, and nothing is typed', (
   });
 
   it('seeds the rows from the envelope and never from a literal, in the generator and the key list', () => {
-    const generator = readFileSync(join(fixture.root, GENERATOR_REL), 'utf8');
+    const generator = generatorModuleTextUnder(fixture.root);
     expect(generator).toContain('fileSizeHooksOverCap: size.env.hooks.overCap');
     expect(generator).toContain('fileSizeHooksExcessLines: size.env.hooks.excessLines');
     // The rule `phantomRules` and the silent-warning rows obey: a typed number
@@ -436,7 +435,7 @@ describe('Scenario: a11y — what a hooks breach says to the human who hits it',
   );
 
   it('seeds the rows from the envelope and never from a literal, in the generator, the gate and the list', () => {
-    const generator = readFileSync(join(fixture.root, GENERATOR_REL), 'utf8');
+    const generator = generatorModuleTextUnder(fixture.root);
     expect(generator).toContain('fileSizeHooksOverCap: size.env.hooks.overCap');
     expect(generator).toContain('fileSizeHooksExcessLines: size.env.hooks.excessLines');
     expect(generator).not.toMatch(/fileSizeHooks(OverCap|ExcessLines):\s*\d/);

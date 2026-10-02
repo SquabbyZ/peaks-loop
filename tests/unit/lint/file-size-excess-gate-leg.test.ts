@@ -64,6 +64,7 @@ import {
   BASELINE_PATH,
   REPO_ROOT,
   gateModuleText,
+  generatorModuleTextUnder,
   overCapFromWalk,
   runCensus
 } from '../standards/_file-size-cap-scan.js';
@@ -78,7 +79,6 @@ declareDimensions(
 
 const GATE = join('.husky', 'peaks-gate.mjs');
 const SHARED_LEG = join('.husky', 'peaks-gate-file-size.mjs');
-const GENERATOR = join('.husky', 'peaks-gate-baseline.mjs');
 const OVER_CAP_ROW = 'file-size over cap';
 const OVER_CAP_KEY = 'fileSizeOverCap';
 const ROW = 'file-size excess lines';
@@ -301,7 +301,7 @@ describe('Scenario: integration — walk == tool == artifact for the new row', (
   );
 
   it('seeds the row from the envelope and never from a literal', () => {
-    const generator = readFileSync(join(REPO_ROOT, GENERATOR), 'utf8');
+    const generator = generatorModuleTextUnder(REPO_ROOT);
     expect(generator).toContain('fileSizeExcessLines: size.env.excessLines');
     // The rule `phantomRules` and the silent-warning rows obey: a typed number
     // freezes the ceiling in place of the measurement.

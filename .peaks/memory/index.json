@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-02T08:23:13.759Z",
+  "updatedAt": "2026-10-02T13:54:33.634Z",
   "hot": {
     "rule": [
       {
@@ -1500,6 +1500,14 @@
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\real-cmdline-regression-test-for-spawn.md",
         "sourceArtifact": null,
         "updatedAt": "2026-09-23"
+      },
+      {
+        "name": "refactoring-a-guard-into-pieces-needs-an-arm-that-can-see-the-difference",
+        "kind": "lesson",
+        "description": "Three slices of wave 9 split the ratchet's own files (gate entry 1019 → 102 + 8 modules; monotonicity 672 → 125 6; ge...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\refactoring-a-guard-into-pieces-needs-an-arm-that-can-see-the-difference.md",
+        "sourceArtifact": ".peaks/_runtime/2026-09-29-session-b7cf21/rd/requests/2026-10-02-wave9-generator-split-repair1.md",
+        "updatedAt": "2026-10-02"
       },
       {
         "name": "registry-check-after-publish-hits-subpackage-lag",

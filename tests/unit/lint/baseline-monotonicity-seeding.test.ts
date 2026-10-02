@@ -46,12 +46,13 @@
 import { execFileSync, spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, join, resolve } from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { dirname, join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { afterAll, describe, expect, it } from 'vitest';
 
 import { declareDimensions } from '../_setup/4dim-template.js';
 import { SUBPROCESS_TEST_TIMEOUT_MS } from '../_setup/subprocess-timeouts.js';
+import { REPO_ROOT, generatorCeilingsFileUnder } from '../standards/_file-size-cap-scan.js';
 import { hooksScopeFilesUnder } from './_file-size-hooks-fixture.js';
 import { ceilingKeyListFileUnder } from './_monotonic-module-set.js';
 
@@ -66,7 +67,6 @@ declareDimensions(
   ]
 );
 
-const REPO_ROOT = resolve(fileURLToPath(new URL('.', import.meta.url)), '..', '..', '..');
 const GENERATOR = join('.husky', 'peaks-gate-baseline.mjs');
 const ARTIFACT_REL = join('.peaks', 'lint', 'gate-baseline.json');
 const ARTIFACT_GIT_PATH = '.peaks/lint/gate-baseline.json';
@@ -126,6 +126,7 @@ function writeFixtureFile(relative: string, text: string): string {
   return abs;
 }
 
+/** The same file as HEAD holds it — read the way `.husky/peaks-gate-baseline.mjs` reads it. */
 function readRepoFile(relative: string): string {
   return readFileSync(join(REPO_ROOT, relative), 'utf8');
 }
@@ -158,16 +159,16 @@ function patchCanonicalList(text: string): string {
   return patched;
 }
 
-/** The fourteenth row's value is MEASURED (`scope.length`), never typed. */
+/** The fourteenth row's value is MEASURED (`notLinted.length`), never typed. */
 function patchGeneratorRows(text: string): string {
-  const appendRow = (_m: string, row: string, eol: string, close: string) =>
-    `${row},${eol}  ${EXTRA_KEY}: scope.length${eol}${close}`;
-  const patched = text.replace(
-    /(fileSizeExcessLines: size\.env\.excessLines)(\r?\n)(\};)/,
-    appendRow
-  );
+  const appendRow = (_m: string, indRow: string, eol: string, close: string) => {
+    const ind = /^[\t ]*/.exec(indRow)?.[0] ?? '';
+    return `${indRow},${eol}${ind}  ${EXTRA_KEY}: notLinted.length${eol}${ind}${close}`;
+  };
+  const anchor = /^([ \t]*fileSizeExcessLines: size\.env\.excessLines)(\r?\n)([ \t]*\};)/m;
+  const patched = text.replace(anchor, appendRow);
   expect(patched, 'the fixture must assemble the fourteenth row').not.toBe(text);
-  expect(patched).toMatch(new RegExp(`  ${EXTRA_KEY}: scope\\.length(\\r?\\n)\\};`));
+  expect(patched).toMatch(new RegExp(`^\\s+${EXTRA_KEY}: notLinted\\.length\\r?\\n\\s*\\};`, 'm'));
   return patched;
 }
 
@@ -215,13 +216,12 @@ function buildFixture(): void {
   writeFixtureFile('node_modules/tsx/dist/cli.mjs', CENSUS_STUB);
   writeFixtureFile('node_modules/prettier/package.json', PRETTIER_PACKAGE);
   writeFixtureFile('node_modules/prettier/index.mjs', prettierShim());
-  // Staged by WALK; the canonical-list module is FOUND by `ceilingKeyListFileUnder`
-  // (throws unless exactly one walked module holds it), not named. Slash spelling below.
   const keysRel = ceilingKeyListFileUnder(REPO_ROOT);
+  const rowsRel = generatorCeilingsFileUnder(REPO_ROOT);
   writeFixtureFile(keysRel, patchCanonicalList(readRepoFile(keysRel)));
-  writeFixtureFile(GENERATOR, patchGeneratorRows(readRepoFile(GENERATOR)));
+  writeFixtureFile(rowsRel, patchGeneratorRows(readRepoFile(rowsRel)));
   for (const relative of hooksScopeFilesUnder(REPO_ROOT)) {
-    if (relative === keysRel || relative === GENERATOR.split('\\').join('/')) continue;
+    if (relative === keysRel || relative === rowsRel) continue;
     writeFixtureFile(relative, readRepoFile(relative));
   }
   gitInFixture(['init', '-q']);
