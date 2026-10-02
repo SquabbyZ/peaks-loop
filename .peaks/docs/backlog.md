@@ -1593,6 +1593,17 @@ The fix is not to loosen the placeholder heuristic (§2.26 already asks for that
 to have `request init --apply` refuse to mint a second artifact for a rid that already has a hand-authored
 record — the `20NN-` counter prefix in §2.25 is what created the duplicate in the first place.
 
+**Four more instances, deliberately left unfilled (2026-10-02).** C wave 8 and its repair cycle minted
+`2033`–`2036`, all still template bodies sitting at `draft`, because the evidence for those four slices lives
+in the leaf-authored records (`2026-10-02-baseline-monotonicity.md`,
+`2026-10-02-guard-covers-module-set.md`, `2026-10-02-monotonicity-head-anchor.md` — the last one
+orchestrator-authored, since that leaf died at the turn limit — and `2026-10-02-guard-scope-teeth.md`) plus
+`.peaks/docs/lint-gate.md` §4n and §4o. Filling four duplicate bodies to advance four state machines would
+manufacture exactly the artifact this entry calls a stub; the de-duplication fix above is what should land
+instead. `2031`/`2032` were filled the same day and show the intended shape: their bodies cite the
+hand-authored records by path (the 239-line row-slice record, the five `…-w7-N.md` leaf records) rather than
+copying them, so the numbered artifact is an index with ceilings, not a second version of the evidence.
+
 ### 2.31 Leaf stderr scratch reached the repo root and was committed at convergence (introduced by C wave 7 `w7-1`, found 2026-10-02)
 
 `git show --stat 78f764cb` listed, among the 29 source and test files, five zero-byte files **at the

@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-01T17:24:17.753Z",
+  "updatedAt": "2026-10-02T04:52:44.051Z",
   "hot": {
     "rule": [
       {
@@ -1084,6 +1084,14 @@
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\a-guard-keyed-on-a-file-path-shrinks-silently-when-you-split-that-file.md",
         "sourceArtifact": ".peaks/_runtime/2026-09-29-session-b7cf21/txt/handoff.md",
         "updatedAt": "2026-09-30"
+      },
+      {
+        "name": "a-guard-that-reads-the-thing-it-guards-is-not-a-guard",
+        "kind": "lesson",
+        "description": "C wave 8 spent half its life being the fix for §2.27:  wrote \"every ceiling may only go DOWN\" into its own artifact w...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\a-guard-that-reads-the-thing-it-guards-is-not-a-guard.md",
+        "sourceArtifact": ".peaks/_runtime/2026-09-29-session-b7cf21/rd/requests/2026-10-02-monotonicity-head-anchor.md",
+        "updatedAt": "2026-10-02"
       },
       {
         "name": "a-hand-maintained-allow-list-that-points-at-an-old-machine-path-is-a-silent-gate-not-a-working-one",

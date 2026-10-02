@@ -143,7 +143,7 @@
 - [src-services-ide-module-is-the-single-source-of-truth-for-ide-aware-behavior](src-services-ide-module-is-the-single-source-of-truth-for-ide-aware-behavior.md) — The  module is the single source of truth for IDE-aware behavior.
 - [src-services-session-canonical-workspace-resolver](src-services-session-canonical-workspace-resolver.md) — is the canonical home for the per-session workspace.
 
-## lesson (97)
+## lesson (98)
 
 - [2026-06-26-unknown-sid-root-cause](archived/2026-06-26-unknown-sid-root-cause.md) — Root cause + remediation log for the  and  orphan session dirs.
 - [2026-07-28-rid-034-handoff-no-sediment-block](2026-07-28-rid-034-handoff-no-sediment-block.md) — rid-034 收尾遇 sediment 反向 — no peaks-memory:start/end 闭合块 **Date:** 2026-07-28 **Rid:** 2026-07-28-rid-034-v2-13-0-clea...
@@ -157,6 +157,7 @@
 - [a-digest-that-proves-the-source-side-does-not-prove-the-emit-side](a-digest-that-proves-the-source-side-does-not-prove-the-emit-side.md) — A staleness guard that digests  and compares against a recorded stamp proves only that the sources have not moved.
 - [a-gate-invoked-with-no-file-arguments-passes-vacuously-and-exits-0](a-gate-invoked-with-no-file-arguments-passes-vacuously-and-exits-0.md) — with zero in-scope files prints  and **returns 0** (, ).
 - [a-guard-keyed-on-a-file-path-shrinks-silently-when-you-split-that-file](a-guard-keyed-on-a-file-path-shrinks-silently-when-you-split-that-file.md) — Three independent guards in this repo decide what to measure by PATH, so moving code into a sibling removes it from c...
+- [a-guard-that-reads-the-thing-it-guards-is-not-a-guard](a-guard-that-reads-the-thing-it-guards-is-not-a-guard.md) — C wave 8 spent half its life being the fix for §2.27:  wrote "every ceiling may only go DOWN" into its own artifact w...
 - [a-hand-maintained-allow-list-that-points-at-an-old-machine-path-is-a-silent-gate-not-a-working-one](a-hand-maintained-allow-list-that-points-at-an-old-machine-path-is-a-silent-gate-not-a-working-one.md) — failed on every workspace that used caller bindings because  listed only one of the eight runtime dirs the code actua...
 - [a-leaf-that-dies-at-the-turn-limit-reports-completion-and-the-tree-is-half-done](a-leaf-that-dies-at-the-turn-limit-reports-completion-and-the-tree-is-half-done.md) — Two dispatches in one rid ended with  and a "partial result" that read like a status line ( / ).
 - [a-multi-slice-job-that-shares-one-rid-reopens-the-evidence-collision-hole-rid-scoping-was-built-to-close](a-multi-slice-job-that-shares-one-rid-reopens-the-evidence-collision-hole-rid-scoping-was-built-to-close.md) — Gate C's evidence paths are rid-scoped (, , …) so two slices cannot occupy one slot.
