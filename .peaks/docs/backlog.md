@@ -1771,8 +1771,37 @@ that key, allow it and label it `NEWLY SEEDED` as before. The printed remedy mus
 operator to `git checkout` the artifact unless the difference is really an attack — a lower row's remedy is
 "the measurement decides", not "restore the file".
 
+**Still unclosed, and worse by one slice.** §2.35's own fix grew the two files this entry says nothing
+measures: `.husky/peaks-gate-baseline.mjs` 456 → 718 → **750** raw lines (+64 % on the day) and
+`.husky/peaks-gate-baseline-monotonic.mjs` 265 → 536 → **662** (+150 %), a 96 % combined growth in the ratchet's
+own body with no ceiling row, no eslint entry, and no prettier check able to see it — the artifact's `files`
+table has no `.husky/` key at all, and `scanFileSize()` puts both paths in `outOfScopeFiles`. The drift is
+already visible: `pnpm exec prettier --check .husky/peaks-gate-baseline.mjs` reports
+`Code style issues found in the above file`, while `prettierUnformatted` stays **0** because that leg only
+counts the four policy directories. An unmeasured directory does not fail; it quietly diverges.
+
 Not fixed here because it needs its own acceptance criteria (red on the double-regeneration flow, green on
 the hand-typed-row flow, plus a fixture where the measurement and the artifact disagree about a key's
 existence), and because the workaround is documented: when a slice introduces a ceiling row, regenerate
 **once** and stage the artifact immediately.
+
+**CLOSED 2026-10-02, rid `2026-10-02-added-row-seeding-path`.** The working-copy trip is now split by what the
+measurement thinks. Lifted, dropped and non-integer rows still refuse up front — before any measuring, so a
+real attack costs nothing to catch — while an `ADDED`-only difference is *deferred* and settled afterwards by
+`settleDeferredAdded`: the measurement produces the same value → permitted and still labelled `NEWLY SEEDED`;
+the run measures no such key → refused as hand-typed, and that is the only new text that may advise
+`git checkout HEAD -- <artifact>`; the run measures the key at a different value → refused naming
+`disk 7 → measured by this run 3` and the measurement, with **no** restore wording, because following it there
+would delete a real row. Re-measured by the orchestrator against the shipped module on the real HEAD anchor:
+the three §2.33 attacks still refuse; `ADDED` defers with `deferred=["waveNineMetric"]`; the three settle
+outcomes come out permitted / refused-with-advice / refused-naming-both as specified; `CEILING_KEYS` still 13.
+Unit 349/3708 → **350 files / 3715 passed / 3 skipped** (+7 = the seven arms the new file adds), and
+`node .husky/peaks-gate.mjs repo` exit 0 with all thirteen rows held and ceilings byte-identical to HEAD.
+
+Bought tradeoff, stated by the leaf and accepted: an `ADDED` row now costs one full measurement pass before its
+verdict (~0.6 s in the fixture, minutes on the real repository for a hand-typed row) in exchange for not
+refusing a legitimate seeding. Two residues it reported rather than folding in: the non-integer block's side
+label can read "measured by this run" for a disk-side problem, and three lines of the generator (206/222/247)
+are prettier-dirty from repair cycle 1 — outside every prettier scope, so no row moves, but they belong to the
+§2.32 decision rather than to this slice.
 

@@ -918,8 +918,37 @@ the honest reading was that **my** harness had omitted the `outRel` argument —
 correctly. Third instrument-induced false finding this campaign; the rule is to suspect the instrument before
 the code.
 
-**Not closed, filed as §2.35:** the working-copy trip also refuses an `ADDED` row that the generator itself
-legitimately measured and wrote, so a slice that adds a ceiling row must regenerate exactly once before
-committing — and the remedy that refusal prints (`git checkout HEAD -- .peaks/lint/gate-baseline.json`) would
-delete the row it is complaining about. `--seed` does not clear it (measured). The fix is to consult the
-measurement before tripping on `ADDED`.
+**Not closed then, closed by the next slice as §4p:** the working-copy trip also refused an `ADDED` row that
+the generator itself legitimately measured and wrote, so a slice adding a ceiling row could regenerate once
+but not twice before committing — and the remedy that refusal printed (`git checkout HEAD --
+.peaks/lint/gate-baseline.json`) would delete the row it was complaining about, with `--seed` no help
+(measured).
+
+### 4p. §2.35 closed — the trip now asks what the measurement thinks (2026-10-02, rid `2026-10-02-added-row-seeding-path`)
+
+`workingCopyTrip` is split by cost and by evidence. A row **lifted**, **dropped**, or non-integer relative to
+`git show HEAD:.peaks/lint/gate-baseline.json` still refuses up front, before eslint/tsc/prettier/census run —
+an attack should not cost minutes to reject, and that ordering is asserted, not claimed: the fixture's eslint
+leg writes a marker file, and the lift/drop refusals are proven with the marker **absent**. An `ADDED`-only
+difference is returned as `deferredAdded` and settled after the measurement by `settleDeferredAdded`:
+
+| disk carries, anchor does not | this run measures | verdict | restore advice printed |
+|---|---|---|---|
+| `waveNineMetric: 7` | `waveNineMetric: 7` | permitted, still labelled `NEWLY SEEDED` | never (no refusal) |
+| `waveNineMetric: 7` | no such key | refused — "nobody has earned the number" | yes, because the disk is genuinely wrong |
+| `waveNineMetric: 7` | `waveNineMetric: 3` | refused — `disk 7 → measured by this run 3`, "the measurement decides" | **no**, and an arm asserts the phrase is absent |
+
+That last row is the half that protects real debt: the remedy an operator reaches for must depend on who is
+wrong. Orchestrator re-measurements on the shipped module against the real HEAD anchor: the three §2.33
+attacks still refuse, the ADDED case defers with `deferred=["waveNineMetric"]`, the three settle outcomes match
+the table, and `CEILING_KEYS` is still thirteen. `tests/unit/lint/baseline-monotonicity-seeding.test.ts`
+(494 raw, 7 arms) holds them; repo-wide unit 349/3708 → **350 files / 3715 passed / 3 skipped**, `peaks-gate
+repo` exit 0, ceilings byte-identical to HEAD, census scope 1,480 → 1,481.
+
+Two things this slice did NOT do is worth writing down. It did not trim an existing arm: the three earlier
+files sit at 456 / 474 / 497 raw of a 500 cap, so a new file was the only honest option (and my brief's
+headroom numbers were shifted by one file — the leaf measured 44 / 26 / 3 and said so). And it accepted a cost
+rather than hiding it: an `ADDED` row now waits for one measurement pass before its verdict, which is the
+price of not refusing a legitimate seeding. The growth of the two `.husky/` files it touches (generator 750,
+module 662, +96 % combined today) is uncapped and unmeasured — backlog §2.32, and now the stronger version of
+itself.

@@ -71,18 +71,29 @@
  *      repository with no git at all: the refusal names the git error, it does not
  *      throw it.
  *   2. Compare the artifact on disk with HEAD's BEFORE measuring anything, and refuse
- *      if it LIFTS a number, DROPS a row or ADDS one HEAD never carried. That edit is
- *      the attack, and a generator that judges its own measurement against it has
- *      already lost. `--seed` does not unlock this refusal: the flag is the statement
- *      that a baseline is MISSING, never permission to write over an edited one. A
- *      working copy that is only LOWER than HEAD is a stricter request,
- *      not an attack: it is allowed through, named in the notes, and the measurement
- *      decides the number that is finally written.
+ *      if it LIFTS a number, DROPS a row or carries a value that is not a ceiling.
+ *      Those edits are the attack whatever this run goes on to measure, and a generator
+ *      that judges its own measurement against them has already lost. `--seed` does not
+ *      unlock this refusal: the flag is the statement that a baseline is MISSING, never
+ *      permission to write over an edited one. A working copy that is only LOWER than
+ *      HEAD is a stricter request, not an attack: it is allowed through, named in the
+ *      notes, and the measurement decides the number that is finally written.
+ *   2b. A row the disk ADDS and HEAD never carried is the one difference whose verdict
+ *      depends on the measurement, so it is DEFERRED rather than refused (backlog
+ *      §2.35): refusing it outright made a slice that introduces a ceiling row unable to
+ *      regenerate twice before its commit, and the remedy the refusal printed —
+ *      `git checkout HEAD -- <artifact>` — would have deleted the row the previous run
+ *      legitimately measured. `settleDeferredAdded` decides it once the number exists:
+ *      measured at the same value → seeded, and said out loud; not measured at all → a
+ *      hand-typed row, refused, and only there does the restore advice belong; measured
+ *      at a different value → refused naming both, because the measurement decides.
  *   3. Audit the anchor, the artifact on disk and this run's measurement against
  *      `CEILING_KEYS` by set equality. HEAD may be missing a canonical row — that is
  *      how a new ceiling gets seeded — but only when the artifact on disk is missing
  *      it too, and never in a `--seed` run, where there is no anchor to be missing
- *      from.
+ *      from. A disk row §2b has already refused as hand-typed is named ONCE, by §2b:
+ *      the reasons are collected so an operator is not shown only the first of two,
+ *      which is not a licence to show the same row twice under two headings.
  *   4. Compare HEAD's ceilings with the measurement: equal or lower on every row
  *      writes, any raise refuses, any canonical row this run stopped measuring
  *      refuses.
@@ -270,18 +281,27 @@ export function parsePreviousArtifact(text) {
  * and in the generator. The measurement and the artifact on disk get no such pass:
  * a canonical row either side does not carry is a row going missing from the
  * ratchet, which is the loudest weakening there is.
+ *
+ * `skipKeys` is NOT an exemption, it is a de-duplicator, and it is only ever passed
+ * for the artifact on disk: a deferred row `settleDeferredAdded` has already refused
+ * names that key with both sides' numbers and the remedy that fits it, and printing a
+ * second verdict for the same row under a second heading is the "two overlapping
+ * answers" shape this file's own comment refuses. Every other problem the same vector
+ * carries still reports.
  */
 export function canonicalKeyProblems(side, ceilings, options = {}) {
   if (!isCeilingVector(ceilings)) {
     throw new TypeError(`canonicalKeyProblems: the ${side} ceilings must be an object`);
   }
   const allowMissing = options.allowMissing === true;
+  const skip = options.skipKeys instanceof Set ? options.skipKeys : new Set(options.skipKeys ?? []);
   const problems = [];
   const notCanonical =
     `is not one of the ${CEILING_KEYS.length} canonical ceiling keys, so no slice has ` +
     'sanctioned it — add it to CEILING_KEYS and to the generator in the same change, ' +
     'or remove it';
   for (const [key, value] of Object.entries(ceilings)) {
+    if (skip.has(key)) continue;
     if (!CEILING_KEY_SET.has(key)) {
       problems.push({ key, side, problem: notCanonical });
       continue;
@@ -322,11 +342,15 @@ export function missingCanonicalKeys(ceilings) {
 }
 
 /**
- * Rows the working copy carries that HEAD does not — the ones that may NOT be
- * seeded. A brand-new ceiling is legitimate exactly once: when the key is on the
- * canonical list, this run measures it, HEAD has never carried it, and the file on
- * disk does not carry it either. The moment the working copy already holds the row,
- * "new" is a lie: somebody put the number there before the generator could measure it.
+ * Rows the working copy carries that HEAD does not — the ones whose verdict the
+ * measurement decides. A brand-new ceiling is legitimate exactly once: when the key is
+ * on the canonical list, this run measures it, HEAD has never carried it, and the file
+ * on disk does not carry it either. What the disk copy says about such a row is not a
+ * verdict, it is a claim: `settleDeferredAdded` is where this run's number decides
+ * whether it was measured or typed (backlog §2.35).
+ *
+ * Each row carries the value the disk holds, so the caller can compare it with the one
+ * this run measures without reading the artifact a second time.
  *
  * `workingCopy` is `null` when the artifact is absent, unreadable or unparseable —
  * nothing pre-seeded from a file that carries nothing.
@@ -345,9 +369,10 @@ export function unseedableKeys(head, workingCopy) {
     rows.push({
       key,
       side: 'the working copy',
+      disk: value,
       problem:
         `the working copy carries ${displayValue(value)} under a key HEAD does not have, ` +
-        'so the row would be seeded as if this run had invented it'
+        'so this run has to measure it before the row means anything'
     });
   }
   return rows;
@@ -424,11 +449,20 @@ export function describeCanonicalKeyFailure(problems) {
 
 /**
  * The working-copy-vs-HEAD trip: the artifact on disk, judged against the anchor
- * rather than against itself. Returns `{ refusal, notes }`.
+ * rather than against itself. Returns `{ refusal, notes, deferredAdded }`.
  *
- *   - `refusal` is the text of the refusal when a number was LIFTED, a row was
- *     DROPPED, or a row appeared that the anchor never carried — the three shapes of
- *     "somebody edited the baseline before asking the generator to bless it".
+ *   - `refusal` is the text of the refusal when a number was LIFTED, a row was DROPPED
+ *     or a value is not a ceiling — the three shapes of "somebody edited the baseline
+ *     before asking the generator to bless it", each an attack no measurement can make
+ *     honest. It is produced BEFORE the expensive legs run, so minutes of eslint,
+ *     prettier and tsc are never spent deciding a verdict an edit already decided.
+ *   - `deferredAdded` is the one difference that is NOT decided by the disk alone: a row
+ *     the file carries and the anchor never had. It may be the previous run's own
+ *     legitimate write (backlog §2.35), so it is handed to the caller and settled by
+ *     `settleDeferredAdded` once this run has measured something to settle it against.
+ *     When the disk differs from the anchor ONLY by such rows there is no refusal here;
+ *     when it also lifts or drops anything, the refusal names the added rows too,
+ *     because the run is stopping anyway.
  *   - `notes` is what a permitted write says out loud about the disk copy, so a green
  *     run is still readable: which rows the file on disk held LOWER than the anchor
  *     (a stricter request, allowed through, and replaced by this run's measurement
@@ -437,9 +471,9 @@ export function describeCanonicalKeyFailure(problems) {
 export function workingCopyTrip({ headRef, outRel, head, working }) {
   const trip = compareCeilings(head, working);
   const added = unseedableKeys(head, working);
-  const blocks = [];
+  const attacks = [];
   if (trip.raised.length > 0) {
-    blocks.push(
+    attacks.push(
       '  LIFTED — the artifact on disk carries these rows HIGHER than the anchor:\n' +
         bullet(
           trip.raised.map((row) => `${row.key}: ${headRef} ${row.previous} → disk ${row.next}`)
@@ -447,7 +481,7 @@ export function workingCopyTrip({ headRef, outRel, head, working }) {
     );
   }
   if (trip.removed.length > 0) {
-    blocks.push(
+    attacks.push(
       '  DROPPED — the anchor carries these rows and the artifact on disk does not:\n' +
         bullet(
           trip.removed.map(
@@ -456,25 +490,26 @@ export function workingCopyTrip({ headRef, outRel, head, working }) {
         )
     );
   }
-  if (added.length > 0) {
-    blocks.push(
-      '  ADDED — rows the artifact on disk carries that the anchor never had:\n' +
-        bullet(added.map((row) => `${row.key} (${row.side}): ${row.problem}`))
-    );
-  }
   if (trip.invalid.length > 0) {
-    blocks.push(
+    attacks.push(
       '  INVALID — values that are not finite non-negative integers:\n' +
         bullet(trip.invalid.map((row) => `${row.key} (${row.side}): ${row.value} ${row.why}`))
     );
   }
+  if (attacks.length > 0 && added.length > 0) {
+    attacks.push(
+      '  ADDED — rows the artifact on disk carries that the anchor never had (named with the ' +
+        'rest; this run refuses above them, so nothing is deferred):\n' +
+        bullet(added.map((row) => `${row.key} (${row.side}): ${row.problem}`))
+    );
+  }
   const refusal =
-    blocks.length === 0
+    attacks.length === 0
       ? null
       : `THE ARTIFACT ON DISK IS NOT THE ANCHOR. ${outRel} has been moved away from\n` +
         `  ${headRef}, and this generator refuses to judge its own measurement against an\n` +
         '  edited copy of the file it is about to write:\n\n' +
-        `${blocks.join('\n\n')}\n\n` +
+        `${attacks.join('\n\n')}\n\n` +
         `  Restore it instead of arguing with it: git checkout HEAD -- ${outRel}\n` +
         '  A ceiling descends by itself when the measurement does.';
   const notes =
@@ -488,7 +523,98 @@ export function workingCopyTrip({ headRef, outRel, head, working }) {
               trip.lowered.map((row) => `${row.key}: disk ${row.previous} → ${headRef} ${row.next}`)
             )
         ];
-  return { refusal, notes };
+  return { refusal, notes, deferredAdded: attacks.length === 0 ? added : [] };
+}
+
+/**
+ * The second half of the deferral: an `ADDED` disk row judged against what this run
+ * actually measured (backlog §2.35). Returns
+ * `{ refusal, notes, handTypedKeys }`.
+ *
+ * Three verdicts, and the remedy text matches each one:
+ *
+ *   - measured at the SAME value → permitted, and reported as seeded. The row is already
+ *     in `compareCeilings`'s `added` bucket against the anchor, so the existing
+ *     `NEWLY SEEDED` note names it; what this function adds is the sentence that the
+ *     disk was not the source of the number. A permitted path prints no restore advice:
+ *     the disk is right, and `git checkout HEAD -- <artifact>` would delete real debt.
+ *   - NOT measured at all → refused. The disk carries a row nobody measures, which is a
+ *     row somebody typed, and restoring the anchor IS the right remedy for that.
+ *   - measured at a DIFFERENT value → refused, naming both numbers and saying that the
+ *     measurement decides. No restore advice: the row itself is real, only its number
+ *     is wrong, and telling the operator to delete the file is how a refusal teaches
+ *     people to throw ceilings away.
+ *
+ * `handTypedKeys` names the rows this function refuses so the caller can keep the
+ * canonical-key audit from printing the same row a second time.
+ */
+export function settleDeferredAdded({ headRef, outRel, deferred, measured }) {
+  if (!isCeilingVector(measured)) {
+    throw new TypeError('settleDeferredAdded: the measured ceilings must be an object');
+  }
+  const rows = Array.isArray(deferred) ? deferred : [];
+  const seeded = [];
+  const handTyped = [];
+  const disagreed = [];
+  for (const row of rows) {
+    if (!Object.hasOwn(measured, row.key)) {
+      handTyped.push(row);
+      continue;
+    }
+    const value = measured[row.key];
+    if (value === row.disk) seeded.push({ key: row.key, value });
+    else disagreed.push({ key: row.key, disk: row.disk, measured: value });
+  }
+  const blocks = [];
+  if (handTyped.length > 0) {
+    blocks.push(
+      '  NOT MEASURED — the artifact on disk carries these rows under a key the anchor never ' +
+        'had, and this run measures no such row, so nobody has earned the number:\n' +
+        bullet(handTyped.map((row) => `${row.key} (the working copy): ${displayValue(row.disk)}`)) +
+        '\n\n' +
+        '  That is a hand-typed row, and it is the one shape here the anchor can be restored ' +
+        'from:\n' +
+        `  git checkout HEAD -- ${outRel}`
+    );
+  }
+  if (disagreed.length > 0) {
+    blocks.push(
+      '  NOT THE MEASURED NUMBER — the artifact on disk carries these rows under a key the ' +
+        'anchor never had, and this run measures the same key at a different value:\n' +
+        bullet(
+          disagreed.map(
+            (row) =>
+              `${row.key}: disk ${displayValue(row.disk)} → measured by this run ` +
+              displayValue(row.measured)
+          )
+        ) +
+        '\n\n' +
+        `  The row is real and ${headRef} does not carry it yet, so the disagreement is about a\n` +
+        '  number, not about whether the debt exists: the measurement decides it, and a ceiling\n' +
+        '  taken from the disk instead of from this run is not a ceiling. Re-run the generator\n' +
+        '  and let it write what it measures.'
+    );
+  }
+  const refusal =
+    blocks.length === 0
+      ? null
+      : `THE ARTIFACT ON DISK ADDED ROWS THIS RUN CANNOT CONFIRM. ${outRel} carries ` +
+        `${rows.length} row(s)\n` +
+        `  that ${headRef} never had; settling them against this run's measurement:\n\n` +
+        `${blocks.join('\n\n')}\n\n` +
+        '  Nothing has been deferred past this point: a row enters the ratchet only from a\n' +
+        '  number this run measured.';
+  const notes =
+    seeded.length === 0
+      ? []
+      : [
+          `anchor: the artifact on disk carries ${seeded.length} row(s) ${headRef} never had, ` +
+            'and this run measures the same number, so they enter the ratchet as seeded rows:\n' +
+            "  the number is this run's measurement, not the file's claim, and they are named\n" +
+            '  below as NEWLY SEEDED:\n' +
+            bullet(seeded.map((row) => `${row.key}: ${displayValue(row.value)}`))
+        ];
+  return { refusal, notes, handTypedKeys: handTyped.map((row) => row.key) };
 }
 
 /**

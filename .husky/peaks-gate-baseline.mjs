@@ -80,6 +80,7 @@ import {
   describeMonotonicityNotes,
   missingCanonicalKeys,
   parsePreviousArtifact,
+  settleDeferredAdded,
   workingCopyTrip
 } from './peaks-gate-baseline-monotonic.mjs';
 
@@ -149,10 +150,17 @@ function prettierConfigProblem(resolved) {
 //   1. `git show HEAD:.peaks/lint/gate-baseline.json` is what the fresh measurement
 //      is compared against. Editing the working copy cannot move it.
 //   2. The working copy is then compared against THAT. Lifting a number, dropping a
-//      row or adding one HEAD never carried is the attack, and this refuses it
+//      row or carrying a value that is not a ceiling is the attack, and this refuses it
 //      before it judges its own measurement. A working copy that is only LOWER is a
 //      stricter request, not an attack: it goes through, out loud, and the
 //      measurement decides the number that is written.
+//   2b. A row the disk ADDS and HEAD never carried is the one difference the disk cannot
+//      decide for itself (backlog §2.35) — it may be the previous run's own legitimate
+//      write — so it is deferred to `settleDeferredAdded` below, where this run's
+//      measurement either confirms it as seeded or refuses it. Restoring the anchor is
+//      advice for a hand-typed row only; a row this run measures at a different number
+//      gets named on both sides and no `git checkout` at all, because following that
+//      instruction would delete real debt.
 //
 // The order of the refusals is stated in `.husky/peaks-gate-baseline-monotonic.mjs`
 // and the arms in `tests/unit/lint/baseline-monotonicity-head-anchor.test.ts` follow
@@ -277,6 +285,10 @@ if (anchorKnown && workingCopy.state !== 'ceilings' && workingCopy.state !== 'ab
 }
 
 // The second guard: the working copy judged against the anchor, not against itself.
+// `deferredAdded` is the one difference this guard cannot decide without the
+// measurement (see 2b above), so it is carried down to where the numbers exist; every
+// other difference refuses right here, before a minute of eslint is spent on it.
+let deferredAdded = [];
 if (anchorKnown && workingCopy.state === 'ceilings') {
   const trip = workingCopyTrip({
     headRef: HEAD_REF,
@@ -285,6 +297,7 @@ if (anchorKnown && workingCopy.state === 'ceilings') {
     working: workingCopy.ceilings
   });
   if (trip.refusal !== null) refuse(trip.refusal);
+  deferredAdded = trip.deferredAdded;
   anchorNotes.push(...trip.notes);
 }
 
@@ -627,17 +640,35 @@ const ceilings = {
 const seedApplied = !anchorKnown;
 const previousCeilings = anchorCeilings ?? {};
 
+// THE DEFERRED `ADDED` ROWS, SETTLED NOW THAT THE NUMBERS EXIST (§2.35). A row the
+// artifact on disk carries and HEAD never had was allowed past the early trip because
+// only this run's measurement can tell a previous run's legitimate write from a typed
+// number. Same value → seeded, and said out loud; no value at all → hand-typed; a
+// different value → the measurement decides, and the disk does not.
+const settled = settleDeferredAdded({
+  headRef: HEAD_REF,
+  outRel: OUT_REL,
+  deferred: deferredAdded,
+  measured: ceilings
+});
+anchorNotes.push(...settled.notes);
+
 // THE CANONICAL KEY SET, AUDITED ON EVERY VECTOR — RA4's `13 rows, two places`.
 // HEAD and the working copy may each be missing a canonical row, because that is how
 // a new ceiling gets seeded once the key is in the generator AND on the list (and the
 // working copy missing one HEAD carries is the trip's business, refused up in THE
 // ANCHOR block). The measurement may not: a canonical row this run stopped measuring
-// is a hole in the ratchet whatever the artifact says.
+// is a hole in the ratchet whatever the artifact says. `skipKeys` keeps the disk audit
+// from naming a row twice — once here as "not canonical", once above as "not measured"
+// — because the two overlapping verdicts send an operator to fix one row twice.
 const keyProblems = [
   ...canonicalKeyProblems('measured by this run', ceilings),
   ...(anchorKnown ? canonicalKeyProblems(HEAD_REF, anchorCeilings, { allowMissing: true }) : []),
   ...(workingCopy.state === 'ceilings'
-    ? canonicalKeyProblems('the artifact on disk', workingCopy.ceilings, { allowMissing: true })
+    ? canonicalKeyProblems('the artifact on disk', workingCopy.ceilings, {
+        allowMissing: true,
+        skipKeys: settled.handTypedKeys
+      })
     : [])
 ];
 
@@ -647,6 +678,7 @@ const monotonicity = compareCeilings(previousCeilings, ceilings);
 // is both off the canonical list and a row this run no longer measures — and an
 // operator shown only the first of the two fixes the wrong thing.
 const refusals = [];
+if (settled.refusal !== null) refusals.push(settled.refusal);
 const keyFailure = describeCanonicalKeyFailure(keyProblems);
 if (keyFailure !== null) refusals.push(keyFailure);
 const monotonicityFailure = describeMonotonicityFailure(monotonicity);
