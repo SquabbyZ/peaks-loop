@@ -8,12 +8,17 @@
  *
  * It measures, it never guesses: every number written here is read off the
  * tools in this run. Read the diff before committing it anyway — what the
- * ceilings may not do is go UP, and since rid `2026-10-02-baseline-monotonicity`
- * that sentence is enforced here as well as written into the artifact: the
- * previous artifact is read back, every key is compared, and a raise aborts the
- * run before anything is written (`.husky/peaks-gate-baseline-monotonic.mjs`).
- * Before that slice the rule was only a sentence in the file's own `note`, and on
- * 2026-10-01 the generator raised `prettierUnformatted` 0 → 7 and exited 0.
+ * ceilings may not do is go UP. Since rid `2026-10-02-baseline-monotonicity` that
+ * sentence is enforced here as well as written into the artifact, and since its
+ * repair cycle (`2026-10-02-monotonicity-head-anchor`) the number it is enforced
+ * against is read out of git — `git show HEAD:.peaks/lint/gate-baseline.json` —
+ * rather than out of the file this run is about to overwrite, which is the file a
+ * weakening edits. The working copy is audited against that anchor as a second,
+ * independent trip, the ceiling key set is audited against `CEILING_KEYS`, and any
+ * of the three refusals stops the run before a byte changes
+ * (`.husky/peaks-gate-baseline-monotonic.mjs`). Before those slices the rule was
+ * only a sentence in the file's own `note`, and on 2026-10-01 the generator raised
+ * `prettierUnformatted` 0 → 7 and exited 0.
  *
  * WHY EXPLICIT PATHS + --no-ignore
  * --------------------------------
@@ -47,7 +52,7 @@
  * none can be traded against real debt.
  */
 import { execFileSync } from 'node:child_process';
-import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import prettier from 'prettier';
@@ -61,15 +66,21 @@ import {
   measureFileSizeOverCap
 } from './peaks-gate-file-size.mjs';
 // The ratchet's own rule, one module down from the sentence that states it in the
-// artifact. Pure, so all seven rows of its decision table are testable without
-// paying for a whole measurement run — see the header of that file for why an
-// untested guard on a ratchet is a rumour, which is exactly what this one was.
+// artifact. Pure, so every row of its decision table is testable without paying for
+// a whole measurement run — see the header of that file for why an untested guard on
+// a ratchet is a rumour, which is exactly what this one was, and for the order the
+// refusals below run in (anchor first, working copy second, canonical set third).
 import {
+  CEILING_KEYS,
   SEED_FLAG,
+  canonicalKeyProblems,
   compareCeilings,
+  describeCanonicalKeyFailure,
   describeMonotonicityFailure,
   describeMonotonicityNotes,
-  parsePreviousArtifact
+  missingCanonicalKeys,
+  parsePreviousArtifact,
+  workingCopyTrip
 } from './peaks-gate-baseline-monotonic.mjs';
 
 // Slash-normalised once, at the definition — `resolve()` returns backslashes on
@@ -119,8 +130,181 @@ function prettierConfigProblem(resolved) {
   return null;
 }
 
+// ---------------------------------------------------------------------------
+// THE ANCHOR — where the previous ceilings come from (rid 2026-10-02-monotonicity-head-anchor)
+// ---------------------------------------------------------------------------
+// C wave 8 read them back out of `OUT_PATH`: the working-tree artifact, the same
+// file this run is about to overwrite and the same file a weakening edits. An
+// out-of-band review measured the three ways past that: delete a row and the run
+// prints `NEWLY SEEDED` and writes it, inflate a row and it prints `CLEARED` and
+// writes the descent, set `"ceilings": {}` and all thirteen rows re-seed because an
+// empty object parses. The push leg then closed it worse — the remedy its own
+// refusal prints is `Regenerate it: node .husky/peaks-gate-baseline.mjs`, so an
+// operator following the gate's instruction performs attack one.
+//
+// So the previous side is a git object now, and the whole trip runs BEFORE the
+// measurement: minutes of eslint, prettier and tsc are not spent deciding a verdict
+// about a file that an edit already decided. Two guards, independent of each other:
+//
+//   1. `git show HEAD:.peaks/lint/gate-baseline.json` is what the fresh measurement
+//      is compared against. Editing the working copy cannot move it.
+//   2. The working copy is then compared against THAT. Lifting a number, dropping a
+//      row or adding one HEAD never carried is the attack, and this refuses it
+//      before it judges its own measurement. A working copy that is only LOWER is a
+//      stricter request, not an attack: it goes through, out loud, and the
+//      measurement decides the number that is written.
+//
+// The order of the refusals is stated in `.husky/peaks-gate-baseline-monotonic.mjs`
+// and the arms in `tests/unit/lint/baseline-monotonicity-head-anchor.test.ts` follow
+// it: no anchor → the documented `--seed` path; anchor + edited working copy → trip;
+// then the canonical key set on all three vectors; then HEAD vs measurement.
+const OUT_REL = rel(OUT_PATH);
+const HEAD_REF = `HEAD:${OUT_REL}`;
+const seedRun = process.argv.slice(2).includes(SEED_FLAG);
+
+/** Print the generator's one refusal shape and stop, with the bytes untouched. */
+function refuse(reason) {
+  console.error(
+    `\nREFUSING to write ${OUT_REL}: ${reason}\n` +
+      '  Nothing has been written; the existing ceilings are untouched.\n'
+  );
+  process.exit(1);
+}
+
+/**
+ * `git show HEAD:…`, or the reason there is no anchor. Never throws: a repository
+ * with no commit, no such path, no git binary or no git at all is the documented
+ * seed path (a baseline that has to be seeded says so with `--seed`), not a stack
+ * trace an operator has to read.
+ */
+function readGitShowHead(path) {
+  try {
+    return {
+      text: execFileSync('git', ['show', `HEAD:${path}`], {
+        cwd: ROOT,
+        encoding: 'utf8',
+        maxBuffer: 64 * 1024 * 1024,
+        windowsHide: true
+      }),
+      problem: null
+    };
+  } catch (err) {
+    if (err.code === 'ENOENT') {
+      return {
+        text: null,
+        problem: 'git could not be run at all (ENOENT), and the previous ceilings live in git'
+      };
+    }
+    const first = String(err.stderr ?? err.message).split('\n')[0].trim();
+    return { text: null, problem: `HEAD has no readable artifact (${first})` };
+  }
+}
+
+/**
+ * The artifact on disk, as a second witness rather than as the source of the
+ * previous numbers. `state` says which of the four situations the trip has to
+ * distinguish: nothing there, something unreadable, something unparseable, ceilings.
+ */
+function readWorkingCopyCeilings() {
+  if (!existsSync(OUT_PATH)) return { state: 'absent', ceilings: null, problem: null };
+  let text;
+  try {
+    text = readFileSync(OUT_PATH, 'utf8');
+  } catch (err) {
+    return { state: 'unreadable', ceilings: null, problem: `could not be read (${err.code ?? err.message})` };
+  }
+  if (text.trim() === '') return { state: 'empty', ceilings: null, problem: 'is empty' };
+  const parsed = parsePreviousArtifact(text);
+  if (parsed.problem !== null) {
+    return { state: 'unparseable', ceilings: null, problem: parsed.problem };
+  }
+  // An emptied `ceilings` block on disk is row-deletion by another name, and it is
+  // a row-deletion the trip below can only see if it is still read as a vector.
+  return { state: 'ceilings', ceilings: parsed.ceilings, problem: null };
+}
+
+const anchorRead = readGitShowHead(OUT_REL);
+let anchorCeilings = null;
+let anchorProblem = anchorRead.problem;
+if (anchorProblem === null) {
+  const parsed = parsePreviousArtifact(anchorRead.text);
+  anchorCeilings = parsed.ceilings;
+  anchorProblem = parsed.problem;
+}
+// A `ceilings` block that is empty, or full of rows no slice sanctioned, is not a
+// baseline with holes in it: it is the absence of one. Treat it as such so it lands
+// on the documented `--seed` path instead of silently seeding every canonical row.
+if (anchorProblem === null && missingCanonicalKeys(anchorCeilings).length === CEILING_KEYS.length) {
+  anchorCeilings = null;
+  anchorProblem = `has no canonical ceiling row at all (${HEAD_REF} carries an empty or ` +
+    'unrecognised `ceilings` block)';
+}
+const workingCopy = readWorkingCopyCeilings();
+const anchorKnown = anchorCeilings !== null;
+
+if (!anchorKnown && !seedRun) {
+  refuse(
+    `the previous ceilings are anchored in ${HEAD_REF} and that anchor ${anchorProblem}.\n\n` +
+      '  A baseline cannot be re-based on a number nobody read, and the file on disk is not\n' +
+      `  the anchor: ${OUT_REL} is what a weakening edits. If this really is the first\n` +
+      '  generation in this repository, say so on purpose:\n' +
+      `    node .husky/peaks-gate-baseline.mjs ${SEED_FLAG}\n` +
+      `  Otherwise restore the anchor: git checkout HEAD -- ${OUT_REL}`
+  );
+}
+
+// The artifact on disk is the file the push-time gate reads, so an unreadable or
+// unparseable copy of it is worth naming even though it carries no number to
+// launder. `--seed` is the way to say "this repository has no baseline yet, write it
+// anyway"; nothing else silences this.
+const anchorNotes = [];
+if (anchorKnown && workingCopy.state !== 'ceilings' && workingCopy.state !== 'absent') {
+  if (!seedRun) {
+    refuse(
+      `the artifact on disk ${workingCopy.problem}, and the push-time gate reads that\n` +
+        `  file. The anchor is ${HEAD_REF}, so this run could compare it and refused to\n` +
+        '  overwrite something it could not read:\n' +
+        `    - ${OUT_REL}\n` +
+        `  Restore it first: git checkout HEAD -- ${OUT_REL}\n` +
+        '  (If this repository really has no baseline yet, that is what ' +
+        `${SEED_FLAG} is for, and it will replace the file.)`
+    );
+  }
+  anchorNotes.push(
+    `anchor: the artifact on disk ${workingCopy.problem}, and ${SEED_FLAG} was passed, so ` +
+      `this run replaces it.\n  The comparison was made against ${HEAD_REF}, not against it.`
+  );
+}
+
+// The second guard: the working copy judged against the anchor, not against itself.
+if (anchorKnown && workingCopy.state === 'ceilings') {
+  const trip = workingCopyTrip({
+    headRef: HEAD_REF,
+    outRel: OUT_REL,
+    head: anchorCeilings,
+    working: workingCopy.ceilings
+  });
+  if (trip.refusal !== null) refuse(trip.refusal);
+  anchorNotes.push(...trip.notes);
+}
+
 // ---- scope -----------------------------------------------------------------
-const scope = execFileSync('git', ['ls-files'], { cwd: ROOT, encoding: 'utf8' })
+// The scope list is `git ls-files`, and since this file's own slice the generator
+// needs git for a second reason: its previous ceilings live in HEAD. So a checkout
+// with no git is a refusal the operator can read, not an `ENOENT` stack trace from
+// `execFileSync` — the trip up in THE ANCHOR block is the one that fires first, and
+// this one catches a `--seed` run that got past it.
+let trackedFiles;
+try {
+  trackedFiles = execFileSync('git', ['ls-files'], { cwd: ROOT, encoding: 'utf8' });
+} catch (err) {
+  refuse(
+    'this generator measures the tracked file list with `git ls-files` and git could not ' +
+      `be run here (${err.code ?? err.message}).\n` +
+      `  The previous ceilings are read from ${HEAD_REF} for the same reason.`
+  );
+}
+const scope = trackedFiles
   .trim()
   .split('\n')
   .filter((f) => CODE_EXT.test(f) && TOP_DIRS.some((d) => f.startsWith(`${d}/`)));
@@ -425,56 +609,57 @@ const ceilings = {
   fileSizeExcessLines: size.env.excessLines
 };
 
-// ---- monotonicity: read the artifact back, then decide ---------------------
-// RID 2026-10-02-BASELINE-MONOTONICITY (§2.27). THE DEFECT IS THE SHAPE OF THIS
-// BLOCK: until it existed, the `note` string written below promised that a
-// ceiling may only go DOWN and nothing compared a single key. Measured 2026-10-01:
-// the generator raised `prettierUnformatted` 0 → 7 and exited 0, and the only
-// thing that caught it was an operator diffing the artifact by hand. A ratchet
-// whose upper bound is decided by whoever last ran the tool is not a ratchet.
+// ---- monotonicity: the anchor was read above; decide, then write ------------
+// RID 2026-10-02-BASELINE-MONOTONICITY (§2.27), repaired by rid
+// 2026-10-02-monotonicity-head-anchor (§2.33). THE DEFECT IS THE SHAPE OF THIS
+// BLOCK: until the first slice existed, the `note` string written below promised
+// that a ceiling may only go DOWN and nothing compared a single key; until the
+// second one, the number it compared against came from the file it was about to
+// overwrite. Measured 2026-10-01: the generator raised `prettierUnformatted` 0 → 7
+// and exited 0, and the only thing that caught it was an operator diffing the
+// artifact by hand. A ratchet whose upper bound is decided by whoever last ran the
+// tool — or last EDITED the tool's input — is not a ratchet.
 //
-// So the previous artifact is read here — the SAME path this run is about to
-// overwrite, and the only place the old numbers exist — and the write is refused
-// BEFORE a byte changes if any pre-existing ceiling rose, if any row vanished, or
-// if the comparison has no trustworthy numbers to work with.
-const seedRun = process.argv.slice(2).includes(SEED_FLAG);
-let previousCeilings = null;
-let previousProblem = null;
-try {
-  const parsed = parsePreviousArtifact(readFileSync(OUT_PATH, 'utf8'));
-  previousCeilings = parsed.ceilings;
-  previousProblem = parsed.problem;
-} catch (err) {
-  previousProblem = `could not be read (${err.code ?? err.message})`;
-}
+// So the write below is refused if any pre-existing ceiling rose against HEAD, if any
+// row vanished, if any of the three vectors disagrees with the canonical key set, or
+// if the working copy had already been moved away from HEAD by the time this run
+// started (refused up in THE ANCHOR block, before a minute of measurement).
+const seedApplied = !anchorKnown;
+const previousCeilings = anchorCeilings ?? {};
 
-// A ratchet with nothing to ratchet against is not free to invent its own bound.
-// A corrupt or absent artifact reads exactly like a first-ever run, and the
-// difference between those two is the whole content of the baseline — so the
-// clean-slate path is a flag on a command line, not a fallback in the code.
-if (previousProblem !== null && !seedRun) {
-  console.error(
-    `\nREFUSING to write ${rel(OUT_PATH)}: the previous artifact ${previousProblem}, so there ` +
-      'is no ceiling to compare against.\n\n' +
-      '  A baseline cannot be re-based on a number nobody read. If this really is the first\n' +
-      `  generation, say so on purpose: \`node .husky/peaks-gate-baseline.mjs ${SEED_FLAG}\`. The\n` +
-      '  artifact on disk is left exactly as it is either way.\n' +
-      '  Nothing has been written; the existing ceilings are untouched.\n'
-  );
-  process.exit(1);
-}
+// THE CANONICAL KEY SET, AUDITED ON EVERY VECTOR — RA4's `13 rows, two places`.
+// HEAD and the working copy may each be missing a canonical row, because that is how
+// a new ceiling gets seeded once the key is in the generator AND on the list (and the
+// working copy missing one HEAD carries is the trip's business, refused up in THE
+// ANCHOR block). The measurement may not: a canonical row this run stopped measuring
+// is a hole in the ratchet whatever the artifact says.
+const keyProblems = [
+  ...canonicalKeyProblems('measured by this run', ceilings),
+  ...(anchorKnown ? canonicalKeyProblems(HEAD_REF, anchorCeilings, { allowMissing: true }) : []),
+  ...(workingCopy.state === 'ceilings'
+    ? canonicalKeyProblems('the artifact on disk', workingCopy.ceilings, { allowMissing: true })
+    : [])
+];
 
-const monotonicity = compareCeilings(previousProblem === null ? previousCeilings : {}, ceilings);
-if (!monotonicity.ok) {
-  console.error(
-    `\nREFUSING to write ${rel(OUT_PATH)}: ${describeMonotonicityFailure(monotonicity)}\n` +
-      '  Nothing has been written; the existing ceilings are untouched.\n'
+const monotonicity = compareCeilings(previousCeilings, ceilings);
+// Every reason this run may not write is named in ONE refusal. They are collected
+// rather than returned one at a time because they overlap — a row nobody sanctioned
+// is both off the canonical list and a row this run no longer measures — and an
+// operator shown only the first of the two fixes the wrong thing.
+const refusals = [];
+const keyFailure = describeCanonicalKeyFailure(keyProblems);
+if (keyFailure !== null) refusals.push(keyFailure);
+const monotonicityFailure = describeMonotonicityFailure(monotonicity);
+if (monotonicityFailure !== null) refusals.push(monotonicityFailure);
+if (refusals.length > 0) {
+  refuse(
+    `${refusals.join('\n\n')}\n\n  The anchor is ${HEAD_REF}. Nothing above it was rewritten by this run.`
   );
-  process.exit(1);
 }
 // The permitted write is the arm a guard most often forgets: a run that says
 // nothing when it agrees looks identical to a run that never compared anything.
-for (const note of describeMonotonicityNotes(monotonicity, seedRun)) console.error(note);
+for (const note of anchorNotes) console.error(note);
+for (const note of describeMonotonicityNotes(monotonicity, seedApplied)) console.error(note);
 
 // `.peaks/lint/` is a tracked directory today, but the seed path above is the one
 // run that may legitimately find it absent, and a refusal to write because of a

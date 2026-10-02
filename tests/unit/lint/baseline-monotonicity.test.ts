@@ -27,6 +27,17 @@
 // requires opposite verdicts from it. The sibling file repeats the shape through
 // the real process.
 //
+// THE CANONICAL KEY LIST (rid 2026-10-02-monotonicity-head-anchor, repair cycle 1 of
+// §2.27). C wave 8 anchored the comparison in the working-tree artifact — the file a
+// weakening edits — and an out-of-band review measured three ways past it. The anchor
+// moved to `git show HEAD:.peaks/lint/gate-baseline.json`, and the thirteen ceiling
+// names moved into ONE exported list compared by SET EQUALITY: nothing constrained the
+// key set before (a fourteenth or renamed row was accepted by construction), and the
+// row `1b` this file used to write filtered non-numeric entries out and asserted
+// `>= 13`, so a junk row in the published artifact vanished instead of reddening it.
+// The working-copy attacks and the two-run happy path are
+// `tests/unit/lint/baseline-monotonicity-head-anchor.test.ts`'s subject.
+//
 // Dimensions:
 //   - behavior: the decision table, row by row, on the pure comparison
 //   - render:      omitted — the refusal and the descent notes are asserted as
@@ -36,6 +47,7 @@
 //   - a11y:        omitted — the exit code and the operator-facing sentence are
 //                  asserted where the process produces them, in the sibling
 
+import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -81,14 +93,48 @@ type Decision = {
   removed: RemovedRow[];
   invalid: InvalidRow[];
 };
+type KeyProblem = { key: string; side: string; problem: string };
+type CanonicalKeyOptions = { allowMissing?: boolean };
 type MonotonicModule = {
   compareCeilings(previous: Record<string, unknown>, next: Record<string, unknown>): Decision;
   parsePreviousArtifact(text: string): { ceilings: Ceilings | null; problem: string | null };
+  CEILING_KEYS?: readonly string[];
+  canonicalKeyProblems?: (
+    side: string,
+    ceilings: Record<string, unknown>,
+    options?: CanonicalKeyOptions
+  ) => KeyProblem[];
+  unseedableKeys?: (
+    head: Record<string, unknown>,
+    workingCopy: Record<string, unknown> | null
+  ) => KeyProblem[];
 };
 
 /** The module is a `.mjs` gate script outside `src/`, so it loads by URL. */
 async function loadMonotonic(): Promise<MonotonicModule> {
   return (await import(pathToFileURL(MONOTONIC_MODULE).href)) as MonotonicModule;
+}
+
+/** The canonical-list surface, with its three exports named where they are required. */
+async function loadCanonical(): Promise<{
+  keys: readonly string[];
+  problems: NonNullable<MonotonicModule['canonicalKeyProblems']>;
+  unseedable: NonNullable<MonotonicModule['unseedableKeys']>;
+}> {
+  const module = await loadMonotonic();
+  expect(
+    Array.isArray(module.CEILING_KEYS),
+    'the monotonicity module must export CEILING_KEYS, the one canonical ceiling key list'
+  ).toBe(true);
+  expect(typeof module.canonicalKeyProblems, 'canonicalKeyProblems must be a function').toBe(
+    'function'
+  );
+  expect(typeof module.unseedableKeys, 'unseedableKeys must be a function').toBe('function');
+  return {
+    keys: module.CEILING_KEYS ?? [],
+    problems: module.canonicalKeyProblems ?? (() => []),
+    unseedable: module.unseedableKeys ?? (() => [])
+  };
 }
 
 /** A stand-in for a measured vector: each arm moves one key of it and nothing else. */
@@ -103,24 +149,37 @@ const BASE: Ceilings = {
 const keysOf = (rows: Array<{ key: string }>): string[] => rows.map((row) => row.key).sort();
 
 // ---------------------------------------------------------------------------
-// The published artifact, read — never written. This file creates no scratch
-// directory at all: `readFileSync` is the only filesystem call it makes, so
-// there is nothing here for a killed run to leave behind (backlog §2.31).
+// The published artifact and HEAD's copy of it, read — never written. Nothing
+// here filters a value out before comparing: an entry the comparison should
+// refuse on is exactly the entry a filter used to make invisible.
 // ---------------------------------------------------------------------------
 
-type PublishedCeilings = { ceilings: Record<string, unknown> };
+type PublishedArtifact = { ceilings: Record<string, unknown> };
+/** The path the way git spells it — the anchor the generator now reads. */
+const ARTIFACT_GIT_PATH = '.peaks/lint/gate-baseline.json';
 
-/** The thirteen rows the ratchet carries today — read off the real artifact. */
-function publishedCeilings(): Ceilings {
-  const ceilings = (
-    JSON.parse(
-      readFileSync(join(REPO_ROOT, '.peaks', 'lint', 'gate-baseline.json'), 'utf8')
-    ) as PublishedCeilings
-  ).ceilings;
-  return Object.fromEntries(
-    Object.entries(ceilings).filter((entry) => typeof entry[1] === 'number')
-  ) as Ceilings;
+function ceilingsOf(document: string): Record<string, unknown> {
+  return (JSON.parse(document) as PublishedArtifact).ceilings;
 }
+
+/** The rows the ratchet carries today, unfiltered. */
+function publishedCeilings(): Record<string, unknown> {
+  return ceilingsOf(readFileSync(join(REPO_ROOT, '.peaks', 'lint', 'gate-baseline.json'), 'utf8'));
+}
+
+/** The same file as HEAD holds it — read the way `.husky/peaks-gate-baseline.mjs` reads it. */
+function headCeilings(): Record<string, unknown> {
+  return ceilingsOf(
+    execFileSync('git', ['show', `HEAD:${ARTIFACT_GIT_PATH}`], {
+      cwd: REPO_ROOT,
+      encoding: 'utf8',
+      windowsHide: true,
+      maxBuffer: 16 * 1024 * 1024
+    })
+  );
+}
+
+const sortedKeys = (ceilings: Record<string, unknown>): string[] => Object.keys(ceilings).sort();
 
 describe('Scenario: behavior — the decision table row by row', () => {
   it('row 1 — when every ceiling key is equal, should compare clean and permit the write', async () => {
@@ -133,12 +192,13 @@ describe('Scenario: behavior — the decision table row by row', () => {
     expect(keysOf(decision.invalid)).toEqual([]);
   });
 
-  it('row 1b — on the published artifact compared against itself, should permit the write for all thirteen rows', async () => {
-    // The input is the real vector, not the stand-in: a comparison that cleared
-    // only hand-picked shapes would be guarding a fixture.
+  it('row 1b — on the published artifact compared against itself, should permit the write for every row it really carries', async () => {
+    // The input is the real vector UNFILTERED, not the stand-in and not the
+    // numeric subset: a junk or string-valued row in the published artifact has
+    // to redden this arm, not disappear from the comparison.
     const published = publishedCeilings();
-    expect(Object.keys(published).length).toBeGreaterThanOrEqual(13);
     const decision = (await loadMonotonic()).compareCeilings(published, { ...published });
+    expect(decision.invalid, JSON.stringify(decision.invalid)).toEqual([]);
     expect(decision.ok, JSON.stringify(decision)).toBe(true);
     expect(keysOf(decision.raised)).toEqual([]);
   });
@@ -292,5 +352,104 @@ describe('Scenario: behavior — the comparison decides from its arguments alone
     expect(JSON.stringify(second)).toBe(JSON.stringify(first));
     expect(first.ok).toBe(true);
     expect(keysOf(first.lowered)).toEqual(['eslintErrors']);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The canonical key list. `13 rows, two places` is the problem this campaign keeps
+// hitting: the generator assembles the rows and something else is supposed to know
+// what they are. One exported list, compared by SET EQUALITY (never `>= 13`), is
+// what makes adding a row in one place and not the other a red test.
+// ---------------------------------------------------------------------------
+
+const problemKeys = (problems: KeyProblem[]): string[] => problems.map((row) => row.key).sort();
+
+async function canonicalVector(
+  overrides: Record<string, unknown> = {},
+  dropped: readonly string[] = []
+): Promise<Record<string, unknown>> {
+  const { keys } = await loadCanonical();
+  const vector: Record<string, unknown> = Object.fromEntries(keys.map((key) => [key, 0] as const));
+  for (const [key, value] of Object.entries(overrides)) vector[key] = value;
+  for (const key of dropped) delete vector[key];
+  return vector;
+}
+
+describe('Scenario: behavior — one canonical ceiling key list, compared by set equality', () => {
+  it('C1 — the list should name each ceiling key exactly once, and HEAD and the published artifact should carry exactly those keys', async () => {
+    const { keys } = await loadCanonical();
+    const unique = [...new Set(keys)].sort();
+    expect(keys.length, `CEILING_KEYS carries a duplicate: ${keys.join(', ')}`).toBe(unique.length);
+    expect(unique.length).toBeGreaterThan(0);
+    expect(sortedKeys(publishedCeilings())).toEqual(unique);
+    expect(sortedKeys(headCeilings())).toEqual(unique);
+  });
+
+  it('C2 — a vector carrying a row that is not on the list should report that key with the side it came from', async () => {
+    const { problems } = await loadCanonical();
+    const measured = problems('measured by this run', await canonicalVector({ extra: 4 }));
+    expect(problemKeys(measured)).toEqual(['extra']);
+    expect(measured[0]?.side).toBe('measured by this run');
+    expect(measured[0]?.problem).toMatch(/canonical/i);
+    const head = problems('HEAD artifact', await canonicalVector({ legacyRow: 1 }));
+    expect(problemKeys(head)).toEqual(['legacyRow']);
+    expect(head[0]?.side).toBe('HEAD artifact');
+  });
+
+  it('C3 — a canonical row a vector does not carry should be reported, and only the anchor side may ask for that report to be waived', async () => {
+    const { problems } = await loadCanonical();
+    const dropped = problems('measured by this run', await canonicalVector({}, ['tscErrors']));
+    expect(problemKeys(dropped)).toEqual(['tscErrors']);
+    expect(dropped[0]?.problem).toMatch(/missing/i);
+    // The waiver is for HEAD's short artifact — the seeding row — and it waives
+    // nothing else: an extra or a bad value is still reported with it on.
+    expect(
+      problems('HEAD artifact', await canonicalVector({}, ['tscErrors']), { allowMissing: true })
+    ).toEqual([]);
+    expect(
+      problemKeys(
+        problems('HEAD artifact', await canonicalVector({ junk: 7 }), { allowMissing: true })
+      )
+    ).toEqual(['junk']);
+  });
+
+  it('C4 — a value that is not a finite non-negative integer should be reported on the side it came from, including in the published artifact', async () => {
+    const { problems } = await loadCanonical();
+    const broken: Array<[string, unknown]> = [
+      ['a string', '7'],
+      ['null', null],
+      ['undefined', undefined],
+      ['an object', { value: 3 }],
+      ['negative', -1],
+      ['fractional', 0.5],
+      ['NaN', Number.NaN],
+      ['infinite', Number.POSITIVE_INFINITY]
+    ];
+    for (const [shape, value] of broken) {
+      const found = problems('the published artifact', await canonicalVector({ tscErrors: value }));
+      expect(problemKeys(found), `published ${shape}`).toEqual(['tscErrors']);
+      expect(found[0]?.problem, shape).not.toBe('');
+    }
+    // The real data, unfiltered: this is what secondary defect (b) was — a junk
+    // row the old comparison sorted out of existence instead of refusing.
+    expect(problems('the published artifact', publishedCeilings())).toEqual([]);
+    expect(problems('HEAD artifact', headCeilings())).toEqual([]);
+  });
+
+  it('C5 — a row HEAD does not carry is seedable only when the working copy does not carry it either', async () => {
+    // `fileSizeExcessLines` was seeded on 2026-10-01 by a run whose previous
+    // artifact simply did not have the key. Anchoring in HEAD must keep that door
+    // open, and keep it open only for a key neither side already carries.
+    const { unseedable, keys } = await loadCanonical();
+    const fresh = 'fileSizeExcessLines';
+    expect(keys).toContain(fresh);
+    const headWithout = await canonicalVector({}, [fresh]);
+    expect(unseedable(headWithout, headWithout)).toEqual([]);
+    expect(unseedable(headWithout, null)).toEqual([]);
+    const blocked = unseedable(headWithout, await canonicalVector({ [fresh]: 9 }));
+    expect(problemKeys(blocked)).toEqual([fresh]);
+    expect(blocked[0]?.problem).toMatch(/HEAD/);
+    expect(blocked[0]?.problem).toMatch(/working copy/i);
+    expect(unseedable(await canonicalVector(), await canonicalVector())).toEqual([]);
   });
 });

@@ -533,7 +533,11 @@ unrecognized (the three labels the module prints are `RAISED`, `CLEARED`,
 `NEWLY SEEDED`). **Boundary, measured by out-of-band review and not yet closed:** the previous side is read
 from the working-tree artifact, so editing that artifact still launders a raise — a deleted row becomes
 `NEWLY SEEDED`, an inflated row becomes `CLEARED`, and `"ceilings": {}` re-seeds all thirteen (backlog
-§2.33; the push leg's own printed remedy, "Regenerate it", is the attack). So reading the diff is now a check on the guard, not the only
+§2.33; the push leg's own printed remedy, "Regenerate it", is the attack). **That sentence is superseded as of
+repair cycle 1 (§4o): the anchor is `git show HEAD:.peaks/lint/gate-baseline.json`, the working copy is a
+second trip, and the thirteen names are one exported list — all three attacks re-measured as refusals. The
+residual is backlog §2.35: a row the generator legitimately added is still refused on the second
+regeneration before the commit, and that refusal's printed remedy would delete it.** So reading the diff is now a check on the guard, not the only
 defence: if a regeneration raised something and still exited 0, that is a
 guard bug worth its own rid.
 
@@ -876,3 +880,46 @@ the same run re-measured with redirection gave exit 1.
 "considered" into "checked" and drops the field that would have explained the difference. That is why the
 brief's wrong premise and the leaf's right correction both read plausible: the two surfaces disagree, and the
 one the operator sees is the flattering one. Filed as backlog §2.32.
+
+### 4o. C wave 8 repair cycle 1 — the ratchet's anchor moved out of the file it guards (2026-10-02)
+
+Out-of-band review of `3b3bb00c` (§2.33, §2.34) came back with a HIGH and four MEDIUM/MINOR, all reproduced by
+attack rather than argued. Both are now closed, and the closures were re-measured by the orchestrator instead
+of accepted from the leaves.
+
+**Half A (`.husky/`, rid `2026-10-02-monotonicity-head-anchor`).** The previous side is now read from
+`git show HEAD:.peaks/lint/gate-baseline.json`, and the on-disk artifact is a second, independent trip that
+fires when the working copy has been **lifted** or **shortened** relative to HEAD — while a lowering is
+allowed through with a note, because asking for less is not an attack. `CEILING_KEYS` is one exported list of
+the thirteen names, compared by sorted set equality against both sides, so a fourteenth row typed by hand or a
+renamed one is refused rather than blessed as `NEWLY SEEDED`. The three attacks the reviewer measured against
+`3b3bb00c` were re-run against the shipped module: delete `prettierUnformatted` → refused, inflate
+`fileSizeExcessLines` → refused, `"ceilings": {}` → refused, control (working == HEAD) → `refusal: null`. The
+happy path is idempotent on the real repository: two consecutive regenerations exit 0 with identical ceilings
+and identical `files` tables, and the census scope grew 1,478 → 1,480 while every ceiling held.
+
+**Half B (`tests/unit/final-review/`, rid `2026-10-02-guard-scope-teeth`).** Guard C's walk takes its extension
+set from `FILE_SIZE_SCOPE_EXTENSIONS` and recurses; guard C's own `describe` audits the module set it consumed
+so a `.filter` at its call site reddens instead of shrinking it; the guarded directory is constructed once; the
+predicate's home count is asserted set-wide, not per file; and module-level delivery decisions are scanned and
+labelled `top-level:…` so `RENDER_ONLY` can never match them. `tests/unit/final-review` went 85 → 96 cases,
+every original arm name surviving.
+
+**Convergence numbers.** Unit 347/3681 → **349 files / 3708 passed / 3 skipped** (+27 = the 16 arms leaf RA
+added + the 11 leaf RB added, reconciled exactly); `node .husky/peaks-gate.mjs repo` exit 0 with all thirteen
+rows held and no ceiling above HEAD; eslint findings on every new/changed test file 0.
+
+**Two things the leaves and I learned the hard way, kept because they are the campaign's shape.** (1) Leaf RA
+died at the harness turn limit mid-verification with no envelope. Its tree was judged the way §4m's rule says:
+does it build, and do the demanded arms exist by name — 36 arms green across its three files, `it(` headings
+covering the decision table plus `C1`–`C5` and `H5a`/`H5b`, so the work was kept and the record was authored
+here rather than reverted away. (2) My own probe initially printed `undefined` inside the refusal message, and
+the honest reading was that **my** harness had omitted the `outRel` argument — the module renders the path
+correctly. Third instrument-induced false finding this campaign; the rule is to suspect the instrument before
+the code.
+
+**Not closed, filed as §2.35:** the working-copy trip also refuses an `ADDED` row that the generator itself
+legitimately measured and wrote, so a slice that adds a ceiling row must regenerate exactly once before
+committing — and the remedy that refusal prints (`git checkout HEAD -- .peaks/lint/gate-baseline.json`) would
+delete the row it is complaining about. `--seed` does not clear it (measured). The fix is to consult the
+measurement before tripping on `ADDED`.

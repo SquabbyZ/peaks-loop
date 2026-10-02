@@ -4,12 +4,13 @@
 // sweep, split verbatim out of `final-review-service.test.ts` (C wave 7
 // file-size work).
 
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { prepareFinalReview } from '~/src/services/final-review/final-review-service';
 import {
   DELIVERY_PREDICATE,
+  GUARDED_DIR,
   PROXIES,
   RENDER_ONLY,
   definitionCount,
@@ -18,8 +19,10 @@ import {
   legacyTopLevelFunctions,
   modulesDefining,
   namedFunctionBodies,
+  predicateHomeViolations,
   scanModuleSet
 } from './final-review-guard-c-scan.js';
+import { FILE_SIZE_SCOPE_EXTENSIONS } from '../../../src/services/scan/file-size-policy.js';
 import {
   RID,
   SESSION_ID,
@@ -165,10 +168,46 @@ describe('prepareFinalReview — missing, empty and unreadable are three facts (
 // `final-review-guard-c-scan.ts` so the scope arms in
 // `final-review-guard-scope.test.ts` exercise the same scanner this guard runs
 // instead of a copy of it that could rot on its own.
+//
+// H3 (R-B) — the SUBJECT was widened and four of its edges stayed cut. The walk
+// was one directory deep and accepted `.ts` only, so a proxy-bearing module in
+// `final-review/delivery/` or written as `.mts` was outside it; the guard's own
+// call site was unobserved, so a `.filter` inserted there shrank the sweep and
+// nothing reddened; the predicate's "one home" was counted at module
+// granularity, so a shadow of it inside its own body was not two definitions to
+// anybody; and the patterns were only ever applied to function bodies, so a
+// delivery decision written at module top level typed its proxies in vain. Each
+// of those four now has an arm, in this file and in
+// `final-review-guard-teeth.test.ts`, that is run against a `mkdtempSync` copy of
+// the guarded tree — the mutations never touch `src/`.
 // ---------------------------------------------------------------------------
 
-/** The guarded directory. Its modules come from `scanModuleSet`, never a list. */
-const SERVICE_DIR = resolve(__dirname, '..', '..', '..', 'src', 'services', 'final-review');
+/**
+ * The guarded directory. Imported from the scanner, which is the one place it is
+ * spelled (R-B item 3): this file and `final-review-guard-scope.test.ts` used to
+ * build the same path independently, with nothing comparing the two, so editing
+ * either one narrowed that file's view of the subject while the other kept
+ * asserting a wide one. Its modules come from `scanModuleSet`, never a list.
+ */
+const SERVICE_DIR = GUARDED_DIR;
+
+/**
+ * An independent census of the guarded tree, by a different route from the
+ * scanner's walk: node's own recursive `readdirSync`, filtered by the shared
+ * file-size policy's extensions. `/`-separated relative paths.
+ */
+function independentModulePaths(dir: string): readonly string[] {
+  return readdirSync(dir, { recursive: true, encoding: 'utf8' })
+    .map((entry) => `${entry}`.split('\\').join('/'))
+    .filter((rel) => {
+      const dot = rel.lastIndexOf('.');
+      return (
+        dot >= 0 && (FILE_SIZE_SCOPE_EXTENSIONS as readonly string[]).includes(rel.slice(dot + 1))
+      );
+    })
+    .filter((rel) => statSync(join(dir, ...rel.split('/'))).isFile())
+    .sort();
+}
 
 /**
  * The parent file, still read on its own by the two arms below that pin the
@@ -199,6 +238,30 @@ describe('final-review — the delivery judgement has exactly one home (guard C)
   });
 
   /**
+   * R-B item 2 — guard C's OWN call site, observed. Until now the subject pin
+   * lived in the sibling scope file and validated `scanModuleSet`, so inserting
+   * `.filter((m) => m.module !== 'final-review-gates.ts')` on the line that
+   * builds `MODULES` left every arm green and simply made the guard read less:
+   * the filter is invisible to a check that never looks at the guard's own
+   * output. This arm is inside the `describe`, so it audits the very `MODULES`
+   * the arms above sweep, against a census built by a different route.
+   */
+  it('scans the whole guarded directory, not a filtered view of it', () => {
+    const enumerated = independentModulePaths(SERVICE_DIR);
+    expect(MODULES.map((scanned) => scanned.module).sort()).toEqual(enumerated);
+    expect(MODULES.map((scanned) => scanned.path)).toEqual(
+      enumerated.map((rel) => join(SERVICE_DIR, ...rel.split('/')))
+    );
+    // A dropped module is a hole, stated as a byte count, not just as a name.
+    const onDisk = enumerated.reduce(
+      (total, rel) => total + readFileSync(join(SERVICE_DIR, ...rel.split('/')), 'utf8').length,
+      0
+    );
+    expect(MODULES.reduce((total, scanned) => total + scanned.bytes, 0)).toBe(onDisk);
+    expect(MODULES.length).toBeGreaterThanOrEqual(16);
+  });
+
+  /**
    * The set-wide form of "exactly one home", which the parent-only guard could
    * not state at all: nothing in the old guard stopped a split from leaving a
    * second `isDelivered` behind in a sibling, or from moving the predicate out
@@ -217,6 +280,15 @@ describe('final-review — the delivery judgement has exactly one home (guard C)
     for (const name of RENDER_ONLY) {
       expect(definitionCount(MODULES, name)).toBe(1);
     }
+    // R-B item 4: the same count for the PREDICATE. `modulesDefining` answers at
+    // module granularity, so a second independently-deciding `isDelivered`
+    // shadowed inside the parent's own body left the two assertions above green;
+    // the count is the one that cannot be satisfied by a duplicate living in the
+    // same file as the original.
+    expect(definitionCount(MODULES, DELIVERY_PREDICATE)).toBe(1);
+    // The whole home property, as one function the fixture arms reuse so that
+    // the copy in `final-review-guard-teeth.test.ts` cannot rot on its own.
+    expect(predicateHomeViolations(MODULES)).toEqual([]);
   });
 
   /**

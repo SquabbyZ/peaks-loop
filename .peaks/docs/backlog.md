@@ -1684,6 +1684,17 @@ refuse any `added` key that exists in HEAD's artifact, refuse when the working-t
 by lifting a number or dropping a row, and export one canonical key list compared by sorted equality on both
 sides. A re-case that leaves the old row in place is already caught (measured: `exit 1`, names `REMOVED`).
 
+**CLOSED 2026-10-02, rid `2026-10-02-monotonicity-head-anchor` (repair cycle 1).** The anchor is now
+`git show HEAD:.peaks/lint/gate-baseline.json`, and the on-disk artifact is a *second, independent* trip: the
+generator refuses when the working copy has been moved away from HEAD by lifting a row or dropping one, and
+explicitly allows a lowering ("a stricter request, not an attack, so this run measures and the measurement
+decides the number"). The thirteen key names live in one exported `CEILING_KEYS`, compared by sorted set
+equality against both sides. Re-measured by the orchestrator against the shipped module, not from the leaf's
+envelope: control (working == HEAD) → `refusal: null`; delete `prettierUnformatted` → refused; inflate
+`fileSizeExcessLines` to 999,999 → refused; `"ceilings": {}` → refused; `CEILING_KEYS` sorted-equal to HEAD's
+key set, 13 rows. The happy path is idempotent on the real repository — two consecutive regenerations exit 0
+with identical ceilings and identical `files` tables. What the fix does NOT yet cover is in §2.35.
+
 ### 2.34 Guard C's widened subject has four holes of its own, all found by attacking it (C wave 8, 2026-10-02)
 
 The §2.28 fix is real and measured — 16 modules, 66 named functions against 8, every HEAD case present, moved
@@ -1715,3 +1726,42 @@ Separately, and pre-existing rather than introduced: the scanner records functio
 decision written at module top level is not an offender. Either scan module-level initialisers or state that
 limit beside the `PROXIES` comment at `final-review-guard-c-scan.ts:110–116`, which already admits a narrower
 blindness.
+
+
+**CLOSED 2026-10-02, rid `2026-10-02-guard-scope-teeth` (repair cycle 1).** All four are armed. The walk now takes its extension set from the shared policy (`FILE_SIZE_SCOPE_EXTENSIONS`) and recurses, so a `.mts` module and a module under `final-review/delivery/` are both scanned — and the choice is enforced by a fixture with a real subdirectory, not by an assertion that none exists, because a non-recursion assertion would make the guard's coverage hostage to a layout fact any legitimate split can change. Guard C's own `describe` now audits the module set it consumed, so a `.filter` inserted at its call site reddens the guard instead of shrinking it quietly; the guarded directory is constructed in exactly one place; and `definitionCount(MODULES, DELIVERY_PREDICATE) === 1` plus `predicateHomeViolations` close the shadowed-predicate hole. Module-level delivery decisions are now scanned and labelled `top-level:…` so the allow-list can never match them, with a measurement arm for the residue. One premise of this entry was wrong, measured by the leaf: the scanner already recorded a nested *named* predicate at `3b3bb00c`, so the gap was only the missing assertion, not blindness to the shape. Cases 85 → 96 in `tests/unit/final-review`, no original arm name lost.
+
+### 2.35 The HEAD-anchor repair refuses a legitimately seeded ceiling row after the first regeneration, and its printed remedy would delete it (found 2026-10-02 while probing §2.33's fix)
+
+`workingCopyTrip` treats any working-copy difference from HEAD as suspect unless it is a **lowering**, so a
+row that the generator itself legitimately measured and wrote is, from then until the commit, an `ADDED` row
+relative to HEAD — and the next regeneration refuses it:
+
+```
+ADDED — rows the artifact on disk carries that the anchor never had:
+  - brandNewRow (the working copy): the working copy carries 7 under a key HEAD does not have,
+    so the row would be seeded as if this run had invented it
+
+Restore it instead of arguing with it: git checkout HEAD -- .peaks/lint/gate-baseline.json
+```
+
+Measured directly (`node -e` against the shipped module, HEAD's real ceilings plus one synthetic key): the
+refusal fires, and **`--seed` does not clear it** (`seedRun: true` → same refusal). So the workflow this
+blocks is the one C wave 7 actually used: a slice adds a ceiling row, regenerates, then regenerates again
+after adding more files before committing — the second run refuses. Worse, the remedy the message prints
+(`git checkout HEAD -- .peaks/lint/gate-baseline.json`) silently discards the legitimately-added row, which
+is the same class of trap as §2.33's "Regenerate it" instruction: a refusal whose documented repair performs a
+different weakening.
+
+Two properties the fix must keep, so it does not re-open §2.33: an `ADDED` key the **measurement does not
+produce** is still hand-typed and must stay refused; and a key the measurement *does* produce is the
+generator agreeing with itself, which is what the row-seeding path in `compareCeilings` already blesses. The
+narrow rule is therefore: consult the measurement before tripping on `ADDED`, and if the measured run yields
+that key, allow it and label it `NEWLY SEEDED` as before. The printed remedy must also stop telling an
+operator to `git checkout` the artifact unless the difference is really an attack — a lower row's remedy is
+"the measurement decides", not "restore the file".
+
+Not fixed here because it needs its own acceptance criteria (red on the double-regeneration flow, green on
+the hand-typed-row flow, plus a fixture where the measurement and the artifact disagree about a key's
+existence), and because the workaround is documented: when a slice introduces a ceiling row, regenerate
+**once** and stage the artifact immediately.
+

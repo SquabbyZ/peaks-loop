@@ -48,13 +48,93 @@
  *   - a ceiling that is not a finite non-negative integer → refuse on both sides.
  *     A string "2" and a `NaN` are not numbers the descent can be measured against,
  *     and comparing them would silently produce a verdict nobody earned.
+ *
+ * WHERE "PREVIOUS" MEANS SINCE REPAIR CYCLE 1 (rid 2026-10-02-monotonicity-head-anchor).
+ *   C wave 8 read the previous ceilings out of `OUT_PATH` — the working-tree
+ *   artifact, which is the same file the run is about to overwrite and the same file
+ *   a weakening edits. An out-of-band review measured three ways past it: delete a
+ *   row and the run prints `NEWLY SEEDED` and writes it; inflate a row and the run
+ *   prints `CLEARED` and writes the descent; set `"ceilings": {}` and all thirteen
+ *   rows re-seed, because an empty object parses. The push leg made it worse, not
+ *   better: the remedy its own refusal prints is `Regenerate it: node
+ *   .husky/peaks-gate-baseline.mjs`, so an operator following the gate's instruction
+ *   performs attack one. So "previous" is now `git show HEAD:` of this file, which
+ *   an edit of the working tree cannot move, and the working tree is a SECOND,
+ *   INDEPENDENT trip rather than the source of the numbers.
+ *
+ * THE ORDER THE DECISIONS RUN IN — decided here, because the arms and the code have
+ * to agree about which refusal an input gets:
+ *   1. Read HEAD's artifact. Unreadable, unparseable, or a `ceilings` block with not
+ *      one canonical row in it → there is no baseline. Refuse and tell the operator
+ *      about `--seed`; only `--seed` turns that into the documented seed path where
+ *      every canonical row is reported as newly seeded. This is also the arm for a
+ *      repository with no git at all: the refusal names the git error, it does not
+ *      throw it.
+ *   2. Compare the artifact on disk with HEAD's BEFORE measuring anything, and refuse
+ *      if it LIFTS a number, DROPS a row or ADDS one HEAD never carried. That edit is
+ *      the attack, and a generator that judges its own measurement against it has
+ *      already lost. `--seed` does not unlock this refusal: the flag is the statement
+ *      that a baseline is MISSING, never permission to write over an edited one. A
+ *      working copy that is only LOWER than HEAD is a stricter request,
+ *      not an attack: it is allowed through, named in the notes, and the measurement
+ *      decides the number that is finally written.
+ *   3. Audit the anchor, the artifact on disk and this run's measurement against
+ *      `CEILING_KEYS` by set equality. HEAD may be missing a canonical row — that is
+ *      how a new ceiling gets seeded — but only when the artifact on disk is missing
+ *      it too, and never in a `--seed` run, where there is no anchor to be missing
+ *      from.
+ *   4. Compare HEAD's ceilings with the measurement: equal or lower on every row
+ *      writes, any raise refuses, any canonical row this run stopped measuring
+ *      refuses.
+ *   5. Write, and print which rows moved.
  */
 
 /** The flag that opts a run in to writing a baseline where there was none. */
 export const SEED_FLAG = '--seed';
 
+/**
+ * THE CANONICAL CEILING KEY LIST — the thirteen rows the ratchet is allowed to
+ * carry, each named exactly once.
+ *
+ * WHY ONE LIST AND NOT TWO. `.husky/peaks-gate-baseline.mjs` assembles the
+ * `ceilings` object it writes, and until this slice nothing anywhere constrained
+ * which keys that object could hold: `grep -rn "eslintNotLintedFiles|
+ * prettierUnparsableFiles" tests/ scripts/ src/` came back with hits in prose only,
+ * so a fourteenth row, a renamed row or a deleted row was accepted by construction
+ * — and "accepted" is exactly what a ratchet calls a weakening it cannot see. This
+ * list is the sanctioned set; the comparison between this list and any vector is
+ * SET EQUALITY (`canonicalKeyProblems`), never a count of `>= 13`, because a count
+ * lets a junk row and a missing row cancel each other out.
+ *
+ * `tests/unit/lint/baseline-monotonicity.test.ts` arm C1 pins this list against the
+ * published artifact AND against `git show HEAD:…`, and
+ * `tests/unit/lint/baseline-monotonicity-head-anchor.test.ts` arm H-RA4 pins it
+ * against what a real run writes, so adding a ceiling in one place and not the
+ * other is a red test rather than a new number in the baseline.
+ *
+ * The order is the generator's own assembly order, so a diff of the two reads alike.
+ */
+export const CEILING_KEYS = Object.freeze([
+  'eslintFindings',
+  'eslintErrors',
+  'eslintPhantomFindings',
+  'eslintCoverageGapFiles',
+  'eslintSyntaxErrorFiles',
+  'eslintNotLintedFiles',
+  'prettierUnformatted',
+  'prettierUnparsableFiles',
+  'tscErrors',
+  'silentWarningCatchReturnNull',
+  'silentWarningEmptyCatch',
+  'fileSizeOverCap',
+  'fileSizeExcessLines'
+]);
+
 /** How each side of the comparison is named in the text an operator reads. */
 const SIDES = { previous: 'previous artifact', measured: 'measured by this run' };
+
+/** `CEILING_KEYS` as membership, because the audit asks `has?` once per row read. */
+const CEILING_KEY_SET = new Set(CEILING_KEYS);
 
 const isCeilingVector = (value) =>
   value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -86,15 +166,18 @@ export function ceilingProblem(value) {
 /**
  * The decision table, as data.
  *
- * `previous` is the `ceilings` block of the artifact on disk — `{}` for a seed run,
- * which is what makes every row come back as `added` and therefore as *reported*.
- * `next` is what this run measured. Returns the six buckets the caller renders;
- * `ok` is `false` exactly when `raised`, `removed` or `invalid` has a row in it.
+ * `previous` is the anchor — the `ceilings` block of HEAD's copy of the artifact, or
+ * `{}` for a seed run, which is what makes every row come back as `added` and
+ * therefore as *reported*. It is NOT the working-tree file: that file is the thing a
+ * weakening edits, and since repair cycle 1 it is audited separately
+ * (`workingCopyTrip`). `next` is what this run measured. Returns the six buckets the
+ * caller renders; `ok` is `false` exactly when `raised`, `removed` or `invalid` has a
+ * row in it.
  *
- * Throws on a vector that is not an object. That is deliberate: `null` reaching
- * here would be an unreadable artifact routed past the `--seed` trip, and a
- * comparison that treated it as "no previous ceilings" would re-baseline a
- * corrupt ratchet with nobody opting in.
+ * Throws on a vector that is not an object. That is deliberate: `null` reaching here
+ * would be an unreadable anchor routed past the `--seed` trip, and a comparison that
+ * treated it as "no previous ceilings" would re-baseline a corrupt ratchet with
+ * nobody opting in.
  */
 export function compareCeilings(previous, next) {
   if (!isCeilingVector(previous)) {
@@ -173,6 +256,103 @@ export function parsePreviousArtifact(text) {
   return { ceilings: document.ceilings, problem: null };
 }
 
+/**
+ * What `ceilings` gets wrong against `CEILING_KEYS`, as rows the caller renders.
+ *
+ * `side` names the vector the way an operator reads it (“HEAD artifact”, “the
+ * artifact on disk”, “measured by this run”), because the two sides of this audit
+ * have different remedies and a message that does not say which one is wrong sends
+ * the operator to edit the wrong file.
+ *
+ * `allowMissing` is the anchor's exemption and nobody else's: HEAD's artifact is
+ * allowed not to carry a canonical row yet, because that is how a new ceiling gets
+ * seeded (row 4 — `fileSizeExcessLines` on 2026-10-01) once the key is on the list
+ * and in the generator. The measurement and the artifact on disk get no such pass:
+ * a canonical row either side does not carry is a row going missing from the
+ * ratchet, which is the loudest weakening there is.
+ */
+export function canonicalKeyProblems(side, ceilings, options = {}) {
+  if (!isCeilingVector(ceilings)) {
+    throw new TypeError(`canonicalKeyProblems: the ${side} ceilings must be an object`);
+  }
+  const allowMissing = options.allowMissing === true;
+  const problems = [];
+  const notCanonical =
+    `is not one of the ${CEILING_KEYS.length} canonical ceiling keys, so no slice has ` +
+    'sanctioned it — add it to CEILING_KEYS and to the generator in the same change, ' +
+    'or remove it';
+  for (const [key, value] of Object.entries(ceilings)) {
+    if (!CEILING_KEY_SET.has(key)) {
+      problems.push({ key, side, problem: notCanonical });
+      continue;
+    }
+    const why = ceilingProblem(value);
+    if (why !== null) {
+      problems.push({ key, side, problem: `ceiling ${displayValue(value)} ${why}` });
+    }
+  }
+  if (!allowMissing) {
+    for (const key of CEILING_KEYS) {
+      if (!Object.hasOwn(ceilings, key)) {
+        problems.push({
+          key,
+          side,
+          problem:
+            'is a canonical ceiling row this vector is missing — every row of the ' +
+            'ratchet is measured or the ratchet has a hole in it'
+        });
+      }
+    }
+  }
+  return problems;
+}
+
+/**
+ * Rows on the canonical list that `ceilings` does not carry. Exported rather than
+ * inlined because the generator needs the same list twice: once to tell an anchor
+ * that is short (a row awaiting its first seeding) from an anchor that is empty
+ * (an absence, which only `--seed` may write over), and once to refuse a
+ * measurement that stopped reporting a sanctioned row.
+ */
+export function missingCanonicalKeys(ceilings) {
+  if (!isCeilingVector(ceilings)) {
+    throw new TypeError('missingCanonicalKeys: the ceilings must be an object');
+  }
+  return CEILING_KEYS.filter((key) => !Object.hasOwn(ceilings, key));
+}
+
+/**
+ * Rows the working copy carries that HEAD does not — the ones that may NOT be
+ * seeded. A brand-new ceiling is legitimate exactly once: when the key is on the
+ * canonical list, this run measures it, HEAD has never carried it, and the file on
+ * disk does not carry it either. The moment the working copy already holds the row,
+ * "new" is a lie: somebody put the number there before the generator could measure it.
+ *
+ * `workingCopy` is `null` when the artifact is absent, unreadable or unparseable —
+ * nothing pre-seeded from a file that carries nothing.
+ */
+export function unseedableKeys(head, workingCopy) {
+  if (!isCeilingVector(head)) {
+    throw new TypeError('unseedableKeys: the HEAD ceilings must be an object');
+  }
+  if (workingCopy === null) return [];
+  if (!isCeilingVector(workingCopy)) {
+    throw new TypeError('unseedableKeys: the working-copy ceilings must be an object or null');
+  }
+  const rows = [];
+  for (const [key, value] of Object.entries(workingCopy)) {
+    if (Object.hasOwn(head, key)) continue;
+    rows.push({
+      key,
+      side: 'the working copy',
+      problem:
+        `the working copy carries ${displayValue(value)} under a key HEAD does not have, ` +
+        'so the row would be seeded as if this run had invented it'
+    });
+  }
+  return rows;
+}
+
 // ---------------------------------------------------------------------------
 // The text. Kept here so the rule and the sentence that explains it cannot
 // drift apart, and so the generator's own block stays a call site.
@@ -221,6 +401,97 @@ export function describeMonotonicityFailure(decision) {
 }
 
 /**
+ * The canonical-key refusal. `null` when the vector agrees with the list.
+ *
+ * WHY IT NAMES THE SIDE. The two sides of this audit have different remedies — a row
+ * missing from the measurement means a leg stopped being measured, a row missing from
+ * HEAD means a ceiling awaiting its first seeding, a row missing from the artifact on
+ * disk means somebody deleted it — and a message that says only "unexpected key"
+ * sends the operator to edit whichever file happened to be open.
+ */
+export function describeCanonicalKeyFailure(problems) {
+  if (problems.length === 0) return null;
+  return (
+    `  NOT THE CANONICAL CEILING SET — ${problems.length} disagreement(s) with the ` +
+    `${CEILING_KEYS.length} sanctioned rows:\n` +
+    bullet(problems.map((row) => `${row.key} (${row.side}): ${row.problem}`)) +
+    '\n\n' +
+    '  `CEILING_KEYS` here and the `ceilings` object in .husky/peaks-gate-baseline.mjs are\n' +
+    '  one list read two ways, compared by SET EQUALITY. A row in one and not the other is\n' +
+    '  the `13 rows, two places` defect this refuses; land both halves in the same change.'
+  );
+}
+
+/**
+ * The working-copy-vs-HEAD trip: the artifact on disk, judged against the anchor
+ * rather than against itself. Returns `{ refusal, notes }`.
+ *
+ *   - `refusal` is the text of the refusal when a number was LIFTED, a row was
+ *     DROPPED, or a row appeared that the anchor never carried — the three shapes of
+ *     "somebody edited the baseline before asking the generator to bless it".
+ *   - `notes` is what a permitted write says out loud about the disk copy, so a green
+ *     run is still readable: which rows the file on disk held LOWER than the anchor
+ *     (a stricter request, allowed through, and replaced by this run's measurement
+ *     because a ceiling is a measurement and not a wish).
+ */
+export function workingCopyTrip({ headRef, outRel, head, working }) {
+  const trip = compareCeilings(head, working);
+  const added = unseedableKeys(head, working);
+  const blocks = [];
+  if (trip.raised.length > 0) {
+    blocks.push(
+      '  LIFTED — the artifact on disk carries these rows HIGHER than the anchor:\n' +
+        bullet(
+          trip.raised.map((row) => `${row.key}: ${headRef} ${row.previous} → disk ${row.next}`)
+        )
+    );
+  }
+  if (trip.removed.length > 0) {
+    blocks.push(
+      '  DROPPED — the anchor carries these rows and the artifact on disk does not:\n' +
+        bullet(
+          trip.removed.map(
+            (row) => `${row.key}: ${headRef} held ${row.previous} — disk has no such row`
+          )
+        )
+    );
+  }
+  if (added.length > 0) {
+    blocks.push(
+      '  ADDED — rows the artifact on disk carries that the anchor never had:\n' +
+        bullet(added.map((row) => `${row.key} (${row.side}): ${row.problem}`))
+    );
+  }
+  if (trip.invalid.length > 0) {
+    blocks.push(
+      '  INVALID — values that are not finite non-negative integers:\n' +
+        bullet(trip.invalid.map((row) => `${row.key} (${row.side}): ${row.value} ${row.why}`))
+    );
+  }
+  const refusal =
+    blocks.length === 0
+      ? null
+      : `THE ARTIFACT ON DISK IS NOT THE ANCHOR. ${outRel} has been moved away from\n` +
+        `  ${headRef}, and this generator refuses to judge its own measurement against an\n` +
+        '  edited copy of the file it is about to write:\n\n' +
+        `${blocks.join('\n\n')}\n\n` +
+        `  Restore it instead of arguing with it: git checkout HEAD -- ${outRel}\n` +
+        '  A ceiling descends by itself when the measurement does.';
+  const notes =
+    trip.lowered.length === 0
+      ? []
+      : [
+          `anchor: the artifact on disk held ${trip.lowered.length} row(s) LOWER than ` +
+            `${headRef} — a stricter request, not an attack, so this run measures and the\n` +
+            '  measurement decides the number that is written:\n' +
+            bullet(
+              trip.lowered.map((row) => `${row.key}: disk ${row.previous} → ${headRef} ${row.next}`)
+            )
+        ];
+  return { refusal, notes };
+}
+
+/**
  * The lines a PERMITTED write prints — including the two that make a descending
  * ratchet auditable: which ceilings went down, and which rows are new.
  *
@@ -234,9 +505,9 @@ export function describeMonotonicityNotes(decision, seedRun) {
     // Its own headline, and not the "moved" one: a seed has no previous number at
     // all, so its `added` rows are not a descent and must never read like one.
     return [
-      `monotonicity: SEED RUN — there was no previous artifact to compare against and ${SEED_FLAG} ` +
-        `was passed, so all ${decision.added.length} row(s) are ceilings this run invented from ` +
-        'its own measurement. Review every number before the commit.'
+      `monotonicity: SEED RUN — ${SEED_FLAG} was passed and HEAD carries no readable ` +
+        `baseline, so all ${decision.added.length} row(s) are ceilings this run invented ` +
+        'from its own measurement. Review every number before the commit.'
     ];
   }
   const moved = decision.lowered.length + decision.added.length;

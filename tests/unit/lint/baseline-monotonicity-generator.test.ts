@@ -20,6 +20,17 @@
 // generator for the refusal: every arm RUNS it, in an OS-temp repository of its
 // own, and reads the exit code, the log and the artifact BYTES.
 //
+// WHERE THIS FILE'S "PREVIOUS" LIVES — rid 2026-10-02-monotonicity-head-anchor.
+// C wave 8 read the previous ceilings out of the working-tree artifact, and an
+// out-of-band review measured three ways past it (delete a row → `NEWLY SEEDED`,
+// inflate a row → `CLEARED`, `"ceilings": {}` → all thirteen re-seeded). The
+// anchor moved to `git show HEAD:.peaks/lint/gate-baseline.json`, so
+// `writePreviousArtifact()` below now writes the artifact AND COMMITS it: the
+// previous side of every arm here is a git object. The attacks that edit only the
+// working copy, the working-copy-vs-HEAD trip, the canonical key list and the
+// two-run happy path are the subject of
+// `tests/unit/lint/baseline-monotonicity-head-anchor.test.ts`.
+//
 // WHAT THE FIXTURE STUBS, AND WHAT IT DOES NOT
 //   - Stubbed: eslint, tsc and the file-size census, so an arm costs a second
 //     instead of the minutes the real measurement path costs. Each stub is named
@@ -154,6 +165,23 @@ function gitInFixture(args: readonly string[]): void {
   });
 }
 
+/** The fixture commits with its own identity and its own (empty) hooks path. */
+const GIT_NEUTRAL_ARGS: Record<string, string> = {
+  'user.name': 'peaks-fixture',
+  'user.email': 'peaks-fixture@invalid.invalid',
+  'commit.gpgsign': 'false',
+  'core.hooksPath': '.git/hooks',
+  'core.autocrlf': 'false'
+};
+const GIT_NEUTRAL = Object.entries(GIT_NEUTRAL_ARGS).flatMap(([key, value]) => [
+  '-c',
+  `${key}=${value}`
+]);
+
+function commitFixture(message: string): void {
+  gitInFixture([...GIT_NEUTRAL, 'commit', '-q', '--allow-empty', '-m', message]);
+}
+
 let fixtureBuilt = false;
 
 /**
@@ -192,6 +220,7 @@ function buildFixture(): void {
   }
   gitInFixture(['init', '-q']);
   gitInFixture(['add', '-A']);
+  commitFixture('fixture: source, no baseline artifact in HEAD yet');
 }
 
 type Ceilings = Record<string, number>;
@@ -229,8 +258,19 @@ function writeArtifact(text: string): string {
   return text;
 }
 
+/**
+ * The previous side of every arm in this file, as a git object: the artifact is
+ * written AND committed, so "the previous ceilings" is what HEAD says rather than
+ * what an edit of the working tree happens to say. The working copy carries the
+ * same bytes, which keeps these arms about the comparison; the arms about an
+ * edited working copy live in `baseline-monotonicity-head-anchor.test.ts`.
+ */
 function writePreviousArtifact(ceilings: Ceilings): string {
-  return writeArtifact(`${JSON.stringify({ version: 3, ceilings }, null, 2)}\n`);
+  buildFixture();
+  const text = writeArtifact(`${JSON.stringify({ version: 3, ceilings }, null, 2)}\n`);
+  gitInFixture(['add', '-A']);
+  commitFixture('fixture: HEAD carries the previous ceilings');
+  return text;
 }
 
 function parsePublished(text: string): PublishedArtifact {
