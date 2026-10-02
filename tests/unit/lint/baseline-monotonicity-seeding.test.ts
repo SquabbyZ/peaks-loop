@@ -52,6 +52,8 @@ import { afterAll, describe, expect, it } from 'vitest';
 
 import { declareDimensions } from '../_setup/4dim-template.js';
 import { SUBPROCESS_TEST_TIMEOUT_MS } from '../_setup/subprocess-timeouts.js';
+import { hooksScopeFilesUnder } from './_file-size-hooks-fixture.js';
+import { ceilingKeyListFileUnder } from './_monotonic-module-set.js';
 
 declareDimensions(
   'tests/unit/lint/baseline-monotonicity-seeding.test.ts',
@@ -66,7 +68,6 @@ declareDimensions(
 
 const REPO_ROOT = resolve(fileURLToPath(new URL('.', import.meta.url)), '..', '..', '..');
 const GENERATOR = join('.husky', 'peaks-gate-baseline.mjs');
-const MONOTONIC_REL = join('.husky', 'peaks-gate-baseline-monotonic.mjs');
 const ARTIFACT_REL = join('.peaks', 'lint', 'gate-baseline.json');
 const ARTIFACT_GIT_PATH = '.peaks/lint/gate-baseline.json';
 const SEED_FLAG = '--seed';
@@ -214,12 +215,15 @@ function buildFixture(): void {
   writeFixtureFile('node_modules/tsx/dist/cli.mjs', CENSUS_STUB);
   writeFixtureFile('node_modules/prettier/package.json', PRETTIER_PACKAGE);
   writeFixtureFile('node_modules/prettier/index.mjs', prettierShim());
-  writeFixtureFile(MONOTONIC_REL, patchCanonicalList(readRepoFile(MONOTONIC_REL)));
+  // Staged by WALK; the canonical-list module is FOUND by `ceilingKeyListFileUnder`
+  // (throws unless exactly one walked module holds it), not named. Slash spelling below.
+  const keysRel = ceilingKeyListFileUnder(REPO_ROOT);
+  writeFixtureFile(keysRel, patchCanonicalList(readRepoFile(keysRel)));
   writeFixtureFile(GENERATOR, patchGeneratorRows(readRepoFile(GENERATOR)));
-  writeFixtureFile(
-    join('.husky', 'peaks-gate-file-size.mjs'),
-    readRepoFile(join('.husky', 'peaks-gate-file-size.mjs'))
-  );
+  for (const relative of hooksScopeFilesUnder(REPO_ROOT)) {
+    if (relative === keysRel || relative === GENERATOR.split('\\').join('/')) continue;
+    writeFixtureFile(relative, readRepoFile(relative));
+  }
   gitInFixture(['init', '-q']);
   gitInFixture(['add', '-A']);
   commitFixture('fixture: source and a fourteen-key generator, no artifact in HEAD');

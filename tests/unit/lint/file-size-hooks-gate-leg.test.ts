@@ -68,6 +68,7 @@ import {
   type Fixture,
   type FixtureArtifact
 } from './_file-size-hooks-fixture.js';
+import { monotonicModuleTextUnder } from './_monotonic-module-set.js';
 import { FILE_SIZE_CAP_HOOKS } from '../../../src/services/scan/file-size-policy.js';
 
 declareDimensions(
@@ -79,7 +80,6 @@ declareDimensions(
 const fixture: Fixture = createFixture('hooks-leg');
 const LEG_REL = join('.husky', 'peaks-gate-file-size.mjs');
 const GENERATOR_REL = join('.husky', 'peaks-gate-baseline.mjs');
-const MONOTONIC_REL = join('.husky', 'peaks-gate-baseline-monotonic.mjs');
 
 afterAll(() => {
   fixture.cleanup();
@@ -397,7 +397,10 @@ describe('Scenario: integration — the rows are wired, and nothing is typed', (
     // the same term the main pair already carries: a named list is not the row.
     expect(generator).toContain('FS_HOOKS_WHOLE_SCOPE_SOURCE');
 
-    const monotonic = readFileSync(join(fixture.root, MONOTONIC_REL), 'utf8');
+    // Pooled over the walked monotonic module set (entry + `.husky/monotonic/*.mjs`):
+    // since the wave 9 slice 2 split, the canonical list lives in whichever sibling
+    // holds it, and a pin on the ENTRY alone would pin a file that no longer speaks.
+    const monotonic = monotonicModuleTextUnder(fixture.root);
     expect(monotonic).toContain(`'${HOOKS_OVER_CAP_KEY}'`);
     expect(monotonic).toContain(`'${HOOKS_EXCESS_KEY}'`);
 
@@ -451,7 +454,10 @@ describe('Scenario: a11y — what a hooks breach says to the human who hits it',
     expect(gate).toContain('check(FS_HOOKS_ROW_LABEL, m.env.hooks.overCap');
     expect(gate).toContain('check(FS_HOOKS_EXCESS_ROW_LABEL, m.env.hooks.excessLines');
 
-    const monotonic = readFileSync(join(fixture.root, MONOTONIC_REL), 'utf8');
+    // Pooled over the walked monotonic module set (entry + `.husky/monotonic/*.mjs`):
+    // since the wave 9 slice 2 split, the canonical list lives in whichever sibling
+    // holds it, and a pin on the ENTRY alone would pin a file that no longer speaks.
+    const monotonic = monotonicModuleTextUnder(fixture.root);
     expect(monotonic).toContain(`'${HOOKS_OVER_CAP_KEY}'`);
     expect(monotonic).toContain(`'${HOOKS_EXCESS_KEY}'`);
   });

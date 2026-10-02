@@ -57,6 +57,7 @@ import { afterAll, describe, expect, it } from 'vitest';
 
 import { declareDimensions } from '../_setup/4dim-template.js';
 import { SUBPROCESS_TEST_TIMEOUT_MS } from '../_setup/subprocess-timeouts.js';
+import { hooksScopeFilesUnder } from './_file-size-hooks-fixture.js';
 
 declareDimensions(
   'tests/unit/lint/baseline-monotonicity-head-anchor.test.ts',
@@ -75,11 +76,10 @@ declareDimensions(
 
 const REPO_ROOT = resolve(fileURLToPath(new URL('.', import.meta.url)), '..', '..', '..');
 const GENERATOR = join('.husky', 'peaks-gate-baseline.mjs');
-const GENERATOR_FILES = [
-  join('.husky', 'peaks-gate-baseline.mjs'),
-  join('.husky', 'peaks-gate-file-size.mjs'),
-  join('.husky', 'peaks-gate-baseline-monotonic.mjs')
-];
+// Staged by WALK so the copied set follows the tree when an entry gains siblings
+// (`.husky/monotonic/*.mjs`, rid 2026-10-02-wave9-monotonic-split; same rule as
+// `baseline-monotonicity-generator.test.ts` — `hooksScopeFilesUnder` is the census's).
+const GENERATOR_FILES = hooksScopeFilesUnder(REPO_ROOT);
 const MONOTONIC_MODULE = join(REPO_ROOT, '.husky', 'peaks-gate-baseline-monotonic.mjs');
 const ARTIFACT_REL = join('.peaks', 'lint', 'gate-baseline.json');
 /** The same path the way git spells it: slash-separated, relative to the repo root. */

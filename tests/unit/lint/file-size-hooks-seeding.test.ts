@@ -53,6 +53,7 @@ import {
   walkHooksScope,
   type FixtureArtifact
 } from './_file-size-hooks-fixture.js';
+import { monotonicModuleTextUnder } from './_monotonic-module-set.js';
 import { REPO_ROOT } from '../standards/_file-size-cap-scan.js';
 import {
   FILE_SIZE_CAP_HOOKS,
@@ -280,7 +281,10 @@ describe('Scenario: behavior — the new rows are ordinary ceilings, not exempt 
     // copy of the key list and of the generator's assembled rows onto their LAST key,
     // and a row appended after `fileSizeExcessLines` silently un-anchors that guard —
     // its own fixture would then be measuring a thirteen-row generator.
-    const keys = fixture.read(MONOTONIC_REL);
+    // Pooled over the walked monotonic set: the list is ONE contiguous literal in
+    // exactly one module of it (the sibling helper throws otherwise), so the ORDER
+    // this arm guards survives the wave 9 slice 2 split without naming the sibling.
+    const keys = monotonicModuleTextUnder(fixture.root);
     const at = (needle: string): number => keys.indexOf(needle);
     expect(at(`'${HOOKS_OVER_CAP_KEY}'`)).toBeGreaterThan(-1);
     expect(at(`'${HOOKS_EXCESS_KEY}'`)).toBeLessThan(at("'fileSizeExcessLines'"));

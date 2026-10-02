@@ -1059,3 +1059,35 @@ type-aware eslint invocation cannot parse them (9 fatal parsing errors on 9 file
 `eslintFindings`, `eslintErrors` and `eslintCoverageGapFiles` all stay blind to them because the scope dirs are
 the four policy ones. The linter is unlintable by the linter, and the `ReferenceError` above is what that hole
 looks like in practice.
+
+### 4s. Wave 9 slice 2 — the monotonicity module split, and the two things re-export stability does not cover (2026-10-02, rid `2026-10-02-wave9-monotonic-split`)
+
+`.husky/peaks-gate-baseline-monotonic.mjs` 672 raw → a **125-line stable entry** plus six siblings under
+`.husky/monotonic/` (25 / 48 / 73 / 102 / 177 / 186 — largest 186, cap 300). Verbatim proof: 648 of 648 non-blank
+HEAD lines moved byte-identically, orphan set empty, 56 leftovers all header/import/export plumbing. Measured on
+the converged tree: `fileSizeHooksOverCap 3 → 2`, `fileSizeExcessLines(hooks) 982 → 610`, main rows
+162 / 54,318 untouched, hooks scope 12 → **18** files as the siblings entered the index. `tsc` exit 0;
+`tests/unit/lint` + `tests/unit/standards` **266/266** (265/266 before the seeding run, the single red being the
+declared §2.35 arm comparing the stale published row with the live descent); repo-wide unit
+**3,753 passed / 3 skipped** (+5 cases, none lost); `gate repo` exit 0 with all fifteen rows held and — checked
+programmatically, not eyeballed — exactly two descents and **zero** raises against HEAD, key set unchanged.
+
+**Two lessons worth keeping, both from the leaf correcting me.**
+
+1. *Re-export stability covers imports and nothing else.* My brief reasoned that a stable entry keeps every
+   `import` site working — true, and it is also nearly irrelevant, because three of the arms that broke are
+   **text pins and text surgery**: `file-size-hooks-gate-leg` / `-seeding` assert that specific strings live in
+   the file they read, and one arm patches the canonical key list by editing the entry's text in a fixture.
+   Those targets are now the file *found by walking*, not the entry, and the pins were pooled through a new
+   walked reader (`tests/unit/lint/_monotonic-module-set.ts`). A split that preserves the module graph can still
+   silently hollow out every assertion that reads it as a string — which is §4c and §2.28 again, one layer down.
+2. *On Windows, a walked path and a `join()`-ed path are different strings.* The dynamic stager compares
+   repo-relative POSIX paths from `readdirSync` against `join()` output that carries backslashes; unmatched, it
+   silently re-staged the **un-patched** generator and seven arms went red for a reason that looked like a logic
+   bug. Normalize both sides at the boundary (the policy module already exports `normalizePolicyPath` for
+   exactly this), do not fix it by comparing the shapes you happened to produce.
+
+The syntactic-only eslint pass (the only lint that can read `.husky` at all — §2.37) caught a real bug in the
+leaf's own first cut: `notes.mjs` was missing the `bullet` import, invisible to `file-size`, `silent-warning`
+and `staged` modes because only the generator path executes it. That is the second slice in a row where an
+undeclared import in the gate survived every gate, and it is the concrete argument for §2.37's option (2).

@@ -79,6 +79,7 @@ import { afterAll, describe, expect, it } from 'vitest';
 
 import { declareDimensions } from '../_setup/4dim-template.js';
 import { SUBPROCESS_TEST_TIMEOUT_MS } from '../_setup/subprocess-timeouts.js';
+import { hooksScopeFilesUnder } from './_file-size-hooks-fixture.js';
 
 declareDimensions(
   'tests/unit/lint/baseline-monotonicity-generator.test.ts',
@@ -93,12 +94,14 @@ declareDimensions(
 
 const REPO_ROOT = resolve(fileURLToPath(new URL('.', import.meta.url)), '..', '..', '..');
 const GENERATOR = join('.husky', 'peaks-gate-baseline.mjs');
-/** Everything the copied generator imports to run where it is not installed. */
-const GENERATOR_FILES = [
-  join('.husky', 'peaks-gate-baseline.mjs'),
-  join('.husky', 'peaks-gate-file-size.mjs'),
-  join('.husky', 'peaks-gate-baseline-monotonic.mjs')
-];
+/**
+ * Staged by WALK, not by name: a hand-named list is a second copy of the tree, and
+ * every such list in this gate died with `ERR_MODULE_NOT_FOUND` inside the temp repo
+ * the day an entry gained siblings (wave 7 `.husky/gate/`, this slice's
+ * `.husky/monotonic/`). `hooksScopeFilesUnder` applies the census's own rule to the
+ * real tree, so every module any entry imports is staged without an edit here.
+ */
+const GENERATOR_FILES = hooksScopeFilesUnder(REPO_ROOT);
 const ARTIFACT_REL = join('.peaks', 'lint', 'gate-baseline.json');
 const SEED_FLAG = '--seed';
 /** The key 2026-10-01 moved (0 → 7). The fixture moves the same one. */
