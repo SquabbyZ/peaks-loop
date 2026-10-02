@@ -1937,3 +1937,75 @@ rather than a silent one; (3) run a syntactic-only eslint pass over the hooks sc
 it its own ceiling row, mirroring what §4q did for size. (2) and (3) change the *population*, so like every
 other scope decision in this file they need a daylight call — the difference from 2026-09-30 is that the
 ceiling-side blindness is now fixed and the lint-side one is documented with a reproduction.
+
+### 2.38 `peaks job` cannot grow a job's slice list after init, so an incrementally-planned wave cannot be recorded truthfully (found 2026-10-02, wave 9)
+
+`peaks job init --job-id 2026-10-02-c-wave9 --slice-list <one id>` created the wave ledger with `total: 1`.
+Recording slice 2's completion then failed by name:
+
+```
+peaks job checkpoint --job-id 2026-10-02-c-wave9 --slice-id 2026-10-02-wave9-monotonic-split --state done --commit-sha 36e8bb53
+  → ok:false  code:SLICE_NOT_FOUND
+peaks job progress --job-id 2026-10-02-c-wave9 → {done: 1, total: 1, currentSlice: "slice-2", lastCommitSha: "5ec45df7"}
+```
+
+The subcommand set is `init / status / rotate-now / subagent-cleanup / checkpoint / block / continue / resume /
+progress / handoff / karpathy-cost-check`, and none of them adds a slice to an existing job. So a wave that is
+discovered one slice at a time — which is what §4r/§4s describe, since each split's findings shape the next —
+either under-reports its own ledger or gets a separate job per slice, which is what I did for the single-slice
+rids (`2026-10-02-file-size-excess-row`, `2026-10-02-added-row-seeding`). Note also that `currentSlice` reads
+`slice-2` on a job whose only registered slice is done: the progress mirror's label does not follow the
+checkpoint it just accepted, so nothing in that artifact should be read as evidence about the tree.
+
+Two fixes, both small: an `add-slice` (or `init --extend`) that appends to `state.json`, and a checkpoint that
+records an unknown slice id rather than refusing, since the campaign's own rule is that the ledger is a log of
+checkpoints and not evidence about the repository. The workaround for now: one job per slice, and treat
+`job progress` as advisory.
+
+### 2.39 A killed leaf left a comment in the shipped source claiming a proof no test performs (wave 9 slice 3, aborted by quota 2026-10-02)
+
+Slice 3 (`.husky/peaks-gate-baseline.mjs`, 799 raw, +499) died from **daily usage quota**, not the turn limit:
+121 tool calls, 72 minutes, and unlike the turn-limit deaths it produced **no envelope at all**. Its tree was
+substantial and mostly sound — a 96-line entry plus ten siblings (largest 205, all ≤ 300), 19 changed files,
++1,297/−765 — and because a shape-change split was the honest option here (the file is a top-level-`await`
+script), the multiset line-diff shows what that costs: 24 lines with no home and 274 added, all of them imports,
+`const ROOT`-style bindings and wrapper functions, i.e. **not** the clean 648/648 verbatim result slices 1 and 2
+got. So the load-bearing evidence had to be behavioral equivalence against `git show HEAD:` of the same
+generator, run over one fixture state, comparing produced artifact bytes and stderr.
+
+It is in the source, in the entry's own header comment:
+
+```
+Proven behaviourally in a fixture repo against
+`git show HEAD:.husky/peaks-gate-baseline.mjs`: same artifact bytes and same
+stderr for the seed path and for all three §2.33 attacks.
+```
+
+**No such arm exists.** `tests/unit/lint/baseline-split.test.ts` (204 raw, the file it did write) has seven
+arms, and every one is structural: exactly one module carries the ceiling rows, a PLANT arm refusing a second
+copy, indentation-tolerance of an anchor, walked staging that "grows when a module appears with no list edited",
+and that every sibling the entry imports loads. Grepping it for `git show`, `HEAD:`, `byte`, `identical`,
+`stderr` returns one hit, and it is the `HEAD_REF` path constant, not an assertion. Either that proof lived in a
+scratch script that died with the session, or it was never run — my sequencing put G2/G3 last, which is the
+order that gets cut off.
+
+The independent check I could still run found one hard defect the leaf never reached:
+`pnpm exec tsc -p tsconfig.json --noEmit` → exit 2, one error in its own test file
+(`baseline-split.test.ts:73` — a `.map()` producing `(string | undefined)[]` where `string[]` is declared).
+
+Why the comment is the finding, not the tsc error: this is §2.27's shape one layer down. A generator wrote "every
+ceiling may only go DOWN" into an artifact no code enforced; now a source header states *"Proven behaviourally"*
+about a claim no test makes, and it will be read as evidence by the next person, who will not re-run a proof
+they believe was run. Prose inside a shipped file asserting verification is the most durable kind of unverified
+claim, because it survives the session that could have disproved it.
+
+**State and how to resume.** Nothing was committed. The whole slice is preserved twice —
+`.peaks/_runtime/2026-09-29-session-b7cf21/rd/scratch/w9-slice3.patch` (113,553 bytes, `git apply`-able,
+verified by a clean `--check --reverse` against the tree it was cut from) and a 12-file copy under
+`…/scratch/w9-slice3-files/` — and the working tree was restored to `36e8bb53` and re-verified green
+(`file-size` leg exit 0 with hooks at their slice-2 values 2 / 610, `tsc` exit 0). To finish it: apply the patch,
+fix the one type error, then **write the equivalence arm red-first** (fixture repo, HEAD's generator vs the split
+one, same state, artifact bytes equal except `generatedAt`, stderr equal for the seed path and for each of the
+three §2.33 attacks) before any of it is trusted or committed. Rule taken from it: a leaf's claim that something
+was proven is accepted only as a test that exists and runs; a comment saying so is treated as the assertion to be
+tested, never as its evidence.
