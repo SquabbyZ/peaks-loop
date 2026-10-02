@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-02T04:52:44.051Z",
+  "updatedAt": "2026-10-02T08:23:13.759Z",
   "hot": {
     "rule": [
       {
@@ -1052,6 +1052,14 @@
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\2026-08-11-dogfood-4-0-20-cli-wiring-and-vendor-detect-defects.md",
         "sourceArtifact": null,
         "updatedAt": "2026-09-23"
+      },
+      {
+        "name": "a-ceiling-row-is-born-measured-before-it-is-committed",
+        "kind": "lesson",
+        "description": "The hooks-rows slice looked like the simplest of the day — two new ceiling rows for a directory nothing measured — an...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\a-ceiling-row-is-born-measured-before-it-is-committed.md",
+        "sourceArtifact": ".peaks/_runtime/2026-09-29-session-b7cf21/rd/requests/2026-10-02-hooks-size-rows-repair3.md",
+        "updatedAt": "2026-10-02"
       },
       {
         "name": "a-citation-that-outlives-its-referent-is-silent",

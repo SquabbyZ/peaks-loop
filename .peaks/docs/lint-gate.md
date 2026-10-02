@@ -72,6 +72,8 @@ against real debt:
 | `silentWarningEmptyCatch` | 59 *(seeded 2026-09-29)* | `catch { /* nothing */ }` — the error vanishes and the run stays green |
 | `fileSizeOverCap` | **166** *(seeded 174 on 2026-09-30, inputs re-seeded by the repair cycle, lowered to 166 by C wave 5 on 2026-10-01)* | files over the decided raw-line cap — **300** for `src`/`packages`/`scripts`, **500** for the root `tests/` tree — counted as `readFileSync(f,'utf8').split('\n').length` over `git ls-files` in those four directories. **Not** the `max-lines` finding count: 98 findings under 400-effective is a different population from 174 files over 300/500 raw (§4 slice 5). The row is bound to those inputs, not just to the unit: the artifact records `fileSizePolicyInputs` (`defaultCap`, `testsCap`, `scopeDirs`, `scopeExtensions`) and `fileSizeLineConvention`, and the leg re-derives all five from a live census run and **refuses** on a mismatch — so re-deciding the cap cannot quietly redefine the number it ratchets (§4b rows 7-9). |
 | `fileSizeExcessLines` | **60271** *(seeded 2026-10-01 from the same census envelope; C wave 6 is the reason it exists — 60,204 → 60,271 while `fileSizeOverCap` held at 166 and `gate repo` exited 0)* | the **lines** over those caps, summed — the other half of one census run, and the quantity a file count cannot see: hoisting into a file that is already over cap adds lines without adding files. Seeded by `.husky/peaks-gate-baseline.mjs:423` copying `size.env.excessLines` (never typed), enforced beside the row above in `repo` mode and in `file-size` mode at `.husky/peaks-gate.mjs:734`; it reads `✗ file-size excess lines … > ceiling … (+1)` and exits 1 on one line more than the ceiling, and stays green as it descends. |
+| `fileSizeHooksOverCap` | **4** *(seeded 2026-10-02 by rid `2026-10-02-hooks-size-rows`)* | files over cap inside the **hooks scope** — `.husky/` — measured with the same raw-line convention against the same 300 cap, enumerated by `git ls-files` over its own dir list. The row exists because §4b row 5 recorded on 2026-09-30 that `fileSizeOverCap` cannot see the gate itself, while folding `.husky` into the main scope was rejected because it would seed the main row higher, which §5 forbids. Separate rows are the resolution: the main pair did not move (162 / 54,318 before and after), and the guard's own body became a descender under its own ratchet. |
+| `fileSizeHooksExcessLines` | **1701** *(seeded with the row above, from the same census envelope)* | the lines over that cap, summed — today `.husky/peaks-gate.mjs` 1019 (+719), `-baseline.mjs` 799 (+499), `-baseline-monotonic.mjs` 672 (+372), `-file-size.mjs` 411 (+111). Bound to its inputs like the main pair: cap, dirs, extensions and convention come from the census envelope and the leg re-derives them, so §4b rows 7-9 apply to this scope too. |
 
 Those last two are counted by the repo's own AST reporter,
 `scripts/lint/silent-warning-detector.mjs`, over **its own scope** — a walk of
@@ -222,7 +224,7 @@ red or absent signal look like a passing one.
 | 2 | `packages/peaks-loop-shared` **exited 0 while collecting zero tests** — `passWithNoTests: true`, set on 2026-09-24 so an empty workspace would not fail `pnpm -r run test`, after `08e92d8f` deleted the root mirror tests on the premise that package tests existed. They never did. | `No test files found, exiting with code 0` inside an aggregate that reported green. Fixed by `a2`. |
 | 3 | The silent-warning detector was **red and ungated**: 100 violations, exit 1, referenced only by `package.json#test:ci`, which no workflow calls and no husky hook runs. | `catch-return-null=41`, `empty-catch=59`, scanned 781 files. Fixed by `a3` (two new ceiling rows, §3). |
 | 4 | §4's slice-6 family ordering **was 6 days stale** and pointed the next work at a family that had already been cleared. | `no-unsafe-member-access` 635 → 14; `require-await` 310 → absent. Corrected above. |
-| 5 | The `fileSizeOverCap` row **cannot see the gate itself**: `.husky/` is not one of the policy's four scope dirs, so the largest file the gate owns is never counted by the row it emits. Found by the QA leaf of rid `2026-09-30-cap-unify-01`, 2026-09-30. | `peaks-gate.mjs` = **985 raw lines**, 3.3× the cap it enforces; `git ls-files .husky` = 2 files, `fileSizeOverCap` contribution **0**. Recorded as a scope decision, not fixed: widening the scope to `.husky` would seed the row at 175 the moment it shipped, i.e. the ceiling would rise by re-deciding the scope, which §5 forbids. The honest statement is that the row watches `src`/`tests`/`packages`/`scripts` and does not watch the tooling that reports it. |
+| 5 | The `fileSizeOverCap` row **cannot see the gate itself**: `.husky/` is not one of the policy's four scope dirs, so the largest file the gate owns is never counted by the row it emits. Found by the QA leaf of rid `2026-09-30-cap-unify-01`, 2026-09-30. | `peaks-gate.mjs` = **985 raw lines**, 3.3× the cap it enforces; `git ls-files .husky` = 2 files, `fileSizeOverCap` contribution **0**. Recorded as a scope decision, not fixed: widening the scope to `.husky` would seed the row at 175 the moment it shipped, i.e. the ceiling would rise by re-deciding the scope, which §5 forbids. The honest statement is that the row watches `src`/`tests`/`packages`/`scripts` and does not watch the tooling that reports it. **RESOLVED 2026-10-02 without re-deciding the main scope**, exactly as this row predicted: `.husky` was NOT added to `FILE_SIZE_SCOPE_DIRS`; it got its own two rows (§3) from its own census block, so `fileSizeOverCap` stayed 162. The scope decision stands; the blindness does not. |
 | 6 | The census and `peaks scan file-size` **count different file sets on the untracked axis**: the census reads `git ls-files`, the scan reads the working tree. A 350-line `src/` file that exists on disk but is not staged is visible to the scan and invisible to the row. | Proved on 2026-09-30: with one untracked 350-line `src/` file present, `overCap` stayed **174**. This is the §4e index-versus-worktree gap wearing a third face. It is intended (the row must describe what a commit can contain), and the walk-guard test in `tests/unit/standards/file-size-cap.test.ts` asserts walk == git == tool == artifact so a drift here reddens a test rather than passing quietly. |
 | 7 | The scan and the census **did not agree on the directory-and-extension axis**: the census enumerated `git ls-files <the four policy dirs>` filtered by the policy's extensions, while the scan measured **every** changed non-exempt file against `fileSizeCapFor`'s else-branch 300 — including paths in neither list. So an out-of-scope file could redden `request transition` while contributing 0 to the row that ratchets the policy: no ceiling to descend, no split campaign with a duty to clear it, no verdict a contributor could act on. Found by the out-of-band review of rid `2026-09-30-cap-unify-01` (V1), 2026-09-30. | `fileSizeCapFor` is documented as defined only for `src`/`packages`/`scripts`/root `tests`; the scan called it on `.husky/*`, `docs/*`, `*.json`. **Fixed in the repair cycle**: the policy now exports `isPolicyMeasuredFile(dir AND extension)`, the scan skips files it answers `false` for and names them in the new `outOfScopeFiles` verdict (auditable, like `exemptFiles`), and the census filters its `git ls-files` list with the same predicate. An explicit `--threshold` still means "every file" — the caller named the number, not the policy. Arms: `tests/unit/services/scan/file-size-scan.test.ts`. |
 | 8 | The committed artifact **was stale on the per-file axis, and nothing guarded that freshness**: `ceilings` are cross-measured by the four readings above, but `files` (what the `staged` and `changed` legs compare a single file against) had no coverage assertion at all. | Measured 2026-09-30: `invocation.linted: 1424` with **no entries for the five files the slice that added the row had just created**, against a census scope of **1429**. A gate that has never seen a file cannot say it did not get worse. **Fixed**: `file-size-cap.test.ts` asserts every file the census counts has a `files` entry (and that the two counts agree), and the artifact was regenerated for this repair cycle. |
@@ -952,3 +954,54 @@ rather than hiding it: an `ADDED` row now waits for one measurement pass before 
 price of not refusing a legitimate seeding. The growth of the two `.husky/` files it touches (generator 750,
 module 662, +96 % combined today) is uncapped and unmeasured — backlog §2.32, and now the stronger version of
 itself.
+
+### 4q. Hooks rows — the guard started watching itself, through three repair cycles (2026-10-02, rid `2026-10-02-hooks-size-rows`)
+
+§4b row 5 had recorded, on 2026-09-30, that `fileSizeOverCap` cannot see the tooling that emits it. Joining
+`.husky` to the main scope was correctly rejected then, because at cap 300 the row would have been seeded
+higher on the day it shipped — a ceiling raised by re-deciding scope, which §5 forbids. The user picked the
+other shape for this: **give the invisible set rows of its own**, so the main pair never moves and the gate
+becomes a descender like any other debt.
+
+What landed, measured on the converged tree: `fileSizeHooksOverCap` **4**, `fileSizeHooksExcessLines` **1701**
+(`peaks-gate.mjs` 1019 +719, `-baseline.mjs` 799 +499, `-baseline-monotonic.mjs` 672 +372, `-file-size.mjs`
+411 +111), while `fileSizeOverCap` stayed **162** and `fileSizeExcessLines` stayed **54,318** — the disjointness
+is asserted, not assumed (`file-size-hooks-scope-leg.test.ts` has an arm whose whole job is that an over-cap
+hooks file moves the hooks rows and leaves the main pair alone). `tscErrors 0`, `prettierUnformatted 0`,
+`eslintFindings 2768`, `gate repo` exit 0 over **15 rows**, `pnpm build` exit 0 (`dist-stamp` 905 sources),
+unit **353 files / 3742 passed / 3 skipped**. The hooks enumeration is cross-measured by an independent
+recursive `readdirSync` walk in `tests/unit/lint/_file-size-hooks-walk.ts` that uses the policy's own
+`FILE_SIZE_SCOPE_EXTENSIONS` and never touches git — R2-5's independence proof showed walk 3 vs `git ls-files`
+2 on a throwaway repo, with the extra entry the untracked over-cap file.
+
+**Three repair cycles, because the first leaf died at the harness turn limit** (150 turns, 166 tool calls, no
+envelope), and each cycle found the next layer:
+
+- **cycle 1** was contracted as one character — `file-size-hooks-scope-leg.test.ts:244` opened a `describe`
+  with a single-quoted title containing an apostrophe (`git's list`), which produced all 14 `tsc` errors. The
+  leaf fixed it and **stopped when the damage turned out bigger than its contract**, reporting that tsc was 9
+  not 0 rather than widening its write set. Correct behavior, and it named the ordering trap: while `tscErrors`
+  measures non-zero the generator refuses to write, so the rows could not be seeded until the type layer was
+  clean.
+- **cycle 2** finished the fixture layer the dead leaf never wrote: `walkHooksScope` was imported by two files
+  and called by the fixture with **no definition anywhere**, `census()` referenced an out-of-scope `fixture`
+  binding, and `file-size-hooks-seeding.test.ts:241` was `const十三 =` — a missing space, so the declaration
+  never happened. It split the walk into its own helper to stay under the 500 cap (470/350/337/452), got
+  `tsc` to 0 and eslint to 0, and corrected a premise of mine: the arm at `:257` could not pass on the shape I
+  told it to match, because that line compared the over-cap list's length to `countedFiles` — two different
+  populations — so it added `scopedFiles` rather than weakening the comparator. It also caught a **tenth
+  defect**: an arm that anchored HEAD *with* the hooks rows present (the lift branch, where `git checkout` is
+  the right advice) while asserting the deferred branch's text, whose phrases are branch-exclusive in
+  `peaks-gate-baseline-monotonic.mjs`.
+- **cycle 3** was my fault, not the leaf's: my cycles-1/2 write sets excluded `baseline-monotonicity.test.ts`,
+  whose `C1`/`C4` arms compare the canonical key set against HEAD, and 13 vs 15 is exactly the transient state a
+  seeded-but-uncommitted row lives in. The leaf then corrected my *diagnosis* too — those arms already derived
+  from `CEILING_KEYS`; only the HEAD side of the comparison was asserting equality where the invariant is
+  **HEAD ⊆ CEILING_KEYS with absence the only tolerated difference**. That is the permanent form: every ceiling
+  row is born measured-before-committed, which is the property §2.35 exists to protect.
+
+**Two residues the last leaf reported and I did not fold in** (both outside a repair pass's remit):
+`.husky/peaks-gate-baseline-monotonic.mjs:124–129` still describes a `C1` that asserts the hooks rows stay red
+until the seeding commit lands — prose that the fix above just made false, i.e. the same defect class as §2.27's
+note-asserting-a-rule; and `file-size-hooks-seeding.test.ts:265` names a short-anchor vector `十三`, a second
+written-down copy of the number 13, which will rot the next time a row is added.

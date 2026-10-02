@@ -80,6 +80,10 @@ import {
   FS_CENSUS,
   FS_EXCESS_CEILING_KEY,
   FS_EXCESS_ROW_LABEL,
+  FS_HOOKS_CEILING_KEY,
+  FS_HOOKS_EXCESS_CEILING_KEY,
+  FS_HOOKS_EXCESS_ROW_LABEL,
+  FS_HOOKS_ROW_LABEL,
   FS_ROW_LABEL,
   TSX_CLI,
   describeInputTrips,
@@ -732,6 +736,13 @@ function fileSizeLeg(check, ceilings, files, controlArm = false) {
   // number the census did not produce.
   check(FS_ROW_LABEL, m.env.overCap, ceilings[FS_CEILING_KEY]);
   check(FS_EXCESS_ROW_LABEL, m.env.excessLines, ceilings[FS_EXCESS_CEILING_KEY]);
+  // THE SAME TWO QUANTITIES FOR THE SECOND SCOPE (rid `2026-10-02-hooks-size-rows`,
+  // backlog §2.32): `.husky/`, the directory the ratchet lives in, measured from the
+  // SAME census run as its own `hooks` block. Four rows, one census — which is why a
+  // census that cannot run, a ceiling that was never seeded, or a policy that moved
+  // under the ceiling takes all four down rather than printing the two that still fit.
+  check(FS_HOOKS_ROW_LABEL, m.env.hooks.overCap, ceilings[FS_HOOKS_CEILING_KEY]);
+  check(FS_HOOKS_EXCESS_ROW_LABEL, m.env.hooks.excessLines, ceilings[FS_HOOKS_EXCESS_CEILING_KEY]);
   return { refusal: null, envelope: m.env, controlArm };
 }
 
@@ -962,10 +973,10 @@ function fileSizeMode(argv) {
   if (failures.length > 0) {
     console.error(
       `peaks-gate: file-size ${size.controlArm ? 'CONTROL ARM ' : ''}breached — ` +
-        `${size.envelope.overCap} over-cap file(s) against ceiling ${ceiling}.\n`
+        'one or more of the four rows this leg ratchets is over its ceiling.\n'
     );
     for (const f of failures) console.error(`  ✗ ${f}`);
-    console.error('\nThis total only ever goes DOWN. Split the file; do not raise the ceiling.\n');
+    console.error('\nThese totals only ever go DOWN. Split the file; do not raise the ceiling.\n');
     return 1;
   }
 
@@ -978,7 +989,11 @@ function fileSizeMode(argv) {
     return 0;
   }
 
-  console.log(`peaks-gate: file-size ceiling held (${size.envelope.overCap} file(s) over cap).`);
+  console.log(
+    `peaks-gate: file-size ceiling held (${size.envelope.overCap} file(s) over cap in the ` +
+      `policy scope, ${size.envelope.hooks.overCap} over cap under .husky/ with ` +
+      `${size.envelope.hooks.excessLines} excess lines).`
+  );
   return 0;
 }
 

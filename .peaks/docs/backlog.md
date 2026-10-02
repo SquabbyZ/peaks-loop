@@ -1457,6 +1457,13 @@ invites exactly the kind of "is this stale / from another run?" misjudgement thi
 recording. Not fixed here: it is a naming bug in the init path, it needs a test that asserts the written
 filename equals the rid, and that test must fail against today's behavior before anything changes.
 
+**MECHANISM PROVEN 2026-10-02, and it is not a year.** `src/shared/incrementing-number.ts:23–30` takes
+`/^(\d+)-/` over every `.md` in the requests dir and returns `Math.max(...numbers) + 1`. A dated artifact
+(`2026-10-02-x.md`) therefore contributes **2026** as a sequence number, so the first numbered sibling of any
+rid in that directory is `2027-`, and each further `request init` increments. This predicted the observed
+`2027 … 2038` exactly — the counter is real, it is just fed dates as integers. See
+`.peaks/docs/diagnosis-2026-10-02-cli-build-drift-recheck.md`.
+
 ### 2.26 The request-record placeholder lint flags real shell syntax, and `LINT_GATE_FAILED` never says which artifact (found 2026-10-01, C wave 6)
 
 `peaks request transition --role rd --state implemented` refused C wave 6 with **"6 lint error(s)
@@ -1474,6 +1481,14 @@ token". Two separate defects, both cheap to describe and neither fixed here:
 2. **A refusal that names no artifact is undiagnosable from the user's side.** The envelope should carry
    the path it linted (and the sibling set it covered) — otherwise the only way to find out is to
    grep every file in the session dir for `<`, which is what happened here.
+
+**NARROWED + HALF CONFIRMED 2026-10-02 (re-check pass).** The heuristic strips **inline code spans** before
+applying its rules (`src/services/artifacts/artifact-lint-service.ts:75–77`), measured with a probe artifact
+carrying both forms: a backticked `` `git show HEAD:<path>` `` produced **no** finding, a bare `<percent>`
+produced one — on both the repo build and the installed one. So half 1 is not "documenting what you ran is
+punished"; it is "a metavariable outside a code span is punished", and the remedy is the code-span convention.
+Half 2 is confirmed in current source: `src/services/artifacts/request-artifact-state-helpers.ts:75–76` builds
+"…6 lint error(s) found in artifact." with no path, while `request lint`'s own envelope does carry `path`.
 
 ### 2.27 `peaks-gate-baseline.mjs` has no monotonicity check — it raised `prettierUnformatted` 0 → 7 and wrote it (found 2026-10-01, C wave 7 convergence)
 
@@ -1579,7 +1594,7 @@ read from the on-disk ledger so a CLI invocation observes what the dispatching r
 must be `false` (or the command must fail) when the named batch is absent from the ledger, so "nothing to
 clean" is distinguishable from "cleaned it".
 
-### 2.30 The request state machine refuses real shell syntax but accepts an unfilled template (found 2026-10-02; extends §2.25 and §2.26)
+### 2.30 ~~The request state machine refuses real shell syntax but accepts an unfilled template~~ (found 2026-10-02; **central claim retracted 2026-10-02** — see the note at the end of this entry; extends §2.25 and §2.26)
 
 §2.26 recorded `request transition` refusing an honest envelope over the literal token
 `` `git show HEAD:<path>` ``. It now has a mirror-image counterpart, and the pair together says the lint is
@@ -1604,6 +1619,15 @@ instead. `2031`/`2032` were filled the same day and show the intended shape: the
 hand-authored records by path (the 239-line row-slice record, the five `…-w7-N.md` leaf records) rather than
 copying them, so the numbered artifact is an index with ceilings, not a second version of the evidence.
 
+**CENTRAL CLAIM RETRACTED 2026-10-02 (re-check pass).** The state machine did not accept a placeholder body:
+`request-commands.ts:790–798` calls `lintRequestArtifact` on transition, `2030`'s own note records
+`LINT_GATE_FAILED … 6 findings`, and *I* moved it to `implemented` with `--allow-incomplete`. I blamed the gate
+for my own bypass. Also already implemented, not outstanding: `request init` refuses to mint a second artifact
+for a rid that exists (`request-artifact-service.ts:230–247`, verified by dry-run) — the duplicates I
+documented were minted through the stale 2026-09-24 build (§2.36). What survives of this entry is the
+duplication itself (one rid, a numbered artifact and a hand-authored record, both listed by `request list`) and
+the `20NN-` prefix mechanism proven in §2.25.
+
 ### 2.31 Leaf stderr scratch reached the repo root and was committed at convergence (introduced by C wave 7 `w7-1`, found 2026-10-02)
 
 `git show --stat 78f764cb` listed, among the 29 source and test files, five zero-byte files **at the
@@ -1620,7 +1644,7 @@ whose basename matches a leaf's target, 0-byte tracked files) and not only by `g
 brief must pin scratch destinations to an absolute path under the session's runtime dir — a redirect that
 depends on cwd is a leak waiting for the next `cd`.
 
-### 2.32 `.husky/` is capped by nothing, and the CLI that would have shown you that reports a flattering number (found 2026-10-02, C wave 8)
+### 2.32 `.husky/` is capped by nothing (half 1 of this entry — "the CLI reports a flattering number" — was a **stale install**, corrected below; found 2026-10-02, C wave 8)
 
 The file-size policy measures four directories (`src`, `tests`, `packages`, `scripts`) over seven extensions.
 `policyCapFor` (`src/services/scan/file-size-scan.ts:171`) returns `null` for anything outside that set, and
@@ -1658,6 +1682,19 @@ Two fixes, both small, neither in this backlog entry's remit: (1) the CLI's file
 if a path appears in neither `checked`, `exempt`, `deleted`, nor `outOfScope`; (2) decide in daylight whether
 `.husky/` belongs in the policy's measured set — it holds the ratchet itself, so a growth there is a growth in
 the guard, which is the one place a cap is not optional.
+
+
+**CLOSED 2026-10-02 (half 2), rid `2026-10-02-hooks-size-rows`.** `.husky` was NOT folded into the main scope —
+that would have raised `fileSizeOverCap`, which is the rule this file is built around. It got two rows of its
+own instead, `fileSizeHooksOverCap` **4** and `fileSizeHooksExcessLines` **1701**, seeded from a new `hooks`
+block in the census envelope and bound to their own cap / dirs / extensions / convention exactly like the main
+pair, so `peaks-gate.mjs` 1019 (+719), `-baseline.mjs` 799 (+499), `-baseline-monotonic.mjs` 672 (+372) and
+`-file-size.mjs` 411 (+111) are now a descending schedule rather than an unmeasured directory. Across the whole
+change `fileSizeOverCap` stayed **162** and `fileSizeExcessLines` stayed **54,318**, and the disjointness of the
+two scopes is asserted by an arm rather than by prose. See `.peaks/docs/lint-gate.md` §4q for the three repair
+cycles this needed, including why a seeded-but-uncommitted ceiling row makes "HEAD equals the canonical list"
+temporarily false by design (§2.35's property, now exercised for real: the generator was run twice before the
+commit and both runs exited 0).
 
 ### 2.33 The monotonicity guard's previous side is the file it guards, so the artifact is still the trust anchor for a weakening (found 2026-10-02 by out-of-band review of C wave 8)
 
@@ -1804,6 +1841,13 @@ refusing a legitimate seeding. Two residues it reported rather than folding in: 
 label can read "measured by this run" for a disk-side problem, and three lines of the generator (206/222/247)
 are prettier-dirty from repair cycle 1 — outside every prettier scope, so no row moves, but they belong to the
 §2.32 decision rather than to this slice.
+
+**Exercised for real 2026-10-02 (rid `2026-10-02-hooks-size-rows`).** This was not left as a claimed property:
+that slice seeded `fileSizeHooksOverCap` and `fileSizeHooksExcessLines` and the generator was run **twice** in
+a row against the real repository before committing. Both runs exited 0, both printed the rows under
+`NEWLY SEEDED`, and the ceilings and `files` tables were byte-identical between them. Had §2.35 still been
+open, the second run would have refused and told the operator to `git checkout` the artifact — i.e. to delete
+the two rows the first run had legitimately measured.
 
 
 **CORRECTED 2026-10-02 — the CLI half of this entry was my instrument, and the correction is bigger than the

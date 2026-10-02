@@ -376,13 +376,25 @@ async function canonicalVector(
 }
 
 describe('Scenario: behavior — one canonical ceiling key list, compared by set equality', () => {
-  it('C1 — the list should name each ceiling key exactly once, and HEAD and the published artifact should carry exactly those keys', async () => {
+  it('C1 — the list should name each ceiling key exactly once, the published artifact should carry exactly those keys, and HEAD should carry a subset of them', async () => {
     const { keys } = await loadCanonical();
     const unique = [...new Set(keys)].sort();
     expect(keys.length, `CEILING_KEYS carries a duplicate: ${keys.join(', ')}`).toBe(unique.length);
     expect(unique.length).toBeGreaterThan(0);
+    // The published artifact is the generator's own output, so it gets no waiver: a row
+    // it does not carry is a row nobody measured. The list's strictness lives here.
     expect(sortedKeys(publishedCeilings())).toEqual(unique);
-    expect(sortedKeys(headCeilings())).toEqual(unique);
+    // HEAD is allowed to lag the list, in exactly one direction. A ceiling row is born
+    // measured into the working copy BEFORE HEAD knows it exists — backlog §2.35 defers
+    // an added disk row to the measurement instead of refusing it — so pinning HEAD to
+    // `unique` asserted something the seeding path makes temporarily false on every slice
+    // that adds a row. What may never differ is WHICH rows HEAD carries: a row not on
+    // the list, invented or renamed, is a defect whether or not HEAD has caught up with
+    // the list yet. Once the seed is committed the two sets are equal again and this arm
+    // has said nothing either way; C4 holds the rows HEAD does carry to a real ceiling.
+    const headKeys = sortedKeys(headCeilings());
+    const offList = headKeys.filter((key) => !unique.includes(key));
+    expect(offList, `HEAD carries row(s) no slice sanctioned: ${offList.join(', ')}`).toEqual([]);
   });
 
   it('C2 — a vector carrying a row that is not on the list should report that key with the side it came from', async () => {
@@ -433,7 +445,11 @@ describe('Scenario: behavior — one canonical ceiling key list, compared by set
     // The real data, unfiltered: this is what secondary defect (b) was — a junk
     // row the old comparison sorted out of existence instead of refusing.
     expect(problems('the published artifact', publishedCeilings())).toEqual([]);
-    expect(problems('HEAD artifact', headCeilings())).toEqual([]);
+    // HEAD gets the anchor's waiver, and only for absence: a canonical row it has not
+    // carried yet is a row awaiting its first seeding (C1), while every row it DOES
+    // carry has to be on the list and has to hold a finite non-negative integer — true
+    // with the seed uncommitted, and still true after the commit makes the sets equal.
+    expect(problems('HEAD artifact', headCeilings(), { allowMissing: true })).toEqual([]);
   });
 
   it('C5 — a row HEAD does not carry is seedable only when the working copy does not carry it either', async () => {

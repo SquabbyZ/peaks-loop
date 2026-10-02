@@ -45,6 +45,35 @@ export const FS_EXCESS_CEILING_KEY = 'fileSizeExcessLines';
 export const FS_EXCESS_ROW_LABEL = 'file-size excess lines';
 /** The string the census uses when it counted its own scope — i.e. the row itself. */
 export const FS_WHOLE_SCOPE_SOURCE = 'git ls-files <policy dirs>';
+/**
+ * THE THIRD AND FOURTH ROWS THIS LEG RATCHETS: the same two quantities — files over
+ * cap, lines over those caps — for the SECOND SCOPE, `.husky/`, the directory the
+ * ratchet itself lives in (backlog §2.32, rid `2026-10-02-hooks-size-rows`).
+ *
+ * WHY THEY ARE NOT A FIFTH DIRECTORY IN THE FIRST SCOPE. `FILE_SIZE_SCOPE_DIRS`
+ * covers `src`, `tests`, `packages` and `scripts`; `.husky` is in none of them, so
+ * the files that implement this policy were measured by nothing — `peaks-gate.mjs`,
+ * `peaks-gate-baseline.mjs` and `peaks-gate-baseline-monotonic.mjs` reached 1004 /
+ * 750 / 662 raw lines in a day with no ceiling watching, while `prettierUnformatted`
+ * stayed 0 because the prettier leg cannot see them either. Joining them to the main
+ * rows at cap 300 would raise `fileSizeOverCap` 162 → 165 and `fileSizeExcessLines`
+ * 54,318 → 55,834 (+1,516), which is a policy re-decision, and the monotonicity
+ * guard refuses it correctly. So the invisible set gets its own measured pair, and
+ * growth in the guard becomes a row that may only go DOWN.
+ *
+ * THE SAME THREE PROPERTIES AS THE PAIR ABOVE, OR LESS THAN NOTHING: seeded from the
+ * census's own `hooks` block, re-derived against the inputs recorded beside them, and
+ * unable to print one of the four numbers without the other three.
+ */
+export const FS_HOOKS_CEILING_KEY = 'fileSizeHooksOverCap';
+/** The label `check()` prints for the hooks over-cap row. */
+export const FS_HOOKS_ROW_LABEL = 'file-size hooks over cap';
+/** The hooks scope's excess-lines row: the LINES over the hooks cap, not the files. */
+export const FS_HOOKS_EXCESS_CEILING_KEY = 'fileSizeHooksExcessLines';
+/** The label `check()` prints for the hooks excess row. */
+export const FS_HOOKS_EXCESS_ROW_LABEL = 'file-size hooks excess lines';
+/** The string the census uses when it counted the hooks scope itself. */
+export const FS_HOOKS_WHOLE_SCOPE_SOURCE = 'git ls-files <hooks dirs>';
 
 /**
  * The control-arm flag. A named-file list is not the row (see
@@ -58,6 +87,43 @@ export function parseFileSizeArgv(argv) {
     controlArm: argv.includes(FS_CONTROL_ARM_FLAG),
     files: argv.filter((arg) => arg !== FS_CONTROL_ARM_FLAG)
   };
+}
+
+/**
+ * Why a census envelope's `hooks` block may not be believed, or `null` when it may.
+ *
+ * The same fail-closed posture as `missingFileSizeCeilings`, one layer up: the two
+ * hooks rows share the main census run, so an envelope that stopped reporting the
+ * second scope has not measured it. `overCap: 0` is exactly what "the `.husky/` debt
+ * is cleared" looks like, and it is also what a census that never counted the scope
+ * looks like — the distinction is the entire content of the row.
+ *
+ * A `countedFiles` of 0 is NOT a trip here, unlike the main scope: a `.husky` with no
+ * policy-extension files is a measured zero. What makes it trustworthy is upstream —
+ * `scripts/lint/file-size-census-hooks.ts` crashes rather than enumerating a hooks
+ * directory that is gone, so a run that reports 0 counted files did look at the
+ * directory and found nothing in it.
+ */
+export function hooksEnvelopeProblem(hooks) {
+  if (hooks === null || typeof hooks !== 'object' || Array.isArray(hooks)) {
+    return `produced no \`hooks\` block, so the ${FS_HOOKS_CEILING_KEY} row would be a number nobody measured`;
+  }
+  if (!Number.isInteger(hooks.overCap) || hooks.overCap < 0) {
+    return 'produced a hooks block with no non-negative integer overCap';
+  }
+  if (!Number.isInteger(hooks.excessLines) || hooks.excessLines < 0) {
+    return 'produced a hooks block with no non-negative integer excessLines';
+  }
+  if (!Number.isInteger(hooks.scope?.countedFiles) || hooks.scope.countedFiles < 0) {
+    return 'produced a hooks block whose countedFiles is not a non-negative integer';
+  }
+  if (!Number.isInteger(hooks.caps?.hooksCap) || hooks.caps.hooksCap <= 0) {
+    return 'produced a hooks block with no usable hooksCap to bind its ceiling to';
+  }
+  if (typeof hooks.convention !== 'string' || hooks.convention === '') {
+    return 'produced a hooks block that does not name the line convention it counted in';
+  }
+  return null;
 }
 
 /**
@@ -106,6 +172,11 @@ export function measureFileSizeOverCap(files = [], cwd = process.cwd()) {
   if (!Number.isInteger(env.scope?.countedFiles) || env.scope.countedFiles <= 0) {
     return refuse(`${FS_CENSUS} counted 0 files, so it measured nothing`);
   }
+  // THE SECOND SCOPE TRIPS THE SAME WAY. One census run feeds four rows, so a
+  // hooks block that is missing or malformed is not a reason to print the main pair
+  // and skip the rest — it is a reason to print nothing (`§2.32`).
+  const hooksProblem = hooksEnvelopeProblem(env.hooks);
+  if (hooksProblem !== null) return refuse(`${FS_CENSUS} ${hooksProblem}`);
   return { failure: null, env };
 }
 
@@ -135,20 +206,25 @@ export function refuseScopedSubset({ controlArm, files }) {
 }
 
 /**
- * The refusal for a baseline that carries no ceiling for one or both of this leg's
+ * The refusal for a baseline that carries no ceiling for one or more of this leg's
  * rows, or `null` when the leg has numbers to compare against.
  *
- * WHY IT IS HERE AND WHY IT KNOWS BOTH KEYS. The leg's rows share one census run, so
- * a missing ceiling has to take BOTH down: seeding `fileSizeExcessLines` while
+ * WHY IT IS HERE AND WHY IT KNOWS ALL FOUR KEYS. The leg's rows share one census run,
+ * so a missing ceiling has to take them ALL down: seeding `fileSizeExcessLines` while
  * leaving the guard keyed on `fileSizeOverCap` alone would let the over-cap row print
- * a green next to a number that was never measured against anything. The gate used to
+ * a green next to a number that was never measured against anything, and adding the
+ * two hooks rows (§2.32) while keeping a two-key guard would let the main pair print
+ * `held` next to a `.husky/` scope the baseline had never seeded. The gate used to
  * spell this refusal inline for one key; the key list and the text now live beside
  * the measurement they guard (F5 of the cap-unify review).
  */
 export function missingFileSizeCeilings(ceilings) {
-  const missing = [FS_CEILING_KEY, FS_EXCESS_CEILING_KEY].filter(
-    (key) => !Number.isInteger(ceilings[key])
-  );
+  const missing = [
+    FS_CEILING_KEY,
+    FS_EXCESS_CEILING_KEY,
+    FS_HOOKS_CEILING_KEY,
+    FS_HOOKS_EXCESS_CEILING_KEY
+  ].filter((key) => !Number.isInteger(ceilings[key]));
   if (missing.length === 0) return null;
   return (
     `REFUSING to measure the file-size leg — the baseline has no ceiling for ${missing.join(', ')}.\n` +
@@ -194,6 +270,20 @@ export function fileSizeInputTrips(envelope, artifact) {
     ['scope dirs', 'scope.dirs', 'scopeDirs'],
     ['scope extensions', 'scope.extensions', 'scopeExtensions']
   ];
+  // THE SECOND SCOPE'S INPUTS ARE BOUND THE SAME WAY (§2.32). A hooks ceiling that
+  // ratchets a number while its cap, its directories, its extension list or its unit
+  // can be re-decided underneath it is the F2 hole wearing a new label: measured on
+  // 2026-09-30, re-deciding the main cap moved the row 174 → 40 and the gate stayed
+  // green. Keyed on the hooks block's own source, because a control-arm run does not
+  // measure the row and the leg disclaims it instead.
+  if (envelope.hooks?.scope?.source === FS_HOOKS_WHOLE_SCOPE_SOURCE) {
+    pairs.push(
+      ['hooks line convention', 'hooks.convention', 'hooksLineConvention'],
+      ['hooks cap', 'hooks.caps.hooksCap', 'hooksCap'],
+      ['hooks scope dirs', 'hooks.scope.dirs', 'hooksScopeDirs'],
+      ['hooks scope extensions', 'hooks.scope.extensions', 'hooksScopeExtensions']
+    );
+  }
   const trips = [];
   for (const [label, envelopePath, recordedKey] of pairs) {
     const seeded = asText(recorded[recordedKey] ?? artifact[recordedKey]);
@@ -230,6 +320,23 @@ export function describeFileSizeEnvelope(env) {
 }
 
 /**
+ * The same line of evidence for the second scope, naming the files it counted — the
+ * `.husky/` scope is four or five files, so its row is checkable from the log without
+ * re-running the census, which is precisely what the main pair has never been able to
+ * say about this directory.
+ */
+export function describeHooksFileSizeEnvelope(env) {
+  const hooks = env.hooks;
+  const files = (hooks.files ?? []).map((entry) => `${entry.file} ${entry.lines}`).join(', ');
+  return (
+    `  hooks scope note: the census counted ${hooks.scope.countedFiles} hooks file(s) in ` +
+    `${hooks.scope.source} against cap ${hooks.caps.hooksCap} raw lines (${hooks.convention}); ` +
+    `${hooks.overCap} over cap, ${hooks.excessLines} excess lines` +
+    (files === '' ? '.' : ` (${files}).`)
+  );
+}
+
+/**
  * What a control arm measured, stated as itself: the count of the NAMED FILES, and
  * a refusal to be read as the repo row. Printed instead of `ceiling held` — the
  * sentence F1 found being said about a measurement that had not been made.
@@ -240,7 +347,10 @@ export function describeControlArmRun(env, ceiling) {
     `file(s) the caller named, not the census scope, so ${env.overCap} over cap is a ` +
     `statement about those files alone. ${FS_CEILING_KEY} counts ${FS_WHOLE_SCOPE_SOURCE} ` +
     `(ceiling ${ceiling}); run \`node .husky/peaks-gate.mjs file-size\` with no paths for ` +
-    'it. Do not read this exit code as the repo holding.'
+    'it. The two hooks rows are disclaimed in the same breath: a named list is not the ' +
+    `${FS_HOOKS_WHOLE_SCOPE_SOURCE} scope either, so ${FS_HOOKS_CEILING_KEY} and ` +
+    `${FS_HOOKS_EXCESS_CEILING_KEY} are not claimed by this run. Do not read this exit ` +
+    'code as the repo holding.'
   );
 }
 
@@ -282,6 +392,14 @@ export function printFileSizeLeg(
         ? describeControlArmRun(size.envelope, ceiling)
         : describeFileSizeEnvelope(size.envelope)
     );
+    // The second scope's evidence, on the same rule as the first: printed for a run
+    // that measured the row, not printed for one that did not. `hooks` is absent only
+    // on a synthetic envelope — a real census that cannot report it has already been
+    // refused by `hooksEnvelopeProblem`, so a leg never reaches this line with a
+    // number it cannot explain.
+    if (!size.controlArm && size.envelope.hooks) {
+      write('out', describeHooksFileSizeEnvelope(size.envelope));
+    }
   }
   if (size.refusal !== null) {
     write('err', `peaks-gate: ${size.refusal}`);

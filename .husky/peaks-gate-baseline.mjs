@@ -62,6 +62,7 @@ import prettier from 'prettier';
 // is only ever run in place (see the comment on that import).
 import {
   FS_CEILING_KEY,
+  FS_HOOKS_WHOLE_SCOPE_SOURCE,
   FS_WHOLE_SCOPE_SOURCE,
   measureFileSizeOverCap
 } from './peaks-gate-file-size.mjs';
@@ -203,7 +204,9 @@ function readGitShowHead(path) {
         problem: 'git could not be run at all (ENOENT), and the previous ceilings live in git'
       };
     }
-    const first = String(err.stderr ?? err.message).split('\n')[0].trim();
+    const first = String(err.stderr ?? err.message)
+      .split('\n')[0]
+      .trim();
     return { text: null, problem: `HEAD has no readable artifact (${first})` };
   }
 }
@@ -219,7 +222,11 @@ function readWorkingCopyCeilings() {
   try {
     text = readFileSync(OUT_PATH, 'utf8');
   } catch (err) {
-    return { state: 'unreadable', ceilings: null, problem: `could not be read (${err.code ?? err.message})` };
+    return {
+      state: 'unreadable',
+      ceilings: null,
+      problem: `could not be read (${err.code ?? err.message})`
+    };
   }
   if (text.trim() === '') return { state: 'empty', ceilings: null, problem: 'is empty' };
   const parsed = parsePreviousArtifact(text);
@@ -244,7 +251,8 @@ if (anchorProblem === null) {
 // on the documented `--seed` path instead of silently seeding every canonical row.
 if (anchorProblem === null && missingCanonicalKeys(anchorCeilings).length === CEILING_KEYS.length) {
   anchorCeilings = null;
-  anchorProblem = `has no canonical ceiling row at all (${HEAD_REF} carries an empty or ` +
+  anchorProblem =
+    `has no canonical ceiling row at all (${HEAD_REF} carries an empty or ` +
     'unrecognised `ceilings` block)';
 }
 const workingCopy = readWorkingCopyCeilings();
@@ -572,6 +580,14 @@ console.error(
     `(${size.env.caps.defaultCap}/${size.env.caps.testsCap} raw lines; ${sizeBuckets}; ` +
     `${size.env.excessLines} excess lines)`
 );
+// THE SECOND SCOPE IS PRINTED WITH ITS OWN INPUTS, not folded into the line above:
+// `.husky/` has its own cap, its own enumeration and its own rows (§2.32), and a
+// reader of this run has to be able to tell the two populations apart.
+console.error(
+  `file-size hooks: ${size.env.hooks.overCap} of ${size.env.hooks.scope.countedFiles} file(s) ` +
+    `over the hooks cap (${size.env.hooks.caps.hooksCap} raw lines in ${size.env.hooks.scope.source}; ` +
+    `${size.env.hooks.excessLines} excess lines)`
+);
 
 // The ceiling describes the ROW, so it may only be seeded from the census's own
 // whole-scope run. An explicit-path run counts whatever it is handed.
@@ -581,6 +597,18 @@ if (size.env.scope.source !== FS_WHOLE_SCOPE_SOURCE) {
       `"${size.env.scope.source}" instead of "${FS_WHOLE_SCOPE_SOURCE}", so its overCap is not ` +
       'the number the gate ratchets.\n  Nothing has been written; the existing ceilings are ' +
       'untouched.\n'
+  );
+  process.exit(1);
+}
+// THE HOOKS ROWS ARE SEEDED ON THE SAME TERM (§2.32): a hooks block counted from a
+// named file list describes those files, not the `.husky/` scope, and a ceiling
+// seeded from it would be a permission nobody measured.
+if (size.env.hooks.scope.source !== FS_HOOKS_WHOLE_SCOPE_SOURCE) {
+  console.error(
+    `\nREFUSING to write ${rel(OUT_PATH)}: the census reported hooks source ` +
+      `"${size.env.hooks.scope.source}" instead of "${FS_HOOKS_WHOLE_SCOPE_SOURCE}", so its ` +
+      'hooks counts are not the numbers the gate ratchets.\n  Nothing has been written; the ' +
+      'existing ceilings are untouched.\n'
   );
   process.exit(1);
 }
@@ -598,7 +626,7 @@ for (const file of scope) {
   };
 }
 
-// THE THIRTEEN ROWS, assembled before the artifact is written, because they are
+// THE FIFTEEN ROWS, assembled before the artifact is written, because they are
 // what the comparison below reads. Nothing here may type a number: every value is
 // a measurement this run made, for the same reason the census and the
 // silent-warning rows refuse a literal.
@@ -615,6 +643,17 @@ const ceilings = {
   silentWarningCatchReturnNull: sw.catchReturnNull,
   silentWarningEmptyCatch: sw.emptyCatch,
   fileSizeOverCap: size.env.overCap,
+  // THE SAME ENVELOPE, THE OTHER SCOPE (rid `2026-10-02-hooks-size-rows`, §2.32):
+  // the files over the cap and the LINES over those caps, counted over `.husky/` —
+  // the directory the ratchet itself lives in, which was outside
+  // `FILE_SIZE_SCOPE_DIRS` and so was measured by nothing at all. Both come off the
+  // SAME census run's `hooks` block, and neither may be typed. They sit BEFORE
+  // `fileSizeExcessLines` deliberately: the fixture arms of
+  // `tests/unit/lint/baseline-monotonicity-seeding.test.ts` anchor their own
+  // patch-on-a-copy on the last row of this object, and a new row that lands after
+  // it silently un-anchors that guard.
+  fileSizeHooksOverCap: size.env.hooks.overCap,
+  fileSizeHooksExcessLines: size.env.hooks.excessLines,
   // THE SAME ENVELOPE, THE OTHER UNIT (rid `2026-10-01-file-size-excess-row`):
   // the files over cap above, and the LINES over those caps. Nothing may type
   // this number either — it is the census's own `excessLines`, the figure the
@@ -734,7 +773,17 @@ writeFileSync(
         defaultCap: size.env.caps.defaultCap,
         testsCap: size.env.caps.testsCap,
         scopeDirs: size.env.scope.dirs,
-        scopeExtensions: size.env.scope.extensions
+        scopeExtensions: size.env.scope.extensions,
+        // THE SECOND SCOPE'S INPUTS, RECORDED THE SAME WAY (§2.32). The hooks rows
+        // ratchet a number produced by a cap, a directory list, an extension list and
+        // a unit; without these four fields a re-decision of any of them would move
+        // `fileSizeHooksOverCap`'s meaning and the gate would call that green. They
+        // come off the envelope's `hooks` block, so this generator cannot record an
+        // input it did not measure.
+        hooksCap: size.env.hooks.caps.hooksCap,
+        hooksScopeDirs: size.env.hooks.scope.dirs,
+        hooksScopeExtensions: size.env.hooks.scope.extensions,
+        hooksLineConvention: size.env.hooks.convention
       },
       coverageGapFiles,
       syntaxErrorFiles,

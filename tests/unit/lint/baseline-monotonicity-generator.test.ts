@@ -122,16 +122,19 @@ const TSC_STUB = "process.stdout.write('');\n";
 const DETECTOR_STUB =
   "console.log(JSON.stringify({ scannedFiles: 3, byRule: { 'catch-return-null': 1, 'empty-catch': 2 } }));\n";
 /**
- * The census envelope, in the shape `.husky/peaks-gate-file-size.mjs` requires.
- * Its `scope.source` must be the whole-scope spelling or the generator refuses
- * for a reason that has nothing to do with this slice — which is the point of
- * feeding it a real envelope rather than a mock return value.
+ * The census envelope, in the shape `.husky/peaks-gate-file-size.mjs` requires. Its
+ * `scope.source` must be the whole-scope spelling or the generator refuses for a
+ * reason that has nothing to do with this slice — which is the point of feeding it a
+ * real envelope rather than a mock return value. The `hooks` block is the second
+ * scope's census (§2.32): `hooksEnvelopeProblem` refuses an envelope without it, so a
+ * fixture that stopped reporting it would be a fixture that measures nothing.
  */
 const CENSUS_STUB =
   'process.stdout.write(JSON.stringify({ overCap: 1, excessLines: 9, ' +
   "convention: 'split(String.fromCharCode(10)).length', caps: { defaultCap: 300, testsCap: 500 }, " +
   "scope: { countedFiles: 3, source: 'git ls-files <policy dirs>', dirs: ['src'], " +
-  "extensions: ['ts'] }, byDir: { src: { files: 3 } } }) + '\\n');\n";
+  "extensions: ['ts'] }, byDir: { src: { files: 3 } }, " +
+  "hooks: { overCap: 1, excessLines: 4, caps: { hooksCap: 300 }, convention: 'split(String.fromCharCode(10)).length', scope: { countedFiles: 2, source: 'git ls-files <hooks dirs>', dirs: ['.husky'], extensions: ['mjs'] }, files: [] } }) + '\\n');\n";
 const PRETTIER_PACKAGE =
   '{"name":"prettier","version":"0.0.0-fixture","type":"module","exports":{".":"./index.mjs"}}\n';
 

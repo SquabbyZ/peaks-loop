@@ -16,11 +16,14 @@
 // the same reason: a ceiling that was typed in is a ceiling nobody measured, and
 // that is the failure 3db079d3 and ebee68ce just fixed in the build guard.
 //
-// ONE UNIT, ONE SCOPE. The caps, the dirs, the extensions and the meaning of
-// "line" all come from `src/services/scan/file-size-policy.ts`. Restating any of
-// them here would recreate the defect this slice removes, so
+// ONE UNIT, ONE POLICY, TWO SCOPES. The caps, the dirs, the extensions and the
+// meaning of "line" all come from `src/services/scan/file-size-policy.ts`. Restating
+// any of them here would recreate the defect this slice removes, so
 // `tests/unit/standards/file-size-cap.test.ts` walks the filesystem on its own
-// and fails when a second copy appears.
+// and fails when a second copy appears. The envelope carries the main scope at the
+// top level and the `.husky/` scope in a `hooks` block of the same shape
+// (`file-size-census-hooks.ts`) — two rows for two populations that share no
+// directory, not one number for a union nobody decided.
 //
 // SCOPE IS `git ls-files`, not a walk. Deliberate: it is the set the gate lints
 // and the set a push carries, so an untracked scratch file cannot inflate the row
@@ -46,9 +49,12 @@ import {
   fileSizeCapFor,
   fileSizeCaps,
   fileSizeScopeBucket,
+  hooksFileSizeCaps,
+  isHooksMeasuredFile,
   isPolicyMeasuredFile,
   normalizePolicyPath
 } from '../../src/services/scan/file-size-policy.js';
+import { hooksCensusOf, hooksTrackedFiles } from './file-size-census-hooks.js';
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
@@ -69,6 +75,9 @@ type CensusBucket = {
   files: number;
   excessLines: number;
 };
+
+/** The second scope's block, as `file-size-census-hooks.ts` measures it. */
+type HooksEnvelope = ReturnType<typeof hooksCensusOf>;
 
 /**
  * Every tracked file inside the policy's scope, as POSIX repo-relative paths —
@@ -111,7 +120,7 @@ function overCapEntry(file: string): CensusEntry | null {
 }
 
 /** The envelope: counts, per-bucket totals, and the over-cap list itself. */
-function censusOf(files: readonly string[], source: string) {
+function censusOf(files: readonly string[], source: string, hooks: HooksEnvelope) {
   const entries: CensusEntry[] = [];
   for (const file of files) {
     const entry = overCapEntry(file);
@@ -152,7 +161,12 @@ function censusOf(files: readonly string[], source: string) {
     overCap: entries.length,
     excessLines,
     byDir,
-    files: entries.sort((a, b) => b.excess - a.excess || a.file.localeCompare(b.file))
+    files: entries.sort((a, b) => b.excess - a.excess || a.file.localeCompare(b.file)),
+    // THE SECOND SCOPE, IN ITS OWN BLOCK (§2.32). Not a fifth `byDir` bucket: the
+    // main rows count four directories and the hooks rows count one, and a bucket
+    // that mixed them would let `.husky/` growth move `fileSizeOverCap` — which is
+    // the re-decision the monotonicity guard exists to refuse.
+    hooks
   };
 }
 
@@ -166,7 +180,13 @@ function censusOf(files: readonly string[], source: string) {
  */
 function assertPolicyResolves(): void {
   const caps = fileSizeCaps();
-  for (const cap of [caps.defaultCap, caps.testsCap, fileSizeCapFor('src/x.ts')]) {
+  const capValues = [
+    caps.defaultCap,
+    caps.testsCap,
+    fileSizeCapFor('src/x.ts'),
+    hooksFileSizeCaps().hooksCap
+  ];
+  for (const cap of capValues) {
     if (!Number.isInteger(cap) || cap <= 0) {
       throw new Error(
         `file-size policy resolved to no usable cap (${String(cap)}) — refusing to count`
@@ -186,13 +206,22 @@ function assertPolicyResolves(): void {
 function main(): number {
   assertPolicyResolves();
   const argv = process.argv.slice(2);
+  const explicit = argv.some((arg) => !arg.startsWith('--'));
   const paths = argv.filter((arg) => !arg.startsWith('--')).map(toRepoRelative);
-  const files = paths.length > 0 ? paths : scopedTrackedFiles();
-  const source =
-    paths.length > 0 ? 'explicit paths (caller-supplied)' : 'git ls-files <policy dirs>';
-  const envelope = censusOf(files, source);
+  const files = explicit ? paths : scopedTrackedFiles();
+  // The two scopes enumerate separately and filter through their own predicate, so
+  // a file can be counted by one block and not the other — which is the whole reason
+  // this is a second pair of rows rather than a fifth directory in the first scope.
+  const hooksFiles = explicit
+    ? paths.filter((file) => isHooksMeasuredFile(file))
+    : hooksTrackedFiles(REPO_ROOT);
+  const hooks = hooksCensusOf(REPO_ROOT, hooksFiles, explicit);
+  const source = explicit ? 'explicit paths (caller-supplied)' : 'git ls-files <policy dirs>';
+  const envelope = censusOf(files, source, hooks);
   process.stdout.write(`${JSON.stringify(envelope, null, 2)}\n`);
-  return envelope.overCap === 0 ? 0 : 1;
+  // Exit 1 for EITHER scope: a census that reported 0 and exited 0 while the guard
+  // itself had grown past its cap is the invisibility §2.32 was filed for.
+  return envelope.overCap === 0 && envelope.hooks.overCap === 0 ? 0 : 1;
 }
 
 process.exitCode = main();

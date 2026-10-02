@@ -144,3 +144,72 @@ export function fileSizeScopeBucket(file: string): string {
   const slash = path.indexOf('/');
   return slash < 0 ? path : path.slice(0, slash);
 }
+
+// ---------------------------------------------------------------------------
+// THE SECOND SCOPE — `.husky/`, the directory the ratchet itself lives in
+// (backlog §2.32, rid 2026-10-02-hooks-size-rows)
+// ---------------------------------------------------------------------------
+//
+// WHAT WAS INVISIBLE. `FILE_SIZE_SCOPE_DIRS` names four directories, and `.husky`
+// is not one of them, so the files that IMPLEMENT this policy were measured by
+// nothing: `scanFileSize()` put them in `outOfScopeFiles`, the artifact's `files`
+// table has no entry for them, and the prettier leg never receives them. The guard
+// grew 456 → 750 and 265 → 662 raw lines in a single day with no ceiling watching
+// it — the exact shape of the hole this repo keeps closing (a surface asserted but
+// never counted).
+//
+// WHY A SECOND SCOPE AND NOT A FIFTH DIRECTORY IN THE FIRST ONE. Joining `.husky`
+// to `FILE_SIZE_SCOPE_DIRS` at the decided cap of 300 raises `fileSizeOverCap`
+// 162 → 165 and `fileSizeExcessLines` 54,318 → 55,834 (+1,516), and the monotonicity
+// guard refuses a raised ceiling by design — correctly, because that is a policy
+// re-decision wearing the clothes of a measurement. So the invisible set gets its
+// OWN two rows (`fileSizeHooksOverCap`, `fileSizeHooksExcessLines`), seeded from its
+// own measurement, ratcheted by the same leg off the same census run.
+//
+// DISJOINT BY CONSTRUCTION, and that is the property the disjointness arms test: no
+// directory is in both lists, so `isPolicyMeasuredFile` and `isHooksMeasuredFile`
+// cannot both answer true for one path, and growth under `.husky/` moves the hooks
+// rows and leaves the two main rows at their own numbers.
+
+/** The second scope's directories, relative to the project root. */
+export const HOOKS_FILE_SIZE_SCOPE_DIRS = ['.husky'] as const;
+
+/**
+ * The cap the hooks scope is measured against. It ALIASES `FILE_SIZE_CAP_DEFAULT`
+ * rather than restating 300: the 300 is one decision ("may this file be committed
+ * at this size?"), and a second literal here would be the second copy
+ * `tests/unit/standards/file-size-cap.test.ts` exists to report. Aliasing does NOT
+ * mean the hooks ceiling is unbound — the artifact records `hooksCap` as its own
+ * input and `.husky/peaks-gate-file-size.mjs` re-derives it from a live census, so
+ * re-deciding the default cap trips the hooks row's binding too, as a refusal
+ * rather than as a silent re-baseline.
+ */
+export const FILE_SIZE_CAP_HOOKS = FILE_SIZE_CAP_DEFAULT;
+
+/** The hooks scope's cap, in the shape the census reports it. */
+export type HooksFileSizeCaps = {
+  readonly hooksCap: number;
+};
+
+/** The cap the hooks scope is measured against right now. */
+export function hooksFileSizeCaps(): HooksFileSizeCaps {
+  return { hooksCap: FILE_SIZE_CAP_HOOKS };
+}
+
+/** True when `file` sits under one of the hooks scope's directories. */
+export function inHooksFileSizeScope(file: string): boolean {
+  const path = normalizePolicyPath(file);
+  return (HOOKS_FILE_SIZE_SCOPE_DIRS as readonly string[]).some((dir) =>
+    path.startsWith(`${dir}/`)
+  );
+}
+
+/**
+ * A file the hooks rows measure: under a hooks directory AND of a scope extension.
+ * The extension universe is the SAME seven as the main scope — it is one decision
+ * about what counts as code, and the hooks binding reports it as its own field so a
+ * change to it is named against both scopes.
+ */
+export function isHooksMeasuredFile(file: string): boolean {
+  return inHooksFileSizeScope(file) && hasPolicyExtension(file);
+}

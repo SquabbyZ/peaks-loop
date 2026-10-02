@@ -102,7 +102,9 @@ const CENSUS_STUB =
   'process.stdout.write(JSON.stringify({ overCap: 1, excessLines: 9, ' +
   "convention: 'split(String.fromCharCode(10)).length', caps: { defaultCap: 300, testsCap: 500 }, " +
   "scope: { countedFiles: 3, source: 'git ls-files <policy dirs>', dirs: ['src'], " +
-  "extensions: ['ts'] }, byDir: { src: { files: 3 } } }) + '\\n');\n";
+  "extensions: ['ts'] }, byDir: { src: { files: 3 } }, " +
+  // The `.husky/` block the two hooks rows read (§2.32); refused if absent.
+  "hooks: { overCap: 1, excessLines: 4, caps: { hooksCap: 300 }, convention: 'split(String.fromCharCode(10)).length', scope: { countedFiles: 2, source: 'git ls-files <hooks dirs>', dirs: ['.husky'], extensions: ['mjs'] }, files: [] } }) + '\\n');\n";
 const PRETTIER_PACKAGE =
   '{"name":"prettier","version":"0.0.0-fixture","type":"module","exports":{".":"./index.mjs"}}\n';
 

@@ -104,7 +104,7 @@
 export const SEED_FLAG = '--seed';
 
 /**
- * THE CANONICAL CEILING KEY LIST — the thirteen rows the ratchet is allowed to
+ * THE CANONICAL CEILING KEY LIST — the fifteen rows the ratchet is allowed to
  * carry, each named exactly once.
  *
  * WHY ONE LIST AND NOT TWO. `.husky/peaks-gate-baseline.mjs` assembles the
@@ -121,9 +121,17 @@ export const SEED_FLAG = '--seed';
  * published artifact AND against `git show HEAD:…`, and
  * `tests/unit/lint/baseline-monotonicity-head-anchor.test.ts` arm H-RA4 pins it
  * against what a real run writes, so adding a ceiling in one place and not the
- * other is a red test rather than a new number in the baseline.
+ * other is a red test rather than a new number in the baseline. C1 reads the
+ * artifact at HEAD too, so the two rows `2026-10-02-hooks-size-rows` adds here
+ * (`fileSizeHooksOverCap`, `fileSizeHooksExcessLines`) stay red there until the
+ * seeding regeneration lands in a commit — which is the intended ordering, not a
+ * weakening: the list grew with the generator's `ceilings` object in the same
+ * change, and only a run of the generator may put the numbers in the artifact.
  *
  * The order is the generator's own assembly order, so a diff of the two reads alike.
+ * The two hooks rows sit before `fileSizeExcessLines` for the same reason the
+ * generator does: `tests/unit/lint/baseline-monotonicity-seeding.test.ts` patches a
+ * copy of this list onto its LAST row, and an appended key un-anchors that guard.
  */
 export const CEILING_KEYS = Object.freeze([
   'eslintFindings',
@@ -138,6 +146,8 @@ export const CEILING_KEYS = Object.freeze([
   'silentWarningCatchReturnNull',
   'silentWarningEmptyCatch',
   'fileSizeOverCap',
+  'fileSizeHooksOverCap',
+  'fileSizeHooksExcessLines',
   'fileSizeExcessLines'
 ]);
 
