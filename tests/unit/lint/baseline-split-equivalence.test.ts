@@ -1,15 +1,23 @@
 // tests/unit/lint/baseline-split-equivalence.test.ts
 //
-// Rid `2026-10-02-wave9-generator-split`, repair cycle 1. The generator entry's header
+// Rid `2026-10-02-wave9-generator-split`, repair cycle 2. The generator entry's header
 // claims the split of `.husky/peaks-gate-baseline.mjs` was "proven behaviourally in a
 // fixture repo against `git show HEAD:.husky/peaks-gate-baseline.mjs`". THIS file is that
-// proof; until it existed the sentence described a run nobody had done, and backlog §2.39
-// is explicit about which side of that exchange a shipped comment sits on.
+// proof. Cycle 1 anchored the reference on `HEAD` — true only while the slice was
+// UNCOMMITTED. The commit that landed it (`c6de09a6`) moved `HEAD` to the SPLIT file, whose
+// `./baseline/` imports the head fixture deliberately does not stage, so every arm died on
+// `Cannot find module …/head/.husky/baseline/anchor.mjs`. A test that points at "the current
+// tip" validates itself the day it is written and self-destructs the day it is committed. So
+// the reference is pinned to `77b711ff` (`c6de09a6`'s parent), the 799-line monolith the
+// split was cut from; the "pinned anchor" scenario below re-checks that pinning from both
+// ends and fails naming what moved rather than eleven traces.
 //
-// HOW. Two throwaway repositories with identical inputs: `head/` runs the generator as
-// HEAD carries it with its dependency closure (`peaks-gate-file-size.mjs`,
-// `-baseline-monotonic.mjs`, `.husky/monotonic/*`); `split/` runs the working-tree entry
-// plus `.husky/baseline/*`. Each state is applied to BOTH before either runs, so the only
+// HOW. Two throwaway repositories with identical inputs: `head/` runs the generator as the
+// pinned `77b711ff` carries it, staged out of git, with the dependency closure that BOTH
+// sides read from the working tree (`peaks-gate-file-size.mjs`, `-baseline-monotonic.mjs`,
+// `.husky/monotonic/*`); `split/` runs the working-tree entry plus `.husky/baseline/*`. The
+// closure is shared, so the ONLY difference between the programs is the split itself. Each
+// state is applied to BOTH before either runs. The four states the claim
 // difference between the processes is the program under test. The four states the claim
 // names — the seed path and the three §2.33 attacks (delete a row, lift a row, empty
 // `ceilings`) — are compared on exit code, artifact BYTES modulo `generatedAt`, stdout and
@@ -103,18 +111,27 @@ function prettierShim(): string {
   const real = pathToFileURL(join(REPO_ROOT, 'node_modules', 'prettier', 'index.mjs')).href;
   return `export { default } from '${real}';\nexport * from '${real}';\n`;
 }
-/** HEAD's copy of the generator, read out of git rather than out of the working tree. */
-let headEntry: string | null = null;
-function headGeneratorText(): string {
-  if (headEntry === null) {
-    headEntry = execFileSync('git', ['show', `HEAD:${GENERATOR_REL}`], {
-      cwd: REPO_ROOT,
-      encoding: 'utf8',
-      maxBuffer: 64 * 1024 * 1024,
-      windowsHide: true
-    });
-  }
-  return headEntry;
+/**
+ * The pre-split commit the reference side is pinned to. `c6de09a6` IS the split, so its
+ * parent is the last commit whose `peaks-gate-baseline.mjs` is still the 799-line monolith
+ * the split was cut from. `HEAD` cannot be the anchor: landing the split is exactly what
+ * moves `HEAD` off the monolith, which is the self-destructing-anchor defect cycle 1 had.
+ */
+const PRE_SPLIT_ANCHOR_SHA = '77b711ff';
+/** `git show <ref>:` on the generator entry — the reference comes from git, not the tree. */
+function gitShowGenerator(ref: string): string {
+  return execFileSync('git', ['show', `${ref}:${GENERATOR_REL}`], {
+    cwd: REPO_ROOT,
+    encoding: 'utf8',
+    maxBuffer: 64 * 1024 * 1024,
+    windowsHide: true
+  });
+}
+/** The pinned monolithic generator, read out of git once and memoised. */
+let anchorEntry: string | null = null;
+function anchorGeneratorText(): string {
+  if (anchorEntry === null) anchorEntry = gitShowGenerator(PRE_SPLIT_ANCHOR_SHA);
+  return anchorEntry;
 }
 /**
  * The `.husky` set each side stages — by WALK (`hooksScopeFilesUnder`, the census's own
@@ -150,7 +167,7 @@ function build(side: Side): void {
   for (const rel of filesFor(side)) {
     const text =
       side === 'head' && rel === GENERATOR_REL
-        ? headGeneratorText()
+        ? anchorGeneratorText()
         : readFileSync(join(REPO_ROOT, rel), 'utf8');
     writeIn(root, rel, text);
   }
@@ -286,6 +303,12 @@ afterAll(() => {
   rmSync(SCRATCH, { recursive: true, force: true });
 });
 
+// THE PIN ITSELF IS GUARDED BY THE SIBLING `baseline-split-anchor.test.ts`: cycle 1 anchored
+// on `HEAD`, the commit that landed the split invalidated that anchor, and eleven arms died
+// on an anonymous module-not-found. `anchorGeneratorText()` above pins the reference to
+// `PRE_SPLIT_ANCHOR_SHA`; that sibling fails with a sentence naming what moved if the sha
+// ever stops resolving, stops being monolithic, or stops differing from HEAD.
+
 describe('Scenario: integration — HEAD’s generator and the split agree state by state', () => {
   const CASES: ReadonlyArray<[ScenarioKey, string]> = [
     ['seed', 'the seed path (--seed, no anchor in HEAD)'],
@@ -313,32 +336,19 @@ describe('Scenario: behavior — the comparison is between two different program
     expect(head.length, 'the HEAD side stages the closure').toBeGreaterThan(10);
     expect(split.filter((rel) => rel.startsWith(GENERATOR_DIR_REL)).length).toBe(10);
     expect(split.length).toBe(head.length + 10);
-    expect(headGeneratorText()).not.toBe(readFileSync(join(REPO_ROOT, GENERATOR_REL), 'utf8'));
-    // HEAD's program has to load in a fixture that has no `.husky/baseline/` at all, so
-    // the closure list above cannot be silently missing something it imports.
-    expect(headGeneratorText()).not.toMatch(/from '\.\/baseline\//);
-    expect(readFileSync(join(REPO_ROOT, GENERATOR_REL), 'utf8')).toMatch(
-      /from '\.\/baseline\/anchor\.mjs'/
-    );
+    expect(anchorGeneratorText()).not.toBe(readFileSync(join(REPO_ROOT, GENERATOR_REL), 'utf8'));
     expect(head).toContain('.husky/peaks-gate-file-size.mjs');
     expect(head).toContain('.husky/peaks-gate-baseline-monotonic.mjs');
     expect(head.some((rel) => rel.startsWith('.husky/monotonic/'))).toBe(true);
-    // Every closure file the HEAD side stages must be unmodified in this working tree,
-    // or "HEAD's generator and its closure" would be HEAD's generator and someone
-    // else's module. The same check then proves both fixtures hold the same bytes.
-    const dirty = new Set(
-      execFileSync('git', ['status', '--porcelain', '-uall'], {
-        cwd: REPO_ROOT,
-        encoding: 'utf8',
-        windowsHide: true
-      })
-        .split('\n')
-        .filter((line) => line.trim() !== '')
-        .map((line) => line.slice(3).split(' -> ').pop() ?? '')
-    );
+    // Both fixtures receive the SAME working-tree closure bytes for every file except the
+    // generator entry (build reads `REPO_ROOT` for all of them), so the only variable in the
+    // comparison is the split. We deliberately do NOT require that closure to match the tip:
+    // that is the same moving target the anchor commits to a sha, and slice 4's uncommitted
+    // file-size split is exactly a case where the tip and the tree legitimately differ. What
+    // has to hold is that both programs ran against ONE closure, so every shared file reads
+    // byte-for-byte equal straight off the two fixtures.
     for (const rel of head) {
       if (rel === GENERATOR_REL) continue;
-      expect(dirty.has(rel), `${rel} differs from HEAD; the closure is not HEAD's`).toBe(false);
       expect(
         readFileSync(join(rootOf('split'), rel)).equals(readFileSync(join(rootOf('head'), rel))),
         rel
