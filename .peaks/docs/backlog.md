@@ -1503,6 +1503,17 @@ already uses when the census cannot run. Needs a test with a positive control (r
 temp baseline → the generator exits 1 and the artifact is byte-identical afterwards), because the
 current state passes every existing test.
 
+**CLOSED 2026-10-02, rid `2026-10-02-baseline-monotonicity` (C wave 8).** The comparison lives in
+`.husky/peaks-gate-baseline-monotonic.mjs` (`RAISED` / `CLEARED` / `NEWLY SEEDED`) and the generator calls it
+before `writeFileSync`. The positive control was run against the real repository, not only the fixture:
+lowering `fileSizeExcessLines` in the artifact from 54,318 to 54,317 made the next measurement a raise, and
+the generator exited **1**, named `fileSizeExcessLines: 54317 → 54318`, and left the bytes identical
+(`sha1sum -c` OK). See `.peaks/docs/lint-gate.md` §4n for the decision table and the two arms that must still
+write. **The closing is partial, and §2.33 is the remainder:** the previous side is read from the *working
+tree*, so the artifact itself is still the trust anchor for a weakening — measured by an out-of-band reviewer
+in isolated fixtures, deleting a row there turns a raise into `NEWLY SEEDED` (exit 0) and inflating a row
+turns it into `CLEARED` (exit 0).
+
 ### 2.28 A source-text guard lost 86% of its subject in a split and still passed (introduced by C wave 7 `w7-2`, found at convergence 2026-10-01)
 
 `tests/unit/final-review/final-review-service-fact-states-and-guard.test.ts:286` reads
@@ -1530,6 +1541,18 @@ come out of it, and they are this campaign's shape, not a style preference:
 Not fixed here: it is a test-semantics change with its own acceptance criteria (make the guard cover all
 thirteen modules, add the shrink arm, prove the arm red-then-green), and leaving it as a green-but-blind
 guard while shipping the split is honest only if it is written down somewhere. It is now.
+
+**CLOSED 2026-10-02, rid `2026-10-02-guard-covers-module-set` (C wave 8).** Guard C now enumerates
+`src/services/final-review/*.ts` at run time and scans all **16** modules — 66 named functions against the 8
+its parent-only subject reached, 7.9 % measured in characters, so "86 % of its subject lost" understated it.
+The two rules above are both implemented: the read set is asserted equal to the enumerated set (no hard-coded
+list can shrink again), and a per-name oracle census fails when a module stops being scanned. Red-then-green
+was run against the old guard first: a proxy planted in `final-review-gates.ts` scored `[]` under the
+parent-only subject and is now caught by name, with a parent-plant and a plant-removed control either side.
+`RENDER_ONLY` is unchanged at exactly one entry and is pinned by its own arm. Widening the scanner found two
+shape holes that were blind even before the split — constructors, and unbound module-scope function-likes —
+both closed with no new offenders. The item said "thirteen modules"; the directory is sixteen, counted by
+`readdirSync` in the test and by `ls | wc -l` here, both agreeing.
 
 ### 2.29 `peaks job subagent-cleanup` reports `cleaned: true` while removing nothing, because its pending set lives in the dispatching process's memory (found 2026-10-02, C wave 7 closure)
 
@@ -1585,3 +1608,110 @@ Two rules, both cheap: (1) a wave's convergence audit must sweep for scratch by 
 whose basename matches a leaf's target, 0-byte tracked files) and not only by `git status`; (2) a leaf's
 brief must pin scratch destinations to an absolute path under the session's runtime dir — a redirect that
 depends on cwd is a leak waiting for the next `cd`.
+
+### 2.32 `.husky/` is capped by nothing, and the CLI that would have shown you that reports a flattering number (found 2026-10-02, C wave 8)
+
+The file-size policy measures four directories (`src`, `tests`, `packages`, `scripts`) over seven extensions.
+`policyCapFor` (`src/services/scan/file-size-scan.ts:171`) returns `null` for anything outside that set, and
+`null` is a verdict: the path "is neither under the cap nor over it" and lands in `outOfScopeFiles`. So the
+gate machinery that this campaign has been hardening — the thing that grew from 456 to **533** raw lines in C
+wave 8, plus a new 265-line module — is measured by **no ceiling row at all**. `fileSizeOverCap` and
+`fileSizeExcessLines` cannot see it; the baseline's `files` table has no entry for it; and the 800-line
+transition leg the docs still describe as a blanket cap does not apply either, because that leg takes its
+threshold from the same policy. This is §4b's "enforcement without a ratchet and without a descent path"
+again, mirrored: it is a ratchet with no enforcement, which is the quieter half of the same defect.
+
+The reason nobody noticed while writing the brief is worse than the gap. Asked directly, the CLI answers
+with a number that hides it:
+
+```
+peaks scan file-size --project . --json
+  → checkedFiles: 7, exemptFiles: [.peaks/lint/gate-baseline.json], violations: []
+```
+
+while the service it wraps, on the same tree, returns
+
+```
+scanFileSize() → checkedFiles: 5, outOfScopeFiles: [.husky/peaks-gate-baseline-monotonic.mjs,
+                                                  .husky/peaks-gate-baseline.mjs]
+```
+
+The CLI's envelope has no `outOfScopeFiles` field at all, so "considered" is printed as "checked" and the
+two files that nothing measures are indistinguishable from the five that are. An operator reading the CLI
+output would conclude the `.husky` growth was bounded; an operator reading the service would not. That is the
+same shape as §2.29 (a command whose success field is its "nothing to do" branch) and §2.27 (a note asserting
+a rule no code implements): the measurement surface reports the safe answer by construction.
+
+Two fixes, both small, neither in this backlog entry's remit: (1) the CLI's file-size envelope should carry
+`outOfScopeFiles` (and `checkedFiles` should count only files a cap was decided for), with an arm that fails
+if a path appears in neither `checked`, `exempt`, `deleted`, nor `outOfScope`; (2) decide in daylight whether
+`.husky/` belongs in the policy's measured set — it holds the ratchet itself, so a growth there is a growth in
+the guard, which is the one place a cap is not optional.
+
+### 2.33 The monotonicity guard's previous side is the file it guards, so the artifact is still the trust anchor for a weakening (found 2026-10-02 by out-of-band review of C wave 8)
+
+`.husky/peaks-gate-baseline.mjs:436–449` reads `OUT_PATH` — the same path it writes at `:484` — and
+`:126–137` of the new module arbitrates `added` vs `raised` purely by **key presence** in that read. So the
+guard compares the measurement against whatever the working-tree artifact currently says, and the working-tree
+artifact is the file a weakening would actually be edited in. Four attacks, run by the reviewer in isolated
+fixture copies under OS temp (never in the repo), against a generator that really measures
+`prettierUnformatted: 2`:
+
+| previous artifact | generator behavior | verdict |
+|---|---|---|
+| row present at `1` | `exit 1`, REFUSING, bytes untouched | control — the guard works |
+| row **deleted** | `exit 0`, prints `NEWLY SEEDED`, writes ceiling 2 | a raise laundered as a new row |
+| row inflated to `999` | `exit 0`, prints `CLEARED — 1 ceiling(s) went DOWN` | a raise laundered as progress |
+| `"ceilings": {}` | `exit 0`, all thirteen rows re-seeded; the `--seed` trip never fires, because the JSON parses | the whole ratchet erased by emptying one object |
+
+The loop closes worse downstream: a deleted ceiling row *does* fail the push leg (`node .husky/peaks-gate.mjs
+silent-warning` with that ceiling removed → `exit 1`, "the baseline has no ceiling for
+silentWarningEmptyCatch"), and the remedy that refusal prints — `.husky/peaks-gate.mjs:653`,
+`.husky/peaks-gate-file-size.mjs:155` — is `Regenerate it: node .husky/peaks-gate-baseline.mjs`, which is
+exactly the first attack. An operator following the gate's own instruction performs the weakening.
+
+Why the shipped tests do not catch it: `tests/unit/lint/baseline-monotonicity.test.ts:177–189` **blesses** the
+`added` branch on purpose (that is how `fileSizeExcessLines` was legitimately seeded on 2026-10-01), and
+`:120–122` drops every non-numeric entry before comparing while `:140` asserts `>= 13`, so a junk or
+string-valued row in the published artifact vanishes from the comparison instead of reddening it. Nothing
+outside the docs names a single ceiling key (`grep -rn "eslintNotLintedFiles\|prettierUnparsableFiles"
+tests/ scripts/ src/` → no hits), so a fourteenth or renamed row is accepted by construction.
+
+Fix direction, in order of preference: compare the previous side against **`git show
+HEAD:.peaks/lint/gate-baseline.json`** rather than the working copy (the committed artifact is the anchor; a
+working-tree edit then cannot lower what is being ratcheted); or, if the working copy must stay the input,
+refuse any `added` key that exists in HEAD's artifact, refuse when the working-tree ceilings differ from HEAD's
+by lifting a number or dropping a row, and export one canonical key list compared by sorted equality on both
+sides. A re-case that leaves the old row in place is already caught (measured: `exit 1`, names `REMOVED`).
+
+### 2.34 Guard C's widened subject has four holes of its own, all found by attacking it (C wave 8, 2026-10-02)
+
+The §2.28 fix is real and measured — 16 modules, 66 named functions against 8, every HEAD case present, moved
+scanner bodies byte-identical except the two disclosed coverage extensions — and it still has these residues,
+each confirmed green-by-attack in an isolated copy of the tree:
+
+1. **The walk is a flat, non-recursive `.ts` listing of one hard-coded directory.**
+   `tests/unit/final-review/final-review-guard-c-scan.ts:180–183` (`dirent.isFile() && name.endsWith('.ts')`),
+   and the shrink arm's own enumerator (`final-review-guard-scope.test.ts:231–233`) plus its oracle (`:64–67`)
+   repeat the same rule — so the arm that exists to detect a shrinking subject cannot see a subject that was
+   never wide: a proxy-bearing module under `final-review/delivery/`, and a `final-review-legacy-bridge.mts`,
+   both leave all 16 arms green. `.mts` is not hypothetical: the baseline artifact's own
+   `scope.extensions` is `ts, tsx, mts, cts, mjs, cjs, js`. Fix: assert no subdirectory exists in the walked
+   directory (or recurse), and take the extension rule from `file-size-policy` instead of a second literal.
+2. **Guard C's own call site is unobserved.** Inserting `.filter((m) => m.module !== 'final-review-gates.ts')`
+   at `final-review-service-fact-states-and-guard.test.ts:188–189` leaves all 18 arms green — the
+   subject-pinning arm lives in the sibling file and validates `scanModuleSet`, not what the guard does with
+   its output. Fix: assert the enumerated equality inside guard C's own `describe`.
+3. **The guarded directory is spelled twice** (`final-review-service-fact-states-and-guard.test.ts:171`,
+   `final-review-guard-scope.test.ts:37`) with no identity assertion — the second-copy shape this campaign has
+   filed repeatedly. Fix: export it once from the shared module.
+4. **"Exactly one home" is per-module for the predicate.** `definitionCount` is asserted for the allow-list
+   names (`final-review-service-fact-states-and-guard.test.ts:207–220`) but not for `DELIVERY_PREDICATE`
+   itself; a second, independently-deciding `isDelivered` shadowed inside the parent's own body stays green. A
+   duplicate in a *sibling* is caught (measured: `expected [...] to have a length of 1 but got 2`), so the fix
+   is the one-line `expect(definitionCount(MODULES, DELIVERY_PREDICATE)).toBe(1)`.
+
+Separately, and pre-existing rather than introduced: the scanner records function-likes only, so a delivery
+decision written at module top level is not an offender. Either scan module-level initialisers or state that
+limit beside the `PROXIES` comment at `final-review-guard-c-scan.ts:110–116`, which already admits a narrower
+blindness.

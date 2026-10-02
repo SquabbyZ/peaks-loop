@@ -522,8 +522,20 @@ git diff .peaks/lint/gate-baseline.json
 
 **Read the diff.** A ceiling that went *up* is the one thing this file must
 never contain — it means the slice made something worse, and the number should
-not be committed. The pre-push gate enforces this after the fact, but only a
-human reading the diff catches it before it lands.
+not be committed. Since C wave 8 (rid `2026-10-02-baseline-monotonicity`) the
+generator enforces this itself: it reads its previous artifact, and if any
+ceiling that already existed is higher than the number it just measured, it
+prints `RAISED — …` with each `old → new` pair and exits 1 without writing
+(a dropped ceiling row **in the measurement**, a missing/non-seedable previous artifact, and a
+non-integer ceiling value each refuse the same way). A new row is still
+allowed, but it is announced as `NEWLY SEEDED` rather than slipping through as
+unrecognized (the three labels the module prints are `RAISED`, `CLEARED`,
+`NEWLY SEEDED`). **Boundary, measured by out-of-band review and not yet closed:** the previous side is read
+from the working-tree artifact, so editing that artifact still launders a raise — a deleted row becomes
+`NEWLY SEEDED`, an inflated row becomes `CLEARED`, and `"ceilings": {}` re-seeds all thirteen (backlog
+§2.33; the push leg's own printed remedy, "Regenerate it", is the attack). So reading the diff is now a check on the guard, not the only
+defence: if a regeneration raised something and still exited 0, that is a
+guard bug worth its own rid.
 
 ## 6. What building this gate found
 
@@ -802,3 +814,65 @@ generator **raised `prettierUnformatted 0 → 7` and wrote it** because it has n
 service's source **text** now covers 273 of the 1,858 lines it used to examine, passes, and is blind
 (backlog §2.28, with the two rules it implies: a text guard must read the module set after a split, and
 it needs an arm that fails when its own subject shrinks).
+
+### 4n. C wave 8 — both blindnesses closed, and what the guards measured on the way (2026-10-02)
+
+Two leaves, two rids, directory-disjoint: `2026-10-02-baseline-monotonicity` (§2.27) and
+`2026-10-02-guard-covers-module-set` (§2.28). Files, all under their caps and 0-finding:
+
+| file | raw lines |
+|---|---|
+| `.husky/peaks-gate-baseline-monotonic.mjs` (new) | 265 |
+| `.husky/peaks-gate-baseline.mjs` (456 → 533) | 533 |
+| `tests/unit/lint/baseline-monotonicity.test.ts` (new, 13 arms) | 297 |
+| `tests/unit/lint/baseline-monotonicity-generator.test.ts` (new, 7 arms) | 434 |
+| `tests/unit/final-review/final-review-guard-c-scan.ts` (new, shared scanner) | 273 |
+| `tests/unit/final-review/final-review-guard-scope.test.ts` (new, 9 arms) | 310 |
+| `tests/unit/final-review/final-review-service-fact-states-and-guard.test.ts` (415 → 334) | 334 |
+
+**§2.27 is now code, not prose.** The generator reads its own previous artifact back and refuses before
+`writeFileSync`. Measured on the real repository, not in a fixture: a legitimate regeneration with four new
+files printed `monotonicity: every ceiling held — nothing rose and nothing dropped` and exited 0; then
+`fileSizeExcessLines` was lowered in the artifact from 54,318 to 54,317 so the next measurement was a RAISE,
+and the generator printed `RAISED — 1 ceiling(s) … fileSizeExcessLines: 54317 → 54318`, exited **1**, and left
+the bytes identical (`sha1sum -c` → OK). The refusal text explicitly names the two ways a ceiling used to be
+laundered: editing it, or deleting its row. Every row of the decision table has an arm, including the two
+that must still WRITE (all-equal, and strictly-lower) — a guard that only refuses is an outage, not a ratchet.
+One row (non-integer / non-finite ceiling values) is covered in-process only, and the leaf wrote down why:
+every value the generator produces is a tool output, so no fixture can make `classify`/`tsc`/the detector
+return a string without replacing the tool with a stub, which would test the stub.
+
+**§2.28 is now a set, not a path.** Guard C enumerates `src/services/final-review/*.ts` at run time
+(`readdirSync`, no file list anywhere), scans all **16** modules — 149,711 characters and **66** named
+functions, against the **8** functions the parent-only subject reached (12.1 %; in characters it was 7.9 %) —
+and asserts the read set equals the enumerated set plus a per-name oracle census, so the subject cannot shrink
+again without reddening. `RENDER_ONLY` is still exactly `['renderEvidenceSection']`, now pinned by its own arm;
+the stop condition never fired. The red-before evidence: a proxy planted in `final-review-gates.ts` scored
+`[]` under the old subject and is caught by name under the new one, with the parent plant and the
+plant-removed control either side of it. Widening the scanner also surfaced two shape holes that were blind
+even in the parent — **constructors**, and **unbound module-scope function-likes** (`export default () => …`,
+`on('exit', () => …)`) — both closed, no new offenders.
+
+**Wave totals.** `pnpm test:unit` 347 files / 3681 passed / 3 skipped against the wave's starting
+344 / 3651 / 3: +3 files and **+30 cases, which is exactly the 20 arms leaf A added plus the 10 leaf B
+added** — no case lost, none silently merged. `node .husky/peaks-gate.mjs repo` exit 0 with every ceiling
+identical to the pre-wave artifact (diffed programmatically, not eyeballed) while the census scope grew
+1,474 → 1,478. `src/` was not touched by either leaf.
+
+**Three premises in the orchestrator's own briefs were false, and the leaves caught all three.** (1) A6
+asserted the 800-line leg covers `.husky/`; it does not — `policyCapFor` returns `null` for any path outside
+the policy's four dirs and seven extensions, so `.husky/*.mjs` is reported in `outOfScopeFiles` and is capped
+by nothing, which is why the generator was allowed to grow 456 → 533 with no ratchet row watching (backlog
+§2.32). (2) The brief said `wc -l` while quoting the census convention, so it stated 414 raw where the file
+is 415; headroom was 85, not 86. (3) The `<anonymous>` offender in my AST census was an artifact of **my
+instrument**, not of the code: my quick scanner reported nested arrows separately, while guard C folds them
+into the enclosing named body — so the widened guard has two owners, not three, and no allow-list decision was
+needed. One more, mine alone: I read `EXIT=0` from a refusal because `cmd | tail` returns the tail's status;
+the same run re-measured with redirection gave exit 1.
+
+**And the CLI's own number hid the gap it was being asked about.** `peaks scan file-size --json` reported
+`checkedFiles: 7` on this tree, while `scanFileSize()` on the same tree returns `checkedFiles: 5` plus
+`outOfScopeFiles: [.husky/peaks-gate-baseline-monotonic.mjs, .husky/peaks-gate-baseline.mjs]` — the CLI sums
+"considered" into "checked" and drops the field that would have explained the difference. That is why the
+brief's wrong premise and the leaf's right correction both read plausible: the two surfaces disagree, and the
+one the operator sees is the flattering one. Filed as backlog §2.32.

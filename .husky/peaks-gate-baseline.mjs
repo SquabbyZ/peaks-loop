@@ -7,10 +7,13 @@
  *   node .husky/peaks-gate-baseline.mjs
  *
  * It measures, it never guesses: every number written here is read off the
- * tools in this run. Read the diff before committing it — a ceiling that went
- * UP is the one thing this file must never contain, and only a human reading
- * the diff can catch that. The gate itself enforces it after the fact
- * (pre-push fails if a total grew).
+ * tools in this run. Read the diff before committing it anyway — what the
+ * ceilings may not do is go UP, and since rid `2026-10-02-baseline-monotonicity`
+ * that sentence is enforced here as well as written into the artifact: the
+ * previous artifact is read back, every key is compared, and a raise aborts the
+ * run before anything is written (`.husky/peaks-gate-baseline-monotonic.mjs`).
+ * Before that slice the rule was only a sentence in the file's own `note`, and on
+ * 2026-10-01 the generator raised `prettierUnformatted` 0 → 7 and exited 0.
  *
  * WHY EXPLICIT PATHS + --no-ignore
  * --------------------------------
@@ -57,6 +60,17 @@ import {
   FS_WHOLE_SCOPE_SOURCE,
   measureFileSizeOverCap
 } from './peaks-gate-file-size.mjs';
+// The ratchet's own rule, one module down from the sentence that states it in the
+// artifact. Pure, so all seven rows of its decision table are testable without
+// paying for a whole measurement run — see the header of that file for why an
+// untested guard on a ratchet is a rumour, which is exactly what this one was.
+import {
+  SEED_FLAG,
+  compareCeilings,
+  describeMonotonicityFailure,
+  describeMonotonicityNotes,
+  parsePreviousArtifact
+} from './peaks-gate-baseline-monotonic.mjs';
 
 // Slash-normalised once, at the definition — `resolve()` returns backslashes on
 // Windows and a `${ROOT}/` built from that can never match a normalised path.
@@ -387,6 +401,86 @@ for (const file of scope) {
   };
 }
 
+// THE THIRTEEN ROWS, assembled before the artifact is written, because they are
+// what the comparison below reads. Nothing here may type a number: every value is
+// a measurement this run made, for the same reason the census and the
+// silent-warning rows refuse a literal.
+const ceilings = {
+  eslintFindings: findings,
+  eslintErrors: errors,
+  eslintPhantomFindings: phantomFindings,
+  eslintCoverageGapFiles: coverageGapFiles.length,
+  eslintSyntaxErrorFiles: syntaxErrorFiles.length,
+  eslintNotLintedFiles: notLinted.length,
+  prettierUnformatted: prettierDirty,
+  prettierUnparsableFiles: unparsable.length,
+  tscErrors,
+  silentWarningCatchReturnNull: sw.catchReturnNull,
+  silentWarningEmptyCatch: sw.emptyCatch,
+  fileSizeOverCap: size.env.overCap,
+  // THE SAME ENVELOPE, THE OTHER UNIT (rid `2026-10-01-file-size-excess-row`):
+  // the files over cap above, and the LINES over those caps. Nothing may type
+  // this number either — it is the census's own `excessLines`, the figure the
+  // gate prints in its scope note and, from this row on, enforces.
+  fileSizeExcessLines: size.env.excessLines
+};
+
+// ---- monotonicity: read the artifact back, then decide ---------------------
+// RID 2026-10-02-BASELINE-MONOTONICITY (§2.27). THE DEFECT IS THE SHAPE OF THIS
+// BLOCK: until it existed, the `note` string written below promised that a
+// ceiling may only go DOWN and nothing compared a single key. Measured 2026-10-01:
+// the generator raised `prettierUnformatted` 0 → 7 and exited 0, and the only
+// thing that caught it was an operator diffing the artifact by hand. A ratchet
+// whose upper bound is decided by whoever last ran the tool is not a ratchet.
+//
+// So the previous artifact is read here — the SAME path this run is about to
+// overwrite, and the only place the old numbers exist — and the write is refused
+// BEFORE a byte changes if any pre-existing ceiling rose, if any row vanished, or
+// if the comparison has no trustworthy numbers to work with.
+const seedRun = process.argv.slice(2).includes(SEED_FLAG);
+let previousCeilings = null;
+let previousProblem = null;
+try {
+  const parsed = parsePreviousArtifact(readFileSync(OUT_PATH, 'utf8'));
+  previousCeilings = parsed.ceilings;
+  previousProblem = parsed.problem;
+} catch (err) {
+  previousProblem = `could not be read (${err.code ?? err.message})`;
+}
+
+// A ratchet with nothing to ratchet against is not free to invent its own bound.
+// A corrupt or absent artifact reads exactly like a first-ever run, and the
+// difference between those two is the whole content of the baseline — so the
+// clean-slate path is a flag on a command line, not a fallback in the code.
+if (previousProblem !== null && !seedRun) {
+  console.error(
+    `\nREFUSING to write ${rel(OUT_PATH)}: the previous artifact ${previousProblem}, so there ` +
+      'is no ceiling to compare against.\n\n' +
+      '  A baseline cannot be re-based on a number nobody read. If this really is the first\n' +
+      `  generation, say so on purpose: \`node .husky/peaks-gate-baseline.mjs ${SEED_FLAG}\`. The\n` +
+      '  artifact on disk is left exactly as it is either way.\n' +
+      '  Nothing has been written; the existing ceilings are untouched.\n'
+  );
+  process.exit(1);
+}
+
+const monotonicity = compareCeilings(previousProblem === null ? previousCeilings : {}, ceilings);
+if (!monotonicity.ok) {
+  console.error(
+    `\nREFUSING to write ${rel(OUT_PATH)}: ${describeMonotonicityFailure(monotonicity)}\n` +
+      '  Nothing has been written; the existing ceilings are untouched.\n'
+  );
+  process.exit(1);
+}
+// The permitted write is the arm a guard most often forgets: a run that says
+// nothing when it agrees looks identical to a run that never compared anything.
+for (const note of describeMonotonicityNotes(monotonicity, seedRun)) console.error(note);
+
+// `.peaks/lint/` is a tracked directory today, but the seed path above is the one
+// run that may legitimately find it absent, and a refusal to write because of a
+// missing directory is not a refusal the operator can act on.
+mkdirSync(dirname(OUT_PATH), { recursive: true });
+
 writeFileSync(
   OUT_PATH,
   `${JSON.stringify(
@@ -403,25 +497,7 @@ writeFileSync(
       invocation: { explicitPaths: true, noIgnore: true, linted: scope.length - notLinted.length },
       scope: { dirs: TOP_DIRS, extensions: 'ts, tsx, mts, cts, mjs, cjs, js' },
       phantomRules: [...phantomRules],
-      ceilings: {
-        eslintFindings: findings,
-        eslintErrors: errors,
-        eslintPhantomFindings: phantomFindings,
-        eslintCoverageGapFiles: coverageGapFiles.length,
-        eslintSyntaxErrorFiles: syntaxErrorFiles.length,
-        eslintNotLintedFiles: notLinted.length,
-        prettierUnformatted: prettierDirty,
-        prettierUnparsableFiles: unparsable.length,
-        tscErrors,
-        silentWarningCatchReturnNull: sw.catchReturnNull,
-        silentWarningEmptyCatch: sw.emptyCatch,
-        fileSizeOverCap: size.env.overCap,
-        // THE SAME ENVELOPE, THE OTHER UNIT (rid `2026-10-01-file-size-excess-row`):
-        // the files over cap above, and the LINES over those caps. Nothing may type
-        // this number either — it is the census's own `excessLines`, the figure the
-        // gate prints in its scope note and, from this row on, enforces.
-        fileSizeExcessLines: size.env.excessLines
-      },
+      ceilings,
       // The unit the row above is counted in, copied off the census envelope
       // rather than restated: `split('\n').length` and `wc -l` differ by one per
       // file, so 174 files is a 174-line ambiguity unless the artifact says

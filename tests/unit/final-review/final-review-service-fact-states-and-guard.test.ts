@@ -6,9 +6,20 @@
 
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import ts from 'typescript';
 import { describe, expect, it } from 'vitest';
 import { prepareFinalReview } from '~/src/services/final-review/final-review-service';
+import {
+  DELIVERY_PREDICATE,
+  PROXIES,
+  RENDER_ONLY,
+  definitionCount,
+  deliveryProxyOffenders,
+  illegalOffenders,
+  legacyTopLevelFunctions,
+  modulesDefining,
+  namedFunctionBodies,
+  scanModuleSet
+} from './final-review-guard-c-scan.js';
 import {
   RID,
   SESSION_ID,
@@ -142,162 +153,70 @@ describe('prepareFinalReview — missing, empty and unreadable are three facts (
 // function-like definition by NAME. Arrow / generator / class method / default
 // export / getter / object method all land in the same list, so the check is
 // about the tokens in a body, not about the syntax that wraps them.
+//
+// H2 (§2.28) — the SHAPE was fixed and the SUBJECT was not. The guard read the
+// source text of ONE file, `final-review-service.ts`, and C wave 7 (`78f764cb`)
+// then moved ten regions out of that 1,858-line service into twelve siblings,
+// leaving the parent at 273 raw lines. Measured on this checkout the guard
+// reads 11,815 of the directory's 149,711 characters — 7.9 % — and stays green,
+// because `isDelivered` itself stayed put. A guard whose subject is a path in a
+// constant shrinks every time the code is organised, so the subject is now the
+// DIRECTORY, enumerated at run time. The scanner lives in
+// `final-review-guard-c-scan.ts` so the scope arms in
+// `final-review-guard-scope.test.ts` exercise the same scanner this guard runs
+// instead of a copy of it that could rot on its own.
 // ---------------------------------------------------------------------------
 
-/** The one function allowed to decide delivery. */
-const DELIVERY_PREDICATE = 'isDelivered';
-
-interface ScannedFunction {
-  readonly name: string;
-  readonly body: string;
-}
+/** The guarded directory. Its modules come from `scanModuleSet`, never a list. */
+const SERVICE_DIR = resolve(__dirname, '..', '..', '..', 'src', 'services', 'final-review');
 
 /**
- * Every function-like definition in `source`, by name, in EVERY syntax shape:
- * `function`, `async function`, `function*`, `export default function`, class
- * and object methods, getters/setters, and arrow / function expressions bound
- * to a `const`. An unnamed definition reports as `<anonymous>` — it is still a
- * body that must not decide delivery, so it is still scanned.
+ * The parent file, still read on its own by the two arms below that pin the
+ * parent's OWN structure (the routing wrappers and the evidence-source table).
+ * Both fail loudly if either region moves again, so they are a tripwire rather
+ * than a blind spot. The delivery-proxy sweep is no longer one of them: its
+ * subject is the whole directory, enumerated by `scanModuleSet`.
  */
-function namedFunctionBodies(source: string): readonly ScannedFunction[] {
-  const file = ts.createSourceFile(
-    'guard-c-fixture.ts',
-    source,
-    ts.ScriptTarget.ESNext,
-    /* setParentNodes */ true,
-    ts.ScriptKind.TS
-  );
-  const scanned: ScannedFunction[] = [];
-  const record = (node: ts.Node, name: string | undefined): void => {
-    scanned.push({
-      name: name ?? '<anonymous>',
-      body: source.slice(node.getStart(file), node.getEnd())
-    });
-  };
-  const identifierName = (node: ts.Node): string | undefined => {
-    const named = (node as { readonly name?: ts.Node }).name;
-    return named !== undefined && ts.isIdentifier(named) ? named.text : undefined;
-  };
-  const visit = (node: ts.Node): void => {
-    if (
-      ts.isFunctionDeclaration(node) ||
-      ts.isMethodDeclaration(node) ||
-      ts.isGetAccessorDeclaration(node) ||
-      ts.isSetAccessorDeclaration(node)
-    ) {
-      record(node, identifierName(node));
-    } else if (
-      ts.isVariableDeclaration(node) &&
-      ts.isIdentifier(node.name) &&
-      node.initializer !== undefined &&
-      (ts.isArrowFunction(node.initializer) || ts.isFunctionExpression(node.initializer))
-    ) {
-      record(node.initializer, node.name.text);
-    }
-    ts.forEachChild(node, visit);
-  };
-  ts.forEachChild(file, visit);
-  return scanned;
-}
-
-/**
- * Every way a delivery judgement has been faked in this module's history.
- * Each one is a PROXY that a source can satisfy without the reviewer having
- * received its conclusion.
- *
- * THIS LIST IS THE GUARD'S LIMIT, not its definition. It matches the TOKENS a
- * proxy comparison has been written with, so it now catches them in any syntax
- * shape — but a rewrite that never types those tokens is invisible to it. The
- * test below pins that residual blindness in both directions so nobody can
- * read this guard as "delivery has one home, guaranteed".
- */
-const PROXIES: readonly { readonly name: string; readonly re: RegExp }[] = [
-  { name: "status === 'found'", re: /status\s*[!=]==\s*'found'/ },
-  { name: "status !== 'found'", re: /status\s*[!=]==\s*'found'/ },
-  { name: 'includedBytes === totalBytes', re: /includedBytes\s*[!=]==\s*totalBytes/ },
-  { name: 'totalBytes === 0', re: /totalBytes\s*[!=]==\s*0/ },
-  { name: 'includedBytes > 0', re: /includedBytes\s*[<>]=?\s*0/ },
-  { name: 'content.length > 0', re: /content\.length\s*[<>]=?\s*[0-9]/ }
-];
-
-/**
- * The one function allowed to branch on `status === 'found'` without deciding
- * delivery: it chooses which STATUS LINE to print, and its result is prompt
- * text, so it cannot gate a verdict. Pinned to exactly one entry on purpose —
- * widening this list is a decision someone has to make in the guard, in
- * daylight, rather than a judgement that appears in a helper nobody re-reads.
- */
-const RENDER_ONLY = ['renderEvidenceSection'];
-
-/** `"<owner> uses <proxy>"` for every proxy found in every function body. */
-function deliveryProxyOffenders(source: string): readonly string[] {
-  const offenders: string[] = [];
-  for (const fn of namedFunctionBodies(source)) {
-    for (const proxy of PROXIES) {
-      if (proxy.re.test(fn.body)) offenders.push(`${fn.name} uses ${proxy.name}`);
-    }
-  }
-  return offenders;
-}
-
-/**
- * The PRE-H1 scanner, kept verbatim in the test for one reason: the shape test
- * below asserts that it finds NOTHING in a source where the AST scanner finds
- * four proxies. That is the H1 defect reproduced as an assertion — it is what
- * makes "this test fails against the old guard" a fact rather than a claim.
- */
-function legacyTopLevelFunctions(
-  source: string
-): readonly { readonly name: string; readonly body: string }[] {
-  const start = /^(?:export\s+)?(?:async\s+)?function\s+([A-Za-z_$][\w$]*)/;
-  const lines = source.split('\n');
-  const blocks: { name: string; body: string }[] = [];
-  let current: { name: string; body: string[] } | null = null;
-  for (const line of lines) {
-    const match = start.exec(line);
-    if (match !== null) {
-      if (current !== null) blocks.push({ name: current.name, body: current.body.join('\n') });
-      current = { name: match[1] as string, body: [line] };
-      continue;
-    }
-    if (current !== null) {
-      current.body.push(line);
-      if (line === '}') {
-        blocks.push({ name: current.name, body: current.body.join('\n') });
-        current = null;
-      }
-    }
-  }
-  if (current !== null) blocks.push({ name: current.name, body: current.body.join('\n') });
-  return blocks;
-}
+const SERVICE_PATH = join(SERVICE_DIR, 'final-review-service.ts');
 
 describe('final-review — the delivery judgement has exactly one home (guard C)', () => {
-  const SERVICE_PATH = resolve(
-    __dirname,
-    '..',
-    '..',
-    '..',
-    'src',
-    'services',
-    'final-review',
-    'final-review-service.ts'
-  );
   const source = readFileSync(SERVICE_PATH, 'utf8');
 
+  // The guard's subject: every module in the directory, read at run time.
+  // `scanModuleSet` enumerates with `readdirSync` and reports the paths it
+  // actually opened, so `MODULES` is the audit trail, not an intention.
+  const MODULES = scanModuleSet(SERVICE_DIR);
+  const OFFENDERS = MODULES.flatMap((scanned) => scanned.offenders);
+
   it('keeps every delivery proxy inside the single predicate', () => {
-    const offenders = deliveryProxyOffenders(source);
-    // Only `isDelivered` may decide delivery; every other function must ASK it.
-    expect(
-      offenders.filter(
-        (entry) =>
-          !entry.startsWith(`${DELIVERY_PREDICATE} `) &&
-          !RENDER_ONLY.some((name) => entry.startsWith(`${name} `))
-      )
-    ).toEqual([]);
+    // Only `isDelivered` may decide delivery; every other function must ASK it
+    // — now across all sixteen modules, pooled, rather than in the one file
+    // that happened to be named in a constant when this guard was written.
+    expect(illegalOffenders(OFFENDERS)).toEqual([]);
     // ...and the predicate itself must actually decide something, or this guard
     // is satisfied by deleting the judgement altogether.
-    expect(offenders.some((entry) => entry.startsWith(`${DELIVERY_PREDICATE} `))).toBe(true);
+    expect(OFFENDERS.some((entry) => entry.startsWith(`${DELIVERY_PREDICATE} `))).toBe(true);
+  });
+
+  /**
+   * The set-wide form of "exactly one home", which the parent-only guard could
+   * not state at all: nothing in the old guard stopped a split from leaving a
+   * second `isDelivered` behind in a sibling, or from moving the predicate out
+   * entirely and keeping a wrapper in the parent.
+   */
+  it('keeps the delivery predicate itself in exactly one module of the set', () => {
+    expect(modulesDefining(MODULES, DELIVERY_PREDICATE)).toHaveLength(1);
+    // The file name is pinned on purpose, in the same spirit as RENDER_ONLY: a
+    // split that MOVES the predicate somewhere else is allowed to happen, but
+    // it has to happen here, in daylight, rather than turning this arm green by
+    // accident. Two copies, on the other hand, are the defect — and the count
+    // assertion above catches them wherever they land.
+    expect(modulesDefining(MODULES, DELIVERY_PREDICATE)).toEqual(['final-review-service.ts']);
+    // The sanctioned render-only branch is a single named function too, so the
+    // allow-list cannot absorb a second copy of anything.
+    for (const name of RENDER_ONLY) {
+      expect(definitionCount(MODULES, name)).toBe(1);
+    }
   });
 
   /**
