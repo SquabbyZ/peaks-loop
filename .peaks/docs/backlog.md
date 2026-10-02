@@ -1696,6 +1696,23 @@ cycles this needed, including why a seeded-but-uncommitted ceiling row makes "HE
 temporarily false by design (§2.35's property, now exercised for real: the generator was run twice before the
 commit and both runs exited 0).
 
+
+**COMPLETE 2026-10-02 (wave 9, four slices: `…-wave9-gate-entry-split`, `…-monotonic-split`,
+`…-generator-split` + two repairs, `…-file-size-split`).** `.husky/` went from **4 files / 1,701 excess
+lines** to **33 files / 0**, 24 new modules each inside cap 300, while `fileSizeOverCap` (162) and
+`fileSizeExcessLines` (54,318) never moved at any of the four convergence runs — the two main rows did not
+notice the wave at all, which is what giving the guard its own rows instead of widening the main scope was
+supposed to buy (widening would have moved them to 165 / 55,834). These are the first rows in this ratchet
+sitting at zero, and `tests/unit/lint/file-size-hooks-zero-floor.test.ts` proves they can only be broken by
+new debt rather than assuming it: seeded to a measured 0 the leg holds green, one over-cap `.husky` file
+reddens it (`1 > ceiling 0 (+1)`, exit 1), removal restores green; staged through the existing walk, no file
+list edited.
+
+Two residue facts from the same wave, recorded where a future reader will meet them: the shape-changing slice's
+equivalence harness was specified against `git show HEAD:` and self-destructed on the commit that introduced it
+(pinned to a sha with self-check arms in `f0c42d57`); and committing a copy of the pre-split generator as a
+fixture was rejected on price — a 799-line `.mjs` under `tests/` is inside the census scope at cap 500, so the
+fixture would have added 299 excess lines to the very row the wave was descending.
 ### 2.33 The monotonicity guard's previous side is the file it guards, so the artifact is still the trust anchor for a weakening (found 2026-10-02 by out-of-band review of C wave 8)
 
 `.husky/peaks-gate-baseline.mjs:436–449` reads `OUT_PATH` — the same path it writes at `:484` — and
