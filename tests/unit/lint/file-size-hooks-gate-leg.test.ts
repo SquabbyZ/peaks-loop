@@ -52,6 +52,7 @@ import { afterAll, describe, expect, it } from 'vitest';
 
 import { declareDimensions } from '../_setup/4dim-template.js';
 import { SUBPROCESS_TEST_TIMEOUT_MS } from '../_setup/subprocess-timeouts.js';
+import { gateModuleText } from '../standards/_file-size-cap-scan.js';
 import {
   HOOKS_EXCESS_KEY,
   HOOKS_EXCESS_ROW,
@@ -77,7 +78,6 @@ declareDimensions(
 
 const fixture: Fixture = createFixture('hooks-leg');
 const LEG_REL = join('.husky', 'peaks-gate-file-size.mjs');
-const GATE_REL = join('.husky', 'peaks-gate.mjs');
 const GENERATOR_REL = join('.husky', 'peaks-gate-baseline.mjs');
 const MONOTONIC_REL = join('.husky', 'peaks-gate-baseline-monotonic.mjs');
 
@@ -364,7 +364,13 @@ describe('Scenario: behavior — a missing ceiling or a mute census takes the WH
 
 describe('Scenario: integration — the rows are wired, and nothing is typed', () => {
   it('enforces all four rows from ONE census invocation, in the whole-repo mode too', () => {
-    const gate = readFileSync(join(fixture.root, GATE_REL), 'utf8');
+    // POOLED OVER THE GATE'S MODULE SET, IN THE FIXTURE (rid
+    // 2026-10-02-wave9-gate-entry-split): the four `check` calls live in
+    // `.husky/gate/legs.mjs` and their `repo`-mode caller in `.husky/gate/repo.mjs`,
+    // and the fixture stages that set by WALKING `.husky/` (see `hooksScopeFilesUnder`)
+    // rather than by a list of names. A single-file read here would pin a file that no
+    // longer holds the symbol; the arms after this one prove the pool is a check.
+    const gate = gateModuleText(fixture.root);
     // One spawn feeding four checks: a census failure therefore takes them all down.
     expect(gate.match(/measureFileSizeOverCap\(/g) ?? []).toHaveLength(1);
     expect(gate).toContain('check(FS_ROW_LABEL, m.env.overCap');
@@ -437,9 +443,10 @@ describe('Scenario: a11y — what a hooks breach says to the human who hits it',
     // the same term the main pair already has: a named list describes those files.
     expect(generator).toContain('size.env.hooks.scope.source !== FS_HOOKS_WHOLE_SCOPE_SOURCE');
 
-    const gate = readFileSync(join(fixture.root, GATE_REL), 'utf8');
+    const gate = gateModuleText(fixture.root);
     // ONE census invocation feeding all four `check` calls, so a census failure or a
-    // missing ceiling takes every row down together.
+    // missing ceiling takes every row down together. Pooled over the walked set, for
+    // the reason in the wiring arm above.
     expect(gate.match(/measureFileSizeOverCap\(/g) ?? []).toHaveLength(1);
     expect(gate).toContain('check(FS_HOOKS_ROW_LABEL, m.env.hooks.overCap');
     expect(gate).toContain('check(FS_HOOKS_EXCESS_ROW_LABEL, m.env.hooks.excessLines');

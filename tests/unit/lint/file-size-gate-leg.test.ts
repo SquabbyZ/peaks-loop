@@ -59,6 +59,8 @@ import {
   BASELINE_PATH,
   CENSUS_TOOL_PATH,
   REPO_ROOT,
+  gateModulePaths,
+  gateModuleText,
   overCapFixture,
   runCensus
 } from '../standards/_file-size-cap-scan.js';
@@ -264,7 +266,13 @@ describe('Scenario: integration — the leg measures the census, not its own ide
   it('is wired into both the whole-repo mode and the mode this test spawns', () => {
     // A leg nothing calls enforces nothing — the same wiring-first assertion
     // `lint-file-list-parity.test.ts` makes for `pnpm lint`.
-    const gate = readFileSync(join(REPO_ROOT, GATE), 'utf8');
+    //
+    // POOLED OVER THE GATE'S MODULE SET (rid 2026-10-02-wave9-gate-entry-split): the
+    // entry is 1019 raw lines no more — its regions are `.husky/gate/*.mjs`, so
+    // `fileSizeLeg(check, c, [])` is in `repo.mjs` and the dispatch in the entry.
+    // The set is WALKED, not listed, and `file-size-cap.test.ts` carries the plant
+    // and inverse arms that keep the pool honest.
+    const gate = gateModuleText();
     expect(gate).toMatch(/fileSizeLeg\(check, c, \[\]\)/);
     expect(gate).toMatch(/mode === 'file-size'/);
     const generator = readFileSync(join(REPO_ROOT, GENERATOR), 'utf8');
@@ -277,15 +285,21 @@ describe('Scenario: integration — the leg measures the census, not its own ide
     // happen to agree, so neither caller may spawn the census itself any more.
     const shared = readFileSync(join(REPO_ROOT, SHARED_LEG), 'utf8');
     expect(shared).toContain(CENSUS_TOOL_PATH);
-    for (const caller of [GATE, GENERATOR]) {
+    // Every module the gate is made of — walked, not listed — plus the generator. The
+    // split made the single-file caller a module SET, so the prohibition widened to
+    // match it: no part of the gate may spawn the census or re-define the measurement.
+    for (const caller of [...gateModulePaths(), GENERATOR]) {
       const text = readFileSync(join(REPO_ROOT, caller), 'utf8');
-      expect(text, caller).toContain('peaks-gate-file-size.mjs');
       // Neither caller may spawn the census itself any more: the shared module is
       // the only place `TSX_CLI, FS_CENSUS` appears. (`--json` on its own is not
       // the tell — the silent-warning detector is spawned the same way.)
       expect(text, caller).not.toMatch(/TSX_CLI,\s*FS_CENSUS/);
       expect(text, caller).not.toMatch(/function measureFileSizeOverCap/);
     }
+    // And the shared module IS reached: by the gate somewhere in its set (whichever
+    // module owns the leg now), and by the generator by name.
+    expect(gateModuleText()).toContain('peaks-gate-file-size.mjs');
+    expect(readFileSync(join(REPO_ROOT, GENERATOR), 'utf8')).toContain('peaks-gate-file-size.mjs');
   });
 
   it('binds the ceiling to the inputs that produced it (repair cycle F2)', () => {
@@ -310,8 +324,9 @@ describe('Scenario: integration — the leg measures the census, not its own ide
     expect(recorded.scopeDirs).toEqual([...FILE_SIZE_SCOPE_DIRS]);
     expect(recorded.scopeExtensions).toEqual([...FILE_SIZE_SCOPE_EXTENSIONS]);
     expect(env.convention).toBe(FILE_SIZE_LINE_CONVENTION);
-    const gate = readFileSync(join(REPO_ROOT, GATE), 'utf8');
-    expect(gate).toContain('fileSizeInputTrips(');
+    // Pooled: the input binding is checked inside the file-size leg, and the leg is
+    // `.husky/gate/legs.mjs` as of rid `2026-10-02-wave9-gate-entry-split`.
+    expect(gateModuleText()).toContain('fileSizeInputTrips(');
   });
 });
 
@@ -451,14 +466,23 @@ describe('Scenario: behavior — the leg prints what it measured, then refuses (
     // ORDER IS ONLY FIXED IF BOTH MODES USE THE FIX. `repo` mode and `file-size`
     // mode each used to print the refusal their own way; a per-caller copy of the
     // order is the drift repair cycle F5 was opened to end.
-    const gate = readFileSync(join(REPO_ROOT, GATE), 'utf8');
+    //
+    // POOLED OVER THE GATE'S MODULE SET: the two callers are now `repo.mjs` and
+    // `modes.mjs`, so "exactly two" is a property of the set, not of one file.
+    const gate = gateModuleText();
     expect(gate.match(/printFileSizeLeg\(size/g) ?? []).toHaveLength(2);
     expect(gate).not.toMatch(/size\.refusal !== null\)[\s\S]{0,80}describeFileSizeEnvelope/);
     // And the helper is reached by a specifier a COPY of the gate can resolve: the
     // parity test runs `repo` mode from a scratch file under `.tmp/`, and a `./`
     // sibling import made that copy die at load with ERR_MODULE_NOT_FOUND, so its
     // CONTROL arm could only ever report "the gate exited (1) before printing its
-    // scope line" instead of the weakened count it exists to catch.
-    expect(gate).toContain("from '../.husky/peaks-gate-file-size.mjs'");
+    // scope line" instead of the weakened count it exists to catch. The split made
+    // the entry itself a file with siblings, so the same rule now binds the entry's
+    // OWN region imports: anchored at the repo root, never `./gate/…`.
+    expect(gate).toMatch(/from '\.\.(?:\/\.\.)*\/\.husky\/peaks-gate-file-size\.mjs'/);
+    expect(gate).not.toMatch(/from '\.\/peaks-gate-file-size\.mjs'/);
+    const entry = readFileSync(join(REPO_ROOT, GATE), 'utf8');
+    expect(entry).toContain("from '../.husky/gate/");
+    expect(entry).not.toMatch(/from '\.\/gate\//);
   });
 });

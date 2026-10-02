@@ -1005,3 +1005,57 @@ envelope), and each cycle found the next layer:
 until the seeding commit lands — prose that the fix above just made false, i.e. the same defect class as §2.27's
 note-asserting-a-rule; and `file-size-hooks-seeding.test.ts:265` names a short-anchor vector `十三`, a second
 written-down copy of the number 13, which will rot the next time a row is added.
+
+### 4r. Wave 9 slice 1 — the gate stopped being one 1,019-line file, and the hook's own mode nearly died with it (2026-10-02, rid `2026-10-02-wave9-gate-entry-split`)
+
+The hooks rows seeded in §4q immediately became a descent schedule, and this slice spent the largest one:
+`.husky/peaks-gate.mjs` 1019 raw → a **102-line stable entry** plus eight modules under `.husky/gate/`
+(74–208 raw, all under the 300 hooks cap). Measured on the converged tree:
+
+| | before | after |
+|---|---|---|
+| `fileSizeHooksOverCap` | 4 | **3** |
+| `fileSizeHooksExcessLines` | 1,701 | **982** (= 499 + 372 + 111, the three remaining files) |
+| `fileSizeOverCap` / `fileSizeExcessLines` | 162 / 54,318 | **162 / 54,318** (untouched — the scopes are disjoint) |
+| hooks scope counted | 4 files | **12 files** (the 8 siblings entered the index at staging) |
+
+Verification: verbatim-hoist proof by multiset line-diff (947 non-blank lines moved byte-identically, orphan and
+leftover sets empty); `tsc` exit 0; `tests/unit/lint` + `tests/unit/standards` **261/261 green** (24 files);
+`pnpm test:unit` 355 files / **3,748 passed** / 3 skipped (+6 cases from the two new test files, none lost);
+`gate repo` exit 0 across 15 rows; policy scope 1,487 → 1,489. One red arm existed between the split and the
+seeding run and was the expected kind: it reads the published artifact, which cannot descend until the
+orchestrator regenerates it.
+
+**The bug that mattered, found by the leaf and not by any contract of mine.** `gate/modes.mjs` moved
+`stagedMode`, which calls `inScope` and `reportEmpty`, but the import list pulled only three symbols from
+`context.mjs`. Result: `node .husky/peaks-gate.mjs staged <in-scope path>` threw `ReferenceError` — the exact
+"the repo becomes uncommittable" hazard the brief named, reached through the one mode the `pre-commit` hook
+actually runs. Nothing in the test suite could have caught it: `lint-staged` invokes `staged` mode only inside a
+real commit, and no leg spawns it with an in-scope path. The leaf found it with a syntactic `no-undef` pass —
+which it ran only because my "report 0 eslint findings" demand was unobtainable (see below) — then fixed the
+imports, regenerated from the scripted source, and re-proved `staged` byte-identical to HEAD.
+
+**Two of my premises were wrong in the instructive way.** (a) "Nothing copies `peaks-gate.mjs` into a fixture"
+— false: `_file-size-hooks-fixture.ts:245` copies it, in a loop over a file list; my `grep -rn copyFileSync |
+grep peaks-gate.mjs` returned zero because the two tokens never share a line. That is concluding structure from
+a matched string, which is the same error the campaign has now recorded three times. My own addendum said the
+fixture stages it, and I dispatched the brief body's claim anyway. (b) "Two arms read the gate's TEXT" — there
+are **ten sites in six collected files**, and two of them are `not.toMatch` prohibitions that had to be *widened*
+across the whole module set; pooling them the way I described would have quietly lost their teeth. The count of
+gate-naming test files is 10, not 9, and one file I listed (`baseline-monotonicity-head-anchor`) does not name
+the gate at all — its pattern was matched by a `.` wildcard spanning `-baseline.mjs`.
+
+**A consequence worth keeping as a rule, not an anecdote.** Adding the pins' anti-vacuity arms pushed
+`tests/unit/standards/file-size-cap.test.ts` to 524 raw and `_file-size-hooks-fixture.ts` to 510 — i.e. **the
+act of writing the guard raised `fileSizeOverCap` from 162 to 164**, which is precisely the §5 violation the
+guard exists to refuse. The leaf caught it, hoisted the new arms into `gate-module-set.test.ts` and
+`gate-module-staging.test.ts`, and restored 162 by measurement. So: before adding cases to a file that sits near
+its cap, read that file's cap headroom first; the ratchet does not care that the growth was virtuous. And three
+files now have almost no headroom for slices 2–3 — fixture 491/500, `file-size-gate-leg` 489/500,
+`file-size-cap` 470/500 — so further arms there must be new siblings, not additions.
+
+**Residue filed as §2.37:** the `.husky` modules are outside every tsconfig project, so the gate's own
+type-aware eslint invocation cannot parse them (9 fatal parsing errors on 9 files), while `prettierUnformatted`,
+`eslintFindings`, `eslintErrors` and `eslintCoverageGapFiles` all stay blind to them because the scope dirs are
+the four policy ones. The linter is unlintable by the linter, and the `ReferenceError` above is what that hole
+looks like in practice.

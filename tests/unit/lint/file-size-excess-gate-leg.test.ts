@@ -63,6 +63,7 @@ import { declareDimensions } from '../_setup/4dim-template.js';
 import {
   BASELINE_PATH,
   REPO_ROOT,
+  gateModuleText,
   overCapFromWalk,
   runCensus
 } from '../standards/_file-size-cap-scan.js';
@@ -309,7 +310,12 @@ describe('Scenario: integration — walk == tool == artifact for the new row', (
   });
 
   it('enforces both rows from ONE census invocation, in the whole-repo mode too', () => {
-    const gate = readFileSync(join(REPO_ROOT, GATE), 'utf8');
+    // POOLED OVER THE GATE'S MODULE SET (rid 2026-10-02-wave9-gate-entry-split): the
+    // leg that reads the census is `.husky/gate/legs.mjs` and its caller is
+    // `.husky/gate/repo.mjs`, so "one invocation feeding both checks" is a property
+    // of the set. The set is walked, not listed; the plant/inverse arms that prove the
+    // pool can fail live in `file-size-cap.test.ts` and `file-size-gate-leg.test.ts`.
+    const gate = gateModuleText();
     // One spawn feeding both checks: a census failure therefore takes both down.
     expect(gate.match(/measureFileSizeOverCap\(/g) ?? []).toHaveLength(1);
     expect(gate).toContain('check(FS_ROW_LABEL, m.env.overCap');

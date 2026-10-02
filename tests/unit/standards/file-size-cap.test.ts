@@ -64,6 +64,7 @@ import {
   censusCountedFiles,
   censusRun,
   describeFindings,
+  gateModuleText,
   gitScopedFiles,
   overCapFixture,
   overCapFromWalk,
@@ -364,7 +365,15 @@ describe('Scenario: a11y — the census reports 0 only when it means 0', () => {
     // `lint-file-list-parity.test.ts` takes for `pnpm lint`. Since repair cycle F5
     // the two callers reach it through `.husky/peaks-gate-file-size.mjs` instead of
     // each spawning it, so the assertion follows the spawn rather than the file.
-    const gate = readFileSync(join(REPO_ROOT, '.husky', 'peaks-gate.mjs'), 'utf8');
+    //
+    // THE GATE SIDE POOLS THE MODULE SET (rid 2026-10-02-wave9-gate-entry-split).
+    // The gate's regions moved to `.husky/gate/*.mjs`, so `FS_CEILING_KEY` and the
+    // specifier that reaches the shared leg now live in a sibling, not in the entry.
+    // Reading one file would go red because the symbol MOVED; keeping the string in
+    // the entry to avoid that would be the §2.28 defect in reverse. `gateModuleText`
+    // walks `.husky/gate/` and reads all of it — the two arms after this one are what
+    // prove the pool is a check and not a cushion.
+    const gate = gateModuleText();
     const generator = readFileSync(join(REPO_ROOT, '.husky', 'peaks-gate-baseline.mjs'), 'utf8');
     const shared = readFileSync(join(REPO_ROOT, '.husky', 'peaks-gate-file-size.mjs'), 'utf8');
     expect(shared).toContain(CENSUS_TOOL_PATH);
@@ -407,8 +416,9 @@ describe('Scenario: a11y — the census reports 0 only when it means 0', () => {
     expect(envelope.scope.extensions).toEqual(inputs?.scopeExtensions);
     const generator = readFileSync(join(REPO_ROOT, '.husky', 'peaks-gate-baseline.mjs'), 'utf8');
     expect(generator).toContain('fileSizePolicyInputs');
-    const gate = readFileSync(join(REPO_ROOT, '.husky', 'peaks-gate.mjs'), 'utf8');
-    expect(gate).toContain('fileSizeInputTrips(');
+    // Pooled, for the reason in the wiring arm above: the binding check is part of
+    // the file-size LEG, and the leg is now `.husky/gate/legs.mjs`.
+    expect(gateModuleText()).toContain('fileSizeInputTrips(');
   });
 
   it('measures one scope in the scan and in the census, not two (F3)', () => {

@@ -25,7 +25,15 @@
 // copy what the tool reported.
 
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -344,3 +352,43 @@ export const POLICY = {
   convention: FILE_SIZE_LINE_CONVENTION,
   caps: fileSizeCaps()
 };
+
+// ── the gate as a MODULE SET ──────────────────────────────────────────────────
+//
+// WHY THIS EXISTS (rid 2026-10-02-wave9-gate-entry-split). `.husky/peaks-gate.mjs`
+// reached 1019 raw lines — over the very cap its own hooks row measures — and its
+// regions now live in `.husky/gate/*.mjs`. Several guards, here and in
+// `tests/unit/lint/`, read the gate's SOURCE TEXT to pin a WIRING fact ("the leg
+// reaches the shared census module", "one census feeds every row"). A pin that
+// names ONE FILE goes red for the right reason when the symbol it pins moves into
+// a sibling; leaving the string in the entry to soothe the pin would be the §2.28
+// defect wearing the opposite hat. So a pin pools the module SET instead: this
+// library walks `.husky/gate/`, reads every module, and the symbol must appear
+// SOMEWHERE in the set — which `file-size-cap.test.ts`'s plant arm (a symbol in
+// exactly one sibling, found) and inverse arm (the symbol nowhere, red) keep from
+// being a claim. NO list of gate module names exists in this file, so the day slice
+// 2 or 3 adds or removes a sibling, nothing here has to be edited.
+
+/** The gate's entry, repo-relative: the one path every spawn site uses. */
+export const GATE_ENTRY_REL = join('.husky', 'peaks-gate.mjs');
+
+/** The directory the gate's regions moved into, repo-relative. */
+export const GATE_DIR_REL = join('.husky', 'gate');
+
+/** Every module the gate is made of — the entry plus `.husky/gate/*.mjs`, WALKED. */
+export function gateModulePaths(root: string = REPO_ROOT): string[] {
+  const dir = join(root, GATE_DIR_REL);
+  const peers = existsSync(dir)
+    ? readdirSync(dir, { withFileTypes: true })
+        .filter((entry) => entry.isFile() && entry.name.endsWith('.mjs'))
+        .map((entry) => join(GATE_DIR_REL, entry.name))
+    : [];
+  return [GATE_ENTRY_REL, ...peers.sort()];
+}
+
+/** The TEXT of the whole set, in a stable order, with a marker between modules. */
+export function gateModuleText(root: string = REPO_ROOT): string {
+  return gateModulePaths(root)
+    .map((file) => readFileSync(join(root, file), 'utf8'))
+    .join('\n// ─── gate module break ───\n');
+}

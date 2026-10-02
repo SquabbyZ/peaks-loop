@@ -1901,3 +1901,39 @@ symlink/junction to the working tree during development, or the version must be 
 changes `src` (and a guard should refuse to publish when `dist` does not match `src`, which is the failure this
 entry just cost a day of measurements). The minimum immediate step is a re-check pass: re-run each
 CLI-shaped backlog claim against `node bin/peaks.js` and mark which ones evaporate.
+
+
+### 2.37 The gate's own modules cannot be parsed by the gate's own eslint, and that hole shipped a ReferenceError (found 2026-10-02, wave 9 slice 1)
+
+`.husky/` is now measured by two ceiling rows (§4q/§4r), but it is still invisible to the lint half of the
+ratchet. All nine gate modules — the entry plus `.husky/gate/*.mjs` — fail to parse under the gate's own
+invocation:
+
+```
+pnpm exec eslint --config config/eslint/.peaks-rules.cjs --no-ignore --format json   .husky/peaks-gate.mjs .husky/gate/*.mjs
+→ files: 9 | with fatal: 9
+  Parsing error: "parserOptions.project" has been provided for @typescript-eslint/parser.
+```
+
+Measured 2026-10-02, reproduced above. And this is not covered by the artifact's own exclusion classes:
+`eslintCoverageGapFiles = 0`, `eslintSyntaxErrorFiles = 0`, `eslintNotLintedFiles = 0` all stay green because
+the gate's file list comes from `git ls-files` filtered to the four policy dirs, so `.husky` is never *asked
+about* — it is not in the population that could be reported as a gap. The rows I added yesterday count its
+lines and nothing reads its code.
+
+That hole is not theoretical. Wave 9 slice 1 hoisted `stagedMode` into `.husky/gate/modes.mjs` with an import
+list missing `inScope` and `reportEmpty`; `node .husky/peaks-gate.mjs staged <in-scope path>` threw
+`ReferenceError`, i.e. the commit hook would have failed on the next real commit. No test catches it —
+`lint-staged` runs `staged` mode only inside a live commit, and no leg spawns it with an in-scope path — and no
+linter would have caught it, because of the above. A leaf ran a syntactic `no-undef` pass by hand (because I
+had asked for a "0 findings" number that was unobtainable) and found it. `tsc` does not help either: `.husky` is
+not in the tsconfig include set, so these files are outside the type layer as well as the lint layer.
+
+Fixes, in ascending cost, none of them a ceiling edit: (1) make the wave's acceptance contract always run
+`staged` mode against a real in-scope path — cheap, and it is now recorded in `lint-gate.md` §4r as the mode the
+hook actually uses; (2) add `.husky` to an eslint project (its own tsconfig with `allowJs`, or extend
+`config/eslint/.peaks-rules.cjs`'s project list) so the nine files are parseable and become a counted class
+rather than a silent one; (3) run a syntactic-only eslint pass over the hooks scope inside `repo` mode and give
+it its own ceiling row, mirroring what §4q did for size. (2) and (3) change the *population*, so like every
+other scope decision in this file they need a daylight call — the difference from 2026-09-30 is that the
+ceiling-side blindness is now fixed and the lint-side one is documented with a reproduction.

@@ -80,17 +80,51 @@ const GENERATOR_REL = join('.husky', 'peaks-gate-baseline.mjs');
 const POLICY_REL = join('src', 'services', 'scan', 'file-size-policy.ts');
 const CENSUS_REL = join('scripts', 'lint', 'file-size-census.ts');
 
-/** Everything the fixture runs byte-for-byte from the repository. */
-const COPIED_FILES = [
-  GATE_REL,
-  GENERATOR_REL,
-  join('.husky', 'peaks-gate-file-size.mjs'),
-  join('.husky', 'peaks-gate-baseline-monotonic.mjs'),
+/**
+ * Every `.husky/` module the gate is made of, by WALKING the source tree under the
+ * census's OWN hooks-scope rule (`isHooksMeasuredFile`), so the fixture stages
+ * whatever the gate is made of and cannot go stale the way the fixed list this
+ * replaces did. That list named `.husky/peaks-gate.mjs`, `-baseline.mjs`,
+ * `-file-size.mjs` and `-baseline-monotonic.mjs` by hand; the day the gate's regions
+ * moved to `.husky/gate/*.mjs` (rid `2026-10-02-wave9-gate-entry-split`) the fixture's
+ * copy of the ENTRY alone died at load inside the temp repo —
+ * `ERR_MODULE_NOT_FOUND: …\.husky\gate\changed.mjs`, the same shape as the wave-7
+ * parity incident. A hard-coded name list is a second copy of the tree; a walk is
+ * the tree. `file-size-hooks-gate-leg.test.ts` carries the plant arm (a module added
+ * under `.husky/gate/` grows the staged set with no edit here) and the inverse.
+ */
+export function hooksScopeFilesUnder(root: string): string[] {
+  const out: string[] = [];
+  const scan = (dir: string, rel: string): void => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const rel2 = rel === '' ? entry.name : `${rel}/${entry.name}`;
+      const abs = join(dir, entry.name);
+      if (entry.isDirectory()) scan(abs, rel2);
+      else if (entry.isFile() && isHooksMeasuredFile(rel2)) out.push(rel2);
+    }
+  };
+  for (const dir of HOOKS_FILE_SIZE_SCOPE_DIRS) {
+    const abs = join(root, dir);
+    if (existsSync(abs)) scan(abs, dir);
+  }
+  return out.sort();
+}
+
+/** The non-`.husky/` half of what the fixture runs byte-for-byte from the repository. */
+const RUNTIME_FILES = [
   CENSUS_REL,
   join('scripts', 'lint', 'file-size-census-hooks.ts'),
   POLICY_REL,
   join('scripts', 'lint', 'lint-file-list.mjs')
 ];
+
+/**
+ * Everything the fixture runs byte-for-byte from the repository, in one walked set.
+ * Exported so `gate-module-staging.test.ts` can assert it covers every module the gate
+ * is made of: a fixture that stages less than the entry imports dies at load, and that
+ * is the failure this list used to cause.
+ */
+export const FIXTURE_COPIED_FILES = [...hooksScopeFilesUnder(REPO_ROOT), ...RUNTIME_FILES];
 
 const ESLINT_STUB = "process.stdout.write('[]\\n');\n";
 const TSC_STUB = "process.stdout.write('');\n";
@@ -242,7 +276,7 @@ export function createFixture(name: string) {
       2
     )}\n`
   );
-  for (const rel of COPIED_FILES) copyFileSync(join(REPO_ROOT, rel), write(rel, ''));
+  for (const rel of FIXTURE_COPIED_FILES) copyFileSync(join(REPO_ROOT, rel), write(rel, ''));
   // The fixture's own guards: one hooks-scope file two lines over cap, one under it,
   // and one main-scope file three lines over cap. Every arm derives its expectation
   // from a measurement, so these sizes are never restated downstream.
@@ -372,20 +406,7 @@ export function createFixture(name: string) {
     },
     /** The fixture's hooks-scope file set by walking, for the membership arm. */
     hooksScopeFiles(): string[] {
-      const out: string[] = [];
-      const scan = (dir: string, rel: string): void => {
-        for (const entry of readdirSync(dir, { withFileTypes: true })) {
-          const rel2 = rel === '' ? entry.name : `${rel}/${entry.name}`;
-          const abs = join(dir, entry.name);
-          if (entry.isDirectory()) scan(abs, rel2);
-          else if (entry.isFile() && isHooksMeasuredFile(rel2)) out.push(rel2);
-        }
-      };
-      for (const dir of HOOKS_FILE_SIZE_SCOPE_DIRS) {
-        const abs = join(root, dir);
-        if (existsSync(abs)) scan(abs, dir);
-      }
-      return out.sort();
+      return hooksScopeFilesUnder(root);
     }
   };
 }
