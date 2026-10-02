@@ -65,6 +65,7 @@ import {
   REPO_ROOT,
   gateModuleText,
   generatorModuleTextUnder,
+  fileSizeModuleText,
   overCapFromWalk,
   runCensus
 } from '../standards/_file-size-cap-scan.js';
@@ -323,7 +324,10 @@ describe('Scenario: integration — walk == tool == artifact for the new row', (
     expect(gate).toContain('missingFileSizeCeilings(ceilings)');
     // And `repo` mode runs this same leg, not a copy of it.
     expect(gate).toMatch(/fileSizeLeg\(check, c, \[\]\)/);
-    const shared = readFileSync(join(REPO_ROOT, SHARED_LEG), 'utf8');
+    // POOLED over the walked file-size module set (rid `2026-10-02-wave9-file-size-split`):
+    // the ceiling key and label moved into `.husky/file-size/constants.mjs`, so the pin
+    // reads the SET, not the entry alone — the same posture `gateModuleText` takes above.
+    const shared = fileSizeModuleText(REPO_ROOT);
     expect(shared).toContain(CEILING_KEY);
     expect(shared).toContain(ROW);
   });

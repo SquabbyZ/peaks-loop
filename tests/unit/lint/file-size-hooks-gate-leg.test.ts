@@ -45,14 +45,17 @@
 //                  other, and the input binding refusing a re-decided hooks cap
 //   - a11y:        the breach text and the regenerate instruction a commit sees
 
-import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { afterAll, describe, expect, it } from 'vitest';
 
 import { declareDimensions } from '../_setup/4dim-template.js';
 import { SUBPROCESS_TEST_TIMEOUT_MS } from '../_setup/subprocess-timeouts.js';
-import { gateModuleText, generatorModuleTextUnder } from '../standards/_file-size-cap-scan.js';
+import {
+  fileSizeModuleText,
+  gateModuleText,
+  generatorModuleTextUnder
+} from '../standards/_file-size-cap-scan.js';
 import {
   HOOKS_EXCESS_KEY,
   HOOKS_EXCESS_ROW,
@@ -403,7 +406,10 @@ describe('Scenario: integration — the rows are wired, and nothing is typed', (
     expect(monotonic).toContain(`'${HOOKS_OVER_CAP_KEY}'`);
     expect(monotonic).toContain(`'${HOOKS_EXCESS_KEY}'`);
 
-    const shared = readFileSync(join(fixture.root, LEG_REL), 'utf8');
+    // Pooled over the walked file-size module set (rid `2026-10-02-wave9-file-size-split`):
+    // the hooks keys/labels/source moved into `.husky/file-size/constants.mjs`, so this
+    // reads the FIXTURE's set the way `monotonicModuleTextUnder` reads the monotonic set.
+    const shared = fileSizeModuleText(fixture.root);
     expect(shared).toContain(HOOKS_OVER_CAP_KEY);
     expect(shared).toContain(HOOKS_OVER_CAP_ROW);
     expect(shared).toContain(HOOKS_EXCESS_ROW);

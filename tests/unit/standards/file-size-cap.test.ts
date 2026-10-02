@@ -64,6 +64,7 @@ import {
   censusCountedFiles,
   censusRun,
   describeFindings,
+  fileSizeModuleText,
   gateModuleText,
   generatorModuleTextUnder,
   gitScopedFiles,
@@ -379,7 +380,7 @@ describe('Scenario: a11y — the census reports 0 only when it means 0', () => {
     // 2026-10-02-wave9-generator-split): the region that imports the shared leg is now
     // `.husky/baseline/census-leg.mjs`, and the walk finds it wherever it lives.
     const generator = generatorModuleTextUnder(REPO_ROOT);
-    const shared = readFileSync(join(REPO_ROOT, '.husky', 'peaks-gate-file-size.mjs'), 'utf8');
+    const shared = fileSizeModuleText(REPO_ROOT);
     expect(shared).toContain(CENSUS_TOOL_PATH);
     expect(gate).toContain('peaks-gate-file-size.mjs');
     expect(generator).toContain('peaks-gate-file-size.mjs');
@@ -391,7 +392,7 @@ describe('Scenario: a11y — the census reports 0 only when it means 0', () => {
 
   it('refuses a named-file subset and disclaims the control arm it does accept (F1)', () => {
     // The leg may not report `ceiling held` for a run that measured one file.
-    const shared = readFileSync(join(REPO_ROOT, '.husky', 'peaks-gate-file-size.mjs'), 'utf8');
+    const shared = fileSizeModuleText(REPO_ROOT);
     expect(shared).toContain('refuseScopedSubset');
     expect(shared).toContain('CONTROL ARM');
     expect(shared).not.toMatch(/function refuseScopedSubset[\s\S]{0,400}ceiling held/);

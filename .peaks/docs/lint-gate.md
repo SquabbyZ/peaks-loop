@@ -1119,3 +1119,37 @@ the guard that entry created), and once the descent itself was accepted with `CL
 The rule this slice is the evidence for: **inside the gate, a comment asserting a proof is a claim under test.**
 If it is not backed by an arm that can go red, it does not belong in the file — and a refactor whose only novel
 risk is silent behaviour change needs its equivalence arm to be shown discriminating, not merely green.
+
+### 4v. Wave 9 closed — the gate's own directory is at zero, and the rule about HEAD-relative tests (2026-10-02, rids `…-wave9-*`)
+
+Slice 4 split the last over-cap file: `.husky/peaks-gate-file-size.mjs` 411 → a 60-line entry plus five
+siblings (48–125 raw), a verbatim move held to the slice 1/2 standard — **396/396 non-blank lines byte-identical,
+orphan set empty**, 59 added lines all module headers and import/export plumbing, zero logic lines, export
+surface proven identical by an import-and-list diff against a `git show HEAD:` copy.
+
+`fileSizeHooksOverCap` and `fileSizeExcessLines` are now **0**, over a 33-file hooks scope. That is the first
+row-pair in this file with a floor of zero, so it can only ever be broken by new debt — and
+`tests/unit/lint/file-size-hooks-zero-floor.test.ts` asserts that, in a fixture: seeded to a measured 0 it holds
+green, adding one over-cap `.husky` file reddens it (`1 > ceiling 0 (+1)`, exit 1), removing it returns to green.
+Staged by the existing walk, no file list touched.
+
+The wave, in one line: **`.husky` 4 files / 1,701 excess lines → 33 files / 0**, with `fileSizeOverCap` (162)
+and `fileSizeExcessLines` (54,318) unmoved at every one of the four convergence runs, and 24 new modules where
+the ratchet previously could not see anything. Repo-wide unit went 353/3,742 → **360 files / 3,777 passed**;
+`gate repo` exited 0 at each step.
+
+**The rule this wave leaves behind, from the one thing I designed wrong.** Slice 3's equivalence test compared
+the split generator to `git show HEAD:` of itself. That is true while the slice is uncommitted and false from
+the moment it lands — the reference side then stages the split file and excludes the directory it imports, and
+11 arms die with a path in the message. Fixed by pinning the pre-split sha and adding arms that check the anchor
+is still monolithic and that HEAD is still split (`f0c42d57`). So:
+
+- a regression test must never anchor on "the current tip" for the thing it exists to protect; pin a ref, or
+  assert the property it depends on directly. A HEAD-relative check describes a moving target and validates
+  itself only on the day it is written;
+- the same trap appeared one layer down, in an assertion that the *dependency closure* was unmodified versus
+  HEAD — which the next slice's legitimate working-tree edit violated. It was narrowed with a measurement to
+  "the two fixtures' closures are byte-identical", which is the property the comparison actually needs;
+- and do not solve it by committing a copy of the old file: a 799-line `.mjs` under `tests/` is inside the
+  census scope at cap 500, so the fixture would have added 299 excess lines to the very row the wave was
+  descending. Convenience priced against the ledger, not assumed.

@@ -447,3 +447,38 @@ export function generatorCeilingsFileUnder(root: string): string {
   }
   return holder;
 }
+
+/**
+ * THE FILE-SIZE LEG'S MODULE SET (rid `2026-10-02-wave9-file-size-split`).
+ *
+ * Same problem, same rule. `.husky/peaks-gate-file-size.mjs` reached 411 raw lines —
+ * over the very hooks cap it measures — and its exported functions are now
+ * `.husky/file-size/*.mjs` behind a re-exporting entry at the unchanged path. A pin
+ * that read the ENTRY alone would pin a file that no longer holds the string: the
+ * ceiling keys, labels and scope-source now live in `constants.mjs`, and
+ * `CONTROL ARM` in the print module. So a pin pools the SET instead. It reuses
+ * `listCodeFiles` (no name list, entry-first, forward-slashed to compose with
+ * `hooksScopeFilesUnder`) exactly like `generatorModulePathsUnder` above, so the day
+ * a slice 4 sibling is added or removed nothing here has to be edited.
+ */
+export const FILE_SIZE_ENTRY_REL = '.husky/peaks-gate-file-size.mjs';
+export const FILE_SIZE_DIR_REL = '.husky/file-size/';
+
+/** The file-size entry plus every walked `.husky/file-size/` sibling, entry first. */
+export function fileSizeModulePaths(root: string): string[] {
+  const husky = join(root, '.husky');
+  const walked = existsSync(husky)
+    ? listCodeFiles('', husky, []).map((rel) => `.husky/${rel}`)
+    : [];
+  const set = walked.filter(
+    (rel) => rel === FILE_SIZE_ENTRY_REL || rel.startsWith(FILE_SIZE_DIR_REL)
+  );
+  return [FILE_SIZE_ENTRY_REL, ...set.filter((rel) => rel !== FILE_SIZE_ENTRY_REL).sort()];
+}
+
+/** The pooled TEXT of that set — what a pin about the file-size SET must read. */
+export function fileSizeModuleText(root: string): string {
+  return fileSizeModulePaths(root)
+    .map((rel) => readFileSync(join(root, rel), 'utf8'))
+    .join('\n// ─── file-size module break ───\n');
+}
