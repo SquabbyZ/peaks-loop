@@ -1805,3 +1805,55 @@ label can read "measured by this run" for a disk-side problem, and three lines o
 are prettier-dirty from repair cycle 1 — outside every prettier scope, so no row moves, but they belong to the
 §2.32 decision rather than to this slice.
 
+
+**CORRECTED 2026-10-02 — the CLI half of this entry was my instrument, and the correction is bigger than the
+entry.** I wrote above that `peaks scan file-size --json` reports `checkedFiles: 7` while `scanFileSize()`
+returns `5 + outOfScopeFiles`. Both readings are real, but they are not two views of one program: `peaks` on
+this machine is `C:\nvm4w\nodejs\node_modules\peaks-loop`, a **plain directory installed 2026-09-24 02:13**
+whose `dist/services/scan/file-size-scan.js` contains **zero** occurrences of `outOfScopeFiles`, while the
+repository's own build (mtime 2026-10-02 00:44) contains it and prints it. The field and its semantics landed
+in `src` at `c7771069` (2026-10-01 10:02, "refuse a subset as if it were the whole tree"), and it is already
+pinned — `grep -rn outOfScopeFiles tests/` returns 7 hits. So remedy (1) of this entry is not outstanding
+work; it was shipped the day before I measured it as missing, and I read a stale binary. Verified side by side
+on the same tree: `node bin/peaks.js scan file-size --project . --json` prints `"outOfScopeFiles": []`,
+`peaks scan file-size --project . --json` prints no such key at all. What remains true here is remedy (2):
+`.husky/` is measured by nothing (the repo's own service puts both gate files in `outOfScopeFiles`), and the
+gate body has grown 456/265 → 750/662 raw lines today under no ceiling row. Joining it is not free: at cap 300
+the four `.husky` files are 1004 / 750 / 662 / 293, so `fileSizeOverCap` would go 162 → 165 and
+`fileSizeExcessLines` 54,318 → 55,834 (+1,516) — raises that the monotonicity guard built three slices ago
+refuses by design. The extension therefore requires splitting the three gate files first, and 11 test files
+name those paths (`peaks-gate-baseline.mjs` in 9 of them, `peaks-gate.mjs` in 6), so it is a wave with a wide
+pin surface, not a one-line scope edit. See §2.36 for what the stale install means for everything else I
+measured today.
+
+### 2.36 The globally installed CLI is eight days behind `src` while carrying the current version number (found 2026-10-02)
+
+`C:\nvm4w\nodejs\node_modules\peaks-loop\package.json` says **4.0.54**; `D:/peaks-loop/package.json` says
+**4.0.54**. The installed tree's mtimes are 2026-09-24 02:13, and `strict-remediation-abc` is ~90 commits and
+eight days ahead of that build. So the version number does not evidence the artifact: two different programs
+answer to `peaks --version 4.0.54`, and one of them is the one every skill, hook and orchestrator in this
+campaign calls.
+
+Consequences, measured today rather than argued:
+
+- **A shipped fix looked like an open defect.** §2.32 was filed partly from `peaks scan file-size` output that
+  current `src` no longer produces. Any finding phrased as "the CLI does X" in this session's backlog is
+  suspect until re-read against `node bin/peaks.js`.
+- **The "CLI drift" bucket needs re-triage.** Several items recorded as flag drift (`--project` required by
+  `workspace init` / `request list`, `skill presence:set` needing `PEAKS_CALLER_ID`, `request init` not
+  resolving the active session, `session list` having no `--project`) may be properties of the 09-24 build
+  rather than of current source. §2.25 is a live example of the ambiguity: the numbered `20NN-` filename
+  prefix I attributed to `request init` does not appear in `src/cli/commands/request-commands.ts` as a year
+  computation, but that file does join a **bypass counter** root from `--session-id` (`:365–370`, `:444`),
+  which is a plausible mechanism for a counter being read as a year. That is a hypothesis, explicitly
+  unverified, and §2.25 stays open until it is tested against the repo build rather than the installed one.
+- **`subagent-cleanup` (§2.29) survives the re-check.** Its diagnosis was read from repository source
+  (`src/services/job/subagent-job-wrapper.ts:32` in-process `Map`, `src/cli/commands/job-commands.ts:449`
+  constructing a fresh wrapper per invocation) and its behavior was measured as a *disk* effect — six
+  `cleaned: true` returns and `find -mmin -10` empty — so it is not an artifact-of-the-stale-build finding.
+
+Fix shape, not chosen here because it is a release-process decision: the installed copy must either be a
+symlink/junction to the working tree during development, or the version must be bumped by the same commit that
+changes `src` (and a guard should refuse to publish when `dist` does not match `src`, which is the failure this
+entry just cost a day of measurements). The minimum immediate step is a re-check pass: re-run each
+CLI-shaped backlog claim against `node bin/peaks.js` and mark which ones evaporate.
