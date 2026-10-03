@@ -1,5 +1,41 @@
 # Changelog
 
+## 4.1.0 — 2026-10-03 (strict-remediation 战役收口: 门禁第一次开始看自己、判据换成"哪些代码是产品"、以及一次把自己推翻的探针)
+
+**版本级别**: 未发布区间 `v4.0.54..HEAD` 共 **167 个 commit**（49 refactor / 42 docs / 35 fix / 8 feat / 6 test / 15 chore / 1 style）。取 **minor** 而不是继续 patch，理由是这区间有**新增的用户可见 CLI 表面**（`peaks job add-slice`）以及若干会改变用户所见的修复（cron 超时、`pnpm lint` 的口径、空测试集从"绿"变"红"）；`^4.0.54` 的下游仍能匹配到本版。
+
+### 1. `peaks job` 不再自相矛盾（§2.38，本版本唯一"新增命令"）
+
+三条都是先在临时仓库里**跑出来**再修的：(a) `init` 之后没有任何办法给已有 job 追加 slice，`checkpoint` 回 `SLICE_NOT_FOUND`，于是"一片一片发现的 wave"只能谎报账本或一片开一个 job；(b) `checkpoint --commit-sha` 原先**只校验长度 ≥7**，一个 `git cat-file` 判定"不是有效对象"的 `c6de09a9` 被接受并写成 `lastCommitSha`；(c) `progress` 的 `currentSlice` 是 `slice-<done+1>` **合成出来的 id**，所以工具自己建议下一步、又自己拒绝那一步——第三条是第一条的成因。现在：`peaks job add-slice --slice-label` 幂等（重复 label 报知且 `state.json` 字节不变、空 label 拒绝）；sha 必须可解析才写入，拒绝时引用 git 原话且账本一字节不动；`describeNextSlice` 成为 `#N of M` 的**唯一**出口（原先三处各自算），并把"全部完成"从 `Next: slice #3 of 2 (no slice pending)` 改成 `no further slice is registered — add one with: peaks job add-slice …`，实测该分支下 `slice #` 出现 **0 次**。附带撤回 backlog 自己原先写的"checkpoint 应该记录未知 slice 而不是拒绝"——拒绝未声明的 id 正是账本唯一的防线。
+
+### 2. cron 的三处名实不符（用户可见行为）
+
+`EXEC_TIMEOUT_MS` 在名字叫"五分钟"的地方是**五小时**；超时不再收割任务子进程（孤儿活在大门之后）；daemon 与 run-once 两个写者对 `lastRunAt` 各有各的规则。现在同一 killed 规则覆盖两条路径，killed 记录带得出 killed 标记与非空 stderr，普通失败给不出这个形状。
+
+### 3. 假绿被系统性关掉（三处）
+
+包内测试集为空从"通过"变成"失败"并补上 CI 步骤；`emit` 检查改为**递归**，嵌套 emit 不能再不吭声地消失；stamp 写入改为原子，且守卫不再为自己验证不了的东西背书；build-integrity 的包集合与 gate 对齐（不一致就拒），空 stamp 记录直接拒。
+
+### 4. `pnpm lint` 与门禁终于量同一个集合
+
+原先 `peaks lint` 报的是 1259 而 `peaks-gate.mjs repo` 量 1298（少 80 条 finding 却仍打印"全部守住"）——因为 gate 里那份扩展名/目录正则是规则的**第二份写法**、没有任何测试观察它。现在只有一个列表、一处过滤，两边由 parity 测试互相钉住；`.peaks/lint/baseline.json` 也修成可移植路径，**waiver 真的在豁免**（此前它按绝对路径匹配，等于静默不豁免）。
+
+### 5. 判据换掉：严格检查属于"产品代码"，出界部分只测不闸
+
+owner 明确「只需要对 `src` 与 `packages/*/src` 这些目录下的文件做 eslint 严格检查、tscheck、prettier」，取代原先"四个目录"的口径。被排除的 552→575 个文件（`tests/`、`scripts/`、包内非 `src`）**不是删掉的债**——`eslintFindings 638`、`fileSizeExcessLines 13557` 仍每次测量并打印，只是不设 ceiling；`shadow` 块承担这笔账，并在上升时主动播报（实测今天连报 `638 → 639 → 641 → 648`，而受闸一侧同期 `2130 → 2128`）。配套把 `--rescope` 的触发条件从"数值变了"改成**"边界文本变了，或有文件离开了范围"**——纯长大免 flag 并打印 `scope grew: 950 -> 952 (7 entered, 0 left the scope)`，因为总体变大只会让计数上升，而任何上升都照旧被 `RAISED` 拒绝：**松的是仪式，不是 ratchet**。
+
+### 6. 门禁第一次开始看自己
+
+`.husky/` 原先不在任何行数口径里（`peaks-gate.mjs` 1019 行、3.3× 它自己 enforced 的 cap，而它贡献 0）。现在它有**自己的两行**且全程未动主口径（`fileSizeOverCap` 始终 162→126），四个 slice 把 gate 目录从 **4 文件 / 1,701 超实行降到 33+ 文件 / 0**；799 行的生成器与 1,019 行的入口都被拆开，每一次拆分都带**等价手臂**（拆分前后逐行多重集守恒 + 对 `git show` 钉 sha 的行为对照），因为"重构看起来没动"不等于"证明没动"。`silent-warning` 成为最后一条自择总体的腿，收口后它和其余腿共用同一份跟踪列表——顺带数出**17 处此前没有任何 ceiling 见过的静默吞异常**（16 处集中在 `packages/peaks-loop-mut/src/services/agent/ecc-cache-service.ts`，该文件同时欠 537 行）。
+
+### 7. 一条被自己的探针推翻的结论（保留为记录，不删）
+
+本版曾断言"全局 `npm i -g` 会静默跳过 `install-skills`，用户装到 CLI 却拿不到 skills"。一个 `mkprobe` 探针包（`postinstall` 写 marker 文件）在 **npm 11.19.0** 上两次都**执行了**脚本——该版本的 `install-scripts` 警告是告知性的，`ignore-scripts` 为 `false`；而"skills 目录 45 项未变"正是 `install-skills` **按内容 hash 幂等**的成功样子。教训写进 backlog §2.52a：**no-op 和 skip 给出同一份证据**，"工具 X 不肯做 Y"这种结论，先花一秒把 X 跑一遍。仍然成立的两点：npm 自己说这些脚本"尚未被覆盖"、翻默认在即（二手报道指 v12，本次未能取到一手来源），届时 `--allow-scripts=peaks-loop` 是唯一防线，故两版 README 的安装段落现在写明；以及本仓 `.npmrc` 携 pnpm 的 `onlyBuiltDependencies`（外加一个连字符重复项），npm 每次调用都报未知并声明下个大版本失效——**pnpm 侧有一条放行、npm 侧为空**。
+
+### 验证
+
+`gate repo` exit 0（943→952 文件、hooks 行 0/0）、`tsc -p tsconfig.json --noEmit` 0、`pnpm test:unit` **379 文件 / 3,915 passed / 3 skipped**、`npm run build` 0（`build-integrity: OK`，`dist-stamp: 907 source file(s)`）。战役过程与全部自我推翻记录在 `.peaks/docs/backlog.md` §2.25–§2.52a、`.peaks/docs/lint-gate.md` §4n–§4z。
+
 ## 4.0.54 — 2026-09-18 (Phase A 缺陷闭合十片: 9 片真改 + 3 次修复推翻自己 + 4.0.53 宣称闭合的 AC 里 2 个被证伪 — AC-6 是假 pin、AC-1 是空 pin)
 
 **Highlights**:

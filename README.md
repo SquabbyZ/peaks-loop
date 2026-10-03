@@ -49,6 +49,20 @@ peaks-loop 是一个 **Loop Engineering 结晶系统**,不是工作流工具 —
 npm i -g peaks-loop
 ```
 
+> **npm 11+ 请带一个 flag**:安装时 npm 会对"未经 allowlist 覆盖"的 install 脚本打一条 `install-scripts` 警告。**当前版本(npm 11.19)仍然会执行**这些脚本,所以装完就能用;但 npm 已明说这个默认值即将翻成"默认不执行"。为了不在那一天静默装到一个"有 CLI、没有 skills"的状态,请写全:
+>
+> ```bash
+> npm i -g --allow-scripts=peaks-loop peaks-loop
+> ```
+>
+> 装好后如果怀疑 skills 没落上,**目前没有一条 CLI 命令报告这个状态**(`peaks skill search` 查的是包内技能池,与 IDE 目录里装了没装无关),所以只能看目录本身:
+>
+> ```bash
+> ls ~/.claude/skills | grep '^peaks-' | head    # 或你实际在用的 IDE 目录
+> ```
+>
+> 空目录 = skills 没装上(CLI 本身仍可用)。这个"报告不出自己装了没装"的缺口记在 `.peaks/docs/backlog.md` §2.52a。
+
 装好之后,在你已经用的 **Claude Code** 或 **Z Code** 对话框里发一条**显式命令**(必须以斜杠开头,才会触发 peaks-loop):
 
 ```
@@ -140,7 +154,7 @@ npm i -g peaks-loop
 
 | | |
 | --- | --- |
-| **最新版本** | [![npm](https://img.shields.io/npm/v/peaks-loop?style=for-the-badge&logo=npm&logoColor=white&color=cb3837)](https://www.npmjs.com/package/peaks-loop) — 4.0.54(2026-09-18) |
+| **最新版本** | [![npm](https://img.shields.io/npm/v/peaks-loop?style=for-the-badge&logo=npm&logoColor=white&color=cb3837)](https://www.npmjs.com/package/peaks-loop) — 4.1.0(2026-10-03) |
 | **覆盖域** | 代码(`peaks-code`) · 内容(`peaks-content`) · 项目健康(`peaks-doctor`) · 批量修 issue(`peaks-issue-fix-orchestrator`) · 自定义 SOP(`peaks-sop`) · 通用原语(`peaks-solo` 分诊 / `peaks-resume` 续 / `peaks-status` 看 / `peaks-test` 测 / `peaks-slice-decompose` 切片) |
 | **沉淀池** | `~/.peaks/` 本地池 · 跑两次自动晋升成 bee · 跑翻车让你重定义 · bee 跟着你的口味长 |
 | **测试套件** | 1096 cases · 4 packages (peaks-loop 1015 / runtime 39 / mut 22 / shared-channel 20) · **CI 首次全绿**(ubuntu + windows) · 14 BDD caller-binding coverage |

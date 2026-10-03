@@ -49,6 +49,21 @@ peaks-loop is a **Loop Engineering crystallization system**, not a workflow tool
 npm i -g peaks-loop
 ```
 
+> **On npm 11+, pass one flag.** npm prints an `install-scripts` warning for lifecycle scripts that are not
+> covered by its allowlist. **At the current version (npm 11.19) the scripts still run**, so the install works
+> as-is — but npm says that default is about to flip. To avoid silently ending up with "a CLI, no skills", write
+> it out fully:
+>
+> ```bash
+> npm i -g --allow-scripts=peaks-loop peaks-loop
+> ```
+>
+> If you suspect the skills did not land, **no CLI command reports that state today**
+> (`peaks skill search` queries the in-package skill pool, which says nothing about your IDE directory), so
+> look at the directory itself: `ls ~/.claude/skills | grep '^peaks-' | head` (or the IDE dir you actually
+> use). Empty means the CLI installed but the skills did not — the gap is recorded in
+> `.peaks/docs/backlog.md` §2.52a.
+
 Then, in the **Claude Code** or **Z Code** chat you already use, send an **explicit slash command** (the leading slash is what triggers peaks-loop — a plain sentence won't always route here):
 
 ```
@@ -140,7 +155,7 @@ Every lane opens with **one slash command**.
 
 | | |
 | --- | --- |
-| **Latest** | [![npm](https://img.shields.io/npm/v/peaks-loop?style=for-the-badge&logo=npm&logoColor=white&color=cb3837)](https://www.npmjs.com/package/peaks-loop) — 4.0.54 (2026-09-18) |
+| **Latest** | [![npm](https://img.shields.io/npm/v/peaks-loop?style=for-the-badge&logo=npm&logoColor=white&color=cb3837)](https://www.npmjs.com/package/peaks-loop) — 4.1.0 (2026-10-03) |
 | **Domains** | Code (`peaks-code`) · Content (`peaks-content`) · Project health (`peaks-doctor`) · Issue sweep (`peaks-issue-fix-orchestrator`) · Custom SOP (`peaks-sop`) · Cross-domain primitives (`peaks-solo` dispatcher · `peaks-resume` · `peaks-status` · `peaks-test` · `peaks-slice-decompose`) |
 | **Sediment pool** | `~/.peaks/` local pool · twice-clean runs auto-promote to a bee · broken runs come back for you to redefine · the bee grows with your taste |
 | **Test suite** | 285+ cases · 4 packages (peaks-loop / peaks-loop-mut / peaks-loop-shared-channel / peaks-loop-shared) · **0 timeouts** · 14 BDD caller-binding edge cases |
