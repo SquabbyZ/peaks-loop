@@ -2594,7 +2594,7 @@ Two facts from one regeneration, both cheap now and both getting less cheap dail
    or the small ones get paid on sight — two lines each, in the slice already sitting in the file. The worst
    of the options is the state before §2.46: a number nobody read and a debt nobody owed.
 
-### 2.52 A global `npm i -g` does not run this package's own postinstall, so a user installs the CLI and silently gets none of the skills (found 2026-10-03 while closing §2.36)
+### 2.52 **[SUPERSEDED BY §2.52a — the claim below is false on npm 11.19; read §2.52a first]** A global `npm i -g` does not run this package's own postinstall, so a user installs the CLI and silently gets none of the skills (found 2026-10-03 while closing §2.36)
 
 Closing the install drift took one command and produced a second defect:
 
@@ -2633,3 +2633,49 @@ cures are publishing a bump per release (needs the owner's npm account and is ir
 build (the repo already writes `dist-stamp` with a digest — the installed CLI could print it, and then
 "which build is this" is answerable in one command). That is a one-line diagnostic, not a new gate; it is
 offered, not scheduled, under the freeze.
+
+### 2.52a §2.52 is wrong about today, and a four-line probe killed it (2026-10-03, one hour after it was committed at `1c0f51aa`)
+
+**The causal claim — "npm's allowScripts default skipped `postinstall`, so `install-skills` never ran" — does
+not hold on this machine.** Measured with a purpose-built probe package (`mkprobe`, a `postinstall` writing a
+marker file), installed the same way into a throwaway prefix, nothing touching the real global install:
+
+```
+rm marker → npm i -g --prefix … ./pkg                      → warn "install-scripts … not yet covered by allowScripts" → MARKER: RAN
+rm marker → npm i -g --prefix … --allow-scripts=mkprobe ./pkg → warn printed again                                   → MARKER: RAN
+```
+
+npm **11.19.0**; `npm config get ignore-scripts` → **false**. At this version the warning is **advisory**: the
+script runs and npm complains about its bookkeeping. And the observation that was taken as proof — `ls
+~/.qoder-cn/skills` unchanged, 45 entries — is exactly what a **successful, idempotent** `install-skills.mjs`
+looks like: it compares content hashes (`hashFileContent(targetPath) !== sourceHash`) and rewrites only what
+differs. A no-op and a skip produced the same evidence, and I read the wrong one. That is §2.41 aimed at me:
+unchanged output cannot distinguish "nothing needed doing" from "nothing was done".
+
+What does survive, restated at the evidence level each claim deserves:
+
+1. **A dated forward-compatibility cliff, not a present defect.** npm's own warning says these scripts are
+   "not yet covered" and tells the operator how to allow them once or per-user; secondary reporting names npm
+   **v12** as the release that flips the default to deny. I could not reach a primary source in this session
+   (`docs.npmjs.com` returned a stylesheet; the releases page failed to fetch), so **the version number is
+   reported, not verified** — the verified part is that 11.19 runs scripts while warning. When the flip
+   lands, `npm i -g peaks-loop` will stop installing the skills for real, with one line most users never
+   read as the only signal. Doing something before that ships is cheap: state the exact flag in both README
+   install sections, and have a command the user runs anyway report "the CLI installed but the skills did
+   not" — a state no existing leg describes. That is product/docs work, not gate work.
+2. **The two package managers' allowlists do not line up, and that is reproducible today.** The repo declares
+   `packageManager: pnpm@10.11.0`, and the tracked `.npmrc` carries pnpm's
+   `onlyBuiltDependencies=better-sqlite3` plus a hyphenated duplicate. Every npm invocation in the tree
+   prints `npm warn Unknown project config "onlyBuiltDependencies" … will stop working in the next major
+   version` and does **not** read the key as an allowlist — harmless now, silently decisive at the flip,
+   because the pnpm side has an entry and the npm side has none. Cheapest honest answers, neither scheduled:
+   name the same package in npm's own config in the README instructions, or delete the hyphen-duplicated key
+   and document which manager owns the file.
+3. §2.36's residual stands on its own and is unaffected: installed and repo both report **4.0.54**, so the
+   version number says nothing about which build is on the machine, and the drift returns with the next
+   change; printing the existing `dist-stamp` digest is offered, not scheduled, under the freeze.
+
+**Method note, which is the point of keeping this entry rather than editing it away:** the probe cost two
+`npm i` calls into a temp prefix, about one second, and reversed a claim that had already been committed and
+reported. Whenever a finding says "tool X refuses to do Y", run X first — the four-line experiment is
+cheaper than the defect entry it prevents, and it is the only thing that separates a skip from a no-op.
