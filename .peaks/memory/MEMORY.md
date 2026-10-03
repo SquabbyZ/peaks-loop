@@ -143,7 +143,7 @@
 - [src-services-ide-module-is-the-single-source-of-truth-for-ide-aware-behavior](src-services-ide-module-is-the-single-source-of-truth-for-ide-aware-behavior.md) — The  module is the single source of truth for IDE-aware behavior.
 - [src-services-session-canonical-workspace-resolver](src-services-session-canonical-workspace-resolver.md) — is the canonical home for the per-session workspace.
 
-## lesson (102)
+## lesson (103)
 
 - [2026-06-26-unknown-sid-root-cause](archived/2026-06-26-unknown-sid-root-cause.md) — Root cause + remediation log for the  and  orphan session dirs.
 - [2026-07-28-rid-034-handoff-no-sediment-block](2026-07-28-rid-034-handoff-no-sediment-block.md) — rid-034 收尾遇 sediment 反向 — no peaks-memory:start/end 闭合块 **Date:** 2026-07-28 **Rid:** 2026-07-28-rid-034-v2-13-0-clea...
@@ -169,6 +169,7 @@
 - [a-silent-push-on-this-repo-is-the-pre-push-hook-running-the-full-suite](a-silent-push-on-this-repo-is-the-pre-push-hook-running-the-full-suite.md) — On 2026-09-25,  produced **zero bytes of output for over two minutes**.
 - [a-single-measurement-of-a-host-sensitive-command-is-not-a-fact-about-the-command](a-single-measurement-of-a-host-sensitive-command-is-not-a-fact-about-the-command.md) — Four measurements of one  on this repo spread **8.89 s – 14.2 s** (~60 %): , from three different agents.
 - [a-slice-whose-core-behaviour-no-artifact-specifies-costs-multiples-of-its-peers](a-slice-whose-core-behaviour-no-artifact-specifies-costs-multiples-of-its-peers.md) — S1, S2 and S3 of  each needed **one** repair pass.
+- [a-spent-flag-stops-protecting-what-it-named](a-spent-flag-stops-protecting-what-it-named.md) — was invented so that redrawing the lint scope had to be **stated**: the guard refuses a scope change, the operator pa...
 - [a-wave-is-accepted-by-the-total-that-its-leaves-cannot-see](a-wave-is-accepted-by-the-total-that-its-leaves-cannot-see.md) — C wave 7 drove  60,271 → 54,318.
 - [ac-pass-list-is-not-a-completion-bar](ac-pass-list-is-not-a-completion-bar.md) — 本切片 QA 报 **11/11 AC pass**，RD 自评审却找出 **4 条 MEDIUM**，全部落在 QA 那 11 条 AC 之外：(CR-1)  的成功提示被打成  输出到 stderr；(CR-2) 自实现 matc...
 - [an-llm-facing-contract-copy-must-be-guarded-by-a-test-that-reads-the-file-itself](an-llm-facing-contract-copy-must-be-guarded-by-a-test-that-reads-the-file-itself.md) — has 21 values; the sentence telling LLMs which  values are legal advertised 7 — and the same stale sentence had been ...
