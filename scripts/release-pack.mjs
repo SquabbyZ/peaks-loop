@@ -196,12 +196,16 @@ function publishOne(pkgDir, internalPackages) {
 }
 
 // Extract the literal CLI_VERSION value out of a `dist/version.js`
-// blob. Returns null on parse failure so callers can surface a
-// clear error instead of an opaque object equality check.
+// blob. Quote-tolerant on purpose (rid 2026-10-03-release-gate-quote-brittle):
+// a single-quote-style reader would reproduce the publish.yml failure this
+// slice removed — prettier owns the emit's quoting. Returns null on parse
+// failure so callers can surface a clear error instead of an opaque object
+// equality check. This is the ONE reader for every CLI_VERSION site in this
+// file and in release-pack-registry.mjs.
 function extractCliVersion(blob) {
-  const m = /CLI_VERSION\s*=\s*("([^"]*)"|'([^']*)')/.exec(blob ?? '');
+  const m = /CLI_VERSION\s*=\s*(?:"([^"]*)"|'([^']*)'|`([^`]*)`)/.exec(blob ?? '');
   if (!m) return null;
-  return m[2] ?? m[3] ?? null;
+  return m[1] ?? m[2] ?? m[3] ?? null;
 }
 
 function main() {

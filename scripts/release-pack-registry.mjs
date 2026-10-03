@@ -24,7 +24,7 @@ import { fileURLToPath } from 'node:url';
 import { execFileSync, spawnSync } from 'node:child_process';
 
 import { resolveNpmInvocation } from './_release-shared.mjs';
-import { readVersionJsFromTarballSilent } from './release-pack.mjs';
+import { extractCliVersion, readVersionJsFromTarballSilent } from './release-pack.mjs';
 
 const projectRoot = resolve(fileURLToPath(import.meta.url), '..', '..');
 
@@ -66,6 +66,12 @@ export function isRegistryStale(name, version, localTarball) {
     // missing file instead of throwing.
     const localVer = readVersionJsFromTarballSilent(localTarball, `local ${name}@${version}`);
     if (localVer === null) return false;
+    // Staleness is a VALUE question, not a formatting one
+    // (rid 2026-10-03-release-gate-quote-brittle): comparing the raw
+    // version.js blobs re-published on any quote/whitespace churn —
+    // harmless but wrong semantics. Compare the extracted CLI_VERSION
+    // values through the one reader this cluster shares.
+    const localCli = extractCliVersion(localVer);
     const { bin, prefixArgs } = resolveNpmInvocation();
     execFileSync(bin, [...prefixArgs, 'pack', `${name}@${version}`, '--pack-destination', tmp], {
       cwd: projectRoot,
@@ -81,7 +87,12 @@ export function isRegistryStale(name, version, localTarball) {
     }
     const regVer = readVersionJsFromTarballSilent(join(tmp, tgz), `registry ${name}@${version}`);
     if (regVer === null) return false;
-    return localVer !== regVer;
+    const regCli = extractCliVersion(regVer);
+    // Packages without a CLI_VERSION export (peaks-loop-shared-channel
+    // et al.) keep the historical whole-file comparison; anything that
+    // does declare CLI_VERSION is compared on VALUE, not formatting.
+    if (regCli === null && localCli === null) return localVer !== regVer;
+    return regCli !== localCli;
   } finally {
     rmSync(tmp, { recursive: true, force: true });
   }

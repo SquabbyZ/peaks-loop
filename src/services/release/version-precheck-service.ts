@@ -2,17 +2,15 @@
  * rid-010 — peaks release precheck (Phase 4 slice 1).
  *
  * Module path: src/services/release/version-precheck-service.ts
- * Mirror of publish.yml gate-cli-version step §(A). The §(B) tarball-content gate
- * (Layer 5 of the 5-layer root cause) stays CI-only — AC-7 grep test pins
- * publish.yml so §(B) cannot drift silently.
+ * Mirrors publish.yml gate-cli-version §(A) — verified in code 2026-10-03, not
+ * just per the old comment: `runRootVsShared` covers §(A)'s shared-dist check;
+ * §(A′) (runtime RUNTIME_VERSION) has no layer here, and the §(B)
+ * tarball-content gate (Layer 5 of the 5-layer root cause) stays CI-only —
+ * AC-7 grep test pins publish.yml so §(B) cannot drift silently.
  *
- * 4-layer version precheck mirroring publish.yml gate-cli-version step. Designed
- * to run BEFORE `peaks release canary` so developers catch CLI_VERSION lag /
- * tag collision / changeset staged / workspace drift without waiting for CI.
- *
- * Mirrors the §(A) on-disk gate from publish.yml. The §(B) tarball-content gate
- * (Layer 5 of the 5-layer root cause) stays CI-only — AC-7 grep test pins
- * publish.yml so §(B) cannot drift silently.
+ * 4-layer version precheck. Designed to run BEFORE `peaks release canary` so
+ * developers catch CLI_VERSION lag / tag collision / changeset staged /
+ * workspace drift without waiting for CI.
  *
  * Design contract:
  *   - Pure functions. NO `process.exitCode` mutation here (cli-helpers owns it).
@@ -85,9 +83,12 @@ export function runRootVsShared(opts: PrecheckOptions): LayerResult {
   let distExists = false;
   try {
     const raw = readFileSync(sharedDist, 'utf8');
-    const match = raw.match(/CLI_VERSION\s*=\s*"([^"]+)"/);
-    if (match && match[1] !== undefined) {
-      sharedVersion = match[1];
+    // Quote-tolerant: the old double-quote-only regex blanked on prettier's
+    // single-quoted emit (rid 2026-10-03-release-gate-quote-brittle).
+    const match = raw.match(/CLI_VERSION\s*=\s*(?:"([^"]+)"|'([^']+)'|`([^`]+)`)/);
+    const captured = match?.[1] ?? match?.[2] ?? match?.[3];
+    if (captured !== undefined) {
+      sharedVersion = captured;
     }
     distExists = true;
   } catch {
@@ -108,7 +109,8 @@ export function runRootVsShared(opts: PrecheckOptions): LayerResult {
       status: 'blocker',
       message: `peaks-loop-shared/dist/version.js does not contain a parseable CLI_VERSION`,
       remediation:
-        'inspect packages/peaks-loop-shared/dist/version.js; ensure CLI_VERSION = "<semver>" is exported',
+        'inspect packages/peaks-loop-shared/dist/version.js; ensure CLI_VERSION is exported ' +
+        'as a quoted string literal (single or double quotes both parse)',
       observed: { rootVersion, sharedVersion: null }
     };
   }

@@ -177,6 +177,11 @@ describe('peaks release precheck — integration', () => {
 
   // AC-7: publish.yml gate-cli-version step body still contains the
   // key CLI_VERSION gate substrings (the +1 comment is part of the slice).
+  // rid 2026-10-03-release-gate-quote-brittle: the pinned substring used to be
+  // the brittle double-quote-only grep itself ('CLI_VERSION = "[^"]+"'), so
+  // this test certified the defect. It now pins the value-based script call at
+  // all three sites — the intent (the gate cannot silently disappear) is kept,
+  // the mechanism (a quote style) is not.
   it('AC-7 — publish.yml gate-cli-version step preserves key substrings', async () => {
     const fs = await import('node:fs');
     const path = await import('node:path');
@@ -184,8 +189,12 @@ describe('peaks release precheck — integration', () => {
       path.resolve(process.cwd(), '.github', 'workflows', 'publish.yml'),
       'utf8'
     );
-    // §(A) on-disk gate substrings
-    expect(yml).toContain('CLI_VERSION = "[^"]+"');
+    // §(A)/§(A′)/§(B) all route through the value-based parity script.
+    expect(yml).toContain('verify-version-parity.mjs shared-dist');
+    expect(yml).toContain('verify-version-parity.mjs runtime-src');
+    expect(yml).toContain('verify-version-parity.mjs shared-tarball');
+    // No quote-style-pinned extractor may come back into the gate step.
+    expect(yml).not.toMatch(/grep -oE 'CLI_VERSION = "/);
     expect(yml).toContain('pnpm --filter peaks-loop-shared pack');
     expect(yml).toContain('package/dist/version.js');
     // rid-010 reference comment

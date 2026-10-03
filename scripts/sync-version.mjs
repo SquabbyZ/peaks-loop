@@ -37,17 +37,21 @@ writeFileSync(
 // `RUNTIME_VERSION` under a comment stating it tracks the peaks-loop root
 // version, but nothing wrote it: v4.0.37 was tagged with the constant still
 // at 4.0.36 and publish.yml's gate-cli-version step aborted before npm
-// publish. The literal is replaced in place, single-quoted — the exact
-// shape the gate greps — because the file also holds the package's public
-// exports and must never be regenerated wholesale. A literal we cannot
+// publish. The literal is replaced in place, preserving whichever quote the
+// declaration currently uses — the file also holds the package's public
+// exports and must never be regenerated wholesale, and since the gate reads
+// the VALUE (rid 2026-10-03-release-gate-quote-brittle) the writer must not
+// re-assert one quote style either. A literal we cannot
 // find throws instead of no-op'ing: that silence is how the drift reached CI.
 const runtimeIndexPath = resolve('packages/peaks-loop-internal-runtime/src/index.ts');
 const runtimeIndex = readFileSync(runtimeIndexPath, 'utf8');
-const runtimeDecl = /(export const RUNTIME_VERSION = ')[^']*(';)/;
+const runtimeDecl = /(export const RUNTIME_VERSION = (['"]))[^'"]*\2(;)/;
 if (!runtimeDecl.test(runtimeIndex)) {
-  throw new Error(`${runtimeIndexPath}: could not find "export const RUNTIME_VERSION = '...';"`);
+  throw new Error(
+    `${runtimeIndexPath}: could not find export const RUNTIME_VERSION = '<version>'; (single- or double-quoted)`
+  );
 }
-const syncedRuntimeIndex = runtimeIndex.replace(runtimeDecl, `$1${version}$2`);
+const syncedRuntimeIndex = runtimeIndex.replace(runtimeDecl, `$1${version}$2$3`);
 if (syncedRuntimeIndex !== runtimeIndex) {
   writeFileSync(runtimeIndexPath, syncedRuntimeIndex);
 }

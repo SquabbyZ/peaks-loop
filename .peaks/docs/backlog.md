@@ -2720,3 +2720,50 @@ moment it is most expected, which is the thing this repo has refused all week.
 
 Explicitly not the fix: "push the tag before main". It works by accident, encodes an ordering into a human
 workflow, and the wall comes back the first time someone pushes in the other order.
+
+
+### 2.54 The release gate greps for one quote style, so a formatting pass silently made the project unreleasable for ~a week (hit 2026-10-03 at the 4.1.0 publish; run #209 failed, registry still 4.0.54)
+
+Publishing `v4.1.0` produced the first real red of the day, and it was not in the change being published:
+
+```
+run #209 (event: push, tag v4.1.0) → FAILED at one step:
+  "Verify peaks-loop-shared tarball CLI_VERSION parity (Layer 5 + on-disk gate)"
+```
+
+The gate extracts the version with `grep -oE 'CLI_VERSION = "[^"]+"'` — **double quotes only**. The value it
+must match is read from `package.json`. The chain that broke it, dated by `git log`:
+
+| commit | that line in `packages/peaks-loop-shared/src/version.ts` |
+|---|---|
+| `909e14e8` (4.0.54 bump) | `export const CLI_VERSION = "4.0.54";` |
+| **`cf21d188` style: format the repository (1129 files) — COMMITTED NOT-GREEN** | `export const CLI_VERSION = '4.0.54';` |
+| `ff536436` (4.1.0 bump, today) | `export const CLI_VERSION = '4.1.0';` |
+
+`prettier` uses single quotes; **`tsc` preserves the source's quote style in the emitted `.js`**, so
+`dist/version.js` and the packed tarball both carry `'4.1.0'`; the grep matches nothing, the shell variable is
+empty, `"" != "4.1.0"` → `::error title=CLI_VERSION drift` → refuse to publish. **Every version value in the
+tree was correct throughout.** Reproduced locally in one line of packing:
+`pnpm --filter peaks-loop-shared pack` → `package/dist/version.js` → `export const CLI_VERSION = '4.1.0';`.
+
+Three things this entry is for.
+
+1. **A latent defect in the release path is invisible until someone releases.** Nothing between `cf21d188`
+   (2026-09-2x) and today ran the publish workflow, so a week of commits accumulated on top of a pipeline
+   that could no longer finish. The gate is at the end of the chain and tests nothing that reaches it —
+   the same structural lesson as §2.41 (a check that never runs is indistinguishable from a check that
+   passes), one layer up: *a pipeline that never runs is indistinguishable from a pipeline that works.*
+   Whether any existing local check could have caught it before CI is being measured by the fix slice; its
+   answer goes here, and "no" is an acceptable and expected answer to write down.
+2. **Reading a value by grepping its syntax is the wrong instrument, and this repo does it in more than one
+   place.** Quote style, whitespace and line wrapping are prettier's property, not the build's; any check
+   that couples to them will be broken by a formatting pass, which is exactly the kind of commit that is
+   reviewed least. Fix by evaluating/importing the built module, or by a quote-tolerant extractor — and one
+   mechanism per file, because a half-fixed gate passes the check you repaired and fails the one you missed.
+3. **"COMMITTED NOT-GREEN" commits collect real interest.** `cf21d188` said in its own subject that it was
+   not green and named three blockers; this is a fourth consequence nobody named at the time, and it landed
+   on the one operation that cannot be retried gracefully mid-flight. Not an argument against landing big
+   mechanical passes — an argument against believing the listed blockers are the whole list.
+
+Also fixed as a side-effect of the same release: §2.53 (an all-tags push was unspeakable to the push gate, so
+publishing required `PEAKS_GATE_CHANGED_BASE=v4.0.54` to get the tag out at all).
