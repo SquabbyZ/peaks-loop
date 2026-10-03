@@ -1955,6 +1955,27 @@ it its own ceiling row, mirroring what §4q did for size. (2) and (3) change the
 other scope decision in this file they need a daylight call — the difference from 2026-09-30 is that the
 ceiling-side blindness is now fixed and the lint-side one is documented with a reproduction.
 
+**SCOPE DECISION 2026-10-02 (a user correction, measured before it was accepted).** Option (2) as written — add
+`.husky` to an eslint project — is the wide reading, and it was rejected: not every file in the repository
+should be linted or size-capped, and an example scene, a benchmark harness and a git hook are three different
+kinds of thing. The scoping question is not *which directory* but **whether the code is executed**. Measured on
+`43701fca`: 59 tracked JS/TS files live outside the four policy dirs — 33 under `.husky/` (run by `git commit`
+itself), 2 in `bin/` (the CLI entry, run on every dogfood), 14 under `examples/video-demo/`, 2 under
+`benchmarks/`, the rest root configs — and the **35 executed ones already carry 0 findings and 0 warnings**:
+
+```
+git ls-files | grep -E "^(.husky/.*|bin/.*)[.](mjs|cjs|js|ts)$" | wc -l     -> 35
+eslint --no-ignore --no-eslintrc --env es2022,node   --parser-options=ecmaVersion:2022,sourceType:module   --rule '{"no-undef":"error","no-unused-vars":"warn","no-dupe-keys":"error","no-redeclare":"error"}' <those 35>
+  -> exit 0, no output
+```
+
+So the cheap fix is option **(3), not (2)**: a syntactic-only leg over the *executed set*, seeded at 0, which is
+precisely what three separate leaves had to remember to run by hand this week — and it drags in no examples, no
+benchmarks and no type-aware backlog. `examples/` and `benchmarks/` staying out is then a written decision with a
+reason, not an accident of where the directories happen to sit. One caveat from measuring it, filed as §2.41:
+without `--no-ignore` the same command printed 33 `File ignored by default` warnings and exited 0, so the leg
+must assert the size of the population it looked at, or "0 findings" and "nothing checked" stay indistinguishable.
+
 ### 2.38 `peaks job` cannot grow a job's slice list after init, so an incrementally-planned wave cannot be recorded truthfully (found 2026-10-02, wave 9)
 
 `peaks job init --job-id 2026-10-02-c-wave9 --slice-list <one id>` created the wave ledger with `total: 1`.
@@ -2051,3 +2072,27 @@ path no gate runs. And the same edit pushed a leg to five parameters where HEAD 
 **283/283** after seeding. The guard then caught a third thing by itself: `prettierUnformatted 0 → 1` from one
 un-formatted helper (`tests/unit/standards/_file-size-cap-scan.ts`) — this entry's own failure mode, now
 refused rather than committed.
+
+### 2.41 eslint ignores dot-directories by default, so a hand-run lint over `.husky/` reports success having checked nothing (found 2026-10-02 while scoping §2.37)
+
+```
+eslint --no-eslintrc … .husky/peaks-gate.mjs …            → 33 warnings "File ignored by default", exit 0
+eslint --no-ignore --no-eslintrc … the same 35 files      → exit 0, no output (0 findings, genuinely checked)
+```
+
+Two facts in that pair. The first is a silent no-op: a maintainer trying to check the gate's own code gets a
+green-looking run that examined nothing, because eslint skips dot-paths unless told otherwise — and the repo's
+gate code lives entirely in one (`.husky/`). The second is that the real problem set is small and currently
+empty, so the check costs nothing to keep at zero.
+
+Why the ratchet did not see the first: `eslintNotLintedFiles = 0` and `eslintCoverageGapFiles = 0` are computed
+over the gate's own `git ls-files` list, filtered to the four policy dirs. A file outside that list is not
+"unlinted", it is **unasked**, and no ceiling can distinguish a clean population from an empty one. This is the
+same hole the file-size rows had before §4q (an over-cap `.husky` file was not "under the cap", it was never
+counted) and the same one §2.32's CLI finding was about (`checkedFiles` conflated considered with measured).
+
+Fix shape, once, generic: **any leg that reports a count of findings must also report the size of the population
+it looked at, and refuse when that population is 0 without an explicit opt-in.** The census already does this
+(`scope.countedFiles`, plus a refusal for an empty or missing hooks dir); the lint legs do not. Apply it to the
+proposed executed-code leg the day it is written, and to `peaks lint check`'s per-directory summaries if the
+next audit finds a directory that can vanish from them.
