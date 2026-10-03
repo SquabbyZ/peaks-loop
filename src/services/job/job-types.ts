@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { commitVerificationRefusal, verifyCommitSha } from './job-commit-verification.js';
+
 // ── Spec §4.2, verbatim from spec ────────────────────────────────────────
 
 export const SliceStateSchema = z
@@ -111,12 +113,44 @@ export const JobCheckpointInputSchema = z
     json: z.boolean().default(true)
   })
   .superRefine((v, ctx) => {
-    if (v.state === 'done' && !(v.commitSha && v.commitSha.length >= 7)) {
-      ctx.addIssue({
-        code: 'custom',
-        path: ['commitSha'],
-        message: 'commitSha required (≥7 hex) when state=done'
-      });
+    if (v.state === 'done') {
+      // D2 (rid 2026-10-03-job-ledger-truthfulness). Two rules, in this order,
+      // both on the same claim about the same field.
+      //
+      // 1. THE SHAPE RULE. It stays exactly where the defect was measured
+      //    (`job-orchestrator.ts:55` checked only `length >= 7`), and it is the
+      //    PRE-FILTER: a string that is not even sha-shaped is refused here and
+      //    is never paid a `git` call.
+      // 2. THE EXISTENCE RULE. Past the shape rule, the sha must resolve to a
+      //    commit in the project repository. Length and alphabet say the string
+      //    is sha-shaped; only git says whether the commit exists — and a ledger
+      //    keyed to a commit that is not in the repository will be trusted later.
+      //
+      // WHY HERE AND NOT IN THE ACTION. This refine runs at
+      // `JobCheckpointInputSchema.safeParse`, the first thing the `checkpoint`
+      // command does: it is therefore before `resolveJobStateRoot`, before the
+      // lock, and before either file is opened, so a refusal leaves the ledger
+      // byte-unchanged rather than merely unwritten — and it rides the
+      // command's existing refusal channel (`INVALID_CHECKPOINT`) instead of
+      // needing a new reporting site in `job-commands.ts`. The project root
+      // `v.project` is already part of this input, and it is the same value the
+      // command passes to `--project`/cwd resolution.
+      if (!v.commitSha || v.commitSha.length < 7) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['commitSha'],
+          message: 'commitSha required (≥7 hex) when state=done'
+        });
+      } else {
+        const refusal = commitVerificationRefusal(
+          verifyCommitSha(v.project, v.commitSha),
+          v.project,
+          v.commitSha
+        );
+        if (refusal !== null) {
+          ctx.addIssue({ code: 'custom', path: ['commitSha'], message: refusal });
+        }
+      }
     }
     if ((v.state === 'failed' || v.state === 'skipped') && !(v.reason && v.reason.length >= 3)) {
       ctx.addIssue({

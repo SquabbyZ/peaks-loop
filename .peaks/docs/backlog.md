@@ -2016,6 +2016,48 @@ records an unknown slice id rather than refusing, since the campaign's own rule 
 checkpoints and not evidence about the repository. The workaround for now: one job per slice, and treat
 `job progress` as advisory.
 
+**Reproduced from scratch by the orchestrator 2026-10-03 (rid `2026-10-03-job-ledger-truthfulness`), on HEAD
+`1c0f51aa`, in a `mktemp` repo with one real commit — and the third defect is not a stale label, it is the
+cause of the first.** Commands run and exit codes captured to files, never through a pipe; measured with
+`node bin/peaks.js`, not the PATH install (§2.36 — though that one is now current):
+
+```
+peaks job init --job-id probe --slice-list slice-1 --session-id s1                    → exit 0   (id stored as slice-001)
+peaks job checkpoint --slice-id slice-2 --state done --commit-sha 0b79886 --session-id s1
+    → exit 1   SLICE_NOT_FOUND: no slice "slice-2" in job probe; valid ids: slice-001 (slice-1)
+peaks job checkpoint --slice-id slice-1 --state done --commit-sha c6de09a9 --session-id s1
+    → exit 0   ← ACCEPTED. `git cat-file -e c6de09a9^{commit}` → "Not a valid object name"
+peaks job progress --job-id probe --session-id s1 → exit 0
+    { "done": 1, "total": 1, "currentSlice": "slice-2", "lastCommitSha": "c6de09a9" }
+    next: Next: slice #2 of 1 (slice-2)
+```
+
+Three things this pins down, and the third one changes what "fixed" means:
+
+1. **D1 is real**: an undeclared slice cannot be recorded, and nothing adds one.
+2. **D2 is real and worse than "not validated"**: the bogus sha is not merely accepted, it is echoed back as
+   the job's `lastCommitSha` — so the ledger's own output points at an object that does not exist, which is
+   the one thing a ledger must never do.
+3. **D3 is the mechanism behind D1, not a cosmetic label.** `progress` synthesises `currentSlice` as
+   `slice-<done+1>` and prefixes it with `Next:`. `slice-2` was never registered; a user doing exactly what
+   the tool advises gets the `SLICE_NOT_FOUND` above. The pair of messages contradicts itself in one round
+   trip — `checkpoint` says the only valid id is `slice-001`, `progress` says the next one is `slice-2` — and
+   `slice #2 of 1` is self-contradictory arithmetic.
+
+**Retracted, on the strength of the above: this entry's own earlier proposal to make `checkpoint` "record an
+unknown slice id rather than refusing" is wrong** — refusing an id that was never declared is correct
+behaviour and the ledger's only defence. Delete that idea; the bug is `progress` **inventing** ids, and the
+entry above is the second case this week where a fix written into the backlog in the same breath as a finding
+turned out to point the wrong way once the thing was run.
+
+**Acceptance criteria for the slice (all three, as one behaviour, not three patches):** (a) a slice can be
+appended to an existing job, idempotently, refusing empty/duplicate labels; (b) `checkpoint --commit-sha`
+verifies the sha resolves before writing, and refuses without touching the ledger; (c) `progress` reports
+**only** registered slices and, when there is no next one, says "no further slice is registered — run
+`job add-slice`" instead of naming an id that does not exist. The regression that proves the coupling is
+(c)+(a) together: after a refusal like the one above, following the tool's own `Next:` line must reach a
+command that succeeds.
+
 ### 2.39 A killed leaf left a comment in the shipped source claiming a proof no test performs (wave 9 slice 3, aborted by quota 2026-10-02)
 
 Slice 3 (`.husky/peaks-gate-baseline.mjs`, 799 raw, +499) died from **daily usage quota**, not the turn limit:

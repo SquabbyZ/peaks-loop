@@ -39,6 +39,7 @@ import { registerHooksCommands } from './hooks-commands.js';
 import { registerIdeCommands } from './ide-commands.js';
 import { registerImpactCommands } from './impact-commands.js';
 import { registerJobCommands } from './job-commands.js';
+import { registerJobAddSliceCommand } from './job-add-slice-command.js';
 import { registerLegacyCommands } from './legacy-commands.js';
 import { registerLintCommands } from './lint-commands.js';
 import { registerLogCommands } from './log-commands.js';
@@ -190,6 +191,10 @@ const REGISTRATIONS: readonly Registration[] = [
   ['observability-commands', registerObservabilityCommands],
   ['compact-command', registerCompactCommands],
   ['job-commands', registerJobCommands],
+  // Registered right after `job-commands` on purpose: it attaches
+  // `job add-slice` to the existing `job` parent instead of creating a
+  // second `job` group (same rule as `api-diff-commands` above).
+  ['job-add-slice-command', registerJobAddSliceCommand],
   ['sediment-commands', registerSedimentCommands],
   ['adapter-commands', registerAdapterCommands],
   ['runtime-commands', registerRuntimeCommands],

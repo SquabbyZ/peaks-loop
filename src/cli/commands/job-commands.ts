@@ -11,7 +11,8 @@ import { JobOrchestrator } from '../../services/job/job-orchestrator.js';
 import {
   writeJobProgress,
   readJobProgress,
-  tryReadJobProgress
+  tryReadJobProgress,
+  describeNextSlice
 } from '../../services/job/job-progress-store.js';
 import { JobRotation } from '../../services/job/job-rotation.js';
 import { SubAgentJobWrapper } from '../../services/job/subagent-job-wrapper.js';
@@ -49,7 +50,7 @@ import {
 // declaring the one field this function reads is what stops every `opts.<x>`
 // call site in the file from being an `any` access. See the option-interface
 // block above `registerJobCommands`.
-function asJson(opts: JobJsonOpts): boolean {
+export function asJson(opts: JobJsonOpts): boolean {
   return opts.json === true;
 }
 
@@ -97,7 +98,7 @@ function projectRoot(opts: JobProjectOpts): string {
  * that job state has no "unknown-sid" location to land in — an unresolvable
  * session is an error, not a silent fallback.
  */
-const SESSION_ID_HELP =
+export const SESSION_ID_HELP =
   'session id (default: resolve from .peaks/_runtime/session.json; falls back to PEAKS_SESSION_ID env var; final fallback: NO_ACTIVE_SESSION error)';
 
 /**
@@ -140,7 +141,7 @@ function findSessionHoldingJob(project: string, jobId: string): string | null {
  * error names the session that does hold it (if any), instead of leaving the
  * caller with a bare "no state for <job> at <other-sid>" path.
  */
-function resolveJobStateRoot(
+export function resolveJobStateRoot(
   opts: JobRootOpts,
   jobId?: string
 ): { rootDir: string; sessionId: string; projectRoot: string } {
@@ -211,7 +212,7 @@ function resolveSliceId(
  * `resolveJobStateRoot`) take the narrowest structural type each one actually
  * reads, so all eleven action callbacks remain assignable to them.
  */
-interface JobJsonOpts {
+export interface JobJsonOpts {
   readonly json?: boolean;
 }
 
@@ -219,7 +220,7 @@ interface JobProjectOpts {
   readonly project?: string;
 }
 
-interface JobRootOpts extends JobProjectOpts {
+export interface JobRootOpts extends JobProjectOpts {
   readonly sessionId?: string;
 }
 
@@ -533,7 +534,7 @@ export function registerJobCommands(
           jobId: parsed.data.jobId,
           done: state.done,
           total: state.total,
-          currentSlice: state.currentSlice ?? `slice-${state.done + 1}`,
+          currentSlice: state.currentSlice,
           lastCommitSha: parsed.data.commitSha ?? null,
           updatedAt: new Date().toISOString()
         });
@@ -668,10 +669,9 @@ export function registerJobCommands(
     });
   addJsonOption(job.commands.find((c) => c.name() === 'resume')!);
 
-  // v3.1.2: read the on-disk slice progress mirror written by `peaks
-  // job checkpoint --state done`. Used by peaks code gate-step-08 and
-  // by peaks-code Step 0.7 (resume) to surface `Next: slice #N of M
-  // (<currentSlice>)` without re-deriving from state.json.
+  // v3.1.2: read the on-disk slice progress mirror written by `peaks job
+  // checkpoint --state done`; gate-step-08 and Step 0.7 (resume) read it too. The
+  // `next:` sentence comes from describeNextSlice, never re-derived from state.json.
   job
     .command('progress')
     .description(
@@ -736,12 +736,7 @@ export function registerJobCommands(
         }
         printResult(
           io,
-          ok(
-            'progress',
-            progress,
-            [],
-            [`Next: slice #${progress.done + 1} of ${progress.total} (${progress.currentSlice})`]
-          ),
+          ok('progress', progress, [], [`Next: ${describeNextSlice(progress, progress.jobId)}`]),
           asJson(opts)
         );
       } catch (err) {

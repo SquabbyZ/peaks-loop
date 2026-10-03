@@ -65,7 +65,7 @@ import { readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { readJobShapeDecision } from '../code/job-shape-decision.js';
-import { tryReadJobProgress } from '../job/job-progress-store.js';
+import { describeNextSlice, tryReadJobProgress } from '../job/job-progress-store.js';
 import { getSessionIdCanonical } from '../session/session-manager.js';
 
 /**
@@ -465,9 +465,7 @@ function buildBlocks(facts: PostCompactReinjectionFacts): ReinjectionBlock[] {
   // Rank 3 — next action.
   const next: string[] = [];
   if (facts.progress !== null) {
-    next.push(
-      `job ${facts.jobId ?? '?'}: slice ${facts.progress.done + 1}/${facts.progress.total} (${facts.progress.currentSlice})`
-    );
+    next.push(`job ${facts.jobId ?? '?'}: ${describeNextSlice(facts.progress, facts.jobId)}`);
   } else if (facts.isJob) {
     next.push(
       `job ${facts.jobId ?? '?'}: no progress.json yet — resume at the first unfinished slice`

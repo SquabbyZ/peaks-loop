@@ -173,12 +173,18 @@ declareDimensions(
  * reasons they are in the class; only the line moved. This is the third reason
  * above, and it is the ONE list whose entries are `file:line` — the reach
  * numbers next to it no longer need a hand edit at all (see the reach arm below).
+ *
+ * Slice rid 2026-10-03-job-ledger-repair1 (2026-10-03): the three
+ * `job-commands.ts` entries moved 429/434/451 -> 430/435/452, a uniform +1, when
+ * one specifier (`describeNextSlice`) was added to that file's existing import of
+ * `job-progress-store.js`, above them. Same three functions, same reasons they are
+ * in the class; only the line moved — the third reason again.
  */
 const PINNED_SITES: readonly string[] = [
   'src/cli/commands/code-job-shape-commands.ts:55',
-  'src/cli/commands/job-commands.ts:429',
-  'src/cli/commands/job-commands.ts:434',
-  'src/cli/commands/job-commands.ts:451',
+  'src/cli/commands/job-commands.ts:430',
+  'src/cli/commands/job-commands.ts:435',
+  'src/cli/commands/job-commands.ts:452',
   'src/services/adapter/codex-adapter.ts:17',
   'src/services/adapter/copilot-adapter.ts:17',
   'src/services/capability-guard-runner/contracts/J04.ts:24',

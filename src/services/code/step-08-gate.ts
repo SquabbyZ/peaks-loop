@@ -13,9 +13,10 @@
  *
  *   1. `job-shape.json` exists with `decision.isJob === true`.
  *      → allow, print `{ ok, allow, mode: 'job', decision }`. When a
- *        matching `job/<jid>/progress.json` exists, also print
- *        `Next: slice #<N+1> of <M> (<currentSlice>)` so the LLM sees
- *        its resume context BEFORE any Bash call lands.
+ *        matching `job/<jid>/progress.json` exists, also print the
+ *        next-slice sentence from `describeNextSlice` — `Next: slice #N of M
+ *        (<label>)` while a slice is pending, the `add-slice` remedy when none is
+ *        — so the LLM sees its resume context BEFORE any Bash call lands.
  *   2. `job-shape.json` exists with `decision.isJob === false`.
  *      → allow, print `{ ok, allow, mode: 'single' }`.
  *   3. `job-shape.json` is MISSING — fail-closed guard. The LLM is the
@@ -41,6 +42,7 @@ import {
   JobShapeDecisionError,
   JOB_SHAPE_NOT_DECIDED
 } from './job-shape-decision.js';
+import { describeNextSlice } from '../job/job-progress-store.js';
 import { isExpectedFsMiss } from '../../shared/fs-utils.js';
 
 export const STEP_08_GATE_FILE_NAME = 'job-shape.json' as const;
@@ -186,9 +188,7 @@ export function evaluateStep08(input: EvaluateStep08Input): EvaluateStep08Result
         record.decision.suggestedJobId
       );
       const nextSliceLine =
-        progress !== null
-          ? `Next: slice #${progress.done + 1} of ${progress.total} (${progress.currentSlice})`
-          : null;
+        progress !== null ? `Next: ${describeNextSlice(progress, progress.jobId)}` : null;
       return {
         allow: true,
         verdict: { kind: 'allow-job', decision: record.decision, progress },
