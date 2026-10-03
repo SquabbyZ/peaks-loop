@@ -26,7 +26,7 @@ import {
   shadowMoveLines
 } from './rescope.mjs';
 
-import { describeLegScopeMove, legOfCeilingKey, raiseIsBoundary } from './leg-scope.mjs';
+import { describeLegScopeMove, legOfCeilingKey, raiseIsBoundary, scopeGrowthLine } from './leg-scope.mjs';
 
 import { HEAD_REF, OUT_REL, refuse } from './paths.mjs';
 
@@ -41,6 +41,7 @@ export function decideWrite({
   headScope = null,
   headFileCount = null,
   headShadow = null,
+  headFiles = null,
   shadow = null,
   rescope = null
 }) {
@@ -104,14 +105,18 @@ export function decideWrite({
   const keyFailure = describeCanonicalKeyFailure(keyProblems);
   if (keyFailure !== null) refusals.push(keyFailure);
   // H1 — THE RESCOPE GUARD (rid `2026-10-03-w10-rescope-a`, backlog §2.42; extended
-  // by rid `2026-10-03-silent-warning-scope`, §2.43).
+  // by rid `2026-10-03-silent-warning-scope`, §2.43; directionalised by rid
+  // `2026-10-03-scope-growth-vs-shrink`, §2.50).
   // Values may only go down; the POPULATION that produced them may not change in
-  // silence, and since §2.43 the population of ONE LEG is part of that question —
-  // `scope.dirs` can hold still while a leg starts measuring 38 more files. A scope
-  // difference without the flag refuses, naming everything it would hide; WITH the
-  // flag the write goes through, loud, and the out-of-scope totals land in the
-  // artifact's shadow block. The flag with nothing to rescope is itself a refusal —
-  // required, not cosmetic.
+  // silence. §2.50 says which changes must be STATED: the boundary text (rule, dirs,
+  // extensions) moving, or files LEAVING the enforced enumeration — a set difference
+  // of HEAD's `files` rows and this run's gated list, both threaded in below. Pure
+  // GROWTH proceeds without the flag and prints `scope grew: …`; the monotonicity
+  // rule that follows is what still guards a rise, so the ratchet does not care that
+  // the ceremony does. A scope difference without the flag refuses, naming everything
+  // it would hide; WITH the flag the write goes through, loud, and the out-of-scope
+  // totals land in the artifact's shadow block. The flag with nothing to rescope —
+  // including over growth — is itself a refusal: required, not cosmetic.
   const scopeDiff =
     rescope === null
       ? null
@@ -119,7 +124,9 @@ export function decideWrite({
           headScope,
           newScope: rescope.newScope,
           headFileCount,
-          gatedCount: rescope.gatedCount
+          gatedCount: rescope.gatedCount,
+          headFiles,
+          runFiles: rescope.runFiles ?? null
         });
   let rescopeApplied = null;
   if (rescope !== null) {
@@ -127,7 +134,9 @@ export function decideWrite({
       headScope,
       newScope: rescope.newScope,
       headFileCount,
-      gatedCount: rescope.gatedCount
+      gatedCount: rescope.gatedCount,
+      headFiles,
+      runFiles: rescope.runFiles ?? null
     };
     if (rescope.flag) {
       const unneeded = rescopeUnneededTrip(boundary);
@@ -136,7 +145,9 @@ export function decideWrite({
         rescopeApplied =
           `RESCOPE applied (${RESCOPE_FLAG}): the boundary moved — scope.dirs go from ` +
           `${JSON.stringify(headScope.dirs)} to ${JSON.stringify(rescope.newScope.dirs)} ` +
-          `(${headFileCount} -> ${rescope.gatedCount} measured files)` +
+          `(${headFileCount} -> ${rescope.gatedCount} measured files` +
+          (scopeDiff.left.length > 0 ? `, ${String(scopeDiff.left.length)} left the scope` : '') +
+          ')' +
           (scopeDiff.moves.length > 0
             ? `; ${scopeDiff.moves.map((move) => describeLegScopeMove(move)).join('; ')}`
             : '') +
@@ -154,6 +165,19 @@ export function decideWrite({
         ceilings
       });
       if (trip !== null) refusals.push(trip);
+    }
+    // §2.50: growth is legal, but it must not be QUIET. Printed even when this run
+    // refuses for another reason — the operator of a growth-plus-raise needs to see
+    // the crowd move next to the RAISED line that stopped it.
+    if (scopeDiff !== null && scopeDiff.grew) {
+      console.error(
+        scopeGrowthLine({
+          headFileCount,
+          gatedCount: rescope.gatedCount,
+          entered: scopeDiff.entered,
+          left: scopeDiff.left
+        })
+      );
     }
   }
   // A RAISE THE BOUNDARY EXPLAINS (§2.43) — the half of the rescope the narrowing

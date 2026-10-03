@@ -1,43 +1,40 @@
 /**
  * `.husky/baseline/rescope.mjs` — the rescope guard (H1), the shadow tally (H3) and
- * the shadow-move check (W1), pure, rid `2026-10-03-w10-rescope-a` (backlog §2.42)
- * with W1 from rid `2026-10-03-shadow-move-rider` (backlog §2.46).
+ * the shadow-move check (W1), pure. Rids `2026-10-03-w10-rescope-a` (§2.42),
+ * `2026-10-03-silent-warning-scope` (§2.43), `2026-10-03-shadow-move-rider` (§2.46)
+ * and `2026-10-03-scope-growth-vs-shrink` (§2.50), whose policy this file enforces.
  *
- * WHY THE GUARD EXISTS. The monotonicity comparison compares VALUES and knew
- * nothing about the SCOPE that produced them. Narrow the enforced file set and
- * one regeneration reports `eslintFindings 2768 -> 2130` — a 638-finding
- * improvement nobody made — and the ratchet re-anchors to the smaller number.
- * That is §2.27's laundering door through a new frame: not a raised number, a
- * shrunken denominator. So the anchor comparison now reads the artifact's
- * `scope` block too, and a scope change REFUSES by default, naming both dir
- * lists, both measured-file counts, and every ceiling row it is about to hide.
- * `--rescope` is the only thing that writes through it — same refuse-first,
- * print-everything, opt-in-by-flag shape as `--seed`.
+ * WHY THE GUARD EXISTS: the monotonicity comparison compares VALUES and knew nothing
+ * about the SCOPE that produced them. Narrow the enforced file set and one
+ * regeneration reports `eslintFindings 2768 -> 2130` — a 638-finding improvement
+ * nobody made — and the ratchet re-anchors to the smaller number (§2.27's laundering
+ * door as a shrunken denominator). So the comparison reads the HEAD artifact's
+ * `scope` block too — whole (§2.43: a leg population is recorded under `scope`, read
+ * by `leg-scope.mjs`, and a moved one is a boundary event) — and refuses by default,
+ * naming everything it is about to hide. `--rescope` is the only way through: the
+ * same refuse-first, print-everything, opt-in shape as `--seed`.
  *
- * SINCE RID `2026-10-03-silent-warning-scope` (backlog §2.43) the comparison is the
- * WHOLE `scope` block, not only `dirs`, because a leg can change the population it
- * measures without the gate's scope moving — that is exactly how the silent-warning
- * rows came to ratchet 905 files inside a 943-file scope, and the 17 swallows in
- * `packages/<name>/src` that no ceiling had ever counted. A leg population is recorded
- * under `scope`, read by `.husky/baseline/leg-scope.mjs`, and a moved one is a
- * boundary event here.
+ * SINCE §2.50 (owner decision 2026-10-03) the trip DIRECTIONALISES the question: the
+ * flag is required when the boundary TEXT moved (rule, dirs, extensions) OR a file
+ * that was in scope at HEAD LEFT it — a SET difference of the two enumerations, never
+ * an arithmetic one, because `950 > 943` does not prove nothing left. Pure growth
+ * proceeds unflagged and prints `scope grew: ...` — ceremony relaxed, never the
+ * ratchet: a bigger watched population can only RAISE measured counts, and the
+ * monotonicity guard refuses any raised ceiling regardless of the flag.
  */
 
-import { describeLegScopeMove, legScopeMoves } from './leg-scope.mjs';
+import { describeLegScopeMove, legScopeMoves, scopePopulationMove } from './leg-scope.mjs';
 
 /** The escape hatch. Named so it cannot be reached by accident, like `--seed`. */
 export const RESCOPE_FLAG = '--rescope';
-
 /** Read at module load, exactly like `anchor.mjs` reads `--seed`. */
 export const rescopeRun = process.argv.slice(2).includes(RESCOPE_FLAG);
 
 /**
  * THE NUMERIC ROWS OF THE SHADOW BLOCK, in the order the shadow-move check reads
- * them (rid `2026-10-03-shadow-move-rider`, W1). They are shadow rows, NOT
- * ceilings — this list exists so the check has a fixed set to compare and can
- * never be handed a ceiling key by accident. `anchor.mjs` reads it too, so the
- * "does HEAD's block have a number here at all" question and the "did this row
- * move" question are answered from ONE list.
+ * them (rid `2026-10-03-shadow-move-rider`, W1). Shadow rows, NOT ceilings, so the
+ * check has a fixed set and can never be handed a ceiling key by accident;
+ * `anchor.mjs` reads the same list for "does HEAD's block have a number here at all".
  */
 export const SHADOW_MOVE_ROWS = Object.freeze([
   'measuredFiles',
@@ -136,110 +133,120 @@ const sameDirs = (a, b) =>
   Array.isArray(a) && Array.isArray(b) && JSON.stringify([...a].sort()) === JSON.stringify([...b].sort());
 
 /**
- * THE WHOLE BOUNDARY, in one reading. §2.42 asked whether `scope.dirs` moved;
- * rid `2026-10-03-silent-warning-scope` (backlog §2.43) adds the other way a
- * boundary can move — one LEG's recorded population — because that is the only way
- * to express "the silent-warning leg measured 905 files and now measures 943" when
- * the gate's own scope never changed.
- *
- * Returns `null` when the question cannot be asked (HEAD's artifact carries no
- * readable `scope.dirs`, so there is nothing to compare against — the posture
- * §2.42 took and this slice keeps), and otherwise the two halves of the answer:
- *   - `dirsDiffer` — the gate-wide scope moved;
- *   - `moves` — which leg populations moved, where a record HEAD never carried is
- *     `unknown` and unknown is not "equal" (`leg-scope.mjs`);
- *   - `gatePopulationMoved` — whether the rows that belong to no leg have any
- *     boundary to attribute a movement to (`dirs`, or the measured file count).
+ * THE WHOLE BOUNDARY in one reading, DIRECTIONALISED (§2.42 dirs, §2.43 legs, §2.50
+ * text and set difference). `null` when HEAD carries no readable `scope.dirs` — a
+ * question nobody can ask is not a refusal, the posture §2.42 took. Otherwise:
+ *   - `textChanged` — rule, dirs or extensions moved: the boundary DESCRIPTION;
+ *   - `entered` / `left` — set differences of the enforced enumerations; empty `[]`
+ *     when either list is absent (unprovable — §2.41's unknown posture);
+ *   - `moves` — leg population records that moved (`leg-scope.mjs`);
+ *   - `grew` — pure growth: files in, none left, text still, every leg move a
+ *     derivative of the bigger crowd — the state §2.50 lets pass unflagged;
+ *   - `requiresFlag` — text moved, coverage LEFT, or a leg move growth does not
+ *     explain (§2.43 holds: a leg widening inside an unchanged gate scope is the
+ *     905->943 laundering shape, and a leg shrinking is coverage loss);
+ *   - `gatePopulationMoved` — what explains a no-leg row's rise once the flag is on.
  */
-export function scopeDifference({ headScope, newScope, headFileCount, gatedCount }) {
+export function scopeDifference({
+  headScope, newScope, headFileCount, gatedCount, headFiles = null, runFiles = null
+}) {
   const headDirs = Array.isArray(headScope?.dirs) ? headScope.dirs : null;
   if (headDirs === null) return null;
   const newDirs = Array.isArray(newScope?.dirs) ? newScope.dirs : [];
   const dirsDiffer = !sameDirs(headDirs, newDirs);
+  const textChanged =
+    dirsDiffer || headScope.rule !== newScope?.rule || headScope.extensions !== newScope?.extensions;
+  const population = scopePopulationMove(headFiles, runFiles);
+  const entered = population === null ? [] : population.entered;
+  const left = population === null ? [] : population.left;
   const moves = legScopeMoves(headScope, newScope);
+  const grew = !textChanged && left.length === 0 && entered.length > 0;
+  const unexplained = moves.filter(
+    (move) => !(grew && move.from !== null && move.to !== null && move.to > move.from)
+  );
   return {
-    headDirs,
-    newDirs,
-    dirsDiffer,
-    moves,
-    gatePopulationMoved: dirsDiffer || headFileCount !== gatedCount,
-    any: dirsDiffer || moves.length > 0
+    headDirs, newDirs, dirsDiffer, textChanged, entered, left, moves,
+    grew: grew && unexplained.length === 0,
+    requiresFlag: textChanged || left.length > 0 || unexplained.length > 0,
+    gatePopulationMoved: dirsDiffer || headFileCount !== gatedCount
   };
 }
 
 /**
- * H1 — may this run write an artifact whose `scope` block differs from HEAD's?
- *
- * Returns `null` when the question does not arise (HEAD carries no readable
- * scope block — a pre-rescope artifact from before §2.42, which nothing here can
- * compare against), or when nothing in it moved. Returns the refusal text when the
- * dirs moved OR a leg's population record moved, and `--rescope` was NOT passed. The
- * text names both dir lists, both measured-file counts, WHICH LEG's population moved
- * with BOTH of its counts, every per-row delta the write is about to hide, and says
- * in words that the movement is a scope change, not a reduction or an addition of
- * debt.
+ * H1 — the no-flag refusal when the boundary moved in a way §2.50 still calls a
+ * rescope: text changed, files LEFT (named path by path — a SET difference, because
+ * the count may have grown anyway), or a leg moved unexplained (§2.43). It names the
+ * dir lists, both counts, the moved legs with directions, and every hidden row.
  */
 export function scopeTrip({
-  headScope,
-  headFileCount,
-  newScope,
-  gatedCount,
-  headCeilings,
-  ceilings
+  headScope, headFileCount, newScope, gatedCount, headCeilings, ceilings,
+  headFiles = null, runFiles = null
 }) {
-  const diff = scopeDifference({ headScope, newScope, headFileCount, gatedCount });
-  if (diff === null || diff.any === false) return null;
+  const diff = scopeDifference({ headScope, newScope, headFileCount, gatedCount, headFiles, runFiles });
+  if (diff === null || !diff.requiresFlag) return null;
   const rows = [];
   for (const [key, value] of Object.entries(ceilings)) {
     const previous = headCeilings?.[key];
-    if (typeof previous === 'number' && previous !== value) {
-      rows.push(`${key}: ${previous} -> ${value}`);
-    }
+    if (typeof previous === 'number' && previous !== value) rows.push(`        ${key}: ${previous} -> ${value}`);
   }
-  const dirs = diff.dirsDiffer
-    ? `    - HEAD scope.dirs: ${JSON.stringify(diff.headDirs)}\n` +
-      `    - new scope.dirs:  ${JSON.stringify(diff.newDirs)} (rule: src/** + packages/*/src/**)\n`
-    : `    - scope.dirs: unchanged (${JSON.stringify(diff.newDirs)}) — what moved is a LEG's own population,\n` +
-      '      which the gate-wide scope has no room to say\n';
+  const parts = [];
+  if (diff.textChanged) {
+    parts.push(
+      `    - HEAD scope.dirs: ${JSON.stringify(diff.headDirs)}`,
+      `    - new scope.dirs:  ${JSON.stringify(diff.newDirs)} (rule: src/** + packages/*/src/**)`,
+      `    - rule: ${JSON.stringify(headScope.rule ?? null)} -> ${JSON.stringify(newScope?.rule ?? null)}`,
+      `    - extensions: ${JSON.stringify(headScope.extensions ?? null)} -> ` +
+        `${JSON.stringify(newScope?.extensions ?? null)}`
+    );
+  } else if (diff.moves.length > 0) {
+    parts.push(
+      `    - scope.dirs: unchanged (${JSON.stringify(diff.newDirs)}) — what moved is a LEG's own population,`,
+      '      which the gate-wide scope has no room to say'
+    );
+  }
+  if (diff.left.length > 0) {
+    const more = diff.left.length > 12 ? ` (+${String(diff.left.length - 12)} more)` : '';
+    parts.push(`    - FILES LEFT THE SCOPE (${String(diff.left.length)}, a SET difference — the count may ` +
+      `have grown anyway): ${diff.left.slice(0, 12).join(', ')}${more}`);
+  }
   const legs =
-    diff.moves.length > 0
-      ? `${diff.moves.map((move) => `    - ${describeLegScopeMove(move)}`).join('\n')}\n`
-      : '';
+    diff.moves.length > 0 ? `${diff.moves.map((m) => `    - ${describeLegScopeMove(m)}`).join('\n')}\n` : '';
   return (
     `SCOPE CHANGE without ${RESCOPE_FLAG}: this run measured a different file set than ` +
-    `${headScope.source ?? 'HEAD'} did.\n` +
-    dirs +
+    `${headScope.source ?? 'HEAD'} did.\n${parts.join('\n')}\n` +
     `    - measured files: ${headFileCount} -> ${gatedCount}\n` +
     legs +
     (rows.length > 0
-      ? `    - ceilings this write would re-anchor:\n${rows.map((r) => `        ${r}`).join('\n')}\n`
+      ? `    - ceilings this write would re-anchor:\n${rows.join('\n')}\n`
       : '    - no ceiling row moves in this write\n') +
-    `  EVERY movement above is a SCOPE CHANGE, not a reduction in debt: the files that ` +
-    'left the\n' +
-    '  enforced view are still there, unfixed, and the files that ENTERED it were always\n' +
-    '  there too. If that is really the decision being made, say so on purpose with ' +
-    `${RESCOPE_FLAG}; the shadow rows then keep the out-of-scope totals reported, and only\n` +
-    '  the rows of a leg whose population moved may change.'
+    '  EVERY movement above is a SCOPE CHANGE, not a reduction in debt: the files that left the\n' +
+    '  enforced view are still there, unfixed, and the files that ENTERED it were always there\n' +
+    `  too. If that is really the decision being made, say so on purpose with ${RESCOPE_FLAG}; the\n` +
+    '  shadow rows then keep the out-of-scope totals reported, and only the rows of a population\n' +
+    '  that moved may change.'
   );
 }
 
 /**
- * The other direction: `--rescope` passed when NOTHING rescoped. The flag is a
- * statement about a boundary moving, not a cosmetic override — with no scope
- * difference to write it refuses, the same way `--seed` over a readable anchor does
- * not silently become "write anyway". Since §2.43 "nothing moved" covers the legs too:
- * a recorded population that equals HEAD's is not a boundary, whatever the ceilings
- * would like to do.
+ * THE OTHER DIRECTION: `--rescope` with no boundary to state — and over pure growth
+ * there is none (§2.50): the flag means "the owner redrew the boundary", and spending
+ * it on an ordinary split is the dilution the policy exists to prevent.
  */
-export function rescopeUnneededTrip({ headScope, newScope, headFileCount, gatedCount }) {
-  const diff = scopeDifference({ headScope, newScope, headFileCount, gatedCount });
-  if (diff !== null && diff.any) return null;
-  return (
-    `${RESCOPE_FLAG} was passed but the scope has not changed since HEAD: ` +
-    (diff === null
+export function rescopeUnneededTrip({
+  headScope, newScope, headFileCount, gatedCount, headFiles = null, runFiles = null
+}) {
+  const diff = scopeDifference({ headScope, newScope, headFileCount, gatedCount, headFiles, runFiles });
+  if (diff !== null && diff.requiresFlag) return null;
+  const why =
+    diff === null
       ? 'HEAD carries no scope block and this run derives none differently'
-      : `scope.dirs are ${JSON.stringify(diff.newDirs)} on both sides and no leg population moved`) +
-    '. There is nothing to rescope. Run without the flag.'
+      : diff.entered.length > 0 && diff.left.length === 0 && !diff.textChanged
+        ? `this run measured ${String(diff.entered.length)} MORE file(s) than HEAD inside an ` +
+          'unchanged boundary — growth is not a rescope'
+        : `scope.dirs are ${JSON.stringify(diff.newDirs)} on both sides and no leg population moved`;
+  return (
+    `${RESCOPE_FLAG} was passed but the scope has not changed since HEAD: ${why}. ` +
+    'There is nothing to rescope. Run without the flag.'
   );
 }
 

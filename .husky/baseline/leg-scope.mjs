@@ -21,6 +21,13 @@
  * engages, the refusal without the flag names WHICH leg moved and BOTH counts, and
  * only the rows belonging to that leg may rise (`.husky/baseline/decide.mjs`).
  *
+ * SINCE RID `2026-10-03-scope-growth-vs-shrink` (backlog §2.50) this module also
+ * holds the ENFORCED-SCOPE enumeration comparison, `scopePopulationMove`: the trip
+ * asks the same question of the whole boundary that §2.43 taught it to ask of a leg
+ * — WHICH DIRECTION did the population move? — and a lost file is a coverage event
+ * while a gained one is ordinary work. `describeLegScopeMove` says the direction in
+ * words here, so an operator reads growth and leaving apart at a glance.
+ *
  * A per-leg record is METADATA, not a sixteenth ceiling: `CEILING_KEYS` stays the
  * fifteen it is and the set-equality audit in `.husky/monotonic/keys.mjs` still owns
  * that list.
@@ -87,12 +94,57 @@ export function legScopeMoves(headScope, newScope) {
   return moves;
 }
 
-/** The one line a refusal or a note uses for one moved leg, naming both counts. */
+/**
+ * THE ENFORCED-SCOPE ENUMERATION, SUBTRACTED AS A SET (rid `2026-10-03-scope-growth-
+ * vs-shrink`, backlog §2.50). `headFiles` is HEAD's artifact `files` map keys — the
+ * exact population the committed ceilings were measured over — and `runFiles` is
+ * this run's gated list, the same array the eslint leg walks and `buildFileRecords`
+ * writes rows for. `left` is `headFiles minus runFiles`, the coverage-loss shape a
+ * rename out of `src/` takes; `entered` is the other difference. Neither is an
+ * arithmetic stand-in: `950 > 943` is a GROWTH CLAIM, not a proof that nothing
+ * left, because one file can exit while three enter. Returns `null` when either
+ * enumeration is absent — a HEAD older than the rows map cannot be asked the
+ * question, and unknown is not "nothing left" (§2.41's posture, one layer over).
+ */
+export function scopePopulationMove(headFiles, runFiles) {
+  if (!Array.isArray(headFiles) || !Array.isArray(runFiles)) return null;
+  const run = new Set(runFiles);
+  const head = new Set(headFiles);
+  return {
+    left: [...head].filter((file) => !run.has(file)).sort(),
+    entered: [...run].filter((file) => !head.has(file)).sort()
+  };
+}
+
+/**
+ * THE GROWTH STATEMENT §2.50 lets proceed unflagged — printed by `decide.mjs` on
+ * every pure-growth run, so the bigger crowd is said out loud rather than absorbed:
+ * `scope grew: 943 -> 950 (7 entered, 0 left the scope)`. Both counts come from the
+ * SET difference above, never from subtracting the two totals.
+ */
+export function scopeGrowthLine({ headFileCount, gatedCount, entered, left }) {
+  return (
+    `scope grew: ${headFileCount} -> ${gatedCount} (${String(entered.length)} entered, ` +
+    `${String(left.length)} left the scope)`
+  );
+}
+
+/** The one line a refusal or a note uses for one moved leg, naming both counts
+ * and WHICH DIRECTION the leg moved — growth and leaving must read apart at a
+ * glance (rid `2026-10-03-scope-growth-vs-shrink`, §2.50). */
 export function describeLegScopeMove(move) {
   const from =
     move.from === null ? 'unknown (HEAD records no population for this leg)' : String(move.from);
   const to = move.to === null ? 'unknown (this run measured none)' : String(move.to);
-  return `${legLabel(move.leg)} leg population: ${from} -> ${to}`;
+  const direction =
+    move.from !== null && move.to !== null
+      ? move.to > move.from
+        ? ' — the leg measures MORE files than HEAD recorded'
+        : move.to < move.from
+          ? ' — the leg measures FEWER files than HEAD recorded (coverage lost)'
+          : ''
+      : ' — one side records no population, and unknown is never equal';
+  return `${legLabel(move.leg)} leg population: ${from} -> ${to}${direction}`;
 }
 
 /** Which leg a ceiling row belongs to; `null` is the gate-wide population. */

@@ -21,6 +21,11 @@
 //   5. stderr's silent-warning measurement line changes wording, because the leg
 //      measures the enforced scope now and can say `== the enforced scope` — the
 //      monolith measures its own `src/` walk and cannot.
+//   6. stderr gains the §2.50 growth statement (`scope grew: 943 -> 950 (7 entered,
+//      0 left the scope)`), printed by `decide.mjs` on every pure-growth run the
+//      monolith would have refused. Stderr only: no artifact byte beyond `scope`
+//      (surface 2), no exit code (the monotonicity rule still stops any rise).
+//      Pinned positively by `tests/unit/lint/baseline-scope-growth-vs-shrink.test.ts`.
 // Those surfaces are the rescope's own contract, pinned positively by
 // `baseline-rescope-guard.test.ts` and `lint-file-list-parity.test.ts`. The
 // equivalence legs normalise them away so EVERY OTHER byte and line is still
@@ -61,12 +66,21 @@ export const SHADOW_MOVE_STDERR_LINE =
  */
 export const LEG_MEASURE_STDERR_LINE = /^silent-warning: catch-return-null=.*\n/gm;
 
+/**
+ * The §2.50 growth statement (declared surface 6) — printed by `decide.mjs` via
+ * `scopeGrowthLine` in `.husky/baseline/leg-scope.mjs` when the watched population
+ * grew with nothing leaving. Stderr-only, split-side-only: the pinned monolith
+ * refuses that state outright and can print no such sentence.
+ */
+export const SCOPE_GROWTH_STDERR_LINE = /^scope grew:.*\n/gm;
+
 /** stderr with the rescope's shadow note and the shadow-move check removed. A no-op for the monolith side. */
 export function projectStderr(text: string): string {
   return text
     .replace(SHADOW_STDERR_LINE, '')
     .replace(SHADOW_MOVE_STDERR_LINE, '')
-    .replace(LEG_MEASURE_STDERR_LINE, '');
+    .replace(LEG_MEASURE_STDERR_LINE, '')
+    .replace(SCOPE_GROWTH_STDERR_LINE, '');
 }
 
 /**

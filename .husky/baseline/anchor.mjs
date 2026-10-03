@@ -144,10 +144,16 @@ function readAnchorScope(text) {
     const doc = JSON.parse(text);
     const scope =
       doc !== null && typeof doc === 'object' && Array.isArray(doc.scope?.dirs) ? doc.scope : null;
-    const fileCount =
+    // THE ENFORCED ENUMERATION (§2.50): the `files` map IS HEAD's in-scope file
+    // list — one row per gated file, written by `buildFileRecords` over exactly the
+    // population the ceilings enforce — so the leaving set is subtracted from these
+    // keys, from the SAME bytes the ceilings were parsed from, with no second read.
+    const rows =
       doc !== null && typeof doc === 'object' && doc.files !== null && typeof doc.files === 'object'
-        ? Object.keys(doc.files).length
+        ? doc.files
         : null;
+    const headFiles = rows === null ? null : Object.keys(rows);
+    const fileCount = headFiles === null ? null : headFiles.length;
     // W1 of rid `2026-10-03-shadow-move-rider`: the SAME bytes also carry the
     // non-gated `shadow` block, and the shadow-move check compares this run's
     // population against it. A block that is absent (HEAD predates `561ba8b5`) or
@@ -155,9 +161,9 @@ function readAnchorScope(text) {
     // rather than as "nothing moved" — §2.41's shape, one layer down.
     const shadow =
       doc !== null && typeof doc === 'object' && isShadowBlock(doc.shadow) ? doc.shadow : null;
-    return { headScope: scope, headFileCount: fileCount, headShadow: shadow };
+    return { headScope: scope, headFileCount: fileCount, headShadow: shadow, headFiles };
   } catch {
-    return { headScope: null, headFileCount: null, headShadow: null };
+    return { headScope: null, headFileCount: null, headShadow: null, headFiles: null };
   }
 }
 
@@ -170,7 +176,7 @@ export function guardAnchor() {
   const anchorRead = readGitShowHead(OUT_REL);
   let anchorCeilings = null;
   let anchorProblem = anchorRead.problem;
-  let anchorScope = { headScope: null, headFileCount: null, headShadow: null };
+  let anchorScope = { headScope: null, headFileCount: null, headShadow: null, headFiles: null };
   if (anchorProblem === null) {
     const parsed = parsePreviousArtifact(anchorRead.text);
     anchorCeilings = parsed.ceilings;
@@ -252,6 +258,8 @@ export function guardAnchor() {
     deferredAdded,
     headScope: anchorScope.headScope,
     headFileCount: anchorScope.headFileCount,
-    headShadow: anchorScope.headShadow
+    headShadow: anchorScope.headShadow,
+    // §2.50: HEAD's in-scope enumeration, so the trip can subtract the leaving SET.
+    headFiles: anchorScope.headFiles
   };
 }

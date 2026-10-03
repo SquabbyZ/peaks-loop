@@ -33,6 +33,7 @@ import { declareDimensions } from '../_setup/4dim-template.js';
 import { REPO_ROOT } from '../standards/_file-size-cap-scan.js';
 import {
   LEG_MEASURE_STDERR_LINE,
+  SCOPE_GROWTH_STDERR_LINE,
   SHADOW_MOVE_STDERR_LINE,
   SHADOW_STDERR_LINE,
   projectStderr
@@ -78,6 +79,12 @@ async function loadEmitters(): Promise<{
     emptyCatch: number;
     scanned: number;
   }) => string;
+  scopeGrowthLine: (i: {
+    headFileCount: number;
+    gatedCount: number;
+    entered: string[];
+    left: string[];
+  }) => string;
 }> {
   const url = pathToFileURL(join(REPO_ROOT, '.husky', 'baseline', 'rescope.mjs')).href;
   const mod = (await import(url)) as Record<string, unknown>;
@@ -92,6 +99,13 @@ async function loadEmitters(): Promise<{
   if (typeof legMod.describeSilentWarningRun !== 'function') {
     throw new Error('.husky/peaks-gate-silent-warning.mjs exports no `describeSilentWarningRun`');
   }
+  // §2.50's growth statement lives with the population arithmetic it reports (§2.47:
+  // the projection may only swallow sentences this loader can prove are emitted).
+  const popUrl = pathToFileURL(join(REPO_ROOT, '.husky', 'baseline', 'leg-scope.mjs')).href;
+  const popMod = (await import(popUrl)) as Record<string, unknown>;
+  if (typeof popMod.scopeGrowthLine !== 'function') {
+    throw new Error('.husky/baseline/leg-scope.mjs exports no `scopeGrowthLine`');
+  }
   return {
     shadowMoveLines: fn('shadowMoveLines') as (i: {
       headShadow: unknown;
@@ -103,6 +117,12 @@ async function loadEmitters(): Promise<{
       returnNull: number;
       emptyCatch: number;
       scanned: number;
+    }) => string,
+    scopeGrowthLine: popMod.scopeGrowthLine as (i: {
+      headFileCount: number;
+      gatedCount: number;
+      entered: string[];
+      left: string[];
     }) => string
   };
 }
@@ -110,9 +130,13 @@ async function loadEmitters(): Promise<{
 /** One leg measurement, in the shape the silent-warning leg produces. */
 const LEG_RUN = { returnNull: 49, emptyCatch: 68, scanned: 943 };
 
+/** The §2.50 growth state: seven entered files, none leaving. */
+const GROWTH_ENTERED = Array.from({ length: 7 }, (_, i) => `src/new-${String(i)}.ts`);
+
 /** Every stderr line the projection claims to cover, produced by running the emitters. */
 async function emittedShadowLines(): Promise<string[]> {
-  const { shadowMoveLines, shadowStderrLine, describeSilentWarningRun } = await loadEmitters();
+  const { shadowMoveLines, shadowStderrLine, describeSilentWarningRun, scopeGrowthLine } =
+    await loadEmitters();
   return [
     shadowStderrLine(block({})),
     ...shadowMoveLines({ headShadow: null, shadow: block({}) }),
@@ -121,7 +145,9 @@ async function emittedShadowLines(): Promise<string[]> {
     ...shadowMoveLines({ headShadow: block({ eslintFindings: 640 }), shadow: block({}) }),
     // §2.43's surface: the silent-warning leg's measurement sentence, emitted by the
     // module that prints it — not re-typed here.
-    describeSilentWarningRun(LEG_RUN)
+    describeSilentWarningRun(LEG_RUN),
+    // §2.50's surface: the growth statement, same rule — from the emitter, not typed.
+    scopeGrowthLine({ headFileCount: 943, gatedCount: 950, entered: GROWTH_ENTERED, left: [] })
   ];
 }
 
@@ -163,7 +189,8 @@ describe('Scenario: render — regex and generator are two readings of one set',
     const alternatives = [
       ...alternativesOf(SHADOW_STDERR_LINE),
       ...alternativesOf(SHADOW_MOVE_STDERR_LINE),
-      ...alternativesOf(LEG_MEASURE_STDERR_LINE)
+      ...alternativesOf(LEG_MEASURE_STDERR_LINE),
+      ...alternativesOf(SCOPE_GROWTH_STDERR_LINE)
     ];
     expect(alternatives.length).toBeGreaterThan(0);
     for (const alt of alternatives) {

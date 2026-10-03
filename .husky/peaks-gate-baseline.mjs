@@ -157,7 +157,12 @@ decideWrite({
   rescope: {
     flag: rescopeRun,
     newScope: scopeBlock,
-    gatedCount: measured.gated.length
+    gatedCount: measured.gated.length,
+    // §2.50: the run's ENFORCED enumeration, so the trip subtracts the leaving set
+    // as a SET against HEAD's `files` rows (`anchor.headFiles`) instead of trusting
+    // the two counts. `measured.gated` is the same array `buildFileRecords` writes
+    // rows for — the population the ceilings are measured over, one source, no drift.
+    runFiles: measured.gated
   }
 });
 writeArtifact({
