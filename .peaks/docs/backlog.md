@@ -1976,6 +1976,12 @@ reason, not an accident of where the directories happen to sit. One caveat from 
 without `--no-ignore` the same command printed 33 `File ignored by default` warnings and exited 0, so the leg
 must assert the size of the population it looked at, or "0 findings" and "nothing checked" stay indistinguishable.
 
+*The extension filter used to count those 35 is itself the kind of boundary this entry is about:* `.husky/pre-commit`
+and `.husky/pre-push` run on every commit and every push, have no extension, and so appear in no size row, no
+lint row and not in that 35-file set. An executed-code leg worth building has to enumerate **what the hooks actually
+invoke** (`.git/hooks/*` and the scripts they call), not files matching an extension list — otherwise it recreates
+the same blind spot one layer up, on exactly the files most able to break a commit.
+
 ### 2.38 `peaks job` cannot grow a job's slice list after init, so an incrementally-planned wave cannot be recorded truthfully (found 2026-10-02, wave 9)
 
 `peaks job init --job-id 2026-10-02-c-wave9 --slice-list <one id>` created the wave ledger with `total: 1`.
