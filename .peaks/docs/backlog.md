@@ -2246,7 +2246,7 @@ in the shipped text: arrival was 16 modified + 4 untracked files, not "12 + 4"; 
 posture I attributed to a `shadowBlock()` in `_rescope-projection.ts` actually lives in `legScopeMoves`
 (a `from === null` record is a move, never "equal").*
 
-### 2.44 A doc that describes a gate is not the gate: `lint-gate.md` §2 described a push hook that had not existed for ten days (found 2026-10-03)
+### 2.44 A doc that describes a gate is not the gate: `lint-gate.md` §2 described a push hook that had not existed for ten days (found 2026-10-03) **WON’T FIX — frozen 2026-10-03 by the owner (meta layer closed; see lint-gate.md STATUS).**
 
 `.peaks/docs/lint-gate.md` §2 said `pre-push` runs `peaks-gate.mjs repo` then `pnpm test:unit`, and that
 `tsc` "runs on push". `.husky/pre-push` has since slice B5 (2026-09-23) run `peaks-gate.mjs changed` then
@@ -2260,7 +2260,7 @@ and assert the doc's table names each of them, so the authoritative artifact is 
 the prose is the thing on trial. The reverse pin (a hook asserting a sentence in a doc) is what §2.28
 found to be 86% blind, and would be worse than nothing here.
 
-### 2.45 The cap-wiring guard identifies "who enforces the file-size cap" by FILENAME, so a rename evades it and honest files get renamed to dodge it (measured by `…-repair1` 2026-10-03, verified by the orchestrator the same day)
+### 2.45 The cap-wiring guard identifies "who enforces the file-size cap" by FILENAME, so a rename evades it and honest files get renamed to dodge it (measured by `…-repair1` 2026-10-03, verified by the orchestrator the same day) **WON’T FIX — frozen 2026-10-03 by the owner (meta layer closed; see lint-gate.md STATUS).**
 
 `tests/unit/standards/file-size-cap.test.ts:197` — `defines the cap in one file: no second copy, and every
 cap-enforcer reads it` — picks its subject set with:
@@ -2456,7 +2456,7 @@ no-flag run answers `RAISED`. Defensible (a new in-scope file must be clean anyw
 it is the third named gap of the §2.35 family, and if it ever blocks a real slice the answer is a third
 explicit state ("attributed growth"), never a re-broadened flag.
 
-### 2.48 The monotonicity refusal prints a remedy that would delete the work it is refusing (found 2026-10-03 by a leaf that chose not to follow it)
+### 2.48 The monotonicity refusal prints a remedy that would delete the work it is refusing (found 2026-10-03 by a leaf that chose not to follow it) **WON’T FIX — frozen 2026-10-03 by the owner (meta layer closed; see lint-gate.md STATUS).**
 
 Mid-slice in §2.43, the artifact on disk carried an intended, **uncommitted** raise (49/68) while `HEAD`
 still held 41/59. A plain no-flag generator run then refuses — correctly, by §2.33's working-copy trip — and
@@ -2526,7 +2526,7 @@ listed rather than built because the same information already prints, in a diffe
 generator runs, and paying for a second copy of a warning nobody failed to read would be the kind of
 speculative machinery this campaign has been trimming all week.
 
-### 2.51 The guard file is now at its own size cap, and the exempt population grew by two more findings in the very slice that was watching ceilings (2026-10-03, measured at the §2.50 regeneration)
+### 2.51 (1) **WON’T FIX — frozen 2026-10-03** (do NOT split `rescope.mjs`; the cap is answered by not writing more there). ### 2.51 The guard file is now at its own size cap, and the exempt population grew by two more findings in the very slice that was watching ceilings (2026-10-03, measured at the §2.50 regeneration)
 
 Two facts from one regeneration, both cheap now and both getting less cheap daily.
 

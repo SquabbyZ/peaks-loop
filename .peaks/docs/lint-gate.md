@@ -4,6 +4,33 @@
 > `.husky/peaks-gate-baseline.mjs` (the regenerator), and
 > `.peaks/lint/gate-baseline.json` (the ceilings).
 
+> ## STATUS 2026-10-03 — the meta layer is FROZEN by the owner. Read this before any work on this file.
+>
+> **Decision (verbatim):** 「现在的问题是，使用lint、门禁等都是为了给项目增强健壮性，减少BUG等，但是现在的问题
+> 这些过度复杂反而成了拖后腿」 → chosen option: **freeze the meta layer, spend the work on product defects.**
+>
+> What that means operationally:
+> - **No new legs, ceilings, arms, warnings, refusal wording, projections, scope discriminators or
+>   ceremony.** The gate as it stands keeps running and keeps its regression protection; growing it is
+>   closed work. §2.44, §2.45, §2.48 and §2.51(1) in the backlog are **WON'T FIX — frozen**, not
+>   "next candidates".
+> - **§2.51(1) in particular: do not split `.husky/baseline/rescope.mjs`.** It sits at census 299 of a 300
+>   cap, and the cheap resolution is that nobody writes another sentence there — a split would be exactly
+>   the meta-work this decision ends.
+> - The measurement behind the decision: 11 commits on 2026-10-03 changed **no user-visible behaviour**,
+>   while five defect classes (§2.47 unbounded projection, §2.48 self-destructive remedy, §2.49 thrice
+>   stale artifact, §2.50 two guard rules locking each other, §2.51 the guard at its own cap) were
+>   **produced by the guard layer itself and were not product bugs**. The gate's own observing tests are
+>   50 files / 16,041 lines — 3.4× the 40 files / 4,736 lines of gate they watch.
+> - What the layer did earn, and keeps: §2.43's widening found **17 real hidden-failure sites** (a bug
+>   class), and §2.49 caught a baseline that its own commit would have violated. **Running** the gate is
+>   cheap and occasionally pays; **building** it stopped paying.
+> - Where the work goes instead, in order of a user actually being able to hit it: the §2.19
+>   `install-skills` / `package.json#files` deadlock (a fresh install ships broken), §2.36 (the globally
+>   installed CLI is older than `src`, so "the CLI does X" needs re-measuring against `node bin/peaks.js`),
+>   the unnamed `peaks worktree list` leak emitter, and the 17 swallows — the last of which needs an
+>   owner-level call about making a published package louder, because that is behaviour, not hygiene.
+
 ## 1. Why this is a ratchet and not a strict check
 
 The request was "the strictest possible lint / tsc / prettier check on commit,
