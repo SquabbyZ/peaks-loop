@@ -2765,5 +2765,23 @@ Three things this entry is for.
    on the one operation that cannot be retried gracefully mid-flight. Not an argument against landing big
    mechanical passes — an argument against believing the listed blockers are the whole list.
 
-Also fixed as a side-effect of the same release: §2.53 (an all-tags push was unspeakable to the push gate, so
-publishing required `PEAKS_GATE_CHANGED_BASE=v4.0.54` to get the tag out at all).
+**Answer to the open question in item 1** (measured by the fix slice, not asserted): *no* local check could
+have caught the old failure, because the instrument was an inline `grep` inside `.github/workflows/publish.yml`
+and nothing outside CI ever read that file. The fix closes the gap by moving the reader into
+`scripts/verify-version-parity.mjs` and having `tests/unit/release/version-parity-gate.test.ts` import and run
+that same `runGate` — so the check CI executes is now a check the unit suite executes, which is the only shape
+where "would have failed locally" is true rather than hoped.
+
+4. **The same slice then reopened the hole its own config warns about.** `scripts/verify-version-parity.mjs`
+   shipped with a `.d.mts` sibling and was not added to `config/eslint/tsconfig.lint.json#files` — the list
+   whose header comment says, in these words, that a wildcard include *silently* loses exactly that shape. The
+   omission was invisible until `tests/unit/lint/eslint-rules-config-coverage.test.ts` named the file and went
+   red (`expected [ 'scripts/verify-version-parity.mjs' ] to deeply equal []`); one literal added, 11/11 green.
+   Note the direction of the evidence: the guard caught the author of the fix, in the same hour, on the file
+   the guard exists for. Item 2's "one mechanism per file" applies to the author's own diff too.
+
+§2.53 was **not** fixed by this release, and the previous draft of this entry called a workaround a fix.
+Nothing in the push gate changed (checked: no `refs/tags` / stdin handling exists in `.husky/`); publishing got
+out through the escape hatch the refusal text itself names — `PEAKS_GATE_CHANGED_BASE=v4.0.54`, which is also the
+semantically right base for a release. The gate behaviour §2.53 describes is still open, and the meta layer is
+frozen, so it stays open by decision rather than by oversight.
