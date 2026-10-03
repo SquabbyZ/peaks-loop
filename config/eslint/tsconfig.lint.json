@@ -32,7 +32,8 @@
     "../../scripts/release-pack.mjs",
     "../../scripts/dist-freshness.mjs",
     "../../scripts/install-skills.mjs",
-    "../../scripts/packages-build-prerequisite.mjs"
+    "../../scripts/packages-build-prerequisite.mjs",
+    "../../scripts/verify-version-parity.mjs"
   ],
   "include": [
     "../../src/**/*",
