@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-02T15:13:26.943Z",
+  "updatedAt": "2026-10-03T08:51:22.647Z",
   "hot": {
     "rule": [
       {
@@ -1124,6 +1124,14 @@
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\a-leaf-that-dies-at-the-turn-limit-reports-completion-and-the-tree-is-half-done.md",
         "sourceArtifact": ".peaks/_runtime/2026-09-29-session-b7cf21/txt/handoff.md",
         "updatedAt": "2026-10-01"
+      },
+      {
+        "name": "a-leg-must-not-choose-its-own-population",
+        "kind": "lesson",
+        "description": "A leg may only report a number for a population it can name and defend **Date:** 2026-10-03 · **Session:** 2026-09-29...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\a-leg-must-not-choose-its-own-population.md",
+        "sourceArtifact": ".peaks/_runtime/2026-09-29-session-b7cf21/rd/requests/w10-silent-warning-scope.md",
+        "updatedAt": "2026-10-03"
       },
       {
         "name": "a-multi-slice-job-that-shares-one-rid-reopens-the-evidence-collision-hole-rid-scoping-was-built-to-close",
