@@ -255,11 +255,15 @@ describe('Scenario: behavior — a named-file subset is not the row (repair cycl
 
 describe('Scenario: integration — the leg measures the census, not its own idea', () => {
   it(
-    'when untouched, the row equals an independent run of the census tool',
+    'when untouched, the row equals the GATED part of an independent run of the census tool',
     { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
-    () => {
+    async () => {
       const run = runLeg();
-      expect(rowFor(run.out).actual).toBe(runCensus().overCap);
+      // Rid `2026-10-03-w10-rescope-a`: the row speaks for the ENFORCED part of
+      // the census universe, so the expected number is the same envelope cut by
+      // the shared partition — `env.overCap` here would pin the OLD contract.
+      const { partitionCensusOverCap } = await loadLegModule();
+      expect(rowFor(run.out).actual).toBe(partitionCensusOverCap(runCensus()).gated.overCap);
       expect(rowFor(run.out).ceiling).toBe(publishedCeiling());
     }
   );
@@ -382,6 +386,8 @@ describe('Scenario: a11y — a census that cannot run is a failure, never a zero
 /** The part of the shared leg these arms call, typed for the same reason the parity test types its loader. */
 type FileSizeLegModule = {
   describeInputTrips(trips: readonly string[]): string;
+  // Property, not method signature: ~L265 destructures it; `unbound-method` flags method-typed refs (rescope repair 1).
+  partitionCensusOverCap: (env: unknown) => { gated: { overCap: number; excessLines: number } };
   printFileSizeLeg(
     size: {
       readonly refusal: string | null;

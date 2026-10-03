@@ -136,7 +136,7 @@ const CENSUS_STUB =
   'process.stdout.write(JSON.stringify({ overCap: 1, excessLines: 9, ' +
   "convention: 'split(String.fromCharCode(10)).length', caps: { defaultCap: 300, testsCap: 500 }, " +
   "scope: { countedFiles: 3, source: 'git ls-files <policy dirs>', dirs: ['src'], " +
-  "extensions: ['ts'] }, byDir: { src: { files: 3 } }, " +
+  "extensions: ['ts'] }, files: [{ file: 'src/big.ts', lines: 309, cap: 300, excess: 9 }], byDir: { src: { files: 3 } }, " +
   "hooks: { overCap: 1, excessLines: 4, caps: { hooksCap: 300 }, convention: 'split(String.fromCharCode(10)).length', scope: { countedFiles: 2, source: 'git ls-files <hooks dirs>', dirs: ['.husky'], extensions: ['mjs'] }, files: [] } }) + '\\n');\n";
 const PRETTIER_PACKAGE =
   '{"name":"prettier","version":"0.0.0-fixture","type":"module","exports":{".":"./index.mjs"}}\n';

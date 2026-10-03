@@ -18,6 +18,8 @@ import {
   settleDeferredAdded
 } from '../peaks-gate-baseline-monotonic.mjs';
 
+import { RESCOPE_FLAG, rescopeUnneededTrip, scopeTrip } from './rescope.mjs';
+
 import { HEAD_REF, OUT_REL, refuse } from './paths.mjs';
 
 /** Decide whether this run may write, and say out loud what it decided. */
@@ -27,7 +29,10 @@ export function decideWrite({
   workingCopy,
   anchorNotes,
   deferredAdded,
-  ceilings
+  ceilings,
+  headScope = null,
+  headFileCount = null,
+  rescope = null
 }) {
   // ---- monotonicity: the anchor was read above; decide, then write ------------
   // RID 2026-10-02-BASELINE-MONOTONICITY (§2.27), repaired by rid
@@ -90,6 +95,39 @@ export function decideWrite({
   if (keyFailure !== null) refusals.push(keyFailure);
   const monotonicityFailure = describeMonotonicityFailure(monotonicity);
   if (monotonicityFailure !== null) refusals.push(monotonicityFailure);
+  // H1 — THE RESCOPE GUARD (rid `2026-10-03-w10-rescope-a`, backlog §2.42).
+  // Values may only go down; the POPULATION that produced them may not change in
+  // silence. A scope difference without the flag refuses naming everything it
+  // would hide; WITH the flag the write goes through, loud, and the out-of-scope
+  // totals land in the artifact's shadow block. The flag with nothing to rescope
+  // is itself a refusal — required, not cosmetic.
+  let rescopeApplied = null;
+  if (rescope !== null) {
+    if (rescope.flag) {
+      const unneeded = rescopeUnneededTrip({
+        headScope,
+        newScopeDirs: rescope.newScopeDirs
+      });
+      if (unneeded !== null) refusals.push(unneeded);
+      else if (headScope !== null) {
+        rescopeApplied =
+          `RESCOPE applied (${RESCOPE_FLAG}): scope.dirs go from ${JSON.stringify(headScope.dirs)} ` +
+          `to ${JSON.stringify(rescope.newScopeDirs)} (${headFileCount} -> ${rescope.gatedCount} ` +
+          'measured files). The rows that fell are NOT debt reductions; the out-of-scope totals ' +
+          'are carried forward as shadow rows — reported, never gated.';
+      }
+    } else {
+      const trip = scopeTrip({
+        headScope,
+        headFileCount,
+        newScopeDirs: rescope.newScopeDirs,
+        gatedCount: rescope.gatedCount,
+        headCeilings: previousCeilings,
+        ceilings
+      });
+      if (trip !== null) refusals.push(trip);
+    }
+  }
   if (refusals.length > 0) {
     refuse(
       `${refusals.join('\n\n')}\n\n  The anchor is ${HEAD_REF}. Nothing above it was rewritten by this run.`
@@ -97,6 +135,7 @@ export function decideWrite({
   }
   // The permitted write is the arm a guard most often forgets: a run that says
   // nothing when it agrees looks identical to a run that never compared anything.
+  if (rescopeApplied !== null) anchorNotes.push(rescopeApplied);
   for (const note of anchorNotes) console.error(note);
   for (const note of describeMonotonicityNotes(monotonicity, seedApplied)) console.error(note);
 }

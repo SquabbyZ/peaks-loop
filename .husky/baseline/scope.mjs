@@ -8,9 +8,17 @@
  */
 import { execFileSync } from 'node:child_process';
 
+import { partitionLintScope } from '../lint-scope.mjs';
+
 import { CODE_EXT, HEAD_REF, ROOT, TOP_DIRS, refuse } from './paths.mjs';
 
-/** `git ls-files`, filtered the way HEAD filtered it, printed the way it printed. */
+/**
+ * `git ls-files`, filtered the way HEAD filtered it, printed the way it printed,
+ * and PARTITIONED by the one lint-scope rule (rid `2026-10-03-w10-rescope-a`).
+ * The returned `files` is the MEASUREMENT universe — what the legs walk, so the
+ * out-of-scope debt stays measured (H3). `gated` is what the ceilings enforce;
+ * `shadow` is what the shadow rows report and nothing gates.
+ */
 export function measureScope() {
   // ---- scope -----------------------------------------------------------------
   // The scope list is `git ls-files`, and since this file's own slice the generator
@@ -28,10 +36,11 @@ export function measureScope() {
         `  The previous ceilings are read from ${HEAD_REF} for the same reason.`
     );
   }
-  const scope = trackedFiles
+  const files = trackedFiles
     .trim()
     .split('\n')
     .filter((f) => CODE_EXT.test(f) && TOP_DIRS.some((d) => f.startsWith(`${d}/`)));
-  console.error(`scope: ${scope.length} files`);
-  return scope;
+  console.error(`scope: ${files.length} files`);
+  const { gated, shadow } = partitionLintScope(files);
+  return { files, gated, shadow };
 }

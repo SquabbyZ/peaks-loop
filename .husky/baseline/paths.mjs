@@ -12,6 +12,8 @@
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { MEASURED_DIRS } from '../lint-scope.mjs';
+
 // Slash-normalised once, at the definition — `resolve()` returns backslashes on
 // Windows and a `${ROOT}/` built from that can never match a normalised path.
 export const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..')
@@ -20,7 +22,15 @@ export const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..')
 export const OUT_PATH = resolve(ROOT, '.peaks/lint/gate-baseline.json');
 export const ESLINT_CONFIG = 'config/eslint/.peaks-rules.cjs';
 export const CODE_EXT = /\.(ts|tsx|mts|cts|mjs|cjs|js)$/;
-export const TOP_DIRS = ['src', 'tests', 'packages', 'scripts'];
+// THE MEASUREMENT UNIVERSE, not the enforced scope (rid `2026-10-03-w10-rescope-a`,
+// §2.42): the legs still walk these directories so the out-of-scope debt stays
+// MEASURED as shadow rows; what the ceilings enforce is the gated subset of it,
+// spelled once in `.husky/lint-scope.mjs`. The name stayed `TOP_DIRS` for the
+// scope block's sake; the VALUE is the rule module's `MEASURED_DIRS` — one
+// import, no second copy — which mirrors the `.ts` policy's
+// `FILE_SIZE_SCOPE_DIRS` under the arm in
+// `tests/unit/lint/lint-scope-rule.test.ts`.
+export const TOP_DIRS = MEASURED_DIRS;
 export const COVERAGE_GAP = /was not found in any of the provided project/;
 export const PHANTOM_DEF = /Definition for rule '(.+)' was not found/;
 export const BATCH = 150; // argv stays well under the Windows command-line limit

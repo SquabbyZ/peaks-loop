@@ -151,6 +151,36 @@ function publishedScopeDirs(): string[] {
   return publishedBaseline().scope.dirs;
 }
 
+/**
+ * A scope dir with real members to lose, picked from the published list — not
+ * typed. Since rid `2026-10-03-w10-rescope-a` the dirs are DERIVED from the
+ * root-`src` plus `packages/<name>/src` rule, so a hand-typed `'scripts'` here
+ * would drop nothing and the CONTROL would silently stop controlling.
+ */
+function aLiveScopeDir(): string {
+  const dirs = publishedScopeDirs().filter((d) =>
+    trackedFiles().some((f) => f.startsWith(`${d}/`))
+  );
+  const hit = dirs[dirs.length - 1];
+  if (hit === undefined) throw new Error('the published scope dirs carry no populated dir');
+  return hit;
+}
+
+/**
+ * The ONE editable scope rule (`.husky/lint-scope.mjs`, rid
+ * `2026-10-03-w10-rescope-a`), loaded the way this file loads everything else
+ * it observes. The parity claim gains a THIRD leg here: not just "the module's
+ * list equals the published rule" and "the gate executes the published rule",
+ * but "the published rule is the derivation of the one rule" — an artifact whose
+ * dir list drifted from the tracked files would go red in this arm, and only in
+ * this arm.
+ */
+type LintScopeRule = {
+  LINT_SCOPE_RULE: string;
+  isLintScoped(file: string): boolean;
+  deriveScopeDirs(gatedFiles: readonly string[]): string[];
+};
+
 /** The published rule, applied here — the answer key, never the module's own code. */
 function gateScopeSet(): Set<string> {
   const dirs = publishedScopeDirs();
@@ -292,16 +322,19 @@ describe('(behavior) the file list is the published gate scope, exactly', () => 
   );
 
   it(
-    'when the set is non-trivial, should contain the two classes the old script could not reach',
+    'when the set is non-trivial, should contain the classes the old script could not reach',
     { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
     async () => {
-      // Anti-vacuity. Set equality between two empty arms would pass; these two
-      // are the concrete divergences the slice was opened for, so the compared
-      // sets are shown to be populated where the old command line was not.
+      // Anti-vacuity. Set equality between two empty arms would pass. Since rid
+      // `2026-10-03-w10-rescope-a` the two POPULATED classes of the enforced
+      // scope are the root `src` tree and the package `src` trees — the second
+      // one only exists because `scope.dirs` is now DERIVED from the rule, and
+      // the `skills/` one is still the blind spot the `--no-ignore` posture was
+      // opened for.
       const module = await loadFileList();
       const files = module.lintFileList();
-      expect(files.filter((f) => f.startsWith('scripts/')).length).toBeGreaterThan(0);
-      expect(files.filter((f) => !f.endsWith('.ts')).length).toBeGreaterThan(0);
+      expect(files.some((f) => /^packages\/[^/]+\/src\//.test(f))).toBe(true);
+      expect(files.filter((f) => f.includes('/skills/')).length).toBeGreaterThan(0);
     }
   );
 
@@ -316,6 +349,39 @@ describe('(behavior) the file list is the published gate scope, exactly', () => 
     expect(module.scopeDirs()).toEqual(publishedScopeDirs());
   });
 
+  it('when the published scope.dirs are re-derived from the ONE rule, they match exactly', async () => {
+    // Item 7 of rid `2026-10-03-w10-rescope-a`: the artifact's dir list is not a
+    // typed enumeration — it is `deriveScopeDirs` over this run's tracked,
+    // extension-matching, gated files. A regeneration that drifts from the rule
+    // (or a hand-edited artifact) reddens here, because this arm rebuilds the
+    // dirs from `git ls-files` and the rule module, not from the artifact.
+    const rule = (await import(
+      pathToFileURL(join(REPO_ROOT, '.husky', 'lint-scope.mjs')).href
+    )) as LintScopeRule;
+    const gatedTracked = trackedFiles().filter(
+      (p) => GATE_EXTENSIONS.includes(extname(p).slice(1)) && rule.isLintScoped(p)
+    );
+    expect(rule.deriveScopeDirs(gatedTracked)).toEqual(publishedScopeDirs());
+    expect(rule.LINT_SCOPE_RULE).toBe('src/** + packages/*/src/**');
+  });
+
+  it('CONTROL: a brand-new packages/<x>/src path is in the rule with no constant edited, and joins the derivation', async () => {
+    // The pattern-vs-enforcement arm the slice brief demands: `new-pkg` exists in
+    // no list anywhere, and the derivation still enumerates its dir.
+    const rule = (await import(
+      pathToFileURL(join(REPO_ROOT, '.husky', 'lint-scope.mjs')).href
+    )) as LintScopeRule;
+    expect(rule.isLintScoped('packages/new-pkg/src/a.ts')).toBe(true);
+    expect(rule.isLintScoped('packages/new-pkg/tests/a.ts')).toBe(false);
+    const base = rule.deriveScopeDirs(['src/a.ts']);
+    expect(rule.deriveScopeDirs(['src/a.ts', 'packages/new-pkg/src/a.ts'])).toEqual(
+      [...base, 'packages/new-pkg/src'].sort()
+    );
+    expect(
+      rule.deriveScopeDirs(['src/a.ts', 'packages/new-pkg/src/a.ts'])
+    ).toContain('packages/new-pkg/src');
+  });
+
   // CONTROL ARMS — the guard must be able to see its own weakening.
   it(
     'CONTROL: when one scope dir is dropped, the parity assertion should go red naming it',
@@ -323,7 +389,7 @@ describe('(behavior) the file list is the published gate scope, exactly', () => 
     async () => {
       const module = await loadFileList();
       const expected = gateScopeSet();
-      const droppedDir = 'scripts';
+      const droppedDir = aLiveScopeDir();
       const weakened = module.filterScopeFiles(
         module.trackedFiles(),
         module.scopeDirs().filter((d) => d !== droppedDir),
@@ -343,7 +409,14 @@ describe('(behavior) the file list is the published gate scope, exactly', () => 
     async () => {
       const module = await loadFileList();
       const expected = gateScopeSet();
-      const droppedExt = 'mjs';
+      // The dropped extension is the first one the PUBLISHED scope actually
+      // contains — since the rescope the repo's in-scope population is all `.ts`,
+      // and a hand-typed `'mjs'` would drop nothing and stop controlling.
+      const usedExt = module.EXTENSIONS.find((e) =>
+        [...expected].some((f) => f.endsWith(`.${e}`))
+      );
+      if (usedExt === undefined) throw new Error('the published scope contains no known extension');
+      const droppedExt = usedExt;
       const weakened = module.filterScopeFiles(
         module.trackedFiles(),
         module.scopeDirs(),
@@ -401,7 +474,7 @@ describe('(integration) pnpm lint is wired to the one file set', () => {
       // the guard from being decoration: a gate that quietly checks less than the
       // published scope has to be RED, not "held".
       const expected = gateScopeSet();
-      const droppedDir = 'scripts';
+      const droppedDir = aLiveScopeDir();
       const copy = weakenedGateCopy(droppedDir);
       try {
         const counted = await gateReportedFileCount(copy);

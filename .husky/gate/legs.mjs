@@ -168,7 +168,7 @@ function silentWarningLeg(check, ceilings, files) {
  */
 function fileSizeLeg(check, ceilings, files, controlArm = false) {
   const subset = refuseScopedSubset({ controlArm, files });
-  if (subset !== null) return { refusal: subset, envelope: null, controlArm };
+  if (subset !== null) return { refusal: subset, envelope: null, controlArm, partition: null };
   const m = measureFileSizeOverCap(files, ROOT);
   if (m.failure !== null) {
     return {
@@ -176,24 +176,35 @@ function fileSizeLeg(check, ceilings, files, controlArm = false) {
         `REFUSING to measure the file-size leg — ${m.failure}.\n` +
         `  A census that cannot run is a gate FAILURE, not a zero. Run \`node ${TSX_CLI} ${FS_CENSUS}\` to see why.`,
       envelope: null,
-      controlArm
+      controlArm,
+      partition: null
     };
   }
   const missingCeiling = missingFileSizeCeilings(ceilings);
   if (missingCeiling !== null) {
-    return { refusal: missingCeiling, envelope: m.env, controlArm };
+    return { refusal: missingCeiling, envelope: m.env, controlArm, partition: m.partition };
   }
   const trips = fileSizeInputTrips(m.env, baseline);
   if (trips.length > 0) {
-    return { refusal: describeInputTrips(trips), envelope: m.env, controlArm };
+    return { refusal: describeInputTrips(trips), envelope: m.env, controlArm, partition: m.partition };
   }
   // TWO ROWS, ONE CENSUS (rid `2026-10-01-file-size-excess-row`). `fileSizeOverCap`
   // counts the files over the cap; `fileSizeExcessLines` counts the lines over it —
   // the figure wave 6 moved by +67 while the file count held at 166. Both read the
   // same envelope, so every refusal above applies to both, and neither can print a
   // number the census did not produce.
-  check(FS_ROW_LABEL, m.env.overCap, ceilings[FS_CEILING_KEY]);
-  check(FS_EXCESS_ROW_LABEL, m.env.excessLines, ceilings[FS_EXCESS_CEILING_KEY]);
+  //
+  // THE ROWS DESCRIBE THE ENFORCED SCOPE (rid `2026-10-03-w10-rescope-a`): since
+  // the owner's boundary moved, the census counts the whole measurement universe
+  // and the ceiling gates only its lint-scope part. `m.partition` cuts the two with
+  // the ONE rule (`partitionCensusOverCap`), refusing upstream if the envelope
+  // cannot be split. A control-arm run measures named files, not the row, and keeps
+  // its raw counts — it disclaims the repo row in its own sentence.
+  const gated = controlArm
+    ? { overCap: m.env.overCap, excessLines: m.env.excessLines }
+    : m.partition.gated;
+  check(FS_ROW_LABEL, gated.overCap, ceilings[FS_CEILING_KEY]);
+  check(FS_EXCESS_ROW_LABEL, gated.excessLines, ceilings[FS_EXCESS_CEILING_KEY]);
   // THE SAME TWO QUANTITIES FOR THE SECOND SCOPE (rid `2026-10-02-hooks-size-rows`,
   // backlog §2.32): `.husky/`, the directory the ratchet lives in, measured from the
   // SAME census run as its own `hooks` block. Four rows, one census — which is why a
@@ -201,7 +212,12 @@ function fileSizeLeg(check, ceilings, files, controlArm = false) {
   // under the ceiling takes all four down rather than printing the two that still fit.
   check(FS_HOOKS_ROW_LABEL, m.env.hooks.overCap, ceilings[FS_HOOKS_CEILING_KEY]);
   check(FS_HOOKS_EXCESS_ROW_LABEL, m.env.hooks.excessLines, ceilings[FS_HOOKS_EXCESS_CEILING_KEY]);
-  return { refusal: null, envelope: m.env, controlArm };
+  return {
+    refusal: null,
+    envelope: m.env,
+    controlArm,
+    partition: controlArm ? null : m.partition
+  };
 }
 
 export { silentWarningLeg, fileSizeLeg, measureSilentWarnings };

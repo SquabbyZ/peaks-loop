@@ -50,6 +50,7 @@ import { pathToFileURL } from 'node:url';
 import {
   FILE_SIZE_CAP_DEFAULT,
   FILE_SIZE_CAP_HOOKS,
+  FILE_SIZE_SCOPE_DIRS,
   FILE_SIZE_SCOPE_EXTENSIONS,
   HOOKS_FILE_SIZE_SCOPE_DIRS,
   countRawLines,
@@ -486,5 +487,11 @@ export function rowFor(
 /** The extension universe, as a mutable-array-free copy for fixture inputs. */
 export const SCOPE_EXTENSIONS: readonly string[] = FILE_SIZE_SCOPE_EXTENSIONS;
 
-/** The main scope's four directories, for arms that name what must NOT move. */
-export const MAIN_SCOPE_DIRS = ['src', 'tests', 'packages', 'scripts'] as const;
+/**
+ * The main scope's four MEASUREMENT-UNIVERSE directories, for arms that name what
+ * must NOT move. NO LONGER A COPY (rid `2026-10-03-w10-rescope-a`, item 8): the
+ * list comes from the policy module the fixture already imports; the `.mjs`
+ * mirror of it (`MEASURED_DIRS` in `.husky/lint-scope.mjs`) is compared to that
+ * policy by `tests/unit/lint/lint-scope-rule.test.ts`.
+ */
+export const MAIN_SCOPE_DIRS = FILE_SIZE_SCOPE_DIRS;

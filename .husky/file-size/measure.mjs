@@ -6,6 +6,7 @@
 
 import { execFileSync } from 'node:child_process';
 import { FS_CENSUS, FS_CEILING_KEY, FS_HOOKS_CEILING_KEY, TSX_CLI } from './constants.mjs';
+import { censusFilesProblem, partitionCensusOverCap } from './partition.mjs';
 
 /**
  * Why a census envelope's `hooks` block may not be believed, or `null` when it may.
@@ -72,7 +73,7 @@ export function measureFileSizeOverCap(files = [], cwd = process.cwd()) {
     // stdout — the same shape as eslint's report and the detector's.
     raw = err.stdout ?? '';
   }
-  const refuse = (why) => ({ failure: why, env: null });
+  const refuse = (why) => ({ failure: why, env: null, partition: null });
   let env;
   try {
     env = JSON.parse(raw);
@@ -95,7 +96,13 @@ export function measureFileSizeOverCap(files = [], cwd = process.cwd()) {
   // and skip the rest — it is a reason to print nothing (`§2.32`).
   const hooksProblem = hooksEnvelopeProblem(env.hooks);
   if (hooksProblem !== null) return refuse(`${FS_CENSUS} ${hooksProblem}`);
-  return { failure: null, env };
+  // THE LINT-SCOPE PARTITION (rid `2026-10-03-w10-rescope-a`): the gated rows and
+  // the shadow note are cut from the envelope's own per-file list, so the list must
+  // exist and must add up to the totals it is cut against. An envelope that cannot
+  // be partitioned is not a partition of zero.
+  const filesProblem = censusFilesProblem(env);
+  if (filesProblem !== null) return refuse(`${FS_CENSUS} ${filesProblem}`);
+  return { failure: null, env, partition: partitionCensusOverCap(env) };
 }
 
 /**

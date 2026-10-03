@@ -36,14 +36,31 @@ gates — nothing has to be rewritten to get there.
 
 ## 2. What runs where
 
+> **Corrected 2026-10-03 against `.husky/pre-push` at `d4613a62`.** This table said
+> `pre-push` → `peaks-gate.mjs repo` + `pnpm test:unit`, and "`tsc` … runs on push".
+> Both were false since slice B5 (2026-09-23) and survived in this file for ten days
+> while the hook itself carried the correction in its own comment — the hook was
+> right and the doc was the stale artefact. `repo` mode now runs in CI
+> (`.github/workflows/ci.yml`, "Whole-repo lint ratchet" step), and so does the
+> whole-program `tsc`, as part of it.
+
 | Hook | Command | Kind | Cost |
 |---|---|---|---|
 | `pre-commit` | `pnpm exec lint-staged` → `peaks-gate.mjs staged` | ratchet, staged files only | ~5–10s |
-| `pre-push` | `peaks-gate.mjs repo`, then `pnpm test:unit` | ratchet + **hard gate** | ~68s + ~6m53s |
+| `pre-push` leg 1 | `peaks-gate.mjs changed` | the same per-file ratchet, over `git diff --name-only origin/main...HEAD` | 101s over the 1207 pushed files (measured 2026-09-23) |
+| `pre-push` leg 2 | `pnpm test:changed -- origin/main` | **hard gate** — affected tests, falling back to the full unit suite | 936s (311 files / 3468 tests) on the same day |
+| CI | `node .husky/peaks-gate.mjs repo` + full `vitest run` + `npm run build` | ratchet over config drift, and the only whole-program `tsc` on the push path | minutes, nobody waits on it |
+
+Leg 2 is worth reading twice: `scripts/test-changed.mjs` has a working subset
+path, and its trigger list includes `.peaks/` — which every slice regenerates
+(`.peaks/lint/gate-baseline.json`). So **on this repository leg 2 IS the full unit
+suite**, not a subset. Narrowing the trigger list is a decision about what a
+config change can affect, and it has not been made.
 
 `tsc` is **not** in `pre-commit` because it is whole-program: it cannot be
 scoped to a file list, so a one-file commit would pay for the whole repo
-anyway. It runs on push.
+anyway. It is not in `pre-push` either, for the same reason in mirror image — the
+push leg's cost is supposed to be a function of the diff. It runs in CI.
 
 The unit suite is a **hard gate, not a ratchet** — it is green today, so there
 is no debt to tolerate and any red is a real regression.
@@ -52,6 +69,27 @@ is no debt to tolerate and any red is a real regression.
 one — `--no-verify` also works and is equally visible in a shell history.
 
 ## 3. The ceilings, and what each one means
+
+> **CURRENT VALUES, read 2026-10-03 from `.peaks/lint/gate-baseline.json` after the §4w rescope.** The
+> table below keeps each row's *seeded-era* number as provenance and is not the state of the tree — it
+> still showed `fileSizeOverCap` 166 and the hooks pair 4 / 1,701, both of which stopped being true
+> during waves 8–9. Read this block for what the gate enforces today:
+>
+> | row | now | measured over |
+> |---|---|---|
+> | `eslintFindings` / `eslintErrors` | **2130 / 812** | the enforced scope: **943** files (`src/**` + `packages/*/src/**`) |
+> | `eslintPhantomFindings` / `…CoverageGapFiles` / `…SyntaxErrorFiles` / `…NotLintedFiles` | 0 / 0 / 0 / 0 | same 943 |
+> | `prettierUnformatted` / `prettierUnparsableFiles` | 0 / 0 | same 943 |
+> | `tscErrors` | 0 | `tsconfig.json` — a DIFFERENT population: `src/**` ∪ `tests/**` (§4w) |
+> | `silentWarningCatchReturnNull` / `…EmptyCatch` | 41 / 59 | the detector's own `src/` walk, **905** files (§2.43) |
+> | `fileSizeOverCap` / `fileSizeExcessLines` | **127 / 40761** | the enforced scope, partitioned out of a census that still counts **1495** |
+> | `fileSizeHooksOverCap` / `…ExcessLines` | **0 / 0** | `.husky`, 33 files — untouched by the rescope (§4w) |
+> | `shadow.*` (not ceilings) | 552 files, 638 findings, 159 errors, 35 over-cap, 13557 excess lines | the population the owner took out of enforcement, still measured and printed |
+>
+> Four different populations are in use on the same day (943 enforced / 1495 census-counted / 905
+> detector-walked / src∪tests type-checked), and each row above names which one it belongs to. A row
+> whose number and whose population are not stated together is not verifiable, which is why `gate repo`
+> now prints the counts it used (§4w).
 
 `eslint` counts deliberately exclude four classes, each with its own line, so
 that no artifact and no config bug can hide inside a number that gets traded
@@ -1153,3 +1191,121 @@ is still monolithic and that HEAD is still split (`f0c42d57`). So:
 - and do not solve it by committing a copy of the old file: a 799-line `.mjs` under `tests/` is inside the
   census scope at cap 500, so the fixture would have added 299 excess lines to the very row the wave was
   descending. Convenience priced against the ledger, not assumed.
+
+### 4w. The owner redrew the scope boundary — and the boundary turned out to be the ratchet's last laundering door (2026-10-03, rids `2026-10-03-w10-rescope-a` + `…-repair1`)
+
+**The ruling, verbatim:** 「只需要对 `D:\peaks-loop\src` 和 `packages/peaks-loop-internal-runtime/src`
+和 `packages/peaks-loop-mut/src` 和 `packages/peaks-loop-shared/src` 和
+`packages/peaks-loop-shared-channel/src` 这些目录下的文件做 eslint 严格检查，tscheck，prettier 格式化，
+push 的时候做单元测试检查就行」 — preceded by 「整体看下，不是使用文都需要 lint 等检查的」.
+
+This is a change of **criterion**, not of a constant. Since §4b the scope question has been "which
+directories does the policy admit"; the owner replaced it with "which code is the product". The
+proposals this rejects are recorded, not dropped: the executed-code syntactic leg (§2.37 option 3) was
+declined, and its price was measured before the decision — 35 `.husky`/`bin` code files, `eslint
+--no-ignore --no-eslintrc … {no-undef,no-unused-vars,no-dupe-keys,no-redeclare}` → **0 findings, 0
+warnings, exit 0**, and `bash -n` exit 0 on both shell hooks (`shellcheck` is not installed here). So
+the decision costs nothing measurable today; it declines a guard against a future class, not a debt.
+Recording the number is what makes "no" auditable a year from now.
+
+**The boundary, measured on `d4613a62`** (partition of the per-file rows the committed artifact already
+carries, so it is arithmetic and not an estimate):
+
+| | in the owner's scope | out of it |
+|---|---|---|
+| files | **943** (src 905 + `packages/*/src` 38) | **552** (tests 497, scripts 46, packages non-src 9) |
+| `eslintFindings` | 2130 | **638** (tests 567 / scripts 71), across 177 dirty files |
+| `eslintErrors` | 812 | 159 |
+| over-cap files | 127 | 35 |
+| excess lines | 40,761 | **13,557** |
+| `prettierUnformatted`, `tscErrors` | 0 | 0 |
+
+**Why a rescope is more dangerous than a raised ceiling.** `.husky/peaks-gate-baseline-monotonic.mjs`
+compares *values* between `git show HEAD:` and the new measurement; it knew nothing about *which file
+set* produced them. Narrow the scope without touching that, and one regeneration reports
+`eslintFindings 2768 → 2130` — a 638-finding improvement that nobody made — re-anchors to 2130, and the
+out-of-scope debt is no longer even enumerated. That is §2.27's "one command away from self-erasing"
+shape arriving through a different door: not a raised number, a **shrunken denominator**. The fix, and
+the reason this slice is not a one-line constant edit:
+
+- the anchor comparison now reads the artifact's `scope` block as well as its ceilings, and a scope
+  change refuses by default, naming both dir lists, both measured-file counts, and every row it is
+  about to hide;
+- `--rescope` is the only thing that writes it, and the out-of-scope totals are carried forward as
+  **shadow rows** (measured, printed every run, deliberately not in `CEILING_KEYS`), so a future
+  widening re-measures the debt instead of discovering it;
+- the trap in the other direction: `.husky/gate/ratchet.mjs:46` treats "the baseline has no row for
+  this file" as **NEW FILE, must be clean outright**. Deleting 552 rows while `inScope` still admits
+  them converts every edit to a test file into a false red ("NEW file … has 3 lint finding(s)") — a
+  narrowing that silently becomes stricter. `inScope` reads `scopeDirs()`, which reads
+  `baseline.scope.dirs`, so the two do move through one file — which is exactly why the artifact's
+  `scope` block is load-bearing and not decoration.
+
+**Six spellings of the scope rule, found by grepping rather than by trusting.** `TOP_DIRS`
+(`.husky/baseline/paths.mjs:23`), `scopeDirs()` (`scripts/lint/lint-file-list.mjs:48`, which reads the
+artifact and so follows the first), `FILE_SIZE_SCOPE_DIRS`
+(`src/services/scan/file-size-policy.ts:56`), plus three copies inside tests
+(`eslint-rules-config-coverage.test.ts:89`, `_file-size-hooks-fixture.ts:490`,
+`file-size-cap.test.ts:129,135`). Two of those three copies are observed by nothing. §2.28 was a guard
+that lost 86% of its subject in a split; this is the same class one layer up — a **scope** that loses
+part of itself because five files each hold their own answer.
+
+**What the boundary redraw exposed for free.** The `silent-warning` leg prints its own population, and
+today it says **905 file(s) scanned** — i.e. it has only ever looked at `src/`, and the 38 files in
+`packages/*/src` that the owner just named were never in it. Measured by hand the same afternoon, over
+those 38 files: **8 `return null` swallows + 9 empty catches = 17**, previously uncounted. Admitting
+them raises `silentWarningCatchReturnNull` 41 → 49 and `silentWarningEmptyCatch` 59 → 68, which is a
+ceiling increase and therefore cannot ride along with a scope narrowing — it is sequenced as slice B,
+after `--rescope` exists to say out loud which number moved because of a boundary and which because of
+code.
+
+**Left alone on purpose, with the reason:** the `tsc` leg (`tsconfig.json` covers `src/**` **and**
+`tests/**`, ceiling 0 — narrowing it saves nothing and would remove type checking from 497 files that
+vitest never type-checks; `packages/*/src` are type-checked by `pnpm -r run build` in CI); the two
+`.husky` size rows (`0 / 0`, the only thing keeping wave 9's 33 gate modules small — deleting a
+zero-cost guard is not what "reduce the checking" means); `examples/` 26 + `benchmarks/` 2 + `*.md` 705
+(never in any scope, and under this criterion they are correctly out — they are not executed);
+`pnpm test:changed` on push (already exactly what the owner asked for, and already the full suite in
+practice — see the §2 correction above).
+
+**And one defect this section exists only to admit:** §2 of this file described a push gate that had not
+existed since slice B5 (2026-09-23) — it said `pre-push` ran `repo` mode + `pnpm test:unit` and that
+`tsc` "runs on push". The hook file carried the correct text and the correct measurements; the doc did
+not. Ten days of drift, found only because redrawing the scope made me go and read which leg scans what.
+A doc that describes a gate is not the gate, and this one was believed.
+
+**How it actually landed** (two leaves: the first killed by the Agent's 150-turn ceiling at 191 tool uses /
+50 min, no envelope, two red arms; `…-repair1` finished it). Every mechanism claim below was re-run by the
+orchestrator rather than read out of the report, and all of them held:
+
+- `node .husky/peaks-gate.mjs repo` → **exit 0**, 15 rows held, `checking 943 file(s)`, plus the three new
+  scope sentences (the 943 it enforces; the 1495 the census still counts on purpose; and
+  `out-of-scope (not gated, owner decision 2026-10-03): 35 over-cap file(s), 13557 excess lines`).
+- **The control that is the whole point of the slice:** `node .husky/peaks-gate-baseline.mjs` with **no
+  flag** → **exit 1**, `REFUSING to write … SCOPE CHANGE without --rescope: this run measured a different
+  file set than HEAD:… — measured files: 1495 -> 943 … EVERY movement above is a SCOPE CHANGE, not a
+  reduction in debt`, and the artifact **byte-identical** across the attempt (`sha256 256ca7a5…`,
+  `cmp` clean). The laundering door is closed by a run, not by a paragraph.
+- The single-source requirement survived contact with reality differently than my brief assumed. The rule
+  is `.husky/lint-scope.mjs`'s **pattern** (`isLintScoped`); the artifact's `scope.dirs` is *derived* from
+  what the gated population actually contains (`deriveScopeDirs`), so a new `packages/<x>/src` joins by
+  existing rather than by somebody editing a list, and `lint-scope-rule.test.ts` has the arm that proves
+  it. `FILE_SIZE_SCOPE_DIRS` was deliberately **not** narrowed: the census stays the wide instrument and
+  the gate partitions it, which is why 1495 and 943 are both correct numbers on the same day. The one
+  unavoidable cross-language copy (`MEASURED_DIRS` ↔ the `.ts` policy) is pinned arm-for-arm at
+  `lint-scope-rule.test.ts:135`, with a non-vacuity bound (`> 900` in-scope tracked files) on the next arm.
+- `shadow` is outside `CEILING_KEYS` and the canonical-key check is **set equality**, so a shadow number
+  can neither be laundered into a ceiling nor quietly arrive as a sixteenth row.
+- The two red arms were reconciled by making the invariant *stricter*, not shorter:
+  `scope-shadow-coverage.test.ts` plants an in-scope row drop (red), plants an unclaimed omission (red),
+  shows the same omission yields a **different kind** under the wide vs narrow rule, throws on an
+  absent-or-malformed `shadow` block, and holds the real repository to
+  `rows + shadow.measuredFiles === census.countedFiles` (943 + 552 = 1495).
+- Repo-wide `pnpm test:unit` → **exit 0, 364 files / 3,801 passed / 3 skipped** (from 360 / 3,777).
+  `npm run build` → exit 0, and its own log is the evidence behind this section's claim that
+  `packages/*/src` *is* type-checked — four `tsc -p tsconfig.json` package builds, then
+  `build-integrity: OK`, `dist-stamp: 905 source file(s)`.
+- Two test files now sit at **exactly** the 500 raw-line cap (`file-size-cap.test.ts`,
+  `file-size-gate-leg.test.ts`), because the honest version of an arm is longer than the version that
+  fits. Recorded here so the next wave expects a red at the first added line and hoists into a sibling
+  instead of trimming an assertion.

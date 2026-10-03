@@ -15,7 +15,9 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 
-import { OUT_PATH, TOP_DIRS, rel } from './paths.mjs';
+import { LINT_SCOPE_RULE, deriveScopeDirs } from '../lint-scope.mjs';
+
+import { OUT_PATH, rel } from './paths.mjs';
 
 /** The per-file rows: eslint classification plus the prettier verdict. */
 export function buildFileRecords({ scope, lint, format }) {
@@ -87,7 +89,7 @@ export function buildCeilings({ lint, format, tscErrors, sw, size }) {
  * come off the same envelope the rows come off, so the gate can re-derive them
  * and refuse a mismatch.
  */
-export function writeArtifact({ scope, lint, format, size, ceilings, files }) {
+export function writeArtifact({ scope, lint, format, size, ceilings, files, shadow }) {
   const { coverageGapFiles, notLinted, phantomRules, syntaxErrorFiles } = lint;
   const { unparsable } = format;
   // `.peaks/lint/` is a tracked directory today, but the seed path above is the one
@@ -113,7 +115,22 @@ export function writeArtifact({ scope, lint, format, size, ceilings, files }) {
           noIgnore: true,
           linted: scope.length - notLinted.length
         },
-        scope: { dirs: TOP_DIRS, extensions: 'ts, tsx, mts, cts, mjs, cjs, js' },
+        // THE ENFORCED SCOPE, DERIVED not typed (rid `2026-10-03-w10-rescope-a`):
+        // the pattern lives in `.husky/lint-scope.mjs`; `deriveScopeDirs` enumerates
+        // from THIS run's tracked file list, so a new `packages/<x>/src/` joins the
+        // artifact's dir list the run its first file is tracked. `scopeDirs()` in
+        // `scripts/lint/lint-file-list.mjs` reads these dirs verbatim — this block is
+        // load-bearing for the per-file ratchet, and the anchor comparison reads it
+        // too: a scope change without `--rescope` refuses (`.husky/baseline/rescope.mjs`).
+        scope: {
+          dirs: deriveScopeDirs(scope),
+          rule: LINT_SCOPE_RULE,
+          extensions: 'ts, tsx, mts, cts, mjs, cjs, js'
+        },
+        // REPORTED, NEVER GATED (H3): the debt that sits OUTSIDE the enforced scope,
+        // measured by the same legs, so a future widening re-measures it instead of
+        // discovering it. Not in `CEILING_KEYS`; nothing compares these numbers.
+        shadow,
         phantomRules: [...phantomRules],
         ceilings,
         // The unit the row above is counted in, copied off the census envelope

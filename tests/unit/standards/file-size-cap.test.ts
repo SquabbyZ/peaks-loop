@@ -75,6 +75,12 @@ import {
   walkScopedFiles,
   withFixtureTree
 } from './_file-size-cap-scan.js';
+import {
+  censusPartition,
+  ceilingNumber,
+  coverageProblems,
+  shadowBlock
+} from './_scope-shadow-coverage.js';
 
 declareDimensions(
   'tests/unit/standards/file-size-cap.test.ts',
@@ -124,15 +130,17 @@ describe('Scenario: integration — one scope, counted four ways', () => {
   it('reaches all four scope dirs by walking, so the scope is not one dir narrower than the policy', () => {
     // Anti-vacuity without a hand-kept count: `scripts` in particular must be
     // inside what is measured, because the seeded row counts 5 files in it and a
-    // row that excluded them would disagree with its own census.
+    // row that excluded them would disagree with its own census. The dir list is
+    // IMPORTED, not retyped (rid `2026-10-03-w10-rescope-a`, item 8 — these were
+    // the "literal dir assertions" copy): the policy module owns the spelling.
     const walked = walkScopedFiles(REPO_ROOT);
-    for (const dir of ['src', 'tests', 'packages', 'scripts']) {
+    for (const dir of FILE_SIZE_SCOPE_DIRS) {
       expect(
         walked.some((file) => file.startsWith(`${dir}/`)),
         dir
       ).toBe(true);
     }
-    expect(runCensus().scope.dirs).toEqual(['src', 'tests', 'packages', 'scripts']);
+    expect(runCensus().scope.dirs).toEqual([...FILE_SIZE_SCOPE_DIRS]);
   });
 
   it('counts the same over-cap files from the walk and from the census the gate runs', () => {
@@ -152,19 +160,29 @@ describe('Scenario: integration — one scope, counted four ways', () => {
     expect(envelope.overCap).toBe(fromWalk.length);
   });
 
-  it('published the ceiling it measured, in the unit the policy names', () => {
+  it('published the ceiling it measured, in the unit the policy names', async () => {
+    // TWO POPULATIONS, ONE census (rid `2026-10-03-w10-rescope-a`): the census is
+    // still the wide instrument (1495 tracked files), the ceilings describe the
+    // ENFORCED `src/** + packages/*/src/**` alone (943) — both correct the same
+    // day, because the gate partitions ONE measurement and the shadow carries the
+    // remainder: ceiling + shadow must re-sum the tool's totals, each side live.
     const envelope = runCensus();
+    const facts = await censusPartition(envelope);
+    const shadow = shadowBlock(published());
+    const excess = ceilingNumber(published(), 'fileSizeExcessLines');
     // The artifact cannot contain a number the tool did not report, and it
     // cannot forget the unit: 174 files counted by `split('\n')` is not 174
     // files counted by `wc -l` once the excess lines are summed.
-    expect(publishedCeiling()).toBe(envelope.overCap);
-    expect(publishedCeiling()).toBe(overCapFromWalk(REPO_ROOT).length);
+    expect(publishedCeiling()).toBe(facts.split.gated.overCap);
+    expect(publishedCeiling()).toBe(facts.walkGatedOverCap);
+    expect(excess).toBe(facts.split.gated.excessLines);
+    expect(shadow.fileSizeOverCap).toBe(facts.split.shadow.overCap);
+    expect(shadow.fileSizeExcessLines).toBe(facts.split.shadow.excessLines);
+    expect(publishedCeiling() + shadow.fileSizeOverCap).toBe(envelope.overCap);
+    expect(excess + shadow.fileSizeExcessLines).toBe(envelope.excessLines);
     expect(published().fileSizeLineConvention).toBe(POLICY.convention);
     expect(envelope.convention).toBe(POLICY.convention);
-    expect(envelope.caps).toEqual({
-      defaultCap: POLICY.defaultCap,
-      testsCap: POLICY.testsCap
-    });
+    expect(envelope.caps).toEqual({ defaultCap: POLICY.defaultCap, testsCap: POLICY.testsCap });
   });
 
   it('keeps every bucket of the census keyed, so a measured zero is not a missing scope', () => {
@@ -454,20 +472,27 @@ describe('Scenario: a11y — the census reports 0 only when it means 0', () => {
     }
   });
 
-  it('records a baseline entry for every file the census counts (F4)', () => {
+  it('records a baseline entry for every file the census counts (F4)', async () => {
     // The other half of the artifact's contract: the ceilings are cross-measured by
     // the arms above, but the per-file entries the staged and changed legs read have
     // no guard, and on 2026-09-30 the committed artifact was 1424 entries against a
     // 1429-file scope — the slice's own five new files were simply absent, and a
     // gate that has never seen a file cannot say it did not get worse.
+    // Since the rescope the row population (943) is a PART of the counted one
+    // (1495), so omissions split into kinds: an IN-SCOPE file with no row is the
+    // bug above; an out-of-scope file is a bug only when the `shadow` block does
+    // not account for it — count, rooting, and rows + measuredFiles = counted.
     const counted = censusCountedFiles(REPO_ROOT);
-    const entries = published().files ?? {};
-    const missing = counted.filter((file) => !(file in entries));
+    const problems = await coverageProblems(published(), counted);
     expect(
-      missing,
-      `gate-baseline.json has no files[] entry for: ${missing.join(', ')} — ` +
-        'run node .husky/peaks-gate-baseline.mjs'
+      problems.inScopeMissing,
+      `in-scope file(s) with no files[] row in gate-baseline.json: ${problems.inScopeMissing.join(', ')} — run node .husky/peaks-gate-baseline.mjs`
     ).toEqual([]);
+    expect(
+      problems.unaccounted,
+      `counted file(s) omitted from the rows AND unaccounted for by shadow.scopeDirs: ${problems.unaccounted.join(', ')}`
+    ).toEqual([]);
+    expect(problems.countProblem, 'shadow must claim exactly the omitted files').toBeNull();
     // Measured zero is not a missing scope: the census's own count must agree.
     expect(counted.length).toBe(runCensus().scope.countedFiles);
   });

@@ -319,12 +319,25 @@ describe('Scenario: a11y — the published rows agree with the real .husky, walk
     }
   );
 
-  it('leaves the two main ceilings exactly where they were, and the hooks scope outside them', () => {
+  it('leaves the two main ceilings exactly where they were, and the hooks scope outside them', async () => {
     // The premise of the whole slice: the new pair must not move the old one.
+    // Rid `2026-10-03-w10-rescope-a` narrowed WHAT the main ceilings count: the
+    // census still counts the whole universe, the ceilings ratchet its ENFORCED
+    // part, so "exactly where they were" is now said against the same envelope
+    // cut by the shared partition — not against the raw universe totals.
     const main = publishedMainCeilings();
     const env = realCensus();
-    expect(env.overCap).toBe(main.overCap);
-    expect(env.excessLines).toBe(main.excessLines);
+    const { partitionCensusOverCap } = (await import(
+      pathToFileURL(join(REPO_ROOT, '.husky', 'peaks-gate-file-size.mjs')).href
+    )) as {
+      // Property spelling, not a method signature: this arm destructures it, and
+      // `@typescript-eslint/unbound-method` flags unbound references to anything
+      // typed as a method (repair 1 of the rescope).
+      partitionCensusOverCap: (e: unknown) => { gated: { overCap: number; excessLines: number } };
+    };
+    const gated = partitionCensusOverCap(env).gated;
+    expect(main.overCap).toBe(gated.overCap);
+    expect(main.excessLines).toBe(gated.excessLines);
     // And the main scope still refuses `.husky/` — no path is counted twice, which is
     // what makes this a second scope and not the scope-dir edit it was not allowed to be.
     for (const file of env.hooks.files) {

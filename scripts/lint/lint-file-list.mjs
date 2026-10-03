@@ -44,6 +44,15 @@ const BASELINE_PATH = resolve(ROOT, '.peaks/lint/gate-baseline.json');
  */
 export const EXTENSIONS = ['ts', 'tsx', 'mts', 'cts', 'mjs', 'cjs', 'js'];
 
+/**
+ * True when a path carries one of the seven code extensions — the extension half
+ * of the scope rule, on its own so the gate can name the files it DROPPED for
+ * directory reasons (rid `2026-10-03-w10-rescope-a`, H2: a code file outside the
+ * enforced scope must be exempted OUT LOUD, and a `.md` in the change set is not
+ * part of that sentence — it was never a candidate for any leg).
+ */
+export const hasLintExtension = (p) => new RegExp(`\\.(${EXTENSIONS.join('|')})$`).test(p);
+
 /** The scope directories of the published rule — the same source the gate reads. */
 export function scopeDirs() {
   return JSON.parse(readFileSync(BASELINE_PATH, 'utf8')).scope.dirs;

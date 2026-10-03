@@ -122,6 +122,31 @@ function readWorkingCopyCeilings() {
 }
 
 /**
+ * HEAD's `scope` block and measured-file count, read from the SAME bytes the
+ * ceilings were parsed from (rid `2026-10-03-w10-rescope-a`, H1). The
+ * monotonicity comparison sees values; this is the population that produced
+ * them. Absent or malformed scope is `null` — a pre-rescope artifact carries no
+ * scope block and there is nothing to compare against; the scope guard stays
+ * quiet rather than inventing a verdict.
+ */
+function readAnchorScope(text) {
+  try {
+    const doc = JSON.parse(text);
+    const scope =
+      doc !== null && typeof doc === 'object' && Array.isArray(doc.scope?.dirs)
+        ? { dirs: doc.scope.dirs, source: HEAD_REF, ...(typeof doc.scope.rule === 'string' ? { rule: doc.scope.rule } : {}) }
+        : null;
+    const fileCount =
+      doc !== null && typeof doc === 'object' && doc.files !== null && typeof doc.files === 'object'
+        ? Object.keys(doc.files).length
+        : null;
+    return { headScope: scope, headFileCount: fileCount };
+  } catch {
+    return { headScope: null, headFileCount: null };
+  }
+}
+
+/**
  * HEAD's anchor block, run in HEAD's order. It refuses by exiting, so a caller
  * that reaches the measurement legs has already passed the anchor trip and the
  * working-copy trip.
@@ -130,10 +155,14 @@ export function guardAnchor() {
   const anchorRead = readGitShowHead(OUT_REL);
   let anchorCeilings = null;
   let anchorProblem = anchorRead.problem;
+  let anchorScope = { headScope: null, headFileCount: null };
   if (anchorProblem === null) {
     const parsed = parsePreviousArtifact(anchorRead.text);
     anchorCeilings = parsed.ceilings;
     anchorProblem = parsed.problem;
+    if (anchorProblem === null) {
+      anchorScope = readAnchorScope(anchorRead.text);
+    }
   }
   // A `ceilings` block that is empty, or full of rows no slice sanctioned, is not a
   // baseline with holes in it: it is the absence of one. Treat it as such so it lands
@@ -200,5 +229,13 @@ export function guardAnchor() {
     deferredAdded = trip.deferredAdded;
     anchorNotes.push(...trip.notes);
   }
-  return { anchorCeilings, anchorKnown, workingCopy, anchorNotes, deferredAdded };
+  return {
+    anchorCeilings,
+    anchorKnown,
+    workingCopy,
+    anchorNotes,
+    deferredAdded,
+    headScope: anchorScope.headScope,
+    headFileCount: anchorScope.headFileCount
+  };
 }

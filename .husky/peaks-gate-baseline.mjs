@@ -70,8 +70,16 @@ import { buildCeilings, buildFileRecords, writeArtifact } from './baseline/artif
 import { decideWrite } from './baseline/decide.mjs';
 import { measureEslintLeg } from './baseline/eslint-leg.mjs';
 import { measurePrettierLeg } from './baseline/prettier-leg.mjs';
+import {
+  RESCOPE_FLAG,
+  rescopeRun,
+  shadowStderrLine,
+  shadowTally,
+  scopeTally
+} from './baseline/rescope.mjs';
 import { measureScope } from './baseline/scope.mjs';
 import { measureSilentWarningLeg, measureTscErrors } from './baseline/tool-legs.mjs';
+import { deriveScopeDirs, shadowScopeDirs } from './lint-scope.mjs';
 
 // The ratchet's own rule, one module down from the sentence that states it in the
 // artifact. Pure, so every row of its decision table is testable without paying for
@@ -93,13 +101,52 @@ import { measureSilentWarningLeg, measureTscErrors } from './baseline/tool-legs.
 // refusal, a reflowed diagnostic, one word of the artifact note — and the matching leg
 // goes red, so the comparison is known to be able to fail.
 const anchor = guardAnchor();
-const scope = measureScope();
-const lint = measureEslintLeg({ scope });
-const format = await measurePrettierLeg({ scope });
+// THE PARTITION (rid `2026-10-03-w10-rescope-a`): the legs still walk the whole
+// measurement universe, so the out-of-scope debt stays MEASURED; the ceilings
+// enforce only the gated subset, and the rest ships as shadow rows.
+const measured = measureScope();
+const lint = measureEslintLeg({ scope: measured.files });
+const format = await measurePrettierLeg({ scope: measured.gated });
 const tscErrors = measureTscErrors();
-const sw = measureSilentWarningLeg({ scope });
+const sw = measureSilentWarningLeg({ scope: measured.files });
 const size = measureCensusLeg();
-const files = buildFileRecords({ scope, lint, format });
-const ceilings = buildCeilings({ lint, format, tscErrors, sw, size });
-decideWrite({ ...anchor, ceilings });
-writeArtifact({ scope, lint, format, size, ceilings, files });
+const gatedLint = scopeTally(measured.gated, lint);
+const shadow = {
+  scopeDirs: shadowScopeDirs(measured.shadow),
+  measuredFiles: measured.shadow.length,
+  ...shadowTally({ shadow: measured.shadow, lint, size: size.partition })
+};
+// Printed on EVERY run, refused or not — "0 findings" and "nothing checked"
+// must never share an output (H3, §2.41's shape).
+console.error(shadowStderrLine(shadow));
+const files = buildFileRecords({ scope: measured.gated, lint, format });
+// The ROWS describe the enforced scope: the census's own numbers, split by the
+// lint-scope rule. The whole-universe inputs stay recorded beside them
+// (`fileSizePolicyInputs`), so the binding still re-derives against a live run.
+const sizeRows = {
+  ...size,
+  env: {
+    ...size.env,
+    overCap: size.partition.gated.overCap,
+    excessLines: size.partition.gated.excessLines
+  }
+};
+const ceilings = buildCeilings({ lint: gatedLint, format, tscErrors, sw, size: sizeRows });
+decideWrite({
+  ...anchor,
+  ceilings,
+  rescope: {
+    flag: rescopeRun,
+    newScopeDirs: deriveScopeDirs(measured.gated),
+    gatedCount: measured.gated.length
+  }
+});
+writeArtifact({
+  scope: measured.gated,
+  lint: { ...gatedLint, phantomRules: lint.phantomRules },
+  format,
+  size,
+  ceilings,
+  files,
+  shadow
+});

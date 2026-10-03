@@ -49,11 +49,14 @@ export {
   refuseScopedSubset
 } from './file-size/measure.mjs';
 
+export { censusFilesProblem, partitionCensusOverCap } from './file-size/partition.mjs';
+
 export { describeInputTrips, fileSizeInputTrips } from './file-size/input.mjs';
 
 export {
   describeControlArmRun,
   describeFileSizeEnvelope,
   describeHooksFileSizeEnvelope,
+  describeShadowFileSizeEnvelope,
   printFileSizeLeg
 } from './file-size/print.mjs';

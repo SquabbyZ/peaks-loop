@@ -15,7 +15,12 @@
 import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { EXTENSIONS, filterScopeFiles, scopeDirs } from '../../scripts/lint/lint-file-list.mjs';
+import {
+  EXTENSIONS,
+  filterScopeFiles,
+  hasLintExtension,
+  scopeDirs
+} from '../../scripts/lint/lint-file-list.mjs';
 
 // Slash-normalised ONCE, at the definition. `resolve()` returns backslashes on
 // Windows, so a `p.split('\\').join('/')` path can never match a `${ROOT}/`
@@ -53,7 +58,9 @@ const rel = (p) => p.split('\\').join('/').replace(`${ROOT}/`, '');
 // nothing measurable and keeps one spelling of the rule.
 const inScope = (p) => filterScopeFiles([p], SCOPE_DIRS, EXTENSIONS).length === 1;
 /**
- * An empty change set, said out loud.
+ * An empty change set, said out loud — and SINCE RID `2026-10-03-w10-rescope-a`,
+ * a THIRD shape: an empty SET and an all-dropped set are different facts, and
+ * the second is the new common case for docs/test-only commits (requirement 6).
  *
  * This used to read "no in-scope files staged, nothing to check." and exit 0.
  * An orchestrator read that as a PASS once — the exit code and the word count
@@ -64,13 +71,38 @@ const inScope = (p) => filterScopeFiles([p], SCOPE_DIRS, EXTENSIONS).length === 
  * what did NOT happen. The failure path is separate and shouts differently
  * ("push blocked", exit 1).
  */
-function reportEmpty(source) {
+function reportEmpty(source, droppedCount = 0) {
+  if (droppedCount > 0) {
+    console.log(
+      `peaks-gate: NOTHING WAS COMPARED (${source}) — the change set held ${droppedCount} ` +
+        'code file(s) and every one of them is OUTSIDE the lint scope (owner decision ' +
+        '2026-10-03). This is a scope exemption, not a clean result: "nothing checked" ' +
+        'and "0 findings" remain different sentences.'
+    );
+    return 0;
+  }
   console.log(
     `peaks-gate: EMPTY CHANGE SET (${source}) — 0 in-scope files, NOTHING WAS CHECKED.\n` +
       '  This is neither a pass nor a failure: there was no file to compare against the\n' +
       '  baseline. Zero files checked is not "clean" — it is zero files checked.'
   );
   return 0;
+}
+// THE OUT-OF-SCOPE SENTENCE (rid `2026-10-03-w10-rescope-a`, H2 requirement 4):
+// since the owner's boundary moved, a CODE file outside the enforced scope is
+// exempt from the per-file ratchet — but a silent skip is §2.41's shape, so the
+// exemption is named path by path. One implementation for `staged` and `changed`
+// (the two per-file modes), differing only in the label. Non-code paths (.md,
+// .json) are not named: they were never a candidate for any leg.
+function outOfScopeNotice(label, allRelPaths) {
+  const dropped = allRelPaths.filter((f) => !inScope(f) && hasLintExtension(f));
+  if (dropped.length > 0) {
+    console.log(
+      `peaks-gate: ${dropped.length} ${label} file(s) are outside the lint scope and were ` +
+        `not compared: ${dropped.join(', ')}`
+    );
+  }
+  return dropped.length;
 }
 // ---------------------------------------------------------------------------
 // the ceiling comparison — ONE row printer for every total
@@ -88,4 +120,14 @@ function makeCheck(failures) {
   };
 }
 
-export { ROOT, BASELINE_PATH, baseline, SCOPE_DIRS, rel, inScope, reportEmpty, makeCheck };
+export {
+  ROOT,
+  BASELINE_PATH,
+  baseline,
+  SCOPE_DIRS,
+  rel,
+  inScope,
+  outOfScopeNotice,
+  reportEmpty,
+  makeCheck
+};

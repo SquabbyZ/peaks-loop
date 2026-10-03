@@ -42,6 +42,7 @@ import { afterAll, describe, expect, it } from 'vitest';
 import { declareDimensions } from '../_setup/4dim-template.js';
 import { SUBPROCESS_TEST_TIMEOUT_MS } from '../_setup/subprocess-timeouts.js';
 import { GENERATOR_DIR_REL, REPO_ROOT } from '../standards/_file-size-cap-scan.js';
+import { projectArtifact, projectStderr } from './_rescope-projection.js';
 import { hooksScopeFilesUnder } from './_file-size-hooks-fixture.js';
 
 declareDimensions(
@@ -72,7 +73,7 @@ const CENSUS_STUB =
   'process.stdout.write(JSON.stringify({ overCap: 1, excessLines: 9, ' +
   "convention: 'split(String.fromCharCode(10)).length', caps: { defaultCap: 300, testsCap: 500 }, " +
   "scope: { countedFiles: 3, source: 'git ls-files <policy dirs>', dirs: ['src'], " +
-  "extensions: ['ts'] }, byDir: { src: { files: 3 } }, " +
+  "extensions: ['ts'] }, files: [{ file: 'src/big.ts', lines: 309, cap: 300, excess: 9 }], byDir: { src: { files: 3 } }, " +
   "hooks: { overCap: 1, excessLines: 4, caps: { hooksCap: 300 }, convention: 'split(String.fromCharCode(10)).length', scope: { countedFiles: 2, source: 'git ls-files <hooks dirs>', dirs: ['.husky'], extensions: ['mjs'] }, files: [] } }) + '\\n');\n";
 const PRETTIER_PACKAGE =
   '{"name":"prettier","version":"0.0.0-fixture","type":"module","exports":{".":"./index.mjs"}}\n';
@@ -158,7 +159,6 @@ function build(side: Side): void {
   // Dirty on purpose: the fixture must really measure a `prettierUnformatted` raise.
   writeIn(root, 'src/lumpy.ts', 'export const   unformatted=1;\n');
   writeIn(root, 'src/tidy.ts', 'export const tidy = 1;\n');
-  writeIn(root, 'scripts/lint/silent-warning-detector.mjs', DETECTOR_STUB);
   writeIn(root, 'node_modules/eslint/bin/eslint.js', ESLINT_STUB);
   writeIn(root, 'node_modules/typescript/bin/tsc', TSC_STUB);
   writeIn(root, 'node_modules/tsx/dist/cli.mjs', CENSUS_STUB);
@@ -174,6 +174,13 @@ function build(side: Side): void {
   gitIn(root, ['init', '-q']);
   gitIn(root, ['add', '-A']);
   gitIn(root, [...GIT_NEUTRAL, 'commit', '-q', '--allow-empty', '-m', 'fixture: no anchor yet']);
+  // THE DETECTOR STUB IS WRITTEN AFTER THE COMMIT, SO IT IS UNTRACKED (rid
+  // `2026-10-03-w10-rescope-a`): `git ls-files` is the population, and a tracked
+  // file under `scripts/` sits in the old universe but outside the new enforced
+  // lint scope — the divergence the rescope introduces ON PURPOSE. Untracked, the
+  // fixture's universe and its gated set are the same two `src/` files for BOTH
+  // programs, and the ceilings agree unprojected.
+  writeIn(root, 'scripts/lint/silent-warning-detector.mjs', DETECTOR_STUB);
 }
 
 function runGenerator(side: Side, argv: readonly string[]): Run {
@@ -193,12 +200,14 @@ function runGenerator(side: Side, argv: readonly string[]): Run {
   };
 }
 const redact = (text: string): string => text.replace(GENERATED_AT, '"generatedAt": "<dt>"');
+// The rescope projection (rationale in `_rescope-projection.ts`): three declared
+// surfaces normalised away; every other byte and line still compared strictly.
 function differs(a: Run, b: Run): Diff {
   return {
     code: a.code !== b.code,
     stdout: a.stdout !== b.stdout,
-    stderr: a.stderr !== b.stderr,
-    artifact: redact(a.artifact) !== redact(b.artifact)
+    stderr: projectStderr(a.stderr) !== projectStderr(b.stderr),
+    artifact: projectArtifact(redact(a.artifact)) !== projectArtifact(redact(b.artifact))
   };
 }
 const summary = (side: string, run: Run): string =>
@@ -334,8 +343,8 @@ describe('Scenario: behavior — the comparison is between two different program
     const head = filesFor('head');
     const split = filesFor('split');
     expect(head.length, 'the HEAD side stages the closure').toBeGreaterThan(10);
-    expect(split.filter((rel) => rel.startsWith(GENERATOR_DIR_REL)).length).toBe(10);
-    expect(split.length).toBe(head.length + 10);
+    expect(split.filter((rel) => rel.startsWith(GENERATOR_DIR_REL)).length).toBe(11);
+    expect(split.length).toBe(head.length + 11);
     expect(anchorGeneratorText()).not.toBe(readFileSync(join(REPO_ROOT, GENERATOR_REL), 'utf8'));
     expect(head).toContain('.husky/peaks-gate-file-size.mjs');
     expect(head).toContain('.husky/peaks-gate-baseline-monotonic.mjs');
@@ -397,7 +406,9 @@ describe('Scenario: render — the artifact bytes are compared as bytes', () => 
       expect(Object.keys(rows).length, 'a real ceiling block, not an empty one').toBeGreaterThan(
         10
       );
-      expect(redact(pair.split.artifact)).toBe(redact(pair.head.artifact));
+      expect(projectArtifact(redact(pair.split.artifact))).toBe(
+        projectArtifact(redact(pair.head.artifact))
+      );
     }
   );
 
@@ -454,7 +465,9 @@ describe('Scenario: a11y — what a refused run says to the human who hit it', (
       expect(lift.head.stderr).toContain(`${RAISED_KEY}: `);
       expect(lift.head.stderr).toContain('999');
       expect(lift.head.stderr).not.toContain('CLEARED');
-      expect(lift.split.stderr).toBe(lift.head.stderr);
+      // The shadow note is the rescope's own line — projected out of the
+      // equivalence comparison, same contract as the artifact bytes leg.
+      expect(projectStderr(lift.split.stderr)).toBe(projectStderr(lift.head.stderr));
       expect(pairs.emptyCeilings.head.stderr).toContain('REFUSING to write');
       expect(pairs.seed.head.stderr).toContain('wrote');
     }

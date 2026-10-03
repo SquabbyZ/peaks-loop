@@ -45,6 +45,7 @@ import { describe, expect, it } from 'vitest';
 
 import { declareDimensions } from '../_setup/4dim-template.js';
 import { SUBPROCESS_TEST_TIMEOUT_MS } from '../_setup/subprocess-timeouts.js';
+import { FILE_SIZE_SCOPE_DIRS } from '../../../src/services/scan/file-size-policy.js';
 
 declareDimensions(
   'tests/unit/lint/eslint-rules-config-coverage.test.ts',
@@ -86,7 +87,14 @@ const COVERAGE_GAP_RE = /was not found in any of the provided project/;
 const IGNORED_RE = /matching ignore pattern/;
 
 const CODE_EXT = /\.(ts|tsx|mts|cts|mjs|cjs|js)$/;
-const SCOPE_DIRS = ['src', 'tests', 'packages', 'scripts'];
+// NO LONGER A COPY (rid `2026-10-03-w10-rescope-a`, item 8): the measurement
+// universe comes from the policy module that owns it. `.husky/lint-scope.mjs`
+// `MEASURED_DIRS` mirrors it across the `.mjs`/`.ts` boundary and
+// `tests/unit/lint/lint-scope-rule.test.ts` carries the arm that compares them.
+// The ENFORCED scope is narrower (`src/**` + `packages/*/src/**`) and is pinned
+// against the artifact by `lint-file-list-parity.test.ts`; this file measures
+// universe membership, which is what its coverage claim is about.
+const SCOPE_DIRS = [...FILE_SIZE_SCOPE_DIRS];
 
 /**
  * A real code file that deliberately sits OUTSIDE the lint tsconfig's include

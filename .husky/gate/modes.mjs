@@ -3,7 +3,7 @@
 // silent-warning mode and file-size mode. Hoisted VERBATIM out of
 // `.husky/peaks-gate.mjs` by rid `2026-10-02-wave9-gate-entry-split`.
 
-import { baseline, inScope, makeCheck, rel, reportEmpty } from './context.mjs';
+import { baseline, inScope, makeCheck, outOfScopeNotice, rel, reportEmpty } from './context.mjs';
 import { ratchetFiles } from './ratchet.mjs';
 import { silentWarningLeg, fileSizeLeg } from './legs.mjs';
 import {
@@ -15,9 +15,16 @@ import {
 // ---------------------------------------------------------------------------
 // staged mode — invoked by lint-staged with the staged file list
 // ---------------------------------------------------------------------------
+// THE OUT-OF-SCOPE SENTENCE (rid `2026-10-03-w10-rescope-a`, H2): since the
+// owner's boundary moved, a staged code file with no baseline row is EXEMPT —
+// but the exemption must be READ, not felt. A silent skip is §2.41's shape:
+// "0 findings" and "nothing checked" must never share an output. The sentence
+// itself lives in `context.mjs`, one implementation for both per-file modes.
 async function stagedMode(argv) {
-  const files = argv.map(rel).filter(inScope);
-  if (files.length === 0) return reportEmpty('staged');
+  const all = argv.map(rel).filter((f) => f !== '');
+  const dropped = outOfScopeNotice('staged', all);
+  const files = all.filter(inScope);
+  if (files.length === 0) return reportEmpty('staged', dropped);
   return ratchetFiles(files, 'staged');
 }
 // ---------------------------------------------------------------------------
@@ -104,8 +111,9 @@ function fileSizeMode(argv) {
   }
 
   console.log(
-    `peaks-gate: file-size ceiling held (${size.envelope.overCap} file(s) over cap in the ` +
-      `policy scope, ${size.envelope.hooks.overCap} over cap under .husky/ with ` +
+    `peaks-gate: file-size ceiling held (${size.partition.gated.overCap} in-scope file(s) over ` +
+      `cap (ceiling ${ceiling}) + ${size.partition.shadow.overCap} out-of-scope file(s) counted ` +
+      `and not gated, ${size.envelope.hooks.overCap} over cap under .husky/ with ` +
       `${size.envelope.hooks.excessLines} excess lines).`
   );
   return 0;

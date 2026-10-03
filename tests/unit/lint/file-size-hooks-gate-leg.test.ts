@@ -375,8 +375,8 @@ describe('Scenario: integration — the rows are wired, and nothing is typed', (
     const gate = gateModuleText(fixture.root);
     // One spawn feeding four checks: a census failure therefore takes them all down.
     expect(gate.match(/measureFileSizeOverCap\(/g) ?? []).toHaveLength(1);
-    expect(gate).toContain('check(FS_ROW_LABEL, m.env.overCap');
-    expect(gate).toContain('check(FS_EXCESS_ROW_LABEL, m.env.excessLines');
+    expect(gate).toContain('check(FS_ROW_LABEL, gated.overCap');
+    expect(gate).toContain('check(FS_EXCESS_ROW_LABEL, gated.excessLines');
     expect(gate).toContain('check(FS_HOOKS_ROW_LABEL, m.env.hooks.overCap');
     expect(gate).toContain('check(FS_HOOKS_EXCESS_ROW_LABEL, m.env.hooks.excessLines');
     expect(gate).toContain('missingFileSizeCeilings(ceilings)');

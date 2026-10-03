@@ -6,7 +6,7 @@
 import { execFileSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { ROOT, inScope, rel, reportEmpty } from './context.mjs';
+import { ROOT, inScope, outOfScopeNotice, rel, reportEmpty } from './context.mjs';
 import { ratchetFiles } from './ratchet.mjs';
 
 // ---------------------------------------------------------------------------
@@ -123,7 +123,12 @@ async function changedMode() {
   const listed = raw
     .split('\n')
     .map((l) => rel(l.trim()))
-    .filter((l) => l !== '' && inScope(l));
+    .filter((l) => l !== '');
+  // H2 (rid `2026-10-03-w10-rescope-a`): the out-of-scope code files in this
+  // push are named BEFORE they are dropped — the exemption is a printed fact,
+  // not a quiet filter.
+  const dropped = outOfScopeNotice('pushed', listed);
+  const scoped = listed.filter(inScope);
 
   // DELETED FILES CONTRIBUTE 0 — and must not be handed to eslint.
   //
@@ -145,7 +150,7 @@ async function changedMode() {
   // inherited debt through the "a NEW file must be clean" rule.
   const files = [];
   const missing = [];
-  for (const f of listed) {
+  for (const f of scoped) {
     if (existsSync(resolve(ROOT, f))) files.push(f);
     else missing.push(f);
   }
@@ -162,7 +167,7 @@ async function changedMode() {
     for (const f of missing) console.log(`    - ${f}`);
   }
 
-  if (files.length === 0) return reportEmpty(`changed vs ${base.ref}`);
+  if (files.length === 0) return reportEmpty(`changed vs ${base.ref}`, dropped);
   return ratchetFiles(files, 'changed');
 }
 

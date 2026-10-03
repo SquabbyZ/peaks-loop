@@ -147,7 +147,16 @@ type FileSizeLegModule = {
   FS_CEILING_KEY: string;
   FS_EXCESS_CEILING_KEY: string;
   FS_EXCESS_ROW_LABEL: string;
-  missingFileSizeCeilings(ceilings: Record<string, unknown>): string | null;
+  // PROPERTY spellings, not method signatures (rid `2026-10-03-w10-rescope-a`
+  // repair 1): the arms below DESTRUCTURE these off the loaded module, and
+  // `@typescript-eslint/unbound-method` flags an unbound reference to anything
+  // TYPED as a method — the `.mjs` exports are plain functions, so the property
+  // type is both the honest shape and what keeps the five destructured sites clean.
+  missingFileSizeCeilings: (ceilings: Record<string, unknown>) => string | null;
+  partitionCensusOverCap: (env: unknown) => {
+    gated: { overCap: number; excessLines: number };
+    shadow: { overCap: number; excessLines: number };
+  };
 };
 
 async function loadLegModule(): Promise<FileSizeLegModule> {
@@ -162,17 +171,22 @@ describe('Scenario: render — the row the leg prints', () => {
   it(
     'when the census runs whole-scope, should print an excess-lines row with its own ceiling beside the over-cap row',
     { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
-    () => {
+    async () => {
       const env = runCensus();
+      const { partitionCensusOverCap } = await loadLegModule();
+      // The rows speak for the ENFORCED scope (rid `2026-10-03-w10-rescope-a`):
+      // the same envelope, cut by the shared partition. The universe totals stay
+      // in the scope note below, which still names what the census counted.
+      const gated = partitionCensusOverCap(env).gated;
       const run = runLeg();
       expect(run.code, run.out).toBe(0);
       const row = rowFor(run.out, ROW);
       expect(row.mark, run.out).toBe('✓');
-      expect(row.actual, run.out).toBe(env.excessLines);
+      expect(row.actual, run.out).toBe(gated.excessLines);
       expect(row.ceiling, run.out).toBe(publishedCeiling());
       // Two rows, ONE census: the scope note under them is shared, and it is what
       // makes each number checkable from the log alone.
-      expect(rowFor(run.out, OVER_CAP_ROW).actual, run.out).toBe(env.overCap);
+      expect(rowFor(run.out, OVER_CAP_ROW).actual, run.out).toBe(gated.overCap);
       expect(run.out).toContain('scope note');
       expect(run.out).toContain(env.convention);
       expect(run.out).toContain(`against caps ${env.caps.defaultCap}/${env.caps.testsCap}`);
@@ -287,17 +301,25 @@ describe('Scenario: integration — walk == tool == artifact for the new row', (
   it(
     'stores the number the census measured, which a third independent walk agrees with',
     { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
-    () => {
+    async () => {
       const env = runCensus();
+      const { partitionCensusOverCap } = await loadLegModule();
+      // The ceiling ratchets the ENFORCED part of the census universe (rid
+      // `2026-10-03-w10-rescope-a`); the walk is cut by the same rule.
+      const gated = partitionCensusOverCap(env).gated;
+      const { isLintScoped } = (await import(
+        pathToFileURL(join(REPO_ROOT, '.husky', 'lint-scope.mjs')).href
+      )) as { isLintScoped: (file: string) => boolean };
       expect(env.scope.source).toBe('git ls-files <policy dirs>');
-      expect(publishedCeiling()).toBe(env.excessLines);
+      expect(publishedCeiling()).toBe(gated.excessLines);
       // The same sum from a walk that shares no enumeration with the census and no
       // code path with the generator: the ceiling is checkable, not asserted.
       const fromWalk = overCapFromWalk(REPO_ROOT).reduce(
-        (sum, entry) => sum + (entry.lines - entry.cap),
+        (sum, entry) =>
+          isLintScoped(entry.file) ? sum + (entry.lines - entry.cap) : sum,
         0
       );
-      expect(fromWalk).toBe(env.excessLines);
+      expect(fromWalk).toBe(gated.excessLines);
     }
   );
 
@@ -319,8 +341,8 @@ describe('Scenario: integration — walk == tool == artifact for the new row', (
     const gate = gateModuleText();
     // One spawn feeding both checks: a census failure therefore takes both down.
     expect(gate.match(/measureFileSizeOverCap\(/g) ?? []).toHaveLength(1);
-    expect(gate).toContain('check(FS_ROW_LABEL, m.env.overCap');
-    expect(gate).toContain('check(FS_EXCESS_ROW_LABEL, m.env.excessLines');
+    expect(gate).toContain('check(FS_ROW_LABEL, gated.overCap');
+    expect(gate).toContain('check(FS_EXCESS_ROW_LABEL, gated.excessLines');
     expect(gate).toContain('missingFileSizeCeilings(ceilings)');
     // And `repo` mode runs this same leg, not a copy of it.
     expect(gate).toMatch(/fileSizeLeg\(check, c, \[\]\)/);

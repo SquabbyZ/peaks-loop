@@ -62,6 +62,20 @@ export function describeControlArmRun(env, ceiling) {
 const LEG_STREAMS = { out: (text) => console.log(text), err: (text) => console.error(text) };
 
 /**
+ * THE OUT-OF-SCOPE NOTE (rid `2026-10-03-w10-rescope-a`, H3): the census counted
+ * the whole measurement universe; the two repo rows gated only its lint-scope
+ * part. The difference is printed — measured, reported, never gated — so a green
+ * leg can never read as "the rest was clean".
+ */
+export function describeShadowFileSizeEnvelope(partition) {
+  return (
+    `  out-of-scope (not gated, owner decision 2026-10-03): ${partition.shadow.overCap} over-cap ` +
+    `file(s), ${partition.shadow.excessLines} excess lines — counted by this census, enforced by ` +
+    'no ceiling.'
+  );
+}
+
+/**
  * The leg's lines, IN THE ORDER they reach the log: what was measured, then the
  * verdict. Both callers print through this, so neither can reorder one past the
  * other or drop the evidence when it is refusing.
@@ -103,6 +117,11 @@ export function printFileSizeLeg(
     // number it cannot explain.
     if (!size.controlArm && size.envelope.hooks) {
       write('out', describeHooksFileSizeEnvelope(size.envelope));
+    }
+    // The shadow note rides the same rule as the rows above: printed for a run
+    // that measured the row, not for a control arm that did not.
+    if (!size.controlArm && size.partition) {
+      write('out', describeShadowFileSizeEnvelope(size.partition));
     }
   }
   if (size.refusal !== null) {
