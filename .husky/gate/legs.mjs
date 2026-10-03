@@ -4,9 +4,12 @@
 // VERBATIM out of `.husky/peaks-gate.mjs` by rid `2026-10-02-wave9-gate-entry-split`.
 // The census measurement path is NOT here — it lives in
 // `.husky/peaks-gate-file-size.mjs`, which this module imports with the same
-// repo-root-anchored specifier the entry used.
+// repo-root-anchored specifier the entry used. SINCE RID
+// `2026-10-03-silent-warning-scope` neither measurement path is here at all: the
+// silent-warning spawn moved next door to its file-size twin, because the
+// generator seeds both rows and the gate enforces both rows, and two spellings of
+// "which files did this number come from" is how §2.43 happened.
 
-import { execFileSync } from 'node:child_process';
 import { ROOT, baseline } from './context.mjs';
 import {
   FS_CEILING_KEY,
@@ -25,6 +28,13 @@ import {
   missingFileSizeCeilings,
   refuseScopedSubset
 } from '../../.husky/peaks-gate-file-size.mjs';
+import {
+  SW_CEILING_KEYS,
+  SW_DETECTOR,
+  SW_RULES,
+  describeSilentWarningRun,
+  runSilentWarningScan
+} from '../../.husky/peaks-gate-silent-warning.mjs';
 
 // ---------------------------------------------------------------------------
 // silent-warning legs — read off the detector, never hardcoded
@@ -46,80 +56,56 @@ import {
 // a detector that cannot run, or that scanned nothing, ABORTS the gate. It is
 // never read as a zero, because a zero is what "no swallows found" looks like —
 // and the only reason to have this leg is to tell those two states apart.
-const SW_DETECTOR = 'scripts/lint/silent-warning-detector.mjs';
-
-/** [detector rule, baseline ceiling key, table label] */
-const SW_RULES = [
-  ['catch-return-null', 'silentWarningCatchReturnNull', 'silent-warn return-null'],
-  ['empty-catch', 'silentWarningEmptyCatch', 'silent-warn empty-catch']
-];
+// `runSilentWarningScan` is that posture in one implementation, shared with the
+// generator that seeds the same two rows.
 
 /**
- * `files` narrows the scan for a control arm of the unit test. An empty list
- * asks the detector for its OWN default scope — a walk of `src/`, 781 files
- * measured 2026-09-29 — which is NOT this gate's `git ls-files` set (1298).
- * The divergence is recorded, not reconciled: retargeting the detector is a
- * different slice.
- */
-function measureSilentWarnings(files = []) {
-  let raw = '';
-  try {
-    raw = execFileSync('node', [SW_DETECTOR, '--json', ...files], {
-      cwd: ROOT,
-      encoding: 'utf8',
-      maxBuffer: 512 * 1024 * 1024
-    });
-  } catch (err) {
-    // The detector exits 1 whenever it finds a violation; the envelope is still
-    // on stdout — the same shape as eslint's report above.
-    raw = err.stdout ?? '';
-  }
-  const refuse = (why) => ({ failure: why, scannedFiles: 0, counts: {} });
-  let env;
-  try {
-    env = JSON.parse(raw);
-  } catch {
-    return refuse(`${SW_DETECTOR} --json produced no parseable envelope`);
-  }
-  if (!Number.isInteger(env.scannedFiles) || env.scannedFiles <= 0) {
-    return refuse(`${SW_DETECTOR} scanned 0 files, so it measured nothing`);
-  }
-  if (typeof env.byRule !== 'object' || env.byRule === null) {
-    return refuse(`${SW_DETECTOR} produced an envelope with no byRule object`);
-  }
-  const counts = {};
-  for (const [rule] of SW_RULES) counts[rule] = env.byRule[rule] ?? 0;
-  return { failure: null, scannedFiles: env.scannedFiles, counts };
-}
-
-/**
- * Print the two rows through `check`. Returns `{ refusal, scannedFiles }`: a
- * non-null `refusal` means the caller must fail the run — a leg that could not
- * be measured contributes no row, let alone a zero.
+ * Print the two rows through `check`. Returns `{ refusal, scannedFiles, line }`: a
+ * non-null `refusal` means the caller must fail the run — a leg that could not be
+ * measured contributes no row, let alone a zero.
+ *
+ * `files` is the population this leg is allowed to speak for: the caller hands it
+ * the SAME tracked list it hands eslint and prettier, and the leg refuses when the
+ * detector reports scanning a different number of files (rid
+ * `2026-10-03-silent-warning-scope`). It used to take `[]` from `repo` mode and ask
+ * the detector for its own 905-file `src/` walk, then print the divergence as a
+ * footnote — which is how 17 swallows in `packages/<name>/src` stayed uncounted while
+ * both numbers sat on one screen.
  */
 function silentWarningLeg(check, ceilings, files) {
-  const m = measureSilentWarnings(files);
+  const m = runSilentWarningScan(files, ROOT);
   if (m.failure !== null) {
     return {
       refusal:
         `REFUSING to measure the silent-warning legs — ${m.failure}.\n` +
         `  A detector that cannot run is a gate FAILURE, not a zero. Run \`node ${SW_DETECTOR}\` to see why.`,
-      scannedFiles: 0
+      scannedFiles: 0,
+      line: null
     };
   }
-  const missing = SW_RULES.map(([, key]) => key).filter((k) => !Number.isInteger(ceilings[k]));
+  const missing = SW_CEILING_KEYS.filter((k) => !Number.isInteger(ceilings[k]));
   if (missing.length > 0) {
     return {
       refusal:
         `REFUSING to measure the silent-warning legs — the baseline has no ceiling for ` +
         `${missing.join(', ')}.\n` +
         '  Regenerate it: node .husky/peaks-gate-baseline.mjs',
-      scannedFiles: m.scannedFiles
+      scannedFiles: m.scannedFiles,
+      line: null
     };
   }
   for (const [rule, key, label] of SW_RULES) check(label, m.counts[rule], ceilings[key]);
-  return { refusal: null, scannedFiles: m.scannedFiles };
+  return {
+    refusal: null,
+    scannedFiles: m.scannedFiles,
+    line: describeSilentWarningRun({
+      returnNull: m.counts['catch-return-null'],
+      emptyCatch: m.counts['empty-catch'],
+      scanned: m.scannedFiles
+    })
+  };
 }
+
 // ---------------------------------------------------------------------------
 // file-size legs — the whole-tree count over the policy cap, and the lines over it
 // ---------------------------------------------------------------------------
@@ -220,4 +206,4 @@ function fileSizeLeg(check, ceilings, files, controlArm = false) {
   };
 }
 
-export { silentWarningLeg, fileSizeLeg, measureSilentWarnings };
+export { silentWarningLeg, fileSizeLeg };

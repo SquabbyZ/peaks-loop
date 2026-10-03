@@ -123,7 +123,7 @@ const ESLINT_STUB = "process.stdout.write('[]\\n');\n";
 const TSC_STUB = "process.stdout.write('');\n";
 /** The silent-warning detector's envelope, in the shape the generator parses. */
 const DETECTOR_STUB =
-  "console.log(JSON.stringify({ scannedFiles: 3, byRule: { 'catch-return-null': 1, 'empty-catch': 2 } }));\n";
+  "const p = process.argv.slice(2).filter((a) => !a.startsWith('-'));\nconsole.log(JSON.stringify({ scannedFiles: p.length || 3, byRule: { 'catch-return-null': 1, 'empty-catch': 2 } }));\n";
 /**
  * The census envelope, in the shape `.husky/peaks-gate-file-size.mjs` requires. Its
  * `scope.source` must be the whole-scope spelling or the generator refuses for a

@@ -68,7 +68,7 @@ const SCRATCH = mkdtempSync(join(tmpdir(), 'peaks-gen-equivalence-'));
 const ESLINT_STUB = "process.stdout.write('[]\\n');\n";
 const TSC_STUB = "process.stdout.write('');\n";
 const DETECTOR_STUB =
-  "console.log(JSON.stringify({ scannedFiles: 3, byRule: { 'catch-return-null': 1, 'empty-catch': 2 } }));\n";
+  "const p = process.argv.slice(2).filter((a) => !a.startsWith('-'));\nconsole.log(JSON.stringify({ scannedFiles: p.length || 3, byRule: { 'catch-return-null': 1, 'empty-catch': 2 } }));\n";
 const CENSUS_STUB =
   'process.stdout.write(JSON.stringify({ overCap: 1, excessLines: 9, ' +
   "convention: 'split(String.fromCharCode(10)).length', caps: { defaultCap: 300, testsCap: 500 }, " +
@@ -343,8 +343,8 @@ describe('Scenario: behavior — the comparison is between two different program
     const head = filesFor('head');
     const split = filesFor('split');
     expect(head.length, 'the HEAD side stages the closure').toBeGreaterThan(10);
-    expect(split.filter((rel) => rel.startsWith(GENERATOR_DIR_REL)).length).toBe(11);
-    expect(split.length).toBe(head.length + 11);
+    expect(split.filter((rel) => rel.startsWith(GENERATOR_DIR_REL)).length).toBe(12);
+    expect(split.length).toBe(head.length + 12);
     expect(anchorGeneratorText()).not.toBe(readFileSync(join(REPO_ROOT, GENERATOR_REL), 'utf8'));
     expect(head).toContain('.husky/peaks-gate-file-size.mjs');
     expect(head).toContain('.husky/peaks-gate-baseline-monotonic.mjs');

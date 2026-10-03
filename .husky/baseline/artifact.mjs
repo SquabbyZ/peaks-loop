@@ -16,8 +16,40 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 
 import { LINT_SCOPE_RULE, deriveScopeDirs } from '../lint-scope.mjs';
+import { SW_SCOPE_KEY, SW_SCOPE_SOURCE } from '../peaks-gate-silent-warning.mjs';
 
 import { OUT_PATH, rel } from './paths.mjs';
+
+/** The seven extensions the published scope names, as the artifact spells them. */
+const SCOPE_EXTENSIONS = 'ts, tsx, mts, cts, mjs, cjs, js';
+
+/**
+ * THE `scope` BLOCK — the boundary the ceilings are measurements OF (rid
+ * `2026-10-03-w10-rescope-a`, extended by rid `2026-10-03-silent-warning-scope`).
+ *
+ * Two kinds of thing live here, and the monotonicity guard reads both:
+ *   - `dirs` / `rule` / `extensions`: the gate-wide population, derived from this
+ *     run's tracked file list (§2.42) — never an enumeration a human edits;
+ *   - `silentWarning`: ONE LEG's population, recorded as `{ source, scannedFiles }`.
+ *     The silent-warning rows used to ratchet a filesystem walk of `src/` (905) that
+ *     no other row shared, and the artifact had no field that could say so — so a
+ *     boundary move that left `dirs` untouched was inexpressible, and 17 swallows in
+ *     `packages/<name>/src` stayed uncounted. A per-leg population record is METADATA: it
+ *     is not a sixteenth ceiling, `CEILING_KEYS` stays the fifteen it is, and
+ *     `.husky/monotonic/keys.mjs` still owns that set.
+ *
+ * Built ONCE and handed to both the decision and the bytes, so the guard cannot
+ * compare one spelling of the boundary while the artifact records another.
+ */
+export function buildScopeBlock({ files, sw }) {
+  return {
+    dirs: deriveScopeDirs(files),
+    rule: LINT_SCOPE_RULE,
+    extensions: SCOPE_EXTENSIONS,
+    [SW_SCOPE_KEY]: { source: SW_SCOPE_SOURCE, scannedFiles: sw.scannedFiles }
+  };
+}
+
 
 /** The per-file rows: eslint classification plus the prettier verdict. */
 export function buildFileRecords({ scope, lint, format }) {
@@ -93,7 +125,7 @@ export function buildCeilings({ lint, format, tscErrors, sw, size }) {
  * generator has one caller, below, so the bytes the repository commits are the bytes
  * this returns.
  */
-export function artifactDocumentText({ scope, lint, format, size, ceilings, files, shadow }) {
+export function artifactDocumentText({ scope, scopeBlock, lint, format, size, ceilings, files, shadow }) {
   const { coverageGapFiles, notLinted, phantomRules, syntaxErrorFiles } = lint;
   const { unparsable } = format;
   return `${JSON.stringify(
@@ -112,18 +144,18 @@ export function artifactDocumentText({ scope, lint, format, size, ceilings, file
           noIgnore: true,
           linted: scope.length - notLinted.length
         },
-        // THE ENFORCED SCOPE, DERIVED not typed (rid `2026-10-03-w10-rescope-a`):
-        // the pattern lives in `.husky/lint-scope.mjs`; `deriveScopeDirs` enumerates
-        // from THIS run's tracked file list, so a new `packages/<x>/src/` joins the
-        // artifact's dir list the run its first file is tracked. `scopeDirs()` in
-        // `scripts/lint/lint-file-list.mjs` reads these dirs verbatim — this block is
-        // load-bearing for the per-file ratchet, and the anchor comparison reads it
-        // too: a scope change without `--rescope` refuses (`.husky/baseline/rescope.mjs`).
-        scope: {
-          dirs: deriveScopeDirs(scope),
-          rule: LINT_SCOPE_RULE,
-          extensions: 'ts, tsx, mts, cts, mjs, cjs, js'
-        },
+        // THE ENFORCED SCOPE, DERIVED not typed (rid `2026-10-03-w10-rescope-a`; and
+        // since rid `2026-10-03-silent-warning-scope` it records the per-leg
+        // populations too). `buildScopeBlock` above is called ONCE by the entry and
+        // handed to the monotonicity decision AND to these bytes, so the boundary the
+        // guard compares is the boundary this artifact records — `dirs` derived from
+        // THIS run's tracked file list (a new `packages/<x>/src/` joins the run its
+        // first file is tracked), the rule, the extensions, and every leg population
+        // the run measured. `scopeDirs()` in `scripts/lint/lint-file-list.mjs` reads
+        // `dirs` verbatim, so this block is load-bearing for the per-file ratchet, and
+        // the anchor comparison reads it too: a scope change without `--rescope`
+        // refuses (`.husky/baseline/rescope.mjs`).
+        scope: scopeBlock,
         // REPORTED, NEVER GATED (H3): the debt that sits OUTSIDE the enforced scope,
         // measured by the same legs, so a future widening re-measures it instead of
         // discovering it. Not in `CEILING_KEYS`; nothing compares these numbers.

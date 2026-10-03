@@ -2194,7 +2194,7 @@ sites), eslint over those files → exit 0 with no output, and the artifact rege
 What remains true is the residue, not the number: five findings appeared in an unenforced population within
 a single slice, and the only reason anyone saw them is that the shadow row exists.
 
-### 2.43 `silent-warning` has only ever scanned `src/`, so 17 swallows in the shipped `packages/*/src` were never counted, and admitting them raises two ceilings (found 2026-10-03 while mapping the owner's scope)
+### 2.43 `silent-warning` has only ever scanned `src/`, so 17 swallows in the shipped `packages/*/src` were never counted, and admitting them raises two ceilings (found 2026-10-03 while mapping the owner's scope; CLOSED 2026-10-03)
 
 The leg prints its own population, which is why this is knowable at all: `905 file(s) scanned`. The
 owner's scope is 943. The missing 38 are exactly `packages/*/src` (17 + 11 + 5 + 5), and measuring them
@@ -2211,6 +2211,40 @@ which the monotonicity guard exists to refuse, so it cannot ride along with §2.
 `--rescope` to exist first, so that "this number moved because the boundary moved" is a different,
 stated event from "this number moved because the code did". Order: land §2.42, then widen this leg and
 name the 17 sites, then descend them as ordinary debt.
+
+**CLOSED 2026-10-03 (`2026-10-03-silent-warning-scope` + `…-repair1`), and the widening is not what the
+entry should be remembered for.** Three things came out of it:
+
+1. **The fix is not `SCAN_ROOTS = ['src', 'packages/…/src']`.** The leg now receives the *same tracked list*
+   every other leg receives (`.husky/peaks-gate-silent-warning.mjs`, fed from
+   `scripts/lint/lint-file-list.mjs`), because a filesystem walk of a directory list can see untracked files
+   and cannot see that it disagrees with the gate; the `905 vs 943` footnote became a population-equality
+   **refusal**, and the leg prints `… 943 file(s) scanned, == the enforced scope`. The artifact records how
+   that number was produced — `scope.silentWarning: {source: "git ls-files <scope dirs>", scannedFiles: 943}`
+   — a count with its source, per §2.41.
+2. **A ceiling rise was made attributable to a boundary rather than to code.** `scopeTrip` used to compare
+   `scope.dirs`; that cannot express "one *leg*'s population moved", so the guard was extended to the whole
+   `scope` block (`.husky/baseline/leg-scope.mjs`), with an absent prior population read as **unknown, never
+   zero**. With that in place 41 → 49 and 59 → 68 went through `--rescope` and through nothing else: the
+   no-flag run exits 1, names the leg and both counts (`unknown → 943`), ties the two-row rise to it, and
+   leaves the artifact byte-identical (`sha256 85e8534…884f` before and after).
+3. **§2.46's new warning paid for itself on its first day.** The same run reported
+   `shadow.measuredFiles 558 → 561`, and the +3 traced exactly to the three `tests/unit/lint` files the
+   *previous* commit (`a20dcd7e`) had added to the index — the staleness §2.46 was written about, reproducing
+   one commit later and being caught by the mechanism built for it. Every other shadow row and all thirteen
+   unrelated ceilings came out byte-identical; `CEILING_KEYS` is still fifteen.
+
+The descent list, unchanged and deliberately unfixed: 16 of the 17 in
+`packages/peaks-loop-mut/src/services/agent/ecc-cache-service.ts` (lines 145, 204, 292, 320, 430, 459, 491,
+500, 545, 576, 646, 702, 718, 733, 816, 832) and one in
+`packages/peaks-loop-internal-runtime/src/vendor/progress-line.ts:67`. The first is also the only `packages`
+file over the size cap (837 raw, +537), so the wave that takes it apart owes both rows at once — that is a
+wave 11 target, not a loose end.
+
+*Two premises in my own brief were wrong and the leaf corrected them, which is the only reason they are not
+in the shipped text: arrival was 16 modified + 4 untracked files, not "12 + 4"; and the unknown-vs-zero
+posture I attributed to a `shadowBlock()` in `_rescope-projection.ts` actually lives in `legScopeMoves`
+(a `from === null` record is a move, never "equal").*
 
 ### 2.44 A doc that describes a gate is not the gate: `lint-gate.md` §2 described a push hook that had not existed for ten days (found 2026-10-03)
 
@@ -2361,3 +2395,39 @@ nothing emits, drop a branch something does) with the red text recorded in the r
 reds itself, because reproducing them requires editing a test file and the campaign forbids the orchestrator
 from writing tests — so that leg stands on the leaf's captured failure output, which is exactly the kind of
 claim this section is about.
+
+### 2.48 The monotonicity refusal prints a remedy that would delete the work it is refusing (found 2026-10-03 by a leaf that chose not to follow it)
+
+Mid-slice in §2.43, the artifact on disk carried an intended, **uncommitted** raise (49/68) while `HEAD`
+still held 41/59. A plain no-flag generator run then refuses — correctly, by §2.33's working-copy trip — and
+prints its standing remedy:
+
+```
+Restore it first: git checkout HEAD -- .peaks/lint/gate-baseline.json
+```
+
+Running that destroys the deliverable: it reverts the artifact to the numbers the run is complaining about,
+and the slice's whole `--rescope` result vanishes with no record. The leaf spotted this and declined, saying
+so in its envelope rather than obeying the message — which is the right outcome, and the wrong luck: it
+depends on a reader who already understands the difference between "this file is corrupt" and "this file is
+ahead of its own commit".
+
+This is §2.35's shape again from the other side. §2.35 was a refusal whose printed remedy deleted a row that
+had just been legitimately seeded; this is a refusal whose printed remedy deletes a row that has just been
+legitimately *raised*. Both are messages that are right about the invariant and wrong about the state.
+
+Fix shape: the trip already knows everything needed to tell the two apart. `workingCopyTrip` has (i) HEAD's
+ceilings, (ii) the disk ceilings, and (iii) the run's own measurement. If disk == measurement and disk ≠ HEAD,
+the disk copy is **this run's fresh answer**, not damage — the sentence should read "the artifact ahead of
+`HEAD` by N row(s) matches this run's measurement; commit it, or re-run after committing — restoring `HEAD`
+here discards work that has not been recorded anywhere else". `git checkout HEAD -- …` stays the advice only
+for the states where the file is genuinely unreadable or disagrees with the measurement it claims to carry
+(which is what the message was written for, and still is).
+
+Arms: a fixture where disk == measurement ≠ HEAD → the message contains "commit" and does **not** contain
+`git checkout`; a fixture where disk is unparseable → `git checkout` still offered; a fixture where disk ≠
+measurement (hand-edited) → the refusal says so explicitly rather than implying the file is corrupt. Cost:
+three string assertions in `baseline-monotonicity-head-anchor.test.ts`-adjacent code, and the wording is the
+whole product. Priority: low until the next slice regenerates an uncommitted baseline, which in this
+campaign is roughly every third slice — and one of those times a leaf will be tired, the message will be
+authoritative, and the `git checkout` will look like the fix it names.

@@ -81,15 +81,15 @@ one — `--no-verify` also works and is equally visible in a shell history.
 > | `eslintPhantomFindings` / `…CoverageGapFiles` / `…SyntaxErrorFiles` / `…NotLintedFiles` | 0 / 0 / 0 / 0 | same 943 |
 > | `prettierUnformatted` / `prettierUnparsableFiles` | 0 / 0 | same 943 |
 > | `tscErrors` | 0 | `tsconfig.json` — a DIFFERENT population: `src/**` ∪ `tests/**` (§4w) |
-> | `silentWarningCatchReturnNull` / `…EmptyCatch` | 41 / 59 | the detector's own `src/` walk, **905** files (§2.43) |
+> | `silentWarningCatchReturnNull` / `…EmptyCatch` | **49 / 68** | **943**, `scope.silentWarning.source: "git ls-files <scope dirs>"` — widened 2026-10-03 from the detector's own 905-file `src/` walk (§4y) |
 > | `fileSizeOverCap` / `fileSizeExcessLines` | **127 / 40761** | the enforced scope, partitioned out of a census that still counts **1495** |
 > | `fileSizeHooksOverCap` / `…ExcessLines` | **0 / 0** | `.husky`, 33 files — untouched by the rescope (§4w) |
-> | `shadow.*` (not ceilings) | 552 files, 638 findings, 159 errors, 35 over-cap, 13557 excess lines | the population the owner took out of enforcement, still measured and printed |
+> | `shadow.*` (not ceilings) | 561 files, 639 findings, 160 errors, 35 over-cap, 13557 excess lines | the population the owner took out of enforcement, still measured and printed |
 >
-> Four different populations are in use on the same day (943 enforced / 1495 census-counted / 905
-> detector-walked / src∪tests type-checked), and each row above names which one it belongs to. A row
-> whose number and whose population are not stated together is not verifiable, which is why `gate repo`
-> now prints the counts it used (§4w).
+> Three different populations are in use on the same day (943 enforced and scanned by every strict leg /
+> 1495 census-counted / `src` ∪ `tests` type-checked by `tsconfig.json`), and each row above names which one
+> it belongs to — with its **source**, not just its size. Until §4y the silent-warning rows were the
+> exception: they ratcheted a fourth, self-chosen population of 905 files.
 
 `eslint` counts deliberately exclude four classes, each with its own line, so
 that no artifact and no config bug can hide inside a number that gets traded
@@ -1353,3 +1353,42 @@ passed / 3 skipped** (from 364/3,801), `npm run build` with `build-integrity: OK
 own author on the way: the repair's first `gate repo` run exited 1 on `tsc errors 1 > ceiling 0`, a TS2532
 in its brand-new test file — which is the row doing its job on a day the enforced scope no longer covers
 `tests/`, because `tsc`'s population was deliberately left wide (§4w).
+
+### 4y. Wave 10 slice B′ — the last self-chosen population was closed, and a ceiling rose in a way the ratchet could attribute (2026-10-03, rids `2026-10-03-silent-warning-scope` + `…-repair1`)
+
+`silent-warning` was the final enforced row measuring a population of its own invention:
+`SCAN_ROOTS = ['src']` inside the detector, 905 files, inside a gate that had been deciding 943 files for
+two slices. The gap was not cosmetic — 17 real swallows sat in `packages/*/src` that **no ceiling had ever
+counted**, 16 of them in one file (`ecc-cache-service.ts`, which also owes 537 lines and is the only
+`packages` file over the size cap at all).
+
+The fix is the same decision §2.42/§2.46 kept forcing: **a leg speaks for the tracked list, or it does not
+report a number.** The leg (`.husky/peaks-gate-silent-warning.mjs`) now receives the exact list the eslint
+and prettier legs receive, refuses when the populations disagree, and prints its source:
+`silent-warning: catch-return-null=49, empty-catch=68, 943 file(s) scanned, == the enforced scope
+(git ls-files <scope dirs>)`. A filesystem walk was not widened, because a walk can see untracked files and
+cannot see that it disagrees with the gate.
+
+**The part that needed designing rather than typing: 41 → 49 and 59 → 68 with no new debt.** The monotonicity
+guard refuses a raised ceiling, and `--rescope` could not help — `scope.dirs` did not change, so the flag had
+no boundary to point at. The guard therefore learned to compare the **whole `scope` block**
+(`.husky/baseline/leg-scope.mjs`), so *"one leg's population moved"* is a boundary event like a directory
+list moving, and an absent prior population reads as **unknown, never zero** (a missing key cannot make a
+rise look legal — the posture §2.47 was about). Measured on the real tree: no-flag → **exit 1**, naming the
+leg, `unknown → 943`, and both row rises, artifact byte-identical at `sha256 85e8534…884f`; `--rescope` →
+exit 0, exactly **two ceilings moved**, the other thirteen byte-identical, `CEILING_KEYS` still fifteen.
+
+**And the §2.46 rider paid for itself the same hour.** That run also reported `shadow.measuredFiles 558 →
+561`. The +3 was three `tests/unit/lint` files the *previous* commit had added to the index — the exact
+staleness §2.46 was written about, reproducing one commit later and being caught by the mechanism built for
+it. Cross-check the arithmetic against the census notes and it closes: main 1495 → 1504 (+6 from slice A's
+tests, +3 from slice B's), hooks 33 → 36 (slice A's three `.husky` modules), every added file exempt, so
+`fileSizeOverCap` 127 and `fileSizeExcessLines` 40,761 never stirred.
+
+Two things this section must record against itself. The first is a hazard, filed as §2.48: mid-slice, with
+the raise on disk and not yet in `HEAD`, a plain generator run refuses *correctly* and prints its standing
+remedy — `git checkout HEAD -- .peaks/lint/gate-baseline.json` — which would have destroyed the deliverable.
+A leaf noticed and declined; that is luck, not a guard. The second is about this document's author: two
+premises in the slice brief were wrong (a file count I had mis-added, and a mechanism I attributed to the
+wrong module), and both were corrected by the leaf rather than by me, which is the only reason the shipped
+prose is now accurate.

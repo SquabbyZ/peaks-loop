@@ -130,7 +130,7 @@ export const FIXTURE_COPIED_FILES = [...hooksScopeFilesUnder(REPO_ROOT), ...RUNT
 const ESLINT_STUB = "process.stdout.write('[]\\n');\n";
 const TSC_STUB = "process.stdout.write('');\n";
 const DETECTOR_STUB =
-  "console.log(JSON.stringify({ scannedFiles: 1, byRule: { 'catch-return-null': 0, 'empty-catch': 0 } }));\n";
+  "const p = process.argv.slice(2).filter((a) => !a.startsWith('-'));\nconsole.log(JSON.stringify({ scannedFiles: p.length || 1, byRule: { 'catch-return-null': 0, 'empty-catch': 0 } }));\n";
 
 /**
  * A forwarder, not a stub: the fixture's `node_modules/tsx` runs the repository's

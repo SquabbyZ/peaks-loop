@@ -6,6 +6,10 @@
 import { baseline, inScope, makeCheck, outOfScopeNotice, rel, reportEmpty } from './context.mjs';
 import { ratchetFiles } from './ratchet.mjs';
 import { silentWarningLeg, fileSizeLeg } from './legs.mjs';
+// The enforced scope, from the one module that owns the rule — the same list
+// `.husky/peaks-gate.mjs`'s `repoFileList()` builds for `repo` mode, reached the
+// copy-safe way (see the header of `.husky/peaks-gate.mjs`).
+import { lintFileList } from '../../scripts/lint/lint-file-list.mjs';
 import {
   FS_CEILING_KEY,
   parseFileSizeArgv,
@@ -36,10 +40,17 @@ async function stagedMode(argv) {
 // stay cheap would prove nothing about the gate. So it spawns this mode instead:
 // one measurement, one `check`, the same ceilings, ~1s.
 //
-// Path arguments narrow the detector's scan for a control arm; with none it
-// ratchets exactly what `repo` mode ratchets.
+// Path arguments narrow the scan for a control arm (the injection arms in
+// `tests/unit/lint/silent-warning-gate-leg.test.ts` hand one scratch file from
+// outside the repository); with none the leg derives the enforced scope itself,
+// from the one module that owns it, so this mode ratchets EXACTLY what `repo` mode
+// ratchets. Either way the population is the list the leg was handed, and
+// `runSilentWarningScan` refuses when the detector's count disagrees with it (rid
+// `2026-10-03-silent-warning-scope`) — a named-file run says plainly below that it
+// spoke for the named files and not for the repo row.
 async function silentWarningMode(argv) {
-  const files = argv.map(rel).filter((f) => f !== '');
+  const named = argv.map(rel).filter((f) => f !== '');
+  const files = named.length > 0 ? named : lintFileList();
   const failures = [];
   const check = makeCheck(failures);
 
@@ -50,6 +61,15 @@ async function silentWarningMode(argv) {
     console.error(`peaks-gate: ${sw.refusal}\n`);
     return 1;
   }
+  console.log(`  ${sw.line}`);
+  if (named.length > 0) {
+    console.log(
+      `  CONTROL ARM: these rows were measured over the ${named.length} file(s) named on the ` +
+        'command line, not over the enforced scope. The ceilings are whole-scope numbers; a ' +
+        'held row here is not a held row for the repository, and a breached one is not a breach.'
+    );
+  }
+  console.log('');
 
   if (failures.length > 0) {
     console.error('peaks-gate: silent-warning ratchet breached — a total grew.\n');

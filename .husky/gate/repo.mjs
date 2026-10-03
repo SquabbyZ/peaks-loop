@@ -131,15 +131,20 @@ async function repoMode(files) {
   check('unlinted files (config)', coverageGapFiles, c.eslintCoverageGapFiles);
   check('syntax errors', syntaxErrorFiles, c.eslintSyntaxErrorFiles);
   check('unparsable files', unparsable.length, c.prettierUnparsableFiles);
-  const sw = silentWarningLeg(check, c, []);
+  const sw = silentWarningLeg(check, c, files);
   if (sw.refusal !== null) {
     console.error(`\npeaks-gate: ${sw.refusal}\n`);
     return 1;
   }
-  console.log(
-    `  scope note: the silent-warning detector scanned ${sw.scannedFiles} file(s) of its own \`src/\` ` +
-      `walk, not the ${files.length} files in this gate's scope. Recorded, not reconciled.`
-  );
+  // THE POPULATION, SAID AS AN EQUALITY (rid `2026-10-03-silent-warning-scope`).
+  // This line used to read `the silent-warning detector scanned 905 file(s) of its
+  // own \`src/\` walk, not the 943 files in this gate's scope. Recorded, not
+  // reconciled.` — two numbers on one screen, neither of them an error, and the 38
+  // files it waved away were `packages/*/src`, where 17 real swallows sat uncounted
+  // while this footnote stayed polite. The leg now measures the SAME tracked list
+  // every row above measures and refuses if the counts disagree; §2.41's rule
+  // applied to the last leg that did not follow it.
+  console.log(`  ${sw.line}`);
   const size = fileSizeLeg(check, c, []);
   // The measurement is printed WHETHER OR NOT the leg then refuses (repair cycle 2):
   // the run that trips the policy-input binding is exactly the run whose numbers a

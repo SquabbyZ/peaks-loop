@@ -21,9 +21,12 @@ import {
 import {
   RESCOPE_FLAG,
   rescopeUnneededTrip,
+  scopeDifference,
   scopeTrip,
   shadowMoveLines
 } from './rescope.mjs';
+
+import { describeLegScopeMove, legOfCeilingKey, raiseIsBoundary } from './leg-scope.mjs';
 
 import { HEAD_REF, OUT_REL, refuse } from './paths.mjs';
 
@@ -100,40 +103,109 @@ export function decideWrite({
   if (settled.refusal !== null) refusals.push(settled.refusal);
   const keyFailure = describeCanonicalKeyFailure(keyProblems);
   if (keyFailure !== null) refusals.push(keyFailure);
-  const monotonicityFailure = describeMonotonicityFailure(monotonicity);
-  if (monotonicityFailure !== null) refusals.push(monotonicityFailure);
-  // H1 — THE RESCOPE GUARD (rid `2026-10-03-w10-rescope-a`, backlog §2.42).
+  // H1 — THE RESCOPE GUARD (rid `2026-10-03-w10-rescope-a`, backlog §2.42; extended
+  // by rid `2026-10-03-silent-warning-scope`, §2.43).
   // Values may only go down; the POPULATION that produced them may not change in
-  // silence. A scope difference without the flag refuses naming everything it
-  // would hide; WITH the flag the write goes through, loud, and the out-of-scope
-  // totals land in the artifact's shadow block. The flag with nothing to rescope
-  // is itself a refusal — required, not cosmetic.
+  // silence, and since §2.43 the population of ONE LEG is part of that question —
+  // `scope.dirs` can hold still while a leg starts measuring 38 more files. A scope
+  // difference without the flag refuses, naming everything it would hide; WITH the
+  // flag the write goes through, loud, and the out-of-scope totals land in the
+  // artifact's shadow block. The flag with nothing to rescope is itself a refusal —
+  // required, not cosmetic.
+  const scopeDiff =
+    rescope === null
+      ? null
+      : scopeDifference({
+          headScope,
+          newScope: rescope.newScope,
+          headFileCount,
+          gatedCount: rescope.gatedCount
+        });
   let rescopeApplied = null;
   if (rescope !== null) {
+    const boundary = {
+      headScope,
+      newScope: rescope.newScope,
+      headFileCount,
+      gatedCount: rescope.gatedCount
+    };
     if (rescope.flag) {
-      const unneeded = rescopeUnneededTrip({
-        headScope,
-        newScopeDirs: rescope.newScopeDirs
-      });
+      const unneeded = rescopeUnneededTrip(boundary);
       if (unneeded !== null) refusals.push(unneeded);
       else if (headScope !== null) {
         rescopeApplied =
-          `RESCOPE applied (${RESCOPE_FLAG}): scope.dirs go from ${JSON.stringify(headScope.dirs)} ` +
-          `to ${JSON.stringify(rescope.newScopeDirs)} (${headFileCount} -> ${rescope.gatedCount} ` +
-          'measured files). The rows that fell are NOT debt reductions; the out-of-scope totals ' +
-          'are carried forward as shadow rows — reported, never gated.';
+          `RESCOPE applied (${RESCOPE_FLAG}): the boundary moved — scope.dirs go from ` +
+          `${JSON.stringify(headScope.dirs)} to ${JSON.stringify(rescope.newScope.dirs)} ` +
+          `(${headFileCount} -> ${rescope.gatedCount} measured files)` +
+          (scopeDiff.moves.length > 0
+            ? `; ${scopeDiff.moves.map((move) => describeLegScopeMove(move)).join('; ')}`
+            : '') +
+          '. What moved is the population, NOT the debt: the rows that fell are not ' +
+          'reductions and the rows that rose are not regressions — the files were always ' +
+          'there. The out-of-scope totals are carried forward as shadow rows (reported, ' +
+          'never gated), and only the rows of a population that moved may change.';
       }
     } else {
       const trip = scopeTrip({
-        headScope,
-        headFileCount,
-        newScopeDirs: rescope.newScopeDirs,
+        ...boundary,
+        newScope: rescope.newScope,
         gatedCount: rescope.gatedCount,
         headCeilings: previousCeilings,
         ceilings
       });
       if (trip !== null) refusals.push(trip);
     }
+  }
+  // A RAISE THE BOUNDARY EXPLAINS (§2.43) — the half of the rescope the narrowing
+  // never needed, because narrowing only ever lowered numbers. `--rescope` is NOT a
+  // licence to raise a ceiling: it is the statement that a population moved, and a
+  // row may change with it only when the population that produced THAT ROW moved —
+  // its own leg record, or the gate-wide scope for a row no leg owns. Every other
+  // raise is refused with both of its numbers, exactly as it was before this slice,
+  // and the permitted ones are printed in the note below rather than hidden in a
+  // green. `settleDeferredAdded` and the canonical-key audit are untouched: a row
+  // this run does not measure is still a hole in the ratchet however the boundary moved.
+  const boundaryLifted = [];
+  const unexplainedRaises = [];
+  for (const row of monotonicity.raised) {
+    const explained =
+      rescopeApplied !== null &&
+      scopeDiff !== null &&
+      raiseIsBoundary({
+        key: row.key,
+        moves: scopeDiff.moves,
+        gatePopulationMoved: scopeDiff.gatePopulationMoved
+      });
+    if (explained) boundaryLifted.push(row);
+    else unexplainedRaises.push(row);
+  }
+  const decision =
+    boundaryLifted.length === 0
+      ? monotonicity
+      : {
+          ...monotonicity,
+          raised: unexplainedRaises,
+          ok:
+            unexplainedRaises.length === 0 &&
+            monotonicity.removed.length === 0 &&
+            monotonicity.invalid.length === 0
+        };
+  const monotonicityFailure = describeMonotonicityFailure(decision);
+  if (monotonicityFailure !== null) refusals.push(monotonicityFailure);
+  if (rescopeApplied !== null && boundaryLifted.length > 0) {
+    rescopeApplied +=
+      `\n  ${boundaryLifted.length} ceiling row(s) ROSE and this write carries them, attributed one by one:` +
+      boundaryLifted
+        .map((row) => {
+          const leg = legOfCeilingKey(row.key);
+          const move = leg === null ? null : scopeDiff.moves.find((m) => m.leg === leg);
+          return (
+            `\n    - ${row.key}: ${row.previous} -> ${row.next} because ` +
+            (move !== null ? describeLegScopeMove(move) : 'the gate-wide scope moved') +
+            ' — zero new debt; this is the same debt measured over more files.'
+          );
+        })
+        .join('');
   }
   // W1 — THE SHADOW-MOVE CHECK (rid `2026-10-03-shadow-move-rider`, backlog §2.46).
   // Printed BEFORE the refusal below and OUTSIDE it, because it is a report about the
@@ -152,5 +224,5 @@ export function decideWrite({
   // nothing when it agrees looks identical to a run that never compared anything.
   if (rescopeApplied !== null) anchorNotes.push(rescopeApplied);
   for (const note of anchorNotes) console.error(note);
-  for (const note of describeMonotonicityNotes(monotonicity, seedApplied)) console.error(note);
+  for (const note of describeMonotonicityNotes(decision, seedApplied)) console.error(note);
 }

@@ -32,6 +32,7 @@ import { describe, expect, it } from 'vitest';
 import { declareDimensions } from '../_setup/4dim-template.js';
 import { REPO_ROOT } from '../standards/_file-size-cap-scan.js';
 import {
+  LEG_MEASURE_STDERR_LINE,
   SHADOW_MOVE_STDERR_LINE,
   SHADOW_STDERR_LINE,
   projectStderr
@@ -40,7 +41,12 @@ import {
 declareDimensions(
   'tests/unit/lint/rescope-projection-bounded.test.ts',
   ['behavior', 'render', 'a11y'],
-  [{ dim: 'integration', reason: 'pure projection bound; the real runs are the @slow sibling arms' }]
+  [
+    {
+      dim: 'integration',
+      reason: 'pure projection bound; the real runs are the @slow sibling arms'
+    }
+  ]
 );
 
 /** The five numeric rows a shadow block must carry to be comparable (rescope.mjs). */
@@ -61,35 +67,61 @@ const REFUSAL_LINE =
 
 /** The emitters, loaded where they live rather than restated here. */
 async function loadEmitters(): Promise<{
-  shadowMoveLines: (i: { headShadow: unknown; shadow: unknown; rescopeApplied?: boolean }) => string[];
+  shadowMoveLines: (i: {
+    headShadow: unknown;
+    shadow: unknown;
+    rescopeApplied?: boolean;
+  }) => string[];
   shadowStderrLine: (shadow: unknown) => string;
+  describeSilentWarningRun: (run: {
+    returnNull: number;
+    emptyCatch: number;
+    scanned: number;
+  }) => string;
 }> {
   const url = pathToFileURL(join(REPO_ROOT, '.husky', 'baseline', 'rescope.mjs')).href;
   const mod = (await import(url)) as Record<string, unknown>;
   const fn = (name: string): ((arg: never) => unknown) => {
     const f = mod[name];
-    if (typeof f !== 'function') throw new Error(`.husky/baseline/rescope.mjs exports no \`${name}\``);
+    if (typeof f !== 'function')
+      throw new Error(`.husky/baseline/rescope.mjs exports no \`${name}\``);
     return f as (arg: never) => unknown;
   };
+  const legUrl = pathToFileURL(join(REPO_ROOT, '.husky', 'peaks-gate-silent-warning.mjs')).href;
+  const legMod = (await import(legUrl)) as Record<string, unknown>;
+  if (typeof legMod.describeSilentWarningRun !== 'function') {
+    throw new Error('.husky/peaks-gate-silent-warning.mjs exports no `describeSilentWarningRun`');
+  }
   return {
     shadowMoveLines: fn('shadowMoveLines') as (i: {
       headShadow: unknown;
       shadow: unknown;
       rescopeApplied?: boolean;
     }) => string[],
-    shadowStderrLine: fn('shadowStderrLine') as (shadow: unknown) => string
+    shadowStderrLine: fn('shadowStderrLine') as (shadow: unknown) => string,
+    describeSilentWarningRun: legMod.describeSilentWarningRun as (run: {
+      returnNull: number;
+      emptyCatch: number;
+      scanned: number;
+    }) => string
   };
 }
 
-/** Every shadow stderr line the CURRENT generator can emit, produced by running it. */
+/** One leg measurement, in the shape the silent-warning leg produces. */
+const LEG_RUN = { returnNull: 49, emptyCatch: 68, scanned: 943 };
+
+/** Every stderr line the projection claims to cover, produced by running the emitters. */
 async function emittedShadowLines(): Promise<string[]> {
-  const { shadowMoveLines, shadowStderrLine } = await loadEmitters();
+  const { shadowMoveLines, shadowStderrLine, describeSilentWarningRun } = await loadEmitters();
   return [
     shadowStderrLine(block({})),
     ...shadowMoveLines({ headShadow: null, shadow: block({}) }),
     ...shadowMoveLines({ headShadow: block({}), shadow: block({}) }),
     ...shadowMoveLines({ headShadow: block({ eslintFindings: 638 }), shadow: block({}) }),
-    ...shadowMoveLines({ headShadow: block({ eslintFindings: 640 }), shadow: block({}) })
+    ...shadowMoveLines({ headShadow: block({ eslintFindings: 640 }), shadow: block({}) }),
+    // §2.43's surface: the silent-warning leg's measurement sentence, emitted by the
+    // module that prints it — not re-typed here.
+    describeSilentWarningRun(LEG_RUN)
   ];
 }
 
@@ -130,7 +162,8 @@ describe('Scenario: render — regex and generator are two readings of one set',
     const emitted = await emittedShadowLines();
     const alternatives = [
       ...alternativesOf(SHADOW_STDERR_LINE),
-      ...alternativesOf(SHADOW_MOVE_STDERR_LINE)
+      ...alternativesOf(SHADOW_MOVE_STDERR_LINE),
+      ...alternativesOf(LEG_MEASURE_STDERR_LINE)
     ];
     expect(alternatives.length).toBeGreaterThan(0);
     for (const alt of alternatives) {
@@ -143,12 +176,15 @@ describe('Scenario: render — regex and generator are two readings of one set',
     }
   });
 
-  it('every shadow line the generator can emit is covered by the projection, so a new uncovered sentence reddens it', async () => {
+  it('every line the generator can emit under a projected prefix is covered, so a new uncovered sentence reddens it', async () => {
     const emitted = await emittedShadowLines();
-    // Four states plus the note: inactive, equal, rise (+compared), fall (+compared), out-of-scope.
-    expect(emitted.length).toBeGreaterThanOrEqual(7);
+    // Four shadow states plus the note plus the leg measurement: inactive, equal,
+    // rise (+compared), fall (+compared), out-of-scope, silent-warning.
+    expect(emitted.length).toBeGreaterThanOrEqual(8);
     for (const line of emitted) {
-      expect(line, `the generator emitted a multi-line shadow surface: ${line}`).not.toContain('\n');
+      expect(line, `the generator emitted a multi-line shadow surface: ${line}`).not.toContain(
+        '\n'
+      );
       expect(
         projectStderr(`${line}\n`),
         `the generator emits a shadow line the projection does not cover: ${line}`

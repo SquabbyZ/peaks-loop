@@ -7,16 +7,20 @@
 // WHY THE EQUIVALENCE TEST NEEDS A PROJECTION (rid `2026-10-03-w10-rescope-a`).
 // That file's claim is about the SPLIT: eleven modules deciding and writing exactly
 // what the pinned 799-line monolith decided. The rescope is a DELIBERATE behaviour
-// change the split side now carries, and only it, across exactly four surfaces:
+// change the split side now carries, and only it, across five surfaces (4/5 added by
+// rid `2026-10-03-silent-warning-scope`):
 //   1. the artifact gains a `shadow` block (reported, never gated);
 //   2. `scope.dirs` moves from the typed four-dir enumeration to the list
 //      DERIVED from the root-`src` plus `packages/<name>/src` rule (plus the
-//      `scope.rule` note);
+//      `scope.rule` note, and since §2.43 the per-leg populations under it);
 //   3. stderr gains the one `out-of-scope (not gated, owner decision 2026-10-03)`
 //      line the generator prints on every measured run;
 //   4. stderr gains the shadow-move check's lines (rid `2026-10-03-shadow-move-rider`
 //      W1) — inactive / unchanged / moved-down / one WARNING per risen row / the
 //      compared-populations line. Stderr only: no artifact byte, no exit code.
+//   5. stderr's silent-warning measurement line changes wording, because the leg
+//      measures the enforced scope now and can say `== the enforced scope` — the
+//      monolith measures its own `src/` walk and cannot.
 // Those surfaces are the rescope's own contract, pinned positively by
 // `baseline-rescope-guard.test.ts` and `lint-file-list-parity.test.ts`. The
 // equivalence legs normalise them away so EVERY OTHER byte and line is still
@@ -31,8 +35,7 @@
 // zeros and its ceilings agree unprojected).
 
 /** The generator's one shadow stderr line, in any run's wording tail. */
-export const SHADOW_STDERR_LINE =
-  /^out-of-scope \(not gated, owner decision 2026-10-03\):.*\n/gm;
+export const SHADOW_STDERR_LINE = /^out-of-scope \(not gated, owner decision 2026-10-03\):.*\n/gm;
 
 /**
  * The shadow-move check's lines (rid `2026-10-03-shadow-move-rider`, W1): the
@@ -45,9 +48,25 @@ export const SHADOW_STDERR_LINE =
 export const SHADOW_MOVE_STDERR_LINE =
   /^(?:WARNING: shadow moved up: |shadow-move check: |shadow unchanged: |shadow moved down: | {2}compared: this run ).*\n/gm;
 
+/**
+ * The silent-warning LEG's measurement sentence — declared surface 5 (rid
+ * `2026-10-03-silent-warning-scope`, backlog §2.43). The slice's whole point is that
+ * this leg now measures the enforced scope instead of a `src/` walk of its own, and
+ * it says so in a sentence the pinned monolith cannot print because the monolith has
+ * no such claim to make. Both sides' diagnostic is the leg's measurement line, both
+ * start `silent-warning: catch-return-null=`, and both are stderr-only: no artifact
+ * byte beyond `scope` (already surface 2), no ceiling (the fifteen are unchanged),
+ * no exit code. Pinned positively by
+ * `tests/unit/lint/silent-warning-scope-leg.test.ts`.
+ */
+export const LEG_MEASURE_STDERR_LINE = /^silent-warning: catch-return-null=.*\n/gm;
+
 /** stderr with the rescope's shadow note and the shadow-move check removed. A no-op for the monolith side. */
 export function projectStderr(text: string): string {
-  return text.replace(SHADOW_STDERR_LINE, '').replace(SHADOW_MOVE_STDERR_LINE, '');
+  return text
+    .replace(SHADOW_STDERR_LINE, '')
+    .replace(SHADOW_MOVE_STDERR_LINE, '')
+    .replace(LEG_MEASURE_STDERR_LINE, '');
 }
 
 /**

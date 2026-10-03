@@ -13,7 +13,17 @@
  * lists, both measured-file counts, and every ceiling row it is about to hide.
  * `--rescope` is the only thing that writes through it — same refuse-first,
  * print-everything, opt-in-by-flag shape as `--seed`.
+ *
+ * SINCE RID `2026-10-03-silent-warning-scope` (backlog §2.43) the comparison is the
+ * WHOLE `scope` block, not only `dirs`, because a leg can change the population it
+ * measures without the gate's scope moving — that is exactly how the silent-warning
+ * rows came to ratchet 905 files inside a 943-file scope, and the 17 swallows in
+ * `packages/<name>/src` that no ceiling had ever counted. A leg population is recorded
+ * under `scope`, read by `.husky/baseline/leg-scope.mjs`, and a moved one is a
+ * boundary event here.
  */
+
+import { describeLegScopeMove, legScopeMoves } from './leg-scope.mjs';
 
 /** The escape hatch. Named so it cannot be reached by accident, like `--seed`. */
 export const RESCOPE_FLAG = '--rescope';
@@ -126,20 +136,59 @@ const sameDirs = (a, b) =>
   Array.isArray(a) && Array.isArray(b) && JSON.stringify([...a].sort()) === JSON.stringify([...b].sort());
 
 /**
- * H1 — may this run write an artifact whose `scope.dirs` differ from HEAD's?
+ * THE WHOLE BOUNDARY, in one reading. §2.42 asked whether `scope.dirs` moved;
+ * rid `2026-10-03-silent-warning-scope` (backlog §2.43) adds the other way a
+ * boundary can move — one LEG's recorded population — because that is the only way
+ * to express "the silent-warning leg measured 905 files and now measures 943" when
+ * the gate's own scope never changed.
  *
- * Returns `null` when the question does not arise (HEAD carries no readable
- * scope block — a pre-rescope artifact from before this slice, which nothing
- * here can compare against), or when the dirs are equal (no rescope). Returns
- * the refusal text when they differ and `--rescope` was NOT passed. The text
- * names both dir lists, both measured-file counts, every per-row delta the
- * write is about to hide, and says in words that the drop is a scope change,
- * not a reduction in debt.
+ * Returns `null` when the question cannot be asked (HEAD's artifact carries no
+ * readable `scope.dirs`, so there is nothing to compare against — the posture
+ * §2.42 took and this slice keeps), and otherwise the two halves of the answer:
+ *   - `dirsDiffer` — the gate-wide scope moved;
+ *   - `moves` — which leg populations moved, where a record HEAD never carried is
+ *     `unknown` and unknown is not "equal" (`leg-scope.mjs`);
+ *   - `gatePopulationMoved` — whether the rows that belong to no leg have any
+ *     boundary to attribute a movement to (`dirs`, or the measured file count).
  */
-export function scopeTrip({ headScope, headFileCount, newScopeDirs, gatedCount, headCeilings, ceilings }) {
+export function scopeDifference({ headScope, newScope, headFileCount, gatedCount }) {
   const headDirs = Array.isArray(headScope?.dirs) ? headScope.dirs : null;
   if (headDirs === null) return null;
-  if (sameDirs(headDirs, newScopeDirs)) return null;
+  const newDirs = Array.isArray(newScope?.dirs) ? newScope.dirs : [];
+  const dirsDiffer = !sameDirs(headDirs, newDirs);
+  const moves = legScopeMoves(headScope, newScope);
+  return {
+    headDirs,
+    newDirs,
+    dirsDiffer,
+    moves,
+    gatePopulationMoved: dirsDiffer || headFileCount !== gatedCount,
+    any: dirsDiffer || moves.length > 0
+  };
+}
+
+/**
+ * H1 — may this run write an artifact whose `scope` block differs from HEAD's?
+ *
+ * Returns `null` when the question does not arise (HEAD carries no readable
+ * scope block — a pre-rescope artifact from before §2.42, which nothing here can
+ * compare against), or when nothing in it moved. Returns the refusal text when the
+ * dirs moved OR a leg's population record moved, and `--rescope` was NOT passed. The
+ * text names both dir lists, both measured-file counts, WHICH LEG's population moved
+ * with BOTH of its counts, every per-row delta the write is about to hide, and says
+ * in words that the movement is a scope change, not a reduction or an addition of
+ * debt.
+ */
+export function scopeTrip({
+  headScope,
+  headFileCount,
+  newScope,
+  gatedCount,
+  headCeilings,
+  ceilings
+}) {
+  const diff = scopeDifference({ headScope, newScope, headFileCount, gatedCount });
+  if (diff === null || diff.any === false) return null;
   const rows = [];
   for (const [key, value] of Object.entries(ceilings)) {
     const previous = headCeilings?.[key];
@@ -147,37 +196,49 @@ export function scopeTrip({ headScope, headFileCount, newScopeDirs, gatedCount, 
       rows.push(`${key}: ${previous} -> ${value}`);
     }
   }
+  const dirs = diff.dirsDiffer
+    ? `    - HEAD scope.dirs: ${JSON.stringify(diff.headDirs)}\n` +
+      `    - new scope.dirs:  ${JSON.stringify(diff.newDirs)} (rule: src/** + packages/*/src/**)\n`
+    : `    - scope.dirs: unchanged (${JSON.stringify(diff.newDirs)}) — what moved is a LEG's own population,\n` +
+      '      which the gate-wide scope has no room to say\n';
+  const legs =
+    diff.moves.length > 0
+      ? `${diff.moves.map((move) => `    - ${describeLegScopeMove(move)}`).join('\n')}\n`
+      : '';
   return (
     `SCOPE CHANGE without ${RESCOPE_FLAG}: this run measured a different file set than ` +
     `${headScope.source ?? 'HEAD'} did.\n` +
-    `    - HEAD scope.dirs: ${JSON.stringify(headDirs)}\n` +
-    `    - new scope.dirs:  ${JSON.stringify(newScopeDirs)} (rule: src/** + packages/*/src/**)\n` +
+    dirs +
     `    - measured files: ${headFileCount} -> ${gatedCount}\n` +
+    legs +
     (rows.length > 0
       ? `    - ceilings this write would re-anchor:\n${rows.map((r) => `        ${r}`).join('\n')}\n`
       : '    - no ceiling row moves in this write\n') +
     `  EVERY movement above is a SCOPE CHANGE, not a reduction in debt: the files that ` +
     'left the\n' +
-    '  enforced view are still there, unfixed. If that is really the decision being made,\n' +
-    `  say so on purpose with ${RESCOPE_FLAG}; the shadow rows then keep the out-of-scope ` +
-    'totals reported.'
+    '  enforced view are still there, unfixed, and the files that ENTERED it were always\n' +
+    '  there too. If that is really the decision being made, say so on purpose with ' +
+    `${RESCOPE_FLAG}; the shadow rows then keep the out-of-scope totals reported, and only\n` +
+    '  the rows of a leg whose population moved may change.'
   );
 }
 
 /**
  * The other direction: `--rescope` passed when NOTHING rescoped. The flag is a
  * statement about a boundary moving, not a cosmetic override — with no scope
- * difference to write it refuses, the same way `--seed` over a readable anchor
- * does not silently become "write anyway".
+ * difference to write it refuses, the same way `--seed` over a readable anchor does
+ * not silently become "write anyway". Since §2.43 "nothing moved" covers the legs too:
+ * a recorded population that equals HEAD's is not a boundary, whatever the ceilings
+ * would like to do.
  */
-export function rescopeUnneededTrip({ headScope, newScopeDirs }) {
-  const headDirs = Array.isArray(headScope?.dirs) ? headScope.dirs : null;
-  if (headDirs !== null && !sameDirs(headDirs, newScopeDirs)) return null;
+export function rescopeUnneededTrip({ headScope, newScope, headFileCount, gatedCount }) {
+  const diff = scopeDifference({ headScope, newScope, headFileCount, gatedCount });
+  if (diff !== null && diff.any) return null;
   return (
     `${RESCOPE_FLAG} was passed but the scope has not changed since HEAD: ` +
-    (headDirs === null
+    (diff === null
       ? 'HEAD carries no scope block and this run derives none differently'
-      : `scope.dirs are ${JSON.stringify(newScopeDirs)} on both sides`) +
+      : `scope.dirs are ${JSON.stringify(diff.newDirs)} on both sides and no leg population moved`) +
     '. There is nothing to rescope. Run without the flag.'
   );
 }

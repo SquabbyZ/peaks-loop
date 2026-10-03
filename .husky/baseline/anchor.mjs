@@ -124,20 +124,26 @@ function readWorkingCopyCeilings() {
 }
 
 /**
- * HEAD's `scope` block and measured-file count, read from the SAME bytes the
- * ceilings were parsed from (rid `2026-10-03-w10-rescope-a`, H1). The
- * monotonicity comparison sees values; this is the population that produced
- * them. Absent or malformed scope is `null` — a pre-rescope artifact carries no
- * scope block and there is nothing to compare against; the scope guard stays
- * quiet rather than inventing a verdict.
+ * HEAD's `scope` block, its measured-file count and its shadow block, read from the
+ * SAME bytes the ceilings were parsed from (rid `2026-10-03-w10-rescope-a`, H1;
+ * widened to the WHOLE block by rid `2026-10-03-silent-warning-scope`, §2.43). The
+ * monotonicity comparison sees values; this is the population that produced them —
+ * and a population lives in more than one place: `dirs` is the gate's, while a key
+ * like `silentWarning` is one LEG's. Comparing only `dirs` is what made a leg's
+ * boundary move inexpressible, so the block goes to the guard as it is written in
+ * the artifact, with nothing defaulted and nothing invented.
+ *
+ * Absent or malformed `scope` is `null`: a pre-rescope artifact carries no block,
+ * and the guard stays quiet rather than inventing a verdict about a record that
+ * does not exist. A block that EXISTS but carries no record for some leg is NOT null
+ * — it goes through as "unknown for that leg", which `leg-scope.mjs` refuses to read
+ * as zero.
  */
 function readAnchorScope(text) {
   try {
     const doc = JSON.parse(text);
     const scope =
-      doc !== null && typeof doc === 'object' && Array.isArray(doc.scope?.dirs)
-        ? { dirs: doc.scope.dirs, source: HEAD_REF, ...(typeof doc.scope.rule === 'string' ? { rule: doc.scope.rule } : {}) }
-        : null;
+      doc !== null && typeof doc === 'object' && Array.isArray(doc.scope?.dirs) ? doc.scope : null;
     const fileCount =
       doc !== null && typeof doc === 'object' && doc.files !== null && typeof doc.files === 'object'
         ? Object.keys(doc.files).length
