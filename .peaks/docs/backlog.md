@@ -2264,3 +2264,39 @@ Cost, stated rather than hidden: the name filter is cheap and deterministic; the
 candidates a maintainer must classify, some of which will be innocent (that is what the `readdirSync`
 sweep produced too). The alternative is a guard whose entire blind spot is "call it something else", and
 this entry is the second time this campaign has found a guard keyed on a proxy rather than on the thing.
+
+### 2.46 The `shadow` block has no ratchet, no staleness guard, and its own number was six files short the day it shipped (found 2026-10-03 by re-running the generator after the rescope commit)
+
+Re-running `.husky/peaks-gate-baseline.mjs` on the freshly committed tree — same tree, nothing edited but
+the commit itself — moved three numbers and **only** three:
+
+```
+"measuredFiles": 552 -> 558    "eslintFindings": 638 -> 639    "eslintErrors": 159 -> 160
+(no ceiling line moved; `gate repo` still exit 0)
+```
+
+Two facts, one benign-but-hidden and one structural:
+
+1. **The artifact is measured against the INDEX, so it is always a snapshot of the pre-commit tree.** The
+   six missing files are this slice's own six new `tests/unit/**` modules: at the 04:19 generation they
+   existed on disk but were untracked, and `git ls-files` does not list what is not in the index. For the
+   *enforced* rows the campaign already pays for this — §2.35's `settleDeferredAdded` exists precisely
+   because an ADDED file's row could not be judged before it was committed. Nothing equivalent was built
+   for the shadow, so the number the world reads for "what the boundary stopped watching" was understated
+   on arrival, and the regeneration that corrects it is not the artifact anyone reviewed.
+2. **The shadow can never be laundered, and can therefore also never be refused — which is by design and
+   so needs a voice.** Shadow keys sit deliberately outside `CEILING_KEYS` (and the canonical-key check is
+   set equality, so they cannot leak into the ratchet), because the owner's 2026-10-03 ruling means 558
+   exempt files are measured, not gated. The consequence stated plainly: the exempt population may grow by
+   any amount forever and the only signal is a diff nobody is obliged to read. §2.41's sentence applies —
+   a reported number with no reaction attached is one step from an unreported one.
+
+Fix shape — **announce, do not gate** (gating would contradict the owner's decision; silence is what §2.41
+warns about). When the shadow rises between `HEAD` and the current run, the generator prints a distinct
+warning line naming each moved key and its delta (`shadow moved up: eslintFindings 638 -> 639 — the
+boundary exempts it; nobody fixed it`), keeps the exit code it would have had anyway, and writes nothing
+extra. Arms: a fixture planting a shadow rise → the sentence appears **and** the exit code is unchanged (so
+the warning cannot rot into an accidental refusal); a fixture planting a shadow fall → no warning. Rider,
+one arm and cheap: `generatedAt` is the only field that is *supposed* to move when the generator is
+re-run on a clean tree, so assert exactly that in the rescope-guard test — and note that this single arm
+is what would have caught fact 1 before the commit instead of after it.
