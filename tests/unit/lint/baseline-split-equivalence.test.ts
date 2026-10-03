@@ -200,7 +200,7 @@ function runGenerator(side: Side, argv: readonly string[]): Run {
   };
 }
 const redact = (text: string): string => text.replace(GENERATED_AT, '"generatedAt": "<dt>"');
-// The rescope projection (rationale in `_rescope-projection.ts`): three declared
+// The rescope projection (rationale in `_rescope-projection.ts`): four declared
 // surfaces normalised away; every other byte and line still compared strictly.
 function differs(a: Run, b: Run): Diff {
   return {

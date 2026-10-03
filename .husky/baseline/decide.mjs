@@ -18,7 +18,12 @@ import {
   settleDeferredAdded
 } from '../peaks-gate-baseline-monotonic.mjs';
 
-import { RESCOPE_FLAG, rescopeUnneededTrip, scopeTrip } from './rescope.mjs';
+import {
+  RESCOPE_FLAG,
+  rescopeUnneededTrip,
+  scopeTrip,
+  shadowMoveLines
+} from './rescope.mjs';
 
 import { HEAD_REF, OUT_REL, refuse } from './paths.mjs';
 
@@ -32,6 +37,8 @@ export function decideWrite({
   ceilings,
   headScope = null,
   headFileCount = null,
+  headShadow = null,
+  shadow = null,
   rescope = null
 }) {
   // ---- monotonicity: the anchor was read above; decide, then write ------------
@@ -128,6 +135,14 @@ export function decideWrite({
       if (trip !== null) refusals.push(trip);
     }
   }
+  // W1 — THE SHADOW-MOVE CHECK (rid `2026-10-03-shadow-move-rider`, backlog §2.46).
+  // Printed BEFORE the refusal below and OUTSIDE it, because it is a report about the
+  // population the ceilings do not gate: it may neither add a key to the artifact nor
+  // change this run's exit code, and a run that is already refusing is exactly the run
+  // whose operator wants to know the exempt side moved too. Arms:
+  // `tests/unit/lint/shadow-move-warning.test.ts`.
+  const shadowMoveInput = { headShadow, shadow, rescopeApplied: rescopeApplied !== null };
+  for (const line of shadowMoveLines(shadowMoveInput)) console.error(line);
   if (refusals.length > 0) {
     refuse(
       `${refusals.join('\n\n')}\n\n  The anchor is ${HEAD_REF}. Nothing above it was rewritten by this run.`

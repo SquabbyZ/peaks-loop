@@ -2300,3 +2300,64 @@ the warning cannot rot into an accidental refusal); a fixture planting a shadow 
 one arm and cheap: `generatedAt` is the only field that is *supposed* to move when the generator is
 re-run on a clean tree, so assert exactly that in the rescope-guard test — and note that this single arm
 is what would have caught fact 1 before the commit instead of after it.
+
+**Rider landed the mechanism (`…-shadow-move-rider`, 36 tests / 3 files green on re-measurement, including
+`@slow` arms for the exempt-file-entering-the-index rise and for the second-run convergence to equal).**
+The generator now prints, on stderr only: an `inactive` line when HEAD has no shadow to compare against,
+one `shadow unchanged: 558 files, 639 findings, …` comparison line, one `WARNING: shadow moved up: <key>
+a -> b — the boundary exempts it; nobody fixed it` per risen row (annotated `(the boundary moved this run
+— --rescope)` on a rescoped run), and nothing at all on a fall. Two hard properties are arm-tested rather
+than asserted in prose: the exit code is identical to the same decision computed without the warning, and
+the artifact's key list and `ceilings` bytes are unchanged.
+
+### 2.47 An equivalence projection with no bounding arm is a channel for declaring any future behaviour "equivalent" (found 2026-10-03 while reviewing the §2.46 rider)
+
+`tests/unit/lint/_rescope-projection.ts` carries this sentence in shipped test machinery:
+
+> `…so the arms that assert the projection is small live next door…`
+
+They do not exist. `projectStderr` is *applied* on both sides of
+`baseline-split-equivalence.test.ts` (`:209`, `:470`) and nothing anywhere constrains what it may remove:
+
+```
+/^(?:WARNING: shadow moved up: |shadow-move check: |shadow unchanged: |shadow moved down: | {2}compared: this run ).*\n/gm
+```
+
+Why that is not a cosmetic gap: the test it serves is the one whose entire purpose is proving the split
+gate behaves like the pinned 799-line monolith — the campaign's chosen defence against a refactor that
+changes behaviour silently. A normaliser is the escape hatch of such a proof, and an *unbounded*
+normaliser is the proof's negation: a future generator that prints a different decision under any of
+those five prefixes is silently declared equivalent, and the file still prints green. §4u named the
+defect precisely — **a comment inside shipped source claiming a test exists is the claim under test, never
+evidence for it** — and this is that defect reappearing in a slice whose parent closed it.
+
+Required arms (being implemented as `…-rider-repair1`):
+1. **not over-broad** — plant a sentence that is not on the declared list (a real decision sentence, e.g.
+   `REFUSING to write`) and show the projection leaves it, so the two sides differ and the equivalence
+   claim goes red;
+2. **not stale** — every regex alternative must correspond to a line the current generator can emit, read
+   out of `.husky/baseline/rescope.mjs` rather than re-typed, so a prefix that exists only in the
+   projection fails the arm;
+3. while in the file — the header says "three declared surfaces" and lists four; a header whose own
+   arithmetic is wrong teaches the next reader to treat the rest of it as decoration.
+
+The generic lesson, which is the third time this campaign has met the same shape: **any projection,
+normalisation, waiver or `skip`-like device inside a guard needs an arm that bounds how much it may
+erase**, in the same way a ceiling needs a zero-floor arm and a count needs a population arm (§2.41).
+Without one, the guard's strictness is whatever the filter happens to match that day.
+
+**CLOSED the same day (`…-shadow-move-rider-repair1`).** `tests/unit/lint/rescope-projection-bounded.test.ts`
+(175 lines) bounds it, and the way it does so is the part worth copying: it **executes**
+`.husky/baseline/rescope.mjs`'s emitters to enumerate the lines the generator can actually print, instead of
+re-typing them, then checks the regex alternatives and the emitted set for **set equality in both directions**
+— a regex branch earning its keep from no emitted line fails ("a silently-widening projection"), and a newly
+emitted shadow sentence that the projection does not cover fails. Separately, a planted real
+`REFUSING to write` sentence must **survive** `projectStderr`, so a refused run and a clean write can never
+be projected into agreement. The header's false claim now names this file and its arms, and the
+"three declared surfaces" that listed four items is corrected in both places.
+Falsifiers were demonstrated by mutating the regex three ways (widen to swallow `REFUSING`, add a branch
+nothing emits, drop a branch something does) with the red text recorded in the repair1 envelope and logs in
+`.tmp/`. One honest limit, recorded rather than glossed: the orchestrator could not reproduce those three
+reds itself, because reproducing them requires editing a test file and the campaign forbids the orchestrator
+from writing tests — so that leg stands on the leaf's captured failure output, which is exactly the kind of
+claim this section is about.

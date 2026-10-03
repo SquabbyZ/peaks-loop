@@ -132,9 +132,13 @@ const sizeRows = {
   }
 };
 const ceilings = buildCeilings({ lint: gatedLint, format, tscErrors, sw, size: sizeRows });
+// `...anchor` carries HEAD's shadow block (`headShadow`); `shadow` is this run's.
+// `decideWrite` compares the two out loud and writes neither the exit code nor a key
+// from that comparison (W1, rid `2026-10-03-shadow-move-rider`).
 decideWrite({
   ...anchor,
   ceilings,
+  shadow,
   rescope: {
     flag: rescopeRun,
     newScopeDirs: deriveScopeDirs(measured.gated),

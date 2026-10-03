@@ -84,22 +84,19 @@ export function buildCeilings({ lint, format, tscErrors, sw, size }) {
 }
 
 /**
- * The artifact bytes, and the one write this generator performs. Nothing here
- * runs before `decideWrite` has agreed: the inputs recorded with each ceiling (F2)
- * come off the same envelope the rows come off, so the gate can re-derive them
- * and refuse a mismatch.
+ * THE ARTIFACT BYTES AS A STRING, with nothing around them — no directory, no
+ * filesystem, no second clock read (rid `2026-10-03-shadow-move-rider`, W2.1).
+ * Extracted from `writeArtifact` so determinism is testable at the level the defect
+ * lives at: a 280 KB committed JSON is stable only if the ONE field that reads the
+ * clock is `generatedAt`, and a key-order or `Set`-iteration change is invisible to a
+ * deep object compare while it is a wall of diff in a committed artifact. The
+ * generator has one caller, below, so the bytes the repository commits are the bytes
+ * this returns.
  */
-export function writeArtifact({ scope, lint, format, size, ceilings, files, shadow }) {
+export function artifactDocumentText({ scope, lint, format, size, ceilings, files, shadow }) {
   const { coverageGapFiles, notLinted, phantomRules, syntaxErrorFiles } = lint;
   const { unparsable } = format;
-  // `.peaks/lint/` is a tracked directory today, but the seed path above is the one
-  // run that may legitimately find it absent, and a refusal to write because of a
-  // missing directory is not a refusal the operator can act on.
-  mkdirSync(dirname(OUT_PATH), { recursive: true });
-
-  writeFileSync(
-    OUT_PATH,
-    `${JSON.stringify(
+  return `${JSON.stringify(
       {
         version: 3,
         generatedAt: new Date().toISOString(),
@@ -172,7 +169,20 @@ export function writeArtifact({ scope, lint, format, size, ceilings, files, shad
       },
       null,
       2
-    )}\n`
-  );
+    )}\n`;
+}
+
+/**
+ * The one write this generator performs, and the only production caller of
+ * `artifactDocumentText`. Nothing here runs before `decideWrite` has agreed: the
+ * inputs recorded with each ceiling (F2) come off the same envelope the rows come
+ * off, so the gate can re-derive them and refuse a mismatch.
+ */
+export function writeArtifact(input) {
+  // `.peaks/lint/` is a tracked directory today, but the seed path above is the one
+  // run that may legitimately find it absent, and a refusal to write because of a
+  // missing directory is not a refusal the operator can act on.
+  mkdirSync(dirname(OUT_PATH), { recursive: true });
+  writeFileSync(OUT_PATH, artifactDocumentText(input));
   console.error(`wrote ${rel(OUT_PATH)}`);
 }

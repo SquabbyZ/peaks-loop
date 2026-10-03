@@ -1309,3 +1309,47 @@ orchestrator rather than read out of the report, and all of them held:
   `file-size-gate-leg.test.ts`), because the honest version of an arm is longer than the version that
   fits. Recorded here so the next wave expects a red at the first added line and hoists into a sibling
   instead of trimming an assertion.
+
+### 4x. Wave 10 slice B — the exempt population got a voice, and the projection that could have hidden one got bounded (2026-10-03, rids `2026-10-03-shadow-move-rider` + `…-repair1`)
+
+The rescope left 558 files measured-but-not-gated. Measured-and-silent is one step from unmeasured
+(§2.41), so the generator now compares this run's `shadow` against `HEAD:`'s and says what moved —
+stderr only, four states, each arm-tested:
+
+| state | what it prints |
+|---|---|
+| HEAD has no `shadow` block (pre-`561ba8b5`) | `shadow-move check: inactive — … nothing to compare this run's 558 exempt files against` (never silence) |
+| equal | `shadow unchanged: 558 files, 639 findings, 160 errors, 35 over-cap, 13557 excess lines` |
+| rise | one `WARNING: shadow moved up: <key> a -> b — the boundary exempts it; nobody fixed it` per moved row, annotated `(the boundary moved this run — --rescope)` when that is the cause |
+| fall | nothing (a fall is real cleanup, and a *vanished* population is already refused by the census's own empty/missing-scope guard) |
+
+Two properties are asserted rather than promised: the exit code equals the same decision computed with the
+warning call deleted, and the artifact's key list plus `ceilings` bytes are unchanged — a warning must not
+smuggle itself into a second ratchet the owner did not ask for. Determinism came with it: the same
+measurement built twice is byte-identical except `generatedAt` (compared as *text*, because key order is
+invisible to a deep object compare and glaring in a committed 280 KB JSON), and in a scratch fixture a
+double run may move nothing else. The regression this slice exists for is now a test that can go red:
+`git add` an exempt `tests/**` file → `shadow.measuredFiles` rises, the WARNING prints, ceilings stay put,
+and the exit code is what it was before the warning existed.
+
+**And the finding that came out of reviewing the slice, not the code.** `tests/unit/lint/_rescope-projection.ts`
+carried a sentence claiming "the arms that assert the projection is small live next door". They did not
+exist; the projection was only ever *applied*, on both sides of the equivalence comparison, never
+*bounded*. An unbounded normaliser is the negation of the proof it sits inside — a future generator
+printing a different decision under one of its five prefixes would be declared equivalent to the pinned
+799-line monolith while the test printed green. `rescope-projection-bounded.test.ts` closes it the way
+guards here should be closed: it **executes** the emitters to enumerate what the generator can actually
+print (nothing re-typed), then demands set equality both directions — a regex branch earning no emitted
+line fails as "a silently-widening projection", an emitted line the regex misses fails the other way — and
+a planted real `REFUSING to write` sentence must **survive** projection, so a refused run and a clean write
+can never be projected into agreement. Red for each was produced by mutating the regex three ways, logged
+in the repair1 envelope; the orchestrator could not reproduce those three reds itself, because reproducing
+them needs a test edit and the campaign reserves test authorship for the leaves — recorded here as the
+weakest evidence link in the slice rather than smoothed over.
+
+Battery, all exit 0 and all re-run by the orchestrator, not read from the report: `gate repo` (943 files,
+every ceiling held, hooks 0/0), `tsc -p tsconfig.json --noEmit`, `pnpm test:unit` **367 files / 3,831
+passed / 3 skipped** (from 364/3,801), `npm run build` with `build-integrity: OK`. One ratchet caught its
+own author on the way: the repair's first `gate repo` run exited 1 on `tsc errors 1 > ceiling 0`, a TS2532
+in its brand-new test file — which is the row doing its job on a day the enforced scope no longer covers
+`tests/`, because `tsc`'s population was deliberately left wide (§4w).

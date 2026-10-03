@@ -1,6 +1,7 @@
 /**
- * `.husky/baseline/rescope.mjs` — the rescope guard (H1) and the shadow tally
- * (H3), pure, rid `2026-10-03-w10-rescope-a` (backlog §2.42).
+ * `.husky/baseline/rescope.mjs` — the rescope guard (H1), the shadow tally (H3) and
+ * the shadow-move check (W1), pure, rid `2026-10-03-w10-rescope-a` (backlog §2.42)
+ * with W1 from rid `2026-10-03-shadow-move-rider` (backlog §2.46).
  *
  * WHY THE GUARD EXISTS. The monotonicity comparison compares VALUES and knew
  * nothing about the SCOPE that produced them. Narrow the enforced file set and
@@ -19,6 +20,99 @@ export const RESCOPE_FLAG = '--rescope';
 
 /** Read at module load, exactly like `anchor.mjs` reads `--seed`. */
 export const rescopeRun = process.argv.slice(2).includes(RESCOPE_FLAG);
+
+/**
+ * THE NUMERIC ROWS OF THE SHADOW BLOCK, in the order the shadow-move check reads
+ * them (rid `2026-10-03-shadow-move-rider`, W1). They are shadow rows, NOT
+ * ceilings — this list exists so the check has a fixed set to compare and can
+ * never be handed a ceiling key by accident. `anchor.mjs` reads it too, so the
+ * "does HEAD's block have a number here at all" question and the "did this row
+ * move" question are answered from ONE list.
+ */
+export const SHADOW_MOVE_ROWS = Object.freeze([
+  'measuredFiles',
+  'eslintFindings',
+  'eslintErrors',
+  'fileSizeOverCap',
+  'fileSizeExcessLines'
+]);
+
+/** Is `block` a shadow block the check may compare row by row? Absent/malformed: no. */
+export function isShadowBlock(block) {
+  if (block === null || typeof block !== 'object' || Array.isArray(block)) return false;
+  return SHADOW_MOVE_ROWS.every((row) => typeof block[row] === 'number');
+}
+
+/** The population, in the one sentence every state of the check is allowed to name. */
+function shadowPopulation(shadow) {
+  return (
+    `${shadow.measuredFiles} files, ${shadow.eslintFindings} findings, ${shadow.eslintErrors} errors, ` +
+    `${shadow.fileSizeOverCap} over-cap, ${shadow.fileSizeExcessLines} excess lines`
+  );
+}
+
+/**
+ * W1 — WARN WHEN THE SHADOW RISES, given the block HEAD's artifact carries and the
+ * block this run measured. Pure: it returns the lines, the caller prints them, and
+ * nothing here can reach an exit code or a byte of the artifact.
+ *
+ * WHY A VOICE AND NOT A GATE (owner ruling 2026-10-03, backlog §2.46). The rescope
+ * made 558 files measured-and-not-gated, so their debt can move while every ceiling
+ * holds — §2.46 is exactly that happening with nobody noticing. A ceiling would be a
+ * second ratchet the owner did not ask for; silence is the defect. So: stderr, one
+ * line per moved row, exit code untouched.
+ *
+ * Four states, none of them allowed to be silent:
+ *   - inactive — HEAD carries no readable shadow block (its artifact predates the
+ *     rescope), so there is nothing to compare against, and that is said out loud
+ *     with the size of the population it could not compare;
+ *   - equal — one line naming the population;
+ *   - rise — one WARNING per moved row, and when `--rescope` was applied this run
+ *     the same line says so, because "we stopped watching more files" and "the files
+ *     we stopped watching got worse" are different facts the artifact cannot tell
+ *     apart afterwards;
+ *   - fall — no warning at all (real cleanup, or a population that left the scope,
+ *     which the census's own empty/missing-scope guard already refuses), but still
+ *     stated rather than dropped.
+ */
+export function shadowMoveLines({ headShadow, shadow, rescopeApplied = false }) {
+  const boundary = rescopeApplied ? ' (the boundary moved this run — --rescope)' : '';
+  if (!isShadowBlock(shadow)) {
+    // No measurement to speak about: the check stays out of the way rather than
+    // printing a population it does not have. Every generator run has one.
+    return [];
+  }
+  if (!isShadowBlock(headShadow)) {
+    return [
+      `shadow-move check: inactive — HEAD's artifact carries no shadow block, so there is nothing ` +
+        `to compare this run's ${shadow.measuredFiles} exempt files against.`
+    ];
+  }
+  const rose = [];
+  const fell = [];
+  for (const row of SHADOW_MOVE_ROWS) {
+    const previous = headShadow[row];
+    const current = shadow[row];
+    if (current > previous) rose.push(`${row} ${previous} -> ${current}`);
+    else if (current < previous) fell.push(`${row} ${previous} -> ${current}`);
+  }
+  if (rose.length > 0) {
+    return [
+      ...rose.map(
+        (move) => `WARNING: shadow moved up: ${move} — the boundary exempts it; nobody fixed it${boundary}`
+      ),
+      `  compared: this run ${shadowPopulation(shadow)} against HEAD's ${shadowPopulation(headShadow)}`
+    ];
+  }
+  if (fell.length > 0) {
+    return [
+      `shadow moved down: ${fell.join(', ')} — not a warning: either real cleanup, or a ` +
+        'population that left the scope (the census refuses an empty or missing one)',
+      `  compared: this run ${shadowPopulation(shadow)} against HEAD's ${shadowPopulation(headShadow)}`
+    ];
+  }
+  return [`shadow unchanged: ${shadowPopulation(shadow)}`];
+}
 
 /** The one stderr sentence every generator run prints, gated or not (H3). */
 export function shadowStderrLine(shadow) {

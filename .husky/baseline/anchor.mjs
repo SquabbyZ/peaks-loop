@@ -24,6 +24,8 @@ import {
   workingCopyTrip
 } from '../peaks-gate-baseline-monotonic.mjs';
 
+import { SHADOW_MOVE_ROWS, isShadowBlock } from './rescope.mjs';
+
 import { HEAD_REF, OUT_PATH, OUT_REL, ROOT, refuse } from './paths.mjs';
 
 // ---------------------------------------------------------------------------
@@ -140,9 +142,16 @@ function readAnchorScope(text) {
       doc !== null && typeof doc === 'object' && doc.files !== null && typeof doc.files === 'object'
         ? Object.keys(doc.files).length
         : null;
-    return { headScope: scope, headFileCount: fileCount };
+    // W1 of rid `2026-10-03-shadow-move-rider`: the SAME bytes also carry the
+    // non-gated `shadow` block, and the shadow-move check compares this run's
+    // population against it. A block that is absent (HEAD predates `561ba8b5`) or
+    // unreadable row by row is `null`, which the check reports as INACTIVE out loud
+    // rather than as "nothing moved" — §2.41's shape, one layer down.
+    const shadow =
+      doc !== null && typeof doc === 'object' && isShadowBlock(doc.shadow) ? doc.shadow : null;
+    return { headScope: scope, headFileCount: fileCount, headShadow: shadow };
   } catch {
-    return { headScope: null, headFileCount: null };
+    return { headScope: null, headFileCount: null, headShadow: null };
   }
 }
 
@@ -155,7 +164,7 @@ export function guardAnchor() {
   const anchorRead = readGitShowHead(OUT_REL);
   let anchorCeilings = null;
   let anchorProblem = anchorRead.problem;
-  let anchorScope = { headScope: null, headFileCount: null };
+  let anchorScope = { headScope: null, headFileCount: null, headShadow: null };
   if (anchorProblem === null) {
     const parsed = parsePreviousArtifact(anchorRead.text);
     anchorCeilings = parsed.ceilings;
@@ -236,6 +245,7 @@ export function guardAnchor() {
     anchorNotes,
     deferredAdded,
     headScope: anchorScope.headScope,
-    headFileCount: anchorScope.headFileCount
+    headFileCount: anchorScope.headFileCount,
+    headShadow: anchorScope.headShadow
   };
 }
