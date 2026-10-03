@@ -1887,7 +1887,7 @@ name those paths (`peaks-gate-baseline.mjs` in 9 of them, `peaks-gate.mjs` in 6)
 pin surface, not a one-line scope edit. See §2.36 for what the stale install means for everything else I
 measured today.
 
-### 2.36 The globally installed CLI is eight days behind `src` while carrying the current version number (found 2026-10-02)
+### 2.36 The globally installed CLI is eight days behind `src` while carrying the current version number (found 2026-10-02) — **CLOSED 2026-10-03 by the owner-approved global reinstall; see §2.52 for what the reinstall itself revealed.**
 
 `C:\nvm4w\nodejs\node_modules\peaks-loop\package.json` says **4.0.54**; `D:/peaks-loop/package.json` says
 **4.0.54**. The installed tree's mtimes are 2026-09-24 02:13, and `strict-remediation-abc` is ~90 commits and
@@ -2551,3 +2551,43 @@ Two facts from one regeneration, both cheap now and both getting less cheap dail
    without a gate** (a rise must be stated in the causing slice's envelope, still no ceiling and no refusal),
    or the small ones get paid on sight — two lines each, in the slice already sitting in the file. The worst
    of the options is the state before §2.46: a number nobody read and a debt nobody owed.
+
+### 2.52 A global `npm i -g` does not run this package's own postinstall, so a user installs the CLI and silently gets none of the skills (found 2026-10-03 while closing §2.36)
+
+Closing the install drift took one command and produced a second defect:
+
+```
+npm i -g .                                  → exit 0, "removed 164 packages, and changed 1 package in 3s"
+npm warn install-scripts  1 package has install scripts not yet covered by allowScripts:
+                            peaks-loop@4.0.54 (postinstall: node ./scripts/install-skills.mjs; prepare: husky)
+                          Run `npm install -g --allow-scripts=peaks-loop` to allow these scripts once, or
+                          `npm config set allow-scripts=peaks-loop --location=user` for all global installs.
+```
+
+Verified afterwards, all by run: `grep -c hooksFileSizeCaps <global>/dist/services/scan/file-size-policy.js`
+→ **1** (was absent), `peaks --version` → `4.0.54`, and `peaks skill presence / scan file-size --help /
+lint check --help / sub-agent dispatch --help / worktree list --json / session list --json` → **exit 0, no
+missing-module errors** (worth stating because the install removed 164 packages: the dependency tree did
+change and the CLI was probed six ways, not one). But `ls ~/.qoder-cn/skills` before/after → **identical,
+45 entries**: npm skipped `postinstall`, so **the skills — the thing this product is — did not install.**
+
+So the defect is not the warning (npm is right to block scripts by default now) and not our script; it is the
+**install story**: the documented path (`npm i -g peaks-loop`) yields a working CLI with no skills, silently,
+and the only thing telling the user is a warning line that scrolls past. The `--allow-scripts` flag exists,
+is user-level, and is discovered by nobody who is not already looking.
+
+Fix shape (product, not gate — and cheap): make the *absence* observable rather than the *installation*. One
+line in `README` (both languages) giving the exact command, and one line printed by a command the user will
+actually run next (`peaks skill presence`, or `peaks doctor`) when the skills directory has no
+`.peaks-managed` markers while the CLI version is current — i.e. report "the CLI installed but the skills did
+not", which is a state no existing leg describes. Before building anything: measure on a clean machine
+whether npm's behaviour is version-dependent, because a claim about "global installs silently skip skills"
+should be verified on the installer a user actually has, not on this box alone.
+
+Residual of §2.36 that this reinstall does **not** fix, stated so nobody re-closes it wrongly: the installed
+copy and the repo both report **4.0.54**, so the version number still carries no information about which
+build is on the machine. The drift will recur with the next uncommitted-then-committed change; the only real
+cures are publishing a bump per release (needs the owner's npm account and is irreversible) or stamping the
+build (the repo already writes `dist-stamp` with a digest — the installed CLI could print it, and then
+"which build is this" is answerable in one command). That is a one-line diagnostic, not a new gate; it is
+offered, not scheduled, under the freeze.
