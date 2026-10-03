@@ -31,6 +31,19 @@ jobs:
         node-version: [22.x]
     steps:
       - uses: actions/checkout@v4
+        # rid 2026-10-04-backlog-2-55 (owner-decided): this job runs the unit
+        # suite, and two of its files (tests/unit/lint/baseline-split-anchor.test.ts,
+        # baseline-split-equivalence.test.ts) pin PRE_SPLIT_ANCHOR_SHA='77b711ff'
+        # and resolve it with `git show`. @v4 defaults to fetch-depth: 1, so the
+        # anchor blob was absent on every CI run and 10 arms failed there while
+        # passing in every full clone that measured them. The `commit-message
+        # red line` job below documents this very constraint in its own comment
+        # ("defaults to fetch-depth: 1, so in the `test` job …") — the
+        # history-dependent legs had been landed in the job that has no history.
+        # Fix = give this job the history its tests already require, not make the
+        # arms degrade to a skip where they cannot resolve.
+        with:
+          fetch-depth: 0
 
       - name: Setup pnpm (corepack)
         # pnpm/action-setup@v4 + @v6 both fail the self-installer on the

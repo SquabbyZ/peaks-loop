@@ -2785,3 +2785,47 @@ Nothing in the push gate changed (checked: no `refs/tags` / stdin handling exist
 out through the escape hatch the refusal text itself names — `PEAKS_GATE_CHANGED_BASE=v4.0.54`, which is also the
 semantically right base for a release. The gate behaviour §2.53 describes is still open, and the meta layer is
 frozen, so it stays open by decision rather than by oversight.
+
+### 2.55 Two tests pinned to a literal commit sha run in the one CI job that has no commit history — `main` has been red on CI on every push since 2026-10-02 and green in every place it was ever measured
+
+Found while verifying the 4.1.0 publish (the publish itself is green and shipped; this is the *other* workflow).
+
+```
+ci.yml run #… (tag 2bacd5fa, main)   vitest + build: ubuntu FAIL, macos FAIL, windows FAIL
+  step 9 "Test" = `npx vitest run --reporter=default --reporter=github-actions`
+  annotations (10 failures / 2 files, identical on the earlier ff536436 run):
+    tests/unit/lint/baseline-split-equivalence.test.ts  ×8   "Error: the seed scenario produced no measurement"
+                                                          ×1 "Error: Command failed: git show 77b711ff:.husky/peaks-gate-baseline.mjs"
+    tests/unit/lint/baseline-split-anchor.test.ts       ×1   "the pinned pre-split anchor 77b711ff no longer
+                                                              resolves as a generator blob — the history was
+                                                              rewritten or the entry moved."
+```
+
+The cause is not a rewritten history — the sentence the test prints is a guess about its own failure.
+`tests/unit/lint/baseline-split-anchor.test.ts:57` holds `const PRE_SPLIT_ANCHOR_SHA = '77b711ff'` (pinned on
+purpose by `f0c42d57` *test(gate): pin the equivalence anchor to a sha — a HEAD-relative regression test only
+proves itself on the day it is written*, 2026-10-02), and the job that runs the suite checks out with
+`actions/checkout@v4`'s default depth. **`.github/workflows/ci.yml` already documents that fact, in the comment
+of the one job that sets `fetch-depth: 0`:** "`actions/checkout@v4` defaults to `fetch-depth: 1`, so in the
+`test` job …" — the full-history job exists *because* the test job cannot see history. So a history-dependent
+leg was landed into the job the file itself says has none, and `git show <sha>` there fails before the anchor
+arm can run, which then cascades into the seven "produced no measurement" arms (the harness's seed step is the
+first thing to consume the missing blob).
+
+What made this survive contact with the campaign: every one of these arms was measured in `D:/peaks-loop`, a
+full clone, where `git show 77b711ff` resolves. The local suite is green — 381 files / 3,936 passed — and the
+pre-push leg that runs it also runs locally. So the *only* environment that ever executed these assertions
+differently is the one nobody had to look at. Same shape as §2.41 for the third time in this campaign, with a
+new twist: here the constraint was not unknown, it was **written down two hundred lines away in the same file**.
+
+The fork, left to the owner rather than decided here (the meta layer is frozen, and this is a question about
+where a leg runs, not about adding one):
+
+- **(A)** give the `test` job its history (`fetch-depth: 0` on that one checkout, three OS runners pay a bigger
+  checkout) — the tests keep their meaning and CI starts telling the truth about them.
+- **(B)** move the two history-dependent files into the job that already has full history, which runs no vitest
+  today and would have to start.
+- **(C)** let the arms degrade when the object is absent. **Rejected in advance**: a skip in place of a real
+  assertion is indistinguishable from a pass exactly where it matters, and the pin's whole purpose (`f0c42d57`)
+  was to stop the test proving itself only on the day it was written.
+
