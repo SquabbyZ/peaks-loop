@@ -2679,3 +2679,44 @@ What does survive, restated at the evidence level each claim deserves:
 `npm i` calls into a temp prefix, about one second, and reversed a claim that had already been committed and
 reported. Whenever a finding says "tool X refuses to do Y", run X first — the four-line experiment is
 cheaper than the defect entry it prevents, and it is the only thing that separates a skip from a no-op.
+
+### 2.53 The push gate's own empty-set refusal blocks a release: once `main` is up to date, a tag cannot be pushed (hit 2026-10-03 while publishing 4.1.0)
+
+The release walked straight into it. Sequence: `chore(release)` committed → `git push origin main`
+(fast-forward, succeeded, `c2f7c635..ff536436`) → `git push origin v4.1.0` →
+
+```
+husky - pre-push script failed (code 1)
+error: failed to push some refs to 'github.com:SquabbyZ/peaks-loop.git'
+
+peaks-gate: origin/main resolves to HEAD (ff536436), so the changed set is empty
+  by construction. REFUSING to report that as a pass: "nothing to compare" and
+  "compared and clean" are different results, and only one of them is evidence.
+```
+
+**Every clause of that is correct except the conclusion for this operation.** The refusal is wave 10
+slice 1's `reportEmpty` decision — `changed` mode will not read an empty set as a pass, after an orchestrator
+once read exactly that as green and shipped on it. And pushing a tag **is** an empty-set operation: the tag
+names a commit `origin/main` already contains, so there is no file set to ratchet. The gate is right that
+there is no evidence, and wrong to make that fatal, because a release tag carries commits that were gated when
+they were pushed and nothing about naming a ref makes them gated less.
+
+What it took to publish: the gate's own named escape hatch, `PEAKS_GATE_CHANGED_BASE=v4.0.54`, which is also
+the semantically right base ("what does this release contain") — leg 1 ratchets against the previous release
+and leg 2 falls back to the full unit suite. So real verification did happen; the problem is that the
+incantation lives only inside those four lines of refusal text, and **anyone who publishes without reading
+them simply cannot publish**, with a failure that reads like "the gate found no evidence" rather than "you
+are holding the tool wrong".
+
+Fix shape — a clarification of existing behaviour, not a new leg: `pre-push` is handed the refs being pushed
+on stdin, so it can tell a **tag push** from a commit push before deciding that an empty changed set is
+fatal. Correct semantics: all-refs-are-tags → say it out loud (`tag push v4.1.0 — no changed file set to
+ratchet; its commits were gated at push time`), still run the test leg against whatever base the caller
+named, exit 0; a **commit** push with an empty set → keep refusing (that is the case `reportEmpty` was
+written for); mixed → treat as a commit push. Arms: tag push with `origin/main == HEAD` → exit 0 **and** the
+sentence; commit push under the same condition → still exit 1; and one arm proving the tag path **still runs
+tests** when a base is supplied — otherwise the exemption becomes a way to skip verification at exactly the
+moment it is most expected, which is the thing this repo has refused all week.
+
+Explicitly not the fix: "push the tag before main". It works by accident, encodes an ordering into a human
+workflow, and the wall comes back the first time someone pushes in the other order.
