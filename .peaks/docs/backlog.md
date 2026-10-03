@@ -2396,6 +2396,66 @@ reds itself, because reproducing them requires editing a test file and the campa
 from writing tests — so that leg stands on the leaf's captured failure output, which is exactly the kind of
 claim this section is about.
 
+### 2.50 §2.43's scope trip cannot tell "we started watching more" from "we redrew the boundary", and that blocked the first honest descent slice (found 2026-10-03 by `…-w11a-ecc-cache-split`, reproduced by the orchestrator)
+
+`scopeTrip` was widened in §2.43 to compare the whole `scope` block, so a *leg's* population change is a
+boundary event. Correct for its own case — and too blunt: it fires on **file counts moving inside an
+unchanged rule**, which is what ordinary work does.
+
+The first slice to hit it was a pure descent. `packages/peaks-loop-mut/src/services/agent/ecc-cache-service.ts`
+(837 raw, cap 300) was split verbatim into 8 modules ≤163 lines; the watched scope grows 943 → 950, and every
+ceiling it would re-anchor goes **down** (`fileSizeOverCap` 127 → 126, excess 40,761 → 40,224, `max-lines`
+stops firing on the monolith). Reproduced, not reasoned:
+
+```
+gate staged <new sibling>          → exit 1: NEW file … has 4 lint finding(s)   [inherited debt read as fresh]
+generator, siblings staged         → exit 1: SCOPE CHANGE without --rescope … measured files 943 → 950
+```
+
+Those two facts compose into a lock: the siblings can only get baseline rows from a successful regeneration,
+and the regeneration refuses because the population grew. Passing `--rescope` would open the lock and spend
+the word: §2.42 exists so that `--rescope` means *"the owner redrew the boundary"*, and a flag stamped on an
+ordinary split means the next reader can no longer tell the two apart.
+
+**The accompanying near-miss, which is the part worth keeping.** The slice's leaf, following the brief's
+ordering, regenerated while the siblings were still **untracked**. `git ls-files` is the index, so that run
+measured a scope of 943 files that no longer contained the moved code, and wrote `silentWarning 42 / 59` and
+`eslintFindings 2114` — numbers true only of a tree that does not exist. Committing it would have shipped a
+baseline its own commit violates (real values 49 / 68), i.e. a **false** descent. Caught only because the
+envelope quoted both orders; the artifact was restored to `HEAD` before anything was committed.
+
+**Decided by the owner 2026-10-03: distinguish growth from shrink.** The trip requires `--rescope` when
+(a) the rule text, the `dirs` set, or the extensions changed, or (b) **any file that was in scope at `HEAD`
+left it** — the shape that covers a rename out of `src/` to escape a ceiling, and, acceptably, honest
+deletions too. Pure growth needs no flag: a larger watched population can only *raise* measured counts, and
+the ordinary monotonicity rule refuses any rise regardless of the flag, so the ratchet is not what is being
+relaxed — the ceremony is. Safety rests on the direction, which is why (b) is computed as a **set**, not as a
+number: `950 > 943` is a growth claim, `943 − 950` is not the only way to lose coverage.
+
+Fix shape: `.husky/baseline/leg-scope.mjs` / `rescope.mjs` gain a leaving-set computation between HEAD's
+in-scope file list and the run's; the refusal message names which files left; the growth path prints
+`scope grew: 943 -> 950 (7 entered, 0 left the scope)`. Arms: growth → no-flag succeeds; one file renamed
+out of `src/` → refuses and names it; rule text edited → refuses (existing); ceilings rising under growth →
+still refused as RAISED, which is the arm that proves the relaxation did not weaken the guard.
+
+**CLOSED 2026-10-03 (`2026-10-03-scope-growth-vs-shrink`), and the lock it was built to open opened on the
+first try.** With the split staged and **no flag at all**, the generator exited 0 printing
+`scope grew: 943 -> 950 (7 entered, 0 left the scope)`, and the artifact banked four descents —
+`eslintFindings 2130 → 2129`, `eslintErrors 812 → 811`, `fileSizeOverCap 127 → 126`,
+`fileSizeExcessLines 40761 → 40224` — with rows and `scope.silentWarning.scannedFiles` both at 950 and the
+silent-warning rows **unchanged at 49 / 68**. That last identity is the behaviour-preservation proof the
+descent needed: the 17 swallows survived being cut into 8 modules and are now counted there.
+
+Two residues worth keeping. First, **the guard's own file became the guarded thing**:
+`.husky/baseline/rescope.mjs` went 230 → 298 raw lines (census 299 against a cap of 300) *while acquiring
+the arms that keep ceilings honest*. One more sentence there is a refusal from the tool describing itself —
+the campaign's "guard work raises the row it guards" pattern, arriving one step before the row instead of
+after it. Split it before adding to it. Second, a state with **no write path** now: "the scope grew and a
+ceiling rose because new in-scope code brought real debt" — the flag answers "nothing to rescope", the
+no-flag run answers `RAISED`. Defensible (a new in-scope file must be clean anyway; §2.42's own rule), but
+it is the third named gap of the §2.35 family, and if it ever blocks a real slice the answer is a third
+explicit state ("attributed growth"), never a re-broadened flag.
+
 ### 2.48 The monotonicity refusal prints a remedy that would delete the work it is refusing (found 2026-10-03 by a leaf that chose not to follow it)
 
 Mid-slice in §2.43, the artifact on disk carried an intended, **uncommitted** raise (49/68) while `HEAD`
@@ -2465,3 +2525,29 @@ when the checked-out index has moved since. That is one number, one comparison a
 listed rather than built because the same information already prints, in a different place, every time the
 generator runs, and paying for a second copy of a warning nobody failed to read would be the kind of
 speculative machinery this campaign has been trimming all week.
+
+### 2.51 The guard file is now at its own size cap, and the exempt population grew by two more findings in the very slice that was watching ceilings (2026-10-03, measured at the §2.50 regeneration)
+
+Two facts from one regeneration, both cheap now and both getting less cheap daily.
+
+1. **`.husky/baseline/rescope.mjs` is at 298 raw lines — census 299 against a cap of 300.** It grew from 230
+   while acquiring the leaving-set logic that makes §2.50's growth/shrink distinction real. The next sentence
+   anyone writes there — a clearer refusal, one more arm's plumbing, a comment — produces
+   `fileSizeHooksOverCap 1 > ceiling 0`: **the row that measures the gate will be reddened by the gate's own
+   anti-laundering logic.** That is the campaign's repeated "guard work raises the row it guards" pattern in
+   its inverted form — not over the cap but *at* it, with no descent left inside the file to absorb the next
+   change. And the two files most likely to need editing next (`rescope.mjs`, `leg-scope.mjs`, 173 lines) are
+   exactly the guard's remaining work. Fix: split it the way wave 9 split everything else under `.husky/` —
+   verbatim hoist into `baseline/` siblings, re-export stability **plus** §4s's two lessons (initialisation
+   order, mock identity), an equivalence arm over the same inputs, and the hooks pair staying 0/0 throughout.
+   Sequence matters: do it before the next change lands on top of it, not after the refusal.
+2. **`shadow.eslintFindings 639 → 641` while the enforced scope's own findings went *down*.** The two new
+   findings are in `tests/**`, exempted by the owner's 2026-10-03 ruling, and they appeared in the slice whose
+   whole job was to keep descents honest. That is now a **three-datapoint pattern**: 5 findings in
+   `…-w10-rescope-a` (paid the same day), none in the rider, 2 here. The §2.46 mechanism did what it was built
+   to do — the WARNING named both rows on the run that produced them — but nobody is *obliged* to pay them,
+   which is the priced consequence of "measured, not gated" and exactly what §2.42 predicted.
+   Fix shape, and it is a policy call rather than a code call: either the exempt population gets a **ratchet
+   without a gate** (a rise must be stated in the causing slice's envelope, still no ceiling and no refusal),
+   or the small ones get paid on sight — two lines each, in the slice already sitting in the file. The worst
+   of the options is the state before §2.46: a number nobody read and a debt nobody owed.

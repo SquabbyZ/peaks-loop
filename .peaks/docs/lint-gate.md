@@ -1392,3 +1392,50 @@ A leaf noticed and declined; that is luck, not a guard. The second is about this
 premises in the slice brief were wrong (a file count I had mis-added, and a mechanism I attributed to the
 wrong module), and both were corrected by the leaf rather than by me, which is the only reason the shipped
 prose is now accurate.
+
+### 4z. Wave 11 — the first descent of enforced product code, and the guard's own ceremony nearly blocking it (2026-10-03, rids `…-w11a-ecc-cache-split` + `…-scope-growth-vs-shrink`)
+
+`packages/peaks-loop-mut/src/services/agent/ecc-cache-service.ts` — 837 raw lines against the 300 cap,
+**+537 excess**, the only over-cap file under `packages/`, and the home of 16 of the 17 swallows §2.43 had
+just made visible — became 8 modules ≤163 lines by verbatim hoist: a `ecc-cache-service.ts` facade (163,
+carrying `downloadToCache` and the whole re-export surface) over `ecc-cache-config`, `ecc-archive-safety`,
+`ecc-fetch`, `ecc-cache-manifest`, `ecc-materialized-readers`, `ecc-materialize`, `ecc-cache-cleanup`.
+Multiset discipline held to the §4r standard — orphan lines 9 (all import-block plumbing out of HEAD),
+leftovers 162 of which **0 are code** (87 import/export, 75 header), every declaration byte-identical, and
+the export surface diffed against the built `dist`: 23/23 names, missing none, extra none.
+
+The banked descent, in four numbers: `fileSizeOverCap 127 → 126`, `fileSizeExcessLines 40761 → 40224`,
+`eslintFindings 2130 → 2129`, `eslintErrors 812 → 811`. The single eslint finding that disappeared is the
+monolith's own `max-lines` — a split that removes a finding by removing the thing that tripped the rule,
+which is the only honest way a split is allowed to do it. And the identity that proves nothing changed
+behaviour: **the silent-warning rows stayed exactly 49 / 68 across the cut**, now measured over 950 files,
+so all 17 swallows survived being moved rather than being quietly re-rolled.
+
+**Both traps the brief warned about were real, and one of them was mine.** The warn-once latch
+(`let warnedAboutFallback`) welded itself to `fallbackMetadata` with no second reader — the seam
+recommended it, and the new `ecc-list-cached-agents.test.ts` proves single-fire by calling twice (with a
+mutation red captured: `expected […(2)] to have a length of 1 but got 2`). And the delayed-import test that
+makes initialisation order load-bearing mocks **`homedir()`, not `tmpdir()` as this brief asserted** — the
+leaf measured it and said so; my sentence would have led the next reader to arm against the wrong symbol.
+
+**What the slice actually cost, though, was the ceremony.** With the siblings staged, the watched population
+is 950 and the trip I had widened an hour earlier (§2.43, to make a leg-population move a boundary event)
+refused the regeneration: `SCOPE CHANGE without --rescope … 943 → 950`. Combined with the per-file rule that
+a file with no baseline row must be clean outright — which read the siblings' **inherited** debt as fresh —
+the two locked: the rows need a regeneration, the regeneration demands a flag whose whole meaning is "the
+owner redrew the boundary". Passing it would have spent the word; the owner instead decided to discriminate
+by **direction** (§2.50): growth proceeds and prints `scope grew: 943 -> 950 (7 entered, 0 left the scope)`,
+anything that could have lost coverage still requires the flag, and the safety arm proves that a growth
+accompanied by a rising ceiling is still refused as `RAISED` — ceremony relaxed, ratchet untouched. The
+leaving set is a **set difference**, never a subtraction: `950 > 943` does not show that nothing left.
+
+The ordering lesson from the same hour (§2.49, and it nearly shipped): regenerating while the siblings were
+still untracked produced a *consistent* artifact of a tree that did not exist — `42 / 59` and `2114`,
+true only of the pre-commit index — which the split's own commit would have violated at 49/68. The run that
+banked this descent happened **after** staging, and that order is now the convergence procedure.
+
+Battery, re-run by the orchestrator, all exit 0: `gate repo` (rows as above, hooks 0/0, 950 == the enforced
+scope), `tsc --noEmit`, `pnpm test:unit` **372 files / 3,860 passed / 3 skipped**, `npm run build`
+(`build-integrity: OK`). Filed from it: **§2.51** — `rescope.mjs` is now at census 299 of a 300 cap, so the
+row measuring the gate will be reddened by the gate's own anti-laundering code the next time anyone writes a
+sentence there; and the exempt population grew by two findings during the slice that was watching ceilings.
