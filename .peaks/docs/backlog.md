@@ -2829,3 +2829,16 @@ where a leg runs, not about adding one):
   assertion is indistinguishable from a pass exactly where it matters, and the pin's whole purpose (`f0c42d57`)
   was to stop the test proving itself only on the day it was written.
 
+**CLOSED 2026-10-04 — the owner picked (A)**, landed as `3c212b06` and pushed. Verified in the only place the
+defect existed, not locally:
+
+| run | head | `vitest + build` × 3 | ubuntu failure annotations |
+|---|---|---|---|
+| #…37135588662 (before) | `2bacd5fa` | FAIL / FAIL / FAIL | 10 |
+| #…37137032155 (after) | `3c212b06` | success / success / success | **0** (2 = GitHub's own Node-20 + runner-image notices) |
+
+Whole run 37137032155: `completed success`, 6/6 jobs. The depth change was checked by **parsing** the workflow
+(`yaml` package → per-job `checkout.with`), which shows `fetch-depth: 0` on exactly `test` and
+`commit-message-red-line`, and nothing on the other two jobs — a grep for the string would have passed even if
+the option had been attached to the wrong step.
+
