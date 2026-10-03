@@ -2431,3 +2431,37 @@ three string assertions in `baseline-monotonicity-head-anchor.test.ts`-adjacent 
 whole product. Priority: low until the next slice regenerates an uncommitted baseline, which in this
 campaign is roughly every third slice — and one of those times a leaf will be tired, the message will be
 authoritative, and the `git checkout` will look like the fix it names.
+
+### 2.49 Every convergence commit has now shipped an artifact that understates its own index — the guard is right, the order of operations is wrong (established by three recurrences, 2026-10-03)
+
+`shadow.measuredFiles` moved three times today, by threes, for the same reason each time:
+
+| when | value | why it moved |
+|---|---|---|
+| `561ba8b5` generated at 04:19 | 552 | the slice's own 6 new `tests/**` files were on disk but untracked |
+| refreshed at `4a4dd5f9` | 558 | +6, those files were now in the index |
+| `a20dcd7e` (slice B) | — | added 3 more `tests/unit/lint` files, artifact not regenerated → understated again |
+| `…-repair1` regenerated | 561 | +3, catching up |
+| post-`19e5c310` no-flag run | **564** | +3 more, the files `19e5c310` itself had just committed |
+
+Nothing is broken. The identity the arms enforce — `rows + shadow.measuredFiles === census.countedFiles`,
+and `scope.silentWarning.scannedFiles == the enforced scope` — holds **at every generation moment**, because
+both sides are read from the same index. The artifact is a correct measurement of a stale input, and it is
+stale by exactly the files that arrive after the measurement and before the commit. §2.36's `dist-stamp`
+guard handles the analogous case for build output by recording a fingerprint and refusing a mismatch; here
+nothing refuses, because a number that is merely behind is not a contradiction.
+
+So the fix is procedural and belongs to the orchestrator's convergence step, not to a leg:
+
+1. **stage first** (`git add` the whole slice, including the files the artifact will count);
+2. **then** run the generator, so every population it reports is the index the commit will carry;
+3. re-stage the artifact, then commit;
+4. and read the §2.46 rise warning as the check that step 2 was skipped — a rise that arrives with no code
+   change is a boundary or an ordering error, and today it correctly named three of them.
+
+Cheapest form of a real guard, if the rule is ever broken again: the artifact could record
+`generatedWithIndex` (a count of `git ls-files`, or its hash) and `gate repo` could warn — not refuse —
+when the checked-out index has moved since. That is one number, one comparison and one sentence; it is
+listed rather than built because the same information already prints, in a different place, every time the
+generator runs, and paying for a second copy of a warning nobody failed to read would be the kind of
+speculative machinery this campaign has been trimming all week.
