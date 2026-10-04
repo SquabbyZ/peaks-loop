@@ -13,6 +13,7 @@
 import type { Command } from 'commander';
 
 import { auditComments, type CommentAuditResult } from '../../services/comments/comment-audit.js';
+import { pruneComments } from '../../services/comments/comment-prune.js';
 import type { CommentFindingKind } from '../../services/comments/comment-hygiene.js';
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
 import { fail, ok } from 'peaks-loop-shared/result';
@@ -36,6 +37,48 @@ function nextActions(result: CommentAuditResult): string[] {
   lines.push('Worst files first: --json carries per-line records with the matched rule.');
   return lines;
 }
+
+/** The `prune` action: plan, prove, and only then write. */
+function runPrune(io: ProgramIO, options: PruneCommandOptions): void {
+  const kind = parseKind(options.kind);
+  if (options.kind !== undefined && kind === undefined) {
+    printResult(
+      io,
+      fail(
+        'comments.prune',
+        'INVALID_KIND',
+        `--kind must be one of: ${KINDS.join(', ')}`,
+        { provided: options.kind },
+        ['Re-run with a supported --kind, or omit it for both categories.']
+      ),
+      options.json === true
+    );
+    process.exitCode = 1;
+    return;
+  }
+  const result = pruneComments({
+    projectRoot: options.project ?? process.cwd(),
+    ...(kind === undefined ? {} : { kinds: [kind] }),
+    ...(options.file === undefined ? {} : { onlyFile: options.file }),
+    ...(options.apply === true ? { apply: true } : {})
+  });
+  const actions = [
+    result.applied
+      ? `Ledger: ${result.ledgerPath} records every line removed and every refusal.`
+      : 'Dry run: nothing was written. Pass --apply to write, after reading the plan.',
+    result.skipped > 0 ? `${result.skipped} finding(s) refused — see skipped reasons.` : undefined,
+    result.notWritten.length > 0 ? `Files not written: ${result.notWritten.join(', ')}` : undefined
+  ].filter((line): line is string => line !== undefined);
+  printResult(io, ok('comments.prune', result, [], actions), options.json === true);
+}
+
+type PruneCommandOptions = {
+  project?: string;
+  kind?: string;
+  file?: string;
+  apply?: boolean;
+  json?: boolean;
+};
 
 type AuditOptions = { project?: string; kind?: string; limit?: string; json?: boolean };
 
@@ -91,4 +134,16 @@ export function registerCommentsCommands(program: Command, io: ProgramIO): void 
       .option('--kind <kind>', `one of: ${KINDS.join(', ')}`)
       .option('--limit <n>', 'cap the per-line findings printed (totals are never capped)')
   ).action((options: AuditOptions) => runAudit(io, options));
+
+  addJsonOption(
+    comments
+      .command('prune')
+      .description(
+        'Remove the comment lines the scan named, and prove the diff is comment-only first. Dry run unless --apply.'
+      )
+      .option('--project <path>', 'project root to prune (default: cwd)')
+      .option('--kind <kind>', `one of: ${KINDS.join(', ')}`)
+      .option('--file <path>', 'one repo-relative file, for a narrow first run')
+      .option('--apply', 'write the files (default: plan and prove only)')
+  ).action((options: PruneCommandOptions) => runPrune(io, options));
 }
