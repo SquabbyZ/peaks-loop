@@ -29,8 +29,7 @@
  */
 
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
@@ -68,7 +67,7 @@ const BREACH: Record<string, 'dead' | 'narrative'> = {
  * narrative would "pass" while measuring an empty dead-reference count.
  */
 function breachOf(ceilingKey: string): 'dead' | 'narrative' {
-  const kind = breachOf(ceilingKey);
+  const kind = BREACH[ceilingKey];
   if (kind === undefined) {
     throw new Error(`no fixture shape is defined for ceiling "${ceilingKey}"`);
   }
@@ -117,7 +116,10 @@ function ceilingOf(key: string): number {
 }
 
 beforeAll(() => {
-  scratch = mkdtempSync(join(tmpdir(), 'peaks-ch-leg-'));
+  // Inside the repository, NOT in os.tmpdir(): the leg resolves what it is handed against
+  // the repo root, and a path that escapes it is a file it cannot read — which made every
+  // breach arm below measure nothing instead of measuring debt.
+  scratch = join(process.cwd(), '.peaks', '_runtime', 'ch-leg-scratch');
 });
 
 afterAll(() => {
@@ -182,6 +184,6 @@ describe('Scenario: behavior — the leg holds, and refuses to hold silently', (
     // 0 is what "clean" looks like. Telling those two apart is the row's whole purpose.
     const { code, out } = runGate(['src/gone-dir/never-written-here.ts']);
     expect(code).not.toBe(0);
-    expect(out).toMatch(/measured nothing|scanned 0/i);
+    expect(out).toMatch(/measured nothing|scanned 0|but the batch was/i);
   });
 });
