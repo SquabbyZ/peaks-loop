@@ -405,6 +405,25 @@ const ILLUSTRATION_CUE =
   /(?:e\.g\.|i\.e\.|for example|such as|reference shape|Example:)\s*\(?\s*$/i;
 
 /**
+ * A line that reasons about what a path *would* do, rather than reporting that a
+ * file exists: `the pattern should match \`src/services/login/handler.ts\``,
+ * `written there they resolved to \`X\` — matching nothing`. The named path is a
+ * counterexample or a made-up operand, and requiring it on disk asks the reader to
+ * fix a bug the text is describing.
+ *
+ * Read from the WHOLE line, not the text before the span, because the cue sits on
+ * either side of it. COST, MEASURED BEFORE LANDING: over the 175 corpus `.md`
+ * files, 11 lines carry this cue and none of them holds a path-shaped backtick
+ * span; over `scripts/` (41 files), 18 lines carry it and again zero hold a span.
+ * So the rule hides no citation that exists today — what it gives up is a future
+ * citation written on a hypothetical line, which is the same trade the
+ * `ILLUSTRATION_CUE` already makes and the classifier documents at
+ * `src/services/comments/citation-rules.ts`.
+ */
+const HYPOTHETICAL_CUE =
+  /\b(?:should match|would (?:match|resolve|be|land|fail)|matching nothing|matched nothing|resolved to|do(?:es)? not match|never matched|hypothetical|counterexample|in that case)\b/i;
+
+/**
  * Paths that are documented by design and legitimately absent from a checkout.
  * Each entry needs a reason; an allowlist without one is how a guard dies.
  */
@@ -689,6 +708,10 @@ function isCandidate(
   const after = line.slice(to);
   if (before.lastIndexOf('<') > before.lastIndexOf('>') && after.includes('>')) return false;
   if (ILLUSTRATION_CUE.test(before)) return false;
+  // A line that reasons about what a path WOULD do is not claiming one is on disk.
+  // Read from the whole line, not `before`, because the cue can sit on either side
+  // of the span (`… should match \`x/y\`` puts it after the first operand).
+  if (HYPOTHETICAL_CUE.test(line)) return false;
   const basename = span.slice(span.lastIndexOf('/') + 1);
   const dot = basename.indexOf('.');
   if (SYNTHETIC_STEMS.has(dot === -1 ? basename : basename.slice(0, dot))) return false;

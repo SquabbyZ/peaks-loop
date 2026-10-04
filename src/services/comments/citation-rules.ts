@@ -113,6 +113,37 @@ export const ILLUSTRATION_CUE =
   /(?:e\.g\.|i\.e\.|for example|such as|reference shape|Example:)\s*\(?\s*$/i;
 
 /**
+ * A sentence that reasons about what a path *would* do, rather than reporting
+ * that a file is there.
+ *
+ * Two measured shapes, both read from the whole line because the cue sits on
+ * either side of the span:
+ *
+ *   - a matching rule illustrated with made-up operands —
+ *     `E.g. \`src/services/login\` should match \`src/services/login/handler.ts\``.
+ *     Neither path is in any repository; the line is about the glob semantics.
+ *     The `ILLUSTRATION_CUE` above cannot reach the second operand, because the
+ *     cue must sit immediately before the span to fire, and here it does not.
+ *   - a deliberate counterexample — `Written into \`.peaks/.gitignore\` they
+ *     resolved to \`…\` and \`…\` — matching nothing, in every project`. The comment
+ *     names two paths precisely because they match nothing; reporting them as
+ *     missing files asks the reader to fix a bug the text is describing.
+ *
+ * The list is modal phrases only, and the boundary is load-bearing: the real
+ * finding at `src/services/workspace/claude-settings-template.ts:90` asserts that a
+ * handler "invokes the shipped script" by path, uses no modal, and stays reported —
+ * the script is not in the tree. Bare `resolves to` was tried and dropped from the
+ * list for the opposite reason: it also appears in live assertions about files that
+ * DO exist, and a cue that clears those is a cue that hides debt.
+ *
+ * (This rule's own header was reported by the scan it documents — the sentence
+ * above quoted the missing script's path verbatim, and quoting a dead path in prose
+ * about a dead path is still a dead path. Cited by file and line now.)
+ */
+export const HYPOTHETICAL_CUE =
+  /\b(?:should match|would (?:match|resolve|be|land|fail)|matching nothing|matched nothing|resolved to|do(?:es)? not match|never matched|hypothetical|counterexample|in that case)\b/i;
+
+/**
  * Documented runtime paths that are legitimately absent from a checkout. Each
  * entry needs a reason; an allowlist without one is how a guard dies.
  */
@@ -231,6 +262,8 @@ export function isCitationCandidate(
     return false;
   if (namesSomethingElse(span)) return false;
   if (illustratesRatherThanAsserts(citation, line, span)) return false;
+  // The line reasons about what a path would do; it does not claim one is there.
+  if (HYPOTHETICAL_CUE.test(line)) return false;
   if (REPO_ANCHORS.test(span)) return true;
   if (namesNoDirectory) return true;
   return isFileRelative(span, ctx);

@@ -32,6 +32,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   ELLIPSIS_SEGMENT,
+  HYPOTHETICAL_CUE,
   ILLUSTRATION_CUE,
   OPTIONAL_RUNTIME_PATHS,
   PATH_SHAPED,
@@ -166,9 +167,46 @@ describe('Scenario: the comment classifier and the citation guard share one shap
     );
   });
 
-  it('the ellipsis and illustration-cue rules are the same regex', () => {
+  it('the ellipsis, illustration-cue and hypothetical-cue rules are the same regex', () => {
     expect(compiledRule(guard, 'ELLIPSIS_SEGMENT').source).toBe(ELLIPSIS_SEGMENT.source);
     expect(compiledRule(guard, 'ILLUSTRATION_CUE').source).toBe(ILLUSTRATION_CUE.source);
+    expect(compiledRule(guard, 'HYPOTHETICAL_CUE').source).toBe(HYPOTHETICAL_CUE.source);
+  });
+});
+
+describe('Scenario: a sentence that reasons about a path is not an existence claim', () => {
+  const ctx = { file: 'src/services/scan/diff-scope-service.ts', dirExists: () => true };
+  const cited = (line: string, span: string) => ({
+    span,
+    from: line.indexOf(span) - 1,
+    to: line.indexOf(span) + span.length + 1
+  });
+
+  it('clears the second operand of an example, which the cue-before-span rule misses', () => {
+    // The measured false positive: `E.g.` sits before the FIRST operand only, so a
+    // cue test anchored to the text before the span leaves the second one reported.
+    const line = '// E.g. `src/services/login` should match `src/services/login/handler.ts`.';
+    expect(isCitationCandidate(cited(line, 'src/services/login'), line, ctx)).toBe(false);
+    expect(isCitationCandidate(cited(line, 'src/services/login/handler.ts'), line, ctx)).toBe(
+      false
+    );
+  });
+
+  it('clears a path named as a counterexample', () => {
+    const line = ' * they resolved to `.peaks/.claude/settings.local.json` and';
+    expect(isCitationCandidate(cited(line, '.peaks/.claude/settings.local.json'), line, ctx)).toBe(
+      false
+    );
+  });
+
+  it('still reports the assertion beside it, which is the whole point', () => {
+    // `src/services/workspace/claude-settings-template.ts:90` says the handler
+    // "invokes the shipped script `src/services/hooks/write-gate.js`". No modal, no
+    // example cue — and that file is gone, so it must stay a finding.
+    const line = ' *           `src/services/hooks/write-gate.js` instead, so the command';
+    expect(isCitationCandidate(cited(line, 'src/services/hooks/write-gate.js'), line, ctx)).toBe(
+      true
+    );
   });
 });
 
