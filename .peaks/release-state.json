@@ -1,6 +1,16 @@
 {
   "version": 1,
-  "active": null,
+  "active": {
+    "version": "4.1.1",
+    "currentStage": "planned",
+    "stageHistory": [
+      {
+        "stage": "planned",
+        "at": "2026-10-04T16:20:34.738Z"
+      }
+    ],
+    "createdAt": "2026-10-04T16:20:34.738Z"
+  },
   "history": [
     {
       "version": "4.0.52",

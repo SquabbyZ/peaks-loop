@@ -1,5 +1,30 @@
 # Changelog
 
+## 4.1.1 — 2026-10-05 (一次"闸自己坏了整整一个版本"、注释债第一次进棘轮、以及五个从真实使用里捞出来的缺陷)
+
+**版本级别**: 未发布区间 `v4.1.0..HEAD` 共 **14 个 commit**（6 fix / 4 feat / 1 test / 1 refactor / 1 docs / 1 chore）。**取 patch，而不是按 4.1.0 自己写下的判据取 minor** —— 这条判据不是被推翻，而是被有意收窄：本版新增的两条命令（`peaks comments audit` / `peaks comments prune`）是**仓库自己的维护表面**，只读或只动本仓注释，不改变任何既有命令的输入输出，也不要求下游做任何事；对外承诺的内容全是修复（其中一条是门禁崩溃）。`^4.1.0` 的下游直接匹配本版。4 个 workspace 包各 +1 patch（internal-runtime 0.0.40→0.0.41、mut 0.1.54→0.1.55、shared 0.0.89→0.0.90、shared-channel 0.0.57→0.0.58），顺带把"本地 manifest 比 registry 新"（mut 的 0.1.54 从未发布）这个坑一次清掉：`scripts/release-pack.mjs` 按拓扑序把 5 个包在同一次 CI 运行里一起发出去，`pnpm pack` 把 `workspace:*` 重写成精确 pin，实测 tarball 内 `CLI_VERSION` 为 4.1.1。
+
+### 1. 门禁自己坏了一个版本（`78cb982f`，用户可见）
+
+`node .husky/peaks-gate.mjs file-size` 从 `28b5145f` 起**每次都崩**：那次提交把 comment 腿从 `.husky/gate/legs.mjs` 搬出去时，连带删掉了紧贴它的两段 import（`./context.mjs` 与 `peaks-gate-file-size.mjs`），而 file-size 腿的函数体留在原地 —— `ReferenceError: refuseScopedSubset is not defined`。没有一条臂跑过整条 file-size 模式，所以它活着进了主干；恢复 import 后 `file-size-gate-leg` / `-excess-` / `-hooks-` 三家 21 条臂当场转绿。同一批 78 条臂红的第二个成因是工装：`.husky/file-size/measure.mjs` 与 `.husky/peaks-gate-comment-hygiene.mjs` 都通过 `node_modules/tsx/dist/cli.mjs`  spawn 工具，而四个 fixture builder 把这个 tsx 替身写死成"任何调用都回 census 信封"。census 曾是唯一的 tsx 调用方，所以这写法无害了三个版本；comment 腿上线后它收到 census JSON、在里面找不到 `deadReferences`，于是拒绝 seed —— 现在是一份按请求工具分派的替身，顺带把四份逐字复制的 census 信封合成一份。
+
+### 2. 注释债第一次进棘轮（4 feat）
+
+`peaks comments audit` 出只读清单（dead-reference / narrative 两类，带归属文件），`peaks comments prune` 是执行器，它的**交付物是证明而不是删除**：在真树副本上计划 1677 处、覆盖 484 文件、拒绝 7 处，注释-only 证明 0 问题，残余计数 4+3 恰好等于拒绝数 —— 证明方式是重读改前改后文本、逐行比对非注释行与代码 token，任何一条代码文本变动都拒绝写入。两行 ceiling `commentDeadReferences` / `commentNarrativeLines` 入闸，seed 于**强制范围内实测**的 25 / 1515（952 个 tracked 文件，与 eslint / prettier / tsc / silent-warning / file-size 读同一份清单）。分类器是**先校准再入闸**的：188 → 65（把 standards 守卫的 5 条候选排除规则搬过来）→ 28（邻居解析改为 sibling-only，实测每一次祖先上溯带来 16 次误报）→ 25（再加"句子在推理路径"与包内相对根两条规则）。分类器与守卫的排除规则由一条 parity 臂钉住（读守卫源码里的字面量比对，不抄表）。
+
+### 3. 五个从真实使用里捞出来的缺陷（`c08bf736` / `23af9c1d` / `2e323344`）
+
+1.x→2.0 的升级路径整条删除（含 gate step），不再让一个已经退役的迁移分支继续决定今天的状态；`frontendOnly` 对隐藏目录 / 非 Node 后端的**漏判**修掉（有后端却报 true，用户据此关掉了一整条后端保护）；ECC 从 GitHub tarball 拉取改为读 `ecc-universal` npm 依赖， acquisition 层删除，`ecc status` 从此只报告它能不吞异常说出的东西；`peaks memory extract` 的凭证拒绝变成**可诊断**（原先只说"有凭证"，且误杀形状过宽），并收紧了两类假阳性；PRD 交接的 frontmatter / `gateEvidence` 字段由文档断言变成代码真产 —— 这是本仓最主的一类缺陷：prose 声称的字段实现里没有。
+
+### 4. 一个钉在历史 commit 上的等价守卫，收窄而不是退役（owner 决定 2026-10-05）
+
+`baseline-split-equivalence.test.ts` 把拆分前的 799 行 monolith 钉在 `77b711ff`，与今天的 11 模块版逐字节对比。两行新 ceiling 落在**两侧共享**的 `keys.mjs` 里，于是旧程序被要求核准它自己没有腿去量的行 —— 它诚实地拒绝了（`NOT THE CANONICAL CEILING SET`）。逐字节等价在"行集会增长"的棘轮上不可能再次成立，可选的只有收窄与退役，选了前者：参考侧现在读**自己那个时代**的 `keys.mjs`（一个被交给今天的清单的钉死程序，已经不是那个程序了），投影只允许吞掉"锚点之后 `CEILING_KEYS` 新增的行"，而这个集合由两份真实清单求差得出（`ceilingKeysInText` 读 git blob 与工作树），没有任何字面量；`_split-anchor-era.ts` 持有唯一的 sha，`baseline-split-anchor.test.ts` 证明 harness 不留第二份。`rescope-projection-bounded.test.ts` 加 4 条臂：种一条**不属于 era** 的 moved-row，它的 bullet、header、计数与差异全部保留；note 下的 bullet 若全是 era 行则整条随计数一同消退；comment 腿的两行 stderr 必须由其**自己的 emitter** 或源码字面量证明真的会打印；`projectArtifact` 只掉它被交出去的键，其余照旧逐字节比。
+
+### 5. 本版验证
+
+tsc 0；`pnpm build` 0；全量 unit **388 files / 4082 passed / 3 skipped**；`node .husky/peaks-gate.mjs repo` exit 0，19 行 ceiling 全部 held（`eslint 2098/803`、`comment dead-ref 25 / narrative 1515`、`silent-warn 44/62`、`file-size 127 / 40137`、`hooks 0/0`）；`peaks release precheck --strict` 0；版本 parity `shared-dist` / `runtime-src` 双 OK；`PEAKS_DRY_RUN=1 scripts/release-pack.mjs` 5 个 tarball 全部通过 registry 校验（无 `workspace:*` 残留）。artifacts 侧：baseline 只重写了**报告用**的 shadow 块（588 files / 643 findings / 160 errors / 36 over-cap / 13349 excess，增量是那个新进的 era helper 文件），没有任何 ceiling 移动。
+
+
 ## 4.1.0 — 2026-10-03 (strict-remediation 战役收口: 门禁第一次开始看自己、判据换成"哪些代码是产品"、以及一次把自己推翻的探针)
 
 **版本级别**: 未发布区间 `v4.0.54..HEAD` 共 **167 个 commit**（49 refactor / 42 docs / 35 fix / 8 feat / 6 test / 15 chore / 1 style）。取 **minor** 而不是继续 patch，理由是这区间有**新增的用户可见 CLI 表面**（`peaks job add-slice`）以及若干会改变用户所见的修复（cron 超时、`pnpm lint` 的口径、空测试集从"绿"变"红"）；`^4.0.54` 的下游仍能匹配到本版。
