@@ -2,14 +2,27 @@
   "version": 1,
   "active": {
     "version": "4.1.1",
-    "currentStage": "planned",
+    "currentStage": "promoted",
     "stageHistory": [
       {
         "stage": "planned",
         "at": "2026-10-04T16:20:34.738Z"
+      },
+      {
+        "stage": "canary-10",
+        "at": "2026-10-04T16:40:27.317Z"
+      },
+      {
+        "stage": "canary-50",
+        "at": "2026-10-04T16:40:33.078Z"
+      },
+      {
+        "stage": "promoted",
+        "at": "2026-10-04T16:40:40.460Z"
       }
     ],
-    "createdAt": "2026-10-04T16:20:34.738Z"
+    "createdAt": "2026-10-04T16:20:34.738Z",
+    "promotedAt": "2026-10-04T16:40:40.460Z"
   },
   "history": [
     {
