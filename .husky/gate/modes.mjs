@@ -84,6 +84,7 @@ async function silentWarningMode(argv) {
   return 0;
 }
 // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
 // file-size mode — the over-cap leg, without eslint / prettier / tsc
 // ---------------------------------------------------------------------------
 // Same reason `silent-warning` mode exists: `repo` mode is the enforcement

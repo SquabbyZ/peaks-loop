@@ -67,6 +67,7 @@ import { lintFileList } from '../scripts/lint/lint-file-list.mjs';
 // to "clean this up" to `./`, run that parity test first.
 import { changedMode } from '../.husky/gate/changed.mjs';
 import { repoMode } from '../.husky/gate/repo.mjs';
+import { commentHygieneMode } from '../.husky/gate/comment-hygiene.mjs';
 import { fileSizeMode, silentWarningMode, stagedMode } from '../.husky/gate/modes.mjs';
 
 // THE REPO-MODE FILE LIST IS DECIDED AT THE ENTRY, ON PURPOSE. The parity guard
@@ -91,11 +92,13 @@ const code =
         ? await repoMode(repoFileList())
         : mode === 'silent-warning'
           ? await silentWarningMode(process.argv.slice(3))
-          : mode === 'file-size'
-            ? fileSizeMode(process.argv.slice(3))
-            : (console.error(
-                'usage: peaks-gate.mjs <staged|changed|repo|silent-warning|file-size> ' +
-                  '[--control-arm] [files...]'
-              ),
-              2);
+          : mode === 'comment-hygiene'
+            ? await commentHygieneMode(process.argv.slice(3))
+            : mode === 'file-size'
+              ? fileSizeMode(process.argv.slice(3))
+              : (console.error(
+                  'usage: peaks-gate.mjs <staged|changed|repo|silent-warning|comment-hygiene|file-size> ' +
+                    '[--control-arm] [files...]'
+                ),
+                2);
 process.exit(code);

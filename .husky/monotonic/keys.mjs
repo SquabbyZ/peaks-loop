@@ -45,6 +45,13 @@ export const CEILING_KEYS = Object.freeze([
   'prettierUnformatted',
   'prettierUnparsableFiles',
   'tscErrors',
+  // THE COMMENT-DEBT ROWS: the dead-reference total (comments naming a path that
+  // resolves nowhere) and the narrative total (comments about the work rather than the
+  // code), measured over the enforced scope by `scripts/lint/comment-hygiene-detector.ts`.
+  // They sit with the other whole-tree totals and BEFORE `fileSizeExcessLines`, because
+  // the seeding fixture arms anchor their patch-on-a-copy on the LAST row of this list.
+  'commentDeadReferences',
+  'commentNarrativeLines',
   'silentWarningCatchReturnNull',
   'silentWarningEmptyCatch',
   'fileSizeOverCap',

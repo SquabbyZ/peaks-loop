@@ -37,6 +37,9 @@ export const CH_RULES = [
   ['narrative', 'commentNarrativeLines', 'comment narrative']
 ];
 
+/** The ceiling keys this leg owns, derived from the same table so they cannot drift. */
+export const CH_CEILING_KEYS = CH_RULES.map(([, ceilingKey]) => ceilingKey);
+
 /** Where the leg's population comes from, named IN the artifact record. */
 export const CH_SCOPE_SOURCE = 'git ls-files <scope dirs>';
 

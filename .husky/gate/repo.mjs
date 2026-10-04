@@ -9,6 +9,7 @@ import { execFileSync } from 'node:child_process';
 import { ROOT, baseline, makeCheck } from './context.mjs';
 import { runEslint } from './eslint.mjs';
 import { prettierCheck } from './prettier.mjs';
+import { commentHygieneLeg } from './comment-hygiene.mjs';
 import { silentWarningLeg, fileSizeLeg } from './legs.mjs';
 import { FS_CEILING_KEY, printFileSizeLeg } from '../../.husky/peaks-gate-file-size.mjs';
 
@@ -145,6 +146,17 @@ async function repoMode(files) {
   // every row above measures and refuses if the counts disagree; §2.41's rule
   // applied to the last leg that did not follow it.
   console.log(`  ${sw.line}`);
+  // THE COMMENT ROWS, over the same tracked list as every row above. Refusing here is
+  // deliberate: a comment-debt number that could not be measured must not sit beside a
+  // green run, because "0 dead references" and "the detector did not run" look identical
+  // in an output nobody reads closely — the exact failure the widened probe produced when
+  // it took the count to 0 and the suite stayed healthy.
+  const ch = commentHygieneLeg(check, c, files);
+  if (ch.refusal !== null) {
+    console.error(`\npeaks-gate: ${ch.refusal}\n`);
+    return 1;
+  }
+  console.log(`  ${ch.line}`);
   const size = fileSizeLeg(check, c, []);
   // The measurement is printed WHETHER OR NOT the leg then refuses (repair cycle 2):
   // the run that trips the policy-input binding is exactly the run whose numbers a

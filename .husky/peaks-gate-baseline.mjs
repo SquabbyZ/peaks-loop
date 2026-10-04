@@ -83,7 +83,11 @@ import {
   scopeTally
 } from './baseline/rescope.mjs';
 import { measureScope } from './baseline/scope.mjs';
-import { measureSilentWarningLeg, measureTscErrors } from './baseline/tool-legs.mjs';
+import {
+  measureCommentHygieneLeg,
+  measureSilentWarningLeg,
+  measureTscErrors
+} from './baseline/tool-legs.mjs';
 import { shadowScopeDirs } from './lint-scope.mjs';
 
 // The ratchet's own rule, one module down from the sentence that states it in the
@@ -119,6 +123,10 @@ const tscErrors = measureTscErrors();
 // and the leg ignored either one, because the detector walked `src/` and reported its
 // own 905 files while every other row on the screen came from 943.
 const sw = measureSilentWarningLeg({ scope: measured.gated });
+// THE COMMENT ROWS are seeded from the same tracked list, by the same fail-closed rule:
+// a detector that could not run aborts the run rather than seeding a ceiling of zero for
+// a number nobody measured.
+const ch = measureCommentHygieneLeg({ scope: measured.gated });
 const size = measureCensusLeg();
 const gatedLint = scopeTally(measured.gated, lint);
 const shadow = {
@@ -146,7 +154,7 @@ const sizeRows = {
     excessLines: size.partition.gated.excessLines
   }
 };
-const ceilings = buildCeilings({ lint: gatedLint, format, tscErrors, sw, size: sizeRows });
+const ceilings = buildCeilings({ lint: gatedLint, format, tscErrors, sw, ch, size: sizeRows });
 // `...anchor` carries HEAD's shadow block (`headShadow`); `shadow` is this run's.
 // `decideWrite` compares the two out loud and writes neither the exit code nor a key
 // from that comparison (W1, rid `2026-10-03-shadow-move-rider`).

@@ -131,6 +131,21 @@ const ESLINT_STUB = "process.stdout.write('[]\\n');\n";
 const TSC_STUB = "process.stdout.write('');\n";
 const DETECTOR_STUB =
   "const p = process.argv.slice(2).filter((a) => !a.startsWith('-'));\nconsole.log(JSON.stringify({ scannedFiles: p.length || 1, byRule: { 'catch-return-null': 0, 'empty-catch': 0 } }));\n";
+/**
+ * The comment-hygiene detector, stubbed the same way — and it MUST be a stub, not a
+ * copy: the real tool is `.ts` and imports `src/services/comments/*`, none of which the
+ * fixture stages, so copying the tool alone dies at load (measured: 75 arms failed with
+ * `ERR_MODULE_NOT_FOUND … comment-hygiene-detector.ts`).
+ *
+ * The stub echoes the population back exactly (`scannedFiles == askedFiles == argv`), so
+ * the leg's equality refusal still works as a testable branch, and it reports zero debt:
+ * a fixture that planted comment debt would have to plant the classifier too, and every
+ * arm here is about populations and ceilings, not about the rules.
+ */
+const CH_DETECTOR_STUB =
+  "const p = process.argv.slice(2).filter((a) => !a.startsWith('-'));\n" +
+  "console.log(JSON.stringify({ schemaVersion: 1, scopeSource: 'explicit paths (caller-supplied)', " +
+  'scannedFiles: p.length, askedFiles: p.length, commentLines: 0, deadReferences: 0, narrative: 0 }));\n';
 
 /**
  * A forwarder, not a stub: the fixture's `node_modules/tsx` runs the repository's
@@ -286,6 +301,7 @@ export function createFixture(name: string) {
   write('src/big-main.ts', fileOf(FILE_SIZE_CAP_DEFAULT + 3));
   write('src/tidy.ts', 'export const tidy = 1;\n');
   write(join('scripts/lint', 'silent-warning-detector.mjs'), DETECTOR_STUB);
+  write(join('scripts/lint', 'comment-hygiene-detector.ts'), CH_DETECTOR_STUB);
   write(join('node_modules/eslint/bin', 'eslint.js'), ESLINT_STUB);
   write(join('node_modules/typescript/bin', 'tsc'), TSC_STUB);
   write(join('node_modules/tsx/dist', 'cli.mjs'), tsxForwarder());
