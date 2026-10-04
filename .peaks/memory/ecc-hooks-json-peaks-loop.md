@@ -22,7 +22,7 @@ peaks 自己的 `write-gate.js` 误报 + 20 个 SKILL.md 的闸门措辞）。�
 
 **How to apply**：
 - 判定所有权看路径：`~/.claude/plugins/**` 是 IDE/插件领地；peaks-loop 的 ECC 缓存
-  `~/.peaks/cache/ecc-*/` **只有 `agents/`，没有 `hooks/`** —— 所以 peaks-loop 不可能
+  `~/.peaks/agents/ecc/`（2026-10-04 前叫 `~/.peaks/cache/ecc-*/`）**只有 `agents/`，没有 `hooks/`** —— 所以 peaks-loop 不可能
   产生这个文件（另有项目级规则：peaks 产物永不写 `~/.claude/`）。
 - 升级无用：实测 v2.2.0 / v2.2.1 / main 三个 ref 键位完全相同。且 ECC 自身
   `scripts/ci/validate-hooks.js` 只验形状、从不验键白名单，`schemas/hooks.schema.json`

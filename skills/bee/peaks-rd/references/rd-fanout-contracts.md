@@ -45,8 +45,9 @@ end of implementation, RD fires 3 sub-agents in parallel via
     `detectEcc({ ..., cacheAgentName: resolved })`, compose the prompt with
     `buildCacheBackedEccPrompt({ rid, instructions, diff })`,
     dispatch a **generic** sub-agent, and validate the reply with `isEccEnvelope`.
-    If the cache is empty, run `peaks ecc install` first (dynamic acquisition);
-    offline → inline.
+    If nothing is materialized, run `peaks ecc install` first — it copies the
+    agents from the bundled `ecc-universal` dependency (local, no network);
+    `ECC_PACKAGE_MISSING` → reinstall peaks-loop, and degrade to inline.
   - Any other state (plugin-missing / agent-missing / dispatch-failed /
     envelope-malformed) → inline review; the `code-review-ecc-degraded-to-inline`
     TXT note records the fallback.

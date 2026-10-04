@@ -42,21 +42,24 @@ const CODEGRAPH_IDS = [
 describe('detectInstalledCapabilityIds', () => {
   it('returns nothing when neither the ECC cache nor any npm dep is present', () => {
     const root = tmpRoot();
-    expect(detectInstalledCapabilityIds({ projectRoot: root, eccCacheAvailable: false })).toEqual(
+    expect(detectInstalledCapabilityIds({ projectRoot: root, eccAgentsAvailable: false })).toEqual(
       []
     );
   });
 
-  it('reports every everything-claude-code capability when the ECC cache is populated', () => {
+  it('reports every everything-claude-code capability when the ECC agents are materialized', () => {
     const root = tmpRoot();
-    const installed = detectInstalledCapabilityIds({ projectRoot: root, eccCacheAvailable: true });
+    const installed = detectInstalledCapabilityIds({ projectRoot: root, eccAgentsAvailable: true });
     expect(installed).toEqual(ECC_IDS);
   });
 
   it('reports codegraph capabilities when the npm package is present in node_modules', () => {
     const root = tmpRoot();
     mkdirSync(join(root, 'node_modules', 'codegraph'), { recursive: true });
-    const installed = detectInstalledCapabilityIds({ projectRoot: root, eccCacheAvailable: false });
+    const installed = detectInstalledCapabilityIds({
+      projectRoot: root,
+      eccAgentsAvailable: false
+    });
     expect(installed).toEqual(CODEGRAPH_IDS);
   });
 
@@ -64,14 +67,17 @@ describe('detectInstalledCapabilityIds', () => {
     const root = tmpRoot();
     mkdirSync(join(root, 'node_modules', '.bin'), { recursive: true });
     mkdirSync(join(root, 'node_modules', '.bin', 'codegraph'));
-    const installed = detectInstalledCapabilityIds({ projectRoot: root, eccCacheAvailable: false });
+    const installed = detectInstalledCapabilityIds({
+      projectRoot: root,
+      eccAgentsAvailable: false
+    });
     expect(installed).toEqual(CODEGRAPH_IDS);
   });
 
   it('merges ECC + npm evidence and keeps the list sorted', () => {
     const root = tmpRoot();
     mkdirSync(join(root, 'node_modules', 'codegraph'), { recursive: true });
-    const installed = detectInstalledCapabilityIds({ projectRoot: root, eccCacheAvailable: true });
+    const installed = detectInstalledCapabilityIds({ projectRoot: root, eccAgentsAvailable: true });
     expect(installed).toEqual([...CODEGRAPH_IDS, ...ECC_IDS].sort());
   });
 
@@ -82,7 +88,7 @@ describe('detectInstalledCapabilityIds', () => {
     const installed = detectInstalledCapabilityIds({
       projectRoot: join(root, 'project-without-deps'),
       nodeModulesDir: elsewhere,
-      eccCacheAvailable: false
+      eccAgentsAvailable: false
     });
     expect(installed).toEqual(CODEGRAPH_IDS);
   });

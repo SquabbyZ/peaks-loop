@@ -1,7 +1,13 @@
-// Slice A (2026-09-09-ecc-dynamic-and-cleanup) — plugin-free ECC
-// materialize layer. Verifies the peaks-owned copy lands under the
-// injected `~/.peaks/agents/ecc`-shaped target and NEVER under a
-// `~/.claude`-shaped path, and that every failure mode is fail-soft.
+// The plugin-free ECC copy: `materializeEccAgents` lands the `ecc-universal`
+// package's `agents/*.md` under a peaks-owned dir, NEVER under a
+// `~/.claude`-shaped path, and prunes what the package no longer ships.
+//
+// The source used to be a downloaded cache (`~/.peaks/cache/ecc-<sha>/` +
+// `ecc-installed.json`), and the two "fail-soft when the cache/manifest is
+// missing" cases that model had became ONE case here with the OPPOSITE polarity:
+// an unresolvable source throws rather than landing zero agents and reporting
+// success. That flip is deliberate — a status reading "installed, 0 agents" when
+// nothing is installed is the failure mode this layer exists to avoid.
 
 import {
   existsSync,
@@ -24,9 +30,8 @@ import {
   readMaterializedAgent,
   resolveEccMaterializedDir,
   resolveMaterializedAgentName
-} from '../../../../packages/peaks-loop-mut/src/services/agent/ecc-cache-service.js';
+} from '../../../../packages/peaks-loop-mut/src/services/agent/ecc-package-service.js';
 
-const SHA = 'a'.repeat(40);
 const roots: string[] = [];
 
 function tmpRoot(): string {
@@ -35,23 +40,14 @@ function tmpRoot(): string {
   return root;
 }
 
-function writeCache(root: string, agents: Record<string, string>): string {
-  const cacheDir = join(root, 'cache');
-  const agentsDir = join(cacheDir, `ecc-${SHA}`, 'agents');
+/** Stands in for `<node_modules>/ecc-universal/agents`. */
+function seedAgents(root: string, agents: Record<string, string>): string {
+  const agentsDir = join(root, 'ecc-universal', 'agents');
   mkdirSync(agentsDir, { recursive: true });
-  writeFileSync(
-    join(cacheDir, 'ecc-installed.json'),
-    JSON.stringify({
-      version: '1',
-      sha: SHA,
-      fetchedAt: new Date().toISOString(),
-      agents: Object.keys(agents)
-    })
-  );
   for (const [name, body] of Object.entries(agents)) {
     writeFileSync(join(agentsDir, `${name}.md`), body);
   }
-  return cacheDir;
+  return agentsDir;
 }
 
 afterEach(() => {
@@ -62,17 +58,16 @@ afterEach(() => {
 });
 
 describe('materializeEccAgents', () => {
-  it('copies cached agents into the target dir and writes the peaks-owned manifest', () => {
+  it('copies package agents into the target dir and writes the peaks-owned manifest', () => {
     const root = tmpRoot();
-    const cacheDir = writeCache(root, {
+    const sourceDir = seedAgents(root, {
       'code-review': '# Code review\n\nbody of code-review',
       'security-review': '# Security review'
     });
     const targetDir = join(root, 'home', '.peaks', 'agents', 'ecc');
 
-    const result = materializeEccAgents({ cacheDir, targetDir });
+    const result = materializeEccAgents({ sourceDir, targetDir });
 
-    expect(result.sha).toBe(SHA);
     expect(result.materialized).toEqual(['code-review', 'security-review']);
     expect(readFileSync(join(targetDir, 'code-review.md'), 'utf8')).toContain(
       'body of code-review'
@@ -80,20 +75,19 @@ describe('materializeEccAgents', () => {
     expect(readMaterializedAgent('code-review', targetDir)).toContain('body of code-review');
     expect(hasMaterializedEccAgents(targetDir)).toBe(true);
     expect(listMaterializedAgents(targetDir)).toEqual(['code-review', 'security-review']);
-
     const manifest = readEccMaterializeManifest(targetDir);
-    expect(manifest?.sha).toBe(SHA);
+    expect(manifest?.packageVersion).toBe(result.packageVersion);
     expect(manifest?.agents).toEqual(['code-review', 'security-review']);
   });
 
   it('never writes into a ~/.claude-shaped tree', () => {
     const root = tmpRoot();
-    const cacheDir = writeCache(root, { 'code-review': '# Code review' });
+    const sourceDir = seedAgents(root, { 'code-review': '# Code review' });
     const home = join(root, 'home');
     const claudeDir = join(home, '.claude', 'agents');
     mkdirSync(claudeDir, { recursive: true });
 
-    materializeEccAgents({ cacheDir, targetDir: join(home, '.peaks', 'agents', 'ecc') });
+    materializeEccAgents({ sourceDir, targetDir: join(home, '.peaks', 'agents', 'ecc') });
 
     expect(readdirSync(claudeDir)).toEqual([]);
     expect(existsSync(join(home, '.claude', 'agents', 'code-review.md'))).toBe(false);
@@ -105,55 +99,38 @@ describe('materializeEccAgents', () => {
     expect(dir.includes(`${sep}.claude${sep}`)).toBe(false);
   });
 
-  it('is fail-soft when no cache manifest exists', () => {
+  it('throws on an unreadable source rather than reporting an empty install', () => {
     const root = tmpRoot();
     const targetDir = join(root, 'target');
-    const result = materializeEccAgents({ cacheDir: join(root, 'missing-cache'), targetDir });
-    expect(result).toEqual({ targetDir, sha: null, materialized: [] });
+    expect(() =>
+      materializeEccAgents({ sourceDir: join(root, 'no-such-agents'), targetDir })
+    ).toThrow();
     expect(existsSync(targetDir)).toBe(false);
-  });
-
-  it('is fail-soft when the sha dir is missing', () => {
-    const root = tmpRoot();
-    const cacheDir = join(root, 'cache');
-    mkdirSync(cacheDir, { recursive: true });
-    writeFileSync(
-      join(cacheDir, 'ecc-installed.json'),
-      JSON.stringify({
-        version: '1',
-        sha: SHA,
-        fetchedAt: new Date().toISOString(),
-        agents: ['code-review']
-      })
-    );
-    const result = materializeEccAgents({ cacheDir, targetDir: join(root, 'target') });
-    expect(result.sha).toBeNull();
-    expect(result.materialized).toEqual([]);
   });
 
   it('skips agent names that fail the safe-name allowlist', () => {
     const root = tmpRoot();
-    const cacheDir = writeCache(root, { 'code-review': '# ok' });
-    const agentsDir = join(cacheDir, `ecc-${SHA}`, 'agents');
+    const agentsDir = seedAgents(root, { 'code-review': '# ok' });
     writeFileSync(join(agentsDir, 'BadName.md'), '# nope');
     writeFileSync(join(agentsDir, '9start.md'), '# nope');
+    const targetDir = join(root, 'target');
 
-    const result = materializeEccAgents({ cacheDir, targetDir: join(root, 'target') });
+    const result = materializeEccAgents({ sourceDir: agentsDir, targetDir });
 
     expect(result.materialized).toEqual(['code-review']);
-    expect(existsSync(join(root, 'target', 'BadName.md'))).toBe(false);
-    expect(existsSync(join(root, 'target', '9start.md'))).toBe(false);
+    expect(existsSync(join(targetDir, 'BadName.md'))).toBe(false);
+    expect(existsSync(join(targetDir, '9start.md'))).toBe(false);
   });
 
   it('resolves the REAL upstream name `code-reviewer` without `code-review.md` existing', () => {
     const root = tmpRoot();
-    const cacheDir = writeCache(root, {
-      // Upstream ECC ships `<lang>-reviewer` agents. There is NO `code-review.md`.
+    // Upstream ECC ships `<lang>-reviewer` agents; there is NO `code-review.md`.
+    const sourceDir = seedAgents(root, {
       'code-reviewer': '# Code review\n\nbody of code-reviewer',
       'security-reviewer': '# Security review'
     });
     const targetDir = join(root, 'target');
-    materializeEccAgents({ cacheDir, targetDir });
+    materializeEccAgents({ sourceDir, targetDir });
 
     expect(listMaterializedAgents(targetDir)).toEqual(['code-reviewer', 'security-reviewer']);
     expect(readMaterializedAgent('code-review', targetDir)).toBeNull();
@@ -164,9 +141,9 @@ describe('materializeEccAgents', () => {
 
   it('prefers the caller candidate order when both names are materialized', () => {
     const root = tmpRoot();
-    const cacheDir = writeCache(root, { 'code-review': '# legacy', 'code-reviewer': '# real' });
+    const sourceDir = seedAgents(root, { 'code-review': '# legacy', 'code-reviewer': '# real' });
     const targetDir = join(root, 'target');
-    materializeEccAgents({ cacheDir, targetDir });
+    materializeEccAgents({ sourceDir, targetDir });
 
     expect(resolveMaterializedAgentName(['code-reviewer', 'code-review'], targetDir)).toBe(
       'code-reviewer'
@@ -178,20 +155,20 @@ describe('materializeEccAgents', () => {
 
   it('keeps backward compatibility when only the legacy `code-review` exists', () => {
     const root = tmpRoot();
-    const cacheDir = writeCache(root, { 'code-review': '# legacy' });
+    const sourceDir = seedAgents(root, { 'code-review': '# legacy' });
     const targetDir = join(root, 'target');
-    materializeEccAgents({ cacheDir, targetDir });
+    materializeEccAgents({ sourceDir, targetDir });
 
     expect(resolveMaterializedAgentName(['code-reviewer', 'code-review'], targetDir)).toBe(
       'code-review'
     );
   });
 
-  it('falls back deterministically to a `code-*reviewer` agent when no candidate matches verbatim', () => {
+  it('falls back deterministically to a `code-*reviewer` agent when nothing matches verbatim', () => {
     const root = tmpRoot();
-    const cacheDir = writeCache(root, { 'code-quality-reviewer': '# variant' });
+    const sourceDir = seedAgents(root, { 'code-quality-reviewer': '# variant' });
     const targetDir = join(root, 'target');
-    materializeEccAgents({ cacheDir, targetDir });
+    materializeEccAgents({ sourceDir, targetDir });
 
     expect(resolveMaterializedAgentName(['code-reviewer', 'code-review'], targetDir)).toBe(
       'code-quality-reviewer'
@@ -200,22 +177,22 @@ describe('materializeEccAgents', () => {
 
   it('returns null when nothing matches, so the caller can degrade to inline', () => {
     const root = tmpRoot();
-    const cacheDir = writeCache(root, { 'security-reviewer': '# unrelated' });
+    const sourceDir = seedAgents(root, { 'security-reviewer': '# unrelated' });
     const targetDir = join(root, 'target');
-    materializeEccAgents({ cacheDir, targetDir });
+    materializeEccAgents({ sourceDir, targetDir });
 
     expect(resolveMaterializedAgentName(['code-reviewer', 'code-review'], targetDir)).toBeNull();
     expect(resolveMaterializedAgentName(['code-reviewer'], join(root, 'missing-dir'))).toBeNull();
   });
 
-  it('prunes stale materialized copies no longer shipped by the active cache', () => {
+  it('prunes stale materialized copies the package version no longer ships', () => {
     const root = tmpRoot();
-    const cacheDir = writeCache(root, { 'code-review': '# ok' });
+    const sourceDir = seedAgents(root, { 'code-review': '# ok' });
     const targetDir = join(root, 'target');
     mkdirSync(targetDir, { recursive: true });
     writeFileSync(join(targetDir, 'removed-agent.md'), '# stale');
 
-    const result = materializeEccAgents({ cacheDir, targetDir });
+    const result = materializeEccAgents({ sourceDir, targetDir });
 
     expect(result.materialized).toEqual(['code-review']);
     expect(existsSync(join(targetDir, 'removed-agent.md'))).toBe(false);

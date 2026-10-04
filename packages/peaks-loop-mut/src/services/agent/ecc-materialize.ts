@@ -1,10 +1,14 @@
 /**
- * The materialize write path — `materializeEccAgents` copies the active
- * cache's `agents/*.md` into the peaks-owned stable dir, and
- * `materializeBestEffort` wraps it for the download path.
+ * The materialize write path — copy `ecc-universal`'s `agents/*.md` into the
+ * peaks-owned stable dir the LLM reads, and prune what upstream no longer
+ * ships.
  *
- * Split verbatim out of `ecc-cache-service.ts` (wave 11 slice A,
- * 2026-10-03); no behaviour changed.
+ * The source used to be `~/.peaks/cache/ecc-<sha>/agents/`, populated by a
+ * network download; it is now the installed package directory (see
+ * `ecc-package-source.ts` for why). The target, the per-file failure policy,
+ * and the prune step are unchanged: the dir is a read contract for the RD
+ * fan-out and for `~/.peaks/agents/ecc/<name>.md` in the skill docs, so a stale
+ * copy is a wrong answer rather than an untidy one.
  */
 
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -12,70 +16,40 @@ import { join } from 'node:path';
 
 import {
   ECC_MATERIALIZE_VERSION,
+  isSafeAgentName,
+  readEccPackageVersion,
+  resolveEccAgentsDir,
   resolveEccMaterializedDir,
   resolveEccMaterializedManifestPath,
-  resolveAgentsDir,
-  setCacheDirPermissions,
+  setPeaksDirPermissions,
+  type EccInstallResult,
   type EccMaterializeManifest
-} from './ecc-cache-config.js';
-import { readManifestAt } from './ecc-cache-manifest.js';
-import { isSafeAgentName } from './ecc-archive-safety.js';
+} from './ecc-package-source.js';
 
 /**
- * Refresh the plugin-free copy after a successful download. Swallows every
- * error: `peaks ecc install` succeeds even when the materialize step cannot
- * write (read-only home, disk full, ...) — the caller falls back to inline
- * review in that case.
- */
-function materializeBestEffort(cacheDir: string): void {
-  try {
-    materializeEccAgents({ cacheDir });
-  } catch {
-    /* best-effort */
-  }
-}
-
-/**
- * Copy the active cache's `agents/*.md` into a stable, peaks-owned
- * directory (`~/.peaks/agents/ecc/` by default) and write a small
- * manifest. Fail-soft: an empty/missing cache yields
- * `{ sha: null, materialized: [] }` and never throws — `peaks ecc install`
- * must not fail because materialization did.
+ * Refresh the plugin-free copy from the package.
  *
- * `targetDir` is the ONLY write root (plus `mkdirSync` on it). Nothing in
- * this function can reach `~/.claude/`.
+ * `targetDir` is the ONLY write root (plus `mkdirSync` on it). Nothing in this
+ * function can reach `~/.claude/`.
+ *
+ * Fail-soft by policy, and the policy is per file: a single unreadable agent
+ * skips that agent and the rest land, because a partial review roster is useful
+ * while an exception here would stop `peaks ecc install` for a reason the user
+ * cannot act on. What is NOT swallowed is the absence of the package itself —
+ * `resolveEccAgentsDir` throws `EccSourceError` and the caller renders the
+ * reinstall instruction, because "ECC is not installed" pretending to be "ECC
+ * installed 0 agents" is the failure mode this whole layer was built to avoid.
  */
 export function materializeEccAgents({
-  cacheDir,
+  sourceDir,
   targetDir
-}: { cacheDir?: string; targetDir?: string } = {}): {
-  targetDir: string;
-  sha: string | null;
-  materialized: string[];
-} {
+}: { sourceDir?: string; targetDir?: string } = {}): EccInstallResult {
+  const agentsDir = sourceDir ?? resolveEccAgentsDir();
   const resolvedTarget = targetDir ?? resolveEccMaterializedDir();
-  const manifest = readManifestAt(cacheDir);
-  if (manifest === null) {
-    return { targetDir: resolvedTarget, sha: null, materialized: [] };
-  }
-  const agentsDir = resolveAgentsDir(manifest.sha, cacheDir);
-  if (!existsSync(agentsDir)) {
-    return { targetDir: resolvedTarget, sha: null, materialized: [] };
-  }
+  const entries = readdirSync(agentsDir);
 
-  let entries: string[];
-  try {
-    entries = readdirSync(agentsDir);
-  } catch {
-    return { targetDir: resolvedTarget, sha: null, materialized: [] };
-  }
-
-  try {
-    if (!existsSync(resolvedTarget)) mkdirSync(resolvedTarget, { recursive: true });
-    setCacheDirPermissions(resolvedTarget);
-  } catch {
-    return { targetDir: resolvedTarget, sha: null, materialized: [] };
-  }
+  if (!existsSync(resolvedTarget)) mkdirSync(resolvedTarget, { recursive: true });
+  setPeaksDirPermissions(resolvedTarget);
 
   const materialized: string[] = [];
   for (const file of entries) {
@@ -92,37 +66,30 @@ export function materializeEccAgents({
   }
   materialized.sort();
 
-  // Prune stale copies so `readMaterializedAgent` cannot serve an agent
-  // the active cache no longer ships.
-  try {
-    for (const existing of readdirSync(resolvedTarget)) {
-      if (!existing.endsWith('.md')) continue;
-      const name = existing.replace(/\.md$/i, '');
-      if (!materialized.includes(name)) {
-        rmSync(join(resolvedTarget, existing), { force: true });
-      }
+  // Prune stale copies so `readMaterializedAgent` cannot serve an agent this
+  // package version no longer ships.
+  for (const existing of readdirSync(resolvedTarget)) {
+    if (!existing.endsWith('.md')) continue;
+    const name = existing.replace(/\.md$/i, '');
+    if (!materialized.includes(name)) {
+      rmSync(join(resolvedTarget, existing), { force: true });
     }
-  } catch {
-    /* fail-soft */
   }
 
-  const nextManifest: EccMaterializeManifest = {
+  const manifest: EccMaterializeManifest = {
     version: ECC_MATERIALIZE_VERSION,
-    sha: manifest.sha,
+    packageVersion: readEccPackageVersion(),
     materializedAt: new Date().toISOString(),
     agents: materialized
   };
-  try {
-    writeFileSync(
-      resolveEccMaterializedManifestPath(resolvedTarget),
-      JSON.stringify(nextManifest, null, 2)
-    );
-  } catch {
-    /* fail-soft */
-  }
+  writeFileSync(
+    resolveEccMaterializedManifestPath(resolvedTarget),
+    JSON.stringify(manifest, null, 2)
+  );
 
-  return { targetDir: resolvedTarget, sha: manifest.sha, materialized };
+  return {
+    targetDir: resolvedTarget,
+    packageVersion: manifest.packageVersion,
+    materialized
+  };
 }
-
-// Cross-module glue: private inside ecc-cache-service.ts before the split.
-export { materializeBestEffort };

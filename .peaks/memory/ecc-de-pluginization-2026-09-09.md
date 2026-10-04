@@ -66,6 +66,6 @@ metadata:
 - 不要只跑 mock 单测就宣布"动态获取修好了"——必须真网络端到端验一次。
 - 不要把 peaks-loop 产物写进 `~/.claude/`。
 - 不要钉死外部 agent 文件名（上游用 `*-reviewer` 命名）。
-- 不要在下载 fallback 链里对 `api.github.com/.../tarball/...` 发 `application/octet-stream`。
+- ~~不要在下载 fallback 链里对 `api.github.com/.../tarball/...` 发 `application/octet-stream`。~~（2026-10-04 随下载链一起作废：ECC 改为 npm 依赖 `ecc-universal`，peaks-loop 不再向 GitHub 发任何请求。上面两条——产物不写进 `~/.claude/`、不钉死上游 agent 文件名（`*-reviewer`）——仍然有效，它们正是保留 materialize 层的理由。）
 
 相关：[[codegraph-dangling-marker-autorefresh-fix]] · [[ci-green-restoration-2026-09-08]]

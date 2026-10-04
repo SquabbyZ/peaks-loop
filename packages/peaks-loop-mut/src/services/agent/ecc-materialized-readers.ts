@@ -1,32 +1,31 @@
 /**
- * Readers for the plugin-free materialized ECC agents.
+ * Readers for the plugin-free materialized ECC agents — the path the LLM and
+ * Gate B3 open.
  *
- * Split verbatim out of `ecc-cache-service.ts` (wave 11 slice A,
- * 2026-10-03); no behaviour changed. The section banner below is the
- * original in-file divider of the materialize layer, kept verbatim.
+ * `~/.peaks/agents/ecc/` is the contract: `peaks ecc ls|show|status` render it,
+ * `ecc-bridge.ts` resolves `code-reviewer` from it, and
+ * `skills/bee/peaks-rd/references/parallel-review-fanout.md` tells the RD loop to
+ * read `<resolved-name>.md` there by hand. It is written by
+ * `materializeEccAgents` from the installed `ecc-universal` package.
+ *
+ * The D-009 fallback lives here now (it used to sit with the cache manifest): an
+ * agent whose frontmatter will not parse is listed from its filename plus its
+ * first non-empty line (the line below the fence when a fence exists, the
+ * file's own first line when it does not), with ONE warning across the process,
+ * because a malformed descriptor upstream must not erase the roster the user can
+ * still dispatch.
  */
 
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { parseFrontmatter } from '../../shared/frontmatter.js';
 import {
+  isSafeAgentName,
   resolveEccMaterializedDir,
   resolveEccMaterializedManifestPath,
   type EccMaterializeManifest
-} from './ecc-cache-config.js';
-import { isSafeAgentName } from './ecc-archive-safety.js';
-
-// ---------------------------------------------------------------------
-// Plugin-free materialize layer (Slice A of 2026-09-09-ecc-dynamic)
-//
-// `peaks ecc install` downloads ECC `agents/*.md` into the sha cache, but
-// that path is plugin-independent only in storage — the RD fan-out still
-// needed `Agent({subagent_type: 'everything-claude-code:code-review'})` (old retired id),
-// which requires the ECC Claude Code plugin. Materializing a normalized
-// copy under `~/.peaks/agents/ecc/` gives the RD loop a plugin-free read
-// target so a fresh machine without the ECC plugin can still run the
-// review via a generic sub-agent.
-// ---------------------------------------------------------------------
+} from './ecc-package-source.js';
 
 export function readEccMaterializeManifest(dirOverride?: string): EccMaterializeManifest | null {
   const path = resolveEccMaterializedManifestPath(dirOverride);
@@ -35,7 +34,7 @@ export function readEccMaterializeManifest(dirOverride?: string): EccMaterialize
     const parsed = JSON.parse(readFileSync(path, 'utf8')) as EccMaterializeManifest;
     if (
       typeof parsed.version === 'string' &&
-      typeof parsed.sha === 'string' &&
+      typeof parsed.packageVersion === 'string' &&
       typeof parsed.materializedAt === 'string' &&
       Array.isArray(parsed.agents)
     ) {
@@ -115,4 +114,69 @@ export function readMaterializedAgent(name: string, dirOverride?: string): strin
   } catch {
     return null;
   }
+}
+
+let warnedAboutFallback = false;
+
+/** First non-empty line BELOW the frontmatter fence; with no fence at all, the
+ *  first non-empty line, truncated for a listing. */
+function firstBodyLine(dir: string, fileName: string): string {
+  let description = '';
+  let seenClosing = false;
+  let inFrontmatter = false;
+  try {
+    const body = readFileSync(join(dir, fileName), 'utf8');
+    for (const raw of body.split(/\r?\n/)) {
+      const line = raw.trim();
+      if (line.length === 0) continue;
+      if (!seenClosing) {
+        if (!inFrontmatter && line === '---') {
+          inFrontmatter = true;
+          continue;
+        }
+        if (inFrontmatter && line === '---') {
+          seenClosing = true;
+          continue;
+        }
+        // No fence in the file: this line IS prose, and it is the only
+        // description a reader can get from it.
+        description = line;
+        break;
+      }
+      description = line;
+      break;
+    }
+  } catch {
+    /* best-effort */
+  }
+  return description.length > 80 ? `${description.slice(0, 77)}...` : description;
+}
+
+/**
+ * List the materialized agents with their declared name and description — the
+ * `peaks ecc ls` row shape.
+ */
+export function listEccAgents(dirOverride?: string): Array<{ name: string; description: string }> {
+  const dir = dirOverride ?? resolveEccMaterializedDir();
+  const out: Array<{ name: string; description: string }> = [];
+  for (const file of listMaterializedAgents(dir).map((name) => `${name}.md`)) {
+    let meta: { name: string; description: string };
+    try {
+      const fm = parseFrontmatter(readFileSync(join(dir, file), 'utf8'));
+      meta = { name: fm.name, description: fm.description };
+    } catch {
+      // D-009: name from filename, description from the first body line.
+      const base = file.replace(/\.md$/i, '');
+      meta = { name: base, description: firstBodyLine(dir, file) };
+      if (!warnedAboutFallback) {
+        warnedAboutFallback = true;
+        process.stderr.write(
+          `warning: ECC agent "${base}" has malformed frontmatter; ` +
+            'falling back to filename + first body line\n'
+        );
+      }
+    }
+    out.push(meta);
+  }
+  return out;
 }

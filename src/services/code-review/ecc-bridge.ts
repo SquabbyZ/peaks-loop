@@ -21,12 +21,12 @@
  *
  * === Why no `peaksConfig.ecc.*` block ===
  *
- * ECC is shipped via the `everything-claude-code` plugin, not as a
- * separate npm package. The user installs the plugin (a one-time
- * marketplace step); peaks-loop does not write or read any LLM
- * endpoint config for ECC. If a future ECC release needs user-
- * managed config (URL / token / model), add a `peaksConfig.ecc.*`
- * block then — not speculatively now.
+ * ECC ships as the `ecc-universal` npm package — the same repository as
+ * github.com/affaan-m/ECC — and peaks-loop depends on it, so the agents are read
+ * from that dependency, not downloaded. ECC may ALSO be present as the
+ * `everything-claude-code` Claude Code plugin, the native path `detectEcc`
+ * prefers. Either way peaks-loop writes and reads no LLM endpoint config for ECC;
+ * add a `peaksConfig.ecc.*` block only when a release actually needs one.
  *
  * === Source: peaks-rd/references/parallel-review-fanout.md ===
  *

@@ -3,34 +3,35 @@
  *
  * Re-exports the two slices this package owns:
  *  1. services/mut (mutation testing + assertion scanning + report)
- *  2. services/agent/ecc-cache-service (ECC tarball cache)
+ *  2. services/agent/ecc-package-service (ECC agents from the npm dependency)
  *
  * Main peaks-loop package consumes these via `workspace:*` deps:
  *
  *   import { loadMutReport } from 'peaks-loop-mut';
- *   import { cleanupStaleCache } from 'peaks-loop-mut/services/agent/ecc-cache-service';
+ *   import { installEccAgents } from 'peaks-loop-mut/services/agent/ecc-package-service';
  */
 
 export * from './services/mut/index.js';
 
 export {
-  setCacheDirPermissions,
-  downloadToCache,
-  readCacheManifest,
-  listCachedAgents,
-  readAgentSkill,
-  cleanupStaleCache,
-  resolveEccMaterializedDir,
-  resolveEccMaterializedManifestPath,
+  installEccAgents,
+  eccPackageInfo,
   materializeEccAgents,
   readEccMaterializeManifest,
   listMaterializedAgents,
   hasMaterializedEccAgents,
   resolveMaterializedAgentName,
   readMaterializedAgent,
-  ECC_REPO_OWNER,
-  ECC_REPO_NAME,
-  type CacheManifest,
-  type DownloadResult,
-  type EccMaterializeManifest
-} from './services/agent/ecc-cache-service.js';
+  listEccAgents,
+  ECC_PACKAGE_NAME,
+  ECC_MATERIALIZE_VERSION,
+  EccSourceError,
+  isSafeAgentName,
+  resolveEccAgentsDir,
+  resolveEccMaterializedDir,
+  resolveEccMaterializedManifestPath,
+  resolveEccPackageRoot,
+  type EccInstallResult,
+  type EccMaterializeManifest,
+  type EccSourceFailure
+} from './services/agent/ecc-package-service.js';

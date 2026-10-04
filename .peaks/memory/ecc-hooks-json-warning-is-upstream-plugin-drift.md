@@ -18,6 +18,6 @@ Claude Code 启动打印的 `ecc: hooks.json: unknown keys "$schema", "descripti
 
 **两个判据容易记反（本次差点写成 bug）**：顶层 `description` **合法**（官方文档原句 "an optional top-level `description` field"）；matcher 组级 `description` **非法**。
 
-**Why**：用户会把它和 peaks-loop 4.0.40–4.0.42 的修复混为一谈 —— 那三版改的是 peaks 自己的 `write-gate.js` 误报 + 20 个 SKILL.md 的闸门措辞。两者都涉及"ECC 闸门"，但文件、仓库、机制无关。判定所有权看路径：peaks-loop 的 ECC 缓存 `~/.peaks/cache/ecc-*/` **只有 `agents/`，没有 `hooks/`**。
+**Why**：用户会把它和 peaks-loop 4.0.40–4.0.42 的修复混为一谈 —— 那三版改的是 peaks 自己的 `write-gate.js` 误报 + 20 个 SKILL.md 的闸门措辞。两者都涉及"ECC 闸门"，但文件、仓库、机制无关。判定所有权看路径：peaks-loop 的 ECC 拷贝 `~/.peaks/agents/ecc/`（2026-10-04 前是 `~/.peaks/cache/ecc-*/`）**只有 `agents/`，没有 `hooks/`**。
 
 **How to apply**：告警复发时直接照本条重打，判据与备份流程都已验证。相关：[[upgrading-the-package-does-not-refresh-generated-settings]] · [[ecc-fact-force-gate-is-first-touch-not-read]]

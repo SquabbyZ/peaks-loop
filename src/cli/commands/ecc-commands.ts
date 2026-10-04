@@ -1,36 +1,33 @@
 /**
- * `peaks ecc install|status|ls|show` — Slice 3 of 4.0.0-beta.11.
+ * `peaks ecc install|status|ls|show` — the ECC read layer.
  *
- * Drop-in replacement for the deleted `peaks agent run|list`
- * surface. The pre-Slice-3 implementation shelled out to
- * `npx ecc agent run ...`, but the upstream `affaan-m/everything-claude-code`
- * v2.0.0 release has NO `ecc` binary — the repo is `agents/*.md`
- * flat files plus SKILL.md descriptors.
+ * ECC's agent definitions come from the `ecc-universal` npm dependency of
+ * `peaks-loop-mut`. `install` copies `<package>/agents/*.md` into the
+ * plugin-free dir the LLM reads (`~/.peaks/agents/ecc/`); `status`, `ls` and
+ * `show` read that copy. There is no download anywhere in this file: the
+ * previous design fetched a GitHub release tarball on the premise that the
+ * project was not on npm, and that premise was false (`ecc-universal`
+ * `repository.url` is `git+https://github.com/affaan-m/ECC.git`).
  *
- * The new flow:
- *   - `peaks ecc install [--ref <tag>]` downloads the ECC tarball
- *     into `~/.peaks/cache/ecc-<sha>/agents/` (selective extract,
- *     agents/*.md only).
- *   - `peaks ecc status` reports the cache manifest state.
- *   - `peaks ecc ls` lists cached agents from `<cache>/agents/*.md`,
- *     parsing YAML frontmatter (with D-009 fallback to filename +
- *     first body line when frontmatter is malformed).
- *   - `peaks ecc show <name> [--section H] [--max-lines N]` prints
- *     the SKILL.md body to stdout — this is the Skill-first path
- *     the LLM consumes directly.
+ *   - `peaks ecc install` — land/refresh the copy. Idempotent; prunes agents the
+ *     installed package no longer ships.
+ *   - `peaks ecc status` — package version + what landed and when.
+ *   - `peaks ecc ls` — the roster with declared name + description (D-009
+ *     fallback to filename + first body line when frontmatter is malformed).
+ *   - `peaks ecc show <name> [--section H] [--max-lines N]` — the agent body;
+ *     this is the Skill-first path the LLM consumes directly.
  *
- * The `--section` filter extracts a single H1 (`# heading`)
- * through the next H1 — useful when the SKILL.md is large.
- *
- * Per the "Enhancement, not new AI CLI" tenet: this command is a
- * download + read-only access layer. There is no `peaks ecc run`.
+ * Per the "Enhancement, not new AI CLI" tenet: read-only access plus a local
+ * copy. There is no `peaks ecc run`, and no ECC subprocess is spawned.
  */
 import type { Command } from 'commander';
 import {
-  downloadToCache,
-  listCachedAgents,
-  readAgentSkill,
-  readCacheManifest
+  EccSourceError,
+  eccPackageInfo,
+  installEccAgents,
+  listEccAgents,
+  readEccMaterializeManifest,
+  readMaterializedAgent
 } from 'peaks-loop-mut';
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
 import { fail, ok, type ResultEnvelope } from 'peaks-loop-shared/result';
@@ -39,44 +36,48 @@ export function registerEccCommands(program: Command, io: ProgramIO): void {
   const ecc = program
     .command('ecc')
     .description(
-      'affaan-m/ECC cache: download + read-only access for the LLM (no subprocess; no peaks agent run).'
+      'ECC agents from the bundled `ecc-universal` dependency: copy + read-only access for the LLM (no subprocess; no peaks agent run).'
     );
 
   addJsonOption(
     ecc
       .command('install')
       .description(
-        'Download affaan-m/ECC to ~/.peaks/cache/ecc-<sha>/ (selective extract: agents/ subtree only).'
+        'Copy <node_modules>/ecc-universal/agents/*.md into ~/.peaks/agents/ecc/ (idempotent).'
       )
-      .option('--ref <tag>', 'release tag (default: latest)')
-  ).action(async (options: { ref?: string; json?: boolean }) => {
-    const asJson = options.json === true;
+  ).action((_options: { json?: boolean }) => {
+    const asJson = _options.json === true;
     try {
-      const result = await downloadToCache(
-        options.ref !== undefined && options.ref.length > 0 ? { ref: options.ref } : {}
-      );
+      const result = installEccAgents();
       const envelope: ResultEnvelope<typeof result> = ok(
         'ecc.install',
         result,
         [],
         [
-          `Cache landed at ~/.peaks/cache/ecc-${result.sha}/agents/`,
-          `Plugin-free copy materialized at ~/.peaks/agents/ecc/ (read it directly when the ECC plugin is absent)`,
-          `Inspect with: peaks ecc ls`,
-          `Consume one agent with: peaks ecc show <name>`
+          `Materialized ${result.materialized.length} ECC agent(s) at ${result.targetDir}`,
+          `Source: ecc-universal@${result.packageVersion}`,
+          'Inspect with: peaks ecc ls',
+          'Consume one agent with: peaks ecc show <name>'
         ]
       );
       printResult(io, envelope, asJson);
     } catch (error: unknown) {
-      const message = getErrorMessage(error);
+      const missing = error instanceof EccSourceError;
       printResult(
         io,
-        fail('ecc.install', 'FETCH_FAILED', message, { ref: options.ref ?? 'latest' }, [
-          'Network failure during ECC download. Manual fallback:',
-          '  git clone https://github.com/affaan-m/ECC.git',
-          '  Copy <repo>/agents/*.md into ~/.peaks/cache/ecc-<sha>/agents/.',
-          '  Drop a minimal ecc-installed.json manifest into ~/.peaks/cache/.'
-        ]),
+        fail(
+          'ecc.install',
+          missing ? 'ECC_PACKAGE_MISSING' : 'ECC_INSTALL_FAILED',
+          getErrorMessage(error),
+          { source: missing ? error.failure : 'copy-failed' },
+          missing
+            ? [
+                'The `ecc-universal` dependency is not resolvable from this installation.',
+                'Reinstall peaks-loop (`npm i -g peaks-loop@latest`) — the ECC agents ship inside that dependency.',
+                'A partial or `--ignore-scripts` install can leave the dependency tree incomplete.'
+              ]
+            : ['Check that ~/.peaks is writable, then re-run `peaks ecc install`.']
+        ),
         asJson
       );
       process.exitCode = 1;
@@ -86,32 +87,48 @@ export function registerEccCommands(program: Command, io: ProgramIO): void {
   addJsonOption(
     ecc
       .command('status')
-      .description('Show ECC cache state (version, sha, fetchedAt, agent count).')
+      .description('Show the ECC source version and the materialized copy state.')
   ).action((options: { json?: boolean }) => {
     const asJson = options.json === true;
-    const manifest = readCacheManifest();
+    const manifest = readEccMaterializeManifest();
     if (manifest === null) {
       printResult(
         io,
         fail(
           'ecc.status',
-          'NO_CACHE',
-          'No ECC cache found. Run `peaks ecc install` first.',
+          'NOT_INSTALLED',
+          'No materialized ECC agents found. Run `peaks ecc install` first.',
           { installed: false },
-          ['Run `peaks ecc install [--ref <tag>]` to populate ~/.peaks/cache/ecc-<sha>/agents/.']
+          [
+            'Run `peaks ecc install` to copy the bundled ecc-universal agents into ~/.peaks/agents/ecc/.'
+          ]
         ),
         asJson
       );
       process.exitCode = 1;
       return;
     }
+    let source: { name: string; version: string } | null = null;
+    try {
+      source = eccPackageInfo();
+    } catch {
+      // The copy on disk is still the honest answer about what the LLM can read;
+      // a source that no longer resolves is reported as such rather than hiding
+      // the whole status behind an error.
+    }
     printResult(
       io,
       ok(
         'ecc.status',
-        manifest,
+        { manifest, source },
         [],
-        [`Inspect agents with: peaks ecc ls`, `Print one agent with: peaks ecc show <name>`]
+        [
+          source === null
+            ? 'The ecc-universal package no longer resolves — the copy above is what will be read.'
+            : `Source resolves to ${source.name}@${source.version}.`,
+          'Inspect agents with: peaks ecc ls',
+          'Print one agent with: peaks ecc show <name>'
+        ]
       ),
       asJson
     );
@@ -120,10 +137,12 @@ export function registerEccCommands(program: Command, io: ProgramIO): void {
   addJsonOption(
     ecc
       .command('ls')
-      .description('List cached agents from <cache>/agents/*.md with parsed frontmatter.')
+      .description(
+        'List materialized agents from ~/.peaks/agents/ecc/*.md with parsed frontmatter.'
+      )
   ).action((options: { json?: boolean }) => {
     const asJson = options.json === true;
-    const agents = listCachedAgents();
+    const agents = listEccAgents();
     printResult(
       io,
       ok('ecc.ls', { agents }, [], ['Print one with: `peaks ecc show <name>`']),
@@ -157,13 +176,13 @@ export function registerEccCommands(program: Command, io: ProgramIO): void {
       process.exitCode = 1;
       return;
     }
-    const body = readAgentSkill(name);
+    const body = readMaterializedAgent(name);
     if (body === null) {
       printResult(
         io,
-        fail('ecc.show', 'NOT_FOUND', `agent "${name}" is not in the cache`, { name }, [
+        fail('ecc.show', 'NOT_FOUND', `agent "${name}" is not in the materialized copy`, { name }, [
           'Run `peaks ecc ls` to see available agents.',
-          'Or run `peaks ecc install` to (re-)populate the cache.'
+          'Or run `peaks ecc install` to (re-)copy the bundled agents into ~/.peaks/agents/ecc/.'
         ]),
         asJson
       );

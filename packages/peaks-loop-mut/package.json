@@ -32,6 +32,7 @@
     "node": ">=20.0.0"
   },
   "dependencies": {
+    "ecc-universal": "^2.2.3",
     "zod": "^4.4.3"
   },
   "publishConfig": {

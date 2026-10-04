@@ -17,7 +17,6 @@
 import { readdirSync, statSync, unlinkSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { resolveLogDir } from './logger.js';
-import { cleanupStaleCache } from 'peaks-loop-mut';
 
 const LOG_FILE_NAME_PATTERN = /^peaks-loop-(\d{4}-\d{2}-\d{2})\.log$/;
 
@@ -90,25 +89,4 @@ export function applyRetention(opts: ApplyRetentionOptions = {}): string[] {
   }
 
   return removed;
-}
-
-/**
- * Slice 3 (on-demand-ecc) — 7-day TTL sweep over `~/.peaks/cache/ecc-<sha>/`
- * directories. Delegates to `cleanupStaleCache` in the ECC cache
- * service so the retention policy lives next to the cache it
- * governs.
- *
- * Mirrors the `applyRetention` signature for symmetry: tests pass
- * `nowMs` + `dirOverride`; production callers leave both unset.
- */
-export function cleanupEccCache(options: {
-  retentionDays: number;
-  nowMs?: number;
-  dirOverride?: string;
-}): { removed: string[] } {
-  return cleanupStaleCache({
-    retentionDays: options.retentionDays,
-    nowMs: options.nowMs ?? Date.now(),
-    ...(options.dirOverride !== undefined ? { dirOverride: options.dirOverride } : {})
-  });
 }

@@ -9,9 +9,9 @@
  * the question from evidence that already exists on disk — no install
  * side effect, no network, no subprocess:
  *
- *   - `everything-claude-code.*` — satisfied when the ECC cache is
- *     populated (`~/.peaks/cache/ecc-installed.json` + at least one
- *     cached/materialized agent).
+ *   - `everything-claude-code.*` — satisfied when the ECC agents are readable,
+ *     i.e. `~/.peaks/agents/ecc/` holds at least one agent (landed by
+ *     `peaks ecc install` from the `ecc-universal` dependency).
  *   - a source that maps to an npm package — satisfied when that package
  *     (or its `.bin` shim) is present in the project's `node_modules`.
  *
@@ -21,7 +21,7 @@
 
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { hasMaterializedEccAgents, listCachedAgents } from 'peaks-loop-mut';
+import { hasMaterializedEccAgents } from 'peaks-loop-mut';
 
 import { seedCapabilityItems } from './capability-seed-items.js';
 
@@ -43,8 +43,8 @@ export type InstalledCapabilityProbe = {
   readonly projectRoot: string;
   /** Override for tests; defaults to `<projectRoot>/node_modules`. */
   readonly nodeModulesDir?: string;
-  /** Override for tests; defaults to a live ECC cache probe. */
-  readonly eccCacheAvailable?: boolean;
+  /** Override for tests; defaults to a live probe of the materialized copy. */
+  readonly eccAgentsAvailable?: boolean;
 };
 
 function packagePresent(nodeModulesDir: string, packageName: string): boolean {
@@ -58,12 +58,13 @@ function packagePresent(nodeModulesDir: string, packageName: string): boolean {
   }
 }
 
-function eccCacheAvailable(): boolean {
+function eccAgentsAvailable(): boolean {
   try {
-    // Cached agents imply the manifest + sha dir exist; the materialized
-    // plugin-free copy is checked independently so a hand-populated
-    // `~/.peaks/agents/ecc/` still counts as satisfied.
-    return listCachedAgents().length > 0 || hasMaterializedEccAgents();
+    // The materialized copy is what the LLM can dispatch, so it is the only
+    // evidence that counts. The cache probe this replaced
+    // (`listCachedAgents()`, reading `~/.peaks/cache/ecc-<sha>/`) described
+    // something downloaded but not necessarily usable.
+    return hasMaterializedEccAgents();
   } catch {
     return false;
   }
@@ -75,7 +76,7 @@ function eccCacheAvailable(): boolean {
  */
 export function detectInstalledCapabilityIds(probe: InstalledCapabilityProbe): string[] {
   const nodeModulesDir = probe.nodeModulesDir ?? join(probe.projectRoot, 'node_modules');
-  const eccAvailable = probe.eccCacheAvailable ?? eccCacheAvailable();
+  const eccAvailable = probe.eccAgentsAvailable ?? eccAgentsAvailable();
 
   const installed = new Set<string>();
   for (const item of seedCapabilityItems) {

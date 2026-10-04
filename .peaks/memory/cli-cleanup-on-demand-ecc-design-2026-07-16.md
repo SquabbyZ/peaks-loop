@@ -25,6 +25,7 @@ metadata:
 2. **Slice 2 — hide-role-skills**:9→14→10 个(grep 实际)role-skill CLI 入口用 `Commander.hidden()` 隐藏 + 8 个 SKILL.md 加 `visibility: internal` frontmatter + `--include-internal` 兜底。8 个 AC。
 
 3. **Slice 3 — `peaks ecc install|status|ls|show`**(2026-07-16 redesign):peaks-loop 在 ECC 缺失时从 GitHub release 拉 tarball 到 `~/.peaks/cache/ecc-<sha>/`,**只读 agents/**,7 天 TTL。**没有 `peaks agent run` CLI,没有 subprocess**。LLM 自己读 `agents/*.md`。11 个 AC。
+   > **2026-10-04 更正（此条已被取代）**:tarball/cache/TTL 那一整层已删除。ECC 现在是 `peaks-loop-mut` 的 npm 依赖 `ecc-universal`（它就是 `github.com/affaan-m/ECC` 那个仓库，`npm view ecc-universal repository.url` 可证），`peaks ecc install` 只做本地拷贝到 `~/.peaks/agents/ecc/`，零网络、零 subprocess；`--ref` 参数随抓取链一起去掉。**"从 GitHub 拉"的前提（ECC 不在 npm 上）本来就是假的**，这条记忆当时把那个假前提当设计事实写了下来——这正是本仓反复提醒的"prose describing data that did not exist"。
 
 **合并顺序 1 → 2 → 3**(不是并行)。Slice 3 flip `peaks agent` 默认行为,必须等 Slice 2 先 hide `peaks agent`,否则用户会看到一个 "不存在于 --help 里却有了新行为" 的命令。**Why:** user 不应见到未公开的命令,这是 peaks-loop "enhancement not new CLI" 原则的边界。
 
