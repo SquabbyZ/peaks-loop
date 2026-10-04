@@ -296,7 +296,8 @@ const REPO_ANCHORS =
  * reach `exists` at all (no anchor, `@`, `<…>`, prose). It reports **11** — 4 in
  * the markdown corpus, 1 in the script corpus, 6 in `docs/` — and **all 11 name
  * a file that EXISTS**: `src/shared/path-safety.ts:14-17`,
- * `scripts/install-skills.mjs:detect1xProjectState`,
+ * `scripts/install-skills.mjs:detect1xProjectState` (since removed with the
+ * 1.x → 2.0 upgrade path),
  * `src/services/final-review/final-review-service.ts:23-31`,
  * `src/services/ide/ide-detector.ts:detectInstalledIde`,
  * `src/services/skills/hooks-settings-service.ts:82-311`, and one more of that

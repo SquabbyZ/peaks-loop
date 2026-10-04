@@ -248,7 +248,7 @@ export function registerStandardsCommand(program: Command, io: ProgramIO): void 
       .option('--apply', 'rewrite the legacy block in place; default is dry-run')
       .option(
         '--from-claude-rules',
-        'thin .claude/rules/ to pointers and scaffold .peaks/standards/ (used by `peaks upgrade --to 2.0`)'
+        'thin .claude/rules/ to pointers and scaffold .peaks/standards/'
       )
   ).action(
     (options: { project?: string; apply?: boolean; fromClaudeRules?: boolean; json?: boolean }) => {

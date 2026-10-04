@@ -12,7 +12,9 @@ import {
   detectBackendDirs,
   detectBackendFrameworks,
   detectMonorepoConfigs,
+  detectNestedServiceEvidence,
   detectNextApiRoutes,
+  detectNextServerActions,
   detectSwagger,
   GREENFIELD_MAX_SRC_FILES,
   GREENFIELD_MAX_LOCKFILE_DAYS,
@@ -52,6 +54,26 @@ async function countSrcFiles(projectRoot: string, max = 500): Promise<number> {
   return count;
 }
 
+/**
+ * THE backend predicate — one answer, three callers.
+ *
+ * `decideArchetype`, `decideFrontendOnly` and `decideIntegrationMode` each
+ * spelled the same triple out inline, so a signal added for one of them left
+ * the other two reading a different project. The report then contradicted
+ * itself, which is the failure `54ba0cc4` ("one answer for where frontendOnly
+ * lives") was meant to end but did not. Anything that asks "does this repo
+ * have a backend?" asks here.
+ */
+function hasBackendEvidence(detected: ArchetypeReport['detected']): boolean {
+  return (
+    detected.hasBackendFramework ||
+    detected.hasNextApiRoutes ||
+    detected.hasNextServerActions ||
+    detected.backendDirsPresent.length > 0 ||
+    detected.nestedServiceEvidence.length > 0
+  );
+}
+
 function decideArchetype(detected: ArchetypeReport['detected']): {
   archetype: ProjectArchetype;
   confidence: 'high' | 'medium' | 'low';
@@ -59,10 +81,7 @@ function decideArchetype(detected: ArchetypeReport['detected']): {
 } {
   const signals: ArchetypeSignal[] = [];
 
-  const hasBackend =
-    detected.hasBackendFramework ||
-    detected.hasNextApiRoutes ||
-    detected.backendDirsPresent.length > 0;
+  const hasBackend = hasBackendEvidence(detected);
   signals.push({
     name: 'backend-presence',
     matched: hasBackend,
@@ -72,8 +91,12 @@ function decideArchetype(detected: ArchetypeReport['detected']): {
             ? `framework: ${detected.backendFrameworks.join(', ')}`
             : null,
           detected.hasNextApiRoutes ? 'next-api-routes' : null,
+          detected.hasNextServerActions ? 'next-server-actions' : null,
           detected.backendDirsPresent.length > 0
             ? `dirs: ${detected.backendDirsPresent.join(', ')}`
+            : null,
+          detected.nestedServiceEvidence.length > 0
+            ? `nested: ${detected.nestedServiceEvidence.join(', ')}`
             : null
         ]
           .filter(Boolean)
@@ -181,41 +204,28 @@ function decideFrontendOnly(report: ArchetypeFacts): {
   if (report.archetype === 'legacy-frontend' || report.archetype === 'frontend-monorepo') {
     return { frontendOnly: true, reason: `archetype=${report.archetype}` };
   }
-  const noBackend =
-    !report.detected.hasBackendFramework &&
-    !report.detected.hasNextApiRoutes &&
-    report.detected.backendDirsPresent.length === 0;
+  const noBackend = !hasBackendEvidence(report.detected);
   if (noBackend && !report.detected.hasSwaggerOrProto) {
     return { frontendOnly: true, reason: 'no-backend-no-swagger' };
   }
-  if (
-    report.detected.hasBackendFramework ||
-    report.detected.hasNextApiRoutes ||
-    report.detected.backendDirsPresent.length > 0
-  ) {
-    return { frontendOnly: false, reason: 'backend-detected' };
+  if (noBackend) {
+    return { frontendOnly: false, reason: 'swagger-or-proto-present' };
   }
-  return { frontendOnly: false, reason: 'swagger-or-proto-present' };
+  return { frontendOnly: false, reason: 'backend-detected' };
 }
 
 /**
  * Three frontend integration scenarios, from the signals `detected`
- * already holds. Backend presence uses the SAME triple as
- * `decideArchetype`'s `hasBackend` (framework OR next API routes OR
- * backend dirs) rather than `hasBackendFramework` alone: `next` is
- * deliberately excluded from `backendFrameworks` (:77), so a Next
- * project with `pages/api` is `legacy-fullstack` there and must not be
- * `prd-only` here — one report cannot contradict itself.
+ * already holds. Backend presence is the SAME predicate `decideArchetype`
+ * uses (`hasBackendEvidence`), because one report cannot be
+ * `legacy-fullstack` and `prd-only` at once — a Next project with server
+ * actions, or an express service under `apps/`, is a backend for both.
  */
 function decideIntegrationMode(report: ArchetypeFacts): {
   integrationMode: IntegrationMode;
   reason: string;
 } {
-  const hasBackend =
-    report.detected.hasBackendFramework ||
-    report.detected.hasNextApiRoutes ||
-    report.detected.backendDirsPresent.length > 0;
-  if (hasBackend) {
+  if (hasBackendEvidence(report.detected)) {
     return { integrationMode: 'full-stack', reason: 'backend-detected' };
   }
   if (report.detected.hasSwaggerOrProto) {
@@ -231,6 +241,8 @@ export async function scanArchetype(options: ArchetypeScanOptions): Promise<Arch
   const hasNext = Object.prototype.hasOwnProperty.call(deps, 'next');
   const hasNextApiRoutes = await detectNextApiRoutes(projectRoot, hasNext);
   const backendDirsPresent = await detectBackendDirs(projectRoot);
+  const nestedServiceEvidence = await detectNestedServiceEvidence(projectRoot);
+  const hasNextServerActions = hasNext ? await detectNextServerActions(projectRoot) : false;
   const swaggerPaths = await detectSwagger(projectRoot);
   const monorepoConfigs = await detectMonorepoConfigs(projectRoot);
   const srcFileCount = await countSrcFiles(projectRoot);
@@ -240,6 +252,8 @@ export async function scanArchetype(options: ArchetypeScanOptions): Promise<Arch
     hasPackageJson,
     hasBackendFramework: backendFrameworks.length > 0,
     backendFrameworks,
+    nestedServiceEvidence,
+    hasNextServerActions,
     hasSwaggerOrProto: swaggerPaths.length > 0,
     swaggerPaths,
     hasMonorepoConfig: monorepoConfigs.length > 0,

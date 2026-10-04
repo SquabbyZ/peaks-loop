@@ -57,6 +57,20 @@ function blockSequence(key: string, values: readonly string[]): string[] {
 }
 
 /**
+ * The OPTIONAL form: no line at all when the field is absent or empty.
+ *
+ * `goals` and its siblings cannot use this — `isHandoffFrontmatter` requires an
+ * ARRAY there, so an omitted line would fail the shape check on read, and `[]` is
+ * the honest rendering of "declared, none". The authored fields have no such
+ * requirement: a capsule that names no files declares nothing, and a `files: []`
+ * line would read as a claim that the slice touches no file.
+ */
+function blockOptionalSequence(key: string, values: readonly string[] | undefined): string[] {
+  if (values === undefined || values.length === 0) return [];
+  return [`${key}:`, ...values.map((value) => `  - ${yamlScalar(value)}`)];
+}
+
+/**
  * Render `gateEvidence` as a YAML map of quoted path scalars, or as NOTHING.
  *
  * Two shape decisions, both load-bearing:
@@ -116,6 +130,55 @@ function gateEvidenceBlock(evidence: GateEvidence | undefined): string[] {
 }
 
 /**
+ * Render a sequence of records (`decisions`, `risks`) as a YAML block list, or
+ * as NOTHING when the list is absent or empty — the same omission policy as
+ * `gateEvidence`, so a capsule that declares no risks gains no noise line.
+ *
+ * The field names are rendered in the order given, and every value is validated
+ * as a string HERE rather than dropped later. That is deliberate: the bug these
+ * fields fix was a serializer that rendered from the type and so discarded
+ * anything the type did not name, silently, on every rewrite. A record missing a
+ * required field therefore has to stop the write, not vanish from it.
+ */
+function blockRecords(
+  key: string,
+  items: readonly unknown[] | undefined,
+  requiredFields: readonly string[]
+): string[] {
+  if (items === undefined || items.length === 0) return [];
+  const lines: string[] = [`${key}:`];
+  items.forEach((rawItem, index) => {
+    // The values are checked at RUNTIME, not trusted from the type, because a
+    // capsule reaches here from `readHandoff` as well as from a producer: the
+    // spread that makes an authored field survive a read also makes it survive
+    // unvalidated. A record missing a required field stops the write rather than
+    // vanishing from it — which is precisely how the old serializer made a
+    // declared risk look satisfied.
+    const record: Record<string, unknown> =
+      rawItem !== null && typeof rawItem === 'object' ? { ...rawItem } : {};
+    const missing = requiredFields.filter(
+      (field) => typeof record[field] !== 'string' || record[field] === ''
+    );
+    if (missing.length > 0) {
+      throw new Error(
+        `handoff: ${key}[${index}] is missing ${missing.join(', ')} — refusing to write a ` +
+          `record the next role cannot read (a risk without a mitigation is a red line, and ` +
+          'dropping the field is how it looked satisfied)'
+      );
+    }
+    requiredFields.forEach((field, fieldIndex) => {
+      const value = record[field] as string;
+      lines.push(
+        fieldIndex === 0
+          ? `  - ${field}: ${yamlScalar(value)}`
+          : `    ${field}: ${yamlScalar(value)}`
+      );
+    });
+  });
+  return lines;
+}
+
+/**
  * Serialize `frontmatter` into the fenced block, terminated by the closing
  * `---` and a trailing newline. Callers append the body verbatim, which keeps
  * the sha256 of the body independent of how the frontmatter renders.
@@ -137,6 +200,15 @@ export function serializeHandoffFrontmatter(frontmatter: HandoffFrontmatter): st
     ...blockSequence('acceptanceCriteria', frontmatter.acceptanceCriteria),
     ...blockSequence('preservedBehavior', frontmatter.preservedBehavior),
     `handoffPath: ${yamlScalar(frontmatter.handoffPath)}`,
+    // The authored fields: written by peaks-prd / peaks-rd, read by peaks-qa's
+    // mechanical cross-checks, and PRESERVED by every rewrite. They sit after
+    // `handoffPath` because `schemaVersion` and `sha256` must stay first-parsed,
+    // and before `gateEvidence` because that block is last by contract.
+    ...blockOptionalSequence('scope', frontmatter.scope),
+    ...blockOptionalSequence('files', frontmatter.files),
+    ...blockRecords('decisions', frontmatter.decisions, ['id', 'summary', 'rationale']),
+    ...blockRecords('risks', frontmatter.risks, ['id', 'description', 'mitigation']),
+    ...blockOptionalSequence('nextActions', frontmatter.nextActions),
     // LAST, after every anchored field: `schemaVersion` / `sha256` are
     // matched as `^`-anchored lines by the gate and both audit loaders, so
     // nothing new may be inserted before them. A nested map also renders

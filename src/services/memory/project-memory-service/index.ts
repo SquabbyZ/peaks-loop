@@ -99,6 +99,7 @@ export {
 export {
   assertSafeMemory,
   assertSafeMemoryFileContent,
+  findSensitiveMemoryContentRule,
   findSensitiveMemoryTitleTerm,
   hasSensitiveMemoryContent,
   SENSITIVE_MEMORY_CHECKS,

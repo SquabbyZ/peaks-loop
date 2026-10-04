@@ -17,7 +17,6 @@ import {
   unlinkSync,
   writeFileSync
 } from 'node:fs';
-import { spawnSync } from 'node:child_process';
 import { createHash, randomUUID } from 'node:crypto';
 import { homedir } from 'node:os';
 import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path';
@@ -1409,162 +1408,6 @@ export function installBundledSkillsForAllPlatforms(options = {}) {
   return perPlatform;
 }
 
-/**
- * 1.x → 2.0 detection — sniff for legacy 1.x project state
- * in `cwd`. Returns a 1.x detection envelope with the
- * detected signals (so the postinstall can decide whether
- * to auto-upgrade).
- *
- * 1.x signals (any one fires the detection):
- *   - `~/.peaks/config.json` exists with `version: '1.4.2'` (or
- *     any '1.x' version that predates the 2.0 schema)
- *   - `.claude/rules/common/dev-preference.md` exists and
- *     references "peaks progress" (the 1.x CLI surface
- *     removed in slice #014)
- *   - `<cwd>/.peaks/preferences.json` missing OR has no
- *     `schema_version: '2.0.0'` field
- *
- * Returns:
- *   { isOneX: boolean, signals: string[], projectRoot: string|null,
- *     configPath: string|null }
- */
-export function detect1xProjectState(cwd = process.cwd()) {
-  const home = homedir();
-  const signals = [];
-  let projectRoot = null;
-  let configPath = null;
-
-  // Walk up from cwd looking for .peaks/_runtime (signals
-  // we're inside a peaks project).
-  let dir = cwd;
-  for (let i = 0; i < 8; i += 1) {
-    const peaksRuntime = join(dir, '.peaks', '_runtime');
-    if (existsSync(peaksRuntime)) {
-      projectRoot = dir;
-      break;
-    }
-    const parent = dirname(dir);
-    if (parent === dir) break;
-    dir = parent;
-  }
-
-  // Signal 1: ~/.peaks/config.json with 1.x version
-  const globalConfig = join(home, '.peaks', 'config.json');
-  if (existsSync(globalConfig)) {
-    try {
-      const raw = JSON.parse(readFileSync(globalConfig, 'utf8'));
-      if (typeof raw.version === 'string' && /^1\./.test(raw.version)) {
-        signals.push(`global config at ${globalConfig} is 1.x (${raw.version})`);
-        if (configPath === null) configPath = globalConfig;
-      }
-    } catch {
-      // ignore parse error — the 1.x detection is best-effort
-    }
-  }
-
-  // Signal 2: .claude/rules/common/dev-preference.md with peaks progress
-  if (projectRoot !== null) {
-    const devPref = join(projectRoot, '.claude', 'rules', 'common', 'dev-preference.md');
-    if (existsSync(devPref)) {
-      try {
-        const body = readFileSync(devPref, 'utf8');
-        if (/peaks progress/i.test(body)) {
-          signals.push(
-            `${devPref} references "peaks progress" (1.x CLI surface, removed in slice #014)`
-          );
-        }
-      } catch {
-        // ignore
-      }
-    }
-    // Signal 3: project preferences.json missing or 1.x
-    const prefs = join(projectRoot, '.peaks', 'preferences.json');
-    if (!existsSync(prefs)) {
-      signals.push(`${prefs} does not exist (1.x project never migrated)`);
-    } else {
-      try {
-        const raw = JSON.parse(readFileSync(prefs, 'utf8'));
-        if (raw.schema_version !== '2.0.0') {
-          signals.push(
-            `${prefs} has schema_version ${JSON.stringify(raw.schema_version)}, expected '2.0.0'`
-          );
-        }
-      } catch {
-        signals.push(`${prefs} exists but is not valid JSON`);
-      }
-    }
-  }
-
-  return {
-    isOneX: signals.length > 0,
-    signals,
-    projectRoot,
-    configPath
-  };
-}
-
-/**
- * Postinstall auto-upgrade — when the user just ran
- * `npm i -g peaks-loop@2.0` and `cwd` is a 1.x peaks-loop
- * project, this shells out to the installed `peaks`
- * binary to run the umbrella `peaks upgrade --to 2.0 --auto`.
- *
- * Per the "minimal-user-operation" tenet, the user should
- * never have to run a second command after `npm i -g`. The
- * upgrade CLI (if installed) is at the resolved `peaks`
- * binary path; if not, the user gets a hint to run it
- * manually.
- *
- * The auto-upgrade is opt-out via:
- *   PEAKS_SKIP_AUTO_UPGRADE=1
- * (so a CI box that installs 2.0 but never wants the
- * project-level migration can suppress the auto-step).
- */
-export async function autoUpgrade1xProjectIfPresent(options = {}) {
-  if (process.env.PEAKS_SKIP_AUTO_UPGRADE === '1') {
-    return { ran: false, reason: 'PEAKS_SKIP_AUTO_UPGRADE=1' };
-  }
-  const state = detect1xProjectState(options.cwd ?? process.cwd());
-  if (!state.isOneX) {
-    return { ran: false, reason: 'no 1.x project state detected' };
-  }
-  if (state.projectRoot === null) {
-    return { ran: false, reason: 'cwd is not a peaks project (no .peaks/_runtime/)' };
-  }
-  // The peaks binary should be on PATH after `npm i -g`.
-  // We shell out via spawnSync (synchronous; the postinstall
-  // is already synchronous and the umbrella is fast).
-  try {
-    const result = spawnSync(
-      'peaks',
-      ['upgrade', '--to', '2.0', '--auto', '--project', state.projectRoot],
-      {
-        encoding: 'utf8',
-        stdio: ['ignore', 'pipe', 'pipe'],
-        timeout: 120_000,
-        windowsHide: true
-      }
-    );
-    return {
-      ran: true,
-      reason: 'auto-upgrade dispatched',
-      signals: state.signals,
-      projectRoot: state.projectRoot,
-      exitCode: result.status,
-      stdout: result.stdout ?? '',
-      stderr: result.stderr ?? ''
-    };
-  } catch (err) {
-    return {
-      ran: true,
-      reason: 'auto-upgrade dispatched but failed',
-      signals: state.signals,
-      projectRoot: state.projectRoot,
-      error: err instanceof Error ? err.message : String(err)
-    };
-  }
-}
-
 if (
   process.argv[1] !== undefined &&
   import.meta.url === pathToFileURL(resolve(process.argv[1])).href
@@ -1660,26 +1503,6 @@ if (
     }
     if (userConfigResult.created) {
       process.stdout.write('Peaks user config created: ~/.peaks/config.json\n');
-    }
-
-    // 2.0 postinstall: auto-detect 1.x project state in cwd
-    // and dispatch the upgrade umbrella. This makes the
-    // user's `npm i -g peaks-loop@2.0` truly one-key.
-    if (process.env.PEAKS_SKIP_AUTO_UPGRADE !== '1') {
-      // Fire-and-forget; the upgrade is async by design so
-      // the npm install output isn't blocked. We print a
-      // one-line hint so the user knows the auto-step
-      // happened.
-      autoUpgrade1xProjectIfPresent().then((result) => {
-        if (result.ran) {
-          process.stdout.write(
-            `\n✓ Detected 1.x peaks-loop project at ${result.projectRoot}\n` +
-              `  → auto-upgraded to 2.0 (${result.signals?.length ?? 0} signals resolved)\n` +
-              `  Run \`peaks audit red-lines --project .\` to verify.\n`
-          );
-        }
-        // When !result.ran we say nothing — silent on success.
-      });
     }
     if (userConfigResult.updated) {
       process.stdout.write('Peaks user config updated: ~/.peaks/config.json\n');

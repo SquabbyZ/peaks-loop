@@ -93,21 +93,3 @@ export function installBundledOutputStyleDefault(options?: ScriptOptions): {
   outputStyle?: string;
   error?: string;
 };
-
-export function detect1xProjectState(cwd?: string): {
-  isOneX: boolean;
-  signals: string[];
-  projectRoot: string | null;
-  configPath: string | null;
-};
-
-export function autoUpgrade1xProjectIfPresent(options?: ScriptOptions): Promise<{
-  ran: boolean;
-  reason: string;
-  signals?: string[];
-  projectRoot?: string;
-  exitCode?: number | null;
-  stdout?: string;
-  stderr?: string;
-  error?: string;
-}>;

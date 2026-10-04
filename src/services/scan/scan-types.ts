@@ -31,6 +31,15 @@ export type ArchetypeReport = {
     hasPackageJson: boolean;
     hasBackendFramework: boolean;
     backendFrameworks: string[];
+    /** Backend evidence the ROOT manifest cannot see: a workspace package's own
+     *  `package.json` (`apps/gateway: express`) and any non-Node service
+     *  manifest (`go.mod`, `services/checkout/requirements.txt (fastapi)`).
+     *  Every probe that filled `detected` before this field read Node's
+     *  manifest only, so a Go or Java service reported as `frontendOnly`. */
+    nestedServiceEvidence: string[];
+    /** Next.js server actions (`'use server'` under `app/`). Route handlers
+     *  (`pages/api` / `app/api`) were the only Next backend recognised. */
+    hasNextServerActions: boolean;
     hasSwaggerOrProto: boolean;
     swaggerPaths: string[];
     hasMonorepoConfig: boolean;

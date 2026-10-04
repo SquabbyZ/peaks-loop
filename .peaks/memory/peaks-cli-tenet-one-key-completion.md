@@ -15,11 +15,13 @@ metadata:
 > ("Things that can be done in one step should not be designed as
 > a two-step operation; the ideal goal is one-key completion.")
 
-Anti-pattern: `npm i -g peaks-loop` → then `peaks upgrade --to 2.0`
-(two steps the user has to remember).
-Pattern: `npm i -g peaks-loop@2.0` — the postinstall does the
-upgrade (1.x → 2.0 detection + auto-migrate) so the user only
-runs one command.
+Anti-pattern: an install that leaves the user a second command to
+remember. (Historical case: the 1.x → 2.0 upgrade needed
+`npm i -g peaks-loop` → `peaks upgrade --to 2.0`. That whole path was
+removed — the detector and the umbrella disagreed about what state they
+were fixing, and both pointed at docs and tests that did not exist.)
+Pattern: `npm i -g peaks-loop` — the postinstall does the detection +
+migration so the user only runs one command.
 
 ## Tenet 2 — Minimal user operation (paired with #1)
 
@@ -84,9 +86,9 @@ Before merging any new user-facing surface, verify:
 
 | Surface | Two-step anti-pattern | One-key pattern (post-2.0) |
 |--------|----------------------|---------------------------|
-| 1.x → 2.0 upgrade | `npm i -g peaks-loop` → `peaks upgrade --to 2.0` | `npm i -g peaks-loop@2.0` (postinstall auto-detects + auto-upgrades) |
+| 1.x → 2.0 upgrade (removed) | `npm i -g peaks-loop` → `peaks upgrade --to 2.0` | postinstall auto-detect + auto-upgrade — the whole path was later deleted, so this row is history, not a runnable remedy |
 | Trae skill symlink | (1.x bug) postinstall only symlinked to auto-detected IDE | postinstall iterates all 8 platforms (`SYNC_PLATFORMS`) |
-| 1.x → 2.0 verbose docs | user reads `UPGRADING-2.0.md` then runs 7 sub-commands | postinstall does the 7 sub-commands; user reads the doc only on failure |
+| 1.x → 2.0 verbose docs (removed) | user reads `UPGRADING-2.0.md` then runs 7 sub-commands | the doc never existed on disk; removed with the upgrade path |
 | L2 audit invocation | user runs `peaks audit red-lines` then `peaks audit static` | `peaks slice check` stage 6 invokes both + reports aggregate (one command) |
 
 ## Cross-reference

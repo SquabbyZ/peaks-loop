@@ -87,7 +87,6 @@ describe('Scenario: render — generated-config drift rides `skill presence`', (
     // is an LLM that must be able to act without guessing a command.
     expect(envelope.warnings.join('\n')).toContain('4.0.40');
     expect(envelope.warnings.join('\n')).toContain('peaks workspace init');
-    expect(envelope.warnings.join('\n')).toContain('peaks upgrade --apply-init');
   });
 
   it('prints the same notice to stderr for a human running the command by hand', async () => {

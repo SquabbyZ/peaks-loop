@@ -61,7 +61,6 @@ async function runInstallSkills(
       env: {
         ...process.env,
         PEAKS_SKIP_USER_CONFIG_INSTALL: '1',
-        PEAKS_SKIP_AUTO_UPGRADE: '1',
         ...env,
         PEAKS_PROJECT_ROOT: projectRoot
       },
@@ -88,9 +87,8 @@ describe('install-skills.mjs — IDE-aware dispatch (slice #011)', () => {
     if (existsSync(project)) {
       // Windows holds fs handles open for a brief moment after a
       // child process exits. `execFile(node, install-skills.mjs)`
-      // spawns the postinstall script which writes symlinks and
-      // runs `peaks upgrade` as fire-and-forget; if the upgrade
-      // is still resolving paths when afterEach fires, rmSync hits
+      // spawns the postinstall script which writes symlinks; if a
+      // link is still resolving when afterEach fires, rmSync hits
       // EBUSY. Retry with short backoff before giving up.
       for (let attempt = 0; attempt < 5; attempt += 1) {
         try {
@@ -192,34 +190,6 @@ describe('install-skills.mjs — IDE-aware dispatch (slice #011)', () => {
     } finally {
       rmSync(customSkills, { recursive: true, force: true });
     }
-  });
-
-  // Auto-upgrade E2E test (slice 2026-06-12-postinstall-1x-detector-tdd).
-  // Per the "one-key completion" tenet (2026-06-11): when the
-  // postinstall runs in a 1.x consumer project, it must auto-
-  // dispatch the upgrade umbrella. The dispatch is verified by
-  // the dogfood script; here we assert the postinstall does
-  // not crash on a 1.x fixture (the dispatch is fire-and-
-  // forget so we can't reliably intercept the spawn).
-  test('postinstall on a 1.x fixture does not crash (1.x signals do not block install)', async () => {
-    // Plant 1.x signals: missing .peaks/preferences.json +
-    // dev-preference.md referencing 'peaks progress' (the
-    // two local signals we can plant without polluting the
-    // real ~/.peaks/config.json).
-    mkdirSync(join(project, '.peaks', '_runtime'), { recursive: true });
-    mkdirSync(join(project, '.claude', 'rules', 'common'), { recursive: true });
-    writeFileSync(
-      join(project, '.claude', 'rules', 'common', 'dev-preference.md'),
-      '# dev-preference\n\nWe use **peaks progress** as the metric.\n',
-      'utf8'
-    );
-    // The postinstall's main block does `autoUpgrade1xProjectIfPresent().then(...)`
-    // which spawns `peaks upgrade --to 2.0 --auto` — but the spawn is
-    // async + the script does not await it. To avoid the test hanging
-    // or invoking the real peaks binary, set PEAKS_SKIP_AUTO_UPGRADE=1.
-    const result = await runInstallSkills({ PEAKS_SKIP_AUTO_UPGRADE: '1' }, project);
-    expect(result.code).toBe(0);
-    expect(result.stdout).toMatch(/Peaks skills linked/);
   });
 
   // ─────────────────────────────────────────────────────────────────────

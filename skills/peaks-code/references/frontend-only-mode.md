@@ -4,7 +4,7 @@
 >
 > **2026-09-12 (`rd-routing-by-integration-mode`):** this file is now the routing home for all three integration modes, not just `prd-only`. `### Integration-mode routing (RD)` was added and the boolean-era text in `### Mode determination` was retargeted onto `.integrationMode`; the mock table and placeholder layout below belong to `prd-only`.
 
-`peaks scan archetype --json` classifies every project into exactly one of three integration modes (`.integrationMode`). Code and RD both branch on that value — the `frontendOnly` boolean is retained for back-compat only (the swarm plan still reads it) and is no longer a routing decision.
+`peaks scan archetype --json` classifies every project into exactly one of three integration modes (`.integrationMode`). Code and RD both branch on that value — the `frontendOnly` boolean is retained for back-compat only (the swarm plan still reads it) and is no longer a routing decision. Both answers, and the `archetype`, come out of ONE backend predicate (`hasBackendEvidence` in `src/services/scan/archetype-service.ts`); before it was one predicate the three decision functions each re-spelled the same check inline, and a signal added for one of them left the others reading a different project.
 
 ### Mode determination (deterministic — CLI is the source of truth)
 
@@ -12,7 +12,7 @@ Read `.integrationMode` and `.integrationModeReason` from the `peaks scan archet
 
 | `.integrationMode` | `.integrationModeReason` | What is physically present |
 |---|---|---|
-| `full-stack` | `backend-detected` | a backend framework, Next API routes, or a backend dir in this repo |
+| `full-stack` | `backend-detected` | a backend anywhere in this repo: a root framework, Next API routes **or server actions**, a backend dir, a workspace package's own manifest (`apps/gateway: express`), or a non-Node service (`go.mod`, `pom.xml`, `services/x/requirements.txt` naming a web framework) |
 | `prd-plus-interface-doc` | `interface-doc-present` | an OpenAPI / proto document, and no backend here |
 | `prd-only` | `no-backend-no-interface-doc` | neither |
 

@@ -186,9 +186,9 @@ Rules that keep them from fighting:
    `HOOK_CODE_GATE_MATCHER` in `src/services/skills/hooks-codegate-superpowers.ts`.
 4. **`peaks hooks install` does not refresh `.claude/settings.local.json`, and
    `peaks workspace init` does not refresh `.claude/settings.json`.** Only
-   `peaks workspace init` converges a stale local file; nothing converges a
-   stale installed template copy except `peaks upgrade --apply-init` (see
-   `.peaks/docs/mac-auto-compact.md` and the generated-artifact stamp).
+   `peaks workspace init` converges a stale local file; the same call is what
+   refreshes the stale installed template copy
+   (`.peaks/.claude-settings-template.json`).
 
 ### Companion hooks (out of scope per NG5)
 

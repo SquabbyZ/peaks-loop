@@ -150,9 +150,9 @@ function validateModeAndStep(opts: ShouldPauseOptions): ModeAndStepValidation {
       envelope: fail(
         'code.should-pause',
         'INVALID_STEP',
-        `step must be one of the 14 GATED_STEPS (got "${opts.step}")`,
+        `step must be one of the ${GATED_STEPS.length} GATED_STEPS (got "${opts.step}")`,
         { provided: opts.step, allowed: [...GATED_STEPS] },
-        ['Pass --step <one of the 14 GATED_STEPS>']
+        [`Pass --step <one of the ${GATED_STEPS.length} GATED_STEPS>`]
       )
     };
   }

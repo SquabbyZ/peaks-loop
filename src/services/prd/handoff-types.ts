@@ -77,7 +77,42 @@ export type GateEvidence = Readonly<Partial<Record<GateEvidenceKey, string>>>;
  * immutability: once written, peaks-rd / peaks-qa / sub-agents MUST
  * NOT mutate the on-disk copy.
  */
-export interface HandoffFrontmatter {
+/** One entry of `decisions[]` — a choice an implementer could question. */
+export type HandoffDecision = {
+  readonly id: string;
+  readonly summary: string;
+  readonly rationale: string;
+};
+
+/** One entry of `risks[]`. `mitigation` is required by the field rule in
+ *  `skills/bee/peaks-rd/references/writing-handoff-frontmatter.md:52`: a risk
+ *  without one is a red line, so the type has no optional form of it. */
+export type HandoffRisk = {
+  readonly id: string;
+  readonly description: string;
+  readonly mitigation: string;
+};
+
+/**
+ * The fields a WRITER authors and a READER cross-checks, absent when the capsule
+ * declares nothing. They were documented as required frontmatter long before the
+ * type carried them — `readHandoff` spread the parsed YAML, so an authored capsule
+ * kept them at runtime while the serializer, which renders from the TYPE, dropped
+ * them on every rewrite. That is the data loss `handoff-auto-regen` used to cause
+ * and these fields exist to end.
+ */
+export type HandoffAuthoredFields = {
+  /** Repo-relative paths this slice touches, sorted. */
+  readonly scope?: readonly string[];
+  /** Files the slice expects in its diff; peaks-qa checks this against git. */
+  readonly files?: readonly string[];
+  readonly decisions?: readonly HandoffDecision[];
+  readonly risks?: readonly HandoffRisk[];
+  /** Verb-first; what the next role does, in order. */
+  readonly nextActions?: readonly string[];
+};
+
+export interface HandoffFrontmatter extends HandoffAuthoredFields {
   readonly requestId: string;
   readonly sessionId: string;
   readonly schemaVersion: HandoffSchemaVersion;

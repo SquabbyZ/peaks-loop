@@ -85,7 +85,6 @@ import { registerSubAgentShutdownCommands } from './sub-agent-shutdown-commands.
 import { registerSubAgentDispatchGuard } from './sub-agent-dispatch-guard.js';
 import { registerTestCommands } from './test-commands.js';
 import { registerVendorDetectCommand } from './vendor-detect.js';
-import { registerUpgradeCommands } from './upgrade-commands.js';
 import { registerUserTouchpointCommands } from './user-touchpoint-commands.js';
 import { registerVerdictAggregateCommands } from './verdict-aggregate-command.js';
 import { registerWebCommands } from './web-commands.js';
@@ -171,7 +170,6 @@ const REGISTRATIONS: readonly Registration[] = [
   ['bee-commands', registerBeeCommands],
   ['ecc-commands', registerEccCommands],
   ['baseline-commands', registerBaselineCommands],
-  ['upgrade-commands', registerUpgradeCommands],
   ['code-review-commands', registerCodeReviewCommands],
   ['security-audit-commands', registerSecurityAuditCommands],
   ['perf-audit-commands', registerPerfAuditCommands],

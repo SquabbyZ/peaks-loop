@@ -8,16 +8,8 @@
 // `skills/bee/peaks-rd/references/writing-handoff-frontmatter.md:35-41`; the
 // key set is `GATE_EVIDENCE_KEYS` in `./handoff-types.js`.
 //
-// WHAT THIS FILE USED TO SAY, AND WHY THAT WAS FALSE: its header claimed the
-// field was a `string[]` of "gate names" and that `initHandoff` wrote it.
-// Neither held. `grep -rn gateEvidence src/` hit this file and nothing else —
-// there was no producer (`HandoffFrontmatter` had no such field,
-// `serializeHandoffFrontmatter` never emitted it, `initHandoff` rejected it)
-// and no consumer. The field was prose describing data that did not exist,
-// and the comment asserting a producer was the reason nobody noticed.
-//
 // WHAT IS ON DISK NOW, stated precisely because a header that overclaims is
-// the defect above. B1 added the producer FUNCTIONS; B2 wired their callers,
+// the defect below. B1 added the producer FUNCTIONS; B2 wired their callers,
 // which is what made the difference — until then every producer passed
 // nothing, so no capsule carried the field and saying otherwise would have
 // described a fact that held only inside tests (F1 of `rid-b1-qa`). At
@@ -28,7 +20,19 @@
 // artifact is readable — and carries no `gateEvidence` block at all when it
 // is not. Gate C (`checkPrerequisites` at `rd:qa-handoff`) fails a declared
 // path that is not on disk. Every clause above is asserted end-to-end in
-// `tests/unit/prd/gate-evidence-derivation.test.ts`.
+// `tests/unit/prd/gate-evidence-derivation.test.ts`. The derived map is also
+// printed by `peaks prd handoff init` (dry-run and applied), so the key set
+// does not have to be read out of this source file.
+//
+// WHAT THIS FILE USED TO SAY, AND WHY THAT WAS FALSE: its header claimed the
+// field was a `string[]` of "gate names" and that `initHandoff` wrote it.
+// Neither held. `grep -rn gateEvidence src/` hit this file and nothing else —
+// there was no producer (`HandoffFrontmatter` had no such field,
+// `serializeHandoffFrontmatter` never emitted it, `initHandoff` rejected it)
+// and no consumer. The field was prose describing data that did not exist,
+// and the comment asserting a producer was the reason nobody noticed. That
+// paragraph describes the PRE-B1 state; reading it as the current state is
+// the exact misreading that put it here.
 //
 // WHY IT IS STILL STAND-ALONE: keeping the typed-value logic here, rather
 // than in `handoff-service.ts`, keeps `HandoffFrontmatter` a pure data shape

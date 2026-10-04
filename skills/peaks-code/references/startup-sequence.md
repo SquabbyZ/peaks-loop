@@ -49,10 +49,6 @@ Run `peaks workspace init` + `peaks skill presence:set peaks-code` BEFORE any an
 
 After Step 0, run the resume-detection probe; surface via `AskUserQuestion` if a slice is in flight. **v3.1.2 resume rule:** if `.peaks/_runtime/<sessionId>/job/<jid>/progress.json` exists, read FIRST and surface `Next: slice #N of M`. **v2.11.0 D7 override:** if user just `/compact`ed, run `peaks code post-compact-detect --project <repo> --json` FIRST; `shouldAutoResume: true` skips AskUserQuestion. → `resume-detection.md`.
 
-### Peaks-Loop Step 0.55: 1.x → 2.0 detection (BLOCKING on first invocation per session, when the project is not on a 2.0 layout)
-
-After Step 0.7 returns "fresh", run `peaks upgrade --detect-1x --project <root> --json`. If `isOneX: true`, surface `AskUserQuestion`. → `step-0-55-1x-detection.md`.
-
 ### Peaks-Loop Step 0.8 — Job 启动 (BLOCKING on LLM judgement — v3.1.1 patch + v3.1.2 mechanical gates)
 
 > **CLI reality check (D-001 sediment, 2026-07-09):** The CLI surface has changed since this section was last verified. The actual command is **`peaks job init --job-id <jid> --slice-list <list> --main-loop-strategy <single|rotating> [--parallelism-hint <serial|llm-decides>] [--exit-policy <strict|best-effort>] [--project <repo>]`**. The legacy `peaks code detect-job --is-job/--suggested-job-id/--confidence` form described below is **no longer present** in 4.0.0-beta.6. If you find `--is-job` rejected, fall back to `peaks job init`.

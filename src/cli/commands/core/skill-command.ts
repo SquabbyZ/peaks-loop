@@ -156,7 +156,7 @@ function generatedConfigNotice(projectRoot: string | undefined): {
     warnings: [
       `Generated config at '${projectRoot}' was produced by peaks-loop ${onDiskVersion} ` +
         `but ${staleness.expected.packageVersion} is installed (${staleness.reasons.join(', ')}). ` +
-        `Re-run \`peaks workspace init\` (or the idempotent \`peaks upgrade --apply-init\`) ` +
+        `Re-run \`peaks workspace init\` ` +
         `to regenerate .claude/settings.local.json and the offline template copy.`
     ]
   };

@@ -13,8 +13,8 @@
  *
  * `.claude/settings.local.json` IS drift-checked against the current template
  * — but only when something calls `initWorkspace`, which is precisely the
- * event that stopped happening. The escape hatch (`peaks upgrade
- * --apply-init`) is real and idempotent. What was missing is anything that
+ * event that stopped happening. The escape hatch (`peaks workspace init`) is
+ * real and idempotent. What was missing is anything that
  * tells the user — or the LLM driving them — that they need it. That is the
  * gap this module closes: a stamp the generator writes, and a detector that
  * can answer "the file on disk was produced by 4.0.40 while the installed

@@ -322,7 +322,7 @@ export async function initWorkspace(options: WorkspaceInitOptions): Promise<Work
   // is `$HOME`) resolved to `$HOME` and did exactly that — `.peaks/`,
   // `.gitignore`, `.claude/settings.local.json` and a codegraph index, all in
   // the user's home. Enforced here as well as at the CLI so a non-CLI caller
-  // (`peaks upgrade`) cannot reach the same write by another door.
+  // cannot reach the same write by another door.
   assertWritableProjectRoot(options.projectRoot);
 
   // Phase 6 refactor (slice 2026-06-05-change-id-as-unit-of-work) +

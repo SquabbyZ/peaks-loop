@@ -46,6 +46,7 @@ import { Command } from 'commander';
 import {
   assertSafeMemory,
   executeProjectMemoryExtract,
+  findSensitiveMemoryContentRule,
   findSensitiveMemoryTitleTerm,
   hasSensitiveMemoryContent,
   SENSITIVE_MEMORY_CHECKS
@@ -254,18 +255,27 @@ describe('Scenario: behavior — the config-key domain keeps its substring predi
 });
 
 /**
- * The content scanner's pattern behaviour, pinned on BOTH sides and taken from
- * the pre-C0 code. The slice moved no pattern — `hasSensitiveMemoryContent` is
- * byte-identical — and these are what says so: if a pattern is loosened to make
- * a case pass, one of the `true` rows below goes red.
+ * The content scanner's pattern behaviour, pinned on BOTH sides.
+ *
+ * This table used to read "the content scanner is unchanged" and to pin ten
+ * patterns byte-identically. It no longer can: the same maintainer report that
+ * named the `matchedTerm: null` problem also named the false kills, and the
+ * owner's decision was to tighten them. So each row below is a DECISION, and the
+ * three rows that moved from `true` to `false` are marked as such.
+ *
+ * What the tightening is: a rule fires only when the thing after the separator
+ * is credential-SHAPED — at least 5 characters and carrying a digit or one of
+ * `_ + / =`. The three rows that flipped are all-letter runs
+ * (`abc`, `abcdefghijklmnop`, `abcdefghijklmnopq`); no rule can separate an
+ * all-letter random string from an English word, and the complaint on record was
+ * English words (`the bearer Authorization header`) being refused. Ten rows keep
+ * their old answer, including `password: hunter2` — the digit is what earns it.
  */
 const CONTENT_SCANNER: ReadonlyArray<readonly [sample: string, sensitive: boolean]> = [
   ['api_key: sk-abcdef1234567890', true],
   ['token=abcdef123456', true],
   ['password: hunter2', true],
-  ['credential = abc', true],
-  ['Authorization: Bearer abcdefghijklmnop', true],
-  ['a header reading bearer abcdefghijklmnopq', true],
+  ['Authorization: Bearer eyJhbGciOiJIUzI1NiIs', true],
   ['sk-abcdef1234567890', true],
   ['ghp_abcdefghijklmnopqrstuvwxyz0123', true],
   ['github_pat_abcdefghijklmnopqrstuvwxyz0123', true],
@@ -273,24 +283,80 @@ const CONTENT_SCANNER: ReadonlyArray<readonly [sample: string, sensitive: boolea
   ['AKIAIOSFODNN7EXAMPLE', true],
   ['-----BEGIN RSA PRIVATE KEY-----', true],
   ['eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c', true],
-  // The other side: the same vocabulary as prose, with no value to leak —
-  // these four are also why the title predicate must not be a substring match.
+  // FLIPPED BY THE TIGHTENING, each with the reason. These are placeholders that
+  // name where a value goes, not values.
+  ['credential = abc', false],
+  ['a header reading bearer abcdefghijklmnopq', false],
+  ['Authorization: Bearer abcdefghijklmnop', false],
+  // The prose side: the same vocabulary used to describe an interface.
   ['Derive from the authority, never re-declare it', false],
   ['The tokenizer splits the body into tokens.', false],
   ['The secretary of state is not a credential.', false],
-  ['passwordless design is a goal, not a secret.', false]
+  ['passwordless design is a goal, not a secret.', false],
+  // And the four shapes that actually killed documents: each was refused before
+  // this change and is not now. They are here so "it can never happen again" is
+  // a measured claim rather than a mood.
+  ['the bearer Authorization header', false],
+  ['password: the field label in the form', false],
+  ['myApiKey: from env', false],
+  ['sk-abcdef is the prefix', false],
+  ['send Authorization: Bearer <token> on every request', false],
+  ['resetPassword= is the setter name', false]
 ];
 
-describe('Scenario: behavior — the content scanner is unchanged', () => {
+describe('Scenario: behavior — the content scanner fires on values, not vocabulary', () => {
   it.each(CONTENT_SCANNER)(
     'when the content is %j, should report sensitive = %s',
     (sample, sensitive) => {
-      // given: a pre-C0 sample of each pattern family, plus its prose counterpart
+      // given: a credential, a placeholder, or the prose counterpart of both
       // when: the content scanner reads it
-      // then: it answers exactly what it answered before this slice
+      // then: it answers as decided above
       expect(hasSensitiveMemoryContent(sample)).toBe(sensitive);
     }
   );
+});
+
+describe('Scenario: behavior — the content scanner names its rule', () => {
+  /**
+   * One id per pattern family. A `null` row is a shape the scanner deliberately
+   * does NOT fire on — prose with the vocabulary of a credential — and the id is
+   * what the refusal reports when it does. The ids are the contract peaks-qa's
+   * remedy text and `envelope.data.matchedTerm` are written against, so they are
+   * pinned here rather than left to drift with the patterns.
+   */
+  const RULE_IDS: ReadonlyArray<readonly [sample: string, ruleId: string | null]> = [
+    ['api_key: sk-abcdef1234567890', 'credential-assignment'],
+    ['password: hunter2', 'credential-assignment'],
+    ['Authorization: Bearer eyJhbGciOiJIUzI1NiIs', 'authorization-bearer-header'],
+    ['the bearer Authorization header', null],
+    ['myApiKey: from env', null],
+    ['bearer dGhpcyBpcyBhIHRva2Vu', 'bearer-value'],
+    ['sk-abcdef1234567890', 'sk-prefixed-key'],
+    ['ghp_abcdefghijklmnopqrstuvwxyz0123', 'gh-prefixed-key'],
+    ['github_pat_abcdefghijklmnopqrstuvwxyz0123', 'github-pat'],
+    ['glpat-abcdefghijklmnopqrstuv', 'glpat-prefixed-key'],
+    ['AKIAIOSFODNN7EXAMPLE', 'akia-prefixed-key'],
+    ['-----BEGIN RSA PRIVATE KEY-----', 'pem-private-key'],
+    [
+      'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c',
+      'jwt-shaped-value'
+    ],
+    ['Derive from the authority, never re-declare it', null]
+  ];
+
+  it.each(RULE_IDS)('when the content is %j, should report rule %j', (sample, ruleId) => {
+    expect(findSensitiveMemoryContentRule(sample)).toBe(ruleId);
+  });
+
+  it('when a rule id is reported, should answer the same yes/no as the boolean wrapper', () => {
+    for (const [sample, expected] of CONTENT_SCANNER) {
+      // The wrapper and the named predicate cannot disagree: one is the other.
+      expect(hasSensitiveMemoryContent(sample)).toBe(
+        findSensitiveMemoryContentRule(sample) !== null
+      );
+      expect(hasSensitiveMemoryContent(sample)).toBe(expected);
+    }
+  });
 });
 
 describe('Scenario: integration — the real extract path', () => {
@@ -425,7 +491,7 @@ describe('Scenario: a11y — the envelope names the check, and the advice answer
     expect(envelope.message).not.toContain('apikey');
   });
 
-  it('when a credential value is refused, should name the content scan and advise removing the value', async () => {
+  it('when a credential value is refused, should name the content scan and the rule that matched', async () => {
     // given: a real credential in the body
     writeFileSync(
       artifactPath,
@@ -436,24 +502,30 @@ describe('Scenario: a11y — the envelope names the check, and the advice answer
     // when: the CLI runs
     const envelope = await runExtract();
 
-    // then: the advice is the one that fits — and it still sends the reader to
-    //       the value, because this time there is one. No term is reported for
-    //       this check, in the message or in the data: the match IS the
-    //       credential, so it is not echoed anywhere.
+    // then: the advice names the SHAPE that refused, because that is what makes
+    //       the refusal checkable. This assertion used to require
+    //       `matchedTerm: null` — the content predicate returned a boolean, so
+    //       it had no match to report, while the title scan named its term. The
+    //       two paths are diagnosable the same way now, and the value is still
+    //       nowhere: the field carries an id from a closed list, never the text.
     expect(envelope.ok).toBe(false);
     expect(envelope.message).toContain(SENSITIVE_MEMORY_CHECKS.content);
+    expect(envelope.message).toContain('credential-assignment');
     expect(envelope.nextActions).toEqual([
-      'Remove the credential value from the memory content, then re-run memory extract'
+      'Remove the credential value the "credential-assignment" pattern matched, then re-run memory extract'
     ]);
     expect(envelope.data?.check).toBe(SENSITIVE_MEMORY_CHECKS.content);
-    expect(envelope.data?.matchedTerm).toBeNull();
+    expect(envelope.data?.matchedTerm).toBe('credential-assignment');
+    expect(JSON.stringify(envelope)).not.toContain('sk-abcdef1234567890');
 
     // The advice sentence has to SURVIVE the redactor it agrees with: the
     // catch-all rewrites the words secret / token / password / api-key wherever
     // they appear, so naming the pattern families in their own words arrived as
     // "an [redacted] / [redacted] / [redacted] assignment". Measured on the
-    // real CLI, both wordings; this case keeps the surviving one.
+    // real CLI, both wordings; this case keeps the surviving one, and the rule
+    // ids are spelled from outside that vocabulary for the same reason.
     expect(envelope.message).not.toContain('[redacted]');
+    expect(envelope.nextActions?.join(' ')).not.toContain('[redacted]');
   });
 
   it('when the same title is accepted, should report success with the memory planned', async () => {

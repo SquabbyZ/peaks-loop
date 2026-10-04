@@ -4,9 +4,11 @@ QA reads the RD handoff's YAML frontmatter **before** reading the body prose. Th
 
 ## Required frontmatter fields (mirror RD writer)
 
-`requestId`, `scope`, `files`, `decisions[]`, `risks[]`, `nextActions[]`, `gateEvidence`, `schemaVersion: '1.0'`. Field schema: `../../peaks-rd/references/writing-handoff-frontmatter.md`.
+`requestId`, `scope`, `files`, `decisions[]`, `risks[]`, `nextActions[]`, `gateEvidence`, `schemaVersion: 2` (written plain; `'2.0'` is not a valid value). Field schema: `../../peaks-rd/references/writing-handoff-frontmatter.md`.
 
 ## Mechanical cross-checks (run before body read)
+
+Checks 1–3 and 5 are conditional on the capsule DECLARING the field: `scope`, `files`, `decisions[]`, `risks[]` and `nextActions[]` are authored by the writer, not derived, and the serializer writes no line for a field nobody filled in. An absent field is therefore NOT a pass — it means the writer made no claim to check, which is recorded as `not declared` rather than green. Only check 4 has a machine producer (`peaks prd handoff init` derives it from the request type).
 
 1. **Decisions ↔ tests** — every `decisions[].id` (e.g. `D1`) implies a test under `tests/unit/`. Grep `tests/unit/` for the decision id (or its summary keywords). Missing test → Gate B2 partial.
 2. **Risks ↔ security tests** — every `risks[].id` with `description` mentioning auth / input / boundary / path / external / crypto / payment MUST have a matching case under `tests/unit/security/`. Missing → Gate A3 partial.

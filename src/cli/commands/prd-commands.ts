@@ -138,7 +138,12 @@ export function registerPrdCommands(program: Command, io: ProgramIO): void {
             bodyBytes: Buffer.byteLength(body, 'utf8'),
             goals: handoff.frontmatter.goals,
             acceptanceCriteria: handoff.frontmatter.acceptanceCriteria,
-            preservedBehavior: handoff.frontmatter.preservedBehavior
+            preservedBehavior: handoff.frontmatter.preservedBehavior,
+            // The derived declaration is printed, not just written. A reader
+            // deciding whether to `--apply` must be able to see which gate
+            // keys this slice declares and at what paths; before this, the
+            // only way to learn the five key names was to read the source.
+            gateEvidence: handoff.frontmatter.gateEvidence ?? null
           }),
           options.json
         );
@@ -152,7 +157,8 @@ export function registerPrdCommands(program: Command, io: ProgramIO): void {
           path: written.path,
           hash: written.hash,
           requestId: handoff.frontmatter.requestId,
-          sessionId: handoff.frontmatter.sessionId
+          sessionId: handoff.frontmatter.sessionId,
+          gateEvidence: handoff.frontmatter.gateEvidence ?? null
         }),
         options.json
       );

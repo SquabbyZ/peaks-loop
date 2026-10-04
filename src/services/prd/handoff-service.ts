@@ -36,7 +36,14 @@ import {
   serializeHandoff
 } from './handoff-frontmatter-shape.js';
 import { handoffRelativePath } from './handoff-path-resolution.js';
-import type { GateEvidence, Handoff, HandoffFrontmatter, HandoffProbe } from './handoff-types.js';
+import type {
+  GateEvidence,
+  Handoff,
+  HandoffDecision,
+  HandoffFrontmatter,
+  HandoffProbe,
+  HandoffRisk
+} from './handoff-types.js';
 
 // Slice `b1-filesplit-campaign` (wave 3): the capsule PATH layer
 // (`assertSafeHandoffIds` / `handoffRelativePath` / `resolveHandoffPath`) and the
@@ -86,6 +93,16 @@ export function initHandoff(opts: {
    *  is refused here by a throw and there by a status; neither silently
    *  produces a map the other cannot. */
   gateEvidence?: GateEvidence;
+  /** The authored fields peaks-qa cross-checks (`decisions[] ↔ tests`,
+   *  `risks[] ↔ security tests`, `files[] ↔ git diff`). They are OPTIONAL and
+   *  pass through verbatim: unlike `gateEvidence`, nothing derives them — they
+   *  are a writer's judgement about the slice, so a producer that has not made
+   *  that judgement declares nothing rather than an empty claim. */
+  scope?: readonly string[];
+  files?: readonly string[];
+  decisions?: readonly HandoffDecision[];
+  risks?: readonly HandoffRisk[];
+  nextActions?: readonly string[];
 }): Handoff {
   const handoffPath = opts.handoffPath ?? handoffRelativePath(opts.sessionId, opts.requestId);
   const handoffHash = sha256OfBody(opts.body);
@@ -104,7 +121,17 @@ export function initHandoff(opts: {
     // would also make `serializeHandoffFrontmatter`'s
     // `frontmatter.gateEvidence` key present-but-undefined for every caller
     // that declares nothing.
-    ...(opts.gateEvidence === undefined ? {} : { gateEvidence: opts.gateEvidence })
+    ...(opts.gateEvidence === undefined ? {} : { gateEvidence: opts.gateEvidence }),
+    // The authored fields, each spread only when present. The same
+    // `exactOptionalPropertyTypes` reason as `gateEvidence` above: an absent
+    // field is absent, not present-and-undefined, so a capsule that declares
+    // nothing writes nothing — and a copy is taken so a caller mutating its own
+    // array afterwards cannot change a handoff that has already been hashed.
+    ...(opts.scope === undefined ? {} : { scope: [...opts.scope] }),
+    ...(opts.files === undefined ? {} : { files: [...opts.files] }),
+    ...(opts.decisions === undefined ? {} : { decisions: [...opts.decisions] }),
+    ...(opts.risks === undefined ? {} : { risks: [...opts.risks] }),
+    ...(opts.nextActions === undefined ? {} : { nextActions: [...opts.nextActions] })
   };
   return { frontmatter, body: opts.body };
 }

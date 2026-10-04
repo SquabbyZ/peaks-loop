@@ -386,5 +386,15 @@ function memoryExtractNextActions(refusal: UnsafeMemoryError | null): string[] {
       'Retitle the memory so it is not named after a credential term, then re-run memory extract'
     ];
   }
+  if (refusal.check === SENSITIVE_MEMORY_CHECKS.content) {
+    // Name the rule, not just the family. `matchedTerm` is a closed id
+    // (`credential-assignment`, `bearer-value`, `pem-private-key`, …), so the
+    // reader can tell a credential in the text from a sentence that merely has
+    // the shape of one — which is the difference between removing a value and
+    // rewording prose.
+    return [
+      `Remove the credential value the "${refusal.matchedTerm}" pattern matched, then re-run memory extract`
+    ];
+  }
   return ['Remove the credential value from the memory content, then re-run memory extract'];
 }

@@ -68,14 +68,6 @@ const RAW_CLASSIFICATION: readonly RawGate[] = [
     userShouldReview: 'always'
   },
   {
-    step: 'step-0.55-1x-upgrade',
-    kind: 'commit-floor',
-    description:
-      '1.x → 2.0 升级检测。不可逆外部副作用(改写 config + cache schema),所有 mode 都必须 AskUserQuestion。full-auto 也暂停。',
-    fullAutoCanProceed: false,
-    userShouldReview: 'always'
-  },
-  {
     step: 'step-0.75-checkpoint-resume',
     kind: 'tech',
     description: '同 session 当日重入 + checkpoint 续做。技术恢复逻辑,user 不参与。',

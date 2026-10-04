@@ -29,7 +29,6 @@ export type GatedStepId =
   | 'step-0.5-openspec-opt-in'
   | 'step-0.6-audit-goal'
   | 'step-0.7-resume-detection'
-  | 'step-0.55-1x-upgrade'
   | 'step-1-mode-select'
   | 'step-2.5-session-title'
   | 'phase-2-prd-confirm'
@@ -45,7 +44,6 @@ export const GATED_STEPS: readonly GatedStepId[] = [
   'step-0.5-openspec-opt-in',
   'step-0.6-audit-goal',
   'step-0.7-resume-detection',
-  'step-0.55-1x-upgrade',
   'step-1-mode-select',
   'step-2.5-session-title',
   'phase-2-prd-confirm',

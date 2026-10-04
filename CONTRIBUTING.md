@@ -112,7 +112,7 @@ src/                  TypeScript source (compiled to dist/)
 tests/unit/           Vitest unit tests (mirrors src/ layout)
 skills/               SKILL.md family (the primary product surface)
 scripts/              postinstall, sync-version, watch, clean-dist
-docs/                 UPGRADING-2.0.md, design notes
+docs/                 design notes
 openspec/changes/     in-flight proposals (archive/ for completed)
 .peaks/               peaks-loop's own workspace (dogfood, NOT shipped)
 .claude/rules/        project-local rules (extend ~/.claude/rules)
@@ -140,5 +140,5 @@ publish on behalf of a human.
 
 ## Questions
 
-Open a GitHub issue or read `CHANGELOG.md` + `docs/UPGRADING-2.0.md`
+Open a GitHub issue or read `CHANGELOG.md`
 for the most common questions.
