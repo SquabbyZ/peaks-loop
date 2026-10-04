@@ -36,6 +36,8 @@ import { spawn, spawnSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 
+import { scrubGitHookEnv } from './git-hook-env.mjs';
+
 // Resolve this script's directory. We DO NOT use `import.meta.url` because
 // when this script is invoked via `node scripts/test-changed.mjs` under
 // Node 22 ESM, `import.meta.url` points to the **invoking cwd** (e.g.
@@ -59,10 +61,23 @@ function run(cmd, args) {
   });
 }
 
+/** The env the SUITE runs under: git's hook context removed, everything else intact. */
+function suiteEnv() {
+  return scrubGitHookEnv();
+}
+
+// The suite is spawned with `env: suiteEnv()` on purpose. git exports `GIT_DIR` and the
+// rest of its context to every hook, `pnpm test:changed` inherits it, and so would vitest —
+// where dozens of tests `git init` a scratch repository and commit into it. Measured on the
+// 4.1.1 push: 233 arms red that are green outside the hook, and 169 commits titled
+// `fixture` written onto the branch being pushed. Rationale + the variable list:
+// `scripts/git-hook-env.mjs`; the runner's own `run()` git calls keep the context, because
+// they ARE about this repository.
 function runInherit(cmd, args) {
   return new Promise((resolveRun) => {
     const child = spawn(cmd, args, {
       cwd: repoRoot,
+      env: suiteEnv(),
       stdio: 'inherit',
       shell: false,
       windowsHide: true
