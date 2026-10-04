@@ -8,7 +8,7 @@
  * filesystem and no scan in the room.
  */
 
-import { readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import type { PruneAction, PruneSkip } from './comment-prune.js';
@@ -20,13 +20,19 @@ export type WriteOutcome = {
   fileSkips: PruneSkip[];
 };
 
-/** Read a file, or report that it is not there — a prune never creates one. */
+/**
+ * Read a file, or report that it is not there — a prune never creates one.
+ *
+ * `existsSync` first, and NO catch: a `catch { return null }` answers "present but
+ * unreadable" (permissions, a locked handle, a directory named as a file) with the same
+ * `null` as "absent", and that conflation is the defect this repository already
+ * ratchets under `silentWarningCatchReturnNull` — this very helper was counted by it.
+ * An absent path is a state the caller handles; an unreadable one should be a crash an
+ * operator sees.
+ */
 export function readFileSafe(root: string, rel: string): string | null {
-  try {
-    return readFileSync(join(root, rel), 'utf8');
-  } catch {
-    return null;
-  }
+  const abs = join(root, rel);
+  return existsSync(abs) ? readFileSync(abs, 'utf8') : null;
 }
 
 /**

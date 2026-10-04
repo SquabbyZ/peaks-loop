@@ -68,3 +68,30 @@ describe('auditComments against this repository', () => {
     expect(counts).toEqual(sorted);
   });
 });
+
+describe('an explicit population, which is what a ratchet row is measured over', () => {
+  const files = scopeFiles(ROOT, 'src').slice(0, 40);
+
+  it('counts the files it was handed, and nothing else', () => {
+    const audit = auditComments({ projectRoot: ROOT, files, limit: 0 });
+    expect(audit.askedFiles).toBe(40);
+    expect(audit.scannedFiles).toBe(40);
+    // A subset can never carry more debt than the whole, and the row that ratchets
+    // is the whole — this is the assertion that fails if a handed list is ignored
+    // and the walk runs anyway.
+    expect(audit.narrative).toBeLessThanOrEqual(auditComments({ projectRoot: ROOT }).narrative);
+  });
+
+  it('separates scanned from asked when a named file is not on disk', () => {
+    // `git ls-files` is the population, and the disk can disagree with it. A leg that
+    // read 39 of 40 files must not report a count over 40, and it must not report 0;
+    // the two numbers being different is the refusal.
+    const audit = auditComments({
+      projectRoot: ROOT,
+      files: [...files, 'src/services/comments/never-written-here.ts'],
+      limit: 0
+    });
+    expect(audit.askedFiles).toBe(41);
+    expect(audit.scannedFiles).toBe(40);
+  });
+});

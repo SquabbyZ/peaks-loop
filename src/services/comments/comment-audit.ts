@@ -64,6 +64,8 @@ export function scopeFiles(projectRoot: string, scopeDir: string): string[] {
 
 export type CommentAuditResult = {
   readonly scannedFiles: number;
+  /** Files the caller named. Equal to `scannedFiles` unless one was unreadable. */
+  readonly askedFiles: number;
   readonly commentLines: number;
   readonly deadReferences: number;
   readonly narrative: number;
@@ -77,6 +79,17 @@ export type CommentAuditOptions = {
   readonly kind?: CommentFindingKind;
   /** Cap the finding list; totals are never capped. */
   readonly limit?: number;
+  /**
+   * Scan EXACTLY these repo-relative files instead of walking the scope dirs.
+   *
+   * A ratchet row must be measured over the population its callers agree to, and a
+   * walk is not a scope: the walk sees untracked files the index never heard of and
+   * misses tracked files the disk dropped, so a row measured over a walk can move
+   * while nobody edits source. `git ls-files` filtered by the published scope rule is
+   * that population — the same list the eslint, prettier and silent-warning legs
+   * share (rid `2026-10-03-silent-warning-scope`).
+   */
+  readonly files?: readonly string[];
 };
 
 function totalOf(
@@ -92,27 +105,33 @@ export function auditComments(options: CommentAuditOptions): CommentAuditResult 
   const exists = createRepoProbe(projectRoot);
   const installed = createFsProbe(projectRoot);
   const kinds = options.kind === undefined ? undefined : [options.kind];
+  const population = options.files ?? scopePopulation(projectRoot);
   const findings: CommentFinding[] = [];
   const summaries: CommentFileSummary[] = [];
+  // Files actually READ, not files handed in. A tracked path the disk no longer
+  // carries has to show up as `scanned < asked`, which is how a leg refuses instead
+  // of printing a count measured over a population nobody agreed to.
+  let scanned = 0;
 
-  for (const scopeDir of COMMENT_SCAN_SCOPE) {
-    for (const file of scopeFiles(projectRoot, scopeDir)) {
-      const source = readFileSync(resolve(projectRoot, file), 'utf8');
-      const input = { file, source };
-      const found = scanComments(input, {
-        exists,
-        installed,
-        ...(kinds === undefined ? {} : { kinds })
-      });
-      if (found.length === 0) continue;
-      summaries.push(summarize(input, found));
-      findings.push(...found);
-    }
+  for (const file of population) {
+    if (!existsSync(resolve(projectRoot, file))) continue;
+    scanned += 1;
+    const source = readFileSync(resolve(projectRoot, file), 'utf8');
+    const input = { file, source };
+    const found = scanComments(input, {
+      exists,
+      installed,
+      ...(kinds === undefined ? {} : { kinds })
+    });
+    if (found.length === 0) continue;
+    summaries.push(summarize(input, found));
+    findings.push(...found);
   }
 
   const capped = options.limit === undefined ? findings : findings.slice(0, options.limit);
   return {
-    scannedFiles: COMMENT_SCAN_SCOPE.reduce((n, dir) => n + scopeFiles(projectRoot, dir).length, 0),
+    scannedFiles: scanned,
+    askedFiles: population.length,
     commentLines: summaries.reduce((n, file) => n + file.commentLines, 0),
     deadReferences: totalOf(summaries, 'deadReferences'),
     narrative: totalOf(summaries, 'narrative'),
@@ -121,4 +140,9 @@ export function auditComments(options: CommentAuditOptions): CommentAuditResult 
     ),
     findings: capped
   };
+}
+
+/** The walked population, used only when a caller did not hand an explicit list. */
+function scopePopulation(projectRoot: string): string[] {
+  return COMMENT_SCAN_SCOPE.flatMap((scopeDir) => scopeFiles(projectRoot, scopeDir));
 }
