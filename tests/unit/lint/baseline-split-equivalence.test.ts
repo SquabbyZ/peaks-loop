@@ -42,6 +42,14 @@ import { afterAll, describe, expect, it } from 'vitest';
 import { declareDimensions } from '../_setup/4dim-template.js';
 import { SUBPROCESS_TEST_TIMEOUT_MS } from '../_setup/subprocess-timeouts.js';
 import { GENERATOR_DIR_REL, REPO_ROOT } from '../standards/_file-size-cap-scan.js';
+import { TSX_TOOL_STUB } from './_file-size-hooks-walk.js';
+import {
+  ANCHOR_ERA_FILES,
+  GENERATOR_REL,
+  PRE_SPLIT_ANCHOR_SHA,
+  anchorBlob,
+  eraRows
+} from './_split-anchor-era.js';
 import { projectArtifact, projectStderr } from './_rescope-projection.js';
 import { hooksScopeFilesUnder } from './_file-size-hooks-fixture.js';
 
@@ -51,7 +59,6 @@ declareDimensions(
   []
 );
 
-const GENERATOR_REL = '.husky/peaks-gate-baseline.mjs';
 const SPAWN_TARGET = join('.husky', 'peaks-gate-baseline.mjs');
 const ARTIFACT_REL = join('.peaks', 'lint', 'gate-baseline.json');
 const ARTIFACT_GIT_PATH = '.peaks/lint/gate-baseline.json';
@@ -69,12 +76,6 @@ const ESLINT_STUB = "process.stdout.write('[]\\n');\n";
 const TSC_STUB = "process.stdout.write('');\n";
 const DETECTOR_STUB =
   "const p = process.argv.slice(2).filter((a) => !a.startsWith('-'));\nconsole.log(JSON.stringify({ scannedFiles: p.length || 3, byRule: { 'catch-return-null': 1, 'empty-catch': 2 } }));\n";
-const CENSUS_STUB =
-  'process.stdout.write(JSON.stringify({ overCap: 1, excessLines: 9, ' +
-  "convention: 'split(String.fromCharCode(10)).length', caps: { defaultCap: 300, testsCap: 500 }, " +
-  "scope: { countedFiles: 3, source: 'git ls-files <policy dirs>', dirs: ['src'], " +
-  "extensions: ['ts'] }, files: [{ file: 'src/big.ts', lines: 309, cap: 300, excess: 9 }], byDir: { src: { files: 3 } }, " +
-  "hooks: { overCap: 1, excessLines: 4, caps: { hooksCap: 300 }, convention: 'split(String.fromCharCode(10)).length', scope: { countedFiles: 2, source: 'git ls-files <hooks dirs>', dirs: ['.husky'], extensions: ['mjs'] }, files: [] } }) + '\\n');\n";
 const PRETTIER_PACKAGE =
   '{"name":"prettier","version":"0.0.0-fixture","type":"module","exports":{".":"./index.mjs"}}\n';
 const GIT_NEUTRAL =
@@ -112,28 +113,7 @@ function prettierShim(): string {
   const real = pathToFileURL(join(REPO_ROOT, 'node_modules', 'prettier', 'index.mjs')).href;
   return `export { default } from '${real}';\nexport * from '${real}';\n`;
 }
-/**
- * The pre-split commit the reference side is pinned to. `c6de09a6` IS the split, so its
- * parent is the last commit whose `peaks-gate-baseline.mjs` is still the 799-line monolith
- * the split was cut from. `HEAD` cannot be the anchor: landing the split is exactly what
- * moves `HEAD` off the monolith, which is the self-destructing-anchor defect cycle 1 had.
- */
-const PRE_SPLIT_ANCHOR_SHA = '77b711ff';
-/** `git show <ref>:` on the generator entry — the reference comes from git, not the tree. */
-function gitShowGenerator(ref: string): string {
-  return execFileSync('git', ['show', `${ref}:${GENERATOR_REL}`], {
-    cwd: REPO_ROOT,
-    encoding: 'utf8',
-    maxBuffer: 64 * 1024 * 1024,
-    windowsHide: true
-  });
-}
-/** The pinned monolithic generator, read out of git once and memoised. */
-let anchorEntry: string | null = null;
-function anchorGeneratorText(): string {
-  if (anchorEntry === null) anchorEntry = gitShowGenerator(PRE_SPLIT_ANCHOR_SHA);
-  return anchorEntry;
-}
+// The era the reference side belongs to lives in `_split-anchor-era.ts` (rationale there).
 /**
  * The `.husky` set each side stages — by WALK (`hooksScopeFilesUnder`, the census's own
  * rule), the mechanism slices 1 and 2 built for exactly this hazard. The HEAD side is that
@@ -161,13 +141,13 @@ function build(side: Side): void {
   writeIn(root, 'src/tidy.ts', 'export const tidy = 1;\n');
   writeIn(root, 'node_modules/eslint/bin/eslint.js', ESLINT_STUB);
   writeIn(root, 'node_modules/typescript/bin/tsc', TSC_STUB);
-  writeIn(root, 'node_modules/tsx/dist/cli.mjs', CENSUS_STUB);
+  writeIn(root, 'node_modules/tsx/dist/cli.mjs', TSX_TOOL_STUB);
   writeIn(root, 'node_modules/prettier/package.json', PRETTIER_PACKAGE);
   writeIn(root, 'node_modules/prettier/index.mjs', prettierShim());
   for (const rel of filesFor(side)) {
     const text =
-      side === 'head' && rel === GENERATOR_REL
-        ? anchorGeneratorText()
+      side === 'head' && ANCHOR_ERA_FILES.includes(rel)
+        ? anchorBlob(rel)
         : readFileSync(join(REPO_ROOT, rel), 'utf8');
     writeIn(root, rel, text);
   }
@@ -199,15 +179,16 @@ function runGenerator(side: Side, argv: readonly string[]): Run {
     artifact: artifactOf(root)
   };
 }
-const redact = (text: string): string => text.replace(GENERATED_AT, '"generatedAt": "<dt>"');
-// The rescope projection (rationale in `_rescope-projection.ts`): four declared
+const redact = (text: string): string => text.replace(GENERATED_AT, '"generatedAt": "<dt>"'); // The rescope projection (rationale in `_rescope-projection.ts`): four declared
 // surfaces normalised away; every other byte and line still compared strictly.
 function differs(a: Run, b: Run): Diff {
   return {
     code: a.code !== b.code,
     stdout: a.stdout !== b.stdout,
-    stderr: projectStderr(a.stderr) !== projectStderr(b.stderr),
-    artifact: projectArtifact(redact(a.artifact)) !== projectArtifact(redact(b.artifact))
+    stderr: projectStderr(a.stderr, eraRows()) !== projectStderr(b.stderr, eraRows()),
+    artifact:
+      projectArtifact(redact(a.artifact), eraRows()) !==
+      projectArtifact(redact(b.artifact), eraRows())
   };
 }
 const summary = (side: string, run: Run): string =>
@@ -314,9 +295,9 @@ afterAll(() => {
 
 // THE PIN ITSELF IS GUARDED BY THE SIBLING `baseline-split-anchor.test.ts`: cycle 1 anchored
 // on `HEAD`, the commit that landed the split invalidated that anchor, and eleven arms died
-// on an anonymous module-not-found. `anchorGeneratorText()` above pins the reference to
-// `PRE_SPLIT_ANCHOR_SHA`; that sibling fails with a sentence naming what moved if the sha
-// ever stops resolving, stops being monolithic, or stops differing from HEAD.
+// on an anonymous module-not-found. `anchorBlob()` in `_split-anchor-era.ts` pins the
+// reference to `PRE_SPLIT_ANCHOR_SHA`; that sibling fails with a sentence naming what moved
+// if the sha ever stops resolving, stops being monolithic, or stops differing from HEAD.
 
 describe('Scenario: integration — HEAD’s generator and the split agree state by state', () => {
   const CASES: ReadonlyArray<[ScenarioKey, string]> = [
@@ -345,23 +326,42 @@ describe('Scenario: behavior — the comparison is between two different program
     expect(head.length, 'the HEAD side stages the closure').toBeGreaterThan(10);
     expect(split.filter((rel) => rel.startsWith(GENERATOR_DIR_REL)).length).toBe(12);
     expect(split.length).toBe(head.length + 12);
-    expect(anchorGeneratorText()).not.toBe(readFileSync(join(REPO_ROOT, GENERATOR_REL), 'utf8'));
+    expect(anchorBlob(GENERATOR_REL)).not.toBe(
+      readFileSync(join(REPO_ROOT, GENERATOR_REL), 'utf8')
+    );
     expect(head).toContain('.husky/peaks-gate-file-size.mjs');
     expect(head).toContain('.husky/peaks-gate-baseline-monotonic.mjs');
     expect(head.some((rel) => rel.startsWith('.husky/monotonic/'))).toBe(true);
     // Both fixtures receive the SAME working-tree closure bytes for every file except the
-    // generator entry (build reads `REPO_ROOT` for all of them), so the only variable in the
-    // comparison is the split. We deliberately do NOT require that closure to match the tip:
-    // that is the same moving target the anchor commits to a sha, and slice 4's uncommitted
-    // file-size split is exactly a case where the tip and the tree legitimately differ. What
-    // has to hold is that both programs ran against ONE closure, so every shared file reads
-    // byte-for-byte equal straight off the two fixtures.
+    // two era-pinned ones (build reads `REPO_ROOT` for all the rest), so the variable in the
+    // comparison is the program, not its inputs. We deliberately do NOT require that closure
+    // to match the tip: that is the same moving target the anchor commits to a sha, and slice
+    // 4's uncommitted file-size split is exactly a case where the tip and the tree
+    // legitimately differ. What has to hold is that both programs ran against ONE closure
+    // apart from the era, so every shared file reads byte-for-byte equal straight off the two
+    // fixtures — and the era files are pinned to the anchor, not to anything typed.
     for (const rel of head) {
-      if (rel === GENERATOR_REL) continue;
+      if (ANCHOR_ERA_FILES.includes(rel)) {
+        expect(
+          readFileSync(join(rootOf('head'), rel), 'utf8'),
+          `${rel} is the anchor's own bytes on the reference side`
+        ).toBe(anchorBlob(rel));
+        continue;
+      }
       expect(
         readFileSync(join(rootOf('split'), rel)).equals(readFileSync(join(rootOf('head'), rel))),
         rel
       ).toBe(true);
+    }
+    // The projection's whole appetite, stated here so it cannot grow silently: the rows
+    // the canonical list gained after the anchor, and nothing else.
+    const gained = eraRows();
+    expect(
+      gained.length,
+      `no row gained after ${PRE_SPLIT_ANCHOR_SHA} — the era pin is moot`
+    ).toBeGreaterThan(0);
+    for (const rel of ANCHOR_ERA_FILES) {
+      expect(head, `${rel} must really be staged on both sides`).toContain(rel);
     }
   });
 
@@ -406,8 +406,8 @@ describe('Scenario: render — the artifact bytes are compared as bytes', () => 
       expect(Object.keys(rows).length, 'a real ceiling block, not an empty one').toBeGreaterThan(
         10
       );
-      expect(projectArtifact(redact(pair.split.artifact))).toBe(
-        projectArtifact(redact(pair.head.artifact))
+      expect(projectArtifact(redact(pair.split.artifact), eraRows())).toBe(
+        projectArtifact(redact(pair.head.artifact), eraRows())
       );
     }
   );

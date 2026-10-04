@@ -350,6 +350,10 @@ describe('Scenario: a11y — the published rows agree with the real .husky, walk
     expect(env.scope.dirs).not.toContain('.husky');
     expect(env.hooks.scope.dirs).not.toContain('src');
     const seeded: FixtureArtifact = fixture.artifact();
-    expect(Object.keys(seeded.ceilings).length).toBe(15);
+    // Set equality, never a count (the arm above): a count here is a second copy of the
+    // canonical list, and it went stale the day the two comment rows landed — 15 typed
+    // against 17 measured. The keys the seed writes are the keys `keys.mjs` sanctions.
+    const monotonic = await loadMonotonic();
+    expect(Object.keys(seeded.ceilings).sort()).toEqual([...monotonic.CEILING_KEYS].sort());
   });
 });

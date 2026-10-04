@@ -20,6 +20,7 @@
 // `['mjs']` here would recreate the second copy
 // `tests/unit/standards/file-size-cap.test.ts` exists to report.
 
+import { execFileSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -81,4 +82,126 @@ export function walkHooksScope(root: string): HooksWalk {
     }
   }
   return { overCap: files.length, excessLines, files, scopedFiles: paths.sort() };
+}
+
+/**
+ * The tools the gate spawns through the REAL tsx, in the staging form a scratch
+ * repository needs.
+ *
+ * WHY HERE. `createFixture` in `_file-size-hooks-fixture.ts` forwards its `node_modules/tsx`
+ * to the repository's real tsx, so every tool that leg spawns has to exist in the fixture
+ * tree. `.husky/baseline/tool-legs.mjs` now spawns two of them (the silent-warning
+ * detector and the comment-hygiene detector), and a builder that had not heard about the
+ * second died before it could write an artifact — `ERR_MODULE_NOT_FOUND …
+ * comment-hygiene-detector.ts` is the same incident that ate 75 arms once already.
+ * So this is ONE list, and a builder that forwards tsx stages both tools from it.
+ *
+ * The counts are fixed at zero: a builder that needs non-zero silent-warning rows to
+ * seed a ceiling passes its own stub for that tool and leaves the rest staged.
+ */
+export const GATE_TOOL_STUBS: ReadonlyArray<readonly [string, string]> = [
+  [
+    join('scripts', 'lint', 'comment-hygiene-detector.ts'),
+    [
+      "const p = process.argv.slice(2).filter((a) => !a.startsWith('-'));",
+      "console.log(JSON.stringify({ schemaVersion: 1, scopeSource: 'explicit paths (caller-supplied)', ",
+      'scannedFiles: p.length, askedFiles: p.length, commentLines: 0, deadReferences: 0, narrative: 0 }));'
+    ].join('\n')
+  ]
+];
+
+/** The census envelope, in the shape `.husky/peaks-gate-file-size.mjs` requires. */
+const CENSUS_ENVELOPE = {
+  overCap: 1,
+  excessLines: 9,
+  convention: 'split(String.fromCharCode(10)).length',
+  caps: { defaultCap: 300, testsCap: 500 },
+  scope: {
+    countedFiles: 3,
+    source: 'git ls-files <policy dirs>',
+    dirs: ['src'],
+    extensions: ['ts']
+  },
+  files: [{ file: 'src/big.ts', lines: 309, cap: 300, excess: 9 }],
+  byDir: { src: { files: 3 } },
+  // The `.husky/` block the two hooks rows read (§2.32); refused if absent.
+  hooks: {
+    overCap: 1,
+    excessLines: 4,
+    caps: { hooksCap: 300 },
+    convention: 'split(String.fromCharCode(10)).length',
+    scope: {
+      countedFiles: 2,
+      source: 'git ls-files <hooks dirs>',
+      dirs: ['.husky'],
+      extensions: ['mjs']
+    },
+    files: []
+  }
+};
+
+/** What the comment-hygiene leg is handed for a batch of `files`. */
+const COMMENT_DEBT_ENVELOPE = {
+  schemaVersion: 1,
+  scopeSource: 'explicit paths (caller-supplied)',
+  commentLines: 6,
+  deadReferences: 1,
+  narrative: 2
+};
+
+/**
+ * The fixture's `node_modules/tsx`, for a builder that stubs tsx instead of forwarding it.
+ *
+ * DISPATCHED, NOT FIXED, AND THAT IS THE WHOLE POINT. tsx is the one spawn shared by two
+ * legs — `.husky/file-size/measure.mjs` asks it for `scripts/lint/file-size-census.ts`,
+ * `.husky/peaks-gate-comment-hygiene.mjs` asks it for the comment detector. A stub that
+ * answered every spawn with the census envelope was harmless while the census was the
+ * only caller, and became a refusal the moment the second row landed: the
+ * comment-hygiene leg received census JSON, found no `deadReferences` in it, and would not
+ * seed. Measured, this session: the four builders that stub tsx went red in a group (78
+ * arms) from exactly that, and the seed run's own sentence named it —
+ * `reported deadReferences=undefined, which is not a count`.
+ *
+ * The census side is byte-compatible with what the four builders used to inline (four
+ * copies of one envelope — the second-copy defect this campaign files most often), so a
+ * builder that stages this instead of its own string changes nothing about its rows.
+ */
+export const TSX_TOOL_STUB = [
+  'const argv = process.argv.slice(2);',
+  "const tool = String(argv[0] ?? '');",
+  "const files = argv.slice(1).filter((a) => !a.startsWith('-'));",
+  `const CENSUS = ${JSON.stringify(CENSUS_ENVELOPE)};`,
+  `const DEBT = ${JSON.stringify(COMMENT_DEBT_ENVELOPE)};`,
+  "const envelope = tool.endsWith('comment-hygiene-detector.ts')",
+  '  ? { ...DEBT, scannedFiles: files.length, askedFiles: files.length }',
+  '  : CENSUS;',
+  "process.stdout.write(JSON.stringify(envelope) + '\\n');",
+  ''
+].join('\n');
+
+/** One file's bytes AS A COMMIT saw them — the only honest way to read an era. */
+export function gitBlobAt(ref: string, rel: string, cwd: string): string {
+  return execFileSync('git', ['show', `${ref}:${rel}`], {
+    cwd,
+    encoding: 'utf8',
+    maxBuffer: 64 * 1024 * 1024,
+    windowsHide: true
+  });
+}
+
+/**
+ * The ceiling rows the canonical list gained between two of its own readings.
+ *
+ * `baseline-split-equivalence.test.ts` compares the pinned pre-split generator with the
+ * split one, and a comparison of two programs that sanction DIFFERENT row sets needs to
+ * ignore exactly the rows only one of them can measure. Deriving that set from the two
+ * `CEILING_KEYS` literals is the smallest true projection; typing `['comment…', 'comment…']`
+ * would read green the day a row lands and red the day one is corrected.
+ */
+export function rowsGainedBetween(
+  older: readonly string[],
+  newer: readonly string[]
+): readonly string[] {
+  const before = new Set(older);
+  return newer.filter((key) => !before.has(key));
 }

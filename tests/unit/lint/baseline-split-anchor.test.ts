@@ -49,6 +49,8 @@ declareDimensions(
 
 const GENERATOR_REL = '.husky/peaks-gate-baseline.mjs';
 const EQUIVALENCE_REL = join('tests', 'unit', 'lint', 'baseline-split-equivalence.test.ts');
+/** Where the harness's anchor actually lives since the comment rows landed. */
+const ERA_HELPER_REL = join('tests', 'unit', 'lint', '_split-anchor-era.ts');
 /**
  * The pre-split commit the reference side is pinned to — `c6de09a6` IS the split, so its
  * parent is the last commit whose generator is still the 799-line monolith. MUST stay equal
@@ -115,11 +117,25 @@ describe('Scenario: behavior — the tip is the split, and the two anchors agree
 
   it('the equivalence file pins the SAME anchor, so the two guards cannot drift apart', () => {
     const harness = readFileSync(join(REPO_ROOT, EQUIVALENCE_REL), 'utf8');
+    const era = readFileSync(join(REPO_ROOT, ERA_HELPER_REL), 'utf8');
+    // The pin moved into the era helper (the harness is a capped, collected file), so the
+    // anti-drift claim is now about TWO things: the helper must carry this exact sha, and
+    // the harness must read its anchor from that helper instead of keeping a second copy —
+    // which is the only way this arm still means "one commit, checked twice".
     expect(
-      harness.includes(`const PRE_SPLIT_ANCHOR_SHA = '${PRE_SPLIT_ANCHOR_SHA}';`),
-      `baseline-split-equivalence.test.ts no longer pins PRE_SPLIT_ANCHOR_SHA to ` +
+      era.includes(`export const PRE_SPLIT_ANCHOR_SHA = '${PRE_SPLIT_ANCHOR_SHA}';`),
+      `_split-anchor-era.ts no longer pins PRE_SPLIT_ANCHOR_SHA to ` +
         `${PRE_SPLIT_ANCHOR_SHA} — the harness runs against one commit while this guard checks ` +
         'another. Make the two constants match, or delete the pair.'
     ).toBe(true);
+    expect(
+      harness.includes("from './_split-anchor-era.js'"),
+      'the equivalence harness no longer reads its anchor from `_split-anchor-era.ts`, so this ' +
+        'guard is checking a commit the harness may not be using'
+    ).toBe(true);
+    expect(
+      /const PRE_SPLIT_ANCHOR_SHA/.test(harness),
+      'the equivalence harness keeps a SECOND copy of the anchor sha — two pins, one drift'
+    ).toBe(false);
   });
 });

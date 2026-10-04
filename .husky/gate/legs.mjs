@@ -10,6 +10,24 @@
 // generator seeds both rows and the gate enforces both rows, and two spellings of
 // "which files did this number come from" is how §2.43 happened.
 
+import { ROOT, baseline } from './context.mjs';
+import {
+  FS_CEILING_KEY,
+  FS_CENSUS,
+  FS_EXCESS_CEILING_KEY,
+  FS_EXCESS_ROW_LABEL,
+  FS_HOOKS_CEILING_KEY,
+  FS_HOOKS_EXCESS_CEILING_KEY,
+  FS_HOOKS_EXCESS_ROW_LABEL,
+  FS_HOOKS_ROW_LABEL,
+  FS_ROW_LABEL,
+  TSX_CLI,
+  describeInputTrips,
+  fileSizeInputTrips,
+  measureFileSizeOverCap,
+  missingFileSizeCeilings,
+  refuseScopedSubset
+} from '../../.husky/peaks-gate-file-size.mjs';
 import {
   SW_CEILING_KEYS,
   SW_DETECTOR,

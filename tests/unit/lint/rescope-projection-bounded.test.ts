@@ -25,17 +25,21 @@
 // lives in `shadow-move-warning.test.ts` and `generator-determinism.test.ts`, which are
 // the `@slow` integration surface for the same emitter functions loaded here.
 
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 import { declareDimensions } from '../_setup/4dim-template.js';
 import { REPO_ROOT } from '../standards/_file-size-cap-scan.js';
+import { eraRows } from './_split-anchor-era.js';
 import {
+  COMMENT_HYGIENE_STDERR_LINE,
   LEG_MEASURE_STDERR_LINE,
   SCOPE_GROWTH_STDERR_LINE,
   SHADOW_MOVE_STDERR_LINE,
   SHADOW_STDERR_LINE,
+  projectArtifact,
   projectStderr
 } from './_rescope-projection.js';
 
@@ -147,7 +151,9 @@ async function emittedShadowLines(): Promise<string[]> {
     // module that prints it — not re-typed here.
     describeSilentWarningRun(LEG_RUN),
     // §2.50's surface: the growth statement, same rule — from the emitter, not typed.
-    scopeGrowthLine({ headFileCount: 943, gatedCount: 950, entered: GROWTH_ENTERED, left: [] })
+    scopeGrowthLine({ headFileCount: 943, gatedCount: 950, entered: GROWTH_ENTERED, left: [] }),
+    // Surface 7's two lines (the comment-hygiene leg), same rule: from the emitters.
+    ...(await commentHygieneEmittedLines())
   ];
 }
 
@@ -190,7 +196,8 @@ describe('Scenario: render — regex and generator are two readings of one set',
       ...alternativesOf(SHADOW_STDERR_LINE),
       ...alternativesOf(SHADOW_MOVE_STDERR_LINE),
       ...alternativesOf(LEG_MEASURE_STDERR_LINE),
-      ...alternativesOf(SCOPE_GROWTH_STDERR_LINE)
+      ...alternativesOf(SCOPE_GROWTH_STDERR_LINE),
+      ...alternativesOf(COMMENT_HYGIENE_STDERR_LINE)
     ];
     expect(alternatives.length).toBeGreaterThan(0);
     for (const alt of alternatives) {
@@ -217,6 +224,97 @@ describe('Scenario: render — regex and generator are two readings of one set',
         `the generator emits a shadow line the projection does not cover: ${line}`
       ).toBe('');
     }
+  });
+});
+
+/**
+ * The comment-hygiene leg's own two stderr lines, taken from the code that prints them:
+ * the measurement sentence from its emitter, the progress note from the source literal.
+ * An alternative in a projection regex that no emitter can print is a silently-widening
+ * projection, so the regex is checked against these, not against a re-typed string.
+ */
+async function commentHygieneEmittedLines(): Promise<string[]> {
+  const url = pathToFileURL(join(REPO_ROOT, '.husky', 'peaks-gate-comment-hygiene.mjs')).href;
+  const mod = (await import(url)) as Record<string, unknown>;
+  const emit = mod.describeCommentHygieneRun;
+  if (typeof emit !== 'function') {
+    throw new Error('.husky/peaks-gate-comment-hygiene.mjs exports no `describeCommentHygieneRun`');
+  }
+  const measurement = (
+    emit as (r: { deadReferences: number; narrative: number; scanned: number }) => string
+  )({ deadReferences: 25, narrative: 1515, scanned: 952 });
+  const toolLegs = readFileSync(join(REPO_ROOT, '.husky', 'baseline', 'tool-legs.mjs'), 'utf8');
+  const progress = /console\.error\('(running the comment-hygiene[^']*)'\)/.exec(toolLegs)?.[1];
+  if (progress === undefined) {
+    throw new Error('`.husky/baseline/tool-legs.mjs` prints no comment-hygiene progress note');
+  }
+  return [measurement, progress];
+}
+
+describe('Scenario: behavior — the era projection swallows the gained rows and nothing else', () => {
+  const ERA = eraRows();
+
+  it('the era is the rows the canonical list gained after the anchor, and every one is published', () => {
+    // Derived from two `CEILING_KEYS` literals, so this arm is the anti-typed-list pin:
+    // an era that names a row the published artifact does not carry is a stale era.
+    expect(
+      ERA.length,
+      'no row gained after the anchor — the era projection is moot'
+    ).toBeGreaterThan(0);
+    const published = JSON.parse(
+      readFileSync(join(REPO_ROOT, '.peaks', 'lint', 'gate-baseline.json'), 'utf8')
+    ) as { ceilings: Record<string, number> };
+    for (const key of ERA) {
+      expect(published.ceilings, `${key} must be a published ceiling`).toHaveProperty(key);
+    }
+  });
+
+  it('a moved-row that is NOT an era row keeps its bullet, its header and its count', () => {
+    const text =
+      'monotonicity: 2 row(s) moved — nothing rose and nothing dropped; every ceiling may only go DOWN.\n' +
+      '  NEWLY SEEDED — 2 row(s) the previous artifact did not carry.\n' +
+      `    - ${ERA[0]}: 1\n` +
+      '    - someOtherRow: 7\n';
+    const out = projectStderr(text, ERA);
+    expect(out).toContain('someOtherRow: 7');
+    expect(out).toContain('NEWLY SEEDED');
+    expect(out).toContain('monotonicity: 1 row(s) moved');
+    expect(out).not.toContain(ERA[0] ?? '');
+  });
+
+  it('when every bullet under the note is an era row, the note goes and the verdict reads like a held run', () => {
+    const text =
+      'monotonicity: 2 row(s) moved — nothing rose and nothing dropped; every ceiling may only go DOWN.\n' +
+      '  NEWLY SEEDED — 2 row(s) the previous artifact did not carry.\n' +
+      ERA.map((key) => `    - ${key}: 1`).join('\n') +
+      '\n';
+    expect(projectStderr(text, ERA)).toBe(
+      'monotonicity: every ceiling held — nothing rose and nothing dropped; every ceiling may only go DOWN.\n'
+    );
+  });
+
+  it("the projection swallows the leg's two stderr lines only when they really are emitted", async () => {
+    for (const line of await commentHygieneEmittedLines()) {
+      expect(projectStderr(`${line}\n`)).toBe('');
+    }
+    expect(projectStderr('comment-hygiene: a sentence this leg cannot print\n')).toContain(
+      'a sentence this leg cannot print'
+    );
+  });
+
+  it('projectArtifact drops only the rows it is handed, and nothing else about them', () => {
+    const doc = JSON.stringify({
+      ceilings: { [ERA[0] ?? 'eslintFindings']: 1, eslintFindings: 638, prettierUnformatted: 4 },
+      note: 'Ratchet baseline for the husky gate.'
+    });
+    const out = JSON.parse(projectArtifact(doc, ERA)) as {
+      ceilings: Record<string, number>;
+      note: string;
+    };
+    expect(out.ceilings, 'the era row is gone').not.toHaveProperty(ERA[0] ?? '');
+    expect(out.ceilings.eslintFindings).toBe(638);
+    expect(out.ceilings.prettierUnformatted).toBe(4);
+    expect(out.note).toBe('Ratchet baseline for the husky gate.');
   });
 });
 

@@ -72,3 +72,34 @@ export function ceilingKeyListFileUnder(root: string): string {
   }
   return holder;
 }
+
+/**
+ * The keys a module TEXT sanctions, read out of its `Object.freeze([...])` literal.
+ *
+ * WHY A TEXT READER WHEN THE LIVE LIST IS IMPORTABLE: a guard that compares the ratchet
+ * across two ERAS needs the list as it stood at a commit, and a git blob is not an
+ * importable module. `baseline-split-equivalence.test.ts` takes the pinned pre-split
+ * program's own `CEILING_KEYS` this way, so the rows it is allowed to ignore are the rows
+ * the canonical list gained AFTER that commit — derived from two sources of truth, never
+ * typed. A typed pair would read green the day a row lands and red the day one is
+ * corrected, which is the second-copy defect in guard clothing.
+ *
+ * Refuses rather than returns `[]`: a reader that silently matches nothing turns every
+ * arm built on it vacuous, which is the failure `comment-hygiene-gate-leg.test.ts` names
+ * for its own table read.
+ */
+export function ceilingKeysInText(text: string, source: string): readonly string[] {
+  const block = /export const CEILING_KEYS = Object\.freeze\(\[([\s\S]*?)\]\)/.exec(text);
+  const body = block?.[1];
+  if (body === undefined) {
+    throw new Error(`${source} carries no \`export const CEILING_KEYS = Object.freeze([...])\``);
+  }
+  const keys = body.split('\n').flatMap((line) => {
+    const quoted = /^\s*'([A-Za-z][A-Za-z0-9]*)',?\s*$/.exec(line)?.[1];
+    return quoted === undefined ? [] : [quoted];
+  });
+  if (keys.length === 0) {
+    throw new Error(`${source}: CEILING_KEYS parsed to zero keys — the reader is vacuous`);
+  }
+  return keys;
+}

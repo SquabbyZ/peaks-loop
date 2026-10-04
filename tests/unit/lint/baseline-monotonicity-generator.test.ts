@@ -79,6 +79,7 @@ import { afterAll, describe, expect, it } from 'vitest';
 
 import { declareDimensions } from '../_setup/4dim-template.js';
 import { SUBPROCESS_TEST_TIMEOUT_MS } from '../_setup/subprocess-timeouts.js';
+import { TSX_TOOL_STUB } from './_file-size-hooks-walk.js';
 import { hooksScopeFilesUnder } from './_file-size-hooks-fixture.js';
 
 declareDimensions(
@@ -124,20 +125,9 @@ const TSC_STUB = "process.stdout.write('');\n";
 /** The silent-warning detector's envelope, in the shape the generator parses. */
 const DETECTOR_STUB =
   "const p = process.argv.slice(2).filter((a) => !a.startsWith('-'));\nconsole.log(JSON.stringify({ scannedFiles: p.length || 3, byRule: { 'catch-return-null': 1, 'empty-catch': 2 } }));\n";
-/**
- * The census envelope, in the shape `.husky/peaks-gate-file-size.mjs` requires. Its
- * `scope.source` must be the whole-scope spelling or the generator refuses for a
- * reason that has nothing to do with this slice — which is the point of feeding it a
- * real envelope rather than a mock return value. The `hooks` block is the second
- * scope's census (§2.32): `hooksEnvelopeProblem` refuses an envelope without it, so a
- * fixture that stopped reporting it would be a fixture that measures nothing.
- */
-const CENSUS_STUB =
-  'process.stdout.write(JSON.stringify({ overCap: 1, excessLines: 9, ' +
-  "convention: 'split(String.fromCharCode(10)).length', caps: { defaultCap: 300, testsCap: 500 }, " +
-  "scope: { countedFiles: 3, source: 'git ls-files <policy dirs>', dirs: ['src'], " +
-  "extensions: ['ts'] }, files: [{ file: 'src/big.ts', lines: 309, cap: 300, excess: 9 }], byDir: { src: { files: 3 } }, " +
-  "hooks: { overCap: 1, excessLines: 4, caps: { hooksCap: 300 }, convention: 'split(String.fromCharCode(10)).length', scope: { countedFiles: 2, source: 'git ls-files <hooks dirs>', dirs: ['.husky'], extensions: ['mjs'] }, files: [] } }) + '\\n');\n";
+// The census and comment-hygiene envelopes come from `TSX_TOOL_STUB`
+// (`_file-size-hooks-walk.js`): tsx is spawned by two legs, and a stub that answered both
+// with the census envelope made the comment rows unmeasurable.
 const PRETTIER_PACKAGE =
   '{"name":"prettier","version":"0.0.0-fixture","type":"module","exports":{".":"./index.mjs"}}\n';
 
@@ -218,7 +208,7 @@ function buildFixture(): void {
   writeFixtureFile('scripts/lint/silent-warning-detector.mjs', DETECTOR_STUB);
   writeFixtureFile('node_modules/eslint/bin/eslint.js', ESLINT_STUB);
   writeFixtureFile('node_modules/typescript/bin/tsc', TSC_STUB);
-  writeFixtureFile('node_modules/tsx/dist/cli.mjs', CENSUS_STUB);
+  writeFixtureFile('node_modules/tsx/dist/cli.mjs', TSX_TOOL_STUB);
   writeFixtureFile('node_modules/prettier/package.json', PRETTIER_PACKAGE);
   writeFixtureFile('node_modules/prettier/index.mjs', prettierShim());
   for (const relative of GENERATOR_FILES) {
