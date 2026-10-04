@@ -137,6 +137,56 @@ function resolvesOutsideTheTree(
 }
 
 /**
+ * The workspace package a citing file belongs to, or null at the repository root.
+ *
+ * In a pnpm workspace, `src/x.ts` written inside `packages/<name>/src/` names that
+ * package's own file, not a repository-root one: three comments in this repository cite
+ * `packages/peaks-loop-internal-runtime/src/status-protocol.ts` and
+ * `packages/peaks-loop-shared-channel/src/index.ts` by their package-relative spelling,
+ * and both files exist. Treating those as dead references would seed a ratchet with
+ * findings that refuse the next honest package-internal citation, so the package root is
+ * an origin — for a citing file that is itself inside a package, and never for a
+ * top-level one.
+ */
+export function packageRootOf(citingFileRel: string): string | null {
+  const segments = citingFileRel.split('/');
+  if (segments[0] !== 'packages' || segments[1] === undefined) return null;
+  return `packages/${segments[1]}`;
+}
+
+/**
+ * Does the citation point at a file inside the citing file's OWN workspace package?
+ *
+ * `join` is POSIX-normalised on the way through, because a `packages\alpha/src/x.ts`
+ * key matches nothing on the host this repository is developed on.
+ */
+function resolvesInOwnPackage(
+  stripped: string,
+  citingFileRel: string,
+  exists: (relPath: string) => boolean
+): boolean {
+  const pkg = packageRootOf(citingFileRel);
+  return pkg !== null && exists(toPosix(join(pkg, stripped)));
+}
+
+/**
+ * The two origins a repo-anchored citation may be satisfied at: the repository root,
+ * or the workspace package the citing file itself lives in.
+ *
+ * Extracted because `citationResolves` is at the complexity ceiling the shipped rule
+ * sets, and an inlined `||` there would have been the second branch this file cannot
+ * afford — a limit that forces a helper out is the limit working, not the limit being
+ * in the way.
+ */
+function resolvesAtARootOrigin(
+  stripped: string,
+  citingFileRel: string,
+  exists: (relPath: string) => boolean
+): boolean {
+  return exists(stripped) || resolvesInOwnPackage(stripped, citingFileRel, exists);
+}
+
+/**
  * Does this path-shaped citation resolve anywhere it is allowed to resolve?
  *
  * `installed` must be a filesystem-only probe, not the ignore-widened one:
@@ -153,7 +203,7 @@ export function citationResolves(
   const stripped = citation.replace(LINE_SUFFIX, '');
   if (stripped.length === 0 || SYNTHETIC_SEGMENT.test(stripped)) return true;
   if (resolvesOutsideTheTree(stripped, exists, installed)) return true;
-  if (exists(stripped)) return true;
+  if (resolvesAtARootOrigin(stripped, citingFileRel, exists)) return true;
   // An anchored citation claims the repo root and nowhere else; anything that did
   // not resolve above is dead.
   if (REPO_ANCHORS.test(stripped)) return false;

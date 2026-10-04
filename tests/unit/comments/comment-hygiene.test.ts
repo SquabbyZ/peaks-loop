@@ -114,6 +114,38 @@ describe('dead-reference findings', () => {
     expect(findings[0]?.kind).toBe('dead-reference');
   });
 
+  it('reads `src/…` from the workspace package the citing file lives in', () => {
+    // The measured false positive: inside `packages/<name>/src`, `src/x.ts` is the
+    // package's own file, and `packages/peaks-loop-internal-runtime/src/status-protocol.ts`
+    // EXISTS while `src/status-protocol.ts` at the repo root does not. A ratchet seeded
+    // with three findings of this shape would refuse the next honest package-internal
+    // citation, so the package root is a resolution origin — and only for a citing file
+    // that is itself inside a package.
+    const pkgTree = new Set(['packages/alpha/src/real.ts', 'src/services/other.ts']);
+    const inPackage = (rel: string): boolean => pkgTree.has(rel);
+    expect(
+      scanComments(
+        { file: 'packages/alpha/src/guards/check.ts', source: '// see `src/real.ts`' },
+        { exists: inPackage }
+      )
+    ).toEqual([]);
+    // The same rule must not become a blanket exemption: the missing sibling inside the
+    // same package is still reported.
+    expect(
+      scanComments(
+        { file: 'packages/alpha/src/guards/check.ts', source: '// see `src/gone.ts`' },
+        { exists: inPackage }
+      )
+    ).toHaveLength(1);
+    // And a top-level file gets no package origin at all.
+    expect(
+      scanComments(
+        { file: 'src/services/a.ts', source: '// see `src/real.ts`' },
+        { exists: inPackage }
+      )
+    ).toHaveLength(1);
+  });
+
   it('ignores a bare filename mention, which in code is a name not a location', () => {
     expect(scan('// written next to atomic-write.ts').findings).toEqual([]);
     expect(citedPaths('// written next to `atomic-write.ts`')).toEqual([]);
