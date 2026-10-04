@@ -271,8 +271,13 @@ const SESSION_WORKSPACE_DIRS = new Set([
 
 /** A backtick span must look like this to be treated as a path citation. */
 const PATH_SHAPED = /^[A-Za-z0-9_.@-]+(?:\/[A-Za-z0-9_.@-]+)+$/;
+// `contracts` is in this list because `contracts/test-style-contract.md` is a
+// repository path cited from source comments, and a citation to a deleted file is
+// a finding wherever it is written. The shipped classifier
+// (`src/services/comments/comment-citations.ts`) carries the same anchor set, and
+// `tests/unit/comments/citation-parity.test.ts` pins that the two agree.
 const REPO_ANCHORS =
-  /^(\.peaks|\.claude|\.github|src|tests|docs|scripts|skills|packages|bin|openspec)\//;
+  /^(\.peaks|\.claude|\.github|src|tests|docs|scripts|skills|packages|bin|openspec|contracts)\//;
 
 /**
  * `path.md:127` — a citation that names a LINE of the file rather than the file
@@ -343,7 +348,27 @@ const BACKTICK_SPAN = /`([^`\n]+)`/g;
  *   - `cache/`    — the arbitration cache; `cross-pass-edge-merger.ts` defaults
  *                   `opts.cacheDir` to `.peaks/cache/arbitrator`.
  */
-const RUNTIME_STATE_PREFIXES = ['.peaks/_runtime/', '.peaks/cron/', '.peaks/cache/'] as const;
+const RUNTIME_STATE_PREFIXES = [
+  '.peaks/_runtime/',
+  '.peaks/cron/',
+  '.peaks/cache/',
+  // Both are gitignored at the repository root and written per run: `_dogfood/` by
+  // the dogfood harness, `_sub_agents/` by `peaks sub-agent dispatch`.
+  '.peaks/_dogfood/',
+  '.peaks/_sub_agents/'
+] as const;
+
+/**
+ * A file sitting flat in a project's `.peaks/` root is state the CLI writes there
+ * at run time (`.peaks/fork-state.json`, `.peaks/polyrepo.json`,
+ * `.peaks/role-registry.json`), not a file this checkout owes. What this
+ * repository commits under `.peaks/` is directories plus four flat files, every one
+ * present, so a citation of a tracked flat path resolves before this rule matters.
+ * The shipped classifier carries the same rule
+ * (`src/services/comments/comment-citations.ts`), pinned by
+ * `tests/unit/comments/citation-parity.test.ts`.
+ */
+const RUNTIME_STATE_ROOT_FILE = /^\.peaks\/[^/]+$/;
 
 /**
  * A segment that is exactly an ellipsis names a path *family*
@@ -649,6 +674,9 @@ function isCandidate(
   if (!(namesNoDirectory ? BARE_FILENAME_SHAPED.test(span) : PATH_SHAPED.test(span))) return false;
   if (span.includes('@')) return false; // npm / GitHub-Action refs
   if (RUNTIME_STATE_PREFIXES.some((prefix) => span.startsWith(prefix))) return false;
+  // Flat `.peaks/<file>` is runtime state in the CONSUMING project; see
+  // `RUNTIME_STATE_ROOT_FILE`.
+  if (RUNTIME_STATE_ROOT_FILE.test(span)) return false;
   if (OPTIONAL_RUNTIME_PATHS.has(span)) return false;
   if (ELLIPSIS_SEGMENT.test(span)) return false;
   // `./feishu-doc-snapshot.md` is where the *consuming* project must not drop a

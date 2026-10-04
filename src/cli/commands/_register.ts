@@ -13,6 +13,7 @@ import { registerCodeCommands } from './code-commands.js';
 import { registerCodeGateCommand } from './code-gate-command.js';
 import { registerDashboardCommands } from './dashboard-commands.js';
 import { registerCodeReviewCommands } from './code-review-commands.js';
+import { registerCommentsCommands } from './comments-commands.js';
 import { registerCodegraphCommands } from './codegraph-commands.js';
 import { registerCompactCommands } from './compact-command.js';
 import { registerComplexityCommands } from './complexity-commands.js';
@@ -171,6 +172,7 @@ const REGISTRATIONS: readonly Registration[] = [
   ['ecc-commands', registerEccCommands],
   ['baseline-commands', registerBaselineCommands],
   ['code-review-commands', registerCodeReviewCommands],
+  ['comments-commands', registerCommentsCommands],
   ['security-audit-commands', registerSecurityAuditCommands],
   ['perf-audit-commands', registerPerfAuditCommands],
   ['verdict-aggregate-command', registerVerdictAggregateCommands],
