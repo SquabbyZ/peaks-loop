@@ -15,7 +15,6 @@ export * from './services/mut/index.js';
 
 export {
   installEccAgents,
-  eccPackageInfo,
   materializeEccAgents,
   readEccMaterializeManifest,
   listMaterializedAgents,

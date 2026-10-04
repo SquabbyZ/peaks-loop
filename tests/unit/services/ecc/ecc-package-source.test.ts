@@ -15,7 +15,6 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
   ECC_PACKAGE_NAME,
-  eccPackageInfo,
   listEccAgents,
   readEccPackageVersion,
   resolveEccAgentsDir,
@@ -46,7 +45,6 @@ describe('the ecc-universal dependency is the source', () => {
     // `unknown` is what a package.json this cannot read yields; a resolved
     // dependency must not.
     expect(version).toMatch(/^\d+\.\d+\.\d+/);
-    expect(eccPackageInfo().version).toBe(version);
   });
 
   it('finds the agents directory and the reviewer Gate B3 dispatches', () => {

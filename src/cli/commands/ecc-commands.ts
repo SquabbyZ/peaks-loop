@@ -23,7 +23,6 @@
 import type { Command } from 'commander';
 import {
   EccSourceError,
-  eccPackageInfo,
   installEccAgents,
   listEccAgents,
   readEccMaterializeManifest,
@@ -87,7 +86,7 @@ export function registerEccCommands(program: Command, io: ProgramIO): void {
   addJsonOption(
     ecc
       .command('status')
-      .description('Show the ECC source version and the materialized copy state.')
+      .description('Show the materialized ECC copy: source version, agent list, when it landed.')
   ).action((options: { json?: boolean }) => {
     const asJson = options.json === true;
     const manifest = readEccMaterializeManifest();
@@ -108,24 +107,20 @@ export function registerEccCommands(program: Command, io: ProgramIO): void {
       process.exitCode = 1;
       return;
     }
-    let source: { name: string; version: string } | null = null;
-    try {
-      source = eccPackageInfo();
-    } catch {
-      // The copy on disk is still the honest answer about what the LLM can read;
-      // a source that no longer resolves is reported as such rather than hiding
-      // the whole status behind an error.
-    }
+    // `status` reads the copy and reports it. It does not re-probe the package:
+    // `manifest.packageVersion` already records which version landed the agents,
+    // and probing again would need either a throw that hides the answer or a
+    // swallowed error — the second is the class the repository's silent-catch
+    // ratchet counts, the first would turn "here is what the LLM can read" into a
+    // failure just because a dependency moved.
     printResult(
       io,
       ok(
         'ecc.status',
-        { manifest, source },
+        manifest,
         [],
         [
-          source === null
-            ? 'The ecc-universal package no longer resolves — the copy above is what will be read.'
-            : `Source resolves to ${source.name}@${source.version}.`,
+          `Materialized from ecc-universal@${manifest.packageVersion}.`,
           'Inspect agents with: peaks ecc ls',
           'Print one agent with: peaks ecc show <name>'
         ]

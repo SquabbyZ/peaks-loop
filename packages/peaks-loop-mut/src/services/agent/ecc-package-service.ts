@@ -22,13 +22,7 @@
  * No subprocess is spawned and no network request is made by any code path here.
  */
 
-import {
-  ECC_PACKAGE_NAME,
-  readEccPackageVersion,
-  resolveEccAgentsDir,
-  resolveEccPackageRoot,
-  type EccInstallResult
-} from './ecc-package-source.js';
+import { resolveEccAgentsDir, type EccInstallResult } from './ecc-package-source.js';
 import { materializeEccAgents } from './ecc-materialize.js';
 
 /**
@@ -43,12 +37,6 @@ import { materializeEccAgents } from './ecc-materialize.js';
 export function installEccAgents(): EccInstallResult {
   resolveEccAgentsDir();
   return materializeEccAgents();
-}
-
-/** Where the package lives and what it claims — for `peaks ecc status`. */
-export function eccPackageInfo(): { name: string; version: string; root: string } {
-  const root = resolveEccPackageRoot();
-  return { name: ECC_PACKAGE_NAME, version: readEccPackageVersion(root), root };
 }
 
 export {

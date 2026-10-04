@@ -570,23 +570,21 @@ describe('peaks ecc status (P2-B.6 misc e2e)', () => {
     const result = runCli(['ecc', 'status', '--json'], REPO);
     const envelope = parseEnvelope(result);
     expect(envelope.command).toBe('ecc.status');
-    // Either installed (ok:true) or NO_CACHE (ok:false) — both are valid first-run contracts.
+    // Either installed (ok:true) or NOT_INSTALLED (ok:false) — both are valid
+    // first-run contracts. The payload changed with the acquisition layer: ECC
+    // comes from the `ecc-universal` dependency now, so `data` is the materialize
+    // manifest (`packageVersion` + `agents`), not the old cache manifest with a
+    // git `sha`.
     if (envelope.ok) {
-      // On the success branch `ok:true` IS the "installed" signal, and the
-      // payload is the cached ECC manifest printed verbatim
-      // (src/cli/commands/ecc-commands.ts:106-113). It has never carried an
-      // `installed` field — only the NO_CACHE branch below synthesises one
-      // (:91-98). Asserting `installed === true` here was over-specification.
       const data = envelope.data as {
-        version?: string;
-        sha?: string | null;
-        fetchedAt?: string;
-        agents?: readonly unknown[];
+        packageVersion?: string;
+        materializedAt?: string;
+        agents?: readonly string[];
       };
-      expect(typeof data.version).toBe('string');
+      expect(typeof data.packageVersion).toBe('string');
       expect(Array.isArray(data.agents)).toBe(true);
     } else {
-      expect(envelope.code).toBe('NO_CACHE');
+      expect(envelope.code).toBe('NOT_INSTALLED');
       const data = envelope.data as { installed?: boolean };
       expect(data.installed).toBe(false);
     }
