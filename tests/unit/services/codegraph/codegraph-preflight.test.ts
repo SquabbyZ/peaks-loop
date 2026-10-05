@@ -42,6 +42,13 @@ import {
 } from '../../../../src/services/codegraph/codegraph-service.js';
 import { declareDimensions } from '../../_setup/4dim-template.js';
 import { SUBPROCESS_TEST_TIMEOUT_MS } from '../../_setup/subprocess-timeouts.js';
+import {
+  ADVICE_PATTERN,
+  RULE,
+  WASM_NOTE,
+  stripAnsi,
+  wasmBlock
+} from '../../_setup/codegraph-backend-output.js';
 
 declareDimensions(
   'tests/unit/services/codegraph/codegraph-preflight.test.ts',
@@ -404,6 +411,39 @@ describe('Scenario: a11y — fail-soft notes are human/LLM actionable', () => {
       expect(result.note).toContain('.codegraph');
       expect(result.note).toContain('peaks codegraph init');
       expect(runner).not.toHaveBeenCalled();
+    } finally {
+      rmSync(project, { recursive: true, force: true });
+    }
+  });
+});
+
+// rid-CG-008: same defect class as the autorefresh note — the preflight note
+// takes firstMeaningfulLine(stderr), and upstream writes its backend block
+// before anything else, so the failure cause never reaches the reader.
+describe('Scenario: a11y — a failing preflight names the cause, not the backend block', () => {
+  it('when codegraph files fails behind the wasm block, should name the real error and never the deleted dependency', async () => {
+    // given: a peaks-loop-managed store, so only `files` is attempted
+    const project = freshProject('peaks-cg-pre-auto-');
+    mkdirSync(join(project, '.codegraph'), { recursive: true });
+    writeFileSync(join(project, '.codegraph', CODEGRAPH_MARKER_NAME), 'peaks-loop-managed\n', 'utf8');
+    writeFileSync(join(project, '.codegraph', CODEGRAPH_DB_NAME), 'schema\n', 'utf8');
+    const runner = scriptedRunner({
+      files: {
+        exitCode: 3,
+        stdout: '',
+        stderr: `${wasmBlock()}\nError: no such table: nodes`
+      }
+    });
+    try {
+      // when: the preflight reads the structure
+      const result = await buildCodegraphPreflightBlock(project, runner);
+      // then: the note names the missing table, not the block
+      expect(result.available).toBe(false);
+      if (result.available) throw new Error('unreachable');
+      expect(result.note).toContain('Error: no such table: nodes');
+      expect(result.note).not.toContain(RULE);
+      expect(stripAnsi(result.note)).not.toMatch(ADVICE_PATTERN);
+      expect(result.note).not.toContain(WASM_NOTE);
     } finally {
       rmSync(project, { recursive: true, force: true });
     }

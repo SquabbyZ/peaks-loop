@@ -337,3 +337,55 @@ describe('peaks sub-agent dispatch --isolation worktree auto-release (Part 3.A.3
     expect(existsSync(leaseDir)).toBe(false);
   });
 });
+
+// rid-VM-001 — the `--isolation vm` fail-fast is shipped behavior, and until
+// now no test pinned it: a refactor that let `vm` fall through to the
+// worktree branch (the union accepts three modes and only two are live) would
+// have gone unnoticed while silently handing out a worktree lease the gate
+// then reads as VM isolation.
+describe('peaks sub-agent dispatch --isolation vm fail-fast (rid-VM-001)', () => {
+  test('refuses with ISOLATION_VM_NOT_YET_IMPLEMENTED and spawns nothing', () => {
+    const project = initRepo();
+    const sessionId = '2026-10-05-vm-refusal';
+    const dispatch = runCli(
+      [
+        'sub-agent',
+        'dispatch',
+        'rd',
+        '--prompt',
+        'vm refusal probe',
+        '--request-id',
+        '2026-10-05-vm-refusal-rid',
+        '--session-id',
+        sessionId,
+        '--project',
+        project,
+        '--isolation',
+        'vm',
+        '--graph-node',
+        'n1',
+        '--json'
+      ],
+      project
+    );
+
+    expect(dispatch.code).not.toBe(0);
+    const env = JSON.parse(dispatch.stdout) as {
+      ok: boolean;
+      code?: string;
+      message?: string;
+      data: { worktreePath?: string | null };
+    };
+    expect(env.ok).toBe(false);
+    expect(env.code).toBe('ISOLATION_VM_NOT_YET_IMPLEMENTED');
+    expect(env.data.worktreePath ?? '').toBe('');
+    // No lease of any kind was written for this session.
+    expect(existsSync(join(project, '.peaks', '_runtime', sessionId, 'worktree-leases'))).toBe(
+      false
+    );
+    expect(existsSync(join(project, '.peaks', '_runtime', sessionId, 'vm-leases'))).toBe(false);
+    // The refusal names the modes that DO work, so the caller is not stranded.
+    expect(String(env.message)).toMatch(/worktree/);
+    expect(String(env.message)).toMatch(/container/);
+  });
+});

@@ -116,8 +116,10 @@ describe('peaks codegraph init — the --yes flag is gone from every layer', () 
     const longs = initCommand().options.map((option) => option.long);
 
     expect(longs).not.toContain('--yes');
-    // The only flags init may carry are the shared `--project` / `--peaks-json`.
-    expect(longs).toEqual(['--project', '--peaks-json']);
+    // The shared `--project` / `--peaks-json` pair, plus the peaks-side
+    // `--force` (rid-CG-006). Upstream `init` takes no flags, so `--force` may
+    // never reach the spawn argv — pinned by the argv arm below.
+    expect([...longs].sort()).toEqual(['--force', '--peaks-json', '--project']);
   });
 
   it('should refuse a `yes` invocation option instead of silently ignoring it', () => {

@@ -63,6 +63,7 @@ import {
   type CodegraphProcessRunner
 } from './codegraph-service.js';
 import { repairCodegraphExcludeFromProject } from './codegraph-exclude-repair.js';
+import { dropSqliteBackendAdvice } from './codegraph-backend-advice.js';
 
 export type CodegraphAutorefreshResult =
   | { refreshed: true }
@@ -123,7 +124,11 @@ const REFRESH_REMEDY =
   'Run `peaks codegraph index --project <root>` to refresh the codegraph index.';
 
 function firstMeaningfulLine(text: string): string {
-  const trimmed = text.trim();
+  // Upstream writes its SQLite-backend block before anything
+  // else, so the raw first line of stderr is a box-drawing frame — and the
+  // line after it names a package this project removed. Neither is the
+  // failure cause, and this function exists to name the cause.
+  const trimmed = dropSqliteBackendAdvice(text).trim();
   if (trimmed.length === 0) return 'no upstream output';
   const first = trimmed.split(/\r?\n/)[0];
   return first !== undefined ? first.slice(0, 200) : 'no upstream output';

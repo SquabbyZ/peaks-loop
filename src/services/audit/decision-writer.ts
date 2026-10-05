@@ -156,6 +156,9 @@ export function renderDecisionMarkdown(
     `description: ${description}`,
     'metadata:',
     '  type: decision',
+    // The other three artifact writers all carry `artifactType`; without it a
+    // decision record is the one kind future tooling cannot query by artifact.
+    '  artifactType: decision',
     '  auditType: red-lines',
     `  totalRedLines: ${audit.totalRedLines}`,
     `  cliBacked: ${audit.cliBacked}`,

@@ -63,6 +63,14 @@ vi.mock('../../../src/services/codegraph/codegraph-service.js', async () => {
 
 import { registerCodegraphCommands } from '../../../src/cli/commands/codegraph-commands.js';
 import { SUBPROCESS_TEST_TIMEOUT_MS } from '../_setup/subprocess-timeouts.js';
+import {
+  ADVICE_PATTERN,
+  BACKEND_ANSI,
+  WASM_NOTE,
+  WASM_STATUS_PLAIN,
+  stripAnsi,
+  wasmBlock
+} from '../_setup/codegraph-backend-output.js';
 
 type CapturedIo = ReturnType<typeof makeCapturedIo>['captured'];
 
@@ -76,6 +84,7 @@ async function runCodegraph(argv: readonly string[]): Promise<CapturedIo> {
 
 type InitEnvelope = {
   ok: boolean;
+  message?: string;
   warnings: string[];
   nextActions: string[];
   data: {
@@ -296,4 +305,67 @@ describe('peaks codegraph init — a real warning is reported once, verbatim', (
     // and the upstream binary was never spawned
     expect(__m.executeCodegraphInvocation).not.toHaveBeenCalled();
   });
+});
+
+// ── rid-CG-008: the init echo path must localize like every other path ───
+
+describe('peaks codegraph init — upstream backend advice is localized on echo', () => {
+  it(
+    'when upstream init prints the wasm block, should forward the note and never the deleted dependency',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    async () => {
+      // given: a fresh project, and the real upstream bytes on every call
+      const project = seedGitProject(ws);
+      __m.executeCodegraphInvocation.mockImplementation(
+        async (invocation: { subcommand: string }) => {
+          if (invocation.subcommand === 'init') {
+            mkdirSync(join(project, '.codegraph'), { recursive: true });
+            writeFileSync(
+              join(project, '.codegraph', 'config.json'),
+              upstreamDefaultConfig(),
+              'utf8'
+            );
+          }
+          return {
+            exitCode: 0,
+            stdout: `\x1b[1mIndex Statistics:\x1b[0m\n${BACKEND_ANSI}\n`,
+            stderr: wasmBlock()
+          };
+        }
+      );
+
+      // when
+      const captured = await runCodegraph(['init', '--project', project]);
+      const forwarded = `${captured.stdout.join('\n')}\n${captured.stderr.join('\n')}`;
+
+      // then: the reader gets the note, not an instruction to rebuild a
+      // package this project removed
+      expect(stripAnsi(forwarded)).not.toMatch(ADVICE_PATTERN);
+      expect(stripAnsi(forwarded)).toContain(WASM_NOTE);
+      expect(stripAnsi(forwarded)).toContain(WASM_STATUS_PLAIN);
+    }
+  );
+
+  it(
+    'when upstream init FAILS with the block on stderr, should keep the block out of the failure message',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    async () => {
+      // given: the failure envelope is built from result.stderr verbatim
+      const project = seedGitProject(ws);
+      __m.executeCodegraphInvocation.mockResolvedValue({
+        exitCode: 2,
+        stdout: '',
+        stderr: wasmBlock()
+      });
+
+      // when
+      const captured = await runCodegraph(['init', '--project', project, '--peaks-json']);
+      const envelope = parseJson(captured);
+
+      // then
+      expect(envelope.ok).toBe(false);
+      expect(stripAnsi(envelope.message ?? '')).not.toMatch(ADVICE_PATTERN);
+      expect(stripAnsi(captured.stderr.join('\n'))).not.toMatch(ADVICE_PATTERN);
+    }
+  );
 });

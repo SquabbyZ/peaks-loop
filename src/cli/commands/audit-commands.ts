@@ -43,8 +43,13 @@ import {
   writeNarrative,
   writePrompt,
   type ArtifactKind,
-  type ArtifactWriteRecord
+  type ArtifactWriteRecord,
+  writeDecision
 } from '../../services/audit/artifact-writer.js';
+import {
+  parseRedLineAuditInput,
+  RedLineAuditInputError
+} from '../../services/audit/red-line-audit-input.js';
 
 type RedLinesOptions = {
   project: string;
@@ -599,7 +604,7 @@ export function registerAuditCommands(program: Command, io: ProgramIO): void {
       .requiredOption('--kind <kind>', `artifact kind (${SUPPORTED_ARTIFACT_KINDS.join(' | ')})`)
       .requiredOption(
         '--input <path>',
-        'path to source file (markdown for prompt/narrative; JSON for machine-output)'
+        'path to source file (markdown for prompt/narrative; JSON for machine-output and decision)'
       )
       .option('--name <name>', 'display name (H1 in body); defaults to file basename')
       .option(
@@ -718,32 +723,16 @@ export function registerAuditCommands(program: Command, io: ProgramIO): void {
           break;
         }
         case 'decision': {
-          // --kind decision requires JSON of `RedLineAudit` shape; for now
-          // surface a clear error so callers don't silently write junk.
-          printResult(
-            io,
-            fail<ArtifactWriteRecord>(
-              'audit.artifact.write',
-              'KIND_DECISION_USE_STATIC_RECORD',
-              `--kind decision should use 'peaks audit static --record' which writes a RedLineAudit snapshot. 'peaks audit artifact write --kind decision' is reserved for future direct-snapshot writes (not implemented yet).`,
-              {
-                kind: 'decision',
-                slug: '',
-                title: '',
-                date: '',
-                filePath: '',
-                memoryDir: '',
-                indexPath: '',
-                indexSynced: false
-              },
-              [
-                "Re-run with 'peaks audit static --record --project <root>' for RedLineAudit snapshots."
-              ]
-            ),
-            options.json
-          );
-          process.exitCode = 1;
-          return;
+          // `--input` is a RedLineAudit JSON document — typically
+          // an archived `peaks audit static` result — validated field by field
+          // before it reaches the writer, because the writer renders whatever
+          // it is given into a memory record with no further checks.
+          // `--name` and `--description` do not apply: the decision slug and
+          // title come from the scan date (and `--rid`), exactly as
+          // `peaks audit static --record` derives them.
+          const audit = parseRedLineAuditInput(readFileSync(inputAbs, 'utf8'));
+          record = writeDecision(audit, writeOpts);
+          break;
         }
         default: {
           // Unreachable: isSupportedArtifactKind already filtered.
@@ -751,11 +740,13 @@ export function registerAuditCommands(program: Command, io: ProgramIO): void {
         }
       }
     } catch (err) {
+      // A malformed decision input is the caller's document, not a write
+      // failure: name it as input so the remedy reads as "fix the JSON field".
       printResult(
         io,
         fail<ArtifactWriteRecord>(
           'audit.artifact.write',
-          'WRITE_FAILED',
+          err instanceof RedLineAuditInputError ? 'AUDIT_ARTIFACT_INPUT_INVALID' : 'WRITE_FAILED',
           getErrorMessage(err),
           {
             kind: options.kind,
@@ -767,7 +758,11 @@ export function registerAuditCommands(program: Command, io: ProgramIO): void {
             indexPath: '',
             indexSynced: false
           },
-          ['Inspect the error message; for --kind machine-output ensure --input is valid JSON']
+          err instanceof RedLineAuditInputError
+            ? [
+                'Inspect the named field; --kind decision takes the JSON shape `peaks audit static --json` prints.'
+              ]
+            : ['Inspect the error message; for --kind machine-output ensure --input is valid JSON']
         ),
         options.json
       );

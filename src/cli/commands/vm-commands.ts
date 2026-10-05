@@ -45,6 +45,8 @@ import {
   vmLeaseFilePath,
   type VmHypervisor
 } from '../../services/vm/vm-lease.js';
+import { detectHypervisor } from './vm-hypervisor-probe.js';
+import { registerVmStatusCommand } from './vm-status-command.js';
 
 type VmOptions = {
   session?: string;
@@ -75,36 +77,6 @@ function resolveTtlMs(raw: string | undefined, role: string): number {
   const parsed = Number.parseInt(raw, 10);
   if (!Number.isInteger(parsed) || parsed <= 0) return ttlForVmRole(role);
   return parsed;
-}
-
-function detectHypervisor(
-  requested: VmHypervisor
-): { ok: true; binary: string } | { ok: false; stderr: string } {
-  let binary: string;
-  switch (requested) {
-    case 'kvm':
-      binary = 'virsh';
-      break;
-    case 'hyperkit':
-      binary = 'hvftool';
-      break;
-    case 'hyperv':
-      binary = 'hvc';
-      break;
-  }
-  try {
-    const v = execSync(`${binary} --version`, {
-      stdio: ['ignore', 'pipe', 'pipe'],
-      encoding: 'utf8',
-      windowsHide: true
-    });
-    if (requested === 'kvm' && !existsSync('/dev/kvm')) {
-      return { ok: false, stderr: 'KVM kernel module not loaded (/dev/kvm absent)' };
-    }
-    return { ok: true, binary: `${binary} (${v.trim().split('\n')[0] ?? ''})` };
-  } catch (err) {
-    return { ok: false, stderr: (err as Error).message };
-  }
 }
 
 function spawnVmWithHypervisor(args: {
@@ -182,6 +154,10 @@ export function registerVmCommand(program: Command, io: ProgramIO): void {
     .description(
       'L4 VM isolation: spawn/release VM leases via kvm | hyperkit | hyperv (Part 35; pairs with --isolation vm on dispatch).'
     );
+
+  // The host probe rides on the same parent, so `peaks vm status`
+  // can say which prerequisite is missing before a spawn fails.
+  registerVmStatusCommand(cmd, io);
 
   addJsonOption(
     cmd

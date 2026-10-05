@@ -50,6 +50,13 @@ import {
 } from '../../../../src/services/codegraph/codegraph-service.js';
 import { declareDimensions } from '../../_setup/4dim-template.js';
 import { SUBPROCESS_TEST_TIMEOUT_MS } from '../../_setup/subprocess-timeouts.js';
+import {
+  ADVICE_PATTERN,
+  RULE,
+  WASM_NOTE,
+  stripAnsi,
+  wasmBlock
+} from '../../_setup/codegraph-backend-output.js';
 
 declareDimensions(
   'tests/unit/services/codegraph/codegraph-autorefresh.test.ts',
@@ -483,5 +490,33 @@ describe('Scenario: a11y — refresh notes are human/LLM actionable', () => {
     // given: the green result shape
     // when/then: nothing to say
     expect(codegraphRefreshNotice({ refreshed: true })).toBeNull();
+  });
+});
+
+// rid-CG-008: the note is built from firstMeaningfulLine(stderr), and the
+// backend block is the FIRST thing upstream writes — so a failure note quoted
+// the box-drawing frame (or, once localized, our own note) instead of the
+// error. The note must name the cause.
+describe('Scenario: behavior — an upstream failure note quotes the cause, not the backend block', () => {
+  it('when the failing stderr opens with the wasm backend block, should name the real error and never the deleted dependency', async () => {
+    // given: an initialized store and an upstream that fails behind its block
+    const project = freshProject('peaks-cg-auto-i9-');
+    initializedCodegraph(project);
+    const runner = failingRunner(2, `${wasmBlock()}\nError: database is locked`);
+    try {
+      // when: refresh is invoked
+      const result = await refreshCodegraphAfterSlice(project, runner);
+      // then: the note carries the cause
+      expect(result.refreshed).toBe(false);
+      if (result.refreshed) throw new Error('unreachable');
+      expect(result.reason).toBe('index-failed');
+      expect(result.note).toContain('Error: database is locked');
+      expect(stripAnsi(result.note)).not.toMatch(ADVICE_PATTERN);
+      expect(result.note).not.toContain(RULE);
+      // and our own replacement text is not passed off as the cause either
+      expect(result.note).not.toContain(WASM_NOTE);
+    } finally {
+      rmSync(project, { recursive: true, force: true });
+    }
   });
 });
