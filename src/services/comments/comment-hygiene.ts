@@ -80,6 +80,44 @@ export const NARRATIVE_MARKERS: ReadonlyArray<{ name: string; pattern: RegExp }>
   }
 ];
 
+/**
+ * Comments that are LOAD-BEARING: text some program parses as data, not prose it reads.
+ *
+ * These are exempt from BOTH kinds, because the prune acts on a finding of either kind and
+ * deleting any of them does not reduce debt — it removes an enforcement mechanism, or
+ * adds a finding to a gated row. Each shape names the reader that consumes it; a shape
+ * with no reader to point at is a guess, and guesses are what the 4.1.1 prune learned from
+ * (rid `2026-10-05-comment-scan-string-awareness`: applying it deleted the doc block on a
+ * `HARD_FLOOR_CATEGORIES` member in `src/services/code/mode-gate.ts`, which is the only
+ * thing backing this repo's one real layer-C promotion, and the gate-H backing check went
+ * red — `feedback-promotion-artifact.test.ts` AC5).
+ *
+ *   - `promotion-evidence` — `src/services/feedback/promotion-source-comments.ts:79`
+ *     (`citedMemories`) feeds `promotion-artifact-evidence.ts:214`, which decides whether a
+ *     promoted rule is actually backed.
+ *   - `grace-marker` — `scripts/lint/silent-warning-detector.mjs:149` subtracts a
+ *     silent-warning finding for any line the offending node spans that carries
+ *     `TODO(g2)`. Deleting the marker therefore RAISES `silentWarningCatchReturnNull` /
+ *     `…EmptyCatch`, both of which may only go down.
+ *   - `toolchain-directive` — `@ts-expect-error` and friends are read by the compiler (an
+ *     unused one is itself an error) and `eslint-disable` by the lint leg; a paired disable
+ *     like `src/services/compact-statusline/compact-statusline-cell-table.ts:72`+`:99`
+ *     must move as a pair or the file starts reporting.
+ */
+export const LOAD_BEARING_SHAPES: ReadonlyArray<{ name: string; pattern: RegExp }> = [
+  { name: 'promotion-evidence', pattern: /\.peaks\/memory\/[^\s`]+\.md/ },
+  { name: 'grace-marker', pattern: /\bTODO\(g2\)/ },
+  {
+    name: 'toolchain-directive',
+    pattern: /(?:eslint-disable|prettier-ignore|@ts-[a-z-]+|@type\b|@vitest-slow|@covers\b)/
+  }
+];
+
+/** Is this comment text consumed by a program? */
+export function isLoadBearing(text: string): boolean {
+  return LOAD_BEARING_SHAPES.some((shape) => shape.pattern.test(text));
+}
+
 export type CommentScanInput = {
   /** Repo-relative path, e.g. `src/services/x/y.ts`. */
   readonly file: string;
@@ -130,6 +168,10 @@ function deadReferenceFindings(entry: CommentLine, judge: LineJudge): CommentFin
  * a reader could not already see.
  */
 function classifyLine(entry: CommentLine, judge: LineJudge): CommentFinding[] {
+  // Before either kind: a load-bearing line is not debt under any reading, so it must not
+  // be reported as a dead reference either — the path it cites is evidence, not a claim
+  // about where a file lives.
+  if (isLoadBearing(entry.text)) return [];
   const out: CommentFinding[] = judge.kinds.has('dead-reference')
     ? deadReferenceFindings(entry, judge)
     : [];

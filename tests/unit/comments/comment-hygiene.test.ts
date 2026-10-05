@@ -48,6 +48,23 @@ describe('commentLines: what counts as a comment', () => {
     // comment line the reader never wrote.
     expect(commentLines('const u = "https://example.com/a";')).toEqual([]);
   });
+
+  it('does not mistake the INSIDE of a template literal for a comment', () => {
+    // The shipped defect this arm pins (2026-10-05, found by applying the prune to
+    // the real tree): `feedback-promotion-service.ts` carries a one-line template
+    // literal whose CONTENT begins with `//` — it is a snippet the CLI shows users.
+    // The line-based reader saw code + trailing comment, the pruner cut from the
+    // first `//`, and the write left an unterminated template literal behind.
+    // A quote heuristic cannot see this coming: the prefix has zero quotes.
+    expect(commentLines('const s = `// src/a.ts\\n// 1. do the thing`,')).toEqual([]);
+  });
+
+  it('still reads the real trailing comment off a line that also holds a template literal', () => {
+    // The other half: string-awareness must not blind the reader to the comment
+    // that genuinely starts after the literal closes.
+    const lines = commentLines('const s = `a\\nb`; // why the newline is kept');
+    expect(lines.map((l) => l.text.trim())).toEqual(['// why the newline is kept']);
+  });
 });
 
 describe('dead-reference findings', () => {
@@ -224,5 +241,47 @@ describe('summary and option surface', () => {
       const sample = marker.pattern.source.replace(/\\b/g, '');
       expect(sample.length).toBeGreaterThan(0);
     }
+  });
+});
+
+describe('load-bearing comments: text a machine reads as data is not debt', () => {
+  // Rid `2026-10-05-comment-scan-string-awareness`, and the reason the in-place prune
+  // was reverted: applying it deleted the doc comment on the `commit-boundary-side-effect`
+  // member of `HARD_FLOOR_CATEGORIES` in `src/services/code/mode-gate.ts`, and THAT
+  // comment is the only thing backing the repository's one real layer-C promotion — so
+  // `feedback-promotion-artifact.test.ts` AC5 went red. A classifier that measures a
+  // repository's own documentation style must know which of those sentences some program
+  // parses as evidence, or "reduce the number" means "remove an enforcement mechanism".
+  // A block comment, because the reader is contextual now: a ` * …` line on its own is
+  // not a comment to it, and an arm written that way would pass for the wrong reason.
+  const at = (interior: string) => scan(`/**\n * ${interior}\n */`).findings;
+
+  it('keeps a comment that cites a memory file, because the promotion reader resolves it', () => {
+    // Reader: src/services/feedback/promotion-source-comments.ts:79-80 (citedMemories)
+    // consumed by promotion-artifact-evidence.ts:214 → the gate-H backing check.
+    expect(
+      at(
+        ' * `.peaks/memory/2026-06-28-full-auto-boundary.md` (rid-001) — this used to be a marker alone'
+      )
+    ).toEqual([]);
+  });
+
+  it('keeps a TODO(g2) grace marker, because the silent-warning detector subtracts findings by it', () => {
+    // Reader: scripts/lint/silent-warning-detector.mjs:149-151. Deleting one does not
+    // remove debt, it ADDS a finding to a gated row.
+    expect(at('// TODO(g2): slice 009 owns this swallow — AC-3')).toEqual([]);
+  });
+
+  it('keeps a toolchain directive, because removing it changes what the tools report', () => {
+    expect(at('// eslint-disable-next-line no-console — used to be silent, slice 015')).toEqual([]);
+    expect(at('// @ts-expect-error — the fixture types do not carry AC-2')).toEqual([]);
+  });
+
+  it('is not a black hole: an ordinary narrative comment still reports', () => {
+    // Without this arm the exclusion above passes for any pattern wide enough to eat the
+    // file, and the row would fall for the wrong reason.
+    expect(at('// Reproduced by rid-b1-qa before the fix').map((f) => f.kind)).toEqual([
+      'narrative'
+    ]);
   });
 });

@@ -12,6 +12,7 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import type { PruneAction, PruneSkip } from './comment-prune.js';
+import { endsInsideLiteral } from './comment-spans.js';
 
 /** What the write phase decided, per file. */
 export type WriteOutcome = {
@@ -78,12 +79,16 @@ export function proofViolations(
   actions: readonly PruneAction[]
 ): string[] {
   const dropped = new Set(actions.filter((a) => a.mode === 'drop-line').map((a) => a.line));
+  // The blanks the drops orphan are removed on purpose too — the SAME function the writer
+  // uses decides, so the proof can never be persuaded to allow more than the writer does.
+  const removed = new Set(dropped);
+  for (const blank of orphanedBlanks(before, dropped)) removed.add(blank);
   const stripped = new Set(actions.filter((a) => a.mode === 'strip-trailing').map((a) => a.line));
   const violations: string[] = [];
   let afterAt = 0;
   before.forEach((original, index) => {
     const line = index + 1;
-    if (dropped.has(line)) return; // deleted on purpose
+    if (removed.has(line)) return; // deleted on purpose
     if (stripped.has(line)) {
       // The only thing a strip may do is reveal the code that was already there, so
       // what survives must be a PREFIX of the original line — that is what makes it a
@@ -91,6 +96,13 @@ export function proofViolations(
       const kept = after[afterAt] ?? '';
       afterAt += 1;
       if (!original.startsWith(kept)) violations.push(`line ${line}: code text changed`);
+      // The prefix test above is true of EVERY truncation, which is how a strip that
+      // cut a template literal in half passed it. `startsWith` says nothing about
+      // whether what survives is still complete code, so that is asked separately.
+      // refused the write that left `snippet: \`` in `src/`.)
+      else if (endsInsideLiteral(kept)) {
+        violations.push(`line ${line}: strip left an unterminated literal — the code changed`);
+      }
       return;
     }
     if (after[afterAt] !== original) violations.push(`line ${line}: untouched line differs`);
@@ -100,19 +112,75 @@ export function proofViolations(
   return violations;
 }
 
+/**
+ * The blank lines a set of drops ORPHANS.
+ *
+ * A comment standing alone between two blanks is the only thing separating two blocks:
+ *
+ *     }
+ *                    ← blank
+ *     // M-… internal: AC-1 markdown parse   ← the dropped line
+ *                    ← blank
+ *     type AuditEnvelopeGuard<T> = …
+ *
+ * Deleting the comment joins the two blanks into a double blank, which is not what the
+ * file said before and not what any formatter will keep. So the drop owns that blank line
+ * — it is the residue of a comment removal, not an edit of someone's whitespace. Only a
+ * blank that becomes adjacent to another blank THROUGH a drop is claimed here: a double
+ * blank the repository already carries is left exactly where it is, because the pruner did
+ * not make it and has no business "fixing" it.
+ *
+ * ONE HELPER, BOTH CALLERS: `pruneFileLines` removes these and `proofViolations` allows
+ * them. A second copy of this rule is the defect class this whole feature answers, so the
+ * writer and the checker ask the same function the same question.
+ */
+export function orphanedBlanks(
+  before: readonly string[],
+  dropped: ReadonlySet<number>
+): Set<number> {
+  const orphaned = new Set<number>();
+  let lastKept = 0; // 1-based line number of the last line that survived
+  for (let index = 0; index < before.length; index += 1) {
+    const line = index + 1;
+    if (dropped.has(line)) continue;
+    const isBlank = (before[index] ?? '').trim() === '';
+    if (isBlank && lastKept > 0 && (before[lastKept - 1] ?? '').trim() === '') {
+      // Every original line between the two blanks was dropped, or this blank is the
+      // join the drop created. Anything else was a double blank before this run began.
+      // A blank is claimed ONLY when a drop actually sits between it and the previous
+      // surviving blank: `between` must be non-empty, because `[].every(…)` is true and
+      // an empty gap is a double blank the repository already had — which this run did
+      // not make and has no business touching.
+      const between = range(lastKept + 1, line - 1);
+      if (between.length > 0 && between.every((n) => dropped.has(n))) orphaned.add(line);
+    }
+    lastKept = line;
+  }
+  return orphaned;
+}
+
+/** Inclusive integer range, empty when `from > to`. */
+function range(from: number, to: number): number[] {
+  const out: number[] = [];
+  for (let n = from; n <= to; n += 1) out.push(n);
+  return out;
+}
+
 /** Apply one file's actions to its lines, in the plan's own terms. */
 export function pruneFileLines(
   lines: readonly string[],
   actions: readonly PruneAction[]
 ): string[] {
   const drop = new Set(actions.filter((a) => a.mode === 'drop-line').map((a) => a.line));
+  const gone = new Set(drop);
+  for (const blank of orphanedBlanks(lines, drop)) gone.add(blank);
   const strip = new Map(
     actions.filter((a) => a.mode === 'strip-trailing').map((a) => [a.line, a.comment])
   );
   const out: string[] = [];
   lines.forEach((original, index) => {
     const line = index + 1;
-    if (drop.has(line)) return;
+    if (gone.has(line)) return;
     if (strip.has(line)) {
       // Cut where the scan's comment text starts, not at the first `//` in the line:
       // `const url = "https://example.com"; // Slice 1 kept it` has its `//` inside a

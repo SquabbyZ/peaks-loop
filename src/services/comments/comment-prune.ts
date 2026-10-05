@@ -134,14 +134,32 @@ export function planPrune(
 ): { actions: PruneAction[]; skips: PruneSkip[] } {
   const actions: PruneAction[] = [];
   const skips: PruneSkip[] = [];
+  // One extractor run per FILE, keyed by path. `commentLines` is contextual now — it has
+  // not a comment at all — so asking it about a single line would skip every one of those
+  // findings. The old code could get away with it because the line-local heuristic agreed
+  // with itself by construction, which is not the same as being right.
+  const byFile = new Map<string, { lines: string[]; comments: Map<number, string> }>();
+  const viewFor = (file: string): { lines: string[]; comments: Map<number, string> } | null => {
+    const known = byFile.get(file);
+    if (known !== undefined) return known;
+    const source = readFileSafe(options.projectRoot, file);
+    if (source === null) return null;
+    const split = splitLines(source);
+    const comments = new Map<number, string>();
+    for (const entry of commentLines(source)) comments.set(entry.line, entry.text);
+    const view = { lines: split.lines, comments };
+    byFile.set(file, view);
+    return view;
+  };
+
   for (const finding of findings) {
-    const source = readFileSafe(options.projectRoot, finding.file);
-    if (source === null) {
+    const view = viewFor(finding.file);
+    if (view === null) {
       skips.push(skipFor(finding, 'file-not-readable'));
       continue;
     }
-    const text = splitLines(source).lines[finding.line - 1] ?? '';
-    const comment = commentLines(text)[0]?.text ?? '';
+    const text = view.lines[finding.line - 1] ?? '';
+    const comment = view.comments.get(finding.line) ?? '';
     if (comment.trim() !== finding.text) {
       skips.push(skipFor(finding, 'line-moved-since-scan'));
       continue;

@@ -9,8 +9,9 @@
  * Deliberately NOT `ts.getLeadingCommentRanges`:
  * `src/services/qa/bdd-test-style-verifier.ts` records that the API returns zero
  * ranges for comment-only blocks, which would silently read a header comment as no
- * comment at all. Line scanning preserves both order and line numbers, which the
- * worklist and the prune both need.
+ * comment at all. The spans come from `comment-spans.ts` instead, which keeps both
+ * order and line numbers — what the worklist and the prune both need — and knows
+ * what character it is inside, which a per-line rule cannot.
  */
 
 import { existsSync } from 'node:fs';
@@ -24,6 +25,7 @@ import {
   SYNTHETIC_SEGMENT,
   type Citation
 } from './citation-rules.js';
+import { commentSpans } from './comment-spans.js';
 
 /** One source line, with its 1-based number, as the classifier sees it. */
 export type CommentLine = {
@@ -38,45 +40,40 @@ function toPosix(path: string): string {
 }
 
 /**
- * A `//` in a line of code is a trailing comment unless the text before it is
- * inside a string literal or a URL scheme. The second clause matters because
- * `"https://…"` is a line every repository writes, and reading it as a comment
- * invents a line the author never meant.
- */
-function trailingComment(raw: string): string {
-  const at = raw.indexOf('//');
-  if (at <= 0) return '';
-  const before = raw.slice(0, at);
-  if (before.endsWith(':')) return '';
-  if ((before.match(/["']/g) ?? []).length % 2 !== 0) return '';
-  return raw.slice(at);
-}
-
-/**
  * The comment lines of a file: full-line comments, plus the trailing comment of a
  * code line. Non-comment lines are omitted but their numbers survive, so a report
  * can point at the code a comment is attached to.
+ *
+ * Derived from `commentSpans`, which reads the text as a stream. The previous version
+ * decided per line and was wrong in both directions at once: a `//` inside a template
+ * literal became a comment (and then a deletion that cut the literal open), while a
+ * block comment's interior line that does not start with `*` was missed.
  */
 export function commentLines(source: string): CommentLine[] {
   const out: CommentLine[] = [];
-  source.split(/\r?\n/).forEach((raw, index) => {
-    const line = index + 1;
-    const trimmed = raw.trim();
-    if (
-      trimmed.startsWith('//') ||
-      trimmed.startsWith('/*') ||
-      trimmed.startsWith('/**') ||
-      trimmed.startsWith('*')
-    ) {
-      out.push({ line, text: raw });
-      return;
+  const rows = source.split(/\r?\n/);
+  for (const span of commentSpans(source)) {
+    for (let line = span.line; line <= span.endLine; line += 1) {
+      const row = rows[line - 1];
+      if (row === undefined) continue;
+      // The first line of a block comment that opens mid-code keeps only its own tail,
+      // so a caller never reads the code before `/*` as part of the comment.
+      const from = line === span.line ? span.start - lineStart(source, line) : 0;
+      out.push({ line, text: row.slice(Math.max(0, from)) });
     }
-    const comment = trailingComment(raw);
-    if (comment.length > 0) {
-      out.push({ line, text: comment });
-    }
-  });
+  }
   return out;
+}
+
+/** The offset `source` has advanced by the start of 1-based `line`. */
+function lineStart(source: string, line: number): number {
+  let at = 0;
+  for (let n = 1; n < line; n += 1) {
+    const next = source.indexOf('\n', at);
+    if (next < 0) return source.length;
+    at = next + 1;
+  }
+  return at;
 }
 
 /**

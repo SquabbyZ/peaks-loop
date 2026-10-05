@@ -15,7 +15,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { auditComments } from '~/src/services/comments/comment-audit';
 import { planPrune, pruneComments, type PruneAction } from '~/src/services/comments/comment-prune';
-import { proofViolations } from '~/src/services/comments/prune-apply';
+import { proofViolations, pruneFileLines } from '~/src/services/comments/prune-apply';
 
 let root = '';
 
@@ -97,6 +97,21 @@ describe('proofViolations: the check that gates every write', () => {
     expect(proofViolations(before, ['// a', 'const b = 2;', '// c'], actions)).toEqual([
       'line 2: code text changed'
     ]);
+  });
+
+  it('refuses a strip that leaves a half-open literal, even though the prefix test passes', () => {
+    // THE PROOF'S OWN BLIND SPOT, found by running the prune against the real tree.
+    // Cutting `snippet: \`// a.ts\`` down to `snippet: \`` satisfies
+    // `original.startsWith(kept)` — every truncation is a prefix — so the prefix test
+    // alone cannot tell a revealed comment from a string cut in half, and it certified
+    // a write that left an unterminated template literal in `src/`. What survives must
+    // still be COMPLETE code, which is a different question from what it starts with.
+    const openBefore = ['snippet: `// a.ts\\n// b.ts`,'];
+    const actions = [act(1, 'strip-trailing', 'snippet: `// a.ts\\n// b.ts`,', '// a.ts\\n// b.ts`,')];
+    const out = proofViolations(openBefore, ['snippet: `'], actions);
+    expect(out).toHaveLength(1);
+    expect(out[0]).toContain('line 1');
+    expect(out[0]).toContain('unterminated');
   });
 });
 
@@ -194,5 +209,59 @@ describe('pruneComments: dry-run by default, ledger on apply', () => {
     expect(result.stripped).toBe(1);
     expect(result.dropped).toBe(0);
     expect(readFileSync(join(root, 'src/f.ts'), 'utf8')).toBe(`${code}export const n = 1;\n`);
+  });
+});
+
+describe('pruneFileLines: the blank a dropped comment orphans', () => {
+  const drop = (line: number): PruneAction => ({
+    file: 'f.ts',
+    line,
+    kind: 'narrative',
+    matched: 'm',
+    mode: 'drop-line',
+    lineText: '',
+    comment: '// alone'
+  });
+
+  it('takes the second blank with a comment that was the only thing separating two blanks', () => {
+    // Found by applying the prune for real. `src/services/verdict/envelopes.ts` held
+    //   };  /  blank  /  // … internal: AC-1 markdown parse  /  blank  /  type …
+    // and dropping the comment joined the two blanks into a double blank, which raised
+    // `prettierUnformatted` off its ceiling of 0 — and the generator refused to write the
+    // baseline. The blank is the drop's residue, so the drop owns it; leaving it behind
+    // would make a comment prune also a whitespace reformatter of code nobody asked about.
+    const lines = ['};', '', '// alone', '', 'type X = 1;'];
+    expect(pruneFileLines(lines, [drop(3)])).toEqual(['};', '', 'type X = 1;']);
+  });
+
+  it('leaves a double blank the run did not create exactly where it is', () => {
+    // `[].every(…)` is true, so a rule written as "everything between was dropped" eats
+    // pre-existing double blanks too. This arm is what caught that in the first version.
+    const lines = ['};', '', '', 'const a = 1;', '// alone'];
+    expect(pruneFileLines(lines, [drop(5)])).toEqual(['};', '', '', 'const a = 1;']);
+  });
+
+  it('leaves a lone blank beside the dropped comment alone', () => {
+    // Still separating code from what follows — it is not residue.
+    expect(pruneFileLines(['const a = 1;', '// alone', '', 'const b = 2;'], [drop(2)])).toEqual([
+      'const a = 1;',
+      '',
+      'const b = 2;'
+    ]);
+  });
+
+  it('the proof allows the collapse the writer performed, and refuses one it did not earn', () => {
+    const lines = ['};', '', '// alone', '', 'type X = 1;'];
+    const actions = [drop(3)];
+    expect(proofViolations(lines, pruneFileLines(lines, actions), actions)).toEqual([]);
+    // A blank removed WITHOUT being orphaned is still an edit the proof must refuse, and
+    // it names every claim that stopped matching rather than only the first.
+    const unearned = proofViolations(
+      ['};', '', '// alone', 'type X = 1;'],
+      ['};', 'type X = 1;'],
+      actions
+    );
+    expect(unearned).toContain('line 2: untouched line differs');
+    expect(unearned.length).toBeGreaterThan(0);
   });
 });
