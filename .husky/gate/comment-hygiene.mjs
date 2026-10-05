@@ -43,9 +43,13 @@ import {
  * clean. That is the invisibility this gate family exists to refuse.
  *
  * The population is the enforced scope the leg is HANDED, never a walk of its own:
- * `peaks comments audit` reads 923 files off the disk, the ratchet reads the 952 that
- * `git ls-files` and the published scope rule agree on, and the two must not be
- * confused for one another (rid `2026-10-03-silent-warning-scope`).
+ * `peaks comments audit` now walks the same rule (`src` plus every
+ * `packages/<anything>/src`, since the day its list of names was found to be a second,
+ * narrower spelling of it — 14 gated rows lived in the packages it did not read), but it
+ * walks the DISK while the ratchet
+ * reads `git ls-files`. A row is still measured only over the tracked list, so an
+ * untracked scratch file can never move a ceiling nobody edited
+ * (rid `2026-10-03-silent-warning-scope`).
  */
 function commentHygieneLeg(check, ceilings, files) {
   const m = runCommentHygieneScan(files, ROOT);

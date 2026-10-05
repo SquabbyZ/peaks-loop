@@ -1,5 +1,4 @@
 /**
- * G8 — cross sub-agent shared channel (RL-23..RL-26, AC-47..AC-49).
  *
  * Dispatcher-mediated indirect signal: sub-agent A writes a shared entry,
  * the dispatcher stores it in a per-batch JSON file, sub-agent B (still
@@ -82,7 +81,6 @@ export function writeSharedEntry(opts: {
   const channelFile = sharedChannelPath(opts.projectRoot, opts.sid, opts.rid, opts.batchId);
   assertSafeSharedChannelPath(channelFile, opts.projectRoot);
 
-  // Slice 2026-06-23-audit-3rd #2: the read-modify-write sequence below
   // is wrapped in withFileLockSync to prevent lost updates from two
   // concurrent `peaks sub-agent share` calls landing on the same batch.
   // Without the lock, the second writer's read sees a stale channel,
@@ -224,7 +222,6 @@ export function readSharedChannel(opts: {
 
 /**
  * Garbage-collect a single channel. Returns true if the file was
- * deleted, false if it did not exist.
  */
 export function gcChannel(opts: {
   projectRoot: string;

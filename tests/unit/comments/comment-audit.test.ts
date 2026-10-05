@@ -11,14 +11,11 @@
  * direction that gets a new gate deleted.
  */
 
-import { resolve } from 'node:path';
+import { readFileSync } from 'node:fs';
+import { join, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-import {
-  COMMENT_SCAN_SCOPE,
-  auditComments,
-  scopeFiles
-} from '~/src/services/comments/comment-audit';
+import { auditComments, commentScanScope, scopeFiles } from '~/src/services/comments/comment-audit';
 
 const ROOT = resolve(__dirname, '..', '..', '..');
 
@@ -54,6 +51,37 @@ describe('auditComments against this repository', () => {
     }
   });
 
+  it('reads the same population the ratchet measures the row over', () => {
+    // The gate's comment legs are handed `git ls-files` filtered by
+    // `.husky/lint-scope.mjs` (`src/** + packages/*/src/**`) and record that scope in the
+    // artifact. The audit used to walk `src` plus ONE named package — a second, narrower
+    // spelling of the same rule — so 14 narrative rows sat inside the gated ceiling and
+    // outside anything `peaks comments audit` would show or `prune` could clear. A row a
+    // tool cannot reach is a row nobody is handed the means to reduce, and the file whose
+    // header says the scope follows `.husky/lint-scope.mjs` "rather than a second
+    // definition of product code written here" was itself that second definition.
+    //
+    // Asserted in ONE direction, on the RULE rather than a count: the artifact names only
+    // directories with TRACKED files, while this walk reads the disk, so an untracked
+    // scratch file legitimately puts a directory on the tool's side that is not yet on the
+    // gate's. The reachability claim is the one that must not regress.
+    const artifact = JSON.parse(
+      readFileSync(join(ROOT, '.peaks', 'lint', 'gate-baseline.json'), 'utf8')
+    ) as { scope: { dirs: string[]; rule: string; silentWarning?: { scannedFiles?: number } } };
+    const walked = commentScanScope(ROOT).map((dir) => dir.replace(/\\/g, '/'));
+    expect(artifact.scope.dirs.length, 'the artifact must name the enforced scope').toBeGreaterThan(
+      1
+    );
+    for (const dir of artifact.scope.dirs) {
+      expect(walked, `${dir} is gated but not audited`).toContain(dir);
+    }
+    const perDir = artifact.scope.dirs.map((dir) => `${dir}=${scopeFiles(ROOT, dir).length}`);
+    expect(
+      audit.scannedFiles,
+      `the walk reads: ${perDir.join(' ')} (artifact records ${artifact.scope.silentWarning?.scannedFiles} gated files for ${artifact.scope.rule})`
+    ).toBeGreaterThanOrEqual(artifact.scope.silentWarning?.scannedFiles ?? 0);
+  });
+
   it('reports both categories separately, because they will be gated separately', () => {
     expect(audit.deadReferences).toBeGreaterThanOrEqual(0);
     expect(audit.narrative).toBeGreaterThanOrEqual(0);
@@ -62,7 +90,7 @@ describe('auditComments against this repository', () => {
   });
 
   it('carries the scope list into the report order, worst file first', () => {
-    expect(COMMENT_SCAN_SCOPE.length).toBeGreaterThan(0);
+    expect(commentScanScope(ROOT).length).toBeGreaterThan(1);
     const counts = audit.files.map((f) => f.deadReferences + f.narrative);
     const sorted = [...counts].sort((a, b) => b - a);
     expect(counts).toEqual(sorted);

@@ -6,12 +6,14 @@
  * established: one spawn, over one list, with one refusal, so the number a ceiling was
  * seeded from and the number a gate compares against cannot mean different things).
  *
- * THE POPULATION IS THE ENFORCED SCOPE, HANDED IN. `peaks comments audit` walks
- * `src` + `packages/peaks-loop-mut/src` (923 files); the ratchet measures
- * `git ls-files` filtered by the published scope rule — every package's `src`, and only
- * tracked files. The two numbers differ on purpose, and a row may only be measured over
- * the one every other row shares, because the walk would let an untracked scratch file
- * move a ceiling nobody edited (rid `2026-10-03-silent-warning-scope`).
+ * THE POPULATION IS THE ENFORCED SCOPE, HANDED IN. `peaks comments audit` walks the same
+ * directory rule now (`src` plus every `packages/<anything>/src`; its earlier list of two
+ * names was a second, narrower spelling of it, which left 14 gated rows outside the tool),
+ * but it walks
+ * the DISK while the ratchet measures `git ls-files` filtered by the published scope rule —
+ * tracked files only. A row is measured over the list every other row shares, because the
+ * walk would let an untracked scratch file move a ceiling nobody edited (rid
+ * `2026-10-03-silent-warning-scope`).
  *
  * ARGV BATCHING for the same reason as the silent-warning leg: one spawn of the
  * enforced scope's own list exceeds the Windows command-line limit (`ENAMETOOLONG` at

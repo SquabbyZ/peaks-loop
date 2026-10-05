@@ -9,7 +9,6 @@ export type ResultEnvelope<T> = {
   code?: string;
   message?: string;
   /**
-   * Slice 2026-06-23-audit-4th #B3: opaque per-failure correlation
    * id. Always present on `fail()` envelopes. Lets a user say
    * "my last failure was errorId=X; show me the JSONL log lines
    * tagged with X" without grepping on a code/message that may be
@@ -35,7 +34,6 @@ export function fail<T>(
   data: T,
   nextActions: string[] = []
 ): ResultEnvelope<T> {
-  // Slice 2026-06-23-audit-4th #B3: mint a fresh errorId per failure.
   // The id is opaque (uuid v4) and never reused; downstream log
   // entries from the same code path can carry the same id for
   // post-hoc correlation.

@@ -8,7 +8,6 @@ import type { AutoCompactEvent } from './status-protocol.js';
  * is not a context window, handed to a child that was then told to measure "85%
  * of" it. A fabricated denominator is worse than none, because the child cannot
  * tell that it is fabricated. When the caller genuinely knows the window it is
- * still carried verbatim (E5, rid 2026-09-13-defects-e).
  */
 export interface MarkerOpts {
   rid: string;
@@ -27,7 +26,6 @@ export interface ScratchPayload {
  * The `<peaks-auto-compact>` marker injected at the head of a detached child's
  * prompt.
  *
- * REWRITTEN IN E5 (rid 2026-09-13-defects-e). The previous text assigned the
  * child three capabilities it does not have, and the third of them was not even
  * a registered command:
  *

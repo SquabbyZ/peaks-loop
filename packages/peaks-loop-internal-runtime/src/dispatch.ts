@@ -46,7 +46,6 @@ export async function dispatchDetached(i: DispatchInput): Promise<DispatchResult
 
   const pb = new PromptBuilder();
   const ac = new AutoCompactAdapter();
-  // E5 (rid 2026-09-13-defects-e): the marker used to carry
   // `adapter.maxPromptBytes / 40` as its `vendor-window` — 204.8 for the claude
   // adapter. That is not a context window (it is a prompt BYTE budget divided by
   // forty), and the child was then told to measure "85% of" it, with no way to

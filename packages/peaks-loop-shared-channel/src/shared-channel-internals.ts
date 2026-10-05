@@ -12,7 +12,6 @@ import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from '
 import { dirname } from 'node:path';
 
 export interface SharedChannelEntry {
-  // Slice 2026-06-23-audit-4th #E2: shape version marker so future
   // field additions/removals can run a documented deprecation cycle
   // (1 version behind is still readable; 2 versions behind is dropped).
   // Default-on-read via isValidEntry() handles pre-versioning records.
@@ -77,7 +76,6 @@ function readChannelOrEmpty(channelFile: string, batchId: string): SharedChannel
 
 function isValidEntry(v: unknown): v is SharedChannelEntry {
   if (!isObject(v)) return false;
-  // Slice 2026-06-23-audit-4th #E2: pre-versioning records (no
   // `version` field) are still accepted on read for backward compat.
   // The writer stamps `version: 1` going forward; readers default
   // missing/legacy entries to version 1 in memory.
@@ -101,7 +99,6 @@ function isObject(v: unknown): v is Record<string, unknown> {
 
 function writeAtomic(path: string, channel: SharedChannel): void {
   const dir = dirname(path);
-  // Slice 2026-06-23-audit-3rd #11: skip mkdirSync when the dir already
   // exists. The `recursive: true` mkdir is a syscall (~50µs on macOS,
   // ~10ms on cold Windows cache); the `existsSync` short-circuit saves
   // it on the hot path (every `peaks sub-agent share` + every

@@ -4,7 +4,6 @@
  * Used by writeSharedEntry (shared-channel.ts) and appendHeartbeat /
  * markCompleted (dispatch-record-writer.ts) to guard the
  * read-modify-write sequence against lost updates from concurrent
- * writers (slice 2026-06-23-audit-3rd finding #2 + #3).
  *
  * Mechanism: write a sidecar `.lock` file next to the target via
  * `fs.openSync(path, 'wx')`. The `wx` flag maps to O_CREAT|O_EXCL on
@@ -60,11 +59,9 @@ export function withFileLockSync<T>(filePath: string, fn: () => T): T {
     mkdirSync(dir, { recursive: true });
   }
 
-  // Wall-clock guard (slice 014): in pathological slow-system cases, the
   // retry backoff could push wall-clock above LOCK_STALE_MS. Cap the loop at
   // LOCK_STALE_MS regardless of attempts; throw the existing LockTimeoutError.
   //
-  // Slice 2026-07-12-fix note: the slice 014 implementation re-checked
   // `isStaleLock(lockPath)` at the TOP of every loop iteration. Under
   // vitest-on-Windows slowdown (each `spinSleep` actually waits hundreds of
   // ms because of event-loop preemption), the wall clock would cross

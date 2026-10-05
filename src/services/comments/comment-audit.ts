@@ -5,7 +5,9 @@
  * workspace package's `src`, as `.husky/lint-scope.mjs` defines it — rather than
  * a second definition of "product code" written here. Two names for one rule is
  * the failure the parity test in `tests/unit/comments/citation-parity.test.ts`
- * exists to prevent.
+ * exists to prevent, and the parity that second name actually caused is pinned by
+ * `tests/unit/comments/comment-audit.test.ts`, which requires this walk to read the
+ * same number of files the artifact records the ratchet measuring.
  *
  * This is the read side only. Nothing here writes a file: the counts it produces
  * are the numbers a ratchet would start from, and a ratchet seeded from a scan
@@ -25,8 +27,26 @@ import {
 } from './comment-hygiene.js';
 import { createFsProbe, createRepoProbe } from './repo-path-probe.js';
 
-/** Product-code directories, in report order. */
-export const COMMENT_SCAN_SCOPE = ['src', join('packages', 'peaks-loop-mut', 'src')];
+/**
+ * Product-code directories, in report order: `src`, then every package under
+ * `packages/` that has a `src`.
+ *
+ * Derived from the rule rather than enumerated, because `.husky/lint-scope.mjs` says a
+ * new `packages/<anything>/src` joins the enforced scope BY EXISTING. The first version
+ * of this list spelled it `['src', 'packages/peaks-loop-mut/src']`, which was the second
+ * definition of "product code" this file's header claims not to be: the ratchet measures
+ * 953 files and the worklist read 926, so 14 gated narrative rows lived in three
+ * packages no `peaks comments audit` would show and no `prune` could clear.
+ */
+export function commentScanScope(projectRoot: string): string[] {
+  const packagesDir = join(projectRoot, 'packages');
+  if (!existsSync(packagesDir)) return ['src'];
+  const names = readdirSync(packagesDir, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory() && existsSync(join(packagesDir, entry.name, 'src')))
+    .map((entry) => entry.name)
+    .sort();
+  return ['src', ...names.map((name) => join('packages', name, 'src'))];
+}
 
 const SOURCE_SUFFIXES = ['.ts', '.tsx', '.mts', '.cts'] as const;
 
@@ -143,5 +163,5 @@ export function auditComments(options: CommentAuditOptions): CommentAuditResult 
 
 /** The walked population, used only when a caller did not hand an explicit list. */
 function scopePopulation(projectRoot: string): string[] {
-  return COMMENT_SCAN_SCOPE.flatMap((scopeDir) => scopeFiles(projectRoot, scopeDir));
+  return commentScanScope(projectRoot).flatMap((scopeDir) => scopeFiles(projectRoot, scopeDir));
 }
