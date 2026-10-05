@@ -1,7 +1,6 @@
 /**
  * 24h mode state machine — state types + DecisionKey enum.
  *
- * Rid-020a (state-only slice). The proposal defines six states that
  * capture the lifecycle of a 24h code run; the DecisionKey enum is the
  * enumeration of B1/B2 decision keys whose retry counter lives in
  * `AttemptsMap`. Persistence and trigger evaluation live in sibling

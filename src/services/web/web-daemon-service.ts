@@ -1,6 +1,5 @@
 /**
  * The `peaks web` daemon: loopback HTTP server, op routing, shutdown
- * (slice S2, file 16).
  *
  * One daemon per `(projectRoot, sessionId)` (design §10.2). It binds
  * `127.0.0.1:0` — an OS-assigned port, loopback only — and writes

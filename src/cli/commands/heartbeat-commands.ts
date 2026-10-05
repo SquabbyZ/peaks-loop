@@ -1,7 +1,6 @@
 /**
  * `peaks sub-agent heartbeat` — G6: append a heartbeat to a dispatch record.
  *
- * Pulled out of `sub-agent-commands.ts` (slice 2026-06-23-audit-p0-split)
  * to honor the 800-line file cap. The heartbeat is fire-and-forget; the
  * parent Dispatcher polls the record during the batch-sync wait and
  * renders a status line. Sub-agents should call this at least every
@@ -39,7 +38,6 @@ export function registerHeartbeatCommand(parent: Command, io: ProgramIO): void {
       )
       .requiredOption('--progress <pct>', 'integer 0-100')
       .option('--note <text>', 'free-form progress note (≤ 200 chars)')
-      // Slice 2026-07-29-dispatch-stall-governance / S5 (AC-5.2) —
       // optional --stage flag. The label is bounded (see
       // src/services/dispatch/stage-enum.ts); an unknown value is
       // rejected with INVALID_STAGE so the watch surface never

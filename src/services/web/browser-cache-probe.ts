@@ -1,7 +1,6 @@
 /**
  * `src/services/web/browser-cache-probe.ts`
  *
- * The browser-cache probe (slice S3, file 18; R6, tech-doc §5.3): it asks the
  * resolved Playwright package where its executable WOULD be and checks the
  * filesystem — no download, no spawn, so `peaks web status` can report cache
  * state on a machine with nothing installed. Moved verbatim (wave 3, file-size

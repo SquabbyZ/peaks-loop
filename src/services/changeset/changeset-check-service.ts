@@ -1,13 +1,10 @@
 /**
- * rid-011 — peaks changeset check hard gate (Phase 4 slice 2).
  *
  * Module path: src/services/changeset/changeset-check-service.ts
  * Mirror of publish.yml gate-changeset step (lines 220-243). Hard-gate,
  * no warning mode, no opt-out. Auto-wired as step 0 of `peaks release
  * canary` and `peaks release hotfix` BEFORE the rid-010 precheck guard.
  *
- * Decoupling note: rid-010 Layer C (`runChangesetStaged`) is ad-hoc
- * precheck (warning by default, --strict upgrade); rid-011 hard gate is
  * unconditional. Both filters inspect `.changeset/*.md` (excluding
  * README.md) but with different policy semantics.
  */

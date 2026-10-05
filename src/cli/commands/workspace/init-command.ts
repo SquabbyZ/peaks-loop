@@ -1,8 +1,6 @@
 /**
- * `peaks workspace init` — slice 006 + 007 + 014 + 018 + 2026-06-16-peaks-code-auto-scaffold.
  *
  * Extracted from `src/cli/commands/workspace-commands.ts` (slice
- * 2026-06-16-workspace-commands-split) to keep that entry file under the
  * 800-line Karpathy cap. Owns:
  *   - commander option wiring (`--project`, `--session-id`, `--change-id`, etc.)
  *   - canonical project-root resolution
@@ -20,7 +18,6 @@ import {
   ConflictingSessionError,
   LegacyChangeIdSiblingError
 } from '../../../services/workspace/workspace-service.js';
-// Slice 2026-06-29-change-id-root-removal: `LegacyChangeIdBindingError`
 // was removed with the change-id axis. The legacy symlink-detection
 // branch below no longer fires — the binding file at
 // `.peaks/_runtime/current-change` is no longer written by init
@@ -70,7 +67,6 @@ export type WorkspaceInitOptions = {
   json?: boolean;
   allowSessionRebind?: boolean;
   /**
-   * Slice 018 opt-out, commander-convention form. The user-facing
    * flag is `--no-rotate-on-outer-mismatch`; commander strips the
    * `--no-` prefix and assigns the boolean to this property (default
    * `true`, set to `false` when the flag is passed). The wrapper
@@ -98,7 +94,6 @@ export type WorkspaceInitOptions = {
    */
   claudeHooks?: boolean;
   /**
-   * Slice 2026-06-16-peaks-code-auto-scaffold (RD#7): opt-in flag to
    * auto-scaffold `.claude/rules/{common,<language>}/` when missing.
    * Default `false` — the diagnostic fires but no write happens.
    * Set to `true` (via `--init-standards`) to also run
@@ -106,7 +101,6 @@ export type WorkspaceInitOptions = {
    */
   initStandards?: boolean;
   /**
-   * Slice 2026-07-15-project-scan-bootstrap (G2 / G4b / AC9 / AC10):
    * commander-style `--no-project-scan-bootstrap` opt-out. Default
    * (no flag) leaves this `undefined` (treated as `true`). Pass the
    * flag to set `options.projectScanBootstrap === false`, which the
@@ -114,7 +108,6 @@ export type WorkspaceInitOptions = {
    */
   projectScanBootstrap?: boolean;
   /**
-   * Slice 2026-07-15-project-scan-bootstrap (G2 / G4b / AC10):
    * `--force-project-scan-templates` flag. Default (no flag)
    * leaves this `undefined`. Pass the flag to set
    * `options.forceProjectScanTemplates === true`, which forces the
@@ -239,7 +232,6 @@ export function registerWorkspaceInitCommand(workspace: Command, io: ProgramIO):
       // user's home even though the init was refused.
       const projectRoot = resolveWritableProjectRoot(options.project);
 
-      // Slice 018: outer-session-mismatch auto-rotation. When the
       // user did NOT pass --session-id explicitly, run
       // `ensureSessionWithRotation` so the binding is rotated on
       // outer-mismatch before `initWorkspace` is called. The
@@ -286,14 +278,12 @@ export function registerWorkspaceInitCommand(workspace: Command, io: ProgramIO):
         // `false`, so the default is "install hooks" (the bypass is
         // on). Pass `--no-claude-hooks` to opt out.
         noClaudeHooks: options.claudeHooks === false,
-        // Slice 2026-06-16-peaks-code-auto-scaffold (RD#7): opt-in
         // auto-apply for the missing-standards scaffold. Default false
         // — only the diagnostic is emitted. Pass --init-standards to
         // also run `executeProjectStandardsInit({ apply: true })`.
         initStandards: options.initStandards === true
       });
 
-      // Slice 2026-07-15-project-scan-bootstrap (G2 / G4b / AC9):
       // After the workspace dir is initialized, also bootstrap the
       // `.peaks/project-scan/` artifact tree (project-scan.md + 4
       // bundled audit/business templates). Idempotent — when the user
@@ -344,7 +334,6 @@ export function registerWorkspaceInitCommand(workspace: Command, io: ProgramIO):
             `New binding is "${sessionId}". The previous session dir is preserved at .peaks/_runtime/${rotation.previousSessionId}/. ` +
             `Re-run with --no-rotate-on-outer-mismatch to suppress this rotation.`
         );
-        // Slice 002 (v2.15.0) AC-1: a presence marker stamped by the
         // OLD outer session is now stale (defect A from the PRD).
         // peaks-code Step 1 would otherwise pick up the old `mode`
         // field and silently lock the new session into a mode the
@@ -409,7 +398,6 @@ export function registerWorkspaceInitCommand(workspace: Command, io: ProgramIO):
         );
       }
 
-      // Slice 2026-06-13-selfheal-claude-settings-template: surface
       // the self-heal outcome for the offline
       // `.peaks/.claude-settings-template.json` copy. When the offline
       // file was refreshed (i.e. the previous peaks-loop release left
@@ -443,7 +431,6 @@ export function registerWorkspaceInitCommand(workspace: Command, io: ProgramIO):
         );
       }
 
-      // Slice 2026-07-15-project-scan-bootstrap (G2): surface the
       // bootstrap outcome. The envelope carries the write counts and
       // duration so the LLM (and the human) see what landed. The
       // nextAction only fires when the project-scan tree is fresh —
@@ -474,7 +461,6 @@ export function registerWorkspaceInitCommand(workspace: Command, io: ProgramIO):
         );
       }
 
-      // Slice 2026-06-16-peaks-code-auto-scaffold (RD#7):
       //   - When the consumer project's `.claude/rules/` is missing or
       //     empty, emit the copy-pasteable diagnostic to stderr (via
       //     the JSON envelope `warnings` array) AND surface the
@@ -521,7 +507,6 @@ export function registerWorkspaceInitCommand(workspace: Command, io: ProgramIO):
         );
       }
 
-      // Slice 2026-07-15-project-scan-bootstrap (G2): surface the
       // bootstrap outcome. The envelope carries the write counts and
       // duration so the LLM (and the human) see what landed. The
       // nextAction only fires when the project-scan tree is fresh —
@@ -543,9 +528,7 @@ export function registerWorkspaceInitCommand(workspace: Command, io: ProgramIO):
         markStandardsChecked(projectRoot, sessionId);
       }
 
-      // rid-CG-001 (revised): auto-stake a peaks-loop-managed `.codegraph/`
       // directory after a successful workspace init. Calls the conflict
-      // guard (rid-CG-006) BEFORE writing so a foreign schema is never
       // silently overwritten. We now run a REAL upstream `codegraph init`
       // (not just mkdir + marker) so the schema actually has a
       // `codegraph.db`, which is what post-slice auto-refresh and the
@@ -597,7 +580,6 @@ export function registerWorkspaceInitCommand(workspace: Command, io: ProgramIO):
           'workspace.init',
           {
             ...report,
-            // Slice 018: surface outer-session-mismatch rotation in the
             // JSON envelope so the LLM and the human both see the swap.
             // Field is omitted (not null) when no rotation fired.
             ...(rotation.previousSessionId !== null && rotation.reason !== null
@@ -614,9 +596,7 @@ export function registerWorkspaceInitCommand(workspace: Command, io: ProgramIO):
               scope: hooksOutcome.scope,
               ...(hooksOutcome.reason !== undefined ? { reason: hooksOutcome.reason } : {})
             },
-            // rid-CG-001: surface codegraph auto-stake outcome.
             ...(codegraphAutoOutcome !== null ? { codegraphAutoStake: codegraphAutoOutcome } : {}),
-            // Slice 2026-07-15-project-scan-bootstrap (G2): envelope
             // for the .peaks/project-scan/ bootstrap. Always present
             // (even when skipped / errored) so downstream readers can
             // rely on the shape.
@@ -722,7 +702,6 @@ export function registerWorkspaceInitCommand(workspace: Command, io: ProgramIO):
         process.exitCode = 1;
         return;
       }
-      // Slice 2026-06-29-change-id-root-removal: the
       // `LegacyChangeIdBindingError` catch branch is gone — the change-id
       // binding file at `.peaks/_runtime/current-change` is no longer
       // written by init, so there is no legacy binding to detect.

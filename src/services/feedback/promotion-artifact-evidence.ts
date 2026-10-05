@@ -1,5 +1,4 @@
 /**
- * rid 2026-09-14-gate-h-promotion (R2; repaired by R8) — what a promotion's
  * artifact has to PROVE.
  *
  * The three layers used to be checked with `text.includes(<rule name>)` over the

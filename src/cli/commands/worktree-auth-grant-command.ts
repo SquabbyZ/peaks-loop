@@ -1,5 +1,4 @@
 /**
- * `peaks worktree auth grant` — slice 2026-07-27-worktree-user-auth.
  *
  * Extracted from `worktree-auth-commands.ts` to keep that file under the
  * raw-line cap (mechanical verbatim move). The default TTL constant stays

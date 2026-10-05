@@ -1,5 +1,4 @@
 /**
- * v2.13.2 AC-2 — `peaks verdict aggregate` CLI surface.
  *
  * Reads the 5 envelope sources under `.peaks/_runtime/<sid>/` for a
  * given rid, runs `aggregateVerdict()`, and prints the verdict +
@@ -39,11 +38,8 @@ type AggregateOptions = {
   json?: boolean;
 };
 
-// Slice `2026-09-14-audit-artifact-rid-scoping`: the audit/review evidence
 // filenames carry the rid. The ridless names are the pre-rid locations and
-// stay readable during the back-compat window. `mut/` is NOT rid-scoped —
 // see `MUT_REPORT` in `artifact-prerequisites.ts`: no producer in the repo
-// can write a rid-scoped mut report, so probing a templated name here would
 // look for a file that no writer can create.
 //
 // The candidate lists are read FROM the contract — the same
@@ -59,7 +55,6 @@ const QA_REL = 'qa/test-reports';
 
 /**
  * The declared tiers for one artifact name, primary first. Probed by the name
- * this command used before the rid-scoping (the table matches it as either
  * the primary or a legacy tier), so the lookup survives the primary moving.
  * `verdict aggregate` is request-type-agnostic and every fanout-trigger type
  * declares these artifacts identically, so the default type's list is the
@@ -163,7 +158,6 @@ export function registerVerdictAggregateCommands(program: Command, io: ProgramIO
 
     try {
       const sources = {
-        // v2.13.3 AC-1: use the canonical markdown-aware parser from
         // envelopes.ts. The old inline `parseSecurityFromMarkdown`
         // only understood shape A (`- [SEV] dim @ file:line — hint`),
         // so real dogfood fixtures using shape B (`- HIGH: hint in file:line`)
@@ -249,7 +243,6 @@ function readAudit<T>(
   rels: ReadonlyArray<string>,
   parse: AuditParser<T>
 ): T | null {
-  // Canonical rid-scoped location first, then the pre-rid locations.
   for (const rel of rels) {
     const path = join(projectRoot, '.peaks', '_runtime', sid, rel.replace('<rid>', rid));
     if (existsSync(path)) return parse(readFileSync(path, 'utf8'));
@@ -288,7 +281,6 @@ function parseMutJson(json: unknown): ReturnType<typeof parseMutEnvelope> {
   return parseMutEnvelope(json);
 }
 
-// v2.13.3 AC-1: removed inline `parseSecurityFromMarkdown` /
 // `parsePerfFromMarkdown` (only handled shape A). The canonical
 // `parseSecurityEnvelope` / `parsePerfEnvelope` in envelopes.ts now
 // own the markdown parse + JSON back-compat fallback.

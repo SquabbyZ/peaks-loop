@@ -1,7 +1,6 @@
 /**
  * `peaks log *` subcommands.
  *
- * Slice 2026-06-16-cli-logging (G4). Two subcommands:
  *   - `peaks log tail [--lines N]` — print the last N lines of
  *     today's JSONL log to stdout. With `--json`, prints as a
  *     JSON envelope (matching the project's response shape).
@@ -10,7 +9,6 @@
  * The CLI layer is intentionally thin: it formats the output and
  * delegates the actual filesystem reads to
  * `src/services/log/log-commands-service.ts`. That service is
- * already covered by `tests/unit/log/log-commands.test.ts`.
  */
 
 import type { Command } from 'commander';
@@ -38,7 +36,6 @@ export function registerLogCommands(program: Command, io: ProgramIO): void {
         '--date <YYYY-MM-DD>',
         'read the log for this UTC date instead of today (PRD AC2: PEAKS_LOG_DATE_OVERRIDE)'
       )
-      // Slice 2026-06-23-audit-4th #B2: --batch filter for cross-run
       // correlation. Without this, a user post-hoc cannot group the
       // log lines for one batch (they interleave in the JSONL file).
       .option('--batch <id>', 'filter entries by batchId (sub-agent dispatch / heartbeat / share)')

@@ -7,10 +7,6 @@
  * them in. Tests pass synthetic events directly.
  *
  * Aggregations:
- *   - `aggregateStatus(events)`        → AC-1
- *   - `aggregateSlices(events)`        → AC-2
- *   - `aggregateFanout(events)`        → AC-3
- *   - `aggregateRepairCycles(events)`  → AC-4
  *
  * The dispatch / mode-gate / context / post-compact categories land
  * in Slice C (more hooks); for Slice B only `slice-transition` events
@@ -164,8 +160,6 @@ export function aggregateRepairCycles(events: readonly ObservabilityEvent[]): Re
   };
 }
 
-// ----- period rollup (AC-5 — Slice D, but helpers live here) -----
-
 export function periodStartIso(period: Period, now: () => Date = () => new Date()): string {
   const d = now();
   if (period === 'day') {
@@ -192,8 +186,6 @@ export function filterByPeriod(
   const start = periodStartIso(period, now);
   return events.filter((e) => e.ts >= start);
 }
-
-// ----- rid-030 F-direction: 5-metric dashboard summary -----
 
 /**
  * Aggregate the 5 dashboard metric classes for a single session, filtered

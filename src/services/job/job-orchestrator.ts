@@ -64,7 +64,6 @@ export class JobOrchestrator {
   }
 
   /**
-   * D1 (rid 2026-10-03-job-ledger-truthfulness) — register one more slice on an
    * existing job.
    *
    * WHY THIS EXISTS. The slice list was decided once, at `peaks job init

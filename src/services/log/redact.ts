@@ -1,7 +1,6 @@
 /**
  * Secret redaction for peaks-loop JSONL log lines.
  *
- * Slice 2026-06-16-cli-logging (G6). The logger must NEVER write
  * a raw secret to disk. We redact at two levels:
  *  1. Field level — when a structured payload contains a key whose
  *     name matches a secret pattern (`api_key`, `password`, `token`,

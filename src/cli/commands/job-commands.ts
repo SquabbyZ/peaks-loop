@@ -55,7 +55,6 @@ export function asJson(opts: JobJsonOpts): boolean {
 }
 
 /**
- * F1 (rid 2026-09-17-exit-code-truth): report a FAILED envelope **and** make the
  * process exit non-zero.
  *
  * WHY THIS EXISTS. `printResult` (`src/cli/cli-helpers.ts`) renders a failed
@@ -511,7 +510,6 @@ export function registerJobCommands(
       }
       const sliceId = slice.sliceId;
       const orch = new JobOrchestrator(store);
-      // 2026-09-03-codegraph-autorefresh: set on --state done so the ok
       // envelope carries a non-blocking `codegraph` result; null for
       // failed/skipped (no slice-complete boundary).
       let codegraph: CodegraphAutorefreshResult | null = null;
@@ -681,7 +679,6 @@ export function registerJobCommands(
     .requiredOption('--job-id <jid>')
     .option('--session-id <sid>', SESSION_ID_HELP)
     .option('--project <repo>')
-    // H3 (rid 2026-09-17-exit-code-root-cause): this string used to promise
     // "return done=0/total=0 envelope instead of failing when progress.json is
     // absent". No code path has ever returned such an envelope — the option was
     // born in `d9a1a098` with `process.exitCode = 1` on the same branch — so it
@@ -719,7 +716,6 @@ export function registerJobCommands(
               { jobId: opts.jobId, sessionId: sessId },
               [
                 'Run `peaks job checkpoint --state done ...` at least once to seed progress.json.',
-                // H3: the second action used to read "Or pass --allow-missing to
                 // return a zero-progress envelope." That line could only ever be
                 // printed when `--allow-missing` had ALREADY been passed — this
                 // `progress === null` branch is unreachable otherwise, because the

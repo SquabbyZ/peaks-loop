@@ -1,7 +1,6 @@
 /**
  * Shared types, constants, and helpers for the `peaks sub-agent` command group.
  *
- * Slice 2026-06-23-audit-p0-split — pulled out of `sub-agent-commands.ts` (968
  * lines) to honor the 800-line file cap (Karpathy #2 Simplicity First).
  *
  * Public exports:
@@ -13,18 +12,15 @@
  */
 import type { SubAgentBatchResult } from '../../services/dispatch/sub-agent-dispatcher.js';
 import type { HeartbeatStatus } from '../../services/dispatch/dispatch-record-writer.js';
-// Slice F2 (rid-f2-ac1-wiring) — first caller of the RD dispatch policy
 // module. Before this wiring `src/services/rd/reviewer-dispatch-policy.ts`
 // had zero importers in src/ + packages/ + scripts/ and the 2 slots it
 // governs (`security-reviewer`, `perf-baseline-reviewer`) were neither
 // rejected nor rerouted by anything on the dispatch path.
 import { isDeprecatedReviewer } from '../../services/rd/reviewer-dispatch-policy.js';
-// Slice 2026-07-29-dispatch-stall-governance / S6 — `probeShell` is
 // re-exported here so the dispatch chokepoint (`dispatch-commands.ts`)
 // and the sub-agent batch-sync wait can lazily acquire a typed
 // shell-probe report without importing the env service at every
 // call site. Codifies .peaks/memory/2026-07-27-windows-shell-pref.md
-// at the dispatch / tool boundary (AC-6.2).
 export {
   probeShell,
   type ShellProbeReport,
@@ -39,7 +35,6 @@ export const RECOMMENDED_ROLES =
 // union. The CLI --status help, the writer's isHeartbeatStatus guard,
 // and this constant must stay byte-identical (the parity test in
 // tests/unit/dispatch/heartbeat-parity.test.ts pins it). Adding
-// `cancelled` / `no-execution` closes AC-2.1; adding `never-started`
 // and `unreadable` closes the S1 status surface.
 export const HEARTBEAT_STATUSES: readonly HeartbeatStatus[] = [
   'queued',
@@ -67,7 +62,6 @@ export type DispatchOptions = {
   force?: boolean;
   fromDag?: string;
   /**
-   * Slice 2026-07-29-worktree-l2-extended Part 2.C: dispatch isolation mode.
    * Only `worktree` is currently recognised. When set, dispatch
    * auto-spawns a worktree lease (delegates to `peaks worktree spawn`)
    * and injects `PEAKS_WORKTREE_LEASE_ID=<id>` into the dispatch
@@ -84,7 +78,6 @@ export type DispatchOptions = {
   workflowId?: string;
   graphRef?: string;
   /**
-   * rid-001 detached sub-agent dispatch (slice 2026-08-11): dispatch
    * execution mode. `in-process` (default) keeps the existing warm-path
    * CLI dispatch; `detached` shells out to
    * `peaks-loop-internal-runtime/dispatch.dispatchDetached` for vendor
@@ -93,26 +86,22 @@ export type DispatchOptions = {
    */
   mode?: 'in-process' | 'detached';
   /**
-   * rid-001 detached sub-agent dispatch: target vendor CLI when
    * --mode detached is selected. Only consulted in the detached path;
    * ignored in the default in-process path. Accepts `claude | codex
    * | copilot` (matches VendorAdapterRegistry).
    */
   vendor?: 'claude' | 'codex' | 'copilot';
   /**
-   * rid-001 Task 11.5 budget ceiling: user-overrides ResourceBudgetGuard
    * when active concurrent fan-out would otherwise throttle detached
    * dispatch. The user accepts the risk; surfaces as `warnings[]` only.
    */
   noThrottle?: boolean;
   /**
-   * rid-001 Task 11.5: override the per-tenant max-concurrent budget
    * (default 8). Effective in both detached (ResourceBudgetGuard) and
    * in-process (batch-counter) paths.
    */
   maxConcurrent?: string;
   /**
-   * F5 follow-up (sediment 2026-08-11-rid-001-redo-fake-green-recovery-closure
    * §Lesson 1): frontmatter `--must-ls-files <glob>` flag. When set, the
    * dispatch CLI runs `git ls-files <glob>` upfront, surfaces
    * `mustLsFilesVerification: { path, exists, files }` in the envelope,
@@ -199,7 +188,6 @@ export function validateRole(role: string): string | null {
 }
 
 /**
- * Slice F2 (rid-f2-ac1-wiring) — the dispatch-side twin of the prereq-side
  * back-compat in `artifact-prerequisites.ts` (`AUDIT_SECURITY` /
  * `AUDIT_PERF` accept `rd/security-review.md` / `rd/perf-baseline.md` via
  * `legacyRelativePaths`).

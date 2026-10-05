@@ -1,8 +1,5 @@
 /**
- * Auto-compact orchestrator (v2.13.0 AC-2 + AC-3 + AC-4).
  *
- * Closes the loop between `peaks code auto-compact` (AC-1) and the IDE's
- * native compact capability (AC-3). peaks-loop is project-aware: it
  * knows the current plan, open questions, recent decisions, in-flight
  * batches, todo state, git status, and active skills. That context is
  * strictly more valuable than what `/compact` can synthesize from raw
@@ -12,7 +9,6 @@
  *   2. If ratio ≥ 0.95 (RED LINE): peaks-loop ASKS the harness to
  *      compact and reports that it is waiting. It does NOT block
  *      sub-agent dispatch (slice
- *      2026-09-13-auto-compact-trigger-ownership, T3): peaks-loop owns
  *      the *decision*, the harness owns the *capability*, and peaks-loop
  *      has no way to compact a running session itself — so a "gate"
  *      here gated nothing and deadlocked the runner at the worst
@@ -107,7 +103,6 @@ export interface AutoCompactInput {
    *
    * Why nothing reads it any more: it used to skip a gate that refused to
    * dispatch below 0.85. That gate was removed (slice
-   * 2026-09-13-auto-compact-trigger-ownership, T3/A1) — peaks-loop cannot
    * compact a running session, so the refusal could not shorten the wait it
    * was waiting for, and it deadlocked the runner at the worst moment. With the
    * gate gone, the red line still ASKS the harness to compact (when it always
@@ -122,7 +117,6 @@ export interface AutoCompactInput {
   /** Injectable clock for mtime checks (test seam). */
   readonly now?: Date | undefined;
   /**
-   * Slice 2026-06-28-code-mode-bypass-fix (defect #4): which session
    * the compact should target. Default `'main'` — the orchestrator
    * (peaks-code body) runs in the main-session Claude Code window and
    * wants to compress *its* context. Sub-agent shells pass
@@ -130,14 +124,12 @@ export interface AutoCompactInput {
    */
   readonly target?: CompactTarget | undefined;
   /**
-   * Slice 2026-07-28 (rid-027): auto-compact mode. Default
    * `'standard'` (v2.13.0 zero-pause contract, 0.85/0.95). `'partial'`
    * fires earlier (0.70/0.85) for 24h long-run scenarios. CLI flag
    * `--mode <mode>` overrides the 24h-mode auto-detection.
    */
   readonly mode?: AutoCompactMode | undefined;
   /**
-   * Slice 2026-08-01-compact-lifecycle (Task 5): observer fired on
    * every lifecycle stage this process actually proved. Telemetry
    * only — it can neither change the threshold decision nor the
    * dispatch outcome, and a throwing observer is swallowed.
@@ -182,7 +174,6 @@ const PRE_COMPACT_REASON = 'pre-compact-auto' as const;
  *   - ratio ≥ preCompact → 'pre-compact' (async-friendly path)
  *   - ratio ≥ redLine    → 'red-line' (ask the harness; dispatch continues)
  *
- * Slice 2026-07-28 (rid-027): `mode` selects the threshold table.
  * Default `'standard'` (0.85/0.95). `'partial'` (0.70/0.85) is used
  * when 24h long-run mode is active or `--mode partial` is passed.
  */
@@ -203,7 +194,6 @@ export function evaluateCompactTrigger(
         };
   }
   if (ratio >= redLine) {
-    // Slice 2026-09-13-auto-compact-trigger-ownership (T3): the red line no
     // longer claims it blocks anything. It cannot: peaks-loop has no
     // executor for a running session (no `/compact` the model may invoke, no
     // hook-initiated compact, no `--compact` flag), so "refuse dispatch until
@@ -254,7 +244,6 @@ export function evaluateCompactTrigger(
  *   - ratio ≥ 0.95           → red-line; ask the harness to compact
  *                                regardless of in-flight batch. Nothing is
  *                                gated — dispatch is NOT blocked (slice
- *                                2026-09-13-auto-compact-trigger-ownership:
  *                                peaks-loop cannot compact a running session,
  *                                so a "block" gated nothing and deadlocked the
  *                                runner).
@@ -320,7 +309,6 @@ export function evaluateAutoCompactDecision(input: {
   if (input.force) {
     return { shouldCompact: true, reason: 'pre-compact', trigger, action: 'auto-compact-now' };
   }
-  // Slice 2026-07-31-rid-mac-transcript-estimate-trigger: transcript-estimate
   // is the ONLY signal available on Mac Claude Code (no env-var, no statusline
   // poll). The gate above already returns shouldCompact: true at ratio ≥ 0.85,
   // but this forward-compat carve-out makes the source-aware rule explicit so
@@ -398,7 +386,6 @@ function appendAutoDecisionLog(input: {
 }
 
 /**
- * Slice 2026-06-28-code-mode-bypass-fix (defect #4): write the
  * main-session compact intent so the main-session LLM picks it up on
  * its next turn and fires `/compact` in-band. Without this file the
  * orchestrator's "main-session compact" request is invisible to the
@@ -409,7 +396,6 @@ function appendAutoDecisionLog(input: {
  * is one-shot: the LLM should `mv` it to `.consumed` after firing
  * `/compact`. A re-run will overwrite.
  *
- * ZERO READERS as of slice 2026-09-13-auto-compact-trigger-ownership: the
  * write survives, but nothing consumes the file, and its `nextAction` asks
  * for a `/compact` the model cannot invoke (the Skill tool exposes only
  * `/init` and `/security-review`; hooks can observe or veto, never initiate).
@@ -484,8 +470,6 @@ function writePreCompactCheckpoint(input: {
 }
 
 /**
- * Slice 2026-07-28 (rid-027), re-keyed by slice
- * 2026-09-09-mode-consolidation: resolve the auto-compact mode from
  * the PRESENCE MODE, not the 24h state machine. Returns `'partial'`
  * when the mode is `24h`, otherwise `'standard'`. The CLI flag
  * `--mode` takes precedence (caller passes `input.mode` directly), so
@@ -500,7 +484,6 @@ function resolveAutoCompactMode(projectRoot: string): AutoCompactMode {
  *
  * Steps (orchestration):
  *   1. Resolve session id.
- *   2. Read current ratio via AC-1 (`readContextPercent`).
  *   3. Evaluate trigger via `evaluateCompactTrigger`.
  *   4. If trigger.kind === 'none' / 'soft-warn' → return skip.
  *   5. If trigger.kind === 'pre-compact' AND in-flight batch → wait.
@@ -525,12 +508,9 @@ export async function runAutoCompact(input: AutoCompactInput): Promise<AutoCompa
       nextActions: ['Run `peaks workspace init --change-id <id>` to bind a session']
     };
   }
-  // Slice 2026-07-28 (rid-027): resolve mode. CLI flag `--mode` wins;
-  // slice 2026-09-09-mode-consolidation keys the default off the
   // presence MODE ('24h' → 'partial'); 'standard' preserves the
   // v2.13.0 zero-pause contract.
   const mode: AutoCompactMode = input.mode ?? resolveAutoCompactMode(input.projectRoot);
-  // Lazy import to avoid the AC-1 module depending on the orchestrator.
   const { readContextPercent, syncHarnessWindowForProject } =
     await import('../context/auto-compact-reader.js');
   const outerSessionId = resolveOuterSessionId(
@@ -545,7 +525,6 @@ export async function runAutoCompact(input: AutoCompactInput): Promise<AutoCompa
     env: input.env
   });
 
-  // Slice 2026-09-13-auto-compact-trigger-ownership (T1 + T2): write the very
   // denominator this probe divided by into the harness's own machine-local
   // settings, so "peaks-loop's 85%" and "the harness's trigger" are the same
   // point on one scale. Idempotent — an unchanged value performs no write, so
@@ -578,14 +557,12 @@ export async function runAutoCompact(input: AutoCompactInput): Promise<AutoCompa
     force: input.force,
     bypassRedLine: input.bypassRedLine,
     mode,
-    // Slice 2026-07-31-rid-mac-transcript-estimate-trigger: pipe the source
     // tag through so `evaluateAutoCompactDecision` can apply the
     // source-aware carve-out for Mac's `transcript-estimate` signal.
     source: probe.source
   });
 
   if (!decision.shouldCompact) {
-    // Slice 2026-08-01-compact-lifecycle (Task 5): this probe IS the
     // adapter's `postCompactDetectCommand`. A ratio that has fallen
     // back below the auto-fire threshold is the real, measured proof
     // that a previously-dispatched compact landed — so settle any run
@@ -613,7 +590,6 @@ export async function runAutoCompact(input: AutoCompactInput): Promise<AutoCompa
       settleRead !== null && !settleRead.lifecycleWritten
         ? null
         : (settleRead ??
-          // Repair R1 (`2026-09-13-compact-event-settle`): the HARNESS event may
           // already have closed this run WITHOUT an honest post-compact number —
           // in which case the call above finds nothing open, and without this the
           // calibration pair stays blank for exactly the compactions the event path
@@ -624,7 +600,6 @@ export async function runAutoCompact(input: AutoCompactInput): Promise<AutoCompa
             measuredRatio: probe.ratio,
             source: probe.source
           }));
-    // Slice 2026-09-13-auto-compact-trigger-ownership (T4): a settle means a
     // dispatched compact demonstrably landed. Append an `observed` row
     // carrying the measured ratio, so `peaks compact history` can show
     // "asked at R (intent) / landed by R' (observed)" once a real session has
@@ -689,7 +664,6 @@ export async function runAutoCompact(input: AutoCompactInput): Promise<AutoCompa
   const isRedLine = decision.reason === 'red-line';
   const now = input.now ?? new Date();
 
-  // rid `2026-09-14-compact-dispatch-backoff`: ONE dispatch per compact
   // attempt.
   //
   // The decision above fires whenever the ratio is at or over the auto-fire
@@ -721,7 +695,6 @@ export async function runAutoCompact(input: AutoCompactInput): Promise<AutoCompa
   // Repair R6: `readOpenDispatchRun` answers in THREE states, not two. `none`
   // admits the dispatch; `unresolvable` means the backoff's question could not
   // be asked — the session id names no session directory, so no lifecycle
-  // record can exist under it and the gate used to read that as "nothing is
   // outstanding". Measured on ONE directory before this: a legal sid found the
   // open `armed` run and suppressed the dispatch; `./<legal sid>`, which joins
   // to the identical path, returned `null` and dispatched. A gate that reads a
@@ -771,7 +744,6 @@ export async function runAutoCompact(input: AutoCompactInput): Promise<AutoCompa
     };
   }
 
-  // Slice 2026-08-01-compact-lifecycle (Task 5): the decision has now
   // committed to compacting, so the run is `queued`. One runId per
   // attempt; every later transition carries it forward.
   const lifecycle = new CompactLifecyclePublisher({
@@ -805,7 +777,6 @@ export async function runAutoCompact(input: AutoCompactInput): Promise<AutoCompa
           'RED-LINE: harness compact requested — sub-agent dispatch is NOT blocked; keep working',
           'Post-compact resume picks up the convergence plan from auto-decisions.md',
           'Next `peaks code context-now` probe will confirm the ratio dropped; if it keeps climbing and the harness has not compacted, report that to the user and hand control back',
-          // Slice 2026-09-13-auto-compact-trigger-ownership: this command
           // also rewrites the harness's own settings, so it says so too. The
           // user accepted that write on the condition 要告知 — a write only
           // one of the two syncing commands reports is not a notice.
@@ -855,7 +826,6 @@ export async function runAutoCompact(input: AutoCompactInput): Promise<AutoCompa
     };
   }
 
-  // Lazy import to keep AC-3 (IDE dispatch) pluggable; tests mock this module.
   const { dispatchIdeCompact } = await import('../context/auto-compact-dispatcher.js');
   const target: CompactTarget = input.target ?? 'main';
 
@@ -863,7 +833,6 @@ export async function runAutoCompact(input: AutoCompactInput): Promise<AutoCompa
   try {
     if (input.testHooks?.failCompacting) throw new Error('IDE dispatch exploded');
 
-    // Slice 2026-06-28: when targeting the main session, write an
     // intent record so the next main-session LLM turn fires `/compact`
     // in-band. Without this record the LLM has no signal that the
     // orchestrator asked for compact; the dispatcher alone would have
@@ -907,7 +876,6 @@ export async function runAutoCompact(input: AutoCompactInput): Promise<AutoCompa
     };
   }
 
-  // Slice 2026-09-12-compact-band-policy (defect B): the stage is
   // chosen from what the dispatch ACTUALLY did, never from the hope
   // that it compacted. `ide-native` on claude-code only installs a
   // PreToolUse hook that fires at ratio ≥ 0.95 — below that nothing is
@@ -924,7 +892,6 @@ export async function runAutoCompact(input: AutoCompactInput): Promise<AutoCompa
     lifecycle.fail(new Error(dispatch.message), 'compacting');
   }
 
-  // Slice 2026-07-30-compact-visibility: append a compact-history
   // event so the new 'peaks compact history' CLI and the
   // 'peaks statusline compact' indicator have a record. The
   // append is best-effort: a write failure must NOT block the
@@ -989,7 +956,6 @@ export async function runAutoCompact(input: AutoCompactInput): Promise<AutoCompa
 export type { CompactTrigger, ConvergencePlan, InFlightBatchProbe, AutoCompactResult };
 
 /**
- * Slice 2026-07-30-compact-visibility: JSONL history of every
  * auto-compact dispatch. Appended at the end of `executeAutoCompact`
  * so the new 'peaks compact history' CLI + the
  * 'peaks statusline compact' indicator have a record. One file
@@ -1008,7 +974,6 @@ export interface CompactHistoryEvent {
   readonly checkpointPath: string;
   readonly dispatchMessage: string;
   /**
-   * Slice 2026-09-13-auto-compact-trigger-ownership (T4): the calibration
    * instrument. `windowTokens` is the denominator peaks-loop divided by
    * (`probe.capacityTokens`), so `beforeRatio * windowTokens` is the exact
    * TOKEN POINT peaks-loop asked the harness to compact at. That number is

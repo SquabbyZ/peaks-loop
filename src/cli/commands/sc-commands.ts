@@ -39,7 +39,6 @@ function registerSCStatusCommands(sc: Command, io: ProgramIO): void {
 }
 
 function registerSCArtifactCommands(sc: Command, io: ProgramIO): void {
-  // Slice 2026-06-29-change-id-root-removal: `--change-id` is no
   // longer accepted on `peaks sc impact`. The CLI surfaces a
   // per-`(module, file)` impact report without a top-level
   // change-id binding.

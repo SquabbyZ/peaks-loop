@@ -1,7 +1,6 @@
 import type { EvolutionProposal, IndependentEvaluatorResult } from './evolution-types.js';
 
 /**
- * IndependentEvaluatorRunner — spec §6.2 / AC-12 / AC-13.
  *
  * The independent scorer is a SEPARATE sub-agent (process / model /
  * context). Its ONLY input is the evaluation package (target,
@@ -14,7 +13,6 @@ import type { EvolutionProposal, IndependentEvaluatorResult } from './evolution-
  * `invokeLlm` factory. Production wiring lives in M5; M4 ships
  * the contract + the deterministic LLM stub used by tests.
  *
- * Contract (AC-12 / AC-13):
  *   - Input: EvolutionProposal (the public package only).
  *   - Output: IndependentEvaluatorResult { score, riskTags, refuteParagraph }.
  *   - The runner MUST NOT receive the author's session id, the
@@ -86,7 +84,6 @@ export type LlmInvoke = (
  * The prompt handed to the LLM scorer. By construction this
  * contains NO author session id, NO author reasoning, and NO
  * `推荐` / `recommendation` framing. The scorer is told the
- * AUTHOR'S score and asked to refute it (AC-13).
  */
 export function buildEvaluatorPrompt(pkg: EvaluationPackage): string {
   // Stringify in a deterministic order for test stability.

@@ -1,6 +1,5 @@
 /**
  * Thin shim — `doctor-service.ts` (legacy 1309-line file)
- * was split in slice rid-004 into a code-driven fixed-registry
  * tree under `./doctor-service/`. This file remains so the legacy
  * import paths (`from '../services/doctor/doctor-service.js'` and
  * `peaks-loop-doctor/services/doctor/doctor-service` package
@@ -15,7 +14,6 @@ export * from './doctor-service/index.js';
 
 // Re-export the helper symbols the legacy monolithic doctor-service.ts
 // exposed at the package boundary. These were split into the check
-// modules during rid-004; we re-export here so legacy callers
 // (`import { compareDistVersion } from '../services/doctor/doctor-service.js'`)
 // keep working without modification.
 export { compareDistVersion } from './doctor-service/checks/dist-source-version.js';

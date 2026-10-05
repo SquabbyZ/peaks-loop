@@ -29,7 +29,6 @@ export const EVO_SKEPTIC_RISK_MAX = 2000;
 export const EVO_POINTER_MAX = 512;
 
 /**
- * The independent evaluator's verdict. AC-12 / AC-13: the evaluator
  * is a SEPARATE sub-agent that only sees the evaluation package.
  */
 export const IndependentEvaluatorResultSchema = z.object({
@@ -48,7 +47,6 @@ export const IndependentEvaluatorResultSchema = z.object({
 export type IndependentEvaluatorResult = z.infer<typeof IndependentEvaluatorResultSchema>;
 
 /**
- * The regression skeptic's verdict. AC-14: a separate sub-agent
  * that attempts to refute the proposal.
  */
 export const RegressionSkepticResultSchema = z.object({

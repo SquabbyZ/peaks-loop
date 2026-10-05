@@ -1,5 +1,4 @@
 /**
- * Runtime current-model detector (Slice 2026-07-09 add-zcode-adapter, Slice C).
  *
  * Walks the registered IDE adapter chain and asks the IDE adapter
  * (when it opts in via `IdeAdapter.detectCurrentModel?`) to report the

@@ -1,7 +1,6 @@
 /**
  * container-lease — pure-function lease store for `peaks container spawn`.
  *
- * Slice 2026-07-29-worktree-l2-extended Part 12 (L4 container
  * runtime). Mirrors the design of `worktree-lease.ts` (Part 1):
  * - Pure function module: every helper takes the lease
  *   directory path as an argument and returns structured data.

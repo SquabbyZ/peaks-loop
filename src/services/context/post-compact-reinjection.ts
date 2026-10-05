@@ -1,7 +1,6 @@
 /**
  * Post-compact engineering-state re-injection
  * (rid `2026-09-13-a2-post-compact-reinject`, session
- * `2026-09-12-session-e37ef0`).
  *
  * THE PROBLEM THIS SOLVES
  *

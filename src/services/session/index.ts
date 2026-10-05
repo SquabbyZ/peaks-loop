@@ -19,7 +19,6 @@ export {
 
 export { getSessionDir } from './getSessionDir.js';
 
-// Slice 020 — caller-keyed session binding. The new canonical path.
 export { resolveCallerId } from './resolve-caller-id.js';
 
 export {

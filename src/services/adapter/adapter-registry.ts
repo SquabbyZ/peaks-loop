@@ -1,5 +1,4 @@
 /**
- * Adapter registry — slice S2-a of RD-2.
  *
  * Persists user-registered vendor adapters to
  * `.peaks/runtime/adapters.json` and resolves them by id. The

@@ -3,7 +3,6 @@
  * Contract surface for peaks-code Step 11 → peaks-doctor bridge.
  * Writes proposal stub to .peaks/_runtime/<sid>/doctor/proposal.md.
  * Real LLM call is delegated to peaks-doctor (Phase D Task 24 detail).
- * Spec: docs/superpowers/specs/2026-08-10-peaks-detached-sub-agent-design.md §3.6
  */
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';

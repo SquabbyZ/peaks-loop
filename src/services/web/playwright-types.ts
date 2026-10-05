@@ -1,6 +1,5 @@
 /**
  * The structural slice of the Playwright API this feature actually calls
- * (slice S1, file 9).
  *
  * Split out of `playwright-loader.ts` to keep the loader under the
  * 300-raw-line file cap — types only, no resolution or admission behaviour

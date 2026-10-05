@@ -1,7 +1,6 @@
 /**
  * JSONL file logger for peaks-loop.
  *
- * Slice 2026-06-16-cli-logging (G1, G2, G5, G6, G7).
  *
  * Default-on file logging: every peaks-loop invocation writes a
  * structured log entry to `<homedir>/.peaks/logs/peaks-loop-YYYY-MM-DD.log`
@@ -36,7 +35,6 @@ export type LogEntry = {
   msg: string;
   sessionId?: string;
   version?: string;
-  // Slice 2026-06-23-audit-4th #B2: batchId is a cross-run
   // correlation key. Sub-agents dispatching under the same batchId
   // write log lines with this field; `peaks log tail --batch <id>`
   // filters by it. Without this, a user post-hoc cannot group the

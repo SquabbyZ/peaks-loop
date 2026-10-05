@@ -93,40 +93,33 @@ export const RED_LINE_CATALOG_P2_A: readonly RedLineCatalogEntry[] = [
   PEAKS_DOCTOR_SKILL_ACKNOWLEDGED,
   CATALOG_TOTAL_LE_45,
   CATALOG_PROSE_ONLY_RATIO,
-  // Slice 2026-07-29-rid-prose-only-sweep-001: close the first
   // discovered prose-only line. peaks-prd-skill-md-56 was a
   // "MANDATORY first action" marker on a "Skill presence" heading
   // in skills/bee/* SKILL.md. The MANDATORY marker + the heading
   // are now enforced by lint-skill-presence-mandatory.ts.
   SKILL_PRESENCE_MANDATORY,
-  // Slice 2026-07-29-rid-prose-only-sweep-002: close two more
   // peaks-prd discovered lines (md-292, md-301) with one
   // enforcer. The enforcer pattern-scans the source-snapshot
   // placement guidance + prohibited-paths list.
   PRD_SOURCE_SNAPSHOT_PLACEMENT,
-  // Slice 2026-07-29-rid-prose-only-sweep-004: close three
   // peaks-prd discovered lines (md-99 / md-166 / md-193) with
   // one enforcer. The handoff contract requires preserved
   // behavior, step 5.5, and transition verification gates.
   PRD_ARTIFACT_HANDOFF,
-  // Slice 2026-07-29-rid-prose-only-sweep-005: close three
   // peaks-rd discovered lines (md-121 / md-127 / md-162) with
   // two enforcers (handoff + coverage discipline).
   RD_HANDOFF_CONTRACT,
   RD_COVERAGE_DISCIPLINE,
-  // Slice 2026-07-29-rid-prose-only-sweep-006: close four
   // peaks-qa discovered lines (md-26 gateguard + md-113
   // transition gates + md-165 playwright + md-201 openspec).
   QA_GATEGUARD_PREFLIGHT,
   QA_RUNTIME_CONTRACT,
-  // Slice 2026-07-29-rid-prose-only-sweep-007: close six more
   // discovered lines (3 peaks-ui + 2 peaks-txt + 1
   // peaks-perf-audit) with four enforcers.
   PEAKS_UI_SUPERPOWERS_CHAIN,
   PEAKS_UI_INVOLVEMENT,
   PEAKS_TXT_UPSTREAM,
   PEAKS_PERF_AUDIT_SCOPE,
-  // Slice 2026-07-29-rid-prose-only-sweep-008: close six more
   // discovered lines (2 peaks-rd + 1 peaks-sc + 1 peaks-txt +
   // 1 peaks-ui + 1 peaks-ui) with four enforcers in
   // lint-bee-runtime-contract.ts.
@@ -134,12 +127,10 @@ export const RED_LINE_CATALOG_P2_A: readonly RedLineCatalogEntry[] = [
   PEAKS_UI_TRANSITION_GATES,
   PEAKS_SC_TRANSITION_GATES,
   PEAKS_TXT_RUNTIME_CONTRACT,
-  // Slice 2026-07-29-rid-prose-only-sweep-009: close 13 of the
   // remaining 33 discovered lines (all peaks-code) with one
   // enforcer that checks the peaks-code runbook section-marker
   // skeleton. Single catalog entry; multi-marker enforcer.
   PEAKS_CODE_RUNTIME_CONTRACT,
-  // Slice 2026-07-29-rid-prose-only-sweep-010: 8 of the
   // remaining 22 discovered lines (peaks-audit x4,
   // peaks-content x2, peaks-ide x2) closed with 6 enforcers
   // in one file.

@@ -1,5 +1,4 @@
 /**
- * Codex vendor adapter — slice S2-a.
  *
  * Stub adapter (PRD out-of-scope: full implementation lands in a
  * future slice). The detect() heuristic is intentionally permissive:

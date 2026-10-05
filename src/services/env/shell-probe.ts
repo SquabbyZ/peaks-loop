@@ -1,5 +1,4 @@
 /**
- * Slice 2026-07-29-dispatch-stall-governance / S6 — typed shell probe.
  *
  * Codifies the prose-only red rule recorded in
  * .peaks/memory/2026-07-27-windows-shell-pref.md: on Windows, a

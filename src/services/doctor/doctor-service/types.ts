@@ -1,5 +1,4 @@
 /**
- * doctor-service types and shared interfaces (slice rid-004).
  *
  * This module is the public type surface for the code-driven fixed
  * registry of doctor checks. Each check is a `DoctorCheckPlugin`
@@ -63,7 +62,6 @@ export type {
  *
  * Optional in the type for back-compat with older check plugins that
  * pre-date the severity-aware summary (slice
- * 2026-08-05-statusline-sid-only-marker-and-multi-binary-drift-guard
  * repair cycle). When omitted, the dispatcher treats the check as
  * `'error'` — i.e. `ok: false` escalates the exit code the same way
  * it did before this slice.
@@ -92,7 +90,6 @@ export type DoctorReport = {
     failed: number;
     /**
      * Severity-aware summary (slice
-     * 2026-08-05-statusline-sid-only-marker-and-multi-binary-drift-guard
      * repair cycle): count of findings tagged
      * `severity: 'warning'`. Warnings surface in the JSON envelope
      * (`ok: false`) but do NOT flip `summary.ok` and therefore do
@@ -140,7 +137,6 @@ export type DoctorOptions = {
   /** Injected for the build:dist-version-matches-source check (defaults to compareDistVersion on disk). */
   distVersionProbe?: DistVersionProbe;
   /**
-   * Slice 2026-08-05-statusline-sid-only-marker-and-multi-binary-drift-guard
    * (G3/G4) — injected for the build:multi-binary-drift check (defaults
    * to inspectMultiBinaryDrift against `process.env.PATH`).
    */
@@ -152,7 +148,6 @@ export type DoctorOptions = {
   /** Injected for the integration:ecc-hooks-schema-drift check (defaults to defaultEccHooksDriftProbe on disk). */
   eccHooksDriftProbe?: EccHooksDriftProbe;
   /**
-   * Slice 2026-06-13-repair-pre-existing-test-failures: injected
    * root for the L3:l3-memory-health check (defaults to
    * `findProjectRoot(process.cwd())`). Tests use this to point the
    * check at a temp dir without monkey-patching `findProjectRoot`.

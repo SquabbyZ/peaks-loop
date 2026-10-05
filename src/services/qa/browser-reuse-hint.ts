@@ -1,5 +1,4 @@
 /**
- * Slice 2026-06-16-playwright-restart-loop — G2.
  *
  * The browser-context reuse hint is appended to the sub-agent prompt
  * whenever a peaks-qa-dispatched sub-agent (peaks-ui or general-purpose

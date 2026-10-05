@@ -15,7 +15,6 @@ export type ProjectContextSection = {
 };
 
 /**
- * Slice 2026-07-15-project-scan-bootstrap (G1 + G2):
  * generateProjectContext now also bootstraps the project-level
  * `.peaks/project-scan/` artifact set. The envelope is returned
  * alongside the context so `peaks project context` can surface
@@ -188,7 +187,6 @@ export async function generateProjectContext(projectRoot: string): Promise<Proje
 
   writeFileSync(contextPath, content, 'utf8');
 
-  // Slice 2026-07-15-project-scan-bootstrap (G1 + G2):
   // After writing PROJECT.md, also bootstrap `.peaks/project-scan/`
   // (project-scan.md + 4 bundled audit/business templates). Idempotent
   // — re-running this call does not overwrite existing files (unless

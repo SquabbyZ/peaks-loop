@@ -6,7 +6,6 @@
  *
  * Default mode is in-process (backward compat — existing 106+ tests untouched).
  * This handler only fires when the user explicitly passes --mode detached.
- * Spec: docs/superpowers/specs/2026-08-10-peaks-detached-sub-agent-design.md §3.1 §5.3
  */
 import { dispatchDetached, ResourceBudgetGuard } from 'peaks-loop-internal-runtime';
 
@@ -80,7 +79,6 @@ export async function dispatch(f: DispatchFlags) {
   });
   // The launch outcome is the envelope's `ok`, not a footnote. A vendor CLI
   // that is not installed is an expected environment, and the dispatch record
-  // already says `status: 'failed'`; the envelope used to say `ok: true` with
   // `pid: -1` and a "⏳ Spawning …" hint, so the two surfaces disagreed and the
   // orchestrator read a launch that never happened as a running one.
   //

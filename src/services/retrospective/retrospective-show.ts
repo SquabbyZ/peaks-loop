@@ -3,7 +3,6 @@
  * body on-demand from `artifactPaths` (concatenate with `---` separator),
  * apply `formatMdCompact` by default, return the JSON envelope.
  *
- * Slice 023 (R3). The on-disk MD form is gone after the G9 migration; the
  * body is re-hydrated from the source PRD / RD / QA / TXT artifacts. If
  * a referenced artifact is missing on disk, `show` returns a
  * `ARTIFACT_MISSING` envelope (PRD R3) and does not crash.

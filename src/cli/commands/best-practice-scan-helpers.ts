@@ -1,5 +1,4 @@
 /**
- * Slice 2026-08-12 best-practice-scan — support constants + pure helpers
  * extracted from `best-practice-scan-command.ts` (file-size cap campaign).
  * Mechanical move only: help-text constants, the artifact directory path
  * helper, and the synthetic-lookup refusal renderer.

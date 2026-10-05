@@ -1,7 +1,5 @@
 /**
  * Harness auto-compact window ownership
- * (slice 2026-09-13-auto-compact-trigger-ownership, rid
- * 2026-09-13-auto-compact-trigger-ownership).
  *
  * The goal (user's words): *when* to trigger auto-compact must be
  * peaks-loop's decision; *how* to compact stays the harness's capability.
@@ -76,7 +74,6 @@ export const HARNESS_WINDOW_WRITTEN_KEY = 'PEAKS_HARNESS_WINDOW_WRITTEN';
 
 /**
  * The harness's OWN accepted band for its auto-compact window (E1, rid
- * 2026-09-13-defects-e).
  *
  * THE BAND IS A PROPERTY OF THE KEY, NOT OF peaks-loop. `autoCompactWindow` —
  * and the `CLAUDE_CODE_AUTO_COMPACT_WINDOW` env var that shadows it — is
@@ -768,7 +765,6 @@ export function resetHarnessWindow(input: {
  *     value it did not write.
  * The next probe reports `skipped / opted-out` and writes nothing.
  *
- * THE H1 HOME GUARD APPLIES HERE TOO (E4, rid 2026-09-13-defects-e).
  *
  * This function used to exempt itself, on the argument that `--disable` is an
  * explicit instruction and "the location's own file is the only place the

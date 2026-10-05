@@ -73,7 +73,6 @@ function elide(paths: readonly string[]): string {
 
 /**
  * 2026-09-17 — `projectRoot` is the doctor's resolved L3 root, NOT
- * `process.cwd()`. It used to read `process.cwd()`, which is a different
  * thing from the root the rest of the doctor was pointed at: a caller that
  * injects `projectRootResolver` (e.g.
  * `tests/unit/doctor/doctor-exit-code-warn-only.test.ts`) got every other

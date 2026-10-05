@@ -1,5 +1,4 @@
 /**
- * Slice 2026-09-09-mode-consolidation (Slice D): one read for the whole
  * stacked mode picture.
  *
  * The autonomy model has two layers that used to be read by nothing in
@@ -131,7 +130,6 @@ function is24hRunEngaged(projectRoot: string): boolean {
  * documented contract.
  *
  * The union is a superset of both the pre-2026-09-09 mapping (state
- * machine) and the 2026-09-09-mode-consolidation mapping (presence
  * mode): keep partial while the mode says `24h` even in
  * `WAITING_USER`, and keep it when only the state machine knows.
  * Nothing that resolved to `partial` before resolves to `standard`

@@ -1,6 +1,5 @@
 // src/services/compact-history/compact-history-service.ts
 //
-// Slice 2026-07-30-compact-visibility (slice 1/4). Pure-function
 // reader for the .peaks/_runtime/<sessionId>/compact-history.jsonl
 // file that auto-compact-orchestrator now appends to on every
 // dispatch. The CLI surface `peaks compact history` and the
@@ -27,7 +26,6 @@ export interface CompactHistoryEvent {
   readonly checkpointPath: string;
   readonly dispatchMessage: string;
   /**
-   * Slice 2026-09-13-auto-compact-trigger-ownership (T4): the window this
    * dispatch divided by. `beforeRatio * windowTokens` is the token point
    * peaks-loop asked the harness to compact at.
    */
@@ -43,7 +41,6 @@ export interface CompactHistoryEvent {
   /** `observed` rows only: the measured post-compact ratio. */
   readonly afterRatio?: number;
   /**
-   * rid `2026-09-13-compact-event-settle`: what the HARNESS said caused the
    * compaction — `manual` (a user ran `/compact`) or `auto` (the harness's own
    * window fired). Written only by the `PostCompact` hook path, which is the
    * only path a harness reports it on.

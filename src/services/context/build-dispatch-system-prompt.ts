@@ -1,7 +1,6 @@
 /**
  * buildDispatchSystemPrompt — pure-function prompt composer for sub-agent dispatch.
  *
- * Slice 2026-07-22-orchestrator-memory-preflight (Task 5). The orchestrator
  * dispatch flow (`src/cli/commands/dispatch-commands.ts`) calls
  * `MemoryPreflightService.fetchBlock` and feeds the result into this builder
  * so the memory block, when available, is prepended BEFORE the task brief.
@@ -21,7 +20,6 @@ export interface DispatchPromptInput {
   taskBody: string;
   memoryBlock: MemoryPreflightResult;
   /**
-   * Slice 2026-07-29-context-evaluation-accuracy: the live
    * context-fill probe. When provided, the composer prepends
    * a `## Context window` block with the authoritative ratio so
    * the dispatched sub-agent does NOT estimate context from
@@ -31,7 +29,6 @@ export interface DispatchPromptInput {
    */
   contextProbe?: ContextPercentProbe | null;
   /**
-   * Slice 2026-09-03-codegraph-preread (Option A): pre-composed
    * `## Codegraph structure` markdown block, read from the codegraph
    * index BEFORE the RD sub-agent's task body is composed so the RD
    * plans against real module/file topology, not LLM memory.
@@ -45,7 +42,6 @@ export interface DispatchPromptInput {
    */
   codegraphBlock?: string | null;
   /**
-   * Slice 2026-09-06-ui-lib-dispatch-priority: pre-composed
    * `## Project stack` markdown block, rendered from the detected
    * project context (component library + CSS framework + build tool) by
    * the dispatch site BEFORE the sub-agent's task body is composed so
@@ -59,7 +55,6 @@ export interface DispatchPromptInput {
    */
   projectStackBlock?: string | null;
   /**
-   * Slice 2026-09-07-search-first-preflight: the orchestrator-synthesized
    * `## Fresh context` block (≤5 binding directives from a Context7 →
    * WebSearch preflight), read from `.peaks/_runtime/<sessionId>/fresh-context.md`.
    *
@@ -71,7 +66,6 @@ export interface DispatchPromptInput {
    */
   freshContextBlock?: string | null;
   /**
-   * Slice 2026-09-10-dispatch-token-and-swarm §4: session capsule
    * published by the orchestrator through `peaks sub-agent share`.
    *
    * - `undefined` / `null` → no capsule pointer, no precedence line
@@ -85,7 +79,6 @@ export interface DispatchPromptInput {
 }
 
 /**
- * Slice 2026-07-29-worktree-l1: Layer 1 of the 3-layer worktree governance
  * defence. The block below is prepended to every sub-agent dispatch system
  * prompt so the LLM sees the superpowers-chain refusal BEFORE any task
  * content. The block mirrors the prose in
@@ -99,10 +92,8 @@ export interface DispatchPromptInput {
  *   orchestrator synthesizes a prompt without reading the per-role
  *   template (the orchestrator may run peaks-rd on a different rid and
  *   reuse the task body verbatim).
- * - Pure-function design (slice 2026-07-22) makes the appended block
  *   trivially testable.
  *
- * Fallback note: until rid-L2-extended ships `peaks worktree spawn`, the
  * fallback path is `peaks worktree auth grant --rid <id> --reason <text>
  * --ttl <5m>` (already shipped). Update the prose once `spawn` lands.
  */
@@ -130,7 +121,6 @@ If the upstream superpowers chain suggests raw \`git worktree add\`:
 `;
 
 /**
- * Slice 2026-08-01-subagent-merge-and-e2e (Task 8): the dispatch
  * system prompt gains three lifecycle rules. The sub-agent must:
  *
  *   1. Register any long-lived local process it starts (vite dev,
@@ -162,7 +152,6 @@ export const LIFECYCLE_RULES = `## Sub-agent lifecycle rules (locked 2026-08-01)
 `;
 
 /**
- * Slice 2026-09-10-context-audit-and-discipline (Slice C): cap the sub-agent's
  * FINAL report.
  *
  * Why (measured, session 2026-09-07-session-245530): 20 sub-agent final
@@ -182,7 +171,6 @@ Your FINAL report to the parent MUST be ≤ 40 lines and ≤ 2 KB. Write any lon
 `;
 
 /**
- * Slice 2026-09-10-fact-force-gate-adaptation: stand IN FRONT of an external
  * `PreToolUse` gate instead of explaining its denial after the fact.
  *
  * ECC (a third-party plugin under `~/.claude/plugins/`) registers
@@ -227,20 +215,16 @@ export function renderFactForceGateBlock(): string {
 /**
  * Compose the system-prompt body for a sub-agent dispatch.
  *
- * 2026-09-10-dispatch-block-d (Option D): the composer owns the Test Tool
  * Detection injection — ONE unified block for every role, prepended first.
  * Callers MUST NOT prepend `formatTestToolDetection()` themselves or the
  * block is injected twice.
  *
- * Byte-identical degradation contract (slice 2026-07-22-orchestrator-memory-preflight
  * controller brief): when the memory block is unavailable, the composed body is
  * exactly `formatTestToolDetection() + "\n\n" + L1 + "\n" + LIFECYCLE +
  * "\n" + REPORT_CAP + "\n" + FACT_FORCE_GATE + "\n" + contextBlock + taskBody`, so the unavailable
  * branch MUST return `taskBody` unwrapped (NOT a `# title\n\n` wrap).
  * (REPORT_CAP joined the stable prefix in slice
- * 2026-09-10-context-audit-and-discipline, Slice C.)
  * The contract holds for callers that do not pass `codegraphBlock` (all
- * non-RD roles). Slice 2026-09-03-codegraph-preread deliberately inserts a
  * codegraph structure block (or its fail-soft unavailable note) for RD
  * dispatches between the context window and the memory/task content.
  *
@@ -248,7 +232,6 @@ export function renderFactForceGateBlock(): string {
  * `## Project memory …` always sits above the task brief (never pushed below
  * it).
  *
- * Slice 2026-07-29-worktree-l1: every branch prepends the L1 worktree
  * governance block BEFORE the memory block / task body. The block is the
  * first thing the dispatched sub-agent sees, so the superpowers-chain
  * refusal is in scope before any task-specific prose arrives.
@@ -263,11 +246,9 @@ export function buildDispatchSystemPrompt(input: DispatchPromptInput): string {
     freshContextBlock,
     capsule
   } = input;
-  // 2026-09-10-dispatch-block-d (Option D): ONE Test Tool Detection block
   // for every role — the composer owns the injection so callers MUST NOT
   // prepend `formatTestToolDetection()` themselves (double injection).
   const testToolText = `${formatTestToolDetection()}\n\n`;
-  // 2026-09-10-fact-force-gate-adaptation: always-on, both branches.
   const factForceGateText = renderFactForceGateBlock();
   const contextBlock = renderContextBlock(contextProbe ?? null);
   const codegraphText = renderCodegraphBlock(codegraphBlock);
@@ -281,7 +262,6 @@ export function buildDispatchSystemPrompt(input: DispatchPromptInput): string {
 }
 
 /**
- * Slice 2026-09-10-dispatch-token-and-swarm §4 — session capsule pointer.
  *
  * QUALITY GUARD: the capsule is BACKGROUND only. The precedence line below
  * is part of the contract, not decoration — anything the sub-agent must
@@ -297,7 +277,6 @@ function renderCapsulePointer(
 }
 
 /**
- * Slice 2026-09-03-codegraph-preread: fixed degradation string emitted
  * when the RD dispatch preflight requested a codegraph structure read but
  * the index could not be resolved (absent + init failure, foreign schema,
  * unparseable output). Kept as a constant so the unavailable branch is
@@ -359,7 +338,6 @@ function renderFreshContextBlock(freshContextBlock: string | null | undefined): 
 }
 
 /**
- * Slice 2026-07-29-context-evaluation-accuracy: emit a
  * `## Context window` block with the authoritative ratio so the
  * dispatched sub-agent does not estimate from message length.
  *
@@ -406,7 +384,6 @@ No context-fill probe was captured before this dispatch. To evaluate context pre
 }
 
 /* ──────────────────────────────────────────────────────────────────────────
- * Slice 2026-09-10-dispatch-token-and-swarm §1 — rule-presence guard.
  *
  * The compression + role-scoping in this file is allowed to shorten prose.
  * It is NOT allowed to drop a binding rule. These token sets are the
@@ -437,14 +414,12 @@ export const BINDING_RULE_TOKENS: readonly string[] = [
   'do NOT estimate yourself',
   '`peaks code context-now`',
   '`verdict: red-line`',
-  // final report cap (Slice 2026-09-10-context-audit-and-discipline, Slice C)
   '## Final report cap (mandatory)',
   '≤ 40 lines and ≤ 2 KB',
   'the parent can `Read` that file for the full detail',
   'changed files (one line each)',
   'pass/fail counts',
   'tsc status',
-  // fact-forcing gate (slice 2026-09-10-fact-force-gate-adaptation)
   '## Read before you edit (Fact-Forcing Gate)',
   'Read a file BEFORE your first `Edit` / `Write` / `MultiEdit` on it',
   'every path OUTSIDE `.peaks/**`',
@@ -470,7 +445,6 @@ export const BINDING_RULE_TOKENS: readonly string[] = [
  * runner without asking the user as a last resort, and prefer
  * `peaks test <file>` because it resolves the local binary Windows-aware.
  *
- * 2026-09-10-dispatch-block-d (Option D): there is no role split any more,
  * so this set is asserted IDENTICALLY for every role. The runner EXAMPLES
  * were removed as part of the unification — they were never rules.
  */

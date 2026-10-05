@@ -1,7 +1,6 @@
 import { spawn as childProcessSpawn } from 'node:child_process';
 
 /**
- * Part 2.C (slice 2026-07-29-worktree-l2-extended) — spawn a worktree
  * lease by shelling out to `peaks worktree spawn` (avoid re-implementing
  * the lease-write + git-worktree-add sequence in this file). The CLI
  * does the lease write, the git worktree add, AND the error handling;
@@ -110,7 +109,6 @@ export function spawnWorktreeLease(args: {
 }
 
 /**
- * Slice 2026-07-29-worktree-l2-extended Part 12: container
  * isolation bridge. Shells out to `peaks container spawn` to
  * run `docker run` + write the container lease. Returns the
  * leaseId the dispatch record needs to persist. The shape is

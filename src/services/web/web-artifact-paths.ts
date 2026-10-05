@@ -1,5 +1,4 @@
 /**
- * Canonical path resolvers for the `peaks web` artifact tree (slice S1, AC1).
  *
  * What is actually guaranteed here, and what is not:
  *

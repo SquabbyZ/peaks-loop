@@ -1,7 +1,6 @@
 /**
  * `peaks skill adapter <verb>` — adapter selection + detection CLI.
  *
- * Slice 2026-07-04-cli-15a (Task 15a of the 18-verb plan). Two verbs:
  *
  *   list        — return the known adapter id list
  *   set-active  — record which adapter is currently active

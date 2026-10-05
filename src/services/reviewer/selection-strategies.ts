@@ -1,6 +1,5 @@
 /**
  * selection-strategies.ts — pick a provider per rid for the G4 third-party
- * reviewer. AC-4.6 requires:
  *   - `round-robin` cycles across providers across slices
  *   - `hash(rid)` is stable per rid (deterministic replay)
  *   - `random` is uniform over the provider set

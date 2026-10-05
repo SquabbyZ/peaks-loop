@@ -1,7 +1,6 @@
 /**
  * `peaks adapter *` — vendor adapter registry CLI surface.
  *
- * Slice S2-a of RD-2 (2026-07-08 session). Two subcommands:
  *
  *   list     — list registered user adapters (persisted at
  *              `.peaks/runtime/adapters.json`).

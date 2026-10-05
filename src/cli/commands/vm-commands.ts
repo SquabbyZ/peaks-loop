@@ -1,5 +1,4 @@
 /**
- * `peaks vm spawn | release` — slice 2026-07-29-worktree-l2-extended Part 35.
  *
  * L4 VM isolation runtime. Parallels the design of
  * `container-commands.ts` (Part 12, docker) and

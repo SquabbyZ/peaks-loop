@@ -1,7 +1,5 @@
 /**
- * v2.14.0 G1 AC-1.5 — Fixture sanitization service.
  *
- * Five sanitize rules (PRD AC-1.5 + the explicit
  * "username path segment" extension):
  *
  *   1. cookie-redaction              — `Cookie: <name>=<value>` / `Set-Cookie: ...`
@@ -23,7 +21,6 @@
  *     the original (potentially sensitive) values.
  *
  * Why a separate service (not inline in capture CLI):
- *   - Unit-testable in isolation. The PRD AC-1.5 mandate is "tested",
  *     and 5 sanitize rules need 5+ test cases per rule. Keeping the
  *     logic in a service makes the tests trivial.
  *   - Re-usable by future capture tools (`peaks fixture redact`,

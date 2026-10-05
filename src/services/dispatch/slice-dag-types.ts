@@ -49,7 +49,6 @@ export interface SliceNode {
    */
   readonly complexity?: SliceComplexity;
   /**
-   * Slice 2026-09-10-dispatch-token-and-swarm §3: files this slice is
    * expected to touch. When EVERY node of a topological level declares
    * `files`, `--from-dag` emits a file-overlap wave plan (`firstLevelWaves`)
    * so the LLM can fan the level out without serializing on a shared file.
@@ -91,7 +90,6 @@ export class SliceDagCycleError extends Error {
 }
 
 /* ──────────────────────────────────────────────────────────────────────────
- * Slice 2026-07-28 — DAG wave + barrier types (rid-029 E direction).
  *
  * The E direction adds per-wave concurrency cap (default 6 leaves per
  * wave) and artifact-pass (WaveArtifact envelope flowing into next wave's

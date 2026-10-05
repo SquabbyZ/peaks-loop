@@ -1,7 +1,6 @@
 /**
  * Handoff frontmatter schema — types.
  *
- * Spec: docs/superpowers/plans/2026-06-25-slice-topology-multipass.md
  *       Phase 1, Task 4 (Handoff frontmatter types + parser + writer).
  *
  * A handoff artifact is a markdown file with a YAML frontmatter block

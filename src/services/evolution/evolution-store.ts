@@ -73,7 +73,6 @@ export function computeScoreDelta(before: number, after: number): number {
 
 /**
  * Build a persisted EvolutionProposal from the input. The service
- * layer is responsible for enforcing AC-8 (single object / single
  * dimension) BEFORE calling this; the persisted shape always has
  * `target_count = 1` and `dimensions.length = 1`.
  */
@@ -251,7 +250,6 @@ export function listEvolutionEvaluationsByTarget(
  *
  * The service layer is responsible for enforcing that the
  * transition `revert` is always allowed and `keep` requires
- * `user_confirmation_pointer` set (AC-15).
  */
 export function updateEvolutionVerdict(
   db: Database.Database,

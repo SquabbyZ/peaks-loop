@@ -32,14 +32,12 @@ export function parseUpgradeRecordLegacyFields(obj: Record<string, unknown>) {
   const requestId = stringField(obj, 'requestId');
   const sessionId = stringField(obj, 'sessionId');
   const prompt = stringField(obj, 'prompt');
-  // Slice 2026-06-23-audit-4th #C2: preserve toolCallVersion on read.
   const toolCall = parseLegacyToolCallField(obj);
   const createdAt = stringField(obj, 'createdAt');
   return { role, requestId, sessionId, prompt, toolCall, createdAt };
 }
 
 /**
- * Slice 2026-06-23-audit-4th #C2 — pre-versioning records default to
  * '2.0.0' (the pre-#C2 implicit shape; matches the version stamped by
  * every current dispatcher). Throws exactly where the inline block threw.
  */
@@ -64,7 +62,6 @@ function parseLegacyToolCallField(obj: Record<string, unknown>): SubAgentToolCal
 function parseLegacyStateFields(obj: Record<string, unknown>) {
   const heartbeats = Array.isArray(obj.heartbeats) ? obj.heartbeats.filter(isValidHeartbeat) : [];
   const lastBeatAt = typeof obj.lastBeatAt === 'string' ? obj.lastBeatAt : null;
-  // Slice 2026-07-29-dispatch-stall-governance / S1 (UQ-1) — `no-execution`
   // keeps its natural "dispatched, never executed" reading; an unparseable
   // status field now resolves to a *distinct* `unreadable` label so the
   // caller can tell "corrupt record" apart from "record written, no first
@@ -131,17 +128,14 @@ export function parseUpgradeRecordMigrationFields(obj: Record<string, unknown>) 
 }
 
 /**
- * Slice 2026-07-29-dispatch-stall-governance / S5 (AC-5.1 / PB-2)
  * — legacy records (pre-slice) had no `stage` field. The reader
  * defaults to `null` so the watch surface can tell "no stage ever
  * emitted" apart from "stage: ''" (which is itself a *valid*
  * round-trip through the writer — an empty stage is rejected by
  * `setStage`, but a record that round-tripped through a non-strict
  * tool would land here).
- * Slice 2026-07-29-worktree-l2-extended Part 3.A: legacy records
  * have no `leaseId`; default to `null` so the auto-release hook
  * in `markCompleted` is a clean no-op for them.
- * Slice 2026-07-29-worktree-l2-extended Part 7: v3 → v3.1
  * migration. Legacy records have no `isolationStartedAt`; default
  * to `null`. v3.1 readers can treat the field as opt-in.
  */
@@ -158,7 +152,6 @@ function parseStallGovernanceFields(obj: Record<string, unknown>) {
 }
 
 /**
- * Slice 2026-08-01-subagent-merge-and-e2e (Task 7): v3.1 → v3.2
  * migration. Legacy v3.1 records have no `serviceKill` or
  * `mergeBackAttempts` fields. Default to [] and 0 so the
  * merge-back-runner (Task 9) can read either schema on disk.

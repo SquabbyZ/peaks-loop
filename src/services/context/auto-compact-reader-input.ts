@@ -19,7 +19,6 @@ export interface ReadContextPercentInput {
   readonly outerSessionId?: string | undefined;
   readonly env?: NodeJS.ProcessEnv | undefined;
   /**
-   * Slice 2026-07-31-rid-002: explicit byte count from `--prompt-size <bytes>`.
    * When set to a finite non-negative number, short-circuits the entire
    * env / statusline / transcript chain with `source: 'user-overridden'`.
    * Mac escape hatch — some IDEs (e.g. Claude Code on macOS) do NOT

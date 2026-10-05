@@ -2,7 +2,6 @@
 //
 // WHERE THE COMMENTS ACTUALLY ARE, read from the text the way a lexer reads it.
 //
-// WHY THIS FILE EXISTS (rid `2026-10-05-comment-scan-string-awareness`). The first
 // version of this reader was line-local: a line was a comment if it began with `//`, a
 // block opener, or `*`, and a code line's trailing comment was `raw.indexOf('//')`
 // guarded by a quote-count parity check. Applying the pruner to the real tree then wrote

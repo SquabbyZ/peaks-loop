@@ -92,7 +92,6 @@ export interface WorkflowGraph {
 
 /**
  * `id` regex: ASCII letters, digits, dot, underscore, hyphen; 1-200 chars.
- * Excludes path separators / NUL / whitespace / Unicode (per D1 of the
  * caller-id contract — node ids appear in file paths).
  */
 export const NODE_ID_REGEX = /^[a-zA-Z0-9._-]{1,200}$/;

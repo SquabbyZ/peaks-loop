@@ -79,7 +79,6 @@ export type SliceCheckResult = {
 
 export type SliceCheckOptions = {
   projectRoot: string;
-  /** REQUIRED. The `.peaks/_runtime/current-change` binding file is gone (slice 2026-06-29-change-id-root-removal); when omitted, slice check throws rather than guessing. */
   rid?: string;
   /**
    * When true, re-run the 3-way review fan-out (peaks-rd's code-review +

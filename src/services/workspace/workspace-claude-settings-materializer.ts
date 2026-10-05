@@ -84,7 +84,6 @@ function readEnvObject(serialized: string): Record<string, unknown> | undefined 
  * `installAutoCompactHook` (`src/services/hooks/auto-compact-hook-install.ts`),
  * reached from `peaks code auto-compact` on an adapter declaring
  * `compactPathway: 'ide-native'` — which `claude-code` does. Measured on a
- * throwaway project root (rid 2026-09-13-two-decisions item ②):
  *
  *   init (written, 3 PreToolUse entries: Write|Edit|MultiEdit, Bash, Bash)
  *   → installAutoCompactHook (installed, 4: … | Bash|Task)
@@ -217,7 +216,6 @@ const PEAKS_GITIGNORE_SNIPPET = [
  * documented in
  * `skills/peaks-code/references/anchoring-and-session-info.md`.
  *
- * Slice 2026-06-13-selfheal-claude-settings-template: the offline copy
  * is now ALSO drift-checked (via `templateContentMatches`) so stale
  * on-disk copies from earlier peaks-loop releases (which lacked the
  * `node -e "..."` wrapper) get refreshed automatically on the next
@@ -319,7 +317,6 @@ export async function materializeClaudeSettingsLocal(
  * (the file is regenerated); or copy the template straight from
  * peaks-loop source (`src/services/workspace/claude-settings-template.ts`).
  *
- * Slice 2026-06-13-selfheal-claude-settings-template: drift-check via
  * `templateContentMatches` BEFORE writing. If the on-disk copy's
  * parsed hooks tree matches the current `buildClaudeSettingsLocalJson()`
  * output, the write is skipped (`already-current`). If the file is
@@ -333,7 +330,6 @@ export async function materializeClaudeSettingsLocal(
  * envelope. Read failures are treated as drift so a malformed
  * on-disk file always self-heals on the next init.
  *
- * WHAT IS COMPARED (rid 2026-09-13-two-decisions item ②): the copy is checked
  * against the TEMPLATE'S OWN entries — `buildClaudeSettingsLocalJson()` — not
  * against `serialized`, the merged LOCAL file content it is written from. This
  * file is a copy of the template (its name and this doc both say so), so

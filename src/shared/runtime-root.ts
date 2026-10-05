@@ -1,7 +1,6 @@
 /**
  * The one seam through which a `.peaks/_runtime` path is built.
  *
- * Slice 2026-09-15 (runtime-path-unrepresentable). Three attempts to *detect*
  * a caller-supplied id reaching a runtime join all failed the same way: the
  * shipped text rule caught 4 of 12 fixture shapes where the name-based
  * predicate it replaced caught 8, and the version that reached 10 of 12 gave

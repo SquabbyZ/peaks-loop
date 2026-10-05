@@ -1,5 +1,4 @@
 /**
- * Slice 2026-06-16-peaks-code-auto-scaffold (RD#7) — missing-standards-detector.
  *
  * Read-side companion to the `peaks standards init` / `peaks standards update`
  * writers in `./project-standards-service.ts`. The writer KNOWS how to scaffold
@@ -67,7 +66,6 @@ function renderForPlatform(projectRoot: string): string {
   // the same separator via the literal '\\' join below.
   //
   // 2.0 canonical location: `<projectRoot>/.peaks/standards/`
-  // (slice 2026-07-15-missing-standards-on-fresh-project — the 2.0
   // writer scaffolds the rules tree under `.peaks/standards/`, not
   // the legacy `.claude/rules/`).
   if (process.platform === 'win32') {
@@ -136,7 +134,6 @@ export function diagnoseStandardsTree(
  * Detect whether a consumer project's `.peaks/standards/` tree (2.0
  * canonical) is missing or empty.
  *
- * Rules (per PRD R2, slice 2026-07-15):
  *   - `.peaks/standards/common/` MUST exist AND contain at least one
  *     `.md` file.
  *   - `.peaks/standards/<language>/` MUST exist AND contain at least one

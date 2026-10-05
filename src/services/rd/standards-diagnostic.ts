@@ -1,5 +1,4 @@
 /**
- * Slice 2026-06-16-peaks-rd-no-gates — missing-project-standards diagnostic
  * + JSON gate list shape for the RD bootstrap path.
  *
  * Background: when `peaks-rd` (or `peaks-qa` / `peaks-code`) starts in a

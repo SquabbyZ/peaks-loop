@@ -1,6 +1,5 @@
 /**
  * The persistent login profile — its name guard, and the headed login that
- * produces it (slice S4, file 20; design §2/§5/§10.2, orchestrator decision C1).
  *
  * Two halves, one responsibility ("a profile the user explicitly asked to keep"):
  *

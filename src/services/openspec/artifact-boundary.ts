@@ -1,7 +1,6 @@
 /**
  * Artifact boundary helpers for peaks-loop.
  *
- * Slice rid-009:
  *   - sub-slice 1: change-id validation (`validateChangeId`).
  *   - sub-slice 2: artifact path planning (`planArtifactPath` + `isPathInsideArtifactRoot` re-export).
  *   - sub-slice 3: workspace-unavailable response (`buildWorkspaceUnavailable`).
@@ -58,7 +57,6 @@ const CHANGE_ID_FORMAT_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
  * distinguishes "empty" / "format" / "reserved" so callers can branch on
  * the cause without re-parsing the message.
  *
- * Acceptance contract (rid-009 §3.3.1, task 1):
  *   - accepts `[A-Za-z0-9][A-Za-z0-9._-]*` (existing regex semantics)
  *   - rejects empty string with `change-id-empty`
  *   - rejects `.` and `..` with `change-id-reserved`
@@ -100,7 +98,6 @@ export function validateChangeId(id: string): Result<{ changeId: string }, Chang
  *
  * Single source of truth: the primitive is owned by `src/shared/path-safety.ts`;
  * this module owns the *domain* helpers (change-id + path planner) that consume
- * the primitive. Tests in `tests/unit/services/openspec/artifact-boundary.test.ts`
  * exercise the RE-EXPORT wiring; the primitive's own correctness is covered by
  * its native test file.
  */
@@ -146,7 +143,6 @@ function interpolateTemplate(
 /**
  * Plan an artifact-relative path under the configured Peaks artifact workspace.
  *
- * Semantics (rid-009 §3.3.2, tasks 5–9):
  *   - Backslashes in the candidate path are normalized to forward slashes for
  *     JSON safety; empty segments (`foo//bar`) are collapsed by `posix.normalize`.
  *   - If the resolved absolute path is NOT contained under `workspaceRoot`

@@ -1,5 +1,4 @@
 /**
- * project-scan bootstrap service — slice 2026-07-15-project-scan-bootstrap
  * (PRD G1 + G2 + G4b / AC1-AC10 / R1-R4).
  *
  * Owns the "first time a project enters Peaks-Loop" bootstrap flow:
@@ -66,7 +65,6 @@ const SOURCE_FILE_EXTENSIONS = /\.(tsx?|jsx?|vue|svelte)$/;
 /**
  * Monorepo layout sentinels. A project is monorepo-shaped if it carries
  * one of these config files at its root, even when `src/` is absent.
- * Slice 2026-07-15 hot-fix (ice-cola real-world test, 2026-07-15):
  *   `pnpm-workspace.yaml` is the most common signal; `turbo.json`
  *   (Turborepo) and `nx.json` (Nx) are the others the ecosystem
  *   reaches for. lerna.json is legacy-only and intentionally omitted
@@ -148,7 +146,6 @@ function directoryContainsSourceFiles(rootDir: string): boolean {
  * 1. `src/` at the root (single-package layout).
  * 2. Any of the monorepo source roots: `packages/`, `apps/`, `libs/`,
  *    `services/`, `workspaces/` — each is checked recursively for at
- *    least one matching source file. Slice 2026-07-15 hot-fix (ice-cola
  *    test, 2026-07-15): the original implementation only looked at
  *    `src/` and mis-classified monorepos as 0-1 (pnpm-workspace layout
  *    puts source under `packages/<pkg>/src/`, not `<root>/src/`).
@@ -169,7 +166,6 @@ function projectHasSourceFiles(projectRoot: string): boolean {
 }
 
 /** Detect 0-1: no package.json OR no source files.
- *  Slice 2026-07-15 hot-fix (ice-cola test, 2026-07-15): monorepos with
  *  source under packages/<pkg>/ are no longer mis-classified as 0-1. */
 function isZeroToOneProject(projectRoot: string): boolean {
   const hasPackageJson = existsSync(join(projectRoot, 'package.json'));

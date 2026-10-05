@@ -34,7 +34,6 @@ function loadContractsForSlices(
   for (const sliceId of sliceIds) {
     // Slice-id axis: the id becomes the FILENAME below, so `--slices a,../..`
     // reads a JSON file outside the contracts dir. Guarded 2026-09-14 (repair
-    // R1, security audit F3 of `2026-09-14-cli-id-escape-instrumentation`) —
     // the session guard above covers the other axis and this one was open.
     // Skipped with a warning rather than thrown, matching this function's
     // existing contract for a contract it cannot read.

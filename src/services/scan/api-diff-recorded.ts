@@ -3,7 +3,6 @@
  * plus the candidate name-grep.
  *
  *   1. `.peaks/_runtime/<sid>/rd/mock-plan.md`  (most recent by mtime)
- *   2. recorded `*-api.types.ts` interfaces     (from (1) + `src/services/types`)
  *   3. the `## API Migration` endpoint list in `.peaks/_runtime/<sid>/txt/*.md`
  *
  * All three are OPTIONAL: absence is reported in the report's `notes`, never

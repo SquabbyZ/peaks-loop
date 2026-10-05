@@ -1,5 +1,4 @@
 /**
- * Polyrepo scanner — slice S2-b of RD-2.
  *
  * Walks a parent directory looking for child git repos. A "child
  * git repo" is defined as: a directory that contains a `.git`

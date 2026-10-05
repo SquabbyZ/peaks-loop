@@ -1,6 +1,5 @@
 // src/services/codegraph/codegraph-autorefresh.ts
 //
-// Slice 2026-09-03-codegraph-autorefresh — Option 1: CLI-internal
 // auto codegraph refresh at the slice-complete boundary.
 //
 // `peaks codegraph index` is incremental + idempotent, so re-running it
@@ -29,7 +28,6 @@
 //     human-readable note.
 //   - Any unexpected error → return `unavailable` with a note.
 //
-// A2 (`2026-09-17-codegraph-msg-and-refresh`). The old header said
 // "FAIL-SILENT", and it was: both call sites discarded this result's `note`,
 // so a refresh that DID NOT HAPPEN and one that did were indistinguishable
 // to the operator — the same silent-failure class this job exists to close.
@@ -145,7 +143,6 @@ async function selfHealUninitializedCodegraph(
   // A `.codegraph/` dir without a `codegraph.db` is uninitialized:
   //   - NOT peaks-loop-managed → foreign schema, never touch it.
   //   - peaks-loop-managed → the dangling state left by the pre-fix
-  //     rid-CG-001 auto-stake (marker stamped, no upstream init). Run
   //     init (fast, offline-safe — no full index) so the subsequent
   //     index has a schema to write into.
   if (!isCodegraphInitialized(projectRoot)) {

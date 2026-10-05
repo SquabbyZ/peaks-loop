@@ -46,7 +46,6 @@ import {
 const SESSION_FILE = join('_runtime', 'session.json');
 const LEGACY_SESSION_FILE = '.session.json';
 const META_FILE = 'session.json';
-// Slice 2026-08-06-session-outer-cache: per-project file cache for the
 // outer (Claude Code / Trae / IDE) session id. Written by the
 // SessionStart hook via `peaks outer-cache write` so that peaks CLI
 // sub-processes (which do NOT inherit CLAUDE_CODE_SESSION_ID) can still
@@ -174,7 +173,6 @@ function writeSessionMeta(
   writeFileSync(metaPath, JSON.stringify(meta, null, 2), 'utf8');
 }
 
-// Slice 2026-08-06-session-cacde8-A.3: module-scoped state populated on
 // every non-throw `getCurrentOuterSessionId` call. The 4th rotation
 // guard in `ensureSessionWithRotation` short-circuits when both
 // `currentOuterSessionId` and `boundOuter` equal the last-resolved
@@ -194,7 +192,6 @@ function getCurrentOuterSessionId(projectRoot?: string): string | undefined {
     if (typeof claude === 'string' && claude.length > 0) {
       resolved = claude;
     } else {
-      // Slice 2026-08-06-session-outer-cache (G1): when the peaks CLI runs
       // as a sub-process of Claude Code (or any IDE that does not export
       // CLAUDE_CODE_SESSION_ID into the child env), the env vars above are
       // undefined. Fall back to the per-project file cache written by the
@@ -265,7 +262,6 @@ export type EnsureSessionResult = {
 };
 
 /**
- * Slice 2026-08-06-session-cacde8-A.5a: resolve the current callerId
  * (if any) and look up the per-caller binding. Returns the bound
  * sessionId + creation timestamp, or `null` when caller-id
  * resolution fails (`PEAKS_CALLER_NOT_RESOLVED`) or no per-caller
@@ -274,7 +270,6 @@ export type EnsureSessionResult = {
  * written by a previous call from the same caller is preferred over
  * a stale `session.json` (the legacy single-file binding).
  *
- * Slice 2026-09-12 (rid=caller-binding-staleness): the binding is only
  * usable when its bound session directory still exists
  * (`resolveCallerBinding`). A binding pointing at a deleted session
  * directory is treated as absent, so `ensureSession` falls through and
@@ -305,7 +300,6 @@ function resolveCallerBindingForEnsure(
 }
 
 export async function ensureSession(projectRoot: string): Promise<string> {
-  // Slice 2026-08-06-session-cacde8-A.5a: 3-tier read order —
   // (1) per-caller binding (caller-keyed, primary), (2) legacy
   // `session.json`, (3) fresh-generate. The per-caller lookup is
   // preferred when `resolveCallerProjection` succeeds AND the
@@ -321,7 +315,6 @@ export async function ensureSession(projectRoot: string): Promise<string> {
     if (outerSessionId !== undefined) {
       setSessionMeta(projectRoot, callerBinding.sessionId, { outerSessionId });
     }
-    // Slice 2026-08-06-session-cacde8-A.5a: dual-write — also write
     // the legacy `session.json` (denormalized cache) when missing,
     // so legacy consumers (e.g. `getSessionId` callers without a
     // resolved callerId) still find the binding. The per-caller
@@ -339,7 +332,6 @@ export async function ensureSession(projectRoot: string): Promise<string> {
 
   const existing = readSessionFile(projectRoot);
   if (existing) {
-    // Slice 2026-08-06-session-outer-cache (G3 / AC8-AC11): on every
     // already-bound invocation, stamp the current outer-session-id
     // onto the bound session's meta so the on-disk
     // `.peaks/_runtime/<sid>/session.json` always reflects the latest
@@ -356,7 +348,6 @@ export async function ensureSession(projectRoot: string): Promise<string> {
     return existing.sessionId;
   }
 
-  // Slice 007 — sub-agent session sharing. When the strict-equality
   // read returns null (e.g. the binding was written with the relative
   // form "." from inside the project dir, but the caller passes the
   // absolute realpath), fall through to the canonical-fallback read.
@@ -383,7 +374,6 @@ export async function ensureSession(projectRoot: string): Promise<string> {
     projectRoot
   };
 
-  // Slice 2026-08-06-session-cacde8-A.5a: dual-write on fresh-generate.
   // The per-caller file is the 4.0.8 source of truth; the legacy
   // `session.json` is a denormalized cache for consumers that have
   // not migrated to `getCallerBinding`. Per-caller file is written
@@ -420,7 +410,6 @@ export async function ensureSession(projectRoot: string): Promise<string> {
   await initWorkspace({ projectRoot, sessionId });
 
   // Initialize session metadata inside the session directory.
-  // Slice 2026-08-06-session-outer-cache (G1): pass `projectRoot` so
   // the env → file-cache → undefined resolution chain also reads the
   // SessionStart-written cache on first bind.
   const outerSessionId = getCurrentOuterSessionId(projectRoot);
@@ -437,7 +426,6 @@ export async function ensureSession(projectRoot: string): Promise<string> {
 /**
  * Outer-session-aware wrapper around `ensureSession`.
  *
- * Slice 018 (auto-roll on outer-mismatch). When the current outer
  * session id (sourced from `PEAKS_OUTER_SESSION_ID` with
  * `CLAUDE_CODE_SESSION_ID` as the Claude-Code fallback) differs from
  * the outer session id recorded on the *bound* peaks session's
@@ -458,7 +446,6 @@ export async function ensureSession(projectRoot: string): Promise<string> {
  *   3. The bound session's recorded outer session id matches the
  *      current one (reconnect within the same Claude session) — this
  *      is the common case, not a swap.
- *   4. Slice 2026-08-06-session-cacde8-A.3: same-process re-resolve —
  *      `lastResolvedOuter.value` was already set to `currentOuterSessionId`
  *      in this process and `boundOuter` equals that same value. Long-
  *      running presence-lease writers that re-resolve within a single
@@ -483,7 +470,6 @@ export async function ensureSessionWithRotation(
   options?: EnsureSessionOptions
 ): Promise<EnsureSessionResult> {
   const skipRotate = options?.skipRotateOnOuterMismatch === true;
-  // Slice 2026-08-06-session-outer-cache (G1): pass `projectRoot` so
   // the rotation-decision comparison sees the SessionStart cache
   // when the env vars are unset (sub-process / nested invocation).
   const currentOuterSessionId = getCurrentOuterSessionId(projectRoot);
@@ -500,7 +486,6 @@ export async function ensureSessionWithRotation(
   if (boundSessionId !== null && currentOuterSessionId !== undefined) {
     const boundMeta = getSessionMeta(projectRoot, boundSessionId);
     const boundOuter = boundMeta?.outerSessionId;
-    // Slice 2026-08-06-session-cacde8-A.3: 4th guard — same-process
     // re-resolve. When `lastResolvedOuter` was already set to the
     // current outer AND the bound session's recorded outer equals
     // the same value, the rotation decision was already evaluated

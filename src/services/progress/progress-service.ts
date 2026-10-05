@@ -33,7 +33,6 @@ import { dirname, join, resolve } from 'node:path';
 import { getSessionIdCanonical } from '../session/session-manager.js';
 import { findProjectRoot } from '../config/config-safety.js';
 
-// As of slice 2026-06-06-sub-agent-spawn-bug-and-decouple, the per-session
 // sub-agent state files live under `.peaks/_sub_agents/<sid>/`, NOT under
 // `.peaks/_runtime/<sid>/system/`. The new path mirrors the existing `_runtime/`
 // and `_dogfood/` convention (leading underscore = meta-classification, not

@@ -40,7 +40,6 @@ import type { SubAgentAwaitBatchInput, SubAgentBatchResult } from './sub-agent-d
 export async function awaitClaudeCodeBatch(
   input: SubAgentAwaitBatchInput
 ): Promise<readonly SubAgentBatchResult[]> {
-  // Slice 2026-07-29-dispatch-stall-governance / S4 (G8) — this
   // function is now a thin wrapper around the unified `awaitBatch`
   // service. The back-compat envelope shape is preserved (one
   // `SubAgentBatchResult` per record path) so the S3 characterization
@@ -48,7 +47,6 @@ export async function awaitClaudeCodeBatch(
   // codex / cursor wrappers below. The new typed outcome
   // lives on the unified service; the S4 fail-fast test pins it.
   //
-  // Slice 2026-07-30-nightshift: claude-code does NOT use a
   // per-IDE note prefix. The 1.4 dogfood contract says the done
   // note is `null` (raw outcome) and the failed note is the raw
   // `outcome` string with no prefix. The 3 non-Claude IDEs
@@ -88,7 +86,6 @@ export async function pollDispatchRecords(
   input: SubAgentAwaitBatchInput,
   opts: PollDispatchRecordsOptions
 ): Promise<readonly SubAgentBatchResult[]> {
-  // Slice 2026-07-29-dispatch-stall-governance / S4 (G8) — this
   // function is now a thin wrapper around the unified `awaitBatch`
   // service. Pre-S4 it diverged from `awaitClaudeCodeBatch` in
   // (a) the default-fallback source and (b) the `Math.max(deadline, 0)`

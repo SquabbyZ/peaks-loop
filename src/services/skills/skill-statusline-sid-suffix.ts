@@ -2,7 +2,6 @@
  * Pure short-sid suffix helpers for the Peaks statusLine.
  *
  * Extracted from `skill-statusline-renderer.ts` (slice
- * 2026-08-05-statusline-sid-only-marker-and-multi-binary-drift-guard
  * repair cycle) to keep the renderer under the Karpathy 800-line cap.
  * The module is I/O-free and only depends on the read-only
  * `StatusLineModel` shape from `skill-statusline-service.ts` plus the
@@ -35,7 +34,6 @@ export interface SidSuffixPalette {
  * the input is empty. Pure; safe for ASCII rendering across
  * PowerShell, Git Bash, and zsh (AC7).
  *
- * Slice 2026-08-05-statusline-empty-render-and-short-sid-suffix.
  */
 export function formatShortSid(sessionId: string): string {
   if (sessionId.length === 0) return '';

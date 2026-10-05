@@ -1,10 +1,8 @@
 /**
- * `peaks sub-agent` CLI command group — slice 2026-06-07-sub-agent-context-governance.
  *
  * Thin entry point that wires the four sub-command registrars
  * (`dispatch`, `heartbeat`, `share`, `shared-read`, `await`) to the
  * parent `sub-agent` command. The actual implementations live in
- * sibling files (slice 2026-06-23-audit-p0-split refactor):
  *
  *   - `dispatch-commands.ts`  — `dispatch` single-dispatch action
  *   - `dispatch-from-dag.ts`  — `dispatch --from-dag` codepath (slice 9 perf)
@@ -12,7 +10,6 @@
  *   - `share-commands.ts`     — `share` + `shared-read` + `await` actions (G8.4 / 2.7.0)
  *   - `sub-agent-shared.ts`   — shared types, constants, helpers
  *
- * Skill-first / CLI-auxiliary red line (PB-4 / AC-19/20):
  *   These commands are primitives that the peaks-code / peaks-rd /
  *   peaks-qa SKILL.md compose. Users do NOT invoke them directly.
  */

@@ -19,7 +19,6 @@
  * are LLM-supplied; the user is NEVER asked to type them.
  *
  * Defense in depth: the EvolutionService enforces the ratchet
- * rules (AC-8 / AC-10 / AC-11); the CLI only translates flags
  * into the service payload.
  */
 

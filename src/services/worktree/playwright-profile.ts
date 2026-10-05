@@ -2,7 +2,6 @@
  * playwright-profile — deterministic Chromium user-data-dir +
  * profile-name pair generator for a (session, dispatch) tuple.
  *
- * Slice 2026-08-01-subagent-merge-and-e2e (Task 2). Each sub-agent
  * dispatch with `--isolation worktree` MUST land its Playwright MCP
  * browser session in a unique Chromium profile so concurrent
  * dispatches do not share cookies / localStorage / IndexedDB. The

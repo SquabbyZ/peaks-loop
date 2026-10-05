@@ -1,7 +1,6 @@
 /**
  * `peaks runtime *` — vendor-runtime detection + compact CLI surface.
  *
- * Slice S2-a of RD-2 (2026-07-08 session). Four subcommands:
  *
  *   detect    — print which vendor is the active AI runtime
  *               (claude-code / codex / copilot / unknown).

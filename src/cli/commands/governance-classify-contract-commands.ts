@@ -1,5 +1,4 @@
 /**
- * rid-007 Family 1 merge: contract-commands + classify-classify-commands.
  *
  * Pre-merge originals (now deleted):
  *   - src/cli/commands/contract-commands.ts     (167 lines)
@@ -10,10 +9,8 @@
  * only — no behavior change. `autoRegisterAllCommands` discovers both
  * exports from this single file.
  *
- * Why one file: the RD slice rid-007 user-confirmed one-family merge
  * minimum; Family 1 is the cleanest demonstration because both inputs
  * sit under 200 lines and the merged file lands at ~360 lines — well
- * below the 400-line AC-9 sanity guard and the 800-line scan gate.
  */
 
 // ===========================================================================
@@ -122,7 +119,6 @@ export function registerContractCommands(program: Command, io: ProgramIO): void 
   ).action((options: ContractWriteOptions) => {
     const asJson = options.json === true;
     const projectRoot = options.project ?? process.cwd();
-    // Slice 2026-06-26-unknown-sid-fallback-fix: see dispatch-commands.ts.
     const sid =
       options.sessionId ??
       process.env.PEAKS_SESSION_ID ??

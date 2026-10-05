@@ -15,7 +15,6 @@
  *
  * Path convention: the file lands at
  * `.peaks/_runtime/<sessionId>/prd/handoff-<rid>.md` (one capsule per slice;
- * `.peaks/_runtime/<sessionId>/prd/handoff.md` is the pre-rid-scoping tier and
  * stays readable). Gitignored session artifact; the binding to `<sessionId>` lives in
  * `.peaks/_runtime/current-change`). NEVER write under
  * `.peaks/_runtime/<change-id>/...` directly (slice 2.8.3 hard ban).
@@ -123,7 +122,6 @@ export interface HandoffFrontmatter extends HandoffAuthoredFields {
   readonly writtenAt: string;
   /** PRD goal IDs the handoff binds to (e.g. `['G1', 'G2']`). */
   readonly goals: readonly string[];
-  /** PRD acceptance-criteria IDs (e.g. `['AC-1', 'AC-2']`). */
   readonly acceptanceCriteria: readonly string[];
   /** PRD preserved-behavior IDs (e.g. `['P1', 'P12']`). */
   readonly preservedBehavior: readonly string[];

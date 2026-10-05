@@ -1,5 +1,4 @@
 /**
- * Strategic-compact decision tables (slice 2026-07-01-strategic-compact-cli).
  *
  * Pure data + lookup helpers. No I/O. The byte-for-byte text mirrors the
  * "Compaction Decision Guide" + "What Survives Compaction" tables in
@@ -9,7 +8,6 @@
  * The `peaks compact recommend` + `peaks compact survival` + `peaks
  * compact dry-run` primitives read from these tables; any change to the
  * upstream skill table must be mirrored here and re-asserted by the
- * `tests/unit/cli/compact-command.test.ts` regression suite.
  */
 
 export type Phase = 'research' | 'planning' | 'implementation' | 'testing' | 'debugging';

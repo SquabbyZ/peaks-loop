@@ -1,15 +1,11 @@
 /**
- * `peaks sub-agent dispatch <role> ...` — slice 2026-06-07-sub-agent-context-governance.
  *
- * Pulled out of `sub-agent-commands.ts` (slice 2026-06-23-audit-p0-split) to
  * honor the 800-line file cap (Karpathy #2 Simplicity First). The single
  * `dispatch` action lives here; the `--from-dag` sibling was further split
- * into `dispatch-from-dag.ts` (slice 2026-06-23-audit-3rd #7) because the
  * two paths share no logic and the `--from-dag` codepath loads three heavy
  * modules on first call (slice 9 perf) that the warm-path single-dispatch
  * never touches.
  *
- * Skill-first / CLI-auxiliary red line (PB-4 / AC-19/20): this command is
  * a primitive that the peaks-code / peaks-rd / peaks-qa SKILL.md compose.
  * Users do NOT invoke it directly; the --help text and dispatch
  * envelope's `nextActions` reinforce the point.
@@ -143,7 +139,6 @@ export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
         'workflow id the graph node belongs to (defaults to derived from session)'
       )
       .option('--graph-ref <ref>', 'graphRef (defaults to graphs/<workflow-id>.json)')
-      // rid-001 detached sub-agent dispatch: 4 new options. Default
       // mode is `in-process` so the 106+ existing dispatch call sites
       // keep their path byte-identical. The detached branch below
       // fires only when --mode detached is explicitly passed.
@@ -163,7 +158,6 @@ export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
         '--max-concurrent <n>',
         'rid-001 detached: override the per-tenant max concurrent budget (default 8). Effective in both detached and in-process paths.'
       )
-      // F5 follow-up (sediment 2026-08-11-rid-001-redo-fake-green-recovery-closure
       // §Lesson 1): the RD sub-agent's fake-green failure mode was that it
       // claimed "5/5 reachability tests PASS" while the files were never
       // on disk. `--must-ls-files <glob>` is the anti-fake-green gate:
@@ -178,7 +172,6 @@ export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
       )
   ).action(async (role: string, options: DispatchOptions) => {
     const asJson = options.json === true;
-    // rid-001 detached sub-agent dispatch: when --mode detached is
     // explicitly requested, lazy-import the detached handler and short-
     // circuit before the warm-path in-process pipeline runs. Branch
     // lives in the existing action handler (NOT a sibling `peaks
@@ -390,7 +383,6 @@ export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
 
     try {
       const projectRoot = options.project ?? process.cwd();
-      // Slice 2026-06-26-unknown-sid-fallback-fix: when --session-id is not
       // passed, auto-resolve the active peaks session id from
       // `.peaks/_runtime/session.json` (or PEAKS_SESSION_ID env var) so
       // dispatch records land in `.peaks/_sub_agents/<real-sid>/` instead
@@ -405,7 +397,6 @@ export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
       const rid = options.requestId ?? 'unknown-rid';
       const batchId = options.batchId ?? randomUUID();
 
-      // Slice 2026-07-29-worktree-l2-extended Part 2.C: --isolation worktree
       // auto-spawns a worktree lease and injects PEAKS_WORKTREE_LEASE_ID
       // into the sub-agent dispatch envelope. This is the bridge that
       // makes the lease-aware gate (Part 2.B) work for sub-agents:
@@ -442,7 +433,6 @@ export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
           return;
         }
         if (options.isolation === 'container') {
-          // Slice 2026-07-29-worktree-l2-extended Part 12: container
           // isolation is now live (Part 8 contract was the
           // bridge; Part 12 is the runtime). Shell out to
           // `peaks container spawn` to run `docker run` and
@@ -517,7 +507,6 @@ export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
             return;
           }
         } else if (options.isolation === 'vm') {
-          // Slice 2026-07-29-worktree-l2-extended Part 25: the
           // VM isolation mode is the L4 follow-up to L4 container.
           // The CLI contract is shipped (--isolation vm is accepted
           // by the dispatch parser and reflected in the envelope's
@@ -600,16 +589,13 @@ export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
         return;
       }
 
-      // Slice 2026-07-22-orchestrator-memory-preflight (Task 5): prepend the
       // memory preflight block (or silently skip when unavailable) via the
       // pure-function builder.
       const preflightService = new MemoryPreflightService(projectRoot, projectPrefs);
-      // Slice 2026-09-09-memory-retrieval: rank the injected memory by the
       // task at hand (role + first line of the brief), not the bare role.
       const memoryBlock = await preflightService.fetchBlock(
         deriveMemoryQuery(role, options.prompt)
       );
-      // Slice 2026-09-03-codegraph-preread (Option A): pre-dispatch
       // codegraph preflight for RD planning. BEFORE the RD sub-agent's
       // prompt is composed, ensure the codegraph index exists (init +
       // index best-effort when `.codegraph/` is absent; skip when already
@@ -629,7 +615,6 @@ export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
           codegraphBlock = null; // fail-soft: never block RD dispatch
         }
       }
-      // Slice 2026-09-06-ui-lib-dispatch-priority: surface the detected
       // component library (+ CSS framework + build tool) in the RD/UI
       // dispatch system prompt so the sub-agent prefers the library over
       // hand-rolled native DOM. Only injected for frontend-generating roles
@@ -651,7 +636,6 @@ export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
       if (role === 'rd' || role === 'prd') {
         freshContextBlock = readFreshContextBlock(projectRoot, sid);
       }
-      // Slice 2026-07-29-context-evaluation-accuracy: capture the
       // authoritative context-fill probe before composing the
       // dispatch prompt. The probe is token-counted (IDE adapter's
       // `compact` env-var), not a byte estimate. The composer
@@ -676,7 +660,6 @@ export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
         // "no probe available" hint instead of failing the
         // dispatch.
       }
-      // Slice 2026-09-10-dispatch-token-and-swarm §4: advisory background
       // capsule published by the orchestrator via `peaks sub-agent share`.
       // Absent capsule → no pointer and no precedence line (byte-identical
       // legacy prompt).
@@ -685,7 +668,6 @@ export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
         taskTitle: role,
         taskBody: options.prompt,
         memoryBlock,
-        // 2026-09-10-dispatch-block-d (Option D): the composer owns the ONE
         // unified Test Tool Detection injection for every role.
         contextProbe,
         // exactOptionalPropertyTypes: only set codegraphBlock when the rd
@@ -737,7 +719,6 @@ export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
       // file-existence verification as the LLM's FIRST action (before
       // any "completed"/"PASS" claim). When the flag is absent the
       // field is `null` and no block is injected — old call sites
-      // see no behavior change (rid-001 fake-green Lesson 1).
       let mustLsFilesVerification: {
         path: string;
         exists: boolean;
@@ -759,7 +740,6 @@ export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
           `if the file does not exist, your verdict MUST be \`status: "blocked"\` with reason "must_ls_files_failed". Do NOT silently skip this step.\n`;
       }
       const effectivePrompt = `${memoryAugmentedBody}${isolationBlock}${mustLsFilesBlock}`;
-      // Slice F2 (rid-f2-ac1-wiring): deprecated reviewer slots are accepted
       // + rerouted here, never refused — rationale on the helper itself.
       const warnings: string[] = [...decision.warnings, ...deprecatedReviewerWarnings(role)];
 
@@ -797,7 +777,6 @@ export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
               }
             });
           }
-          // Slice 2026-08-01-subagent-merge-and-e2e (Task 8): stamp the
           // two Playwright profile-isolation env vars so the sub-agent's
           // browser MCP session lands in a deterministic
           // `.peaks/_runtime/<sid>/pw-profiles/<dispatchId>/` directory
@@ -933,13 +912,11 @@ export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
         graphRef: graphBinding.graphRef,
         toolCall,
         batchId,
-        // Slice 2026-07-29-worktree-l2-extended Part 3.A: persist the
         // lease id on the dispatch record so the finalize-time
         // release hook (markCompleted / heartbeat --status done) can
         // auto-fire `peaks worktree release` when the sub-agent
         // completes. Null when --isolation was not requested.
         leaseId,
-        // Slice 2026-07-29-worktree-l2-extended Part 7: stamp the
         // ISO timestamp when the isolation mode was set up. Null
         // when --isolation was not requested. The dashboard reads
         // this directly off the dispatch record to compute
@@ -977,13 +954,11 @@ export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
         ok(
           'sub-agent.dispatch',
           {
-            // Slice 2026-06-23-audit-4th #E1: every CLI envelope carries
             // an envelopeVersion marker so consumers can detect contract
             // changes (the previous #4 dropped `data.prompt` silently).
             envelopeVersion: '2.3.0',
             role,
             ide: adapter.subAgentDispatcher.label,
-            // Slice 2026-06-23-audit-3rd #4: do NOT echo `prompt` in stdout.
             // Prompts can carry user content (sometimes test credentials /
             // internal URLs) that has no business landing in shell history,
             // log aggregators, or tmux scrollback. The dispatch record on
@@ -1025,7 +1000,6 @@ export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
         ),
         asJson
       );
-      // Slice 2026-06-23-audit-4th #B1: structured log on success path.
       // Best-effort: writeLogEntry swallows its own errors (logger.ts:155-159),
       // so a full disk or missing ~/.peaks/logs/ dir never blocks the dispatch.
       try {
@@ -1069,7 +1043,6 @@ export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
 
 /**
  * 2.7.0 slice-dag-dispatcher MVP — see `dispatch-from-dag.ts`.
- * The function was pulled out of this file in slice 2026-06-23-audit-3rd
  * #7 to honor the 800-line file cap and isolate the three heavy
  * module loads (slice-dag / dag-orchestrator / contract-store) to the
  * --from-dag codepath only.

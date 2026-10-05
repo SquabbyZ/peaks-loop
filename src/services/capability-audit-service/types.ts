@@ -28,7 +28,6 @@ export type AuditFindingCode =
   | 'OBSERVATION_INCOMPLETE'
   /** The frozen baseline's own row set is not the P0 set. */
   | 'BASELINE_ROW_SET_INVALID'
-  /** A frozen `sourceFiles` entry no longer exists on disk. */
   | 'SOURCE_FILE_MISSING';
 
 export interface AuditFinding {

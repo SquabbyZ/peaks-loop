@@ -77,7 +77,6 @@ export interface ParsedMemoryFrontmatter {
  *   3. top-level `type:`        — tolerated by the pre-existing trim-based reader
  *   4. `none`                   — reported as unclassified; never invented
  *
- * Slice 2026-09-09-memory-system-overhaul (B): before this helper, files
  * using a top-level `kind:` were silently dropped by the reader (defect
  * #2). Falling through to `kind:` / `type:` is a strict superset of the
  * old behaviour — no previously-indexed file changes kind.

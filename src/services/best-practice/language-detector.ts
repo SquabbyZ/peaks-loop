@@ -1,5 +1,4 @@
 /**
- * Slice 2026-08-12 best-practice-scan — language detector.
  *
  * Detects the project's primary language from well-known marker files.
  * Returns one of: typescript | javascript | python | go | java | unknown.

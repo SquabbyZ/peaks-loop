@@ -93,7 +93,6 @@ export function evidenceSourcesFor(
  * Which dimensions the reviewer was actually given evidence FOR. A dimension
  * absent from this set has no delivered evidence behind it.
  *
- * F3 / 1.3 — this used to read `status !== 'found'`, i.e. "a source that
  * mentions this dimension was inlined (at least a byte of it)". Two things were
  * wrong with that, and both are the same thing: it asked about the SOURCE (was
  * it included) instead of about the DIMENSION (was its evidence seen), and it

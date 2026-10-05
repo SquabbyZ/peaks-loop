@@ -44,7 +44,6 @@ const CANARY_PERCENTS: Readonly<Record<10 | 50, ReleaseStage>> = {
   50: 'canary-50'
 };
 
-// rid-010 — extracted canary action handler so AC-8 can drive the canary
 // precheck-guard via direct function call (not via program.parseAsync with a
 // mocked service). Returns the result envelope for the caller to print.
 export function executeCanaryAction(
@@ -57,13 +56,9 @@ export function executeCanaryAction(
   status: 'PRECHECK_BLOCKER' | 'INVALID_PERCENT' | 'INVALID_TRANSITION' | 'OK';
   blockerLayer?: { name: string; result: LayerResult };
 } {
-  // rid-010 — precheck guard (Layer A or Layer B blocker refuses canary).
-  // rid-011 — changeset hard gate runs inline in the canary closure BEFORE
   // this function is called (step 0 short-circuits with CHANGESET_BLOCKED).
   // Layers C/D default warning → do not block canary; --strict upgrade would
-  // be a separate flag (out of scope for rid-011).
   // Layers C/D default warning → do not block canary; --strict upgrade would
-  // be a separate flag (out of scope for rid-010).
   const precheck = runAllLayers({ projectRoot, strict: false });
   const blockerEntry = Object.entries(precheck.layers).find(([, l]) => l.status === 'blocker');
   if (blockerEntry !== undefined) {
@@ -157,7 +152,6 @@ export function registerReleaseCommands(program: Command, io: ProgramIO): void {
     );
   });
 
-  // 2. canary — rid-010 wires precheck as the first step via executeCanaryAction
   addJsonOption(
     release
       .command('canary')
@@ -172,7 +166,6 @@ export function registerReleaseCommands(program: Command, io: ProgramIO): void {
       .option('--project <path>', 'project root (default: cwd)')
   ).action((opts: { percent: string; note?: string; project?: string; json?: boolean }) => {
     const projectRoot = opts.project ?? findProjectRoot(process.cwd()) ?? process.cwd();
-    // rid-011 — changeset hard gate (step 0).
     const gate = runChangesetHardGate(projectRoot);
     if (gate.state === 'staged-present') {
       process.exitCode = 1;
@@ -464,7 +457,6 @@ export function registerReleaseCommands(program: Command, io: ProgramIO): void {
       .option('--project <path>', 'project root (default: cwd)')
   ).action((version: string, opts: { note?: string; project?: string; json?: boolean }) => {
     const projectRoot = opts.project ?? findProjectRoot(process.cwd()) ?? process.cwd();
-    // rid-011 — changeset hard gate (step 0). No --skip-changeset-check override.
     const changesetGate = runChangesetHardGate(projectRoot);
     if (changesetGate.state === 'staged-present') {
       process.exitCode = 1;
@@ -514,7 +506,6 @@ export function registerReleaseCommands(program: Command, io: ProgramIO): void {
     );
   });
 
-  // 8. precheck — rid-010 (Phase 4 slice 1) — 4-layer version precheck.
   addJsonOption(
     release
       .command('precheck')

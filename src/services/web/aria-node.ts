@@ -1,5 +1,4 @@
 /**
- * The `ariaSnapshotJSON()` node type (slice S1, AC2 — the mechanism).
  *
  * Split out of `snapshot-pruner.ts` to keep the pruner under the
  * 300-raw-line file cap; it is the data model the pruner, the renderer and

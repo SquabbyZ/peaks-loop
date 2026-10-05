@@ -12,7 +12,6 @@ import { computeRootSuffix as computeRootSuffixImpl } from './skill-statusline-s
 // Re-export so existing test imports
 // (`import { formatShortSid, computeRootSuffix } from '.../skill-statusline-renderer'`)
 // keep working byte-identically after the helper extraction in slice
-// 2026-08-05-statusline-sid-only-marker-and-multi-binary-drift-guard
 // repair cycle.
 export { formatShortSid } from './skill-statusline-sid-suffix.js';
 export const computeRootSuffix = computeRootSuffixImpl;
@@ -47,7 +46,6 @@ export interface StatusLineRenderOptions {
 }
 
 function formatAge(ageMs: number | null): string {
-  // Slice rid-statusline-stale-ux AC-1: this legacy `stale <N>h/m`
   // token is NO LONGER used by renderStale. Kept exported / defined
   // for any downstream caller / test that still asserts against the
   // `stale` substring. The active renderer path uses `formatHumanAge`.
@@ -58,7 +56,6 @@ function formatAge(ageMs: number | null): string {
   return `stale ${minutes}m`;
 }
 
-// Slice rid-statusline-stale-ux AC-1 + perf H2: human-friendly neutral
 // age label for the stale branch. en-US strings per RD §5 R1 (codebase
 // consistency); zh-CN deferred to a future i18n slice. Backed by a
 // bounded Map cache (parity with `formatShortSid` memoization at
@@ -97,7 +94,6 @@ function rootLabel(projectRoot: string | null): string {
 }
 
 /**
- * Slice rid-statusline-24h-overlay (2026-08-10): format the 24h-mode
  * overlay suffix appended after the existing `<baseMode>` token in
  * the ACTIVE state. Returns `''` when the overlay is `null` (missing
  * file / corrupt file / wrong shape — see `read24hOverlay`).
@@ -124,7 +120,6 @@ export function format24hSuffix(
 /**
  * `formatShortSid` + `computeRootSuffix` were extracted to
  * `./skill-statusline-sid-suffix.ts` in the slice
- * 2026-08-05-statusline-sid-only-marker-and-multi-binary-drift-guard
  * repair cycle so the renderer file stays under the Karpathy
  * 800-line cap. Both helpers are re-exported above for back-compat
  * with existing test imports.
@@ -136,7 +131,6 @@ export function format24hSuffix(
  * is obvious at the call site and so each state has a single
  * responsibility.
  *
- * Active-leaf rendering (slice 2026-08-04-rid-005-statusline-dual-skill):
  * when the model carries an `activeLeaf` (an in-flight bee dispatch under
  * the orchestrator), the line surfaces the leaf role alongside the
  * orchestrator skill. The render priorities are:
@@ -163,7 +157,6 @@ function renderActive(
   if (!presence) {
     return `${palette.idle} ${palette.idleLabel}`;
   }
-  // Slice rid-statusline-24h-overlay (2026-08-10): the 24h suffix
   // is appended on every active-return branch that carries a skill
   // token. The `!presence` branch (idle mark, no skill token) is
   // intentionally NOT modified — 24h overlays are active-only.
@@ -199,7 +192,6 @@ function renderStale(
   capability: StatusLineCapability,
   noColor: boolean
 ): string {
-  // Slice rid-statusline-stale-ux AC-1: stale presence belongs to a
   // *previous* session (outer-session-mismatch). Line still emits the
   // recorded skill name (per C-1 — `expect(out).toContain('peaks-code')`
   // must keep passing), but uses `palette.idleStale` (new muted palette,
@@ -274,7 +266,6 @@ function renderCompact(state: CompactStatuslineState, palette: StatusPalette): s
           : ''
       }`;
     case 'armed': {
-      // Slice 2026-09-12-compact-band-policy: NO bar. A bar is a
       // progress claim, and a registered-but-unfired trigger has no
       // progress to report — it is waiting for the ratio to reach the
       // red line on its own. Say exactly that instead.
@@ -598,8 +589,6 @@ export function renderStatusLine(
   const palette = paletteFor(capability, noColor);
   const root = rootLabel(model.projectRoot);
   // short-sid suffix (slices
-  //   - 2026-08-05-statusline-empty-render-and-short-sid-suffix (active only)
-  //   - 2026-08-05-statusline-sid-only-marker (idle + stale also)
   // ):
   // the project root cell carries ` [shortSid]` after `peaks-loop` whenever
   // a canonical session id resolves. Per-state matrix:
@@ -628,7 +617,6 @@ export function renderStatusLine(
 
   let line: string;
   const hasCompact = compactSegment.length > 0;
-  // Slice 2026-09-12-compact-band-policy: `armed` is a RESTING state, not
   // an in-flight compact. It can hold for the whole band between the
   // auto-fire ratio and the red line, so it is appended to the normal
   // line instead of REPLACING the skill token — hiding which skill is

@@ -8,9 +8,7 @@
  * the `pre-tool-code-gate` hook contract.
  */
 
-/** Slice 2026-08-05-orchestrator-can-do-probe: red-line threshold. */
 export const ORCHESTRATOR_REDLINE_RATIO = 0.95;
-/** Slice 2026-08-05-orchestrator-can-do-probe: pre-compact threshold. */
 export const ORCHESTRATOR_PRECOMPACT_RATIO = 0.85;
 
 /** The four Q signals that produce blockers / warnings / suggestions here. */
@@ -36,7 +34,6 @@ export function boundaryAdvisories(signals: BoundarySignals): BoundaryAdvisories
   const warnings: string[] = [];
   const suggestions: string[] = [];
 
-  // Slice 2026-08-06-codegate-vendor-neutral — Q1 HARD BLOCKER. When
   // the slice-spec mentions any hard-blocked path family
   // (src/, tests/unit/, tests/integration/, config/, bin/, scripts/),
   // the orchestrator MUST refuse direct execution and force sub-agent
@@ -57,13 +54,11 @@ export function boundaryAdvisories(signals: BoundarySignals): BoundaryAdvisories
   }
 
   // Q4 — context ratio. ≥0.95 → red-line; ≥0.85 → pre-compact. A WARNING, not
-  // a blocker, and the difference is deliberate (E3, rid 2026-09-13-defects-e).
   //
   // Why this is not a blocker any more, and why it is not an oversight:
   //
   //   The peak this answers is "can this slice run in the current session".
   //   Context ratio cannot answer "no" to it. The reason is the one the
-  //   T3 slice (2026-09-13-auto-compact-trigger-ownership) landed on the
   //   OTHER face of this same threshold: peaks-loop has no executor for a
   //   running session, so it cannot compact its way out of a high ratio —
   //   `evaluateCompactTrigger` therefore says of the red line "peaks-loop has

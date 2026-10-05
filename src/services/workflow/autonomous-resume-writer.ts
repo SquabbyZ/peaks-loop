@@ -153,7 +153,6 @@ function buildFiles(
   createdAt: string,
   artifactWorkspacePath: string
 ): AutonomousResumeArtifactFile[] {
-  // Slice 2026-06-29-change-id-root-removal: route every reviewable
   // artifact under the session-axis dir at `.peaks/_runtime/<sid>/...`
   // via `getSessionDir`. The change-id identifier is reused as the
   // session-dir name (per-execution scope). The gitignore rule on
@@ -191,7 +190,6 @@ function buildFiles(
 export async function writeAutonomousResumeArtifacts(
   request: AutonomousResumeWriteRequest
 ): Promise<AutonomousResumeWriteResult> {
-  // Slice 2026-06-29-change-id-root-removal: change-id is metadata-only;
   // structural validation for the session id is a path-safety check
   // (no path-traversal / no absolute path) so unsafe ids never escape
   // the canonical `.peaks/_runtime/<sid>/` scope.

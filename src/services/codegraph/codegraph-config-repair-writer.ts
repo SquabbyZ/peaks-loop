@@ -9,7 +9,6 @@
 // has always promised is reachable).
 //
 // Extracted verbatim from `codegraph-exclude-repair.ts` (rid
-// 2026-09-17-oversize-followup, G1 — the 800-line file-size cap). Every moved
 // line is byte-identical and no behaviour changed; `codegraph-exclude-repair.ts`
 // re-exports this module's public surface, so every existing import site
 // (`applyCodegraphConfigRepair`, `repairCodegraphExclude`,
@@ -198,7 +197,6 @@ function writeConfigAtomic(filePath: string, content: string, mode?: number): vo
       // process umask instead of the original's mode.
       chmodSync(tempPath, mode);
       // Windows cannot REPLACE a read-only destination: `renameSync` over
-      // one throws EPERM (measured, `2026-09-17-codegraph-msg-and-refresh`).
       // The only destination this branch ever sees read-only is this
       // writer's own previous `.bak`, which under A4 carries the original
       // config's mode — so a read-only config would make the SECOND repair
@@ -303,7 +301,6 @@ function linkOrDirectoryAt(
  * succeeded, so a refusal leaves the config BYTES UNTOUCHED — the throw
  * propagates out of `applyCodegraphConfigRepair` before the rewrite.
  *
- * A4 (`2026-09-17-codegraph-msg-and-refresh`, the L1 half left over from
  * slice-002's S1): the copy carries the ORIGINAL CONFIG'S MODE, because the
  * mode is part of what a rollback restores. The `.bak` exists so an operator
  * can put the previous config back with a `mv`, and a restore that hands

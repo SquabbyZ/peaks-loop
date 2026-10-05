@@ -110,7 +110,6 @@ export function createSlotTable(
  *
  * The default readOutcome returns the on-disk `status`. We map
  * a small set of values to the per-dispatch status union.
- * Slice 2026-07-30-nightshift: also capture the optional
  * `outcome` field so the per-IDE note can surface the human
  * reason (e.g. "mock failure at leaf-2"). The `outcome` is read
  * alongside the `status` via `readRecord` and surfaced into
@@ -201,7 +200,6 @@ export function sleepTick(schedule: (cb: () => void, ms: number) => void): Promi
 /**
  * The per-IDE note for one slot.
  *
- * Slice 2026-07-30-nightshift: the per-IDE note construction is
  * rewritten to match the 1.4 dogfood contract:
  *   - claude-code (no notePrefix): note = slot.note (the raw
  *     outcome, or null when done/cancelled)
@@ -226,7 +224,6 @@ function resolveSlotNote(slot: AwaitBatchSlot, baseNote: string | null): string 
     // Non-failed terminal slot with a non-null note (e.g. cursor /
     // claude-code `stale` → status=timeout, note='stale'):
     // `${notePrefix} — ${note}` so the human reason is surfaced.
-    // Slice 2026-07-30-nightshift: previously this branch dropped
     // the slot's note entirely (the bare-prefix else swallowed
     // it). The 1.4 dogfood for `stale` flips the contract.
     note = `${baseNote} — ${slot.note}`;

@@ -8,7 +8,6 @@ import {
   type TechPlanResult,
   type TechStatus
 } from '../tech/tech-service.js';
-// Slice 2026-06-29-change-id-root-removal: `validateChangeIdOrThrow`
 // was removed with the change-id axis. Path-safety helpers now live
 // at `shared/path-safety.ts` if this module ever needs them.
 import { WORKSPACE_UNAVAILABLE_NEXT_ACTIONS } from '../../shared/planner-response.js';
@@ -506,12 +505,10 @@ function getCodeMode(mode: WorkflowMode, codeMode: CodeMode | undefined): CodeMo
 export function createWorkflowRouterPlan(request: WorkflowRouterRequest): WorkflowRouterPlan {
   assertSupportedMode(request.mode);
   assertCodeModeAllowed(request.mode, request.codeMode);
-  // Slice 2026-06-29-change-id-root-removal: change-id is metadata-only;
   // no structural validation gate fires here.
   const goal = normalizeGoal(request.goal);
   const maxWorkers = request.maxWorkers ?? 40;
   // Slice 2.0.1-bug1 round 3: project policy defaults. The slim 2.0.1 DEFAULT_CONFIG
-  // no longer carries economyMode / swarmMode (those moved to per-project preferences),
   // so we cannot fall back to `DEFAULT_CONFIG.economyMode` / `swarmMode` here. Both
   // flags are project-policy opt-outs: the absence of an explicit `false` means
   // "enabled" (matches the pre-2.0.1 implicit default).
@@ -526,7 +523,6 @@ export function createWorkflowRouterPlan(request: WorkflowRouterRequest): Workfl
   const effectiveProviders: ModelProviderConfig = request.config?.providers ?? {
     anthropic: { model: 'claude-opus-4-7' }
   };
-  // Slice 2026-07-09 add-zcode-adapter (A.3): the strongest
   // planner/reviewer model is now resolved via `getStrongestModelId`,
   // which reads `config.model` (if present) or falls back to the
   // env-var-overridable default. This decouples the strongest-model

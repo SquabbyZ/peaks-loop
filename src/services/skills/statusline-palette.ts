@@ -1,6 +1,5 @@
 /**
  * Visual / palette / SGR rendering block extracted from
- * `skill-statusline-renderer.ts` (slice 2026-09-06-split-batch-b) so the
  * renderer stays under the 800-line cap. Behaviour-preserving verbatim move;
  * `export` keywords were added to the symbols the renderer still imports.
  */
@@ -46,7 +45,6 @@ export function isAttentionGate(gate: string | undefined): string | null {
  */
 export interface StatusPalette {
   readonly active: string;
-  // Slice rid-statusline-stale-ux AC-1: stale presence belongs to a
   // *previous* session (outer-session-mismatch). `idleStale` is the
   // muted slate tier — slow-blink OFF, distinct from `idle` (true empty,
   // slow-blink ON) and `warning` (loud invalid-presence alarm). Three-way
@@ -70,7 +68,6 @@ interface CompactPalette {
   readonly preparing: string;
   readonly compacting: string;
   /**
-   * Slice 2026-09-12-compact-band-policy: a trigger is registered but no
    * compaction is running. Rendered WITHOUT a bar — see
    * `renderCompact` in skill-statusline-renderer.ts.
    */
@@ -163,7 +160,6 @@ function buildPalette(capability: StatusLineCapability, noColor: boolean): Statu
     return {
       active: '*',
       idle: 'o',
-      // Slice rid-statusline-stale-ux AC-1: stale residue uses the same
       // glyph as `idle` (`o`) but stays static (no slow-blink — the user
       // is reading a *previous* session's residue, not a live idle state).
       // The neutral copy `(previous session · N days ago)` is the
@@ -191,7 +187,6 @@ function buildPalette(capability: StatusLineCapability, noColor: boolean): Statu
   return {
     active: brandGlyph('●'),
     idle: blinkBrand('○'),
-    // Slice rid-statusline-stale-ux AC-1: muted slate (`#AAAAC8` dim)
     // — slow-blink OFF, distinct from `idle` (slow-blink brand) and
     // `warning` (yellow invalid-presence). The stale branch is
     // semantically "previous-session residue" (neutral), NOT an error.

@@ -1,7 +1,6 @@
 /**
  * Checks for `.peaks/memory/` health (`L3:l3-memory-health` and siblings).
  *
- * Slice 2026-06-13-repair-pre-existing-test-failures: the
  * production MemoryIndex schema (see
  * `src/services/memory/project-memory-service.ts`) uses
  * `version: 1` as the schema marker, NOT `schema_version`.
@@ -11,7 +10,6 @@
  * When no `.peaks/memory/index.json` exists yet, the check passes
  * (fresh project — no memories have been extracted).
  *
- * Slice 2026-09-09-memory-system-overhaul (D) extends the check with the
  * drift findings the original version could not see. It used to report
  * `ok: true` for "index.json is well-formed JSON; 100 hot + 131 warm" and
  * never looked at coverage, orphans, or unclassified files. It now emits,

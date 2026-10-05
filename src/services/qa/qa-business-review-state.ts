@@ -87,8 +87,6 @@ export function getQaReviewDir(projectRoot: string, sessionId: string): string {
   //
   // It does NOT cover the rid axis: the request id is joined one function later,
   // in `getQaReviewPath` below. Corrected 2026-09-14 (repair R1) — this comment
-  // previously said "one guard here covers the whole family", and the security
-  // audit of `2026-09-14-cli-id-escape-instrumentation` (F1b) measured that claim
   // false: `qa-business-review '../../../../…/EVILQA3'` wrote a `.json` file
   // outside the project root under `ok: true`.
   if (isUnsafePathInput(sessionId)) {

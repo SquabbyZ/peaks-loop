@@ -90,7 +90,6 @@ export type FileSizeScanResult = {
    *  four scope directories, or with an extension it does not count. Reported
    *  rather than silently skipped, for the same reason `exemptFiles` is.
    *
-   *  WHY THEY ARE NOT VIOLATIONS (F3, rid 2026-09-30-cap-unify-01). Every file
    *  the scan checked used to be measured against `fileSizeCapFor`, whose
    *  else-branch is 300 — a number that is only defined for `src`/`packages`/
    *  `scripts`. So an out-of-scope path (a `.md`, a file under `.husky/`) could

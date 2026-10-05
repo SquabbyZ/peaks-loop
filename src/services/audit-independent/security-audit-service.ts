@@ -2,7 +2,6 @@
  * peaks-security-audit service — independent security audit skill driver.
  *
  * Slice v2.12.0 (Group A, Tier 2). The skill is decoupled from the
- * peaks-rd 5-way fan-out (per PRD AC-2.x) and lives as a standalone
  * CLI surface: `peaks security-audit run --rid <id> ...`.
  *
  * The service owns:
@@ -19,7 +18,6 @@
  * is the pure I/O + validation core; the LLM is the judgement core.
  *
  * Why a service (not inlined in the CLI):
- *   - Unit-testable in isolation (6 case per PRD AC-2.8)
  *   - The 5-state detector mirrors the ecc-bridge detectEcc pattern
  *     (slice 7 Group D), keeping the surface uniform
  *   - Future migration to peaks sub-agent dispatch (peaks-rd main
@@ -44,7 +42,6 @@ import { resolveHandoffPath } from '../prd/handoff-service.js';
  *
  *   - `ready`              — handoff + template + project all present
  *   - `handoff-missing`    — this slice's `.peaks/_runtime/<sid>/prd/handoff-<rid>.md`
- *                        (or the pre-rid-scoping `prd/handoff.md`) absent
  *   - `template-missing`   — `.peaks/project-scan/security-template.md` absent
  *   - `dispatch-failed`    — parent LLM threw before returning the audit envelope
  *   - `envelope-malformed` — parent LLM returned a value that fails `isSecurityAuditEnvelope`
@@ -200,9 +197,7 @@ export function detectSecurityAudit(input: {
   readonly sessionId: string;
   /**
    * The slice whose capsule this run audits. Slice
-   * `2026-09-14-prd-capsule-rid-scoping` put the rid in the capsule's
    * filename, so a caller that knows it must pass it or the probe resolves
-   * only the pre-rid-scoping bare name. Both callers pass it:
    * `runSecurityAudit` always did, and `peaks security-audit detect` forwards
    * its long-standing `--rid` flag as of the post-verification repair round.
    */

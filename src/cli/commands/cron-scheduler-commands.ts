@@ -1,5 +1,4 @@
 /**
- * `peaks cron scheduler start|stop|status|run-once` — slice 2026-07-29 Part 15.
  *
  * Companion CLI to Part 14 (peaks cron init/list/run). The
  * scheduler is a long-running background daemon that wakes up

@@ -10,7 +10,6 @@
  * `repository.url` is `git+https://github.com/affaan-m/ECC.git`).
  *
  *   - `peaks ecc install` — land/refresh the copy. Idempotent; prunes agents the
- *     installed package no longer ships.
  *   - `peaks ecc status` — package version + what landed and when.
  *   - `peaks ecc ls` — the roster with declared name + description (D-009
  *     fallback to filename + first body line when frontmatter is malformed).

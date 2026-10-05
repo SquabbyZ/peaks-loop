@@ -1,5 +1,4 @@
 /**
- * `peaks lease-metrics` — slice 2026-07-29-worktree-l2-extended Part 4.A + Part 5.
  *
  * Part 4.A: aggregate lease-kind observability events for one session,
  * render per-kind counts + a 5-event chronological tail.

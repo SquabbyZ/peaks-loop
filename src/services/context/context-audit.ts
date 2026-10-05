@@ -1,7 +1,6 @@
 /**
  * `peaks code context-audit` — what actually fills the orchestrator's window.
  *
- * Slice 2026-09-10-context-audit-and-discipline (Slice A).
  *
  * Why this exists: `peaks code context-now` reports a RATIO only. Nothing
  * reported WHAT occupies the window, so the same 40K-token mistake (dumping a

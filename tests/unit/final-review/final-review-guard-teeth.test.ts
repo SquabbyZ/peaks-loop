@@ -165,9 +165,18 @@ describe('guard C teeth — the out-of-band review four attacks (R-B)', () => {
   });
 
   /**
-   * TEETH-3 (RED at `3b3bb00c`): the same hole as a byte count rather than as a
+   * TEETH-3 (RED at `3b3bb00c`): the same hole as a whole subject rather than as a
    * plant, so a split that adds NO proxy still cannot leave the guard's subject
    * smaller than the directory it is aimed at.
+   *
+   * This arm used to carry that claim as a byte floor — `onDisk > 149_711`, the exact
+   * size of the directory on the day it was written, with zero margin. The comment
+   * prune (rid line-pinned-guards) deleted ~800 bytes of prose from four files in
+   * this directory and reddened it, which is the whole argument for the rewrite: a
+   * subject that had LOST A MODULE was the defect, and a byte count cannot tell that
+   * from an edit that shortened a comment. So the subject is now named, file by file,
+   * against the directory itself. It is stronger than the floor was: the floor passed
+   * while a missing file was made up for by any longer one, and this cannot.
    */
   it('TEETH-3 reads every byte of every module that is on the directory', () => {
     const dir = copyGuarded({ mts: true, subdir: true });
@@ -177,9 +186,15 @@ describe('guard C teeth — the out-of-band review four attacks (R-B)', () => {
     );
     const read = scanModuleSet(dir).reduce((total, scanned) => total + scanned.bytes, 0);
     expect(read).toBe(onDisk);
-    // 149,711 bytes of `.ts` plus the two plants: the flat `.ts` walk stopped at
-    // the first number, which is the whole defect in one assertion.
-    expect(onDisk).toBeGreaterThan(149_711);
+    const subject = everyFileBelow(GUARDED_DIR);
+    expect(subject.length, 'the guarded directory must not be empty').toBeGreaterThan(1);
+    expect(everyFileBelow(dir)).toEqual(
+      [
+        ...subject,
+        'delivery/final-review-delivery-legacy.ts',
+        'final-review-legacy-bridge.mts'
+      ].sort()
+    );
   });
 
   /**

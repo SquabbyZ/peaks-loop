@@ -24,7 +24,6 @@ import {
   statSync
 } from 'node:fs';
 import { isAbsolute, relative, resolve } from 'node:path';
-// Slice 2026-06-29-change-id-root-removal: `buildArtifactRelativePath`
 // was removed with the change-id axis. The artifact under each
 // resume helper now resolves the absolute path via the session-axis
 // `getSessionDir` + an explicit role-relative segment; the
@@ -42,7 +41,6 @@ import {
 
 const MAX_RESUME_ARTIFACT_BYTES = 256_000;
 
-// Slice 2026-06-29-change-id-root-removal: return the bare role-relative
 // sub-paths instead of `.peaks/_runtime/change/<id>/<role>/...` strings.
 // `getResumeRequiredArtifacts` was previously consumed by callers that
 // joined the descriptor with the on-disk session dir computed by
@@ -82,7 +80,6 @@ function readFully(fd: number, size: number): string | null {
 }
 
 function normalizeRoleRelativePath(artifact: string, _sessionId: string): string {
-  // Slice 2026-06-29-change-id-root-removal: `getResumeRequiredArtifacts`
   // returns role-relative sub-paths (e.g.
   // `rd/swarm/checkpoints/checkpoint-1.json`). The helper normalises
   // the path separators and strips any leading `/`; the `sessionId`
@@ -96,7 +93,6 @@ function readResumeArtifact(
   sessionId: string,
   artifact: string
 ): string | null {
-  // Slice 2026-06-29-change-id-root-removal: on-disk home now lives under
   // the session-axis `getSessionDir(root, sessionId)`. The role/swarm
   // sub-path (e.g. `rd/swarm/checkpoints/checkpoint-1.json`) is
   // strictly a sub-root drill, not a top-level dir derivation.
@@ -212,7 +208,6 @@ function getResumeArtifactsStatus(
   let hasInvalidArtifact = false;
   const artifactContents = new Map<string, string>();
   for (const artifact of requiredArtifacts) {
-    // Slice 2026-06-29-change-id-root-removal: pass the explicit
     // sessionId so `readResumeArtifact` can route through `getSessionDir`
     // rather than guessing from path segments. The prefix-strip is now
     // a simple `/` + backslash normaliser since descriptors are

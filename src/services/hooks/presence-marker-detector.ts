@@ -2,7 +2,6 @@ import { getSessionId } from '../session/session-manager.js';
 import { listPresenceLeases } from '../skills/presence-lease-service.js';
 
 /**
- * Slice 028 (Q1=A): hook-based skill-presence marker detection.
  *
  * Background: the consumer-facing CLAUDE.md template (rendered by
  * `peaks standards init` / `peaks standards update`) instructs the LLM

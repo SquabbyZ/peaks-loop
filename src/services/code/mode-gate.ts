@@ -46,7 +46,6 @@ export type HardFloorCategory =
   | 'authentication-credential'
   | 'multi-day-investment'
   /**
-   * v2.15.0 slice 002 AC-4: actions that are past the user's
    * explicit full-auto boundary = commit only. Per user-given rule
    * from `.peaks/memory/2026-06-28-full-auto-boundary.md`: full-auto
    * ends at commit. push / tag / npm publish / global install are
@@ -64,7 +63,6 @@ export const HARD_FLOOR_CATEGORIES: readonly HardFloorCategory[] = [
 ] as const;
 
 /**
- * Slice 2026-06-28-code-mode-bypass-fix: the kind of gate that
  * produced this decision. The LLM-side caller (peaks-code body) reads
  * this to distinguish "you paused because the user must choose the
  * mode" (`mode-selection-itself`) from "you paused because the mode
@@ -113,7 +111,6 @@ export function isCommitBoundaryAction(value: string): value is CommitBoundaryAc
  * AskUserQuestion round-trip). Mirrors D5.a: "recommended = chosen
  * in full-auto / 24h; always log, never silently skip".
  *
- * Slice 2026-09-09-mode-consolidation: `swarm` was removed as a mode
  * (parallel fan-out is now the default execution strategy in every
  * mode); `24h` replaces it as the second auto-proceed peer.
  */
@@ -130,7 +127,6 @@ export function shouldAutoProceed(mode: CodeMode): boolean {
  * The hard-floor categories always win — even full-auto pauses for
  * irreversible external side effects, auth/credential usage,
  * multi-day investment decisions (D5.b), and commit-boundary side
- * effects (v2.15.0 slice 002 AC-4: push, tag, publish, global install).
  *
  * `hardFloorCategory` is optional on the `GateDecision` so callers can
  * stamp the override into the auto-decisions log without a second
@@ -156,7 +152,6 @@ export function shouldPauseAtGate(opts: {
   step: GatedStepId;
   hardFloorCategory?: HardFloorCategory | undefined;
   /**
-   * v2.15.0 slice 002 AC-4: when `true`, force a pause regardless of
    * mode. Reserved for the 5 commit-boundary side effects
    * (push/tag/publish/global install) that are past the user's
    * full-auto boundary. The hard-floor override ALWAYS wins — even
@@ -173,7 +168,6 @@ export function shouldPauseAtGate(opts: {
     };
   }
 
-  // Slice 002 (v2.15.0) AC-4: commit-boundary side effects override
   // every other decision. Per the user-given rule in
   // `.peaks/memory/2026-06-28-full-auto-boundary.md` ("full-auto 只
   // 做到 commit"), push / tag / npm publish / global install must
@@ -189,7 +183,6 @@ export function shouldPauseAtGate(opts: {
     };
   }
 
-  // Slice 2026-06-28-code-mode-bypass-fix: hard-pause steps that
   // determine the active mode or session context MUST prompt the
   // user. Otherwise full-auto silently locks in `mode=full-auto` on
   // the first tool call, skipping the AskUserQuestion Step 1 mandates.
@@ -234,7 +227,6 @@ export function formatAutoProceedLogLine(opts: {
 }
 
 /**
- * v2.15.0 slice 002 AC-4: detect whether a Bash command matches any
  * commit-boundary action pattern. Returns the action id of the
  * first match, or `null` when none match. The CLI / LLM caller
  * passes the command through this function and forwards the

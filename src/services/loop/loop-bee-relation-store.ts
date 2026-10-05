@@ -17,7 +17,6 @@ import type { LoopBeeRelation, LoopBeeRelationRole } from './loop-bee-relation-t
  *     a friendlier error path on top).
  *   - UNIQUE (loop_release_id, bee_release_id) prevents accidental
  *     duplicate relations between the same loop and same bee release.
- *   - The migration does NOT touch any 4.x `bee_release` column (AC-3).
  *   - Lifecycle_status check on loop_release is NOT a DB-level constraint
  *     (the retirement rule is enforced in the service layer — see
  *     `LoopBeeRelationService.create`) so the DB stays decoupled from

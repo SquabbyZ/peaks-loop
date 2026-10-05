@@ -103,7 +103,6 @@ function materializedAgentPath(name: string | undefined): string {
  *   - `dispatch-failed`     — Agent tool call threw before returning envelope
  *   - `envelope-malformed`  — returned value failed `isEccEnvelope` validation
  *
- * Fallback order (RD fan-out, 2026-09-09-ecc-dynamic): native plugin →
  * cache-backed generic agent → inline. The caller (peaks-rd's sub-agent 1
  * contract) inspects `state` and either proceeds with the envelope or records
  * a degradation note in the request artifact body

@@ -1,7 +1,6 @@
 /**
  * Coverage Evidence reader for c8 `coverage-summary.json` (Fix-6B).
  *
- * Slice rid-Fix-6B / sub-slice T1:
  *   - pure helper module, no side effects beyond FS reads
  *   - reads the istanbul-reporter JSON shape emitted by `c8 --reporter=json-summary`
  *     (the project's coverage tool — see scripts/coverage-c8.mjs)

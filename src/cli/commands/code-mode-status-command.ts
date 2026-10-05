@@ -1,5 +1,4 @@
 /**
- * Slice 2026-09-09-mode-consolidation (Slice D) — `peaks code mode status`.
  *
  * One read for the whole stacked autonomy picture:
  *   - presence MODE (`full-auto | assisted | strict | 24h`),

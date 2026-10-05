@@ -1,6 +1,5 @@
 /**
  * S1 / rid=api-diff-report — `peaks scan api-diff <doc>` (design
- * `docs/superpowers/specs/2026-09-12-frontend-acl-contract-design.md` §2.1/§2.3).
  *
  * Read-only. Parses an OpenAPI 3.x document (JSON or YAML — `yaml` is already a
  * runtime dependency) and diffs it against the three sources a consumer project

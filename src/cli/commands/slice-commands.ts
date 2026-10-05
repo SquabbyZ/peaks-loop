@@ -129,7 +129,6 @@ export function registerSliceCommands(program: Command, io: ProgramIO): void {
     }
   );
 
-  // ---------- peaks slice ls (slice 2026-06-27-slice-ls) ----------
   // Read-only listing of every decomposition artifact under
   // .peaks/sc/slice-decomposition/. Used by operators to see what's
   // accumulated; companion to a future `peaks slice cleanup` subcommand.
@@ -613,7 +612,6 @@ function writeDecompositionFile(
 
 /**
  * Stale threshold for slice decomposition artifacts. Matches the default
- * retention window promised by `peaks slice cleanup` (slice 2026-06-27-slice-cleanup,
  * recorded in .peaks/memory/ for follow-up). If that slice ships with a
  * different default, both must update here.
  */

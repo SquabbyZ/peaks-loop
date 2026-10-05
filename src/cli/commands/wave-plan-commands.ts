@@ -1,5 +1,4 @@
 /**
- * `peaks sub-agent wave-plan` — slice 2026-09-10-dispatch-token-and-swarm §3.
  *
  * Nested under the existing `sub-agent` verb (no new top-level verb, per the
  * project-level rule that users never learn a new CLI surface; the LLM runs

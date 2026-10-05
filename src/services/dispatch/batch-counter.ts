@@ -69,7 +69,6 @@ export function noteDispatched(
   now: () => Date = () => new Date()
 ): { count: number; warning: BatchCounterWarning | null } {
   const path = batchCounterPath(projectRoot, sid, batchId);
-  // Slice 2026-06-23-audit-4th #A1: wrap the read-modify-write in a
   // file lock. Two concurrent `peaks sub-agent dispatch` invocations
   // for the same (sid, batchId) would otherwise race — both call
   // readBatchCount first, both see the same N, both write N+1, and

@@ -1,5 +1,4 @@
 /**
- * v2.14.0 G1 AC-1.4 — `peaks fixture capture` CLI surface.
  *
  * Producer-side CLI for the G1 fixture-replay anti-fake-green test
  * suite. Captures a real envelope artifact from
@@ -16,7 +15,6 @@
  *                        --out tests/fixtures/replay
  *
  * Why a CLI (not just a service function):
- *   - AC-1.4 mandates the CLI as the producer. A1.4 honesty test:
  *     every fixture under `tests/fixtures/replay/` MUST have a
  *     `producer: 'peaks-fixture-capture-cli'` in its `fixture.meta.json`
  *     and a `capturedAt` timestamp within a window where the CLI was

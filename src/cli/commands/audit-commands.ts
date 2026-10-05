@@ -253,7 +253,6 @@ export function registerAuditCommands(program: Command, io: ProgramIO): void {
   // and the dev-preference red line "Default-no on new CLI commands",
   // we extend the existing command rather than register a new subcommand.
   //
-  // 2026-09-09-ecc-dynamic-and-cleanup B3: the dead
   // `--enable-agent-shield` / `--disable-agent-shield` flags were removed.
   // `runStaticAudit`'s agentShield state is a frozen "always disabled" stub
   // (Slice 3 of 4.0.0-beta.11 removed the subprocess), so the flags had no
@@ -338,7 +337,6 @@ export function registerAuditCommands(program: Command, io: ProgramIO): void {
         ...(decision ? { decision } : {})
       };
       const nextActions: string[] = [];
-      // 2026-09-09-ecc-dynamic-and-cleanup B3: the ECC AgentShield opt-in
       // nextActions block was removed. `agentShield.installed` is a frozen
       // `false`, so the block printed on every run and pointed users at a
       // removed subprocess, removed flags, and a dead preference.
@@ -453,7 +451,6 @@ export function registerAuditCommands(program: Command, io: ProgramIO): void {
     }
   });
 
-  // Slice 2026-09-12-llm-provider-binding — `peaks audit goal` now runs the
   // gate it advertises. `auditGoal()` was already correct (one `LlmRunner`
   // call, 6-dimension validation, `IncompleteAuditError` on a partial audit);
   // what was missing was a provider binding, so the command answered with a
@@ -578,7 +575,6 @@ export function registerAuditCommands(program: Command, io: ProgramIO): void {
   });
 
   // ---------------------------------------------------------------------------
-  // peaks audit artifact write — Slice 2026-06-26-audit-artifact-writer-generalization
   //
   // First-class CLI surface for the 4 audit artifact types. Replaces the
   // 2026-06-22 "hand `git add` into .peaks/memory/" anti-pattern that left

@@ -51,8 +51,6 @@ function dirToRole(subdir: string): MigrateFilePlan['role'] {
  * 4-digit year prefixes (e.g. `2026-...`) are part of the change-id,
  * NOT a sequence number, so they don't trigger tier 1.
  *
- * `001-2026-05-29-custom-sop-gate-metering.md`  →  `2026-05-29-custom-sop-gate-metering`
- * `2026-05-29-default-session.md`               →  null  (4-digit prefix; fall through to H1 / frontmatter)
  * `tech-doc.md`                                →  null  (no number prefix; fall through)
  */
 const FILENAME_CHANGE_ID_RE = /^\d{1,3}-([A-Za-z0-9][A-Za-z0-9._-]*)\.md$/;
@@ -88,7 +86,6 @@ const H1_CHANGE_ID_PATTERNS: Array<{
     extract: (h) => /^#\s*Bug\s+Analysis[\s:—–-]+(.+)$/i.exec(h)?.[1]?.trim() ?? null
   },
   // "# Performance Baseline" / "# Perf Baseline" / "# Perf Baseline: <slice>"
-  //   → cross-cutting, NOT a per-slice change-id (return null)
   { test: (h) => /^#\s*(?:Performance|Perf)\s+Baseline(?:\s*:.*)?$/i.test(h), extract: () => null },
   // "# Project Scan: <name>" → cross-cutting, returns the name but caller treats as cross-cutting
   { test: (h) => /^#\s*Project\s+Scan(?:\s*:.*)?$/i.test(h), extract: () => null },
@@ -196,7 +193,6 @@ function extractChangeId(
   content: string | null,
   fallbackChangeId: string | null
 ): ExtractedChangeId | null {
-  // Slice 2026-06-29-change-id-root-removal: `validateChangeIdOrThrow`
   // was removed with the change-id axis. The structural regex check
   // it ran against the matched identifier is no longer enforced at
   // this site — callers accept any identifier shape that the tier-1
@@ -269,7 +265,6 @@ function isCrossCuttingFile(relativePath: string): boolean {
   // variant with a space — observed in some downstream trees) are
   // cross-cutting artifacts. They belong at the TOP of `.peaks/`
   // (e.g. `.peaks/project-scan/rd/project-scan.md`), not under
-  // retrospective/. They never carry a per-slice change-id.
   if (relativePath === 'rd/project-scan.md') return true;
   if (relativePath === 'rd/perf-baseline.md') return true;
   if (relativePath === 'rd/perf baseline.md') return true;
@@ -407,7 +402,6 @@ async function planSession(
 }
 
 /**
- * Slice 003 (2026-06-06-session-layout-canonicalize): one-shot
  * consolidation of every top-level `.peaks/_runtime/<sid>/` into
  * `.peaks/_runtime/<sid>/`. Idempotent:
  *
@@ -573,7 +567,6 @@ export async function migrateWorkspace(options: MigrateOptions): Promise<Migrate
     discoveredSessions.add(entry.name);
   }
 
-  // Slice 003 (canonical): also discover sessions under `.peaks/_runtime/<sid>/`.
   // The pre-canonical legacy walker above already handles legacy layouts;
   // this branch handles the post-canonical layout where every session
   // lives under `_runtime/`. We dedupe by session id so a session that
@@ -692,7 +685,6 @@ export async function migrateWorkspace(options: MigrateOptions): Promise<Migrate
     }
   }
 
-  // Slice 003: the `--to-runtime` step. When set, move every
   // top-level `.peaks/_runtime/<sid>/` to `.peaks/_runtime/<sid>/`. Idempotent.
   // The F15 carve-out (rd/project-scan.md) is honored: when the
   // top-level `<sid>/rd/project-scan.md` differs from the runtime

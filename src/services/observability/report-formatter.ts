@@ -1,13 +1,11 @@
 /**
  * Markdown report formatter for slice topology observability.
  *
- * Slice D of v2.11.1 (AC-5). Pure functions: inputs are aggregations
  * from `aggregation.ts`, outputs are stable markdown strings suitable
  * for pasting into PR descriptions or `.peaks/PROJECT.md` timeline
  * entries. The CLI subcommand `peaks observability report` wires
  * the file read + aggregation + format pipeline.
  *
- * Format contract (per PRD AC-5):
  *   - Header: scope, period, generated-at timestamp
  *   - Slice table: rid | transitions | finalState | durationMs | success
  *   - Fanout table: role | count

@@ -42,7 +42,8 @@
 //
 // WHAT IT ASSERTS
 //
-//   violations (load-bearing): exactly the pinned 14 sites, listed `file:line`.
+//   violations (load-bearing): exactly the pinned 14 sites, each named by the text
+//            of its declaration line, and reported to a human as `file:line`.
 //   reach (the anti-weakening arm): the file set, the async-function count and
 //            the type-checked count the walk actually consumed are each
 //            CROSS-MEASURED against a source outside this traversal, so a walk
@@ -83,10 +84,10 @@
 // reads, deleting a real arm turns the matching injection into a no-op, and that
 // injection case then fails instead of silently agreeing with the damaged walk.
 //
-// What this does NOT remove: `PINNED_SITES` is still `file:line`, so an unrelated
-// edit above one of the 14 sites still moves three entries by hand. That list is a
-// deliberate spec pin — the guard's whole point is that a human can read the 14 —
-// and it is the one place a line shift is meant to be seen.
+// What `PINNED_SITES` is keyed on: the TEXT of each offending declaration, not its
+// line. A human can still read the 14 — the failure message prints `file:line` for
+// every site it measured — but deleting a comment above one of them no longer
+// reddens this file, because a site that moved is not a site that changed.
 //
 // SCOPE — `src/` + `packages/` only. `tests/**` is exempt, matching the
 // `tests/**` overrides already in `config/eslint/.peaks-rules.cjs` (the 18
@@ -145,56 +146,40 @@ declareDimensions(
 );
 
 /**
- * The 14 sites this guard exists to keep visible, as `file:line`.
+ * The 14 sites this guard exists to keep visible, as `file | declaration line`.
  *
  * Pinned as a SET, not just as a count: a count assertion alone cannot tell
  * "the same 14" from "13 of the old ones and a new one", and the whole point of
  * the guard is that a human can inspect the list.
  *
- * This list moves for exactly three reasons:
- *   - a site left the class (an `await` was added, a `Promise<…>` annotation was
- *     written, or the `async` was removed) — that is the guard working;
- *   - a new `async` with no `await`, no contract and no `throw` was written —
- *     that is the guard working too;
- *   - an unrelated edit above one of these sites shifted its LINE NUMBER, with
- *     the same 14 functions still in the class (slice rid-s10-any-roots-ts,
- *     2026-09-20: the three `job-commands.ts` entries moved 349/354/371 ->
- *     429/434/451, a uniform +80, when the option interfaces for that file's
- *     eleven Commander actions were inserted above them. Same three functions,
- *     same reasons they are in the class; only the line moved).
- * All three are edits to THIS list, made by hand, with the reason recorded here.
+ * Keyed on the TEXT of the declaration, not its line number. The line used to be
+ * the key, and it moved on edits that had nothing to do with this class: three
+ * separate slices re-pinned these entries because an option interface, a docblock,
+ * or one added import specifier had shifted lines ABOVE them. Same functions, same
+ * reasons they belong to the class, new addresses — and the reach arm next to it had
+ * already been rewritten to measure rather than remember.
  *
- * THE LAST EDIT, AND WHY IT IS NOT THE ONE THIS GUARD WAS SUPPOSED TO STOP NEEDING
- *
- * Slice rid-b4 (2026-09-22): the three `slice-decompose-runners.ts` entries moved
- * 39/89/153 -> 74/127/191, a uniform +35, when Task 1 of that slice replaced the
- * two `JSON.parse(stdout)` sites in that file with `parseJson(stdout, schema)` and
- * the schemas' docblocks were inserted above them. Same three functions, same
- * reasons they are in the class; only the line moved. This is the third reason
- * above, and it is the ONE list whose entries are `file:line` — the reach
- * numbers next to it no longer need a hand edit at all (see the reach arm below).
- *
- * Slice rid 2026-10-03-job-ledger-repair1 (2026-10-03): the three
- * `job-commands.ts` entries moved 429/434/451 -> 430/435/452, a uniform +1, when
- * one specifier (`describeNextSlice`) was added to that file's existing import of
- * `job-progress-store.js`, above them. Same three functions, same reasons they are
- * in the class; only the line moved — the third reason again.
+ * What still fails: a site leaving the class (an `await`, a `Promise<…>`
+ * annotation, or the `async` going away), a new `async` with no await, no
+ * contract and no `throw`, and any edit to one of these fourteen lines. The
+ * failure message prints the measured `file:line` for each, so navigating to a
+ * site is still one click.
  */
 const PINNED_SITES: readonly string[] = [
-  'src/cli/commands/code-job-shape-commands.ts:55',
-  'src/cli/commands/job-commands.ts:430',
-  'src/cli/commands/job-commands.ts:435',
-  'src/cli/commands/job-commands.ts:452',
-  'src/services/adapter/codex-adapter.ts:17',
-  'src/services/adapter/copilot-adapter.ts:17',
-  'src/services/capability-guard-runner/contracts/J04.ts:24',
-  'src/services/capability-guard-runner/contracts/J05.ts:76',
-  'src/services/evolution/independent-evaluator-runner.ts:122',
-  'src/services/evolution/regression-skeptic-runner.ts:98',
-  'src/services/llm/stub-runner.ts:35',
-  'src/services/slice/slice-decompose-runners.ts:74',
-  'src/services/slice/slice-decompose-runners.ts:127',
-  'src/services/slice/slice-decompose-runners.ts:191'
+  'src/cli/commands/code-job-shape-commands.ts | async (opts: {',
+  'src/cli/commands/job-commands.ts | async (_jid) => {',
+  'src/cli/commands/job-commands.ts | async (jid) => ({ jobId: jid, cycle: 0 })',
+  'src/cli/commands/job-commands.ts | async () => ({ batchId: opts.batchId })',
+  'src/services/adapter/codex-adapter.ts | async detect() {',
+  'src/services/adapter/copilot-adapter.ts | async detect() {',
+  'src/services/capability-guard-runner/contracts/J04.ts | return { call: async () => ({ output, tokens: { input: 1, output: 1 } }) };',
+  'src/services/capability-guard-runner/contracts/J05.ts | return { call: async () => ({ output, tokens: { input: 1, output: 1024 } }) };',
+  'src/services/evolution/independent-evaluator-runner.ts | export const deterministicInvokeLlm: LlmInvoke = async (pkg) => {',
+  'src/services/evolution/regression-skeptic-runner.ts | export const deterministicInvokeSkepticLlm: SkepticLlmInvoke = async (pkg, prompt) => {',
+  'src/services/llm/stub-runner.ts | async call() {',
+  'src/services/slice/slice-decompose-runners.ts | async query(text, projectRoot) {',
+  'src/services/slice/slice-decompose-runners.ts | async status(projectRoot) {',
+  'src/services/slice/slice-decompose-runners.ts | async importsOf(projectRoot, files) {'
 ];
 function describeViolations(violations: readonly Site[]): string {
   if (violations.length === 0) return '';
@@ -211,6 +196,11 @@ function describeViolations(violations: readonly Site[]): string {
 
 function site(s: Site): string {
   return `${s.file}:${s.line}`;
+}
+
+/** A site as `PINNED_SITES` names it: the file, then the declaration line itself. */
+function siteKey(s: Site): string {
+  return `${s.file} | ${s.text}`;
 }
 
 function withFixtureProgram(
@@ -305,9 +295,16 @@ describe('Scenario: integration — the guard walks the real src/ + packages/ tr
     // Sorted on both sides — the walk yields them in the program's file order,
     // which is not a property worth pinning, and sorting keeps the diff readable
     // when one site leaves and another arrives in the same run.
-    expect([...result.violations.map(site)].sort(), describeViolations(result.violations)).toEqual(
-      [...PINNED_SITES].sort()
-    );
+    //
+    // Keyed on `siteKey` (the declaration text), while the message prints `site`
+    // (file:line): the assertion must not move when an edit above a site changes
+    // nothing about it, and a human reading a failure still wants the address.
+    expect(
+      [...result.violations.map(siteKey)].sort(),
+      `${describeViolations(result.violations)}\nmeasured keys: ${JSON.stringify(
+        [...result.violations.map((v) => `${site(v)} | ${v.text}`)].sort()
+      )}`
+    ).toEqual([...PINNED_SITES].sort());
   });
 });
 
@@ -455,8 +452,16 @@ describe('Scenario: behavior — the decision, on fixture programs', () => {
 describe('Scenario: render — the failure message names every site and the two ways out', () => {
   it('names each offending site and says what the reader has to decide', () => {
     const message = describeViolations([
-      { file: 'src/services/llm/stub-runner.ts', line: 35 },
-      { file: 'src/cli/commands/job-commands.ts', line: 349 }
+      {
+        file: 'src/services/llm/stub-runner.ts',
+        line: 35,
+        text: 'async call() {'
+      },
+      {
+        file: 'src/cli/commands/job-commands.ts',
+        line: 349,
+        text: 'async (_jid) => {'
+      }
     ]);
     expect(message).toContain('src/services/llm/stub-runner.ts:35');
     expect(message).toContain('src/cli/commands/job-commands.ts:349');

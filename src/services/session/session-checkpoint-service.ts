@@ -1,5 +1,4 @@
 /**
- * `peaks session checkpoint` — slice 011.
  *
  * Writes a JSON snapshot of the current session's state to
  * `_runtime/<sessionId>/checkpoints/<iso-timestamp>.json`. Idempotent —

@@ -1,12 +1,9 @@
 /**
- * Slice rid-024 — runtime probes: post-compact-detect / auto-compact /
  * context-now / context-audit / gate-step-08 / emit-handoff.
  *
- * Extracted from code-commands.ts (rid-024 split).
  * Owns: 6 sub-commands that read or mutate runtime state.
  * Owns the `readActiveSid` helper (only used by these runtime probes).
  *
- * Slice 2026-09-10-context-audit-and-discipline added `context-audit`
  * (what fills the window, grouped by tool + short input key).
  */
 
@@ -238,7 +235,6 @@ export function registerCodeRuntimeCommands(code: Command, io: ProgramIO): void 
       // Accepted and inert. There is no longer a 95% gate to skip: peaks-loop
       // cannot compact a running session, so the red line never blocked
       // dispatch and `bypassRedLine` is read by nothing (slice
-      // 2026-09-13-auto-compact-trigger-ownership, T3/A1). The flag is KEPT
       // rather than deleted because it is a published CLI surface — deleting it
       // would make an existing caller fail on an unknown option, which is a
       // harder break than a no-op — and because the honest fix here is to stop
@@ -386,7 +382,6 @@ export function registerCodeRuntimeCommands(code: Command, io: ProgramIO): void 
       try {
         const { readContextPercent } =
           await import('../../services/context/auto-compact-reader.js');
-        // rid-002: parse --prompt-size <bytes> defensively. CLI-layer
         // guard rejects non-finite / negative values; only finite
         // non-negative numbers reach the reader. Undefined → no override.
         let promptSizeBytes: number | undefined;
@@ -431,7 +426,6 @@ export function registerCodeRuntimeCommands(code: Command, io: ProgramIO): void 
         // host), so calling it twice with the same argument charged the witness
         // read it precedes — 0.027 ms — roughly 4,000x its own cost.
         const canonicalProjectRoot = resolveCanonicalProjectRoot(opts.project);
-        // Slice 2026-09-13-auto-compact-trigger-ownership (T1 + T2): materialize
         // the window this probe just divided by into the harness's own settings,
         // so "85%" here and the harness's own trigger are one point on one
         // scale. Idempotent (no write when the value is already in force) and a
@@ -449,7 +443,6 @@ export function registerCodeRuntimeCommands(code: Command, io: ProgramIO): void 
         // sentence; this one line rides `warnings` so a JSON consumer cannot
         // miss it either.
         const harnessWindowWarning = harnessWindowSyncWarning(harnessWindow);
-        // Slice 2026-09-13-statusline-window-witness (AC2/AC3): the harness's
         // own number for the same quantity, captured by the statusline. This is
         // OBSERVATION ONLY — it never feeds `verdict` / `action` / any threshold
         // below. A wrong reading here must not be able to fire a compact.
@@ -485,7 +478,6 @@ export function registerCodeRuntimeCommands(code: Command, io: ProgramIO): void 
               ? 'pre-compact'
               : action;
         const bands = contextNowBandLabels(compactMode);
-        // Slice H4: the text here used to claim "the two modes no longer differ
         // in behaviour ABOVE 0.50 — both auto-fire at ≥0.85 and both red-line at
         // ≥0.95". That was false: `partial` fires at 0.70, red-lines at 0.85.
         // The lines now come from the table for the mode in force.
@@ -509,18 +501,15 @@ export function registerCodeRuntimeCommands(code: Command, io: ProgramIO): void 
               rawBytes: probe.rawBytes ?? null,
               rawTokens: probe.rawTokens ?? null,
               capacityTokens: probe.capacityTokens ?? null,
-              // Slice 2026-09-09-context-window-override: which layer produced
               // capacityTokens (env-override | config | model-heuristic |
               // default) — null for byte/percent sources, which have no window.
               capacitySource: probe.capacitySource ?? null,
               bytesPrompt: promptSizeBytes ?? null,
               capturedAt: probe.capturedAt,
-              // Slice 2026-09-13-auto-compact-trigger-ownership: what the harness
               // window sync did on this probe. Reported rather than silent — the
               // harness tells a user who overrides the window only via
               // `/autocompact`, so peaks-loop must be the one that says it.
               harnessWindow,
-              // Slice 2026-09-13-statusline-window-witness: the second scale.
               harnessWitness
             },
             [
@@ -554,7 +543,6 @@ export function registerCodeRuntimeCommands(code: Command, io: ProgramIO): void 
                   ])
             ]
           ),
-          // Slice 2026-09-13-auto-compact-trigger-ownership: was hard-coded
           // `true`, which made the declared `--json` flag a no-op and left the
           // human with raw JSON and no `next:` lines — so a person running this
           // command could not see that peaks-loop had just written their
@@ -580,7 +568,6 @@ export function registerCodeRuntimeCommands(code: Command, io: ProgramIO): void 
     }
   );
 
-  // Slice 2026-09-10-context-audit-and-discipline (Slice A): visibility into
   // WHAT fills the orchestrator window. `context-now` returns a ratio; this
   // returns the grouped byte breakdown of tool results from the live
   // transcript. Read-only + fail-soft: an unavailable transcript reports
@@ -703,7 +690,6 @@ export function registerCodeRuntimeCommands(code: Command, io: ProgramIO): void 
         printResult(io, envelope, opts.json);
         return;
       }
-      // Slice 2026-09-10-three-fixes (Slice 2): proactive context-consumer
       // hint. Runs ONLY when the window is ≥ 0.70 full, caches the audit
       // result for ≥ 5 min so the transcript is scanned at most once per
       // TTL window, and is fail-soft (null → no extra line). It never
@@ -936,7 +922,6 @@ export function registerCodeRuntimeCommands(code: Command, io: ProgramIO): void 
   );
 }
 
-// Local helper (was `readActiveSid` in code-commands.ts before rid-024 split).
 // Only the 5 runtime probes above use it; keeping it local avoids the
 // cross-file helper import.
 function readActiveSid(projectRoot: string): string | null {

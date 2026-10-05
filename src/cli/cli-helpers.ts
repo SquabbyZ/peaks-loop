@@ -108,7 +108,6 @@ export function printCliEnvelope(io: ProgramIO, r: CliEnvelope): void {
 }
 
 /**
- * Slice rid-001 (P0-1 envelope closure) — canonical envelope shim
  * for `src/cli/index.ts`'s 3 raw `console.error(JSON.stringify(...))`
  * sites, plus `src/cli/program.ts:162`'s default `ProgramIO.stderr`
  * fallback.

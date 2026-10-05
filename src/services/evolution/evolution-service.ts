@@ -28,17 +28,12 @@ import {
  * Hard rules enforced at THIS layer (not just the Zod schema) so
  * the ratchet cannot be bypassed by a malformed input:
  *
- *   - AC-8:  exactly one target (target_count === 1) AND
  *            exactly one optimization dimension per round.
  *            Code:  EVOLUTION_MULTI_OBJECT, EVOLUTION_MULTI_DIMENSION.
- *   - AC-10: the scorer (evaluator) MUST NOT be the author.
  *            Code:  EVOLUTION_SELF_SCORE.
- *   - AC-11: a `keep` verdict is BLOCKED when
  *            score_delta < score_delta_min (default 1.0).
  *            Code:  EVOLUTION_DELTA_BELOW_THRESHOLD.
- *   - AC-12: evaluator_id MUST be a separate agent from
  *            author_id and skeptic_id.
- *   - AC-14: skeptic_id MUST be a separate agent from
  *            author_id and evaluator_id.
  *
  * The service is intentionally narrow: createProposal / score /
@@ -92,7 +87,6 @@ export class EvolutionService {
   }
 
   /**
-   * Persist a new EvolutionProposal. Enforces AC-8 (single object /
    * single dimension) BEFORE writing the row.
    *
    * The proposal id is auto-generated (`eval-<hex>`); callers supply
@@ -146,7 +140,6 @@ export class EvolutionService {
       throw err;
     }
 
-    // AC-8 defense in depth: in case a future schema version relaxes
     // the literal(true), still enforce at the service boundary.
     if (parsedInput.single_object !== true) {
       throw new EvolutionIntegrityError(
@@ -196,8 +189,6 @@ export class EvolutionService {
   }
 
   /**
-   * Score an existing proposal. Enforces AC-10 (no self-score:
-   * `evaluator_id !== proposal.author_id`) and AC-11 (delta
    * threshold: cannot mark `keep` when `score_delta <
    * score_delta_min`).
    *
@@ -236,7 +227,6 @@ export class EvolutionService {
       );
     }
 
-    // AC-10: scorer MUST NOT be the author.
     if (args.evaluator_id === existing.proposal.author_id) {
       throw new EvolutionIntegrityError(
         'EVOLUTION_SELF_SCORE',
@@ -244,7 +234,6 @@ export class EvolutionService {
         [{ path: 'evaluator_id', message: 'must differ from author_id' }]
       );
     }
-    // AC-12 / AC-14: skeptic and evaluator are SEPARATE agents.
     if (args.skeptic_id === existing.proposal.author_id) {
       throw new EvolutionIntegrityError(
         'EVOLUTION_SELF_SCORE',
@@ -292,7 +281,6 @@ export class EvolutionService {
       created_at: new Date().toISOString()
     };
 
-    // AC-11 (delta threshold) explicit guard: if the caller
     // explicitly asks to mark `keep` but delta < min, throw.
     if (verdict === 'needs-user-decision' && score_delta < min) {
       // The auto-derivation already pinned verdict to `revert`; the
@@ -314,9 +302,7 @@ export class EvolutionService {
   /**
    * Mark a verdict explicitly (after the user has confirmed via
    * natural-language or a pick). Enforces:
-   *   - AC-11: cannot mark `keep` when score_delta <
    *     score_delta_min.
-   *   - AC-15: `keep` requires a user_confirmation_pointer.
    *
    * Throws:
    *   - EvolutionIntegrityError(EVOLUTION_DELTA_BELOW_THRESHOLD)

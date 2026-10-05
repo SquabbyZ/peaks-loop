@@ -1,5 +1,4 @@
 /**
- * doctor-service facade (slice rid-004).
  *
  * Public entrypoint for the code-driven fixed-registry doctor
  * pipeline. Replaces the legacy 1309-line monolithic `runDoctor`

@@ -119,7 +119,6 @@ export function proofViolations(
  *
  *     }
  *                    ← blank
- *     // M-… internal: AC-1 markdown parse   ← the dropped line
  *                    ← blank
  *     type AuditEnvelopeGuard<T> = …
  *

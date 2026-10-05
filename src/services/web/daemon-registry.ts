@@ -1,5 +1,4 @@
 /**
- * File + lock IO for the `peaks web` daemon (slice S1, file 7).
  *
  * Isolated from the HTTP client so each is testable alone (tech-doc §2). Every
  * WRITE goes through `assertUnder` first — the slice-wide guard against an

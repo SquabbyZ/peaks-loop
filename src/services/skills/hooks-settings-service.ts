@@ -42,7 +42,6 @@ export {
  * Slice #1 refactor: this service delegates to the `IdeAdapter` for
  * `claude-code`. Slice #2 added Trae. Adapter provides `dirName` /
  * `settingsFileName` / `envVar` / `hookEvent` / `toolMatcher`. The Claude
- * install path is byte-level-compat with slice #0 (AC-1).
  *
  * Slice #3 refactor (this commit): the service is now per-IDE aware via an
  * optional `options.ide` parameter. The CLI command is responsible for
@@ -586,7 +585,6 @@ function shapeMatchesDesired(
     //     Presence alone cannot see a WRONG matcher, and a wrong matcher is not
     //     cosmetic: `''` and `Bash|Task` route the same command to different
     //     tool sets, so the entry is present while the hook never fires on the
-    //     tools it was installed for. Measured (rid `2026-09-13-compact-event-settle`,
     //     residual R2): a `PostCompact` entry hand-corrupted to matcher
     //     `auto|manual` survived `peaks hooks install` unchanged, and the
     //     installer was structurally unable to repair it.
@@ -740,13 +738,11 @@ export function applyHookInstall(
   if (baseResult.alreadyInstalled) {
     return { ...baseResult, applied: false };
   }
-  // Slice 2026-07-29-worktree-layer3-deny: Layer 3 — write the
   // `permissions.deny` block alongside the gate hook in a single atomic
   // write so the two halves of the install are always co-located. The
   // helper is idempotent and additive: any user-written deny entries
   // are preserved.
   //
-  // Slice 2026-07-29-worktree-l2-extended Part 29: also apply
   // withTriggeredDenyList. If the existing settings file has a
   // superpowers / git-worktree / podman-run entry (any source),
   // the install appends a defensive `Edit(deny-trigger:<phrase>)`
@@ -853,12 +849,10 @@ export function removeHookInstall(
     } else {
       delete nextSettings.hooks;
     }
-    // Slice 2026-07-29-worktree-layer3-deny: Layer 3 — symmetric uninstall.
     // Strips the peaks-managed `UseSkill(...)` deny entries alongside the
     // hook entries; user-written entries are untouched. The helper self-
     // decomposes an empty `permissions` object.
     //
-    // Slice 2026-07-29-worktree-l2-extended Part 29: also strip the
     // trigger-style deny entries via withoutTriggeredDenyList. The
     // chain of helpers is order-independent (each is idempotent and
     // additive over the same set of peaks-managed entries).
@@ -934,7 +928,6 @@ export function readHookStatus(
 }
 
 /**
- * Slice 2026-07-29-worktree-l2-extended Part 27 — trigger-style deny.
  *
  * In addition to the static SUPERPOWERS_DENIED_SKILLS list, peaks
  * scans the existing settings file for "trigger phrases" that

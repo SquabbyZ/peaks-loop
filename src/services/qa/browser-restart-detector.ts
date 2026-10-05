@@ -1,5 +1,4 @@
 /**
- * Slice 2026-06-16-playwright-restart-loop — G1.
  *
  * BrowserRestartDetector
  *

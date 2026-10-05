@@ -1,5 +1,4 @@
 /**
- * The ONE writer of `lastRunAt` in this repo — rid `2026-10-01-cron-last-run-at-01`
  * (backlog §2.24), repair cycle 1 (review F1/F4/F5). Lives in its own file because
  * `cron-commands.ts` sits at 287 of its 300 raw-line cap and
  * `cron-scheduler-commands.ts` is already over its own; the rule below is small
@@ -23,7 +22,6 @@
  * invocations across 6 ticks** for one entry with `intervalMs` 86,400,000 at the
  * 60,000 ms daemon period — a 1440× rate error against the declared interval, and the
  * rate half of
- * `.peaks/docs/diagnosis-2026-10-01-worktree-list-population.md` §9. The same
  * test observes **1** once the write-back below runs.
  *
  * THE RULE (persist AFTER the run, from the record's `finishedAt`):
@@ -32,8 +30,6 @@
  *      exactly its own `intervalMs` and not one ms longer;
  *   2. a run carrying `killed: true` does NOT advance it, in EITHER entry point.
  *      Work cut off mid-flight is not a day's work, so the task stays due and is
- *      retried. What that costs is NOT uniform across platforms, and F3 of the
- *      review is the reason this paragraph is platform-shaped instead of global:
  *      - win32: the only fire shape that reaches `killed: true` here is the exec
  *        timeout (`cron-commands.ts:178-185`, spawnSync's `error.code ===
  *        'ETIMEDOUT'` branch), and that fire BLOCKS its caller for the whole
@@ -67,7 +63,6 @@
  *      running one…"); and entries `toScheduleEntry`
  *      (`cron-commands-schedule.ts:129-150`) REJECTS — a hand-edited entry missing
  *      `name`, say — are carried through as the raw JSON they were written as,
- *      appended after the parsed ones. F5 of the review: before this they were
  *      silently DELETED by the daemon's first write, which is data loss on a
  *      long-lived process nobody is watching. An unparseable entry with the same `id`
  *      as a parsed one is the one thing still dropped, because two entries under one

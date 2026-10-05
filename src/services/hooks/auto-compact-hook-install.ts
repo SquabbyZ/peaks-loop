@@ -1,5 +1,4 @@
 /**
- * Slice 2026-07-02-auto-compact-zero-pause — `ide-native` pathway
  * hook install/remove service.
  *
  * Writes the auto-compact PreToolUse hook into the consumer

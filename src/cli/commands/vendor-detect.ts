@@ -1,7 +1,6 @@
 /**
  * Phase B Task 20: peaks vendor-detect CLI.
  * Reports which vendor CLIs are installed on PATH + recommends default.
- * Spec: docs/superpowers/specs/2026-08-10-peaks-detached-sub-agent-design.md §3.3
  */
 import type { Command } from 'commander';
 import { addJsonOption, printResult, type ProgramIO } from '../cli-helpers.js';
@@ -18,8 +17,6 @@ export async function vendorDetect(opts: { json: boolean }) {
 }
 
 /**
- * `peaks vendor-detect` CLI registration (rid-001 redo).
- * Slice 2026-08-11 detached-sub-agent-design §3.3 + §5.3 — register the
  * previously-dead-coded `vendorDetect()` handler at the top-level program
  * surface so `peaks vendor-detect --json` actually reaches it (was
  * dead-coded at the CLI seam even though the handler existed).

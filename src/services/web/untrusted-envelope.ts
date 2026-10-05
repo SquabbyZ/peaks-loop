@@ -1,5 +1,4 @@
 /**
- * UNTRUSTED page-content envelope (slice S1, AC4 / R4).
  *
  * This MITIGATES prompt injection from page content; it does not solve it. No
  * string in this module (or in any help text, comment, or warning built on it)

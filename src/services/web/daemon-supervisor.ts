@@ -1,5 +1,4 @@
 /**
- * CLI-side daemon lifecycle: reuse, cold start, stop (slice S1, file 8).
  *
  * The CLI process is short-lived; the daemon is not. `ensureDaemon` is the
  * whole cold-start/warm path from tech-doc §1.4. The lock exists because Q10

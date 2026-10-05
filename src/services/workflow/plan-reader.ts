@@ -1,5 +1,4 @@
 /**
- * `peaks workflow plan read` — slice 025 (Security + Perf Plan/Result split).
  *
  * Returns the envelope `{ exists, path, hash, refreshedAt }` for the
  * session-scoped security-test-plan or perf-baseline plan. The hash is
@@ -24,7 +23,6 @@ export type PlanType = 'security' | 'perf';
 /** Back-compat env-var. When set to "1", fall back to legacy paths. */
 export const BACK_COMPAT_FLAG = 'PEAKS_PLAN_LEGACY_FALLBACK';
 
-/** F-1 (slice 025 security): canonical session-id shape. */
 export const SESSION_ID_PATTERN = /^\d{4}-\d{2}-\d{2}-[a-z][a-z0-9-]*[a-z0-9]$/;
 
 export interface ReadPlanArgs {
@@ -93,7 +91,6 @@ function buildData(args: {
 }
 
 /**
- * F-2 (slice 025 security): resolve symlinks and confirm the real path
  * still lives under the expected base directory. A canonical path
  * may itself be a symlink (or a directory in the path chain may be),
  * which would let a malicious or accidental symlink escape the
@@ -120,7 +117,6 @@ function assertContained(args: {
       message: `resolved path escapes base directory: cannot resolve ${args.path}`
     };
   }
-  // Slice 2026-06-13-repair-pre-existing-test-failures: realpath the
   // expectedBase too. On macOS the OS exposes /tmp and
   // /var/folders/... as symlinks to /private/tmp and
   // /private/var/folders/.... `mkdtempSync` returns the unresolved
@@ -147,7 +143,6 @@ function assertContained(args: {
 }
 
 export function readPlan(args: ReadPlanArgs): ResultEnvelope<ReadPlanData> {
-  // F-1 (slice 025 security): reject path-traversal payloads before any
   // filesystem call. The CLI also validates, but the service is the
   // authoritative gate — every caller (CLI, skill, integration test)
   // benefits from the same rejection shape.

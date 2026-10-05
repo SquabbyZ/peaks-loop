@@ -1,7 +1,6 @@
 /**
  * bundle-reader.ts — readBundle(inPath) (spec §7A.2).
  *
- * M7 / spec §7A.2 / §10 RL-9 / acceptance AC-25 / AC-26.
  *
  * Reads a `peaks.bundle/1` tar.gz and lands the contained release
  * on the local SkillHub. The reader is the symmetrical counterpart
@@ -18,7 +17,6 @@
  *   3. The imported release ALWAYS lands as `candidate`. The
  *      reader refuses to write any other status; the receiver
  *      MUST run an independent evaluation before promoting the
- *      imported release to `stable` (AC-26 — peaks loop promote
  *      reads evolution_evaluation rows).
  *
  * Slice 4 (PRD-002b): split the four high-cohort functions
@@ -133,7 +131,6 @@ export type ReadBundleArgs = {
 /**
  * Successful read result. The reader lands the bundle as a
  * `candidate` regardless of any other lifecycle status on the
- * source — this is the hard import rule per spec §7A.2 / AC-25.
  */
 export type ReadBundleResult = {
   /** Anchor asset id actually written. */
@@ -160,7 +157,6 @@ function readSourceLifecycle(release: Record<string, unknown>): string {
 }
 
 /**
- * Enforce the AC-25 hard rule: bundles always land as `candidate`;
  * any other source status is refused. Layered at every import site
  * for defense in depth.
  */

@@ -1,5 +1,4 @@
 /**
- * Playwright resolution shim (slice S1, file 9; S3 hardened the scan).
  *
  * `playwright` is deliberately NOT a dependency (PRD non-goal): it is fetched
  * by `npx --package playwright@<pin>`. That has one sharp edge, verified on

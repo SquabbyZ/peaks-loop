@@ -1,6 +1,5 @@
 /**
  * The `peaks web` daemon contract — on-disk (`daemon.json`) and on-the-wire
- * (`POST /op`) in one place (slice S1, files 5/6).
  *
  * `parseDaemonInfo` validates both shape and `PROTOCOL_VERSION`, so a daemon
  * left over from an older protocol is rejected (and therefore killed and

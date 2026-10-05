@@ -108,7 +108,6 @@ function normalizeLeaseId(value: string | null): string | null {
  * tool input — only "worktree" isolation is gated. For all other tool kinds the worktree gate is a
  * no-op.
  *
- * slice 2026-07-29-worktree-l2-extended Part 2.B: the gate consults the lease file referenced by
  * `PEAKS_WORKTREE_LEASE_ID` as a second authorization path when no `peaks worktree auth grant` is on
  * file. Dispatch (Part 2.C) injects the env var on every sub-agent spawn so worktree-mutating tool
  * calls from inside the sub-agent process auto-authorize via the lease instead of requiring a
@@ -140,7 +139,6 @@ function buildWorktreeAuthInput(
  * call was denied (a hard block has already been emitted and the handler must stop) and `false`
  * when the flow should continue to the SOP gate. `Other` tool kinds are not gated at all.
  *
- * slice 2026-07-27-worktree-user-auth: BEFORE the SOP gate runs, check the worktree authorization
  * gate. The worktree gate is narrower than the SOP gate (it only inspects a small set of
  * worktree-mutating operations) and is fail-CLOSED. The two layers are complementary: SOP gates
  * decide "may this command run under this SOP's state", the worktree gate decides "did the user
@@ -219,7 +217,6 @@ export function emitAllowWorktree(io: ProgramIO, options: GateEnforceCliOptions)
 }
 
 /**
- * PRD#2 (2026-06-16-fact-forcing-gate-format): a true SOP gate failure is a HARD block. emitBlock
  * writes the Claude Code permissionDecision:"deny" JSON to stdout (the hook's decision signal),
  * sets process.exitCode = 2 (Claude Code's block exit code), AND surfaces the reason to stderr so
  * the LLM sees it on the next turn. This prevents the previous behaviour where Claude Code wrapped
@@ -248,7 +245,6 @@ export function emitSopWarnings(io: ProgramIO, decision: SopAllow): void {
 /**
  * SOP gate allowed the command. --json mode emits the canonical envelope on stdout (the documented
  * contract for downstream tooling). The hook decision (allow/deny) is still signalled via
- * process.exitCode + the minimal `{}` on stdout in non-`--json` mode. Slice 2026-07-30-nightshift:
  * emitHint here was wrong — emitHint writes to stderr, but the AC5 contract expects the JSON
  * envelope on stdout. Switch to printResult(asJson=true).
  */

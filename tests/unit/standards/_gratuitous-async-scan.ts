@@ -49,6 +49,12 @@ export interface Site {
   /** Repo-relative, POSIX separators — the form an operator can paste. */
   readonly file: string;
   readonly line: number;
+  /**
+   * The whole declaration line, trimmed. This is the part of a site that survives an edit
+   * above it: the line number moves when a comment is deleted 200 lines earlier, and a
+   * site that only MOVED is not a site that CHANGED. See `PINNED_SITES` in the test.
+   */
+  readonly text: string;
 }
 
 export interface Scan {
@@ -360,9 +366,14 @@ export function scan(
           const own = inspectOwnScope(checker, node);
           const exemptAsThenable = own.returnsThenable || expressionBodyIsThenable(checker, node);
           if (!own.hasAwait && !own.hasThrow && !hasPromiseAnnotation(node)) {
+            const at = sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile));
+            const starts = sourceFile.getLineStarts();
             const site: Site = {
               file: rel,
-              line: sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile)).line + 1
+              line: at.line + 1,
+              text: sourceFile.text
+                .slice(starts[at.line] ?? 0, starts[at.line + 1] ?? sourceFile.text.length)
+                .trim()
             };
             withoutThenableExemption.push(site);
             if (!exemptAsThenable) violations.push(site);

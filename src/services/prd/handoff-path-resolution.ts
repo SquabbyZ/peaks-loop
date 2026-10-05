@@ -1,6 +1,5 @@
 /**
  * Slice `b1-filesplit-campaign` (wave 3) — verbatim extraction of the handoff
- * capsule PATH layer from `./handoff-service.ts` (the id guard, the rid-scoped
  * write path and the consumer-side resolver) so that module clears the 300
  * raw-line cap. No guard, no message string and no join changed;
  * `handoff-service.ts` re-exports both public names from its own path, so no
@@ -16,8 +15,6 @@ import { REQUEST_ID_PATTERN } from '../artifacts/request-artifact-service.js';
 
 /**
  * Both ids in a handoff path are caller-supplied path segments, so both are
- * checked at the join. Added 2026-09-14 (repair R1, security audit F2 of
- * `2026-09-14-cli-id-escape-instrumentation`).
  *
  * This function was introduced by `0536d5bd` — the commit that instrumented
  * this defect class — with neither id checked, and it sat outside rule D's
@@ -53,7 +50,6 @@ function assertSafeHandoffIds(sessionId: string, requestId: string): void {
 /**
  * The canonical capsule path for ONE SLICE, relative to the project root.
  *
- * Slice `2026-09-14-prd-capsule-rid-scoping`: the capsule used to be one slot
  * per SESSION (`prd/handoff.md`), so the second slice's handoff silently
  * overwrote the first slice's — and `AUDIT_REQUIRES_HANDOFF` stayed green
  * because it never checked WHOSE rid the file named. Measured on
@@ -61,9 +57,7 @@ function assertSafeHandoffIds(sessionId: string, requestId: string): void {
  * capsule left by a different line of work.
  *
  * This is the WRITE target, so it always carries the rid — a consumer-side
- * fallback here would leave a rid-scoped requirement with a bare-name writer,
  * which is the defect shape this slice exists to remove. Readers that must
- * tolerate pre-rid-scoping sessions call `resolveHandoffPath` instead.
  */
 export function handoffRelativePath(sessionId: string, requestId: string): string {
   assertSafeHandoffIds(sessionId, requestId);
@@ -71,18 +65,14 @@ export function handoffRelativePath(sessionId: string, requestId: string): strin
 }
 
 /**
- * The capsule a CONSUMER should read for (session, requestId): the rid-scoped
- * path when it is on disk, else the pre-rid-scoping bare name. Returns null
  * when neither exists.
  *
  * Three sessions on disk still hold only the bare file
- * (`2026-09-06-session-a87ca4`, `2026-09-12-session-e37ef0`,
  * `2026-09-13-session-21878f`), so the legacy tier has to keep resolving for
  * the gate and for every reader below.
  *
  * `requestId` is optional because the detect-only audit surface reaches its
  * service without one. Such a caller can name only the bare path: a session
- * holding nothing but rid-scoped capsules reports missing rather than picking
  * among its siblings' capsules, which would re-open the cross-slice mix-up
  * this scoping exists to close (fail closed, not "some capsule is there").
  */

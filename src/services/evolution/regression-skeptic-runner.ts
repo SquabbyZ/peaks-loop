@@ -7,7 +7,6 @@ import type {
 import { buildEvaluationPackage, type EvaluationPackage } from './independent-evaluator-runner.js';
 
 /**
- * RegressionSkepticRunner — spec §6.1 #4 / AC-14.
  *
  * The regression skeptic is a SEPARATE sub-agent (independent of
  * the author AND the independent evaluator). Its job is to

@@ -170,7 +170,6 @@ export function readProjectMemories(projectRoot: string): ProjectMemoryReadResul
  * Read a single project memory's full body by name. Returns null when
  * the memory does not exist. The on-disk body is returned verbatim
  * (pretty). The CLI layer applies `formatMdCompact` when `format: 'compact'`
- * is requested. Slice 023 (R3).
  */
 export function readProjectMemoryBody(
   projectRoot: string,

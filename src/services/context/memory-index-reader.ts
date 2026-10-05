@@ -7,7 +7,6 @@ import type { MemoryIndexEntry } from '../memory/memory-search-service.js';
 const LAYER_A_RE = /peaks-feedback-promoted:\s*layer=A\b/;
 
 /**
- * Slice 2026-09-09-memory-retrieval: the two tiers the orchestrator
  * preflight ranks over.
  *
  * - `hot`  — standing rules / feedback / decisions. Always eligible.
@@ -40,7 +39,6 @@ export class MemoryIndexReader {
   }
 
   /**
-   * Slice 2026-09-09-memory-retrieval: read the index as tiers.
    *
    * Returns `null` when `.peaks/memory/index.json` is absent or
    * unreadable — the caller distinguishes "no index" from "index with

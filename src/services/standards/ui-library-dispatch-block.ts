@@ -1,5 +1,4 @@
 /**
- * Slice 2026-09-06-ui-lib-dispatch-priority: render a `## Project stack`
  * markdown block for the RD/UI sub-agent dispatch system prompt, and the
  * dispatch-site convenience wrapper that computes it from a project root.
  *

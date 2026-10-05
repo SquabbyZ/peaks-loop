@@ -49,7 +49,6 @@ function statusLineAlreadyInstalledForScope(
 }
 
 /**
- * Slice 2026-09-10-context-audit-and-discipline (Slice B): bounded view of
  * the doctor envelope. The `checks` array (one object per check, each with a
  * full message) and the stale-binding instance list collapse to counts +
  * names-of-first-N; the summary counters and log section are scalars and are
@@ -113,7 +112,6 @@ function doctorStatusLineInstalledProbe(): boolean {
   }
 }
 
-// Slice 021/022: the on-disk home a `peaks session info --active` lookup
 // resolved the binding from. `canonical` = .peaks/_runtime/session.json (the
 // post-slice-006 home); `legacy` = .peaks/.session.json (read-only back-compat).
 // Callers / migration tooling detect pre-migration trees by `source === 'legacy'`.
@@ -127,12 +125,10 @@ export type DoctorLogsSection = {
   level: string;
 };
 
-// Slice v2.16.0 AC-10: stale binding TTL is 5 minutes by default. The
 // threshold is exposed as a CLI flag so users can tune it for
 // long-running sessions.
 const STALE_TTL_MS = 5 * 60 * 1000;
 
-// Slice v2.16.0 AC-10: identify stale instances (lastHeartbeat > 5min)
 // in the project-level binding. Used by `peaks doctor` and surfaced as
 // a warning in the report. Returns the stale entry descriptors.
 function listStaleInstances(
@@ -152,7 +148,6 @@ function listStaleInstances(
   return stale;
 }
 
-// Slice 2026-06-16-cli-logging (AC6) — `peaks doctor --log` section.
 //
 // `buildDoctorLogsSection` reads the on-disk log dir and returns the
 // metadata the doctor needs to render the "logs" block. It is
@@ -185,7 +180,6 @@ async function buildDoctorLogsSection(): Promise<DoctorLogsSection> {
   };
 }
 
-// Slice 2026-06-16-cli-logging (AC6): `peaks doctor --log` adds a
 // "logs" section to the doctor output (logDir, today's file name,
 // size, retention policy, level). Useful for the user when they
 // want to attach a quick log snapshot to a bug report without
@@ -318,7 +312,6 @@ export function registerDoctorCommand(program: Command, io: ProgramIO): void {
         logsSection = await buildDoctorLogsSection();
       }
 
-      // v2.16.0 AC-10: scan binding for stale instances.
       const ttl = options.staleTtlMs !== undefined ? Number(options.staleTtlMs) : STALE_TTL_MS;
       const staleInstances = listStaleInstances(projectRoot, ttl);
       let droppedStale: string[] = [];
@@ -341,7 +334,6 @@ export function registerDoctorCommand(program: Command, io: ProgramIO): void {
       // Slice B: `--summary` is opt-in and affects the JSON envelope only (the
       // human-readable path below already prints one line per check).
       const data = options.summary === true ? buildDoctorSummary(fullData) : fullData;
-      // Slice 2026-08-05-statusline-sid-only-marker-and-multi-binary-drift-guard
       // repair cycle: `report.summary.ok` already factors in the
       // severity-aware aggregation in `buildReport` (warnings do NOT
       // flip `ok`). Stale-binding is independent and still escalates.
@@ -363,7 +355,6 @@ export function registerDoctorCommand(program: Command, io: ProgramIO): void {
         printResult(io, result, true);
       } else {
         // Human-readable: one line per check, green/red indicators, no JSON.
-        // Slice 2026-08-05-statusline-sid-only-marker-and-multi-binary-drift-guard
         // repair cycle: warn-only findings (severity: 'warning') surface
         // as `! check.ok` with the `! ` (warning) glyph so the operator
         // can tell them apart from real errors without reading JSON.
@@ -409,7 +400,6 @@ export function registerDoctorCommand(program: Command, io: ProgramIO): void {
           io.stdout(`\n  ${report.summary.warnings} warning(s) present — exit code 0 (warn-only).`);
         }
       }
-      // Slice 2026-08-05-statusline-sid-only-marker-and-multi-binary-drift-guard
       // repair cycle: `report.summary.ok` already factors in the
       // severity-aware aggregation in `buildReport` (warnings do NOT
       // flip `ok`). The exit-code gate remains `summary.ok &&

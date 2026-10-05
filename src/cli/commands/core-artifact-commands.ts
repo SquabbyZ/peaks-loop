@@ -11,7 +11,6 @@ import { registerSkillCommand } from './core/skill-command.js';
 import { registerStandardsCommand } from './core/standards-command.js';
 
 // Re-export the public surface so existing consumers
-// (`src/cli/program.ts`, `tests/unit/cli-command-branches.test.ts`,
 // any future callers needing the `peaks doctor --log` section type)
 // keep importing everything from `core-artifact-commands.js` without
 // needing to know the internal sub-module split.
@@ -20,7 +19,6 @@ export type { DoctorLogsSection, BindingSource } from './core/doctor-command.js'
 /**
  * Top-level CLI command registrar for the "core + artifact" surface.
  *
- * Slice 2026-06-24-handoff-path-canonicalization split this orchestrator
  * out of a single 889-line file so each subcommand group lives in its
  * own module under `src/cli/commands/core/`. The orchestrator stays
  * thin (~this file) and forwards to the per-group registrars; the

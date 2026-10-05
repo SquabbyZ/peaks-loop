@@ -38,7 +38,6 @@ export function serializeHandoff(handoff: Handoff): string {
  * readable handoff was satisfied by a handoff the parser would not read, and
  * `peaks prd handoff verify` exited 1 on a healthy file.
  *
- * Slice `2026-09-14-handoff-writer-gate-divergence` then fixed the other half:
  * the writer no longer emits the quoted form at all (see
  * `handoff-frontmatter.ts`). This tolerance stays because handoffs already on
  * disk were written by the old writer and by hand; the writer fix must not
@@ -53,7 +52,6 @@ export function isSchemaVersion2(value: unknown): boolean {
  * strings — an ARRAY here is the pre-B1 shape its own test file used to
  * write, and it is a broken declaration, not a claim.
  *
- * F2 of `rid-b1-qa` removed this function's own copy of the shape rule. It
  * used to be a second predicate (same boundary, different downstream result)
  * that let the same bytes read one way here and another way through
  * `readHandoffGateEvidence`; both now ask `classifyGateEvidence`. Only

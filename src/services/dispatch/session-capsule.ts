@@ -1,5 +1,4 @@
 /**
- * Slice 2026-09-10-dispatch-token-and-swarm §4 — session capsule reader.
  *
  * The orchestrator publishes already-known background ONCE per session
  * through the existing G8.4 channel:

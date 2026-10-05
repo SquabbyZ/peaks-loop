@@ -28,7 +28,6 @@ export function planRollback(): RollbackPlan {
 export function executeRollback(opts: { apply: boolean }): RollbackResult {
   const plan = planRollback();
   if (!plan.available) {
-    // rid 2026-09-13-two-decisions ①: a machine that never migrated has no
     // `.bak`, and that is its normal state — `--apply` on such a machine is
     // "nothing to roll back", not a failure. Returned instead of thrown so the
     // exit status and the `available` key agree on every path; see

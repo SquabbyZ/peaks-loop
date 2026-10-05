@@ -1,5 +1,4 @@
 /**
- * Slice 2026-08-06-codegate-vendor-neutral — Code-Gate core logic.
  *
  * Vendor-neutral PreToolUse gate. Reads the standard `{tool, input}`
  * JSON hook payload (any IDE / harness using this protocol is

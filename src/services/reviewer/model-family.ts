@@ -1,6 +1,5 @@
 /**
  * model-family.ts — derive `modelFamily` from a `modelId` for the G4
- * third-party reviewer. AC-4.4 requires that
  * `third-party-review.json.modelFamily !== karpathy-review.json.modelFamily`,
  * so the family bucket must be stable, provider-distinguishing, and
  * version-tolerant (e.g. `claude-opus-4-8` and `claude-haiku-4-5` both

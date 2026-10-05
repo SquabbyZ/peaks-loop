@@ -281,7 +281,6 @@ export function isConfigLayer(value: string): value is ConfigLayer {
 /**
  * Machine-scoped context-window override key, the config twin of the
  * `PEAKS_CONTEXT_WINDOW_TOKENS` env var (slice
- * 2026-09-09-context-window-override). Written with
  * `peaks config set --key context.windowTokens --value <positive-int>`
  * (user layer) so the user pins it once instead of exporting an env var
  * in every shell.

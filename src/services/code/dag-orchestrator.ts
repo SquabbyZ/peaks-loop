@@ -71,7 +71,6 @@ export interface RunDagOptions {
    * Pre-existing contracts from upstream slices (e.g. already completed in
    * a prior `peaks sub-agent dispatch --from-dag` invocation). The
    * orchestrator splices these into downstream dispatch prompts via
-   * `formatContractInjection(ancestors)` — matching AC-4.c: "B / C / D
    * dispatch prompt 自动注入 A 契约".
    */
   readonly existingContracts?: readonly SliceContract[];
@@ -401,7 +400,6 @@ export async function runLayeredDag(dag: SliceDag, opts: RunDagOptions): Promise
 }
 
 /* ──────────────────────────────────────────────────────────────────────────
- * Slice 2026-07-28 — DAG wave + barrier (rid-029 E direction).
  *
  * The original `runDag` + `runLayeredDag` above dispatch an ENTIRE
  * topological level in one `Promise.all` burst. For 24-hour scenarios

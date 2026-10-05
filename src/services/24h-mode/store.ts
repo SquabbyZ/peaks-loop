@@ -2,7 +2,6 @@
  * 24h mode persistence — atomic JSON snapshot under
  * `.peaks/_runtime/<sessionId>/24h-state.json`.
  *
- * Rid-020a (state-only slice). The store never invents a session id:
  * the caller passes one (the CLI resolves it from `.peaks/_runtime/session.json`).
  * Writes use the temp-file + rename pattern so a crash mid-write never
  * leaves a half-written state file (atomic on POSIX, near-atomic on

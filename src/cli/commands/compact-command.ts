@@ -1,7 +1,6 @@
 /**
  * `peaks compact *` — strategic-compact CLI primitives.
  *
- * Slice 2026-07-01-strategic-compact-cli. Five subcommands under a new
  * top-level `peaks compact` group:
  *
  *   - suggest:    PreToolUse-style two-signal suggestion (context size
@@ -593,7 +592,6 @@ export function registerCompactCommands(program: Command, io: ProgramIO): void {
     }
   });
 
-  // 6. peaks compact history [--json] (slice 2026-07-30-compact-visibility)
   addJsonOption(
     compact
       .command('history')
@@ -660,7 +658,6 @@ export function registerCompactCommands(program: Command, io: ProgramIO): void {
             return;
           }
           const summary = summarizeCompactHistory(result.events);
-          // Slice 2026-09-13-auto-compact-trigger-ownership (T4): the
           // intent-vs-observed record. `pairs[i].requestedTokens` is the token
           // point peaks-loop asked for; `observedTokens` is what the next real
           // session actually measured. Unmeasured pairs are reported as such —
@@ -692,7 +689,6 @@ export function registerCompactCommands(program: Command, io: ProgramIO): void {
   );
 
   // 7. peaks compact harness-window [--reset | --disable | --reenable]
-  //    (slice 2026-09-13-auto-compact-trigger-ownership, T1 + T2)
   //
   // The window peaks-loop divides by and the window the harness compacts
   // against must be ONE number, or "95%" lands at two different token counts.
@@ -893,7 +889,6 @@ export function registerCompactCommands(program: Command, io: ProgramIO): void {
   );
 
   // 8. peaks compact settle [--json]
-  //    (slice 2026-09-13-compact-event-settle)
   //
   // The `PostCompact` hook's transport. Before this command, peaks-loop knew a
   // compaction had landed only because a LATER probe measured a ratio that had

@@ -1,5 +1,4 @@
 /**
- * Slice 2026-09-09-mode-consolidation (Slice B): auto-engage may set the
  * 24h MODE — and ONLY the 24h mode.
  *
  * `24h` is the single mode that may be set without an explicit user pick

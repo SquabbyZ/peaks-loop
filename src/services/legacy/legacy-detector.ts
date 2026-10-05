@@ -52,7 +52,6 @@ const PATTERNS: ReadonlyArray<{ kind: LegacyKind; regex: RegExp }> = [
 
 /**
  * NOT the file-size cap, and NOT a second copy of it — decided 2026-09-30, rid
- * `2026-09-30-cap-unify-01` repair cycle (F6), and recorded in
  * `.peaks/docs/lint-gate.md` §4b row 7 so the next reader does not re-litigate it.
  *
  * This is a legacy SMELL heuristic: a number above which a file is big enough to

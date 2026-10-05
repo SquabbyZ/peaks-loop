@@ -1,10 +1,8 @@
 /**
- * D2 (rid 2026-10-03-job-ledger-truthfulness) — can this commit sha be proved to
  * exist in this repository?
  *
  * WHY THIS EXISTS. `peaks job checkpoint --state done --commit-sha <sha>` checked
  * only `sha.length >= 7` (`job-orchestrator.ts:55`), so a typo'd sha was accepted
- * and written into the ledger. Measured 2026-10-02 on `2026-10-02-c-wave9`, and
  * again for this slice against the committed build: a 12-hex string that
  * `git cat-file` calls `Not a valid object name` produced `ok: true` and a
  * `state.json` whose `commitSha` named it. A ledger that points at a commit which

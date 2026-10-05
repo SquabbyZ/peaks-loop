@@ -65,7 +65,6 @@ export function registerCodeModeShouldPause(
           'session is NOT authoritative.'
       )
       .requiredOption('--step <step>', `one of: ${GATED_STEPS.join(', ')}`)
-      // v2.18.4 slice 002-fix-first-run-step-gates (Bug 2):
       // `--mode` is now OPTIONAL. Step 1's SEMANTIC is "ask the user
       // what mode to use" — requiring --mode to ask mode is a
       // chicken-and-egg. When --mode is omitted, default to
@@ -181,7 +180,6 @@ function validateHardFloorAndCommitBoundary(opts: ShouldPauseOptions): FloorsVal
       )
     };
   }
-  // v2.15.0 slice 002 repair (QA blocker): validate the
   // --commit-boundary-action flag at the CLI boundary. The
   // service-layer `shouldPauseAtGate` accepts a boolean
   // `commitBoundaryAction: true`; this flag tells the CLI to
@@ -204,7 +202,6 @@ function validateHardFloorAndCommitBoundary(opts: ShouldPauseOptions): FloorsVal
 }
 
 /**
- * Slice 002 (v2.15.0) AC-2: when the caller is asking about Step 1 AND the
  * recorded presence is stale, the CLI overrides the gate decision to PAUSE.
  * Returns `null` when the check does not apply (not a swallow — no catch, no
  * error path, just the branch HEAD did not take).
@@ -223,7 +220,6 @@ function runShouldPauseAction(
   readActiveSid: ReadActiveSid
 ): void {
   try {
-    // v2.18.4 slice 002-fix-first-run-step-gates (Bug 2):
     // --mode is optional. Default to 'full-auto' when omitted
     // so step-1-mode-select can run without forcing the caller
     // to know the mode up front. The gate's hard-pause on

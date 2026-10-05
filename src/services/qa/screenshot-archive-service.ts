@@ -1,5 +1,4 @@
 /**
- * rid-012 (2026-07-27) — screenshot archive service.
  *
  * Purpose: enforce the peaks-qa SKILL.md "Hard contracts for browser
  * validation" Contract 1 — every Playwright screenshot MUST land under

@@ -1,5 +1,4 @@
 /**
- * Slice 003-2026-06-16-hook-governance — single source of truth for the
  * peaks hook output contract. See `.claude/HOOKS.md` for the canonical doc.
  *
  * Three helpers, one job: enforce the stdout/stderr/exit-code discipline

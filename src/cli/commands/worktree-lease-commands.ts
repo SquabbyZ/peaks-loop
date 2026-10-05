@@ -50,7 +50,6 @@ export function resolveProjectRoot(options: { project?: string }): string {
 }
 
 export function registerWorktreeLeaseCommands(auth: Command, io: ProgramIO): void {
-  // Slice 2026-07-29-worktree-l2-extended Part 1 — `peaks worktree spawn`
   // and `peaks worktree release`. These commands own the lease lifecycle:
   // spawn writes a lease + runs `git worktree add`; release runs `git
   // worktree remove` + transitions the lease to 'released'. The remaining

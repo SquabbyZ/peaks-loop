@@ -3,7 +3,6 @@
  *
  * Cleanup command for projects upgraded from peaks-loop 1.4.1 → 1.4.2.
  *
- * Slice 006 (1.4.0) moved the canonical per-session root to
  * `.peaks/_runtime/<sid>/`. Per-request artifacts (PRD, RD, QA, SC requests)
  * were written to the new root, but per-session artifacts (tech-doc.md,
  * code-review.md, test-cases/<rid>.md, etc.) were kept at the legacy

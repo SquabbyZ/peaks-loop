@@ -1,5 +1,4 @@
 /**
- * `peaks worktree auth <grant|revoke|status>` — slice 2026-07-27-worktree-user-auth.
  *
  * Records (or revokes / inspects) a current-task user authorization for
  * a worktree-mutating operation. The PreToolUse gate

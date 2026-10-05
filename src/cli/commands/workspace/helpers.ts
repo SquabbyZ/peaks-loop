@@ -2,7 +2,6 @@
  * Shared helpers for `peaks workspace <sub-command>` implementations.
  *
  * Extracted from `src/cli/commands/workspace-commands.ts` (slice
- * 2026-06-16-workspace-commands-split) so multiple sub-command files can
  * reuse the same hooks-decision marker + prompt logic. Pure helpers
  * only — no commander / no service calls. Keeping these here means the
  * per-subcommand files stay focused on their command wiring and option

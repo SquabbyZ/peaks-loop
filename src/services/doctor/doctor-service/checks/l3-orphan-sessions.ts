@@ -6,7 +6,6 @@
  * subdirs that intentionally live under `.peaks/_runtime/`
  * (e.g. `change/`, which routes reviewable artifacts per F3).
  *
- * Slice 2026-06-24-doctor-1xdetector-residual regression net: the
  * reducer MUST exclude `change/` (and other system subdirs added
  * by future F3 changes) — without the exclude-list the doctor
  * flips the summary to fail on every clean workspace, which broke

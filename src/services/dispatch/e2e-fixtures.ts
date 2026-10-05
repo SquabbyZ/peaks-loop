@@ -1,7 +1,6 @@
 /**
  * e2e-fixtures — pure reader for `qa/e2e/<slice>/<scenario>/*.md`.
  *
- * Slice 2026-08-01-subagent-merge-and-e2e (Task 4). The parent session
  * calls `peaks e2e verify --slice <rid>` after the merge-back step. The
  * CLI delegates to `runE2EVerify` (Task 10), which uses this reader to
  * enumerate the fixtures for the slice. The reader returns one of

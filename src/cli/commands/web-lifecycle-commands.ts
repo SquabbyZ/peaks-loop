@@ -1,6 +1,5 @@
 /**
  * `peaks web status|stop|install|login` — the daemon-lifecycle, acquisition and
- * persistent-login verbs (slice S2, file 13; S3 adds `install`; S4 adds `login`).
  *
  * Attaches to the `web` parent handed in by `web-commands.ts` rather than
  * looking it up: the lookup needs a fallback branch for "parent not registered

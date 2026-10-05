@@ -24,7 +24,6 @@
  * `peaks sub-agent dispatch <role>`, and the IDE-private tool
  * name flows through the returned `data.toolCall` at runtime.
  *
- * Cross-reference: PRD #002 G1 (AC-1..AC-5); RD tech-doc-002 §2.
  */
 import { existsSync, readFileSync } from 'node:fs';
 
@@ -77,7 +76,6 @@ export const claudeCodeSubAgentDispatcher: SubAgentDispatcher = {
       description: `${role} for rid=${requestId}`,
       prompt
     },
-    // Slice 2026-06-23-audit-4th #C2: stamp the IDE-arg shape
     // version. When Claude Code changes the Task args shape (e.g.
     // a new subagent_type value), bump this and the dispatch record
     // propagates it so a future reader can detect a stale record.

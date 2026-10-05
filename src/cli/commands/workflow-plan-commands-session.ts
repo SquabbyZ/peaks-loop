@@ -1,6 +1,5 @@
 /**
  * Shared session-id / project-root resolution for the `peaks workflow plan`
- * command family (slice 025).
  *
  * Extracted from `workflow-plan-commands.ts` (strict-remediation c1) so one
  * implementation backs every plan subcommand instead of the per-command copies
@@ -14,7 +13,6 @@ import { printResult, type ProgramIO } from '../cli-helpers.js';
 import { getSessionId } from '../../services/session/session-manager.js';
 import { findProjectRoot } from '../../services/config/config-safety.js';
 
-// F-1 (slice 025 security): reject session ids that look like path
 // traversal payloads. Canonical pattern is YYYY-MM-DD-<slug>.
 const SESSION_ID_PATTERN = /^\d{4}-\d{2}-\d{2}-[a-z][a-z0-9-]*[a-z0-9]$/;
 

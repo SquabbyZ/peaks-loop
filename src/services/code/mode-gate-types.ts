@@ -57,7 +57,6 @@ export const GATED_STEPS: readonly GatedStepId[] = [
 ] as const;
 
 /**
- * v2.15.0 slice 002 AC-4: the 5 action identifiers that qualify as
  * commit-boundary side effects. Matched by the LLM-side caller
  * (peaks-code body / peaks-rd fork agent) when it is about to run a
  * Bash command that maps to one of these. Set `commitBoundaryAction:
@@ -76,7 +75,6 @@ export const COMMIT_BOUNDARY_ACTIONS: readonly CommitBoundaryActionId[] = [
 ] as const;
 
 /**
- * v2.15.0 slice 002 AC-4: regex matchers the LLM-side caller uses
  * to flag a Bash command as a commit-boundary action. Centralised
  * here so the test seam + the CLI wiring share one source of
  * truth. Each entry is an anchored pattern matched against the

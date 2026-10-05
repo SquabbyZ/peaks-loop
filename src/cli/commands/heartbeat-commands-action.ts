@@ -55,7 +55,6 @@ type HeartbeatWriteContext = {
   stage: StageLabel | null;
 };
 
-// Slice 2026-07-29-worktree-l2-extended Part 3.A.2: the statuses that end a
 // dispatch. Hoisted out of the action body — a constant set is the same set on
 // every call, and its position in the sequence (after printResult) is unchanged.
 const TERMINAL_HEARTBEAT_STATUSES: ReadonlySet<HeartbeatStatus> = new Set([
@@ -66,7 +65,6 @@ const TERMINAL_HEARTBEAT_STATUSES: ReadonlySet<HeartbeatStatus> = new Set([
 ]);
 
 /**
- * Slice 2026-07-29-worktree-l2-extended Part 24: the heartbeat envelope
  * surfaces a `leaseHint` field when the dispatch owns a lease. The hint is a
  * one-line reminder for the sub-agent that the lease is the L2 surface it
  * should clean up before exiting (or, per Part 3.A.2, the auto-release hook
@@ -83,7 +81,6 @@ function leaseHintFor(result: HeartbeatWrite): string | null {
 /** The success envelope's payload, field for field, exactly as the CLI printed it. */
 function heartbeatSuccessEnvelope(recordPath: string, result: HeartbeatWrite) {
   return {
-    // Slice 2026-06-23-audit-4th #E1: envelopeVersion marker
     // Part 24: bumped to 2.2.0 to advertise the new `leaseHint`
     // field; readers from 2.1.0 ignore the unknown field.
     envelopeVersion: '2.2.0',
@@ -97,7 +94,6 @@ function heartbeatSuccessEnvelope(recordPath: string, result: HeartbeatWrite) {
 }
 
 /**
- * Slice 2026-07-29-worktree-l2-extended Part 3.A.2: when the heartbeat reports
  * a TERMINAL status (done / failed / cancelled / no-execution) AND the dispatch
  * owns a lease, fire the detached release. This is the common path: most
  * sub-agents finalize via heartbeat before the share-reducer calls
@@ -126,7 +122,6 @@ function releaseLeaseForTerminalHeartbeat(
   }
 }
 
-/** Slice 2026-06-23-audit-4th #B1: structured log on success. */
 function logHeartbeatSuccess(recordPath: string, result: HeartbeatWrite): void {
   try {
     writeLogEntry({
@@ -203,7 +198,6 @@ export function runHeartbeatAction(io: ProgramIO, options: HeartbeatActionOption
     return;
   }
   try {
-    // R-2 guard (slice 2026-06-23-audit-3rd): trust --project or process.cwd(),
     // NOT the --record path. deriveProjectRoot(recordPath) walked the path
     // itself, which let an attacker point --record at any other project's
     // .peaks/_sub_agents/ tree and slip past the guard. The relative()

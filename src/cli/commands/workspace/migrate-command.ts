@@ -1,8 +1,6 @@
 /**
- * `peaks workspace migrate` — slice 003 (--to-runtime).
  *
  * Extracted from `src/cli/commands/workspace-commands.ts` (slice
- * 2026-06-16-workspace-commands-split) to keep that entry file under the
  * 800-line Karpathy cap. Migrates legacy `.peaks/_runtime/<sid>/<role>/<file>`
  * into the new `.peaks/retrospective/<change-id>/<role>/<file>` layout.
  */

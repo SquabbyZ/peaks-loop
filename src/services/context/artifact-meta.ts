@@ -1,5 +1,4 @@
 /**
- * G7 — sub-agent context minimal-occupation (RL-17..RL-22, AC-38..AC-43).
  *
  * `ArtifactMeta` is what the dispatch record stores per sub-agent artifact
  * instead of the full content. The `contentInlined: false` literal is the

@@ -18,7 +18,6 @@
  * `--kind` help text all derive from this tuple. Adding a kind here is the
  * only edit required; TypeScript then forces `MEMORY_KIND_TIER` to cover it.
  *
- * Slice 2026-09-10-memory-vocab-and-rotate (E): the original 8 kinds are
  * unchanged. The 13 appended kinds were observed on disk with real values
  * that the index schema rejected (`peaks memory reindex` reported them as
  * `unrecognized kind value`). Accepting them moves those files into the

@@ -1,12 +1,10 @@
 /**
- * peaks-workflow v3.0.0 — `lintWorkflowSpec` (moved verbatim per rid-006)
  *
  * Pure lint over a typed `WorkflowSpec`. No parser/build helpers, no
  * YAML helpers — lint is pure on the typed spec. The slimmed
  * `workflow-spec.ts` re-exports `lintWorkflowSpec` under its original
  * name so existing call sites compile unchanged.
  *
- * File budget: ≤ 400 lines (rid-006 split).
  */
 
 import type { WorkflowLintReport, WorkflowSpec } from './workflow-spec-types.js';

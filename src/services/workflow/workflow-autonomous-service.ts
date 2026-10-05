@@ -1,5 +1,4 @@
 import { join } from 'node:path';
-// Slice 2026-06-29-change-id-root-removal: `validateChangeIdOrThrow`
 // was removed with the change-id axis. Path-safety helpers now live
 // at `shared/path-safety.ts` if this module ever needs them.
 import { WORKSPACE_UNAVAILABLE_NEXT_ACTIONS } from '../../shared/planner-response.js';
@@ -43,7 +42,6 @@ export {
   createResumePlan
 } from './workflow-autonomous-resume-helpers.js';
 
-// Public type declarations live in `workflow-autonomous-types.ts` (rid-006
 // split). Re-export them verbatim under their original names so existing
 // import paths compile unchanged.
 export type {
@@ -327,7 +325,6 @@ function uniqueStrings(values: readonly string[]): string[] {
 export function createAutonomousWorkflowPlan(
   request: AutonomousWorkflowRequest
 ): AutonomousWorkflowPlan {
-  // Slice 2026-06-29-change-id-root-removal: change-id is metadata-only;
   // no structural validation gate fires here.
   const goal = normalizeGoal(request.goal);
   const maxWorkers = request.maxWorkers ?? 40;

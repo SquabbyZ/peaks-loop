@@ -1,5 +1,4 @@
 /**
- * The `peaks web` daemon process entry (slice S2, file 15).
  *
  * This file IS the process: it is what `spawnDaemon` launches, so it must run
  * under plain `node` (built tree) as well as under `tsx` (source tree). It is

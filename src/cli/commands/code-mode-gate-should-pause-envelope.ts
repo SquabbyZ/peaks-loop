@@ -157,7 +157,6 @@ type HandleDecisionArgs = {
  * (full-auto must never fail-loud). projectRoot resolution mirrors
  * observability-commands.ts (findProjectRoot → cwd fallback).
  *
- * v2.15.0 slice 002 repair (QA blocker): translate the CLI
  * --commit-boundary-action flag into the service-layer boolean. The CLI accepts
  * the action id (e.g. "git-push") for ergonomic machine consumption; the
  * service layer only cares that *some* commit-boundary action triggered the
@@ -215,7 +214,6 @@ function emitModeGateDecision(args: {
 }
 
 /**
- * v2.15.0 slice 002 repair: include the commit-boundary
  * action id in the envelope (when provided) so the LLM-side
  * caller can echo which boundary was checked. Null when no
  * --commit-boundary-action flag was passed.

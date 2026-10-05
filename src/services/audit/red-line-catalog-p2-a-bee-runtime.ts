@@ -1,6 +1,5 @@
 /**
  * P2-a red lines that bind a specific peaks-* bee: the prose-only-sweep
- * entries (slice 2026-07-29-rid-prose-only-sweep-001 … -010) that make a
  * SKILL.md declare its own runtime contract. Hoisted verbatim out of
  * `red-line-catalog-p2-a.ts` by the b1 file-size campaign — no `id`, `rule`,
  * `markers`, `phrases` or `enforcerRef` value was edited, and the names are

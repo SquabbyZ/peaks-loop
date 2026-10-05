@@ -533,7 +533,6 @@ function isSupportedIntent(
  * Resolve and validate a caller-supplied `--user-data-dir`. The dir must
  * live under `projectRoot` so a malicious `--user-data-dir /etc/foo`
  * cannot coerce the playwright-mcp browser into writing state to an
- * arbitrary filesystem path (slice 2026-06-23-audit-3rd #5).
  *
  * Resolves `..` segments before checking, so a path like
  * `<projectRoot>/../escape` is correctly normalized and rejected.

@@ -1,6 +1,5 @@
 /**
  * reviewer-config.ts — load the `reviewer` section from
- * `~/.peaks/config.json`. AC-4.1 mandates:
  *   - providers[] (>=2 entries; ollama / anthropic / openai supported)
  *   - selection: 'round-robin' | 'hash(rid)' | 'random'
  *   - rdProviderName: string | null

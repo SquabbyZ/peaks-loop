@@ -78,7 +78,6 @@ export type DistVersionComparison = {
 export type DistVersionProbe = () => DistVersionComparison;
 
 /**
- * Slice 2026-08-05-statusline-sid-only-marker-and-multi-binary-drift-guard
  * (G3/G4) — probe for the multi-binary drift check. The probe returns
  * the discovered peaks-loop binaries on PATH (with their resolved
  * version + install date) and a `driftDetected` flag. Injected so tests
@@ -101,16 +100,13 @@ export type WorkspaceLayoutInspection = {
   topLevelSessionDirs: string[];
   legacyDotfiles: string[];
   /**
-   * Slice 007 — per-change-id top-level dirs (e.g. `.peaks/001-2026-06-06-.../`).
    * The pre-F3 canonical layout put reviewable artifacts under a
    * per-change-id top-level dir; the post-F3 canonical layout
    * consolidates them under `.peaks/_runtime/<sid>/<role>/`. Any
    * leftover per-change-id top-level dir is a regression to flag.
-   * Slice 008's migration will consolidate these; until then, the
    * check reports them as `ok: false`.
    *
    * Optional in the type for back-compat with test probes that
-   * pre-date the slice 007 broadening; the check itself falls back
    * to an empty array when the field is missing.
    */
   perChangeIdDirs?: string[];

@@ -2,7 +2,6 @@
  * Slice #009 / G5 RL-8 — sub-agent dispatch record archival + 30-day GC.
  *
  * Called by the `peaks session finish` / `peaks session abandon` /
- * new-rid-startup hooks. Walks the per-session `.peaks/_sub_agents/<sid>/`
  * tree and moves completed + disposed records to
  * `.peaks/_runtime/<sid>/_archive/_sub_agents/<sliceId>/`.
  *

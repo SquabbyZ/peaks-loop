@@ -1,5 +1,4 @@
 /**
- * Slice 2026-06-24-test-tool-detection-injection.
  *
  * The Test Tool Detection block is prepended to every sub-agent prompt
  * dispatched by peaks-loop (both the single-dispatch chokepoint in
@@ -27,7 +26,6 @@
  *  the dispatch CLI always prepends it. This is a guarantee, not a
  *  suggestion.
  *
- * 2026-09-10-dispatch-block-d (Option D): ONE block for EVERY role. The
  * runner-table EXAMPLES were dropped — they were never rules, and
  * `package.json#scripts.test` is the source of truth at run time — while
  * the one missing real rule is stated inline: PB-5, i.e. repo-defined
@@ -58,7 +56,6 @@ export function formatTestToolDetection(): string {
 }
 
 /**
- * Slice 2026-07-29-dispatch-stall-governance / S5 (AC-4.1 / AC-4.2) —
  * pure scope classifier. Returns a typed result so callers (the
  * dispatch prompt template, future test-runner bridges) can decide
  * whether the command is allowed, refused, or requires the explicit

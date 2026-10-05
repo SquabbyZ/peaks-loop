@@ -164,7 +164,6 @@ export function registerProjectCommands(program: Command, io: ProgramIO): void {
           path: result.path,
           sessionCount: result.sessionCount,
           content: result.content,
-          // Slice 2026-07-15-project-scan-bootstrap (G1 + G2): the
           // context command also bootstraps the project-scan tree.
           // The envelope surfaces write counts + duration so the LLM
           // (and the user) see what landed.

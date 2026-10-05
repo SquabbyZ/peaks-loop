@@ -45,10 +45,8 @@ export interface ActiveSkillResolution {
    * Mode token recorded on the canonical lease (e.g. `full-auto`,
    * `assisted`, `strict`, `24h`). Normalized on read: a legacy
    * on-disk `'swarm'` surfaces as `'full-auto'` (slice
-   * 2026-09-09-mode-consolidation). `null` when the source is not
    * `canonical` (the legacy `active-skill-*.json` files do not
    * surface a mode field, and the `env` / `none` cases are test
-   * overrides). Slice 2026-08-04-rid-005 surfaced this so the
    * statusline can render the orchestrator's mode alongside the
    * active leaf role.
    */
@@ -95,7 +93,6 @@ export function resolveActiveSkillForCaller(
   // ad-hoc / pre-migration projects) we fall through to the legacy
   // walk below.
   // `getSessionDir` refuses an unsafe session id by throwing (slice
-  // 2026-09-14-getsessiondir-guard). This function's contract is the
   // resolution order's "graceful degradation — never throws", so an unsafe
   // id degrades to the same `source: 'none'` shape an absent session dir
   // produces, exactly as it did before that guard existed. Without this,
@@ -120,7 +117,6 @@ export function resolveActiveSkillForCaller(
     if (lease.status !== 'preparing' && lease.status !== 'running') continue;
     if (typeof lease.skill !== 'string' || lease.skill.length === 0) continue;
     // When a callerId is supplied, restrict the walk to that
-    // caller's lease. Slice 2026-08-04-rid-005 surfaces this for the
     // statusline read so two concurrent sessions bound to the same
     // project session do not see each other's skill.
     if (

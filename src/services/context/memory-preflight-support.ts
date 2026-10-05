@@ -16,15 +16,10 @@ export interface MemoryPreflightResult {
   reason?: string;
   truncated?: boolean | undefined;
   droppedCount?: number | undefined;
-  /** Slice 2026-09-09: hot items emitted. */
   hotSelected?: number | undefined;
-  /** Slice 2026-09-09: warm items emitted. */
   warmSelected?: number | undefined;
-  /** Slice 2026-09-09: bytes of the emitted block (utf8). */
   bytesEmitted?: number | undefined;
-  /** Slice 2026-09-09: true when ANY budget (items / bytes / time) cut content. */
   budgetTruncated?: boolean | undefined;
-  /** Slice 2026-09-09: true when the soft selection time budget was hit. */
   timedOut?: boolean | undefined;
 }
 

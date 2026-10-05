@@ -114,7 +114,6 @@ export const JobCheckpointInputSchema = z
   })
   .superRefine((v, ctx) => {
     if (v.state === 'done') {
-      // D2 (rid 2026-10-03-job-ledger-truthfulness). Two rules, in this order,
       // both on the same claim about the same field.
       //
       // 1. THE SHAPE RULE. It stays exactly where the defect was measured

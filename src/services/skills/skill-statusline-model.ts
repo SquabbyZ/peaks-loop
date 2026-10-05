@@ -65,7 +65,6 @@ export type StatusLineModel = {
   compact: CompactStatuslineState;
   activeLeaf: StatusLineActiveLeaf | null;
   /**
-   * Slice 2026-08-05-statusline-sid-only-marker: the canonical session
    * id resolved for the project root (`getSessionIdCanonical`), or
    * `null` when no project root is bound or no `.peaks/_runtime/<sid>/`
    * session is on disk. The renderer reads this to append ` [shortSid]`
@@ -79,7 +78,6 @@ export type StatusLineModel = {
    */
   sessionId: string | null;
   /**
-   * Slice rid-statusline-24h-overlay (2026-08-10): the 24h-mode
    * overlay snapshot read from `.peaks/_runtime/<sid>/24h-state.json`,
    * or `null` when no file exists / file is corrupt / file has wrong
    * shape. The renderer reads this to append `[24h-<state>]` after
@@ -92,14 +90,12 @@ export type StatusLineModel = {
 };
 
 /**
- * Slice rid-statusline-24h-overlay (2026-08-10): minimal overlay
  * type returned by `read24hOverlay`. The renderer only consumes
  * `state` (to format `[24h-<state.toLowerCase()>]`). The canonical
  * schema at `src/services/24h-mode/state.ts:55-66` carries additional
  * fields (`attempts: Record<DecisionKey, number>`, `enteredAt`,
  * `checkpoints`, etc.) but the overlay is deliberately MINIMAL —
  * it tolerates forward compatibility with new states the writer
- * may add, and it never throws on malformed shapes (PRD AC-3:
  * graceful null on any invalid input).
  */
 export type TwentyFourHourOverlay = {
@@ -107,11 +103,9 @@ export type TwentyFourHourOverlay = {
 };
 
 /**
- * Slice rid-statusline-24h-overlay (2026-08-10): name-distinct from
  * the canonical `read24hState` in `src/services/24h-mode/store.ts:108`.
  * The canonical reader calls `coerceSnapshot` (which throws on
  * malformed shapes via `24H_STATE_INVALID`); this overlay reader
- * returns `null` for ANY malformed shape (per PRD AC-3 — never
  * throw across the statusline boundary).
  *
  * Returns null when:
@@ -138,7 +132,6 @@ export function read24hOverlay(
   try {
     parsed = JSON.parse(raw);
   } catch {
-    // corrupt JSON — graceful null (PRD AC-3)
     return null;
   }
   if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
@@ -219,7 +212,7 @@ export function readActiveLeaf(
     'never-started',
     'unreadable',
     'stale',
-    'queued' // Slice 2026-08-05 fix: stale dispatch entries stuck at 'queued' should
+    'queued'
     // not pollute statusline as in-flight leaves.
   ]);
   const inFlight = Object.values(index).filter((e) => !terminalStatuses.has(e.status));

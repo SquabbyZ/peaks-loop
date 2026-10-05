@@ -1,12 +1,10 @@
 /**
- * rid-010 — peaks release precheck (Phase 4 slice 1).
  *
  * Module path: src/services/release/version-precheck-service.ts
  * Mirrors publish.yml gate-cli-version §(A) — verified in code 2026-10-03, not
  * just per the old comment: `runRootVsShared` covers §(A)'s shared-dist check;
  * §(A′) (runtime RUNTIME_VERSION) has no layer here, and the §(B)
  * tarball-content gate (Layer 5 of the 5-layer root cause) stays CI-only —
- * AC-7 grep test pins publish.yml so §(B) cannot drift silently.
  *
  * 4-layer version precheck. Designed to run BEFORE `peaks release canary` so
  * developers catch CLI_VERSION lag / tag collision / changeset staged /
@@ -84,7 +82,6 @@ export function runRootVsShared(opts: PrecheckOptions): LayerResult {
   try {
     const raw = readFileSync(sharedDist, 'utf8');
     // Quote-tolerant: the old double-quote-only regex blanked on prettier's
-    // single-quoted emit (rid 2026-10-03-release-gate-quote-brittle).
     const match = raw.match(/CLI_VERSION\s*=\s*(?:"([^"]+)"|'([^']+)'|`([^`]+)`)/);
     const captured = match?.[1] ?? match?.[2] ?? match?.[3];
     if (captured !== undefined) {

@@ -141,7 +141,6 @@ function assertNonEmptyGoal(goal: string): void {
 }
 
 function architectureRoot(_sessionId: string): string {
-  // Slice 2026-06-29-change-id-root-removal: descriptor is now the bare
   // role-relative sub-path `<role>/architecture` (no `.peaks/_runtime/...`
   // prefix). The on-disk location is resolved by `architectureRootAbs`
   // via `getSessionDir`. Callers that previously split this string on
@@ -151,7 +150,6 @@ function architectureRoot(_sessionId: string): string {
 }
 
 function architectureRootAbs(artifactWorkspacePath: string, sessionId: string): string {
-  // Slice 2026-06-29-change-id-root-removal: on-disk path now resolves
   // via the session-axis `getSessionDir(root, sessionId)` (the change-id
   // identifier is reused as the session-dir name for tech-artifact
   // reads, matching the test helper `writeApprovedTechArtifacts` and
@@ -256,7 +254,6 @@ function isValidArtifactFile(rootPath: string, artifact: string): boolean {
 }
 
 function waveManifestPath(_sessionId: string, index: number, wave: TechWaveName): string {
-  // Slice 2026-06-29-change-id-root-removal: descriptor is now
   // `rd/architecture/waves/<file>`. The scope root is supplied by the
   // caller via `getSessionDir`.
   return `rd/architecture/waves/wave-${index + 1}-${wave}.json`;
@@ -267,7 +264,6 @@ function taskPurpose(taskId: string, goal: string): string {
 }
 
 function createTechGraph(request: TechPlanRequest): Omit<TechPlanGraph, 'available'> {
-  // Slice 2026-06-29-change-id-root-removal: change-id is metadata-only;
   // no structural validation gate fires here.
   assertNonEmptyGoal(request.goal);
 
@@ -349,7 +345,6 @@ export function getTechStatus(options: {
   artifactWorkspacePath?: string;
   workspace?: WorkspaceConfig;
 }): TechStatus {
-  // Slice 2026-06-29-change-id-root-removal: change-id is metadata-only;
   // no structural validation gate fires here.
   const artifactRoot = architectureRoot(options.sessionId);
 

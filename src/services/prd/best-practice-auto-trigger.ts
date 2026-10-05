@@ -1,5 +1,4 @@
 /**
- * Slice 2026-08-12 best-practice-scan — auto-trigger post-step (Slice F).
  *
  * When peaks-prd's request artifact transitions to `handed-off`, this helper
  * extracts the `businessGoal` (first non-empty bullet under `## Goals` of the
@@ -18,7 +17,6 @@
  *   - Spawn 'spawn' event        → status: 'triggered' (resolved; child detached)
  *
  * Karpathy §1 (Think Before Coding): extracted from the QA verdict
- * `verdict-rid-best-practice-scan-qa-ship.md` AC-1 PARTIAL finding. The
  * `prd:handed-off` transition in `src/cli/commands/request-commands.ts`
  * is the canonical hook point — peaks-prd's contract in
  * `skills/bee/peaks-prd/SKILL.md` §"Step 2.5 sub-step" mandates this firing

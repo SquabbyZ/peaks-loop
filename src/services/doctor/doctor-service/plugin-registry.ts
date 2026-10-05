@@ -1,5 +1,4 @@
 /**
- * doctor-service plugin registry (slice rid-004).
  *
  * Holds the fixed-order, code-driven list of `DoctorCheckPlugin`
  * instances that `runDoctor` iterates. The order is the same as the
@@ -59,7 +58,6 @@ import type { DoctorCheckPlugin } from './types.js';
  * Ordered list of doctor check plugins. The order mirrors the legacy
  * monolithic `runDoctor` function body verbatim — DO NOT REORDER
  * without first re-reading the consumer-side tests in
- * `tests/doctor.test.ts` / `tests/doctor/35-checks-aggregate.test.ts`
  * and updating the expected check-id list.
  */
 export const PLUGINS: ReadonlyArray<DoctorCheckPlugin> = [

@@ -1,6 +1,5 @@
 /**
  * `peaks workspace clean` — slice 0.5 Task 9 (runtime-only after
- * slice 2026-06-27-archive-feature-removal).
  *
  * Prunes _runtime/<sid>/ directories older than --older-than hours.
  * Dry-run by default; pass --apply to commit. The previous

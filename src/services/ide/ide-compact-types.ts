@@ -22,7 +22,6 @@ export interface IdeCompactProfile {
    * spawns this via `child_process.spawn` (shell-exec pathway) or
    * writes it to an IDE hook file (ide-native pathway).
    *
-   * ZERO EXECUTOR as of slice 2026-09-13-auto-compact-trigger-ownership: every
    * `shell-exec` branch now only REPORTS that it will not spawn (see
    * `auto-compact-dispatcher.ts`), and the `ide-native` branch registers a
    * harness-side trigger instead. The field is retained because the sibling
@@ -51,7 +50,6 @@ export interface IdeCompactProfile {
    * declared, peaks-loop writes the window it computes its ratio against
    * into the adapter's machine-local settings `env` block, under this key,
    * so both sides reference one number instead of two independent
-   * resolutions (slice 2026-09-13-auto-compact-trigger-ownership).
    *
    * `undefined` = this IDE exposes no such knob. peaks-loop then cannot
    * close the drift; `peaks compact harness-window` reports that instead of
@@ -77,7 +75,6 @@ export interface IdeCompactProfile {
    * that do not opt in simply omit the field; new IDEs are addable
    * without touching the generic reader.
    *
-   * Added in slice 2026-09-02-vendor-neutral-context-probe.
    */
   readonly readContextPercentFallback?: (
     input: ContextPercentFallbackInput
@@ -85,7 +82,6 @@ export interface IdeCompactProfile {
   /**
    * Optional locator for the IDE's per-session transcript file (jsonl),
    * keyed by the OUTER (harness) session id. `peaks code context-audit`
-   * (slice 2026-09-10-context-audit-and-discipline, Slice A) uses it to
    * group the session's tool results by tool + short input key, so the
    * generic audit service never learns any vendor's on-disk layout.
    *
@@ -105,7 +101,6 @@ export interface IdeCompactProfile {
  * owns the vendor-specific fallback logic (statusline poll, transcript
  * lookup, etc.); the generic reader stays IDE-agnostic.
  *
- * Added in slice 2026-09-02-vendor-neutral-context-probe.
  */
 export interface ContextPercentFallbackInput {
   /** Project root (the probe's `--project` anchor). */
@@ -126,7 +121,6 @@ export interface ContextPercentFallbackInput {
    * of config-path knowledge. UNVALIDATED — the adapter validates it via
    * `parseContextWindowOverride` and warns on a bad value.
    *
-   * Slice 2026-09-09-context-window-override.
    */
   readonly configWindowTokens?: unknown;
   /**
@@ -135,7 +129,6 @@ export interface ContextPercentFallbackInput {
    * key name) — the window peaks-loop configured for the harness. Feeds the
    * `harness-env` layer of `resolveContextWindow`.
    *
-   * Slice 2026-09-13-auto-compact-trigger-ownership.
    */
   readonly harnessWindowTokens?: unknown;
   /**

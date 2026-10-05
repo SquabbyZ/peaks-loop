@@ -46,8 +46,6 @@ export const REQUIRED_DIMENSIONS: readonly DimensionKind[] = [
  *
  * RE-EVALUATED 2026-09-12 (F-BLOCK) — 32 KiB did NOT hold once the tenth
  * source (`final-review-pre-post-diff`) was appended. Measured on this repo's
- * own run (`2026-09-12-session-e37ef0`, rid
- * `2026-09-12-codegraph-exclude-integrity`), the ten sources are 2,621 / 8,164
  * / 9,492 / 10,839 / 11,422 / 13,050 / 13,462 / 13,852 / 17,745 / 20,543
  * bytes — 121,190 bytes on disk, 76,321 bytes once the 8 KiB per-file cap is
  * applied. Four sources at the cap spent the old 32,768 to the byte, so the
@@ -62,7 +60,6 @@ export const REQUIRED_DIMENSIONS: readonly DimensionKind[] = [
  * 66,848 bytes of inlined evidence and is clamped from there on — a cap at or
  * above that point buys the reviewer no more output room at all.
  *
- * F-CAP — an earlier version of this comment claimed 40 KiB (40,960 =
  * 10 x 4,096) was "the smallest cap that affords one floor-sized slice to EVERY
  * source in the ten-source set". That was arithmetic about a budget, not a
  * statement about the allocator: sources are capped at
@@ -127,7 +124,6 @@ export const MAX_EVIDENCE_BYTES_PER_FILE = MAX_EVIDENCE_BYTES_TOTAL / REQUIRED_D
  * The anti-starvation reservation (the "floor").
  *
  * The allocator would otherwise be strictly first-come-first-served, and with
- * this repo's own evidence set (`2026-09-12-session-e37ef0`, measured) the
  * first four sources consumed the entire 32 KiB cap — 4 x 8,192 = 32,768, to
  * the byte — before source 5 was even opened. `existing-functionality-intact`
  * is supplied ONLY by `rd/tech-doc.md` (6th), `prd/handoff.md` (9th) and the
@@ -155,7 +151,6 @@ export const MAX_EVIDENCE_BYTES_PER_FILE = MAX_EVIDENCE_BYTES_TOTAL / REQUIRED_D
  *
  * L4 — those are the DERIVED numbers and the relation is an EQUALITY, not an
  * inequality with room to spare: the reservation spends the entire budget and
- * leaves ZERO slack. This block used to read `= 4 x 8,192 = 32,768 <= 40,960`,
  * which was true of the typed-literal cap and stopped being true the moment the
  * cap was divided out of the total; left as written it read as 8 KiB of
  * headroom that does not exist and would have invited "just raise the cap a

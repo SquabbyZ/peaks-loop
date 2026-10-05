@@ -1,7 +1,6 @@
 /**
  * `--summary` — bounded, additive views of large CLI envelopes.
  *
- * Slice 2026-09-10-context-audit-and-discipline (Slice B, part 1).
  *
  * Rationale (measured, session 2026-09-07-session-245530): dumping a full
  * `peaks memory reindex --json` array four times cost ≈ 160 KB ≈ 40K tokens

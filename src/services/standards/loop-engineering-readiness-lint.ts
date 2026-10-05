@@ -76,7 +76,6 @@ export const LOOP_ENGINEERING_GUIDELINE_PATHS = [
  * The allowlist of CLI verbs that a peaks-* SKILL.md may legitimately
  * instruct an LLM to invoke on the user's behalf. These are the
  * sediment / asset / evolution surface verbs introduced in
- * 2026-07-07-loop-engineering-crystallization-design §7.4 plus the
  * 18-verb sediment pool from 2026-07-04-peaks-maker-dynamic-skill-
  * sediment-design §4.2.
  *

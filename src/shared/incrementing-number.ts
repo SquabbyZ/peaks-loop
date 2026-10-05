@@ -57,7 +57,6 @@ const MAX_FILENAME_SLUG_LENGTH = MAX_FILENAME_LENGTH - 7;
  * Exported separately so lookup paths (e.g. `request-artifact-service.ts`)
  * can compute the SAME slug the writer produced and match on-disk filenames
  * case-insensitively — the writer lowercases, so a mixed-case request id
- * like `2026-09-06-split-batchA` lands as `...-split-batcha.md`.
  */
 export function slugifyDescription(description: string): string {
   return description

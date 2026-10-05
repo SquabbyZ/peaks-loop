@@ -1,10 +1,8 @@
 /**
  * Where `gateEvidence` comes FROM, and where its promise is checked.
  *
- * B2 (merged with the B1 repair), rid `rid-b2-gate-evidence-wiring`.
  *
  * B1 made the field real at the SERVICE layer and QA found the hole that
- * mattered (F1 of `rid-b1-qa`): all three frontmatter producers passed
  * nothing, so no capsule on disk ever carried the field — the dead surface
  * had moved one layer out, from "no producer function" to "no production
  * caller". This module closes that by DERIVING the map instead of accepting
@@ -56,7 +54,6 @@
  * For `docs`/`chore` nothing ever reads it, so it is not declared: keeping an
  * inert statement in every docs capsule would recreate, in miniature, the exact
  * defect this whole line of work exists to remove — a claim no one reads, which
- * is how the field was dead in the first place (F1 of `rid-b2-qa`). Scope, in
  * one sentence: **this map declares the evidence paths Gate C will check for
  * this slice**, so an empty declaration is the honest one when there is no such
  * gate.
@@ -151,7 +148,6 @@ export function deriveGateEvidence(opts: {
  * so a caller can tell "this slice has nothing to declare" apart from "the
  * artifact could not be read".
  *
- * F4 (`rid-f4-ceiling-breach`). This used to be `catch { return undefined }`,
  * which folded those two into one value — and the repository's own ratchet
  * caught it (`capability-guard-runner/contracts/J03.ts`, rule
  * `catch-return-null`; the ceiling was written for exactly this shape). Nothing
@@ -171,7 +167,6 @@ export async function deriveGateEvidenceForRequest(opts: {
   readonly sessionId: string;
   readonly requestId: string;
 }): Promise<GateEvidence | undefined> {
-  // F4 (`rid-f4-ceiling-breach`). The throw from `showRequestArtifact` is
   // propagated, so a caller can tell "this slice has nothing to declare"
   // (artifact missing → `artifact === null` → `requestType === null` →
   // `undefined`) apart from "the artifact could not be read" (an id the

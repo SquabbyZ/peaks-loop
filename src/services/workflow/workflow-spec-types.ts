@@ -8,7 +8,6 @@
  * live in `workflow-spec-yaml.ts`; the lint function lives in
  * `workflow-spec-lint.ts`.
  *
- * File budget: ≤ 400 lines (rid-006 split).
  */
 
 /** A workflow phase = a single step the runtime executes. */

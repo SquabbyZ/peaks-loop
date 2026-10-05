@@ -1,5 +1,4 @@
 /**
- * `peaks container spawn | release` — slice 2026-07-29-worktree-l2-extended Part 12.
  *
  * L4 container isolation bridge: Part 8 landed the CLI contract
  * (`peaks sub-agent dispatch --isolation container` is accepted
@@ -47,7 +46,6 @@ import {
 const DEFAULT_DOCKER_IMAGE = 'node:22-slim';
 
 /**
- * Slice 2026-07-29-rid-prose-only-sweep Part 43: L4 podman
  * runtime adapter. The container CLI supports both docker and
  * podman as the underlying runtime. The auto-detect order is:
  *   1. `--runtime docker|podman` if explicit

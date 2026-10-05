@@ -1,5 +1,4 @@
 /**
- * rid `2026-09-13-compact-event-settle` — what runs when the HARNESS says a
  * compaction completed.
  *
  * THE PROBLEM THIS EXISTS TO DELETE. Before this slice peaks-loop learned that

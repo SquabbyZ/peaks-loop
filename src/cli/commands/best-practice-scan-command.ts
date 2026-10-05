@@ -1,5 +1,4 @@
 /**
- * Slice 2026-08-12 best-practice-scan — CLI subcommand.
  *
  * `peaks best-practice-scan --intent <goal> --project <path> [--lang <lang>] [--commit]`
  *

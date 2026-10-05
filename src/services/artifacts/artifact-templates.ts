@@ -18,7 +18,6 @@ export type RequestArtifactRole = 'prd' | 'ui' | 'rd' | 'qa' | 'sc';
 /**
  * Handoff path helpers.
  *
- * Slice 2026-06-29-change-id-root-removal: all handoff paths now key
  * on the session-id axis (`.peaks/_runtime/<sessionId>/<role>/...`)
  * instead of the deleted change-id axis
  * (`.peaks/_runtime/change/<sessionId>/<role>/...`). The session

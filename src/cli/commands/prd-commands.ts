@@ -9,7 +9,6 @@
  *   peaks prd handoff show   — print the raw handoff markdown
  *
  * Help text MUST NOT reference the legacy `peaks prd write-handoff`
- * subcommand (AC-1 in the v2.11.0 PRD). The legacy service module at
  * `services/handoff/` is a separate slice-025 layout (different
  * schema) and is intentionally not exposed here.
  */
@@ -102,7 +101,6 @@ export function registerPrdCommands(program: Command, io: ProgramIO): void {
       const body = await resolveBody(options.body);
       const projectRoot = options.project ?? process.cwd();
       const writtenAt = new Date().toISOString();
-      // B2 / F1 of `rid-b1-qa`: the ONLY production caller of `initHandoff`
       // used to pass no `gateEvidence`, so no capsule written by this command
       // ever carried the field. It is derived now — from the request type
       // recorded on this rid's PRD artifact — and `undefined` (no artifact, or

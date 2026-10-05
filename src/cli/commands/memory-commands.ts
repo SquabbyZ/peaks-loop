@@ -51,7 +51,6 @@ export interface MemoryReindexCommandOptions {
 }
 
 /**
- * Slice 2026-09-10-context-audit-and-discipline (Slice B): bounded view of
  * `memory reindex`. The full report's arrays stay on disk / in the default
  * envelope; this replaces them with `{count, names}` views (≤ 2 KB).
  */

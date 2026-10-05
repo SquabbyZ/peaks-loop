@@ -2,7 +2,6 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { isAbsolute, resolve } from 'node:path';
 
 /**
- * Slice 028 (Q2=A): `peaks standards migrate` rewrites a consumer
  * project's `CLAUDE.md` to drop the legacy heartbeat block.
  *
  * The legacy block (rendered by `peaks standards init` / `peaks

@@ -6,7 +6,6 @@
 // upstream proxy itself.
 //
 // Extracted verbatim from `codegraph-commands.ts` (rid
-// 2026-09-17-oversize-and-scale, D1 — the 800-line file-size cap). Every moved
 // line is byte-identical and no behaviour changed; `codegraph-commands.ts`
 // re-exports `rewriteBareCodegraphHints` so the public surface is stable.
 //

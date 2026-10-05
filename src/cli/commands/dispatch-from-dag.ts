@@ -1,5 +1,4 @@
 /**
- * `peaks sub-agent dispatch --from-dag <file>` — slice 2026-06-23-audit-3rd #7.
  *
  * Pulled out of `dispatch-commands.ts` to honor the 800-line file cap
  * (Karpathy #2 Simplicity First). The single-dispatch action stays in
@@ -52,7 +51,6 @@ export async function runDispatchFromDag(
 ): Promise<void> {
   if (!options.fromDag) return;
   const projectRoot = options.project ?? process.cwd();
-  // Slice 2026-06-26-unknown-sid-fallback-fix: see dispatch-commands.ts.
   // Auto-resolve sid from .peaks/_runtime/session.json before falling back.
   const sid =
     options.sessionId ??
@@ -199,7 +197,6 @@ export async function runDispatchFromDag(
   // sees them only after re-invoking with fresh level-1 contracts).
   const firstLevelIds = new Set<string>(levelArr[0] ?? []);
 
-  // Slice 2026-09-10-dispatch-token-and-swarm §3: when EVERY first-level
   // node declares `files`, refine the level into file-overlap waves so the
   // LLM fans out without serializing on a shared file. Emitted additively
   // in the envelope; the topological dispatch flow itself is unchanged.
@@ -326,7 +323,6 @@ export async function runDispatchFromDag(
     ok(
       'sub-agent.dispatch',
       {
-        // Slice 2026-06-23-audit-4th #E1: envelopeVersion marker
         envelopeVersion: '2.1.0',
         role,
         ide: dispatcher.label,

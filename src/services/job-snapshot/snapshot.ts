@@ -36,7 +36,6 @@ export function collectResourceSnapshot(jobDir: string): ResourceSnapshot {
 // Non-enumerable internal attachment for test-time access via
 // `collectResourceSnapshot.dirSizeMb`. NOT a public export — keeps
 // the prod module surface clean per PRD while still allowing
-// targeted AC-1/AC-2/AC-3 unit tests to drive `dirSizeMb` directly.
 Object.defineProperty(collectResourceSnapshot, 'dirSizeMb', {
   value: dirSizeMb,
   enumerable: false,

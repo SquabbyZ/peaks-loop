@@ -108,7 +108,6 @@ export function validateHeartbeatArguments(
 }
 
 /**
- * Slice 2026-07-29-dispatch-stall-governance / S5 (AC-5.2) — validate the
  * optional `--stage` against the bounded enum BEFORE the heartbeat write so the
  * caller gets a specific `INVALID_STAGE` error rather than a generic
  * `HEARTBEAT_ERROR`. An absent or empty flag is not an error: it yields
@@ -140,7 +139,6 @@ export function resolveHeartbeatStage(
 }
 
 /**
- * Slice 2026-06-23-audit-3rd #9: branch nextActions on `error.code` so
  * the LLM-side runner gets a specific hint instead of the generic
  * "see error message" fallback.
  */

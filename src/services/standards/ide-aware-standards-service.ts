@@ -1,7 +1,6 @@
 /**
  * IDE-aware wrapper for `peaks standards init` / `peaks standards update`.
  *
- * Slice #011-2026-06-07-ide-adapter-resource-profile: the original
  * `executeProjectStandardsInit` / `executeProjectStandardsUpdate` always
  * wrote to `CLAUDE.md` + `.claude/rules/**` regardless of which IDE
  * the user was running. This wrapper dispatches on the IDE detected
@@ -145,7 +144,6 @@ export function executeProjectStandardsUpdateIdeAware(
 /**
  * Test seam + integration-test helper: returns the resolved IDE id
  * for the call, plus the active standards profile. Exported for
- * the integration test in `tests/unit/standards/ide-aware-standards-service.test.ts`
  * to assert the dispatch decision without running the full write.
  */
 export function inspectStandardsDispatch(options: {

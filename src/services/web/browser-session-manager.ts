@@ -1,5 +1,4 @@
 /**
- * All Playwright operations for `peaks web` (slice S1, file 11).
  *
  * One browser process per session; one browser CONTEXT per dispatch (Q8). The
  * context is what isolates cookies/localStorage between dispatches, which is

@@ -1,6 +1,5 @@
 // src/services/codegraph/codegraph-exclude-reconciler.ts
 //
-// Slice S1 of `2026-09-12-codegraph-exclude-integrity` — the pure
 // reconciliation core. It answers one question:
 //
 //   "Which git-tracked source files does the codegraph `exclude` list

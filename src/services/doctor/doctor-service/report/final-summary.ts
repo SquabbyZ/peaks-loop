@@ -9,7 +9,6 @@
  * orchestration loop and the aggregation rule has a single test surface.
  *
  * Severity-aware aggregation (slice
- * 2026-08-05-statusline-sid-only-marker-and-multi-binary-drift-guard
  * repair cycle): a check with `severity: 'warning'` reports `ok: false`
  * (so operators see the finding in the JSON envelope) but does NOT
  * flip `summary.ok` and therefore does NOT flip the doctor exit code.

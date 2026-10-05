@@ -1,6 +1,5 @@
 // src/reporters/bdd-reporter.ts
 //
-// rid-2026-08-05-bdd-test-style Slice C — vitest custom reporter that
 // emits a pure BDD document view of the run. Designed for business
 // reviewers and downstream LLM prompts; it is NOT a replacement for
 // the default reporter.

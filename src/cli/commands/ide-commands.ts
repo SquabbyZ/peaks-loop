@@ -1,5 +1,4 @@
 /**
- * peaks ide * CLI (Slice 2026-07-09 add-zcode-adapter, Slice C).
  *
  * Slice C adds ONE verb:
  *

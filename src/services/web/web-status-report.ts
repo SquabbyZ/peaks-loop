@@ -1,6 +1,5 @@
 /**
  * `peaks web status` — which daemon instances exist for this session, and which
- * of them are still real (slice S2, file 17).
  *
  * The three states are the three states of the loopback protocol (tech-doc
  * §1.3): `live` (pid alive AND `/health` answers), `orphaned` (pid alive,

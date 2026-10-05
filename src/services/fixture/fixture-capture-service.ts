@@ -1,5 +1,4 @@
 /**
- * v2.14.0 G1 AC-1.4 — Fixture capture service.
  *
  * Producer-side counterpart of `fixture-sanitize-service`. The CLI
  * (`scripts/fixture-capture.mjs`) is a thin wrapper around this module.

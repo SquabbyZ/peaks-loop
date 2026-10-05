@@ -1,5 +1,4 @@
 /**
- * z-code IDE adapter (slice 2026-07-09-add-zcode-adapter) — peaks-loop 的第九个
  * 内置 IDE 适配器。
  *
  * z-code 是一个 VS Code-style 的 Anthropic-compatible 桌面应用:
@@ -172,7 +171,6 @@ export const ZCODE_ADAPTER: IdeAdapter = {
   hookEvent: 'PreToolUse',
   // UNVERIFIED — 同上,占位用 `Bash` matcher。
   toolMatcher: 'Bash',
-  // Slice 2026-07-09: z-code 桌面应用没有公开 Task 工具 dispatch 协议,
   // 用 `nullSubAgentDispatcher` 占位 — peaks sub-agent dispatch CLI 在
   // z-code 上返回 SubAgentNotSupportedError,符合 slice #008 P-5 capability
   // 检查契约 (CLI 不崩溃)。

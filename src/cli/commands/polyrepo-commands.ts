@@ -1,7 +1,6 @@
 /**
  * `peaks polyrepo *` — polyrepo workflow CLI surface.
  *
- * Slice S2-b of RD-2 (2026-07-08 session). Three subcommands:
  *
  *   init      — scan the parent dir for child git repos + write a
  *               polyrepo manifest to `.peaks/polyrepo.json`.

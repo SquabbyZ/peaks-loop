@@ -1,5 +1,4 @@
 /**
- * Fresh-context dispatch block reader (slice 2026-09-07-search-first-preflight).
  *
  * Reads the orchestrator-synthesized `.peaks/_runtime/<sessionId>/fresh-context.md`
  * and returns its `## Fresh context` section for injection into the RD/PRD

@@ -2,7 +2,6 @@
  * peaks evidence generate — mechanical per-slice evidence artifact writer.
  *
  * Port of the reference Python prototype
- * `.peaks/_runtime/2026-09-06-session-a87ca4/sc/gen-evidence.py`. It writes the
  * ~11 evidence artifacts required by the rd:qa-handoff / qa:verdict-issued
  * gates plus the verify-pipeline, so the orchestrator no longer hand-writes
  * them per mechanical file-split (or similar) slice.
@@ -18,7 +17,6 @@
  * This paragraph used to send editors to `src/services/workflow/artifact-paths.ts`
  * as the checker of "suffixed security/performance findings". That is no longer
  * true: the `security-findings-<rid>.md` / `performance-findings-<rid>.md` gates
- * were removed in rid `2026-09-14-verify-pipeline-contract-drift` (no
  * `qa:verdict-issued` table names those paths; security and perf evidence is
  * resolved on the RD side at `audit/security-<rid>.md` / `audit/perf-<rid>.md`),
  * and `artifact-paths.ts` has had zero code consumers since. It is not a marker
@@ -107,7 +105,6 @@ export function parseLineCounts(raw: string): Record<string, string> {
  * a hash computed on `frontmatter + body` rather than the body. The
  * `AUDIT_REQUIRES_HANDOFF` gate (a substring check) accepted that file while
  * `readAndVerifyHandoff` in both audit skills returned `null` — the very
- * producer/consumer divergence rid `2026-09-14-handoff-writer-gate-divergence`
  * exists to remove, surviving in a function the same slice edited.
  */
 function buildHandoff(
@@ -169,7 +166,6 @@ export async function generateEvidence(
   // Both values become path segments below — the rid as a filename, the sid as
   // the session directory. Guard them BEFORE the first mkdir so a rejected run
   // leaves nothing behind. `REQUEST_ID_PATTERN` is the repo's own request-id
-  // control (`request-artifact-service.ts`, F-1 slice 025 security); the sid
   // gets the segment check because `--session-id` has no pinned format.
   // Measured before these lines existed: `--rid '../../../pwned'` wrote
   // `.peaks/_runtime/pwned.md`, outside the per-session evidence dir, and a
@@ -214,14 +210,12 @@ export async function generateEvidence(
   // requires `<rid>` in them: every slice in a session shares `rd/` and
   // `audit/`, so writing the ridless name silently destroyed the previous
   // slice's evidence on 2026-09-13 while the gate stayed green (slice
-  // `2026-09-14-audit-artifact-rid-scoping`).
   const writes: Array<[string, string]> = [
     [join(rdDir, `code-review-${rid}.md`), buildCodeReview(rid, title, files, lineCounts)],
     [join(auditDir, `security-${rid}.md`), buildSecurityReview(rid)],
     // ...but the `config` type is the one whose `rd:qa-handoff` row is
     // `SECURITY_REVIEW` — the genuinely ridless `rd/security-review.md` — and
     // this generator is request-type-agnostic (no `--request-type`). So it
-    // writes BOTH names: the rid-scoped one the fanout types resolve
     // (`AUDIT_SECURITY`) and the bare one `config` resolves. Nothing is lost
     // by having both; a `config` slice has nothing else to fall back on, and
     // dropping this write made a `config` slice fail its own gate while the
@@ -230,7 +224,6 @@ export async function generateEvidence(
     [join(rdDir, 'security-review.md'), buildSecurityReview(rid)],
     [join(rdDir, `karpathy-review-${rid}.md`), buildKarpathyReview(rid, lineCounts)],
     // `rd/tech-doc.md` stays ridless on purpose: the TECH_DOC prereq was
-    // removed in v2.11.0, so nothing gates it and there is no rid-scoped
     // sibling that anything reads.
     [join(rdDir, 'tech-doc.md'), buildTechDoc(rid, title, files, lineCounts)],
     [join(auditDir, `perf-${rid}.md`), buildPerfAudit(rid)],
@@ -240,7 +233,6 @@ export async function generateEvidence(
     [join(qaDir, `performance-findings-${rid}.md`), buildPerformanceFindings(rid)],
     [qaRequestPath, buildQaRequest(rid, sessionId, files)],
     // The handoff capsule carries the rid for the same reason as the four
-    // above (slice `2026-09-14-prd-capsule-rid-scoping`): one slot per
     // session means the second slice's capsule overwrites the first's.
     [join(prdDir, `handoff-${rid}.md`), handoff.content]
   ];

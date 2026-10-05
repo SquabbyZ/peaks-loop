@@ -2,8 +2,6 @@
  * peaks skill search — CLI primitive for S0 of the 4.0.0-beta.5
  * peaks-solo dispatcher release.
  *
- * Spec: docs/superpowers/specs/2026-07-08-peaks-solo-dispatcher-design.md §3.2
- * Plan: docs/superpowers/plans/2026-07-08-peaks-solo-dispatcher/s0-skill-search-cli.md
  *
  * Wired into the existing `peaks skill` group by
  * `src/cli/commands/core/skill-command.ts` (one import + one call).

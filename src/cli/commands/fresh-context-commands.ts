@@ -1,6 +1,5 @@
 /**
  * `peaks fresh-context preflight` CLI — deterministic trigger scan for the
- * search-first preflight (slice 2026-09-07-search-first-preflight).
  *
  * This command is the shared, deterministic surface every peaks-* orchestrator
  * calls at orchestration-start, BEFORE the first planning action, to decide

@@ -5,7 +5,6 @@
  * that carries tech-stack snapshot + business-knowledge sediment. It
  * is the load-bearing input to peaks-prd Step 0.8 ("Read project-scan
  * before brainstorm") and the output sink for peaks-txt's sediment
- * step (Group C, AC-5).
  *
  * Layout:
  *   .peaks/project-scan/

@@ -37,18 +37,14 @@ import {
   printResult,
   type ProgramIO
 } from '../cli-helpers.js';
-// Slice 015 — typed error → envelope code routing. Used by the four
 // catch sites below (tech.plan / workflow.route / workflow.autonomous /
 // swarm.plan) so provider-config errors surface as `INVALID_PROVIDERS`
 // instead of being silently re-labelled `INVALID_GOAL`.
 import { mapServiceError } from './_cli-error-envelope.js';
-// Slice rid-012 — change-id-axis tech subcommands (`peaks tech plan-change-id` /
 // `peaks tech status-change-id`). Additive; the existing session-axis
 // `peaks tech plan` / `peaks tech status` registrations are untouched.
 import { registerTechCommands } from './tech-commands.js';
 import { registerSwarmCommands } from './swarm-commands.js';
-// Slice rid-014 — autonomous RD swarm planner (`peaks workflow autonomous`).
-// Additive; the existing rid-013 `registerSwarmCommands` and rid-012
 // `registerTechCommands` registrations are byte-for-byte untouched.
 import { registerAutonomousSwarmCommands } from './autonomous-swarm-commands.js';
 // Slice 4.0.8 — workflow lifecycle (init / graph show / graph list / node
@@ -97,13 +93,11 @@ interface WorkspaceContext {
   artifactWorkspacePath?: string;
   sessionId?: string;
   sessionDir?: string;
-  // Slice 2026-06-16-peaks-rd-no-gates — Repair cycle 2:
   // thread `projectRoot` so CLI callers surface standards overlays (EPEAKS_NO_STANDARDS).
   projectRoot?: string;
 }
 
 interface TechPlanOptions {
-  // Slice 2026-06-29-change-id-root-removal: `sessionId` is no longer
   // a CLI option; the planner derives scope from the active session.
   goal: string;
   swarm?: boolean;
@@ -130,7 +124,6 @@ interface SwarmPlanOptions {
   maxWorkers: string;
   dryRun?: boolean;
   json?: boolean;
-  /** Slice 2026-06-16-peaks-rd-no-gates — opt-in strict standards mode. */
   strictStandards?: boolean;
 }
 
@@ -242,7 +235,6 @@ function runTechPlan(io: ProgramIO, options: TechPlanOptions): void {
   try {
     validatePlanningInput(options.goal);
     const workspaceContext = getCurrentWorkspaceContext();
-    // Slice 2026-06-29-change-id-root-removal: the change-id axis is
     // gone. The planner derives scope from the active session; the
     // legacy `sessionId` field is passed as empty string for back-compat
     // with the existing service signature.
@@ -445,7 +437,6 @@ async function runSwarmPlan(io: ProgramIO, options: SwarmPlanOptions): Promise<v
       ...(options.strictStandards ? { strictStandards: true } : {}),
       ...workspaceContext
     });
-    // Slice 2026-06-16-peaks-rd-no-gates — wire the strict-mode exit code.
     // The service-layer stamps `standardsErrorCode` onto the envelope; the
     // CLI is responsible for translating it into a non-zero exit.
     if (plan.gateStatus.standardsErrorCode === 'EPEAKS_NO_STANDARDS') {
@@ -471,7 +462,6 @@ async function runAutonomousResumeInit(
     if (!options.project || !options.project.trim()) {
       throw new Error('Project path must be non-empty');
     }
-    // Slice 2026-06-29-change-id-root-removal: the change-id axis is
     // gone. The CLI surfaces a deterministic placeholder
     // (`session-default`) when the user does not pass a change-id, so
     // the on-disk session-dir join via `getSessionDir` succeeds (the
@@ -612,7 +602,6 @@ export function registerWorkflowCommands(program: Command, io: ProgramIO): void 
   addTechStatusOptions(program.command('tech-status')).action((options: TechStatusOptions) =>
     runTechStatus(io, options)
   );
-  // Slice rid-012 — add the change-id-axis tech subcommands
   // (`peaks tech plan-change-id` / `peaks tech status-change-id`).
   // Additive; the session-axis registrations above are byte-for-byte untouched.
   registerTechCommands(program, io);
@@ -712,11 +701,9 @@ export function registerWorkflowCommands(program: Command, io: ProgramIO): void 
     }
   );
 
-  // Slice 2026-06-13-peaks-workflow-skip — `peaks workflow skip`.
   // Mark gates as bypassed for a specific rid, so the next
   // `verify-pipeline` reports them as `status: 'skipped'` instead of
   // missing-evidence violations. See RD
-  // `.peaks/_runtime/<sid>/rd/requests/001-2026-06-13-peaks-workflow-skip.md`
   // for the three-rule classifier (type allowlist, one-time
   // semantics, role-based auth).
   addJsonOption(
@@ -835,11 +822,9 @@ export function registerWorkflowCommands(program: Command, io: ProgramIO): void 
     }
   );
 
-  // Slice rid-013 — `peaks swarm plan-change-id` is delegated to
   // `registerSwarmCommands` (a thin wrapper around the new
   // `planRdSwarmGraph` service). The legacy `peaks swarm plan` /
   // `peaks swarm-plan` registrations above stay in-place for back-compat
-  // with the existing test suite (`tests/unit/cli-program.workflow.test.ts`).
   const swarm = program.command('swarm').description('Plan RD swarm dry-run graphs');
   addSwarmPlanOptions(swarm.command('plan'), true).action(async (options: SwarmPlanOptions) => {
     await runSwarmPlan(io, options);
@@ -850,8 +835,6 @@ export function registerWorkflowCommands(program: Command, io: ProgramIO): void 
     }
   );
   registerSwarmCommands(program, io);
-  // Slice rid-014 — autonomous RD swarm planner. Additive; the rid-013
-  // `registerSwarmCommands` and rid-012 `registerTechCommands` calls
   // above are byte-for-byte untouched.
   registerAutonomousSwarmCommands(program, io);
 

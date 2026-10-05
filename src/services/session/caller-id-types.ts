@@ -1,5 +1,4 @@
 /**
- * Caller-Id Resolution types (slice 020 — caller-keyed session binding,
  * refactored in slice 4.0.8 to be adapter-owned per RD §5).
  *
  * Per RD §5 + C1 user-confirmed product decision (binding 2026-08-03):
@@ -14,7 +13,6 @@
  * core resolution path only ever emits `'env-flag' | 'adapter' | 'none'`
  * via the new `CallerProjection.source` field.
  *
- * See `.peaks/_runtime/2026-08-03-session-bee258/rd/requests/001-2026-08-03-presence-lease-graph-design.md`
  * for the slice 4.0.8 contract.
  */
 
@@ -64,7 +62,6 @@ export interface CallerProjection {
  * On-disk shape of `.peaks/_runtime/callers/<callerId>.json`. One file
  * per caller; two callers may point to the same `peakSessionId` (D6).
  *
- * Slice 2026-09-12 (rid=caller-binding-staleness): the former
  * `lastActivityAt` field is REMOVED. It promised "bumped on every
  * `peaks <cmd>` that touches the binding" but was written only at first
  * bind and at an explicit rebind — never on reuse — so no freshness

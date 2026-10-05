@@ -1,5 +1,4 @@
 /**
- * Slice 2026-06-13-peaks-workflow-skip — `peaks workflow skip` service.
  *
  * Pure-function classifier (`canSkipSlice`) + side-effecting applicator
  * (`applySkip`). Both are testable without filesystem mocks (the

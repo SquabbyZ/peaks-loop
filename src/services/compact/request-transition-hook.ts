@@ -1,5 +1,4 @@
 /**
- * Slice-boundary pre-compact hook (slice 2026-07-01-strategic-compact-cli).
  *
  * The RD → QA and QA → final-review slice-boundary transitions go
  * through `peaks request transition`. When the active session is in
@@ -19,7 +18,6 @@
  * auto-compact orchestrator asks the harness to compact and reports that
  * it is waiting. It does not refuse sub-agent dispatch — peaks-loop has no
  * executor for a running session, so a refusal gated nothing and deadlocked
- * the runner (slice 2026-09-13-auto-compact-trigger-ownership).
  */
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';

@@ -2,7 +2,6 @@
 // `peaks memory ingest` — pull memories written by the IDE-side agent into
 // the peaks-owned store.
 //
-// Slice 2026-09-09-memory-system-overhaul (A). Before this, "沉淀记忆" in a
 // peaks-code workflow landed in Claude Code's own per-project memory dir
 // (`~/.claude/projects/<hash>/memory/`) and never reached `.peaks/memory/`
 // — a split-brain write path with no single authority.

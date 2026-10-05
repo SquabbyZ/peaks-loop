@@ -20,7 +20,6 @@ export function preferencesPath(projectRoot: string): string {
 export function loadPreferences(projectRoot: string): ProjectPreferences {
   const filePath = preferencesPath(projectRoot);
   if (!existsSync(filePath)) {
-    // Slice 2026-07-22-orchestrator-memory-preflight: when
     // .peaks/preferences.json is missing, this returns a clone of
     // DEFAULT_PREFERENCES, which now carries the `memoryPreflight`
     // block (see preferences-types.ts). Partial overlays fall through
@@ -49,7 +48,6 @@ export function loadPreferences(projectRoot: string): ProjectPreferences {
       `PREFERENCES_SCHEMA_MISMATCH: expected schema_version=${PREFERENCES_SCHEMA_VERSION} in ${filePath}, got ${(raw as Record<string, unknown> | null)?.schema_version}`
     );
   }
-  // Slice 2026-06-24-audit-5th-p2: fail fast on any fanout mode value
   // outside the closed set `['fan-out']`. The previous 'serial' opt-out
   // was removed by user direction — a saved `defaultMode = 'serial'`
   // (or a hand-edited unknown value) now throws at load rather than
@@ -82,7 +80,6 @@ export function savePreferences(
   const filePath = preferencesPath(projectRoot);
   const current = loadPreferences(projectRoot);
   const merged = mergePreferences(current, overrides);
-  // Slice 2026-06-23-audit-4th #A2: use tmp + rename so a crash
   // mid-write cannot leave a zero-byte or half-written preferences
   // file. Before the fix, a power-cut or OOM-kill between
   // writeFileSync's open and the final byte would leave
@@ -115,7 +112,6 @@ function mergePreferences(
   // Shallow merge at the top level, BUT merge the `fanout` object
   // deeply so a partial override like `{"fanout": {"perTouchpoint": {...}}}`
   // does not silently drop `defaultMode`. Slice
-  // 2026-06-23-audit-p0-cleanup: today the fanout schema is 1 level
   // deep, so shallow merge happens to be safe — but the field is
   // likely to grow (perTouchpoint / perRole are obvious next additions),
   // and a future bug fix should not silently regress opt-out callers
@@ -143,7 +139,6 @@ function mergePreferences(
 }
 
 /**
- * Slice 2026-06-23-audit-4th #C1: migrate a legacy preferences.json
  * (any `schema_version` older than PREFERENCES_SCHEMA_VERSION) to the
  * current shape. Returns the migrated object + a list of changes
  * applied (for surfacing in the CLI envelope and the migration log).
@@ -200,7 +195,6 @@ export function migratePreferences(
     !Array.isArray(raw.fanout) &&
     (raw.fanout as { defaultMode?: unknown }).defaultMode === 'serial'
   ) {
-    // Slice 2026-06-24-audit-5th-p2: 2.8.3-era preferences.json files
     // that opted into serial dispatch must be migrated to fan-out on
     // load. The user's directive ("禁止单 sub-agent") makes the serial
     // opt-out a breaking change for any project that used it.

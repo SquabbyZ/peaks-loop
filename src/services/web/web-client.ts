@@ -1,5 +1,4 @@
 /**
- * Loopback HTTP client for the `peaks web` daemon (slice S1, file 6).
  *
  * The CLI layer never speaks HTTP itself: this class is the only thing it
  * knows how to talk to, so every transport concern (bearer token, timeouts,

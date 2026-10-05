@@ -1,5 +1,4 @@
 /**
- * Slice 2026-08-06-session-outer-cache (G1 / G2) — per-project outer-session
  * cache CLI surface.
  *
  * Writes and reads `.peaks/_runtime/.outer-session-cache.json` so that
@@ -123,7 +122,6 @@ export function registerOuterCacheCommands(program: Command, io: ProgramIO): voi
     const capturedAt = new Date().toISOString();
     const payload = { outerSessionId, capturedAt };
     try {
-      // Slice 2026-08-06-session-cacde8-A.5c: atomic write (temp +
       // rename) so a power-loss mid-write cannot leave the cache file
       // truncated. `atomicWriteJson` owns its own
       // `mkdirSync(dir, { recursive: true })` so the inline mkdir

@@ -48,7 +48,6 @@ export interface EvidenceSource {
   readonly segments: readonly string[];
   /**
    * An older location of the SAME artifact, tried only when `segments` is not
-   * on disk. Slice `2026-09-14-prd-capsule-rid-scoping` moved the PRD handoff
    * capsule to `prd/handoff-<rid>.md`; sessions written before it hold only
    * the bare `prd/handoff.md`, and this module's delivery gate keys on that
    * source — so a source that goes missing does not fail the gate, it stops
@@ -232,7 +231,6 @@ function baseEvidenceSourcesB(rid: string): EvidenceSource[] {
     {
       key: SCOPE_CONTRACT_SOURCE_KEY,
       label: 'PRD handoff (approved scope + non-goals)',
-      // One capsule per slice since `2026-09-14-prd-capsule-rid-scoping`; the
       // bare name is the pre-scoping tier and still lives on 3 sessions.
       segments: ['prd', `handoff-${rid}.md`],
       legacySegments: ['prd', 'handoff.md'],

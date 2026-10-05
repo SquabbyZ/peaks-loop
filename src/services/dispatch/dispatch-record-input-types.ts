@@ -19,7 +19,6 @@ export type WriteInitialDispatchInput = {
   /** Override the timestamp (testing). */
   now?: () => Date;
   /**
-   * Slice 2026-07-29-worktree-l2-extended Part 3.A: the worktree
    * lease id this dispatch owns (set by `peaks sub-agent dispatch
    * --isolation worktree`). Persisted so the finalize-time release
    * hook in `markCompleted` can fire even after the dispatch
@@ -28,7 +27,6 @@ export type WriteInitialDispatchInput = {
    */
   leaseId?: string | null;
   /**
-   * Slice 2026-07-29-worktree-l2-extended Part 7: ISO timestamp
    * when the isolation mode was set up. Optional on the input
    * (defaults to `null`); dispatch-commands.ts passes the spawn
    * time when `--isolation` is requested.

@@ -28,7 +28,6 @@ export const OBSERVABILITY_CATEGORIES = [
   'cycle',
   'token-usage',
   'monotonic-trigger',
-  // Slice 2026-07-29-worktree-l2-extended Part 4.A: lease lifecycle
   // metrics. Emitted by `peaks worktree spawn / renew / release /
   // gc` and by the auto-release hook in dispatch finalization (Part
   // 3.A). Read by `peaks lease metrics`. The `detail.kind` field

@@ -1,5 +1,4 @@
 /**
- * Caller-Id Resolution (slice 020 — caller-keyed session binding,
  * refactored in slice 4.0.8 to be adapter-owned per RD §5 + C1).
  *
  * As of 4.0.8 the per-platform `PLATFORM_FALLBACKS` table is DELETED.
@@ -30,7 +29,6 @@
  * mutate state. The caller (a CLI command, a service, a test) decides
  * what to do with the resolved id.
  *
- * See `.peaks/_runtime/2026-08-03-session-bee258/rd/requests/001-2026-08-03-presence-lease-graph-design.md`
  * for the slice 4.0.8 contract.
  */
 

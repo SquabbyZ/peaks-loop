@@ -1,7 +1,6 @@
 /**
  * src/services/qa/bdd-test-style-verifier.ts
  *
- * rid-2026-08-05-bdd-test-style Slice B — peaks-qa verification-time
  * BDD test-style verifier. This is the read-only, post-edit companion
  * to the `scripts/migrate-to-bdd.mjs` AST migrator shipped in Slice A.
  *

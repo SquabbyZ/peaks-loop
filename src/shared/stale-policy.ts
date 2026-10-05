@@ -2,7 +2,6 @@
  * stale-policy — pure helper for stale detection and filtering on memory
  * and (future) retrospective entries.
  *
- * Slice 023 (R3) applies this to memory only (`peaks project memories:show`
  * and the underlying `readMemoryIndex` load path). The retrospective index
  * loader shares the same shape (`updatedAt: string`) and will be wired to
  * the same helper in a future slice.

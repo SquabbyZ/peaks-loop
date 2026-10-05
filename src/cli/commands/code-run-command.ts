@@ -100,7 +100,6 @@ export function registerCodeRunCommand(code: Command, io: ProgramIO): void {
           enteredFrom: current.state,
           exitCondition: null
         });
-        // Slice 2026-09-09-mode-consolidation (Slice B): auto-engage is the
         // ONLY path allowed to set a mode without a user pick, and `24h` is
         // the only mode it may set. Stamp it onto the in-flight presence
         // lease so the mode gate / statusline / `peaks code mode status`

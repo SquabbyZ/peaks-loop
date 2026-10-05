@@ -1,7 +1,6 @@
 /**
  * `peaks workspace <sub-command>` entry — thin facade.
  *
- * Slice 2026-06-16-workspace-commands-split: this file used to be 925
  * lines and bundled all 5 sub-commands (init, reconcile, migrate,
  * clean, archive). It is now a thin dispatcher that delegates each
  * sub-command to its own file under `./workspace/`. The per-subcommand
@@ -10,7 +9,6 @@
  * `./workspace/helpers.ts`.
  *
  * Re-exports `resolveFirstTimeHooksInstall` for back-compat with
- * `tests/unit/workspace-init-hooks.test.ts` (it imports from this file).
  */
 
 import type { Command } from 'commander';
@@ -19,10 +17,8 @@ import { registerWorkspaceInitCommand } from './workspace/init-command.js';
 import { registerWorkspaceReconcileCommand } from './workspace/reconcile-command.js';
 import { registerWorkspaceMigrateCommand } from './workspace/migrate-command.js';
 import { registerWorkspaceCleanCommand } from './workspace/clean-command.js';
-// Slice 2026-06-29-change-id-root-removal: `registerMigrateChangeScopeCommand`
 // was removed with the change-id axis. The CLI tool
 // `peaks workspace migrate-change-scope` and its source file
-// `src/cli/commands/workspace/migrate-change-scope-command.ts` are
 // deleted; their on-disk target `.peaks/_runtime/change/<id>/` was
 // already hard-killed in v2.17.0.
 import { registerMigrate1_4_1Command } from './migrate-1-4-1-command.js';

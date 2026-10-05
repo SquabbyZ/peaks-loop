@@ -20,7 +20,6 @@ import { claudeCodeSubAgentDispatcher } from '../../dispatch/sub-agent-dispatche
  * 字节级兼容:用户在 Claude Code 环境下跑 `peaks hooks install` 产出的
  * `.claude/settings.json` 与 refactor 前逐字节相同。
  *
- * 字段解释(见 PRD AC-1):
  *   - dirName = '.claude'           : Claude Code 项目根下的 settings 目录
  *   - settingsFileName = 'settings.json'
  *   - envVar = 'CLAUDE_PROJECT_DIR' : Claude Code 注入的 env 变量,用于 ${...} 占位
@@ -34,7 +33,6 @@ import { claudeCodeSubAgentDispatcher } from '../../dispatch/sub-agent-dispatche
  * Read Claude Code's statusline state file
  * (`~/.claude/statusline-state.json`) and parse a context-percent key.
  * Moved from the generic reader in slice
- * 2026-09-02-vendor-neutral-context-probe — Claude-specific paths now live
  * only in the Claude Code adapter.
  */
 function readClaudeStatuslinePercent(): number | null {
@@ -66,7 +64,6 @@ function readClaudeStatuslinePercent(): number | null {
  * null — the silent-failure mode this recursion closes.
  *
  * Moved from the generic reader in slice
- * 2026-09-02-vendor-neutral-context-probe. The lookup key is the OUTER
  * session id (Claude Code names its transcript by the outer session UUID),
  * NOT the peaks session id.
  */
@@ -100,7 +97,6 @@ function findTranscriptJsonl(projectsDir: string, outerSessionId: string): strin
  * Resolve the absolute path of a Claude Code transcript jsonl by OUTER
  * session id, searching `~/.claude/projects/**` recursively.
  *
- * Exported (slice 2026-09-10-context-audit-and-discipline, Slice A) so
  * `peaks code context-audit` reuses THIS locator instead of re-implementing
  * the recursive find. Returns `null` when the transcript does not exist —
  * callers MUST treat that as "unavailable", never as an error.
@@ -200,7 +196,6 @@ export function modelContextWindowTokens(model: string): number {
 }
 
 /**
- * Slice 2026-09-09-context-window-override: vendor-neutral escape hatch for
  * the context-window size in tokens. Third-party / proxied models whose id
  * carries no `[1M]` suffix (and is absent from the hardcoded allowlist) are
  * otherwise stuck at the 200K default, which inflates `ratio` up to 5×.
@@ -241,7 +236,6 @@ export interface ContextWindowOverrides {
    * (`auto-compact-reader.ts` via `harness-window-config.ts`), NOT here: the
    * settings path and the key name are per-IDE declarations.
    *
-   * Slice 2026-09-13-auto-compact-trigger-ownership: this layer is what makes
    * the ratio peaks-loop computes and the window the harness compacts against
    * THE SAME NUMBER. Without it they are two independent resolutions that can
    * drift 5× apart on a 1M-window model the model-name heuristic misses.
@@ -269,7 +263,6 @@ export interface ContextWindowOverrides {
 }
 
 /**
- * E2 (rid 2026-09-13-defects-e) — the notice for a pin larger than
  * peaks-loop's model-window estimate. `null` when there is nothing to say.
  *
  * WHY THIS EXISTS. The harness does not take its auto-compact window on faith:
@@ -345,7 +338,6 @@ export function parseContextWindowOverride(raw: unknown): number | null {
  * An invalid explicit override is ignored with a warning and falls through
  * to the next layer — a typo must never crash or silently win the probe.
  *
- * Slice 2026-09-13-auto-compact-trigger-ownership — why layer 3 exists:
  *   The hard constraint is that the window peaks-loop divides by must BE the
  *   window it configured for the harness. Layer 3 is peaks-loop's own output
  *   read back from the harness's settings file, so the two sides reference one
@@ -651,7 +643,6 @@ function readContextPercentFallback(
     const estimate = readClaudeTranscriptEstimate(input.outerSessionId, envModel, {
       env: input.env,
       configWindowTokens: input.configWindowTokens,
-      // Slice 2026-09-13-auto-compact-trigger-ownership: the window
       // peaks-loop configured for the harness outranks config + heuristic
       // (see `resolveContextWindow`). The generic reader resolved it from the
       // adapter's own declarations — this module never names the key.
@@ -712,7 +703,6 @@ export const CLAUDE_CODE_ADAPTER: IdeAdapter = {
     gateEnforce: true,
     statusline: true
   },
-  // v2.13.0 AC-1 + AC-3 MVP, slice 2026-07-02-auto-compact-zero-pause:
   // Claude Code is the first IDE to fill the `compact` profile.
   // Future adapters (trae / codex / cursor / qoder / tongyi-lingma /
   // hermes / openclaw) follow the same shape — peaks-loop reads the
@@ -737,7 +727,6 @@ export const CLAUDE_CODE_ADAPTER: IdeAdapter = {
     compactCommand: 'claude --compact',
     compactPathway: 'ide-native',
     postCompactDetectCommand: 'peaks code auto-compact --json',
-    // Slice 2026-09-13-auto-compact-trigger-ownership: the key Claude Code
     // reads its auto-compact WINDOW from, in the machine-local `env` block.
     // Claude Code documents it as taking precedence "over the command, the
     // flag, and the setting", and as accepting the plain token count only
@@ -746,7 +735,6 @@ export const CLAUDE_CODE_ADAPTER: IdeAdapter = {
     // `harness-window-config.ts`.
     autoCompactWindowEnvVar: 'CLAUDE_CODE_AUTO_COMPACT_WINDOW',
     readContextPercentFallback,
-    // Slice 2026-09-10-context-audit-and-discipline (Slice A): the vendor
     // layout knowledge (`~/.claude/projects/**/<outerSessionId>.jsonl`)
     // stays here; `peaks code context-audit` resolves it through the
     // adapter registry, never by naming this adapter directly.

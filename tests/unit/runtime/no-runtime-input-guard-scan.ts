@@ -172,13 +172,15 @@ export function parseSourceFile(absolutePath: string, source: string): ts.Source
 //     the same "claim the artifact no longer supports" defect the line exists
 //     to remove, in the test layer. Named again, RE-MEASURED by R7 on
 //     2026-09-15 with `findLiteralFirstIdJoins` over all of `src/` (7 rows
-//     total, 1 in reach, these 6 not scanned):
-//       src/services/prd/prd-blocks-checker.ts:87        later=[requestId]
-//       src/services/prd/prd-blocks-checker.ts:88        later=[requestId]
-//       src/services/session/caller-binding-service.ts:38 later=[callerId]
-//       src/services/workflow/artifact-paths.ts:64       later=[sessionId]
-//       src/services/workflow/pipeline-verify-gate-support.ts:323 later=[rdEvidenceDir]
-//       src/services/workflow/pipeline-verify-gate-support.ts:415 later=[rdEvidenceDir]
+//     total, 1 in reach, these 6 not scanned). Named by WHAT they join, not by
+//     the line they sit on — the test that re-measures them keys on the same
+//     identity, so this note cannot go stale on a line shift without the suite
+//     going red first:
+//       src/services/prd/prd-blocks-checker.ts              pinned 'prd'    later=[requestId]
+//       src/services/prd/prd-blocks-checker.ts              pinned 'change' later=[requestId]
+//       src/services/session/caller-binding-service.ts      pinned 'callers' later=[callerId]
+//       src/services/workflow/artifact-paths.ts             pinned 'change' later=[sessionId]
+//       src/services/workflow/pipeline-verify-gate-support.ts pinned 'change' later=[rdEvidenceDir]  (two rows)
 //   * `handoff-auto-regen.ts` — a cross-file constructor, invisible to both
 //     routes; guarded in fact through `handoffRelativePath`.
 //
@@ -277,42 +279,29 @@ export const MEASURED_ESCAPE_MODULES: readonly string[] = [
  * and re-measured by repair R7 on 2026-09-15 with `findLiteralFirstIdJoins`
  * over all of `src/` (7 rows total; the 7th is the in-reach one the test above
  * pins). Held here as data, not as prose, so the note's claim that these rows
- * are named is checked against the files rather than asserted in a comment.
+ * are named is checked against the files rather than asserted in prose.
+ *
+ * No `line` field. These rows are named by the slot they pin and the id joined after
+ * it, which is what makes one of them a problem; two of the six share a file AND a
+ * slot, so the re-measurement compares them as a multiset, and a line number here
+ * would be a pointer nothing checks.
  */
 export const NOT_SCANNED_LITERAL_FIRST: readonly {
   readonly file: string;
-  readonly line: number;
   readonly pinned: string;
   readonly later: string;
 }[] = [
-  { file: 'src/services/prd/prd-blocks-checker.ts', line: 87, pinned: 'prd', later: 'requestId' },
-  {
-    file: 'src/services/prd/prd-blocks-checker.ts',
-    line: 88,
-    pinned: 'change',
-    later: 'requestId'
-  },
-  {
-    file: 'src/services/session/caller-binding-service.ts',
-    line: 38,
-    pinned: 'callers',
-    later: 'callerId'
-  },
-  {
-    file: 'src/services/workflow/artifact-paths.ts',
-    line: 64,
-    pinned: 'change',
-    later: 'sessionId'
-  },
+  { file: 'src/services/prd/prd-blocks-checker.ts', pinned: 'prd', later: 'requestId' },
+  { file: 'src/services/prd/prd-blocks-checker.ts', pinned: 'change', later: 'requestId' },
+  { file: 'src/services/session/caller-binding-service.ts', pinned: 'callers', later: 'callerId' },
+  { file: 'src/services/workflow/artifact-paths.ts', pinned: 'change', later: 'sessionId' },
   {
     file: 'src/services/workflow/pipeline-verify-gate-support.ts',
-    line: 323,
     pinned: 'change',
     later: 'rdEvidenceDir'
   },
   {
     file: 'src/services/workflow/pipeline-verify-gate-support.ts',
-    line: 415,
     pinned: 'change',
     later: 'rdEvidenceDir'
   }

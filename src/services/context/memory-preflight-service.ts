@@ -1,9 +1,7 @@
 /**
  * MemoryPreflightService — orchestrator-facing API for the
  * "Orchestrator Memory Preflight" slice (see
- * docs/superpowers/specs/2026-07-22-orchestrator-memory-preflight-design.md).
  *
- * Slice 2026-09-09-memory-retrieval (this revision) makes the preflight
  * task-relevant and tiered:
  *   - selection is ranked against `taskTitle` with the deterministic fuzzy
  *     kernel (no network, no embeddings);
@@ -223,7 +221,6 @@ export class MemoryPreflightService {
 }
 
 /**
- * Slice 2026-09-09-memory-retrieval: the query the dispatch site feeds
  * `fetchBlock`. The bare role ("rd") carries almost no relevance signal,
  * so the first line of the task brief is appended (truncated) to give the
  * fuzzy kernel something to rank against. Pure and fail-soft.

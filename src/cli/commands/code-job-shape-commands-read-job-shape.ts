@@ -1,5 +1,4 @@
 /**
- * Slice rid-024 — `peaks code read-job-shape`.
  *
  * Extracted from code-job-shape-commands.ts (C wave 4 near-cap split). Owns:
  * read-job-shape (read + print). Command name, options, emitted message text,

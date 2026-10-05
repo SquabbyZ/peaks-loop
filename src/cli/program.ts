@@ -26,7 +26,6 @@ import { printSuperCommandCatalog, type ProgramIO } from './cli-helpers.js';
 
 export { printErrorEnvelope, printResult, type ProgramIO } from './cli-helpers.js';
 
-// Slice rid-001 (P0-1 envelope closure, fix #4): the prior default
 // `ProgramIO` funneled Commander's `configureOutput().writeErr` callback
 // through raw `console.error`, which bypassed the canonical envelope
 // path and left a `// TODO(g2): legacy console.error without envelope`
@@ -44,7 +43,6 @@ function defaultStdoutSink(text: string): void {
 }
 
 /**
- * Slice 2026-06-16-cli-logging (G1, G2, G3, G7). One structured
  * `peaks-loop start` entry per CLI invocation, plus a 7-day
  * retention sweep. Wired into the global program so EVERY
  * peaks-loop command — even a bare `peaks` quickstart — writes
@@ -83,7 +81,6 @@ function bootstrapLogger(verbose: boolean): void {
   }
 }
 
-// Slice 2026-06-16-cli-logging (AC1 regression fix, repair cycle 1):
 // Process-scoped guard so the bootstrap log line is written AT MOST
 // once per process, regardless of whether it fires from the
 // `preAction` hook (subcommand path) or from the version action
@@ -116,7 +113,6 @@ Run peaks (no arguments) for a quickstart. You likely want one of:
       writeOut: (text) => io.stdout(text.trimEnd()),
       writeErr: (text) => io.stderr(text.trimEnd())
     })
-    // Slice 2026-06-16-cli-logging (AC1 regression fix, repair cycle 1):
     // We DO NOT use Commander's built-in `.version()` here. Commander's
     // built-in version handler short-circuits the program BEFORE the
     // `preAction` hook fires, which means a bare `peaks --version`
@@ -131,7 +127,6 @@ Run peaks (no arguments) for a quickstart. You likely want one of:
     // per process.
     .option('-v, --version', 'output the version number')
     .option('-V', 'output the version number')
-    // Slice 2026-06-16-cli-logging (G3): global verbose flag. Mirrors
     // the PEAKS_LOG_LEVEL=debug env var; with this set, the logger
     // mirrors every entry to stderr IN ADDITION to the file.
     // Long-only: `-v` is already bound to `--version` by the
@@ -140,7 +135,6 @@ Run peaks (no arguments) for a quickstart. You likely want one of:
     .option('--verbose', 'mirror log lines to stderr (also: PEAKS_LOG_LEVEL=debug)')
     .hook('preAction', () => {
       const opts = program.opts<{ verbose?: boolean }>();
-      // Slice 2026-06-16-cli-logging (repair cycle 2): gate the bootstrap on
       // the same `bootstrapRan` guard the version action uses, so a single
       // process that invokes the program twice (vitest, programmatic) does
       // not emit duplicate `peaks-loop start` JSONL entries.
@@ -227,7 +221,6 @@ Run peaks (no arguments) for a quickstart. You likely want one of:
   // registerCoreAndArtifactCommands instead of being created twice.
   autoRegisterAllCommands(program, io);
   registerSkillVisibilityCommand(program, repoRoot);
-  // Slice rid-statusline-stale-ux AC-2: register `peaks session primer`
   // so it appears in `peaks session --help` for LLM `<TAB>`-discovery.
   // Mounted as a CHILD of the existing `session` commander group
   // (verified at src/cli/commands/core/session-command.ts:32). NOT

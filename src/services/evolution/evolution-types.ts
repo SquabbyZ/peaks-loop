@@ -74,7 +74,6 @@ export const EVOLUTION_VERDICTS: readonly EvolutionVerdict[] = [
 ] as const;
 
 /* ---------------------------------------------------------------------- */
-/* Proposal — the create payload. AC-8 enforces single object / dim.     */
 /* ---------------------------------------------------------------------- */
 
 /**
@@ -101,7 +100,6 @@ export const EvolutionProposalInputSchema = z.object({
   target_kind: EvolutionTargetKindSchema,
   target_release_id: TargetReleaseIdSchema,
   /**
-   * Single optimization dimension (AC-8). Multi-dimension proposals
    * must be split into multiple rounds.
    */
   optimization_dimension: z
@@ -130,7 +128,6 @@ export const EvolutionProposalInputSchema = z.object({
   author_id: z.string().trim().min(1, 'author_id is required').max(EVO_AUTHOR_ID_MAX),
   /**
    * The LLM-side marker that this proposal targets a SINGLE object
-   * (AC-8). Multi-object proposals must be split into multiple
    * rounds. The service layer rejects proposals with
    * `single_object !== true`.
    */
@@ -140,7 +137,6 @@ export const EvolutionProposalInputSchema = z.object({
   }),
   /**
    * The LLM-side marker that this proposal targets a SINGLE
-   * optimization dimension (AC-8). The service layer rejects
    * proposals with `single_optimization_dimension !== true`.
    */
   single_optimization_dimension: z.literal(true, {
@@ -188,9 +184,7 @@ export type EvolutionProposal = z.infer<typeof EvolutionProposalSchema>;
  *
  * Field semantics — see spec §4.4 for full prose. Highlights:
  *
- *   - `evaluator_id` and `skeptic_id` are SEPARATE agents (AC-14).
  *   - `user_confirmation_pointer` is a path/ID to a user choice
- *     record; it is REQUIRED for `verdict = 'keep'` (AC-15: user
  *     confirmation is the final gate).
  *   - `brief_pointer` is a path/ID to the evidence brief used in
  *     the recommendation (spec §4.7 / §10 RL-7).

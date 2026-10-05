@@ -1,7 +1,6 @@
 /**
  * vm-lease — pure-function lease store for `peaks vm spawn`.
  *
- * Slice 2026-07-29-worktree-l2-extended Part 35 (L4 VM runtime).
  * Parallels the design of `worktree-lease.ts` (Part 1) and
  * `container-lease.ts` (Part 12). The L4 VM isolation mode
  * (`--isolation vm` in dispatch) needs its own lease surface

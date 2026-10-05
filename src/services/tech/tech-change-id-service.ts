@@ -1,5 +1,4 @@
 /**
- * tech-change-id-service — change-id-axis slice of the tech planner (rid-012).
  *
  * Purpose:
  *   The original `peaks tech plan` / `peaks tech status` (in `tech-service.ts`)
@@ -7,7 +6,6 @@
  *   v2.19.0). This module provides the *consumer-side wiring* that lets the
  *   same CLI surface be re-keyed by an explicit `--change-id <id>` for the
  *   OpenSpec / change-driven workflow. The path math, change-id validation,
- *   and workspace-unavailable response are all delegated to the rid-009
  *   helpers in `src/services/openspec/artifact-boundary.ts`.
  *
  * Style:
@@ -17,9 +15,7 @@
  *
  * Hard ban:
  *   - This file MUST NOT import from `peaks-loop-shared` (stays inside
- *     peaks-loop per §9 of the rid-012 plan).
  *   - This file MUST NOT touch `src/services/openspec/artifact-boundary.ts`
- *     (rid-009 helpers are frozen; we only consume via import).
  */
 
 import type { WorkspaceConfig } from '../config/config-types.js';
@@ -68,7 +64,6 @@ const TECH_ARCHITECTURE_ROOT = '<changeId>/architecture';
 
 /**
  * Validate a change-id string. This is a thin consumer-side wrapper that
- * delegates to `validateChangeId` (rid-009). The wrapper exists so the
  * change-id-axis service has a single named export point (`validateTechChangeId`)
  * and so the test file can import it without reaching across to openspec.
  */
@@ -84,7 +79,6 @@ export function validateTechChangeId(id: string): Result<{ changeId: string }, C
  *   - `reviewChecklist`     → `<id>/architecture/tech-review-checklist.md`
  *   - `approvalTemplate`    → `<id>/architecture/tech-approval-record.template.md`
  *
- * Delegates to `planArtifactPath` (rid-009) for each one. Returns the FIRST
  * failure (so callers get a single, deterministic BoundaryError).
  *
  * Pure path math — does not touch the filesystem.
@@ -148,7 +142,6 @@ export function planTechArtifactPath(input: {
 
 /**
  * Build the workspace-unavailable response for the change-id-axis tech
- * planner. Thin wrapper around `buildWorkspaceUnavailable` (rid-009) so
  * the same single source of truth (nextActions constant) is reused.
  *
  * The `mode` discriminator matches the existing artifact-boundary shape

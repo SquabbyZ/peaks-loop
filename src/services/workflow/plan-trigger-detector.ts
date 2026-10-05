@@ -1,5 +1,4 @@
 /**
- * `peaks workflow plan detect-trigger` — slice 025 (Security + Perf
  * Plan/Result split).
  *
  * Compares the current project state (filesystem + package.json) to the
@@ -24,7 +23,6 @@ export type TriggerReason =
   | 'no-change'
   | 'no-triggering-change';
 
-/** F-1 (slice 025 security): canonical request-id shape. */
 export const REQUEST_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
 
 export interface DetectTriggerArgs {
@@ -171,7 +169,6 @@ function findNewHotPathFile(diff: SliceDiff): string | null {
 }
 
 export function detectTrigger(args: DetectTriggerArgs): ResultEnvelope<DetectTriggerData> {
-  // F-1 (slice 025 security): reject traversal/separator payloads at
   // the service boundary so every caller (CLI, skill, integration test)
   // gets the same rejection shape.
   if (!REQUEST_ID_PATTERN.test(args.rid)) {

@@ -1,5 +1,4 @@
 /**
- * v2.15.0 slice 002 — AC-3: feedback promotion CLI.
  *
  *   - `peaks feedback promote <memory-file> [--layer A|B|C] [--dry-run]`
  *   - `peaks feedback check-unpromoted --project <path> [--strict]`
@@ -159,7 +158,6 @@ export function registerFeedbackCommands(program: Command, io: ProgramIO): void 
         projectRoot,
         dryRun: false
       });
-      // rid 2026-09-14-gate-h-promotion: report what was written, not what
       // the stub wished for. A promotion whose layer artifact is absent is
       // recorded but NOT effective, and says so with a non-zero exit.
       const notes = [

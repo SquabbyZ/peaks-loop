@@ -1,7 +1,6 @@
 /**
  * Resource profile accessors for the per-IDE dispatch layer.
  *
- * Slice #011-2026-06-07-ide-adapter-resource-profile introduced two new
  * optional fields on the `IdeAdapter` interface:
  *
  *   - `standardsProfile` — where the IDE reads its project-level

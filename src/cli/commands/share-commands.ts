@@ -1,7 +1,6 @@
 /**
  * `peaks sub-agent share | shared-read | await` — G8.4 + 2.7.0 await barrier.
  *
- * Pulled out of `sub-agent-commands.ts` (slice 2026-06-23-audit-p0-split)
  * to honor the 800-line file cap. These three commands share the G8.4
  * dispatcher-mediated cross-sub-agent signal channel:
  *   - `share` writes a `<role>.<event>` entry (≤ 1KB soft warn, ≥ 64KB reject).
@@ -73,7 +72,6 @@ export const FINALIZE_SELECTION_RULE =
  *
  * The branch this replaces `break`ed on the FIRST file whose record carried
  * the requestId and never looked at `status`. With a re-dispatched request
- * (this session holds six records for `2026-09-12-defect-remediation`) it
  * always resolved to the OLDEST one — the already-`done` RD record — so
  * finalizing reported success while the newer `queued` QA record stayed
  * queued forever. `--batch` never had that bug: it filters on `queued`.
@@ -168,7 +166,6 @@ export function registerShareCommand(parent: Command, io: ProgramIO): void {
 
     try {
       const projectRoot = options.project ?? process.cwd();
-      // Slice 2026-06-26-unknown-sid-fallback-fix: see dispatch-commands.ts.
       const sid =
         options.sessionId ??
         process.env.PEAKS_SESSION_ID ??
@@ -223,7 +220,6 @@ export function registerShareCommand(parent: Command, io: ProgramIO): void {
         ok(
           'sub-agent.share',
           {
-            // Slice 2026-06-23-audit-4th #E1: envelopeVersion marker
             envelopeVersion: '2.1.0',
             ok: true,
             batchId: options.batch,
@@ -242,7 +238,6 @@ export function registerShareCommand(parent: Command, io: ProgramIO): void {
         ),
         asJson
       );
-      // Slice 2026-06-23-audit-4th #B1: structured log on success.
       try {
         writeLogEntry({
           ts: new Date().toISOString(),
@@ -281,7 +276,6 @@ export function registerShareCommand(parent: Command, io: ProgramIO): void {
 }
 
 /**
- * Slice 2026-06-23-audit-3rd #9: branch on `error.code` so the LLM-side
  * runner gets an actionable hint instead of a generic "see error
  * message" fallback. Each branch names the most likely next step.
  */
@@ -332,7 +326,6 @@ export function registerSharedReadCommand(parent: Command, io: ProgramIO): void 
     }
     try {
       const projectRoot = options.project ?? process.cwd();
-      // Slice 2026-06-26-unknown-sid-fallback-fix: see dispatch-commands.ts.
       const sid =
         options.sessionId ??
         process.env.PEAKS_SESSION_ID ??
@@ -352,7 +345,6 @@ export function registerSharedReadCommand(parent: Command, io: ProgramIO): void 
         ok(
           'sub-agent.shared-read',
           {
-            // Slice 2026-06-23-audit-4th #E1: envelopeVersion marker
             envelopeVersion: '2.1.0',
             ok: true,
             batchId: options.batch,
@@ -447,7 +439,6 @@ export function registerAwaitCommand(parent: Command, io: ProgramIO): void {
       timeoutMs = n;
     }
     const projectRoot = options.project ?? process.cwd();
-    // Slice 2026-06-26-unknown-sid-fallback-fix: see dispatch-commands.ts.
     const sid =
       options.sessionId ??
       process.env.PEAKS_SESSION_ID ??
@@ -456,7 +447,6 @@ export function registerAwaitCommand(parent: Command, io: ProgramIO): void {
     // Lazy-import IDE modules so `peaks sub-agent share` and
     // `peaks sub-agent shared-read` (the high-frequency G8.4 path) do not
     // pay for adapter resolution at module-load time. Slice
-    // 2026-06-23-audit-p0-cleanup.
     const { detectInstalledIde } = await import('../../services/ide/ide-detector.js');
     const { getAdapter } = await import('../../services/ide/ide-registry.js');
     const ide = detectInstalledIde(projectRoot) ?? 'claude-code';
@@ -480,7 +470,6 @@ export function registerAwaitCommand(parent: Command, io: ProgramIO): void {
       return;
     }
     try {
-      // Slice 2026-09-16-n1-await-reports: resolve the batch's records from the
       // session's dispatch directory. `recordPaths` used to be hardcoded to
       // `[]`, and `awaitBatch` short-circuits on an empty list
       // (await-batch.ts:134) — so `await` reported zero results and exited 0
@@ -530,7 +519,6 @@ export function registerAwaitCommand(parent: Command, io: ProgramIO): void {
         ok(
           'sub-agent.await',
           {
-            // Slice 2026-06-23-audit-4th #E1: envelopeVersion marker
             envelopeVersion: '2.1.0',
             batchId: options.batch,
             ide: dispatcher.label,
@@ -544,7 +532,6 @@ export function registerAwaitCommand(parent: Command, io: ProgramIO): void {
               ]
             : [],
           [
-            // Slice 2026-09-15-s9: corrected. This used to tell users that the
             // four non-Claude IDEs would report `awaitByLlm: <ide> 1.2 fallback`,
             // the slice-1.2 marker that slice 1.3 replaced with a real
             // file-polling await. The text survived because nothing tested it —
@@ -584,7 +571,6 @@ function awaitErrorNextActions(code: string): string {
 }
 
 /**
- * Slice 2026-07-17-D21: peaks sub-agent finalize — LLM-side completion
  * signal. Without this, dispatch records stay queued forever.
  *
  * Contract:
@@ -621,7 +607,6 @@ function safeRecordPath(p: string): string {
 }
 
 /**
- * Slice 2026-09-16-n1-await-reports: which on-disk records belong to a batch.
  *
  * Reuses the conventions already in the repo instead of inventing a new one:
  *   - records live at `.peaks/_sub_agents/<sid>/dispatch-<rid>-<ts>.json`

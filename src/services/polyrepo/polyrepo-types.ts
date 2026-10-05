@@ -1,5 +1,4 @@
 /**
- * Polyrepo types — slice S2-b of RD-2.
  *
  * Models a parent directory that hosts one or more child git repos,
  * each of which may carry its own `.peaks/` state. The root `.peaks/`

@@ -4,9 +4,7 @@
  * Private helpers used by the slimmed `pipeline-verify-service.ts`
  * orchestrator. NOT publicly re-exported; not part of the public API
  * surface. Kept in a sibling file so the orchestrator can stay under
- * the 400-line file-size cap (rid-006 split).
  *
- * File budget: ≤ 400 lines (rid-006 split).
  */
 
 import { existsSync, readFileSync } from 'node:fs';
@@ -30,7 +28,6 @@ export function extractState(markdown: string): string {
 }
 
 /**
- * As of slice 2026-06-05-change-id-as-unit-of-work, the file's durable
  * scope is the change-id (the `.peaks/_runtime/<sessionId>/` dir the file lives
  * in), NOT the session-id. We resolve the on-disk location via
  * `showRequestArtifact` (which scans all top-level dirs and returns the
@@ -48,7 +45,6 @@ export async function findRequestFile(
     requestId: rid
   });
   if (artifact === null) return null;
-  // Slice 2026-06-28-code-mode-bypass-fix (defect #3) used to strip a
   // `_runtime/` prefix here, because `showRequestArtifact` then returned the
   // FULL SCOPE (`_runtime/<sid>`) as `sessionId`. Repair R5 removed that
   // round-trip at its source: `readSummary` now builds the summary from the
@@ -81,7 +77,6 @@ export async function findRequestFile(
  * to a `legacyRelativePath` fallback of `audit/security.md`, and it kept
  * demanding `qa/security-findings-<rid>.md` / `qa/performance-findings-<rid>.md`
  * after the v2.11.0 D1/D4 trim dropped them from `qa:verdict-issued`
- * altogether (rid 2026-09-14-verify-pipeline-contract-drift).
  */
 /**
  * The prerequisite the contract carries for `probeName`, or null when it
@@ -158,7 +153,6 @@ export function rdGatesForType(requestType: RequestType): PipelineGate[] {
   ];
 
   // This slot used to pin a `tech-doc` gate to `rd/tech-doc.md`, an artifact
-  // v2.11.0 Group A retired and the table no longer carries — so the gate
   // failed trees `peaks request transition` accepts (QA repair cycle 1). The
   // design / scope record the contract DOES name at `rd:qa-handoff` is
   // `prd/handoff.md`, so that is the gate: table-derived, like the others.
@@ -204,8 +198,6 @@ export function rdGatesForType(requestType: RequestType): PipelineGate[] {
   }
   // The perf evidence the contract requires at `rd:qa-handoff` is `AUDIT_PERF`
   // — `audit/perf-<rid>.md`, with `audit/perf.md` and `rd/perf-baseline.md` as
-  // its two declared legacy tiers (rid-scoped since slice
-  // `2026-09-14-audit-artifact-rid-scoping`). This gate used to live on the QA
   // side as `performance-findings`, checking `qa/performance-findings-<rid>.md`
   // — a path the v2.11.0 D1/D4 trim dropped. Relocating the gate (rather than
   // deleting it) is what keeps AC3's control meaningful: perf evidence that is
@@ -243,13 +235,10 @@ export function qaGatesForType(requestType: RequestType): PipelineGate[] {
   }
 
   // The `security-findings` / `performance-findings` gates were removed here
-  // (rid 2026-09-14-verify-pipeline-contract-drift). peaks-qa does not own
   // security review or performance review — `peaks-qa/SKILL.md` says so, and
   // the v2.11.0 D1/D4 trim dropped both from every `qa:verdict-issued` table.
   // The evidence they used to demand is now checked on the RD side, at the
   // paths the contract actually names (`audit/security-<rid>.md`,
-  // `audit/perf-<rid>.md`; rid-scoped since slice
-  // `2026-09-14-audit-artifact-rid-scoping`, with `audit/security.md` /
   // `audit/perf.md` and `rd/security-review.md` / `rd/perf-baseline.md` as the
   // declared legacy tiers behind them).
 
@@ -259,7 +248,6 @@ export function qaGatesForType(requestType: RequestType): PipelineGate[] {
 export const RD_QA_HANDOFF_STATES = new Set(['qa-handoff', 'handed-off', 'implemented']);
 export const QA_COMPLETE_STATES = new Set(['verdict-issued']);
 
-/** Tracker for canonical-path compliance (slice 2026-06-28-code-mode-bypass-fix). */
 export interface CanonicalPathTracker {
   anyEvidenceResolved: boolean;
   allResolvedPathsCanonical: boolean;

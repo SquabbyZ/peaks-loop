@@ -2,7 +2,6 @@
  * worktree-lease-types — the pure declaration surface of the worktree lease
  * store (`worktree-lease.ts`).
  *
- * Slice 2026-07-29-worktree-l2-extended Part 1 owns the lease behavior; this
  * module owns only the shapes (lifecycle status, lease record, creation draft,
  * and the list-read result). `worktree-lease.ts` imports and re-exports every
  * name here, so importers keep resolving them from the original path.

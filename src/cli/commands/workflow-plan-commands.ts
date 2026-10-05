@@ -1,5 +1,4 @@
 /**
- * `peaks workflow plan <read|refresh|detect-trigger>` — slice 025 CLI.
  *
  * Three subcommands under the existing `peaks workflow` verb:
  * - `read <security|perf> --project <repo> --json`

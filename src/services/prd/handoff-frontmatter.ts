@@ -1,7 +1,6 @@
 /**
  * The ONE canonical serialization of `prd/handoff.md` frontmatter.
  *
- * Why this module exists (slice `2026-09-14-handoff-writer-gate-divergence`):
  * the handoff capsule is written by two producers and read by four
  * consumers, and they did not agree on the bytes:
  *
@@ -92,7 +91,6 @@ function blockOptionalSequence(key: string, values: readonly string[] | undefine
  */
 function gateEvidenceBlock(evidence: GateEvidence | undefined): string[] {
   if (evidence === undefined) return [];
-  // F3 of `rid-b1-qa`: this function used to iterate only the five known keys,
   // so anything else was dropped WITHOUT A TRACE — `initHandoff({gateEvidence:
   // {projectScans: 'typo.md'}})` wrote no block at all and the capsule then
   // read back as `field-absent`, i.e. as if nothing had ever been declared.

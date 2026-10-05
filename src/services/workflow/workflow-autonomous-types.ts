@@ -3,7 +3,6 @@
  *
  * Pure type module. No runtime helpers, no constants. The slimmed
  * `workflow-autonomous-service.ts` re-exports the types so existing
- * import paths compile unchanged (rid-006 split).
  *
  * Per PRD EC-1, this module is consumed by both
  * `workflow-autonomous-service.ts` and
@@ -12,7 +11,6 @@
  * resume-helpers ↔ autonomous-service runtime cycle (both modules
  * previously re-exported `AutonomousResumePlan` from each other).
  *
- * File budget: ≤ 400 lines (rid-006 split).
  */
 
 import type { CapabilityItemType } from '../recommendations/recommendation-types.js';

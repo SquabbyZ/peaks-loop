@@ -1,7 +1,6 @@
 /**
  * `peaks sub-agent shutdown register|unregister|list` CLI verbs.
  *
- * Slice 2026-08-01-subagent-merge-and-e2e (Task 6). The sub-agent
  * dispatches a long-lived local process (vite dev, mock API, docker
  * proxy, etc.). Before it exits, it MUST register the process with
  * `peaks sub-agent shutdown register --pid <pid> --name <label>`. The

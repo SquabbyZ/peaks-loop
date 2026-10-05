@@ -8,7 +8,6 @@
  * and (optionally, with apply === true) deletes empty / abandoned
  * session dirs older than olderThanMs.
  *
- * As of slice 2026-06-05-peaks-runtime-layer the top-level orchestrator
  * also runs `migrateOldRuntimeState` at the start so pre-migration
  * trees have their `.peaks/.session.json` / `.peaks/.active-skill.json`
  * / `.peaks/sop-state/` files moved into `.peaks/_runtime/`.
@@ -49,7 +48,6 @@ const META_FILE = 'session.json';
 export function discoverSessions(projectRoot: string): SessionEntry[] {
   const runtimeRoot = join(projectRoot, '.peaks', '_runtime');
   const peaksRoot = join(projectRoot, '.peaks');
-  // As of slice 003, the canonical home for session dirs is
   // `.peaks/_runtime/<sid>/`. The legacy top-level layout is
   // read for back-compat (one minor release) so pre-migration
   // trees keep working. Both are scanned; duplicates (same sid
@@ -297,7 +295,6 @@ export function applyDeletions(
 
 /**
  * Read the orchestrator's active-skill marker and extract the
- * session id. As of slice 2026-06-05-peaks-runtime-layer the
  * canonical home is `.peaks/_runtime/active-skill.json`; the legacy
  * `.peaks/.active-skill.json` is consulted as a one-minor-release
  * back-compat fallback (the new path wins when both exist).
@@ -327,7 +324,6 @@ function readActiveSkillSessionId(projectRoot: string): string | null {
 /**
  * Sync the single `change/<canonicalSessionId>/` live marker under
  * `.peaks/_runtime/change/`. The marker is an EMPTY directory (no
- * symlinks, no manifest, no content). Slice 006 collapses the F3
  * per-change-id symlink layer to a single live marker so the
  * `change/` layer is a single sentinel — easy for the LLM to
  * navigate, easy for tests to assert on.
@@ -397,7 +393,6 @@ export function syncChangeMarker(
 
 /**
  * Top-level orchestrator. Wires migration (added in slice
- * 2026-06-05-peaks-runtime-layer), discovery, canonical pick, re-point,
  * deletion-candidate selection, and deletion into a single result.
  */
 export function reconcileWorkspace(options: ReconcileOptions): ReconcileResult {
@@ -451,7 +446,6 @@ export function reconcileWorkspace(options: ReconcileOptions): ReconcileResult {
   const deletionCandidates = findDeletionCandidates(sessions, ageThresholdMs);
   const deletionResult = applyDeletions(deletionCandidates, apply);
 
-  // Slice 006: sync the single `change/<canonicalSessionId>/` live
   // marker (replaces the F3 per-change-id symlink layer). The marker
   // is an empty dir; the function removes every other entry under
   // `.peaks/_runtime/change/`. Idempotent. This step is independent
@@ -466,7 +460,6 @@ export function reconcileWorkspace(options: ReconcileOptions): ReconcileResult {
         }
       : syncChangeMarker(projectRoot, canonical.sessionId);
 
-  // Slice 006: clean up the F3-introduced `.peaks/_runtime/<sid>/system/`
   // subdir under EVERY session dir (not just the canonical one). The
   // subdir was created eagerly by `initWorkspace` (F3) but was never
   // used. The cleanup is idempotent: re-running on a tree without the

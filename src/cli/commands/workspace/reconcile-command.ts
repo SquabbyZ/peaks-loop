@@ -1,8 +1,6 @@
 /**
- * `peaks workspace reconcile` — slice 006 + slice 0.5.
  *
  * Extracted from `src/cli/commands/workspace-commands.ts` (slice
- * 2026-06-16-workspace-commands-split) to keep that entry file under the
  * 800-line Karpathy cap. Scans the legacy 2026-MM-DD-session dirs and
  * consolidates the runtime state.
  *
@@ -18,7 +16,6 @@ import { fail, ok } from 'peaks-loop-shared/result';
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../../cli-helpers.js';
 
 // Inlined from the original 925-line workspace-commands.ts; the import
-// path '../../../shared/duration.js' did not exist and the constants
 // were used as bare identifiers in the legacy file. Future refactor:
 // move to a shared module.
 const DEFAULT_RECONCILE_AGE_DAYS = 7;

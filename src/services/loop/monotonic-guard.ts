@@ -73,7 +73,6 @@ export const DEFAULT_MONOTONIC_THRESHOLD = 0.05;
 
 /** Compare `previous` against `current` and report monotonicity.
  *
- *  Rules (reflected in `tests/unit/loop/monotonic-guard.test.ts`):
  *    - missing previous cycle → skip (`MONOTONIC_NO_PREVIOUS`)
  *    - evaluators not present in both cycles → skip that evaluator
  *    - score unchanged / up → ok

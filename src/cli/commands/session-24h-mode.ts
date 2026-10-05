@@ -1,7 +1,6 @@
 /**
  * `peaks session 24h-mode` — state-only CLI for the 24h mode backbone.
  *
- * Rid-020a (state-only slice). Exposes four sub-actions so the LLM
  * orchestrator can introspect, transition, audit retry attempts, and
  * reset the 24h state machine without touching the JSON file
  * directly. The LLM is the decision-maker; the CLI is the muscle
@@ -194,7 +193,6 @@ export function registerSession24hModeCommand(session: Command, io: ProgramIO): 
             target === 'HANDOFF' ? (merged.exitCondition ?? null) : current.exitCondition
         };
         const result = write24hState(projectRoot, sid, next);
-        // Slice 2026-09-09-mode-consolidation (Slice B): entering 24H_ACTIVE
         // is an auto-engage of the `24h` mode. Stamp it onto the presence
         // lease; every other target state leaves the mode untouched (the
         // guard in `applyAutoEngagePresenceMode` refuses non-24h modes).

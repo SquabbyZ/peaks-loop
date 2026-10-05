@@ -1,5 +1,4 @@
 /**
- * peaks-loop Worktree Authorization Gate (slice 2026-07-27-worktree-user-auth).
  *
  * Project-level red line: no autonomous LLM path is allowed to create a
  * Git worktree, switch Claude Code's Agent isolation to "worktree",
@@ -81,7 +80,6 @@ export type AuthorizationFile = {
 
 export type WorktreeAuthorization = {
   readonly operation: OperationType;
-  /** Free-form description (e.g. "rd sub-agent for rid-006"). Echoed in deny reasons for traceability. */
   readonly reason: string;
   /** 16-hex SHA-1 prefix of the prompt at grant time. Optional; the gate may match by operation only. */
   readonly promptHash: string | null;
@@ -168,7 +166,6 @@ export type WorktreeAuthCheckInput = {
    */
   readonly leaseId: string | null;
   /**
-   * Slice 2026-07-29-worktree-l2-extended Part 19: L4 container
    * lease id (parallel to `leaseId` for container isolation).
    * `PEAKS_CONTAINER_LEASE_ID` env is the canonical source.
    * Permits docker / podman tool calls when the container lease

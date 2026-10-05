@@ -1,5 +1,4 @@
 /**
- * Claude Code vendor adapter — slice S2-a.
  *
  * Stubs the compact verb to `claude --compact` (the canonical vendor
  * verb for Claude Code). The actual binary is invoked via spawn so

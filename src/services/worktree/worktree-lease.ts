@@ -1,7 +1,6 @@
 /**
  * worktree-lease — pure-function lease store for `peaks worktree spawn`.
  *
- * Slice 2026-07-29-worktree-l2-extended Part 1. This is the Layer 2
  * governance complement to Layer 3 (`permissions.deny` for the superpowers
  * chain) and Layer 1 (sub-agent dispatch prompt refusal). Together the
  * three layers close the superpowers-chain jailbreak that previously
@@ -11,7 +10,6 @@
  * directory path as an argument and returns structured data. Atomic
  * filesystem writes happen at the call site (CLI command), keeping the
  * helpers trivially testable. The CLI surface lives in
- * `src/cli/commands/worktree-spawn-commands.ts`.
  *
  * Why a separate lease (vs reusing `peaks worktree auth grant`):
  * - `auth grant` is a single-shot, short-lived token file consulted by

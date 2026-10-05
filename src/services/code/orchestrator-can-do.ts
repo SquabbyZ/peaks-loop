@@ -1,5 +1,4 @@
 /**
- * Slice 2026-08-05-orchestrator-can-do-probe — service layer for
  * `peaks code orchestrator-can-do`.
  *
  * Encodes the 2026-08-05 lesson (`.peaks/memory/2026-08-05-peaks-code-
@@ -79,7 +78,6 @@ export const SOURCE_CODE_KEYWORDS: readonly string[] = [
 ] as const;
 
 /**
- * Slice 2026-08-06-codegate-vendor-neutral — hard-blocked path families.
  * When ANY of these substrings appears in the slice-spec, the orchestrator
  * MUST NOT Edit/Write directly; the probe returns `canDoInSession: false`
  * with `blockers: ["requires-sub-agent-dispatch"]` to force
@@ -133,7 +131,6 @@ export interface OrchestratorCanDoResult {
   readonly subAgentAvailable: boolean;
   /** Diagnostic — which of the 4 boundary questions fired. */
   readonly q1SourceCodeTouched: boolean;
-  /** Slice 2026-08-06-codegate-vendor-neutral: did the slice-spec mention a hard-blocked path family (src/, tests/unit/, ...)? When true the probe refuses direct execution. */
   readonly q1HardBlockedPath: boolean;
   readonly q2SubAgentAvailable: boolean;
   readonly q3RequiresUserDecision: boolean;
@@ -160,7 +157,6 @@ export function detectSourceCodeTouched(sliceSpec: string): boolean {
 }
 
 /**
- * Slice 2026-08-06-codegate-vendor-neutral — does the slice-spec mention
  * any hard-blocked path family? Pure substring match. When true, the
  * probe returns `canDoInSession: false` with `requires-sub-agent-dispatch`.
  * This is the LLM-side complement to the `pre-tool-code-gate.sh` hook

@@ -1,6 +1,5 @@
 // src/services/karpathy-cost/karpathy-cost-check-service.ts
 //
-// Slice 2026-07-30-karpathy-cost-self-review (slice 2/4). The
 // karpathy-reviewer's JSON envelope is extended with `evaluationCost`
 // + `costRatio` (see agents/karpathy-reviewer.md §4). This service
 // is the orchestrator-side consumer of those fields.

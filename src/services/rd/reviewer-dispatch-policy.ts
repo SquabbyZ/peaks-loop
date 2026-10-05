@@ -1,5 +1,4 @@
 /**
- * Slice 2026-06-24-efficiency-4p-bundle / G4 (P1.3) — karpathy-skip policy
  * Slice v2.12.0 Group B (Tier 4) — collapse 5-way → 3-way fanout.
  *
  * Background — peaks-rd's "Parallel review fan-out" (SKILL.md §130) is
@@ -34,9 +33,7 @@
  * reason every export below sat at zero importers until slice F2.
  *
  * Pinning is half-done. The two test files this block used to cite —
- * `tests/unit/rd/karpathy-skip-on-config-docs-chore.test.ts` (the 5 → 3
  * element pinning) and
- * `tests/unit/rd/deprecated-reviewer-back-compat.test.ts` (the 8
  * back-compat cases) — were both deleted in `f17aa377`. The **predicate
  * half** was re-pinned by `tests/unit/rd/reviewer-dispatch-policy.test.ts`
  * (`7191140f`, 6 cases: `RD_DEPRECATED_REVIEWERS` + `isDeprecatedReviewer`).
@@ -44,7 +41,6 @@
  * membership, `reviewerListFor`, `karpathySlotIndex`,
  * `shouldDispatchKarpathy` — still has no pin.
  *
- * Slice F2 (rid-f2-ac1-wiring) gave this module its FIRST caller in
  * `src/cli/commands/sub-agent-shared.ts` (`deprecatedReviewerWarnings`),
  * invoked from the dispatch chokepoint in
  * `src/cli/commands/dispatch-commands.ts` and pinned by

@@ -23,6 +23,18 @@ import {
   findUnguardedRuntimeIdJoins
 } from './no-runtime-input-guard-detect-ruled.js';
 
+/**
+ * A literal-first row as this file names it: the pinned slot, then the ids joined after
+ * it. Deliberately no line number — rid `2026-10-05-line-pinned-guards`. Both censuses
+ * below used to key on the line, so deleting a comment ABOVE one of these joins reddened
+ * the suite while changing nothing about the join. The line is still printed in the
+ * failure message for navigation; a row that appears, disappears or changes its slots
+ * still fails, and a second row matching the same pair in the same file fails as NEW.
+ */
+function rowText(h: { pinned: string; later: readonly string[] }): string {
+  return `pinned=${h.pinned} later=[${h.later.join(',')}]`;
+}
+
 describe('rule D — an id joined into the runtime tree carries a guard (slice 2026-09-14)', () => {
   it('negative control — the five escapes of repair R1 are all detected', () => {
     // Each fixture is the PRE-FIX source shape of a site the security audit of
@@ -363,11 +375,12 @@ describe('rule D — an id joined into the runtime tree carries a guard (slice 2
     // `src/`, of which this is the only one in reach (the other 6 are named in
     // the reach note and are NOT scanned).
     expect(
-      SRC_SCAN.literalFirstJoins.map(
-        (h) => `${relativeToRoot(h.file)}:${h.line} pinned=${h.pinned} later=[${h.later.join(',')}]`
-      )
+      SRC_SCAN.literalFirstJoins.map((h) => `${relativeToRoot(h.file)} ${rowText(h)}`),
+      `measured rows, with lines for the note: ${JSON.stringify(
+        SRC_SCAN.literalFirstJoins.map((h) => `${relativeToRoot(h.file)}:${h.line}`)
+      )}`
     ).toEqual([
-      "src/cli/commands/playwright-commands.ts:321 pinned='playwright-userdata' later=[terminalId]"
+      "src/cli/commands/playwright-commands.ts pinned='playwright-userdata' later=[terminalId]"
     ]);
   });
 
@@ -377,23 +390,32 @@ describe('rule D — an id joined into the runtime tree carries a guard (slice 2
     // named — a claim no artifact supported, which is the same defect class as
     // the rule passing a slot it never looked at. The names are back in the
     // reach note, and they are re-MEASURED here rather than trusted: read each
-    // named file, and require the named line, slot and id to be what the note
-    // says they are. If the note drifts, this fails; if a row is fixed and the
-    // note is not updated, this fails too.
-    const measured = NOT_SCANNED_LITERAL_FIRST.map((named) => {
-      const parsed = parseSourceFile(
-        named.file,
-        readFileSync(join(PROJECT_ROOT, named.file), 'utf8')
-      );
-      const hit = findLiteralFirstIdJoins(parsed).find((h) => h.line === named.line);
-      return hit === undefined
-        ? `${named.file}:${named.line} NOT FOUND`
-        : `${named.file}:${named.line} pinned=${hit.pinned} later=[${hit.later.join(',')}]`;
-    });
-    expect(measured).toEqual(
-      NOT_SCANNED_LITERAL_FIRST.map(
-        (named) => `${named.file}:${named.line} pinned='${named.pinned}' later=[${named.later}]`
-      )
-    );
+    // named file, and require the named slot and id to be what the note
+    // says they are — exactly once. If the note drifts, this fails; if a row is
+    // fixed and the note is not updated, this fails too; and a second row that
+    // matches the same slot/id pair in the same file is a NEW row, so it fails
+    // as well. The line is what a comment deletion moves, so it is reported and
+    // not asserted.
+    // Each named file is read, and the literal-first rows found in it are compared as a
+    // MULTISET against the named list. That is strictly stronger than the old row-by-row
+    // line lookup: a named row that is gone fails, a new row in a named file fails, and a
+    // row that only MOVED does not — which is what a comment deletion above the join does.
+    const expected = NOT_SCANNED_LITERAL_FIRST.map(
+      (named) => `${named.file} pinned='${named.pinned}' later=[${named.later}]`
+    ).sort();
+    const found: string[] = [];
+    const where = new Map<string, number[]>();
+    for (const file of new Set(NOT_SCANNED_LITERAL_FIRST.map((named) => named.file))) {
+      const parsed = parseSourceFile(file, readFileSync(join(PROJECT_ROOT, file), 'utf8'));
+      for (const h of findLiteralFirstIdJoins(parsed)) {
+        const key = `${file} ${rowText(h)}`;
+        found.push(key);
+        where.set(key, [...(where.get(key) ?? []), h.line]);
+      }
+    }
+    expect(
+      found.sort(),
+      `rows and their measured lines: ${JSON.stringify([...where.entries()])}`
+    ).toEqual(expected);
   });
 });

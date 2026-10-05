@@ -59,7 +59,6 @@ export type RunRecord = {
   /**
    * Present (and `true`) ONLY when the task was killed for exceeding its exec
    * timeout — i.e. when there is no child exit status behind `exitCode` and the
-   * work may have been mid-flight. Added by rid 2026-10-01-cron-task-tree-kill-01
    * so a killed run cannot be read as a clean `exitCode 1` failure.
    *
    * OPTIONAL on purpose: `appendHistory` is the only writer of
@@ -123,7 +122,6 @@ function assertScheduleRoot(parsed: unknown): {
 /**
  * The one "can this raw JSON entry be represented?" predicate. Exported because
  * a writer that must NOT lose an entry needs to know which ones the reader
- * dropped (rid `2026-10-01-cron-last-run-at-01`, repair cycle 1, F5 — see
  * `persistLastRunAt` in `cron-scheduler-persist.ts`).
  */
 export function toScheduleEntry(e: unknown): ScheduleEntry | null {
@@ -159,7 +157,6 @@ function isStringArray(a: unknown): a is ReadonlyArray<string> {
  * `entries` is `ReadonlyArray<unknown>`, not `ReadonlyArray<ScheduleEntry>`, for one
  * caller: `persistLastRunAt` re-writes the raw JSON of entries `toScheduleEntry`
  * refused, so that a daemon write cannot delete an operator's hand-edited entry
- * (rid `2026-10-01-cron-last-run-at-01` repair cycle 1, F5). Every other caller
  * passes a `ScheduleFile`, which satisfies this shape.
  */
 export type ScheduleWrite = {

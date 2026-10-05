@@ -1,7 +1,6 @@
 /**
  * Handoff frontmatter — parser.
  *
- * Spec: docs/superpowers/plans/2026-06-25-slice-topology-multipass.md
  *       Phase 1, Task 4.
  *
  * Reads a markdown handoff file from disk and splits it into:

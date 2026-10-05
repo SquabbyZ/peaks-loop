@@ -1,5 +1,4 @@
 /**
- * Cross-slice artifact path resolvers (slice 025 — Security + Perf
  * Plan/Result split).
  *
  * The plan/result split introduces per-request `<rid>`-suffixed QA
@@ -44,7 +43,6 @@ const PERFORMANCE_FINDINGS_BASE = 'performance-findings';
  * fallback for un-migrated workspaces. The legacy misplaced
  * `.peaks/<sessionId>/qa/` form was a pre-1.3.0 write-path bug.
  *
- * Slice 2026-06-29-change-id-root-removal: the legacy
  * `peaks workspace migrate-change-scope` migration tool is gone;
  * operators must move misplaced dirs into the canonical location
  * by hand (or via `peaks workspace migrate`).
@@ -193,7 +191,6 @@ export function lazyMigrateLegacyFindings(args: {
   legacyFile: string;
   suffixedFile: (rid: string) => string;
 }): { renamed: boolean; path: string } {
-  // Slice 2026-06-28: lazy migration operates on the canonical QA dir.
   const qaDir = canonicalQaDir(args.projectRoot, args.sessionId);
   const legacyPath = join(qaDir, args.legacyFile);
   const suffixedPath = join(qaDir, args.suffixedFile(args.rid));

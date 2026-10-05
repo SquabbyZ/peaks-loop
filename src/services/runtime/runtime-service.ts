@@ -1,5 +1,4 @@
 /**
- * Runtime service — slice S2-a of RD-2.
  *
  * Orchestrator that wires the runtime detector + vendor adapter
  * registry into a small surface that the CLI commands call. The
@@ -12,7 +11,6 @@
  *  - The service is a thin orchestrator — it does NOT contain any
  *    vendor verb strings (claude / codex / copilot). All vendor verbs
  *    live in `src/services/runtime/vendors/<vendor>.ts`. Verified by
- *    AC-1.
  *  - When `compactVia(id)` is called with an unknown id, the service
  *    returns a "no-op" result with exitCode=0 and a warning instead of
  *    throwing — vendor-neutrality means peaks-loop MUST keep working

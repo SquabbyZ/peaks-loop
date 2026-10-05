@@ -1,5 +1,4 @@
 /**
- * Auto-compact shared types (v2.13.0 AC-1..AC-4).
  *
  * Two-tier threshold model — peaks-loop is project-aware and the LLM
  * is the decision-maker:
@@ -28,7 +27,6 @@
  * provides the toolkit; the LLM picks the moment. At 0.95 peaks-loop
  * requests the compact outright and says it is waiting.
  *
- * Slice 2026-09-13-auto-compact-trigger-ownership corrected two claims that
  * used to head this file: the red line does NOT "refuse to dispatch any
  * further sub-agent" (peaks-loop has no way to compact a running session, so
  * such a refusal gated nothing and deadlocked the runner), and the window
@@ -65,7 +63,6 @@ export interface ConvergencePlan {
   readonly resumeHint: string;
 }
 
-/** Per-IDE compact pathway chosen by AC-3. */
 export interface CompactDispatchResult {
   readonly ok: boolean;
   readonly ide: string;
@@ -82,7 +79,6 @@ export interface CompactDispatchResult {
  * alias and its record cannot drift apart into two lists.
  *
  * `redLineGated` → `redLineRequested` (slice
- * 2026-09-13-auto-compact-trigger-ownership): nothing was ever gated. See
  * `redLineGated` on the dispatch branches for why the alias is kept rather
  * than deleted.
  */
@@ -122,7 +118,6 @@ export type AutoCompactResult =
         readonly decision:
           'below-threshold' | 'in-flight-batch' | 'already-armed' | 'unresolved-session';
         /**
-         * rid `2026-09-14-compact-dispatch-backoff`, `already-armed` only: the
          * ratio the open run was dispatched at, and its id. `ratio` above is the
          * LIVE reading — the pair is what keeps "it is still high" legible after
          * the backoff drops the per-probe rows: the ask is at `armedAtRatio`, and
@@ -131,7 +126,6 @@ export type AutoCompactResult =
         readonly armedAtRatio?: number;
         readonly armedRunId?: string;
         /**
-         * Slice 2026-09-13-auto-compact-trigger-ownership: what syncing the
          * harness auto-compact window did on this probe. `null` = the active
          * adapter declares no such knob. Present so the write is VISIBLE —
          * the harness reports an override silently, so peaks-loop must not.
@@ -152,7 +146,6 @@ export type AutoCompactResult =
         readonly convergencePlan?: ConvergencePlan;
         readonly dispatch?: CompactDispatchResult;
         /**
-         * Slice 2026-06-28-code-mode-bypass-fix (defect #4): which
          * session the compact targeted. `'main'` (default) means the
          * main-session Claude Code window will fire `/compact` on its
          * next turn; `'sub-agent'` means the dispatcher shell-spawned
@@ -160,7 +153,6 @@ export type AutoCompactResult =
          */
         readonly target?: 'main' | 'sub-agent';
         /**
-         * Slice 2026-07-28 (rid-027): which mode's threshold table
          * was used. Defaults to `'standard'` (0.85/0.95). `'partial'`
          * (0.70/0.85) is selected when 24h mode is active or the
          * caller passes `--mode partial`.
@@ -171,7 +163,6 @@ export type AutoCompactResult =
          * the harness to compact.
          *
          * Renamed from `redLineGated` in slice
-         * 2026-09-13-auto-compact-trigger-ownership: nothing is gated. The
          * old name asserted a block peaks-loop cannot enforce (it has no
          * executor for a running session), and acting on that assertion is
          * what deadlocked the runner.
@@ -218,7 +209,6 @@ export type AutoCompactResult =
     };
 
 /**
- * Probe shape returned by AC-1 (`readContextPercent`). The source
  * field tells callers how the ratio was obtained (env-var, statusline
  * poller, IDE hook, conservative fallback) so the CLI can show
  * "context % (source: statusline-poll)" and the LLM can trust it.
@@ -269,7 +259,6 @@ export interface ContextPercentProbe {
    *   - `default`         — 200K safe default
    * Undefined for byte / percent sources (`user-overridden`, `${ideId}-env`,
    * `statusline-poll`), which have no token window. Slice
-   * 2026-09-09-context-window-override: lets a wrong window be diagnosed in
    * one read instead of guessing which heuristic fired.
    */
   readonly capacitySource?: string;

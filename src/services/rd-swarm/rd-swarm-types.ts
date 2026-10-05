@@ -2,7 +2,6 @@
  * rd-swarm-types — the pure declaration surface of the RD swarm dry-run
  * planner (`rd-swarm-service.ts`).
  *
- * Slice rid-013 owns the planner behavior; this module owns only the graph
  * shapes (wave names, task records, conflict groups, and the task-graph
  * envelope). `rd-swarm-service.ts` imports and re-exports every name here, so
  * importers keep resolving them from the original path.

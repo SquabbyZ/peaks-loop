@@ -1,5 +1,4 @@
 /**
- * Slice 2026-08-06-session-outer-cache (G2): per-IDE SessionStart hook
  * constants for the outer-session cache primer. Extracted from
  * `hooks-settings-service.ts` to keep that file under the Karpathy
  * 800 LOC cap.
@@ -16,7 +15,6 @@
  * in by extending `resolveHookEntries` and adding an adapter-driven
  * substitution for the `${...}` project-dir placeholder.
  *
- * Slice rid-statusline-stale-ux AC-2: renamed from
  * `outer-cache-hook-constants.ts` (per RD §10 M-3) and extended with
  * the SessionStart workspace-init primer constants. The primer fires
  * `peaks session primer --project <path>` immediately after the
@@ -79,7 +77,6 @@ export const HOOK_OUTER_CACHE_COMMAND = `peaks outer-cache write --project "\${C
 export const HOOK_OUTER_CACHE_EVENT = 'SessionStart';
 
 /**
- * Slice rid-statusline-stale-ux AC-2: SessionStart workspace-init
  * primer sentinel. Identifies the SessionStart entry that runs
  * `peaks session primer --project <path>` so rotation + presence
  * cleanup fire on every fresh session, before the first statusline
@@ -95,7 +92,6 @@ export const HOOK_WORKSPACE_INIT_COMMAND = `peaks session primer --project "\${C
 export const HOOK_WORKSPACE_INIT_EVENT = 'SessionStart';
 
 /**
- * rid `2026-09-13-compact-event-settle` — the `PostCompact` entry that lets the
  * harness's own event settle a compact, instead of the next `context-now` probe
  * inferring one from a ratio that fell.
  *

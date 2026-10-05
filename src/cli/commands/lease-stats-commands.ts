@@ -1,5 +1,4 @@
 /**
- * `peaks lease-stats` — slice 2026-07-29-worktree-l2-extended Part 6.
  *
  * Single top-level command that aggregates lease observability for
  * the whole project root and returns a summary envelope suitable

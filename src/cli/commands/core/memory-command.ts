@@ -370,7 +370,6 @@ export function registerMemoryCommand(program: Command, io: ProgramIO): void {
  * raised only because a memory TITLE contained a word like `authority`
  * (slice C0). There was no secret anywhere in that memory, so the one thing
  * the hint told the user to do was the one thing that could not help: it sent
- * them looking for a credential that did not exist. A remedy has to answer the
  * check that actually failed.
  *
  * `null` (a failure that is not a safety refusal — a path escape, a missing

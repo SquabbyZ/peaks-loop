@@ -2,7 +2,6 @@
 // Thin back-compat shim.
 //
 // The original 1032-line project-memory-service.ts was split on 2026-07-26
-// (rid-003) into the `./project-memory-service/` submodule:
 //
 //   - parsers/frontmatter.ts          — YAML frontmatter parse + render
 //   - parsers/markdown-pure.ts        — extract / summarize (pure)

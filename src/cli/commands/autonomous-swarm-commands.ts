@@ -184,7 +184,6 @@ function addAutonomousPlanOptions(command: Command): Command {
 }
 
 export function registerAutonomousSwarmCommands(program: Command, io: ProgramIO): void {
-  // Register the new rid-014 dry-run planner under
   // `peaks workflow autonomous-swarm` (the existing `peaks workflow
   // autonomous` registration owns the bare `autonomous` name and is
   // untouched). The legacy `registerSwarmCommands` and

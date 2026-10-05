@@ -66,7 +66,6 @@ export interface MainSessionEvaluation {
  * for tests and future per-IDE capacity overrides. Defaults to the
  * G9 256K proxy (matches G9 for cognitive continuity).
  *
- * @deprecated Slice 2026-07-02-auto-compact-zero-pause: the
  * 50/75/90 tier thresholds pre-date the v2.13.0 auto-compact
  * design. The authoritative tier table for triggering compaction
  * now lives in `evaluateCompactTrigger` (auto-compact-orchestrator.ts)
@@ -118,7 +117,6 @@ export interface InFlightBatchProbe {
  * declaration (`IdeCompactProfile.compactPathway`) rather than from the
  * IDE's name.
  *
- * Slice 2026-09-12-auto-compact-vendor-neutrality: this decision used to
  * be the inline `ide === 'claude-code' ? 'ide-native' : 'llm-self-compress'`
  * — an IDE identity branch in a module that is otherwise pure, reading the
  * IDE's NAME where the adapter registry holds the CAPABILITY. An IDE that

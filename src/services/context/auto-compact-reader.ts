@@ -1,5 +1,4 @@
 /**
- * AC-1 — auto context-percent probe.
  *
  * Reads the current AI CLI context-fill ratio without requiring the
  * LLM to pass `--prompt-size <bytes>` manually. Strategy: ask the
@@ -58,7 +57,6 @@ export type { ReadContextPercentInput };
  * so this module names no IDE and no settings literal — the vendor-neutrality
  * guard's shape-3 rule applies to every registry consumer, and this is one.
  *
- * Slice 2026-09-13-auto-compact-trigger-ownership.
  */
 export function resolveHarnessWindowLocation(input: {
   readonly projectRoot: string;
@@ -118,7 +116,6 @@ export function readHarnessWindowState(input: {
  */
 export function resolveHarnessRatioWindow(state: HarnessWindowReadResult | null): unknown {
   if (state === null) return undefined;
-  // E1 (rid 2026-09-13-defects-e): a value outside the band the harness accepts
   // is not a window, however well-formed an integer it is — the harness ignores
   // or caps it, so handing it over here would make the ratio's denominator a
   // number the harness is not compacting on. This is the read half of the same
@@ -141,7 +138,6 @@ export function resolveHarnessRatioWindow(state: HarnessWindowReadResult | null)
  * Materialize a window into the harness's own settings, so the number
  * peaks-loop divides by and the number the harness compacts against are one
  * value rather than two resolutions (slice
- * 2026-09-13-auto-compact-trigger-ownership).
  *
  * The caller passes the denominator it JUST USED (`probe.capacityTokens`), not
  * a re-derived one — that is what makes the two sides structurally identical.
@@ -222,7 +218,6 @@ export function readContextPercent(input: ReadContextPercentInput): ContextPerce
   }
 
   if (adapter.compact) {
-    // Slice 2026-09-13-auto-compact-trigger-ownership: the window peaks-loop
     // configured for the harness, read from the adapter's declared settings
     // path + key. `null` (no knob declared, or the key absent) leaves the
     // adapter's chain byte-identical to before this slice.
@@ -249,7 +244,6 @@ export function readContextPercent(input: ReadContextPercentInput): ContextPerce
     // transcript probe. When it returns a probe, honor it; otherwise
     // fall through to conservative-fallback.
     //
-    // Slice 2026-09-09-context-window-override: the generic reader also
     // hands the adapter the raw `context.windowTokens` config override, so
     // the adapter's window resolver can prefer an explicit user value over
     // its model-name heuristics (the env override arrives via `env`).
@@ -259,7 +253,6 @@ export function readContextPercent(input: ReadContextPercentInput): ContextPerce
       outerSessionId: input.outerSessionId,
       env,
       configWindowTokens: readContextWindowTokensOverride(input.projectRoot),
-      // Slice 2026-09-13-auto-compact-trigger-ownership: hand the adapter the
       // window peaks-loop configured for the harness, so the ratio it reports
       // divides by the very number the harness compacts against — plus whether
       // peaks-loop is the one that wrote it, so the adapter may self-correct

@@ -193,9 +193,7 @@ export function detectPerfAudit(input: {
   readonly sessionId: string;
   /**
    * The slice whose capsule this run audits. Slice
-   * `2026-09-14-prd-capsule-rid-scoping` put the rid in the capsule's
    * filename, so a caller that knows it must pass it or the probe resolves
-   * only the pre-rid-scoping bare name. Both callers pass it:
    * `runPerfAudit` always did, and `peaks perf-audit detect` forwards its
    * long-standing `--rid` flag as of the post-verification repair round.
    */

@@ -1,5 +1,4 @@
 /**
- * Slice 2026-09-10-three-fixes (Slice 2) — proactive context-consumer hint.
  *
  * `peaks code context-audit` (Slice A, same day) already reports WHAT fills
  * the window, but only when someone remembers to run it. The Step 0.8

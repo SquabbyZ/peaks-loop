@@ -108,7 +108,6 @@ function listExpectedEntriesForIde(
 }
 
 /**
- * Slice 2026-07-24-peaks-code-bridge-002-rootcause (G6b / G10): copy the
  * superpowers-bridge hook source from the peaks-loop repo
  * (src/services/hooks/pre-tool-superpowers-bridge.sh) into the user-global
  * `<userHome>/.claude/skills/peaks-code/hooks/` directory. The user-global
@@ -134,7 +133,6 @@ function listExpectedEntriesForIde(
  * it without forcing the caller to inspect the filesystem.
  */
 /**
- * Slice 2026-07-29-worktree-layer3-deny: read the on-disk
  * `permissions.deny` block from a settings.json object and return
  * every peaks-managed entry currently present. Used by `hooks status`
  * to surface Layer 3 governance state without forcing the caller to
@@ -213,7 +211,6 @@ function copyBridgeHookIfPresent(
 }
 
 /**
- * Slice 2026-08-06-codegate-vendor-neutral: copy the code-gate hook
  * source (`src/services/hooks/pre-tool-code-gate.sh`) into the user-
  * global peaks-code hooks dir, mirroring the bridge-hook copy. The
  * hook itself is vendor-neutral (no `claude` / `anthropic` strings in
@@ -285,7 +282,6 @@ export function registerHooksCommands(program: Command, io: ProgramIO): void {
           scope === 'global'
             ? copyBridgeHookIfPresent(process.env.USERPROFILE ?? process.env.HOME ?? '', true)
             : { copied: false, source: '', target: '' };
-        // Slice 2026-08-06-codegate-vendor-neutral: also copy the
         // code-gate hook script. The runtime gate lives at
         // `peaks code-gate --json` (registered as a PreToolUse entry
         // in the install output); the script is the build artifact
@@ -307,7 +303,6 @@ export function registerHooksCommands(program: Command, io: ProgramIO): void {
               entries: dryRunEntries,
               bridgeHookCopy: bridgeCopy,
               codeGateHookCopy: codeGateCopy,
-              // Slice 2026-07-29-worktree-layer3-deny: surface the
               // Layer 3 deny entries the install WOULD write. The
               // dry-run branch never actually invokes
               // `applyHookInstall`, so the on-disk snapshot is not
@@ -342,7 +337,6 @@ export function registerHooksCommands(program: Command, io: ProgramIO): void {
       // claude-code default). The summary is derived from the install's own
       // entry table — see `listExpectedEntriesForIde`.
       const installedEntries = listExpectedEntriesForIde(ide, skipProgress);
-      // Slice 2026-07-24-peaks-code-bridge-002-rootcause (G6b / G10): when
       // the install targets global scope, also copy the superpowers-bridge
       // hook script from src/services/hooks/ to the user-global hooks
       // directory. Project scope does not need this — project's
@@ -351,7 +345,6 @@ export function registerHooksCommands(program: Command, io: ProgramIO): void {
         scope === 'global'
           ? copyBridgeHookIfPresent(process.env.USERPROFILE ?? process.env.HOME ?? '')
           : { copied: false, source: '', target: '' };
-      // Slice 2026-08-06-codegate-vendor-neutral: also copy the
       // code-gate hook script. The runtime gate lives at
       // `peaks code-gate --json` (registered as a PreToolUse entry
       // in the install output); the script is the build artifact
@@ -364,7 +357,6 @@ export function registerHooksCommands(program: Command, io: ProgramIO): void {
         ? [
             'Restart the IDE (or reload the workspace) so the hook entries take effect',
             `Installed: ${installedEntries.map((e) => `${e.matcher}→${e.sentinel}`).join(', ')}`,
-            // Slice 2026-07-29-worktree-layer3-deny: surface L3 deny
             // write alongside the hook install — single atomic write.
             `Layer 3 deny: wrote ${listSuperpowersDenyEntries().length} permissions.deny entries (worktree governance)`,
             describeHookCopy('bridge hook', bridgeCopy, scope, false),
@@ -373,7 +365,6 @@ export function registerHooksCommands(program: Command, io: ProgramIO): void {
         : [describeHookCopy('bridge hook', bridgeCopy, scope, false)].filter(
             (line): line is string => line !== null
           );
-      // Slice 2026-07-29-worktree-layer3-deny: emit L3 deny bookkeeping
       // in the JSON envelope so downstream automation (audit / sc) can
       // confirm Layer 3 was applied without re-reading the file. When
       // the install is a no-op (`applied: false`) the deny block was
@@ -435,7 +426,6 @@ export function registerHooksCommands(program: Command, io: ProgramIO): void {
     const ide = resolveIdeForCommand(options, projectRoot);
     try {
       const result = removeHookInstall(scope, projectRoot, { ide });
-      // Slice 2026-07-29-worktree-layer3-deny: surface L3 deny removal
       // bookkeeping. `permissionsDenyRemoved` mirrors `removed` (the
       // service strips deny entries on the same atomic write that
       // strips the hook entries; they share the same boolean).
@@ -491,7 +481,6 @@ export function registerHooksCommands(program: Command, io: ProgramIO): void {
         status.localSettingsPath !== undefined && existsSync(status.localSettingsPath)
           ? readJsonObjectFile(status.localSettingsPath)
           : {};
-      // Slice 2026-07-29-worktree-layer3-deny: report the Layer 3 deny
       // entries actually on disk. We read the existing settings.json
       // (above) and surface its `permissions.deny` block. Any entry
       // that matches the current `SUPERPOWERS_DENIED_SKILLS` set is

@@ -12,7 +12,6 @@ export function requiresConfirmation(
   mode: SkillPresenceMode,
   transitionKey: TransitionKey
 ): boolean {
-  // Slice 2026-09-09-mode-consolidation: `swarm` removed as a mode; the
   // two auto-proceed peers are `full-auto` and `24h`.
   if (mode === 'full-auto' || mode === '24h') {
     return false;

@@ -1,7 +1,6 @@
 /**
  * reviewer-service.ts — orchestrator for the G4 third-party reviewer.
  *
- * Flow (per AC-4.1 .. AC-4.6):
  *   1. Load `reviewer` section from `~/.peaks/config.json` (reviewer-config).
  *      Missing section => `{ ok: false, reason: 'no-reviewer-config' }`.
  *   2. Pick a provider by selection mode (round-robin / hash / random).
@@ -261,7 +260,6 @@ export async function runReviewer(input: ReviewerRunInput): Promise<ReviewerRunO
     };
   }
   // Stamp modelFamily from the actual modelId we called — prevents the LLM
-  // from lying about its family and bypassing AC-4.4.
   const stamped: ReviewerEnvelope = {
     ...validated,
     modelId: result.provider.model,
@@ -273,7 +271,6 @@ export async function runReviewer(input: ReviewerRunInput): Promise<ReviewerRunO
 
 /**
  * Compute the distinctness verdict: returns true when the third-party
- * reviewer's modelFamily differs from the karpathy reviewer's. AC-4.4
  * mandates this is a CI gate — equality fails the build.
  */
 export function distinctFromKarpathy(thirdPartyFamily: string, karpathyFamily: string): boolean {

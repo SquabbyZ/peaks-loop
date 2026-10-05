@@ -2,7 +2,6 @@
 //
 // The SOLE reader of the handoff frontmatter's `gateEvidence` field.
 //
-// WHAT THE FIELD IS (slice B1, rid `rid-b1-gate-evidence-producer`): a map
 // from one of five fixed gate keys to the PATH of that gate's evidence file.
 // The normative description is
 // `skills/bee/peaks-rd/references/writing-handoff-frontmatter.md:35-41`; the
@@ -12,7 +11,6 @@
 // the defect below. B1 added the producer FUNCTIONS; B2 wired their callers,
 // which is what made the difference — until then every producer passed
 // nothing, so no capsule carried the field and saying otherwise would have
-// described a fact that held only inside tests (F1 of `rid-b1-qa`). At
 // HEAD after B2: the three producers DERIVE the map from the request type
 // (`services/prd/gate-evidence-derivation.ts`), so a capsule written by
 // `peaks prd handoff init`, by the auto-regen on `prd:handed-off`, or by
@@ -24,12 +22,10 @@
 // printed by `peaks prd handoff init` (dry-run and applied), so the key set
 // does not have to be read out of this source file.
 //
-// WHAT THIS FILE USED TO SAY, AND WHY THAT WAS FALSE: its header claimed the
 // field was a `string[]` of "gate names" and that `initHandoff` wrote it.
 // Neither held. `grep -rn gateEvidence src/` hit this file and nothing else —
 // there was no producer (`HandoffFrontmatter` had no such field,
 // `serializeHandoffFrontmatter` never emitted it, `initHandoff` rejected it)
-// and no consumer. The field was prose describing data that did not exist,
 // and the comment asserting a producer was the reason nobody noticed. That
 // paragraph describes the PRE-B1 state; reading it as the current state is
 // the exact misreading that put it here.
@@ -129,7 +125,6 @@ function describeType(value: unknown): string {
 /**
  * THE shape rule for a `gateEvidence` value — one home, two callers.
  *
- * F2 of `rid-b1-qa` found this rule written twice (`handoff-service.ts`'s
  * `isGateEvidenceMap`, added by B1, and this module's own inline checks) with
  * the SAME accept/reject boundary but DIFFERENT results: the same bytes
  * produced a map WITH unknown keys through `readHandoff` and a map WITHOUT

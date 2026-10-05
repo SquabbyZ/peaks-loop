@@ -1,5 +1,4 @@
 /**
- * Polyrepo dispatcher — slice S2-b of RD-2.
  *
  * Takes a parent root + a list of target child ids + a PRD/RD/QA
  * artifact, and mirrors the artifact into each target child's

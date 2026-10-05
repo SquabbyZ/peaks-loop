@@ -1,5 +1,4 @@
 /**
- * Vendor adapter contract — slice S2-a of RD-2 (2026-07-08 session).
  *
  * Each `VendorAdapter` is a thin wrapper around ONE AI runtime (Claude
  * Code / Codex / Copilot / custom) that knows how to:
@@ -25,11 +24,9 @@
  * orchestrates these adapters (runtime-service.ts) and the CLI commands
  * (`peaks runtime compact --via <id>`) MUST NOT contain vendor verbs.
  *
- * Slice 2026-09-12-auto-compact-vendor-neutrality widened AC-1's scope from
  * `src/services/code/` to ALL of `src/`, and had to change how it is
  * enforced. Both changes came from measurement:
  *
- *   - The old scope excluded the files that carried the defect AC-1
  *     describes — the compact dispatcher (`src/services/context/`) and the
  *     hook installer (`src/services/hooks/`) — so it returned 0 by
  *     construction. A grep over a directory that does not contain the code
@@ -40,15 +37,11 @@
  *     in `src/services/ide/adapters/claude-code-adapter.ts` — the one place
  *     the string is supposed to be. A text grep measures prose, not code.
  *
- * AC-1 is therefore enforced by the AST-based check in
  * `tests/unit/runtime/vendor-neutral-identity-guard.test.ts`: no vendor
  * verb in any STRING LITERAL of `src/` outside the adapter implementations.
  * Parsed, the count is 1 and the single hit is that adapter — which is the
- * property AC-1 was always about.
  *
- * AC-1 covers VERB STRINGS only. The compact path's defects were IDENTITY
  * COMPARISONS (`ideId !== 'claude-code'`), a second shape the same guard
- * file covers and AC-1 never could. Read that guard's header for what
  * neither check catches before treating vendor neutrality as proven.
  *
  * See `.peaks/_runtime/2026-07-08-session-17918f/prd/002-adapter-runtime-and-polyrepo.md`

@@ -35,9 +35,7 @@ import type {
 const SESSION_DIR_PATTERN = /^\d{4}-\d{2}-\d{2}-session-[a-f0-9]+$/;
 
 /**
- * Slice 007 — per-change-id top-level dir pattern. Matches the
  * F3-canonical (pre-canonicalization) layout the 5 already-shipped
- * slices left behind, e.g. `.peaks/001-2026-06-06-doctor-dist-version-check/`.
  * The pattern is intentionally narrow so it does NOT match the
  * post-F3 system dirs (`_runtime/`, `_dogfood/`, `retrospective/`,
  * `memory/`, `perf-baseline/`, `project-scan/`, `sops/`,

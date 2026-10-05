@@ -1,6 +1,5 @@
 // src/services/compact-statusline/compact-lifecycle-store.ts
 //
-// Slice 2026-08-01-compact-lifecycle (Task 1/5). Pure persistence
 // for the runtime *compact lifecycle* record that the auto-compact
 // orchestrator writes on every state transition. The record is the
 // single source of truth that downstream statusline / dashboard
@@ -20,7 +19,6 @@
 // staleAfterMs. Terminal stages (`completed`, `failed`) NEVER go
 // stalled — the record is the historical answer, not a heartbeat.
 //
-// Slice 2026-09-12-compact-band-policy (defect B): `armed` is a third
 // category — a RESTING stage. It records a fact ("we registered a
 // compact trigger") that stays true until a measurement supersedes it;
 // no heartbeat was ever promised, so waiting in it is NORMAL and it

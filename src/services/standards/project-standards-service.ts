@@ -256,7 +256,6 @@ function detectLanguageInternal(projectRoot: string): StandardsLanguage {
 
 /**
  * Public alias for `detectLanguageInternal` so callers outside this
- * module (e.g. `workspace-service.ts` for the slice 2026-06-16 RD#7
  * auto-detect path) can ask the same heuristic without re-implementing
  * the file-probe logic.
  */

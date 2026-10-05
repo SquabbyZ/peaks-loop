@@ -18,7 +18,6 @@ import type { LoopRelease, LoopReleaseLifecycleStatus } from './loop-release-typ
  *     INDEX IF NOT EXISTS) so re-running it is safe.
  *   - The M3 migration (`004-loop-bee-extension.sql`) is non-breaking:
  *     it only adds new columns with DEFAULTs and does NOT touch any
- *     pre-existing column on `bee_release` (AC-3).
  */
 
 /**

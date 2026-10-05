@@ -1,5 +1,4 @@
 /**
- * Runtime detector — slice S2-a of RD-2.
  *
  * Given the current process environment, decide which vendor (if any)
  * is the active AI runtime. Detection order matters: Claude Code is

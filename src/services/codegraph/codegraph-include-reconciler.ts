@@ -1,6 +1,5 @@
 // src/services/codegraph/codegraph-include-reconciler.ts
 //
-// Slice-002 of `2026-09-16-codegraph-index-integrity` — the INCLUDE axis
 // of the config repair. It answers one question:
 //
 //   "Which extensions does upstream's extractor support but upstream's own
@@ -18,8 +17,6 @@
 // `peaks codegraph status` still prints `[OK] Index is up to date`. On this
 // repo that was 31 tracked files (30 `.mjs` + 1 `.cjs`) absent from a
 // 1220-row index. It is the same class of defect as upstream's default
-// `exclude` template colliding with real source directories, which slice S2
-// of `2026-09-12-codegraph-exclude-integrity` already self-heals at the
 // `init` seam; the include axis was simply never reconciled.
 //
 // Genericity (binding — mirrors the exclude reconciler): no hardcoded

@@ -1,5 +1,4 @@
 /**
- * v2.13.2 AC-4 — prd/handoff-<rid>.md auto-regen on prd:handed-off.
  *
  * When `peaks request transition --role prd --state handed-off` succeeds
  * and this slice's capsule is missing, this helper writes a sha256-locked
@@ -8,8 +7,6 @@
  * the existing handoff is canonical (it may carry a richer body that
  * peaks-prd produced in an earlier session).
  *
- * Slice `2026-09-14-prd-capsule-rid-scoping`: the path carries the rid, so
- * "already exists" is now asked per SLICE. The pre-rid-scoping bare name is
  * deliberately NOT consulted — writing there would recreate the
  * one-slot-per-session collision for the next slice in the session.
  *
@@ -62,12 +59,10 @@ export async function autoRegenPrdHandoff(opts: {
   }
   const body = artifact.content;
   const sha256 = sha256OfBody(body);
-  // v2.13.3 AC-4 — align with `AUDIT_REQUIRES_HANDOFF` prereq which
   // pins `mustContain: ['schemaVersion: 2', 'sha256:']`. Primary field is
   // `sha256`; `handoffHash` is kept as a literal alias for the readers that
   // still use the old key.
   //
-  // Slice `2026-09-14-handoff-writer-gate-divergence`: this block used to be
   // hand-rolled here while `handoff-service.serializeHandoff` rendered the
   // SAME contract a second, incompatible way. Both now go through
   // `serializeHandoffFrontmatter`, so the two producers cannot drift again.

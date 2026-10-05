@@ -3,7 +3,6 @@
  * detector for the capability catalog (`peaks capability status` /
  * `peaks capabilities --source ...`).
  *
- * Slice B1 of 2026-09-09-ecc-dynamic-and-cleanup: the previous
  * `getInstalledCapabilityIds()` returned `[]` unconditionally, so the
  * catalog could never report anything as installed. This module answers
  * the question from evidence that already exists on disk — no install

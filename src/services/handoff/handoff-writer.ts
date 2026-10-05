@@ -1,7 +1,6 @@
 /**
  * Handoff frontmatter — writer.
  *
- * Spec: docs/superpowers/plans/2026-06-25-slice-topology-multipass.md
  *       Phase 1, Task 4.
  *
  * Serializes a `HandoffFrontmatter` plus a body string into a single

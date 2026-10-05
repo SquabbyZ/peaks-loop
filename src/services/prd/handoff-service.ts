@@ -4,7 +4,6 @@
  *
  * Owns the immutable handoff at
  * `.peaks/_runtime/<sessionId>/prd/handoff-<rid>.md` (one capsule per slice;
- * the pre-rid-scoping `.peaks/_runtime/<sessionId>/prd/handoff.md` stays
  * readable through `resolveHandoffPath`):
  *
  *   - `initHandoff` — pure; computes sha256 of the body and returns
@@ -85,7 +84,6 @@ export function initHandoff(opts: {
    *  read the type itself — so the map can be constructed without touching
    *  the disk; that is why the parameter exists rather than an internal call.
    *
-   *  SHAPE CONTRACT (F2 of `rid-b1-qa`, now enforced in both directions): a
    *  map this accepts is EXACTLY what `readHandoffGateEvidence` reports as
    *  `evidence` — `classifyGateEvidence` is the one shape rule behind both,
    *  and `parseHandoffContent` stores the classified map rather than the raw
@@ -267,7 +265,6 @@ function parseHandoffContent(content: string): Handoff {
  * So `readHandoff` succeeding is NOT evidence that a capsule is verifiable —
  * the tolerance above exists so old capsules stay READABLE, not so they become
  * acceptable. Request §三 bullet 3 asked for exactly this confirmation
- * (rid `2026-09-14-handoff-writer-gate-divergence`).
  */
 function isHandoffFrontmatter(value: unknown): value is HandoffFrontmatter {
   if (!value || typeof value !== 'object') return false;

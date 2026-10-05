@@ -1,5 +1,4 @@
 /**
- * Audit artifact writer — Slice 2026-06-26-audit-artifact-writer-generalization.
  *
  * Generalizes the original `decision-writer.ts` (which only knew how to
  * persist a `RedLineAudit` snapshot) into a polymorphic writer that

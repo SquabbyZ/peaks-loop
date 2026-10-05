@@ -1,5 +1,4 @@
 /**
- * `peaks session resume` — slice 011.
  *
  * Reads a checkpoint JSON (written by `peaks session checkpoint`) and
  * emits a structured markdown "resume context" block the skill can

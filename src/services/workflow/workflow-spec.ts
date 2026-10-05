@@ -211,7 +211,6 @@ export function parseWorkflowYaml(raw: string, expectedId: string): WorkflowSpec
   return buildSpec(root, expectedId);
 }
 
-// ─── verbatim re-export shim (rid-006) ────────────────────────────────────
 // External callers (`workflow-loader.ts`, `loop-eval-commands.ts`,
 // `evaluator-dispatcher.ts`) import the public types and the lint
 // function from this module. Re-export them under their original names

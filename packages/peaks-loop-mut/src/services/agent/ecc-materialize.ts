@@ -67,7 +67,6 @@ export function materializeEccAgents({
   materialized.sort();
 
   // Prune stale copies so `readMaterializedAgent` cannot serve an agent this
-  // package version no longer ships.
   for (const existing of readdirSync(resolvedTarget)) {
     if (!existing.endsWith('.md')) continue;
     const name = existing.replace(/\.md$/i, '');

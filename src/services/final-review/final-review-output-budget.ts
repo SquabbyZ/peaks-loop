@@ -16,7 +16,6 @@
  *
  * The input side above was raised (32 KiB then, 40 KiB today) but the
  * output ceiling stayed hard-coded at 3000 tokens. Measured on this repo's own
- * run (rid `2026-09-12-codegraph-exclude-integrity`, 9 sources, 32 KiB
  * inlined, real anthropic provider): 3/3 attempts failed — 2x
  * INCOMPLETE_FINAL_REVIEW with the JSON cut off mid-string, 1x a reply with no
  * text block. A 4-dimension envelope (4 x `summary` + `evidence[]` +
@@ -28,7 +27,6 @@
  * measurement. Both claims were falsified by re-measurement on the SAME
  * machine the gate ships on (`deepseek-flash[1M]` via
  * `api.deepseek.com/anthropic`, 2026-09-12, QA run 3/3 red + orchestrator
- * re-run 3/3 red, rid `2026-09-12-codegraph-exclude-integrity`, byte-identical
  * prompt):
  *
  *   max_tokens=7096 (what the old formula produced for the 32 KiB pack)
@@ -70,7 +68,6 @@ export const MIN_OUTPUT_TOKENS = 3_000;
  * A Messages-API-compatible endpoint applies `max_tokens` to the WHOLE
  * response, and a reasoning model spends it on hidden reasoning before it
  * emits a single character of the 4-dim envelope. Measured on this repo's own
- * machine (2026-09-12, rid `2026-09-12-codegraph-exclude-integrity`,
  * `deepseek-flash[1M]` via `api.deepseek.com/anthropic`): `max_tokens=8192`
  * came back with `output_tokens=8192` and only **574** visible characters —
  * the entire budget went to reasoning. A bytes-per-token estimate of the

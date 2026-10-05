@@ -84,8 +84,6 @@ export function getReviewDir(projectRoot: string, sessionId: string): string {
   //
   // It does NOT cover the slice-id axis: the slice id is joined one function
   // later, in `getReviewPath` below. Corrected 2026-09-14 (repair R1) — this
-  // comment previously said one guard covered the whole family; the security
-  // audit of `2026-09-14-cli-id-escape-instrumentation` (F1b) measured that
   // false: `slice-review '../../../../…/EVILSL'` wrote a `.json` file outside
   // the project root under `ok: true`.
   if (isUnsafePathInput(sessionId)) {

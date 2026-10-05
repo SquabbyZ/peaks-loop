@@ -1,5 +1,4 @@
 /**
- * autonomous-swarm-service — slice rid-014.
  *
  * Purpose:
  *   Build a dry-run-only autonomous RD swarm planner that turns a
@@ -8,12 +7,8 @@
  *   checkpoint queue, worker-queue placeholders (no spawn), evidence
  *   requirements, and resume instructions.
  *
- * Reuse (per rid-014 plan §1):
  *   - `validateChangeId` + `planArtifactPath` + `buildWorkspaceUnavailable`
- *     from `src/services/openspec/artifact-boundary.ts` (rid-009).
- *   - `getTechStatus` from `src/services/tech/tech-service.ts` (rid-012).
  *   - `planRdSwarmGraph` shape from `src/services/rd-swarm/rd-swarm-service.ts`
- *     (rid-013) — composed as the workerQueue feed.
  *
  * Style:
  *   - Named function exports — matches `rd-swarm-service.ts` + `artifact-boundary.ts`.

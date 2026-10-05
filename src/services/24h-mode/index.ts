@@ -1,9 +1,7 @@
 /**
  * Public barrel for 24h-mode service module.
  *
- * Rid-020a (state-only slice). Exports the 6-state enum, the
  * DecisionKey enum, the persistence API, and the B3 decider API
- * so that the `peaks session 24h-mode` CLI (and future rid-020b
  * `peaks code run --24h`) can consume them without reaching into
  * the internal file layout.
  */

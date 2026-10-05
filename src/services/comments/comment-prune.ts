@@ -102,6 +102,30 @@ function removalWouldBreakTheComment(text: string): boolean {
   return opens !== closes;
 }
 
+/**
+ * Does this line end BEFORE its text does?
+ *
+ * Two structural signals: an ODD number of backticks (the inline-code span this line opens
+ * is closed on a line BELOW) and a trailing `-` that is not `--` (a token the line width
+ * wrapped in half). They mean the same thing — the construct this line belongs to continues
+ * under it — and a line-at-a-time prune cuts that construct in half.
+ *
+ * Two applies of this pruner did exactly that to the same kind of text: a
+ * `.peaks/memory` citation written across two comment lines, where the FIRST line was debt
+ * and the second was not. Each left the survivor reading like
+ * ` * visibility-issue.md; well below the stale threshold.` — a sentence with its front cut
+ * off, which is worse than the debt that was removed. And the citation is destroyed either
+ * way: `citedMemories` in `../feedback/promotion-source-comments.ts` matches a path in ONE
+ * run of `[A-Za-z0-9._-]`, so a path that needs two lines is invisible to it before the cut
+ * and gone after it. Refused rather than guessed, the way the block delimiter is: the
+ * worklist still shows the row, and a human decides where the line break goes.
+ */
+function continuesIntoTheNextLine(comment: string): boolean {
+  const trimmed = comment.trimEnd();
+  if ((trimmed.match(/`/g) ?? []).length % 2 === 1) return true;
+  return trimmed.endsWith('-') && !trimmed.endsWith('--');
+}
+
 function actionFor(finding: CommentFinding, text: string, comment: string): PruneAction {
   return {
     file: finding.file,
@@ -166,6 +190,10 @@ export function planPrune(
     }
     if (removalWouldBreakTheComment(text)) {
       skips.push(skipFor(finding, 'carries-a-block-delimiter'));
+      continue;
+    }
+    if (continuesIntoTheNextLine(comment)) {
+      skips.push(skipFor(finding, 'continues-into-the-next-line'));
       continue;
     }
     actions.push(actionFor(finding, text, comment));

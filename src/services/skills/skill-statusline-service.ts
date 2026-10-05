@@ -43,7 +43,6 @@ export { parseStatusLineStdin, read24hOverlay } from './skill-statusline-model.j
  * skill-presence-service.ts, it never deletes or rewrites the presence file:
  * the statusLine runs on every turn and must have zero side effects.
  *
- * Slice 2026-08-05-statusline-sid-scoped-lease-B: the read no longer falls
  * back to the project-level `.peaks/_runtime/active-skill.json` (or its
  * legacy `.peaks/.active-skill.json`). The canonical lease projection is
  * the only source. When `callerId === null` (non-IDE caller), the read
@@ -60,7 +59,6 @@ const STALE_THRESHOLD_MS = 24 * 60 * 60 * 1000;
  * absent (idle) and a sentinel object for malformed content (invalid-presence).
  *
  * Both branches now route through the canonical sid-scoped lease projection
- * (slice 2026-08-05-statusline-sid-scoped-lease-B):
  *   - `callerId !== null` → `resolveActiveSkillForCaller` with the canonical
  *     (non-legacy) lease projection, filtered to this callerId. When the
  *     callerId-filtered resolution returns `source: 'none'` (no lease under
@@ -68,7 +66,6 @@ const STALE_THRESHOLD_MS = 24 * 60 * 60 * 1000;
  *     to the session's most-recent in-flight lease. AC4 multi-tenant isolation
  *     is preserved: when callerId A DOES have a lease, the first call returns
  *     it and the fallback never fires — callerId B's lease is never surfaced
- *     to callerId A. (Slice 2026-08-05-statusline-empty-render-and-short-sid-suffix.)
  *   - `callerId === null` → enumerate `listPresenceLeases` for the
  *     canonical session and pick the most recent in-flight lease. Back-compat
  *     for non-IDE callers (e.g. legacy CLI invocations) that have no callerId.
@@ -143,7 +140,6 @@ function readPresenceReadOnly(
   // spreads `input.mode` when present); the typed `SkillPresenceLease` does
   // not declare it, so widen the read shape here. Normalized on read: a
   // legacy `'swarm'` lease renders as `'full-auto'` (slice
-  // 2026-09-09-mode-consolidation).
   const latestMode = normalizeSkillPresenceMode((latest as { mode?: string | undefined }).mode);
   return {
     presence: {
@@ -167,7 +163,6 @@ export function buildStatusLineModel(
   // fallbacks). It replaces the active skill content when kind != 'none'.
   const compact = readCompactState(projectRoot, nowMs);
 
-  // Slice 2026-08-05-statusline-sid-only-marker: resolve the canonical
   // session id once, up front, so the renderer can read it from the model
   // without re-running `getSessionIdCanonical`. `null` when the project
   // root is unbound OR when no `.peaks/_runtime/<sid>/` session exists.
@@ -256,7 +251,6 @@ export function buildStatusLineModel(
     activeLeaf = null;
   }
 
-  // Slice rid-statusline-24h-overlay (2026-08-10): read the 24h-mode
   // overlay snapshot ONLY when state === 'active'. Stale / idle /
   // invalid-presence / idle-via-outer-mismatch never carry the suffix
   // (per PRD §Non-goals.6 — "不在 idle / stale / invalid-presence

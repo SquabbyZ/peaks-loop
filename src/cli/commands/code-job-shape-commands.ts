@@ -1,7 +1,5 @@
 /**
- * Slice rid-024 — `peaks code detect-job` + `peaks code read-job-shape`.
  *
- * Extracted from code-commands.ts (rid-024 split).
  * Owns: detect-job (write JobShapeDecision), read-job-shape (read+print).
  */
 
@@ -255,7 +253,6 @@ export function registerCodeJobShapeCommands(code: Command, io: ProgramIO): void
   registerCodeJobShapeReadCommand(code, io, readActiveSidForJobShape);
 }
 
-// Local helper (was `readActiveSid` in code-commands.ts before rid-024 split).
 // Both detect-job and read-job-shape need to read the active sid from
 // presence. We re-import getSkillPresence here to avoid the cross-file
 // helper import.

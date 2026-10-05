@@ -4,7 +4,6 @@
 // `config-restore`, `init`, `affected`, plus the commander registration for
 // every codegraph subcommand.
 //
-// D1 (rid 2026-09-17-oversize-and-scale, the 800-line file-size cap) moved
 // the shared invocation runtime to `codegraph-command-runtime.ts` and the
 // `status` integrity gate to `codegraph-status-command.ts`, both verbatim.
 // This path keeps its public surface: `registerCodegraphCommands` is defined
@@ -97,7 +96,6 @@ function parsePositiveInteger(value: string): number {
 // files the extractor supports unadmitted. That is the one reading of this
 // sentence an operator can act on.
 //
-// What this used to say, and why it was wrong: the denominator was fed from
 // the reconciler's admitted count — the NUMERATOR's own expression — so the
 // clause could only ever print "N of N", and it was gated on
 // `after > before` with a "(was N)" trailer computed by a second full glob
@@ -163,7 +161,6 @@ const REPAIR_MODES: Record<CodegraphRepairMode, CodegraphRepairModeSpec> = {
 // One sentence, the same shape in both modes, because both modes run the
 // same two-axis repair — only the rebuild differs.
 //
-// A1 (`2026-09-17-codegraph-msg-and-refresh`): EACH COUNT NAMES ITS OWN AXIS.
 // The previous wording ended one sentence about both axes with a single
 // "recovering N tracked source file(s)", fed by `filesRecovered` — the
 // EXCLUDE axis' counter. On this repo it printed "Added 5 include pattern(s)
@@ -463,7 +460,6 @@ async function runCodegraphConfigRestoreCommand(
 }
 
 /**
- * rid-CG-006 — init conflict guard. Resolves the project root and
  * probes `.codegraph/` for the peaks-loop marker before invoking the
  * upstream binary.
  *
@@ -610,7 +606,6 @@ async function runCodegraphInitCommand(
         // A1 (2026-09-17): the include axis names its OWN file delta here too.
         // Naming the patterns alone left the same gap the repair note had —
         // a reader learned which extensions were appended but not how many
-        // tracked files that admitted, and this note is the ONLY place a
         // fresh `init` reports the include repair.
         initNotes.push(
           `Added ${configRepair.includePatternsAdded.length} include pattern(s) upstream's extractor supports but its default template omits, newly admitting ${configRepair.includeFilesRecovered} tracked source file(s) (${configRepair.includePatternsAdded.join(', ')}).${admittingClause(configRepair)}`
@@ -660,7 +655,6 @@ async function runCodegraphInitCommand(
 }
 
 /**
- * rid-CG-002 — codegraph-affected envelope write.
  *
  * Wraps the generic `runCodegraphCommand` and, after a successful
  * upstream invocation, calls `writeCodegraphAffectedContext` so the

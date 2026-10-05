@@ -1,5 +1,4 @@
 /**
- * Slice 2026-08-12 best-practice-scan — output formatter.
  *
  * Renders the 8-row business-decision comparison table (per spec §5) plus
  * the 3-line footer (spec §5 footer + §7 ⚠️ gate). The formatter is the

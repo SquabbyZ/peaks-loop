@@ -14,7 +14,6 @@ import { normalizePath } from '../../shared/path-utils.js';
 import { assertWritableProjectRoot } from '../config/config-safety.js';
 
 /**
- * Slice 2026-09-10 (rid=rebind-must-update-caller-binding): repoint the
  * calling process's own per-caller binding at the session id this init just
  * bound. `getSessionIdCanonical` reads `callers/<callerId>.json` FIRST, so a
  * binding left behind by an earlier session shadows every explicit rebind.
@@ -37,7 +36,6 @@ function rebindCurrentCallerBinding(projectRoot: string, sessionId: string): boo
 }
 
 /**
- * Slice 2026-06-29-change-id-root-removal: list the immediate children of
  * `.peaks/` so the legacy sibling-dir guard can enumerate date-stamped
  * residue dirs without re-implementing `readdirSync` inline. Returns
  * `[]` when the `.peaks/` dir does not exist (legitimate first-run
@@ -54,7 +52,6 @@ function listPeaksRuntimeSiblings(projectRoot: string): string[] {
 }
 
 /**
- * Slice 2026-06-29-change-id-root-removal: list the immediate children of
  * `.peaks/_runtime/` so the legacy sibling-dir guard can enumerate
  * date-stamped residue dirs at the runtime layer. Returns `[]` when
  * the `.peaks/_runtime/` dir does not exist.
@@ -70,7 +67,6 @@ function listRuntimeSiblings(projectRoot: string): string[] {
 }
 
 /**
- * Slice 2026-06-29-change-id-root-removal: returns `true` when the
  * basename matches the auto-generated session-id shape
  * `YYYY-MM-DD-<slug>` (the v2.8.3 hard-ban target). Bare dates
  * (`YYYY-MM-DD`) are NOT auto-generated and are kept as plain dates.
@@ -80,7 +76,6 @@ function isDateStampedSiblingId(name: string): boolean {
   if (/^\d{4}-\d{2}-\d{2}$/.test(name)) return false;
   return true;
 }
-// Slice 2026-06-29-change-id-root-removal: `setCurrentChangeId` and
 // `validateChangeIdOrThrow` were removed with the change-id axis. Init
 // preserves the legacy-sibling-dir guard via inline `lstatSync`; the
 // path-safety helpers moved to `shared/path-safety.ts` but this module
@@ -114,7 +109,6 @@ export type WorkspaceInitOptions = {
    */
   noClaudeHooks?: boolean;
   /**
-   * Slice 2026-06-16-peaks-code-auto-scaffold (RD#7): opt-in flag for
    * auto-applying `peaks standards init` when the consumer project's
    * `.claude/rules/` is missing or empty. Default (`false`) only emits
    * the diagnostic; set to `true` to also scaffold the rules tree via
@@ -150,13 +144,11 @@ export type WorkspaceInitReport = {
    * The LLM and the user both see this in the JSON envelope so they
    * can decide whether the bypass is in effect.
    *
-   * Slice 2026-06-13-selfheal-claude-settings-template: adds the
    * `offlineTemplate` sub-field, which describes the self-heal action
    * taken on the offline `.peaks/.claude-settings-template.json` copy.
    * The offline copy is ALWAYS written/checked (regardless of
    * noClaudeHooks) because it is the manual-recovery anchor — see
    * `skills/peaks-code/references/anchoring-and-session-info.md`.
-   *   - written:        the file did not exist; it was created
    *   - refreshed:      the file existed but its parsed hooks tree
    *                     diverged from the current `buildClaudeSettingsLocalJson()`;
    *                     it was rewritten
@@ -171,7 +163,6 @@ export type WorkspaceInitReport = {
     };
   };
   /**
-   * Slice 2026-06-16-peaks-code-auto-scaffold (RD#7): structured
    * diagnostic for missing or empty `.claude/rules/{common,<language>}/`.
    * Always present (the detector runs on every init); `missing: false`
    * means the project's rules tree is already populated and no action is
@@ -180,7 +171,6 @@ export type WorkspaceInitReport = {
    */
   standardsMissing: MissingProjectStandardsDiagnostic;
   /**
-   * Slice 2026-06-16-peaks-code-auto-scaffold (RD#7): when the caller
    * passed `initStandards: true` AND the detector reported `missing:
    * true`, this field lists the files written by
    * `executeProjectStandardsInit({ projectRoot, apply: true })`.
@@ -208,7 +198,6 @@ const PROHIBITED_SUFFIXES: ReadonlyArray<string> = [
 const AUTO_SESSION_PATTERN = /^\d{4}-\d{2}-\d{2}-session-[a-f0-9]{6}$/;
 
 /**
- * Slice C10 (2026-06-24-legacy-change-id-sibling): the relative path
  * patterns under `.peaks/_runtime/<sessionId>/` that the lazy WRITER (peaks-qa,
  * peaks-rd, peaks-prd, peaks-txt, peaks-sc) creates via
  * `mkdir(parent, { recursive: true })` immediately before a write. When
@@ -325,9 +314,6 @@ export async function initWorkspace(options: WorkspaceInitOptions): Promise<Work
   // cannot reach the same write by another door.
   assertWritableProjectRoot(options.projectRoot);
 
-  // Phase 6 refactor (slice 2026-06-05-change-id-as-unit-of-work) +
-  // slice 006 (2026-06-06-change-folder-simplify-and-lazy-role-subdirs) +
-  // slice 2026-06-22-top-level-change-id-cleanup (2.8.3):
   //   - Reviewable artifacts (rd/, qa/, prd/, txt/) live at
   //     `.peaks/_runtime/<change-id>/<role>/` (tracked in git) when a change-id
   //     is given. The role subdirs are NOT pre-created — the writer
@@ -335,7 +321,6 @@ export async function initWorkspace(options: WorkspaceInitOptions): Promise<Work
   //     dirs on demand via `mkdirSync(..., { recursive: true })`.
   //   - The session dir `.peaks/_runtime/<session-id>/` (gitignored)
   //     now holds ONLY the canonical `session.json` metadata. The
-  //     F3-introduced `system/` subdir is gone — slice 006 removes
   //     it via `peaks workspace reconcile`; new init calls do not
   //     pre-create it.
   //   - The change-id dir is NOT created at top level when `--change-id`
@@ -358,21 +343,18 @@ export async function initWorkspace(options: WorkspaceInitOptions): Promise<Work
 
   // 1. Create the session dir (canonical location `.peaks/_runtime/<sid>/`)
   //    with NO subdirs. The session dir is gitignored; the role
-  //    subdirs and the `system/` subdir are gone entirely (slice 006).
   if (await isDirectory(sessionRoot)) {
     alreadyExisted.push('.');
   } else {
     await mkdir(sessionRoot, { recursive: true });
     created.push('.');
   }
-  // 1a. Write the per-session metadata file. Slice 006 makes
   //     `.peaks/_runtime/<sid>/session.json` the durable session
   //     metadata (the body's source of truth, the `peaks workspace
   //     reconcile` discovery source). The file is created on first
   //     init and refreshed on every subsequent init. Idempotent.
   setSessionMeta(options.projectRoot, options.sessionId, {});
 
-  // 2. Slice 2026-06-29-change-id-root-removal: the change-id axis is
   //    gone. The session id IS the binding — there is no separate
   //    `.peaks/_runtime/current-change` file. The v2.8.3 hard-ban on
   //    `.peaks/<YYYY-MM-DD-*>/` siblings still fires via the inline
@@ -469,7 +451,6 @@ export async function initWorkspace(options: WorkspaceInitOptions): Promise<Work
     // Either: existing session dir is empty (true leftover, no user data),
     // or the caller explicitly authorised a rebind. Overwrite.
     setCurrentSessionBinding(options.projectRoot, options.sessionId);
-    // Slice 2026-09-10 (rid=rebind-must-update-caller-binding): an
     // explicit rebind must ALSO repoint this caller's per-caller binding.
     // `getSessionIdCanonical` prefers `callers/<callerId>.json`, so leaving
     // it untouched shadowed the rebind for every command resolving through
@@ -481,7 +462,6 @@ export async function initWorkspace(options: WorkspaceInitOptions): Promise<Work
     bound = true;
   }
 
-  // Slice 2026-06-16-peaks-code-auto-scaffold (RD#7):
   //   - Always run the detector and surface the descriptor so the CLI can
   //     put it on stderr + into the JSON envelope's `data.standardsMissing`.
   //   - When `initStandards: true` AND the detector reports missing, run
@@ -544,7 +524,6 @@ export { materializeClaudeSettingsLocal } from './workspace-claude-settings-mate
 import { writeGeneratedArtifactsStamp } from './generated-artifacts-stamp.js';
 
 /**
- * Slice C10 (2026-06-24-legacy-change-id-sibling): whole-dir shape check
  * for the legacy sibling `.peaks/_runtime/<sessionId>/`. Returns `true` ONLY when
  * every leaf path under the sibling matches one of
  * `WRITER_ALLOWED_RELATIVE_PATTERNS` AND no entry is a symlink (anywhere

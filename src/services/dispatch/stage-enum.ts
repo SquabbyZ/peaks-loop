@@ -1,5 +1,4 @@
 /**
- * Slice 2026-07-29-dispatch-stall-governance / S5 — bounded stage
  * vocabulary.
  *
  * Why a bounded enum (not a free-form string):

@@ -1,5 +1,4 @@
 /**
- * Copilot vendor adapter — slice S2-a.
  *
  * Stub adapter (PRD out-of-scope: full implementation lands in a
  * future slice). Copilot's compact verb is `copilot compact`

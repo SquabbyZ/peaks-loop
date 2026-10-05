@@ -53,9 +53,7 @@ export type AnyEnvelope =
 // ─── 5 parsers (pure, never throw) ─────────────────────────────────────
 
 /**
- * v2.13.3 AC-1 — parse real v2.12.0 audit markdown.
  *
- * Strategy (per PRD AC-1 mitigation):
  *   1. Try JSON.parse first (back-compat with prior unit tests + any
  *      consumer that passes a JSON string explicitly).
  *   2. Fall back to markdown parse: extract `verdict:` from YAML

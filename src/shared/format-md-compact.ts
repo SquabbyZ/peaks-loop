@@ -2,7 +2,6 @@
  * format-md-compact — single source of truth for whitespace / decoration
  * normalization across every CLI body-output path.
  *
- * Slice 023 (R3) — `peaks project memories:show`, `peaks retrospective show`,
  * and `peaks request show` (per-artifact) all funnel their `body` field through
  * this helper so the LLM-consumed output is free of blank-line padding,
  * decorative `---` rules, and frontmatter `description:` field-name repeats
@@ -11,7 +10,6 @@
  * inline emphasis, code spans).
  *
  * Pure function: no fs, no I/O. Easy to unit-test (see
- * `tests/unit/shared/format-md-compact.test.ts`).
  */
 
 export interface FormatMdCompactOptions {

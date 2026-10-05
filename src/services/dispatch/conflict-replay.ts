@@ -1,7 +1,6 @@
 /**
  * conflict-replay — pure envelope builder for the auto re-dispatch path.
  *
- * Slice 2026-08-01-subagent-merge-and-e2e (Task 5). When the parent
  * session's merge-back attempt conflicts (see planMergeBack), the
  * merge-back-runner (Task 9) calls `buildConflictReplay` to compose
  * the envelope the parent passes back into the sub-agent dispatch

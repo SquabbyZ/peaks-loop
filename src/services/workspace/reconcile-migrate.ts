@@ -1,6 +1,5 @@
 /**
  * Migration helpers extracted from `reconcile-service.ts`
- * (slice 2026-09-06-split-batch-b) so the service stays under the
  * 800-line cap. Behaviour-preserving verbatim move.
  */
 
@@ -22,7 +21,6 @@ import { dirname, join, resolve } from 'node:path';
 // value-level circular import is safe under ESM live bindings.
 import { discoverSessions } from './reconcile-service.js';
 
-// Sub-agent state file basenames (slice 2026-06-06-sub-agent-spawn-bug-and-decouple).
 // The legacy location was `.peaks/_runtime/<sid>/system/<filename>`; the canonical new
 // location is `.peaks/_sub_agents/<sid>/<filename>`. `migrateSubAgentState`
 // moves the two files between these homes on every `reconcileWorkspace` run.
@@ -32,7 +30,6 @@ const SUB_AGENT_MIGRATION_FILES: ReadonlyArray<string> = [
 ];
 const SUB_AGENTS_DIR = '_sub_agents';
 
-// As of slice 2026-06-05-peaks-runtime-layer these old paths are the
 // back-compat read-only fallbacks; the canonical new home is
 // `.peaks/_runtime/`. `migrateOldRuntimeState` moves them to the new
 // location on disk. The leading dot is dropped when computing the
@@ -58,7 +55,6 @@ function runtimeNewBasename(oldBasename: string): string {
 }
 
 /**
- * One-time migration step (added in slice 2026-06-05-peaks-runtime-layer).
  *
  * Move the legacy runtime files at:
  *   - `.peaks/.session.json`
@@ -162,7 +158,6 @@ function copyDirRecursiveSync(src: string, dest: string): void {
 }
 
 /**
- * One-time sub-agent state migration (slice 2026-06-06-sub-agent-spawn-bug-and-decouple).
  *
  * Move the legacy per-session sub-agent state files at:
  *   - `.peaks/_runtime/<sid>/system/subagent-progress.json`

@@ -2,7 +2,6 @@
  * service-shutdown — best-effort kill helper for sub-agent-registered
  * local services.
  *
- * Slice 2026-08-01-subagent-merge-and-e2e (Task 3). The parent session
  * reads `.peaks/_runtime/<sid>/dispatch/<dispatchId>/service-registrations.json`
  * (written by `peaks sub-agent shutdown register --pid <pid> --name <label>`)
  * and calls `killRegisteredServices` BEFORE the merge-back step so a

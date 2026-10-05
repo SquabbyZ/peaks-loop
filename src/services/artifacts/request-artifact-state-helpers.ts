@@ -39,7 +39,6 @@ export class PrerequisitesNotSatisfiedError extends Error {
   readonly sessionId: string;
   readonly missing: PrerequisiteCheckResult['missing'];
   /**
-   * v2.13.3 AC-3 — soft-block warnings carried alongside the missing
    * entries. Surfaced in the CLI error response under `data.warnings`
    * so the operator can see which prereqs were soft-blocked under
    * the 1-minor-release back-compat window (e.g. MUT_REPORT). Always

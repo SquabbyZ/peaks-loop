@@ -1,6 +1,5 @@
 /**
  * peaks standards migrate — .claude/rules/ tree thinning.
- * Slice: 2026-06-12-standards-migrate-claude-rules.
  *
  * The 1.x peaks-loop install copied a thick .claude/rules
  * tree (skill-first / CLI-auxiliary / dogfood / commit-trailer
@@ -144,7 +143,6 @@ export function migrateClaudeRules(input: MigrateClaudeRulesInput): MigrateClaud
   // earlier migration run. The backup is real content (not a pointer),
   // so without this filter a second run would treat the backup dir as
   // a fresh thick tree and re-thin / re-scaffold over it
-  // (slice 2026-07-15-ice-cola-dogfood).
   const BACKUP_DIR_PREFIX = '.peaks-2.0-backup-';
   const thickFiles = existingRulesFiles.filter((f) => {
     if (isAlreadyPointer(f)) return false;
@@ -185,7 +183,6 @@ export function migrateClaudeRules(input: MigrateClaudeRulesInput): MigrateClaud
           // the top-level backup dir, not the nested language pack
           // dirs. Without this mkdirSync, the first file written to
           // a nested subdir ENOENTs and the whole backup silently
-          // becomes empty (slice 2026-07-15-ice-cola-dogfood).
           mkdirSync(dirname(destPath), { recursive: true });
           writeFileSync(destPath, body, 'utf8');
         }

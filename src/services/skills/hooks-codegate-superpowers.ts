@@ -166,7 +166,6 @@ export type PeaksHookEntry = {
 };
 
 /**
- * Slice 2026-08-06-codegate-vendor-neutral — code-gate hook entry.
  * Vendor-neutral command (`peaks code-gate --json`); the CLI adapter
  * lives in `src/cli/commands/code-gate-command.ts` and the decision
  * logic lives in `src/services/hooks/pre-tool-code-gate.ts`. The
@@ -228,7 +227,6 @@ export function resolveHookEntries(ide: IdeId, _skipProgress = false): PeaksHook
       command: HOOK_OUTER_CACHE_COMMAND,
       event: HOOK_OUTER_CACHE_EVENT
     });
-    // Slice rid-statusline-stale-ux AC-2: SessionStart outer-cache
     // write is followed by `peaks session primer` entry so that
     // rotation + presence cleanup fire BEFORE the first statusline
     // render of a fresh session. The new subcommand is idempotent
@@ -242,7 +240,6 @@ export function resolveHookEntries(ide: IdeId, _skipProgress = false): PeaksHook
       command: HOOK_WORKSPACE_INIT_COMMAND,
       event: HOOK_WORKSPACE_INIT_EVENT
     });
-    // Slice 2026-08-06-codegate-vendor-neutral: code-gate entry on
     // Edit|Write|MultiEdit matcher. Vendor-neutral command
     // (`peaks code-gate --json`); the CLI adapter lives in
     // `src/cli/commands/code-gate-command.ts` and the underlying
@@ -270,7 +267,6 @@ export function resolveHookEntries(ide: IdeId, _skipProgress = false): PeaksHook
       command: HOOK_POST_COMPACT_REINJECT_COMMAND,
       event: HOOK_POST_COMPACT_REINJECT_EVENT
     });
-    // rid 2026-09-13-compact-event-settle: the harness's OWN "a compaction
     // completed" event, which is the only signal that settles a compact as a
     // FACT rather than as an inference from a ratio that fell.
     //
@@ -303,14 +299,11 @@ export function resolveLegacySentinels(ide: IdeId): ReadonlyArray<string> {
   if (ide === 'trae') {
     return ['peaks hook handle', LEGACY_PROGRESS_START_SENTINEL];
   }
-  // Slice 2026-08-06-session-outer-cache: include the SessionStart outer-cache
   // sentinel so uninstall strips it alongside the gate-enforce entry.
-  // Slice 2026-08-06-codegate-vendor-neutral: also include the code-gate
   // sentinel so uninstall strips the Edit|Write|MultiEdit entry alongside
   // the rest of the peaks-managed entries.
   const base = [HOOK_ENFORCE_SENTINEL, LEGACY_PROGRESS_START_SENTINEL, HOOK_CODE_GATE_SENTINEL];
   if (ide === 'claude-code') {
-    // Slice rid-statusline-stale-ux AC-2: include the SessionStart
     // workspace-init primer sentinel so uninstall strips it alongside
     // the gate-enforce entry, and so hand-added entries matching this
     // sentinel are recognized as peaks-managed (not stripped as
@@ -320,7 +313,6 @@ export function resolveLegacySentinels(ide: IdeId): ReadonlyArray<string> {
     // it) exactly like the other two SessionStart entries. Without this the
     // entry would be unremovable by `peaks hooks uninstall` — the rollback
     // path T2 requires.
-    // rid 2026-09-13-compact-event-settle: the PostCompact settle sentinel joins
     // too — same rollback argument as the reinject entry above. A hook that
     // `peaks hooks uninstall` cannot remove is a hook the user cannot get rid
     // of, and this one fires on every compaction.
@@ -335,7 +327,6 @@ export function resolveLegacySentinels(ide: IdeId): ReadonlyArray<string> {
   return base;
 }
 
-// --- Slice 2026-07-29-worktree-layer3-deny -----------------------------------
 // Layer 3 of the Worktree Governance 3-layer design (see
 // .peaks/memory/2026-07-29-worktree-layer3-deny.md). The gateway is the IDE
 // native `permissions.deny` list — Claude Code refuses to invoke any Skill
@@ -364,13 +355,11 @@ export function resolveLegacySentinels(ide: IdeId): ReadonlyArray<string> {
  * skill id; the helper `formatSuperpowersDenyEntry` wraps it in the IDE's
  * `UseSkill(...)` envelope.
  *
- * Slice 2026-07-29-worktree-layer3-deny: the list is empty-aware. To deny a
  * new skill, append its id here and re-run `peaks hooks install`. The list
  * is also the inverse for uninstall: `removeHookInstall` rebuilds the deny
  * list by filtering out anything whose wrapped form matches one of these
  * ids.
  *
- * Slice rid-skill-persistence-001 (2026-08-12): four additional skills
  * denied so the superpowers chain cannot silently override peaks-code.
  * All four are referenced by `superpowers:using-superpowers` as the
  * "bug → systematic-debugging / TDD / verification-before-completion /
@@ -385,12 +374,10 @@ export const SUPERPOWERS_DENIED_SKILLS: ReadonlyArray<string> = [
   // `git worktree add`. Denying this Skill at the IDE layer prevents the
   // LLM from ever receiving that prompt.
   'superpowers:using-git-worktrees',
-  // Slice rid-skill-persistence-001: deny the "bug → systematic-debugging"
   // auto-route. Without this entry the chain can preempt the current bee
   // any time a bug report surfaces. Reference-only via
   // references/external-skill-invocation.md §systematic-debugging.
   'superpowers:systematic-debugging',
-  // Slice rid-skill-persistence-001: deny the TDD trigger that the chain
   // pairs with bug reports (write-a-failing-test-first). Reference-only
   // via references/external-skill-invocation.md §test-driven-development.
   'superpowers:test-driven-development',
@@ -399,7 +386,6 @@ export const SUPERPOWERS_DENIED_SKILLS: ReadonlyArray<string> = [
   // claims from peaks-code. Reference-only via
   // references/external-skill-invocation.md §verification-before-completion.
   'superpowers:verification-before-completion',
-  // Slice rid-skill-persistence-001: deny the recursive chain entrypoint
   // itself. Without this entry the chain auto-spawns another
   // "using-superpowers" Skill call right after the previous chain step,
   // creating the recursive override pattern that peaks-loop's L1 guard

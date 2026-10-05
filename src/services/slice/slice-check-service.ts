@@ -3,7 +3,6 @@ import { existsSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { isDirectory } from 'peaks-loop-shared/fs';
 
-// Slice 2026-06-29-change-id-root-removal: `getCurrentChangeId` was
 // removed with the change-id axis. Slice check resolves the rid from
 // `options.rid` only; the binding file at `.peaks/_runtime/current-change`
 // is no longer read. Path-safety helpers now live at
@@ -264,7 +263,6 @@ async function runUnitTests(projectRoot: string, runTests: boolean): Promise<Sli
   // related to git-changed files. Cost drops from 30s+ to ~1-3s in steady
   // state. Opt-in to the full suite via `runTests: true` (CLI flag
   // `--run-tests`). See `references/runbook.md` for the rationale and
-  // `tests/unit/slice-check-service.test.ts` for the regression net.
   // Per Windows npx ENOENT (observations 2317+2792), resolve
   // the project-local vitest binary instead of shelling out
   // through npx. 2026-09-10 C6: that binary is the package's JS
@@ -310,7 +308,6 @@ async function runUnitTests(projectRoot: string, runTests: boolean): Promise<Sli
   };
 }
 
-// Slice `2026-09-14-audit-artifact-rid-scoping`: the evidence filenames
 // carry the rid now. Candidate order is canonical-first, then the
 // back-compat tiers — the same order `artifact-prerequisites.ts` resolves
 // in, so this boundary gate and the transition gate agree on which file is
@@ -322,7 +319,6 @@ const REVIEW_FILES = [
     label: 'code-review'
   },
   // v2.12.0 collapse: security + perf moved to standalone audit skills.
-  // `slice check` accepts the rid-scoped audit path, the bare v2.12.0 path
   // OR the v2.11.x legacy path during the 1-minor-release back-compat
   // window (v2.13.0 hard-deletes the legacy paths — see CHANGELOG [2.12.0]).
   {
@@ -374,7 +370,6 @@ async function runReviewFanout(
     let hit: { abs: string; scope: string; bytes: number } | null = null;
     // Back-compat: each entry lists multiple candidate paths. First hit (in
     // declared order) wins; canonical paths come first so a current slice
-    // preferentially reports its own rid-scoped evidence even when a legacy
     // file is also present during migration.
     const candidates = review.paths.map((candidate) => candidate.replace('<rid>', rid));
     for (const candidate of candidates) {
@@ -457,7 +452,6 @@ export async function sliceCheck(options: SliceCheckOptions): Promise<SliceCheck
     throw new Error(`.peaks/ not found at ${options.projectRoot}. Run peaks workspace init first.`);
   }
 
-  // Slice 2026-06-29-change-id-root-removal: resolve rid from the
   // explicit `--rid` option only. The `current-change` binding file is
   // gone; the CLI is the single source of truth for the rid.
   if (options.rid === undefined) {

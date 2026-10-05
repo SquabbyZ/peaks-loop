@@ -19,13 +19,11 @@ export type SubAgentLiveView = {
   readonly progress: number | null;
   readonly lastBeatAgoSec: number | null;
   readonly isStale: boolean;
-  // Slice 2026-07-29-dispatch-stall-governance / S2 (AC-2.3) — split
   // "no beat ever seen" (never-started) from "heartbeat seen, then
   // quiet" (stale). The watch surface renders these as two distinct
   // buckets so an orchestrator can tell a sub-agent that never picked
   // up the work apart from one that has gone quiet after starting.
   readonly isNeverStarted: boolean;
-  // Slice 2026-07-29-dispatch-stall-governance / S5 (AC-5.1 / AC-5.2)
   // — the record's stage label, when the dispatcher / sub-agent
   // supplied one. `null` for records that did not (or could not) emit
   // a stage; the watch surface renders it as `(stage: <label>)` so a
@@ -112,7 +110,6 @@ function renderOne(record: DispatchRecord, now: () => Date): string {
   const view = viewSubAgent(record, now);
   const pct = view.progress !== null ? `${view.progress}%` : '?%';
   const ago = view.lastBeatAgoSec !== null ? `${view.lastBeatAgoSec}s ago` : 'no beat';
-  // Slice 2026-07-29-dispatch-stall-governance / S2 (AC-2.3) — render
   // never-started distinctly from stale so the orchestrator's eye can
   // tell a sub-agent that never picked up the work apart from one that
   // has gone quiet after starting.

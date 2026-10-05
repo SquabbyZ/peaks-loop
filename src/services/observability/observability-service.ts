@@ -138,7 +138,6 @@ export function isCurrentSchemaVersion(record: unknown): record is Observability
 }
 
 /**
- * Slice 2026-07-29-worktree-l2-extended Part 4.A: lease lifecycle
  * observability. Each `peaks worktree spawn / renew / release /
  * gc` CLI emits a `lease` event; the auto-release hook in
  * dispatch finalization emits `autoRelease` (success) or
@@ -186,7 +185,6 @@ export function emitLeaseEvent(opts: {
 }
 
 /**
- * rid-030 F-direction: per-cycle event (cycle started / completed / failed).
  * Fire-and-forget; never throws. Tagging `kind` for downstream dashboards.
  */
 export function emitCycleEvent(opts: {
@@ -208,7 +206,6 @@ export function emitCycleEvent(opts: {
 }
 
 /**
- * rid-030 F-direction: per-token-usage event. `totalTokens` is the
  * sum the dashboard cares about; `inputTokens`/`outputTokens` are kept
  * for downstream drill-down.
  */
@@ -236,7 +233,6 @@ export function emitTokenUsageEvent(opts: {
 }
 
 /**
- * rid-030 F-direction: per-monotonic-trigger event.
  */
 export function emitMonotonicTriggerEvent(opts: {
   sessionId: string;
@@ -257,7 +253,6 @@ export function emitMonotonicTriggerEvent(opts: {
 }
 
 /**
- * rid-030 F-direction: per-subagent-dispatch event. Reuses the
  * existing `dispatch` category (rd/qa/reviewer/audit). Provides a
  * canonical emit helper so dashboards don't have to hand-author the
  * `ObservabilityEvent` envelope.

@@ -87,7 +87,6 @@ export const CLAUDE_SETTINGS_LOCAL_FILENAME = '.claude/settings.local.json';
  *           place for half of every Bash tool call.
  *   1.6.0 — the `Write|Edit|MultiEdit` handler no longer inlines its
  *           JavaScript as `node -e "<js>"`. It invokes the shipped script
- *           `src/services/hooks/write-gate.js` instead, so the command
  *           string carries no shell-escaped payload at all and the handler
  *           can take the same platform `shell` pin as its siblings. The
  *           decision itself is a verbatim relocation — see that file.
@@ -97,7 +96,6 @@ export const CLAUDE_SETTINGS_LOCAL_FILENAME = '.claude/settings.local.json';
  *           on-disk file to declare those exemptions too, so a project
  *           installed by an earlier release refreshes once and converges.
  *   1.8.0 — REMOVED the `Write|Edit|MultiEdit` handler and the shipped
- *           script it invoked (`src/services/hooks/write-gate.js`, also
  *           deleted). The handler abstained on every path by design (see
  *           that file's header for the rationale — it is the reason this
  *           is a deletion and not a repair), so the only things it still
@@ -115,7 +113,6 @@ export const TEMPLATE_VERSION = '1.8.0';
  * Compare two serialized template strings: does the on-disk file already
  * declare every entry the generated tree declares?
  *
- * OWNERSHIP IS PER ENTRY, NOT PER KEY (rid 2026-09-13-two-decisions item ②).
  * This comparator answers "is each entry the GENERATED tree declares present
  * on disk?", NOT "are the two `hooks` trees identical". Extra on-disk entries
  * are IGNORED, so an entry another writer put in this file never makes it look
@@ -208,7 +205,6 @@ export function templateContentMatches(generated: string, onDisk: string): boole
 /**
  * Merge the on-disk `hooks.PreToolUse` list with the template's.
  *
- * THE OWNERSHIP RULE (rid 2026-09-13-two-decisions item ②): this template owns
  * the entries IT DECLARES — and nothing else. Every other on-disk entry is
  * carried across verbatim, whatever its matcher, because the template has no
  * opinion about it:

@@ -429,8 +429,16 @@ describe('vendor neutrality — IDE identity decisions outside the adapter layer
       readFileSync(join(PROJECT_ROOT, HOOK_INSTALLER_PATH), 'utf8')
     );
     expect(isRegistryConsumer(sourceFile)).toBe(false);
-    expect(findSettingsPathLiterals(sourceFile).map((hit) => `${hit.line}:${hit.text}`)).toEqual([
-      '87:.claude/settings.local.json'
-    ]);
+    const literals = findSettingsPathLiterals(sourceFile);
+    // Keyed on the LITERAL, not its line: this arm's claim is that the file has
+    // exactly one `.claude` path and that it is this one. A comment deleted above
+    // it moves the address and changes nothing about the gap, so the line is
+    // reported in the failure message rather than asserted.
+    expect(
+      literals.map((hit) => hit.text),
+      `measured literals (with lines, for the note): ${JSON.stringify(
+        literals.map((hit) => `${hit.line}:${hit.text}`)
+      )}`
+    ).toEqual(['.claude/settings.local.json']);
   });
 });

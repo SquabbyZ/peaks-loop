@@ -11,7 +11,6 @@ export type CompactLifecycleStage =
   | 'preparing'
   | 'compacting'
   /**
-   * Slice 2026-09-12-compact-band-policy: a compact trigger was
    * REGISTERED but no compaction has started — e.g. claude-code's
    * `ide-native` pathway only installs the PreToolUse hook, which
    * compacts in-band at ratio ≥ 0.95. In the 0.80–0.95 band nothing

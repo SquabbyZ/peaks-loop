@@ -1,5 +1,4 @@
 /**
- * Slice 2026-08-12 best-practice-scan — scan orchestrator.
  *
  * Resolves a doc-fragment set for a (intent, language) query via the
  * following priority chain:

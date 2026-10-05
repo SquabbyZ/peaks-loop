@@ -2,7 +2,6 @@ import { type ModelProviderConfig, type PeaksConfig } from './config-types.js';
 import { detectCurrentIdeModel } from '../ide/current-model-detector.js';
 
 /**
- * Slice 2026-07-09 add-zcode-adapter (A.3): replaces the legacy
  * `STRONGEST_MODEL_ID = 'claude-opus-4-7'` constant (removed) with a dynamic
  * resolver. The strongest planner/reviewer model is now derived
  * from the active config instead of being hardcoded to a specific
@@ -26,13 +25,11 @@ export function getStrongestModelId(config?: { model?: unknown }): string {
   const raw = config?.model;
   const fromConfig = typeof raw === 'string' ? raw.trim() : undefined;
   if (fromConfig) return fromConfig;
-  // Slice 2026-07-09: back-compat fallback for test fixtures that
   // pre-date this slice (SC §3.4 strategy A env-var override).
   return process.env.PEAKS_STRONGEST_MODEL_DEFAULT ?? 'claude-opus-4-7';
 }
 
 /**
- * Slice 2026-07-09 add-zcode-adapter (Slice C, C.4): async variant
  * of `getStrongestModelId`. Same precedence for layers 1 + 2, but
  * layer 2.5 is the IDE's runtime probe (`detectCurrentIdeModel`)
  * which is consulted BEFORE the env-var back-compat fallback.
@@ -89,7 +86,6 @@ export function getConfiguredExecutionModelId(providers: ModelProviderConfig | u
 }
 
 /**
- * Slice 015 — typed exception for "no provider has a configured model".
  * Lives next to its throw site so a downstream `instanceof` check survives
  * any tree-shaking. CLI catch sites map this to the `INVALID_PROVIDERS`
  * envelope code via `_cli-error-envelope.mapServiceError`.
@@ -107,7 +103,6 @@ export function getEconomyAwareExecutionModelId(
   // Slice 2.0.1-bug1 round 3: economy is the project default. Treat undefined as enabled
   // (matches the pre-slice implicit default from DEFAULT_CONFIG.economyMode = true). Only an
   // explicit `economyMode === false` switches execution to the strongest planner/reviewer
-  // model (resolved dynamically per Slice 2026-07-09 add-zcode-adapter A.3).
   return config.economyMode !== false
     ? getConfiguredExecutionModelId(config.providers)
     : getStrongestModelId(config);

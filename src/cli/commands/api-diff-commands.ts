@@ -6,7 +6,6 @@
  * artifact — so `api-diff` is a sibling of an existing command with identical
  * semantics and an identical option shape. A new `peaks api` group would be a
  * brand-new verb family whose cost the design (docs/superpowers/specs/
- * 2026-09-12-frontend-acl-contract-design.md §3/§5) records as medium and
  * acknowledged; nothing about this slice needs it.
  *
  * The command is read-only: it creates no contract artifact and writes no file.

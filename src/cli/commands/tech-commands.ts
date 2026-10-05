@@ -1,5 +1,4 @@
 /**
- * tech-commands — change-id-axis CLI registration (rid-012).
  *
  * Adds two nested subcommands under the existing `peaks tech` parent:
  *
@@ -8,14 +7,12 @@
  *
  * These are ADDITIVE — the existing session-axis commands (`peaks tech plan`
  * / `peaks tech status`) are untouched. The new subcommands reuse the
- * rid-009 helpers (validateChangeId / planArtifactPath / buildWorkspaceUnavailable)
  * via the consumer-side wrapper in
  * `src/services/tech/tech-change-id-service.ts`.
  *
  * Hard ban:
  *   - Do NOT touch the existing `runTechPlan` / `runTechStatus` /
  *     `addTechPlanOptions` / `addTechStatusOptions` in `workflow-commands.ts`
- *     (B2 contract preservation rule from the rid-009 closure record).
  */
 
 import type { Command } from 'commander';
@@ -258,7 +255,6 @@ export function addTechChangeIdStatusOptions(command: Command): Command {
  *
  * The subcommand names are `plan-change-id` and `status-change-id` (NOT
  * `plan` / `status`) to avoid colliding with the existing session-axis
- * registrations at `workflow-commands.ts:441-445` (rid-012 risk register R6).
  */
 export function registerTechCommands(program: Command, io: ProgramIO): void {
   const tech = program.commands.find((c) => c.name() === 'tech');

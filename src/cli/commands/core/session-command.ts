@@ -12,7 +12,6 @@ import { findProjectRoot } from '../../../services/config/config-safety.js';
 import { fail, ok } from 'peaks-loop-shared/result';
 
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../../cli-helpers.js';
-// Slice 2026-07-01-strategic-compact-cli fix: register the
 // `peaks session checkpoint` and `peaks session resume` subcommands
 // EAGERLY so they appear in `peaks session --help` output. The
 // previous lazy import ran AFTER commander had already produced
@@ -26,7 +25,6 @@ import { registerSessionResumeCommand } from '../session-resume-command.js';
 // `peaks session --help` for LLM `<TAB>`-discovery. See
 // src/services/migrate-skill-name/.
 import { registerSessionMigrateSkillNameCommand } from '../session-migrate-skill-name.js';
-// rid-020a: register `peaks session 24h-mode` eagerly so the
 // state-machine sub-actions (state / transition / attempts / reset)
 // appear in `peaks session --help` for LLM `<TAB>`-discovery.
 import { registerSession24hModeCommand } from '../session-24h-mode.js';
@@ -58,7 +56,6 @@ export function registerSessionCommand(program: Command, io: ProgramIO): void {
         '--project <path>',
         'target project root (defaults to git root or cwd). Slice 021: lets sub-agents skip the cwd heuristic and look up the binding for a specific repo.'
       )
-      // Slice 020 — caller-keyed session binding. The --caller-id flag
       // overrides the per-process PEAKS_CALLER_ID env var and the
       // PLATFORM_FALLBACKS table (D4 priority). The resolved callerId is
       // surfaced in the JSON envelope so callers can confirm what was
@@ -72,14 +69,12 @@ export function registerSessionCommand(program: Command, io: ProgramIO): void {
       sessionId: string | undefined,
       options: { json?: boolean; active?: boolean; project?: string; callerId?: string }
     ) => {
-      // Slice 021: --project wins; otherwise the git-root / cwd fallback
       // (matches the pre-021 behaviour so the existing slice-020 / slice-007
       // sub-agent flow keeps working unchanged).
       const projectRoot =
         options.project !== undefined
           ? resolveCanonicalProjectRoot(options.project)
           : (findProjectRoot(process.cwd()) ?? process.cwd());
-      // Slice 020 — resolve the callerId up front when the flag was passed.
       // We use `resolveCallerId` for D1/D5 validation; an invalid flag
       // throws CallerIdError (D5 → exit 65). A missing flag and no env
       // and no fallback also throws (D2 → exit 64). The resolved id is
@@ -116,7 +111,6 @@ export function registerSessionCommand(program: Command, io: ProgramIO): void {
             await import('../../../services/session/caller-binding-service.js');
           const activeSid = getSessionIdCanonical(projectRoot);
           const callerBinding = getCallerBinding(projectRoot, callerId);
-          // Slice 021: source is the enum that the unified --active primitive
           // reports. Callers / migration tooling can detect pre-migration trees
           // by inspecting `source === 'legacy'`.
           const bindingSource: BindingSource = existsSync(
@@ -147,9 +141,7 @@ export function registerSessionCommand(program: Command, io: ProgramIO): void {
         );
         return;
       }
-      // Slice 007 + slice 021 — sub-agent session sharing. A sub-agent that
       // does not know the parent's sid reads it from the binding via
-      // `peaks session info --active`. Slice 021 turned this into the
       // SOLE authoritative discovery primitive: it composes on
       // getSessionIdCanonical (canonicalize-on-read; handles the stored
       // "projectRoot: '.'" vs caller-passed absolute realpath mismatch
@@ -196,18 +188,15 @@ export function registerSessionCommand(program: Command, io: ProgramIO): void {
         }
         // 4. Determine the on-disk source so callers (and future
         //    migration tooling) can detect pre-migration trees. The
-        //    canonical file is preferred when both exist (slice 005
         //    contract).
         const bindingSource: BindingSource = existsSync(
           join(projectRoot, '.peaks', '_runtime', 'session.json')
         )
           ? 'canonical'
           : 'legacy';
-        // Slice 021: when only the legacy back-compat path is present,
         // surface a warning so callers (and humans tailing the JSON)
         // see "this tree has not been reconciled to the canonical
         // home yet". The warning is informational; the binding is
-        // still valid for one minor release (slice 005 / 006
         // contract). `warnings` is a top-level envelope field, not a
         // data field, so it goes through ok()'s 3rd positional arg.
         const legacyWarnings =
@@ -292,9 +281,7 @@ export function registerSessionCommand(program: Command, io: ProgramIO): void {
     }
   });
 
-  // Slice 011: `peaks session checkpoint` and `peaks session resume`.
   // Skill-level primitives — the LLM is the decision-maker; CLI is the muscle.
-  // Slice 2026-07-01-strategic-compact-cli fix: register EAGERLY (not
   // via `void (async () => …)`) so commander walks the subcommand
   // tree synchronously and `peaks session --help` includes both
   // `checkpoint` and `resume`. The previous async-IIFE registered
@@ -309,7 +296,6 @@ export function registerSessionCommand(program: Command, io: ProgramIO): void {
   // .peaks/_runtime/** for the rename; skipped paths recorded in
   // the response envelope. See src/services/migrate-skill-name/.
   registerSessionMigrateSkillNameCommand(session);
-  // rid-020a: peaks session 24h-mode — state machine backbone.
   registerSession24hModeCommand(session, io);
   registerSpillDemoCommand(session, io);
 

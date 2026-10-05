@@ -22,7 +22,6 @@ const RD_QUALITY_GATE_BAND_SIZE = 5;
 const RD_TASK_ID_PAD_WIDTH = 3;
 
 /**
- * 2.0.1-bug1: the slim 2.0 `~/.peaks/config.json` no longer carries a
  * `providers` block (legacy model config lives in
  * `.peaks/preferences.json` per spec §10.4). `buildPlan` is a pure
  * planner function and historically took its execution model from a
@@ -64,7 +63,6 @@ export type RdModelRole = 'strongest' | 'execution';
 export type RdSwarmPlanRequest = {
   skill: RdSkill;
   /**
-   * Slice 2026-06-29-change-id-root-removal: change-id is metadata-only.
    * It is no longer used for filesystem routing (the session-axis
    * `getSessionDir` is the canonical authority), but it is retained
    * on the request type for trace correlation and to avoid sweeping
@@ -79,7 +77,6 @@ export type RdSwarmPlanRequest = {
   workspace?: WorkspaceConfig;
   requiresTechApproval?: boolean;
   executionModelId?: string;
-  /** Project root for the missing-standards diagnostic (slice 2026-06-16-peaks-rd-no-gates). */
   projectRoot?: string;
   /** Opt-in strict mode: hard-fail when project-local standards are missing. */
   strictStandards?: boolean;
@@ -116,7 +113,6 @@ export type RdPlanResult =
   | {
       available: true;
       /**
-       * Slice 2026-06-29-change-id-root-removal: change-id is metadata-only.
        * It is no longer emitted in the planner envelope at runtime, but
        * retained on the result type for trace correlation and to avoid
        * breaking 30+ tests that assert against it.
@@ -141,7 +137,6 @@ export type RdPlanResult =
         skipReason?: string;
         /** Gate list (code-review / security / performance) reflecting standards availability. */
         standardsGates?: ReadonlyArray<RdStandardGate>;
-        /** Diagnostic line emitted to stderr when standards are missing (slice 2026-06-16-peaks-rd-no-gates). */
         standardsDiagnostic?: string;
         /** When `--strict-standards` is on AND standards are missing, the stable error code. */
         standardsErrorCode?: typeof import('./standards-diagnostic.js').EPEAKS_NO_STANDARDS;
@@ -171,7 +166,6 @@ export type RdPlanResult =
         skipReason?: string;
         /** Gate list (code-review / security / performance) reflecting standards availability. */
         standardsGates?: ReadonlyArray<RdStandardGate>;
-        /** Diagnostic line emitted to stderr when standards are missing (slice 2026-06-16-peaks-rd-no-gates). */
         standardsDiagnostic?: string;
         /** When `--strict-standards` is on AND standards are missing, the stable error code. */
         standardsErrorCode?: typeof import('./standards-diagnostic.js').EPEAKS_NO_STANDARDS;
@@ -445,7 +439,6 @@ function getConcreteTargetAreas(
     return [];
   }
 
-  // Slice 2026-06-29-change-id-root-removal: read path now resolves via
   // the session-axis `getSessionDir(root, sessionId)` (the change-id
   // identifier is reused as the session-dir name for tech-artifact
   // reads, matching the test helper `writeApprovedTechArtifacts` and
@@ -468,7 +461,6 @@ function getConcreteTargetAreas(
 }
 
 /**
- * Slice 2026-06-16-peaks-rd-no-gates: optional standards overlay stamped onto
  * every `gateStatus` shape produced by this module. Built once per
  * `createRdSwarmPlan` call and merged into the result so the JSON envelope
  * always carries the gate list + diagnostic (or null when standards present).
@@ -494,7 +486,6 @@ function buildStandardsOverlay(request: RdSwarmPlanRequest): StandardsOverlay {
     projectRoot: request.projectRoot,
     strict: request.strictStandards === true
   });
-  // Slice 2026-06-16-peaks-rd-no-gates — Repair cycle 1:
   // thread BOTH diagnostic and errorCode so strict-mode callers still
   // surface `EPEAKS_NO_STANDARDS`. The pre-fix version early-returned
   // on `diagnostic !== null` and dropped `errorCode` (QA#4 AC3 violation).
@@ -510,12 +501,10 @@ function buildPlan(
   request: RdSwarmPlanRequest,
   standardsOverlay: StandardsOverlay
 ): Omit<Extract<RdPlanResult, { available: true }>, 'available'> {
-  // Slice 2026-06-29-change-id-root-removal: change-id is metadata-only;
   // no structural validation gate fires here.
   const goal = normalizeGoal(request.goal);
   const swarmMode = request.swarmMode ?? true;
   const executionModelId = request.executionModelId?.trim() || resolveExecutionModelId();
-  // Slice 2026-07-09 add-zcode-adapter (A.3): strongest planner/reviewer
   // model is resolved dynamically (config.model → env-var fallback).
   const strongestModelId = getStrongestModelId();
   const { workerTarget, blockedReasons } = resolveWorkerTarget(request.maxWorkers);

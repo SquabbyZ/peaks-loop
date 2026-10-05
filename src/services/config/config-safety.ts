@@ -168,7 +168,6 @@ export function resolveCanonicalProjectRoot(startPath: string): string {
 }
 
 /**
- * Slice rid-statusline-stale-ux AC-2 + P1 H1 option A: strict
  * canonicalization for use in trust-boundary paths (e.g.
  * `peaks session primer`).
  *

@@ -12,7 +12,6 @@ import {
   type RequestType
 } from './artifact-prerequisites.js';
 import { ensureSession, getSessionIdCanonical } from '../session/session-manager.js';
-// Slice 2026-06-29-change-id-root-removal: `getCurrentChangeId` was
 // removed with the change-id axis. The change-id binding file is
 // gone; request-artifact callers pass `options.sessionId` explicitly
 // or accept the requestId as the default. Path-safety helpers now
@@ -36,7 +35,6 @@ export { VALID_REQUEST_TYPES, DEFAULT_REQUEST_TYPE, isRequestType, type RequestT
 // tests) keep importing from this module unchanged. The render templates,
 // handoff-path helpers, and `RequestArtifactRole` type all live in the
 // sibling `artifact-templates.ts` module — see slice
-// 2026-06-24-handoff-path-canonicalization for the rationale.
 //
 // `import type` is required so the type is in scope as a bare identifier
 // within this file (the value re-export alone does not bring types into
@@ -65,7 +63,6 @@ export type CreateRequestArtifactOptions = {
   requestType?: RequestType;
   clock?: () => string;
   /**
-   * Slice 020 — caller-keyed session binding. The callerId that initiated
    * this artifact creation (resolved via `resolveCallerId` by the CLI).
    * Recorded in the JSON envelope and on the artifact body's frontmatter
    * so a future reader knows which caller produced it. The caller-keyed
@@ -84,13 +81,11 @@ export type CreateRequestArtifactResult = {
   content: string;
   applied: boolean;
   /**
-   * Slice 020 — caller-keyed session binding. The resolved callerId
    * (D4 priority: flag > env > platform fallback) when --caller-id
    * was passed. Omitted from the result when no callerId was set.
    */
   callerId?: string;
   /**
-   * Slice 2026-06-23-request-init-change-scope-leak. The session-axis
    * dir resolved under `.peaks/_runtime/<sid>/`. Always populated so
    * the sub-agent prompt can report a stable, canonical scope
    * location to the writer.
@@ -99,7 +94,6 @@ export type CreateRequestArtifactResult = {
 };
 
 /**
- * F-1 (slice 025 security): reject rids that contain path separators, null
  * bytes, or traversal sequences. A request id is a single path segment, so
  * anything that builds a filename from one must test it against this first —
  * it is exported so those call sites reuse it instead of re-declaring a copy
@@ -142,7 +136,6 @@ function requestArtifactRequestsDir(
   sessionId: string,
   role: RequestArtifactRole
 ): string {
-  // Slice 2026-09-15 (runtime-path-unrepresentable): the two ids are branded by
   // `guardRuntimeSegment`, which performs the same `isUnsafePathInput` check
   // this function used to spell inline. The join itself now *requires* the
   // brand, so a caller that reaches this dir without a guard does not compile.
@@ -172,7 +165,6 @@ export async function createRequestArtifact(
   // Use provided session ID or get/create current session. The session
   // id is the binding for the artifact file's location.
   //
-  // Slice 006 collapses the per-change-id top-level dirs. The artifact
   // file is now written under the SESSION dir
   // (`.peaks/_runtime/<sid>/<role>/requests/`) instead of the
   // change-id dir. The 2-tier fallback (canonical session → legacy
@@ -188,18 +180,15 @@ export async function createRequestArtifact(
   if (isUnsafePathInput(sessionId)) {
     throw new Error(`Invalid session id: ${sessionId} (must be a single path segment)`);
   }
-  // Slice 2026-06-29-change-id-root-removal: the `current-change`
   // binding file is gone. Resolution order for the change-id (file
   // body metadata) is now:
   //   1. Explicit `options.sessionId` (CLI `--change-id`).
   //   2. The requestId itself (every request is its own scope by default).
   const sessionSlug = options.sessionId ?? options.requestId;
 
-  // Slice 008 (F21 fix): fail fast when the resolved session id
   // looks like a real session id (matches the date+session prefix)
   // but does NOT correspond to an actual session dir under
   // `.peaks/_runtime/`. Pre-F21 a sub-agent with a typo or stale
-  // binding (e.g. `2025-01-01-session-deadbe`) silently planned
   // to write to a non-existent path. The check is intentionally
   // scoped to "looks like a real session id" — a sid like
   // `test-session` or `s` (no date prefix) is allowed through so
@@ -233,7 +222,6 @@ export async function createRequestArtifact(
     // The writer lowercases the request id into a kebab slug
     // (`buildNumberedFilename`), so the duplicate-detection endsWith must
     // compare against the SAME slug — a mixed-case id like
-    // `2026-09-06-split-batchA` is stored as `...-split-batcha.md`.
     const slug = slugifyDescription(options.requestId);
     const alreadyExists = existingFiles.some((file) => {
       if (file === `${options.requestId}.md`) return true;
@@ -261,7 +249,6 @@ export async function createRequestArtifact(
   );
 
   if (options.apply !== true) {
-    // Slice 2026-06-29-change-id-root-removal: scopeDir is the
     // session-axis dir (`.peaks/_runtime/<sid>/`). Pre-resolved here
     // so dry-run output reports the canonical scope location.
     const scopeDir = runtimeRoot(options.projectRoot).join(
@@ -311,7 +298,6 @@ export type RequestArtifactSummary = {
   role: RequestArtifactRole;
   /**
    * Durable scope of the artifact: the top-level `.peaks/_runtime/<sessionId>/`
-   * directory the file lives in. As of slice 2026-06-05-change-id-as-unit-of-work,
    * the prerequisite gate resolves paths under this dir (not the body
    * `- session:` line), so the file body and the on-disk path agree.
    */
@@ -485,7 +471,6 @@ export async function showRequestArtifact(
   // Search for files matching the requestId (supports both legacy and numbered formats)
   // The numbered format lowercases the request id into a kebab slug
   // (`buildNumberedFilename`), so the endsWith must compare against the SAME
-  // slug — a mixed-case id like `2026-09-06-split-batchA` is stored as
   // `...-split-batcha.md` and must still resolve here.
   const slug = slugifyDescription(options.requestId);
   const findFileInDir = async (dir: string): Promise<{ fileName: string; path: string } | null> => {
@@ -659,7 +644,6 @@ export async function transitionRequestArtifact(
   // (Removed in v2.11.0 Group A: the tech-doc-presence + tech-doc-mandatory-
   // sections gates. The rd → spec-locked transition now relies on the
   // immutable peaks-prd handoff (sha256-frontmatter) for the same intent;
-  // see PRD for `v2-11-rd-techdoc-removal-and-runtime-friction` AC-3/AC-4.)
 
   // Type sanity check for PRD handoff
   if (

@@ -82,8 +82,6 @@ export interface IdeAdapter {
    * this field, calls `supportsRole` + `buildToolCall`, and returns the
    * resulting tool-call descriptor in the JSON envelope. Encapsulates the per-IDE sub-agent dispatch surface (slice #009). The dispatcher's `buildToolCall` returns the IDE-native tool-call descriptor at runtime.
    *
-   * Added in slice 2026-06-07-sub-agent-dispatch-decouple. See PRD #002
-   * G1 (AC-1, AC-2) + [[slim-ideadapter-shape-is-the-contract]].
    */
   readonly subAgentDispatcher: SubAgentDispatcher;
   /**
@@ -97,8 +95,6 @@ export interface IdeAdapter {
    * the threshold regardless of this field — `promptSizeAware` only
    * controls the hook layer (R-15: G9 hook is LLM-platform-specific).
    *
-   * Added in slice 2026-06-07-sub-agent-context-governance. See PRD
-   * #003 G9.2 + AC-56. Default `false` to preserve slice #009's
    * `peaks hooks install` output byte-stability.
    */
   readonly promptSizeAware: boolean;
@@ -114,7 +110,6 @@ export interface IdeAdapter {
    * value (Claude Code), are annotated UNVERIFIED for future slices
    * (Trae, slice #012+), or omit it entirely (not-yet-registered IDEs).
    *
-   * Added in slice 011-2026-06-07-ide-adapter-resource-profile.
    */
   readonly standardsProfile?: IdeStandardsProfile;
   /**
@@ -125,21 +120,17 @@ export interface IdeAdapter {
    * this; adapters that don't (Trae in slice 1.3.2) leave it undefined
    * and follow the legacy path with a warning.
    *
-   * Added in slice 011-2026-06-07-ide-adapter-resource-profile.
    */
   readonly skillInstall?: IdeSkillInstall;
   /**
-   * v2.13.0 auto-compact (AC-1 + AC-3): per-IDE compact-capability
    * descriptor. When `undefined`, peaks-loop falls back to the
    * `llm-self-compress` pathway (the LLM summarizes its own context).
    * Adapters that fill this expose a 4-stage protocol so peaks-loop
    * can drive compact autonomously:
    *
    *   1. `envVarForContextPercent` — env-var the IDE sets per turn
-   *      (e.g. `CLAUDE_CONTEXT_USAGE_PERCENT`). Read by AC-1.
    *   2. `compactCommand` — slash command or shell-call the IDE
    *      accepts to trigger compact (e.g. `/compact`). Dispatched
-   *      by AC-3.
    *   3. `compactPathway` — `'shell-exec' | 'ide-native' |
    *      'llm-self-compress' | 'noop'`. `shell-exec` means peaks-loop
    *      spawns `compactCommand` via `child_process.spawn` (zero IDE
@@ -154,7 +145,6 @@ export interface IdeAdapter {
    * `compactPathway: 'llm-self-compress'` until L2-dogfood verifies
    * each IDE's actual compact surface.
    *
-   * Added in slice 2026-06-27-auto-compact-protocol. See
    * `.peaks/memory/2026-06-27-auto-compact-design.md`.
    */
   readonly compact?: IdeCompactProfile;
@@ -176,7 +166,6 @@ export interface IdeAdapter {
    * locally and return `undefined`. The orchestration layer also
    * catches, but defense in depth.
    *
-   * Added in slice 2026-07-09 add-zcode-adapter (Slice C); only the
    * `zcode` adapter opts in this slice. Future slices can opt in
    * other IDEs without changing this signature (optional method).
    */
@@ -200,7 +189,6 @@ export interface IdeAdapter {
 
 /**
  * Per-IDE standards-file location + format profile. Used by the
- * `peaks standards init` dispatch layer (slice 011) to write the
  * project-level standards files at the IDE-specific path, not the
  * Claude Code hardcoded one. Adapters that omit this field trigger
  * the legacy Claude Code path with a stderr warning.

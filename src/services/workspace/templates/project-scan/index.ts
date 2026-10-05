@@ -1,7 +1,6 @@
 /**
  * Bundled project-scan templates for `peaks workspace init`.
  *
- * Slice 2026-07-15-project-scan-bootstrap (PRD G4b / AC9 / R4):
  *   4 audit/business templates are bundled in the repo at
  *   `src/services/workspace/templates/project-scan/*.md` and copied
  *   verbatim to `<projectRoot>/.peaks/project-scan/` on every
@@ -9,10 +8,8 @@
  *   already exists; `--force-project-scan-templates` overrides).
  *
  *   `project-scan.md` is NOT bundled here — it is generated dynamically
- *   by `bootstrapProjectScan` (slice 2026-07-15-project-scan-bootstrap).
  *
  * Template-integrity guarantee:
- *   The vitest test `tests/unit/workspace/templates/template-integrity.test.ts`
  *   asserts byte-for-byte equality between these 4 files and the
  *   canonical sources at `.peaks/project-scan/{4 files}`. Any drift
  *   fails the suite (R4 engineering guard against template drift).

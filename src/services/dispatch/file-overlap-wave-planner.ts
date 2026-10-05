@@ -1,5 +1,4 @@
 /**
- * Slice 2026-09-10-dispatch-token-and-swarm §3 — file-overlap-aware
  * parallel scheduling.
  *
  * Problem: fan-out is mandatory, but the orchestrator serializes whenever

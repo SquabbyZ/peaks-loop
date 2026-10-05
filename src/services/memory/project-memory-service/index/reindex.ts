@@ -3,7 +3,6 @@
 // the markdown files on disk, plus regeneration of the human/LLM-facing
 // `MEMORY.md` index and a drift report.
 //
-// Why this exists (slice 2026-09-09-memory-system-overhaul, B):
 //   - `peaks memory extract` only ever wrote memories FROM artifacts; it
 //     never re-scanned files already on disk, and there was no rebuild
 //     command. 78 top-level files were absent from index.json.
@@ -59,7 +58,6 @@ export interface ReindexUnclassified {
 export interface ReindexOrphanEntry {
   name: string;
   kind: string;
-  /** The `sourcePath` recorded in the previous index that no longer exists on disk. */
   sourcePath: string;
 }
 
@@ -90,7 +88,6 @@ export interface MemoryReindexReport {
   unclassified: ReindexUnclassified[];
   /** Distinct files that resolve to the same index name — reported, never overwritten. */
   nameConflicts: ReindexNameConflict[];
-  /** Previous index entries whose `sourcePath` no longer exists (error-class drift). */
   orphanIndex: ReindexOrphanEntry[];
   /** Files on disk that the rebuilt index does not contain (warn-class drift). */
   orphanDisk: string[];

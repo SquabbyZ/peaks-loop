@@ -1,6 +1,5 @@
 /**
  * Pure render / template functions extracted from
- * `project-standards-service.ts` (slice 2026-09-06-split-batch-b) so the
  * service stays under the 800-line cap. Behaviour-preserving verbatim move;
  * `export` keywords were added to the symbols the service still imports.
  */

@@ -30,7 +30,6 @@ export const VALID_SKILL_PRESENCE_MODES: ReadonlyArray<SkillPresenceMode> = [
   '24h'
 ];
 
-// Migration note (slice 2026-09-09-mode-consolidation): `swarm` was REMOVED
 // as a mode — parallel fan-out is now the default execution strategy in
 // every mode. A legacy on-disk `mode: 'swarm'` is normalized on read to
 // `'full-auto'` (never crash, never drop the presence).
@@ -79,12 +78,9 @@ export type SkillPresence = {
    * between the last presence write and this one AND the bound
    * peaks session has a different (or no) recorded outer session id.
    *
-   * As of slice 018 (auto-roll on outer-mismatch), the field is
    * informational only — it tells the statusline and any log /
    * observability consumer that an outer-session swap was observed
    * on the previous heartbeat. The actual binding rotation is
-   * performed by `ensureSessionWithRotation` (slice 018), not by
-   * `setSkillPresence`. `peaks-code`'s Step 0 used to read this
    * field and turn it into an AskUserQuestion; that ask is no
    * longer needed because the rotation already happened by the time
    * the skill is invoked.
@@ -156,7 +152,6 @@ function resolveProjectRoot(override?: string): string {
  * to auto-resolve `--session-id` when the LLM driver forgets to
  * pass the flag, so dispatch records land in the right
  * `.peaks/_sub_agents/<sid>/` tree instead of an `unknown-sid`
- * fallback (slice 2026-06-26-unknown-sid-fallback-fix).
  */
 export function getCurrentSessionId(projectRootOverride?: string): string | null {
   const projectRoot = resolveProjectRoot(projectRootOverride);
@@ -207,7 +202,6 @@ function readSkillPresenceFromLease(projectRootOverride?: string): SkillPresence
   // not the legacy `outerSessionId` field. Project it for back-compat
   // with `clearStalePresenceOnRotation`'s outer-mismatch check.
   //
-  // Slice 2026-09-09-mode-consolidation: `mode` is projected too (it was
   // silently dropped before, which made `getSkillPresence().mode` always
   // undefined and left every `presence.mode` consumer dead). Normalize on
   // read so a legacy `'swarm'` lease surfaces as `'full-auto'`.
@@ -252,12 +246,10 @@ function getBoundOuterSessionId(projectRootOverride?: string): string | undefine
  * are about to stamp, the user probably closed the previous outer
  * session and is now driving peaks from a new one.
  *
- * As of slice 018 (auto-roll on outer-mismatch), the actual rotation
  * is `ensureSessionWithRotation`'s job, not this one. The presence
  * service still emits the structured `outerSessionMismatch` field on
  * the presence envelope (useful for the statusline to render a stale
  * marker and for the QA / log consumers to know an outer-session swap
- * happened), but it no longer carries the implicit "ask the user"
  * promise — `peaks-code`'s Step 0 no longer needs to surface an
  * AskUserQuestion, because the rotation already fired by the time the
  * skill is invoked.
@@ -278,12 +270,10 @@ function getPreviousOuterSessionId(projectRootOverride?: string): string | undef
 }
 
 // ============================================================================
-// Slice 020 — caller-keyed active-skill marker (D6).
 // ============================================================================
 //
 // Today's per-project active-skill marker (`.peaks/_runtime/active-skill.json`)
 // races when multiple Claude Code windows (or different platforms) drive the
-// same project concurrently. Slice 020 introduces a per-caller file at
 // `.peaks/_runtime/<peakSid>/active-skill-<callerId>.json` (D6). Two callers
 // bound to the same peak session never clobber each other.
 //
@@ -382,7 +372,6 @@ export function setSkillPresence(
   const previousOuterSessionId = getPreviousOuterSessionId(projectRootOverride);
   const now = new Date().toISOString();
 
-  // v2.15.0 slice 002 repair: always write `outerSessionId` (even
   // as `''`) when no harness env var is set. Without this, the JSON
   // envelope omits the key entirely, which makes downstream staleness
   // detection unreliable (consumers can't tell "no signal" from
@@ -442,7 +431,6 @@ export function setSkillPresence(
           import('./presence-lease-service.js')
         ]);
         const projection = resolveCallerProjection({ projectRoot, env: process.env });
-        // Slice 2026-08-06-session-cacde8-A.4: derive the legacy compat
         // shim's workflowId from `projection.callerId` (caller-keyed,
         // matching the 4.0.8 caller-binding direction) instead of
         // `sessionId` (sid-keyed, pre-4.0.8). `slice(0, 189)` caps the
@@ -510,7 +498,6 @@ export function getSkillPresence(projectRootOverride?: string): SkillPresence | 
 }
 
 /**
- * Slice 002 (v2.15.0) — presence staleness detection (AC-1).
  *
  * Compare the *outer* session id stamped onto the current presence
  * marker against the *current* outer session id (from
@@ -615,8 +602,6 @@ export function checkStalePresence(opts?: {
 }
 
 /**
- * Slice 002 (v2.15.0) — auto-clear stale presence on session
- * rotation (AC-1).
  *
  * Called from `peaks workspace init` immediately after a successful
  * `outer-session-mismatch` rotation. When the previous session's
@@ -624,7 +609,6 @@ export function checkStalePresence(opts?: {
  * clearing it prevents peaks-code Step 1 from picking up a stale
  * `mode` field that the user never explicitly chose.
  *
- * Slice rid-skill-persistence-001 (2026-08-12): added an outerSessionId
  * intent-source guard at the top of the function. The user constraint
  * (preserved in `.peaks/memory/2026-08-11-peaks-code-skill-persistence-pause.md`)
  * requires that "the current bee (peaks-code) can only be replaced or
@@ -665,7 +649,6 @@ export function clearStalePresenceOnRotation(opts: {
   currentOuterSessionId: string | undefined;
   rotatedOutSessionId: string | null;
 }): { cleared: boolean; reason: string | null; recordedOuter?: string } {
-  // Slice rid-skill-persistence-001 (2026-08-12): user-explicit intent
   // guard. When the caller has no caller-binding outerSessionId
   // (env vars unset, system-triggered rotation), refuse the mutation
   // up-front — the recorded presence may belong to a user-explicit

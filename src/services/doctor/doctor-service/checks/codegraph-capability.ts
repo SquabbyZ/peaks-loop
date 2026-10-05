@@ -36,7 +36,6 @@ const CODEGRAPH_EXPECTED_VERSION = '0.7.10';
 const CODEGRAPH_PACKAGE_NAME = '@colbymchenry/codegraph';
 
 function findCodegraphPackageJsonFallback(startDir: string): string | null {
-  // Slice rid-CG-007 (downstream safety): yarn-pnp / pnpm-strict /
   // sub-package consumers may not expose `@colbymchenry/codegraph` to
   // `createRequire(import.meta.url).resolve`. The fallback walks up
   // the directory tree from `startDir` looking for
@@ -146,7 +145,6 @@ function runCheck(
     const versionOk = result.version === CODEGRAPH_EXPECTED_VERSION;
     const managedPathSuffix = renderManagedPathSuffix(managedPath);
     if (!versionOk) {
-      // rid-CG-007: downstream consumers may pull a different
       // version via yarn-pnp / pnpm-strict. Surface as a warning
       // (ok: false, severity: warning) so the check does NOT flip
       // the doctor exit code. Upstream 0.7.x binaries are wire-
@@ -198,7 +196,6 @@ function defaultCodegraphManagedPathProbe(): CodegraphManagedPathInfo | null {
   return detectManagedCodegraphPath(process.cwd());
 }
 
-// Slice S3b (rid-s3b-doctor-check-typing): `satisfies` instead of a
 // `: DoctorCheckPlugin` annotation. The annotation widened this object
 // literal to the interface's `run` return type
 // (`readonly DoctorCheck[] | Promise<readonly DoctorCheck[]>`) — an

@@ -44,7 +44,6 @@ function isHeartbeatStatus(v: unknown): v is HeartbeatStatus {
     v === 'done' ||
     v === 'failed' ||
     v === 'stale' ||
-    // Slice 2026-07-29-dispatch-stall-governance / S2 — accept the
     // S1 terminal members so a sub-agent can report `cancelled`,
     // `no-execution`, `never-started`, or `unreadable` through the
     // heartbeat CLI.
@@ -65,7 +64,6 @@ export function isDispatchStatus(v: unknown): v is DispatchRecordStatus {
     v === 'cancelled' ||
     v === 'no-execution' ||
     v === 'stale' ||
-    // Slice 2026-07-29-dispatch-stall-governance / S1 — accept the two
     // new terminal members from the startup-timeout service.
     v === 'never-started' ||
     v === 'unreadable'

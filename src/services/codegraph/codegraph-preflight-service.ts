@@ -1,6 +1,5 @@
 // src/services/codegraph/codegraph-preflight-service.ts
 //
-// Slice 2026-09-03-codegraph-preread (Option A) — pre-dispatch codegraph
 // preflight for RD planning. peaks-code's RD dispatch path calls
 // `buildCodegraphPreflightBlock` BEFORE composing the RD sub-agent prompt
 // (src/cli/commands/dispatch-commands.ts) so the RD plans against the real
@@ -15,7 +14,6 @@
 //      absent, run `codegraph init` + `codegraph index` (best-effort).
 //   2. Skip-when-fresh: when `.codegraph/` already carries the
 //      peaks-loop marker, do NOT re-init / re-index on every dispatch
-//      (index is incremental; the sibling rid-2026-09-03-codegraph-autorefresh
 //      owns post-slice refresh). A foreign-schema `.codegraph/` is never
 //      clobbered — we fail-soft instead.
 //   3. Read a BOUNDED project-structure summary from the index

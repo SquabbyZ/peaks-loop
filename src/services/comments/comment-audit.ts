@@ -87,7 +87,6 @@ export type CommentAuditOptions = {
    * misses tracked files the disk dropped, so a row measured over a walk can move
    * while nobody edits source. `git ls-files` filtered by the published scope rule is
    * that population — the same list the eslint, prettier and silent-warning legs
-   * share (rid `2026-10-03-silent-warning-scope`).
    */
   readonly files?: readonly string[];
 };

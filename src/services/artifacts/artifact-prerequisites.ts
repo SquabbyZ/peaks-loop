@@ -69,13 +69,9 @@ export type ArtifactPrerequisite = {
   legacyRelativePath?: string;
   /**
    * Further, older locations, tried **in declared order** after
-   * `legacyRelativePath`. Slice `2026-09-14-audit-artifact-rid-scoping`
    * added this because the two audit artifacts have a two-release
-   * history behind their rid-scoped path: the pre-rid-scoping
    * `audit/security.md` (v2.12.0) and, behind it, the v2.11.x
    * `rd/security-review.md`. Three sessions on disk
-   * (`2026-09-06-session-a87ca4`, `2026-09-10-session-528a63`,
-   * `2026-09-12-session-e37ef0`) hold their security evidence only at
    * the last of those, so the oldest tier still has to resolve.
    */
   legacyRelativePaths?: ReadonlyArray<string>;
@@ -85,7 +81,6 @@ export type PrerequisiteCheckResult = {
   ok: boolean;
   missing: Array<{ path: string; description: string }>;
   /**
-   * v2.13.2 AC-5 — soft-block warnings. Each entry is a prereq
    * path that is currently missing but is in a 1-minor-release
    * back-compat window. The transition gate does not throw on
    * `missing`-only (so legacy callers keep working) but surfaces the
@@ -110,7 +105,6 @@ const BUG_ANALYSIS: ArtifactPrerequisite = {
     'Bug root-cause analysis (reproduction, affected paths, fix approach, regression test plan)',
   mustContain: ['## Root cause', '## Fix approach']
 };
-// Slice `2026-09-14-audit-artifact-rid-scoping`: the rid is part of the
 // filename (`code-review-<rid>.md`). A fixed per-session path cannot hold
 // two slices' evidence at once — the second slice's write silently
 // destroyed the first slice's on 2026-09-13, and the gate stayed green
@@ -150,13 +144,11 @@ const PERF_BASELINE: ArtifactPrerequisite = {
 // handoff (`prd/handoff.md`) — see `AUDIT_REQUIRES_HANDOFF` below.
 //
 // Back-compat: the canonical location is `audit/security-<rid>.md`
-// (and `audit/perf-<rid>.md`); the pre-rid-scoping `audit/security.md`
 // (and `audit/perf.md`) plus the older `rd/security-review.md` (and
 // `rd/perf-baseline.md`) are accepted via `legacyRelativePaths`, in
 // that order, for the back-compat window.
 const AUDIT_SECURITY: ArtifactPrerequisite = {
   relativePath: 'audit/security-<rid>.md',
-  // Two legacy tiers behind the rid-scoped path: the pre-rid-scoping
   // v2.12.0 location, then the v2.11.x one. Both are live on disk.
   legacyRelativePath: 'audit/security.md',
   legacyRelativePaths: ['rd/security-review.md'],
@@ -194,22 +186,18 @@ const AUDIT_PERF: ArtifactPrerequisite = {
 // rd-side CLI hard gate (blocks `rd → qa-handoff`), while qa-side
 // consumption remains soft.
 //
-// v2.13.2 AC-5 — 1-minor-release back-compat window. When
 // `backCompat: true` is set, a MISSING file downgrades to a warning
 // (`mut-report-missing-deprecated-in-v2.14.0`) instead of a hard
 // failure. The hard-fail behavior for `passed: false` is preserved
 // (the body still has to carry `"passed": true` when present).
 // v2.14.0 will remove `backCompat` and re-elevate missing → throw.
 //
-// Slice `2026-09-14-audit-artifact-rid-scoping` deliberately does NOT
-// rid-scope this path, unlike the four audit/review artifacts above. The
 // repo's own producer/reader constant is `mutReportPath()` in
 // `packages/peaks-loop-mut/src/services/mut/report-loader.ts`, which names
 // `mut/mut-report.json`, and `peaks mut run`'s `--out` is supplied by the
 // caller. A `<rid>`-templated requirement here would be a name no producer
 // in the repo can write — a gate that exists only in prose, sitting behind
 // `backCompat: true` so it gates nothing at all. If mut ever gains a
-// rid-scoped producer, the constant and this path move together.
 const MUT_REPORT: ArtifactPrerequisite & { backCompat?: boolean } = {
   relativePath: 'mut/mut-report.json',
   description:
@@ -225,10 +213,8 @@ const MUT_REPORT: ArtifactPrerequisite & { backCompat?: boolean } = {
 
 // v2.12.0 Group B Tier 5 — gate that the peaks-prd handoff (the
 // immutable, per-slice handoff capsule at `prd/handoff-<rid>.md`
-// since slice `2026-09-14-prd-capsule-rid-scoping`) exists before any
 // audit skill is allowed to consume it. The peaks-security-audit
 // and peaks-perf-audit CLI commands read frontmatter from the
-// capsule (AC-2.4 / AC-3.4); if the handoff is missing the
 // audit skill aborts — and so should the prereq gate when those
 // audits are required at rd:qa-handoff.
 //
@@ -238,7 +224,6 @@ const MUT_REPORT: ArtifactPrerequisite & { backCompat?: boolean } = {
 // PRD handoff exists for small CONFIG-only commits).
 const AUDIT_REQUIRES_HANDOFF: ArtifactPrerequisite = {
   relativePath: 'prd/handoff-<rid>.md',
-  // Slice `2026-09-14-prd-capsule-rid-scoping`: the rid is part of the
   // filename, like the four audit/review artifacts above. A single slot per
   // SESSION cannot hold two slices' capsules — `peaks prd handoff init`
   // overwrote it on every call, and this gate stayed green because it pinned
@@ -247,9 +232,7 @@ const AUDIT_REQUIRES_HANDOFF: ArtifactPrerequisite = {
   // prerequisite on a capsule written for a different line of work.
   // The bare path stays accepted (see `legacyRelativePath`) so the three
   // sessions on disk that hold only `prd/handoff.md` keep passing. That tier
-  // is rid-blind by design — the scoping binds for capsules written from now
   // on, and every producer (`handoff-service.initHandoff`,
-  // `handoff-auto-regen`, `evidence generate`) writes the rid-scoped name.
   legacyRelativePath: 'prd/handoff.md',
   description:
     'PRD handoff capsule (v2.12.0+) — peaks-security-audit / peaks-perf-audit both read frontmatter from this file. Must exist before audit prereqs are evaluated at rd:qa-handoff. The rid is part of the filename so two slices in one session do not collide; the bare pre-rid-scoping location is accepted as the legacy tier.',
@@ -290,7 +273,6 @@ const KARPATHY_REVIEW: ArtifactPrerequisite = {
 // pass the gate. The full envelope lives at the JSON sibling path
 // (`rd/third-party-review.json`); this MD file is the human-readable
 // companion. The body is also expected to declare a `modelFamily`
-// distinct from the karpathy-reviewer's modelFamily (AC-4.4 — the CI
 // gate diffs `rd/third-party-review.json.modelFamily` against
 // `rd/karpathy-review.md` parsed `modelFamily`); equality fails the
 // build. When `~/.peaks/config.json` lacks a `reviewer.providers`
@@ -343,7 +325,6 @@ const PRD_CONTENT: ArtifactPrerequisite = {
 // describe business behavior" — and `it(` is the dominant one by ~8x.
 // Measured 2026-09-16 (`grep -rho '\bit(' tests | wc -l`, same for `test(`):
 // `it(` 3015 vs `test(` 372 across `tests/`; the three test files slice
-// 2026-09-16-codegraph-index-integrity added contain `it(` 58 / `test(` 0.
 // The gate was in fact passing on artifacts whose ONLY `test(` was prose —
 // including this repo's own generated template `buildTestCases`
 // (`src/services/evidence/evidence-generator.ts`), which literally reads
@@ -609,7 +590,6 @@ export async function checkPrerequisites(
   if (options.sessionId !== undefined && isUnsafePathInput(options.sessionId)) {
     throw new Error(`Invalid session id: ${options.sessionId} (must be a single path segment)`);
   }
-  // Slice 006 simplifies the resolution to a 2-tier fallback. The
   // per-change-id scope (`.peaks/_runtime/<sessionId>/<role>/`) is gone — new
   // artifacts go to the session dir directly. The 2 tiers are:
   //   1. `.peaks/_runtime/<sid>/<role>/...` (post-F3 canonical
@@ -635,7 +615,6 @@ export async function checkPrerequisites(
       options.requestId
     );
     if (absolute === null) {
-      // v2.13.2 AC-5: back-compat window for MUT_REPORT — missing
       // file downgrades to a warning, NOT a hard failure. v2.14.0
       // will remove this branch and re-elevate missing → throw.
       const backCompat = (prerequisite as { backCompat?: boolean }).backCompat === true;
@@ -657,7 +636,6 @@ export async function checkPrerequisites(
       }
     }
   }
-  // GATE C, second half (B2, rid `rid-b2-gate-evidence-wiring`): the capsule's
   // own `gateEvidence` DECLARATION must be true — every path it names must
   // exist. The table loop above owns "which artifacts this type must produce";
   // this owns "the handoff may not claim evidence it does not have". They are
@@ -736,7 +714,6 @@ function emitPrereqTransitionEvent(opts: {
 
 /**
  * Resolve a prerequisite to an on-disk path, with a 2-tier fallback
- * (slice 006 — the per-change-id tier was dropped because per-change-id
  * dirs are no longer created):
  *   1. `<canonicalSessionRoot>/<relative>` (post-F3 canonical session
  *      home, when `canonicalSessionRoot` is provided).
@@ -752,7 +729,6 @@ function emitPrereqTransitionEvent(opts: {
  * missing. This covers both artifacts that moved location
  * (`rd/security-review.md` → `audit/security.md`) and ones that later
  * gained a rid in the filename (`audit/security.md` →
- * `audit/security-<rid>.md`, slice `2026-09-14-audit-artifact-rid-scoping`).
  */
 async function resolvePrerequisiteAbsolutePathWithFallback(
   canonicalSessionRoot: string | null,

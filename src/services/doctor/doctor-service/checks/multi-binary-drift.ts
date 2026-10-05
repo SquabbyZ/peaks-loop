@@ -2,7 +2,6 @@
  * Check: PATH-scoped `peaks-loop` binary drift
  * (`build:multi-binary-drift`).
  *
- * Slice 2026-08-05-statusline-sid-only-marker-and-multi-binary-drift-guard
  * (G3/G4). When more than one `peaks-loop` binary is discoverable on
  * `process.env.PATH` AND the discovered versions disagree, the doctor
  * emits a `PEAKS_MULTI_BINARY_DRIFT` warning. The user-reported
@@ -237,7 +236,6 @@ function run({ options }: DoctorContext): readonly DoctorCheck[] {
     // sees the finding in the JSON report AND the check carries
     // `severity: 'warning'` so `buildReport` does NOT count it as a
     // failure when computing `summary.ok`. Slice
-    // 2026-08-05-statusline-sid-only-marker-and-multi-binary-drift-guard
     // repair cycle landed the severity-aware summary so the
     // previously-handwaved "future severity-aware summary can
     // downgrade the doctor exit code" actually fires.
@@ -265,7 +263,6 @@ function run({ options }: DoctorContext): readonly DoctorCheck[] {
   }
 }
 
-// Slice S3b (rid-s3b-doctor-check-typing): `satisfies` instead of a
 // `: DoctorCheckPlugin` annotation — see the identical note in
 // `codegraph-capability.ts`. The annotation widened this object literal
 // to `readonly DoctorCheck[] | Promise<readonly DoctorCheck[]>`, which

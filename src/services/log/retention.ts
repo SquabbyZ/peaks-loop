@@ -1,7 +1,6 @@
 /**
  * 7-day log rotation for peaks-loop.
  *
- * Slice 2026-06-16-cli-logging (G2). Cheapest possible rotation:
  * daily files are named by UTC date, so a "new day" automatically
  * means a new file. The retention sweep runs at the start of every
  * peaks-loop invocation and removes any `peaks-loop-*.log` whose

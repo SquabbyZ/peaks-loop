@@ -12,8 +12,6 @@
  *     current one, a reader took it as fact, and the fix was chased into
  *     `dist/` instead of the source.
  *   - `narrative` — the comment is about the work rather than the code: slice
- *     and rid identifiers, `AC-3`, "F2 of `rid-…`", "this used to claim", "the
- *     test named above was deleted". Legitimately valuable in a commit message
  *     or `.peaks/docs/backlog.md`; in a source file it is re-read by every
  *     later agent, at their token cost, and it rots silently the moment the
  *     history it summarises moves.
@@ -56,7 +54,6 @@ export type CommentFinding = {
  *
  * Order is significant and is the whole attribution: one line reports its FIRST
  * match, so a specific marker must precede the general one that also fits it.
- * `F2 of \`rid-…\`` is a finding reference, not a bare rid, and a list ordered
  * the other way round would blame the wrong rule for every such line.
  */
 export const NARRATIVE_MARKERS: ReadonlyArray<{ name: string; pattern: RegExp }> = [
@@ -87,7 +84,6 @@ export const NARRATIVE_MARKERS: ReadonlyArray<{ name: string; pattern: RegExp }>
  * deleting any of them does not reduce debt — it removes an enforcement mechanism, or
  * adds a finding to a gated row. Each shape names the reader that consumes it; a shape
  * with no reader to point at is a guess, and guesses are what the 4.1.1 prune learned from
- * (rid `2026-10-05-comment-scan-string-awareness`: applying it deleted the doc block on a
  * `HARD_FLOOR_CATEGORIES` member in `src/services/code/mode-gate.ts`, which is the only
  * thing backing this repo's one real layer-C promotion, and the gate-H backing check went
  * red — `feedback-promotion-artifact.test.ts` AC5).

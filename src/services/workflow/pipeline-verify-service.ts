@@ -1,5 +1,4 @@
 /**
- * peaks-workflow — pipeline verification orchestrator (slimmed per rid-006).
  *
  * `verifyPipeline` resolves RD / QA evidence files for a given rid and
  * returns a structured `PipelineVerification` envelope. Type
@@ -11,7 +10,6 @@
  * bottom preserves the original public surface so existing import
  * paths compile unchanged.
  *
- * File budget: ≤ 400 lines (rid-006 split).
  */
 
 import { isRequestType, type RequestType } from '../artifacts/artifact-prerequisites.js';
@@ -51,7 +49,6 @@ export async function verifyPipeline(options: {
   const rdGates = rdGatesForType(requestType);
   const qaGates = qaGatesForType(requestType);
 
-  // Slice 2026-06-13-peaks-workflow-skip: read the skip-state (if any)
   // and pre-mark matching gates as `status: 'skipped'`. We do this
   // BEFORE evaluating evidence files, so a skipped gate never
   // emits a "missing evidence" violation. The boolean `passed` is
@@ -176,7 +173,6 @@ export async function verifyPipeline(options: {
 
   // Check QA evidence files. (The v2.18.1 bug #5 `changeIdForResolver`
   // fallback — current session id when no RD/QA artifact is on disk yet —
-  // was dropped by rid 2026-09-14-verify-pipeline-contract-drift along with
   // the security/perf findings branch that was its only consumer.)
   const qaTracker = resolveQaEvidencePaths(
     qaGates,
@@ -202,12 +198,10 @@ export async function verifyPipeline(options: {
   }
 
   // RD invoked without QA — check is moved to AFTER markIfSkipped
-  // (slice 2026-06-13-peaks-workflow-skip) because the gate.status
   // values are only final after the post-process pass. We track the
   // decision with a placeholder here and resolve it below.
   const rdInvokedWithoutQaRaw = rdInvoked && !qaInvoked;
 
-  // Slice 2026-06-13-peaks-workflow-skip: post-process. For any gate
   // the user marked as skipped, override the evaluation result. The
   // boolean `passed` is set to true so the gate counts as satisfied;
   // the new `status: 'skipped'` field signals the bypass to
@@ -240,7 +234,6 @@ export async function verifyPipeline(options: {
 
   // Resolve the "RD invoked without QA" check now that markIfSkipped
   // has run. The check is suppressed when every QA gate is skipped
-  // (slice 2026-06-13-peaks-workflow-skip: the user explicitly chose
   // to skip the QA phase).
   if (rdInvokedWithoutQaRaw) {
     const allQaSkipped = qaGates.every((g) => g.status === 'skipped');
@@ -252,11 +245,9 @@ export async function verifyPipeline(options: {
     }
   }
 
-  // Slice 002 (v2.15.0) AC-3 — Gate H "feedback-promotion". Scans
   // `.peaks/memory/*.md` for `metadata.type === 'feedback'` entries
   // that lack a promotion marker (HTML comment or `.promotion.json`
   // sidecar) OR whose marker is not backed by the layer's artifact
-  // (rid 2026-09-14-gate-h-promotion). When any such feedback is
   // found, the gate fails and the pipeline does not complete until the
   // user promotes via `peaks feedback promote <memory-file> --layer
   // <A|B|C>` — which now produces the artifact, not just the marker.
@@ -275,7 +266,6 @@ export async function verifyPipeline(options: {
   ];
   try {
     const unpromoted = listUnpromotedFeedback({ projectRoot: options.projectRoot });
-    // rid 2026-09-14-gate-h-promotion (classify slice): memories that declare
     // themselves out of the gate are reported, never dropped. An exemption the
     // gate does not show would be indistinguishable from a fixed violation.
     const exempt = listPromotionExempt({ projectRoot: options.projectRoot });
@@ -287,7 +277,6 @@ export async function verifyPipeline(options: {
       feedbackGates[0]!.passed = true;
       feedbackGates[0]!.detail = `0 unpromoted feedback memories in .peaks/memory/${exemptNote}`;
     } else {
-      // rid 2026-09-14-gate-h-promotion: the gate no longer passes on a marker
       // alone. `listUnpromotedFeedback` now also reports markers whose layer
       // artifact is absent, so `unpromoted` mixes "never promoted" with
       // "promoted on paper only" — the reason on each entry says which.
@@ -321,15 +310,12 @@ export async function verifyPipeline(options: {
     RD_QA_HANDOFF_STATES.has(rdState) &&
     QA_COMPLETE_STATES.has(qaState);
 
-  // Slice 025 — derive the `acceptedForm` and `gateC` verdict. The form is
   // 'suffixed' when the contract's current path served the file and 'legacy'
   // when the deprecated fallback did; 'none' if neither gate passed.
   //
-  // rid 2026-09-14-verify-pipeline-contract-drift: the two gates moved from the
   // QA phase to the RD phase, because that is where the current contract puts
   // the evidence (`AUDIT_SECURITY` / `AUDIT_PERF` at `rd:qa-handoff`). The
   // `-<rid>.md` suffix that used to distinguish the forms is a real one again
-  // after slice `2026-09-14-audit-artifact-rid-scoping` rid-scoped the audit
   // paths; the resolver marks which form served the file with
   // `[LEGACY_EVIDENCE_PATH]`.
   const secGate = rdGates.find((g) => g.name === 'security-review');
@@ -347,7 +333,6 @@ export async function verifyPipeline(options: {
   const gateC: 'pass' | 'fail' = allQaGatesPassed ? 'pass' : 'fail';
   const gateH: 'pass' | 'fail' = allFeedbackGatesPassed ? 'pass' : 'fail';
 
-  // Slice 2026-06-28-code-mode-bypass-fix (defect #3): `true` when
   // every gate resolved on the canonical path; `false` when at least
   // one fell back to a legacy form. QA / TXT surface the value so the
   // user knows the legacy content must be moved into the canonical
@@ -379,7 +364,6 @@ export async function verifyPipeline(options: {
   };
 }
 
-// ─── verbatim re-export shim (rid-006) ────────────────────────────────────
 // External callers import `PipelineGate` / `PipelineVerification` from
 // this module. Re-export them under their original names so the call
 // sites compile unchanged. The types moved to `pipeline-verify-types.ts`.

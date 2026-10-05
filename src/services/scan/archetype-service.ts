@@ -136,7 +136,6 @@ function decideArchetype(detected: ArchetypeReport['detected']): {
 
   // Monorepo detection runs BEFORE the backend check: a monorepo with
   // a packages/server dir is a fullstack-monorepo, NOT legacy-fullstack.
-  // Slice 2026-07-15 ice-cola hot-fix: previously a monorepo with a
   // backend sub-package fell through to `legacy-fullstack` because
   // `hasBackend` includes `backendDirsPresent.length > 0`, which the
   // L199 guard above couldn't handle. We now treat `hasMonorepoConfig`

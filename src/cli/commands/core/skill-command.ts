@@ -163,13 +163,11 @@ function generatedConfigNotice(projectRoot: string | undefined): {
 }
 
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../../cli-helpers.js';
-// Slice S0 (4.0.0-beta.5 peaks-solo dispatcher release):
 // `peaks skill search` is the CLI primitive that feeds the
 // peaks-solo dispatcher (S1). Adding a single import + register call
 // here keeps the change surgical and leaves all existing skill
 // subcommands (list / doctor / sync / runbook / presence / heartbeat)
 // untouched. See
-// docs/superpowers/specs/2026-07-08-peaks-solo-dispatcher-design.md §3.2
 // and the S0 plan under docs/superpowers/plans/.
 import { registerSkillSearchCommand } from '../skill-search-commands.js';
 
@@ -190,7 +188,6 @@ export function registerSkillCommand(program: Command, io: ProgramIO): void {
       printResult(io, ok('skill.list', { skills }), true);
     } else {
       const sorted = [...skills].sort((a, b) => {
-        // Slice S0 (4.0.0-beta.5): peaks-solo is the dispatcher (front
         // door) — list it FIRST so users discover the dispatcher before
         // any specific leaf. Followed by peaks-sop (current default
         // runbook showcase) and peaks-code (canonical code-domain
@@ -365,7 +362,6 @@ export function registerSkillCommand(program: Command, io: ProgramIO): void {
     // makes — in every mode and every consumer project.
     const verdict = contextVerdict(projectOption ?? process.cwd());
     if (options.checkStale === true) {
-      // Slice 002 (v2.15.0) AC-1: pair the read with a staleness
       // check so callers (peaks-code Step 1, statusline) get both
       // pieces of info from a single CLI invocation. The presence
       // is returned UNCHANGED — `--check-stale` is a read-only flag,
@@ -517,7 +513,6 @@ export function registerSkillCommand(program: Command, io: ProgramIO): void {
     // and a still-running lease.
     const removed = clearSkillPresence(options.project);
     // Auto-update project context so future sessions have up-to-date history.
-    // Slice 2026-07-15-project-scan-bootstrap: generateProjectContext now also
     // bootstraps `.peaks/project-scan/` (idempotent). Await the async
     // signature; failure is still non-fatal so we don't block the clear.
     try {
@@ -631,7 +626,6 @@ export function registerSkillCommand(program: Command, io: ProgramIO): void {
     }
   });
 
-  // Slice 002 (v2.15.0) — AC-1: presence staleness detector.
   // peaks-code Step 1 (and `peaks code should-pause --step
   // step-1-mode-select`) calls this to decide whether the recorded
   // `mode` field can be trusted or whether the LLM must AskUserQuestion.
@@ -649,7 +643,6 @@ export function registerSkillCommand(program: Command, io: ProgramIO): void {
         'override the current outer session id (test seam; default: read from PEAKS_OUTER_SESSION_ID / CLAUDE_CODE_SESSION_ID)'
       )
   ).action((options: { project?: string; currentOuter?: string; json?: boolean }) => {
-    // v2.15.0 slice 002 repair: do NOT pass `currentOuter: undefined`
     // when the user omits the flag. The service-layer branch
     // `'currentOuter' in opts` returns true for an explicit
     // `undefined` (the key exists on the spread object literal),
@@ -665,7 +658,6 @@ export function registerSkillCommand(program: Command, io: ProgramIO): void {
     }
     const result = checkStalePresence(checkOpts);
     // Always emit `currentOuterSessionId` in the JSON envelope (even
-    // when undefined → ''), per slice 002 AC-1 contract: downstream
     // tooling (statusline, sub-agent dispatch) reads the field by
     // name, never by `data.currentOuterSessionId ?? ''`. JSON.stringify
     // drops `undefined` properties, so we coerce to '' before
@@ -746,7 +738,6 @@ export function registerSkillCommand(program: Command, io: ProgramIO): void {
     printResult(io, ok('skill.detect-marker-loss', result), options.json);
   });
 
-  // Slice S0 — register `peaks skill search`. Sibling subcommand to
   // list / runbook / presence; preserves the existing surface
   // (HC-10 — 老入口保留).
   registerSkillSearchCommand(program, io);

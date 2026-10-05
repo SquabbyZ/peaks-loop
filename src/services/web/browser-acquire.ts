@@ -1,5 +1,4 @@
 /**
- * Acquire the chromium browser (slice S1, file 10; S3 adds the ordered gate).
  *
  * The order is load-bearing and is the whole of AC5's first half (tech-doc §5.1):
  *

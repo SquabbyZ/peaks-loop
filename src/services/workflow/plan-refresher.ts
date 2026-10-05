@@ -1,5 +1,4 @@
 /**
- * `peaks workflow plan refresh` — slice 025 (Security + Perf Plan/Result split).
  *
  * Deterministically regenerates a security-test-plan or perf-baseline
  * plan body. Without `--apply`, computes the would-be body + hash but
@@ -259,7 +258,6 @@ export function refreshPlan(args: RefreshPlanArgs): ResultEnvelope<RefreshPlanDa
       bodyPreview: rawBody
     } satisfies RefreshPlanData);
   }
-  // F-2 (slice 025 security): if the parent dir chain has a symlink
   // that escapes the session dir, refuse to write. We resolve the
   // parent (the dir we are about to mkdir/write into) and confirm its
   // real path stays under the expected base.

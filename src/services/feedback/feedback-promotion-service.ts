@@ -1,5 +1,4 @@
 /**
- * v2.15.0 slice 002 — AC-3: feedback-promotion service.
  *
  * `.peaks/memory/<name>.md` memories with `metadata.type === 'feedback'`
  * are user-given rules. They are advisory (LLM-readable) until promoted
@@ -18,10 +17,8 @@
  *       claimed layer.
  *
  *   (b) The ARTIFACT that layer implies — see `promotionArtifactChecks`.
- *       rid 2026-09-14-gate-h-promotion: the marker alone used to count,
  *       which made the gate self-certifying, because the only thing a marker
  *       proves is that `peaks feedback promote` ran. Every layer-A marker in
- *       this repo pointed at `sops/<name>.md`, a file that did not exist and
  *       that no engine reads.
  *
  * The comment marker is the SOURCE OF TRUTH for human review; the sidecar is
@@ -84,12 +81,10 @@ export const PROMOTION_LAYER_DETAILS: readonly PromotionLayerDetail[] = [
 ] as const;
 
 /**
- * rid 2026-09-14-gate-h-promotion — what actually backs a promotion.
  *
  * Before this, a promotion was honored on the marker alone (HTML comment or
  * sidecar). Both are written by `peaks feedback promote` and neither proves
  * that anything was enforced: every layer-A promotion in this repo pointed at
- * `sops/<name>.md`, a file that did not exist and that no engine reads. The
  * gate was therefore self-certifying — it read only what the command it tells
  * you to run had written.
  *
@@ -110,7 +105,6 @@ export const PROMOTION_LAYER_DETAILS: readonly PromotionLayerDetail[] = [
  *     is the repo's existing convention: the one real layer-C promotion cites
  *     its memory by path, from the category's doc block.
  *
- * R2 (2026-09-14-gate-h-promotion): each of those is now a PARSE plus a shape
  * assertion, in `promotion-artifact-evidence.ts`. Every check used to be a
  * `text.includes(<rule>)` over the whole file, which certified a tree that was
  * a refusal — an invalid-JSON registry, a template saying "do NOT add a
@@ -214,7 +208,6 @@ export type UnpromotedFeedbackEntry = {
 const COMMENT_MARKER_RE = /<!--\s*peaks-feedback-promoted:\s*layer=([ABC])\s*-->/;
 
 /**
- * rid 2026-09-14-gate-h-promotion (classify slice) — the "not to be promoted"
  * declaration.
  *
  * The gate used to know only `has artifact` / `has no artifact`, so a memory that
@@ -377,7 +370,6 @@ export function listUnpromotedFeedback(opts: { projectRoot: string }): Unpromote
     // contradict the memory's own lifecycle. Verify-pipeline Gate H now
     // honours the closed state and reports `0 unpromoted` for closed records.
     if (isClosedMemory(join(memoryDir, entry.name))) continue;
-    // rid 2026-09-14-gate-h-promotion (classify slice): a memory may declare
     // itself out of the gate. A malformed declaration is a FAILURE, not a skip —
     // otherwise "make the fields unusable" would be the quietest way through.
     const declaration = readNotToPromote(join(memoryDir, entry.name));
@@ -409,7 +401,6 @@ export function listUnpromotedFeedback(opts: { projectRoot: string }): Unpromote
       });
       continue;
     }
-    // rid 2026-09-14-gate-h-promotion: a marker is a claim, not evidence. It
     // counts only when the layer's enforcement surface actually carries the
     // artifact. Before this, the marker alone was accepted, so the gate
     // certified whatever the promote command had written and nothing else.
@@ -617,7 +608,6 @@ export type FeedbackPromoteEnvelope = {
   layer: PromotionLayer;
   layerDetail: string;
   /**
-   * Files this call actually wrote. rid 2026-09-14-gate-h-promotion: this used
    * to be the stub's *targets* — paths the command never wrote yet printed as
    * `Generated files:` — which is the defect the Gate H rework exists to remove.
    */
@@ -688,7 +678,6 @@ export async function promoteFeedback(opts: {
   if (parsed === null) {
     throw new Error(`Not a feedback memory: ${opts.feedbackPath}`);
   }
-  // rid 2026-09-14-gate-h-promotion (classify slice): the tool must not create the
   // contradiction the gate rejects — promoting a memory that declares itself out of
   // the gate would print `effective: true` while Gate H reports a contradiction.
   const declaration = readNotToPromote(opts.feedbackPath);

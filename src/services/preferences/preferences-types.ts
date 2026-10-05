@@ -3,7 +3,6 @@
  * Per spec §8.4 — per-project state lives in `.peaks/preferences.json`,
  * NOT in `~/.peaks/config.json` (which is slim global).
  *
- * Spec reference: docs/superpowers/specs/2026-06-11-peaks-loop-l1-l2-l3-redesign.md §8.4
  */
 
 export const PREFERENCES_SCHEMA_VERSION = '2.0.0';
@@ -42,7 +41,6 @@ export interface ClassifyRuleOverrides {
 export interface SwarmSpeculativePreferences {
   /** Whether speculative dispatch is enabled. Default: true */
   readonly enabled: boolean;
-  /** Max concurrent speculative sub-agents. Default: 3 (slice 2026-06-24-efficiency-4p-bundle, G3/P1.1) */
   readonly maxConcurrent: number;
   /** Min hit rate below which speculative auto-disables. Default: 0.5 */
   readonly minHitRate: number;
@@ -57,7 +55,6 @@ export interface ProjectPreferences {
    */
   readonly schema_version: typeof PREFERENCES_SCHEMA_VERSION;
   /**
-   * Slice 2026-06-28-code-mode-bypass-fix: economyMode is a
    * **MODEL-SELECTION** knob only — it chooses between the cheap
    * configured provider (`getConfiguredExecutionModelId`) and the
    * strongest planner/reviewer model (`getStrongestModelId(...)`). It does
@@ -79,7 +76,6 @@ export interface ProjectPreferences {
    */
   readonly economyMode: boolean;
   /**
-   * Slice 2026-06-28: swarmMode controls whether the swarm subgraph
    * (peaks-rd/qa worker graph) is generated at all. It does NOT
    * control fan-out. Fan-out is governed by the slice DAG + the
    * `fanout.defaultMode` preference; swarmMode only decides the
@@ -115,7 +111,6 @@ export interface ProjectPreferences {
    */
   readonly agentShieldEnabled: boolean;
   /**
-   * Slice 2026-06-24-audit-5th-p2: fan-out is now a HARD constraint.
    * The previous opt-out (`defaultMode = 'serial'`) is removed by user
    * direction. Single-sub-agent dispatch is no longer permitted when
    * the slice DAG has ≥ 2 leaves at the same topological level; the
@@ -129,7 +124,6 @@ export interface ProjectPreferences {
    */
   readonly fanout: FanoutPreference;
   /**
-   * Slice 2026-07-22-orchestrator-memory-preflight: orchestrator-side memory
    * preflight knobs. Optional — `resolveMemoryPreflightConfig` (see
    * src/services/context/memory-preflight-config.ts) merges over a hard-coded
    * default block when this key is absent, so legacy preferences.json files
@@ -142,17 +136,11 @@ export interface ProjectPreferences {
     /** Back-compat hot item cap; `hotItemCap` overrides it when set. */
     readonly listCap?: number;
     readonly contentCacheBytes?: number;
-    /** Slice 2026-09-09-memory-retrieval: hard byte cap on the block. */
     readonly maxBytes?: number;
-    /** Slice 2026-09-09-memory-retrieval: max hot items (default 10). */
     readonly hotItemCap?: number;
-    /** Slice 2026-09-09-memory-retrieval: max warm items (default 4; 0 disables). */
     readonly warmItemCap?: number;
-    /** Slice 2026-09-09-memory-retrieval: min task-token hits for warm eligibility. */
     readonly warmMinTokenHits?: number;
-    /** Slice 2026-09-09-memory-retrieval: soft selection wall-clock budget (ms). */
     readonly selectionTimeBudgetMs?: number;
-    /** Slice 2026-09-09-memory-retrieval: inline memo bodies (default false). */
     readonly includeBodies?: boolean;
   };
 }
@@ -162,7 +150,6 @@ export type FanoutMode = 'fan-out';
 export const FANOUT_MODES: readonly FanoutMode[] = ['fan-out'];
 
 /**
- * Runtime type guard for `FanoutMode`. Slice 2026-06-24-audit-5th-p2
  * narrowed the closed set from `['fan-out','serial']` to `['fan-out']`
  * — stale preferences.json files with `"serial"` must now fail-fast at
  * load (see `preferences-service.ts`) instead of being silently coerced.
@@ -172,7 +159,6 @@ export function isFanoutMode(value: unknown): value is FanoutMode {
 }
 
 export interface FanoutPreference {
-  /** Hard-coded mode. Slice 2026-06-24-audit-5th-p2 removed the serial opt-out. */
   readonly defaultMode: FanoutMode;
 }
 
@@ -198,7 +184,6 @@ export const DEFAULT_PREFERENCES: ProjectPreferences = {
   fanout: {
     defaultMode: 'fan-out'
   },
-  // Slice 2026-07-22-orchestrator-memory-preflight: defaults aligned with
   // memory-preflight-config.ts::DEFAULTS. Kept in sync manually because
   // loadPreferences() returns DEFAULT_PREFERENCES verbatim when the on-disk
   // file is absent, and partial overlays rely on memoryPreflight being
@@ -208,7 +193,6 @@ export const DEFAULT_PREFERENCES: ProjectPreferences = {
     maxTokens: 1200,
     listCap: 12,
     contentCacheBytes: 6000,
-    // Slice 2026-09-09-memory-retrieval tiered budget (see
     // memory-preflight-config.ts::DEFAULTS).
     maxBytes: 4800,
     hotItemCap: 10,

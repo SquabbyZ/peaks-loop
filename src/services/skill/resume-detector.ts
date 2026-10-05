@@ -25,7 +25,6 @@
  *
  * Legacy path fallback: prefers the canonical
  * `.peaks/_runtime/<sid>/` layout introduced in slice
- * `2026-06-05-peaks-runtime-layer`; falls back to the pre-migration
  * `.peaks/_runtime/<sid>/` for one minor release so older trees do not show as
  * false "fresh". The `usedLegacyPath` field reports which path was
  * read.
@@ -277,8 +276,6 @@ function classifyTerminalGates(
   // RD qa-handoff → deepest gate is C. If the review artifacts are
   // missing the state is inconsistent; fall back to rd-review-fanout.
   if (ctx.primaryRd !== null && ctx.primaryRd.state === 'qa-handoff') {
-    // Slice `2026-09-14-audit-artifact-rid-scoping`: the fan-out evidence
-    // filenames carry the rid. Probe the canonical rid-scoped name first and
     // the pre-rid names behind it — the same order the transition gate
     // resolves in, so an inconsistent-looking slice here means the fan-out
     // never ran, not that it wrote to a name this reader does not know.

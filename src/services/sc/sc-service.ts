@@ -182,7 +182,6 @@ function getCurrentArtifactDir(artifactWorkspacePath: string): {
   changeDir: string;
 } {
   const peaksPath = getPeaksPath(artifactWorkspacePath);
-  // Slice 2026-06-29-change-id-root-removal: the `.peaks/_runtime/current-change`
   // binding file is gone. Resolve the active change-id from the workspace
   // session binding instead. When no session is bound, fall back to
   // `unknown-session` (matches the previous behaviour for an unbound workspace).
@@ -201,7 +200,6 @@ function getRetentionChangeDir(
   artifactWorkspacePath: string,
   sliceId: string
 ): { peaksPath: string; sessionId: string; changeDir: string } {
-  // Slice 2026-06-29-change-id-root-removal: retention slice dirs
   // remain under the legacy `.peaks/<sliceId>/` shape (they're shipped
   // / frozen artifacts, not session-scoped workspace state). Only the
   // ACTIVE session-dir resolution uses `_runtime/` — retention slices
@@ -270,7 +268,6 @@ function readActiveSkillSessionId(projectRoot: string): string | null {
  * Read the workspace session binding and return its `sessionId`,
  * or null when the file is missing / malformed.
  *
- * As of slice 2026-06-05-peaks-runtime-layer the canonical home is
  * `<projectRoot>/.peaks/_runtime/session.json`. The legacy
  * `<projectRoot>/.peaks/.session.json` is consulted as a
  * one-minor-release back-compat fallback: if the new path is
@@ -305,7 +302,6 @@ function readSessionJsonBinding(projectRoot: string): string | null {
  * session does not own the slice.
  */
 function sessionOwnsSlice(projectRoot: string, sessionId: string, sliceId: string): boolean {
-  // As of slice 2026-06-05-change-id-as-unit-of-work, the same
   // session id can live at multiple umbrella locations:
   //   - `.peaks/_runtime/<sessionId>/` (legacy or top-level active)
   //   - `.peaks/retrospective/<sessionId>/` (shipped slice)
@@ -341,7 +337,6 @@ function findSessionOwningSlice(projectRoot: string, sliceId: string): string | 
     return null;
   }
   topLevel.sort();
-  // As of slice 2026-06-05-change-id-as-unit-of-work, shipped slices
   // are archived under `.peaks/retrospective/<dir>/` and dogfood
   // evidence lives under `.peaks/_dogfood/<dir>/`. Both umbrellas host
   // scopes at one level deeper than the top-level `.peaks/_runtime/<dir>/`
@@ -479,7 +474,6 @@ export function getChangeTraceabilityStatus(): ChangeTraceabilityStatus {
     const artifactPath = resolve(changeDir, ...artifact.path);
     return {
       name: artifact.name,
-      // Slice 2026-06-29-change-id-root-removal: the reported path
       // matches the canonical single-axis layout
       // `.peaks/_runtime/<sid>/...`.
       path: resolve(peaksPath, '_runtime', sessionId ?? '<session-id>', ...artifact.path),

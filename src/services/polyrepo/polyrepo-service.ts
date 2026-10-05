@@ -1,5 +1,4 @@
 /**
- * Polyrepo service — slice S2-b of RD-2.
  *
  * Thin orchestrator wrapping the scanner + dispatcher. CLI commands
  * call into this service so they don't need to know about the

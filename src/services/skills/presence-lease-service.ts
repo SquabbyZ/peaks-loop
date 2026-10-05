@@ -279,7 +279,6 @@ export function setPresenceLease(input: SetPresenceLeaseInput): SetPresenceLease
 }
 
 /**
- * Slice 2026-09-09-mode-consolidation (Slice B): stamp `mode` onto every
  * in-flight lease of the bound session, in place.
  *
  * Used by the 24h auto-engage path (T3/T4, `peaks code run --24h`,

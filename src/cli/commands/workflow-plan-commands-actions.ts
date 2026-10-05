@@ -1,5 +1,4 @@
 /**
- * Action handlers for the `peaks workflow plan` subcommands (slice 025).
  *
  * Extracted from `workflow-plan-commands.ts` (strict-remediation c1). The
  * command registration re-exports these as its programmatic test entry points.
@@ -16,7 +15,6 @@ import { detectTrigger } from '../../services/workflow/plan-trigger-detector.js'
 import { resolveProjectRoot, resolveSessionId } from './workflow-plan-commands-session.js';
 
 const VALID_TYPES: readonly PlanType[] = ['security', 'perf'];
-// F-1 (slice 025 security): reject rids that contain path separators,
 // null bytes, or traversal sequences.
 const REQUEST_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
 

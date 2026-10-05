@@ -15,7 +15,6 @@
  *   - `peaks code should-pause --step <step> --mode <mode>` (D5)
  *   - `peaks code post-compact-detect --project <path>` (D7)
  *
- * rid-024: 7 sub-commands extracted into 3 sibling files:
  *   - code-mode-gate-commands.ts (plan + should-pause)
  *   - code-job-shape-commands.ts (detect-job + read-job-shape)
  *   - code-runtime-commands.ts (post-compact-detect + auto-compact + context-now + gate-step-08 + emit-handoff)
@@ -153,8 +152,6 @@ export async function runCodeFast(opts: {
  * CLI command is a thin surface that builds the plan and emits a JSON
  * envelope for downstream tooling.
  *
- * rid-024: this function is now a thin orchestrator that delegates to 3
- * sibling register functions + the rid-020b run register.
  */
 export function registerCodeCommands(program: Command, io: ProgramIO): void {
   const code = program

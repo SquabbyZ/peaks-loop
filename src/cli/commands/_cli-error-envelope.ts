@@ -1,4 +1,3 @@
-// Slice 015 — single source of truth for translating a thrown error from
 // the service layer (createRdSwarmPlan, createTechPlan, etc.) into a CLI
 // envelope code + user-facing nextActions.
 //
@@ -22,12 +21,10 @@ export type EnvelopeMapping =
   | { code: 'INVALID_PROVIDERS'; nextActions: readonly string[] }
   | { code: 'INTERNAL_ERROR'; nextActions: readonly string[] };
 
-// Slice 015 risk A: goal-validation uses a substring match on the error
 // message thrown by `validatePlanningInput`. If validatePlanningInput's
 // message wording changes in a future slice, this branch silently
 // degrades into INTERNAL_ERROR. Mitigated by the helper's unit test
 // pinning the literal substring.
-// Slice 015 — match the goal-validation throw message. The current
 // `validatePlanningInput` literal is `"Goal must be non-empty"` (capital
 // G, "non-empty" with hyphen). The regex tolerates common wording
 // variations (`must be non-empty`, `must not be empty`, case-insensitive)

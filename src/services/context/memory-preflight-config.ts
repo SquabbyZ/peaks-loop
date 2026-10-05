@@ -3,7 +3,6 @@ import type { ProjectPreferences } from '../preferences/preferences-types.js';
 export interface MemoryPreflightConfig {
   readonly enabled: boolean;
   /**
-   * Back-compat (slice 2026-07-22): the original single budget knob.
    * Semantics are unchanged — it is the *token* cap, converted to bytes
    * as `maxTokens * 4` when `maxBytes` is not set. Do NOT drop this key:
    * existing `.peaks/preferences.json` files set it.
@@ -13,7 +12,6 @@ export interface MemoryPreflightConfig {
   readonly listCap: number;
   readonly contentCacheBytes: number;
 
-  // ── Slice 2026-09-09-memory-retrieval: tiered budget ──────────────────
   /** Hard byte cap on the composed block. Defaults to `maxTokens * 4`. */
   readonly maxBytes: number;
   /** Max hot (standing rule / feedback) items injected. Default 10. */

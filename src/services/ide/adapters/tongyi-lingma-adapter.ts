@@ -1,5 +1,4 @@
 /**
- * Tongyi Lingma IDE adapter (slice 2026-07-25-tongyi-lingma-adapter-ship) —
  * peaks-loop 第九个内置 IDE 适配器(填表)。
  *
  * 不可消除的 per-IDE 字段(本 slice 填表;字段值暂为占位):
@@ -10,7 +9,6 @@
  *   - toolMatcher = 'Bash'                         (UNVERIFIED)
  *
  * 这些字段在真实 Tongyi Lingma 安装 dogfood 完成前不得标记 VERIFIED。
- * 见 [[2026-07-24-multi-ide-adapter-policy]] §3 step 5。
  */
 
 import { homedir } from 'node:os';

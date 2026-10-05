@@ -1,5 +1,4 @@
 /**
- * rid 2026-10-03-job-ledger-truthfulness (D1) — `peaks job add-slice`.
  *
  * THE DEFECT. A job's slice list was decided once, at
  * `peaks job init --slice-list <one id>`, and no subcommand could add to it. The
@@ -9,7 +8,6 @@
  *
  *   peaks job add-slice …                          → error: unknown command 'add-slice'
  *   peaks job checkpoint --slice-id <new slice>    → ok:false  code:SLICE_NOT_FOUND
- *   peaks job progress --job-id 2026-10-02-c-wave9 → { done: 1, total: 1 }  (stuck)
  *
  * so a wave that plans its next slice only after the previous one lands — which is
  * how every split wave here runs — had no truthful way to record what it did. It

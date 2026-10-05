@@ -1,12 +1,9 @@
 /**
- * Dispatch record writer — slice 2026-06-07-sub-agent-dispatch-decouple (G2 + G5 + G6).
  *
  * Owns the on-disk format of `.peaks/_sub_agents/<sid>/dispatch-<rid>-<ts>.json`:
  *   - G2: atomic write helper (mkdirSync recursive + tmp + rename) and
  *     R-2 guard (path must live under `.peaks/_sub_agents/<sid>/`).
  *   - G5: lifecycle schema (`createdAt` / `completedAt` / `outcome` /
- *     `artifactPaths` / `disposed` / `disposedAt`) per AC-26 + RL-6..RL-9.
- *   - G6: heartbeat schema upgrade per AC-33/AC-34 — `heartbeats[]` +
  *     `lastBeatAt` + `status` aggregate. Read-side backward compat
  *     supplies defaults for old records missing the G6 fields.
  *
@@ -78,7 +75,6 @@ export function writeInitialDispatchRecord(input: WriteInitialDispatchInput): {
 
   const record = buildInitialDispatchRecord(input, now);
   writeAtomic(safePath, record);
-  // Slice 2026-06-23-audit-4th #A4: register the path in the
   // session's active-dispatches index so a future restart can
   // discover in-flight records without scanning the directory.
   // The index is best-effort (no lock): the on-disk record is the
@@ -120,7 +116,6 @@ function buildInitialDispatchRecord(
     requestId,
     sessionId,
     prompt,
-    // Slice 2026-06-23-audit-4th #C2: propagate toolCallVersion.
     // The dispatcher's buildToolCall already stamps it (claude-code 2.0.0
     // etc.); we re-default to '2.0.0' if absent so the on-disk record
     // is self-describing without reading the dispatcher source.
@@ -129,11 +124,9 @@ function buildInitialDispatchRecord(
     heartbeats: [],
     lastBeatAt: null,
     status: 'queued',
-    // Slice 2026-07-29-dispatch-stall-governance / S5 (AC-5.1) — new
     // records start with `stage: null`; the sub-agent promotes it
     // through `setStage` / the heartbeat CLI's `--stage` flag.
     stage: null,
-    // Slice 2026-07-29-worktree-l2-extended Part 3.A: when the
     // dispatch was issued with --isolation worktree, persist the
     // lease id so the finalize-time release hook in markCompleted
     // can fire. Validation is the same 16-hex regex the gate uses
@@ -144,7 +137,6 @@ function buildInitialDispatchRecord(
       typeof input.leaseId === 'string' && /^[a-f0-9]{16}$/.test(input.leaseId)
         ? input.leaseId
         : null,
-    // Slice 2026-07-29-worktree-l2-extended Part 7: v3.1 field.
     // ISO timestamp when the isolation mode was set up. Default
     // null when the dispatch did not request isolation. We do
     // NOT validate the format — the writer is the source of
@@ -154,7 +146,6 @@ function buildInitialDispatchRecord(
       typeof input.isolationStartedAt === 'string' && input.isolationStartedAt.length > 0
         ? input.isolationStartedAt
         : null,
-    // Slice 2026-08-01-subagent-merge-and-e2e (Task 7): v3.2 fields.
     // New records start with empty serviceKill and zero attempts;
     // the merge-back-runner (Task 9) populates them in place.
     serviceKill: [],
@@ -223,7 +214,6 @@ export interface ActiveDispatchEntry {
   readonly role: string;
   readonly batchId: string;
   readonly createdAt: string;
-  // Slice 2026-07-29-dispatch-stall-governance / S1 — accept the two new
   // terminal members from the startup-timeout service.
   readonly status:
     | 'queued'
@@ -310,7 +300,6 @@ function unregisterActiveDispatch(input: {
   }
   if (input.recordPath in index) {
     index[input.recordPath] = { ...index[input.recordPath]!, status: input.status };
-    // Slice 2026-07-29-dispatch-stall-governance / S1 — `never-started`
     // and `unreadable` are terminal (the startup-timeout service writes
     // them as terminal markers). Unregister on the full terminal set.
     if (
@@ -330,7 +319,6 @@ function unregisterActiveDispatch(input: {
 }
 
 /**
- * Slice 2026-06-23-audit-4th #A4: read the active-dispatches index
  * for a session. Returns the current map<recordPath, entry>. Used
  * by the LLM-side runner to discover in-flight records on restart.
  * Returns an empty map when the index file is missing or corrupt
@@ -358,11 +346,9 @@ export function readActiveDispatchIndex(
   }
 }
 
-/** Slice 2026-06-23-audit-4th #A3: default TTL for dispatch records. */
 export const DISPATCH_RECORD_TTL_DAYS = 30;
 
 /**
- * Slice 2026-06-23-audit-4th #A3: is this dispatch record an orphan
  * (older than DISPATCH_RECORD_TTL_DAYS or already GC'd)? Mirrors
  * `isOrphanChannel` in shared-channel.ts so a future
  * `peaks sub-agent cleanup` umbrella can run all three sweeps
@@ -420,7 +406,6 @@ export function appendHeartbeat(input: AppendHeartbeatInput): {
     lastBeatAt: entry.at,
     status: mapStatusToAggregate(status, existing.status)
   };
-  // Slice 2026-06-23-audit-3rd #3: wrap the read-then-write in a file
   // lock. Without the lock, a heartbeat arriving 100ms before
   // markCompleted can be silently discarded — the parent's view of the
   // sub-agent shows "completed" but the last progress update is lost.
@@ -470,7 +455,6 @@ function mapStatusToAggregate(
 }
 
 /**
- * Slice 2026-07-29-worktree-l2-extended Part 3.A: fire-and-forget
  * auto-release for the lease owned by a dispatch. Called from
  * `markCompleted` (terminal status) and from the heartbeat CLI
  * (`--status done`).
@@ -576,7 +560,6 @@ async function spawnLeaseReleaseChild(args: {
     }
     child.unref();
   } catch (e) {
-    // Slice 2026-07-29-worktree-l2-extended Part 4.A: surface
     // auto-release failures to the observability stream so the
     // dashboard can alert. The spawn-attempt itself threw (not
     // a child-process exit-code failure — those are not
@@ -609,7 +592,6 @@ async function spawnLeaseReleaseChild(args: {
 
 /** Mark a record as completed (success / failed / cancelled / no-execution). */
 export function markCompleted(input: LifecycleInput): { record: DispatchRecord } {
-  // Slice 2026-06-23-audit-3rd #3: lock + re-read so a concurrent
   // heartbeat arriving just before markCompleted is preserved in the
   // final record.
   const result = withFileLockSync(input.recordPath, () => {
@@ -642,7 +624,6 @@ export function markCompleted(input: LifecycleInput): { record: DispatchRecord }
   ) {
     scheduleGraphEnvelopeTransition(input, result.record);
   }
-  // Slice 2026-06-23-audit-4th #A4: update the active-dispatches
   // index. Best-effort (the on-disk record is the source of truth);
   // we only attempt the update when the trusted projectRoot is
   // available so a malicious recordPath cannot redirect the index
@@ -660,7 +641,6 @@ export function markCompleted(input: LifecycleInput): { record: DispatchRecord }
       /* best-effort */
     }
   }
-  // Slice 2026-07-29-worktree-l2-extended Part 3.A: finalize-time
   // lease release. The terminal status (done/failed/cancelled/
   // no-execution) means the sub-agent is no longer using the
   // worktree; auto-release closes the loop. The release is detached
@@ -766,7 +746,6 @@ export function markDisposed(
 }
 
 /**
- * Slice 2026-07-29-dispatch-stall-governance / S5 (AC-5.1) — promote
  * the record's `stage` field. Rejects unknown values with
  * `INVALID_STAGE`; the LLM-side runner surfaces the error so the
  * sub-agent can pick from the bounded enum in ./stage-enum.ts.
@@ -845,7 +824,6 @@ export function readRecords(paths: readonly string[]): DispatchRecord[] {
 
 function writeAtomic(path: string, record: DispatchRecord): void {
   const dir = dirname(path);
-  // Slice 2026-06-23-audit-3rd #11: skip mkdirSync when the dir already
   // exists (every heartbeat + every dispatch read-modify-write).
   if (!existsSync(dir)) {
     mkdirSync(dir, { recursive: true });

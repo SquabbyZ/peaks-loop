@@ -1,5 +1,4 @@
 /**
- * AC-3 — IDE-aware compact dispatcher.
  *
  * Reads the active IDE's `IdeAdapter.compact` profile and dispatches
  * compact via the adapter-declared pathway. No hard-coded IDE names
@@ -23,13 +22,11 @@
  *                        returns `ok: false` with `message: 'noop'`.
  *                        Used by legacy / unverified adapters.
  *
- * rid-031 (2026-07-28): `shell-exec` pathway is DEPRECATED. Real
  * callers must use `ide-native` (main session) or
  * `llm-self-compress`. No host CLI spawn occurs; the `case
  * 'shell-exec':` branch logs a deprecation warning and returns the
  * same envelope shape.
  *
- * Slice 2026-09-12-auto-compact-vendor-neutrality (defect #2 of the QA
  * pass): the paragraph above used to justify keeping that branch with
  * "the 2 currently-passing tests" it named by path and line (`:58` of
  * one file, `:102` of another, asserting `pathway: 'shell-exec'`).
@@ -37,7 +34,6 @@
  * deleted by `f17aa377 test(rebuild): delete 559 legacy unit tests and
  * reset vitest config`, and `grep -rn "shell-exec" tests/` now returns
  * nothing — no test in this repo asserts `pathway: 'shell-exec'`. The
- * branch is retained for the rid-031 ENVELOPE CONTRACT itself
  * (`pathway` is part of `CompactDispatchResult` and is echoed to
  * `peaks code auto-compact` callers), not for a test. Deleting it is a
  * contract change, deliberately out of this slice.
@@ -72,13 +68,11 @@ export async function dispatchIdeCompact(
   // See auto-compact-reader.ts for the IdeKind→IdeId cast rationale.
   const ideId: IdeId = (detected === 'unknown' ? 'claude-code' : detected) as IdeId;
   const adapter = getAdapter(ideId);
-  // Slice 2026-06-28-code-mode-bypass-fix (defect #4): default to
   // `'main'` so the orchestrator's auto-compact actually compresses
   // the main-session context. The orchestrator passes `'sub-agent'`
   // explicitly when a sub-agent shell dispatches the call.
   const target: CompactTarget = input.target ?? 'main';
 
-  // Slice 2026-09-12-auto-compact-vendor-neutrality — the up-front
   // `target === 'main' && ideId !== 'claude-code'` refusal is GONE.
   //
   // It decided by adapter NAME what the adapter's own profile already
@@ -119,11 +113,8 @@ export async function dispatchIdeCompact(
   const pathway: CompactPathway = profile.compactPathway;
   switch (pathway) {
     case 'shell-exec':
-      // rid-031 (2026-07-28): `shell-exec` pathway is DEPRECATED.
       // No host CLI spawn occurs. The case marker is preserved for the
-      // rid-031 envelope contract (callers read `pathway`), NOT for a
       // test — see this file's header, defect #2 of the 2026-09-12 QA
-      // pass: the tests the previous comment named were deleted by
       // f17aa377 and no test asserts `pathway: 'shell-exec'` now.
       // Real callers must use `ide-native` (main session) or
       // `llm-self-compress`.
@@ -145,7 +136,6 @@ export async function dispatchIdeCompact(
         message: `shell-exec pathway is deprecated; no host CLI spawn for command '${profile.compactCommand}'. Use ide-native for main-session runner.`
       };
     case 'ide-native':
-      // Slice 2026-07-02-auto-compact-zero-pause: write the auto-compact
       // PreToolUse hook into the IDE's MACHINE-LOCAL settings layer,
       // resolved from the adapter (`settings.dirName` +
       // `settings.localSettingsFileName`) — never from a path literal
@@ -163,9 +153,7 @@ export async function dispatchIdeCompact(
       // child claude process and the sub-agent's own runner doesn't
       // get a PreToolUse hook installed in the wrong place.
       if (target === 'sub-agent') {
-        // rid-031 (2026-07-28): legacy shell-spawn fallback is
         // DEPRECATED. No host CLI spawn occurs. The envelope is
-        // returned with `pathway: 'shell-exec'` to preserve the rid-031
         // contract for callers that read `pathway` (sub-agent shells
         // historically relied on this path). The test the previous
         // comment named was deleted by f17aa377 — see this file's
@@ -217,7 +205,6 @@ export async function dispatchIdeCompact(
 }
 
 /**
- * Slice 2026-07-02-auto-compact-zero-pause: implement the
  * `ide-native` pathway. Writes the auto-compact PreToolUse hook
  * into the IDE's MACHINE-LOCAL settings file (idempotent; the
  * install service is a no-op if the hook is already present). On
@@ -225,7 +212,6 @@ export async function dispatchIdeCompact(
  * `peaks code auto-compact` which in-band spawns the adapter's
  * declared compact command against the CURRENT runner session.
  *
- * Slice 2026-09-12-auto-compact-vendor-neutrality: the settings path
  * AND the echoed `ide` are read off the adapter, so this function no
  * longer names a vendor. An adapter that declares
  * `compactPathway: 'ide-native'` and its own `settings` location gets

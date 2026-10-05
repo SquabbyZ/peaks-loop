@@ -1,6 +1,5 @@
 /**
  * S1 / rid=api-diff-report — shared types for `peaks scan api-diff <doc>`
- * (design `docs/superpowers/specs/2026-09-12-frontend-acl-contract-design.md`
  * §2.1/§2.3).
  *
  * GOVERNING PRINCIPLE (QA repair): exactness requires BOTH sides to be fully

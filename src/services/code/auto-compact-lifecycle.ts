@@ -1,6 +1,4 @@
 /**
- * Auto-compact lifecycle telemetry (v2.13.0 AC-2 + AC-3 + AC-4,
- * slice 2026-08-01-compact-lifecycle Task 5).
  *
  * Extracted from `auto-compact-orchestrator.ts` to keep that file under
  * the 800 LOC cap (mechanical verbatim move). Publishes the stages a
@@ -26,7 +24,6 @@ import { tryGetSessionDir } from '../session/getSessionDir.js';
  * `CompactLifecyclePublisher` and `settleOpenLifecycleRun` for why.
  *
  * `armed` is the honest resting stage for a dispatch that only
- * REGISTERED a trigger (slice 2026-09-12-compact-band-policy, defect B)
  * — see `resolveDispatchedStage`.
  */
 type ObservableDispatchStage = Extract<
@@ -47,7 +44,6 @@ type FailableStage = Exclude<CompactLifecycleStage, 'failed' | 'completed'>;
 const COLLAPSED_ERROR_MAX_CHARS = 160;
 
 /**
- * Slice 2026-09-12-compact-band-policy (defect B): which stage a
  * *successful* dispatch can honestly claim.
  *
  * A dispatch is only evidence that a compact is IN FLIGHT when the
@@ -100,7 +96,6 @@ type OpenCompactLifecycleRead =
   | { readonly kind: 'unresolvable'; readonly reason: string };
 
 /**
- * Slice 2026-08-01-compact-lifecycle (Task 5): read an open compact
  * record ignoring staleness.
  *
  * The lifecycle store classifies an active record as `stalled` after a
@@ -147,7 +142,6 @@ function readOpenCompactLifecycle(input: {
 }
 
 /**
- * rid `2026-09-14-compact-dispatch-backoff`: the compact run this session has
  * already DISPATCHED and whose outcome is still unknown — the backoff token.
  *
  * WHY A BACKOFF IS NEEDED AT ALL. Once the ratio crosses the auto-fire
@@ -218,7 +212,6 @@ export function readOpenDispatchRun(input: {
 }
 
 /**
- * Slice 2026-08-01-compact-lifecycle (Task 5): the local transition
  * builder. Carries `runId`, `triggerRatio` and `redLine` forward from
  * the run that opened, and remembers the prior stage so a failure can
  * name the stage it died in.
@@ -266,7 +259,6 @@ export class CompactLifecyclePublisher {
    *
    * `at` overrides that attribution for the case where the failure
    * happened INSIDE a phase that is only named after its outcome
-   * (slice 2026-09-12-compact-band-policy): the dispatch call is the
    * compacting phase even though the resting stage is now chosen from
    * the pathway the dispatch returned. `failedAt` names the phase the
    * attempt died in — it is not a published heartbeat.
@@ -333,7 +325,6 @@ export function summarizeLifecycleError(error: unknown): string {
 }
 
 /**
- * Slice 2026-08-01-compact-lifecycle (Task 5, Step 4): close out an
  * open compact run using a REAL measurement.
  *
  * This is the integration with the actual post-compact detection path.
@@ -354,7 +345,6 @@ export function summarizeLifecycleError(error: unknown): string {
  *     compact has not landed, so the run stays open.
  *
  * Returns the settled record, or `null` when nothing settled. Slice
- * 2026-09-13-auto-compact-trigger-ownership: the caller needs the settled
  * `afterRatio` to append the "observed compaction point" row that makes the
  * intent-vs-observed gap readable after a real session. The return value is
  * telemetry only — callers that ignore it are unaffected.
@@ -468,7 +458,6 @@ function emitLifecycleStage(
 }
 
 /**
- * rid `2026-09-13-compact-event-settle`: close out an open compact run because
  * the HARNESS said one completed — `PostCompact` — rather than because a later
  * probe noticed the ratio had fallen.
  *
@@ -596,7 +585,6 @@ export function settleOpenLifecycleRunOnCompactEvent(input: {
 }
 
 /**
- * rid `2026-09-13-compact-event-settle` (repair R1): supply the measurement a
  * harness-settled run was left owing.
  *
  * The function above deliberately refuses to launder a post-compact reading

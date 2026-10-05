@@ -20,7 +20,6 @@ export type HeartbeatStatus =
   // union so a sub-agent can report any aggregate state through the
   // heartbeat CLI (and the help text enumerates the same set the
   // writer accepts). See tests/unit/dispatch/heartbeat-parity.test.ts
-  // for the pinned CLI↔writer parity assertion (AC-2.2).
   | 'cancelled'
   | 'no-execution'
   | 'never-started'
@@ -35,7 +34,6 @@ export type DispatchRecordStatus =
   | 'cancelled'
   | 'no-execution'
   | 'stale'
-  // Slice 2026-07-29-dispatch-stall-governance / S1 — distinguish
   // *never-started* (record written, no first heartbeat within the
   // startup budget) from `stale` (heartbeat seen, then quiet) and from
   // `unreadable` (record body corrupt / unparseable). The startup-
@@ -45,10 +43,8 @@ export type DispatchRecordStatus =
 
 export type DispatchOutcome = 'success' | 'failed' | 'timeout' | 'cancelled' | 'no-execution';
 
-/** G2+G5+G6 dispatch record schema (AC-26 + AC-34). */
 export interface DispatchRecord {
   /**
-   * Slice 2026-07-29-worktree-l2-extended Part 4.C: schema v3 makes
    * `leaseId` a structurally required field (was `leaseId?: string | null`
    * in v2). The v3 upgrade is a "fill in" migration: every dispatch
    * writer knows its lease id at construction time (Part 2.C's
@@ -59,7 +55,6 @@ export interface DispatchRecord {
    * moves the optional off the type and adds the field to the
    * 4 literal sites in one pass.
    *
-   * Slice 2026-07-29-worktree-l2-extended Part 7: schema v3.1 adds
    * `isolationStartedAt: string | null` for the L4 isolation
    * bridge (Part 8 container POC). It's the ISO timestamp of
    * when the isolation mode was set up (e.g. when the worktree
@@ -87,13 +82,10 @@ export interface DispatchRecord {
   readonly sessionId: string;
   readonly prompt: string;
   readonly toolCall: SubAgentToolCall;
-  /** G5 batch id (AC-27) — uuid-like opaque token grouping one batch. */
   readonly batchId: string;
-  /** G6 fields (AC-34) — backward compat: defaults on read. */
   readonly heartbeats: readonly Heartbeat[];
   readonly lastBeatAt: string | null;
   readonly status: DispatchRecordStatus;
-  // Slice 2026-07-29-dispatch-stall-governance / S5 (AC-5.1) — bounded,
   // machine-readable stage label. Free-form `note` was never a stage
   // — the value is one of a small enum in ./stage-enum.ts (PB-2: a
   // legacy record missing this field upgrades to `null`, not an
@@ -101,7 +93,6 @@ export interface DispatchRecord {
   // ever emitted" from "stage: ''").
   readonly stage: string | null;
   /**
-   * Slice 2026-07-29-worktree-l2-extended Part 3.A + Part 4.C: the
    * worktree lease id stamped on this dispatch (via `peaks sub-agent
    * dispatch --isolation worktree`). The release hook (see
    * markCompleted + `peaks sub-agent heartbeat --status done`)
@@ -118,7 +109,6 @@ export interface DispatchRecord {
    */
   readonly leaseId: string | null;
   /**
-   * Slice 2026-07-29-worktree-l2-extended Part 7: ISO timestamp of
    * when the isolation mode was set up. For `--isolation worktree`
    * this is the moment `peaks worktree spawn` returned; for
    * `--isolation container` (Part 8) it's when the container
@@ -129,7 +119,6 @@ export interface DispatchRecord {
    */
   readonly isolationStartedAt: string | null;
   /**
-   * Slice 2026-08-01-subagent-merge-and-e2e (Task 7): v3.2 schema
    * bump. One entry per pid the parent best-effort-killed during
    * the service-shutdown phase of the merge-back pipeline (see
    * src/services/dispatch/service-shutdown.ts). Empty array when
@@ -149,7 +138,6 @@ export interface DispatchRecord {
     readonly reason?: string;
   }>;
   /**
-   * Slice 2026-08-01-subagent-merge-and-e2e (Task 7): v3.2 schema
    * bump. Counts how many merge attempts the parent session has
    * made against this dispatch's branch. The conflict-replay
    * orchestrator bumps this on each retry (bounded to ONE re-dispatch
@@ -243,7 +231,6 @@ export type LifecycleInput = {
   artifactPaths?: readonly string[];
   now?: () => Date;
   /**
-   * Slice 2026-06-23-audit-4th #A4: trusted project root. Required
    * so the active-dispatches index can be updated without deriving
    * the root from the recordPath (the same anti-pattern that
    * audit-3rd #1 fixed for heartbeat). The CLI / LLM-side runner

@@ -1,10 +1,8 @@
 /**
  * `peaks shadcn init` — dynamic wrapper around the upstream `shadcn` CLI.
  *
- * Slice B2 of 2026-09-09-ecc-dynamic-and-cleanup: `skills/bee/peaks-rd/SKILL.md`
  * and `references/frontend-project-generation.md` already tell RD to scaffold
  * a frontend with `peaks shadcn init --preset [CODE] --template vite`, but the
- * command did not exist and `shadcn` was not a dependency. Rather than add a
  * hard dependency, this mirrors `src/services/lint/detect-ocr-18.ts` +
  * `npx-resolver.ts`: the tool is obtained on demand via
  * `npx --package shadcn@<pin> -- shadcn ...`, so the skill reference is true

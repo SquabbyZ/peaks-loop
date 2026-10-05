@@ -1,7 +1,5 @@
 // src/services/codegraph/codegraph-exclude-repair.ts
 //
-// Slice S2 of `2026-09-12-codegraph-exclude-integrity` — the WRITE path.
-// WIDENED by slice-002 of `2026-09-16-codegraph-index-integrity` from one
 // axis to BOTH config axes; the file name and the entry point's name are
 // retained because three seams import them by name and the exclude axis is
 // still the entry condition. See the ordering note below — the widening is
@@ -154,7 +152,6 @@ export type CodegraphExcludeRepairReport = {
    * patterns for 31 tracked `.mjs`/`.cjs` files reported "removed 0 exclude
    * rule(s), recovering 0 tracked source file(s)" — a true statement about
    * one axis read as a verdict on both (defect A1 of
-   * `2026-09-17-codegraph-msg-and-refresh`).
    *
    * It is a measured DELTA, not a re-report of an absolute count:
    * `includeAdmittedAfter` minus the same admission measurement taken over

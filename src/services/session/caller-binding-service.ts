@@ -1,5 +1,4 @@
 /**
- * Caller-Binding Service (slice 020 — caller-keyed session binding).
  *
  * Each caller has its own on-disk binding file at
  * `.peaks/_runtime/callers/<callerId>.json`. This service is the
@@ -58,7 +57,6 @@ export function getActiveSkillFileForCaller(
  * Resolve a stable, deterministic callerId for a legacy single-file
  * binding (M2). The hash input priority is:
  *
- *   1. `outerSessionId` (slice 018 stamped this on the per-peak
  *      session.json for sessions created after the slice shipped).
  *   2. `claudeSessionId` (legacy field name on pre-018 presence
  *      files; honour the read side so v1.2.x data does not lose its
@@ -111,11 +109,9 @@ export function getCallerBinding(projectRoot: string, callerId: string): CallerB
  *
  * `getCallerBinding` answers a SHAPE question: "is there a well-formed
  * binding file for this caller?". Session resolution needs a second
- * answer: "is that binding still USABLE?". Slice 2026-09-12
  * (rid=caller-binding-staleness) found it is not when the bound session's
  * directory is gone — the binding was still trusted, so a command
  * resolved the dead session id and `mkdir`'d a fresh tree under
- * `.peaks/_runtime/<gone-sid>/...` for a session that no longer exists.
  *
  * Returns a tagged result rather than `null` so the fall-through is
  * observable to the caller instead of silent:
@@ -147,7 +143,6 @@ export function resolveCallerBinding(
  * must be a valid session id, projectRoot is canonicalized). Idempotent:
  * re-writing the same callerId overwrites the file.
  *
- * Slice 2026-08-06-session-cacde8-A.5b: writes via `atomicWriteJson`
  * (temp-file-then-rename) so a power-loss mid-write cannot leave the
  * caller-binding file in a half-truncated state. `atomicWriteJson`
  * owns its own `mkdirSync(dir, { recursive: true })`, so the inline
@@ -175,7 +170,6 @@ export function setCallerBinding(
 /**
  * Repoint an EXISTING per-caller binding at a new peak session id.
  *
- * Slice 2026-09-10 (rid=rebind-must-update-caller-binding): an explicit
  * `peaks workspace init --session-id <X> --allow-session-rebind` rewrites
  * the project-global `.peaks/_runtime/session.json`. Without this call the
  * per-caller file keeps shadowing it for `getSessionIdCanonical`, so the

@@ -68,7 +68,6 @@ export type SessionMeta = {
   outerSessionId?: string | undefined;
 };
 
-// As of slice 2026-06-05-peaks-runtime-layer the project-level session
 // binding lives under `.peaks/_runtime/session.json`. The legacy
 // `.peaks/.session.json` path is preserved as a read-only fallback for one
 // minor release so older CLI versions (or trees that have not been migrated
@@ -127,7 +126,6 @@ function resolveStoredAgainstCaller(stored: string, caller: string): string {
 /**
  * Generate a new session ID.
  * Format: YYYY-MM-DD-session-<6位hex>
- * Example: 2026-05-26-session-a3f8b1
  */
 function generateSessionId(): string {
   const now = new Date();
@@ -154,7 +152,6 @@ function getSessionFilePath(projectRoot: string): string {
  *
  * The `projectRoot` comparison is canonicalized (separator, symlink,
  * and — on Windows only — case) via `projectRootsMatch`. Before
- * slice `2026-08-04-rid-001-path-canonicalize` this was a strict
  * `===`, which returned null whenever the stored form differed
  * cosmetically from the caller-passed form. On Windows Git Bash that
  * is the common case: `peaks workspace init` stores
@@ -264,7 +261,6 @@ function writeSessionFile(projectRoot: string, info: SessionInfo): void {
  * `.peaks/.session.json` if present so a stale read from another
  * tool cannot re-bind the project after rotation. Also drops the
  * ROTATING caller's per-caller binding when it points at the rotated-out
- * session (slice 2026-09-12, rid=caller-binding-staleness) — see
  * `clearRotatedCallerBinding`.
  *
  * Returns the id of the session that was unbound, or `null` if
@@ -272,7 +268,6 @@ function writeSessionFile(projectRoot: string, info: SessionInfo): void {
  * with that — at minimum surface it in the CLI response so the
  * user can find the directory again if they need to.
  *
- * Slice 008 (F22 fix): the read uses the canonicalize-on-read
  * variant so a binding written with `projectRoot: "."` (relative
  * form, anchored from inside the project dir) is still found when
  * the caller passes the absolute realpath. Pre-F22 the
@@ -297,7 +292,6 @@ export function rotateSessionBinding(projectRoot: string): string | null {
       // best-effort: a stale legacy binding is not blocking
     }
   }
-  // Slice 2026-09-12 (rid=caller-binding-staleness): the per-caller
   // binding is the FIRST thing `getSessionId` reads, so unlinking only
   // the project-global files left the rotating caller still resolving
   // the session it just rotated out of — `peaks job init` re-created
@@ -363,7 +357,6 @@ export function setCurrentSessionBinding(projectRoot: string, sessionId: string)
 }
 
 function getMetaFilePath(projectRoot: string, sessionId: string): string {
-  // As of slice 2026-06-06-session-layout-canonicalize, the per-session
   // `session.json` (the file written by `setSessionMeta`) lives at the
   // canonical runtime home `.peaks/_runtime/<sid>/session.json`, NOT
   // at the top-level `.peaks/_runtime/<sid>/session.json` (which would imply
@@ -388,7 +381,6 @@ function readSessionMeta(projectRoot: string, sessionId: string): SessionMeta | 
 
 function writeSessionMeta(projectRoot: string, sessionId: string, meta: SessionMeta): void {
   const metaPath = getMetaFilePath(projectRoot, sessionId);
-  // As of slice 003, the meta file lives at `.peaks/_runtime/<sid>/session.json`.
   // The parent dir of that file is the canonical runtime session dir.
   const metaDir = dirname(metaPath);
   if (!existsSync(metaDir)) {
@@ -446,7 +438,6 @@ export function setSessionTitle(
  * List all session directories under .peaks with their metadata.
  * Returns sessions sorted by sessionId descending (most recent first).
  *
- * As of slice 2026-06-06-session-layout-canonicalize the session
  * dirs live at the canonical runtime home `.peaks/_runtime/<sid>/`.
  * The legacy top-level layout is read for back-compat (one minor
  * release) but is not authoritative.
@@ -487,7 +478,6 @@ export function listSessionMetas(projectRoot: string): SessionMeta[] {
 
 /**
  * Back-compat read for the legacy top-level meta file (the one that
- * pre-slice 003 trees still have at `.peaks/_runtime/<sid>/session.json`).
  * Kept as a separate helper so the canonical reader is the default.
  */
 function readSessionMetaCompat(peaksRoot: string, sessionId: string): SessionMeta | null {
@@ -523,11 +513,9 @@ export {
  * @returns Session ID or null
  */
 export function getSessionId(projectRoot: string): string | null {
-  // Slice 2026-08-06-session-cacde8-A.5a: caller-binding becomes
   // primary source. Read order is (1) the per-caller binding if
   // `resolveCallerProjection` succeeds — and only when that binding is
   // still usable (`resolveCallerBoundSession` drops one whose session
-  // directory is gone, slice 2026-09-12 rid=caller-binding-staleness),
   // (2) `readSessionFile` (the legacy session.json), (3) null (no
   // binding). The legacy session.json is preserved as a fallback so a
   // project without a caller-id resolution still resolves its binding
@@ -568,7 +556,6 @@ export function getSessionId(projectRoot: string): string | null {
  * so this variant is opt-in.
  */
 export function getSessionIdCanonical(projectRoot: string): string | null {
-  // Slice 2026-08-06-session-cacde8-A.5a: same caller-binding primary
   // lookup as `getSessionId`; fall back to the canonical-fallback
   // `readSessionFileCanonical` if caller-binding is absent / unresolved.
   const { sessionId } = resolveCallerBoundSession(projectRoot);
@@ -581,7 +568,6 @@ export function getSessionIdCanonical(projectRoot: string): string | null {
  * Outcome of the caller-binding half of session resolution.
  *
  * `staleSessionId` is the id of a per-caller binding that was SKIPPED
- * because its session directory no longer exists — `null` for the
  * ordinary "no binding" case. It exists so the fall-through is
  * observable: a caller can tell "this caller has no binding" apart from
  * "this caller's binding pointed at a session tree that is gone", and
@@ -593,7 +579,6 @@ export type CallerBoundSession = {
 };
 
 /**
- * Resolve the caller-binding primary source (slice 2026-09-12,
  * rid=caller-binding-staleness).
  *
  * The caller-first precedence is unchanged: this caller's binding still
@@ -627,12 +612,10 @@ export function resolveCallerBoundSession(projectRoot: string): CallerBoundSessi
  * Get the absolute path to the current session directory.
  * Creates the session if it doesn't exist.
  *
- * As of slice 2026-06-06-session-layout-canonicalize the canonical
  * home is `.peaks/_runtime/<sid>/`. The legacy top-level layout
  * `.peaks/_runtime/<sid>/` is the back-compat read fallback only.
  *
  * @param projectRoot - Root directory of the project
- * @returns Absolute path to session directory (e.g., "/path/to/project/.peaks/_runtime/2026-05-26-session-a3f8b1")
  */
 export async function getCurrentSessionDir(projectRoot: string): Promise<string> {
   const sessionId = await ensureSession(projectRoot);
@@ -643,7 +626,6 @@ export async function getCurrentSessionDir(projectRoot: string): Promise<string>
  * List all session directories in the .peaks folder.
  * Returns session IDs (directory names) sorted by date.
  *
- * As of slice 2026-06-06-session-layout-canonicalize the canonical
  * home is `.peaks/_runtime/<sid>/`. The legacy top-level layout
  * `.peaks/_runtime/<sid>/` is read for back-compat (one minor release) so
  * pre-migration trees keep working.
@@ -691,7 +673,6 @@ export function listSessions(projectRoot: string): string[] {
  */
 export async function getProjectScanPath(projectRoot: string): Promise<string> {
   const sessionId = await ensureSession(projectRoot);
-  // As of slice 2026-06-05-change-id-as-unit-of-work the session dir
   // is at the canonical runtime location (gitignored). The scan is a
   // session-local artifact; it lives alongside the rest of the
   // ephemeral state under `_runtime/`. The parent `rd/` subdir is
@@ -712,7 +693,6 @@ export function hasProjectScan(projectRoot: string): boolean {
   const info = readSessionFile(projectRoot);
   if (!info) return false;
 
-  // Canonical runtime location of the session dir (slice 2026-06-05).
   const scanPath = join(projectRoot, '.peaks', '_runtime', info.sessionId, 'rd', 'project-scan.md');
   return existsSync(scanPath);
 }

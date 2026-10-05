@@ -65,14 +65,12 @@ async function readHookPayload(): Promise<string> {
 }
 
 /**
- * Slice 2026-07-29-windows-console-flash Part 46: actively exit the process when the gate-enforce
  * handler returns. The default behavior is to wait for stdin EOF before exiting, but the hook's
  * stdin pipe may not close promptly (the parent can keep the handle open even after it has finished
  * reading the JSON decision), which causes 4 Node.js processes to accumulate in the user's task
  * manager. An explicit process.exit here forces the gate process to release all handles and exit
  * immediately.
  *
- * Slice 2026-07-30-nightshift: gate the `process.exit` on being invoked as a real CLI hook (no
  * PEAKS_HOOK_STDIN test seam, no PEAKS_TEST_SEAM env var). The test harness calls `runCommand`
  * which invokes the same action handler in process — calling `process.exit` inside the test would
  * kill the vitest runner before assertions complete. The `process.exitCode` set above is sufficient

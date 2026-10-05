@@ -188,7 +188,6 @@ export function registerPreferencesCommands(program: Command): void {
         const hadKey = Object.prototype.hasOwnProperty.call(raw, opts.key);
         if (hadKey) {
           delete raw[opts.key];
-          // Slice 2026-06-23-audit-4th #A2: write atomically (tmp+rename)
           // so a crash mid-write cannot leave a half-written file. Same
           // pattern as preferences-service.savePreferences (post-fix) and
           // dispatch-record-writer.writeAtomic. renameSync is imported
@@ -209,7 +208,6 @@ export function registerPreferencesCommands(program: Command): void {
       }
     });
 
-  // Slice 2026-06-23-audit-4th #C1: peaks preferences migrate — apply
   // the v1 → v2 (and future) schema migration. Default is dry-run
   // (preview the change list + migrated JSON without writing); pass
   // --apply to write. Without this CLI, an old preferences.json

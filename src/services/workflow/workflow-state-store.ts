@@ -1,5 +1,4 @@
 /**
- * Slice 2026-06-13-peaks-workflow-skip — workflow state store.
  *
  * Per-slice ephemeral runtime state, keyed by rid. Lives under
  * `.peaks/_runtime/<sessionId>/workflow-state/<rid>.json` (gitignored

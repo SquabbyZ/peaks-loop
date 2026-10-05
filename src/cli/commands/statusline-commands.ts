@@ -142,7 +142,6 @@ export async function runDefaultStatuslineRender(
   const seeded = options.project
     ? { ...(stdin ?? {}), workspace: { current_dir: options.project } }
     : stdin;
-  // Slice 2026-08-07-statusline-flake: accept `--now <epoch-ms>` to pin
   // `Date.now()` for deterministic lifecycle-window checks under full-
   // suite concurrency. The integration test passes a test-time `now`
   // pinned at the moment `seedLifecycle` was called so the completed-
@@ -150,7 +149,6 @@ export async function runDefaultStatuslineRender(
   // subprocess sat descheduled. Production callers omit the flag.
   const now = options.now !== undefined ? Number(options.now) : Date.now();
   const model = buildStatusLineModel(seeded, now);
-  // Slice 2026-09-13-statusline-window-witness (AC1): capture the harness's OWN
   // context numbers from the payload it just piped in. The project root and the
   // canonical session id are taken from the model that was JUST built, so the
   // witness lands under the same session this render already resolved — a second
@@ -372,7 +370,6 @@ export function registerStatusLineCommands(program: Command, io: ProgramIO): voi
     }
   });
 
-  // peaks statusline compact (slice 2026-07-30-compact-visibility)
   //
   // --session-id contract: this flag is registered on the compact
   // subcommand but NOT on the default `peaks statusline` render path.
@@ -433,7 +430,6 @@ export function registerStatusLineCommands(program: Command, io: ProgramIO): voi
                 ? merged.project
                 : (findProjectRoot(process.cwd()) ?? process.cwd());
             const sid = merged.sessionId ?? getSessionIdCanonical(projectRoot) ?? null;
-            // Slice 2026-08-07-statusline-flake: honor `--now` (epoch ms)
             // when present so deterministic lifecycle-window checks stay
             // in-range under full-suite concurrency. See `--now` doc on
             // the parent `statusline` command.

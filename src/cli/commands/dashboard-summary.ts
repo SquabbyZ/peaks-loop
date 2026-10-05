@@ -1,5 +1,4 @@
 /**
- * rid-030 F-direction: `peaks dashboard summary --since <duration>`.
  *
  * Read-only 5-metric surface derived from raw observability events
  * (cycle / token / dispatch / compact / monotonic-trigger). Distinct

@@ -160,10 +160,8 @@ export async function getAcceptanceCoverage(
   if (prdArtifact === null) {
     return { kind: 'prd-not-found' };
   }
-  // As of slice 2026-06-05-change-id-as-unit-of-work, test-cases live
   // under the same change-id dir as the PRD itself (the on-disk scope),
   // not under the body's `- session:` line. Slice
-  // 2026-06-29-change-id-root-removal stripped the legacy
   // `.peaks/_runtime/change/<id>/` indirection — test-cases now live
   // under the canonical session dir `.peaks/_runtime/<sid>/qa/test-cases/`.
   // `prdArtifact.sessionId` is the bare session id (the dir the PRD was

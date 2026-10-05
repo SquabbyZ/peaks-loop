@@ -18,9 +18,11 @@
 // swallowing frames on it. Add one and the set differs and the suite is red.
 //
 // HONEST LIMITS, stated rather than implied:
-//   - The census is keyed on (file, rule, line). Lines drift; when they do,
-//     the failure prints the current set ready to paste. That cost is the
-//     price of the gate being a gate — a census that auto-heals is prose.
+//   - The census is keyed on (file, rule) with a COUNT per pair, plus each entry's frame
+//     name checked against the source. It deliberately does NOT pin line numbers: a
+//     swallow that MOVED is not a swallow that was added, and line pins turned this gate
+//     red for comment deletions far above the swallow. The failure still prints the
+//     measured set ready to paste.
 //   - It covers the SURFACE (the files that resolve a session id), not `src/`
 //     entire. The repo-wide count is NOT asserted: two sibling slices are
 //     editing other files while this one runs, so a repo-wide number would be
@@ -41,8 +43,8 @@
 //   becomes a false positive because a sibling in the same file promised
 //   something else; (b-2) keys on the frame NAME, so anonymous arrows are
 //   invisible — and R3's site, an arrow inside `settleOpenLifecycleRun`'s
-//   `emit`, is exactly one of those. Both modes are why this census pins
-//   (file, rule, LINE) and names the frame in prose, and why it is a gate
+//   `emit`, is exactly one of those. Both modes are why this census names each
+//   frame in prose and keys the gate on (file, rule, count), and why it is a gate
 //   rather than a discovery mechanism: it holds the sites that are KNOWN.
 //
 // Dimensions:
@@ -100,8 +102,7 @@ const SURFACE = [
 type Entry = {
   readonly file: string;
   readonly rule: 'empty-catch' | 'catch-return-null';
-  readonly line: number;
-  /** The frame the violation sits in. Documentation, and the reason it stays. */
+  /** The frame the violation sits in. The identity the reviewer decided on. */
   readonly frame: string;
   readonly reason: string;
 };
@@ -109,33 +110,32 @@ type Entry = {
 /**
  * Every swallowing frame the surface is allowed to have. Each entry is a
  * decision, and the decision is what a reviewer should check — not the count.
+ *
+ * No line numbers: this list describes swallows, and a swallow's address changes when
+ * anything above it is edited, which is not a decision anyone made.
  */
 const CENSUS: readonly Entry[] = [
   {
     file: 'src/services/code/auto-compact-lifecycle.ts',
     rule: 'empty-catch',
-    line: 302,
     frame: 'CompactLifecyclePublisher.write',
     reason: 'an observer is a passive listener; a throwing observer must not change the envelope'
   },
   {
     file: 'src/services/code/auto-compact-lifecycle.ts',
     rule: 'empty-catch',
-    line: 464,
     frame: 'emitLifecycleStage (ex-settleOpenLifecycleRun emit)',
     reason: 'same observer contract as above, on the probe settle path'
   },
   {
     file: 'src/services/code/auto-compact-lifecycle.ts',
     rule: 'empty-catch',
-    line: 592,
     frame: 'settleOpenLifecycleRunOnCompactEvent',
     reason: 'same observer contract, on the harness-event settle path'
   },
   {
     file: 'src/services/code/auto-compact-lifecycle.ts',
     rule: 'catch-return-null',
-    line: 665,
     frame: 'fillEventSettledMeasurement',
     reason:
       'the ONLY remaining catch-return-null on the surface. null means "no number was filled", ' +
@@ -146,7 +146,6 @@ const CENSUS: readonly Entry[] = [
   {
     file: 'src/services/compact-statusline/compact-lifecycle-store.ts',
     rule: 'empty-catch',
-    line: 217,
     frame: 'writeCompactLifecycle',
     reason:
       'tmp-file unlink is best effort, and `throw error` follows the catch — nothing is swallowed'
@@ -154,14 +153,12 @@ const CENSUS: readonly Entry[] = [
   {
     file: 'src/services/code/auto-compact-orchestrator.ts',
     rule: 'empty-catch',
-    line: 955,
     frame: 'dispatch history append',
     reason: 'telemetry must not fail the compact return'
   },
   {
     file: 'src/services/code/auto-compact-orchestrator.ts',
     rule: 'empty-catch',
-    line: 1058,
     frame: 'appendObservedCompactEvent',
     reason: 'same best-effort discipline on the post-compact measurement row'
   }
@@ -182,27 +179,57 @@ async function measuredCensus(): Promise<Array<{ file: string; rule: string; lin
   return out.sort(byKey);
 }
 
-const expectedCensus = () =>
-  CENSUS.map((c) => ({ file: c.file, rule: c.rule, line: c.line })).sort((a, b) =>
-    (a.file + String(a.line).padStart(6, '0')).localeCompare(
-      b.file + String(b.line).padStart(6, '0')
-    )
-  );
+/**
+ * The census, grouped by the identity a reviewer actually decided on: WHICH file, WHICH
+ * rule, HOW MANY. Never the line number.
+ *
+ * Rid `2026-10-05-line-pinned-guards`. This list used to be compared with `toEqual` on
+ * `{file, rule, line}` triples, so it redden whenever a comment ABOVE a swallow was deleted
+ * — which is the exact event the comment prune causes, and a swallow that moved is not a
+ * swallow added. The line numbers were never the decision; `frame` and `reason` are, and
+ * they are still here, now checked against the source instead of sitting next to an
+ * address. Deleting a swallow, adding one, or renaming a frame all still fail: the first
+ * two change a count, the third breaks the identity check below.
+ */
+function tally(rows: ReadonlyArray<{ file: string; rule: string }>): string[] {
+  const counts = new Map<string, number>();
+  for (const row of rows) {
+    const key = `${row.rule} @ ${row.file}`;
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+  return [...counts.entries()].map(([key, n]) => `${key} ×${String(n)}`).sort();
+}
+
+/** The name each entry claims to describe, looked up where it claims to live. */
+function frameIsReal(entry: Entry): boolean {
+  const source = readFileSync(join(REPO_ROOT, entry.file), 'utf8');
+  // A frame is a function, method or call-site label; the first word is the identifier.
+  const identifier = /([A-Za-z_$][\w$]*)/.exec(entry.frame.split('(')[0] ?? '')?.[1] ?? '';
+  return identifier.length > 3 && source.includes(identifier);
+}
 
 describe('Scenario: behavior — the swallow census on the session-path surface', () => {
   it('when scanned, should match the named census exactly — a swallow added or removed fails here', async () => {
     const measured = await measuredCensus();
-    const expected = expectedCensus();
     // The message prints the measured set ready to paste, so reconciling is
     // mechanical rather than archaeological.
-    expect(measured, `measured set (paste-ready):\n${JSON.stringify(measured)}`).toEqual(expected);
+    expect(tally(measured), `measured set (paste-ready):\n${JSON.stringify(measured)}`).toEqual(
+      tally(CENSUS)
+    );
+    // And each named frame must still exist in the file that claims it, so the
+    // census cannot stay green while the sites it describes are renamed away.
+    for (const entry of CENSUS) {
+      expect(frameIsReal(entry), `${entry.frame} not found in ${entry.file}`).toBe(true);
+    }
   });
 
-  it('when scanned, should keep exactly ONE catch-return-null, at the site the census names', async () => {
+  it('when scanned, should keep exactly ONE catch-return-null, in the file the census names', async () => {
     const measured = await measuredCensus();
-    expect(measured.filter((v) => v.rule === 'catch-return-null')).toEqual([
-      { file: 'src/services/code/auto-compact-lifecycle.ts', rule: 'catch-return-null', line: 665 }
-    ]);
+    const nulls = measured.filter((v) => v.rule === 'catch-return-null').map((v) => v.file);
+    expect(
+      nulls,
+      `measured catch-return-null files (paste-ready): ${JSON.stringify(nulls)}`
+    ).toEqual(['src/services/code/auto-compact-lifecycle.ts']);
   });
 
   it('when scanned, should find NO swallow at all in the frames that resolve a session id', async () => {

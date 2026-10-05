@@ -1,7 +1,5 @@
 /**
- * Slice rid-024 — `peaks code plan` + `peaks code should-pause` (mode-gate).
  *
- * Extracted from code-commands.ts (rid-024 split).
  * Owns: `plan` (build+print CodePlan), `should-pause` (D5 mode-gate).
  *
  * Slice c1-eslint-family-sweep / leaf c4w1-cli-b: the two sub-command
@@ -32,7 +30,6 @@ export function registerCodeModeGateCommands(code: Command, io: ProgramIO): void
   registerCodeModeShouldPause(code, io, readActiveSidForModeGate);
 }
 
-// Local helper (was `readActiveSid` in code-commands.ts before rid-024 split).
 // The mode-gate stale-presence check needs the active sid for the
 // observability event; `getSkillPresence` is imported at the top of the file
 // alongside `checkStalePresence` to keep imports deduplicated.

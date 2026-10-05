@@ -51,11 +51,9 @@ export class ContractStoreError extends Error {
   }
 }
 
-/** Slice 2026-06-23-audit-4th #A3: default TTL for slice contracts. */
 export const CONTRACT_TTL_DAYS = 30;
 
 /**
- * Slice 2026-06-23-audit-4th #A3: is this contract an orphan
  * (older than CONTRACT_TTL_DAYS or already GC'd)? Mirrors
  * `isOrphanChannel` and `isOrphanDispatchRecord` so a future
  * `peaks sub-agent cleanup` umbrella can run all three sweeps

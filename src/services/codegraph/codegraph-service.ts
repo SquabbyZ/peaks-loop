@@ -459,7 +459,6 @@ function inspectCandidateCodegraphDir(codegraphDir: string): CodegraphInitGuardR
   const markerPath = join(codegraphDir, CODEGRAPH_MARKER_NAME);
   if (existsSync(markerPath)) {
     // Marker present but no codegraph.db → the dangling state left by the
-    // pre-fix rid-CG-001 auto-stake (marker stamped without running
     // upstream init). Report 'fresh' so consumers re-run upstream init
     // (idempotent, creates the db) instead of treating the schema as
     // fully initialized.
@@ -507,7 +506,6 @@ export function constantCodegraphInitGuard(outcome: CodegraphInitGuardResult): C
 }
 
 /* ──────────────────────────────────────────────────────────────────────
- * Slice rid-CG-002 — affected-context envelope writer
  * ────────────────────────────────────────────────────────────────────── */
 
 /**
@@ -526,7 +524,6 @@ export type CodegraphAffectedRow = {
 export type WriteCodegraphAffectedContextInput = {
   /** The peaks-loop project root (where `.peaks/_runtime/` lives). */
   readonly projectRoot: string;
-  /** Request id, e.g. `rid-CG-002`. Used as the envelope's anchor. */
   readonly rid: string;
   /** Project-relative file paths passed to `peaks codegraph affected`. */
   readonly files: readonly string[];

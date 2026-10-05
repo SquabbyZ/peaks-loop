@@ -129,7 +129,6 @@ export function stablePath(path: string): string {
  * disk stays the real path (see `writeSessionFile`).
  *
  * Lifted from `src/services/session/session-manager.ts` in slice
- * `2026-08-04-rid-002-bridge-canonicalize` so both `session-manager.ts`
  * and `session-binding-bridge.ts` share a single canonicalization
  * authority.
  */

@@ -1,7 +1,6 @@
 /**
  * R-2 path-safety guard for sub-agent state files.
  *
- * Slice 2026-06-07-sub-agent-dispatch-decouple (G4) — reuses the same
  * R-2 symlink/junction guard as `assertSafeSettingsFile` for
  * `.peaks/_sub_agents/<sid>/dispatch-<rid>-<ts>.json` paths.
  *

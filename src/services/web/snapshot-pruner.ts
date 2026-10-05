@@ -1,5 +1,4 @@
 /**
- * ARIA snapshot pruner (slice S1, AC2 — the mechanism).
  *
  * Pure and browser-free by design (tech-doc §4.2): it operates on the object
  * tree `locator.ariaSnapshotJSON()` returns, so it is fully unit-testable with

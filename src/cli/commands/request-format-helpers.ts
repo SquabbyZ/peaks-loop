@@ -1,6 +1,5 @@
 /**
  * Format / parse helpers extracted from `request-commands.ts`
- * (slice 2026-09-06-split-batch-b) so the command file stays under the
  * 800-line cap. Behaviour-preserving verbatim move.
  */
 
@@ -47,7 +46,6 @@ export function applyPerArtifactFormat(
   // The service returns `{ id, sessionId, role, body, ... }` for a
   // single-artifact show. The per-artifact `body` field is the only
   // thing that changes; we attach a `format` field to surface the
-  // choice to the caller. Slice 023 (R3) AC6 / AC7.
   const obj = envelope as Record<string, unknown>;
   if (typeof obj.body === 'string') {
     return {

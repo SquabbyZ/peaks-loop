@@ -1,5 +1,4 @@
 /**
- * Slice 2026-06-16-playwright-restart-loop — G1, G2, G4, G5, G6.
  *
  * `peaks qa run` — runs a peaks-qa slice for the active project.
  *
@@ -411,7 +410,6 @@ export function registerQaCommands(program: Command, io: ProgramIO): void {
     }
   });
 
-  // rid-012 (2026-07-27) — screenshot archive.
   // Enforces peaks-qa SKILL.md "Hard contracts for browser validation"
   // Contract 1: every Playwright `browser_take_screenshot` MUST land under
   // `.peaks/_runtime/<sessionId>/qa/screenshots/`, not at the project root.

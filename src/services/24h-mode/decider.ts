@@ -1,7 +1,6 @@
 /**
  * 24h mode B3 trigger evaluation + attempts counter.
  *
- * Rid-020a (state-only slice). `fireB3` is the single mutating
  * primitive: it increments the per-key counter and escalates with a
  * `B3Escalation` when the count reaches `B3_THRESHOLD` (3). The
  * counter is **per-key** — AC-T3 mandates B1 and B2 retries do not
@@ -184,8 +183,6 @@ export function isHandoffState(s: State): boolean {
 }
 
 /**
- * Slice 2026-07-28 (rid-027), re-keyed by slice
- * 2026-09-09-mode-consolidation: resolve the auto-compact mode from
  * the PRESENCE MODE, not the 24h state machine. Returns `'partial'`
  * when the mode is `24h`, otherwise `'standard'`. This is the CLI-side
  * default; the explicit `--mode` flag in `peaks code auto-compact`

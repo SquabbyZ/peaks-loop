@@ -1,5 +1,4 @@
 /**
- * Slice 2026-08-06-codegate-vendor-neutral — `peaks code-gate` CLI command.
  *
  * Vendor-neutral PreToolUse hook entry. Reads the standard hook JSON
  * payload from stdin (`{tool, input}` shape) and either exits 0

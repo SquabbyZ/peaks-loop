@@ -5,7 +5,6 @@
 // of upstream's `[OK] Index is up to date` line.
 //
 // Extracted verbatim from `codegraph-commands.ts` (rid
-// 2026-09-17-oversize-and-scale, D1 — the 800-line file-size cap). Every moved
 // line is byte-identical and no behaviour changed; `attributeUpstreamUpToDate
 // Line` stays importable from `codegraph-commands.ts`, which re-exports it.
 

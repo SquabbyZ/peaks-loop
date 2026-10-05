@@ -1,13 +1,7 @@
 /**
  * `peaks observability <subcommand>` — Slice B/C of v2.11.1.
  *
- * Slice B ships 4 read-only subcommands (AC-1 to AC-4):
- *   - `peaks observability status`         (AC-1)
- *   - `peaks observability slices`         (AC-2)
- *   - `peaks observability fanout`         (AC-3)
- *   - `peaks observability repair-cycles`  (AC-4)
  *
- * `peaks observability report` (AC-5) lands in Slice D when the
  * markdown report formatter is implemented.
  *
  * Read-only — never writes. Reads the JSONL metrics files emitted

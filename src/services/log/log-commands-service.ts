@@ -1,7 +1,6 @@
 /**
  * Service layer for `peaks log tail` and `peaks log ls` subcommands.
  *
- * Slice 2026-06-16-cli-logging (G4). Pure helpers that the
  * commander layer in `src/cli/commands/log-commands.ts` wraps.
  * Separated from `logger.ts` so the surface is small + testable
  * without spinning up a Commander program.
@@ -55,7 +54,6 @@ export type TailLogOptions = {
   /** Override the date (PRD AC2: PEAKS_LOG_DATE_OVERRIDE). */
   dateOverride?: string;
   /**
-   * Slice 2026-06-23-audit-4th #B2: filter by batchId. When set,
    * only entries whose `batchId` field matches are returned (and
    * the trailing-window accounting respects the post-filter total
    * so a busy day does not push old matching entries out of view).
@@ -96,7 +94,6 @@ export function tailLog(opts: TailLogOptions = {}): TailLogResult {
   if (total === 0) {
     return { file: null, entries: [], total: 0 };
   }
-  // Slice 2026-06-23-audit-4th #B2: batchId filter — apply AFTER the
   // read but BEFORE the trailing window, so a single batch's
   // interleaved log lines surface as a coherent sequence instead of
   // being pushed out by sibling-batch lines.

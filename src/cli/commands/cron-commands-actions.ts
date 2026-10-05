@@ -17,7 +17,6 @@
  * throw, exit code, or emitted byte — and a new sibling must be clean outright.
  *
  * ONE thing has since been restructured, and it is not the verbatim move above:
- * rid `2026-10-01-cron-last-run-at-01` repair cycle 1 replaced `runCronTasks`'s
  * own fold-and-write (a `runTargets` that built the next file from the snapshot
  * read before the runs, stamping every record including killed ones) with the
  * scheduler's `persistLastRunAt`, so one rule and one write-time re-read cover
@@ -164,7 +163,6 @@ function runCronTasks(
     return;
   }
   const records = runTargets(projectRoot, targets);
-  // ONE rule, ONE writer (rid `2026-10-01-cron-last-run-at-01`, repair cycle 1).
   // This call is the third site of the `lastRunAt` fold, whose rule and platform
   // costs live in `cron-scheduler-persist.ts`. Two things it replaces: a fold that
   // stamped EVERY record, killed ones included (so the same killed fire went quiet

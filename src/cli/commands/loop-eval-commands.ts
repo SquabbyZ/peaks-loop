@@ -164,7 +164,6 @@ export function registerWorkflowEvalCommands(program: Command, io: ProgramIO): v
   // peaks workflow graph <id>  (dry-run graph render)
   // Renamed from `plan` to `graph` to avoid collision with the existing
   // `peaks workflow plan <read|refresh|detect-trigger>` family registered
-  // by workflow-plan-commands.ts (slice 025).
   // Reuse the existing `graph` parent if `registerWorkflowLifecycleCommand`
   // already created one (it owns `peaks workflow graph show|list`).
   const existingGraph = workflow.commands.find((c) => c.name() === 'graph');
@@ -392,9 +391,7 @@ export function registerWorkflowEvalCommands(program: Command, io: ProgramIO): v
             return;
           }
           // Sid axis AND rid axis — the join below takes TWO ids, not one.
-          // Corrected 2026-09-14 (repair R1): this comment used to say one guard
           // covers "the whole `--capture-score` write path". The security audit of
-          // `2026-09-14-cli-id-escape-instrumentation` (F1b) measured that false —
           // the `--session` guard passed and the `rid` slot escaped:
           // `peaks loop eval '../../../../…/EVILCYC' --capture-score --session
           // <legal>` created `<projectRoot>/../EVILCYC/cycles/cycle-1.json` under

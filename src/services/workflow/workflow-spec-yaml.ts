@@ -4,9 +4,7 @@
  * Private helpers used by the parser in `workflow-spec.ts`. NOT publicly
  * re-exported; not part of the public API surface. Kept in a sibling
  * file so the slimmed `workflow-spec.ts` can stay under the 400-line
- * file-size cap (rid-006 split).
  *
- * File budget: ≤ 400 lines (rid-006 split).
  */
 
 export function leadingSpaces(line: string): number {

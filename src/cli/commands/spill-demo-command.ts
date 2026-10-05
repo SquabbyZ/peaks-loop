@@ -1,5 +1,4 @@
 /**
- * Rid-032: opt-in spill/hydrate round-trip for 24h mode.
  * This demo command is additive; existing deferral behavior is unchanged.
  */
 import type { Command } from 'commander';

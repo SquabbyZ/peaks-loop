@@ -65,7 +65,6 @@ export type ReconcileResult = {
    * ".peaks/.active-skill.json", ".peaks/sop-state"). Empty when the
    * tree is already on the new layout (idempotent re-runs return []).
    *
-   * Added in slice 2026-06-05-peaks-runtime-layer; additive — older
    * consumers can ignore this field.
    */
   migratedFiles: string[];
@@ -74,7 +73,6 @@ export type ReconcileResult = {
    * `.peaks/_runtime/<sid>/system/{subagent-progress,progress-spawn}.json` into
    * `.peaks/_sub_agents/<sid>/` during this reconcile run.
    *
-   * Added in slice 2026-06-06-sub-agent-spawn-bug-and-decouple. The
    * detailed list of moved files is not surfaced here (the count is
    * what the CLI summary and QA test assert on); the underlying
    * `migrateSubAgentState` helper returns the full path list for
@@ -90,7 +88,6 @@ export type ReconcileResult = {
     { sessionId: string; message: string } | { kind: 'migrate'; path: string; message: string }
   >;
   /**
-   * Slice 006 (2026-06-06-change-folder-simplify-and-lazy-role-subdirs):
    * result of syncing the single `change/<canonicalSessionId>/` live
    * marker under `.peaks/_runtime/change/`. The marker is an empty
    * directory; every other entry under `change/` is removed. The
@@ -107,9 +104,7 @@ export type ReconcileResult = {
     error: string | null;
   };
   /**
-   * Slice 006: list of absolute paths to `.peaks/_runtime/<sid>/system/`
    * subdirs that were removed by this reconcile run. The F3
-   * `initWorkspace` eagerly created the `system/` subdir; slice 006
    * deletes it during reconcile. Empty when the canonical session
    * had no `system/` subdir. Additive.
    */

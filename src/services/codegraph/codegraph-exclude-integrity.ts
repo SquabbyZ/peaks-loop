@@ -1,6 +1,5 @@
 // src/services/codegraph/codegraph-exclude-integrity.ts
 //
-// Slice S2 of `2026-09-12-codegraph-exclude-integrity` — the READ-ONLY
 // integrity report shared by `peaks codegraph status` and the
 // `capability:codegraph-exclude-integrity` doctor check.
 //

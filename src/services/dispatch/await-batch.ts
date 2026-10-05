@@ -1,5 +1,4 @@
 /**
- * Slice 2026-07-29-dispatch-stall-governance / S4 — unified batch
  * awaiter.
  *
  * Pre-S4, `awaitClaudeCodeBatch` and `pollDispatchRecords` were two
@@ -203,7 +202,6 @@ function emptyBatchResult(
 }
 
 /**
- * The wait budget. S4 (AC-3.2) — surface the clamp. A caller-supplied
  * timeout above the hard cap is reported as `clamped`; the effective
  * budget is what the loop actually waited.
  */
@@ -251,12 +249,10 @@ function resolveSeams(options: AwaitBatchOptions): {
  *   - `timed-out` — at least one slot is still pending and the
  *     effective budget elapsed
  *   - `clamped` — the caller's `requestedTimeoutMs` exceeded the
- *     hard cap (AC-3.2). The loop still ran the effective budget;
  *     `clamped` takes precedence over `timed-out` because the
  *     caller specifically asked for more than the cap and the
  *     caller needs to know the cap was applied (the timeout is
  *     secondary information).
- *   - `no-progress` — the watchdog fired (AC-3.4)
  */
 function resolveBatchOutcome(
   batchOutcome: AwaitBatchOutcome,

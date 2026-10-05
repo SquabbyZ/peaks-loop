@@ -3,7 +3,6 @@
  *
  * The migrate command is the downstream-project counterpart to the
  * one-time Phase 5 migration script that ran on the peaks-loop self-host
- * for slice 2026-06-05-change-id-as-unit-of-work. Where
  * `peaks workspace reconcile` only handles the top-level runtime state
  * files (`.peaks/.session.json`, `.peaks/.active-skill.json`,
  * `.peaks/sop-state/` → `.peaks/_runtime/`), `peaks workspace migrate`
@@ -67,7 +66,6 @@ export type MigrateOptions = {
   /** When true, actually `git mv` the files + `rm -rf` the emptied session dirs. */
   apply: boolean;
   /**
-   * Slice 003 (2026-06-06-session-layout-canonicalize): when true, the
    * command performs the **session-dir consolidation** — moves every
    * top-level `.peaks/_runtime/<sid>/` to `.peaks/_runtime/<sid>/`. Idempotent;
    * conflicts (target exists with different content) are logged but
@@ -75,7 +73,6 @@ export type MigrateOptions = {
    * lists what WOULD move + the conflicts.
    *
    * Mutually exclusive with the reviewable-content migration: the
-   * `--to-runtime` step is the data side of slice 003, while the
    * default `migrate` step is the cross-cutting content side
    * (reviewable files → retrospective). Both run when both flags are
    * set; the order is `--to-runtime` first (so the cross-cutting
@@ -122,7 +119,6 @@ export type MigrateResult = {
   /** Total files moved or scheduled to move. */
   totalFilesMoved: number;
   /**
-   * Slice 003: per-session-dir move plans for the `--to-runtime` step.
    * Empty when `toRuntime` was not set. Conflicts include both the
    * top-level/<sid>/ → _runtime/<sid>/ collisions AND the F15 carve-out
    * for `rd/project-scan.md`.

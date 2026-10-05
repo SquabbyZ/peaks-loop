@@ -40,25 +40,19 @@ type InsertLoopBeeRelationFn = (db: Database.Database, row: unknown) => unknown;
  * Hard rules enforced at THIS layer (defense in depth; the Zod
  * schemas above and the brief refine guard add the second wall):
  *
- *   - AC-4 / RL-2: a crystallization_event is written only when the
  *     candidate task has `task_status === 'completed'` AND
  *     `gates_passed === true` AND `evidence_collected === true`.
  *     Any pre-run attempt (status !== 'completed') is rejected
  *     with `CRYSTALLIZATION_PRE_RUN`. This is the pre-run block
- *     enforced by AC-4, AC-5, AC-6, AC-15, AC-16, AC-17 of the M5
  *     slice.
- *   - AC-6 / RL-3: writing a (loop_release, main_bee_release,
  *     loop_bee_relation) pair happens in a SINGLE TRANSACTION. The
  *     brief persist on crystallization_event also lives inside
  *     the same transaction (the brief is the durable evidence;
  *     dropping either side would break consistency).
- *   - AC-7 / RL-1: this layer never asks the user to hand-author
  *     JSON / manifest / CLI verb; all inputs are typed payloads
  *     the LLM submits on the user's behalf.
- *   - AC-15 / RL-7: the brief is mandatory; the
  *     `EvidenceBriefSchema.refine` guard rejects partial briefs
  *     at the parse boundary.
- *   - AC-16 / RL-7: the brief has all 4 sections
  *     (what_happened / why_it_matters / what_learned /
  *     what_action). The service throws `BriefSectionError` if the
  *     payload fails the guard.
@@ -79,7 +73,6 @@ type InsertLoopBeeRelationFn = (db: Database.Database, row: unknown) => unknown;
  */
 
 /* ---------------------------------------------------------------------- */
-/* Pre-run task gate — AC-4 / RL-2                                        */
 /* ---------------------------------------------------------------------- */
 
 export const CRYSTALLIZATION_TASK_STATUSES = [
@@ -362,7 +355,6 @@ export class CrystallizationService {
     const task = this.assertReady(payload.task);
 
     // Re-validate the 4-section brief up-front; the schema refines
-    // guard rejects partial briefs. This is the AC-15 / AC-16 / AC-17
     // gate.
     let brief: EvidenceBrief;
     try {
@@ -489,7 +481,6 @@ export class CrystallizationService {
       relationId = relationRow.id;
 
       // 5. Persist the crystallization_event row with the brief inline
-      // (the brief is the durable evidence — AC-17).
       const eventInput: CrystallizationEventInput = {
         trigger: payload.trigger,
         evidence_brief: brief,

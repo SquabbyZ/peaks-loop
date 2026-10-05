@@ -1,5 +1,4 @@
 /**
- * Slice rid-statusline-stale-ux AC-2: `peaks session primer --project <path>`.
  *
  * Lightweight SessionStart primer that fires rotation + presence
  * cleanup BEFORE the first statusline render of a fresh session.

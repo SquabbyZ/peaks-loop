@@ -1,5 +1,4 @@
 /**
- * Slice 2026-07-29-dispatch-stall-governance / S1 — startup-timeout service.
  *
  * Why a separate module (vs adding the logic inline to
  * `dispatch-record-writer.ts`):

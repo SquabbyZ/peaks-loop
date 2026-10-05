@@ -1,5 +1,4 @@
 /**
- * Slice 2026-08-05-orchestrator-can-do-probe — CLI shim for
  * `peaks code orchestrator-can-do`.
  *
  * Thin entry point that wires the `orchestrator-can-do` subcommand

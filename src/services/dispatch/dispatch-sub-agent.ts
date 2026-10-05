@@ -1,5 +1,4 @@
 /**
- * F5 follow-up (sediment 2026-08-11-rid-001-redo-fake-green-recovery-closure
  * §Lesson 1): synchronous anti-fake-green file-existence gate. Runs
  * `git ls-files <glob>` against `projectRoot` and returns the matching
  * tracked file paths (relative to projectRoot). Empty array when no

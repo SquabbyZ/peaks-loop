@@ -2,7 +2,6 @@
  * retrospective-index — load `.peaks/retrospective/index.json`, parse to
  * `RetrospectiveEntry[]`, return the index envelope.
  *
- * Slice 023 (R3). Pure read on the hot path: a single `fs.readFile` of
  * the index, no MD-tree fallback. The migration script (G9) is the only
  * writer; this loader is read-only.
  */

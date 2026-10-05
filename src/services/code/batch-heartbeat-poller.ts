@@ -8,7 +8,6 @@
  *   - a `dispatcherStatus` envelope to the renderer's `onStatus` callback
  *     (which formats the single-line status per G6.5)
  *   - a `stale` envelope to `onStale` if a record crosses the 5-min
- *     threshold (G6.2 / AC-35)
  *
  * The poller does **not**:
  *   - cancel, kill, or send SIGTERM to a sub-agent (RL-15)

@@ -1,7 +1,6 @@
 /**
  * e2e-verify — `peaks e2e verify --slice <rid>` CLI for the merged slice.
  *
- * Slice 2026-08-01-subagent-merge-and-e2e (Task 10). The parent session
  * calls this command once after the merge-back step. The CLI delegates
  * to `runE2EVerify`, which uses the e2e-fixtures reader
  * (`src/services/dispatch/e2e-fixtures.ts`) to enumerate the fixtures

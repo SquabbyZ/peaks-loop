@@ -32,7 +32,6 @@ import { guardRuntimeSegment, runtimeRoot } from '../../shared/runtime-root.js';
  * The single place a job-progress directory is built, and therefore the single
  * place the two ids that reach it are guarded.
  *
- * Slice 2026-09-15 (runtime-path-unrepresentable): this join used to be written
  * at three sites, none of them guarded, and the shipped text rule could not see
  * them — they sit in the service layer, outside the command layer it scans.
  * Both ids are caller-supplied (`peaks job checkpoint` takes them from flags).
@@ -50,7 +49,6 @@ function jobProgressDir(projectRoot: string, sessionId: string, jobId: string): 
 export const JOB_PROGRESS_SCHEMA_VERSION = 1 as const;
 
 /**
- * D3 (rid 2026-10-03-job-ledger-truthfulness) — what the mirror says when the
  * ledger has no pending slice.
  *
  * `currentSlice` is required by the schema below (it is a `string`, and readers
@@ -165,7 +163,6 @@ function addSliceAdvice(jobId: string | null | undefined): string {
 }
 
 /**
- * criterion (c) (rid 2026-10-03-job-ledger-repair1) — the one sentence the reader
  * acts on, built from the mirror instead of guessed at.
  *
  * WHY THIS EXISTS. The parent slice made `currentSlice` honest (§2.38: it used to

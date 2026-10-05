@@ -1,6 +1,5 @@
 /**
  * Fresh-context trigger scan — pure, deterministic signal detection for the
- * search-first preflight (slice 2026-09-07-search-first-preflight).
  *
  * The scan is a cheap NL keyword check that runs BEFORE the first planning
  * action. It decides whether the orchestrator should search for fresh

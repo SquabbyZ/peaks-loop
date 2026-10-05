@@ -1,5 +1,4 @@
 /**
- * Byte-aware output caps for `peaks web` (slice S1, AC2).
  *
  * `capText` is the only absolute guarantee in the snapshot pipeline: the
  * pruner (`snapshot-pruner.ts`) bounds node count and depth, but only a byte

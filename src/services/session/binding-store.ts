@@ -6,7 +6,6 @@
  *
  * v2.16.0 schema is a multi-instance registry with conflict-detection
  * sentinel fields (ownerHint, pid, lastHeartbeat, instances Map).
- * See PRD `001-2026-06-29-v2-16-0-change-id-axis-removal` AC-8.
  *
  * The store keeps a one-shot migration from the legacy schema:
  * legacy single-session binding → v2.16.0 instances Map with one entry,
@@ -80,7 +79,6 @@ function getCurrentOuterSessionId(): string {
  * both env vars unset returns the literal `'unknown'` sentinel
  * for every process. Suffixing with `process.pid` makes the
  * callerId process-unique without changing the surface (no new
- * env var, no new schema field), preserving the AC-5 hard rule
  * that "one Claude instance keeps one sid across multiple
  * peaks-* skill activations" — a single process keeps a constant
  * pid across the whole run, including `/compact`.
@@ -170,7 +168,6 @@ export function readBinding(projectRoot: string): Binding | null {
     typeof legacyShape.projectRoot === 'string'
   ) {
     // Auto-migrate marks lastHeartbeat as `now` (not `createdAt`) so the
-    // migrated instance does NOT immediately appear stale to AC-10.
     // Legacy bindings date from the pre-v2.16.0 single-session era;
     // their createdAt predates the binding sentinel concept entirely.
     const migratedAt = nowIso();
@@ -260,7 +257,6 @@ export function registerInstance(
 
     // Auto-resume: caller already has an instance in this scope —
     // append roles and refresh heartbeat instead of creating a new
-    // sid. This is the AC-5 Claude-instance-level hard rule: a
     // single Claude caller keeps one sid across multiple peaks-*
     // skill activations.
     const existingSidForCaller = Object.entries(existing.instances).find(
@@ -322,7 +318,6 @@ export function registerInstance(
 
 /**
  * Touch the `lastHeartbeat` for a specific instance. Used by the
- * Doctor periodic loop (AC-10) and by the Skill presence `startup`
  * gate.
  */
 export function heartbeat(projectRoot: string, sid: string): Binding | null {
@@ -345,7 +340,6 @@ export function heartbeat(projectRoot: string, sid: string): Binding | null {
 
 /**
  * Drop an instance entry from the binding. Used when the last peaks-*
- * skill on a Claude instance exits (AC-7: all skills inactive →
  * no record). Returns the updated binding (or null if no instances
  * remain and the caller wants to delete the binding entirely).
  */
@@ -364,7 +358,6 @@ export function dropInstance(projectRoot: string, sid: string): Binding | null {
 /**
  * Drop stale instances (lastHeartbeat older than `ttlMs`). Returns
  * the list of dropped sid values so the caller can log them. Used
- * by AC-10 Doctor.
  */
 export function dropStale(
   projectRoot: string,
@@ -430,7 +423,6 @@ function generateSid(): string {
 //
 // `rebuildBindingFromLegacy` rewrites the on-disk binding in-place so
 // every existing instance gets the pid suffix. It is invoked explicitly
-// by `peaks doctor --rebuild-binding` (slice 2026-06-29-v2-18-2
 // PATCH scope, follow-up issue #1) rather than on-read, to keep the
 // read path side-effect-free and to make the migration user-observable.
 //

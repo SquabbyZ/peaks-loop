@@ -1,6 +1,5 @@
 /**
  * Browser acquisition: the disable gate, the cache probe and the one-time
- * chromium install (slice S3, file 18; AC5, R2, R6).
  *
  * Three properties this module owns, all of them testable without a browser:
  *

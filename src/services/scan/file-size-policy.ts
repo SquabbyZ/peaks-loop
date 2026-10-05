@@ -7,7 +7,6 @@
 // `scripts/lint/file-size-census.ts` (the whole-tree count the husky gate
 // ratchets). Neither may restate a number.
 //
-// WHY ONE MODULE (rid 2026-09-30-cap-unify-01). The policy was written twice,
 // in two units: `max-lines: [error, {max: 400, skipBlankLines, skipComments}]`
 // in `config/eslint/.peaks-rules.cjs` and a raw `DEFAULT_FILE_SIZE_THRESHOLD`
 // of 800 here. Two spellings of one decision drift by construction, and the only
@@ -30,7 +29,6 @@
 // A row that silently excluded them would not equal its own measurement — the
 // same class of hole as lint-gate §4b (a surface asserted but never counted).
 //
-// NUMBERS THIS MODULE DOES NOT OWN, DECIDED 2026-09-30 (F6 of the repair cycle).
 // A line-count constant elsewhere in the repo is a second copy of THIS policy only
 // if it decides the same question — "may this file be committed at this size?".
 // Three that do not, recorded here so the next reader does not re-litigate them:
@@ -43,7 +41,6 @@
 //     this cap and is NOT folded into it — folding it in would silently change what
 //     the legacy report says. Its name does not match the census's `CAP_NAME`
 //     second-copy rule on purpose; see lint-gate §4b row 7.
-//   - `src/services/skills/lint-reference-shape.ts` 800: the shape of an
 //     example lint report, not a cap.
 
 /** Raw-line cap for `src/`, `scripts/` and `packages/` — including a `tests` directory inside a package. */
@@ -99,7 +96,6 @@ export function inFileSizeScope(file: string): boolean {
  * of a scope extension. Both consumers read this instead of each carrying its own
  * half of the rule.
  *
- * WHY IT MATTERS (F3 of the repair cycle, rid `2026-09-30-cap-unify-01`). The
  * census enumerated its scope with `git ls-files <dirs>` plus the extension test,
  * while the scan measured EVERY changed non-exempt file at `fileSizeCapFor`'s
  * else-branch 300 — including paths in neither list. The two disagreed about the
@@ -147,7 +143,6 @@ export function fileSizeScopeBucket(file: string): string {
 
 // ---------------------------------------------------------------------------
 // THE SECOND SCOPE — `.husky/`, the directory the ratchet itself lives in
-// (backlog §2.32, rid 2026-10-02-hooks-size-rows)
 // ---------------------------------------------------------------------------
 //
 // WHAT WAS INVISIBLE. `FILE_SIZE_SCOPE_DIRS` names four directories, and `.husky`

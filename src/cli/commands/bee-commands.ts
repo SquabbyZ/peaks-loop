@@ -1,5 +1,4 @@
 /**
- * peaks bee * CLI — M7 (spec §7A.2 / §10 RL-9 / AC-24 / AC-25 / AC-26).
  *
  * Adds:
  *   peaks bee export --bee <id> --out <path.tar.gz>
@@ -19,7 +18,6 @@
  * touched it.
  *
  * The `peaks skill sediment export / import` alias lives in
- * `src/cli/commands/skill-sediment.ts` for one release cycle.
  */
 
 import type { Command } from 'commander';

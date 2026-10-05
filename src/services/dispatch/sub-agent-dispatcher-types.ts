@@ -36,7 +36,6 @@ export interface SubAgentToolCall {
   readonly name: string;
   readonly args: Readonly<Record<string, unknown>>;
   /**
-   * Slice 2026-06-23-audit-4th #C2: toolCall version. The IDE's
    * arg shape can change between versions (e.g. Claude Code's
    * `subagent_type: "general-purpose"` may become
    * `subagent_type: "claude-code-3.5"` in a future release). The

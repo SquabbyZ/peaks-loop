@@ -1,5 +1,4 @@
 /**
- * The degradation chain, in one place (slice S3, file 19; AC5, tech-doc §5.4).
  *
  * Design §6 orders the chain: 1 local browser → 2 lazy download → 3 MCP
  * fallback → 4 explicit error + install guidance. Orchestrator decision C3 is

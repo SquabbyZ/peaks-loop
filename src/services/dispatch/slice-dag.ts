@@ -94,7 +94,6 @@ export function validateDag(dag: SliceDag): void {
         `node ${n.id} complexity must be one of ${SLICE_COMPLEXITIES.join('|')} when present`
       );
     }
-    // Slice 2026-09-10 §3: optional file list. Only shape-checked when
     // present so pre-existing DAGs stay valid.
     if (
       n.files !== undefined &&
@@ -229,7 +228,6 @@ export function serializeDag(dag: SliceDag): string {
       ...(n.foundation !== undefined ? { foundation: n.foundation } : {}),
       ...(n.upstreamSync !== undefined ? { upstreamSync: n.upstreamSync } : {}),
       ...(n.complexity !== undefined ? { complexity: n.complexity } : {}),
-      // Slice 2026-09-10 §3: only present when declared, so the hash of a
       // file-less DAG is unchanged.
       ...(n.files !== undefined ? { files: [...n.files] } : {})
     }));

@@ -1,11 +1,9 @@
 /**
- * rid-011 — peaks changeset check (Phase 4 slice 2).
  *
  *   - `peaks changeset check` — hard gate, exit non-zero if any staged
  *     .changeset/*.md exists. No warning mode, no --strict, no
  *     --skip-changeset-check.
  *
- * Wired into `_register.ts` via the rid-007 auto-registration barrel;
  * do NOT add a second registration call in `program.ts`.
  */
 

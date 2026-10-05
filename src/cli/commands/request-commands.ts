@@ -50,7 +50,6 @@ type RequestInitOptions = {
   sessionId?: string;
   apply?: boolean;
   type?: RequestType;
-  // Slice 020 — caller-keyed session binding. D4 priority: this flag
   // beats PEAKS_CALLER_ID env which beats PLATFORM_FALLBACKS.
   callerId?: string;
   json?: boolean;
@@ -65,7 +64,6 @@ type RequestListOptions = {
 };
 
 /**
- * Slice 2026-09-10-context-audit-and-discipline (Slice B): bounded view of
  * `request list`. `count` is the true total; `names` carries
  * `role/requestId (state)` labels for the first N entries. The full `items`
  * array (with paths + timestamps) is one flag away — omit `--summary`.
@@ -86,9 +84,7 @@ type RequestShowOptions = {
   project: string;
   sessionId?: string;
   json?: boolean;
-  /** When true, force all artifacts to render pretty. Slice 023 (R3). */
   pretty?: boolean;
-  /** When true, force all artifacts to render compact. Slice 023 (R3). */
   compact?: boolean;
 };
 
@@ -126,7 +122,6 @@ export function registerRequestCommands(program: Command, io: ProgramIO): void {
         `request type (${VALID_REQUEST_TYPES.join(' | ')}); default: feature`,
         parseRequestType
       )
-      // Slice 020 — caller-keyed session binding. Per-invocation override
       // (D4 priority level 1). When set, the resolved callerId is surfaced
       // in the JSON envelope; the on-disk artifact records it in the
       // artifact body so future reads know which caller produced it.
@@ -172,7 +167,6 @@ export function registerRequestCommands(program: Command, io: ProgramIO): void {
       if (options.type !== undefined) {
         serviceOptions.requestType = options.type;
       }
-      // Slice 020.1 — resolve the callerId via D4 priority (flag > env >
       // platform fallback > reject). The CLI integration layer is the
       // single entry point for the resolver; we do not pre-judge whether
       // the caller passed a flag. D2 (no callerId available) and D5
@@ -528,7 +522,6 @@ export function registerRequestCommands(program: Command, io: ProgramIO): void {
         process.exitCode = 1;
         return;
       }
-      // Slice 2026-07-01-strategic-compact-cli — slice-boundary pre-compact
       // hook. When transitioning across the RD → QA boundary (rd:qa-handoff),
       // check the active session's context-fill ratio. If it is in the
       // 0.85–0.95 pre-compact zone, write a checkpoint BEFORE the
@@ -539,9 +532,7 @@ export function registerRequestCommands(program: Command, io: ProgramIO): void {
       // waiting; it does not refuse anything, because peaks-loop has no
       // executor for a running session and a refusal it cannot enforce only
       // deadlocked the runner (slice
-      // 2026-09-13-auto-compact-trigger-ownership).
       let preCompact: import('peaks-loop-shared/result').ResultEnvelope<unknown> | null = null;
-      // 2026-09-03-codegraph-autorefresh: auto codegraph re-index on the
       // RD → QA slice-complete boundary. Set only for rd:qa-handoff; null
       // otherwise. Best-effort and fail-silent — never blocks the transition.
       let codegraphRefresh: CodegraphAutorefreshResult | null = null;
@@ -578,9 +569,7 @@ export function registerRequestCommands(program: Command, io: ProgramIO): void {
         // `codegraphRefreshNotice` for why `no-codegraph-dir` stays silent.
         codegraphWarning = codegraphRefreshNotice(codegraphRefresh);
       }
-      // v2.13.2 AC-4 — auto-regen prd/handoff.md on prd:handed-off success.
       // Only fires when the handoff is missing; existing handoffs are not overwritten.
-      // Slice 2026-08-12 best-practice-scan (Slice F) — auto-trigger BPS as a
       // post-step after peaks-prd's businessGoal artifact transitions to
       // `handed-off` (the canonical "complete" state in the prd state machine).
       // The trigger is fire-and-forget: failure NEVER blocks the transition.
@@ -621,7 +610,6 @@ export function registerRequestCommands(program: Command, io: ProgramIO): void {
         );
         return;
       }
-      // Slice 2026-07-01-strategic-compact-cli: stitch the pre-compact
       // checkpoint signal into the final response envelope. When the
       // hook did not trigger (zone is not pre-compact OR the
       // transition is not a slice boundary), preCompact is null and
@@ -654,7 +642,6 @@ export function registerRequestCommands(program: Command, io: ProgramIO): void {
         throw error;
       }
       if (error instanceof PrerequisitesNotSatisfiedError) {
-        // v2.13.3 AC-3 — surface `warnings` (soft-block entries from
         // the 1-minor-release back-compat window, e.g. MUT_REPORT) so
         // the operator sees both the hard-blocked `missing` paths and
         // the soft-blocked ones. `warnings` is always present (possibly

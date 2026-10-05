@@ -1,6 +1,5 @@
 // src/services/codegraph/codegraph-index-integrity.ts
 //
-// Slice-001 of `2026-09-16-codegraph-index-integrity` — the READ-ONLY
 // integrity report for the two index defects the exclude gate cannot see.
 // Shared by `peaks codegraph status` and the
 // `capability:codegraph-index-integrity` doctor check.
@@ -249,7 +248,6 @@ export type CodegraphIndexIntegrityReport = {
   readonly includeGap: readonly string[];
   /** Rows in the index's `files` table. */
   readonly indexedFileCount: number;
-  /** Class ② — index rows whose path no longer exists on disk. */
   readonly deadRows: readonly string[];
 };
 

@@ -107,7 +107,9 @@ describe('proofViolations: the check that gates every write', () => {
     // a write that left an unterminated template literal in `src/`. What survives must
     // still be COMPLETE code, which is a different question from what it starts with.
     const openBefore = ['snippet: `// a.ts\\n// b.ts`,'];
-    const actions = [act(1, 'strip-trailing', 'snippet: `// a.ts\\n// b.ts`,', '// a.ts\\n// b.ts`,')];
+    const actions = [
+      act(1, 'strip-trailing', 'snippet: `// a.ts\\n// b.ts`,', '// a.ts\\n// b.ts`,')
+    ];
     const out = proofViolations(openBefore, ['snippet: `'], actions);
     expect(out).toHaveLength(1);
     expect(out[0]).toContain('line 1');
@@ -140,6 +142,55 @@ describe('planPrune: what it will and will not touch', () => {
     const { actions, skips } = planPrune({ projectRoot: root }, findings);
     expect(actions).toEqual([]);
     expect(skips[0]?.reason).toBe('carries-a-block-delimiter');
+  });
+
+  it('refuses a line that ends in the middle of a token the next line continues', () => {
+    // The same amputation without the backticks to give it away: a memory path wrapped
+    // across two lines by the line width, where the FIRST line is the debt. The apply of
+    // this pruner left ` * cold-start figure from .peaks/memory/2026-07-28-sub-agent-`
+    // deleted and ` * visibility-issue.md; well below the 5-min heartbeat…` in place.
+    // Neither the classifier nor the block-delimiter check sees a word split in half, so
+    // the cut itself has to say whether the line ends where its text ends.
+    writeFixture(
+      'src/h.ts',
+      '/**\n' +
+        ' * Default budget, and the figure it sits above:\n' +
+        ' * .peaks/memory/2026-07-28-sub-agent-\n' +
+        ' * visibility-issue.md; well below the stale threshold.\n' +
+        ' */\n' +
+        'export const w = 1;\n'
+    );
+    const findings = auditComments({ projectRoot: root }).findings.filter(
+      (f) => f.file === 'src/h.ts'
+    );
+    expect(findings.map((f) => f.line)).toEqual([3]);
+    const { actions, skips } = planPrune({ projectRoot: root }, findings);
+    expect(actions).toEqual([]);
+    expect(skips.map((s) => `${s.line}:${s.reason}`)).toEqual(['3:continues-into-the-next-line']);
+  });
+  it('refuses a line that leaves an inline-code span open for the next one', () => {
+    // An apply of this pruner did this to a real file: a `.peaks/memory/….md` citation written
+    // across two comment lines, where the FIRST line was debt and the second was not.
+    // Dropping the first left ` * y-misjudgment.md`): the orchestrator delegates.` — a
+    // sentence with its front cut off, and a path with no start. The classifier cannot
+    // see the difference (each line is judged alone) and the pruner must not pretend:
+    // an odd number of backticks on the line it wants to cut means the span that line
+    // opens is closed BELOW it, so the cut is refused and a human gets the row.
+    writeFixture(
+      'src/g.ts',
+      '/**\n' +
+        ' * Slice 2026-08-05-lesson — encodes the lesson (`.peaks/memory/2026-08-05-lesson-\n' +
+        ' * name.md`): the orchestrator delegates.\n' +
+        ' */\n' +
+        'export const v = 1;\n'
+    );
+    const findings = auditComments({ projectRoot: root }).findings.filter(
+      (f) => f.file === 'src/g.ts'
+    );
+    expect(findings.map((f) => f.line)).toEqual([2]);
+    const { actions, skips } = planPrune({ projectRoot: root }, findings);
+    expect(actions).toEqual([]);
+    expect(skips.map((s) => `${s.line}:${s.reason}`)).toEqual(['2:continues-into-the-next-line']);
   });
 
   it('refuses to act on a line that moved between the scan and the plan', () => {

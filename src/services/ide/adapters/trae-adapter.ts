@@ -8,10 +8,7 @@ import { traeSubAgentDispatcher } from '../../dispatch/sub-agent-dispatcher.js';
  *
  * 不可消除的 per-IDE 字段(slice #1 锁定):
  *   - settings.dirName = '.trae'            : Trae 项目根下的配置目录
- *   - settings.settingsFileName = 'settings.json'  (VERIFIED against Trae 1.x fixture, slice 009-009-2026-06-07-trae-dogfood)
  *   - envVar = 'TRAE_PROJECT_DIR'    : Trae 注入的 env 变量(用于 ${...} 占位)
- *   - hookEvent = 'beforeToolCall'  (VERIFIED against Trae 1.x fixture, slice 009-009-2026-06-07-trae-dogfood)
- *   - toolMatcher = 'terminal'      (VERIFIED against Trae 1.x fixture, slice 009-009-2026-06-07-trae-dogfood)
  *
  * Slice #1 的 slim `IdeAdapter` shape 在 slice #1 RD 中被锁为"填表"模式。
  * 本文件是 slice #2 第一个真实客户,验证 slice #1 抽出的形状真的可以
@@ -48,15 +45,15 @@ export const TRAE_ADAPTER: IdeAdapter = {
   displayName: 'Trae',
   settings: {
     dirName: '.trae',
-    settingsFileName: 'settings.json', // VERIFIED against Trae 1.x fixture — slice 009-009-2026-06-07-trae-dogfood (2026-06-07)
+    settingsFileName: 'settings.json',
     resolveSettingsFile: (scope, projectRoot) => {
       const root = scope === 'global' ? homedir() : resolve(projectRoot ?? homedir());
       return join(root, '.trae', 'settings.json');
     }
   },
   envVar: 'TRAE_PROJECT_DIR',
-  hookEvent: 'beforeToolCall', // VERIFIED against Trae 1.x fixture — slice 009-009-2026-06-07-trae-dogfood (2026-06-07); fixture at tests/fixtures/trae/trae-1x-payload.json
-  toolMatcher: 'terminal', // VERIFIED against Trae 1.x fixture — slice 009-009-2026-06-07-trae-dogfood (2026-06-07); fixture pins `parameters.tool: 'terminal'`
+  hookEvent: 'beforeToolCall',
+  toolMatcher: 'terminal',
   // Slice #009: Trae's sub-agent dispatcher is UNVERIFIED — Trae sub-agent
   // tool name TBD on real dogfood; byte-level identical to claude-code by
   // design so the dispatcher shape is uniform across both adapters. Awaiting

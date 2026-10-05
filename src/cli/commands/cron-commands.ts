@@ -1,5 +1,4 @@
 /**
- * `peaks cron` — slice 2026-07-29-worktree-l2-extended Part 14.
  *
  * Persistent scheduled-task system. Stores a JSON schedule at
  * `.peaks/cron/schedule.json` and lets the LLM-side runner
@@ -84,7 +83,6 @@ const NO_CHILD_STATUS_EXIT_CODE = 1;
  * What a task run produced, before it is folded into a `RunRecord`.
  * `killed` is deliberately a plain boolean here and an ABSENT key on the
  * record: `history.jsonl` rows that did not time out keep the exact byte shape
- * they had before rid 2026-10-01-cron-task-tree-kill-01.
  */
 type TaskRun = {
   readonly exitCode: number;
@@ -104,7 +102,6 @@ function truncateStderr(text: string): string {
  * `exitCode 1 / "peaks-loop: internal module not found — the local build is
  * stale or incomplete"` on every fire. Measured in
  * `tests/unit/cli/commands/cron-task-tree-kill.test.ts` (F1, repair cycle 1 of
- * rid 2026-10-01-cron-task-tree-kill-01).
  */
 function isBootableTaskEntry(entry: string): boolean {
   return existsSync(entry) && existsSync(resolve(dirname(entry), '..', 'dist', 'cli', 'index.js'));

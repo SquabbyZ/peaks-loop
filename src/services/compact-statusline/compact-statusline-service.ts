@@ -1,6 +1,5 @@
 // src/services/compact-statusline/compact-statusline-service.ts
 //
-// Slice 2026-08-01-compact-lifecycle (Task 3/5). Pure semantic
 // decision + render helper for the 'peaks statusline compact'
 // indicator. Reads .peaks/_runtime/<sessionId>/compact-lifecycle.json
 // first (the canonical source of truth) and falls back to the legacy
@@ -28,7 +27,6 @@
 //   none       → 0 cells
 //   invalid    → 0 cells (no false reassurance)
 //   stalled    → keep the active stage's cell
-//   armed      → NO bar at all (slice 2026-09-12-compact-band-policy):
 //                a registered-but-idle trigger has no progress to
 //                report, and a bar would imply one.
 //
@@ -169,7 +167,6 @@ function decideLegacyFallback(input: {
   // Priority 2 within legacy: a history row TESTIFIES that a compaction was
   // witnessed, recently enough to still be the one being reported.
   //
-  // Repair R9 (AC4). This used to read the file's mtime — freshness taken as
   // evidence that "a compact just landed". Freshness is evidence of neither:
   // the same file takes a `dispatch` row every time peaks-loop ASKS for a
   // compact, and an ask is an intent, not an outcome. One real session
@@ -237,7 +234,6 @@ export function renderCompactStatusline(state: CompactStatuslineState): string {
       return `compact ${renderBar(2)}`;
     case 'compacting':
       return `compact ${renderBar(STAGE_CELL_COMPACTING)}`;
-    // Slice 2026-09-12-compact-band-policy: a registered trigger that has
     // not fired is NOT progress. Rendering a bar would imply movement
     // that is not happening, so `armed` deliberately renders no bar at
     // all — the label states what is true and what would change it.

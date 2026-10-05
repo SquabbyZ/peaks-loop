@@ -11,8 +11,6 @@
  * This file remains for one minor release as a no-op stub so legacy
  * imports keep type-checking. The named export is now an empty
  * readonly array; tests asserting `PLATFORM_FALLBACKS.length === 1`
- * (slice 020 A5) have been moved into the 4.0.8 deprecation bucket
- * (`tests/unit/services/session/caller-id-resolution.test.ts` will be
  * updated in a follow-up slice — out of scope for the 4.0.8 contract
  * freeze).
  *
@@ -21,7 +19,6 @@
  * (`getAdapter(ide).resolveCallerId(env)`), with `PEAKS_CALLER_ID` /
  * `--caller-id <id>` as the vendor-neutral short-circuits.
  *
- * See `.peaks/_runtime/2026-08-03-session-bee258/rd/requests/001-2026-08-03-presence-lease-graph-design.md`
  * for the slice 4.0.8 contract.
  */
 
