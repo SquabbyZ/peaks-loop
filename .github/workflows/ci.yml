@@ -28,7 +28,7 @@ jobs:
         # node 20.x removed 2026-09-08: its pnpm install step failed on
         # windows-latest and could not be diagnosed (job logs are
         # admin-only). publish.yml targets node 22.x; 20.x is near EOL.
-        node-version: [22.x]
+        node-version: [24.x]
     steps:
       - uses: actions/checkout@v4
         # rid 2026-10-04-backlog-2-55 (owner-decided): this job runs the unit
@@ -222,7 +222,7 @@ jobs:
       - name: Use Node.js 22.x
         uses: actions/setup-node@v4
         with:
-          node-version: 22.x
+          node-version: 24.x
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -298,7 +298,7 @@ jobs:
       - name: Use Node.js 22.x
         uses: actions/setup-node@v4
         with:
-          node-version: 22.x
+          node-version: 24.x
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -410,7 +410,7 @@ jobs:
       - name: Use Node.js 22.x
         uses: actions/setup-node@v4
         with:
-          node-version: 22.x
+          node-version: 24.x
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile

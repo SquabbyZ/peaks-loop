@@ -33,8 +33,10 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import {
   applyPragmas,
+  constraintKind,
   openSqlite,
   pragmaValue,
+  transaction,
   withTransaction
 } from '../../../../src/services/sqlite/sqlite-driver.js';
 import { declareDimensions } from '../../_setup/4dim-template.js';
@@ -146,6 +148,85 @@ describe('applyPragmas — the settings the stores turn on', () => {
   });
 });
 
+describe('constraintKind — the error surface the stores branch on', () => {
+  it('classifies a UNIQUE violation from a driver whose errcode is not its code', () => {
+    // `loop-bee-relation-service` turns a duplicate relation into a friendly
+    // DUP_RELATION / TWO_MAIN_BEES error by reading `err.code`. better-sqlite3 set that to
+    // 'SQLITE_CONSTRAINT_UNIQUE'; node:sqlite sets `code` to the generic
+    // 'ERR_SQLITE_ERROR' and puts the real thing in `errcode` (measured here: 2067 for
+    // UNIQUE, 787 for FOREIGN KEY). Without this classifier the three branches go dead at
+    // compile time and silent-free at run time — a raw driver error escapes instead of the
+    // integrity error the CLI documents.
+    const db = openSqlite(':memory:');
+    try {
+      db.exec('CREATE TABLE u (a TEXT, b TEXT)');
+      db.exec('CREATE UNIQUE INDEX ux ON u (a, b)');
+      db.prepare('INSERT INTO u (a, b) VALUES (?, ?)').run('x', 'y');
+      let caught: unknown;
+      try {
+        db.prepare('INSERT INTO u (a, b) VALUES (?, ?)').run('x', 'y');
+      } catch (error) {
+        caught = error;
+      }
+      expect(constraintKind(caught)).toBe('unique');
+      // …and the message still names BOTH columns, which is how the call site tells a
+      // composite-key clash from the partial unique index on (loop_release_id).
+      expect(String(caught)).toContain('u.a, u.b');
+    } finally {
+      db.close();
+    }
+  });
+
+  it('classifies a foreign-key violation, and does not invent a kind for anything else', () => {
+    const db = openSqlite(':memory:');
+    try {
+      applyPragmas(db, ['foreign_keys = ON']);
+      db.exec('CREATE TABLE p (id TEXT PRIMARY KEY)');
+      db.exec('CREATE TABLE c (pid TEXT REFERENCES p(id))');
+      let caught: unknown;
+      try {
+        db.prepare('INSERT INTO c (pid) VALUES (?)').run('missing');
+      } catch (error) {
+        caught = error;
+      }
+      expect(constraintKind(caught)).toBe('foreign-key');
+      expect(constraintKind(new Error('not a sqlite error at all'))).toBeUndefined();
+      expect(constraintKind(undefined)).toBeUndefined();
+    } finally {
+      db.close();
+    }
+  });
+});
+
+describe('binding — the difference that turns a silent NULL into a crash', () => {
+  it('refuses an undefined bound value, where better-sqlite3 stored NULL', () => {
+    // Measured on this host: better-sqlite3 binds `undefined` as NULL and stores the row,
+    // while node:sqlite throws `TypeError: Provided value cannot be bound to SQLite
+    // parameter`. Every optional column in the stores therefore had to stop relying on the
+    // implicit NULL — which is why the port is not just an import swap. The type system is
+    // the safety net (`SQLInputValue` excludes undefined, and the repo's tscErrors ceiling
+    // is 0), so a site cannot regress to the old shape without failing the build; this arm
+    // states the runtime fact so the rejected write is understood as a feature, not a bug.
+    const db = openSqlite(':memory:');
+    try {
+      db.exec('CREATE TABLE t (a INTEGER)');
+      expect(() =>
+        db.prepare('INSERT INTO t VALUES (?)').run(undefined as unknown as null)
+      ).toThrow(/cannot be bound/i);
+      // And an explicit NULL still means "no value", the way the implicit one used to.
+      db.prepare('INSERT INTO t VALUES (?)').run(null);
+      expect(pragmaColumnIsNull(db)).toBe(1);
+    } finally {
+      db.close();
+    }
+  });
+});
+
+function pragmaColumnIsNull(db: DatabaseSync): number {
+  const row = db.prepare('SELECT a IS NULL AS n FROM t').get();
+  return Number(Object.values(row ?? {})[0]);
+}
+
 describe('withTransaction — atomicity and nesting', () => {
   it('commits the body and returns its value', () => {
     const db = openSqlite(dbPath('commit'));
@@ -206,6 +287,35 @@ describe('withTransaction — atomicity and nesting', () => {
         { label: 'outer' },
         { label: 'after' }
       ]);
+    } finally {
+      db.close();
+    }
+  });
+
+  it('returns a reusable unit, because five stores bind `const tx` and call it later', () => {
+    // better-sqlite3's `db.transaction(fn)` hands back a FUNCTION that can be invoked
+    // repeatedly, each call its own unit of work. The five call sites in this repo are all
+    // `const tx = db.transaction(…)` followed by `tx()` — so the seam's shape has to be the
+    // same, or every site needs a structural rewrite for no behavioural reason. Calling it
+    // twice must commit twice, and a failed second call must not undo the first.
+    const db = openSqlite(dbPath('reusable'));
+    try {
+      createTable(db);
+      const insert = (label: string): void => {
+        db.prepare('INSERT INTO item (label) VALUES (?)').run(label);
+      };
+      let fail = false;
+      const tx = transaction(db, () => {
+        if (fail) {
+          insert('doomed');
+          throw new Error('second run failed');
+        }
+        insert('kept');
+      });
+      tx();
+      fail = true;
+      expect(() => tx()).toThrow('second run failed');
+      expect(db.prepare('SELECT label FROM item ORDER BY id').all()).toEqual([{ label: 'kept' }]);
     } finally {
       db.close();
     }

@@ -54,7 +54,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, sep } from 'node:path';
-import Database from 'better-sqlite3';
+import { applyPragmas, openSqlite } from '../../../../src/services/sqlite/sqlite-driver.js';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { declareDimensions } from '../../_setup/4dim-template.js';
@@ -338,8 +338,8 @@ describe('codegraph index path-exists predicate (bounded calls)', () => {
       { length: deadRowCount },
       (_unused, index) => `pkg0/gone-${String(index)}.ts`
     );
-    const db = new Database(join(root, '.codegraph', 'codegraph.db'));
-    db.pragma('journal_mode = WAL');
+    const db = openSqlite(join(root, '.codegraph', 'codegraph.db'));
+    applyPragmas(db, ['journal_mode = WAL']);
     db.exec(FILES_TABLE_SQL);
     const insert = db.prepare(
       'INSERT INTO files (path, content_hash, language, size, modified_at, indexed_at) VALUES (?, ?, ?, 0, 0, 0)'

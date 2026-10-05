@@ -69,6 +69,15 @@ function makeShimDir(): string {
   const dir = mkdtempSync(join(tmpdir(), 'peaks-bin-'));
   mkdirSync(join(dir, 'bin'), { recursive: true });
   writeFileSync(join(dir, 'bin', 'peaks.js'), readFileSync(REAL_BIN, 'utf8'), 'utf8');
+  // The shim imports `./node-floor.mjs` (the Node-version preflight), and the published
+  // tarball carries both — `package.json#files` lists them together. A fake install that
+  // copies only the shim tests a package nobody can install, and the error it surfaces is
+  // the missing sibling, not the stale `dist/` this file is about.
+  writeFileSync(
+    join(dir, 'bin', 'node-floor.mjs'),
+    readFileSync(resolve(REPO_ROOT, 'bin', 'node-floor.mjs'), 'utf8'),
+    'utf8'
+  );
   return dir;
 }
 

@@ -194,10 +194,10 @@ describe('share-bundle round-trip — AC-25', () => {
 // here as a regression seam for future M7.x refactors.)
 const FLIP_SHAREABLE_SCRIPT = `\
 // flip-shareable.cjs — flips shareable=0 for the test loop id.
-const Db = require('better-sqlite3');
-const db = new Db('.peaks/state.db');
+const { DatabaseSync } = require('node:sqlite');
+const db = new DatabaseSync('.peaks/state.db');
 const id = 'loop-private';
-db.prepare('UPDATE loop_release SET shareable = 0 WHERE id = ?').run(id);
+db.prepare('UPDATE loop_release SET shareable = ? WHERE id = ?').run(0, id);
 db.close();
 `;
 void FLIP_SHAREABLE_SCRIPT;

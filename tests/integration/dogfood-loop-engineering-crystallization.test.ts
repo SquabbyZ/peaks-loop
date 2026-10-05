@@ -25,7 +25,7 @@ import { tmpdir } from 'node:os';
 import { execSync } from 'node:child_process';
 
 import { openStateDb } from '../../src/services/skillhub/sqlite-store.js';
-import type Database from 'better-sqlite3';
+import type { SqliteDatabase } from '../../src/services/sqlite/sqlite-driver.js';
 import {
   CrystallizationService,
   buildEvidenceBrief
@@ -60,7 +60,7 @@ function git(...args: string[]): string {
 
 describe('M8 dogfood: real crystallization of the Loop Engineering work', () => {
   let tmpDir: string;
-  let db: Database.Database;
+  let db: SqliteDatabase;
   const blobsDir = 'dogfood-blobs';
 
   beforeAll(() => {

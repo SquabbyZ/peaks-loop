@@ -147,9 +147,10 @@ export function interpreterArgs(entry: string): string[] {
  * It arrived in 20.6.0 (backported to 18.19.0); below that the spelling is
  * `--loader`, and passing `--import` is a bad option that kills the daemon at
  * startup — inside a `READY_TIMEOUT_MS = 20 s` wait whose only diagnosis is a
- * line in `daemon.log`. `package.json` declares `engines.node >= 20.0.0`, which
- * includes 20.0–20.5, so the flag cannot be unconditional. `tsx` gates its own
- * child the same way and this mirrors it.
+ * line in `daemon.log`. `engines.node` names a higher floor, but this function answers for
+ * whatever interpreter the daemon is actually started with — a machine with several Nodes
+ * can hand `--import` to an older one — so the flag cannot be unconditional. `tsx` gates
+ * its own child the same way and this mirrors it.
  */
 export function supportsImportFlag(nodeVersion: string = process.versions.node): boolean {
   const [major = 0, minor = 0] = nodeVersion.split('.').map(Number);

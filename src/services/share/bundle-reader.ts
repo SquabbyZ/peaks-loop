@@ -30,7 +30,7 @@
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { ZodError } from 'zod';
-import type Database from 'better-sqlite3';
+import { transaction, type SqliteDatabase } from '../sqlite/sqlite-driver.js';
 import { runTar } from '../skillhub/tar-runtime.js';
 import {
   PEAKS_BUNDLE_FORMAT_VERSION_MAJOR,
@@ -115,7 +115,7 @@ export class BundleMalformedError extends Error {
 /* ---------------------------------------------------------------------- */
 
 export type ReadBundleArgs = {
-  db: Database.Database;
+  db: SqliteDatabase;
   /** Blobs root for content-addressed file write-back. */
   blobsDir: string;
   /** Input `.tar.gz` bundle path. */
@@ -359,7 +359,7 @@ function parseManifest(raw: unknown): BundleManifest {
 /* ---------------------------------------------------------------------- */
 
 type KindImporter = (
-  db: Database.Database,
+  db: SqliteDatabase,
   manifest: BundleManifest,
   blobsDir: string,
   asName: string | undefined
@@ -375,7 +375,7 @@ const KIND_IMPORTERS: Record<PeaksBundleKind, KindImporter> = {
 /* ---------------------------------------------------------------------- */
 
 function importLoopBundle(
-  db: Database.Database,
+  db: SqliteDatabase,
   manifest: BundleManifest,
   asName: string | undefined
 ): string {
@@ -396,7 +396,7 @@ function importLoopBundle(
   // on the receiver.
   const beeIdMap = materialiseRelatedBees(db, manifest.related_bee_releases);
 
-  const tx = db.transaction(() => {
+  const tx = transaction(db, () => {
     insertLoopReleaseRow(db, loopRow);
     insertLoopBeeRelations(db, manifest, beeIdMap, targetId);
   });
@@ -489,7 +489,7 @@ const LOOP_RELEASE_COLUMNS = [
 ] as const;
 
 /** Insert one loop_release row (or replace on conflict). */
-function insertLoopReleaseRow(db: Database.Database, row: Record<string, unknown>): void {
+function insertLoopReleaseRow(db: SqliteDatabase, row: Record<string, unknown>): void {
   const placeholders = LOOP_RELEASE_COLUMNS.map(() => '?').join(', ');
   db.prepare(
     `INSERT OR REPLACE INTO loop_release (${LOOP_RELEASE_COLUMNS.join(', ')}) VALUES (${placeholders})`
@@ -501,7 +501,7 @@ function insertLoopReleaseRow(db: Database.Database, row: Record<string, unknown
  * loop_id is rewritten if `asName` was supplied).
  */
 function insertLoopBeeRelations(
-  db: Database.Database,
+  db: SqliteDatabase,
   manifest: BundleManifest,
   beeIdMap: Map<number, number>,
   loopReleaseId: string
@@ -550,7 +550,7 @@ type BeeBundleEntry = {
  * bee_name wins, and we never overwrite user data.
  */
 function materialiseRelatedBees(
-  db: Database.Database,
+  db: SqliteDatabase,
   relatedBees: ReadonlyArray<unknown>
 ): Map<number, number> {
   const map = new Map<number, number>();
@@ -569,7 +569,7 @@ function materialiseRelatedBees(
  * src→new id pair so the caller can record it in the redirect map.
  */
 function materialiseSingleRelatedBee(
-  db: Database.Database,
+  db: SqliteDatabase,
   entry: BeeBundleEntry
 ): { srcId: number; newId: number } | null {
   const release = entry.bee_release ?? {};
@@ -590,7 +590,7 @@ function materialiseSingleRelatedBee(
 }
 
 function insertNewRelatedBee(
-  db: Database.Database,
+  db: SqliteDatabase,
   release: Record<string, unknown>,
   manifest: Record<string, unknown> | undefined
 ): number {
@@ -605,10 +605,10 @@ function insertNewRelatedBee(
       String(release.bee_name ?? ''),
       String(release.version ?? '0.0.0'),
       nowIso(),
-      release.user_intent_raw ?? null,
-      release.description ?? null,
-      release.parent_version ?? null,
-      release.changelog ?? null,
+      strOrNull(release.user_intent_raw),
+      strOrNull(release.description),
+      strOrNull(release.parent_version),
+      strOrNull(release.changelog),
       release.shareable === false ? 0 : 1,
       release.desktop_visible === false ? 0 : 1
     );
@@ -622,7 +622,7 @@ function insertNewRelatedBee(
 /* ---------------------------------------------------------------------- */
 
 function importBeeBundle(
-  db: Database.Database,
+  db: SqliteDatabase,
   manifest: BundleManifest,
   _blobsDir: string,
   asName: string | undefined
@@ -638,7 +638,7 @@ function importBeeBundle(
   // does not honor --as-stable switches.
   enforceImportAsCandidate(readSourceLifecycle(release));
 
-  const tx = db.transaction(() => {
+  const tx = transaction(db, () => {
     const newId = insertAnchorBeeRelease(db, release, newBeeName);
     if (beeObj.manifest) insertBeeManifestRow(db, newId, beeObj.manifest);
     insertBeeSegmentRows(db, newId, beeObj.segments ?? []);
@@ -651,7 +651,7 @@ function importBeeBundle(
 
 /** Insert the anchor bee_release row for a `bee` bundle and return its new id. */
 function insertAnchorBeeRelease(
-  db: Database.Database,
+  db: SqliteDatabase,
   release: Record<string, unknown>,
   beeName: string
 ): number {
@@ -666,10 +666,10 @@ function insertAnchorBeeRelease(
       beeName,
       String(release.version ?? '0.0.0'),
       nowIso(),
-      release.user_intent_raw ?? null,
-      release.description ?? null,
-      release.parent_version ?? null,
-      release.changelog ?? null,
+      strOrNull(release.user_intent_raw),
+      strOrNull(release.description),
+      strOrNull(release.parent_version),
+      strOrNull(release.changelog),
       release.shareable === false ? 0 : 1,
       release.desktop_visible === false ? 0 : 1
     );
@@ -678,7 +678,7 @@ function insertAnchorBeeRelease(
 
 /** Insert one bee_manifest row. */
 function insertBeeManifestRow(
-  db: Database.Database,
+  db: SqliteDatabase,
   releaseId: number,
   manifest: Record<string, unknown>
 ): void {
@@ -695,16 +695,16 @@ function insertBeeManifestRow(
     JSON.stringify(manifest.segments_json ?? []),
     strOrNull(manifest.entrypoint_preamble),
     String(manifest.promotion ?? 'manual'),
-    manifest.min_cycles ?? null,
+    manifest.min_cycles === undefined ? null : Number(manifest.min_cycles),
     manifest.requires_human === undefined ? 1 : Number(manifest.requires_human),
     manifest.requires_smoke === undefined ? 1 : Number(manifest.requires_smoke),
-    manifest.retire_on_misses ?? null
+    manifest.retire_on_misses === undefined ? null : Number(manifest.retire_on_misses)
   );
 }
 
 /** Insert bee_segment_ref rows. */
 function insertBeeSegmentRows(
-  db: Database.Database,
+  db: SqliteDatabase,
   releaseId: number,
   segments: ReadonlyArray<Record<string, unknown>>
 ): void {
@@ -727,7 +727,7 @@ function insertBeeSegmentRows(
 
 /** Insert bee_file rows. */
 function insertBeeFileRows(
-  db: Database.Database,
+  db: SqliteDatabase,
   releaseId: number,
   beeName: string,
   files: ReadonlyArray<Record<string, unknown>>
@@ -754,7 +754,7 @@ function insertBeeFileRows(
 
 /** Insert bee_change rows. */
 function insertBeeChangeRows(
-  db: Database.Database,
+  db: SqliteDatabase,
   releaseId: number,
   changes: ReadonlyArray<Record<string, unknown>>
 ): void {

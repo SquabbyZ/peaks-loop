@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { readFileSync, readdirSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { join, relative } from 'node:path';
-import type Database from 'better-sqlite3';
+import { transaction, type SqliteDatabase } from '../sqlite/sqlite-driver.js';
 import type { BeeManifest } from '../sediment/types.js';
 
 /** Compute the sha256 hash and byte length of a single file. */
@@ -63,7 +63,7 @@ export function retainRelease({
   parentVersion,
   changelog
 }: {
-  db: Database.Database;
+  db: SqliteDatabase;
   blobsDir: string;
   scratchDir: string;
   manifest: BeeManifest;
@@ -72,7 +72,7 @@ export function retainRelease({
   changelog?: string;
 }): number {
   const version = explicitVersion ?? '0.1.0';
-  const tx = db.transaction(() => {
+  const tx = transaction(db, () => {
     // M3 / spec §4.2: `shareable` and `desktop_visible` are written
     // with their spec defaults (true). M7 will add a CLI flag to
     // override on retain; M3 keeps the defaulting on the insert path

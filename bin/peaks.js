@@ -20,6 +20,19 @@
  */
 import { fileURLToPath } from 'node:url';
 
+import { nodeFloorProblem, nodeFloorSentence } from './node-floor.mjs';
+
+/**
+ * Checked before the app is imported, because the thing it checks is an import: the stores
+ * load `node:sqlite` at module scope, so below the floor the process dies resolving the
+ * graph and never reaches a check written inside the CLI.
+ */
+const floorProblem = nodeFloorProblem(process.versions.node);
+if (floorProblem !== undefined) {
+  process.stderr.write(nodeFloorSentence(process.versions.node));
+  process.exit(1);
+}
+
 const PACKAGE_ROOT = fileURLToPath(new URL('..', import.meta.url));
 
 /** Workspace-internal packages whose absence always means "stale build". */

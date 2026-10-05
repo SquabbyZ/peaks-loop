@@ -1,5 +1,5 @@
-import Database from 'better-sqlite3';
-import { readFileSync, readdirSync, existsSync, mkdirSync } from 'node:fs';
+import { openSqlite, applyPragmas, type SqliteDatabase } from '../sqlite/sqlite-driver.js';
+import { existsSync, mkdirSync, readFileSync, readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -18,12 +18,11 @@ import { fileURLToPath } from 'node:url';
  * globbing (`*.sql`) and sorted lexicographically so future
  * `002-…`, `003-…` additions are picked up automatically.
  */
-export function openStateDb(path: string): Database.Database {
+export function openStateDb(path: string): SqliteDatabase {
   const parent = dirname(path);
   if (!existsSync(parent)) mkdirSync(parent, { recursive: true });
-  const db = new Database(path);
-  db.pragma('journal_mode = WAL');
-  db.pragma('foreign_keys = ON');
+  const db = openSqlite(path);
+  applyPragmas(db, ['journal_mode = WAL', 'foreign_keys = ON']);
   const here = dirname(fileURLToPath(import.meta.url));
   const migrationsDir = join(here, 'migrations');
   if (existsSync(migrationsDir)) {
@@ -56,7 +55,7 @@ export function openStateDb(path: string): Database.Database {
  * Return the user-defined table names present in `db` (excluding SQLite
  * system tables such as `sqlite_sequence`).
  */
-export function listTables(db: Database.Database): string[] {
+export function listTables(db: SqliteDatabase): string[] {
   const rows = db
     .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")
     .all() as unknown as Array<{ name: string }>;

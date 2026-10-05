@@ -1,6 +1,6 @@
 import { mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
-import type Database from 'better-sqlite3';
+import type { SqliteDatabase } from '../sqlite/sqlite-driver.js';
 import { runTar } from './tar-runtime.js';
 
 export function exportRelease({
@@ -10,7 +10,7 @@ export function exportRelease({
   version,
   outPath
 }: {
-  db: Database.Database;
+  db: SqliteDatabase;
   blobsDir: string;
   beeName: string;
   version: string;

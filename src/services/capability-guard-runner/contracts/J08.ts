@@ -1,4 +1,4 @@
-import Database from 'better-sqlite3';
+import { openSqlite } from '../../sqlite/sqlite-driver.js';
 import {
   CrystallizationIntegrityError,
   CrystallizationService,
@@ -27,7 +27,7 @@ function probeService(): CrystallizationService {
     insertLoopRelease: noop,
     insertLoopBeeRelation: noop
   } as unknown as CrystallizationOptions;
-  return new CrystallizationService(new Database(':memory:'), opts);
+  return new CrystallizationService(openSqlite(':memory:'), opts);
 }
 
 /**

@@ -1,4 +1,4 @@
-import type Database from 'better-sqlite3';
+import type { SqliteDatabase } from '../sqlite/sqlite-driver.js';
 import {
   LoopReleaseSchema,
   type LoopRelease,
@@ -20,7 +20,7 @@ import {
  * deliberately deferred to M2 / M4 / M5 — shipping them here would
  * lock in an interface that the ratchet has not yet ratified.
  *
- * The constructor takes an open better-sqlite3 database (the existing
+ * The constructor takes an open SQLite database (the existing
  * `peaks state` boundary) so callers do not have to thread a path
  * through this layer; this matches the `retainRelease` pattern in
  * `src/services/skillhub/release-retain.ts`.
@@ -30,9 +30,9 @@ import {
  * `lintManifestStrict` in `src/services/sediment/manifest-lint.ts`).
  */
 export class LoopReleaseService {
-  private readonly db: Database.Database;
+  private readonly db: SqliteDatabase;
 
-  constructor(db: Database.Database) {
+  constructor(db: SqliteDatabase) {
     this.db = db;
     // Idempotent — safe to call on every constructor invocation; the
     // openStateDb pipeline already applied the SQL migration, but a

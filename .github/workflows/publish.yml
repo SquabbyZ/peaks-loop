@@ -50,7 +50,8 @@
 #   - pnpm/action-setup@v4
 #   - actions/setup-node@v4
 #   - pnpm 10.11.0  (matches package.json#packageManager)
-#   - Node 22.x    (matches package.json#engines.node ">=20")
+#   - Node 24.x    (matches package.json#engines.node ">=24" — the floor `node:sqlite`
+#                   needs, so a CI on an older line could not import the stores at all)
 #
 # No npm token is required / used / stored.
 # npmjs side: Settings → Trusted Publishers → Add GitHub Action
@@ -141,7 +142,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 22.x
+          node-version: 24.x
           # npm CLI 11+ OIDC Trusted Publishing requires setup-node to
           # know which registry to exchange the GitHub Actions OIDC JWT
           # against. Without this, npm CLI treats the publish as
@@ -151,9 +152,9 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
 
       - name: Upgrade npm to 11+ (required for OIDC Trusted Publishing)
-        # Node 22.23.1 on the runner ships npm 10.9.8, but npm OIDC
-        # Trusted Publishing was added in npm 11.5.1 (per npm docs).
-        # Without this upgrade, npm CLI does not know how to exchange
+        # The runner's bundled npm is older than OIDC Trusted Publishing (added in npm
+        # 11.5.1 per npm docs), whatever Node line the job runs on. Without this
+        # upgrade, npm CLI does not know how to exchange
         # the GitHub Actions OIDC JWT for a publish token — npm sees
         # the request as anonymous and returns ENEEDAUTH/E404.
         # 'lts/*' pins to whatever the latest stable npm line is.

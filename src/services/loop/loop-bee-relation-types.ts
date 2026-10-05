@@ -44,7 +44,7 @@ export const LOOP_BEE_RELATION_ROLES: readonly LoopBeeRelationRole[] = [
  * `loop_release_id` must match the same kebab-case pattern as
  * `LoopRelease.id` — this is a defensive duplicate of the FK target's
  * shape, but the authoritative check is the FK constraint at insert
- * time (better-sqlite3 with `foreign_keys = ON`).
+ * time (with `foreign_keys = ON`, which `openStateDb` applies).
  *
  * `bee_release_id` is a positive integer; matching the
  * `bee_release.id` autoincrement INTEGER PK.

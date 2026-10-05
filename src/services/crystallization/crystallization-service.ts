@@ -1,4 +1,4 @@
-import type Database from 'better-sqlite3';
+import { transaction, type SqliteDatabase } from '../sqlite/sqlite-driver.js';
 import { z, ZodError } from 'zod';
 import {
   CrystallizationEventSchema,
@@ -30,8 +30,8 @@ type LoopBeeRelationZodSchema = {
   parse: (input: unknown) => unknown;
   omit: (keys: Record<string, true>) => { parse: (input: unknown) => unknown };
 };
-type InsertLoopReleaseFn = (db: Database.Database, row: unknown) => void;
-type InsertLoopBeeRelationFn = (db: Database.Database, row: unknown) => unknown;
+type InsertLoopReleaseFn = (db: SqliteDatabase, row: unknown) => void;
+type InsertLoopBeeRelationFn = (db: SqliteDatabase, row: unknown) => unknown;
 
 /**
  * CrystallizationService — spec §5 (post-run crystallization)
@@ -233,10 +233,10 @@ export interface CrystallizationOptions {
 }
 
 export class CrystallizationService {
-  private readonly db: Database.Database;
+  private readonly db: SqliteDatabase;
   private readonly opts: CrystallizationOptions;
 
-  constructor(db: Database.Database, opts: CrystallizationOptions) {
+  constructor(db: SqliteDatabase, opts: CrystallizationOptions) {
     this.db = db;
     this.opts = opts;
     // Idempotent — safe to call on every constructor invocation; the
@@ -326,7 +326,7 @@ export class CrystallizationService {
   /**
    * Run the post-run crystallization flow.
    *
-   * Steps (all in ONE better-sqlite3 transaction, atomic):
+   * Steps (all in ONE transaction through the sqlite seam, atomic):
    *
    *   1. Pre-run gate (task must be completed / gates_passed /
    *      evidence_collected).
@@ -414,7 +414,7 @@ export class CrystallizationService {
     let relationId = -1;
     let eventPersistedId = eventId;
 
-    const tx = this.db.transaction(() => {
+    const tx = transaction(this.db, () => {
       // 1. Insert loop_release.
       this.opts.insertLoopRelease(this.db, loopRow);
 
@@ -541,7 +541,7 @@ export class CrystallizationService {
 /* ---------------------------------------------------------------------- */
 
 function insertCrystallizationEventRaw(
-  db: Database.Database,
+  db: SqliteDatabase,
   row: CrystallizationEventInput,
   id: string,
   createdAt: string

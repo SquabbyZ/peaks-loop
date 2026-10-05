@@ -36,6 +36,17 @@ import { DatabaseSync } from 'node:sqlite';
 /** The database handle the stores hold. Exported so call sites stop naming the addon. */
 export type SqliteDatabase = DatabaseSync;
 
+/**
+ * What SQLite accepts as a bound value, and what it hands back.
+ *
+ * Re-exported from the seam rather than imported from `node:sqlite` at the call sites for
+ * one reason: `SQLInputValue` EXCLUDES `undefined`, while better-sqlite3 silently bound
+ * `undefined` as NULL. Every store that builds a parameter list wants to say "these are the
+ * values I bind" once, in the name the driver actually enforces — and if that name is
+ * spelled differently in twenty files, the twenty drift.
+ */
+export type { SQLInputValue as SqlInputValue, SQLOutputValue as SqlOutputValue } from 'node:sqlite';
+
 export type OpenSqliteOptions = {
   /**
    * Open without creating. A missing file is an error, not an empty database — the
@@ -132,4 +143,58 @@ export function withTransaction<T>(db: SqliteDatabase, body: () => T): T {
   } finally {
     transactionDepth.set(db, depth);
   }
+}
+
+/**
+ * Which constraint a thrown SQLite error violated.
+ *
+ * WHY THIS EXISTS. `loop-bee-relation-service` turns a duplicate relation into the
+ * documented `DUP_RELATION` / `TWO_MAIN_BEES` errors and an absent parent into `FK_*` by
+ * asking which constraint failed. It used to ask
+ * `err.code === 'SQLITE_CONSTRAINT_UNIQUE'`, which better-sqlite3 set. node:sqlite sets
+ * `code` to the generic `ERR_SQLITE_ERROR` for every SQL failure and puts the real
+ * extended result code in `errcode` — measured on this host: 2067 for
+ * `SQLITE_CONSTRAINT_UNIQUE`, 787 for `SQLITE_CONSTRAINT_FOREIGNKEY`. A `.code` comparison
+ * therefore does not throw the wrong error, it throws NOTHING: the branch is skipped and a
+ * raw driver message reaches the operator where the CLI promised an integrity code. That
+ * failure is invisible to the type checker and to any test that does not drive a real
+ * violation, which is why the classifier has its own arms.
+ *
+ * Three readings, in order of trustworthiness: `errcode` (node:sqlite), `code`
+ * (better-sqlite3, and any error shaped like it), then the message. The message is a last
+ * resort rather than the primary because it is the only one of the three that SQLite
+ * documents as human-readable and free to change.
+ */
+export type SqliteConstraintKind = 'unique' | 'foreign-key';
+
+/** `SQLITE_CONSTRAINT_UNIQUE` — 19 | (8 << 8). */
+const SQLITE_ERRCODE_CONSTRAINT_UNIQUE = 2067;
+/** `SQLITE_CONSTRAINT_FOREIGNKEY` — 19 | (3 << 8). */
+const SQLITE_ERRCODE_CONSTRAINT_FOREIGNKEY = 787;
+
+export function constraintKind(error: unknown): SqliteConstraintKind | undefined {
+  if (typeof error !== 'object' || error === null) return undefined;
+  const shaped = error as { readonly errcode?: unknown; readonly code?: unknown };
+  if (shaped.errcode === SQLITE_ERRCODE_CONSTRAINT_UNIQUE) return 'unique';
+  if (shaped.errcode === SQLITE_ERRCODE_CONSTRAINT_FOREIGNKEY) return 'foreign-key';
+  if (shaped.code === 'SQLITE_CONSTRAINT_UNIQUE') return 'unique';
+  if (shaped.code === 'SQLITE_CONSTRAINT_FOREIGNKEY') return 'foreign-key';
+  const message = error instanceof Error ? error.message : '';
+  if (message.includes('UNIQUE constraint failed')) return 'unique';
+  if (message.includes('FOREIGN KEY constraint failed')) return 'foreign-key';
+  return undefined;
+}
+
+/**
+ * Bind `body` as a unit of work WITHOUT running it, returned as a callable — the shape
+ * `better-sqlite3`'s `db.transaction(fn)` had, and the shape five stores in this repo are
+ * written in (`const tx = db.transaction(…)`, then `tx()` — sometimes more than once).
+ *
+ * This exists so the port is a name change and not a restructure, because the reuse is
+ * load-bearing: each invocation is its own unit, so a second call that fails must not undo
+ * a first call that committed. An arm in the driver's test calls it twice to prove that,
+ * since no other arm in this file would notice if it were written to run once.
+ */
+export function transaction<T>(db: SqliteDatabase, body: () => T): () => T {
+  return () => withTransaction(db, body);
 }

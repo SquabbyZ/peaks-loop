@@ -1,4 +1,4 @@
-import type Database from 'better-sqlite3';
+import type { SqliteDatabase } from '../sqlite/sqlite-driver.js';
 import type { LoopBeeRelation, LoopBeeRelationRole } from './loop-bee-relation-types.js';
 
 /**
@@ -11,7 +11,7 @@ import type { LoopBeeRelation, LoopBeeRelationRole } from './loop-bee-relation-t
  *
  * Defense in depth:
  *   - FK constraints enforce loop_release and bee_release referential
- *     integrity (better-sqlite3 + foreign_keys = ON).
+ *     integrity (foreign_keys = ON, applied by `openStateDb`).
  *   - Partial unique index `WHERE role = 'main'` enforces "at most one
  *     main bee per loop" at the storage layer (the service layer adds
  *     a friendlier error path on top).
@@ -28,7 +28,7 @@ import type { LoopBeeRelation, LoopBeeRelationRole } from './loop-bee-relation-t
  * database. Used by tests that build their own DB without the
  * openStateDb pipeline. Idempotent.
  */
-export function ensureLoopBeeRelationTable(db: Database.Database): void {
+export function ensureLoopBeeRelationTable(db: SqliteDatabase): void {
   db.exec(`
     CREATE TABLE IF NOT EXISTS loop_bee_relation (
       id                INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -87,7 +87,7 @@ function rowToLoopBeeRelation(row: LoopBeeRelationRow): LoopBeeRelation {
  * Returns the persisted row (with `id` filled in).
  */
 export function insertLoopBeeRelation(
-  db: Database.Database,
+  db: SqliteDatabase,
   row: Omit<LoopBeeRelation, 'id' | 'created_at'>
 ): LoopBeeRelation {
   const createdAt = new Date().toISOString();
@@ -116,7 +116,7 @@ export function insertLoopBeeRelation(
 }
 
 /** Read a single LoopBeeRelation row by id; returns undefined if absent. */
-export function getLoopBeeRelation(db: Database.Database, id: number): LoopBeeRelation | undefined {
+export function getLoopBeeRelation(db: SqliteDatabase, id: number): LoopBeeRelation | undefined {
   const row = db.prepare('SELECT * FROM loop_bee_relation WHERE id = ?').get(id) as
     LoopBeeRelationRow | undefined;
   if (!row) return undefined;
@@ -125,7 +125,7 @@ export function getLoopBeeRelation(db: Database.Database, id: number): LoopBeeRe
 
 /** List LoopBeeRelation rows for a given loop_release_id (optionally filtered by role). */
 export function listLoopBeeRelationsByLoop(
-  db: Database.Database,
+  db: SqliteDatabase,
   loop_release_id: string,
   role?: LoopBeeRelationRole
 ): LoopBeeRelation[] {
@@ -134,13 +134,13 @@ export function listLoopBeeRelationsByLoop(
       ? 'SELECT * FROM loop_bee_relation WHERE loop_release_id = ? ORDER BY id ASC'
       : 'SELECT * FROM loop_bee_relation WHERE loop_release_id = ? AND role = ? ORDER BY id ASC';
   const params = role === undefined ? [loop_release_id] : [loop_release_id, role];
-  const rows = db.prepare(sql).all(...params) as LoopBeeRelationRow[];
+  const rows = db.prepare(sql).all(...params) as unknown as LoopBeeRelationRow[];
   return rows.map(rowToLoopBeeRelation);
 }
 
 /** List LoopBeeRelation rows for a given bee_release_id (optionally filtered by role). */
 export function listLoopBeeRelationsByBee(
-  db: Database.Database,
+  db: SqliteDatabase,
   bee_release_id: number,
   role?: LoopBeeRelationRole
 ): LoopBeeRelation[] {
@@ -149,13 +149,13 @@ export function listLoopBeeRelationsByBee(
       ? 'SELECT * FROM loop_bee_relation WHERE bee_release_id = ? ORDER BY id ASC'
       : 'SELECT * FROM loop_bee_relation WHERE bee_release_id = ? AND role = ? ORDER BY id ASC';
   const params = role === undefined ? [bee_release_id] : [bee_release_id, role];
-  const rows = db.prepare(sql).all(...params) as LoopBeeRelationRow[];
+  const rows = db.prepare(sql).all(...params) as unknown as LoopBeeRelationRow[];
   return rows.map(rowToLoopBeeRelation);
 }
 
 /** Update the role of an existing relation. Returns the new row, or undefined if absent. */
 export function updateLoopBeeRelationRole(
-  db: Database.Database,
+  db: SqliteDatabase,
   id: number,
   newRole: LoopBeeRelationRole
 ): LoopBeeRelation | undefined {
@@ -166,7 +166,7 @@ export function updateLoopBeeRelationRole(
 }
 
 /** Remove a LoopBeeRelation row by id. Returns true if a row was deleted. */
-export function removeLoopBeeRelation(db: Database.Database, id: number): boolean {
+export function removeLoopBeeRelation(db: SqliteDatabase, id: number): boolean {
   const stmt = db.prepare('DELETE FROM loop_bee_relation WHERE id = ?');
   const info = stmt.run(id);
   return info.changes > 0;

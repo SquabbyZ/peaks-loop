@@ -50,7 +50,7 @@ import { createRequire } from 'node:module';
 import { existsSync, readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
-import Database from 'better-sqlite3';
+import { openSqlite, type SqliteDatabase } from '../sqlite/sqlite-driver.js';
 
 import { normalizePath } from '../../shared/path-utils.js';
 import { CODEGRAPH_DB_NAME, CODEGRAPH_DIR_NAME } from './codegraph-service.js';
@@ -362,10 +362,10 @@ export function upstreamSupportsPath(filePath: string): boolean {
 /**
  * The project-relative paths recorded in the index's `files` table.
  *
- * Opened `readonly: true` so the gate can never mutate the index's
- * CONTENT, and `fileMustExist: true` so a missing/not-yet-initialized db
- * throws instead of silently creating an empty one (which would report a
- * 100% stale index).
+ * Opened read-only so the gate can never mutate the index's CONTENT, and the
+ * seam refuses a path that is not there rather than creating one: an empty
+ * database made by the open would report a 100% stale index, which reads as a
+ * verdict and is actually an absence.
  *
  * Read-only, exactly stated: opening a WAL database (`journal_mode = wal`
  * is what upstream `dist/db/index.js` sets, and what this repo's own index
@@ -381,9 +381,9 @@ export function upstreamSupportsPath(filePath: string): boolean {
  */
 function readIndexedFilePaths(projectRoot: string): readonly string[] {
   const databasePath = join(projectRoot, CODEGRAPH_DIR_NAME, CODEGRAPH_DB_NAME);
-  let db: Database.Database;
+  let db: SqliteDatabase;
   try {
-    db = new Database(databasePath, { readonly: true, fileMustExist: true });
+    db = openSqlite(databasePath, { readOnly: true });
   } catch (error) {
     // sqlite's own message ("unable to open database file") does not name
     // the path, and this text reaches the operator as the `status` warning
@@ -406,10 +406,12 @@ function readIndexedFilePaths(projectRoot: string): readonly string[] {
   }
 }
 
-function queryIndexedPaths(db: Database.Database, databasePath: string): readonly string[] {
+function queryIndexedPaths(db: SqliteDatabase, databasePath: string): readonly string[] {
   let rows: readonly { readonly path: string }[];
   try {
-    rows = db.prepare('SELECT path FROM files').all() as readonly { readonly path: string }[];
+    rows = db.prepare('SELECT path FROM files').all() as unknown as readonly {
+      readonly path: string;
+    }[];
   } catch (error) {
     throw new Error(
       `codegraph index ${databasePath}: ${error instanceof Error ? error.message : String(error)}`

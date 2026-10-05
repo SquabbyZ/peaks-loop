@@ -1,4 +1,4 @@
-import type Database from 'better-sqlite3';
+import type { SqliteDatabase } from '../sqlite/sqlite-driver.js';
 
 export interface ReleaseDiff {
   added: string[];
@@ -18,7 +18,7 @@ export function releaseDiff({
   fromVersion,
   toVersion
 }: {
-  db: Database.Database;
+  db: SqliteDatabase;
   beeName: string;
   fromVersion: string;
   toVersion: string;

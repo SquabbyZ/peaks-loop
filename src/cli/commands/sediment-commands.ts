@@ -417,10 +417,10 @@ export async function runSediment(argv: string[], { home }: { home: string }): P
             BeeManifestRow | undefined;
           const segments = db
             .prepare('SELECT * FROM bee_segment_ref WHERE release_id = ?')
-            .all(id) as BeeSegmentRefRow[];
+            .all(id) as unknown as BeeSegmentRefRow[];
           const files = db
             .prepare('SELECT * FROM bee_file WHERE release_id = ?')
-            .all(id) as BeeFileRow[];
+            .all(id) as unknown as BeeFileRow[];
           return { ok: true, data: { release: row, manifest, segments, files } };
         } finally {
           db.close();

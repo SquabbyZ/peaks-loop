@@ -1,4 +1,4 @@
-import type Database from 'better-sqlite3';
+import type { SqlInputValue, SqliteDatabase } from '../sqlite/sqlite-driver.js';
 import { z } from 'zod';
 import { parseJson } from '../../shared/json-parse.js';
 import {
@@ -55,7 +55,7 @@ const SCHEMA_VERSION = 'peaks.crystallization/1' as const;
  * already-open database. Used by tests that build their own DB
  * without the openStateDb pipeline. Idempotent.
  */
-export function ensureCrystallizationEventTable(db: Database.Database): void {
+export function ensureCrystallizationEventTable(db: SqliteDatabase): void {
   db.exec(`
     CREATE TABLE IF NOT EXISTS crystallization_event (
       id                          TEXT PRIMARY KEY,
@@ -144,7 +144,7 @@ function rowToCrystallizationEvent(row: CrystallizationEventRow): Crystallizatio
  * Returns the persisted row.
  */
 export function insertCrystallizationEvent(
-  db: Database.Database,
+  db: SqliteDatabase,
   row: CrystallizationEventInput
 ): CrystallizationEvent {
   const id = newCrystallizationId();
@@ -188,7 +188,7 @@ export function insertCrystallizationEvent(
 
 /** Read a single CrystallizationEvent row by id; returns undefined if absent. */
 export function getCrystallizationEvent(
-  db: Database.Database,
+  db: SqliteDatabase,
   id: string
 ): CrystallizationEvent | undefined {
   const row = db.prepare('SELECT * FROM crystallization_event WHERE id = ?').get(id) as
@@ -203,7 +203,7 @@ export function getCrystallizationEvent(
  * every event (newest-first by `created_at`).
  */
 export function listCrystallizationEvents(
-  db: Database.Database,
+  db: SqliteDatabase,
   opts: {
     lifecycle_status?: CrystallizationEventStatus;
     created_loop_release_id?: string;
@@ -213,7 +213,7 @@ export function listCrystallizationEvents(
   } = {}
 ): CrystallizationEvent[] {
   const wheres: string[] = [];
-  const params: unknown[] = [];
+  const params: SqlInputValue[] = [];
   if (opts.lifecycle_status !== undefined) {
     wheres.push('lifecycle_status = ?');
     params.push(opts.lifecycle_status);
@@ -237,7 +237,7 @@ export function listCrystallizationEvents(
   let sql = 'SELECT * FROM crystallization_event';
   if (wheres.length > 0) sql += ' WHERE ' + wheres.join(' AND ');
   sql += ' ORDER BY created_at DESC, id ASC';
-  const rows = db.prepare(sql).all(...params) as CrystallizationEventRow[];
+  const rows = db.prepare(sql).all(...params) as unknown as CrystallizationEventRow[];
   return rows.map(rowToCrystallizationEvent);
 }
 
@@ -250,7 +250,7 @@ export function listCrystallizationEvents(
  * other evidence (mirroring the evolution-store design).
  */
 export function updateCrystallizationEventStatus(
-  db: Database.Database,
+  db: SqliteDatabase,
   id: string,
   next: CrystallizationEventStatus
 ): CrystallizationEvent | undefined {

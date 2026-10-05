@@ -66,6 +66,7 @@
   },
   "files": [
     "bin/peaks.js",
+    "bin/node-floor.mjs",
     "dist/cli/index.js",
     "dist/**/*.js",
     "dist/**/*.d.ts",
@@ -152,13 +153,12 @@
     ]
   },
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=24.0.0"
   },
   "dependencies": {
     "@alibaba-group/open-code-review": "^1.8.9",
     "@colbymchenry/codegraph": "0.7.10",
     "@upstash/context7-mcp": "^4.0.2",
-    "better-sqlite3": "^12.11.1",
     "commander": "^12.1.0",
     "fzf": "^0.5.2",
     "peaks-loop-internal-runtime": "workspace:*",
@@ -175,7 +175,6 @@
     "@stryker-mutator/core": "^8.7.1",
     "@stryker-mutator/typescript-checker": "^8.7.1",
     "@stryker-mutator/vitest-runner": "^9.6.1",
-    "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^22.10.2",
     "@types/picomatch": "4.0.3",
     "@typescript-eslint/eslint-plugin": "8.66.0",

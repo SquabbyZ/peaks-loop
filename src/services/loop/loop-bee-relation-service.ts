@@ -1,4 +1,4 @@
-import type Database from 'better-sqlite3';
+import { constraintKind, type SqliteDatabase } from '../sqlite/sqlite-driver.js';
 import { ZodError } from 'zod';
 import {
   LoopBeeRelationSchema,
@@ -68,7 +68,7 @@ export class LoopBeeRelationIntegrityError extends Error {
  *      — enforced at DB level (UNIQUE).
  *      — surfaced as DUP_RELATION for friendlier errors.
  *
- * The constructor takes an open better-sqlite3 database (the existing
+ * The constructor takes an open SQLite database (the existing
  * `peaks state` boundary) so callers do not have to thread a path
  * through this layer; this matches the LoopReleaseService pattern.
  *
@@ -76,9 +76,9 @@ export class LoopBeeRelationIntegrityError extends Error {
  * the boundary-check discipline used elsewhere.
  */
 export class LoopBeeRelationService {
-  private readonly db: Database.Database;
+  private readonly db: SqliteDatabase;
 
-  constructor(db: Database.Database) {
+  constructor(db: SqliteDatabase) {
     this.db = db;
     // Idempotent — safe to call on every constructor invocation; the
     // openStateDb pipeline already applied the SQL migration, but a
@@ -156,15 +156,16 @@ export class LoopBeeRelationService {
     try {
       return insertLoopBeeRelation(this.db, parsed);
     } catch (err: unknown) {
-      const code = typeof err === 'object' && err !== null && 'code' in err ? err.code : undefined;
+      // The driver's error CODE is not portable across SQLite bindings, so the question
+      // "which constraint failed" is asked of the seam, which reads node:sqlite's `errcode`
+      // (2067 / 787) and better-sqlite3's `code` alike.
+      const kind = constraintKind(err);
       // Partial unique index on (loop_release_id) WHERE role='main'.
-      // better-sqlite3 surfaces this as SQLITE_CONSTRAINT_UNIQUE with
-      // a message naming only `loop_bee_relation.loop_release_id`
-      // (the column the partial index covers), NOT the index name.
-      // It is distinguished from the (loop_release_id, bee_release_id)
-      // composite UNIQUE violation by the absence of bee_release_id
-      // in the message.
-      if (code === 'SQLITE_CONSTRAINT_UNIQUE') {
+      // It surfaces as a UNIQUE violation whose message names only
+      // `loop_bee_relation.loop_release_id` (the column the partial index covers), NOT the
+      // index name. It is distinguished from the (loop_release_id, bee_release_id)
+      // composite UNIQUE violation by the absence of bee_release_id in the message.
+      if (kind === 'unique') {
         const msg = err instanceof Error ? err.message : String(err);
         if (msg.includes('loop_bee_relation.bee_release_id')) {
           // Composite UNIQUE(loop_release_id, bee_release_id).
@@ -191,8 +192,8 @@ export class LoopBeeRelationService {
           ]
         );
       }
-      // FK violations from better-sqlite3 (foreign_keys = ON).
-      if (code === 'SQLITE_CONSTRAINT_FOREIGNKEY') {
+      // FK violations (foreign_keys = ON, which `openStateDb` turns on).
+      if (kind === 'foreign-key') {
         // Distinguish by re-checking which row is missing; the friendly
         // pre-check above should have caught these, but defense in depth.
         const loopStill = this.db
@@ -247,8 +248,7 @@ export class LoopBeeRelationService {
     try {
       return updateLoopBeeRelationRole(this.db, id, newRole);
     } catch (err: unknown) {
-      const code = typeof err === 'object' && err !== null && 'code' in err ? err.code : undefined;
-      if (code === 'SQLITE_CONSTRAINT_UNIQUE') {
+      if (constraintKind(err) === 'unique') {
         const existing = getLoopBeeRelation(this.db, id);
         const loopId = existing?.loop_release_id ?? '<unknown>';
         throw new LoopBeeRelationIntegrityError(

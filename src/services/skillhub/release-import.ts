@@ -1,6 +1,6 @@
 import { readFileSync, mkdirSync, writeFileSync, existsSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
-import type Database from 'better-sqlite3';
+import { transaction, type SqliteDatabase } from '../sqlite/sqlite-driver.js';
 import { assertNotSystemPath } from '../sediment/pool-paths.js';
 import { runTar } from './tar-runtime.js';
 import type { ExportPayload } from './types.js';
@@ -11,7 +11,7 @@ export function importRelease({
   inPath,
   asName
 }: {
-  db: Database.Database;
+  db: SqliteDatabase;
   blobsDir: string;
   inPath: string;
   asName?: string;
@@ -54,7 +54,7 @@ export function importRelease({
   // payloads may carry these explicitly (M7 bundle format); until
   // then M3 keeps defaulting on the insert path so existing call
   // sites stay source-compatible.
-  const tx = db.transaction(() => {
+  const tx = transaction(db, () => {
     const ins = db.prepare(
       `INSERT INTO bee_release (bee_name, version, source, archived_at, archived_by, user_intent_raw, description, parent_version, changelog, shareable, desktop_visible) VALUES (?, ?, 'user', ?, 'user', ?, ?, ?, ?, 1, 1)`
     );

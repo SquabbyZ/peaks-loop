@@ -1,6 +1,6 @@
 import { readdirSync, rmSync, existsSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import type Database from 'better-sqlite3';
+import type { SqliteDatabase } from '../sqlite/sqlite-driver.js';
 
 /**
  * Garbage-collect content-addressed blobs under `blobsDir/<aa>/<sha>` that
@@ -14,7 +14,7 @@ export function gcBlobs({
   blobsDir,
   dryRun
 }: {
-  db: Database.Database;
+  db: SqliteDatabase;
   blobsDir: string;
   dryRun: boolean;
 }): string[] {

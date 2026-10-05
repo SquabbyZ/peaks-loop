@@ -39,7 +39,7 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import Database from 'better-sqlite3';
+import { openSqlite } from '../../../src/services/sqlite/sqlite-driver.js';
 import { describe, expect, it } from 'vitest';
 
 import { check } from '~/src/services/doctor/doctor-service/checks/codegraph-index-integrity';
@@ -390,7 +390,7 @@ describe('capability:codegraph-index-integrity (integration)', () => {
         );
 
         // A real index db with upstream's real `files` schema.
-        const db = new Database(join(root, '.codegraph', 'codegraph.db'));
+        const db = openSqlite(join(root, '.codegraph', 'codegraph.db'));
         db.exec(
           'CREATE TABLE files (path TEXT PRIMARY KEY, content_hash TEXT NOT NULL, language TEXT NOT NULL, size INTEGER NOT NULL, modified_at INTEGER NOT NULL, indexed_at INTEGER NOT NULL, node_count INTEGER DEFAULT 0, errors TEXT)'
         );

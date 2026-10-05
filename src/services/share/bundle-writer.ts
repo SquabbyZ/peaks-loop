@@ -41,7 +41,7 @@
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
-import type Database from 'better-sqlite3';
+import type { SqlInputValue, SqliteDatabase } from '../sqlite/sqlite-driver.js';
 import { z } from 'zod';
 import { parseJson } from '../../shared/json-parse.js';
 import { runTar } from '../skillhub/tar-runtime.js';
@@ -81,7 +81,7 @@ const storedStringListSchema = z.array(z.string());
  * on `shareable=false` sources.
  */
 export type WriteBundleArgs = {
-  db: Database.Database;
+  db: SqliteDatabase;
   /** Blobs root for content-addressed file lookup. */
   blobsDir: string;
   /** Bundle kind — `loop` or `bee`. */
@@ -142,10 +142,7 @@ export class BundleAssetNotFoundError extends Error {
  * validated when it was written to the DB; the reader validates
  * on the way back in.
  */
-function readLoopReleaseRow(
-  db: Database.Database,
-  id: string
-): Record<string, unknown> | undefined {
+function readLoopReleaseRow(db: SqliteDatabase, id: string): Record<string, unknown> | undefined {
   const row = db.prepare('SELECT * FROM loop_release WHERE id = ?').get(id) as
     Record<string, unknown> | undefined;
   if (!row) return undefined;
@@ -183,10 +180,7 @@ function readLoopReleaseRow(
  * includes `bee_release`, plus the inline manifest/segment/file/change
  * rows so the receiver can re-materialize the full bee.
  */
-function readBeeReleaseBundle(
-  db: Database.Database,
-  id: number
-): Record<string, unknown> | undefined {
+function readBeeReleaseBundle(db: SqliteDatabase, id: number): Record<string, unknown> | undefined {
   const release = db.prepare('SELECT * FROM bee_release WHERE id = ?').get(id) as
     Record<string, unknown> | undefined;
   if (!release) return undefined;
@@ -214,24 +208,24 @@ function readBeeReleaseBundle(
  * Internal: read loop_bee_relation rows for a given loop.
  */
 function readLoopBeeRelationsForLoop(
-  db: Database.Database,
+  db: SqliteDatabase,
   loopId: string
 ): Array<Record<string, unknown>> {
   return db
     .prepare('SELECT * FROM loop_bee_relation WHERE loop_release_id = ? ORDER BY id ASC')
-    .all(loopId) as Array<Record<string, unknown>>;
+    .all(loopId);
 }
 
 /**
  * Internal: read loop_bee_relation rows for a given bee.
  */
 function readLoopBeeRelationsForBee(
-  db: Database.Database,
+  db: SqliteDatabase,
   beeReleaseId: number
 ): Array<Record<string, unknown>> {
   return db
     .prepare('SELECT * FROM loop_bee_relation WHERE bee_release_id = ? ORDER BY id ASC')
-    .all(beeReleaseId) as Array<Record<string, unknown>>;
+    .all(beeReleaseId);
 }
 
 /**
@@ -241,11 +235,11 @@ function readLoopBeeRelationsForBee(
  * the asset is captured.
  */
 function readEvidenceBriefsForAsset(
-  db: Database.Database,
+  db: SqliteDatabase,
   refs: { loopId?: string; beeReleaseId?: number }
 ): Array<Record<string, unknown>> {
   const wheres: string[] = [];
-  const params: unknown[] = [];
+  const params: SqlInputValue[] = [];
   if (refs.loopId !== undefined) {
     wheres.push('created_loop_release_id = ?');
     params.push(refs.loopId);
@@ -331,7 +325,7 @@ export function writeBundle(args: WriteBundleArgs): {
 /* ---------------------------------------------------------------------- */
 
 function writeLoopBundle(args: {
-  db: Database.Database;
+  db: SqliteDatabase;
   blobsDir: string;
   loopId: string;
   outPath: string;
@@ -423,7 +417,7 @@ function writeLoopBundle(args: {
 /* ---------------------------------------------------------------------- */
 
 function writeBeeBundle(args: {
-  db: Database.Database;
+  db: SqliteDatabase;
   blobsDir: string;
   beeReleaseId: number;
   outPath: string;

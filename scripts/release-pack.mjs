@@ -249,7 +249,7 @@ function main() {
 // when a test or another module imports `release-pack.mjs` for
 // side-effect-free access to exports. This is the canonical
 // ESM equivalent of `if __name__ == "__main__"` and works on
-// Node 20 LTS (the project's `engines.node` floor) through the
+// Node '>=24.0.0' (the project's `engines.node` floor) through the
 // latest LTS — we deliberately avoid `import.meta.main` which is
 // only present on Node 22.6+.
 function isDirectInvocation() {

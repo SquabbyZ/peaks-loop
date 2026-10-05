@@ -16,7 +16,7 @@
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import Database from 'better-sqlite3';
+import { applyPragmas, openSqlite } from '../../../src/services/sqlite/sqlite-driver.js';
 
 import type { makeCapturedIo } from '../_setup/io.js';
 import type { TmpWorkspace } from '../_setup/tmp-workspace.js';
@@ -100,8 +100,8 @@ export function seedProject(ws: TmpWorkspace, fixture: Fixture): string {
   }
 
   if (fixture.database !== false) {
-    const db = new Database(join(ws.path, '.codegraph', 'codegraph.db'));
-    db.pragma('journal_mode = WAL');
+    const db = openSqlite(join(ws.path, '.codegraph', 'codegraph.db'));
+    applyPragmas(db, ['journal_mode = WAL']);
     if (fixture.filesTable !== false) {
       db.exec(FILES_TABLE_SQL);
       const insert = db.prepare(

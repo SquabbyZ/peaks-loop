@@ -1,4 +1,4 @@
-import type Database from 'better-sqlite3';
+import type { SqliteDatabase } from '../sqlite/sqlite-driver.js';
 import { ZodError } from 'zod';
 import {
   EvolutionEvaluationSchema,
@@ -76,9 +76,9 @@ export class EvolutionIntegrityError extends Error {
 /* ---------------------------------------------------------------------- */
 
 export class EvolutionService {
-  private readonly db: Database.Database;
+  private readonly db: SqliteDatabase;
 
-  constructor(db: Database.Database) {
+  constructor(db: SqliteDatabase) {
     this.db = db;
     // Idempotent — safe to call on every constructor invocation; the
     // openStateDb pipeline already applied the SQL migration, but a

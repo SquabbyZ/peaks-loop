@@ -1,4 +1,4 @@
-import type Database from 'better-sqlite3';
+import type { SqlInputValue, SqliteDatabase } from '../sqlite/sqlite-driver.js';
 import { z } from 'zod';
 import { parseJson } from '../../shared/json-parse.js';
 import {
@@ -58,7 +58,7 @@ const OptimizationDimensionsJsonSchema = z.tuple([z.string()]).rest(z.string());
  * already-open database. Used by tests that build their own DB
  * without the openStateDb pipeline. Idempotent.
  */
-export function ensureEvolutionEvaluationTable(db: Database.Database): void {
+export function ensureEvolutionEvaluationTable(db: SqliteDatabase): void {
   db.exec(EVOLUTION_EVALUATION_MIGRATION);
 }
 
@@ -169,7 +169,7 @@ function rowToEvaluation(row: EvolutionEvaluationRow): EvolutionEvaluation {
  * clock here, so callers cannot backdate a row.
  */
 export function insertEvolutionEvaluation(
-  db: Database.Database,
+  db: SqliteDatabase,
   evalRow: EvolutionEvaluationInput
 ): void {
   const stmt = db.prepare(
@@ -194,7 +194,7 @@ export function insertEvolutionEvaluation(
     JSON.stringify(evalRow.proposal.diff),
     evalRow.proposal.before_score,
     evalRow.proposal.after_score,
-    evalRow.proposal.score_delta_min,
+    evalRow.proposal.score_delta_min ?? null,
     computeScoreDelta(evalRow.proposal.before_score, evalRow.proposal.after_score),
     evalRow.proposal.author_id,
     evalRow.evaluator_id,
@@ -205,7 +205,7 @@ export function insertEvolutionEvaluation(
     JSON.stringify(evalRow.proposal.rubric),
     JSON.stringify(evalRow.proposal.red_lines),
     JSON.stringify(evalRow.proposal.source_traces),
-    evalRow.schema_version,
+    evalRow.schema_version ?? null,
     evalRow.created_at
   );
 }
@@ -215,7 +215,7 @@ export function insertEvolutionEvaluation(
  * absent.
  */
 export function getEvolutionEvaluation(
-  db: Database.Database,
+  db: SqliteDatabase,
   id: string
 ): EvolutionEvaluation | undefined {
   const row = db.prepare('SELECT * FROM evolution_evaluation WHERE id = ?').get(id) as
@@ -229,17 +229,17 @@ export function getEvolutionEvaluation(
  * `verdict` to scope the listing.
  */
 export function listEvolutionEvaluationsByTarget(
-  db: Database.Database,
+  db: SqliteDatabase,
   opts: { target_kind: EvolutionTargetKind; target_release_id: string; verdict?: EvolutionVerdict }
 ): EvolutionEvaluation[] {
-  const params: unknown[] = [opts.target_kind, opts.target_release_id];
+  const params: SqlInputValue[] = [opts.target_kind, opts.target_release_id];
   let sql = 'SELECT * FROM evolution_evaluation WHERE target_kind = ? AND target_release_id = ?';
   if (opts.verdict) {
     sql += ' AND verdict = ?';
     params.push(opts.verdict);
   }
   sql += ' ORDER BY created_at DESC, id ASC';
-  const rows = db.prepare(sql).all(...params) as EvolutionEvaluationRow[];
+  const rows = db.prepare(sql).all(...params) as unknown as EvolutionEvaluationRow[];
   return rows.map(rowToEvaluation);
 }
 
@@ -252,7 +252,7 @@ export function listEvolutionEvaluationsByTarget(
  * transition `revert` is always allowed and `keep` requires
  */
 export function updateEvolutionVerdict(
-  db: Database.Database,
+  db: SqliteDatabase,
   id: string,
   verdict: EvolutionVerdict,
   userConfirmationPointer?: string
