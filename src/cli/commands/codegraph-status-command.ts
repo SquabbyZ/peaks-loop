@@ -44,8 +44,8 @@ import {
   type ProgramIO
 } from '../cli-helpers.js';
 import {
+  localizeUpstreamCodegraphText,
   printCodegraphFailure,
-  rewriteBareCodegraphHints,
   runCodegraphCommand,
   type CommonCodegraphOptions
 } from './codegraph-command-runtime.js';
@@ -145,8 +145,8 @@ async function runCodegraphStatusJson(
 
   const upstream = {
     exitCode: result.exitCode,
-    stdout: rewriteBareCodegraphHints(result.stdout).trimEnd(),
-    stderr: redactSensitiveErrorMessage(rewriteBareCodegraphHints(result.stderr)).trimEnd()
+    stdout: localizeUpstreamCodegraphText(result.stdout).trimEnd(),
+    stderr: redactSensitiveErrorMessage(localizeUpstreamCodegraphText(result.stderr)).trimEnd()
   };
   const upstreamFailed = result.exitCode !== null && result.exitCode !== 0;
   const data = {
