@@ -56,7 +56,7 @@ The `.peaks/` workspace is partitioned by a **single scope axis** (session-id, a
 When a workflow surfaces a human need (a sentence, a ticket summary, a voice note, a vague "I want X"), call `peaks-audit` BEFORE any other skill:
 
 ```text
-need expressed  →  peaks audit-goal  →  (user accepts goal)  →  peaks-prd  →  peaks-rd  →  peaks-qa
+need expressed  →  peaks audit goal  →  (user accepts goal)  →  peaks-prd  →  peaks-rd  →  peaks-qa
                        ▲
                        │
               you are here on first contact
@@ -80,14 +80,14 @@ Do NOT invoke peaks-audit when the user is asking for a code review, a test run,
 ### Intended CLI form (L2.4 — not yet registered in `src/cli/commands/audit-commands.ts`)
 
 ```bash
-peaks audit-goal --need "<natural language description of the need>" --json
+peaks audit goal --need "<natural language description of the need>" --json
 ```
 
 > **Deviation note:** at the time of this writing, only `peaks audit red-lines` and `peaks audit static` are registered as `peaks audit` subcommands. The `audit-goal` subcommand is **not yet wired** in `src/cli/commands/audit-commands.ts`. Callers reach the primitive through the TypeScript module below. The CLI registration is tracked separately and must not be conflated with the primitive itself.
 
 ### Service-layer form (authoritative, used today)
 
-`peaks audit-goal` is a thin wrapper around the `auditGoal()` function in `src/services/audit/audit-goal-service.ts`. Two integration paths exist today:
+`peaks audit goal` is a thin wrapper around the `auditGoal()` function in `src/services/audit/audit-goal-service.ts`. Two integration paths exist today:
 
 **1. Direct TypeScript call** (used by `src/services/final-review/final-review-service.ts`, `src/services/slice/llm-arbitrator.ts`, `src/services/slice/multi-pass-orchestrator.ts`):
 
