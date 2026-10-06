@@ -597,22 +597,22 @@ export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
         deriveMemoryQuery(role, options.prompt)
       );
       // codegraph preflight for RD planning. BEFORE the RD sub-agent's
-      // prompt is composed, ensure the codegraph index exists (init +
-      // index best-effort when `.codegraph/` is absent; skip when already
-      // fresh) and read a BOUNDED project-structure summary. The block is
-      // only requested for the `rd` role — other roles keep the legacy
-      // prompt byte-identical. Fail-soft: any codegraph failure degrades
-      // to a null block (builder renders the "codegraph unavailable" note)
-      // and the dispatch proceeds; we never hard-block RD dispatch here.
+      // prompt is composed, ensure the index exists (init + index best-effort
+      // when `.codegraph/` is absent) and read a BOUNDED structure summary.
+      // `rd` only — other roles keep the legacy prompt byte-identical.
+      // Fail-soft: any failure degrades and dispatch proceeds. On failure the
+      // preflight's NOTE — the upstream cause — travels as the same value as
+      // the block, so the reason cannot be dropped while the block survives.
+      // The old `block : null` dropped it, so every degraded dispatch read as success.
       let codegraphBlock: string | null | undefined;
       if (role === 'rd') {
         try {
           const { buildCodegraphPreflightBlock } =
             await import('../../services/codegraph/codegraph-preflight-service.js');
           const preflight = await buildCodegraphPreflightBlock(projectRoot);
-          codegraphBlock = preflight.available ? preflight.block : null;
-        } catch {
-          codegraphBlock = null; // fail-soft: never block RD dispatch
+          codegraphBlock = preflight.available ? preflight.block : preflight.note;
+        } catch (error) {
+          codegraphBlock = `codegraph preflight threw: ${getErrorMessage(error)}`;
         }
       }
       // component library (+ CSS framework + build tool) in the RD/UI

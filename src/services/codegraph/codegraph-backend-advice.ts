@@ -102,8 +102,23 @@ function isBackendAdvice(raw: string): boolean {
   );
 }
 
+/**
+ * True when the line is one of the 72-dash frames upstream draws around its
+ * blocks.
+ *
+ * Exported for the failure-note builders, because a frame is never a cause and
+ * the block removal alone does not get rid of every one: the frame's CLOSING
+ * rule survives whenever the cause line follows it with no blank line between
+ * (measured 2026-10-06 against the real binary — `files` on an unreadable store
+ * leaves `────…` and then `[ERR] Failed to list files: file is not a database`,
+ * and the note quoted the rule).
+ */
+export function isBackendRuleLine(raw: string): boolean {
+  return RULE_LINE_PATTERN.test(withoutSgr(raw).trim());
+}
+
 function isRuleLine(raw: string | undefined): boolean {
-  return raw !== undefined && RULE_LINE_PATTERN.test(withoutSgr(raw).trim());
+  return raw !== undefined && isBackendRuleLine(raw);
 }
 
 /** The index of the last line the block owns, starting after its intro. A

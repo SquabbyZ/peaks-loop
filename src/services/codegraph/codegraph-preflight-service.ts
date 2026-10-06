@@ -40,7 +40,7 @@ import {
   type CodegraphProcessRunner
 } from './codegraph-service.js';
 import { defaultCodegraphProcessRunner } from './codegraph-process-runner.js';
-import { dropSqliteBackendAdvice } from './codegraph-backend-advice.js';
+import { dropSqliteBackendAdvice, isBackendRuleLine } from './codegraph-backend-advice.js';
 import { repairCodegraphExcludeFromProject } from './codegraph-exclude-repair.js';
 import {
   CODEGRAPH_STRUCTURE_MAX_DIRS,
@@ -138,9 +138,16 @@ function firstMeaningfulLine(text: string): string {
   // else, so the raw first line of stderr is a box-drawing frame — and the
   // line after it names a package this project removed. Neither is the
   // failure cause, and this function exists to name the cause.
-  const trimmed = dropSqliteBackendAdvice(text).trim();
-  if (trimmed.length === 0) return 'no upstream output';
-  const first = trimmed.split(/\r?\n/)[0];
+  //
+  // Removing the block is not enough on its own: the frame's CLOSING rule
+  // survives whenever the cause follows it with no blank line between, which is
+  // exactly what the real binary prints (measured 2026-10-06 — `files` on an
+  // unreadable store leaves `────…`, then `[ERR] Failed to list files: file is
+  // not a database`). A frame is not a cause, so frames are skipped.
+  const first = dropSqliteBackendAdvice(text)
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .find((line) => line.length > 0 && !isBackendRuleLine(line));
   return first !== undefined ? first.slice(0, 200) : 'no upstream output';
 }
 

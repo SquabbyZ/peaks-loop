@@ -14,6 +14,7 @@
 import type { MemoryPreflightResult } from './memory-preflight-service.js';
 import type { ContextPercentProbe } from './auto-compact-types.js';
 import { formatTestToolDetection } from '../dispatch/test-tool-detection.js';
+import { resolveCodegraphBlock } from './codegraph-unavailable-block.js';
 
 export interface DispatchPromptInput {
   taskTitle: string;
@@ -34,11 +35,11 @@ export interface DispatchPromptInput {
    * plans against real module/file topology, not LLM memory.
    *
    * - `undefined` → no codegraph block (legacy callers unchanged).
-   * - `null` → codegraph was attempted but is unavailable; the composer
-   *   renders a fixed "codegraph unavailable — proceeding on project-scan
-   *   only" note (fail-soft; never hard-blocks a dispatch).
-   * - `string` → the block, rendered verbatim between the context window
-   *   and the memory/task content.
+   * - `null` → codegraph was attempted and no reason was obtained; the
+   *   composer renders the fallback that SAYS the reason is missing.
+   * - `string` → the structure block, or the preflight's failure NOTE when the
+   *   index could not be read — the composer turns the note into an unavailable
+   *   block that QUOTES it, so the reason cannot be dropped on its own.
    */
   codegraphBlock?: string | null;
   /**
@@ -277,13 +278,13 @@ function renderCapsulePointer(
 }
 
 /**
- * when the RD dispatch preflight requested a codegraph structure read but
- * the index could not be resolved (absent + init failure, foreign schema,
- * unparseable output). Kept as a constant so the unavailable branch is
- * byte-stable and trivially testable.
+ * the truly reasonless fallback: rendered only when the caller passes `null`,
+ * i.e. a codegraph was attempted and NOTHING was learned about why it failed.
+ * It must never stand in for a reason that exists, which is why its text says
+ * the reason was not obtained rather than the bare "unavailable" that reads
+ * exactly like the success line it replaced.
  */
-export const CODEGRAPH_UNAVAILABLE_BLOCK =
-  '## Codegraph structure\n\ncodegraph unavailable — proceeding on project-scan only.\n';
+export const CODEGRAPH_UNAVAILABLE_BLOCK = resolveCodegraphBlock(null);
 
 /**
  * Render the codegraph insertion for a dispatch prompt.
@@ -300,8 +301,7 @@ export const CODEGRAPH_UNAVAILABLE_BLOCK =
  */
 function renderCodegraphBlock(codegraphBlock: string | null | undefined): string {
   if (codegraphBlock === undefined) return '';
-  const text = codegraphBlock === null ? CODEGRAPH_UNAVAILABLE_BLOCK : codegraphBlock;
-  return `${text.replace(/\s+$/, '')}\n\n`;
+  return `${resolveCodegraphBlock(codegraphBlock).replace(/\s+$/, '')}\n\n`;
 }
 
 /**
