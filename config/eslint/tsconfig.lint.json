@@ -33,7 +33,8 @@
     "../../scripts/dist-freshness.mjs",
     "../../scripts/install-skills.mjs",
     "../../scripts/packages-build-prerequisite.mjs",
-    "../../scripts/verify-version-parity.mjs"
+    "../../scripts/verify-version-parity.mjs",
+    "../../scripts/canonical-store.mjs"
   ],
   "include": [
     "../../src/**/*",
