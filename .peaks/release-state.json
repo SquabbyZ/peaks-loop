@@ -1,29 +1,6 @@
 {
   "version": 1,
-  "active": {
-    "version": "4.1.1",
-    "currentStage": "promoted",
-    "stageHistory": [
-      {
-        "stage": "planned",
-        "at": "2026-10-04T16:20:34.738Z"
-      },
-      {
-        "stage": "canary-10",
-        "at": "2026-10-04T16:40:27.317Z"
-      },
-      {
-        "stage": "canary-50",
-        "at": "2026-10-04T16:40:33.078Z"
-      },
-      {
-        "stage": "promoted",
-        "at": "2026-10-04T16:40:40.460Z"
-      }
-    ],
-    "createdAt": "2026-10-04T16:20:34.738Z",
-    "promotedAt": "2026-10-04T16:40:40.460Z"
-  },
+  "active": null,
   "history": [
     {
       "version": "4.0.52",
@@ -56,6 +33,35 @@
       "createdAt": "2026-09-17T02:49:55.500Z",
       "promotedAt": "2026-09-17T02:56:15.140Z",
       "doneAt": "2026-09-18T12:47:37.023Z"
+    },
+    {
+      "version": "4.1.1",
+      "currentStage": "done",
+      "stageHistory": [
+        {
+          "stage": "planned",
+          "at": "2026-10-04T16:20:34.738Z"
+        },
+        {
+          "stage": "canary-10",
+          "at": "2026-10-04T16:40:27.317Z"
+        },
+        {
+          "stage": "canary-50",
+          "at": "2026-10-04T16:40:33.078Z"
+        },
+        {
+          "stage": "promoted",
+          "at": "2026-10-04T16:40:40.460Z"
+        },
+        {
+          "stage": "done",
+          "at": "2026-10-06T02:13:41.212Z"
+        }
+      ],
+      "createdAt": "2026-10-04T16:20:34.738Z",
+      "promotedAt": "2026-10-04T16:40:40.460Z",
+      "doneAt": "2026-10-06T02:13:41.212Z"
     }
   ]
 }
