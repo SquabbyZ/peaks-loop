@@ -26,6 +26,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 // unconditional. MUST stay in `package.json#files`: this file IS the npm
 // postinstall, and an unpublished sibling import breaks every user's install.
 import { reconcileCanonicalEntry } from './canonical-store.mjs';
+import { pruneBundledEntries } from './canonical-store-prune.mjs';
 
 function getPathStats(path) {
   try {
@@ -775,28 +776,15 @@ export function installBundledSkills(options = {}) {
     const targetPath = join(targetRoot, skillName);
 
     // Slice 2 (`agents-canonical-store`) — the entry points at the CANONICAL
-    // STORE (`~/.peaks/skills/<name>`), not at `<packageRoot>/skills/<name>`.
-    //
-    // WHY THE TARGET MOVED. `<packageRoot>` changes on every
-    // `npm i -g peaks-loop@latest`, so the old target bound each link to a
-    // VERSION: one upgrade turned all 22 links per IDE directory into pointers
-    // at a tree the next install deleted. `~/.peaks/skills/<name>` is a path
-    // peaks-loop owns and that no version bump moves, so an upgrade rewrites the
-    // store in one place and no IDE link ever needs rebuilding.
-    //
-    // WHY REPAIR IS NO LONGER OPT-IN. The old loop could only unlink+rebuild
-    // when `options.reconcileJunctions === true` — an opt-in the postinstall
-    // never passed — so a stale link landed in the silent `skipped` bucket:
-    // never repaired, never reported. `reconcileCanonicalEntry` makes repair the
-    // ONLY behaviour: an entry peaks-loop owns (sidecar matches, or the link
-    // dangles) is relinked onto the store, and only a real directory the user
-    // authored is left alone and reported `skipped`.
-    //
-    // `options.reconcileJunctions` is therefore READ NOWHERE in this file. It is
-    // still accepted — `sync-service.ts` forwards it and `peaks skill sync
-    // --reconcile-junctions` parses it — so passing it changes nothing and
-    // omitting it no longer costs the repair. Removing the flag is a CLI-surface
-    // change this slice does not own.
+    // STORE (`~/.peaks/skills/<name>`), not at `<packageRoot>/skills/<name>`,
+    // because `<packageRoot>` changes on every `npm i -g peaks-loop@latest` and
+    // the links must bind to a PATH peaks-loop owns, not to a VERSION. Repair is
+    // the only behaviour: an entry peaks-loop owns (sidecar matches, or the link
+    // dangles) is relinked onto the store; only a real directory the user authored
+    // is left alone and reported `skipped`. `options.reconcileJunctions` is
+    // therefore READ NOWHERE here — still accepted (`sync-service.ts` forwards it)
+    // so passing it changes nothing, and removing it is a CLI-surface change this
+    // slice does not own.
     validateSkillsRoot();
     const reconciled = reconcileCanonicalEntry({
       kind: 'skills',
@@ -813,7 +801,17 @@ export function installBundledSkills(options = {}) {
     installed.push(skillName);
   }
 
-  return { installed, skipped };
+  // Slice 3 — PRUNE. The loop above only ever ADDS. A skill removed from the
+  // package left its canonical copy, every IDE link and every sidecar on the
+  // user's machine forever, because nothing walked the DESTINATIONS. This does,
+  // and deletes only what `isManagedEntry` proves is ours.
+  const { pruned } = pruneBundledEntries({
+    kind: 'skills',
+    keepNames: candidates.map((candidate) => candidate.skillName),
+    linkDirs: [targetRoot]
+  });
+
+  return { installed, skipped, pruned };
 }
 
 /**

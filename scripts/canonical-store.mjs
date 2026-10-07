@@ -4,20 +4,14 @@
 // `~/.agents`; HISTORY — see `rd/evidence-root-switch.md` for why it moved).
 //
 // WHY. `install-skills.mjs` linked each IDE skills dir straight at
-// `<packageRoot>/skills/<name>`, the source tree of the version installed at that
-// moment. `<packageRoot>` changes on every `npm i -g peaks-loop@latest`, so one
-// upgrade turned every link into a pointer at a directory the next install deleted:
-// the links bound to a VERSION, and must bind to a PATH peaks-loop owns instead.
-// Here the store holds the REAL COPIES; each IDE dir links to the copy; an upgrade
-// rewrites the store in one place and no IDE link ever needs rebuilding.
+// `<packageRoot>/skills/<name>`, a path that changes on every `npm i -g
+// peaks-loop@latest`: the links bound to a VERSION, not to a PATH peaks-loop owns.
 //
-// WIRED FOR SKILLS (slice 2); agents / output-styles and prune are later slices.
-// `scripts/install-skills.mjs` is the only caller today.
-// Two primitives worth naming: idempotence is by CONTENT (an asset whose bytes already
-// match is not rewritten, so no mtime moves), and link identity goes through
-// `realpath` — `readlinkSync` on a Windows junction can return a `\\?\`-prefixed or
-// differently-cased spelling of one directory, the exact trap in the installer's
-// `linkTarget === sourcePath`. Nothing here compares link strings.
+// WIRED FOR SKILLS (slice 2) and PRUNED (slice 3); agents / output-styles are later.
+// `scripts/install-skills.mjs` is the only caller today. Idempotence is by CONTENT —
+// an asset whose bytes already match is not rewritten — and OWNERSHIP is by MARKER:
+// see `isManagedEntry`, which gates the replace path here and the delete path in
+// `scripts/canonical-store-prune.mjs`.
 
 import { randomUUID } from 'node:crypto';
 import {
@@ -40,12 +34,12 @@ import { dirname, join, resolve } from 'node:path';
 /** The three asset families, parallel under the canonical root. */
 export const CANONICAL_ASSET_KINDS = Object.freeze(['skills', 'agents', 'output-styles']);
 
-/** Redirects the canonical root; tests and downstream overrides depend on it.
- *  `PEAKS_HOME` is this repo's existing name for `~/.peaks` (`src/services/sop/sop-paths.ts`). */
+/** Redirects the canonical root; `PEAKS_HOME` is this repo's existing name for
+ *  `~/.peaks` (`src/services/sop/sop-paths.ts`). */
 export const CANONICAL_ROOT_ENV = 'PEAKS_HOME';
 
 /** Sidecar suffix, same convention `install-skills.mjs` already writes. */
-const MANAGED_MARKER_SUFFIX = '.peaks-managed';
+export const MANAGED_MARKER_SUFFIX = '.peaks-managed';
 
 /** Scratch prefix for the atomic write; never a valid name (assets do not start with a dot). */
 const TEMP_PREFIX = '.peaks-tmp-';
@@ -92,6 +86,18 @@ export function linkResolvesTo(linkPath, expectedPath) {
   return actual !== null && expected !== null && actual === expected;
 }
 
+/**
+ * Does peaks-loop own `targetPath`? Our `.peaks-managed` marker beside it is the
+ * only proof: a path the user authored carries none and must never be replaced or
+ * removed (a DANGLING link counts as ours).
+ */
+export function isManagedEntry(targetPath) {
+  const stats = getPathStats(targetPath);
+  if (!stats) return false;
+  if (stats.isSymbolicLink()) return isOurLink(targetPath, stats);
+  return readManagedTarget(targetPath) !== null;
+}
+
 /** Reject anything that is not one plain path segment; names reach the filesystem. */
 function assertAssetName(name, kind) {
   if (
@@ -108,7 +114,6 @@ function assertAssetName(name, kind) {
 
 /**
  * The canonical root: `options.root`, else `$PEAKS_HOME`, else `~/.peaks`.
- *
  * @param {{ root?: string }} [options]
  */
 export function resolveCanonicalRoot(options = {}) {
@@ -121,7 +126,6 @@ export function resolveCanonicalRoot(options = {}) {
 
 /**
  * One asset family's directory inside the canonical root.
- *
  * @param {'skills' | 'agents' | 'output-styles'} kind
  * @param {{ root?: string }} [options]
  */
@@ -143,11 +147,8 @@ function validateMarkerPath(markerPath) {
   if (stats.nlink !== 1) throw new Error('Peaks managed marker path must not be hardlinked');
 }
 
-/**
- * Read the `.peaks-managed` sidecar next to `targetPath`, trimmed, or null. Same
- * convention as `install-skills.mjs`: one line holding the path that produced the
- * entry.
- */
+/** The `.peaks-managed` sidecar beside `targetPath`, trimmed, or null — the same
+ *  convention `install-skills.mjs` writes (one line holding the producing path). */
 export function readManagedTarget(targetPath) {
   const markerPath = `${targetPath}${MANAGED_MARKER_SUFFIX}`;
   validateMarkerPath(markerPath);
@@ -209,11 +210,10 @@ function contentMatches(sourcePath, targetPath) {
 }
 
 /**
- * Materialise `sourcePath` as a REAL COPY at `<kindRoot>/<name>`.
- *
- * Idempotent by content: when the copy already holds the same bytes nothing is
- * rewritten and no mtime moves. The sidecar is refreshed only if it disagrees, which
- * lets provenance follow the package path across upgrades without touching the asset.
+ * Materialise `sourcePath` as a REAL COPY at `<kindRoot>/<name>`: idempotent by
+ * content, and REFUSING when the landing path is not ours — an existing entry with
+ * no marker beside it gets `action: 'unmanaged'` instead of the `rmSync` that used
+ * to run unconditionally (the `~/.peaks/agents/ecc` shape).
  *
  * @param {{ sourcePath: string, name: string, kind: string, root?: string }} options
  */
@@ -223,6 +223,9 @@ export function ensureCanonicalCopy(options) {
   const kindRoot = resolveKindRoot(kind, options);
   const canonicalPath = join(kindRoot, name);
 
+  if (getPathStats(canonicalPath) && !isManagedEntry(canonicalPath)) {
+    return { canonicalPath, action: 'unmanaged' };
+  }
   if (contentMatches(sourcePath, canonicalPath)) {
     if (readManagedTarget(canonicalPath) !== sourcePath) {
       writeManagedMarker(canonicalPath, sourcePath);
@@ -246,9 +249,7 @@ export function ensureCanonicalCopy(options) {
 
 /**
  * Is `linkPath` a link peaks-loop may replace? A link we own carries our sidecar
- * whose recorded path really is what the link resolves to. A DANGLING link counts
- * as ours too: that is the measured upgrade failure, where the recorded source no
- * longer exists to be compared against.
+ * whose recorded path really is what the link resolves to; a DANGLING one counts.
  */
 function isOurLink(linkPath, stats) {
   if (!stats.isSymbolicLink()) return false;
@@ -258,16 +259,16 @@ function isOurLink(linkPath, stats) {
 }
 
 /**
- * Point an IDE entry at the canonical copy, copying and repairing as needed. The
- * entry is only ever replaced when it is a link peaks-loop owns; a real directory or
- * file the user authored is left alone and reported `skipped`, because the store must
- * never clobber a hand-written skill.
+ * Point an IDE entry at the canonical copy, copying and repairing as needed. Only a
+ * link peaks-loop owns is ever replaced; a real directory the user authored is left
+ * alone and reported `skipped`. An `unmanaged` copy is never linked TO either.
  *
  * @param {{ sourcePath: string, name: string, kind: string, linkPath?: string, root?: string }} options
  */
 export function reconcileCanonicalEntry(options) {
   const { linkPath } = options;
   const copied = ensureCanonicalCopy(options);
+  if (copied.action === 'unmanaged') return { ...copied, linkAction: 'skipped' };
   if (typeof linkPath !== 'string' || linkPath.length === 0) {
     return { ...copied, linkAction: 'skipped' };
   }
