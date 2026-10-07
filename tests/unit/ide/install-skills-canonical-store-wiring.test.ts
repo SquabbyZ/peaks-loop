@@ -12,7 +12,7 @@
 // bucket: no repair, no error, 22 dead links per IDE directory.
 //
 // WHAT THIS FILE PINS. After `installBundledSkills` runs:
-//   - each IDE entry resolves to `~/.agents/skills/<name>`, a path peaks-loop owns
+//   - each IDE entry resolves to `~/.peaks/skills/<name>`, a path peaks-loop owns
 //     and that does NOT drift when the package version changes;
 //   - the canonical entry is a REAL COPY (a directory, not a link) byte-equal to the
 //     package source — so the IDE links never need rebuilding on upgrade;
@@ -24,8 +24,8 @@
 //
 // NO REAL $HOME IS TOUCHED. `$HOME` / `$USERPROFILE` are repointed at a throwaway
 // directory BEFORE the installer is imported (its `IDE_SKILL_INSTALL_PROFILES` table
-// bakes `homedir()` at module load), and `PEAKS_AGENTS_HOME` redirects the canonical
-// root at the same throwaway tree. Everything is removed in `afterAll`.
+// bakes `homedir()` at module load), and `PEAKS_HOME` redirects the canonical root
+// out of that home entirely. Everything is removed in `afterAll`.
 //
 // Dimensions covered:
 //   - behavior:    the installed/skipped records and the state they describe
@@ -69,14 +69,18 @@ const PACKAGE_ROOT = resolve(__dirname, '..', '..', '..');
 
 /** One throwaway home for the whole file; nothing below it is the real one. */
 const FAKE_HOME = mkdtempSync(join(tmpdir(), 'peaks-wiring-home-'));
-const CANONICAL_ROOT = join(FAKE_HOME, '.agents');
+// NOT `<FAKE_HOME>/.peaks`: `$HOME` is repointed at `FAKE_HOME` below, so that
+// spelling IS the unprefixed default. Keeping the two distinct means the
+// assertions here would fail if the `PEAKS_HOME` override were ever ignored —
+// the redirect stays load-bearing instead of silently agreeing with the default.
+const CANONICAL_ROOT = join(FAKE_HOME, 'canonical-store');
 const BARE_PROJECT = join(FAKE_HOME, 'bare-project');
 const IDE_SKILLS_DIR = join(FAKE_HOME, '.claude', 'skills');
 
 const previousEnv: Record<string, string | undefined> = {
   USERPROFILE: process.env.USERPROFILE,
   HOME: process.env.HOME,
-  PEAKS_AGENTS_HOME: process.env.PEAKS_AGENTS_HOME,
+  PEAKS_HOME: process.env.PEAKS_HOME,
   PEAKS_PROJECT_ROOT: process.env.PEAKS_PROJECT_ROOT,
   PEAKS_SKIP_SKILL_INSTALL: process.env.PEAKS_SKIP_SKILL_INSTALL
 };
@@ -86,7 +90,7 @@ const previousEnv: Record<string, string | undefined> = {
 mkdirSync(BARE_PROJECT, { recursive: true });
 process.env.USERPROFILE = FAKE_HOME;
 process.env.HOME = FAKE_HOME;
-process.env.PEAKS_AGENTS_HOME = CANONICAL_ROOT;
+process.env.PEAKS_HOME = CANONICAL_ROOT;
 process.env.PEAKS_PROJECT_ROOT = BARE_PROJECT;
 delete process.env.PEAKS_SKIP_SKILL_INSTALL;
 

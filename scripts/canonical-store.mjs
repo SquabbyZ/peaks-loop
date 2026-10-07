@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 //
-// The peaks-loop canonical asset store — `~/.agents/{skills,agents,output-styles}`.
+// The peaks-loop canonical asset store — `~/.peaks/{skills,agents,output-styles}` (was
+// `~/.agents`; HISTORY — see `rd/evidence-root-switch.md` for why it moved).
 //
 // WHY. `install-skills.mjs` linked each IDE skills dir straight at
 // `<packageRoot>/skills/<name>`, the source tree of the version installed at that
@@ -10,8 +11,8 @@
 // Here the store holds the REAL COPIES; each IDE dir links to the copy; an upgrade
 // rewrites the store in one place and no IDE link ever needs rebuilding.
 //
-// NOT WIRED YET. Nothing calls this module — slices 2-5 move the installers onto it
-// and add prune. This slice builds and proves the store, changing no install behavior.
+// WIRED FOR SKILLS (slice 2); agents / output-styles and prune are later slices.
+// `scripts/install-skills.mjs` is the only caller today.
 // Two primitives worth naming: idempotence is by CONTENT (an asset whose bytes already
 // match is not rewritten, so no mtime moves), and link identity goes through
 // `realpath` — `readlinkSync` on a Windows junction can return a `\\?\`-prefixed or
@@ -39,8 +40,9 @@ import { dirname, join, resolve } from 'node:path';
 /** The three asset families, parallel under the canonical root. */
 export const CANONICAL_ASSET_KINDS = Object.freeze(['skills', 'agents', 'output-styles']);
 
-/** Redirects the canonical root; tests and downstream overrides depend on it. */
-export const CANONICAL_ROOT_ENV = 'PEAKS_AGENTS_HOME';
+/** Redirects the canonical root; tests and downstream overrides depend on it.
+ *  `PEAKS_HOME` is this repo's existing name for `~/.peaks` (`src/services/sop/sop-paths.ts`). */
+export const CANONICAL_ROOT_ENV = 'PEAKS_HOME';
 
 /** Sidecar suffix, same convention `install-skills.mjs` already writes. */
 const MANAGED_MARKER_SUFFIX = '.peaks-managed';
@@ -105,7 +107,7 @@ function assertAssetName(name, kind) {
 }
 
 /**
- * The canonical root: `options.root`, else `$PEAKS_AGENTS_HOME`, else `~/.agents`.
+ * The canonical root: `options.root`, else `$PEAKS_HOME`, else `~/.peaks`.
  *
  * @param {{ root?: string }} [options]
  */
@@ -114,7 +116,7 @@ export function resolveCanonicalRoot(options = {}) {
   if (typeof configured === 'string' && configured.trim().length > 0) {
     return resolve(configured);
   }
-  return resolve(join(homedir(), '.agents'));
+  return resolve(join(homedir(), '.peaks'));
 }
 
 /**

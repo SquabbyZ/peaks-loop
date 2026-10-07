@@ -12,11 +12,11 @@
 // the postinstall, so every stale entry landed in the silent `skipped` bucket.
 //
 // WHAT THIS FILE PINS. `reconcileCanonicalEntry` must move the IDE entry off
-// the ephemeral package path and onto `~/.agents/<kind>/<name>`, a path
+// the ephemeral package path and onto `~/.peaks/<kind>/<name>`, a path
 // peaks-loop owns and that does not drift when the package version changes.
 //
 // THIS FILE TOUCHES NO REAL $HOME. The canonical root is redirected through
-// `PEAKS_AGENTS_HOME` at every call, and every fixture lives under one
+// `PEAKS_HOME` at every call, and every fixture lives under one
 // `mkdtemp` root removed in `afterAll`. The sidecar/absent-path assertions are
 // the negative control: without repair the entry stays dangling, so this file
 // cannot pass by measuring nothing.
@@ -64,16 +64,16 @@ const mod = (await import('../../../scripts/canonical-store.mjs')) as unknown as
 
 /** One throwaway home for the whole file; nothing below it is the real one. */
 const FIXTURE_ROOT = mkdtempSync(join(tmpdir(), 'peaks-canonical-repair-'));
-const CANONICAL_ROOT = join(FIXTURE_ROOT, '.agents');
+const CANONICAL_ROOT = join(FIXTURE_ROOT, '.peaks');
 const PACKAGE_ROOT = join(FIXTURE_ROOT, 'package-4.1.1');
 const STALE_PACKAGE_ROOT = join(FIXTURE_ROOT, 'package-3.0.0');
 const IDE_SKILLS_DIR = join(FIXTURE_ROOT, '.claude', 'skills');
 
-const previousCanonicalRoot = process.env.PEAKS_AGENTS_HOME;
+const previousCanonicalRoot = process.env.PEAKS_HOME;
 
 afterAll(() => {
-  if (previousCanonicalRoot === undefined) delete process.env.PEAKS_AGENTS_HOME;
-  else process.env.PEAKS_AGENTS_HOME = previousCanonicalRoot;
+  if (previousCanonicalRoot === undefined) delete process.env.PEAKS_HOME;
+  else process.env.PEAKS_HOME = previousCanonicalRoot;
   rmSync(FIXTURE_ROOT, { recursive: true, force: true });
 });
 
@@ -101,7 +101,7 @@ beforeEach(() => {
   writeSkill(STALE_PACKAGE_ROOT, 'bee/peaks-rd', '# peaks-rd\n\nold version.\n');
   rmSync(STALE_PACKAGE_ROOT, { recursive: true, force: true });
 
-  process.env.PEAKS_AGENTS_HOME = CANONICAL_ROOT;
+  process.env.PEAKS_HOME = CANONICAL_ROOT;
 });
 
 describe('Scenario: behavior — legacy layout repair', () => {

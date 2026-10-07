@@ -14,7 +14,7 @@
 export type CanonicalAssetKind = 'skills' | 'agents' | 'output-styles';
 
 export interface CanonicalStoreOptions {
-  /** Overrides `$PEAKS_AGENTS_HOME`, which in turn overrides `~/.agents`. */
+  /** Overrides `$PEAKS_HOME`, which in turn overrides `~/.peaks`. */
   root?: string;
 }
 
@@ -42,7 +42,7 @@ export interface CanonicalReconcileResult extends CanonicalCopyResult {
 }
 
 export const CANONICAL_ASSET_KINDS: ReadonlyArray<CanonicalAssetKind>;
-export const CANONICAL_ROOT_ENV: 'PEAKS_AGENTS_HOME';
+export const CANONICAL_ROOT_ENV: 'PEAKS_HOME';
 
 export function resolveCanonicalRoot(options?: CanonicalStoreOptions): string;
 export function resolveKindRoot(kind: CanonicalAssetKind, options?: CanonicalStoreOptions): string;

@@ -20,7 +20,7 @@ import { homedir } from 'node:os';
 import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-// The canonical store — `~/.agents/{skills,agents,output-styles}`. Skills are
+// The canonical store — `~/.peaks/{skills,agents,output-styles}`. Skills are
 // linked to it instead of to `<packageRoot>/skills/<name>`; see the loop in
 // `installBundledSkills` for why the target moved and why repair is now
 // unconditional. MUST stay in `package.json#files`: this file IS the npm
@@ -775,12 +775,12 @@ export function installBundledSkills(options = {}) {
     const targetPath = join(targetRoot, skillName);
 
     // Slice 2 (`agents-canonical-store`) — the entry points at the CANONICAL
-    // STORE (`~/.agents/skills/<name>`), not at `<packageRoot>/skills/<name>`.
+    // STORE (`~/.peaks/skills/<name>`), not at `<packageRoot>/skills/<name>`.
     //
     // WHY THE TARGET MOVED. `<packageRoot>` changes on every
     // `npm i -g peaks-loop@latest`, so the old target bound each link to a
     // VERSION: one upgrade turned all 22 links per IDE directory into pointers
-    // at a tree the next install deleted. `~/.agents/skills/<name>` is a path
+    // at a tree the next install deleted. `~/.peaks/skills/<name>` is a path
     // peaks-loop owns and that no version bump moves, so an upgrade rewrites the
     // store in one place and no IDE link ever needs rebuilding.
     //

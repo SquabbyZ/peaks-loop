@@ -70,14 +70,18 @@ const PACKAGE_ROOT = resolve(__dirname, '..', '..', '..');
 
 /** One throwaway root for the whole file; nothing below it is the real home. */
 const FIXTURE_ROOT = mkdtempSync(join(tmpdir(), 'peaks-canonical-store-'));
-const CANONICAL_ROOT = join(FIXTURE_ROOT, '.agents');
+// Deliberately NOT `<FIXTURE_ROOT>/.peaks`: that is what the unprefixed default
+// would resolve to if `homedir()` were ever repointed here, which would make the
+// override clause below unable to fail. The store dir is named so the two can
+// never collide.
+const CANONICAL_ROOT = join(FIXTURE_ROOT, 'canonical-store');
 const SOURCE_ROOT = join(FIXTURE_ROOT, 'package');
 
-const previousCanonicalRoot = process.env.PEAKS_AGENTS_HOME;
+const previousCanonicalRoot = process.env.PEAKS_HOME;
 
 afterAll(() => {
-  if (previousCanonicalRoot === undefined) delete process.env.PEAKS_AGENTS_HOME;
-  else process.env.PEAKS_AGENTS_HOME = previousCanonicalRoot;
+  if (previousCanonicalRoot === undefined) delete process.env.PEAKS_HOME;
+  else process.env.PEAKS_HOME = previousCanonicalRoot;
   rmSync(FIXTURE_ROOT, { recursive: true, force: true });
 });
 
@@ -96,22 +100,41 @@ beforeEach(() => {
   writeSource('skills/bee/peaks-rd/SKILL.md', '# peaks-rd\n');
   writeSource('agents/karpathy-reviewer.md', '# reviewer\n');
   writeSource('output-styles/peaks-skill-swarm.md', '# style\n');
-  process.env.PEAKS_AGENTS_HOME = CANONICAL_ROOT;
+  process.env.PEAKS_HOME = CANONICAL_ROOT;
 });
 
 describe('Scenario: behavior — canonical root resolution', () => {
-  it('when no override is given, should resolve under the home directory as ~/.agents', () => {
+  it('when no override is given, should resolve under the home directory as ~/.peaks', () => {
     // given: neither an explicit root option nor the environment override is set
     // when: the canonical root is resolved with no arguments
-    // then: it is ~/.agents, and resolving it created nothing
+    // then: it is `~/.peaks` — the home path the contract names
+    //
+    // DELIBERATELY NOT ASSERTED: that the resolved path is absent. That clause
+    // used to ride along here as a proxy for "resolving creates nothing", but
+    // absence is a fact about THIS HOST's home, not about this module — on any
+    // machine that has run peaks-loop, `~/.peaks` exists (`config.json`, `logs/`,
+    // …) and the clause fails for a reason the module is not responsible for.
+    // The purity it stood in for is measured on a path that is absent BY
+    // CONSTRUCTION in the case below.
     delete process.env[mod.CANONICAL_ROOT_ENV];
-    const root = mod.resolveCanonicalRoot();
-    expect(root).toBe(resolve(join(homedir(), '.agents')));
-    expect(existsSync(root)).toBe(false);
+    expect(mod.resolveCanonicalRoot()).toBe(resolve(join(homedir(), '.peaks')));
+  });
+
+  it('when a root is resolved, should return the path without creating it', () => {
+    // given: a root path that does not exist and that nothing in this file writes
+    // when: the canonical root and a kind root under it are both resolved
+    // then: both come back as paths and the filesystem was left untouched
+    const absentRoot = join(FIXTURE_ROOT, 'never-created');
+    expect(existsSync(absentRoot)).toBe(false);
+    expect(mod.resolveCanonicalRoot({ root: absentRoot })).toBe(resolve(absentRoot));
+    expect(mod.resolveKindRoot('skills', { root: absentRoot })).toBe(
+      join(resolve(absentRoot), 'skills')
+    );
+    expect(existsSync(absentRoot)).toBe(false);
   });
 
   it('when the environment variable is set, should override the home default', () => {
-    // given: $PEAKS_AGENTS_HOME points at a throwaway directory
+    // given: $PEAKS_HOME points at a throwaway directory
     // when: the canonical root and each of the three kinds is resolved
     // then: the environment wins and the three families hang off it
     process.env[mod.CANONICAL_ROOT_ENV] = CANONICAL_ROOT;

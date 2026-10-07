@@ -32,7 +32,7 @@ const SCRIPT_PATH = resolve(__dirname, '../../../scripts/install-skills.mjs');
 
 /**
  * Slice 2 (`agents-canonical-store`): the postinstall now writes REAL COPIES of
- * every bundled skill into `~/.agents/skills/` and links the IDE dirs at them.
+ * every bundled skill into `~/.peaks/skills/` and links the IDE dirs at them.
  * These cases spawn the real postinstall, so without this redirect they would
  * materialise that store in the machine's real home. Point it at a throwaway
  * tree instead — the IDE dirs below are still whatever the case chose.
@@ -73,7 +73,7 @@ async function runInstallSkills(
       env: {
         ...process.env,
         PEAKS_SKIP_USER_CONFIG_INSTALL: '1',
-        PEAKS_AGENTS_HOME: CANONICAL_HOME,
+        PEAKS_HOME: CANONICAL_HOME,
         ...env,
         PEAKS_PROJECT_ROOT: projectRoot
       },
