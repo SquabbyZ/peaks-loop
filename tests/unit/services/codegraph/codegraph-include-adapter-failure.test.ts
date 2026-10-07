@@ -149,6 +149,12 @@ describe('repairCodegraphExcludeFromProject — an upstream adapter failure is a
       // fixture that could never be repaired for some other reason.
       expect(report.applied).toBe(true);
       expect(report.warning).toBeNull();
+      // Still non-empty under 1.6.2, for a reason worth naming rather than
+      // leaving as a coincidence: 1.6.x ships no `include` template, so the
+      // candidate set is every supported extension (78 measured) instead of
+      // 0.7.x's five, and this fixture's `include` admits only `.ts` — which
+      // the adapter therefore skips as already covered. See
+      // `codegraph-include-reconciler.test.ts` for the pinned derivation.
       expect(report.includePatternsAdded.length).toBeGreaterThan(0);
     }
   );

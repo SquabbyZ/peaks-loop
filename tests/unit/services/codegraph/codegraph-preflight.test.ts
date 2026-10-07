@@ -40,6 +40,7 @@ import {
   type CodegraphExecutionResult,
   type CodegraphInvocation
 } from '../../../../src/services/codegraph/codegraph-service.js';
+import { upstreamUnnamedIncludeExtensions } from '../../../../src/services/codegraph/codegraph-include-reconciler.js';
 import { declareDimensions } from '../../_setup/4dim-template.js';
 import { SUBPROCESS_TEST_TIMEOUT_MS } from '../../_setup/subprocess-timeouts.js';
 import {
@@ -290,19 +291,24 @@ describe('Scenario: integration — buildCodegraphPreflightBlock against a real 
         //    fix in every downstream project that has no index yet, so the
         //    invariant is pinned here rather than left to be inferred from
         //    the exclude assertion beside it. The fixture's init template
-        //    names only `**/*.ts`; upstream's own extractor supports five
-        //    more extensions that no template pattern admits, and the seam
-        //    must append exactly those, in that order, without reordering
-        //    or dropping the caller's entry. Reddens if the seam stops
-        //    passing through the shared repair entry point or starts
+        //    names only `**/*.ts`; the seam must append exactly the
+        //    extensions no template pattern admits, in order, without
+        //    reordering or dropping the caller's entry. Reddens if the seam
+        //    stops passing through the shared repair entry point or starts
         //    short-circuiting when there is no exclude rule to remove.
+        //
+        //    DERIVED, not spelled out. This list used to be the literal
+        //    five (`.mjs`, `.cjs`, `.pyw`, `.hxx`, `.rake`) that 0.7.x's
+        //    template left unnamed. 1.6.x ships no template, so the
+        //    derivation now leaves every supported extension unnamed and the
+        //    literal would have been a standing lie about upstream's table.
+        //    What the case actually guards — entry first, nothing dropped,
+        //    the shared seam used — is unchanged.
         expect(config.include).toEqual([
           '**/*.ts',
-          '**/*.mjs',
-          '**/*.cjs',
-          '**/*.pyw',
-          '**/*.hxx',
-          '**/*.rake'
+          ...upstreamUnnamedIncludeExtensions()
+            .filter((extension) => extension !== '.ts')
+            .map((extension) => `**/*${extension}`)
         ]);
 
         // … the marker is stamped …
@@ -425,7 +431,11 @@ describe('Scenario: a11y — a failing preflight names the cause, not the backen
     // given: a peaks-loop-managed store, so only `files` is attempted
     const project = freshProject('peaks-cg-pre-auto-');
     mkdirSync(join(project, '.codegraph'), { recursive: true });
-    writeFileSync(join(project, '.codegraph', CODEGRAPH_MARKER_NAME), 'peaks-loop-managed\n', 'utf8');
+    writeFileSync(
+      join(project, '.codegraph', CODEGRAPH_MARKER_NAME),
+      'peaks-loop-managed\n',
+      'utf8'
+    );
     writeFileSync(join(project, '.codegraph', CODEGRAPH_DB_NAME), 'schema\n', 'utf8');
     const runner = scriptedRunner({
       files: {

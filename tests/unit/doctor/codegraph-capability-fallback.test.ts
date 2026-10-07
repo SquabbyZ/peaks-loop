@@ -12,7 +12,7 @@
 //                  `node_modules/@colbymchenry/codegraph/package.json`
 //                  and uses the first hit;
 //                  AC2 when the resolved version differs from the
-//                  pinned 0.7.10 the check still surfaces a finding
+//                  pinned 1.6.2 the check still surfaces a finding
 //                  but `severity: 'warning'` so the doctor exit code
 //                  is NOT flipped (downstream tolerance).
 //   - integration: real fs under tmpdir (synthetic @colbymchenry/codegraph
@@ -32,11 +32,13 @@
 //   pnpm vitest run tests/unit/doctor/codegraph-capability-fallback.test.ts
 
 import { describe, expect, it } from 'vitest';
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import { check } from '~/src/services/doctor/doctor-service/checks/codegraph-capability';
+import { createCodegraphInvocation } from '~/src/services/codegraph/codegraph-service';
 import { declareDimensions } from '../_setup/4dim-template.js';
 import { firstOf } from '../_setup/first-of.js';
 import { withTmpWorkspacePerTest } from '../_setup/tmp-workspace.js';
@@ -109,7 +111,7 @@ describe('codegraph-capability check (rid-CG-007)', () => {
     try {
       const { packagePath, binaryPath } = layOutFakeCodegraphPackage({
         rootDir: tmpRoot,
-        version: '0.7.10',
+        version: '1.6.2',
         withBinary: true
       });
 
@@ -124,7 +126,7 @@ describe('codegraph-capability check (rid-CG-007)', () => {
       // cross-platform way — instead we mirror its outcome here.
       const fallbackProbe = constantProbe({
         packagePath,
-        version: '0.7.10',
+        version: '1.6.2',
         binaryPath,
         binaryExists: true,
         // Mirror the production probe's own managed-path resolution for this
@@ -139,7 +141,7 @@ describe('codegraph-capability check (rid-CG-007)', () => {
       expect(result).toHaveLength(1);
       expect(firstOf(result).id).toBe('capability:codegraph');
       expect(firstOf(result).ok).toBe(true);
-      expect(firstOf(result).message).toContain('@colbymchenry/codegraph@0.7.10');
+      expect(firstOf(result).message).toContain('@colbymchenry/codegraph@1.6.2');
       expect(firstOf(result).message).toContain(binaryPath);
       expect(firstOf(result).severity).toBeUndefined();
     } finally {
@@ -152,13 +154,13 @@ describe('codegraph-capability check (rid-CG-007)', () => {
     try {
       const { packagePath, binaryPath } = layOutFakeCodegraphPackage({
         rootDir: tmpRoot,
-        version: '0.7.11', // downstream pulled a different patch via pnpm-strict
+        version: '1.6.3', // downstream pulled a different patch via pnpm-strict
         withBinary: true
       });
 
       const driftProbe = constantProbe({
         packagePath,
-        version: '0.7.11',
+        version: '1.6.3',
         binaryPath,
         binaryExists: true,
         // Same derivation as the fallback fixture above.
@@ -171,9 +173,9 @@ describe('codegraph-capability check (rid-CG-007)', () => {
       expect(firstOf(result).ok).toBe(false);
       expect(firstOf(result).severity).toBe('warning');
       // a11y: message names expected + actual version + recovery command.
-      expect(firstOf(result).message).toContain('expected 0.7.10');
-      expect(firstOf(result).message).toContain('resolved 0.7.11');
-      expect(firstOf(result).message).toContain('pnpm install @colbymchenry/codegraph@0.7.10');
+      expect(firstOf(result).message).toContain('expected 1.6.2');
+      expect(firstOf(result).message).toContain('resolved 1.6.3');
+      expect(firstOf(result).message).toContain('pnpm install @colbymchenry/codegraph@1.6.2');
     } finally {
       rmSync(tmpRoot, { recursive: true, force: true });
     }
@@ -184,13 +186,13 @@ describe('codegraph-capability check (rid-CG-007)', () => {
     try {
       const { packagePath } = layOutFakeCodegraphPackage({
         rootDir: tmpRoot,
-        version: '0.7.10',
+        version: '1.6.2',
         withBinary: false
       });
 
       const noBinaryProbe = constantProbe({
         packagePath,
-        version: '0.7.10',
+        version: '1.6.2',
         binaryPath: join(
           tmpRoot,
           'node_modules',
@@ -231,5 +233,51 @@ describe('codegraph-capability check (rid-CG-007)', () => {
     expect(firstOf(result).message).toContain(
       "Cannot find module '@colbymchenry/codegraph/package.json'"
     );
+  });
+});
+
+// ── the version pin, bound across all three sites ────────────────────────────
+//
+// The upgrade's own acceptance criterion: `package.json`, the service's
+// `CODEGRAPH_PACKAGE_VERSION` and the doctor's `CODEGRAPH_EXPECTED_VERSION`
+// must move TOGETHER, and nothing may be changed in only one of them. Two of
+// those three are reachable from outside (the doctor only through the message
+// it prints, the service through the invocation it builds), so this case
+// binds each of them to the one source that cannot be duplicated — the
+// dependency range in `package.json` itself.
+//
+// It is also the ONLY case in the repo that runs the production probe
+// (`defaultCodegraphProbe`) against the real installed package. Every other
+// case in this file injects a synthetic probe, which is right for testing the
+// fallback logic and useless for asking "does the real install resolve, at a
+// path that exists, under the pinned version" — the question the 0.7.10 →
+// 1.6.2 upgrade actually had to answer, and the one whose answer moved the
+// binary from the main package's `dist/` into the per-platform bundle's.
+describe('the codegraph version pin is one fact in three places', () => {
+  it('when codegraph is installed, should agree across package.json, the service and the doctor', () => {
+    // given: the version this repo actually declares in its own package.json
+    // when:  the service builds an invocation and the doctor runs its real probe
+    // then:  neither reports a version package.json disagrees with, and the
+    //        resolved entry exists on disk
+    const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
+    const declared = (
+      JSON.parse(readFileSync(join(repoRoot, 'package.json'), 'utf8')) as {
+        dependencies: Record<string, string>;
+      }
+    ).dependencies['@colbymchenry/codegraph'];
+
+    expect(declared).toBe('1.6.2');
+
+    const invocation = createCodegraphInvocation({
+      subcommand: 'status',
+      project: repoRoot
+    });
+    expect(invocation.packageVersion).toBe(declared);
+
+    const result = check.run({ ...makeContext(), options: {} });
+    expect(result).toHaveLength(1);
+    expect(firstOf(result).ok).toBe(true);
+    expect(firstOf(result).severity).toBeUndefined();
+    expect(firstOf(result).message).toContain(`@colbymchenry/codegraph@${declared}`);
   });
 });

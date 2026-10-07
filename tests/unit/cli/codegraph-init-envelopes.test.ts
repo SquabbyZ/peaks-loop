@@ -62,6 +62,17 @@ vi.mock('../../../src/services/codegraph/codegraph-service.js', async () => {
 });
 
 import { registerCodegraphCommands } from '../../../src/cli/commands/codegraph-commands.js';
+import { upstreamUnnamedIncludeExtensions } from '../../../src/services/codegraph/codegraph-include-reconciler.js';
+
+// Fixtures in this file start from an `include` list of `['**/*.ts']`, so the
+// repair appends every candidate EXCEPT `.ts`, which that pattern already
+// admits. DERIVED rather than spelled out: the literal five this replaced was
+// 0.7.x's template-unnamed set, and 1.6.x ships no template — so the count is
+// upstream's to move and a literal here would rot into a lie about it.
+const EXPECTED_INCLUDE_ADDITIONS = upstreamUnnamedIncludeExtensions()
+  .filter((extension) => extension !== '.ts')
+  .map((extension) => `**/*${extension}`);
+
 import { SUBPROCESS_TEST_TIMEOUT_MS } from '../_setup/subprocess-timeouts.js';
 import {
   ADVICE_PATTERN,
@@ -205,9 +216,9 @@ describe('peaks codegraph init — success notes are not warnings', () => {
       // include-adapter cases below.
       expect(envelope.nextActions).toEqual([
         `Stamped peaks-loop marker at ${join(project, '.codegraph')}/.peaks-loop-marker`,
-        "Added 5 include pattern(s) upstream's extractor supports but its default template omits, " +
+        `Added ${EXPECTED_INCLUDE_ADDITIONS.length} include pattern(s) upstream's extractor supports but its default template omits, ` +
           'newly admitting 0 tracked source file(s) ' +
-          '(**/*.mjs, **/*.cjs, **/*.pyw, **/*.hxx, **/*.rake).',
+          `(${EXPECTED_INCLUDE_ADDITIONS.join(', ')}).`,
         'Removed 1 exclude rule(s) that blocked tracked source files, recovering 1 file(s); config backed up to ' +
           `${join(project, '.codegraph', 'config.json')}.bak.`,
         'Rebuilt the codegraph index over the recovered files.'
@@ -265,7 +276,11 @@ describe('peaks codegraph init — a real warning is reported once, verbatim', (
       // cannot understate a repair that widened `include` (slice-002) — and
       // the two counts are asserted exactly, not loosely matched.
       expect(envelope.warnings[0]).toMatch(
-        /^codegraph config repaired \(1 exclude rule\(s\) removed, 5 include pattern\(s\) added\) but the follow-up index failed \(exit 3\)/
+        new RegExp(
+          '^codegraph config repaired \\(1 exclude rule\\(s\\) removed, ' +
+            `${EXPECTED_INCLUDE_ADDITIONS.length} include pattern\\(s\\) added\\) ` +
+            'but the follow-up index failed \\(exit 3\\)'
+        )
       );
       expect(envelope.warnings[0]).not.toMatch(/^warning:/);
 

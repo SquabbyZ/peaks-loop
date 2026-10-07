@@ -48,12 +48,13 @@
 
 import { createRequire } from 'node:module';
 import { existsSync, readdirSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { join } from 'node:path';
 
 import { openSqlite, type SqliteDatabase } from '../sqlite/sqlite-driver.js';
 
 import { normalizePath } from '../../shared/path-utils.js';
 import { CODEGRAPH_DB_NAME, CODEGRAPH_DIR_NAME } from './codegraph-service.js';
+import { resolveCodegraphUpstreamLayout } from './codegraph-upstream-layout.js';
 import {
   CODEGRAPH_CONFIG_FILENAME,
   filterAdmittedTrackedFiles,
@@ -329,9 +330,8 @@ let cachedUpstreamGrammars: UpstreamGrammars | null = null;
  * extension list drifts from upstream silently, and a list derived from
  * `EXTENSION_MAP` would still be a re-derivation of a decision upstream
  * already implements. Calling the decision is exact by construction. The
- * module path is resolved from the package's own `package.json` (the same
- * seam `codegraph-service.ts` uses for the binary), so it follows whichever
- * `@colbymchenry/codegraph` instance this install actually runs.
+ * directory it is read from comes from the shared layout resolver, so it
+ * follows whichever `@colbymchenry/codegraph` instance this install runs.
  *
  * Node's `require` cache makes the second and later loads free; the module
  * body only defines tables and functions (grammar WASM loading is a
@@ -340,8 +340,8 @@ let cachedUpstreamGrammars: UpstreamGrammars | null = null;
 function loadUpstreamGrammars(): UpstreamGrammars {
   if (cachedUpstreamGrammars === null) {
     const require = createRequire(import.meta.url);
-    const packageJsonPath = require.resolve('@colbymchenry/codegraph/package.json');
-    const grammarsPath = join(dirname(packageJsonPath), 'dist', 'extraction', 'grammars.js');
+    const { moduleDir } = resolveCodegraphUpstreamLayout();
+    const grammarsPath = join(moduleDir, 'extraction', 'grammars.js');
     cachedUpstreamGrammars = require(grammarsPath) as UpstreamGrammars;
   }
 

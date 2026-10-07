@@ -48,6 +48,7 @@ import {
   type CodegraphExecutionResult,
   type CodegraphInvocation
 } from '../../../../src/services/codegraph/codegraph-service.js';
+import { upstreamUnnamedIncludeExtensions } from '../../../../src/services/codegraph/codegraph-include-reconciler.js';
 import { declareDimensions } from '../../_setup/4dim-template.js';
 import { SUBPROCESS_TEST_TIMEOUT_MS } from '../../_setup/subprocess-timeouts.js';
 import {
@@ -322,18 +323,21 @@ describe('Scenario: integration — dangling marker self-heal and foreign skip',
         //    operator action — so the include invariant is pinned here, not
         //    left implicit in the exclude assertion beside it. The fixture's
         //    self-heal init template names only `**/*.ts`; the seam must
-        //    append exactly the five extensions upstream's extractor
-        //    supports and its own template omits, in that order, keeping the
-        //    caller's entry first. Reddens if the seam stops passing through
-        //    the shared repair entry point or starts short-circuiting when
-        //    there is no exclude rule to remove.
+        //    append exactly the extensions upstream's extractor supports and
+        //    its own template omits, in that order, keeping the caller's
+        //    entry first. Reddens if the seam stops passing through the
+        //    shared repair entry point or starts short-circuiting when there
+        //    is no exclude rule to remove.
+        //
+        //    DERIVED, not spelled out: the literal list here was 0.7.x's
+        //    five template-unnamed extensions, and 1.6.x ships no template at
+        //    all, so the derivation now leaves every supported extension
+        //    unnamed. The invariant this case guards is unchanged.
         expect(config.include).toEqual([
           '**/*.ts',
-          '**/*.mjs',
-          '**/*.cjs',
-          '**/*.pyw',
-          '**/*.hxx',
-          '**/*.rake'
+          ...upstreamUnnamedIncludeExtensions()
+            .filter((extension) => extension !== '.ts')
+            .map((extension) => `**/*${extension}`)
         ]);
 
         // … and exactly one index ran (the repair does not add a second

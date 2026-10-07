@@ -45,12 +45,13 @@
 // file has no `/** ... */` blocks. Do not convert them.
 
 import { createRequire } from 'node:module';
-import { dirname, extname, join } from 'node:path';
+import { extname, join } from 'node:path';
 
 import {
   compileCodegraphGlobs,
   type CompiledCodegraphGlobs
 } from './codegraph-exclude-reconciler.js';
+import { resolveCodegraphUpstreamLayout } from './codegraph-upstream-layout.js';
 
 // ─────────────────────────────────────────────────────────────────────
 // Which extensions does this project's `include` already admit?
@@ -182,9 +183,7 @@ type UpstreamGrammarsModule = {
 let cachedCandidateExtensions: readonly string[] | null = null;
 
 // The extensions upstream's extractor supports but its own default
-// `include` template never names, as dotted extensions — measured against
-// the installed `@colbymchenry/codegraph` 0.7.10 as `.mjs`, `.cjs`,
-// `.pyw`, `.hxx`, `.rake`, in that order.
+// `include` template never names, as dotted extensions.
 //
 // Derived entirely from upstream's own data:
 //
@@ -197,28 +196,61 @@ let cachedCandidateExtensions: readonly string[] | null = null;
 //      accepts it, so a table entry with no grammar behind it is never
 //      repaired into the config.
 //
+// MEASURED CONSEQUENCE OF THE 1.6.2 UPGRADE, stated here because it is the
+// one place it is visible and it is NOT decided here.
+//
+// The derivation above is unchanged. What changed is upstream: 1.6.2 ships
+// NO `include` template at all (`types.js` exports only the node/edge kind
+// tables, `init` writes no `config.json`, and what gets indexed is decided
+// by `.gitignore`). An absent template names nothing, so under 1.6.2 the
+// candidate set becomes EVERY extension the extractor supports and would
+// actually parse — 78 of them, measured — instead of 0.7.x's five.
+//
+// This module is deliberately left to say that rather than being given a
+// new rule, because "what should the include axis mean when upstream has no
+// include list" is a CONFIG-AXIS decision, and the config axis is the
+// deferred slice. Injecting an `absent template ⇒ empty` shortcut here
+// would be this slice quietly deciding it.
+//
+// What that costs in the field today is bounded, and measured: the only
+// consumer is the repair, and its first step reads
+// `<root>/.codegraph/config.json`, which 1.6.2 never writes — so on a real
+// 1.6.2 project the repair fails at that read, reports "reconcile skipped"
+// and writes nothing. The 78-pattern append is reachable only for a project
+// that still HAS a `config.json`, where the write is inert because 1.6.2
+// does not read the file. Recorded, not hidden.
+//
 // Returns the same array on every call (module-level cache); the two
 // modules only define tables and functions, so the load is cheap and
 // Node's `require` cache makes later calls free.
 export function upstreamUnnamedIncludeExtensions(): readonly string[] {
   if (cachedCandidateExtensions === null) {
-    const require = createRequire(import.meta.url);
-    const packageJsonPath = require.resolve('@colbymchenry/codegraph/package.json');
-    const distDir = join(dirname(packageJsonPath), 'dist');
-
-    const types = require(join(distDir, 'types.js')) as UpstreamTypesModule;
-    const grammars = require(join(distDir, 'extraction', 'grammars.js')) as UpstreamGrammarsModule;
-
-    const namedByTemplate = new Set(
-      types.DEFAULT_CONFIG.include.map((entry) => extname(entry).toLowerCase())
-    );
-
-    cachedCandidateExtensions = Object.keys(grammars.EXTENSION_MAP).filter(
-      (extension) =>
-        !namedByTemplate.has(extension.toLowerCase()) &&
-        grammars.isLanguageSupported(grammars.detectLanguage(`probe${extension}`))
-    );
+    cachedCandidateExtensions = deriveUnnamedIncludeExtensions();
   }
 
   return cachedCandidateExtensions;
+}
+
+function deriveUnnamedIncludeExtensions(): readonly string[] {
+  const require = createRequire(import.meta.url);
+  // One shared resolver answers "where is upstream's module directory" for
+  // this oracle and for the spawn path, so the two cannot disagree about
+  // which install they are reading — and so a 1.6.x install, whose
+  // modules live in the per-platform bundle rather than the main package,
+  // is read from the same place the binary is spawned from.
+  const { moduleDir } = resolveCodegraphUpstreamLayout();
+  const types = require(join(moduleDir, 'types.js')) as Partial<UpstreamTypesModule>;
+  const grammars = require(join(moduleDir, 'extraction', 'grammars.js')) as UpstreamGrammarsModule;
+  // `?? []` and not a version check: an upstream with no template has named
+  // no extension, which is the literal truth and the reason the candidate
+  // set is the whole supported table under 1.6.2 — see the note above.
+  const namedByTemplate = new Set(
+    (types.DEFAULT_CONFIG?.include ?? []).map((entry) => extname(entry).toLowerCase())
+  );
+
+  return Object.keys(grammars.EXTENSION_MAP).filter(
+    (extension) =>
+      !namedByTemplate.has(extension.toLowerCase()) &&
+      grammars.isLanguageSupported(grammars.detectLanguage(`probe${extension}`))
+  );
 }

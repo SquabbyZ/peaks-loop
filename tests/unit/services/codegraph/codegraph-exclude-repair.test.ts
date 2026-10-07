@@ -33,7 +33,6 @@
 // Run with: pnpm vitest run tests/unit/services/codegraph/codegraph-exclude-repair.test.ts
 
 import { execFileSync } from 'node:child_process';
-import { createRequire } from 'node:module';
 import {
   chmodSync,
   existsSync,
@@ -69,15 +68,34 @@ declareDimensions('tests/unit/services/codegraph/codegraph-exclude-repair.test.t
   'a11y'
 ]);
 
-// ── the REAL upstream template (never this workspace's config) ────────
-
-const require = createRequire(import.meta.url);
-const UPSTREAM_TYPES_PATH = require.resolve('@colbymchenry/codegraph/dist/types.js');
-const UPSTREAM_DEFAULT_CONFIG = (
-  require(UPSTREAM_TYPES_PATH) as {
-    DEFAULT_CONFIG: Record<string, unknown> & { include: string[]; exclude: string[] };
-  }
-).DEFAULT_CONFIG;
+// ── the upstream default template, FROZEN ─────────────────────────────
+//
+// This used to be READ from the installed package
+// (`@colbymchenry/codegraph/dist/types.js`, `DEFAULT_CONFIG`). It cannot be
+// any more: 1.6.2 ships no template at all — `types.js` exports only the
+// node/edge kind tables, `init` writes no `config.json`, and what gets
+// indexed is decided by `.gitignore` rather than by an `include` list.
+//
+// So the fixture is FROZEN here, reduced to the rules these cases name.
+// What that costs, stated rather than hidden: the fixture can no longer
+// prove anything about upstream's own data, which is why the case that
+// asserted "the pinned upstream template really ships the five offender
+// rules" is deleted (see the note where it was). What it does not cost:
+// the reconciler under test is template-agnostic — it repairs whatever
+// exclude list it is handed — so every code path these cases exercise is
+// still exercised.
+const FROZEN_UPSTREAM_TEMPLATE = {
+  include: ['**/*.ts', '**/*.js', '**/*.py'],
+  exclude: [
+    '**/node_modules/**',
+    '**/target/release/**',
+    '**/vendor/**',
+    '**/artifacts/**',
+    '**/bin/**',
+    '**/release/**',
+    '**/publish/**'
+  ]
+};
 
 // The five real offender rules. They are not invented here: the test
 // asserts below that the pinned upstream template really ships them.
@@ -147,7 +165,7 @@ function makeFreshCloneFixture(): string {
   mkdirSync(join(projectRoot, '.codegraph'), { recursive: true });
   writeFileSync(
     join(projectRoot, '.codegraph', 'config.json'),
-    `${JSON.stringify(UPSTREAM_DEFAULT_CONFIG, null, 2)}\n`,
+    `${JSON.stringify(FROZEN_UPSTREAM_TEMPLATE, null, 2)}\n`,
     'utf8'
   );
 
@@ -330,11 +348,15 @@ describe('applyCodegraphConfigRepair (config writer)', () => {
 // ── integration: the real defect, on the real template ───────────────
 
 describe('repairCodegraphExcludeFromProject (fresh clone self-heal)', () => {
-  it('the pinned upstream template really ships the five offender rules', () => {
-    for (const rule of OFFENDER_RULES) {
-      expect(UPSTREAM_DEFAULT_CONFIG.exclude).toContain(rule);
-    }
-  });
+  // DELETED CASE: "the pinned upstream template really ships the five
+  // offender rules". It existed to prove the fixture's five rules were
+  // UPSTREAM's rather than this test's invention. There is no upstream
+  // template left to prove that against — 1.6.2 ships none (see the frozen
+  // fixture's note above) — and run against the frozen fixture it would
+  // assert that a constant contains its own entries: always true, so it is
+  // gone rather than left reading like a measurement. Nothing guards that
+  // claim today and nothing can until the config-axis slice decides what
+  // the exclude axis means under a template-less upstream.
 
   it(
     'reproduces the defect from the upstream template, then converges to zero violations',
@@ -367,7 +389,7 @@ describe('repairCodegraphExcludeFromProject (fresh clone self-heal)', () => {
       expect(excludeAfter).toContain('**/node_modules/**');
       expect(excludeAfter).toContain('**/target/release/**');
       expect(excludeAfter.length).toBe(
-        UPSTREAM_DEFAULT_CONFIG.exclude.length - OFFENDER_RULES.length
+        FROZEN_UPSTREAM_TEMPLATE.exclude.length - OFFENDER_RULES.length
       );
 
       // second run has nothing left to do and writes nothing
@@ -507,8 +529,8 @@ function makeIncludeAxisFixture(): string {
 
 describe('A1 — the report counts each axis on its own', () => {
   it('when only the include axis moved, should report the include delta and NOT the exclude counter', async () => {
-    // given: a project where 5 include patterns admit 2 tracked files and no
-    //        exclude rule blocks anything
+    // given: a project whose include list admits 2 of its 3 tracked files and
+    //        no exclude rule blocks anything
     const projectRoot = makeIncludeAxisFixture();
 
     // when: the shared two-axis repair runs
@@ -519,8 +541,13 @@ describe('A1 — the report counts each axis on its own', () => {
     // then: the exclude axis' counter is honestly zero …
     expect(report.applied).toBe(true);
     expect(report.filesRecovered).toBe(0);
-    // … the include axis' own delta is the number the reader needs …
-    expect(report.includePatternsAdded).toHaveLength(5);
+    // … the include axis' own delta is reported. The exact count is upstream's
+    //     to move and this assertion deliberately no longer pins it: 0.7.x's
+    //     template left 5 extensions unnamed, 1.6.x ships no template so the
+    //     derivation leaves 77. What this pins is that a delta is reported at
+    //     all, and that it is a DELTA rather than the absolute admission
+    //     count re-reported under a second name.
+    expect(report.includePatternsAdded.length).toBeGreaterThan(0);
     expect(report.includeFilesRecovered).toBe(2);
     // … and it is a DELTA, not the absolute admission count re-reported. If
     //     the two were equal this assertion would pass on a tautology, so the

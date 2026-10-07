@@ -49,6 +49,16 @@ import {
 } from '../_setup/tmp-workspace.js';
 import { CODEGRAPH_INTEGRITY_EXIT_CODE } from '../../../src/services/codegraph/codegraph-exclude-integrity.js';
 import { repairCodegraphExcludeFromProject } from '../../../src/services/codegraph/codegraph-exclude-repair.js';
+import { upstreamUnnamedIncludeExtensions } from '../../../src/services/codegraph/codegraph-include-reconciler.js';
+
+// Fixtures in this file start from an `include` list of `['**/*.ts']`, so the
+// repair appends every candidate EXCEPT `.ts`, which that pattern already
+// admits. DERIVED rather than spelled out: the literal five this replaced was
+// 0.7.x's template-unnamed set, and 1.6.x ships no template — so the count is
+// upstream's to move and a literal here would rot into a lie about it.
+const EXPECTED_INCLUDE_ADDITIONS = upstreamUnnamedIncludeExtensions()
+  .filter((extension) => extension !== '.ts')
+  .map((extension) => `**/*${extension}`);
 
 declareDimensions('tests/unit/cli/codegraph-status-integrity.test.ts', [
   'render',
@@ -532,13 +542,7 @@ describe('peaks codegraph repair-index', () => {
       // Both axes moved in ONE run: the include patterns upstream's template
       // omits, and the exclude rule the widened include made harmful.
       expect(envelope.data.rulesRemoved).toEqual(['**/vendor/**']);
-      expect(envelope.data.includePatternsAdded).toEqual([
-        '**/*.mjs',
-        '**/*.cjs',
-        '**/*.pyw',
-        '**/*.hxx',
-        '**/*.rake'
-      ]);
+      expect(envelope.data.includePatternsAdded).toEqual(EXPECTED_INCLUDE_ADDITIONS);
       expect(envelope.data.reindexed).toBe(true);
       expect(envelope.data.forcedRebuild).toBe(true);
       expect(process.exitCode).toBe(0);
@@ -649,7 +653,7 @@ describe('peaks codegraph repair-index', () => {
       const captured = await runCodegraph(['repair-index', '--project', project]);
       const printed = captured.stdout.join('\n');
 
-      expect(printed).toContain('Added 5 include pattern(s)');
+      expect(printed).toContain(`Added ${EXPECTED_INCLUDE_ADDITIONS.length} include pattern(s)`);
       expect(printed).toContain('removed 1 exclude rule(s)');
     }
   );

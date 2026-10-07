@@ -64,6 +64,17 @@ vi.mock('../../../src/services/codegraph/codegraph-service.js', async () => {
 });
 
 import { registerCodegraphCommands } from '../../../src/cli/commands/codegraph-commands.js';
+import { upstreamUnnamedIncludeExtensions } from '../../../src/services/codegraph/codegraph-include-reconciler.js';
+
+// Fixtures in this file start from an `include` list of `['**/*.ts']`, so the
+// repair appends every candidate EXCEPT `.ts`, which that pattern already
+// admits. DERIVED rather than spelled out: the literal five this replaced was
+// 0.7.x's template-unnamed set, and 1.6.x ships no template — so the count is
+// upstream's to move and a literal here would rot into a lie about it.
+const EXPECTED_INCLUDE_ADDITIONS = upstreamUnnamedIncludeExtensions()
+  .filter((extension) => extension !== '.ts')
+  .map((extension) => `**/*${extension}`);
+
 import { HEAVY_SUBPROCESS_TEST_TIMEOUT_MS } from '../_setup/subprocess-timeouts.js';
 
 type CapturedIo = ReturnType<typeof makeCapturedIo>['captured'];
@@ -168,7 +179,7 @@ describe('Scenario: render — the repair sentence attributes each count to its 
 
       // then: the sentence names BOTH axes' numbers and the reader can tell
       //       which is which — the include clause carries the include delta …
-      expect(out).toContain('Added 5 include pattern(s)');
+      expect(out).toContain(`Added ${EXPECTED_INCLUDE_ADDITIONS.length} include pattern(s)`);
       expect(out).toContain('newly admitting 2 tracked source file(s)');
       // … and the exclude clause carries the exclude count, described as what
       //     it is (files a rule had been hiding), so its 0 is not read as a

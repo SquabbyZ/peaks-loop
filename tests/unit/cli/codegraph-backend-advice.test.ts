@@ -75,7 +75,6 @@ vi.mock('../../../src/services/codegraph/codegraph-service.js', async () => {
   return { ...actual, executeCodegraphInvocation: __m.executeCodegraphInvocation };
 });
 
-import { resolve } from 'node:path';
 import { registerCodegraphCommands } from '../../../src/cli/commands/codegraph-commands.js';
 import {
   rewriteBareCodegraphHints,
@@ -133,6 +132,26 @@ const ADVICE_PATTERN =
 
 const stripAnsi = (text: string): string => text.replace(/\x1b\[[0-9;]*m/g, '');
 
+// DISCRIMINATING POWER OF THE CASES BELOW, STATED RATHER THAN ASSUMED.
+//
+// `wasmBlock()` and `BACKEND_ANSI` are hand-written reproductions of what
+// `@colbymchenry/codegraph@0.7.10` printed. Upstream 1.6.2 prints NONE of it:
+// its `status` reports `Backend:   node:sqlite — built-in (full WAL)`, emits
+// no ANSI, and writes ZERO bytes to stderr (measured — see the integration arm
+// below, which pins that on the real binary).
+//
+// So every case in this block is a unit test of the REWRITER against an input
+// the installed upstream no longer produces. They are kept, not deleted,
+// because the rewriter is still wired into `codegraph-command-runtime.ts` and
+// `codegraph-preflight-service.ts` for any install that still emits the block
+// (peaks-loop's own pin is what moved; a downstream consumer's lockfile is not
+// ours to assume). What they no longer do is tell us anything about the binary
+// actually installed here — that job belongs to the integration arm, which is
+// why it asserts upstream's real output directly instead of branching on it.
+//
+// Whether `rewriteSqliteBackendAdvice` itself, and its two call sites, should
+// be deleted as dead code under a 1.6.2-only world is a separate decision and
+// is recorded as backlog, not taken here.
 describe('rewriteSqliteBackendAdvice (rid-CG-008) — behavior', () => {
   it('collapses the whole runtime block to exactly the one note line', () => {
     const filtered = rewriteSqliteBackendAdvice(wasmBlock());
@@ -289,33 +308,61 @@ describe('peaks codegraph status (rid-CG-008) — render', () => {
 });
 
 describe('rewriteSqliteBackendAdvice (rid-CG-008) — integration', () => {
-  it('filters whatever the real upstream binary prints about the SQLite backend', async () => {
-    // The drift tripwire, read-only against this repo's own index. It goes
-    // through the REAL process runner: `executeCodegraphInvocation` is mocked
-    // for the render arms above, and a mocked spawn would make this arm pass
-    // without ever looking at upstream.
+  let live: TmpWorkspace;
+
+  beforeEach(() => {
+    live = useTmpWorkspace('peaks-cg-advice-live-');
+  });
+
+  afterEach(() => {
+    cleanupTmpWorkspace();
+  });
+
+  it('is inert on the real upstream 1.6.2 status output, which carries no SQLite advice', async () => {
+    // The drift tripwire, through the REAL process runner: `executeCodegraphInvocation`
+    // is mocked for the render arms above, and a mocked spawn would make this arm
+    // pass without ever looking at upstream.
+    //
+    // It spawns against a TEMP project, not this repo. That is a correctness fix,
+    // not tidiness: upstream 1.6.x MIGRATES a `.codegraph/` written by 0.7.x and
+    // the migration is not reversible, so the previous `project: resolve(__dirname,
+    // '../../..')` would have destroyed the index it was reading — and the repo
+    // pins the older upstream precisely because that migration is known.
+    const project = live.path;
+
+    // `init` first: `status` against a project with no index prints no `Backend:`
+    // line at all (measured: "Not initialized / Run \"codegraph init\""), so
+    // asserting on its output would assert on an absence.
+    const init = await defaultCodegraphProcessRunner(
+      createCodegraphInvocation({ subcommand: 'init', project })
+    );
+    expect(init.exitCode).toBe(0);
+
     const result = await defaultCodegraphProcessRunner(
-      createCodegraphInvocation({ subcommand: 'status', project: resolve(__dirname, '../../..') })
+      createCodegraphInvocation({ subcommand: 'status', project })
     );
 
     expect(result.exitCode).toBe(0);
     expect(result.stdout.length).toBeGreaterThan(0);
 
-    const raw = `${result.stdout}\n${result.stderr}`;
+    // 1.6.2's real, measured shape. These are the assertions that replace the
+    // old `if (/better-sqlite3/) … else expect(filtered).toBe(localized)`: that
+    // else-branch was taken unconditionally under 1.6.2, so it proved nothing.
+    // Stated directly instead, so it fails if upstream rewords the block OR
+    // re-introduces the deleted package's advice.
+    expect(result.stderr).toBe('');
+    expect(result.stdout).toContain('Backend:');
+    expect(result.stdout).toContain('node:sqlite');
+    expect(`${result.stdout}\n${result.stderr}`).not.toMatch(ADVICE_PATTERN);
+
     const localized = `${rewriteBareCodegraphHints(result.stdout)}\n${rewriteBareCodegraphHints(result.stderr)}`;
     const filtered = rewriteSqliteBackendAdvice(localized);
 
-    if (/better-sqlite3/i.test(raw)) {
-      // Upstream still advertises the deleted package: none of it may survive,
-      // and the collapse has to be the note we designed, not silence.
-      expect(stripAnsi(filtered)).not.toMatch(ADVICE_PATTERN);
-      expect(filtered).toContain(NOTE);
-    } else {
-      // Native backend, or upstream reworded its advice away: the filter must
-      // be inert, byte-for-byte.
-      expect(filtered).toBe(localized);
-    }
-  }, 60_000);
+    // With no advice to localize the rewriter must be EXACTLY inert — not
+    // "close enough", and not silent.
+    expect(filtered).toBe(localized);
+    expect(stripAnsi(filtered)).not.toMatch(ADVICE_PATTERN);
+  }, 120_000);
 });
 
 describe('rewriteSqliteBackendAdvice (rid-CG-008) — a11y', () => {

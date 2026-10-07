@@ -65,6 +65,7 @@ import {
 import { inspectCodegraphExcludeIntegrity } from '../../../../src/services/codegraph/codegraph-exclude-integrity.js';
 import { inspectCodegraphIndexIntegrity } from '../../../../src/services/codegraph/codegraph-index-integrity.js';
 import {
+  filterAdmittedTrackedFiles,
   readTrackedFiles,
   reconcileCodegraphExclude
 } from '../../../../src/services/codegraph/codegraph-exclude-reconciler.js';
@@ -79,12 +80,34 @@ declareDimensions('tests/unit/services/codegraph/codegraph-config-repair.test.ts
   'a11y'
 ]);
 
-// The five patterns the include axis appends, DERIVED here from upstream's
-// own data rather than typed out — so this expectation moves with upstream
-// for the same reason the implementation does.
-const EXPECTED_INCLUDE_ADDITIONS = upstreamUnnamedIncludeExtensions().map(
-  (extension) => `**/*${extension}`
-);
+// The patterns the include axis appends, DERIVED here from upstream's own
+// data rather than typed out — so this expectation moves with upstream for
+// the same reason the implementation does.
+//
+// UNDER codegraph 1.6.2 THIS IS EVERY SUPPORTED EXTENSION, not five. The
+// five it held (`.mjs`, `.cjs`, `.pyw`, `.hxx`, `.rake`) were 0.7.x's
+// template-unnamed set; 1.6.2 ships no template at all, so nothing is named
+// and the derivation's "not named" condition holds for all 78 supported
+// extensions. Because this constant is DERIVED rather than typed out, every
+// assertion below moved with it without an edit — which is the property the
+// derivation was written for.
+//
+// The size jump is recorded here because it is the upgrade's visible
+// consequence and not this file's decision: what the include axis should
+// mean under a template-less upstream belongs to the deferred config-axis
+// slice. `codegraph-include-reconciler.test.ts` pins the derivation and its
+// cause; this file only uses the result.
+// The `include` list every fixture in this file writes. The candidates it
+// ALREADY admits are not appended, which is why the expectation below is a
+// filtered derivation rather than the bare candidate list — under 0.7.x no
+// candidate was covered and the two were the same, under 1.6.x `.ts` is a
+// candidate and this fixture admits it.
+const FIXTURE_INCLUDE = ['**/*.ts'];
+const EXPECTED_INCLUDE_ADDITIONS = upstreamUnnamedIncludeExtensions()
+  .filter(
+    (extension) => filterAdmittedTrackedFiles([`probe${extension}`], FIXTURE_INCLUDE).length === 0
+  )
+  .map((extension) => `**/*${extension}`);
 
 // What the index axis would call "extractor-supported" in these fixtures.
 // Injected rather than re-derived: the point of these cases is the repair,
@@ -650,8 +673,15 @@ describe('the writer keeps the third-party config intact', () => {
       // nothing was purged and `forcedRebuild: false` is the truth here. The
       // two cases together are what makes the field a discriminator.
       expect(report.forcedRebuild).toBe(false);
+      // The include count is derived, not typed: hardcoding it is what made
+      // this assertion report the size of upstream's extension table as if it
+      // were a property of the repair.
       expect(report.warning).toMatch(
-        /^codegraph config repaired \(1 exclude rule\(s\) removed, 5 include pattern\(s\) added\) but the follow-up index failed \(exit 7\)/
+        new RegExp(
+          '^codegraph config repaired \\(1 exclude rule\\(s\\) removed, ' +
+            `${EXPECTED_INCLUDE_ADDITIONS.length} include pattern\\(s\\) added\\) ` +
+            'but the follow-up index failed \\(exit 7\\)'
+        )
       );
       // The config repair itself is durable — it is not rolled back.
       expect(inspectCodegraphExcludeIntegrity(projectRoot).gap).toBe(false);

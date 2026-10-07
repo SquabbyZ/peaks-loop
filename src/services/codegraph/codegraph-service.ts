@@ -1,12 +1,12 @@
 import { existsSync, mkdirSync, realpathSync, statSync, writeFileSync } from 'node:fs';
-import { createRequire } from 'node:module';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { defaultCodegraphProcessRunner } from './codegraph-process-runner.js';
+import { resolveCodegraphUpstreamLayout } from './codegraph-upstream-layout.js';
 import { getSessionId, getSessionDir } from '../session/index.js';
 import { isInsidePath } from '../../shared/path-utils.js';
 
 const CODEGRAPH_PACKAGE_NAME = '@colbymchenry/codegraph';
-const CODEGRAPH_PACKAGE_VERSION = '0.7.10';
+const CODEGRAPH_PACKAGE_VERSION = '1.6.2';
 const CODEGRAPH_EXECUTABLE = process.execPath;
 const CODEGRAPH_BINARY_PATH = resolveCodegraphBinaryPath();
 const POSITIONAL_ARGUMENT_PREFIX = '-';
@@ -23,10 +23,11 @@ const NUMERIC_FLAG_NAMES = ['limit', 'maxDepth'] as const;
 const COMMON_OPTION_KEYS = ['subcommand', 'project'] as const;
 const ALLOWED_OPTIONS_BY_SUBCOMMAND = {
   status: [],
-  // Upstream `init` takes NO flags. The `--yes` we used to whitelist
-  // here was passed straight through to `@colbymchenry/codegraph`, which
-  // rejects it with CODEGRAPH_COMMAND_FAILED — and upstream init never
-  // prompts, so there was nothing for it to answer.
+  // peaks-loop passes upstream `init` NO flags. The `--yes` we used to
+  // whitelist was forwarded verbatim and rejected with
+  // CODEGRAPH_COMMAND_FAILED — and init never prompts, so there was nothing
+  // for it to answer. 1.6.2 added `-y, --yes` for a prompt that still does
+  // not exist, which changes nothing: it stays unwhitelisted.
   init: [],
   index: ['force', 'quiet'],
   query: ['search', 'json', 'limit'],
@@ -82,12 +83,11 @@ export type CodegraphProcessRunner = (
   invocation: CodegraphInvocation
 ) => Promise<CodegraphExecutionResult>;
 
+// Upstream's on-disk layout is owned by `codegraph-upstream-layout.ts` — the
+// same resolver the two module oracles and the doctor's probe read, so none
+// of the four can disagree about which install it is reading.
 function resolveCodegraphBinaryPath(): string {
-  const require = createRequire(import.meta.url);
-  const packageJsonPath = require.resolve('@colbymchenry/codegraph/package.json');
-  const binaryPath = resolve(dirname(packageJsonPath), 'dist', 'bin', 'codegraph.js');
-
-  return binaryPath;
+  return resolveCodegraphUpstreamLayout().binaryPath;
 }
 
 function assertSupportedSubcommand(subcommand: string): asserts subcommand is CodegraphSubcommand {

@@ -6,12 +6,22 @@
 // The defect: the command registered `.option('--yes', 'answer yes to
 // upstream prompts')` and `codegraph-service.ts` whitelisted `yes` for
 // `init`, so the flag was forwarded verbatim to
-// `@colbymchenry/codegraph@0.7.10`. That binary's `init` takes no flags
-// and rejects the unknown one, so `peaks codegraph init --yes` died with
+// `@colbymchenry/codegraph@0.7.10`. That binary's `init` took no flags
+// and rejected the unknown one, so `peaks codegraph init --yes` died with
 // CODEGRAPH_COMMAND_FAILED — reproducibly, on an otherwise untouched
 // 4.0.43. The help text was advertising a flag whose stated purpose
 // ("answer yes to upstream prompts") never existed: upstream init does
 // not prompt.
+//
+// STILL TRUE UNDER @colbymchenry/codegraph@1.6.2, for a different reason
+// and with the same guarantee. 1.6.2's `init` DOES declare `-y, --yes` —
+// but for a prompt that still does not exist (init indexes by default and
+// a repeat init reports "Already initialized"). peaks-loop's whitelist
+// therefore stays empty, and the three pins below keep their force
+// unchanged: the flag is absent from the commander surface, refused by the
+// whitelist, and absent from the spawn argv. What moved is the reason, not
+// the requirement — and the reason is recorded rather than the old one
+// being left to read as current.
 //
 // Three places must agree, and all three are pinned here:
 //   1. the commander surface (no `--yes` in the option list),
@@ -117,8 +127,8 @@ describe('peaks codegraph init — the --yes flag is gone from every layer', () 
 
     expect(longs).not.toContain('--yes');
     // The shared `--project` / `--peaks-json` pair, plus the peaks-side
-    // `--force` (rid-CG-006). Upstream `init` takes no flags, so `--force` may
-    // never reach the spawn argv — pinned by the argv arm below.
+    // `--force` (rid-CG-006). peaks-loop passes upstream `init` no flags, so
+    // `--force` may never reach the spawn argv — pinned by the argv arm below.
     expect([...longs].sort()).toEqual(['--force', '--peaks-json', '--project']);
   });
 

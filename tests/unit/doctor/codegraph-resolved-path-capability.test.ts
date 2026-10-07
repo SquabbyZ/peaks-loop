@@ -58,11 +58,17 @@ function makeContext(): DoctorContext {
   };
 }
 
+// The version and the entry's SHAPE are both load-bearing here. A probe whose
+// version disagreed with `CODEGRAPH_EXPECTED_VERSION` would be reported as
+// drift with `ok: false`, and a probe still shaped like 0.7.10's layout would
+// pin a path 1.6.x does not have. Updated with the pin: 1.6.x keeps the
+// runtime in the per-platform bundle, under `lib/dist/`.
 function healthyPackageProbe(): CodegraphCapabilityProbe {
   return {
     packagePath: '/synthetic/node_modules/@colbymchenry/codegraph/package.json',
-    version: '0.7.10',
-    binaryPath: '/synthetic/node_modules/@colbymchenry/codegraph/dist/bin/codegraph.js',
+    version: '1.6.2',
+    binaryPath:
+      '/synthetic/node_modules/@colbymchenry/codegraph-win32-x64/lib/dist/bin/codegraph.js',
     binaryExists: true,
     managedPath: null
   };

@@ -18,11 +18,12 @@
  */
 
 import { existsSync, readFileSync, statSync } from 'node:fs';
-import { dirname, join, resolve as resolvePath } from 'node:path';
+import { dirname, join } from 'node:path';
 import { createRequire } from 'node:module';
 
 import { getErrorMessage } from 'peaks-loop-shared/result';
 import { resolveCodegraphProjectRoot } from '../../../codegraph/codegraph-service.js';
+import { codegraphUpstreamLayoutFor } from '../../../codegraph/codegraph-upstream-layout.js';
 
 import type {
   CodegraphCapabilityProbe,
@@ -32,7 +33,7 @@ import type {
   DoctorContext
 } from '../types.js';
 
-const CODEGRAPH_EXPECTED_VERSION = '0.7.10';
+const CODEGRAPH_EXPECTED_VERSION = '1.6.2';
 const CODEGRAPH_PACKAGE_NAME = '@colbymchenry/codegraph';
 
 function findCodegraphPackageJsonFallback(startDir: string): string | null {
@@ -88,9 +89,13 @@ function defaultCodegraphProbe(): CodegraphCapabilityProbe {
     // Fall through with version='unknown'; the binary-existence
     // check below is the load-bearing assertion.
   }
+  // Probing, not path-joining: 1.6.x keeps the entry in the per-platform
+  // bundle's `lib/dist/`, not in the main package's own `dist/`. The shared
+  // resolver is the same one the spawn path uses, so the doctor cannot
+  // report "binary exists" at a path the spawn would not use.
   let binaryPath: string;
   try {
-    binaryPath = resolvePath(dirname(packagePath), 'dist', 'bin', 'codegraph.js');
+    binaryPath = codegraphUpstreamLayoutFor(packagePath).binaryPath;
   } catch {
     binaryPath = '';
   }
@@ -145,17 +150,22 @@ function runCheck(
     const versionOk = result.version === CODEGRAPH_EXPECTED_VERSION;
     const managedPathSuffix = renderManagedPathSuffix(managedPath);
     if (!versionOk) {
-      // version via yarn-pnp / pnpm-strict. Surface as a warning
-      // (ok: false, severity: warning) so the check does NOT flip
-      // the doctor exit code. Upstream 0.7.x binaries are wire-
-      // compatible with 0.7.10 for the subset peaks-loop exercises
-      // (status / init / index / query / files / context / affected).
+      // version via yarn-pnp / pnpm-strict. Still a warning rather than an
+      // error — the pinned subcommand surface is stable, and a drift is not
+      // by itself a broken install — but the tolerance is NOT the wire
+      // compatibility the old `0.7.x` band had, where patch drift really was
+      // wire-compatible with the pin. 1.6.x is a rewrite of the runtime and
+      // of the index's on-disk schema: opening a 0.7.10-built `.codegraph/`
+      // with it migrates the database, and the migration is not reversible.
+      // So the message states the drift and the pin command and names the
+      // axis that actually moves, instead of reassuring the reader about a
+      // compatibility that does not hold across 0.7.x → 1.6.x.
       return [
         {
           id: 'capability:codegraph',
           ok: false,
           severity: 'warning',
-          message: `@colbymchenry/codegraph version drift: expected ${CODEGRAPH_EXPECTED_VERSION}, resolved ${result.version} at ${result.packagePath} — peaks-loop uses an allow-list of subcommands and tolerates 0.7.x wire-compat. Run \`pnpm install @colbymchenry/codegraph@${CODEGRAPH_EXPECTED_VERSION}\` to pin.${managedPathSuffix}`
+          message: `@colbymchenry/codegraph version drift: expected ${CODEGRAPH_EXPECTED_VERSION}, resolved ${result.version} at ${result.packagePath} — peaks-loop uses an allow-list of subcommands, but the index schema is NOT stable across a major version (0.7.x and 1.6.x cannot share one .codegraph/ directory). Run \`pnpm install @colbymchenry/codegraph@${CODEGRAPH_EXPECTED_VERSION}\` to pin.${managedPathSuffix}`
         }
       ];
     }
