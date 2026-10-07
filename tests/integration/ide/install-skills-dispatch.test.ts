@@ -19,7 +19,7 @@ import {
   rmSync,
   writeFileSync
 } from 'node:fs';
-import { homedir, tmpdir } from 'node:os';
+import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { promisify } from 'node:util';
 import { z } from 'zod';
@@ -38,8 +38,21 @@ const SCRIPT_PATH = resolve(__dirname, '../../../scripts/install-skills.mjs');
  * tree instead — the IDE dirs below are still whatever the case chose.
  */
 const CANONICAL_HOME = mkdtempSync(join(tmpdir(), 'peaks-canonical-home-'));
+/**
+ * Slice 4 (`agents-canonical-store`): the postinstall now also puts every IDE entry
+ * for `agents` and `output-styles` at `~/.peaks/<kind>/<name>` and links the IDE
+ * directory AT it. The child's `$HOME` is therefore decisive, and it must not be the
+ * developer's: a link written into the real `~/.claude/agents` would dangle the
+ * moment this tmpdir is removed — and would do so through a sidecar whose recorded
+ * package path (measured on this machine: `…\nvm\v24.21.0\node_modules\…`, a path
+ * with a NODE VERSION in it) stops resolving the next time node is upgraded. The
+ * child gets a throwaway home, and `.claude` is created inside it so the
+ * platform-presence gate still says "this user has Claude Code".
+ */
+const FAKE_HOME = mkdtempSync(join(tmpdir(), 'peaks-dispatch-home-'));
 afterAll(() => {
   rmSync(CANONICAL_HOME, { recursive: true, force: true });
+  rmSync(FAKE_HOME, { recursive: true, force: true });
 });
 
 /**
@@ -74,6 +87,8 @@ async function runInstallSkills(
         ...process.env,
         PEAKS_SKIP_USER_CONFIG_INSTALL: '1',
         PEAKS_HOME: CANONICAL_HOME,
+        USERPROFILE: FAKE_HOME,
+        HOME: FAKE_HOME,
         ...env,
         PEAKS_PROJECT_ROOT: projectRoot
       },
@@ -95,6 +110,11 @@ describe('install-skills.mjs — IDE-aware dispatch (slice #011)', () => {
   let project: string;
   beforeEach(() => {
     project = mkdtempSync(join(tmpdir(), 'peaks-install-skills-'));
+    // The child's `$HOME` is FAKE_HOME, so `.claude` has to exist under it for
+    // `isPlatformPresent` to report Claude Code as a tool this user has. Without it
+    // the fan-out would install for nobody and the assertions below would be about
+    // a run that never happened.
+    mkdirSync(join(FAKE_HOME, '.claude'), { recursive: true });
   });
   afterEach(async () => {
     if (existsSync(project)) {
@@ -120,8 +140,9 @@ describe('install-skills.mjs — IDE-aware dispatch (slice #011)', () => {
   test('default fallback (no IDE detected) writes to ~/.claude/skills/', async () => {
     const result = await runInstallSkills({}, project);
     expect(result.code).toBe(0);
-    // Default fallback path: <homedir>/.claude/skills
-    const skillsRoot = join(homedir(), '.claude', 'skills');
+    // Default fallback path: <homedir>/.claude/skills — the child's throwaway home,
+    // which is the only home this file is allowed to write into.
+    const skillsRoot = join(FAKE_HOME, '.claude', 'skills');
     // At least one of the bundled skills should be installed (peaks-code is the
     // canonical one; assert non-empty result rather than pinning a name).
     expect(result.stdout).toMatch(/Peaks skills linked/);
@@ -180,7 +201,7 @@ describe('install-skills.mjs — IDE-aware dispatch (slice #011)', () => {
     // Trae's own skills dir is populated (the whole point of
     // the 2.0 fix — the Trae user reported the 1.x postinstall
     // never wrote to ~/.trae/skills).
-    const traeSkills = join(homedir(), '.trae', 'skills');
+    const traeSkills = join(FAKE_HOME, '.trae', 'skills');
     expect(existsSync(traeSkills)).toBe(true);
   });
 

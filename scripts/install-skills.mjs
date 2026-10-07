@@ -15,17 +15,21 @@ import {
   unlinkSync,
   writeFileSync
 } from 'node:fs';
-import { createHash, randomUUID } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import { homedir } from 'node:os';
-import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path';
+import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 // The canonical store — `~/.peaks/{skills,agents,output-styles}`. Skills are
 // linked to it instead of to `<packageRoot>/skills/<name>`; see the loop in
 // `installBundledSkills` for why the target moved and why repair is now
-// unconditional. MUST stay in `package.json#files`: this file IS the npm
-// postinstall, and an unpublished sibling import breaks every user's install.
+// unconditional. `canonical-store-link.mjs` is the same contract for the two
+// families whose entry is a single FILE rather than a tree, and it is where the
+// "the symlink was refused, here is the report" fallback lives. MUST both stay in
+// `package.json#files`: this file IS the npm postinstall, and an unpublished
+// sibling import breaks every user's install.
 import { reconcileCanonicalEntry } from './canonical-store.mjs';
+import { reconcileCanonicalFileEntry } from './canonical-store-link.mjs';
 import { pruneBundledEntries } from './canonical-store-prune.mjs';
 
 function getPathStats(path) {
@@ -33,20 +37,6 @@ function getPathStats(path) {
     return lstatSync(path);
   } catch {
     return null;
-  }
-}
-
-function validateManagedMarkerPath(markerPath) {
-  const markerStats = getPathStats(markerPath);
-  if (!markerStats) return;
-  if (markerStats.isSymbolicLink()) {
-    throw new Error('Peaks managed marker path must not be a symlink');
-  }
-  if (!markerStats.isFile()) {
-    throw new Error('Peaks managed marker path must be a file');
-  }
-  if (markerStats.nlink !== 1) {
-    throw new Error('Peaks managed marker path must not be hardlinked');
   }
 }
 
@@ -66,26 +56,6 @@ function validateOpenFile(fd, path, errorMessage) {
   }
 }
 
-function createFileIdentity(path) {
-  const stats = lstatSync(path);
-  if (!stats.isFile() || stats.isSymbolicLink() || stats.nlink !== 1) {
-    return null;
-  }
-  return { dev: stats.dev, ino: stats.ino };
-}
-
-function isSameFileIdentity(path, identity) {
-  if (identity === null) return false;
-  const stats = getPathStats(path);
-  return Boolean(
-    stats?.isFile() &&
-    !stats.isSymbolicLink() &&
-    stats.nlink === 1 &&
-    stats.dev === identity.dev &&
-    stats.ino === identity.ino
-  );
-}
-
 function getSafeReadOpenFlags() {
   return typeof constants.O_NOFOLLOW === 'number'
     ? constants.O_RDONLY | constants.O_NOFOLLOW
@@ -100,83 +70,6 @@ function readFileSafely(path, errorMessage) {
   } finally {
     closeSync(fd);
   }
-}
-
-function getManagedTarget(targetPath) {
-  const markerPath = `${targetPath}.peaks-managed`;
-  validateManagedMarkerPath(markerPath);
-  if (!existsSync(markerPath)) {
-    return null;
-  }
-  return readFileSafely(markerPath, 'Peaks managed marker path changed during read').trim();
-}
-
-function readPackageSourceFile(path) {
-  const stats = lstatSync(path);
-  if (!stats.isFile() || stats.isSymbolicLink()) {
-    throw new Error('Peaks package source path must be a file');
-  }
-  return readFileSync(path, 'utf8');
-}
-
-function hashContent(content) {
-  return createHash('sha256').update(content).digest('hex');
-}
-
-function hashFileContent(path) {
-  return hashContent(readFileSafely(path, 'Peaks managed file path changed during read'));
-}
-
-function createManagedOutputStyleMarker(sourcePath, outputStyleName) {
-  const content = readPackageSourceFile(sourcePath);
-  return `${JSON.stringify({ version: 1, kind: 'output-style', outputStyleName, sourcePath, contentSha256: hashContent(content) })}\n`;
-}
-
-function parseManagedOutputStyleMarker(managedTarget) {
-  if (managedTarget === null) return null;
-  try {
-    const marker = JSON.parse(managedTarget);
-    if (
-      marker?.version !== 1 ||
-      marker?.kind !== 'output-style' ||
-      typeof marker.outputStyleName !== 'string' ||
-      typeof marker.sourcePath !== 'string' ||
-      typeof marker.contentSha256 !== 'string'
-    ) {
-      return null;
-    }
-    return marker;
-  } catch {
-    return null;
-  }
-}
-
-function isTrustedOutputStyleSource(marker, sourcePath, outputStyleName) {
-  return (
-    marker.outputStyleName === outputStyleName &&
-    resolve(marker.sourcePath) === resolve(sourcePath) &&
-    basename(resolve(marker.sourcePath)) === outputStyleName
-  );
-}
-
-function getManagedPeaksOutputStyleIdentity(
-  managedTarget,
-  targetPath,
-  sourcePath,
-  outputStyleName
-) {
-  const marker = parseManagedOutputStyleMarker(managedTarget);
-  const sourceHash = hashContent(readPackageSourceFile(sourcePath));
-  if (
-    marker === null ||
-    !isTrustedOutputStyleSource(marker, sourcePath, outputStyleName) ||
-    !existsSync(targetPath) ||
-    hashFileContent(targetPath) !== sourceHash ||
-    marker.contentSha256 !== sourceHash
-  ) {
-    return null;
-  }
-  return createFileIdentity(targetPath);
 }
 
 function validateInstallRoot(targetRoot, label) {
@@ -201,7 +94,7 @@ function createInstallRootValidator(targetRoot, label) {
 }
 
 function createInstallResult() {
-  return { installed: [], skipped: [] };
+  return { installed: [], skipped: [], pruned: [], fallbacks: [] };
 }
 
 function resolvePackageRoot(options = {}) {
@@ -323,39 +216,6 @@ function validateUserConfigPaths(userRoot, peaksRoot, configPath) {
 function getSafeTempOpenFlags() {
   const baseFlags = constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL;
   return typeof constants.O_NOFOLLOW === 'number' ? baseFlags | constants.O_NOFOLLOW : baseFlags;
-}
-
-function writeFileExclusively(path, content, errorMessage, validateBeforeWrite) {
-  validateBeforeWrite();
-  let fd = openSync(path, getSafeTempOpenFlags(), 0o600);
-  let closeError = null;
-  let identity = null;
-  try {
-    validateOpenFile(fd, path, errorMessage);
-    validateBeforeWrite();
-    validateOpenFile(fd, path, errorMessage);
-    identity = createFileIdentity(path);
-    if (identity === null) {
-      throw new Error(errorMessage);
-    }
-    fchmodSync(fd, 0o600);
-    writeFileSync(fd, content, 'utf8');
-    const writeFd = fd;
-    fd = null;
-    closeSync(writeFd);
-    return identity;
-  } finally {
-    if (fd !== null) {
-      try {
-        closeSync(fd);
-      } catch (error) {
-        closeError = error;
-      }
-    }
-    if (closeError) {
-      throw closeError;
-    }
-  }
 }
 
 function writeFileAtomically(configPath, content, errorMessage, validateBeforeWrite) {
@@ -874,73 +734,55 @@ export function installBundledOutputStyles(options = {}) {
 
   const installed = [];
   const skipped = [];
+  const fallbacks = [];
   mkdirSync(targetRoot, { recursive: true });
   const validateOutputStylesRoot = createInstallRootValidator(targetRoot, 'Peaks output styles');
 
+  // Slice 4 (`agents-canonical-store`) — same move slice 2 made for skills, with the
+  // one difference the brief calls out: a style is a FILE, so the link is a file
+  // symlink, which Windows only grants with developer mode or Administrator.
+  // `reconcileCanonicalFileEntry` is the whole policy — canonical copy, link, and the
+  // reported fallback to a real copy when the host refuses the link. The loop below
+  // no longer decides ownership, and that is deliberate: the decision it used to make
+  // was `resolve(marker.sourcePath) === resolve(sourcePath)`, a string comparison
+  // against a version-scoped package path that went false forever on the first
+  // upgrade and silently froze the style.
+  const bundledStyleNames = [];
   for (const outputStyleName of readdirSync(outputStylesRoot)) {
     const sourcePath = join(outputStylesRoot, outputStyleName);
-    const targetPath = join(targetRoot, outputStyleName);
+    if (!lstatSync(sourcePath).isFile() || !outputStyleName.endsWith('.md')) continue;
+    bundledStyleNames.push(outputStyleName);
 
-    if (!lstatSync(sourcePath).isFile() || !outputStyleName.endsWith('.md')) {
+    validateOutputStylesRoot();
+    const reconciled = reconcileCanonicalFileEntry({
+      kind: 'output-styles',
+      name: outputStyleName,
+      sourcePath,
+      linkPath: join(targetRoot, outputStyleName),
+      createFileLink: options.createFileLink
+    });
+    validateOutputStylesRoot();
+
+    if (reconciled.linkAction === 'skipped') {
+      skipped.push(outputStyleName);
       continue;
     }
-
-    const current = getPathStats(targetPath);
-    if (current) {
-      const managedTarget = getManagedTarget(targetPath);
-      const managedTargetIdentity = getManagedPeaksOutputStyleIdentity(
-        managedTarget,
-        targetPath,
-        sourcePath,
-        outputStyleName
-      );
-      if (isSameFileIdentity(targetPath, managedTargetIdentity)) {
-        validateOutputStylesRoot();
-        if (!isSameFileIdentity(targetPath, managedTargetIdentity)) {
-          throw new Error('Peaks output style path changed during unlink');
-        }
-        unlinkSync(targetPath);
-        validateOutputStylesRoot();
-        unlinkSync(`${targetPath}.peaks-managed`);
-      } else {
-        skipped.push(outputStyleName);
-        continue;
-      }
-    }
-
-    const markerPath = `${targetPath}.peaks-managed`;
-    validateManagedMarkerPath(markerPath);
-    if (!current && existsSync(markerPath)) {
-      validateOutputStylesRoot();
-      unlinkSync(markerPath);
-    }
-    const createdTargetIdentity = writeFileExclusively(
-      targetPath,
-      readPackageSourceFile(sourcePath),
-      'Peaks output style path changed during write',
-      validateOutputStylesRoot
-    );
-    try {
-      writeFileExclusively(
-        markerPath,
-        createManagedOutputStyleMarker(sourcePath, outputStyleName),
-        'Peaks managed marker path changed during write',
-        () => {
-          validateOutputStylesRoot();
-          validateManagedMarkerPath(markerPath);
-        }
-      );
-    } catch (error) {
-      validateOutputStylesRoot();
-      if (isSameFileIdentity(targetPath, createdTargetIdentity)) {
-        unlinkSync(targetPath);
-      }
-      throw error;
-    }
     installed.push(outputStyleName);
+    if (reconciled.fallback !== null) {
+      fallbacks.push({ name: outputStyleName, ...reconciled.fallback });
+    }
   }
 
-  return { installed, skipped };
+  // The delete half, for the same reason skills have one: the loop above only ever
+  // adds. A style removed from the package used to leave its canonical copy, its IDE
+  // link and both sidecars behind forever.
+  const { pruned } = pruneBundledEntries({
+    kind: 'output-styles',
+    keepNames: bundledStyleNames,
+    linkDirs: [targetRoot]
+  });
+
+  return { installed, skipped, pruned, fallbacks };
 }
 
 /**
@@ -1094,72 +936,26 @@ export function installBundledOutputStyleDefault(options = {}) {
 /**
  * Slice 7/7 — bundled agents (Claude Code sub-agent prompts).
  *
- * Mirrors `installBundledOutputStyles` but writes to
- * `~/.claude/agents/` (Claude Code's sub-agent loader directory). Each
- * agent file ships under `agents/*.md` in the peaks-loop tarball and is
- * copied on `npm i -g peaks-loop@latest` with content-hash drift detection
- * via a `.peaks-managed` marker (SHA-256 of the source content).
+ * Writes into the IDE's sub-agent loader directory (`~/.claude/agents/` for Claude
+ * Code, and whatever `agentsDir` the detected profile declares). The bytes live in
+ * the canonical store (`~/.peaks/agents/<name>`) and the IDE entry is a link to it.
  *
- * Drift policy (mirrors output-styles):
- *   - file missing, marker missing       → install (write file + marker)
- *   - file missing, marker present       → install (replace stale marker)
- *   - file present, marker present,
- *     SHA matches, sourcePath matches    → skip (idempotent re-install)
- *   - file present, marker present,
- *     SHA matches, sourcePath differs    → skip (stale package path;
- *                                            preserve user's local file)
- *   - file present, marker present,
- *     SHA differs                        → overwrite (package upgrade)
- *   - file present, no marker            → skip (user-authored file;
- *                                            preserve)
+ * Ownership policy — ONE predicate, in `canonical-store-link.mjs::isOwnedFileEntry`,
+ * and it is deliberately not a string comparison:
+ *   - entry resolves to the canonical copy              → leave it (idempotent run)
+ *   - entry is a link we wrote (sidecar agrees, dangles) → relink onto the store
+ *   - entry is a real file with OUR sidecar beside it    → re-point it at the store
+ *   - entry is a real file with a LEGACY sidecar whose
+ *     recorded package path no longer resolves           → same: repair it
+ *   - entry is a real file we never wrote (no sidecar)   → skip (user-authored)
+ *   - entry is a real file whose sidecar names a path
+ *     that STILL resolves                                → skip (a second live install)
+ *
+ * The two "skip" arms above are the ones the old code got wrong in opposite
+ * directions: it skipped whenever the package path merely DIFFERED, which froze
+ * every entry on the first upgrade, silently and permanently. See
+ * `isOwnedFileEntry` for why a vanished package path is proof of an earlier install.
  */
-function createManagedAgentMarker(sourcePath, agentName) {
-  const content = readPackageSourceFile(sourcePath);
-  return `${JSON.stringify({ version: 1, kind: 'agent', agentName, sourcePath, contentSha256: hashContent(content) })}\n`;
-}
-
-function parseManagedAgentMarker(managedTarget) {
-  if (managedTarget === null) return null;
-  try {
-    const marker = JSON.parse(managedTarget);
-    if (
-      marker?.version !== 1 ||
-      marker?.kind !== 'agent' ||
-      typeof marker.agentName !== 'string' ||
-      typeof marker.sourcePath !== 'string' ||
-      typeof marker.contentSha256 !== 'string'
-    ) {
-      return null;
-    }
-    return marker;
-  } catch {
-    return null;
-  }
-}
-
-function isTrustedAgentSource(marker, sourcePath, agentName) {
-  return (
-    marker.agentName === agentName &&
-    resolve(marker.sourcePath) === resolve(sourcePath) &&
-    basename(resolve(marker.sourcePath)) === agentName
-  );
-}
-
-function getManagedPeaksAgentIdentity(managedTarget, targetPath, sourcePath, agentName) {
-  const marker = parseManagedAgentMarker(managedTarget);
-  const sourceHash = hashContent(readPackageSourceFile(sourcePath));
-  if (
-    marker === null ||
-    !isTrustedAgentSource(marker, sourcePath, agentName) ||
-    !existsSync(targetPath) ||
-    hashFileContent(targetPath) !== sourceHash ||
-    marker.contentSha256 !== sourceHash
-  ) {
-    return null;
-  }
-  return createFileIdentity(targetPath);
-}
-
 export function installBundledAgents(options = {}) {
   const packageRoot = resolvePackageRoot(options);
   const agentsRoot = join(packageRoot, 'agents');
@@ -1193,73 +989,82 @@ export function installBundledAgents(options = {}) {
 
   const installed = [];
   const skipped = [];
+  const fallbacks = [];
   mkdirSync(targetRoot, { recursive: true });
   const validateAgentsRoot = createInstallRootValidator(targetRoot, 'Peaks agents');
 
+  // Slice 4 (`agents-canonical-store`) — the canonical store owns the bytes and the
+  // IDE entry points at it. Everything this loop used to decide about ownership is
+  // now `reconcileCanonicalFileEntry`'s, and the reason is the defect the brief
+  // names as this slice's core: the old test was
+  // `resolve(marker.sourcePath) === resolve(sourcePath)`, a STRING comparison against
+  // the package path of the installing version — a path with a node version inside it
+  // (`…\nvm\v24.21.0\node_modules\peaks-loop\agents\…`). It went false the first time
+  // the package moved and stayed false, so the agent silently never updated again.
+  const bundledAgentNames = [];
   for (const agentFileName of readdirSync(agentsRoot)) {
     const sourcePath = join(agentsRoot, agentFileName);
-    const targetPath = join(targetRoot, agentFileName);
+    if (!lstatSync(sourcePath).isFile() || !agentFileName.endsWith('.md')) continue;
+    bundledAgentNames.push(agentFileName);
 
-    if (!lstatSync(sourcePath).isFile() || !agentFileName.endsWith('.md')) {
+    validateAgentsRoot();
+    const reconciled = reconcileCanonicalFileEntry({
+      kind: 'agents',
+      name: agentFileName,
+      sourcePath,
+      linkPath: join(targetRoot, agentFileName),
+      createFileLink: options.createFileLink
+    });
+    validateAgentsRoot();
+
+    if (reconciled.linkAction === 'skipped') {
+      skipped.push(agentFileName);
       continue;
     }
-
-    const current = getPathStats(targetPath);
-    if (current) {
-      const managedTarget = getManagedTarget(targetPath);
-      const managedTargetIdentity = getManagedPeaksAgentIdentity(
-        managedTarget,
-        targetPath,
-        sourcePath,
-        agentFileName
-      );
-      if (isSameFileIdentity(targetPath, managedTargetIdentity)) {
-        validateAgentsRoot();
-        if (!isSameFileIdentity(targetPath, managedTargetIdentity)) {
-          throw new Error('Peaks agent path changed during unlink');
-        }
-        unlinkSync(targetPath);
-        validateAgentsRoot();
-        unlinkSync(`${targetPath}.peaks-managed`);
-      } else {
-        skipped.push(agentFileName);
-        continue;
-      }
-    }
-
-    const markerPath = `${targetPath}.peaks-managed`;
-    validateManagedMarkerPath(markerPath);
-    if (!current && existsSync(markerPath)) {
-      validateAgentsRoot();
-      unlinkSync(markerPath);
-    }
-    const createdTargetIdentity = writeFileExclusively(
-      targetPath,
-      readPackageSourceFile(sourcePath),
-      'Peaks agent path changed during write',
-      validateAgentsRoot
-    );
-    try {
-      writeFileExclusively(
-        markerPath,
-        createManagedAgentMarker(sourcePath, agentFileName),
-        'Peaks managed marker path changed during write',
-        () => {
-          validateAgentsRoot();
-          validateManagedMarkerPath(markerPath);
-        }
-      );
-    } catch (error) {
-      validateAgentsRoot();
-      if (isSameFileIdentity(targetPath, createdTargetIdentity)) {
-        unlinkSync(targetPath);
-      }
-      throw error;
-    }
     installed.push(agentFileName);
+    if (reconciled.fallback !== null) {
+      fallbacks.push({ name: agentFileName, ...reconciled.fallback });
+    }
   }
 
-  return { installed, skipped };
+  // The delete half: an agent the package stops shipping used to leave its canonical
+  // copy, its IDE entry and both sidecars on the machine forever.
+  const { pruned } = pruneBundledEntries({
+    kind: 'agents',
+    keepNames: bundledAgentNames,
+    linkDirs: [targetRoot]
+  });
+
+  return { installed, skipped, pruned, fallbacks };
+}
+
+/**
+ * A fallback is not a failure — but it must never LOOK like a plain success. The
+ * entry is a real copy instead of a link, and the postinstall says so, naming each
+ * one. Silence here would be the same shape as the defect this slice fixes: an
+ * outcome nobody can observe from the outside.
+ */
+function reportCopyFallbacks(label, fallbacks) {
+  if (fallbacks.length === 0) return;
+  process.stderr.write(
+    `Peaks ${label}: ${fallbacks.map((entry) => entry.name).join(', ')} ` +
+      'installed as REAL COPIES because this host refused a symlink ' +
+      `(${fallbacks[0].code ?? 'no code returned'})\n`
+  );
+}
+
+/**
+ * The other half of the same rule, for the other bucket. A `skipped` entry means the
+ * canonical copy WAS written and the IDE entry was NOT — a half migration. Whatever the
+ * cause (a file the user authored, or an entry whose sidecar names a second live
+ * installation), it must not be invisible: the whole defect this slice fixes was an
+ * outcome nobody could observe from outside.
+ */
+function reportLeftAlone(label, skipped) {
+  if (skipped.length === 0) return;
+  process.stderr.write(
+    `Peaks ${label}: left alone, not peaks-loop's to replace: ${skipped.join(', ')}\n`
+  );
 }
 
 /**
@@ -1303,11 +1108,14 @@ export function installBundledAgentsForAllPlatforms(options = {}) {
             ? { ...options, ideId, targetRoot: options.targetRoot }
             : { ...options, ideId };
       const result = installBundledAgents(platformOpts);
+      reportCopyFallbacks(`agents in ${profile.agentsDir}`, result.fallbacks);
+      reportLeftAlone(`agents in ${profile.agentsDir}`, result.skipped);
       perPlatform.push({
         ideId,
         agentsDir: profile.agentsDir,
         installed: result.installed,
-        skipped: result.skipped
+        skipped: result.skipped,
+        fallbacks: result.fallbacks
       });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -1448,6 +1256,7 @@ if (
         `Peaks output styles skipped because local files already exist: ${outputStylesResult.skipped.join(', ')}\n`
       );
     }
+    reportCopyFallbacks('output styles', outputStylesResult.fallbacks);
 
     // Slice 2026-08-02 — auto-register bundled output style.
     //
