@@ -2,7 +2,7 @@
 //
 // 4-dimension CLI test for `peaks codegraph config-restore` — the EXPLICIT undo
 // of a codegraph config repair, and the only reader of the byte-exact
-// `.codegraph/config.json.bak` a repair leaves behind.
+// `codegraph.json.bak` a repair leaves behind.
 //
 // Why the verb exists at all, in one sentence: the repair seams must NOT
 // restore their own write. A `'force'` repair that rolled its config write back

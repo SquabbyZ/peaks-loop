@@ -17,7 +17,7 @@
 //        truncated. It is now a same-directory temp file + `renameSync`.
 //
 // This file carries F1 (render) and F2 (behavior). F3 and the atomic-write /
-// backup-guard cases (N5, the slice-002 link guard, the two-axis rewrite)
+// backup-guard cases (N5, the slice-002 link guard, the single-rewrite case)
 // live in the sibling codegraph-exclude-repair-atomic-write.test.ts (b1
 // filesplit campaign); project-root fixtures are shared from
 // codegraph-exclude-repair-hardening-support.ts, moved verbatim.
@@ -133,8 +133,7 @@ describe('applyCodegraphConfigRepair — the file keeps its shape', () => {
     seedConfig(projectRoot, original);
 
     const outcome = applyCodegraphConfigRepair(projectRoot, {
-      rulesToRemove: ['**/vendor/**'],
-      includePatternsToAdd: []
+      rulesToRemove: ['**/vendor/**']
     });
 
     expect(outcome.applied).toBe(true);
@@ -154,8 +153,7 @@ describe('applyCodegraphConfigRepair — the file keeps its shape', () => {
     seedConfig(projectRoot, original);
 
     applyCodegraphConfigRepair(projectRoot, {
-      rulesToRemove: ['**/vendor/**'],
-      includePatternsToAdd: []
+      rulesToRemove: ['**/vendor/**']
     });
 
     const after = readFileSync(configPathOf(projectRoot), 'utf8');

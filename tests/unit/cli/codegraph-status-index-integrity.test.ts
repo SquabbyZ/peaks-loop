@@ -127,14 +127,28 @@ afterEach(() => {
   cleanupTmpWorkspace();
 });
 
-// ── behavior: INJECTION control, axis ① ──────────────────────────────
+// ── behavior: INJECTION control, the ONLY axis the gate still has ────
+//
+// DELETED (1.6.2 upgrade): the "include-axis gap" describe. Its two cases
+// injected the defect axis ① used to detect — a supported tracked file the
+// config's `include` globs do not admit — and that axis is model-dependent now:
+// under 1.6.x's `include` semantics no config can produce this gap, so the
+// fixtures could not make the gate fire and the assertions had stopped
+// discriminating. The staleness axis below covers the same CLI contract
+// (advisory warn / strict exit 75 / `[OK]` suppression / the repair-command
+// hint), and the include axis' own model control lives in
+// `codegraph-index-integrity.test.ts`.
+//
+// The one assertion that did NOT depend on which axis produced the gap — the
+// renderer naming a repair command that actually exists — moved into the
+// staleness case rather than being lost with the describe.
 
-describe('peaks codegraph status (include-axis gap)', () => {
-  it('when include drops a supported tracked file, should warn without failing by default', async () => {
+describe('peaks codegraph status (stale rows)', () => {
+  it('when the index holds a row for a missing file, should warn without failing by default', async () => {
     const project = seedProject(ws, {
-      include: ['**/*.ts'],
+      include: ['**/*.ts', '**/*.mjs'],
       exclude: [],
-      indexedPaths: ['src/ok.ts']
+      indexedPaths: ['src/ok.ts', 'src/deleted.ts']
     });
 
     const captured = await runCodegraph(['status', '--project', project]);
@@ -144,7 +158,8 @@ describe('peaks codegraph status (include-axis gap)', () => {
     // upgrading peaks-loop cannot red-light a downstream project's CI.
     expect(visible).toContain('[WARN] codegraph index does not cover the repository');
     expect(visible).not.toContain('[FAIL]');
-    expect(visible).toContain('not admitted: scripts/tool.mjs');
+    expect(visible).toContain('stale: src/deleted.ts');
+    expect(visible).not.toContain('not admitted:'); // axis ① held at zero
     expect(process.exitCode).toBe(0);
 
     // AC3 on the INDEX axis: upstream's unqualified `[OK] Index is up to
@@ -169,11 +184,11 @@ describe('peaks codegraph status (include-axis gap)', () => {
     expect(visible).toContain('peaks codegraph repair-index');
   });
 
-  it('when the project opts in, should fail the same gap with exit 75 and [FAIL]', async () => {
+  it('when the project opts in, the staleness gap should exit 75 with [FAIL]', async () => {
     const project = seedProject(ws, {
-      include: ['**/*.ts'],
+      include: ['**/*.ts', '**/*.mjs'],
       exclude: [],
-      indexedPaths: ['src/ok.ts']
+      indexedPaths: ['src/ok.ts', 'src/deleted.ts']
     });
 
     const captured = await withStrictMode(() => runCodegraph(['status', '--project', project]));
@@ -181,41 +196,6 @@ describe('peaks codegraph status (include-axis gap)', () => {
 
     expect(visible).toContain('[FAIL] codegraph index does not cover the repository');
     expect(visible).not.toContain('advisory: this does not fail the command');
-    expect(process.exitCode).toBe(CODEGRAPH_INDEX_INTEGRITY_EXIT_CODE);
-  });
-});
-
-// ── behavior: INJECTION control, axis ② ──────────────────────────────
-
-describe('peaks codegraph status (stale rows)', () => {
-  it('when the index holds a row for a missing file, should warn and suppress [OK]', async () => {
-    const project = seedProject(ws, {
-      include: ['**/*.ts', '**/*.mjs'],
-      exclude: [],
-      indexedPaths: ['src/ok.ts', 'src/deleted.ts']
-    });
-
-    const captured = await runCodegraph(['status', '--project', project]);
-    const visible = stripAnsi(captured.stdout.join('\n'));
-
-    expect(visible).toContain('[WARN] codegraph index does not cover the repository');
-    expect(visible).toContain('stale: src/deleted.ts');
-    expect(visible).not.toContain('not admitted:'); // axis ① held at zero
-    // AC3 on the staleness axis — the second half of the `|| indexGap` pin.
-    expect(visible).not.toContain('[OK] Index is up to date');
-    expect(visible).toContain('(upstream: matches the last scan only');
-    expect(process.exitCode).toBe(0);
-  });
-
-  it('when the project opts in, the staleness gap should exit 75', async () => {
-    const project = seedProject(ws, {
-      include: ['**/*.ts', '**/*.mjs'],
-      exclude: [],
-      indexedPaths: ['src/ok.ts', 'src/deleted.ts']
-    });
-
-    await withStrictMode(() => runCodegraph(['status', '--project', project]));
-
     expect(process.exitCode).toBe(CODEGRAPH_INDEX_INTEGRITY_EXIT_CODE);
   });
 });
@@ -342,37 +322,48 @@ describe('peaks codegraph status (index axis could not be evaluated)', () => {
 // ── behavior: initialized but the config is gone (R12-1) ─────────────
 
 describe('peaks codegraph status (index present, config absent)', () => {
-  // The defect: `configPresent === false` short-circuited BOTH axes, so a
-  // project WITH an index and WITHOUT a config printed nothing and exited 0
-  // — under `PEAKS_CODEGRAPH_INDEX_STRICT=1` too, which is the one mode whose
-  // whole purpose is to fail loudly in CI. An absent config is legitimate for
-  // a project that never ran `peaks codegraph init`; it is NOT legitimate for
-  // one whose index exists, because then the axis was applicable and its
-  // input was missing. Unevaluable is a verdict, not an absence of one.
+  // WHAT THIS ROUND FIXED, and what it must NOT have loosened.
   //
-  // The fixture writes no config, so `include`/`exclude` below are inert.
-  const CONFIGLESS: Fixture = {
+  // The defect was a project WITH an index and WITHOUT a config printing
+  // nothing and exiting 0 — in strict mode too. The fix is NOT "an absent
+  // config now passes": it is that under this upstream an absent config is a
+  // DIFFERENT state from the one the old code assumed. 1.6.x reads
+  // `<root>/codegraph.json`, every key of it optional, and its own parser
+  // returns an empty config for an absent file — so there is no unread input
+  // and the axis IS evaluable. That case is asserted separately, just below.
+  //
+  // `not-evaluated` (exit 76) therefore had to keep a reachable cause, and it
+  // does: an index that is present but UNREADABLE. That is what these cases
+  // now drive, so the "could not evaluate must never pass as verified clean"
+  // contract still has a test that can fail.
+  const UNEVALUABLE: Fixture = {
     include: [],
     exclude: [],
-    indexedPaths: ['src/ok.ts'],
-    config: false
+    indexedPaths: ['src/ok.ts']
   };
 
+  /** A fixture whose `codegraph.db` exists but is not a database. */
+  function seedUnreadableIndex(): string {
+    const project = seedProject(ws, { ...UNEVALUABLE });
+    writeFileSync(join(project, '.codegraph', 'codegraph.db'), 'not-a-database', 'utf8');
+
+    return project;
+  }
+
   it('should report the axis as unevaluable instead of skipping it in silence', async () => {
-    const project = seedProject(ws, { ...CONFIGLESS });
+    const project = seedUnreadableIndex();
 
     const captured = await runCodegraph(['status', '--project', project]);
     const visible = stripAnsi(captured.stdout.join('\n'));
 
     expect(visible).toContain('[FAIL] codegraph index integrity could not be evaluated');
     expect(visible).toContain('the index was NOT measured');
-    expect(visible).toContain('config.json');
+    // The warning names the file that could not be read — the index, which is
+    // the axis' actual input.
+    expect(visible).toContain('.codegraph');
     // Not a gap claim: nothing was measured, so claiming non-coverage would
     // assert a measurement that never happened.
     expect(visible).not.toContain('does not cover the repository');
-    // The exclude axis has no config to reconcile and must not claim a
-    // failure for one that was never there.
-    expect(visible).not.toContain('exclude integrity not evaluated');
     expect(process.exitCode).toBe(CODEGRAPH_INDEX_UNEVALUABLE_EXIT_CODE);
     expect(process.exitCode).not.toBe(0);
   });
@@ -380,19 +371,17 @@ describe('peaks codegraph status (index present, config absent)', () => {
   it('should still fail the command under PEAKS_CODEGRAPH_INDEX_STRICT=1', async () => {
     // The strict-mode half, spelled out because "silent exit 0 in strict
     // mode" is the exact reproduction this round closes.
-    const project = seedProject(ws, { ...CONFIGLESS });
+    const project = seedUnreadableIndex();
 
-    const captured = await withStrictMode(() => runCodegraph(['status', '--project', project]));
-    const visible = stripAnsi(captured.stdout.join('\n'));
+    await withStrictMode(() => runCodegraph(['status', '--project', project]));
 
-    expect(visible).toContain('[FAIL] codegraph index integrity could not be evaluated');
     expect(process.exitCode).toBe(CODEGRAPH_INDEX_UNEVALUABLE_EXIT_CODE);
     expect(process.exitCode).not.toBe(0);
     expect(process.exitCode).not.toBe(CODEGRAPH_INDEX_INTEGRITY_EXIT_CODE);
   });
 
   it('should carry the same verdict in the machine envelope', async () => {
-    const project = seedProject(ws, { ...CONFIGLESS });
+    const project = seedUnreadableIndex();
 
     const envelope = parseJson(
       await runCodegraph(['status', '--project', project, '--peaks-json'])
@@ -402,8 +391,29 @@ describe('peaks codegraph status (index present, config absent)', () => {
     expect(envelope.code).toBe('CODEGRAPH_INDEX_NOT_EVALUATED');
     expect(envelope.data.indexIntegrity).toBeNull();
     expect(envelope.data.indexIntegrityVerdict).toBe('not-evaluated');
-    expect(envelope.data.indexIntegrityWarning).toContain('config.json');
+    expect(envelope.data.indexIntegrityWarning).toContain('.codegraph');
     expect(process.exitCode).toBe(CODEGRAPH_INDEX_UNEVALUABLE_EXIT_CODE);
+  });
+
+  it('should EVALUATE a project with an index and no config — 1.6.x reads that as the default', async () => {
+    // The case the defect used to swallow, asserted as its own outcome rather
+    // than as an absence. A clean, MEASURED verdict is the only acceptable
+    // reading here: `not-evaluated` would mean the axis could not see a config
+    // this upstream never required, and silence would repeat the original
+    // defect from the other side.
+    const project = seedProject(ws, { ...UNEVALUABLE, config: false });
+
+    const envelope = parseJson(
+      await runCodegraph(['status', '--project', project, '--peaks-json'])
+    );
+
+    expect(envelope.ok).toBe(true);
+    expect(envelope.data.indexIntegrityVerdict).toBe('clean');
+    expect(envelope.data.indexIntegrityWarning).toBeNull();
+    // Measured, not skipped: the report carries the counts it read.
+    expect(envelope.data.indexIntegrity?.indexedFileCount).toBe(1);
+    expect(envelope.data.indexIntegrity?.admissionModel).toBe('force-include');
+    expect(process.exitCode).toBe(0);
   });
 
   it('should stay silent on a CONFIG-ONLY project — the never-initialized control', async () => {
@@ -495,7 +505,9 @@ describe('peaks codegraph status (upstream failure precedence)', () => {
     const project = seedProject(ws, {
       include: ['**/*.ts'],
       exclude: [],
-      indexedPaths: ['src/ok.ts']
+      // A dead row, so the index axis really has a gap to rank below the
+      // upstream failure.
+      indexedPaths: ['src/ok.ts', 'src/deleted.ts']
     });
     __m.executeCodegraphInvocation.mockResolvedValue({
       exitCode: 5,
@@ -544,7 +556,9 @@ describe('peaks codegraph status (upstream failure precedence)', () => {
     const project = seedProject(ws, {
       include: ['**/*.ts'],
       exclude: [],
-      indexedPaths: ['src/ok.ts']
+      // A dead row, so the index axis really has a gap to rank below the
+      // upstream failure.
+      indexedPaths: ['src/ok.ts', 'src/deleted.ts']
     });
     __m.executeCodegraphInvocation.mockResolvedValue({
       exitCode: 5,
@@ -593,10 +607,16 @@ describe('peaks codegraph status --peaks-json (index integrity)', () => {
     expect(envelope.ok).toBe(false);
     expect(envelope.code).toBe('CODEGRAPH_INDEX_GAP');
     expect(envelope.data.indexIntegrity?.gap).toBe(true);
-    expect(envelope.data.indexIntegrity?.includeGap).toEqual(['scripts/tool.mjs']);
+    // The gap is the STALENESS axis. The include axis reports an empty gap on
+    // purpose and NAMES the model it was evaluated under, so an empty list
+    // cannot be read as "measured, nothing withheld" when the truth is "this
+    // upstream's include list cannot withhold anything" — see
+    // `codegraph-project-config.ts` and `includeAxisGap`.
+    expect(envelope.data.indexIntegrity?.admissionModel).toBe('force-include');
+    expect(envelope.data.indexIntegrity?.includeGap).toEqual([]);
     expect(envelope.data.indexIntegrity?.deadRows).toEqual(['src/deleted.ts']);
     expect(envelope.data.indexIntegrity?.trackedSourceCount).toBe(2);
-    expect(envelope.data.indexIntegrity?.admittedTrackedCount).toBe(1);
+    expect(envelope.data.indexIntegrity?.admittedTrackedCount).toBe(2);
     expect(envelope.data.indexIntegrity?.indexedFileCount).toBe(2);
     // The exclude axis is still reported independently and is clean here.
     expect(envelope.data.integrity?.gap).toBe(false);
@@ -667,7 +687,6 @@ describe('peaks codegraph status (read-only contract)', () => {
   // read-only open of a WAL database is allowed to create/update. A file
   // outside this set means the gate wrote something it should not have.
   const ALLOWED_CODEGRAPH_ENTRIES = new Set([
-    'config.json',
     'codegraph.db',
     'codegraph.db-shm',
     'codegraph.db-wal'
@@ -679,7 +698,9 @@ describe('peaks codegraph status (read-only contract)', () => {
       exclude: [],
       indexedPaths: ['src/ok.ts', 'src/deleted.ts']
     });
-    const configPath = join('.codegraph', 'config.json');
+    // The config the gate must leave alone lives at the project root, which is
+    // where the installed upstream reads it from — not inside `.codegraph/`.
+    const configPath = 'codegraph.json';
     const dbPath = join('.codegraph', 'codegraph.db');
     const configBefore = readFileSync(join(project, configPath), 'utf8');
     const dbBefore = readFileSync(join(project, dbPath));

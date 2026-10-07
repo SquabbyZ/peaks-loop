@@ -1,44 +1,47 @@
 // tests/unit/services/codegraph/codegraph-config-repair.test.ts
 //
-// 4-dimension unit test for the TWO-AXIS repair entry point
+// 4-dimension unit test for the exclude repair entry point
 // `repairCodegraphExcludeFromProject` in
 // `src/services/codegraph/codegraph-exclude-repair.ts` (slice-002 of
 // rid-2026-09-16-codegraph-index-integrity).
 //
-// Slice-001 detected two defects; this is the file that proves they are
-// FIXABLE. Three claims carry the slice:
+// Three claims carry what is left of the slice:
 //
-//   1. ORDERING. Slice-001's RD measured, by a real test failure, that an
-//      `exclude` rule blocking ONLY a file `include` drops reconciles
-//      COMPLETELY CLEAN — and starts biting the moment `include` is widened.
-//      So the exclude reconciliation must run AFTER include normalization.
-//      The first test here asserts the TRAP exists (pre-normalization
-//      reconciliation returns `rulesToRemove: []` and the shipped exclude
-//      gate reports `gap: false`), and the second asserts the repair closes
-//      it in the same run. If the trap ever stops existing the first test
-//      fails, so the second cannot silently become vacuous.
-//
-//   2. THE DEAD-ROW POLICY (user option, slice-002): dead rows are detected
+//   1. THE DEAD-ROW POLICY (user option, slice-002): dead rows are detected
 //      always (slice-001) and PURGED on demand, and the demand path is
 //      upstream `index --force` — the only path that drops rows for files
 //      deleted in an earlier commit. The assertions here pin that the FLAG
 //      reaches the upstream process (the invocation's argv), not merely a
 //      boolean inside peaks-loop.
 //
-//   3. ADDITIVE + ATOMIC. Both axes move in ONE rewrite with ONE backup, and
-//      the include list is only ever appended to.
+//   2. DURABLE + ATOMIC. The repair lands in ONE rewrite with ONE byte-exact
+//      backup, and it STAYS — a rebuild never restores its own write.
+//
+//   3. IDEMPOTENT. A second run over an already-repaired config writes
+//      nothing and spawns nothing.
+//
+// THE INCLUDE AXIS IS GONE (1.6.2 upgrade). This seam used to append the
+// extensions upstream's own `include` template omitted, report that delta
+// beside the exclude counter, and — because the exclude reconciler filters
+// its candidates through `include` — had to normalise `include` BEFORE
+// reconciling. 1.6.x ships no template and inverted what `include` MEANS, so
+// the axis is deleted in `src/`; the cases whose SUBJECT was that axis are
+// deleted here with it rather than weakened. Those were: the ordering trap
+// (the rule it turned on is only invisible while `include` is narrow), the
+// coverage-ratio pair (both assertions were on the include counters), the
+// "no `include` key" limitation, and the pure include plan.
 //
 // What is mocked and why: `executeCodegraphInvocation` is passed in as the
 // `runner` seam (the module takes it as an argument), so the tests observe
 // exactly what the upstream process would be spawned with. Everything else —
-// git, the config read, both reconciliations, the config rewrite, the backup,
+// git, the config read, the reconciliation, the config rewrite, the backup,
 // the report — runs for real against a real temp git work tree.
 //
 // Dimensions covered:
-//   - behavior:    the two-axis plan, force vs incremental, idempotence
-//   - integration: real git + real fs + the real upstream tables
-//   - render:      the config bytes written (append-only include, reduced
-//                  exclude, one byte-exact backup)
+//   - behavior:    force vs incremental, idempotence
+//   - integration: real git + real fs
+//   - render:      the config bytes written (reduced exclude, one byte-exact
+//                  backup)
 //   - a11y:        every degraded path names what went wrong in `warning`
 //
 // Run with: pnpm vitest run tests/unit/services/codegraph/codegraph-config-repair.test.ts
@@ -59,18 +62,10 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import {
   CODEGRAPH_CONFIG_BACKUP_SUFFIX,
-  repairCodegraphExcludeFromProject,
-  repairCodegraphInclude
+  repairCodegraphExcludeFromProject
 } from '../../../../src/services/codegraph/codegraph-exclude-repair.js';
 import { inspectCodegraphExcludeIntegrity } from '../../../../src/services/codegraph/codegraph-exclude-integrity.js';
-import { inspectCodegraphIndexIntegrity } from '../../../../src/services/codegraph/codegraph-index-integrity.js';
-import {
-  filterAdmittedTrackedFiles,
-  readTrackedFiles,
-  reconcileCodegraphExclude
-} from '../../../../src/services/codegraph/codegraph-exclude-reconciler.js';
 import { SUBPROCESS_TEST_TIMEOUT_MS } from '../../_setup/subprocess-timeouts.js';
-import { upstreamUnnamedIncludeExtensions } from '../../../../src/services/codegraph/codegraph-include-reconciler.js';
 import { declareDimensions } from '../../_setup/4dim-template.js';
 
 declareDimensions('tests/unit/services/codegraph/codegraph-config-repair.test.ts', [
@@ -79,41 +74,6 @@ declareDimensions('tests/unit/services/codegraph/codegraph-config-repair.test.ts
   'integration',
   'a11y'
 ]);
-
-// The patterns the include axis appends, DERIVED here from upstream's own
-// data rather than typed out — so this expectation moves with upstream for
-// the same reason the implementation does.
-//
-// UNDER codegraph 1.6.2 THIS IS EVERY SUPPORTED EXTENSION, not five. The
-// five it held (`.mjs`, `.cjs`, `.pyw`, `.hxx`, `.rake`) were 0.7.x's
-// template-unnamed set; 1.6.2 ships no template at all, so nothing is named
-// and the derivation's "not named" condition holds for all 78 supported
-// extensions. Because this constant is DERIVED rather than typed out, every
-// assertion below moved with it without an edit — which is the property the
-// derivation was written for.
-//
-// The size jump is recorded here because it is the upgrade's visible
-// consequence and not this file's decision: what the include axis should
-// mean under a template-less upstream belongs to the deferred config-axis
-// slice. `codegraph-include-reconciler.test.ts` pins the derivation and its
-// cause; this file only uses the result.
-// The `include` list every fixture in this file writes. The candidates it
-// ALREADY admits are not appended, which is why the expectation below is a
-// filtered derivation rather than the bare candidate list — under 0.7.x no
-// candidate was covered and the two were the same, under 1.6.x `.ts` is a
-// candidate and this fixture admits it.
-const FIXTURE_INCLUDE = ['**/*.ts'];
-const EXPECTED_INCLUDE_ADDITIONS = upstreamUnnamedIncludeExtensions()
-  .filter(
-    (extension) => filterAdmittedTrackedFiles([`probe${extension}`], FIXTURE_INCLUDE).length === 0
-  )
-  .map((extension) => `**/*${extension}`);
-
-// What the index axis would call "extractor-supported" in these fixtures.
-// Injected rather than re-derived: the point of these cases is the repair,
-// and `codegraph-index-integrity.test.ts` already owns the real-oracle tests.
-const supportsFixturePath = (filePath: string): boolean =>
-  filePath.endsWith('.ts') || filePath.endsWith('.mjs');
 
 const cleanups: string[] = [];
 
@@ -137,7 +97,7 @@ function git(dir: string, args: readonly string[]): void {
 }
 
 function configPathOf(projectRoot: string): string {
-  return join(projectRoot, '.codegraph', 'config.json');
+  return join(projectRoot, 'codegraph.json');
 }
 
 function writeConfig(projectRoot: string, config: Record<string, unknown>): void {
@@ -145,25 +105,21 @@ function writeConfig(projectRoot: string, config: Record<string, unknown>): void
   writeFileSync(configPathOf(projectRoot), `${JSON.stringify(config, null, 2)}\n`, 'utf8');
 }
 
-function readConfig(projectRoot: string): Record<string, unknown> {
-  return JSON.parse(readFileSync(configPathOf(projectRoot), 'utf8')) as Record<string, unknown>;
-}
-
-// The fixture the ordering claim needs: a tracked `.mjs` that `include`
-// withholds, plus an `exclude` rule that blocks exactly that file. That rule
-// is harmless TODAY (it blocks nothing the index would admit) and harmful the
-// instant `include` is widened — which is what makes reconciling in the wrong
-// order a silent no-op.
-function makeOrderingFixture(): string {
-  const projectRoot = makeProjectRoot('peaks-cg-repair-order-');
+// The fixture every case below starts from: a real temp git work tree whose
+// config carries one `exclude` rule that really does block a tracked `.ts`
+// file, plus one it does not. A project-AUTHORED rule is the only class of
+// offender left now that 1.6.x ships no default template to collide with —
+// `exclude` still means "keep OUT of the index even when git-tracked".
+function makeRepairFixture(): string {
+  const projectRoot = makeProjectRoot('peaks-cg-repair-');
   git(projectRoot, ['init', '-q']);
   git(projectRoot, ['config', 'user.email', 'peaks-test@example.com']);
   git(projectRoot, ['config', 'user.name', 'peaks test']);
 
   mkdirSync(join(projectRoot, 'src'), { recursive: true });
-  mkdirSync(join(projectRoot, 'scripts'), { recursive: true });
+  mkdirSync(join(projectRoot, 'vendor'), { recursive: true });
   writeFileSync(join(projectRoot, 'src', 'ok.ts'), 'export const ok = 1;\n', 'utf8');
-  writeFileSync(join(projectRoot, 'scripts', 'tool.mjs'), 'export const tool = 1;\n', 'utf8');
+  writeFileSync(join(projectRoot, 'vendor', 'lib.ts'), 'export const lib = 1;\n', 'utf8');
   git(projectRoot, ['add', '-A']);
   git(projectRoot, ['commit', '-qm', 'fixture']);
 
@@ -171,27 +127,13 @@ function makeOrderingFixture(): string {
     version: 1,
     rootDir: '.',
     include: ['**/*.ts'],
-    exclude: ['**/tool.mjs', '**/node_modules/**'],
+    exclude: ['**/vendor/**', '**/node_modules/**'],
     languages: ['typescript'],
     frameworks: [],
     maxFileSize: 1048576,
     extractDocstrings: true,
     trackCallSites: false
   });
-
-  return projectRoot;
-}
-
-// The ordering fixture plus a tracked `src/Tool.MJS`: an UPPERCASE extension
-// upstream's extractor supports (`detectLanguage` lowercases) that no
-// case-sensitive `include` pattern admits — slice-002's declared limitation 1,
-// used here as the one shape in which a coverage ratio MUST report a
-// shortfall rather than "N of N".
-function makeUppercaseFixture(): string {
-  const projectRoot = makeOrderingFixture();
-  writeFileSync(join(projectRoot, 'src', 'Tool.MJS'), 'export const tool = 1;\n', 'utf8');
-  git(projectRoot, ['add', '-A']);
-  git(projectRoot, ['commit', '-qm', 'uppercase fixture']);
 
   return projectRoot;
 }
@@ -216,102 +158,13 @@ function makeRecordingRunner(result: { exitCode: number } = { exitCode: 0 }): {
   };
 }
 
-// ── 1. the ordering trap, then the repair ────────────────────────────
+// ── 1. behavior: the repair does not repeat itself ───────────────────
 
-describe('the exclude reconciliation must run AFTER include normalization', () => {
+describe('repairCodegraphExcludeFromProject — idempotence', () => {
   it(
-    'the on-disk include list hides the harmful rule — the trap this ordering exists for',
-    () => {
-      const projectRoot = makeOrderingFixture();
-
-      // Pre-normalization reconciliation, exactly as the shipped restore path
-      // used to run it: the rule blocks a file the index would never admit, so
-      // it blocks NOTHING and is reported clean.
-      const preNormalization = reconcileCodegraphExclude({
-        trackedFiles: readTrackedFiles(projectRoot),
-        include: ['**/*.ts'],
-        exclude: ['**/tool.mjs', '**/node_modules/**']
-      });
-
-      expect(preNormalization.rulesToRemove).toEqual([]);
-      // …and the SHIPPED exclude gate agrees, in the same words it reports for a
-      // healthy project. This is the non-vacuity control for the case below: if
-      // the trap ever disappears, this assertion fails instead of the repair
-      // silently having nothing to prove.
-      expect(inspectCodegraphExcludeIntegrity(projectRoot).gap).toBe(false);
-    },
-    SUBPROCESS_TEST_TIMEOUT_MS
-  );
-
-  it(
-    'after normalization the same rule IS seen — in the same run that widens include',
+    'should be idempotent — a second run writes nothing and spawns nothing',
     async () => {
-      const projectRoot = makeOrderingFixture();
-
-      // The index axis, before: the `.mjs` file is a supported tracked file the
-      // include list does not admit. (`readIndexedPaths` is stubbed empty — this
-      // fixture has no database, and the axis under test is axis ①.)
-      const before = inspectCodegraphIndexIntegrity(projectRoot, {
-        readIndexedPaths: () => [],
-        supportsPath: supportsFixturePath
-      });
-      expect(before.includeGap).toEqual(['scripts/tool.mjs']);
-      expect(before.gap).toBe(true);
-
-      const { runs, runner } = makeRecordingRunner();
-      const report = await repairCodegraphExcludeFromProject(projectRoot, runner);
-
-      // BOTH axes moved in one repair.
-      expect(report.applied).toBe(true);
-      expect(report.includePatternsAdded).toEqual(EXPECTED_INCLUDE_ADDITIONS);
-      expect(report.rulesRemoved).toEqual(['**/tool.mjs']);
-      // The coverage ratio the CLI renders from these two fields, measured on
-      // a fixture where the repair really did admit more than it started with.
-      // `trackedSourceCount` is the DENOMINATOR (every extractor-supported
-      // tracked file) and is now an independent measurement, not a copy of the
-      // numerator — the two agree here because this fixture's include list ends
-      // up complete. The shortfall case below is where they must differ.
-      expect(report.includeAdmittedAfter).toBe(2);
-      expect(report.trackedSourceCount).toBe(2);
-      // The exclude axis recovers exactly one file: `scripts/tool.mjs`, the one
-      // the dropped rule had been hiding from the now-widened index.
-      expect(report.filesRecovered).toBe(1);
-      expect(report.reindexed).toBe(true);
-      expect(report.forcedRebuild).toBe(false);
-      expect(report.warning).toBeNull();
-
-      // The config on disk: include appended to (never reordered), exclude
-      // reduced by exactly the rule that the widening made harmful.
-      const config = readConfig(projectRoot);
-      expect(config.include).toEqual(['**/*.ts', ...EXPECTED_INCLUDE_ADDITIONS]);
-      expect(config.exclude).toEqual(['**/node_modules/**']);
-      expect(
-        readFileSync(`${configPathOf(projectRoot)}${CODEGRAPH_CONFIG_BACKUP_SUFFIX}`, 'utf8')
-      ).toContain('"**/tool.mjs"');
-
-      // The index axis, after: the gap that was reported is CLOSED, asserted by
-      // re-running the inspector rather than by trusting the report.
-      const after = inspectCodegraphIndexIntegrity(projectRoot, {
-        readIndexedPaths: () => [],
-        supportsPath: supportsFixturePath
-      });
-      expect(after.includeGap).toEqual([]);
-      expect(after.gap).toBe(false);
-      expect(inspectCodegraphExcludeIntegrity(projectRoot).gap).toBe(false);
-
-      // …and the rebuild ran, INCREMENTALLY: the recovered files are what this
-      // repair is about, and `--force` is reserved for `repair-index`.
-      expect(runs).toHaveLength(1);
-      expect(runs[0]?.subcommand).toBe('index');
-      expect(runs[0]?.args).not.toContain('--force');
-    },
-    SUBPROCESS_TEST_TIMEOUT_MS
-  );
-
-  it(
-    'is idempotent — a second run writes nothing and spawns nothing',
-    async () => {
-      const projectRoot = makeOrderingFixture();
+      const projectRoot = makeRepairFixture();
       const first = makeRecordingRunner();
       await repairCodegraphExcludeFromProject(projectRoot, first.runner);
       const configAfterFirst = readFileSync(configPathOf(projectRoot), 'utf8');
@@ -320,7 +173,6 @@ describe('the exclude reconciliation must run AFTER include normalization', () =
       const report = await repairCodegraphExcludeFromProject(projectRoot, second.runner);
 
       expect(report.applied).toBe(false);
-      expect(report.includePatternsAdded).toEqual([]);
       expect(report.rulesRemoved).toEqual([]);
       expect(second.runs).toHaveLength(0);
       expect(readFileSync(configPathOf(projectRoot), 'utf8')).toBe(configAfterFirst);
@@ -329,65 +181,13 @@ describe('the exclude reconciliation must run AFTER include normalization', () =
   );
 });
 
-// ── 2. the coverage ratio's denominator is an independent measurement ─
-
-describe("the repair report's coverage ratio can report a SHORTFALL", () => {
-  /**
-   * The defect this pins (code review MEDIUM-1): the denominator the CLI
-   * divides by was fed from the reconciler's ADMITTED count — the numerator's
-   * own expression — so every "Include now admits N of M" printed N of N and
-   * could never report the shortfall it exists to report. The denominator is
-   * now `upstreamSupportsPath` over the tracked files: an extension decision,
-   * not a glob match, so the two numbers can differ.
-   *
-   * The `.MJS` file is this slice's own DECLARED LIMITATION 1 made visible:
-   * upstream's `detectLanguage` lowercases, so the file IS extractor-supported,
-   * while every pattern in both templates matches case-SENSITIVELY, so no
-   * repair can admit it. That is a legitimate, permanent shortfall — the exact
-   * shape the message had to be able to say.
-   */
-  it(
-    'should count an extractor-supported file the include list cannot admit',
-    async () => {
-      const projectRoot = makeUppercaseFixture();
-      const { runner } = makeRecordingRunner();
-      const report = await repairCodegraphExcludeFromProject(projectRoot, runner);
-
-      expect(report.applied).toBe(true);
-      // 3 supported tracked files, 2 of them admitted by the repaired include
-      // list. Before the fix both numbers were 2 and printed "2 of 2".
-      expect(report.trackedSourceCount).toBe(3);
-      expect(report.includeAdmittedAfter).toBe(2);
-      expect(report.trackedSourceCount).toBeGreaterThan(report.includeAdmittedAfter);
-    },
-    SUBPROCESS_TEST_TIMEOUT_MS
-  );
-
-  it(
-    'should report a COMPLETE ratio as equal — the clean control',
-    async () => {
-      const projectRoot = makeOrderingFixture();
-      const { runner } = makeRecordingRunner();
-      const report = await repairCodegraphExcludeFromProject(projectRoot, runner);
-
-      // Both tracked files are supported AND admitted, so numerator and
-      // denominator agree for a real reason here. Without this control the
-      // assertion above could be satisfied by a denominator that is merely
-      // always larger.
-      expect(report.trackedSourceCount).toBe(2);
-      expect(report.includeAdmittedAfter).toBe(2);
-    },
-    SUBPROCESS_TEST_TIMEOUT_MS
-  );
-});
-
-// ── 2b. the dead-row policy: the force flag reaches upstream ─────────
+// ── 2. the dead-row policy: the force flag reaches upstream ──────────
 
 describe('reindex option — the dead-row purge path', () => {
   it(
     'reindex:"force" should pass upstream`s own --force flag, and report the forced rebuild',
     async () => {
-      const projectRoot = makeOrderingFixture();
+      const projectRoot = makeRepairFixture();
       const { runs, runner } = makeRecordingRunner();
 
       const report = await repairCodegraphExcludeFromProject(projectRoot, runner, {
@@ -413,7 +213,7 @@ describe('reindex option — the dead-row purge path', () => {
   it(
     'reindex:false should spawn nothing at all (the preflight / autorefresh mode)',
     async () => {
-      const projectRoot = makeOrderingFixture();
+      const projectRoot = makeRepairFixture();
       const configPath = configPathOf(projectRoot);
       const before = readFileSync(configPath, 'utf8');
       const { runs, runner } = makeRecordingRunner();
@@ -442,7 +242,7 @@ describe('reindex option — the dead-row purge path', () => {
   it(
     'should report the TRUE forced state when a forced rebuild FAILS — upstream may have cleared already',
     async () => {
-      const projectRoot = makeOrderingFixture();
+      const projectRoot = makeRepairFixture();
       const { runner } = makeRecordingRunner({ exitCode: 9 });
 
       const report = await repairCodegraphExcludeFromProject(projectRoot, runner, {
@@ -464,9 +264,9 @@ describe('reindex option — the dead-row purge path', () => {
   it(
     'reindex:"force" with a clean config should still rebuild, but write nothing',
     async () => {
-      const projectRoot = makeOrderingFixture();
+      const projectRoot = makeRepairFixture();
       const { runs, runner } = makeRecordingRunner();
-      // First run repairs both axes, so the second has nothing to change.
+      // First run repairs the exclude list, so the second has nothing to change.
       await repairCodegraphExcludeFromProject(projectRoot, runner);
       const bytesAfterRepair = readFileSync(configPathOf(projectRoot), 'utf8');
       const mtimeAfterRepair = statSync(configPathOf(projectRoot)).mtimeMs;
@@ -508,7 +308,7 @@ describe('reindex option — the dead-row purge path', () => {
   it(
     'reindex:"force" should KEEP the repaired config while rebuilding forced',
     async () => {
-      const projectRoot = makeOrderingFixture();
+      const projectRoot = makeRepairFixture();
       const configPath = configPathOf(projectRoot);
       const before = readFileSync(configPath, 'utf8');
       const { runs, runner } = makeRecordingRunner();
@@ -517,10 +317,9 @@ describe('reindex option — the dead-row purge path', () => {
         reindex: 'force'
       });
 
-      // The repair really happened — both axes moved in this one run…
+      // The repair really happened in this one run…
       expect(report.applied).toBe(true);
-      expect(report.rulesRemoved).toEqual(['**/tool.mjs']);
-      expect(report.includePatternsAdded).toEqual(EXPECTED_INCLUDE_ADDITIONS);
+      expect(report.rulesRemoved).toEqual(['**/vendor/**']);
 
       // …and it STAYS. This is the load-bearing half of the mode's contract: a
       // `'force'` that restored its own write would leave the config exactly as
@@ -533,7 +332,7 @@ describe('reindex option — the dead-row purge path', () => {
         include: string[];
         exclude: string[];
       };
-      expect(repaired.include).toEqual(['**/*.ts', ...EXPECTED_INCLUDE_ADDITIONS]);
+      expect(repaired.include).toEqual(['**/*.ts']);
       expect(repaired.exclude).toEqual(['**/node_modules/**']);
       expect(readFileSync(`${configPath}${CODEGRAPH_CONFIG_BACKUP_SUFFIX}`, 'utf8')).toBe(before);
 
@@ -554,8 +353,8 @@ describe('reindex option — the dead-row purge path', () => {
     'both repair modes should keep the repair — `force` differs only in the rebuild',
     { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
     async () => {
-      const plainRoot = makeOrderingFixture();
-      const forcedRoot = makeOrderingFixture();
+      const plainRoot = makeRepairFixture();
+      const forcedRoot = makeRepairFixture();
 
       const plain = await repairCodegraphExcludeFromProject(
         plainRoot,
@@ -577,8 +376,7 @@ describe('reindex option — the dead-row purge path', () => {
         readFileSync(configPathOf(plainRoot), 'utf8')
       );
       expect(forced.rulesRemoved).toEqual(plain.rulesRemoved);
-      expect(forced.includePatternsAdded).toEqual(plain.includePatternsAdded);
-      expect(readFileSync(configPathOf(plainRoot), 'utf8')).not.toContain('"**/tool.mjs"');
+      expect(readFileSync(configPathOf(plainRoot), 'utf8')).not.toContain('"**/vendor/**"');
 
       // …and the ONLY difference is the flag that reaches upstream.
       expect(plain.forcedRebuild).toBe(false);
@@ -589,15 +387,15 @@ describe('reindex option — the dead-row purge path', () => {
   it(
     'should write the repair to disk BEFORE the follow-up index is spawned',
     async () => {
-      const projectRoot = makeOrderingFixture();
+      const projectRoot = makeRepairFixture();
       const configPath = configPathOf(projectRoot);
       const before = readFileSync(configPath, 'utf8');
 
       // The oracle is what the CONFIG holds at the moment upstream is spawned,
-      // not what the report claims afterwards. It is load-bearing: the widened
-      // `include` is exactly what the rebuild exists to admit, so a spawn that
-      // ran first — or a config written only after it — would rebuild against the
-      // gapped config and recover nothing.
+      // not what the report claims afterwards. It is load-bearing: the reduced
+      // `exclude` is exactly what the rebuild exists to act on, so a spawn that
+      // ran first — or a config written only after it — would rebuild against
+      // the gapped config and recover nothing.
       const configAtSpawn: string[] = [];
       const runner = async (): Promise<{ exitCode: number; stdout: string; stderr: string }> => {
         configAtSpawn.push(readFileSync(configPath, 'utf8'));
@@ -608,9 +406,8 @@ describe('reindex option — the dead-row purge path', () => {
 
       expect(configAtSpawn).toHaveLength(1);
       expect(configAtSpawn[0]).not.toBe(before);
-      expect((JSON.parse(configAtSpawn[0] ?? '{}') as { include: string[] }).include).toEqual([
-        '**/*.ts',
-        ...EXPECTED_INCLUDE_ADDITIONS
+      expect((JSON.parse(configAtSpawn[0] ?? '{}') as { exclude: string[] }).exclude).toEqual([
+        '**/node_modules/**'
       ]);
     },
     SUBPROCESS_TEST_TIMEOUT_MS
@@ -621,47 +418,9 @@ describe('reindex option — the dead-row purge path', () => {
 
 describe('the writer keeps the third-party config intact', () => {
   it(
-    'DECLARED LIMITATION — a config with no `include` key is not repaired at all',
-    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    'should name the exclude repair in the warning when the follow-up index fails',
     async () => {
-      const projectRoot = makeProjectRoot('peaks-cg-repair-noinclude-');
-      git(projectRoot, ['init', '-q']);
-      git(projectRoot, ['config', 'user.email', 'peaks-test@example.com']);
-      git(projectRoot, ['config', 'user.name', 'peaks test']);
-      mkdirSync(join(projectRoot, 'vendor'), { recursive: true });
-      writeFileSync(join(projectRoot, 'vendor', 'lib.ts'), 'export const lib = 1;\n', 'utf8');
-      git(projectRoot, ['add', '-A']);
-      git(projectRoot, ['commit', '-qm', 'fixture']);
-      // A hand-written minimal config with no `include` at all. Upstream's own
-      // `validateConfig` rejects such a file, and the READER here is strict
-      // about both keys, so the whole step degrades to its documented warning.
-      //
-      // This is UNCHANGED behaviour, asserted so that the widening did not
-      // quietly turn it into a throw or into a half-repair: before slice-002 the
-      // same strict read made the exclude axis skip this config too.
-      //
-      // (The WRITER is deliberately more tolerant than the reader — it repairs a
-      // config that carries only `exclude` without inventing an `include` key.
-      // That is what keeps `applyCodegraphConfigRepair`'s exclude-only callers
-      // working; it is pinned by the "no-op the second time" case in
-      // `codegraph-exclude-repair.test.ts`, which repairs such a config first.)
-      writeConfig(projectRoot, { exclude: ['**/vendor/**'] });
-      const before = readFileSync(configPathOf(projectRoot), 'utf8');
-
-      const { runs, runner } = makeRecordingRunner();
-      const report = await repairCodegraphExcludeFromProject(projectRoot, runner);
-
-      expect(report.applied).toBe(false);
-      expect(report.warning).toContain('reconcile skipped');
-      expect(runs).toHaveLength(0);
-      expect(readFileSync(configPathOf(projectRoot), 'utf8')).toBe(before);
-    }
-  );
-
-  it(
-    'should report the include axis in the warning when the follow-up index fails',
-    async () => {
-      const projectRoot = makeOrderingFixture();
+      const projectRoot = makeRepairFixture();
       const { runner } = makeRecordingRunner({ exitCode: 7 });
 
       const report = await repairCodegraphExcludeFromProject(projectRoot, runner);
@@ -673,15 +432,10 @@ describe('the writer keeps the third-party config intact', () => {
       // nothing was purged and `forcedRebuild: false` is the truth here. The
       // two cases together are what makes the field a discriminator.
       expect(report.forcedRebuild).toBe(false);
-      // The include count is derived, not typed: hardcoding it is what made
-      // this assertion report the size of upstream's extension table as if it
-      // were a property of the repair.
+      // The warning names what THIS repair did and pins the whole sentence, so
+      // an extra claim cannot be smuggled into it.
       expect(report.warning).toMatch(
-        new RegExp(
-          '^codegraph config repaired \\(1 exclude rule\\(s\\) removed, ' +
-            `${EXPECTED_INCLUDE_ADDITIONS.length} include pattern\\(s\\) added\\) ` +
-            'but the follow-up index failed \\(exit 7\\)'
-        )
+        /^codegraph config repaired \(1 exclude rule\(s\) removed\) but the follow-up index failed \(exit 7\)/
       );
       // The config repair itself is durable — it is not rolled back.
       expect(inspectCodegraphExcludeIntegrity(projectRoot).gap).toBe(false);
@@ -709,40 +463,4 @@ describe('the writer keeps the third-party config intact', () => {
     },
     SUBPROCESS_TEST_TIMEOUT_MS
   );
-});
-
-// ── 4. behavior: the pure include plan ───────────────────────────────
-
-describe('repairCodegraphInclude (pure plan)', () => {
-  it('when there is nothing to add, should report changed:false and return the same list', () => {
-    const include = ['**/*.ts'];
-
-    const plan = repairCodegraphInclude({ include, patternsToAdd: [] });
-
-    expect(plan.changed).toBe(false);
-    expect(plan.addedPatterns).toEqual([]);
-    expect(plan.include).toEqual(include);
-  });
-
-  it('should append in order and keep every existing entry where it was', () => {
-    const plan = repairCodegraphInclude({
-      include: ['b/**', 'a/**'],
-      patternsToAdd: ['c/**', 'd/**']
-    });
-
-    expect(plan.changed).toBe(true);
-    expect(plan.addedPatterns).toEqual(['c/**', 'd/**']);
-    expect(plan.include).toEqual(['b/**', 'a/**', 'c/**', 'd/**']);
-  });
-
-  it('should never append a pattern that is already present', () => {
-    const plan = repairCodegraphInclude({
-      include: ['**/*.mjs'],
-      patternsToAdd: ['**/*.mjs', '**/*.mjs']
-    });
-
-    expect(plan.changed).toBe(false);
-    expect(plan.addedPatterns).toEqual([]);
-    expect(plan.include).toEqual(['**/*.mjs']);
-  });
 });

@@ -44,7 +44,7 @@ function makeReport(
   overrides: Partial<CodegraphExcludeIntegrityReport> = {}
 ): CodegraphExcludeIntegrityReport {
   return {
-    configPath: '/tmp/project/.codegraph/config.json',
+    configPath: '/tmp/project/codegraph.json',
     gap: false,
     trackedSourceCount: 1117,
     excludedTrackedCount: 0,

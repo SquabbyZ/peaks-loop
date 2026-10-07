@@ -48,7 +48,6 @@ import {
   type CodegraphExecutionResult,
   type CodegraphInvocation
 } from '../../../../src/services/codegraph/codegraph-service.js';
-import { upstreamUnnamedIncludeExtensions } from '../../../../src/services/codegraph/codegraph-include-reconciler.js';
 import { declareDimensions } from '../../_setup/4dim-template.js';
 import { SUBPROCESS_TEST_TIMEOUT_MS } from '../../_setup/subprocess-timeouts.js';
 import {
@@ -281,7 +280,7 @@ describe('Scenario: integration — dangling marker self-heal and foreign skip',
         async (invocation: CodegraphInvocation): Promise<CodegraphExecutionResult> => {
           if (invocation.subcommand === 'init') {
             writeFileSync(
-              join(project, '.codegraph', 'config.json'),
+              join(project, 'codegraph.json'),
               `${JSON.stringify(
                 {
                   version: 1,
@@ -309,36 +308,25 @@ describe('Scenario: integration — dangling marker self-heal and foreign skip',
         expect(result.refreshed).toBe(true);
 
         // … the offending rule is gone, with a rollback copy …
-        const configPath = join(project, '.codegraph', 'config.json');
+        const configPath = join(project, 'codegraph.json');
         const config = JSON.parse(readFileSync(configPath, 'utf8')) as {
+          version: number;
           include: string[];
           exclude: string[];
         };
         expect(config.exclude).toEqual(['**/node_modules/**']);
         expect(existsSync(`${configPath}.bak`)).toBe(true);
 
-        // … and the INCLUDE axis landed in the SAME write (D1, D-round).
-        //    The slice-complete auto-refresh is the second automatic seam,
-        //    and the only one a downstream project reaches without any
-        //    operator action — so the include invariant is pinned here, not
-        //    left implicit in the exclude assertion beside it. The fixture's
-        //    self-heal init template names only `**/*.ts`; the seam must
-        //    append exactly the extensions upstream's extractor supports and
-        //    its own template omits, in that order, keeping the caller's
-        //    entry first. Reddens if the seam stops passing through the
-        //    shared repair entry point or starts short-circuiting when there
-        //    is no exclude rule to remove.
-        //
-        //    DERIVED, not spelled out: the literal list here was 0.7.x's
-        //    five template-unnamed extensions, and 1.6.x ships no template at
-        //    all, so the derivation now leaves every supported extension
-        //    unnamed. The invariant this case guards is unchanged.
-        expect(config.include).toEqual([
-          '**/*.ts',
-          ...upstreamUnnamedIncludeExtensions()
-            .filter((extension) => extension !== '.ts')
-            .map((extension) => `**/*${extension}`)
-        ]);
+        // … and every key this seam does NOT own came through the same write
+        //    untouched, in place. The slice-complete auto-refresh is the only
+        //    automatic seam a downstream project reaches with no operator
+        //    action, so what it must NOT do to a third-party config is pinned
+        //    here. `include` is upstream's own force-in list; the seam used to
+        //    append to it (slice-002), which the 1.6.2 upgrade removed — so the
+        //    invariant is now PRESERVATION, and it reddens if the rewrite ever
+        //    starts rewriting keys it does not own.
+        expect(config.include).toEqual(['**/*.ts']);
+        expect(config.version).toBe(1);
 
         // … and exactly one index ran (the repair does not add a second
         //    rebuild when the caller indexes right after).

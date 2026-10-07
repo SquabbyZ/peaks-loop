@@ -49,16 +49,6 @@ import {
 } from '../_setup/tmp-workspace.js';
 import { CODEGRAPH_INTEGRITY_EXIT_CODE } from '../../../src/services/codegraph/codegraph-exclude-integrity.js';
 import { repairCodegraphExcludeFromProject } from '../../../src/services/codegraph/codegraph-exclude-repair.js';
-import { upstreamUnnamedIncludeExtensions } from '../../../src/services/codegraph/codegraph-include-reconciler.js';
-
-// Fixtures in this file start from an `include` list of `['**/*.ts']`, so the
-// repair appends every candidate EXCEPT `.ts`, which that pattern already
-// admits. DERIVED rather than spelled out: the literal five this replaced was
-// 0.7.x's template-unnamed set, and 1.6.x ships no template — so the count is
-// upstream's to move and a literal here would rot into a lie about it.
-const EXPECTED_INCLUDE_ADDITIONS = upstreamUnnamedIncludeExtensions()
-  .filter((extension) => extension !== '.ts')
-  .map((extension) => `**/*${extension}`);
 
 declareDimensions('tests/unit/cli/codegraph-status-integrity.test.ts', [
   'render',
@@ -107,7 +97,7 @@ async function runCodegraph(argv: readonly string[]): Promise<CapturedIo> {
 }
 
 // A real temp git work tree with a tracked source file inside the
-// vendor directory. `mode` picks the `.codegraph/config.json` it gets:
+// vendor directory. `mode` picks the `codegraph.json` it gets:
 // one that blocks that file, one that blocks nothing, one that blocks it
 // while ALSO carrying an empty rule (the pattern `picomatch` refuses to
 // compile), or none at all (a project that never ran codegraph init).
@@ -143,7 +133,7 @@ function seedProject(ws: TmpWorkspace, mode: ProjectMode): string {
 
   mkdirSync(join(ws.path, '.codegraph'), { recursive: true });
   writeFileSync(
-    join(ws.path, '.codegraph', 'config.json'),
+    join(ws.path, 'codegraph.json'),
     `${JSON.stringify(
       {
         version: 1,
@@ -174,10 +164,7 @@ function parseJson(captured: CapturedIo): {
     upstream?: { exitCode: number | null };
     applied?: boolean;
     rulesRemoved?: string[];
-    includePatternsAdded?: string[];
     filesRecovered?: number;
-    includeAdmittedAfter?: number;
-    trackedSourceCount?: number;
     reindexed?: boolean;
     forcedRebuild?: boolean;
     configPath?: string;
@@ -282,7 +269,7 @@ describe('peaks codegraph status (integrity gate)', () => {
     { timeout: HEAVY_SUBPROCESS_TEST_TIMEOUT_MS },
     async () => {
       const project = seedProject(ws, 'gapped');
-      const configPath = join(project, '.codegraph', 'config.json');
+      const configPath = join(project, 'codegraph.json');
       const before = readFileSync(configPath, 'utf8');
 
       await runCodegraph(['status', '--project', project]);
@@ -439,7 +426,7 @@ describe('peaks codegraph repair-exclude', () => {
     { timeout: HEAVY_SUBPROCESS_TEST_TIMEOUT_MS },
     async () => {
       const project = seedProject(ws, 'gapped');
-      const configPath = join(project, '.codegraph', 'config.json');
+      const configPath = join(project, 'codegraph.json');
       const before = readFileSync(configPath, 'utf8');
 
       const captured = await runCodegraph(['repair-exclude', '--project', project, '--peaks-json']);
@@ -528,7 +515,7 @@ describe('peaks codegraph repair-exclude', () => {
 
 describe('peaks codegraph repair-index', () => {
   it(
-    'should repair both axes and rebuild FORCED — the dead-row purge path',
+    'should drop the exclude rule that blocks tracked source and rebuild FORCED — the dead-row purge path',
     { timeout: HEAVY_SUBPROCESS_TEST_TIMEOUT_MS },
     async () => {
       const project = seedProject(ws, 'gapped');
@@ -539,10 +526,9 @@ describe('peaks codegraph repair-index', () => {
       expect(envelope.ok).toBe(true);
       expect(envelope.command).toBe('codegraph.repair-index');
       expect(envelope.data.applied).toBe(true);
-      // Both axes moved in ONE run: the include patterns upstream's template
-      // omits, and the exclude rule the widened include made harmful.
+      // The fixture's `**/vendor/**` really does hide a tracked source file,
+      // so it goes; `**/node_modules/**` does not and stays.
       expect(envelope.data.rulesRemoved).toEqual(['**/vendor/**']);
-      expect(envelope.data.includePatternsAdded).toEqual(EXPECTED_INCLUDE_ADDITIONS);
       expect(envelope.data.reindexed).toBe(true);
       expect(envelope.data.forcedRebuild).toBe(true);
       expect(process.exitCode).toBe(0);
@@ -562,15 +548,13 @@ describe('peaks codegraph repair-index', () => {
       const after = await runCodegraph(['status', '--project', project, '--peaks-json']);
       expect(parseJson(after).data.integrity?.gap).toBe(false);
 
-      const config = JSON.parse(
-        readFileSync(join(project, '.codegraph', 'config.json'), 'utf8')
-      ) as {
-        include: string[];
+      const config = JSON.parse(readFileSync(join(project, 'codegraph.json'), 'utf8')) as {
         exclude: string[];
       };
-      expect(config.include).toContain('**/*.mjs');
       expect(config.exclude).toEqual(['**/node_modules/**']);
-      expect(existsSync(join(project, '.codegraph', 'config.json.bak'))).toBe(true);
+      // The backup sits beside the file that was rewritten — the config the
+      // installed upstream actually reads, not a `.codegraph/` file.
+      expect(existsSync(join(project, 'codegraph.json.bak'))).toBe(true);
     }
   );
 
@@ -588,7 +572,6 @@ describe('peaks codegraph repair-index', () => {
 
       // Nothing left to write: no config rewrite, no new backup.
       expect(parseJson(second).data.applied).toBe(false);
-      expect(parseJson(second).data.includePatternsAdded).toEqual([]);
       expect(parseJson(second).data.rulesRemoved).toEqual([]);
 
       // …but the forced rebuild still runs. Asserted rather than assumed,
@@ -633,19 +616,15 @@ describe('peaks codegraph repair-index', () => {
       expect(typeof after.data.integrity?.gap).toBe('boolean');
 
       // …and the bytes it is judged on are the ones the run wrote.
-      const config = JSON.parse(
-        readFileSync(join(project, '.codegraph', 'config.json'), 'utf8')
-      ) as {
-        include: string[];
+      const config = JSON.parse(readFileSync(join(project, 'codegraph.json'), 'utf8')) as {
         exclude: string[];
       };
-      expect(config.include).toContain('**/*.mjs');
       expect(config.exclude).not.toContain('**/vendor/**');
     }
   );
 
   it(
-    'on the human path, should name what changed on both axes',
+    'on the human path, should name the exclude delta it actually made',
     { timeout: HEAVY_SUBPROCESS_TEST_TIMEOUT_MS },
     async () => {
       const project = seedProject(ws, 'gapped');
@@ -653,48 +632,26 @@ describe('peaks codegraph repair-index', () => {
       const captured = await runCodegraph(['repair-index', '--project', project]);
       const printed = captured.stdout.join('\n');
 
-      expect(printed).toContain(`Added ${EXPECTED_INCLUDE_ADDITIONS.length} include pattern(s)`);
-      expect(printed).toContain('removed 1 exclude rule(s)');
+      expect(printed).toContain('Removed 1 exclude rule(s)');
+      expect(printed).toContain('recovering 1 tracked source file(s)');
     }
   );
 
-  it(
-    'on the human path, should report the real coverage RATIO, not "N of N"',
-    { timeout: HEAVY_SUBPROCESS_TEST_TIMEOUT_MS },
-    async () => {
-      const project = seedProject(ws, 'gapped');
-      // An UPPERCASE extension: `detectLanguage` lowercases, so `.MJS` IS
-      // extractor-supported, while every `include` pattern in both templates
-      // matches case-SENSITIVELY, so no repair admits it. That is slice-002's
-      // declared limitation 1, and the one shape in which an honest coverage
-      // ratio must report a shortfall.
-      //
-      // The denominator used to be the reconciler's ADMITTED count — the
-      // numerator's own expression — so the clause could only ever print
-      // "N of N"; on this fixture it printed NOTHING (before and after were both
-      // 2), telling the operator the gap was closed when one supported file was
-      // still unadmitted.
-      writeFileSync(join(project, 'src', 'Tool.MJS'), 'export const tool = 1;\n', 'utf8');
-      execFileSync('git', ['-C', project, 'add', '-A'], { stdio: 'ignore', windowsHide: true });
-
-      const captured = await runCodegraph(['repair-index', '--project', project]);
-      const printed = captured.stdout.join('\n');
-
-      // 3 supported tracked files (ok.ts, vendor/lib.ts, Tool.MJS), 2 admitted.
-      expect(printed).toContain('Include now admits 2 of 3 extractor-supported tracked file(s).');
-      expect(printed).not.toContain('of 2 extractor-supported');
-    }
-  );
+  // DELETED (1.6.2 upgrade): "on the human path, should report the real
+  // coverage RATIO, not 'N of N'". Its subject was the include-coverage ratio,
+  // and that whole axis is gone — an `include` list that cannot withhold has no
+  // coverage to report, so the sentence it asserted can no longer be produced
+  // by any input. Kept green it would have asserted nothing.
 
   it(
     'should refuse a LINK planted at the backup path, leaving the victim and the config intact',
     { timeout: HEAVY_SUBPROCESS_TEST_TIMEOUT_MS },
     async () => {
       const project = seedProject(ws, 'gapped');
-      const configPath = join(project, '.codegraph', 'config.json');
+      const configPath = join(project, 'codegraph.json');
       const before = readFileSync(configPath, 'utf8');
       // The exploit the security audit reproduced: a repo commits
-      // `.codegraph/config.json.bak` as a link to an arbitrary file plus a
+      // `codegraph.json.bak` as a link to an arbitrary file plus a
       // config that merely OMITS an extension, and a normal repair run writes
       // the config's bytes through the link. The repair verbs are the seam an
       // operator (or the LLM, per Human-NL-Choice-Only) is explicitly told to
@@ -750,11 +707,9 @@ describe('peaks codegraph repair-index', () => {
         // Before the fix this reported (and wrote through) the alias path,
         // because the repair verb hand-rolled `resolve()` and skipped the
         // canonicalizer every codegraph invocation goes through.
-        expect(envelope.data.configPath).toBe(
-          join(realpathSync.native(project), '.codegraph', 'config.json')
-        );
+        expect(envelope.data.configPath).toBe(join(realpathSync.native(project), 'codegraph.json'));
         expect(envelope.data.backupPath).toBe(
-          join(realpathSync.native(project), '.codegraph', 'config.json.bak')
+          join(realpathSync.native(project), 'codegraph.json.bak')
         );
         expect(existsSync(envelope.data.backupPath ?? '')).toBe(true);
       } finally {

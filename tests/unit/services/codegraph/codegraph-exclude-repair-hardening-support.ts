@@ -25,7 +25,7 @@ export function makeProjectRoot(): string {
 }
 
 export function configPathOf(projectRoot: string): string {
-  return join(projectRoot, '.codegraph', 'config.json');
+  return join(projectRoot, 'codegraph.json');
 }
 
 export function seedConfig(projectRoot: string, text: string): string {

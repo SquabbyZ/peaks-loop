@@ -8,16 +8,12 @@
 // that both consumers can render and gate on, so neither of them has
 // to re-derive "is there a gap, how big, and which rules cause it".
 //
-// It NEVER writes `.codegraph/config.json`. The only write path is
+// It NEVER writes the project's codegraph config. The only write path is
 // `codegraph-exclude-repair.ts`, reachable from `peaks codegraph init`
 // (fresh-initialization self-heal) and the explicit
 // `peaks codegraph repair-exclude` command. Read stays read.
 
-import { existsSync } from 'node:fs';
-import { join } from 'node:path';
-
 import {
-  CODEGRAPH_CONFIG_FILENAME,
   resolveSharedConfig,
   resolveSharedTrackedFiles,
   reconcileCodegraphExclude,
@@ -25,7 +21,8 @@ import {
   type ReadCodegraphExcludeConfig,
   type ReadTrackedFiles
 } from './codegraph-exclude-reconciler.js';
-import { CODEGRAPH_DIR_NAME } from './codegraph-service.js';
+import { upstreamSupportsPath } from './codegraph-index-integrity.js';
+import { resolveCodegraphConfigSource } from './codegraph-project-config.js';
 
 /**
  * Exit code `peaks codegraph status` uses when the index is
@@ -48,7 +45,7 @@ export type CodegraphExcludeRuleImpact = {
 };
 
 export type CodegraphExcludeIntegrityReport = {
-  /** Absolute path of the reconciled `.codegraph/config.json`. */
+  /** Absolute path of the reconciled config file — see `codegraph-project-config.ts`. */
   readonly configPath: string;
   /** True when at least one tracked source file is blocked. */
   readonly gap: boolean;
@@ -65,18 +62,26 @@ export type CodegraphExcludeIntegrityReport = {
 };
 
 /**
- * True when `<projectRoot>/.codegraph/config.json` exists, i.e. when an
+ * True when the project's codegraph config file exists, i.e. when an
  * exclude list is actually in play here. Both consumers use this to
- * stay SILENT on a project that never ran `peaks codegraph init`: there
- * is no exclusion to report, and a missing config is not a finding.
+ * stay SILENT on a project that never configured one: there is no
+ * exclusion to report, and a missing config is not a finding.
+ *
+ * WHICH file that is comes from `codegraph-project-config.ts`, because it
+ * is a property of the installed upstream rather than of this module: it is
+ * `<projectRoot>/codegraph.json` under 1.6.x and
+ * `<projectRoot>/.codegraph/config.json` under 0.7.x. Asking about the old
+ * path only would answer `false` on every 1.6.x project, which reads as
+ * "nothing is excluded" when the truth is "the exclusion list was never
+ * looked at".
  *
  * Note the difference from `isCodegraphInitialized` in
  * `codegraph-service.ts`, which probes `codegraph.db` (upstream's own
- * definition of "initialized"). The exclude list is written by upstream
- * init, so its presence is the narrower question this module asks.
+ * definition of "initialized"). The config is what carries `exclude`, so
+ * its presence is the narrower question this module asks.
  */
 export function isCodegraphExcludeConfigPresent(projectRoot: string): boolean {
-  return existsSync(join(projectRoot, CODEGRAPH_DIR_NAME, CODEGRAPH_CONFIG_FILENAME));
+  return resolveCodegraphConfigSource(projectRoot).present;
 }
 
 /**
@@ -114,7 +119,11 @@ export function inspectCodegraphExcludeIntegrity(
   const result = reconcileCodegraphExclude({
     trackedFiles,
     include: config.include,
-    exclude: config.exclude
+    exclude: config.exclude,
+    admissionModel: config.model,
+    // The same oracle the index axis uses, so "would upstream ingest this
+    // file" cannot be answered two ways across the two gates.
+    supportsPath: upstreamSupportsPath
   });
 
   const blockedCounts = new Map<string, number>();
@@ -123,7 +132,7 @@ export function inspectCodegraphExcludeIntegrity(
   }
 
   return {
-    configPath: join(projectRoot, CODEGRAPH_DIR_NAME, CODEGRAPH_CONFIG_FILENAME),
+    configPath: config.configPath,
     gap: result.excludedTrackedCount > 0,
     trackedSourceCount: result.trackedSourceCount,
     excludedTrackedCount: result.excludedTrackedCount,

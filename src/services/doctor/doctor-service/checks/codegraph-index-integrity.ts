@@ -124,7 +124,7 @@ function renderGapMessage(
 // none while none existed); the command name is a shared constant, so this
 // message cannot drift from the CLI surface it points at.
 function remediation(): string {
-  return `Run \`${CODEGRAPH_REPAIR_INDEX_COMMAND}\` to add the missing include pattern(s) and rebuild the index without the stale rows.`;
+  return `Run \`${CODEGRAPH_REPAIR_INDEX_COMMAND}\` to drop the blocking exclude rules and rebuild the index without the stale rows.`;
 }
 
 function run({ options, resolvedL3Root }: DoctorContext): readonly DoctorCheck[] {

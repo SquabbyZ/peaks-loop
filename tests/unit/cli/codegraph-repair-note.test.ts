@@ -1,26 +1,18 @@
 // tests/unit/cli/codegraph-repair-note.test.ts
 //
-// A1 of rid `2026-09-17-codegraph-msg-and-refresh` — the repair sentence named
-// the wrong axis' number, and the defect is in what a HUMAN READS, so this
-// file asserts the rendered sentence rather than the envelope (the envelope
-// fields are pinned in tests/unit/services/codegraph/codegraph-exclude-repair.test.ts).
+// The repair sentence the operator actually reads, and the promise it makes.
 //
-// THE DEFECT, measured on this repo: `appliedRepairNote` ended one sentence
-// about BOTH config axes with a single "recovering N tracked source file(s)",
-// fed by `filesRecovered` — the EXCLUDE axis' counter. The run that appended 5
-// include patterns for 31 tracked files printed
-//
-//   Added 5 include pattern(s) and removed 0 exclude rule(s),
-//   recovering 0 tracked source file(s).
-//
-// a true statement about the axis that did not move, read as a verdict on the
-// one that did. `admittingClause` could not correct it either: it goes silent
-// once the ratio is complete, which is exactly the state a fresh include
-// repair produces.
+// A1 of rid `2026-09-17-codegraph-msg-and-refresh` established this file to pin
+// the axis attribution inside that sentence. The 1.6.2 upgrade left ONE axis
+// (see `codegraph-exclude-repair.ts`), so attribution between two axes is no
+// longer a thing the sentence can get wrong — those cases were deleted rather
+// than rewritten, because their subject no longer exists. What remains is the
+// half that never depended on the axis count: the sentence's numbers, and the
+// closing "confirm the gap is closed" note being EARNED by what the run wrote.
 //
 // Dimensions covered:
 //   - render:      the operator-visible sentence (stdout `next:` line)
-//   - behavior:    the axis attribution inside that sentence
+//   - behavior:    the counts in that sentence, and the promise it makes
 //   - integration: real temp git work tree + the real CLI action with only the
 //                  upstream process spawn mocked
 //   - a11y:        OMITTED — the sentence IS the accessibility surface here and
@@ -64,16 +56,6 @@ vi.mock('../../../src/services/codegraph/codegraph-service.js', async () => {
 });
 
 import { registerCodegraphCommands } from '../../../src/cli/commands/codegraph-commands.js';
-import { upstreamUnnamedIncludeExtensions } from '../../../src/services/codegraph/codegraph-include-reconciler.js';
-
-// Fixtures in this file start from an `include` list of `['**/*.ts']`, so the
-// repair appends every candidate EXCEPT `.ts`, which that pattern already
-// admits. DERIVED rather than spelled out: the literal five this replaced was
-// 0.7.x's template-unnamed set, and 1.6.x ships no template — so the count is
-// upstream's to move and a literal here would rot into a lie about it.
-const EXPECTED_INCLUDE_ADDITIONS = upstreamUnnamedIncludeExtensions()
-  .filter((extension) => extension !== '.ts')
-  .map((extension) => `**/*${extension}`);
 
 import { HEAVY_SUBPROCESS_TEST_TIMEOUT_MS } from '../_setup/subprocess-timeouts.js';
 
@@ -96,7 +78,7 @@ afterEach(() => {
  * extensions get appended and 2 tracked files are newly admitted) and the
  * EXCLUDE axis is clean (its one rule blocks nothing tracked).
  */
-function seedIncludeHeavyProject(): string {
+function seedBlockedProject(): string {
   const root = mkdtempSync(join(tmpdir(), 'peaks-cg-note-'));
   cleanups.push(root);
   execFileSync('git', ['-C', root, 'init', '-q'], { stdio: 'ignore', windowsHide: true });
@@ -113,16 +95,20 @@ function seedIncludeHeavyProject(): string {
   writeFileSync(join(root, 'src', 'ok.ts'), 'export const ok = 1;\n', 'utf8');
   writeFileSync(join(root, 'app.mjs'), 'export const a = 1;\n', 'utf8');
   writeFileSync(join(root, 'tool.cjs'), 'module.exports = 1;\n', 'utf8');
+  // A tracked source file a rule in the config below blocks. Without it the
+  // fixture is born with nothing to repair, and every "the repair applied"
+  // assertion in this file would be satisfied by a run that did nothing.
+  mkdirSync(join(root, 'vendor'), { recursive: true });
+  writeFileSync(join(root, 'vendor', 'lib.ts'), 'export const lib = 1;\n', 'utf8');
   execFileSync('git', ['-C', root, 'add', '-A'], { stdio: 'ignore', windowsHide: true });
   execFileSync('git', ['-C', root, 'commit', '-qm', 'fixture'], {
     stdio: 'ignore',
     windowsHide: true
   });
 
-  mkdirSync(join(root, '.codegraph'), { recursive: true });
   writeFileSync(
-    join(root, '.codegraph', 'config.json'),
-    `${JSON.stringify({ version: 1, include: ['**/*.ts'], exclude: ['**/node_modules/**'] }, null, 2)}\n`,
+    join(root, 'codegraph.json'),
+    `${JSON.stringify({ version: 1, include: ['**/*.ts'], exclude: ['**/vendor/**', '**/node_modules/**'] }, null, 2)}\n`,
     'utf8'
   );
 
@@ -164,76 +150,29 @@ beforeEach(() => {
   process.exitCode = 0;
 });
 
-describe('Scenario: render — the repair sentence attributes each count to its own axis', () => {
-  it(
-    'when only the include axis admitted files, should name the include delta instead of a bare zero',
-    { timeout: HEAVY_SUBPROCESS_TEST_TIMEOUT_MS },
-    async () => {
-      // given: a project whose include axis has 2 tracked files to admit and
-      //        whose exclude axis has nothing to remove
-      const project = seedIncludeHeavyProject();
-
-      // when: the repair runs (human output, no --peaks-json)
-      const captured = await runRepair(project);
-      const out = captured.stdout.join('\n');
-
-      // then: the sentence names BOTH axes' numbers and the reader can tell
-      //       which is which — the include clause carries the include delta …
-      expect(out).toContain(`Added ${EXPECTED_INCLUDE_ADDITIONS.length} include pattern(s)`);
-      expect(out).toContain('newly admitting 2 tracked source file(s)');
-      // … and the exclude clause carries the exclude count, described as what
-      //     it is (files a rule had been hiding), so its 0 is not read as a
-      //     verdict on the include work above it.
-      expect(out).toContain('removed 0 exclude rule(s)');
-      expect(out).toContain('recovering 0 tracked source file(s) that a rule had been hiding');
-    }
-  );
+describe('Scenario: render — the repair sentence reports what the repair did', () => {
+  // DELETED (1.6.2 upgrade): "when only the include axis admitted files, should
+  // name the include delta instead of a bare zero" and "should not print the old
+  // single-counter wording, which could only report the exclude axis". Both
+  // guarded a sentence that attributed numbers ACROSS two axes; with one axis
+  // left there is no cross-attribution to get wrong, so neither could fail for
+  // the reason it named. Deleting them and keeping the case below is the honest
+  // trade: it still measures the counts the sentence prints.
 
   it(
-    'should not print the old single-counter wording, which could only report the exclude axis',
+    'when a rule really did hide a file, should report the rule and the file it hid',
     { timeout: HEAVY_SUBPROCESS_TEST_TIMEOUT_MS },
     async () => {
-      // The regression guard. "include pattern(s) and removed" is the exact
-      // join the old sentence used to attach ONE "recovering N" to BOTH axes;
-      // that join is what made the include axis invisible, so its return is the
-      // defect returning.
-      const project = seedIncludeHeavyProject();
-
-      const captured = await runRepair(project);
-      const out = captured.stdout.join('\n');
-
-      expect(out).not.toContain('include pattern(s) and removed');
-      // and the include delta is not printed as the exclude axis' number either
-      expect(out).not.toContain('include pattern(s), newly admitting 0 tracked source file(s)');
-    }
-  );
-
-  it(
-    'when a rule really did hide a file, should still report that file on the exclude side',
-    { timeout: HEAVY_SUBPROCESS_TEST_TIMEOUT_MS },
-    async () => {
-      // given: a rule that blocks a tracked file (the other axis, so the two
-      //        counts cannot be swapped without this failing)
-      const project = seedIncludeHeavyProject();
-      mkdirSync(join(project, 'vendor'), { recursive: true });
-      writeFileSync(join(project, 'vendor', 'lib.ts'), 'export const lib = 1;\n', 'utf8');
-      execFileSync('git', ['-C', project, 'add', '-A'], { stdio: 'ignore', windowsHide: true });
-      execFileSync('git', ['-C', project, 'commit', '-qm', 'vendor'], {
-        stdio: 'ignore',
-        windowsHide: true
-      });
-      const configPath = join(project, '.codegraph', 'config.json');
-      const config = JSON.parse(readFileSync(configPath, 'utf8')) as { exclude: string[] };
-      config.exclude = ['**/node_modules/**', '**/vendor/**'];
-      writeFileSync(configPath, `${JSON.stringify(config, null, 2)}\n`, 'utf8');
+      // given: a config rule that blocks a tracked source file
+      const project = seedBlockedProject();
 
       // when: the repair runs
       const captured = await runRepair(project);
       const out = captured.stdout.join('\n');
 
-      // then: both axes report their OWN file count in the same sentence
-      expect(out).toContain('newly admitting 2 tracked source file(s)');
-      expect(out).toContain('removed 1 exclude rule(s)');
+      // then: the sentence reports the rule count AND the file count, so a run
+      //       that dropped a rule which hid nothing cannot read as this one
+      expect(out).toContain('Removed 1 exclude rule(s)');
       expect(out).toContain('recovering 1 tracked source file(s)');
     }
   );
@@ -262,7 +201,7 @@ describe('Scenario: render — the gap-closed confirmation is earned, not assume
     'when the repair wrote the config, should make the promise and leave the repaired bytes behind',
     { timeout: HEAVY_SUBPROCESS_TEST_TIMEOUT_MS },
     async () => {
-      const project = seedIncludeHeavyProject();
+      const project = seedBlockedProject();
 
       const captured = await runRepair(project);
       const out = captured.stdout.join('\n');
@@ -272,13 +211,9 @@ describe('Scenario: render — the gap-closed confirmation is earned, not assume
       // config is the one on disk, so re-running `status` really does find the
       // gap closed (the re-read itself is pinned in
       // `codegraph-status-integrity.test.ts`).
-      const config = JSON.parse(
-        readFileSync(join(project, '.codegraph', 'config.json'), 'utf8')
-      ) as {
-        include: string[];
+      const config = JSON.parse(readFileSync(join(project, 'codegraph.json'), 'utf8')) as {
         exclude: string[];
       };
-      expect(config.include).toContain('**/*.mjs');
       expect(config.exclude).toEqual(['**/node_modules/**']);
     }
   );
@@ -287,7 +222,7 @@ describe('Scenario: render — the gap-closed confirmation is earned, not assume
     'when repair-exclude wrote nothing, should NOT claim a gap was closed',
     { timeout: HEAVY_SUBPROCESS_TEST_TIMEOUT_MS },
     async () => {
-      const project = seedIncludeHeavyProject();
+      const project = seedBlockedProject();
       await runRepair(project);
 
       // The second run re-derives nothing to do, so it must report that instead
@@ -304,21 +239,11 @@ describe('Scenario: render — the gap-closed confirmation is earned, not assume
     'when repair-index wrote nothing, should still make the promise — and the gate agrees it is closed',
     { timeout: HEAVY_SUBPROCESS_TEST_TIMEOUT_MS },
     async () => {
-      // A REAL gap, opened on this case's own copy of the fixture: a tracked file
-      // under a rule that blocks it. Without it "the gap is already closed" would
-      // be a state the fixture was born in, and `false` below would say nothing.
-      const project = seedIncludeHeavyProject();
-      mkdirSync(join(project, 'vendor'), { recursive: true });
-      writeFileSync(join(project, 'vendor', 'lib.ts'), 'export const lib = 1;\n', 'utf8');
-      execFileSync('git', ['-C', project, 'add', '-A'], { stdio: 'ignore', windowsHide: true });
-      execFileSync('git', ['-C', project, 'commit', '-qm', 'vendor'], {
-        stdio: 'ignore',
-        windowsHide: true
-      });
-      const configPath = join(project, '.codegraph', 'config.json');
-      const config = JSON.parse(readFileSync(configPath, 'utf8')) as { exclude: string[] };
-      config.exclude = ['**/node_modules/**', '**/vendor/**'];
-      writeFileSync(configPath, `${JSON.stringify(config, null, 2)}\n`, 'utf8');
+      // The fixture carries a REAL gap: a tracked file under a rule that blocks
+      // it. It is the premise this case measures below, and without it "the gap
+      // is already closed" would be a state the fixture was born in — `false`
+      // would say nothing.
+      const project = seedBlockedProject();
 
       // The premise, measured rather than assumed — a gate that could only ever
       // report `false` would satisfy the assertion at the end of this case.

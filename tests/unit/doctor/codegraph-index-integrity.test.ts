@@ -354,12 +354,15 @@ describe('capability:codegraph-index-integrity (integration)', () => {
   });
 
   it(
-    'should report a real include gap and a real dead row from a real SQLite index',
+    'should report a real dead row from a real SQLite index',
     { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
     () => {
-      // A throwaway git project with the exact defect shape: `include`
-      // admits `.ts` but not `.mjs`, one tracked file is supported but not
-      // admitted, and the index carries a row for a file that is gone.
+      // A throwaway git project with the defect shape that still exists under
+      // 1.6.x: the index carries a row for a file that is gone. The include
+      // half of this case was deleted with the axis it injected — under this
+      // upstream's `include` semantics no config can withhold a file, so the
+      // fixture could not produce that gap and the assertion stopped
+      // discriminating.
       const root = mkdtempSync(join(tmpdir(), 'peaks-cg-index-integrity-'));
       try {
         execFileSync('git', ['-C', root, 'init', '-q'], { stdio: 'ignore', windowsHide: true });
@@ -384,7 +387,7 @@ describe('capability:codegraph-index-integrity (integration)', () => {
 
         mkdirSync(join(root, '.codegraph'), { recursive: true });
         writeFileSync(
-          join(root, '.codegraph', 'config.json'),
+          join(root, 'codegraph.json'),
           `${JSON.stringify({ version: 1, include: ['**/*.ts'], exclude: [] }, null, 2)}\n`,
           'utf8'
         );
@@ -404,10 +407,11 @@ describe('capability:codegraph-index-integrity (integration)', () => {
         const report = inspectCodegraphIndexIntegrity(root);
 
         expect(report.gap).toBe(true);
-        expect(report.includeGap).toEqual(['scripts/tool.mjs']);
+        expect(report.admissionModel).toBe('force-include');
+        expect(report.includeGap).toEqual([]);
         expect(report.deadRows).toEqual(['src/deleted.ts']);
         expect(report.trackedSourceCount).toBe(2);
-        expect(report.admittedTrackedCount).toBe(1);
+        expect(report.admittedTrackedCount).toBe(2);
         expect(report.indexedFileCount).toBe(2);
 
         // And the check built on it blocks.
@@ -433,7 +437,7 @@ describe('capability:codegraph-index-integrity (integration)', () => {
         execFileSync('git', ['-C', root, 'init', '-q'], { stdio: 'ignore', windowsHide: true });
         mkdirSync(join(root, '.codegraph'), { recursive: true });
         writeFileSync(
-          join(root, '.codegraph', 'config.json'),
+          join(root, 'codegraph.json'),
           `${JSON.stringify({ version: 1, include: ['**/*.ts'], exclude: [] }, null, 2)}\n`,
           'utf8'
         );

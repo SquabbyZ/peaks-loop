@@ -83,7 +83,7 @@ function runCheck(ctx: DoctorContext): readonly DoctorCheck[] {
 }
 
 const GAPPED: CodegraphExcludeIntegrityProbe = {
-  configPath: '/tmp/project/.codegraph/config.json',
+  configPath: '/tmp/project/codegraph.json',
   gap: true,
   trackedSourceCount: 1117,
   excludedTrackedCount: 26,
@@ -95,7 +95,7 @@ const GAPPED: CodegraphExcludeIntegrityProbe = {
 };
 
 const CLEAN: CodegraphExcludeIntegrityProbe = {
-  configPath: '/tmp/project/.codegraph/config.json',
+  configPath: '/tmp/project/codegraph.json',
   gap: false,
   trackedSourceCount: 1117,
   excludedTrackedCount: 0,
@@ -130,7 +130,7 @@ function createTempProjectWithEmptyRule(): string {
 
   mkdirSync(join(project, '.codegraph'), { recursive: true });
   writeFileSync(
-    join(project, '.codegraph', 'config.json'),
+    join(project, 'codegraph.json'),
     `${JSON.stringify({ version: 1, include: ['**/*.ts'], exclude: ['', '**/vendor/**'] }, null, 2)}\n`,
     'utf8'
   );

@@ -83,7 +83,10 @@ const CONFIG = { include: ['**/*.ts'], exclude: ['**/ok.ts'] } as const;
 // The paths the index's own `files` table carries. Injected, because the
 // real db is a build artifact: this test is about the shared tracked/config
 // seam, not about SQLite.
-const INDEXED_PATHS = ['src/ok.ts'] as const;
+// One live row and one that is gone from disk, so the index report is
+// non-trivial: the equality assertions below would be satisfied by two empty
+// reports.
+const INDEXED_PATHS = ['src/ok.ts', 'src/gone.ts'] as const;
 
 const cleanups: string[] = [];
 
@@ -115,16 +118,12 @@ function writeConfig(
   config: { include: readonly string[]; exclude: readonly string[] }
 ): void {
   mkdirSync(join(root, '.codegraph'), { recursive: true });
-  writeFileSync(
-    join(root, '.codegraph', 'config.json'),
-    `${JSON.stringify(config, null, 2)}\n`,
-    'utf8'
-  );
+  writeFileSync(join(root, 'codegraph.json'), `${JSON.stringify(config, null, 2)}\n`, 'utf8');
 }
 
 /**
  * Two tracked files (`git add` names them explicitly, so the untracked
- * `.codegraph/config.json` stays out of the tracked list — a tracked config
+ * `codegraph.json` stays out of the tracked list — a tracked config
  * would add its own include-gap and blur the assertions).
  */
 function makeGappedRoot(): string {
@@ -169,12 +168,14 @@ describe('behavior — what an empty tracked list actually means', () => {
     const gapped = reconcileCodegraphExclude({
       trackedFiles: ['src/ok.ts'],
       include: [...CONFIG.include],
-      exclude: [...CONFIG.exclude]
+      exclude: [...CONFIG.exclude],
+      admissionModel: 'include-whitelist'
     });
     const withEmpty = reconcileCodegraphExclude({
       trackedFiles: [],
       include: [...CONFIG.include],
-      exclude: [...CONFIG.exclude]
+      exclude: [...CONFIG.exclude],
+      admissionModel: 'include-whitelist'
     });
 
     expect(gapped.excludedTrackedCount).toBe(1);
@@ -199,7 +200,12 @@ describe('behavior — every verified probe shape still matches the no-seam call
       // Clean control FIRST: equivalence between two clean reports would be
       // vacuous, so the baseline must be a real gap before it is compared.
       expect(noSeam.gap).toBe(true);
-      expect(noSeam.trackedSourceCount).toBe(1);
+      // 2, not 1: under this upstream the candidate set is "tracked files the
+      // extractor would ingest" (`src/ok.ts` and `scripts/tool.mjs`), not
+      // "files the config's `include` globs admit" — the latter admits
+      // nothing here, so it would have reported an empty set and no rule
+      // could ever be a violation.
+      expect(noSeam.trackedSourceCount).toBe(2);
       expect(noSeam.violations).toEqual([{ path: 'src/ok.ts', matchedRule: '**/ok.ts' }]);
 
       const realTracked = readTrackedFiles(root);
@@ -242,8 +248,12 @@ describe('behavior — every verified probe shape still matches the no-seam call
 
       expect(noSeam.gap).toBe(true);
       expect(noSeam.trackedSourceCount).toBe(2);
-      expect(noSeam.admittedTrackedCount).toBe(1);
-      expect(noSeam.includeGap).toEqual(['scripts/tool.mjs']);
+      expect(noSeam.admittedTrackedCount).toBe(2);
+      expect(noSeam.deadRows).toEqual(['src/gone.ts']);
+      // The include axis cannot withhold under this upstream, and says so by
+      // naming the model rather than by reporting a number.
+      expect(noSeam.admissionModel).toBe('force-include');
+      expect(noSeam.includeGap).toEqual([]);
 
       const realTracked = readTrackedFiles(root);
       const realConfig = readCodegraphExcludeConfig(root);

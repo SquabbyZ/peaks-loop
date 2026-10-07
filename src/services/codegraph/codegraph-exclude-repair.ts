@@ -1,53 +1,49 @@
 // src/services/codegraph/codegraph-exclude-repair.ts
 //
-// axis to BOTH config axes; the file name and the entry point's name are
+// reconcilers to the config axes; the file name and the entry point's name are
 // retained because three seams import them by name and the exclude axis is
-// still the entry condition. See the ordering note below — the widening is
-// not a second feature bolted on, it is what makes the exclude repair
-// correct.
+// still the entry condition.
+//
+// ── THE INCLUDE AXIS IS GONE (1.6.2 upgrade) ──────────────────────────
+//
+// This seam used to repair BOTH axes: it appended the extensions upstream's
+// own default `include` template omitted, then reconciled `exclude` against
+// that widened list. 1.6.x removed both halves of the premise. It ships no
+// `include` template at all, and it inverted what `include` MEANS: upstream's
+// own description is now "first-party source to force INTO the index even when
+// `.gitignore` drops it", while selection became `.gitignore`-driven. So the
+// candidate set stopped being "the five extensions the template forgot" and
+// became every extension the extractor supports — and appending those would
+// not have covered a gap, it would have told upstream to index gitignored
+// source. That is a defect, not a deferral, so the axis and its reconciler
+// were deleted rather than left pending.
+//
+// The exclude axis survives, and its job is now STRICTLY NARROWER than it was.
+// It used to hunt two things: a rule from upstream's 99-entry default template
+// that collided with real source (1.6.x ships no such template, so that class
+// is gone), and a rule a project AUTHORED that blocks its own tracked source.
+// The second is live — `codegraph.json`'s `exclude` still means "keep OUT of
+// the index even when git-tracked" — and it is what this seam repairs.
 //
 // The reconcilers compute; this module applies. Two callers are allowed to
 // reach it and nothing else is:
 //
-//   1. `peaks codegraph init` — after a fresh upstream init (which
-//      always writes upstream's 99-rule default `exclude` template AND
-//      its 32-entry default `include` template), so a brand new clone /
-//      new machine ends up with a complete index instead of silently
-//      dropping tracked source files.
-//   2. `peaks codegraph repair-exclude` (exclude axis, incremental
-//      rebuild) and `peaks codegraph repair-index` (both axes, FORCED
-//      rebuild) — the explicit repair for a workspace that was
-//      initialized before this shipped, or whose config drifted.
+//   1. `peaks codegraph init` — after a fresh upstream init, so a brand new
+//      clone / new machine ends up with an index that does not silently drop
+//      tracked source files.
+//   2. `peaks codegraph repair-exclude` (incremental rebuild) and
+//      `peaks codegraph repair-index` (FORCED rebuild) — the explicit repair
+//      for a workspace whose config drifted.
 //
 // `status` and the doctor check deliberately do NOT live here: they
 // read the integrity inspectors and never write.
 //
-// ── WHY THE INCLUDE AXIS IS PART OF *THIS* REPAIR ─────────────────────
-//
-// Slice-001's RD measured the reason with a real test failure: an
-// `exclude` rule that blocks ONLY a file `include` already drops
-// reconciles COMPLETELY CLEAN today — `include: ['**/*.ts']` with
-// `exclude: ['**/tool.mjs']` reports `gap:false, rulesToRemove:[]` even
-// though that rule is actively harmful. The moment `include` is widened
-// (which is exactly what repairing the include axis does) the rule starts
-// biting, and the exclude reconciliation is the only thing that can see it.
-//
-// So the ORDER IS LOAD-BEARING and is enforced structurally rather than by
-// comment: `repairCodegraphExcludeFromProject` reconciles `exclude` against
-// the NORMALIZED include list, never against the on-disk one. Reconciling
-// first would bless a rule that the same run was about to make harmful —
-// the repair would report success over a config it had just broken.
-//
 // Safety posture (the file being edited belongs to a THIRD-PARTY tool):
 //   - `rulesToRemove` comes from the exclude reconciler, which only ever
 //     lists a rule that actually blocks at least one git-tracked source
-//     file AFTER include normalization. A rule that matches nothing
-//     tracked is never dropped.
-//   - `includePatternsToAdd` comes from the include reconciler, which only
-//     ever appends a bare-extension pattern for an extension upstream's
-//     extractor supports and its own template omits. User entries are
-//     never removed, reordered or rewritten.
-//   - Nothing is written when both lists are empty — the config bytes, and
+//     file. A rule that matches nothing tracked is never dropped, and no
+//     user entry is ever added, removed, reordered or rewritten.
+//   - Nothing is written when the list is empty — the config bytes, and
 //     its mtime, are untouched.
 //   - The original bytes are copied to `config.json.bak` before the
 //     rewrite, so a rollback is byte-exact *whenever that copy is THIS
@@ -74,29 +70,18 @@
 //     write can be redirected into another project's `.codegraph/`
 //     (security R1). Containment is the predicate, not link-ness — see the
 //     function's own note on why an in-project link is allowed.
-//   - Both axes move in ONE rewrite through a same-directory temp file plus
-//     `renameSync`, so the config is never observed half-written, there is
-//     never a moment where `include` is widened but `exclude` still holds
-//     the rules the widened list just made harmful, and one backup covers
-//     both.
+//   - The rewrite is ONE same-directory temp file plus `renameSync`, so the
+//     config is never observed half-written.
 //   - Every other key of the config survives verbatim, in its original
-//     position; only `include` and `exclude` change.
-
-import { join } from 'node:path';
+//     position; only `exclude` changes.
 
 import {
-  CODEGRAPH_CONFIG_FILENAME,
-  filterAdmittedTrackedFiles,
   readCodegraphProjectInputs,
   reconcileCodegraphExclude
 } from './codegraph-exclude-reconciler.js';
-import {
-  normalizeCodegraphInclude,
-  upstreamUnnamedIncludeExtensions
-} from './codegraph-include-reconciler.js';
 import { upstreamSupportsPath } from './codegraph-index-integrity.js';
+import { resolveCodegraphConfigSource } from './codegraph-project-config.js';
 import {
-  CODEGRAPH_DIR_NAME,
   createCodegraphInvocation,
   executeCodegraphInvocation,
   type CodegraphProcessRunner
@@ -105,7 +90,6 @@ import {
   applyCodegraphConfigRepair,
   CODEGRAPH_CONFIG_BACKUP_SUFFIX,
   repairCodegraphExclude,
-  repairCodegraphInclude,
   type CodegraphConfigRepairOutcome,
   type CodegraphConfigRepairPlan,
   type CodegraphExcludeRepairPlan
@@ -117,12 +101,7 @@ import {
 
 // Re-exported so every existing `codegraph-exclude-repair.js` import site
 // keeps resolving: the extraction moved the definitions, not the contract.
-export {
-  applyCodegraphConfigRepair,
-  CODEGRAPH_CONFIG_BACKUP_SUFFIX,
-  repairCodegraphExclude,
-  repairCodegraphInclude
-};
+export { applyCodegraphConfigRepair, CODEGRAPH_CONFIG_BACKUP_SUFFIX, repairCodegraphExclude };
 export type { CodegraphConfigRepairOutcome, CodegraphConfigRepairPlan, CodegraphExcludeRepairPlan };
 
 // ─────────────────────────────────────────────────────────────────────
@@ -134,57 +113,8 @@ export type CodegraphExcludeRepairReport = {
   readonly applied: boolean;
   /** Rules dropped from `exclude`. */
   readonly rulesRemoved: readonly string[];
-  /**
-   * Patterns appended to `include` (slice-002). Always a subset of the
-   * include reconciler's candidates that were not already admitted.
-   */
-  readonly includePatternsAdded: readonly string[];
   /** Distinct tracked source files the dropped rules had been hiding. */
   readonly filesRecovered: number;
-  /**
-   * Distinct tracked source files the WIDENED `include` list newly admits —
-   * the INCLUDE axis' counterpart of `filesRecovered`, and a DIFFERENT
-   * number on purpose.
-   *
-   * `filesRecovered` counts the exclude axis only. Before this field
-   * existed, `appliedRepairNote` printed `filesRecovered` inside a sentence
-   * whose subject was both axes, so the measured run that added 5 include
-   * patterns for 31 tracked `.mjs`/`.cjs` files reported "removed 0 exclude
-   * rule(s), recovering 0 tracked source file(s)" — a true statement about
-   * one axis read as a verdict on both (defect A1 of
-   *
-   * It is a measured DELTA, not a re-report of an absolute count:
-   * `includeAdmittedAfter` minus the same admission measurement taken over
-   * the ON-DISK include list. Reporting `includeAdmittedAfter` itself as
-   * "recovered" would be the tautology slice-002 removed from the
-   * coverage ratio (an absolute count says nothing about what changed).
-   *
-   * Zero by construction when the include plan did not change — the
-   * normalized list IS the on-disk list then — which is also why the extra
-   * admission pass is gated on `includePlan.changed`: the no-op path (every
-   * automatic seam, every re-run) pays nothing for it, unlike the pass
-   * slice-002 removed (that one ran on ALL seams, including no-ops).
-   */
-  readonly includeFilesRecovered: number;
-  /**
-   * Tracked files the normalized `include` list admits — the NUMERATOR of
-   * the coverage ratio. Identical to
-   * `reconcileCodegraphExclude`'s `trackedSourceCount` for the normalized
-   * list, so it costs no second filtering pass.
-   */
-  readonly includeAdmittedAfter: number;
-  /**
-   * Tracked files upstream's extractor would ingest (any supported
-   * extension) — the DENOMINATOR, and the same quantity the index axis
-   * reports under this same field name (`CodegraphIndexIntegrityReport`).
-   *
-   * It is measured independently of `includeAdmittedAfter` (an extension
-   * decision per tracked file, not a glob match), so the two CAN differ and
-   * the ratio can report a shortfall. The field used to be fed from the
-   * reconciler's admitted count, i.e. the numerator again, which made every
-   * "N of N" the consumers printed a tautology.
-   */
-  readonly trackedSourceCount: number;
   /**
    * Absolute path of the rewritten config. Empty when nothing was written
    * AND the reads failed (there is no config to name).
@@ -221,19 +151,20 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+// The config this seam reads and writes is the one the installed upstream
+// consults, so the path comes from that one resolver rather than being spelled
+// here — see `codegraph-project-config.ts`. Called on failure paths too, which
+// is safe: resolving is a probe, not a read, so it names the file even when
+// opening it is what failed.
 function configPathOf(projectRoot: string): string {
-  return join(projectRoot, CODEGRAPH_DIR_NAME, CODEGRAPH_CONFIG_FILENAME);
+  return resolveCodegraphConfigSource(projectRoot).configPath;
 }
 
 function emptyRepairReport(warning: string): CodegraphExcludeRepairReport {
   return {
     applied: false,
     rulesRemoved: [],
-    includePatternsAdded: [],
     filesRecovered: 0,
-    includeFilesRecovered: 0,
-    includeAdmittedAfter: 0,
-    trackedSourceCount: 0,
     configPath: '',
     backupPath: null,
     reindexed: false,
@@ -306,16 +237,14 @@ export type CodegraphExcludeRepairOptions = {
 };
 
 /**
- * Reconcile `projectRoot`'s config against its tracked files — normalize
- * `include`, then drop the `exclude` rules that block tracked source files
- * — and rebuild the index so the recovered files actually land in it.
+ * Reconcile `projectRoot`'s config against its tracked files — drop the
+ * `exclude` rules that block tracked source files — and rebuild the index so
+ * the recovered files actually land in it.
  *
- * ORDER IS LOAD-BEARING. `exclude` is reconciled against the NORMALIZED
- * include list, never the on-disk one: an `exclude` rule that blocks only a
- * file `include` drops reconciles clean today and starts biting the moment
- * `include` is widened, so reconciling before normalizing would let this
- * run report success over a config it had just made worse. See the module
- * header.
+ * The reconciliation runs the config's OWN `include` filter first, exactly as
+ * upstream applies it, so a rule that only blocks files the index would not
+ * ingest anyway is not a violation. See the module header for what this seam
+ * no longer does and why.
  *
  * This is the ONE shared "after upstream init" self-heal: the CLI's
  * fresh `peaks codegraph init`, the pre-dispatch preflight and the
@@ -336,89 +265,30 @@ export async function repairCodegraphExcludeFromProject(
   const forcedRebuild = options.reindex === 'force';
   let trackedFiles;
   let config;
-  let includePlan;
   try {
-    // Read once, in the one place that owns the readers. The exclude
-    // reconciler is then fed the NORMALIZED include list below, which is
-    // what makes the ordering guarantee structural: there is no code path
-    // here that reconciles against the on-disk include.
+    // Read once, in the one place that owns the readers. The config this
+    // returns is the one the installed upstream consults, and `exclude` is
+    // reconciled against the on-disk list exactly as upstream would apply it.
     ({ trackedFiles, config } = readCodegraphProjectInputs(projectRoot));
-
-    // INSIDE the guard on purpose. The adapter loads upstream's own
-    // `types.js` / `extraction/grammars.js` out of the installed package and
-    // throws if the pinned install is damaged or its `dist/` layout moved;
-    // this function's contract is "never throws", and the alternative is
-    // that `repair-exclude` / `repair-index` escape to the CLI's generic
-    // UNHANDLED_ERROR (and `init` prints FAILURE for an init that already
-    // succeeded). A failure here is reported as a warning like every other
-    // one.
-    includePlan = normalizeCodegraphInclude({
-      include: config.include,
-      candidateExtensions: upstreamUnnamedIncludeExtensions()
-    });
   } catch (error) {
     return emptyRepairReport(`codegraph exclude reconcile skipped: ${errorMessage(error)}`);
   }
 
-  // AFTER normalization, never before. `admitted` here is the normalized
-  // admission set, so a rule that the widening would make harmful is
-  // visible to this reconciliation in the SAME run that widens.
   const reconcile = reconcileCodegraphExclude({
     trackedFiles,
-    include: includePlan.include,
-    exclude: config.exclude
+    include: config.include,
+    exclude: config.exclude,
+    admissionModel: config.model,
+    // Same oracle as the index axis — see `excludeCandidates`.
+    supportsPath: upstreamSupportsPath
   });
 
-  // The numerator is the normalized admission count, which the reconciliation
-  // just computed — it is not re-filtered here.
-  const includeAdmittedAfter = reconcile.trackedSourceCount;
-  // The denominator is a DIFFERENT measurement over the same file list: an
-  // extension decision per tracked file (`upstreamSupportsPath`, the same
-  // oracle the index axis uses), not a glob match. Two independent
-  // measurements can disagree, which is the whole point — a ratio whose
-  // numerator and denominator are the same expression cannot report the
-  // shortfall it exists to report. It is also cheap: no glob is compiled.
-  //
-  // This replaced a full `filterAdmittedTrackedFiles(trackedFiles,
-  // config.include)` pass whose only consumer was the on-disk "was N"
-  // trailer of a user-facing sentence. Perf measured that second pass at
-  // 11.73 ms of the repair entry's +14.13 ms (83 %), on ALL THREE automatic
-  // seams and both repair commands, including no-ops; the trailer was not
-  // worth it. Measured again here on this repo (2,104 tracked files x 32
-  // include rules, paired runs): the removed pass 9.78 ms median, this
-  // extension check 0.18 ms — and it reports the same 1,240 the status line
-  // reports as the denominator, which is the point of using one oracle.
-  const trackedSourceCount = trackedFiles.filter((file) => upstreamSupportsPath(file)).length;
-
-  // A1 (2026-09-17): the include axis' own file count, measured as a DELTA
-  // against the ON-DISK include list — `includeAdmittedAfter` is the count
-  // for the NORMALIZED list, so the difference is exactly the tracked files
-  // this run's appends newly admit. Never negative: `includePlan.include` is
-  // a superset of `config.include` and admission is monotone in the rule
-  // list, so the before-count cannot exceed the after-count.
-  //
-  // GATED on `includePlan.changed`, which is exact rather than an
-  // optimization: when nothing was appended the normalized list IS the
-  // on-disk list, so the delta is 0 without measuring anything. The pass
-  // this gate keeps off the hot path is the one slice-002 deleted for cost
-  // (see the `trackedSourceCount` note above) — the difference is that THIS
-  // pass runs only on the one run per project that actually widens
-  // `include`, where a repair is about to spend seconds rebuilding an index.
-  const includeFilesRecovered = includePlan.changed
-    ? includeAdmittedAfter - filterAdmittedTrackedFiles(trackedFiles, config.include).length
-    : 0;
-
-  const nothingToRepair =
-    includePlan.addedPatterns.length === 0 && reconcile.rulesToRemove.length === 0;
+  const nothingToRepair = reconcile.rulesToRemove.length === 0;
 
   const unchanged = {
     applied: false,
     rulesRemoved: [],
-    includePatternsAdded: [],
     filesRecovered: 0,
-    includeFilesRecovered: 0,
-    includeAdmittedAfter,
-    trackedSourceCount,
     configPath: configPathOf(projectRoot),
     backupPath: null,
     reindexed: false,
@@ -444,8 +314,7 @@ export async function repairCodegraphExcludeFromProject(
   if (!nothingToRepair) {
     try {
       outcome = applyCodegraphConfigRepair(projectRoot, {
-        rulesToRemove: reconcile.rulesToRemove,
-        includePatternsToAdd: includePlan.addedPatterns
+        rulesToRemove: reconcile.rulesToRemove
       });
     } catch (error) {
       return emptyRepairReport(
@@ -464,11 +333,7 @@ export async function repairCodegraphExcludeFromProject(
   const base = {
     applied: outcome !== null,
     rulesRemoved: outcome?.removedRules ?? [],
-    includePatternsAdded: outcome?.addedIncludePatterns ?? [],
     filesRecovered: reconcile.excludedTrackedCount,
-    includeFilesRecovered,
-    includeAdmittedAfter,
-    trackedSourceCount,
     configPath: configPathOf(projectRoot),
     backupPath: outcome?.backupPath ?? null
   };
@@ -523,14 +388,13 @@ export async function repairCodegraphExcludeFromProject(
   }
 }
 
-// "2 exclude rule(s) removed, 5 include pattern(s) added" — the trailing
-// half of every degraded-path warning above. Written once so the four
-// warnings cannot drift from each other, and it names BOTH axes because
-// either may be the one that changed.
+// "2 exclude rule(s) removed" — the trailing half of every degraded-path
+// warning above. Written once so the four warnings cannot drift from each
+// other.
 function describeRepair(outcome: CodegraphConfigRepairOutcome | null): string {
   if (outcome === null || !outcome.applied) {
     return 'nothing written';
   }
 
-  return `${outcome.removedRules.length} exclude rule(s) removed, ${outcome.addedIncludePatterns.length} include pattern(s) added`;
+  return `${outcome.removedRules.length} exclude rule(s) removed`;
 }

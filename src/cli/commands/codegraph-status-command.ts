@@ -220,12 +220,12 @@ async function runCodegraphStatusJson(
         strict
           ? [
               'The index must admit every extractor-supported tracked file and hold no row for a path that is gone.',
-              `Run \`${CODEGRAPH_REPAIR_INDEX_COMMAND}\` to add the missing include pattern(s) and rebuild the index without the stale rows.`
+              `Run \`${CODEGRAPH_REPAIR_INDEX_COMMAND}\` to drop the blocking exclude rules and rebuild the index without the stale rows.`
             ]
           : [
               'Advisory: this gap is reported as a warning and the command exits 0.',
               `Set ${CODEGRAPH_INDEX_STRICT_ENV_VAR}=1 to make it blocking (exit ${CODEGRAPH_INDEX_INTEGRITY_EXIT_CODE}).`,
-              `Run \`${CODEGRAPH_REPAIR_INDEX_COMMAND}\` to add the missing include pattern(s) and rebuild the index without the stale rows.`
+              `Run \`${CODEGRAPH_REPAIR_INDEX_COMMAND}\` to drop the blocking exclude rules and rebuild the index without the stale rows.`
             ]
       ),
       true

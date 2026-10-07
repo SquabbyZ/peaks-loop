@@ -11,24 +11,19 @@
 // re-exported below, so every existing importer still resolves.
 
 import { Command, InvalidArgumentError } from 'commander';
-import { join, resolve } from 'node:path';
+import { resolve } from 'node:path';
 import {
   assertCodegraphDirContained,
   resolveProjectRoot,
-  writeCodegraphAffectedContext,
-  CODEGRAPH_DIR_NAME
+  writeCodegraphAffectedContext
 } from '../../services/codegraph/codegraph-service.js';
 import {
   repairCodegraphExcludeFromProject,
   type CodegraphExcludeRepairReport
 } from '../../services/codegraph/codegraph-exclude-repair.js';
-import { CODEGRAPH_CONFIG_FILENAME } from '../../services/codegraph/codegraph-exclude-reconciler.js';
+import { resolveCodegraphConfigSource } from '../../services/codegraph/codegraph-project-config.js';
 import { rollbackCodegraphConfig } from '../../services/codegraph/codegraph-config-repair-writer.js';
-import {
-  admittingClause,
-  type CodegraphInitOptions,
-  runCodegraphInitCommand
-} from './codegraph-init-command.js';
+import { type CodegraphInitOptions, runCodegraphInitCommand } from './codegraph-init-command.js';
 import { fail, ok } from 'peaks-loop-shared/result';
 
 import {
@@ -103,10 +98,9 @@ function parsePositiveInteger(value: string): number {
 //     expensive half is the reason it is a separate verb rather than a flag
 //     on the cheap one.
 //
-// Both run the SAME two-axis repair (normalize `include`, then reconcile
-// `exclude` against the widened list), because repairing `exclude` without
-// normalizing `include` first reports success over a config it has just made
-// worse — see `codegraph-exclude-repair.ts`.
+// Both run the SAME repair — the config's `exclude` rules are reconciled
+// against the tracked files, then the index is rebuilt. See
+// `codegraph-exclude-repair.ts` for what the repair no longer does.
 type CodegraphRepairMode = 'exclude' | 'index';
 
 interface CodegraphRepairModeSpec {
@@ -132,34 +126,21 @@ const REPAIR_MODES: Record<CodegraphRepairMode, CodegraphRepairModeSpec> = {
 };
 
 // One sentence, the same shape in both modes, because both modes run the
-// same two-axis repair — only the rebuild differs.
+// same repair — only the rebuild differs.
 //
-// The previous wording ended one sentence about both axes with a single
-// "recovering N tracked source file(s)", fed by `filesRecovered` — the
-// EXCLUDE axis' counter. On this repo it printed "Added 5 include pattern(s)
-// and removed 0 exclude rule(s), recovering 0 tracked source file(s)." while
-// those 5 patterns had just admitted 31 tracked source files (30 `.mjs` + 1
-// `.cjs`): a true statement about the axis that did not move, read as a
-// verdict on the one that did. The `admittingClause` could not correct it
-// either — it is silent when the coverage ratio is complete, which is
-// exactly the state a fresh include repair produces.
-//
-// So: the include clause carries the include axis' own file delta and the
-// exclude clause carries the exclude axis' own count, and a reader cannot
-// attribute either number to the other clause. No combined total is printed,
-// because there is no honest single number here — the two axes recover
-// disjoint sets (one widens admission, the other unblocks admitted files)
-// and only the first of them is cheap enough to measure on every repair.
+// The include clause this sentence used to carry is gone with the include
+// axis (see `codegraph-exclude-repair.ts`), which also removed the reason the
+// sentence was once split in two: there is a single axis left, and its own
+// counter cannot be read as a verdict on another one.
 function appliedRepairNote(report: CodegraphExcludeRepairReport): string {
   return (
-    `Added ${report.includePatternsAdded.length} include pattern(s), newly admitting ${report.includeFilesRecovered} tracked source file(s), and removed ${report.rulesRemoved.length} exclude rule(s), recovering ${report.filesRecovered} tracked source file(s) that a rule had been hiding.` +
-    admittingClause(report) +
+    `Removed ${report.rulesRemoved.length} exclude rule(s), recovering ${report.filesRecovered} tracked source file(s) that a rule had been hiding.` +
     ` Config backed up to ${report.backupPath ?? ''}.`
   );
 }
 
 /**
- * Explicit repair path: reconcile both config axes → back up the config →
+ * Explicit repair path: reconcile the config's `exclude` rules → back it up →
  * rewrite it → rebuild the index. Mirrors the automatic step `init` runs
  * after a fresh upstream init, for workspaces that were already
  * initialized before the integrity gate existed.
@@ -208,11 +189,7 @@ async function runCodegraphRepairCommand(
       {
         applied: report.applied,
         rulesRemoved: report.rulesRemoved,
-        includePatternsAdded: report.includePatternsAdded,
         filesRecovered: report.filesRecovered,
-        includeFilesRecovered: report.includeFilesRecovered,
-        includeAdmittedAfter: report.includeAdmittedAfter,
-        trackedSourceCount: report.trackedSourceCount,
         configPath: report.configPath,
         backupPath: report.backupPath,
         reindexed: report.reindexed,
@@ -361,7 +338,9 @@ async function runCodegraphConfigRestoreCommand(
     // into another. Called for its refusal only — the paths below stay derived
     // from the caller's canonical `projectRoot`.
     assertCodegraphDirContained(projectRoot);
-    configPath = join(projectRoot, CODEGRAPH_DIR_NAME, CODEGRAPH_CONFIG_FILENAME);
+    // The same resolver the repair WRITES through, so a restore puts back the
+    // file the repair replaced — not a same-named file upstream never reads.
+    configPath = resolveCodegraphConfigSource(projectRoot).configPath;
   } catch (error) {
     // The PRECONDITION class: nothing below this line ran, so the envelope says
     // the restore did not happen and stops short of blaming the rollback point.
@@ -540,7 +519,7 @@ export function registerCodegraphCommands(program: Command, io: ProgramIO): void
     codegraph
       .command('repair-exclude')
       .description(
-        'Normalize the codegraph include list, drop exclude rules that block tracked source files, then rebuild the index'
+        'Drop config exclude rules that block tracked source files, then rebuild the index'
       )
   ).action((options: CommonCodegraphOptions) =>
     runCodegraphRepairCommand(io, options, options.peaksJson, 'exclude')
@@ -550,7 +529,7 @@ export function registerCodegraphCommands(program: Command, io: ProgramIO): void
     codegraph
       .command('repair-index')
       .description(
-        'Repair both codegraph config axes, then rebuild the index from scratch (drops rows for deleted files)'
+        'Drop config exclude rules that block tracked source files, then rebuild the index from scratch (drops rows for deleted files)'
       )
   ).action((options: CommonCodegraphOptions) =>
     runCodegraphRepairCommand(io, options, options.peaksJson, 'index')

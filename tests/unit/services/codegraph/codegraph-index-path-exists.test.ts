@@ -306,7 +306,7 @@ describe('codegraph index path-exists predicate (bounded calls)', () => {
     'CREATE TABLE files (path TEXT PRIMARY KEY, content_hash TEXT NOT NULL, language TEXT NOT NULL, size INTEGER NOT NULL, modified_at INTEGER NOT NULL, indexed_at INTEGER NOT NULL, node_count INTEGER DEFAULT 0, errors TEXT)';
 
   /**
-   * A real work tree, a real `.codegraph/config.json` and a real
+   * A real work tree, a real `codegraph.json` and a real
    * `codegraph.db` holding `liveRowCount` live rows spread over `dirCount`
    * directories, plus `deadRowCount` rows that are gone.
    */
@@ -329,7 +329,7 @@ describe('codegraph index path-exists predicate (bounded calls)', () => {
 
     mkdirSync(join(root, '.codegraph'), { recursive: true });
     writeFileSync(
-      join(root, '.codegraph', 'config.json'),
+      join(root, 'codegraph.json'),
       `${JSON.stringify({ version: 1, include: ['**/*.ts'], exclude: [] }, null, 2)}\n`,
       'utf8'
     );
@@ -398,10 +398,11 @@ describe('codegraph index path-exists predicate (human report)', () => {
       const pathExists = createCodegraphIndexPathExists();
 
       const report = inspectCodegraphIndexIntegrityFrom({
-        configPath: join(root, '.codegraph', 'config.json'),
+        configPath: join(root, 'codegraph.json'),
         databasePath: join(root, '.codegraph', 'codegraph.db'),
         trackedFiles: [...present],
         include: ['**/*.ts'],
+        admissionModel: 'include-whitelist',
         indexedPaths: [...present, ...gone],
         supportsPath: () => true,
         pathExists: (row) => pathExists(root, row)

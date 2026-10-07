@@ -1,19 +1,30 @@
 // src/services/codegraph/codegraph-config-repair-writer.ts
 //
-// The pure repair plans (`repairCodegraphExclude` for the exclude axis,
-// `repairCodegraphInclude` for the include axis) and the writer that applies
-// them to `<projectRoot>/.codegraph/config.json` in ONE atomic rewrite, plus
-// the byte-exact `config.json.bak` copy it keeps for rollback and
+// The pure exclude repair plan (`repairCodegraphExclude`) and the writer that
+// applies it to this project's codegraph config in ONE atomic rewrite, plus
+// the byte-exact `<config>.bak` copy it keeps for rollback and
 // `rollbackCodegraphConfig`, that copy's reader (slice A1 of
 // `2026-09-17-session-607ead`: the reverse write, so the rollback the `.bak`
 // has always promised is reachable).
+//
+// WHICH FILE that is comes from `codegraph-project-config.ts` — upstream reads
+// `<root>/codegraph.json` from 1.6.x and `<root>/.codegraph/config.json`
+// before it. The read and the write go through that ONE resolver, so a repair
+// cannot report success against a file upstream never consults.
+//
+// The include axis used to have a plan here too (`repairCodegraphInclude`).
+// It is gone: it existed to append the extensions upstream's own `include`
+// TEMPLATE omitted, and 1.6.x ships no template — while `include` itself came
+// to mean "force INTO the index even when `.gitignore` drops it", so appending
+// every supported extension would have told upstream to index gitignored
+// source. See `codegraph-exclude-repair.ts` for the disposition.
 //
 // Extracted verbatim from `codegraph-exclude-repair.ts` (rid
 // line is byte-identical and no behaviour changed; `codegraph-exclude-repair.ts`
 // re-exports this module's public surface, so every existing import site
 // (`applyCodegraphConfigRepair`, `repairCodegraphExclude`,
-// `repairCodegraphInclude`, `CODEGRAPH_CONFIG_BACKUP_SUFFIX`, and the three
-// plan/outcome types) keeps working unchanged.
+// `CODEGRAPH_CONFIG_BACKUP_SUFFIX`, and the two plan/outcome types) keeps
+// working unchanged.
 //
 // The dependency edge is ONE-WAY and must stay that way: this module must not
 // import `codegraph-exclude-repair.ts`, which imports this one.
@@ -30,8 +41,9 @@ import {
 } from 'node:fs';
 import { join } from 'node:path';
 
-import { assertStringArray, CODEGRAPH_CONFIG_FILENAME } from './codegraph-exclude-reconciler.js';
-import { assertCodegraphDirContained, CODEGRAPH_DIR_NAME } from './codegraph-service.js';
+import { assertStringArray } from './codegraph-exclude-reconciler.js';
+import { resolveCodegraphConfigSource } from './codegraph-project-config.js';
+import { assertCodegraphDirContained } from './codegraph-service.js';
 
 /** Suffix of the byte-exact pre-repair copy kept next to the config. */
 export const CODEGRAPH_CONFIG_BACKUP_SUFFIX = '.bak';
@@ -80,34 +92,6 @@ export function repairCodegraphExclude(input: {
   };
 }
 
-/**
- * Pure: given the current `include` list and the patterns to append, return
- * the new list. The mirror of `repairCodegraphExclude`, in the other
- * direction — a SUPERSET operation instead of a subset one.
- *
- * A pattern already present is not appended twice: the include reconciler
- * already guarantees that, but this function is the writer's own last line
- * of defence, and a duplicated glob in a third-party config would be a
- * visible defect even though it changes no matching behaviour.
- */
-export function repairCodegraphInclude(input: {
-  readonly include: readonly string[];
-  readonly patternsToAdd: readonly string[];
-}): {
-  readonly changed: boolean;
-  readonly include: readonly string[];
-  readonly addedPatterns: readonly string[];
-} {
-  const existing = new Set(input.include);
-  const additions = input.patternsToAdd.filter((pattern) => !existing.has(pattern));
-
-  if (additions.length === 0) {
-    return { changed: false, include: input.include, addedPatterns: [] };
-  }
-
-  return { changed: true, include: [...input.include, ...additions], addedPatterns: additions };
-}
-
 // ─────────────────────────────────────────────────────────────────────
 // Writer
 // ─────────────────────────────────────────────────────────────────────
@@ -115,8 +99,6 @@ export function repairCodegraphInclude(input: {
 export type CodegraphConfigRepairPlan = {
   /** Rules from the exclude reconciler to drop. */
   readonly rulesToRemove: readonly string[];
-  /** Patterns from the include reconciler to append. */
-  readonly includePatternsToAdd: readonly string[];
 };
 
 export type CodegraphConfigRepairOutcome =
@@ -124,18 +106,14 @@ export type CodegraphConfigRepairOutcome =
       readonly applied: false;
       readonly reason: 'nothing-to-repair';
       readonly removedRules: readonly string[];
-      readonly addedIncludePatterns: readonly string[];
     }
   | {
       readonly applied: true;
       readonly configPath: string;
       readonly backupPath: string;
       readonly removedRules: readonly string[];
-      readonly addedIncludePatterns: readonly string[];
       readonly excludeCountBefore: number;
       readonly excludeCountAfter: number;
-      readonly includeCountBefore: number;
-      readonly includeCountAfter: number;
     };
 
 /**
@@ -366,13 +344,8 @@ export function applyCodegraphConfigRepair(
   projectRoot: string,
   repair: CodegraphConfigRepairPlan
 ): CodegraphConfigRepairOutcome {
-  if (repair.rulesToRemove.length === 0 && repair.includePatternsToAdd.length === 0) {
-    return {
-      applied: false,
-      reason: 'nothing-to-repair',
-      removedRules: [],
-      addedIncludePatterns: []
-    };
+  if (repair.rulesToRemove.length === 0) {
+    return { applied: false, reason: 'nothing-to-repair', removedRules: [] };
   }
 
   // Containment FIRST — before even reading (S12 / security R1). The `.bak`
@@ -383,7 +356,9 @@ export function applyCodegraphConfigRepair(
   // verb's canonicalization remains where L2/S5 put it, at the CLI edge.
   assertCodegraphDirContained(projectRoot);
 
-  const configPath = join(projectRoot, CODEGRAPH_DIR_NAME, CODEGRAPH_CONFIG_FILENAME);
+  // The file WRITTEN is the file READ — both come from the one resolver, so a
+  // repair can never report success against a file upstream does not consult.
+  const configPath = resolveCodegraphConfigSource(projectRoot).configPath;
   const originalText = readFileSync(configPath, 'utf8');
 
   const parsed: unknown = JSON.parse(originalText);
@@ -393,43 +368,19 @@ export function applyCodegraphConfigRepair(
   const record = parsed as Record<string, unknown>;
   const exclude = assertStringArray(record.exclude, 'exclude', configPath);
 
-  // An ABSENT `include` key is tolerated, and is NOT the same as a malformed
-  // one: this writer predates the include axis and callers exist whose
-  // config carries only `exclude` (a hand-written minimal file; the S2
-  // hardening fixtures are exactly that). Throwing here would make the
-  // whole repair fail — including the exclude half that used to succeed —
-  // so the include axis simply has nothing to extend, and the key is never
-  // invented. A key that is PRESENT but is not an array of strings is still
-  // an error: that is a genuinely malformed config, and silently ignoring it
-  // is how a wrong `include` would survive a repair that reported success.
-  const include =
-    record.include === undefined ? [] : assertStringArray(record.include, 'include', configPath);
-
   const excludePlan = repairCodegraphExclude({ exclude, rulesToRemove: repair.rulesToRemove });
-  const includePlan = repairCodegraphInclude({
-    include,
-    patternsToAdd: repair.includePatternsToAdd
-  });
 
-  if (!excludePlan.changed && !includePlan.changed) {
-    return {
-      applied: false,
-      reason: 'nothing-to-repair',
-      removedRules: [],
-      addedIncludePatterns: []
-    };
+  if (!excludePlan.changed) {
+    return { applied: false, reason: 'nothing-to-repair', removedRules: [] };
   }
 
   const backupPath = writeConfigBackup(configPath, originalText);
 
-  // Spread first, then replace the keys that changed — every other key keeps
-  // its original value AND its original position in the serialized object.
-  // `include` is only written back when it actually changed, so a config
-  // without that key does not gain one from a repair that did not touch it.
+  // Spread first, then replace the key that changed — every other key keeps
+  // its original value AND its original position in the serialized object, so
+  // a key this repair does not own (`extensions`, `include`, anything a newer
+  // upstream adds) survives byte-for-byte.
   const nextRecord: Record<string, unknown> = { ...record, exclude: excludePlan.exclude };
-  if (includePlan.changed) {
-    nextRecord.include = includePlan.include;
-  }
   writeConfigAtomic(configPath, serializeConfig(nextRecord, originalText));
 
   return {
@@ -437,14 +388,8 @@ export function applyCodegraphConfigRepair(
     configPath,
     backupPath,
     removedRules: excludePlan.removedRules,
-    // The patterns that ACTUALLY landed (a caller-supplied pattern that was
-    // already present is not an addition), so the report cannot overstate
-    // what changed on disk.
-    addedIncludePatterns: includePlan.addedPatterns,
     excludeCountBefore: exclude.length,
-    excludeCountAfter: excludePlan.exclude.length,
-    includeCountBefore: include.length,
-    includeCountAfter: includePlan.include.length
+    excludeCountAfter: excludePlan.exclude.length
   };
 }
 

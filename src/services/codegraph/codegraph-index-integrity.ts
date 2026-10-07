@@ -16,6 +16,13 @@
 //     `include` template has no `**/*.mjs` / `**/*.cjs`, so every `.mjs`
 //     in a repo is dropped while `status` still says the index is fine.
 //
+//     THIS AXIS IS MODEL-DEPENDENT (1.6.2 upgrade). The paragraph above is the
+//     0.7.x config model, where `include` was the whitelist that chose what
+//     got indexed. 1.6.x inverted it — see `codegraph-project-config.ts` — and
+//     there the axis has no set difference to compute. Which of the two is in
+//     force is probed from the installed upstream and reported as
+//     `admissionModel`, never assumed.
+//
 //   ② STALENESS — the index holds `files` rows for paths that no longer
 //     exist on disk (deleted or renamed upstream). Incremental `index`
 //     never deletes them, so the graph keeps answering about files that
@@ -55,8 +62,8 @@ import { openSqlite, type SqliteDatabase } from '../sqlite/sqlite-driver.js';
 import { normalizePath } from '../../shared/path-utils.js';
 import { CODEGRAPH_DB_NAME, CODEGRAPH_DIR_NAME } from './codegraph-service.js';
 import { resolveCodegraphUpstreamLayout } from './codegraph-upstream-layout.js';
+import type { CodegraphConfigModel } from './codegraph-project-config.js';
 import {
-  CODEGRAPH_CONFIG_FILENAME,
   filterAdmittedTrackedFiles,
   resolveSharedConfig,
   resolveSharedTrackedFiles,
@@ -235,10 +242,17 @@ export function codegraphIndexIntegrityExitCode(
 const MAX_REPORTED_PATHS = 10;
 
 export type CodegraphIndexIntegrityReport = {
-  /** Absolute path of the inspected `.codegraph/config.json`. */
+  /** Absolute path of the inspected config file — see `codegraph-project-config.ts`. */
   readonly configPath: string;
   /** Absolute path of the inspected index database. */
   readonly databasePath: string;
+  /**
+   * Which config model the include axis was evaluated under. Reported rather
+   * than implied, because it decides whether an empty `includeGap` means
+   * "measured, nothing withheld" or "this upstream's include list cannot
+   * withhold anything" — two different claims that must not read alike.
+   */
+  readonly admissionModel: CodegraphConfigModel;
   /** True when either axis is non-empty. `[OK]` must not be printed then. */
   readonly gap: boolean;
   /** Git-tracked files upstream's extractor would ingest (any extension). */
@@ -260,7 +274,10 @@ export type CodegraphIndexIntegrityInput = {
   readonly configPath: string;
   readonly databasePath: string;
   readonly trackedFiles: readonly string[];
+  /** The config's `include` globs. Only consulted under `include-whitelist`. */
   readonly include: readonly string[];
+  /** How this upstream's config treats `include` — see `codegraph-project-config.ts`. */
+  readonly admissionModel: CodegraphConfigModel;
   /** Project-relative paths carried by the index's `files` table. */
   readonly indexedPaths: readonly string[];
   /** True when upstream's extractor supports `filePath`'s language. */
@@ -278,12 +295,6 @@ export type CodegraphIndexIntegrityInput = {
 export function inspectCodegraphIndexIntegrityFrom(
   input: CodegraphIndexIntegrityInput
 ): CodegraphIndexIntegrityReport {
-  // Reuse the exclude reconciler's matcher so the two axes cannot disagree
-  // about what `include` admits (AC6) — this is the same function the
-  // exclude gate filters with, not a second implementation of it.
-  const admitted = filterAdmittedTrackedFiles(input.trackedFiles, input.include);
-  const admittedSet = new Set(admitted);
-
   // The `include` filter is a path test, not an extension test, so a file
   // it drops could be dropped for a directory reason rather than an
   // extension reason. Only the extension axis is this gate's business:
@@ -293,7 +304,7 @@ export function inspectCodegraphIndexIntegrityFrom(
     .map((file) => normalizePath(file))
     .filter((file) => input.supportsPath(file));
 
-  const includeGap = supportedTracked.filter((file) => !admittedSet.has(file));
+  const includeGap = includeAxisGap(input, supportedTracked);
 
   const deadRows = input.indexedPaths
     .map((indexedPath) => normalizePath(indexedPath))
@@ -302,6 +313,7 @@ export function inspectCodegraphIndexIntegrityFrom(
   return {
     configPath: input.configPath,
     databasePath: input.databasePath,
+    admissionModel: input.admissionModel,
     gap: includeGap.length > 0 || deadRows.length > 0,
     trackedSourceCount: supportedTracked.length,
     admittedTrackedCount: supportedTracked.length - includeGap.length,
@@ -309,6 +321,37 @@ export function inspectCodegraphIndexIntegrityFrom(
     indexedFileCount: input.indexedPaths.length,
     deadRows
   };
+}
+
+// Axis ① — supported tracked files the config's `include` globs do not admit,
+// or an empty list when this upstream's `include` CANNOT withhold one.
+//
+// WHY THE MODEL DECIDES THIS (the 1.6.2 upgrade). 0.7.x's `include` was the
+// whitelist that chose what got indexed, so a supported tracked file missing
+// from it was a real omission. 1.6.x's `include` is upstream's own "force INTO
+// the index even when `.gitignore` would drop it" list, with selection driven
+// by `.gitignore` — so an absent list withholds NOTHING. Running the whitelist
+// difference against it does not weaken the gate, it INVERTS it: a freshly
+// initialised project, with no `codegraph.json` at all, would report every
+// supported tracked file as withheld.
+//
+// The set is emptied rather than the axis deleted, and `admissionModel` rides
+// on the report, so "nothing was withheld" and "this list cannot withhold"
+// stay told apart — the rule this module already applies to `clean` vs
+// `not-applicable` vs `not-evaluated`. The matcher is reused from the exclude
+// reconciler (AC6), and is only reached under the model that has a withholding
+// list to test.
+function includeAxisGap(
+  input: CodegraphIndexIntegrityInput,
+  supportedTracked: readonly string[]
+): readonly string[] {
+  if (input.admissionModel === 'force-include') {
+    return [];
+  }
+
+  const admittedSet = new Set(filterAdmittedTrackedFiles(input.trackedFiles, input.include));
+
+  return supportedTracked.filter((file) => !admittedSet.has(file));
 }
 
 /* ──────────────────────────────────────────────────────────────────────
@@ -581,10 +624,14 @@ export function inspectCodegraphIndexIntegrity(
   const trackedFiles = resolveSharedTrackedFiles(deps.trackedFiles, projectRoot);
 
   return inspectCodegraphIndexIntegrityFrom({
-    configPath: join(projectRoot, CODEGRAPH_DIR_NAME, CODEGRAPH_CONFIG_FILENAME),
+    // Both come off the config value, so the file this report NAMES is the
+    // file that was READ and the model that judgement used is the model that
+    // resolved it — no consumer re-derives either.
+    configPath: config.configPath,
     databasePath: join(projectRoot, CODEGRAPH_DIR_NAME, CODEGRAPH_DB_NAME),
     trackedFiles,
     include: config.include,
+    admissionModel: config.model,
     indexedPaths: readIndexed(projectRoot),
     supportsPath: supports,
     pathExists: (projectRelativePath) => exists(projectRoot, projectRelativePath)
@@ -614,6 +661,41 @@ export function inspectCodegraphIndexIntegrity(
  * error envelope cannot drift from the command that is actually
  * registered.
  */
+// The headline's finding list. It names only what was MEASURED, so it can never
+// present a count no input could have produced — at least one entry is always
+// present, because `gap` is the disjunction of these two.
+function describeFindings(report: CodegraphIndexIntegrityReport): string {
+  const findings: string[] = [];
+  if (report.includeGap.length > 0) {
+    findings.push(
+      `${report.includeGap.length} supported tracked file(s) are not admitted by the config's include globs`
+    );
+  }
+  if (report.deadRows.length > 0) {
+    findings.push(`${report.deadRows.length} index row(s) point at files that no longer exist`);
+  }
+
+  return findings.join('; ');
+}
+
+// The include axis' own note, or `null` when there is nothing honest to say.
+//
+// Under `include-whitelist` the axis has a count and the headline carries it;
+// under `force-include` the axis can never fire, so this note EXISTS to explain
+// the silence rather than leave it looking like a measured zero. It is its own
+// indented line, not part of the finding list, so it cannot be read as a reason
+// the index does not cover the repository.
+function includeAxisNoteLines(report: CodegraphIndexIntegrityReport): readonly string[] {
+  if (report.admissionModel !== 'force-include') {
+    return [];
+  }
+
+  return [
+    "  include axis: not applicable — this upstream's `include` list can only add files to " +
+      'the index, never withhold one'
+  ];
+}
+
 export function renderCodegraphIndexIntegrityLines(
   report: CodegraphIndexIntegrityReport,
   blocking: boolean
@@ -623,8 +705,10 @@ export function renderCodegraphIndexIntegrityLines(
   }
 
   const lines: string[] = [
-    `${blocking ? '[FAIL]' : '[WARN]'} codegraph index does not cover the repository: ${report.includeGap.length} supported tracked file(s) are not admitted by the config's include globs, and ${report.deadRows.length} index row(s) point at files that no longer exist.`
+    `${blocking ? '[FAIL]' : '[WARN]'} codegraph index does not cover the repository: ${describeFindings(report)}.`
   ];
+
+  lines.push(...includeAxisNoteLines(report));
 
   if (report.includeGap.length > 0) {
     lines.push(
@@ -659,7 +743,7 @@ export function renderCodegraphIndexIntegrityLines(
   }
 
   lines.push(
-    `  fix: run \`${CODEGRAPH_REPAIR_INDEX_COMMAND}\` — it appends the missing include pattern(s), re-checks the exclude rules against the widened list, and rebuilds the index from scratch (that rebuild is what drops the stale rows).`
+    `  fix: run \`${CODEGRAPH_REPAIR_INDEX_COMMAND}\` — it drops the config's exclude rules that block tracked source files and rebuilds the index from scratch (that rebuild is what drops the stale rows).`
   );
 
   return lines;

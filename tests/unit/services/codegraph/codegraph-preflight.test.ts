@@ -40,7 +40,6 @@ import {
   type CodegraphExecutionResult,
   type CodegraphInvocation
 } from '../../../../src/services/codegraph/codegraph-service.js';
-import { upstreamUnnamedIncludeExtensions } from '../../../../src/services/codegraph/codegraph-include-reconciler.js';
 import { declareDimensions } from '../../_setup/4dim-template.js';
 import { SUBPROCESS_TEST_TIMEOUT_MS } from '../../_setup/subprocess-timeouts.js';
 import {
@@ -95,7 +94,7 @@ function upstreamInitRunner(project: string) {
     if (invocation.subcommand === 'init') {
       mkdirSync(join(project, '.codegraph'), { recursive: true });
       writeFileSync(
-        join(project, '.codegraph', 'config.json'),
+        join(project, 'codegraph.json'),
         `${JSON.stringify(
           { version: 1, include: ['**/*.ts'], exclude: ['**/vendor/**', '**/node_modules/**'] },
           null,
@@ -278,8 +277,9 @@ describe('Scenario: integration — buildCodegraphPreflightBlock against a real 
         expect(result.available).toBe(true);
 
         // … the offending rule is gone from the config, with a backup …
-        const configPath = join(project, '.codegraph', 'config.json');
+        const configPath = join(project, 'codegraph.json');
         const config = JSON.parse(readFileSync(configPath, 'utf8')) as {
+          version: number;
           include: string[];
           exclude: string[];
         };
@@ -287,29 +287,15 @@ describe('Scenario: integration — buildCodegraphPreflightBlock against a real 
         expect(existsSync(`${configPath}.bak`)).toBe(true);
 
         // … and the INCLUDE axis landed in the SAME write (D1, D-round).
-        //    This seam is the automatic delivery mechanism for the include
-        //    fix in every downstream project that has no index yet, so the
-        //    invariant is pinned here rather than left to be inferred from
-        //    the exclude assertion beside it. The fixture's init template
-        //    names only `**/*.ts`; the seam must append exactly the
-        //    extensions no template pattern admits, in order, without
-        //    reordering or dropping the caller's entry. Reddens if the seam
-        //    stops passing through the shared repair entry point or starts
-        //    short-circuiting when there is no exclude rule to remove.
-        //
-        //    DERIVED, not spelled out. This list used to be the literal
-        //    five (`.mjs`, `.cjs`, `.pyw`, `.hxx`, `.rake`) that 0.7.x's
-        //    template left unnamed. 1.6.x ships no template, so the
-        //    derivation now leaves every supported extension unnamed and the
-        //    literal would have been a standing lie about upstream's table.
-        //    What the case actually guards — entry first, nothing dropped,
-        //    the shared seam used — is unchanged.
-        expect(config.include).toEqual([
-          '**/*.ts',
-          ...upstreamUnnamedIncludeExtensions()
-            .filter((extension) => extension !== '.ts')
-            .map((extension) => `**/*${extension}`)
-        ]);
+        //    … and every key the seam does NOT own came through untouched.
+        //    This seam runs in every downstream project that has no index yet,
+        //    so what it must leave alone is pinned here rather than inferred
+        //    from the exclude assertion beside it. `include` is upstream's own
+        //    force-in list; appending to it was slice-002's job, and the 1.6.2
+        //    upgrade removed that job — so the invariant is PRESERVATION now,
+        //    and it reddens if the rewrite ever touches a key it does not own.
+        expect(config.include).toEqual(['**/*.ts']);
+        expect(config.version).toBe(1);
 
         // … the marker is stamped …
         expect(existsSync(join(project, '.codegraph', CODEGRAPH_MARKER_NAME))).toBe(true);

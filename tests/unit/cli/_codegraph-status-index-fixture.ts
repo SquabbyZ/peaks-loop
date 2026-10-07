@@ -44,7 +44,7 @@ export type Fixture = {
    */
   filesTable?: boolean;
   /**
-   * `false` omits `.codegraph/config.json` while keeping the index. That is
+   * `false` omits `codegraph.json` while keeping the index. That is
    * the "initialized but the config is gone" state of R12-1: the index axis
    * is evaluable (the db is the subject) and its only input is missing, so
    * it is UNEVALUABLE — never silent, and never exit 0.
@@ -93,7 +93,7 @@ export function seedProject(ws: TmpWorkspace, fixture: Fixture): string {
   mkdirSync(join(ws.path, '.codegraph'), { recursive: true });
   if (fixture.config !== false) {
     writeFileSync(
-      join(ws.path, '.codegraph', 'config.json'),
+      join(ws.path, 'codegraph.json'),
       `${JSON.stringify({ version: 1, include: fixture.include, exclude: fixture.exclude }, null, 2)}\n`,
       'utf8'
     );
@@ -127,6 +127,8 @@ type Envelope = {
     integrity?: { gap: boolean } | null;
     indexIntegrity?: {
       gap: boolean;
+      /** Which config model the include axis was judged under. Reported, not implied. */
+      admissionModel: string;
       includeGap: string[];
       deadRows: string[];
       trackedSourceCount: number;

@@ -64,10 +64,14 @@ declareDimensions('tests/unit/services/codegraph/codegraph-index-integrity.test.
 // support, one tracked `.md` it does NOT, and one index row whose file is
 // gone. Nothing here is peaks-loop-specific — this is any project.
 const BASE: CodegraphIndexIntegrityInput = {
-  configPath: '/proj/.codegraph/config.json',
+  configPath: '/proj/codegraph.json',
   databasePath: '/proj/.codegraph/codegraph.db',
   trackedFiles: ['src/ok.ts', 'scripts/tool.mjs', 'README.md'],
   include: ['**/*.ts'],
+  // The whitelist model — the only one that HAS an include axis. Keeping this
+  // fixture on it is what makes every gap assertion in this file falsifiable
+  // rather than vacuous; the force-include model is covered by its own block.
+  admissionModel: 'include-whitelist',
   indexedPaths: ['src/ok.ts'],
   // Stands in for upstream's oracle: `.ts`/`.mjs` are supported, `.md` is not.
   supportsPath: (filePath) => filePath.endsWith('.ts') || filePath.endsWith('.mjs'),
@@ -133,6 +137,89 @@ describe('inspectCodegraphIndexIntegrityFrom (include-axis injection)', () => {
 
     expect(report.includeGap).toEqual([]);
     expect(report.gap).toBe(false);
+  });
+});
+
+// ── behavior: the model decides whether axis ① exists at all ─────────
+//
+// THE 1.6.2 DEFECT THIS PINS. The fold used to run the whitelist difference
+// unconditionally, so on an upstream whose `include` list can only ADD files to
+// the index, a project with no `include` list at all — the 1.6.x zero-config
+// default — reported EVERY extractor-supported tracked file as withheld. These
+// two cases are the model control: the same input, the only difference being
+// which `include` semantics apply, and the verdict must differ.
+
+describe('inspectCodegraphIndexIntegrityFrom (force-include model)', () => {
+  it('when include admits nothing, should NOT report a gap — this model cannot withhold', () => {
+    const report = inspectCodegraphIndexIntegrityFrom(
+      withInput({ include: [], admissionModel: 'force-include' })
+    );
+
+    expect(report.includeGap).toEqual([]);
+    expect(report.admittedTrackedCount).toBe(2);
+    expect(report.gap).toBe(false);
+  });
+
+  it('when the SAME empty include meets the whitelist model, should report every supported file', () => {
+    // The paired control: an empty `include` under the model that DOES
+    // withhold is the maximum gap, so the case above cannot pass by the fold
+    // having stopped computing the axis altogether.
+    const report = inspectCodegraphIndexIntegrityFrom(
+      withInput({ include: [], admissionModel: 'include-whitelist' })
+    );
+
+    expect(report.includeGap).toEqual(['src/ok.ts', 'scripts/tool.mjs']);
+    expect(report.gap).toBe(true);
+  });
+
+  it('should still report the staleness axis under force-include', () => {
+    // The model empties axis ①; it must not empty the report. A gate whose only
+    // remaining axis could never fire would be the silent pass this module
+    // exists to prevent.
+    const report = inspectCodegraphIndexIntegrityFrom(
+      withInput({
+        include: [],
+        admissionModel: 'force-include',
+        indexedPaths: ['src/ok.ts', 'src/gone.ts'],
+        pathExists: (filePath) => filePath !== 'src/gone.ts'
+      })
+    );
+
+    expect(report.gap).toBe(true);
+    expect(report.deadRows).toEqual(['src/gone.ts']);
+    expect(report.includeGap).toEqual([]);
+  });
+
+  it('on the render path, should explain the silent include axis instead of printing a zero', () => {
+    const report = inspectCodegraphIndexIntegrityFrom(
+      withInput({
+        include: [],
+        admissionModel: 'force-include',
+        indexedPaths: ['src/ok.ts', 'src/gone.ts'],
+        pathExists: (filePath) => filePath !== 'src/gone.ts'
+      })
+    );
+
+    const printed = renderCodegraphIndexIntegrityLines(report, false).join('\n');
+
+    // The note EXPLAINS the silence; the headline must not carry a count no
+    // input could have produced.
+    expect(printed).toContain('include axis: not applicable');
+    expect(printed).not.toContain('not admitted by the config');
+    // The measured finding is still the headline.
+    expect(printed).toContain('1 index row(s) point at files that no longer exist');
+  });
+
+  it('under the whitelist model, should keep the count in the headline and print no note', () => {
+    // The paired control: the note is a property of the MODEL, so it must not
+    // appear where the axis really was measured.
+    const printed = renderCodegraphIndexIntegrityLines(
+      inspectCodegraphIndexIntegrityFrom(BASE),
+      false
+    ).join('\n');
+
+    expect(printed).toContain('1 supported tracked file(s) are not admitted by the config');
+    expect(printed).not.toContain('include axis: not applicable');
   });
 });
 
@@ -290,7 +377,8 @@ describe("the two reports' `trackedSourceCount` (QA-03, corrected)", () => {
     const reconciled = reconcileCodegraphExclude({
       trackedFiles: TRACKED,
       include: ['**/*'],
-      exclude: []
+      exclude: [],
+      admissionModel: 'include-whitelist'
     });
     const filtered = filterAdmittedTrackedFiles(TRACKED, ['**/*']);
     const inspected = inspectCodegraphIndexIntegrityFrom(
@@ -313,7 +401,8 @@ describe("the two reports' `trackedSourceCount` (QA-03, corrected)", () => {
     const reconciled = reconcileCodegraphExclude({
       trackedFiles: TRACKED,
       include: ['**/*.ts'],
-      exclude: []
+      exclude: [],
+      admissionModel: 'include-whitelist'
     });
     const inspected = inspectCodegraphIndexIntegrityFrom(
       withInput({

@@ -10,7 +10,7 @@
 // crash between the two writes could truncate a third-party tool's config. It
 // is now a same-directory temp file + `renameSync` — plus the temp path's
 // per-writer uniqueness (N5), the backup link guard (security H1), and the
-// two-axis single-rewrite requirement. The rollback semantics (exit codes and
+// single-rewrite requirement. The rollback semantics (exit codes and
 // `toThrow` guards below) are deliberate and asserted byte-identically.
 //
 // `node:fs` is mocked in this file ONLY to observe and to interrupt the
@@ -106,8 +106,7 @@ describe('applyCodegraphConfigRepair — the rewrite is atomic', () => {
 
     renameHook.armed = true;
     const outcome = applyCodegraphConfigRepair(projectRoot, {
-      rulesToRemove: ['**/vendor/**'],
-      includePatternsToAdd: []
+      rulesToRemove: ['**/vendor/**']
     });
 
     expect(outcome.applied).toBe(true);
@@ -118,7 +117,7 @@ describe('applyCodegraphConfigRepair — the rewrite is atomic', () => {
     expect(dirname(tempPath)).toBe(dirname(configPath));
     // N5: the name is per-writer (pid + random), not the shared fixed
     // `${configPath}.tmp` that two overlapping writers once had to share.
-    expect(basename(tempPath)).toMatch(/^config\.json\.\d+\.[0-9a-f]{12}\.tmp$/);
+    expect(basename(tempPath)).toMatch(/^codegraph\.json\.\d+\.[0-9a-f]{12}\.tmp$/);
     // …and nothing is left behind.
     expect(existsSync(tempPath)).toBe(false);
   });
@@ -133,8 +132,7 @@ describe('applyCodegraphConfigRepair — the rewrite is atomic', () => {
 
     expect(() =>
       applyCodegraphConfigRepair(projectRoot, {
-        rulesToRemove: ['**/vendor/**'],
-        includePatternsToAdd: []
+        rulesToRemove: ['**/vendor/**']
       })
     ).toThrow(/injected rename failure/);
 
@@ -172,8 +170,7 @@ describe('applyCodegraphConfigRepair — concurrent writers get distinct temp pa
     const before = renameHook.calls.length;
     expect(
       applyCodegraphConfigRepair(projectRoot, {
-        rulesToRemove: ['**/vendor/**'],
-        includePatternsToAdd: []
+        rulesToRemove: ['**/vendor/**']
       }).applied
     ).toBe(true);
     const rename = renameHook.calls.slice(before).find((call) => call.to === configPath);
@@ -182,7 +179,7 @@ describe('applyCodegraphConfigRepair — concurrent writers get distinct temp pa
     // Same directory ⇒ same filesystem ⇒ the rename cannot degrade to a copy.
     expect(dirname(tempPath)).toBe(dirname(configPath));
     // A fixed name would collide with the sibling writer below.
-    expect(basename(tempPath)).not.toBe('config.json.tmp');
+    expect(basename(tempPath)).not.toBe('codegraph.json.tmp');
     expect(existsSync(tempPath)).toBe(false);
     return tempPath;
   }
@@ -202,14 +199,12 @@ describe('applyCodegraphConfigRepair — concurrent writers get distinct temp pa
 
 /**
  * The hazard these cases close (security H1): the backup path
- * `<root>/.codegraph/config.json.bak` is FIXED, and the write was a plain
+ * `<root>/codegraph.json.bak` is FIXED, and the write was a plain
  * `writeFileSync(..., 'utf8')` — flag `'w'`, i.e. `O_WRONLY|O_CREAT|O_TRUNC`,
  * which FOLLOWS a symlink and TRUNCATES the inode a hard link shares. Since
- * `.codegraph/config.json.bak` is committable in a consumer repo (nothing
- * ignores it), a repository could ship that path as a link to any file plus a
- * `config.json` that merely OMITS an extension — the default state of every
- * pre-slice config — and the next repair-seam run would write the whole
- * attacker-authored config file through the link, as the victim.
+ * that path is committable in a consumer repo (nothing ignores it), a
+ * repository could ship it as a link to any file, and the next repair-seam run
+ * would write the whole config through the link, as the victim.
  *
  * Both directions are asserted here, because "refused" alone is satisfiable by
  * an implementation that refuses everything (which would break the legitimate
@@ -221,7 +216,7 @@ describe('applyCodegraphConfigRepair — concurrent writers get distinct temp pa
  *     refused.
  */
 describe('applyCodegraphConfigRepair — the backup refuses to be written through a link', () => {
-  const TWO_AXIS = { rulesToRemove: ['**/vendor/**'], includePatternsToAdd: ['**/*.mjs'] };
+  const EXCLUDE_REPAIR = { rulesToRemove: ['**/vendor/**'] };
 
   function seedRepairFixture(): { projectRoot: string; configPath: string; original: string } {
     const projectRoot = makeProjectRoot();
@@ -246,7 +241,7 @@ describe('applyCodegraphConfigRepair — the backup refuses to be written throug
     // The injection really is a hard link: same inode, link count 2.
     expect(lstatSync(backupPath).nlink).toBe(2);
 
-    expect(() => applyCodegraphConfigRepair(projectRoot, TWO_AXIS)).toThrow(
+    expect(() => applyCodegraphConfigRepair(projectRoot, EXCLUDE_REPAIR)).toThrow(
       /refusing to write through/
     );
 
@@ -278,7 +273,7 @@ describe('applyCodegraphConfigRepair — the backup refuses to be written throug
     }
 
     expect(lstatSync(backupPath).isSymbolicLink()).toBe(true);
-    expect(() => applyCodegraphConfigRepair(projectRoot, TWO_AXIS)).toThrow(
+    expect(() => applyCodegraphConfigRepair(projectRoot, EXCLUDE_REPAIR)).toThrow(
       /refusing to write through/
     );
     expect(readFileSync(victimPath, 'utf8')).toBe('ORIGINAL VICTIM\n');
@@ -293,7 +288,7 @@ describe('applyCodegraphConfigRepair — the backup refuses to be written throug
     // Not a link, but not writable-as-a-backup either: `rename` onto a
     // non-empty directory fails with an opaque errno, so the guard names the
     // real reason instead.
-    expect(() => applyCodegraphConfigRepair(projectRoot, TWO_AXIS)).toThrow(
+    expect(() => applyCodegraphConfigRepair(projectRoot, EXCLUDE_REPAIR)).toThrow(
       /refusing to write at a directory/
     );
     expect(readFileSync(configPath, 'utf8')).toBe(original);
@@ -303,7 +298,7 @@ describe('applyCodegraphConfigRepair — the backup refuses to be written throug
     const { projectRoot, configPath, original } = seedRepairFixture();
     const backupPath = `${configPath}${CODEGRAPH_CONFIG_BACKUP_SUFFIX}`;
 
-    const outcome = applyCodegraphConfigRepair(projectRoot, TWO_AXIS);
+    const outcome = applyCodegraphConfigRepair(projectRoot, EXCLUDE_REPAIR);
 
     expect(outcome.applied).toBe(true);
     expect(existsSync(backupPath)).toBe(true);
@@ -323,25 +318,24 @@ describe('applyCodegraphConfigRepair — the backup refuses to be written throug
     // which is why the guard is a LINK test, not an `O_EXCL` existence test.
     writeFileSync(backupPath, 'STALE BACKUP FROM AN EARLIER REPAIR\n', 'utf8');
 
-    const outcome = applyCodegraphConfigRepair(projectRoot, TWO_AXIS);
+    const outcome = applyCodegraphConfigRepair(projectRoot, EXCLUDE_REPAIR);
 
     expect(outcome.applied).toBe(true);
     expect(readFileSync(backupPath, 'utf8')).toBe(original);
   });
 });
 
-// ── slice-002 — BOTH axes move in ONE rewrite ────────────────────────
+// ── slice-002 — the whole repair lands in ONE rewrite ────────────────
 
-describe('applyCodegraphConfigRepair — two axes, one write', () => {
+describe('applyCodegraphConfigRepair — one repair, one write', () => {
   /**
-   * The window this closes: a caller that widened `include` in one write and
-   * dropped the newly-offending `exclude` rules in a second would leave the
-   * config on disk in a state worse than it started (the widened include
-   * admits a file that a surviving rule then hides from the index), and would
-   * need two backups to stay rollback-exact. One rewrite has neither problem,
-   * so "exactly one rename" is the assertion that matters.
+   * The window this closes: a repair split across two writes would leave the
+   * config on disk in a state no reader asked for between them, and would need
+   * two backups to stay rollback-exact. One rewrite through the same-directory
+   * temp file has neither problem, so "exactly one rename" is the assertion
+   * that matters.
    */
-  it('should rewrite include and exclude in a single atomic rename, with one byte-exact backup', () => {
+  it('should rewrite the exclude list in a single atomic rename, with one byte-exact backup', () => {
     const projectRoot = makeProjectRoot();
     const original = `${JSON.stringify(
       {
@@ -362,8 +356,7 @@ describe('applyCodegraphConfigRepair — two axes, one write', () => {
 
     renameHook.armed = true;
     const outcome = applyCodegraphConfigRepair(projectRoot, {
-      rulesToRemove: ['**/tool.mjs'],
-      includePatternsToAdd: ['**/*.mjs']
+      rulesToRemove: ['**/tool.mjs']
     });
 
     expect(outcome.applied).toBe(true);
@@ -371,16 +364,13 @@ describe('applyCodegraphConfigRepair — two axes, one write', () => {
       // Narrowing, not decoration: the outcome is a discriminated union and
       // the counts only exist on the applied arm, so the belief is asserted
       // once here and every field below is typed.
-      throw new Error('expected the writer to apply a two-axis repair');
+      throw new Error('expected the writer to apply the repair');
     }
     expect(outcome.removedRules).toEqual(['**/tool.mjs']);
-    expect(outcome.addedIncludePatterns).toEqual(['**/*.mjs']);
-    expect(outcome.includeCountBefore).toBe(1);
-    expect(outcome.includeCountAfter).toBe(2);
     expect(outcome.excludeCountBefore).toBe(2);
     expect(outcome.excludeCountAfter).toBe(1);
 
-    // ONE rename over the target — not one per axis.
+    // ONE rename over the target.
     const renames = renameHook.calls.filter((call) => call.to === configPath);
     expect(renames).toHaveLength(1);
 
@@ -388,24 +378,19 @@ describe('applyCodegraphConfigRepair — two axes, one write', () => {
     const backupPath = `${configPath}${CODEGRAPH_CONFIG_BACKUP_SUFFIX}`;
     expect(readFileSync(backupPath, 'utf8')).toBe(original);
 
-    // Both axes landed, and nothing else in the file moved: the textual
-    // halves outside the two changed arrays are byte-identical.
+    // Only `exclude` moved, and nothing else in the file did: the textual
+    // halves before and after that one array are byte-identical.
     const after = readFileSync(configPath, 'utf8');
-    const sliceOutsideArrays = (text: string): { prefix: string; suffix: string } => {
-      const includeStart = text.indexOf('"include"');
-      const includeEnd = text.indexOf(']', includeStart);
-      const excludeStart = text.indexOf('"exclude"');
-      const excludeEnd = text.indexOf(']', excludeStart);
-      return {
-        prefix: text.slice(0, includeStart),
-        suffix: text.slice(includeEnd + 1, excludeStart) + text.slice(excludeEnd + 1)
-      };
+    const sliceAroundExclude = (text: string): { prefix: string; suffix: string } => {
+      const start = text.indexOf('"exclude"');
+      const end = text.indexOf(']', start);
+      return { prefix: text.slice(0, start), suffix: text.slice(end + 1) };
     };
-    expect(sliceOutsideArrays(after)).toEqual(sliceOutsideArrays(original));
+    expect(sliceAroundExclude(after)).toEqual(sliceAroundExclude(original));
     expect(JSON.parse(after)).toEqual({
       version: 1,
       rootDir: '.',
-      include: ['**/*.ts', '**/*.mjs'],
+      include: ['**/*.ts'],
       exclude: ['**/node_modules/**'],
       languages: ['typescript'],
       frameworks: [],

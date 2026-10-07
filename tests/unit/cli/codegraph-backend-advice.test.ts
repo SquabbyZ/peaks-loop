@@ -46,6 +46,9 @@
 // Run with:
 //   pnpm vitest run tests/unit/cli/codegraph-backend-advice.test.ts
 
+import { mkdtempSync } from 'node:fs';
+import { join } from 'node:path';
+
 import { Command } from 'commander';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -307,6 +310,74 @@ describe('peaks codegraph status (rid-CG-008) — render', () => {
   });
 });
 
+// ── THE ONE THING THIS ARM RETRIES, AND WHY IT IS NOT A SWALLOWED RED ───────
+//
+// Upstream `@colbymchenry/codegraph@1.6.2` ABORTS ITS OWN PROCESS natively, at a
+// measurable rate, on `init` — never on `status`. Measured 2026-10-07 on this host
+// (Windows 11 / Node v24.21.0 / 16 cores) with a serial harness reproducing
+// `createCodegraphInvocation` + `defaultCodegraphProcessRunner` byte-for-byte —
+// same resolved script, same 11-key env whitelist, same cwd, one spawn at a time,
+// no vitest, nothing else running:
+//
+//   `init`, peaks-loop's spawn shape .....  6 aborts in 458 runs (1.3%)
+//   `init`, upstream's launcher shape ....  1 abort  in 318 runs (0.3%)
+//   `status`, peaks-loop's shape .........  0 aborts in  80 runs
+//
+// The code is always 3221225477 = 0xC0000005 (STATUS_ACCESS_VIOLATION), stderr is
+// empty, and stdout stops at the same byte every time:
+//
+//   "…Initialized in <tmp>\n|\nScanning files...\nParsing code...\n"
+//
+// `bin/codegraph.js` emits that phase and immediately builds and prewarms a pool of
+// `clamp(cores-1, 1, 8)` parse worker threads (the `ParseWorkerPool` block in
+// `lib/dist/extraction/index.js`). Upstream's own `extraction/wasm-runtime-flags.js`
+// documents the class it has been bitten by there: on Node >= 22 the V8 turboshaft
+// WASM compiler aborts the process while compiling tree-sitter grammars on a
+// background thread, "reproduced on Node 22 and 24".
+//
+// Three candidate causes this measurement RULES OUT, each of which would have been
+// a different fix: concurrency (it reproduces at `parallel: 1` with nothing else
+// running, and the `status` spawn shares the same machinery without ever
+// aborting); the launch flag (upstream's own `--liftoff-only` shape still aborted
+// once in 318, so this is not "peaks-loop forgot a flag" and must not be fixed by
+// changing the production invocation); and our assertions (the code is the OS's
+// native-abort status, arriving before a byte of output is read).
+//
+// `init` here is SETUP for a third-party binary with an environment-level abort
+// rate, not this arm's subject — `status`'s real bytes and the rewriters'
+// inertness are. Retrying setup is allowed only under all three of these, and each
+// is load-bearing:
+//
+//   1. ONLY the setup spawn is retried. `status` is spawned exactly once, always,
+//      so a reworded `Backend:` line, a moved status block or re-introduced
+//      better-sqlite3 advice still goes red on that first spawn, unconditionally.
+//   2. ONLY the measured native-abort code is retryable. Any other non-zero exit —
+//      1, 73 (upstream's own init-conflict code), a timeout, a spawn error — fails
+//      the arm immediately, with no second attempt.
+//   3. It is bounded. At the measured 1.3% the arm is red about once in 460 000
+//      runs instead of once in 77; an upstream that aborts every time is still red
+//      every run.
+//
+// Residual risk, stated rather than implied: an upgrade that makes `init` abort
+// more often than it works is diagnosed three attempts later, not never.
+//
+// NOT FIXED HERE, ON PURPOSE: production has the same exposure (`peaks codegraph
+// init` aborts ~1.3% of the time for the same reason). That lives in
+// `src/services/codegraph/`, which this slice was told not to change; it is
+// recorded in the RD evidence file, not silently patched.
+const NATIVE_ABORT_EXIT_CODE = 3221225477; // 0xC0000005 STATUS_ACCESS_VIOLATION (win32)
+const SETUP_ATTEMPT_LIMIT = 3;
+
+/**
+ * Retry policy for the setup spawn, and nothing else. A named function with its
+ * own control arm below, rather than an inline `===`: the rule it encodes —
+ * "exactly one exit code is retryable" — is the whole reason this is not a
+ * swallowed red, so it is pinned rather than assumed.
+ */
+function isRetryableUpstreamAbort(exitCode: number | null): boolean {
+  return exitCode === NATIVE_ABORT_EXIT_CODE;
+}
+
 describe('rewriteSqliteBackendAdvice (rid-CG-008) — integration', () => {
   let live: TmpWorkspace;
 
@@ -328,15 +399,35 @@ describe('rewriteSqliteBackendAdvice (rid-CG-008) — integration', () => {
     // the migration is not reversible, so the previous `project: resolve(__dirname,
     // '../../..')` would have destroyed the index it was reading — and the repo
     // pins the older upstream precisely because that migration is known.
-    const project = live.path;
-
     // `init` first: `status` against a project with no index prints no `Backend:`
     // line at all (measured: "Not initialized / Run \"codegraph init\""), so
     // asserting on its output would assert on an absence.
-    const init = await defaultCodegraphProcessRunner(
+    //
+    // Every attempt gets a FRESH directory. An aborted `init` has already written
+    // `<project>\.codegraph\` — it prints `Initialized in <project>` before it
+    // prewarms the parse-worker pool, which is where it dies — and upstream
+    // refuses a second `init` over an existing index with its own exit code 73.
+    // Retrying in place would turn a third-party abort into a conflict and go red
+    // for a reason that has nothing to do with this arm.
+    let project = mkdtempSync(join(live.path, 'attempt-'));
+    let init = await defaultCodegraphProcessRunner(
       createCodegraphInvocation({ subcommand: 'init', project })
     );
-    expect(init.exitCode).toBe(0);
+    let setupAttempts = 1;
+
+    while (isRetryableUpstreamAbort(init.exitCode) && setupAttempts < SETUP_ATTEMPT_LIMIT) {
+      setupAttempts += 1;
+      project = mkdtempSync(join(live.path, 'attempt-'));
+      init = await defaultCodegraphProcessRunner(
+        createCodegraphInvocation({ subcommand: 'init', project })
+      );
+    }
+
+    // Unconditional, and the assertion the arm always had. A non-zero exit that is
+    // NOT the measured native abort never entered the loop above, and an abort
+    // that survived every attempt lands here too — so this still goes red exactly
+    // when setup did not work.
+    expect(init.exitCode, `upstream init aborted ${setupAttempts}x`).toBe(0);
 
     const result = await defaultCodegraphProcessRunner(
       createCodegraphInvocation({ subcommand: 'status', project })
@@ -363,6 +454,23 @@ describe('rewriteSqliteBackendAdvice (rid-CG-008) — integration', () => {
     expect(filtered).toBe(localized);
     expect(stripAnsi(filtered)).not.toMatch(ADVICE_PATTERN);
   }, 120_000);
+
+  it('when init reports any failure other than the measured native abort, should retry nothing', () => {
+    // given: every shape a real `init` spawn can report — success, a generic
+    //        error, upstream's own init-conflict code (73), a killed process
+    //        (null), and a spawn error (-1)
+    // when:  the retry predicate is asked about each
+    // then:  only the measured Windows native-abort code is retryable, so no real
+    //        `init` failure can be absorbed by a second attempt
+    expect([0, 1, 73, null, -1].map(isRetryableUpstreamAbort)).toEqual([
+      false,
+      false,
+      false,
+      false,
+      false
+    ]);
+    expect(isRetryableUpstreamAbort(NATIVE_ABORT_EXIT_CODE)).toBe(true);
+  });
 });
 
 describe('rewriteSqliteBackendAdvice (rid-CG-008) — a11y', () => {

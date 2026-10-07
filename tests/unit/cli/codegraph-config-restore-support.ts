@@ -52,13 +52,17 @@ export function parseJson(captured: CapturedIo): {
   return JSON.parse(captured.stdout.join('\n')) as ReturnType<typeof parseJson>;
 }
 
+// The path the repair WRITES and this verb restores is the one the installed
+// upstream reads — `<root>/codegraph.json` for 1.6.x — so the fixture follows
+// that rather than naming a `.codegraph/` file upstream never opens.
+//
 // Canonicalized through `realpathSync.native`, because that is what the verb's
 // own `resolveProjectRoot` does: on Windows an `mkdtemp` path arrives in 8.3
 // short form (`SMALLM~1`) and the CLI reports the long form, so a comparison
 // against the raw fixture path would fail on the platform rather than on the
 // behaviour. Idempotent for an already-canonical path.
 export const configPathOf = (project: string): string =>
-  join(realpathSync.native(project), '.codegraph', 'config.json');
+  join(realpathSync.native(project), 'codegraph.json');
 export const backupPathOf = (project: string): string => `${configPathOf(project)}.bak`;
 
 function git(dir: string, args: readonly string[]): void {

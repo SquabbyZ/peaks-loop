@@ -34,13 +34,16 @@
 
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
 
 import picomatch from 'picomatch';
 import type { Matcher } from 'picomatch';
 
 import { normalizePath } from '../../shared/path-utils.js';
-import { CODEGRAPH_DIR_NAME } from './codegraph-service.js';
+import {
+  codegraphConfigSourceFor,
+  resolveCodegraphConfigSource,
+  type CodegraphConfigModel
+} from './codegraph-project-config.js';
 
 // ─────────────────────────────────────────────────────────────────────
 // Glob matching — delegated to `picomatch`, the same engine upstream uses
@@ -177,7 +180,49 @@ export type CodegraphExcludeReconcileInput = {
   readonly include: readonly string[];
   // The codegraph config's `exclude` globs.
   readonly exclude: readonly string[];
+  // How this upstream's `include` list relates to being indexed — the
+  // SAME model the index axis uses (`codegraph-project-config.ts`).
+  // REQUIRED rather than defaulted: defaulting to the whitelist model
+  // would reproduce, silently, the defect this parameter exists to
+  // remove — an exclude gate that admits no candidate at all.
+  readonly admissionModel: CodegraphConfigModel;
+  // "Would upstream's extractor ingest this path". Consulted only under
+  // `force-include`, where `include` cannot decide admission and the
+  // extractor's own extension decision is the only remaining answer to
+  // "could this rule cost the index a file". Injected rather than
+  // imported so this module does not depend on the index axis that
+  // already depends on IT.
+  readonly supportsPath?: ((filePath: string) => boolean) | undefined;
 };
+
+// The tracked files an `exclude` rule can actually cost the index, per model.
+//
+// WHY THIS IS MODEL-DEPENDENT (the 1.6.2 defect). A rule that only blocks files
+// upstream would not ingest is harmless, so the reconciler always pre-filtered
+// the tracked list — with the config's `include` globs, which is right only
+// when `include` IS the whitelist (0.7.x). Under 1.6.x selection is
+// `.gitignore`-driven and `include` can only force files IN, so an absent
+// list admits NOTHING: the candidate set came out empty, no rule could ever be
+// a violation, and the gate reported clean on every 1.6.x project while its own
+// `exclude` rules silently dropped tracked source. `force-include` answers
+// the same question with upstream's own extractor decision — the oracle the
+// index axis uses — so both axes agree on what upstream would ingest.
+//
+// `supportsPath` omitted keeps every tracked file: a caller with no oracle
+// reports MORE, never less, so the failure direction is a reviewable false
+// positive rather than a silent pass.
+function excludeCandidates(input: CodegraphExcludeReconcileInput): readonly string[] {
+  if (input.admissionModel !== 'force-include') {
+    return filterAdmittedTrackedFiles(input.trackedFiles, input.include);
+  }
+
+  const supportsPath = input.supportsPath;
+  if (supportsPath === undefined) {
+    return input.trackedFiles.map((file) => normalizePath(file));
+  }
+
+  return input.trackedFiles.map((file) => normalizePath(file)).filter((file) => supportsPath(file));
+}
 
 export type CodegraphExcludeViolation = {
   // Normalized project-relative path of the blocked tracked file.
@@ -248,7 +293,7 @@ export function reconcileCodegraphExclude(
   // is the same verdict as an explicitly empty `include` list, so it
   // needs no special case here.
   const excludeRules = compileRules(input.exclude);
-  const trackedSourceFiles = filterAdmittedTrackedFiles(input.trackedFiles, input.include);
+  const trackedSourceFiles = excludeCandidates(input);
 
   const violations: CodegraphExcludeViolation[] = [];
   const offendingRules = new Set<string>();
@@ -278,10 +323,17 @@ export function reconcileCodegraphExclude(
 // Thin boundary adapters — READ ONLY
 // ─────────────────────────────────────────────────────────────────────
 
-// Upstream `CONFIG_FILENAME` inside `<projectRoot>/.codegraph/`.
-export const CODEGRAPH_CONFIG_FILENAME = 'config.json';
+// `CODEGRAPH_CONFIG_FILENAME` used to live here as the literal `config.json`.
+// It is gone: the config's location is a property of the installed upstream,
+// not a constant this module can spell — see `codegraph-project-config.ts`.
 
 export type CodegraphExcludeConfig = {
+  // Absolute path of the file this config was read from, and whether it was
+  // there at all. Both ride on the value so no consumer has to re-derive the
+  // source (and re-probe upstream) to name the file it just read.
+  readonly configPath: string;
+  readonly present: boolean;
+  readonly model: CodegraphConfigModel;
   readonly include: readonly string[];
   readonly exclude: readonly string[];
 };
@@ -400,11 +452,64 @@ export function assertStringArray(
   return value as readonly string[];
 }
 
-// Read `<projectRoot>/.codegraph/config.json` and return just the two
-// glob lists the reconciler needs. Read-only: this module never writes
-// that file. Returns a READ-MARKED config — see `readTrackedFiles`.
+// Every key of the 1.6.x project config is OPTIONAL: upstream returns an empty
+// list for an absent one and only warns-and-skips a wrong-typed one. So a
+// hand-authored `codegraph.json` carrying only `exclude` is VALID, and treating
+// it as malformed would turn a legitimate project into exit 76. The line is
+// kept exact — absent → `[]`, present-but-not-an-array → throw, because
+// ignoring the second is how a wrong list survives a gate that reported clean.
+export function optionalStringArray(
+  value: unknown,
+  field: string,
+  configPath: string
+): readonly string[] {
+  return value === undefined ? [] : assertStringArray(value, field, configPath);
+}
+
+// Read this project's codegraph config — the file the INSTALLED upstream reads
+// (`resolveCodegraphConfigSource`), not a path spelled here — and return just
+// the glob lists the reconciler needs, plus the source they came from.
+// Read-only, and READ-MARKED (see `readTrackedFiles`).
+//
+// ABSENCE IS NOT ONE THING — it is read per model:
+//
+//   - `force-include` (1.6.x): a missing `<root>/codegraph.json` is upstream's
+//     own documented ZERO-CONFIG DEFAULT, and its parser returns an empty
+//     config for it without throwing. Throwing here WAS the 1.6.2 defect:
+//     every freshly initialised project reported `index integrity could not be
+//     evaluated` and exited 76, over a config whose absence means "nothing
+//     withheld, nothing forced in".
+//   - `include-whitelist` (0.7.x): a missing config means the withholding list
+//     is unknown, so the read still throws.
+//
+// A file that EXISTS but does not parse throws in BOTH models: upstream
+// degrades a malformed config to the defaults, which is exactly the silent
+// pass this gate exists to prevent.
 export function readCodegraphExcludeConfig(projectRoot: string): ReadCodegraphExcludeConfig {
-  const configPath = join(projectRoot, CODEGRAPH_DIR_NAME, CODEGRAPH_CONFIG_FILENAME);
+  return readCodegraphConfigFrom(projectRoot, resolveCodegraphConfigSource(projectRoot).model);
+}
+
+// `readCodegraphExcludeConfig` for a KNOWN model — the same split
+// `codegraphConfigSourceFor` makes, for the same reason: the model decides the
+// ABSENCE semantics as well as the path, so both arms must be drivable without
+// an install of the upstream that selects them.
+export function readCodegraphConfigFrom(
+  projectRoot: string,
+  model: CodegraphConfigModel
+): ReadCodegraphExcludeConfig {
+  const source = codegraphConfigSourceFor(projectRoot, model);
+  const { configPath } = source;
+
+  if (!source.present) {
+    if (model === 'force-include') {
+      return markAsRead({ configPath, present: false, model, include: [], exclude: [] });
+    }
+
+    // `readFileSync` still raises the ENOENT, so the operator-facing message
+    // keeps naming the path it looked for, as it always did.
+    readFileSync(configPath, 'utf8');
+  }
+
   const parsed: unknown = JSON.parse(readFileSync(configPath, 'utf8'));
 
   if (typeof parsed !== 'object' || parsed === null) {
@@ -414,8 +519,11 @@ export function readCodegraphExcludeConfig(projectRoot: string): ReadCodegraphEx
   const record = parsed as Record<string, unknown>;
 
   return markAsRead({
-    include: assertStringArray(record.include, 'include', configPath),
-    exclude: assertStringArray(record.exclude, 'exclude', configPath)
+    configPath,
+    present: true,
+    model,
+    include: optionalStringArray(record.include, 'include', configPath),
+    exclude: optionalStringArray(record.exclude, 'exclude', configPath)
   });
 }
 
@@ -485,10 +593,17 @@ export function resolveSharedConfig(
 // config from disk and reconcile them. S2's repair path consumes this
 // result and writes the reduced `exclude` list back; S1 only computes.
 export function reconcileCodegraphExcludeFromProject(
-  projectRoot: string
+  projectRoot: string,
+  supportsPath?: (filePath: string) => boolean
 ): CodegraphExcludeReconcileResult {
   const trackedFiles = readTrackedFiles(projectRoot);
-  const { include, exclude } = readCodegraphExcludeConfig(projectRoot);
+  const config = readCodegraphExcludeConfig(projectRoot);
 
-  return reconcileCodegraphExclude({ trackedFiles, include, exclude });
+  return reconcileCodegraphExclude({
+    trackedFiles,
+    include: config.include,
+    exclude: config.exclude,
+    admissionModel: config.model,
+    supportsPath
+  });
 }

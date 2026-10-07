@@ -62,16 +62,6 @@ vi.mock('../../../src/services/codegraph/codegraph-service.js', async () => {
 });
 
 import { registerCodegraphCommands } from '../../../src/cli/commands/codegraph-commands.js';
-import { upstreamUnnamedIncludeExtensions } from '../../../src/services/codegraph/codegraph-include-reconciler.js';
-
-// Fixtures in this file start from an `include` list of `['**/*.ts']`, so the
-// repair appends every candidate EXCEPT `.ts`, which that pattern already
-// admits. DERIVED rather than spelled out: the literal five this replaced was
-// 0.7.x's template-unnamed set, and 1.6.x ships no template — so the count is
-// upstream's to move and a literal here would rot into a lie about it.
-const EXPECTED_INCLUDE_ADDITIONS = upstreamUnnamedIncludeExtensions()
-  .filter((extension) => extension !== '.ts')
-  .map((extension) => `**/*${extension}`);
 
 import { SUBPROCESS_TEST_TIMEOUT_MS } from '../_setup/subprocess-timeouts.js';
 import {
@@ -183,11 +173,7 @@ describe('peaks codegraph init — success notes are not warnings', () => {
         async (invocation: { subcommand: string }) => {
           if (invocation.subcommand === 'init') {
             mkdirSync(join(project, '.codegraph'), { recursive: true });
-            writeFileSync(
-              join(project, '.codegraph', 'config.json'),
-              upstreamDefaultConfig(),
-              'utf8'
-            );
+            writeFileSync(join(project, 'codegraph.json'), upstreamDefaultConfig(), 'utf8');
           }
           return { exitCode: 0, stdout: 'upstream ok\n', stderr: '' };
         }
@@ -199,28 +185,13 @@ describe('peaks codegraph init — success notes are not warnings', () => {
       // then: everything positive lands in nextActions …
       const envelope = parseJson(captured);
       expect(envelope.ok).toBe(true);
-      // Slice-002 widened this repair to the include axis, so a fresh init now
-      // also reports the include patterns it appended. The fixture tracks only
-      // `.ts` files and its `include` is `['**/*.ts']`, so the five appended
-      // patterns admit no tracked file YET — which is why the note carries no
-      // "Include now admits …" clause (that clause is asserted separately, on
-      // a fixture that does track a `.mjs`). The pattern list is still exact:
-      // all five come from upstream's own tables, not from a list in the code.
-      //
-      // A1 (2026-09-17): the note now also carries the include axis' own FILE
-      // delta, printed unconditionally like the exclude side's. "0" here is the
-      // honest measurement for THIS fixture (no `.mjs`/`.cjs` file is tracked,
-      // so the appended patterns admit none of them) and not a placeholder —
-      // the case where the axis does admit files is pinned by
-      // tests/unit/cli/codegraph-repair-note.test.ts and by the
-      // include-adapter cases below.
+      // The note list is exact. The include clause slice-002 added is gone with
+      // the include axis (1.6.2 upgrade — see `codegraph-exclude-repair.ts`), so
+      // what is pinned here is the exclude axis' own delta and nothing else.
       expect(envelope.nextActions).toEqual([
         `Stamped peaks-loop marker at ${join(project, '.codegraph')}/.peaks-loop-marker`,
-        `Added ${EXPECTED_INCLUDE_ADDITIONS.length} include pattern(s) upstream's extractor supports but its default template omits, ` +
-          'newly admitting 0 tracked source file(s) ' +
-          `(${EXPECTED_INCLUDE_ADDITIONS.join(', ')}).`,
         'Removed 1 exclude rule(s) that blocked tracked source files, recovering 1 file(s); config backed up to ' +
-          `${join(project, '.codegraph', 'config.json')}.bak.`,
+          `${join(project, 'codegraph.json')}.bak.`,
         'Rebuilt the codegraph index over the recovered files.'
       ]);
 
@@ -230,13 +201,11 @@ describe('peaks codegraph init — success notes are not warnings', () => {
       // and the repair really happened (not just reported)
       expect(envelope.data.excludeRepair?.applied).toBe(true);
       expect(envelope.data.excludeRepair?.rulesRemoved).toEqual(['**/vendor/**']);
-      const config = JSON.parse(
-        readFileSync(join(project, '.codegraph', 'config.json'), 'utf8')
-      ) as {
+      const config = JSON.parse(readFileSync(join(project, 'codegraph.json'), 'utf8')) as {
         exclude: string[];
       };
       expect(config.exclude).toEqual(['**/node_modules/**']);
-      expect(existsSync(join(project, '.codegraph', 'config.json.bak'))).toBe(true);
+      expect(existsSync(join(project, 'codegraph.json.bak'))).toBe(true);
       expect(process.exitCode).toBe(0);
     }
   );
@@ -255,11 +224,7 @@ describe('peaks codegraph init — a real warning is reported once, verbatim', (
         async (invocation: { subcommand: string }) => {
           if (invocation.subcommand === 'init') {
             mkdirSync(join(project, '.codegraph'), { recursive: true });
-            writeFileSync(
-              join(project, '.codegraph', 'config.json'),
-              upstreamDefaultConfig(),
-              'utf8'
-            );
+            writeFileSync(join(project, 'codegraph.json'), upstreamDefaultConfig(), 'utf8');
             return { exitCode: 0, stdout: 'upstream ok\n', stderr: '' };
           }
           return { exitCode: 3, stdout: '', stderr: 'index exploded\n' };
@@ -272,13 +237,12 @@ describe('peaks codegraph init — a real warning is reported once, verbatim', (
       // then: exactly one warning, carrying the reason and nothing else …
       const envelope = parseJson(captured);
       expect(envelope.warnings).toHaveLength(1);
-      // The warning names BOTH axes and the counts that actually moved, so it
-      // cannot understate a repair that widened `include` (slice-002) — and
-      // the two counts are asserted exactly, not loosely matched.
+      // The warning names the count that actually moved, asserted exactly
+      // rather than loosely matched, so a repair that reported work it did not
+      // do cannot pass here.
       expect(envelope.warnings[0]).toMatch(
         new RegExp(
-          '^codegraph config repaired \\(1 exclude rule\\(s\\) removed, ' +
-            `${EXPECTED_INCLUDE_ADDITIONS.length} include pattern\\(s\\) added\\) ` +
+          '^codegraph config repaired \\(1 exclude rule\\(s\\) removed\\) ' +
             'but the follow-up index failed \\(exit 3\\)'
         )
       );
@@ -335,11 +299,7 @@ describe('peaks codegraph init — upstream backend advice is localized on echo'
         async (invocation: { subcommand: string }) => {
           if (invocation.subcommand === 'init') {
             mkdirSync(join(project, '.codegraph'), { recursive: true });
-            writeFileSync(
-              join(project, '.codegraph', 'config.json'),
-              upstreamDefaultConfig(),
-              'utf8'
-            );
+            writeFileSync(join(project, 'codegraph.json'), upstreamDefaultConfig(), 'utf8');
           }
           return {
             exitCode: 0,

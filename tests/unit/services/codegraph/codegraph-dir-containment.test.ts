@@ -12,6 +12,13 @@
 // committed the link. `.codegraph/` has no gitignore coverage in a consumer
 // project, so that link is as committable as H1's.
 //
+// THE CONFIG HAS SINCE MOVED (1.6.2). It now lives at `<root>/codegraph.json`,
+// outside `.codegraph/` altogether, so the junction can no longer redirect the
+// config write on its own. The guard is still wired into the writer and still
+// refuses, which is what these cases pin: a `.codegraph/` link that escapes
+// the root stops the repair dead, and neither the project's config nor the
+// linked directory receives a byte.
+//
 // The fix is `assertCodegraphDirContained` (codegraph-service.ts), called by
 // `applyCodegraphConfigRepair` BEFORE the read. Its predicate is CONTAINMENT,
 // not link-ness: a link resolving to a directory still inside the project
@@ -20,8 +27,8 @@
 // "refused" alone is satisfiable by a guard that refuses everything:
 //
 //   - injection: `.codegraph` as a link to a FOREIGN directory ⇒ refused, the
-//     foreign `config.json` byte-identical, no `.bak` and no temp file left in
-//     the foreign directory;
+//     foreign `codegraph.json` byte-identical, no `.bak` and no temp file left
+//     in the foreign directory;
 //   - clean control, SAME fixture shape (same tree, same config bytes, only
 //     link-vs-directory differs): an ordinary `.codegraph` directory ⇒ the
 //     repair proceeds and writes where it should;
@@ -100,14 +107,14 @@ const CONFIG_TEXT = `${JSON.stringify(
   2
 )}\n`;
 
-const TWO_AXIS = { rulesToRemove: ['**/vendor/**'], includePatternsToAdd: ['**/*.mjs'] };
+const EXCLUDE_REPAIR = { rulesToRemove: ['**/vendor/**'] };
 
 function codegraphDirOf(projectRoot: string): string {
   return join(projectRoot, '.codegraph');
 }
 
 function configPathOf(projectRoot: string): string {
-  return join(codegraphDirOf(projectRoot), 'config.json');
+  return join(projectRoot, 'codegraph.json');
 }
 
 /**
@@ -144,21 +151,25 @@ function seedTrackedFile(projectRoot: string, relativePath: string, body: string
   writeFileSync(join(projectRoot, relativePath), body, 'utf8');
 }
 
-/** A project with NO `.codegraph/` of its own plus a foreign `.codegraph/` to link at. */
+/**
+ * A project that carries a repairable config of its own, plus a foreign
+ * directory to link `.codegraph/` at — one that also carries a config, so
+ * "nothing was published over there" is a statement about a real file.
+ */
 function makeInjectionFixture(): { projectRoot: string; foreignDir: string } {
   const projectRoot = makeTempDir('peaks-cg-r1-inject-');
   const foreignDir = makeTempDir('peaks-cg-r1-foreign-');
-  writeFileSync(join(foreignDir, 'config.json'), CONFIG_TEXT, 'utf8');
+  writeFileSync(configPathOf(projectRoot), CONFIG_TEXT, 'utf8');
+  writeFileSync(join(foreignDir, 'codegraph.json'), CONFIG_TEXT, 'utf8');
   return { projectRoot, foreignDir };
 }
 
 /** The same fixture SHAPE — same tree, same config bytes — with a real directory. */
-function makeCleanFixture(): { projectRoot: string; foreignDir: string } {
+function makeCleanFixture(): { projectRoot: string } {
   const projectRoot = makeTempDir('peaks-cg-r1-clean-');
-  const foreignDir = codegraphDirOf(projectRoot);
-  mkdirSync(foreignDir, { recursive: true });
-  writeFileSync(join(foreignDir, 'config.json'), CONFIG_TEXT, 'utf8');
-  return { projectRoot, foreignDir };
+  mkdirSync(codegraphDirOf(projectRoot), { recursive: true });
+  writeFileSync(configPathOf(projectRoot), CONFIG_TEXT, 'utf8');
+  return { projectRoot };
 }
 
 // ── behavior + integration: the predicate ────────────────────────────
@@ -190,7 +201,7 @@ describe('assertCodegraphDirContained — the R1 predicate', () => {
 
     // The fixture really is a reparse point, and the platform really reports
     // it as one — the branch below is the one a symlink would also enter.
-    expect(readdirSync(foreignDir)).toEqual(['config.json']);
+    expect(readdirSync(foreignDir)).toEqual(['codegraph.json']);
     expect(() => assertCodegraphDirContained(projectRoot)).toThrow(/refusing to write through it/);
     expect(() => assertCodegraphDirContained(projectRoot)).toThrow(/not inside the project root/);
   });
@@ -217,8 +228,8 @@ describe('assertCodegraphDirContained — the R1 predicate', () => {
       return;
     }
 
-    // Contained, technically — and still refused: it would put `config.json`
-    // and `config.json.bak` AT the root, overwriting two files of the user's.
+    // Contained, technically — and still refused: it would put the config and
+    // the config's `.bak` AT the root, overwriting two files of the user's.
     expect(() => assertCodegraphDirContained(projectRoot)).toThrow(/refusing to write through it/);
   });
 });
@@ -232,22 +243,23 @@ describe('applyCodegraphConfigRepair — the .codegraph DIRECTORY is contained',
       expect(existsSync(codegraphDirOf(projectRoot))).toBe(false);
       return;
     }
-    const foreignConfigPath = join(foreignDir, 'config.json');
+    const foreignConfigPath = join(foreignDir, 'codegraph.json');
 
-    expect(() => applyCodegraphConfigRepair(projectRoot, TWO_AXIS)).toThrow(
+    expect(() => applyCodegraphConfigRepair(projectRoot, EXCLUDE_REPAIR)).toThrow(
       /refusing to write through it/
     );
 
-    // The linked target is byte-identical: not rewritten, and no backup or
-    // temp file from this writer in it either.
+    // The refusal happens BEFORE the read and the rewrite, so neither the
+    // project's own config nor the linked directory received a byte.
+    expect(readFileSync(configPathOf(projectRoot), 'utf8')).toBe(CONFIG_TEXT);
     expect(readFileSync(foreignConfigPath, 'utf8')).toBe(CONFIG_TEXT);
-    expect(readdirSync(foreignDir)).toEqual(['config.json']);
+    expect(readdirSync(foreignDir)).toEqual(['codegraph.json']);
   });
 
   it('should repair normally when .codegraph is an ordinary directory — the clean control', () => {
     const { projectRoot } = makeCleanFixture();
 
-    const outcome = applyCodegraphConfigRepair(projectRoot, TWO_AXIS);
+    const outcome = applyCodegraphConfigRepair(projectRoot, EXCLUDE_REPAIR);
 
     expect(outcome.applied).toBe(true);
     const configPath = configPathOf(projectRoot);
@@ -255,30 +267,30 @@ describe('applyCodegraphConfigRepair — the .codegraph DIRECTORY is contained',
       CONFIG_TEXT
     );
     expect(JSON.parse(readFileSync(configPath, 'utf8'))).toEqual({
-      include: ['**/*.ts', '**/*.mjs'],
+      include: ['**/*.ts'],
       exclude: ['**/dist/**']
     });
   });
 
-  it('should repair through an IN-PROJECT .codegraph link, at the linked location', () => {
+  it('should repair normally when .codegraph is an IN-PROJECT link — the guard tests containment, not link-ness', () => {
     const projectRoot = makeTempDir('peaks-cg-r1-inside-write-');
     const derivedDir = join(projectRoot, 'derived', 'codegraph');
     mkdirSync(derivedDir, { recursive: true });
-    writeFileSync(join(derivedDir, 'config.json'), CONFIG_TEXT, 'utf8');
+    writeFileSync(configPathOf(projectRoot), CONFIG_TEXT, 'utf8');
     if (!linkDir(derivedDir, codegraphDirOf(projectRoot))) {
       expect(existsSync(codegraphDirOf(projectRoot))).toBe(false);
       return;
     }
 
-    const outcome = applyCodegraphConfigRepair(projectRoot, TWO_AXIS);
+    const outcome = applyCodegraphConfigRepair(projectRoot, EXCLUDE_REPAIR);
 
     expect(outcome.applied).toBe(true);
-    expect(JSON.parse(readFileSync(join(derivedDir, 'config.json'), 'utf8'))).toEqual({
-      include: ['**/*.ts', '**/*.mjs'],
+    expect(JSON.parse(readFileSync(configPathOf(projectRoot), 'utf8'))).toEqual({
+      include: ['**/*.ts'],
       exclude: ['**/dist/**']
     });
     expect(
-      readFileSync(`${join(derivedDir, 'config.json')}${CODEGRAPH_CONFIG_BACKUP_SUFFIX}`, 'utf8')
+      readFileSync(`${configPathOf(projectRoot)}${CODEGRAPH_CONFIG_BACKUP_SUFFIX}`, 'utf8')
     ).toBe(CONFIG_TEXT);
   });
 });
@@ -325,8 +337,8 @@ describe('repairCodegraphExcludeFromProject — a refusal names itself', () => {
       // Nothing was written and nothing was "read-and-blessed": the refusal is
       // reported as a reason, not as a repair that found no work.
       expect(report.rulesRemoved).toEqual([]);
-      expect(readFileSync(join(foreignDir, 'config.json'), 'utf8')).toBe(CONFIG_TEXT);
-      expect(readdirSync(foreignDir)).toEqual(['config.json']);
+      expect(readFileSync(join(foreignDir, 'codegraph.json'), 'utf8')).toBe(CONFIG_TEXT);
+      expect(readdirSync(foreignDir)).toEqual(['codegraph.json']);
     }
   );
 });

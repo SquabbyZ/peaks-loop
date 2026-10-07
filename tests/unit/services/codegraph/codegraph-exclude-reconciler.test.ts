@@ -22,7 +22,7 @@
 //   - behavior:    the 5 real rules, no-match, multi-rule files, nested
 //                  dirs, include filtering, zero-match rules, idempotency,
 //                  glob semantics (incl. the `artifactsman` lookalike)
-//   - integration: real temp git work tree + real `.codegraph/config.json`
+//   - integration: real temp git work tree + real `codegraph.json`
 //                  through the read-only adapters; git-absent throws
 //   - a11y:        thrown config errors name the file + field so an
 //                  operator can fix the input without reading the source
@@ -40,6 +40,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import {
   matchesCodegraphGlob,
+  readCodegraphConfigFrom,
   readCodegraphExcludeConfig,
   readTrackedFiles,
   reconcileCodegraphExclude,
@@ -131,7 +132,7 @@ function createGitProject(files: readonly string[]): string {
   return project;
 }
 
-// Write `.codegraph/config.json` AFTER the commit so it stays untracked
+// Write `codegraph.json` AFTER the commit so it stays untracked
 // (it never appears in `git ls-files`, exactly as in a real checkout).
 function writeCodegraphConfig(
   project: string,
@@ -140,14 +141,19 @@ function writeCodegraphConfig(
 ): void {
   mkdirSync(join(project, '.codegraph'), { recursive: true });
   writeFileSync(
-    join(project, '.codegraph', 'config.json'),
+    join(project, 'codegraph.json'),
     `${JSON.stringify({ version: 1, include, exclude }, null, 2)}\n`,
     'utf8'
   );
 }
 
 function reconcile(trackedFiles: readonly string[], exclude: readonly string[]) {
-  return reconcileCodegraphExclude({ trackedFiles, include: INCLUDE, exclude });
+  return reconcileCodegraphExclude({
+    trackedFiles,
+    include: INCLUDE,
+    exclude,
+    admissionModel: 'include-whitelist'
+  });
 }
 
 // ── render ──────────────────────────────────────────────────────────
@@ -417,7 +423,8 @@ describe('Scenario: behavior — an unmatchable rule never masks a real gap', ()
     const result = reconcileCodegraphExclude({
       trackedFiles: ['src/index.ts'],
       include: [''],
-      exclude: [ARTIFACTS_RULE]
+      exclude: [ARTIFACTS_RULE],
+      admissionModel: 'include-whitelist'
     });
 
     expect(result.trackedSourceCount).toBe(0);
@@ -541,12 +548,33 @@ describe('Scenario: integration — read-only adapters against a real git work t
   );
 
   it(
-    'throws when `.codegraph/config.json` is absent',
+    'reads an absent force-include config as upstream does — the zero-config default',
     { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
     () => {
+      // 1.6.x ships the shape this models: a missing `codegraph.json` is the
+      // documented default, not a failure. Throwing here is what made every
+      // freshly initialised project report `not-evaluated` and exit 76.
       const project = createGitProject(['src/index.ts']);
 
-      expect(() => readCodegraphExcludeConfig(project)).toThrow();
+      const config = readCodegraphConfigFrom(project, 'force-include');
+
+      expect(config.present).toBe(false);
+      expect(config.include).toEqual([]);
+      expect(config.exclude).toEqual([]);
+      expect(config.configPath).toBe(join(project, 'codegraph.json'));
+    }
+  );
+
+  it(
+    'throws when a whitelist-model config is absent, because the withholding list is unknown',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    () => {
+      // The paired control for the case above: the other model's absence is
+      // still fatal, so the non-throwing read cannot pass by the reader having
+      // stopped checking presence at all.
+      const project = createGitProject(['src/index.ts']);
+
+      expect(() => readCodegraphConfigFrom(project, 'include-whitelist')).toThrow();
     }
   );
 });
@@ -561,12 +589,12 @@ describe('Scenario: a11y — failures name the file and the field', () => {
       const project = createGitProject(['src/index.ts']);
       mkdirSync(join(project, '.codegraph'), { recursive: true });
       writeFileSync(
-        join(project, '.codegraph', 'config.json'),
+        join(project, 'codegraph.json'),
         JSON.stringify({ include: INCLUDE, exclude: ['ok.ts', 42] }),
         'utf8'
       );
 
-      expect(() => readCodegraphExcludeConfig(project)).toThrow(/config\.json/);
+      expect(() => readCodegraphExcludeConfig(project)).toThrow(/codegraph\.json/);
       expect(() => readCodegraphExcludeConfig(project)).toThrow(
         /"exclude" must be an array of strings/
       );
@@ -579,21 +607,42 @@ describe('Scenario: a11y — failures name the file and the field', () => {
     () => {
       const project = createGitProject(['src/index.ts']);
       mkdirSync(join(project, '.codegraph'), { recursive: true });
-      writeFileSync(join(project, '.codegraph', 'config.json'), '"not-an-object"', 'utf8');
+      writeFileSync(join(project, 'codegraph.json'), '"not-an-object"', 'utf8');
 
       expect(() => readCodegraphExcludeConfig(project)).toThrow(/expected a JSON object/);
     }
   );
 
   it(
-    'names the field when `include` is missing entirely',
+    'tolerates an ABSENT `include` key, which this upstream reads as the default',
     { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
     () => {
+      // Every key of the 1.6.x project config is optional — upstream's own
+      // parser returns an empty list for an absent one. Treating a
+      // hand-authored `{ "exclude": [...] }` as malformed would turn a
+      // legitimate project into `could not evaluate` (exit 76).
+      const project = createGitProject(['src/index.ts']);
+      mkdirSync(join(project, '.codegraph'), { recursive: true });
+      writeFileSync(join(project, 'codegraph.json'), JSON.stringify({ exclude: [] }), 'utf8');
+
+      const config = readCodegraphExcludeConfig(project);
+
+      expect(config.include).toEqual([]);
+      expect(config.present).toBe(true);
+    }
+  );
+
+  it(
+    'still REJECTS a present-but-wrong-typed `include`, which is not the same thing',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    () => {
+      // The paired control for the case above: tolerance is for ABSENCE only,
+      // so it cannot have come from the reader having stopped validating.
       const project = createGitProject(['src/index.ts']);
       mkdirSync(join(project, '.codegraph'), { recursive: true });
       writeFileSync(
-        join(project, '.codegraph', 'config.json'),
-        JSON.stringify({ exclude: [] }),
+        join(project, 'codegraph.json'),
+        JSON.stringify({ include: 'not-an-array', exclude: [] }),
         'utf8'
       );
 
