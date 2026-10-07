@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-03T11:04:12.479Z",
+  "updatedAt": "2026-10-06T17:42:50.830Z",
   "hot": {
     "rule": [
       {
@@ -281,7 +281,7 @@
         "description": "> Source: peaks-loop repo, user-stated principle 2026-06-11 late session (smallMark).",
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\peaks-cli-tenet-one-key-completion.md",
         "sourceArtifact": null,
-        "updatedAt": "2026-09-23"
+        "updatedAt": "2026-10-06"
       },
       {
         "name": "peaks-loop-when-adding-a-new-subcommand-check-for-existing-top-level-first",
@@ -1062,12 +1062,36 @@
         "updatedAt": "2026-10-02"
       },
       {
+        "name": "a-census-guard-cannot-see-an-untracked-file-so-a-pre-commit-green-is-not-a-green",
+        "kind": "lesson",
+        "description": "The lint ratchet's census legs enumerate their subject with .",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\a-census-guard-cannot-see-an-untracked-file-so-a-pre-commit-green-is-not-a-green.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-06-session-d0d50d/sediment-backlog.md",
+        "updatedAt": "2026-10-06"
+      },
+      {
         "name": "a-citation-that-outlives-its-referent-is-silent",
         "kind": "lesson",
         "description": "**\"验证的输入来自被验证者自己\" 有两种形态。第一种（自证）已经被记过很多次；第二种是\"来自一份不会再被核对的静态清单\"—— 这一条在本仓没有专门记录，而它同样致命。** 被引用者消失时，**没有任何机制报警**。于是引用可以无限期...",
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\a-citation-that-outlives-its-referent-is-silent.md",
         "sourceArtifact": null,
         "updatedAt": "2026-09-23"
+      },
+      {
+        "name": "a-degradation-that-carries-no-reason-is-indistinguishable-from-a-success",
+        "kind": "lesson",
+        "description": "built the sub-agent prompt's codegraph block as .",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\a-degradation-that-carries-no-reason-is-indistinguishable-from-a-success.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-06-session-d0d50d/sediment-backlog.md",
+        "updatedAt": "2026-10-06"
+      },
+      {
+        "name": "a-dependency-whose-backend-was-replaced-must-be-checked-for-ability-not-for-the-label",
+        "kind": "lesson",
+        "description": "(2026-10-05) removed  from peaks-loop's own dependencies and from 's , as part of moving peaks-loop's own stores to .",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\a-dependency-whose-backend-was-replaced-must-be-checked-for-ability-not-for-the-label.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-06-session-d0d50d/sediment-backlog.md",
+        "updatedAt": "2026-10-06"
       },
       {
         "name": "a-digest-that-proves-the-source-side-does-not-prove-the-emit-side",
@@ -1259,7 +1283,7 @@
         "description": "**现象**：Claude Code 启动打印 。 **根因（2026-09-12 实证）**：来源是第三方 ECC 插件 。Claude Code 的插件 hook schema 在 matcher 组上只接受 、顶层只接受 （+ ...",
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\ecc-hooks-json-peaks-loop.md",
         "sourceArtifact": ".peaks/_runtime/2026-09-12-session-86f23b/txt/handoff.md",
-        "updatedAt": "2026-09-23"
+        "updatedAt": "2026-10-06"
       },
       {
         "name": "eslint-exiting-0-is-not-the-commit-ratchet-s-standard-for-a-new-file",
@@ -2639,7 +2663,7 @@
         "description": "CLI surface cleanup + on-demand ECC — design sediment **日期:** 2026-07-16 **rid:**  **sessionId:**  **targetRelease:**...",
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\cli-cleanup-on-demand-ecc-design-2026-07-16.md",
         "sourceArtifact": null,
-        "updatedAt": "2026-09-23"
+        "updatedAt": "2026-10-06"
       },
       {
         "name": "codegraph-dangling-marker-autorefresh-fix",
@@ -2703,7 +2727,7 @@
         "description": "ECC 去插件化 + 动态获取修复（2026-09-09） **Date:** 2026-09-09（session 2026-09-07-session-245530）· commit  用户诉求 \"有些能力借助 ECC、部分动态获...",
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\ecc-de-pluginization-2026-09-09.md",
         "sourceArtifact": null,
-        "updatedAt": "2026-09-23"
+        "updatedAt": "2026-10-06"
       },
       {
         "name": "ecc-fact-force-gate-is-first-touch-not-read",
@@ -2719,7 +2743,7 @@
         "description": "Claude Code 启动打印的 ，**根因在第三方 ECC 插件自己的文件**，不是 peaks-loop。 **来源**：。Claude Code 插件 hook schema 在 matcher 组上只收 、顶层只收 (+ 可...",
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\ecc-hooks-json-warning-is-upstream-plugin-drift.md",
         "sourceArtifact": null,
-        "updatedAt": "2026-09-23"
+        "updatedAt": "2026-10-06"
       },
       {
         "name": "execsync-goes-through-cmd-on-windows",

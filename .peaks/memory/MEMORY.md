@@ -143,7 +143,7 @@
 - [src-services-ide-module-is-the-single-source-of-truth-for-ide-aware-behavior](src-services-ide-module-is-the-single-source-of-truth-for-ide-aware-behavior.md) — The  module is the single source of truth for IDE-aware behavior.
 - [src-services-session-canonical-workspace-resolver](src-services-session-canonical-workspace-resolver.md) — is the canonical home for the per-session workspace.
 
-## lesson (103)
+## lesson (106)
 
 - [2026-06-26-unknown-sid-root-cause](archived/2026-06-26-unknown-sid-root-cause.md) — Root cause + remediation log for the  and  orphan session dirs.
 - [2026-07-28-rid-034-handoff-no-sediment-block](2026-07-28-rid-034-handoff-no-sediment-block.md) — rid-034 收尾遇 sediment 反向 — no peaks-memory:start/end 闭合块 **Date:** 2026-07-28 **Rid:** 2026-07-28-rid-034-v2-13-0-clea...
@@ -154,7 +154,10 @@
 - [2026-09-10-memory-system-overhaul](2026-09-10-memory-system-overhaul.md) — 记忆系统 overhaul（2026-09-09/10） **Date:** 2026-09-10 **Session:** 2026-09-07-session-245530 **Released:** 4.0.35 一句话 pea...
 - [4.0.20 dogfood — CLI wiring gap + vendor detectInstalled Windows ENOENT + peaks-rd agent-type papercut](2026-08-11-dogfood-4-0-20-cli-wiring-and-vendor-detect-defects.md) — 4.0.20 dogfood 发现的 3 个缺陷 在 session  用 4.0.20 做 dogfood 时，连续暴露 3 个问题。前两个是真实 shipping 缺陷，第三个是编排器人体工学 papercut。 缺陷 1 — d...
 - [a-ceiling-row-is-born-measured-before-it-is-committed](a-ceiling-row-is-born-measured-before-it-is-committed.md) — The hooks-rows slice looked like the simplest of the day — two new ceiling rows for a directory nothing measured — an...
+- [a-census-guard-cannot-see-an-untracked-file-so-a-pre-commit-green-is-not-a-green](a-census-guard-cannot-see-an-untracked-file-so-a-pre-commit-green-is-not-a-green.md) — The lint ratchet's census legs enumerate their subject with .
 - [a-citation-that-outlives-its-referent-is-silent](a-citation-that-outlives-its-referent-is-silent.md) — **"验证的输入来自被验证者自己" 有两种形态。第一种（自证）已经被记过很多次；第二种是"来自一份不会再被核对的静态清单"—— 这一条在本仓没有专门记录，而它同样致命。** 被引用者消失时，**没有任何机制报警**。于是引用可以无限期...
+- [a-degradation-that-carries-no-reason-is-indistinguishable-from-a-success](a-degradation-that-carries-no-reason-is-indistinguishable-from-a-success.md) — built the sub-agent prompt's codegraph block as .
+- [a-dependency-whose-backend-was-replaced-must-be-checked-for-ability-not-for-the-label](a-dependency-whose-backend-was-replaced-must-be-checked-for-ability-not-for-the-label.md) — (2026-10-05) removed  from peaks-loop's own dependencies and from 's , as part of moving peaks-loop's own stores to .
 - [a-digest-that-proves-the-source-side-does-not-prove-the-emit-side](a-digest-that-proves-the-source-side-does-not-prove-the-emit-side.md) — A staleness guard that digests  and compares against a recorded stamp proves only that the sources have not moved.
 - [a-gate-invoked-with-no-file-arguments-passes-vacuously-and-exits-0](a-gate-invoked-with-no-file-arguments-passes-vacuously-and-exits-0.md) — with zero in-scope files prints  and **returns 0** (, ).
 - [a-guard-keyed-on-a-file-path-shrinks-silently-when-you-split-that-file](a-guard-keyed-on-a-file-path-shrinks-silently-when-you-split-that-file.md) — Three independent guards in this repo decide what to measure by PATH, so moving code into a sibling removes it from c...
