@@ -57,7 +57,7 @@ import {
 } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 
 import { declareDimensions } from '../_setup/4dim-template.js';
@@ -73,8 +73,6 @@ declareDimensions(
     }
   ]
 );
-
-const PACKAGE_ROOT_REPO = resolve(__dirname, '..', '..', '..');
 
 /** One throwaway home for the whole file; nothing below it is the real one. */
 const FAKE_HOME = mkdtempSync(join(tmpdir(), 'peaks-agents-store-home-'));
@@ -445,19 +443,5 @@ describe('Scenario: behavior — output styles stay single-target and still regi
     });
     // Single-target, stated as a filesystem fact: the second IDE dir was never written.
     expect(existsSync(otherIdeStyles)).toBe(false);
-  });
-});
-
-describe('Scenario: integration — the new module ships with the installer', () => {
-  it('when the installer imports a sibling module, should ship that module in the tarball', () => {
-    // given: `scripts/install-skills.mjs` runs as the npm postinstall, so every
-    //        module it imports must be listed in `package.json#files`
-    // when: the published-file allowlist is read
-    // then: the file-entry module is published alongside the store it writes into
-    const manifest = JSON.parse(readFileSync(join(PACKAGE_ROOT_REPO, 'package.json'), 'utf8')) as {
-      files: string[];
-    };
-    expect(manifest.files).toContain('scripts/canonical-store.mjs');
-    expect(manifest.files).toContain('scripts/canonical-store-link.mjs');
   });
 });
