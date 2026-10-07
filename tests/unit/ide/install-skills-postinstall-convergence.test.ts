@@ -53,14 +53,22 @@ declareDimensions(
 const FAKE_HOME = mkdtempSync(join(tmpdir(), 'peaks-fake-home-'));
 const previousUserProfile = process.env.USERPROFILE;
 const previousHome = process.env.HOME;
+const previousCanonicalHome = process.env.PEAKS_AGENTS_HOME;
 process.env.USERPROFILE = FAKE_HOME;
 process.env.HOME = FAKE_HOME;
+// Slice 2 (`agents-canonical-store`): the skills fan-out now writes REAL COPIES
+// into the canonical store and links the IDE dirs at them. Redirect the store
+// explicitly instead of relying on the `homedir()` fallback, so this suite can
+// never reach the developer's real `~/.agents`.
+process.env.PEAKS_AGENTS_HOME = join(FAKE_HOME, '.agents');
 
 afterAll(() => {
   if (previousUserProfile === undefined) delete process.env.USERPROFILE;
   else process.env.USERPROFILE = previousUserProfile;
   if (previousHome === undefined) delete process.env.HOME;
   else process.env.HOME = previousHome;
+  if (previousCanonicalHome === undefined) delete process.env.PEAKS_AGENTS_HOME;
+  else process.env.PEAKS_AGENTS_HOME = previousCanonicalHome;
   rmSync(FAKE_HOME, { recursive: true, force: true });
 });
 

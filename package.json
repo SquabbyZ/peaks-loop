@@ -76,6 +76,7 @@
     "scripts/copy-templates.mjs",
     "scripts/sync-version.mjs",
     "scripts/install-skills.mjs",
+    "scripts/canonical-store.mjs",
     "scripts/watch.mjs",
     "skills/**",
     "!skills/**/test-prompts.json",

@@ -9,11 +9,9 @@ import {
   mkdirSync,
   openSync,
   readFileSync,
-  readlinkSync,
   realpathSync,
   readdirSync,
   renameSync,
-  symlinkSync,
   unlinkSync,
   writeFileSync
 } from 'node:fs';
@@ -22,16 +20,19 @@ import { homedir } from 'node:os';
 import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
+// The canonical store — `~/.agents/{skills,agents,output-styles}`. Skills are
+// linked to it instead of to `<packageRoot>/skills/<name>`; see the loop in
+// `installBundledSkills` for why the target moved and why repair is now
+// unconditional. MUST stay in `package.json#files`: this file IS the npm
+// postinstall, and an unpublished sibling import breaks every user's install.
+import { reconcileCanonicalEntry } from './canonical-store.mjs';
+
 function getPathStats(path) {
   try {
     return lstatSync(path);
   } catch {
     return null;
   }
-}
-
-function isBrokenSymlink(stats, targetPath) {
-  return stats.isSymbolicLink() && !existsSync(targetPath);
 }
 
 function validateManagedMarkerPath(markerPath) {
@@ -107,17 +108,6 @@ function getManagedTarget(targetPath) {
     return null;
   }
   return readFileSafely(markerPath, 'Peaks managed marker path changed during read').trim();
-}
-
-function markManagedPeaksLink(targetPath, sourcePath) {
-  const markerPath = `${targetPath}.peaks-managed`;
-  validateManagedMarkerPath(markerPath);
-  writeFileAtomically(
-    markerPath,
-    `${sourcePath}\n`,
-    'Peaks managed marker path changed during write',
-    () => validateManagedMarkerPath(markerPath)
-  );
 }
 
 function readPackageSourceFile(path) {
@@ -784,46 +774,41 @@ export function installBundledSkills(options = {}) {
   for (const { skillName, sourcePath } of candidates) {
     const targetPath = join(targetRoot, skillName);
 
-    const current = getPathStats(targetPath);
-    if (current) {
-      const managedTarget = getManagedTarget(targetPath);
-      const linkTarget = current.isSymbolicLink() ? readlinkSync(targetPath) : null;
-      const linkTargetExists = typeof linkTarget === 'string' && existsSync(linkTarget);
-      if (linkTarget === sourcePath && linkTargetExists) {
-        installed.push(skillName);
-        continue;
-      }
-      // Managed Junctions may point into an ephemeral host worktree. If that
-      // worktree was removed, Windows keeps the Junction entry but its target
-      // no longer resolves. Repair only when reconciliation was explicitly
-      // requested; normal postinstall keeps its existing ownership behavior.
-      if (
-        (current.isSymbolicLink() || isBrokenSymlink(current, targetPath)) &&
-        (managedTarget === linkTarget ||
-          (options.reconcileJunctions === true && managedTarget !== null && !linkTargetExists))
-      ) {
-        validateSkillsRoot();
-        unlinkSync(targetPath);
-        validateSkillsRoot();
-        unlinkSync(`${targetPath}.peaks-managed`);
-      } else {
-        skipped.push(skillName);
-        continue;
-      }
-    }
-
+    // Slice 2 (`agents-canonical-store`) — the entry points at the CANONICAL
+    // STORE (`~/.agents/skills/<name>`), not at `<packageRoot>/skills/<name>`.
+    //
+    // WHY THE TARGET MOVED. `<packageRoot>` changes on every
+    // `npm i -g peaks-loop@latest`, so the old target bound each link to a
+    // VERSION: one upgrade turned all 22 links per IDE directory into pointers
+    // at a tree the next install deleted. `~/.agents/skills/<name>` is a path
+    // peaks-loop owns and that no version bump moves, so an upgrade rewrites the
+    // store in one place and no IDE link ever needs rebuilding.
+    //
+    // WHY REPAIR IS NO LONGER OPT-IN. The old loop could only unlink+rebuild
+    // when `options.reconcileJunctions === true` — an opt-in the postinstall
+    // never passed — so a stale link landed in the silent `skipped` bucket:
+    // never repaired, never reported. `reconcileCanonicalEntry` makes repair the
+    // ONLY behaviour: an entry peaks-loop owns (sidecar matches, or the link
+    // dangles) is relinked onto the store, and only a real directory the user
+    // authored is left alone and reported `skipped`.
+    //
+    // `options.reconcileJunctions` is therefore READ NOWHERE in this file. It is
+    // still accepted — `sync-service.ts` forwards it and `peaks skill sync
+    // --reconcile-junctions` parses it — so passing it changes nothing and
+    // omitting it no longer costs the repair. Removing the flag is a CLI-surface
+    // change this slice does not own.
     validateSkillsRoot();
-    symlinkSync(sourcePath, targetPath, process.platform === 'win32' ? 'junction' : 'dir');
-    try {
-      validateSkillsRoot();
-      markManagedPeaksLink(targetPath, sourcePath);
-    } catch (error) {
-      validateSkillsRoot();
-      const created = getPathStats(targetPath);
-      if (created?.isSymbolicLink() && readlinkSync(targetPath) === sourcePath) {
-        unlinkSync(targetPath);
-      }
-      throw error;
+    const reconciled = reconcileCanonicalEntry({
+      kind: 'skills',
+      name: skillName,
+      sourcePath,
+      linkPath: targetPath
+    });
+    validateSkillsRoot();
+
+    if (reconciled.linkAction === 'skipped') {
+      skipped.push(skillName);
+      continue;
     }
     installed.push(skillName);
   }
