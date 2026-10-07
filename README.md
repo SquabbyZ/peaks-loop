@@ -88,6 +88,27 @@ npm i -g peaks-loop
 
 ---
 
+## 装上以后，文件放在哪
+
+`npm i -g` 之后，三类资产（**skills / agents / output-styles**）的**实体只存一份**，放在你自己 home 下的
+`~/.peaks/{skills,agents,output-styles}`；每个 IDE 目录里（`~/.claude/…`、`~/.trae/…` 等）的条目都是**指向它的链接**
+（目录用 junction，单个 `.md` 文件用符号链接）。所以升级 `peaks-loop` 时链接目标不变、不需要重建，也不会因为
+包路径（里面嵌着 node 版本号）变化而静默断裂。
+
+两件会直接影响你的事：
+
+- **受管入口会在升级时被覆盖。** 由 peaks-loop 装进去的入口（比如 `~/.claude/agents/karpathy-reviewer.md`）旁边有一份
+  `.peaks-managed` 边车标记归属，升级时内容会被更新。**想换成你自己的版本，删掉那份额边车即可** —— 没有标记的入口
+  一律视为你自己建的，**永不被替换、也永不被删除**。
+- **有些 Windows 机器上会退化成实体副本。** 没有开发者模式、也不是管理员时，建不出**文件**符号链接（目录用的 junction
+  不受影响），安装器会写实体副本并在 stderr 明说 `installed as REAL COPIES because this host refused a symlink`。
+  内容照样跟着升级走，只是不再与真源共享同一份。
+
+真源根可用环境变量 `PEAKS_HOME` 重定向。完整的模型、从 4.1.1 升级时会发生什么、怎么验证与回退 →
+[`.peaks/docs/canonical-store.md`](./.peaks/docs/canonical-store.md)。
+
+---
+
 ## 它能为你做什么
 
 代码、内容、项目健康、issue 修复、自定义工作流 —— **4.x 已经覆盖五条域**,每条域都有专门编排器,按"门禁不通过就停"的纪律一条一条跑。

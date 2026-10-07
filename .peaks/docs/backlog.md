@@ -2842,3 +2842,76 @@ Whole run 37137032155: `completed success`, 6/6 jobs. The depth change was check
 `commit-message-red-line`, and nothing on the other two jobs — a grep for the string would have passed even if
 the option had been attached to the wrong step.
 
+### 2.56 The installer's provenance was a path carrying a node version, so an upgrade froze every managed entry — silently and permanently (found 2026-10-06, **FIXED** on branch `agents-skills-canonical-store`)
+
+**No earlier entry covered this.** Before writing this one I searched for a match and found none — see
+"The search that found nothing" at the end. Recording it here rather than editing §2.52 / §2.52a, which are
+a different defect (a global install not running `postinstall`) and which already contradict each other.
+
+**What it was.** `installBundledAgents` and `installBundledOutputStyles` (in `scripts/install-skills.mjs`)
+wrote a `.peaks-managed` sidecar beside each IDE entry recording **the absolute package path the bytes came
+from**. On the next run, ownership was decided by
+
+```js
+resolve(marker.sourcePath) === resolve(sourcePath)   // a STRING comparison
+```
+
+where `sourcePath` is the package path of the version installing **right now**. The recorded path, measured
+on a real machine, was
+
+```
+C:\Users\small\AppData\Local\nvm\v24.21.0\node_modules\peaks-loop\agents\karpathy-reviewer.md
+                              ^^^^^^^^ node version inside the path
+```
+
+**Why it is a necessary failure, not an occasional one.** Any reinstall that changes the package directory —
+`nvm use <another version>`, a reinstall into a different prefix, the tarball unpacked elsewhere — yields a
+different `sourcePath`. The comparison goes false the first time that happens and **stays false**. The entry
+keeps its old bytes, raises no error, and the installer prints success. The user's agent simply stops updating,
+forever, with nothing anywhere saying so.
+
+**The second arm, opposite direction.** The same code could only reach its rewrite branch when the content
+hash *matched* (`getManagedPeaksAgentIdentity` returns `null` on any difference). So in the one case the string
+test did pass — an in-place `npm i -g` — it rewrote identical bytes and skipped every real upgrade: the exact
+inverse of the "SHA differs → overwrite" its own comment promised.
+
+**Reproduce it** (throwaway HOME; the pre-fix installer is `git show 85b63f95:scripts/install-skills.mjs`):
+
+1. Put a real file at `<fakeHome>/.claude/agents/karpathy-reviewer.md` and beside it a sidecar holding
+   `{"version":1,"kind":"agent","agentName":"karpathy-reviewer.md","sourcePath":"<a package path that no longer exists>","contentSha256":"…"}`.
+2. Run `installBundledAgents({ targetRoot, packageRoot })` with the **pre-fix** installer.
+3. Observe the entry in `result.skipped` with no error and no byte change — while the canonical copy is written,
+   i.e. a half migration nobody can see. The fixed installer instead adopts it (the recorded path unresolvable
+   is *proof of an earlier install*) and re-points the entry at the canonical store.
+
+**What the fix is, per family.** Sidecars now record the **canonical** path. A legacy JSON sidecar is adopted on
+**two arms**: its recorded path no longer resolves (an earlier install) **or** it *is* the package installing now
+(an in-place upgrade). A recorded path that resolves to a **different live package** is deliberately **not**
+taken over — it is left alone and **reported** (`reportLeftAlone` → stderr), so the outcome is visible instead
+of silent. skills moved to the store first (slice 2); slice 3 made prune delete **only** entries that carry
+`.peaks-managed`; slice 4 did agents / output-styles and closed this freeze. Sources:
+`scripts/canonical-store.mjs`, `scripts/canonical-store-link.mjs` (`isOwnedLegacyEntry`), `scripts/canonical-store-prune.mjs`.
+
+**Recorded, not fixed (the user should know).** `~/.trae/agents`, `~/.codex/agents` and `~/.cursor/agents` each
+hold a `karpathy-reviewer.md` (+ `output-styles` on trae) whose sidecar records
+`D:\peaks-loop\agents\karpathy-reviewer.md` — a **development checkout**, i.e. a *second live installation*. An
+older integration test spawned the installer under the **real** `HOME`, and the script lived in the repo, so
+`resolvePackageRoot()` recorded the repo path. Under the new predicate these are **not ours**: they are kept and
+reported to stderr. **Do not delete them by hand** — they still work, and clearing test residue is the owner's
+call. The pre-migration snapshot is at
+`.peaks/_runtime/2026-10-06-session-d0d50d/backup-pre-s4-migration/`. (The leak itself is closed: that test now
+redirects the child's `HOME` / `USERPROFILE` to a throwaway directory.)
+
+**The search that found nothing** (re-run, not quoted):
+
+```
+$ grep -n -i "only ever add\|never delete\|只增不删\|repair.*link\|link.*repair" .peaks/docs/backlog.md
+747:**Knowingly not done in repair 1.** No new test case. A case pinning "a symlinked entry is not a
+$ grep -n -i "install-skills\|postinstall\|canonical" .peaks/docs/backlog.md
+2597:### 2.52 [SUPERSEDED BY §2.52a …] A global `npm i -g` does not run this package's own postinstall …
+2637:### 2.52a §2.52 is wrong about today, and a four-line probe killed it …
+```
+
+The line-747 hit is a lint-repair slice's `repair 1`, not the installer; §2.52/§2.52a are the postinstall
+defect above. **There was no entry to update.** §2.52 and §2.52a are left byte-for-byte untouched.
+
