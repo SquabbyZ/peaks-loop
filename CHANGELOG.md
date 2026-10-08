@@ -1,5 +1,55 @@
 # Changelog
 
+## 4.1.2 — 2026-10-08 (资产真源落地: 升级不再静默冻结入口; codegraph 换上 1.6.2 的包模型, 顺带照出一条从未响过的失败路径)
+
+**版本级别**: 未发布区间 `v4.1.1..HEAD` 共 **14 个 commit**（6 feat / 3 fix / 1 refactor / 1 test / 3 docs）。取 **patch**：本版不新增命令，不改变任何既有命令的输入输出形状 —— 两件主要工作都是"让已经承诺的行为真的发生"。4 个 workspace 包各 +1 patch（shared 0.0.90→0.0.91、internal-runtime 0.0.41→0.0.42、mut 0.1.55→0.1.56、shared-channel 0.0.58→0.0.59），与 `scripts/bump-version.mjs` 的 lockstep 规则（每个可发布包跟随根版本 +1 patch）一致；实测子包自身的 `version` 字段**不进** `pnpm-lock.yaml`（workspace 依赖在 lock 里是 `link:` 形态、importer 条目为 `packages/peaks-loop-shared: {}`，无版本行），故本版**不需要**改 lockfile。
+
+### 1. 资产真源：升级不再静默冻结入口（4 feat + 1 refactor + 1 test）
+
+原先三个安装器（`installBundledSkills` / `installBundledAgents` / `installBundledOutputStyles`）把归属判断写成 `resolve(marker.sourcePath) === resolve(sourcePath)`，比对的原件是**装它的那个版本**的包路径。实测这条路径里带 node 版本号（`…\nvm\v24.21.0\node_modules\…`），于是这个判断本身就是一个"版本内有效"的事实：一次 node 升级之后的第一次 `npm i -g peaks-loop@latest`，此后每一次运行都会**跳过**该条目 —— 既不更新，也不报错。而唯一的修复路径 `reconcileJunctions` postinstall 从不传入，其余所有情况都落到一个**无声的** `skipped`：升级既不修旧链，也不说没修。本机实测：8 个 IDE 目录 × 44 个 `peaks-*` 条目，全部解析进同一个包路径。
+
+现在三族都走真源（skills 原本已走，agents / output-styles 在 `4e1bd85a` 补齐）：`~/.peaks/{skills,agents,output-styles}/<name>` 放真副本，IDE 侧入口指向它 —— 升级变成**重写一份副本，而不是重指 176 条链**。归属由 `.peaks-managed` 边车 + 两侧 `realpath` 决定，**绝不用字符串相等**（Windows junction 的 `readlinkSync` 拼写不保证，这正是旧安装器里那处脆弱点，新模块不许抄它）；旧的 JSON 边车按两条臂之一收养 —— 记录的包路径已不再解析（更早一次安装），或那个路径**就是**正在安装的这个包（原地升级）；记录的路径解析到**另一个活的包**则原样不动 —— 那是第二份安装，不是陈旧的。
+
+Windows 不给**文件**符号链接（没有开发者模式或管理员时），而 skills 用的 junction 从不需要这个权限。宿主拒绝时写实体副本（保留"每次运行都保持最新"的语义），并在返回值与 stderr 上说明这次拒绝 —— `copied` 与 `skipped` 现在各自说得出自己是哪一个；一次不带理由的降级与一次成功无法区分。
+
+`dbf91c25` 把真源根从 `~/.agents` 改成 `~/.peaks`（owner 在本次 job 内改的决定）：`~/.agents` 是**共享命名空间**（`npx skills`、agentrecall、agentlink 都往那里写），而 `~/.peaks` 是 peaks-loop 自己的家且**已在使用**（实测 `~/.peaks/agents/` 存在并持有 `ecc`）；共享约定唯一的好处（给原生读它的工具省一条软链）本次**没有任何测量**证明过。环境变量复用 `PEAKS_HOME`（`peaksHome()`，`src/services/sop/sop-paths.ts:29`）而非新造一个 —— 一个目录两个旋钮就是一对可以互相矛盾的值。
+
+`e08dc4af` 补上最后一块：安装器此前**只会加**。把某个 skill 从包里删掉，它的真源副本、各 IDE 目录里的链、`.peaks-managed` 边车会永远留在用户机器上 —— 这与"更新"的含义不符。新的 `canonical-store-prune.mjs` 删真源条目 / IDE 链 / 边车，凡是 `isManagedEntry` **证明不了**是自己的一律保留；顺带把 `ensureCanonicalCopy` 原先无条件的 `rmSync` 换成 `action: 'unmanaged'`（→ `skipped`）—— 那正是根目录搬迁时记下的隐患：`~/.peaks/agents/` 真的有一个 peaks-loop 自己建的 69 条目 `ecc/`，一个同名捆绑资产本会把它静默删掉。**负控是本片重点**：用户自建的真目录 `peaks-gamma`（无边车）同时放进真源与 IDE 目录，`pruned: []`，两者逐字节存活；把 `isManagedEntry` 强制成 `return true` 则三臂转红。端到端实测（一次性 HOME / USERPROFILE / PEAKS_HOME）：装 alpha 与 beta、从包里去掉 alpha、重跑 —— `pruned: ["skills/peaks-alpha", "…\.claude\skills/peaks-alpha"]`，四件产物全消失，beta 未动。
+
+**发布白名单是本版反复咬人的一处。** `package.json#files` 是 npm 发布白名单，而仓库里**没有任何东西读它** —— 一个不在里面的模块会让每一个已发布包的用户在 `ERR_MODULE_NOT_FOUND` 上崩掉，而整个测试套件保持全绿。本分支三次踩到（`canonical-store.mjs`、`canonical-store-prune.mjs`、`canonical-store-link.mjs`）：slice 1 加文件时无人导入，`npm pack --dry-run` 给出 `canonical-store shipped: false`，直到 slice 2 接上 import 才暴露。`87d2b86b` 把一条"枚举两个模块名"的守卫（第三个模块出现就会放行）换成 `install-skills-published-modules.test.ts` —— 从安装器自己的相对 import 里**读出规则**，没有表要维护；解析器先断言解析结果非空，再用同一份解析器跑 fixture 文本，于是"解析器退化成空转"会被它自己的读法抓住，而不是被它恰好指向的文件抓住。
+
+**本版未测（记录而非隐瞒）**：trae / codex / cursor 是否跟随文件符号链接（只探过 Claude Code 2.1.292）；以及一次自然发生的、无开发者模式下的 EPERM。**记录未修**：手工删掉一条链会让对应 IDE 边车变成孤儿，prune 不扫这种情况（有意的范围限制）；nvm 用户保留旧 node 版本时那条包路径仍可解析，条目会两条收养臂都不落，现在报在 stderr 上（此前无声）。
+
+### 2. codegraph 升到 1.6.2：包模型换了骨，配置轴反了向（2 feat + 1 fix）
+
+`0.7.10` → `1.6.2` 的升级**不是**表面工作。在 Node v24.21.0（ABI 137）上 `better-sqlite3@11.10.0` 没有预编译二进制，0.7.10 的原生后端在本机根本建不起来，`prebuild-install` 落到 `node-gyp`（需要 Visual Studio），于是退到 `node-sqlite3-wasm` —— 而它打不开 WAL 模式的数据库（带对照实测：DELETE 模式打开、WAL 模式报 `unable to open database file`）。也就是说 codegraph 在这台机器上**已经死了好几天**，每一次 RD 派发都在静默降级。1.6.2 是自包含的，直接用 Node 内建的 `node:sqlite`，完整 WAL。
+
+**包模型**：1.6.2 的主包 `dist/` 下**没有可执行 JavaScript**（只有 `.d.ts`）加两个 shim，代码在一个自带 `node.exe` 的平台子包里。于是 `dist/types.js`、`dist/extraction/grammars.js`、`dist/bin/codegraph.js` 全是 MODULE_NOT_FOUND —— 正是 peaks-loop 全部的 spawn 目标。新的 `codegraph-upstream-layout.ts` 是这四个触点的**唯一**定位器：先探 `<平台包>/lib/dist/bin/codegraph.js`（1.6.x），再退回 `<主包>/dist/...`（0.7.x）；必须经 `createRequire(<主包>/package.json)` 解析，因为平台包只链在主包自己的 `node_modules/` 里。
+
+**配置轴是一个陷阱**：1.6.2 不只是把配置文件从 `.codegraph/config.json` 搬到 `<root>/codegraph.json`，它把 `include` 的**语义反了**。0.7.x 里 `include` 是白名单；1.6.x 里它的意思是"即使被 .gitignore 丢掉也强行纳入索引"，准入模型是 `force-include`。只换路径的改法会把**每一个**受支持的 tracked 文件报成缺口 —— 一个看起来像绿的、方向相反的失败。新的 `codegraph-project-config.ts` 通过探测上游同时定出**源**与**模型**，两条臂都对着真实的 0.7.10 与 1.6.2 安装测过。
+
+两个 reconciler 的处置都写明而不是暗示：`codegraph-include-reconciler.ts` **删除** —— 它的前提是上游那份 32 条默认模板（1.6.2 已无），它的动作是往 `include` 追加 78 条 `**/*.ext`，在 1.6.x 下会把 gitignore 掉的源码**强行塞进**索引；只重定向读会留下这条写路径仍是活的，那是更坏的结果。`codegraph-exclude-reconciler.ts` **保留、但把范围收窄**到项目自撰的 `exclude`，读写两端都搬到真实源。**顺带修掉一条活的缺陷**：exclude reconciler 原先用 `include` 做预过滤，而 1.6.x 下 `include` 什么都不准入，于是这道闸**从来不会触发** —— 在那种组合存在多久，它就无声了多久。
+
+`e60948bf` 明确**推迟**验收判据 1（`peaks codegraph status` 在 1.6.2 下退出 76，因为完整性轴读 `.codegraph/config.json`，那是 1.6.2 从不写的文件；在**新初始化的真实 git 仓库**上复现：`init` 退出 0，`status` 退出 76 并报 `ENOENT`），`c61bf331` 把它关掉：现在退出 0，且该轴是**真的被求值**而不是被跳过 —— 一个全新的 1.6.2 git 仓库上 `--peaks-json` 给出 `indexIntegrityVerdict: "clean"`、`admissionModel: "force-include"`、`trackedSourceCount: 2`、`admittedTrackedCount: 2`、`indexedFileCount: 2`、`gap: false`、`includeGap: []`、`deadRows: []`，这些数字与那个仓库里的两个文件相符，是量出来的而不是默认值。
+
+**一条因为上游而非并发而闪的臂**：1.6.2 自己会在约 **1.3%** 的 `init` 调用上以 `0xC0000005` 中止进程，而且是**串行**的 —— 一个只做单次 spawn、不用 vitest 的最小工装实测 458 次里 6 次中止，stdout 每次都停在同一字节，那里 `extraction/index.js` 正在建一个 8 线程的 `ParseWorkerPool`；`status`（该臂真正的主语）从不中止（0/80）。上游的 `--liftoff-only` 启动器形态修不了它（1/318，Fisher p≈0.13），所以**不许**在生产调用里粉饰。修复只落在测试里：**只**重试 setup 那次 spawn、只认那一个退出码、上限三次、每次换新项目目录；`status` 永远只 spawn 一次；每条漂移断言逐字节未动；另有一条对照臂钉住"只有一个退出码可重试"。残余 ≈ 2.2e-6 每次运行。**仍然敞开并记录在案**：生产有同样的 ~1.3% `init` 暴露面（每一个消费者的 `peaks codegraph init` 都会以那个频率中止），真正的修复属于 `src/services/codegraph/`，本片被划在范围之外。
+
+**失败原因进入 dispatch（`33fdefdf`）**：RD 派发块读的是 `preflight.available ? preflight.block : null`，于是 codegraph 一旦失败，preflight 的 `note`（上游原因的唯一载体）就被丢掉，提示词退回一句常量"codegraph unavailable — proceeding on project-scan only"。失败分支因此渲染出一段**读起来与正常状态一模一样**的块，每个 dispatch 记录里，坏索引与健康索引无法区分 —— codegraph 在这台机器上坏了这么久没被注意到，就是这么来的：上游一直在说 `Failed to index: unable to open database file`，而派发路径上没有任何东西复述它。新的 `codegraph-unavailable-block.ts` 负责渲染原因，退回常量改成"没拿到原因"而不是暗示"没有原因"；手臂同时判别**有**与**无**（一条断言该块**不**包含裸露的上游行），所以"渲染了某个 note"不能满足它们。修复前把四个源文件回退到 HEAD、只留新模块，观察到的是一次断言失败而非加载错误：6 failed / 4 passed。
+
+### 3. 两次"新文件对门禁不可见"（2 fix）
+
+`.husky/` 的 census 腿走的是 `git ls-files`，所以新文件在未 track 时**门禁看不见** —— 本分支两次踩到（`f8073e1f` 对 slice 1 的四个新文件，`b88c4056` 对 tripwire 的三个）。两次都发生在 RD 报告与全量套件都跑了、都报绿的状态下；是 commit 让文件可见，下一次运行就有三个失败。第二次发生在这条教训**已经写进** `sediment-backlog.md` 一小时之后，所以它被记成"必须改的做法"而不是一条事实：一片的验收运行必须在文件已提交的状态下取，或者那次运行必须自己声明是未 track 时取的。`b88c4056` 用 `node .husky/peaks-gate-baseline.mjs` 重生成基线（该生成器只在有人要求抬高上限时拒绝）。
+
+`f8073e1f` 还含一行不显眼的配置：`config/eslint/tsconfig.lint.json` 加上 `../../scripts/canonical-store.mjs`。这不是装饰 —— `.mjs` 会被同名的 `.d.mts` 在 TypeScript 的扩展名优先级组 `[.mts, .d.mts, .mjs]` 里遮蔽，`include` glob 于是**静默丢掉**那个 `.mjs`；`.js` 被 `.d.ts` 遮蔽有豁免，`.mjs` 没有。
+
+### 4. 文档与记忆（3 docs）
+
+`2a70a651` 补上 `.peaks/docs/canonical-store.md`（真源模型、升级会发生什么、怎么验证与回退，含 4.1.1 升级 runbook）—— 一个跨四个 slice 落地的机制此前没有一页描述它，而它引入的两条行为是用户会**不被告知**就遇上的；README 加上短版与指针。`backlog.md` §2.56 记录缺陷：边车用字符串比较安装版本的包路径来判定归属，那是一条带 node 版本号的路径，所以这个判断是"版本内有效"的事实。页面里每一条行为断言都带代码引用，共 17 处，逐条对着它点名的行核过。`594be46f` 沉淀三条教训（后端被换掉之后要查能力而不是查标签；census 守卫看不见未 track 的文件，所以 pre-commit 绿不是绿；不带理由的降级与成功无法区分），索引到 448 files / 106 lessons。`17c7e2a8` 沉淀"守卫点了规则的名、却只查了名单"这一次：规则读取型守卫需要两条防御 —— 先断言解析非空（否则"什么都没找到"会以"对零个元素循环"的形式通过），以及把同一份解析器喂给 fixture 文本。
+
+### 5. 本版验证
+
+`tsc --noEmit -p tsconfig.json` 退出 0；`pnpm build` 退出 0；`pnpm test:unit` 退出 0 —— **406 files / 4238 passed / 3 skipped / 0 failed**（与改动前逐字相同）；版本 parity `shared-dist`（`OK (via import) CLI_VERSION=4.1.2`）与 `runtime-src`（`OK (via extract) RUNTIME_VERSION=4.1.2`）双双退出 0；`peaks changeset check --project . --json` 返回 `ok: true`（`state: staged-empty`），`.changeset/` 仍**只有** `config.json`；`peaks baseline diff --project . --json` 退出 0（15 行）；**`peaks baseline audit --project . --json` verdict 为 `consistent`**（15/15 journey，crossCheck `guardVsAudit: agree`，`findings: []`）。README 两版的**版本徽章行**更新到 `4.1.2(2026-10-08)` / `4.1.2 (2026-10-08)`，而 `README.md:107` 正文那句"从 4.1.1 升级时会发生什么"是**有意保留的历史陈述，未改动**。
+
 ## 4.1.1 — 2026-10-05 (一次"闸自己坏了整整一个版本"、注释债第一次进棘轮、以及五个从真实使用里捞出来的缺陷)
 
 **版本级别**: 未发布区间 `v4.1.0..HEAD` 共 **14 个 commit**（6 fix / 4 feat / 1 test / 1 refactor / 1 docs / 1 chore）。**取 patch，而不是按 4.1.0 自己写下的判据取 minor** —— 这条判据不是被推翻，而是被有意收窄：本版新增的两条命令（`peaks comments audit` / `peaks comments prune`）是**仓库自己的维护表面**，只读或只动本仓注释，不改变任何既有命令的输入输出，也不要求下游做任何事；对外承诺的内容全是修复（其中一条是门禁崩溃）。`^4.1.0` 的下游直接匹配本版。4 个 workspace 包各 +1 patch（internal-runtime 0.0.40→0.0.41、mut 0.1.54→0.1.55、shared 0.0.89→0.0.90、shared-channel 0.0.57→0.0.58），顺带把"本地 manifest 比 registry 新"（mut 的 0.1.54 从未发布）这个坑一次清掉：`scripts/release-pack.mjs` 按拓扑序把 5 个包在同一次 CI 运行里一起发出去，`pnpm pack` 把 `workspace:*` 重写成精确 pin，实测 tarball 内 `CLI_VERSION` 为 4.1.1。
