@@ -6,7 +6,7 @@
  * pre-tool interceptor and, later, the MCP server. If either `import`ed the
  * generated artifact it would become a static edge between them, and deleting
  * the MCP module would break the gate. So the artifact stays a `.json` file and
- * every reader goes through the filesystem. `tests/unit/standards/no-mcp-source-import`
+ * every reader goes through the filesystem. `tests/unit/standards/no-mcp-source-import.test.ts`
  * pins that no module may `import` it.
  *
  * The shape is `{ schemaVersion, source, readOnlyDefinition, entries[] }`. Each

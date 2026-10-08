@@ -46,7 +46,14 @@ const NEUTRAL_MODULES = [
   'src/services/mcp/server-main.ts',
   'src/services/ide/mcp-tool-matcher.ts',
   'src/services/hooks/mcp-surface-gate.ts',
-  'src/cli/commands/mcp-commands.ts'
+  'src/cli/commands/mcp-commands.ts',
+  // Slice ③ (rid-037, AC-10): the distribution half. The registration entry is
+  // a HARNESS's own argv, so this is exactly the code a harness branch would be
+  // tempting in — and the profile that carries it is read from the adapter, so
+  // none of these three may name one.
+  'src/services/ide/ide-mcp-install-types.ts',
+  'src/services/distribution/mcp-install.ts',
+  'src/services/distribution/plugin-manifest.ts'
 ];
 
 /** Every module under the MCP root, so a new file cannot quietly escape the rule. */

@@ -227,7 +227,11 @@ export function specifiersOf(file: string, text?: string): string[] {
  * Normalize a specifier to a repo-relative POSIX path, or `undefined` when it
  * leaves the repository (a bare package name, a `node:` builtin).
  */
-export function normalizeSpecifier(file: string, root: string, specifier: string): string | undefined {
+export function normalizeSpecifier(
+  file: string,
+  root: string,
+  specifier: string
+): string | undefined {
   if (specifier.startsWith('node:')) return undefined;
   const aliased = /^~\/src\/(.*)$/.exec(specifier);
   const aliasedRest = aliased?.[1];
@@ -247,7 +251,10 @@ export interface ScanOptions {
 }
 
 /** Scan a repository root and report every forbidden import it finds. */
-export function scanForbiddenImports(root: string, options: ScanOptions = {}): ForbiddenImportFinding[] {
+export function scanForbiddenImports(
+  root: string,
+  options: ScanOptions = {}
+): ForbiddenImportFinding[] {
   const findings: ForbiddenImportFinding[] = [];
   for (const file of sourceFilesUnder(root, options.roots ?? SCAN_ROOTS)) {
     const relativeFile = toPosix(relative(root, file));

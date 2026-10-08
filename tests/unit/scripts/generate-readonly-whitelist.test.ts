@@ -121,7 +121,9 @@ describe('Scenario: behavior - two runs agree, and the committed artifact is one
     entry.argv = ['skill', 'presence-not-a-command', '--json'];
     // when:  generation runs
     // then:  it throws naming the missing path
-    expect(() => generateReadOnlyWhitelist(surface, createProgram())).toThrow(/presence-not-a-command/);
+    expect(() => generateReadOnlyWhitelist(surface, createProgram())).toThrow(
+      /presence-not-a-command/
+    );
   });
 
   it('when a template omits a positional the command declares, should refuse to generate', () => {

@@ -44,7 +44,10 @@ const MCP_SERVER_SOURCE = 'export const startServer = 1;\n';
 function walkedFiles(): string[] {
   const root = REPO_ROOT.split('\\').join('/');
   return sourceFilesUnder(REPO_ROOT).map((file) =>
-    file.split('\\').join('/').slice(root.length + 1)
+    file
+      .split('\\')
+      .join('/')
+      .slice(root.length + 1)
   );
 }
 
@@ -54,7 +57,9 @@ describe('Scenario: render - the real tree carries no forbidden edge', () => {
     // when:  every source file under src/, scripts/ and tests/ is scanned
     // then:  there are no findings - the invariant holds today, which is what makes the plant arms meaningful
     const findings = scanForbiddenImports(REPO_ROOT);
-    expect(findings.map((finding) => `${finding.rule}:${finding.file}:${finding.specifier}`)).toEqual([]);
+    expect(
+      findings.map((finding) => `${finding.rule}:${finding.file}:${finding.specifier}`)
+    ).toEqual([]);
   });
 });
 
@@ -179,7 +184,9 @@ describe('Scenario: behavior - a planted forbidden edge is reported, and its abs
         const findings = scanForbiddenImports(root);
         // then:  both are reported - the artifact is data, and data has no importers
         expect(findings).toHaveLength(2);
-        expect(findings.every((finding) => finding.rule === 'whitelist-artifact-import')).toBe(true);
+        expect(findings.every((finding) => finding.rule === 'whitelist-artifact-import')).toBe(
+          true
+        );
       }
     );
   });
@@ -218,7 +225,7 @@ describe('Scenario: behavior - a planted forbidden edge is reported, and its abs
     withFixtureTree(
       {
         'src/cli/quoted.ts':
-          "export const planted = \"import { x } from '../services/mcp/server.js';\";\n"
+          'export const planted = "import { x } from \'../services/mcp/server.js\';";\n'
       },
       (root) => {
         // when:  the specifiers are read
@@ -257,8 +264,7 @@ describe('Scenario: behavior - a planted forbidden edge is reported, and its abs
     //        a `"type":"module"` repo reaches CommonJS loading through the latter
     withFixtureTree(
       {
-        'src/services/readonly-surface/user.ts':
-          `const p = require.resolve('../../${READONLY_WHITELIST_ARTIFACT_REL}');\n`,
+        'src/services/readonly-surface/user.ts': `const p = require.resolve('../../${READONLY_WHITELIST_ARTIFACT_REL}');\n`,
         'src/cli/create-require.ts':
           `import { createRequire } from 'node:module';\n` +
           `const loaded = createRequire(import.meta.url)('../../${READONLY_WHITELIST_ARTIFACT_REL}');\n`
@@ -310,7 +316,7 @@ describe('Scenario: behavior - a planted forbidden edge is reported, and its abs
   it('when a require call sits inside a string literal, should not read it', () => {
     // given: the same AST discipline as the quoted-import arm, in the new form
     withFixtureTree(
-      { 'src/cli/quoted.cjs': "const planted = \"require('../services/mcp/server.js')\";\n" },
+      { 'src/cli/quoted.cjs': 'const planted = "require(\'../services/mcp/server.js\')";\n' },
       (root) => {
         // when:  the specifiers are read
         // then:  a quoted require is text, not an edge
@@ -336,9 +342,9 @@ describe('Scenario: integration - the scan walks a real tree', () => {
     // when:  each is tested
     // then:  containment is a prefix relation on a path boundary, not a substring match
     expect(isInsideMcpRoot(`${MCP_SURFACE_ROOT_REL}/server.ts`)).toBe(true);
-    expect(isInsideMcpRoot('src/services/recommendations/capability-seed-sources-mcp-server.ts')).toBe(
-      false
-    );
+    expect(
+      isInsideMcpRoot('src/services/recommendations/capability-seed-sources-mcp-server.ts')
+    ).toBe(false);
     expect(isInsideMcpRoot('src/services/mcpfoo.ts')).toBe(false);
   });
 
@@ -364,9 +370,9 @@ describe('Scenario: integration - the scan walks a real tree', () => {
     const files = walkedFiles();
     // then:  the excluded top level is absent, and the walk is non-trivial
     expect(files.some((file) => file.startsWith('config/'))).toBe(false);
-    expect(files.some((file) => file === 'vitest.config.ts' || file === 'vitest.config.integration.ts')).toBe(
-      false
-    );
+    expect(
+      files.some((file) => file === 'vitest.config.ts' || file === 'vitest.config.integration.ts')
+    ).toBe(false);
     expect(files.length).toBeGreaterThan(100);
   });
 });

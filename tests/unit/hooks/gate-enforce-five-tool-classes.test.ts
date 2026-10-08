@@ -37,7 +37,12 @@ import { makeCapturedIo, withEnv } from '../_setup/io.js';
 declareDimensions(
   'tests/unit/hooks/gate-enforce-five-tool-classes.test.ts',
   ['behavior', 'integration', 'a11y'],
-  [{ dim: 'render', reason: 'the deny envelope shape is pinned by the hook output contract suite.' }]
+  [
+    {
+      dim: 'render',
+      reason: 'the deny envelope shape is pinned by the hook output contract suite.'
+    }
+  ]
 );
 
 /** The five tool classes the PRD names, verbatim. */

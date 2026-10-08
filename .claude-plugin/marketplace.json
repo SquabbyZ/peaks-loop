@@ -1,104 +1,193 @@
 {
   "metadata": {
     "pluginRoot": ".",
-    "version": "2.0.3"
+    "version": "4.1.2"
   },
   "plugins": [
     {
       "name": "peaks-loop",
-      "description": "Cross-AI-IDE workflow-gating CLI + 11-skill family. Turns LLM improvisation into auditable engineering process. Skills cover PRD / R&D / UI / QA / change-control / context / SOP definition / orchestration. Soft-fail gates block irreversible actions mid-conversation (even under --dangerously-skip-permissions).",
-      "version": "2.0.3",
+      "description": "Loop Engineering CLI — workflow primitive / loop guards / evaluators / slice orchestration",
+      "version": "4.1.2",
       "author": {
         "name": "SquabbyZ"
       },
       "homepage": "https://github.com/SquabbyZ/peaks-loop",
       "repository": "https://github.com/SquabbyZ/peaks-loop",
       "license": "MIT",
-      "tags": [
-        "workflow",
-        "gating",
-        "sop",
-        "code-review",
-        "agent-team",
-        "cross-ide",
-        "claude-code",
-        "memory",
-        "second-opinion"
-      ],
       "keywords": [
-        "AI IDE",
-        "agent guardrails",
-        "SOP engine",
-        "cross-IDE",
-        "developer workflow",
-        "irreversible-action gates"
+        "peaks-loop",
+        "loop-engineering",
+        "ai-orchestration",
+        "ai-coding-agent",
+        "ai-programmer",
+        "multi-agent",
+        "claude-code",
+        "codex",
+        "z-code",
+        "cursor",
+        "trae",
+        "tongyi-lingma",
+        "agent-harness",
+        "agentic-engineering",
+        "autonomous-workflow",
+        "workflow-orchestration",
+        "llm-workflow",
+        "long-running-task",
+        "sub-agent-dispatch",
+        "dag-orchestration",
+        "slice-decomposition",
+        "sop",
+        "openspec",
+        "karpathy",
+        "darwin",
+        "anti-drift",
+        "evolution-evaluation",
+        "ci-cd",
+        "github-actions",
+        "trusted-publishing",
+        "oidc",
+        "monorepo",
+        "pnpm",
+        "vitest",
+        "code-review",
+        "tdd",
+        "security-scan",
+        "lint",
+        "typecheck",
+        "devtool",
+        "cli",
+        "developer-tools"
       ],
+      "mcpServers": {
+        "peaks": {
+          "command": "peaks",
+          "args": [
+            "mcp",
+            "serve"
+          ]
+        }
+      },
       "skills": [
         {
-          "name": "peaks-solo",
-          "path": "./skills/peaks-solo",
-          "description": "Dispatcher (分诊员) — natural-language front door for the Peaks-Loop skill family. Use when the user describes a task in NL and does not know which peaks-* skill fits. NOT for code/content/doctor/issue-fix-orchestrator/SOP work (use the specific skill)."
+          "name": "peaks-audit",
+          "path": "./skills/peaks-audit",
+          "description": "Gate autonomous LLM work on a 6-dimension audit + user-accepted goal. Use IMMEDIATELY after a need is expressed, BEFORE any PRD/RD/QA work starts."
         },
         {
           "name": "peaks-code",
           "path": "./skills/peaks-code",
-          "description": "Full-auto orchestration facade for the Peaks-Loop skill family. Use when the user asks Peaks-Loop to handle a project workflow end-to-end."
+          "description": "Code-domain loop engineering orchestrator for the Peaks-Loop skill family. Use when the user asks Peaks-Loop to handle a code-repo workflow end-to-end (端到端/全流程/需求开发), especially from a product document (PRD/飞书文档/Feishu doc) through implementation and validation. Coordinates peaks-prd, peaks-rd, peaks-qa, peaks-ui, peaks-sc, and peaks-txt while preserving user confirmation gates. Triggers on `/peaks-code`, \"peaks code\", \"全流程开发\", \"端到端迭代\". General primitives (peaks-resume / peaks-status / peaks-test) are sibling skills, not children."
         },
         {
-          "name": "peaks-resume",
-          "path": "./skills/peaks-resume",
-          "description": "Resume an in-flight peaks-code slice in the current session."
+          "name": "peaks-content",
+          "path": "./skills/peaks-content",
+          "description": "Non-code orchestrator for content workflows (draft / edit / publish / archive). Use when a user wants to drive an end-to-end content-production loop (blog post, newsletter, marketing copy, social thread, doc page) where the LLM must coordinate draft / edit / tone / publish / archive stages with explicit gates between them, and where the user only wants to speak natural language and pick options. NOT for free-form chatting; NOT for code review. Reuses the peaks-loop Loop Engineering primitives (Loop Engineering Asset, Bee Asset, Workflow Trace, Evolution Evaluation) but does NOT import peaks-code internals. Triggers on `/peaks-content`, \"peaks content\", \"content workflow\", \"publish this to <channel>\", \"edit the draft\", \"archive the previous version\"."
         },
         {
-          "name": "peaks-status",
-          "path": "./skills/peaks-status",
-          "description": "Show the current state of the peaks-code orchestrator in a compact summary."
+          "name": "peaks-doctor",
+          "path": "./skills/peaks-doctor",
+          "description": "Orchestrate peaks-loop's L3 doctor (peaks audit + peaks doctor + peaks openspec from-doctor) for project health. Use when the user asks for a project health check, doctor report, audit, or wants to convert doctor findings into OpenSpec change records. Coordinates the L2 audit framework + the L3.2 doctor + the L3.3 from-doctor proposal generator. Triggers on `/peaks-doctor`, \"peaks doctor\", \"项目健康\", \"doctor report\", \"health check\", \"check the project\", \"audit my repo\".",
+          "userInvocable": false
         },
         {
-          "name": "peaks-test",
-          "path": "./skills/peaks-test",
-          "description": "Run the project's test suite on the current repo and report results."
+          "name": "peaks-final-review",
+          "path": "./skills/peaks-final-review",
+          "description": "Final-review skill for Peaks. Use when a workflow needs to assemble 4-dimension business-review evidence (functional-completeness, problem-resolution, no-new-bugs, existing-functionality-intact) for human acceptance at the end of an autonomous slice. Triggers on \"/peaks-final-review\", \"prepare final review\", \"4-dim review\", or peaks-code end-of-workflow handoff."
+        },
+        {
+          "name": "peaks-ide",
+          "path": "./skills/peaks-ide",
+          "description": "Orchestrate peaks-loop's IDE-aware behavior (hooks + statusline + handle) for a user's specific IDE. Detects the current state (which IDE the user is on, what peaks has already installed), plans the install / switch / status / uninstall actions, and invokes the existing peaks CLI primitives. Triggers on `/peaks-ide`, \"set up peaks for my IDE\", \"switch peaks to Trae\", \"what did peaks install\", \"uninstall peaks hooks\". Sits between the user and `peaks hooks install` / `peaks statusline install` / `peaks hook handle` — those are the CLI primitives; this skill is the user-facing surface.",
+          "userInvocable": false
+        },
+        {
+          "name": "peaks-issue-fix-orchestrator",
+          "path": "./skills/peaks-issue-fix-orchestrator",
+          "description": "End-to-end orchestrator that surveys open issues in a target repo, classifies them by difficulty, mines reference merged-PRs, fixes each issue with real commits (with Repository + AI-modified declaration), writes normalized PR description files, and emits a one-line submit script. Use when the user wants to drive a \"fix N open issues and prepare PRs\" run on an upstream repo (any language; primarily Python + TypeScript). Reuses Loop Engineering primitives: 4-layer asset model, Darwin ratchet, karpathy-engineered red lines, Human-NL-Choice-Only. Triggers on `/peaks-issue-fix-orchestrator`, \"fix 30 issues\", \"dogfood on <repo>\", \"open-issue sweep on <repo>\"."
+        },
+        {
+          "name": "peaks-perf-audit",
+          "path": "./skills/bee/peaks-perf-audit",
+          "description": "Independent performance audit skill. Reads the immutable peaks-prd handoff + the project-level perf-template.md, performs a 6-dimension perf audit, and writes a structured envelope to `.peaks/_runtime/<sessionId>/audit/perf-<rid>.md`. Decoupled from peaks-rd 5-way fan-out per slice v2.12.0 (Group A, Tier 3). Use when the slice introduces CPU-bound hot loops, I/O throughput changes, memory allocation patterns, concurrency model changes, bundle size deltas, or cold-start costs.",
+          "userInvocable": false
         },
         {
           "name": "peaks-prd",
           "path": "./skills/bee/peaks-prd",
-          "description": "Product and requirement skill for Peaks. Use when a workflow needs PRD, refactor goals, non-goals, behavior preservation, acceptance criteria, product change proposals, or user-confirmable product artifacts.",
-          "userInvocable": false
-        },
-        {
-          "name": "peaks-rd",
-          "path": "./skills/bee/peaks-rd",
-          "description": "Research and development skill for Peaks. Use for engineering analysis, refactor planning, project scanning, code standards, unit-test coverage gates, implementation contracts, task graphs, and RD handoffs. Always use this for Peaks-Loop refactor workflows.",
+          "description": "Product and requirement role for Peaks-Loop (LLM-only internal role; not user-invocable.\nTriggered by peaks-code via `peaks sub-agent dispatch --role prd`.)\nUse when a workflow needs PRD, refactor goals, non-goals, behavior preservation,\nacceptance criteria, product change proposals, or user-confirmable product artifacts.",
           "userInvocable": false
         },
         {
           "name": "peaks-qa",
           "path": "./skills/bee/peaks-qa",
-          "description": "QA and verification skill for Peaks. Use when a workflow needs unit-test coverage evidence, regression matrices, baseline reports, validation reports, acceptance checks, or refactor verification gates.",
+          "description": "QA and verification role for Peaks-Loop (LLM-only internal role; not user-invocable.\nTriggered by peaks-code via `peaks sub-agent dispatch --role qa`.)\nUse when a workflow needs unit-test coverage evidence, regression matrices,\nbaseline reports, validation reports, acceptance checks, or refactor verification gates.",
           "userInvocable": false
         },
         {
-          "name": "peaks-ui",
-          "path": "./skills/bee/peaks-ui",
-          "description": "UI and experience skill for Peaks. Use when a workflow touches UI/UX, interaction design, visual direction, design systems, frontend page behavior, high-fidelity HTML prototypes, or UI regression seeds.",
+          "name": "peaks-rd",
+          "path": "./skills/bee/peaks-rd",
+          "description": "Research and development role for Peaks-Loop (LLM-only internal role; not user-invocable.\nTriggered by peaks-code via `peaks sub-agent dispatch --role rd`.)\nUse for engineering analysis, refactor planning, project scanning, code standards,\nunit-test coverage gates, implementation contracts, task graphs, and RD handoffs.\nAlways use this for Peaks-Loop refactor workflows.",
+          "userInvocable": false
+        },
+        {
+          "name": "peaks-resume",
+          "path": "./skills/peaks-resume",
+          "description": "Universal resume primitive for any in-flight Peaks-Loop workflow (orchestrator-agnostic). Detects the current session's deepest completed gate and surfaces a resume option via AskUserQuestion. Use when ANY bee (peaks-code, future peaks-research, future peaks-content, …) needs to recover from /compact or session interruption. Triggers on \"/peaks-resume\", \"continue the unfinished work\", \"继续完成\", \"把刚才没做完的收尾\". (Replaces peaks-resume as a top-level primitive.)"
+        },
+        {
+          "name": "peaks-reviewer",
+          "path": "./skills/bee/peaks-reviewer",
+          "description": "Third-party independent code-review skill for Peaks. Use as a parallel reviewer to karpathy-reviewer when a workflow needs an out-of-band (non-RD-model) review pass to mitigate single-LLM self-dogfood blind spots. Emits a schema-validated ReviewerEnvelope (no free-form LLM JSON). v2.14.0 G4.",
           "userInvocable": false
         },
         {
           "name": "peaks-sc",
           "path": "./skills/bee/peaks-sc",
-          "description": "Source control, sync, and change-control skill for Peaks. Use when a workflow needs change impact, artifact retention, commit boundaries, GitHub artifact repository pointers, sync state, or rollback evidence.",
+          "description": "Source control, sync, and change-control role for Peaks-Loop (LLM-only internal role;\nnot user-invocable. Triggered by peaks-code via `peaks sub-agent dispatch --role sc`.)\nUse when a workflow needs change impact, artifact retention, commit boundaries,\nGitHub artifact repository pointers, sync state, or rollback evidence.",
           "userInvocable": false
         },
         {
-          "name": "peaks-txt",
-          "path": "./skills/bee/peaks-txt",
-          "description": "Context and knowledge skill for Peaks. Use when a workflow needs context capsules, role-specific context slices, decision records, assumptions, discarded options, staleness checks, lessons, or reusable project memory.",
+          "name": "peaks-security-audit",
+          "path": "./skills/bee/peaks-security-audit",
+          "description": "Independent security audit skill. Reads the immutable peaks-prd handoff + the project-level security-template.md, performs an OWASP Top-10 + 8-dimension threat model audit, and writes a structured envelope to `.peaks/_runtime/<sessionId>/audit/security-<rid>.md`. Decoupled from peaks-rd 5-way fan-out per slice v2.12.0 (Group A, Tier 2). Use when the slice introduces authn/authz, secrets, input validation, path/filesystem trust, SQL/NoSQL injection, XSS/content injection, dependency supply chain, or external API surface changes.",
           "userInvocable": false
+        },
+        {
+          "name": "peaks-slice-decompose",
+          "path": "./skills/peaks-slice-decompose",
+          "description": "Run multi-pass slice decomposition on a PRD-ready request and emit a v2 envelope with passes, cross-pass edges, and an LLM-arbitration trace. Use when a PRD is ready and the caller needs service-level and/or file-level cuts in one artifact."
+        },
+        {
+          "name": "peaks-solo",
+          "path": "./skills/peaks-solo",
+          "description": "Dispatcher (分诊员) for the Peaks-Loop skill family. Use when the user describes a task in natural language and does NOT know which peaks-* skill fits. peaks-solo reads the live skill pool via `peaks skill search`, dispatches to a matching leaf (peaks-code / peaks-content / peaks-doctor / peaks-issue-fix-orchestrator / etc.) or falls back to self-planned execution (deep-search / WebSearch / Bash / Edit markdown) if no leaf matches, and then asks the user whether to sediment the result.\n\nTriggers: 自然语言描述诉求且无明确 peaks-* skill 选择 / \"帮我处理这个\" / \"我不知道该用哪个\" / \"随便都行\".\n\nNOT for: code-specific work (use /peaks-code) / content-specific work (use /peaks-content) / project health check (use /peaks-doctor) / issue sweep (use /peaks-issue-fix-orchestrator) / SOP authoring (use /peaks-sop)."
         },
         {
           "name": "peaks-sop",
           "path": "./skills/peaks-sop",
-          "description": "Authoring skill for user-defined SOPs in Peaks. Use when a user wants to create, edit, debug, or register their own gated workflow."
+          "description": "Authoring skill for user-defined SOPs (standard operating procedures) in Peaks. Use when a user wants to create, edit, debug, or register their own gated workflow — ordered phases plus gates that block advancement until conditions are met — by describing it in natural language instead of hand-writing JSON or memorizing CLI commands. DOMAIN-AGNOSTIC: not just software/release flows — equally for content publishing, compliance and approval checklists, data pipelines, onboarding, ops runbooks, or any personal repeatable procedure, wherever \"don''t enter the next stage until X is true\" applies and X is checkable via a file, file content, or a command."
+        },
+        {
+          "name": "peaks-status",
+          "path": "./skills/peaks-status",
+          "description": "Universal status primitive for any in-flight Peaks-Loop workflow (orchestrator-agnostic). Reads the existing CLI primitives (peaks skill presence, peaks session list, peaks project dashboard, peaks request show) and renders a 1-screen status table. Use when the user asks \"where are we\", \"现在到哪了\", \"what's the current state\" for ANY bee (peaks-code, future peaks-research, …). Triggers on \"/peaks-status\", \"现在到哪了\", \"what is the current state\", \"show me the dashboard\". (Replaces peaks-status as a top-level primitive.)"
+        },
+        {
+          "name": "peaks-test",
+          "path": "./skills/peaks-test",
+          "description": "Universal test-runner primitive for any in-flight Peaks-Loop workflow (orchestrator-agnostic). Runs the project's test suite on the current repo and reports results. Use when the user asks \"run the tests\", \"跑一下 test\", \"跑测试\" for ANY bee (peaks-code, future peaks-research, …). Triggers on \"/peaks-test\", \"跑一下 test\", \"跑测试\", \"run the tests\", \"test now\". (Replaces peaks-test as a top-level primitive.)"
+        },
+        {
+          "name": "peaks-txt",
+          "path": "./skills/bee/peaks-txt",
+          "description": "Context and knowledge role for Peaks-Loop (LLM-only internal role; not user-invocable.\nTriggered by peaks-code via `peaks sub-agent dispatch --role txt`.)\nUse when a workflow needs context capsules, role-specific context slices, decision records,\nassumptions, discarded options, staleness checks, lessons, or reusable project memory.",
+          "userInvocable": false
+        },
+        {
+          "name": "peaks-ui",
+          "path": "./skills/bee/peaks-ui",
+          "description": "UI and experience role for Peaks-Loop (LLM-only internal role; not user-invocable.\nTriggered by peaks-code via `peaks sub-agent dispatch --role ui`.)\nUse when a workflow touches UI/UX, interaction design, visual direction, design systems,\nfrontend page behavior, high-fidelity HTML prototypes, or UI regression seeds.",
+          "userInvocable": false
         }
       ]
     }

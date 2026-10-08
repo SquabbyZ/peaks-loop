@@ -75,9 +75,7 @@ export interface RunCliOptions {
 export function runCli(argv: readonly string[], options: RunCliOptions): CliRun {
   const launch = cliLaunch(argv);
   const args =
-    options.spyOut === undefined
-      ? launch.args
-      : ['--import', SPY_PRELOAD_URL, ...launch.args];
+    options.spyOut === undefined ? launch.args : ['--import', SPY_PRELOAD_URL, ...launch.args];
   const startedAt = Date.now();
   const result: SpawnSyncReturns<string> = spawnSync(launch.command, args, {
     cwd: options.cwd,
@@ -128,10 +126,7 @@ export function digestTree(
       }
       if (!entry.isFile()) continue;
       try {
-        digests.set(
-          relativePath,
-          createHash('sha256').update(readFileSync(full)).digest('hex')
-        );
+        digests.set(relativePath, createHash('sha256').update(readFileSync(full)).digest('hex'));
       } catch {
         digests.set(relativePath, 'UNREADABLE');
       }
@@ -147,7 +142,9 @@ export function digestTree(
 }
 
 /** A single digest over a whole tree, or over several trees joined. */
-export function snapshotDigest(trees: ReadonlyArray<{ root: string; exclude?: (p: string) => boolean }>): string {
+export function snapshotDigest(
+  trees: ReadonlyArray<{ root: string; exclude?: (p: string) => boolean }>
+): string {
   const hash = createHash('sha256');
   for (const tree of trees) {
     hash.update(`tree:${toPosix(tree.root)}\n`);
@@ -196,7 +193,9 @@ export interface ReadonlyFixture {
 function mustRun(argv: readonly string[], options: RunCliOptions): CliRun {
   const run = runCli(argv, options);
   if (run.code !== 0) {
-    throw new Error(`fixture setup failed (${run.code}) for peaks ${argv.join(' ')}: ${run.stderr}`);
+    throw new Error(
+      `fixture setup failed (${run.code}) for peaks ${argv.join(' ')}: ${run.stderr}`
+    );
   }
   return run;
 }
@@ -252,8 +251,16 @@ export function makeTreeWritable(root: string): void {
 }
 
 const MEMORY_ENTRIES: ReadonlyArray<{ file: string; title: string; body: string }> = [
-  { file: 'fixture-alpha.md', title: 'Fixture decision alpha', body: 'Alpha body for the readonly proof.' },
-  { file: 'fixture-beta.md', title: 'Fixture decision beta', body: 'Beta body for the readonly proof.' }
+  {
+    file: 'fixture-alpha.md',
+    title: 'Fixture decision alpha',
+    body: 'Alpha body for the readonly proof.'
+  },
+  {
+    file: 'fixture-beta.md',
+    title: 'Fixture decision beta',
+    body: 'Beta body for the readonly proof.'
+  }
 ];
 
 /**
@@ -290,7 +297,16 @@ export function createReadonlyFixture(): ReadonlyFixture {
       sessionId: string;
     }
   ).sessionId;
-  run(['job', 'init', '--project', '.', '--job-id', 'fixture-job', '--slice-list', 'slice-a,slice-b']);
+  run([
+    'job',
+    'init',
+    '--project',
+    '.',
+    '--job-id',
+    'fixture-job',
+    '--slice-list',
+    'slice-a,slice-b'
+  ]);
   for (const role of ['rd', 'prd']) {
     run([
       'request',
@@ -363,8 +379,12 @@ export function measurePopulation(projectRoot: string): FixturePopulation {
     projectRoot,
     (path) => /^\.peaks\/memory\/[^/]+\.md$/.test(path) && !path.endsWith('/MEMORY.md')
   );
-  const jobs = countMatching(projectRoot, (path) => /^\.peaks\/_runtime\/[^/]+\/job\/[^/]+\/state\.json$/.test(path));
-  const requests = countMatching(projectRoot, (path) => /^\.peaks\/_runtime\/[^/]+\/[^/]+\/requests\/[^/]+\.md$/.test(path));
+  const jobs = countMatching(projectRoot, (path) =>
+    /^\.peaks\/_runtime\/[^/]+\/job\/[^/]+\/state\.json$/.test(path)
+  );
+  const requests = countMatching(projectRoot, (path) =>
+    /^\.peaks\/_runtime\/[^/]+\/[^/]+\/requests\/[^/]+\.md$/.test(path)
+  );
   const missing: string[] = [];
   if (sessions === 0) missing.push('sessions');
   if (memoryEntries === 0) missing.push('memory entries');

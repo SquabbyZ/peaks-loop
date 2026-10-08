@@ -13,13 +13,14 @@
  */
 import type { SubAgentDispatcher } from '../dispatch/sub-agent-dispatcher.js';
 import type { ContextPercentFallbackInput, IdeCompactProfile } from './ide-compact-types.js';
+import type { IdeMcpInstallProfile } from './ide-mcp-install-types.js';
 
 /**
  * Re-exported so every importer of `./ide-types.js` keeps seeing the whole
  * adapter type surface from the original path (b1 file-size campaign: the two
  * declarations now live in `./ide-compact-types.js`).
  */
-export type { ContextPercentFallbackInput, IdeCompactProfile };
+export type { ContextPercentFallbackInput, IdeCompactProfile, IdeMcpInstallProfile };
 
 export type IdeId =
   | 'claude-code'
@@ -204,6 +205,13 @@ export interface IdeAdapter {
    * the adapter so no other module has to know it.
    */
   readonly mcp?: IdeMcpProfile;
+  /**
+   * How this harness REGISTERS an MCP server (spec §8.3), consumed by
+   * `peaks mcp install/uninstall`. Optional, like `mcp` above: leaving it
+   * undefined declares "no registration entry peaks may call", and the install
+   * reads that as "nothing to do". See `ide-mcp-install-types.ts`.
+   */
+  readonly mcpInstall?: IdeMcpInstallProfile;
 }
 
 /**

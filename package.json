@@ -97,8 +97,9 @@
     "LICENSE"
   ],
   "scripts": {
-    "build": "node ./scripts/sync-version.mjs && node ./scripts/clean-dist.mjs && pnpm -r --filter \"./packages/*\" run build && node ./scripts/write-package-dist-stamps.mjs && node node_modules/tsx/dist/cli.mjs scripts/generate-readonly-whitelist.ts && tsc -p tsconfig.build.json && node ./scripts/copy-templates.mjs && node ./scripts/check-build-integrity.mjs && node ./scripts/write-dist-stamp.mjs",
+    "build": "node ./scripts/sync-version.mjs && node ./scripts/clean-dist.mjs && pnpm -r --filter \"./packages/*\" run build && node ./scripts/write-package-dist-stamps.mjs && node node_modules/tsx/dist/cli.mjs scripts/generate-readonly-whitelist.ts && node node_modules/tsx/dist/cli.mjs scripts/generate-plugin-manifest.ts && tsc -p tsconfig.build.json && node ./scripts/copy-templates.mjs && node ./scripts/check-build-integrity.mjs && node ./scripts/write-dist-stamp.mjs",
     "readonly:whitelist": "node node_modules/tsx/dist/cli.mjs scripts/generate-readonly-whitelist.ts",
+    "plugin:manifest": "node node_modules/tsx/dist/cli.mjs scripts/generate-plugin-manifest.ts",
     "prepack": "npm run build",
     "prepublishOnly": "node scripts/prepublish-build.mjs",
     "prepublish": "node ./scripts/sync-version.mjs",

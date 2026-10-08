@@ -17,7 +17,7 @@
  * enter is visible in the artifact. When a command later declares `.choices()`,
  * the same field flips to `introspected` with no artifact edit.
  *
- * DETERMINISM (AC-2): no timestamps, no `Date`, no unordered iteration. Record
+ * DETERMINISM: no timestamps, no `Date`, no unordered iteration. Record
  * keys follow argv order and entries follow the surface file's order, so two
  * consecutive runs are byte-identical.
  */

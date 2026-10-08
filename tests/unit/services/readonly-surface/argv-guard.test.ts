@@ -128,10 +128,12 @@ describe('Scenario: behavior - injection attempts cannot flip a placeholder into
       ok: true,
       value: 'rid-035'
     });
-    expect(validatePlaceholderValue('query', specOf('memory-search', 'query'), 'sediment')).toEqual({
-      ok: true,
-      value: 'sediment'
-    });
+    expect(validatePlaceholderValue('query', specOf('memory-search', 'query'), 'sediment')).toEqual(
+      {
+        ok: true,
+        value: 'sediment'
+      }
+    );
   });
 
   it('when a flag-shaped value reaches any type, should refuse it before the type rules run', () => {

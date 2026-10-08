@@ -162,89 +162,111 @@ function spyCounters(argv: readonly string[], index: number): SpyCounters & { co
  * whole job is to be red when the artifact is gone.
  */
 describe('Scenario: integration — the proof cannot vanish with the build', () => {
-  it('when the build artifact is missing, should fail the suite rather than skip the proof', () => {
-    // given: the artifact every layer below spawns (bin/peaks.js imports it)
-    // when:  its existence is measured
-    // then:  it IS there - a missing build is a failure, never a silent skip
-    expect(
-      existsSync(DIST_ENTRY),
-      `${DIST_ENTRY} is missing, so the three-layer proof cannot run. ` +
-        'This is a FAILURE, not a skip: a proof that vanishes still reports success. ' +
-        'Build first (`npm run build`), then re-run this suite. ' +
-        `(Repo convention PEAKS_BUILD_AVAILABLE=${process.env['PEAKS_BUILD_AVAILABLE'] ?? 'unset'} ` +
-        'is not sufficient here - it checks different artifacts.)'
-    ).toBe(true);
-  }, HEAVY_SUBPROCESS_TEST_TIMEOUT_MS);
+  it(
+    'when the build artifact is missing, should fail the suite rather than skip the proof',
+    () => {
+      // given: the artifact every layer below spawns (bin/peaks.js imports it)
+      // when:  its existence is measured
+      // then:  it IS there - a missing build is a failure, never a silent skip
+      expect(
+        existsSync(DIST_ENTRY),
+        `${DIST_ENTRY} is missing, so the three-layer proof cannot run. ` +
+          'This is a FAILURE, not a skip: a proof that vanishes still reports success. ' +
+          'Build first (`npm run build`), then re-run this suite. ' +
+          `(Repo convention PEAKS_BUILD_AVAILABLE=${process.env['PEAKS_BUILD_AVAILABLE'] ?? 'unset'} ` +
+          'is not sufficient here - it checks different artifacts.)'
+      ).toBe(true);
+    },
+    HEAVY_SUBPROCESS_TEST_TIMEOUT_MS
+  );
 });
 
 describe('Scenario: integration — layer A, state is read-only', () => {
-  it('when each curated argv runs on a populated fixture, should leave the tree byte-identical', () => {
-    // given: a fixture whose sessions, memory, job and request artifacts the CLI wrote itself
-    const trees = snapshotTrees();
-    const beforeTree = digestTree(fixture.projectRoot);
-    const beforeDigest = snapshotDigest(trees);
+  it(
+    'when each curated argv runs on a populated fixture, should leave the tree byte-identical',
+    () => {
+      // given: a fixture whose sessions, memory, job and request artifacts the CLI wrote itself
+      const trees = snapshotTrees();
+      const beforeTree = digestTree(fixture.projectRoot);
+      const beforeDigest = snapshotDigest(trees);
 
-    // when:  every curated argv is executed in its own process, under a forced timeout
-    const runs = curatedArgv().map((argv) =>
-      runCli(argv, { cwd: fixture.projectRoot, env: fixture.env })
-    );
+      // when:  every curated argv is executed in its own process, under a forced timeout
+      const runs = curatedArgv().map((argv) =>
+        runCli(argv, { cwd: fixture.projectRoot, env: fixture.env })
+      );
 
-    // then:  each one really ran - exit 0 and no timeout - and nothing on disk moved
-    for (const run of runs) {
-      expect(run.timedOut, `peaks ${run.argv.join(' ')} exceeded ${ARGV_TIMEOUT_MS}ms`).toBe(false);
-      expect(run.code, `peaks ${run.argv.join(' ')} → ${run.stderr}`).toBe(0);
-    }
-    expect(diffTrees(beforeTree, digestTree(fixture.projectRoot))).toEqual([]);
-    expect(snapshotDigest(trees)).toBe(beforeDigest);
-  }, HEAVY_SUBPROCESS_TEST_TIMEOUT_MS);
+      // then:  each one really ran - exit 0 and no timeout - and nothing on disk moved
+      for (const run of runs) {
+        expect(run.timedOut, `peaks ${run.argv.join(' ')} exceeded ${ARGV_TIMEOUT_MS}ms`).toBe(
+          false
+        );
+        expect(run.code, `peaks ${run.argv.join(' ')} → ${run.stderr}`).toBe(0);
+      }
+      expect(diffTrees(beforeTree, digestTree(fixture.projectRoot))).toEqual([]);
+      expect(snapshotDigest(trees)).toBe(beforeDigest);
+    },
+    HEAVY_SUBPROCESS_TEST_TIMEOUT_MS
+  );
 
-  it('when the excluded log directory is inspected, should really hold the appends it is excused for', () => {
-    // given: the fixture home after the runs above, whose log directory is excluded from the digest
-    // when:  the excluded region is read directly
-    // then:  it is non-empty - the allowance is a measured exception, not a blind spot
-    const logFiles = [...digestTree(fixture.homeDir).keys()].filter((path) =>
-      path.startsWith(`${LOG_DIR_RELATIVE}/`)
-    );
-    expect(logFiles.length).toBeGreaterThan(0);
-  }, HEAVY_SUBPROCESS_TEST_TIMEOUT_MS);
+  it(
+    'when the excluded log directory is inspected, should really hold the appends it is excused for',
+    () => {
+      // given: the fixture home after the runs above, whose log directory is excluded from the digest
+      // when:  the excluded region is read directly
+      // then:  it is non-empty - the allowance is a measured exception, not a blind spot
+      const logFiles = [...digestTree(fixture.homeDir).keys()].filter((path) =>
+        path.startsWith(`${LOG_DIR_RELATIVE}/`)
+      );
+      expect(logFiles.length).toBeGreaterThan(0);
+    },
+    HEAVY_SUBPROCESS_TEST_TIMEOUT_MS
+  );
 
-  it('when the fixture is audited for population, should be non-empty for all four artifact kinds', () => {
-    // given: the fixture the layer-A arm ran against
-    // when:  its population is measured
-    // then:  it is valid - the zero-change result above is a measurement, not an empty set
-    const population = measurePopulation(fixture.projectRoot);
-    expect(population.reason).toContain('session');
-    expect(population.valid).toBe(true);
-    expect(population.sessions).toBeGreaterThan(0);
-    expect(population.memoryEntries).toBeGreaterThan(0);
-    expect(population.jobs).toBeGreaterThan(0);
-    expect(population.requests).toBeGreaterThan(0);
-  }, HEAVY_SUBPROCESS_TEST_TIMEOUT_MS);
+  it(
+    'when the fixture is audited for population, should be non-empty for all four artifact kinds',
+    () => {
+      // given: the fixture the layer-A arm ran against
+      // when:  its population is measured
+      // then:  it is valid - the zero-change result above is a measurement, not an empty set
+      const population = measurePopulation(fixture.projectRoot);
+      expect(population.reason).toContain('session');
+      expect(population.valid).toBe(true);
+      expect(population.sessions).toBeGreaterThan(0);
+      expect(population.memoryEntries).toBeGreaterThan(0);
+      expect(population.jobs).toBeGreaterThan(0);
+      expect(population.requests).toBeGreaterThan(0);
+    },
+    HEAVY_SUBPROCESS_TEST_TIMEOUT_MS
+  );
 
-  it('when an empty directory is audited instead, should be refused as an invalid zero-change result', () => {
-    // given: an empty temp directory, which is what "nothing was read" looks like
-    const empty = mkdtempSync(join(tmpdir(), 'peaks-readonly-empty-'));
+  it(
+    'when an empty directory is audited instead, should be refused as an invalid zero-change result',
+    () => {
+      // given: an empty temp directory, which is what "nothing was read" looks like
+      const empty = mkdtempSync(join(tmpdir(), 'peaks-readonly-empty-'));
 
-    try {
-      // when:  it is measured
-      const population = measurePopulation(empty);
+      try {
+        // when:  it is measured
+        const population = measurePopulation(empty);
 
-      // then:  it is invalid and says which kinds are missing, so AC-4's refusal is exercisable
-      expect(population.valid).toBe(false);
-      expect(population.reason).toContain('sessions');
-      expect(population.reason).toContain('memory entries');
-      expect(population.reason).toContain('jobs');
-      expect(population.reason).toContain('requests');
-    } finally {
-      rmSync(empty, { recursive: true, force: true });
-    }
-  }, HEAVY_SUBPROCESS_TEST_TIMEOUT_MS);
+        // then:  it is invalid and says which kinds are missing, so AC-4's refusal is exercisable
+        expect(population.valid).toBe(false);
+        expect(population.reason).toContain('sessions');
+        expect(population.reason).toContain('memory entries');
+        expect(population.reason).toContain('jobs');
+        expect(population.reason).toContain('requests');
+      } finally {
+        rmSync(empty, { recursive: true, force: true });
+      }
+    },
+    HEAVY_SUBPROCESS_TEST_TIMEOUT_MS
+  );
 });
 
-describe(
-  'Scenario: integration — layer B, the CLI spawns nothing and reaches no network',
-  () => {
-    it('when the spy is installed in the probe, should count that probe\'s spawn and network calls', () => {
+describe('Scenario: integration — layer B, the CLI spawns nothing and reaches no network', () => {
+  it(
+    "when the spy is installed in the probe, should count that probe's spawn and network calls",
+    () => {
       // given: a probe that spawns a process, opens an http request and calls fetch
       const out = join(spyDir, 'control.json');
       rmSync(out, { force: true });
@@ -262,9 +284,13 @@ describe(
       expect(counters.childProcess).toBeGreaterThan(0);
       expect(counters.network).toBeGreaterThan(0);
       expect(counters.calls).toContain('node:child_process.spawnSync');
-    }, HEAVY_SUBPROCESS_TEST_TIMEOUT_MS);
+    },
+    HEAVY_SUBPROCESS_TEST_TIMEOUT_MS
+  );
 
-    it('when each curated argv runs, should spawn nothing and reach no network', () => {
+  it(
+    'when each curated argv runs, should spawn nothing and reach no network',
+    () => {
       // given: a populated fixture with the preload installed inside the CLI process
       // when:  every curated argv executes, each in its own process
       // then:  both counters are exactly zero and the call log is empty
@@ -277,9 +303,13 @@ describe(
         expect(counters.network, `peaks ${argv.join(' ')} reached the network`).toBe(0);
         expect(counters.calls, `peaks ${argv.join(' ')} call log`).toEqual([]);
       }
-    }, HEAVY_SUBPROCESS_TEST_TIMEOUT_MS);
+    },
+    HEAVY_SUBPROCESS_TEST_TIMEOUT_MS
+  );
 
-    it('when the excluded argv runs, should be measured spawning - which is why it is not in the surface', () => {
+  it(
+    'when the excluded argv runs, should be measured spawning - which is why it is not in the surface',
+    () => {
       // given: the argv the surface left out
       // when:  it runs under the same spy
       // then:  the spawn is reproduced as a live fact, so the exclusion is evidence and not a note
@@ -287,55 +317,66 @@ describe(
       expect(counters.code).toBe(0);
       expect(counters.childProcess).toBeGreaterThan(0);
       expect(counters.calls).toContain('node:child_process.execFileSync');
-    }, HEAVY_SUBPROCESS_TEST_TIMEOUT_MS);
-  }
-);
+    },
+    HEAVY_SUBPROCESS_TEST_TIMEOUT_MS
+  );
+});
 
 describe.skipIf(!SANDBOX_REQUESTED)(
   'Scenario: integration — layer C, the same result inside a real sandbox (CI-only)',
   () => {
-    it('when the sandbox is claimed, should prove the claim before trusting any result from it', async () => {
-      // given: a process told it is running with no network and an unwritable project tree
-      // when:  the claim is TESTED rather than assumed
-      // then:  both halves must hold, or this arm fails - the flag cannot manufacture a sandbox
-      let networkReachable = true;
-      try {
-        await fetch('https://registry.npmjs.org/-/ping', { signal: AbortSignal.timeout(5000) });
-      } catch {
-        networkReachable = false;
-      }
-      expect(networkReachable, 'network is reachable: this is not a no-network sandbox').toBe(false);
+    it(
+      'when the sandbox is claimed, should prove the claim before trusting any result from it',
+      async () => {
+        // given: a process told it is running with no network and an unwritable project tree
+        // when:  the claim is TESTED rather than assumed
+        // then:  both halves must hold, or this arm fails - the flag cannot manufacture a sandbox
+        let networkReachable = true;
+        try {
+          await fetch('https://registry.npmjs.org/-/ping', { signal: AbortSignal.timeout(5000) });
+        } catch {
+          networkReachable = false;
+        }
+        expect(networkReachable, 'network is reachable: this is not a no-network sandbox').toBe(
+          false
+        );
 
-      readFileSync(join(fixture.projectRoot, '.peaks', '_runtime', 'session.json'), 'utf8');
-      // The unwritable half is a Linux-runner contract, and this arm is the reason it
-      // is asserted before any result is trusted. On win32 the same chmod does NOT stop
-      // a NEW file being created in a 0o555 directory (only modifying an existing file
-      // raises EPERM - measured by QA), so this arm is expected to be reachable only on
-      // the CI runner. Locally on Windows it is not reached at all: the network
-      // assertion above fails first, which is the honest outcome.
-      expect(() =>
-        writeFileSync(join(fixture.projectRoot, '.peaks', 'readonly-probe.tmp'), 'x')
-      ).toThrow();
-    }, HEAVY_SUBPROCESS_TEST_TIMEOUT_MS);
+        readFileSync(join(fixture.projectRoot, '.peaks', '_runtime', 'session.json'), 'utf8');
+        // The unwritable half is a Linux-runner contract, and this arm is the reason it
+        // is asserted before any result is trusted. On win32 the same chmod does NOT stop
+        // a NEW file being created in a 0o555 directory (only modifying an existing file
+        // raises EPERM - measured by QA), so this arm is expected to be reachable only on
+        // the CI runner. Locally on Windows it is not reached at all: the network
+        // assertion above fails first, which is the honest outcome.
+        expect(() =>
+          writeFileSync(join(fixture.projectRoot, '.peaks', 'readonly-probe.tmp'), 'x')
+        ).toThrow();
+      },
+      HEAVY_SUBPROCESS_TEST_TIMEOUT_MS
+    );
 
-    it('when each curated argv runs inside the sandbox, should agree with the unsandboxed result', () => {
-      // given: the same fixture, now on an unmodifiable tree inside a network-less
-      //        namespace. "Unmodifiable" rather than "unwritable" is the honest wording:
-      //        on win32 the chmod stops modification, not creation (see _proof-helpers.ts).
-      const trees = snapshotTrees();
-      const beforeDigest = snapshotDigest(trees);
+    it(
+      'when each curated argv runs inside the sandbox, should agree with the unsandboxed result',
+      () => {
+        // given: the same fixture, now on an unmodifiable tree inside a network-less
+        //        namespace. "Unmodifiable" rather than "unwritable" is the honest wording:
+        //        on win32 the chmod stops modification, not creation (see _proof-helpers.ts).
+        const trees = snapshotTrees();
+        const beforeDigest = snapshotDigest(trees);
 
-      // when:  every curated argv runs with the layer-B preload
-      let index = 100;
-      for (const argv of curatedArgv()) {
-        const counters = spyCounters(argv, index);
-        index += 1;
-        // then:  the sandbox changes nothing - same exit codes, same zero counters
-        expect(counters.code, `peaks ${argv.join(' ')} did not exit 0 in the sandbox`).toBe(0);
-        expect(counters.childProcess).toBe(0);
-        expect(counters.network).toBe(0);
-      }
-      expect(snapshotDigest(trees)).toBe(beforeDigest);
-    }, HEAVY_SUBPROCESS_TEST_TIMEOUT_MS);
+        // when:  every curated argv runs with the layer-B preload
+        let index = 100;
+        for (const argv of curatedArgv()) {
+          const counters = spyCounters(argv, index);
+          index += 1;
+          // then:  the sandbox changes nothing - same exit codes, same zero counters
+          expect(counters.code, `peaks ${argv.join(' ')} did not exit 0 in the sandbox`).toBe(0);
+          expect(counters.childProcess).toBe(0);
+          expect(counters.network).toBe(0);
+        }
+        expect(snapshotDigest(trees)).toBe(beforeDigest);
+      },
+      HEAVY_SUBPROCESS_TEST_TIMEOUT_MS
+    );
   }
 );

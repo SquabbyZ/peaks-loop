@@ -9,11 +9,20 @@ import {
   readClaudeStatuslinePercent,
   resolveClaudeTranscriptPath
 } from './claude-code-local-state.js';
+import {
+  DEFAULT_CONTEXT_WINDOW_TOKENS,
+  ONE_MILLION_CONTEXT_TOKENS,
+  modelContextWindowTokens,
+  resolveClaudeModelFromEnv
+} from './claude-code-model-window.js';
 
 // Re-exported so the public surface of this module is unchanged by the split:
 // the readers live in `claude-code-local-state.ts` now, but every existing
 // importer keeps resolving them from here.
 export { resolveClaudeTranscriptPath };
+// Likewise the model-id / window-size pair, which moved into
+// `claude-code-model-window.ts` to make room for `mcpInstall` below.
+export { modelContextWindowTokens, resolveClaudeModelFromEnv };
 
 /**
  * Claude Code adapter —— peaks-loop 的"起源 IDE"。
@@ -31,92 +40,8 @@ export { resolveClaudeTranscriptPath };
  * 不可消除的 per-IDE 字段(见 tech-doc.md §1.3)。
  */
 
-/** 1M-context window size in tokens (documented single choice: 1,000,000). */
-const ONE_MILLION_CONTEXT_TOKENS = 1_000_000;
-/** Safe-default (non-1M) context window size in tokens. */
-const DEFAULT_CONTEXT_WINDOW_TOKENS = 200_000;
 /** Reverse-scan chunk size in bytes (keeps memory bounded on multi-MB transcripts). */
 const TRANSCRIPT_SCAN_CHUNK_BYTES = 64 * 1024;
-/**
- * Known 1M-context Claude model id prefixes whose ids do NOT carry a `1m`
- * suffix (e.g. `claude-sonnet-4-5-20250929`). The substring match is
- * intentionally generous — every `claude-sonnet-4*` / `claude-opus-4*`
- * variant is 1M-context.
- */
-const ONE_MILLION_CONTEXT_MODELS: readonly string[] = ['claude-opus-4', 'claude-sonnet-4'];
-
-/**
- * Claude Code runtime env vars that may carry the currently-active model id,
- * in documented precedence order (first non-empty value wins):
- *   1. ANTHROPIC_MODEL                — explicit per-run model override
- *   2. ANTHROPIC_DEFAULT_OPUS_MODEL   — default Opus fallback
- *   3. ANTHROPIC_DEFAULT_SONNET_MODEL — default Sonnet fallback
- *   4. ANTHROPIC_DEFAULT_HAIKU_MODEL  — default Haiku fallback
- *   5. ANTHROPIC_DEFAULT_FABLE_MODEL  — default Fable fallback
- *   6. CLAUDE_CODE_SUBAGENT_MODEL     — sub-agent model (used when the others
- *                                       are absent, e.g. a sub-agent-only env)
- *
- * Why env-first: the transcript's `message.model` often drops Claude Code's
- * `[1M]` / `[200K]` suffix marker (observed: `deepseek-v4-flash`), while the
- * runtime env vars above carry it (`deepseek-v4-flash[1M]`). Reading them
- * first lets the window resolver see the true context window. This family is
- * vendor-specific, so it lives ONLY in the claude-code adapter.
- */
-const CLAUDE_CODE_MODEL_ENV_VARS: readonly string[] = [
-  'ANTHROPIC_MODEL',
-  'ANTHROPIC_DEFAULT_OPUS_MODEL',
-  'ANTHROPIC_DEFAULT_SONNET_MODEL',
-  'ANTHROPIC_DEFAULT_HAIKU_MODEL',
-  'ANTHROPIC_DEFAULT_FABLE_MODEL',
-  'CLAUDE_CODE_SUBAGENT_MODEL'
-];
-
-/**
- * Resolve the currently-active Claude Code model id from a runtime env map.
- * Returns the first non-empty `CLAUDE_CODE_MODEL_ENV_VARS` value (trimmed), or
- * `undefined` when none is present. Pure + exported for tests; the caller falls
- * back to the transcript `message.model` when this returns undefined.
- */
-export function resolveClaudeModelFromEnv(env: NodeJS.ProcessEnv | undefined): string | undefined {
-  if (!env) return undefined;
-  for (const name of CLAUDE_CODE_MODEL_ENV_VARS) {
-    const value = env[name];
-    if (typeof value === 'string') {
-      const trimmed = value.trim();
-      if (trimmed.length > 0) return trimmed;
-    }
-  }
-  return undefined;
-}
-
-/**
- * Model-aware context-window size in tokens.
- *
- * Detection rule (documented):
- *   1. Empty / unknown model → DEFAULT_CONTEXT_WINDOW_TOKENS (200_000).
- *   2. Suffix heuristic — a model id containing `1m` (case-insensitive) is
- *      treated as 1M-context.
- *   3. Explicit allowlist — known 1M Claude model ids
- *      (ONE_MILLION_CONTEXT_MODELS).
- *   4. Everything else → 200_000 (the safe default).
- *
- * Callers MAY additionally infer ≥1M from the observed token count: if
- * `contextTokens > DEFAULT_CONTEXT_WINDOW_TOKENS`, the model cannot be a
- * 200K model and must be ≥1M (see `readClaudeTranscriptEstimate`).
- *
- * This is the HEURISTIC layer only. Explicit user overrides sit ABOVE it —
- * see `resolveContextWindow`, which is what the probe actually calls.
- */
-export function modelContextWindowTokens(model: string): number {
-  const m = model.trim().toLowerCase();
-  if (m.length === 0) return DEFAULT_CONTEXT_WINDOW_TOKENS;
-  if (m.includes('1m')) return ONE_MILLION_CONTEXT_TOKENS;
-  for (const known of ONE_MILLION_CONTEXT_MODELS) {
-    if (m.includes(known)) return ONE_MILLION_CONTEXT_TOKENS;
-  }
-  return DEFAULT_CONTEXT_WINDOW_TOKENS;
-}
-
 /**
  * the context-window size in tokens. Third-party / proxied models whose id
  * carries no `[1M]` suffix (and is absent from the hardcoded allowlist) are
@@ -619,6 +544,36 @@ export const CLAUDE_CODE_ADAPTER: IdeAdapter = {
   // call.
   mcp: {
     toolNameTemplates: ['mcp__peaks__*', 'mcp__plugin_peaks-loop_peaks__*']
+  },
+  // How this harness REGISTERS a peaks MCP server. The entry
+  // is the harness's OWN verb, not a hand-edit of its config file, which is
+  // full of the user's state (spec §8.3). The shape is recorded in spec §13 —
+  // it is read off that table, not invented here:
+  //   - the `--` before the server argv is LOAD-BEARING: everything after it is
+  //     passed to the server verbatim, otherwise the harness reads the server's
+  //     own flags as its own;
+  //   - the verb is NOT idempotent — same name, same scope fails, with no
+  //     `--force` and no `update` — which is why the engine removes first.
+  // `scopes` is `user` alone: that is the scope a peaks install writes (spec
+  // §8.4), and sweeping a scope peaks never wrote would delete a user's own
+  // entry under the same name.
+  mcpInstall: {
+    serverName: 'peaks',
+    scopes: ['user'],
+    targetScope: 'user',
+    addArgv: [
+      'claude',
+      'mcp',
+      'add',
+      '--scope',
+      '<scope>',
+      '--transport',
+      'stdio',
+      '<name>',
+      '--',
+      '<server-argv>'
+    ],
+    removeArgv: ['claude', 'mcp', 'remove', '<name>', '--scope', '<scope>']
   },
   // Slice #009: Claude Code uses the `Task` tool for sub-agent dispatch.
   // The CLI calls `claudeCodeSubAgentDispatcher.buildToolCall` to construct

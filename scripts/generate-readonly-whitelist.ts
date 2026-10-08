@@ -11,7 +11,7 @@
 // `tests/unit/scripts/generate-readonly-whitelist.test.ts`
 // runs it again and fails when the committed artifact differs from a fresh
 // generation — so a hand-edited artifact cannot survive, and a renamed CLI
-// option cannot leave the surface describing something that no longer exists.
+// option cannot leave the surface describing an option that is gone.
 //
 // The output is data: nothing imports it (see `readonly-whitelist.ts` for why).
 
@@ -29,4 +29,6 @@ const surface = loadReadOnlySurface();
 const whitelist = generateReadOnlyWhitelist(surface, createProgram());
 const target = readonlyWhitelistPath();
 writeFileSync(target, serializeReadOnlyWhitelist(whitelist), 'utf8');
-process.stdout.write(`readonly-whitelist: wrote ${whitelist.entries.length} entries to ${target}\n`);
+process.stdout.write(
+  `readonly-whitelist: wrote ${whitelist.entries.length} entries to ${target}\n`
+);

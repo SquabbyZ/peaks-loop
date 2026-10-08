@@ -72,7 +72,9 @@ describe('Scenario: behavior - the key is the full argv, flags included', () => 
     const whitelist = loadReadOnlyWhitelist();
     expect(matchReadOnlyEntry(whitelist, ['session', 'list', '--json'])?.id).toBe('session-list');
     expect(matchReadOnlyEntry(whitelist, ['session', 'list'])).toBeUndefined();
-    expect(matchReadOnlyEntry(whitelist, ['session', 'list', '--json', '--project', '.'])).toBeUndefined();
+    expect(
+      matchReadOnlyEntry(whitelist, ['session', 'list', '--json', '--project', '.'])
+    ).toBeUndefined();
   });
 
   it('when a value sits in a placeholder slot, should match it and leave refusal to the guard', () => {

@@ -24,9 +24,19 @@ import { dirname, extname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { Command } from 'commander';
 
+import {
+  installMcpForAdapter,
+  resolveMcpServerArgv,
+  spawnMcpInstallRunner,
+  uninstallMcpForAdapter,
+  type AdapterMcpInstallResult
+} from '../../services/distribution/mcp-install.js';
+import { detectIdeFromContext } from '../../services/ide/hook-translator.js';
+import type { IdeAdapter } from '../../services/ide/ide-types.js';
+import { resolveIdeOptionHelp, tryGetAdapter } from '../../services/ide/ide-registry.js';
 import { interpreterArgs } from '../../services/web/daemon-supervisor.js';
 import { printResult, type ProgramIO } from '../cli-helpers.js';
-import { fail } from 'peaks-loop-shared/result';
+import { fail, ok } from 'peaks-loop-shared/result';
 
 /** This file's directory — `<root>/src/cli/commands` or `<root>/dist/cli/commands`. */
 const MODULE_DIR = dirname(fileURLToPath(import.meta.url));
@@ -104,5 +114,129 @@ export function registerMcpCommands(program: Command, io: ProgramIO): void {
     .option('--project <path>', 'project the server runs the CLI in (default: current directory)')
     .action((options: McpServeOptions) => {
       runMcpServe(io, options);
+    });
+
+  registerMcpRegistrationCommands(mcp, io);
+}
+
+interface McpRegistrationOptions {
+  ide?: string;
+  json?: boolean;
+}
+
+/**
+ * The harness this command targets: `--ide` when given, else the same context
+ * detection the hook commands use. An id with no registered adapter is reported
+ * as unsupported rather than silently treated as "nothing to do" — the two are
+ * different facts and only one of them is the caller's fault.
+ */
+type TargetAdapter =
+  | { readonly kind: 'adapter'; readonly adapter: IdeAdapter }
+  | { readonly kind: 'unsupported'; readonly ide: string };
+
+function resolveTargetAdapter(options: McpRegistrationOptions): TargetAdapter {
+  const ide =
+    options.ide !== undefined && options.ide.length > 0
+      ? options.ide
+      : detectIdeFromContext({ env: process.env, cwd: process.cwd(), parsedStdin: null });
+  const adapter = tryGetAdapter(ide);
+  return adapter === undefined ? { kind: 'unsupported', ide } : { kind: 'adapter', adapter };
+}
+
+/** One envelope line per adapter: what was registered, or why nothing was. */
+function reportRegistration(
+  result: AdapterMcpInstallResult,
+  verb: 'install' | 'uninstall'
+): string {
+  if (result.skipped) {
+    return `${result.ideId}: skipped — ${result.reason}`;
+  }
+  const { report } = result;
+  return `${result.ideId}: ${verb} ${report.ok ? 'ok' : 'FAILED'} — ${report.detail}`;
+}
+
+function runMcpRegistration(
+  io: ProgramIO,
+  verb: 'install' | 'uninstall',
+  options: McpRegistrationOptions
+): void {
+  const target = resolveTargetAdapter(options);
+  if (target.kind === 'unsupported') {
+    printResult(
+      io,
+      fail(
+        `mcp.${verb}`,
+        'MCP_HARNESS_UNSUPPORTED',
+        `No adapter is registered for harness '${target.ide}'.`,
+        { ide: target.ide },
+        ['Pass --ide with a registered adapter id']
+      ),
+      options.json === true
+    );
+    process.exitCode = 1;
+    return;
+  }
+  const { adapter } = target;
+
+  const serverArgv = resolveMcpServerArgv();
+  const result =
+    verb === 'install'
+      ? installMcpForAdapter(adapter, serverArgv, spawnMcpInstallRunner)
+      : uninstallMcpForAdapter(adapter, serverArgv, spawnMcpInstallRunner);
+  const report = result.skipped ? undefined : result.report;
+  if (report !== undefined && !report.ok) {
+    printResult(
+      io,
+      fail(`mcp.${verb}`, 'MCP_REGISTRATION_FAILED', report.detail, { ide: adapter.id }, [
+        'Run the harness command by hand to see its own error'
+      ]),
+      options.json === true
+    );
+    process.exitCode = 1;
+    return;
+  }
+  printResult(
+    io,
+    ok(`mcp.${verb}`, {
+      ide: adapter.id,
+      skipped: result.skipped,
+      summary: reportRegistration(result, verb),
+      registration: result
+    }),
+    options.json === true
+  );
+}
+
+/**
+ * `peaks mcp install` / `peaks mcp uninstall` — the distribution half of the MCP
+ * surface, and an explicit pair on purpose (spec §8.3 Q19): an uninstall that
+ * only ran from a package manager's hook is skipped whenever the manager decides
+ * to skip it, and the leftover registration then makes the NEXT install fail on
+ * a duplicate. Neither command starts a process; they register one.
+ */
+function registerMcpRegistrationCommands(mcp: Command, io: ProgramIO): void {
+  mcp
+    .command('install')
+    .description(
+      'Register the peaks MCP server with the detected harness. Removes the name ' +
+        'from every declared scope first, because the harness registers non-idempotently. ' +
+        'A harness whose adapter declares no registration entry is skipped, not failed.'
+    )
+    .option('--ide <id>', resolveIdeOptionHelp())
+    .option('--json', 'JSON envelope output')
+    .action((options: McpRegistrationOptions) => {
+      runMcpRegistration(io, 'install', options);
+    });
+
+  mcp
+    .command('uninstall')
+    .description(
+      'Remove the peaks MCP registration from the harness, sweeping every scope it ' +
+        'may hold. Explicit, because no package-manager hook is relied on.'
+    )
+    .option('--ide <id>', resolveIdeOptionHelp())
+    .option('--json', 'JSON envelope output')
+    .action((options: McpRegistrationOptions) => {
+      runMcpRegistration(io, 'uninstall', options);
     });
 }
