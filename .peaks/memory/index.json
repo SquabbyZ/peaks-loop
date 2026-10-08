@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-08T20:15:14.353Z",
+  "updatedAt": "2026-10-08T23:41:49.779Z",
   "hot": {
     "rule": [
       {
@@ -1406,6 +1406,14 @@
         "updatedAt": "2026-10-08"
       },
       {
+        "name": "pass-shaped-output-that-verified-nothing",
+        "kind": "lesson",
+        "description": "长得像通过、其实什么都没验 2026-10-09 同一次 24h 运行里，**三次**遇到同一类失真：**退出码 0 / 绿色输出，但零验证**。三次形态不同，检测手段相同。 三例 | # | 形态 | 表现 | |---|---|-...",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\pass-shaped-output-that-verified-nothing.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-10-08"
+      },
+      {
         "name": "peaks-code-role-artifact-lifecycle-gotchas",
         "kind": "lesson",
         "description": "peaks-code 角色工件的生命周期陷阱（2026-10-09 实操踩到） 1.",
@@ -1811,6 +1819,14 @@
         "description": "The path-construction static scan in  was originally written to cover only  (slice 005's defense-in-depth).",
         "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\static-scan-must-cover-skills-tree-not-just-src.md",
         "sourceArtifact": ".peaks/_runtime/2026-06-07-session-84feb7/txt/handoff-012-2026-06-07-fix-5th-session-runtime-writer.md",
+        "updatedAt": "2026-10-08"
+      },
+      {
+        "name": "subagent-evidence-must-hold-at-delivery-state",
+        "kind": "lesson",
+        "description": "子代理的证据必须在**交付态**可复现 2026-10-09 同一次 24h 运行里，两个不同的 RD 子代理各自交出了**报告与实际不符**的证据。形态不同，病根相同：**取得结果的时刻 ≠ 交付的时刻**。 形态一：自我失效的 f...",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\subagent-evidence-must-hold-at-delivery-state.md",
+        "sourceArtifact": null,
         "updatedAt": "2026-10-08"
       },
       {
