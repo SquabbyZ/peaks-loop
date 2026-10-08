@@ -29,8 +29,8 @@
 //   - Scope is `src/` only. Tests, scripts, and node_modules are walked
 //     but filtered; per-file exemption is the second defense layer.
 //   - Output is a stable JSON envelope on stdout so the QA test wrapper
-//     can re-assert the same data (consistent with the static-scan
-//     pattern in scripts/static-scan-mcp-removed.mjs).
+//     can re-assert the same data. (The static-scan precedent this once
+//     cited was retired in the rid-035 repair cycle.)
 
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { dirname, extname, join, relative, resolve } from 'node:path';

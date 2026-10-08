@@ -9,6 +9,7 @@ import { fail, ok } from 'peaks-loop-shared/result';
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
 import { emitHint } from '../../services/hooks/output.js';
 import { parseClaudeShapeStdin } from '../../services/ide/hook-translator.js';
+import type { ToolCallKind } from '../../services/hooks/worktree-authorization-gate.js';
 import {
   classifyTool,
   emitAllowSkipped,
@@ -21,6 +22,7 @@ import {
   resolveToolMatcher,
   type GateEnforceCliOptions
 } from './gate-commands-enforce.js';
+import { handleMcpSurfaceGate } from '../../services/hooks/mcp-surface-gate.js';
 
 type GateBypassCliOptions = {
   sop: string;
@@ -83,6 +85,30 @@ function exitWhenRealCliHook(): void {
   }
 }
 
+/** Which of the surfaces this payload is on, and what the gates downstream need. */
+interface HookSurface {
+  readonly toolKind: ToolCallKind;
+  readonly command: string | undefined;
+  /** The command, when this really is the Bash surface — otherwise `null`. */
+  readonly bashCommand: string | null;
+  readonly isWorktreeToolSurface: boolean;
+}
+
+/** Read the payload's surface out of the tool name, the adapter's matcher and the command. */
+function classifySurface(parsedStdin: unknown): HookSurface {
+  const toolMatcher = resolveToolMatcher(parsedStdin);
+  const { toolName, command } = parseClaudeShapeStdin(parsedStdin);
+  const toolKind = classifyTool(toolName);
+  const isBash =
+    toolName === toolMatcher && typeof command === 'string' && command.trim().length > 0;
+  return {
+    toolKind,
+    command,
+    bashCommand: isBash ? command : null,
+    isWorktreeToolSurface: toolKind === 'Agent' || toolKind === 'EnterWorktree'
+  };
+}
+
 /**
  * Body of the `gate enforce` PreToolUse handler. The worktree-then-SOP ordering and every early
  * return / exit-code path are documented on the helpers this delegates to in `gate-commands-enforce`.
@@ -93,24 +119,27 @@ async function runGateEnforceAction(io: ProgramIO, options: GateEnforceCliOption
   try {
     const raw = await readHookPayload();
     const parsedStdin = parseHookStdin(raw);
-    const toolMatcher = resolveToolMatcher(parsedStdin);
-    const { toolName, command } = parseClaudeShapeStdin(parsedStdin);
-    const toolKind = classifyTool(toolName);
-    const isBashSurface =
-      toolName === toolMatcher && typeof command === 'string' && command.trim().length > 0;
-    const isWorktreeToolSurface = toolKind === 'Agent' || toolKind === 'EnterWorktree';
-    if (!isBashSurface && !isWorktreeToolSurface) {
+    // The MCP branch runs FIRST and is fail-CLOSED, so it must not sit behind
+    // the "not a guarded surface" early return below — an MCP tool name matches
+    // neither the Bash matcher nor a worktree tool, so everything after this
+    // point would wave it through. A block here has already been emitted.
+    if (handleMcpSurfaceGate(io, parsedStdin)) {
+      return;
+    }
+    const surface = classifySurface(parsedStdin);
+    const { toolKind, command } = surface;
+    if (surface.bashCommand === null && !surface.isWorktreeToolSurface) {
       emitAllowSkipped(io, options);
       return;
     }
     if (handleWorktreeGate(io, options, toolKind, { command, parsedStdin })) {
       return;
     }
-    if (!isBashSurface) {
+    if (surface.bashCommand === null) {
       emitAllowWorktree(io, options);
       return;
     }
-    const decision = await enforceBashCommand(options.project, command);
+    const decision = await enforceBashCommand(options.project, surface.bashCommand);
     if (decision.decision === 'deny') {
       emitSopDeny(io, options, decision);
       return;

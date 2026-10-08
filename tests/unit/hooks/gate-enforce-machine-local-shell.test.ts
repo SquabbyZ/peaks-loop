@@ -370,8 +370,21 @@ describe('behavior — gate-enforce hook shell is machine-specific', () => {
     expect(first.applied).toBe(true);
     expect(second.applied).toBe(false);
     expect(second.alreadyInstalled).toBe(true);
-    const local = readFileSync(join(tmpRoot, '.claude', 'settings.local.json'), 'utf8');
-    expect(local.match(/peaks gate enforce/g) ?? []).toHaveLength(1);
+    // ...and the file the FIRST pass wrote carries one entry per matcher, read
+    // OFF THE FILE rather than derived from `resolveHookEntries`. An expectation
+    // built from the function that emits the entries moves with a duplicate
+    // inside it and can never see one; matcher distinctness can — a duplicated
+    // declaration lands as two entries under one matcher — while a genuinely new
+    // surface still arrives under its own matcher, so nothing needs re-typing.
+    const gateEnforceMatchers = readPreToolUseEntries(
+      join(tmpRoot, '.claude', 'settings.local.json')
+    )
+      .filter((entry) =>
+        (entry.hooks ?? []).some((handler) => handler.command?.includes('peaks gate enforce'))
+      )
+      .map((entry) => entry.matcher);
+    expect(gateEnforceMatchers.length).toBeGreaterThan(0);
+    expect(new Set(gateEnforceMatchers).size).toBe(gateEnforceMatchers.length);
   });
 
   /** Drive `peaks hooks install` in-process against a throwaway HOME. */

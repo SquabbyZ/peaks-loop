@@ -86,6 +86,7 @@
     "output-styles/**",
     "agents/**",
     "schemas/*.json",
+    "contracts/readonly-argv-whitelist.json",
     ".claude-plugin/**",
     "config/eslint/.peaks-rules.cjs",
     "config/eslint/tsconfig.lint.json",
@@ -96,7 +97,8 @@
     "LICENSE"
   ],
   "scripts": {
-    "build": "node ./scripts/sync-version.mjs && node ./scripts/clean-dist.mjs && pnpm -r --filter \"./packages/*\" run build && node ./scripts/write-package-dist-stamps.mjs && tsc -p tsconfig.build.json && node ./scripts/copy-templates.mjs && node ./scripts/check-build-integrity.mjs && node ./scripts/write-dist-stamp.mjs",
+    "build": "node ./scripts/sync-version.mjs && node ./scripts/clean-dist.mjs && pnpm -r --filter \"./packages/*\" run build && node ./scripts/write-package-dist-stamps.mjs && node node_modules/tsx/dist/cli.mjs scripts/generate-readonly-whitelist.ts && tsc -p tsconfig.build.json && node ./scripts/copy-templates.mjs && node ./scripts/check-build-integrity.mjs && node ./scripts/write-dist-stamp.mjs",
+    "readonly:whitelist": "node node_modules/tsx/dist/cli.mjs scripts/generate-readonly-whitelist.ts",
     "prepack": "npm run build",
     "prepublishOnly": "node scripts/prepublish-build.mjs",
     "prepublish": "node ./scripts/sync-version.mjs",

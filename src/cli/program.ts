@@ -10,6 +10,7 @@ import { registerWorkflowCommands } from './commands/workflow-commands.js';
 import { registerCapabilityWorkerConfigAndSCCommands } from './commands/capability-worker-config-sc-commands.js';
 import { registerSubAgentCommands } from './commands/sub-agent-commands.js';
 import { registerLeaseMetricsCommand } from './commands/lease-metrics-commands.js';
+import { registerMcpCommands } from './commands/mcp-commands.js';
 import { registerLeaseStatsCommand } from './commands/lease-stats-commands.js';
 import { registerContainerCommand } from './commands/container-commands.js';
 import { registerVmCommand } from './commands/vm-commands.js';
@@ -215,6 +216,10 @@ Run peaks (no arguments) for a quickstart. You likely want one of:
   registerVmCommand(program, io);
   registerCronCommand(program, io);
   registerCronSchedulerCommand(program, io);
+  // The read-only MCP surface's command family. `serve` spawns the server
+  // module by path rather than importing it, so `src/services/mcp/` stays
+  // deletable (see the header of `mcp-commands.ts`).
+  registerMcpCommands(program, io);
   // Auto-route the remaining 60+ commands after the orchestrators so the
   // lazy `skill` parent (used by adapter-commands / sediment-commands)
   // finds the existing `peaks skill` group registered by

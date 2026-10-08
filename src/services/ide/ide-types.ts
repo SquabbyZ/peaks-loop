@@ -185,6 +185,43 @@ export interface IdeAdapter {
    * funnelling all vendor signal through this method.
    */
   readonly resolveCallerId: (env?: NodeJS.ProcessEnv) => string;
+  /**
+   * How this harness SPELLS the MCP tool names of a peaks server.
+   *
+   * Optional, like `skillInstall?` / `standardsProfile?` / `compact?`: an adapter
+   * that leaves it undefined declares "this harness has no MCP tool surface I can
+   * name", and every consumer treats that as "nothing to match" rather than as an
+   * error.
+   *
+   * It exists because one tool has SEVERAL spellings. A server registered
+   * directly and the same server arriving through a plugin produce different
+   * tool names, and an enforcement matcher written against one of them does not
+   * fire on the other — silently. Declaring them here is what lets the
+   * pre-tool branch and the installed hook entry agree on the full set.
+   *
+   * `resolveCallerId` above is the precedent for the placement rule: a vendor's
+   * naming convention is vendor signal, and vendor signal is funnelled through
+   * the adapter so no other module has to know it.
+   */
+  readonly mcp?: IdeMcpProfile;
+}
+
+/**
+ * The MCP naming profile of one harness.
+ *
+ * Deliberately ONE field. Templates both MATCH a concrete tool name and
+ * CONSTRUCT one, which is what lets a conformance test build a call for a
+ * channel it has never seen (spec §6.3) instead of restating the harness's
+ * naming in the test — a restatement that would go stale the moment a channel
+ * is added.
+ */
+export interface IdeMcpProfile {
+  /**
+   * Tool-name templates. `*` is replaced by the bare MCP tool id, so
+   * `mcp__peaks__*` describes every tool of a server registered under the name
+   * `peaks` on the direct channel.
+   */
+  readonly toolNameTemplates: readonly string[];
 }
 
 /**

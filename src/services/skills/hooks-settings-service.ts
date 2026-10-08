@@ -592,10 +592,19 @@ function shapeMatchesDesired(
     //     source" — so a file written before matchers were explicit converges
     //     once instead of churning on every install.
     for (const desired of entries.filter((e) => e.event === eventKey)) {
-      const onDisk = peaksPresent.find((entry) =>
-        (entry.hooks ?? []).some((h) => String(h.command ?? '').includes(desired.sentinel))
+      // The identity of a desired entry is the PAIR (sentinel, matcher), not the
+      // sentinel alone: one command may legitimately be installed under several
+      // matchers (the read-only MCP surface rides `peaks gate enforce` under its
+      // own matcher set). Matching on the sentinel first found that first entry
+      // every time, so the second one never looked installed and every install
+      // rewrote the file. A wrong matcher is still un-repaired — it fails to
+      // match and the caller rewrites.
+      const onDisk = peaksPresent.find(
+        (entry) =>
+          (entry.matcher ?? '') === desired.matcher &&
+          (entry.hooks ?? []).some((h) => String(h.command ?? '').includes(desired.sentinel))
       );
-      if (onDisk === undefined || (onDisk.matcher ?? '') !== desired.matcher) return false;
+      if (onDisk === undefined) return false;
     }
   }
   return true;

@@ -1,0 +1,86 @@
+{
+  "schemaVersion": 1,
+  "readOnlyDefinition": "readOnly = no persistent-state write AND no network AND no LLM billing AND no CLI->external process spawn (output constancy over time is deliberately NOT part of it)",
+  "note": [
+    "Hand-authored SOURCE OF TRUTH for the read-only argv surface. It is the input to",
+    "`scripts/generate-readonly-whitelist.ts`, which verifies every entry against the live",
+    "Commander registry and emits `contracts/readonly-argv-whitelist.json`. Nothing imports",
+    "the generated file: it is data, read through the filesystem by the whitelist loader.",
+    "",
+    "A token wrapped in angle brackets (<name>) is a placeholder; `params` carries its",
+    "constraint. Required-ness is NOT declared here - it is introspected from the registry",
+    "(a mandatory option, or a required positional), so it cannot drift.",
+    "",
+    "MEASURED DEVIATIONS from the rid-035 PRD table (each reproduced against the real CLI,",
+    "never inferred): `peaks project dashboard --json` and `peaks request show <rid> --role",
+    "<role> --json` both exit 1 with MISSING_REQUIRED_OPTION, because `--project` is a",
+    "MANDATORY option on those two commands. The PRD listing omitted it. Those two entries",
+    "therefore carry `--project <project>`. That is exactly the evidence for the rule this",
+    "surface exists to encode: the whitelist key must be the FULL argv, flags included.",
+    "`peaks session list --json` is the mirror case - it accepts only `--json`.",
+    "",
+    "EXCLUDED AFTER MEASUREMENT: `peaks project dashboard --json --project <project>`.",
+    "The PRD lists it as the third curated argv. The three-layer proof says it is NOT",
+    "read-only: run with the layer-B preload inside a real CLI process, it makes exactly",
+    "one `node:child_process.execFileSync` call (`git rev-parse --show-toplevel`, reached",
+    "through `findProjectRoot`), reproducibly, in this repository as well as in a fixture.",
+    "That violates the fourth clause of this file's `readOnlyDefinition`, and §11 of the",
+    "design says every argv in the surface must pass all three layers - so it is out of the",
+    "whitelist rather than special-cased inside it. `readonly-proof.test.ts` keeps the",
+    "measurement as a live arm, so the exclusion is reproduced on every run instead of",
+    "being asserted here. Lifting the spawn (or amending the definition to admit read-only",
+    "git queries) is a separate, user-confirmed change."
+  ],
+  "tools": [
+    {
+      "tool": "peaks_status",
+      "entries": [
+        {
+          "id": "skill-presence",
+          "commandPath": ["skill", "presence"],
+          "argv": ["skill", "presence", "--json"],
+          "params": {}
+        },
+        {
+          "id": "session-list",
+          "commandPath": ["session", "list"],
+          "argv": ["session", "list", "--json"],
+          "params": {}
+        },
+        {
+          "id": "request-show",
+          "commandPath": ["request", "show"],
+          "argv": [
+            "request",
+            "show",
+            "<rid>",
+            "--role",
+            "<role>",
+            "--json",
+            "--project",
+            "<project>"
+          ],
+          "params": {
+            "rid": { "type": "slug", "pattern": "^[a-z0-9][a-z0-9-]*$" },
+            "role": { "type": "enum", "values": ["prd", "ui", "rd", "qa", "sc"] },
+            "project": { "type": "path" }
+          }
+        }
+      ]
+    },
+    {
+      "tool": "peaks_memory_search",
+      "entries": [
+        {
+          "id": "memory-search",
+          "commandPath": ["memory", "search"],
+          "argv": ["memory", "search", "<query>", "--limit", "<limit>"],
+          "params": {
+            "query": { "type": "token" },
+            "limit": { "type": "integer", "min": 1, "max": 50, "default": 6 }
+          }
+        }
+      ]
+    }
+  ]
+}
