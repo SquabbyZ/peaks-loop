@@ -1,0 +1,211 @@
+{
+  "schemaVersion": 1,
+  "source": "contracts/readonly-surface.json",
+  "readOnlyDefinition": "readOnly = no persistent-state write AND no network AND no LLM billing AND no CLI->external process spawn (output constancy over time is deliberately NOT part of it)",
+  "entries": [
+    {
+      "id": "skill-presence",
+      "tool": "peaks_status",
+      "commandPath": [
+        "skill",
+        "presence"
+      ],
+      "argv": [
+        {
+          "kind": "literal",
+          "value": "skill"
+        },
+        {
+          "kind": "literal",
+          "value": "presence"
+        },
+        {
+          "kind": "literal",
+          "value": "--json"
+        }
+      ],
+      "params": {},
+      "introspection": {
+        "optionTokens": [
+          "--json"
+        ],
+        "positionalCount": 0
+      }
+    },
+    {
+      "id": "session-list",
+      "tool": "peaks_status",
+      "commandPath": [
+        "session",
+        "list"
+      ],
+      "argv": [
+        {
+          "kind": "literal",
+          "value": "session"
+        },
+        {
+          "kind": "literal",
+          "value": "list"
+        },
+        {
+          "kind": "literal",
+          "value": "--json"
+        }
+      ],
+      "params": {},
+      "introspection": {
+        "optionTokens": [
+          "--json"
+        ],
+        "positionalCount": 0
+      }
+    },
+    {
+      "id": "request-show",
+      "tool": "peaks_status",
+      "commandPath": [
+        "request",
+        "show"
+      ],
+      "argv": [
+        {
+          "kind": "literal",
+          "value": "request"
+        },
+        {
+          "kind": "literal",
+          "value": "show"
+        },
+        {
+          "kind": "param",
+          "name": "rid"
+        },
+        {
+          "kind": "literal",
+          "value": "--role"
+        },
+        {
+          "kind": "param",
+          "name": "role"
+        },
+        {
+          "kind": "literal",
+          "value": "--json"
+        },
+        {
+          "kind": "literal",
+          "value": "--project"
+        },
+        {
+          "kind": "param",
+          "name": "project"
+        }
+      ],
+      "params": {
+        "rid": {
+          "type": "slug",
+          "pattern": "^[a-z0-9][a-z0-9-]*$",
+          "binding": {
+            "kind": "positional",
+            "token": "request-id",
+            "required": true
+          },
+          "constraintSource": "handwritten"
+        },
+        "role": {
+          "type": "enum",
+          "values": [
+            "prd",
+            "ui",
+            "rd",
+            "qa",
+            "sc"
+          ],
+          "binding": {
+            "kind": "option",
+            "token": "--role",
+            "required": true
+          },
+          "constraintSource": "handwritten"
+        },
+        "project": {
+          "type": "path",
+          "binding": {
+            "kind": "option",
+            "token": "--project",
+            "required": true
+          },
+          "constraintSource": "handwritten"
+        }
+      },
+      "introspection": {
+        "optionTokens": [
+          "--role",
+          "--json",
+          "--project"
+        ],
+        "positionalCount": 1
+      }
+    },
+    {
+      "id": "memory-search",
+      "tool": "peaks_memory_search",
+      "commandPath": [
+        "memory",
+        "search"
+      ],
+      "argv": [
+        {
+          "kind": "literal",
+          "value": "memory"
+        },
+        {
+          "kind": "literal",
+          "value": "search"
+        },
+        {
+          "kind": "param",
+          "name": "query"
+        },
+        {
+          "kind": "literal",
+          "value": "--limit"
+        },
+        {
+          "kind": "param",
+          "name": "limit"
+        }
+      ],
+      "params": {
+        "query": {
+          "type": "token",
+          "binding": {
+            "kind": "positional",
+            "token": "query",
+            "required": true
+          },
+          "constraintSource": "handwritten"
+        },
+        "limit": {
+          "type": "integer",
+          "min": 1,
+          "max": 50,
+          "default": 6,
+          "binding": {
+            "kind": "option",
+            "token": "--limit",
+            "required": false
+          },
+          "constraintSource": "handwritten"
+        }
+      },
+      "introspection": {
+        "optionTokens": [
+          "--limit"
+        ],
+        "positionalCount": 1
+      }
+    }
+  ]
+}

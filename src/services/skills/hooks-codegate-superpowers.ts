@@ -9,6 +9,7 @@
  */
 import { getAdapter } from '../ide/ide-registry.js';
 import type { IdeId } from '../ide/ide-types.js';
+import { mcpHookMatcher } from '../ide/mcp-tool-matcher.js';
 import {
   HOOK_COMPACT_SETTLE_COMMAND,
   HOOK_COMPACT_SETTLE_EVENT,
@@ -43,6 +44,7 @@ interface ResolvedHookSpec {
   readonly hookEnforceSentinel: string;
   readonly hookEnforceMatcher: string;
   readonly hookEnforceEvent: string;
+  readonly hookEnforceMcpMatcher: string | undefined;
   /**
    * True when the gate-enforce entry must be materialized into the IDE's
    * MACHINE-LOCAL settings file rather than the shared one (see
@@ -141,6 +143,7 @@ export function resolveHookSpec(ide: IdeId): ResolvedHookSpec {
     hookEnforceSentinel: spec.sentinel,
     hookEnforceMatcher: adapter.toolMatcher,
     hookEnforceEvent: adapter.hookEvent,
+    hookEnforceMcpMatcher: mcpHookMatcher(adapter),
     // Only Claude Code has the machine-local sibling settings file the
     // routing depends on, and only Claude Code's hook schema accepts a
     // `shell` key.
@@ -177,6 +180,27 @@ export const HOOK_CODE_GATE_MATCHER = 'Edit|Write|MultiEdit';
 export const HOOK_CODE_GATE_EVENT = 'PreToolUse';
 export const HOOK_CODE_GATE_COMMAND = `peaks code-gate --json`;
 
+/**
+ * The read-only MCP surface as a hook entry: the same command under the
+ * adapter's MCP matcher, or `undefined` for a harness that declares no MCP
+ * naming. A hook fires only for the matchers its OWN entry names, so without this
+ * entry the fail-closed branch in `mcp-surface-gate.ts` never runs on a live
+ * harness. A second entry rather than a wider matcher on the Bash one: that entry
+ * is mirrored by the workspace-init template, and widening it would put installer
+ * and template out of step.
+ */
+function mcpMatcherEntry(spec: ResolvedHookSpec): PeaksHookEntry | undefined {
+  if (spec.hookEnforceMcpMatcher === undefined) return undefined;
+  return {
+    sentinel: spec.hookEnforceSentinel,
+    matcher: spec.hookEnforceMcpMatcher,
+    command: spec.hookEnforceCommand,
+    event: spec.hookEnforceEvent,
+    machineLocal: spec.hookEnforceMachineLocal,
+    ...(spec.hookEnforceShell !== undefined ? { shell: spec.hookEnforceShell } : {})
+  };
+}
+
 export function resolveHookEntries(ide: IdeId, _skipProgress = false): PeaksHookEntry[] {
   const spec = resolveHookSpec(ide);
   const entries: PeaksHookEntry[] = [
@@ -189,6 +213,8 @@ export function resolveHookEntries(ide: IdeId, _skipProgress = false): PeaksHook
       ...(spec.hookEnforceShell !== undefined ? { shell: spec.hookEnforceShell } : {})
     }
   ];
+  const mcpEntry = mcpMatcherEntry(spec);
+  if (mcpEntry !== undefined) entries.push(mcpEntry);
   // ── Why the three SessionStart entries below carry NO `shell` pin ─────────
   //
   // The gate-enforce entry above is shell-pinned on Windows (see

@@ -35,6 +35,7 @@ import {
   tryGetAdapter
 } from '../../../src/services/ide/ide-registry.js';
 import type { IdeAdapter, IdeId } from '../../../src/services/ide/ide-types.js';
+import { buildMcpInstallPlan } from '../../../src/services/distribution/mcp-install.js';
 
 declareDimensions(
   'tests/unit/ide/adapter-declared-shape.test.ts',
@@ -283,6 +284,48 @@ describe('Scenario: behavior — the nine declarations stay mutually distinct wh
       compactPathway: 'ide-native',
       envVarForContextPercent: 'CLAUDE_CONTEXT_USAGE_PERCENT',
       autoCompactWindowEnvVar: 'CLAUDE_CODE_AUTO_COMPACT_WINDOW'
+    });
+  });
+
+  it('when the MCP registration profile is asked for, should be declared by claude-code alone', () => {
+    // Slice ③ (rid-037): the registration half. Without a declaration here the
+    // install reads "nothing to do" for every harness and the MCP surface never
+    // reaches a machine, whatever the interface and the engine do (AC-4).
+    const declaring = EXPECTED_ORDER.filter((ide) => getAdapter(ide).mcpInstall !== undefined);
+    expect(declaring).toEqual(['claude-code']);
+    const profile = getAdapter('claude-code').mcpInstall;
+    expect(profile).toBeDefined();
+    if (profile === undefined) throw new Error('claude-code must declare mcpInstall');
+    expect(profile.serverName).toBe('peaks');
+    expect(profile.scopes).toContain('user');
+    expect(profile.targetScope).toBe('user');
+    // Asserted through the ENGINE, not by poking fields: this fails if the
+    // declaration cannot drive an install at all (the engine validates the
+    // placeholders), and it pins the two facts spec §13 calls load-bearing —
+    // the `--` separator sits immediately before the server argv, and the
+    // server argv expands AFTER it rather than being folded into one token.
+    const plan = buildMcpInstallPlan(profile, ['node', 'peaks.js', 'mcp', 'serve']);
+    expect(plan.map((step) => step.operation)).toEqual(['remove', 'add']);
+    expect(plan[0]?.command).toEqual({
+      command: 'claude',
+      args: ['mcp', 'remove', 'peaks', '--scope', 'user']
+    });
+    expect(plan[1]?.command).toEqual({
+      command: 'claude',
+      args: [
+        'mcp',
+        'add',
+        '--scope',
+        'user',
+        '--transport',
+        'stdio',
+        'peaks',
+        '--',
+        'node',
+        'peaks.js',
+        'mcp',
+        'serve'
+      ]
     });
   });
 });

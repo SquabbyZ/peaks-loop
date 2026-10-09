@@ -52,17 +52,22 @@ peaks project memories --project <repo> --json  # load durable memory
 
 ## Step 1: Read the current state
 
-Use only existing CLI primitives (no new commands). **Important contract note**: `peaks session list` does NOT support `--project` (verified by dogfood 2026-06-04); it returns all sessions globally. To scope to the current project, read `.peaks/.session.json` for the bound `sessionId`, then use `peaks session info <sid>` for the bound session's full state, and filter `peaks session list` output by `projectRoot` to find other sessions in the same project.
+Use only existing primitives (no new commands). **Important contract note**: `peaks session list` does NOT support `--project` (verified by dogfood 2026-06-04); it returns all sessions globally. To scope to the current project, read `.peaks/.session.json` for the bound `sessionId`, then use `peaks session info <sid>` for the bound session's full state, and filter `peaks session list` output by `projectRoot` to find other sessions in the same project.
+
+### 1a. The three paths that have an MCP tool — ONE call
+
+`peaks_status` returns `peaks skill presence --json`, `peaks session list --json` and — when `rid` and `role` are given — `peaks request show <rid> --role <role> --json --project <project>`. Each CLI result comes back VERBATIM under its own key (`skill-presence`, `session-list`, `request-show`); a key is absent when that call was not run. Call it once and read the keys.
+
+- Pass `rid` and `role` only when a specific request is in flight (the `rid` from Step 1c). When it is not, call with just `project` and read the two keys that come back.
+- If the tool is not available, or the call fails, or the result carries `isError`, **fall back to Step 1b** — do not report a partial read as if it were the whole picture. A failed call is a failed call; the keys you did not get are not "nothing there".
+
+### 1b. Bash fallback — the same three commands, always available
+
+Run these when 1a did not answer (MCP not installed / not registered / call failed). They are the SAME argv the tool runs, so the output is identical:
 
 ```bash
 # 1. Active skill presence
 peaks skill presence --json
-
-# 2. The bound session id (from .peaks/.session.json — local read, no CLI)
-sid=$(cat .peaks/.session.json | python3 -c "import sys,json; print(json.load(sys.stdin)['sessionId'])")
-
-# 3. The bound session's full state
-peaks session info "$sid" --json
 
 # 4. All sessions globally (then post-filter to current project)
 peaks session list --json
@@ -70,15 +75,27 @@ peaks session list --json
 # matching `projectRoot` against the bound session's `projectRoot` to show only
 # the sessions for THIS project. Sessions from other projects are ignored.
 
-# 5. Per-request role state (PRD / RD / QA / TXT for the bound project)
-peaks project dashboard --project <repo> --json
-
-# 6. Per-request detail (if a specific rid is in flight)
-peaks request show <rid> --role rd --project <repo> --json
-peaks request show <rid> --role qa --project <repo> --json
+# 6. Per-request detail (if a specific rid is in flight) — one call per role
+peaks request show <rid> --role <role> --json --project <project>
+# e.g. --role rd for the RD artifact, --role qa for the QA report
 ```
 
-All 6 calls are read-only. Total cost: sub-second. (The original draft said "5 calls"; the corrected count is 6 because the post-filter step is now explicit.)
+### 1c. Paths with no MCP tool — always Bash
+
+```bash
+# 2. The bound session id (from .peaks/.session.json — local read, no CLI)
+sid=$(cat .peaks/.session.json | python3 -c "import sys,json; print(json.load(sys.stdin)['sessionId'])")
+
+# 3. The bound session's full state
+peaks session info "$sid" --json
+
+# 5. Per-request role state (PRD / RD / QA / TXT for the bound project)
+peaks project dashboard --project <repo> --json
+```
+
+`peaks project dashboard` is deliberately **not** in the MCP surface: it shells out to `git` to resolve the project root, which the read-only definition forbids. It stays on Bash.
+
+All of these calls are read-only. Total cost: sub-second.
 
 ## Step 2: Render the status table
 
@@ -136,7 +153,8 @@ Then yield control.
 ## Hard rules (do NOT skip)
 
 - **Never write to `.peaks/_runtime/<sid>/`.** This skill is read-only on the workspace; it only reads existing CLI state.
-- **Never add a new `peaks <cmd>`.** Use only the existing read-only CLI primitives: `peaks skill presence`, `peaks session list`, `peaks session info`, `peaks project dashboard`, `peaks request show`. **Note**: `peaks session list` does not support `--project`; filter its output by `projectRoot` post-hoc.
+- **Never add a new `peaks <cmd>`.** Use only the existing read-only CLI primitives: `peaks skill presence`, `peaks session list`, `peaks session info`, `peaks project dashboard`, `peaks request show` — plus the `peaks_status` MCP tool, which is those same argv behind one call. **Note**: `peaks session list` does not support `--project`; filter its output by `projectRoot` post-hoc.
+- **A failed MCP call is not an empty answer.** If `peaks_status` is unavailable or returns `isError`, run the Step 1b commands. Never render a table from the keys that happened to come back while a failed key is silently missing.
 - **Never auto-progress the workflow.** The status table is informational only. The user chooses what to do via `AskUserQuestion`. Never silent about what comes next — always present the 3 options.
 - **Never expose sensitive data in the table.** Do NOT include full PRD bodies, full tech-doc bodies, or any test code in the table. Just state names, paths, and counts.
 
