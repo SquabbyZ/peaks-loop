@@ -121,3 +121,22 @@ main (8570fce5)                              ← 两条分支的共同基点
 - `tests/**` 的 comment-hygiene 违规（6 narrative + 1 dead-ref）**不被任何门监视**——门的 `scope.dirs` 只含 `src` + `packages/*/src`。与 `format:check` 的范围问题同族。
 - `gate enforce` 对**所有非 Bash 工具** fail-open（含 Write/Edit/所有第三方 MCP server）——面比 MCP 那刀大两个数量级，**须单独立项**。
 - `git stash pop` 被 worktree gate 拒（`WORKTREE_USER_AUTH_REQUIRED`），而 `stash drop` 不被拒——实测。
+
+---
+
+## 8. 补记（同日晚）：本交接里的判断有**两处被推翻**
+
+本文件写于当轮交付后，其后又推进了一批工作，过程中推翻了这里的两条：
+
+1. **§3「未验证项」的首条** —— 本文件当时写 MCP 注册"需要在能跑 `claude` 的机器上做一次"，并把原因
+   归结为本机 `claude` 挂死。**当天已在真 Claude Code 2.1.295 上实测完成**：注册被原样接受、
+   server 被真的 spawn、`claude mcp list` 报 `✔ Connected`。而"挂死"的**行为结论是错的**
+   （现在 0.37 s 答 `--version`；症状当时为真，机制未查明且已不可复现）。
+2. **§7 第二条** —— 把 `gate enforce` 对非 Bash 工具的 fail-open 称为"强制链的大洞、须单独立项"。
+   **该推论不成立**：`enforceBashCommand` 收的是 shell 命令字符串，`Write`/`Edit` 无命令可评；
+   worktree 腿是刻意的 tool opt-in；MCP 分支已 fail-closed 且注释写明了为何必须置前。
+   它是**范围问题**，不是洞。经用户决定：不做。
+
+新增交付（本文件之后）：命令层第二批 `6a1938a8`、`scripts/` 四文件 `1e2d098a`、
+`peaks mcp uninstall` 假 `ok:true` 修复 `7032bab0`。当前状态见
+`2026-10-09-next-work-menu.md`（已改写为当前状态）。

@@ -192,3 +192,36 @@ W1b 命令层 45 个   超出 14,299
 - **不要为解文件尺寸而恢复子包**（§0：不解决，且重新引入 rid-016 已判定要消除的维护税）
 - **不要手改 `.peaks/lint/gate-baseline.json`**（门明确要拒绝；ceiling 只能经生成器下降）
 - **不要在一次 slice 里同时做 W1 和 W5**（一个还债、一个改安全边界，混在一起无法判定风险）
+
+---
+
+## 5. 补记（同日）：本规划里**两条结论被推翻**
+
+### 5.1 §1.3「强制链的既有洞」—— 不成立
+
+原文把 `gate enforce` 对非 Bash 工具的 fail-open 称为"面比 MCP 那刀大两个数量级"的洞。观察对，
+**推论错**：`enforceBashCommand` 收的是 shell 命令字符串，`Write`/`Edit` **没有可评的东西**；
+worktree 腿是刻意的 tool opt-in；MCP 那条 fail-closed 分支被刻意放在最前，注释写明了原因。
+它是**范围问题**（该不该管 Write/Edit），不是缺陷。经用户决定：**不做**。
+
+### 5.2 §2 的 W1a/W1b —— 收益口径只对 `src/` 成立
+
+实测：`scripts/**` 与 `tests/**` 属 `shadow.scopeDirs`，**不受任何 file-size ceiling 约束**。
+拆它们移动的是 census 与 shadow 块，**不是 ceiling**（rid-043 前后 gated 均为 `117 / 32979`）。
+所以 §2 里把 W1b（命令层）与 `scripts/` 并列成"两笔债"是不准确的：只有 `src/**` 那部分会动棘轮。
+
+### 5.3 §3.8 建议序列的完成情况
+
+| 序 | Slice | 状态 |
+|---|---|---|
+| S1 | 政策：联合判定 | ✅ `b3f4f795` |
+| S2a/b/c | W2 门可靠性 | ✅ `23fb500d` |
+| S3-1 | 命令层首批 5 文件 | ✅ `c88e38dc` |
+| S3-2 | 命令层第二批 5 文件 | ✅ `6a1938a8` |
+| — | `scripts/` 四文件 | ✅ `1e2d098a`（**不移动 ceiling**，见 5.2） |
+| — | `peaks mcp uninstall` 假 `ok:true` | ✅ `7032bab0` |
+| S5a | 端到端注册实测 | ✅ 真 Claude Code 2.1.295 上 `✔ Connected` |
+| S5b/c/d | CI 跑 C 层沙箱 / 救回 dashboard / L3 端到端 | ⬜ 未起 |
+| S4 | 前 25 里非命令层的 15 个 | ⬜ 未起 |
+
+当前状态与剩余项见 `2026-10-09-next-work-menu.md`（已改写为当前状态）。

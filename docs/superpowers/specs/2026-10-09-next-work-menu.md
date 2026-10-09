@@ -1,102 +1,118 @@
-# 后续可做的事 — 菜单
+# 后续可做的事 — 当前状态
 
-- 日期：2026-10-09（本轮收官后）
-- 用途：**compact 之后仍可读**的完整待办清单。用户从此菜单挑选下一轮做哪些。
-- 当前 main：`75814b2e`（两个 merge commit 已合）
-- 待合分支：`chore/size-debt-commands-batch1`（2 提交，**未合未推**）
-
----
-
-## 0. 立即可做（已就绪、只差一个决定）
-
-### N0a — 合并并推送
-`chore/size-debt-commands-batch1` 已提交、已验证、**未合并、未推送**。按仓库约定 `--no-ff` + `merge: <branch> — <desc>` 即可。
-**代价**：几分钟。**依赖**：无。
+> 本文件初版是 2026-10-09 早间的**待选菜单**。该菜单上的 N0a / N4 / N3 / N2c 当天已全部交付，
+> 且调查过程中**推翻了菜单里的三处判断**。本文已改写为当前状态，不是原始菜单的存档。
+> 原始菜单在 git 历史里（`2511ac63`）。
 
 ---
 
-## 1. 安全性质（最高价值，也最需要独立论证）
+## 0 · 已交付（当天）
 
-### N1 — **W5：`gate enforce` 对非 Bash 工具全部 fail-open**
-**是什么**：`classifyTool` 只认 `Bash`/`Agent`/`Task`/`EnterWorktree`/`Workflow`，撞到其它名字一律 `'Other'` → **短路放行**（exit 0）。
-**后果**：**Write / Edit / 所有第三方 MCP server 的调用都在强制链之外**——今天这个仓库的强制力实际只覆盖 shell。
-**为什么值得**：这是本运行暴露的**面最大**的问题；比 MCP 那刀大**两个数量级**。
-**代价**：大。**风险**：高——它动的是安全边界本身。
-**依赖**：**必须单独立项**，不得搭任何车（已写进 roadmap §4）。
-**注**：MCP 分支（`mcp-surface-gate.ts`）已经做了 MCP 那条、且是 fail-closed；缺的是**其余**非 Bash 工具。
-
----
-
-## 2. 债（马拉松，分批）
-
-### N2 — 文件尺寸债：还剩 **158 个超限文件**
-**现状**：全仓曾 **163 个超限 / 52,079 超出行**；本轮做完 **5 个**（−3618 行）。
-**分布**：`src 122 个`（原 127，本轮 −5）· `tests 32` · `scripts 4`。
-**其中最大的聚落**：`src/cli/commands` **还剩 40 个**（原 45）。
-
-**可选切法**：
-| | 范围 | 文件数 |
+| 项 | 提交 | 结果 |
 |---|---|---|
-| N2a | `src/cli/commands` 剩余 40 个（继续同一条线） | 40 |
-| N2b | 前 25 里**非命令层**的 15 个 | 15 |
-| N2c | `scripts/` 4 个（含 **`install-skills.mjs`，1308 行 / cap 300**，全仓最严重） | 4 |
-| N2d | `tests/` 32 个（cap 500） | 32 |
+| 合并 + 推送 | `f0cc19c8` … `7032bab0` | 16 个提交落地；全量单测 **425 files / 4422 passed** |
+| MCP 的 client 侧实测（N4） | 无代码 | 真 Claude Code 2.1.295 上 `✔ Connected`；随后卸载 |
+| 命令层第二批（N3+N2a） | `6a1938a8` | 5 文件 → 37 模块；**mlpf 32→0**；`eslintFindings −61`、`eslintErrors −38`、`fileSizeExcessLines −2557` |
+| `scripts/` 四文件（N2c） | `1e2d098a` | 16 新模块；census **153→149 文件 / 45904→43776 行**；`scripts` 桶 **4→0** |
+| `peaks mcp uninstall` 假 `ok:true` | `7032bab0` | 不再把"从未给出裁决的 harness"报成"本来就没有" |
 
-**每批的验收标准**（本轮血换来的）：`fileSizeExcessLines` **必须降**；每份 **<300 行**；**按职责切不要按行数均分**；**优先保证依赖单向**（循环依赖比长文件严重）；等价保持 + 给出证据；零回归。
-**代价**：每批 5 个左右为宜。**风险**：中。
-
-### N3 — **函数长度债（本轮新发现，尚未被任何一批处理）**
-**现状**：`src/cli/commands` 的 **181 个未改动文件中仍有 231 个 `max-lines-per-function(50)` 违规**。
-**为什么值得**：本轮学会的一条——**文件的长，本质常常是函数的长**。只拆文件是**搬家不是治理**。
-**代价**：中～大（抽取 helper，行为保持）。**风险**：中（行为级改动，须逐一验等价）。
-**注**：这 231 个**不在** `fileSize` 的 ceiling 里，所以**今天没有任何门逼着还**——它是"没人看着的债"。
+**累计 ceiling（gated）**：`eslintFindings` 2055→**1994** · `eslintErrors` 770→**732** ·
+`fileSizeOverCap` 122→**117** · `fileSizeExcessLines` 35536→**32979**。
 
 ---
 
-## 3. 本轮的**未验证边界**（不是任务，但影响"能不能声称完成"）
+## 1 · 原始菜单里被**推翻**的三处判断（读这一节比读任何任务清单都值）
 
-| # | 项 | 卡在哪 |
+### 1.1 "N3 函数长度债没人看着" —— 错
+
+`max-lines-per-function` 在 `eslintFindings`/`eslintErrors` 里，因为它在 `config/eslint/.peaks-rules.cjs`
+里是 `'error'`，而门的 eslint 腿对每条非 phantom finding 都计数。
+
+**更正后更锋利**：它**只在总量里被看着，没有按规则分列的 ceiling**，所以**可以被替换掉**
+（这边减、那边增，净额为零）。命令层里这 231 条占该目录 findings 的 **43.4%**、errors 的 **78.3%**。
+
+### 1.2 "N2c 是还债" —— 半错
+
+`scripts/**` 与 `tests/**` 属 `shadow.scopeDirs`，`gate/legs.mjs` 只 check `partition.gated`。
+**拆它们不移动任何一个 ceiling**——实测 `117 / 32979` 前后一字未动。`scripts/` 连 lint scope
+都不在。它们是被 owner（2026-10-03）**刻意**排除在 ceiling 之外的。
+
+真正被搬动的是 **census 与 shadow 块**。所以对这两个目录，诚实的成功口径是 census 的下降，不是 ceiling。
+
+### 1.3 "W5：`gate enforce` 对所有非 Bash 工具 fail-open 是个洞" —— 不成立
+
+```ts
+if (handleMcpSurfaceGate(io, parsedStdin)) return;   // MCP 分支：最先、fail-CLOSED
+if (surface.bashCommand === null && !surface.isWorktreeToolSurface) {
+  emitAllowSkipped(io, options);   // Write / Edit / 第三方 MCP 从这里出去
+  return;
+}
+const decision = await enforceBashCommand(options.project, surface.bashCommand);
+```
+
+观察是对的，**推论是错的**：
+
+1. `enforceBashCommand` 收的是一个 **shell 命令字符串**。一次 `Write` 调用没有命令字符串可评 ——
+   这一腿**在构造上就是 Bash 门**，不是"忘了管 Write"，而是**没有可评的东西**。
+2. worktree 那一腿是**刻意的 tool opt-in**（注释明写）。
+3. **MCP 那条 fail-closed 分支被刻意放在最前面**，注释还解释了原因：*"an MCP tool name matches
+   neither the Bash matcher nor a worktree tool, so everything after this point would wave it through"*
+   —— 仓库自己知道这个形状，并且已经对它做了正确的事。
+
+**结论**：这不是待修的洞，是**范围问题**（peaks-loop 该不该管 `Write`/`Edit`）。那是产品设计题，
+且一开头就要面对门里那条 Trust red line —— *"must FAIL-OPEN, never block the user's Claude Code"*。
+经用户决定：**不做**。
+
+### 1.4 另有一处我写错、已删的记录
+
+我曾断言 *"PATH 上的 `claude` 是坏 shim（与 `npm.exe` 同 inode），所以挂死"*。
+**inode/sha 的测量没错，行为结论错了**：它现在 0.37 s 答 `--version`。
+症状当时是真的（30 s 超时实测两次），**机制我没搞对，且现已不可复现**。据此写的 memory 已删除。
+`peaks mcp uninstall` 的缺陷与此无关——它是**代码层面**就错，不依赖撞上什么。
+
+---
+
+## 2 · 还剩什么
+
+### 2.1 还债（**只有 `src/**` 值得做**，其余是 shadow）
+
+| 目标 | 规模 | 备注 |
 |---|---|---|
-| N4 | **MCP 真实注册的 client 侧那一跳** | 本机 `claude` launcher **连 `--version` 都不返回**（真 PE 文件、非沙箱、非 stdin）→ `peaks mcp install` 必然走超时。**需要在能跑 `claude` 的机器上做一次** |
-| N5 | CI `format-check` job **未在 runner 上实跑** | 本机无 runner |
-| N6 | **C 层沙箱（无网络只读挂载）从未实跑** | CI-only，从未执行 |
-| N7 | **L3 端到端** | PATH 上的 `peaks` 是已安装构建而非工作树 |
-| N8 | S1 政策例外的**端到端触发** | 只在纯函数层被测；"允许涨" ≠ "已经涨过" |
+| `src/cli/commands` 剩余 | **35 文件 / 8124 超出行** | 已拆 10 个；仍在棘轮管辖内 |
+| `src/services/*` 顶部 | `hooks-settings-service.ts` 737 · `auto-compact-orchestrator.ts` 730 · `config-service.ts` 711 | 同上 |
 
-**N4 单独值得说**：它是**唯一能把 MCP 交付从"未验证"变成"已验证"**的一步。其余都是加固与还债。
+配方已被两批验证过：**拆分与压函数必须在同一次交付里完成**（第一批的 pass-1 曾把
+`eslintFindings`/`eslintErrors` **推高** +23/+19，被拒后 pass-2 才压到 0）。
 
----
+### 2.2 未验证边界（仍影响"能不能声称完成"）
 
-## 4. 工具缺陷（小、高复用）
-
-### N9 — `peaks audit goal` 输出在约 **3.6 KB** 处截断
-两次 `INCOMPLETE_AUDIT: Unterminated`；换极短 need 才成功。**它撑不到 spec 规模的输入**，而它自称要"让人一次读完"。
-**修法**：提高该调用的 max_tokens，或分维度多次调用后合并。**代价**：小。
-
-### N10 — `peaks` 的 `.cmd` shim **吃不下含换行的参数**
-`InvalidBatchScriptArg`。双引号无害，**换行是唯一触发条件**。
-**修法**：属**平台适配层**职责，**不得写平台特判分支**。**代价**：小～中。
-
----
-
-## 5. 站立的小观察（未修，非本轮引入）
-
-| # | 观察 |
+| | 项 |
 |---|---|
-| N11 | `tests/**` 的 comment-hygiene 违规**不被任何门监视**（门的 `scope.dirs` 只含 `src` + `packages/*/src`）——与 `format:check` 的范围问题**同族** |
-| N12 | `git stash pop` 被 worktree gate 拦（`WORKTREE_USER_AUTH_REQUIRED`），而 `stash drop` **不被拦** |
-| N13 | 余量偏薄：`compact-harness-window-command.ts` **294/300** |
-| N14 | 两条已合并分支仍在本地（`feat/mcp-readonly-surface`、`chore/gate-hardening-and-size-debt`），可删 |
+| N5 | CI `format-check` job **从未在 runner 上实跑** |
+| N6 | C 层沙箱（无网络只读挂载）**从未实跑** |
+| N7 | L3 端到端（PATH 上是已安装构建而非工作树） |
+| N8 | S1 政策例外只在纯函数层被测；**"允许涨" ≠ "已经涨过"** |
+
+### 2.3 工具缺陷（小、高复用）
+
+- **N9** `peaks audit goal` 输出在约 **3.6 KB** 处截断（两次 `INCOMPLETE_AUDIT: Unterminated`）
+- **N10** `peaks` 的 `.cmd` shim **吃不下含换行的参数**（`InvalidBatchScriptArg`）
+
+### 2.4 站立的小观察
+
+- **`.husky/pre-push` 的注释与现实相反**：它说 leg 2 是全量、936 s、"known, measured gap"；
+  实测 **62 s / 601 tests**（`scripts/test-changed.mjs:186` 已把 `gate-baseline.json` 列为
+  `fullFallbackExempt`，只改基线跑 **0 个测试**）。留下这句的提交 `c1c99c03` 标题正是
+  *"make pre-push cheap"*。
+- `tests/**` 的 comment-hygiene **不被任何门监视**（门的 `scope.dirs` 只含 `src` + `packages/*/src`）
+- `git stash pop` 被 worktree gate 拦而 `stash drop` 不拦
+- 本机/任何**非提权** Windows 机器，pre-push 常红（Developer Mode 关闭 → 建不了文件 symlink →
+  6 条断言假设链接的测试失败；CI 的 windows runner 是提权的，故 CI 本就绿）
 
 ---
 
-## 6. 我的建议顺序（仅供参考）
+## 3 · 一条方法学（这一天里出现两次）
 
-1. **N0a**（合并推送）——几秒钟的事，先把成果落定
-2. **N4**（MCP client 侧实测）——**唯一能证明 MCP 交付真有用**的一步；需要另一台机器
-3. **N1 / W5**（非 Bash fail-open）——面最大、最该单独立项的安全洞
-4. **N3**（函数长度债 231）——**没人看着**的债，且它解释了 N2 为什么反复撞墙
-5. **N2c**（`scripts/install-skills.mjs` 1308 行）——单文件最严重，且它是**安装器**
-6. 其余按兴趣
-
-**不建议**：把 N1 和 N2 混在一刀里（一个改安全边界、一个还债，混在一起无法判定风险）。
+**门的 census 用 `git ls-files`。** 新模块在入索引前**门的任何一条腿都看不见它们**——
+`peaks-gate.mjs repo` 会报 *"all ceilings held"* 却**一个都没数到**。
+**先 `git add`，再量。** 第二次出现时是 RD 自己先指出来的。
