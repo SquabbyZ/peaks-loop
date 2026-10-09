@@ -36,7 +36,6 @@
 // some platforms, and choosing between the two spellings would be the platform
 // branch this module is forbidden to contain.
 
-import { spawnSync } from 'node:child_process';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -70,6 +69,13 @@ export interface McpInstallStep {
 export interface McpInstallOutcome {
   readonly ok: boolean;
   readonly detail: string;
+  /**
+   * `false` only when the harness NEVER RENDERED A VERDICT — the deadline killed
+   * it, or it never launched. A non-zero exit answered ("no such registration"),
+   * so an absent value reads as `true`, as does every outcome that predates this
+   * field.
+   */
+  readonly answered?: boolean;
 }
 
 /** The seam: a test supplies one, the CLI supplies the spawning one below. */
@@ -81,6 +87,13 @@ export interface McpInstallReport {
   readonly removed: readonly string[];
   /** Scopes where the removal reported failure — normally "nothing was there". */
   readonly absent: readonly string[];
+  /**
+   * Scopes whose removal never reached a verdict — the harness timed out or never
+   * launched — so it is neither `removed` nor honestly `absent`. Optional because
+   * the install sweep tolerates a failed removal (it is about to write) and never
+   * populates it; the uninstall sweep always does.
+   */
+  readonly unknown?: readonly string[];
   readonly added: boolean;
   readonly ok: boolean;
   readonly detail: string;
@@ -165,7 +178,15 @@ export function runMcpInstallPlan(
   return { serverName: profile.serverName, removed, absent, added: true, ok: true, detail };
 }
 
-/** The removal sweep on its own — what `uninstall` is, and all that it is. */
+/**
+ * The removal sweep on its own — what `uninstall` is, and all that it is.
+ *
+ * `exit 0` removed it, `exit != 0` answered "no" (absent, unchanged) — but a run the
+ * deadline killed, or one that never launched, ANSWERED NOTHING, and calling that
+ * "nothing was there" is the lie this sweep used to tell. Those scopes are `unknown`,
+ * and `ok` is false whenever any scope is unknown: with a scope the harness never
+ * spoke for, the removal is unconfirmed and the state is not known.
+ */
 export function runMcpUninstallPlan(
   profile: IdeMcpInstallProfile,
   serverArgv: readonly string[],
@@ -176,21 +197,26 @@ export function runMcpUninstallPlan(
   );
   const removed: string[] = [];
   const absent: string[] = [];
+  const unknown: string[] = [];
   for (const step of plan) {
     const outcome = runner(step.command);
     if (outcome.ok) removed.push(step.scope);
+    else if (outcome.answered === false) unknown.push(step.scope);
     else absent.push(step.scope);
   }
   return {
     serverName: profile.serverName,
     removed,
     absent,
+    unknown,
     added: false,
-    ok: true,
+    ok: unknown.length === 0,
     detail:
-      removed.length === 0
-        ? `no '${profile.serverName}' registration was present in any declared scope`
-        : `removed '${profile.serverName}' from ${removed.length} scope(s)`
+      unknown.length > 0
+        ? `the '${profile.serverName}' removal is unconfirmed: ${unknown.length} scope(s) never answered`
+        : removed.length === 0
+          ? `no '${profile.serverName}' registration was present in any declared scope`
+          : `removed '${profile.serverName}' from ${removed.length} scope(s)`
   };
 }
 
@@ -241,51 +267,12 @@ export function uninstallMcpForAdapter(
 }
 
 /**
- * Ceiling on ONE harness command. `spawnSync` without `timeout` has no ceiling
- * at all, and the failure it lets through is measured, not hypothetical: a
- * real harness binary on this host starts and then does not return within 25 s.
- * Unbounded, that blocks `peaks mcp install` in the foreground forever. Same
- * class the MCP CLI executor bounds (`cli-executor.ts`), set to twice its 15 s
- * because the child is the harness's binary and its startup is its own to
- * spend. A plan is at most three commands, so the install is bounded at 3x.
+ * The production runner and its deadline live in `mcp-install-runner.ts` — split
+ * out only to keep this engine within the file-size cap. They are re-exported, so
+ * the boundary is invisible: every caller still imports them from here.
  */
-export const MCP_INSTALL_TIMEOUT_MS = 30_000;
-
-/**
- * One harness command, with the deadline applied. `windowsHide` is the tree's
- * spawn contract: a CLI that briefly runs a harness must not flash a console
- * window on a desktop OS. `timeoutMs` is a parameter only so a test can watch
- * the deadline fire without waiting out the production value — callers want
- * `spawnMcpInstallRunner`, which fixes it.
- */
-export function spawnMcpInstallCommand(
-  command: McpInstallCommand,
-  timeoutMs: number = MCP_INSTALL_TIMEOUT_MS
-): McpInstallOutcome {
-  const result = spawnSync(command.command, [...command.args], {
-    stdio: 'pipe',
-    windowsHide: true,
-    encoding: 'utf8',
-    timeout: timeoutMs
-  });
-  if (result.error !== undefined) {
-    // `spawnSync` kills the child at the deadline and reports its own timeout as
-    // ETIMEDOUT. That has to read as a deadline, not as a launch error: "the
-    // harness hung" and "the harness said no" are different facts.
-    if ((result.error as NodeJS.ErrnoException).code === 'ETIMEDOUT') {
-      return {
-        ok: false,
-        detail: `timed out after ${timeoutMs} ms and was killed: ${command.command} ${command.args.join(' ')}`
-      };
-    }
-    return { ok: false, detail: result.error.message };
-  }
-  if (result.status === 0) {
-    return { ok: true, detail: '' };
-  }
-  const stderr = (result.stderr ?? '').trim();
-  return { ok: false, detail: stderr.length > 0 ? stderr : `exit ${result.status ?? 'unknown'}` };
-}
-
-/** The production runner: the deadline above, and nothing else left to decide. */
-export const spawnMcpInstallRunner: McpInstallRunner = (command) => spawnMcpInstallCommand(command);
+export {
+  MCP_INSTALL_TIMEOUT_MS,
+  spawnMcpInstallCommand,
+  spawnMcpInstallRunner
+} from './mcp-install-runner.js';

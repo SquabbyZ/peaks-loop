@@ -155,6 +155,24 @@ function reportRegistration(
   return `${result.ideId}: ${verb} ${report.ok ? 'ok' : 'FAILED'} — ${report.detail}`;
 }
 
+/** The `data` BOTH envelopes carry, so the failure path is never a thinner shape. */
+function registrationEnvelopeData(
+  result: AdapterMcpInstallResult,
+  verb: 'install' | 'uninstall'
+): {
+  readonly ide: string;
+  readonly skipped: boolean;
+  readonly summary: string;
+  readonly registration: AdapterMcpInstallResult;
+} {
+  return {
+    ide: result.ideId,
+    skipped: result.skipped,
+    summary: reportRegistration(result, verb),
+    registration: result
+  };
+}
+
 function runMcpRegistration(
   io: ProgramIO,
   verb: 'install' | 'uninstall',
@@ -187,24 +205,19 @@ function runMcpRegistration(
   if (report !== undefined && !report.ok) {
     printResult(
       io,
-      fail(`mcp.${verb}`, 'MCP_REGISTRATION_FAILED', report.detail, { ide: adapter.id }, [
-        'Run the harness command by hand to see its own error'
-      ]),
+      fail(
+        `mcp.${verb}`,
+        'MCP_REGISTRATION_FAILED',
+        report.detail,
+        registrationEnvelopeData(result, verb),
+        ['Run the harness command by hand to see its own error']
+      ),
       options.json === true
     );
     process.exitCode = 1;
     return;
   }
-  printResult(
-    io,
-    ok(`mcp.${verb}`, {
-      ide: adapter.id,
-      skipped: result.skipped,
-      summary: reportRegistration(result, verb),
-      registration: result
-    }),
-    options.json === true
-  );
+  printResult(io, ok(`mcp.${verb}`, registrationEnvelopeData(result, verb)), options.json === true);
 }
 
 /**
