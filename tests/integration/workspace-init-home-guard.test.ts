@@ -89,10 +89,15 @@ function envelopeOf(result: RunResult): {
   message?: string;
   nextActions: readonly string[];
 } {
-  const combined = `${result.stdout}\n${result.stderr}`;
-  const start = combined.indexOf('{');
-  expect(start, `no JSON envelope in output:\n${combined}`).toBeGreaterThanOrEqual(0);
-  return JSON.parse(combined.slice(start)) as {
+  // The envelope is on STDOUT on both paths this file drives — verified by
+  // running the real CLI: the refused `--project .` in $HOME (exit 1) and the
+  // successful init. `runCli` only fills `stderr` on the non-zero-exit path,
+  // where Node's `ExperimentalWarning` for `node:sqlite` lands; the old
+  // concatenation put that warning after the JSON and broke `JSON.parse`.
+  // Parse stdout alone — no arm here reads an envelope off stderr.
+  const start = result.stdout.indexOf('{');
+  expect(start, `no JSON envelope in stdout:\n${result.stdout}`).toBeGreaterThanOrEqual(0);
+  return JSON.parse(result.stdout.slice(start)) as {
     ok: boolean;
     code?: string;
     message?: string;
