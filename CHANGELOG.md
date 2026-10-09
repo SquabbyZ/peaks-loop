@@ -1,5 +1,61 @@
 # Changelog
 
+## 4.1.3 — 2026-10-09 (只读 MCP 能力面首次发布：把"只读"做成可证伪的东西；两处"工具在说假话"的修复；三批尺寸债，以及门禁自己被加固)
+
+**版本级别**: 未发布区间 `v4.1.2..HEAD` 共 **20 个 commit**（2 feat / 3 fix / 4 refactor / 2 chore(gate) / 2 merge / 其余 docs+memory）。取 **patch**，依维护者 2026-07-22 的常设规则"默认版本新增采用最小的版本位"。
+
+**但此处必须如实记一笔**：本版**确实新增了命令族**（`peaks mcp serve|install|uninstall`）。4.1.2 那条写的是"取 patch：本版不新增命令"，本版**不适用那句**——取 patch 是常设规则的默认，不是"没有新增命令"。按严格语义化版本，新增用户可见命令应当取 minor。4 个 workspace 包各 +1 patch（shared 0.0.91→0.0.92、internal-runtime 0.0.42→0.0.43、mut 0.1.56→0.1.57、shared-channel 0.0.59→0.0.60），`CLI_VERSION` 与 `RUNTIME_VERSION` 由 `scripts/sync-version.mjs` 同步（`bump-version.mjs` 只管清单，两者都在 tag 之前，否则 publish.yml 的 `gate-cli-version` 会在 `npm publish` 前中止）。
+
+### 1. 只读 MCP 能力面（2 feat）——核心不是"能调用"，而是"只读这件事被证明过"
+
+`peaks mcp serve` 把既有的非 gate 能力以 MCP stdio 暴露给 AI Harness；`peaks mcp install|uninstall` 把它注册进 harness。**CLI 不删**，MCP 是并列的一条调用路径。
+
+**"只读"不是一句声明，是一条可证伪的断言。** 分类键是**完整 argv**（含 flag），不是命令名——13 个命令族全部读写成对存在，有些**默认就是写**，只看命令名会把写当成读。白名单是手写真源（`contracts/readonly-surface.json`）+ 生成物（`contracts/readonly-argv-whitelist.json`），生成物才是运行时读的那个。
+
+证明分三层：(A) 文件系统 + state-store 快照差分；(B) 进程内对 `child_process` / `fetch` / `http(s).request` 的测试替身拦截；(C) CI-only 的无网络只读挂载沙箱。执行面分 L1–L4 四层，其中 L3 是 PreToolUse matcher 覆盖，**MCP 分支 fail-closed**（与 Bash 分支的 fail-open 相反）——这条分支被刻意放在强制链最前面，因为 MCP 工具名既不匹配 Bash matcher 也不是 worktree 工具，放在后面会被直接放行。
+
+**客户端那一跳已实测**：真 Claude Code 2.1.295 上 `claude mcp add … peaks -- <node> <bin/peaks.js> mcp serve` 被原样接受，`claude mcp list` 报 `✔ Connected`，即 harness 真的 spawn 了 server 并完成握手。这是本能力**唯一无法在离线环境推断**的一步，也是这一版敢发出来的理由。
+
+**注意**：`peaks mcp install` 会**写用户的 `~/.claude.json`**（user scope），卸载会扫掉全部已声明 scope。这是本仓第一次发出去会改用户环境的命令。
+
+### 2. 两处"工具在说假话"（2 fix + 1 fix(baseline)）
+
+**`peaks mcp uninstall` 在删不掉时返回 `ok: true` 并断言"no registration was present"。** 实测：注册项仍在（`claude mcp get peaks` 仍 `✔ Connected`），harness 配置前后逐字节相同，而移除命令**超时被杀**。根因是 `runMcpUninstallPlan` 把**任何**失败的移除都归入 `absent`，然后无条件 `ok: true`。安装侧容忍失败的移除是对的（紧接着就要写，旧项在不在无关紧要），卸载侧不成立——移除**就是**那个操作。修法只划一条**不需要读 harness 输出**的界（读它的英文是 vendor-specific，本仓禁止）：`exit 0` → 已移除；`exit ≠ 0` → 它**表了态**（absent，不变）；**超时/未启动 → 它从未给出裁决**（`unknown`，`ok: false`）。`detail` 从此只在所有 scope 都表了态且都没找到时才说"没有注册项"。
+
+**同一分支还漏了信息**：失败信封的 `data` 只带 `{ ide }`，整份 report 被丢掉——而这条分支在本次改动之前**不可达**（卸载恒为 `ok:true`），所以这个信息丢失是本版引入并本版修掉的。R3 场景（一个 scope 移除成功、另一个从未答复）下，`--json` 的消费者现在看得见 `removed`。
+
+**`npx` / `npm` 解析器差一级目录。** `locateNpmCliScript` 在 win32 上从 `process.execPath` 往上找**两级**，而标准 Windows 布局（MSI、zip、nvm-for-windows）都是**一级**。在第 3 个硬编码候选（`C:/Program Files/nodejs`）也不存在的机器上，它找不到 `npm-cli.js` / `npx-cli.js`，**静默回退到裸名 `npx`/`npm`**——正是这个模块被写出来专门要绕开的那个 `.cmd` shim。长期不可见是因为那个硬编码候选恰好命中默认安装与 CI 的 `windows-latest`。
+
+### 3. 门禁自己被加固（2 chore(gate)）
+
+**两条不会失败的门被修成会失败。** `peaks-gate staged`（无参）曾打印 `EMPTY CHANGE SET — NOTHING WAS CHECKED` 却 **exit 0**；`format:check` 与 pre-commit 的范围本就不一致而 CI 根本没跑它。后者接进 CI 时被写成**集合包含**棘轮而非计数棘轮——一个计数看不见**替换**（删一个、加一个，计数不变）。
+
+**单调守卫的第一个、也是唯一一个例外**：`fileSizeOverCap`（文件数）与 `fileSizeExcessLines`（超出行数）各自独立棘轮，而规则是"任一 key 高于基线即拒"。于是把 1125 行拆成 2 份、每份仍 >300 时 `overCap 1→2` 被拒——一个**把超出行数降下来的改动**被挡住。新政策：`overCap` 允许上涨，**仅当**同一次变更中 `excess` 严格下降；双升则拒。
+
+**基线生成器在本版拒绝过两次，两次都是改源码而不是抬 ceiling**：一次 `commentNarrativeLines: 22 → 24`（新模块头注释写了切片名，而 `rid-id` 是 8 个 NARRATIVE_MARKER 之一），一次 `comment narrative: 63 > ceiling 22 (+41)`。这条拒绝路径在本版内**真的被执行过**，不是事后补的说辞。
+
+### 4. 三批尺寸债（4 refactor）——能降 ceiling 的只有 `src/`
+
+`src/cli/commands` 从 10 个最严重的文件拆成 110 个模块（三批），`scripts/` 4 个文件拆成 16 个模块。**四个 ceiling 全部下降，无一上升**：
+
+```
+eslintFindings     2055 -> 1951      fileSizeOverCap      122 -> 112
+eslintErrors        770 ->  709      fileSizeExcessLines 35536 -> 30352
+```
+
+**配方是"拆分与压函数必须在同一次交付里完成"**，这条是血换来的：第一批只拆，`eslintFindings`/`eslintErrors` 被**推高** +23/+19（把一个长函数切成 helper 之后，原函数在压缩前必然仍超 50 行），被拒后第二遍才把 51 个函数压到 0；第二、三批一次做完，分别 −61 和 −43。
+
+**`scripts/**` 与 `tests/**` 是 shadow 人口，不受任何 file-size ceiling 约束**（`gate/legs.mjs` 只 check `partition.gated`）。拆它们**不移动任何 ceiling**——实测前后均为 `117 / 32979`，移动的只有 census 与 shadow 块。它们是被 owner（2026-10-03）刻意排除在 ceiling 之外的，本版如实记录这一点，而不是把"拆了 4 个文件"说成还了 ceiling 的债。
+
+### 5. 未验证（记录而非隐瞒）
+
+- **C 层沙箱从未实跑**（CI-only，本仓无 runner）；`format:check` job 同样**从未在 runner 上跑过**。
+- **L3 端到端未验**：PATH 上的 `peaks` 是已安装构建而非工作树。
+- **S1 政策例外的端到端触发未验**：机制只在纯函数层被测，"允许涨" ≠ "已经涨过"。
+- **MCP 只读证明的白名单覆盖面**：分类键是完整 argv，但白名单是手写枚举；一条新命令若忘记分类会落到默认分支。`_no-mcp-source-import-scan` 守着"服务层不得 import MCP"这条不变量，但**不守**白名单本身的完备性。
+- **`scripts/**` 的债是自愿还的**，没有任何门会因为不还而变红（见 §4）。
+- **发布路径的一处结构性冲突（过程，非产品）**：`git push origin <tag>` 单独推送**永远过不了本仓 pre-push 门**——只推 tag 时 `origin/main...HEAD` 为空，而门在空变更集上按设计拒绝（"nothing to compare ≠ compared and clean"）。也就是说**每一次发布都必须靠一次 `--no-verify`**，恰是本仓钩子注释里警告过的形状。本版未修（属门机器，须单独立项）。
+
 ## 4.1.2 — 2026-10-08 (资产真源落地: 升级不再静默冻结入口; codegraph 换上 1.6.2 的包模型, 顺带照出一条从未响过的失败路径)
 
 **版本级别**: 未发布区间 `v4.1.1..HEAD` 共 **14 个 commit**（6 feat / 3 fix / 1 refactor / 1 test / 3 docs）。取 **patch**：本版不新增命令，不改变任何既有命令的输入输出形状 —— 两件主要工作都是"让已经承诺的行为真的发生"。4 个 workspace 包各 +1 patch（shared 0.0.90→0.0.91、internal-runtime 0.0.41→0.0.42、mut 0.1.55→0.1.56、shared-channel 0.0.58→0.0.59），与 `scripts/bump-version.mjs` 的 lockstep 规则（每个可发布包跟随根版本 +1 patch）一致；实测子包自身的 `version` 字段**不进** `pnpm-lock.yaml`（workspace 依赖在 lock 里是 `link:` 形态、importer 条目为 `packages/peaks-loop-shared: {}`，无版本行），故本版**不需要**改 lockfile。
