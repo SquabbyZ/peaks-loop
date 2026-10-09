@@ -115,6 +115,16 @@ function typescriptShim(): string {
 export function createDetectorFixture(name: string): Fixture {
   const fx = createFixture(`sw-${name}`);
   fx.write(DETECTOR_REL, readFileSync(join(REPO_ROOT, DETECTOR_REL), 'utf8'));
+  for (const sibling of [
+    'silent-warning-ast.mjs',
+    'silent-warning-analyze.mjs',
+    'silent-warning-report.mjs'
+  ]) {
+    fx.write(
+      join('scripts', 'lint', sibling),
+      readFileSync(join(REPO_ROOT, 'scripts', 'lint', sibling), 'utf8')
+    );
+  }
   fx.write(TS_LIB_REL, typescriptShim());
   fx.commitAll('fixture: the real detector replaces the argv-blind stub');
   return fx;

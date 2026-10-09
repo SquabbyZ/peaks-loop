@@ -31,10 +31,20 @@
 //   - Output is a stable JSON envelope on stdout so the QA test wrapper
 //     can re-assert the same data. (A static-scan precedent once cited
 //     here was retired.)
+//
+// WHAT MOVED (rid-043), AND WHY THE ENTRY IS STILL THIS FILE. It owns the two things
+// that are about being a CLI rather than about scanning: `REPO_ROOT` / `SCAN_ROOTS`
+// (an absolute path and the default scope) and the `import.meta.url` entry guard. The
+// AST predicates, the analyzer and the render moved to siblings; `analyzeSource` is
+// re-exported, so the unit-test surface this file has always had is unchanged, and
+// `.husky/peaks-gate-silent-warning.mjs` still spawns exactly this path.
 
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { dirname, extname, join, relative, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+
+import { analyzeSource } from './silent-warning-analyze.mjs';
+import { renderReport } from './silent-warning-report.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -89,278 +99,10 @@ function isSelf(file) {
   );
 }
 
-// ---------- AST analysis -------------------------------------------------
-
-/**
- * Walk an AST and return all violation objects. Each violation:
- *   { rule, file, line, column, message, snippet }
- *
- * Overloaded:
- *   analyzeSource(source, file)         — convenience; resolves TS lazily.
- *   analyzeSource(ts, source, file)     — explicit (used internally + tests).
- */
-function analyzeSource(tsArg, sourceArg, fileArg) {
-  let ts, source, file;
-  if (typeof tsArg === 'string') {
-    // (source, file) signature — resolve ts lazily.
-    source = tsArg;
-    file = sourceArg;
-    // Synchronous throw: callers must await loadTs() first if they want
-    // the async path. The CLI uses the async path in main(); the unit
-    // test imports this function with ts already initialised.
-    throw new Error(
-      'analyzeSource(source, file): use the async variant `analyzeSourceAsync` or pass the resolved `ts` module.'
-    );
-  } else {
-    ts = tsArg;
-    source = sourceArg;
-    file = fileArg;
-  }
-  // Annotated with the real type instead of left `any`. This repo's type-aware
-  // lint fires on every member access off an `any`, and an untyped `sf` is why
-  // this file sits AT its ratchet (214 findings): any functional edit to
-  // `record()` cost more findings than the file had headroom for. Naming the
-  // type pays for the end-line read below and leaves the file one finding
-  // BETTER than it was found.
-  /** @type {import('typescript').SourceFile} */
-  const sf = ts.createSourceFile(file, source, ts.ScriptTarget.ES2022, true, ts.ScriptKind.TS);
-  const violations = [];
-  const lineText = source.split(/\r?\n/);
-
-  // Per-function context for rule 4 (console.error vs envelope.warnings).
-  // We rebuild a function→body map keyed by the containing function node.
-  const fnBodies = collectFunctionBodies(ts, sf);
-
-  function record(rule, node, message, snippet) {
-    const { line, character } = sf.getLineAndCharacterOfPosition(node.getStart(sf));
-    const endLine = sf.getLineAndCharacterOfPosition(node.getEnd()).line;
-    const txt = lineText[line] ?? '';
-    // Suppress when a grace marker sits on ANY line the reported node spans —
-    // not on one hard-coded line. A line-anchored test broke under formatting
-    // four different ways at once (measured against this repo's own prettier
-    // config, slice S5a 2026-09-19): prettier drops a trailing
-    // `} catch { // TODO(g2): …` onto the next line, and it explodes a one-line
-    // `try { … } catch { … } // TODO(g2): …` into a block whose marker now sits
-    // after the closing brace. Either way the marker stayed visible in the file
-    // while the detector read it as absent — 126 live markers went inert in a
-    // single `--write` pass and broke the J03 ratchet on both rules. The node's
-    // own line extent is what survives reformatting: a marker cannot leave the
-    // construct it marks, whichever of the construct's lines it lands on.
-    for (let i = line; i <= endLine; i++) {
-      if (/TODO\(g2\)/.test(lineText[i] ?? '')) return;
-    }
-    violations.push({
-      rule,
-      file: relative(REPO_ROOT, file).replace(/\\/g, '/'),
-      line: line + 1,
-      column: character + 1,
-      message,
-      snippet: (snippet ?? txt).trim().slice(0, 200)
-    });
-  }
-
-  function visit(node) {
-    // Pattern 1: catch clause with empty body.
-    if (ts.isCatchClause(node)) {
-      const body = node.block;
-      if (body && isEffectivelyEmptyBlock(ts, body)) {
-        record(
-          'empty-catch',
-          node,
-          'catch clause swallows error with empty body — emit to envelope.warnings or rethrow'
-        );
-      } else if (body && firstMeaningfulStatementIs(ts, body, 'returnNullOrUndefined')) {
-        record(
-          'catch-return-null',
-          body,
-          'catch clause returns null/undefined — caller cannot distinguish failure from success'
-        );
-      }
-    }
-
-    // Pattern 3: Promise.reject with no cause envelope.
-    if (ts.isCallExpression(node) && isPromiseReject(ts, node)) {
-      const [arg] = node.arguments;
-      if (!arg) {
-        record('promise-reject-no-cause', node, 'Promise.reject() called with no arguments');
-      } else if (!isErrorLike(ts, arg) && !hasCauseField(ts, arg)) {
-        record(
-          'promise-reject-no-cause',
-          node,
-          'Promise.reject(x) — wrap original error with { cause: originalErr } or throw new Error(...).'
-        );
-      }
-    }
-
-    // Pattern 4: console.error in a function that never references envelope.warnings.
-    if (ts.isCallExpression(node) && isConsoleError(ts, node)) {
-      const owner = findEnclosingFunction(ts, node);
-      if (owner && !fnBodies.get(owner)?.touchesEnvelopeWarnings) {
-        record(
-          'console-error-no-env',
-          node,
-          'console.error(...) appears in a function that never references envelope.warnings — route through the envelope so QA can assert visibility.'
-        );
-      }
-    }
-
-    ts.forEachChild(node, visit);
-  }
-
-  visit(sf);
-  return violations;
-}
-
-function isEffectivelyEmptyBlock(ts, block) {
-  // Empty body OR body whose only statements are comments / debugger.
-  if (block.statements.length === 0) return true;
-  return block.statements.every((s) => ts.isEmptyStatement(s));
-}
-
-function firstMeaningfulStatementIs(ts, block, kind) {
-  for (const stmt of block.statements) {
-    if (ts.isEmptyStatement(stmt)) continue;
-    if (kind === 'returnNullOrUndefined') {
-      if (ts.isReturnStatement(stmt) && stmt.expression) {
-        const t = stmt.expression.kind;
-        if (t === ts.SyntaxKind.NullKeyword || t === ts.SyntaxKind.UndefinedKeyword) return true;
-        // TS parses `return undefined` / `return null` as bare identifiers.
-        if (
-          ts.isIdentifier(stmt.expression) &&
-          (stmt.expression.text === 'null' || stmt.expression.text === 'undefined')
-        ) {
-          return true;
-        }
-        // `return foo ?? null` is also a "silent null" anti-pattern.
-        if (
-          ts.isBinaryExpression(stmt.expression) &&
-          stmt.expression.operatorToken.kind === ts.SyntaxKind.QuestionQuestionToken
-        ) {
-          return true;
-        }
-      }
-      return false;
-    }
-    return false;
-  }
-  return false;
-}
-
-function isPromiseReject(ts, node) {
-  if (!ts.isPropertyAccessExpression(node.expression)) return false;
-  const expr = node.expression;
-  if (expr.name.text !== 'reject') return false;
-  const obj = expr.expression;
-  if (ts.isIdentifier(obj) && obj.text === 'Promise') return true;
-  return false;
-}
-
-function isErrorLike(ts, arg) {
-  if (ts.isNewExpression(arg) && ts.isIdentifier(arg.expression)) {
-    const n = arg.expression.text;
-    if (n === 'Error' || n.endsWith('Error')) return true;
-  }
-  if (
-    ts.isIdentifier(arg) &&
-    (arg.text === 'err' || arg.text === 'error' || /^[a-z]*(Err|Error)$/.test(arg.text))
-  ) {
-    return true;
-  }
-  return false;
-}
-
-function hasCauseField(ts, arg) {
-  if (!ts.isObjectLiteralExpression(arg)) return false;
-  return arg.properties.some(
-    (p) =>
-      (ts.isPropertyAssignment(p) || ts.isShorthandPropertyAssignment(p)) &&
-      ts.isIdentifier(p.name) &&
-      p.name.text === 'cause'
-  );
-}
-
-function isConsoleError(ts, node) {
-  if (!ts.isPropertyAccessExpression(node.expression)) return false;
-  const expr = node.expression;
-  if (expr.name.text !== 'error') return false;
-  const obj = expr.expression;
-  return ts.isIdentifier(obj) && obj.text === 'console';
-}
-
-function collectFunctionBodies(ts, sf) {
-  const map = new Map();
-  function visit(node) {
-    const fn =
-      ts.isFunctionDeclaration(node) ||
-      ts.isFunctionExpression(node) ||
-      ts.isArrowFunction(node) ||
-      ts.isMethodDeclaration(node);
-    if (fn && node.body) {
-      const info = { touchesEnvelopeWarnings: false };
-      walkFor(ts, node.body, (n) => {
-        // Property access like `envelope.warnings` or `warnings.push(...)`.
-        if (ts.isPropertyAccessExpression(n)) {
-          const txt = n.getText(sf);
-          if (/envelope\s*\.\s*warnings/.test(txt) || /\.warnings\b/.test(n.getText(sf))) {
-            info.touchesEnvelopeWarnings = true;
-          }
-        }
-        if (ts.isCallExpression(n) && ts.isPropertyAccessExpression(n.expression)) {
-          const callee = n.expression;
-          if (callee.name.text === 'push') {
-            const objText = callee.expression.getText(sf);
-            if (/envelope\s*\.\s*warnings/.test(objText) || /\.warnings\b/.test(objText)) {
-              info.touchesEnvelopeWarnings = true;
-            }
-          }
-        }
-      });
-      map.set(node, info);
-    }
-    ts.forEachChild(node, visit);
-  }
-  visit(sf);
-  return map;
-}
-
-function walkFor(ts, node, fn) {
-  fn(node);
-  ts.forEachChild(node, (c) => walkFor(ts, c, fn));
-}
-
-function findEnclosingFunction(ts, node) {
-  let cur = node.parent;
-  while (cur) {
-    if (
-      ts.isFunctionDeclaration(cur) ||
-      ts.isFunctionExpression(cur) ||
-      ts.isArrowFunction(cur) ||
-      ts.isMethodDeclaration(cur)
-    ) {
-      return cur;
-    }
-    cur = cur.parent;
-  }
-  return null;
-}
-
 // ---------- driver -------------------------------------------------------
 
-async function main() {
-  const argv = process.argv.slice(2);
-  if (argv.includes('--help') || argv.includes('-h')) {
-    printHelp();
-    process.exit(0);
-  }
-  const warnOnly = argv.includes('--warn-only');
-  const jsonOut = argv.includes('--json');
-  const onlyFiles = argv.filter((a) => !a.startsWith('-'));
-
-  const ts = await getTs();
-
-  const allViolations = [];
-  let scannedCount = 0;
-
+/** The files this run was asked for: the named ones, or the default scope walk. */
+function collectScanFiles(onlyFiles) {
   const files = [];
   if (onlyFiles.length > 0) {
     for (const f of onlyFiles) {
@@ -373,6 +115,13 @@ async function main() {
       for (const f of walk(root)) files.push(f);
     }
   }
+  return files;
+}
+
+/** The scan loop, and the parse errors it surfaces rather than swallows. */
+function scanFiles(ts, files, jsonOut) {
+  const allViolations = [];
+  let scannedCount = 0;
 
   for (const file of files) {
     if (isSelf(file)) continue;
@@ -398,45 +147,23 @@ async function main() {
     }
   }
 
-  // Group by rule for the summary table.
-  const byRule = new Map();
-  for (const v of allViolations) {
-    if (!byRule.has(v.rule)) byRule.set(v.rule, []);
-    byRule.get(v.rule).push(v);
-  }
+  return { allViolations, scannedCount };
+}
 
-  if (jsonOut) {
-    process.stdout.write(
-      JSON.stringify(
-        {
-          ok: allViolations.length === 0,
-          scannedFiles: scannedCount,
-          violationCount: allViolations.length,
-          byRule: Object.fromEntries([...byRule.entries()].map(([k, v]) => [k, v.length])),
-          violations: allViolations
-        },
-        null,
-        2
-      ) + '\n'
-    );
-  } else {
-    process.stdout.write(`[silent-warning-detector] scanned ${scannedCount} files\n`);
-    if (allViolations.length === 0) {
-      process.stdout.write(
-        `[silent-warning-detector] OK — no silent-warning anti-patterns detected\n`
-      );
-    } else {
-      process.stdout.write(
-        `[silent-warning-detector] FAIL — ${allViolations.length} violation(s):\n`
-      );
-      for (const v of allViolations) {
-        process.stdout.write(`  ${v.file}:${v.line}:${v.column}  [${v.rule}]  ${v.message}\n`);
-        process.stdout.write(`      | ${v.snippet}\n`);
-      }
-      const summary = [...byRule.entries()].map(([k, v]) => `${k}=${v.length}`).join(', ');
-      process.stdout.write(`[silent-warning-detector] summary: ${summary}\n`);
-    }
+async function main() {
+  const argv = process.argv.slice(2);
+  if (argv.includes('--help') || argv.includes('-h')) {
+    printHelp();
+    process.exit(0);
   }
+  const warnOnly = argv.includes('--warn-only');
+  const jsonOut = argv.includes('--json');
+  const onlyFiles = argv.filter((a) => !a.startsWith('-'));
+
+  const ts = await getTs();
+  const files = collectScanFiles(onlyFiles);
+  const { allViolations, scannedCount } = scanFiles(ts, files, jsonOut);
+  renderReport({ allViolations, scannedCount, jsonOut });
 
   if (allViolations.length === 0) process.exit(0);
   process.exit(warnOnly ? 0 : 1);
@@ -475,7 +202,7 @@ if (_isMain) {
 
 // Exported for the unit test surface (AC A2.3 self-豁免 requires the test
 // file to import the detector and assert on its output directly).
-export { analyzeSource, analyzeSourceAsync, isSelf, walk };
+export { analyzeSource, isSelf, walk };
 
 /**
  * Convenience async wrapper so test code can pass (source, file) without
@@ -485,3 +212,5 @@ async function analyzeSourceAsync(source, file) {
   const ts = await getTs();
   return analyzeSource(ts, source, file);
 }
+
+export { analyzeSourceAsync };

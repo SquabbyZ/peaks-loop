@@ -1,28 +1,22 @@
 #!/usr/bin/env node
 import { spawn } from 'node:child_process';
 import { watch as nodeWatch } from 'node:fs';
-import { readdir } from 'node:fs/promises';
-import { join, resolve } from 'node:path';
+import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { installBundledSkills } from './install-skills.mjs';
+import { collectDirectories, createDirectoryTreeWatcher } from './watch-tree.mjs';
 
 export const WATCHED_INPUTS = ['src', 'schemas', 'skills'];
 export const DEFAULT_BUILD_COMMAND = ['pnpm', ['run', 'build']];
+
+export { collectDirectories, createDirectoryTreeWatcher };
 
 function getErrorMessage(error) {
   return error instanceof Error ? error.message : String(error);
 }
 
-function getErrorCode(error) {
-  return typeof error === 'object' && error !== null && 'code' in error ? error.code : undefined;
-}
-
 function isAbortError(error) {
   return error instanceof Error && error.name === 'AbortError';
-}
-
-function isMissingPathError(error) {
-  return getErrorCode(error) === 'ENOENT';
 }
 
 export function runCommand(command, args, options = {}) {
@@ -78,122 +72,6 @@ export function runCommand(command, args, options = {}) {
       );
     });
   });
-}
-
-export async function collectDirectories(root) {
-  const directories = [];
-  const visited = new Set();
-
-  async function visit(directory) {
-    if (visited.has(directory)) {
-      return;
-    }
-
-    visited.add(directory);
-
-    let entries;
-    try {
-      entries = await readdir(directory, { withFileTypes: true });
-    } catch (error) {
-      if (isMissingPathError(error)) {
-        return;
-      }
-
-      throw error;
-    }
-
-    directories.push(directory);
-
-    for (const entry of entries) {
-      if (!entry.isDirectory()) {
-        continue;
-      }
-
-      await visit(join(directory, entry.name));
-    }
-  }
-
-  await visit(root);
-  return directories;
-}
-
-export function createDirectoryTreeWatcher(root, options = {}) {
-  const watch = options.watch ?? nodeWatch;
-  const collect = options.collectDirectories ?? collectDirectories;
-  const onChange = options.onChange ?? (() => {});
-  const watchers = new Map();
-  let refreshPromise = null;
-  let refreshRequested = false;
-  let isClosed = false;
-
-  const syncWatchers = async () => {
-    const directories = await collect(root);
-    const nextDirectories = new Set(directories);
-
-    for (const [directory, watcher] of watchers) {
-      if (nextDirectories.has(directory)) {
-        continue;
-      }
-
-      watcher.close();
-      watchers.delete(directory);
-    }
-
-    for (const directory of directories) {
-      if (watchers.has(directory)) {
-        continue;
-      }
-
-      const watcher = watch(directory, () => {
-        onChange();
-        void requestRefresh();
-      });
-      watchers.set(directory, watcher);
-    }
-  };
-
-  const requestRefresh = async () => {
-    if (isClosed) {
-      return;
-    }
-
-    refreshRequested = true;
-    if (refreshPromise) {
-      return refreshPromise;
-    }
-
-    refreshPromise = (async () => {
-      do {
-        refreshRequested = false;
-        await syncWatchers();
-      } while (refreshRequested && !isClosed);
-    })();
-
-    try {
-      await refreshPromise;
-    } finally {
-      refreshPromise = null;
-    }
-  };
-
-  return {
-    async start() {
-      await requestRefresh();
-    },
-    async close() {
-      isClosed = true;
-
-      if (refreshPromise) {
-        await refreshPromise.catch(() => undefined);
-      }
-
-      for (const watcher of watchers.values()) {
-        watcher.close();
-      }
-
-      watchers.clear();
-    }
-  };
 }
 
 export async function rebuildOnce(options = {}) {

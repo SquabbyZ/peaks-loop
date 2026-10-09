@@ -82,6 +82,11 @@ function withScripts(root: string): string {
   mkdirSync(scripts, { recursive: true });
   for (const name of [
     'packages-build-prerequisite.mjs',
+    'packages-build-scope.mjs',
+    'packages-build-stamps.mjs',
+    'packages-build-freshness.mjs',
+    'packages-build-lock.mjs',
+    'packages-build-messages.mjs',
     'dist-freshness.mjs',
     'write-package-dist-stamps.mjs'
   ]) {
