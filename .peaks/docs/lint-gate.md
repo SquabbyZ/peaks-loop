@@ -276,6 +276,24 @@ the four `format:check` globs independently says *"All matched files use Prettie
 root program does **not** include (`include: ["src/**/*.ts","tests/**/*.ts"]`), so a package
 regression is invisible to the gate's `tsc` leg.
 
+> **CORRECTION, 2026-10-09 (rid-038 W2/D2).** That parenthetical was true when it was measured and
+> was FALSE by 2026-10-09: `pnpm format:check` reports **12** unformatted files. It was free to
+> drift because **no executor ran it** — the sentence above was the only thing watching the wide
+> globs, and a measured-once sentence does not watch anything. The wide check now runs in CI
+> (`.github/workflows/ci.yml`, job `format-check`) as `.husky/format-check-ratchet.mjs`, a
+> **set ratchet**: it asserts the current unformatted set stays INSIDE a named baseline SET of 12
+> files (listed in that script) rather than `== 0`. It is green on this tree and turns red the
+> moment an unformatted file appears OUTSIDE that set — a permanently red boolean would be a
+> job people learn to ignore, which is how the 12 drifted with nobody watching. (Repair 2,
+> 2026-10-09: this began as a COUNT ratchet `<= 12`, which stayed green when one old file was
+> cleaned and one new one added — count unchanged — while printing "no new unformatted file", a
+> sentence that was false; set containment makes that case red. The count also no longer appears
+> in the CI job name, where nothing observed it.) The reason its
+> scope is deliberately WIDER than the pre-commit gate's (`src/**` + `packages/*/src/**`) is
+> written out in that job's comment and in `.husky/pre-commit`; both checks are ratchets, so the
+> two scopes differ only in WHICH files they watch. Read them as different on purpose, not as a
+> gap.
+
 ### 4b. Measurement-surface holes, found 2026-09-29
 
 The gate held every ceiling and the unit suite was green (320 files / 3540 tests / 3 skipped), yet

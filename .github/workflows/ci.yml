@@ -509,3 +509,93 @@ jobs:
         env:
           TZ: UTC
           PEAKS_CALLER_ID: ci-runner
+
+  # W2/D2 (rid-038). THE WIDE FORMATTING CHECK HAD NO EXECUTOR, AND THAT IS HOW
+  # UNFORMATTED FILES REACHED A COMMIT.
+  #
+  # WHAT WAS MEASURED 2026-10-09. `pnpm format:check` covers `src`, `tests`,
+  # `packages` and `scripts`. The pre-commit gate compares only the owner-decided
+  # lint scope — `src/**` + `packages/*/src/**` (`.husky/lint-scope.mjs`, owner
+  # decision 2026-10-03) — and NAMES the difference out loud ("N staged file(s)
+  # are outside the lint scope and were not compared"), so a staged `tests/**` or
+  # `scripts/**` file was never formatted-checked on the way in. Nothing in CI ran
+  # `format:check` either. So the wider check existed as a script that no executor
+  # called, and a batch of unformatted files went to a commit with every gate green.
+  #
+  # ARE THE TWO SCOPES MEANT TO BE IDENTICAL? NO — deliberately not, and this is the
+  # answer nobody had written down:
+  #   * the pre-commit gate is a PER-FILE RATCHET ("a file you touch may not be worse
+  #     than its own baseline row"). It needs a baseline row per file, so its scope is
+  #     the owned product boundary, not "every file with a code extension".
+  #   * this job is a SET RATCHET over the same four trees: no per-file row, one
+  #     allowed SET of known names, and it may only shrink. It answers "did an
+  #     unformatted file appear OUTSIDE that set" — a ratchet, one level up from
+  #     the per-file one.
+  # Aligning them either way is worse than the divergence:
+  #   (a) widening the ratchet to `tests/**` + `scripts/**` re-opens an owner decision,
+  #       needs baseline rows for ~600 more files, and would immediately refuse every
+  #       commit touching one of the 12 files below — under `.husky/gate/ratchet.mjs`
+  #       an absent row reads as NEW FILE and a new file must be clean outright;
+  #   (b) narrowing `format:check` to the lint scope would delete formatting coverage
+  #       exactly where the leak happened.
+  # So the SCOPES STAY DIFFERENT and the missing half was the WIDE EXECUTOR. This job
+  # is it, and it is a RATCHET like the pre-commit gate: the two scopes differ in WHAT
+  # they cover and in nothing else — both ratchet, neither is a whole-repo boolean. They
+  # can therefore never drift into "a check that is documented and never run" again.
+  #
+  # GREEN ON ARRIVAL, AND THAT IS THE POINT — A SET RATCHET, NOT A BOOLEAN. 12 files
+  # are unformatted today and were unformatted before this job existed. The job asserts
+  # the current unformatted set stays INSIDE the baseline SET of 12 known names, so it is
+  # GREEN on the tree it lands on and RED the moment an unformatted file appears OUTSIDE
+  # that set — the only way the leak recurs, and the thing a boolean could never say (a
+  # boolean over 12 pre-existing violations is red forever, and a job that is red forever
+  # is a job everyone learns to ignore — the pass-shaped anti-pattern W2 exists to remove,
+  # not a stronger gate). The 12 names live in ONE named place WITH their rationale:
+  # `FORMAT_CHECK_BASELINE_FILES` at the top of `.husky/format-check-ratchet.mjs`. They are
+  # PRE-EXISTING debt this job SURFACES; it does not create it and this slice does not fix
+  # it, and the set may only SHRINK. NO `continue-on-error`, NO `|| true`: a step that
+  # cannot fail is the defect this job exists to end.
+  #
+  # WHY THE JOB NAME CARRIES NO NUMBER (rid-038 repair 2). The old name said
+  # `unformatted <= 12`. That `12` was a SECOND spelling of the baseline, in a file nothing
+  # observes: lowering the set later would have left the name claiming a stale bound,
+  # silently — the §2.28 shape, wearing a number instead of a scope. A set has no single
+  # number to derive a name from, so the name states the RULE instead ("baseline
+  # containment") and the count is only ever `FORMAT_CHECK_BASELINE_FILES.length`.
+  #
+  # ubuntu-latest ONLY. Formatting is platform-independent, and a Windows runner whose
+  # git applies `core.autocrlf` reads an LF file as CRLF and flags ALL of them — a red
+  # about the checkout rather than the tree. This repo already neutralizes exactly that
+  # in its own fixtures (`-c core.autocrlf=false`, `tests/unit/lint/_file-size-hooks-fixture.ts`),
+  # so a second and third copy of this step would buy a line-ending risk, not a signal.
+  format-check:
+    name: 'format set ratchet (baseline containment; src, tests, packages, scripts)'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm (corepack)
+        # Same reason as every other job here: pnpm/action-setup's self-installer
+        # fails on the runner's default Node 24.
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.11.0 --activate
+          pnpm --version
+
+      - name: Use Node.js 24.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.x
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Format check (set ratchet)
+        # The developer's own SCOPE, ratcheted instead of booleaned: the ratchet reads
+        # the four globs from `package.json#scripts['format:check']` (there is no
+        # copied glob list here) and runs prettier in `--list-different` form. The
+        # baseline SET of names and its rationale live in exactly one place — the
+        # exported `FORMAT_CHECK_BASELINE_FILES` at the top of
+        # `.husky/format-check-ratchet.mjs` — so neither the scope nor the number is
+        # spelled twice here and left to drift (§2.28).
+        run: node .husky/format-check-ratchet.mjs

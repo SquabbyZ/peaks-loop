@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-08T23:41:49.779Z",
+  "updatedAt": "2026-10-09T02:13:24.908Z",
   "hot": {
     "rule": [
       {
@@ -1364,6 +1364,14 @@
         "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\load-shaped-failures-are-real-maxworkers-2-is-a-deliberate-compromise-and-the-suite-tells-you.md",
         "sourceArtifact": ".peaks/_runtime/2026-09-16-session-5bcf09/sc/release-1-load-shaped.md",
         "updatedAt": "2026-10-08"
+      },
+      {
+        "name": "mcp-e2e-verified-by-official-schema-not-by-sdk",
+        "kind": "lesson",
+        "description": "MCP server 的端到端验证：用官方 schema，而不是等 SDK 背景 slice ②③ 交付了一个**手写**的 MCP stdio server（不新增依赖，自己实现 //）。 它留下的未验证项是：**\"协议面到底对不对...",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\mcp-e2e-verified-by-official-schema-not-by-sdk.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-10-09"
       },
       {
         "name": "measure-the-alternatives-before-fixing-a-wrong-target-defect",

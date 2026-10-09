@@ -18,5 +18,29 @@
 #   - unit tests ~7 min; CI runs the full suite in the `vitest + build` job.
 #                The push gate runs only the tests the pushed diff implies
 #                (`pnpm test:changed`, see .husky/pre-push).
+#   - formatting OUTSIDE the lint scope. `pnpm format:check` covers src, tests,
+#                packages and scripts; this hook compares only the owner-decided
+#                lint scope (src/** + packages/*/src/**, .husky/lint-scope.mjs,
+#                owner decision 2026-10-03) and says so by name for every staged
+#                file it drops ("outside the lint scope, not compared").
+#                THE TWO SCOPES ARE MEANT TO BE DIFFERENT, and until rid-038 the
+#                reason was written down nowhere. This hook is a PER-FILE RATCHET
+#                ("a file you touch may not be worse than its own baseline row"),
+#                so it can only cover files that HAVE a baseline row — the owned
+#                product boundary. Widening the ratchet to tests/** + scripts/**
+#                would re-open an owner decision, need rows for ~600 more files,
+#                and refuse every commit touching an already-unformatted file
+#                (an absent row reads as NEW FILE, which must be clean outright).
+#                So the wide check is NOT narrowed to match this hook: it is
+#                EXECUTED, in the `format-check` job of .github/workflows/ci.yml,
+#                as .husky/format-check-ratchet.mjs. That job is ALSO a ratchet —
+#                the current unformatted set must stay INSIDE a named baseline SET
+#                of 12 files (it may only shrink) over the SAME four globs this
+#                hook does not cover. So the
+#                two are consistent on the only axis that matters here ("ratchet,
+#                never a whole-repo boolean"); they differ in WHICH files they
+#                watch, not in what KIND of check they are. Before rid-038 no
+#                executor called the wide check at all, and unformatted files
+#                reached a commit with every gate green.
 set -e
 pnpm exec lint-staged
