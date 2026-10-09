@@ -5,6 +5,8 @@ import { join, resolve } from 'node:path';
 import { afterEach, describe, expect, test } from 'vitest';
 import { z } from 'zod';
 import { parseCliEnvelope, parseCliEnvelopeWith } from '../../src/cli/cli-envelope.js';
+import { getAdapter } from '../../src/services/ide/ide-registry.js';
+import { mcpHookMatcher } from '../../src/services/ide/mcp-tool-matcher.js';
 
 const BIN = resolve(__dirname, '../../bin/peaks.js');
 const REPO = resolve(__dirname, '../..');
@@ -94,7 +96,7 @@ afterEach(() => {
 });
 
 describe('peaks hooks install --ide claude-code (P1-2 e2e)', () => {
-  test('installs one managed PreToolUse gate idempotently and uninstalls idempotently', () => {
+  test('installs the managed PreToolUse gate at both matcher scopes, idempotently, and uninstalls idempotently', () => {
     const project = makeProject('peaks-p1-2-hooks-');
     const install = runCli(
       ['hooks', 'install', '--project', project, '--ide', 'claude-code', '--json'],
@@ -112,15 +114,26 @@ describe('peaks hooks install --ide claude-code (P1-2 e2e)', () => {
     const settingsPath = join(project, '.claude', 'settings.json');
     const localSettingsPath = join(project, '.claude', 'settings.local.json');
     expect(installed.data.localSettingsPath).toBe(localSettingsPath);
-    const readManaged = (file: string): unknown[] => {
+    // The two matchers `peaks gate enforce` is installed under, read from the
+    // adapter — the declaration the installer renders — never hard-coded: the MCP
+    // matcher is adapter-derived, so a literal would pin a value the installer
+    // does not own. The SECOND entry exists because a hook fires only for the
+    // matchers its OWN entry names: without it the fail-closed branch in
+    // `mcp-surface-gate.ts` never runs on a live harness (see `mcpMatcherEntry`
+    // in hooks-codegate-superpowers.ts).
+    const claudeCode = getAdapter('claude-code');
+    const expectedMatchers = [claudeCode.toolMatcher, mcpHookMatcher(claudeCode)];
+    const readManaged = (file: string): Array<{ matcher?: string }> => {
       const parsed = JSON.parse(readFileSync(file, 'utf8')) as {
-        hooks?: { PreToolUse?: Array<{ hooks?: Array<{ command?: string }> }> };
+        hooks?: { PreToolUse?: Array<{ matcher?: string; hooks?: Array<{ command?: string }> }> };
       };
       return (parsed.hooks?.PreToolUse ?? []).filter((entry) =>
         entry.hooks?.some((hook) => hook.command?.includes('peaks gate enforce'))
       );
     };
-    expect(readManaged(localSettingsPath)).toHaveLength(1);
+    // Identity, not just length: the matcher LIST (order + both values) turns red
+    // on a substitution or an extra entry, which a bare count cannot see.
+    expect(readManaged(localSettingsPath).map((entry) => entry.matcher)).toEqual(expectedMatchers);
     expect(readFileSync(settingsPath, 'utf8')).not.toContain('peaks gate enforce');
 
     const reinstall = parseCliEnvelopeWith(
@@ -129,8 +142,10 @@ describe('peaks hooks install --ide claude-code (P1-2 e2e)', () => {
       hooksInstallPayload
     );
     expect(reinstall.data.applied).toBe(false);
-    const afterReinstall = readFileSync(localSettingsPath, 'utf8');
-    expect(afterReinstall.match(/peaks gate enforce/g) ?? []).toHaveLength(1);
+    // Idempotent: the second install leaves the SAME two entries — no duplicate,
+    // no substitution. (The sentinel substring appears once per entry, so a raw
+    // count of it cannot distinguish "one gate" from "two matcher entries".)
+    expect(readManaged(localSettingsPath).map((entry) => entry.matcher)).toEqual(expectedMatchers);
 
     const uninstall = parseCliEnvelopeWith(
       runCli(
