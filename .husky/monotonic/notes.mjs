@@ -22,11 +22,30 @@ export function describeMonotonicityNotes(decision, seedRun) {
         'from its own measurement. Review every number before the commit.'
     ];
   }
-  const moved = decision.lowered.length + decision.added.length;
+  const coupled = decision.coupledRise;
+  const moved = decision.lowered.length + decision.added.length + coupled.length;
   const notes = [
-    `monotonicity: ${moved === 0 ? 'every ceiling held' : `${moved} row(s) moved`}` +
-      ' — nothing rose and nothing dropped; every ceiling may only go DOWN.'
+    coupled.length === 0
+      ? `monotonicity: ${moved === 0 ? 'every ceiling held' : `${moved} row(s) moved`}` +
+        ' — nothing rose and nothing dropped; every ceiling may only go DOWN.'
+      : `monotonicity: ${moved} row(s) moved — ${coupled.length} of them went UP and the pair ` +
+        'that earned each one is named below; every other ceiling may only go DOWN.'
   ];
+  if (coupled.length > 0) {
+    notes.push(
+      `  ROSE, AND THIS RATCHET PERMITS IT — ${coupled.length} row(s) went UP, and the only ` +
+        'reason is the pair below: the file count is the coarse proxy for the debt, and the ' +
+        'excess lines are the debt, so a count that rises while the excess FALLS is a split ' +
+        'in progress, not a regression:\n' +
+        bullet(
+          coupled.map(
+            (row) =>
+              `${row.key}: ${row.previous} → ${row.next} ` +
+              `(${row.justifiedBy.key}: ${row.justifiedBy.previous} → ${row.justifiedBy.next})`
+          )
+        )
+    );
+  }
   if (decision.lowered.length > 0) {
     notes.push(
       `  CLEARED — ${decision.lowered.length} ceiling(s) went DOWN:` +

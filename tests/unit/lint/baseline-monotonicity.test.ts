@@ -15,10 +15,16 @@
 // WHAT THIS FILE HOLDS. `.husky/peaks-gate-baseline-monotonic.mjs` is the pure
 // comparison the generator calls immediately before it writes, and every row of
 // its decision table is a named arm below — including the two rows that must
-// STILL WRITE. `tests/unit/lint/baseline-monotonicity-generator.test.ts` runs the
-// generator as a subprocess against an isolated fixture and proves the refusal
-// lands before the bytes change; the split is the `tests/` raw-line cap, not a
-// change of subject.
+// STILL WRITE. One row of that table is NOT below: rid-039 opened the first
+// exception the ratchet has ever sanctioned (`fileSizeOverCap` may rise against a
+// strictly lower `fileSizeExcessLines`), and its five directions live in
+// `tests/unit/lint/baseline-monotonicity-coupled-rise.test.ts`. New arms get a file
+// of their own rather than this one's remaining headroom — this file sits near the
+// 500 raw-line `tests/` cap, which is the trap `monotonic-split.test.ts` names for
+// exactly this campaign. `tests/unit/lint/baseline-monotonicity-generator.test.ts`
+// runs the generator as a subprocess against an isolated fixture and proves the
+// refusal lands before the bytes change; the split is the `tests/` raw-line cap, not
+// a change of subject.
 //
 // WHY A CONTROL IS AN ARM AND NOT A COMMENT. A guard that refuses on all inputs
 // is a broken instrument, and a decision table asserted only by its refusals
