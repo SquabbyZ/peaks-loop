@@ -394,21 +394,44 @@ jobs:
   # UNWRITABLE project tree, because layer B's in-process spy can only prove that
   # the APIs it knows about went uncalled (spec §5.3 records the same limitation).
   #
-  # `unshare -n` gives the step its own network namespace with only loopback, so a
-  # process that reaches for the network fails instead of quietly succeeding on a
-  # host that happens to have one. The read-only half is applied by the fixture
-  # itself (`tests/integration/readonly-surface/_proof-helpers.ts` chmods the tree
-  # when PEAKS_READONLY_SANDBOX=1), and the spec's FIRST arm refuses to trust any
-  # result unless it first PROVES both conditions - so a runner that cannot supply
-  # the namespace goes red with a named cause rather than reporting a sandbox it
-  # was never in. The control for that refusal was exercised locally: the flag on
-  # an ordinary host fails with "network is reachable: this is not a no-network
-  # sandbox".
+  # NO NETWORK comes from `unshare -n`: the step gets its own network namespace
+  # with only loopback, so a process that reaches for the network fails instead of
+  # quietly succeeding on a host that happens to have one.
   #
-  # ubuntu-latest ONLY (`unshare` is a Linux facility), and no `continue-on-error`:
-  # a red here is a finding about the sandbox, not a flake to suppress. The
-  # availability check is a separate step so "unshare is missing" is reported as
-  # itself rather than as a mysterious test failure.
+  # UNWRITABLE comes from POSIX mode bits - the fixture chmods the tree to
+  # 0o555/0o444 when PEAKS_READONLY_SANDBOX=1 (`_proof-helpers.ts`) - and mode bits
+  # DO NOT BIND ROOT, which ignores them through CAP_DAC_OVERRIDE. `unshare -n`
+  # needs root (the runner user has no CAP_SYS_ADMIN), so the step drops back to
+  # the runner's own uid/gid with `setpriv` BEFORE the tests start: the tree that
+  # gets chmodded is then genuinely unwritable by the very process that probes it.
+  # The uid is probed with `id -u`, never hardcoded - the runner's uid is not a
+  # contract.
+  #
+  # It is deliberately NOT `unshare -r` (user-namespace root): root inside a fresh
+  # user namespace is still root for the tree it is about to chmod, so that shape
+  # would not make this half hold either. Only a real privilege drop is relied on,
+  # and the two injection-control steps below are what demonstrate it.
+  #
+  # NO PACKAGE-MANAGER SHIM INSIDE THE SANDBOX. The tests run through the project's
+  # own entry (`node node_modules/vitest/vitest.mjs`) - the same shape
+  # `scripts/test-changed.mjs` uses. `pnpm` on a runner is a corepack shim that
+  # resolves the pinned version through $HOME's cache and downloads it on a miss;
+  # `sudo` sets HOME=/root, so inside the sandbox the shim found no cache and died
+  # with `getaddrinfo EAI_AGAIN` before vitest ever started. HOME is passed through
+  # explicitly for the same reason.
+  #
+  # The spec's FIRST arm refuses to trust any result unless it PROVES both
+  # conditions by probing the environment, so a runner that cannot supply either one
+  # goes red with a named cause rather than reporting a sandbox it was never in. The
+  # two injection controls below keep that refusal honest: each removes ONE
+  # condition and REQUIRES the matching half of the arm to go red, so an arm that
+  # was relaxed, skipped, or satisfied by the flag itself fails this job instead of
+  # quietly passing it.
+  #
+  # ubuntu-latest ONLY (`unshare`/`setpriv` are Linux facilities), and no
+  # `continue-on-error`: a red here is a finding about the sandbox, not a flake to
+  # suppress. The availability check is a separate step so "unshare/setpriv is
+  # missing" is reported as itself rather than as a mysterious test failure.
   readonly-proof-sandbox:
     name: 'readonly proof layer C (no-network + unwritable, ubuntu-only)'
     runs-on: ubuntu-latest
@@ -435,23 +458,100 @@ jobs:
         # The proof spawns `bin/peaks.js`, which needs `dist/`.
         run: npm run build
 
-      - name: Refuse when the namespace tool is unavailable
+      - name: Refuse when a sandbox tool is unavailable
         run: |
-          if ! command -v unshare >/dev/null 2>&1; then
-            echo "unshare is not on this runner, so layer C cannot be measured."
-            echo "That is a finding about the sandbox, not a reason to skip it."
+          for tool in unshare setpriv; do
+            if ! command -v "$tool" >/dev/null 2>&1; then
+              echo "$tool is not on this runner, so layer C cannot be measured."
+              echo "That is a finding about the sandbox, not a reason to skip it."
+              exit 1
+            fi
+          done
+
+      # `setpriv` is what makes the unwritable half true rather than merely named:
+      # it drops the root that `unshare` needed back to the runner's own uid/gid
+      # before any test runs. See the job comment above for why root would defeat
+      # the fixture's chmod. `sudo` is used ONLY to obtain CAP_SYS_ADMIN for the
+      # network namespace; nothing below the drop runs with it.
+      - name: Run the read-only proof with no network and a non-root, unwritable tree
+        run: |
+          sudo env "PATH=$PATH" HOME="$HOME" unshare -n \
+            setpriv --reuid="$(id -u)" --regid="$(id -g)" --clear-groups \
+            env \
+              PEAKS_READONLY_SANDBOX=1 \
+              PEAKS_CALLER_ID=ci-runner \
+              TZ=UTC \
+              node node_modules/vitest/vitest.mjs run --config vitest.config.integration.ts \
+                tests/integration/readonly-surface/readonly-proof.test.ts \
+                --reporter=default --reporter=github-actions
+
+      # INJECTION CONTROL (AC-2), the NETWORK half. Exactly one token is removed
+      # from the step above - the `unshare -n` that creates the network namespace -
+      # and the precondition arm's network half MUST go red. RED IS THE PASS here:
+      # an arm that was relaxed, or that trusted PEAKS_READONLY_SANDBOX instead of
+      # probing, would stay green and fail this step. `-t` narrows the run to the
+      # precondition arm. `!cancelled()` keeps this evidence in the log even when
+      # the step above went red - that is when it is most needed.
+      - name: Control - without the network namespace the network half must go red
+        if: ${{ !cancelled() }}
+        run: |
+          set +e
+          output=$(sudo env "PATH=$PATH" HOME="$HOME" \
+            setpriv --reuid="$(id -u)" --regid="$(id -g)" --clear-groups \
+            env PEAKS_READONLY_SANDBOX=1 PEAKS_CALLER_ID=ci-runner TZ=UTC \
+            node node_modules/vitest/vitest.mjs run --config vitest.config.integration.ts \
+              tests/integration/readonly-surface/readonly-proof.test.ts \
+              -t 'should prove the claim before trusting any result' 2>&1)
+          status=$?
+          set -e
+          printf '%s\n' "$output"
+          if [ "$status" -eq 0 ]; then
+            echo "CONTROL FAILED: the arm stayed green with a reachable network, so"
+            echo "its network half is not really evaluated."
             exit 1
           fi
+          if ! grep -qF 'network is reachable: this is not a no-network sandbox' <<<"$output"; then
+            echo "CONTROL FAILED: the arm went red, but not on the network half."
+            exit 1
+          fi
+          echo "CONTROL OK: with the network namespace removed, the network half went red."
 
-      - name: Run the read-only proof with no network and an unwritable tree
+      # INJECTION CONTROL (AC-2), the UNWRITABLE half. Here `unshare -n` stays and
+      # only the privilege drop is removed, so the process is root again - the shape
+      # this job had before the fix. The fixture still chmods the tree, but root
+      # ignores mode bits, so the probe's write SUCCEEDS and the arm must go red.
+      # The middle guard attributes that red to the second half: it refuses a run
+      # that died on the network half first, which would prove nothing about this
+      # one. Both halves of the arm are therefore exercised by an observed run,
+      # never by an argument about the code.
+      - name: Control - as root the unwritable half must go red
+        if: ${{ !cancelled() }}
         run: |
-          sudo env "PATH=$PATH" unshare -n env \
-            PEAKS_READONLY_SANDBOX=1 \
-            PEAKS_CALLER_ID=ci-runner \
-            TZ=UTC \
-            pnpm exec vitest run --config vitest.config.integration.ts \
+          set +e
+          output=$(sudo env "PATH=$PATH" HOME="$HOME" unshare -n \
+            env PEAKS_READONLY_SANDBOX=1 PEAKS_CALLER_ID=ci-runner TZ=UTC \
+            node node_modules/vitest/vitest.mjs run --config vitest.config.integration.ts \
               tests/integration/readonly-surface/readonly-proof.test.ts \
-              --reporter=default --reporter=github-actions
+              -t 'should prove the claim before trusting any result' 2>&1)
+          status=$?
+          set -e
+          printf '%s\n' "$output"
+          if [ "$status" -eq 0 ]; then
+            echo "CONTROL FAILED: the arm stayed green as root, so the unwritable half"
+            echo "is not really evaluated (or the fixture no longer chmods the tree)."
+            exit 1
+          fi
+          if grep -qF 'network is reachable' <<<"$output"; then
+            echo "CONTROL FAILED: the network half failed first, so this red proves"
+            echo "nothing about the unwritable half."
+            exit 1
+          fi
+          if ! grep -qF 'should prove the claim before trusting any result' <<<"$output"; then
+            echo "CONTROL FAILED: the red was not the precondition arm."
+            exit 1
+          fi
+          echo "CONTROL OK: as root the unwritable half went red - which is exactly why"
+          echo "the real step drops privileges."
 
   # S10 (2026-09-15): the `Co-Authored-By` red rule in `CLAUDE.md` — "effective
   # 2026-07-01, no exceptions" — had no executor at all until this job: no
