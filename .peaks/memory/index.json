@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-09T02:13:24.908Z",
+  "updatedAt": "2026-10-09T05:03:54.782Z",
   "hot": {
     "rule": [
       {
@@ -1180,6 +1180,14 @@
         "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\a-prose-claim-about-what-a-timeout-does-while-holding-evidence-only-of-what-it-is.md",
         "sourceArtifact": null,
         "updatedAt": "2026-10-08"
+      },
+      {
+        "name": "a-ratchet-on-a-count-cannot-see-substitution",
+        "kind": "lesson",
+        "description": "对「数量」打棘轮，看不见「替换」 事实（2026-10-09，rid-038 的 format-check 棘轮，QA 独立发现） 第一版 CI 棘轮断言 ，成功时打印： **QA 指出这个判据有个洞**：**修掉一个旧的未格式化文件...",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\a-ratchet-on-a-count-cannot-see-substitution.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-10-09"
       },
       {
         "name": "a-self-check-whose-file-set-comes-from-the-diff-covers-neither-agent-s-window",
