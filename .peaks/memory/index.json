@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-08T23:41:49.779Z",
+  "updatedAt": "2026-10-09T05:03:54.782Z",
   "hot": {
     "rule": [
       {
@@ -1182,6 +1182,14 @@
         "updatedAt": "2026-10-08"
       },
       {
+        "name": "a-ratchet-on-a-count-cannot-see-substitution",
+        "kind": "lesson",
+        "description": "对「数量」打棘轮，看不见「替换」 事实（2026-10-09，rid-038 的 format-check 棘轮，QA 独立发现） 第一版 CI 棘轮断言 ，成功时打印： **QA 指出这个判据有个洞**：**修掉一个旧的未格式化文件...",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\a-ratchet-on-a-count-cannot-see-substitution.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-10-09"
+      },
+      {
         "name": "a-self-check-whose-file-set-comes-from-the-diff-covers-neither-agent-s-window",
         "kind": "lesson",
         "description": "An RD reported \"eslint + prettier --check clean **on the new test file**\" — singular.",
@@ -1364,6 +1372,14 @@
         "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\load-shaped-failures-are-real-maxworkers-2-is-a-deliberate-compromise-and-the-suite-tells-you.md",
         "sourceArtifact": ".peaks/_runtime/2026-09-16-session-5bcf09/sc/release-1-load-shaped.md",
         "updatedAt": "2026-10-08"
+      },
+      {
+        "name": "mcp-e2e-verified-by-official-schema-not-by-sdk",
+        "kind": "lesson",
+        "description": "MCP server 的端到端验证：用官方 schema，而不是等 SDK 背景 slice ②③ 交付了一个**手写**的 MCP stdio server（不新增依赖，自己实现 //）。 它留下的未验证项是：**\"协议面到底对不对...",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\mcp-e2e-verified-by-official-schema-not-by-sdk.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-10-09"
       },
       {
         "name": "measure-the-alternatives-before-fixing-a-wrong-target-defect",

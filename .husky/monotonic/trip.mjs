@@ -78,9 +78,33 @@ export function workingCopyTrip({ headRef, outRel, head, working }) {
             `${headRef} — a stricter request, not an attack, so this run measures and the\n` +
             '  measurement decides the number that is written:\n' +
             bullet(
-              trip.lowered.map((row) => `${row.key}: disk ${row.previous} → ${headRef} ${row.next}`)
+              trip.lowered.map((row) => `${row.key}: ${headRef} ${row.previous} → disk ${row.next}`)
             )
         ];
+  // THE ONE PERMITTED LIFT (rid-039). The pair this ratchet trades may sit HIGHER on the disk
+  // than in the anchor when that same copy carries a strictly lower excess — which is what the
+  // previous run's legitimate write looks like, and is why it is not in `LIFTED` above. It is
+  // reported rather than passed in silence for this file's own reason: the disk differing from
+  // the anchor is a fact the operator reads, and a `git checkout HEAD -- …` on a green run is
+  // not advice anyone should have to invent. It decides nothing — the measurement is still the
+  // number that reaches the artifact, and `decide.mjs` judges it against the anchor afterwards.
+  const coupled = trip.coupledRise;
+  if (coupled.length > 0) {
+    notes.push(
+      `anchor: the artifact on disk carries ${coupled.length} row(s) HIGHER than ${headRef} ` +
+        `under the one pair this ratchet trades — a previous run's legitimate write, not an ` +
+        'attack, because the same copy carries the fall that pays for it:\n' +
+        bullet(
+          coupled.map(
+            (row) =>
+              `${row.key}: ${headRef} ${row.previous} → disk ${row.next} ` +
+              `(${row.justifiedBy.key}: ${headRef} ${row.justifiedBy.previous} → ` +
+              `disk ${row.justifiedBy.next})`
+          )
+        ) +
+        '\n  This run measures, and the measurement is the number that gets written.'
+    );
+  }
   return { refusal, notes, deferredAdded: attacks.length === 0 ? added : [] };
 }
 

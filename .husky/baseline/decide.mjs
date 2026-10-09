@@ -56,10 +56,12 @@ export function decideWrite({
   // artifact by hand. A ratchet whose upper bound is decided by whoever last ran the
   // tool — or last EDITED the tool's input — is not a ratchet.
   //
-  // So the write below is refused if any pre-existing ceiling rose against HEAD, if any
-  // row vanished, if any of the three vectors disagrees with the canonical key set, or
-  // if the working copy had already been moved away from HEAD by the time this run
-  // started (refused up in THE ANCHOR block, before a minute of measurement).
+  // So the write below is refused if any pre-existing ceiling rose against HEAD — the ONE
+  // coupled exception (rid-039: `fileSizeOverCap` against a strictly lower
+  // `fileSizeExcessLines`) is decided by the comparison itself and arrives here already
+  // out of `raised` — if any row vanished, if any of the three vectors disagrees with the
+  // canonical key set, or if the working copy had already been moved away from HEAD by the
+  // time this run started (refused up in THE ANCHOR block, before a minute of measurement).
   const seedApplied = !anchorKnown;
   const previousCeilings = anchorCeilings ?? {};
 

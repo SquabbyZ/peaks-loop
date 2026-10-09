@@ -24,7 +24,54 @@ import {
 // but the exemption must be READ, not felt. A silent skip is §2.41's shape:
 // "0 findings" and "nothing checked" must never share an output. The sentence
 // itself lives in `context.mjs`, one implementation for both per-file modes.
+//
+// NO FILE ARGUMENT AT ALL IS A MISUSE, NOT AN EMPTY CHANGE SET (rid-038, W2/D1).
+// Measured 2026-10-09: `node .husky/peaks-gate.mjs staged`, typed with no paths,
+// printed "EMPTY CHANGE SET (staged) — 0 in-scope files, NOTHING WAS CHECKED" and
+// exited 0. The sentence is honest; the EXIT CODE is not, and a caller that reads
+// only the exit code (an orchestrator did) reads a misuse as a PASS.
+//
+// WHY "NO FILE" IS DECIDABLE AND WHY IT IS A REFUSAL. `staged` takes its file
+// list from argv because lint-staged passes the staged paths to it — and
+// lint-staged does NOT run a command whose glob matched nothing. So an argv
+// carrying no file cannot have come from lint-staged: it was written by hand or
+// generated empty, and in both cases the gate was asked to ratchet nothing while
+// looking like it had ratcheted something.
+//
+// WHAT IS DELIBERATELY UNCHANGED. Two empty results are LEGITIMATE and keep exit
+// 0 through reportEmpty() below, and this refusal is placed so that neither can
+// reach it: (1) argv that DOES name files, every one of which is outside the lint
+// scope — a scope exemption, already said in full sentences; (2) `changed` mode
+// with nothing to compare — a real no-change, which never takes argv at all.
+// Only "no file was handed to me" is refused, and only in this mode.
+function noFileArgumentReceived(argv) {
+  // A blank argument is not a file: `staged "$FILES"` with an empty `$FILES` is
+  // the same misuse as `staged`, arriving through the other shell spelling.
+  return argv.every((arg) => arg.trim() === '');
+}
+
+function refuseNoFileArgument() {
+  console.error(
+    'peaks-gate: USAGE (staged) — this run was given NO file argument, so NOTHING WAS\n' +
+      '  CHECKED and the gate refuses to hand back the exit code of a check.\n' +
+      '\n' +
+      '  `staged` reads its file list from argv because lint-staged passes the staged\n' +
+      '  paths to it, and lint-staged does NOT run a command whose glob matched nothing.\n' +
+      '  An argv with no file in it therefore did not come from lint-staged: it is a\n' +
+      '  hand-written or empty-generated invocation. Exit 2 is this gate\'s usage code.\n' +
+      '\n' +
+      '  NOT refused here, and still exit 0: a change set whose code files are all\n' +
+      '  outside the lint scope (a scope exemption), and `changed` mode with nothing to\n' +
+      '  compare. Both are real, and both still say so in full sentences.\n' +
+      '\n' +
+      '  To check files by hand: node .husky/peaks-gate.mjs staged <file> [<file>...]\n' +
+      '  To reproduce the commit path: pnpm exec lint-staged\n'
+  );
+  return 2;
+}
+
 async function stagedMode(argv) {
+  if (noFileArgumentReceived(argv)) return refuseNoFileArgument();
   const all = argv.map(rel).filter((f) => f !== '');
   const dropped = outOfScopeNotice('staged', all);
   const files = all.filter(inScope);
