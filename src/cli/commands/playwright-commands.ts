@@ -36,7 +36,6 @@
  */
 
 import type { Command } from 'commander';
-import { join } from 'node:path';
 import { resolveCanonicalProjectRoot } from '../../services/config/config-service.js';
 import { getErrorMessage, type ProgramIO } from '../cli-helpers.js';
 import {
@@ -45,6 +44,7 @@ import {
   MAX_PORT,
   MAX_TCP_PORT,
   MIN_PORT,
+  defaultUserDataDir,
   deriveTerminalId,
   findFreePort,
   readSession,
@@ -89,11 +89,6 @@ type StartOptions = {
   project?: string;
   json?: boolean;
 };
-
-/** The per-terminal default `--user-data-dir` under the runtime tree. */
-function defaultUserDataDir(projectRoot: string, terminalId: string): string {
-  return join(projectRoot, '.peaks', '_runtime', 'playwright-userdata', terminalId);
-}
 
 /**
  * Report an already-running session for this terminal. True when the caller

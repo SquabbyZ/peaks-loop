@@ -374,14 +374,35 @@ describe('rule D — an id joined into the runtime tree carries a guard (slice 2
     // itself, not wait to be noticed. Measured 2026-09-15: 7 in the whole of
     // `src/`, of which this is the only one in reach (the other 6 are named in
     // the reach note and are NOT scanned).
+    //
+    // Request 014 moved the join, and with it this row, out of
+    // `playwright-commands.ts` into `playwright-session-store.ts` — the file the
+    // guard that covers it lives in. The row is RE-POINTED rather than deleted:
+    // the live census is what makes a new literal-first join announce itself,
+    // and a future repair that replaced this expectation with `[]` would still
+    // pass while the row it was meant to name had merely changed shape. The
+    // synthetic plant below is the arm that keeps that from being silent.
     expect(
       SRC_SCAN.literalFirstJoins.map((h) => `${relativeToRoot(h.file)} ${rowText(h)}`),
       `measured rows, with lines for the note: ${JSON.stringify(
         SRC_SCAN.literalFirstJoins.map((h) => `${relativeToRoot(h.file)}:${h.line}`)
       )}`
     ).toEqual([
-      "src/cli/commands/playwright-commands.ts pinned='playwright-userdata' later=[terminalId]"
+      "src/cli/commands/playwright-session-store.ts pinned='playwright-userdata' later=[terminalId]"
     ]);
+
+    // The census DETECTOR, planted with the same shape off-tree: if the live row
+    // above were ever the only thing keeping this test awake, an edit that
+    // stopped `findLiteralFirstIdJoins` reporting the shape would leave the
+    // assertion above unchanged and this one red.
+    const planted = [
+      `function f(root: string, sid: string) {`,
+      `  return join(root, '.peaks', '_runtime', 'playwright-userdata', sid);`,
+      `}`
+    ].join('\n');
+    expect(
+      findLiteralFirstIdJoins(parseSourceFile('fixture.ts', planted)).map((h) => rowText(h))
+    ).toEqual(["pinned='playwright-userdata' later=[sid]"]);
   });
 
   it('the 6 literal-first rows OUTSIDE the reach are named, and each named row is really there', () => {

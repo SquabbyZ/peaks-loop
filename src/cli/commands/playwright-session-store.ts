@@ -63,6 +63,20 @@ export function sessionFilePath(projectRoot: string, terminalId: string): string
 }
 
 /**
+ * The per-terminal default `--user-data-dir` under the runtime tree. Guarded here,
+ * beside the join, for the same reason `sessionFilePath` above is: rule D keys the
+ * guard to the FILE, and the caller (`peaks playwright start`) reaches this only
+ * through `readSession` — so a guard that leaned on that call order would be the
+ * file-scoped hole the rule exists to keep visible.
+ */
+export function defaultUserDataDir(projectRoot: string, terminalId: string): string {
+  if (isUnsafePathInput(terminalId)) {
+    throw new Error(`Invalid terminal id: ${terminalId} (must be a single path segment)`);
+  }
+  return join(projectRoot, '.peaks', '_runtime', 'playwright-userdata', terminalId);
+}
+
+/**
  * Derive a stable terminal id from the process environment. Prefers
  * the platform's own terminal-session id (macOS Terminal, Windows
  * Terminal) and falls back to a hash of (ppid, tty).
