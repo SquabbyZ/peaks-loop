@@ -1,47 +1,65 @@
 /**
+ * The `--from-dag` path of `peaks sub-agent dispatch`.
  *
- * Pulled out of `dispatch-commands.ts` to honor the 800-line file cap
- * (Karpathy #2 Simplicity First). The single-dispatch action stays in
- * `dispatch-commands.ts`; the DAG-dispatch path lives here because the
- * two paths share no logic — the warm-path single dispatch does NOT
- * load slice-dag / dag-orchestrator / contract-store (slice 9 perf),
- * while the --from-dag codepath loads all three on first call.
+ * Pulled out of `dispatch-commands.ts` to honor the file-size cap (Karpathy #2
+ * Simplicity First). The single-dispatch action stays in `dispatch-commands.ts`;
+ * the DAG-dispatch path lives here because the two share no logic — the
+ * warm-path single dispatch does NOT load slice-dag / dag-orchestrator /
+ * contract-store (slice 9 perf), while the `--from-dag` codepath loads all
+ * three on first call.
  *
- * 2.7.0 slice-dag-dispatcher MVP: read a SliceDag from a file and run
- * it through `runDag`. The orchestrator's `runSlice` is a thin wrapper
- * that emits the per-IDE `buildToolCall` envelope for each topological
- * level.
+ * 2.7.0 slice-dag-dispatcher MVP: read a SliceDag from a file and run it
+ * through `runLayeredDag`. The orchestrator's `runSlice` is a thin wrapper
+ * that emits the per-IDE `buildToolCall` envelope for each topological level.
  *
  * 1.2 MVP scope: this dispatches the FIRST topological level synchronously
- * (returns the dispatch specs); subsequent levels are not surfaced in
- * the CLI envelope because the LLM-side runner must actually execute
- * each `buildToolCall` and write the resulting contract before level 2+
- * can be safely auto-advanced. The LLM re-invokes
- * `peaks sub-agent dispatch --from-dag <file> --batch-id <id>` after
- * writing level-1 contracts, which causes runDag to plan level 2+ with
- * the level-1 ancestor contracts spliced into their dispatch prompts.
+ * (returns the dispatch specs); subsequent levels are not surfaced in the CLI
+ * envelope because the LLM-side runner must actually execute each
+ * `buildToolCall` and write the resulting contract before level 2+ can be
+ * safely auto-advanced. The LLM re-invokes `peaks sub-agent dispatch --from-dag
+ * <file> --batch-id <id>` after writing level-1 contracts, which causes
+ * `runLayeredDag` to plan level 2+ with the level-1 ancestor contracts spliced
+ * into their dispatch prompts.
  *
- * Internally, runDag DOES iterate all levels so its join-barrier +
- * cancel-on-fail path is exercised end-to-end during the MVP emit; only
- * the CLI envelope is filtered to level-1 toolCalls (see `firstLevelIds`).
+ * Internally, `runLayeredDag` DOES iterate all levels so its join-barrier +
+ * cancel-on-fail path is exercised end-to-end during the MVP emit; only the
+ * CLI envelope is filtered to level-1 toolCalls (see `firstLevelIds`).
  */
-import { randomUUID } from 'node:crypto';
 import { type ProgramIO, printResult } from '../cli-helpers.js';
-import { fail, ok } from 'peaks-loop-shared/result';
-
-import { detectInstalledIde } from '../../services/ide/ide-detector.js';
-import { getAdapter } from '../../services/ide/ide-registry.js';
-import { getCurrentSessionId } from '../../services/skills/skill-presence-service.js';
-import type { SubAgentToolCall } from '../../services/dispatch/sub-agent-dispatcher.js';
 import type { SliceDag } from '../../services/dispatch/slice-dag.js';
-import { planFileOverlapWaves } from '../../services/dispatch/file-overlap-wave-planner.js';
-import type { SliceContract } from '../../services/dispatch/contract-store.js';
-import type {
-  DispatchSpec,
-  PublicSurface,
-  SliceOutcome
-} from '../../services/code/dag-orchestrator.js';
+
+import { buildDagSuccessEnvelope } from './dispatch-dag-envelope.js';
+import { emitDagFailure } from './dispatch-dag-failure.js';
+import {
+  assertGraphNodesMapped,
+  loadDagRuntime,
+  readDagOrFail,
+  resolveDagIds,
+  topologicalLevelsOrFail,
+  type DagIds,
+  type DagRuntime,
+  type DagScope
+} from './dispatch-dag-preflight.js';
+import {
+  makeCliRunner,
+  makeNoopWriter,
+  planFirstLevelWaves,
+  resolveDagDispatcher,
+  type DagDispatcher,
+  type DagEmissions
+} from './dispatch-dag-runners.js';
 import { type DispatchOptions } from './sub-agent-shared.js';
+
+/** Everything one `--from-dag` run needs once the DAG and its levels are known. */
+type DagRun = {
+  readonly runtime: DagRuntime;
+  readonly dag: SliceDag;
+  readonly levelArr: readonly (readonly string[])[];
+  readonly dispatched: DagDispatcher;
+  readonly ids: DagIds;
+  readonly scope: DagScope;
+  readonly fromDag: string;
+};
 
 export async function runDispatchFromDag(
   role: string,
@@ -50,322 +68,82 @@ export async function runDispatchFromDag(
   io: ProgramIO
 ): Promise<void> {
   if (!options.fromDag) return;
-  const projectRoot = options.project ?? process.cwd();
-  // Auto-resolve sid from .peaks/_runtime/session.json before falling back.
-  const sid =
-    options.sessionId ??
-    process.env.PEAKS_SESSION_ID ??
-    getCurrentSessionId(projectRoot) ??
-    'unknown-sid';
-  const rid = options.requestId ?? 'unknown-rid';
-  const batchId = options.batchId ?? randomUUID();
-
-  // Slice 9 (dispatch CLI latency): the --from-dag codepath loads three
-  // heavy modules (slice-dag, dag-orchestrator, contract-store) that
-  // transitively import 10+ more services. They are NOT touched by the
-  // warm-path single-dispatch action, so we lazy-load them here only
-  // when --from-dag is actually requested. The dynamic-import promise
-  // resolves on first call, then ESM caches the module for subsequent
-  // calls in the same process.
-  const [{ readFileSync }, sliceDagMod, dagOrchestratorMod, contractStoreMod] = await Promise.all([
-    import('node:fs'),
-    import('../../services/dispatch/slice-dag.js'),
-    import('../../services/code/dag-orchestrator.js'),
-    import('../../services/dispatch/contract-store.js')
-  ]);
-  const { validateDag, topologicalLevels, isSliceComplexity } = sliceDagMod;
-  const { runLayeredDag } = dagOrchestratorMod;
-  const { listContracts, hashContract } = contractStoreMod;
-
-  let dag: SliceDag;
-  try {
-    const raw = readFileSync(options.fromDag, 'utf8');
-    const parsed = JSON.parse(raw) as SliceDag;
-    validateDag(parsed);
-    dag = parsed;
-  } catch (err) {
-    printResult(
-      io,
-      fail(
-        'sub-agent.dispatch',
-        'INVALID_DAG',
-        `failed to read or validate DAG from ${options.fromDag}: ${(err as Error).message}`,
-        { role, toolCall: null, dispatchRecordPath: null } as never,
-        [
-          'Check the JSON file at the given path; the DAG must have {nodes, edges} and pass validateDag().'
-        ]
-      ),
-      asJson
-    );
-    process.exitCode = 1;
-    return;
-  }
-
-  // Slice 4.0.8 RD §4 D4c: each DAG node must map to an explicitly
-  // prepared workflow graph node before sub-agent dispatch. Reject
-  // unmapped nodes with PEAKS_GRAPH_NODE_REQUIRED. The mapping is
-  // carried via the `graphNode` annotation on each DAG node, OR — as
-  // a back-compat fallback for DAGs without the annotation — the
-  // DAG node id itself is treated as the graph node id. Either way,
-  // the graph node must be prepared (RD §3 D4c) before the dispatch
-  // CLI runs.
-  for (const node of dag.nodes) {
-    const graphNodeId = (node as { graphNode?: unknown }).graphNode;
-    const candidate =
-      typeof graphNodeId === 'string' && graphNodeId.length > 0 ? graphNodeId : node.id;
-    if (typeof candidate !== 'string' || candidate.length === 0) {
-      printResult(
-        io,
-        fail(
-          'sub-agent.dispatch',
-          'PEAKS_GRAPH_NODE_REQUIRED',
-          `DAG node ${node.id} has no graph-node mapping (RD §4 D4c)`,
-          { role, toolCall: null, dispatchRecordPath: null, dagNodeId: node.id } as never,
-          [
-            'Annotate the DAG node with `graphNode: "<id>"` so each dispatch can bind a prepared graph node.'
-          ]
-        ),
-        asJson
-      );
-      process.exitCode = 1;
-      return;
-    }
-  }
-
-  // MVP (1.2): the orchestrator iterates topological levels + join
-  // barrier + cancel-on-fail end-to-end. The CLI's runner returns `done`
-  // for every leaf (so runDag's cancel-on-fail path is exercised when a
-  // leaf actually fails); the CLI envelope filters `emittedToolCalls` to
-  // the first level only (see `firstLevelIds`). The LLM-side runner
-  // re-invokes `--from-dag` for level 2+ after writing level-1
-  // contracts via `peaks contract write`.
-  let levelArr: readonly (readonly string[])[];
-  try {
-    levelArr = topologicalLevels(dag);
-  } catch (err) {
-    printResult(
-      io,
-      fail(
-        'sub-agent.dispatch',
-        'INVALID_DAG',
-        `topologicalLevels failed for ${options.fromDag}: ${(err as Error).message}`,
-        { role, toolCall: null, dispatchRecordPath: null } as never,
-        [
-          'The DAG passed validateDag() but topologicalLevels threw (likely a cycle that slipped past validateDag, or a runtime invariant).',
-          'Inspect the DAG file with the editor and re-invoke dispatch. (No peaks scan dag CLI ships in 2.7.0; if you need a programmatic DAG validator, import validateDag / topologicalLevels from src/services/dispatch/slice-dag.ts directly.)'
-        ]
-      ),
-      asJson
-    );
-    process.exitCode = 1;
-    return;
-  }
-
-  // Read upstream contracts so downstream-level prompts (when re-invoked
-  // for level 2+) get auto-injected ancestors via `formatContractInjection`.
-  // At level-1 emit time, contracts is empty (no ancestors yet); the
-  // injection matters when the LLM re-invokes for level 2+ after writing
-  // level-1 contracts via `writeContract`.
-  const existingContracts = listContracts(projectRoot, sid);
-
-  const ide = detectInstalledIde(projectRoot) ?? 'claude-code';
-  const adapter = getAdapter(ide);
-  const dispatcher = adapter.subAgentDispatcher;
-  if (!dispatcher.supportsRole(role)) {
-    printResult(
-      io,
-      fail(
-        'sub-agent.dispatch',
-        'IDE_NOT_SUPPORTED',
-        `IDE ${ide} does not support role "${role}"`,
-        { role, toolCall: null, dispatchRecordPath: null } as never,
-        ['Switch to a registered IDE (e.g. claude-code) or pick a role the current IDE supports.']
-      ),
-      asJson
-    );
-    process.exitCode = 1;
-    return;
-  }
-
-  // Track per-level emissions so the CLI envelope can expose ONLY the
-  // first topological level to the LLM (matching MVP 1.2 semantics: LLM
-  // executes level-1 toolCalls, writes contracts via `peaks contract
-  // write`, then re-invokes `--from-dag` for level 2+). Level-2+ leaves
-  // still flow through runDag's join-barrier — their toolCalls are
-  // generated internally so the orchestrator's happy path is exercised
-  // end-to-end, but they are NOT surfaced in the CLI envelope (the LLM
-  // sees them only after re-invoking with fresh level-1 contracts).
-  const firstLevelIds = new Set<string>(levelArr[0] ?? []);
-
-  // node declares `files`, refine the level into file-overlap waves so the
-  // LLM fans out without serializing on a shared file. Emitted additively
-  // in the envelope; the topological dispatch flow itself is unchanged.
-  // Nodes without `files` → `firstLevelWaves: null` (legacy envelope).
-  const firstLevelDescriptors = [...firstLevelIds].map((id) => ({
-    id,
-    files: dag.nodes.find((n) => n.id === id)?.files ?? []
-  }));
-  const firstLevelWaves =
-    firstLevelDescriptors.length > 0 && firstLevelDescriptors.every((d) => d.files.length > 0)
-      ? planFileOverlapWaves(firstLevelDescriptors).waves
-      : null;
-
-  const emittedToolCalls: SubAgentToolCall[] = [];
-  const emittedSliceIds: string[] = [];
-
-  // CLI runner: emit the per-slice `buildToolCall` envelope, then return
-  // `done` with an empty `publicSurface` placeholder. The orchestrator
-  // treats the slice as "CLI-emitted, awaiting LLM-side execution" and
-  // advances to the next topological level (or breaks on failure). The
-  // placeholder surface is intentionally empty: the real public surface
-  // arrives later via `peaks contract write` from the LLM-side runner,
-  // and overwrites the CLI placeholder contract written by `noopWriter`.
-  // Why not `cancelled`? Returning `cancelled` here short-circuits
-  // runDag's join-barrier + cancel-on-fail path — the orchestrator
-  // breaks out after the first level with a cancellation, which hides
-  // the real cancel-on-fail semantics from the test suite (and from any
-  // future caller that wants to use `runDag` end-to-end from the CLI).
-  // Returning `done` exercises the full happy path; cancel-on-fail
-  // semantics will be covered when 1.3 lands real per-IDE await.
-  const cliRunner = async (spec: DispatchSpec): Promise<SliceOutcome> => {
-    const toolCall = dispatcher.buildToolCall({
-      role: spec.role,
-      prompt: spec.prompt,
-      requestId: rid,
-      sessionId: sid
-    });
-    if (firstLevelIds.has(spec.sliceId)) {
-      emittedToolCalls.push(toolCall);
-      emittedSliceIds.push(spec.sliceId);
-    }
-    return {
-      status: 'done',
-      publicSurface: {
-        exports: [],
-        types: [],
-        publicSignatures: []
-      }
-    };
-  };
-
-  // CLI noop writer — the orchestrator collects a `SliceContract` per
-  // emitted toolCall so downstream re-invocations (level 2+) can splice
-  // ancestor contracts via `formatContractInjection`. We don't write to
-  // disk here (the LLM-side runner does that via `peaks contract write`
-  // after each toolCall resolves), but the returned placeholder MUST be
-  // shape-valid: the `contractHash` field has to be a real SHA-256 hex
-  // string so formatContractInjection + downstream validators don't
-  // reject the placeholder. The placeholder hash is computed from the
-  // slice identity only (`sliceId|sessionId`) — it's deterministic,
-  // stable, and collision-free for the MVP run, but obviously does NOT
-  // represent the slice's actual public surface. The LLM-side runner's
-  // `peaks contract write` call will overwrite this with a content-based
-  // hash once the slice finishes.
-  const noopWriter = (sliceId: string, _publicSurface: PublicSurface): SliceContract => {
-    const partial = {
-      sliceId,
-      sessionId: sid,
-      exports: [] as readonly string[],
-      types: [] as readonly string[],
-      publicSignatures: [] as readonly string[]
-    };
-    return {
-      sliceId,
-      sessionId: sid,
-      completedAt: new Date(0).toISOString(), // epoch sentinel = "placeholder, not yet finished"
-      exports: [],
-      types: [],
-      publicSignatures: [],
-      contractHash: hashContract(partial)
-    };
-  };
-
-  // runLayeredDag IS in the path: validates the DAG, iterates all
-  // topological levels (foundation/upstreamSync slices prioritized within
-  // each level by `topologicalLevels`), runs the join barrier after
-  // each level, and triggers cancel-on-fail rollback if any leaf
-  // returns `failed` (or `cancelled`, once 1.3 lands). The CLI
-  // envelope below filters `emittedToolCalls` / `emittedSliceIds` to
-  // the first level — see the `firstLevelIds` filter inside `cliRunner`.
-  try {
-    await runLayeredDag(dag, {
-      projectRoot,
-      sessionId: sid,
-      existingContracts,
-      runSlice: cliRunner,
-      writeContractFn: noopWriter
-    });
-  } catch (err) {
-    // runLayeredDag throws DagPlanError for plan-level failures (e.g.
-    // cycle slipping past validateDag). Surface it as INVALID_DAG so
-    // the CLI envelope has a clear failure code, not a generic
-    // DISPATCH_ERROR.
-    printResult(
-      io,
-      fail(
-        'sub-agent.dispatch',
-        'INVALID_DAG',
-        `runLayeredDag failed for ${options.fromDag}: ${(err as Error).message}`,
-        { role, toolCall: null, dispatchRecordPath: null } as never,
-        [
-          'runLayeredDag threw DagPlanError; the DAG passed validateDag() but failed at topologicalLevels or contractStore dispatch.',
-          'Inspect the DAG file and re-run.'
-        ]
-      ),
-      asJson
-    );
-    process.exitCode = 1;
-    return;
-  }
-
-  printResult(
-    io,
-    ok(
-      'sub-agent.dispatch',
-      {
-        envelopeVersion: '2.1.0',
-        role,
-        ide: dispatcher.label,
-        fromDag: options.fromDag,
-        batchId,
-        dispatchCount: emittedSliceIds.length,
-        levelsTotal: levelArr.length,
-        firstLevel: emittedSliceIds,
-        // §3: file-overlap wave plan for the first level (null when any
-        // first-level node omits `files`). Additive field.
-        firstLevelWaves,
-        toolCalls: emittedToolCalls,
-        existingContractCount: existingContracts.length,
-        expectedCompletionSeconds: 60,
-        artifactsPublicPaths: [],
-        orchestratorVisibleHint: `⏳ Spawning ${emittedSliceIds.length} sub-agents via Task tool from DAG ${options.fromDag}, batch-id=${batchId} (ETA ~60s)`,
-        // v2.15.0 follow-up — G12/G11/G2: per-slice metadata (foundation /
-        // upstreamSync / complexity) for downstream scheduling decisions.
-        sliceMeta: emittedSliceIds.map((id) => {
-          const node = dag.nodes.find((n) => n.id === id);
-          return {
-            id,
-            foundation: node?.foundation === true,
-            upstreamSync: node?.upstreamSync === true,
-            complexity:
-              node?.complexity !== undefined && isSliceComplexity(node.complexity)
-                ? node.complexity
-                : null
-          };
-        }),
-        nextActions: [
-          'Execute each toolCall in your IDE; on completion, write the slice contract to .peaks/_runtime/<sid>/dispatch/contracts/<slice-id>.json.',
-          'Re-invoke `peaks sub-agent dispatch --from-dag <file>` with the same batch-id to advance to the next level once all current-level slices have written contracts.'
-        ]
-      },
-      [],
-      [
-        'MVP (1.2) plans the first level via runLayeredDag orchestrator (cancel-on-fail path active); the LLM drives subsequent levels by re-invoking this command after contract writes.',
-        existingContracts.length > 0
-          ? `Injected ${existingContracts.length} upstream contract(s) into downstream-level prompts via formatContractInjection.`
-          : 'No upstream contracts found; first-level prompts have empty ancestor blocks.'
+  const scope: DagScope = { role, asJson, io };
+  const ids = resolveDagIds(options);
+  const runtime = await loadDagRuntime();
+  const dag = readDagOrFail(runtime, options.fromDag, scope);
+  if (dag === null) return;
+  if (assertGraphNodesMapped(dag, scope) === null) return;
+  const levelArr = topologicalLevelsOrFail(runtime, dag, options.fromDag, scope);
+  if (levelArr === null) return;
+  const dispatched = resolveDagDispatcher(ids.projectRoot);
+  if (!dispatched.dispatcher.supportsRole(role)) {
+    emitDagFailure(io, asJson, {
+      role,
+      code: 'IDE_NOT_SUPPORTED',
+      message: `IDE ${dispatched.ide} does not support role "${role}"`,
+      nextActions: [
+        'Switch to a registered IDE (e.g. claude-code) or pick a role the current IDE supports.'
       ]
-    ),
-    asJson
+    });
+    return;
+  }
+  await runLevels({ runtime, dag, levelArr, dispatched, ids, scope, fromDag: options.fromDag });
+}
+
+/**
+ * Run every topological level through `runLayeredDag` and print the level-1
+ * envelope. Upstream contracts are read first so downstream-level prompts get
+ * auto-injected ancestors via `formatContractInjection` (empty at level-1 emit
+ * time, which is when the LLM re-invokes with fresh level-1 contracts).
+ */
+async function runLevels(run: DagRun): Promise<void> {
+  const { runtime, dag, levelArr, dispatched, ids, scope, fromDag } = run;
+  const existingContracts = runtime.listContracts(ids.projectRoot, ids.sid);
+  const firstLevelIds = new Set<string>(levelArr[0] ?? []);
+  const emissions: DagEmissions = { toolCalls: [], sliceIds: [] };
+  const runSlice = makeCliRunner({
+    firstLevelIds,
+    dispatcher: dispatched.dispatcher,
+    ids,
+    emissions
+  });
+  const writeContractFn = makeNoopWriter(runtime.hashContract, ids.sid);
+  try {
+    await runtime.runLayeredDag(dag, {
+      projectRoot: ids.projectRoot,
+      sessionId: ids.sid,
+      existingContracts,
+      runSlice,
+      writeContractFn
+    });
+  } catch (err) {
+    emitDagFailure(scope.io, scope.asJson, {
+      role: scope.role,
+      code: 'INVALID_DAG',
+      message: `runLayeredDag failed for ${fromDag}: ${(err as Error).message}`,
+      nextActions: [
+        'runLayeredDag threw DagPlanError; the DAG passed validateDag() but failed at topologicalLevels or contractStore dispatch.',
+        'Inspect the DAG file and re-run.'
+      ]
+    });
+    return;
+  }
+  printResult(
+    scope.io,
+    buildDagSuccessEnvelope({
+      role: scope.role,
+      ide: dispatched.dispatcher.label,
+      fromDag,
+      batchId: ids.batchId,
+      levelsTotal: levelArr.length,
+      emittedSliceIds: emissions.sliceIds,
+      emittedToolCalls: emissions.toolCalls,
+      firstLevelWaves: planFirstLevelWaves(dag, levelArr),
+      existingContractCount: existingContracts.length,
+      dag,
+      isSliceComplexity: runtime.isSliceComplexity
+    }),
+    scope.asJson
   );
 }
