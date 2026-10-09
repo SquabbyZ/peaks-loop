@@ -75,14 +75,44 @@ gates — nothing has to be rewritten to get there.
 |---|---|---|---|
 | `pre-commit` | `pnpm exec lint-staged` → `peaks-gate.mjs staged` | ratchet, staged files only | ~5–10s |
 | `pre-push` leg 1 | `peaks-gate.mjs changed` | the same per-file ratchet, over `git diff --name-only origin/main...HEAD` | 101s over the 1207 pushed files (measured 2026-09-23) |
-| `pre-push` leg 2 | `pnpm test:changed -- origin/main` | **hard gate** — affected tests, falling back to the full unit suite | 936s (311 files / 3468 tests) on the same day |
+| `pre-push` leg 2 | `pnpm test:changed -- origin/main` | **hard gate** — affected tests, falling back to the full unit suite | 61–75s for a typical `src/**` slice; 319s for a diff that also touches `package.json` (measured 2026-10-10) |
 | CI | `node .husky/peaks-gate.mjs repo` + full `vitest run` + `npm run build` | ratchet over config drift, and the only whole-program `tsc` on the push path | minutes, nobody waits on it |
 
-Leg 2 is worth reading twice: `scripts/test-changed.mjs` has a working subset
-path, and its trigger list includes `.peaks/` — which every slice regenerates
-(`.peaks/lint/gate-baseline.json`). So **on this repository leg 2 IS the full unit
-suite**, not a subset. Narrowing the trigger list is a decision about what a
-config change can affect, and it has not been made.
+> **Corrected 2026-10-10 against `.husky/pre-push` at `a7204b1e`.** The rows above
+> said leg 2 costs "936s (311 files / 3468 tests)" and that **"on this repository
+> leg 2 IS the full unit suite"** because the trigger list includes `.peaks/`.
+> Both had been false since `fullFallbackExempt` landed (2026-09-23), and this
+> file repeated the claim for seventeen days after the hook's own comment had
+> already been corrected — the same failure this section's first note records.
+
+Leg 2 is worth reading twice, and the rules now live in one place:
+`scripts/test-changed-classify.mjs` (pure, unit-tested). Three things about it
+are not inferable from the command name:
+
+- **`.peaks/lint/gate-baseline.json` is not a 0-test exemption.** It was one, on
+  the stated grounds that no test reads it. That was false: the reader is
+  `BASELINE_PATH` in `tests/unit/standards/_file-size-cap-scan.ts:64`, and the
+  search behind the claim looked for the path *string*, which an indirection
+  through a constant does not contain. A diff touching the artifact now runs its
+  readers (`tests/unit/standards/`, 20s).
+- **Any `A`/`D`/`R`/`C` in the diff also runs `tests/unit/standards/`.** Those
+  guards hold whole-tree *population* invariants — "every in-scope file has a
+  `files[]` row in the artifact", the shadow accounting — and no `src/<area>`
+  mapping reaches them. Keyed on git's status rather than a list of policy dirs,
+  because restating the census's scope here would be a second source of truth for
+  the same thing. This is the arm that catches *"added a gated file and never
+  regenerated the baseline"*.
+- **The cost is a function of the diff, not of the repository.** Measured on this
+  host 2026-10-10: baseline-only 13 files/164 tests/20s · content-only
+  `src/cli/commands/**` 71/601/61s · that diff plus an added file 84/765/75s ·
+  plus `package.json` 427/4451/319s.
+
+Both rules exist because leg 2 was measured **letting this defect through** (rid
+`2026-10-10-gate-classifier-baseline-coverage`): the push of `6a1938a8` ran 601
+tests, none of them the guard that pins the artifact's `files[]` rows, and the
+guard only went red on the *next* push — which happened to touch `.husky/` and
+so triggered the full suite. Two follow-up commits (`0c5fe123` among them)
+existed to repair what the gate had already waved through.
 
 `tsc` is **not** in `pre-commit` because it is whole-program: it cannot be
 scoped to a file list, so a one-file commit would pay for the whole repo

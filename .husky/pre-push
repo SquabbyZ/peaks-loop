@@ -17,24 +17,47 @@
 #      reason about (package.json / pnpm-lock.yaml / vitest.config.ts /
 #      tsconfig.json / scripts/ / .claude/ / .peaks/, or an empty diff).
 #
-#      KNOW WHAT THAT MEANS IN PRACTICE. The paragraph above USED to end here
-#      with "`.peaks/` is a trigger and every slice regenerates the baseline, so
-#      leg 2 IS the full suite" — measured 62s/601 tests on 2026-10-09, that is
-#      no longer true, and the reason is in the code: `fullFallbackExempt` in
-#      scripts/test-changed.mjs exempts `.peaks/lint/gate-baseline.json` from the
-#      trigger list. Re-read it before trusting a number in this comment.
+#      THE RULES LIVE IN ONE MODULE: scripts/test-changed-classify.mjs (pure; pinned
+#      by tests/unit/scripts/test-changed-classify.test.ts and the wiring arm in
+#      tests/unit/scripts/test-changed-git-env.test.ts). Three of them are not obvious,
+#      and each exists because this hook was measured letting a defect through
+#      (rid 2026-10-10-gate-classifier-backstop-repair):
+#        - `.peaks/lint/gate-baseline.json` is NOT a 0-test exemption any more. Its
+#          reader is `BASELINE_PATH` in tests/unit/standards/_file-size-cap-scan.ts,
+#          which the 2026-09-23 "no test reads it" search could not see (it looked
+#          for the path string, and the reader reaches the file through a constant).
+#          A diff that MOVES the artifact's content runs the suites that guard it —
+#          tests/unit/standards/ and tests/unit/lint/. A regeneration that moves only
+#          `generatedAt` is inert: 0 tests, and the run says so out loud.
+#        - any A/D/R/C in the diff — the file SET changed, not just one file's
+#          contents — runs tests/unit/standards/: the whole-tree population guards
+#          (baseline `files[]` completeness among them), which no `src/<area>`
+#          mapping reaches. That is the arm that catches "added a gated file and
+#          never regenerated the baseline".
+#        - src/services/scan/file-size-policy.ts DEFINES that population, so an M-only
+#          edit to it (adding one extension brings dozens of tracked files into scope)
+#          runs the same guards.
 #
-#      What it is today, measured on this host 2026-10-09:
-#        - a baseline + `src/cli/commands/**` diff  -> 71 files / 601 tests,  62s
-#        - a diff that also touches package.json    ->425 files /4422 tests, 304s
-#        - a diff touching ONLY the baseline        ->  0 tests (by design; the
-#          exemption says so and the script prints it)
-#      So the hook is a subset OR the full suite depending on the diff, and the
-#      old "936s, a known measured gap" no longer describes it. Do not skip it
-#      with --no-verify on the strength of a stale number.
+#      The guards are an ADDITION to a mapping, never a substitute for the fallback:
+#      a diff that reaches no mapping at all (README.md, .github/**, .husky/**, docs/**,
+#      a deleted test file) runs the FULL suite. While the guards fed the mapping those
+#      diffs selected 13 guard files and the fallback never fired — a false green of the
+#      same class as the defect above.
 #
-#      The consequence worth knowing: a change that touches only the baseline
-#      runs ZERO tests here, so the gate is not what proves such a change.
+#      What it is today, measured on this host 2026-10-10 (the baseline rows re-measured
+#      for the repair; the others from the same round's slice):
+#        - baseline `generatedAt`-only regeneration -> 0 tests,             exit 0
+#        - a diff MOVING the baseline's content     -> 47 files / 445 tests, 110s
+#          (tests/unit/standards + tests/unit/lint; both suites guard the artifact)
+#        - a diff reaching no mapping at all        -> the FULL suite, see below
+#        - a content-only `src/cli/commands/**` diff -> 71 files / 601 tests,  61s
+#        - an ADDED file under `src/cli/commands/`   -> 84 files / 765 tests,  75s
+#          (the area subset PLUS the whole-tree guards)
+#        - a diff that also touches package.json / scripts/ / .peaks/
+#                                                    ->427 files /4486 tests, 320s
+#      So the hook is 0 tests, a subset, or the full suite depending on the diff, and the
+#      old "936s, a known measured gap" no longer describes it. Do not skip it with
+#      --no-verify on the strength of a stale number.
 #
 # WHY THIS IS NOT A WEAKER GATE THAN THE WHOLE-REPO ONE IT REPLACED
 # -----------------------------------------------------------------

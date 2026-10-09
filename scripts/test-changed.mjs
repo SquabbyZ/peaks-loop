@@ -9,18 +9,26 @@
 //   pnpm test:changed -- HEAD~3       — vs HEAD~3
 //
 // 算法(透明、可审、不调任何 LLM):
-//   1. 用 `git diff --name-only <base>` 拿到所有变更文件(默认 base=HEAD)。
-//   2. 分类:
+//   1. 用 `git diff --name-status <base>` 拿到所有变更文件及其 status(默认 base=HEAD)。
+//   2. 分类 —— 规则全部在 `scripts/test-changed-classify.mjs`(纯函数,单测覆盖;
+//      这里不重复任何一条规则):
 //      a) 改的是 src/<area>/<file>.ts            → 跑 tests/unit/<area>/**/*.test.ts
-//      b) 改的是 tests/<path>.test.ts            → 直接跑该文件
+//      b) 改的是 tests/<path>.test.ts            → 直接跑该文件(删除的除外,删掉的文件跑不了)
 //      c) 改的是 scripts/ 或 .claude/ 或根 config → 跑全量(防漏)
 //      d) 改的是 package.json / pnpm-lock.yaml   → 跑全量(配置变更影响面不可推断)
 //      e) 没有变更                              → 跑全量(空 diff 等同"啥都没验证")
-//      f) 改的全是"没有测试读"的豁免文件          → 跑 0 个测试,并明确打印出来
-//         (当前只有 .peaks/lint/gate-baseline.json;见 fullFallbackExempt)
+//      f) 改的是 .peaks/lint/gate-baseline.json  → 内容真的动了才跑它的守卫套件
+//         (这就是 R1;只动 generatedAt 则跑 0 个测试并说明,见 baselineContentMoved)
+//      g) 有任何 A/D/R/C(文件集合变化)          → 额外跑整树 population 守卫(这是 R2)
+//      h) 改的是 src/services/scan/file-size-policy.ts
+//                                               → 额外跑整树 population 守卫(这是 R3)
+//      i) 一条映射都不命中(README.md / .github/ / .husky/ 等)
+//                                               → 跑全量。守卫是"映射之外再加",不是
+//                                                 映射的替代品 —— 否则这个兜底永远不会触发
 //
 // 退出码:
-//   0  vitest 绿 / 或改动集全部命中豁免 → 0 个测试要跑(两种情况都在 stderr 说明)
+//   0  vitest 绿 / 或 diff 的内容只有基线的 generatedAt(→ 0 个测试要跑,stderr 明确说明;
+//      这条路径的 code 是 'baseline-inert',是 `mode: 'none'` 唯一的到达方式)
 //   1  vitest 红 / git 失败 / 路径推断失败
 //   2  git 没装或不在仓库里
 //
@@ -33,10 +41,17 @@
 //     spawn 会 ENOENT,而那个错误曾被吞成裸 `exit 1`(看起来就像"测试红了")。
 
 import { spawn, spawnSync } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 
 import { scrubGitHookEnv } from './git-hook-env.mjs';
+import {
+  BASELINE_REL,
+  classifyChanged,
+  mergeEntries,
+  parseNameStatus,
+  withoutGeneratedAt
+} from './test-changed-classify.mjs';
 
 // Resolve this script's directory. We DO NOT use `import.meta.url` because
 // when this script is invoked via `node scripts/test-changed.mjs` under
@@ -108,6 +123,42 @@ function runVitest(args) {
   return runInherit(process.execPath, [VITEST_ENTRY, ...args]);
 }
 
+/**
+ * Did the gate artifact's CONTENT move, or only its `generatedAt` stamp?
+ *
+ * Measured 2026-10-10: a no-op regeneration produces a ONE-line diff and that line is
+ * `generatedAt`. Now that the artifact selects its guard suites, paying them for a diff with
+ * nothing to test is how a gate becomes the thing people skip with `--no-verify` — which this
+ * repo's own pre-push comment calls worse than no gate. So the cheap path is kept, founded on
+ * that measurement this time instead of on the false 2026-09-23 "no test reads it" claim.
+ *
+ * FAILS CLOSED everywhere it cannot read: the file absent from `<base>` (fresh clone, first
+ * commit), absent from the index (`git show :<path>` fails on a deleted or unmerged entry),
+ * absent from the working tree (deleted, so a git failure or a missing blob), all report
+ * "content moved" and the guard suites run.
+ *
+ * IT READS THE INDEX TOO, and that is the point of the second `git show`. The classification
+ * answers for `--cached` PLUS the worktree (the two `git diff` calls in `main`), so a
+ * measurement that read only the worktree could disagree with the diff it is answering for:
+ * QA staged a moved artifact and reverted the worktree file, and the gate printed
+ * `baseline-inert` — 0 test files, exit 0, vitest never spawned
+ * (rid `2026-10-10-gate-classifier-baseline-coverage`, F1). One decision, one set of inputs:
+ * base vs index, and base vs worktree, both compared.
+ */
+function baselineContentMoved(base) {
+  const atBase = run('git', ['show', `${base}:${BASELINE_REL}`]);
+  if (atBase.status !== 0) return true;
+  const atIndex = run('git', ['show', `:${BASELINE_REL}`]);
+  if (atIndex.status !== 0) return true;
+  const worktreePath = resolve(repoRoot, BASELINE_REL);
+  if (!existsSync(worktreePath)) return true;
+  const atBaseText = withoutGeneratedAt(atBase.stdout);
+  return (
+    atBaseText !== withoutGeneratedAt(atIndex.stdout) ||
+    atBaseText !== withoutGeneratedAt(readFileSync(worktreePath, 'utf8'))
+  );
+}
+
 async function main() {
   // 1. 拿 diff base: 用户可显式传一个位置参数(过滤 --flag)。否则默认 HEAD。
   const userBase = process.argv
@@ -124,133 +175,69 @@ async function main() {
     process.exit(2);
   }
 
-  const diffProc = run('git', ['diff', '--name-only', '--cached', base]);
-  const diffUnstaged = run('git', ['diff', '--name-only', base]);
+  const diffProc = run('git', ['diff', '--name-status', '--cached', base]);
+  const diffUnstaged = run('git', ['diff', '--name-status', base]);
 
-  // 收集:staged + unstaged
-  const seen = new Set();
-  for (const out of [diffProc.stdout, diffUnstaged.stdout]) {
-    if (!out) continue;
-    for (const line of out.split(/\r?\n/)) {
-      if (line.trim()) seen.add(line.trim());
-    }
-  }
+  // 收集:staged + unstaged,status 一起带上(分类要用 status,见 classify 模块)。
+  // mergeEntries 是 UNION 语义 —— 同一路径可能两次出现且 status 不同,第一个 wins 会让
+  // `[M 之后 D]` 丢掉 D 从而不触发 R2;列表也用合并后的视图,这样它的计数不会少报。
+  const diffEntries = [
+    ...parseNameStatus(diffProc.stdout),
+    ...parseNameStatus(diffUnstaged.stdout)
+  ];
+  const changed = mergeEntries(diffEntries);
 
-  if (seen.size === 0) {
-    console.error('[test-changed] no diff vs', base, '— falling back to full suite');
-  }
-
-  const changed = [...seen];
   console.error('[test-changed] base =', base);
   console.error('[test-changed] changed files =', changed.length);
-  for (const f of changed) console.error('  -', f);
+  for (const entry of changed) console.error(`  - ${entry.status} ${entry.path}`);
 
-  // 2. 分类 + 选文件
-  const picked = new Set();
-
-  function add(p) {
-    if (existsSync(resolve(repoRoot, p))) picked.add(p);
-  }
-
-  // case c/d: root config / package / scripts 变更 → 全量
+  // 2. 分类 —— 规则只有一处:scripts/test-changed-classify.mjs(纯函数,有单测)。
+  //    这里只做它不做的事:盘上是否存在、spawn vitest、退出码、stderr 叙述。
   //
-  // The `/^\.peaks\//` trigger STAYS broad on purpose. Real repo-root `.peaks/`
-  // files ARE read off the working tree by tests, so a blanket `.peaks/`
-  // exemption would skip tests that should run:
-  //   - tests/unit/standards/loop-engineering-guidelines.test.ts:50 reads
-  //     `.peaks/standards/loop-engineering-guidelines.md`
-  //   - tests/unit/standards/repo-citation-integrity.test.ts:243,247 reads
-  //     `.peaks/PROJECT.md` + every `*.md` under `.peaks/standards/`
-  //   - tests/unit/standards/capability-glossary.test.ts:16 `git grep`s
-  //     `.peaks/standards`
-  const fullFallbackTriggers = [
-    /^package\.json$/,
-    /^pnpm-lock\.yaml$/,
-    /^vitest\.config\.ts$/,
-    /^tsconfig\.json$/,
-    /^scripts\//,
-    /^\.claude\//,
-    /^\.peaks\//
-  ];
-
-  // Paths the broad triggers above would catch, but that NO test reads as input.
-  // Exact-match only — this is a single-file exemption, not a prefix rule.
+  // The exemption that used to live here claimed `.peaks/lint/gate-baseline.json` was cheap
+  // because "no test reads it" (searched 2026-09-23). That was false, and the way it was
+  // false matters: the search looked for the PATH STRING, while the real reader reaches the
+  // artifact through `BASELINE_PATH` in tests/unit/standards/_file-size-cap-scan.ts — a
+  // constant such a grep cannot see. The rules and their reasons live in the classifier
+  // (R1/R2/R3 there); the runner contributes only the one fs/git fact below, which the pure
+  // module cannot compute for itself.
   //
-  // `.peaks/lint/gate-baseline.json` is the husky gate's ceiling data file,
-  // regenerated by every slice (it is tracked), so leaving it under the broad
-  // `/^\.peaks\//` meant a typical slice always degraded to the full unit suite.
-  // Searched 2026-09-23: no test reads it. The only mentions under `tests/` are
-  // a comment in `tests/unit/_setup/first-of.ts:12` and two comments in
-  // `tests/unit/lint/eslint-rules-config-coverage.test.ts` that name the
-  // regenerator `.husky/peaks-gate-baseline.mjs`, not this file.
-  const fullFallbackExempt = new Set(['.peaks/lint/gate-baseline.json']);
+  // Asked only when the artifact is actually in the diff, so the common push pays no extra
+  // git call.
+  const baselineTouched = changed.some((entry) => entry.path === BASELINE_REL);
+  const contentMoved = !baselineTouched || baselineContentMoved(base);
+  const plan = classifyChanged(diffEntries, { baselineContentMoved: contentMoved });
+  for (const reason of plan.reasons) console.error('[test-changed] reason:', reason);
+  console.error('[test-changed] verdict:', plan.code);
 
-  let needsFull = changed.length === 0;
-  for (const f of changed) {
-    if (fullFallbackExempt.has(f)) continue;
-    if (fullFallbackTriggers.some((re) => re.test(f))) {
-      needsFull = true;
-      break;
-    }
-  }
-
-  if (needsFull) {
-    console.error('[test-changed] -> full suite (config/scripts or empty diff)');
+  if (plan.mode === 'full') {
     const code = await runVitest(['run']);
     process.exit(code);
   }
 
-  // Edge: the diff touched ONLY exempt gate data. Zero tests is the correct
-  // answer, and it must be SAID OUT LOUD — a silent green here is
-  // indistinguishable from a suite that ran and found nothing, and that
-  // empty-vs-failure confusion has already cost this repo once.
-  //
-  // This is NOT the `picked.size === 0` fallback further down. That one covers
-  // "changed something we could not map to a test" (e.g. a README) and still
-  // degrades to the full suite on purpose. This one covers "changed only a file
-  // no test consumes", where the full suite is pure waste and would cancel the
-  // subset gain entirely. `changed.length > 0` keeps the empty-diff case out —
-  // that one already went to the full suite above.
-  if (changed.length > 0 && changed.every((f) => fullFallbackExempt.has(f))) {
-    console.error('[test-changed] no tests need to run — every changed file is exempt gate data:');
-    for (const f of changed) console.error('  =', f);
+  // The ONLY path to a 0-test run: the diff's content is the baseline's `generatedAt` stamp,
+  // which no guard can observe (code `baseline-inert`). 0 tests is the correct answer and it
+  // must be SAID OUT LOUD — a silent green here is indistinguishable from a suite that ran and
+  // found nothing, and that empty-vs-failure confusion has already cost this repo once.
+  if (plan.mode === 'none') {
     console.error(
-      '[test-changed] 0 test files selected; NOT running the suite and NOT falling back to full ' +
-        '(no test reads these files).'
+      '[test-changed] 0 test files selected; NOT running the suite and NOT falling back to full.'
     );
     process.exit(0);
   }
 
-  // case b: 直接改 test 文件
-  for (const f of changed) {
-    if (/^tests\/.+\.test\.ts$/.test(f)) add(f);
-  }
-
-  // case a: src/ 改动 → 同 area 的 tests
-  const srcAreas = new Set();
-  for (const f of changed) {
-    const m = f.match(/^src\/([^/]+)/);
-    if (m) srcAreas.add(m[1]);
-  }
-
-  for (const area of srcAreas) {
-    // 直接用 vitest path filter: area 子目录下所有 .test.ts
-    add(`tests/unit/${area}`);
-    add(`tests/unit/${area}/`);
-  }
-
-  // 兜底:src/shared / src/cli-index 等顶层文件
-  if (srcAreas.size === 0 && changed.some((f) => f.startsWith('src/'))) {
-    add('tests/unit');
-  }
-
-  if (picked.size === 0) {
-    console.error('[test-changed] no tests matched, falling back to full suite');
+  // The classifier prints candidates; existence is an fs fact and stays here. A
+  // candidate path that is not on disk (e.g. `src/<area>` with no `tests/unit/<area>`)
+  // would otherwise make vitest exit 1 on a filter that matches nothing.
+  const files = plan.paths.filter((path) => existsSync(resolve(repoRoot, path)));
+  if (files.length === 0) {
+    console.error(
+      '[test-changed] no selected test path exists on disk, falling back to full suite'
+    );
     const code = await runVitest(['run']);
     process.exit(code);
   }
 
-  const files = [...picked];
   console.error('[test-changed] picked', files.length, 'test path(s):');
   for (const f of files) console.error('  *', f);
 
