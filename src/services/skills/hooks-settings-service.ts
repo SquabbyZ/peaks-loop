@@ -1,8 +1,6 @@
 import { existsSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { join, resolve } from 'node:path';
-import { assertSafeSettingsFile } from '../ide/shared/safe-path.js';
-import { atomicWriteJson, readJsonObjectFile } from '../ide/shared/atomic-json.js';
+import { atomicWriteJson } from '../ide/shared/atomic-json.js';
 import { getAdapter } from '../ide/ide-registry.js';
 import type { IdeId } from '../ide/ide-types.js';
 import type { HookScope } from '../ide/shared/safe-path.js';
@@ -11,12 +9,8 @@ import {
   resolveHookEntries,
   hasHookSpec,
   resolveLegacySentinels,
-  SUPERPOWERS_DENIED_SKILLS,
-  formatSuperpowersDenyEntry,
-  SUPERPOWERS_DENY_SENTINELS,
   hasExternalGateExemptions,
   withExternalGateExemptions,
-  withoutExternalGateExemptions,
   type PeaksHookEntry
 } from './hooks-codegate-superpowers.js';
 
@@ -33,260 +27,88 @@ export {
 /**
  * Install (and remove) the Peaks-managed hooks in an IDE's settings.json.
  *
- * The hook runs `peaks gate enforce` (Claude) or `peaks hook handle` (Trae /
- * other future adapters) before every relevant tool call; when a SOP guard's
- * gates fail it returns the adapter-specific deny shape, which blocks the
- * tool call BEFORE the IDE's permission checks — making the gate
- * un-bypassable by the agent.
+ * The hook runs `peaks gate enforce` before every relevant tool call; when a SOP
+ * guard's gates fail it returns the adapter-specific deny shape, which blocks the
+ * tool call BEFORE the IDE's permission checks — making the gate un-bypassable.
  *
- * Slice #1 refactor: this service delegates to the `IdeAdapter` for
- * `claude-code`. Slice #2 added Trae. Adapter provides `dirName` /
- * `settingsFileName` / `envVar` / `hookEvent` / `toolMatcher`. The Claude
- *
- * Slice #3 refactor (this commit): the service is now per-IDE aware via an
- * optional `options.ide` parameter. The CLI command is responsible for
- * resolving the IDE (env → stdin shape → cwd → fallback to 'claude-code')
- * via `detectIdeFromContext` and passing the result here. When `ide` is
- * omitted, the service defaults to `'claude-code'` so existing tests and
- * downstream callers continue to work without modification.
- *
- * Installation is an EXPLICIT user command (never postinstall): skills describe,
- * the CLI performs side effects. Writes preserve all other settings keys and
- * any other hooks, reject symlinked targets, and use an atomic rename so a
- * partial write can never corrupt the settings file. Our entry is merged into
- * (not replacing) the existing `hooks.<event>` array and is identified by a
- * sentinel substring in its command, so install is idempotent and uninstall
- * removes only our own entry.
+ * This file owns the policy and the four operations; the mechanisms live in the
+ * `hooks-settings-*` siblings. Installation is an EXPLICIT user command (never
+ * postinstall): skills describe, the CLI performs side effects. Writes preserve every
+ * other key and hook, reject symlinked targets, and use an atomic rename.
  */
-
 export type { HookScope } from '../ide/shared/safe-path.js';
+export type {
+  HookEntryTarget,
+  HookInstallOptions,
+  HookInstallPlan,
+  HookInstallResult,
+  HookRemoveResult,
+  HookStatus
+} from './hooks-settings-types.js';
+export { readInstalledEntriesFromSettings } from './hooks-settings-read-installed.js';
+export {
+  TRIGGER_PHRASES,
+  listSuperpowersDenyEntries,
+  withSuperpowersSkillDenylist,
+  withTriggeredDenyList,
+  withoutSuperpowersSkillDenylist,
+  withoutTriggeredDenyList
+} from './hooks-settings-deny-list.js';
 
-export type HookInstallOptions = {
-  /**
-   * Which IDE's adapter to install for. Defaults to `'claude-code'` for
-   * backward compatibility. The CLI command should resolve this from
-   * `detectIdeFromContext({ env, cwd, parsedStdin })` and pass the result.
-   * Throws if the IDE is not registered in the adapter registry.
-   */
-  readonly ide?: IdeId;
-  /**
-   * Slice #013 (bugfix — peaks hooks install --no-progress): when `true`,
-   * skip emitting the progress-start PreToolUse hook entry while still
-   * installing the gate-enforce entry. The progress-start hook auto-spawns
-   * a new terminal running `peaks progress watch`; with dispatch +
-   * heartbeat (slice #009 + #010) that auto-spawn is dead weight. Default
-   * `false` preserves the pre-slice install shape (both entries). The
-   * sentinel-based install is idempotent: re-running with `skipProgress:
-   * true` over a settings.json that previously had the progress entry
-   * installed will remove that entry. `uninstall` honors the same flag
-   * so it can find and remove both entries when both are present and
-   * only the gate-enforce entry when only the gate-enforce is present.
-   *
-   * Slice #014 (refactor — full removal of legacy progress-start surface):
-   * the field is preserved for API stability, but the underlying
-   * install only ever emits the gate-enforce entry. The progress-start
-   * entry is no longer installed regardless of this flag's value. The
-   * legacy `peaks progress start|watch|close` CLI surface is gone
-   * (replaced by `peaks sub-agent dispatch|heartbeat|share`); the hook
-   * entry would have been pointing at a `peaks progress start` that no
-   * longer exists. The sentinel `peaks progress start` constant is still
-   * exported (some tests + back-compat reads rely on it) but no new
-   * hook entries use it.
-   */
-  readonly skipProgress?: boolean;
-};
+import {
+  assertSafeSettingsPathCompat,
+  resolveLocalSettingsPath,
+  resolveSettingsRoot
+} from './hooks-settings-paths.js';
+import {
+  describeEntryTargets,
+  isInstalledForEntries,
+  readSettingsFile,
+  targetIsSatisfied,
+  withHooksInstalled
+} from './hooks-settings-file-shape.js';
+import {
+  applyRemovalToTarget,
+  hookStatusFromTargets,
+  removedResult,
+  unsupportedHookStatus
+} from './hooks-settings-envelopes.js';
+import { withSuperpowersSkillDenylist, withTriggeredDenyList } from './hooks-settings-deny-list.js';
+import type {
+  HookInstallOptions,
+  HookInstallPlan,
+  HookInstallResult,
+  HookRemoveResult,
+  HookStatus,
+  HookTarget
+} from './hooks-settings-types.js';
 
-// --- Module-level defaults (claude-code) -----------------------------------
-// These exports remain for backward compat — tests and downstream callers
-// that only care about Claude Code can keep importing them. The per-IDE
-// values are computed lazily inside each public function call.
-
-/** Default (claude-code) hook command — kept as a stable export for tests. */
+/** Default (claude-code) hook command. */
 export const HOOK_ENFORCE_COMMAND = `peaks gate enforce --project "\${CLAUDE_PROJECT_DIR}" --json`;
-
-function resolveIde(options: HookInstallOptions | undefined): IdeId {
-  return options?.ide ?? 'claude-code';
-}
-
-/** Slice #013: read the skipProgress opt-in flag. Slice #014: the underlying install no longer emits the progress-start entry, so the flag is effectively a no-op (kept for API stability). */
-function resolveSkipProgress(options: HookInstallOptions | undefined): boolean {
-  return options?.skipProgress === true;
-}
-
-/**
- * One peaks-managed entry paired with the settings file it is (or will be)
- * written to.
- *
- * `entries` is a flat list of the same matcher/sentinel pairs, which reads as
- * "written to `settingsPath`" even when the entry is routed to the other file
- * (see `resolveHookTargets`). This carries the routing explicitly so the
- * dry-run can name the real target without a real run.
- */
-export type HookEntryTarget = { matcher: string; sentinel: string; settingsPath: string };
-
-export type HookInstallPlan = {
-  scope: HookScope;
-  settingsPath: string;
-  exists: boolean;
-  alreadyInstalled: boolean;
-  desiredCommand: string;
-  sentinel: string;
-  matcher: string;
-  /**
-   * Machine-local, gitignored settings file that the gate-enforce entry is
-   * written to instead of `settingsPath`. Undefined when the IDE has no such
-   * file (or the scope is global, where the settings file is already
-   * machine-local). See `resolveHookTargets`.
-   */
-  localSettingsPath?: string;
-  /** Every entry the install writes, paired with its target file. */
-  entryTargets: ReadonlyArray<HookEntryTarget>;
-};
-
-export type HookInstallResult = HookInstallPlan & { applied: boolean };
-export type HookRemoveResult = {
-  scope: HookScope;
-  settingsPath: string;
-  localSettingsPath?: string;
-  removed: boolean;
-};
-export type HookStatus = {
-  scope: HookScope;
-  settingsPath: string;
-  exists: boolean;
-  localSettingsPath?: string;
-  localExists?: boolean;
-  installed: boolean;
-  /**
-   * Whether this IDE can host a peaks hook AT ALL (`hasHookSpec`).
-   *
-   * `status` answers "what is on disk", and for an IDE with no
-   * `HOOK_COMMAND_BY_IDE` entry the answer is "nothing, and nothing ever will
-   * be" — which is a successful query returning a negative fact, not a failed
-   * one. The exit code says the query succeeded; this field says what it found.
-   * Without it `installed: false` would be indistinguishable from a supported
-   * IDE that simply has no hook installed yet, which is a state the user can
-   * act on.
-   */
-  supportsHooks: boolean;
-};
-
-type HookHandler = { type?: string; command?: string };
-type HookMatcherEntry = { matcher?: string; hooks?: HookHandler[] };
-
-/** Resolve settings root dir for a scope. */
-function resolveSettingsRoot(scope: HookScope, projectRoot: string | undefined): string {
-  if (scope === 'global') return resolve(homedir());
-  if (!projectRoot) {
-    throw new Error('Project scope requires a project root');
-  }
-  return resolve(projectRoot);
-}
 
 function resolveSettingsPath(
   scope: HookScope,
   ide: IdeId,
   projectRoot: string | undefined
 ): string {
-  const root = resolveSettingsRoot(scope, projectRoot);
   const adapter = getAdapter(ide);
   return adapter.settings.resolveSettingsFile(scope, scope === 'global' ? homedir() : projectRoot);
 }
 
-function assertSafeSettingsPathCompat(
-  scope: HookScope,
-  ide: IdeId,
-  root: string,
-  settingsPath: string
-): void {
-  const adapter = getAdapter(ide);
-  assertSafeSettingsFile(scope, root, adapter.settings.dirName, adapter.settings.settingsFileName);
-  // The compat path receives the already-computed settingsPath; double-check
-  // that the computed path matches what assertSafeSettingsFile would have
-  // produced. This guards against drift between the two resolvers.
-  const expected = adapter.settings.resolveSettingsFile(
-    scope,
-    scope === 'global' ? homedir() : root
-  );
-  if (expected !== settingsPath) {
-    throw new Error(`settings path drift: ${expected} vs ${settingsPath}`);
-  }
+function resolveIde(options: HookInstallOptions | undefined): IdeId {
+  return options?.ide ?? 'claude-code';
 }
 
 /**
- * Resolve the machine-local settings file an IDE may carry (e.g. Claude
- * Code's `.claude/settings.local.json`), or `undefined` when there is none.
+ * The peaks-managed entries grouped by the settings file that carries each one.
  *
- * B3(b) 2026-09-13: the machine-local layer is an adapter-DECLARED capability,
- * not a name list. It used to be two hardcoded facts here — a `Set(['claude-code'])`
- * membership test and the filename literal `'settings.local.json'` — i.e. a
- * module that routes per-IDE was itself naming one IDE and one IDE's file.
- * Both now read off the adapter that owns them
- * (`IdeSettingsLocation.localSettingsFileName`), exactly as
- * `auto-compact-dispatcher.ts` already did for the same field.
- *
- * Behaviour is UNCHANGED, and that was verified rather than assumed: over all
- * nine registered `IdeId`s, `IDES_WITH_LOCAL_SETTINGS.has(id)` was `true` for
- * exactly the ids whose adapter declares `localSettingsFileName` (claude-code
- * alone, `'settings.local.json'`). So the set was an exact duplicate of a
- * declaration the adapters already carried, not an independent policy — and
- * a new adapter that declares the field now gets this path for free instead
- * of being silently denied it.
- *
- * This ALSO removes a live instance of the vendor guard's limit 1 (indirect
- * identity: `SET.has(ide)`), which no AST check over comparisons or literals
- * can see. The guard's header named this exact line as the example.
- *
- * Global scope resolves to `undefined`: the global settings file
- * (`~/.claude/settings.json`) is already machine-local, so nothing needs
- * relocating there.
+ * Peaks hooks normally land in the adapter's settings file. The gate-enforce Bash
+ * entry is the exception: on Windows its `shell` is pinned to `powershell`, because
+ * the default Git-Bash shell force-allocates a console window on every Bash tool call.
+ * A machine-specific value must never be committed into the SHARED file a macOS/Linux
+ * teammate reads, so that entry lands in the machine-local file instead; routing keys
+ * off its own `machineLocal` flag, never off `process.platform`.
  */
-function resolveLocalSettingsPath(
-  scope: HookScope,
-  ide: IdeId,
-  projectRoot: string | undefined
-): string | undefined {
-  if (scope === 'global') return undefined;
-  const adapter = getAdapter(ide);
-  const localFileName = adapter.settings.localSettingsFileName;
-  // `undefined` = this IDE has no machine-local layer. Note the order: a
-  // caller reaching here with an id the registry does not know still throws
-  // from `getAdapter` above, exactly as it did before — every path into this
-  // function already called `getAdapter(ide)` via `resolveSettingsPath`, so
-  // no new throw path is introduced.
-  if (localFileName === undefined) return undefined;
-  const root = resolveSettingsRoot(scope, projectRoot);
-  assertSafeSettingsFile(scope, root, adapter.settings.dirName, localFileName);
-  return join(root, adapter.settings.dirName, localFileName);
-}
-
-/**
- * A peaks-managed hook entry set grouped by the settings file that must
- * carry it.
- *
- * Peaks hooks normally land in the adapter's settings file. The gate-enforce
- * Bash entry is the exception: on Windows its `shell` must be pinned to
- * `powershell`, because the default Git-Bash shell force-allocates a console
- * window on every Bash tool call (MSYS2 behaviour — see the 2026-09-10
- * hook-console finding). A machine-specific value must never be committed
- * into the SHARED `.claude/settings.json` that a macOS/Linux teammate reads
- * too, so that entry is materialized into the machine-local file instead.
- * The routing decision is platform-independent (it keys off the entry's
- * `machineLocal` flag, not off `process.platform`) so the shared file's
- * content does not depend on which OS ran the install.
- */
-type HookTarget = {
-  settingsPath: string;
-  entries: PeaksHookEntry[];
-  /**
-   * When true this file also receives the third-party PreToolUse gate
-   * exemptions (`EXTERNAL_GATE_EXEMPT_ENV`). Claude Code only — `env` is a
-   * Claude Code settings key — and only ever on a machine-local file, never
-   * on the committed shared one.
-   */
-  envExemptions?: boolean;
-};
-
 function resolveHookTargets(
   scope: HookScope,
   ide: IdeId,
@@ -296,8 +118,6 @@ function resolveHookTargets(
   const localPath = resolveLocalSettingsPath(scope, ide, projectRoot);
   const wantsEnvExemptions = ide === 'claude-code';
   if (localPath === undefined || localPath === sharedPath) {
-    // Global scope lands here: the user-level file is already machine-local,
-    // so it is the safe target (there is no sibling to prefer).
     return [
       {
         settingsPath: sharedPath,
@@ -318,204 +138,36 @@ function resolveHookTargets(
   return [shared, local];
 }
 
-/** True when `target` already holds everything the install would write to it. */
-function targetIsSatisfied(target: HookTarget, allSentinels: ReadonlyArray<string>): boolean {
-  const settings = readSettingsFile(target.settingsPath);
-  if (!shapeMatchesDesired(settings, target.entries, allSentinels)) return false;
-  return target.envExemptions !== true || hasExternalGateExemptions(settings);
-}
-
-/** Flatten the resolved targets into one `{ matcher, sentinel, settingsPath }` row per entry. */
-function describeEntryTargets(targets: ReadonlyArray<HookTarget>): HookEntryTarget[] {
-  return targets.flatMap((target) =>
-    target.entries.map((entry) => ({
-      matcher: entry.matcher,
-      sentinel: entry.sentinel,
-      settingsPath: target.settingsPath
-    }))
-  );
-}
-
-/** Read a settings file as an object, or `{}` when it does not exist yet. */
-function readSettingsFile(settingsPath: string): Record<string, unknown> {
-  return existsSync(settingsPath) ? readJsonObjectFile(settingsPath) : {};
-}
-
-/** Read the existing hook array entries for the adapter's hookEvent (tolerant of any prior shape). */
-function readHookEventEntries(
-  settings: Record<string, unknown>,
-  eventKey: string
-): HookMatcherEntry[] {
-  const hooks = settings.hooks;
-  if (!hooks || typeof hooks !== 'object' || Array.isArray(hooks)) return [];
-  const arr = (hooks as Record<string, unknown>)[eventKey];
-  return Array.isArray(arr) ? (arr as HookMatcherEntry[]) : [];
-}
-
-/** Read the existing hook array entries from a `settings.hooks` object (already extracted). */
-function readHookEntriesFromHooks(
-  hooks: Record<string, unknown>,
-  eventKey: string
-): HookMatcherEntry[] {
-  const arr = hooks[eventKey];
-  return Array.isArray(arr) ? (arr as HookMatcherEntry[]) : [];
-}
-
-/** True when every command handler in the entry matches a known peaks sentinel for the given IDE. */
-function entryIsPeaksManaged(entry: HookMatcherEntry, sentinels: ReadonlyArray<string>): boolean {
-  const handlers = Array.isArray(entry?.hooks) ? entry.hooks : [];
-  if (handlers.length === 0) return false;
-  return handlers.every((h) => {
-    if (typeof h?.command !== 'string') return false;
-    const cmd = h.command;
-    return sentinels.some((sentinel) => cmd.includes(sentinel));
-  });
-}
-
-/**
- * Slice #014: read the *actually-installed* peaks-managed hook entries
- * from a settings object. Replaces the pre-#014 `listInstalledEntriesForIde`
- * helper in `hooks-commands.ts`, which returned the IDE-EXPECTED list
- * (a hardcoded 2-entry array per adapter) rather than what was on disk.
- * That bug surfaced when slice #013's local cleanup installed
- * `peaks hooks install --no-progress` (gate-enforce only), but the
- * status command still reported `entries: [Bash, Task]` because the
- * helper didn't read the file.
- *
- * The new helper:
- *   1. reads each `hooks.<event>` array,
- *   2. filters to entries that are peaks-managed for the given IDE
- *      (matches the legacy sentinel set: gate-enforce + the no-longer-
- *      installed progress-start),
- *   3. returns one `{ matcher, sentinel }` row per entry, taking the
- *      FIRST matching sentinel per entry (entries have a single command
- *      handler in practice, but the loop tolerates multi-handler
- *      entries by taking the first match).
- *
- * Pre-#014 settings.json files that have a stale progress-start entry
- * will see it surface in the result. This is intentional: the status
- * command is the user's tool for "what is on disk right now", and
- * surfacing a stale entry is the only way the user can know to run
- * `peaks hooks install` (which now strips it) or `peaks hooks
- * uninstall` (which removes it).
- */
-export function readInstalledEntriesFromSettings(
-  settings: Record<string, unknown>,
-  ide: IdeId
-): ReadonlyArray<{ matcher: string; sentinel: string }> {
-  const sentinels = resolveLegacySentinels(ide);
-  // Walk every event key the settings file has, not just the
-  // adapter-declared one. A pre-#014 install could have left a
-  // progress-start entry on a different event than the gate-enforce
-  // entry (Trae: both on beforeToolCall, but a stale install on a
-  // future IDE could split them).
-  const hooksRoot = settings.hooks;
-  if (!hooksRoot || typeof hooksRoot !== 'object' || Array.isArray(hooksRoot)) return [];
-  const result: { matcher: string; sentinel: string }[] = [];
-  for (const eventKey of Object.keys(hooksRoot)) {
-    const entries = readHookEntriesFromHooks(hooksRoot as Record<string, unknown>, eventKey);
-    for (const entry of entries) {
-      if (!entryIsPeaksManaged(entry, sentinels)) continue;
-      const matcher = typeof entry.matcher === 'string' ? entry.matcher : '';
-      // Find the first matching sentinel inside the entry's command
-      // handlers. For each handler, find the first sentinel substring
-      // it contains. We pick the first handler's first matching
-      // sentinel (entries have a single command in practice).
-      const firstHandler = Array.isArray(entry.hooks) ? entry.hooks[0] : undefined;
-      const cmd = typeof firstHandler?.command === 'string' ? firstHandler.command : '';
-      const sentinel = sentinels.find((s) => cmd.includes(s));
-      if (matcher === '' || sentinel === undefined) continue;
-      result.push({ matcher, sentinel });
-    }
-  }
-  return result;
-}
-
-/**
- * Merge the peaks-managed Skill denylist into the existing settings object.
- * Preserves every other `permissions.deny` entry the user (or another tool)
- * has written so the install is additive, not destructive. The output is
- * always deterministic: the same input always yields the same output,
- * regardless of insertion order in the source array.
- *
- * Defensive behavior:
- * - `settings.permissions` is missing or non-object → install creates a
- *   fresh `permissions: { deny: [...our entries] }` object.
- * - `settings.permissions.deny` is missing or non-array → install replaces
- *   the field with a fresh array containing only our entries.
- * - Duplicate entries (any source) are collapsed to one via `new Set`.
- *
- * The function is pure: it does not mutate the input. Atomic write happens
- * at the call site (`applyHookInstall`).
- */
-export function withSuperpowersSkillDenylist(
-  settings: Record<string, unknown>
-): Record<string, unknown> {
-  const ourEntries = SUPERPOWERS_DENIED_SKILLS.map(formatSuperpowersDenyEntry);
-  const permissions =
-    settings.permissions &&
-    typeof settings.permissions === 'object' &&
-    !Array.isArray(settings.permissions)
-      ? (settings.permissions as Record<string, unknown>)
-      : {};
-  const existingDeny: string[] = Array.isArray(permissions.deny)
-    ? (permissions.deny as string[]).filter((d): d is string => typeof d === 'string')
-    : [];
-  const otherDeny = existingDeny.filter((d) => !SUPERPOWERS_DENY_SENTINELS.has(d));
-  const finalDeny = [...new Set([...otherDeny, ...ourEntries])];
+function readInstallEnvelope(
+  scope: HookScope,
+  projectRoot: string | undefined,
+  options: HookInstallOptions | undefined,
+  alreadyInstalled: (targets: HookTarget[], ide: IdeId) => boolean
+): { ide: IdeId; targets: HookTarget[]; settingsPath: string; plan: HookInstallPlan } {
+  const ide = resolveIde(options);
+  const root = resolveSettingsRoot(scope, projectRoot);
+  const settingsPath = resolveSettingsPath(scope, ide, projectRoot);
+  assertSafeSettingsPathCompat(scope, ide, root, settingsPath);
+  const targets = resolveHookTargets(scope, ide, projectRoot);
+  const spec = resolveHookSpec(ide);
+  const localTarget = targets.find((t) => t.settingsPath !== settingsPath);
   return {
-    ...settings,
-    permissions: { ...permissions, deny: finalDeny }
+    ide,
+    targets,
+    settingsPath,
+    plan: {
+      scope,
+      settingsPath,
+      exists: existsSync(settingsPath),
+      // Written here, in the published field order a `--json` caller reads.
+      alreadyInstalled: alreadyInstalled(targets, ide),
+      desiredCommand: spec.hookEnforceCommand,
+      sentinel: spec.hookEnforceSentinel,
+      matcher: spec.hookEnforceMatcher,
+      ...(localTarget !== undefined ? { localSettingsPath: localTarget.settingsPath } : {}),
+      entryTargets: describeEntryTargets(targets)
+    }
   };
-}
-
-/**
- * Inverse of `withSuperpowersSkillDenylist`. Removes every peaks-managed
- * `UseSkill(...)` entry from the deny list. If the resulting deny list is
- * empty, the `deny` field itself is deleted; if the `permissions` object
- * becomes empty, the `permissions` field itself is deleted. This is the
- * uninstall path: every field we wrote must be removed exactly, and no
- * other field may be touched.
- *
- * Pure (no mutation).
- */
-export function withoutSuperpowersSkillDenylist(
-  settings: Record<string, unknown>
-): Record<string, unknown> {
-  const permissions =
-    settings.permissions &&
-    typeof settings.permissions === 'object' &&
-    !Array.isArray(settings.permissions)
-      ? (settings.permissions as Record<string, unknown>)
-      : {};
-  if (!Array.isArray(permissions.deny)) {
-    return settings;
-  }
-  const remainingDeny = (permissions.deny as string[])
-    .filter((d): d is string => typeof d === 'string')
-    .filter((d) => !SUPERPOWERS_DENY_SENTINELS.has(d));
-  const nextPermissions: Record<string, unknown> = { ...permissions };
-  if (remainingDeny.length > 0) {
-    nextPermissions.deny = remainingDeny;
-  } else {
-    delete nextPermissions.deny;
-  }
-  if (Object.keys(nextPermissions).length === 0) {
-    // The whole `permissions` object is empty (no deny, no allow, no other
-    // sub-fields). Drop it to avoid leaving an empty object on disk.
-    const { permissions: _omit, ...rest } = settings;
-    return rest;
-  }
-  return { ...settings, permissions: nextPermissions };
-}
-
-/**
- * Read-only introspection. Returns the deny entries that `peaks hooks
- * install` would write today. Useful for `peaks hooks status` and the
- * dry-run envelope.
- */
-export function listSuperpowersDenyEntries(): ReadonlyArray<string> {
-  return SUPERPOWERS_DENIED_SKILLS.map(formatSuperpowersDenyEntry);
 }
 
 /** Default (claude-code) peaks-managed hook entries — kept as a stable export for tests. Slice #014: only the gate-enforce entry. */
@@ -531,181 +183,22 @@ export const PEAKS_HOOK_ENTRIES: ReadonlyArray<PeaksHookEntry> = (() => {
   ];
 })();
 
-function isInstalledForEntries(
-  settings: Record<string, unknown>,
-  entries: ReadonlyArray<PeaksHookEntry>
-): boolean {
-  const sentinels = entries.map((e) => e.sentinel);
-  // Check every distinct event key our entries could be on.
-  const eventKeys = new Set(entries.map((e) => e.event));
-  for (const eventKey of eventKeys) {
-    if (readHookEventEntries(settings, eventKey).some((e) => entryIsPeaksManaged(e, sentinels))) {
-      return true;
-    }
-  }
-  return false;
-}
-
-/**
- * Slice #014: detect the "stale progress entry after pre-#014 install"
- * case. The desired shape is gate-enforce-only. If the file currently
- * has a peaks-managed progress-start entry (left behind by a pre-#014
- * install), the install is NOT a no-op — it must strip the stale
- * entry. This helper returns true exactly when the desired shape is
- * fully reflected on disk: gate-enforce present AND no legacy
- * progress-start present.
- */
-function shapeMatchesDesired(
-  settings: Record<string, unknown>,
-  entries: ReadonlyArray<PeaksHookEntry>,
-  allPeaksSentinels: ReadonlyArray<string>
-): boolean {
-  const eventKeys = new Set(entries.map((e) => e.event));
-  for (const eventKey of eventKeys) {
-    // Only the entries that belong to THIS event key can be expected on it —
-    // the desired set must be per-event, or a target whose entries span two
-    // event keys (claude-code: SessionStart + PreToolUse) would never look
-    // installed and every `peaks hooks install` would rewrite the files.
-    const desiredSentinels = new Set(
-      entries.filter((e) => e.event === eventKey).map((e) => e.sentinel)
-    );
-    const present = readHookEventEntries(settings, eventKey);
-    const peaksPresent = present.filter((e) => entryIsPeaksManaged(e, allPeaksSentinels));
-    // (a) every peaks-managed entry currently on disk must match the
-    //     desired sentinel set (no stale entries the caller wants removed).
-    for (const entry of peaksPresent) {
-      const entrySentinels = (entry.hooks ?? [])
-        .map((h) => allPeaksSentinels.find((s) => String(h.command ?? '').includes(s)))
-        .filter((s): s is string => Boolean(s));
-      if (entrySentinels.some((s) => !desiredSentinels.has(s))) {
-        return false;
-      }
-    }
-    // (b) every desired entry must be on disk AND carry the matcher it declares.
-    //     Presence alone cannot see a WRONG matcher, and a wrong matcher is not
-    //     cosmetic: `''` and `Bash|Task` route the same command to different
-    //     tool sets, so the entry is present while the hook never fires on the
-    //     residual R2): a `PostCompact` entry hand-corrupted to matcher
-    //     `auto|manual` survived `peaks hooks install` unchanged, and the
-    //     installer was structurally unable to repair it.
-    //     An absent matcher reads as `''` — the form Claude Code takes as "every
-    //     source" — so a file written before matchers were explicit converges
-    //     once instead of churning on every install.
-    for (const desired of entries.filter((e) => e.event === eventKey)) {
-      // The identity of a desired entry is the PAIR (sentinel, matcher), not the
-      // sentinel alone: one command may legitimately be installed under several
-      // matchers (the read-only MCP surface rides `peaks gate enforce` under its
-      // own matcher set). Matching on the sentinel first found that first entry
-      // every time, so the second one never looked installed and every install
-      // rewrote the file. A wrong matcher is still un-repaired — it fails to
-      // match and the caller rewrites.
-      const onDisk = peaksPresent.find(
-        (entry) =>
-          (entry.matcher ?? '') === desired.matcher &&
-          (entry.hooks ?? []).some((h) => String(h.command ?? '').includes(desired.sentinel))
-      );
-      if (onDisk === undefined) return false;
-    }
-  }
-  return true;
-}
-
 export function planHookInstall(
   scope: HookScope,
   projectRoot?: string,
   options?: HookInstallOptions
 ): HookInstallPlan {
-  const ide = resolveIde(options);
-  const _skipProgress = resolveSkipProgress(options);
-  const root = resolveSettingsRoot(scope, projectRoot);
-  const settingsPath = resolveSettingsPath(scope, ide, projectRoot);
-  assertSafeSettingsPathCompat(scope, ide, root, settingsPath);
-  const targets = resolveHookTargets(scope, ide, projectRoot);
-  const exists = existsSync(settingsPath);
-  const spec = resolveHookSpec(ide);
-  const localTarget = targets.find((t) => t.settingsPath !== settingsPath);
-  return {
-    scope,
-    settingsPath,
-    exists,
-    // The env clause mirrors `applyHookInstall`'s: without it the dry-run would
-    // claim "nothing to do" about a file the install is going to write.
-    alreadyInstalled: targets.every((t) => {
+  // The env clause mirrors `applyHookInstall`'s: without it the dry run claims "nothing
+  // to do" about a file the install is about to write.
+  return readInstallEnvelope(scope, projectRoot, options, (targets) =>
+    targets.every((t) => {
       const settings = readSettingsFile(t.settingsPath);
       return (
         isInstalledForEntries(settings, t.entries) &&
         (t.envExemptions !== true || hasExternalGateExemptions(settings))
       );
-    }),
-    desiredCommand: spec.hookEnforceCommand,
-    sentinel: spec.hookEnforceSentinel,
-    matcher: spec.hookEnforceMatcher,
-    ...(localTarget !== undefined ? { localSettingsPath: localTarget.settingsPath } : {}),
-    entryTargets: describeEntryTargets(targets)
-  };
-}
-
-/**
- * Merge a target's peaks-managed hook entries into `settings`, preserving
- * all other keys and hooks. Entries routed to a DIFFERENT settings file are
- * not part of `entries`, so the legacy-sentinel filter below strips them
- * from this file (that is what migrates a gate-enforce entry that an older
- * peaks release wrote into the shared file).
- */
-function withHooksInstalled(
-  settings: Record<string, unknown>,
-  entries: ReadonlyArray<PeaksHookEntry>,
-  allSentinels: ReadonlyArray<string>
-): Record<string, unknown> {
-  const existingHooks =
-    settings.hooks && typeof settings.hooks === 'object' && !Array.isArray(settings.hooks)
-      ? (settings.hooks as Record<string, unknown>)
-      : {};
-
-  // Our entries may sit on more than one event key. Group by event so each
-  // event array is independently merged.
-  const ourByEvent = new Map<string, PeaksHookEntry[]>();
-  for (const spec of entries) {
-    const list = ourByEvent.get(spec.event) ?? [];
-    list.push(spec);
-    ourByEvent.set(spec.event, list);
-  }
-
-  // Slice #014: the legacy sentinel set includes the progress-start
-  // sentinel so a pre-#014 install's stale progress-start entry is
-  // stripped by the filter (the file converges on the new
-  // gate-enforce-only shape, idempotently). The desired set (passed
-  // in below) only contains the gate-enforce sentinel.
-  const nextHooks: Record<string, unknown> = { ...existingHooks };
-
-  // An event key this file used to carry but whose entries all moved to the
-  // other file still needs its stale peaks entries stripped.
-  const eventKeys = new Set([...ourByEvent.keys(), ...Object.keys(existingHooks)]);
-
-  for (const eventKey of eventKeys) {
-    const existing = readHookEntriesFromHooks(nextHooks, eventKey);
-    const nonPeaks = existing.filter((entry) => !entryIsPeaksManaged(entry, allSentinels));
-    const ourFormatted: HookMatcherEntry[] = (ourByEvent.get(eventKey) ?? []).map((spec) => ({
-      matcher: spec.matcher,
-      hooks: [
-        {
-          type: 'command',
-          command: spec.command,
-          ...(spec.shell !== undefined ? { shell: spec.shell } : {})
-        }
-      ]
-    }));
-    const merged = [...nonPeaks, ...ourFormatted];
-    if (merged.length > 0) {
-      nextHooks[eventKey] = merged;
-    } else {
-      delete nextHooks[eventKey];
-    }
-  }
-  return {
-    ...settings,
-    hooks: nextHooks
-  };
+    })
+  ).plan;
 }
 
 export function applyHookInstall(
@@ -713,66 +206,29 @@ export function applyHookInstall(
   projectRoot?: string,
   options?: HookInstallOptions
 ): HookInstallResult {
-  const ide = resolveIde(options);
-  const _skipProgress = resolveSkipProgress(options);
-  const root = resolveSettingsRoot(scope, projectRoot);
-  const settingsPath = resolveSettingsPath(scope, ide, projectRoot);
-  assertSafeSettingsPathCompat(scope, ide, root, settingsPath);
-  const exists = existsSync(settingsPath);
-  const spec = resolveHookSpec(ide);
-  const targets = resolveHookTargets(scope, ide, projectRoot);
-  const allSentinels = resolveLegacySentinels(ide);
-  const localTarget = targets.find((t) => t.settingsPath !== settingsPath);
-  // Slice #014: `alreadyInstalled` reflects the FULL desired shape
-  // (gate-enforce-only + no stale progress-start entry). Pre-#014
-  // installs that left a progress-start entry behind will be treated
-  // as not-yet-installed, so the merge strips the stale entry on the
-  // next install call. This is the only path that converges the file
-  // on the new shape; pure presence-checks are insufficient.
-  //
-  // The external-gate exemption is part of the desired shape too, so a project
-  // installed by a release that predates it still converges on upgrade.
-  const alreadyInstalled = targets.every((t) => targetIsSatisfied(t, allSentinels));
-  const baseResult: HookInstallPlan = {
-    scope,
+  // `alreadyInstalled` reflects the FULL desired shape — gate-enforce-only, no stale
+  // progress-start entry, the external-gate exemption present. Presence alone is not
+  // enough: a file left by an older release would look installed forever.
+  const {
+    ide,
+    targets,
     settingsPath,
-    exists,
-    alreadyInstalled,
-    desiredCommand: spec.hookEnforceCommand,
-    sentinel: spec.hookEnforceSentinel,
-    matcher: spec.hookEnforceMatcher,
-    ...(localTarget !== undefined ? { localSettingsPath: localTarget.settingsPath } : {}),
-    entryTargets: describeEntryTargets(targets)
-  };
-  if (baseResult.alreadyInstalled) {
-    return { ...baseResult, applied: false };
-  }
-  // `permissions.deny` block alongside the gate hook in a single atomic
-  // write so the two halves of the install are always co-located. The
-  // helper is idempotent and additive: any user-written deny entries
-  // are preserved.
-  //
-  // withTriggeredDenyList. If the existing settings file has a
-  // superpowers / git-worktree / podman-run entry (any source),
-  // the install appends a defensive `Edit(deny-trigger:<phrase>)`
-  // entry. The chain cannot run raw `git worktree add` (or
-  // `podman run`) without an explicit `peaks hooks uninstall`
-  // first. Both helpers are pure + idempotent.
-  //
-  // The `permissions.deny` block lives in the adapter's settings file
-  // only (as it always has) — it is committed, so the deny list is
-  // shared; the machine-local file carries hook entries plus, for Claude
-  // Code, the third-party gate exemptions (machine-local by the same
-  // argument as the hook `shell` pin).
+    plan: baseResult
+  } = readInstallEnvelope(scope, projectRoot, options, (t, i) =>
+    t.every((target) => targetIsSatisfied(target, resolveLegacySentinels(i)))
+  );
+  const allSentinels = resolveLegacySentinels(ide);
+  if (baseResult.alreadyInstalled) return { ...baseResult, applied: false };
+  // The `permissions.deny` block rides the same atomic write as the hook entries, so
+  // the two halves of the install are always co-located. It lives in the adapter's
+  // settings file only — it is committed, so the deny list is shared.
   for (const target of targets) {
     let next = withHooksInstalled(
       readSettingsFile(target.settingsPath),
       target.entries,
       allSentinels
     );
-    if (target.envExemptions === true) {
-      next = withExternalGateExemptions(next);
-    }
+    if (target.envExemptions === true) next = withExternalGateExemptions(next);
     const merged =
       target.settingsPath === settingsPath
         ? withTriggeredDenyList(withSuperpowersSkillDenylist(next))
@@ -792,94 +248,33 @@ export function removeHookInstall(
   const settingsPath = resolveSettingsPath(scope, ide, projectRoot);
   assertSafeSettingsPathCompat(scope, ide, root, settingsPath);
   // An IDE with no HOOK_COMMAND_BY_IDE entry can never carry a peaks hook, so
-  // "remove it" is already true. That is a no-op success, not a failure: the
-  // post-condition the caller asked for holds. This stays asymmetric with
-  // `applyHookInstall`, which still fails closed for the same IDEs — reporting
-  // a successful install there would claim an enforcement that cannot exist.
-  //
-  // `resolveHookTargets` below is what throws for these IDEs, so the check has
-  // to come first. Note `resolveSettingsPath` above still runs: an IDE the
-  // adapter registry does not know at all remains a hard error.
+  // "remove it" is already true: a no-op success, not a failure. This stays
+  // asymmetric with `applyHookInstall`, which fails closed for the same IDEs;
+  // `resolveHookTargets` below is what throws for them, so the check comes first.
   if (!hasHookSpec(ide)) {
-    const localSettingsPath = resolveLocalSettingsPath(scope, ide, projectRoot);
-    return {
+    return removedResult(
       scope,
       settingsPath,
-      removed: false,
-      ...(localSettingsPath !== undefined && localSettingsPath !== settingsPath
-        ? { localSettingsPath }
-        : {})
-    };
+      resolveLocalSettingsPath(scope, ide, projectRoot),
+      false
+    );
   }
   const targets = resolveHookTargets(scope, ide, projectRoot);
   const localTarget = targets.find((t) => t.settingsPath !== settingsPath);
   const present = targets.filter((t) => existsSync(t.settingsPath));
   if (present.length === 0) {
-    return {
-      scope,
-      settingsPath,
-      removed: false,
-      ...(localTarget !== undefined ? { localSettingsPath: localTarget.settingsPath } : {})
-    };
+    return removedResult(scope, settingsPath, localTarget?.settingsPath, false);
   }
-
-  // Slice #014: uninstall must remove the gate-enforce entry AND any
-  // legacy progress-start entry that a pre-#014 install left behind.
-  // The legacy sentinel set covers both shapes so the uninstall
-  // converges the file on "no peaks-managed entries", regardless of
-  // what shape the file was in when the user ran uninstall.
+  // The legacy sentinel set covers BOTH the gate-enforce and the pre-#014 progress-start
+  // entries, so uninstall converges the file however it was shaped.
   const sentinels = resolveLegacySentinels(ide);
   let removedAny = false;
   for (const target of present) {
-    const settings = readJsonObjectFile(target.settingsPath);
-    const existingHooks = (settings.hooks as Record<string, unknown>) ?? {};
-    // Scan every event key on disk as well as the ones we install on:
-    // entries may have been routed to the other settings file by a
-    // previous install.
-    const eventKeys = new Set([
-      ...target.entries.map((e) => e.event),
-      ...Object.keys(existingHooks)
-    ]);
-    const nextHooks: Record<string, unknown> = { ...existingHooks };
-    for (const eventKey of eventKeys) {
-      const entries = readHookEntriesFromHooks(nextHooks, eventKey);
-      const kept = entries.filter((entry) => !entryIsPeaksManaged(entry, sentinels));
-      if (kept.length !== entries.length) removedAny = true;
-      if (kept.length > 0) {
-        nextHooks[eventKey] = kept;
-      } else {
-        delete nextHooks[eventKey];
-      }
+    if (applyRemovalToTarget(target, sentinels, target.settingsPath === settingsPath)) {
+      removedAny = true;
     }
-
-    const nextSettings: Record<string, unknown> = { ...settings };
-    if (Object.keys(nextHooks).length > 0) {
-      nextSettings.hooks = nextHooks;
-    } else {
-      delete nextSettings.hooks;
-    }
-    // Strips the peaks-managed `UseSkill(...)` deny entries alongside the
-    // hook entries; user-written entries are untouched. The helper self-
-    // decomposes an empty `permissions` object.
-    //
-    // trigger-style deny entries via withoutTriggeredDenyList. The
-    // chain of helpers is order-independent (each is idempotent and
-    // additive over the same set of peaks-managed entries).
-    let finalSettings = nextSettings;
-    if (target.envExemptions === true) {
-      finalSettings = withoutExternalGateExemptions(finalSettings);
-    }
-    if (target.settingsPath === settingsPath) {
-      finalSettings = withoutTriggeredDenyList(withoutSuperpowersSkillDenylist(finalSettings));
-    }
-    atomicWriteJson(target.settingsPath, finalSettings);
   }
-  return {
-    scope,
-    settingsPath,
-    removed: removedAny,
-    ...(localTarget !== undefined ? { localSettingsPath: localTarget.settingsPath } : {})
-  };
+  return removedResult(scope, settingsPath, localTarget?.settingsPath, removedAny);
 }
 
 export function readHookStatus(
@@ -891,146 +286,14 @@ export function readHookStatus(
   const root = resolveSettingsRoot(scope, projectRoot);
   const settingsPath = resolveSettingsPath(scope, ide, projectRoot);
   assertSafeSettingsPathCompat(scope, ide, root, settingsPath);
-  // An IDE with no HOOK_COMMAND_BY_IDE entry has no hook on disk and can never
-  // have one, so "what is installed?" has a definite answer: nothing. That is a
-  // no-op success, exactly like `removeHookInstall` — the query ran, the disk
-  // was read, and the honest reply is `supportsHooks: false, installed: false`.
-  // This stays asymmetric with `applyHookInstall`, which still fails closed for
-  // the same IDEs: reporting a successful INSTALL would claim an enforcement
-  // that cannot exist, whereas reporting a successful STATUS claims nothing.
-  //
-  // `resolveHookTargets` below is what throws for these IDEs, so the check has
-  // to come first. `resolveSettingsPath` above still runs: an IDE the adapter
-  // registry does not know at all remains a hard error.
+  // As in `removeHookInstall`: an IDE with no HOOK_COMMAND_BY_IDE entry has no hook on
+  // disk and can never have one, so "what is installed?" has a definite answer — nothing.
   if (!hasHookSpec(ide)) {
-    const localSettingsPath = resolveLocalSettingsPath(scope, ide, projectRoot);
-    return {
+    return unsupportedHookStatus(
       scope,
       settingsPath,
-      exists: existsSync(settingsPath),
-      ...(localSettingsPath !== undefined && localSettingsPath !== settingsPath
-        ? { localSettingsPath, localExists: existsSync(localSettingsPath) }
-        : {}),
-      installed: false,
-      supportsHooks: false
-    };
+      resolveLocalSettingsPath(scope, ide, projectRoot)
+    );
   }
-  const targets = resolveHookTargets(scope, ide, projectRoot);
-  const exists = existsSync(settingsPath);
-  const localTarget = targets.find((t) => t.settingsPath !== settingsPath);
-  return {
-    scope,
-    settingsPath,
-    exists,
-    ...(localTarget !== undefined
-      ? {
-          localSettingsPath: localTarget.settingsPath,
-          localExists: existsSync(localTarget.settingsPath)
-        }
-      : {}),
-    installed: targets.some((t) => {
-      const settings = readSettingsFile(t.settingsPath);
-      return Object.keys(settings).length > 0 && isInstalledForEntries(settings, t.entries);
-    }),
-    supportsHooks: true
-  };
-}
-
-/**
- *
- * In addition to the static SUPERPOWERS_DENIED_SKILLS list, peaks
- * scans the existing settings file for "trigger phrases" that
- * indicate the user has configured the superpowers chain (or
- * any other auto-run worktree-creating tool) and appends a
- * defensive deny to prevent the chain from running raw
- * `git worktree add` (or `podman run`) directly.
- *
- * Triggers detected (substring match on the existing
- * permissions.deny / permissions.allow list):
- *
- *  - `superpowers:using-git-worktrees` — the chain's ground zero
- *  - `superpowers:brainstorming` etc. — the upstream skill
- *  - `Bash(git worktree add` — the user has explicitly
- *    allowed raw git worktree, which our L2 lease-aware gate
- *    would also intercept (defense in depth)
- *
- * Append-only — never replaces, never re-orders, never removes
- * existing entries. Idempotent: re-running the install with
- * the same input yields the same output.
- */
-export const TRIGGER_PHRASES: ReadonlyArray<string> = Object.freeze([
-  'superpowers:using-git-worktrees',
-  'superpowers:brainstorming',
-  'superpowers:writing-plans',
-  'superpowers:subagent-driven-development',
-  'Bash(git worktree add',
-  'Bash(podman run'
-]);
-
-/**
- * Format a trigger-phrase into a stable `Edit` deny entry. We deny
- * `Edit` (not `Bash`) on the *settings file* itself, so the
- * user cannot edit the trigger away without an explicit
- * `peaks hooks uninstall` first. The skill name (when
- * applicable) is the value after the colon.
- */
-function formatTriggerDenyEntry(phrase: string): string {
-  return `Edit(deny-trigger:${phrase})`;
-}
-
-export function withTriggeredDenyList(settings: Record<string, unknown>): Record<string, unknown> {
-  const existingDeny: string[] = Array.isArray(
-    (settings.permissions as Record<string, unknown> | undefined)?.deny
-  )
-    ? ((settings.permissions as Record<string, unknown>).deny as unknown[]).filter(
-        (d): d is string => typeof d === 'string'
-      )
-    : [];
-  // Detect triggers in the existing allow + deny lists.
-  const existingAllow: string[] = Array.isArray(
-    (settings.permissions as Record<string, unknown> | undefined)?.allow
-  )
-    ? ((settings.permissions as Record<string, unknown>).allow as unknown[]).filter(
-        (d): d is string => typeof d === 'string'
-      )
-    : [];
-  const haystack = [...existingDeny, ...existingAllow].join('|');
-  const triggered = TRIGGER_PHRASES.filter((p) => haystack.includes(p));
-  if (triggered.length === 0) return settings;
-  const triggeredEntries = triggered.map(formatTriggerDenyEntry);
-  const permissions =
-    settings.permissions &&
-    typeof settings.permissions === 'object' &&
-    !Array.isArray(settings.permissions)
-      ? (settings.permissions as Record<string, unknown>)
-      : {};
-  const otherDeny = existingDeny.filter((d) => !triggeredEntries.includes(d));
-  return {
-    ...settings,
-    permissions: { ...permissions, deny: [...new Set([...otherDeny, ...triggeredEntries])] }
-  };
-}
-
-/** Inverse of withTriggeredDenyList: strip every deny-trigger entry. */
-export function withoutTriggeredDenyList(
-  settings: Record<string, unknown>
-): Record<string, unknown> {
-  const permissions =
-    settings.permissions &&
-    typeof settings.permissions === 'object' &&
-    !Array.isArray(settings.permissions)
-      ? (settings.permissions as Record<string, unknown>)
-      : {};
-  const existingDeny: string[] = Array.isArray(permissions.deny)
-    ? (permissions.deny as string[]).filter((d): d is string => typeof d === 'string')
-    : [];
-  const kept = existingDeny.filter((d) => !d.startsWith('Edit(deny-trigger:'));
-  const next: Record<string, unknown> = { ...permissions, deny: kept };
-  if (kept.length === 0) delete next.deny;
-  if (Object.keys(next).length === 0) {
-    const out = { ...settings };
-    delete out.permissions;
-    return out;
-  }
-  return { ...settings, permissions: next };
+  return hookStatusFromTargets(scope, settingsPath, resolveHookTargets(scope, ide, projectRoot));
 }
