@@ -23,152 +23,70 @@
  * The CLI boundary is runSediment(argv, { home }): it returns a
  * `{ ok, error?, data? }` envelope so program.ts can render the result
  * as JSON via peaks-cli's existing printResult primitive.
+ *
+ * The verb bodies live beside this file — `sediment-pool-commands.ts` (the
+ * pool verbs), `sediment-release-commands.ts` (the retained-release verbs)
+ * and `sediment-query-commands.ts` (the read-only verbs) — with the argv
+ * parser in `sediment-argv-flags.ts`. This module owns the dispatch table,
+ * `parseFlags`' re-export and the commander registration.
  */
-import { writeFileSync, mkdirSync, readFileSync, existsSync, readdirSync, rmSync } from 'node:fs';
-import { join, basename } from 'node:path';
 import type { Command } from 'commander';
-import {
-  SYSTEM_PATH_FORBIDDEN,
-  assertNotSystemPath,
-  resolveSegmentsDir,
-  resolveStateDbPath,
-  resolveBlobsDir,
-  resolveUserBeesDir,
-  resolveUserBeeDir
-} from '../../services/sediment/pool-paths.js';
+import { SYSTEM_PATH_FORBIDDEN } from '../../services/sediment/pool-paths.js';
 import { peaksHome } from '../../services/sop/sop-paths.js';
-import { writeBeeManifest } from '../../services/sediment/pool-write.js';
-import { readPool } from '../../services/sediment/pool-read.js';
-import { rebuildIndexFromFs } from '../../services/sediment/pool-rebuild-index.js';
-import { evaluateGate } from '../../services/sediment/promotion-gate.js';
-import type { BeeManifest } from '../../services/sediment/types.js';
 import { type ProgramIO, printCliEnvelope } from '../cli-helpers.js';
-import { openStateDb } from '../../services/skillhub/sqlite-store.js';
-import { retainRelease } from '../../services/skillhub/release-retain.js';
-import { releaseDiff } from '../../services/skillhub/release-diff.js';
-import { exportRelease } from '../../services/skillhub/release-export.js';
-import { importRelease } from '../../services/skillhub/release-import.js';
-import { gcBlobs } from '../../services/skillhub/release-gc-blobs.js';
-import type {
-  BeeReleaseRow,
-  BeeManifestRow,
-  BeeSegmentRefRow,
-  BeeFileRow
-} from '../../services/skillhub/types.js';
+import { parseFlags } from './sediment-argv-flags.js';
+import type { CliResult, SedimentVerb } from './sediment-command-shared.js';
+import {
+  addBee,
+  addSegment,
+  cloneBee,
+  listPool,
+  promote,
+  rebuildIndex,
+  refineBee,
+  retire
+} from './sediment-pool-commands.js';
+import {
+  dispose,
+  exportVerb,
+  gcBlobsVerb,
+  importVerb,
+  releaseDiffVerb,
+  releaseShow,
+  releases
+} from './sediment-release-commands.js';
+import { recent, search, show } from './sediment-query-commands.js';
 
-export interface CliResult {
-  ok: boolean;
-  error?: string;
-  data?: unknown;
-}
+// Re-exported so the split is invisible to importers of THIS path.
+export { ParsedFlags, parseFlags } from './sediment-argv-flags.js';
+export type { CliResult } from './sediment-command-shared.js';
 
-/** Typed accessor over the flag map produced by `parseFlags`.
- *
- * `parseFlags` internally stores every flag with at least one value as a
- * `string[]`. A flag with no following non-flag token (e.g. `--apply`,
- * `--dry-run`) is recorded as `true`. This helper exposes three typed
- * accessors so call-sites don't have to re-narrow `unknown` or
- * `string | boolean | string[]` on every read:
- *
- *   - `flags.list(name)`     → `string[]` (always an array; a single
- *                              occurrence is wrapped to a 1-element
- *                              array at parse time)
- *   - `flags.bool(name)`     → `boolean` (presence-of flag; missing
- *                              flag is `false`)
- *   - `flags.maybeString(name)` → `string | undefined` (first value,
- *                              or `undefined` if the flag was given
- *                              as a bare boolean with no value)
- *
- * The dispatch layer (runSediment) was previously peppered with
- * `typeof flags.x === "string"` / `Array.isArray(flags.x)` narrowing.
- * With this helper the call-sites collapse to one-line reads and the
- * raw flag map stops leaking across the runSediment boundary.
+/**
+ * Every verb the pool answers, keyed by the first positional. A `Map` rather
+ * than an object literal on purpose: `Object.prototype` names
+ * (`toString`, `constructor`, …) would otherwise resolve to an inherited
+ * function and dispatch a verb that does not exist.
  */
-export class ParsedFlags {
-  private readonly raw: Record<string, string[] | true>;
-  constructor(raw: Record<string, string[] | true>) {
-    this.raw = raw;
-  }
-  /** Always returns an array. Missing flag → []. Single-occurrence
-   *  flag → a 1-element array (parseFlags normalizes this). */
-  list(name: string): string[] {
-    const v = this.raw[name];
-    if (v === undefined) return [];
-    if (v === true) return [];
-    return v;
-  }
-  /** Presence-of a bare boolean flag. Missing → false. */
-  bool(name: string): boolean {
-    const v = this.raw[name];
-    if (v === undefined) return false;
-    // A flag given as `--name <value>` is also "present" (it just happens
-    // to carry values too). Existing call-sites that want `--dry-run`
-    // semantics care about presence, not whether values are attached.
-    return true;
-  }
-  /** First value of a flag, or `undefined` if the flag is absent or
-   *  was given as a bare boolean. */
-  maybeString(name: string): string | undefined {
-    const v = this.raw[name];
-    if (v === undefined) return undefined;
-    if (v === true) return undefined;
-    return v[0];
-  }
-}
-
-/** Parse an argv tail into positional args + flag map.
- *
- * Supports:
- *   --flag value    → flags[flag] = [value, ...] (advance i by 1)
- *   --flag          → flags[flag] = true        (when next token starts with `--` or is undefined)
- *   --flag v1 --flag v2   → repeated `--flag` values are accumulated
- *
- * Internally stores all values as `string[]` (or `true` for a bare
- * boolean flag). Use the `ParsedFlags` helper to read typed accessors.
- *
- * Repeatable flag handling (Task 15b): when the same `--key` appears
- * consecutively (e.g. `--segment a --segment b --segment c`), values
- * are accumulated into a single `string[]`. A single occurrence is
- * normalized to a 1-element array so callers can use `.list(name)`
- * uniformly without shape-narrowing on the call-site.
- */
-export function parseFlags(argv: string[]): {
-  positional: string[];
-  flags: ParsedFlags;
-} {
-  const positional: string[] = [];
-  const rawFlags: Record<string, string[] | true> = {};
-  for (let i = 0; i < argv.length; i++) {
-    const a = argv[i]!;
-    if (a.startsWith('--')) {
-      const k = a.slice(2);
-      const v = argv[i + 1];
-      if (v === undefined || v.startsWith('--')) {
-        rawFlags[k] = true;
-      } else {
-        // Capture first value, then look ahead for `--k <value>` repeats.
-        const values: string[] = [v];
-        i += 2;
-        while (
-          i < argv.length &&
-          argv[i] === `--${k}` &&
-          i + 1 < argv.length &&
-          !argv[i + 1]!.startsWith('--')
-        ) {
-          values.push(argv[i + 1]!);
-          i += 2;
-        }
-        // Back up one — the outer for-loop will i++ past the flag, so the
-        // next iteration sees the next real token.
-        i--;
-        rawFlags[k] = values;
-      }
-    } else {
-      positional.push(a);
-    }
-  }
-  return { positional, flags: new ParsedFlags(rawFlags) };
-}
+const VERBS: ReadonlyMap<string, SedimentVerb> = new Map<string, SedimentVerb>([
+  ['add-segment', addSegment],
+  ['add-bee', addBee],
+  ['list', listPool],
+  ['rebuild-index', rebuildIndex],
+  ['refine-bee', refineBee],
+  ['clone-bee', cloneBee],
+  ['promote', promote],
+  ['retire', retire],
+  ['dispose', dispose],
+  ['releases', releases],
+  ['release-show', releaseShow],
+  ['release-diff', releaseDiffVerb],
+  ['export', exportVerb],
+  ['import', importVerb],
+  ['gc-blobs', gcBlobsVerb],
+  ['search', search],
+  ['recent', recent],
+  ['show', show]
+]);
 
 /** Dispatch a sediment verb argv to the matching implementation.
  *
@@ -181,443 +99,11 @@ export async function runSediment(argv: string[], { home }: { home: string }): P
   const { positional, flags } = parseFlags(argv);
   const verb = positional[0];
   try {
-    switch (verb) {
-      case 'add-segment': {
-        const name = positional[1];
-        if (!name) return { ok: false, error: 'MISSING_ARG: name' };
-        const description = flags.maybeString('describe') ?? '';
-        const segDir = join(resolveSegmentsDir({ home }), name);
-        // Soft-protection guard: refuse to write under any `.system` path
-        // segment. Mirrors the same guard in writeBeeManifest.
-        assertNotSystemPath(segDir);
-        mkdirSync(segDir, { recursive: true });
-        writeFileSync(
-          join(segDir, 'SKILL.md'),
-          `---\nname: ${name}\ndescription: ${description}\n---\n`
-        );
-        rebuildIndexFromFs({ home });
-        return { ok: true };
-      }
-      case 'add-bee': {
-        const name = positional[1];
-        if (!name) return { ok: false, error: 'MISSING_ARG: name' };
-        // Collect --segment values; the brief uses repeatable --segment
-        // flags (one token per segment). parseFlags now returns a
-        // 1-element array for a single occurrence and a longer array
-        // for repeated keys, so .list() returns a uniform string[].
-        const segList = flags.list('segment');
-        const description = flags.maybeString('description') ?? '';
-        const m: BeeManifest = {
-          schemaVersion: 'peaks.bee/1',
-          name,
-          source: 'user',
-          promotion_status: 'candidate',
-          description,
-          segments: segList.map((s) => ({
-            name: s,
-            inputs: [],
-            outputs: [],
-            sideEffects: []
-          })),
-          entrypoint: { preamble: `## ${name}`, refs: [] },
-          promotion: {
-            minCycles: 1,
-            requiresHumanApproval: true,
-            requiresSmokeTest: true
-          },
-          createdBy: 'llm',
-          lastTouchedAt: new Date().toISOString()
-        };
-        // writeBeeManifest runs zod validation + SYSTEM_PATH_FORBIDDEN
-        // guard internally.
-        writeBeeManifest({ home }, m);
-        rebuildIndexFromFs({ home });
-        return { ok: true };
-      }
-      case 'list': {
-        const idx = readPool({ home });
-        return { ok: true, data: idx.entries };
-      }
-      case 'rebuild-index': {
-        const idx = rebuildIndexFromFs({ home });
-        return { ok: true, data: idx };
-      }
-      // --- Task 15b verbs ---
-      case 'refine-bee': {
-        const name = positional[1];
-        if (!name) return { ok: false, error: 'MISSING_ARG: refine-bee requires <name>' };
-        const patch = flags.maybeString('patch') ?? '';
-        if (!patch) return { ok: false, error: 'MISSING_ARG: refine-bee requires --patch' };
-        const manifestPath = join(resolveUserBeesDir({ home }), name, 'manifest.json');
-        if (!existsSync(manifestPath)) return { ok: false, error: 'BEE_NOT_FOUND' };
-        const m = JSON.parse(readFileSync(manifestPath, 'utf-8')) as BeeManifest;
-        // Append patch note to description, preserving prior content. Cap at
-        // 1000 chars to avoid unbounded growth.
-        const ts = new Date().toISOString();
-        const note = `[refine ${ts}] ${patch}`;
-        m.description = (m.description + (m.description ? '\n' : '') + note).slice(0, 1000);
-        m.lastTouchedAt = ts;
-        // promotion_status is preserved (do not touch it here).
-        writeBeeManifest({ home }, m);
-        rebuildIndexFromFs({ home });
-        return { ok: true };
-      }
-      case 'clone-bee': {
-        const name = positional[1];
-        if (!name) return { ok: false, error: 'MISSING_ARG: clone-bee requires <name>' };
-        const asName = flags.maybeString('as') ?? '';
-        if (!asName) return { ok: false, error: 'MISSING_ARG: clone-bee requires --as <new-name>' };
-        const srcPath = join(resolveUserBeesDir({ home }), name, 'manifest.json');
-        if (!existsSync(srcPath)) return { ok: false, error: 'BEE_NOT_FOUND' };
-        const src = JSON.parse(readFileSync(srcPath, 'utf-8')) as BeeManifest;
-        // Fresh id, reset promotion_status to candidate, rename. The source
-        // manifest is unchanged on disk.
-        const clone: BeeManifest = {
-          ...src,
-          name: asName,
-          promotion_status: 'candidate',
-          lastTouchedAt: new Date().toISOString()
-        };
-        writeBeeManifest({ home }, clone);
-        rebuildIndexFromFs({ home });
-        return { ok: true };
-      }
-      case 'promote': {
-        const name = positional[1];
-        if (!name) return { ok: false, error: 'MISSING_ARG: promote requires <name>' };
-        const manifestPath = join(resolveUserBeesDir({ home }), name, 'manifest.json');
-        if (!existsSync(manifestPath)) return { ok: false, error: 'BEE_NOT_FOUND' };
-        const m = JSON.parse(readFileSync(manifestPath, 'utf-8')) as BeeManifest;
-        if (m.source === 'system') return { ok: false, error: 'PROMOTION_SYSTEM_REFUSED' };
-        // Evaluate the PromotionGate (Task 5). The CLI is a thin shim; the
-        // humanApproved / smokeTestPresent inputs default to "true" here
-        // because the LLM-driven peaks-maker workflow has already obtained
-        // those approvals before calling promote.
-        const gate = evaluateGate({ home }, m, {
-          humanApproved: true,
-          smokeTestPresent: m.promotion.requiresSmokeTest
-        });
-        if (!gate.ok) {
-          return {
-            ok: false,
-            error: `PROMOTION_GATE_FAILED: ${gate.failedSubconditions.join(',')}`
-          };
-        }
-        m.promotion_status = 'stable';
-        m.lastTouchedAt = new Date().toISOString();
-        writeBeeManifest({ home }, m);
-        rebuildIndexFromFs({ home });
-        return { ok: true };
-      }
-      case 'retire': {
-        const name = positional[1];
-        if (!name) return { ok: false, error: 'MISSING_ARG: retire requires <name>' };
-        const reason = flags.maybeString('reason') ?? '';
-        const manifestPath = join(resolveUserBeesDir({ home }), name, 'manifest.json');
-        if (!existsSync(manifestPath)) return { ok: false, error: 'BEE_NOT_FOUND' };
-        const m = JSON.parse(readFileSync(manifestPath, 'utf-8')) as BeeManifest;
-        if (m.source === 'system') return { ok: false, error: 'RETIRE_SYSTEM_REFUSED' };
-        m.promotion_status = 'retired';
-        if (reason) {
-          const ts = new Date().toISOString();
-          const note = `[retire ${ts}] ${reason}`;
-          m.description = (m.description + (m.description ? '\n' : '') + note).slice(0, 1000);
-        }
-        m.lastTouchedAt = new Date().toISOString();
-        writeBeeManifest({ home }, m);
-        rebuildIndexFromFs({ home });
-        return { ok: true };
-      }
-      // --- Task 15c verbs ---
-      case 'dispose': {
-        const name = positional[1];
-        if (!name) return { ok: false, error: 'MISSING_ARG: dispose requires <name>' };
-        const decision = flags.maybeString('decision') ?? '';
-        if (decision !== 'destroy' && decision !== 'retain') {
-          return { ok: false, error: 'MISSING_ARG: dispose requires --decision destroy|retain' };
-        }
-        const manifestPath = join(resolveUserBeesDir({ home }), name, 'manifest.json');
-        if (!existsSync(manifestPath)) return { ok: false, error: 'BEE_NOT_FOUND' };
-        const m = JSON.parse(readFileSync(manifestPath, 'utf-8')) as BeeManifest;
-        // System bees: silently destroy; refuse retain (Task 9 contract).
-        if (m.source === 'system') {
-          if (decision === 'retain') return { ok: false, error: 'RETAIN_SYSTEM_REFUSED' };
-          return { ok: true, data: { systemDestroyed: true } };
-        }
-        // User bee destroy: remove the manifest dir from the pool. The
-        // scratch materialization is cleaned up by the dispatch flow
-        // (its concern), but the pool's bees/<name>/manifest.json entry
-        // is removed here so the index reflects reality on next read.
-        if (decision === 'destroy') {
-          const beeDir = resolveUserBeeDir({ home }, name);
-          rmSync(beeDir, { recursive: true, force: true });
-          rebuildIndexFromFs({ home });
-          return { ok: true, data: { userDestroyed: true, path: beeDir } };
-        }
-        // User bee retain: open state.db, call retainRelease.
-        const version = flags.maybeString('version') ?? '0.1.0';
-        const scratchDir = flags.maybeString('scratch') ?? join(home, 'scratch');
-        if (!existsSync(scratchDir)) return { ok: false, error: 'SCRATCH_NOT_FOUND' };
-        const stateDbPath = resolveStateDbPath({ home });
-        const blobsDir = resolveBlobsDir({ home });
-        mkdirSync(blobsDir, { recursive: true });
-        const db = openStateDb(stateDbPath);
-        try {
-          retainRelease({ db, blobsDir, scratchDir, manifest: m, version });
-        } finally {
-          db.close();
-        }
-        return { ok: true, data: { retained: true, version } };
-      }
-      case 'releases': {
-        const beeName = positional[1];
-        if (!beeName) return { ok: false, error: 'MISSING_ARG: releases requires <bee-name>' };
-        const stateDbPath = resolveStateDbPath({ home });
-        const db = openStateDb(stateDbPath);
-        try {
-          const rows = db
-            .prepare(
-              'SELECT id, bee_name, version, source, archived_at, archived_by FROM bee_release WHERE bee_name = ? ORDER BY archived_at DESC'
-            )
-            .all(beeName) as Array<{
-            id: number;
-            bee_name: string;
-            version: string;
-            source: string;
-            archived_at: string;
-            archived_by: string;
-          }>;
-          return { ok: true, data: rows };
-        } finally {
-          db.close();
-        }
-      }
-      case 'release-show': {
-        const beeName = positional[1];
-        const version = flags.maybeString('version') ?? '';
-        if (!beeName || !version) {
-          return {
-            ok: false,
-            error: 'MISSING_ARG: release-show requires <bee-name> and --version'
-          };
-        }
-        const stateDbPath = resolveStateDbPath({ home });
-        const db = openStateDb(stateDbPath);
-        try {
-          // Cast the row to the typed interface from skillhub/types.ts so
-          // downstream consumers (LLM agents in peaks-maker, CLI JSON
-          // renderers) get a structural shape rather than
-          // Record<string, unknown>. Minor #12 fix.
-          const row = db
-            .prepare('SELECT * FROM bee_release WHERE bee_name = ? AND version = ?')
-            .get(beeName, version) as BeeReleaseRow | undefined;
-          if (!row) return { ok: false, error: 'VERSION_NOT_FOUND' };
-          const id = row.id;
-          const manifest = db.prepare('SELECT * FROM bee_manifest WHERE release_id = ?').get(id) as
-            BeeManifestRow | undefined;
-          const segments = db
-            .prepare('SELECT * FROM bee_segment_ref WHERE release_id = ?')
-            .all(id) as unknown as BeeSegmentRefRow[];
-          const files = db
-            .prepare('SELECT * FROM bee_file WHERE release_id = ?')
-            .all(id) as unknown as BeeFileRow[];
-          return { ok: true, data: { release: row, manifest, segments, files } };
-        } finally {
-          db.close();
-        }
-      }
-      case 'release-diff': {
-        const beeName = positional[1];
-        const fromVersion = flags.maybeString('from') ?? '';
-        const toVersion = flags.maybeString('to') ?? '';
-        if (!beeName || !fromVersion || !toVersion) {
-          return {
-            ok: false,
-            error: 'MISSING_ARG: release-diff requires <bee-name> and --from and --to'
-          };
-        }
-        const stateDbPath = resolveStateDbPath({ home });
-        const db = openStateDb(stateDbPath);
-        try {
-          const diff = releaseDiff({ db, beeName, fromVersion, toVersion });
-          return { ok: true, data: diff };
-        } catch (e: unknown) {
-          const msg = e instanceof Error ? e.message : String(e);
-          return { ok: false, error: msg };
-        } finally {
-          db.close();
-        }
-      }
-      // --- Task 15d verbs ---
-      case 'export': {
-        const beeName = positional[1];
-        const version = flags.maybeString('version') ?? '';
-        const outPath = flags.maybeString('out') ?? '';
-        if (!beeName || !version || !outPath) {
-          return { ok: false, error: 'MISSING_ARG: export requires <bee-name>, --version, --out' };
-        }
-        const stateDbPath = resolveStateDbPath({ home });
-        const blobsDir = resolveBlobsDir({ home });
-        const db = openStateDb(stateDbPath);
-        try {
-          exportRelease({ db, blobsDir, beeName, version, outPath });
-        } catch (e: unknown) {
-          const msg = e instanceof Error ? e.message : String(e);
-          return { ok: false, error: msg };
-        } finally {
-          db.close();
-        }
-        // M7 (spec §7A.2 / §10 RL-9): `peaks skill sediment export` is
-        // an ALIAS of `peaks loop export` for one release cycle. Emit
-        // the deprecation warning to stderr so downstream tooling can
-        // upgrade. Future slice removes the alias.
-        process.stderr.write(
-          "warning: 'peaks skill sediment export' is deprecated; use 'peaks loop export' or 'peaks bee export' (peaks.bundle/1, spec §7A.2)\n"
-        );
-        return { ok: true, data: { outPath } };
-      }
-      case 'import': {
-        const bundlePath = positional[1];
-        const asNameRaw = flags.maybeString('as');
-        const asName = asNameRaw && asNameRaw.length > 0 ? asNameRaw : undefined;
-        if (!bundlePath) return { ok: false, error: 'MISSING_ARG: import requires <bundle-path>' };
-        if (!existsSync(bundlePath)) return { ok: false, error: 'BUNDLE_NOT_FOUND' };
-        const stateDbPath = resolveStateDbPath({ home });
-        const blobsDir = resolveBlobsDir({ home });
-        mkdirSync(blobsDir, { recursive: true });
-        const db = openStateDb(stateDbPath);
-        try {
-          if (asName !== undefined) {
-            importRelease({ db, blobsDir, inPath: bundlePath, asName });
-          } else {
-            importRelease({ db, blobsDir, inPath: bundlePath });
-          }
-        } catch (e: unknown) {
-          const msg = e instanceof Error ? e.message : String(e);
-          return { ok: false, error: msg };
-        } finally {
-          db.close();
-        }
-        // M7 (spec §7A.2): `peaks skill sediment import` is an ALIAS of
-        // `peaks loop import` for one release cycle. Emit the
-        // deprecation warning so downstream tooling can upgrade.
-        process.stderr.write(
-          "warning: 'peaks skill sediment import' is deprecated; use 'peaks loop import' or 'peaks bee import' (peaks.bundle/1, spec §7A.2)\n"
-        );
-        return { ok: true, data: { asName: asName ?? basename(bundlePath) } };
-      }
-      case 'gc-blobs': {
-        const dryRun = flags.bool('dry-run');
-        const stateDbPath = resolveStateDbPath({ home });
-        const blobsDir = resolveBlobsDir({ home });
-        const db = openStateDb(stateDbPath);
-        try {
-          const removed = gcBlobs({ db, blobsDir, dryRun });
-          return { ok: true, data: { removed } };
-        } catch (e: unknown) {
-          const msg = e instanceof Error ? e.message : String(e);
-          return { ok: false, error: msg };
-        } finally {
-          db.close();
-        }
-      }
-      case 'search': {
-        const query = positional[1] ?? flags.maybeString('q') ?? '';
-        if (!query) return { ok: false, error: 'MISSING_ARG: search requires <query>' };
-        const beesDir = resolveUserBeesDir({ home });
-        const matches: Array<Record<string, unknown>> = [];
-        const warnings: string[] = [];
-        if (existsSync(beesDir)) {
-          const q = query.toLowerCase();
-          for (const name of readdirSync(beesDir)) {
-            const manifestPath = join(beesDir, name, 'manifest.json');
-            if (!existsSync(manifestPath)) continue;
-            let m: {
-              name?: string;
-              description?: string;
-              source?: string;
-              promotion_status?: string;
-            };
-            try {
-              m = JSON.parse(readFileSync(manifestPath, 'utf-8')) as {
-                name?: string;
-                description?: string;
-                source?: string;
-                promotion_status?: string;
-              };
-            } catch (e: unknown) {
-              const msg = e instanceof Error ? e.message : String(e);
-              warnings.push(`skipped ${name}: ${msg}`);
-              continue;
-            }
-            const haystack = `${m.name ?? ''} ${m.description ?? ''}`.toLowerCase();
-            if (haystack.includes(q)) {
-              matches.push({
-                name: m.name,
-                description: m.description,
-                source: m.source,
-                promotion_status: m.promotion_status
-              });
-            }
-          }
-        }
-        return { ok: true, data: { matches, warnings } };
-      }
-      case 'recent': {
-        const sinceRaw = flags.maybeString('since') ?? '7d';
-        const m = sinceRaw.match(/^(\d+)d$/);
-        if (!m) return { ok: false, error: 'MISSING_ARG: recent requires --since Nd (e.g. 7d)' };
-        const sinceDays = parseInt(m[1]!, 10);
-        const cutoff = new Date(Date.now() - sinceDays * 24 * 60 * 60 * 1000).toISOString();
-        const beesDir = resolveUserBeesDir({ home });
-        const matches: Array<Record<string, unknown>> = [];
-        const warnings: string[] = [];
-        if (existsSync(beesDir)) {
-          for (const name of readdirSync(beesDir)) {
-            const manifestPath = join(beesDir, name, 'manifest.json');
-            if (!existsSync(manifestPath)) continue;
-            let b: {
-              name?: string;
-              lastTouchedAt?: string;
-              promotion_status?: string;
-            };
-            try {
-              b = JSON.parse(readFileSync(manifestPath, 'utf-8')) as {
-                name?: string;
-                lastTouchedAt?: string;
-                promotion_status?: string;
-              };
-            } catch (e: unknown) {
-              const msg = e instanceof Error ? e.message : String(e);
-              warnings.push(`skipped ${name}: ${msg}`);
-              continue;
-            }
-            if (typeof b.lastTouchedAt === 'string' && b.lastTouchedAt >= cutoff) {
-              matches.push({
-                name: b.name,
-                lastTouchedAt: b.lastTouchedAt,
-                promotion_status: b.promotion_status
-              });
-            }
-          }
-        }
-        return { ok: true, data: { matches, warnings } };
-      }
-      case 'show': {
-        const name = positional[1];
-        if (!name) return { ok: false, error: 'MISSING_ARG: show requires <name>' };
-        const manifestPath = join(resolveUserBeesDir({ home }), name, 'manifest.json');
-        if (!existsSync(manifestPath)) return { ok: false, error: 'BEE_NOT_FOUND' };
-        try {
-          return { ok: true, data: JSON.parse(readFileSync(manifestPath, 'utf-8')) };
-        } catch (e: unknown) {
-          const msg = e instanceof Error ? e.message : String(e);
-          return { ok: false, error: `MANIFEST_CORRUPT: ${msg}` };
-        }
-      }
-      default:
-        return { ok: false, error: `UNKNOWN_VERB: ${verb ?? ''}` };
+    const handler = verb === undefined ? undefined : VERBS.get(verb);
+    if (handler === undefined) {
+      return { ok: false, error: `UNKNOWN_VERB: ${verb ?? ''}` };
     }
+    return await handler({ home, positional, flags });
   } catch (e: unknown) {
     if (e instanceof SYSTEM_PATH_FORBIDDEN) {
       return { ok: false, error: e.message };
