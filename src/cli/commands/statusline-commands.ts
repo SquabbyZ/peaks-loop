@@ -1,220 +1,43 @@
+// src/cli/commands/statusline-commands.ts
+//
+// `peaks statusline` and its subcommands. The option chains are declared here —
+// this is the file `tests/unit/cli/ide-option-help-lists-the-registry.test.ts`
+// scans for `--ide` declarations — and the verb bodies live beside it, one
+// module per verb, over the stdin seam and the scope/IDE resolution in
+// `statusline-command-shared.ts`.
+
 import type { Command } from 'commander';
-import { fail, ok } from 'peaks-loop-shared/result';
 
-import { addJsonOption, printResult, getErrorMessage, type ProgramIO } from '../cli-helpers.js';
-import { findProjectRoot } from '../../services/config/config-safety.js';
-import {
-  buildStatusLineModel,
-  parseStatusLineStdin
-} from '../../services/skills/skill-statusline-service.js';
-import {
-  renderStatusLine,
-  resolveStatusLineCapability
-} from '../../services/skills/skill-statusline-renderer.js';
-import {
-  applyStatusLineInstall,
-  planStatusLineInstall,
-  removeStatusLineInstall,
-  type StatusLineScope
-} from '../../services/skills/statusline-settings-service.js';
-import { readHookStatus as readSettingsStatus } from '../../services/skills/hooks-settings-service.js';
-import { detectIdeFromContext } from '../../services/ide/hook-translator.js';
+import { addJsonOption, type ProgramIO } from '../cli-helpers.js';
 import { resolveIdeOptionHelp } from '../../services/ide/ide-registry.js';
-import type { IdeId } from '../../services/ide/ide-types.js';
-import {
-  decideCompactStatusline,
-  renderCompactStatusline
-} from '../../services/compact-statusline/compact-statusline-service.js';
-import { getSessionIdCanonical } from '../../services/session/session-manager.js';
-import { writeHarnessWitness } from '../../services/context/harness-context-witness.js';
-
-const STDIN_READ_TIMEOUT_MS = 250;
-
-/**
- * Read piped stdin if present; resolve quickly with '' when attached to a TTY.
- *
- * `PEAKS_STATUSLINE_STDIN` is a test seam (same shape as the `PEAKS_HOOK_STDIN`
- * seam in `gate-commands.ts`): the harness payload is the only channel that
- * carries the harness's own context numbers, and a test that cannot supply one
- * cannot verify the capture at all.
- *
- * WHY THIS SEAM IS ACCEPTABLE ON A DIFFERENT ARGUMENT (repair cycle 3). The
- * precedent does not transfer by itself: `PEAKS_HOOK_STDIN` is defended in
- * `.peaks/memory/peaks-hook-stdin-test-seam-pattern.md` because its payload
- * still routes through the `enforceBashCommand` SOP gate. This payload is
- * routed through no gate — it is PERSISTED verbatim as the record the witness
- * guard then reads. So the compensating control is different, not absent: the
- * record is observation-only and one-way. It reaches only `data` and the
- * `warnings` / `nextActions` arrays of `peaks code context-now`; the compact
- * `action` there is computed from `probe.ratio` alone, before and independently
- * of the witness. A forged payload can therefore make the instrument lie —
- * measured: a hand-written record yields a confident false `agree`, or a
- * self-contradictory false `disagree` — and can do nothing else. What it cannot
- * do is fire, block or delay a compact. Unconditional rather than NODE_ENV-
- * gated, for the reason already recorded for the sibling seam.
- */
-function readStdin(): Promise<string> {
-  const override = process.env['PEAKS_STATUSLINE_STDIN'];
-  if (override !== undefined) {
-    return Promise.resolve(override);
-  }
-  return new Promise((resolve) => {
-    if (process.stdin.isTTY) {
-      resolve('');
-      return;
-    }
-    let data = '';
-    let settled = false;
-    const finish = (): void => {
-      if (settled) return;
-      settled = true;
-      resolve(data);
-    };
-    const timer = setTimeout(finish, STDIN_READ_TIMEOUT_MS);
-    timer.unref?.();
-    process.stdin.setEncoding('utf8');
-    process.stdin.on('data', (chunk) => {
-      data += chunk;
-    });
-    process.stdin.on('end', () => {
-      clearTimeout(timer);
-      finish();
-    });
-    process.stdin.on('error', () => {
-      clearTimeout(timer);
-      finish();
-    });
-  });
-}
-
-function resolveScope(options: { global?: boolean }): StatusLineScope {
-  return options.global ? 'global' : 'project';
-}
+import { runDefaultStatuslineRender } from './statusline-render-command.js';
+import { runStatuslineInstall } from './statusline-install-command.js';
+import { runStatuslineUninstall } from './statusline-uninstall-command.js';
+import { runStatuslineStatus } from './statusline-status-command.js';
+import { runStatuslineCompact } from './statusline-compact-command.js';
+import type {
+  CompactOptions,
+  InstallOptions,
+  RenderOptions,
+  StatusOptions,
+  UninstallOptions
+} from './statusline-command-shared.js';
 
 /**
- * Resolve the IDE the install should target. The CLI user can override with
- * `--ide <id>`. Otherwise we delegate to `detectIdeFromContext` which checks
- * `process.env[adapter.envVar]` → stdin shape → cwd `.trae`/`.claude` →
- * fallback `'claude-code'`. Pass `parsedStdin: null` since `peaks statusline
- * install` is not invoked from inside an IDE hook — there's no stdin payload.
- */
-function resolveIdeForCommand(options: { ide?: string }, projectRoot: string | undefined): IdeId {
-  if (options.ide !== undefined && options.ide.length > 0) {
-    return options.ide as IdeId;
-  }
-  return detectIdeFromContext({
-    env: process.env,
-    cwd: projectRoot ?? process.cwd(),
-    parsedStdin: null
-  });
-}
-
-type InstallOptions = {
-  global?: boolean;
-  project?: string;
-  force?: boolean;
-  dryRun?: boolean;
-  json?: boolean;
-  ide?: string;
-};
-type UninstallOptions = { global?: boolean; project?: string; json?: boolean; ide?: string };
-type StatusOptions = { global?: boolean; project?: string; json?: boolean; ide?: string };
-type RenderOptions = { project?: string; json?: boolean; now?: number | string };
-
-/**
- * Default-statusline render body. Reused by both the top-level default
- * action (Bug-02 dispatch) and the explicit `render` subcommand. Exported
- * so a unit test can exercise the JSON / text output paths without going
- * through commander.
+ * The bare `peaks statusline` invocation plus the hidden `render` subcommand.
+ * This pattern is required by commander 12.x: when a command has both an
+ * action AND subcommands, commander's option parser conflates the parent's
+ * options with the subcommand's and drops flags. Routing through a subcommand
+ * (even one that's hidden) avoids the option-shadowing bug.
  *
- * Capability resolution is delegated to {@link resolveStatusLineCapability}
- * with only `env` and `isTTY` — the env-driven path is the single first-
- * version source of truth. No CLI flag widens the surface. The model
- * itself is read-only: `buildStatusLineModel` is the sole I/O boundary,
- * and it now also resolves compact state.
+ * Without the default action, commander falls back to printing usage (Bug-02,
+ * ice-cola surface check 2026-07-22).
  */
-export async function runDefaultStatuslineRender(
-  options: RenderOptions,
-  io: ProgramIO
-): Promise<void> {
-  const raw = await readStdin();
-  const stdin = parseStatusLineStdin(raw);
-  const seeded = options.project
-    ? { ...(stdin ?? {}), workspace: { current_dir: options.project } }
-    : stdin;
-  // `Date.now()` for deterministic lifecycle-window checks under full-
-  // suite concurrency. The integration test passes a test-time `now`
-  // pinned at the moment `seedLifecycle` was called so the completed-
-  // expiry window stays in-range regardless of how long the spawned
-  // subprocess sat descheduled. Production callers omit the flag.
-  const now = options.now !== undefined ? Number(options.now) : Date.now();
-  const model = buildStatusLineModel(seeded, now);
-  // context numbers from the payload it just piped in. The project root and the
-  // canonical session id are taken from the model that was JUST built, so the
-  // witness lands under the same session this render already resolved — a second
-  // resolution here could disagree with it. Never throws; never changes the
-  // rendered line.
-  writeHarnessWitness({
-    projectRoot: model.projectRoot,
-    sessionId: model.sessionId,
-    stdin,
-    nowMs: now
-  });
-  const capability = resolveStatusLineCapability({
-    env: process.env,
-    isTTY: Boolean(process.stdout.isTTY)
-  });
-  const text = renderStatusLine(model, { capability }, process.env);
-  if (options.json === true) {
-    io.stdout(JSON.stringify({ ok: true, command: 'statusline.render', data: { text } }, null, 2));
-    return;
-  }
-  io.stdout(text);
-}
-
-export function registerStatusLineCommands(program: Command, io: ProgramIO): void {
-  // Top-level `peaks statusline` — register as a group with subcommands
-  // (install | uninstall | status). When the user runs `peaks statusline` with
-  // no subcommand, commander falls back to a hidden render subcommand so the
-  // status line still renders. This pattern is required by commander 12.x:
-  // when a command has both an action AND subcommands, commander's option
-  // parser conflates the parent's options with the subcommand's and drops
-  // flags. Routing through a subcommand (even one that's hidden) avoids the
-  // option-shadowing bug.
-  const statusline = addJsonOption(
-    program
-      .command('statusline')
-      .description(
-        'Render the Peaks skill status line for the current session, or manage the adapter-driven statusLine entry. Run with no subcommand to render; with a subcommand (install | uninstall | status) to manage.'
-      )
-      .option(
-        '--project <path>',
-        'project root path (used to label the status line when stdin is absent; applies to the default render path)'
-      )
-      .option(
-        '--now <ms>',
-        'override current time (epoch ms) — for testing / deterministic rendering of the lifecycle expiry window'
-      )
-  );
-
-  // Default behavior: when the user types `peaks statusline` with no
-  // subcommand, render the status line. Without this default action,
-  // commander falls back to printing usage (Bug-02, ice-cola surface check
-  // 2026-07-22). The hidden `render` subcommand is preserved so callers
-  // can still invoke it explicitly.
-  //
-  // Note (commander 12.x): when both a top-level `.action(...)` and
-  // subcommands exist, commander's option parser can conflate parent and
-  // child flags. We therefore parse `process.argv` for the bare `statusline`
-  // invocation here, and otherwise let the subcommand machinery handle the
-  // rest. The implementation is wrapped in `peekDefaultStatuslineRender` so
-  // it can be exercised in isolation by unit tests.
+function registerRenderVerbs(statusline: Command, io: ProgramIO): void {
   statusline.action(async (_parentOptions: RenderOptions, command: Command) => {
     await runDefaultStatuslineRender(command.opts(), io);
   });
 
-  // Hidden render subcommand. Preserved for callers that want to invoke
-  // render explicitly without going through the default-action dispatch.
   statusline
     .command('render', { hidden: true })
     .description(
@@ -227,7 +50,9 @@ export function registerStatusLineCommands(program: Command, io: ProgramIO): voi
     .action(async (options: RenderOptions) => {
       await runDefaultStatuslineRender(options, io);
     });
+}
 
+function registerInstallVerb(statusline: Command, io: ProgramIO): void {
   addJsonOption(
     statusline
       .command('install')
@@ -242,63 +67,10 @@ export function registerStatusLineCommands(program: Command, io: ProgramIO): voi
       .option('--ide <id>', resolveIdeOptionHelp())
       .option('--force', 'overwrite an existing non-Peaks statusLine entry')
       .option('--dry-run', 'show what would change without writing')
-  ).action((options: InstallOptions) => {
-    const scope = resolveScope(options);
-    const projectRoot =
-      scope === 'project'
-        ? (options.project ?? findProjectRoot(process.cwd()) ?? process.cwd())
-        : undefined;
-    const ide = resolveIdeForCommand(options, projectRoot);
-    try {
-      if (options.dryRun) {
-        const plan = planStatusLineInstall(scope, projectRoot, { ide });
-        const warnings = plan.conflict
-          ? [
-              `An existing statusLine command is set: ${plan.conflictCommand}. Rerun with --force to overwrite.`
-            ]
-          : [];
-        printResult(
-          io,
-          ok('statusline.install', { ...plan, ide, applied: false, dryRun: true }, warnings),
-          options.json
-        );
-        return;
-      }
-      const result = applyStatusLineInstall(scope, projectRoot, {
-        force: options.force === true,
-        ide
-      });
-      const warnings =
-        result.conflict && !result.applied
-          ? [
-              `An existing statusLine command is set: ${result.conflictCommand}. Rerun with --force to overwrite.`
-            ]
-          : [];
-      const nextActions = result.applied
-        ? ['Restart the IDE (or reload the workspace) so the status line takes effect']
-        : [];
-      printResult(
-        io,
-        ok('statusline.install', { ...result, ide, dryRun: false }, warnings, nextActions),
-        options.json
-      );
-    } catch (error: unknown) {
-      const message = getErrorMessage(error);
-      printResult(
-        io,
-        fail(
-          'statusline.install',
-          'STATUSLINE_INSTALL_FAILED',
-          message,
-          { scope, ide, applied: false },
-          [message]
-        ),
-        options.json
-      );
-      process.exitCode = 1;
-    }
-  });
+  ).action((options: InstallOptions) => runStatuslineInstall(io, options));
+}
 
+function registerUninstallVerb(statusline: Command, io: ProgramIO): void {
   addJsonOption(
     statusline
       .command('uninstall')
@@ -309,33 +81,10 @@ export function registerStatusLineCommands(program: Command, io: ProgramIO): voi
       )
       .option('--project <path>', 'project root path (auto-detected from cwd when omitted)')
       .option('--ide <id>', resolveIdeOptionHelp())
-  ).action((options: UninstallOptions) => {
-    const scope = resolveScope(options);
-    const projectRoot =
-      scope === 'project'
-        ? (options.project ?? findProjectRoot(process.cwd()) ?? process.cwd())
-        : undefined;
-    const ide = resolveIdeForCommand(options, projectRoot);
-    try {
-      const result = removeStatusLineInstall(scope, projectRoot, { ide });
-      printResult(io, ok('statusline.uninstall', { ...result, ide }), options.json);
-    } catch (error: unknown) {
-      const message = getErrorMessage(error);
-      printResult(
-        io,
-        fail(
-          'statusline.uninstall',
-          'STATUSLINE_UNINSTALL_FAILED',
-          message,
-          { scope, ide, removed: false },
-          [message]
-        ),
-        options.json
-      );
-      process.exitCode = 1;
-    }
-  });
+  ).action((options: UninstallOptions) => runStatuslineUninstall(io, options));
+}
 
+function registerStatusVerb(statusline: Command, io: ProgramIO): void {
   addJsonOption(
     statusline
       .command('status')
@@ -345,43 +94,10 @@ export function registerStatusLineCommands(program: Command, io: ProgramIO): voi
       .option('--global', 'inspect the user-level ~/.claude/settings.json instead of the project')
       .option('--project <path>', 'project root path (auto-detected from cwd when omitted)')
       .option('--ide <id>', resolveIdeOptionHelp())
-  ).action((options: StatusOptions) => {
-    const scope = resolveScope(options);
-    const projectRoot =
-      scope === 'project'
-        ? (options.project ?? findProjectRoot(process.cwd()) ?? process.cwd())
-        : undefined;
-    const ide = resolveIdeForCommand(options, projectRoot);
-    try {
-      const status = readSettingsStatus(scope, projectRoot, { ide });
-      printResult(
-        io,
-        ok('statusline.status', { ...status, ide, command: 'peaks statusline' }),
-        options.json
-      );
-    } catch (error: unknown) {
-      const message = getErrorMessage(error);
-      printResult(
-        io,
-        fail('statusline.status', 'STATUSLINE_STATUS_FAILED', message, { scope, ide }, [message]),
-        options.json
-      );
-      process.exitCode = 1;
-    }
-  });
+  ).action((options: StatusOptions) => runStatuslineStatus(io, options));
+}
 
-  //
-  // --session-id contract: this flag is registered on the compact
-  // subcommand but NOT on the default `peaks statusline` render path.
-  // The flag is the internal-supported surface for the QA / LLM layer
-  // (the integration test, the QA criteria, and any future
-  // peaks-loop-internal tool that wants to read a non-canonical session's
-  // compact state). The IDE consumer (Claude Code) does NOT need this
-  // flag — its primary-line path binds to the canonical session via
-  // `getSessionIdCanonical(projectRoot)`. Documenting both paths here
-  // keeps the surface small and consistent: the compact subcommand is
-  // the "I have a specific session id in mind" surface; the default
-  // render is the "use the canonical binding" surface.
+function registerCompactVerb(statusline: Command, io: ProgramIO): void {
   addJsonOption(
     statusline
       .command('compact')
@@ -402,62 +118,35 @@ export function registerStatusLineCommands(program: Command, io: ProgramIO): voi
         '--now <ms>',
         'override current time (epoch ms) — for testing / deterministic rendering of the lifecycle expiry window'
       )
-      .action(
-        (
-          options: { project?: string; sessionId?: string; json?: boolean; now?: number | string },
-          command: Command
-        ) => {
-          // Re-resolve options via `command.optsWithGlobals()` (Commander 12.x
-          // compatibility): when the parent `statusline` command has its own
-          // `--json` registered AND the user types `peaks statusline compact
-          // --json`, commander's parent-vs-child option parser can land
-          // `--json` on the parent scope only. `optsWithGlobals()` merges
-          // parent + child options so the JSON branch fires regardless of
-          // which scope commander assigned the flag to. Verified by the
-          // `compact --json emits the documented envelope` integration test.
-          const merged: {
-            project?: string;
-            sessionId?: string;
-            json?: boolean;
-            now?: number | string;
-          } = {
-            ...options,
-            ...command.optsWithGlobals?.()
-          };
-          try {
-            const projectRoot =
-              merged.project !== undefined
-                ? merged.project
-                : (findProjectRoot(process.cwd()) ?? process.cwd());
-            const sid = merged.sessionId ?? getSessionIdCanonical(projectRoot) ?? null;
-            // when present so deterministic lifecycle-window checks stay
-            // in-range under full-suite concurrency. See `--now` doc on
-            // the parent `statusline` command.
-            const now = merged.now !== undefined ? Number(merged.now) : Date.now();
-            const state = decideCompactStatusline({
-              projectRoot,
-              sessionId: sid,
-              now
-            });
-            const label = renderCompactStatusline(state);
-            // For non-JSON mode we print the LABEL DIRECTLY to stdout
-            // (no envelope wrapping) because the consumer is the IDE
-            // statusline, not a peaks-Loop caller.
-            if (merged.json === true) {
-              printResult(io, ok('statusline.compact', { label, state }), merged.json);
-            } else {
-              process.stdout.write(`${label}\n`);
-            }
-          } catch (error: unknown) {
-            const message = getErrorMessage(error);
-            printResult(
-              io,
-              fail('statusline.compact', 'STATUSLINE_COMPACT_FAILED', message, {}, [message]),
-              merged.json
-            );
-            process.exitCode = 1;
-          }
-        }
-      )
+  ).action((options: CompactOptions, command: Command) =>
+    runStatuslineCompact(io, options, command)
   );
 }
+
+export function registerStatusLineCommands(program: Command, io: ProgramIO): void {
+  const statusline = addJsonOption(
+    program
+      .command('statusline')
+      .description(
+        'Render the Peaks skill status line for the current session, or manage the adapter-driven statusLine entry. Run with no subcommand to render; with a subcommand (install | uninstall | status) to manage.'
+      )
+      .option(
+        '--project <path>',
+        'project root path (used to label the status line when stdin is absent; applies to the default render path)'
+      )
+      .option(
+        '--now <ms>',
+        'override current time (epoch ms) — for testing / deterministic rendering of the lifecycle expiry window'
+      )
+  );
+
+  registerRenderVerbs(statusline, io);
+  registerInstallVerb(statusline, io);
+  registerUninstallVerb(statusline, io);
+  registerStatusVerb(statusline, io);
+  registerCompactVerb(statusline, io);
+}
+
+// Re-export for tests / external consumers: the render body is driven directly
+// by `tests/unit/cli/statusline-witness-capture.test.ts`.
+export { runDefaultStatuslineRender } from './statusline-render-command.js';

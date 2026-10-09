@@ -324,7 +324,7 @@ export function runtimeJoinSlots(
  *   decision rather than a bug.
  *
  * Measured 2026-09-15 (R7, re-run rather than restated): 1 such join in rule
- * D's reach (`playwright-commands.ts` `join(…, 'playwright-userdata',
+ * D's reach (`playwright-session-store.ts` `join(…, 'playwright-userdata',
  * terminalId)`) and 7 in the whole of `src/`. The 6 outside this reach are NOT
  * scanned and are NAMED in the reach note above; a repo-wide census is
  * `probe-src-joins.mjs`'s job, not this file's.

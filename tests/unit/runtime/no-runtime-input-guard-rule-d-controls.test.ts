@@ -280,9 +280,11 @@ describe('rule D — an id joined into the runtime tree carries a guard (slice 2
     // are R7's AC4 extension. Each was attacked against the shipped rule and
     // each clears.
     //
-    // (1) A guard in a DIFFERENT FUNCTION with a same-named binding. This is
-    //     the live `playwright-commands.ts:282` shape: deleting the guard from
-    //     `sessionFilePath` (a different function) makes the rule report that
+    // (1) A guard in a DIFFERENT FUNCTION with a same-named binding. The shape
+    //     was live in `playwright-session-store.ts` until repair 014, which put
+    //     the join and its guard back in one function (`defaultUserDataDir`):
+    //     before that, deleting the guard from
+    //     `sessionFilePath` (a different function) made the rule report that
     //     join, which is how we know the guard, not the rule, was clearing it.
     //     This is also the fixture QA wrote as E7.
     //
