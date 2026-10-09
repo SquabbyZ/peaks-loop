@@ -25,6 +25,13 @@ function locateNpmCliScript(scriptFile: 'npm-cli.js' | 'npx-cli.js'): string | n
   const candidates: ReadonlyArray<string> =
     process.platform === 'win32'
       ? [
+          // Standard Windows layout — the installer, the zip, and
+          // nvm-for-windows all put `node_modules/npm` beside `node.exe`, so the
+          // install is ONE level up from `process.execPath`, not two. This is the
+          // `npm` belonging to the very `node` that will run the script, so it is
+          // tried first; the three entries after it are the backstop for an `npm`
+          // installed elsewhere.
+          join(process.execPath, '..', 'node_modules', 'npm', 'bin', scriptFile),
           join(process.execPath, '..', '..', 'node_modules', 'npm', 'bin', scriptFile),
           `C:/nvm4w/nodejs/node_modules/npm/bin/${scriptFile}`,
           `C:/Program Files/nodejs/node_modules/npm/bin/${scriptFile}`
