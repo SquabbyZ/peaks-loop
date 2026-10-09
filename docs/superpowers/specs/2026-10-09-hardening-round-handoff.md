@@ -3,7 +3,11 @@
 - 日期：2026-10-09
 - 分支：`chore/gate-hardening-and-size-debt`（**叠在 `feat/mcp-readonly-surface` 之上，两者都未合并**）
 - 会话：`2026-10-09-session-90f47d`
-- 状态：**5/6 slices 完成并提交；S3-1 未起**（用户选择干净收尾）
+- 状态：**6/6 slices 完成并提交**
+
+> **补记（同日稍晚）**：原写"S3-1 未起"。用户随后决定起 S3-1，且**已在分支 `chore/size-debt-commands-batch1` 上完成并提交**（`c88e38dc`）——命令层首批 5 个文件拆成 38 模块，并把拆分暴露的 **51 个 >50 行函数压到 0**。四项 ceiling 全降：`fileSizeExcessLines 39154→35536`、`fileSizeOverCap 127→122`、`eslintFindings 2094→2055`、`eslintErrors 802→770`。§5 的起手指南**已执行完毕**，其内容对**后续批次**仍然适用。
+>
+> **一条仍未解决的既有债**：`src/cli/commands` 的 **181 个未改动文件中仍有 231 个 `max-lines-per-function` 违规**——函数长度的债远大于本批触及的范围。
 
 ---
 
