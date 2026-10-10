@@ -37,6 +37,21 @@ CLI 自己的 CI 流水线里有 build，所以**只有本地会撞**。看到 `
 - `tag` 是**轻量 tag**(`git cat-file -t v4.0.42` → `commit`,不是 `tag`)。别用 `-a`。
 - `.changeset/` 里**只有 config.json(无待发条目)时**,publish.yml 走"按已提交清单版本原样发布"分支 —— 所以手动 bump 是正确的。若有 `.changeset/*.md`,它会跑 `changeset version` 重新推导版本,会覆盖你的手动 bump。
 
+**第四、第五个容易踩的点（2026-10-10 发 4.1.4 时实测）**:
+
+- **`npm notice Your package is being processed and may take a few minutes to become available.`**
+  发布步骤 59 秒跑完、`[release-pack] OK peaks-loop@4.1.4`、job 绿——而**此刻 registry 上还查不到**：
+  `dist-tags.latest` 仍是上一版、`time.modified` 不动。复制完成前查 registry 会得出**错误的**结论
+  （我当时判断成"报了成功却什么都没做"）。**发布后先等几分钟再核**，npm 自己会这么说。
+- **`publish.yml` 的 `gate-capability-baseline`（step 14）在同一个 commit 上可以一次红、一次绿。**
+  4.1.4 的 attempt 1 报 `verdict=drifted failing=[J03]`、attempt 2（**同一个 `ab17864b`、
+  无任何代码改动**）报 success。J03 是"`src/**` 里没有重新引入 silent-catch"这条不变量，
+  实现为跑 `scripts/lint/silent-warning-detector.mjs` 并对比冻结棘轮
+  `capability-guard-runner/contracts/J03.ts` 的 `{ 'catch-return-null': 41, 'empty-catch': 59 }`。
+  本地同一条 detector 报 **41 / 58 —— `catch-return-null` 余量为零**。
+  **一个能对同一 commit 给出两种裁决的门不是门**；而一个零余量的棘轮本来就不该是零余量。
+  要不要重跑卡住时，这条是依据。
+
 **为什么不用 `npm publish`**:pnpm workspace 包里 `workspace:*` 会被原样序列化进 tarball,registry 视为不可解析,导致 `npm i -g peaks-loop` 报 ENOTFOUND。`release-pack.mjs` 用 `pnpm pack`(等价 `--no-workspace`)把它们变成精确 semver。验证发布成功要顺带查这个:`curl registry.npmjs.org/peaks-loop` 看 4.0.43 的 dependencies 里有没有 `workspace:*`。
 
 **验证要走到哪一步**:`peaks --version` 只是第一层;真正要验的是**今天的修复在已发布构建里能用**(例:4.0.43 验了 `peaks scan api-diff` 出现在 help、`ecc-hooks-schema-drift` 出现在 doctor、`peaks test <file>` 不再 ENOENT)。
