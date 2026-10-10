@@ -25,6 +25,7 @@ import { join, resolve } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { setPresenceLease } from '~/src/services/skills/presence-lease-service';
+import { SUBPROCESS_TEST_TIMEOUT_MS } from '../_setup/subprocess-timeouts.js';
 
 const ROOT = resolve(__dirname, '..', '..', '..');
 const SESSION = '2026-10-10-session-racecode';
@@ -94,6 +95,25 @@ function runCodeGate(root: string, stdin: string): { status: number | null; stdo
     { cwd: ROOT, encoding: 'utf8', windowsHide: true, input: stdin, env: { ...process.env } }
   );
   return { status: run.status, stdout: run.stdout ?? '' };
+}
+
+/** The non-Node sibling the same installer distributes for harnesses that cannot run the command. */
+const SHELL_SIBLING = resolve(ROOT, 'src', 'services', 'hooks', 'pre-tool-code-gate.sh');
+
+/**
+ * The shell sibling, run in the SAME project root and fed the SAME bytes as
+ * `runCodeGate`. Its cwd is the lease-bearing project on purpose: a sibling that
+ * grew a driver lookup would find the lease there and open the family, so running
+ * it anywhere else would let this test pass without pinning anything.
+ */
+function runShellSibling(root: string, stdin: string): { status: number | null; stderr: string } {
+  const run = spawnSync('bash', [SHELL_SIBLING], {
+    cwd: root,
+    encoding: 'utf8',
+    windowsHide: true,
+    input: stdin
+  });
+  return { status: run.status, stderr: run.stderr ?? '' };
 }
 
 afterEach(() => {
@@ -225,4 +245,49 @@ describe('peaks code-gate — the harness spelling of the tool call', () => {
     expect(status).toBe(0);
     expect(stdout).toContain('"action": "allow"');
   });
+});
+
+// ---------------------------------------------------------------------------
+// The shell sibling — the second gate, and the one axis the two do not share
+// ---------------------------------------------------------------------------
+//
+// `peaks hooks install --scope global` copies `pre-tool-code-gate.sh` alongside
+// the command's own hook entry (`src/cli/commands/hooks-commands.ts`), so a
+// harness that cannot run the Node command runs THAT gate instead. It takes no
+// driver input: nothing in the script resolves a caller, so it denies the
+// hard-blocked families whatever lease sits on disk. That is a real divergence
+// from the command above, and it is deliberate — the script is the conservative
+// fallback, and teaching it the lease resolution would be a second
+// implementation of the one decision the command layer owns.
+//
+// So the divergence is pinned here rather than left to be rediscovered. The two
+// gates are handed ONE payload, in ONE project state, and must disagree; the
+// only input they do not share is the driver, so a change that syncs the script
+// (or quiets the command) reddens this rather than drifting silently.
+
+describe('peaks code-gate vs. the shell sibling — one call, two verdicts', () => {
+  it(
+    'the shell sibling denies the edit the command allows, because it takes no driver input',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    () => {
+      // The legacy `{tool, input}` spelling, which both gates have always read,
+      // so the payload spelling is not a second variable in the comparison.
+      const root = makeProject();
+      writeLease(root, 'caller-a', 'peaks-race-code');
+      const stdin = payload(BLOCKED, 'caller-a');
+
+      // The command resolves caller-a's lease and opens the family.
+      const cli = runCodeGate(root, stdin);
+      expect(cli.status).toBe(0);
+      expect(cli.stdout).toContain('"action": "allow"');
+      expect(cli.stdout).not.toContain('PEAKS_CODE_PROHIBITED_DIRECT_EDIT');
+
+      // The sibling reads the same bytes, in the same project, with that same
+      // lease on disk — and denies, because it never asks who is driving.
+      const shell = runShellSibling(root, stdin);
+      expect(shell.status).toBe(2);
+      expect(shell.stderr).toContain('PEAKS_CODE_PROHIBITED_DIRECT_EDIT');
+      expect(shell.stderr).toContain(BLOCKED);
+    }
+  );
 });

@@ -29,6 +29,18 @@
 #     SEPARATE file (`src/cli/commands/hooks-commands.ts` + the IDE
 #     adapter layer in `src/services/ide/`) — not this script.
 #
+# Lane judgement is NOT here (deliberate, not drift)
+#   This gate judges two things — the tool call and the target path — and
+#   takes no driver input. Nothing in the hook payload tells it which lane
+#   is driving, so the hard-blocked families below are refused
+#   UNCONDITIONALLY, including for a session the Node CLI gate would let
+#   through. The CLI gate (`peaks code-gate`) is the one that resolves the
+#   driver and opens those families; this file cannot, and MUST NOT grow
+#   that resolution — it would be a second implementation of a single
+#   decision. A harness wired to this script is therefore refused where
+#   that command allows, and the asymmetry is intentional: this script is
+#   the conservative fallback for harnesses that cannot run the command.
+#
 # Karpathy §2 (Simplicity First): no retries, no jq dependency, no
 # colour codes. Pure bash + grep + sed.
 # Karpathy §3 (Surgical Changes): reads stdin only; never mutates
