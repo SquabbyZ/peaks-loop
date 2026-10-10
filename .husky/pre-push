@@ -1,16 +1,41 @@
 #!/usr/bin/env sh
 # peaks-loop push gate. Design + why-it-is-a-ratchet: .husky/peaks-gate.mjs
 #
-# Both legs are scoped to WHAT YOU ARE PUSHING (slice B5, 2026-09-23). Nothing
-# here looks at the whole repo any more.
+# Legs 2 and 3 are scoped to WHAT YOU ARE PUSHING (slice B5, 2026-09-23). Leg 1
+# is the ONE whole-tree measurement here — it does not look only at the diff —
+# and it earns its place because it is a SET RATCHET, not a whole-repo boolean:
+# it exits 0 while the unformatted set stays INSIDE a named baseline of 12
+# pre-existing files, and names any file outside it. (`pnpm format:check` is the
+# boolean form, red on arrival on this tree, and is deliberately NOT used.)
 #
-#   1. `changed` mode — the SAME per-file ratchet as the commit gate, applied to
+# ORDER IS CHEAPEST-FIRST AND REWRITES-FIRST, and the second half is the real
+# reason. Leg 1 is ~12s measured on this host (2026-10-10); leg 2 is a type-aware
+# eslint program; leg 3 is minutes. But leg 1's FIX is `pnpm format`, which
+# REWRITES tracked source — and that invalidates the other two: leg 2 recomputes
+# its per-file verdicts from content, and leg 3 classified a diff and ran suites
+# against the old bytes. Run last, a formatting breach would force a full re-run
+# of both expensive legs. Run first, every expensive leg runs on the tree that
+# will actually be pushed, and the mechanical fix is out of the way before you
+# read results you would otherwise have to throw away.
+#
+#   1. `node .husky/format-check-ratchet.mjs` — the EXACT command CI's
+#      `format set ratchet` job runs (.github/workflows/ci.yml, job id
+#      `format-check`). Until this leg existed NOTHING local ran it, and that is
+#      not carelessness, it is structure: leg 2 is a per-file eslint ratchet and
+#      never looks at formatting, and leg 3 runs tests, of which this is not one.
+#      So CI was the first and only grader — and it went red twice on one night
+#      (2026-10-10) on two files the SAME round had added,
+#      container-docker-boundary.test.ts then capability-audit-gate-diagnostic.test.ts,
+#      each time after a green push gate. A leg nothing runs is not a leg; this
+#      one now fails here on exactly the input CI would fail on.
+#
+#   2. `changed` mode — the SAME per-file ratchet as the commit gate, applied to
 #      `git diff --name-only origin/main...HEAD` instead of the index. A file you
 #      touched may not be worse than its own line in
 #      .peaks/lint/gate-baseline.json; a file the diff ADDS must be clean; a file
 #      the diff DELETES contributes 0 and is not handed to eslint.
 #
-#   2. `pnpm test:changed` — the repo's EXISTING affected-tests mechanism
+#   3. `pnpm test:changed` — the repo's EXISTING affected-tests mechanism
 #      (scripts/test-changed.mjs, wired since slice 2 as `test:changed`). Not a
 #      new script: it classifies the same diff and runs the tests that diff
 #      implies, falling back to the FULL unit suite for a change it declines to
@@ -64,9 +89,9 @@
 # The baseline stores a number PER FILE, so the per-file check is not a proxy
 # for the total check — it is the total check, decomposed:
 #
-#     every changed file ≤ its own baseline        (leg 1, per file)
-#     AND every new file contributes 0             (leg 1, per file)
-#     AND every deleted file contributes 0         (leg 1 drops it entirely)
+#     every changed file ≤ its own baseline        (leg 2, per file)
+#     AND every new file contributes 0             (leg 2, per file)
+#     AND every deleted file contributes 0         (leg 2 drops it entirely)
 #   ⟹ total = Σ(untouched files' baselines) + Σ(changed files' actuals) + 0
 #            ≤ Σ(all baselines) ≤ the whole-repo ceiling.
 #
@@ -97,5 +122,6 @@
 # people skip with `--no-verify` — and a gate people skip is worse than no gate,
 # because it is also believed.
 set -e
+node .husky/format-check-ratchet.mjs
 node .husky/peaks-gate.mjs changed
 pnpm test:changed -- origin/main
