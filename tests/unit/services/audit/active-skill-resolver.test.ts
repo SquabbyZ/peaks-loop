@@ -15,7 +15,10 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { resolveActiveSkillForCaller } from '../../../../src/services/audit/enforcers/active-skill-resolver.js';
-import { listPresenceLeases, setPresenceLease } from '../../../../src/services/skills/presence-lease-service.js';
+import {
+  listPresenceLeases,
+  setPresenceLease
+} from '../../../../src/services/skills/presence-lease-service.js';
 
 const tmpRoots: string[] = [];
 const SESSION = '2026-10-10-session-s0test';
