@@ -38,14 +38,14 @@ const DENY_REASON =
   'Use `peaks request transition` instead of `git commit` / `git apply` directly.';
 
 /**
- * S0 Task 4 (Ruling 11). The ban used to be skipped wholesale when the driver
- * could not be resolved — `hook-handle.ts` guarded the evaluation with
- * `if (skill !== null)`, so a resolution failure meant no ban at all. This
- * branch closes that. It is deliberately NARROWER than plain fail-closed: it
- * fires only when a peaks skill is actually present in the session, because
- * `resolveActiveSkillForCaller` returns `null` for any unbound session — and
- * failing closed on that would block `git commit` for every ordinary session
- * in any repo with the gate installed.
+ * Narrower than plain fail-closed on purpose: it fires only when a peaks skill
+ * is actually present in the session. `resolveActiveSkillForCaller` returns
+ * `null` for any unbound session, and failing closed on that would block
+ * `git commit` for every ordinary session in any repo with the gate installed.
+ *
+ * This branch exists because the ban used to be skipped wholesale when the
+ * driver did not resolve — the caller guarded it with `if (skill !== null)`, so
+ * a resolution failure meant no ban at all.
  */
 const UNRESOLVED_IDENTITY_REASON =
   'Code Commit Ban Red Line: a peaks skill is registered in this session, but the ' +

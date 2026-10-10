@@ -113,19 +113,16 @@ export function resolveActiveSkillForCaller(
   } catch {
     canonicalLeases = [];
   }
-  // S0 Task 3: pick the FRESHEST lease — the same rule
-  // `readSkillPresenceFromLease` (skill-presence-service.ts:198) already uses.
-  // Two readers of one lease set disagreed: that one sorted by `lastHeartbeat`,
-  // this one took whatever `readdirSync` yielded first, so "who is driving" had
-  // two possible answers. Sorting here rather than inside `listPresenceLeases`
-  // keeps the change local: that helper is shared, and reordering its output
-  // would silently reorder every consumer's input.
+  // Freshest first, matching `readSkillPresenceFromLease`
+  // (skill-presence-service.ts:198). The two readers disagreed: that one sorted
+  // by heartbeat, this one took `readdirSync` order, so "who is driving" had two
+  // answers. Sorted here rather than in the shared `listPresenceLeases`, whose
+  // output order every consumer sees.
   //
-  // Caveat, measured: nothing refreshes the on-disk heartbeat today.
-  // `touchSkillHeartbeat` stamps in memory only (skill-presence-service.ts:701-721)
-  // and `setPresenceLease` runs at set-time, not on a cadence, so this ordering
-  // currently degenerates to "most recently started". That is still the correct
-  // order, and it starts meaning "freshest" the moment heartbeats advance.
+  // Nothing refreshes the on-disk heartbeat today — `touchSkillHeartbeat`
+  // stamps in memory only and `setPresenceLease` runs at set-time, not on a
+  // cadence — so this currently orders by start time. It becomes a freshness
+  // rule the moment heartbeats advance.
   const orderedLeases = [...canonicalLeases].sort((a, b) =>
     (b.lastHeartbeat ?? '').localeCompare(a.lastHeartbeat ?? '')
   );
@@ -207,4 +204,27 @@ export function resolveActiveSkillForCaller(
   // returns null (e.g. ad-hoc projects without a `.peaks/_runtime/session.json`).
   void getCurrentSessionId;
   return { skill: null, callerId: null, sessionId, mode: null, source: 'none' };
+}
+
+/**
+ * Whether any in-flight lease in this session carries a `peaks-*` skill.
+ *
+ * Independent of `resolveActiveSkillForCaller` on purpose: that function is
+ * the one under suspicion when the identity cannot be resolved, so asking it
+ * whether peaks is present would be circular. Fails open — a bug in peaks
+ * must not brick the harness.
+ */
+export function hasPeaksLeaseInSession(projectRoot: string): boolean {
+  try {
+    const sessionId = getSessionIdCanonical(projectRoot);
+    if (sessionId === null) return false;
+    return listPresenceLeases(projectRoot, sessionId).some(
+      (lease) =>
+        (lease.status === 'preparing' || lease.status === 'running') &&
+        typeof lease.skill === 'string' &&
+        lease.skill.startsWith('peaks-')
+    );
+  } catch {
+    return false;
+  }
 }

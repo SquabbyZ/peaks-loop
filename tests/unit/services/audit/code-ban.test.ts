@@ -1,7 +1,5 @@
 // tests/unit/services/audit/code-ban.test.ts
 //
-// S0 (plan 2026-10-10-driver-resolution-and-commit-ban, Task 4 — Ruling 11).
-//
 // The commit ban skipped itself entirely when the driver could not be
 // resolved: `hook-handle.ts` guarded the whole evaluation with
 // `if (activeSkill.skill !== null)`, so a resolution failure meant no ban at

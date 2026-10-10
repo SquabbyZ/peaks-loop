@@ -1,7 +1,5 @@
 // tests/unit/hooks/commit-ban-caller-scope.test.ts
 //
-// S0 (plan 2026-10-10-driver-resolution-and-commit-ban, Task 2 — Ruling 9).
-//
 // The defect this pins is NOT that the callerId filter is broken — it works,
 // and `active-skill-resolver.test.ts` guards it. The defect is that the hook
 // call site never passes a callerId, so "who is driving" is answered with
@@ -45,8 +43,7 @@ function writeLease(root: string, callerId: string, skill: string): void {
     callerId,
     workflowId: callerId,
     graphRef: `graphs/${callerId}.json`,
-    skill,
-    status: 'running'
+    skill
   });
 }
 

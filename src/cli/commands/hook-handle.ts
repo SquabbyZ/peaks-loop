@@ -12,40 +12,15 @@ import { getAdapter } from '../../services/ide/ide-registry.js';
 import { evaluateCodeBan } from '../../services/audit/enforcers/code-ban.js';
 import { isRootWrite } from '../../services/audit/enforcers/no-root-pollution.js';
 import { checkLoginGate } from '../../services/audit/enforcers/login-gate.js';
-import { resolveActiveSkillForCaller } from '../../services/audit/enforcers/active-skill-resolver.js';
-import { getSessionIdCanonical } from '../../services/session/session-manager.js';
-import { listPresenceLeases } from '../../services/skills/presence-lease-service.js';
+import {
+  hasPeaksLeaseInSession,
+  resolveActiveSkillForCaller
+} from '../../services/audit/enforcers/active-skill-resolver.js';
 import { fail, ok } from 'peaks-loop-shared/result';
 
 import { emitDecision, emitHint } from '../../services/hooks/output.js';
 
 type HookHandleOptions = { project: string; json?: boolean };
-
-/**
- * S0 Task 4 (Ruling 11). Does any in-flight lease in this peaks session carry
- * a `peaks-*` skill?
- *
- * Deliberately independent of `resolveActiveSkillForCaller`: that function is
- * the one under suspicion when the identity cannot be resolved, so asking it
- * whether peaks is present would be circular.
- *
- * Fails open (returns `false` ⇒ no ban) to match the enforcer's standing
- * contract — a bug in peaks must not brick the harness.
- */
-function hasPeaksLeaseInSession(projectRoot: string): boolean {
-  try {
-    const sessionId = getSessionIdCanonical(projectRoot);
-    if (sessionId === null) return false;
-    return listPresenceLeases(projectRoot, sessionId).some(
-      (lease) =>
-        (lease.status === 'preparing' || lease.status === 'running') &&
-        typeof lease.skill === 'string' &&
-        lease.skill.startsWith('peaks-')
-    );
-  } catch {
-    return false;
-  }
-}
 
 /**
  * Read the hook payload. `PEAKS_HOOK_STDIN` is a test seam (same convention as
@@ -157,33 +132,20 @@ export function registerHookHandleCommand(program: Command, io: ProgramIO): void
         // unchanged from 4.0.7; the underlying source is now
         // `canonical` for the lease + index path.
         //
-        // S0 (plan 2026-10-10-driver-resolution, Ruling 5): scope the
-        // resolution to THIS caller. Without a callerId the resolver returns
-        // whichever in-flight lease `readdirSync` yields first, so a second
-        // caller bound to the same peaks session has its skill applied to our
-        // command — which is how a `git commit` from a session with no peaks
-        // skill was banned by another window's `peaks-code` lease.
-        //
-        // The identity comes from the hook payload rather than the
-        // environment: `resolveCallerProjection` reads env, and whether the
-        // hook subprocess inherits the caller-identifying env is unverified.
-        // `caller_id` names this concept; `session_id` carries the same value
-        // under the harness's own name, kept as the fallback.
+        // Scoped to THIS caller: without a callerId the resolver returns
+        // whichever lease `readdirSync` yields first, so another window's skill
+        // would be applied here. The identity comes from the payload, not the
+        // environment — whether the hook subprocess inherits the
+        // caller-identifying env is unverified, and the payload already has it.
         const callerId = pluckString(parsed, ['caller_id']) ?? pluckString(parsed, ['session_id']);
         const identityAvailable = typeof callerId === 'string' && callerId.length > 0;
-        // S0 Task 4 (Ruling 12): when there is no identity to scope by, do NOT
-        // ask the resolver anyway. Asking without a callerId returns whichever
-        // lease comes first — i.e. it guesses, and the guess is another
-        // caller's skill. That is the defect this slice fixes, so the
-        // ambiguous case is handed to `evaluateCodeBan` as unresolved instead.
+        // No identity ⇒ do not ask. Asking without a callerId returns whichever
+        // lease comes first, so the answer would be another caller's skill.
         const activeSkill = identityAvailable
           ? resolveActiveSkillForCaller(projectRoot, { callerId })
           : { skill: null, callerId: null, sessionId: null, mode: null, source: 'none' as const };
-        // S0 Task 4 (Ruling 11): evaluate the ban even when no skill resolved.
-        // The previous guard was `if (activeSkill.skill !== null)`, so nothing
-        // resolved meant the ban did not run at all. The peaksLeasePresent
-        // probe is independent of the resolution above, because the
-        // resolution is the thing under suspicion.
+        // Evaluated even when nothing resolved: the old `if (skill !== null)`
+        // guard meant an unresolved driver skipped the ban entirely.
         const codeDecision = evaluateCodeBan({
           skill: activeSkill.skill,
           command: fallbackCommand,

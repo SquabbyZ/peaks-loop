@@ -1,7 +1,5 @@
 // tests/unit/services/audit/active-skill-resolver.test.ts
 //
-// S0 (plan 2026-10-10-driver-resolution-and-commit-ban, Task 2).
-//
 // `resolveActiveSkillForCaller` walked the session's leases in `readdirSync`
 // order and returned the first in-flight one. Its `callerId` filter existed
 // but no production call site passed it, so "who is driving" could be
@@ -52,7 +50,6 @@ function writeLease(root: string, callerId: string, skill: string, now?: string)
     workflowId: callerId,
     graphRef: `graphs/${callerId}.json`,
     skill,
-    status: 'running',
     ...(now !== undefined ? { now } : {})
   });
 }
