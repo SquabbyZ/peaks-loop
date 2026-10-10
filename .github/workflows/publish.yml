@@ -339,9 +339,45 @@ jobs:
             const lines = fs.readFileSync("capability-audit.json", "utf8").trim().split("\n");
             const j = JSON.parse(lines[lines.length - 1]);
             const d = (j && j.data) || {};
-            const failed = (d.dimensions || []).filter((x) => x.consistencyScore === 0).map((x) => x.journeyId);
+            const failedDims = (d.dimensions || []).filter((x) => x.consistencyScore === 0);
+            const failed = failedDims.map((x) => x.journeyId);
+            // WHICH PROBE, not just which journey. The detail was never
+            // missing: capability-audit-service/runner.ts puts the failing
+            // contract diff into evidence[].summary for exactly this reason.
+            // Until 2026-10-10 this line read ONLY journeyId, so J03s six
+            // probes collapsed into "failing=[J03]" and locating the probe
+            // that failed took a long investigation that ended without a
+            // conclusion (attempt 2 passed on the same commit).
+            //
+            // Two bounds, because an ::error is ONE annotation line and not a
+            // log dump: 400 chars per dimension (readable at a glance) and
+            // 2400 overall. A raw newline would END the annotation, so
+            // whitespace is collapsed to single spaces. Both cut points are
+            // MARKED, so a bounded message never reads as a complete one.
+            // `failing=[...]` stays complete and stays greppable.
+            const PER_DIM_MAX = 400;
+            const DETAIL_MAX = 2400;
+            const oneLine = (s) => String(s).replace(/\s+/g, " ").trim();
+            // Degrade, never throw: a failed dimension with no evidence (or no
+            // summary) still reports its journeyId. A diagnostic that can
+            // itself fail is worse than the silent one it replaces.
+            const asDetail = (dim) => {
+              const s = oneLine(
+                (Array.isArray(dim.evidence) ? dim.evidence : [])
+                  .filter((e) => e && typeof e.summary === "string")
+                  .map((e) => e.summary)
+                  .join(" ")
+              );
+              if (s === "") return `${dim.journeyId}(no evidence)`;
+              return `${dim.journeyId}(${s.slice(0, PER_DIM_MAX)}${s.length > PER_DIM_MAX ? "…" : ""})`;
+            };
+            const joined = failedDims.map(asDetail).join(" | ");
+            const detail =
+              joined.length > DETAIL_MAX
+                ? `${joined.slice(0, DETAIL_MAX)}…(+${joined.length - DETAIL_MAX} chars)`
+                : joined;
             if (d.verdict !== "consistent") {
-              console.error(`::error title=capability-audit-not-consistent::verdict=${d.verdict} degraded=${d.degraded} failing=[${failed.join(",")}]`);
+              console.error(`::error title=capability-audit-not-consistent::verdict=${d.verdict} degraded=${d.degraded} failing=[${failed.join(",")}] detail=[${detail}]`);
               process.exit(1);
             }
             console.log(`capability audit consistent: ${(d.dimensions || []).length} dimensions`);
