@@ -62,16 +62,18 @@ If every peaks-* workflow enters here, then this is where the lane question belo
 | The question has already been answered for this request | Do not ask again. |
 | This session is already locked to a lane | Do not ask again. |
 
-**There is no silent lane.** When the user neither picks nor names one, do not choose for them and do not start `peaks-race-code` on your own — hold on that question until they answer. Picking the lane is the user's act; the LLM asks, and then runs what they chose.
-
-**One row of that table is phase-dependent, and only one.** `peaks-race-code` is pre-pilot: it ships switched off, because a lane not yet proven on real tasks should not be recommended on every need.
+**The phase rewrites the first two rows of that table, and nothing else.** `peaks-race-code` is not offered by default — a lane not yet proven on real tasks should not be recommended on every need — so until its pilot clears, the question is not asked at all:
 
 | Phase | Behaviour |
 |---|---|
-| **Until this lane's pilot has cleared** | The fast lane is reachable **only when the user names it**. A named skill is already the answer, so **do not ask**; an unnamed need still gets the question, but the fast lane is not among its options. |
-| **After the pilot has cleared** | The table above applies in full — ask even when a skill was named, with that one preselected, and the fast lane becomes an offered option rather than a name-only one. |
+| **Until this lane's pilot has cleared** | **Do not ask.** An unnamed need runs the full workflow (`peaks-code`) — today's behaviour, uninterrupted — and a named skill is respected without being questioned. |
+| **After the pilot has cleared** | The table above applies in full: ask even when a skill was named, with that one preselected, and the fast lane is one of the offered options. |
+
+Before the pilot, the question would be **malformed rather than merely unhelpful**: with the fast lane absent from its options it would carry a single answer, and `AskUserQuestion` requires two to four. Do not re-add it to "be safe" — its absence before the pilot is the design, not an oversight.
 
 Clearing the pilot is a separate, explicit project decision — a real-task trial with no severe regression — and not something to read off a green test run. Until that decision is recorded, the first row binds.
+
+**There is no silent lane.** `peaks-race-code` starts only on the user's word: they named it, or they picked it when the question was asked. Never answer that question for them, and where it applies and they have not answered it, hold there rather than choosing a lane on their behalf.
 
 **Mid-task, suggest; never re-ask.** When a closer look shows the task is heavier than it looked, say so in one sentence and let the user keep going — "this is past what the fast lane is for; want the full workflow instead?" A suggestion, not a popup and not a gate, and the user may ignore it.
 
