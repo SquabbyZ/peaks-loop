@@ -26,7 +26,7 @@
  * Four `Bash` matchers are emitted: the Step 0.8 mechanical gate, the SOP
  * gate-enforce handler, and the two layer-B feedback hooks. No
  * `Write|Edit|MultiEdit` entry is emitted: that matcher's gate is
- * `peaks code-gate --json`, installed into the committed
+ * `peaks code-gate`, installed into the committed
  * `.claude/settings.json` by `peaks hooks install`.
  *
  * The previous `Bash` matcher (which whitelisted a fixed `peaks
@@ -171,7 +171,7 @@ type ClaudeSettingsLocal = {
  * As of TEMPLATE_VERSION 1.9.0 the template emits four `Bash` matchers: the
  * two above, plus one per layer-B feedback hook (`FEEDBACK_HOOK_SCRIPTS`). The
  * `Write|Edit|MultiEdit` fact-forcing bypass is no longer a hook: it is the
- * `env` exemption above, and that matcher's gate (`peaks code-gate --json`) is
+ * `env` exemption above, and that matcher's gate (`peaks code-gate`) is
  * installed into the committed `.claude/settings.json` by `peaks hooks
  * install`.
  */
