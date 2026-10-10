@@ -211,6 +211,46 @@ describe('Scenario: behavior — decideGateAction fail-open on missing path', ()
 });
 
 // ---------------------------------------------------------------------------
+// behavior — the optional driver argument
+//
+// The hard-blocked families exist to stop the peaks-code orchestrator from
+// editing source directly. A sibling skill may be granted the same write, and
+// it declares itself by name. The name is the ONLY input; it arrives already
+// resolved, so this module stays pure and keeps no session or lease state.
+// ---------------------------------------------------------------------------
+
+describe('Scenario: behavior — decideGateAction optional driver argument', () => {
+  it('with no driver supplied, a hard-blocked path is still denied', () => {
+    // The 18 existing call sites pass two arguments. Their behaviour may not change.
+    expect(decideGateAction('Edit', { file_path: 'src/x.ts' }).action).toBe('deny');
+  });
+
+  it('allows a hard-blocked path when the driver is peaks-race-code', () => {
+    expect(decideGateAction('Edit', { file_path: 'src/x.ts' }, 'peaks-race-code').action).toBe(
+      'allow'
+    );
+  });
+
+  it('still denies when the driver is peaks-code', () => {
+    expect(decideGateAction('Edit', { file_path: 'src/x.ts' }, 'peaks-code').action).toBe('deny');
+  });
+
+  it('an ordinary session with no driver is not newly blocked on a non-family path', () => {
+    // `src/../README.md` carries the `src/` deny prefix AND the `.md` allow
+    // suffix; the allow-list is judged first, so it is an allow. The driver
+    // argument must not enter that ordering — with one supplied, or none, an
+    // allow-listed path is still an allow.
+    expect(decideGateAction('Edit', { file_path: 'src/../README.md' }).action).toBe('allow');
+    expect(decideGateAction('Edit', { file_path: 'src/../README.md' }, 'peaks-code').action).toBe(
+      'allow'
+    );
+    // A path in no family at all stays an allow as well — the gate only ever
+    // denied the hard-blocked families, and it still does.
+    expect(decideGateAction('Edit', { file_path: 'notes.txt' }).action).toBe('allow');
+  });
+});
+
+// ---------------------------------------------------------------------------
 // a11y — stderr message contract (LLM-readable next-action verb)
 // ---------------------------------------------------------------------------
 

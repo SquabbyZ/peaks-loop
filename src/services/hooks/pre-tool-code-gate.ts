@@ -49,6 +49,14 @@ export const ALLOW_LISTED_PATH_PATTERNS = [
   'README.md'
 ] as const;
 
+/**
+ * The single driver identity that opens the hard-blocked families: the
+ * fast-lane skill's name, compared as a whole string. No prefix match and no
+ * case folding — a future `peaks-race-<something>` sibling must NOT inherit
+ * this write, because the write it opens is source editing.
+ */
+const FAST_LANE_DRIVER = 'peaks-race-code';
+
 export type GateVerdict =
   | { readonly action: 'allow' }
   | {
@@ -79,10 +87,17 @@ function matchesAny(path: string, families: readonly string[]): string | null {
 /**
  * Pure decision function. Given the tool name + input object, return
  * the gate verdict. Tolerates malformed payloads (allow).
+ *
+ * `driver` is the already-resolved identity of whoever is running the
+ * tool call, or `null`/absent when no caller identity resolved. Absent and
+ * `null` are the same verdict as before this parameter existed: the
+ * hard-blocked families deny. Resolution is the caller's job, so this
+ * module keeps no session, lease or filesystem state.
  */
 export function decideGateAction(
   tool: GateToolName,
-  input: Readonly<Record<string, unknown>>
+  input: Readonly<Record<string, unknown>>,
+  driver?: string | null
 ): GateVerdict {
   // Only gate Edit / Write / MultiEdit.
   if (tool !== 'Edit' && tool !== 'Write' && tool !== 'MultiEdit') {
@@ -97,7 +112,7 @@ export function decideGateAction(
     return { action: 'allow' };
   }
 
-  // Allow-list check first — short-circuits any deny.
+  // Allow-list check first — short-circuits any deny, for every driver.
   const allowMatch = matchesAny(filePath, ALLOW_LISTED_PATH_PATTERNS);
   if (allowMatch !== null) {
     return { action: 'allow' };
@@ -106,6 +121,12 @@ export function decideGateAction(
   // Hard-blocked family check.
   const denyMatch = matchesAny(filePath, HARD_BLOCKED_PATH_FAMILIES);
   if (denyMatch !== null) {
+    // A driver that is not the fast lane falls through to the same deny a
+    // two-argument call produces, so an unresolvable identity can never
+    // become a silent pass.
+    if (driver === FAST_LANE_DRIVER) {
+      return { action: 'allow' };
+    }
     const reason = `${denyMatch} (orchestrator's hard-blocked path family)`;
     const message =
       `PEAKS_CODE_PROHIBITED_DIRECT_EDIT: ${filePath} matches hard-blocked path family ${reason}; ` +
