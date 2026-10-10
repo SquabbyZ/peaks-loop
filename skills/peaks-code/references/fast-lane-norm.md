@@ -33,7 +33,7 @@ list as if it decided anything on its own.
 | 3 | public API surface (exported signatures change) | partly — codegraph / export-surface diffs help |
 | 4 | concurrency / transaction semantics | no — judgement |
 | 5 | dependency upgrades carrying API changes | partly — the `package.json` diff is mechanical, the API-change call is not |
-| 6 | change size past a threshold | **yes** — the threshold is each lane's own to set |
+| 6 | change size past a threshold | **yes — but no threshold exists yet** (spec U2), so this row is unactionable rather than decided. A lane has to set one before it can act on it |
 | 7 | behaviour that cannot be believed from "run the tests once" | no — judgement |
 
 **This list does not say what happens on a hit.** That belongs to each lane:

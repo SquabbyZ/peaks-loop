@@ -643,7 +643,7 @@ if (activeSkill.skill !== null) {   // ← 解析不出来，整个提交闸被�
 | U10 | **时序基线取不到——`metrics/slices.jsonl` 的埋点支撑不了**（§5.5.1） | 41 条 `dispatch` 事件全部无 `sliceRid`、42% 记录无归属、2/4 session 才有该文件。**归到独立小 slice**：给 `dispatch` 补 `sliceRid` + 给每个任务补起止标记。本 spec 不依赖它（N1 已改为结构性指标） |
 | U11 | **驾驶者解析不可靠，且提交闸在同信号上 fail-open**（评审 #1 / #7，`hook-handle.ts:131-132`） | **本设计的硬前提，必须先独立修**：① 传 `callerId` 或与 `skill-presence-service.ts:198` 一致地按 `lastHeartbeat` 排序；② 决定提交闸在该信号上到底 fail-open 还是 fail-closed（今天与 §8.3 相反）。**不修，§8.2 整张表建在沙上**——且这是**今天就在提交闸里的既存 bug，与 race-code 无关** |
 | U12 | **共享规范文件的落点**（§4.4 / §2.5） | **已裁决（P1，用户 2026-10-10）**：规范放 `skills/peaks-code/references/`（`skills/**` 随 npm 包发、已在安装器覆盖范围内），race-code 用**相对路径**指过去。**核实过的事实**：安装器只链含 `SKILL.md` 的目录，所以 `skills/_shared/` 这类共享目录**不会**被安装；RL-8 的 `.peaks/standards/` 是**per-project** 规范而非 shipped 内容；仓库现有的唯一真正跨 skill 且装得上线的共享机制恰是 **loop-hygiene 的复制+逐字节测试**（§4.4 反对的那套）。**代价（已知并接受）**：race-code 耦合 peaks-code 的目录布局 |
-| U13 | **`fast-mode.md` 与 CLI 帮助里的 `change-id` 已不存在**（§2.5 末段） | **已裁决：S1 顺手修**（用户 2026-10-10）——改 `fast-mode.md` 的参数名 + `code-mode-gate-plan-command.ts:21/:26` 的帮助文本。见 §13 S1 |
+| U13 | **`fast-mode.md` 与 CLI 帮助里的 `change-id` 已不存在**（§2.5 末段） | **已裁决：S1 顺手修**（用户 2026-10-10）——改 `fast-mode.md` 的参数名 + `code-mode-gate-plan-command.ts:21/:26` 的帮助文本。**S1 执行时扩张了范围**：还改了同文件 `:35` 的 **stdout 标签**与 `code-commands.ts:2/:150` 的注释（终审指出这超出批准范围；用户 2026-10-10 裁决**保留并如实记为范围扩张**）。⚠️ **随之作废一句话**：S1 的提交信息说"change-id no longer exists"**是错的**——`code-run-command.ts:34` 的 `[change-id]`、`swarm-commands.ts`、`tech-commands.ts` 等仍在用 peaks 自己的 change-id。corrected scope: 只删掉了 `peaks code plan` 一处的旧命名 |
 
 ---
 
@@ -674,7 +674,7 @@ if (activeSkill.skill !== null) {   // ← 解析不出来，整个提交闸被�
 ### S2 — 快泳道 MVP（**本 spec 的主体**）
 
 - **内容**：`skills/peaks-race-code/SKILL.md`（含 loop-hygiene 块）+ `SKILL_NAMES`；`decideGateAction` 可选第三参（默认 fail-closed）+ `code-gate-command.ts` 解析；`.husky/commit-msg` 主层 + 拦截点次层（§8.4）；`peaks-audit` 的泳道路由（§3）；`.sh` 兄弟的处置（§10.1）。
-- **退出判据（= §5.5.2 的「门 1」）**：T1–T10 绿；§10.1 的三个文件改完；`.sh` 差异有明确处置。**门 1 通过即可关闭 S2**——不因为"还没用够次数"而拖住。
+- **退出判据（= §5.5.2 的「门 1」）**：T1–T10 绿；§10.1 的三个文件改完；`.sh` 差异有明确处置；**且 `fast-lane-norm.md` 仍然为真**（S1 抽出它时，它断言了 race-code 尚不存在时的行为——"没有独立 QA 窗口"、"单向升级"。S2 是第一个能证伪它的东西，**必须显式核对，不能默认它还对**）。**门 1 通过即可关闭 S2**——不因为"还没用够次数"而拖住。
 - **依赖**：**S0 + S1**。
 
 ### S3 — 门 2：pilot + 指标埋点 + 阶段切换

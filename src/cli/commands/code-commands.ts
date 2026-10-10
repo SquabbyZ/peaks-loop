@@ -5,8 +5,10 @@
  *   load-memory -> standards-preflight -> rd-cycle -> qa-cycle -> emit-txt
  *
  * The CLI surface here is intentionally narrow: it builds a CodePlan and
- * runs it via `runCodeFast`. Fast mode skips memory full-load, standards
- * preflight, and the QA repair loop. Round-trip KPI: ≤ 30s.
+ * prints it (`peaks code plan`). `runCodeFast` is exported below but has no
+ * caller in this repo — the orchestrating it describes is still LLM-side, so
+ * nothing actually runs a plan yet. Fast mode skips memory full-load,
+ * standards preflight, and the QA repair loop. Round-trip KPI: ≤ 30s.
  *
  * No new service layer — the orchestrator is the in-file `runCodeFast`
  * function. Hooks are injected so tests can mock at the boundary.
