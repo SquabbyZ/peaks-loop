@@ -5,6 +5,7 @@ import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../
 import { fail, ok } from 'peaks-loop-shared/result';
 import {
   evaluateEmitHandoff,
+  JOB_COMPLETED_NO_SEDIMENT,
   JOB_NOT_INITIALIZED,
   JOB_REMAINING_BLOCKED,
   type EmitHandoffVerdict
@@ -16,6 +17,7 @@ interface CodeEmitHandoffOpts {
   sessionId?: string;
   jobId?: string;
   forceUnderJob?: boolean;
+  forceNoSediment?: string;
   json?: boolean;
 }
 
@@ -29,6 +31,11 @@ type EmitHandoffBlockNotInitializedVerdict = Extract<
   { kind: 'block-not-initialized' }
 >;
 type EmitHandoffBlockRemainingVerdict = Extract<EmitHandoffVerdict, { kind: 'block-remaining' }>;
+type EmitHandoffBlockNoSedimentVerdict = Extract<EmitHandoffVerdict, { kind: 'block-no-sediment' }>;
+type EmitHandoffAllowForcedNoSedimentVerdict = Extract<
+  EmitHandoffVerdict,
+  { kind: 'allow-forced-no-sediment' }
+>;
 
 export function registerCodeEmitHandoffCommand(code: Command, io: ProgramIO): void {
   // v3.1.2 Step 11 / final handoff — Size-fear ban.
@@ -51,6 +58,11 @@ export function registerCodeEmitHandoffCommand(code: Command, io: ProgramIO): vo
         '--force-under-job',
         'override the remaining>0 block (explicit user approval required)'
       )
+      .option(
+        '--force-no-sediment <reason>',
+        'override the no-sediment block on a COMPLETED Job: supply the reason the ' +
+          'user approved a no-sediment outcome. A blank reason does not override.'
+      )
   ).action((opts: CodeEmitHandoffOpts) => runEmitHandoff(opts, io));
 }
 
@@ -66,12 +78,14 @@ function runEmitHandoff(opts: CodeEmitHandoffOpts, io: ProgramIO): void {
       sessionId: string;
       jobId?: string;
       forceUnderJob?: boolean;
+      forceNoSedimentReason?: string;
     } = {
       projectRoot: opts.project,
       sessionId
     };
     if (opts.jobId !== undefined) evalInput.jobId = opts.jobId;
     if (opts.forceUnderJob === true) evalInput.forceUnderJob = true;
+    if (opts.forceNoSediment !== undefined) evalInput.forceNoSedimentReason = opts.forceNoSediment;
     const verdict = evaluateEmitHandoff(evalInput);
     reportEmitHandoffVerdict(verdict, io, opts.json);
   } catch (err) {
@@ -100,7 +114,15 @@ function reportEmitHandoffVerdict(
     printEmitHandoffBlockNotInitialized(verdict, io, json);
     return;
   }
-  printEmitHandoffBlockRemaining(verdict, io, json);
+  if (verdict.kind === 'block-remaining') {
+    printEmitHandoffBlockRemaining(verdict, io, json);
+    return;
+  }
+  if (verdict.kind === 'allow-forced-no-sediment') {
+    printEmitHandoffAllowForcedNoSediment(verdict, io, json);
+    return;
+  }
+  printEmitHandoffBlockNoSediment(verdict, io, json);
 }
 
 function printEmitHandoffNoSession(io: ProgramIO, json?: boolean): void {
@@ -185,6 +207,53 @@ function printEmitHandoffBlockRemaining(
       `Run \`peaks job status --job-id ${verdict.jobId}\` to see remaining slices.`,
       'Resume Step 0.81 (per-slice checkpoint loop) and continue until remaining === 0.',
       'Use --force-under-job only with explicit user approval (size-fear ban override).'
+    ]
+  );
+  io.stderr(`${blockMessage}\n`);
+  printResult(io, envelope, json);
+  process.exitCode = 1;
+}
+
+function printEmitHandoffAllowForcedNoSediment(
+  verdict: EmitHandoffAllowForcedNoSedimentVerdict,
+  io: ProgramIO,
+  json?: boolean
+): void {
+  const envelope = ok(
+    'code.emit-handoff',
+    {
+      allow: true,
+      mode: 'job-forced-no-sediment',
+      remaining: verdict.remaining,
+      sedimentState: verdict.sedimentState,
+      approvedNoSedimentReason: verdict.reason
+    },
+    [],
+    [
+      `Job is complete (remaining=0) and the session sedimented no memory (${verdict.sedimentState}); the user explicitly approved a no-sediment outcome — "${verdict.reason}". Handoff allowed.`
+    ]
+  );
+  printResult(io, envelope, json);
+}
+
+function printEmitHandoffBlockNoSediment(
+  verdict: EmitHandoffBlockNoSedimentVerdict,
+  io: ProgramIO,
+  json?: boolean
+): void {
+  const why =
+    verdict.sedimentState === 'none'
+      ? 'the session sedimented no memory'
+      : 'the memory index could not be read, so it cannot be shown that the session sedimented any memory';
+  const blockMessage = `BLOCKED: Job ${verdict.jobId} is complete (remaining=0) but ${why}. Step 11 requires at least one memory in the project memory store, or an explicit user-approved no-sediment outcome. Run \`peaks memory extract --apply\` (or record a non-handoff memory with the user's help), then re-run.`;
+  const envelope = fail(
+    'code.emit-handoff',
+    JOB_COMPLETED_NO_SEDIMENT,
+    blockMessage,
+    { jobId: verdict.jobId, sedimentState: verdict.sedimentState },
+    [
+      'Sediment the session: run `peaks memory extract --project <root> --artifact .peaks/_runtime/<sessionId>/txt/handoff.md --apply --json`, then `peaks memory reindex --project <root> --apply --json`.',
+      'Ask the user whether a no-sediment outcome is acceptable; only then re-run with `--force-no-sediment "<the reason the user gave>"`.'
     ]
   );
   io.stderr(`${blockMessage}\n`);

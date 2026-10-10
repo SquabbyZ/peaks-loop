@@ -25,6 +25,14 @@ type GateStep08BlockMissingDecisionVerdict = Extract<
   Step08Verdict,
   { kind: 'block-missing-decision' }
 >;
+type GateStep08AllowNoDecisionRecordedVerdict = Extract<
+  Step08Verdict,
+  { kind: 'allow-no-decision-recorded' }
+>;
+type GateStep08BlockNoDecisionWithLedgerVerdict = Extract<
+  Step08Verdict,
+  { kind: 'block-no-decision-with-ledger' }
+>;
 
 interface GateStep08Context {
   result: EvaluateStep08Result;
@@ -79,14 +87,19 @@ function runGateStep08(opts: CodeGateStep08Opts, io: ProgramIO): void {
       printGateStep08AllowSingle(context, io, opts.json);
       return;
     }
-    // block-missing-decision
-    if (verdict.promptHit) {
-      // Block: backup regex hit. Exit code 2 is the load-bearing
-      // signal for the PreToolUse hook.
+    if (verdict.kind === 'block-missing-decision') {
+      // Block: the prompt matched the backup regex, so the LLM is treated as
+      // having skipped `peaks code detect-job` on a Job-shaped request.
+      // Exit code 2 is the load-bearing signal for the PreToolUse hook.
       printGateStep08Blocked(verdict, context, io, opts.json);
       return;
     }
-    // No decision + no regex hit → allow.
+    if (verdict.kind === 'block-no-decision-with-ledger') {
+      printGateStep08BlockedWithLedger(verdict, context, io, opts.json);
+      return;
+    }
+    // allow-no-decision-recorded — no decision and no ledger. This is a
+    // normal non-Job session and the gate must let it through.
     printGateStep08Undecided(verdict, context, io, opts.json);
   } catch (err) {
     reportGateStep08Failure(io, err, opts.json);
@@ -196,8 +209,34 @@ function printGateStep08Blocked(
   process.exitCode = 2;
 }
 
+function printGateStep08BlockedWithLedger(
+  verdict: GateStep08BlockNoDecisionWithLedgerVerdict,
+  context: GateStep08Context,
+  io: ProgramIO,
+  json?: boolean
+): void {
+  const blockMessage = `BLOCKED: ${verdict.reason}`;
+  const envelope = fail(
+    'code.gate-step-08',
+    'STEP_08_BLOCKED_WITH_LEDGER',
+    blockMessage,
+    {
+      ledgerJobIds: verdict.ledgerJobIds,
+      backupRegex: STEP_08_BACKUP_REGEX.toString()
+    },
+    [
+      'Run `peaks code detect-job --is-job true --rationale <text> --suggested-job-id <slug>` (or `--is-job false`) to record the Job-shape verdict the Job ledger presumes.',
+      'Then re-run the Bash tool call.',
+      ...context.hintActions
+    ]
+  );
+  io.stderr(`${blockMessage}\n`);
+  printResult(io, envelope, json);
+  process.exitCode = 2;
+}
+
 function printGateStep08Undecided(
-  verdict: GateStep08BlockMissingDecisionVerdict,
+  verdict: GateStep08AllowNoDecisionRecordedVerdict,
   context: GateStep08Context,
   io: ProgramIO,
   json?: boolean
@@ -212,10 +251,7 @@ function printGateStep08Undecided(
       promptSource: verdict.promptSource
     },
     [],
-    [
-      'No job-shape.json AND no backup-regex match on prompt → allow (most prompts are not Job-shaped).',
-      ...context.hintActions
-    ]
+    [verdict.reason, ...context.hintActions]
   );
   printResult(io, envelope, json);
 }

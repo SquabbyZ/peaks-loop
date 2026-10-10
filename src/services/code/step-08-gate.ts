@@ -19,22 +19,27 @@
  *        — so the LLM sees its resume context BEFORE any Bash call lands.
  *   2. `job-shape.json` exists with `decision.isJob === false`.
  *      → allow, print `{ ok, allow, mode: 'single' }`.
- *   3. `job-shape.json` is MISSING — fail-closed guard. The LLM is the
- *      source of truth, but if it never recorded a decision we run a
- *      lightweight backup regex against the user's prompt:
- *        /until|全部|until all done|disavow cost|不用考虑费用|all of them/i
- *      match → block (exit 2) with the BLOCKED: stderr message.
- *      no match → allow (exit 0) — most prompts are not Job-shaped.
+ *   3. `job-shape.json` is MISSING. Every answer here is about the decision
+ *      that was never recorded, not about the prompt:
+ *        a. the backup regex matches the prompt → block (exit 2) with the
+ *           BLOCKED: stderr message.
+ *        b. no regex match, but the session owns a Job ledger
+ *           (`job/<jid>/state.json` exists) → block (exit 2). `peaks job
+ *           init` ran and `peaks code detect-job` did not.
+ *        c. no regex match and no ledger → allow (exit 0), reporting that NO
+ *           decision was recorded. The absence of a judgement is stated as an
+ *           absence, not as a judgement that the prompt is not Job-shaped.
+ *      The gate never blocks on the ABSENCE of a decision alone: it runs on
+ *      every Bash call in every session, so a normal non-Job session must
+ *      keep passing through case (c).
  *
- * Karpathy §2 (Simplicity First): ~120 lines, no LLM call inside. The
- * regex is the FIRST time peaks-loop accepts hardcoded keywords —
- * explicitly scoped as a *fail-closed backup* (case 3), NOT a primary
- * judgement. The LLM still owns the semantic call via
- * `peaks code detect-job`. The regex is a safety net for the v3.1.1
- * incident class (LLM under load never records the decision at all).
+ * Karpathy §2 (Simplicity First): no LLM call inside. The regex is the FIRST
+ * time peaks-loop accepts hardcoded keywords — explicitly scoped as a
+ * *fail-closed backup* (case 3), NOT a primary judgement. The LLM still owns
+ * the semantic call via `peaks code detect-job`.
  */
 
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
 import {
@@ -72,6 +77,8 @@ export interface Step08Progress {
   readonly updatedAt: string;
 }
 
+export type Step08PromptSource = 'flag' | 'last-prompt-file' | 'stdin-empty';
+
 export type Step08Verdict =
   | {
       readonly kind: 'allow-job';
@@ -81,8 +88,17 @@ export type Step08Verdict =
   | { readonly kind: 'allow-single' }
   | {
       readonly kind: 'block-missing-decision';
-      readonly promptHit: boolean;
-      readonly promptSource: 'flag' | 'last-prompt-file' | 'stdin-empty';
+      readonly promptSource: Step08PromptSource;
+    }
+  | {
+      readonly kind: 'allow-no-decision-recorded';
+      readonly promptSource: Step08PromptSource;
+      readonly reason: string;
+    }
+  | {
+      readonly kind: 'block-no-decision-with-ledger';
+      readonly ledgerJobIds: readonly string[];
+      readonly reason: string;
     };
 
 export function runtimeSessionDir(projectRoot: string, sessionId: string): string {
@@ -156,6 +172,28 @@ function readPromptFromLastPromptFile(projectRoot: string, sessionId: string): s
   }
 }
 
+/**
+ * Job ids this session owns a ledger for, sorted.
+ *
+ * A ledger is `job/<jid>/state.json`, which only `peaks job init` writes, and
+ * `job-shape.json` is written by `peaks code detect-job` and by nothing else —
+ * so a ledger with no decision is the decision step having been skipped.
+ */
+function ledgerJobIds(projectRoot: string, sessionId: string): string[] {
+  const jobDir = join(runtimeSessionDir(projectRoot, sessionId), 'job');
+  if (!existsSync(jobDir)) return [];
+  let names: string[];
+  try {
+    names = readdirSync(jobDir);
+  } catch (err) {
+    if (!isExpectedFsMiss(err)) throw err;
+    return [];
+  }
+  return names
+    .filter((name) => existsSync(join(jobDir, name, 'state.json')))
+    .sort((left, right) => left.localeCompare(right));
+}
+
 export interface EvaluateStep08Input {
   readonly projectRoot: string;
   readonly sessionId: string;
@@ -174,10 +212,20 @@ export interface EvaluateStep08Result {
 }
 
 /**
- * Pure evaluator — does NOT write, does NOT exit. CLI wrapper in
- * `src/cli/commands/code-commands.ts` reads `allow` to set the process
- * exit code (0 allow / 2 block) and prints the structured envelope.
+ * The reason a Job ledger with no decision is refused — it names both commands,
+ * so the reader sees WHICH step was skipped.
  */
+function noDecisionWithLedgerReason(ledger: readonly string[]): string {
+  const paths = ledger.map((jid) => `job/${jid}/state.json`).join(', ');
+  return (
+    `No Job-shape decision was recorded for this session, but it owns a Job ledger (${paths}). ` +
+    'That means `peaks job init` ran and `peaks code detect-job` did not, so every ' +
+    'Job-mode step this gate keys on was skipped. Record the verdict with ' +
+    '`peaks code detect-job --is-job true|false ...`, then retry.'
+  );
+}
+
+/** Pure evaluator — does NOT write, does NOT exit. The CLI wrapper reads `allow`. */
 export function evaluateStep08(input: EvaluateStep08Input): EvaluateStep08Result {
   try {
     const record = readJobShapeDecision(input.projectRoot, input.sessionId);
@@ -198,28 +246,51 @@ export function evaluateStep08(input: EvaluateStep08Input): EvaluateStep08Result
     return { allow: true, verdict: { kind: 'allow-single' }, nextSliceLine: null };
   } catch (err) {
     if (err instanceof JobShapeDecisionError && err.code === JOB_SHAPE_NOT_DECIDED) {
-      const promptText =
-        input.prompt ?? readPromptFromLastPromptFile(input.projectRoot, input.sessionId);
-      const hit = promptText.length > 0 && STEP_08_BACKUP_REGEX.test(promptText);
-      const source: 'flag' | 'last-prompt-file' | 'stdin-empty' =
-        input.prompt !== undefined
-          ? 'flag'
-          : promptText.length > 0
-            ? 'last-prompt-file'
-            : 'stdin-empty';
-      if (hit) {
-        return {
-          allow: false,
-          verdict: { kind: 'block-missing-decision', promptHit: true, promptSource: source },
-          nextSliceLine: null
-        };
-      }
-      return {
-        allow: true,
-        verdict: { kind: 'block-missing-decision', promptHit: false, promptSource: source },
-        nextSliceLine: null
-      };
+      return decideWithoutJobShapeDecision(input);
     }
     throw err;
   }
+}
+
+/** `job-shape.json` is missing — see the module header for the three answers. */
+function decideWithoutJobShapeDecision(input: EvaluateStep08Input): EvaluateStep08Result {
+  const promptText =
+    input.prompt ?? readPromptFromLastPromptFile(input.projectRoot, input.sessionId);
+  const promptSource: Step08PromptSource =
+    input.prompt !== undefined
+      ? 'flag'
+      : promptText.length > 0
+        ? 'last-prompt-file'
+        : 'stdin-empty';
+  if (promptText.length > 0 && STEP_08_BACKUP_REGEX.test(promptText)) {
+    return {
+      allow: false,
+      verdict: { kind: 'block-missing-decision', promptSource },
+      nextSliceLine: null
+    };
+  }
+  const ledger = ledgerJobIds(input.projectRoot, input.sessionId);
+  if (ledger.length > 0) {
+    return {
+      allow: false,
+      verdict: {
+        kind: 'block-no-decision-with-ledger',
+        ledgerJobIds: ledger,
+        reason: noDecisionWithLedgerReason(ledger)
+      },
+      nextSliceLine: null
+    };
+  }
+  return {
+    allow: true,
+    verdict: {
+      kind: 'allow-no-decision-recorded',
+      promptSource,
+      reason:
+        'No Job-shape decision was recorded for this session and no Job ledger exists, ' +
+        'so this gate has no Job-shape judgement to report. It allows, and names the ' +
+        'absence of the decision rather than claiming the prompt is not Job-shaped.'
+    },
+    nextSliceLine: null
+  };
 }

@@ -31,14 +31,15 @@
 // part of the package surface and exposing it just for testing would
 // create fake-green backwards-compat pressure.
 //
-// Dimensions covered:
-//   - render:     not applicable — no user-visible text in this module
-//   - behavior:   SyntaxError from broken progress.json surfaces, IO error
-//                 still returns a structured Step08 verdict (allow-job with
-//                 progress: null)
-//   - integration: real fs read of synthetic progress.json under tmp project root
-//   - a11y:        not applicable — no user-visible text in this module;
-//                  consumed by peaks-code Step 0.8 hook, not rendered for humans
+// A later change added the three-state arms for a MISSING `job-shape.json`
+// (service verdicts plus the registered CLI command), which is where the
+// render and a11y dimensions come from.
+//
+// Dimensions covered: render (the envelope's `mode` / `data` shape across the
+// three states), behavior (broken progress.json surfaces; the verdict per state
+// of a missing `job-shape.json`), integration (a real fs tree under a tmp
+// project root, plus the registered command's exit code and streams), a11y (the
+// BLOCKED stderr line and the reason text a reader acts on).
 //
 // Run with: pnpm vitest run tests/unit/code/step-08-gate.test.ts
 
@@ -46,6 +47,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
+import { Command } from 'commander';
 import { declareDimensions } from '../_setup/4dim-template.js';
 
 // Slice 2026-07-31-rid-step-08-gate-silent-catch-sweep needs to verify
@@ -92,22 +94,14 @@ vi.mock('node:fs', async () => {
 // Import AFTER the `vi.mock` above so the mocked `node:fs` is bound to the
 // module under test.
 const { evaluateStep08 } = await import('../../../src/services/code/step-08-gate.js');
+const { registerCodeGateStep08Command } =
+  await import('../../../src/cli/commands/code-gate-step-08-command.js');
+const { writeJobShapeDecision } = await import('../../../src/services/code/job-shape-decision.js');
 
 declareDimensions(
   'tests/unit/code/step-08-gate.test.ts',
-  ['behavior', 'integration'],
-  [
-    {
-      dim: 'render',
-      reason:
-        'no user-visible text in this module; the public surface is a typed verdict object only'
-    },
-    {
-      dim: 'a11y',
-      reason:
-        'no user-visible text in this module; this file is consumed by peaks-code Step 0.8 hook, not rendered for humans'
-    }
-  ]
+  ['behavior', 'integration', 'render', 'a11y'],
+  []
 );
 
 // -- helpers ----------------------------------------------------------------
@@ -284,5 +278,221 @@ describe('Scenario: behavior — readProgressIfAny catch narrows to IO errors on
       __fsMocks.readFileSync = null;
       __fsMocks.pathMatch = null;
     }
+  });
+});
+
+// The three states of a MISSING `job-shape.json`. The gate runs on EVERY Bash
+// call in EVERY session, so the rule is not "block more" — a normal non-Job
+// session must keep passing through. What changes is the CLAIM (it reported
+// "most prompts are not Job-shaped", a judgement it had no basis for) plus one
+// state that really is broken: a Job ledger with no decision means
+// `peaks job init` ran and `peaks code detect-job` did not.
+
+const STEP08_STATE_SESSION = '2026-10-10-session-step08-states';
+
+/** `.peaks/_runtime/<sid>/job/<jid>/state.json` — `peaks job init`'s output. */
+function writeJobLedger(tmpDir: string, sessionId: string, jid: string): void {
+  const jobDir = join(tmpDir, '.peaks', '_runtime', sessionId, 'job', jid);
+  mkdirSync(jobDir, { recursive: true });
+  writeFileSync(
+    join(jobDir, 'state.json'),
+    JSON.stringify({ jobId: jid, slices: [{ status: 'pending' }] }),
+    'utf8'
+  );
+}
+
+interface Step08Envelope {
+  readonly ok: boolean;
+  readonly code?: string;
+  readonly data: Record<string, unknown>;
+  readonly nextActions: readonly string[];
+}
+
+async function runGateStep08Cli(
+  tmpDir: string,
+  prompt: string
+): Promise<{
+  readonly envelope: Step08Envelope;
+  readonly stderr: string;
+  /** Exactly what `process.exitCode` holds — unset means the process exits 0. */
+  readonly exitCode: typeof process.exitCode;
+}> {
+  const stdout: string[] = [];
+  const stderr: string[] = [];
+  const program = new Command();
+  registerCodeGateStep08Command(program, {
+    stdout: (s: string) => stdout.push(s),
+    stderr: (s: string) => stderr.push(s)
+  });
+  const before = process.exitCode;
+  await program.parseAsync(
+    [
+      'gate-step-08',
+      '--project',
+      tmpDir,
+      '--session-id',
+      STEP08_STATE_SESSION,
+      '--prompt',
+      prompt,
+      '--json'
+    ],
+    { from: 'user' }
+  );
+  const exitCode = process.exitCode;
+  process.exitCode = before;
+  return {
+    envelope: JSON.parse(stdout.join('')) as Step08Envelope,
+    stderr: stderr.join(''),
+    exitCode
+  };
+}
+
+describe('(behavior) a missing job-shape.json is reported for what it is', () => {
+  it('row 1 — a decision on disk still reports the Job and its next slice', () => {
+    const tmpDir = mkdtempSync(join(tmpdir(), 'peaks-step08-row1-'));
+    writeJobShapeDecision(
+      tmpDir,
+      STEP08_STATE_SESSION,
+      {
+        isJob: true,
+        rationale: 'row 1 fixture',
+        suggestedJobId: 'step08-states-job',
+        suggestedStrategy: 'single',
+        confidence: 'high',
+        prompt: 'row 1 prompt'
+      },
+      { force: true }
+    );
+
+    const out = evaluateStep08({ sessionId: STEP08_STATE_SESSION, projectRoot: tmpDir });
+
+    expect(out.allow).toBe(true);
+    expect(out.verdict.kind).toBe('allow-job');
+  });
+
+  it('row 2 — no decision and no ledger allows, and says the decision is missing', () => {
+    const tmpDir = mkdtempSync(join(tmpdir(), 'peaks-step08-row2-'));
+
+    const out = evaluateStep08({
+      sessionId: STEP08_STATE_SESSION,
+      projectRoot: tmpDir,
+      prompt: 'fix the auth bug'
+    });
+
+    expect(out.allow).toBe(true);
+    expect(out.verdict.kind).toBe('allow-no-decision-recorded');
+    if (out.verdict.kind !== 'allow-no-decision-recorded') throw new Error('unreachable');
+    // The arm asserts the REASON, not just the allow: asserting `allow` alone
+    // is what let the old sentence — a judgement the gate never made — survive.
+    expect(out.verdict.reason).toMatch(/no job-shape decision was recorded/i);
+    expect(out.verdict.reason).not.toMatch(/most prompts are not Job-shaped/i);
+  });
+
+  it('row 3 — no decision but a Job ledger is refused, and names the missing step', () => {
+    const tmpDir = mkdtempSync(join(tmpdir(), 'peaks-step08-row3-'));
+    writeJobLedger(tmpDir, STEP08_STATE_SESSION, 'step08-states-aware-job');
+
+    const out = evaluateStep08({
+      sessionId: STEP08_STATE_SESSION,
+      projectRoot: tmpDir,
+      prompt: 'fix the auth bug'
+    });
+
+    expect(out.allow).toBe(false);
+    expect(out.verdict.kind).toBe('block-no-decision-with-ledger');
+    if (out.verdict.kind !== 'block-no-decision-with-ledger') throw new Error('unreachable');
+    expect(out.verdict.ledgerJobIds).toEqual(['step08-states-aware-job']);
+    expect(out.verdict.reason).toContain('peaks job init');
+    expect(out.verdict.reason).toContain('peaks code detect-job');
+  });
+
+  it('row 3 does not fire on a ledger belonging to a DIFFERENT session', () => {
+    // A neighbour session's Job must not block this session's Bash calls.
+    const tmpDir = mkdtempSync(join(tmpdir(), 'peaks-step08-row3-other-'));
+    writeJobLedger(tmpDir, '2026-10-09-session-neighbour', 'neighbour-job');
+
+    const out = evaluateStep08({
+      sessionId: STEP08_STATE_SESSION,
+      projectRoot: tmpDir,
+      prompt: 'fix the auth bug'
+    });
+
+    expect(out.allow).toBe(true);
+    expect(out.verdict.kind).toBe('allow-no-decision-recorded');
+  });
+});
+
+describe('(integration) the gate exit codes — a normal session passes, the broken one is refused', () => {
+  it('AC3: a normal non-Job session still gets allow, and exit 0', async () => {
+    // The blast radius: the row-2 path must keep passing through untouched.
+    const tmpDir = mkdtempSync(join(tmpdir(), 'peaks-step08-cli-ok-'));
+
+    const run = await runGateStep08Cli(tmpDir, 'fix the auth bug');
+
+    // An allowing run never assigns `process.exitCode`, so the process exits 0
+    // — the value the PreToolUse hook reads. Anything non-zero would block a
+    // Bash call in a session that has nothing wrong with it.
+    expect(run.exitCode ?? 0).toBe(0);
+    expect(run.envelope.ok).toBe(true);
+    expect(run.envelope.data.allow).toBe(true);
+    expect(run.envelope.data.mode).toBe('undecided-no-regex-hit');
+  });
+
+  it('AC2: the allowed-but-undecided envelope states the absence, not a judgement', async () => {
+    const tmpDir = mkdtempSync(join(tmpdir(), 'peaks-step08-cli-reason-'));
+
+    const run = await runGateStep08Cli(tmpDir, 'fix the auth bug');
+
+    const reason = run.envelope.nextActions[0] ?? '';
+    expect(reason).toMatch(/no job-shape decision was recorded/i);
+    expect(reason).not.toMatch(/most prompts are not Job-shaped/i);
+  });
+
+  it('refuses exit 2 with a BLOCKED stderr line when a ledger has no decision', async () => {
+    const tmpDir = mkdtempSync(join(tmpdir(), 'peaks-step08-cli-ledger-'));
+    writeJobLedger(tmpDir, STEP08_STATE_SESSION, 'step08-states-aware-job');
+
+    const run = await runGateStep08Cli(tmpDir, 'fix the auth bug');
+
+    expect(run.exitCode).toBe(2);
+    expect(run.envelope.ok).toBe(false);
+    expect(run.envelope.code).toBe('STEP_08_BLOCKED_WITH_LEDGER');
+    expect(run.stderr).toMatch(/^BLOCKED:/);
+    expect(run.envelope.data.ledgerJobIds).toEqual(['step08-states-aware-job']);
+  });
+
+  it('keeps the prompt-shape block byte-for-byte on its own path', async () => {
+    // The regex is a separate reason to block and must not have moved.
+    const tmpDir = mkdtempSync(join(tmpdir(), 'peaks-step08-cli-regex-'));
+
+    const run = await runGateStep08Cli(tmpDir, '继续执行下个 slice,直到全部添加完');
+
+    expect(run.exitCode).toBe(2);
+    expect(run.envelope.code).toBe('STEP_08_BLOCKED');
+    expect(run.envelope.data.promptSource).toBe('flag');
+  });
+});
+
+describe('(render) the emitted envelope shape per state', () => {
+  it('keeps the mode + null-decision shape on the allow path, and the ledger ids on the block path', async () => {
+    const allowed = await runGateStep08Cli(
+      mkdtempSync(join(tmpdir(), 'peaks-step08-render-ok-')),
+      'fix the auth bug'
+    );
+    expect(allowed.envelope.data).toMatchObject({
+      allow: true,
+      mode: 'undecided-no-regex-hit',
+      decision: null,
+      nextSlice: null,
+      promptSource: 'flag'
+    });
+
+    const ledgerDir = mkdtempSync(join(tmpdir(), 'peaks-step08-render-ledger-'));
+    writeJobLedger(ledgerDir, STEP08_STATE_SESSION, 'step08-states-aware-job');
+
+    const blocked = await runGateStep08Cli(ledgerDir, 'fix the auth bug');
+
+    expect(blocked.envelope.data.ledgerJobIds).toEqual(['step08-states-aware-job']);
+    expect(blocked.envelope.data.backupRegex).toMatch(/until all done/);
   });
 });
