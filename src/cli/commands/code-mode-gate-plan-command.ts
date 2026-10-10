@@ -4,7 +4,7 @@
  * Extracted VERBATIM from `code-mode-gate-commands.ts` (job
  * strict-remediation-abc, slice c1-eslint-family-sweep, leaf c4w1-cli-b) so
  * the registration file clears the 300-line cap. The description, the
- * `<change-id>` argument, the `--fast` / `--json` options, the stdout
+ * `<session-id>` argument, the `--fast` / `--json` options, the stdout
  * formatting (`SKIP`/`RUN ` + `repair=on|off` for `qa-cycle`), and the
  * JSON-envelope shape `{ ok: true, data: plan }` are the code that was already
  * there. Nothing here swallows anything and no new error handling was
@@ -20,7 +20,7 @@ export function registerCodeModePlan(code: Command): void {
   code
     .command('plan')
     .description('Build and print a CodePlan without executing it')
-    .argument('<change-id>', 'change id to plan against')
+    .argument('<session-id>', 'session id to plan against')
     .option(
       '--fast',
       'fast mode: skip memory full-load, standards preflight, and QA repair loop',
@@ -32,7 +32,7 @@ export function registerCodeModePlan(code: Command): void {
       if (opts.json === true) {
         process.stdout.write(JSON.stringify({ ok: true, data: plan }) + '\n');
       } else {
-        process.stdout.write(`change-id: ${plan.sessionId}\n`);
+        process.stdout.write(`session-id: ${plan.sessionId}\n`);
         for (const step of plan.steps) {
           const flag = step.skipped ? 'SKIP' : 'RUN ';
           const repair =
