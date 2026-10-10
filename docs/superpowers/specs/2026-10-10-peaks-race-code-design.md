@@ -1,7 +1,11 @@
 # peaks-race-code — 快泳道设计
 
 - **日期**：2026-10-10
-- **状态**：设计已定，**尚未经用户 review**。历经：brainstorming 3 段 + 11 处用户裁决 → `peaks audit goal` 第一轮（accepted with amendments）→ fresh-context 对抗评审（**10 项发现，推翻 3 项设计选择**）→ 用户对全部修正的裁决 → `peaks audit goal` 第二轮 rev2（**2 BLOCKER + 采纳 scope 拆分**）→ 拆为 **4 个 slice**（§13）→ **U5 / U7 裁决（均为 B）**：泳道问题改为"每次问 + 预选默认"（并随 pilot 状态切换），"实现完"与"可信到能默认提供"拆成两个门 → **S0 已交付并合入 main**（2026-10-10，`98f314d6`，见 `docs/superpowers/plans/2026-10-10-driver-resolution-and-commit-ban.md`）→ **§2.5 核实新增**：仓库里已有活的 fast mode，race-code 定位为**三档中的第三档**而非取代；S1 据此重定义为"以 `fast-mode.md` 为基泛化共享规范"。**现在两个用户级未决项都已关闭，可以 review。**
+- **状态**：设计已定，**尚未经用户 review**。历经：brainstorming 3 段 + 11 处用户裁决 → `peaks audit goal` 第一轮（accepted with amendments）→ fresh-context 对抗评审（**10 项发现，推翻 3 项设计选择**）→ 用户对全部修正的裁决 → `peaks audit goal` 第二轮 rev2（**2 BLOCKER + 采纳 scope 拆分**）→ 拆为 **4 个 slice**（§13）→ **U5 / U7 裁决（均为 B）**：泳道问题改为"每次问 + 预选默认"（并随 pilot 状态切换），"实现完"与"可信到能默认提供"拆成两个门 → **S0 已交付并合入 main**（2026-10-10，`98f314d6`，见 `docs/superpowers/plans/2026-10-10-driver-resolution-and-commit-ban.md`）→ **§2.5 核实新增**：race-code 定位为三档中的第三档而非取代 fast mode；S1 据此重定为"以 `fast-mode.md` 为基泛化共享规范" → **S0 已交付并推送**（`main` 上 `98f314d6`）→ **S1 已交付并推送**（`main` 上 `c0554c7a`）→ **第三轮对抗评审（全文首次整体受审）**：10 项发现，其中 **F1（提交闸在本 harness 上不存在）、F2（泳道答案从未存在）、F3（v2 把 v1 的洞原样搬家）** 三项推翻了 §8 的核心，评审结论为**"不能从这份 spec 出 S2 的计划"**。
+
+**本轮据此修了什么**：§8 整个重写（**泳道不再是 gate 的输入**——坍缩成一个自报事实，§9 把"这是纪律门不是边界"写实）；§8.4 改为记录三个待你裁决的问题（U14）；§1 记录 S1 的真实足迹（给 SKILL.md 的 MUST 加了语义例外）；§2.3/§2.5 更正"活的 fast mode"（可执行路径是死代码）；§6.3 把"单向"限定为"对 LLM"；6 处引用错误修正；U11 标记 S0 已交付、残留改为租约年龄上界。
+
+**仍未关闭、S2 之前必须回答**：U14（提交闸三个问题）、U2（规模阈值）、U4/§8.2（gate 读不到 session）。**这份 spec 仍未经你逐节正式 review。**
 - **session**：`2026-10-10-session-8bc940`（rid 未分配；本条尚未走 `peaks request init`）
 - **审计产物**：`.peaks/_runtime/2026-10-10-session-8bc940/audit-goal/`（`…-acceptance.md` / `…-rev2.json`）
 - **⚠️ 独立性限制**：**本设计未经独立模型审计。** 第一轮审计与设计**同模型**（`deepseek-flash[1M]`）；`peaks-reviewer` 因 `reviewer.providers < 2`（`src/services/reviewer/reviewer-config.ts:77`）在本机**结构性不可用**，且它审的是实现后的 slice 而非 spec。替代品是 fresh-context 子代理（**换上下文、不换模型族**）。详见 §12 U9。
@@ -40,8 +44,11 @@ peaks-code 的质量工序是**固定成本**：不论任务多小，都要付 S
 1. **`HARD_BLOCKED_PATH_FAMILIES` 的内容不变**——仍是 `src/` `tests/unit/` `tests/integration/` `config/` `bin/` `scripts/` 六项（`src/services/hooks/pre-tool-code-gate.ts:32`）。变的只是"**谁在开车**"的判定，不是"哪些路径危险"。
 2. **驾驶者 = `peaks-code`，或身份无法解析 ⇒ deny 结果与今天一致**（含 stderr 标记与 `peaks sub-agent dispatch rd` next action）。
 3. **race-code 是唯一新增的放行来源**。任何 race-code 专属代码（泳道判定分支）被删除 ⇒ 系统回到今天的全部行为。
+   - **⚠️ 这一条在 S1 之后不再可检查（2026-10-10 第三轮评审）**：S1 让 peaks-code **发出去**了一个描述 race-code 的文件（`skills/peaks-code/references/fast-lane-norm.md`，随 npm 包发）。**删掉 race-code 不会删掉它。** 所以本条的正确版本是"**没有 race-code 专属的代码分支**"，而不是"删掉 race-code 就回到今天"——后者现在做不到。
 
 **推论**：peaks-code 的 **Gate A–G、11 步工序、步骤顺序、它对子代理的用法**——全部不变。允许动的只有两类，且都必须**保行为**：① 把 §4.4 列出的共享散文**搬出**到规范文件；② 为共享散文加指向。race-code 是一个**新增的兄弟**，不是对 peaks-code 的修改。
+
+> **⚠️ S1 实际做了第三类，本节当时没预料到（2026-10-10 记录）**：S1 给 `skills/peaks-code/SKILL.md:315` 的 `MUST` 修复环那一行**加了一个语义例外**（"Fast-mode exception"），并指向规范。那不是"搬散文"也不是"加指向"——**它改了一条 MUST 的语义**。审查判据是：该例外只是**把 SKILL.md 与既有代码对齐**（`repairLoop: !opts.fast` 早已如此），所以是文档纠错而非行为改变；但**它确实超出了本节允许的两类**，故在此如实记录，而不是让 §1 读起来仍然成立。
 
 ---
 
@@ -77,12 +84,14 @@ race-code 要动的是红线本身。若把它做成 peaks-code 内部的一条"
 
 race-code **不继承**该红线，因为它的前提（分权）在 race-code 里不存在。所以这不是"违反红线"，是**走另一条泳道**。
 
-**决定性证据（2026-10-10 核实）：peaks-code 里已经有一个活的 fast mode，而它的形状就是这条论证。**
-`skills/peaks-code/references/fast-mode.md` + `peaks code plan --fast`（`code-mode-gate-plan-command.ts:25`，`buildCodePlan` 真的会 `skipped: opts.fast && isSkippable` 与 `repairLoop: !opts.fast`）。它跳过 memory 全量加载、standards preflight、QA 修复环——**但红线一字未动**。
+**决定性证据（2026-10-10 核实，同日在 S1 执行中修正过一次）：peaks-code 里已经**设计**了一个 fast mode，而它的形状就是这条论证。**
+`skills/peaks-code/references/fast-mode.md` + `peaks code plan --fast`（`code-mode-gate-plan-command.ts:23`，`buildCodePlan` 真的会 `skipped: opts.fast && isSkippable` 与 `repairLoop: !opts.fast`，见 `src/cli/commands/code-commands.ts:95`）。它跳过 memory 全量加载、standards preflight、QA 修复环——**但红线一字未动**。
 
-> **换句话说：这个仓库已经做过一次"让 peaks-code 变快"的实验。答案不是"让编排者去改代码"，而是"跳仪式、留红线"。** 这正是本节论证的实证版本：红线是 peaks-code 的身份，仪式才是它可以谈的东西。
+> **⚠️ 措辞更正（S1 执行期间发现，2026-10-10）**：本节原写"已经有一个**活的** fast mode … 这个仓库已经**做过一次**实验"。**那句话过头了。** `runCodeFast`（`src/cli/commands/code-commands.ts:109`）**全仓零调用者**；`buildCodePlan` 只被 `peaks code plan` 调用，而那条命令**只打印计划**、且**零测试**。⇒ 这条泳道**可执行的那一半是死代码**，只有一个计划打印机。
 >
-> 由此 race-code 的定位不再需要靠推理——它是**必须连红线一起放下**时的产物，而那件事**结构上无法**表达为 peaks-code 的一个开关。
+> **论证仍然成立，但要换个说法**：不是"实验已经做过"，而是"**这个仓库已经设计过一次让 peaks-code 变快的方案，而当时的答案是"跳仪式、留红线"**"。那是一个**设计判断**，不是一次**实测**——它比实测弱，但对本节的用途（说明红线是身份、仪式才是可谈的）仍然够用。
+>
+> **由此 race-code 的定位**：它是**必须连红线一起放下**时的产物，而那件事**结构上无法**表达为 peaks-code 的一个开关。这一点不依赖 fast mode 是否被执行。
 
 详见 §2.5。
 
@@ -104,7 +113,7 @@ race-code **复用**现有 mode 轴：`full-auto | assisted | strict | 24h`（`S
 | | 分权（编排者 ≠ 实现者） | 仪式 | 现状 |
 |---|---|---|---|
 | **peaks-code**（全量） | ✅ | 全 11 步 + Gate A–G | 已有 |
-| **peaks-code `--fast`** | ✅ | memory 全量加载 / standards preflight / QA 修复环 **跳过** | **已有**（`fast-mode.md`） |
+| **peaks-code `--fast`** | ✅ | memory 全量加载 / standards preflight / QA 修复环 **跳过** | **已设计**（`fast-mode.md`）；**可执行路径是死代码**——`runCodeFast` 零调用者，`peaks code plan` 只打印且零测试（§2.3 的措辞更正） |
 | **peaks-race-code** | ❌ **取消** | 零子代理、零 Gate 链、零文书 | 本 spec |
 
 **决定：race-code 不取代 fast mode。** 两者是同一光谱上的不同点：
@@ -124,7 +133,7 @@ race-code **复用**现有 mode 轴：`full-auto | assisted | strict | 24h`（`S
 
 ⇒ **S1 的重定义**（§4.4 / §13）：不是"抽出 §5 + §6 全文"，而是**以 `fast-mode.md` 为基，把「快泳道验收门 + 风险面」泛化为一份规范**，两条泳道各自指向它。
 
-**顺带记一条漂移（同一类毛病，本轮第三次）**：`peaks code plan <change-id>` 的 CLI 帮助与 `fast-mode.md` 都在说 `change-id`，但 change-id 维度已在 `2026-06-29-change-id-root-removal` 删除，且 handler 的形参就叫 **`sessionId`**（`code-mode-gate-plan-command.ts:31`）。**帮助与文档都在用一个不存在的概念。** → §12 U13。
+**顺带记一条漂移（同一类毛病，本轮第三次）**：`peaks code plan <change-id>` 的 CLI 帮助与 `fast-mode.md` 都在说 `change-id`，但 change-id 维度已在 `2026-06-29-change-id-root-removal` 删除，且 handler 的形参就叫 **`sessionId`**（`code-mode-gate-plan-command.ts:31`）。**帮助与文档都在用一个不存在的概念。** → §12 U13。**（S1 已修：`<session-id>`。** 注：真正被删的是 change-id 的 **root 轴**，不是每一个 change-id——`peaks code run [change-id]` 等仍在用。）
 
 ---
 
@@ -179,7 +188,7 @@ race-code **复用**现有 mode 轴：`full-auto | assisted | strict | 24h`（`S
 
 两个阶段拼起来是一条完整路径：**先藏着，验证过再端上来。**
 
-**关键补充（评审后）**：上表"同一 request 已答过"的那个答案，**就是 §8 用来判定放行的那个事实**。泳道不再有第二份可自写的副本——见 §8.1。
+**关键补充（评审后，2026-10-10 再修正）**：~~上表"同一 request 已答过"的那个答案，就是 §8 用来判定放行的那个事实。~~ **这句已作废**——第三轮评审证明那个"答案"从不存在、也不独立，§8.1 已把泳道整个从 gate 的输入里删除。**泳道选择的产物只是"LLM 激活哪个 skill"，没有任何 gate 可见的持久化事实。** 见 §8.1 的教训框。
 
 ### 3.3 过程中：建议不强制
 
@@ -363,7 +372,7 @@ race-code 不写文书，但下列四件事必须**真实发生**，且必须在
 
 **第二层的真实覆盖面（评审修正，2026-10-10）**：原稿写"可靠，**只能往更严的方向翻**"——**这是一个未经论证的断言**。实际情况：
 
-- `estimateComplexity` 按**文件**的 LOC + export 数 + async 用量打分（`src/cli/commands/complexity-commands.ts:21-24`）——**它量的是文件，不是改动**。900 行文件里改一行读作 `complex`；删掉 400 行读作 `trivial`。
+- `estimateComplexity` 按**文件**的 LOC + export 数 + async 用量打分（`src/services/complexity/complexity-estimator.ts`（`estimateComplexity`，`:67` 起））——**它量的是文件，不是改动**。900 行文件里改一行读作 `complex`；删掉 400 行读作 `trivial`。
 - 所以第二层**不是**能独立兜住第一层的东西。它只在"改动落在本就复杂的文件上"这一种情形里有效，**其余情形它给不出信号**。
 
 ### 6.2 风险面（**清单**，不是"机械定义"）
@@ -384,10 +393,16 @@ race-code 不写文书，但下列四件事必须**真实发生**，且必须在
 
 **必须正视的后果**：这是一份**判断清单**，不是一道闸。它的价值取决于 §6.4 的"覆盖要记一笔"与 §7.2 的记录——**不**取决于它自身的机械性。
 
-### 6.3 升级单向，永不静默降级
+### 6.3 升级单向——**对 LLM 单向；对用户不是**；且**按任务，不按 session**（2026-10-10 评审修正）
 
 - race-code 中途发现自己越界 ⇒ **停下、告知用户、升级到 peaks-code**。不得硬推。
 - peaks-code 已开车 ⇒ **不得中途"这挺简单的降级吧"**。既有原则直接复用：`peaks classify downgrade` 现在是 REFUSED 的（"peaks-loop never downgrades a classification"）。
+
+**⚠️ "单向"的准确范围（第三轮评审）**：
+
+1. **对用户不是单向的。** 本节标题原写"升级单向，永不静默降级"，但 **§6.4 明确允许用户把已判越界的任务压回 race-code**。准确说法：**LLM 不得降级；用户降级要付出一次显式覆盖 + 一条记录。**
+2. **按任务，不按 session。** "单向"约束的是**同一个任务**不得回头。**下一个任务可以重新选 race 泳道**——否则用户在一次误判之后就被永久踢出快泳道，那不是本设计的意图。
+3. **"机械判定"的那一半是空的。** §6.2 里唯一真正机械的一行（规模阈值）**没有值**（§12 U2），其余六行是判断。⇒ **本节的"单向"由 §6.4 的记录与 §7.2 的痕迹兜着，不是由一道闸兜着。** 这与本文反复那句一致：**一个给不出数的阈值不是门。**
 
 ### 6.4 用户覆盖（裁决：允许，说风险 + 记一笔）
 
@@ -448,54 +463,56 @@ race-code 不写文书，但下列四件事必须**真实发生**，且必须在
 
 ## 8. Gate 改造
 
-> **本节于 2026-10-10 被独立评审推翻并重写。** lane token 机制**删除**（§8.1 说明为什么）；提交闸从"豁免动词"改为"**检查 message**"（§8.4）。
+> **本节被独立评审推翻过两次。** v1（lane token）被第一轮评审删除；v2（"用户的泳道答案"）被 2026-10-10 的第三轮评审证明**同样不成立**，于是**泳道这个输入整个删除**（§8.1）。提交闸的真相见 §8.4。
 
-### 8.1 泳道从"用户的答案"派生，不再有 token
+### 8.1 泳道**不是** gate 的输入（v1 与 v2 都废弃，理由同一个）
 
-**原版（已废弃）**：race-code 在入口写 `.peaks/_runtime/<sessionId>/race/lane.json`（`{lane, sessionId, startedAt}`），gate 读它放行。
+- **v1（lane token）**：race-code 在入口写 `.peaks/_runtime/<sessionId>/race/lane.json`，gate 读它放行。
+- **v2（用户的泳道答案）**：删除 token，改为从"用户在 peaks-audit 已经答过的那次选择"派生——理由是"**它本就已持久化在** `.peaks/_runtime/<sessionId>/` 下，是被审计过的用户决定，不需要第二份可自写的副本"。
 
-**评审证明它开的是一道门，不是一道减速带**：
+**v2 的两个致命问题（第三轮评审，已逐条核实）**：
 
-- `.peaks/**` 在 `pre-tool-code-gate.ts` 的**白名单里首先短路**（`ALLOW_LISTED_PATH_PATTERNS`，`:42-50`；判定函数原文 "Allow-list check first — short-circuits any deny"）——**写 `lane.json` 这件事本身，gate 从不拦**。
-- `peaks skill presence:set <name>` **接受任意字符串**（`skill-presence-commands.ts:215-220`；唯一的校验是 `--mode`，`:169`）。
+1. **那个"已持久化的事实"不存在。** `race-code` 全树只出现在**一个**文件里（S1 建的 `skills/peaks-code/references/fast-lane-norm.md`）；`src/` 里**没有任何 lane 概念**（`grep -rni lane src/services/audit/` 零命中）；唯一被持久化的审计产物是 `audit-goal/<rid>.json`，形状恰是 `AuditGoalOutput` 的 7 个字段（`src/services/audit/audit-goal-types.ts:40-47`），**没有 lane 字段**。⇒ v2 的立论**是一句未经核实的断言**。
+2. **即使它存在，它也是同一个自报事实的第二份副本。** v2 的判定是**合取**：泳道答案 = `race` **且** 驾驶者 = `peaks-race-code`。两半都由同一个 LLM 自报——驾驶者走 `peaks skill presence:set <name>`（**接受任意字符串**，`src/cli/commands/core/skill-presence-commands.ts:215-220`；唯一校验是 `--mode`，`:169`），答案走 `.peaks/**` 下的一次写（该路径族在 gate 白名单里**首先短路**，`pre-tool-code-gate.ts:42-50`）。**这与 v1 被否掉的理由一模一样。** ⇒ v2 那句"删除 token 之后，没有任何自写的开关可以打开它"——**是假的**。
 
-**于是"我忘了 peaks-code 不能直接改 src/"的完整打开序列只有两步**：`peaks skill presence:set peaks-race-code` → 写 `lane.json` → 改 `src/`。**两步都在 gate 覆盖之外。** 而 §9 原话说 gate"挡的是手滑与惯性"——**改动之后这句话对最该挡的那类手滑不再成立**：偷懒者的最便宜路径从"停下"变成"改个标签"。
+**结论：泳道不是 gate 的输入，整个删除。** 下面的派生分析显示，它在**每一行**都给出与"驾驶者"相同的结论——包括"答案说 race 但驾驶者是 `peaks-code` ⇒ 拦"，那与"驾驶者是 `peaks-code` ⇒ 拦"**完全等价**。**它是冗余的。**
 
-**修正：删掉 token。** 泳道**直接派生自 §3.2 情形 2 里用户已经做出的那个选择**——它本就已持久化在 `.peaks/_runtime/<sessionId>/` 下，是被审计过的用户决定，**不需要第二份可自写的副本**。
+> **这一步的教训值得单独写下来。** v2 看起来比 v1 安全，是因为它把一道自写的开关换成了一个**看起来已经存在、因而不需要定义的事实**。但那个事实**既不存在、也不独立**。**把一道自写的门换成一份不存在的记录，不是收窄，是搬家。**
 
-这同时消掉一类残留 bug：原 §12 U3 论证"token 生命周期 = session，崩溃后 session 即结束"**是错的**——它把外层 harness session 与 peaks session 混为一谈。一个 peaks session id 会跨 `/compact` 与 `peaks-resume` **复用同一 session 目录**，所以"崩溃后 token 残留"能在同一目录里活到下一次 resume。
+### 8.2 判定：**一个输入**（2026-10-10 坍缩）
 
-### 8.2 判定（依赖一个必须先修的解析）
+gate 的放行条件只有一个事实——**解析出的驾驶者是不是 `peaks-race-code`**：
 
-`src/cli/commands/code-gate-command.ts` 在调用纯函数 `decideGateAction`（`:81`）之前，解析"本 session 的泳道选择"。
-
-| 用户的泳道答案（§3.2） | 解析出的驾驶者 | 结果 |
-|---|---|---|
-| `race`，且属于**本 session** | `peaks-race-code` | **allow**（硬阻断家族放行） |
-| `race`，但驾驶者已是 `peaks-code` | `peaks-code` | **deny**——答案陈旧（切换泳道后未更新），不得继承放行 |
-| 无答案 / 不匹配 | `peaks-code` | **deny**（与今天逐字节一致，`:99` + `:117`） |
-| 无答案 / 不匹配 | 解析失败 / 其他 | **deny**（fail-closed，§8.3） |
-
-**放行是两个条件的合取**：本 session 的泳道答案为 `race` **且** 驾驶者 === `peaks-race-code`。缺一即 deny。
-
-> 只查答案不查驾驶者 ⇒ "陈旧答案继承放行"（T8）；只查驾驶者不查答案 ⇒ 泳道选择沦为摆设（T9）。合取让两者都有真实对照可写。
+| 解析出的驾驶者 | 结果 |
+|---|---|
+| `peaks-race-code` | **allow**（硬阻断家族放行） |
+| `peaks-code` | **deny**（与今天一致） |
+| 解析不出 / 其他 | **deny**（fail-closed，§8.3） |
 
 **白名单路径族**（`.peaks/` `skills/` `docs/` `.md` 等）不受影响，仍先短路放行。
 
-#### ⚠️ 硬前提：解析必须先独立修好（评审发现）
+**⚠️ 这个唯一输入是自报的。** `presence:set` 接受任意字符串，所以偷懒者的最便宜路径仍然是"改个标签"——**§9 现在把这句话写实，不再借"合取"暗示一个从不存在的第二因子。**
 
-现在的解析**不可靠，而且同一个问题在仓库里有两个互相矛盾的答案**：
+#### 解析的前提：**S0 已交付**（本节原文的"硬前提"已关闭）
 
-- `listPresenceLeases`（`src/services/skills/presence-lease-service.ts:496-513`）按 `readdirSync` **原始顺序**返回，**不排序**；
-- `resolveActiveSkillForCaller`（`src/services/audit/enforcers/active-skill-resolver.ts:116-130`）取遍历中**第一个**合格 lease，其 `callerId` 过滤是**可选**的（`opts?.callerId`）；
-- 而 `hook-handle.ts:131` 调用时**没传 callerId** ⇒ 驾驶者是**跨该 session 目录下所有 caller、按目录顺序**解析出来的；
-- 但 `readSkillPresenceFromLease`（`src/services/skills/skill-presence-service.ts:198`）**按 `lastHeartbeat` 降序**排后取 `[0]`。**同一个问题，两个答案，可以不一致。**
+原文把解析的不可靠写成**必须先独立修好的硬前提**，并引用了四段当时的代码。**S0 已交付、合入并推送**（`main` 上 `98f314d6`；计划 `docs/superpowers/plans/2026-10-10-driver-resolution-and-commit-ban.md`）：
 
-更糟：`touchSkillHeartbeat`（`:701-721`）只改**内存里**的 `presence.lastHeartbeat` 就返回，注释自述 "the legacy `active-skill.json` file is no longer touched"。**若无人周期调用 `setPresenceLease`，盘上的 `lastHeartbeat` 永不刷新**——盘上真实样本 `presence-7ee97fe3-…-compat.json` 即 `lastHeartbeat === startedAt`、`status: "preparing"`。"在飞"退化成"有个 lease 文件在"。
+| 原文所述（已过期） | S0 之后 |
+|---|---|
+| `hook-handle.ts:131` 调用时**没传 callerId** | 现在传——从 hook payload 取 `caller_id`，退化 `session_id`；并在该 caller**拥有 lease** 时才作用域化 |
+| 两条读取路径排序不一致（`:198` 有 tie-break，resolver 没有） | 统一到共享比较器 `comparePresenceLeases`（`src/services/skills/presence-lease-order.ts`），**含 `startedAt` tie-break** |
+| `if (activeSkill.skill !== null)` 让解析失败时整个跳过提交闸 | **那道守卫已经不存在**——S0 改成无条件评估 |
+| 失败方向未定 | 保守 deny（拥有 lease 才作用域化；不拥有则保留无作用域答案，即拦） |
 
-**结论**：**解析契约必须先独立修好**（传 `callerId`，或至少与 `:198` 一致地按 `lastHeartbeat` 排序），否则 §8.2 的整张表建在一个不可靠的答案上。评审指出的"最可能失败方式"正是这条：gate 解析出错误的驾驶者 ⇒ race-code 被 deny ⇒ **而这次 deny 与"gate 正常工作"在现象上无法区分**。→ §12 U11。
+⇒ **本节原文引用的代码已全部过期。** 任何按它写计划的人会去解一个已经解过的问题，并误判 gate 的输入。
 
-**自愈的说法一并撤回**：原 §8.3 写"重新断言 token 后重试一次，摩擦有界"。`presence:set` 本身是 fail-closed 的（未绑定 session 时 `PEAKS_SESSION_NOT_BOUND`，exit 1，`skill-presence-commands.ts:180-190`），所以那个重试要么循环、要么根本不会发生。**"摩擦有界"在代码里没有依据，撤回。**
+#### ⚠️ 仍未解决：gate 读不到"本 session"（→ U4）
+
+`src/cli/commands/code-gate-command.ts` 只把 stdin 解析成 `{tool, input}`（`:81`），**从不读 session / caller id**；U1 只覆盖 `projectRoot`。**gate 的 hook 子进程能否解析出调用方身份，至今未经验证**（`docs/superpowers/specs/2026-10-10-session-handoff.md` §2.2 与 §12 U4 都记着它）。
+
+**§8.2 之所以只剩一个输入，一部分原因正是没有第二个输入可读。** 但当那一个输入本身就是"当前是谁在开车"时，这个未验证点仍是这条路径上最大的工程风险。
+
+**自愈的说法维持撤回**：原 §8.3 写"重新断言 token 后重试一次，摩擦有界"。`presence:set` 本身是 fail-closed 的（未绑定 session 时 `PEAKS_SESSION_NOT_BOUND`，exit 1，`src/cli/commands/core/skill-presence-commands.ts:180-190`），那个重试要么循环、要么根本不会发生。**"摩擦有界"在代码里没有依据。**
 
 **实现注意**：`peaks code-gate` 目前只有 `--dry-run`（`:46`），**没有 `--project`**；hook entry 是 `peaks code-gate --json`。projectRoot 的来源是**实现期第一件事**（§12 U1）。
 
@@ -503,41 +520,38 @@ race-code 不写文书，但下列四件事必须**真实发生**，且必须在
 
 **认不出"谁在开车"就拦。**
 
-明确后果：装了 gate 的仓库，`src/**` 默认仍然改不了；只有正读到本 session 的 race 泳道答案才放行。这与 gate 在别处的 fail-open 取向（payload 畸形 / 无 file_path / 内部错误）**方向相反**，是**有意为之**——见 §9。
+明确后果：装了 gate 的仓库，`src/**` 默认仍然改不了；只有解析出的驾驶者恰是 `peaks-race-code` 才放行。这与 gate 在别处的 fail-open 取向（payload 畸形 / 无 file_path / 内部错误）**方向相反**，是**有意为之**——见 §9。
 
-**⚠️ 评审发现的既存事实（与本节方向相反）**：**提交闸今天就是 fail-open**。`hook-handle.ts:132` 是
+**⚠️ 原文此处那段"既存事实"已过期（S0 已交付）**：原文说"提交闸今天就是 fail-open，`hook-handle.ts:132` 是 `if (activeSkill.skill !== null)`"。**S0 已经删掉了那道守卫**——提交闸现在**无条件评估**，并在 caller 不拥有 lease 时**保守 deny**。所以原文那句"同一个信号、提交闸 fail-open、gate 要求 fail-closed"的不一致**已经不存在**：两者现在同为 fail-closed。→ §8.2 的 S0 交付表。
 
-```ts
-if (activeSkill.skill !== null) {   // ← 解析不出来，整个提交闸被跳过
-```
+**⚠️ 但 S0 的保守 deny 引出一个新的、必须写明的后果**：一个 `status: "preparing"` 且**永不 terminalize** 的 lease，会让该项目 session 的**每一次** `git commit` 都被拦，而且**没有年龄上界**（`gcStalePresenceLeases` 存在，但两条路径都不咨询它）。→ §12 U11 的残留项。
 
-而 `resolveActiveSkillForCaller` 在未绑定 session / session 目录缺失 / session id 不安全时都返回 `{skill: null, …, source: 'none'}`。**同一个信号，提交闸 fail-open，而本 spec 要求 fail-closed。** 这个不一致要写明，不能假装不存在（§12 U11）。
+### 8.4 提交闸：**在这个 harness 上它根本不存在**（2026-10-10 第三轮评审重写）
 
-### 8.4 提交闸：**保留拦截点，改为检查 message**（评审修正）
+**本节被推翻过两次，两次都建立在同一个未经核实的前提上。**
 
-**原版（已废弃）**：给 `peaks-race-code` **豁免**提交闸。评审指出**这是本设计凭空开的洞，不是继承的洞**：
+- **v1（已废弃）**：给 race-code **豁免**提交闸。
+- **v2（已废弃）**：保留拦截点，把"拒动词"改成"校验 message"；主层用 `.husky/commit-msg`，次层用 `hook-handle` 的拦截点。
 
-- 今天 `peaks-*` skill 的 `git commit` 在 `hook-handle.ts:131-156` **执行前就被拒**——所以在一个**解析正常**的 session 里，AI 署名 trailer 的危害**根本无从产生**（该 skill 从不自己 commit，它走 `peaks request transition`，由后者内部提交）。
-- 豁免之后，§5 的 #3 只能依赖 `tests/unit/standards/no-ai-co-author-trailer.test.ts`——而**那个测试自己的头部就写着**：*"this DETECTS, it does not PREVENT. A violating commit is already in history when the guard runs, and the remedy is to rewrite it before it is pushed"*（`:30-33`）。危害照旧落地，补救是改历史。
+**v2 的前提是假的——而这正是我在 S0 期间亲手发现、却没有传播回本节的那件事：**
 
-**修正**：**保留拦截点，把它的判定从"拒动词"改成"校验 message"。** 即对 `peaks-race-code` 的 `git commit`：message 干净 ⇒ **放行**；含 AI 署名 trailer ⇒ **拒**。
+- `evaluateCodeBan` 全树**只有一个调用点**：`src/cli/commands/hook-handle.ts`（即 `peaks hook handle`）。
+- `HOOK_COMMAND_BY_IDE`（`src/services/skills/hooks-codegate-superpowers.ts:94-105`）把入口分两组：`claude-code` / `hermes` / `openclaw` → **`peaks gate enforce`**；只有 `trae` / `cursor` / `codex` → `peaks hook handle`。而 `src/cli/commands/gate-commands.ts` 里 ban / commit **零引用**。
+- ⇒ **在 Claude Code（本设计的目标 harness）上，Code Commit Ban 从不运行。**
+- v2 点名的"次层"同样是空的：`peaks code-gate` 只装 `Edit|Write|MultiEdit` matcher（`hooks-codegate-superpowers.ts:179-181`），**永远看不到 Bash / `git commit`**。
+- 即使在那三个适配器上，**cursor 与 codex 的 deny 也到不了宿主**：`formatDecisionResponse` 对除 `claude-code` / `trae` 外的 IDE **抛异常**（`src/services/ide/hook-protocol.ts:66-74`），被 `hook-handle` 的 `try` 转成 "internal error, allowing command"。**实际生效的只有 trae 一个适配器。**
 
-该拦截点本来就拿得到命令串——`isCodeCommit(skill, command)`（`code-ban.ts:31`）；`hook-handle.ts` 也拿得到 tool input。这是**整条流程里唯一能在 commit 存在之前检查 message 的时点**。约 10 行，把红规则从"事后检测"变成"**事前阻止**"。
+**主层也不存在。** `.husky/` 只有 `pre-commit` 与 `pre-push`——**没有 `commit-msg`**（`.husky/_/commit-msg` 只是 husky 的分发 shim）。而 `peaks hooks install` 往 harness 的 skills 目录拷（`hooks-commands.ts:118-137`），**不装 git hooks**——所以任何没有 husky 的消费者仓库，主层也没有。
 
-**机制修正（rev2 审计后，2026-10-10）**：原稿把 message 校验写成**命令串启发式**，并断言 `git commit -F <file>` / heredoc / 编辑器驱动 / `--amend` 形态**判不出来**——**那是错的**，而且 rev2 的 `alternatives` 维度直接给出了更好的机制：
+**⚠️ 而且那条路已被本仓库明确否决过。** `tests/unit/standards/no-ai-co-author-trailer.test.ts:34-37` **记录着**：`.git/hooks/commit-msg` "would close it and is **deliberately NOT installed**"。v2 提议的正是那个做法，**却完全没有触及那条记录**。
 
-> **用 `.husky/` 的 `commit-msg` 钩子校验。**
+**本节的真实状态**：在 Claude Code 上，AI 署名 trailer **今天没有任何东西在它进入历史之前拦它**。§5 的 #3（诚实提交）与红规则警告因此**没有机械支撑**——只有事后检测，而那个测试自己写明 detect-not-prevent、补救是改历史。
 
-`commit-msg` 是 git 原生钩子，在**消息已成形之后**触发——`-m` / `-F` / heredoc / 编辑器 **全部覆盖**。仓库本来就有 `.husky/`（如 `.husky/peaks-gate.mjs`）。**那条"已知局限"因此整个消失。**
+**本节不再提出机制**（前两版都提了，两版都是空的）。改为记录三个必须由用户决定的问题 → **§12 U14**：
 
-**选定机制（用户裁决，rev2 后）**：
-
-| 层 | 位置 | 作用 |
-|---|---|---|
-| **主** | `.husky/commit-msg` | 拦截**所有**提交形态；含 AI 署名 trailer ⇒ 拒 |
-| **次** | `peaks code-gate` / `hook-handle` 的拦截点 | 防 hook 不在场（`--no-verify`、或 clone 后未跑 `husky install`）。用命令串启发式，**明知覆盖不全**，作为兜底而非主力 |
-
-⚠️ **两处规则必须同源**（同一份 trailer 正则）。实现期须让次层**从主层的判定函数取规则**，不得各写一份——否则就是新增一个漂移点，而本 spec 刚在 §4.4 花了一整节反对这种重复。
+1. 要不要把提交闸接进 `gate enforce`，让 Claude Code 也有它？——这是 S0 期间我明确**没有**做的范围扩张（当时用户裁决"先只修，不接"）。
+2. 要不要在 `.husky/` 加 `commit-msg`？——**这会推翻上面那条明确记录的决定**，需要正面回答"为什么现在可以了"。
+3. 两者都不做的话，race-code 的完成证明 #3 必须**明说它只有事后检测**——而不是像 v2 那样写成"同一个拦截点会在 commit 存在之前校验 message"。
 
 **不变的一点**：race-code 仍然**自己 commit**（完成证明 #3 不因此改动）。它绕过的是 `peaks request transition`（`spec-locked` + tech-doc-presence 检查）——**那正是 race-code 有意砍掉的东西**，两者一致，不是漏洞。
 
@@ -549,9 +563,11 @@ if (activeSkill.skill !== null) {   // ← 解析不出来，整个提交闸被�
 
 - 它今天已经在**三处** fail-open（payload 畸形、无 `file_path`、内部错误），其设计文档自述 "the LLM is never bricked by a peaks bug"。
 - 它挡的是**手滑与惯性**（"这改动很小，我直接改吧"），不是**攻击者**。本设计**不试图**阻止一个有意的绕过，也不假装阻止了。
-  - **但这句话在评审后需要限定**：原稿接着写"任何能写 lane token 的进程都能开门"——**lane token 已被删除（§8.1）**，而删掉它的理由恰恰是同一件事：token 版本把"偷懒者的最便宜路径"从**停下**改成了**改个标签**。也就是说，token 版本的 gate 对"手滑与惯性"**已经失效**——而那正是它存在的唯一理由。**删除 token 之后，"挡手滑"这句话重新成立**，因为现在没有任何自写的开关可以打开它。
+- **⚠️ 这句话现在必须写实，不能靠一个"合取"来暗示（2026-10-10 第三轮评审）**：§8.2 的放行条件只有**一个**输入——解析出的驾驶者——而它是**自报的**（`peaks skill presence:set <name>` 接受任意字符串）。所以"偷懒者的最便宜路径"**仍然是"改个标签"**：`presence:set peaks-race-code`，然后直接改 `src/`。
+  - **原稿那句"删除 lane token 之后，挡手滑这句话重新成立"是假的**，理由见 §8.1 的教训框：v2 把 token 换成了一个**不存在、也不独立**的"用户的答案"，两半都是自报——**与 v1 同罪**。**拿掉一个自写开关的替代品，不等于拿掉自写开关。**
+  - 诚实结论：**这道门对"有意绕过"从一开始就无能为力；它挡的是"没想到要绕过"的那种手滑。** 一个已经知道要先 `presence:set` 才敢改 `src/` 的 LLM，就已经在有意绕过了。
 - §8.3 的 fail-closed 是**在身份这一个维度上收窄**，不是把纪律门升级成安全边界。写清楚，是为了让后来者不要基于错误假设去加固它。
-- **一处必须记下的反向事实**：同为身份维度的**提交闸今天却 fail-open**（`hook-handle.ts:132` 的 `if (activeSkill.skill !== null)`）。同一个信号、两个相反方向，本 spec 只统一了 gate 那一侧，提交闸那一侧**留给 §12 U11**，不在这里偷偷改。→ §8.3 末段。
+- **一处必须记下的反向事实**：提交闸在 **Claude Code 上根本不运行**（§8.4），在 cursor / codex 上 deny 被吞掉。所以"提交闸今天 fail-open"这个说法，在**目标 harness 上的正确版本**是"**没有提交闸**"。→ §8.4 / §12 U14。
 
 ---
 
@@ -562,7 +578,7 @@ if (activeSkill.skill !== null) {   // ← 解析不出来，整个提交闸被�
 | 文件 | 为什么 |
 |---|---|
 | `src/services/skills/skill-conformance-service.ts:46`（`SKILL_NAMES`，硬编码 13 个） | 加 `peaks-race-code`。**但别夸大它的作用**（评审）：该表只有 13 个名字，而 `skills/` 下有 22+ 个 SKILL.md——它已漏掉 peaks-solo / peaks-content / peaks-audit / peaks-final-review / peaks-reviewer 及全部 `skills/bee/*`。加进去只是让 conformance 看见它，**它不是一致性的守卫** |
-| `tests/unit/services/hooks/code-gate.test.ts` | 见下方"纯函数的签名"——**`decideGateAction` 有 20 个两参调用点**（`:107`–`:219`），加必选第三参全断 |
+| `tests/unit/services/hooks/code-gate.test.ts` | 见下方"纯函数的签名"——**`decideGateAction` 有 18 个两参调用点**（`:107`–`:219`），加必选第三参全断 |
 | 新增 `skills/peaks-race-code/SKILL.md` | 必须携带逐字节相同的 loop-hygiene 块（`tests/unit/skills/loop-hygiene-block.test.ts` 遍历文件系统，漏了自己会红） |
 | **`.sh` 兄弟（评审发现的漏项）** | `src/services/hooks/pre-tool-code-gate.sh` 是**同一道闸的第二份实现**，由 `src/cli/commands/hooks-commands.ts:118-137` 随 global 安装分发，且**正被本表要改的那个测试文件 spawn**（`code-gate.test.ts:231-377`）。Claude Code 上生效的是 CLI 那条 entry，所以这是**平行实现的漂移**而非当场坏掉——但本设计会**发出两道对"泳道"判断不一致的闸**，§1 的"变的只是谁在开车"只对其中一道成立。**必须二选一：同步改，或明确声明 `.sh` 不再承载泳道判定并在测试里钉住这一差异** |
 
@@ -570,10 +586,10 @@ if (activeSkill.skill !== null) {   // ← 解析不出来，整个提交闸被�
 
 #### 纯函数的签名（必须先定，评审发现）
 
-`decideGateAction` 现为 `(tool, input)`（`src/services/hooks/pre-tool-code-gate.ts:83-86`），测试里有 **20 个两参调用点**。因此：
+`decideGateAction` 现为 `(tool, input)`（`src/services/hooks/pre-tool-code-gate.ts:83-86`），测试里有 **18 个两参调用点**。因此：
 
 - 加**必选**第三参 ⇒ 20 个调用点全断 ⇒ 原稿那句"原 6 个 family + 6 个白名单 + stderr 标记 + next action 断言**必须原样保留**"**做不到**。
-- **选定**：第三参**可选**，**默认值即 fail-closed 分支**（无泳道答案 ⇒ 按今天的行为 deny）。原稿从未写明这一点，是评审指出的空白。
+- **选定**：第三参**可选**，**默认值即 fail-closed 分支**（解析不出驾驶者 ⇒ 按今天的行为 deny）。原稿从未写明这一点，是评审指出的空白。
 
 #### 分层：三种测试不要混在一张表里（评审发现）
 
@@ -581,8 +597,8 @@ if (activeSkill.skill !== null) {   // ← 解析不出来，整个提交闸被�
 
 | 层 | 测什么 | 位置 |
 |---|---|---|
-| **纯函数** | 路径族 × 泳道答案 → allow/deny | `tests/unit/services/hooks/code-gate.test.ts`，直接调 `decideGateAction` |
-| **命令 / 解析** | 泳道答案与驾驶者**从磁盘解析**出来是什么（T2/T8/T9 全在这层） | 需 CLI/解析层夹具，**不能**用纯函数测 |
+| **纯函数** | 路径族 × 驾驶者 → allow/deny | `tests/unit/services/hooks/code-gate.test.ts`，直接调 `decideGateAction` |
+| **命令 / 解析** | **从磁盘解析**出的驾驶者是什么（T2/T8/T9 全在这层） | 需 CLI/解析层夹具，**不能**用纯函数测 |
 | **提交闸** | `isCodeCommit` + message 校验 | `code-ban` 的单测 |
 
 ### 10.2 新增不变量测试
@@ -591,20 +607,20 @@ if (activeSkill.skill !== null) {   // ← 解析不出来，整个提交闸被�
 
 可用做法是**注入一个造出来的产物**，仿 `no-ai-co-author-trailer.test.ts:248-298`（建临时 git 仓、放一个真实违规 commit、断言检查器变红）：
 
-- **注入夹具**：造一份假的"解析结果 + 泳道答案"**输入**（不是改期望值），跑 `decideGateAction`，断言它按 §8.2 表动作。
+- **注入夹具**：造一份假的"解析结果"**输入**（不是改期望值），跑 `decideGateAction`，断言它按 §8.2 表动作。
 - **非空性**由 **T1（deny）与 T3（allow）走同一代码路径、只差一个输入**保证——实现若把该路径恒定为 allow 或恒定为 deny，必有一条红。
 
 | # | 层 | 场景 | 断言 |
 |---|---|---|---|
-| T1 | 纯函数 | 无泳道答案（默认分支），目标 `src/x.ts` | **必须 deny**——与今天逐字节一致 |
-| T2 | 解析层 | 泳道答案读取失败 / 驾驶者无法解析，目标 `src/x.ts` | **必须 deny**（fail-closed，§8.3） |
-| T3 | 纯函数 | 泳道答案 = `race` + 驾驶者 = `peaks-race-code`，目标 `src/x.ts` | **必须 allow** |
-| T4 | 纯函数 | 泳道答案 = `race`，目标 `docs/x.md`（白名单族） | **必须 allow**（防白名单短路被破坏） |
+| T1 | 纯函数 | 解析不出驾驶者（默认分支），目标 `src/x.ts` | **必须 deny**——与今天逐字节一致 |
+| T2 | 解析层 | 驾驶者无法解析，目标 `src/x.ts` | **必须 deny**（fail-closed，§8.3） |
+| T3 | 纯函数 | 驾驶者 = `peaks-race-code`，目标 `src/x.ts` | **必须 allow** |
+| T4 | 纯函数 | 目标 `docs/x.md`（白名单族） | **必须 allow**（防白名单短路被破坏） |
 | T5 | 夹具注入 | 用**注入的解析结果**驱动上表每一行 | 每行按其期望动作——**替代原 T5 的"翻期望值"** |
 | T6 | 提交闸 | `peaks-race-code` + 干净 message | **放行** |
 | T7 | 提交闸 | `peaks-code` 执行 `git commit` | **仍被拦**（防改动写宽了） |
-| T8 | 解析层 | 泳道答案 = `race` 但驾驶者已是 `peaks-code` | **必须 deny**——防"陈旧答案继承放行" |
-| T9 | 解析层 | 无泳道答案但驾驶者 = `peaks-race-code` | **必须 deny**——防"只查驾驶者，泳道选择沦为摆设" |
+| T8 | 解析层 | 驾驶者报 `peaks-race-code`，但该 caller **不拥有** lease（S0 的保守路径） | **必须 deny**——拥有 lease 才作用域化；不拥有则保留无作用域答案，即拦 |
+| T9 | 解析层 | payload 里**没有**任何 caller 身份（无 `session_id` / `caller_id`）而 peaks lease 在场 | **必须 deny**——S0 Ruling 12 的行为（不猜，交给保守分支） |
 | T10 | 提交闸 | `peaks-race-code` + 含 `Co-Authored-By: Claude` 的 message | **必须拒**——§8.4 的核心 |
 | T11 | 抽象 | 两个 SKILL.md 都指向共享规范文件，且**正文里无第二份** | 双向断言（§4.4） |
 
@@ -641,9 +657,10 @@ if (activeSkill.skill !== null) {   // ← 解析不出来，整个提交闸被�
 | U8 | **§5.5.1 的基线若显示慢的主因不是 dispatch 成本** | 则 §4.3 那条被否决的替代方案（自动化 peaks-code 自身的质检工序）**反过来成为首选**，本设计应重估。这是本 spec 自身可被证伪的出口 |
 | U9 | **本设计未经独立模型审计——已查实，且短期无法达成**| **事实（2026-10-10 实测）**：① 审计第一轮与设计**同模型**（`deepseek-flash[1M]`，经 `anthropic-messages-api` 绑定）。② `peaks reviewer status` 返回 `configured: false / no-reviewer-config`；根因是 `src/services/reviewer/reviewer-config.ts:77` 要求 `reviewer.providers.length >= 2`（"A4.1 explicitly requires >=2 providers…skipped cleanly"）——**该门拒绝假绿，而非产出假绿**。③ 本机只够得着一个模型族：`ollama` 未安装（PATH 无、`:11434` 无响应），`openai` 无凭据。④ **且 `peaks-reviewer` 时机也不对**：`peaks reviewer run --rid <rid>` 按 **rid 审 slice**、prompt 取自 `input.context`（≤8KB），定位是 v2.14.0 G4 anti-fake-green（"实现有没有真按 contract 做到"），**不是设计评审器**。 | **裁决（用户 2026-10-10）**：以 **fresh-context 子代理**代替，并**如实标注其性质**——换的是**上下文**（不带本对话的自我合理化），**不是模型族**（仍 `deepseek-flash`，共享同一批系统性盲点）。因此它**不构成独立审计的等价物**。真正的 `peaks-reviewer` 排到**实现之后**（那时才有 rid / contract / diff 可审）。要让独立模型审真正可用，需用户提供第二模型族凭据并写入 `~/.peaks/config.json` 的 `reviewer.providers` |
 | U10 | **时序基线取不到——`metrics/slices.jsonl` 的埋点支撑不了**（§5.5.1） | 41 条 `dispatch` 事件全部无 `sliceRid`、42% 记录无归属、2/4 session 才有该文件。**归到独立小 slice**：给 `dispatch` 补 `sliceRid` + 给每个任务补起止标记。本 spec 不依赖它（N1 已改为结构性指标） |
-| U11 | **驾驶者解析不可靠，且提交闸在同信号上 fail-open**（评审 #1 / #7，`hook-handle.ts:131-132`） | **本设计的硬前提，必须先独立修**：① 传 `callerId` 或与 `skill-presence-service.ts:198` 一致地按 `lastHeartbeat` 排序；② 决定提交闸在该信号上到底 fail-open 还是 fail-closed（今天与 §8.3 相反）。**不修，§8.2 整张表建在沙上**——且这是**今天就在提交闸里的既存 bug，与 race-code 无关** |
+| U11 | ~~驾驶者解析不可靠 + 提交闸在同信号上 fail-open~~ **已交付** | **S0 已完成并推送**（`main` 上 `98f314d6`；计划 `docs/superpowers/plans/2026-10-10-driver-resolution-and-commit-ban.md`）：传了 callerId、排序统一到共享比较器、删掉了 `if (skill !== null)` 那道守卫、失败方向定为保守 deny。**残留（未解决）**：两条路径都不查**租约年龄上界**——一个永不 terminalize 的 `status: "preparing"` lease 会让该项目 session 的**每一次** `git commit` 都被拦（`gcStalePresenceLeases` 存在但不被咨询）。修它要先定阈值，S0 有意留给单独立项。→ 见 U14 |
 | U12 | **共享规范文件的落点**（§4.4 / §2.5） | **已裁决（P1，用户 2026-10-10）**：规范放 `skills/peaks-code/references/`（`skills/**` 随 npm 包发、已在安装器覆盖范围内），race-code 用**相对路径**指过去。**核实过的事实**：安装器只链含 `SKILL.md` 的目录，所以 `skills/_shared/` 这类共享目录**不会**被安装；RL-8 的 `.peaks/standards/` 是**per-project** 规范而非 shipped 内容；仓库现有的唯一真正跨 skill 且装得上线的共享机制恰是 **loop-hygiene 的复制+逐字节测试**（§4.4 反对的那套）。**代价（已知并接受）**：race-code 耦合 peaks-code 的目录布局 |
 | U13 | **`fast-mode.md` 与 CLI 帮助里的 `change-id` 已不存在**（§2.5 末段） | **已裁决：S1 顺手修**（用户 2026-10-10）——改 `fast-mode.md` 的参数名 + `code-mode-gate-plan-command.ts:21/:26` 的帮助文本。**S1 执行时扩张了范围**：还改了同文件 `:35` 的 **stdout 标签**与 `code-commands.ts:2/:150` 的注释（终审指出这超出批准范围；用户 2026-10-10 裁决**保留并如实记为范围扩张**）。⚠️ **随之作废一句话**：S1 的提交信息说"change-id no longer exists"**是错的**——`code-run-command.ts:34` 的 `[change-id]`、`swarm-commands.ts`、`tech-commands.ts` 等仍在用 peaks 自己的 change-id。corrected scope: 只删掉了 `peaks code plan` 一处的旧命名 |
+| U14 | **提交闸在 Claude Code 上不存在**（§8.4 第三轮评审重写） | **三个问题必须由用户决定**，不许默认忽略：① **要不要把提交闸接进 `gate enforce`**，让 Claude Code 也有它？——S0 期间用户裁决过"先只修，不接"（Ruling 10），那是范围决定，不是这题已答。② **要不要在 `.husky/` 加 `commit-msg`**？——这会**推翻 `no-ai-co-author-trailer.test.ts:34-37` 记录的那条明确否决**，需要正面回答"为什么现在可以了"。③ 两者都不做的话，**§5 的完成证明 #3 必须明说它只有事后检测**，不能写成有拦截点。**在这三个问题被回答之前，S2 不得声称红规则被事前拦住了。** |
 
 ---
 
@@ -660,21 +677,23 @@ if (activeSkill.skill !== null) {   // ← 解析不出来，整个提交闸被�
 - **退出判据**：解析有测试且排序/作用域语义被钉住；失败方向有明确裁决 + 测试。
 - **依赖**：无。**S2 依赖它。**
 
-### S1 — 共享规范（**保行为重构**，2026-10-10 重定义）
+### S1 — 共享规范（**已交付**，2026-10-10）
 
-- **内容**：以 `skills/peaks-code/references/fast-mode.md` 为**基**，把两样真正逐字共享的散文泛化为一份规范文件（§4.4）：
-  1. **快泳道验收门** —— fast mode 已写着 `test pass + tsc pass + lint pass`；race-code §5 的 #1/#2 是同一件事；
-  2. **"何时不该走快泳道"的风险面** —— 两条泳道都需要这个判据（§6.2）。
-  peaks-code 的 fast-mode 路径指向它；race-code（S2）将来指向它。加**双向**测试（§4.4 / T11）。
-- **类型**：refactor，**对 peaks-code 零行为变化**（§1 行为级不变量就是它的验收标准）。**注意**：这**不是**"抽取已有重复"——风险面清单目前**在哪都不存在**，是**新写**的。用户 2026-10-10 裁决：**接受**，条件是它**保持 advisory**——一份**判断清单，不接到任何门上**。于是它**改变 peaks-code 的文档指导、不改变它的行为**，这正是 §6.2 已把 race-code 那份风险面降格成的形态。
-- **退出判据**：T11 绿；peaks-code 既有测试全绿。
-- **依赖**：无。**S2 的 SKILL.md 依赖它**（否则 race-code 会先复制一份）。
-- **含 U13（用户裁决：S1 顺手修）**：把 `fast-mode.md` 里的 `change-id` 参数名改成 `sessionId`，并同步 CLI 帮助那一行（`code-mode-gate-plan-command.ts:21` 的 `<change-id>` 与 `:26` 的 description）。
+- **内容**：以 `skills/peaks-code/references/fast-mode.md` 为**基**，把两样真正逐字共享的散文放进一份规范文件（§4.4）：
+  1. **快泳道验收门**；2. **"何时不该走快泳道"的风险面**（§6.2）。
+  peaks-code 的 fast-mode 路径指向它；race-code（S2）将来指向它。
+- **类型**：refactor。**注意**：这**不是**"抽取已有重复"——风险面清单当时**在哪都不存在**，是**新写**的。用户裁决：**接受**，条件是它**保持 advisory**——一份**判断清单，不接到任何门上**。
+- **交付状态（`main` 上 `c0554c7a`，已推送）**：3 个提交；`fast-lane-norm.md` + 单测（守卫为 **`skills/` 全树遍历**：门句恰好一次、风险表标题恰好一次）。
+- **⚠️ 实际足迹超出本节原述（第三轮评审指出）**：
+  - 给 `skills/peaks-code/SKILL.md:315` 的 `MUST` 修复环**加了一个语义例外**——不是"搬散文"也不是"加指向"，**改变了文档语义**（理由：与既有代码对齐，`repairLoop: !opts.fast`）。已记入 §1。
+  - `fast-lane-norm.md` 是 **peaks-code 发出去**的文件、却在描述 race-code ⇒ §1 第 3 点因此不再可检查。
+- **T11 的收窄（第三轮评审指出，此处补记）**：spec 的 T11 要求"两个 SKILL.md 都指向共享规范文件"。**S1 时 race-code 尚不存在**，所以 T11 被收窄为"一个消费者 + 全树唯一性"。**这个收窄当时未记录，是过程失误**；S2 的退出判据里补上了"规范仍然为真"。
 
 ### S2 — 快泳道 MVP（**本 spec 的主体**）
 
-- **内容**：`skills/peaks-race-code/SKILL.md`（含 loop-hygiene 块）+ `SKILL_NAMES`；`decideGateAction` 可选第三参（默认 fail-closed）+ `code-gate-command.ts` 解析；`.husky/commit-msg` 主层 + 拦截点次层（§8.4）；`peaks-audit` 的泳道路由（§3）；`.sh` 兄弟的处置（§10.1）。
-- **退出判据（= §5.5.2 的「门 1」）**：T1–T10 绿；§10.1 的三个文件改完；`.sh` 差异有明确处置；**且 `fast-lane-norm.md` 仍然为真**（S1 抽出它时，它断言了 race-code 尚不存在时的行为——"没有独立 QA 窗口"、"单向升级"。S2 是第一个能证伪它的东西，**必须显式核对，不能默认它还对**）。**门 1 通过即可关闭 S2**——不因为"还没用够次数"而拖住。
+- **内容**：`skills/peaks-race-code/SKILL.md`（含 loop-hygiene 块）+ `SKILL_NAMES`；`decideGateAction` 加可选第三参（默认 fail-closed）+ `code-gate-command.ts` 解析出**驾驶者**并传入（§8.2 只有一个输入）；`peaks-audit` 的泳道路由（§3）；`.sh` 兄弟的处置（§10.1）。
+- **⚠️ 原列的"`.husky/commit-msg` 主层 + 拦截点次层"已删除**：第三轮评审证明那个"拦截点"在 Claude Code 上不存在、`commit-msg` 也不存在，且提议它会推翻一条**已记录的决定**。**提交闸的处置改由 §12 U14 决定，S2 不得默认它已解决**；在 U14 有答案之前，S2 **不得**声称红规则被事前拦住。
+- **退出判据（= §5.5.2 的「门 1」）**：T1–T11 绿；§10.1 的文件改完；`.sh` 差异有明确处置；**`fast-lane-norm.md` 仍然为真**（它断言的 race-code 行为在 S1 时还不存在，S2 是第一个能证伪它的东西）；**且 U14 的三个问题已回答**（否则完成证明 #3 必须明写"只有事后检测"）。**门 1 通过即可关闭 S2**——不因为"还没用够次数"而拖住。
 - **依赖**：**S0 + S1**。
 
 ### S3 — 门 2：pilot + 指标埋点 + 阶段切换
