@@ -69,6 +69,18 @@ describe('the fast-lane norm is single-sourced', () => {
     expect(norm).toContain('every markdown file under skills/');
   });
 
+  it('the race-code skill points at the norm and does not restate the gate', () => {
+    // The SECOND consumer. S1 shipped the norm with peaks-code's fast mode as
+    // one consumer and the tree-wide uniqueness arms above as the guard; the
+    // skill that reads it is where the obligation actually lands. A pointer is
+    // also the only shape that cannot drift: the moment this file carries a
+    // second copy of the gate, the arm above reports two statements and this
+    // one reports the copy.
+    const skill = readFileSync('skills/peaks-race-code/SKILL.md', 'utf8');
+    expect(skill).toContain('fast-lane-norm.md');
+    expect(skill).not.toContain(GATE);
+  });
+
   it('the norm says the rules are unenforced, not that the document is inert', () => {
     // The document IS pinned — by this test. Claiming otherwise would invite a
     // contributor to delete a file the suite depends on.

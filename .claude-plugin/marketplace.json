@@ -124,6 +124,11 @@
           "userInvocable": false
         },
         {
+          "name": "peaks-race-code",
+          "path": "./skills/peaks-race-code",
+          "description": "Fast lane for code work — this window edits source directly, with no sub-agents and no paperwork. Use it when a code task is small enough that opening a second context window is the whole cost, i.e. trivial and everyday small features and bug fixes whose diff you can hold in your head. Not for a task that touches one of the risk surfaces the fast-lane norm names (`../peaks-code/references/fast-lane-norm.md`), and not for work that needs a durable audit trail — those belong to peaks-code; read the norm before you decide. Triggers on \"/peaks-race-code\", \"peaks race\", \"race this\", \"fast lane\", \"直接改，别走全流程\"."
+        },
+        {
           "name": "peaks-rd",
           "path": "./skills/bee/peaks-rd",
           "description": "Research and development role for Peaks-Loop (LLM-only internal role; not user-invocable.\nTriggered by peaks-code via `peaks sub-agent dispatch --role rd`.)\nUse for engineering analysis, refactor planning, project scanning, code standards,\nunit-test coverage gates, implementation contracts, task graphs, and RD handoffs.\nAlways use this for Peaks-Loop refactor workflows.",

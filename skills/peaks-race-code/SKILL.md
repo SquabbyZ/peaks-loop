@@ -1,0 +1,161 @@
+---
+name: peaks-race-code
+description: Fast lane for code work — this window edits source directly, with no sub-agents and no paperwork. Use it when a code task is small enough that opening a second context window is the whole cost, i.e. trivial and everyday small features and bug fixes whose diff you can hold in your head. Not for a task that touches one of the risk surfaces the fast-lane norm names (`../peaks-code/references/fast-lane-norm.md`), and not for work that needs a durable audit trail — those belong to peaks-code; read the norm before you decide. Triggers on "/peaks-race-code", "peaks race", "race this", "fast lane", "直接改，别走全流程".
+---
+
+<!-- peaks:loop-hygiene — HAND-MAINTAINED block, NOT generated; byte-identical in every SKILL.md, enforced by tests/unit/skills/loop-hygiene-block.test.ts. Edit one, edit all 22. -->
+
+## Loop hygiene (every turn — MANDATORY)
+
+**Skill header.** While this skill is active, open every turn with
+`Peaks-Loop Skill: <skill> | Peaks-Loop Gate: <gate> | Next: <one short action>`.
+Every turn, not only the first — it is how the user knows which skill is driving.
+
+**Context is this skill's own business.** Run `peaks skill presence --json` every turn and
+read its `context` block. When `action` is `auto-fire`, `pre-compact`, or `red-line`,
+run `peaks code auto-compact --project .` **yourself**, then continue. Tell the user the
+ratio in one line if it helps, but never hand them the compaction step: asking the user to
+run `/compact` is the regression the zero-pause contract forbids. This holds in **every
+mode** — standard *and* 24h. The mode moves the threshold, never the obligation.
+
+**Read before you edit.** Read a file before your first `Edit` / `Write` / `MultiEdit` on
+it — the normal way to work here — for every path outside `.peaks/**` (source, tests, docs,
+config); `.peaks/**` writes are exempt.
+
+**Expect one denial per file anyway — and do NOT pre-empt it.** A `PreToolUse` gate (ECC's
+"Fact-Forcing Gate") denies the FIRST edit a session makes to any given path, once, by
+design. Reading does NOT prevent it: the gate keys on the path's first touch, not on whether
+you read it. **Do not recite its four questions before every edit** — it asks when it wants
+them, and reciting unprompted burns a round-trip per file for nothing. Answer only when a
+denial actually arrives.
+
+**When one does arrive:** a denial is not a failure and the tool is not broken — your edit
+was NOT applied. State the facts it asks for (importers, affected API, data schemas if any,
+the user's verbatim instruction), then retry the SAME operation. The retry is allowed. Do not
+switch tools, do not give up, do not retry blindly. One more thing worth knowing: an idle gap
+of ~30 minutes clears the gate's "already passed" list, so a file you cleared earlier can be
+denied again after a long pause. That is the gate resetting, not you regressing.
+<!-- /peaks:loop-hygiene -->
+
+# Peaks-Loop Race Code (the fast lane)
+
+**This is a lane, not a mode of `peaks-code`.** `peaks-code`'s red line — the orchestrator is
+not the implementer — is the reason it opens separate context windows, so a lane that lets
+one window both orchestrate and implement cannot be one of its switches. It is a sibling
+skill. There are three lanes, and this is the third:
+
+| Lane | Who implements | Ceremony kept |
+|---|---|---|
+| `peaks-code` (full) | a separate RD sub-agent | the whole workflow: all steps, Gate A–G, transition state machine |
+| `peaks-code` fast mode | a separate RD sub-agent | fewer steps, the same separation of duties |
+| **`peaks-race-code`** | **this window** | none of the above — see "What this lane does not write" |
+
+Do not offer `peaks-code` fast mode as a working alternative: it is designed but not proven —
+its executable path has no callers and `peaks code plan --fast` only prints a plan. The
+argument for keeping a middle tier rather than collapsing it into this one is in
+`docs/superpowers/specs/2026-10-10-peaks-race-code-design.md` §2.5.
+
+**Loop Engineering role.** The red lines that govern every Loop-Engineering-participating
+`peaks-*` skill live at `.peaks/standards/loop-engineering-guidelines.md`. This skill honours
+`RL-1` (the user speaks or picks; the user never types a CLI verb) and `RL-8`. Read the RL-8
+boundary carefully, because this name sits close to it: **`race` is a lane axis, not a
+variant of `peaks-code`.** This skill shares peaks-code's domain and shares none of its
+implementation right — that difference is the whole of it.
+
+## The gate: what lets this window edit source
+
+The gate over direct source edits opens on exactly one fact: **the driver resolved for this
+session is `peaks-race-code`.** Set it before your first edit, not after:
+
+```bash
+peaks skill presence:set peaks-race-code --project . --mode <mode> --gate <gate>
+```
+
+The name is a self-report — the command accepts any string — so read the next three points
+as the terms of the deal, not as caveats:
+
+- **This is a discipline gate, not a security boundary.** It stops the reflex ("this change
+  is small, I will just do it here"), not an actor. It already fails open on a malformed
+  payload, a missing path and an internal error, and it is not hardened against a deliberate
+  bypass. Never describe it as enforcement, and do not spend effort making it one.
+- If the resolved driver is not `peaks-race-code`, or nothing can be resolved, a direct edit
+  under a hard-blocked path family is refused (exit 2, `PEAKS_CODE_PROHIBITED_DIRECT_EDIT`).
+  Fix the driver; never route around the refusal.
+- **Nothing in this lane is blocked before the fact.** The gate bites only where its hook
+  entry is installed (`peaks hooks install`), and the commit-side rule is detect-only (proof
+  3 below). Never tell the user a rule was enforced when the only thing that happened is that
+  nobody looked.
+
+## Completion proofs — four, and they are actions, not a document
+
+Show the command and its real output. "It should pass" is not a proof, and this lane has no
+gate machinery behind you to catch it.
+
+1. **Tested** and 2. **Typed** — the shared acceptance gate. It is stated once, for both fast
+   lanes, in `../peaks-code/references/fast-lane-norm.md` §1. Go and run it there; do not
+   re-derive it from this file, and do not restate it in the trace as if this file said it.
+3. **An honest commit.** The message says what changed and why. **The AI-attribution red rule
+   has detection only — nothing blocks the commit before it exists.** There is no commit gate
+   on Claude Code and no commit-msg hook in `.husky/` (its absence is a recorded decision,
+   not an oversight). The only mechanical support is
+   `tests/unit/standards/no-ai-co-author-trailer.test.ts`, which reads `git log` and fails;
+   its remedy is rewriting history, so it cannot un-land a trailer. Never add the trailer, and
+   never tell the user one was blocked.
+4. **A retractable unit.** Land the change on one commit (or one branch) and be able to say
+   the exact command that undoes it. This lane is the only one allowed to edit source
+   directly and it skips the transition checks, so "it can be undone" is the only backstop
+   left. Say the command out loud rather than assuming it.
+
+## Risk surfaces — where this lane stops
+
+The list of changes that do not belong in a fast lane lives in
+`../peaks-code/references/fast-lane-norm.md` §2. That file is the single source: read it
+before you start, and again once a diff exists. It is not restated here, and a second copy
+here would be exactly the drift the norm exists to prevent.
+
+Two things that section says about itself, and that you must not paper over on its behalf: it
+is a judgement list rather than a gate, and its size row has no threshold behind it yet, so a
+size is not a decision you can make from it. What happens when a row is hit is the next
+section.
+
+## Escalation — one way for you, never for the user
+
+- **If you find mid-task that the change crosses a risk row: stop, say so, and hand the task
+  to `peaks-code`.** Do not press on because you are nearly done. That is the one thing this
+  lane may not do — peaks-code does not get to downgrade a task either, and neither do you.
+- **The user may push it back.** Say the risk in one sentence, do not block, and write the
+  override and the row it overrode into the trace. Silently allowing it is not an option
+  either.
+- **Per task, not per session.** The one-way rule binds the task that hit the wall. The next
+  task may take this lane again; one misjudgement must not lock the user out of the fast lane.
+- **Hand over, do not walk away.** Before you escalate, record whether the tree is clean,
+  whether the half-done work is committed, whether it passes the acceptance gate, which files
+  you touched and why you stopped. Ownership moves when that record lands — an unexplained
+  dirty tree is the one state `peaks-code` cannot start from.
+- Hold all of this in the trace and in the user's presence in the window. The
+  machine-checkable half of the risk list does not exist, so nothing else is holding it.
+
+## Traces
+
+- Create the session workspace once — `peaks workspace init --project .`. It is the
+  precondition of `presence:set`, which refuses when no session is bound. One CLI call, not a
+  step.
+- Write one short record at `.peaks/_runtime/<sessionId>/race/<rid>.md`: the need in one
+  sentence; the lane and who chose it; the files you changed; the four proofs with their
+  actual results and the commands that produced them; and any risk row you hit, with the
+  user's override if there was one.
+- **Memory is for boundaries and new pitfalls only.** Sediment into `.peaks/memory/` when the
+  change drew a risk boundary or tripped something new; everyday small changes stay in the
+  runtime record. Sediment everything and memory stops being worth reading.
+
+## What this lane does not write
+
+No sub-agent dispatches. No Gate A–G file chain. No `peaks request transition` state machine.
+No planning or review documents — no tech doc, bug analysis, review envelope, audit envelope,
+QA report or verdict. No job shape, no slice DAG, no swarm fan-out, no PRD phase, no
+orchestrator-to-implementer handoff.
+
+Keep the parts that cost no wall-clock, because they are habits rather than ceremony: read a
+file before editing it, the TDD micro-cycle, the four Karpathy guidelines, one codegraph
+query for the affected surface, one sentence before you start on what you will change and
+why, and nothing dropped in the project root.

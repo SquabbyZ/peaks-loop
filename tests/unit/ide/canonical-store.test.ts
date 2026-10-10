@@ -299,10 +299,10 @@ describe('Scenario: behavior — link identity is decided by realpath, not by st
 });
 
 describe('Scenario: integration — the real shipped package', () => {
-  it('when every shipped skill is stored, should reproduce all 22 byte-identically', () => {
-    // given: the real package tree — 13 top-level skills and 9 bee-level ones
+  it('when every shipped skill is stored, should reproduce all 23 byte-identically', () => {
+    // given: the real package tree — 14 top-level skills and 9 bee-level ones
     // when: each one is stored canonically
-    // then: all 22 canonical copies exist and are byte-equal to the package source
+    // then: all 23 canonical copies exist and are byte-equal to the package source
     const skillsRoot = join(PACKAGE_ROOT, 'skills');
     const sources: Array<{ name: string; sourcePath: string }> = [];
     for (const name of readdirSync(skillsRoot)) {
@@ -317,8 +317,8 @@ describe('Scenario: integration — the real shipped package', () => {
       sourcePath,
       ...mod.ensureCanonicalCopy({ kind: 'skills', name, sourcePath })
     }));
-    expect(sources).toHaveLength(22);
-    expect(stored).toHaveLength(22);
+    expect(sources).toHaveLength(23);
+    expect(stored).toHaveLength(23);
     for (const entry of stored) {
       const from = join(entry.sourcePath, 'SKILL.md');
       const to = join(entry.canonicalPath, 'SKILL.md');
