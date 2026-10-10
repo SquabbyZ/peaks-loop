@@ -642,8 +642,8 @@ if (activeSkill.skill !== null) {   // ← 解析不出来，整个提交闸被�
 | U9 | **本设计未经独立模型审计——已查实，且短期无法达成**| **事实（2026-10-10 实测）**：① 审计第一轮与设计**同模型**（`deepseek-flash[1M]`，经 `anthropic-messages-api` 绑定）。② `peaks reviewer status` 返回 `configured: false / no-reviewer-config`；根因是 `src/services/reviewer/reviewer-config.ts:77` 要求 `reviewer.providers.length >= 2`（"A4.1 explicitly requires >=2 providers…skipped cleanly"）——**该门拒绝假绿，而非产出假绿**。③ 本机只够得着一个模型族：`ollama` 未安装（PATH 无、`:11434` 无响应），`openai` 无凭据。④ **且 `peaks-reviewer` 时机也不对**：`peaks reviewer run --rid <rid>` 按 **rid 审 slice**、prompt 取自 `input.context`（≤8KB），定位是 v2.14.0 G4 anti-fake-green（"实现有没有真按 contract 做到"），**不是设计评审器**。 | **裁决（用户 2026-10-10）**：以 **fresh-context 子代理**代替，并**如实标注其性质**——换的是**上下文**（不带本对话的自我合理化），**不是模型族**（仍 `deepseek-flash`，共享同一批系统性盲点）。因此它**不构成独立审计的等价物**。真正的 `peaks-reviewer` 排到**实现之后**（那时才有 rid / contract / diff 可审）。要让独立模型审真正可用，需用户提供第二模型族凭据并写入 `~/.peaks/config.json` 的 `reviewer.providers` |
 | U10 | **时序基线取不到——`metrics/slices.jsonl` 的埋点支撑不了**（§5.5.1） | 41 条 `dispatch` 事件全部无 `sliceRid`、42% 记录无归属、2/4 session 才有该文件。**归到独立小 slice**：给 `dispatch` 补 `sliceRid` + 给每个任务补起止标记。本 spec 不依赖它（N1 已改为结构性指标） |
 | U11 | **驾驶者解析不可靠，且提交闸在同信号上 fail-open**（评审 #1 / #7，`hook-handle.ts:131-132`） | **本设计的硬前提，必须先独立修**：① 传 `callerId` 或与 `skill-presence-service.ts:198` 一致地按 `lastHeartbeat` 排序；② 决定提交闸在该信号上到底 fail-open 还是 fail-closed（今天与 §8.3 相反）。**不修，§8.2 整张表建在沙上**——且这是**今天就在提交闸里的既存 bug，与 race-code 无关** |
-| U12 | **共享规范文件的落点**（§4.4 / §2.5） | 实现期定。候选：`.peaks/standards/`（RL-8 的 import 先例）或 skill-family 共享的 `references/`；**基**是既有的 `skills/peaks-code/references/fast-mode.md`。须满足 §4.4 的"一份规范 + 双指向 + 双向测试" |
-| U13 | **`fast-mode.md` 与 CLI 帮助里的 `change-id` 已不存在**（§2.5 末段） | change-id 维度在 `2026-06-29-change-id-root-removal` 删除，handler 形参是 `sessionId`。**未裁决**：S1 顺手改 / 另立小 slice / 先不动。**不许默认忽略** |
+| U12 | **共享规范文件的落点**（§4.4 / §2.5） | **已裁决（P1，用户 2026-10-10）**：规范放 `skills/peaks-code/references/`（`skills/**` 随 npm 包发、已在安装器覆盖范围内），race-code 用**相对路径**指过去。**核实过的事实**：安装器只链含 `SKILL.md` 的目录，所以 `skills/_shared/` 这类共享目录**不会**被安装；RL-8 的 `.peaks/standards/` 是**per-project** 规范而非 shipped 内容；仓库现有的唯一真正跨 skill 且装得上线的共享机制恰是 **loop-hygiene 的复制+逐字节测试**（§4.4 反对的那套）。**代价（已知并接受）**：race-code 耦合 peaks-code 的目录布局 |
+| U13 | **`fast-mode.md` 与 CLI 帮助里的 `change-id` 已不存在**（§2.5 末段） | **已裁决：S1 顺手修**（用户 2026-10-10）——改 `fast-mode.md` 的参数名 + `code-mode-gate-plan-command.ts:21/:26` 的帮助文本。见 §13 S1 |
 
 ---
 
@@ -666,10 +666,10 @@ if (activeSkill.skill !== null) {   // ← 解析不出来，整个提交闸被�
   1. **快泳道验收门** —— fast mode 已写着 `test pass + tsc pass + lint pass`；race-code §5 的 #1/#2 是同一件事；
   2. **"何时不该走快泳道"的风险面** —— 两条泳道都需要这个判据（§6.2）。
   peaks-code 的 fast-mode 路径指向它；race-code（S2）将来指向它。加**双向**测试（§4.4 / T11）。
-- **类型**：refactor，**对 peaks-code 零行为变化**（§1 行为级不变量就是它的验收标准）。**注意**：这**不是**"抽取已有重复"——风险面清单目前在哪都不存在，是**新写**的；把它写成 peaks-code 的规范内容会**改变 peaks-code 的规范面**，这一点必须在 review 时显式接受，不能含糊。
+- **类型**：refactor，**对 peaks-code 零行为变化**（§1 行为级不变量就是它的验收标准）。**注意**：这**不是**"抽取已有重复"——风险面清单目前**在哪都不存在**，是**新写**的。用户 2026-10-10 裁决：**接受**，条件是它**保持 advisory**——一份**判断清单，不接到任何门上**。于是它**改变 peaks-code 的文档指导、不改变它的行为**，这正是 §6.2 已把 race-code 那份风险面降格成的形态。
 - **退出判据**：T11 绿；peaks-code 既有测试全绿。
 - **依赖**：无。**S2 的 SKILL.md 依赖它**（否则 race-code 会先复制一份）。
-- **已知残余**：`fast-mode.md` 描述的参数名 `change-id` 已不存在（§12 U13）——S1 顺手改成 `sessionId` 还是另立，见 U13。
+- **含 U13（用户裁决：S1 顺手修）**：把 `fast-mode.md` 里的 `change-id` 参数名改成 `sessionId`，并同步 CLI 帮助那一行（`code-mode-gate-plan-command.ts:21` 的 `<change-id>` 与 `:26` 的 description）。
 
 ### S2 — 快泳道 MVP（**本 spec 的主体**）
 
