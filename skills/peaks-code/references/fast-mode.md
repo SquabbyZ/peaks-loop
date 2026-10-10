@@ -13,7 +13,8 @@ three steps that dominate cold-start cost:
 
 ## Acceptance gate
 
-`test pass + tsc pass + lint pass` = GO. Single QA round, NO repair loop.
+The gate, and the list of tasks that do not belong in a fast lane at all, live
+in `fast-lane-norm.md` — the single source, shared with the other fast lane.
 Use fast mode only when the user explicitly opts in (default stays
 conservative).
 
