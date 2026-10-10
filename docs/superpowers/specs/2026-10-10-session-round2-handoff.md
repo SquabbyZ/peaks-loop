@@ -220,8 +220,33 @@ echo '{"tool_name":"Bash",...}' | peaks code gate-step-08 --project .
 `verify-pipeline` 若在声明完成前跑过（契约明确要求），会当场因 QA 停在 `draft` 而拒绝。** 那个调用
 我也跳过了。
 
-**结论**：这不只是我的疏漏，也是产品缺口；两者都记着。要不要立项修（给 Step 11 一个拒绝点、
-把 `gate-step-08` 的缺失输入改成 fail-closed）由 owner 决定——**改门机器须单独立项。**
+**结论**：这不只是我的疏漏，也是产品缺口。
+
+### 已修（owner 决定立项，commit `6b573478`）
+
+两条都修了，**并且是按门机器的规矩验的**（每条规则都有 plant + 反向对照）：
+
+- **缺陷 A**：`emit-handoff` 的判别联合加两种 verdict（`block-no-sediment` / 显式覆盖）。
+  信号取自 `.peaks/memory/index.json` 里 `sourceArtifact` 指向本会话运行时目录的条目——
+  peaks 自己的状态，**不是裸 mtime**（本仓被 mtime 坑过）。三值化且 **`unknown` 拒绝**。
+- **缺陷 B**：三态。无决定且无账本 ⇒ allow，但**把缺失说成缺失**（那句"大多数提示不是 Job 形状"
+  删了）；**无决定但有账本 ⇒ 拒绝**。
+
+**端到端证明**（RD 做不到的一步：它的 36 条臂全在进程内，因为已安装的 `peaks` 是旧构建）。
+`pnpm build` 之后，用**真实的 CLI** 打这个 hook，靶子**就是催生它的这个会话**：
+
+```
+已安装（旧 4.1.3）   → { allow: true, mode: "undecided-no-regex-hit" }   EXIT=0
+工作树构建（修复后） → STEP_08_BLOCKED_WITH_LEDGER                      EXIT=2
+   "…but it owns a Job ledger (job/2026-10-10-24h-autonomous-round/state.json).
+    That means `peaks job init` ran and `peaks code detect-job` did not…"
+```
+
+**修好的门打向催生它的会话时拒绝，并点名缺了哪一步。** 全量 `430 files / 4531 passed`；
+ceiling 只降（`eslintFindings` 1764 → 1763）。
+
+**仍未生效的地方**：已安装的 `peaks` 还是旧构建，**真实 hook 要等下一次 build/install 才会用上新逻辑**。
+这正是 §3 那条 L3 发现从另一侧现身。
 
 ## 9. 一条方法学（本轮出现三次）
 
