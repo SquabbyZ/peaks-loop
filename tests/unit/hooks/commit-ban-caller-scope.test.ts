@@ -57,7 +57,7 @@ const COMMIT_PAYLOAD = JSON.stringify({
   session_id: 'caller-b'
 });
 
-function runHookHandle(root: string): { status: number | null; stdout: string } {
+function runHookHandle(root: string, stdin: string): { status: number | null; stdout: string } {
   const run = spawnSync(
     process.execPath,
     [
@@ -74,7 +74,7 @@ function runHookHandle(root: string): { status: number | null; stdout: string } 
       cwd: ROOT,
       encoding: 'utf8',
       windowsHide: true,
-      env: { ...process.env, CLAUDE_PROJECT_DIR: root, PEAKS_HOOK_STDIN: COMMIT_PAYLOAD }
+      env: { ...process.env, CLAUDE_PROJECT_DIR: root, PEAKS_HOOK_STDIN: stdin }
     }
   );
   return { status: run.status, stdout: run.stdout ?? '' };
@@ -93,11 +93,42 @@ describe('commit ban — caller scoping', () => {
     // Another caller in the SAME peaks session is running peaks-code.
     writeLease(root, 'caller-a', 'peaks-code');
 
-    const { status, stdout } = runHookHandle(root);
+    const { status, stdout } = runHookHandle(root, COMMIT_PAYLOAD);
 
     // The commit is asked about caller-b, which has no peaks skill. Resolving
     // caller-a's lease instead would ban it.
     expect(status).not.toBe(2);
+    expect(stdout).not.toContain('Code Commit Ban');
+  });
+
+  // Task 4. With no identity in the payload the resolver cannot be asked at
+  // all — asking without a callerId returns whichever lease comes first,
+  // which is the guessing this slice removes. The ambiguous case is decided
+  // by `evaluateCodeBan` instead.
+  it('bans an unattributable commit while a peaks lease is present', () => {
+    const root = makeProject();
+    writeLease(root, 'caller-a', 'peaks-code');
+
+    // No `session_id` / `caller_id` — the shape `parseTraeShapeStdin` yields,
+    // and the adapters where this ban actually runs.
+    const { stdout } = runHookHandle(
+      root,
+      JSON.stringify({ tool_name: 'Bash', tool_input: { command: 'git commit -m "fix: x"' } })
+    );
+
+    expect(stdout).toContain('could not be identified');
+  });
+
+  it('allows an unattributable commit when no peaks lease exists', () => {
+    // Review Focus #1: an ordinary session must not be blocked just because
+    // the gate is installed.
+    const root = makeProject();
+
+    const { stdout } = runHookHandle(
+      root,
+      JSON.stringify({ tool_name: 'Bash', tool_input: { command: 'git commit -m "fix: x"' } })
+    );
+
     expect(stdout).not.toContain('Code Commit Ban');
   });
 });

@@ -15,8 +15,17 @@
 const COMMIT_APPLY_PATTERN = /^\s*git\s+(commit|apply)\b/;
 
 export interface CodeBanInput {
-  readonly skill: string;
+  /** The resolved driving skill, or `null` when no skill could be resolved. */
+  readonly skill: string | null;
   readonly command: string;
+  /** Whether a `peaks-*` lease exists in this peaks session. */
+  readonly peaksLeasePresent: boolean;
+  /**
+   * Whether the caller's identity was resolved. When `true`, `skill === null`
+   * means "this caller resolved and has no peaks skill" — which is an allow.
+   * When `false`, we could not tell who is driving at all.
+   */
+  readonly identityResolved: boolean;
 }
 
 export interface CodeBanResult {
@@ -28,14 +37,38 @@ const DENY_REASON =
   'Code Commit Ban Red Line: peaks-* skills must go through peaks-code / peaks-rd. ' +
   'Use `peaks request transition` instead of `git commit` / `git apply` directly.';
 
-export function isCodeCommit(skill: string, command: string): boolean {
-  if (!skill.startsWith('peaks-')) return false;
+/**
+ * S0 Task 4 (Ruling 11). The ban used to be skipped wholesale when the driver
+ * could not be resolved — `hook-handle.ts` guarded the evaluation with
+ * `if (skill !== null)`, so a resolution failure meant no ban at all. This
+ * branch closes that. It is deliberately NARROWER than plain fail-closed: it
+ * fires only when a peaks skill is actually present in the session, because
+ * `resolveActiveSkillForCaller` returns `null` for any unbound session — and
+ * failing closed on that would block `git commit` for every ordinary session
+ * in any repo with the gate installed.
+ */
+const UNRESOLVED_IDENTITY_REASON =
+  'Code Commit Ban Red Line: a peaks skill is registered in this session, but the ' +
+  'caller could not be identified, so this commit cannot be shown to come from a ' +
+  'non-peaks session. Re-run from the bound session, or use ' +
+  '`peaks request transition` instead of `git commit` / `git apply`.';
+
+export function isCodeCommit(skill: string | null, command: string): boolean {
+  if (skill === null || !skill.startsWith('peaks-')) return false;
   return COMMIT_APPLY_PATTERN.test(command);
 }
 
 export function evaluateCodeBan(input: CodeBanInput): CodeBanResult {
   if (isCodeCommit(input.skill, input.command)) {
     return { denied: true, reason: DENY_REASON };
+  }
+  if (
+    input.skill === null &&
+    !input.identityResolved &&
+    input.peaksLeasePresent &&
+    COMMIT_APPLY_PATTERN.test(input.command)
+  ) {
+    return { denied: true, reason: UNRESOLVED_IDENTITY_REASON };
   }
   return { denied: false, reason: '' };
 }

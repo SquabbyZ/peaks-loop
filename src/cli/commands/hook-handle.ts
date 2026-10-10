@@ -13,11 +13,39 @@ import { evaluateCodeBan } from '../../services/audit/enforcers/code-ban.js';
 import { isRootWrite } from '../../services/audit/enforcers/no-root-pollution.js';
 import { checkLoginGate } from '../../services/audit/enforcers/login-gate.js';
 import { resolveActiveSkillForCaller } from '../../services/audit/enforcers/active-skill-resolver.js';
+import { getSessionIdCanonical } from '../../services/session/session-manager.js';
+import { listPresenceLeases } from '../../services/skills/presence-lease-service.js';
 import { fail, ok } from 'peaks-loop-shared/result';
 
 import { emitDecision, emitHint } from '../../services/hooks/output.js';
 
 type HookHandleOptions = { project: string; json?: boolean };
+
+/**
+ * S0 Task 4 (Ruling 11). Does any in-flight lease in this peaks session carry
+ * a `peaks-*` skill?
+ *
+ * Deliberately independent of `resolveActiveSkillForCaller`: that function is
+ * the one under suspicion when the identity cannot be resolved, so asking it
+ * whether peaks is present would be circular.
+ *
+ * Fails open (returns `false` ⇒ no ban) to match the enforcer's standing
+ * contract — a bug in peaks must not brick the harness.
+ */
+function hasPeaksLeaseInSession(projectRoot: string): boolean {
+  try {
+    const sessionId = getSessionIdCanonical(projectRoot);
+    if (sessionId === null) return false;
+    return listPresenceLeases(projectRoot, sessionId).some(
+      (lease) =>
+        (lease.status === 'preparing' || lease.status === 'running') &&
+        typeof lease.skill === 'string' &&
+        lease.skill.startsWith('peaks-')
+    );
+  } catch {
+    return false;
+  }
+}
 
 /**
  * Read the hook payload. `PEAKS_HOOK_STDIN` is a test seam (same convention as
@@ -142,33 +170,44 @@ export function registerHookHandleCommand(program: Command, io: ProgramIO): void
         // `caller_id` names this concept; `session_id` carries the same value
         // under the harness's own name, kept as the fallback.
         const callerId = pluckString(parsed, ['caller_id']) ?? pluckString(parsed, ['session_id']);
-        const activeSkill = resolveActiveSkillForCaller(projectRoot, {
-          callerId: callerId ?? null
+        const identityAvailable = typeof callerId === 'string' && callerId.length > 0;
+        // S0 Task 4 (Ruling 12): when there is no identity to scope by, do NOT
+        // ask the resolver anyway. Asking without a callerId returns whichever
+        // lease comes first — i.e. it guesses, and the guess is another
+        // caller's skill. That is the defect this slice fixes, so the
+        // ambiguous case is handed to `evaluateCodeBan` as unresolved instead.
+        const activeSkill = identityAvailable
+          ? resolveActiveSkillForCaller(projectRoot, { callerId })
+          : { skill: null, callerId: null, sessionId: null, mode: null, source: 'none' as const };
+        // S0 Task 4 (Ruling 11): evaluate the ban even when no skill resolved.
+        // The previous guard was `if (activeSkill.skill !== null)`, so nothing
+        // resolved meant the ban did not run at all. The peaksLeasePresent
+        // probe is independent of the resolution above, because the
+        // resolution is the thing under suspicion.
+        const codeDecision = evaluateCodeBan({
+          skill: activeSkill.skill,
+          command: fallbackCommand,
+          peaksLeasePresent: hasPeaksLeaseInSession(projectRoot),
+          identityResolved: identityAvailable
         });
-        if (activeSkill.skill !== null) {
-          const codeDecision = evaluateCodeBan({
-            skill: activeSkill.skill,
-            command: fallbackCommand
-          });
-          if (codeDecision.denied) {
-            const formatted = formatDecisionResponse(ide, 'deny', codeDecision.reason);
-            emitDecision(io, formatted.stdout);
-            if (options.json === true) {
-              emitHint(
-                io,
-                JSON.stringify(
-                  ok('hook.handle', {
-                    ide,
-                    tool: hook.toolName,
-                    decision: 'deny',
-                    reason: codeDecision.reason,
-                    enforcer: 'code-ban'
-                  })
-                )
-              );
-            }
-            return;
+        if (codeDecision.denied) {
+          const formatted = formatDecisionResponse(ide, 'deny', codeDecision.reason);
+          emitDecision(io, formatted.stdout);
+          if (options.json === true) {
+            emitHint(
+              io,
+              JSON.stringify(
+                ok('hook.handle', {
+                  ide,
+                  tool: hook.toolName,
+                  decision: 'deny',
+                  reason: codeDecision.reason,
+                  enforcer: 'code-ban'
+                })
+              )
+            );
           }
+          return;
         }
 
         // Lazy import to avoid circular: peaks gate enforce logic
