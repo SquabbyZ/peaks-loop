@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-09T05:03:54.782Z",
+  "updatedAt": "2026-10-10T00:40:00.353Z",
   "hot": {
     "rule": [
       {
@@ -938,6 +938,14 @@
         "updatedAt": "2026-10-08"
       },
       {
+        "name": "sub-agent-scratch-belongs-under-peaks-runtime-sessionid-rd-scratch-and-the-reason-is-functional",
+        "kind": "convention",
+        "description": "Sub-agent scratch files belong under , never at a path outside the repository.",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\sub-agent-scratch-belongs-under-peaks-runtime-sessionid-rd-scratch-and-the-reason-is-functional.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-10-session-062f74/txt/handoff.md",
+        "updatedAt": "2026-10-10"
+      },
+      {
         "name": "trae-install-inherits-slice-1-s-registry-driven-code-path-no-install-code-was-added",
         "kind": "convention",
         "description": "Slice #2's Trae support is purely \"fill the table\" —  for Trae users uses the same registry-driven install path as Cl...",
@@ -1126,6 +1134,14 @@
         "updatedAt": "2026-10-08"
       },
       {
+        "name": "a-guard-that-never-ran-is-not-a-passing-guard",
+        "kind": "lesson",
+        "description": "A cross-cutting structural guard stayed red through three batches and two commits of this round.",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\a-guard-that-never-ran-is-not-a-passing-guard.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-10-session-062f74/txt/handoff.md",
+        "updatedAt": "2026-10-10"
+      },
+      {
         "name": "a-guard-that-reads-the-thing-it-guards-is-not-a-guard",
         "kind": "lesson",
         "description": "C wave 8 spent half its life being the fix for §2.27:  wrote \"every ceiling may only go DOWN\" into its own artifact w...",
@@ -1190,6 +1206,14 @@
         "updatedAt": "2026-10-09"
       },
       {
+        "name": "a-registry-or-behaviour-hash-cannot-see-a-function-body-and-cannot-see-a-dropped-re-export",
+        "kind": "lesson",
+        "description": "Five batches each \"proved\" behaviour-preserving refactors by hashing the rendered command registry before and after.",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\a-registry-or-behaviour-hash-cannot-see-a-function-body-and-cannot-see-a-dropped-re-export.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-10-session-062f74/txt/handoff.md",
+        "updatedAt": "2026-10-10"
+      },
+      {
         "name": "a-self-check-whose-file-set-comes-from-the-diff-covers-neither-agent-s-window",
         "kind": "lesson",
         "description": "An RD reported \"eslint + prettier --check clean **on the new test file**\" — singular.",
@@ -1244,6 +1268,14 @@
         "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\ac-pass-list-is-not-a-completion-bar.md",
         "sourceArtifact": ".peaks/_runtime/2026-09-12-session-e37ef0/txt/handoff.md",
         "updatedAt": "2026-10-08"
+      },
+      {
+        "name": "an-installed-build-whose-version-string-matches-the-worktree-can-still-be-missing-every-new-file",
+        "kind": "lesson",
+        "description": "PATH resolution is not a build check.",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\an-installed-build-whose-version-string-matches-the-worktree-can-still-be-missing-every-new-file.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-10-session-062f74/txt/handoff.md",
+        "updatedAt": "2026-10-10"
       },
       {
         "name": "an-llm-facing-contract-copy-must-be-guarded-by-a-test-that-reads-the-file-itself",
@@ -1427,7 +1459,7 @@
         "description": "长得像通过、其实什么都没验 2026-10-09 同一次 24h 运行里，**三次**遇到同一类失真：**退出码 0 / 绿色输出，但零验证**。三次形态不同，检测手段相同。 三例 | # | 形态 | 表现 | |---|---|-...",
         "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\pass-shaped-output-that-verified-nothing.md",
         "sourceArtifact": null,
-        "updatedAt": "2026-10-08"
+        "updatedAt": "2026-10-09"
       },
       {
         "name": "peaks-code-role-artifact-lifecycle-gotchas",
@@ -1435,7 +1467,7 @@
         "description": "peaks-code 角色工件的生命周期陷阱（2026-10-09 实操踩到） 1.",
         "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\peaks-code-role-artifact-lifecycle-gotchas.md",
         "sourceArtifact": null,
-        "updatedAt": "2026-10-08"
+        "updatedAt": "2026-10-09"
       },
       {
         "name": "peaks-code-runbook-4-0-0-beta-10-skill-md-cli-d-004-d-005-d-006",
@@ -1555,7 +1587,7 @@
         "description": "PRD 不得把「待证明的假设」写成 MUST 事实（2026-10-09，rid-035 slice ①） PRD 初稿写了一节：「本段**必须覆盖**的 5 条 argv」。但这一段的**全部意义**就是证明它们只读——**\"必须覆...",
         "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\prd-must-not-turn-unproven-assumptions-into-must.md",
         "sourceArtifact": null,
-        "updatedAt": "2026-10-08"
+        "updatedAt": "2026-10-09"
       },
       {
         "name": "preparefinalreview-is-evidence-less",
@@ -1579,7 +1611,7 @@
         "description": "被  守着的证明，会静默消失并报成功 事实（2026-10-09，rid-035 slice ①，QA 独立发现） 三层只读证明装置（快照 diff / 替身拦截 / 沙箱）整体挂在： QA 实测：**把  挪开**，运行输出 ，**...",
         "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\proof-gated-by-skipif-can-vanish-and-report-success.md",
         "sourceArtifact": null,
-        "updatedAt": "2026-10-08"
+        "updatedAt": "2026-10-09"
       },
       {
         "name": "r3-format-compact-defaults-by-artifact-type",
@@ -1838,12 +1870,28 @@
         "updatedAt": "2026-10-08"
       },
       {
+        "name": "step-11-memory-sediment-is-enforced-by-prose-and-the-only-executable-check-reads-the-prose",
+        "kind": "lesson",
+        "description": "The \"BLOCKING on workflow complete\" rule for memory sediment ( §Step 11; ) is addressed to the LLM as prose.",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\step-11-memory-sediment-is-enforced-by-prose-and-the-only-executable-check-reads-the-prose.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-10-session-062f74/txt/handoff.md",
+        "updatedAt": "2026-10-10"
+      },
+      {
         "name": "subagent-evidence-must-hold-at-delivery-state",
         "kind": "lesson",
         "description": "子代理的证据必须在**交付态**可复现 2026-10-09 同一次 24h 运行里，两个不同的 RD 子代理各自交出了**报告与实际不符**的证据。形态不同，病根相同：**取得结果的时刻 ≠ 交付的时刻**。 形态一：自我失效的 f...",
         "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\subagent-evidence-must-hold-at-delivery-state.md",
         "sourceArtifact": null,
-        "updatedAt": "2026-10-08"
+        "updatedAt": "2026-10-09"
+      },
+      {
+        "name": "the-ratchet-s-only-joint-decision-exception-works-and-it-is-conditional",
+        "kind": "lesson",
+        "description": "in  permits the  ceiling to RISE if and only if  strictly falls in the same comparison.",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\the-ratchet-s-only-joint-decision-exception-works-and-it-is-conditional.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-10-session-062f74/txt/handoff.md",
+        "updatedAt": "2026-10-10"
       },
       {
         "name": "trae-adapter-values-hookevent-toolmatcher-envvar-are-1-x-assumptions-not-verified",
@@ -2895,7 +2943,7 @@
         "description": "的输出在约 3.6 KB 处被截断 事实（2026-10-09 实测，session ） 对同一个 six-dimension 审计，三次调用的结果： | 次数 | need 长度 | 结果 | |---|---|---| | 1 |...",
         "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\peaks-audit-goal-output-truncates-at-3-6kb.md",
         "sourceArtifact": null,
-        "updatedAt": "2026-10-08"
+        "updatedAt": "2026-10-09"
       },
       {
         "name": "peaks-cmd-shim-fails-on-newline-arguments",
@@ -2903,7 +2951,7 @@
         "description": "Windows  shim：参数含换行即  事实（2026-10-09 二分实测，session ） 在 Windows 上， 是  shim。它对参数的容忍度： | 参数形态 | 结果 | |---|---| | 短 + **含换行...",
         "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\peaks-cmd-shim-fails-on-newline-arguments.md",
         "sourceArtifact": null,
-        "updatedAt": "2026-10-08"
+        "updatedAt": "2026-10-09"
       },
       {
         "name": "peaks-code-consumer-project-smoke-test-ice-cola",

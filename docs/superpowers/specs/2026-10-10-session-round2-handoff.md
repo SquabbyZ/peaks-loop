@@ -1,7 +1,7 @@
 # 交接 — 2026-10-10 第二轮：门分类器 + src 尺寸还债 + 边界取证
 
 - 日期：2026-10-10
-- 分支：`main`（**8 个提交未推送**，`origin/main...main = 0 8`）
+- 分支：`main`（提交未推送；本文件写到一半时 HEAD 前进过，**以 `git rev-list --left-right --count origin/main...main` 的当前读数为准**——落笔时是 10）
 - 上一个会话：`2026-10-09-session-90f47d`；本会话：`2026-10-10-session-062f74`
 - 起点：`a7204b1e`，工作树干净，`peaks-loop@4.1.3` 已在 npm
 - 模式：peaks-code **24h mode**（用户睡前指定："1、2、3、4按照顺序执行，期间你可以根据每个任务完成的结果进行动态的调整开发任务"）
@@ -10,7 +10,7 @@
 
 ## 0. 你要先知道的一件事
 
-**这 8 个提交没有被任何 CI 验证过。** 它们是未推送的，`head_sha=HEAD` 在 Actions API 上返回
+**本轮这些提交没有被任何 CI 验证过。** 它们是未推送的，`head_sha=HEAD` 在 Actions API 上返回
 `total_count: 0`。上一次有 CI 证据的运行是 `a7204b1e`（成功）。所以本轮的**全部**证据是本地证据：
 逐提交独立重跑的全量单测 + 门 + tsc。**推送之前，先按 §5 的清单过一遍。**
 
@@ -184,7 +184,46 @@ Part C 对**声明为未驱动**的路径补直接调用测试）。**结果在 
 
 ---
 
-## 8. 一条方法学（本轮出现三次）
+## 8. Dogfood：Step 11 为什么没跑（用户指出后追查）
+
+本轮由用户追问才发现：**Step 11（记忆沉淀）在契约里是 BLOCKING，而它整晚没有触发。** 追查后
+是两条可定位的产品缺陷——不是含糊的"我忘了"。
+
+**缺陷 1 — Step 11 是整套 skill 里唯一一条只在散文里"BLOCKING"的完成前条件。**
+四个最可能的执行点全都不检查 memory：`peaks workflow verify-pipeline`（查 QA 状态 + Gate H
+反馈提升）、`peaks code emit-handoff`（查 **job 账本** `remaining > 0`）、`gate-step-08` hook
+（查 job 进度叙述）、`mode-gate` 的 `GATED_STEPS`（含一个 `phase-10-txt-memory-extract`
+**枚举成员**，但那是 AskUserQuestion 的分类标签，不是拒绝点）。唯一一个"可执行的" Step 11
+相关物是 `lint-peaks-code-runtime.ts`，它断言 **SKILL.md 里那个标题存在**——不是那一步跑过。
+别的一律有机械门（Step 0.8 有 hook + `emit-handoff` 拒绝）；**这一条没有。**
+
+**缺陷 2 — `gate-step-08` 在输入缺失时 fail-open。** 它的触发条件是 `job-shape.json` 且
+`progress.json` 存在。本轮从未跑 `peaks code detect-job`，所以本会话根本没有 `job-shape.json`
+（只有 `2026-10-09-session-90f47d` 有）。实测：
+
+```
+echo '{"tool_name":"Bash",...}' | peaks code gate-step-08 --project .
+→ mode: "undecided-no-regex-hit", decision: null, nextSlice: null
+   "No job-shape.json AND no backup-regex match on prompt → allow
+    (most prompts are not Job-shaped)."
+```
+
+**它把"文件不存在"解释成了"这不像一个 Job"。** 前者是**没有能力判断**，后者是**判断了并说不像**
+——对一个门的输入缺失，正确方向是更保守。后果：整轮**一次 `Next: slice #N of M` 都没出现过**，
+而那条叙述的设计目的正是"让 LLM 不能冷启动醒来"。
+
+**这个真空本仓已经写下过。** skill 的 CLI drift 表 **D-003** 记着 `JOB_SHAPE_NOT_DECIDED` 在
+4.0.0-beta.6 里不再被接线，失效方式从"硬异常"退化成"被动软警告"。4.1.3 依然如此——**它被记录过、
+被归类为可恢复，然后从另一个角度又咬了一次**（不是该抛的异常没抛，而是依赖它的 hook fail-open）。
+
+**同时**：`peaks job status` 整轮报 `done: 1 / total: 4`，切片 002–004 至今 `pending`——**而同一条
+`verify-pipeline` 若在声明完成前跑过（契约明确要求），会当场因 QA 停在 `draft` 而拒绝。** 那个调用
+我也跳过了。
+
+**结论**：这不只是我的疏漏，也是产品缺口；两者都记着。要不要立项修（给 Step 11 一个拒绝点、
+把 `gate-step-08` 的缺失输入改成 fail-closed）由 owner 决定——**改门机器须单独立项。**
+
+## 9. 一条方法学（本轮出现三次）
 
 **断言的范围不能超出证据的范围。**
 
