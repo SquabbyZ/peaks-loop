@@ -48,4 +48,12 @@ describe('CLI option definitions that must not defeat their own fallbacks', () =
     const option = optionFor(createProgram(), ['sub-agent', 'dispatch'], '--graph-node');
     expect(option.mandatory).toBe(false);
   });
+
+  it('`--project` on `code-gate` carries no commander default, so absence stays absent', () => {
+    const option = optionFor(createProgram(), ['code-gate'], '--project');
+    // The handler resolves `opts.project ?? process.cwd()`. A default here
+    // makes that fallback unreachable, which hides which root the driver
+    // lease was read from — the one thing a wrong root needs to be diagnosed.
+    expect(option.defaultValue).toBeUndefined();
+  });
 });

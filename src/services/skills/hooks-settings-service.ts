@@ -19,7 +19,6 @@ export {
   HOOK_CODE_GATE_SENTINEL,
   HOOK_CODE_GATE_MATCHER,
   HOOK_CODE_GATE_EVENT,
-  HOOK_CODE_GATE_COMMAND,
   SUPERPOWERS_DENIED_SKILLS,
   type PeaksHookEntry
 } from './hooks-codegate-superpowers.js';

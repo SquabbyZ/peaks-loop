@@ -41,6 +41,7 @@ export const HOOK_ENFORCE_SENTINEL = 'peaks gate enforce';
  */
 interface ResolvedHookSpec {
   readonly hookEnforceCommand: string;
+  readonly hookCodeGateCommand: string;
   readonly hookEnforceSentinel: string;
   readonly hookEnforceMatcher: string;
   readonly hookEnforceEvent: string;
@@ -140,6 +141,7 @@ export function resolveHookSpec(ide: IdeId): ResolvedHookSpec {
   const jsonFlag = isClaudeCode ? ' --json' : '';
   return {
     hookEnforceCommand: `${spec.command} --project "\${${adapter.envVar}}"${jsonFlag}`,
+    hookCodeGateCommand: `peaks code-gate --project "\${${adapter.envVar}}"${jsonFlag}`,
     hookEnforceSentinel: spec.sentinel,
     hookEnforceMatcher: adapter.toolMatcher,
     hookEnforceEvent: adapter.hookEvent,
@@ -169,16 +171,14 @@ export type PeaksHookEntry = {
 };
 
 /**
- * Vendor-neutral command (`peaks code-gate --json`); the CLI adapter
- * lives in `src/cli/commands/code-gate-command.ts` and the decision
- * logic lives in `src/services/hooks/pre-tool-code-gate.ts`. The
- * shell-script sibling (`src/services/hooks/pre-tool-code-gate.sh`)
- * encodes the same logic for non-Node harnesses.
+ * The code-gate entry's CLI adapter is `src/cli/commands/code-gate-command.ts`,
+ * its decision logic is `src/services/hooks/pre-tool-code-gate.ts`, and the
+ * shell-script sibling `src/services/hooks/pre-tool-code-gate.sh` encodes the
+ * same logic for non-Node harnesses.
  */
 export const HOOK_CODE_GATE_SENTINEL = 'peaks code-gate';
 export const HOOK_CODE_GATE_MATCHER = 'Edit|Write|MultiEdit';
 export const HOOK_CODE_GATE_EVENT = 'PreToolUse';
-export const HOOK_CODE_GATE_COMMAND = `peaks code-gate --json`;
 
 /**
  * The read-only MCP surface as a hook entry: the same command under the
@@ -267,13 +267,13 @@ export function resolveHookEntries(ide: IdeId, _skipProgress = false): PeaksHook
       event: HOOK_WORKSPACE_INIT_EVENT
     });
     // Edit|Write|MultiEdit matcher. Vendor-neutral command
-    // (`peaks code-gate --json`); the CLI adapter lives in
+    // (`peaks code-gate`); the CLI adapter lives in
     // `src/cli/commands/code-gate-command.ts` and the underlying
     // decision logic is in `src/services/hooks/pre-tool-code-gate.ts`.
     entries.push({
       sentinel: HOOK_CODE_GATE_SENTINEL,
       matcher: HOOK_CODE_GATE_MATCHER,
-      command: HOOK_CODE_GATE_COMMAND,
+      command: spec.hookCodeGateCommand,
       event: HOOK_CODE_GATE_EVENT
     });
     // rid 2026-09-13-a2-post-compact-reinject: the post-compaction
