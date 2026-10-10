@@ -51,9 +51,14 @@ skill. There are three lanes, and this is the third:
 | **`peaks-race-code`** | **this window** | none of the above — see "What this lane does not write" |
 
 Do not offer `peaks-code` fast mode as a working alternative: it is designed but not proven —
-its executable path has no callers and `peaks code plan --fast` only prints a plan. The
-argument for keeping a middle tier rather than collapsing it into this one is in
-`docs/superpowers/specs/2026-10-10-peaks-race-code-design.md` §2.5.
+its executable path has no callers and `peaks code plan --fast` only prints a plan. Why the
+three rungs stay apart, stated here so no reader needs a document outside this one: the two
+fast rungs buy their speed from different things. `--fast` cuts ceremony — the full memory
+load, the standards fan-out, the QA repair loop — and keeps a separate implementer for the
+diff. This rung removes the separate implementer, which is the one cost that cutting ceremony
+cannot reach. Merging them into a single rung would strand the work in between: tasks that do
+want their diff implemented and reviewed by someone else, and do not want the rest of the
+workflow.
 
 **Loop Engineering role.** The red lines that govern every Loop-Engineering-participating
 `peaks-*` skill live at `.peaks/standards/loop-engineering-guidelines.md`. This skill honours
@@ -64,27 +69,35 @@ implementation right — that difference is the whole of it.
 
 ## The gate: what lets this window edit source
 
-The gate over direct source edits opens on exactly one fact: **the driver resolved for this
-session is `peaks-race-code`.** Set it before your first edit, not after:
+The CLI gate over direct source edits opens on exactly one fact: **the driver resolved for
+this session is `peaks-race-code`.** Set it before your first edit, not after:
 
 ```bash
 peaks skill presence:set peaks-race-code --project . --mode <mode> --gate <gate>
 ```
 
-The name is a self-report — the command accepts any string — so read the next three points
+The name is a self-report — the command accepts any string — so read the next four points
 as the terms of the deal, not as caveats:
 
 - **This is a discipline gate, not a security boundary.** It stops the reflex ("this change
   is small, I will just do it here"), not an actor. It already fails open on a malformed
   payload, a missing path and an internal error, and it is not hardened against a deliberate
   bypass. Never describe it as enforcement, and do not spend effort making it one.
-- If the resolved driver is not `peaks-race-code`, or nothing can be resolved, a direct edit
-  under a hard-blocked path family is refused (exit 2, `PEAKS_CODE_PROHIBITED_DIRECT_EDIT`).
-  Fix the driver; never route around the refusal.
+- **Once the hook entry is installed**, a direct edit under a hard-blocked path family is
+  refused unless the resolved driver is `peaks-race-code` (exit 2,
+  `PEAKS_CODE_PROHIBITED_DIRECT_EDIT`); a driver that resolves to nothing gets the same
+  verdict. Fix the driver; never route around the refusal.
 - **Nothing in this lane is blocked before the fact.** The gate bites only where its hook
   entry is installed (`peaks hooks install`), and the commit-side rule is detect-only (proof
   3 below). Never tell the user a rule was enforced when the only thing that happened is that
   nobody looked.
+- **A second gate exists, and this section does not speak for it.** The same installer also
+  distributes `src/services/hooks/pre-tool-code-gate.sh`, the fallback for harnesses that
+  cannot run the Node command, and that script takes no driver input at all: it denies the
+  hard-blocked families unconditionally. A session wired to it is refused even in this lane,
+  and its refusal will not mention this file. That asymmetry is known and left conservative on
+  purpose — assigning it is not this skill's job, and teaching the shell gate about lanes is
+  not yours.
 
 ## Completion proofs — four, and they are actions, not a document
 
@@ -94,9 +107,10 @@ gate machinery behind you to catch it.
 1. **Tested** and 2. **Typed** — the shared acceptance gate. It is stated once, for both fast
    lanes, in `../peaks-code/references/fast-lane-norm.md` §1. Go and run it there; do not
    re-derive it from this file, and do not restate it in the trace as if this file said it.
-3. **An honest commit.** The message says what changed and why. **The AI-attribution red rule
-   has detection only — nothing blocks the commit before it exists.** There is no commit gate
-   on Claude Code and no commit-msg hook in `.husky/` (its absence is a recorded decision,
+3. **An honest commit.** The message says what changed and why. **No part of the commit path
+   intercepts an AI-attribution trailer before the commit exists.** A pre-commit hook does run
+   — it lints the staged files and ratchets the gate — but it reads files and never the
+   message, and there is no commit-msg hook in `.husky/` (its absence is a recorded decision,
    not an oversight). The only mechanical support is
    `tests/unit/standards/no-ai-co-author-trailer.test.ts`, which reads `git log` and fails;
    its remedy is rewriting history, so it cannot un-land a trailer. Never add the trailer, and
