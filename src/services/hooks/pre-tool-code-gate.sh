@@ -37,9 +37,16 @@
 #   through. The CLI gate (`peaks code-gate`) is the one that resolves the
 #   driver and opens those families; this file cannot, and MUST NOT grow
 #   that resolution — it would be a second implementation of a single
-#   decision. A harness wired to this script is therefore refused where
-#   that command allows, and the asymmetry is intentional: this script is
-#   the conservative fallback for harnesses that cannot run the command.
+#   decision. A harness pointed at this script is therefore refused where
+#   that command allows, and the asymmetry is intentional.
+#
+#   Nothing points a harness at it by default. `peaks hooks install
+#   --scope global` copies this file into the IDE's skills directory (a
+#   project-scope install copies nothing), but that copy is inert: every
+#   hook entry the installer writes is a `peaks …` command, and no
+#   settings template invokes a `.sh`. This script is the conservative
+#   shape a non-Node harness would reproduce, not a gate any session is
+#   on by default.
 #
 # Karpathy §2 (Simplicity First): no retries, no jq dependency, no
 # colour codes. Pure bash + grep + sed.

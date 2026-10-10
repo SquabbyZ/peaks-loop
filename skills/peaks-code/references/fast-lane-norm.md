@@ -1,10 +1,11 @@
 # Fast-lane norm — the single source
 
 > **advisory**: nothing enforces the rules stated here. They are a judgement
-> list, not a gate. Enforcement lives in each lane — peaks-code's fast mode
-> enforces its own step switches (`peaks code plan --fast`), and peaks-race-code
-> its own completion proofs — so "stated here" does not mean "enforced
-> somewhere".
+> list, not a gate, and no lane enforces its own rules either — each lane only
+> *states* its obligations: peaks-code's fast mode its step switches
+> (`peaks code plan --fast`), peaks-race-code its completion proofs, which that
+> skill itself calls self-reported and checked by nothing. So "stated here" does
+> not mean "enforced somewhere".
 >
 > **The document itself is pinned by a test.** That is a different claim, and
 > the next paragraph says exactly what the test checks and what it does not.

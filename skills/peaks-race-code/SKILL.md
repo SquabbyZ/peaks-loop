@@ -69,8 +69,13 @@ implementation right — that difference is the whole of it.
 
 ## The gate: what lets this window edit source
 
-The CLI gate over direct source edits opens on exactly one fact: **the driver resolved for
-this session is `peaks-race-code`.** Set it before your first edit, not after:
+The CLI gate over direct source edits opens when **the driver resolved for this session is
+`peaks-race-code`** — and that resolution has a precondition this file cannot meet for you:
+the hook payload's caller id (`caller_id ?? session_id`) must equal the lease's own
+`callerId`. When they differ the driver resolves to nothing, the edit is denied, and nothing
+available here changes that — it is spec §12 **U4**, the design's own recorded biggest
+engineering risk, deliberately left outside this slice. Where the two agree, set the driver
+before your first edit, not after:
 
 ```bash
 peaks skill presence:set peaks-race-code --project . --mode <mode> --gate <gate>
@@ -86,27 +91,32 @@ as the terms of the deal, not as caveats:
 - **Once the hook entry is installed**, a direct edit under a hard-blocked path family is
   refused unless the resolved driver is `peaks-race-code` (exit 2,
   `PEAKS_CODE_PROHIBITED_DIRECT_EDIT`); a driver that resolves to nothing gets the same
-  verdict. Fix the driver; never route around the refusal.
+  verdict. Fix the driver when the driver is what is wrong; when the deny is the U4 mismatch
+  above, do not hunt for a fix that does not exist — name it as the known gap, and never
+  route around the refusal either way.
 - **Nothing in this lane is blocked before the fact.** The gate bites only where its hook
   entry is installed (`peaks hooks install`), and the commit-side rule is detect-only (proof
   3 below). Never tell the user a rule was enforced when the only thing that happened is that
   nobody looked.
-- **A second gate exists, and this section does not speak for it.** The same installer also
-  distributes `src/services/hooks/pre-tool-code-gate.sh`, the fallback for harnesses that
-  cannot run the Node command, and that script takes no driver input at all: it denies the
-  hard-blocked families unconditionally. A session wired to it is refused even in this lane,
-  and its refusal will not mention this file. That asymmetry is known and left conservative on
-  purpose — assigning it is not this skill's job, and teaching the shell gate about lanes is
-  not yours.
+- **A second gate exists, and this section does not speak for it.** `peaks hooks install
+  --scope global` also copies `src/services/hooks/pre-tool-code-gate.sh` into the IDE's
+  skills directory; a project-scope install copies nothing. Nothing wires that copy up —
+  every hook entry the installer writes is a `peaks …` command, and no settings template
+  invokes a `.sh`, so it lies inert until a harness is pointed at it by hand. If one is: it
+  takes no driver input at all and denies the hard-blocked families unconditionally, refused
+  even in this lane, and its refusal will not mention this file. That asymmetry is known and
+  left conservative on purpose — assigning it is not this skill's job, and teaching the shell
+  gate about lanes is not yours.
 
 ## Completion proofs — four, and they are actions, not a document
 
 Show the command and its real output. "It should pass" is not a proof, and this lane has no
 gate machinery behind you to catch it.
 
-1. **Tested** and 2. **Typed** — the shared acceptance gate. It is stated once, for both fast
-   lanes, in `../peaks-code/references/fast-lane-norm.md` §1. Go and run it there; do not
-   re-derive it from this file, and do not restate it in the trace as if this file said it.
+1. & 2. **The shared acceptance gate** — whatever §1 of
+   `../peaks-code/references/fast-lane-norm.md` says it is, no more and no less. It is stated
+   once, for both fast lanes, there. Go and run it there; do not re-derive it from this file,
+   and do not restate it in the trace as if this file said it.
 3. **An honest commit.** The message says what changed and why. **No part of the commit path
    intercepts an AI-attribution trailer before the commit exists.** A pre-commit hook does run
    — it lints the staged files and ratchets the gate — but it reads files and never the
