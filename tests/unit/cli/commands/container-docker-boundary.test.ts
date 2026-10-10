@@ -142,12 +142,14 @@ function runOfCalls(): string[] {
   return runtime.calls.filter((c) => c.cmd.includes(' run ')).map((c) => c.cmd);
 }
 
-async function driveRelease(ws: TmpWorkspace, leaseId = LEASE_ID): Promise<Record<string, unknown>> {
+async function driveRelease(
+  ws: TmpWorkspace,
+  leaseId = LEASE_ID
+): Promise<Record<string, unknown>> {
   const { io, captured } = makeCapturedIo();
   const program = new Command();
-  const { registerContainerReleaseCommand } = await import(
-    '~/src/cli/commands/container-release-command.js'
-  );
+  const { registerContainerReleaseCommand } =
+    await import('~/src/cli/commands/container-release-command.js');
   registerContainerReleaseCommand(program, io);
   await program.parseAsync([
     'node',
@@ -169,9 +171,8 @@ async function driveSpawn(
 ): Promise<{ envelope: Record<string, unknown>; stderr: string }> {
   const { io, captured } = makeCapturedIo();
   const program = new Command();
-  const { registerContainerSpawnCommand } = await import(
-    '~/src/cli/commands/container-spawn-command.js'
-  );
+  const { registerContainerSpawnCommand } =
+    await import('~/src/cli/commands/container-spawn-command.js');
   registerContainerSpawnCommand(program, io);
   await program.parseAsync([
     'node',
@@ -189,7 +190,10 @@ async function driveSpawn(
     ws.path,
     '--json'
   ]);
-  return { envelope: JSON.parse(captured.text()) as Record<string, unknown>, stderr: captured.stderrText() };
+  return {
+    envelope: JSON.parse(captured.text()) as Record<string, unknown>,
+    stderr: captured.stderrText()
+  };
 }
 
 describe('Scenario: behavior — `container release` drives the real `docker rm`', () => {
