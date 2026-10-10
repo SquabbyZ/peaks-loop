@@ -19,10 +19,19 @@
  * here at all; it is covered in `test-changed-nul-e2e.test.ts`. That split is the point: an arm
  * that covers one half proves nothing about the other.
  *
+ * THE FIXTURE'S OWN GUARD IS ASSERTED HERE TOO, at the end of the file: `buildPathFixture` refuses
+ * to hand back a repository that is not the scratch one it just built, and that refusal compares
+ * two paths. It is asserted against a MANUFACTURED spelling difference with HEAD's comparison as
+ * the control, because on this host `git rev-parse --show-toplevel` and `mkdtempSync` agree
+ * already and an ambient difference would prove nothing.
+ *
  * Dimensions: `render` is omitted (the parser returns an array of objects and renders nothing) and
  * `a11y` is omitted (the human-facing narration is the runner's stderr, asserted in the e2e file).
  */
 
+import { mkdtempSync, rmSync, symlinkSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
 
 import { declareDimensions } from '../_setup/4dim-template.js';
@@ -38,10 +47,14 @@ import {
   RENAME_TO_REL,
   buildNewlineFixture,
   buildPathFixture,
+  canonicalRealPath,
   disposeFixtureScratch,
+  gitAt,
   loadClassifyModule,
   loadPlantedParser,
   preFixParse,
+  preFixResolvedPath,
+  scrubbedEnv,
   type NewlineFixture,
   type PathFixture
 } from '../_setup/gate-nul-fixture.js';
@@ -275,5 +288,103 @@ describe('Scenario: integration — HEAD`s parser cannot read this stream', () =
     const withoutParser = planted.classifyChanged(planted.parseNameStatus(nulStdout));
     expect(withoutParser.code).toBe('empty-diff');
     expect(withoutParser.mode).toBe('full');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// integration — AC1 / AC2: the scratch-repo guard compares the DIRECTORY, not its spelling
+// ---------------------------------------------------------------------------
+
+/** A directory plus a link to it: ONE directory, TWO spellings. `'junction'` is the directory
+ * link Windows builds without elevation; elsewhere the type argument is ignored and it is an
+ * ordinary symlink. Neither path is disposed here — the caller owns the two `rmSync`s, because
+ * only it knows when the fixture built through the link is done. */
+function aliasedPair(prefix: string): { real: string; alias: string } {
+  const real = mkdtempSync(join(tmpdir(), prefix));
+  const alias = `${real}-alias`;
+  symlinkSync(real, alias, 'junction');
+  return { real, alias };
+}
+
+describe('Scenario: integration — the scratch-repo guard names one directory one way', () => {
+  it('when one directory is reachable by two spellings, should key them as one directory', () => {
+    // given: a directory and a link to it. The difference is MANUFACTURED on purpose — on this
+    //        host `git rev-parse --show-toplevel` and `mkdtempSync` already answer the same
+    //        spelling, so an arm that leaned on the ambient tmpdir would only ever show that this
+    //        machine is neither macOS (`/var` → `/private/var`) nor the Windows runner (8.3
+    //        `RUNNER~1` where Node was handed `runneradmin`)
+    const { real, alias } = aliasedPair('peaks-nul-spelling-');
+    try {
+      // then: HEAD's comparison — `resolve` on both sides — really does read the two spellings as
+      //       two directories. That is the red arm: it is why the guard failed on a fixture that
+      //       was exactly what it vouched for
+      expect(preFixResolvedPath(alias), 'the control must really be two spellings').not.toBe(
+        preFixResolvedPath(real)
+      );
+      //       ...and the shipped comparison keys them to the one directory they name
+      expect(canonicalRealPath(alias)).toBe(canonicalRealPath(real));
+    } finally {
+      rmSync(alias, { recursive: true, force: true });
+      rmSync(real, { recursive: true, force: true });
+    }
+  });
+
+  it('when the tmpdir itself is reached by a second spelling, should still clear the guard', async () => {
+    // given: the same pair, with the tmpdir environment pointed AT THE LINK, so `mkdtempSync`
+    //        answers the link's spelling while git answers the physical one — the macOS and
+    //        Windows-runner pair above, reproduced on a host where neither occurs
+    const { real, alias } = aliasedPair('peaks-nul-tmpdir-');
+    const saved = { TMPDIR: process.env.TMPDIR, TMP: process.env.TMP, TEMP: process.env.TEMP };
+    try {
+      process.env.TMPDIR = alias;
+      process.env.TMP = alias;
+      process.env.TEMP = alias;
+      // asserted, not assumed: an environment that ignores the override would build the fixture
+      // BESIDE the link and this arm would prove nothing while staying green
+      expect(preFixResolvedPath(tmpdir()), 'the tmpdir must really be the link').not.toBe(
+        preFixResolvedPath(real)
+      );
+
+      // when: the fixture builds through the link — under HEAD's comparison its own guard threw
+      const fixture = await buildPathFixture();
+      try {
+        const top = gitAt(
+          fixture.repo.path,
+          ['rev-parse', '--show-toplevel'],
+          await scrubbedEnv()
+        ).trim();
+        // then: those two are the operands the guard compares — two spellings of ONE repository,
+        //       which HEAD's key split and the shipped one joins
+        expect(preFixResolvedPath(top), 'HEAD`s guard failed on exactly this pair').not.toBe(
+          preFixResolvedPath(fixture.repo.path)
+        );
+        expect(canonicalRealPath(top)).toBe(canonicalRealPath(fixture.repo.path));
+      } finally {
+        fixture.repo.dispose();
+      }
+    } finally {
+      for (const [key, value] of Object.entries(saved)) {
+        if (value === undefined) delete process.env[key];
+        else process.env[key] = value;
+      }
+      rmSync(alias, { recursive: true, force: true });
+      rmSync(real, { recursive: true, force: true });
+    }
+  });
+
+  it('when the two paths are genuinely different directories, should NOT key them the same', () => {
+    // given: two directories, neither reachable from the other
+    // then:  they stay distinct — the guard is narrower than "equal", not empty. A comparison that
+    //        answered "same directory" here would let an unscrubbed fixture commit into the
+    //        repository it is measuring with every test still green
+    const left = mkdtempSync(join(tmpdir(), 'peaks-nul-left-'));
+    const right = mkdtempSync(join(tmpdir(), 'peaks-nul-right-'));
+    try {
+      expect(preFixResolvedPath(left)).not.toBe(preFixResolvedPath(right));
+      expect(canonicalRealPath(left)).not.toBe(canonicalRealPath(right));
+    } finally {
+      rmSync(left, { recursive: true, force: true });
+      rmSync(right, { recursive: true, force: true });
+    }
   });
 });

@@ -24,6 +24,7 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  realpathSync,
   renameSync,
   rmSync,
   writeFileSync
@@ -162,6 +163,51 @@ export async function loadPlantedParser(): Promise<ClassifyModule> {
 }
 
 // ---------------------------------------------------------------------------
+// the scratch-repo guard's comparison — one key per path, compared with `toBe`
+// ---------------------------------------------------------------------------
+
+/**
+ * The guard's key: the REAL path of `p`, symlinks and 8.3 short names resolved.
+ *
+ * WHY PLAIN STRING EQUALITY IS NOT ENOUGH, which is what this replaced. `git rev-parse
+ * --show-toplevel` and `mkdtempSync` do not have to SPELL one directory the same way, and on two
+ * platforms they do not. macOS answers `/private/var/folders/…` where Node gave `/var/folders/…`,
+ * because `/var` is a symlink; the Windows runner answers `C:\Users\runneradmin\…` where Node
+ * gave `C:\Users\RUNNER~1\…`, an 8.3 short name — generated because the username is longer than
+ * 8 characters. Each pair names ONE directory. `resolve(left) === resolve(right)` called it TWO,
+ * so the guard failed on exactly the fixture it exists to vouch for, and passed only on hosts
+ * (Linux, and this one) where the tmpdir has no second spelling to offer.
+ *
+ * WHY `.native`, AND NOT `stableRealPath`. `realpathSync.native` resolves symlinks (macOS
+ * `/var` → `/private/var`) AND expands 8.3 short names (Windows). Plain `realpathSync` does the
+ * first and not the second — measured on this host: `realpathSync` on `…\PEC253~1` echoes
+ * `PEC253~1` back, while `realpathSync.native` answers `…\peaks-shortname-probe-long`. Fixing
+ * macOS with it would leave Windows red. `stableRealPath` (`src/shared/path-utils.ts`) is built
+ * on plain `realpathSync`, deliberately: `projectRootCompareKey`'s comment records that
+ * expanding 8.3 would rewrite the on-disk form of every stored binding. This key is NEVER
+ * persisted, so that reason does not reach here, and `projectRootsMatch` would leave the Windows
+ * runner comparing `runner~1` against `runneradmin` — one directory, two spellings, still unequal.
+ *
+ * BOTH SIDES GO THROUGH THIS ONE FUNCTION, which is the property the guard rests on: whatever a
+ * platform answers — separator, case, symlink, short name — it answers it the SAME way for both
+ * spellings of one directory. The comparison is then about the directory, not the spelling.
+ */
+export function canonicalRealPath(p: string): string {
+  return realpathSync.native(resolve(p));
+}
+
+/**
+ * HEAD's side of that comparison, spelled as a key: `resolve` alone. It is here so the arms in
+ * `tests/unit/scripts/test-changed-nul-paths.test.ts` can manufacture ONE directory with TWO
+ * spellings and show the old form calling them unequal while the shipped one calls them equal —
+ * a comparison that only ever says "same" would pass those arms without it, and would have made
+ * the guard vacuous.
+ */
+export function preFixResolvedPath(p: string): string {
+  return resolve(p);
+}
+
+// ---------------------------------------------------------------------------
 // fixture 1 — every record shape, quoted and NUL-separated, from ONE real diff
 // ---------------------------------------------------------------------------
 
@@ -215,10 +261,12 @@ export async function buildPathFixture(): Promise<PathFixture> {
 
   // The fixture must be a scratch repo and not the host one: under a git hook, an unscrubbed
   // fixture can commit into the repository it is measuring, and then every number here is a
-  // number about the wrong tree.
+  // number about the wrong tree. The SAME `canonicalRealPath` runs on both sides — see its
+  // comment: git and `mkdtempSync` answer two spellings of one directory on macOS and Windows,
+  // and a byte comparison called that difference a different repository.
   const top = git(['rev-parse', '--show-toplevel']).trim();
-  expect(resolve(top), 'the fixture must be the scratch repo, not the host').toBe(
-    resolve(repo.path)
+  expect(canonicalRealPath(top), 'the fixture must be the scratch repo, not the host').toBe(
+    canonicalRealPath(repo.path)
   );
   return { repo, nulStdout, quotedStdout, copyStdout };
 }
