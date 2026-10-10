@@ -7,6 +7,7 @@ metadata:
   originSessionId: 29601951-8e04-4525-8107-125180abe7b4
   modified: 2026-09-11T15:28:41.791Z
 ---
+<!-- peaks-feedback-promoted: layer=A -->
 
 **2026-09-11 我推了两个红提交却没发现。** `7292dd11` 和 `24fadf92`(4.0.39 后的两条技能修复)
 **CI 双双失败**,而我是**在下一批发版时偶然翻 run 列表才看到**。它们失败直到 `e6b8effe` 修掉。

@@ -1,0 +1,16 @@
+{
+  "name": "check-ci-on-every-push-and-run-wide-tsc",
+  "layer": "A",
+  "layerDetail": "peaks-sop gate",
+  "generatedFiles": [
+    "D:\\projects\\peaks-loop\\.peaks\\memory\\check-ci-on-every-push-and-run-wide-tsc.md",
+    ".peaks\\sops\\feedback-check-ci-on-every-push-and-run-wide-tsc\\sop.json",
+    ".peaks\\sops\\registry.json"
+  ],
+  "requiredArtifacts": [
+    ".peaks/sops/feedback-check-ci-on-every-push-and-run-wide-tsc/sop.json",
+    ".peaks/sops/registry.json"
+  ],
+  "promotedAt": "2026-10-10T02:59:01.807Z",
+  "promotedBy": "peaks-rd fork agent"
+}

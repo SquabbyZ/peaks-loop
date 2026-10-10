@@ -1,0 +1,18 @@
+{
+  "id": "feedback-a-fixture-that-forces-failure-by-file-mode-is-platform-scoped",
+  "name": "a-fixture-that-forces-failure-by-file-mode-is-platform-scoped",
+  "description": "Promoted from feedback memory .peaks/memory/a-fixture-that-forces-failure-by-file-mode-is-platform-scoped.md: 用 chmod 0444 + renameSync 强制写入失败，在 Windows 抛 EPERM、在 POSIX 成功（rename 看的是目录权限）；三个 pass 都在这台 Windows 上验过，全部通过，CI 在 Linux 上全红",
+  "phases": [
+    "apply"
+  ],
+  "gates": [
+    {
+      "id": "rule-source-present",
+      "phase": "apply",
+      "check": {
+        "type": "file-exists",
+        "path": ".peaks/memory/a-fixture-that-forces-failure-by-file-mode-is-platform-scoped.md"
+      }
+    }
+  ]
+}

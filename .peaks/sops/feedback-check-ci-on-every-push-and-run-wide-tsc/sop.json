@@ -1,0 +1,18 @@
+{
+  "id": "feedback-check-ci-on-every-push-and-run-wide-tsc",
+  "name": "check-ci-on-every-push-and-run-wide-tsc",
+  "description": "Promoted from feedback memory .peaks/memory/check-ci-on-every-push-and-run-wide-tsc.md: 每次 push 后必须查 CI；改 tests/ 前必须跑宽 tsconfig（142 基线有守卫）",
+  "phases": [
+    "apply"
+  ],
+  "gates": [
+    {
+      "id": "rule-source-present",
+      "phase": "apply",
+      "check": {
+        "type": "file-exists",
+        "path": ".peaks/memory/check-ci-on-every-push-and-run-wide-tsc.md"
+      }
+    }
+  ]
+}

@@ -7,6 +7,7 @@ metadata:
   originSessionId: e0ac1231-9059-438e-b036-c6cae372eb87
   modified: 2026-09-15T12:30:00.000Z
 ---
+<!-- peaks-feedback-promoted: layer=A -->
 
 **一个用文件模式强制"写入必须失败"的夹具，只在 Windows 上成立。**
 

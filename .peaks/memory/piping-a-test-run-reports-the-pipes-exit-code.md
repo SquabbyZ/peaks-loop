@@ -7,6 +7,7 @@ metadata:
   originSessionId: bd89a11a-b66d-443c-b8b7-e9aa813190c2
   modified: 2026-09-13T05:37:35.690Z
 ---
+<!-- peaks-feedback-promoted: layer=B -->
 
 **把测试命令管进 `| tail`（或任何管道/分页器）之后，你读到的 `$?` 是那个**管道的**退出码，不是测试运行器的。**
 

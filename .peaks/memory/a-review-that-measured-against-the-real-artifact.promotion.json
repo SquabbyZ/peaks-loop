@@ -1,0 +1,16 @@
+{
+  "name": "a-review-that-measured-against-the-real-artifact",
+  "layer": "A",
+  "layerDetail": "peaks-sop gate",
+  "generatedFiles": [
+    "D:\\projects\\peaks-loop\\.peaks\\memory\\a-review-that-measured-against-the-real-artifact.md",
+    ".peaks\\sops\\feedback-a-review-that-measured-against-the-real-artifact\\sop.json",
+    ".peaks\\sops\\registry.json"
+  ],
+  "requiredArtifacts": [
+    ".peaks/sops/feedback-a-review-that-measured-against-the-real-artifact/sop.json",
+    ".peaks/sops/registry.json"
+  ],
+  "promotedAt": "2026-10-10T02:59:02.639Z",
+  "promotedBy": "peaks-rd fork agent"
+}

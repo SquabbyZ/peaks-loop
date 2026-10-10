@@ -7,6 +7,7 @@ metadata:
   originSessionId: e0ac1231-9059-438e-b036-c6cae372eb87
   modified: 2026-09-15T00:00:00.000Z
 ---
+<!-- peaks-feedback-promoted: layer=A -->
 
 **一次"只读"的性能评审，把 2054 行灌进了真实的 `compact-history.jsonl` —— 而它的指令里没有任何一条禁止写真实产物。**
 

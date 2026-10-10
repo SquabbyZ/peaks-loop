@@ -1,0 +1,13 @@
+{
+  "name": "piping-a-test-run-reports-the-pipes-exit-code",
+  "layer": "B",
+  "layerDetail": "peaks-hooks PreToolUse",
+  "generatedFiles": [
+    "D:\\projects\\peaks-loop\\.peaks\\memory\\piping-a-test-run-reports-the-pipes-exit-code.md"
+  ],
+  "requiredArtifacts": [
+    ".peaks/.claude-settings-template.json"
+  ],
+  "promotedAt": "2026-10-10T03:07:09.728Z",
+  "promotedBy": "rd-implementer-032"
+}

@@ -41,6 +41,19 @@
       ]
     },
     {
+      "id": "feedback-a-fixture-that-forces-failure-by-file-mode-is-platform-scoped",
+      "path": "sops/feedback-a-fixture-that-forces-failure-by-file-mode-is-platform-scoped/sop.json",
+      "gates": [
+        {
+          "ref": "feedback-a-fixture-that-forces-failure-by-file-mode-is-platform-scoped/rule-source-present",
+          "gateId": "rule-source-present",
+          "sopId": "feedback-a-fixture-that-forces-failure-by-file-mode-is-platform-scoped",
+          "phase": "apply",
+          "transition": "feedback-a-fixture-that-forces-failure-by-file-mode-is-platform-scoped:apply"
+        }
+      ]
+    },
+    {
       "id": "feedback-a-probe-that-always-says-caught-is-indistinguishable-from-a-working-guard",
       "path": "sops/feedback-a-probe-that-always-says-caught-is-indistinguishable-from-a-working-guard/sop.json",
       "gates": [
@@ -50,6 +63,19 @@
           "sopId": "feedback-a-probe-that-always-says-caught-is-indistinguishable-from-a-working-guard",
           "phase": "apply",
           "transition": "feedback-a-probe-that-always-says-caught-is-indistinguishable-from-a-working-guard:apply"
+        }
+      ]
+    },
+    {
+      "id": "feedback-a-review-that-measured-against-the-real-artifact",
+      "path": "sops/feedback-a-review-that-measured-against-the-real-artifact/sop.json",
+      "gates": [
+        {
+          "ref": "feedback-a-review-that-measured-against-the-real-artifact/rule-source-present",
+          "gateId": "rule-source-present",
+          "sopId": "feedback-a-review-that-measured-against-the-real-artifact",
+          "phase": "apply",
+          "transition": "feedback-a-review-that-measured-against-the-real-artifact:apply"
         }
       ]
     },
@@ -89,6 +115,19 @@
           "sopId": "feedback-active-skill-cli-routing",
           "phase": "apply",
           "transition": "feedback-active-skill-cli-routing:apply"
+        }
+      ]
+    },
+    {
+      "id": "feedback-check-ci-on-every-push-and-run-wide-tsc",
+      "path": "sops/feedback-check-ci-on-every-push-and-run-wide-tsc/sop.json",
+      "gates": [
+        {
+          "ref": "feedback-check-ci-on-every-push-and-run-wide-tsc/rule-source-present",
+          "gateId": "rule-source-present",
+          "sopId": "feedback-check-ci-on-every-push-and-run-wide-tsc",
+          "phase": "apply",
+          "transition": "feedback-check-ci-on-every-push-and-run-wide-tsc:apply"
         }
       ]
     },
@@ -262,5 +301,5 @@
       ]
     }
   ],
-  "gateCount": 20
+  "gateCount": 23
 }
