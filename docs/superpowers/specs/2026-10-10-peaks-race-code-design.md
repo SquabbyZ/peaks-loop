@@ -1,7 +1,7 @@
 # peaks-race-code — 快泳道设计
 
 - **日期**：2026-10-10
-- **状态**：设计已定，**尚未经用户 review**。历经：brainstorming 3 段 + 11 处用户裁决 → `peaks audit goal` 第一轮（accepted with amendments）→ fresh-context 对抗评审（**10 项发现，推翻 3 项设计选择**）→ 用户对全部修正的裁决 → `peaks audit goal` 第二轮 rev2（**2 BLOCKER + 采纳 scope 拆分**）→ 拆为 **4 个 slice**（§13）
+- **状态**：设计已定，**尚未经用户 review**。历经：brainstorming 3 段 + 11 处用户裁决 → `peaks audit goal` 第一轮（accepted with amendments）→ fresh-context 对抗评审（**10 项发现，推翻 3 项设计选择**）→ 用户对全部修正的裁决 → `peaks audit goal` 第二轮 rev2（**2 BLOCKER + 采纳 scope 拆分**）→ 拆为 **4 个 slice**（§13）→ **U5 / U7 裁决（均为 B）**：泳道问题改为"每次问 + 预选默认"（并随 pilot 状态切换），"实现完"与"可信到能默认提供"拆成两个门。**现在两个用户级未决项都已关闭，可以 review。**
 - **session**：`2026-10-10-session-8bc940`（rid 未分配；本条尚未走 `peaks request init`）
 - **审计产物**：`.peaks/_runtime/2026-10-10-session-8bc940/audit-goal/`（`…-acceptance.md` / `…-rev2.json`）
 - **⚠️ 独立性限制**：**本设计未经独立模型审计。** 第一轮审计与设计**同模型**（`deepseek-flash[1M]`）；`peaks-reviewer` 因 `reviewer.providers < 2`（`src/services/reviewer/reviewer-config.ts:77`）在本机**结构性不可用**，且它审的是实现后的 slice 而非 spec。替代品是 fresh-context 子代理（**换上下文、不换模型族**）。详见 §12 U9。
@@ -109,17 +109,37 @@ race-code **复用**现有 mode 轴：`full-auto | assisted | strict | 24h`（`S
 
 > 评审原本建议改 **peaks-code 的 SKILL.md**——**不采纳**：那会撞破 §1 的承重不变量（peaks-code 一行不改）。放在 peaks-audit 达到同样效果且不破不变量。
 
-### 3.2 "每次都问"的精确含义
+### 3.2 "每次都问"的精确含义（用户裁决 U5 = **B：每次问 + 预选默认**）
 
-本 spec 把"每次都问"解释为：**泳道尚未被明确指定时问**。三种情形不重复问：
+**结论：每个新需求问一次，并把用户指定的 skill 预选为默认项。** 不是"未指定才问"。
 
-1. 用户直接指定了 skill（`/peaks-race-code` 或 `/peaks-code`）——**那本身就是答案**；
-2. 同一个 request 上用户已答过一次泳道问题；
-3. 泳道已在本次 session 内被显式锁定。
+**为什么改（原稿"未指定才问"已废弃）**：那个读法藏着一个**产品缺陷**——
 
-**关键补充（评审后）**：情形 2 的答案**就是 §8 用来判定放行的那个事实**。泳道不再有第二份可自写的副本——见 §8.1。
+> 用户发起日常小需求的方式大概率是 `/peaks-code` 或"端到端把这个改了"，**两者都是"已指定"**。于是那条选择题**永远不出现**，race-code 对用户**不可发现**——它的全部意义（小任务少付仪式费）**在最常见的路径上不生效**。
 
-> 若用户本意是"连显式指定也要再确认一次"，请在 spec review 时指出——那会改变 §3.1 的形状。
+这与评审 **#2** 挑出的路由缺陷（机制装好了，但装在你不会经过的地方）**是同一类错误的第二次出现**。原稿没发现这一点。
+
+**规则**：
+
+| 情形 | 行为 |
+|---|---|
+| 用户**未**指定 skill（自然语言描述需求） | 弹一次选择题，**无预选** |
+| 用户**已**指定 skill（`/peaks-code` / `/peaks-race-code`） | 弹一次选择题，**预选指定的那条**——一次回车即过，想换就选另一条 |
+| 同一 request 已答过 | 不再问 |
+| 本 session 已锁定 | 不再问 |
+
+**"预选"不是"反问"**：不是"你确定吗"，而是**把选择器的默认项设为用户已经说的那条**。于是它**同时满足**"每次都问"与"明确指定就是答案"，并让泳道这件事**每次都被看见**——选择权显式地在用户手上，而不是靠 LLM 揣摩（这正是 Human-NL-Choice-Only 的精神）。
+
+#### ⚠️ 本节行为随 pilot 状态切换（与 §5.5.2 / U7=B 耦合）
+
+| 阶段 | 行为 |
+|---|---|
+| **pilot 通过之前** | race-code **只能指名到达**。此阶段按原 Reading A 行事——已指定 skill 时**不问**。理由：一条尚未在真实任务上验证过的泳道，不该在每个需求上被推荐 |
+| **pilot 通过之后** | 切到上表（每次问 + 预选），race-code 成为**默认提供**的选项 |
+
+两个阶段拼起来是一条完整路径：**先藏着，验证过再端上来。**
+
+**关键补充（评审后）**：上表"同一 request 已答过"的那个答案，**就是 §8 用来判定放行的那个事实**。泳道不再有第二份可自写的副本——见 §8.1。
 
 ### 3.3 过程中：建议不强制
 
@@ -265,11 +285,25 @@ race-code 不写文书，但下列四件事必须**真实发生**，且必须在
 
 **时序基线**归到一个独立小 slice（给 `dispatch` 事件补 `sliceRid`、给每个任务补起止标记），**不在本 spec 内**——见 §12 U10。
 
-### 5.5.2 试点（N4）
+### 5.5.2 试点：**两个门，不是把一个门拉长**（用户裁决 U7 = B）
 
-审计的 successCriteria 第 6 条把 "Hackathon and daily low/medium task **pilots** demonstrate usability and no severe quality regressions" 写进了完成定义。
+审计的 successCriteria 第 6 条把 "…**pilots** demonstrate usability and no severe quality regressions" 写进了完成定义。**用户裁决不照字面采纳，而是拆成两个独立的门**：
 
-**这意味着：实现完 ≠ 完成。** 实现之后还需要真实使用一段时间（黑客松 / 日常中等以下任务）才满足 goal。用户是否接受这个更长的完成定义，见 §12 U7——**未裁决前不得把"实现完成"当作 goal 达成**。
+| 门 | 判据 | 关什么 |
+|---|---|---|
+| **门 1 — 实现** | S2 的代码交付完 + T1–T10 绿 | S2 的退出判据 |
+| **门 2 — 信任** | pilot 在真实任务（黑客松 / 日常中等以下）跑过，且无严重回归 | 决定 race-code 能否**默认提供**（§3.2 的阶段切换） |
+
+**为什么拆开是对的**：实现与信任是两件事。绑在一起会让一个已经做完的 skill 因为"还没用够次数"而**无法关闭**。而审计自己的 successCriteria #10 本来就是分段的（先修硬前提 → MVP pilot → 再默认启用）。
+
+**门 2 的判据必须可数**（否则它是散文——§5 刚吃过一次这个教训）。四个可从 §7.2 的记录 + git/CI 历史数出来的量：
+
+- race-code 任务数；
+- 其中被**回滚**的次数；
+- 其中让 **CI 变红**的次数；
+- 其中**漏报风险面**的次数（事后发现命中了 §6.2 却没记录）。
+
+**⚠️ 门 1 与 N1 的关系（澄清，避免重复计功）**：N1 的结构性指标（每任务上下文窗口数）**按构造即成立**，**不需要 pilot**。所以门 1 通过时**结构性收益已经可验证**；门 2 验的是**真实可用性**，不是速度。两者不重叠。
 
 ---
 
@@ -558,9 +592,9 @@ if (activeSkill.skill !== null) {   // ← 解析不出来，整个提交闸被�
 | U2 | 越界的规模阈值（文件数 / 行数）具体取值 | 实现期用真实数据定；初值建议先宽后收 |
 | U3 | ~~lane token 残留~~ | **已消解**——token 已删除（§8.1）。且原论证本身也是错的："崩溃后 session 即结束"把外层 harness session 与 peaks session 混为一谈；peaks session id 跨 `/compact` 与 `peaks-resume` **复用同一目录** |
 | U4 | 会话身份解析本身的脆弱性（peaks CLI 子进程通常不继承 `CLAUDE_CODE_SESSION_ID`，故有 `.outer-session-cache.json`） | **本设计的最大工程风险**。fail-closed 把该脆弱性全部转化为 race-code 侧的误拦（自愈重试一次，摩擦有界） |
-| U5 | §3.2 对"每次都问"的解释 | 待用户在 spec review 时确认 |
+| U5 | ~~§3.2 对"每次都问"的解释~~ | **已裁决（B：每次问 + 预选默认），且行为随 pilot 状态切换**——见 §3.2。原稿"未指定才问"会让 race-code 在用户最常用的路径上**不可发现**，是评审 #2 那类错误的第二次出现 |
 | U6 | **`.peaks/memory/` 条目加 正例/反例**（用户 2026-10-10 提出，明确选择"改全局格式"而非只补 race-code） | **独立 slice，不在本 spec 内。** 它是架构级：格式被所有产出者写（peaks-code / peaks-rd / peaks-qa / …），被 `memory-ingest-service` / `memory-rotate-service` / `memory-search-service` / `index.json` 读，且**存量条目已在盘上**（须回答迁移 vs 只对新增生效）。本 spec 只承诺 race-code 做该格式的消费者（§7.3） |
-| U7 | **试点是否算完成定义的一部分**（N4）。审计 successCriteria 第 6 条要求 pilots 证明可用性 | **未裁决。** 接受 ⇒ "实现完成"不等于 goal 达成，还需真实使用一段时间；不接受 ⇒ 须**显式否决**该条（不许默认忽略） |
+| U7 | ~~试点是否算完成定义的一部分~~ | **已裁决（B：两个门）**——见 §5.5.2。门 1（实现）关 S2；门 2（信任）关"能否默认提供"。**不采纳审计 successCriteria #6 的字面**（把 pilot 写进完成定义会让做完的 skill 无法关闭），但其**意图保留在门 2**，且判据改为 4 个可数量 |
 | U8 | **§5.5.1 的基线若显示慢的主因不是 dispatch 成本** | 则 §4.3 那条被否决的替代方案（自动化 peaks-code 自身的质检工序）**反过来成为首选**，本设计应重估。这是本 spec 自身可被证伪的出口 |
 | U9 | **本设计未经独立模型审计——已查实，且短期无法达成**| **事实（2026-10-10 实测）**：① 审计第一轮与设计**同模型**（`deepseek-flash[1M]`，经 `anthropic-messages-api` 绑定）。② `peaks reviewer status` 返回 `configured: false / no-reviewer-config`；根因是 `src/services/reviewer/reviewer-config.ts:77` 要求 `reviewer.providers.length >= 2`（"A4.1 explicitly requires >=2 providers…skipped cleanly"）——**该门拒绝假绿，而非产出假绿**。③ 本机只够得着一个模型族：`ollama` 未安装（PATH 无、`:11434` 无响应），`openai` 无凭据。④ **且 `peaks-reviewer` 时机也不对**：`peaks reviewer run --rid <rid>` 按 **rid 审 slice**、prompt 取自 `input.context`（≤8KB），定位是 v2.14.0 G4 anti-fake-green（"实现有没有真按 contract 做到"），**不是设计评审器**。 | **裁决（用户 2026-10-10）**：以 **fresh-context 子代理**代替，并**如实标注其性质**——换的是**上下文**（不带本对话的自我合理化），**不是模型族**（仍 `deepseek-flash`，共享同一批系统性盲点）。因此它**不构成独立审计的等价物**。真正的 `peaks-reviewer` 排到**实现之后**（那时才有 rid / contract / diff 可审）。要让独立模型审真正可用，需用户提供第二模型族凭据并写入 `~/.peaks/config.json` 的 `reviewer.providers` |
 | U10 | **时序基线取不到——`metrics/slices.jsonl` 的埋点支撑不了**（§5.5.1） | 41 条 `dispatch` 事件全部无 `sliceRid`、42% 记录无归属、2/4 session 才有该文件。**归到独立小 slice**：给 `dispatch` 补 `sliceRid` + 给每个任务补起止标记。本 spec 不依赖它（N1 已改为结构性指标） |
@@ -594,14 +628,17 @@ if (activeSkill.skill !== null) {   // ← 解析不出来，整个提交闸被�
 ### S2 — 快泳道 MVP（**本 spec 的主体**）
 
 - **内容**：`skills/peaks-race-code/SKILL.md`（含 loop-hygiene 块）+ `SKILL_NAMES`；`decideGateAction` 可选第三参（默认 fail-closed）+ `code-gate-command.ts` 解析；`.husky/commit-msg` 主层 + 拦截点次层（§8.4）；`peaks-audit` 的泳道路由（§3）；`.sh` 兄弟的处置（§10.1）。
-- **退出判据**：T1–T10 绿；§10.1 的三个文件改完；`.sh` 差异有明确处置。
+- **退出判据（= §5.5.2 的「门 1」）**：T1–T10 绿；§10.1 的三个文件改完；`.sh` 差异有明确处置。**门 1 通过即可关闭 S2**——不因为"还没用够次数"而拖住。
 - **依赖**：**S0 + S1**。
 
-### S3 — 指标埋点 + pilot
+### S3 — 门 2：pilot + 指标埋点 + 阶段切换
 
-- **内容**：给 `dispatch` 事件补 `sliceRid`、给每个任务补起止标记（§5.5.1 末段）；pilot 对照（§5.5.2 / §12 U7）。
-- **退出判据**：结构性指标（每任务上下文窗口数）可采集；U7 的试点裁决落地。
-- **依赖**：S2 可用之后（否则没有可对照的对象）。
+- **内容**：
+  1. **门 2（信任）** —— pilot 在真实任务上跑，按 §5.5.2 的四个可数量判定（任务数 / 回滚次数 / CI 红次数 / 漏报风险面次数）；
+  2. **阶段切换** —— 门 2 通过后，把 §3.2 从"只能指名到达"切到"每次问 + 预选默认"，race-code 成为默认提供的选项；
+  3. **时序埋点（可选）** —— 给 `dispatch` 事件补 `sliceRid`、给每个任务补起止标记（§5.5.1 末段）。**注意这不是门 1 或门 2 的前置**：N1 的指标按构造成立，不需要它。
+- **退出判据**：门 2 的四个数达标；§3.2 的阶段切换已生效（或明确记录未通过、race-code 保持只能指名到达）。
+- **依赖**：S2（没有可试用的东西就无从 pilot）。
 
 ### 每个 slice 内的顺序（仅 S2 用）
 
