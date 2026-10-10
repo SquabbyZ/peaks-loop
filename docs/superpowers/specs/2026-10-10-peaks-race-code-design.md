@@ -1,7 +1,7 @@
 # peaks-race-code — 快泳道设计
 
 - **日期**：2026-10-10
-- **状态**：设计已定，**尚未经用户 review**。历经：brainstorming 3 段 + 11 处用户裁决 → `peaks audit goal` 第一轮（accepted with amendments）→ fresh-context 对抗评审（**10 项发现，推翻 3 项设计选择**）→ 用户对全部修正的裁决 → `peaks audit goal` 第二轮 rev2（**2 BLOCKER + 采纳 scope 拆分**）→ 拆为 **4 个 slice**（§13）→ **U5 / U7 裁决（均为 B）**：泳道问题改为"每次问 + 预选默认"（并随 pilot 状态切换），"实现完"与"可信到能默认提供"拆成两个门。**现在两个用户级未决项都已关闭，可以 review。**
+- **状态**：设计已定，**尚未经用户 review**。历经：brainstorming 3 段 + 11 处用户裁决 → `peaks audit goal` 第一轮（accepted with amendments）→ fresh-context 对抗评审（**10 项发现，推翻 3 项设计选择**）→ 用户对全部修正的裁决 → `peaks audit goal` 第二轮 rev2（**2 BLOCKER + 采纳 scope 拆分**）→ 拆为 **4 个 slice**（§13）→ **U5 / U7 裁决（均为 B）**：泳道问题改为"每次问 + 预选默认"（并随 pilot 状态切换），"实现完"与"可信到能默认提供"拆成两个门 → **S0 已交付并合入 main**（2026-10-10，`98f314d6`，见 `docs/superpowers/plans/2026-10-10-driver-resolution-and-commit-ban.md`）→ **§2.5 核实新增**：仓库里已有活的 fast mode，race-code 定位为**三档中的第三档**而非取代；S1 据此重定义为"以 `fast-mode.md` 为基泛化共享规范"。**现在两个用户级未决项都已关闭，可以 review。**
 - **session**：`2026-10-10-session-8bc940`（rid 未分配；本条尚未走 `peaks request init`）
 - **审计产物**：`.peaks/_runtime/2026-10-10-session-8bc940/audit-goal/`（`…-acceptance.md` / `…-rev2.json`）
 - **⚠️ 独立性限制**：**本设计未经独立模型审计。** 第一轮审计与设计**同模型**（`deepseek-flash[1M]`）；`peaks-reviewer` 因 `reviewer.providers < 2`（`src/services/reviewer/reviewer-config.ts:77`）在本机**结构性不可用**，且它审的是实现后的 slice 而非 spec。替代品是 fresh-context 子代理（**换上下文、不换模型族**）。详见 §12 U9。
@@ -77,6 +77,15 @@ race-code 要动的是红线本身。若把它做成 peaks-code 内部的一条"
 
 race-code **不继承**该红线，因为它的前提（分权）在 race-code 里不存在。所以这不是"违反红线"，是**走另一条泳道**。
 
+**决定性证据（2026-10-10 核实）：peaks-code 里已经有一个活的 fast mode，而它的形状就是这条论证。**
+`skills/peaks-code/references/fast-mode.md` + `peaks code plan --fast`（`code-mode-gate-plan-command.ts:25`，`buildCodePlan` 真的会 `skipped: opts.fast && isSkippable` 与 `repairLoop: !opts.fast`）。它跳过 memory 全量加载、standards preflight、QA 修复环——**但红线一字未动**。
+
+> **换句话说：这个仓库已经做过一次"让 peaks-code 变快"的实验。答案不是"让编排者去改代码"，而是"跳仪式、留红线"。** 这正是本节论证的实证版本：红线是 peaks-code 的身份，仪式才是它可以谈的东西。
+>
+> 由此 race-code 的定位不再需要靠推理——它是**必须连红线一起放下**时的产物，而那件事**结构上无法**表达为 peaks-code 的一个开关。
+
+详见 §2.5。
+
 ### 2.4 与现有 mode 轴的关系
 
 race-code **复用**现有 mode 轴：`full-auto | assisted | strict | 24h`（`SkillPresenceMode`）照旧管"要不要停下来问你"。两条轴正交：
@@ -85,6 +94,37 @@ race-code **复用**现有 mode 轴：`full-auto | assisted | strict | 24h`（`S
 - **mode 轴（既有）**：问不问 —— `full-auto | assisted | strict`。
 
 **24h 与 race-code 不相容**：24h 是为"长时无人值守的多 slice 长跑"设计的，而 race-code 的定义就是短任务、单窗口。race-code **不实现 24h**（§11）。
+
+### 2.5 与既有 fast mode 的关系：**三档，不是取代**（2026-10-10 核实后新增）
+
+核实发现仓库里**已经有**一条快泳道，且是活的（见 §2.3 末段）。必须正面回答"那 race-code 是什么"，否则仓库里会有两个都叫"快"的东西而没人说得清该用哪个。
+
+**三条泳道，只在一条轴上分岔**——**编排者能不能实现**：
+
+| | 分权（编排者 ≠ 实现者） | 仪式 | 现状 |
+|---|---|---|---|
+| **peaks-code**（全量） | ✅ | 全 11 步 + Gate A–G | 已有 |
+| **peaks-code `--fast`** | ✅ | memory 全量加载 / standards preflight / QA 修复环 **跳过** | **已有**（`fast-mode.md`） |
+| **peaks-race-code** | ❌ **取消** | 零子代理、零 Gate 链、零文书 | 本 spec |
+
+**决定：race-code 不取代 fast mode。** 两者是同一光谱上的不同点：
+- fast mode 适合"值得独立实现者窗口、但不值得全 11 步"的任务——速度来自**砍仪式**。
+- race-code 适合"窗口切换本身就是那个成本"的任务——速度来自**砍分权**。
+
+取代掉 fast mode 会损失中间那一档：有些任务确实需要独立评审，只是不需要 PRD/swarm/SC/TXT。
+
+**对 §4.4 共享内容的影响（这是本节的实际后果）**：既然两条快泳道并存，真正**逐字共享**的散文比 §4.4 原先估计的**更窄**：
+
+| 候选 | 两条泳道都适用？ |
+|---|---|
+| **验收门**（`test pass + tsc pass + lint pass`） | ✅ **真的共享**——fast mode 已写着它，race-code §5 的 #1/#2 是同一件事 |
+| **"何时不该走快泳道"（风险面）** | ✅ **真的共享**——两条泳道都需要一个"这不归快道管"的判据 |
+| 完成证明 #3（诚实提交）/ #4（能退回） | ❌ race-code 独有——fast mode 不自己 commit |
+| floor 其余、Gate A–G | ❌ 不共享 |
+
+⇒ **S1 的重定义**（§4.4 / §13）：不是"抽出 §5 + §6 全文"，而是**以 `fast-mode.md` 为基，把「快泳道验收门 + 风险面」泛化为一份规范**，两条泳道各自指向它。
+
+**顺带记一条漂移（同一类毛病，本轮第三次）**：`peaks code plan <change-id>` 的 CLI 帮助与 `fast-mode.md` 都在说 `change-id`，但 change-id 维度已在 `2026-06-29-change-id-root-removal` 删除，且 handler 的形参就叫 **`sessionId`**（`code-mode-gate-plan-command.ts:31`）。**帮助与文档都在用一个不存在的概念。** → §12 U13。
 
 ---
 
@@ -199,11 +239,14 @@ race-code **复用**现有 mode 轴：`full-auto | assisted | strict | 24h`（`S
 | read-before-edit | **已经共享**——它就在 loop-hygiene 块里（"Read before you edit"），22 份逐字节相同、有测试钉 | 现状，不动 |
 | TDD micro-cycle | 会 | 指向 |
 | Karpathy 四条 | 会（现靠指向 `skills/bee/peaks-rd/references/rd-sub-agent-dispatch.md` 的一节） | 指向 |
-| **§5 完成证明（floor）** | **会——净新增重复** | **抽出** |
-| **§6 风险面清单** | **会**——两条泳道对"什么算危险"的定义绝不能漂 | **抽出** |
+| **§5 的 #1/#2（测过 / 类型过）** | **会**——它与既有 fast mode 的验收门是同一件事 | **抽出**（以 `fast-mode.md` 为基，见下） |
+| **§6 风险面清单** | **会**——两条泳道都需要"这不归快道管"的判据 | **抽出** |
+| §5 的 #3（诚实提交）/ #4（能退回） | **不会**——race-code 独有，fast mode 不自己 commit | 留在 §5 |
 | Gate A–G / transition / dispatch 契约 | 不会，race-code 明确不用 | — |
 | workspace / presence / runtime 目录 | 不会，已是 CLI 共享 | — |
 | 泳道路由决策 | 不会，落在 peaks-audit，两泳道共用 | — |
+
+> **修正（2026-10-10 核实）**：上表原先把"§5 完成证明（floor）"与"§6 风险面"整体标为"净新增重复"。**实测不成立**——peaks-code 里**既没有**完成证明清单**也没有**风险面清单（它的等价物是 Gate A–G + transition 状态机，机制完全不同）。**而且仓库里已经有一条活的快泳道（fast mode），它的验收门正是 §5 的 #1/#2。** 所以共享面比原先估计的**更窄也更实**：见 §2.5。
 
 **机制：一份规范 + 双指向 + 一个测试 —— 不是"复制 + 逐字节测试"**
 
@@ -599,11 +642,10 @@ if (activeSkill.skill !== null) {   // ← 解析不出来，整个提交闸被�
 | U9 | **本设计未经独立模型审计——已查实，且短期无法达成**| **事实（2026-10-10 实测）**：① 审计第一轮与设计**同模型**（`deepseek-flash[1M]`，经 `anthropic-messages-api` 绑定）。② `peaks reviewer status` 返回 `configured: false / no-reviewer-config`；根因是 `src/services/reviewer/reviewer-config.ts:77` 要求 `reviewer.providers.length >= 2`（"A4.1 explicitly requires >=2 providers…skipped cleanly"）——**该门拒绝假绿，而非产出假绿**。③ 本机只够得着一个模型族：`ollama` 未安装（PATH 无、`:11434` 无响应），`openai` 无凭据。④ **且 `peaks-reviewer` 时机也不对**：`peaks reviewer run --rid <rid>` 按 **rid 审 slice**、prompt 取自 `input.context`（≤8KB），定位是 v2.14.0 G4 anti-fake-green（"实现有没有真按 contract 做到"），**不是设计评审器**。 | **裁决（用户 2026-10-10）**：以 **fresh-context 子代理**代替，并**如实标注其性质**——换的是**上下文**（不带本对话的自我合理化），**不是模型族**（仍 `deepseek-flash`，共享同一批系统性盲点）。因此它**不构成独立审计的等价物**。真正的 `peaks-reviewer` 排到**实现之后**（那时才有 rid / contract / diff 可审）。要让独立模型审真正可用，需用户提供第二模型族凭据并写入 `~/.peaks/config.json` 的 `reviewer.providers` |
 | U10 | **时序基线取不到——`metrics/slices.jsonl` 的埋点支撑不了**（§5.5.1） | 41 条 `dispatch` 事件全部无 `sliceRid`、42% 记录无归属、2/4 session 才有该文件。**归到独立小 slice**：给 `dispatch` 补 `sliceRid` + 给每个任务补起止标记。本 spec 不依赖它（N1 已改为结构性指标） |
 | U11 | **驾驶者解析不可靠，且提交闸在同信号上 fail-open**（评审 #1 / #7，`hook-handle.ts:131-132`） | **本设计的硬前提，必须先独立修**：① 传 `callerId` 或与 `skill-presence-service.ts:198` 一致地按 `lastHeartbeat` 排序；② 决定提交闸在该信号上到底 fail-open 还是 fail-closed（今天与 §8.3 相反）。**不修，§8.2 整张表建在沙上**——且这是**今天就在提交闸里的既存 bug，与 race-code 无关** |
-| U12 | **共享规范文件的落点**（§4.4） | 实现期定。候选：`.peaks/standards/`（RL-8 的 import 先例）或 skill-family 共享的 `references/`。须满足 §4.4 的"一份规范 + 双指向 + 双向测试" |
+| U12 | **共享规范文件的落点**（§4.4 / §2.5） | 实现期定。候选：`.peaks/standards/`（RL-8 的 import 先例）或 skill-family 共享的 `references/`；**基**是既有的 `skills/peaks-code/references/fast-mode.md`。须满足 §4.4 的"一份规范 + 双指向 + 双向测试" |
+| U13 | **`fast-mode.md` 与 CLI 帮助里的 `change-id` 已不存在**（§2.5 末段） | change-id 维度在 `2026-06-29-change-id-root-removal` 删除，handler 形参是 `sessionId`。**未裁决**：S1 顺手改 / 另立小 slice / 先不动。**不许默认忽略** |
 
 ---
-
-## 13. 实现顺序（粗）
 
 ## 13. 交付分解：**四个 slice**（rev2 审计裁决）
 
@@ -618,12 +660,16 @@ if (activeSkill.skill !== null) {   // ← 解析不出来，整个提交闸被�
 - **退出判据**：解析有测试且排序/作用域语义被钉住；失败方向有明确裁决 + 测试。
 - **依赖**：无。**S2 依赖它。**
 
-### S1 — 共享规范（**保行为重构**）
+### S1 — 共享规范（**保行为重构**，2026-10-10 重定义）
 
-- **内容**：把 §5 floor + §6 风险面抽到规范文件（§12 U12 定落点），两个 SKILL.md 指向它，加**双向**测试（§4.4 / T11）。
-- **类型**：refactor，**零行为变化**（§1 行为级不变量就是它的验收标准）。
-- **退出判据**：T11 绿；peaks-code 行为不变（既有测试全绿）。
+- **内容**：以 `skills/peaks-code/references/fast-mode.md` 为**基**，把两样真正逐字共享的散文泛化为一份规范文件（§4.4）：
+  1. **快泳道验收门** —— fast mode 已写着 `test pass + tsc pass + lint pass`；race-code §5 的 #1/#2 是同一件事；
+  2. **"何时不该走快泳道"的风险面** —— 两条泳道都需要这个判据（§6.2）。
+  peaks-code 的 fast-mode 路径指向它；race-code（S2）将来指向它。加**双向**测试（§4.4 / T11）。
+- **类型**：refactor，**对 peaks-code 零行为变化**（§1 行为级不变量就是它的验收标准）。**注意**：这**不是**"抽取已有重复"——风险面清单目前在哪都不存在，是**新写**的；把它写成 peaks-code 的规范内容会**改变 peaks-code 的规范面**，这一点必须在 review 时显式接受，不能含糊。
+- **退出判据**：T11 绿；peaks-code 既有测试全绿。
 - **依赖**：无。**S2 的 SKILL.md 依赖它**（否则 race-code 会先复制一份）。
+- **已知残余**：`fast-mode.md` 描述的参数名 `change-id` 已不存在（§12 U13）——S1 顺手改成 `sessionId` 还是另立，见 U13。
 
 ### S2 — 快泳道 MVP（**本 spec 的主体**）
 
