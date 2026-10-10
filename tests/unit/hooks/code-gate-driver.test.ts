@@ -14,8 +14,9 @@
 // skill all leave the hard-blocked families denied — so each case below asserts
 // a deny, rather than the mere absence of an allow.
 //
-// The payloads carry `{tool, input}`, the shape this command's own header
-// documents and the shape its handler parses.
+// A tool call reaches this command under one of two spellings of the same
+// three keys: `{tool, input}` and `{tool_name, tool_input}`. Both must be
+// judged, so the payloads below cover each spelling on the same cases.
 
 import { spawnSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
@@ -59,11 +60,20 @@ function writeLease(root: string, callerId: string, skill: string): void {
   });
 }
 
-/** A payload a harness could pipe in: one tool call, and who is calling it. */
+/** A tool call under the legacy spelling this command's own header documents. */
 function payload(filePath: string, callerId?: string): string {
   return JSON.stringify({
     tool: 'Edit',
     input: { file_path: filePath },
+    ...(callerId === undefined ? {} : { session_id: callerId })
+  });
+}
+
+/** The same call under the harness spelling of the tool name and arguments. */
+function harnessPayload(filePath: string, callerId?: string): string {
+  return JSON.stringify({
+    tool_name: 'Edit',
+    tool_input: { file_path: filePath },
     ...(callerId === undefined ? {} : { session_id: callerId })
   });
 }
@@ -162,6 +172,55 @@ describe('peaks code-gate — which caller is driving the tool call', () => {
     writeLease(root, 'caller-a', 'peaks-race-code');
 
     const { status, stdout } = runCodeGate(root, payload(UNGATED, 'caller-b'));
+
+    expect(status).toBe(0);
+    expect(stdout).toContain('"action": "allow"');
+  });
+});
+
+describe('peaks code-gate — the harness spelling of the tool call', () => {
+  it('denies a hard-blocked path when the payload uses the harness spelling', () => {
+    // A real PreToolUse call carries `tool_name` / `tool_input`. A command that
+    // reads only `tool` / `input` sees no tool name, and every tool name that
+    // is not Edit/Write/MultiEdit is allowed — so the gate never fires.
+    const root = makeProject();
+
+    const { status, stdout } = runCodeGate(root, harnessPayload(BLOCKED));
+
+    expect(status).toBe(0);
+    expect(stdout).toContain('"action": "deny"');
+    expect(stdout).toContain('PEAKS_CODE_PROHIBITED_DIRECT_EDIT');
+  });
+
+  it('still judges the legacy spelling', () => {
+    const root = makeProject();
+
+    const { status, stdout } = runCodeGate(root, payload(BLOCKED));
+
+    expect(status).toBe(0);
+    expect(stdout).toContain('"action": "deny"');
+    expect(stdout).toContain('PEAKS_CODE_PROHIBITED_DIRECT_EDIT');
+  });
+
+  it('allows a hard-blocked path the harness spelling places under the fast lane', () => {
+    // The write the fast lane exists to perform: with the tool call judged at
+    // all, its lease is what opens `src/`.
+    const root = makeProject();
+    writeLease(root, 'caller-a', 'peaks-race-code');
+
+    const { status, stdout } = runCodeGate(root, harnessPayload(BLOCKED, 'caller-a'));
+
+    expect(status).toBe(0);
+    expect(stdout).toContain('"action": "allow"');
+    expect(stdout).not.toContain('PEAKS_CODE_PROHIBITED_DIRECT_EDIT');
+  });
+
+  it('allows an ungated path under the harness spelling', () => {
+    // Reading the harness spelling must not widen the deny: a path in no
+    // hard-blocked family stays an allow, as it does under the legacy spelling.
+    const root = makeProject();
+
+    const { status, stdout } = runCodeGate(root, harnessPayload(UNGATED));
 
     expect(status).toBe(0);
     expect(stdout).toContain('"action": "allow"');

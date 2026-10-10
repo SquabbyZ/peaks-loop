@@ -1,9 +1,8 @@
 /**
  *
  * Vendor-neutral PreToolUse hook entry. Reads the standard hook JSON
- * payload from stdin (`{tool, input}` shape) and either exits 0
- * (allow) or exits 2 with stderr containing
- * PEAKS_CODE_PROHIBITED_DIRECT_EDIT (deny).
+ * payload from stdin and either exits 0 (allow) or exits 2 with stderr
+ * containing PEAKS_CODE_PROHIBITED_DIRECT_EDIT (deny).
  *
  * This command is the runtime adapter for the shell-script sibling
  * (`src/services/hooks/pre-tool-code-gate.sh`). Both share the same
@@ -27,26 +26,42 @@ import { type ProgramIO, addJsonOption, printResult } from '../cli-helpers.js';
 import {
   decideGateAction,
   extractFilePath,
-  type GateInput
+  type GateToolName
 } from '../../services/hooks/pre-tool-code-gate.js';
 import {
   hasLeaseForCaller,
   resolveActiveSkillForCaller
 } from '../../services/audit/enforcers/active-skill-resolver.js';
 import { resolveCanonicalProjectRoot } from '../../services/config/config-service.js';
+import { pluckObject, pluckString } from '../../services/ide/hook-translator.js';
 import { fail, ok } from 'peaks-loop-shared/result';
 
 /**
- * The command layer's view of the hook payload: the `{tool, input}` pair the
- * pure decision takes, plus the caller-identifying fields the harness adds to
- * the same JSON. Read here and collapsed into one driver string before the
- * decision runs, so `GateInput` stays two fields wide and the decision stays
- * free of session, lease and filesystem state.
+ * The command layer's view of the hook payload. The same tool call arrives
+ * under two spellings of the same three keys — `{tool, input}` and
+ * `{tool_name, tool_input}` — and both must decide identically, so the fields
+ * stay unread here and are normalised below. Reading only one spelling leaves
+ * every call under the other ungated, because a tool name that is not one of
+ * the gated three is allowed before the path is ever consulted. The
+ * caller-identifying fields ride in the same JSON.
  */
-type HookPayload = GateInput & {
-  readonly caller_id?: unknown;
-  readonly session_id?: unknown;
-};
+type HookPayload = Record<string, unknown>;
+
+/**
+ * Read the tool call's name from whichever spelling supplies it, or `''` when
+ * neither does. `tool_name` is the harness spelling; `tool` is the one this
+ * command's own header documents. The shell-script sibling accepts both and
+ * calls each key by name, and the two gates must not disagree about what a
+ * payload says.
+ */
+function readToolName(parsed: HookPayload): GateToolName {
+  return pluckString(parsed, ['tool_name']) ?? pluckString(parsed, ['tool']) ?? '';
+}
+
+/** Read the tool call's arguments from whichever spelling supplies them. */
+function readToolInput(parsed: HookPayload): Readonly<Record<string, unknown>> {
+  return pluckObject(parsed, ['tool_input']) ?? pluckObject(parsed, ['input']) ?? {};
+}
 
 /**
  * Resolve which skill is driving this tool call, or `null` when that cannot be
@@ -119,21 +134,18 @@ export function registerCodeGateCommand(program: Command, io: ProgramIO): void {
       process.exit(0);
     }
 
+    const tool = readToolName(parsed);
+    const input = readToolInput(parsed);
     const verdict = decideGateAction(
-      parsed.tool,
-      parsed.input ?? {},
+      tool,
+      input,
       resolveDriver(resolveCanonicalProjectRoot(opts.project ?? process.cwd()), parsed)
     );
     if (opts.dryRun === true) {
       if (verdict.action === 'allow') {
         printResult(
           io,
-          ok(
-            'code.gate',
-            { action: 'allow', tool: parsed.tool, filePath: extractFilePath(parsed.input ?? {}) },
-            [],
-            []
-          ),
+          ok('code.gate', { action: 'allow', tool, filePath: extractFilePath(input) }, [], []),
           opts.json
         );
       } else {
@@ -145,7 +157,7 @@ export function registerCodeGateCommand(program: Command, io: ProgramIO): void {
             verdict.message,
             {
               action: 'deny',
-              tool: parsed.tool,
+              tool,
               filePath: verdict.filePath,
               reason: verdict.reason
             },
