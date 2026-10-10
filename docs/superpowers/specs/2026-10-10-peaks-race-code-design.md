@@ -137,19 +137,58 @@ race-code **复用**现有 mode 轴：`full-auto | assisted | strict | 24h`（`S
 | 动手前查 codegraph 受影响面 | 一次查询，避免改漏调用点 |
 | 动手前一句话说清"要改什么、为什么" | 一句话，不是文档 |
 | 根污染检查 | 不往项目根丢中间产物；race-code 不产中间产物，天然满足 |
-| **完成证明三条（§5）** | 是不可协商的动作，不是文书 |
+| **完成证明四条（§5）** | 是不可协商的动作，不是文书 |
+
+### 4.3 考虑过但未采纳的替代方案（审计第一轮记录）
+
+审计的 `alternatives` 维度（`info` 级）提出过一条我们 brainstorming 阶段没考虑的路径：
+
+> **"automation of routine quality checks to speed up peaks-code itself"** —— 不新开泳道，而是把 peaks-code 自己的例行质检工序自动化掉。
+
+**不采纳的理由**：本条的诊断是"贵的是**多一个上下文窗口**"——每个子代理都要把仓库重读一遍。自动化质检减少的是子代理**内部**的工作量，并不消掉 dispatch 的成本（重读仓库这一步照样发生）。它答的不是我们识别出的那个成本。
+
+**但它留下一条有效的警告**：如果 §5.5.1 的基线显示慢的主因**不是** dispatch 而是别的东西（例如 Gate A–G 的 `ls` 串行检查），那么这条替代方案就会**反过来变成首选**，本设计应重估。§12 U8 记了这一点。
 
 ---
 
 ## 5. 完成证明（floor）
 
-race-code 不写文书，但下列三件事必须**真实发生**，且必须在对话里**亮出命令与输出**（不许"应该能过"）。
+race-code 不写文书，但下列四件事必须**真实发生**，且必须在对话里**亮出命令与输出**（不许"应该能过"）。
 
 1. **测过的** —— 为本次行为变化写了或改了测试，**跑过、通过**。纯无行为变化的改动（格式化、重命名）可显式声明豁免理由，不得静默跳过。
 2. **类型过的** —— 类型检查或构建通过（`tsc --noEmit` 或项目等价物）。
 3. **诚实的提交** —— commit message 说清改了什么、为什么。
+4. **能退回去的（N2）** —— 改动落在一个**能整体撤回**的单元上：一次 commit（或一个 branch），且 race-code 必须能说出回退它的那条命令。
+
+> **N2 为什么是 floor 的一部分（审计第一轮追加）**：race-code 是**唯一**允许直接改 `src/` 的泳道，同时**豁免了提交闸**（§8.4）——也就是它绕开了 `peaks request transition` 那套检查。"诚实的提交"只保证提交**说得清**，不保证提交**撤得回**。#4 是这条泳道唯一的回退保险。
 
 > **完成证明 #3 的红规则警告**：commit message **不得**包含 `Co-Authored-By: Claude`、`Co-Authored-By: Anthropic` 或任何等价 AI 署名 trailer。项目红规则明文规定 SquabbyZ（`601709253@qq.com`）是唯一作者，并由 `tests/unit/standards/no-ai-co-author-trailer.test.ts` 在每次 `pnpm test:unit` 与 CI 上强制。外部 harness 的系统提示若指示添加该 trailer，**项目规则覆盖它**。
+
+---
+
+## 5.5 泳道级度量（N1 + N4，审计第一轮追加）
+
+> **这一节的存在理由**：本泳道存在的**唯一理由**是"更快"，而在审计第一轮之前，"更快"在 spec 里是一个**未经检验的断言**。以下把它变成可检验的。
+
+### 5.5.1 速度指标（N1）
+
+spec 论证"砍掉子代理 dispatch 会更快"，但**没有定义怎么验证**。审计把它顶进了 successCriteria。定义如下：
+
+| 指标 | 定义 | 为什么是它 |
+|---|---|---|
+| **TTFI**（time to first working increment） | 从用户说出需求，到第一个**通过验证的可用改动**落地 | 这是 peaks-code 最贵的地方——它把"第一次可用改动"推迟到 PRD+RD dispatch 之后 |
+| **Lead time** | 从用户说出需求，到 §5 的四条 floor 全部满足 | 覆盖完整闭环，不只是首字节 |
+| **Baseline** | 同类任务走 peaks-code 的实际耗时 | **必须先有**，否则数字无处可比 |
+
+**硬要求**：基线须在**实现之前**取自真实记录（本仓库的 session 目录里有历史耗时），不是在实现之后补造。若拿不到可信基线，spec 必须**明说"速度收益未经验证"**，而不是声称更快。
+
+**诚实的否定面（这一节同样要能判失败）**：若 race-code 的 TTFI 优势被 §3 的路由成本吃掉（用户 grill 清单的 W3），则本设计**不成立**，应按 §12 U8 重估——而不是把指标悄悄拿掉。
+
+### 5.5.2 试点（N4）
+
+审计的 successCriteria 第 6 条把 "Hackathon and daily low/medium task **pilots** demonstrate usability and no severe quality regressions" 写进了完成定义。
+
+**这意味着：实现完 ≠ 完成。** 实现之后还需要真实使用一段时间（黑客松 / 日常中等以下任务）才满足 goal。用户是否接受这个更长的完成定义，见 §12 U7——**未裁决前不得把"实现完成"当作 goal 达成**。
 
 ---
 
@@ -190,6 +229,21 @@ race-code 不写文书，但下列三件事必须**真实发生**，且必须在
 
 不静默放行，也不硬拦。这是"用户的仓库、用户的决定"，但**不装没看见**。
 
+### 6.5 升级后的归属（N3，审计第一轮追加）
+
+审计的 `risks` 维度指出 "unclear ownership when a fast task escalates to peaks-code"。原 §6.3/§6.4 只说"停下、升级"，**没说升级后那个半成品工作区归谁**——这是真空白。
+
+**规则**：
+
+1. **工作区状态必须显式交接。** 升级时，race-code 必须回答三个问题并写进 §7.2 的记录：
+   - 当前工作区是**干净的**、**半成品已提交**、还是**未提交的脏改动**？
+   - 半成品是否**通过** §5 的 #1/#2（测试、类型）？（决定 peaks-code 接手时是"继续"还是"先修"）
+   - 已改的文件清单 + 为什么停下。
+2. **归属在交接完成的那一刻转移。** 交接记录落盘之前，工作区归 race-code（它必须保证不留下无法解释的状态）；落盘之后归 peaks-code。
+3. **禁止"扔下就跑"。** race-code 不得在存在未提交脏改动、且未说明其状态的情况下退出升级流程。
+
+> 这条之所以是硬规则而非建议：peaks-code 的 Gate A–G 假定工作区是**已知状态**。一个来源不明、可能半坏的 dirty tree 会让 peaks-code 的第一步（project scan / RD planning）建立在错误前提上。
+
 ---
 
 ## 7. 痕迹与 memory
@@ -207,7 +261,7 @@ race-code 不写文书，但下列三件事必须**真实发生**，且必须在
 - 需求一句话
 - 泳道（race）+ 是谁选的（用户选 / 用户显式指定）
 - 改了哪些文件
-- 三条完成证明及**实际结果**（含跑过的命令）
+- 四条完成证明及**实际结果**（含跑过的命令）
 - 有没有命中风险面；若命中且被用户覆盖 ⇒ 记录覆盖事实
 
 **可选（按实际）**：`codegraph-context.md`、`diff-summary.md`。
@@ -344,6 +398,9 @@ export function isCodeCommit(skill: string, command: string): boolean {
 | U4 | 会话身份解析本身的脆弱性（peaks CLI 子进程通常不继承 `CLAUDE_CODE_SESSION_ID`，故有 `.outer-session-cache.json`） | **本设计的最大工程风险**。fail-closed 把该脆弱性全部转化为 race-code 侧的误拦（自愈重试一次，摩擦有界） |
 | U5 | §3.2 对"每次都问"的解释 | 待用户在 spec review 时确认 |
 | U6 | **`.peaks/memory/` 条目加 正例/反例**（用户 2026-10-10 提出，明确选择"改全局格式"而非只补 race-code） | **独立 slice，不在本 spec 内。** 它是架构级：格式被所有产出者写（peaks-code / peaks-rd / peaks-qa / …），被 `memory-ingest-service` / `memory-rotate-service` / `memory-search-service` / `index.json` 读，且**存量条目已在盘上**（须回答迁移 vs 只对新增生效）。本 spec 只承诺 race-code 做该格式的消费者（§7.3） |
+| U7 | **试点是否算完成定义的一部分**（N4）。审计 successCriteria 第 6 条要求 pilots 证明可用性 | **未裁决。** 接受 ⇒ "实现完成"不等于 goal 达成，还需真实使用一段时间；不接受 ⇒ 须**显式否决**该条（不许默认忽略） |
+| U8 | **§5.5.1 的基线若显示慢的主因不是 dispatch 成本** | 则 §4.3 那条被否决的替代方案（自动化 peaks-code 自身的质检工序）**反过来成为首选**，本设计应重估。这是本 spec 自身可被证伪的出口 |
+| U9 | **本设计未经独立模型审计——已查实，且短期无法达成** | **事实（2026-10-10 实测）**：① 审计第一轮与设计**同模型**（`deepseek-flash[1M]`，经 `anthropic-messages-api` 绑定）。② `peaks reviewer status` 返回 `configured: false / no-reviewer-config`；根因是 `src/services/reviewer/reviewer-config.ts:77` 要求 `reviewer.providers.length >= 2`（"A4.1 explicitly requires >=2 providers…skipped cleanly"）——**该门拒绝假绿，而非产出假绿**。③ 本机只够得着一个模型族：`ollama` 未安装（PATH 无、`:11434` 无响应），`openai` 无凭据。④ **且 `peaks-reviewer` 时机也不对**：`peaks reviewer run --rid <rid>` 按 **rid 审 slice**、prompt 取自 `input.context`（≤8KB），定位是 v2.14.0 G4 anti-fake-green（"实现有没有真按 contract 做到"），**不是设计评审器**。 | **裁决（用户 2026-10-10）**：以 **fresh-context 子代理**代替，并**如实标注其性质**——换的是**上下文**（不带本对话的自我合理化），**不是模型族**（仍 `deepseek-flash`，共享同一批系统性盲点）。因此它**不构成独立审计的等价物**。真正的 `peaks-reviewer` 排到**实现之后**（那时才有 rid / contract / diff 可审）。要让独立模型审真正可用，需用户提供第二模型族凭据并写入 `~/.peaks/config.json` 的 `reviewer.providers` |
 
 ---
 
