@@ -128,7 +128,23 @@ export function registerHookHandleCommand(program: Command, io: ProgramIO): void
         // The envelope shape (skill / callerId / sessionId / source) is
         // unchanged from 4.0.7; the underlying source is now
         // `canonical` for the lease + index path.
-        const activeSkill = resolveActiveSkillForCaller(projectRoot);
+        //
+        // S0 (plan 2026-10-10-driver-resolution, Ruling 5): scope the
+        // resolution to THIS caller. Without a callerId the resolver returns
+        // whichever in-flight lease `readdirSync` yields first, so a second
+        // caller bound to the same peaks session has its skill applied to our
+        // command — which is how a `git commit` from a session with no peaks
+        // skill was banned by another window's `peaks-code` lease.
+        //
+        // The identity comes from the hook payload rather than the
+        // environment: `resolveCallerProjection` reads env, and whether the
+        // hook subprocess inherits the caller-identifying env is unverified.
+        // `caller_id` names this concept; `session_id` carries the same value
+        // under the harness's own name, kept as the fallback.
+        const callerId = pluckString(parsed, ['caller_id']) ?? pluckString(parsed, ['session_id']);
+        const activeSkill = resolveActiveSkillForCaller(projectRoot, {
+          callerId: callerId ?? null
+        });
         if (activeSkill.skill !== null) {
           const codeDecision = evaluateCodeBan({
             skill: activeSkill.skill,
