@@ -93,7 +93,29 @@ if (activeSkill.skill !== null) {   // ← 解析不出来，整个提交闸被�
 | (c) | 先把 `touchSkillHeartbeat` 的死写修活 | **(b) 的前提**——否则"最新心跳"没有意义 |
 
 **三者的先后与取舍本身是一个设计决定**，不是一行修复。故 S0 有自己的简短设计 + 计划，见 `docs/superpowers/plans/`。
-### 2.3 `tests/integration/**` 不在默认 vitest 配置里
+### 2.3 提交闸在 Claude Code 上**从不运行**，在 cursor/codex 上**deny 会被吞掉**
+
+2026-10-10 的 S0（分支 `fix/s0-driver-resolution`）里核实的两件事，都属"门看起来在、其实不在"：
+
+**(a) 只有一个调用点，只覆盖三个适配器。**
+`evaluateCodeBan` 在 `src/` 里**唯一**的调用点是 `hook-handle.ts`（即 `peaks hook handle`）。而 `HOOK_COMMAND_BY_IDE`（`src/services/skills/hooks-codegate-superpowers.ts:94-105`）把 entry 分成两组：
+
+| 适配器 | hook 命令 | 提交闸 |
+|---|---|---|
+| claude-code / hermes / openclaw | `peaks gate enforce` | **无**（`gate-commands.ts` 里 ban/commit 零引用） |
+| trae / cursor / codex | `peaks hook handle` | 有 |
+
+⇒ **你在用的 Claude Code 上，Code Commit Ban 这条红线从不执行。**
+
+**(b) 即使在那三个适配器上，cursor 与 codex 的 deny 也到不了宿主。**
+`formatDecisionResponse`（`src/services/ide/hook-protocol.ts:66-74`）对除 `claude-code` 与 `trae` 之外的 IDE **抛异常**；`hook-handle.ts` 在 `emitDecision` 之前调用它，且整个 action 包在 `try` 里，于是异常落到 "internal error, allowing command" 这条 fail-open 分支。
+
+⇒ **实际生效的只有 trae 一个适配器**；cursor/codex 上该闸、以及既存的 SOP 闸与根污染闸，deny 全被转成 allow。
+
+**S0 已做的事**：修了这条闸依赖的"谁在开车"（作用域化 + 排序对齐），并按用户裁决**不**把闸接进 `gate enforce`（那是改变 Claude Code 既有行为的独立决定）。**未做**：cursor/codex 的格式化缺陷、以及把闸接进 Claude Code。
+
+**(c) 附带一条残留**：两条路径都**不查租约年龄上界**（`gcStalePresenceLeases` 存在但未被咨询）。一个永不 terminalize 的 `status: "preparing"` 租约，可以在该项目 session 内**持续**拦下每一次 `git commit`。修它要先定阈值——S0 有意留给单独立项。
+### 2.4 `tests/integration/**` 不在默认 vitest 配置里
 
 `vitest.config.ts` 的 exclude 含 `tests/integration/**`，它由 `vitest.config.integration.ts` 单独跑。
 
@@ -102,7 +124,7 @@ if (activeSkill.skill !== null) {   // ← 解析不出来，整个提交闸被�
 
 **注意**：这**大概率是刻意的**（集成测试慢）。不要顺手改配置——先决定"本地/推送时该不该跑它"。
 
-### 2.4 `git push origin <tag>` 单独推，**永远**过不了本仓的 pre-push 门
+### 2.5 `git push origin <tag>` 单独推，**永远**过不了本仓的 pre-push 门
 
 **证据**（4.1.3 发布时实测两次）：
 ```
@@ -118,7 +140,7 @@ different results, and only one of them is evidence.
 （*"a gate people skip is worse than no gate"*）。本仓历史用的是一次推两个 ref
 （`git push origin main vX.Y.Z`），那样变更集非空。**修它要动 `.husky/pre-push`，属门机器，须单独立项。**
 
-### 2.5 还债（只有 `src/**` 会动棘轮）
+### 2.6 还债（只有 `src/**` 会动棘轮）
 
 | 目标 | 规模 |
 |---|---|
@@ -133,7 +155,7 @@ different results, and only one of them is evidence.
 **⚠️ `scripts/**` 与 `tests/**` 是 shadow 人口，不受任何 file-size ceiling 约束**（拆它们不移动任何 ceiling——
 实测前后均 `117 / 32979`）。只做 `src/**`。
 
-### 2.6 已关闭 / 仍开着的"未验证边界"
+### 2.7 已关闭 / 仍开着的"未验证边界"
 
 - ✅ **C 层沙箱**——不再是欠账：`ed5f96eb` 之后它在 CI 上**真的运行并通过**，且两条注入对照
   （去掉 `unshare -n` / 去掉 `setpriv`）各自证明了臂会红。**注意它此前从未真正执行过**。
@@ -148,7 +170,7 @@ different results, and only one of them is evidence.
 - ⬜ **L3 端到端**（PATH 上是已安装构建而非工作树）。
 - ⬜ **S1 政策例外的端到端触发**（机制只在纯函数层被测；"允许涨" ≠ "已经涨过"）。
 
-### 2.7 `peaks-reviewer` 是半成品：**跳过被报成通过** ← **同一类 "pass-shaped output"**
+### 2.8 `peaks-reviewer` 是半成品：**跳过被报成通过** ← **同一类 "pass-shaped output"**
 
 **现状**：`peaks reviewer status` → `{configured: false, reason: "no-reviewer-config"}`。`~/.peaks/config.json`
 里**没有 `reviewer` 段**（只有 `version` / `currentWorkspace` / `workspaces` / `language` / `economyMode` /
@@ -200,7 +222,7 @@ function skippedEnvelope(reason: string): ReviewerEnvelope {
 **做全的最小集**：① 给 `reviewer config` 一个 CLI 面；② 跳过不得报 `passed: true`；③ `status` 区分三态并把
 `≥2` 要求写进 `nextActions`；④ 补测试。
 
-### 2.8 工具缺陷（小、高复用）
+### 2.9 工具缺陷（小、高复用）
 
 - `peaks audit goal` 输出在约 **3.6 KB** 处截断（两次 `INCOMPLETE_AUDIT: Unterminated`）
 - `peaks` 的 `.cmd` shim **吃不下含换行的参数**（`InvalidBatchScriptArg`）
