@@ -17,7 +17,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { resolveActiveSkillForCaller } from '../../../../src/services/audit/enforcers/active-skill-resolver.js';
-import { setPresenceLease } from '../../../../src/services/skills/presence-lease-service.js';
+import { listPresenceLeases, setPresenceLease } from '../../../../src/services/skills/presence-lease-service.js';
 
 const tmpRoots: string[] = [];
 const SESSION = '2026-10-10-session-s0test';
@@ -44,7 +44,7 @@ function makeProject(): string {
  * fixture invisible to the code under test, and the test then fails with
  * `null` rather than the wrong skill — a red for the wrong reason.
  */
-function writeLease(root: string, callerId: string, skill: string): void {
+function writeLease(root: string, callerId: string, skill: string, now?: string): void {
   setPresenceLease({
     projectRoot: root,
     sessionId: SESSION,
@@ -52,7 +52,8 @@ function writeLease(root: string, callerId: string, skill: string): void {
     workflowId: callerId,
     graphRef: `graphs/${callerId}.json`,
     skill,
-    status: 'running'
+    status: 'running',
+    ...(now !== undefined ? { now } : {})
   });
 }
 
@@ -72,5 +73,30 @@ describe('resolveActiveSkillForCaller — caller scoping', () => {
     const resolved = resolveActiveSkillForCaller(root, { callerId: 'caller-b' });
 
     expect(resolved.skill).toBe('peaks-race-code');
+  });
+});
+
+// Task 3. `readSkillPresenceFromLease` (skill-presence-service.ts:198) picks
+// the lease with the latest `lastHeartbeat`; the resolver picked the first one
+// `readdirSync` yielded. Two readers, one lease set, two answers.
+describe('resolveActiveSkillForCaller — no callerId: the freshest heartbeat wins', () => {
+  it('returns the latest lastHeartbeat, not the first lease on disk', () => {
+    const root = makeProject();
+    // Named so ALPHABETICAL order is the REVERSE of heartbeat order: Windows
+    // `readdirSync` yields entries in filename order, so `caller-a-stale`
+    // comes first on disk while carrying the older heartbeat. Naming them
+    // `caller-stale` / `caller-fresh` silently made the two orders agree and
+    // the fixture stopped testing anything — the precondition assertion below
+    // is what caught that.
+    writeLease(root, 'caller-a-stale', 'peaks-code', '2026-10-10T00:00:00.000Z');
+    writeLease(root, 'caller-z-fresh', 'peaks-race-code', '2026-10-10T09:00:00.000Z');
+
+    // PRECONDITION: the directory yields the STALE lease first, so "first on
+    // disk" and "freshest heartbeat" disagree. If this fails, the fixture has
+    // stopped exercising that disagreement — fix the fixture. Do NOT drop the
+    // assertion below to make this file green; it is the whole point.
+    expect(listPresenceLeases(root, SESSION)[0]?.callerId).toBe('caller-a-stale');
+
+    expect(resolveActiveSkillForCaller(root).skill).toBe('peaks-race-code');
   });
 });

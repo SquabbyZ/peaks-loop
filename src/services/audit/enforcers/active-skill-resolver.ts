@@ -113,7 +113,23 @@ export function resolveActiveSkillForCaller(
   } catch {
     canonicalLeases = [];
   }
-  for (const lease of canonicalLeases) {
+  // S0 Task 3: pick the FRESHEST lease — the same rule
+  // `readSkillPresenceFromLease` (skill-presence-service.ts:198) already uses.
+  // Two readers of one lease set disagreed: that one sorted by `lastHeartbeat`,
+  // this one took whatever `readdirSync` yielded first, so "who is driving" had
+  // two possible answers. Sorting here rather than inside `listPresenceLeases`
+  // keeps the change local: that helper is shared, and reordering its output
+  // would silently reorder every consumer's input.
+  //
+  // Caveat, measured: nothing refreshes the on-disk heartbeat today.
+  // `touchSkillHeartbeat` stamps in memory only (skill-presence-service.ts:701-721)
+  // and `setPresenceLease` runs at set-time, not on a cadence, so this ordering
+  // currently degenerates to "most recently started". That is still the correct
+  // order, and it starts meaning "freshest" the moment heartbeats advance.
+  const orderedLeases = [...canonicalLeases].sort((a, b) =>
+    (b.lastHeartbeat ?? '').localeCompare(a.lastHeartbeat ?? '')
+  );
+  for (const lease of orderedLeases) {
     if (lease.status !== 'preparing' && lease.status !== 'running') continue;
     if (typeof lease.skill !== 'string' || lease.skill.length === 0) continue;
     // When a callerId is supplied, restrict the walk to that
