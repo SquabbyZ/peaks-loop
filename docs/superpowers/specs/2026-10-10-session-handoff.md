@@ -112,7 +112,59 @@ different results, and only one of them is evidence.
 - ⬜ **L3 端到端**（PATH 上是已安装构建而非工作树）。
 - ⬜ **S1 政策例外的端到端触发**（机制只在纯函数层被测；"允许涨" ≠ "已经涨过"）。
 
-### 2.6 工具缺陷（小、高复用）
+### 2.6 `peaks-reviewer` 是半成品：**跳过被报成通过** ← **同一类 "pass-shaped output"**
+
+**现状**：`peaks reviewer status` → `{configured: false, reason: "no-reviewer-config"}`。`~/.peaks/config.json`
+里**没有 `reviewer` 段**（只有 `version` / `currentWorkspace` / `workspaces` / `language` / `economyMode` /
+`swarmMode` / `tokens` / `proxy`）。
+
+**根因是刻意的，而且拒得对**（`src/services/reviewer/reviewer-config.ts:77`）：
+
+```ts
+if (!Array.isArray(providersRaw) || providersRaw.length < 2) {
+  // A4.1 explicitly requires >=2 providers; with <2 we treat the
+  // section as absent so the reviewer is skipped cleanly.
+  return { ok: false, reason: 'no-reviewer-config' };
+}
+```
+
+要求 **≥2 个 provider 族**，否则整段当作不存在。**它拒绝假绿，而不是产出假绿**——这个判断是对的。
+
+**但跳过路径的形状是错的**（`src/services/reviewer/reviewer-service.ts` 的 `skippedEnvelope`）：
+
+```ts
+function skippedEnvelope(reason: string): ReviewerEnvelope {
+  return { reviewerId: REVIEWER_ID, modelId: 'skipped', modelFamily: 'skipped',
+           passed: true, violations: [], gateAction: 'allow', reason };
+}
+```
+
+**一次"根本没做评审"被报成 `passed: true` + `gateAction: 'allow'`。** 任何读 `passed` / `gateAction`
+的下游看到的都是绿；只有去读 `reason` 字符串才知道那是跳过。这与 §3.4 记的教训是**同一类**。
+
+**这台机器上够不着第二个族**：`ollama` 未安装（PATH 无该二进制、`:11434` 无响应），`openai` 无凭据；
+本次（`peaks audit goal`）实测 `providerBinding: anthropic-messages-api`、`model: deepseek-flash[1M]`
+——即唯一的族是 deepseek。
+
+**"没做全"具体是四项**：
+
+1. `src/cli/commands/reviewer-commands.ts` 只注册了 `run`（:35）与 `status`（:81）——**没有 `reviewer config`
+   子命令**。配置只能手写 `~/.peaks/config.json`，或走 `peaks config set --key reviewer.providers --value '<json>'
+   --layer user`（**此路未经实测**）。若只有前者，则违反 Human-NL-Choice-Only（用户不得手写 JSON）。
+2. `status` 把"完全没配"与"只配了一个族"报成**同一个** `no-reviewer-config`——`≥2` 这个要求**从工具里
+   discover 不到**。且 `nextActions: []`，是个没有出路的死胡同（本仓其它 peaks 命令都会给 nextActions）。
+3. 跳过与通过形状相同（见上）。
+4. **零专用测试**。`grep -rl "reviewer-service\|reviewer-config\|peaks reviewer" tests/` 只命中
+   `tests/integration/workflow-eval-commands-e2e.test.ts`，而那是个**名字碰撞**（"independent-security-perf-audit"）。
+
+**后果**：anti-fake-green G4 **事实上不存在**，而没有任何东西在需要它的那一刻说出来。
+`peaks-race-code` 的设计（`docs/superpowers/specs/2026-10-10-peaks-race-code-design.md` U9）已把这一条
+如实记为"独立模型审计未达成"，没有拿 fresh-context 子代理冒充独立模型。
+
+**做全的最小集**：① 给 `reviewer config` 一个 CLI 面；② 跳过不得报 `passed: true`；③ `status` 区分三态并把
+`≥2` 要求写进 `nextActions`；④ 补测试。
+
+### 2.7 工具缺陷（小、高复用）
 
 - `peaks audit goal` 输出在约 **3.6 KB** 处截断（两次 `INCOMPLETE_AUDIT: Unterminated`）
 - `peaks` 的 `.cmd` shim **吃不下含换行的参数**（`InvalidBatchScriptArg`）
