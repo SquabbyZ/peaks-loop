@@ -133,11 +133,20 @@ const failedDimension = (journeyId: string, evidence?: unknown): Record<string, 
 const passingDimension = (journeyId: string): Record<string, unknown> => ({
   journeyId,
   consistencyScore: 1,
-  evidence: [{ kind: 'guard-run', ref: `capability-guard-runner:${journeyId}`, summary: `${journeyId} → pass` }]
+  evidence: [
+    {
+      kind: 'guard-run',
+      ref: `capability-guard-runner:${journeyId}`,
+      summary: `${journeyId} → pass`
+    }
+  ]
 });
 
 /** The failure envelope `baseline audit --json` writes (`baseline-command-shared.ts` `fail`). */
-const driftedEnvelope = (dimensions: ReadonlyArray<unknown>, data: Record<string, unknown> = {}) => ({
+const driftedEnvelope = (
+  dimensions: ReadonlyArray<unknown>,
+  data: Record<string, unknown> = {}
+) => ({
   ok: false,
   command: 'baseline',
   code: 'AUDIT_NOT_CONSISTENT',
@@ -169,7 +178,12 @@ describe('render — the annotation the gate prints on a failed audit', () => {
 
   it('does not carry a passing dimension evidence into the message', () => {
     const line = annotation(
-      runGate(driftedEnvelope([failedDimension('J03', guardEvidence(J03_SUMMARY)), passingDimension('J01')]))
+      runGate(
+        driftedEnvelope([
+          failedDimension('J03', guardEvidence(J03_SUMMARY)),
+          passingDimension('J01')
+        ])
+      )
     );
 
     expect(line).not.toContain('J01 → pass');
@@ -235,7 +249,9 @@ describe('a11y — bounded, marked, and readable at a glance', () => {
     // 36 000-char log dump. The step must bound the whole message instead.
     const ids = ['J01', 'J02', 'J03', 'J04', 'J05', 'J06', 'J07', 'J08', 'J09'];
     const line = annotation(
-      runGate(driftedEnvelope(ids.map((id) => failedDimension(id, guardEvidence('x'.repeat(4000))))))
+      runGate(
+        driftedEnvelope(ids.map((id) => failedDimension(id, guardEvidence('x'.repeat(4000)))))
+      )
     );
 
     // `failing=[...]` stays COMPLETE; only the detail is bounded.
