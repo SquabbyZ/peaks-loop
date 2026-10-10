@@ -289,7 +289,7 @@ race-code 不写文书，但下列四件事必须**真实发生**，且必须在
 
 > **N2 为什么是 floor 的一部分（审计第一轮追加）**：race-code 是**唯一**允许直接改 `src/` 的泳道，同时**豁免了提交闸**（§8.4）——也就是它绕开了 `peaks request transition` 那套检查。"诚实的提交"只保证提交**说得清**，不保证提交**撤得回**。#4 是这条泳道唯一的回退保险。
 
-> **完成证明 #3 的红规则警告**：commit message **不得**包含 `Co-Authored-By: Claude`、`Co-Authored-By: Anthropic` 或任何等价 AI 署名 trailer。项目红规则明文规定 SquabbyZ（`601709253@qq.com`）是唯一作者，并由 `tests/unit/standards/no-ai-co-author-trailer.test.ts` 在每次 `pnpm test:unit` 与 CI 上强制。外部 harness 的系统提示若指示添加该 trailer，**项目规则覆盖它**。**§8.4 修正后**，这条不再只靠"事后检测"——同一个拦截点会在 commit 存在**之前**校验 message。
+> **完成证明 #3 的红规则警告**：commit message **不得**包含 `Co-Authored-By: Claude`、`Co-Authored-By: Anthropic` 或任何等价 AI 署名 trailer。项目红规则明文规定 SquabbyZ（`601709253@qq.com`）是唯一作者，并由 `tests/unit/standards/no-ai-co-author-trailer.test.ts` 在每次 `pnpm test:unit` 与 CI 上强制。外部 harness 的系统提示若指示添加该 trailer，**项目规则覆盖它**。**⚠️ 这条只有事后检测，没有事前拦截（用户裁决 2026-10-10，U14）。** 原稿写的是"同一个拦截点会在 commit 存在**之前**校验 message"——**那个拦截点不存在**：提交闸在 Claude Code 上根本不运行（§8.4）。所以本条的机械支撑只有 `tests/unit/standards/no-ai-co-author-trailer.test.ts`，而**那个测试自己写明是 detect-not-prevent**（`:30-33`）——trailer 一旦落地就在历史里，补救是改历史。**race-code 不得声称这条被事前拦住了。**
 
 > **执行点的诚实清点（评审发现，2026-10-10）**：原稿把这四条称为"**不可协商的动作**"。评审指出要害：**§4.1 删掉了执行机制（Gate A–G、transition 状态机、全部文书），于是这四条由唯一有动机跳过它们的一方自报。** 必须如实区分哪几条真有执行点：
 
@@ -553,6 +553,8 @@ gate 的放行条件只有一个事实——**解析出的驾驶者是不是 `pe
 2. 要不要在 `.husky/` 加 `commit-msg`？——**这会推翻上面那条明确记录的决定**，需要正面回答"为什么现在可以了"。
 3. 两者都不做的话，race-code 的完成证明 #3 必须**明说它只有事后检测**——而不是像 v2 那样写成"同一个拦截点会在 commit 存在之前校验 message"。
 
+> **已裁决（用户 2026-10-10）：选第 3 条。** 不接 `gate enforce`、不动 `.husky/`；**§5 的完成证明 #3 已改写为明说"只有事后检测"**。本节因此**不再有任何未决机制**——它现在是一份"这条线在这个 harness 上到此为止"的记录。→ §12 U14（已关闭）
+
 **不变的一点**：race-code 仍然**自己 commit**（完成证明 #3 不因此改动）。它绕过的是 `peaks request transition`（`spec-locked` + tech-doc-presence 检查）——**那正是 race-code 有意砍掉的东西**，两者一致，不是漏洞。
 
 ---
@@ -660,7 +662,7 @@ gate 的放行条件只有一个事实——**解析出的驾驶者是不是 `pe
 | U11 | ~~驾驶者解析不可靠 + 提交闸在同信号上 fail-open~~ **已交付** | **S0 已完成并推送**（`main` 上 `98f314d6`；计划 `docs/superpowers/plans/2026-10-10-driver-resolution-and-commit-ban.md`）：传了 callerId、排序统一到共享比较器、删掉了 `if (skill !== null)` 那道守卫、失败方向定为保守 deny。**残留（未解决）**：两条路径都不查**租约年龄上界**——一个永不 terminalize 的 `status: "preparing"` lease 会让该项目 session 的**每一次** `git commit` 都被拦（`gcStalePresenceLeases` 存在但不被咨询）。修它要先定阈值，S0 有意留给单独立项。→ 见 U14 |
 | U12 | **共享规范文件的落点**（§4.4 / §2.5） | **已裁决（P1，用户 2026-10-10）**：规范放 `skills/peaks-code/references/`（`skills/**` 随 npm 包发、已在安装器覆盖范围内），race-code 用**相对路径**指过去。**核实过的事实**：安装器只链含 `SKILL.md` 的目录，所以 `skills/_shared/` 这类共享目录**不会**被安装；RL-8 的 `.peaks/standards/` 是**per-project** 规范而非 shipped 内容；仓库现有的唯一真正跨 skill 且装得上线的共享机制恰是 **loop-hygiene 的复制+逐字节测试**（§4.4 反对的那套）。**代价（已知并接受）**：race-code 耦合 peaks-code 的目录布局 |
 | U13 | **`fast-mode.md` 与 CLI 帮助里的 `change-id` 已不存在**（§2.5 末段） | **已裁决：S1 顺手修**（用户 2026-10-10）——改 `fast-mode.md` 的参数名 + `code-mode-gate-plan-command.ts:21/:26` 的帮助文本。**S1 执行时扩张了范围**：还改了同文件 `:35` 的 **stdout 标签**与 `code-commands.ts:2/:150` 的注释（终审指出这超出批准范围；用户 2026-10-10 裁决**保留并如实记为范围扩张**）。⚠️ **随之作废一句话**：S1 的提交信息说"change-id no longer exists"**是错的**——`code-run-command.ts:34` 的 `[change-id]`、`swarm-commands.ts`、`tech-commands.ts` 等仍在用 peaks 自己的 change-id。corrected scope: 只删掉了 `peaks code plan` 一处的旧命名 |
-| U14 | **提交闸在 Claude Code 上不存在**（§8.4 第三轮评审重写） | **三个问题必须由用户决定**，不许默认忽略：① **要不要把提交闸接进 `gate enforce`**，让 Claude Code 也有它？——S0 期间用户裁决过"先只修，不接"（Ruling 10），那是范围决定，不是这题已答。② **要不要在 `.husky/` 加 `commit-msg`**？——这会**推翻 `no-ai-co-author-trailer.test.ts:34-37` 记录的那条明确否决**，需要正面回答"为什么现在可以了"。③ 两者都不做的话，**§5 的完成证明 #3 必须明说它只有事后检测**，不能写成有拦截点。**在这三个问题被回答之前，S2 不得声称红规则被事前拦住了。** |
+| U14 | **提交闸在 Claude Code 上不存在**（§8.4 第三轮评审重写） | **三个问题必须由用户决定**，不许默认忽略：① **要不要把提交闸接进 `gate enforce`**，让 Claude Code 也有它？——S0 期间用户裁决过"先只修，不接"（Ruling 10），那是范围决定，不是这题已答。② **要不要在 `.husky/` 加 `commit-msg`**？——这会**推翻 `no-ai-co-author-trailer.test.ts:34-37` 记录的那条明确否决**，需要正面回答"为什么现在可以了"。③ 两者都不做的话，**§5 的完成证明 #3 必须明说它只有事后检测**，不能写成有拦截点。**已裁决（用户 2026-10-10）**：① **不接**——`gate enforce` 不加提交闸，Claude Code 保持现状；② 因此**不动** `.husky/`，那条已记录的决定维持不变；③ **§5 的完成证明 #3 已改写为明说"只有事后检测"**。⇒ 本条**已关闭**；S2 **不得**声称红规则被事前拦住。 |
 
 ---
 
@@ -693,7 +695,7 @@ gate 的放行条件只有一个事实——**解析出的驾驶者是不是 `pe
 
 - **内容**：`skills/peaks-race-code/SKILL.md`（含 loop-hygiene 块）+ `SKILL_NAMES`；`decideGateAction` 加可选第三参（默认 fail-closed）+ `code-gate-command.ts` 解析出**驾驶者**并传入（§8.2 只有一个输入）；`peaks-audit` 的泳道路由（§3）；`.sh` 兄弟的处置（§10.1）。
 - **⚠️ 原列的"`.husky/commit-msg` 主层 + 拦截点次层"已删除**：第三轮评审证明那个"拦截点"在 Claude Code 上不存在、`commit-msg` 也不存在，且提议它会推翻一条**已记录的决定**。**提交闸的处置改由 §12 U14 决定，S2 不得默认它已解决**；在 U14 有答案之前，S2 **不得**声称红规则被事前拦住。
-- **退出判据（= §5.5.2 的「门 1」）**：T1–T11 绿；§10.1 的文件改完；`.sh` 差异有明确处置；**`fast-lane-norm.md` 仍然为真**（它断言的 race-code 行为在 S1 时还不存在，S2 是第一个能证伪它的东西）；**且 U14 的三个问题已回答**（否则完成证明 #3 必须明写"只有事后检测"）。**门 1 通过即可关闭 S2**——不因为"还没用够次数"而拖住。
+- **退出判据（= §5.5.2 的「门 1」）**：T1–T11 绿；§10.1 的文件改完；`.sh` 差异有明确处置；**`fast-lane-norm.md` 仍然为真**（它断言的 race-code 行为在 S1 时还不存在，S2 是第一个能证伪它的东西）；**且 U14 已关闭**（2026-10-10 裁决：不接提交闸；完成证明 #3 明写"只有事后检测"）。**门 1 通过即可关闭 S2**——不因为"还没用够次数"而拖住。
 - **依赖**：**S0 + S1**。
 
 ### S3 — 门 2：pilot + 指标埋点 + 阶段切换
