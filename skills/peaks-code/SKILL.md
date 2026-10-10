@@ -314,6 +314,8 @@ Write DAG → `.peaks/_runtime/<sessionId>/sc/slice-dag.json`, run `peaks sub-ag
 
 After `peaks-rd` finishes, Code MUST auto-route to `peaks-qa` without waiting for confirmation. Cap: 3 cycles; on 3rd failure emit blocked TXT handoff. Full 5-step procedure at `references/micro-cycle.md`.
 
+> **Fast-mode exception.** Under `peaks code plan --fast` this loop is off — `repairLoop: !opts.fast` in `buildCodePlan`. Without this line the `MUST` above contradicts fast mode, which is reachable only through `references/fast-mode.md`; what a fast lane must still satisfy, and when a task is not a fast-lane task at all, is in **`references/fast-lane-norm.md`** (the single source).
+
 ## Default runbook
 
 The end-to-end CLI sequence for `full-auto` lives in `references/runbook.md`. `assisted`/`strict` pause at `[CONFIRM]`; `full-auto`/`24h` auto-proceed. At a `[CONFIRM]` gate the CLI never prompts: the transition throws `CONFIRMATION_REQUIRED`, so Code asks the user via `AskUserQuestion` and, on approval, re-runs the same command with `--confirm`. Never expect or ask for a terminal `y/N` prompt.

@@ -1,15 +1,16 @@
 # Fast-lane norm — the single source
 
-> **advisory.** Nothing gates on this document. It is a judgement list, not a
-> gate. Enforcement lives in each lane: peaks-code's fast mode enforces its own
-> step switches (`peaks code plan --fast`), and `peaks-race-code` enforces its
-> own completion proofs. Reading "stated here" as "enforced somewhere" is the
-> mistake this line exists to prevent.
+> **advisory**: nothing enforces the rules stated here. They are a judgement
+> list, not a gate. Enforcement lives in each lane — peaks-code's fast mode
+> enforces its own step switches (`peaks code plan --fast`), and peaks-race-code
+> its own completion proofs — so "stated here" does not mean "enforced
+> somewhere".
+>
+> **The document itself is pinned by a test.** That is a different claim, and
+> the next paragraph says exactly what the test checks and what it does not.
 
-Two fast lanes share these two statements. If you find a **second copy** of
-either one, that is drift — `tests/unit/standards/fast-lane-norm-single-source.test.ts`
-fails on it. Two places that cannot be word-for-word identical should not have
-been split in the first place.
+Two fast lanes share these two statements.
+`tests/unit/standards/fast-lane-norm-single-source.test.ts` walks every markdown file under skills/, asserting the gate sentence appears once and the risk-list heading appears once. That is the whole guard — a copy of the risk list **under a different heading** is not caught, which is why this paragraph names the mechanism instead of promising more. The design record under `docs/` quotes the gate too, because a design doc has to name what it specifies; that is documentation drift, not lane drift. Two places that cannot be word-for-word identical should not have been split in the first place.
 
 ## 1. The acceptance gate
 

@@ -1,5 +1,5 @@
 /**
- * Slice 2 — `peaks code [--fast] <change-id>` (peaks-code fast mode).
+ * Slice 2 — `peaks code plan --fast <session-id>` (peaks-code fast mode).
  *
  * The `peaks-code` SKILL orchestrates an LLM-side workflow:
  *   load-memory -> standards-preflight -> rd-cycle -> qa-cycle -> emit-txt
@@ -147,7 +147,7 @@ export async function runCodeFast(opts: {
 }
 
 /**
- * Register the `peaks code [--fast] <change-id>` command. The actual
+ * Register the `peaks code plan --fast <session-id>` command. The actual
  * LLM-side orchestration is driven by the SKILL.md (LLM-side), so this
  * CLI command is a thin surface that builds the plan and emits a JSON
  * envelope for downstream tooling.
