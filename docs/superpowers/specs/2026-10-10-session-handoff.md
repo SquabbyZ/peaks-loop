@@ -57,7 +57,43 @@ in-scope file(s) with no files[] row in gate-baseline.json:
 （那条代码的上下文注释解释了原因）。要修就得先决定：**哪些改动必须强制跑一致性守卫**。
 建议方向：当 diff **新增 gated 文件**（而非仅重生成基线）时，把 `tests/unit/standards/**` 纳入。
 
-### 2.2 `tests/integration/**` 不在默认 vitest 配置里
+### 2.2 驾驶者解析不可靠，且提交闸在解析失败时**整个跳过** ← **P1**
+
+**证据（三处，均已核对源码）**：
+
+- `src/services/skills/presence-lease-service.ts:496-513` —— `listPresenceLeases` 按 `readdirSync(dir)` 的**原始顺序**返回，**不排序**。
+- `src/services/audit/enforcers/active-skill-resolver.ts:116-130` —— 取遍历中**第一个**合格 lease；`callerId` 过滤是**可选**的（`typeof opts?.callerId === 'string'`）。
+- `src/cli/commands/hook-handle.ts:131` —— `resolveActiveSkillForCaller(projectRoot)`，**没传 `callerId`**。
+
+⇒ **驾驶者是"跨该 session 目录下所有 caller、按目录顺序"解析出来的。** 而**同一个问题在仓库里已经有第二个、相反的答案**：`src/services/skills/skill-presence-service.ts:198` 用
+`inFlight.sort((a, b) => b.lastHeartbeat.localeCompare(a.lastHeartbeat))` 取 `[0]`（这条支撑 statusline 与 `requireUserConfirmation`）。**两个答案可以不一致。**
+
+**更重的一处** —— `hook-handle.ts:132`：
+
+```ts
+if (activeSkill.skill !== null) {   // ← 解析不出来，整个提交闸被跳过
+```
+
+`resolveActiveSkillForCaller` 在**未绑定 session**、**session 目录缺失**、**session id 不安全**时都返回 `{skill: null, …, source: 'none'}`（`active-skill-resolver.ts:79-84` / `:104-109`）。即**提交闸今天在身份不明时是 fail-OPEN**：它拦不住任何一次解析失败。
+
+**第三处** —— `skill-presence-service.ts:701-721` 的 `touchSkillHeartbeat` 只改**内存里**的 `presence.lastHeartbeat` 就返回，注释自述 "the legacy `active-skill.json` file is no longer touched"。**若无人周期调用 `setPresenceLease`，盘上的 `lastHeartbeat` 永不刷新**——盘上真实样本 `presence-7ee97fe3-…-compat.json` 即 `lastHeartbeat === startedAt`、`status: "preparing"`。于是 `:198` 那句"按心跳取最新"实际退化成"按 `startedAt` 取最新"。
+
+**后果**：`peaks-*` skill 的 commit ban（"必须走 `peaks request transition`，不得直接 `git commit`"）**依赖一个可能解析错、且解析失败时不生效的信号**。两种错法都成立：① 解析到**别的** caller 的 skill ⇒ 该拦的没拦 / 不该拦的拦了；② 解析失败 ⇒ 闸**整个不跑**。
+
+**为什么现在被注意到**：`peaks-race-code` 的设计要在这同一个信号上做"泳道答案 + 驾驶者"的合取放行（`docs/superpowers/specs/2026-10-10-peaks-race-code-design.md` §8.2 / §12 U11），**必须先修好它**。但这个 bug **独立存在、与 race-code 无关**——对抗评审的原话：*"Fix the driver resolution first, independently of this design. That is a real bug today, in the commit ban, with nothing to do with race-code."*
+
+**未验证**：`peaks code-gate` 的 hook 子进程**是否可靠拿到** `resolveCallerProjection` 所需的调用方身份——评审明说它**没能核实**这一点。这决定下面选哪条修法（race-code spec §12 U4 也记着这条）。
+
+**修法有三个候选，不是一回事**：
+
+| | 做法 | 代价 / 前提 |
+|---|---|---|
+| (a) | 传 `callerId`，把解析限定到调用方自己的 harness session | **前提是 hook 子进程拿得到那个身份**（上一条未验证） |
+| (b) | 让 resolver 按 `lastHeartbeat` 排序，与 `:198` 对齐 | 只保证"两个答案一致"，**不保证"答案是调用方的"**；且因 (c)，实际是"按 `startedAt` 取最新" |
+| (c) | 先把 `touchSkillHeartbeat` 的死写修活 | **(b) 的前提**——否则"最新心跳"没有意义 |
+
+**三者的先后与取舍本身是一个设计决定**，不是一行修复。故 S0 有自己的简短设计 + 计划，见 `docs/superpowers/plans/`。
+### 2.3 `tests/integration/**` 不在默认 vitest 配置里
 
 `vitest.config.ts` 的 exclude 含 `tests/integration/**`，它由 `vitest.config.integration.ts` 单独跑。
 
@@ -66,7 +102,7 @@ in-scope file(s) with no files[] row in gate-baseline.json:
 
 **注意**：这**大概率是刻意的**（集成测试慢）。不要顺手改配置——先决定"本地/推送时该不该跑它"。
 
-### 2.3 `git push origin <tag>` 单独推，**永远**过不了本仓的 pre-push 门
+### 2.4 `git push origin <tag>` 单独推，**永远**过不了本仓的 pre-push 门
 
 **证据**（4.1.3 发布时实测两次）：
 ```
@@ -82,7 +118,7 @@ different results, and only one of them is evidence.
 （*"a gate people skip is worse than no gate"*）。本仓历史用的是一次推两个 ref
 （`git push origin main vX.Y.Z`），那样变更集非空。**修它要动 `.husky/pre-push`，属门机器，须单独立项。**
 
-### 2.4 还债（只有 `src/**` 会动棘轮）
+### 2.5 还债（只有 `src/**` 会动棘轮）
 
 | 目标 | 规模 |
 |---|---|
@@ -97,7 +133,7 @@ different results, and only one of them is evidence.
 **⚠️ `scripts/**` 与 `tests/**` 是 shadow 人口，不受任何 file-size ceiling 约束**（拆它们不移动任何 ceiling——
 实测前后均 `117 / 32979`）。只做 `src/**`。
 
-### 2.5 已关闭 / 仍开着的"未验证边界"
+### 2.6 已关闭 / 仍开着的"未验证边界"
 
 - ✅ **C 层沙箱**——不再是欠账：`ed5f96eb` 之后它在 CI 上**真的运行并通过**，且两条注入对照
   （去掉 `unshare -n` / 去掉 `setpriv`）各自证明了臂会红。**注意它此前从未真正执行过**。
@@ -112,7 +148,7 @@ different results, and only one of them is evidence.
 - ⬜ **L3 端到端**（PATH 上是已安装构建而非工作树）。
 - ⬜ **S1 政策例外的端到端触发**（机制只在纯函数层被测；"允许涨" ≠ "已经涨过"）。
 
-### 2.6 `peaks-reviewer` 是半成品：**跳过被报成通过** ← **同一类 "pass-shaped output"**
+### 2.7 `peaks-reviewer` 是半成品：**跳过被报成通过** ← **同一类 "pass-shaped output"**
 
 **现状**：`peaks reviewer status` → `{configured: false, reason: "no-reviewer-config"}`。`~/.peaks/config.json`
 里**没有 `reviewer` 段**（只有 `version` / `currentWorkspace` / `workspaces` / `language` / `economyMode` /
@@ -164,7 +200,7 @@ function skippedEnvelope(reason: string): ReviewerEnvelope {
 **做全的最小集**：① 给 `reviewer config` 一个 CLI 面；② 跳过不得报 `passed: true`；③ `status` 区分三态并把
 `≥2` 要求写进 `nextActions`；④ 补测试。
 
-### 2.7 工具缺陷（小、高复用）
+### 2.8 工具缺陷（小、高复用）
 
 - `peaks audit goal` 输出在约 **3.6 KB** 处截断（两次 `INCOMPLETE_AUDIT: Unterminated`）
 - `peaks` 的 `.cmd` shim **吃不下含换行的参数**（`InvalidBatchScriptArg`）
