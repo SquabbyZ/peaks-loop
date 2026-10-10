@@ -235,6 +235,32 @@ describe('Scenario: behavior — decideGateAction optional driver argument', () 
     expect(decideGateAction('Edit', { file_path: 'src/x.ts' }, 'peaks-code').action).toBe('deny');
   });
 
+  // The four below are the discriminating negatives. Each one is an allow
+  // under a plausible loosening of the comparison, so each is the test that
+  // catches that loosening: a sibling inheriting the source write is the
+  // failure, and it is invisible to a lone `peaks-code` case.
+  it('still denies when the driver is a sibling that merely starts with the fast lane name', () => {
+    expect(decideGateAction('Edit', { file_path: 'src/x.ts' }, 'peaks-race-codex').action).toBe(
+      'deny'
+    );
+  });
+
+  it('still denies when the driver differs from the fast lane name only in case', () => {
+    expect(decideGateAction('Edit', { file_path: 'src/x.ts' }, 'PEAKS-RACE-CODE').action).toBe(
+      'deny'
+    );
+  });
+
+  it('still denies when the driver is only a prefix of the fast lane name', () => {
+    expect(decideGateAction('Edit', { file_path: 'src/x.ts' }, 'peaks-race').action).toBe('deny');
+  });
+
+  it('still denies when the driver carries surrounding whitespace', () => {
+    expect(decideGateAction('Edit', { file_path: 'src/x.ts' }, ' peaks-race-code ').action).toBe(
+      'deny'
+    );
+  });
+
   it('an ordinary session with no driver is not newly blocked on a non-family path', () => {
     // `src/../README.md` carries the `src/` deny prefix AND the `.md` allow
     // suffix; the allow-list is judged first, so it is an allow. The driver
