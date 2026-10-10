@@ -20,6 +20,19 @@ peaks-loop **不在本地 `npm publish`**。发布由 `.github/workflows/publish
 
 **版本号要改 9 处**(规则从 4.0.42 发布 commit `fba04265` 反推):root `package.json`;`packages/peaks-loop-shared/src/version.ts` 的 `CLI_VERSION`;`packages/peaks-loop-internal-runtime/src/index.ts` 的 `RUNTIME_VERSION`(这两个跟 root 走);**四个子包各自的 `package.json` 各自 patch +1**(它们版本号与 root 无关:internal-runtime 0.0.x、mut 0.1.x、shared-channel 0.0.x、shared 0.0.x);`README.md` + `README-en.md` 的版本行。加 CHANGELOG 共 10 个文件。
 
+**第三个容易踩的点（2026-10-10 实测）**: **bump 之后、跑任何测试之前，必须先 `pnpm build`。**
+`bump-version.mjs` 会改 `packages/peaks-loop-shared/src/version.ts` 与
+`packages/peaks-loop-internal-runtime/src/index.ts`，而 `packages/*/dist` 是**独立发布的产物**、
+**不经 alias 指向 `src/`**。于是 `tests/_global-setup/packages-build.ts` 会**拒绝启动套件**：
+
+```
+Test suite refused to start: 2 workspace package(s) have a dist/ that was not built
+from their current src/.  stale: packages/peaks-loop-internal-runtime/dist, packages/peaks-loop-shared/dist
+```
+
+CLI 自己的 CI 流水线里有 build，所以**只有本地会撞**。看到 `refused to start` 不要去查那些"失败"的测试
+——它们根本没跑；先 `pnpm build`。
+
 **两个容易踩的点**:
 - `tag` 是**轻量 tag**(`git cat-file -t v4.0.42` → `commit`,不是 `tag`)。别用 `-a`。
 - `.changeset/` 里**只有 config.json(无待发条目)时**,publish.yml 走"按已提交清单版本原样发布"分支 —— 所以手动 bump 是正确的。若有 `.changeset/*.md`,它会跑 `changeset version` 重新推导版本,会覆盖你的手动 bump。

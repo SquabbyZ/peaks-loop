@@ -1,5 +1,61 @@
 # Changelog
 
+## 4.1.4 — 2026-10-10 (修掉推送门上的一个假绿；`src/cli/commands` 清空超帽；两条"BLOCKING 却拦不住任何东西"的步骤；以及一项被推迟的边界)
+
+**版本级别**: 未发布区间 `v4.1.3..HEAD` 共 **17 个 commit**（1 feat / 5 fix / 6 refactor / 2 test / 其余 docs+memory）。取 **patch**，依维护者 2026-07-22 的常设规则"默认版本新增采用最小的版本位"。4 个 workspace 包各 +1 patch（internal-runtime 0.0.43→0.0.44、mut 0.1.57→0.1.58、shared 0.0.92→0.0.93、shared-channel 0.0.60→0.0.61），`CLI_VERSION` 与 `RUNTIME_VERSION` 由 `scripts/sync-version.mjs` 同步。**本版不新增命令族**，所以 4.1.3 那条"新增命令应取 minor"的注记不适用。
+
+### 1. 推送门上的一个假绿（1 fix，三轮交付）
+
+**leg 2 的分类器会把"新增了 gated 文件却忘了重生成基线"的改动放过去。** 实测 `6a1938a8` 那次推送：leg 2 跑了 601 个测试，**其中没有一条**是钉"每个 in-scope 文件都在 `gate-baseline.json` 里有 `files[]` 行"的那个守卫——它住在 `tests/unit/standards/`，而分类器只把 `src/<area>` 映射到 `tests/unit/<area>`，**没有任何一条路径通向那里**。守卫直到**下一次**推送（改了 `.husky/` 触发全量）才变红，`0c5fe123` 就是那两次提交需要付的修。
+
+分类器现在是一个**纯模块**（`scripts/test-changed-classify.mjs`），三条规则旧映射表达不了：
+
+- **R1** 基线**内容**动了 ⇒ 跑它的守卫套件（`tests/unit/standards/` + `tests/unit/lint/`），而不是 0 个测试
+- **R2** 任何 `A`/`D`/`R`/`C` ⇒ 跑人口守卫（按 git **status** 判定，不重述 census 的策略目录）
+- **R3** census 的**策略源文件**被改 ⇒ 同样跑（`M src/services/scan/file-size-policy.ts` 会让 44 个 `.md` 突然进 scope）
+
+**只有 `generatedAt` 动了的重生成仍然是惰性的（0 测试）——但现在是建立在一个真命题上。** 旧豁免写的理由是"没有测试读它"，那是**假的**：读者经由 `tests/unit/standards/_file-size-cap-scan.ts` 的 `BASELINE_PATH` 常量抵达它，而 2026-09-23 那次搜索找的是路径**字符串**，看不见常量间接引用。
+
+**第一版实现被 5 路评审否决，而这是本版最有价值的一段记录。** 它把守卫加进**选择集**，于是"没映射到测试 ⇒ 跑全量"那张网永不触发：**新增一个 CI workflow 会一个读 `.github/` 的测试都不跑**（实测有 5 个）。四个来源独立撞上同一缺陷，而 AC5 的验收臂看不见它——**因为那条臂用的正是唯一还能漏下去的形状**（`M README.md`）。修完的形状是：**守卫是映射的加法，不是全量网的替代品**，且那张复现表变成了一组臂。
+
+### 2. `src/cli/commands` 清空超帽（6 refactor）
+
+**30 个超帽文件 → 0**（目录从 300 走到 440 个跟踪文件）。配方是**拆分与压函数必须在同一次交付里完成**——只拆会把 `eslintFindings` 推高（本仓第一批就这样被拒过 +23/+19），一起做则下降。
+
+三个 `src/services` 顶层文件也一并处理（`hooks-settings-service` 1037→300、`auto-compact-orchestrator` 1030→285、`config-service` 1011→253）。
+
+**四个 ceiling 全程只降不升**：
+
+```
+fileSizeOverCap        112 -> 78
+fileSizeExcessLines  30352 -> 22502
+eslintFindings        1951 -> 1760
+eslintErrors           709 ->  590
+```
+
+### 3. 两条"BLOCKING 却拦不住任何东西"的步骤（1 fix）
+
+**由一次真实事故追出**：本会话的编排者跑完 4 个 slice、11 个提交，**从未执行 Step 11 的记忆沉淀**，而契约写着它 BLOCKING。追查后是两条可定位的缺陷：
+
+- **Step 11 没有任何可执行的拒绝点。** `verify-pipeline` 查 QA 与 Gate H；`emit-handoff` 查 **job 账本**；`gate-step-08` 查 job 叙述——**没有一个查 memory**。唯一"可执行的" Step 11 相关物，断言的是 SKILL.md 里那个**标题**存在。
+- **`gate-step-08` 在输入缺失时 fail-open**，并把"我没有能力判断"说成"我判断了，这不像 Job"。实测：整轮**一次 `Next: slice #N of M` 都没出现**。而这个真空本仓的 drift **D-003** 已记过（`JOB_SHAPE_NOT_DECIDED` 自 4.0.0-beta.6 起不再抛），它只是从另一个角度又咬了一次。
+
+修法：`emit-handoff` 增加 `block-no-sediment`（信号取自 `.peaks/memory/index.json`，**peaks 自己的状态，不是裸 mtime**；三值化且 **`unknown` 拒绝**）；`gate-step-08` 三态化，**无决定但有账本 ⇒ 拒绝**。**两半都端到端验过**：把 `job-shape.json` 移开 ⇒ exit 2；让 memory index 不可读 ⇒ exit 1。**这里的 fail-closed 语义是"别再声称一个你没做出的判断"，不是"拦下每一次 Bash 调用"**——该 hook 跑在每个会话的每次 Bash 上。
+
+同时把 5 条反馈记忆提升到强制层（3 条 Layer A 由 CLI 自行生成注册，2 条 Layer B 写成**真的** PreToolUse hook：一条拦会改全局状态的命令，一条拦"把测试运行器管进管道"——后者本会话被犯过两次）。**Layer B 的注册一度只存在于 gitignored 的生成文件里**，所以本版把两条条目加进生成器、**并把它从 475 行压到 299 行**（帽 300）以不抬 ceiling。**`shell` pin 是真正的坑**：照抄旁边那条的约定会让两个 hook 变成非阻断错误从而**静默放行**。
+
+### 4. 一项被推迟的边界（1 fix）
+
+slice 1 当初**刻意推迟**了 git C-quoting：含非 ASCII/控制字节的路径会被加引号，于是匹配不上任何锚定正则。推迟的理由是它先于本版存在、且当时 0 个受影响路径。本版用 `git diff --name-status -z`（NUL 分隔、不加引号不转义）关掉它，`parseNameStatus` 按 status 字母隐含的字段数消费记录。**对照是真的**：同一份 diff 去掉 `-z` 确实带引号，而 HEAD 的解析器逐字返回那个带引号路径。
+
+### 5. 边界取证（2 test）
+
+三项"机制存在但从未端到端跑过"的欠账：`format:check` 在 CI runner 上**确实评过**（不是被跳过）；PATH 上的 `peaks` 是**已安装构建**而非工作树，且**8 个未推送提交新增的 161 个 src 文件全部不在已安装 dist 里而两边都报 4.1.3**——本地 e2e 覆盖**看起来存在而实际为零**；棘轮唯一的联合判定例外 `COUPLED_SIZE_RISE`**确实能开，而且是有条件的**（双向实测）。
+
+审计另外补上了两处此前**没有任何东西能抓到**的行为（`docker rm --force` 的 argv、`docker run` 的 flags），方式是对未驱动路径做**注入式直接调用测试**——评审证明过：五个相同的注册表哈希是**一个维度重复五次**，而它**看不见函数体**。
+
+---
+
 ## 4.1.3 — 2026-10-09 (只读 MCP 能力面首次发布：把"只读"做成可证伪的东西；两处"工具在说假话"的修复；三批尺寸债，以及门禁自己被加固)
 
 **版本级别**: 未发布区间 `v4.1.2..HEAD` 共 **20 个 commit**（2 feat / 3 fix / 4 refactor / 2 chore(gate) / 2 merge / 其余 docs+memory）。取 **patch**，依维护者 2026-07-22 的常设规则"默认版本新增采用最小的版本位"。
