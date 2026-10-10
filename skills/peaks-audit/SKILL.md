@@ -51,6 +51,32 @@ The `.peaks/` workspace is partitioned by a **single scope axis** (session-id, a
 
 **None.** `peaks-audit` is the entry point; no other peaks-* skill runs first. If the user hands you a raw need with no accepted goal, audit it before doing anything else.
 
+## Lane routing — ask once per request, at this entry
+
+If every peaks-* workflow enters here, then this is where the lane question belongs: a need reaches `peaks-audit` before it reaches any other peaks-* skill, whichever words the user used to express it. The question — the full workflow (`peaks-code`) or the fast lane (`peaks-race-code`) — is answered by the user, and is never presumed by the LLM on their behalf.
+
+| Situation | Behaviour |
+|---|---|
+| The user named no skill — just a need, in their own words | Ask once with `AskUserQuestion`. **No option is preselected.** |
+| The user named a skill (`/peaks-code`, `/peaks-race-code`) | Ask once, with **the named lane preselected**: one Enter passes, and choosing the other lane stays available. |
+| The question has already been answered for this request | Do not ask again. |
+| This session is already locked to a lane | Do not ask again. |
+
+**There is no silent lane.** When the user neither picks nor names one, do not choose for them and do not start `peaks-race-code` on your own — hold on that question until they answer. Picking the lane is the user's act; the LLM asks, and then runs what they chose.
+
+**One row of that table is phase-dependent, and only one.** `peaks-race-code` is pre-pilot: it ships switched off, because a lane not yet proven on real tasks should not be recommended on every need.
+
+| Phase | Behaviour |
+|---|---|
+| **Until this lane's pilot has cleared** | The fast lane is reachable **only when the user names it**. A named skill is already the answer, so **do not ask**; an unnamed need still gets the question, but the fast lane is not among its options. |
+| **After the pilot has cleared** | The table above applies in full — ask even when a skill was named, with that one preselected, and the fast lane becomes an offered option rather than a name-only one. |
+
+Clearing the pilot is a separate, explicit project decision — a real-task trial with no severe regression — and not something to read off a green test run. Until that decision is recorded, the first row binds.
+
+**Mid-task, suggest; never re-ask.** When a closer look shows the task is heavier than it looked, say so in one sentence and let the user keep going — "this is past what the fast lane is for; want the full workflow instead?" A suggestion, not a popup and not a gate, and the user may ignore it.
+
+What may take the fast lane at all is not decided here. The changes that do not belong in one, and what "done" means once one does, are stated once in `../peaks-code/references/fast-lane-norm.md`; read them there rather than from this file, and do not restate them here.
+
 ## Hard contract — invoke IMMEDIATELY
 
 When a workflow surfaces a human need (a sentence, a ticket summary, a voice note, a vague "I want X"), call `peaks-audit` BEFORE any other skill:
