@@ -15,10 +15,12 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { resolveActiveSkillForCaller } from '../../../../src/services/audit/enforcers/active-skill-resolver.js';
+import { comparePresenceLeases } from '../../../../src/services/skills/presence-lease-order.js';
 import {
   listPresenceLeases,
   setPresenceLease
 } from '../../../../src/services/skills/presence-lease-service.js';
+import type { SkillPresenceLease } from '../../../../src/services/skills/presence-lease-types.js';
 
 const tmpRoots: string[] = [];
 const SESSION = '2026-10-10-session-s0test';
@@ -76,27 +78,86 @@ describe('resolveActiveSkillForCaller — caller scoping', () => {
   });
 });
 
-// Task 3. `readSkillPresenceFromLease` (skill-presence-service.ts:198) picks
-// the lease with the latest `lastHeartbeat`; the resolver picked the first one
-// `readdirSync` yielded. Two readers, one lease set, two answers.
-describe('resolveActiveSkillForCaller — no callerId: the freshest heartbeat wins', () => {
-  it('returns the latest lastHeartbeat, not the first lease on disk', () => {
+// The ordering rule itself, pinned deterministically. The resolver test below
+// cannot be deterministic about "which lease the disk yields first" — that is
+// `readdirSync` order, which Node does not guarantee and which differs across
+// the CI matrix — so the rule is pinned here instead.
+describe('comparePresenceLeases', () => {
+  const lease = (over: Partial<SkillPresenceLease>): SkillPresenceLease =>
+    ({
+      callerId: 'c',
+      workflowId: 'c',
+      graphRef: 'graphs/c.json',
+      skill: 'peaks-code',
+      depth: 0,
+      startedAt: '2026-10-10T00:00:00.000Z',
+      lastHeartbeat: '2026-10-10T00:00:00.000Z',
+      status: 'running',
+      schemaVersion: 1,
+      ...over
+    }) as SkillPresenceLease;
+
+  it('ranks the newer heartbeat first', () => {
+    const older = lease({ callerId: 'older', lastHeartbeat: '2026-10-10T00:00:00.000Z' });
+    const newer = lease({ callerId: 'newer', lastHeartbeat: '2026-10-10T09:00:00.000Z' });
+    expect([older, newer].sort(comparePresenceLeases)[0]?.callerId).toBe('newer');
+  });
+
+  it('breaks a heartbeat tie on startedAt, so the order cannot fall to readdir', () => {
+    // Heartbeats are not refreshed today, so `lastHeartbeat` frequently equals
+    // `startedAt` and two leases written in one millisecond tie outright.
+    const tie = '2026-10-10T12:00:00.000Z';
+    const older = lease({
+      callerId: 'older',
+      lastHeartbeat: tie,
+      startedAt: '2026-10-10T01:00:00.000Z'
+    });
+    const newer = lease({
+      callerId: 'newer',
+      lastHeartbeat: tie,
+      startedAt: '2026-10-10T09:00:00.000Z'
+    });
+    expect([older, newer].sort(comparePresenceLeases)[0]?.callerId).toBe('newer');
+    expect([newer, older].sort(comparePresenceLeases)[0]?.callerId).toBe('newer');
+  });
+
+  it('ranks a preparing lease by its timestamps, not by its status', () => {
+    const preparingNewer = lease({
+      callerId: 'preparing',
+      status: 'preparing',
+      lastHeartbeat: '2026-10-10T09:00:00.000Z'
+    });
+    const runningOlder = lease({
+      callerId: 'running',
+      status: 'running',
+      lastHeartbeat: '2026-10-10T08:00:00.000Z'
+    });
+    expect([runningOlder, preparingNewer].sort(comparePresenceLeases)[0]?.callerId).toBe(
+      'preparing'
+    );
+    expect([preparingNewer, runningOlder].sort(comparePresenceLeases)[0]?.callerId).toBe(
+      'preparing'
+    );
+  });
+});
+
+// Two readers of one lease set used to name different leases: the statusline
+// sorted, the resolver took `readdirSync` order. Both now go through
+// `comparePresenceLeases`.
+describe('resolveActiveSkillForCaller — no callerId: the freshest lease wins', () => {
+  it('agrees with the shared comparator about which lease is the driver', () => {
     const root = makeProject();
-    // Named so ALPHABETICAL order is the REVERSE of heartbeat order: Windows
-    // `readdirSync` yields entries in filename order, so `caller-a-stale`
-    // comes first on disk while carrying the older heartbeat. Naming them
-    // `caller-stale` / `caller-fresh` silently made the two orders agree and
-    // the fixture stopped testing anything — the precondition assertion below
-    // is what caught that.
-    writeLease(root, 'caller-a-stale', 'peaks-code', '2026-10-10T00:00:00.000Z');
-    writeLease(root, 'caller-z-fresh', 'peaks-race-code', '2026-10-10T09:00:00.000Z');
+    writeLease(root, 'caller-a', 'peaks-code', '2026-10-10T00:00:00.000Z');
+    writeLease(root, 'caller-z', 'peaks-race-code', '2026-10-10T09:00:00.000Z');
 
-    // PRECONDITION: the directory yields the STALE lease first, so "first on
-    // disk" and "freshest heartbeat" disagree. If this fails, the fixture has
-    // stopped exercising that disagreement — fix the fixture. Do NOT drop the
-    // assertion below to make this file green; it is the whole point.
-    expect(listPresenceLeases(root, SESSION)[0]?.callerId).toBe('caller-a-stale');
+    const leases = listPresenceLeases(root, SESSION);
+    // Not vacuous: two in-flight leases with different heartbeats, so "the
+    // first one on disk" and "the freshest one" are different leases for at
+    // least one of the two possible directory orders.
+    expect(leases.length).toBe(2);
+    expect(new Set(leases.map((l) => l.lastHeartbeat)).size).toBe(2);
 
-    expect(resolveActiveSkillForCaller(root).skill).toBe('peaks-race-code');
+    const expected = [...leases].sort(comparePresenceLeases)[0];
+    expect(resolveActiveSkillForCaller(root).skill).toBe(expected?.skill);
   });
 });

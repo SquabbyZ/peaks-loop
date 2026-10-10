@@ -85,23 +85,44 @@ afterEach(() => {
 });
 
 describe('commit ban — caller scoping', () => {
-  it('does not ban a commit for a caller that has no peaks lease of its own', () => {
+  it('does not ban a commit from a caller whose own lease is not a peaks skill', () => {
     const root = makeProject();
-    // Another caller in the SAME peaks session is running peaks-code.
     writeLease(root, 'caller-a', 'peaks-code');
+    writeLease(root, 'caller-b', 'some-other-tool');
 
-    const { status, stdout } = runHookHandle(root, COMMIT_PAYLOAD);
+    const { stdout } = runHookHandle(root, COMMIT_PAYLOAD);
 
-    // The commit is asked about caller-b, which has no peaks skill. Resolving
-    // caller-a's lease instead would ban it.
-    expect(status).not.toBe(2);
+    // caller-b owns a lease, so the resolve is scoped to it. Reading caller-a's
+    // lease instead would ban a commit that is not a peaks skill's.
     expect(stdout).not.toContain('Code Commit Ban');
   });
 
-  // Task 4. With no identity in the payload the resolver cannot be asked at
-  // all — asking without a callerId returns whichever lease comes first,
-  // which is the guessing this slice removes. The ambiguous case is decided
-  // by `evaluateCodeBan` instead.
+  it('bans a commit from a caller whose own lease IS a peaks skill', () => {
+    const root = makeProject();
+    writeLease(root, 'caller-b', 'peaks-code');
+
+    const { stdout } = runHookHandle(root, COMMIT_PAYLOAD);
+
+    expect(stdout).toContain('Code Commit Ban');
+  });
+
+  it('keeps the deny when the identity matches no lease while peaks is present', () => {
+    // The harness hands over an id that is not the lease's key — a case
+    // `skill-statusline-service.ts:100-103` records as expected. From here that
+    // is indistinguishable from a caller with no peaks skill, so the answer
+    // stays the conservative one. Allowing it would let a peaks session commit.
+    const root = makeProject();
+    writeLease(root, 'harness-real', 'peaks-code');
+
+    const { stdout } = runHookHandle(root, COMMIT_PAYLOAD);
+
+    expect(stdout).toContain('Code Commit Ban');
+  });
+
+  // With no identity in the payload the resolver cannot be asked at all —
+  // asking without a callerId returns whichever lease comes first, which is the
+  // guessing this slice removes. The ambiguous case is decided by
+  // `evaluateCodeBan` instead.
   it('bans an unattributable commit while a peaks lease is present', () => {
     const root = makeProject();
     writeLease(root, 'caller-a', 'peaks-code');

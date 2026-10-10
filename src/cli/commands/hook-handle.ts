@@ -13,6 +13,7 @@ import { evaluateCodeBan } from '../../services/audit/enforcers/code-ban.js';
 import { isRootWrite } from '../../services/audit/enforcers/no-root-pollution.js';
 import { checkLoginGate } from '../../services/audit/enforcers/login-gate.js';
 import {
+  hasLeaseForCaller,
   hasPeaksLeaseInSession,
   resolveActiveSkillForCaller
 } from '../../services/audit/enforcers/active-skill-resolver.js';
@@ -139,18 +140,25 @@ export function registerHookHandleCommand(program: Command, io: ProgramIO): void
         // caller-identifying env is unverified, and the payload already has it.
         const callerId = pluckString(parsed, ['caller_id']) ?? pluckString(parsed, ['session_id']);
         const identityAvailable = typeof callerId === 'string' && callerId.length > 0;
-        // No identity ⇒ do not ask. Asking without a callerId returns whichever
-        // lease comes first, so the answer would be another caller's skill.
-        const activeSkill = identityAvailable
-          ? resolveActiveSkillForCaller(projectRoot, { callerId })
-          : { skill: null, callerId: null, sessionId: null, mode: null, source: 'none' as const };
+        const callerHasLease = identityAvailable && hasLeaseForCaller(projectRoot, callerId);
+        // A scoped resolve answers for THIS caller only when this caller owns a
+        // lease. An id with no lease is ambiguous: either a caller with no peaks
+        // skill, or an id that is not the lease's key — and the harness does
+        // hand over a differing session id (skill-statusline-service.ts:100-103).
+        // The two are indistinguishable here, so that case keeps the unscoped
+        // answer, which denies, rather than turning a peaks commit into an allow.
+        const activeSkill = !identityAvailable
+          ? { skill: null, callerId: null, sessionId: null, mode: null, source: 'none' as const }
+          : callerHasLease
+            ? resolveActiveSkillForCaller(projectRoot, { callerId })
+            : resolveActiveSkillForCaller(projectRoot);
         // Evaluated even when nothing resolved: the old `if (skill !== null)`
         // guard meant an unresolved driver skipped the ban entirely.
         const codeDecision = evaluateCodeBan({
           skill: activeSkill.skill,
           command: fallbackCommand,
           peaksLeasePresent: hasPeaksLeaseInSession(projectRoot),
-          identityResolved: identityAvailable
+          identityResolved: callerHasLease
         });
         if (codeDecision.denied) {
           const formatted = formatDecisionResponse(ide, 'deny', codeDecision.reason);

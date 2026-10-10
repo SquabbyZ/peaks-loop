@@ -29,6 +29,7 @@ import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { getSessionIdCanonical } from '../../session/session-manager.js';
 import { getSessionDir } from '../../session/getSessionDir.js';
+import { comparePresenceLeases } from '../../skills/presence-lease-order.js';
 import { readPresenceLease, listPresenceLeases } from '../../skills/presence-lease-service.js';
 import {
   getCurrentSessionId,
@@ -113,19 +114,12 @@ export function resolveActiveSkillForCaller(
   } catch {
     canonicalLeases = [];
   }
-  // Freshest first, matching `readSkillPresenceFromLease`
-  // (skill-presence-service.ts:198). The two readers disagreed: that one sorted
-  // by heartbeat, this one took `readdirSync` order, so "who is driving" had two
-  // answers. Sorted here rather than in the shared `listPresenceLeases`, whose
-  // output order every consumer sees.
-  //
-  // Nothing refreshes the on-disk heartbeat today — `touchSkillHeartbeat`
-  // stamps in memory only and `setPresenceLease` runs at set-time, not on a
-  // cadence — so this currently orders by start time. It becomes a freshness
-  // rule the moment heartbeats advance.
-  const orderedLeases = [...canonicalLeases].sort((a, b) =>
-    (b.lastHeartbeat ?? '').localeCompare(a.lastHeartbeat ?? '')
-  );
+  // Freshest first, through the same comparator the statusline reader uses.
+  // The two readers disagreed: that one sorted by heartbeat, this one took
+  // `readdirSync` order, so "who is driving" had two answers. Sorted here rather
+  // than in the shared `listPresenceLeases`, whose output order every consumer
+  // sees.
+  const orderedLeases = [...canonicalLeases].sort(comparePresenceLeases);
   for (const lease of orderedLeases) {
     if (lease.status !== 'preparing' && lease.status !== 'running') continue;
     if (typeof lease.skill !== 'string' || lease.skill.length === 0) continue;
@@ -223,6 +217,27 @@ export function hasPeaksLeaseInSession(projectRoot: string): boolean {
         (lease.status === 'preparing' || lease.status === 'running') &&
         typeof lease.skill === 'string' &&
         lease.skill.startsWith('peaks-')
+    );
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Whether this caller owns at least one in-flight lease in the session.
+ *
+ * `resolveActiveSkillForCaller` cannot answer this: it returns
+ * `{ skill: null, source: 'none' }` both when a caller has no lease and when
+ * the id handed over is not the lease's key. Those two need different
+ * decisions, so the call site asks directly.
+ */
+export function hasLeaseForCaller(projectRoot: string, callerId: string): boolean {
+  try {
+    const sessionId = getSessionIdCanonical(projectRoot);
+    if (sessionId === null) return false;
+    return listPresenceLeases(projectRoot, sessionId).some(
+      (lease) =>
+        (lease.status === 'preparing' || lease.status === 'running') && lease.callerId === callerId
     );
   } catch {
     return false;

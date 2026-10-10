@@ -1,6 +1,7 @@
 import { findProjectRoot } from '../config/config-safety.js';
 import { getSessionIdCanonical } from '../session/session-manager.js';
 import { resolveActiveSkillForCaller } from '../audit/enforcers/active-skill-resolver.js';
+import { comparePresenceLeases } from './presence-lease-order.js';
 import { listPresenceLeases } from './presence-lease-service.js';
 import {
   read24hOverlay,
@@ -126,12 +127,9 @@ function readPresenceReadOnly(
   if (inFlight.length === 0) {
     return { presence: null, invalid: false };
   }
-  // Most recent wins — sort by `lastHeartbeat` desc, fall back to `startedAt`.
-  const sorted = inFlight.slice().sort((a, b) => {
-    const hb = b.lastHeartbeat.localeCompare(a.lastHeartbeat);
-    if (hb !== 0) return hb;
-    return b.startedAt.localeCompare(a.startedAt);
-  });
+  // Most recent wins, through the shared comparator so every reader of one
+  // lease set names the same lease.
+  const sorted = inFlight.slice().sort(comparePresenceLeases);
   const latest = sorted[0];
   if (latest === undefined || typeof latest.skill !== 'string' || latest.skill.length === 0) {
     return { presence: null, invalid: false };
