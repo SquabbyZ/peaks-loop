@@ -364,58 +364,11 @@ describe('Scenario: behavior — one path, two statuses, one order-independent a
   });
 });
 
-// ---------------------------------------------------------------------------
-// behavior — parseNameStatus, including the two-path rename emission
-// ---------------------------------------------------------------------------
-
-describe('Scenario: behavior — the name-status parse emits both paths of a rename', () => {
-  it('when git prints a rename line, should emit the old and the new path', async () => {
-    // given: the real `git diff --name-status` line for a rename, and for a copy
-    // when:  the parse reads them
-    // then:  two entries share the status letter, so the OLD path still maps its area — the
-    //        `--name-only` call this replaced printed only the new one and dropped that mapping
-    const mod = await loadModule();
-    const renamed = mod.parseNameStatus(
-      'R100\ttests/unit/reporters/bdd-reporter.test.ts\tx.test.ts'
-    );
-    const copied = mod.parseNameStatus('C075\tsrc/alpha/old.ts\tsrc/beta/new.ts');
-
-    expect(renamed).toEqual([
-      { status: 'R', path: 'tests/unit/reporters/bdd-reporter.test.ts' },
-      { status: 'R', path: 'x.test.ts' }
-    ]);
-    expect(copied).toEqual([
-      { status: 'C', path: 'src/alpha/old.ts' },
-      { status: 'C', path: 'src/beta/new.ts' }
-    ]);
-  });
-
-  it('when a rename crosses areas, should classify both areas and the guards', async () => {
-    // given: a rename whose two paths live under different src areas
-    // when:  the classifier classifies the parsed entries
-    // then:  both areas are selected, alongside the population guards
-    const mod = await loadModule();
-    const plan = mod.classifyChanged(
-      mod.parseNameStatus('R100\tsrc/alpha/old.ts\tsrc/beta/new.ts')
-    );
-
-    expect(plan.mode).toBe('subset');
-    expect(plan.paths).toContain('tests/unit/alpha');
-    expect(plan.paths).toContain('tests/unit/beta');
-    expect(plan.paths).toContain(mod.STANDARDS_GUARD_PATH);
-  });
-
-  it('when stdout carries no status column, should emit nothing', async () => {
-    // given: an empty diff and a stray line that is not a name-status record
-    // when:  the parse reads them
-    // then:  no entry is invented, so the empty-diff verdict stays reachable
-    const mod = await loadModule();
-
-    expect(mod.parseNameStatus('')).toEqual([]);
-    expect(mod.parseNameStatus('\n')).toEqual([]);
-    expect(mod.classifyChanged(mod.parseNameStatus('')).code).toBe('empty-diff');
-  });
-});
+// The `parseNameStatus` arms moved to `test-changed-nul-paths.test.ts`, together with the
+// input format they exercise: HEAD's arms fed tab-separated strings, and `-z` (NUL-separated,
+// never C-quoted) is now the contract this parser is written against. They are built there
+// from REAL `git diff -z` output rather than hand-written strings, which is the thing a
+// tab-format fixture could not be.
 
 // ---------------------------------------------------------------------------
 // behavior — the full-suite triggers, and the increment they are keyed to

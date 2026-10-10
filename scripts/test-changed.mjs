@@ -9,7 +9,8 @@
 //   pnpm test:changed -- HEAD~3       — vs HEAD~3
 //
 // 算法(透明、可审、不调任何 LLM):
-//   1. 用 `git diff --name-status <base>` 拿到所有变更文件及其 status(默认 base=HEAD)。
+//   1. 用 `git diff --name-status -z <base>` 拿到所有变更文件及其 status(默认 base=HEAD)。
+//      `-z` 是必须的:NUL 分隔、不加引号不转义,否则含非 ASCII 的路径会被 C-quote 掉。
 //   2. 分类 —— 规则全部在 `scripts/test-changed-classify.mjs`(纯函数,单测覆盖;
 //      这里不重复任何一条规则):
 //      a) 改的是 src/<area>/<file>.ts            → 跑 tests/unit/<area>/**/*.test.ts
@@ -175,8 +176,18 @@ async function main() {
     process.exit(2);
   }
 
-  const diffProc = run('git', ['diff', '--name-status', '--cached', base]);
-  const diffUnstaged = run('git', ['diff', '--name-status', base]);
+  // `-z` ON BOTH CALLS, and it is not optional. Without it git C-quotes any path holding
+  // non-ASCII or control bytes (`core.quotePath` defaults on), and a quoted path matches no
+  // anchored rule and no baseline comparison — `M "src/services/…"` used to drop that whole
+  // suite from the selection, silently. `-z` separates records by NUL and quotes nothing.
+  //
+  // `encoding: 'utf8'` in `run()` does NOT truncate at a NUL: spawnSync decodes the whole
+  // buffer and a NUL is an ordinary code point in a JS string, which is what lets the parser
+  // split on it. That is measured, not assumed — the byte-fidelity arms in
+  // `tests/unit/scripts/test-changed-nul-paths.test.ts` assert the LAST record of a real
+  // `git diff -z` stream survives the decode, and the end-to-end arm drives this file.
+  const diffProc = run('git', ['diff', '--name-status', '-z', '--cached', base]);
+  const diffUnstaged = run('git', ['diff', '--name-status', '-z', base]);
 
   // 收集:staged + unstaged,status 一起带上(分类要用 status,见 classify 模块)。
   // mergeEntries 是 UNION 语义 —— 同一路径可能两次出现且 status 不同,第一个 wins 会让

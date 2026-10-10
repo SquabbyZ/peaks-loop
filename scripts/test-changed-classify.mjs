@@ -10,9 +10,9 @@
  * arm and only the fact is plumbing. Existence filtering of the returned candidate paths
  * stays in the runner: whether a path is on disk is an fs fact, not a classification fact.
  *
- * INPUT SHAPE. `git diff --name-status` stdout, parsed by `parseNameStatus` — which lives
- * here for the same reason: "a rename names two paths" is a rule, and a rule that lives
- * inside a runner that runs at import has no arm.
+ * INPUT SHAPE. `git diff --name-status -z` stdout — NUL-separated, never C-quoted — parsed by
+ * `parseNameStatus`, which lives here for the same reason: "a rename names two paths" is a
+ * rule, and a rule that lives inside a runner that runs at import has no arm.
  *
  * THE REQUIRED STRUCTURE: the population guards are an ADDITION to a mapping, never a
  * substitute for the unmapped→full-suite backstop. While they fed the mapping, `A README.md`
@@ -157,29 +157,29 @@ export function mergeEntries(diffEntries) {
 }
 
 /**
- * `git diff --name-status` stdout → `{ status, path }` entries.
+ * `git diff --name-status -z` stdout → `{ status, path }` entries.
  *
- * A rename/copy line is `R100\told\tnew` and names TWO paths; both are emitted with the same
- * status letter, because the OLD path still maps an area and the NEW one carries the live
- * file. (`--name-only`, which the runner used before this, prints only the new path — it does
- * not "flatten both paths", it drops one.)
+ * THE `-z` IS PART OF THE CONTRACT, not a flag: without it git C-quotes a path holding
+ * non-ASCII or control bytes (`core.quotePath` defaults on), the quoted string matches no
+ * anchored trigger, no area regex and no `BASELINE_REL`, and the suite that path belongs to is
+ * silently dropped from the selection. Under `-z` records are NUL-separated and NOTHING is
+ * quoted, so a space, a newline and any byte above ASCII arrive byte-for-byte.
  *
- * KNOWN BOUNDARY — DELIBERATELY NOT FIXED HERE. With `core.quotePath` at its default, git
- * C-quotes a path containing non-ASCII or control bytes, so it arrives as
- * `"C:/repo/\344\270\255\346\226\207 name.ts"` and matches no anchored trigger or area regex
- * below. PRE-EXISTING (the `--name-only` call this replaced had identical exposure) and
- * bounded: a lone quoted path is unmapped, so such a diff falls back to the whole suite, and
- * R2 still fires on A/D/R/C. The correct fix is `git diff --name-status -z`, which changes
- * the parse for EVERY path — a separate change, recorded as a follow-up in this round's
- * handoff.
+ * A record is `STATUS\0path\0`, or `STATUS\0old\0new\0` for `R<score>`/`C<score>`: a rename
+ * names TWO paths, both emitted under the same status letter. Fields are consumed by the count
+ * the letter implies, never in fixed-size groups. Text carrying no NUL at all — a caller that
+ * dropped `-z` — yields no entry rather than a quoted one, so the diff reads unmapped and the
+ * whole suite runs: the failure direction is the safe one.
  */
 export function parseNameStatus(stdout) {
+  const fields = String(stdout ?? '').split('\0');
   const entries = [];
-  for (const line of (stdout ?? '').split(/\r?\n/)) {
-    const columns = line.split('\t').filter((column) => column.trim() !== '');
-    if (columns.length < 2) continue;
-    const status = columns[0].trim().charAt(0).toUpperCase();
-    for (const path of columns.slice(1)) entries.push({ status, path: path.trim() });
+  for (let cursor = 0; cursor < fields.length && fields[cursor] !== '';) {
+    const status = fields[cursor].trim().charAt(0).toUpperCase();
+    const count = status === 'R' || status === 'C' ? 2 : 1;
+    if (cursor + count >= fields.length) break;
+    for (let n = 1; n <= count; n += 1) entries.push({ status, path: fields[cursor + n] });
+    cursor += count + 1;
   }
   return entries;
 }
