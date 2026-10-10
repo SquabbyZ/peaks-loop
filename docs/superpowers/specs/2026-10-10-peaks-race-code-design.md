@@ -1,8 +1,10 @@
 # peaks-race-code — 快泳道设计
 
 - **日期**：2026-10-10
-- **状态**：设计已定（brainstorming 3 段 + 11 处用户裁决）
-- **session / rid**：未绑定 —— 本 spec 先于 peaks 工作流产生，尚未进入 `peaks workspace init`。经用户 review 后由 implementation plan 建立绑定。
+- **状态**：设计已定，**尚未经用户 review**。历经：brainstorming 3 段 + 11 处用户裁决 → `peaks audit goal` 第一轮（accepted with amendments）→ fresh-context 对抗评审（**10 项发现，推翻 3 项设计选择**）→ 用户对全部修正的裁决 → `peaks audit goal` 第二轮 rev2（**2 BLOCKER + 采纳 scope 拆分**）→ 拆为 **4 个 slice**（§13）
+- **session**：`2026-10-10-session-8bc940`（rid 未分配；本条尚未走 `peaks request init`）
+- **审计产物**：`.peaks/_runtime/2026-10-10-session-8bc940/audit-goal/`（`…-acceptance.md` / `…-rev2.json`）
+- **⚠️ 独立性限制**：**本设计未经独立模型审计。** 第一轮审计与设计**同模型**（`deepseek-flash[1M]`）；`peaks-reviewer` 因 `reviewer.providers < 2`（`src/services/reviewer/reviewer-config.ts:77`）在本机**结构性不可用**，且它审的是实现后的 slice 而非 spec。替代品是 fresh-context 子代理（**换上下文、不换模型族**）。详见 §12 U9。
 - **上游**：无（本条由用户直接提出，非审计产物）
 - **约束（用户提出）**：
   1. 用户交互只能是两种形式之一：`AskUserQuestion` 多选，或自然语言描述。用户**不敲** `peaks <anything>`。（项目级 Human-NL-Choice-Only）
@@ -445,7 +447,20 @@ if (activeSkill.skill !== null) {   // ← 解析不出来，整个提交闸被�
 
 该拦截点本来就拿得到命令串——`isCodeCommit(skill, command)`（`code-ban.ts:31`）；`hook-handle.ts` 也拿得到 tool input。这是**整条流程里唯一能在 commit 存在之前检查 message 的时点**。约 10 行，把红规则从"事后检测"变成"**事前阻止**"。
 
-**已知局限（必须写明，不许掩饰）**：命令串里抽取 message 是**启发式**。`git commit -m "…"` 与 `-m` 多段可判；但 `git commit -F <file>`、heredoc 喂 stdin、`git commit`（走编辑器）、`--amend` 等形态**判不出来**。所以这条是把危害面**大幅收窄**，不是消灭。**§5 的完成证明 #3 因此仍然要求"诚实的提交"，而事后检测（红规则测试）作为第二层继续保留。**
+**机制修正（rev2 审计后，2026-10-10）**：原稿把 message 校验写成**命令串启发式**，并断言 `git commit -F <file>` / heredoc / 编辑器驱动 / `--amend` 形态**判不出来**——**那是错的**，而且 rev2 的 `alternatives` 维度直接给出了更好的机制：
+
+> **用 `.husky/` 的 `commit-msg` 钩子校验。**
+
+`commit-msg` 是 git 原生钩子，在**消息已成形之后**触发——`-m` / `-F` / heredoc / 编辑器 **全部覆盖**。仓库本来就有 `.husky/`（如 `.husky/peaks-gate.mjs`）。**那条"已知局限"因此整个消失。**
+
+**选定机制（用户裁决，rev2 后）**：
+
+| 层 | 位置 | 作用 |
+|---|---|---|
+| **主** | `.husky/commit-msg` | 拦截**所有**提交形态；含 AI 署名 trailer ⇒ 拒 |
+| **次** | `peaks code-gate` / `hook-handle` 的拦截点 | 防 hook 不在场（`--no-verify`、或 clone 后未跑 `husky install`）。用命令串启发式，**明知覆盖不全**，作为兜底而非主力 |
+
+⚠️ **两处规则必须同源**（同一份 trailer 正则）。实现期须让次层**从主层的判定函数取规则**，不得各写一份——否则就是新增一个漂移点，而本 spec 刚在 §4.4 花了一整节反对这种重复。
 
 **不变的一点**：race-code 仍然**自己 commit**（完成证明 #3 不因此改动）。它绕过的是 `peaks request transition`（`spec-locked` + tech-doc-presence 检查）——**那正是 race-code 有意砍掉的东西**，两者一致，不是漏洞。
 
@@ -556,15 +571,46 @@ if (activeSkill.skill !== null) {   // ← 解析不出来，整个提交闸被�
 
 ## 13. 实现顺序（粗）
 
-1. **U11 —— 驾驶者解析 + 提交闸的失败方向。** **硬前提，且是既存 bug，不是本设计引入的**（`hook-handle.ts:131-132`）。不修，后面全建在沙上。**独立修，不混进本 slice 的 gate 改动。**
-2. **U1** —— `peaks code-gate` 的 projectRoot 来源。它决定后面所有 gate 代码的形状。
-3. **§4.4 的抽象（先抽后写）** —— 把 §5 floor + §6 风险面搬到共享规范文件，两个 SKILL.md 指向它，加**双向测试**。**这一步必须在第 4 步之前**，否则 race-code 会先复制出一份。
-4. `skills/peaks-race-code/SKILL.md`（含 loop-hygiene 块）+ 加入 `SKILL_NAMES`。先让 §10.1 的自动红变绿。
-5. **`decideGateAction` 加可选第三参**（默认 = fail-closed 分支）+ `code-gate-command.ts` 的解析。**先写 T1 / T3 / T4 / T5（纯函数层，TDD）**，再动实现。
-6. **解析层测试 T2 / T8 / T9** —— 需要夹具，不能复用纯函数那条路。
-7. **提交闸** —— `isCodeCommit` + message 校验 + **T6 / T7 / T10**。
-8. SKILL.md 的工序正文（§4 / §5 / §6 / §7）。
-9. **§3 的路由** —— 落在 **`peaks-audit`**，不是分诊层。
-10. **`.sh` 兄弟的处置**（§10.1）—— 同步改，**或**明确声明它不再承载泳道判定并在测试里钉住该差异。
+## 13. 交付分解：**四个 slice**（rev2 审计裁决）
 
-> **顺序原则**：先修地基（1–2）→ 再消重复（3）→ 再让最便宜的东西可见（4）→ **最后才动最危险的 gate（5–7）**，且 gate 的每一步都被红色测试约束。
+> rev2 的 `scope` 维度指出："范围过大且耦合：并行新 skill、拆除子代理/Gate/状态机、公共散文抽取、提交闸改造、驾驶者修复、指标迁移被混为一次交付，**建议拆分**。"用户 2026-10-10 裁决：**采纳，拆成四个**。
+>
+> **这也是本 spec 与 §1 的行为级不变量共同的答案**：S0 与 S1 各自独立有价值、可单独交付、可单独验证，**不该被快泳道的进度绑住**。
+
+### S0 — 硬前提（**既存 bug，与 race-code 无关**）
+
+- **内容**：`hook-handle.ts:131` 传 `callerId`（或与 `skill-presence-service.ts:198` 一致地按 `lastHeartbeat` 排序）；决定并实现**提交闸在身份不明时的失败方向**（今天 fail-open，§8.3 要求 fail-closed）。
+- **类型**：bugfix（§12 U11）。**可独立发布**。
+- **退出判据**：解析有测试且排序/作用域语义被钉住；失败方向有明确裁决 + 测试。
+- **依赖**：无。**S2 依赖它。**
+
+### S1 — 共享规范（**保行为重构**）
+
+- **内容**：把 §5 floor + §6 风险面抽到规范文件（§12 U12 定落点），两个 SKILL.md 指向它，加**双向**测试（§4.4 / T11）。
+- **类型**：refactor，**零行为变化**（§1 行为级不变量就是它的验收标准）。
+- **退出判据**：T11 绿；peaks-code 行为不变（既有测试全绿）。
+- **依赖**：无。**S2 的 SKILL.md 依赖它**（否则 race-code 会先复制一份）。
+
+### S2 — 快泳道 MVP（**本 spec 的主体**）
+
+- **内容**：`skills/peaks-race-code/SKILL.md`（含 loop-hygiene 块）+ `SKILL_NAMES`；`decideGateAction` 可选第三参（默认 fail-closed）+ `code-gate-command.ts` 解析；`.husky/commit-msg` 主层 + 拦截点次层（§8.4）；`peaks-audit` 的泳道路由（§3）；`.sh` 兄弟的处置（§10.1）。
+- **退出判据**：T1–T10 绿；§10.1 的三个文件改完；`.sh` 差异有明确处置。
+- **依赖**：**S0 + S1**。
+
+### S3 — 指标埋点 + pilot
+
+- **内容**：给 `dispatch` 事件补 `sliceRid`、给每个任务补起止标记（§5.5.1 末段）；pilot 对照（§5.5.2 / §12 U7）。
+- **退出判据**：结构性指标（每任务上下文窗口数）可采集；U7 的试点裁决落地。
+- **依赖**：S2 可用之后（否则没有可对照的对象）。
+
+### 每个 slice 内的顺序（仅 S2 用）
+
+1. **U1** —— projectRoot 来源决定所有 gate 代码的形状。
+2. `decideGateAction` 可选第三参 + 解析。**先写 T1/T3/T4/T5（纯函数层，TDD）**，再动实现。
+3. 解析层 T2/T8/T9（需夹具）。
+4. 提交闸：`.husky/commit-msg` + 次层 + T6/T7/T10。
+5. SKILL.md 的工序正文（§4 / §5 / §6 / §7）。
+6. **§3 的路由** —— 落在 `peaks-audit`。
+7. `.sh` 兄弟的处置。
+
+> **顺序原则**：**最危险的 gate 改动放最后**，且每一步都被红色测试约束。S2 **不碰** S0/S1 的地盘。
