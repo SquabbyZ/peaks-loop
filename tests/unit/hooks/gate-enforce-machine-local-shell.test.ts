@@ -280,7 +280,7 @@ describe('behavior — gate-enforce hook shell is machine-specific', () => {
     }
   });
 
-  it('when the workspace-init template is built on POSIX, should pin nothing', () => {
+  it('when the workspace-init template is built on POSIX, should withhold the platform pin', () => {
     // given: a macOS / Linux machine
     stubPlatform('linux');
     // when: the workspace-init template is built
@@ -289,11 +289,17 @@ describe('behavior — gate-enforce hook shell is machine-specific', () => {
         PreToolUse: Array<{ matcher: string; hooks: Array<{ command?: string; shell?: string }> }>;
       };
     };
-    // then: no Bash handler carries a `shell` key, so the default shell holds
     const bashHandlers = template.hooks.PreToolUse.filter(
       (entry) => entry.matcher === 'Bash'
     ).flatMap((entry) => entry.hooks);
-    expect(bashHandlers.every((h) => h.shell === undefined)).toBe(true);
+    // then: no handler that spawns the peaks CLI carries a `shell` key, so the
+    //       platform-neutral default holds — `powershell` is a win32-only pin
+    //       for a win32-only defect. The two feedback hooks are pinned here too,
+    //       to `bash`, but that pin is platform-invariant rather than withheld;
+    //       `feedback-promoted-pretool-hooks.test.ts` owns those arms.
+    const peaksHandlers = bashHandlers.filter((h) => String(h.command).startsWith('peaks '));
+    expect(peaksHandlers).toHaveLength(2);
+    expect(peaksHandlers.every((h) => h.shell === undefined)).toBe(true);
   });
 
   it('when the workspace-init template is materialized, should emit the gate-enforce entry itself', () => {
@@ -312,7 +318,9 @@ describe('behavior — gate-enforce hook shell is machine-specific', () => {
     // on every path, so it only contributed a `node "<absolute path>"` command
     // pinned to the installing Node version directory) and the exempting `env`
     // block is what remains.
-    expect(TEMPLATE_VERSION).toBe('1.8.0');
+    // 1.9.0 = the two layer-B feedback hooks joined the template, so a fresh
+    // clone carries their registration instead of only the scripts.
+    expect(TEMPLATE_VERSION).toBe('1.9.0');
     expect(findGateEnforceHandler(readPreToolUseEntriesSync(serializedTemplate))?.shell).toBe(
       'powershell'
     );

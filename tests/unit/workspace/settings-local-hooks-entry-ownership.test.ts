@@ -104,16 +104,16 @@ describe('the local hooks list is owned per entry, not per key', () => {
     //        writer of this file (the auto-compact installer)
     const root = makeProject();
     await materializeClaudeSettingsLocal(root, false);
-    expect(matchers(root)).toEqual(['Bash', 'Bash']);
+    expect(matchers(root)).toEqual(['Bash', 'Bash', 'Bash', 'Bash']);
     installAutoCompactHook({ projectRoot: root });
-    expect(matchers(root)).toEqual(['Bash', 'Bash', 'Bash|Task']);
+    expect(matchers(root)).toEqual(['Bash', 'Bash', 'Bash', 'Bash', 'Bash|Task']);
     // when: `peaks workspace init` runs again — twice, since one init only
     //       proves the entry was not deleted once
     const second = await materializeClaudeSettingsLocal(root, false);
     const third = await materializeClaudeSettingsLocal(root, false);
-    // then: the entry is still there at 3, both times
-    expect(matchers(root)).toEqual(['Bash', 'Bash', 'Bash|Task']);
-    expect(readPreToolUse(root).length).toBe(3);
+    // then: the entry is still there at 5, both times
+    expect(matchers(root)).toEqual(['Bash', 'Bash', 'Bash', 'Bash', 'Bash|Task']);
+    expect(readPreToolUse(root).length).toBe(5);
     // and: neither init reported drift — a merge without the matching
     //      comparator change would report `refreshed` here on EVERY init
     expect(second.action).toBe('already-current');
@@ -141,7 +141,7 @@ describe('the local hooks list is owned per entry, not per key', () => {
       matcher: 'Bash',
       hooks: [buildClaudeSettingsLocalJson().hooks.PreToolUse[0]!.hooks[0]]
     });
-    expect(matchers(root)).toEqual(['Bash', 'Bash', 'Bash|Task']);
+    expect(matchers(root)).toEqual(['Bash', 'Bash', 'Bash', 'Bash', 'Bash|Task']);
   });
 
   it('when an undeclared event sits beside a drifted entry, should keep the event', async () => {
@@ -332,7 +332,7 @@ describe('the local hooks list is owned per entry, not per key', () => {
     // then: it rewrites, and the retired entry is gone…
     expect(first.action).toBe('refreshed');
     expect(readFileSync(localSettingsPath(root), 'utf8')).not.toContain('write-gate');
-    expect(matchers(root)).toEqual(['Bash', 'Bash']);
+    expect(matchers(root)).toEqual(['Bash', 'Bash', 'Bash', 'Bash']);
     // …and the next run is the fixed point, not a rewrite loop
     const second = await materializeClaudeSettingsLocal(root, false);
     expect(second.action).toBe('already-current');

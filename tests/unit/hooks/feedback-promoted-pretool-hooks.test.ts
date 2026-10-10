@@ -22,10 +22,12 @@
  * of those may be blocked.
  */
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, join, resolve } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
+import { resolveHookShell } from '~/src/services/skills/hooks-codegate-superpowers';
+import { buildClaudeSettingsLocalJson } from '~/src/services/workspace/claude-settings-template';
 import { SUBPROCESS_TEST_TIMEOUT_MS } from '../_setup/subprocess-timeouts.js';
 
 const HOOKS_DIR = resolve(__dirname, '..', '..', '..', 'src', 'services', 'hooks');
@@ -259,4 +261,59 @@ describe('both hooks also read the legacy { tool, input } payload shape', () => 
       }
     );
   }
+});
+
+/**
+ * The REGISTRATION, not the scripts.
+ *
+ * Everything above is a refusal the hooks can only deliver if something runs
+ * them, and their registration used to exist solely in the generated, gitignored
+ * copies on the machine that hand-wrote it: a fresh clone carried the two scripts
+ * and nothing that invoked them, so the layer-B feedback gate — which reads the
+ * template's `hooks` block — called the promotion missing again. The arms below
+ * are that claim: the template the generator EMITS declares both hooks, names the
+ * script file in the command, points at a script that actually ships, and pins the
+ * shell under which the refusal still blocks.
+ *
+ * The plant lives outside this file by necessity — every assertion reads the
+ * entries out of the generated tree rather than out of a literal, so the mutation
+ * that reddens these arms is deleting the entries from
+ * `buildClaudeSettingsLocalJson()`. Request 033's evidence records that run.
+ */
+describe('the registration is generated, so a fresh clone carries it', () => {
+  const declared = buildClaudeSettingsLocalJson()
+    .hooks.PreToolUse.filter((entry) => entry.matcher === 'Bash')
+    .flatMap((entry) => entry.hooks)
+    .filter((handler) => handler.command.startsWith('bash '));
+
+  it('declares one Bash entry per feedback hook, in the order they are listed', () => {
+    expect(declared.map((handler) => handler.command)).toEqual([
+      `bash "\${CLAUDE_PROJECT_DIR}/src/services/hooks/${basename(SCOPE_HOOK)}"`,
+      `bash "\${CLAUDE_PROJECT_DIR}/src/services/hooks/${basename(PIPE_HOOK)}"`
+    ]);
+  });
+
+  it('names a script that really ships, so the command cannot point at nothing', () => {
+    for (const hookPath of [SCOPE_HOOK, PIPE_HOOK]) {
+      const command = `bash "\${CLAUDE_PROJECT_DIR}/src/services/hooks/${basename(hookPath)}"`;
+      expect(declared.some((handler) => handler.command === command)).toBe(true);
+      // the same file this suite drives above, by the name the command carries:
+      // renaming the script without updating the template fails here rather than
+      // disarming the hook silently
+      expect(existsSync(hookPath)).toBe(true);
+    }
+  });
+
+  it('pins shell: bash on both — not the platform pin, which would disarm them', () => {
+    expect(declared.map((handler) => handler.shell)).toEqual(['bash', 'bash']);
+    // The sibling handlers take `resolveHookShell()`: `powershell` on win32,
+    // absent elsewhere. `powershell` flattens this hook's exit 2 to exit 1, so
+    // taking the platform pin here — on the one platform where it exists — would
+    // turn both refusals into non-blocking errors on that platform only. The pin
+    // is a property of the command (`bash` names its own interpreter), asserted
+    // on both platforms without stubbing the global.
+    expect(resolveHookShell('win32')).toBe('powershell');
+    expect(resolveHookShell('linux')).toBeUndefined();
+    expect(declared.every((handler) => handler.shell !== resolveHookShell('win32'))).toBe(true);
+  });
 });
