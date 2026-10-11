@@ -15,9 +15,9 @@ const END_MARKER = '<!-- /peaks:loop-hygiene -->';
  * ONE of 22 skills — `peaks-code` — and the other 21 never received it.
  * A rule that only reaches one skill is not a rule.
  *
- * Byte-identity is the point: 22 hand-maintained copies drift, and a
+ * Byte-identity is the point: 23 hand-maintained copies drift, and a
  * drifted copy is how the contract quietly stops applying to whichever
- * skill fell behind. Edit one, edit all 22; this test is what makes that
+ * skill fell behind. Edit one, edit all 23; this test is what makes that
  * non-optional.
  */
 /**
@@ -93,7 +93,7 @@ describe('loop-hygiene block in every SKILL.md', () => {
 
   it('the marker describes what actually maintains this block (no generator exists)', () => {
     // The marker used to read "generated block". There is no generator: the
-    // block is hand-maintained in 22 files and held together by the
+    // block is hand-maintained in 23 files and held together by the
     // byte-identity assertion above. A future reader who trusted the marker
     // would go looking for the generator, find none, and then either stall or
     // edit one file and trip this suite. The marker must describe the real
@@ -107,7 +107,13 @@ describe('loop-hygiene block in every SKILL.md', () => {
     expect(marker).toMatch(/NOT generated/i);
     // Where the enforcement lives, and the one rule that keeps it true.
     expect(marker).toContain('tests/unit/skills/loop-hygiene-block.test.ts');
-    expect(marker).toMatch(/edit one, edit all 22/i);
+    // Read from the walk rather than pinned to a literal, because the stale
+    // count this assertion is supposed to catch is exactly what a literal
+    // let through: a 23rd skill landed, all 23 copies still said 22, and
+    // `edit one, edit all 22` went on agreeing with them. The number in the
+    // marker is a claim about the number of copies, so the guard takes it
+    // from the same walk that defines "all of them".
+    expect(marker).toMatch(new RegExp(`edit one, edit all ${files.length}`, 'i'));
   });
 
   it('every SKILL.md has frontmatter that parses as YAML', () => {

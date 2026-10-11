@@ -3,7 +3,7 @@ name: peaks-race-code
 description: Fast lane for code work — this window edits source directly, with no sub-agents and no paperwork. Use it when a code task is small enough that opening a second context window is the whole cost, i.e. trivial and everyday small features and bug fixes whose diff you can hold in your head. Not for a task that touches one of the risk surfaces the fast-lane norm names (`../peaks-code/references/fast-lane-norm.md`), and not for work that needs a durable audit trail — those belong to peaks-code; read the norm before you decide. Triggers on "/peaks-race-code", "peaks race", "race this", "fast lane", "直接改，别走全流程".
 ---
 
-<!-- peaks:loop-hygiene — HAND-MAINTAINED block, NOT generated; byte-identical in every SKILL.md, enforced by tests/unit/skills/loop-hygiene-block.test.ts. Edit one, edit all 22. -->
+<!-- peaks:loop-hygiene — HAND-MAINTAINED block, NOT generated; byte-identical in every SKILL.md, enforced by tests/unit/skills/loop-hygiene-block.test.ts. Edit one, edit all 23. -->
 
 ## Loop hygiene (every turn — MANDATORY)
 
