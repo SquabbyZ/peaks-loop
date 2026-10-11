@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-10T00:40:00.353Z",
+  "updatedAt": "2026-10-11T18:07:47.862Z",
   "hot": {
     "rule": [
       {
@@ -634,10 +634,10 @@
       {
         "name": "a-fixture-that-forces-failure-by-file-mode-is-platform-scoped",
         "kind": "feedback",
-        "description": "**一个用文件模式强制\"写入必须失败\"的夹具，只在 Windows 上成立。** 实测 于是\"强制失败\"在 Linux 上根本没发生，写入照常成功，断言去读成功路径 → 全红。 在  上真实发生过：4 处 ，CI 报 3 个断言失败（...",
+        "description": "<!-- peaks-feedback-promoted: layer=A --> **一个用文件模式强制\"写入必须失败\"的夹具，只在 Windows 上成立。** 实测 于是\"强制失败\"在 Linux 上根本没发生，写入照常成功，断...",
         "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\a-fixture-that-forces-failure-by-file-mode-is-platform-scoped.md",
         "sourceArtifact": null,
-        "updatedAt": "2026-10-08"
+        "updatedAt": "2026-10-10"
       },
       {
         "name": "a-probe-that-always-says-caught-is-indistinguishable-from-a-working-guard",
@@ -650,10 +650,10 @@
       {
         "name": "a-review-that-measured-against-the-real-artifact",
         "kind": "feedback",
-        "description": "**一次\"只读\"的性能评审，把 2054 行灌进了真实的  —— 而它的指令里没有任何一条禁止写真实产物。** 事实（逐字节可复算） benchmark 做了两遍，都是对着**真文件**： **因为载荷是从文件里读回来的，每次重放逐字...",
+        "description": "<!-- peaks-feedback-promoted: layer=A --> **一次\"只读\"的性能评审，把 2054 行灌进了真实的  —— 而它的指令里没有任何一条禁止写真实产物。** 事实（逐字节可复算） benchmar...",
         "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\a-review-that-measured-against-the-real-artifact.md",
         "sourceArtifact": null,
-        "updatedAt": "2026-10-08"
+        "updatedAt": "2026-10-10"
       },
       {
         "name": "a-right-conclusion-resting-on-evidence-nobody-can-reproduce",
@@ -698,10 +698,10 @@
       {
         "name": "check-ci-on-every-push-and-run-wide-tsc",
         "kind": "feedback",
-        "description": "**2026-09-11 我推了两个红提交却没发现。**  和 (4.0.39 后的两条技能修复) **CI 双双失败**,而我是**在下一批发版时偶然翻 run 列表才看到**。它们失败直到  修掉。 **根因是一条我踩过的旧坑:*...",
+        "description": "<!-- peaks-feedback-promoted: layer=A --> **2026-09-11 我推了两个红提交却没发现。**  和 (4.0.39 后的两条技能修复) **CI 双双失败**,而我是**在下一批发版时偶...",
         "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\check-ci-on-every-push-and-run-wide-tsc.md",
         "sourceArtifact": null,
-        "updatedAt": "2026-10-08"
+        "updatedAt": "2026-10-10"
       },
       {
         "name": "coverage-red-line",
@@ -757,7 +757,7 @@
         "description": "<!-- peaks-feedback-promoted: layer=B --> Peaks 相关的实际改动必须局限于当前项目目录内，除非用户明确授权修改全局位置。 **Why:** 用户明确要求\"所有 peaks 相关的改动局限于...",
         "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\peaks-current-directory-scope.md",
         "sourceArtifact": null,
-        "updatedAt": "2026-10-08"
+        "updatedAt": "2026-10-10"
       },
       {
         "name": "peaks-ide-skill-ac-10-audit-log-writer-is-a-thin-helper-not-a-separate-cli-primitive",
@@ -802,10 +802,10 @@
       {
         "name": "piping-a-test-run-reports-the-pipes-exit-code",
         "kind": "feedback",
-        "description": "**把测试命令管进 （或任何管道/分页器）之后，你读到的  是那个**管道的**退出码，不是测试运行器的。** 2026-09-13 实测（peaks-loop）：跑了全量集成套件 输出尾部是  / ，退出码 。**我据此宣布\"套件全...",
+        "description": "<!-- peaks-feedback-promoted: layer=B --> **把测试命令管进 （或任何管道/分页器）之后，你读到的  是那个**管道的**退出码，不是测试运行器的。** 2026-09-13 实测（peaks...",
         "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\piping-a-test-run-reports-the-pipes-exit-code.md",
         "sourceArtifact": null,
-        "updatedAt": "2026-10-08"
+        "updatedAt": "2026-10-10"
       },
       {
         "name": "rd-gstack-dry-run",
@@ -2746,6 +2746,14 @@
         "updatedAt": "2026-10-08"
       },
       {
+        "name": "baseline-rescope-is-for-files-leaving-not-entering",
+        "kind": "project",
+        "description": "的方向性：离开 vs 进入  在 2026-10-12 的两次实测，**同一棵树、两种人口变更，它要的标志相反**： | 人口变更 | 正确调用 | 它说的话 | |---|---|---| | 删掉一个被跟踪的文件（文件**离开**...",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\baseline-rescope-is-for-files-leaving-not-entering.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-10-11"
+      },
+      {
         "name": "capability-baseline-4-0-8-freeze",
         "kind": "project",
         "description": "**What happened**: Task 6 of 5-slice plan wrote the candidate input (commit d92d8c5, 452-line JSON, 15 rows).",
@@ -2940,10 +2948,10 @@
       {
         "name": "peaks-audit-goal-output-truncates-at-3-6kb",
         "kind": "project",
-        "description": "的输出在约 3.6 KB 处被截断 事实（2026-10-09 实测，session ） 对同一个 six-dimension 审计，三次调用的结果： | 次数 | need 长度 | 结果 | |---|---|---| | 1 |...",
+        "description": "在约 3.6 KB 处截断 —— **记录已修正，见下** > ⚠️ **先读这段。** 本条目原先断言截断源于\"输出 token 上限\"，并建议\"提高该调用的 > max_tokens\"。**那个归因是错的，不要再照它改代码。** ...",
         "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\peaks-audit-goal-output-truncates-at-3-6kb.md",
         "sourceArtifact": null,
-        "updatedAt": "2026-10-09"
+        "updatedAt": "2026-10-11"
       },
       {
         "name": "peaks-cmd-shim-fails-on-newline-arguments",
@@ -3127,7 +3135,7 @@
         "description": "peaks-loop **不在本地 **。发布由  完成,触发条件只有两个: 或 GitHub UI 手动的 。 **完整链条**(2026-09-12 实发 4.0.43 走通): 1.",
         "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\peaks-loop-release-flow-is-tag-triggered-ci-publish.md",
         "sourceArtifact": null,
-        "updatedAt": "2026-10-08"
+        "updatedAt": "2026-10-10"
       },
       {
         "name": "peaks-loop-slice-review-and-qa-perspective",

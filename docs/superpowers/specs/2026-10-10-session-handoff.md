@@ -361,6 +361,24 @@ $ peaks dashboard summary --json
 它据此拒绝给 `pass`，这是对的。**下一轮应记**：QA 的产物形状要对上 final-review 的读取清单，
 否则"验证过了"这件事对人审不可见。
 
+### 2.15 `peaks loop run` 在**干净会话**上跑不起来 ← **2026-10-12 新增，先前就存在**
+
+**复现**（RD 与 QA 各自独立撞到，且在**未修改的 `dist/` 构建**上同样复现，故与 §2.13 的改动无关）：
+
+```
+peaks loop run <rid> --session <sid> … → RUN_FAILED: require is not defined
+```
+
+根因是 ESM 与 `src/services/loop/monotonic-runner.ts:153` 的 `loadMostRecentCycleFromDir`
+（该文件本次未被碰过）。**绕法**：先播种一行 `{"kind":"monotonic-cycle"}` 到该 rid 的 cycle 目录，
+让"最近一个 cycle"这一读取路径不被走到。
+
+**为什么值得单独立项**：`runLoop` **只能**经 `peaks loop run` 到达，而 `skills/` 里**没有任何 skill 调用它**
+（实测 grep 为空）。也就是说 **loop runtime 的入口点自己先在干净会话上崩**——这与 §2.13 里
+"`cycleCount` 只在直跑 loop 时才会动"是同一处的两个症状。AC-1 与 AC-2 都靠播种才跑通。
+
+**本会话未修**：它超出 §2.13 的批准范围，且与 §2.13 的改动无关。
+
 
 ---
 
