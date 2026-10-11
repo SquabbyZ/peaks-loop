@@ -249,9 +249,9 @@ function skippedEnvelope(reason: string): ReviewerEnvelope {
 
 - `peaks audit goal` 输出在约 **3.6 KB** 处截断（两次 `INCOMPLETE_AUDIT: Unterminated`）
 - `peaks` 的 `.cmd` shim **吃不下含换行的参数**（`InvalidBatchScriptArg`）
-### 2.12 S2（`peaks-race-code` 快泳道）已交付，但它留下三件具名的活 + 一个未做的阶段
+### 2.12 S2（`peaks-race-code` 快泳道）已交付；三件具名活已于 2026-10-11 全部收尾，S3 仍未做
 
-**已合入并推送前的状态**：`main` = `48861a11`，14 个提交、20 个文件。**当时本地领先 origin 17 个提交，未推送。**
+**状态（2026-10-11 更新）**：S2 是 `main` = `48861a11`（14 个提交、20 个文件）。**已全部推送**；随后三件具名活的收尾是 `8c1f5247` / `c99b1923` / `86564285`，也已在 origin 上并被 CI 验过（run #313、#314）。下文的"未推送"字样指的是写作当时。
 **设计权威**：`docs/superpowers/specs/2026-10-10-peaks-race-code-design.md`（本轮又修了 4 处）。**计划**：`docs/superpowers/plans/2026-10-10-peaks-race-code-s2.md`。
 
 **S2 的终审判定是 Merge**，但终审与各任务级评审**具名留下了三条**（都不在本支内）：
@@ -260,7 +260,39 @@ function skippedEnvelope(reason: string): ReviewerEnvelope {
 2. **loop-hygiene 块的 "22→23" sweep** —— 那块共享注释写着 "edit one, edit all **22**"，而现在有 **23** 个 skill（14 顶层 + 9 `bee/`）。**假计数被发了 23 份**，新加的 `skills/peaks-race-code/SKILL.md` 第 6 行就带着它。改它要**原子地动全部 23 份副本 + 守卫的正则**（`tests/unit/skills/loop-hygiene-block.test.ts` 把那个数字钉在正则里），所以 S2 有意没做。**它需要一次有名字的 sweep，不能只躺在 ledger 里。**
 3. **`lintPeaksAuditRuntime` 的 wire-or-delete** —— `src/services/audit/enforcers/lint-peaks-skill-runtime.ts` 导出、无 importer、无测试 ⇒ **结构上不可能失败**；而它的 catalog 条目 `rl-peaks-audit-runtime-001` 声称 `skills/peaks-audit/SKILL.md` "must declare" 三个标记，其中两个该文件里**并不存在**。**接线还是删掉，需要一个裁决。**
 
-**未做的阶段：S3**（指标埋点 + pilot）。它的缺席有一个直接后果：**race-code 目前只能指名到达，还没到"默认提供"。** 见 spec §3.2 的阶段表与 §5.5.2 的两道门。
+#### 收尾（2026-10-11，session `2026-10-11-session-5ac396`）—— 三条全部关闭
+
+用户指名走 `peaks-race-code` 快泳道，每条一个可回退 commit（`git revert --no-edit <sha>`）。
+上面三条原话**保留不动**，下面只记结果与**被实测修正的部分**：
+
+1. ✅ **exit-2 覆盖** —— `8c1f5247`。加了一个不传 `--dry-run` 的兄弟 helper，**两种 payload
+   拼写各断言一次** `exit 2` + stderr 含 `PEAKS_CODE_PROHIBITED_DIRECT_EDIT`，allow 时断言
+   `exit 0`。变异对照：把 `--dry-run` 加回去，两条新用例即红。
+   **修正**：原文说"四条新用例全走 `--dry-run`"，实测是**十条**（`:126-187` 六条 + `:201-244` 四条）；
+   而 `code-gate-command.ts:121/:144` 在 `--dry-run` 时提前 return，所以 `:172-176` 的真契约
+   **在 Node 命令这一侧一条都没被断言过**。全仓唯一那条 exit-2 断言只覆盖 shell 兄弟、且只用 legacy 拼写。
+2. ✅ **loop-hygiene 22→23** —— `c99b1923`。23 份副本的标记行原子替换（脚本断言每份恰好一次）。
+   **修正原文的一处遗漏**：只把守卫里的数字从 22 改成 23 是不够的——**那个字面量正是假计数没被发现的
+   原因**（第 110 行 `toMatch(/edit one, edit all 22/i)` 会一直附和每一份错误的副本）。已改为
+   **从 `files.length` 取数**，所以下一个技能落地会让守卫**红**，而不是让 24 份副本一起悄悄变错。
+   两次变异验证：全改 `99` → 计数断言红；单份漂移 → 字节一致性断言红。
+3. ✅ **裁决：delete** —— `86564285`。删掉那个模块（99 行），7 条 catalog 的 `enforcerRef` 置 `null`，
+   基线 `--rescope` 重生成。
+   **三处与原文不符的实测事实**：① 它导出的是 **7 个** enforcer（audit/content/ide/doctor/
+   issue-fix-orchestrator/sop/slice-decompose），不是 1 个；② 审计系统**已经**把它们标成
+   `prose-only`（`enforcer-liveness.ts` 扫 import + `backing-detector.ts` 降级），所以
+   **今天不存在假绿**——"结构上不可能失败"不等于"被当成了通过"；③ **wire 不是"接根线"**：
+   把 7 个真的 import 进来、对着今天的 SKILL.md 跑，**6/7 立刻开火**（只有 `peaks-doctor` 干净），
+   每条都要靠改一份随包发出的 SKILL.md 去命中一个正则。
+   **行为中性已实测**：`peaks audit red-lines` 计数删除前后完全一致（`156 / 54 / 0 / 102`）。
+
+**S3（指标埋点 + pilot）—— 仍未做"阶段切换"，但 pilot 已起跑（2026-10-11）**：
+同日 4 个真实任务走完了这条泳道，门 2 的四个数 = **任务数 4 / 回滚 0 / CI 红 0 / 漏报风险面 0**。
+记录在 `.peaks/_runtime/2026-10-11-session-5ac396/race/`（4 条）。
+**判断：样本不足以切换阶段**，所以 race-code **仍然只能指名到达**——见 spec §3.2 的阶段表与
+§5.5.2 的两道门。两点诚实注记：4 个任务里只有 1 个真正压到了这条泳道的核心能力（本窗口直改
+硬阻断家族）；且它的头一次推送就在本地门上红过一次（`code-gate-driver.test.ts` 一条负载型超时，
+重试即过）。
 
 **S2 的完整审计链**（32 条 Ruling、15 条 deferred minor 的逐条 triage、逐任务证据）在 `.superpowers/sdd/2026-10-10-peaks-race-code-s2/progress.md`——**gitignored**，所以它不会随仓库走。**该不该留、什么时候删，由用户定**（S0 的 ledger 同样保留着）。
 
