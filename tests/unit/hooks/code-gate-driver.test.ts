@@ -97,6 +97,29 @@ function runCodeGate(root: string, stdin: string): { status: number | null; stdo
   return { status: run.status, stdout: run.stdout ?? '' };
 }
 
+/**
+ * The same command through the channel the installed hook actually reads: no
+ * `--dry-run`, so the verdict leaves as the process status and a denial's text
+ * goes to stderr. `runCodeGate` above answers with a JSON envelope on stdout
+ * instead, which no hook consumes.
+ */
+function runCodeGateLive(root: string, stdin: string): { status: number | null; stderr: string } {
+  const run = spawnSync(
+    process.execPath,
+    [
+      '--import',
+      'tsx',
+      join(ROOT, 'src', 'cli', 'index.ts'),
+      'code-gate',
+      '--project',
+      root,
+      '--json'
+    ],
+    { cwd: ROOT, encoding: 'utf8', windowsHide: true, input: stdin, env: { ...process.env } }
+  );
+  return { status: run.status, stderr: run.stderr ?? '' };
+}
+
 /** The non-Node sibling the same installer distributes for harnesses that cannot run the command. */
 const SHELL_SIBLING = resolve(ROOT, 'src', 'services', 'hooks', 'pre-tool-code-gate.sh');
 
@@ -245,6 +268,57 @@ describe('peaks code-gate — the harness spelling of the tool call', () => {
     expect(status).toBe(0);
     expect(stdout).toContain('"action": "allow"');
   });
+});
+
+// ---------------------------------------------------------------------------
+// The exit channel — what the installed hook actually reads
+// ---------------------------------------------------------------------------
+//
+// Every case above drives `--dry-run`, which answers with a JSON envelope on
+// stdout. No hook consumes that: the installed PreToolUse entry runs the
+// command bare, so `src/cli/commands/code-gate-command.ts` reaches its second
+// half — stderr plus `process.exit(2)` for a deny, `exit 0` otherwise. A
+// broken channel there is a silent allow, the one failure this gate exists to
+// prevent, so both spellings are pinned through it here.
+
+describe('peaks code-gate — the exit channel', () => {
+  it(
+    'when a denied edit runs under the legacy spelling, should exit 2 with the marker on stderr',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    () => {
+      // given: a project whose only lease is caller-a's fast lane, so caller-b cannot be placed
+      // when: the hard-blocked edit is run through the command's real exit path
+      // then: the deny is status 2 with the marker on stderr, and the fast lane's own call is 0
+      const root = makeProject();
+      writeLease(root, 'caller-a', 'peaks-race-code');
+
+      const denied = runCodeGateLive(root, payload(BLOCKED, 'caller-b'));
+      expect(denied.status).toBe(2);
+      expect(denied.stderr).toContain('PEAKS_CODE_PROHIBITED_DIRECT_EDIT');
+
+      const allowed = runCodeGateLive(root, payload(BLOCKED, 'caller-a'));
+      expect(allowed.status).toBe(0);
+    }
+  );
+
+  it(
+    'when a denied edit runs under the harness spelling, should exit 2 with the marker on stderr',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    () => {
+      // given: the same project and lease, with the tool call under `tool_name` / `tool_input`
+      // when: that payload is run through the command's real exit path
+      // then: the deny is status 2 with the marker on stderr, and the fast lane's own call is 0
+      const root = makeProject();
+      writeLease(root, 'caller-a', 'peaks-race-code');
+
+      const denied = runCodeGateLive(root, harnessPayload(BLOCKED, 'caller-b'));
+      expect(denied.status).toBe(2);
+      expect(denied.stderr).toContain('PEAKS_CODE_PROHIBITED_DIRECT_EDIT');
+
+      const allowed = runCodeGateLive(root, harnessPayload(BLOCKED, 'caller-a'));
+      expect(allowed.status).toBe(0);
+    }
+  );
 });
 
 // ---------------------------------------------------------------------------
