@@ -37,7 +37,28 @@ node .husky/peaks-gate.mjs repo                        # 期望 all whole-repo c
 
 ---
 
-## 2. 剩余事项（**按"会不会坑到你"排序**）
+## 2. 剩余事项
+
+> ### ⏭ 新 session 从这里开始（2026-10-12 收工时写）
+>
+> **状态**：`origin/main = 32e77deb`，工作树干净，CI #319 全绿。今天交付两段——
+> S2 的三件具名收尾（`8c1f5247` … `6098c73a`）与 §2.13 的 dashboard 埋点工作流
+> （`e6bcc39e` … `32e77deb`，走的是完整 PRD → RD → QA 流程）。
+>
+> **按序先做这三件：**
+>
+> 1. **§2.14 的「QA 产物形状」** —— final-review 服务要读 `qa/test-cases`、`qa/test-reports`、
+>    `qa/security-findings`、`qa/performance-findings`、`rd/bug-analysis` 等，而本轮 QA **只写了
+>    verification 报告**。后果很实：**验证确实做了，但人审看不见**（四维里三维因此 `inconclusive`）。
+>    修法是让 QA 的产物对上那份读取清单，不是改服务。
+> 2. **§2.15 的 `peaks loop run`** —— 干净会话上 `RUN_FAILED: require is not defined`
+>    （ESM vs `monotonic-runner.ts:153`）。它是 loop runtime 的**唯一入口**，而 `skills/` 里没有
+>    任何 skill 调它。
+> 3. **§2.13 收尾里仍开着的 U1 / U2 / U4** —— 尤其 **U2**（两个拿不到 session 的 token 站点）
+>    目前是**明写的覆盖缺口**，不是遗漏。
+>
+> **下面各条不再严格按「会不会坑到你」排序**——2.13 / 2.14 / 2.15 是后补的。但 **§2.1**（负载型
+> 假红）与 **§2.2**（本仓两条红线今天都不拦）仍然最该先读，它们会直接浪费你一次判断。
 
 ### 2.1 全量套件里有两条**负载敏感**测试，会给你假红 ← **2026-10-11 新增，最会坑你的一条**
 
