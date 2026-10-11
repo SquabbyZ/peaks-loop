@@ -562,6 +562,119 @@ describe('producePrePostDiff — rewrites are not removals (F6)', () => {
 });
 
 // ---------------------------------------------------------------------------
+// F12 — a multi-line `export { … }` block is not a removal.
+//
+// Measured in THIS repository on 2026-10-11: a commit reformatted one line,
+//     export { Alpha, type Beta, type Gamma };
+// into a five-line block that ADDED a name, and the artifact reported three
+// names REMOVED (`VERDICT: STRUCTURAL DRIFT DETECTED — 3 export name(s)`) — all
+// three still exported, still re-exported by the barrel. `EXPORT_LIST_RE`
+// anchors the closing `}` on the SAME line, so the after side bound NO name
+// while the one-line form bound three on the before side, and the difference
+// was read as three deletions.
+//
+// Each false-positive arm below is paired with a true-positive arm, because a
+// detector made to answer "nothing drifted" for every input is not a fix.
+// ---------------------------------------------------------------------------
+describe('producePrePostDiff — a multi-line export block (F12)', () => {
+  it(
+    'does not report a name as removed when a one-line list export becomes a block',
+    { timeout: HEAVY_SUBPROCESS_TEST_TIMEOUT_MS },
+    () => {
+      const root = makeRepo({
+        'src/a.ts':
+          'export { alpha, type Beta, type Gamma };\nconst alpha = 1;\ntype Beta = { b: 1 };\ntype Gamma = { g: 1 };\n'
+      });
+      write(
+        root,
+        'src/a.ts',
+        'export {\n  alpha,\n  type Beta,\n  type Delta,\n  type Gamma\n};\nconst alpha = 1;\ntype Beta = { b: 1 };\ntype Delta = { d: 1 };\ntype Gamma = { g: 1 };\n'
+      );
+
+      const result = producePrePostDiff({
+        projectRoot: root,
+        sessionId: SESSION_ID,
+        baseRef: 'HEAD'
+      });
+
+      expect(result.status).toBe('computed');
+      if (result.status !== 'computed') return;
+      const artifact = readFileSync(result.absolutePath, 'utf8');
+      // FAILS BEFORE THE CHANGE: the block bound no name, so all three of
+      // `alpha`, `Beta` and `Gamma` were listed as removed — `alpha` appears in
+      // BOTH spellings, which is the load-bearing assertion.
+      expect(artifact).toContain('Removed exports: none');
+      expect(artifact).not.toContain('- alpha (src/a.ts)');
+      expect(artifact).not.toContain('- Beta (src/a.ts)');
+      expect(artifact).not.toContain('- Gamma (src/a.ts)');
+      expect(artifact).not.toContain('VERDICT: STRUCTURAL DRIFT DETECTED');
+      // ...and the block WAS parsed, not skipped: the one new name is reported
+      // as an addition, and the statement count did not move.
+      expect(artifact).toContain('+ Delta (src/a.ts)');
+      expect(artifact).toContain('Top-level export statements: before 1, after 1, delta +0');
+    }
+  );
+
+  it(
+    'still reports a name deleted from a one-line list export',
+    { timeout: HEAVY_SUBPROCESS_TEST_TIMEOUT_MS },
+    () => {
+      const root = makeRepo({
+        'src/a.ts': 'export { alpha, beta };\nconst alpha = 1;\nconst beta = 1;\n'
+      });
+      write(root, 'src/a.ts', 'export { alpha };\nconst alpha = 1;\nconst beta = 1;\n');
+
+      const result = producePrePostDiff({
+        projectRoot: root,
+        sessionId: SESSION_ID,
+        baseRef: 'HEAD'
+      });
+
+      expect(result.status).toBe('computed');
+      if (result.status !== 'computed') return;
+      const artifact = readFileSync(result.absolutePath, 'utf8');
+      expect(artifact).toContain('VERDICT: STRUCTURAL DRIFT DETECTED');
+      expect(artifact).toContain('- beta (src/a.ts)');
+      expect(artifact).not.toContain('- alpha (src/a.ts)');
+    }
+  );
+
+  it(
+    'reports the one name a rewritten block drops, and no false removal beside it',
+    { timeout: HEAVY_SUBPROCESS_TEST_TIMEOUT_MS },
+    () => {
+      const root = makeRepo({
+        'src/a.ts':
+          'export { alpha, type Beta, type Gamma };\nconst alpha = 1;\ntype Beta = { b: 1 };\ntype Gamma = { g: 1 };\n'
+      });
+      write(
+        root,
+        'src/a.ts',
+        'export {\n  alpha,\n  type Gamma\n};\nconst alpha = 1;\ntype Beta = { b: 1 };\ntype Gamma = { g: 1 };\n'
+      );
+
+      const result = producePrePostDiff({
+        projectRoot: root,
+        sessionId: SESSION_ID,
+        baseRef: 'HEAD'
+      });
+
+      expect(result.status).toBe('computed');
+      if (result.status !== 'computed') return;
+      const artifact = readFileSync(result.absolutePath, 'utf8');
+      // `Beta` really is gone from the export list...
+      expect(artifact).toContain('VERDICT: STRUCTURAL DRIFT DETECTED');
+      expect(artifact).toContain('- Beta (src/a.ts)');
+      // ...and the two names that stayed on both sides are NOT reported. BEFORE
+      // THE CHANGE this arm reported all three, which is the same false
+      // positive by a different route.
+      expect(artifact).not.toContain('- alpha (src/a.ts)');
+      expect(artifact).not.toContain('- Gamma (src/a.ts)');
+    }
+  );
+});
+
+// ---------------------------------------------------------------------------
 // F10 — the case expression was not the same expression on both sides, and it
 // missed every modifier spelling (`it.skip(`, `test.each(`) while counting
 // occurrences inside comments and string literals. The fix counts the modified

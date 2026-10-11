@@ -48,68 +48,15 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
-/** Path segments (under `.peaks/_runtime/<sessionId>/`) the artifact lands at. */
-export const API_DIFF_ARTIFACT_SEGMENTS = ['final-review', 'api-diff.txt'] as const;
-
-/**
- * The literal that opens the artifact's conclusion line.
- *
- * Exported because the consumer must be able to test for the CONCLUSION, not
- * for a byte count (F-BLOCK-1BYTE): one byte of `api-diff.txt` satisfied
- * "status: found" while conveying nothing, and the delivery gate it fed then let
- * a `pass` stand on a comparison nobody saw. The producer writes the line this
- * marker opens and `final-review-service.ts` requires it in the delivered
- * bytes, so the two cannot drift apart into the same hole again.
- */
-export const PRE_POST_DIFF_VERDICT_MARKER = 'VERDICT: ';
-
-/**
- * The three conclusions the artifact may open with, exported as the same
- * literals the writer interpolates below.
- *
- * They are constants because reading the conclusion is now part of the
- * consumer's job (F2): the pre/post-diff source is the one source whose
- * conclusion had a machine-readable form all along, and the envelope threw it
- * away — a delivered `STRUCTURAL DRIFT DETECTED` produced `allPass: true` with
- * an empty `needsAttention`. A consumer that must classify the conclusion may
- * only do so against the producer's own literals, never against a re-typed
- * copy of them.
- */
-export const PRE_POST_DIFF_NO_DRIFT = 'NO STRUCTURAL DRIFT';
-export const PRE_POST_DIFF_ADDITIONS_ONLY = 'ADDITIONS ONLY';
-export const PRE_POST_DIFF_DRIFT_DETECTED = 'STRUCTURAL DRIFT DETECTED';
-
-/**
- * What the artifact's conclusion LINE says, read from the bytes a consumer
- * actually received.
- *
- * `indeterminate` is not "nothing to report": it is "the line is there (or is
- * not) and this consumer cannot classify it", which for a drift DETECTOR is a
- * fact a human has to see — see `enforceStructuralDriftAttention`.
- */
-export type PrePostDiffConclusion =
-  'no-drift' | 'additions-only' | 'drift-detected' | 'indeterminate';
-
-/**
- * Classify the delivered conclusion. Pure and total: a caller passes the bytes
- * it received (possibly a head slice) and gets back what the artifact says.
- *
- * Only the FIRST `VERDICT:` line is read. The artifact's header promises the
- * verdict "is repeated nowhere" and that it is the file's conclusion, so a
- * later line cannot be the answer, and reading further would let a document's
- * prose masquerade as its conclusion.
- */
-export function classifyPrePostDiffVerdict(content: string): PrePostDiffConclusion {
-  const line = content
-    .split(/\r?\n/)
-    .find((candidate) => candidate.startsWith(PRE_POST_DIFF_VERDICT_MARKER));
-  if (line === undefined) return 'indeterminate';
-  const conclusion = line.slice(PRE_POST_DIFF_VERDICT_MARKER.length);
-  if (conclusion.startsWith(PRE_POST_DIFF_DRIFT_DETECTED)) return 'drift-detected';
-  if (conclusion.startsWith(PRE_POST_DIFF_ADDITIONS_ONLY)) return 'additions-only';
-  if (conclusion.startsWith(PRE_POST_DIFF_NO_DRIFT)) return 'no-drift';
-  return 'indeterminate';
-}
+import {
+  API_DIFF_ARTIFACT_SEGMENTS,
+  PRE_POST_DIFF_VERDICT_MARKER,
+  PRE_POST_DIFF_NO_DRIFT,
+  PRE_POST_DIFF_ADDITIONS_ONLY,
+  PRE_POST_DIFF_DRIFT_DETECTED,
+  type PrePostDiffResult,
+  type ProducePrePostDiffOptions
+} from './final-review-contract.js';
 
 /** Test-file globs — the single definition both the file count and the case
  *  count use, so the two can never disagree about what a "test file" is. */
@@ -177,38 +124,19 @@ const EXPORT_DECL_RE =
 const EXPORT_TYPE_LIST_RE = /^export\s+type\s*\{([^}]*)\}/;
 const EXPORT_LIST_RE = /^export\s*\{([^}]*)\}/;
 const EXPORT_DEFAULT_RE = /^export\s+default\b/;
-
-export interface PrePostDiffComputed {
-  readonly status: 'computed';
-  readonly summary: string;
-  readonly relativePath: string;
-  readonly absolutePath: string;
-  readonly content: string;
-}
-
-export interface PrePostDiffUnavailable {
-  readonly status: 'unavailable';
-  /** Why no baseline exists, in the operator's terms. */
-  readonly reason: string;
-  /**
-   * `true` when the project root IS a git work tree — i.e. a baseline was
-   * expected to be computable and was not. That distinction shapes the REASON
-   * the operator is given (a tooling failure to fix, versus a project that has
-   * no baseline to offer), and the service refuses a `pass` on this dimension
-   * either way: "not a git repository" is the CAUSE of the missing evidence,
-   * never a licence to trust the claim the evidence was supposed to support.
-   */
-  readonly inGitWorkTree: boolean;
-}
-
-export type PrePostDiffResult = PrePostDiffComputed | PrePostDiffUnavailable;
-
-export interface ProducePrePostDiffOptions {
-  readonly projectRoot: string;
-  readonly sessionId: string;
-  /** Explicit base ref. Unset ⇒ merge-base with the upstream default branch. */
-  readonly baseRef?: string;
-}
+/**
+ * An `export { … }` list OPENED on this line and closed on a LATER one.
+ *
+ * `EXPORT_LIST_RE` above requires the closing `}` on the same line, so a block
+ * written across several lines matched nothing at all. The miss is ASYMMETRIC,
+ * which is what makes it a false-positive source rather than a mere blind spot:
+ * reformatting a one-line `export { A, B, C };` into a five-line block left the
+ * before side binding three names and the after side binding NONE, so `A`, `B`
+ * and `C` were reported REMOVED while all three were still exported. A
+ * line-oriented reader cannot see such a block, so the statement is accumulated
+ * until the line carrying its closing brace (see the diff loop).
+ */
+const EXPORT_LIST_OPEN_RE = /^export\s*(?:type\s*)?\{[^}]*$/;
 
 interface GitRun {
   readonly ok: boolean;
@@ -590,6 +518,26 @@ export function producePrePostDiff(opts: ProducePrePostDiffOptions): PrePostDiff
   ]).stdout;
   const namesAddedByPath = new Map<string, Set<string>>();
   const namesRemovedByPath = new Map<string, Set<string>>();
+
+  /** Record the names one diff line — its `-` / `+` sign already stripped — binds. */
+  const recordNames = (sign: '-' | '+', text: string): void => {
+    const names = extractExportedNames(text);
+    if (names.length === 0) return;
+    const byPath = sign === '-' ? namesRemovedByPath : namesAddedByPath;
+    const bucket = byPath.get(currentPath) ?? new Set<string>();
+    for (const name of names) bucket.add(name);
+    byPath.set(currentPath, bucket);
+  };
+
+  // An `export { … }` list written across several lines is ONE statement; see
+  // `EXPORT_LIST_OPEN_RE`. It is accumulated here, per SIDE, because a unified
+  // diff emits every `-` line of a hunk before its `+` lines and the two sides
+  // must never be folded into one statement. A side still open when the other
+  // side begins — or when the diff ends — is parsed as it stands: with no
+  // closing brace it binds no name, which is the UNDER-reporting this module
+  // prefers over a manufactured removal.
+  let openSign: '-' | '+' | null = null;
+  let openStatement = '';
   for (const line of diffText.split(/\r?\n/)) {
     if (line.startsWith('+++ ')) {
       currentPath = line.slice(4).replace(/^b\//, '');
@@ -597,13 +545,30 @@ export function producePrePostDiff(opts: ProducePrePostDiffOptions): PrePostDiff
     }
     if (line.startsWith('--- ') || line.length === 0) continue;
     if (!line.startsWith('-') && !line.startsWith('+')) continue;
-    const names = extractExportedNames(line.slice(1));
-    if (names.length === 0) continue;
-    const byPath = line.startsWith('-') ? namesRemovedByPath : namesAddedByPath;
-    const bucket = byPath.get(currentPath) ?? new Set<string>();
-    for (const name of names) bucket.add(name);
-    byPath.set(currentPath, bucket);
+    const sign: '-' | '+' = line.startsWith('-') ? '-' : '+';
+    const text = line.slice(1);
+    if (openSign !== null && sign === openSign) {
+      openStatement += ` ${text.trim()}`;
+      if (text.includes('}')) {
+        recordNames(sign, openStatement);
+        openSign = null;
+        openStatement = '';
+      }
+      continue;
+    }
+    if (openSign !== null) {
+      recordNames(openSign, openStatement);
+      openSign = null;
+      openStatement = '';
+    }
+    if (EXPORT_LIST_OPEN_RE.test(text)) {
+      openSign = sign;
+      openStatement = text.trim();
+      continue;
+    }
+    recordNames(sign, text);
   }
+  if (openSign !== null) recordNames(openSign, openStatement);
   // F6 — a name that appears on BOTH sides of the same file was REWRITTEN or
   // re-listed, not removed: `export { a }` -> `export { a, b }` diffs as
   // `-export { a }` / `+export { a, b }`, and reading the minus side alone
@@ -785,3 +750,19 @@ export function producePrePostDiff(opts: ProducePrePostDiffOptions): PrePostDiff
 
   return { status: 'computed', summary, relativePath, absolutePath, content };
 }
+
+// The artifact's contract now lives in final-review-contract.ts; re-exported so
+// every name that was importable from this module still is.
+export {
+  API_DIFF_ARTIFACT_SEGMENTS,
+  PRE_POST_DIFF_VERDICT_MARKER,
+  PRE_POST_DIFF_NO_DRIFT,
+  PRE_POST_DIFF_ADDITIONS_ONLY,
+  PRE_POST_DIFF_DRIFT_DETECTED,
+  classifyPrePostDiffVerdict,
+  type PrePostDiffConclusion,
+  type PrePostDiffComputed,
+  type PrePostDiffUnavailable,
+  type PrePostDiffResult,
+  type ProducePrePostDiffOptions
+} from './final-review-contract.js';
