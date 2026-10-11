@@ -171,6 +171,23 @@ export const PEAKS_CODE_RUNTIME_CONTRACT: RedLineCatalogEntry = {
  * can spread this list into RED_LINE_CATALOG and add their own without
  * touching this file.
  */
+/**
+ * The seven `*-runtime` entries below carry `enforcerRef: null` deliberately.
+ *
+ * They used to point at one module that built seven enforcers out of a shared
+ * `buildContract` helper. Nothing imported any of them, so it enforced nothing,
+ * and the audit's liveness probe already classified these entries `prose-only`
+ * for exactly that reason — the null states the same fact directly rather than
+ * through a probe. The module is gone; `peaks audit red-lines` reports identical
+ * counts with it gone and with it present, which is the check that this was
+ * cleanup and not a change of verdict.
+ *
+ * Wiring them is not the cheaper-looking alternative. Run against the SKILL.md
+ * files as they stand, six of the seven FIRE — only `peaks-doctor` is clean —
+ * and each would have to be satisfied by editing a shipped SKILL.md until it
+ * contains the phrase its regex expects. Re-decide the contracts first; do not
+ * wire these to "restore" them.
+ */
 export const PEAKS_AUDIT_RUNTIME: RedLineCatalogEntry = {
   id: 'rl-peaks-audit-runtime-001',
   rule: 'peaks-audit SKILL.md must declare the audit-runtime contract (machine-readable audit log, six-dimension audit, author identity)',
@@ -181,7 +198,7 @@ export const PEAKS_AUDIT_RUNTIME: RedLineCatalogEntry = {
     '6 dimensions',
     'author identity.*local gitconfig'
   ],
-  enforcerRef: 'src/services/audit/enforcers/lint-peaks-skill-runtime.ts'
+  enforcerRef: null
 };
 
 export const PEAKS_CONTENT_RUNTIME: RedLineCatalogEntry = {
@@ -189,7 +206,7 @@ export const PEAKS_CONTENT_RUNTIME: RedLineCatalogEntry = {
   rule: 'peaks-content SKILL.md must declare the content-runtime contract (what this skill do, failure mode, each red line is written)',
   markers: ['MANDATORY', 'BLOCKING'],
   phrases: ['what this skill do', 'failure mode', 'each red line is written'],
-  enforcerRef: 'src/services/audit/enforcers/lint-peaks-skill-runtime.ts'
+  enforcerRef: null
 };
 
 export const PEAKS_IDE_RUNTIME: RedLineCatalogEntry = {
@@ -201,7 +218,7 @@ export const PEAKS_IDE_RUNTIME: RedLineCatalogEntry = {
     'what this skill do',
     'general workflow-gating tool'
   ],
-  enforcerRef: 'src/services/audit/enforcers/lint-peaks-skill-runtime.ts'
+  enforcerRef: null
 };
 
 export const PEAKS_DOCTOR_RUNTIME: RedLineCatalogEntry = {
@@ -209,7 +226,7 @@ export const PEAKS_DOCTOR_RUNTIME: RedLineCatalogEntry = {
   rule: 'peaks-doctor SKILL.md must declare the doctor-orchestrator marker',
   markers: ['MANDATORY'],
   phrases: ['peaks-loop doctor is a doctor orchestrator'],
-  enforcerRef: 'src/services/audit/enforcers/lint-peaks-skill-runtime.ts'
+  enforcerRef: null
 };
 
 export const PEAKS_ISSUE_FIX_ORCHESTRATOR_RUNTIME: RedLineCatalogEntry = {
@@ -217,7 +234,7 @@ export const PEAKS_ISSUE_FIX_ORCHESTRATOR_RUNTIME: RedLineCatalogEntry = {
   rule: 'peaks-issue-fix-orchestrator SKILL.md must declare the deviation note + autonomous work proceed markers',
   markers: ['MANDATORY'],
   phrases: ['deviation note', 'autonomous work proceed'],
-  enforcerRef: 'src/services/audit/enforcers/lint-peaks-skill-runtime.ts'
+  enforcerRef: null
 };
 
 export const PEAKS_SOP_RUNTIME: RedLineCatalogEntry = {
@@ -225,7 +242,7 @@ export const PEAKS_SOP_RUNTIME: RedLineCatalogEntry = {
   rule: 'peaks-sop SKILL.md must declare the sop-runtime contract (each red line below, sop lint reports findings)',
   markers: ['MANDATORY'],
   phrases: ['each red line below is written', 'sop lint reports findings'],
-  enforcerRef: 'src/services/audit/enforcers/lint-peaks-skill-runtime.ts'
+  enforcerRef: null
 };
 
 export const PEAKS_SLICE_DECOMPOSE_RUNTIME: RedLineCatalogEntry = {
@@ -233,5 +250,5 @@ export const PEAKS_SLICE_DECOMPOSE_RUNTIME: RedLineCatalogEntry = {
   rule: 'peaks-slice-decompose SKILL.md must declare the slice-decompose contract (what this skill do, failure mode)',
   markers: ['MANDATORY'],
   phrases: ['what this skill do', 'failure mode ('],
-  enforcerRef: 'src/services/audit/enforcers/lint-peaks-skill-runtime.ts'
+  enforcerRef: null
 };
