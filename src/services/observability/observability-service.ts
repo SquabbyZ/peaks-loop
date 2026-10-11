@@ -214,6 +214,13 @@ export function emitTokenUsageEvent(opts: {
   projectRoot: string;
   inputTokens: number;
   outputTokens: number;
+  /**
+   * Where the two counts came from. Required, not defaulted: a `0` the provider
+   * reported and a `0` nobody measured are the same number, and the whole point
+   * of the tag is to stop them being read as one — a caller that cannot say
+   * which it holds has not measured.
+   */
+  source: 'provider' | 'estimated';
 }): EmitResult {
   const totalTokens = Math.max(0, opts.inputTokens) + Math.max(0, opts.outputTokens);
   return emitObservabilityEvent(
@@ -225,7 +232,8 @@ export function emitTokenUsageEvent(opts: {
       detail: {
         inputTokens: opts.inputTokens,
         outputTokens: opts.outputTokens,
-        totalTokens
+        totalTokens,
+        source: opts.source
       }
     },
     { projectRoot: opts.projectRoot }

@@ -7,24 +7,19 @@
  * load-bearing: it reads `.peaks/_runtime/<sid>/loop/<rid>/spec.yaml`,
  * walks each `evaluators[].kind` in order via `dispatchEvaluator`,
  * captures a score row, persists the current cycle to disk, runs the
- * monotonic guard against the prior cycle, and decides whether to
- * continue / abort based on `termination.strategy`.
+ * monotonic guard against the prior cycle, emits that cycle's `cycle` and
+ * `monotonic-trigger` events (`loop-observability.ts`), and decides
+ * whether to continue / abort based on `termination.strategy`.
  *
- * Strategy semantics:
- *  - `monotonic-violation` (default): abort on MONOTONICITY_VIOLATION.
- *  - `max-cycles`: run exactly `termination.maxCycles` (default 5)
- *    cycles, aborting on any violation along the way.
- *  - `manual`: run exactly one cycle and exit 0; further cycles are
- *    the operator's responsibility.
- *  - anything else: `UNKNOWN_TERMINATION_STRATEGY`.
+ * Strategy semantics: `monotonic-violation` (default) aborts on
+ * MONOTONICITY_VIOLATION; `max-cycles` runs exactly `termination.maxCycles`
+ * (default 5), aborting on any violation along the way; `manual` runs exactly
+ * one cycle and exits 0, further cycles being the operator's responsibility;
+ * anything else is `UNKNOWN_TERMINATION_STRATEGY`.
  *
- * Karpathy §2 Simplicity First: no new deps. Pure-data + JSON to
- * disk. The single in-process lock flag prevents two concurrent
- * `peaks loop run` calls (same sid+rid) from corrupting the cycle
- * index; cross-process locking is out of scope per the dispatch
- * prompt.
- *
- * File budget: ≤ 800 lines.
+ * Karpathy §2 Simplicity First: no new deps. Pure data + JSON to disk. The
+ * in-process lock flag stops two concurrent `peaks loop run` calls (same
+ * sid+rid) corrupting the cycle index; cross-process locking is out of scope.
  */
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -47,6 +42,7 @@ import {
   type MonotonicReport
 } from './monotonic-guard.js';
 import { nextCycleIndex, sliceDir } from './monotonic-runner.js';
+import { emitCycleOutcome, emitMonotonicReport } from './loop-observability.js';
 import { findProjectRoot } from '../config/config-safety.js';
 
 /** Local discriminated result for cycle-persistence IO. Internal
@@ -403,7 +399,11 @@ function runLoopLocked(
       ? persistCycleRecord(options.projectRoot, options.sid, options.rid, cycleNo, rows)
       : null;
     const record = buildCycleRecord(cycleNo, rows, previousCycle, threshold, persistedAt);
+    // The guard is pure and holds no binding, so the caller emits for it; one
+    // `cycle` event per cycle, after the push, or the per-event count doubles.
+    emitMonotonicReport(options.projectRoot, options.sid, record.monotonicReport);
     cycles.push(record);
+    emitCycleOutcome(options.projectRoot, options.sid, cycleNo, record.monotonicReport);
     finalReport = record.monotonicReport;
     if (record.monotonicReport.monotonicityViolation) {
       regressionCount += record.monotonicReport.regressions.length;

@@ -31,6 +31,7 @@ import {
   type MonotonicScoreRow
 } from './monotonic-guard.js';
 import { appendMetricLine, readMetricLines } from '../observability/jsonl-store.js';
+import { emitMonotonicReport } from './loop-observability.js';
 import { findProjectRoot } from '../config/config-safety.js';
 import {
   classifyFsError,
@@ -248,6 +249,9 @@ export function runMonotonicCheck(options: RunMonotonicOptions): RunMonotonicRes
   const currentCycle: MonotonicCycle = { cycle, scores: rows };
   const previousCycle = loadPreviousCycle(options.projectRoot, options.sid, options.rid);
   const report = checkMonotonicImprovement(previousCycle, currentCycle, { threshold });
+  // The guard is pure and holds no session binding, so its caller emits, one
+  // line after the verdict exists.
+  emitMonotonicReport(options.projectRoot, options.sid, report);
 
   let persistedAt: string | null = null;
   const envelopeWarns: string[] = [];

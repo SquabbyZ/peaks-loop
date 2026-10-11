@@ -279,5 +279,11 @@ export async function prepareFinalReview(
     ...(gated.mustAttend ? (['existing-functionality-intact'] as const) : [])
   ]);
 
+  // The one model call this review made, reported to the caller at the point
+  // the review is COMPLETE: one completed `prepareFinalReview` call ⇒ one
+  // `token-usage` event, emitted by the caller because that is where the session
+  // binding lives.
+  opts.onLlmTokens?.(response.tokens);
+
   return { ...output, dimensions, allPass, needsAttention };
 }

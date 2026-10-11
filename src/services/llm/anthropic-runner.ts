@@ -14,6 +14,7 @@
  */
 
 import { getErrorMessage } from 'peaks-loop-shared/result';
+import { estimateTokens } from '../memory/llm-reranker-core.js';
 import type { LlmRunner } from '../audit/audit-goal-service.js';
 
 /** Public Anthropic endpoint. `ANTHROPIC_BASE_URL` overrides it (gateways, local proxies). */
@@ -175,6 +176,33 @@ function isAbort(error: unknown): boolean {
   return error instanceof Error && (error.name === 'TimeoutError' || error.name === 'AbortError');
 }
 
+/**
+ * The two token counts this call reports, and where they came from.
+ *
+ * `?? 0` used to stand in for an omitted `usage`, which made "the provider
+ * reported zero" and "nobody measured" the same number on the wire. When the
+ * reply does not carry BOTH counts, the runner falls back to the estimator the
+ * repo already has (`llm-reranker-core.ts` `estimateTokens`, 1 token ≈ 4 bytes)
+ * over the request body and the returned text, and says so with
+ * `source: 'estimated'` rather than leaving the two states indistinguishable.
+ */
+function tokenCounts(
+  usage: AnthropicMessagePayload['usage'],
+  requestBody: string,
+  text: string
+): { input: number; output: number; source: 'provider' | 'estimated' } {
+  const input = usage?.input_tokens;
+  const output = usage?.output_tokens;
+  if (typeof input !== 'number' || typeof output !== 'number') {
+    return {
+      input: estimateTokens(requestBody),
+      output: estimateTokens(text),
+      source: 'estimated'
+    };
+  }
+  return { input, output, source: 'provider' };
+}
+
 export function createAnthropicRunner(
   config: AnthropicConfig,
   options: AnthropicRunnerOptions = {}
@@ -237,13 +265,7 @@ export function createAnthropicRunner(
         throw new LlmRequestError(`LLM reply from ${url} carried no text block`);
       }
 
-      return {
-        output,
-        tokens: {
-          input: payload.usage?.input_tokens ?? 0,
-          output: payload.usage?.output_tokens ?? 0
-        }
-      };
+      return { output, tokens: tokenCounts(payload.usage, body, output) };
     }
   };
 }

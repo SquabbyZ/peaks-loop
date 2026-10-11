@@ -2,6 +2,7 @@ export {
   prepareFinalReview,
   type PrepareFinalReviewOptions,
   type LlmRunner,
+  type LlmTokenUsage,
   IncompleteFinalReviewError,
   MAX_EVIDENCE_BYTES_PER_FILE,
   MAX_EVIDENCE_BYTES_TOTAL,

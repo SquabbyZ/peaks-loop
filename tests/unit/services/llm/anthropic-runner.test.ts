@@ -250,9 +250,33 @@ describe('createAnthropicRunner', () => {
     // when: one call is made
     const result = await runner.call('s', 'u', { maxTokens: 10 });
 
-    // then: the caller sees the reassembled text and the reported usage
+    // then: the caller sees the reassembled text, the reported usage, and the
+    // fact that the provider is the one that reported it
     expect(result.output).toBe('{"a":1}');
-    expect(result.tokens).toEqual({ input: 11, output: 22 });
+    expect(result.tokens).toEqual({ input: 11, output: 22, source: 'provider' });
+  });
+
+  it('when the reply omits usage, should estimate both counts and say so instead of reporting zero', async () => {
+    // given: a reply with no `usage` block — the case that used to arrive as a
+    // silent `input: 0, output: 0`, indistinguishable from a provider-reported zero
+    const transport = captureTransport(
+      jsonResponse({ content: [{ type: 'text', text: 'hello there' }] })
+    );
+    const runner = createAnthropicRunner(BEARER_CONFIG, { fetchImpl: transport.fetchImpl });
+
+    // when: one call is made
+    const result = await runner.call('system-prompt', 'user-prompt', { maxTokens: 10 });
+
+    // then: the counts are positive and tagged as estimates, not as zeros
+    expect(result.tokens.source).toBe('estimated');
+    expect(result.tokens.input).toBeGreaterThan(0);
+    expect(result.tokens.output).toBeGreaterThan(0);
+
+    // then: the estimate is built from the bytes actually sent — a longer prompt
+    // estimates higher, so the number tracks the request rather than a constant
+    const smaller = createAnthropicRunner(BEARER_CONFIG, { fetchImpl: transport.fetchImpl });
+    const shorter = await smaller.call('s', 'u', { maxTokens: 10 });
+    expect(result.tokens.input).toBeGreaterThan(shorter.tokens.input);
   });
 
   it('when the provider answers non-2xx, should throw LLM_REQUEST_FAILED naming the status', async () => {

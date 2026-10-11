@@ -33,7 +33,13 @@ export interface LlmRunner {
     opts: { maxTokens: number }
   ): Promise<{
     output: string;
-    tokens: { input: number; output: number };
+    /**
+     * `input` / `output` are the counts an observability reader sums; `source`
+     * says whether the provider reported them or the runner had to estimate
+     * (optional so a runner that always has provider numbers — or a test fake —
+     * need not state it).
+     */
+    tokens: { input: number; output: number; source?: 'provider' | 'estimated' };
   }>;
 }
 

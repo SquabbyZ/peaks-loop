@@ -18,9 +18,11 @@ import {
   LlmBindingError,
   resolveAnthropicConfig
 } from '../../services/llm/anthropic-runner.js';
+import { emitTokenUsageEvent } from '../../services/observability/observability-service.js';
 import {
   prepareFinalReview,
-  type LlmRunner
+  type LlmRunner,
+  type LlmTokenUsage
 } from '../../services/final-review/final-review-service.js';
 import { getErrorMessage, type ProgramIO } from '../cli-helpers.js';
 import {
@@ -194,6 +196,26 @@ function isRefusal(value: PrepareInputs | PrepareRefusal): value is PrepareRefus
 }
 
 /**
+ * The `token-usage` emission owner: the one site where a completed review's
+ * token counts and the session binding are both in scope. Fire-and-forget —
+ * `emitTokenUsageEvent` never throws, and this never blocks or fails the review
+ * it reports on.
+ *
+ * `source` defaults to `'provider'` only for a runner that states neither: the
+ * real runner always tags its counts (`anthropic-runner.ts` `tokenCounts`), so
+ * the default is reached by a test fake, not by a production call.
+ */
+function emitReviewTokenUsage(inputs: PrepareInputs, tokens: LlmTokenUsage): void {
+  emitTokenUsageEvent({
+    projectRoot: inputs.projectRoot,
+    sessionId: inputs.sessionId,
+    inputTokens: tokens.input,
+    outputTokens: tokens.output,
+    source: tokens.source ?? 'provider'
+  });
+}
+
+/**
  * Real provider path: bind a real `LlmRunner` and run the service.
  *
  * Binding happens INSIDE the try so an absent credential surfaces as
@@ -215,7 +237,8 @@ async function runRealReview(
       projectRoot: inputs.projectRoot,
       sessionId: inputs.sessionId,
       llmRunner,
-      ...(options.base === undefined ? {} : { baseRef: options.base })
+      ...(options.base === undefined ? {} : { baseRef: options.base }),
+      onLlmTokens: (tokens) => emitReviewTokenUsage(inputs, tokens)
     });
     emitReviewEnvelope(io, { rid, goal: inputs, model: config.model, review, json });
   } catch (error) {

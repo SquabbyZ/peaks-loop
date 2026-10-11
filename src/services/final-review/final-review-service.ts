@@ -37,13 +37,19 @@ import {
 import {
   IncompleteFinalReviewError,
   type LlmRunner,
+  type LlmTokenUsage,
   type PrepareFinalReviewOptions
 } from './final-review-contract.js';
 import type { DimensionEvidence, DimensionKind } from './final-review-types.js';
 
 type _LlmRunnerRef = LlmRunner;
 
-export { IncompleteFinalReviewError, type LlmRunner, type PrepareFinalReviewOptions };
+export {
+  IncompleteFinalReviewError,
+  type LlmRunner,
+  type LlmTokenUsage,
+  type PrepareFinalReviewOptions
+};
 
 /**
  * The on-disk sources, in allocation order.
