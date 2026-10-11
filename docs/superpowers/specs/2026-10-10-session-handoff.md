@@ -296,7 +296,7 @@ function skippedEnvelope(reason: string): ReviewerEnvelope {
 
 **S2 的完整审计链**（32 条 Ruling、15 条 deferred minor 的逐条 triage、逐任务证据）在 `.superpowers/sdd/2026-10-10-peaks-race-code-s2/progress.md`——**gitignored**，所以它不会随仓库走。**该不该留、什么时候删，由用户定**（S0 的 ledger 同样保留着）。
 
-### 2.13 `peaks dashboard summary` 报的三个指标**结构上恒为 0** ← **2026-10-11 新增**
+### 2.13 `peaks dashboard summary` 报的三个指标**结构上恒为 0** ← **2026-10-11 记入，2026-10-12 已交付（见本节末）**
 
 **证据**（本会话实测，session `2026-10-11-session-5ac396`）：
 
@@ -326,7 +326,40 @@ $ peaks dashboard summary --json
 **判断：B 是特性工作，应走 `peaks-code`（PRD → RD → QA），不是快泳道。** A / C 都只是把症状藏起来。
 **本会话未改一字**（工作树干净，`origin/main` = `bbe3844d`）。
 
-**顺带一条，先别动**：`emitDispatchEvent` 的 `detail` 形状是 `{ status }`，而真实生产者 `dispatch-tool-call.ts:139-153` 发的是 `{ requestId, ide, promptBytes }`——**它表达不了本该服务的那个事件**，所以从落地起就接不上。但它的去向取决于 B 的决定（若结论是统一发射路径，它可能正是该被接上的那个点），**所以现在删它可能是删错**。
+**顺带一条，先别动**：`emitDispatchEvent` 的 `detail` 形状是 `{ status }`，而真实生产者 `dispatch-tool-call.ts:139-153` 发的是 `{ requestId, ide, promptBytes }`——**它表达不了本该服务的那个事件**，所以从落地起就接不上。但它的去向取决于 B 的决定（若结论是统一发射路径，它可能正是那个该被接上的点），**所以现在删它可能是删错**。
+
+#### 收尾（2026-10-12）—— **B 已交付**，`e6bcc39e`
+
+走的是 `peaks-code` 完整流程（PRD → RD → QA → 修复），契约先行、用户审阅后实现。三个 category 现在都有真实发射者：`cycle`（`run-driver.ts`，每 cycle **一个**事件）、`monotonic-trigger`（guard 的两个调用点；`skip` **不发**）、`token-usage`（`final-review-prepare-command.ts`，只发数字，`source: provider|estimated`）。
+
+**QA 独立复现了 5/5 强制验收标准**，含**变异对照**（删掉发射调用 → 运行照旧 `totalCycles:2`，而 dashboard 读 0）与**独立性检查**（从原始行重算 `41+27=68` == dashboard 的 68）。
+
+**仍开着的**：U1（死枚举值）、U2（两个拿不到 session 的 token 站点，**已记为接受了的覆盖缺口**）、U4（`estimated` 的格式）。
+
+### 2.14 `peaks prepare-final-review` 的两条真缺陷 ← **2026-10-12 新增**
+
+跑这个步骤是为了给 §2.13 的交付取人审证据，结果它自己暴露了两个问题：
+
+1. **结构漂移检测器会对"排版改动"误报。** 它把 `final-review-service.ts` 的
+   `export { A, type B, type C };` 单行形式改成多行块（只为加 `type LlmTokenUsage`），
+   于是报告 **"REMOVED 3 export names"** —— 而那三个名字**都还在、都还在导出**，
+   `index.ts` 也照旧转出。检测器是行锚正则、只看改动行（其自述 "APPROXIMATE — NOT a type
+   checker"），**单行形式在 diff 里消失即被判为移除**。后果不小：四维里唯一有前后数据的
+   那一维因此 `FAIL`、`allPass` 结构性为 `false`。
+   **注意**：该 skill 明文声称有防这条的守卫（*"a name that appears on both sides of the
+   diff … are reported as changes, not as removals"*）——**它没有生效**，值得单独查。
+2. **`--session-id` 是必填的**，而 skill 写"省略时默认取活动绑定"；实测省略即
+   `MISSING_REQUIRED_OPTION`。**另一条文档落后于代码。**
+
+**同时证伪的一条**：skill 说真 provider 不可达（`--llm-provider anthropic` → `serviceWired:false`）。
+**实测可达**：`status: review-complete`、`providerBinding: anthropic-messages-api`、
+`model: deepseek-flash[1M]`。
+
+**最后一条不是缺陷，是设计生效**：四个维度里三个 `inconclusive`，因为该服务要读的产物
+（`qa/test-cases`、`qa/test-reports`、`qa/security-findings`、`qa/performance-findings`、
+`rd/{bug-analysis,tech-doc,code-review,security-review}`）没有生成——**QA 做了验证，但没落成它要读的形状**。
+它据此拒绝给 `pass`，这是对的。**下一轮应记**：QA 的产物形状要对上 final-review 的读取清单，
+否则"验证过了"这件事对人审不可见。
 
 
 ---
