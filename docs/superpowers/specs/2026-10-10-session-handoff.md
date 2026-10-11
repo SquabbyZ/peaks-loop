@@ -39,7 +39,30 @@ node .husky/peaks-gate.mjs repo                        # 期望 all whole-repo c
 
 ## 2. 剩余事项（**按"会不会坑到你"排序**）
 
-### 2.1 `test:changed` 的子集分类会漏掉一致性守卫 ← **最有价值的一条**
+### 2.1 全量套件里有两条**负载敏感**测试，会给你假红 ← **2026-10-11 新增，最会坑你的一条**
+
+在 S2 收尾时实测：**同一棵树**上三次全量跑，红了两次，而**红的不是同一个测试**。
+
+| 测试 | 红法 | 单独跑 | 根因 |
+|---|---|---|---|
+| `tests/unit/standards/esm-relative-import-extension.test.ts` | `Error: Test timed out in 30000ms` | **18/18 通过，两次** | 它做一次**全仓 AST 遍历**并与 `git ls-files` 逐集合比对；机器被占满时超过 vitest 默认的 30s |
+| `tests/unit/services/web/web-daemon-race.test.ts` | `bootCount` 得 2 而非 1 | **3/3 通过** | 并发用例，负载下两个调用方各起一个 daemon |
+
+**为什么它会坑你**：一条红出现在你**没碰过**的目录里（`standards/`、`services/web/`），而失败形式是**超时**而不是断言——很容易被读成"我的改动弄坏了什么"，或者被当成噪声忽略。
+
+**怎么判**：① 看失败文本是不是 `Test timed out`；② **单独跑那个文件**——两条都在单独跑时稳定通过。**别急着怀疑自己的 diff。**
+
+**加剧因素是我自己**：为了"在合并结果上验证"连着跑了好几次全量 ⇒ 把机器占满 ⇒ 逼出超时。**连着跑全量会自己制造这个假红。**
+
+---
+
+### 2.2 本仓的两条红线**今天都不拦**，且 `Edit|Write|MultiEdit` 那条 entry 根本没装
+
+- **编辑门（`peaks code-gate`）**：`.claude/settings.json` 里**没有** `Edit|Write|MultiEdit` 那条 entry（只有一条 `SessionStart`）。**装上它的那一刻起，本仓的直接 `src/**` 编辑会开始被拒**——默认 deny，因为除非你在 `peaks-race-code` 泳道里，否则解析不出驾驶者。**这是设计，不是副作用**，但它是一个**独立的决定**，且**必须由用户做**。
+- **提交闸（AI 署名 trailer）**：在 Claude Code 上**从不运行**（`HOOK_COMMAND_BY_IDE` 把 claude-code 路由到 `peaks gate enforce`，而那里没有 ban）。这是 **U14**，2026-10-10 已裁决**不接**。
+
+**为什么它会坑你**：你会以为有两条红线在保护你。**它们都不在。**
+### 2.3 `test:changed` 的子集分类会漏掉一致性守卫 ← **最有价值的一条**
 
 **证据**：推送 `6a1938a8`（命令层拆分 + 基线重生成）时，pre-push 只跑了 **71 files / 601 tests**——
 `tests/unit/standards/**` 不在其中，所以钉"每个 gated 文件都必须有 `files[]` 行"的那两条守卫
@@ -57,7 +80,7 @@ in-scope file(s) with no files[] row in gate-baseline.json:
 （那条代码的上下文注释解释了原因）。要修就得先决定：**哪些改动必须强制跑一致性守卫**。
 建议方向：当 diff **新增 gated 文件**（而非仅重生成基线）时，把 `tests/unit/standards/**` 纳入。
 
-### 2.2 驾驶者解析不可靠，且提交闸在解析失败时**整个跳过** ← **P1**
+### 2.4 驾驶者解析不可靠，且提交闸在解析失败时**整个跳过** ← **P1**
 
 **证据（三处，均已核对源码）**：
 
@@ -93,7 +116,7 @@ if (activeSkill.skill !== null) {   // ← 解析不出来，整个提交闸被�
 | (c) | 先把 `touchSkillHeartbeat` 的死写修活 | **(b) 的前提**——否则"最新心跳"没有意义 |
 
 **三者的先后与取舍本身是一个设计决定**，不是一行修复。故 S0 有自己的简短设计 + 计划，见 `docs/superpowers/plans/`。
-### 2.3 提交闸在 Claude Code 上**从不运行**，在 cursor/codex 上**deny 会被吞掉**
+### 2.5 提交闸在 Claude Code 上**从不运行**，在 cursor/codex 上**deny 会被吞掉**
 
 2026-10-10 的 S0（分支 `fix/s0-driver-resolution`）里核实的两件事，都属"门看起来在、其实不在"：
 
@@ -115,7 +138,7 @@ if (activeSkill.skill !== null) {   // ← 解析不出来，整个提交闸被�
 **S0 已做的事**：修了这条闸依赖的"谁在开车"（作用域化 + 排序对齐），并按用户裁决**不**把闸接进 `gate enforce`（那是改变 Claude Code 既有行为的独立决定）。**未做**：cursor/codex 的格式化缺陷、以及把闸接进 Claude Code。
 
 **(c) 附带一条残留**：两条路径都**不查租约年龄上界**（`gcStalePresenceLeases` 存在但未被咨询）。一个永不 terminalize 的 `status: "preparing"` 租约，可以在该项目 session 内**持续**拦下每一次 `git commit`。修它要先定阈值——S0 有意留给单独立项。
-### 2.4 `tests/integration/**` 不在默认 vitest 配置里
+### 2.6 `tests/integration/**` 不在默认 vitest 配置里
 
 `vitest.config.ts` 的 exclude 含 `tests/integration/**`，它由 `vitest.config.integration.ts` 单独跑。
 
@@ -124,7 +147,7 @@ if (activeSkill.skill !== null) {   // ← 解析不出来，整个提交闸被�
 
 **注意**：这**大概率是刻意的**（集成测试慢）。不要顺手改配置——先决定"本地/推送时该不该跑它"。
 
-### 2.5 `git push origin <tag>` 单独推，**永远**过不了本仓的 pre-push 门
+### 2.7 `git push origin <tag>` 单独推，**永远**过不了本仓的 pre-push 门
 
 **证据**（4.1.3 发布时实测两次）：
 ```
@@ -140,7 +163,7 @@ different results, and only one of them is evidence.
 （*"a gate people skip is worse than no gate"*）。本仓历史用的是一次推两个 ref
 （`git push origin main vX.Y.Z`），那样变更集非空。**修它要动 `.husky/pre-push`，属门机器，须单独立项。**
 
-### 2.6 还债（只有 `src/**` 会动棘轮）
+### 2.8 还债（只有 `src/**` 会动棘轮）
 
 | 目标 | 规模 |
 |---|---|
@@ -155,7 +178,7 @@ different results, and only one of them is evidence.
 **⚠️ `scripts/**` 与 `tests/**` 是 shadow 人口，不受任何 file-size ceiling 约束**（拆它们不移动任何 ceiling——
 实测前后均 `117 / 32979`）。只做 `src/**`。
 
-### 2.7 已关闭 / 仍开着的"未验证边界"
+### 2.9 已关闭 / 仍开着的"未验证边界"
 
 - ✅ **C 层沙箱**——不再是欠账：`ed5f96eb` 之后它在 CI 上**真的运行并通过**，且两条注入对照
   （去掉 `unshare -n` / 去掉 `setpriv`）各自证明了臂会红。**注意它此前从未真正执行过**。
@@ -170,7 +193,7 @@ different results, and only one of them is evidence.
 - ⬜ **L3 端到端**（PATH 上是已安装构建而非工作树）。
 - ⬜ **S1 政策例外的端到端触发**（机制只在纯函数层被测；"允许涨" ≠ "已经涨过"）。
 
-### 2.8 `peaks-reviewer` 是半成品：**跳过被报成通过** ← **同一类 "pass-shaped output"**
+### 2.10 `peaks-reviewer` 是半成品：**跳过被报成通过** ← **同一类 "pass-shaped output"**
 
 **现状**：`peaks reviewer status` → `{configured: false, reason: "no-reviewer-config"}`。`~/.peaks/config.json`
 里**没有 `reviewer` 段**（只有 `version` / `currentWorkspace` / `workspaces` / `language` / `economyMode` /
@@ -222,10 +245,25 @@ function skippedEnvelope(reason: string): ReviewerEnvelope {
 **做全的最小集**：① 给 `reviewer config` 一个 CLI 面；② 跳过不得报 `passed: true`；③ `status` 区分三态并把
 `≥2` 要求写进 `nextActions`；④ 补测试。
 
-### 2.9 工具缺陷（小、高复用）
+### 2.11 工具缺陷（小、高复用）
 
 - `peaks audit goal` 输出在约 **3.6 KB** 处截断（两次 `INCOMPLETE_AUDIT: Unterminated`）
 - `peaks` 的 `.cmd` shim **吃不下含换行的参数**（`InvalidBatchScriptArg`）
+### 2.12 S2（`peaks-race-code` 快泳道）已交付，但它留下三件具名的活 + 一个未做的阶段
+
+**已合入并推送前的状态**：`main` = `48861a11`，14 个提交、20 个文件。**当时本地领先 origin 17 个提交，未推送。**
+**设计权威**：`docs/superpowers/specs/2026-10-10-peaks-race-code-design.md`（本轮又修了 4 处）。**计划**：`docs/superpowers/plans/2026-10-10-peaks-race-code-s2.md`。
+
+**S2 的终审判定是 Merge**，但终审与各任务级评审**具名留下了三条**（都不在本支内）：
+
+1. **`exit 2 + stderr` 通道零端到端覆盖** —— `tests/unit/hooks/code-gate-driver.test.ts` 的四条新用例**全走 `--dry-run`**，所以 hook 实际消费的那个契约（`process.exit(2)` + stderr）**在两种 payload 拼写下都从未被断言过**。终审说这是**唯一一条它会署名的**。约四行。
+2. **loop-hygiene 块的 "22→23" sweep** —— 那块共享注释写着 "edit one, edit all **22**"，而现在有 **23** 个 skill（14 顶层 + 9 `bee/`）。**假计数被发了 23 份**，新加的 `skills/peaks-race-code/SKILL.md` 第 6 行就带着它。改它要**原子地动全部 23 份副本 + 守卫的正则**（`tests/unit/skills/loop-hygiene-block.test.ts` 把那个数字钉在正则里），所以 S2 有意没做。**它需要一次有名字的 sweep，不能只躺在 ledger 里。**
+3. **`lintPeaksAuditRuntime` 的 wire-or-delete** —— `src/services/audit/enforcers/lint-peaks-skill-runtime.ts` 导出、无 importer、无测试 ⇒ **结构上不可能失败**；而它的 catalog 条目 `rl-peaks-audit-runtime-001` 声称 `skills/peaks-audit/SKILL.md` "must declare" 三个标记，其中两个该文件里**并不存在**。**接线还是删掉，需要一个裁决。**
+
+**未做的阶段：S3**（指标埋点 + pilot）。它的缺席有一个直接后果：**race-code 目前只能指名到达，还没到"默认提供"。** 见 spec §3.2 的阶段表与 §5.5.2 的两道门。
+
+**S2 的完整审计链**（32 条 Ruling、15 条 deferred minor 的逐条 triage、逐任务证据）在 `.superpowers/sdd/2026-10-10-peaks-race-code-s2/progress.md`——**gitignored**，所以它不会随仓库走。**该不该留、什么时候删，由用户定**（S0 的 ledger 同样保留着）。
+
 
 ---
 
