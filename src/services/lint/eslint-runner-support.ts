@@ -176,13 +176,19 @@ export function aggregateRedLine(baseline: readonly BaselineViolation[]): readon
 export const EMPTY_DIFF_RANGE: readonly DiffRange[] = [];
 export const EMPTY_REDLINE: readonly RedLineEntry[] = [];
 
-export function emptyResult(state: EslintState, start: number, rawOutput: string): EslintRunResult {
+export function emptyResult(
+  state: EslintState,
+  start: number,
+  rawOutput: string,
+  reason?: string
+): EslintRunResult {
   return {
     state,
     findings: [],
     summary: { error: 0, warn: 0, info: 0 },
     durationMs: Date.now() - start,
     rawOutput,
+    ...(reason === undefined ? {} : { reason }),
     baselineWaived: [],
     redLine: EMPTY_REDLINE
   };

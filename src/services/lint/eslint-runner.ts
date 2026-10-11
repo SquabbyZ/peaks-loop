@@ -122,7 +122,8 @@ export function runEslint(options: EslintRunOptions): EslintRunResult {
     return emptyResult(
       'execution-failed',
       start,
-      error instanceof Error ? error.message : String(error)
+      error instanceof Error ? error.message : String(error),
+      'the eslint argument list could not be built'
     );
   }
 
@@ -171,14 +172,33 @@ export function runEslint(options: EslintRunOptions): EslintRunResult {
   if (result.error !== undefined && result.error !== null) {
     const message = result.error.message;
     const state: EslintState = /ENOENT/.test(message) ? 'npx-failed' : 'execution-failed';
-    return emptyResult(state, start, typeof result.stdout === 'string' ? result.stdout : '');
+    // A spawn timeout arrives HERE, as `error.code === 'ETIMEDOUT'` — measured on
+    // this host with `--timeout-ms 20000`: the spawn-error branch below wins over
+    // the signal branch, because this check comes first and spawnSync sets both.
+    // So a timeout must not be reported as "could not be spawned": it was spawned
+    // and did not finish, and that difference is the whole diagnosis.
+    const timedOut = (result.error as NodeJS.ErrnoException).code === 'ETIMEDOUT';
+    const budgetMs = options.timeoutMs ?? ESLINT_DEFAULT_TIMEOUT_MS;
+    return emptyResult(
+      state,
+      start,
+      typeof result.stdout === 'string' ? result.stdout : '',
+      timedOut
+        ? `eslint did not finish within the ${budgetMs}ms spawn timeout`
+        : `eslint could not be spawned: ${message}`
+    );
   }
 
   if (result.signal !== null && result.signal !== undefined) {
+    // A kill that arrived WITHOUT a spawn error — a signal from outside, not the
+    // spawn timeout (that one is caught above as ETIMEDOUT). Named so it is not
+    // read as linter output that would not parse.
+    const budgetMs = options.timeoutMs ?? ESLINT_DEFAULT_TIMEOUT_MS;
     return emptyResult(
       'execution-failed',
       start,
-      typeof result.stdout === 'string' ? result.stdout : ''
+      typeof result.stdout === 'string' ? result.stdout : '',
+      `eslint was killed by ${result.signal} after ${Date.now() - start}ms (spawn timeout ${budgetMs}ms)`
     );
   }
 
@@ -210,7 +230,12 @@ export function runEslint(options: EslintRunOptions): EslintRunResult {
         }
       }
     } catch {
-      return emptyResult('execution-failed', start, stdout);
+      return emptyResult(
+        'execution-failed',
+        start,
+        stdout,
+        `eslint stdout was not valid JSON (${stdout.length} bytes)`
+      );
     }
   }
 

@@ -203,9 +203,11 @@ export function registerLintCommands(program: Command, io: ProgramIO): void {
         : fail(
             'code.lint',
             result.state.toUpperCase().replace(/-/g, '_'),
-            `peaks code lint state: ${result.state}`,
+            `peaks code lint state: ${result.state}${result.reason === undefined ? '' : ` — ${result.reason}`}`,
             { ...result, ...extras },
-            [`Re-run with --scope <path> or restore the ESLint toolchain.`]
+            [
+              'The reason above names which condition fired; a spawn timeout wants a larger --timeout-ms.'
+            ]
           );
     printResult(io, envelope, options.json);
   });

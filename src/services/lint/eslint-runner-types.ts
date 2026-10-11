@@ -50,6 +50,14 @@ export type EslintRunResult = {
   readonly summary: EslintSummary;
   readonly durationMs: number;
   readonly rawOutput: string;
+  /**
+   * Why a non-`ok` state was reached. Four different conditions — an
+   * unbuildable argument list, a spawn failure, a signal kill (which is how a
+   * spawn timeout lands) and unparseable linter output — all reported
+   * `execution-failed` and nothing else, so an operator could not tell a
+   * timed-out linter from one that emitted rubbish. Absent when `state` is ok.
+   */
+  readonly reason?: string;
   readonly baselineWaived: readonly EslintFinding[];
   readonly redLine: readonly RedLineEntry[];
 };

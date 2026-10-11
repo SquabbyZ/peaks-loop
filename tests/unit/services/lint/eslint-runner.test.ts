@@ -115,9 +115,69 @@ describe('runEslint', () => {
     // when: runEslint is invoked with a 60s timeout
     const result = runEslint({ cwd: process.cwd(), timeoutMs: 60_000 });
 
-    // then: state must be execution-failed
+    // then: state must be execution-failed, and the reason must name the kill
+    // and the budget it was killed against, so a timed-out linter is not read
+    // as a broken toolchain
     expect(result.state).toBe('execution-failed');
     expect(result.findings).toEqual([]);
+    expect(result.reason).toContain('killed by SIGTERM');
+    expect(result.reason).toContain('spawn timeout 60000ms');
+  });
+
+  it('when the spawn times out, should name the budget rather than claim a failed spawn', () => {
+    // given: spawnSync reports ETIMEDOUT in `error` and no signal — which is how
+    // a spawn timeout actually arrives on this host (measured with --timeout-ms
+    // 20000), and why the spawn-error branch is the one that fires
+    queueSpawnSequence([
+      {
+        status: null,
+        stdout: '',
+        error: Object.assign(new Error('spawnSync node.exe ETIMEDOUT'), {
+          code: 'ETIMEDOUT'
+        } as NodeJS.ErrnoException)
+      }
+    ]);
+
+    // when: runEslint is invoked with a 20s budget
+    const result = runEslint({ cwd: process.cwd(), timeoutMs: 20_000 });
+
+    // then: the reason names the budget, and does not say the spawn failed —
+    // eslint was spawned and did not finish, which is a different diagnosis
+    expect(result.state).toBe('execution-failed');
+    expect(result.reason).toBe('eslint did not finish within the 20000ms spawn timeout');
+  });
+
+  it('when the spawn itself fails, should name the spawn error in the reason', () => {
+    // given: spawnSync reports a failure that is not ENOENT, so it is not npx-failed
+    queueSpawnSequence([
+      {
+        status: null,
+        stdout: '',
+        error: Object.assign(new Error('EACCES: permission denied'), {
+          code: 'EACCES'
+        } as NodeJS.ErrnoException)
+      }
+    ]);
+
+    // when: runEslint is invoked
+    const result = runEslint({ cwd: process.cwd() });
+
+    // then: the reason carries the spawn error instead of a bare execution-failed
+    expect(result.state).toBe('execution-failed');
+    expect(result.reason).toContain('could not be spawned');
+    expect(result.reason).toContain('EACCES');
+  });
+
+  it('when eslint stdout is not JSON, should name the unparseable output in the reason', () => {
+    // given: spawnSync exits 0 with output that will not parse as JSON
+    queueSpawnSequence([{ status: 0, stdout: 'eslint: refusing to be JSON' }]);
+
+    // when: runEslint is invoked
+    const result = runEslint({ cwd: process.cwd() });
+
+    // then: the reason says the output was unparseable and how much of it arrived
+    expect(result.state).toBe('execution-failed');
+    expect(result.reason).toMatch(/eslint stdout was not valid JSON \(\d+ bytes\)/);
   });
 
   it('when --scope is provided, should append the scope path to the npx args', () => {
@@ -140,8 +200,11 @@ describe('runEslint', () => {
     // when: runEslint is invoked
     const result = runEslint({ cwd: process.cwd(), fix: true });
 
-    // then: the wrapper must refuse without spawning npx
+    // then: the wrapper must refuse without spawning npx, and the reason must
+    // say it refused rather than leave the caller guessing which of the four
+    // execution-failed conditions fired
     expect(result.state).toBe('execution-failed');
+    expect(result.reason).toBe('the eslint argument list could not be built');
     expect(childMock.spawnSync).not.toHaveBeenCalled();
   });
 
