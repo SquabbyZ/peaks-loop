@@ -296,6 +296,38 @@ function skippedEnvelope(reason: string): ReviewerEnvelope {
 
 **S2 的完整审计链**（32 条 Ruling、15 条 deferred minor 的逐条 triage、逐任务证据）在 `.superpowers/sdd/2026-10-10-peaks-race-code-s2/progress.md`——**gitignored**，所以它不会随仓库走。**该不该留、什么时候删，由用户定**（S0 的 ledger 同样保留着）。
 
+### 2.13 `peaks dashboard summary` 报的三个指标**结构上恒为 0** ← **2026-10-11 新增**
+
+**证据**（本会话实测，session `2026-10-11-session-5ac396`）：
+
+```
+$ peaks dashboard summary --json
+{"cycleCount":0,"tokenCount":0,"dispatchCount":3,"compactCount":0,"monotonicTriggerCount":0}
+```
+
+**`dispatchCount` 是 3，而 `cycleCount` / `tokenCount` / `monotonicTriggerCount` 是 0。**
+差别不在"有没有发生"，在**有没有活着的发射者**：
+
+| category | 谁发射 | 状态 |
+|---|---|---|
+| `dispatch` | `src/cli/commands/dispatch-tool-call.ts:139` | 活 |
+| `slice-transition` | `src/services/artifacts/{artifact-prerequisites,request-artifact-service}.ts` | 活 |
+| `mode-gate` / `context-trigger` / `post-compact` / `checkpoint` / `lease` | 各一处 | 活 |
+| **`cycle` / `token-usage` / `monotonic-trigger`** | **只有 `observability-service.ts:190/212/237` 三个 helper** | **死** |
+
+那三个 helper（连同 `emitDispatchEvent`，共四个）**全仓零调用点**：`observability-service.ts:190/212/237/260` 是唯一定义，`src/` 与 `tests/` 里没有一处调用，也没有任何测试钉住它们。所以这三类事件**永远不会被写出**，而 `aggregation.ts:212/213/227/249/250/264` 一直在统计它们。
+
+**为什么这不是一次快泳道清理**——三条改法，**B 才是真问题**：
+
+- **A 删掉四个 helper**：行为中性（计数器本来恒 0，不会更差），但会把"没人发射"这件事**藏起来**。
+- **B 让三类事件真的有发射者**：这才是真缺口。要回答"**谁该发、什么时机发、`token-usage` 的 token 从哪来**"。旁证：`dashboard-long-run.ts:144` 的 `monotonicTriggerCount` 是从 `snapshot.monotonicGuards` **另取一路**的——说明这三类本来就是**未接线的特性**，不是几行清理。
+- **C 把三个指标从 dashboard 删掉**：删用户可见字段。
+
+**判断：B 是特性工作，应走 `peaks-code`（PRD → RD → QA），不是快泳道。** A / C 都只是把症状藏起来。
+**本会话未改一字**（工作树干净，`origin/main` = `bbe3844d`）。
+
+**顺带一条，先别动**：`emitDispatchEvent` 的 `detail` 形状是 `{ status }`，而真实生产者 `dispatch-tool-call.ts:139-153` 发的是 `{ requestId, ide, promptBytes }`——**它表达不了本该服务的那个事件**，所以从落地起就接不上。但它的去向取决于 B 的决定（若结论是统一发射路径，它可能正是该被接上的那个点），**所以现在删它可能是删错**。
+
 
 ---
 
