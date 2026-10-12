@@ -4019,6 +4019,37 @@ the blocked command — it is that a gate which refuses legitimate work is the t
 - **Fork**: **(a)** restore an assertion — a dispatch-time presence check, or a test that reads the prompt
   files the flow produces; **(b)** drop the requirement and stop calling the block mandatory.
 
+### 9.20 The dispatch envelope is per-dispatch and dynamic, so an n-way fan-out costs the orchestrator n full preambles (measured 2026-10-13; open)
+
+- **Where**: `peaks sub-agent dispatch` builds each child's prompt as **~11 KB of preamble** plus the
+  caller's prompt. Measured on the tier-2 fan-out: `originalPromptSize` **10359** → `promptSize` **21130**
+  for the RD dispatch, and 14992–15700 B for the three reviewer dispatches.
+- **Measured, and this is the part with no workaround**: the preamble is **not shareable across a
+  fan-out**. The four reviewer envelopes differ in exactly two places — the `## Context window` line (a
+  live reading) and `## Project memory relevant to this task`, which is **relevance-ranked per prompt**.
+  On this run the context line happened to read 27.0% for all three and lines 1–102 were byte-identical,
+  but the **memory sections differed for every child**, so each envelope has to be materialised
+  separately. The orchestrator is the only party that can call the Task tool, so it emits ~15 KB per child.
+- **Consequence**: an n-way fan-out costs **~n × 15 KB of orchestrator output** on top of the child
+  tokens — ~60 KB for a 4-way. There is **no documented cheaper route**: the contract says the LLM
+  *executes the returned toolCall*, so pointing the child at the envelope file already on disk
+  (`expanded-*.txt`) is a deviation — even though it would deliver **byte-identical content with
+  identical isolation**, the file being written by the same CLI that built the toolCall.
+- **This is not a defect in the tool.** The envelope is built correctly and its content is genuinely
+  useful (the test-scope rules matter to a reviewer that runs tests). It is a cost the contract does not
+  acknowledge and whose obvious mitigation is undocumented.
+- **Fork**: **(a)** document that a child may be given the envelope **path**, with the file as its prompt
+  slice; **(b)** make the preamble's variable parts optional for reviewer roles, which have no use for the
+  codegraph map; **(c)** keep it and state the fan-out cost in the dispatch reference, so an orchestrator
+  can price a fan-out before starting one.
+- **A second observation from the same run, recorded because it repeated within the hour.** I appended the
+  mandatory Karpathy block to only **one** of the four reviewer prompts, and a **grep** caught it — one
+  hour after writing 9.19 about exactly this failure. Then the block I *did* append had **one word wrong**
+  (`if someone simpler approach exists` for `if a simpler approach exists`), which the **verbatim**
+  requirement makes a defect; a diff against the canonical text at `rd-sub-agent-dispatch.md:143-161`
+  found it. Both are 9.19's point restated: a `MUST` with no executor is dropped by whoever is busiest,
+  and a fan-out is precisely when someone is busiest.
+
 ### 9.A Recorded, not fixed — the session's accepted risks, smaller items, and open U-questions
 
 Carried rather than re-litigated. Each was **named** by the session, which is the standard this file holds;
