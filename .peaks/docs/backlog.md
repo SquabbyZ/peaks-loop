@@ -3689,6 +3689,16 @@ the blocked command — it is that a gate which refuses legitimate work is the t
   CONTROL (prd -> draft, no table row):  warnings: 0 []      <- the control arm can fail
   ```
 
+  **FIXED BY `rid-mut-report-warning-surfacing` (2026-10-13).** Everything below this line describes the
+  tree **before** that change, and its citations are the **pre-fix positions** — a reader who greps them
+  will not find what is claimed there. What changed: the success path now copies
+  `prerequisiteResult.warnings` onto the transition result immediately before its single success return
+  (`request-artifact-service.ts:757-759`), the CLI emits one envelope warning per entry
+  (`request-transition-command.ts:142-145`), and the code is **derived** from the prerequisite so each
+  names its own artifact. The reading below is kept because it is the measurement the slice rests on —
+  not because it is still true. **One half of this item stays open**: `backCompatUntil: 'v2.14.0'` is
+  deliberately unchanged and the window is still roughly twenty minors past its stated expiry.
+
   **The warning IS produced.** It is then **discarded by the caller**:
   `checkPrerequisites` populates a `warnings` array and `artifact-prerequisites.ts:618-628` `continue`s
   without touching `missing`, so `ok` stays `true`; the caller
@@ -4139,6 +4149,27 @@ the blocked command — it is that a gate which refuses legitimate work is the t
   path has no row (fail-closed if it cannot), or make `peaks-gate.mjs repo` report an **untracked** new
   source file as a red rather than omitting it. The second is smaller and closes the whole class, because
   it removes the dependency on a human remembering an order.
+
+### 9.22 Both audit CLIs refuse one step before writing unless the PRD handoff already exists, and nothing states the order (hit 2026-10-13, twice — on 9.1 and 9.2; open)
+
+- **Where**: `peaks security-audit run` and `peaks perf-audit run`. Both read the PRD handoff and exit
+  **`HANDOFF_MISSING`** when `.peaks/_runtime/<sid>/prd/handoff-<rid>.md` is absent — and the artifact is
+  **not written**.
+- **Measured, twice, once per slice, by four independent reviewers**: each produced an envelope that
+  **passed validation** (`isSecurityAuditEnvelope` / `isPerfAuditEnvelope`) — the run got past validation
+  to the detect gate — and then wrote nothing, reporting `artifactPath: null`. Every one of them correctly
+  **declined** to hand-write the rendered artifact or to fabricate a handoff, and left the validated
+  envelope on disk with the exact command to re-run.
+- **Consequence**: the real order is **handoff → audit**, and no prompt, help text or skill states it. A
+  dispatch that asks only for the audit therefore produces an agent that does the entire job and then
+  cannot land it, and the refusal names a file the agent was never told it would need.
+- **Why this is an item rather than a footnote**: it is 9.10's family — *a required artifact blocked by
+  something the producer cannot know*. 9.10 is about **how a file is spelled**; this is about **the order
+  files must exist in**, which is invisible in exactly the same way and costs the same round trip.
+- **Repair direction**, cheapest first: make the refusal say plainly that **the envelope is valid and only
+  the write is blocked**, naming the missing handoff and the one command that creates it. The CLIs already
+  know all of this — they detected it. That single sentence would have saved four reviewers a confused
+  round; creating the handoff as a dispatch precondition is the more thorough fix.
 
 ### 9.A Recorded, not fixed — the session's accepted risks, smaller items, and open U-questions
 
