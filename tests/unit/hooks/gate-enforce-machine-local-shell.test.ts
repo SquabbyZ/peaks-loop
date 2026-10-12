@@ -294,9 +294,9 @@ describe('behavior — gate-enforce hook shell is machine-specific', () => {
     ).flatMap((entry) => entry.hooks);
     // then: no handler that spawns the peaks CLI carries a `shell` key, so the
     //       platform-neutral default holds — `powershell` is a win32-only pin
-    //       for a win32-only defect. The two feedback hooks are pinned here too,
-    //       to `bash`, but that pin is platform-invariant rather than withheld;
-    //       `feedback-promoted-pretool-hooks.test.ts` owns those arms.
+    //       for a win32-only defect. (1.10.0 also removed the two layer-B feedback
+    //       hooks this template carried, pinned `bash`; that pin travelled with them
+    //       to peaks-loop's tracked `.claude/settings.json`.)
     const peaksHandlers = bashHandlers.filter((h) => String(h.command).startsWith('peaks '));
     expect(peaksHandlers).toHaveLength(2);
     expect(peaksHandlers.every((h) => h.shell === undefined)).toBe(true);
@@ -320,7 +320,11 @@ describe('behavior — gate-enforce hook shell is machine-specific', () => {
     // block is what remains.
     // 1.9.0 = the two layer-B feedback hooks joined the template, so a fresh
     // clone carries their registration instead of only the scripts.
-    expect(TEMPLATE_VERSION).toBe('1.9.0');
+    // 1.10.0 = those two entries were REMOVED and retired: they are this repository's
+    // own development hooks, and this template is written into a CONSUMER's file,
+    // where their command cannot resolve. They now live in peaks-loop's tracked
+    // `.claude/settings.json`.
+    expect(TEMPLATE_VERSION).toBe('1.10.0');
     expect(findGateEnforceHandler(readPreToolUseEntriesSync(serializedTemplate))?.shell).toBe(
       'powershell'
     );

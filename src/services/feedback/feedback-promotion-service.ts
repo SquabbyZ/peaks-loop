@@ -31,15 +31,14 @@ import { dirname, join, resolve } from 'node:path';
 import { registerSop } from '../sop/sop-registry-service.js';
 import { projectRegistryPath, projectSopManifestPath } from '../sop/sop-paths.js';
 import type { SopManifest } from '../sop/sop-types.js';
-import {
-  artifactEvidenceFailure,
-  type PromotionArtifactCheck,
-  type PromotionEvidence
-} from './promotion-artifact-evidence.js';
+import { missingArtifacts } from './promotion-artifact-missing.js';
+import type { PromotionArtifactCheck, PromotionEvidence } from './promotion-artifact-evidence.js';
 
 // Re-exported so callers keep importing the check shape from the service that
-// builds the table, even though the readers live in their own module.
+// builds the table, and the reader from the service that calls it, even though
+// both live in their own modules.
 export type { PromotionArtifactCheck, PromotionEvidence };
+export { missingArtifacts };
 
 /**
  * PRD-002b slice 2 — extract magic numbers used by the promotion
@@ -71,7 +70,7 @@ export const PROMOTION_LAYER_DETAILS: readonly PromotionLayerDetail[] = [
     layer: 'B',
     label: 'peaks-hooks PreToolUse',
     description:
-      'Append a matcher to .peaks/.claude-settings-template.json. Tool-call interception.'
+      'Append a matcher to `.peaks/.claude-settings-template.json`, or to `.claude/settings.json` for a hook that ships with this repository. Tool-call interception.'
   },
   {
     layer: 'C',
@@ -97,9 +96,11 @@ export const PROMOTION_LAYER_DETAILS: readonly PromotionLayerDetail[] = [
  *     decoration: `gate-enforce-service.enforceBashCommand` enumerates SOPs via
  *     `readRegistry()`, so an unregistered manifest is off the enforcement path
  *     no matter how valid it is.
- *   - B (peaks-hooks PreToolUse): `.peaks/.claude-settings-template.json` must
- *     register the rule inside its `hooks` block. The file always exists, so
- *     existence proves nothing — the evidence is the registration inside it.
+ *   - B (peaks-hooks PreToolUse): the `hooks` block of one of the two settings
+ *     files in `LAYER_B_SETTINGS` — the `.peaks/.claude-settings-template.json`
+ *     snapshot, or this repository's tracked `.claude/settings.json` — must
+ *     register the rule. The file always exists, so existence proves nothing:
+ *     the evidence is the registration inside it.
  *   - C (mode-gate hardFloorCategory): `src/services/code/mode-gate.ts` must
  *     register the rule in the hard-floor vocabulary, for the same reason. This
  *     is the repo's existing convention: the one real layer-C promotion cites
@@ -139,7 +140,8 @@ export function promotionArtifactChecks(
   if (layer === 'B') {
     return [
       {
-        path: '.peaks/.claude-settings-template.json',
+        path: LAYER_B_SETTINGS[0],
+        alternatives: [LAYER_B_SETTINGS[1]],
         evidence: 'hook-registration',
         id: memoryName
       }
@@ -151,36 +153,25 @@ export function promotionArtifactChecks(
 }
 
 /**
- * Which of `checks` are not satisfied under `projectRoot`. Empty means the
- * promotion is backed by its artifact. Never throws, and never permits: a file
- * that is absent, unreadable, or unparseable is a finding, not a warning —
- * "cannot read the evidence" must not read as "the evidence is good".
+ * The settings files a layer-B hook registration may legitimately live in.
+ *
+ * TWO locations, because there are two audiences and only one file each.
+ * `peaks workspace init` writes `.peaks/.claude-settings-template.json` in every
+ * project, consumer or not, so it is tried first. This repository's own
+ * development hooks are registered in the tracked `.claude/settings.json`
+ * instead — the template above is written into a CONSUMER tree, where
+ * `${CLAUDE_PROJECT_DIR}/src/**` names nothing, so a hook of ours cannot live
+ * there. Checking only the snapshot reports a rule that IS enforced as
+ * unpromoted; checking only the tracked file breaks every consumer.
+ *
+ * `.claude/settings.local.json` is deliberately NOT a third location: a rule
+ * backed only by that untracked file is the "true on one machine" state this
+ * artifact check exists to reject.
  */
-export function missingArtifacts(
-  checks: readonly PromotionArtifactCheck[],
-  projectRoot: string
-): string[] {
-  const missing: string[] = [];
-  for (const check of checks) {
-    const absolute = resolve(projectRoot, check.path);
-    if (!existsSync(absolute)) {
-      missing.push(`${check.path} (absent)`);
-      continue;
-    }
-    let text: string;
-    try {
-      text = readFileSync(absolute, 'utf8');
-    } catch {
-      missing.push(`${check.path} (unreadable)`);
-      continue;
-    }
-    const failure = artifactEvidenceFailure(check, text);
-    if (failure !== null) {
-      missing.push(`${check.path} (${failure})`);
-    }
-  }
-  return missing;
-}
+const LAYER_B_SETTINGS = [
+  '.peaks/.claude-settings-template.json',
+  '.claude/settings.json'
+] as const;
 
 export type FeedbackMemory = {
   /** File basename (without `.md`). */
@@ -588,8 +579,8 @@ export function generatePromotionStub(opts: {
   }
   if (layer === 'B') {
     return {
-      snippet: `{\n  "matcher": "Bash",\n  "hooks": [\n    {\n      "type": "command",\n      "command": "node -e \\"process.exit(0)\\""\n    }\n  ]\n}\n<!-- Append the rule-specific matcher to .peaks/.claude-settings-template.json -->`,
-      targetFiles: ['.peaks/.claude-settings-template.json']
+      snippet: `{\n  "matcher": "Bash",\n  "hooks": [\n    {\n      "type": "command",\n      "command": "node -e \\"process.exit(0)\\""\n    }\n  ]\n}\n<!-- Append the rule-specific matcher to .peaks/.claude-settings-template.json, or to .claude/settings.json for a hook that ships with this repository -->`,
+      targetFiles: [...LAYER_B_SETTINGS]
     };
   }
   // layer === 'C'

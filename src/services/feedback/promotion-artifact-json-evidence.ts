@@ -20,6 +20,24 @@ export type PromotionEvidence =
 export type PromotionArtifactCheck = {
   /** Project-relative POSIX path whose CONTENT must carry the evidence. */
   path: string;
+  /**
+   * Other project-relative paths where the SAME evidence may legitimately live.
+   *
+   * The conjunction is across CHECKS — layer A needs its manifest AND its
+   * registry entry — so an alternative location cannot be expressed as another
+   * check: that would demand it too. It belongs here, where the sense is OR.
+   *
+   * Layer B is the reason the field exists. Its registration is written into
+   * whichever Claude settings file the project actually reads: a consumer gets
+   * the generated snapshot, while this repository registers its own development
+   * hooks in the tracked `.claude/settings.json` — the template that produces the
+   * snapshot is written into a consumer tree, where a command naming
+   * `${CLAUDE_PROJECT_DIR}/src/**` resolves to nothing.
+   *
+   * `artifactEvidenceFailure` reads `evidence` and `id` only, so the same check
+   * is tried against every candidate as it stands.
+   */
+  alternatives?: readonly string[];
   evidence: PromotionEvidence;
   /** The rule id the evidence must name (a SOP id for layer A, a memory name for B and C). */
   id: string;

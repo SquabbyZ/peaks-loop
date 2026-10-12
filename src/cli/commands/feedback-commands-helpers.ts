@@ -33,7 +33,7 @@ export interface FeedbackPromoteOpts {
 export const NO_LAYER_NEXT_ACTIONS = [
   'No --layer passed. Choose one of A / B / C and re-run.',
   'A: append to sops/*.md (procedural rules)',
-  'B: append a matcher to .peaks/.claude-settings-template.json (tool-call interception)',
+  'B: append a matcher to .peaks/.claude-settings-template.json, or to .claude/settings.json for a hook that ships with this repo (tool-call interception)',
   'C: extend HardFloorCategory in mode-gate.ts (always pauses regardless of mode)',
   'Or pass --dry-run to preview all three stubs first.'
 ];

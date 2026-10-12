@@ -23,7 +23,7 @@ Both forms are accepted by the scanner.
 | Option | Layer | File / surface | When to pick |
 |---|---|---|---|
 | **A** | `peaks-sop` gate | append to `sops/*.md` and reference from a new `peaks sop` check | the rule is procedural — "do X then verify Y", or "ask before Z" |
-| **B** | `peaks-hooks` PreToolUse hook | append a matcher to `.peaks/.claude-settings-template.json` (and reinstall) | the rule must intercept a tool call (Bash, Edit, Write, etc.) before it lands |
+| **B** | `peaks-hooks` PreToolUse hook | append a matcher to `.peaks/.claude-settings-template.json` — or to the tracked `.claude/settings.json` when the hook ships with this repository (and reinstall) | the rule must intercept a tool call (Bash, Edit, Write, etc.) before it lands |
 | **C** | `hardFloorCategory` in `mode-gate.ts` | extend `HardFloorCategory` + `shouldPauseAtGate` | the rule ALWAYS pauses regardless of mode (irreversible, credential, commit-boundary, etc.) |
 
 For the v2.14.0 release feedback "full-auto boundary = commit only", the

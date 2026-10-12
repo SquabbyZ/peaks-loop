@@ -15,6 +15,28 @@
           }
         ]
       }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PROJECT_DIR}/src/services/hooks/pre-tool-peaks-current-directory-scope.sh\"",
+            "shell": "bash"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PROJECT_DIR}/src/services/hooks/pre-tool-piping-a-test-run-reports-the-pipes-exit-code.sh\"",
+            "shell": "bash"
+          }
+        ]
+      }
     ]
   }
 }

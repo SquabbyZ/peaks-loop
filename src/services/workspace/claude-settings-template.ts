@@ -23,11 +23,17 @@
  * it can be unit-tested in isolation and so the on-disk file matches
  * the in-memory template byte-for-byte.
  *
- * Four `Bash` matchers are emitted: the Step 0.8 mechanical gate, the SOP
- * gate-enforce handler, and the two layer-B feedback hooks. No
- * `Write|Edit|MultiEdit` entry is emitted: that matcher's gate is
- * `peaks code-gate`, installed into the committed
- * `.claude/settings.json` by `peaks hooks install`.
+ * TWO `Bash` matchers are emitted: the Step 0.8 mechanical gate and the SOP
+ * gate-enforce handler. No `Write|Edit|MultiEdit` entry is emitted: that
+ * matcher's gate is `peaks code-gate`, installed into the committed
+ * `.claude/settings.json` by `peaks hooks install`. TEMPLATE_VERSION 1.10.0
+ * removed the two layer-B feedback hooks this file used to emit: they are this
+ * repository's OWN development hooks, and this file is written into a
+ * CONSUMER project, where `${CLAUDE_PROJECT_DIR}` is that project's root, no
+ * `src/**` is ever shipped, and the command therefore points at nothing. They
+ * are registered in this repository's tracked `.claude/settings.json` instead;
+ * `isRetiredTemplateEntry` in `claude-settings-template-merge.ts` is what makes
+ * an install that already has them converge.
  *
  * The previous `Bash` matcher (which whitelisted a fixed `peaks
  * <subcommand>` prefix) was removed in TEMPLATE_VERSION 1.2.0. The
@@ -128,8 +134,22 @@ export const CLAUDE_SETTINGS_LOCAL_FILENAME = '.claude/settings.local.json';
  *           promotion they carry was true only locally. See
  *           `buildFeedbackHookHandler` for why the pin is `bash` and not the
  *           `powershell` its three siblings take.
+ *   1.10.0 — REMOVED those two entries again, and retired them so every install
+ *           that already carries them converges. 1.9.0's INTENT was right — a
+ *           fresh clone should carry the registration, not just the scripts —
+ *           but this file is the wrong mechanism for it. This template is
+ *           written into a CONSUMER project's `.claude/settings.local.json`,
+ *           where `${CLAUDE_PROJECT_DIR}` is the consumer's root, `src/**` is
+ *           not in the npm `files` list, and nothing copies it, so the two
+ *           entries were a command that could never resolve in every
+ *           downstream project; and this repository, whose `settings.local.json`
+ *           is gitignored, got no tracked copy either. The scripts STAY here —
+ *           they are this repository's own development hooks — and the
+ *           registration moved to the tracked `.claude/settings.json`.
+ *           `isRetiredTemplateEntry` carries the retirement, because declaring
+ *           less cannot retire an entry on its own.
  */
-export const TEMPLATE_VERSION = '1.9.0';
+export const TEMPLATE_VERSION = '1.10.0';
 
 /**
  * TEMPLATE_VERSION 1.4.0 — the SOP gate-enforce handler, read from the same
@@ -168,12 +188,13 @@ type ClaudeSettingsLocal = {
  * forcing gate is a core feature that PreToolUse hooks can short-
  * circuit but that the `permissions` block cannot.
  *
- * As of TEMPLATE_VERSION 1.9.0 the template emits four `Bash` matchers: the
- * two above, plus one per layer-B feedback hook (`FEEDBACK_HOOK_SCRIPTS`). The
- * `Write|Edit|MultiEdit` fact-forcing bypass is no longer a hook: it is the
- * `env` exemption above, and that matcher's gate (`peaks code-gate`) is
- * installed into the committed `.claude/settings.json` by `peaks hooks
- * install`.
+ * As of TEMPLATE_VERSION 1.10.0 the template emits exactly TWO `Bash` matchers:
+ * the two below. (1.9.0 added one entry per layer-B feedback hook on top of
+ * them, which made four; 1.10.0 removed and retired those — see
+ * `isRetiredTemplateEntry`.) The `Write|Edit|MultiEdit` fact-forcing bypass is
+ * no longer a hook: it is the `env` exemption above, and that matcher's gate
+ * (`peaks code-gate`) is installed into the committed `.claude/settings.json`
+ * by `peaks hooks install`.
  */
 export function buildClaudeSettingsLocalJson(): ClaudeSettingsLocal {
   return {
@@ -209,15 +230,7 @@ export function buildClaudeSettingsLocalJson(): ClaudeSettingsLocal {
           // group and the gate would run twice per Bash call.
           matcher: 'Bash',
           hooks: [buildGateEnforceHandler()]
-        },
-        ...FEEDBACK_HOOK_SCRIPTS.map((script) => ({
-          // TEMPLATE_VERSION 1.9.0 — the layer-B feedback hooks, one matcher
-          // group each, for the same reason the entry above has its own: a
-          // group is peaks-managed only when EVERY handler in it carries a
-          // peaks sentinel, and none of these handlers does.
-          matcher: 'Bash',
-          hooks: [buildFeedbackHookHandler(script)]
-        }))
+        }
       ]
     }
   };
@@ -253,46 +266,31 @@ function buildBashGateStep08Handler(): ClaudeHookCommand {
 }
 
 /**
- * TEMPLATE_VERSION 1.9.0 — the two rules promoted to layer B by hand first: the
- * scripts shipped in `src/services/hooks/`, but the registration existed only in
- * the generated copy on the machine that wrote it. Emitting it here is what makes
- * the promotion a property of the repository rather than of that machine — the
- * layer-B feedback gate reads THIS template's `hooks` block, so a fresh clone had
- * the enforcement and nothing registering it.
+ * TEMPLATE_VERSION 1.9.0 emitted the two layer-B feedback hooks from here; 1.10.0
+ * removed and RETIRED them. See `claude-settings-retirements.ts` for the retirement
+ * itself and for why declaring less cannot carry one. What is worth keeping here:
  *
- * The filenames are the contract: the layer-B check looks for a hook command that
- * INVOKES A FILE NAMED AFTER THE RULE, so the command has to carry the script's
- * name and cannot be a `peaks` verb that dispatches to it.
+ *   - WHERE THEY LIVE NOW. `pre-tool-peaks-current-directory-scope.sh` and
+ *     `pre-tool-piping-a-test-run-reports-the-pipes-exit-code.sh` are this
+ *     repository's OWN development hooks, so their registration is in this
+ *     repository's tracked `.claude/settings.json` — where `${CLAUDE_PROJECT_DIR}`
+ *     really is the root that contains `src/`.
+ *   - THE SHELL PIN THEY STILL CARRY, and why it is not the `powershell` their CLI
+ *     siblings take. Measured on this host, both shapes run the script and both
+ *     print its refusal to stderr — but not the same exit code:
+ *
+ *       bash       "<script>"                     exit 2   (the script's own code)
+ *       powershell "<script>"                     exit 1   (flattened by the shell)
+ *
+ *     Under the Claude Code hook protocol only exit 2 blocks; any other non-zero
+ *     exit is a NON-BLOCKING ERROR and the tool call goes ahead. So `powershell`
+ *     would turn the refusal into a log line and let the command through — the
+ *     failure these entries exist to prevent. `shell` accepts `bash` and
+ *     `powershell` only, and `bash` is also the interpreter the command names.
+ *   - WHAT THEY REFUSE. `peaks-current-directory-scope` refuses global-state
+ *     mutations (`npm i -g`, writes under `~/.claude`) unless the user explicitly
+ *     authorises them; `piping-a-test-run-reports-the-pipes-exit-code` refuses a
+ *     test run piped into a pager, because the exit code read afterwards is the
+ *     pager's, not the runner's. `tests/unit/hooks/feedback-promoted-pretool-hooks.test.ts`
+ *     drives both, with a plant for each.
  */
-const FEEDBACK_HOOK_SCRIPTS = [
-  'pre-tool-peaks-current-directory-scope.sh',
-  'pre-tool-piping-a-test-run-reports-the-pipes-exit-code.sh'
-] as const;
-
-/** The shell these two handlers are pinned to. See `buildFeedbackHookHandler`. */
-const FEEDBACK_HOOK_SHELL = 'bash';
-
-/**
- * The handler for one feedback hook, pinned to `shell: 'bash'`.
- *
- * THE PIN IS THE DECISION, and it is deliberately not the `powershell` its three
- * siblings take. Measured on this host, both shapes run the script and both print
- * its refusal to stderr — but they do not report the same exit code:
- *
- *   bash       "<script>"                       exit 2   (the script's own code)
- *   powershell "<script>"                       exit 1   (flattened by the shell)
- *
- * Under the Claude Code hook protocol only exit 2 blocks; any other non-zero exit
- * is a NON-BLOCKING ERROR and the tool call goes ahead. So pinning `powershell`
- * here would not be a cosmetic difference on a blocking hook — it would turn the
- * refusal into a log line and let the command through, which is the failure these
- * two entries exist to prevent. `shell` accepts `bash` and `powershell` only, and
- * `bash` is also the interpreter this command already names.
- */
-function buildFeedbackHookHandler(script: string): ClaudeHookCommand {
-  return {
-    type: 'command',
-    command: `bash "\${CLAUDE_PROJECT_DIR}/src/services/hooks/${script}"`,
-    shell: FEEDBACK_HOOK_SHELL
-  };
-}

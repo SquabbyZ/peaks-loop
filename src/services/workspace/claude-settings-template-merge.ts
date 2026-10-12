@@ -13,6 +13,12 @@
  */
 
 import { hasExternalGateExemptions } from '../skills/hooks-codegate-superpowers.js';
+import {
+  isPreToolUseEntry,
+  isRetiredTemplateEntry,
+  type TemplateHookCommand,
+  type TemplatePreToolUseEntry
+} from './claude-settings-retirements.js';
 
 /**
  * Compare two serialized template strings: does the on-disk file already
@@ -33,10 +39,15 @@ import { hasExternalGateExemptions } from '../skills/hooks-codegate-superpowers.
  * ownership existed to prevent, and the reason the merge could not ship alone.
  *
  * Matching is order-insensitive AND multiset-aware: the template declares TWO
- * `Bash` entries, and each must have its own counterpart on disk, so a file
+ * `Bash` entries — a MEASUREMENT, not a memory, so it is pinned to a predicate
+ * rather than restated in prose: `buildClaudeSettingsLocalJson().hooks.
+ * PreToolUse` filtered on `matcher === 'Bash'` has length 2 (the Step 0.8 gate
+ * and `gate enforce`). Each must have its own counterpart on disk, so a file
  * carrying only one of them is still reported as drifted (the previous
  * index-by-index loop had the same property; it is load-bearing, not a
- * detail).
+ * detail). The live count was 4 from TEMPLATE_VERSION 1.9.0 until 1.10.0 retired
+ * the two layer-B feedback hooks from the template, which is exactly how a
+ * prose count goes stale.
  *
  * Returns `true` iff both strings parse to objects whose `hooks.PreToolUse`
  * arrays satisfy that containment, the on-disk file carries NO entry this
@@ -123,24 +134,30 @@ export function templateContentMatches(generated: string, onDisk: string): boole
  *     self-heal instead of lingering next to a correct copy of itself.
  *
  * Slot counting is per `matcher` and positional within it: the template
- * declares TWO `Bash` entries, so the first two on-disk `Bash` entries are
- * theirs and a third is the user's. The template's entries are emitted first,
- * in template order, then the preserved ones in their on-disk order — which is
- * a fixed point: re-merging the result yields the result (the template's own
- * entries are encountered first and refill their own slots).
+ * declares TWO `Bash` entries — `buildClaudeSettingsLocalJson()` filtered on
+ * `matcher === 'Bash'` is the measurement, and it is 2 — so the first two
+ * on-disk `Bash` entries are theirs and a third is the user's. (It was 4 while
+ * TEMPLATE_VERSION 1.9.0 also declared the two layer-B feedback hooks; 1.10.0
+ * retired those, and because the retirement is tested BEFORE slot counting they
+ * never occupy a slot on their way out.) The template's entries are emitted
+ * first, in template order, then the preserved ones in their on-disk order —
+ * which is a fixed point: re-merging the result yields the result (the
+ * template's own entries are encountered first and refill their own slots).
  *
  * Non-conforming entries (no string `matcher`, no `hooks` array) are preserved
  * rather than dropped: guessing at their shape is how a user's entry gets
  * deleted.
  *
  * ONE exception to "preserve what I do not declare": an entry this template
- * used to declare and RETIRED (TEMPLATE_VERSION 1.8.0's `Write|Edit|MultiEdit`
- * gate — see `isRetiredTemplateEntry`) is dropped rather than preserved.
- * Declaring less cannot retire an entry on its own, because preserving
- * undeclared entries is exactly what this function does; without the drop, a
- * pre-1.8.0 install would keep the no-op handler and its version-pinned script
- * path forever. The predicate is narrow enough that only the exact command
- * this template emitted matches.
+ * used to declare and RETIRED is dropped rather than preserved — TEMPLATE_
+ * VERSION 1.8.0's `Write|Edit|MultiEdit` gate, and 1.10.0's two layer-B feedback
+ * hooks (see `isRetiredTemplateEntry`). Declaring less cannot retire an entry on
+ * its own, because preserving undeclared entries is exactly what this function
+ * does; without the drop, a pre-1.8.0 install would keep the no-op handler and
+ * its version-pinned script path forever, and a pre-1.10.0 consumer would keep
+ * two `Bash` entries whose command points into an `src/` tree it never
+ * received. Each predicate is narrow enough that only the exact command this
+ * template emitted matches.
  */
 export function mergeTemplateOwnedHooks(
   onDisk: ReadonlyArray<unknown>,
@@ -181,27 +198,9 @@ function sameEntry(a: TemplatePreToolUseEntry, b: TemplatePreToolUseEntry): bool
   return a.matcher === b.matcher && sameHooksArray(a.hooks, b.hooks);
 }
 
-type TemplateHookCommand = { type: string; command: string; shell?: string };
-
-/**
- * One `hooks.PreToolUse` entry in the shape this template declares. The
- * `matcher` + `hooks` pair is the entry's identity everywhere below: `matcher`
- * alone is not unique (two `Bash` entries), and whole-object identity would
- * make a hand-edited entry unrecognizable and therefore unrepairable.
- */
-type TemplatePreToolUseEntry = { matcher: string; hooks: TemplateHookCommand[] };
-
 type TemplateShape = {
   hooks: { PreToolUse: TemplatePreToolUseEntry[] };
 };
-
-function isPreToolUseEntry(value: unknown): value is TemplatePreToolUseEntry {
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
-    return false;
-  }
-  const candidate = value as { matcher?: unknown; hooks?: unknown };
-  return typeof candidate.matcher === 'string' && Array.isArray(candidate.hooks);
-}
 
 function isTemplateShape(value: unknown): value is TemplateShape {
   if (typeof value !== 'object' || value === null) {
@@ -239,33 +238,11 @@ function sameHooksArray(
 }
 
 /**
- * The retired `Write|Edit|MultiEdit` gate entry, as an on-disk file written by
- * a pre-1.8.0 release holds it.
- *
- * TEMPLATE_VERSION 1.8.0 stopped emitting this entry. Declaring less is not
- * enough on its own: `mergeTemplateOwnedHooks` preserves every on-disk entry
- * the template does not declare — that is the whole point of the entry-level
- * ownership rule (it is what keeps `installAutoCompactHook`'s `Bash|Task`
- * entry alive) — so a project installed by an earlier release would keep the
- * no-op handler, and its `node "C:/…/nvm/v24.14.0/…"` path, forever. This
- * predicate is the retirement: `mergeTemplateOwnedHooks` drops a match.
- *
- * Deliberately narrow. It matches the exact command shape this template used
- * to emit — one handler, `node "<…>/services/hooks/write-gate.js"` — under the
- * exact legacy matcher spelling, so a user's OWN `Write|Edit|MultiEdit` entry
- * (a different command, or more than one handler) is preserved like any other
- * entry the template does not declare. A looser "drop anything on this
- * matcher" rule would delete a user's hook, which is the failure the ownership
- * rule exists to prevent.
+ * The retirement vocabulary — the entries this template used to declare and has
+ * since RETIRED, and the shape predicate that says so — lives in
+ * `claude-settings-retirements.ts`. It was extracted when the second retirement
+ * pushed this module past the 300-line cap. Re-exported here so
+ * `claude-settings-template.ts`, the single public entry point for the template
+ * concern, still reaches it through the module it always did.
  */
-const RETIRED_WRITE_GATE_MATCHER = 'Write|Edit|MultiEdit';
-const RETIRED_WRITE_GATE_COMMAND = /^node "[^"]*\/services\/hooks\/write-gate\.js"$/;
-
-export function isRetiredTemplateEntry(entry: unknown): boolean {
-  if (!isPreToolUseEntry(entry)) return false;
-  if (entry.matcher !== RETIRED_WRITE_GATE_MATCHER) return false;
-  if (entry.hooks.length !== 1) return false;
-  const [handler] = entry.hooks;
-  if (handler === undefined) return false;
-  return handler.type === 'command' && RETIRED_WRITE_GATE_COMMAND.test(handler.command);
-}
+export { isRetiredTemplateEntry };

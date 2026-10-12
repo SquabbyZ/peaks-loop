@@ -138,7 +138,12 @@ describe('promotion artifact table (behavior)', () => {
     // "register" is a shape the file has to parse into (a name in the bytes is
     // not a registration).
     expect(b).toEqual([
-      { path: '.peaks/.claude-settings-template.json', evidence: 'hook-registration', id: 'rule-x' }
+      {
+        path: '.peaks/.claude-settings-template.json',
+        alternatives: ['.claude/settings.json'],
+        evidence: 'hook-registration',
+        id: 'rule-x'
+      }
     ]);
     expect(c).toEqual([
       { path: 'src/services/code/mode-gate.ts', evidence: 'hard-floor-category', id: 'rule-x' }

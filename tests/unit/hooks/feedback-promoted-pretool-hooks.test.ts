@@ -269,22 +269,61 @@ describe('both hooks also read the legacy { tool, input } payload shape', () => 
  * Everything above is a refusal the hooks can only deliver if something runs
  * them, and their registration used to exist solely in the generated, gitignored
  * copies on the machine that hand-wrote it: a fresh clone carried the two scripts
- * and nothing that invoked them, so the layer-B feedback gate — which reads the
- * template's `hooks` block — called the promotion missing again. The arms below
- * are that claim: the template the generator EMITS declares both hooks, names the
- * script file in the command, points at a script that actually ships, and pins the
- * shell under which the refusal still blocks.
+ * and nothing that invoked them.
+ *
+ * WHERE THE REGISTRATION LIVES, and why it moved. TEMPLATE_VERSION 1.9.0 put it
+ * in the consumer template (`buildClaudeSettingsLocalJson()`), and that was a
+ * defect in its own right: the template is written into a CONSUMER project's
+ * `.claude/settings.local.json`, where `${CLAUDE_PROJECT_DIR}` is the CONSUMER's
+ * root, `src/**` is absent from the npm `files` list and nothing copies it — so
+ * every downstream project received two `Bash` PreToolUse entries whose command
+ * could never resolve, while this repository (whose `settings.local.json` is
+ * gitignored) still got no tracked copy of the registration. 1.10.0 removed them
+ * from the template and retired them (the convergence arm is owned by
+ * `tests/unit/workspace/settings-local-hooks-entry-ownership.test.ts`), and
+ * registered them where a fresh clone really does get them: this repository's
+ * TRACKED `.claude/settings.json`.
+ *
+ * The arms below are that claim in BOTH directions: the tracked file declares
+ * both hooks, names a script that actually ships, and pins the shell under which
+ * the refusal still blocks — and the consumer template no longer declares them.
  *
  * The plant lives outside this file by necessity — every assertion reads the
- * entries out of the generated tree rather than out of a literal, so the mutation
- * that reddens these arms is deleting the entries from
- * `buildClaudeSettingsLocalJson()`. Request 033's evidence records that run.
+ * entries out of a file rather than out of a literal, so the mutation that
+ * reddens these arms is deleting the entries from `.claude/settings.json`.
  */
-describe('the registration is generated, so a fresh clone carries it', () => {
-  const declared = buildClaudeSettingsLocalJson()
-    .hooks.PreToolUse.filter((entry) => entry.matcher === 'Bash')
+describe('the registration is tracked, so a fresh clone carries it', () => {
+  const repoRoot = resolve(__dirname, '..', '..', '..');
+
+  type TrackedEntry = {
+    matcher: string;
+    hooks: Array<{ type?: string; command?: string; shell?: string }>;
+  };
+
+  const trackedSettings = JSON.parse(
+    readFileSync(join(repoRoot, '.claude', 'settings.json'), 'utf8')
+  ) as { hooks?: { PreToolUse?: TrackedEntry[] } };
+
+  const declared = (trackedSettings.hooks?.PreToolUse ?? [])
+    .filter((entry) => entry.matcher === 'Bash')
     .flatMap((entry) => entry.hooks)
-    .filter((handler) => handler.command.startsWith('bash '));
+    .filter((handler) => String(handler.command).startsWith('bash '));
+
+  it('is TRACKED, so a fresh clone gets it and not only this machine', () => {
+    // `.claude/settings.local.json` is gitignored (root `.gitignore`, managed
+    // snippet), which is exactly why the 1.9.0 promotion stayed true only
+    // locally. `git ls-files --error-unmatch` is the oracle for "tracked" and it
+    // fails loudly rather than returning an empty list for a file it cannot see.
+    // `windowsHide: true` for the same reason every hook run above carries it:
+    // on Windows `git` is a console app and would allocate a window per case.
+    const tracked = spawnSync('git', ['ls-files', '--error-unmatch', '.claude/settings.json'], {
+      cwd: repoRoot,
+      encoding: 'utf8',
+      windowsHide: true
+    });
+    expect(tracked.status, tracked.stderr).toBe(0);
+    expect(tracked.stdout.trim()).toBe('.claude/settings.json');
+  });
 
   it('declares one Bash entry per feedback hook, in the order they are listed', () => {
     expect(declared.map((handler) => handler.command)).toEqual([
@@ -298,8 +337,8 @@ describe('the registration is generated, so a fresh clone carries it', () => {
       const command = `bash "\${CLAUDE_PROJECT_DIR}/src/services/hooks/${basename(hookPath)}"`;
       expect(declared.some((handler) => handler.command === command)).toBe(true);
       // the same file this suite drives above, by the name the command carries:
-      // renaming the script without updating the template fails here rather than
-      // disarming the hook silently
+      // renaming the script without updating the registration fails here rather
+      // than disarming the hook silently
       expect(existsSync(hookPath)).toBe(true);
     }
   });
@@ -315,5 +354,21 @@ describe('the registration is generated, so a fresh clone carries it', () => {
     expect(resolveHookShell('win32')).toBe('powershell');
     expect(resolveHookShell('linux')).toBeUndefined();
     expect(declared.every((handler) => handler.shell !== resolveHookShell('win32'))).toBe(true);
+  });
+
+  it('is NOT declared in the consumer template — this is the 1.9.0 defect', () => {
+    // A `src/services/hooks/...` command in the generated template resolves
+    // against the CONSUMER's project root, which never receives `src/**`. The
+    // retirement is the other half: `isRetiredTemplateEntry` drops the entry from
+    // files an earlier release already wrote.
+    const consumerCommands = buildClaudeSettingsLocalJson()
+      .hooks.PreToolUse.filter((entry) => entry.matcher === 'Bash')
+      .flatMap((entry) => entry.hooks)
+      .map((handler) => handler.command);
+    expect(consumerCommands.some((command) => command.includes('src/services/hooks/'))).toBe(false);
+    // and: the two Bash entries the consumer template DOES keep are the ones that
+    // resolve in a consumer — they invoke the peaks CLI, not a repo file.
+    expect(consumerCommands).toHaveLength(2);
+    expect(consumerCommands.every((command) => command.startsWith('peaks '))).toBe(true);
   });
 });

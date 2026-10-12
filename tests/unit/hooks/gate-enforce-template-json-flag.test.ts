@@ -42,6 +42,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { buildClaudeSettingsLocalJson } from '~/src/services/workspace/claude-settings-template';
+import { resolveHookShell } from '~/src/services/skills/hooks-codegate-superpowers';
 
 const ROOT = join(__dirname, '..', '..', '..');
 
@@ -79,16 +80,31 @@ describe('slice 2026-08-05-hook-json-flag: gate-enforce hook must carry --json',
     expect(cmd.trimEnd().endsWith('--json')).toBe(true);
   });
 
-  it('when the committed settings are read, should stay platform-neutral', () => {
+  it('when the committed settings are read, should carry no machine-specific shell pin', () => {
     // given: the committed, shared .claude/settings.json that every
     //        teammate (macOS / Linux / Windows) reads
     // when: its hooks tree is parsed
     const parsed = JSON.parse(readFileSync(join(ROOT, '.claude', 'settings.json'), 'utf8')) as {
-      hooks?: { PreToolUse?: unknown };
+      hooks?: { PreToolUse?: Array<{ matcher?: string; hooks?: BashHandler[] }> };
     };
-    // then: it carries no Bash PreToolUse handler at all — any `shell` value
-    //       here would be machine-specific and break the other platforms
-    expect(parsed.hooks?.PreToolUse).toBeUndefined();
+    // then: no handler pins the win32-only shell. `powershell` is what
+    //       `resolveHookShell('win32')` returns and it does not exist on macOS /
+    //       Linux, so a committed entry carrying it breaks every teammate there.
+    //
+    //       The invariant is the PIN, not the mere presence of a `PreToolUse`
+    //       array: this repository commits two entries of its own (the layer-B
+    //       development hooks, `bash "<...>/src/services/hooks/pre-tool-*.sh"`),
+    //       and `bash` is platform-invariant — it is the interpreter the command
+    //       already names, and it exists on all three platforms. Before 1.10.0
+    //       this assertion read `parsed.hooks?.PreToolUse` `toBeUndefined()`, which
+    //       only held because nothing was registered here at all; that is a
+    //       statement about emptiness, not about portability, and it would have
+    //       passed for a `powershell`-pinned entry too if one ever appeared.
+    const handlers = (parsed.hooks?.PreToolUse ?? []).flatMap((entry) => entry.hooks ?? []);
+    expect(handlers.every((handler) => handler.shell !== resolveHookShell('win32'))).toBe(true);
+    // and: every pin that IS present is `bash` — no third shell, and no pin on a
+    //      command that names no interpreter.
+    expect(handlers.every((h) => h.shell === undefined || h.shell === 'bash')).toBe(true);
   });
 
   it('HOOK_ENFORCE_COMMAND template literal in hooks-settings-service.ts ends with --json', () => {

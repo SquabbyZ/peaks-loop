@@ -85,6 +85,33 @@ function matchers(projectRoot: string): string[] {
   return readPreToolUse(projectRoot).map((entry) => entry.matcher);
 }
 
+/**
+ * The two layer-B feedback hooks TEMPLATE_VERSION 1.9.0 emitted into this
+ * consumer template and 1.10.0 removed — exactly as a release in that window
+ * wrote them: one handler, on `Bash`,
+ * `bash "${CLAUDE_PROJECT_DIR}/src/services/hooks/<script>"`, `shell: 'bash'`.
+ */
+const RETIRED_FEEDBACK_HOOK_SCRIPTS = [
+  'pre-tool-peaks-current-directory-scope.sh',
+  'pre-tool-piping-a-test-run-reports-the-pipes-exit-code.sh'
+] as const;
+
+function retiredFeedbackEntries(): Array<{
+  matcher: string;
+  hooks: Array<{ type: string; command: string; shell: string }>;
+}> {
+  return RETIRED_FEEDBACK_HOOK_SCRIPTS.map((script) => ({
+    matcher: 'Bash',
+    hooks: [
+      {
+        type: 'command',
+        command: `bash "\${CLAUDE_PROJECT_DIR}/src/services/hooks/${script}"`,
+        shell: 'bash'
+      }
+    ]
+  }));
+}
+
 /** Hand-break the FIRST template-declared entry: the one real drift signal. */
 function breakFirstDeclaredEntry(
   projectRoot: string,
@@ -104,16 +131,16 @@ describe('the local hooks list is owned per entry, not per key', () => {
     //        writer of this file (the auto-compact installer)
     const root = makeProject();
     await materializeClaudeSettingsLocal(root, false);
-    expect(matchers(root)).toEqual(['Bash', 'Bash', 'Bash', 'Bash']);
+    expect(matchers(root)).toEqual(['Bash', 'Bash']);
     installAutoCompactHook({ projectRoot: root });
-    expect(matchers(root)).toEqual(['Bash', 'Bash', 'Bash', 'Bash', 'Bash|Task']);
+    expect(matchers(root)).toEqual(['Bash', 'Bash', 'Bash|Task']);
     // when: `peaks workspace init` runs again — twice, since one init only
     //       proves the entry was not deleted once
     const second = await materializeClaudeSettingsLocal(root, false);
     const third = await materializeClaudeSettingsLocal(root, false);
-    // then: the entry is still there at 5, both times
-    expect(matchers(root)).toEqual(['Bash', 'Bash', 'Bash', 'Bash', 'Bash|Task']);
-    expect(readPreToolUse(root).length).toBe(5);
+    // then: the entry is still there at 3, both times
+    expect(matchers(root)).toEqual(['Bash', 'Bash', 'Bash|Task']);
+    expect(readPreToolUse(root).length).toBe(3);
     // and: neither init reported drift — a merge without the matching
     //      comparator change would report `refreshed` here on EVERY init
     expect(second.action).toBe('already-current');
@@ -141,7 +168,7 @@ describe('the local hooks list is owned per entry, not per key', () => {
       matcher: 'Bash',
       hooks: [buildClaudeSettingsLocalJson().hooks.PreToolUse[0]!.hooks[0]]
     });
-    expect(matchers(root)).toEqual(['Bash', 'Bash', 'Bash', 'Bash', 'Bash|Task']);
+    expect(matchers(root)).toEqual(['Bash', 'Bash', 'Bash|Task']);
   });
 
   it('when an undeclared event sits beside a drifted entry, should keep the event', async () => {
@@ -332,7 +359,76 @@ describe('the local hooks list is owned per entry, not per key', () => {
     // then: it rewrites, and the retired entry is gone…
     expect(first.action).toBe('refreshed');
     expect(readFileSync(localSettingsPath(root), 'utf8')).not.toContain('write-gate');
-    expect(matchers(root)).toEqual(['Bash', 'Bash', 'Bash', 'Bash']);
+    expect(matchers(root)).toEqual(['Bash', 'Bash']);
+    // …and the next run is the fixed point, not a rewrite loop
+    const second = await materializeClaudeSettingsLocal(root, false);
+    expect(second.action).toBe('already-current');
+  });
+
+  it('when a pre-1.10.0 file still carries the two retired feedback hooks, should drop them', () => {
+    // given: the two entries TEMPLATE_VERSION 1.9.0 emitted into the consumer
+    //        template and 1.10.0 retired — this repository's own development
+    //        hooks, whose command could never resolve in a consumer (no
+    //        `src/**` ships) and whose registration moved to peaks-loop's own
+    //        tracked `.claude/settings.json`
+    const template = buildClaudeSettingsLocalJson().hooks.PreToolUse;
+    const retired = retiredFeedbackEntries();
+    expect(retired).toHaveLength(2);
+    // when: the merge runs over a file that still holds both
+    const merged = mergeTemplateOwnedHooks([...template, ...retired], template);
+    // then: both are gone — declaring less does not retire them, because
+    //       preserving undeclared entries is what the merge does
+    expect(merged).toEqual([...template]);
+    expect(JSON.stringify(merged)).not.toContain('pre-tool-');
+    // and: a user's own `Bash` group is NOT retired. A looser "drop anything
+    //      whose command is a `bash` script" rule would delete it, which is the
+    //      failure the narrow predicate exists to avoid.
+    const userOwned = {
+      matcher: 'Bash',
+      hooks: [{ type: 'command', command: 'bash "scripts/mine.sh"', shell: 'bash' }]
+    };
+    expect(mergeTemplateOwnedHooks([...template, ...retired, userOwned], template)).toEqual([
+      ...template,
+      userOwned
+    ]);
+  });
+
+  it('when a pre-1.10.0 consumer is compared and re-inited, should converge', async () => {
+    // given: a file an earlier release wrote — every entry the template
+    //        declares, the env exemptions, the two retired feedback hooks, and
+    //        the second writer's `Bash|Task` entry. Containment alone calls
+    //        this "current", which is why the comparator needs its own clause.
+    const root = makeProject();
+    const generated = buildClaudeSettingsLocalJson();
+    const seeded = {
+      ...generated,
+      hooks: {
+        PreToolUse: [
+          ...generated.hooks.PreToolUse,
+          ...retiredFeedbackEntries(),
+          {
+            matcher: 'Bash|Task',
+            hooks: [{ type: 'command', command: 'peaks code auto-compact --project .' }]
+          }
+        ]
+      }
+    };
+    seedLocalSettings(root, seeded);
+    expect(
+      templateContentMatches(
+        JSON.stringify(buildClaudeSettingsLocalJson()),
+        JSON.stringify(seeded)
+      ),
+      'a file carrying a retired feedback hook must not compare as current'
+    ).toBe(false);
+
+    // when: the materializer runs
+    const first = await materializeClaudeSettingsLocal(root, false);
+    // then: it rewrites, both retired entries are gone, and — the other half of
+    //       the claim — the entry this template does NOT own survives verbatim
+    expect(first.action).toBe('refreshed');
+    expect(readFileSync(localSettingsPath(root), 'utf8')).not.toContain('pre-tool-');
+    expect(matchers(root)).toEqual(['Bash', 'Bash', 'Bash|Task']);
     // …and the next run is the fixed point, not a rewrite loop
     const second = await materializeClaudeSettingsLocal(root, false);
     expect(second.action).toBe('already-current');
