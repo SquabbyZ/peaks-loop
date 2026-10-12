@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-12T10:35:32.769Z",
+  "updatedAt": "2026-10-12T12:42:17.315Z",
   "hot": {
     "rule": [
       {
@@ -2818,6 +2818,14 @@
         "updatedAt": "2026-10-08"
       },
       {
+        "name": "compare-through-git-filters-git-filter",
+        "kind": "project",
+        "description": "**实测**（一次性仓库，）： | | | |---|---| |  | **exit 0** —— git 说两侧同步 | | 暂存 blob | 12 B（LF，已被 clean filter 处理） | | 工作树文件 | 14...",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\compare-through-git-filters-git-filter.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-12-session-74bd69/txt/handoff.md",
+        "updatedAt": "2026-10-12"
+      },
+      {
         "name": "count-ceilings-cannot-force-action-finding",
         "kind": "project",
         "description": "实测（2026-10-12）： 在  里**不存在**（v8 改名了）；生效的是 （error）， 它**一直在**那 16 处上报，包括 4 处**写了 disable 但 disable 指向另一个（不存在的）规则**的地方。 因...",
@@ -2878,6 +2886,14 @@
         "kind": "project",
         "description": "实测（2026-10-12，）： | session | 前缀规则 | 产物规则 | |---|---|---| | 2026-10-11 | 8（4 个是  /  转储） | **4** | | 2026-10-10 | **0**...",
         "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\enumerate-by-artifact-not-by-filename.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-12-session-74bd69/txt/handoff.md",
+        "updatedAt": "2026-10-12"
+      },
+      {
+        "name": "env-flag-truthiness-false-no-off",
+        "kind": "project",
+        "description": "**实测**（2026-10-12，安全审计发现、我复现）： **形状**： —— 任何非空字符串都为真，包括 、、。 写的人**以为关掉了，实际打开了**。这是**一个读起来是「关」、行为是「开」的开关**， 而且它出现在**一处本...",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\env-flag-truthiness-false-no-off.md",
         "sourceArtifact": ".peaks/_runtime/2026-10-12-session-74bd69/txt/handoff.md",
         "updatedAt": "2026-10-12"
       },
