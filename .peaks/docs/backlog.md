@@ -3768,8 +3768,21 @@ the blocked command — it is that a gate which refuses legitimate work is the t
   **measurement universe**.
 - **Measured (the absorption)**: the real rule `no-require-imports` (severity **error**) was reporting all
   16 sites of the ESM `require()` family the whole time — and those 16 landed inside a count of **1758**,
-  i.e. ≈ nothing. Worse: the 4 `eslint-disable` comments guarding them named **`no-var-requires`, which
-  does not exist in ESLint v8**, so they suppressed nothing at all.
+  i.e. ≈ nothing. Worse: the 4 `eslint-disable` comments guarding them named **`no-var-requires`** while
+  the rule firing was `no-require-imports` — so they suppressed a rule that was not the one reporting.
+- **CORRECTED 2026-10-13, and the correction is the more useful half.** *(This item first read "named
+  `no-var-requires`, **which does not exist in ESLint v8**, so they suppressed nothing at all" — and that
+  is **false**. Measured directly against the installed plugin: `@typescript-eslint/eslint-plugin`
+  **8.66.0** defines `no-var-requires`, marked `deprecatedSince: 8.0.0` with
+  `replacedBy: ["@typescript-eslint/no-require-imports"]` — and **a deprecated rule still reports**. So
+  naming it would have suppressed **that** rule; the defect was a **mismatch between the rule suppressed
+  and the rule firing**, which is a different and more interesting failure than "the rule does not exist".
+  The false version had been carried into this item, into a slice's dispatch brief, and into that slice's
+  sha256-locked handoff — three carriers, none of them checkable by anything in the repository, and it was
+  caught only because a security reviewer read the installed plugin instead of the prose.)*
+- **The mechanism is untouched by the correction**: an upper bound on a count cannot make a single finding
+  act. Only the example was wrong, and it was wrong because it was copied between documents rather than
+  measured — which is the same failure 7.14 records for the error code `MISSING_REQUIRED_OPTION`.
 - **The inference, stated as a rule**: *an upper bound on a **number of findings** means no **individual**
   finding can force action.* Same family as 7.10 and 9.7 — an aggregate figure concealing an individual
   fact.
