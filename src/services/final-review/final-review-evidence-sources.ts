@@ -198,7 +198,12 @@ function baseEvidenceSourcesA(rid: string): EvidenceSource[] {
     {
       key: 'rd-code-review',
       label: 'RD code review',
-      segments: ['rd', 'code-review.md'],
+      // The request id is part of the filename so two slices in one session do
+      // not collide (the same reason as CODE_REVIEW in
+      // `src/services/artifacts/artifact-prerequisites.ts`); the bare name is
+      // the older tier and is the legacy fallback.
+      segments: ['rd', `code-review-${rid}.md`],
+      legacySegments: ['rd', 'code-review.md'],
       supports: ['no-new-bugs'],
       delivery: { kind: 'whole' }
     }
@@ -209,8 +214,20 @@ function baseEvidenceSourcesB(rid: string): EvidenceSource[] {
   return [
     {
       key: 'rd-security-review',
-      label: 'RD security review',
-      segments: ['rd', 'security-review.md'],
+      // The label names what the bytes ARE. The canonical path carries the
+      // independent `peaks-security-audit` envelope, so "RD security review"
+      // would now misname the producer — but the legacy tier really is the
+      // RD-authored review, so the parenthetical must cover both.
+      label: 'Security review (independent audit, or legacy RD review)',
+      // Mirrors AUDIT_SECURITY in
+      // `src/services/artifacts/artifact-prerequisites.ts`: the scoped
+      // `audit/security-${rid}.md` is canonical and `rd/security-review.md` —
+      // the v2.11.x RD slot the independent audit skill replaced — is the
+      // legacy tier. The mechanism holds ONE legacy location, so that entry's
+      // middle tier (`audit/security.md`) is not repeated here; no session on
+      // disk carries the bare name, and the audit skill writes this one.
+      segments: ['audit', `security-${rid}.md`],
+      legacySegments: ['rd', 'security-review.md'],
       supports: ['no-new-bugs'],
       delivery: { kind: 'whole' }
     },
