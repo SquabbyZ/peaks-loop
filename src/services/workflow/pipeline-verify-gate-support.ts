@@ -11,10 +11,10 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   getPrerequisitesFor,
-  prerequisiteBodyViolations,
   type ArtifactPrerequisite,
   type RequestType
 } from '../artifacts/artifact-prerequisites.js';
+import { prerequisiteBodyViolations } from '../artifacts/prerequisite-checks.js';
 import type {
   RequestArtifactRole,
   RequestArtifactState

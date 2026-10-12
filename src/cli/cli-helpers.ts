@@ -19,6 +19,44 @@ export type ProgramIO = {
   stderr: (text: string) => void;
 };
 
+/** The replaced range, by name: C0 … DEL … C1. */
+const LAST_C0_CODE_POINT = 0x1f;
+const DEL_CODE_POINT = 0x7f;
+const FIRST_C1_CODE_POINT = 0x80;
+const LAST_C1_CODE_POINT = 0x9f;
+
+const isControlCodePoint = (code: number): boolean =>
+  code <= LAST_C0_CODE_POINT ||
+  code === DEL_CODE_POINT ||
+  (code >= FIRST_C1_CODE_POINT && code <= LAST_C1_CODE_POINT);
+
+/**
+ * `warning` text as it may be PRINTED: control characters replaced with `?`,
+ * never truncated, so a reader sees that something was there and loses nothing.
+ *
+ * A warning's `path`/`message` can carry `gate-evidence-derivation`'s
+ * `gateEvidence.<key>`, whose key is parsed out of the handoff frontmatter — a
+ * quoted YAML key can decode to a newline and forge a line of this command's own
+ * output. Both branches (success, failure) call this, hence its home here.
+ *
+ * LIMITATION, so it is not read as a guarantee: `printResult` is not itself a
+ * sanitizer, so this holds per CALL SITE — a third warning-formatting site, or
+ * any caller passing unvetted text to `printResult`, is raw until it calls this.
+ * `printableToken` in `.husky/pipeline/contract-verdict.mjs` is the same defence.
+ * The two cannot share one implementation TODAY for a packaging reason, not in
+ * principle: `package.json#files` ships `dist/**`, `bin/**` and named `scripts/*`
+ * but not `.husky/**`, and `allowJs` is off — a shared module would have to be
+ * plain JS inside the shipped `src/` tree, which that boundary does not permit.
+ * Until it does, this copy is a latent drift.
+ */
+export function printableWarningText(value: string): string {
+  let printable = '';
+  for (const char of value) {
+    printable += isControlCodePoint(char.codePointAt(0) ?? 0) ? '?' : char;
+  }
+  return printable;
+}
+
 export function printResult<T>(io: ProgramIO, result: ResultEnvelope<T>, asJson = false): void {
   if (asJson) {
     io.stdout(JSON.stringify(result, null, 2));

@@ -552,6 +552,8 @@ export type TransitionRequestArtifactResult = RequestArtifactSummary & {
   previousState: string;
   content: string;
   bypassedPrerequisites?: PrerequisiteCheckResult;
+  /** Soft-passed prerequisites on a SUCCESSFUL transition (set only when non-empty). Never affects `ok`. */
+  prerequisiteWarnings?: PrerequisiteCheckResult['warnings'];
 };
 
 // Re-export the state-helper surface so external callers (CLI, tests)
@@ -747,6 +749,13 @@ export async function transitionRequestArtifact(
   }
   if (!prerequisiteResult.ok && options.allowIncomplete === true) {
     result.bypassedPrerequisites = prerequisiteResult;
+  }
+  // Soft-passed prerequisites are reported on the SUCCESS path too: until this,
+  // `prerequisiteResult.warnings` was read only inside the throw above, so a
+  // transition that soft-passed two prerequisites returned `ok: true` with the
+  // array dropped one frame later.
+  if (prerequisiteResult.warnings.length > 0) {
+    result.prerequisiteWarnings = prerequisiteResult.warnings;
   }
   return result;
 }

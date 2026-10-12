@@ -11,7 +11,12 @@ import {
 import { parseRole, parseStateForRole, VALID_ROLES } from './request-format-helpers.js';
 import { fail, ok } from 'peaks-loop-shared/result';
 
-import { addJsonOption, printResult, type ProgramIO } from '../cli-helpers.js';
+import {
+  addJsonOption,
+  printableWarningText,
+  printResult,
+  type ProgramIO
+} from '../cli-helpers.js';
 import type { RequestTransitionOptions } from './request-command-options.js';
 import { runTransitionPreflight } from './request-transition-preflight.js';
 import { reportTransitionFailure } from './request-transition-failures.js';
@@ -135,7 +140,15 @@ function printTransitionResult(
       },
       [
         ...(note === null ? [] : [note]),
-        ...(hooks.codegraphWarning === null ? [] : [hooks.codegraphWarning])
+        ...(hooks.codegraphWarning === null ? [] : [hooks.codegraphWarning]),
+        // A soft-passed prerequisite is a warning, not a silent pass: the
+        // envelope carries it (and `printResult` puts it on stderr for a human
+        // run). `data.prerequisiteWarnings` holds the structured entries.
+        ...(result.prerequisiteWarnings ?? []).map(
+          (warning) =>
+            `Soft prerequisite (not enforced): ${printableWarningText(warning.path)} ` +
+            `[${printableWarningText(warning.code)}] — ${printableWarningText(warning.message)}`
+        )
       ]
     ),
     options.json

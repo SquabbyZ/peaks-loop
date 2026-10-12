@@ -12,7 +12,12 @@ import {
 import { ConfirmationRequiredError } from '../../services/mode/mode-enforcement.js';
 import { fail } from 'peaks-loop-shared/result';
 
-import { getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
+import {
+  getErrorMessage,
+  printableWarningText,
+  printResult,
+  type ProgramIO
+} from '../cli-helpers.js';
 import type { RequestTransitionOptions } from './request-command-options.js';
 
 function reportPrerequisitesFailure(
@@ -39,8 +44,13 @@ function reportPrerequisitesFailure(
       },
       [
         ...error.missing.map((entry) => `Produce ${entry.path}: ${entry.description}`),
+        // Sanitised for the same reason the success branch sanitises: a
+        // `gateEvidence.<key>` warning can carry a control character decoded out
+        // of the handoff frontmatter, and `printResult` puts these on stderr.
         ...error.warnings.map(
-          (w) => `Soft-blocked (v2.13.3 back-compat window): ${w.path} — ${w.message}`
+          (w) =>
+            `Soft-blocked (v2.13.3 back-compat window): ${printableWarningText(w.path)} — ` +
+            `${printableWarningText(w.message)}`
         ),
         'Once every required artifact exists, rerun this transition.',
         'For exceptional cases (docs-only / config-only change), bypass with: --allow-incomplete --reason "<justification>"'

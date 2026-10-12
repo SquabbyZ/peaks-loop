@@ -80,9 +80,20 @@ vi.mock('../../../src/services/artifacts/request-artifact-service.js', async () 
 });
 
 import { registerRequestCommands } from '../../../src/cli/commands/request-commands.js';
+import { PrerequisitesNotSatisfiedError } from '../../../src/services/artifacts/request-artifact-state-helpers.js';
 
 const REQUEST_ID = '2026-09-03-cg-auto-request';
 const SESSION_ID = '2026-09-03-session-request-cg';
+
+/** True when `text` holds a C0 / DEL / C1 character — the range the CLI
+ *  printer's sanitizer replaces. Checked by code point, not by a regex: a regex
+ *  literal naming this range is an eslint error here (`no-control-regex`). */
+function hasControlCharacter(text: string): boolean {
+  return [...text].some((char) => {
+    const code = char.codePointAt(0) ?? 0;
+    return code < 0x20 || code === 0x7f || (code >= 0x80 && code <= 0x9f);
+  });
+}
 
 type CapturedIo = ReturnType<typeof makeCapturedIo>['captured'];
 
@@ -142,13 +153,21 @@ async function runTransitionHuman(state: string, wsPath: string): Promise<Captur
 function parseJson(captured: CapturedIo): {
   ok: boolean;
   warnings?: string[];
-  data: { codegraphRefresh?: unknown; state?: string };
+  data: {
+    codegraphRefresh?: unknown;
+    state?: string;
+    prerequisiteWarnings?: Array<{ path: string; code: string; message: string }>;
+  };
 } {
   const out = captured.stdout.join('\n');
   return JSON.parse(out) as {
     ok: boolean;
     warnings?: string[];
-    data: { codegraphRefresh?: unknown; state?: string };
+    data: {
+      codegraphRefresh?: unknown;
+      state?: string;
+      prerequisiteWarnings?: Array<{ path: string; code: string; message: string }>;
+    };
   };
 }
 
@@ -312,5 +331,159 @@ describe('Scenario: a11y — A2 a non-refresh is visible to the operator', () =>
     const captured = await runTransitionHuman('qa-handoff', ws.path);
     // then: nothing is reported
     expect(captured.stderrText()).toBe('');
+  });
+});
+
+// 1a of rid `rid-mut-report-warning-surfacing`. Same boundary, the other half
+// of the same defect: `checkPrerequisites` BUILT the soft-pass warnings and
+// `transitionRequestArtifact` read them only inside its failure `throw`, so a
+// transition that succeeded after soft-passing two prerequisites printed
+// nothing and a reader concluded every prerequisite had passed. The service
+// now copies them onto its result; these cases pin that the CLI turns them
+// into output — both the machine-readable entries in the payload and a
+// warning line the operator reads — without failing anything.
+describe('Scenario: a11y — a soft-passed prerequisite is reported, not fatal', () => {
+  let ws: TmpWorkspace;
+
+  /** The two warnings the real session `2026-10-12-session-74bd69` produced on
+   *  `rd → qa-handoff`: one per artifact, each naming its own code. */
+  const SOFT_PASSES = [
+    {
+      path: 'rd/third-party-review.md',
+      code: 'third-party-review-missing-deprecated-in-v2.15.0',
+      message: 'third-party reviewer absent — soft-blocked under the back-compat window.'
+    },
+    {
+      path: 'mut/mut-report.json',
+      code: 'mut-report-missing-deprecated-in-v2.14.0',
+      message: 'mutation report absent — soft-blocked under the back-compat window.'
+    }
+  ];
+
+  beforeEach(() => {
+    ws = useTmpWorkspace('peaks-request-prereq-warn-');
+    __m.refreshCodegraphAfterSlice.mockReset();
+    __m.transitionRequestArtifact.mockReset();
+    __m.refreshCodegraphAfterSlice.mockResolvedValue({ refreshed: true });
+  });
+
+  afterEach(() => {
+    cleanupTmpWorkspace();
+  });
+
+  it('when a transition soft-passes two prerequisites, should name each code in the payload and on stderr', async () => {
+    // given: a successful transition whose two prerequisites soft-passed
+    // when:  the transition runs on both output paths
+    // then:  it stays ok and exits zero, the structured entries ride the
+    //        payload, the envelope warnings tell the two artifacts apart by
+    //        code, and the operator reads them on stderr
+    __m.transitionRequestArtifact.mockResolvedValue({
+      role: 'rd',
+      requestId: REQUEST_ID,
+      state: 'qa-handoff',
+      sessionId: SESSION_ID,
+      prerequisiteWarnings: SOFT_PASSES
+    });
+    const previousExitCode = process.exitCode;
+    process.exitCode = undefined;
+    const json = await runTransition('qa-handoff', ws.path);
+    const human = await runTransitionHuman('qa-handoff', ws.path);
+    try {
+      const envelope = parseJson(json);
+      expect(envelope.ok).toBe(true);
+      expect(process.exitCode).toBeUndefined();
+      expect(envelope.data.prerequisiteWarnings).toEqual(SOFT_PASSES);
+      expect(envelope.warnings).toHaveLength(2);
+      expect(envelope.warnings?.[0]).toContain(SOFT_PASSES[0]?.code);
+      expect(envelope.warnings?.[1]).toContain(SOFT_PASSES[1]?.code);
+      expect(human.stderrText()).toContain('warning: Soft prerequisite (not enforced)');
+      expect(human.stderrText()).toContain(SOFT_PASSES[1]?.code);
+    } finally {
+      process.exitCode = previousExitCode;
+    }
+  });
+
+  it('when nothing soft-passed, should report no warnings anywhere — the control', async () => {
+    // given: a successful transition with no prerequisite soft-passed
+    // when:  the transition runs on both output paths
+    // then:  nothing is reported — so a non-empty list above is real news,
+    //        not the envelope always carrying something
+    __m.transitionRequestArtifact.mockResolvedValue({
+      role: 'rd',
+      requestId: REQUEST_ID,
+      state: 'qa-handoff',
+      sessionId: SESSION_ID
+    });
+    const json = await runTransition('qa-handoff', ws.path);
+    const human = await runTransitionHuman('qa-handoff', ws.path);
+    expect(parseJson(json).warnings).toEqual([]);
+    expect(parseJson(json).data.prerequisiteWarnings).toBeUndefined();
+    expect(human.stderrText()).toBe('');
+  });
+
+  it('when a warning carries a control character, should print it as `?` and add no line', async () => {
+    // given: a warning whose fields carry a newline and other control
+    //        characters — the shape `gateEvidence.<key>` can take when a quoted
+    //        YAML key in the handoff frontmatter decodes to one
+    // when:  the transition runs on both output paths
+    // then:  the printed line holds no raw control character and is ONE line
+    //        (a raw newline would forge a second line of this command's own
+    //        output), while the JSON envelope keeps the field values intact
+    const hostile = [
+      {
+        path: 'rd/evil\rmark\n[forged]',
+        code: 'code\u0007with\u009bbell',
+        message: 'line one\nwarning: forged second line\u0000'
+      }
+    ];
+    __m.transitionRequestArtifact.mockResolvedValue({
+      role: 'rd',
+      requestId: REQUEST_ID,
+      state: 'qa-handoff',
+      sessionId: SESSION_ID,
+      prerequisiteWarnings: hostile
+    });
+    const json = await runTransition('qa-handoff', ws.path);
+    const human = await runTransitionHuman('qa-handoff', ws.path);
+    const printed = human.stderrText();
+    expect(printed).toContain('[forged]');
+    expect(printed).toContain('code?with?bell');
+    // Per WRITE, not the joined text (`stderrText()` joins with `\n`, itself a
+    // control character): one write per line, and no forged second line.
+    expect(human.stderr.every((line) => !hasControlCharacter(line))).toBe(true);
+    expect(human.stderr).toHaveLength(1);
+    // The envelope is JSON, so `printResult` escapes these itself; the entry
+    // values survive byte-for-byte for a machine reader.
+    expect(parseJson(json).data.prerequisiteWarnings).toEqual(hostile);
+  });
+
+  it('when a FAILED transition carries a control character, should print it as `?` and add no line', async () => {
+    // given: the failure branch with the same hostile warning shape the reviewer
+    //        replayed — a `gateEvidence` key whose YAML decodes to a newline
+    //        (codepoints 97,10,98) plus a BEL (99,7,100)
+    // when:  the transition refuses
+    // then:  the failure's stderr holds no raw control character and is ONE
+    //        line per warning — the same defence as the success branch
+    const hostile = [
+      {
+        path: 'gateEvidence.a\nb',
+        code: 'code\u0007x\n',
+        message: 'FORGED BY HANDOFF KEY — c\u0007d\ne'
+      }
+    ];
+    __m.transitionRequestArtifact.mockRejectedValue(
+      new PrerequisitesNotSatisfiedError('rd', 'qa-handoff', SESSION_ID, [], hostile)
+    );
+    const human = await runTransitionHuman('qa-handoff', ws.path);
+    const printed = human.stderrText();
+    expect(printed).toContain('gateEvidence.a?b');
+    expect(printed).toContain('FORGED BY HANDOFF KEY — c?d');
+    // Per WRITE, not on the joined text: `stderrText()` joins with `\n`, which
+    // is itself a control character. Four writes — the `code: message` line and
+    // the three nextActions (the soft-blocked one carrying the warning); the
+    // forged key stays inside ONE of them instead of becoming a second line of
+    // this command's own output.
+    expect(human.stderr.every((line) => !hasControlCharacter(line))).toBe(true);
+    expect(human.stderr).toHaveLength(4);
   });
 });

@@ -4,6 +4,7 @@ import { pathExists } from 'peaks-loop-shared/fs';
 
 import { emitObservabilityEvent } from '../observability/observability-service.js';
 import { isUnsafePathInput } from '../../shared/path-safety.js';
+import { bodyViolationsIfDeclared, missingPrerequisiteWarning } from './prerequisite-checks.js';
 import type { RequestArtifactRole, RequestArtifactState } from './request-artifact-service.js';
 
 export type RequestType = 'feature' | 'bugfix' | 'refactor' | 'docs' | 'config' | 'chore';
@@ -75,16 +76,23 @@ export type ArtifactPrerequisite = {
    * the last of those, so the oldest tier still has to resolve.
    */
   legacyRelativePaths?: ReadonlyArray<string>;
+  /** Back-compat window — a missing file warns instead of failing; see `prerequisite-checks.ts`. */
+  backCompat?: boolean;
+  /** The release that CLOSES that window (e.g. `v2.14.0`); the warning code's suffix. */
+  backCompatUntil?: string;
 };
 
 export type PrerequisiteCheckResult = {
   ok: boolean;
   missing: Array<{ path: string; description: string }>;
   /**
-   * path that is currently missing but is in a 1-minor-release
-   * back-compat window. The transition gate does not throw on
-   * `missing`-only (so legacy callers keep working) but surfaces the
-   * warning to the operator so they can plan the v2.14.0 hard cut.
+   * Missing files inside a back-compat window (see
+   * `ArtifactPrerequisite.backCompat`). NOT a failure — the gate does not throw
+   * on these, so legacy callers keep working. They ARE reported:
+   * `transitionRequestArtifact` copies the list onto its success result and
+   * `peaks request transition` prints each one as an envelope warning, so a
+   * soft-passed prerequisite is not read as a passed one. `code` is derived per
+   * prerequisite (`prerequisite-checks.ts`), so it names which artifact.
    */
   warnings: Array<{ path: string; code: string; message: string }>;
 };
@@ -186,11 +194,14 @@ const AUDIT_PERF: ArtifactPrerequisite = {
 // rd-side CLI hard gate (blocks `rd → qa-handoff`), while qa-side
 // consumption remains soft.
 //
-// `backCompat: true` is set, a MISSING file downgrades to a warning
-// (`mut-report-missing-deprecated-in-v2.14.0`) instead of a hard
-// failure. The hard-fail behavior for `passed: false` is preserved
+// `backCompat: true` is set, a MISSING file downgrades to a warning instead
+// of a hard failure. The hard-fail behavior for `passed: false` is preserved
 // (the body still has to carry `"passed": true` when present).
 // v2.14.0 will remove `backCompat` and re-elevate missing → throw.
+// The warning's code is derived from this prerequisite
+// (`backCompatWarningCode` → `mut-report-missing-deprecated-in-v2.14.0`)
+// rather than hardcoded in the shared branch, so a consumer filtering on the
+// code cannot match a different artifact's warning.
 //
 // repo's own producer/reader constant is `mutReportPath()` in
 // `packages/peaks-loop-mut/src/services/mut/report-loader.ts`, which names
@@ -198,7 +209,7 @@ const AUDIT_PERF: ArtifactPrerequisite = {
 // caller. A `<rid>`-templated requirement here would be a name no producer
 // in the repo can write — a gate that exists only in prose, sitting behind
 // `backCompat: true` so it gates nothing at all. If mut ever gains a
-const MUT_REPORT: ArtifactPrerequisite & { backCompat?: boolean } = {
+const MUT_REPORT: ArtifactPrerequisite = {
   relativePath: 'mut/mut-report.json',
   description:
     'peaks-mut mutation + weak-assertion report (Plan 2, v2.12.0+). v2.13.1: the artifact contract requires this at rd:qa-handoff for feature / bugfix / refactor slices — `peaks workflow verify-pipeline` is what checks that, and it reads this table rather than the transition. v2.13.2: back-compat window — missing file downgrades to a warning (1-minor-release); passed:false still throws. The body must carry `"passed": true` when present; failed runs are blocked at this gate. CONFIG / DOCS / CHORE slices retain the legacy "no acceptance surface" exemption.',
@@ -208,7 +219,8 @@ const MUT_REPORT: ArtifactPrerequisite & { backCompat?: boolean } = {
   // and a literal `true` value to keep the gate as tight as possible
   // without depending on JSON parsing in the prereq resolver.
   mustContainAny: ['"passed": true', '"passed":true'],
-  backCompat: true
+  backCompat: true,
+  backCompatUntil: 'v2.14.0'
 };
 
 // v2.12.0 Group B Tier 5 — gate that the peaks-prd handoff (the
@@ -278,12 +290,13 @@ const KARPATHY_REVIEW: ArtifactPrerequisite = {
 // build. When `~/.peaks/config.json` lacks a `reviewer.providers`
 // section, the prereq is auto-marked `skipped: no-reviewer-config`
 // and the transition still passes (A4.3 fallbackOnError=skip).
-const THIRD_PARTY_REVIEW: ArtifactPrerequisite & { backCompat?: boolean } = {
+const THIRD_PARTY_REVIEW: ArtifactPrerequisite = {
   relativePath: 'rd/third-party-review.md',
   description:
     'v2.14.0 G4 third-party reviewer (peaks-reviewer skill) — must declare a `modelFamily` distinct from the karpathy-reviewer modelFamily (AC-4.4). Skipped when `~/.peaks/config.json` lacks `reviewer.providers` (>=2 entries); the prereq then resolves to a soft warning (`no-reviewer-config`) rather than a hard failure. The JSON sibling at `rd/third-party-review.json` carries the schema-validated ReviewerEnvelope (no free-form LLM JSON). v2.14.0 ships as a soft-warning prereq (1-minor-release back-compat window); v2.15.0 will hard-fail when the file is absent AND `reviewer.providers` is configured.',
   mustContain: ['third-party-review', 'modelFamily'],
-  backCompat: true
+  backCompat: true,
+  backCompatUntil: 'v2.15.0'
 };
 const TEST_CASES: ArtifactPrerequisite = {
   relativePath: 'qa/test-cases/<rid>.md',
@@ -504,76 +517,6 @@ async function resolvePrerequisiteAbsolutePath(
   return match ? join(dir, match) : null;
 }
 
-/**
- * The contract's BODY checks for one prerequisite, applied to `body`. Returns
- * one human-readable message per failed check, empty when the body satisfies
- * the contract.
- *
- * Exported because this contract has a SECOND enforcer: `peaks workflow
- * verify-pipeline` probes the same table for the paths it checks
- * (`pipeline-verify-gate-support.ts`), and a resolver that probed only
- * `existsSync` passed files this function rejects — a guard laxer than the
- * contract it claims to read. Both callers now share this one implementation,
- * so the checker cannot drift from the table again.
- */
-export function prerequisiteBodyViolations(
-  prerequisite: ArtifactPrerequisite,
-  body: string
-): string[] {
-  const violations: string[] = [];
-  const lowered = body.toLowerCase();
-  if (prerequisite.mustContain && prerequisite.mustContain.length > 0) {
-    const missingMarkers = prerequisite.mustContain.filter(
-      (marker) => !lowered.includes(marker.toLowerCase())
-    );
-    if (missingMarkers.length > 0) {
-      violations.push(
-        `${prerequisite.description} — missing section(s): ${missingMarkers.join(', ')}`
-      );
-    }
-  }
-  if (prerequisite.headingMustContain && prerequisite.headingMustContain.length > 0) {
-    // Slice 2.6.1.F: a line beginning with `#`, `##`, or `###` followed by
-    // the marker (case-insensitive). Fenced code blocks are NOT excluded
-    // here — a "heading" inside a code fence is rare and, when present,
-    // should still be reported as missing to keep the contract strict.
-    const headingLines = body
-      .split('\n')
-      .map((line) => line.trim())
-      .filter((line) => /^#{1,3}\s+/.test(line));
-    const loweredHeadings = headingLines.map((h) => h.toLowerCase());
-    const missingHeadings = prerequisite.headingMustContain.filter(
-      (marker) => !loweredHeadings.some((h) => h.includes(marker.toLowerCase()))
-    );
-    if (missingHeadings.length > 0) {
-      violations.push(
-        `${prerequisite.description} — missing heading(s): ${missingHeadings.join(', ')}`
-      );
-    }
-  }
-  if (prerequisite.mustContainAny && prerequisite.mustContainAny.length > 0) {
-    const hitAny = prerequisite.mustContainAny.some((marker) =>
-      lowered.includes(marker.toLowerCase())
-    );
-    if (!hitAny) {
-      violations.push(
-        `${prerequisite.description} — none of the escape-hatch markers present: ${prerequisite.mustContainAny.join(', ')}`
-      );
-    }
-  }
-  return violations;
-}
-
-/** True when `prerequisite` declares any body check at all. Guards the read so
- *  a prereq with no body contract is never opened (unchanged behaviour). */
-function hasBodyChecks(prerequisite: ArtifactPrerequisite): boolean {
-  return (
-    (prerequisite.mustContain?.length ?? 0) > 0 ||
-    (prerequisite.headingMustContain?.length ?? 0) > 0 ||
-    (prerequisite.mustContainAny?.length ?? 0) > 0
-  );
-}
-
 export async function checkPrerequisites(
   options: CheckPrerequisitesOptions
 ): Promise<PrerequisiteCheckResult> {
@@ -615,25 +558,23 @@ export async function checkPrerequisites(
       options.requestId
     );
     if (absolute === null) {
-      // file downgrades to a warning, NOT a hard failure. v2.14.0
-      // will remove this branch and re-elevate missing → throw.
-      const backCompat = (prerequisite as { backCompat?: boolean }).backCompat === true;
-      if (backCompat) {
-        warnings.push({
-          path: relative,
-          code: 'mut-report-missing-deprecated-in-v2.14.0',
-          message: `${prerequisite.description} — file missing; soft-blocked under v2.13.2 1-minor back-compat window. v2.14.0 hard-fail.`
-        });
+      // A `backCompat` prerequisite downgrades a missing file to a warning, NOT
+      // a hard failure; v2.14.0/v2.15.0 re-elevate it. The decision and the
+      // code that names the artifact live in `prerequisite-checks.ts`.
+      const softWarning = missingPrerequisiteWarning(prerequisite, relative);
+      if (softWarning !== null) {
+        warnings.push(softWarning);
         continue;
       }
       missing.push({ path: relative, description: prerequisite.description });
       continue;
     }
-    if (hasBodyChecks(prerequisite)) {
-      const body = await readFile(absolute, 'utf8');
-      for (const description of prerequisiteBodyViolations(prerequisite, body)) {
-        missing.push({ path: relative, description });
-      }
+    // Read handed over as a thunk: the no-body-contract guard lives with the check.
+    const bodyViolations = await bodyViolationsIfDeclared(prerequisite, () =>
+      readFile(absolute, 'utf8')
+    );
+    for (const description of bodyViolations) {
+      missing.push({ path: relative, description });
     }
   }
   // own `gateEvidence` DECLARATION must be true — every path it names must
