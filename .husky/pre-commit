@@ -44,6 +44,14 @@
 #                reached a commit with every gate green.
 set -e
 pnpm exec lint-staged
+# Staged-parity leg. APPENDED, on purpose, and BEFORE the artifact-contract leg:
+# it is cheaper (~250 ms vs ~610 ms for this session's commits, both measured
+# 2026-10-12) and it is about what is being committed, which the legs after it
+# presuppose. Design, the edges, and what it deliberately does not cover:
+# .husky/peaks-gate-staged-parity.mjs (its decisions are in .husky/staged-parity/).
+# Plain `node`, not tsx: it reads no `.ts`, so it needs no boot — a leg that
+# spawned tsx would cost more than it saves.
+node .husky/peaks-gate-staged-parity.mjs
 # Artifact-contract leg. APPENDED, on purpose: the lint-staged leg above keeps
 # its order and its behaviour, and this one is not a ratchet over staged files
 # but a whole-session judgement, so it has nothing to sequence against.

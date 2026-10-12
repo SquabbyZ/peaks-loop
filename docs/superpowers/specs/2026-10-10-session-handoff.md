@@ -60,7 +60,7 @@ node .husky/peaks-gate.mjs repo                        # 期望 all whole-repo c
 > **下面各条不再严格按「会不会坑到你」排序**——2.13 / 2.14 / 2.15 是后补的。但 **§2.1**（负载型
 > 假红）与 **§2.2**（本仓两条红线今天都不拦）仍然最该先读，它们会直接浪费你一次判断。
 
-### 2.1 全量套件里有两条**负载敏感**测试，会给你假红 ← **2026-10-11 新增，最会坑你的一条**
+### 2.1 全量套件里有**负载敏感**测试，会给你假红 ← **2026-10-11 新增，最会坑你的一条**（**本节标题原写「两条」—— 实测是六条，见下方更正**）
 
 在 S2 收尾时实测：**同一棵树**上三次全量跑，红了两次，而**红的不是同一个测试**。
 
@@ -68,6 +68,19 @@ node .husky/peaks-gate.mjs repo                        # 期望 all whole-repo c
 |---|---|---|---|
 | `tests/unit/standards/esm-relative-import-extension.test.ts` | `Error: Test timed out in 30000ms` | **18/18 通过，两次** | 它做一次**全仓 AST 遍历**并与 `git ls-files` 逐集合比对；机器被占满时超过 vitest 默认的 30s |
 | `tests/unit/services/web/web-daemon-race.test.ts` | `bootCount` 得 2 而非 1 | **3/3 通过** | 并发用例，负载下两个调用方各起一个 daemon |
+
+> **⚠️ 2026-10-12 更正：上表只列了两条，实测是六条。** 其余四条在 2026-10-11 的 S2 收尾里
+> 陆续撞到，第六条在 2026-10-12 的 S-3 收尾里由 QA 撞到：
+>
+> | 测试 | 红法 | 单独跑 |
+> |---|---|---|
+> | `tests/unit/lint/eslint-rules-config-coverage.test.ts` | `Test timed out in 30000ms` —— 加载整份 ESLint 配置并逐条核 `@typescript-eslint` ruleId | 11/11，**18.51s** |
+> | `tests/unit/slice/slice-check-service.test.ts` | `Test timed out in 120000ms` —— 对着**本仓库**跑一次类型检查 | 11/11，**42.69s** |
+> | `tests/unit/hooks/code-gate-driver.test.ts` | `Test timed out in 30000ms` —— 每条用例 `spawnSync` 一个 tsx 进程，启动就是成本 | 13/13 通过 |
+> | `tests/unit/standards/no-mcp-source-import.test.ts` | **ENOENT**，不是超时 —— 另一个并发测试把 `tests/fixtures/bdd-reporter-tmp/case-*/` 在遍历中途删掉了 | 23/23 通过 |
+>
+> **这一条同时更正本节的方法论**：上文说「看失败文本是不是 `Test timed out`」，而那只能覆盖
+> 六条里的五条。**通用的判据是「单独跑那个文件过不过」，不是「是不是超时」。**
 
 **为什么它会坑你**：一条红出现在你**没碰过**的目录里（`standards/`、`services/web/`），而失败形式是**超时**而不是断言——很容易被读成"我的改动弄坏了什么"，或者被当成噪声忽略。
 
@@ -315,6 +328,19 @@ function skippedEnvelope(reason: string): ReviewerEnvelope {
 硬阻断家族）；且它的头一次推送就在本地门上红过一次（`code-gate-driver.test.ts` 一条负载型超时，
 重试即过）。
 
+> **⚠️ 2026-10-12 更正：上段有三个数字与实际盘上的证据对不上。** 做 S-3 门 2 时逐个核出来的，
+> **原文保留在上，更正记在这里**：
+>
+> | 原文说 | 实际 | 怎么核的 |
+> |---|---|---|
+> | `race/` 下「**（4 条）**」 | **5 个文件** | `ls .peaks/_runtime/2026-10-11-session-5ac396/race/` |
+> | 「4 个任务里**只有 1 个**真正压到核心能力（本窗口直改硬阻断家族）」 | 按可复现定义是 **3 个**：`rid-delete-orphan-enforcer`（牵 `src/`）· `rid-lint-execution-failed-reason`（牵 `src/`）· `rid-loop-hygiene-count`（牵 `tests/unit/`）。**原文的括号自相矛盾** —— 它把「核心能力」定义为「本窗口直改硬阻断家族」，而三条符合 | 逐条读五份 trace 的「Files changed」 |
+> | 那个「**1**」的出处 | **不可考**。它对应的任务集**不是**种子集：原文提到的本地门超时指的是 exit-2 覆盖（`8c1f5247`），而**那条在 `race/` 下没有 trace** | `git show --name-only 8c1f5247` + `grep -rln` 该目录 |
+>
+> 进一步的更正见 `docs/superpowers/specs/2026-10-10-peaks-race-code-design.md` §5.5.2 与
+> `.peaks/memory/race-code-2.md`。**另有一条与本节相关的记录缺口**：`8c1f5247` 走过这条泳道却
+> **没有 §7.2 要求的 per-task trace** —— 那是记录要求本身漏了一条，已记为 S-3 的 U-E。
+
 **S2 的完整审计链**（32 条 Ruling、15 条 deferred minor 的逐条 triage、逐任务证据）在 `.superpowers/sdd/2026-10-10-peaks-race-code-s2/progress.md`——**gitignored**，所以它不会随仓库走。**该不该留、什么时候删，由用户定**（S0 的 ledger 同样保留着）。
 
 ### 2.13 `peaks dashboard summary` 报的三个指标**结构上恒为 0** ← **2026-10-11 记入，2026-10-12 已交付（见本节末）**
@@ -370,7 +396,9 @@ $ peaks dashboard summary --json
    **注意**：该 skill 明文声称有防这条的守卫（*"a name that appears on both sides of the
    diff … are reported as changes, not as removals"*）——**它没有生效**，值得单独查。
 2. **`--session-id` 是必填的**，而 skill 写"省略时默认取活动绑定"；实测省略即
-   `MISSING_REQUIRED_OPTION`。**另一条文档落后于代码。**
+   `MISSING_REQUIRED_FLAG`（**2026-10-12 订正：本节原写 `MISSING_REQUIRED_OPTION`，代码在
+   `final-review-prepare-command.ts:84` 返回的是 `MISSING_REQUIRED_FLAG`；那个错标识符被抄进了
+   `skills/peaks-final-review/SKILL.md`，两边现已一并订正**）。**另一条文档落后于代码。**
 
 **同时证伪的一条**：skill 说真 provider 不可达（`--llm-provider anthropic` → `serviceWired:false`）。
 **实测可达**：`status: review-complete`、`providerBinding: anthropic-messages-api`、

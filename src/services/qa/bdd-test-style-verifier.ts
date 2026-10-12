@@ -207,12 +207,27 @@ function checkBody(
   };
 }
 
+/**
+ * The callback block of an `it` / `test` call, or null when the call has
+ * no block-bodied callback.
+ *
+ * THE CALLBACK IS NOT `arguments[1]`. vitest accepts an options object
+ * between the description and the callback — `it(name, { timeout }, fn)` —
+ * and this repo's own test files use that overload. Read at a fixed
+ * position, the options object is neither an arrow nor a function
+ * expression, so this returned null, the comment check never ran, and a
+ * conformant file came back `missing-given-when-then`: a WRONG verdict,
+ * not a missed one. So the callback is the LAST argument that is an arrow
+ * or a function expression, at whatever arity.
+ */
 function getCallbackBlock(call: ts.CallExpression): ts.Block | null {
-  const callback = call.arguments[1];
-  if (callback === undefined) return null;
-  if (!ts.isArrowFunction(callback) && !ts.isFunctionExpression(callback)) return null;
-  if (!callback.body || !ts.isBlock(callback.body)) return null;
-  return callback.body;
+  for (let i = call.arguments.length - 1; i >= 0; i -= 1) {
+    const arg = call.arguments[i];
+    if (arg === undefined) continue;
+    if (!ts.isArrowFunction(arg) && !ts.isFunctionExpression(arg)) continue;
+    return ts.isBlock(arg.body) ? arg.body : null;
+  }
+  return null;
 }
 
 function checkBlockLeadingComments(

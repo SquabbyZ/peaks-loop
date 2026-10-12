@@ -97,18 +97,38 @@ If any precondition is missing, **STOP** and route back to the responsible skill
 > **the rid is positional**. Use the CLI.
 
 ```bash
-peaks prepare-final-review <rid> [--session-id <sid>] [--project <path>] [--llm-provider <name>] [--json]
+peaks prepare-final-review <rid> --session-id <sid> [--project <path>] [--llm-provider <name>] [--json]
 ```
 
 - `<rid>` is **positional** (not `--rid`). It resolves to `.peaks/_runtime/<sessionId>/audit-goal/<rid>.json`.
-- `--session-id` defaults to the active workspace binding when omitted.
-- **`--llm-provider` defaults to `stub`, and `stub` is the only provider that works today.**
-  `stub` runs no real review — it returns a scaffold envelope so CI can prove the route is reachable.
-  Verified 2026-09-12: passing a real provider (`--llm-provider anthropic`) returns
-  `status: not-applicable` / `serviceWired: false` / `providerBinding: unknown` and tells you to re-run
-  with `stub`; the CLI's own nextAction calls real-provider binding "a follow-up slice". So there is
-  currently **no reachable path to a real 4-dim review** — confirming the route works is all `stub`
-  can do.
+- **`--session-id` is REQUIRED.** It is not inferred from the active binding: the CLI validates it and
+  refuses an empty value.
+  > **⚠️ 2026-10-12 correction.** This line read *"`--session-id` defaults to the active workspace
+  > binding when omitted"* and the usage line above showed it as optional. **Both were false** —
+  > omitting it fails with `MISSING_REQUIRED_FLAG` (`final-review-prepare-command.ts:84` returns that
+  > code — **not `MISSING_REQUIRED_OPTION`, which is what the handoff §2.14 recorded and what an
+  > earlier version of this line repeated**; the wrong identifier had been copied between documents
+  > without anyone reading the code. `final-review-commands.ts:51` declares the option as required, so
+  > it is not inferred from the binding.) The validator also rejects `..`, `/` and `\` in the value.
+  > segment and rejects an empty string). Recorded in
+  > `docs/superpowers/specs/2026-10-10-session-handoff.md` §2.14 as a doc-behind-code drift; fixed here.
+- **`--llm-provider` defaults to `stub`.** `stub` runs no real review — it returns a
+  `status: scaffold-only` / `providerBinding: stub` envelope so the route's reachability can be proven
+  without spending a model call.
+- **A real provider is reachable.** `--llm-provider anthropic` returns `status: review-complete` with
+  `providerBinding: anthropic-messages-api`.
+  > **⚠️ 2026-10-12 correction.** This block previously asserted the opposite — *"`stub` is the only
+  > provider that works today"*, plus a "verified 2026-09-12" measurement of
+  > `status: not-applicable` / `serviceWired: false` / `providerBinding: unknown`, concluding there was
+  > **no reachable path to a real 4-dim review**. **That is no longer true and was measured false twice
+  > on 2026-10-12** (once per slice), on both a `feature` and a `bugfix` rid.
+  >
+  > What the old note was really describing is a *different* problem, and it is worth keeping: a real
+  > review's four dimensions can still come back `inconclusive` — but because of **evidence delivery**,
+  > not the provider. The assembler inlines a source **whole or not at all** against a per-file cap, so
+  > a thorough artifact (a 42 KB test-case file, a 28 KB PRD handoff) is truncated and the dimension
+  > cannot be judged. **Writing more evidence can therefore make a dimension less judgeable.** See
+  > `.peaks/_runtime/2026-10-12-session-74bd69/sc/rollout-findings.md` §S-7.
 - `--json` is required for machine consumption (peaks-code, peaks-txt, downstream CI).
 
 Calling the service directly (`prepareFinalReview(rid, { projectRoot, sessionId, llmRunner })`) remains

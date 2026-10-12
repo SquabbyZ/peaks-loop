@@ -166,11 +166,11 @@ function stubPeaks(completeRids: readonly string[]): {
   };
 }
 
-// The budget is declared on the DESCRIBE, not per test, because this file's
-// spawns are the class `_setup/subprocess-timeouts.ts` exists for and the BDD
-// verifier (`src/services/qa/bdd-test-style-verifier.ts`) reads `it`'s SECOND
-// argument as the callback: `it(name, { timeout }, fn)` has no block body to it,
-// so the triple below would be rejected as `missing-given-when-then`.
+// The budget is declared on the DESCRIBE, not per test: this file's spawns are the
+// class `_setup/subprocess-timeouts.ts` exists for. It ALSO went here because the
+// BDD verifier read `it`'s SECOND argument as the callback, so the triple below came
+// back `missing-given-when-then` — fixed 2026-10-12 (FIX B of
+// rid-s3-artifact-contract-enforcement), which now finds the callback at any position.
 describe('Scenario: pipeline-contract gate', { timeout: SUBPROCESS_TEST_TIMEOUT_MS }, () => {
   it('when a rid is missing rd/code-review-<rid>.md, should refuse the commit and name that path', () => {
     // given: a session whose only rid is a feature slice still in draft
@@ -353,7 +353,9 @@ describe('Scenario: pipeline-contract gate', { timeout: SUBPROCESS_TEST_TIMEOUT_
     expect(verdict.exitCode).toBe(0);
     expect(verdict.lines).toHaveLength(7);
     expect(verdict.lines[0]).toContain('x?peaks-gate-pipeline: forged');
-    expect(verdict.lines.some((line) => line.startsWith('peaks-gate-pipeline: forged'))).toBe(false);
+    expect(verdict.lines.some((line) => line.startsWith('peaks-gate-pipeline: forged'))).toBe(
+      false
+    );
   });
 
   it('when a scope holds no rid, should say so instead of printing an empty list', () => {
@@ -507,11 +509,14 @@ describe('Scenario: pipeline-contract gate', { timeout: SUBPROCESS_TEST_TIMEOUT_
     // given: an environment whose reads throw, which the leg touches on its way in
     // when:  the entry point runs
     // then:  main catches the throw, prints the refusal, and exits non-zero
-    const env = new Proxy<NodeJS.ProcessEnv>({}, {
-      get(): never {
-        throw new Error('env read refused');
+    const env = new Proxy<NodeJS.ProcessEnv>(
+      {},
+      {
+        get(): never {
+          throw new Error('env read refused');
+        }
       }
-    });
+    );
     const previousCode = process.exitCode;
     const errors = vi.spyOn(console, 'error').mockImplementation(() => {});
     try {
