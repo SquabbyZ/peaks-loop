@@ -21,7 +21,7 @@
  * that's your call". A warning is the right surface — let the LLM /
  * human read the reason and decide.
  */
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { withFileLockSync } from 'peaks-loop-shared-channel';
 
@@ -116,7 +116,6 @@ export function resetBatch(projectRoot: string, sid: string, batchId: string): v
   const path = batchCounterPath(projectRoot, sid, batchId);
   if (existsSync(path)) {
     try {
-      const { unlinkSync } = require('node:fs') as typeof import('node:fs');
       unlinkSync(path);
     } catch {
       // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)

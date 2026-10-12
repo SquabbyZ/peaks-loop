@@ -1,7 +1,7 @@
 // The cycle-file index seam for `--capture-score`. Pure path/IO plus its own path-safety
 // contract; it owns no command registration, which is why it lives outside the
 // registrar that calls it.
-import { existsSync } from 'node:fs';
+import { existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { isUnsafePathInput } from '../../shared/path-safety.js';
 
@@ -22,11 +22,9 @@ export function nextEvalCaptureIndex(projectRoot: string, sid: string, rid: stri
   }
   const dir = join(projectRoot, '.peaks', '_runtime', sid, 'loop', rid, 'cycles');
   if (!existsSync(dir)) return 1;
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const fs = require('node:fs') as typeof import('node:fs');
   let entries: string[];
   try {
-    entries = fs.readdirSync(dir);
+    entries = readdirSync(dir);
   } catch {
     return 1;
   }

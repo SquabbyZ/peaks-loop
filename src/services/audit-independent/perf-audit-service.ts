@@ -21,7 +21,7 @@
  *   - Companion: `src/services/audit-independent/security-audit-service.ts`
  */
 
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync, mkdirSync, renameSync } from 'node:fs';
 import { join, resolve, isAbsolute } from 'node:path';
 import { createHash } from 'node:crypto';
 import { REQUEST_ID_PATTERN } from '../artifacts/request-artifact-service.js';
@@ -390,7 +390,6 @@ export function writePerfAuditArtifact(
   const tmpPath = `${targetPath}.tmp`;
   writeFileSync(tmpPath, body, 'utf8');
   // Sync rename: on Windows, fs.renameSync overwrites if target exists (Node 22+)
-  const { renameSync } = require('node:fs') as typeof import('node:fs');
   renameSync(tmpPath, targetPath);
   return targetPath;
 }

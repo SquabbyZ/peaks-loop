@@ -21,6 +21,7 @@
  *
  * File budget: ≤ 800 lines (Karpathy §2).
  */
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { dispatchEvaluator, type EvaluatorVerdictEnvelope } from './evaluator-dispatcher.js';
 import {
@@ -147,14 +148,10 @@ function loadMostRecentCycleFromSubAgents(
 }
 
 function loadMostRecentCycleFromDir(dir: string, rid: string): MonotonicCycle | null {
-  // Lazily import so unit tests in non-windows environments don't pull
-  // node:fs through a static `import`.
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const fs = require('node:fs') as typeof import('node:fs');
-  if (!fs.existsSync(dir)) return null;
+  if (!existsSync(dir)) return null;
   const readdir: LoadResult<string[]> = (() => {
     try {
-      return { ok: true, value: fs.readdirSync(dir) };
+      return { ok: true, value: readdirSync(dir) };
     } catch (err) {
       return { ok: false, reason: classifyFsError(err) };
     }
@@ -172,7 +169,7 @@ function loadMostRecentCycleFromDir(dir: string, rid: string): MonotonicCycle | 
   const target = join(dir, `cycle-${bestCycle}.json`);
   const readFile: LoadResult<string> = (() => {
     try {
-      return { ok: true, value: fs.readFileSync(target, 'utf8') };
+      return { ok: true, value: readFileSync(target, 'utf8') };
     } catch (err) {
       return { ok: false, reason: classifyFsError(err) };
     }

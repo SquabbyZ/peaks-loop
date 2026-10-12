@@ -18,6 +18,8 @@
  *     from `$PEAKS_CALLER_ID` env var) MUST pass `--i-have-reviewed`
  *     in addition to `--reason`.
  */
+import { execFileSync } from 'node:child_process';
+import { userInfo } from 'node:os';
 import { readSkipState, writeSkipState, type WorkflowSkipState } from './workflow-state-store.js';
 import { showRequestArtifact } from '../artifacts/request-artifact-service.js';
 import type { RequestType } from '../artifacts/artifact-prerequisites.js';
@@ -267,8 +269,6 @@ function pathFromStateFile(projectRoot: string, sessionId: string, rid: string):
  *  unavailable. Never throws. */
 function resolveSkipAppliedBy(): string {
   try {
-    // Lazy require so the unit tests can stub via process.env.
-    const { execFileSync } = require('node:child_process') as typeof import('node:child_process');
     const out = execFileSync('git', ['config', '--global', 'user.name'], {
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'ignore'],
@@ -283,8 +283,7 @@ function resolveSkipAppliedBy(): string {
     // fall through
   }
   try {
-    const os = require('node:os') as typeof import('node:os');
-    const info = os.userInfo();
+    const info = userInfo();
     return info.username;
   } catch {
     return 'unknown';

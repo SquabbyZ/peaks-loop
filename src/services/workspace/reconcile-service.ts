@@ -308,7 +308,6 @@ function readActiveSkillSessionId(projectRoot: string): string | null {
   if (!existsSync(pathToRead)) return null;
   try {
     // Sync read: tiny file, no I/O benefit from async
-    const { readFileSync } = require('node:fs') as typeof import('node:fs');
     const raw = readFileSync(pathToRead, 'utf8');
     const parsed = JSON.parse(raw) as { sessionId?: unknown };
     if (typeof parsed?.sessionId === 'string' && parsed.sessionId.length > 0) {

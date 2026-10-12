@@ -19,9 +19,11 @@
  * The export is intentional — the helper has zero side effects and
  * keeps the dispatch action handler small.
  */
+
+import { execFileSync } from 'node:child_process';
+
 export function runGitLsFiles(projectRoot: string, glob: string): readonly string[] {
   try {
-    const { execFileSync } = require('node:child_process') as typeof import('node:child_process');
     const stdout = execFileSync('git', ['ls-files', '--', glob], {
       cwd: projectRoot,
       encoding: 'utf8',

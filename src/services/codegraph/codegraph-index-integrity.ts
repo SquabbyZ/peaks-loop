@@ -382,6 +382,8 @@ let cachedUpstreamGrammars: UpstreamGrammars | null = null;
  */
 function loadUpstreamGrammars(): UpstreamGrammars {
   if (cachedUpstreamGrammars === null) {
+    // Deliberate, and not a missed ESM conversion: `grammarsPath` is computed
+    // at runtime, which no static `import` can express — see the ESM guard.
     const require = createRequire(import.meta.url);
     const { moduleDir } = resolveCodegraphUpstreamLayout();
     const grammarsPath = join(moduleDir, 'extraction', 'grammars.js');

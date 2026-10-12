@@ -59,9 +59,7 @@ function readStdinSync(): unknown {
   // Node 22: read stdin synchronously via fs.readFileSync(0, 'utf8').
   // We use the file descriptor 0 convention.
   try {
-    // Lazy import to avoid pulling readline at module load
-    const { readFileSync: rfs } = require('node:fs') as typeof import('node:fs');
-    const raw = rfs(0, 'utf8');
+    const raw = readFileSync(0, 'utf8');
     if (raw.trim().length === 0) {
       throw new Error('stdin was empty; expected JSON envelope on stdin or --envelope <path>');
     }

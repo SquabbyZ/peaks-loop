@@ -14,6 +14,9 @@
  * File budget: ≤ 800 lines (Karpathy §2).
  */
 
+import { readFileSync, readdirSync } from 'node:fs';
+import { join } from 'node:path';
+
 import type {
   CheckMonotonicOptions,
   MonotonicCycle,
@@ -193,15 +196,10 @@ function classifyFsError(err: unknown): 'NOT_FOUND' | 'IO_ERROR' {
  *  .peaks/_sub_agents/<sid>/shared/ 跨批 signal → 不 crash").
  *  Pure helper; only present for the cross-session case. */
 export function loadCrossSessionSignal(projectRoot: string, sid: string): MonotonicCycle | null {
-  // Lazily import so unit tests in non-windows environments don't pull
-  // node:fs through a static `import` (test envs stay small).
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const fs = require('node:fs') as typeof import('node:fs');
-  const path = require('node:path') as typeof import('node:path');
-  const sharedDir = path.join(projectRoot, '.peaks', '_sub_agents', sid, 'shared');
+  const sharedDir = join(projectRoot, '.peaks', '_sub_agents', sid, 'shared');
   const readdir: LoadResult<string[]> = (() => {
     try {
-      return { ok: true, value: fs.readdirSync(sharedDir) };
+      return { ok: true, value: readdirSync(sharedDir) };
     } catch (err) {
       return { ok: false, reason: classifyFsError(err) };
     }
@@ -217,10 +215,10 @@ export function loadCrossSessionSignal(projectRoot: string, sid: string): Monoto
     if (best === null || cycle > best) best = cycle;
   }
   if (best === null) return null;
-  const target = path.join(sharedDir, `cycle-${best}.json`);
+  const target = join(sharedDir, `cycle-${best}.json`);
   const readFile: LoadResult<string> = (() => {
     try {
-      return { ok: true, value: fs.readFileSync(target, 'utf8') };
+      return { ok: true, value: readFileSync(target, 'utf8') };
     } catch (err) {
       return { ok: false, reason: classifyFsError(err) };
     }

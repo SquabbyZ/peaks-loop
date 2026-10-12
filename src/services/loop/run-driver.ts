@@ -21,7 +21,7 @@
  * in-process lock flag stops two concurrent `peaks loop run` calls (same
  * sid+rid) corrupting the cycle index; cross-process locking is out of scope.
  */
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   resolveLoopSpec,
@@ -477,13 +477,9 @@ function loadCycleAt(
 }
 
 function parseCycleFromPath(path: string, fallbackCycle: number): MonotonicCycle | null {
-  // Defer to monotonic-runner via a lazy require (the function is
-  // small and avoids leaking its internals).
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const fs = require('node:fs') as typeof import('node:fs');
   const readFile: LoadResult<string> = (() => {
     try {
-      return { ok: true, value: fs.readFileSync(path, 'utf8') };
+      return { ok: true, value: readFileSync(path, 'utf8') };
     } catch (err) {
       return { ok: false, reason: classifyFsError(err) };
     }

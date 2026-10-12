@@ -8,6 +8,7 @@
  */
 
 import type { Command } from 'commander';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { resolve as resolvePath } from 'node:path';
 import { findProjectRoot } from '../../services/config/config-safety.js';
 import {
@@ -48,7 +49,6 @@ export function registerDocCommands(program: Command, io: ProgramIO): void {
       if (opts.output !== undefined) {
         // Write to file
         try {
-          const { writeFileSync, mkdirSync } = require('node:fs') as typeof import('node:fs');
           mkdirSync(resolvePath(opts.output, '..'), { recursive: true });
           writeFileSync(resolvePath(opts.output), md, 'utf8');
           printResult(
