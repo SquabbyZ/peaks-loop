@@ -3522,4 +3522,471 @@ the blocked command — it is that a gate which refuses legitimate work is the t
 - **Related, and worth fixing with it**: the same over-broad match means `grep -r 'vitest … | tail' docs/`
   — a legitimate search in the repository that documents this very rule — is refused.
 
+---
+
+## 9. Drained from the 2026-10-12 session — race gate-2, the ESM sweep, the artifact contract (2026-10-13)
+
+> **What this section is, and why it exists.** The 2026-10-12 session (`2026-10-12-session-74bd69`)
+> recorded its own structural findings in two carriers, and **neither is tracked**:
+> `.peaks/_runtime/<sid>/sc/rollout-findings.md` (S-1…S-11 plus a same-day corrections block) and
+> `.peaks/_runtime/<sid>/txt/handoff.md` §4–§8 (S-12…S-22, the slice's own leftovers, and the
+> still-open U-items). `git check-ignore -v` attributes both to `.gitignore:15` (`.peaks/_runtime/`).
+> This is §7's complaint — *two documents holding "what is left", in two directories* — one level
+> worse: last time the carrier was at least tracked before it was drained; this time it never was.
+>
+> **Every finding below was verified absent from this file before it was written.** A search for
+> `MUT_REPORT`, `FILE_SIZE_VIOLATION`, `lane-phase`, `tact`, `泳道` and `rollout-findings` over this
+> file returned **zero hits**. The session's findings had no durable home at all, and the user's
+> standing instruction to that session was explicit: *"结构性缺口记入待办、后续治理；不要只写「已声明
+> 降级」"*.
+>
+> **Items 9.1–9.4 are the four the session left for the user to rule on**, and they are first for that
+> reason. Each carries its **forks**, not a recommendation dressed as a finding; where the session had
+> a preference, it is named as the session's.
+>
+> **The corrections travel with the items they correct**, exactly as §7's did — and this session
+> produced an unusually long chain of them, because three of its own conclusions were overturned by
+> its own later measurements (9.3, 9.5, 9.17). Stripping the old reading out would have deleted the
+> most reusable content in the section, so the old reading is named in this file's
+> `(An earlier revision …)` form every time.
+>
+> **A `fixed` marker appears below only where a commit or a measurement backs it.** What was **not**
+> an item — the slice's own accepted risks, its U-items, and the repairs that did land — is
+> dispositioned in the two tables at **9.A** and **9.B**, so that nothing was dropped silently.
+>
+> **None of the `file:line` anchors below is machine-checked, and that is measured, not assumed.** This
+> file sits **outside every citation guard's corpus**: `tests/unit/standards/repo-citation-integrity.test.ts`
+> declares `CORPUS_DIRS = ['.peaks/standards', 'skills']` and excludes `.peaks/docs/` **deliberately**
+> (line 226: *"all that remain in `.peaks/docs/` — stay OUT"*). A green run of that guard says nothing
+> about this section — which is itself the defect written up at **9.18**. Every anchor here was therefore
+> verified **by hand on 2026-10-13**, and verification immediately found **five wrong**, in the first
+> draft of this very section:
+>
+> - **four were pre-fix positions** — `monotonic-runner.ts:153`, `security-audit-service.ts:391`,
+>   `perf-audit-service.ts:393`, `perf-audit-commands.ts:63` all identified `require()` sites that **the
+>   fix they describe then removed**, so the anchors shifted. A `grep` for `require(` at all four paths
+>   now returns **nothing**. They are labelled *(pre-fix position)* at 9.B rather than renumbered, because
+>   the number is evidence about **where the defect was**, not about where anything is now.
+> - **one was off by one** — `peaks tact read` is `SKILL.md:133`, not `:132` (line 132 is the heading
+>   above it). Corrected at 9.2.
+>
+> The generalisation: **an anchor that points at a defect is invalidated by fixing the defect**, and this
+> file has no mechanism that notices. Assume every anchor below rots; re-measure before relying on one.
+
+### 9.1 The lane phase lives in a carrier that has no grammar — five rounds, five spellings, and the guard is at 495/500 lines (found 2026-10-11 → 2026-10-12; **needs the user's decision**)
+
+- **Where**: `skills/peaks-audit/SKILL.md` carries the phase as **a prose sentence plus an HTML-comment
+  marker inside a markdown file**. The guard over it is `tests/unit/skills/race-lane-phase-gate.test.ts`.
+- **Consequence**: markdown is free text, so any guard of the form "must look like X" is escapable by a
+  **spelling variant that a human still reads as a phase declaration**. The family is not exhaustible by
+  adding rules: the guard can only recognise a marker by *some* pattern, and every spelling a reader
+  accepts but the pattern does not match is invisible to it.
+- **Measured** — five repair rounds; each was closed, and each time the next round found a spelling the
+  then-current guard could not see:
+
+  | round | the escaping spelling | why that round's guard missed it |
+  |---|---|---|
+  | 1 | flip the sentence; plant the literal string elsewhere | it pinned "the substring appeared", not "**that** declaration" |
+  | 2 | *(the prose was made phase-neutral — this one closed)* | — |
+  | 3 | two marker tokens on one line | it counted **lines**, not **occurrences** |
+  | 4 | two `phase=` declarations on one line | it took the first `phase="…"` on the line; it never checked the line's **shape** |
+  | 5 | one extra space in the prefix (also seen: no space, uppercase, NBSP, missing `peaks:`) | count and `find()` both match the **exact prefix**, so the decoy is invisible to both |
+
+- **Two hard signals that this carrier is spent**, both measured: the guard reached **495 / 500 lines**
+  (re-measured 2026-10-13: `wc -l` → 495, so the 6th round would have to **shrink before it could add** —
+  the RD reported this itself), and **not one of the five rounds was the last**.
+- **The repair is not another rule — it is a different carrier.** Put the phase somewhere with a grammar:
+  `.peaks/race/lane-phase.json` = `{ "phase": "name-only" }`, validated by a schema
+  (`enum: ["name-only","offered-by-default"]`, `required`, `additionalProperties: false`, a missing file
+  ⇒ refuse). "Exactly one legal value" then becomes a **parser guarantee** instead of a spelling rule.
+  Generate the prose table in `skills/peaks-audit/SKILL.md` from it — or write no phase there at all and
+  point at the file — so that **no second text exists to drift**. The guard then shrinks from 495 lines
+  to tens.
+- **Why this is handed up rather than repaired again**: it is not a missing rule, it is a **missing
+  carrier**; one more rule lengthens the guard while the escape space stays the same — and the guard has
+  **5 lines of headroom**. The session recommended this explicitly rather than spending a sixth round.
+- **Fork**: **(a)** migrate the carrier as above; **(b)** keep the markdown carrier and accept the escape
+  space as a **named** residual, whose compensating control is human review on the tracked-change boundary
+  — which is the control the guard file's own header already names.
+
+### 9.2 `MUT_REPORT` is a hard prerequisite with no producer, and it does not report its own skip (found 2026-10-12; **needs the user's decision**)
+
+- **Where**: `src/services/artifacts/artifact-prerequisites.ts:201` (`MUT_REPORT` demands a literal
+  `"passed": true` in `mut/mut-report.json`), used in **two** tables — the rd path (line 382) and the qa
+  path (line 411). The only writers are `peaks mut run|mutants|asserts`, and **all three**
+  `requiredOption('--input-sig <hex>')` (`src/cli/commands/mut-commands.ts:51/104/147`).
+- **Consequence**: the value that option wants is `TACT.sig`, and the documented way to get it,
+  `peaks tact read` (`src/skills/peaks-mut/SKILL.md:132–133` — the heading is 132, the command is **133**),
+  **is not a command**. Re-measured 2026-10-13:
+  `grep -rn "command('tact\|command('strat" src/cli/` → **zero registrations**; `runStrategicStage` /
+  `runTacticalStage` exist only as service exports (`src/services/rd/rd-service.ts`). So the artifact
+  **cannot be produced by this build**, and the prerequisite is in practice decorative.
+- **Measured, and this is the second half of the defect**: with that file absent, `rd → qa-handoff`
+  returned **`ok: true`, `warnings: []`, exit 0** — it did not so much as mention the skip. A control
+  experiment ruled out "the whole gate is dead": moving `qa/test-cases/<rid>.md` aside made the same
+  transition return `PREREQUISITES_MISSING` / exit 1, and restoring it restored the pass. The silence is
+  therefore `MUT_REPORT`'s own `backCompat` path, not a broken machine.
+- **Consequence of the silence**: a reader of that transition output concludes all nine prerequisites
+  passed. The session named it plainly — *this is the repository's own "silent gap" class occurring
+  inside the gate itself* — and the code already knew (`verdict-aggregate-command.ts:42` on the previous
+  round says "no producer in the repo"); nobody told the user of the tool.
+- **Not done, deliberately**: hand-writing `"passed": true` to satisfy the table. That is precisely the
+  pass-shaped output this repository keeps eliminating, and `peaks-mut`'s own text forbids reporting a
+  skipped scan as passed.
+- **Carried forward**: the previous round (`rid-dashboard-emit-contract`, also `feature`) had **no `mut/`
+  directory at all**, so it did not satisfy this prerequisite either.
+- **Fork**: **(a)** give it a real producer — register the tactical stage as a CLI command so `TACT.sig`
+  is obtainable; **(b)** downgrade it from a hard prerequisite and make the skip **loud** in the
+  transition output (the session's own preference, since (a) is a much larger slice).
+- **A second, quieter half**: the artifact-contract pre-commit leg shipped 2026-10-12 **passes this
+  prerequisite too**, so that leg is recorded at 9.A as *not* complete enforcement.
+
+### 9.3 The `rd → implemented` size gate contradicts the baseline ratchet, and the state machine enforces no order (found 2026-10-11, reproduced 2026-10-12; **needs the user's decision**)
+
+- **Where**: `peaks request transition --state implemented`'s file-size leg versus the ratchet in
+  `.peaks/lint/gate-baseline.json`.
+- **Measured**: the transition **refuses any touched file that is over the 300-line cap**, naming them —
+  and those files were **already over cap at HEAD** (461 / 459 / 750 / 540 / 672 in the first round),
+  with **4 of the 5 having got smaller** under the change. Meanwhile the baseline carries
+  `fileSizeOverCap: 78` as an **accepted ratcheted quantity**. Re-measured 2026-10-13 in source:
+  `src/services/artifacts/artifact-prerequisites.ts` is **767 lines** (`wc -l`).
+- **Consequence**: **any slice that fixes a bug inside one of the 78 over-cap files cannot pass
+  `implemented`** without first performing a large unrelated refactor — which the PRD's own
+  non-goals forbid.
+- **Reproduced twice, consecutively** — `rid-esm-require-sweep` and then
+  `rid-s3-artifact-contract-enforcement` (the second touching that file for **2 description lines,
+  0 added**). Two consecutive reproductions is what makes it structural rather than incidental, and it
+  is why the session escalated it rather than working around it again.
+- **Companion defect — order is not enforced (S-14)**: when `implemented` and `qa-handoff` were both
+  refused, **`handed-off` still passed**. The machine can be jumped straight to delivery past the middle
+  states.
+- **Fork**: **(a)** make the leg read `fileSizeOverCap` as the ratchet does, so touching an over-cap file
+  is judged on the *delta*; **(b)** keep the refusal and state plainly in the message that **splitting is
+  required** — which at minimum makes the reader's next action discoverable. For S-14, independently:
+  enforce the sequence, or stop describing it as a sequence.
+
+### 9.4 A count ceiling cannot make a single finding force action, and the `tests/**` 500-line cap is documentary (found 2026-10-12; **needs the user's decision**)
+
+- **Where**: `eslintFindings` in the gate baseline, and the census's **enforced scope** versus its
+  **measurement universe**.
+- **Measured (the absorption)**: the real rule `no-require-imports` (severity **error**) was reporting all
+  16 sites of the ESM `require()` family the whole time — and those 16 landed inside a count of **1758**,
+  i.e. ≈ nothing. Worse: the 4 `eslint-disable` comments guarding them named **`no-var-requires`, which
+  does not exist in ESLint v8**, so they suppressed nothing at all.
+- **The inference, stated as a rule**: *an upper bound on a **number of findings** means no **individual**
+  finding can force action.* Same family as 7.10 and 9.7 — an aggregate figure concealing an individual
+  fact.
+- **Measured (the documentary cap)**: a new test file of **529 lines** passed, though the `tests/**` cap is
+  500 — because `tests/**` sits in the census's **measurement universe** but not in its **enforced scope**
+  (`peaks-gate.mjs staged <file>` → *"outside the lint scope … NOTHING WAS COMPARED"*). **A green gate does
+  not mean inside the limit.**
+- **Fork**: for "one finding = one class of bug", the correct lever is a **named exemption table** that
+  shrinks as entries are removed — not a numeric ceiling, which can only ever absorb. For `tests/**`,
+  either enforce the cap or stop documenting it as a cap.
+
+### 9.5 The sub-agent dispatch ledger reached 73 straight `queued` records, and nothing in the pipeline calls `finalize` (found and partly repaired 2026-10-13; **open**)
+
+- **Where**: `.peaks/_sub_agents/<sessionId>/active-dispatches.json`, written by
+  `src/services/dispatch/dispatch-record-writer.ts`; read by
+  `src/services/skills/skill-statusline-service.ts:247` (`readActiveLeaf`, which filters to **in-flight**
+  entries to decide which bee skill the status line shows).
+- **Measured 2026-10-13** (`grep -c '"status": "queued"'` over each session's index, versus total records):
+
+  | session | queued / total |
+  |---|---|
+  | `2026-10-09-session-90f47d` | **39 / 39** |
+  | `2026-10-10-session-062f74` | **2 / 2** |
+  | `2026-10-11-session-5ac396` | **9 / 9** |
+  | `2026-10-12-session-74bd69` | **23 / 23** |
+
+  **Every record in every session. Not one dispatch has ever been finalized.**
+- **The contract is explicit, and it is the runner's obligation**:
+  `skills/peaks-code/references/sub-agent-dispatch.md:329` — *"**The LLM runner MUST call
+  `peaks sub-agent finalize`** once per dispatched Task, in the post-completion branch … Without it, the
+  record stays `queued, no-execution` forever."* The same file documents the recovery verb
+  (`--all-stale`) and states the intended effect: *"unregisters the path from `active-dispatches.json`.
+  **The next runner does not see a stale ghost.**"*
+- **This is not a new discovery that regressed — it is a fix that is never invoked.** Line 351 of that same
+  file: *"This was added in slice 2026-07-17-D21 after **13** stale records were observed."* The mechanism
+  was built when the number was 13; it is now **73**, because building the verb did not make anyone call it.
+- **A memory already said so, and was not followed.** `.peaks/memory/a-job-tracker-is-a-log-of-checkpoint-calls-not-evidence-about-the-repository.md`
+  instructs running `peaks sub-agent finalize --all-stale --outcome done --session-id <sid>` to clear it.
+  A previous session learned this, wrote it down, and the next four sessions — including the one that
+  drained this file — did not do it. **The gap is contract adherence, not tooling.**
+- **Repaired, for this session only, on 2026-10-13**: `sub-agent finalize --all-stale` → `finalized: 23`,
+  `skipped: []`, `errors: []`, and a re-count of the index gives **0** queued. The other three sessions'
+  indexes were deliberately **left alone**: the status line reads only the active session's index, so
+  rewriting three other sessions' history would change records with no live effect.
+- **Consequence today**: for four sessions the status line's in-flight-leaf resolution had 73 phantom
+  candidates to choose from. `.peaks/_sub_agents/` is gitignored (`.gitignore:22`), so this is machine-local
+  state — which is exactly why nothing failed loudly.
+- **Open question**: what makes a *mandatory* post-completion call actually happen? A ledger entry that
+  only the runner can clear, and that nothing verifies, is a checkpoint log — see the memory above for why
+  that is not evidence about the repository.
+
+### 9.6 The contract's role prompts never say to backfill the artifact they create (found 2026-10-12; open)
+
+- **Where**: `skills/peaks-code/references/swarm-dispatch-contract.md` §3.3 (RD planning) and §3.4 (QA
+  test-cases), versus `peaks request init --role <role> --apply`.
+- **Measured**: `init` emits a **skeleton** — 55 lines with **6** `<placeholder>` tokens for `--role rd`,
+  52 lines with **2** for `--role qa`. The role prompt's step 1 is "run `request init --apply`" and its
+  step 6 is "write `rd/tech-doc.md` / `qa/test-cases/<rid>.md`" — **and not one sentence says to fill in
+  the artifact `init` just created**.
+- **Consequence**: following the contract **verbatim** leaves the carrier at `draft` full of placeholders,
+  so `peaks request transition --role rd --state implemented` **necessarily** returns
+  `LINT_GATE_FAILED: 6 lint error(s)` — all six being placeholder lines. The producer is told the artifact
+  exists; nothing tells them it is the thing that must be filled.
+- **Scope**: repository-wide, not incidental. All three RD dispatches and the QA dispatch in that session
+  hit it, because all of them wrote to the contract's template. The previous round's carrier **was**
+  filled — so backfilling is the intended action; the **contract just does not say so**.
+- **Repair direction**: add the sentence to §3.3/§3.4; or stop emitting placeholders that lint will kill,
+  leaving "not filled in" as the only remaining way to redden.
+
+### 9.7 `peaks memory extract` silently drops memory blocks and reports the count as if it had written them (found 2026-10-12; open)
+
+- **Where**: the extract path used by `peaks memory extract`.
+- **Measured**: a capsule with **5** `<!-- peaks-memory:start -->` blocks produced
+  `extractedCount: 5`, `plannedWrites.length: 5`, **`warnings: []`** — and **4** `.md` files on disk.
+- **Two mechanisms stacked**:
+  1. **A pure non-ASCII title ⇒ empty slug ⇒ fallback to the generic name `project-memory.md`.** Prefixing
+     the same block's title with an ASCII slug made the identical content write successfully.
+  2. **The fallback name collides with an existing tracked entry ⇒ the write is skipped, silently.**
+     `.peaks/memory/project-memory.md` already existed (a 2026-09-12 entry, tracked), so every future
+     pure-CJK-titled block collides with it and **vanishes**.
+- **It contradicts the repository's own documentation**: `skills/bee/peaks-txt/SKILL.md`'s D-010 states
+  malformed blocks *"produce no writes and are both named in the envelope's `warnings[]`"*. Measured: a
+  malformed block (a `: ` inside `description`, which YAML rejects as
+  `Nested mappings are not allowed in compact mappings`) **was not** in `warnings[]`, and
+  `extractedCount` still counted it as extracted. Fixing the YAML changed neither the count nor the file
+  count — so the drop is mechanism 2, **not** the YAML.
+- **Why it matters**: memory is the cross-session carrier of fact. On this path **a failed write and a
+  successful write are indistinguishable in the output** — the exact class
+  `.peaks/memory/a-probe-that-always-says-caught-…` records.
+- **Repair direction**: (1) on an empty slug do **not** fall back silently to a generic name — error, or
+  use a distinguishable fallback; (2) when planned writes ≠ files written, **report it** (or exit
+  non-zero); (3) correct D-010 to the measured behaviour.
+
+### 9.8 final-review's second layer: the more evidence there is, the less of it reaches the reviewer (found 2026-10-12; open)
+
+- **Where**: the real-model review path (`review-complete` / `anthropic-messages-api`) and its evidence
+  allocator.
+- **Measured**: of the four dimensions, **one** could be judged. The reviewer's own account of why: a
+  **10240-byte per-file ceiling** plus an allocator that ships a source **whole or not at all** —
+  `qa-test-report` **19256 B**, `qa/test-cases` **42335 B**, `prd-handoff` **28414 B** were **all
+  truncated**, and `no-new-bugs`'s two sources were **omitted** for total-budget reasons. The single
+  dimension that passed, `existing-functionality-intact`, had a source of **6286 bytes**.
+- **Consequence, and it is inverted**: **to make a review pass, write less evidence.** The incentive runs
+  against the repository's own evidence discipline.
+- **Relationship to 7.10**: same section of the pipeline — 7.10 is a **skip reported as a pass**; this is a
+  **pass earned by withheld evidence**. Both make the verdict a property of the plumbing rather than of
+  the change.
+
+### 9.9 A reported check is silently invalidated by a later edit, and nothing requires a re-run (found 2026-10-12; open)
+
+- **Where**: process, not a file — the seam between "a check reported a result" and "the tree changed
+  afterwards".
+- **Measured, three instances in one session**:
+  1. **The audit** (S-8): the audit ran at `02:43:16Z`; the repair at `03:59Z` closed its HIGH; nobody
+     re-ran it. The artifact still records that HIGH as **open**, and `rd:qa-handoff` has **no staleness or
+     fingerprint check**, so it was accepted as-is. **The thing that caught it was not the gate and not the
+     session — it was the four-dimension reviewer**, cross-reading three artifacts' timestamps against
+     their content and concluding that a HIGH claiming a check did not exist was, in the same diff, listed
+     as a new export. Re-running the audit on that discipline's prompting **found a second HIGH** that
+     would otherwise have shipped as "already fixed" (9.15).
+  2. **The BDD verifier** (S-18): the previous round reported `{"ok":true,"scanned":14}` — describing the
+     file **before** the repair, whose line-wrapping was the repair's own product. The check was not re-run
+     against its own output.
+  3. **The session's own measurements**: the exit code taken from a pipe (three times) and a `Map` read as
+     a plain object. The session counted itself in this family rather than exempting itself.
+- **The proposition, wider than the first two instances suggested**: *any check whose result was reported
+  and then invalidated by a later edit must be re-run, and nothing in this pipeline reminds anyone.*
+- **Repair direction**: needs a mechanism — this is not a patch. Fingerprint the artifact an audit or
+  verifier judged, and refuse the downstream prerequisite when the fingerprint moved.
+
+### 9.10 A required artifact is blocked by its heading spelling, and the producer cannot know (found 2026-10-12; open)
+
+- **Where**: `rd:implemented`'s requirement that `rd/bug-analysis.md` contain the literal headings
+  `## Root cause` and `## Fix approach`.
+- **Measured**: the file was **content-complete** — it used `## Defect` and `## Per-file fix list`
+  instead. The prerequisite's own `description` mentions "fix approach" as **a word in prose**, and never
+  says it has to become a **heading**. The repair was to relabel the headings; nothing was written.
+- **Consequence**: a producer who has done the work is blocked by a naming convention that only exists in
+  a matching predicate. The failure is not "you did not do it" but "you did not say it the way the
+  matcher wants", and the matcher does not say which way that is.
+- **Family**: same shape as 7.10's skip-as-pass and the `mustContain` literal-substring traps already
+  recorded — a contract expressed as a string match against prose.
+
+### 9.11 Guards scope themselves by directory, so every new executable directory is a blind spot (found 2026-10-12; open)
+
+- **Where**: repository-wide — the static scans whose roots are directory lists (the `src/**`-scoped path
+  safety scan is the measured instance).
+- **Measured**: a `sessionId` of `../../../outside` let the **new `.husky/` hook judge a rid outside the
+  project root** — and the helpers the fix needed **already existed** in the repository
+  (`getSessionDir`, `isUnsafePathInput`, `guardRuntimeSegment`). The scan did not see the new code because
+  its root list is `src/**` and the hook lives in `.husky/`.
+- **Second instance, in the same session**: the `format-check` ratchet runs **only in CI**, so commit
+  `4a5d74b4` was **red on CI and green locally**, with nothing telling anyone. (The session then hit this a
+  **third** time on its own fix — a new unformatted file — see 9.B.)
+- **The inference**: every directory that may hold executable code is a scope decision that must be made
+  **when the directory is created**, and today it is made by omission.
+
+### 9.12 A hand-written PRD silently gets the default type `feature`, and there is no retag verb (found 2026-10-12; open)
+
+- **Where**: the request type is fixed at `init` time, and no verb changes it afterwards.
+- **Consequence**: under the **hand-written-artifact** practice (see 9.17), where no `init` runs, **every
+  slice is silently treated as `feature`** — which is the type with the largest hard-prerequisite table
+  (9.2). The error is invisible and it selects the strictest gate.
+- **Relationship**: this is one of the mechanisms that makes 9.17's two coexisting practices produce
+  different gates for the same work.
+
+### 9.13 The PRD handoff is sha256-locked, so a corrected count can never be backfilled (found 2026-10-12; open, by design)
+
+- **Where**: `prd/handoff-<rid>.md` and its recorded hash.
+- **Measured**: the handoff stated "13 files"; the true count was corrected to **14**. The correction
+  **could not be written back**, because writing it would break the artifact's own hash.
+- **Consequence**: a locked artifact **carries a known-wrong count forever**. Design decision rather than
+  oversight — recorded so that the next reader does not treat the number as checked, and so that a future
+  reader does not "fix" it and break a hash.
+- **Repair direction**: if the lock is to stay, the correction needs a channel **outside** the locked body
+  (an errata list keyed by rid), not a footnote in a downstream item.
+
+### 9.14 Enumerating your own inputs by naming convention is wrong in both directions (found 2026-10-12; **the measured instance is fixed, the pattern is open**)
+
+- **Where**: `collectRids` in the artifact-contract pre-commit leg, which decided "is this a request?" by
+  the filename prefix `rid-`. Found by code review as a **HIGH**.
+- **Measured, both directions**:
+  - **False positive** ⇒ dispatch prompt dumps (`…-dispatch-prompt.md`) counted as requests — **4 of 8**
+    in the `2026-10-11` session. That **reports violations that can never exist**, i.e. **a gate that
+    cannot be satisfied** — and the only exit from an unsatisfiable gate is `--no-verify`, which turns the
+    gate off entirely. The session named this *the worst error a commit gate can make*.
+  - **False negative** ⇒ requests **without** the prefix were missed — the `2026-10-10` session's 33 files
+    are named `001-<slug>.md` ⇒ **silent pass**.
+- **Repair, landed**: enumerate **by artifact** using the repository's own `requestIdFromFileName`
+  (added to `src/shared/incrementing-number.ts` as the read side of `buildNumberedFilename`), and verify in
+  both directions on real sessions: **8 → 4** and **0 → 18**.
+- **Still open**: the session recorded this as a **pattern worth a repository-wide sweep** —
+  *"by naming convention"* as a way to enumerate one's own inputs is presumably elsewhere too, and only the
+  one instance found by review was repaired.
+
+### 9.15 Five rounds of repair, each a narrowing rather than a closure — and the rule that follows (found 2026-10-12; open, recorded as a discipline)
+
+- **Where**: the lane-phase guard of 9.1, and — wider — the way guard changes are reviewed here.
+- **The shared shape**: **every round's check could not fire on the very input it was written to reject.**
+- **Why four of them escaped review**: because reviewers looked at **"is there a control?"**, not at
+  **"is the control aimed at the input the check exists to reject?"** A control that cannot fail reads
+  exactly like a working guard — for which this repository already has a memory
+  (`a-probe-that-always-says-caught-is-indistinguishable-from-a-working-guard`).
+- **The rule, to be applied to every future guard change**: **a guard ships together with its
+  red-direction case, and that case must be built from the input the check was written to reject** — never
+  from the implementer's idea of that input.
+- **One meta-defect worth naming separately**: repair round 1's docstring **claimed it had closed** the
+  HIGH. It had not.
+
+### 9.16 Fixing a dead file can make latent-unsafe code executable (found 2026-10-12; open, a class not an instance)
+
+- **Where**: `scripts/fix-dispatcher.js`.
+- **Measured**: a top-level `require` meant the file had **never run** — it was dead. The ESM sweep
+  repaired it, so it **went from dead to runnable** — and it is a file-rewriting script that does **not
+  validate its argv path** (caught by the security audit; the PRD had not anticipated it).
+- **Consequence**: a dead-code repair is a **capability change**, not a no-op. The audit's own framing is
+  the reusable part: the risk surface of a repair includes everything the broken thing was hiding.
+- **Repair direction**: when a repair makes previously-unreachable code reachable, route it through the
+  same review a new file gets — the session's mistake was treating it as a mechanical edit.
+
+### 9.17 Two practices coexist — the *gated state machine* and the *hand-written artifact* — and the session's first conclusion about which dominates was **wrong** (found 2026-10-12, corrected the same day by measurement)
+
+- **Where**: `peaks request transition` (gated) versus writing `.md` directly into `rd/`, `qa/`, `audit/`
+  (ungated).
+- **The first reading, and why it was plausible**: the `2026-10-11` slice's carriers had **no `- state:`
+  lines** (that block is appended only by `peaks request transition`), no `qa/.initiated`, and no `txt/`
+  directory ⇒ so the round `rid-dashboard-emit-contract` **never ran the transition at all**, and its
+  artifacts were hand-written. Since that round was user-approved and ran a "full PRD → RD → QA", the
+  session concluded the ungated practice was **the de-facto mainstream**, and recorded that the question
+  to answer was **"which practice is authoritative?"**
+- **The correction (same day, by measurement)**: *(An earlier revision of this item read "the ungated
+  hand-written practice is the de-facto majority". Measured with "is the state name legal?" as the
+  ruler — an illegal name is refused by the CLI, so a forged name means hand-written)*:
+
+  | session | always used the machine | mixed (forged names) | never used it |
+  |---|---|---|---|
+  | `2026-10-09` | **33** | **6** | — |
+  | `2026-10-11` | — | — | **0 state lines** |
+  | this session | **6** | — | — |
+
+  So the bypass form is **imitation, not rejection** — and it is **measurable**.
+- **Also measured**: **CI enforces none of it** (the only `request` hit in the workflows is
+  `pull_request:` and a comment), and the checker **already existed** — `peaks workflow verify-pipeline`
+  derives from the contract (`contractEvidencePaths()`), **reads artifacts rather than state**, and
+  already diagnosed `2026-10-11` correctly (`complete:false` / `gateC:fail`, naming the missing handoff
+  `schemaVersion:2` + `sha256:` and `rd/code-review-<rid>.md`) with **zero state lines**. So what was
+  missing was never the checker — it was **anything that runs it**, and CI **structurally cannot** (the
+  artifacts live under gitignored `_runtime/`).
+- **Resolution**: the user ruled **C — enforce the artifact, not the transition**, with the boundary at
+  the **local pre-commit leg**. Delivered as `.husky/peaks-gate-pipeline.mjs` + the pure decision module
+  `.husky/pipeline/contract-verdict.mjs`, with `.husky/pre-commit` **appended 7 lines** (the lint-staged
+  leg untouched). Cost **547–619 ms** against a 5 s budget. This is the fix of 9.14's false positive, and
+  it is the *third* leg of the commit gate (see 9.B, and §8).
+- **What remains open from this**: the checker runs only on the pre-commit path, so a project or editor
+  that commits without hooks gets none of it, and 9.5's lesson — *building the verb is not making anyone
+  call it* — applies to this leg too.
+
+### 9.18 This file is outside every citation guard's corpus, so its own anchors rot silently (measured 2026-10-13; open)
+
+- **Where**: `tests/unit/standards/repo-citation-integrity.test.ts` — its corpus origins are `CLAUDE.md`,
+  `.peaks/PROJECT.md`, `README.md`, plus `*.md` under `CORPUS_DIRS = ['.peaks/standards', 'skills']`.
+- **Consequence**: `.peaks/docs/backlog.md` — the file that exists precisely to carry a **durable,
+  citable** record of defects and where they live — is **not read by the guard that checks citations
+  resolve**. A green run of that guard is therefore **not evidence about this file**, and an anchor here
+  can point at a line that no longer contains what is claimed, indefinitely, with every gate green.
+- **Measured, on this section**: writing §9 produced **five wrong anchors in the first draft**, caught
+  only because they were hand-checked — four identifying `require()` sites **removed by the very fix the
+  row described** (the anchor moved out from under it) and one off by one. Nothing in the repository
+  would have caught any of the five.
+- **The exclusion is deliberate and its reason is written down** — the guard's header (line 226) records
+  that the `.peaks/docs/` entries were left **out** of the corpus, and line 203 records that a citation
+  *pointing at* `docs/…` is still resolved. So this is **not** a missing glob to be widened casually: it
+  is a decision to re-take, now that this file carries §7, §8 and §9, all of which cite `file:line`.
+- **Family**: this is 9.9's proposition ("a reported result silently invalidated, and nothing requires a
+  re-run") applied to **this file's own contents**, which makes it the cheapest possible instance to fix
+  and the most embarrassing to leave.
+- **Fork**: **(a)** add this one file to the guard's corpus, so its anchors are resolved and checked the
+  way `CLAUDE.md`'s are; **(b)** keep it out and require a dated **verification stamp** per section, so a
+  reader can judge staleness. (a) is mechanical and matches 9.9; (b) is what §9's header does by hand.
+
+### 9.A Recorded, not fixed — the session's accepted risks, smaller items, and open U-questions
+
+Carried rather than re-litigated. Each was **named** by the session, which is the standard this file holds;
+none is claimed closed.
+
+| # | Item | Where | Disposition / why left |
+|---|---|---|---|
+| **U-A** | Should the per-task prose trace be **tracked**? Today it is gitignored; tracking it makes gate 2 end-to-end verifiable, at the cost of a permanently growing run-trace in the repository. | `.peaks/_runtime/<sid>/…` | **Design decision for the user.** A and B are the two coherent options; the cost of B is stated, not hidden. |
+| **U-B** | Is `>=10` the final value? Rule-of-three puts the failure-rate upper bound at **≈26 %**; dropping to `>=6` gives **≈39 %**. | `src/services/race/gate2-policy.ts` | **Decision for the user**, with the trade named. Neither bound is tight on today's sample. |
+| **U-C** | Who has the authority to set `missedRiskSurface`? It needs after-the-fact review, and **no such procedure exists today**. | pilot gate-2 policy | Open — a role/process question, not a code change. |
+| **U-E** | `8c1f5247` (exit-2 coverage, user-named fast lane) has **no §7.2 record** ⇒ the recording requirement **missed one case**, and `taskCount` is therefore **4, not 5**. | `.peaks/race/pilot-gate.json` | **Deliberately not back-filled** — there is not enough evidence to author the row. Recorded as a gap in the record, not papered over. |
+| — | `pilot-gate.json`'s rows carry **no provenance credential**: 10 forged `src/` landed rows + 1 escalated ⇒ `pass`. | `.peaks/race/pilot-gate.json` | **Accepted, declared in three places** (the file's own note, the guard file's header, the PRD). The compensating control is human review on tracked-change boundaries. |
+| — | The slice's own **D1**: the prose lane table and the marker line had **no binding** — editing the sentence while leaving the marker made `tests/unit/skills/` **105 tests green, exit 0**, i.e. one prose edit could flip a whole lane with zero evidence. Root cause: the PRD kept a prose table **and** pinned only the marker — two sources of truth, one pinned. | `skills/peaks-audit/SKILL.md` | Fixed by repair round 1; **kept here** because it is the instance that motivates 9.1's carrier argument. |
+| — | The slice's own **D2**: the guard's **parse leg had no mutation control** — stubbing `parseRaceLanePhase` to always return `name-only` while flipping the real marker left **6/6 green**. | `tests/unit/skills/race-lane-phase-gate.test.ts` | Fixed in repair round 1; the *shape* is 9.15's rule. |
+| — | **`_register.ts` eagerly imports every command module**, so the 6 modules added by gate-2 are loaded on **every `peaks` invocation** (tsx transpile ≈105 ms against a full registration graph of ≈2129 ms, ≈5 %, under the +10 % alert band; the cost disappears in compiled output). | `src/cli/commands/_register.ts` | Recorded, not changed. Worth knowing before adding more command modules. |
+| — | The artifact-contract pre-commit leg **passes `MUT_REPORT`** (9.2), so that leg is **not complete enforcement** — and forging the file is forbidden rather than done. | `.husky/peaks-gate-pipeline.mjs` | Recorded explicitly by the session so no later reader mistakes the leg for total coverage. |
+| — | `THIRD_PARTY_REVIEW` **self-skips**; `verifyPipeline` **rescans every session directory per rid** (pre-existing design); the exemption token `PEAKS_SKIP_PIPELINE_VERIFY=1` can live **outside git history**, so it is not auditable (a commit-subject token would need a `commit-msg` hook). | `.husky/pipeline/contract-verdict.mjs`, `verifyPipeline` | Recorded, not fixed — each is either by design or a separate slice. |
+| — | `isUnsafePathInput` does not reject whitespace/control characters (no reachable escalation found); `policyVersion` is **reported but not validated**; 4 new test files do not satisfy the repository's **strict AST BDD reader** — and a measured baseline shows **392 / 446** existing test files do not either, so it is not this slice's defect. | `src/services/…`, `tests/unit/…` | Recorded, not changed; the baseline measurement is why the last one is not treated as debt. |
+
+### 9.B Repairs that landed — carried so the *corrections* are not lost
+
+These are fixed. They are here because each fixed something this file previously got **wrong**, or because
+the fix's own measurement is the reusable part. Commits are as recorded by the session.
+
+| Item | What was wrong | Landed |
+|---|---|---|
+| **The ESM `require()` pattern** (S-2) | `require('node:fs')` inside a `"type": "module"` package throws `require is not defined`. Delivery doc §2.15 recorded **one** site (`src/services/loop/monotonic-runner.ts:153` *(pre-fix position)*); a full sweep found **16 sites across 14 files** (`src/` 13 + `scripts/` 1), the other three audit-CLI sites being `security-audit-service.ts:391`, `perf-audit-service.ts:393` and `perf-audit-commands.ts:63` *(all three pre-fix positions)* — those three wrote a `.tmp` and then threw at the rename, leaving a `.tmp` and no `.md`. **Re-measured 2026-10-13: `grep -n "require("` at all four paths now returns nothing**, because this repair is what removed them — the anchors record where the defect *was*. | **Fixed** — 16 → 0, plus a **dynamic-discovery** guard (target zero, not a ratchet). 4 `eslint-disable`s and 5 lazy-require justification comments were deleted as **falsified by the change** — 2 of the reasons were themselves wrong. **§2.15 was a pattern, not an isolate.** |
+| **The gate and final-review disagreed on paths** (S-5) | `src/services/final-review/final-review-evidence-sources.ts` pointed `rd-code-review` at `rd/code-review.md` and `rd-security-review` at `rd/security-review.md`, while the writers used `rd/code-review-<rid>.md` and `audit/security-<rid>.md`. The transition gate had already moved to rid-scoped + legacy fallback, **and said why in a comment** — so the gate accepted paths the consumer never read. | **Fixed** using the file's own existing `legacySegments` mechanism. This is the **real root cause of §2.14**, of which the delivery doc had recorded only half. |
+| **The staged/worktree divergence** (S-16) | `git commit` commits the **index**, and nothing warned when index ≠ worktree. Measured: a repair round's edits were **not re-staged**, so the staged guard was the **pre-repair, weaker** version (22 cases / 16004 B, without `SHIM_REQUIRE_OBJECTS`) while the worktree held 28 cases / 24168 B — committing would have shipped the weak guard, and the worktree **and the reviewer** both looked green. Found by QA. | **Fixed** — `.husky/peaks-gate-staged-parity.mjs` refuses staged ≠ worktree **through git's filters** (`git hash-object --stdin-paths`), not raw bytes. It caught a real divergence on the spot: `.peaks/lint/gate-baseline.json` byte-identical at 237823 B on both sides but **different hashes** — which the hand-rolled `wc -c` loop would have called equal. |
+| **The flake family is six, not five** (S-19) | §7.1's correction landed the family at six; the session's **memory** still said five, and the sixth member is `tests/unit/standards/no-mcp-source-import.test.ts`, which fails by **ENOENT** (a concurrent test deletes `tests/fixtures/bdd-reporter-tmp/`) rather than by timeout — so the timeout-based discriminator misses it. | **Corrected** in §7.1 and in the assistant's own cross-session auto-memory (which lives **outside this repository** — it is **not** a `.peaks/memory/` file; verified 2026-10-13 that `.peaks/memory/full-suite-load-flakes.md` does **not** exist, so this row previously cited a path that was never there). The general discriminator is **"does it pass when run alone"**. |
+| **The three counts in §2.12** (U-F) | `.peaks/race/pilot-gate.json` holds **5** task rows, not 4 (re-measured 2026-10-13: `tasks: 5`); "only 1 of 4 pressed the core capability" is **3** under the reproducible definition; and the "1" descends from a task set that is not the seeded one, so its provenance is **unrecoverable**. | **Corrected** in the delivery doc and carried into 7.12. |
+| **`skills/peaks-final-review/SKILL.md`'s two false statements** | `--session-id` was documented as having a default when it is **required** — and the error code cited was **`MISSING_REQUIRED_OPTION`**, copied between documents, where the code returns **`MISSING_REQUIRED_FLAG`**. Separately, "the real provider is unreachable" was **false** (measured reachable). | **Corrected** — the error code was wrong in two documents because nobody read the code. |
+| **`bdd-test-style-verifier`'s arity assumption** | `getCallbackBlock` read `arguments[1]` unconditionally, so `it(name, { timeout }, fn)` was misjudged. | **Fixed** — the callback is now located as the last arrow / function-expression. Corpus: **451 files / 64 ok / 230 + 157** (58 ok before); **26 files changed verdict — 4 to green, and 22 exposing real violations the misjudgement had masked**. |
+| **The format ratchet bites only in CI** | Two commits in that session (`4a5d74b4`, and a later new file) shipped **unformatted**, so they were **red in CI's `format-check` job while green locally** — the ratchet is CI-only. | Both repaired; the **class** is 9.11. |
+
+
 
