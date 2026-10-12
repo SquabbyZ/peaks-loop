@@ -73,6 +73,20 @@ export function buildNumberedFilename(number: number, description: string): stri
 }
 
 /**
+ * The id a markdown artifact's filename carries, or null when the name is not a
+ * markdown artifact at all. The READ side of `buildNumberedFilename`, in the same
+ * module, so writer and reader cannot drift apart from each other.
+ *
+ * The returned stem is not yet checked against the id pattern the artifact service
+ * owns; a caller that needs a legal request id applies that there rather than the
+ * pattern being imported here.
+ */
+export function requestIdFromFileName(fileName: string): string | null {
+  if (!fileName.endsWith('.md')) return null;
+  return fileName.replace(/^0\d{2}-/, '').replace(/\.md$/, '');
+}
+
+/**
  * Get the next numbered file path in a directory.
  * Combines getNextNumber() and buildNumberedFilename().
  *

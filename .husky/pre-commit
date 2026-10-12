@@ -44,3 +44,10 @@
 #                reached a commit with every gate green.
 set -e
 pnpm exec lint-staged
+# Artifact-contract leg. APPENDED, on purpose: the lint-staged leg above keeps
+# its order and its behaviour, and this one is not a ratchet over staged files
+# but a whole-session judgement, so it has nothing to sequence against.
+# Design, why-it-refuses, and the exemption's known cost:
+# .husky/peaks-gate-pipeline.mjs. It needs tsx because it reads the checker from
+# source, never from the gitignored `dist/` (see that header).
+node node_modules/tsx/dist/cli.mjs .husky/peaks-gate-pipeline.mjs

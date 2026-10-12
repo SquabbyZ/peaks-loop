@@ -19,6 +19,7 @@ import { ensureSession, getSessionIdCanonical } from '../session/session-manager
 import {
   getNextNumber,
   buildNumberedFilename,
+  requestIdFromFileName,
   slugifyDescription
 } from '../../shared/incrementing-number.js';
 import { lintRequestArtifact } from './artifact-lint-service.js';
@@ -381,9 +382,8 @@ async function readSummary(
   const path = join(dir, fileName);
   const body = await readFile(path, 'utf8');
   const { state, createdAt, requestType, sessionId: bodySessionId } = extractMetadata(body);
-  // Strip numbered prefix (e.g., "001-requestId.md" -> "requestId")
-  // Only strip 3-digit zero-padded prefixes (our incrementing number format)
-  const requestId = fileName.replace(/^0\d{2}-/, '').replace(/\.md$/, '');
+  // The id, stripped by the rule that writes the prefix (see `buildNumberedFilename`).
+  const requestId = requestIdFromFileName(fileName) ?? fileName.replace(/\.md$/, '');
   // Repair R5: this used to take the *scope* path fragment (`_runtime/<sid>`)
   // and re-join it onto the project root, then strip the prefix back off to
   // recover the bare session id. The round-trip was the escape's carrier — an

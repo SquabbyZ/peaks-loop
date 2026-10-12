@@ -201,7 +201,7 @@ const AUDIT_PERF: ArtifactPrerequisite = {
 const MUT_REPORT: ArtifactPrerequisite & { backCompat?: boolean } = {
   relativePath: 'mut/mut-report.json',
   description:
-    'peaks-mut mutation + weak-assertion report (Plan 2, v2.12.0+). v2.13.1: required at rd:qa-handoff for feature / bugfix / refactor slices. v2.13.2: back-compat window — missing file downgrades to a warning (1-minor-release); passed:false still throws. The body must carry `"passed": true` when present; failed runs are blocked at this gate. CONFIG / DOCS / CHORE slices retain the legacy "no acceptance surface" exemption.',
+    'peaks-mut mutation + weak-assertion report (Plan 2, v2.12.0+). v2.13.1: the artifact contract requires this at rd:qa-handoff for feature / bugfix / refactor slices — `peaks workflow verify-pipeline` is what checks that, and it reads this table rather than the transition. v2.13.2: back-compat window — missing file downgrades to a warning (1-minor-release); passed:false still throws. The body must carry `"passed": true` when present; failed runs are blocked at this gate. CONFIG / DOCS / CHORE slices retain the legacy "no acceptance surface" exemption.',
   // Substring check on the JSON property name only — strictness (kill
   // rate ≥ 0.8 etc.) is enforced downstream by verdict-aggregator +
   // peaks-mut's evaluateThresholds. We require both the property name
@@ -235,7 +235,7 @@ const AUDIT_REQUIRES_HANDOFF: ArtifactPrerequisite = {
   // on, and every producer (`handoff-service.initHandoff`,
   legacyRelativePath: 'prd/handoff.md',
   description:
-    'PRD handoff capsule (v2.12.0+) — peaks-security-audit / peaks-perf-audit both read frontmatter from this file. Must exist before audit prereqs are evaluated at rd:qa-handoff. The rid is part of the filename so two slices in one session do not collide; the bare pre-rid-scoping location is accepted as the legacy tier.',
+    'PRD handoff capsule (v2.12.0+) — peaks-security-audit / peaks-perf-audit both read frontmatter from this file. There is no dependency on the transition: the ARTIFACT CONTRACT is what binds every reader of this table, and `peaks workflow verify-pipeline` is what checks the contract on disk (`contractEvidencePaths()` reads this table; a state name does not). The `rd:qa-handoff` transition enforces this same table through `checkPrerequisites`, so a missing prerequisite blocks the state move and is reported without one — the table is checked the same way with or without a transition. The rid is part of the filename so two slices in one session do not collide; the bare pre-rid-scoping location is accepted as the legacy tier.',
   // Empty `mustContain` is fine — file existence is the contract.
   // The peaks-prd handoff service writes frontmatter with
   // `schemaVersion: 2` and a sha256 fingerprint; we pin a
