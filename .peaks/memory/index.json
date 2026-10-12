@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-12T07:28:18.628Z",
+  "updatedAt": "2026-10-12T10:35:32.769Z",
   "hot": {
     "rule": [
       {
@@ -2874,6 +2874,14 @@
         "updatedAt": "2026-10-08"
       },
       {
+        "name": "enumerate-by-artifact-not-by-filename",
+        "kind": "project",
+        "description": "实测（2026-10-12，）： | session | 前缀规则 | 产物规则 | |---|---|---| | 2026-10-11 | 8（4 个是  /  转储） | **4** | | 2026-10-10 | **0**...",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\enumerate-by-artifact-not-by-filename.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-12-session-74bd69/txt/handoff.md",
+        "updatedAt": "2026-10-12"
+      },
+      {
         "name": "esm-require-4-2-15",
         "kind": "project",
         "description": "症状与后果： ⇒ （干净会话上必崩；loop runtime 的唯一入口） /  ⇒ 先写 ，然后在 rename 处抛   ⇒ **盘上留下  而无 **， 会报该 artifact 缺失（即使审计本身做完了）  与 （含旧 ）**...",
@@ -3376,6 +3384,22 @@
         "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\2026-08-10-runtime-detached-design.md",
         "sourceArtifact": null,
         "updatedAt": "2026-10-08"
+      },
+      {
+        "name": "src-only-guards-miss-husky-src-husky",
+        "kind": "project",
+        "description": "实测（2026-10-12）：把  的  写成 ，新提交闸会 **枚举并判定项目根之外的一个 rid**（旧行为 exit 0「artifact contract satisfied」； 修后 exit 1「DID NOT RUN …...",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\src-only-guards-miss-husky-src-husky.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-12-session-74bd69/txt/handoff.md",
+        "updatedAt": "2026-10-12"
+      },
+      {
+        "name": "stale-check-results",
+        "kind": "project",
+        "description": "三个实例，同一形态：**先报出一个结果，之后又改动了它描述的东西，而没有任何东西提醒你重跑。** 1.",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\stale-check-results.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-12-session-74bd69/txt/handoff.md",
+        "updatedAt": "2026-10-12"
       },
       {
         "name": "the-prd-handoff-capsule-is-a-single-slot-per-session",
