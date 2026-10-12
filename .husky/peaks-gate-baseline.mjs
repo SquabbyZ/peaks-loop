@@ -161,6 +161,10 @@ const ceilings = buildCeilings({ lint: gatedLint, format, tscErrors, sw, ch, siz
 decideWrite({
   ...anchor,
   ceilings,
+  // §F-1 of rid `rid-count-ceiling-exemption-table`: the per-file rows this run measured,
+  // so the guard can refuse a row that moved UP even when every ceiling held — the
+  // total-neutral reshuffle `repo` mode refuses by name.
+  rows: files,
   shadow,
   rescope: {
     flag: rescopeRun,

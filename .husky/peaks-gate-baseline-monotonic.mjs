@@ -175,6 +175,7 @@ export {
   unseedableKeys
 } from './monotonic/keys.mjs';
 export { compareCeilings, parsePreviousArtifact } from './monotonic/compare.mjs';
+export { compareRowCounts, describeRowFailure, describeRowNote } from './monotonic/rows.mjs';
 export { describeCanonicalKeyFailure, describeMonotonicityFailure } from './monotonic/failures.mjs';
 export { settleDeferredAdded, workingCopyTrip } from './monotonic/trip.mjs';
 export { describeMonotonicityNotes } from './monotonic/notes.mjs';

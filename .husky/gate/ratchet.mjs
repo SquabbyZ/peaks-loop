@@ -4,6 +4,7 @@
 
 import { baseline } from './context.mjs';
 import { runEslint } from './eslint.mjs';
+import { judgeLintRow } from './findings-table.mjs';
 import { prettierCheck } from './prettier.mjs';
 
 // ---------------------------------------------------------------------------
@@ -43,24 +44,21 @@ async function ratchetFiles(files, label) {
         `${file} was NOT linted — eslint's parserOptions.project does not cover it. ` +
           'This is not a pass; it is a hole. See the eslintCoverageGapFiles ceiling.'
       );
-    } else if (allowed === undefined) {
-      if (actual.findings > 0) {
-        const m = actual.firstFinding;
-        failures.push(
-          `NEW file ${file} has ${actual.findings} lint finding(s). First: ` +
-            `${m.ruleId ?? '(fatal)'} at ${m.line}:${m.column} — ${m.message.split('\n')[0]}`
-        );
+    } else {
+      // THE RULE LIVES IN ONE MODULE (`.husky/gate/findings-table.mjs`), because
+      // `repo` mode now applies the SAME rule to every file the scope names — a
+      // second copy here is how "green under changed, red under repo" would stop
+      // being a contradiction and become a silent possibility. `compareErrors` stays
+      // off: this path has always judged findings only, and a push-time rule stricter
+      // than the commit-time one teaches `--no-verify`.
+      const judged = judgeLintRow({ file, measured: actual, allowed });
+      failures.push(...judged.failures);
+      // `improved > 0` implies a row exists — the rule reports a descent only against a
+      // named row — so `allowed` is defined on this branch by construction.
+      if (judged.improved > 0) {
+        improved++;
+        console.log(`peaks-gate: ${file} improved ${allowed.eslint} -> ${actual.findings} finding(s).`);
       }
-    } else if (actual.findings > allowed.eslint) {
-      failures.push(
-        `${file} went from ${allowed.eslint} to ${actual.findings} lint finding(s) ` +
-          `(+${actual.findings - allowed.eslint}).`
-      );
-    } else if (actual.findings < allowed.eslint) {
-      improved++;
-      console.log(
-        `peaks-gate: ${file} improved ${allowed.eslint} -> ${actual.findings} finding(s).`
-      );
     }
 
     let result;

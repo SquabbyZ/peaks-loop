@@ -199,6 +199,16 @@ export function artifactDocumentText({
       // re-derives these four fields from a live census run and REFUSES the leg on
       // any mismatch. They come from the envelope, never from a literal, so this
       // generator cannot record an input it did not measure.
+      //
+      // THEY ARE THE CENSUS'S INPUTS, NOT THE ROW'S POPULATION — stated because the
+      // two were the same thing until the owner drew the boundary on 2026-10-03 and
+      // nobody re-read this block. The census measures four directories under two
+      // caps; `fileSizeOverCap` gates the LINT-SCOPE partition of that census (113
+      // over cap today, 78 gated), so `testsCap` and the `tests` entry in
+      // `scopeDirs` are inputs of a population the row does not count — a change to
+      // either is refused here, and does not move the row. What does enforce the
+      // 500 on a root `tests/**` file is `peaks scan file-size`, diff-scoped and
+      // delta-judged, at `request transition rd → implemented`.
       fileSizePolicyInputs: {
         defaultCap: size.env.caps.defaultCap,
         testsCap: size.env.caps.testsCap,

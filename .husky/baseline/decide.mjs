@@ -12,9 +12,12 @@
 import {
   canonicalKeyProblems,
   compareCeilings,
+  compareRowCounts,
   describeCanonicalKeyFailure,
   describeMonotonicityFailure,
   describeMonotonicityNotes,
+  describeRowFailure,
+  describeRowNote,
   settleDeferredAdded
 } from '../peaks-gate-baseline-monotonic.mjs';
 
@@ -42,6 +45,8 @@ export function decideWrite({
   headFileCount = null,
   headShadow = null,
   headFiles = null,
+  headRows = null,
+  rows = null,
   shadow = null,
   rescope = null
 }) {
@@ -98,12 +103,33 @@ export function decideWrite({
   ];
 
   const monotonicity = compareCeilings(previousCeilings, ceilings);
+  // THE PER-FILE ROWS, COMPARED BY THE SAME RULE (§F-1). The ceilings are the SUM of
+  // these rows, and a sum cannot see a total-neutral reshuffle — one row down, another
+  // up, every ceiling exactly where it was. That reshuffle is what `repo` mode now
+  // refuses BY NAME at the gate, so a generator that wrote it would be printing the
+  // laundering command in its own remedy. Refused here instead, on the same anchor: HEAD's
+  // per-file map (`headRows`) against the rows this run measured (`rows`).
+  //
+  // THE ONE INPUT THIS GUARD MAY NOT BE SILENTLY DENIED. A caller that hands the guard
+  // HEAD's rows and no measured rows would compare nothing and refuse nothing — a guard
+  // that cannot be watched failing is a guard that asserts nothing, which is the failure
+  // mode `headFiles` was read for in the first place. The generator's single call site
+  // passes them; this names the hole if a future one does not.
+  const rowComparison = compareRowCounts(headRows, rows);
+  const rowFailure =
+    rows === null
+      ? headRows === null
+        ? null
+        : 'the per-file rows were not handed to the guard, so its comparison would have ' +
+          'been silent — a guard that cannot be watched failing asserts nothing'
+      : describeRowFailure(rowComparison);
   // Every reason this run may not write is named in ONE refusal. They are collected
   // rather than returned one at a time because they overlap — a row nobody sanctioned
   // is both off the canonical list and a row this run no longer measures — and an
   // operator shown only the first of the two fixes the wrong thing.
   const refusals = [];
   if (settled.refusal !== null) refusals.push(settled.refusal);
+  if (rowFailure !== null) refusals.push(rowFailure);
   const keyFailure = describeCanonicalKeyFailure(keyProblems);
   if (keyFailure !== null) refusals.push(keyFailure);
   // H1 — THE RESCOPE GUARD (rid `2026-10-03-w10-rescope-a`, backlog §2.42; extended
@@ -241,6 +267,12 @@ export function decideWrite({
   // `tests/unit/lint/shadow-move-warning.test.ts`.
   const shadowMoveInput = { headShadow, shadow, rescopeApplied: rescopeApplied !== null };
   for (const line of shadowMoveLines(shadowMoveInput)) console.error(line);
+  // THE DESCENT, PRINTED WHETHER OR NOT THIS RUN MAY WRITE — the same posture as the
+  // shadow-move report above and for the same reason: it is a measurement, not a verdict.
+  // A refusing run is exactly the run whose operator needs to see that the table moved the
+  // OTHER way somewhere (and can therefore be re-pointed once the regression is fixed).
+  const rowNote = describeRowNote(rowComparison.lowered);
+  if (rowNote !== null) console.error(rowNote);
   if (refusals.length > 0) {
     refuse(
       `${refusals.join('\n\n')}\n\n  The anchor is ${HEAD_REF}. Nothing above it was rewritten by this run.`

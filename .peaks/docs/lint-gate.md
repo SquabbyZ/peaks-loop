@@ -165,7 +165,7 @@ against real debt:
 | `tscErrors` | 142 | from `tsc -p tsconfig.json --noEmit` |
 | `silentWarningCatchReturnNull` | 41 *(seeded 2026-09-29)* | `catch { return null; }` — the caller cannot tell failure from absence |
 | `silentWarningEmptyCatch` | 59 *(seeded 2026-09-29)* | `catch { /* nothing */ }` — the error vanishes and the run stays green |
-| `fileSizeOverCap` | **166** *(seeded 174 on 2026-09-30, inputs re-seeded by the repair cycle, lowered to 166 by C wave 5 on 2026-10-01)* | files over the decided raw-line cap — **300** for `src`/`packages`/`scripts`, **500** for the root `tests/` tree — counted as `readFileSync(f,'utf8').split('\n').length` over `git ls-files` in those four directories. **Not** the `max-lines` finding count: 98 findings under 400-effective is a different population from 174 files over 300/500 raw (§4 slice 5). The row is bound to those inputs, not just to the unit: the artifact records `fileSizePolicyInputs` (`defaultCap`, `testsCap`, `scopeDirs`, `scopeExtensions`) and `fileSizeLineConvention`, and the leg re-derives all five from a live census run and **refuses** on a mismatch — so re-deciding the cap cannot quietly redefine the number it ratchets (§4b rows 7-9). |
+| `fileSizeOverCap` | **166** *(seeded 174 on 2026-09-30, inputs re-seeded by the repair cycle, lowered to 166 by C wave 5 on 2026-10-01)* | files over the decided raw-line cap — **300** for `src`/`packages`/`scripts`, **500** for the root `tests/` tree — counted as `readFileSync(f,'utf8').split('\n').length` over `git ls-files` in those four directories. **Not** the `max-lines` finding count: 98 findings under 400-effective is a different population from 174 files over 300/500 raw (§4 slice 5). The row is bound to those inputs, not just to the unit: the artifact records `fileSizePolicyInputs` (`defaultCap`, `testsCap`, `scopeDirs`, `scopeExtensions`) and `fileSizeLineConvention`, and the leg re-derives all five from a live census run and **refuses** on a mismatch — so re-deciding the cap cannot quietly redefine the number it ratchets (§4b rows 7-9). **This sentence is FALSE OF THE ROW as of 2026-10-03 and is corrected below the table: the row gates the lint-scope partition of that census (78 of 113 today), so it does not count the root `tests/` tree at all.** |
 | `fileSizeExcessLines` | **60271** *(seeded 2026-10-01 from the same census envelope; C wave 6 is the reason it exists — 60,204 → 60,271 while `fileSizeOverCap` held at 166 and `gate repo` exited 0)* | the **lines** over those caps, summed — the other half of one census run, and the quantity a file count cannot see: hoisting into a file that is already over cap adds lines without adding files. Seeded by `.husky/peaks-gate-baseline.mjs:423` copying `size.env.excessLines` (never typed), enforced beside the row above in `repo` mode and in `file-size` mode at `.husky/peaks-gate.mjs:734`; it reads `✗ file-size excess lines … > ceiling … (+1)` and exits 1 on one line more than the ceiling, and stays green as it descends. |
 | `fileSizeHooksOverCap` | **4** *(seeded 2026-10-02 by rid `2026-10-02-hooks-size-rows`)* | files over cap inside the **hooks scope** — `.husky/` — measured with the same raw-line convention against the same 300 cap, enumerated by `git ls-files` over its own dir list. The row exists because §4b row 5 recorded on 2026-09-30 that `fileSizeOverCap` cannot see the gate itself, while folding `.husky` into the main scope was rejected because it would seed the main row higher, which §5 forbids. Separate rows are the resolution: the main pair did not move (162 / 54,318 before and after), and the guard's own body became a descender under its own ratchet. |
 | `fileSizeHooksExcessLines` | **1701** *(seeded with the row above, from the same census envelope)* | the lines over that cap, summed — today `.husky/peaks-gate.mjs` 1019 (+719), `-baseline.mjs` 799 (+499), `-baseline-monotonic.mjs` 672 (+372), `-file-size.mjs` 411 (+111). Bound to its inputs like the main pair: cap, dirs, extensions and convention come from the census envelope and the leg re-derives them, so §4b rows 7-9 apply to this scope too. |
@@ -185,6 +185,26 @@ named `Silent-warning ratchet` CI step, and both refuse (exit 1) when the
 detector cannot run — a leg that could not measure contributes no row, and
 certainly no zero.
 
+**CORRECTED 2026-10-13 (rid `rid-count-ceiling-exemption-table`) — THE TWO ESLINT ROWS ARE NO
+LONGER THE ASSERTION.** `eslintFindings` / `eslintErrors` are counts, and a bound on a count
+cannot force action on any individual finding: the rule `no-require-imports` (severity ERROR)
+reported all **16** sites of the ESM `require()` family inside a total of 1758 the whole time,
+and four `eslint-disable` comments guarding those sites named `no-var-requires`, a rule that
+exists in no ESLint v8 — they suppressed nothing and nothing noticed, because the total never
+moved far enough to be read. What `repo` mode asserts now is the per-file table the census
+already writes (`files[<path>].eslint` / `.eslintErrors`) as **set containment plus per-row
+no-growth**: a file the table does not name may hold none, and a file it names may hold at most
+what its row names. The granularity is the **FILE**, because findings are recorded nowhere by
+identity — so a NEW path is red **by name**, a named path that gains one is red **with both
+numbers**, and a finding removed and another added inside one file at the same count is
+invisible at that granularity (stated, not hidden). Both count rows are still printed and still
+ratcheted — they are the SUM of the rows, and the generator's monotonicity guard is what still
+refuses a raise — but they are EVIDENCE now, not the check. `.husky/gate/findings-table.mjs`
+owns the rule for both modes and `tests/unit/lint/findings-table.test.ts` carries the arms,
+including the flat reshuffle the `4398` column above cannot see. §5 row 6's endpoint is
+therefore not "flip this leg to hard-fail": it is "the table is empty", which is already a
+per-row hard gate.
+
 `fileSizeOverCap` is the third measured-only row and the fourth excluded class: the
 file-size policy is **not** tradable against lint debt either, so it does not live
 inside `eslintFindings`. The policy itself is one module —
@@ -196,6 +216,21 @@ excess lines and `wc -l` gives 60,808 — one per file — so the artifact recor
 convention next to the ceiling (`fileSizeLineConvention`).
 `scripts/` is inside the scope because the 174 counts 5 files in it; a row that
 silently excluded them would not equal its own measurement (the §4b class of hole).
+
+**CORRECTED 2026-10-13 (rid `rid-count-ceiling-exemption-table`): THAT LAST CLAUSE IS NOW FALSE
+OF THE ROW, AND THE 500 IS NOT HELD BY IT.** Since the owner drew the boundary on 2026-10-03 the
+row gates the **lint-scope partition** of the census, not the census: measured today the census
+counts **113** files over cap (`src` 78, `tests` 34, `packages` 0, `scripts` 1) and the row
+carries **78**. The `tests/` and `scripts/` half sits in the artifact's `shadow` block — counted
+by the same census, enforced by no ceiling, printed by the gate's `file-size` leg as
+`out-of-scope (not gated, owner decision 2026-10-03)` — so the row has never counted a root
+`tests/**` file, whatever its description above says. What does enforce **500** on one is
+`peaks scan file-size` at `request transition rd → implemented`: diff-scoped and delta-judged,
+it refuses a `tests/**` file **created** over the cap and accepts a pre-existing over-cap one
+that does not grow. Measured 2026-10-13: a 530-line `tests/unit/_scratch-over-cap.test.ts`
+returned `violations[0] = { file, lines: 530, cap: 500, previousLines: null }`, `ok: false`.
+So a green husky gate is not what holds the tests cap, and this row was never the thing that
+did; the two surfaces have to be read together.
 
 The count comes from `scripts/lint/file-size-census.ts` — the only tool that
 imports the `.ts` policy — run through tsx (`node node_modules/tsx/dist/cli.mjs

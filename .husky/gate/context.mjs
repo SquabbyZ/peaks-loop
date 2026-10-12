@@ -39,7 +39,41 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..')
   .join('/');
 const BASELINE_PATH = resolve(ROOT, '.peaks/lint/gate-baseline.json');
 
-const baseline = JSON.parse(readFileSync(BASELINE_PATH, 'utf8'));
+/**
+ * WHY THE BASELINE IS READ THROUGH A REFUSAL. Read inline, the four ways this file can
+ * be unusable — deleted, unreadable, empty, not JSON — all surfaced as a raw exception
+ * stack from module load: exit 1, which is fail-closed and therefore the right exit code,
+ * but with nothing an operator can act on and no path named. QA measured that on
+ * 2026-10-13. The refusal is the same shape as the rest of this gate (`REFUSING to
+ * measure …`, the remedy spelled out) and keeps exit 1.
+ */
+function readBaselineOrRefuse() {
+  let text;
+  try {
+    text = readFileSync(BASELINE_PATH, 'utf8');
+  } catch (err) {
+    refuseBaseline(`could not be read (${err.code ?? err.message})`);
+  }
+  if (text.trim() === '') refuseBaseline('is empty');
+  try {
+    return JSON.parse(text);
+  } catch (err) {
+    refuseBaseline(`is not parseable JSON (${String(err.message).split('\n')[0]})`);
+  }
+}
+
+function refuseBaseline(problem) {
+  console.error(
+    `peaks-gate: REFUSING to run — the ratchet baseline ${problem}.\n  ${BASELINE_PATH}\n` +
+      '  Every row in this gate is compared against that file, so without it there is nothing\n' +
+      '  to hold. Nothing was measured.\n' +
+      '    Restore the anchor:  git checkout HEAD -- .peaks/lint/gate-baseline.json\n' +
+      '    No baseline yet:     node .husky/peaks-gate-baseline.mjs --seed\n'
+  );
+  process.exit(1);
+}
+
+const baseline = readBaselineOrRefuse();
 // The scope rule is `scripts/lint/lint-file-list.mjs`, not a copy in this file.
 // It used to be a local `CODE_EXT` regex x `baseline.scope.dirs`, i.e. a second
 // spelling of the rule `pnpm lint` also measures — and `tests/unit/lint/`

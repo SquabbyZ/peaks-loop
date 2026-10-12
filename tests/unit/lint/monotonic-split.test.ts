@@ -56,16 +56,28 @@ declareDimensions(
   ]
 );
 
-/** The public surface of HEAD's single module, sorted — the M2 contract list. */
+/**
+ * The public surface of HEAD's single module, sorted — the M2 contract list.
+ *
+ * EXTENDED, NOT REWRITTEN, BY rid `rid-count-ceiling-exemption-table` (F-1): the three
+ * `rows.mjs` symbols joined the entry because the per-file rows are part of the ratchet —
+ * the gate compares them (`findings-table.mjs`) and the generator must refuse a row that
+ * moves UP, or the regeneration the gate's own descent sentence recommends is the command
+ * that launders a total-neutral reshuffle. The list is the contract, so a symbol added to
+ * the entry without landing here is exactly as red as one that was deleted.
+ */
 const PUBLIC_SYMBOLS = [
   'CEILING_KEYS',
   'SEED_FLAG',
   'canonicalKeyProblems',
   'ceilingProblem',
   'compareCeilings',
+  'compareRowCounts',
   'describeCanonicalKeyFailure',
   'describeMonotonicityFailure',
   'describeMonotonicityNotes',
+  'describeRowFailure',
+  'describeRowNote',
   'missingCanonicalKeys',
   'parsePreviousArtifact',
   'settleDeferredAdded',
@@ -153,7 +165,7 @@ describe('Scenario: behavior — the staged set is a walk, so it cannot go stale
 });
 
 describe('Scenario: integration — the entry still resolves the public surface', () => {
-  it('exports exactly the thirteen symbols HEAD exported, and they are live', async () => {
+  it('exports exactly the sixteen symbols HEAD exported plus the three this slice added, and they are live', async () => {
     const surface = (await import(
       pathToFileURL(join(REPO_ROOT, MONOTONIC_ENTRY_REL)).href
     )) as Record<string, unknown>;

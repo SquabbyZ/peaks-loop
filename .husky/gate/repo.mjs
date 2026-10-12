@@ -8,6 +8,7 @@
 import { execFileSync } from 'node:child_process';
 import { ROOT, baseline, makeCheck } from './context.mjs';
 import { runEslint } from './eslint.mjs';
+import { findingsTableLines, judgeFindingsTable } from './findings-table.mjs';
 import { prettierCheck } from './prettier.mjs';
 import { commentHygieneLeg } from './comment-hygiene.mjs';
 import { silentWarningLeg, fileSizeLeg } from './legs.mjs';
@@ -19,8 +20,14 @@ import { FS_CEILING_KEY, printFileSizeLeg } from '../../.husky/peaks-gate-file-s
 async function repoMode(files) {
   console.log(`peaks-gate: checking ${files.length} file(s) against the whole-repo ceilings...`);
 
-  let findings = 0;
-  let errors = 0;
+  // THE TWO ESLINT ROWS ARE NO LONGER ACCUMULATED HERE. Until rid
+  // `rid-count-ceiling-exemption-table` this loop summed `findings` and `errors` and
+  // the two rows below compared those sums to a ceiling — a bound on a count, which no
+  // individual finding can force action on. `judgeFindingsTable` derives the same two
+  // totals from the per-file rows the census writes AND judges every file against the
+  // row that names it; the totals go through `check` as EVIDENCE (they are now implied
+  // by the table, and a total above its ceiling means the artifact disagrees with
+  // itself). See `.husky/gate/findings-table.mjs` for the argument in full.
   let phantomFindings = 0;
   let coverageGapFiles = 0;
   let syntaxErrorFiles = 0;
@@ -35,10 +42,6 @@ async function repoMode(files) {
     phantomFindings += v.phantomFindings;
     if (v.coverageGap) coverageGapFiles++;
     else if (v.syntaxError) syntaxErrorFiles++;
-    else {
-      findings += v.findings;
-      errors += v.errors;
-    }
   }
 
   let unformatted = 0;
@@ -123,8 +126,11 @@ async function repoMode(files) {
   const check = makeCheck(failures);
 
   console.log('');
-  check('eslint findings', findings, c.eslintFindings);
-  check('  of which errors', errors, c.eslintErrors);
+  const table = judgeFindingsTable({ measured: lint, table: baseline.files });
+  check('eslint findings (derived)', table.totals.findings, c.eslintFindings);
+  check('  of which errors (derived)', table.totals.errors, c.eslintErrors);
+  for (const line of findingsTableLines(table)) console.log(line);
+  for (const failure of table.failures) failures.push(failure);
   check('  phantom-rule findings', phantomFindings, c.eslintPhantomFindings);
   check('prettier unformatted', unformatted, c.prettierUnformatted);
   check('tsc errors', tscErrors, c.tscErrors);
@@ -172,9 +178,13 @@ async function repoMode(files) {
   }
 
   if (failures.length > 0) {
-    console.error('peaks-gate: push blocked — a whole-repo total grew.\n');
+    console.error('peaks-gate: push blocked — the ratchet moved the wrong way.\n');
     for (const f of failures) console.error(`  ✗ ${f}`);
-    console.error('\nThese total only ever go DOWN. Fix the regression; do not raise a ceiling.\n');
+    console.error(
+      '\nA total may only go DOWN, and a row in the findings table may only SHRINK — a name\n' +
+        'is a file that reached this tree with debt, not a permission. Fix the regression; do\n' +
+        'not raise a ceiling and do not widen a row.\n'
+    );
     return 1;
   }
 

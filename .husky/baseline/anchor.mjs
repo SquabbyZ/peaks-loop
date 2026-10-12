@@ -161,9 +161,20 @@ function readAnchorScope(text) {
     // rather than as "nothing moved" — §2.41's shape, one layer down.
     const shadow =
       doc !== null && typeof doc === 'object' && isShadowBlock(doc.shadow) ? doc.shadow : null;
-    return { headScope: scope, headFileCount: fileCount, headShadow: shadow, headFiles };
+    // THE VALUES, NOT ONLY THE KEYS (§F-1 of rid `rid-count-ceiling-exemption-table`).
+    // `headFiles` is this map's keys, read for the rescope leaving-set; the MAP ITSELF is
+    // what the per-file rows may only descend against, and until this slice nothing under
+    // `.husky/` kept it — which is how a total-neutral reshuffle could be laundered by the
+    // very regeneration the gate's own sentence recommends. `rows.mjs` owns the comparison.
+    return { headScope: scope, headFileCount: fileCount, headShadow: shadow, headFiles, headRows: rows };
   } catch {
-    return { headScope: null, headFileCount: null, headShadow: null, headFiles: null };
+    return {
+      headScope: null,
+      headFileCount: null,
+      headShadow: null,
+      headFiles: null,
+      headRows: null
+    };
   }
 }
 
@@ -176,7 +187,13 @@ export function guardAnchor() {
   const anchorRead = readGitShowHead(OUT_REL);
   let anchorCeilings = null;
   let anchorProblem = anchorRead.problem;
-  let anchorScope = { headScope: null, headFileCount: null, headShadow: null, headFiles: null };
+  let anchorScope = {
+    headScope: null,
+    headFileCount: null,
+    headShadow: null,
+    headFiles: null,
+    headRows: null
+  };
   if (anchorProblem === null) {
     const parsed = parsePreviousArtifact(anchorRead.text);
     anchorCeilings = parsed.ceilings;
@@ -260,6 +277,8 @@ export function guardAnchor() {
     headFileCount: anchorScope.headFileCount,
     headShadow: anchorScope.headShadow,
     // §2.50: HEAD's in-scope enumeration, so the trip can subtract the leaving SET.
-    headFiles: anchorScope.headFiles
+    headFiles: anchorScope.headFiles,
+    // §F-1: HEAD's per-file ROWS, so a row may only descend. Keys alone were not enough.
+    headRows: anchorScope.headRows
   };
 }
