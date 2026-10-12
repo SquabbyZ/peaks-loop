@@ -4114,6 +4114,32 @@ the blocked command — it is that a gate which refuses legitimate work is the t
   found it. Both are 9.19's point restated: a `MUST` with no executor is dropped by whoever is busiest,
   and a fan-out is precisely when someone is busiest.
 
+### 9.21 Adding a tracked source file requires regenerating the baseline, and the census cannot see the file until it is staged (hit 2026-10-13, by the orchestrator, on 9.1's own landing; open)
+
+- **Where**: `.peaks/lint/gate-baseline.json`'s `files[]` map versus
+  `.husky/peaks-gate.mjs repo`, whose census walks **`git ls-files`** — the **index**, not the working tree.
+- **What happened**: commit `3b95e00a` (9.1) added `src/services/race/lane-phase.ts` and landed with the
+  per-file gate green and the commit legs green. It **did not regenerate the baseline**, so the new module
+  had **no `files[]` row**, and the whole-repo gate was **red from that commit** — a state discovered by
+  the *next* slice's RD, which hit it as three pre-existing reds and cleared it with the sanctioned
+  regeneration (`fileSizeExcessLines 22469 → 22422`, and the census count went 1266 → **1267** files).
+- **Why it is easy to hit, and was**: the two checks run at different times and see different trees.
+  `peaks-gate.mjs staged <file>` and `lint-staged` judge the file you are committing, which is present in
+  the worktree — green. `peaks-gate.mjs repo` walks `git ls-files`, which **does not contain an untracked
+  file at all**, so regenerating the baseline *before* staging produces a baseline that silently omits the
+  new file. Staging fixes the census; **regenerating after staging** is the only order that works.
+- **Measured cost**: the repo gate and CI were red for one commit, and the cost reappeared as a puzzle for
+  a different agent on a different slice — which then had to prove the reds were pre-existing rather than
+  caused by its own change.
+- **This is already a named trap in `.peaks/memory/` and it still happened**: the memory says a green
+  `peaks-gate.mjs repo` does **not** mean the baseline is current, and prescribes running `pnpm test:unit`
+  after regenerating. What was missing was the **ordering** rule — *regenerate after `git add`, never
+  before* — which the memory does not state and this item now does.
+- **Repair direction**: either have the commit gate regenerate-and-stage the baseline itself when a staged
+  path has no row (fail-closed if it cannot), or make `peaks-gate.mjs repo` report an **untracked** new
+  source file as a red rather than omitting it. The second is smaller and closes the whole class, because
+  it removes the dependency on a human remembering an order.
+
 ### 9.A Recorded, not fixed — the session's accepted risks, smaller items, and open U-questions
 
 Carried rather than re-litigated. Each was **named** by the session, which is the standard this file holds;
