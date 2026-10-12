@@ -4184,6 +4184,42 @@ the blocked command — it is that a gate which refuses legitimate work is the t
   know all of this — they detected it. That single sentence would have saved four reviewers a confused
   round; creating the handoff as a dispatch precondition is the more thorough fix.
 
+### 9.23 The tier-2 campaign, measured — four slices, and what each round actually found (2026-10-13)
+
+Not a defect. Recorded because the **cost of this repository's review process is the thing nobody has
+numbers for**, and one unattended night produced a clean set.
+
+The user ruled all four decisions of 9.1–9.4 and then granted full authority in 24h mode. Each slice ran
+the full contract: a dispatch, a three-way review, repairs, QA, and eight artifacts. **All four landed.**
+
+| slice | commit | rounds | what each round found |
+|---|---|---|---|
+| **9.1** carrier migration | `3b95e00a` | 1 implement + 3 repair + 3 review + 2 re-review | the escape family **moved** rather than closed (`phase`); `__proto__` escaped zod `strict`; the shrunk guard's SKILL.md leg was a **negative** assertion; three arms that could not fail; a symlink leak; and a repair that **introduced** a contract regression (`lstatSync` threw where `existsSync` returned false) |
+| **9.2** warn surfacing | `3059ac27` | 1 implement + 5 repair + 3 review + 2 re-review | the first sanitizer covered **one of two** printing sites and the failure leg **forged a line**; two false comments in the new module; an over-claimed rationale; two `no-control-regex` lint errors; and the comment-hygiene ratchet refusing the ceiling |
+| **9.3** size delta + order | `435445dd` | 1 implement + 1 repair + 3 review + 1 QA re-verify | **a rename escaped the ratchet entirely** (the same growth refused in place, accepted when renamed) — found by QA's control after the orchestrator had ruled it "record"; a `catch { return [] }` that turned *"could not look"* into *"nothing changed"*; and an order gate whose off-switch was **a deleted line** |
+| **9.4** named table | `d3684dbc` | 1 implement + 1 repair + 3 review + 1 QA | a **total-neutral reshuffle laundered by the remedy the module itself prints**; a rename onto a tolerated name laundering findings with no regeneration (*"a name is not an identity"*); a non-integer that would have passed **silently** as `NaN`; a `null` row crashing; and a **false defect rationale the orchestrator had written** |
+
+**The strongest signal available is two independent agents finding the same thing**, and it happened four
+times: the escaped-key duplicate (code + security), the failure-leg forgery (code + security + QA), the
+deleted-state-line off-switch (code + security), and the rename escape (QA's control, with the code
+reviewer reaching the same axis from the other direction).
+
+**Two of the defects were in the reviews' own submissions, and one was in the orchestrator's**: a reviewer
+who read the import block and still mis-stated a private function's call site (retracted), a reviewer
+whose "unused export" premise did not survive the implementer's check, and an orchestrator who wrote a
+rule's existence into an item without opening the plugin — the false `no-var-requires` claim of 9.4, which
+travelled through three carriers including a sha256-locked one.
+
+**And the orchestrator's own work was the least reliable part of the night**: two incomplete landings
+(a new source file committed without its baseline row, 9.21; and a file dropped from a `git add` list,
+which left a claim narrower than the code), plus the false rationale above. The implementers and reviewers
+caught all three; no gate did.
+
+**Throughput, stated plainly**: four slices, ~28 commits, one unattended night, and the fifth thing on the
+list did not start. The per-slice cost is real — a 4-way fan-out, several repair rounds, eight artifacts
+each — and the return is that **every round found something**, with five of the sixteen findings being
+holes in the fix rather than in the original code.
+
 ### 9.A Recorded, not fixed — the session's accepted risks, smaller items, and open U-questions
 
 Carried rather than re-litigated. Each was **named** by the session, which is the standard this file holds;
