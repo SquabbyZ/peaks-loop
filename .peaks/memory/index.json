@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-11T18:07:47.862Z",
+  "updatedAt": "2026-10-12T05:32:35.990Z",
   "hot": {
     "rule": [
       {
@@ -2866,6 +2866,14 @@
         "updatedAt": "2026-10-08"
       },
       {
+        "name": "esm-require-4-2-15",
+        "kind": "project",
+        "description": "症状与后果： ⇒ （干净会话上必崩；loop runtime 的唯一入口） /  ⇒ 先写 ，然后在 rename 处抛   ⇒ **盘上留下  而无 **， 会报该 artifact 缺失（即使审计本身做完了）  与 （含旧 ）**...",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\esm-require-4-2-15.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-12-session-74bd69/txt/handoff.md",
+        "updatedAt": "2026-10-12"
+      },
+      {
         "name": "execsync-goes-through-cmd-on-windows",
         "kind": "project",
         "description": "**2026-09-11 被 CI 抓到。**  用  找 22 个 SKILL.md。CI 的 windows-latest 报：  **走平台 shell**：Windows 上是 ， 解析到  （另一个程序，不认 ）。本地能过，...",
@@ -2922,12 +2930,28 @@
         "updatedAt": "2026-10-08"
       },
       {
+        "name": "markdown-is-the-wrong-carrier",
+        "kind": "project",
+        "description": "**五轮实测的逃逸拼写**（每轮都是**当轮守卫看不到**的那种）： 字符序列层面的多样性不是 bug，是**自由文本的固有属性**。 守卫只能按**某个模式**认出「标记」。**任何人类会读成相位声明、但不匹配该模式的拼写，对守卫都...",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\markdown-is-the-wrong-carrier.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-12-session-74bd69/txt/handoff.md",
+        "updatedAt": "2026-10-12"
+      },
+      {
         "name": "mode-consolidation-2026-09-09",
         "kind": "project",
         "description": "mode 模型收敛 + 三个真 bug（2026-09-09） **Date:** 2026-09-09（session 2026-09-07-session-245530）· commit  用户报的三个问题 → 三个真根因 1.",
         "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\mode-consolidation-2026-09-09.md",
         "sourceArtifact": null,
         "updatedAt": "2026-10-08"
+      },
+      {
+        "name": "mut-report-rd-qa-handoff",
+        "kind": "project",
+        "description": "证据链：（ 要字面 ）→ （三个子命令都要 ） → （说要 ）→ **该命令不存在** （ 落根帮助； 的命令表无 //）。 **实测的反直觉那半**：缺这份文件时  返回 **、、exit 0** —— 表里写着硬前置，跳过时却一声...",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\mut-report-rd-qa-handoff.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-12-session-74bd69/txt/handoff.md",
+        "updatedAt": "2026-10-12"
       },
       {
         "name": "npm-view-reads-a-local-cache",
@@ -3202,6 +3226,22 @@
         "updatedAt": "2026-10-08"
       },
       {
+        "name": "race-code-2",
+        "kind": "project",
+        "description": "读 （**跟踪**文件，因为门 2 拦的是  这个跟踪改动），套  的 7 项阈值，返回  /  /  + 带 / 的理由。  是唯一的写者（幂等 upsert， 为键）。 **两个设计要点别弄丢**： 1.",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\race-code-2.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-12-session-74bd69/txt/handoff.md",
+        "updatedAt": "2026-10-12"
+      },
+      {
+        "name": "request-init",
+        "kind": "project",
+        "description": "产出的是**骨架**（rd 55 行 6 个 、qa 52 行 2 个）。 而  §3.3/§3.4 的角色提示里 **没有一句**说要回填它 ⇒  必然 （6 条全是占位符行）。 **修法二选一**：① 提示里补一句「回填 ，把占位...",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\request-init.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-12-session-74bd69/txt/handoff.md",
+        "updatedAt": "2026-10-12"
+      },
+      {
         "name": "rid-020b-shipped-2026-07-28",
         "kind": "project",
         "description": "rid-020b 24h mode integration surface — shipped > **Status**: implementation + QA verify PASS, pending user authorize...",
@@ -3360,6 +3400,14 @@
         "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\two-peaks-probes-disagree-about-what-a-ratio-means.md",
         "sourceArtifact": null,
         "updatedAt": "2026-10-08"
+      },
+      {
+        "name": "two-practices-gated-vs-handwritten",
+        "kind": "project",
+        "description": "判断方法（可复现）： —— **没有输出**就说明 该载体从未被  追加过  块，即那一轮没走状态机。 2026-10-12 那轮（）是久违地真去驱动状态机的一轮，一驱动就撞出 4 条结构性缺口（MUT_REPORT 无生产者、审计 ...",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\two-practices-gated-vs-handwritten.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-12-session-74bd69/txt/handoff.md",
+        "updatedAt": "2026-10-12"
       },
       {
         "name": "upgrading-the-package-does-not-refresh-generated-settings",
