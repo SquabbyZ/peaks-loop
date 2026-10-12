@@ -3902,6 +3902,23 @@ the blocked command — it is that a gate which refuses legitimate work is the t
   matcher wants", and the matcher does not say which way that is.
 - **Family**: same shape as 7.10's skip-as-pass and the `mustContain` literal-substring traps already
   recorded — a contract expressed as a string match against prose.
+- **RECURRED 2026-10-13, to the orchestrator, while landing 9.1.** The four artifacts for a fresh rid were
+  written by sub-agents — a PRD handoff, a code review, QA test cases, a QA test report — with real
+  content, correct verdicts and measured evidence, and `peaks workflow verify-pipeline` refused with
+  **4 violations**, every one of them a **missing literal heading**, not a missing fact:
+  the code review lacked `## Findings` and the literal `CRITICAL`; the test cases lacked `## Test cases`;
+  the test report lacked `## Test execution`; and the qa artifact's state read `unknown` because nobody had
+  run the transition. **Nothing in the dispatch told any producer what the predicate wanted**, and two of
+  the four had been given the acceptance criteria in full.
+  - The stalls were cleared by **shape-only** additions — the literal headings added around the authors'
+    own words, and the state moved with the CLI's own writer rather than by hand. Nothing was fabricated
+    and no verdict was touched. But that is the point: **a gate that can only be satisfied by editing
+    someone else's evidence after the fact is training its users to edit evidence**, and this instance had
+    a cooperative author.
+  - **The repair direction is unchanged and now better evidenced**: the prerequisite markers belong in the
+    dispatch prompt, or the artefacts should not be judged on their headings. Until one of those lands,
+    every slice pays this tax and every orchestrator is one careless step from passing a gate by
+    rewriting a reviewer.
 
 ### 9.11 Guards scope themselves by directory, so every new executable directory is a blind spot (found 2026-10-12; open)
 
