@@ -3630,6 +3630,38 @@ the blocked command — it is that a gate which refuses legitimate work is the t
 - **Fork**: **(a)** migrate the carrier as above; **(b)** keep the markdown carrier and accept the escape
   space as a **named** residual, whose compensating control is human review on the tracked-change boundary
   — which is the control the guard file's own header already names.
+- **RULED (a) on 2026-10-13**, and the first implementation **did not achieve it.** Recorded here because
+  the outcome is the most reusable part of the item:
+  - The migration replaced the markdown marker with `.peaks/race/lane-phase.json` and a Zod reader — and
+    **the escape family moved rather than closed.** `JSON` keys may be written with unicode escapes, and
+    `JSON.parse` resolves `phase` to the key `phase`, so
+    `{"phase":"name-only","phase":"offered-by-default"}` returned **`ok`/`offered-by-default`**: a
+    reader of the raw file sees one value, the guard resolves another, and an **illegal** first
+    declaration is silently dropped. That is the identical shape to the markdown spellings, narrower but
+    not closed — and it **falsified the new reader's own justification comment**, the repository's
+    most-repeated defect occurring inside the change that exists to remove it.
+  - **Independent verification was necessary, not ceremony.** Both the code reviewer and the security
+    reviewer **rendered the escaped key as its decoded form**, so the input printed in both reports was
+    the *plain* duplicate — the one the code **does** catch. Anyone reproducing their report would have
+    got `invalid` and concluded the finding was wrong. A probe with a control arm established which bytes
+    actually escape. **A finding whose stated evidence cannot be reproduced is the same family as
+    `a-right-conclusion-resting-on-evidence-nobody-can-reproduce`.**
+  - **The repair that worked removed the space rather than patching the pattern**: no legal lane-phase
+    file can contain a backslash (the only key is `phase`; the only values are the two tokens; neither
+    needs an escape), so refusing any backslash is a **one-line, total** rule that makes the duplicate
+    count sound **by construction**. The alternative — requiring the whole file to match one of two
+    canonical forms — was rejected as a raw-text spelling rule for the entire document, which would make
+    the parser decorative. Verified: all three previously-resolving escaped forms now refuse, **with the
+    controls still behaving**, so it is not a check that refuses everything.
+  - **Two claims the reviews made true rather than deleting**: `.strict()` in zod 4.4.3 rejects
+    `constructor` and `toString` but **not `__proto__`**, so "an unknown key is a rejection" was false
+    until an own-key check made it true; and the shrunk guard's only read of `SKILL.md` was a **negative**
+    assertion, satisfied by a file with **no lane section at all** — measured by deleting the section.
+  - **And one the fix could not make true**: nothing in `src/` consumes the reader. The runtime path is
+    the LLM reading the JSON directly, so the parser's refusals bind the **guard**, not the consumer. The
+    security reviewer and the repair dispatch's own injected memory
+    (`a-feature-can-be-fully-tested-and-still-be-unreachable-from-production`) arrived at this
+    independently.
 
 ### 9.2 `MUT_REPORT` is a hard prerequisite with no producer, and it does not report its own skip (found 2026-10-12; **needs the user's decision**)
 
