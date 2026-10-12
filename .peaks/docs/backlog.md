@@ -3993,6 +3993,32 @@ the blocked command — it is that a gate which refuses legitimate work is the t
   way `CLAUDE.md`'s are; **(b)** keep it out and require a dated **verification stamp** per section, so a
   reader can judge staleness. (a) is mechanical and matches 9.9; (b) is what §9's header does by hand.
 
+### 9.19 The mandatory Karpathy block was dropped from every dispatch in this session, and the tree predicted it would be (found 2026-10-13; open)
+
+- **Where**: `skills/bee/peaks-rd/references/rd-sub-agent-dispatch.md:140` — *"the following context
+  block MUST be appended to the sub-agent prompt **verbatim**"* — and line **164**, which states the
+  failure mode before it happened: *"Sub-agents MUST NOT silently drop this block. **Nothing asserts its
+  presence automatically** — the unit test that did was deleted in `f17aa377`, so a dropped block fails
+  silently."*
+- **Measured**: all four RD dispatch prompts written this session carried **zero** occurrences of
+  `Karpathy` (`grep -ci karpathy` → **0** for `prompt-rd-tier1.txt`, `prompt-rd-s3.txt`,
+  `prompt-rd-bug2.txt`, `prompt-rd-gateh.txt`). The CLI does not inject it either (`grep -c Karpathy`
+  over the expanded dispatch prompt → **0**), so nothing supplied it: the requirement is on the
+  orchestrator and the orchestrator skipped it four times.
+- **Consequence**: four RD sub-agents planned, implemented and self-reviewed without the guidelines the
+  dispatch contract makes mandatory, and **nothing failed**, because the assertion that would have caught
+  it was deleted. The session that found this is the same one that wrote up 9.5.
+- **Why it sits beside 9.5**: same shape, one file apart, same session, same author. 9.5 is a mandatory
+  post-completion call nobody made; this is a mandatory prompt block nobody appended. Both are `MUST`s
+  with **no executor**; both carry a written warning in the tree naming the exact risk; both were dropped
+  silently. Together they suggest the repository's `MUST` vocabulary is doing work that only an executor
+  can do.
+- **The sharpest part**: the reference file **predicted this precisely**, naming the commit that removed
+  the guard. A correct prediction changed nothing. That is the argument for an executor over a warning,
+  and it cost nothing to state because the document already stated it.
+- **Fork**: **(a)** restore an assertion — a dispatch-time presence check, or a test that reads the prompt
+  files the flow produces; **(b)** drop the requirement and stop calling the block mandatory.
+
 ### 9.A Recorded, not fixed — the session's accepted risks, smaller items, and open U-questions
 
 Carried rather than re-litigated. Each was **named** by the session, which is the standard this file holds;
