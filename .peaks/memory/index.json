@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-12T05:32:35.990Z",
+  "updatedAt": "2026-10-12T07:28:18.628Z",
   "hot": {
     "rule": [
       {
@@ -2818,6 +2818,14 @@
         "updatedAt": "2026-10-08"
       },
       {
+        "name": "count-ceilings-cannot-force-action-finding",
+        "kind": "project",
+        "description": "实测（2026-10-12）： 在  里**不存在**（v8 改名了）；生效的是 （error）， 它**一直在**那 16 处上报，包括 4 处**写了 disable 但 disable 指向另一个（不存在的）规则**的地方。 因...",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\count-ceilings-cannot-force-action-finding.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-12-session-74bd69/txt/handoff.md",
+        "updatedAt": "2026-10-12"
+      },
+      {
         "name": "custom-sop-and-gate-metering",
         "kind": "project",
         "description": "New iteration discussed 2026-05-29 (peaks-prd brainstorm).",
@@ -2912,6 +2920,14 @@
         "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\gateguard-vs-peaks-qa-fact-forcing-conflict.md",
         "sourceArtifact": null,
         "updatedAt": "2026-10-08"
+      },
+      {
+        "name": "git-commit-ships-the-index-stage",
+        "kind": "project",
+        "description": "2026-10-12 实测： 显示 （已 add 过、又在工作树改过）。 staged  = **16004 B / 22 例** worktree = **24168 B / 28 例** staged 的扫描模块 **没有 **（...",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\git-commit-ships-the-index-stage.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-12-session-74bd69/txt/handoff.md",
+        "updatedAt": "2026-10-12"
       },
       {
         "name": "harness-compaction-witness-lives-in-the-transcript",
@@ -3230,6 +3246,14 @@
         "kind": "project",
         "description": "读 （**跟踪**文件，因为门 2 拦的是  这个跟踪改动），套  的 7 项阈值，返回  /  /  + 带 / 的理由。  是唯一的写者（幂等 upsert， 为键）。 **两个设计要点别弄丢**： 1.",
         "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\race-code-2.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-12-session-74bd69/txt/handoff.md",
+        "updatedAt": "2026-10-12"
+      },
+      {
+        "name": "rd-implemented-baseline",
+        "kind": "project",
+        "description": "实测（2026-10-12， 的 ）： 闸门点名 5 个文件（461 / 459 / 750 / 540 / 672 行，cap 300）； 这 5 个**在 HEAD 上就全部超限**，且其中 **4 个在本次改动下变小了**（−1...",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\rd-implemented-baseline.md",
         "sourceArtifact": ".peaks/_runtime/2026-10-12-session-74bd69/txt/handoff.md",
         "updatedAt": "2026-10-12"
       },
