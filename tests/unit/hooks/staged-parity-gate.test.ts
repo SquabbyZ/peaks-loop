@@ -289,7 +289,11 @@ describe('Scenario: staged-parity — the decision without a repository', () => 
     // then:  the path is in parity
     const bytes = Buffer.from('same\n');
     const oid = 'a'.repeat(40);
-    const outcome = decide.compareStagedPath('f', { kind: 'bytes', oid, bytes }, { kind: 'bytes', oid, bytes });
+    const outcome = decide.compareStagedPath(
+      'f',
+      { kind: 'bytes', oid, bytes },
+      { kind: 'bytes', oid, bytes }
+    );
     expect(outcome.status).toBe('parity');
   });
 

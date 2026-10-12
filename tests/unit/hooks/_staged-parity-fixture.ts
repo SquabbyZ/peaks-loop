@@ -177,12 +177,16 @@ export function runMutantLeg(cwd: string, mutate: (source: string) => string): L
   const mutated = mutate(source);
   if (mutated === source) throw new Error('the mutation changed nothing, so the arm cannot fail');
   writeFileSync(join(dir, '.husky', 'staged-parity', 'decide.mjs'), mutated);
-  const result = spawnSync(process.execPath, [join(dir, '.husky', 'peaks-gate-staged-parity.mjs')], {
-    cwd,
-    encoding: 'utf8',
-    windowsHide: true,
-    env: cleanEnv()
-  });
+  const result = spawnSync(
+    process.execPath,
+    [join(dir, '.husky', 'peaks-gate-staged-parity.mjs')],
+    {
+      cwd,
+      encoding: 'utf8',
+      windowsHide: true,
+      env: cleanEnv()
+    }
+  );
   if (result.error) throw result.error;
   return { status: result.status, out: `${result.stdout}${result.stderr}` };
 }
