@@ -3572,6 +3572,13 @@ the blocked command — it is that a gate which refuses legitimate work is the t
 >
 > The generalisation: **an anchor that points at a defect is invalidated by fixing the defect**, and this
 > file has no mechanism that notices. Assume every anchor below rots; re-measure before relying on one.
+>
+> **And one error here was not an anchor but an explanation, which is worth naming separately.** 9.2 first
+> read "the skip is silent **because** `backCompat` downgrades it to a warning nobody prints" — and the
+> *measurement* it rested on (`warnings: []`) was correct, while the *cause* was wrong: the warning is
+> produced and then dropped by the caller. **A true observation with a wrong explanation is harder to
+> catch than a false one**, because checking the number confirms it. Both halves are now written into 9.2
+> with the old reading named.
 
 ### 9.1 The lane phase lives in a carrier that has no grammar — five rounds, five spellings, and the guard is at 495/500 lines (found 2026-10-11 → 2026-10-12; **needs the user's decision**)
 
@@ -3624,8 +3631,41 @@ the blocked command — it is that a gate which refuses legitimate work is the t
 - **Measured, and this is the second half of the defect**: with that file absent, `rd → qa-handoff`
   returned **`ok: true`, `warnings: []`, exit 0** — it did not so much as mention the skip. A control
   experiment ruled out "the whole gate is dead": moving `qa/test-cases/<rid>.md` aside made the same
-  transition return `PREREQUISITES_MISSING` / exit 1, and restoring it restored the pass. The silence is
-  therefore `MUT_REPORT`'s own `backCompat` path, not a broken machine.
+  transition return `PREREQUISITES_MISSING` / exit 1, and restoring it restored the pass.
+- **The explanation above was WRONG when this section was first written, and the correction is the more
+  useful finding. Re-measured 2026-10-13, `checkPrerequisites` called directly on this session:**
+
+  ```
+  rd -> qa-handoff (feature):  ok: true   missing: 0   warnings: 2
+    [0] path rd/third-party-review.md  code mut-report-missing-deprecated-in-v2.14.0
+    [1] path mut/mut-report.json       code mut-report-missing-deprecated-in-v2.14.0
+  CONTROL (prd -> draft, no table row):  warnings: 0 []      <- the control arm can fail
+  ```
+
+  **The warning IS produced.** It is then **discarded by the caller**:
+  `checkPrerequisites` populates a `warnings` array and `artifact-prerequisites.ts:618-628` `continue`s
+  without touching `missing`, so `ok` stays `true`; the caller
+  (`src/services/artifacts/request-artifact-service.ts:634-641`) reads
+  `prerequisiteResult.warnings` **only inside the `throw`** — and `warnings` occurs in that entire file
+  **exactly once, on that line**. On the success path the array is built, populated and dropped one frame
+  later. *(An earlier revision of this item said the silence "is therefore `MUT_REPORT`'s own `backCompat`
+  path". It is not: the `backCompat` path warns correctly. The defect is that a **successful** check
+  reports nothing about what it soft-passed — which is not MUT_REPORT-specific but affects every
+  `backCompat` prerequisite.)*
+- **Two further defects fell out of the same measurement, both measured:**
+  1. **The warning code is hardcoded in the shared branch, so it names the wrong artifact.**
+     `artifact-prerequisites.ts:624` emits the literal
+     `'mut-report-missing-deprecated-in-v2.14.0'` for **any** `backCompat` prerequisite — and the
+     measurement above shows it attached to `rd/third-party-review.md` as well as to
+     `mut/mut-report.json`. Two prerequisites carry `backCompat: true` (lines 211 and 286). **A consumer
+     filtering on that code to find MUT_REPORT problems will also match third-party-review.** The code
+     should be derived from the prerequisite, not baked into the branch.
+  2. **The deprecation plan named a release that is ~20 minors in the past.** Lines 189–193 and 618–619
+     state the intent: *"a MISSING file downgrades to a warning … v2.14.0 will remove this branch and
+     re-elevate missing → throw"*, and the window is described as *"1-minor-release"*. The installed
+     version is **4.1.4** (`package.json`), and `backCompat: true` is still set. The `1-minor` window has
+     been open for roughly twenty minor releases. The code carries its own expiry note and nothing
+     enforces it — 9.9's family, applied to a deprecation.
 - **Consequence of the silence**: a reader of that transition output concludes all nine prerequisites
   passed. The session named it plainly — *this is the repository's own "silent gap" class occurring
   inside the gate itself* — and the code already knew (`verdict-aggregate-command.ts:42` on the previous
