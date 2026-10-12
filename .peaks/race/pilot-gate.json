@@ -1,0 +1,151 @@
+{
+  "note": "Gate-2 evidence for the peaks-race-code fast lane. WHY IT IS TRACKED: gate 2 gates a TRACKED change (skills/peaks-audit/SKILL.md), so it is judged on tracked evidence; under .peaks/_runtime/ it would be gitignored, and whether the gate passed would stay a local fact. WHAT IT DOES NOT PROVE: the per-task prose traces (.peaks/_runtime/<sessionId>/race/<rid>.md) are gitignored, so these rows were extracted from them and committed. Nothing in this repository can prove they came from tasks that were really run; a guard can only prove the rows, the counts, the verdict and the SKILL.md marker are mutually consistent. WHICH POLICY IS AUTHORITATIVE: src/services/race/gate2-policy.ts. The policy block below is the RECORD of what was applied, copied verbatim from that constant; a verdict is always computed from the constant, never from this file — otherwise weakening this block would launder the gate. ciRed false means no CI failure is attributed to this task, NOT that CI was green on its commit. missedRiskSurface false means no missed risk surface is known; no procedure exists yet for setting it (U-C), so it is a required value with nothing behind it.",
+  "policyVersion": "race-gate2-policy-v1",
+  "evaluatorVersion": "4.1.4",
+  "updatedAt": "2026-10-12T02:16:20.486Z",
+  "policy": {
+    "taskCountMin": 10,
+    "coreCapabilityTaskCountMin": 3,
+    "sessionCountMin": 2,
+    "safetyArmExercisedMin": 1,
+    "rollbackCountMax": 0,
+    "ciRedCountMax": 0,
+    "missedRiskSurfaceCountMax": 0,
+    "rationale": ">= 10 的依据是 rule of three：n 次全绿、零观测失败时，真实失败率的 95% 上界 ≈ 1 − 0.05^(1/n)。n=10 ⇒ ≈ 26%。这是保守但可达的档：按 2026-10-11 的速度（一天 4 条落地）约 3 个工作日。\n>= 3 条压核心的依据是前瞻的，不是回溯的：只数任务数的政策会让 10 条从未碰过硬阻断路径的任务通过一道从未测试过收益路径的门——这正是「散文判据」的翻版：数得到，但证明不了要证明的事。\n>= 1 安全臂的依据是本轮的实测：2026-10-11 的 4 条 landed 全部 riskSurfacesHit: []；唯一真命中过风险面的（row 7，rid-emit-helpers-escalated）是升级未落地的那条——所以这条泳道的安全承诺从未在任何一条落地的任务上被测过。因此这一条与 taskCount 的口径不同，统计所有记录（含 escalated）：升级本身就是安全臂正确开火的证据，只数 landed 会把它恰好排除掉。\n>= 2 个 session 的依据：单 session 的多条任务共享同一份上下文与同一个操作者状态（2026-10-11 的 4 条全在一个 session 里）。跨 session 是最便宜的「不是一次侥幸」证据。"
+  },
+  "tasks": [
+    {
+      "rid": "rid-loop-hygiene-count",
+      "sessionId": "2026-10-11-session-5ac396",
+      "date": "2026-10-11",
+      "laneChosenBy": "user-named",
+      "outcome": "landed",
+      "filesChanged": [
+        "skills/bee/peaks-perf-audit/SKILL.md",
+        "skills/bee/peaks-prd/SKILL.md",
+        "skills/bee/peaks-qa/SKILL.md",
+        "skills/bee/peaks-rd/SKILL.md",
+        "skills/bee/peaks-reviewer/SKILL.md",
+        "skills/bee/peaks-sc/SKILL.md",
+        "skills/bee/peaks-security-audit/SKILL.md",
+        "skills/bee/peaks-txt/SKILL.md",
+        "skills/bee/peaks-ui/SKILL.md",
+        "skills/peaks-audit/SKILL.md",
+        "skills/peaks-code/SKILL.md",
+        "skills/peaks-content/SKILL.md",
+        "skills/peaks-doctor/SKILL.md",
+        "skills/peaks-final-review/SKILL.md",
+        "skills/peaks-ide/SKILL.md",
+        "skills/peaks-issue-fix-orchestrator/SKILL.md",
+        "skills/peaks-race-code/SKILL.md",
+        "skills/peaks-resume/SKILL.md",
+        "skills/peaks-slice-decompose/SKILL.md",
+        "skills/peaks-solo/SKILL.md",
+        "skills/peaks-sop/SKILL.md",
+        "skills/peaks-status/SKILL.md",
+        "skills/peaks-test/SKILL.md",
+        "tests/unit/skills/loop-hygiene-block.test.ts"
+      ],
+      "riskSurfacesHit": [],
+      "riskSurfaceHandling": "none",
+      "rolledBack": false,
+      "ciRed": false,
+      "missedRiskSurface": false
+    },
+    {
+      "rid": "rid-audit-goal-truncation",
+      "sessionId": "2026-10-11-session-5ac396",
+      "date": "2026-10-11",
+      "laneChosenBy": "user-named",
+      "outcome": "landed",
+      "filesChanged": [
+        ".peaks/memory/peaks-audit-goal-output-truncates-at-3-6kb.md"
+      ],
+      "riskSurfacesHit": [],
+      "riskSurfaceHandling": "none",
+      "rolledBack": false,
+      "ciRed": false,
+      "missedRiskSurface": false
+    },
+    {
+      "rid": "rid-delete-orphan-enforcer",
+      "sessionId": "2026-10-11-session-5ac396",
+      "date": "2026-10-11",
+      "laneChosenBy": "user-named",
+      "outcome": "landed",
+      "filesChanged": [
+        ".peaks/lint/gate-baseline.json",
+        "src/services/audit/enforcers/lint-peaks-skill-runtime.ts",
+        "src/services/audit/red-line-catalog-p2-a-bee-runtime.ts"
+      ],
+      "riskSurfacesHit": [],
+      "riskSurfaceHandling": "none",
+      "rolledBack": false,
+      "ciRed": false,
+      "missedRiskSurface": false
+    },
+    {
+      "rid": "rid-lint-execution-failed-reason",
+      "sessionId": "2026-10-11-session-5ac396",
+      "date": "2026-10-11",
+      "laneChosenBy": "user-named",
+      "outcome": "landed",
+      "filesChanged": [
+        "src/cli/commands/lint-commands.ts",
+        "src/services/lint/eslint-runner-support.ts",
+        "src/services/lint/eslint-runner-types.ts",
+        "src/services/lint/eslint-runner.ts",
+        "tests/unit/services/lint/eslint-runner.test.ts"
+      ],
+      "riskSurfacesHit": [],
+      "riskSurfaceHandling": "none",
+      "rolledBack": false,
+      "ciRed": false,
+      "missedRiskSurface": false
+    },
+    {
+      "rid": "rid-emit-helpers-escalated",
+      "sessionId": "2026-10-11-session-5ac396",
+      "date": "2026-10-11",
+      "laneChosenBy": "user-named",
+      "outcome": "escalated",
+      "filesChanged": [
+        "docs/superpowers/specs/2026-10-10-session-handoff.md"
+      ],
+      "riskSurfacesHit": [
+        7
+      ],
+      "riskSurfaceHandling": "escalated",
+      "rolledBack": false,
+      "ciRed": false,
+      "missedRiskSurface": false
+    }
+  ],
+  "lastEvaluation": {
+    "verdict": "insufficient-evidence",
+    "counts": {
+      "taskCount": 4,
+      "coreCapabilityTaskCount": 3,
+      "sessionCount": 1,
+      "safetyArmExercisedCount": 1,
+      "rollbackCount": 0,
+      "ciRedCount": 0,
+      "missedRiskSurfaceCount": 0
+    },
+    "reasons": [
+      {
+        "code": "task-count-below-min",
+        "message": "taskCount is 4, below the minimum of 10",
+        "observed": 4,
+        "threshold": 10
+      },
+      {
+        "code": "session-count-below-min",
+        "message": "sessionCount is 1, below the minimum of 2",
+        "observed": 1,
+        "threshold": 2
+      }
+    ],
+    "evaluatedAt": "2026-10-12T02:16:20.486Z"
+  }
+}

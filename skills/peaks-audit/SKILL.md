@@ -62,16 +62,18 @@ If every peaks-* workflow enters here, then this is where the lane question belo
 | The question has already been answered for this request | Do not ask again. |
 | This session is already locked to a lane | Do not ask again. |
 
-**The phase rewrites the first two rows of that table, and nothing else.** `peaks-race-code` is not offered by default — a lane not yet proven on real tasks should not be recommended on every need — so until its pilot clears, the question is not asked at all:
+**The phase rewrites the first two rows of that table, and nothing else.** Which of the two branches is in force is read from the marker line below and stated nowhere else in this file — what follows gives the rule for either value rather than asserting a value, so no sentence here can drift from the marker:
 
-| Phase | Behaviour |
+<!-- peaks:race-lane-phase phase="name-only" -->
+
+The marker line is **authoritative**, and it may hold exactly one value: it is the machine-readable phase, and `tests/unit/skills/race-lane-phase-gate.test.ts` judges it against the tracked evidence before this lane may be offered. Moving the phase means moving that one token, with the evidence behind it — and leaving it at `offered-by-default` while its evidence does not pass turns that guard red.
+
+| Marker value | Behaviour |
 |---|---|
-| **Until this lane's pilot has cleared** | **Do not ask.** An unnamed need runs the full workflow (`peaks-code`) — today's behaviour, uninterrupted — and a named skill is respected without being questioned. |
-| **After the pilot has cleared** | The table above applies in full: ask even when a skill was named, with that one preselected, and the fast lane is one of the offered options. |
+| `name-only` | **Do not ask.** An unnamed need runs the full workflow (`peaks-code`), and a named skill is respected without being questioned. The question would be **malformed rather than merely unhelpful** here: with the fast lane absent from its options it carries a single answer, and `AskUserQuestion` requires two to four — so do not re-add it to "be safe", as its absence is the design, not an oversight. |
+| `offered-by-default` | The table above applies in full: ask even when a skill was named, with that one preselected, and the fast lane is one of the offered options. |
 
-Before the pilot, the question would be **malformed rather than merely unhelpful**: with the fast lane absent from its options it would carry a single answer, and `AskUserQuestion` requires two to four. Do not re-add it to "be safe" — its absence before the pilot is the design, not an oversight.
-
-Clearing the pilot is a separate, explicit project decision — a real-task trial with no severe regression — and not something to read off a green test run. Until that decision is recorded, the first row binds.
+Clearing the pilot is a separate, explicit project decision — a real-task trial with no severe regression — and not something to read off a green test run. It is recorded by moving the marker to `offered-by-default`; whatever the marker names is what binds.
 
 **There is no silent lane.** `peaks-race-code` starts only on the user's word: they named it, or they picked it when the question was asked. Never answer that question for them, and where it applies and they have not answered it, hold there rather than choosing a lane on their behalf.
 

@@ -61,6 +61,7 @@ import { registerProjectCommands } from './project-commands.js';
 import { registerChangesetCommands } from './changeset-commands.js';
 import { registerQaBusinessReviewCommands } from './qa-business-review-commands.js';
 import { registerQaCommands } from './qa-commands.js';
+import { registerRaceCommands } from './race-commands.js';
 import { registerReleaseCommands } from './release-commands.js';
 import { registerRequestCommands } from './request-commands.js';
 import { registerRetrospectiveCommands } from './retrospective-commands.js';
@@ -178,6 +179,7 @@ const REGISTRATIONS: readonly Registration[] = [
   ['verdict-aggregate-command', registerVerdictAggregateCommands],
   ['log-commands', registerLogCommands],
   ['qa-commands', registerQaCommands],
+  ['race-commands', registerRaceCommands],
   ['test-commands', registerTestCommands],
   ['playwright-commands', registerPlaywrightCommands],
   ['code-commands', registerCodeCommands],
