@@ -37,7 +37,7 @@ const TRANSITION_SESSION_HELP = 'restrict to a specific session id';
 const TRANSITION_REASON_HELP =
   'reason appended as a transition note; required when --allow-incomplete is set';
 const TRANSITION_ALLOW_INCOMPLETE_HELP =
-  'bypass artifact prerequisite checks; requires --reason and records the bypass in the artifact';
+  'bypass the prerequisite, lint, file-size and state-order checks; requires --reason and records the bypass in the artifact';
 const TRANSITION_CONFIRM_HELP = 'skip the confirmation gate (for non-interactive / LLM contexts)';
 const TRANSITION_FORCE_CONFIRM_HELP = 'bypass mode-enforced confirmation (use with caution)';
 
