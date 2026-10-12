@@ -1,8 +1,8 @@
-import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { countRawLines, fileSizeCapFor, isPolicyMeasuredFile } from './file-size-policy.js';
+import { readBaseLineCount, readChangedFiles } from './file-size-baseline.js';
 
 /**
  * Paths exempt from the file-size cap. The cap is Karpathy's "Simplicity
@@ -69,6 +69,17 @@ export type FileSizeViolation = {
   /** The cap this file was measured against, resolved per path by the policy
    *  module (300 raw lines; 500 under root `tests/`), or the caller's override. */
   cap: number;
+  /**
+   * The file's raw-line count at `baseRef`, or `null` when the file did not
+   * exist there — i.e. THIS change CREATED it over the cap.
+   *
+   * A changed file that is over its cap but NOT larger than its own state at
+   * `baseRef` is not a violation: the whole-tree `fileSizeOverCap` ratchet
+   * already accepts it as a standing quantity, so touching it must stay legal.
+   * Only growth travels here — including growth that a rename carried along,
+   * which is measured against the pre-rename path.
+   */
+  previousLines: number | null;
 };
 
 export type FileSizeScanResult = {
@@ -82,10 +93,17 @@ export type FileSizeScanResult = {
    *  records). Reported so the exemption is auditable rather than a silent
    *  skip. */
   exemptFiles: string[];
-  /** Files that appeared in `git diff` but no longer exist on disk (e.g.
-   *  deleted in the working tree). Pre-#015 the scan crashed on these via
-   *  ENOENT; now they are reported here as informational data. */
+  /** Files that appeared in `git diff` but no longer exist on disk. Pre-#015
+   *  the scan crashed on these via ENOENT; now they are reported, not counted. */
   deletedFiles: string[];
+  /**
+   * Changed files that ARE over their cap right now but this change did not
+   * enlarge (they were already that large at `baseRef`, or larger). They
+   * are NOT violations — the ratchet accepts them — but they are named here
+   * rather than dropped, so "0 violations" cannot mean "nothing was over the
+   * cap"; the same reason `exemptFiles` and `outOfScopeFiles` exist.
+   */
+  acceptedOverCapFiles: string[];
   /** Changed files the file-size policy does not measure at all: outside its
    *  four scope directories, or with an extension it does not count. Reported
    *  rather than silently skipped, for the same reason `exemptFiles` is.
@@ -118,38 +136,47 @@ export type FileSizeScanOptions = {
   threshold?: number;
 };
 
-function getChangedFiles(projectRoot: string, baseRef: string): string[] {
+function countLines(filePath: string): number {
+  return countRawLines(readFileSync(filePath, 'utf8'));
+}
+
+/** What a changed path IS on disk right now. */
+type PathVerdict = 'present' | 'deleted' | 'not-a-file';
+
+/**
+ * Pre-#015: `readFileSync` threw ENOENT for a path in `git diff` that no longer
+ * exists on disk, aborting the whole `request transition rd → implemented` flow.
+ * A deleted path has no lines to count, so it is reported in `deletedFiles` and
+ * skipped. `readChangedFiles` already excludes `--diff-filter=D`.
+ */
+function classifyPath(absolute: string): PathVerdict {
+  if (existsSync(absolute)) return 'present';
   try {
-    // --diff-filter=AM keeps only Added + Modified entries. Deleted files
-    // (--diff-filter=D) are intentionally excluded: they have no on-disk
-    // body to count, and a refactor that deletes large files is exactly
-    // when the gate should NOT block. Slice #015 fix.
-    const trackedRaw = execFileSync(
-      'git',
-      ['-C', projectRoot, 'diff', '--name-only', '--diff-filter=AM', baseRef],
-      { encoding: 'utf8', windowsHide: true }
-    );
-    const tracked = trackedRaw
-      .split(/\r?\n/)
-      .map((line) => line.trim())
-      .filter(Boolean);
-    const untrackedRaw = execFileSync(
-      'git',
-      ['-C', projectRoot, 'ls-files', '--others', '--exclude-standard'],
-      { encoding: 'utf8', windowsHide: true }
-    );
-    const untracked = untrackedRaw
-      .split(/\r?\n/)
-      .map((line) => line.trim())
-      .filter(Boolean);
-    return Array.from(new Set([...tracked, ...untracked]));
+    return statSync(absolute).isFile() ? 'present' : 'not-a-file';
   } catch {
-    return [];
+    return 'deleted';
   }
 }
 
-function countLines(filePath: string): number {
-  return countRawLines(readFileSync(filePath, 'utf8'));
+/** The ratchet's verdict on a file that is over its cap right now. */
+type OverCapVerdict = { regressed: false } | { regressed: true; previousLines: number | null };
+
+/**
+ * A file over its cap is a violation only when THIS change enlarged it. One
+ * already that large at `baseRef` — or larger — is the accepted quantity the
+ * whole-tree `fileSizeOverCap` row counts, so touching it passes; growth past
+ * the cap, or creation over it, is refused. `baselinePath` is the path the size
+ * is read from: the file itself, or its pre-rename name when it moved.
+ */
+function overCapVerdict(
+  projectRoot: string,
+  baseRef: string,
+  baselinePath: string,
+  lines: number
+): OverCapVerdict {
+  const previousLines = readBaseLineCount(projectRoot, baseRef, baselinePath);
+  if (previousLines !== null && lines <= previousLines) return { regressed: false };
+  return { regressed: true, previousLines };
 }
 
 /**
@@ -172,42 +199,43 @@ function policyCapFor(file: string, override: number | null): number | null {
   return isPolicyMeasuredFile(file) ? fileSizeCapFor(file) : null;
 }
 
+/**
+ * The diff-scoped scan, judged as a RATCHET: a changed file is a violation only
+ * when THIS change enlarged it — it grew past its cap, or was created over it.
+ * A file that is over its cap but no larger than its own state at `baseRef`
+ * passes, because the baseline already carries it as an accepted over-cap
+ * quantity (`ceilings.fileSizeOverCap`) and `request transition rd →
+ * implemented` refusing to touch any of those files is the contradiction that
+ * blocked two consecutive slices. A rename is judged against the size the file
+ * had before it moved, so moving a file is not itself growth.
+ *
+ * THROWS `GitReadFailedError` when git cannot enumerate the changed files (an
+ * unresolvable `baseRef`, a non-repo path) — an empty list must mean "nothing
+ * changed", never "the read failed". `readChangedFiles` owns that refusal.
+ */
 export function scanFileSize(options: FileSizeScanOptions): FileSizeScanResult {
   const baseRef = options.baseRef ?? 'HEAD';
   // `null` here means "the policy decides, per file" — the cap is a property of
   // the path (300 raw lines; 500 under root `tests/`), not of the run.
   const override = options.threshold ?? null;
-  const files = getChangedFiles(options.projectRoot, baseRef);
+  const changed = readChangedFiles(options.projectRoot, baseRef);
   const violations: FileSizeViolation[] = [];
   const deletedFiles: string[] = [];
   const exemptFiles: string[] = [];
+  const acceptedOverCapFiles: string[] = [];
   const outOfScopeFiles: string[] = [];
   let checkedFiles = 0;
 
-  for (const file of files) {
+  for (const file of changed.paths) {
     if (isSizeCapExempt(file)) {
       exemptFiles.push(file);
       continue;
     }
     const absolute = join(options.projectRoot, file);
-    // Pre-#015: readFileSync threw ENOENT for files that appear in
-    // `git diff --name-only` but no longer exist on disk (e.g. a refactor
-    // that deletes source files). That aborted the entire
-    // `peaks request transition rd → implemented` flow with
-    // `code: PREREQUISITES_MISSING`. Now we skip missing paths — a
-    // deleted file has no lines to count. Belt-and-braces: the
-    // `getChangedFiles` filter above already excludes `--diff-filter=D`,
-    // but a manually-passed `baseRef` (tests) or a path that was
-    // untracked-then-deleted still flows through here, so the
-    // existsSync guard stays as a second line of defense.
-    if (!existsSync(absolute)) {
-      try {
-        const st = statSync(absolute);
-        if (!st.isFile()) continue;
-      } catch {
-        deletedFiles.push(file);
-        continue;
-      }
+    const pathVerdict = classifyPath(absolute);
+    if (pathVerdict !== 'present') {
+      if (pathVerdict === 'deleted') deletedFiles.push(file);
+      continue;
     }
     // The cap is decided BEFORE the file is counted, because for a path outside the
     // policy there is no cap to decide: it is reported in `outOfScopeFiles` instead
@@ -221,7 +249,14 @@ export function scanFileSize(options: FileSizeScanOptions): FileSizeScanResult {
     checkedFiles += 1;
     const lines = countLines(absolute);
     if (lines > cap) {
-      violations.push({ file, lines, cap });
+      // A renamed file is measured against the size it had BEFORE the move.
+      const baselinePath = changed.baselinePathFor(file);
+      const verdict = overCapVerdict(options.projectRoot, baseRef, baselinePath, lines);
+      if (verdict.regressed) {
+        violations.push({ file, lines, cap, previousLines: verdict.previousLines });
+      } else {
+        acceptedOverCapFiles.push(file);
+      }
     }
   }
 
@@ -231,6 +266,7 @@ export function scanFileSize(options: FileSizeScanOptions): FileSizeScanResult {
     checkedFiles,
     exemptFiles,
     deletedFiles,
+    acceptedOverCapFiles,
     outOfScopeFiles,
     violations
   };

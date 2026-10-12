@@ -573,6 +573,7 @@ import {
   updateStatusBlock,
   type RequestArtifactState
 } from './request-artifact-state-helpers.js';
+import { assertLegalStateStep } from './request-state-order.js';
 export {
   allowedStatesForRole,
   FileSizeViolationError,
@@ -624,6 +625,14 @@ export async function transitionRequestArtifact(
     forceConfirm: options.forceConfirm
   });
 
+  // A forward jump past an intermediate state is refused (request-state-order.ts).
+  assertLegalStateStep(
+    options.role,
+    existing.state,
+    options.newState,
+    options.allowIncomplete === true
+  );
+
   const prerequisiteResult = await checkPrerequisites({
     projectRoot: options.projectRoot,
     sessionId: existing.sessionId,
@@ -642,10 +651,6 @@ export async function transitionRequestArtifact(
       prerequisiteResult.warnings
     );
   }
-
-  // (Removed in v2.11.0 Group A: the tech-doc-presence + tech-doc-mandatory-
-  // sections gates. The rd → spec-locked transition now relies on the
-  // immutable peaks-prd handoff (sha256-frontmatter) for the same intent;
 
   // Type sanity check for PRD handoff
   if (
@@ -682,7 +687,7 @@ export async function transitionRequestArtifact(
     }
   }
 
-  // File size gate: when RD declares implemented, scan for oversized files (karpathy-skills "Simplicity First")
+  // File-size ratchet: refuse only a file this change made worse (Simplicity First).
   if (
     options.role === 'rd' &&
     options.newState === 'implemented' &&
@@ -712,11 +717,8 @@ export async function transitionRequestArtifact(
   );
   await writeFile(existing.path, updated, 'utf8');
 
-  // Slice v2.11.1 — observability hook #1/7. Fire-and-forget emit per
-  // PRD Q4 (full-auto must never fail-loud on observability). The
-  // synchronous `emitObservabilityEvent` returns `{written: false}` on
-  // any error path; we deliberately ignore the result so the
-  // transition contract remains unchanged.
+  // Fire-and-forget: the synchronous emit returns `{written: false}` on any
+  // error path and we ignore it, so observability never fails the transition.
   emitObservabilityEvent(
     {
       schemaVersion: 1,
@@ -750,10 +752,8 @@ export async function transitionRequestArtifact(
   if (!prerequisiteResult.ok && options.allowIncomplete === true) {
     result.bypassedPrerequisites = prerequisiteResult;
   }
-  // Soft-passed prerequisites are reported on the SUCCESS path too: until this,
-  // `prerequisiteResult.warnings` was read only inside the throw above, so a
-  // transition that soft-passed two prerequisites returned `ok: true` with the
-  // array dropped one frame later.
+  // Soft-passed prerequisites travel on the SUCCESS path too, not only inside
+  // the throw above — otherwise `ok: true` drops what it soft-passed.
   if (prerequisiteResult.warnings.length > 0) {
     result.prerequisiteWarnings = prerequisiteResult.warnings;
   }

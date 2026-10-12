@@ -149,6 +149,11 @@ ls .peaks/_runtime/<sid>/ui/design-draft.md 2>&1               # non-blocking (G
 #    bugfix             → write .peaks/_runtime/<id>/rd/bug-analysis.md
 #    config             → no planning artifact required at this state
 #    docs / chore       → no planning artifact required
+#    The RD state machine is a SEQUENCE (draft → spec-locked → implemented →
+#    qa-handoff → handed-off) and the CLI refuses a forward jump, so lock the
+#    plan first, then declare it implemented. Backward moves (the QA
+#    return-to-rd repair re-enters spec-locked) are always legal.
+peaks request transition <rid> --role rd --state spec-locked --project <repo> --json
 peaks request transition <rid> --role rd --state implemented --project <repo> --json
 
 # 5. Peaks-Loop Code review + security review BEFORE qa-handoff transition.

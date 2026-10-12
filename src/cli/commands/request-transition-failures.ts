@@ -9,6 +9,7 @@ import {
   TypeSanityViolationError,
   FileSizeViolationError
 } from '../../services/artifacts/request-artifact-service.js';
+import { StateOrderViolationError } from '../../services/artifacts/request-state-order.js';
 import { ConfirmationRequiredError } from '../../services/mode/mode-enforcement.js';
 import { fail } from 'peaks-loop-shared/result';
 
@@ -84,6 +85,36 @@ function reportLintGateFailure(
   process.exitCode = 1;
 }
 
+function reportStateOrderFailure(
+  io: ProgramIO,
+  options: RequestTransitionOptions,
+  error: StateOrderViolationError
+): void {
+  printResult(
+    io,
+    fail(
+      'request.transition',
+      error.code,
+      error.message,
+      {
+        role: error.role,
+        from: error.from,
+        newState: error.to,
+        skipped: error.skipped
+      },
+      [
+        error.kind === 'unreadable'
+          ? "Restore the artifact's '- state:' line: an unreadable state fails this gate closed"
+          : `Walk the states in order — from '${error.from}' the next legal state is ` +
+            `'${error.skipped[0] ?? error.to}'`,
+        'Or bypass with: --allow-incomplete --reason "<justification>"'
+      ]
+    ),
+    options.json
+  );
+  process.exitCode = 1;
+}
+
 function reportTypeSanityFailure(
   io: ProgramIO,
   options: RequestTransitionOptions,
@@ -118,8 +149,10 @@ function reportFileSizeFailure(
   printResult(
     io,
     fail('request.transition', error.code, error.message, { violations: error.violations }, [
-      ...error.violations.map(
-        (v) => `Split ${v.file} (${v.lines} lines) below its ${v.cap}-line cap`
+      ...error.violations.map((v) =>
+        v.previousLines === null
+          ? `Split ${v.file} (${v.lines} lines) below its ${v.cap}-line cap — this change created it over the cap`
+          : `Split ${v.file} back below its ${v.cap}-line cap, or at least down to the ${v.previousLines} lines it had at the base ref (grew +${v.lines - v.previousLines})`
       ),
       'Or bypass with: --allow-incomplete --reason "<justification>"'
     ]),
@@ -168,6 +201,10 @@ export function reportTransitionFailure(
   }
   if (error instanceof LintGateError) {
     reportLintGateFailure(io, options, error);
+    return;
+  }
+  if (error instanceof StateOrderViolationError) {
+    reportStateOrderFailure(io, options, error);
     return;
   }
   if (error instanceof TypeSanityViolationError) {

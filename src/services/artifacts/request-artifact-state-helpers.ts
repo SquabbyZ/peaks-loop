@@ -105,13 +105,32 @@ export class TypeSanityViolationError extends Error {
 
 export class FileSizeViolationError extends Error {
   readonly code = 'FILE_SIZE_VIOLATION';
-  readonly violations: Array<{ file: string; lines: number; cap: number }>;
-  constructor(violations: Array<{ file: string; lines: number; cap: number }>) {
-    const summary = violations.map((v) => `${v.file} (${v.lines} lines, cap ${v.cap})`).join(', ');
+  /** `previousLines` is the file's size at the scan's base ref, or `null` when
+   *  the change CREATED it over the cap. Carried so the message can name the
+   *  growth — a refusal that does not say how much worse the file got reads as
+   *  an absolute cap breach, which is the reading this gate no longer makes. */
+  readonly violations: Array<{
+    file: string;
+    lines: number;
+    cap: number;
+    previousLines: number | null;
+  }>;
+  constructor(
+    violations: Array<{ file: string; lines: number; cap: number; previousLines: number | null }>
+  ) {
+    const summary = violations
+      .map((v) =>
+        v.previousLines === null
+          ? `${v.file} (${v.lines} lines, cap ${v.cap}, created over the cap)`
+          : `${v.file} (${v.lines} lines, cap ${v.cap}, grew +${v.lines - v.previousLines} from ${v.previousLines})`
+      )
+      .join(', ');
     super(
-      `File size violation: ${violations.length} file(s) exceed their file-size cap: ${summary}. ` +
-        'Split into smaller modules, or consider reusing existing components / existing API data ' +
-        '(karpathy-guidelines §2 Simplicity First), or use --allow-incomplete to bypass.'
+      `File size regression: ${violations.length} changed file(s) grew past (or were created over) their file-size cap: ${summary}. ` +
+        'A file already over its cap at the base ref is accepted unless this change enlarges it; ' +
+        'a rename is measured against the size it had before the move. Split into smaller modules, ' +
+        'or consider reusing existing components / existing API data (karpathy-guidelines §2 ' +
+        'Simplicity First), or use --allow-incomplete to bypass.'
     );
     this.name = 'FileSizeViolationError';
     this.violations = violations;

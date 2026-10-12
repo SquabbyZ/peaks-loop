@@ -45,7 +45,7 @@ const DIFF_VS_SCOPE_DESCRIPTION =
   'Verify every file in the git diff matches the RD artifact "Red-line scope" patterns; flags out-of-scope writes and unclassified files';
 
 const FILE_SIZE_DESCRIPTION =
-  'Check git diff for files exceeding a line count threshold (karpathy-skills "Simplicity First"; tool output, lockfiles and append-only records such as CHANGELOG.md excluded)';
+  'Check git diff for files this change grew past the line-count cap, or created over it (karpathy-skills "Simplicity First"; a file already over cap at the base ref is accepted, as the gate baseline ratchets it; a rename is measured against its pre-rename size; tool output, lockfiles and append-only records such as CHANGELOG.md excluded)';
 
 function runScanRequestTypeSanity(options: RequestTypeSanityOptions, io: ProgramIO): void {
   try {
@@ -173,7 +173,7 @@ function runScanFileSize(options: FileSizeScanOptions, io: ProgramIO): void {
     const nextActions: string[] = [];
     if (!result.ok) {
       nextActions.push(
-        `${result.violations.length} file(s) exceed their file-size cap. Split into smaller modules.`
+        `${result.violations.length} file(s) exceed their file-size cap because this change grew them past it (or created them over it). Split into smaller modules.`
       );
     }
     printResult(io, ok('scan.file-size', result, [], nextActions), options.json);

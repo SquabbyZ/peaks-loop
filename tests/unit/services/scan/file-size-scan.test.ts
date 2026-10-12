@@ -129,7 +129,12 @@ describe('file-size scan — size-cap exemption', () => {
         expect(result.ok).toBe(false);
         expect(result.threshold).toBeNull();
         expect(result.violations).toEqual([
-          { file: 'src/huge.ts', lines: OVER_CAP + 1, cap: FILE_SIZE_CAP_DEFAULT }
+          {
+            file: 'src/huge.ts',
+            lines: OVER_CAP + 1,
+            cap: FILE_SIZE_CAP_DEFAULT,
+            previousLines: null
+          }
         ]);
         // and the generated index is still exempt in the same run
         expect(result.exemptFiles).toEqual([GENERATED_INDEX]);
@@ -145,9 +150,16 @@ describe('file-size scan — size-cap exemption', () => {
         writeLines('src/small.ts', OVER_CAP, repo);
         // when:  the scan runs
         const result = scanFileSize({ projectRoot: repo });
-        // then:  the exemption does not reach the tracked diff path either
+        // then:  the exemption does not reach the tracked diff path either, and
+        //        the refusal carries the baseline it regressed against (HEAD's 6
+        //        raw lines) so the message can name the growth
         expect(result.violations).toEqual([
-          { file: 'src/small.ts', lines: OVER_CAP + 1, cap: FILE_SIZE_CAP_DEFAULT }
+          {
+            file: 'src/small.ts',
+            lines: OVER_CAP + 1,
+            cap: FILE_SIZE_CAP_DEFAULT,
+            previousLines: 6
+          }
         ]);
       }
     );
@@ -163,7 +175,12 @@ describe('file-size scan — size-cap exemption', () => {
         // then:  it is reported, and the cap named in the row is the `tests/` one
         //        — the two-cap policy is a property of the path, not of the run
         expect(result.violations).toEqual([
-          { file: 'tests/unit/huge.test.ts', lines: TESTS_OVER_CAP + 1, cap: FILE_SIZE_CAP_TESTS }
+          {
+            file: 'tests/unit/huge.test.ts',
+            lines: TESTS_OVER_CAP + 1,
+            cap: FILE_SIZE_CAP_TESTS,
+            previousLines: null
+          }
         ]);
       }
     );
@@ -196,7 +213,8 @@ describe('file-size scan — size-cap exemption', () => {
           {
             file: 'packages/peaks-loop-shared/tests/x.test.ts',
             lines: OVER_CAP + 1,
-            cap: FILE_SIZE_CAP_DEFAULT
+            cap: FILE_SIZE_CAP_DEFAULT,
+            previousLines: null
           }
         ]);
       }
@@ -212,7 +230,9 @@ describe('file-size scan — size-cap exemption', () => {
         // then:  the override is echoed, and each row carries the cap that was
         //        used — the policy's 300 would have passed this file
         expect(result.threshold).toBe(4);
-        expect(result.violations).toEqual([{ file: 'src/small.ts', lines: 7, cap: 4 }]);
+        expect(result.violations).toEqual([
+          { file: 'src/small.ts', lines: 7, cap: 4, previousLines: 6 }
+        ]);
       }
     );
 
@@ -255,7 +275,12 @@ describe('file-size scan — size-cap exemption', () => {
         // when/then
         const result = scanFileSize({ projectRoot: repo });
         expect(result.violations).toEqual([
-          { file: 'src/huge.ts', lines: OVER_CAP + 1, cap: FILE_SIZE_CAP_DEFAULT }
+          {
+            file: 'src/huge.ts',
+            lines: OVER_CAP + 1,
+            cap: FILE_SIZE_CAP_DEFAULT,
+            previousLines: null
+          }
         ]);
         expect(result.outOfScopeFiles).toEqual(['.husky/big-hook.mjs']);
       }
@@ -306,7 +331,12 @@ describe('file-size scan — size-cap exemption', () => {
         // ...and the exemption is not a blanket amnesty: the source file in the
         // same commit is still counted and still reported.
         expect(result.violations).toEqual([
-          { file: 'src/small.ts', lines: OVER_CAP + 1, cap: FILE_SIZE_CAP_DEFAULT }
+          {
+            file: 'src/small.ts',
+            lines: OVER_CAP + 1,
+            cap: FILE_SIZE_CAP_DEFAULT,
+            previousLines: 6
+          }
         ]);
         expect(result.ok).toBe(false);
       }
@@ -395,6 +425,7 @@ describe('file-size scan — size-cap exemption', () => {
         //       scope rule, which is a DIFFERENT verdict (the policy has no cap for
         //       these paths; it does not say they are small enough).
         expect(Object.keys(result).sort()).toEqual([
+          'acceptedOverCapFiles',
           'checkedFiles',
           'deletedFiles',
           'exemptFiles',
@@ -405,6 +436,9 @@ describe('file-size scan — size-cap exemption', () => {
         ]);
         expect(Array.isArray(result.exemptFiles)).toBe(true);
         expect(Array.isArray(result.outOfScopeFiles)).toBe(true);
+        // "0 violations" may not mean "nothing was over the cap": the accepted
+        // over-cap files are named for the same reason the exempt ones are.
+        expect(Array.isArray(result.acceptedOverCapFiles)).toBe(true);
       }
     );
   });
