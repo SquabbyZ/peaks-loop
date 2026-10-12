@@ -61,6 +61,17 @@
 > **not** carry as a defect — its delivery table, its document/memory cross-links, and its four
 > lessons — is dispositioned at **7.A / 7.B / 7.C** rather than dropped; two of the four lessons have
 > no home in `.peaks/memory/` and are named there.
+>
+> **Revised 2026-10-13 — §8 is new, and it is the first section here whose items were found by *being
+> blocked*.** Two `PreToolUse` hooks refused work they were not written to refuse: the worktree gate
+> demands a grant that only the user can issue while telling the agent to issue it itself (8.1), and
+> the piped-test-run hook matches its guarded shape anywhere in the command text, including inside
+> quoted strings and a fixture being fed to the hook script (8.2). Both were hit while doing ordinary
+> work in one session, and 8.2's strongest measurement is that **the hook refused the command that
+> would have compared its own header's documented exception against its implementation**, so that
+> comparison could not be completed. **No existing item was renumbered and §§0–7 are untouched.**
+> The shared consequence is the one §7.B and 7.10 keep naming: a gate that refuses legitimate work is
+> what teaches `--no-verify`, and `--no-verify` turns the gate off entirely.
 
 ---
 
@@ -3454,4 +3465,61 @@ tree, and **two have no home** — named here rather than silently dropped.
 | **3.2** Two CI misdiagnoses, corrected by logs rather than reasoning ("the C-layer failure is root bypassing chmod" → it never got that far, corepack died first; "the integration failure is `workspace-init-home-guard`" → CI reddened a different test). **Local reproduction ≠ the CI failure; get the log first.** GitHub **job logs require a login** (API `/logs` → 403, the web UI says "Sign in to view logs"). | **No home for the load-bearing half.** The adjacent, unauthenticated-readability fact *does* live in `.peaks/memory/ci-status-is-readable-without-gh-auth.md` (check-runs + annotations are readable with no auth; `/actions/runs` returns `000`), and `.peaks/memory/ci-green-restoration-2026-09-08.md` Lesson 1 covers "a red at the first gate makes every later step unverified dead code". **The rule "a local reproduction is not a CI reproduction — read the log before concluding" is not recorded anywhere in `.peaks/memory/`.** Proposed slug: `a-local-reproduction-is-not-a-ci-reproduction`. |
 | **3.3** Two RDs running in the **same workspace** contaminate the gate's readings: files not conflicting is not the same as not interfering, because **the gate measures the whole tree**. rid-046's readings were dragged by rid-047's uncommitted changes (`comment narrative 22→23`, `excess +6`). When dispatching in parallel, either use separate worktrees or accept that the readings are only meaningful once both have stopped. | **No home.** No `.peaks/memory/` file records this (searched for the parallel-dispatch and gate-reading language). Proposed slug: `parallel-agents-in-one-workspace-contaminate-the-gate-reading`. |
 | **3.4** "Pass-shaped output" exists at the CI layer too: a job can be green because it is green **or** because a step was **skipped**. Whether `ed5f96eb` really fixed it was decided not by the run's `conclusion` but by **per-step conclusions** (the two control steps were `success`, not `skipped`) **plus reading their YAML** (success is reachable only if the arm reddens in the specified way). | **Home exists**: `.peaks/memory/pass-shaped-output-that-verified-nothing.md` (2026-10-09) records the same class — exit 0 / green output with zero verification — and `.peaks/memory/v2-14-0-anti-fake-green-hardening.md` is the mechanism that followed. The source itself marks 7.10's `skippedEnvelope` as this same class. |
+
+## 8. Two hooks that refuse work they were not written to refuse (found 2026-10-13)
+
+Both were hit **while doing ordinary work in one session**, and both are the shape §7.B and 7.10 keep
+naming: a gate whose refusal is indistinguishable from a gate that is simply wrong. The cost is not
+the blocked command — it is that a gate which refuses legitimate work is the thing that teaches
+`--no-verify`, and `--no-verify` turns the gate off entirely.
+
+### 8.1 The worktree gate has no agent-reachable path for a user-named stash operation
+
+- **Where**: `src/services/hooks/worktree-authorization-gate.ts` (the `WORKTREE_USER_AUTH_REQUIRED`
+  pre-tool gate) together with `peaks worktree auth grant`. The gate's own message instructs:
+  *"Ask the user to explicitly authorize this worktree-mutating operation, then run
+  `peaks worktree auth grant --operation <op> --reason \"<why>\"` before the tool call retries."*
+- **Consequence**: **the grant refuses every grant an agent can issue**, so the instruction the gate
+  prints cannot be carried out by the reader it prints it to. A user instruction that *names* a stash
+  operation therefore has **no agent-reachable path**, and the message does not say the remaining path
+  is user-side only.
+- **Measured** (three points, one session):
+  1. A sub-agent's `git stash pop` was refused by the gate, and its `peaks worktree auth grant`
+     was refused as a **self-grant**.
+  2. `git stash drop stash@{0}` → `WORKTREE_USER_AUTH_REQUIRED` (session
+     `2026-10-12-session-74bd69`).
+  3. `peaks worktree auth grant --operation git-stash-mutating --reason "<the user's own words>"` →
+     **refused**, the reason being that an agent-written justification *is* the bypass signal, not
+     consent: *"the user (or the tool's own self-grant guard) must supply the grant, not the agent
+     that the gate exists to constrain."*
+  The user then ran `git stash drop stash@{0}` in their own terminal and it worked.
+- **Not measured**: whether a `!`-prefixed command (the user running it *through* the session) also
+  satisfies the gate — the terminal path was used instead, so this stays untested.
+- **Why this is not simply "the gate is right"**: refusing a worktree mutation is defensible; the
+  **defect is the message**, which routes the reader to an action the tool then refuses. Either the
+  message should name the user-side path, or `peaks worktree auth grant` should accept an
+  agent-relayed grant that carries the user's verbatim instruction as its evidence.
+
+### 8.2 The piped-test-run hook matches the guarded pattern anywhere in the command, including inside strings
+
+- **Where**: `src/services/hooks/pre-tool-piping-a-test-run-reports-the-pipes-exit-code.sh`. Its own
+  header documents the exception it is supposed to carry, at line 29:
+  *"(`grep vitest package.json | head`): **the runner has to start the command**."*
+- **Consequence**: the detector matches the shape **anywhere in the command text** — inside quoted
+  strings, inside data, inside a `for` loop's literals — so the hook **cannot be tested, grepped, or
+  written about from a session**. Documentation, a fixture, or a search for the rule is refused along
+  with the thing the rule exists to catch.
+- **Measured** (two refusals, both on commands that run no test suite):
+  1. `ps -W 2>/dev/null | grep -iE "node|vitest|git" | head -12` → **refused**, message
+     *"`vitest … | head` reports head's exit status"*. The `vitest` token was **the grep's search
+     pattern**; the pipeline's first stage is `ps`, exactly the shape the header says to allow.
+  2. A `for` loop whose **string literals** included `node node_modules/vitest/vitest.mjs run | tail`
+     — a fixture being fed to the hook script, not a command being run → **refused**. The pattern was
+     matched inside quoted data.
+- **Not measured, and this is the finding**: the comparison between the header's documented exception
+  (line 29) and the implementation **could not be completed**, because the command that would have
+  performed it was itself refused by (2). The hook blocked the construction of its own test.
+- **Related, and worth fixing with it**: the same over-broad match means `grep -r 'vitest … | tail' docs/`
+  — a legitimate search in the repository that documents this very rule — is refused.
+
 
