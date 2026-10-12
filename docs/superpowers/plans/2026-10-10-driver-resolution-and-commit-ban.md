@@ -10,7 +10,7 @@
 
 **Spec:**
 - `docs/superpowers/specs/2026-10-10-peaks-race-code-design.md` §8.2（硬前提）、§12 U11、§12 U4
-- `docs/superpowers/specs/2026-10-10-session-handoff.md` **§2.2**（本条的证据与三个候选修法）
+- `.peaks/docs/backlog.md` **§7.4**（本条的证据与三个候选修法；drained 2026-10-12 from the session handoff, whose numbering this plan quoted differently）
 
 > 本 slice **独立于** `peaks-race-code`：它是既存 bug，可单独发布、单独验证。`peaks-race-code` 的 S2 **依赖**它，但它不依赖 race-code。
 

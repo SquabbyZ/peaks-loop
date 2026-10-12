@@ -110,8 +110,8 @@ peaks prepare-final-review <rid> --session-id <sid> [--project <path>] [--llm-pr
   > earlier version of this line repeated**; the wrong identifier had been copied between documents
   > without anyone reading the code. `final-review-commands.ts:51` declares the option as required, so
   > it is not inferred from the binding.) The validator also rejects `..`, `/` and `\` in the value.
-  > segment and rejects an empty string). Recorded in
-  > `docs/superpowers/specs/2026-10-10-session-handoff.md` §2.14 as a doc-behind-code drift; fixed here.
+  > segment and rejects an empty string). Recorded as a doc-behind-code drift in
+  > `.peaks/docs/backlog.md` §7.14; fixed here.
 - **`--llm-provider` defaults to `stub`.** `stub` runs no real review — it returns a
   `status: scaffold-only` / `providerBinding: stub` envelope so the route's reachability can be proven
   without spending a model call.

@@ -520,7 +520,7 @@ gate 的放行条件只有一个事实——**解析出的驾驶者是不是 `pe
 
 #### ⚠️ 仍未解决：gate 读不到"本 session"（→ U4）
 
-`src/cli/commands/code-gate-command.ts` 只把 stdin 解析成 `{tool, input}`（`:81`），**从不读 session / caller id**；U1 只覆盖 `projectRoot`。**gate 的 hook 子进程能否解析出调用方身份，至今未经验证**（`docs/superpowers/specs/2026-10-10-session-handoff.md` §2.2 与 §12 U4 都记着它）。
+`src/cli/commands/code-gate-command.ts` 只把 stdin 解析成 `{tool, input}`（`:81`），**从不读 session / caller id**；U1 只覆盖 `projectRoot`。**gate 的 hook 子进程能否解析出调用方身份，至今未经验证**（`.peaks/docs/backlog.md` §7.4 与 §12 U4 都记着它）。
 
 **§8.2 之所以只剩一个输入，一部分原因正是没有第二个输入可读。** 但当那一个输入本身就是"当前是谁在开车"时，这个未验证点仍是这条路径上最大的工程风险。
 

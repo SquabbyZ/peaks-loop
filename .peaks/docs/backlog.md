@@ -49,6 +49,18 @@
 > rules and do **not** agree. Repair 1's block below owns that correction, the three other items the
 > review raised, and the rule that came out of it: **a measurement about pnpm must name the pnpm
 > version it was taken under.** §2.8 gained one entry from the same slice.
+>
+> **Revised 2026-10-12 — a drain, not a new session.** The user ruled that a session handoff is a
+> **transient carrier** and this file is the durable home of "what is left", so the 2026-10-10
+> session handoff was drained into **§7 (new, items 7.1–7.15)**
+> — source §2.1…§2.15, appended; **§§1–4 are untouched and no existing item was renumbered.** A
+> session handoff holding a second copy of this question in a second directory is what produced the
+> staleness the drain fixes. The source's own corrections were carried **into** the items they
+> correct (7.1's two-to-**six** flake family, 7.4's superseded `← P1`, 7.12's three counts, 7.14's
+> error code), because deleting the carrier would otherwise have deleted them. What the source did
+> **not** carry as a defect — its delivery table, its document/memory cross-links, and its four
+> lessons — is dispositioned at **7.A / 7.B / 7.C** rather than dropped; two of the four lessons have
+> no home in `.peaks/memory/` and are named there.
 
 ---
 
@@ -2914,4 +2926,532 @@ $ grep -n -i "install-skills\|postinstall\|canonical" .peaks/docs/backlog.md
 
 The line-747 hit is a lint-repair slice's `repair 1`, not the installer; §2.52/§2.52a are the postinstall
 defect above. **There was no entry to update.** §2.52 and §2.52a are left byte-for-byte untouched.
+
+---
+
+## 7. Drained from the 2026-10-10 session handoff (2026-10-12)
+
+> **What this section is, and why it exists.** The source was
+> `docs/superpowers/specs/2026-10-10-session-handoff.md` (473 lines, tracked) — the handoff written for
+> the session that followed the 4.1.3 release. On 2026-10-12 the user ruled that a session handoff is a
+> **transient carrier** and that the durable home of "what is left" is **this file**, so the source was
+> drained here and deleted. Two documents holding that question in two directories is what produced the
+> staleness the drain fixes; the source had to invent conventions this file already had.
+>
+> **Items below = source §2.1…§2.15, one per item, numbered 7.1–7.15.** Each is in this file's own
+> `Where / Consequence / Measured` shape, and each carries the source's measurement: a number, a command
+> or a reproduction where the source had one; where the source itself marked a claim **unverified**, that
+> marking is carried too, because this file's rule is that the absence of a measurement is written down
+> rather than hidden.
+>
+> **The source's corrections belong in the items they correct, not in a footnote** — deleting the
+> carrier would otherwise have deleted them. Four lines had already been superseded, and each is now
+> written *into* its item with the old reading named in this file's `(An earlier revision …)` form:
+> §2.1 ("two" flakes → **six**), §2.4 (`← P1` → superseded by the S0 landing), §2.12 (three counts), and
+> §2.14 (the error code). `23d5de3d` and `ebb07c61` are the commits that produced them.
+>
+> **A `fixed` date appears below only where a commit or a measurement backs it.** Nothing here is marked
+> fixed on the strength of a claim. What the source carried that was **not** an item — its §1 delivery
+> table, its §4 cross-links and its §3 lessons — is dispositioned at **7.A**, **7.B** and **7.C**, so
+> that nothing was dropped silently.
+
+### 7.1 The full suite carries load-sensitive tests that hand you a false red — the family is SIX, not two (found 2026-10-10, corrected 2026-10-12; still open)
+
+- **Where**: `tests/unit/standards/esm-relative-import-extension.test.ts`,
+  `tests/unit/services/web/web-daemon-race.test.ts`, `tests/unit/lint/eslint-rules-config-coverage.test.ts`,
+  `tests/unit/slice/slice-check-service.test.ts`, `tests/unit/hooks/code-gate-driver.test.ts`, and
+  `tests/unit/standards/no-mcp-source-import.test.ts`. The 30 s budget is vitest's default; the 120 s one is set in-file.
+- **Consequence**: a red appears in a directory you never touched (`standards/`, `services/web/`, `lint/`,
+  `slice/`, `hooks/`) and the failure form is a **timeout**, not an assertion — so it reads either as "my diff
+  broke something" or as noise to be ignored. Both readings are wrong.
+- **Measured**: **the same tree**, three full runs, two of them red, and **the test that reddened was not the
+  same test**. Each of the six was then run **alone**:
+
+  | Test | Red form | Alone |
+  |---|---|---|
+  | `esm-relative-import-extension.test.ts` | `Error: Test timed out in 30000ms` | **18/18 pass, twice** |
+  | `web-daemon-race.test.ts` | `bootCount` reads 2, not 1 | **3/3 pass** |
+  | `eslint-rules-config-coverage.test.ts` | `Test timed out in 30000ms` — loads the whole ESLint config and checks every `@typescript-eslint` ruleId | 11/11, **18.51 s** |
+  | `slice-check-service.test.ts` | `Test timed out in 120000ms` — type-checks **this repository** | 11/11, **42.69 s** |
+  | `code-gate-driver.test.ts` | `Test timed out in 30000ms` — each case `spawnSync`s a tsx process | **13/13 pass** |
+  | `no-mcp-source-import.test.ts` | **ENOENT**, not a timeout — another concurrent test deleted `tests/fixtures/bdd-reporter-tmp/case-*/` mid-walk | **23/23 pass** |
+
+  Root causes where measured: a repo-wide AST walk compared set-wise against `git ls-files` (first row); a
+  concurrent case where two callers each start a daemon (second row); process startup cost per case (fifth).
+- **Corrected 2026-10-12** (the correction was written by `23d5de3d` and now lives here, not in a deleted
+  carrier). *(An earlier revision of this item read "two load-sensitive tests" and prescribed "look at the
+  failure text for `Test timed out`" as the discriminator. Measured: the family is **six**, and the timeout
+  test covers only **five** of them — the sixth fails by ENOENT. The general discriminator is **"does that
+  file pass when run alone"**, not "is the failure text a timeout".)*
+- **Aggravating factor, recorded against this session**: running the full suite repeatedly to "verify on the
+  merged result" saturates the box and **manufactures** this red. The source says so plainly, and the
+  observation is not softened here.
+- **Still open**: no item of the six is fixed; the count is a property of the suite on this box. Nothing in
+  this file claims otherwise, and the fact that the count was wrong for two days is the reason the
+  discriminator is stated as a rule rather than as a symptom list.
+
+### 7.2 Neither of this repository's two red lines gates today, and the `Edit|Write|MultiEdit` entry is not installed (found 2026-10-10; open, one half by design)
+
+- **Where**: `.claude/settings.json` (the edit gate's entry is absent); `src/services/skills/hooks-codegate-superpowers.ts`
+  `HOOK_COMMAND_BY_IDE`; `src/cli/commands/gate-commands.ts` (zero ban/commit references).
+- **Consequence**: you believe two red lines are protecting you. **Neither is present.**
+- **Measured / decided**: `.claude/settings.json` carries **no `Edit|Write|MultiEdit` entry** (measured
+  2026-10-12 during this drain: a `Bash` `PreToolUse` pair is present, the edit-gate entry is not). The source's
+  point stands and is an **independent decision for the user**, not a side effect to be fixed on the way past:
+  **from the moment that entry is installed, direct `src/**` edits in this repo begin being refused** — default
+  deny, because unless the session is inside the `peaks-race-code` lane no driver can be resolved. The commit
+  ban on Claude Code **never runs** (see 7.5(a)); that is **U14**, decided 2026-10-10 as **do not wire**.
+- **Still open**: both halves. The install is a user decision; the wiring is a decision already taken the other way.
+
+### 7.3 `test:changed`'s subset classification misses the consistency guards (found 2026-10-10; open — a design tension, not an oversight)
+
+- **Where**: `scripts/test-changed.mjs:186`, the `fullFallbackExempt` rule that deliberately keeps
+  `gate-baseline.json` out of the "trigger the full suite" set.
+- **Consequence**: **a change that adds a gated file but forgets to run the baseline generator can pass the push
+  gate.** The two guards that would have caught it never run on that push.
+- **Measured**: pushing `6a1938a8` (command-layer split + baseline regeneration) made pre-push run only
+  **71 files / 601 tests** — `tests/unit/standards/**` was not among them, so the guards pinning "every gated file
+  must carry a `files[]` row" did not execute. The next push touched `.husky/`, triggered the full suite, and they
+  went red immediately:
+
+  ```
+  in-scope file(s) with no files[] row in gate-baseline.json:
+    src/services/distribution/mcp-install-runner.ts
+  ```
+
+- **Why it is still unfixed**: the exemption is **intentional** — the context comment at that line says why (a push
+  stays cheap) — so fixing it is not a one-line change but a decision: **which changes must force the consistency
+  guards to run?** The source's suggested direction, carried here: when the diff **adds** a gated file (rather than
+  merely regenerating the baseline), pull `tests/unit/standards/**` into the subset.
+- **Not measured**: no prototype of that rule was run; the direction is a proposal, and it is recorded as one.
+
+### 7.4 The driver resolution was unreliable and the commit ban was skipped whole when it failed — **superseded by the S0 landing on 2026-10-10** (found 2026-10-10, fixed 2026-10-10)
+
+- **Where**: `src/services/skills/presence-lease-service.ts:496-513`;
+  `src/services/audit/enforcers/active-skill-resolver.ts:116-130`; `src/cli/commands/hook-handle.ts:131-132`;
+  `src/services/skills/skill-presence-service.ts:198` and `:701-721`. The fix added
+  `src/services/skills/presence-lease-order.ts`.
+- **Corrected**: *(An earlier revision of this line read `← **P1**`, carried as an open blocker. **S0 landed on
+  2026-10-10** (`98f314d6` is its tip; the series is `023235e2` scope the resolution to the calling session ·
+  `0c08be62` make the resolver agree with the statusline reader · `a8f94c89` decide the ban when the driver cannot
+  be resolved · `ca043fed` clear the four ceilings those three raised · `79b20add` stop an unmatched identity from
+  disabling the ban). The label is superseded; what follows is the finding and what shipped.)*
+- **Measured as found** (three sites read in source, plus a fourth):
+  - `listPresenceLeases` returned leases in `readdirSync`'s **raw order** — unsorted.
+  - `active-skill-resolver.ts` took the **first** qualifying lease during traversal, and the `callerId` filter was
+    **optional** (`typeof opts?.callerId === 'string'`).
+  - `hook-handle.ts:131` called `resolveActiveSkillForCaller(projectRoot)` **without a `callerId`**.
+  ⇒ the driver was resolved **across every caller in that session directory, by directory order**. And the same
+  question already had a **second, opposite answer** in this repo — `skill-presence-service.ts:198` sorts by
+  `lastHeartbeat` descending and takes `[0]` (the path that supports the statusline and
+  `requireUserConfirmation`). **The two answers could disagree.**
+  - The heavier site: `hook-handle.ts:132`'s `if (activeSkill.skill !== null)` — **a resolution failure skipped the
+    commit ban entirely.** `resolveActiveSkillForCaller` returns `{skill: null, …, source: 'none'}` for an unbound
+    session, a missing session directory, or an unsafe session id, so the ban was **fail-OPEN**: it could not stop
+    any resolution failure.
+  - Third site: `touchSkillHeartbeat` mutated **only in-memory** `presence.lastHeartbeat` and returned, its own
+    comment saying "the legacy `active-skill.json` file is no longer touched". With no periodic `setPresenceLease`
+    caller, the on-disk `lastHeartbeat` never advanced — a real on-disk sample
+    `presence-7ee97fe3-…-compat.json` had `lastHeartbeat === startedAt` with `status: "preparing"`, so `:198`'s
+    "newest heartbeat" had degenerated into "newest `startedAt`".
+- **Unverified, and carried as unverified**: whether the `peaks code-gate` hook subprocess **reliably receives** the
+  caller identity `resolveCallerProjection` needs. The adversarial review said it **could not verify this**, and it
+  decided which fix was even possible — which is why S0 took the payload route rather than assuming inheritance.
+- **Outcome (fixed, with commits)**: verified during this drain, not taken on the source's word —
+  `src/cli/commands/hook-handle.ts` no longer contains the `if (skill !== null)` guard; the call is now
+  `evaluateCodeBan({ skill: activeSkill.skill, …, peaksLeasePresent: hasPeaksLeaseInSession(projectRoot) })`, with a
+  comment naming the guard it replaced. Ordering was unified onto the shared comparator in
+  `src/services/skills/presence-lease-order.ts`. The three candidate fixes the source tabled — (a) pass `callerId`,
+  (b) sort by `lastHeartbeat`, (c) first revive the dead heartbeat write — were a **sequence with a design decision
+  in it**, which is why S0 had its own plan (`docs/superpowers/plans/2026-10-10-driver-resolution-and-commit-ban.md`)
+  rather than being a one-line repair.
+- **Still open here, deliberately**: the dead `touchSkillHeartbeat` write (it governs the statusline's freshness
+  semantics, so it belongs to another slice), and `PEAKS_ACTIVE_SKILL` at `active-skill-resolver.ts:69-72` as an
+  **unauthenticated override** — setting it to a non-`peaks-` prefix skips the ban. S0 recorded it and did not fix it.
+- **Why it mattered beyond itself**: `peaks-race-code` builds its "lane answer ∧ driver" conjunction on this same
+  signal (design §8.2, §12 U11), so it had to land first. The bug was **independent of race-code** — the review's own
+  words: *"Fix the driver resolution first, independently of this design. That is a real bug today, in the commit ban,
+  with nothing to do with race-code."*
+
+### 7.5 The commit ban never runs on Claude Code, and on cursor/codex a deny is swallowed (found 2026-10-10; (a) by decision, (b) and (c) open)
+
+- **Where**: `src/cli/commands/hook-handle.ts` (the **only** `evaluateCodeBan` call site in `src/`);
+  `src/services/skills/hooks-codegate-superpowers.ts:94-105` (`HOOK_COMMAND_BY_IDE`);
+  `src/services/ide/hook-protocol.ts:66-74` (`formatDecisionResponse`).
+- **Consequence**: the commit-ban red line is enforced on **one** adapter out of six, and on the adapter the user
+  actually runs it is not enforced at all — while the harness looks like it has two red lines (7.2).
+- **Measured**:
+  - **(a) One call site, three adapters.** `HOOK_COMMAND_BY_IDE` splits the entries in two:
+
+    | Adapter | hook command | commit ban |
+    |---|---|---|
+    | claude-code / hermes / openclaw | `peaks gate enforce` | **none** — `gate-commands.ts` has zero ban/commit references |
+    | trae / cursor / codex | `peaks hook handle` | present |
+
+  - **(b) Even on those three, cursor's and codex's deny never reaches the host.** `formatDecisionResponse`
+    **throws** for every IDE except `claude-code` and `trae`; `hook-handle.ts` calls it before `emitDecision` and the
+    whole action is inside a `try`, so the throw lands on the "internal error, allowing command" fail-open branch.
+    ⇒ **only `trae` actually enforces**, and on cursor/codex this ban *and* the pre-existing SOP gate and root-pollution
+    gate all have their deny converted to allow.
+  - **(c) Residual**: neither path consults a **lease-age upper bound** (`gcStalePresenceLeases` exists and is never
+    consulted), so a `status: "preparing"` lease that never terminalizes can block **every** `git commit` for the life
+    of that project session. Fixing it needs a threshold decided first; S0 left it as its own item on purpose.
+- **Done in S0**: the driver signal this gate depends on was fixed and scoped (7.4); and, **by user ruling**, the ban
+  was **not** wired into `gate enforce` — that is a separate decision because it changes existing Claude Code behaviour.
+- **Still open**: the cursor/codex formatting defect; wiring the ban into Claude Code; and (c)'s lease-age bound.
+
+### 7.6 `tests/integration/**` is not in the default vitest config (found 2026-10-10; open)
+
+- **Where**: `vitest.config.ts`'s exclude list (`tests/integration/**`) versus `vitest.config.integration.ts`, which
+  runs it separately.
+- **Consequence**: **two CI reds escaped at once** — the C-layer sandbox job and an integration stale assertion — past
+  the local full unit run (**4431 tests**), past the pre-push gate, and past **the whole 4.1.3 release flow**. They were
+  red on CI and permanently green locally.
+- **Note carried verbatim**: this is **probably deliberate** (integration is slow). Do not change the config on the way
+  past — first decide whether it should run locally and/or at push. The decision is the item; the config line is not.
+
+### 7.7 `git push origin <tag>` alone can never pass this repository's pre-push gate (found 2026-10-10; open)
+
+- **Where**: `.husky/pre-push` (gate machinery — a change here needs its own slice).
+- **Consequence**: **every release needs a `--no-verify`** — exactly the shape the hook's own comment warns about
+  (*"a gate people skip is worse than no gate"*). The gate is not wrong; the release procedure and the gate are
+  structurally mismatched.
+- **Measured** (twice, at the 4.1.3 publish):
+
+  ```
+  peaks-gate: origin/main resolves to HEAD (…), so the changed set is empty by construction.
+  REFUSING to report that as a pass: "nothing to compare" and "compared and clean" are
+  different results, and only one of them is evidence.
+  ```
+
+  That sentence is itself this round's hardening working correctly (an empty change set must not report success), but a
+  release commit was already validated when `main` was pushed, and pushing a tag never has new commits to compare.
+  This repository's history used **one push of two refs** (`git push origin main vX.Y.Z`) so the set was non-empty.
+- **Not measured**: no alternative pre-push rule was prototyped.
+
+### 7.8 File-size debt (found 2026-10-10; open)
+
+- **Where / scale**:
+
+  | Target | Scale |
+  |---|---|
+  | `src/services/skills/hooks-settings-service.ts` | over by **737** |
+  | `src/services/code/auto-compact-orchestrator.ts` | over by **730** |
+  | `src/services/config/config-service.ts` | over by **711** |
+  | `src/cli/commands` remaining | **35 files / 8124 excess lines** |
+
+- **Measured recipe** (validated over three batches): **splitting and compressing must happen in the same delivery.**
+  Batch 1 split only → `eslintFindings` **+23**; batches 2 and 3 did both → **−61 / −43**. The difference is the order,
+  not the care taken.
+- **Warn, measured**: **`scripts/**` and `tests/**` are shadow population and are constrained by no file-size ceiling** —
+  splitting them moves no ceiling (measured `117 / 32979` both before and after). Only `src/**` moves the ratchet.
+- **Still open**: all four targets. Nothing here claims a `src/**` ceiling was descended by this drain.
+
+### 7.9 Closed and still-open "unverified boundaries" (found 2026-10-10; three closed, three open)
+
+- **Where**: the C-layer sandbox CI job; the MCP client hop; `tests/integration/**`'s envelope helper; the
+  `format:check` CI job; the L3 end-to-end path; the S1 policy-exception trigger.
+- **Closed (each with its evidence)**:
+  - ✅ **C-layer sandbox** — no longer a debt: after `ed5f96eb` it **really runs and passes on CI**, and its two
+    injection controls (removing `unshare -n` / removing `setpriv`) each proved the arm **reddens**. Note the source's
+    own emphasis: **it had never actually executed before this.**
+  - ✅ **MCP's client-side hop** — measured `✔ Connected` on real Claude Code **2.1.295**.
+  - ✅ **Local integration-suite readings are now trustworthy.** `workspace-init-home-guard`'s `envelopeOf` appended
+    stderr to stdout and then `JSON.parse`d the concatenation, so `node:sqlite`'s per-call `ExperimentalWarning`
+    **blew it up** — that file was **RED on local Node 24 and GREEN on CI (Node 22)**. Fixed by parsing only
+    `result.stdout` (capture the two streams separately, confirm the envelope is on stdout, then narrow). **Before this
+    fix, any "local integration has a red" read may have been this artifact.** The same construction survives elsewhere
+    as **variants only** (some more robust, some brittle exactly when stderr contains `}`); this slice did not touch them.
+- **Still open (⬜, carried with the source's own wording)**:
+  - whether the **`format:check` job actually evaluates anything on the runner** (green in CI, unconfirmed);
+  - **L3 end-to-end** — PATH carries the installed build, not the worktree;
+  - the **S1 policy-exception end-to-end trigger** — the mechanism is tested only at the pure-function layer, and
+    "allowed to rise" ≠ "has risen".
+
+### 7.10 `peaks-reviewer` is half-built: a skip is reported as a pass (found 2026-10-10; open)
+
+- **Where**: `src/services/reviewer/reviewer-service.ts` (`skippedEnvelope`);
+  `src/services/reviewer/reviewer-config.ts:77`; `src/cli/commands/reviewer-commands.ts`.
+- **Consequence**: anti-fake-green **G4 does not exist in fact**, and **nothing says so at the moment it is needed.**
+  Any consumer reading `passed` / `gateAction` sees green; only a reader who goes on to read the `reason` string learns
+  it was a skip.
+- **Measured**: `peaks reviewer status` → `{configured: false, reason: "no-reviewer-config"}`. `~/.peaks/config.json`
+  has **no `reviewer` section** (only `version` / `currentWorkspace` / `workspaces` / `language` / `economyMode` /
+  `swarmMode` / `tokens` / `proxy`).
+- **The refusal is deliberate and correct.** `reviewer-config.ts:77` requires **≥2 provider families** and otherwise
+  treats the section as absent, so the reviewer is skipped cleanly — it **refuses a fake green rather than producing
+  one**. That judgement is right. What is wrong is the **shape of the skip path**:
+  `skippedEnvelope(reason)` returns `{reviewerId, modelId: 'skipped', modelFamily: 'skipped', passed: true,
+  violations: [], gateAction: 'allow', reason}` — **a review that never happened is reported as `passed: true` +
+  `gateAction: 'allow'`.** The source marks this as the same class as its §3.4 lesson (see **7.C**).
+- **Measured — a second family is unreachable on this machine**: `ollama` is not installed (no binary on PATH, nothing
+  answering on `:11434`) and `openai` has no credentials; the only family measured is deepseek
+  (`providerBinding: anthropic-messages-api`, `model: deepseek-flash[1M]`, via `peaks audit goal`).
+- **The four things "not done" means, each measured**:
+  1. `reviewer-commands.ts` registers only `run` (:35) and `status` (:81) — there is **no `reviewer config` subcommand**.
+     Configuration is hand-written into `~/.peaks/config.json`, or via
+     `peaks config set --key reviewer.providers --value '<json>' --layer user` — **a path the source explicitly marks
+     as never measured**. If only the former works, it violates **Human-NL-Choice-Only** (the user may not hand-author JSON).
+  2. `status` reports "nothing configured" and "only one family configured" as the **same** `no-reviewer-config`, so the
+     **≥2 requirement is undiscoverable from the tool**; and `nextActions: []` is a dead end, where every other peaks
+     command offers nextActions.
+  3. Skip and pass have the same shape (above).
+  4. **Zero dedicated tests.** `grep -rl "reviewer-service\|reviewer-config\|peaks reviewer" tests/` hits only
+     `tests/integration/workflow-eval-commands-e2e.test.ts`, and that is a **name collision**
+     ("independent-security-perf-audit").
+- **Minimal set to finish it**: ① give `reviewer config` a CLI surface; ② a skip must not report `passed: true`;
+  ③ `status` must distinguish three states and put the ≥2 requirement into `nextActions`; ④ add tests.
+- **Recorded honestly elsewhere**: `peaks-race-code`'s design (U9) already states "independent-model audit not achieved"
+  rather than passing off a fresh-context subagent as an independent model.
+
+### 7.11 Two tool defects (small, high reuse) — one corrected and one open (found 2026-10-10)
+
+- **Where**: `peaks audit goal`'s output path (`INCOMPLETE_AUDIT`); `peaks`' `.cmd` shim.
+- **(a) `peaks audit goal` truncated its output at ~3.6 KB (twice, `INCOMPLETE_AUDIT: Unterminated`).**
+  **Corrected 2026-10-11** (`130d487a`), and the correction is stronger than the original claim:
+  - it **did not reproduce** on 2026-10-11 with a **longer** need (1145 chars, against the 848 that failed) —
+    complete, six dimensions, ten success criteria, a **6769-byte** envelope, exit 0;
+  - the code was **unchanged** since 2026-09-19 (`cf21d188`), so the failing run and the passing one are the same code;
+  - the original attribution ("output token cap") **contradicts the code**: `maxTokens` was raised to 8000 on
+    2026-09-12 (`6fb10a06`) — a month *before* the measurement — and 3.6 KB of JSON is nowhere near 8000 tokens.
+  The **observation is kept and the conclusion is corrected** in
+  `.peaks/memory/peaks-audit-goal-output-truncates-at-3-6kb.md` (updated 2026-10-11), whose how-to-apply now says
+  **re-run before concluding**. **Unhandled half, recorded not fixed**: `INCOMPLETE_AUDIT` still collapses
+  "the response was truncated" and "the model emitted non-JSON" into **one** code.
+- **(b) `peaks`' `.cmd` shim cannot take an argument containing a newline** (`InvalidBatchScriptArg`).
+  **Open.** Carried as the source observed it: **no reproduction command was recorded and none was run during this
+  drain**, so this is a reported defect, not a measured one, and it is marked as such rather than upgraded.
+
+### 7.12 S2's fast lane is delivered, its three named follow-ups are closed, and S3's phase switch is still not earned (found 2026-10-10; three closed 2026-10-11; pilot started 2026-10-11, gate-2 machinery delivered 2026-10-12)
+
+- **Where**: `docs/superpowers/specs/2026-10-10-peaks-race-code-design.md` (design authority, four fixes this round);
+  `docs/superpowers/plans/2026-10-10-peaks-race-code-s2.md` (plan); `.peaks/race/pilot-gate.json` (tracked gate-2 evidence);
+  `src/services/race/{gate2-evaluator,gate2-policy,pilot-gate-store}.ts`.
+- **Measured**: S2 is `main` = `48861a11` — 14 commits, 20 files, **all pushed**; the three named follow-ups closed at
+  `8c1f5247` / `c99b1923` / `86564285`, on the origin and verified by CI runs **#313 / #314**. S2's final verdict was
+  **Merge**, and the final review named three follow-ups it would not sign off without. All three are now ✅, each as
+  one revertible commit (`git revert --no-edit <sha>`):
+
+  1. **✅ The `exit 2 + stderr` channel had zero end-to-end coverage** — `8c1f5247`. A sibling helper without
+     `--dry-run`; **both payload spellings** each assert `exit 2` + stderr containing
+     `PEAKS_CODE_PROHIBITED_DIRECT_EDIT`, and assert `exit 0` when allowed. Mutation control: putting `--dry-run`
+     back reddens both new cases. **Correction carried into the item**: *(An earlier revision of this line read "the
+     four new cases all go through `--dry-run`". Measured: **ten** — `:126-187` six plus `:201-244` four; and
+     `code-gate-command.ts:121/:144` returns early under `--dry-run`, so the real contract at `:172-176` was never
+     asserted on the **Node command** side either. The repository's only exit-2 assertion covered the shell sibling,
+     and only the legacy spelling.)*
+  2. **✅ The loop-hygiene block's "22→23" sweep** — `c99b1923`. The marker line was replaced atomically across
+     **23 copies** (the script asserted exactly one occurrence per copy). **Correction carried into the item**:
+     changing only the guard's number from 22 to 23 was **not enough** — that literal is precisely **why the false
+     count went unnoticed** (`:110`'s `toMatch(/edit one, edit all 22/i)` agreed with every wrong copy). It is now
+     derived from `files.length`, so the next skill landing makes the guard **red** instead of silently making 24
+     copies wrong. Two mutation controls: all-99 → the count assertion reddens; a single drifted copy → the
+     byte-identity assertion reddens.
+  3. **✅ `lintPeaksAuditRuntime`: decided **delete** — `86564285`. The module was deleted (99 lines), 7 catalog
+     `enforcerRef`s were set to `null`, and the baseline was regenerated with `--rescope`. **Three measured facts
+     contradicted the original text**: ① it exported **7** enforcers (audit / content / ide / doctor /
+     issue-fix-orchestrator / sop / slice-decompose), not 1; ② the audit system **already** marked them `prose-only`
+     (`enforcer-liveness.ts` scans imports and `backing-detector.ts` downgrades), so **there was no fake green today**
+     — "structurally cannot fail" is not the same claim as "counted as passing"; ③ **wire was not "attach one line"**:
+     importing all 7 and running them against today's SKILL.md fired **6 of 7 immediately** (only `peaks-doctor` was
+     clean), each needing an edit to a shipped SKILL.md to hit a regex. **Behaviour neutrality measured**:
+     `peaks audit red-lines` counts were identical before and after deletion (`156 / 54 / 0 / 102`).
+
+- **S3 — the metrics pilot has started; the phase switch has not been earned.** On 2026-10-11 four real tasks went
+  through the lane, and gate 2's four numbers were **tasks 4 / rollbacks 0 / CI red 0 / missed risk surface 0**,
+  recorded under `.peaks/_runtime/2026-10-11-session-5ac396/race/`. **Verdict: the sample is insufficient to switch
+  phase**, so `peaks-race-code` is still **name-only reachable** (see the design's §3.2 phase table and §5.5.2's two
+  gates). Two honest notes the source kept: of the four tasks only a minority pressed the lane's core capability (see
+  the correction below), and the first push of one of them went red **on the local gate** once
+  (`code-gate-driver.test.ts`, a load-shaped timeout — the SAME family as **7.1** — green on retry).
+- **Corrected 2026-10-12** — three numbers did not match the evidence on disk. Verified one by one while doing S-3's
+  gate 2; **the original reading is retained above and the correction is here**:
+
+  | The source said | Actual | How it was checked |
+  |---|---|---|
+  | `race/` holds "**(4 records)**" | **5 files** | `ls .peaks/_runtime/2026-10-11-session-5ac396/race/` |
+  | "only **1** of the 4 pressed the core capability (direct-edit-hard-block family in this window)" | **3**, under a reproducible definition: `rid-delete-orphan-enforcer` (touches `src/`) · `rid-lint-execution-failed-reason` (touches `src/`) · `rid-loop-hygiene-count` (touches `tests/unit/`) — the original's parenthesis **contradicts itself**, since it defines "core capability" as the direct-edit family and three qualify | reading each of the five traces' "Files changed" |
+  | the provenance of that "**1**" | **not traceable**: its task set is **not** the seeded set — the local-gate timeout the source mentions is the exit-2 coverage (`8c1f5247`), and that one has **no trace** under `race/` | `git show --name-only 8c1f5247` plus `grep -rln` over that directory |
+
+  Further correction lives in the design's §5.5.2 and `.peaks/memory/race-code-2.md`. **A related record gap**: `8c1f5247`
+  went through the lane yet has **no per-task trace**, which §7.2 of the design requires — a gap in the record
+  requirement itself, recorded as S-3's **U-E**.
+- **Gate-2 machinery (delivered 2026-10-12, `21304696`)**: `peaks race pilot-status` reads the **tracked**
+  `.peaks/race/pilot-gate.json`, applies `race-gate2-policy-v1`'s seven thresholds, and returns
+  `pass` / `fail` / `insufficient-evidence` with `observed`/`threshold` reasons; `peaks race pilot-gate record` is the
+  only writer (idempotent upsert keyed by `--rid`). Two design points preserved from `.peaks/memory/race-code-2.md`:
+  **coverage is derived, not self-reported** (`coreCapabilityExercised` comes only from
+  `filesChanged ∩ HARD_BLOCKED_PATH_FAMILIES` or the safety-arm predicate; a hand-written `coreCapability: true` is
+  **ignored**, not honoured), and **`taskCount` counts `landed` only while the safety arm counts every record**,
+  including `escalated` — deliberately different bases, because an escalation *is* the safety arm firing correctly and
+  a landed-only reading would exclude the one real sample. **Measured during this drain** (2026-10-12):
+
+  ```
+  node node_modules/tsx/dist/cli.mjs src/cli/index.ts race pilot-status --project D:/projects/peaks-loop --json
+  → verdict "insufficient-evidence"
+  → counts task 4 / core 3 / session 1 / safetyArm 1 / rollback 0 / ciRed 0 / missedRiskSurface 0
+  → reasons: task-count-below-min (4 < 10), session-count-below-min (1 < 2)
+  ```
+
+- **Recorded, and the user's to decide**: S2's full audit chain (32 Rulings, per-item triage of 15 deferred minors,
+  per-task evidence) is at `.superpowers/sdd/2026-10-10-peaks-race-code-s2/progress.md` — **gitignored**, so it does
+  not travel with the repository. Whether to keep it and when to delete it is the user's call (S0's ledger is likewise
+  retained).
+
+### 7.13 `peaks dashboard summary`'s three metrics were structurally always zero — **B delivered 2026-10-12** (found 2026-10-11, fixed 2026-10-12)
+
+- **Where**: `src/services/observability/observability-service.ts:190/212/237` (the dead helpers);
+  `aggregation.ts:212/213/227/249/250/264` (the counters that read them); `dashboard-long-run.ts:144`.
+- **Measured as found** (session `2026-10-11-session-5ac396`):
+
+  ```
+  peaks dashboard summary --json
+  {"cycleCount":0,"tokenCount":0,"dispatchCount":3,"compactCount":0,"monotonicTriggerCount":0}
+  ```
+
+  `dispatchCount` was **3** while `cycleCount` / `tokenCount` / `monotonicTriggerCount` were **0** — a difference not of
+  whether the events happened but of **whether a live emitter existed**:
+
+  | category | who emits | state |
+  |---|---|---|
+  | `dispatch` | `src/cli/commands/dispatch-tool-call.ts:139` | live |
+  | `slice-transition` | `src/services/artifacts/{artifact-prerequisites,request-artifact-service}.ts` | live |
+  | `mode-gate` / `context-trigger` / `post-compact` / `checkpoint` / `lease` | one site each | live |
+  | **`cycle` / `token-usage` / `monotonic-trigger`** | **only the three helpers** at `observability-service.ts:190/212/237` | **dead** |
+
+  Those three helpers (with `emitDispatchEvent`, four in all) had **zero call sites anywhere**: `:190/212/237/260` are
+  the only definitions, nothing in `src/` or `tests/` called them, and no test pinned them. So those categories were
+  **never written** while `aggregation.ts:212/213/227/249/250/264` kept counting them.
+- **Three candidate fixes, and B was the real problem**: **A** delete the four helpers (behaviour-neutral, but hides
+  "nobody emits"); **B** give the three categories real emitters (the real gap — it needs an answer to *who should emit,
+  at what moment, and where `token-usage`'s token count comes from*); **C** delete the three metrics from the dashboard
+  (removes user-visible fields). Corroboration: `dashboard-long-run.ts:144` read `monotonicTriggerCount` from
+  `snapshot.monotonicGuards` by a **different route**, which shows these three were **unwired features**, not a few
+  lines of cleanup. **Judgement then**: B is feature work and belongs to `peaks-code` (PRD → RD → QA), not the fast lane;
+  A and C only hide the symptom.
+- **Also noted then, and deliberately not touched**: `emitDispatchEvent`'s `detail` shape was `{status}` while the real
+  producer (`dispatch-tool-call.ts:139-153`) sends `{requestId, ide, promptBytes}` — it could not express the event it
+  was meant to serve, so it was never connected from the day it landed. **Its fate depended on B**, so deleting it then
+  might have deleted the very point that needed connecting.
+- **Outcome (fixed 2026-10-12)**: **B delivered**, `e6bcc39e`, through the full `peaks-code` flow (PRD → RD → QA →
+  repair), contract-first and implemented after user review. All three categories now have real emitters: **`cycle`**
+  (`run-driver.ts`, **one** event per cycle), **`monotonic-trigger`** (the guard's two call sites; `skip` emits
+  **nothing**), **`token-usage`** (`final-review-prepare-command.ts`; numbers only, `source: provider|estimated`).
+- **Independently verified**: **QA reproduced 5 of 5** mandatory acceptance criteria, including a **mutation control**
+  (delete the emit call → the run still reports `totalCycles:2` while the dashboard reads 0) and an **independence
+  check** (recomputing `41+27=68` from the raw lines equals the dashboard's 68).
+- **Still open**: **U1** (a dead enum value), **U2** (two token sites that cannot obtain a session — recorded as an
+  **accepted coverage gap**, stated rather than papered over), **U4** (the `estimated` format).
+
+### 7.14 `peaks prepare-final-review`'s two real defects, and the third paragraph that was half-attributed — defect 1 fixed, defect 2 corrected, paragraph 3 half-corrected (found 2026-10-12)
+
+- **Where**: `src/services/final-review/pre-post-diff.ts` and `final-review-contract.ts`;
+  `src/cli/commands/final-review-prepare-command.ts:84`; `skills/peaks-final-review/SKILL.md`;
+  `src/services/final-review/final-review-evidence-sources.ts`.
+- **Defect 1 — the structural-drift detector false-positived on a REFORMAT.** A change that only reformatted
+  `final-review-service.ts`'s `export { A, type B, type C };` single-line form into a multi-line block (adding
+  `type LlmTokenUsage`) produced the report **"REMOVED 3 export names"** — while all three names **still existed, were
+  still exported, and were still re-exported from `index.ts`**. The detector is a **line-anchored regex over changed
+  lines only** (its own words: "APPROXIMATE — NOT a type checker"), so a single-line form vanishing from the diff reads
+  as a removal. **Consequence**: the only dimension with before-and-after data came back **`FAIL`**, and `allPass` was
+  structurally `false`. **Note, recorded for a separate look**: the skill claims to guard exactly this ("a name that
+  appears on both sides of the diff … are reported as changes, not as removals") — **it did not work**.
+  **Fixed** `4196c171`: multi-line blocks are now parsed as statements, and **both directions are pinned** (a reformat
+  reports additions only; a name genuinely removed is still reported, from a list export and from a single-line form).
+  The commit says the second arm is the load-bearing one, because making the false positive go away by never reporting
+  drift is the vacuity this repository's gates exist to refuse.
+- **Defect 2 — `--session-id` is REQUIRED while the skill said omitting it defaulted to the active binding.**
+  Omitting it fails with `MISSING_REQUIRED_FLAG` (`final-review-prepare-command.ts:84` returns that code).
+  **Corrected**: *(An earlier revision of this item read `MISSING_REQUIRED_OPTION`. The code returns
+  `MISSING_REQUIRED_FLAG`; the wrong identifier had been **copied between documents** without anyone reading the code,
+  and had reached `skills/peaks-final-review/SKILL.md`. Both sides were corrected together in `23d5de3d`.)* — another
+  case of documentation lagging the code.
+- **Also falsified** (corrected in the same commit, `23d5de3d`): the skill asserted a real provider was unreachable
+  (`--llm-provider anthropic` → `serviceWired: false`). **Measured reachable**: `status: review-complete`,
+  `providerBinding: anthropic-messages-api`, `model: deepseek-flash[1M]`.
+- **Paragraph 3 — design working as intended, and then half-attributed.** Three of the four dimensions came back
+  `inconclusive` because the artifacts the service reads (`qa/test-cases`, `qa/test-reports`, `qa/security-findings`,
+  `qa/performance-findings`, `rd/{bug-analysis,tech-doc,code-review,security-review}`) were not generated — **QA did the
+  verification but did not land it in the shape the service reads.** The service therefore refused `pass`, which is
+  right. The source's follow-on instruction, carried here: **next round, QA's artifact shape must match
+  final-review's read list, or "verified" stays invisible to human review.**
+  **Half-corrected 2026-10-12** (`ebb07c61`) — and the correction was to the *attribution*, not just the symptom: the
+  ENOENT half was the **service's** fault. `prepare-final-review` assembled evidence from `rd/code-review.md` and
+  `rd/security-review.md`, while **both the transition gate (`artifact-prerequisites.ts`) and the write side
+  standardized on** `rd/code-review-<rid>.md` and `audit/security-<rid>.md` — the rid is in the filename so two slices in
+  one session cannot collide. The gate therefore accepted an artifact **at a path its consumer never read**: a slice
+  whose code review was written faithfully to the rid-scoped path still came back `inconclusive`, the reviewer reporting
+  `rd-code-review` as ENOENT. Fixed through the list's existing `legacySegments` mechanism; only the two stale entries
+  changed, the other seven and their `supports` arrays untouched, and the `rd-security-review` label now names what the
+  bytes are. Covered by a new test asserting the rid-scoped path is preferred **and** that the legacy bare path is still
+  found and reported when it is the only one present. **The other half of paragraph 3 is still open**: QA must still
+  **write** the artifacts in the shape the (now-correct) list reads.
+
+### 7.15 `peaks loop run` could not run on a clean session — **fixed 2026-10-12** (found 2026-10-12; pre-existing, not caused by 7.13)
+
+- **Where**: `src/services/loop/monotonic-runner.ts:153`'s `loadMostRecentCycleFromDir` (that file was untouched by the
+  7.13 change).
+- **Measured — reproduced**, independently by RD and by QA, and on an **unmodified `dist/` build**, so it was unrelated
+  to 7.13's change:
+
+  ```
+  peaks loop run <rid> --session <sid> … → RUN_FAILED: require is not defined
+  ```
+
+  Root cause: ESM versus a `require` inside that function. **Workaround recorded**: seed one line
+  `{"kind":"monotonic-cycle"}` into that rid's cycle directory so the "most recent cycle" read path is never taken.
+  AC-1 and AC-2 only passed by seeding.
+- **Why it deserved its own item**: `runLoop` is reachable **only** through `peaks loop run`, and **no skill in
+  `skills/` calls it** (measured: the grep is empty — re-measured during this drain, still empty). So the loop
+  runtime's own entry point crashed on a clean session. It is the same place as 7.13's "`cycleCount` only moves when
+  the loop is run directly" — two symptoms of one seam.
+- **Fixed 2026-10-12**: `c3fe88b7` — *"sweep every `require()` out of the sources and guard against its return"*.
+  Verified during this drain rather than quoted: `src/services/loop/monotonic-runner.ts` now imports
+  `{ existsSync, readFileSync, readdirSync }` from `node:fs` and contains **no `require(`**; the same commit added the
+  guard `tests/unit/standards/no-esm-require-mixing.test.ts` (+ its 496-line scan module) so the pattern cannot return.
+  Scope from that commit's own record (`.peaks/memory/esm-require-4-2-15.md`): **4 known sites**, of which this is one —
+  the others made `peaks security-audit run` / `peaks perf-audit run` write `<target>.md.tmp` and then throw at the
+  rename, leaving a `.tmp` and no `.md`, so `rd:qa-handoff` reported the artifact missing **even when the audit itself
+  finished**. The lesson it produced: patching one site keeps missing the rest — sweep the package **and** guard the return.
+
+### 7.A The source's §1 — what the 4.1.3 round delivered (carried, not an item)
+
+The source opened with a delivery table. Its durable home is `CHANGELOG.md` and the git history, so it is **not**
+re-created as an item; it is carried here so the drain drops nothing, and because one line in it is a measurement:
+
+| Delivered | Commits |
+|---|---|
+| Read-only MCP capability surface (`peaks mcp serve\|install\|uninstall`) + the read-only argv allowlist proof | `46463f85`, `fdf7807f` |
+| Gate hardening (two gates that could not fail made able to fail) + the file-size ratchet's first joint-verdict exception | `23fb500d`, `b3f4f795` |
+| Three batches of size debt: command layer 10 files + `scripts/` 4 files | `c88e38dc`, `6a1938a8`, `1e2d098a` |
+| `npx` resolver off by one directory (silently falling back to the shim it exists to avoid) | `f0cc19c8` |
+| `peaks mcp uninstall` reporting "there was never a verdict" as "there was never one to begin with" | `7032bab0` |
+| Docs aligned with facts (including three of its own judgements reversed) | `69a5f068`, `0c5fe123` |
+| **The 4.1.3 release** (with `CLI_VERSION` / `RUNTIME_VERSION` sync, CHANGELOG, tag) | `9ff721e9`, `65be0f63` |
+| Two CI reds: the C-layer sandbox job, an integration stale assertion | `ed5f96eb`, `db66ec83` |
+
+**Measured, and it is the line worth keeping**: gated ceilings **fell throughout, none rose** —
+`eslintFindings 2055→1951`, `eslintErrors 770→709`, `fileSizeOverCap 122→112`, `fileSizeExcessLines 35536→30352`.
+
+### 7.B The source's §4 — cross-links (carried)
+
+| Document | What it is |
+|---|---|
+| `docs/superpowers/specs/2026-10-09-peaks-mcp-readonly-surface-design.md` | the design record for the MCP capability surface (vendor-neutral; Claude/Windows live only in its §13 adapter layer) |
+| `docs/superpowers/specs/2026-10-09-next-work-menu.md` | the then-current state (rewritten by the menu) — contains the three judgements it reversed |
+| `docs/superpowers/specs/2026-10-09-post-mcp-current-state-roadmap.md` | roadmap + status block |
+| `docs/superpowers/specs/2026-10-09-hardening-round-handoff.md` | the gate-hardening round's record + addendum |
+| `.peaks/memory/*.md` | the source counted **491** entries on 2026-10-10; a plain `ls .peaks/memory/*.md` during this drain counted **465** top-level files (**480** including `archived/`) — the source's counting rule was **not reproduced**, so the two numbers are recorded as two different rules rather than one being declared right |
+
+### 7.C The source's §3 — lessons, dispositioned against `.peaks/memory/` (not backlog items)
+
+A lesson is not a defect waiting for a fix, so none of these four became an item. Each is checked against the memory
+tree, and **two have no home** — named here rather than silently dropped.
+
+| Source lesson | Where it already lives |
+|---|---|
+| **3.1** `git ls-files` trap: an untracked file is invisible to every census leg, so `peaks-gate.mjs repo` can report "all ceilings held" having counted nothing, and the baseline generator can report "only `generatedAt` changed" — a false statement manufactured by an untracked file. `git add -A` first; when a result looks like "nothing changed", check whether the file is tracked. | **Two homes.** `.peaks/memory/guards-that-enumerate-git-ls-files-have-an-untracked-pair-window.md` (2026-09-24, with its measurement) and `.peaks/memory/a-census-guard-cannot-see-an-untracked-file-so-a-pre-commit-green-is-not-a-green.md` (2026-10-06, observed twice in one session, the second time **after** the rule was written down). |
+| **3.2** Two CI misdiagnoses, corrected by logs rather than reasoning ("the C-layer failure is root bypassing chmod" → it never got that far, corepack died first; "the integration failure is `workspace-init-home-guard`" → CI reddened a different test). **Local reproduction ≠ the CI failure; get the log first.** GitHub **job logs require a login** (API `/logs` → 403, the web UI says "Sign in to view logs"). | **No home for the load-bearing half.** The adjacent, unauthenticated-readability fact *does* live in `.peaks/memory/ci-status-is-readable-without-gh-auth.md` (check-runs + annotations are readable with no auth; `/actions/runs` returns `000`), and `.peaks/memory/ci-green-restoration-2026-09-08.md` Lesson 1 covers "a red at the first gate makes every later step unverified dead code". **The rule "a local reproduction is not a CI reproduction — read the log before concluding" is not recorded anywhere in `.peaks/memory/`.** Proposed slug: `a-local-reproduction-is-not-a-ci-reproduction`. |
+| **3.3** Two RDs running in the **same workspace** contaminate the gate's readings: files not conflicting is not the same as not interfering, because **the gate measures the whole tree**. rid-046's readings were dragged by rid-047's uncommitted changes (`comment narrative 22→23`, `excess +6`). When dispatching in parallel, either use separate worktrees or accept that the readings are only meaningful once both have stopped. | **No home.** No `.peaks/memory/` file records this (searched for the parallel-dispatch and gate-reading language). Proposed slug: `parallel-agents-in-one-workspace-contaminate-the-gate-reading`. |
+| **3.4** "Pass-shaped output" exists at the CI layer too: a job can be green because it is green **or** because a step was **skipped**. Whether `ed5f96eb` really fixed it was decided not by the run's `conclusion` but by **per-step conclusions** (the two control steps were `success`, not `skipped`) **plus reading their YAML** (success is reachable only if the arm reddens in the specified way). | **Home exists**: `.peaks/memory/pass-shaped-output-that-verified-nothing.md` (2026-10-09) records the same class — exit 0 / green output with zero verification — and `.peaks/memory/v2-14-0-anti-fake-green-hardening.md` is the mechanism that followed. The source itself marks 7.10's `skippedEnvelope` as this same class. |
 
