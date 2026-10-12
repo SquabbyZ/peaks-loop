@@ -3554,6 +3554,21 @@ the blocked command — it is that a gate which refuses legitimate work is the t
 > an item — the slice's own accepted risks, its U-items, and the repairs that did land — is
 > dispositioned in the two tables at **9.A** and **9.B**, so that nothing was dropped silently.
 >
+> **RULINGS — the user decided all four decision items on 2026-10-13.** They are recorded here because
+> a ruling that lives only in a conversation is lost at the next compaction, and three of these are
+> instructions to build something rather than opinions:
+>
+> | item | ruling |
+> |---|---|
+> | **9.1** | **Migrate the carrier.** The markdown carrier and its accepted escape space were the alternative and were declined. |
+> | **9.2** | **Do 1a + 1b; file the producer separately.** 1a: surface the `warnings` array the success path currently discards. 1b: derive the warning code from the prerequisite instead of hardcoding it. **Option 2 is NOT to be done here** — it was measured to be "persist the STRAT→TACT chain", not "register a command", and that is an audit-chain integrity decision to be taken on its own. |
+> | **9.3** | **Read the ratchet, judge by delta.** Plus S-14 disposed of together: either enforce `implemented → qa-handoff → handed-off`, or stop describing it as a sequence. |
+> | **9.4** | **A named exemption table**, which shrinks as entries are removed, in place of a numeric ceiling that can only absorb; and the `tests/**` 500-line cap is either enforced or stops calling itself a cap. |
+>
+> **9.1's status at the time of this ruling**: implementation delivered and repaired once; the repair
+> was verified independently (all three escaped-key forms that previously resolved now refuse, with the
+> controls still behaving). Re-review in flight. **Four of its eight required artifacts exist.**
+>
 > **None of the `file:line` anchors below is machine-checked, and that is measured, not assumed.** This
 > file sits **outside every citation guard's corpus**: `tests/unit/standards/repo-citation-integrity.test.ts`
 > declares `CORPUS_DIRS = ['.peaks/standards', 'skills']` and excludes `.peaks/docs/` **deliberately**
