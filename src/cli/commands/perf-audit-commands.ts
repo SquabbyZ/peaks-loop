@@ -119,13 +119,20 @@ export function registerPerfAuditCommands(program: Command, io: ProgramIO): void
       const envelope =
         detect.state === 'ready'
           ? ok('perf-audit.detect', detect, [...detect.warnings], [...detect.nextActions])
-          : fail(
-              'perf-audit.detect',
-              detect.state.toUpperCase().replace(/-/g, '_'),
-              `perf-audit is not ready: ${detect.state}`,
-              detect,
-              [...detect.nextActions]
-            );
+          : {
+              // `fail()` builds `warnings: []`, so the detector's own diagnosis is
+              // spread over it. Without this the human-readable refusal drops the
+              // sentence saying WHY the run is not ready, while `--json` keeps it
+              // at `data.detect.warnings` — the 9.2 shape, one surface over.
+              ...fail(
+                'perf-audit.detect',
+                detect.state.toUpperCase().replace(/-/g, '_'),
+                `perf-audit is not ready: ${detect.state}`,
+                detect,
+                [...detect.nextActions]
+              ),
+              warnings: [...detect.warnings]
+            };
       printResult(io, envelope, options.json);
       if (detect.state !== 'ready') {
         process.exitCode = 1;
@@ -229,13 +236,18 @@ export function registerPerfAuditCommands(program: Command, io: ProgramIO): void
       if (result.detect.state !== 'ready' || result.artifactPath === null) {
         printResult(
           io,
-          fail(
-            'perf-audit.run',
-            result.detect.state.toUpperCase().replace(/-/g, '_'),
-            `perf-audit is not ready: ${result.detect.state}`,
-            result,
-            [...result.detect.nextActions]
-          ),
+          {
+            // Same spread as the detect arm: the run's refusal is the only place
+            // the detector's warning would reach a person, and `fail()` empties it.
+            ...fail(
+              'perf-audit.run',
+              result.detect.state.toUpperCase().replace(/-/g, '_'),
+              `perf-audit is not ready: ${result.detect.state}`,
+              result,
+              [...result.detect.nextActions]
+            ),
+            warnings: [...result.detect.warnings]
+          },
           options.json
         );
         process.exitCode = 1;

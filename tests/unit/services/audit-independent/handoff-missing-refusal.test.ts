@@ -106,9 +106,12 @@ describe('(a11y) the refusal a reader sees names all three facts', () => {
       expect(result.state).toBe('handoff-missing');
       expect(result.handoffPresent).toBe(false);
 
-      // These `nextActions` are what `printResult` writes to stderr as `- …`,
-      // so this array IS the reader-visible text (a failed envelope carries no
-      // warnings through `fail()`).
+      // These `nextActions` are what `printResult` writes to stderr as `- …`.
+      // `result.warnings` is a SECOND reader-visible surface: the audit CLI
+      // commands spread the detector's warnings over `fail()`, so the same run
+      // also prints `warning: …`. That surface is asserted in
+      // `tests/unit/cli/commands/audit-failure-carries-warnings.test.ts`; this
+      // file keeps measuring the service's own arrays.
       const text = result.nextActions.join('\n');
 
       // (a) the load-bearing sentence the refusal was missing.

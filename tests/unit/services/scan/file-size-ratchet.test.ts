@@ -207,3 +207,64 @@ describe('Scenario: the diff-scoped file-size scan judges a DELTA, not an absolu
     }
   );
 });
+
+describe('Scenario: the refusal names the rule it applied and the gate it can disagree with', () => {
+  it(
+    'when a change grows a file past its own cap, should say PER-FILE and name the aggregate ratchet row',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    () => {
+      // given: a committed module under the cap, grown past it in this change —
+      //        the per-file violation, which is the input this gate refuses
+      writeMarked('src/grown.ts', UNDER_CAP, 'before');
+      commitAll('under cap at head');
+      writeMarked('src/grown.ts', OVER_CAP, 'after');
+
+      // when: the scan refuses and the refusal is rendered
+      const result = scanFileSize({ projectRoot: repo });
+      const message = new FileSizeViolationError(result.violations).message;
+
+      // then: it names the granularity it measured...
+      expect(message).toContain('PER-FILE rule');
+      // ...and the aggregate gate a reader may have just seen go GREEN, by the
+      // row's own label, its key, and the commands that print it — so a green
+      // ratchet is not read as the per-file gate being broken.
+      expect(message).toContain('file-size excess lines');
+      expect(message).toContain('fileSizeExcessLines');
+      expect(message).toContain('.husky/peaks-gate.mjs repo');
+      expect(message).toContain('.husky/peaks-gate-baseline.mjs');
+      // ...and it states the priority rather than leaving it to be inferred:
+      // there is none, because the two measure different things.
+      expect(message).toContain('neither takes priority');
+    }
+  );
+
+  it(
+    'should render the per-file sentence for a refusal and not for an accepted file in the same tree',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    () => {
+      // given: a module ALREADY over its cap at the base ref, edited without
+      //        growing — the case `scanFileSize` accepts
+      writeMarked('src/accepted.ts', OVER_CAP, 'before');
+      commitAll('over cap at head');
+      writeMarked('src/accepted.ts', OVER_CAP, 'after');
+      const accepted = scanFileSize({ projectRoot: repo });
+
+      // then: the accepted file is NAMED, not silent, and builds no error — so the
+      // sentence at the centre of this slice is never rendered for it. This is the
+      // input that would expose the sentence as an unconditional constant.
+      expect(accepted.ok).toBe(true);
+      expect(accepted.violations).toEqual([]);
+      expect(accepted.acceptedOverCapFiles).toEqual(['src/accepted.ts']);
+
+      // and the contrast, in the SAME tree: a file that grows past its cap is
+      // refused and DOES render the sentence, so the check above is about the
+      // refusal rather than about a module that never speaks.
+      writeMarked('src/grown-here.ts', UNDER_CAP, 'before');
+      commitAll('under cap');
+      writeMarked('src/grown-here.ts', OVER_CAP, 'after');
+      const refused = scanFileSize({ projectRoot: repo });
+      expect(refused.violations.map((v) => v.file)).toEqual(['src/grown-here.ts']);
+      expect(new FileSizeViolationError(refused.violations).message).toContain('PER-FILE rule');
+    }
+  );
+});

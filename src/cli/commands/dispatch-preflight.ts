@@ -1,6 +1,7 @@
 // The `peaks sub-agent dispatch` preflight: every refusal that can be decided from
 // the argv alone, before the session id, the lease or the prompt blocks are touched.
 // Returns the prompt-size decision, or `null` when a refusal was already printed.
+import { readFileSync } from 'node:fs';
 import { printResult, type ProgramIO } from '../cli-helpers.js';
 import { fail } from 'peaks-loop-shared/result';
 import {
@@ -88,6 +89,78 @@ function applyPromptLengthOverride(options: DispatchOptions): void {
   }
 }
 
+function rejectPromptFileUnreadable(
+  io: ProgramIO,
+  role: string,
+  prompt: string,
+  asJson: boolean
+): null {
+  printResult(
+    io,
+    fail(
+      'sub-agent.dispatch',
+      'PROMPT_FILE_NOT_FOUND',
+      `--prompt "${prompt}" is a file reference ("@<path>") but that path could not be read`,
+      { role, toolCall: null, dispatchRecordPath: null } as never,
+      [
+        'Fix the path after "@", or pass the prompt text itself.',
+        'A --prompt that does not begin with "@" is sent verbatim.'
+      ]
+    ),
+    asJson
+  );
+  process.exitCode = 1;
+  return null;
+}
+
+function rejectEmptyPromptFile(io: ProgramIO, role: string, prompt: string, asJson: boolean): null {
+  printResult(
+    io,
+    fail(
+      'sub-agent.dispatch',
+      'MISSING_PROMPT',
+      `--prompt "${prompt}" resolved to an empty file: a dispatch needs instructions`,
+      { role, toolCall: null, dispatchRecordPath: null } as never,
+      [
+        'Write the brief into the referenced file, or pass the prompt text itself.',
+        'An empty or whitespace-only file carries no brief, so the dispatch would look successful and instruct nothing.'
+      ]
+    ),
+    asJson
+  );
+  process.exitCode = 1;
+  return null;
+}
+
+// `--prompt "@<path>"` is a file reference, mirroring `peaks prd handoff init
+// --body` (prd-commands.ts `resolveBody`). Before this the "@" token was sent
+// as literal text, so a dispatch naming a brief file went out carrying the path
+// and none of the brief — no warning, exit 0. A prompt that does not begin with
+// "@" is returned untouched, byte-identical.
+//
+// The emptiness check is repeated AFTER the read, and only on this branch: the
+// pre-read check sees the token "@<path>", never the file's contents, so an
+// empty file passes it and re-opens the same silent-dispatch defect from the
+// other side. A whitespace-only file is the same input. Both are refused; a
+// LITERAL prompt is not re-checked, so a whitespace-only literal is unchanged.
+function resolvePromptFileRef(
+  io: ProgramIO,
+  role: string,
+  prompt: string,
+  asJson: boolean
+): { prompt: string } | null {
+  if (!prompt.startsWith('@')) return { prompt };
+  try {
+    const content = readFileSync(prompt.slice(1), 'utf8');
+    if (content.trim().length === 0) {
+      return rejectEmptyPromptFile(io, role, prompt, asJson);
+    }
+    return { prompt: content };
+  } catch {
+    return rejectPromptFileUnreadable(io, role, prompt, asJson);
+  }
+}
+
 function rejectPromptTooLarge(
   io: ProgramIO,
   role: string,
@@ -166,6 +239,9 @@ export function preflightDispatch(
   if (!options.prompt || options.prompt.length === 0) {
     return rejectMissingPrompt(io, role, asJson);
   }
+  const fileRef = resolvePromptFileRef(io, role, options.prompt, asJson);
+  if (fileRef === null) return null;
+  options.prompt = fileRef.prompt;
 
   // Slice 4.0.8 RD §4 D4c required `--graph-node` here, before the session
   // id existed, so the only recovery it could offer was prose. The node is

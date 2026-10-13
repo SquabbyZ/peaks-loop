@@ -38,6 +38,19 @@ export function getNextNumber(dirPath: string): number {
  * @param description - Human-readable description (converted to kebab-case slug)
  * @returns Formatted filename like "001-feature-name.md"
  */
+/**
+ * The `<NNN>` prefix in a numbered filename is COSMETIC. `getNextNumber` reads
+ * the directory's highest prefix and adds one, and nothing claims a number in
+ * between — so two writers running at once can both read the same maximum and
+ * both stamp the same number. That is harmless only because the number is not
+ * an identity: what names an artifact is the slug (the request id), and every
+ * reader strips the prefix. Measured 2026-10-12: the sole consumers of the
+ * number are this module's writer path (`getNextNumber` -> `buildNumberedFilename`)
+ * and the read side (`requestIdFromFileName`, which discards it); the artifact
+ * service's duplicate check and lookup both key on the slug. Read that as a
+ * constraint: give the number a meaning and you must claim it atomically first,
+ * rather than assume this scan hands out unique values.
+ */
 // Windows supports up to 255 chars per filename component (and 260 for the
 // full path). Pre-#015 the slug was silently truncated to 50 chars, which
 // produced orphaned artefacts (the on-disk file no longer matched the

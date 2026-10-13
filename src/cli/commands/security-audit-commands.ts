@@ -120,13 +120,20 @@ export function registerSecurityAuditCommands(program: Command, io: ProgramIO): 
       const envelope =
         detect.state === 'ready'
           ? ok('security-audit.detect', detect, [...detect.warnings], [...detect.nextActions])
-          : fail(
-              'security-audit.detect',
-              detect.state.toUpperCase().replace(/-/g, '_'),
-              `security-audit is not ready: ${detect.state}`,
-              detect,
-              [...detect.nextActions]
-            );
+          : {
+              // `fail()` builds `warnings: []`, so the detector's own diagnosis is
+              // spread over it. Without this the human-readable refusal drops the
+              // sentence saying WHY the run is not ready, while `--json` keeps it
+              // at `data.detect.warnings` — the 9.2 shape, one surface over.
+              ...fail(
+                'security-audit.detect',
+                detect.state.toUpperCase().replace(/-/g, '_'),
+                `security-audit is not ready: ${detect.state}`,
+                detect,
+                [...detect.nextActions]
+              ),
+              warnings: [...detect.warnings]
+            };
       printResult(io, envelope, options.json);
       if (detect.state !== 'ready') {
         process.exitCode = 1;
@@ -230,13 +237,18 @@ export function registerSecurityAuditCommands(program: Command, io: ProgramIO): 
       if (result.detect.state !== 'ready' || result.artifactPath === null) {
         printResult(
           io,
-          fail(
-            'security-audit.run',
-            result.detect.state.toUpperCase().replace(/-/g, '_'),
-            `security-audit is not ready: ${result.detect.state}`,
-            result,
-            [...result.detect.nextActions]
-          ),
+          {
+            // Same spread as the detect arm: the run's refusal is the only place
+            // the detector's warning would reach a person, and `fail()` empties it.
+            ...fail(
+              'security-audit.run',
+              result.detect.state.toUpperCase().replace(/-/g, '_'),
+              `security-audit is not ready: ${result.detect.state}`,
+              result,
+              [...result.detect.nextActions]
+            ),
+            warnings: [...result.detect.warnings]
+          },
           options.json
         );
         process.exitCode = 1;

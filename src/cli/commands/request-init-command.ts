@@ -10,7 +10,15 @@ import {
 import { parseRole, parseRequestType, VALID_ROLES } from './request-format-helpers.js';
 import { fail, ok } from 'peaks-loop-shared/result';
 
-import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
+import {
+  addJsonOption,
+  getErrorMessage,
+  printResult,
+  printableWarningText,
+  type ProgramIO
+} from '../cli-helpers.js';
+import { isUnsafePathInput } from '../../shared/path-safety.js';
+import { getCurrentSessionId } from '../../services/skills/skill-presence-service.js';
 import type { RequestInitOptions } from './request-command-options.js';
 
 const INIT_DESCRIPTION =
@@ -18,7 +26,8 @@ const INIT_DESCRIPTION =
 const INIT_ID_HELP =
   'request id, e.g. 2026-05-23-add-foo. With --apply, also pre-creates the canonical change-id scope dir at .peaks/_runtime/change/<id>/ so sub-agents never write .peaks/_runtime/<id>/ at top level.';
 const INIT_PROJECT_HELP = 'target project root';
-const INIT_SESSION_HELP = 'override the default date-stamped session id';
+const INIT_SESSION_HELP =
+  'explicit session id (default: the active session recorded in .peaks/_runtime/session.json)';
 const INIT_APPLY_HELP = 'write the artifact file (default: preview only)';
 const INIT_CALLER_ID_HELP =
   'Override the caller id for this invocation (D4 priority: flag beats env beats platform fallback). The resolved callerId is stamped on the artifact body and surfaced in the response envelope.';
@@ -27,30 +36,95 @@ const CALLER_ID_INVALID_HINTS: string[] = [
   'Or set PEAKS_CALLER_ID env var (or CLAUDE_CODE_SESSION_ID for Claude Code)'
 ];
 
-function failInitSessionIdRequired(io: ProgramIO, options: RequestInitOptions): void {
+const INIT_SESSION_HINTS = [
+  'Re-run with --session-id <sid>',
+  'Or run `peaks workspace init` to create a session first'
+];
+
+function initSessionProblemMessage(problem: InitSessionProblem): string {
+  if (problem === 'blank') {
+    return '--session-id was passed but is blank. Give it a session id, or omit the flag to use the session recorded in .peaks/_runtime/session.json';
+  }
+  if (problem === 'malformed') {
+    return 'the session id recorded in .peaks/_runtime/session.json is not usable: it must be one printable path segment, because the artifact is scoped to a directory named after it. Pass --session-id, or re-run `peaks workspace init`';
+  }
+  return 'no session id: pass --session-id, or run inside a workspace that records one in .peaks/_runtime/session.json (the CLI writes envelopes only to .peaks/_runtime/<sessionId>/..., one-axis layout)';
+}
+
+function failInitSession(
+  io: ProgramIO,
+  options: RequestInitOptions,
+  problem: InitSessionProblem
+): void {
   printResult(
     io,
     fail(
       'request.init',
       'SESSION_ID_REQUIRED',
-      '--session-id is required: the CLI writes envelopes only to .peaks/_runtime/<sessionId>/... (one-axis layout)',
+      initSessionProblemMessage(problem),
       { role: options.role, requestId: options.id },
-      ['Re-run with --session-id <sid>', 'Or run `peaks workspace init` to create a session first']
+      INIT_SESSION_HINTS
     ),
     options.json
   );
   process.exitCode = 1;
 }
 
+type InitSessionProblem = 'absent' | 'blank' | 'malformed';
+
+type InitSessionResolution =
+  | { readonly id: string; readonly problem?: undefined }
+  | { readonly problem: InitSessionProblem; readonly id?: undefined };
+
+/**
+ * The session id is used verbatim as ONE directory name under `.peaks/_runtime/`,
+ * so a usable one is a single printable path segment. `isUnsafePathInput` covers
+ * `.`/`..`, separators, drive/UNC/URL shapes — and NOT the C0/C1 control
+ * characters, so a recorded id carrying a newline would be accepted and would
+ * forge a line in the preview and in the artifact body's `session:` field.
+ * `printableWarningText` is the canonical control-character check; a value equal
+ * to its printable form carries none.
+ */
+function isUsableSessionSegment(value: string): boolean {
+  return !isUnsafePathInput(value) && printableWarningText(value) === value;
+}
+
+/**
+ * The session id the artifact must land under. An explicit `--session-id` wins;
+ * otherwise read the workspace's active session from
+ * `.peaks/_runtime/session.json` — the source `peaks sub-agent dispatch` and
+ * `peaks skill presence` already read for this same id. The caller refuses
+ * rather than writing under a placeholder directory; unlike dispatch, this
+ * command never falls back to `'unknown-sid'`, because it writes files.
+ *
+ * A SUPPLIED-but-blank flag is its own problem, not an omission: silently
+ * substituting the workspace id would hide a caller mistake (an unset variable
+ * expanding to empty would quietly target a different session), and this is the
+ * behaviour the flag had before the fallback existed.
+ *
+ * Only the fallback value is shape-checked here. A value passed via
+ * `--session-id` flows downstream exactly as it did before, so a caller who
+ * passes that flag sees no change.
+ */
+function resolveInitSessionId(options: RequestInitOptions): InitSessionResolution {
+  if (options.sessionId !== undefined) {
+    const explicit = options.sessionId.trim();
+    return explicit.length === 0 ? { problem: 'blank' } : { id: explicit };
+  }
+  const recorded = getCurrentSessionId(options.project);
+  if (recorded === null) return { problem: 'absent' };
+  return isUsableSessionSegment(recorded) ? { id: recorded } : { problem: 'malformed' };
+}
+
 function buildInitServiceOptions(
   options: RequestInitOptions,
   sessionId: string
 ): Parameters<typeof createRequestArtifact>[0] {
-  // One-axis layout: --session-id is REQUIRED. The on-disk root
-  // is always `.peaks/_runtime/<sessionId>/<role>/...`. The user
-  // has forbidden the `.peaks/_runtime/<id>/` root layout — without an
-  // explicit session id, we cannot guarantee the artifact lands
-  // under `_runtime/`. See
+  // One-axis layout: the on-disk root is always
+  // `.peaks/_runtime/<sessionId>/<role>/...`, and the session id arrives
+  // already resolved (`resolveInitSessionId`) — the caller refuses when it
+  // could not be. The user has forbidden the `.peaks/_runtime/<id>/` root
+  // layout. See
   // `.peaks/memory/2026-06-21-peaks-request-session-id-leaks-into-change-id.md`.
   const serviceOptions: Parameters<typeof createRequestArtifact>[0] = {
     role: options.role as RequestArtifactRole,
@@ -104,11 +178,12 @@ async function resolveInitCallerId(
 
 async function runRequestInit(options: RequestInitOptions, io: ProgramIO): Promise<void> {
   try {
-    if (options.sessionId === undefined || options.sessionId.trim().length === 0) {
-      failInitSessionIdRequired(io, options);
+    const resolved = resolveInitSessionId(options);
+    if (resolved.id === undefined) {
+      failInitSession(io, options, resolved.problem);
       return;
     }
-    const serviceOptions = buildInitServiceOptions(options, options.sessionId);
+    const serviceOptions = buildInitServiceOptions(options, resolved.id);
     const callerId = await resolveInitCallerId(io, options);
     if (callerId === null) return;
     serviceOptions.callerId = callerId;

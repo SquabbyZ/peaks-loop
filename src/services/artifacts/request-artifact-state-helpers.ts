@@ -108,7 +108,13 @@ export class FileSizeViolationError extends Error {
   /** `previousLines` is the file's size at the scan's base ref, or `null` when
    *  the change CREATED it over the cap. Carried so the message can name the
    *  growth — a refusal that does not say how much worse the file got reads as
-   *  an absolute cap breach, which is the reading this gate no longer makes. */
+   *  an absolute cap breach, which is the reading this gate no longer makes.
+   *
+   *  The `violations` array also drives the sentence naming the AGGREGATE
+   *  ratchet row this gate is easily confused with. This gate is PER FILE; that
+   *  row is a sum over the census. In a working tree the two can disagree with
+   *  neither being wrong, and the message says so rather than leaving a reader
+   *  to conclude that one of them is broken. */
   readonly violations: Array<{
     file: string;
     lines: number;
@@ -127,6 +133,14 @@ export class FileSizeViolationError extends Error {
       .join(', ');
     super(
       `File size regression: ${violations.length} changed file(s) grew past (or were created over) their file-size cap: ${summary}. ` +
+        'This is the PER-FILE rule: each changed file is judged against its own size at the base ref. ' +
+        'It is a different measurement from the aggregate ratchet row `file-size excess lines` ' +
+        '(fileSizeExcessLines), which sums the whole census — so `node .husky/peaks-gate.mjs repo` ' +
+        'can print that row green at this same moment (it prints a ✓ for a held row), and ' +
+        '`node .husky/peaks-gate-baseline.mjs` can report "monotonicity: every ceiling held": one ' +
+        'file growing a few lines sits inside an aggregate fall and never reaches that row. Neither ' +
+        'reading is wrong and neither takes priority over the other; they measure different things, ' +
+        'and both must hold. ' +
         'A file already over its cap at the base ref is accepted unless this change enlarges it; ' +
         'a rename is measured against the size it had before the move. Split into smaller modules, ' +
         'or consider reusing existing components / existing API data (karpathy-guidelines §2 ' +

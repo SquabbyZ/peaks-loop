@@ -53,7 +53,7 @@
 //   - a11y:        the exit codes and the breach text a commit sees
 
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -69,7 +69,11 @@ import {
   overCapFromWalk,
   runCensus
 } from '../standards/_file-size-cap-scan.js';
-import { FILE_SIZE_CAP_DEFAULT } from '../../../src/services/scan/file-size-policy.js';
+import { describeCeilingDivergence, scopeHasUncommittedChanges } from './_ceiling-divergence.js';
+import {
+  FILE_SIZE_CAP_DEFAULT,
+  FILE_SIZE_SCOPE_DIRS
+} from '../../../src/services/scan/file-size-policy.js';
 import { SUBPROCESS_TEST_TIMEOUT_MS } from '../_setup/subprocess-timeouts.js';
 
 declareDimensions(
@@ -311,12 +315,22 @@ describe('Scenario: integration — walk == tool == artifact for the new row', (
         pathToFileURL(join(REPO_ROOT, '.husky', 'lint-scope.mjs')).href
       )) as { isLintScoped: (file: string) => boolean };
       expect(env.scope.source).toBe('git ls-files <policy dirs>');
-      expect(publishedCeiling()).toBe(gated.excessLines);
+      // The published ceiling and the live measurement are compared through the
+      // shared describer, so a red arm names WHICH case it is — a descent the
+      // ratchet allows, a committed rise it refuses, or work still in the tree —
+      // rather than printing `expected 22419 to be 22301` and leaving a reader
+      // to work out which of the three they are looking at.
+      expect(
+        describeCeilingDivergence({
+          published: publishedCeiling(),
+          live: gated.excessLines,
+          scopeDirty: scopeHasUncommittedChanges(REPO_ROOT, FILE_SIZE_SCOPE_DIRS)
+        })
+      ).toBeNull();
       // The same sum from a walk that shares no enumeration with the census and no
       // code path with the generator: the ceiling is checkable, not asserted.
       const fromWalk = overCapFromWalk(REPO_ROOT).reduce(
-        (sum, entry) =>
-          isLintScoped(entry.file) ? sum + (entry.lines - entry.cap) : sum,
+        (sum, entry) => (isLintScoped(entry.file) ? sum + (entry.lines - entry.cap) : sum),
         0
       );
       expect(fromWalk).toBe(gated.excessLines);
@@ -352,6 +366,93 @@ describe('Scenario: integration — walk == tool == artifact for the new row', (
     const shared = fileSizeModuleText(REPO_ROOT);
     expect(shared).toContain(CEILING_KEY);
     expect(shared).toContain(ROW);
+  });
+});
+
+describe('Scenario: behavior — the "rise" label fires on the input it exists for', () => {
+  // The three-case arm above hands the classifier `scopeDirty` as a literal. This
+  // arm derives it from a real repository, because a predicate that is a SUPERSET
+  // of the census universe would make the REGRESSION text unreachable: it would
+  // call a committed rise "work in flight" every time.
+  it('should label a rise REGRESSION when nothing the census can see is uncommitted', () => {
+    const root = join(SCRATCH, 'divergence-rise');
+    mkdirSync(join(root, 'src'), { recursive: true });
+    const git = (args: readonly string[]): void => {
+      execFileSync('git', args, { cwd: root, stdio: 'pipe', windowsHide: true });
+    };
+    git(['init', '-q']);
+    writeFileSync(join(root, 'src', 'tracked.ts'), 'export const a = 1;\n', 'utf8');
+    git(['add', '-A']);
+    git(['-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-q', '-m', 'seed']);
+
+    const reading = (): string | null =>
+      describeCeilingDivergence({
+        published: 22275,
+        live: 22275 + 118,
+        scopeDirty: scopeHasUncommittedChanges(root, FILE_SIZE_SCOPE_DIRS)
+      });
+
+    // given: a committed tree with nothing uncommitted the census can see
+    expect(scopeHasUncommittedChanges(root, FILE_SIZE_SCOPE_DIRS)).toBe(false);
+    // then: the label the `rise` branch exists for actually fires
+    expect(reading()).toContain('REGRESSION');
+    expect(reading()).toContain('Do NOT regenerate');
+
+    // RED DIRECTION for the predicate: an UNTRACKED file under the scope must NOT
+    // read as dirty. `git ls-files` reports the index, so the census cannot see it
+    // and it cannot explain a rise; a plain `git status --porcelain` would call
+    // this tree dirty and label the same rise "in flight".
+    writeFileSync(join(root, 'src', 'untracked.ts'), 'export const b = 2;\n', 'utf8');
+    expect(scopeHasUncommittedChanges(root, FILE_SIZE_SCOPE_DIRS)).toBe(false);
+    expect(reading()).toContain('REGRESSION');
+
+    // ...while a TRACKED edit the census CAN see must read as dirty, so the label
+    // moves with the input rather than being pinned to one answer.
+    writeFileSync(
+      join(root, 'src', 'tracked.ts'),
+      'export const a = 1;\nexport const c = 3;\n',
+      'utf8'
+    );
+    expect(scopeHasUncommittedChanges(root, FILE_SIZE_SCOPE_DIRS)).toBe(true);
+    expect(reading()).toContain('in flight');
+  });
+});
+
+describe('Scenario: a11y — a ceiling mismatch names which case it is', () => {
+  // The arm above can red on three different situations, and a reader must be
+  // able to tell them apart from the failure text alone. All three are built
+  // here, and each must get its own text.
+  it('when the three cases are constructed, should give three different messages', () => {
+    const published = 22419;
+    const descent = describeCeilingDivergence({ published, live: 22301, scopeDirty: true });
+    const rise = describeCeilingDivergence({ published, live: published + 118, scopeDirty: false });
+    const inFlight = describeCeilingDivergence({
+      published,
+      live: published + 118,
+      scopeDirty: true
+    });
+    const current = describeCeilingDivergence({ published, live: published, scopeDirty: true });
+
+    // A regenerated baseline has nothing to say.
+    expect(current).toBeNull();
+    // Each case names itself...
+    expect(descent).toContain('SAFE direction');
+    expect(rise).toContain('REGRESSION');
+    expect(inFlight).toContain('uncommitted');
+    // ...and the three are distinguishable from the text alone.
+    expect(new Set([descent, rise, inFlight]).size).toBe(3);
+
+    // RED DIRECTION: the input each branch was written to reject never gets the
+    // other branch's text. A rise that could be read as "the safe direction" is
+    // worse than the bare message it replaces, so the rise arm is asserted
+    // against the descent wording, and the descent arm against the rise wording.
+    expect(rise).not.toContain('SAFE direction');
+    expect(rise).not.toContain('Regenerate the artifact after staging');
+    expect(descent).not.toContain('REGRESSION');
+    expect(descent).not.toContain('Do NOT regenerate');
+    // The rise is unmistakable whichever way it arrives.
+    expect(rise).toContain('Do NOT regenerate');
+    expect(inFlight).toContain('MORE');
   });
 });
 

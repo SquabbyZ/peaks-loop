@@ -54,9 +54,11 @@ import {
   type FixtureArtifact
 } from './_file-size-hooks-fixture.js';
 import { monotonicModuleTextUnder } from './_monotonic-module-set.js';
+import { describeCeilingDivergence, scopeHasUncommittedChanges } from './_ceiling-divergence.js';
 import { REPO_ROOT, generatorModuleTextUnder } from '../standards/_file-size-cap-scan.js';
 import {
   FILE_SIZE_CAP_HOOKS,
+  FILE_SIZE_SCOPE_DIRS,
   HOOKS_FILE_SIZE_SCOPE_DIRS,
   isPolicyMeasuredFile
 } from '../../../src/services/scan/file-size-policy.js';
@@ -312,8 +314,24 @@ describe('Scenario: a11y — the published rows agree with the real .husky, walk
       const env = realCensus();
       const walked = walkHooksScope(REPO_ROOT);
       expect(env.hooks.scope.source).toBe(HOOKS_WHOLE_SCOPE_SOURCE);
-      expect(published.overCap).toBe(env.hooks.overCap);
-      expect(published.excessLines).toBe(env.hooks.excessLines);
+      // The artifact's two rows against the live census, through the shared
+      // describer: a red arm says whether the tree descended below its published
+      // rows, rose above them, or is mid-edit — not just two numbers.
+      const hooksDirty = scopeHasUncommittedChanges(REPO_ROOT, HOOKS_FILE_SIZE_SCOPE_DIRS);
+      expect(
+        describeCeilingDivergence({
+          published: published.overCap,
+          live: env.hooks.overCap,
+          scopeDirty: hooksDirty
+        })
+      ).toBeNull();
+      expect(
+        describeCeilingDivergence({
+          published: published.excessLines,
+          live: env.hooks.excessLines,
+          scopeDirty: hooksDirty
+        })
+      ).toBeNull();
       expect(walked.overCap).toBe(env.hooks.overCap);
       expect(walked.excessLines).toBe(env.hooks.excessLines);
     }
@@ -336,8 +354,21 @@ describe('Scenario: a11y — the published rows agree with the real .husky, walk
       partitionCensusOverCap: (e: unknown) => { gated: { overCap: number; excessLines: number } };
     };
     const gated = partitionCensusOverCap(env).gated;
-    expect(main.overCap).toBe(gated.overCap);
-    expect(main.excessLines).toBe(gated.excessLines);
+    const mainDirty = scopeHasUncommittedChanges(REPO_ROOT, FILE_SIZE_SCOPE_DIRS);
+    expect(
+      describeCeilingDivergence({
+        published: main.overCap,
+        live: gated.overCap,
+        scopeDirty: mainDirty
+      })
+    ).toBeNull();
+    expect(
+      describeCeilingDivergence({
+        published: main.excessLines,
+        live: gated.excessLines,
+        scopeDirty: mainDirty
+      })
+    ).toBeNull();
     // And the main scope still refuses `.husky/` — no path is counted twice, which is
     // what makes this a second scope and not the scope-dir edit it was not allowed to be.
     for (const file of env.hooks.files) {
