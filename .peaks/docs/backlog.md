@@ -4760,7 +4760,7 @@ holes in the fix rather than in the original code.
   correct for three _concurrent_ agents and wrong for a single one, and it is why the answer arrived
   last instead of first.
 
-### 9.31 The orchestrator's dispatch brief told every agent in this campaign to run a command with the wrong flag — while fixing a different wrong command in the contract (found 2026-10-13 by an RD, in its own report; open)
+### 9.31 The orchestrator's dispatch brief told every agent in this campaign to run a command with the wrong flag — while fixing a different wrong command in the contract (found 2026-10-13 by an RD, in its own report; open) — **REPAIRED 2026-10-13**
 
 - **Where**: `.peaks/_runtime/<sid>/sc/rd-dispatch-common.txt`, the shared preamble every RD dispatch in
   this campaign received, whose artifact table said: _"create with
@@ -4815,6 +4815,39 @@ holes in the fix rather than in the original code.
   built the real red by **removing the surfacing from the producer**. A mutation has to land on the
   side of the check the check cannot see; landing it on the wrong side produces a control that cannot
   fail while reading exactly like one that works — the same mis-aim 9.15 records, one level up.
+
+- **REPAIRED 2026-10-13**, as `feat(dispatch): a dispatch prompt's quoted commands are checked against
+  the CLI`. The checker extracts `peaks …` invocations from a prompt, resolves each against the
+  **registered command tree** — never a list — and reports flags the resolved command or an ancestor does
+  not declare. The mandatory-flag trap is documented where it was found: `option.required` is true for
+  **every** option, and `option.mandatory` is the one `requiredOption` sets.
+- **It warns rather than refuses, and a measured number made that call.** Over the session's real
+  dispatch corpus — 147 records, 1772 invocations — there are 176 undeclared-flag findings and exactly
+  **one** false positive, so the corpus is not clean. The FP is named and the check was **not narrowed**
+  to remove it: it is a *correct* brief that **quotes** the wrong command inside the table documenting
+  the defect. A corpus whose one near-clean record still carries an unmarked wrong quotation is exactly
+  the corpus that must not be given a refusal.
+- **The corpus result is sharper than the design expected**: `--rid` is the **only** undeclared flag in
+  all 147 records — **147 on one injected line, 29 on a hand-written one**. The 29 are the campaign's own
+  brief, and they are true positives.
+- **What the checker found on its first run is 9.38** — the machine-injected dispatch block tells every
+  sub-agent to run a command the CLI refuses, and accounts for **147 of the 176** findings. *A check
+  built to catch a hand-written brief's errors immediately convicted the shipped one.*
+- **AC-1 is two of three, stated as such.** `request init --rid` and `perf-audit run --judged` are
+  reachable and exercised on real dispatched text; the third recorded instance is an **artifact-path**
+  claim, unreachable by a flag-on-a-command check, and a case pins that it is out of reach rather than
+  claiming it.
+- **The review found a real defect the RD's own tests could not see: a quadratic inside every dispatch.**
+  The scan walked to end-of-text per match, so a many-line prompt cost O(lines × length) — measured at
+  **109.9 s on a 3.5 MB prompt**, synchronously inside `composeDispatchPrompt` on caller-supplied text.
+  Bounded by the run limit it is **98.6 ms** for the same input (11× input, 11× time). The docstring's
+  linearity claim had been written against the one shape the case file exercised. Both comment and test
+  now cover the shape it was false on, and the cost stays a **measurement, not a timing assertion** —
+  which would ride this repository's load-flake family.
+- **Three limits are stated rather than implied**: a run past 512 characters is not read in full; a
+  capitalised `Peaks` at a sentence start is not matched (**51 corpus lines prose-mention it and none is
+  an invocation**, which is the measurement that decided the case-sensitivity question); and
+  `--mode detached` and `--from-dag` bypass the composer, so neither is checked.
 
 ### 9.32 An unidentified gate refused three worktree commands, and it is not in this repository (found 2026-10-13, while correcting 8.1; open, and it will refuse again)
 
@@ -4914,7 +4947,7 @@ INIT_SESSION_HELP)` — versus line **107** in the same file:
   withdrawn rid names why, and should refuse one whose scope is missing, so the state cannot become a
   cheaper `handed-off`.
 
-### 9.36 Every `bugfix` slice in a session shares one `rd/bug-analysis.md`, so two of them collide — and the workaround is to lie about the type (found 2026-10-13 by an RD, in its own report; open)
+### 9.36 Every `bugfix` slice in a session shares one `rd/bug-analysis.md`, so two of them collide — and the workaround is to lie about the type (found 2026-10-13 by an RD, in its own report; open) — **REPAIRED 2026-10-13**
 
 - **Where**: `BUG_ANALYSIS.relativePath = 'rd/bug-analysis.md'`
   (`src/services/artifacts/artifact-prerequisites.ts:105`) — the one prerequisite in the table whose
@@ -4939,6 +4972,103 @@ INIT_SESSION_HELP)` — versus line **107** in the same file:
 - **Repair direction**: give the path the `<rid>` placeholder its siblings have, with a
   `legacyRelativePath` tier so sessions already on disk keep resolving — the table's own documented
   back-compat pattern.
+
+- **REPAIRED 2026-10-13**, as `fix(artifacts): the bug-analysis artifact is per-rid`. The path is now
+  `rd/bug-analysis-<rid>.md` with a `legacyRelativePath` back-compat tier, following the pattern the
+  table already uses for `AUDIT_SECURITY`, `AUDIT_PERF`, `KARPATHY_REVIEW` and `PRD_HANDOFF`. The red
+  direction is built from the real input: reverting the table entry turns **9 of 13** cases red and B
+  fails with `missing === ['rd/bug-analysis.md']` — B judged on A's stub body, which **is** the
+  collision. This is the first slice to write the rid-scoped file through the real gate.
+- **The handoff's premise was wrong, and the correction is the most useful thing the slice produced.**
+  It asserted `rd/bug-analysis.md` was *"the ONLY prerequisite path carrying no `<rid>` placeholder"*.
+  It is not — **seven** bare constants exist, and an independent review classified every one by the row
+  that enforces it. That enumeration is filed as **9.37** and contains a live, hard-enforced, silently
+  colliding instance this slice did not fix (`rd/security-review.md`, config-only). *A handoff that
+  overstates the extent of a class sets the slice's scope too narrowly, and the scope decision was
+  never the slice's to make silently.*
+- **A reader that would have failed silently.** `final-review-evidence-sources.ts` matched a path
+  **segment**, which fails by **not matching** — the shape 9.14 is about. It now carries scoped and
+  legacy segments, and the positive direction is asserted by a case that goes red when the change is
+  reverted. A green full run would not have been evidence here.
+- **Two findings against the slice's own work, both fixed.** A comment asserted coverage in
+  `tests/unit/final-review/` that lives in `tests/unit/services/artifacts/` — a true measurement
+  attached to a place nobody checked, the repository's dominant failure mode. And a narrative described
+  **one** red run as **two**, claiming a wrong-sided mutation had been detected and discarded; it was
+  re-measured by the RD itself and **withdrawn, not softened**, with the four surviving cases named.
+- **A trap the fix surfaced, worth knowing before the next comment edits the narrative ceiling.**
+  The first attempt at the corrected comment cited its own test file by name and went **red**:
+  `comment-hygiene-gate-leg.test.ts` counts narrative lines, and the filename's `rid-scoping` substring
+  matches the `rid-id` marker. **At the `commentNarrativeLines` ceiling a src comment cannot cite a
+  filename containing `rid`.** The RD re-worded rather than spelling the name around the detector —
+  which is the right call, and the difference between fixing the comment and training the guard away.
+
+### 9.37 The same session-scoped collision survives in three other prerequisite paths, and one of them is hard-enforced (measured 2026-10-13 by an independent review of 9.36's fix; open)
+
+- **Where**: `artifacts/artifact-prerequisites.ts`. 9.36 gave `BUG_ANALYSIS` an `<rid>` placeholder,
+  but the repair direction the handoff stated — *"the only prerequisite path with no `<rid>`"* — was
+  **false**, and the review enumerated the truth. **Seven** bare `relativePath` constants exist.
+- **The classification, by the row that actually enforces each**:
+
+  | class | path | row | collision |
+  |---|---|---|---|
+  | live + **hard** | `rd/security-review.md` | `CONFIG_TABLE['rd:qa-handoff']` | **real, and silent** |
+  | live + hard | `qa/.initiated` | feature/bugfix/refactor `rd:qa-handoff` | harmless — existence-only marker |
+  | live, warn-only today | `rd/third-party-review.md` | same rows | live at `backCompatUntil` **v2.15.0** |
+  | live, warn-only today | `mut/mut-report.json` | same rows | live at `backCompatUntil` **v2.14.0** |
+  | no row references it | `rd/perf-baseline.md`, `qa/security-findings.md`, `qa/performance-findings.md` | — | none |
+
+- **The live instance, and why it is worse than the one 9.36 fixed.** `rd/security-review.md` is
+  **existence-only — it declares no `mustContain`** — so two `config` slices in one session write the
+  same path, the second overwrites the first, and **both transitions pass**. The second slice is then
+  judged by a security review of **a different diff**, and nothing in the artifact or the gate says so.
+  9.36's instance at least collided on a file whose *body* was read; this one collides on a file whose
+  body is never read at all.
+- **One of the two warn-only cases is bare by accident, and the review said so.** `MUT_REPORT`'s own
+  comment reasons the bare path through (`mutReportPath()` is bare and no producer can write a scoped
+  name). **`THIRD_PARTY_REVIEW` has no such reasoning — it is bare by omission, not by argument.** When
+  its `backCompatUntil` arrives the collision becomes hard, and the window will have closed on a shape
+  nobody chose.
+- **How this was found, which is the reusable part**: the slice fixed the instance it needed, and the
+  **review was asked to answer the scope question** rather than accept the slice's boundary. That
+  question — *which of the remaining bare paths are live, and which of those collide the same way?* — is
+  what turned "we fixed it" into a table. A slice that fixes one instance of a class should be reviewed
+  by enumerating the class, not by checking the instance.
+- **Repair direction**: the same treatment 9.36 gave `BUG_ANALYSIS` — a `<rid>` placeholder plus a
+  legacy tier — for `rd/security-review.md` first (it is hard and silent), then a decision for
+  `THIRD_PARTY_REVIEW` before its window closes. `qa/.initiated` should be left alone and the reason
+  stated, or the table will accumulate changes made to satisfy a pattern rather than a defect.
+
+### 9.38 The machine-injected dispatch block tells every sub-agent to run a command the CLI refuses (measured 2026-10-13, by the checker 9.31 built; open, and it is the majority of that checker's findings)
+
+- **Where**: `src/services/context/build-dispatch-system-prompt.ts:113`, plus its token registry at
+  `BINDING_RULE_TOKENS` (`:404`) and **three mirrors under `skills/`**. The line is:
+
+  ```
+  - until then: \`peaks worktree auth grant --rid <id> --reason <text> --ttl <5m>\`
+  ```
+
+- **Measured by running the CLI, not by reading it**:
+  `peaks worktree auth grant --rid foo --reason test --ttl 5m` answers
+  `error: required option '--operation <op>' not specified` — and `--rid` is not a flag that command
+  declares at all. **The command cannot run, and it is missing a flag the CLI marks required.**
+- **Blast radius, and this is why it is not a one-liner**: the block is injected into **every dispatch**
+  in this repository. Running 9.31's checker over the session's dispatch corpus (147 records, 1772
+  invocations) produced **176 undeclared-flag findings — 147 of them this single line**. One wrong line
+  in a machine-injected prompt is the dominant source of every CLI-misstatement warning the whole corpus
+  contains.
+- **Family**: exactly 9.31, one level over. 9.31 is *the orchestrator hand-writes a brief that misstates
+  the CLI*; this is *the CLI's own injected block misstating the CLI* — and the brief reaches one
+  campaign while this reaches **every sub-agent that will ever be dispatched**.
+- **Why it should be treated as a prerequisite for 9.31 rather than a follow-up.** 9.31 ships a
+  **warning**, and a warning that fires 147 times per dispatch on a single known-wrong line is a warning
+  that gets ignored — the repository already has this lesson recorded
+  (`a-guard-that-reddens-for-a-defensible-reason-gets-trained-away`). Until this line is fixed, 9.31's
+  output is noise, and the noise is the reason nobody will read the four genuine findings underneath it.
+- **Repair direction**: correct the line to a command the CLI accepts, in the source and in all three
+  `skills/` mirrors, and let 9.31's checker stand as the regression test — it already fails on the old
+  text, so the fix is verifiable by the tool that found it. Check whether the mirrors are byte-compared
+  by a test; if they are, the fix is mechanical and pinned, and if they are not, that is its own small
+  finding.
 
 ### 9.A Recorded, not fixed — the session's accepted risks, smaller items, and open U-questions
 
