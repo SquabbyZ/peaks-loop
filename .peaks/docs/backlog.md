@@ -4023,6 +4023,47 @@ presence` does. Measured three ways (bare, with `--project .` from the repo root
   and then invalidated by a later edit must be re-run, and nothing in this pipeline reminds anyone._
 - **Repair direction**: needs a mechanism — this is not a patch. Fingerprint the artifact an audit or
   verifier judged, and refuse the downstream prerequisite when the fingerprint moved.
+- **ATTEMPTED 2026-10-13 AND WITHDRAWN — the design space is now measured, and that is the
+  deliverable.** A slice was built, reviewed, repaired twice, reviewed again, and reverted to HEAD.
+  The defect is real and was reproduced **before** any change (`checkPrerequisites` returned
+  `ok=true` both as-judged at 02:43 and after the 03:59 repair). What failed is every **input** the
+  mechanism could read, and the two failures are in opposite directions on the same day.
+- **Attempt 1 — fingerprint the slice's change set from git.** Closed the reported defect, then shed
+  three ways that are not tampering: **an audit on a clean tree is permanently vacuous** (empty
+  manifest, `e3b0c442…`, green forever — so every CI run and post-commit audit is a no-op); **the
+  guard erases itself** (delete only the `## Judged content` section, 177 bytes, and a stale artifact
+  goes green); and **the stamp is not in the producer** (`runSecurityAudit` writes, `appendJudgedBlock`
+  is a separate CLI call, so calling the service alone leaves a green unstamped artifact). Its
+  absence arm **was** the bypass, and its own test called a deliberately producer-shaped body
+  "legacy". Repaired, it then produced **two new HIGHs**.
+- **Attempt 2 — scope the change set to what the slice declared.** That declaration exists only as
+  **prose**: the `## Red-line scope` bullets of its RD request. Measured over this session's own 15
+  requests: **14 of 15 were refused** by the guard that was supposed to catch a loose bullet —
+  because it counted every backticked span, not path-like ones, and refused real bullets like
+  `` `--apply` affects `src/a.ts` ``. And **the shape it exists for still passed**, three spellings
+  measured: `` `src/a.ts` plus src/b.ts `` and `` `src/a.ts` — see src/b.ts `` each keep only the
+  first path, and `- src/a.ts, src/b.ts` (no backticks) keeps **zero** bullets — the guard iterates
+  the bullets that already parsed, so **it inspects the ones that were going to be handled correctly
+  and misses the one that gets dropped**.
+- **Attempt 3 — make the check commit-invariant.** This one _worked_, and its insight is worth
+  keeping: `git ls-files -c -o --exclude-standard` is genuinely invariant under a commit (a commit
+  redistributes tracked/untracked, it does not change content), so `beforeCommit=ok / afterCommit=ok`
+  where the previous version read `ok / STALE`, and rename and delete are caught. **But a directory
+  root re-admits the false positive**: on the real tree the slice's own scope yields **16 surface
+  paths, 3 of which are files it never changed** — they match only because nobody is editing them
+  now. _"0 foreign" was a property of the current edit set, not of the surface_ — the same shape as
+  the 1,086-byte headroom in 9.8.
+- **The root cause, which is the finding.** Attempt 2's scope needs Attempt 3's roots, and the roots
+  come from prose. **There is no machine-readable declaration of what a slice touched**, so every
+  inference is wrong on inputs this repository generates routinely — over-refusing on ordinary
+  bullets and under-refusing on the ones that matter, in the same run, on the same day. A reverted
+  feature with the design space measured is worth more than a gate wrong in both directions, and the
+  next attempt should start by **creating that declaration**, not by parsing around its absence.
+- **What would make it work, stated so the next attempt does not rediscover it**: a producer-written,
+  machine-readable scope (frontmatter, not prose) + a content hash per declared path + a gain test
+  under declared **file** roots, with bare directory roots refused. F9's limit also survives and must
+  be stated: `audited at:` is a line in the artifact being judged, so any date-keyed rule is closed
+  against **accidental** shedding, not against a producer that rewrites its own date.
 
 ### 9.10 A required artifact is blocked by its heading spelling, and the producer cannot know (found 2026-10-12; open)
 
@@ -4719,6 +4760,38 @@ INIT_SESSION_HELP)` — versus line **107** in the same file:
   the aggregate ratchet may read green at the same moment — naming the other gate, so the reader does
   not conclude that one of them is broken. If the per-file rule is meant to dominate, say so where
   the ratchet is described as the oracle.
+
+### 9.35 The artifact contract has no representation for a deliberately withdrawn slice, so the only ways past it are dishonest or unauditable (hit 2026-10-13, on 9.9's withdrawal; open)
+
+- **What happened**: `rid-a-check-nothing-requires-you-to-rerun` was built, reviewed, repaired twice,
+  reviewed again, and **reverted to HEAD** — the honest outcome, with the measurement kept. The
+  implementer moved its RD request back to `spec-locked` and recorded why, rather than leaving
+  `implemented` standing over reverted code. That is exactly right.
+- **And it blocked the commit.** `.husky/peaks-gate-pipeline.mjs` enumerated the rid from
+  `{rd,prd,qa}/requests` and refused:
+  ```
+  rid-a-check-nothing-requires-you-to-rerun (type bugfix) fails the artifact contract:
+    - RD not ready for QA: state is "spec-locked" — must reach "qa-handoff"
+    - QA not complete: state is "draft" — must reach "verdict-issued"
+  ```
+  **A slice that was deliberately withdrawn is indistinguishable, to this gate, from a slice that was
+  abandoned half-done.** The contract's state machine has no terminal state meaning _"this was done,
+  measured, and deliberately not shipped"_.
+- **The two escapes are both bad, and that is the point.** _(a)_ Push the carriers to `handed-off` /
+  `verdict-issued` so the gate passes — which **asserts the contract was satisfied** over work that
+  was reverted, i.e. weakening a claim to make a gate stop refusing. _(b)_ Use
+  `PEAKS_SKIP_PIPELINE_VERIFY=1` — which §9.A already records as **not auditable**, because the token
+  can live outside git history. A gate whose only exits are a lie and an unauditable token is
+  training its users to take one of them.
+- **What was done instead, and it is a workaround rather than a fix**: the two carriers
+  (`rd/requests/015-…`, `qa/requests/015-…`) were **moved to `rd/withdrawn/` and `qa/withdrawn/`** so
+  the leg no longer enumerates the rid. The files are kept, and the durable record is this file. That
+  is honest — the rid is no longer live — but it is a **convention nothing enforces**, and the next
+  reader has no way to tell a withdrawal from a deletion except by looking.
+- **Repair direction**: a terminal state the gate accepts, carrying a **reason** — `withdrawn` with
+  the same discipline `--allow-incomplete --reason` already uses. The gate should require that a
+  withdrawn rid names why, and should refuse one whose scope is missing, so the state cannot become a
+  cheaper `handed-off`.
 
 ### 9.A Recorded, not fixed — the session's accepted risks, smaller items, and open U-questions
 
