@@ -94,7 +94,7 @@ export type PrerequisiteCheckResult = {
    * soft-passed prerequisite is not read as a passed one. `code` is derived per
    * prerequisite (`prerequisite-checks.ts`), so it names which artifact.
    */
-  warnings: Array<{ path: string; code: string; message: string }>;
+  warnings: Array<{ path: string; code: string; message: string; expiredWindow?: string }>;
 };
 
 type TransitionKey = `${RequestArtifactRole}:${RequestArtifactState}`;

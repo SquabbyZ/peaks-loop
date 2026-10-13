@@ -21,6 +21,23 @@ import {
 } from '../cli-helpers.js';
 import type { RequestTransitionOptions } from './request-command-options.js';
 
+/**
+ * The clause a soft-pass warning gains once its back-compat window has closed.
+ * It renders the `expiredWindow` the resolver set (the release the table
+ * declared, plus the build it was compared against) and is empty while the
+ * window is open — an open window is already the future tense the warning's own
+ * message uses, so it needs no clause.
+ *
+ * Shared with `printTransitionResult` in `request-transition-command.ts`: the
+ * success arm and this refusal arm render one fact one way, so an operator who
+ * sees the same soft pass through either arm reads the same sentence.
+ */
+export function softWarningExpiryClause(warning: { expiredWindow?: string }): string {
+  return warning.expiredWindow === undefined
+    ? ''
+    : ` — past expiry: ${printableWarningText(warning.expiredWindow)}`;
+}
+
 function reportPrerequisitesFailure(
   io: ProgramIO,
   options: RequestTransitionOptions,
@@ -51,7 +68,7 @@ function reportPrerequisitesFailure(
         ...error.warnings.map(
           (w) =>
             `Soft-blocked (v2.13.3 back-compat window): ${printableWarningText(w.path)} — ` +
-            `${printableWarningText(w.message)}`
+            `${printableWarningText(w.message)}${softWarningExpiryClause(w)}`
         ),
         'Once every required artifact exists, rerun this transition.',
         'For exceptional cases (docs-only / config-only change), bypass with: --allow-incomplete --reason "<justification>"'

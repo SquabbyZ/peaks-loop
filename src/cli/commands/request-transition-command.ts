@@ -19,7 +19,7 @@ import {
 } from '../cli-helpers.js';
 import type { RequestTransitionOptions } from './request-command-options.js';
 import { runTransitionPreflight } from './request-transition-preflight.js';
-import { reportTransitionFailure } from './request-transition-failures.js';
+import { reportTransitionFailure, softWarningExpiryClause } from './request-transition-failures.js';
 import {
   buildPrdHandoffResult,
   collectQaHandoffHooks,
@@ -144,10 +144,13 @@ function printTransitionResult(
         // A soft-passed prerequisite is a warning, not a silent pass: the
         // envelope carries it (and `printResult` puts it on stderr for a human
         // run). `data.prerequisiteWarnings` holds the structured entries.
+        // `softWarningExpiryClause` adds the one thing the entry cannot say
+        // without `message` moving: whether the window it names has closed.
         ...(result.prerequisiteWarnings ?? []).map(
           (warning) =>
             `Soft prerequisite (not enforced): ${printableWarningText(warning.path)} ` +
-            `[${printableWarningText(warning.code)}] — ${printableWarningText(warning.message)}`
+            `[${printableWarningText(warning.code)}] — ${printableWarningText(warning.message)}` +
+            softWarningExpiryClause(warning)
         )
       ]
     ),

@@ -14,6 +14,8 @@
 
 import { basename, extname } from 'node:path';
 
+import { CLI_VERSION } from 'peaks-loop-shared/version';
+
 import type { ArtifactPrerequisite } from './artifact-prerequisites.js';
 
 /** Stands in for a `backCompatUntil` nobody declared. ONE token for BOTH sites
@@ -57,6 +59,63 @@ export function backCompatWarningCode(prerequisite: ArtifactPrerequisite): strin
   return `${stem}-missing-deprecated-in-${prerequisite.backCompatUntil ?? UNDECLARED_WINDOW}`;
 }
 
+/** How many segments a release string is compared by: `MAJOR.MINOR.PATCH`. Named
+ *  because the count is a policy (what a release string means here), not a loop
+ *  detail, and both the parse and the compare read it. */
+const RELEASE_SEGMENTS = 3;
+
+/**
+ * The declared window's `MAJOR.MINOR.PATCH`, as three numbers, from a release
+ * string. Only the leading triple is read: a prerelease suffix (`-beta.11`)
+ * compares as its release triple, and a segment that is missing or not a number
+ * reads as 0. Both limits are stated rather than guarded, because every
+ * declaration in the table is a plain `vX.Y.Z`.
+ */
+function releaseTriple(version: string): ReadonlyArray<number> {
+  const segments = (version.replace(/^v/i, '').split('-')[0] ?? '').split('.');
+  const triple: number[] = [];
+  for (let index = 0; index < RELEASE_SEGMENTS; index += 1) {
+    const parsed = Number.parseInt(segments[index] ?? '', 10);
+    triple.push(Number.isNaN(parsed) ? 0 : parsed);
+  }
+  return triple;
+}
+
+/** Negative when `a` predates `b`, positive when it follows, 0 when their
+ *  release triples are equal. */
+function compareReleaseVersions(a: string, b: string): number {
+  const left = releaseTriple(a);
+  const right = releaseTriple(b);
+  for (let index = 0; index < RELEASE_SEGMENTS; index += 1) {
+    const difference = (left[index] ?? 0) - (right[index] ?? 0);
+    if (difference !== 0) return difference < 0 ? -1 : 1;
+  }
+  return 0;
+}
+
+/**
+ * The certificate for a soft pass whose window has closed, or `null` while the
+ * window is still open. It names BOTH releases, so a reader sees the comparison
+ * rather than a verdict — the release the table declared, and the build it was
+ * compared against.
+ *
+ * A window closing AT the running release counts as closed: the declared release
+ * is the one that removes the soft pass, so on that release there is none left.
+ *
+ * `installedVersion` is a parameter rather than a closed-over constant so a test
+ * can drive both sides of the boundary without depending on the release this
+ * repository happens to be building; the default is the version this build ships.
+ */
+function expiredWindowClause(
+  prerequisite: ArtifactPrerequisite,
+  installedVersion: string
+): string | null {
+  const until = prerequisite.backCompatUntil;
+  if (until === undefined) return null;
+  if (compareReleaseVersions(installedVersion, until) < 0) return null;
+  return `${until} (installed ${installedVersion})`;
+}
+
 /**
  * The soft-pass warning for a missing `prerequisite`, or `null` when a missing
  * file is a HARD failure and belongs in `missing` instead.
@@ -68,17 +127,24 @@ export function backCompatWarningCode(prerequisite: ArtifactPrerequisite): strin
  *   - `missing` IS what decides `ok` (`ok = missing.length === 0`), so choosing
  *     the `missing` branch is choosing to fail the gate. That is the point of
  *     the `null`, and the acceptance evidence for this change depends on it.
+ *
+ * `expiredWindow` is set only when the declared window has closed, so its
+ * PRESENCE is the verdict and `path` / `code` / `message` stay byte-identical for
+ * the consumers that already read them.
  */
 export function missingPrerequisiteWarning(
   prerequisite: ArtifactPrerequisite,
-  relativePath: string
-): { path: string; code: string; message: string } | null {
+  relativePath: string,
+  installedVersion: string = CLI_VERSION
+): { path: string; code: string; message: string; expiredWindow?: string } | null {
   if (prerequisite.backCompat !== true) return null;
   const until = prerequisite.backCompatUntil ?? UNDECLARED_WINDOW;
+  const expiredWindow = expiredWindowClause(prerequisite, installedVersion);
   return {
     path: relativePath,
     code: backCompatWarningCode(prerequisite),
-    message: `${prerequisite.description} — file missing; soft-blocked under the back-compat window. ${until} hard-fail.`
+    message: `${prerequisite.description} — file missing; soft-blocked under the back-compat window. ${until} hard-fail.`,
+    ...(expiredWindow === null ? {} : { expiredWindow })
   };
 }
 

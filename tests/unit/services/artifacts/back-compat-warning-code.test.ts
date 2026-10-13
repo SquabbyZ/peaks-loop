@@ -47,12 +47,16 @@ import { describe, expect, it } from 'vitest';
 
 import { declareDimensions } from '../../_setup/4dim-template.js';
 import { withTmpWorkspacePerTest } from '../../_setup/tmp-workspace.js';
+import { CLI_VERSION } from 'peaks-loop-shared/version';
 import {
   checkPrerequisites,
   getPrerequisitesFor,
   type ArtifactPrerequisite
 } from '../../../../src/services/artifacts/artifact-prerequisites.js';
-import { backCompatWarningCode } from '../../../../src/services/artifacts/prerequisite-checks.js';
+import {
+  backCompatWarningCode,
+  missingPrerequisiteWarning
+} from '../../../../src/services/artifacts/prerequisite-checks.js';
 import { transitionRequestArtifact } from '../../../../src/services/artifacts/request-artifact-service.js';
 import {
   makeProjectRoot,
@@ -216,6 +220,92 @@ describe('Scenario: behavior — soft is reported, hard still fails, and empty s
     expect(noRequirements.warnings).toEqual([]);
     expect(noRequirements.missing).toEqual([]);
     expect(noRequirements.ok).toBe(true);
+  });
+});
+
+// 9.2's remaining half. `backCompatUntil` is a DECLARED field on the row, and
+// `backCompatWarningCode` already interpolates it into the warning code — so the
+// release reached the warning but was never COMPARED to anything. Two windows
+// (v2.14.0, v2.15.0) closed roughly twenty minors before this build, and no
+// output told them apart from a window that is on schedule. These cases pin the
+// comparison, and they read their expectations OUT OF THE TABLE: a test holding
+// its own copy of 'v2.14.0' would be a second place for the value to live.
+describe('Scenario: behavior — a declared window is compared, not merely printed', () => {
+  it('when this build is past every declared window, should name each release and the build compared', () => {
+    // given: every prerequisite the shipped table marks backCompat
+    // when: each one's soft-pass warning is derived
+    // then: each names its OWN declared release and the version it was compared
+    //       against — so a window reported as current, or only one reported,
+    //       fails here
+    const softRows = qaHandoffRequirements().filter(
+      (prerequisite) => prerequisite.backCompat === true
+    );
+    const declared = softRows.map((prerequisite) => prerequisite.backCompatUntil);
+    expect(softRows.length).toBeGreaterThanOrEqual(2);
+    expect(new Set(declared).size).toBe(declared.length);
+    for (const prerequisite of softRows) {
+      const expired = missingPrerequisiteWarning(
+        prerequisite,
+        prerequisite.relativePath
+      )?.expiredWindow;
+      expect(prerequisite.backCompatUntil, 'row declares no window').toBeDefined();
+      expect(expired, `${prerequisite.relativePath} reported no closed window`).toBeDefined();
+      expect(expired).toContain(String(prerequisite.backCompatUntil));
+      expect(expired).toContain(CLI_VERSION);
+    }
+  });
+
+  it('when a window is still open, should set no expiry and leave the other fields identical', () => {
+    // given: ONE row, driven at two versions — before its window closes, and after
+    // when: the warning is derived at each
+    // then: path / code / message are byte-identical between the two, and only
+    //       the expiry differs. That is the control: a producer that set the
+    //       field unconditionally, or that changed what it already emitted,
+    //       fails here rather than reading as coverage.
+    const shipped = findRequirement(MUT_REPORT_BARE);
+    const beforeWindow = missingPrerequisiteWarning(shipped, shipped.relativePath, 'v0.0.1');
+    const pastWindow = missingPrerequisiteWarning(shipped, shipped.relativePath, CLI_VERSION);
+    expect(beforeWindow?.expiredWindow).toBeUndefined();
+    expect(pastWindow?.expiredWindow).toBeDefined();
+    expect(pastWindow?.path).toBe(beforeWindow?.path);
+    expect(pastWindow?.code).toBe(beforeWindow?.code);
+    expect(pastWindow?.message).toBe(beforeWindow?.message);
+  });
+
+  it('when a window closes at the running release, should report it closed', () => {
+    // given: a window whose declared release IS the release this build ships
+    // when: the warning is derived
+    // then: closed — the declared release is the one that removes the soft pass,
+    //       so on that release there is none left (the boundary the comparison
+    //       is allowed to get wrong in the permissive direction)
+    const closingNow: ArtifactPrerequisite = {
+      relativePath: 'qa/closing-now.json',
+      description: 'a prerequisite whose window closes at this release',
+      backCompat: true,
+      backCompatUntil: CLI_VERSION
+    };
+    expect(missingPrerequisiteWarning(closingNow, closingNow.relativePath)?.expiredWindow).toBe(
+      `${CLI_VERSION} (installed ${CLI_VERSION})`
+    );
+  });
+
+  it('when the table moves a window, should derive the new one — the value is not copied', () => {
+    // given: one shipped row, with its declared release moved to each side of
+    //        the release this build ships
+    // when: each copy's warning is derived
+    // then: the expiry follows the DECLARED field — the release it names is the
+    //       moved one, and a release still ahead of this build yields no expiry
+    //       at all. A producer that pinned the release, or that reported the
+    //       window without comparing it, fails on one of the two arms.
+    const shipped = findRequirement(THIRD_PARTY_REVIEW_BARE);
+    const closedEarlier = { ...shipped, backCompatUntil: 'v1.0.0' };
+    const beyondThisBuild = { ...shipped, backCompatUntil: 'v9.9.9' };
+    expect(
+      missingPrerequisiteWarning(closedEarlier, closedEarlier.relativePath)?.expiredWindow
+    ).toBe(`v1.0.0 (installed ${CLI_VERSION})`);
+    expect(
+      missingPrerequisiteWarning(beyondThisBuild, beyondThisBuild.relativePath)?.expiredWindow
+    ).toBeUndefined();
   });
 });
 
