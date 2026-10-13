@@ -168,7 +168,7 @@ Pins the boundary between `peaks-code` and the **superpowers** skill family (`br
 - **L2 — hook + lifecycle gate** (`peaks hooks install` → `peaks gate enforce` → `evaluateWorktreeAuth`; 5 deny codes `REQUIRED / EXPIRED / REQUEST_MISMATCH / CONSUMED / FILE_INVALID`).
 - **L3 — IDE `permissions.deny`** (Claude Code refuses Skill BEFORE LLM sees it; strongest layer).
 
-Sub-agents MUST NOT use raw `git worktree add`. The only authorized path is `peaks worktree spawn --rid <rid> --ttl <duration> --purpose <text>` (fall back to L2 hook gate + manual `peaks worktree auth grant` until rid-L2-extended ships). Sub-agents MUST write artifacts under `.peaks/_runtime/<sessionId>/<role>/requests/` in MAIN (`--project .`), not in a worktree. See `references/worktree-governance.md`.
+Sub-agents MUST NOT use raw `git worktree add`. The only authorized path is `peaks worktree spawn --rid <rid> --role <role> --purpose <text>` (fall back to L2 hook gate + manual `peaks worktree auth grant` until rid-L2-extended ships). Sub-agents MUST write artifacts under `.peaks/_runtime/<sessionId>/<role>/requests/` in MAIN (`--project .`), not in a worktree. See `references/worktree-governance.md`.
 
 ## Peaks-Loop Startup sequence (MANDATORY — execute in order)
 

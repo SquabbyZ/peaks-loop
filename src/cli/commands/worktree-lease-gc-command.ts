@@ -140,7 +140,7 @@ function printGcOk(
         dryRun
           ? `[dry-run] Would gc ${swept.length} lease(s); no filesystem changes were made.`
           : `Gc'd ${swept.length} lease(s).`,
-        'For per-lease detail, run `peaks worktree status --lease-id <id>`.'
+        'For per-lease detail, run `peaks worktree lease-status --lease-id <id>`.'
       ]
     ),
     options.json

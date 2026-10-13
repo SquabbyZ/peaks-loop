@@ -29,7 +29,7 @@ The explicit `MUST NOT` block lives in:
 - `peaks sub-agent dispatch` CLI prompt template
 
 Each prompt template carries the block:
-> MUST NOT follow the superpowers chain (`brainstorming` → `writing-plans` → `subagent-driven-development` → `using-git-worktrees`) for worktree decisions. The chain is reference material, not a workflow. For worktree operations, use `peaks worktree spawn --rid <id> --ttl <duration> --purpose <text>` (or, until that ships, fall back to L2 hook gate + manual `peaks worktree auth grant`).
+> MUST NOT follow the superpowers chain (`brainstorming` → `writing-plans` → `subagent-driven-development` → `using-git-worktrees`) for worktree decisions. The chain is reference material, not a workflow. For worktree operations, use `peaks worktree spawn --rid <rid> --role <role> --purpose <text>` (or, until that ships, fall back to L2 hook gate + manual `peaks worktree auth grant`).
 
 L1 is the weakest layer because the LLM is the decision-maker and may forget the block under load. L3 exists to catch L1 failures.
 
@@ -40,9 +40,9 @@ L1 is the weakest layer because the LLM is the decision-maker and may forget the
 ```bash
 # User authorizes a worktree operation
 peaks worktree auth grant \
-  --rid rid-2026-07-29-worktree-spawn \
+  --operation git-worktree \
   --reason "RD sub-agent for worktree spawn slice" \
-  --ttl 5m
+  --request-id rid-2026-07-29-worktree-spawn
 # Output: grant token, single-use by default
 ```
 
@@ -79,7 +79,7 @@ Sediment: `.peaks/memory/2026-07-29-worktree-layer3-deny.md`.
 
 Every sub-agent dispatched by peaks-rd / peaks-qa / peaks-ui / peaks-sc / peaks-txt MUST:
 
-1. **Use `peaks worktree spawn --rid <rid> --ttl <duration> --purpose <text>`** for any worktree operation. Raw `git worktree add` is forbidden.
+1. **Use `peaks worktree spawn --rid <rid> --role <role> --purpose <text>`** for any worktree operation. Raw `git worktree add` is forbidden.
 2. **Treat the superpowers chain as reference material only.** It MAY inform PRD / RD planning but MUST NOT drive tool selection.
 3. **Write artifacts under `.peaks/_runtime/<sessionId>/<role>/requests/` in the MAIN checkout.** Dispatch with `--project .` (the main workdir), NOT `--project .claude/worktrees/...`. Worktrees are ephemeral; main is durable.
 

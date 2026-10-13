@@ -381,8 +381,8 @@ UI sub-agents follow the same G7 metadata-only + G8.6 share protocol. UI artifac
 
 For worktree operations, use ONLY:
 
-- `peaks worktree spawn --rid <rid> --ttl <duration> --purpose <text>` (after rid-L2-extended ships)
-- until then: `peaks worktree auth grant --rid <id> --reason <text> --ttl <5m>`
+- `peaks worktree spawn --rid <rid> --role <role> --purpose <text>` (after rid-L2-extended ships)
+- until then: `peaks worktree auth grant --operation <op> --reason <text>` (`<op>`, e.g. `git-worktree` | `agent-isolation-worktree`)
 
 The superpowers skills remain available as REFERENCE material for brainstorming / planning techniques, but MUST NOT be used as a workflow. peaks-ui's own UI artifacts (`.peaks/_runtime/<sessionId>/ui/<artifact>.md`) are authoritative. Full design: `skills/peaks-code/references/worktree-governance.md`.
 

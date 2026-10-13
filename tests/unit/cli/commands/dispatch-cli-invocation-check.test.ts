@@ -350,10 +350,21 @@ describe('integration — resolution comes from the registered CLI', () => {
       // when: the same dispatch with a brief whose quotations are all correct
       const clean = await runDispatch(project, `${CORRECT_BRIEF}\n`);
 
-      // then: no invocation warning at all. This is the arm that shows the check
-      // reads the BRIEF: the composer appends a block quoting `peaks worktree
-      // auth grant --rid`, which this CLI rejects, so a check reading the
-      // assembled prompt would warn here too.
+      // then: no invocation warning at all. REVISED TWICE, 2026-10-13 and 2026-10-14,
+      // when the slice that corrected the injected block landed. This comment used to
+      // say the arm was discriminating BY ITSELF: the composer appends a block quoting
+      // `peaks worktree auth grant --rid`, which this CLI rejects, so a check reading
+      // the ASSEMBLED prompt would warn here too. That premise became FALSE when the
+      // block was corrected, and the first revision of this comment replaced it with a
+      // second overclaim — that the pair of arms above still separates the two
+      // implementations. It does not, and that was MEASURED: with the block corrected,
+      // a freshly composed prompt for any of the seven roles is clean (63 invocations,
+      // 0 flagged), so an implementation reading the assembled prompt passes BOTH arms
+      // of this test. What supports the scoping decision now is the module's own corpus
+      // measurement — 149 of 182 findings sitting in the machine-injected block versus
+      // 29 in caller-authored text — and not any arm in this file. The assertion below
+      // is kept because it is still worth making; it is not evidence for the contract
+      // it used to be evidence for, and this comment says so rather than implying it.
       expect(clean.ok).toBe(true);
       expect(
         (clean.warnings as string[]).filter((warning) => warning.startsWith('PROMPT_CLI_'))

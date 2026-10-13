@@ -95,8 +95,8 @@ export interface DispatchPromptInput {
  *   reuse the task body verbatim).
  *   trivially testable.
  *
- * fallback path is `peaks worktree auth grant --rid <id> --reason <text>
- * --ttl <5m>` (already shipped). Update the prose once `spawn` lands.
+ * fallback path is the command the auth-grant CLI declares:
+ * `peaks worktree auth grant --operation <op> --reason <text>`.
  */
 export const L1_WORKTREE_GOVERNANCE_BLOCK = `## Superpowers chain refusal (L1 worktree governance — locked 2026-07-29)
 
@@ -109,8 +109,8 @@ That chain ends with \`git worktree add\` (superpowers:using-git-worktrees SKILL
 
 For worktree operations, use ONLY:
 
-- \`peaks worktree spawn --rid <rid> --ttl <duration> --purpose <text>\` (after rid-L2-extended ships)
-- until then: \`peaks worktree auth grant --rid <id> --reason <text> --ttl <5m>\`
+- \`peaks worktree spawn --rid <rid> --role <role> --purpose <text>\` (after rid-L2-extended ships)
+- until then: \`peaks worktree auth grant --operation <op> --reason <text>\` (\`<op>\`, e.g. \`git-worktree\` | \`agent-isolation-worktree\`)
 
 Superpowers skills remain REFERENCE material for brainstorming / planning techniques, but MUST NOT be used as a workflow. peaks-rd's own PRD/RD artifacts (\`.peaks/_runtime/<sessionId>/rd/requests/<rid>.md\`) are authoritative.
 
@@ -118,7 +118,7 @@ If the upstream superpowers chain suggests raw \`git worktree add\`:
 
 1. STOP
 2. Re-author the plan as a peaks-rd artifact
-3. Continue with \`peaks worktree spawn\` (or the auth-grant fallback)
+3. Continue with the \`spawn\` command above (or the auth-grant fallback)
 `;
 
 /**
@@ -400,8 +400,8 @@ export const BINDING_RULE_TOKENS: readonly string[] = [
   'MUST NOT follow the superpowers chain',
   'superpowers:using-git-worktrees',
   '`git worktree add`',
-  '`peaks worktree spawn --rid <rid> --ttl <duration> --purpose <text>`',
-  '`peaks worktree auth grant --rid <id> --reason <text> --ttl <5m>`',
+  '`peaks worktree spawn --rid <rid> --role <role> --purpose <text>`',
+  '`peaks worktree auth grant --operation <op> --reason <text>`',
   'MUST NOT be used as a workflow',
   'STOP',
   'Re-author the plan as a peaks-rd artifact',

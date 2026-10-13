@@ -13,8 +13,8 @@ This chain ends with `git worktree add` (superpowers:using-git-worktrees SKILL.m
 
 For worktree operations, use ONLY:
 
-- `peaks worktree spawn --rid <rid> --ttl <duration> --purpose <text>` (after rid-L2-extended ships)
-- until then: `peaks worktree auth grant --rid <id> --reason <text> --ttl <5m>`
+- `peaks worktree spawn --rid <rid> --role <role> --purpose <text>` (after rid-L2-extended ships)
+- until then: `peaks worktree auth grant --operation <op> --reason <text>` (`<op>`, e.g. `git-worktree` | `agent-isolation-worktree`)
 
 The superpowers skills remain available as REFERENCE material for brainstorming / planning techniques, but MUST NOT be used as a workflow. peaks-rd's own PRD/RD artifacts (`.peaks/_runtime/<sessionId>/rd/requests/<rid>.md`) are authoritative.
 

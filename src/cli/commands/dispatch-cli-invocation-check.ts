@@ -31,6 +31,14 @@
  * WHAT THIS CHECK DOES NOT SEE, each one measured and each one deliberate:
  *
  * - A sentence that NAMES a flag without invoking a command.
+ * - A flag COMMANDER itself supplies. `--help` (and its short form) is accepted by
+ *   every registered command but is not one of `command.options`, so
+ *   `peaks worktree auth grant --help` is reported as an undeclared flag. Measured
+ *   while correcting the dispatch block, where a pointer at `--help` was a
+ *   candidate rewording and had to be rejected for this reason alone. Recorded
+ *   rather than fixed: the same walk up the parent chain is what makes an
+ *   inherited flag count as declared, so a targeted excuse for `--help` belongs to
+ *   its own slice with its own corpus measurement.
  * - An invocation of a program that is not `peaks` (`git`, `pnpm`, `npx` — this
  *   CLI holds no registry for them), and an invocation that reaches this CLI by
  *   PATH rather than by name. The corpus spells the perf-audit run it ought to
