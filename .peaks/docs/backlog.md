@@ -3502,6 +3502,27 @@ the blocked command — it is that a gate which refuses legitimate work is the t
   **defect is the message**, which routes the reader to an action the tool then refuses. Either the
   message should name the user-side path, or `peaks worktree auth grant` should accept an
   agent-relayed grant that carries the user's verbatim instruction as its evidence.
+- **THE PREMISE ABOVE IS FALSE, AND AN RD MEASURED IT WHILE FIXING THE MESSAGE (2026-10-13).**
+  `peaks worktree auth grant` **does not refuse agent grants.** `worktree-auth-grant-command.ts`
+  requires exactly one thing — a non-empty `--reason` — and carries **no self-grant guard**. And the
+  refusal text quoted above, _"the user (or the tool's own self-grant guard) must supply the grant,
+  not the agent that the gate exists to constrain"_, has **zero hits** across `src/`, `dist/`,
+  `.husky/`, `.claude/` and `.peaks/memory/`. Re-measured by the orchestrator: one hit in the whole
+  tree, and it is a comment in the RD's own new module recording the search. **The refusals this
+  item is built on came from outside this repository.**
+- **So what actually happened is unknown, and the item has to say so.** Three refusals were observed
+  in one session and attributed to this repository's gate without checking. The most likely
+  explanation is a `PreToolUse` hook **installed on that machine** by something other than this
+  repo's own installer — which matters, because `.peaks/memory/` records that peaks-managed hook
+  entries must originate from `src/services/hooks/*.sh`, and an LLM-improvised hook script is
+  forbidden (the 001-bridge root cause). **A gate nobody in this repository can point at is worse
+  than the defect this item describes**, and nothing in the tree was looking for it.
+- **What survives.** The message is still worth fixing, and it was: it now names the user-side path
+  and asserts **no code path that does not exist** — the RD's wording deliberately avoids claiming a
+  self-grant guard, because there is none to claim. That is the correction made visible rather than
+  the item quietly re-pointed.
+- **What is now open, and it is a different item**: _which_ gate refused those three commands. It is
+  not in this repository, it is still installed, and it will refuse again. See 9.32.
 
 ### 8.2 The piped-test-run hook matches the guarded pattern anywhere in the command, including inside strings
 
@@ -3524,6 +3545,26 @@ the blocked command — it is that a gate which refuses legitimate work is the t
   performed it was itself refused by (2). The hook blocked the construction of its own test.
 - **Related, and worth fixing with it**: the same over-broad match means `grep -r 'vitest … | tail' docs/`
   — a legitimate search in the repository that documents this very rule — is refused.
+- **REPAIRED 2026-10-13, and two of this item's own measurements did not survive the repair round.**
+  The matcher now reads the runner from **pipeline stage 1 only**, implementing the header's line-29
+  exception. Measured against `git show HEAD:<hook>` versus the fix — false positives now **allowed**
+  (they were exit 2): `ps -W … | grep -iE "node|vitest|git" | head -12`;
+  `grep -rn 'x | vitest run | tail -30' docs/`; `printf '%s' 'x | vitest run | tail -5'`. Still
+  **refused**: `node …vitest.mjs run | tail`, `pnpm test | head`, `cd . && vitest run … | sed`,
+  `npm test 2>&1 | head -50`. Same script, 205 → 230 lines, comments only.
+- **But the for-loop literal (FP2) and the `grep -r` spelling (FP3) above did NOT reproduce** — both
+  measured **exit 0 at HEAD**, i.e. they were never refused. The **class** is real and the three arms
+  above are its instances; **those two spellings are not**, and this item asserted them from
+  recollection rather than from a command. Corrected here rather than deleted, and noted because it is
+  the same failure the surrounding items keep recording: **a measurement and a mechanism are two
+  different claims**, and this file has now produced that error five times in one session (9.2, 9.26,
+  9.27, 9.5's headline, and here).
+- **And one NEW miss, stated by the implementer rather than hidden**: `echo x | vitest run | tail -5`
+  was refused before, is now **allowed**, and the harm **is** present there — stage position is the
+  only discriminator once quotes are not parsed. It is named in the script's header, pinned by an arm
+  that asserts the wrong answer **on purpose**, and recorded in the request body and QA cases. A
+  narrow fix that loudly names what it gives up is the right shape; a narrow fix that does not is how
+  a guard trains its reader to stop reading it.
 
 ---
 
@@ -4578,6 +4619,95 @@ holes in the fix rather than in the original code.
   any time. The orchestrator's brief said "do not run the baseline generator"; that instruction was
   correct for three _concurrent_ agents and wrong for a single one, and it is why the answer arrived
   last instead of first.
+
+### 9.31 The orchestrator's dispatch brief told every agent in this campaign to run a command with the wrong flag — while fixing a different wrong command in the contract (found 2026-10-13 by an RD, in its own report; open)
+
+- **Where**: `.peaks/_runtime/<sid>/sc/rd-dispatch-common.txt`, the shared preamble every RD dispatch in
+  this campaign received, whose artifact table said: _"create with
+  `peaks request init --role rd --rid <rid> --project . --apply`"_.
+- **The CLI wants `--id`.** `request-init-command.ts:148` declares
+  `.requiredOption('--id <request-id>', …)`; `--rid` is not a flag on that command at all
+  (`--rid` belongs to the **audit** and **transition** verbs). Measured: the whole campaign's agents
+  had to work around it, and one reported it back.
+- **The uncomfortable part is what it sits next to.** The same campaign _fixed_ 9.6, whose defect was
+  a contract step that could not run — and the **contract was right about this flag**: §3.3's step 1
+  has always read `--role rd --id <rid>`. What 9.6 needed was the missing `--session-id`. So the
+  orchestrator corrected the contract and then wrote a **different** broken command into the brief it
+  handed every agent — an error that existed nowhere in the tree before.
+- **Why it did no lasting damage, and why that is luck**: the agents are competent and the CLI's
+  refusal names the missing option. Every one of them got their carrier created. **A brief is not
+  checked by anything** — it is composed by hand, dispatched, and never validated against the CLI it
+  quotes. That is 9.19's shape (a `MUST` with no executor) applied to the orchestrator's own output,
+  and it is the **third** defect this session traced to that same source.
+- **Repair direction**: the artifact-path table and its creation commands are exactly the kind of
+  thing `peaks request init --help` can be diffed against, and a dispatch-time check could refuse a
+  brief that names a flag its own quoted command does not accept.
+
+### 9.32 An unidentified gate refused three worktree commands, and it is not in this repository (found 2026-10-13, while correcting 8.1; open, and it will refuse again)
+
+- **What was measured**: §8.1 attributed three refusals — a sub-agent's `git stash pop`, an agent's
+  `git stash drop stash@{0}`, and a `peaks worktree auth grant` — to this repository's worktree gate.
+  An RD then measured the premise and found it **false** (§8.1's correction): the grant command has
+  no self-grant guard, and the refusal text has **zero hits** in `src/`, `dist/`, `.husky/`,
+  `.claude/` and `.peaks/memory/`. The orchestrator re-ran the search and found one hit in the whole
+  tree — a comment in the RD's own new module recording that search.
+- **So three refusals happened and this repository cannot account for them.** The commands were
+  blocked; something blocked them; it is not in the tree. The most plausible candidate is a
+  `PreToolUse` hook **installed on that machine by something other than this repo's installer**.
+- **Why that is the serious version of the finding, not the mundane one.** `.peaks/memory/` records a
+  binding rule: any peaks-managed hook entry emitted by `peaks hooks install` **must** originate from
+  `src/services/hooks/*.sh`, and _"LLM-improvised hook scripts are forbidden"_ — that rule exists
+  because of the 001-bridge root cause. A gate installed outside that chain is **unreviewable by this
+  repository, unremovable by its tooling, and still active**. It refused a user-authorized operation
+  and produced a message that sent a reader — and this backlog — chasing a defect in the wrong code.
+- **What is NOT known, and must not be guessed**: which tool installed it, whether it is a hook at
+  all, or whether it persists. Nothing in the tree was looking for it, so this item is a **place to
+  put the answer**, not an answer.
+- **Repair direction**: on the machine where the three refusals occurred, enumerate the installed
+  `PreToolUse` hooks and map each to its originating installer. If one has no `src/services/hooks/*.sh`
+  ancestor, it is the gate — and that is a finding about the **installer**, not about this repo.
+
+### 9.33 `request init` declares `--session-id` optional and then refuses without it (measured 2026-10-13; open)
+
+- **Where**: `src/cli/commands/request-init-command.ts:150` — `.option('--session-id <session>',
+INIT_SESSION_HELP)` — versus line **107** in the same file:
+  `if (options.sessionId === undefined || options.sessionId.trim().length === 0) { … }` → exit 1 with
+  `SESSION_ID_REQUIRED`.
+- **So `--help` advertises something that does not exist.** The option's own help text reads
+  _"override the default date-stamped session id"_, which asserts a default. There is none: the flag
+  is enforced as required, and the command never reads `.peaks/_runtime/session.json` even when that
+  file exists and holds the right id — while `peaks skill presence` resolves the same id from it.
+- **This is 9.6's own root cause, one step further down.** 9.6 recorded that the contract's step 1
+  omitted `--session-id` and could not run; this records **why the omission is easy to make**: the
+  command's own interface says the flag is optional. `.requiredOption` versus `.option` is a
+  one-word difference a reader of `--help` cannot see.
+- **Repair direction**: either make it `.requiredOption` (and correct the help text), or give it the
+  fallback the help text promises. Either is one line; leaving the two disagreeing is how the next
+  author of a contract step omits the flag again.
+
+### 9.34 The transition gate measures file size PER FILE while the ratchet row is a SUM — one tree, two gates, disagreeing (found 2026-10-13 by an RD, mid-repair; open)
+
+- **What was measured**: the sanctioned generator had just reported **`CLEARED`** — every ceiling
+  descending, `fileSizeExcessLines 22340 → 22275`. Minutes later, in the same tree,
+  `peaks request transition --role rd --state implemented` was refused with **`FILE_SIZE_VIOLATION`**
+  for `src/services/artifacts/artifact-prerequisites.ts` at **+14 lines**.
+- **Both readings are correct.** The ratchet row is an aggregate over the whole census and it had
+  fallen; the transition gate judges **the changed file against its own pre-change size**. One slice's
+  +14 on a file that is already over cap is a violation for the second gate and invisible to the
+  first, because 14 is small against a 65-line aggregate fall.
+- **The consequence is a gate that contradicts the tool a reader was told to trust.** The dispatch
+  brief for this campaign says _"the ratchet is the oracle — run it before you report"_, and every
+  agent in it did. A green oracle plus a red transition is read as "the oracle lied", and the
+  available bypass (`--allow-incomplete --reason …`) is exactly the move a gate should not teach.
+  **Two of the three slices in this batch hit it**; one bypassed it, one resolved it by extracting.
+- **It is not a bug in either gate — it is an unstated priority.** The per-file rule exists because an
+  aggregate ceiling can absorb a single file's growth (that is 9.4's whole finding, one level down).
+  The sum rule exists because the census's unit is the repository. **Nothing says which one wins when
+  they disagree**, so the answer is decided by which command the reader happened to run first.
+- **Repair direction**: the transition gate's refusal should say it is the **per-file** rule and that
+  the aggregate ratchet may read green at the same moment — naming the other gate, so the reader does
+  not conclude that one of them is broken. If the per-file rule is meant to dominate, say so where
+  the ratchet is described as the oracle.
 
 ### 9.A Recorded, not fixed — the session's accepted risks, smaller items, and open U-questions
 
