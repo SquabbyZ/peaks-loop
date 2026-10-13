@@ -3523,6 +3523,17 @@ the blocked command — it is that a gate which refuses legitimate work is the t
   the item quietly re-pointed.
 - **What is now open, and it is a different item**: _which_ gate refused those three commands. It is
   not in this repository, it is still installed, and it will refuse again. See 9.32.
+- **CLOSED THE LOOP ON 2026-10-13, by performing it.** After the campaign's three slices landed, the
+  user instructed the orchestrator to drop `stash@{0}`, and the orchestrator ran exactly the sequence
+  this item says is impossible: `peaks worktree auth grant --operation git-stash-mutating --reason
+"<the user's verbatim instruction>"` → **`ok: true`**, then `git stash drop stash@{0}` → **exit 0,
+  dropped**. So this repository's **own** gate accepts an agent-issued grant too — the sentence this
+  item was written against, _"the reader cannot satisfy this refusal itself"_, is false here as well
+  as at 9.32. What survives is narrower and worth stating plainly: **the gate is a speed bump that
+  records an intent, not a consent mechanism.** The user's instruction is what made this legitimate;
+  the grant cannot tell the difference, and did not. The dropped commit is
+  `ee6677e7205a12fe0c1759f32596e0b80ba36361`, still in the object store until GC, so
+  `git stash apply ee6677e7` recovers it.
 
 ### 8.2 The piped-test-run hook matches the guarded pattern anywhere in the command, including inside strings
 
