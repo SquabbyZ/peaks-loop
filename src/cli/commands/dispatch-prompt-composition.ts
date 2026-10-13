@@ -24,6 +24,10 @@ import { readFreshContextBlock } from '../../services/fresh-context/fresh-contex
 import type { ContextPercentProbe } from '../../services/context/auto-compact-types.js';
 import { deprecatedReviewerWarnings, type DispatchOptions } from './sub-agent-shared.js';
 import { buildIsolationBlock, buildMustLsFilesBlock } from './dispatch-prompt-blocks.js';
+import {
+  ensureArtifactContractBlock,
+  readArtifactContractBlock
+} from '../../services/artifacts/artifact-contract-block.js';
 import { ensureKarpathyBlock } from '../../services/dispatch/karpathy-block.js';
 
 export interface ComposeDispatchPromptInput {
@@ -219,6 +223,8 @@ export async function composeDispatchPrompt(
 ): Promise<ComposedDispatchPrompt | null> {
   const {
     projectRoot,
+    sid,
+    rid,
     role,
     options,
     isolationMode,
@@ -239,13 +245,26 @@ export async function composeDispatchPrompt(
   const memoryAugmentedBody = await composeMemoryAugmentedBody(input, projectPrefs);
   const isolationBlock = buildIsolationBlock(isolationMode, leaseId, worktreePath, worktreeBranch);
   const { mustLsFilesVerification, mustLsFilesBlock } = buildMustLsFilesBlock(options, projectRoot);
+  // What the downstream gate will demand of this role, named in advance. `''`
+  // when this role has no gated artifacts under this type, so an unaffected
+  // role's prompt stays byte-identical. Injection is idempotent — a caller
+  // prompt that already carries a block keeps exactly one (see the helper).
+  const contractBlock = await readArtifactContractBlock({
+    projectRoot,
+    sessionId: sid,
+    requestId: rid,
+    role
+  });
   // The presence test runs on the ASSEMBLED prompt, not on the caller's draft:
   // this string is what the sub-agent receives as `toolCall.args.prompt` and
   // what the dispatch record stores as `prompt`. A draft that merely names
   // Karpathy (or carries a copy with a word wrong) does not count as carrying
   // the canonical block, so the block is added rather than trusted.
   const effectivePrompt = ensureKarpathyBlock(
-    `${memoryAugmentedBody}${isolationBlock}${mustLsFilesBlock}`
+    ensureArtifactContractBlock(
+      `${memoryAugmentedBody}${isolationBlock}${mustLsFilesBlock}`,
+      contractBlock
+    )
   );
   // + rerouted here, never refused — rationale on the helper itself.
   const warnings: string[] = [...decision.warnings, ...deprecatedReviewerWarnings(role)];
