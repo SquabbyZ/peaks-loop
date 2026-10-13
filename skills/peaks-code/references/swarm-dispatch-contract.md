@@ -94,7 +94,21 @@ You are running peaks-rd's planning step. Produce the planning artefact, not cod
 Code is written in a later sub-agent or inline run.
 
 Steps:
-1. peaks request init --role rd --id <rid> --project <repo> --apply --type <type> --json
+1. peaks request init --role rd --id <rid> --session-id <sid> --project <repo> --apply --type <type> --json
+   `--session-id` is REQUIRED and has NO fallback: `request init` never reads
+   `.peaks/_runtime/session.json`, even when that file exists and holds the right
+   id and a sibling command resolves it — `peaks skill presence` does. Omit it and
+   the command exits 1 with `SESSION_ID_REQUIRED`; `--project` is required too.
+   (Measured 2026-10-13. Before that date this step omitted the flag, so the
+   command as written could not run.)
+1a. Backfill the artifact step 1 just created. It is a SKELETON, and creating it is
+   not producing it: measured, the `--role rd` template is 55 lines carrying 6
+   `<placeholder>` tokens (`<path>`, `<openspec change id>`, `<change-id>` twice,
+   `<percent>` twice). Replace every one with real content. The transition gate
+   lints the carrier, so a leftover placeholder makes
+   `peaks request transition --role rd --state implemented` return
+   `LINT_GATE_FAILED: 6 lint error(s)` — the whole count, on placeholder lines
+   alone. Nothing else in this prompt tells you the artifact needs filling.
 2. peaks request show <rid> --role prd --project <repo> --json
 3. peaks request show <rid> --role ui  --project <repo> --json  (if ui in plan)
 4. Read <project-scan-path>. If absent and Code did not pre-create it, create it
@@ -124,12 +138,22 @@ You are running peaks-qa's planning step. Produce test cases, do NOT execute the
 The execution step runs after RD implementation in a separate sub-agent.
 
 Steps:
-1. peaks request init --role qa --id <rid> --project <repo> --apply --type <type> --json
+1. peaks request init --role qa --id <rid> --session-id <sid> --project <repo> --apply --type <type> --json
+   `--session-id` is REQUIRED with no fallback — see §3.3 step 1 for the measured
+   reason. Omitting it exits 1 with `SESSION_ID_REQUIRED`.
+1a. Backfill the artifact step 1 just created. Measured: the `--role qa` template is
+   53 lines carrying 2 `<id>` placeholders, and the transition gate lints the
+   carrier — a leftover placeholder is a `LINT_GATE_FAILED`, not a warning. See
+   §3.3 step 1a.
 2. peaks request show <rid> --role prd --project <repo> --json
 3. peaks request show <rid> --role rd  --project <repo> --json
 4. Read <project-scan-path>.
 5. Write .peaks/_runtime/<sid>/qa/test-cases/<rid>.md with test cases linked to PRD
    acceptance items (use **Acceptance:** A1, A2 style).
+   The file MUST contain the literal line `## Test cases`. The prerequisite gate
+   matches that exact substring — a correct document under a differently-spelled
+   heading (`## Test Cases`, `## Test plan`) is refused as if it were missing, and
+   the refusal does not say which spelling it wanted. Write the heading first.
 6. Return:
    {
      "role": "qa-test-cases",
@@ -206,12 +230,12 @@ Sub-agent presence in this list = Code launched a Task for it. Absence = the rol
 
 > Body of `### Mode-driven fan-out shape`.
 
-| Mode | How the swarm plan is decided | What Code does |
-|---|---|---|
-| `full-auto` | Compute plan from signals above, no question to user | Auto-launch all sub-agents in the plan in parallel |
-| `24h` | Same as `full-auto` | Same as `full-auto` (long-run profile; the fan-out shape is identical, only the auto-compact cadence differs) |
-| `assisted` | `AskUserQuestion` with three options: (a) Full — UI + RD(planning) + QA(test-cases); (b) Backend-only — RD(planning) + QA(test-cases); (c) Sequential — run RD first, then QA, skip UI | Use the user's choice as the plan |
-| `strict` | Same as `assisted` (the question is informational; strict still enforces confirmation gates later) | Same as `assisted` |
+| Mode        | How the swarm plan is decided                                                                                                                                                          | What Code does                                                                                                |
+| ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `full-auto` | Compute plan from signals above, no question to user                                                                                                                                   | Auto-launch all sub-agents in the plan in parallel                                                            |
+| `24h`       | Same as `full-auto`                                                                                                                                                                    | Same as `full-auto` (long-run profile; the fan-out shape is identical, only the auto-compact cadence differs) |
+| `assisted`  | `AskUserQuestion` with three options: (a) Full — UI + RD(planning) + QA(test-cases); (b) Backend-only — RD(planning) + QA(test-cases); (c) Sequential — run RD first, then QA, skip UI | Use the user's choice as the plan                                                                             |
+| `strict`    | Same as `assisted` (the question is informational; strict still enforces confirmation gates later)                                                                                     | Same as `assisted`                                                                                            |
 
 In all modes, **the plan must be written to `sc/swarm-plan.json` before any Task call.** Code updates `.peaks/.active-skill.json` to `gate=swarm-fan-out` at this point.
 
@@ -219,12 +243,12 @@ In all modes, **the plan must be written to `sc/swarm-plan.json` before any Task
 
 > Body of `### Degradation when swarm roles fail or are absent`.
 
-| Condition | Code action | TXT handoff note |
-|---|---|---|
-| UI sub-agent returns blocked/error | RD continues with PRD visual descriptions | `ui-design-missing` |
-| RD planning sub-agent returns blocked/error | RD continues with PRD-derived planning | `tech-doc-missing` |
-| QA test-cases sub-agent returns blocked/error | RD continues; QA backfills test cases before verdict | `qa-test-cases-missing` |
-| Two or more of the above | Fall back to sequential: `peaks request transition rd → spec-locked` then inline RD run, then QA | `swarm-degraded-to-sequential` |
-| All three fail | Pause workflow; surface to user; request confirmation to continue | `swarm-aborted` |
+| Condition                                     | Code action                                                                                      | TXT handoff note               |
+| --------------------------------------------- | ------------------------------------------------------------------------------------------------ | ------------------------------ |
+| UI sub-agent returns blocked/error            | RD continues with PRD visual descriptions                                                        | `ui-design-missing`            |
+| RD planning sub-agent returns blocked/error   | RD continues with PRD-derived planning                                                           | `tech-doc-missing`             |
+| QA test-cases sub-agent returns blocked/error | RD continues; QA backfills test cases before verdict                                             | `qa-test-cases-missing`        |
+| Two or more of the above                      | Fall back to sequential: `peaks request transition rd → spec-locked` then inline RD run, then QA | `swarm-degraded-to-sequential` |
+| All three fail                                | Pause workflow; surface to user; request confirmation to continue                                | `swarm-aborted`                |
 
 Skipping the entire swarm (when `--type` is `config|docs|chore`) is not a degradation — record `swarm-skipped: type=<type>` and proceed.
