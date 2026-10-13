@@ -184,9 +184,9 @@ export function emitAllowSkipped(io: ProgramIO, options: GateEnforceCliOptions):
 
 /**
  * Hard block: a worktree-mutating tool call without a current-task user grant. emitBlock writes
- * the Claude Code permissionDecision:"deny" envelope and exits 2. The reason includes the
- * remediation hint so the LLM can run `peaks worktree auth grant` and retry, and the user can
- * read the deny text in the next-turn stderr.
+ * the Claude Code permissionDecision:"deny" envelope and exits 2. The reason carries the
+ * remediation hint from `worktree-refusal-messages.ts`, which names the USER-side path — the
+ * grant is not the agent's to issue — and the user can read the deny text in the next-turn stderr.
  */
 function emitWorktreeDeny(
   io: ProgramIO,

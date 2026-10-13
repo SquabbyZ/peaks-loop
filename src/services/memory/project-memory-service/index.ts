@@ -18,6 +18,7 @@ export type {
   MemoryBlockDropReason,
   MemoryBlockParse,
   MemoryKindTier,
+  MemoryWriteSkip,
   ExtractPlanOptions,
   ExtractSessionMemoriesOptions,
   ExtractSessionMemoriesResult,
@@ -50,7 +51,9 @@ export {
 // Pure markdown helpers
 export {
   describeMemoryBlockDrops,
+  describeMemoryWriteSkips,
   describeSessionScanFailures,
+  MAX_NAMED_MEMORY_WRITE_SKIPS,
   summarizeBackupResult,
   summarizeExtractResult,
   summarizeMemoryBody,

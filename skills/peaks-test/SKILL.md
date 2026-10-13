@@ -64,11 +64,14 @@ For non-vitest projects (jest, mocha, pytest, etc.), the wrapper respects the pr
 ## Step 2: Run the test suite
 
 ```bash
-# Run with a reasonable timeout (5 min default; override for slow suites)
-timeout 300 pnpm vitest run 2>&1 | tail -100
+# Run with a reasonable timeout (5 min default; override for slow suites),
+# redirect to a file, and read the RUNNER's exit code.
+timeout 300 pnpm vitest run > suite.log 2>&1; echo "EXIT=$?"
 ```
 
-Capture both stdout and stderr. If the exit code is 0, tests passed. If non-zero, tests failed or the command errored out.
+Capture both stdout and stderr — `suite.log` holds them. `EXIT=0` means the runner exited 0, i.e. tests passed; anything non-zero means they failed or the command errored out. Read `suite.log` in a separate command.
+
+**Do NOT pipe the run into a filter or pager** (`pnpm vitest run | tail -100`). After a pipeline `$?` is the LAST command's status, so the number you read is `tail`'s, not the suite's — and a `tail`-terminated command reads 0 whether the suite passed or not. Wrapping the runner does not help either: `timeout 300 pnpm vitest run 2>&1 | tail -100` still reports `tail`'s status. Note that the Peaks-Loop `PreToolUse` hook refuses the unwrapped piped form outright; the wrapped form it cannot see, which is why the redirect above is the form this skill prescribes rather than relying on the hook.
 
 ## Step 3: Summarize the result
 

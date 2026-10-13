@@ -1,6 +1,7 @@
 import type { Command } from 'commander';
 import {
   describeMemoryBlockDrops,
+  describeMemoryWriteSkips,
   executeProjectMemoryExtract,
   SENSITIVE_MEMORY_CHECKS,
   summarizeProjectMemoryExtractResult,
@@ -65,16 +66,21 @@ function runExtract(io: ProgramIO, options: ExtractOptions): void {
     apply: options.apply === true
   });
   // A block that was found but not extracted must not vanish silently: the
-  // parser's rejection reasons ride the envelope's existing `warnings`
-  // channel (JSON: `warnings[]`; human: `warning: …` on stderr). `data` is
-  // unchanged — this adds no field to the summary.
+  // parser's rejection reasons, and the writes the store already held, both ride
+  // the envelope's existing `warnings` channel (JSON: `warnings[]`; human:
+  // `warning: …` on stderr). `data` is unchanged — neither adds a field to the
+  // summary, and `writtenFiles` was already there to be compared against
+  // `plannedWrites`.
   printResult(
     io,
-    ok(
-      'memory.extract',
-      summarizeProjectMemoryExtractResult(result),
-      describeMemoryBlockDrops(result.droppedBlocks)
-    ),
+    ok('memory.extract', summarizeProjectMemoryExtractResult(result), [
+      ...describeMemoryBlockDrops(result.droppedBlocks),
+      ...describeMemoryWriteSkips(
+        result.skippedWrites,
+        result.plannedWrites.length,
+        result.writtenFiles.length
+      )
+    ]),
     options.json
   );
 }

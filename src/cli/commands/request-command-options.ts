@@ -47,6 +47,15 @@ export type RequestTransitionOptions = {
   json?: boolean;
 };
 
+export type RequestRetagOptions = {
+  role: RequestArtifactRole;
+  type: RequestType;
+  project: string;
+  /** Required on this write verb — see the note in `request-retag-command.ts`. */
+  sessionId: string;
+  json?: boolean;
+};
+
 export type RequestLintOptions = {
   role: RequestArtifactRole;
   project: string;

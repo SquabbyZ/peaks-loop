@@ -61,6 +61,27 @@ export type MemoryBlockDrop = {
 };
 
 /**
+ * A planned write that was NOT performed because the store already holds its
+ * target name.
+ *
+ * Distinct from `MemoryBlockDrop`: that one is a PARSE rejection, decided from
+ * the block's own text. This one is a WRITE skip — the block parsed, and it is
+ * still not in `.peaks/memory/`. Without it the two outcomes read alike from the
+ * envelope, because either one leaves `writtenFiles` short of `plannedWrites`.
+ * Empty on a preview, which writes nothing and so skips nothing.
+ */
+export type MemoryWriteSkip = {
+  /** Filename stem the write would have used — already present in the store. */
+  slug: string;
+  /** Title of the memory that was not written. */
+  title: string;
+  /** Artifact the block was read from. */
+  sourceArtifact: string;
+  /** Absolute path that already exists and was therefore left untouched. */
+  filePath: string;
+};
+
+/**
  * Result of parsing one memory block, as a discriminated union.
  *
  * `parseBlock` is the `null`-on-failure projection of this; both are produced
@@ -94,6 +115,12 @@ export type ProjectMemoryExtractPlan = {
 
 export type ProjectMemoryExtractResult = ProjectMemoryExtractPlan & {
   writtenFiles: string[];
+  /**
+   * Planned writes the store already held, so `writtenFiles` is shorter than
+   * `plannedWrites` by exactly this many. Reported through the CLI envelope's
+   * `warnings` channel, which is why it adds no field to the summary.
+   */
+  skippedWrites: MemoryWriteSkip[];
 };
 
 export type ProjectMemoryExtractSummary = {
@@ -209,6 +236,12 @@ export type ExtractSessionMemoriesResult = {
   extractedCount: number;
   writtenFiles: string[];
   updatedIndex: boolean;
+  /**
+   * Planned writes the store already held, so `writtenFiles` is shorter than
+   * `extractedCount` by exactly this many. Same diagnostic contract as
+   * `ProjectMemoryExtractResult.skippedWrites`.
+   */
+  skippedWrites: MemoryWriteSkip[];
   /**
    * Blocks that were FOUND between the markers in this session's artifacts but
    * rejected by the parser. Same diagnostic contract as

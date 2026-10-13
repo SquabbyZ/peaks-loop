@@ -10,6 +10,7 @@ import type { ProgramIO } from '../cli-helpers.js';
 import { registerRequestInitCommand } from './request-init-command.js';
 import { registerRequestListCommand } from './request-list-command.js';
 import { registerRequestShowCommand } from './request-show-command.js';
+import { registerRequestRetagCommand } from './request-retag-command.js';
 import { registerRequestTransitionCommand } from './request-transition-command.js';
 import { registerRequestLintCommand } from './request-lint-command.js';
 import { registerRequestRepairStatusCommand } from './request-repair-status-command.js';
@@ -26,6 +27,7 @@ export function registerRequestCommands(program: Command, io: ProgramIO): void {
   registerRequestInitCommand(request, io);
   registerRequestListCommand(request, io);
   registerRequestShowCommand(request, io);
+  registerRequestRetagCommand(request, io);
   registerRequestTransitionCommand(request, io);
   registerRequestLintCommand(request, io);
   registerRequestRepairStatusCommand(request, io);

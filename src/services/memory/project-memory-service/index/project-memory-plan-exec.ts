@@ -23,6 +23,7 @@ import type {
   ExtractedProjectMemory,
   ExtractPlanOptions,
   MemoryBlockDrop,
+  MemoryWriteSkip,
   ProjectMemoryBackupPlan,
   ProjectMemoryBackupResult,
   ProjectMemoryBackupSummary,
@@ -101,6 +102,7 @@ export function executeProjectMemoryExtract(
 ): ProjectMemoryExtractResult {
   const plan = createProjectMemoryExtractPlan(options);
   const writtenFiles: string[] = [];
+  const skippedWrites: MemoryWriteSkip[] = [];
 
   if (plan.apply) {
     mkdirSync(plan.primaryMemoryDir, { recursive: true });
@@ -115,7 +117,18 @@ export function executeProjectMemoryExtract(
     const existingNames = readStoredMemoryNames(plan.primaryMemoryDir);
     for (const write of plan.plannedWrites) {
       const slug = slugify(write.memory.title);
-      if (existingNames.has(slug)) continue;
+      if (existingNames.has(slug)) {
+        // Recorded, not merely skipped: a skip and a successful write left
+        // identical evidence in the envelope, so the block vanished from the
+        // report of a run that had extracted it.
+        skippedWrites.push({
+          slug,
+          title: write.memory.title,
+          sourceArtifact: write.memory.sourceArtifact,
+          filePath: write.filePath
+        });
+        continue;
+      }
 
       const targetPath = resolveInputPath(write.filePath);
       const stableTargetPath = stablePath(targetPath);
@@ -142,7 +155,7 @@ export function executeProjectMemoryExtract(
     generateMemoryIndexFile(plan.projectRoot, plan.primaryMemoryDir, indexPath);
   }
 
-  return { ...plan, writtenFiles };
+  return { ...plan, writtenFiles, skippedWrites };
 }
 
 export function createProjectMemoryBackupPlan(options: BackupPlanOptions): ProjectMemoryBackupPlan {

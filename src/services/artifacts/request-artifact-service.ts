@@ -22,6 +22,7 @@ import {
   requestIdFromFileName,
   slugifyDescription
 } from '../../shared/incrementing-number.js';
+import { extractMetadata, type RequestTypeSource } from './request-artifact-metadata.js';
 import { lintRequestArtifact } from './artifact-lint-service.js';
 import { isUnsafePathInput } from '../../shared/path-safety.js';
 import { guardRuntimeSegment, runtimeRoot } from '../../shared/runtime-root.js';
@@ -158,8 +159,6 @@ export async function createRequestArtifact(
       `Invalid request id: ${options.requestId} (expected letters, digits, dots, underscores, or dashes)`
     );
   }
-  const requestType = options.requestType ?? DEFAULT_REQUEST_TYPE;
-
   const clock = options.clock ?? defaultClock;
   const timestamp = clock();
 
@@ -246,7 +245,9 @@ export async function createRequestArtifact(
     sessionId,
     sessionSlug,
     timestamp,
-    requestType
+    // `null`, not the default: an untyped request records no type, so the
+    // reader's substitution stays visible as a substitution.
+    options.requestType ?? null
   );
 
   if (options.apply !== true) {
@@ -314,6 +315,8 @@ export type RequestArtifactSummary = {
   path: string;
   state: string;
   requestType: RequestType;
+  /** Whether `requestType` was recorded in the body or substituted. See `RequestTypeSource`. */
+  requestTypeSource: RequestTypeSource;
   createdAt?: string;
 };
 
@@ -334,45 +337,6 @@ export type ShowRequestArtifactResult = RequestArtifactSummary & {
   content: string;
 };
 
-function extractMetadata(markdown: string): {
-  state: string;
-  requestType: RequestType;
-  createdAt?: string;
-  sessionId?: string;
-} {
-  const state = readArtifactState(markdown) ?? 'unknown';
-  let createdAt: string | undefined;
-  let requestType: RequestType = DEFAULT_REQUEST_TYPE;
-  let sessionId: string | undefined;
-  for (const rawLine of markdown.split(/\r?\n/)) {
-    const line = rawLine.trim();
-    const createdMatch = /^-\s*created:\s*(.+?)\s*$/.exec(line);
-    if (createdMatch !== null && createdMatch[1] !== undefined) {
-      createdAt = createdMatch[1];
-      continue;
-    }
-    const typeMatch = /^-\s*type:\s*(.+?)\s*$/.exec(line);
-    if (typeMatch !== null && typeMatch[1] !== undefined) {
-      const candidate = typeMatch[1];
-      if (isRequestType(candidate)) {
-        requestType = candidate;
-      }
-      // Placeholder values (e.g. "feature | bug | refactor | clarification") fall back to default.
-      continue;
-    }
-    const sessionMatch = /^-\s*session:\s*(.+?)\s*$/.exec(line);
-    if (sessionMatch !== null && sessionMatch[1] !== undefined) {
-      sessionId = sessionMatch[1];
-      continue;
-    }
-  }
-  const base: { state: string; requestType: RequestType; createdAt?: string; sessionId?: string } =
-    { state, requestType };
-  if (createdAt !== undefined) base.createdAt = createdAt;
-  if (sessionId !== undefined) base.sessionId = sessionId;
-  return base;
-}
-
 async function readSummary(
   dir: string,
   role: RequestArtifactRole,
@@ -381,7 +345,13 @@ async function readSummary(
 ): Promise<RequestArtifactSummary> {
   const path = join(dir, fileName);
   const body = await readFile(path, 'utf8');
-  const { state, createdAt, requestType, sessionId: bodySessionId } = extractMetadata(body);
+  const {
+    state,
+    createdAt,
+    requestType,
+    requestTypeSource,
+    sessionId: bodySessionId
+  } = extractMetadata(body);
   // The id, stripped by the rule that writes the prefix (see `buildNumberedFilename`).
   const requestId = requestIdFromFileName(fileName) ?? fileName.replace(/\.md$/, '');
   // Repair R5: this used to take the *scope* path fragment (`_runtime/<sid>`)
@@ -397,6 +367,7 @@ async function readSummary(
     path,
     state,
     requestType,
+    requestTypeSource,
     writerSessionId: bodySessionId ?? sessionId
   };
   if (createdAt !== undefined) {
@@ -568,7 +539,6 @@ import {
   FileSizeViolationError,
   LintGateError,
   PrerequisitesNotSatisfiedError,
-  readArtifactState,
   TypeSanityViolationError,
   updateStatusBlock,
   type RequestArtifactState
@@ -743,6 +713,7 @@ export async function transitionRequestArtifact(
     path: existing.path,
     state: options.newState,
     requestType: existing.requestType,
+    requestTypeSource: existing.requestTypeSource,
     previousState,
     content: updated
   };

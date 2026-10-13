@@ -1,7 +1,10 @@
 // Split out of `request-commands.ts`:
 // `peaks request show`.
 import type { Command } from 'commander';
-import { showRequestArtifact } from '../../services/artifacts/request-artifact-service.js';
+import {
+  showRequestArtifact,
+  type ShowRequestArtifactResult
+} from '../../services/artifacts/request-artifact-service.js';
 import {
   applyPerArtifactFormat,
   inferArtifactName,
@@ -48,6 +51,19 @@ function buildShowPayload(result: Record<string, unknown>, options: RequestShowO
   return transformed === result ? { ...result, format } : transformed;
 }
 
+/**
+ * The type a `request show` reports is the EFFECTIVE one: an artifact that
+ * records no type still reads as `feature`, and a reader who cannot tell that
+ * from a chosen `feature` cannot tell which prerequisite table the next gate
+ * will apply. The field says which; this line says it in words.
+ */
+export function typeProvenanceWarning(result: ShowRequestArtifactResult): string[] {
+  if (result.requestTypeSource !== 'default') return [];
+  return [
+    `request type '${result.requestType}' is the DEFAULT — this artifact records no type, so the '${result.requestType}' prerequisite table applies. Set one with: peaks request retag <request-id> --role ${result.role} --type <type> --project <path>`
+  ];
+}
+
 async function runRequestShow(
   requestId: string,
   options: RequestShowOptions,
@@ -67,7 +83,11 @@ async function runRequestShow(
       failShowNotFound(io, options, requestId);
       return;
     }
-    printResult(io, ok('request.show', buildShowPayload(result, options)), options.json);
+    printResult(
+      io,
+      ok('request.show', buildShowPayload(result, options), typeProvenanceWarning(result)),
+      options.json
+    );
   } catch (error) {
     printResult(
       io,

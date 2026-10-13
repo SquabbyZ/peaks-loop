@@ -37,11 +37,56 @@
 # Karpathy §3 (Surgical Changes): reads stdin only; never runs the command.
 # Karpathy §4 (Goal-Driven Execution): 0 = allow, 2 = refuse with a named rule.
 #
-# KNOWN RESIDUAL: the pipeline is split on `|` textually, so a `|` inside a
-# quoted argument (`bash -c "vitest run | tail"`) is read as a pipeline
-# separator — which makes the first segment start with `bash`, not a runner, so
-# that spelling is ALLOWED rather than refused. Being permissive here is the
-# deliberate choice: the alternative misreads a literal `|` argument as a pipe.
+# The runner is read from the FIRST pipeline stage only — that IS line 29's
+# "the runner has to start the command", and it is what keeps a runner token
+# that merely APPEARS in the text (a grep pattern, a fixture, a later stage)
+# from reading as a runner being invoked.
+#
+# KNOWN EDGES: every shape below is handled as named, and the unhandled ones
+# lean toward ALLOWING, because a wrong refusal costs more than a miss.
+#   - start of the command; `;` / `&&` / `||` before the runner: HANDLED
+#     (`normalize_segment`), so `cd repo && vitest run | tail` still fires;
+#   - `|`: the only separator that ends the runner's stage;
+#   - `(`, `{`, `$(`, backticks opening a subshell or substitution: NOT handled
+#     — `(vitest run | tail)` starts with the word `(vitest`, so it is allowed;
+#   - single and double quotes, including an unterminated one: NOT parsed, and
+#     they cut BOTH ways. A quoted `|` splits the text into stages that are then
+#     tested, so it can manufacture a refusal on a command with no pipeline at
+#     all — measured, exit 2 for `vitest run --testNamePattern "auth | head of
+#     file"` and for `vitest run --reporter "x | tail "`. It can equally hide a
+#     real pipe: a FILTER whose own name is quoted or path-qualified is not
+#     recognised, so `vitest run | "tail"`, `vitest run | 'tail' -20`,
+#     `vitest run | /usr/bin/tail -20` and `vitest run | env tail -20` are all
+#     ALLOWED (all four measured exit 0 on this and on the previous revision —
+#     pre-existing, not a result of the stage-1 rule, and needing no unbalanced
+#     quote);
+#   - a backslash-escaped `\|` (a literal pipe argument, not a pipeline): NOT
+#     handled — `vitest run \| tail` is read as a pipeline and refused;
+#   - a WRAPPER word before the runner (`timeout 300 …`, `env …`, `nice …`):
+#     NOT handled, so the runner is not stage 1 and the command is allowed. This
+#     is the edge most likely to be hit, because
+#     `skills/peaks-test/SKILL.md` prescribed the wrapped form verbatim until
+#     this slice's repair changed it: measured, `timeout 300 pnpm vitest run 2>&1
+#     | tail -100` exits 0 while the same command without `timeout` exits 2.
+#     Pre-existing, and repaired in the DOCUMENT rather than here: wrapper words
+#     are unbounded, the doc is one line, and a matcher that chased them would
+#     still miss the next one;
+#   - a runner in a NON-FIRST stage with a filter after it: ALLOWED, and it was
+#     REFUSED before this change. The harm this rule exists to prevent IS present
+#     there, so this is a genuine miss — the deliberate cost of reading the runner
+#     from stage 1, because stage position is the only discriminator available
+#     once quotes are not parsed. It is a CLASS, not one spelling: every real
+#     pipe before the runner, evidenced by five measured shapes that all went
+#     exit 2 → exit 0:
+#       echo x | vitest run | tail -5
+#       echo done | vitest run | tail
+#       cat package.json | grep name && vitest run | tail
+#       git status --short | head -5 && pnpm test:unit | tail -20
+#       echo 'a|b' > x; vitest run | tail
+#     The `&&`-chained pair is the second input class rather than a restatement
+#     of the first: a lookup piped to `head`, THEN the suite piped to `tail`,
+#     which is an ordinary way to run a suite. Two of these are pinned as test
+#     arms so the class cannot silently widen again.
 
 set -euo pipefail
 
@@ -179,10 +224,14 @@ SEGMENTS="$(printf '%s' "${COMMAND}" \
   | tr '|' '\n' \
   | sed -E 's/__PEAKS_OR__/||/g')"
 
+# The runner comes from stage 1 and from nowhere else; the filter may be any
+# later stage. Reading every stage for the runner is the defect this fixes.
 RUNNER=""
 FILTER=""
+STAGE=0
 while IFS= read -r segment; do
-  if [[ -z "${RUNNER}" ]]; then
+  STAGE=$((STAGE + 1))
+  if [[ "${STAGE}" -eq 1 ]]; then
     if segment_runs_tests "${segment}"; then
       RUNNER="$(first_word "$(normalize_segment "${segment}")")"
     fi

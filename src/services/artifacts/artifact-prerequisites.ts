@@ -2,7 +2,7 @@ import { join, dirname, basename } from 'node:path';
 import { readFile, readdir } from 'node:fs/promises';
 import { pathExists } from 'peaks-loop-shared/fs';
 
-import { emitObservabilityEvent } from '../observability/observability-service.js';
+import { emitPrereqTransitionEvent } from './prerequisite-transition-event.js';
 import { isUnsafePathInput } from '../../shared/path-safety.js';
 import { bodyViolationsIfDeclared, missingPrerequisiteWarning } from './prerequisite-checks.js';
 import type { RequestArtifactRole, RequestArtifactState } from './request-artifact-service.js';
@@ -466,13 +466,26 @@ export type CheckPrerequisitesOptions = {
   role: RequestArtifactRole;
   newState: RequestArtifactState;
   requestId: string;
-  requestType?: RequestType;
+  /**
+   * Required, with no default. The `?? DEFAULT_REQUEST_TYPE` that used to sit in
+   * `getPrerequisitesFor`'s signature let a caller silently select the `feature`
+   * table by omitting an argument; a caller that wants the default now has to
+   * write it, and the one place that legitimately substitutes it is the artifact
+   * reader (`request-artifact-metadata.ts`), which labels the substitution.
+   */
+  requestType: RequestType;
+  /**
+   * False for a caller that is not a state move — the retag command's impact
+   * probe reads the table without transitioning anything, and the event stream
+   * is read as a record of transitions.
+   */
+  emitEvents?: boolean;
 };
 
 export function getPrerequisitesFor(
   role: RequestArtifactRole,
   newState: RequestArtifactState,
-  requestType: RequestType = DEFAULT_REQUEST_TYPE
+  requestType: RequestType
 ): ReadonlyArray<ArtifactPrerequisite> {
   const table = PREREQUISITES_BY_TYPE[requestType];
   return table[`${role}:${newState}`] ?? [];
@@ -612,6 +625,7 @@ export async function checkPrerequisites(
   }
 
   const result: PrerequisiteCheckResult = { ok: missing.length === 0, missing, warnings };
+  if (options.emitEvents === false) return result;
   emitPrereqTransitionEvent({
     projectRoot: options.projectRoot,
     sessionId: options.sessionId ?? '',
@@ -621,36 +635,6 @@ export async function checkPrerequisites(
     result
   });
   return result;
-}
-
-// Slice C of v2.11.1 — observability hook #7/7. Fire-and-forget per
-// PRD Q4. The synchronous emit never throws and never blocks the
-// prereq check return value.
-function emitPrereqTransitionEvent(opts: {
-  projectRoot: string;
-  sessionId: string;
-  role: RequestArtifactRole;
-  newState: RequestArtifactState;
-  requestId: string;
-  result: PrerequisiteCheckResult;
-}): void {
-  if (opts.sessionId === undefined) return;
-  emitObservabilityEvent(
-    {
-      schemaVersion: 1,
-      ts: new Date().toISOString(),
-      sessionId: opts.sessionId,
-      category: 'slice-transition',
-      sliceRid: opts.requestId,
-      detail: {
-        artifactRole: opts.role,
-        to: opts.newState,
-        prereqOk: opts.result.ok,
-        missingCount: opts.result.missing.length
-      }
-    },
-    { projectRoot: opts.projectRoot }
-  );
 }
 
 /**

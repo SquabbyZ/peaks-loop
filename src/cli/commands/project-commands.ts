@@ -21,6 +21,7 @@
 import type { Command } from 'commander';
 import {
   describeMemoryBlockDrops,
+  describeMemoryWriteSkips,
   describeSessionScanFailures,
   extractSessionMemories,
   readProjectMemories,
@@ -66,15 +67,22 @@ function extractData(result: ExtractResult): Record<string, unknown> {
 }
 
 /**
- * Two drop axes, one channel. `droppedBlocks` = a block was found and rejected
- * (or a marker-shaped comment was not findable at all); `scanFailures` = the
- * whole artifact could not be read, so its blocks were never candidates.
- * `data` is unchanged by either — same contract as `memory.extract`.
+ * Three axes, one channel. `droppedBlocks` = a block was found and rejected (or
+ * a marker-shaped comment was not findable at all); `scanFailures` = the whole
+ * artifact could not be read, so its blocks were never candidates;
+ * `skippedWrites` = the block parsed and was planned, and the store already held
+ * its target name, so nothing was written. `data` is unchanged by any of them —
+ * same contract as `memory.extract`.
  */
 function extractWarnings(result: ExtractResult): string[] {
   return [
     ...describeMemoryBlockDrops(result.droppedBlocks),
-    ...describeSessionScanFailures(result.scanFailures)
+    ...describeSessionScanFailures(result.scanFailures),
+    ...describeMemoryWriteSkips(
+      result.skippedWrites,
+      result.extractedCount,
+      result.writtenFiles.length
+    )
   ];
 }
 

@@ -37,6 +37,7 @@ import type {
   ExtractSessionMemoriesOptions,
   ExtractSessionMemoriesResult,
   MemoryBlockDrop,
+  MemoryWriteSkip,
   SessionScanFailure
 } from '../types.js';
 import { renderMemoryFile, slugify } from '../parsers/frontmatter.js';
@@ -86,6 +87,7 @@ export function extractSessionMemories(
         extractedCount: 0,
         writtenFiles: [],
         updatedIndex: false,
+        skippedWrites: [],
         droppedBlocks: [],
         scanFailures: []
       };
@@ -141,6 +143,7 @@ export function extractSessionMemories(
       extractedCount: 0,
       writtenFiles: [],
       updatedIndex: false,
+      skippedWrites: [],
       droppedBlocks,
       scanFailures
     };
@@ -163,12 +166,23 @@ export function extractSessionMemories(
   // writes so callers can still tell what the run actually produced.
   const existingNames = apply ? readStoredMemoryNames(primaryMemoryDir) : new Set<string>();
   const writtenFiles: string[] = [];
+  const skippedWrites: MemoryWriteSkip[] = [];
   if (apply) {
     mkdirSync(primaryMemoryDir, { recursive: true });
 
     for (const memory of allExtracted) {
       const slug = slugify(memory.title);
-      if (existingNames.has(slug)) continue;
+      if (existingNames.has(slug)) {
+        // Same defect as the artifact path, one function over: the skip left no
+        // trace, so `extractedCount: 5` with 4 files on disk read as success.
+        skippedWrites.push({
+          slug,
+          title: memory.title,
+          sourceArtifact: memory.sourceArtifact,
+          filePath: join(primaryMemoryDir, `${slug}.md`)
+        });
+        continue;
+      }
 
       const targetPath = join(primaryMemoryDir, `${slug}.md`);
       const safePath = resolveInputPath(targetPath);
@@ -195,6 +209,7 @@ export function extractSessionMemories(
     extractedCount: allExtracted.length,
     writtenFiles,
     updatedIndex: apply && writtenFiles.length > 0,
+    skippedWrites,
     droppedBlocks,
     scanFailures
   };

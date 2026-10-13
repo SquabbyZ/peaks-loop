@@ -23,6 +23,7 @@
 import type {
   ExtractedProjectMemory,
   MemoryBlockDrop,
+  MemoryWriteSkip,
   ProjectMemoryBackupResult,
   ProjectMemoryBackupSummary,
   ProjectMemoryExtractResult,
@@ -201,6 +202,53 @@ export function describeSessionScanFailures(failures: ReadonlyArray<SessionScanF
   return failures.map(
     (failure) => `Could not read the session artifact ${failure.file}: ${failure.detail}.`
   );
+}
+
+/**
+ * How many skipped writes are NAMED before the list closes with a count.
+ *
+ * The COUNT must never be lost — the failure reported here is a reader who could
+ * not tell how many writes were skipped — so it is always `skips.length`, never
+ * the number of lines above it. The LIST is what is capped: it grows with the
+ * capsule while the envelope does not, and 200 skipped blocks measured 201 lines
+ * and a 95 KB envelope with no ceiling on `warnings` anywhere in the code.
+ */
+export const MAX_NAMED_MEMORY_WRITE_SKIPS = 20;
+
+/**
+ * Render one warning line per planned write the store already held, plus a
+ * closing line with both counts.
+ *
+ * The counts are passed in rather than derived from `skips.length`: the caller
+ * observed the run, and `planned - skipped` is a claim about writes this
+ * function did not see. The closing line exists because the failure being
+ * reported is exactly a reader having no way to notice that the two counts
+ * differed — the named lines say which blocks were lost, the count says how
+ * many, and only the second one stays exact past the cap.
+ */
+export function describeMemoryWriteSkips(
+  skips: ReadonlyArray<MemoryWriteSkip>,
+  plannedCount: number,
+  writtenCount: number
+): string[] {
+  if (skips.length === 0) return [];
+  const lines = skips
+    .slice(0, MAX_NAMED_MEMORY_WRITE_SKIPS)
+    .map(
+      (skip) =>
+        `Skipped writing the memory "${skip.title}" from ${skip.sourceArtifact}: ${skip.filePath} already exists, so the block was not written.`
+    );
+  const unlisted = skips.length - MAX_NAMED_MEMORY_WRITE_SKIPS;
+  if (unlisted > 0) {
+    // The dropped names are dropped for good: `skippedWrites` stays out of the
+    // envelope's `data`, so `warnings` is the only carrier. Saying so beats
+    // pointing the reader at a list that is not there.
+    lines.push(`… and ${unlisted} more skipped writes; the count below is the full number.`);
+  }
+  lines.push(
+    `Wrote ${writtenCount} of ${plannedCount} planned memories; ${skips.length} skipped because the target file already exists.`
+  );
+  return lines;
 }
 
 export function summarizeExtractResult(

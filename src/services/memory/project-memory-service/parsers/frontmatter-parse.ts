@@ -8,6 +8,8 @@
 // keep importing them from `./parsers/frontmatter.js` unchanged.
 // ---------------------------------------------------------------------------
 
+import { createHash } from 'node:crypto';
+
 import {
   PROJECT_MEMORY_KINDS,
   type ExtractedProjectMemory,
@@ -25,12 +27,57 @@ export const VALID_MEMORY_KINDS: ReadonlySet<ProjectMemoryKind> = new Set<Projec
  *  set (CLI help text, `--kind` validation) without duplicating the literal. */
 export const VALID_PROJECT_MEMORY_KINDS: readonly ProjectMemoryKind[] = PROJECT_MEMORY_KINDS;
 
+/**
+ * Hex characters of the title digest the derived branch keeps. 32 hex = 128
+ * bits, and the name is therefore `memory_` + 32 = **39 characters for every
+ * title**, however long the title is.
+ */
+const DERIVED_NAME_HEX_LENGTH = 32;
+
+/**
+ * Filename stem for a memory title, and the `name:` its stored frontmatter
+ * carries.
+ *
+ * The character class is Unicode-aware deliberately. An ASCII-only class
+ * reduced EVERY title written in a non-Latin script to the same empty string,
+ * so all of them landed on one constant name: whichever title arrived first
+ * took that file, and each later one was skipped because the store refuses to
+ * overwrite a file it already holds. Two titles that still reduce to one stem
+ * are refused outright by the plan builders' duplicate-name check.
+ *
+ * A title with no letter or digit in any script ("!!!") leaves nothing to build
+ * a name from. That branch takes the first 32 hex characters of the title's
+ * sha256 instead of a fixed constant, so distinct titles still reach distinct
+ * names. It is a DIGEST rather than the title's bytes because of LENGTH: an
+ * encoding that grew with the title (the two-hex-chars-per-byte
+ * `toString('hex')` this replaced) produced names past the filesystem limit for
+ * a long enough title, so the write failed and took the whole batch with it —
+ * measured, exit 1 and 0 files for a 140-character title. A digest is 39
+ * characters whatever the title is.
+ *
+ * THE FIXED LENGTH IS BOUGHT WITH A PROBABILISTIC GUARANTEE, and that is the
+ * strongest thing this branch can claim. For the derived branch distinct titles
+ * reach distinct names with overwhelming probability rather than by
+ * construction: a collision needs two titles whose first 128 digest bits agree
+ * — the birthday bound puts that at about n^2 / 2^129 for n derived names in one
+ * store, i.e. under 1 in 10^26 at a million names. The branch above keeps the
+ * stronger, exact property (two titles share a stem only if they are equal
+ * modulo case and runs of non-letter/non-digit characters). Neither branch loses
+ * a block silently on a collision: within a run the duplicate-name check refuses
+ * the whole extract, and across runs the later write is skipped and NAMED in the
+ * envelope's `warnings`.
+ *
+ * The '_' is outside the alphabet the branch above can emit, so a derived name
+ * cannot equal a title-derived stem.
+ */
 export function slugify(title: string): string {
   const slug = title
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/[^\p{L}\p{N}]+/gu, '-')
     .replace(/^-+|-+$/g, '');
-  return slug.length > 0 ? slug : 'project-memory';
+  if (slug.length > 0) return slug;
+  const digest = createHash('sha256').update(title, 'utf8').digest('hex');
+  return `memory_${digest.slice(0, DERIVED_NAME_HEX_LENGTH)}`;
 }
 
 /**

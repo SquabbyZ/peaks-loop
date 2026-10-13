@@ -162,7 +162,8 @@ describe('render — command summary builders stay ≤ 2 KB and keep counts', ()
       requestId: `2026-09-10-request-${i}`,
       path: `/repo/.peaks/_runtime/2026-09-10-session-abcdef/rd/requests/2026-09-10-request-${i}.md`,
       state: 'rd-handoff',
-      requestType: 'feature' as const
+      requestType: 'feature' as const,
+      requestTypeSource: 'declared' as const
     }));
 
     const view = buildRequestListSummary(items);

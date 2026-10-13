@@ -277,7 +277,8 @@ peaks capabilities --json
 #    You MUST scan the handoff capsule for embedded memory blocks FIRST. If none
 #    are present, the step is a no-op (the command succeeds with extractedCount=0
 #    and writes nothing). If blocks are present, --apply writes them and the
-#    index is regenerated.
+#    index is regenerated — except a block whose target name is already in the
+#    store, which is skipped and named in warnings[] (check it; see below).
 grep -c "peaks-memory:start" .peaks/_runtime/<sessionId>/txt/handoff.md || true   # skill-side scan; do NOT add a new CLI
 peaks memory extract --project <repo> --artifact .peaks/_runtime/<sessionId>/txt/handoff.md --apply --json
 peaks skill presence:clear --project <repo>                      # handoff capsule complete, remove presence indicator
@@ -292,7 +293,7 @@ Every handoff capsule you emit **MUST** include the scan for stable facts. The m
 - Run `grep -c 'peaks-memory:start' .peaks/_runtime/<sessionId>/txt/handoff.md` after writing the capsule body.
 - If the count is 0 AND this session surfaced a stable project fact (an architectural decision, a stack constraint, a naming convention, a refactor approved by the user, an API pattern, a hard rule from RD/QA review), you MUST go back and embed at least one `<!-- peaks-memory:start -->` block before declaring TXT complete. Skipping the block is a workflow violation.
 - If the count is 0 AND no stable fact was surfaced (pure analysis, no code touched, all transient), it is acceptable to skip embedding — but you MUST still run `peaks memory extract --apply` so the artefact state stays consistent (the command will be a no-op write, that's fine).
-- If the count is ≥ 1, the `--apply` extract will write one markdown per block to `.peaks/memory/` and regenerate `index.json`. The user sees the durable persistence; that is the entire point of this step.
+- If the count is ≥ 1, the `--apply` extract writes one markdown per block **whose target name the store does not already hold**, then regenerates `index.json`. A block whose name (the title, lowercased, with every run of non-letter/non-digit characters collapsed to `-`) already names a stored file is **skipped, not overwritten** — and the envelope says so: one `warnings[]` line per skipped block, plus a closing line giving both counts. So read `warnings[]` and compare `writtenFiles` with `plannedWrites` before reporting the sediment complete; `writtenFiles` shorter than `plannedWrites` with `warnings: []` is the case that used to be indistinguishable from success. The user sees the durable persistence; that is the entire point of this step.
 
 This rule is the skill-side half of the **Skill is primary, CLI is auxiliary** contract: the LLM is responsible for embedding blocks (skill prompt, no CLI can decide what is stable), and the CLI is responsible for atomic persistence (`peaks memory extract --apply`, single shot, structured JSON envelope).
 

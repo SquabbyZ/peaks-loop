@@ -45,19 +45,31 @@ export function formatSkillUsageLessonsPath(sessionId: string): string {
   return `.peaks/_runtime/${sessionId}/txt/skill-usage-lessons.md`;
 }
 
+/**
+ * The artifact's own record of its type, or nothing when nobody chose one.
+ *
+ * `null` means `--type` was not passed. Emitting the default here would stamp a
+ * chosen-looking `- type: feature` onto every untyped request at the one moment
+ * the distinction is still knowable, and `extractMetadata` would then report
+ * every such request as declared. The absent line IS the record; the reader
+ * substitutes the default and labels it.
+ */
+function renderTypeLine(requestType: RequestType | null): string {
+  return requestType === null ? '' : `- type: ${requestType}\n`;
+}
+
 function renderPrdTemplate(
   requestId: string,
   _sessionId: string,
   sessionId: string,
   timestamp: string,
-  requestType: RequestType
+  requestType: RequestType | null
 ): string {
   return (
     `# PRD Request ${requestId}
 
 - session: ${sessionId}
-- type: ${requestType}
-- source: <ticket, message URL, or "verbal" with a short sanitized quote>
+${renderTypeLine(requestType)}- source: <ticket, message URL, or "verbal" with a short sanitized quote>
 - raw input (sanitized): <one-paragraph restatement of what the user actually asked for>
 
 ` +
@@ -82,15 +94,14 @@ function renderUiTemplate(
   _sessionId: string,
   sessionId: string,
   timestamp: string,
-  requestType: RequestType
+  requestType: RequestType | null
 ): string {
   return (
     `# UI Request ${requestId}
 
 - session: ${sessionId}
 - linked-prd: ${formatHandoffPath(sessionId, 'prd', requestId)}
-- type: ${requestType}
-- scope: full new surface | iteration on existing surface | regression fix | visual refresh
+${renderTypeLine(requestType)}- scope: full new surface | iteration on existing surface | regression fix | visual refresh
 - design direction: editorial | bento | Swiss | luxury | retro-futurist | glass | product-system | other-explicit-name
 
 ` +
@@ -114,7 +125,7 @@ function renderRdTemplate(
   _sessionId: string,
   sessionId: string,
   timestamp: string,
-  requestType: RequestType
+  requestType: RequestType | null
 ): string {
   return (
     `# RD Request ${requestId}
@@ -122,8 +133,7 @@ function renderRdTemplate(
 - session: ${sessionId}
 - linked-prd: ${formatHandoffPath(sessionId, 'prd', requestId)}
 - linked-ui:  ${formatHandoffPath(sessionId, 'ui', requestId)}  (when UI involved)
-- type: ${requestType}
-
+${renderTypeLine(requestType)}
 ` +
     RD_TEMPLATE_BODY +
     `## Handoff
@@ -145,7 +155,7 @@ function renderQaTemplate(
   _sessionId: string,
   sessionId: string,
   timestamp: string,
-  requestType: RequestType
+  requestType: RequestType | null
 ): string {
   return (
     `# QA Request ${requestId}
@@ -154,8 +164,7 @@ function renderQaTemplate(
 - linked-prd: ${formatHandoffPath(sessionId, 'prd', requestId)}
 - linked-rd:  ${formatHandoffPath(sessionId, 'rd', requestId)}
 - linked-ui:  ${formatHandoffPath(sessionId, 'ui', requestId)}  (when UI involved)
-- type: ${requestType}
-
+${renderTypeLine(requestType)}
 ` +
     QA_TEMPLATE_BODY +
     `## Status
@@ -172,7 +181,7 @@ function renderScTemplate(
   _sessionId: string,
   sessionId: string,
   timestamp: string,
-  requestType: RequestType
+  requestType: RequestType | null
 ): string {
   return (
     `# SC Request ${requestId}
@@ -182,8 +191,7 @@ function renderScTemplate(
 - linked-rd:  ${formatHandoffPath(sessionId, 'rd', requestId)}
 - linked-qa:  ${formatHandoffPath(sessionId, 'qa', requestId)}
 - linked-ui:  ${formatHandoffPath(sessionId, 'ui', requestId)}  (when UI involved)
-- type: ${requestType}
-
+${renderTypeLine(requestType)}
 ` +
     SC_TEMPLATE_BODY +
     `- artifact workspace path: .peaks/_runtime/${sessionId}/
@@ -214,7 +222,7 @@ export function renderTemplate(
   sessionId: string,
   changeSlug: string,
   timestamp: string,
-  requestType: RequestType
+  requestType: RequestType | null
 ): string {
   switch (role) {
     case 'prd':

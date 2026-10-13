@@ -56,6 +56,13 @@ import {
   isContainerLeaseActive,
   type ContainerLease
 } from '../container/container-lease.js';
+import {
+  consumedGrantsDenial,
+  expiredGrantsDenial,
+  noAuthorizationDenial,
+  noGrantForOperationDenial,
+  requestMismatchDenial
+} from './worktree-refusal-messages.js';
 
 export const WORKTREE_AUTH_FILE = 'worktree-auth.json';
 
@@ -311,14 +318,7 @@ export function decideFromAuthorization(
   file: AuthorizationFile | null
 ): WorktreeAuthDecision {
   if (file === null) {
-    return {
-      allow: false,
-      code: 'WORKTREE_USER_AUTH_REQUIRED',
-      reason: `No current-task user authorization for "${operation}" (session=${input.sessionId}).`,
-      remediation:
-        `Ask the user to explicitly authorize this worktree-mutating operation, then run \`peaks worktree auth grant --operation ${operation} --reason "<why>"\` ` +
-        `before the tool call retries. Re-running with --consume=false and a longer --ttl is allowed but should be rare.`
-    };
+    return noAuthorizationDenial(operation, input.sessionId);
   }
   const now = Date.now();
   // First try to find a requestId-matched, non-consumed, unexpired grant. If none is found,
@@ -340,42 +340,22 @@ export function decideFromAuthorization(
   // No live grant matched the current rid (or the caller's rid is null). Diagnose why.
   const sameOpAnyState = file.grants.filter((g) => g.operation === operation);
   if (sameOpAnyState.length === 0) {
-    return {
-      allow: false,
-      code: 'WORKTREE_USER_AUTH_REQUIRED',
-      reason: `No grant for operation "${operation}" in this session.`,
-      remediation: `Run \`peaks worktree auth grant --operation ${operation} --reason "<why>"\` from the LLM after the user has explicitly asked for the operation.`
-    };
+    return noGrantForOperationDenial(operation);
   }
   const ridScoped = sameOpAnyState.find((g) => g.requestId !== null);
   const ridMatchesScope =
     ridScoped !== undefined &&
     (input.requestId === null || ridScoped.requestId === input.requestId);
   if (ridScoped !== undefined && !ridMatchesScope) {
-    return {
-      allow: false,
-      code: 'WORKTREE_USER_AUTH_REQUEST_MISMATCH',
-      reason: `Grant for "${operation}" is scoped to requestId=${ridScoped.requestId} but the current tool call carries requestId=${input.requestId ?? 'null'}.`,
-      remediation: `Either drop the requestId scope from the grant (\`peaks worktree auth grant --operation ${operation} --no-request-id\`) or operate under the scoped request.`
-    };
+    return requestMismatchDenial(operation, ridScoped.requestId, input.requestId);
   }
   // Otherwise: every grant for the operation is either consumed or expired.
   const hasUnexpired = sameOpAnyState.some((g) => Date.parse(g.expiresAt) > now);
   if (!hasUnexpired) {
-    return {
-      allow: false,
-      code: 'WORKTREE_USER_AUTH_EXPIRED',
-      reason: `All grants for operation "${operation}" in this session have expired.`,
-      remediation: `Re-run \`peaks worktree auth grant --operation ${operation} --reason "<why>"\` (default TTL 5 min) before the tool call retries.`
-    };
+    return expiredGrantsDenial(operation);
   }
   // Grants exist and at least one is unexpired, but every non-expired one is consumed.
-  return {
-    allow: false,
-    code: 'WORKTREE_USER_AUTH_REQUIRED',
-    reason: `All unexpired grants for operation "${operation}" in this session are already consumed.`,
-    remediation: `Re-run \`peaks worktree auth grant --operation ${operation} --reason "<why>"\` to issue a fresh grant (or pass --multi to make it multi-use).`
-  };
+  return consumedGrantsDenial(operation);
 }
 
 /**

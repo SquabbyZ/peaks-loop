@@ -28,7 +28,10 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { classifyTool, handleWorktreeGate } from '~/src/cli/commands/gate-commands-enforce';
 import { parseClaudeShapeStdin } from '~/src/services/ide/hook-translator';
-import type { ToolCallKind } from '~/src/services/hooks/worktree-authorization-gate';
+import {
+  decideFromAuthorization,
+  type ToolCallKind
+} from '~/src/services/hooks/worktree-authorization-gate';
 import { HOOK_BLOCK_EXIT_CODE } from '~/src/services/hooks/output';
 import { DISPATCH_PROVENANCE_ENV } from '~/src/services/worktree/dispatch-provenance';
 import { declareDimensions } from '../_setup/4dim-template.js';
@@ -234,6 +237,139 @@ describe('Scenario: a11y - a blocked class explains itself and an allowed one st
       expect(blocked).toBe(false);
       expect(captured.text()).not.toContain('permissionDecision');
       expect(process.exitCode).toBe(7);
+    } finally {
+      process.exitCode = previousExitCode;
+    }
+  });
+});
+
+/**
+ * The DENY TEXT, not the decision.
+ *
+ * The gate's reader is the agent, and the agent is the party the gate exists to
+ * constrain, so a refusal that tells its reader to run `peaks worktree auth
+ * grant` routes it to an action it cannot complete — the measured defect. The
+ * arms below pin BOTH directions: the user-side path is named, AND the old
+ * instruction is gone. The second arm is the one that matters, because a
+ * message can gain the new sentence and keep the impossible one.
+ */
+describe('Scenario: a11y - the refusal names the user-side path, not an impossible one', () => {
+  const IMPOSSIBLE_INSTRUCTION =
+    'Ask the user to explicitly authorize this worktree-mutating operation, then run';
+
+  function denyStashDrop(): { blocked: boolean; text: string } {
+    clearGateEnv();
+    const root = makeEmptyProject();
+    const { io, captured } = makeCapturedIo();
+    const payload = {
+      tool_name: 'Bash',
+      tool_input: { command: 'git stash drop stash@{0}' }
+    };
+    const parsed = parseClaudeShapeStdin(payload);
+    const blocked = handleWorktreeGate(
+      io,
+      { project: root, json: false },
+      classifyTool(parsed.toolName),
+      {
+        command: parsed.command,
+        parsedStdin: payload
+      }
+    );
+    return { blocked, text: `${captured.text()}\n${captured.stderrText()}` };
+  }
+
+  it('when a stash drop is refused, should keep the code and the exit behaviour', () => {
+    const previousExitCode = process.exitCode;
+    try {
+      const { blocked, text } = denyStashDrop();
+      // then: the refusal itself is unchanged - same code, same block exit code
+      expect(blocked).toBe(true);
+      expect(process.exitCode).toBe(HOOK_BLOCK_EXIT_CODE);
+      expect(text).toContain('WORKTREE_USER_AUTH_REQUIRED');
+    } finally {
+      process.exitCode = previousExitCode;
+    }
+  });
+
+  it('when the text is read, should name the user-side path and drop the impossible one', () => {
+    const previousExitCode = process.exitCode;
+    try {
+      const { text } = denyStashDrop();
+      // then: the reader is told whose authorization this is, and how it is recorded
+      expect(text).toContain("The authorization is the USER's to give");
+      expect(text).toContain('peaks worktree auth grant --operation git-stash-mutating');
+      // and: the sentence that routed the reader to a refused command is gone
+      expect(text).not.toContain(IMPOSSIBLE_INSTRUCTION);
+    } finally {
+      process.exitCode = previousExitCode;
+    }
+  });
+
+  /**
+   * The message must not promise an issuer check the gate does not have.
+   *
+   * A first revision of this text said an agent-issued grant "is not the consent
+   * this gate checks for, so the reader cannot satisfy this refusal itself".
+   * That was false, and the test below is built from the input that makes it
+   * false rather than from an idea of it: a well-formed grant whose `reason`
+   * says out loud that no user was involved. Both arms are needed — the text arm
+   * keeps the sentence from coming back, and the behaviour arm keeps the text
+   * honest if the gate ever DOES learn to check the issuer (it would then have
+   * to change this text, and this arm would redden).
+   *
+   * Measured end to end before the repair: exit 2 for `git stash drop stash@{0}`
+   * → the agent runs `worktree auth grant --reason "the agent wrote this itself;
+   * no user was involved"` (`ok: true`) → the SAME call exits 0.
+   */
+  it('when a grant carries an agent-written reason, should still be accepted — so the text cannot deny it', () => {
+    const sessionId = '2026-10-13-session-self-grant';
+    const issuedAt = new Date();
+    const file = {
+      schemaVersion: 1 as const,
+      sessionId,
+      createdAt: issuedAt.toISOString(),
+      grants: [
+        {
+          operation: 'git-stash-mutating' as const,
+          reason: 'the agent wrote this itself; no user was involved',
+          promptHash: null,
+          requestId: null,
+          issuedAt: issuedAt.toISOString(),
+          expiresAt: new Date(issuedAt.getTime() + 300_000).toISOString(),
+          consume: false,
+          consumed: false
+        }
+      ]
+    };
+
+    const decision = decideFromAuthorization(
+      {
+        projectRoot: '.',
+        sessionId,
+        toolName: 'Bash',
+        command: 'git stash drop stash@{0}',
+        isolation: null,
+        requestId: null,
+        leaseId: null,
+        containerLeaseId: null
+      },
+      'git-stash-mutating',
+      file
+    );
+
+    // then: nothing about the issuer mattered. If this ever flips to false, the
+    // gate grew an issuer check and the denial text has to be rewritten again.
+    expect(decision.allow).toBe(true);
+
+    // and: the denial text does not claim otherwise
+    const previousExitCode = process.exitCode;
+    try {
+      const { text } = denyStashDrop();
+      expect(text).not.toContain('cannot satisfy this refusal itself');
+      expect(text).not.toContain('is not the consent this gate checks for');
+      expect(text).toContain('Nothing in the gate records or checks WHO issued a grant');
+      // the ask survives, because the rule survives even though the gate cannot enforce it
+      expect(text).toContain('ask them first');
     } finally {
       process.exitCode = previousExitCode;
     }
