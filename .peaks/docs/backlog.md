@@ -4448,7 +4448,7 @@ list did not start. The per-slice cost is real — a 4-way fan-out, several repa
 each — and the return is that **every round found something**, with five of the sixteen findings being
 holes in the fix rather than in the original code.
 
-### 9.24 `--prompt` has no `@file` form, and it does not say so — it dispatches the literal string (found 2026-10-13 by the orchestrator, while building the tier-1 dispatch; open)
+### 9.24 `--prompt` has no `@file` form, and it does not say so — it dispatches the literal string (found 2026-10-13 by the orchestrator, while building the tier-1 dispatch; open) — **REPAIRED 2026-10-13**
 
 - **Where**: `peaks sub-agent dispatch --prompt <text>` (`src/cli/commands/dispatch-commands.ts`),
   versus `peaks prd handoff init --body <body|@file>` (`src/cli/commands/prd-commands.ts:89`), which
@@ -4471,7 +4471,7 @@ holes in the fix rather than in the original code.
   is read; or support `@<file>` consistently across both flags; or state in `--help` that `--prompt`
   is literal-only. Any of the three closes it.
 
-### 9.25 Concurrent `peaks request init` calls race the number allocation, and the numbering is not what keeps the artifacts apart (found 2026-10-13, by the orchestrator, on three parallel RD dispatches; open)
+### 9.25 Concurrent `peaks request init` calls race the number allocation, and the numbering is not what keeps the artifacts apart (found 2026-10-13, by the orchestrator, on three parallel RD dispatches; open) — **REPAIRED 2026-10-13**
 
 - **Where**: `getNextNumber` in `src/shared/incrementing-number.ts:17` — `readdirSync` → `max(NNN) + 1`
   → `buildNumberedFilename(number, requestId)`.
@@ -4493,7 +4493,7 @@ holes in the fix rather than in the original code.
   explains a different non-obvious constraint — so the next reader does not treat `NNN` as an
   identity. If the number _is_ meant to be an identity, it needs a claim, not a scan.
 
-### 9.26 `fail()` discards the warnings a service produced, so the human-readable refusal drops its own diagnosis — the `--json` surface keeps it (measured 2026-10-13; open; **this item's first version over-claimed and is corrected below**)
+### 9.26 `fail()` discards the warnings a service produced, so the human-readable refusal drops its own diagnosis — the `--json` surface keeps it (measured 2026-10-13; open; **this item's first version over-claimed and is corrected below**) — **REPAIRED 2026-10-13**
 
 - **Where**: the CLI's failure printer — `fail(...)` builds a fresh envelope whose `warnings` is
   **hard-coded `[]`**, so anything the service put in `warnings` on the failure path is dropped
@@ -4598,7 +4598,7 @@ holes in the fix rather than in the original code.
   the part that does not fix itself: a recorded "unreachable" finding should name **what would make
   it reachable**, so the next author of a call site can recognise it.
 
-### 9.29 A test that asserts equality with the published ceiling reds whenever a ratchet moves in its healthy direction — and it cost three agents a round each to attribute (measured 2026-10-13; open)
+### 9.29 A test that asserts equality with the published ceiling reds whenever a ratchet moves in its healthy direction — and it cost three agents a round each to attribute (measured 2026-10-13; open) — **REPAIRED 2026-10-13**
 
 - **Where**: `tests/unit/lint/file-size-excess-gate-leg.test.ts` (and `file-size-hooks-seeding.test.ts`),
   which assert `expect(row.actual).toBe(gated.excessLines)` — the **published** ceiling equals the
@@ -4719,7 +4719,7 @@ holes in the fix rather than in the original code.
   `PreToolUse` hooks and map each to its originating installer. If one has no `src/services/hooks/*.sh`
   ancestor, it is the gate — and that is a finding about the **installer**, not about this repo.
 
-### 9.33 `request init` declares `--session-id` optional and then refuses without it (measured 2026-10-13; open)
+### 9.33 `request init` declares `--session-id` optional and then refuses without it (measured 2026-10-13; open) — **REPAIRED 2026-10-13**
 
 - **Where**: `src/cli/commands/request-init-command.ts:150` — `.option('--session-id <session>',
 INIT_SESSION_HELP)` — versus line **107** in the same file:
@@ -4737,7 +4737,7 @@ INIT_SESSION_HELP)` — versus line **107** in the same file:
   fallback the help text promises. Either is one line; leaving the two disagreeing is how the next
   author of a contract step omits the flag again.
 
-### 9.34 The transition gate measures file size PER FILE while the ratchet row is a SUM — one tree, two gates, disagreeing (found 2026-10-13 by an RD, mid-repair; open)
+### 9.34 The transition gate measures file size PER FILE while the ratchet row is a SUM — one tree, two gates, disagreeing (found 2026-10-13 by an RD, mid-repair; open) — **REPAIRED 2026-10-13**
 
 - **What was measured**: the sanctioned generator had just reported **`CLEARED`** — every ceiling
   descending, `fileSizeExcessLines 22340 → 22275`. Minutes later, in the same tree,
