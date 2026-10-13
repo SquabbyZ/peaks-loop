@@ -3850,7 +3850,7 @@ the blocked command — it is that a gate which refuses legitimate work is the t
   shrinks as entries are removed — not a numeric ceiling, which can only ever absorb. For `tests/**`,
   either enforce the cap or stop documenting it as a cap.
 
-### 9.5 The sub-agent dispatch ledger reached 73 straight `queued` records, and nothing in the pipeline calls `finalize` (found and partly repaired 2026-10-13; **open**)
+### 9.5 The sub-agent dispatch ledger reached 73 straight `queued` records, and nothing in the pipeline calls `finalize` (found and partly repaired 2026-10-13; **open**) — **REPAIRED 2026-10-13**
 
 - **Where**: `.peaks/_sub_agents/<sessionId>/active-dispatches.json`, written by
   `src/services/dispatch/dispatch-record-writer.ts`; read by
@@ -3923,7 +3923,7 @@ the blocked command — it is that a gate which refuses legitimate work is the t
   **wrong** — a real measurement attached to a mechanism nobody checked, which is the same shape as
   9.26 and 9.27 in this same section. Recorded here rather than quietly dropped.
 
-### 9.6 The contract's role prompts never say to backfill the artifact they create (found 2026-10-12; open)
+### 9.6 The contract's role prompts never say to backfill the artifact they create (found 2026-10-12; open) — **REPAIRED 2026-10-13**
 
 - **Where**: `skills/peaks-code/references/swarm-dispatch-contract.md` §3.3 (RD planning) and §3.4 (QA
   test-cases), versus `peaks request init --role <role> --apply`.
@@ -3963,7 +3963,7 @@ presence` does. Measured three ways (bare, with `--project .` from the repo root
   measured session used as a starting point. The sentence is the cheaper half; the other half is a
   decision, and it is not taken here.
 
-### 9.7 `peaks memory extract` silently drops memory blocks and reports the count as if it had written them (found 2026-10-12; open)
+### 9.7 `peaks memory extract` silently drops memory blocks and reports the count as if it had written them (found 2026-10-12; open) — **REPAIRED 2026-10-13**
 
 - **Where**: the extract path used by `peaks memory extract`.
 - **Measured**: a capsule with **5** `<!-- peaks-memory:start -->` blocks produced
@@ -3987,7 +3987,7 @@ presence` does. Measured three ways (bare, with `--project .` from the repo root
   use a distinguishable fallback; (2) when planned writes ≠ files written, **report it** (or exit
   non-zero); (3) correct D-010 to the measured behaviour.
 
-### 9.8 final-review's second layer: the more evidence there is, the less of it reaches the reviewer (found 2026-10-12; open)
+### 9.8 final-review's second layer: the more evidence there is, the less of it reaches the reviewer (found 2026-10-12; open) — **REPAIRED 2026-10-13**
 
 - **Where**: the real-model review path (`review-complete` / `anthropic-messages-api`) and its evidence
   allocator.
@@ -4002,7 +4002,7 @@ presence` does. Measured three ways (bare, with `--project .` from the repo root
   **pass earned by withheld evidence**. Both make the verdict a property of the plumbing rather than of
   the change.
 
-### 9.9 A reported check is silently invalidated by a later edit, and nothing requires a re-run (found 2026-10-12; open)
+### 9.9 A reported check is silently invalidated by a later edit, and nothing requires a re-run (found 2026-10-12; open) — **WITHDRAWN, MEASUREMENT KEPT 2026-10-13**
 
 - **Where**: process, not a file — the seam between "a check reported a result" and "the tree changed
   afterwards".
@@ -4095,7 +4095,7 @@ presence` does. Measured three ways (bare, with `--project .` from the repo root
     every slice pays this tax and every orchestrator is one careless step from passing a gate by
     rewriting a reviewer.
 
-### 9.11 Guards scope themselves by directory, so every new executable directory is a blind spot (found 2026-10-12; open)
+### 9.11 Guards scope themselves by directory, so every new executable directory is a blind spot (found 2026-10-12; open) — **REPAIRED 2026-10-13**
 
 - **Where**: repository-wide — the static scans whose roots are directory lists (the `src/**`-scoped path
   safety scan is the measured instance).
@@ -4117,7 +4117,7 @@ presence` does. Measured three ways (bare, with `--project .` from the repo root
   which includes markdown under `skills/`. A directory that holds no code can still hold a file that
   reddens CI.
 
-### 9.12 A hand-written PRD silently gets the default type `feature`, and there is no retag verb (found 2026-10-12; open)
+### 9.12 A hand-written PRD silently gets the default type `feature`, and there is no retag verb (found 2026-10-12; open) — **REPAIRED 2026-10-13**
 
 - **Where**: the request type is fixed at `init` time, and no verb changes it afterwards.
 - **Consequence**: under the **hand-written-artifact** practice (see 9.17), where no `init` runs, **every
@@ -4180,7 +4180,7 @@ presence` does. Measured three ways (bare, with `--project .` from the repo root
 - **Repair direction**: when a repair makes previously-unreachable code reachable, route it through the
   same review a new file gets — the session's mistake was treating it as a mechanical edit.
 
-### 9.17 Two practices coexist — the _gated state machine_ and the _hand-written artifact_ — and the session's first conclusion about which dominates was **wrong** (found 2026-10-12, corrected the same day by measurement)
+### 9.17 Two practices coexist — the _gated state machine_ and the _hand-written artifact_ — and the session's first conclusion about which dominates was **wrong** (found 2026-10-12, corrected the same day by measurement) — **RESOLVED (USER RULING C) 2026-10-13**
 
 - **Where**: `peaks request transition` (gated) versus writing `.md` directly into `rd/`, `qa/`, `audit/`
   (ungated).
@@ -4218,7 +4218,7 @@ presence` does. Measured three ways (bare, with `--project .` from the repo root
   that commits without hooks gets none of it, and 9.5's lesson — _building the verb is not making anyone
   call it_ — applies to this leg too.
 
-### 9.18 This file is outside every citation guard's corpus, so its own anchors rot silently (measured 2026-10-13; open)
+### 9.18 This file is outside every citation guard's corpus, so its own anchors rot silently (measured 2026-10-13; open) — **RESOLVED BY MEASUREMENT 2026-10-13**
 
 - **Where**: `tests/unit/standards/repo-citation-integrity.test.ts` — its corpus origins are `CLAUDE.md`,
   `.peaks/PROJECT.md`, `README.md`, plus `*.md` under `CORPUS_DIRS = ['.peaks/standards', 'skills']`.
@@ -4274,7 +4274,7 @@ presence` does. Measured three ways (bare, with `--project .` from the repo root
   fails when a section lacks its verification stamp, the discipline is a `MUST` with **no executor** —
   the same shape as 9.5 and 9.19, in the same session.
 
-### 9.19 The mandatory Karpathy block was dropped from every dispatch in this session, and the tree predicted it would be (found 2026-10-13; open)
+### 9.19 The mandatory Karpathy block was dropped from every dispatch in this session, and the tree predicted it would be (found 2026-10-13; open) — **REPAIRED 2026-10-13**
 
 - **Where**: `skills/bee/peaks-rd/references/rd-sub-agent-dispatch.md:140` — _"the following context
   block MUST be appended to the sub-agent prompt **verbatim**"_ — and line **164**, which states the
@@ -4352,7 +4352,7 @@ presence` does. Measured three ways (bare, with `--project .` from the repo root
   found it. Both are 9.19's point restated: a `MUST` with no executor is dropped by whoever is busiest,
   and a fan-out is precisely when someone is busiest.
 
-### 9.21 Adding a tracked source file requires regenerating the baseline, and the census cannot see the file until it is staged (hit 2026-10-13, by the orchestrator, on 9.1's own landing; open)
+### 9.21 Adding a tracked source file requires regenerating the baseline, and the census cannot see the file until it is staged (hit 2026-10-13, by the orchestrator, on 9.1's own landing; open) — **REPAIRED 2026-10-13**
 
 - **Where**: `.peaks/lint/gate-baseline.json`'s `files[]` map versus
   `.husky/peaks-gate.mjs repo`, whose census walks **`git ls-files`** — the **index**, not the working tree.
@@ -4391,7 +4391,7 @@ git add <file> && node .husky/peaks-gate-baseline.mjs`.
   the item closed rather than narrowed: the failure mode was _a human remembering an order_, and the
   repair does not ask them to — it states the order at the moment it is needed.
 
-### 9.22 Both audit CLIs refuse one step before writing unless the PRD handoff already exists, and nothing states the order (hit 2026-10-13, twice — on 9.1 and 9.2; open)
+### 9.22 Both audit CLIs refuse one step before writing unless the PRD handoff already exists, and nothing states the order (hit 2026-10-13, twice — on 9.1 and 9.2; open) — **REPAIRED 2026-10-13**
 
 - **Where**: `peaks security-audit run` and `peaks perf-audit run`. Both read the PRD handoff and exit
   **`HANDOFF_MISSING`** when `.peaks/_runtime/<sid>/prd/handoff-<rid>.md` is absent — and the artifact is
