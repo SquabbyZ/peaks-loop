@@ -44,7 +44,7 @@ done
 
 | Missing file | Resume at |
 |---|---|
-| `rd/tech-doc.md` (for `feature`/`refactor`) or `rd/bug-analysis.md` (for `bugfix`) | Step 3b (RD planning) |
+| `rd/tech-doc.md` (for `feature`/`refactor`) or `rd/bug-analysis-<rid>.md` (for `bugfix`) | Step 3b (RD planning) |
 | `rd/code-review-<rid>.md` or `audit/security-<rid>.md` | Step 5 (RD review fan-out) |
 | `audit/perf-<rid>.md` (for `feature`/`refactor`) | Step 5 (perf baseline) |
 | `qa/test-cases/<rid>.md` | Step 6 (QA test-case generation) |

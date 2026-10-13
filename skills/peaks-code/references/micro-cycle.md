@@ -165,7 +165,7 @@ verdict=return-to-rd → RD 修 (new slice 内部走 micro-cycle)
 > **CLI gate enforcement**: `peaks request transition` now refuses to move RD/QA to gated states when required artifacts are missing. The required files depend on `--type` chosen at `peaks request init` (default `feature`):
 >
 > - `feature` / `refactor`: full gates (tech-doc, code-review, security-review, test-cases, test-report, security-findings, performance-findings)
-> - `bugfix`: lighter planning (`bug-analysis.md` instead of `tech-doc.md`); still requires code-review + security-review + regression test-cases + security-findings; performance-findings optional unless the bug is performance-related
+> - `bugfix`: lighter planning (`bug-analysis-<rid>.md` instead of `tech-doc.md`); still requires code-review + security-review + regression test-cases + security-findings; performance-findings optional unless the bug is performance-related
 > - `config`: only security-review (RD) and security-findings (QA)
 > - `docs` / `chore`: no gates
 >

@@ -102,9 +102,11 @@ type PrerequisiteTable = Partial<Record<TransitionKey, ReadonlyArray<ArtifactPre
 
 // Shared prerequisite fragments.
 const BUG_ANALYSIS: ArtifactPrerequisite = {
-  relativePath: 'rd/bug-analysis.md',
+  relativePath: 'rd/bug-analysis-<rid>.md',
+  // The bare path below is still accepted, so an older session keeps passing.
+  legacyRelativePath: 'rd/bug-analysis.md',
   description:
-    'Bug root-cause analysis (reproduction, affected paths, fix approach, regression test plan)',
+    'Bug root-cause analysis (reproduction, affected paths, fix approach, regression test plan). The rid is part of the filename so two bugfix slices in one session do not collide; the bare location is accepted during the back-compat window via legacyRelativePath.',
   mustContain: ['## Root cause', '## Fix approach']
 };
 const CODE_REVIEW: ArtifactPrerequisite = {
@@ -186,12 +188,11 @@ const AUDIT_PERF: ArtifactPrerequisite = {
 // rather than hardcoded in the shared branch, so a consumer filtering on the
 // code cannot match a different artifact's warning.
 //
-// repo's own producer/reader constant is `mutReportPath()` in
-// `packages/peaks-loop-mut/src/services/mut/report-loader.ts`, which names
-// `mut/mut-report.json`, and `peaks mut run`'s `--out` is supplied by the
-// caller. A `<rid>`-templated requirement here would be a name no producer
-// in the repo can write — a gate that exists only in prose, sitting behind
-// `backCompat: true` so it gates nothing at all. If mut ever gains a
+// The repo's producer/reader constant is `mutReportPath()` in
+// `packages/peaks-loop-mut/src/services/mut/report-loader.ts`, naming
+// `mut/mut-report.json`; `peaks mut run`'s `--out` is caller-supplied. A
+// `<rid>`-templated requirement here would name no file a producer can write —
+// a gate living only in prose, behind `backCompat: true`, gating nothing.
 const MUT_REPORT: ArtifactPrerequisite = {
   relativePath: 'mut/mut-report.json',
   description:
@@ -391,8 +392,7 @@ const FEATURE_TABLE: PrerequisiteTable = {
 // v2.11.0 D1/D4: SECURITY_FINDINGS dropped from qa:verdict-issued (peaks-rd owns it).
 // v2.12.0 Group B Tier 5: security-review + perf-baseline → AUDIT_SECURITY +
 // AUDIT_PERF (with legacy shims for 1-minor-release back-compat).
-// v2.13.1 Group A: add MUT_REPORT (same rd-side hard block rationale as
-// FEATURE_TABLE).
+// v2.13.1 Group A: add MUT_REPORT (same rd-side hard block rationale as FEATURE_TABLE).
 const BUGFIX_TABLE: PrerequisiteTable = {
   'prd:handed-off': [PRD_CONTENT],
   'rd:implemented': [BUG_ANALYSIS],

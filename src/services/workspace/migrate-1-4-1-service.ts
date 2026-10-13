@@ -22,6 +22,9 @@
 import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 
+// Frozen: the filenames release 1.4.1 wrote, not the current contract. The
+// entries name what this migration must FIND on an upgraded tree, so they stay
+// bare even where a later release put the request id in the canonical name.
 export const PER_SESSION_ARTIFACT_TYPES = [
   'rd/tech-doc.md',
   'rd/code-review.md',

@@ -254,7 +254,13 @@ function baseEvidenceSourcesB(rid: string): EvidenceSource[] {
     {
       key: 'rd-bug-analysis',
       label: 'RD bug analysis (original problem statement)',
-      segments: ['rd', 'bug-analysis.md'],
+      // Mirrors BUG_ANALYSIS in `src/services/artifacts/artifact-prerequisites.ts`:
+      // the scoped name is canonical and the bare name is the pre-scoping tier.
+      // A segment matcher fails by NOT matching, so the positive direction is
+      // asserted — by the bug-analysis scoping suite under
+      // tests/unit/services/artifacts/, which names its own file in its header.
+      segments: ['rd', `bug-analysis-${rid}.md`],
+      legacySegments: ['rd', 'bug-analysis.md'],
       supports: ['problem-resolution'],
       delivery: { kind: 'whole' }
     },

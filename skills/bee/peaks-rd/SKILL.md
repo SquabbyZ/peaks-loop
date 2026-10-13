@@ -85,7 +85,7 @@ For frontend / UI-affecting slices, RD's self-test uses the Playwright MCP heade
 
 When this skill is launched as a sub-agent via `peaks sub-agent dispatch <role>` (then the LLM executes the returned toolCall) from `peaks-code`, the following sections of THIS skill are **suspended** for the sub-agent run: Session id (use parent's), Skill presence, Workspace initialization, Mode selection, Statusline install.
 
-What the sub-agent MUST still do: read PRD via `peaks request show`, run standards preflight (dry-run only), write planning artefact (`rd/tech-doc.md` for feature/refactor; `rd/bug-analysis.md` for bugfix; skip for config/docs/chore), return compact JSON envelope.
+What the sub-agent MUST still do: read PRD via `peaks request show`, run standards preflight (dry-run only), write planning artefact (`rd/tech-doc.md` for feature/refactor; `rd/bug-analysis-<rid>.md` for bugfix; skip for config/docs/chore), return compact JSON envelope.
 
 → see `references/rd-sub-agent-dispatch.md` for the full contract + hard prohibitions.
 

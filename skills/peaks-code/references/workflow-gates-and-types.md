@@ -37,7 +37,7 @@ When Peaks-Loop Code coordinates development in a code repository, keep this ord
    - Assisted/Strict: pause with `AskUserQuestion` for explicit user confirmation before proceeding;
 3. **Peaks-Loop Swarm parallel phase** — after PRD confirmed, launch UI, RD(planning), QA(test-cases) simultaneously:
    3a. UI design draft and visual direction (MANDATORY when request is frontend/user-visible; skipped for `--type docs|chore|config` or pure-backend requests);
-   3b. RD planning artifact — `rd/tech-doc.md` for feature/refactor, `rd/bug-analysis.md` for bugfix, skipped for docs/chore/config;
+   3b. RD planning artifact — `rd/tech-doc.md` for feature/refactor, `rd/bug-analysis-<rid>.md` for bugfix, skipped for docs/chore/config;
    3c. QA test-case generation (skipped for docs/chore — no acceptance surface to validate);
 4. **Peaks-Loop RD implementation** — consumes the type-appropriate inputs: project-scan + standards + (if UI involved) UI design-draft + RD planning artifact + QA test-cases. Includes unit tests for new/changed behavior (TDD) unless `--type` is docs/chore;
 5. **Peaks-Loop Code review + security review** — CRITICAL/HIGH issues fixed before progression; marked-blocked issues only allow a blocked handoff;
@@ -83,7 +83,7 @@ ls .peaks/_runtime/<sessionId>/prd/requests/<rid>.md
 
 # Type-specific RD planning artifact:
 #   feature / refactor → ls .peaks/_runtime/<sessionId>/rd/tech-doc.md
-#   bugfix             → ls .peaks/_runtime/<sessionId>/rd/bug-analysis.md
+#   bugfix             → ls .peaks/_runtime/<sessionId>/rd/bug-analysis-<rid>.md
 #   config / docs / chore → (no RD planning artifact required)
 
 # QA test-cases (skipped for docs/chore):
@@ -105,7 +105,7 @@ The CLI gate (`peaks request transition --state qa-handoff`) is the authoritativ
 | Request type | Required RD evidence (under `.peaks/_runtime/<sessionId>/`) |
 |---|---|
 | `feature` / `refactor` | `rd/tech-doc.md` + `rd/code-review-<rid>.md` + `audit/security-<rid>.md` + `audit/perf-<rid>.md` + `qa/test-cases/<rid>.md` (qa/test-cases pre-drafted by the 4th sub-agent in peaks-rd's parallel fan-out — slice 004) |
-| `bugfix` | `rd/bug-analysis.md` + `rd/code-review-<rid>.md` + `audit/security-<rid>.md` + `audit/perf-<rid>.md` + `qa/test-cases/<rid>.md` (the perf artifact is always required; a bug with no perf surface satisfies it with the `N/A — no perf surface` stub) |
+| `bugfix` | `rd/bug-analysis-<rid>.md` + `rd/code-review-<rid>.md` + `audit/security-<rid>.md` + `audit/perf-<rid>.md` + `qa/test-cases/<rid>.md` (the perf artifact is always required; a bug with no perf surface satisfies it with the `N/A — no perf surface` stub) |
 | `config` | `rd/security-review.md` (this one is genuinely ridless — `SECURITY_REVIEW.relativePath` carries no `<rid>`) |
 | `docs` / `chore` | (no extra evidence required) |
 
@@ -120,7 +120,7 @@ ls .peaks/_runtime/<sessionId>/rd/requests/<rid>.md
 # Type-specific RD evidence (must match the type recorded in the artifact body)
 #   feature / refactor → ls rd/tech-doc.md rd/code-review-<rid>.md audit/security-<rid>.md audit/perf-<rid>.md qa/test-cases/<rid>.md
 #                         (qa/test-cases/<rid>.md pre-drafted by the 4th sub-agent in peaks-rd's parallel fan-out — slice 004)
-#   bugfix             → ls rd/bug-analysis.md rd/code-review-<rid>.md audit/security-<rid>.md audit/perf-<rid>.md qa/test-cases/<rid>.md
+#   bugfix             → ls rd/bug-analysis-<rid>.md rd/code-review-<rid>.md audit/security-<rid>.md audit/perf-<rid>.md qa/test-cases/<rid>.md
 #                         (the perf artifact is always required; use the "N/A — no perf surface" stub when there is no perf surface)
 #   config             → ls rd/security-review.md
 #   docs / chore       → (no extra evidence required)

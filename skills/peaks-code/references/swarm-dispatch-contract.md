@@ -117,7 +117,7 @@ Steps:
 5. Read <existing-system-path> if archetype is legacy-*.
 6. Write the type-appropriate planning artefact:
    - feature | refactor  → .peaks/_runtime/<sid>/rd/tech-doc.md
-   - bugfix              → .peaks/_runtime/<sid>/rd/bug-analysis.md
+   - bugfix              → .peaks/_runtime/<sid>/rd/bug-analysis-<rid>.md
    - config | docs | chore → no planning artefact required. Return skipped.
 7. Return:
    {

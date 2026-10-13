@@ -410,7 +410,7 @@ The role's required artefact paths (also see peaks-ui/rd/qa SKILL.md and `swarm-
 | Role | Writes | Reads (PRD-side) |
 |---|---|---|
 | `ui` | `.peaks/_runtime/<sessionId>/ui/design-draft.md`, `.peaks/_runtime/<sessionId>/ui/requests/<rid>.md` | PRD body, project-scan, archetype |
-| `rd-planning` | `.peaks/_runtime/<sessionId>/rd/tech-doc.md` (feature/refactor) or `.peaks/_runtime/<sessionId>/rd/bug-analysis.md` (bugfix) | PRD body, project-scan, existing-system, codegraph |
+| `rd-planning` | `.peaks/_runtime/<sessionId>/rd/tech-doc.md` (feature/refactor) or `.peaks/_runtime/<sessionId>/rd/bug-analysis-<rid>.md` (bugfix) | PRD body, project-scan, existing-system, codegraph |
 | `qa-test-cases` | `.peaks/_runtime/<sessionId>/qa/test-cases/<rid>.md` | PRD body, RD planning artefact, project-scan, codegraph |
 
 **Code launches all sub-agents in the swarm plan in a single message (multiple `peaks sub-agent dispatch` calls in parallel, each followed by execution of the returned toolCall)** — this is what gives real concurrency. Do not sequentialize them. The CLI returns N toolCall descriptors; the LLM fires all N in the same message; the IDE dispatches them concurrently; Code then waits for all to return, runs `ls` checks against the paths above (Peaks-Loop Gate B), and only then advances to RD implementation.

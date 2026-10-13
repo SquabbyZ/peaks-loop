@@ -136,7 +136,7 @@ peaks sub-agent dispatch --from-dag .peaks/_runtime/<sid>/sc/slice-dag.json --ba
 peaks skill presence:set peaks-code --project <repo> --mode <mode> --gate swarm-converged
 ls .peaks/_runtime/<sid>/prd/requests/<rid>.md                # PRD artefact must exist (Gate B hard)
 # feature / refactor → ls .peaks/_runtime/<sid>/rd/tech-doc.md
-# bugfix             → ls .peaks/_runtime/<sid>/rd/bug-analysis.md
+# bugfix             → ls .peaks/_runtime/<sid>/rd/bug-analysis-<rid>.md
 ls .peaks/_runtime/<sid>/qa/test-cases/<rid>.md                # QA test-cases (skipped for docs|chore)
 # ui (only when in plan):
 ls .peaks/_runtime/<sid>/ui/design-draft.md 2>&1               # non-blocking (Gate B info)
@@ -146,7 +146,7 @@ ls .peaks/_runtime/<sid>/ui/design-draft.md 2>&1               # non-blocking (G
 
 # 4. Peaks-Loop RD planning artifact (the file required by the prerequisite gate)
 #    feature / refactor → write .peaks/_runtime/<id>/rd/tech-doc.md
-#    bugfix             → write .peaks/_runtime/<id>/rd/bug-analysis.md
+#    bugfix             → write .peaks/_runtime/<id>/rd/bug-analysis-<rid>.md
 #    config             → no planning artifact required at this state
 #    docs / chore       → no planning artifact required
 #    The RD state machine is a SEQUENCE (draft → spec-locked → implemented →
