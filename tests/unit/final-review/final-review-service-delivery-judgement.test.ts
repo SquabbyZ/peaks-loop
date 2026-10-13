@@ -49,6 +49,13 @@ import {
 // (prompt + envelope + needsAttention), and it is stated only when it is real —
 // a source that merely lost the budget today must not be tarred with it, or the
 // report becomes the next always-red signal to be tuned out.
+//
+// CORRECTED 2026-10-13. "No evidence can EVER reach the reviewer" was itself
+// stronger than the code: measured on an all-oversized set, the allocator
+// inlines a cap-sized EXCERPT of each source, so the reviewer is shown a head
+// of every one of them. The report now separates EXCERPT ONLY (a head
+// arrived — it still may not back a `pass`) from NO deliverable source (nothing
+// arrived), and the bullets below were updated to the measured fact.
 // ---------------------------------------------------------------------------
 describe('prepareFinalReview — an undeliverable dimension is stated, never silent (H2)', () => {
   /** One byte over the cap: the smallest file the `whole` rule can never deliver. */
@@ -68,8 +75,13 @@ describe('prepareFinalReview — an undeliverable dimension is stated, never sil
     const root = makeProject();
     writeAuditGoal(root, ['AC1: the widget renders']);
     // The ONLY source on disk, and it is one byte over the per-file cap — so
-    // under the `whole` delivery rule it can never be delivered, on this run or
-    // on any other, whatever the total budget is raised to.
+    // under the `whole` delivery rule it can never be delivered WHOLE, on this
+    // run or on any other, whatever the total budget is raised to.
+    //
+    // CORRECTED 2026-10-13 (measured): "can never be delivered" was the wrong
+    // sentence. The prompt carries the source's first 10,240 bytes — a bounded
+    // EXCERPT — and the report said "no deliverable source" about a block the
+    // reviewer was reading. It still may not back a `pass`; it is now NAMED.
     writeUnderProject(root, ['qa', 'test-reports', `${RID}.md`], 'X'.repeat(OVER_CAP));
 
     const { runner, calls } = captureRunner(
@@ -88,8 +100,19 @@ describe('prepareFinalReview — an undeliverable dimension is stated, never sil
     expect(prompt).toContain(`${OVER_CAP} bytes`);
     expect(prompt).toContain(`per-file cap of ${MAX_EVIDENCE_BYTES_PER_FILE} bytes`);
     expect(prompt).toContain('WHOLE or not at all');
-    expect(reachabilityBullets(prompt)).toContain('- problem-resolution: NO deliverable source.');
-    expect(reachabilityBullets(prompt)).toContain('- no-new-bugs: NO deliverable source.');
+    // The report says what ARRIVED. A cap-sized head of this source is in the
+    // prompt above, so the honest bullet is EXCERPT ONLY — not "no deliverable
+    // source", which described a prompt the reviewer was looking at.
+    expect(reachabilityBullets(prompt)).toContain('- problem-resolution: EXCERPT ONLY');
+    expect(reachabilityBullets(prompt)).toContain('- no-new-bugs: EXCERPT ONLY');
+    expect(reachabilityBullets(prompt)).not.toContain('NO deliverable source');
+    // ...and the excerpt itself is self-describing: byte count + withheld bytes.
+    expect(prompt).toContain('TRUNCATED EXCERPT');
+    expect(prompt).toContain(
+      `showing the first ${MAX_EVIDENCE_BYTES_PER_FILE} of ${OVER_CAP} bytes`
+    );
+    expect(prompt).toContain('1 bytes (0.0%) withheld');
+    expect(prompt).toContain('a HEAD, not the whole file');
 
     // (2) ...and the ENVELOPE repeats it on each dimension it is true of, so the
     // human is told WHY it is red rather than left to read it as uncertainty.
@@ -130,8 +153,8 @@ describe('prepareFinalReview — an undeliverable dimension is stated, never sil
     });
 
     const section = reachabilityBullets(calls[0]?.userPrompt ?? '');
-    expect(section).toContain('- functional-completeness: NO deliverable source.');
-    expect(section).toContain('- no-new-bugs: NO deliverable source.');
+    expect(section).toContain('- functional-completeness: EXCERPT ONLY');
+    expect(section).toContain('- no-new-bugs: EXCERPT ONLY');
     expect(section).not.toContain('- problem-resolution:');
     const resolved = out.dimensions.find((d) => d.dimension === 'problem-resolution');
     expect(resolved?.verdict).toBe('pass');

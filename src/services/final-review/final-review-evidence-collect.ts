@@ -4,16 +4,25 @@
 // budget allocator, hoisted from final-review-service.ts (C wave 7).
 // evidenceSourcesFor stays in the service module (guard C pins it there)
 // and is imported from it — a one-directional edge.
+//
+// The `CollectedEvidence` record builders moved to
+// final-review-evidence-records.ts on 2026-10-13, when this file reached 298 of
+// its 300-line cap. What stays here is the read phase, the floor reservation,
+// the allocator and the two byte helpers — collect → records, one way.
 
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   GATE_SOURCE_FOR_DIMENSION,
   type CollectedEvidence,
-  type EvidenceCandidate,
-  type EvidenceSource,
-  type EvidenceStatus
+  type EvidenceCandidate
 } from './final-review-evidence-sources.js';
+import {
+  blankEvidence,
+  foundEvidence,
+  omittedEvidence,
+  readFailureEvidence
+} from './final-review-evidence-records.js';
 import {
   MAX_EVIDENCE_BYTES_TOTAL,
   REQUIRED_DIMENSIONS,
@@ -140,91 +149,10 @@ function floorHolders(
   return holders;
 }
 
-interface EvidenceBase {
-  readonly source: EvidenceSource;
-  readonly relativePath: string;
-  readonly absolutePath: string;
-}
-
-function readFailureEvidence(base: EvidenceBase, candidate: EvidenceCandidate): CollectedEvidence {
-  // `read` is never `'ok'` here (it is set exactly when the read failed),
-  // and `'ok'` is not a status — the branch is what says which of the two
-  // failure facts this is.
-  const status: EvidenceStatus = candidate.read === 'unreadable' ? 'unreadable' : 'missing';
-  return {
-    ...base,
-    status,
-    totalBytes: 0,
-    includedBytes: 0,
-    content: '',
-    reason:
-      candidate.read === 'missing'
-        ? candidate.error
-        : `the file exists but could not be read (${candidate.error})`
-  };
-}
-
-function blankEvidence(base: EvidenceBase, raw: Buffer): CollectedEvidence {
-  return {
-    ...base,
-    status: 'empty',
-    totalBytes: raw.byteLength,
-    includedBytes: 0,
-    content: '',
-    reason: `file exists but contains no reviewable content (${raw.byteLength} bytes)`
-  };
-}
-
-interface OmissionContext {
-  readonly budgetLeft: number;
-  readonly allowance: number;
-  readonly holders: ReadonlyMap<number, DimensionKind>;
-  readonly pending: Set<number>;
-  readonly reservedElsewhere: number;
-  readonly unit: number;
-  readonly candidates: readonly EvidenceCandidate[];
-  readonly index: number;
-}
-
-function omittedEvidence(base: EvidenceBase, raw: Buffer, ctx: OmissionContext): CollectedEvidence {
-  const { allowance, budgetLeft, candidates, holders, pending, reservedElsewhere, unit, index } =
-    ctx;
-  const waiting = [...pending]
-    .filter((holder) => holder !== index)
-    .map((holder) => `${holders.get(holder)} (source ${candidates[holder]?.source.key ?? '?'})`);
-  return {
-    ...base,
-    status: 'omitted',
-    totalBytes: raw.byteLength,
-    includedBytes: 0,
-    content: '',
-    reason:
-      reservedElsewhere > 0
-        ? `${reservedElsewhere} bytes of the budget are reserved for dimension(s) ${waiting.join(', ')} — their only remaining evidence comes later in the source order; this source is inlined WHOLE or not at all and needs ${unit} bytes, while ${budgetLeft} were left (${allowance} after the reservation)`
-        : `total evidence budget (${MAX_EVIDENCE_BYTES_TOTAL} bytes) is exhausted — this source is inlined WHOLE or not at all and needs ${unit} bytes, ${budgetLeft} were left`
-  };
-}
-
 function reservedForPending(pending: Set<number>, units: number[], index: number): number {
   return [...pending]
     .filter((holder) => holder !== index)
     .reduce((sum, holder) => sum + (units[holder] ?? 0), 0);
-}
-
-function foundEvidence(
-  base: EvidenceBase,
-  raw: Buffer,
-  unit: number,
-  content: string
-): CollectedEvidence {
-  return {
-    ...base,
-    status: 'found',
-    totalBytes: raw.byteLength,
-    includedBytes: unit,
-    content,
-    reason: ''
-  };
 }
 
 export function collectEvidence(

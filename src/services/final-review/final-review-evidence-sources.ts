@@ -129,6 +129,19 @@ export interface CollectedEvidence {
   readonly totalBytes: number;
   /** Bytes actually inlined into the prompt. */
   readonly includedBytes: number;
+  /**
+   * The allocator's EXCERPT outcome: the FILE is larger than the per-file cap,
+   * so only its head was inlined. Measured 2026-10-13 on an all-oversized set
+   * (19,256 / 42,335 / 28,414 bytes against a 10,240 cap): the prompt carried a
+   * cap-sized head of each, 30,720 bytes, while the delivery report said "no
+   * source CAN be delivered". The excerpt was in the prompt; the statement that
+   * it was not is the claim-stronger-than-the-code defect.
+   *
+   * It is NOT delivery under the `whole` rule — `isDelivered` still answers
+   * `false` for it, because the conclusion may be in the part that was cut, so
+   * it may not back a `pass`. What it must not do is go unnamed.
+   */
+  readonly excerpt: boolean;
   readonly content: string;
   /** Why this source carries no evidence (non-`found` statuses only). */
   readonly reason: string;

@@ -304,6 +304,11 @@ describe('guard C teeth — the out-of-band review four attacks (R-B)', () => {
     expect(pooled(dir)).toEqual([]);
     expect(predicateHomeViolations(scanModuleSet(dir))).toEqual([]);
     expect(pooled(GUARDED_DIR)).toEqual([]);
-    expect(everyFileBelow(GUARDED_DIR)).toHaveLength(16);
+    // The guard's SUBJECT SIZE, pinned so a silently NARROWED subject is
+    // visible (the §2.28 amputation). Grew 16 -> 17 on 2026-10-13 with
+    // `final-review-evidence-records.ts`, the record builders extracted from
+    // `final-review-evidence-collect.ts` — a deliberate module, and the guard
+    // scans it like any other, which is what this arm is for.
+    expect(everyFileBelow(GUARDED_DIR)).toHaveLength(17);
   });
 });

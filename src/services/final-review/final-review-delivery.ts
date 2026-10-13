@@ -20,21 +20,36 @@ import type { DimensionEvidence, DimensionKind } from './final-review-types.js';
  */
 export interface UndeliverableDimensionEvidence {
   readonly dimension: DimensionKind;
+  /**
+   * Did the reviewer receive a bounded EXCERPT of at least one of these sources?
+   *
+   * Measured 2026-10-13 on the all-oversized set this report was written for
+   * (`qa-test-report` 19,256 B, `qa/test-cases` 42,335 B, `prd-handoff` 28,414 B
+   * against a 10,240 cap): the allocator inlined 30,720 bytes — a cap-sized head
+   * of each — into the prompt. So "no source can ever be delivered" was true
+   * only of WHOLE delivery, and the report read as if the reviewer had been
+   * shown nothing. This flag is which of those two facts it is.
+   */
+  readonly excerptDelivered: boolean;
   readonly sources: readonly {
     readonly key: string;
     readonly relativePath: string;
     readonly totalBytes: number;
+    /** Bytes of this source inlined as an excerpt (0 when none was inlined). */
+    readonly excerptBytes: number;
   }[];
 }
 
 /**
- * Can this source EVER be delivered, whatever the budget?
+ * Can this source EVER be delivered WHOLE, whatever the budget?
  *
- * `whole` is the only rule with a structural ceiling. Its test is
- * `includedBytes === totalBytes`, and the allocator can only ever inline
+ * The whole qualifier is the fact: an over-cap source IS delivered, as a
+ * bounded excerpt (see `CollectedEvidence.excerpt`). What it can never be is
+ * delivered WHOLE, and `whole` is the only rule with a structural ceiling. Its
+ * test is `includedBytes === totalBytes`, and the allocator can only ever inline
  * `min(bytes, MAX_EVIDENCE_BYTES_PER_FILE)` — so a `whole`-rule source LARGER
- * than the per-file cap can never be delivered: not on this run, not on any
- * run, not with any budget, because the budget is not what cuts it. Raising
+ * than the per-file cap is never whole: not on this run, not on any run, not
+ * with any budget, because the budget is not what cuts it. Raising
  * `MAX_EVIDENCE_BYTES_TOTAL` changes nothing either, since the per-file cap is
  * derived from it and the reservation spends all of it.
  *
@@ -93,13 +108,16 @@ export function undeliverableDimensions(
     const onDisk = supporting.filter((item) => item.totalBytes > 0);
     if (onDisk.length === 0) continue;
     if (!onDisk.every(isStructurallyUndeliverable)) continue;
+    const sources = onDisk.map((item) => ({
+      key: item.source.key,
+      relativePath: item.relativePath,
+      totalBytes: item.totalBytes,
+      excerptBytes: item.excerpt ? item.includedBytes : 0
+    }));
     report.push({
       dimension,
-      sources: onDisk.map((item) => ({
-        key: item.source.key,
-        relativePath: item.relativePath,
-        totalBytes: item.totalBytes
-      }))
+      excerptDelivered: sources.some((item) => item.excerptBytes > 0),
+      sources
     });
   }
   return report;
@@ -129,13 +147,29 @@ export function enforceDeliveryReachability(
     // The ENVELOPE is not byte-capped, so it names the path as well as the
     // size: the path is what a human has to act on to fix it.
     const detail = entry.sources
-      .map((item) => `${item.key} at ${item.relativePath} (${String(item.totalBytes)} bytes)`)
+      .map(
+        (item) =>
+          `${item.key} at ${item.relativePath} (${String(item.totalBytes)} bytes, ${
+            item.excerptBytes > 0
+              ? `${String(item.excerptBytes)} inlined as an excerpt, ${String(
+                  item.totalBytes - item.excerptBytes
+                )} withheld`
+              : 'none inlined'
+          })`
+      )
       .join(', ');
+    // The consequence is measured, not assumed. Saying "no evidence can ever
+    // reach the reviewer" while a cap-sized head of every one of these sources
+    // sits in the prompt is a claim stronger than the code — the defect class
+    // this module keeps closing.
+    const consequence = entry.excerptDelivered
+      ? 'a bounded EXCERPT of each was inlined, so the reviewer HAS partial evidence for this dimension — but no source for it can be delivered WHOLE, and a head of a file is not the document: the conclusion may be in the part that was cut'
+      : 'none of them was inlined, so no evidence for this dimension reached the reviewer at all';
     const marker = `[delivery-reachability: ${
       dimension.verdict === 'pass'
         ? 'verdict downgraded from "pass" to "inconclusive"'
         : `gate ran; verdict "${dimension.verdict}" is already non-"pass" and is left unchanged`
-    } — EVERY source on disk that supports "${dimension.dimension}" (${detail}) is larger than the per-file delivery cap of ${String(MAX_EVIDENCE_BYTES_PER_FILE)} bytes, and a source is inlined WHOLE or not at all, so no evidence for this dimension can ever reach the reviewer. The dimension is red by byte arithmetic, not by the reviewer's judgement, and it is listed in needsAttention for that reason.]`;
+    } — EVERY source on disk that supports "${dimension.dimension}" (${detail}) is larger than the per-file delivery cap of ${String(MAX_EVIDENCE_BYTES_PER_FILE)} bytes, and a source is inlined WHOLE or not at all; ${consequence}. The dimension is red by byte arithmetic, not by the reviewer's judgement, and it is listed in needsAttention for that reason.]`;
     const annotated: DimensionEvidence = {
       ...dimension,
       summary: `${dimension.summary} ${marker}`

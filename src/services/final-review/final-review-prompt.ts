@@ -18,10 +18,14 @@ export function renderEvidenceSection(collected: readonly CollectedEvidence[]): 
       const heading = `### [${index + 1}] ${item.source.key} — ${item.source.label}`;
       const supports = `SUPPORTS: ${item.source.supports.join(', ')}`;
       if (item.status === 'found') {
-        const status =
-          item.includedBytes < item.totalBytes
-            ? `FOUND at ${item.relativePath} — TRUNCATED, showing the first ${item.includedBytes} of ${item.totalBytes} bytes`
-            : `FOUND at ${item.relativePath} — ${item.totalBytes} bytes`;
+        // An over-cap source IS delivered — as a bounded excerpt. The block says
+        // so in as many words, with the byte count and the withheld fraction, so
+        // a reviewer cannot read a head of a file as the whole file and a human
+        // reading the transcript can see the evidence was partial.
+        const withheld = item.totalBytes - item.includedBytes;
+        const status = item.excerpt
+          ? `FOUND at ${item.relativePath} — TRUNCATED EXCERPT (a HEAD, not the whole file): showing the first ${item.includedBytes} of ${item.totalBytes} bytes, ${withheld} bytes (${((withheld / item.totalBytes) * 100).toFixed(1)}%) withheld.`
+          : `FOUND at ${item.relativePath} — ${item.totalBytes} bytes`;
         return `${heading}\n${supports}\nSTATUS: ${status}\n<<<EVIDENCE\n${item.content}\n>>>EVIDENCE`;
       }
       if (item.status === 'unreadable') {
@@ -110,16 +114,26 @@ export function renderDeliveryReachabilityStatus(
   // Kept to one line per source and one line per dimension: this block rides
   // inside the same byte-capped prompt as the evidence it describes, and the
   // evidence blocks above already carry each source's path and status.
+  // Two measured states, not one assertion. An over-cap source IS delivered as
+  // a bounded excerpt (see the evidence blocks above); saying "no deliverable
+  // source" about a block the reviewer is reading is the claim-stronger-than-
+  // the-code defect, so the bullet names which of the two it is.
   const lines = report.map((entry) => {
     const sources = entry.sources
-      .map((item) => `${item.key} (${String(item.totalBytes)} bytes)`)
+      .map((item) =>
+        item.excerptBytes > 0
+          ? `${item.key} (${String(item.totalBytes)} bytes; ${String(item.excerptBytes)} inlined, ${String(item.totalBytes - item.excerptBytes)} withheld)`
+          : `${item.key} (${String(item.totalBytes)} bytes; none inlined)`
+      )
       .join(', ');
-    return `  - ${entry.dimension}: NO deliverable source. ${sources} exceeds the per-file cap of ${String(MAX_EVIDENCE_BYTES_PER_FILE)} bytes, and a source is inlined WHOLE or not at all.`;
+    return entry.excerptDelivered
+      ? `  - ${entry.dimension}: EXCERPT ONLY — ${sources}. The reviewer received a bounded EXCERPT of each and NOT the documents.`
+      : `  - ${entry.dimension}: NO deliverable source — ${sources}. None was inlined, so no evidence for this dimension reached the reviewer.`;
   });
   return [
     '## Evidence delivery reachability (structural)',
-    `The allocator inlines at most ${String(MAX_EVIDENCE_BYTES_PER_FILE)} bytes of any one source, WHOLE or not at all, and a source delivered under the "whole" rule is delivered only when the reviewer received ALL of it. For the dimension(s) below, every source on disk that supports it is larger than that cap, so no source CAN be delivered — not on this run and not on any run, whatever the budget.`,
+    `The allocator inlines at most ${String(MAX_EVIDENCE_BYTES_PER_FILE)} bytes of any one source, WHOLE or not at all, and a source delivered under the "whole" rule is delivered only when the reviewer received ALL of it. For the dimension(s) below, every source on disk that supports it is larger than the per-file cap of ${String(MAX_EVIDENCE_BYTES_PER_FILE)} bytes, so not one of them can ever be delivered WHOLE — not on this run and not on any run, whatever the budget.`,
     ...lines,
-    'Report each of them as "inconclusive" with confidence "low" and name this reason in its summary. Do NOT report "pass": the service re-checks it, and a "pass" here is downgraded. This is a STRUCTURAL impossibility, not a judgement you are being asked to make — say so rather than reporting an unexplained "inconclusive".'
+    'Report each as "inconclusive", confidence "low", naming this reason in its summary, and do NOT report "pass": the service re-checks it and downgrades one — a head of a file is not the document, and the conclusion may be in the part that was cut.'
   ].join('\n');
 }

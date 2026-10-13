@@ -160,14 +160,20 @@ describe('prepareFinalReview — on-disk evidence (D1)', () => {
     });
 
     const prompt = calls[0]?.userPrompt ?? '';
-    // Bounded by the byte budget plus the FIXED scaffolding, not by the 360 KB
-    // that is actually on disk. The scaffolding is what is left after the
-    // allocator spends the whole budget on the first four cap-sized units:
-    // measured 8,646 bytes here — the evidence rules, nine status blocks and,
-    // new in H2, the reachability block that names this fixture's four
-    // undeliverable dimensions (~1.5 KB, 13 source lines). The allowance is
-    // 10 KiB rather than 8 KiB for exactly that reason, and it is still an
-    // order of magnitude below what a 360 KB evidence set would put here.
+    // Bounded by the byte budget plus the scaffolding, not by the 360 KB that
+    // is actually on disk. The scaffolding is what is left after the allocator
+    // spends the whole budget on the first four cap-sized units, and it is NOT
+    // a code constant — measured 2026-10-13, this prompt is
+    //     `50,059 + len(absolute projectRoot)` bytes
+    // because the pre/post-diff UNAVAILABLE reason embeds the ABSOLUTE root
+    // (`pre-post-diff.ts:413`). Two temp roots differing by 14 characters gave
+    // prompts differing by exactly 14 bytes (50,116 at root length 57, 50,130 at
+    // 71). So headroom under the 10 KiB allowance is `51,141 - len(projectRoot)`
+    // and it must be measured against YOUR root: an earlier revision of this
+    // comment quoted 1,086 bytes, which was the value for one root of length 55
+    // — a fixture number presented as a budget. The bound that holds is the
+    // 10 KiB allowance; a further prose addition here is a change to it, not a
+    // free edit.
     expect(Buffer.byteLength(prompt, 'utf8')).toBeLessThanOrEqual(
       MAX_EVIDENCE_BYTES_TOTAL + 10 * 1024
     );
