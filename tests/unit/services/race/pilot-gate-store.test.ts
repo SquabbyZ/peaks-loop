@@ -187,14 +187,65 @@ describe('Scenario: pilot-gate-store — the writer owns the evidence file', () 
 });
 
 describe('Scenario: pilot-gate-store — the writer refuses what it cannot record', () => {
-  it('when a rid does not carry the rid- prefix, should refuse it', () => {
-    // given: a bare word where a task id belongs
-    const built = buildPilotTaskRow(input({ rid: 'not-a-rid' }));
+  // The repository's OWN live request ids. Snapshot of
+  // `.peaks/_runtime/*/rd/requests/` taken 2026-10-13: **97 distinct ids, 39
+  // carrying `rid-` and 58 not**, so the prefix test refused 58 of 97 (60%) of
+  // what this repository actually produces. A count over a population this
+  // session is still growing goes stale the moment it is written — an earlier
+  // draft said 95/37/58, taken before two more `rid-`-prefixed requests were
+  // minted in the same session — so the numbers are dated rather than offered
+  // as a constant. These are the real ids, not a stand-in for them.
+  const LIVE_RIDS = [
+    '2026-10-10-gate-classifier-baseline-coverage',
+    'gate-classifier-backstop-repair',
+    'regression-fix-rule-d',
+    'services-top3',
+    'boundary-evidence'
+  ];
+
+  it.each(LIVE_RIDS)('when the rid is the live id %s, should accept the row', (rid) => {
+    // given: an id the repository has really minted
+    const built = buildPilotTaskRow(input({ rid }));
+    // when:  the row is built
+    // then:  accepted — a name may key the row, it may not veto it
+    expect(built.kind === 'ok' ? built.row.rid : built.message).toBe(rid);
+  });
+
+  it('when a rid violates the id pattern without touching path safety, should refuse it', () => {
+    // given: a leading dot — it fails `REQUEST_ID_PATTERN`'s first-character
+    //        rule while PASSING `isUnsafePathInput`, so the refusal can only be
+    //        the pattern's (a path separator would be refused by the safety
+    //        guard and would prove nothing about the pattern)
+    const built = buildPilotTaskRow(input({ rid: '.hidden-start' }));
     // when:  the row is built
     const message = built.kind === 'invalid' ? built.message : '';
     // then:  refused, and the message names the flag
     expect(built.kind).toBe('invalid');
     expect(message).toContain('--rid');
+  });
+
+  it('when a rid carries a path separator, should refuse it by the id pattern', () => {
+    // given: two ids carrying a path separator
+    //
+    //        WHICH GUARD REFUSES THEM, MEASURED — because the first version of
+    //        this case named the wrong one and would have stayed green if that
+    //        guard were deleted: `isUnsafePathInput('a/b')` is FALSE (a nested
+    //        relative path is "safe" to it), and `a\b` never reaches it either,
+    //        because the rid pattern fires first. So the refusal asserted here
+    //        is the PATTERN's, which has neither `/` nor `\` in its class.
+    const slash = buildPilotTaskRow(input({ rid: 'a/b' }));
+    const backslash = buildPilotTaskRow(input({ rid: 'a\\b' }));
+    // when:  both are built
+    const slashMessage = slash.kind === 'invalid' ? slash.message : '';
+    // then:  refused by the pattern, and the message names the flag
+    expect(slash.kind).toBe('invalid');
+    expect(slashMessage).toContain('--rid');
+    expect(backslash.kind).toBe('invalid');
+    // The safety guard on the rid is a separate statement, and it is NOT
+    // exercised here: every string the pattern admits also passes
+    // `isUnsafePathInput`, so that call is currently unreachable for the rid.
+    // The same guard on the SESSION id is live and is exercised by the
+    // `../../PWNED` case below.
   });
 
   it('when a session id climbs out of its directory, should refuse it before writing', () => {

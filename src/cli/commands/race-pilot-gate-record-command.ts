@@ -58,7 +58,10 @@ export function registerRacePilotGateRecordCommand(race: Command, io: ProgramIO)
     pilotGate
       .command('record')
       .description(RECORD_DESCRIPTION)
-      .requiredOption('--rid <id>', 'task request id (must start with "rid-")')
+      .requiredOption(
+        '--rid <id>',
+        'task request id (letters or digits, then letters, digits, ".", "_" or "-")'
+      )
       .requiredOption('--session-id <session>', 'session the task ran in')
       .requiredOption('--date <YYYY-MM-DD>', 'task date')
       .requiredOption(

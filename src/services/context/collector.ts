@@ -64,7 +64,11 @@ async function scanFiles(root: string, exclude?: string): Promise<ReadonlyArray<
       const s = await stat(full);
       out.push({
         path: rel,
-        kind: classifyKind(relative(root, full)),
+        // `rel`, not a second `relative()` call: the raw value is
+        // `\`-separated on win32 and `classifyKind` tests for `/__tests__/`,
+        // so the nested-test branch could never match on the platform it was
+        // written on. The normalised value is the one computed above.
+        kind: classifyKind(rel),
         lines: 0, // computed lazily; full line count is expensive
         hash: '' // computed lazily via content-hash-cache-pattern
       });

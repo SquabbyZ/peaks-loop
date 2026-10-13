@@ -28,6 +28,7 @@ import { CLI_VERSION } from 'peaks-loop-shared/version';
 import { z } from 'zod';
 
 import { isUnsafePathInput } from '../../shared/path-safety.js';
+import { REQUEST_ID_PATTERN } from '../artifacts/request-artifact-service.js';
 import {
   evaluatePilotGate,
   type PilotGateEvaluation,
@@ -196,11 +197,23 @@ export function buildPilotTaskRow(
     message
   });
 
-  if (!input.rid.startsWith('rid-')) {
-    return invalid(`--rid must start with "rid-", got ${JSON.stringify(input.rid)}`);
+  // The rule is the id PATTERN, not a prefix: a name may key a row, it may not
+  // veto one. Snapshot of `.peaks/_runtime/*/rd/requests/` on 2026-10-13 — 97
+  // ids, 39 prefixed, 58 not — so the test this replaces refused 58 of 97 of
+  // what the repository mints. `REQUEST_ID_PATTERN` is imported rather than
+  // re-spelled so this site cannot drift, and it is STRICTER than that test:
+  // the old one accepted `rid-/abs`, this one refuses it.
+  if (!REQUEST_ID_PATTERN.test(input.rid)) {
+    return invalid(
+      `--rid must match ${REQUEST_ID_PATTERN.source}, got ${JSON.stringify(input.rid)}`
+    );
   }
   // `isUnsafePathInput` is the predicate `guardRuntimeSegment` is built on; the
-  // ids and the file paths are checked BEFORE anything is written.
+  // ids and the file paths are checked BEFORE anything is written. THIS RID ARM
+  // IS UNREACHABLE-TRUE: every string the pattern admits is one `[A-Za-z0-9._-]`
+  // segment starting alphanumeric, so it always passes, and it is KEPT as
+  // defence in depth — the invariant, not the test, makes the write safe. The
+  // SESSION arm below is the live one; `../../PWNED` reaches and is refused by it.
   if (isUnsafePathInput(input.rid)) {
     return invalid(`--rid must be a single safe path segment, got ${JSON.stringify(input.rid)}`);
   }

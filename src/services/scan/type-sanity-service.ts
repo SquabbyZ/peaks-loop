@@ -103,6 +103,20 @@ const CONFIG_NAMES = new Set([
 ]);
 const CONFIG_EXTENSIONS = new Set(['.toml', '.ini', '.cfg', '.env']);
 
+/**
+ * Directory conventions that make every file beneath them a test file. Anchored
+ * to WHOLE PATH SEGMENTS, never substrings: `src/services/test-cache/` is an
+ * ordinary source directory whose name merely begins with the word, and a
+ * word-boundary test cannot tell the two apart — `\b` is satisfied by `-`, so
+ * `\btest\b` fired inside `test-cache`. The five words are the five the
+ * substring test was reaching for, matched exactly; `cross-pass-edge-static-scan-support.ts`
+ * already anchors them the same way.
+ */
+const TEST_DIR_RE = /(^|[\\/])(?:test|tests|__tests__|__mocks__|spec)[\\/]/;
+
+/** The filename convention — the file itself declares it is a test. */
+const TEST_FILENAME_RE = /\.(test|spec)\.[a-z]+$/i;
+
 function classifyFile(filePath: string): FileCategory {
   const name = basename(filePath);
   const ext = extname(filePath).toLowerCase();
@@ -118,12 +132,7 @@ function classifyFile(filePath: string): FileCategory {
   )
     return 'config';
   if (DOCS_EXTENSIONS.has(ext)) return 'docs';
-  // Test files: anything under tests/, __tests__/, or matching *.test.*, *.spec.*
-  if (
-    /\b(?:tests?|__tests__|__mocks__|spec)\b/.test(filePath) ||
-    /\.(test|spec)\.[a-z]+$/i.test(name)
-  )
-    return 'test';
+  if (TEST_DIR_RE.test(filePath) || TEST_FILENAME_RE.test(name)) return 'test';
   if (SOURCE_EXTENSIONS.has(ext)) return 'source';
   return 'unknown';
 }
