@@ -5038,7 +5038,7 @@ INIT_SESSION_HELP)` — versus line **107** in the same file:
   `THIRD_PARTY_REVIEW` before its window closes. `qa/.initiated` should be left alone and the reason
   stated, or the table will accumulate changes made to satisfy a pattern rather than a defect.
 
-### 9.38 The machine-injected dispatch block tells every sub-agent to run a command the CLI refuses (measured 2026-10-13, by the checker 9.31 built; open, and it is the majority of that checker's findings)
+### 9.38 The machine-injected dispatch block tells every sub-agent to run a command the CLI refuses (measured 2026-10-13, by the checker 9.31 built; open, and it was the majority of that checker's findings) — **REPAIRED 2026-10-14**
 
 - **Where**: `src/services/context/build-dispatch-system-prompt.ts:113`, plus its token registry at
   `BINDING_RULE_TOKENS` (`:404`) and **three mirrors under `skills/`**. The line is:
@@ -5069,6 +5069,113 @@ INIT_SESSION_HELP)` — versus line **107** in the same file:
   text, so the fix is verifiable by the tool that found it. Check whether the mirrors are byte-compared
   by a test; if they are, the fix is mechanical and pinned, and if they are not, that is its own small
   finding.
+
+- **FULLER RECON 2026-10-13 — the line is wrong in three independent ways, not one.** Read off the
+  command's real signature: `--rid` **is not a flag on `worktree auth grant` at all** (it is
+  `--request-id <rid>`, and that is *optional*); `--operation <op>` is **required** and the block
+  omits it; and `--ttl` is **milliseconds** (default `300000`) while the block prints `<5m>`.
+  `peaks worktree spawn --rid …` is **not** affected — that command genuinely declares `--rid`, so only
+  the `auth grant` line is wrong.
+- **The correct form is already used everywhere else in this repository** — the CLI's own help examples
+  (`worktree-auth-commands.ts:53-54`), the authorization gate's own refusal messages
+  (`worktree-authorization-gate.ts:418,426,552`), the refusal-message module
+  (`worktree-refusal-messages.ts:24,57`), and `skills/peaks-code/references/worktree-governance.md:42`.
+  **The injected block is the only place in the tree that tells a sub-agent the wrong form — while the
+  gate that will refuse that sub-agent tells it the right one.**
+- **Why the existing pin did not catch it, which is the reusable part.** `BINDING_RULE_TOKENS` registers
+  both wrong strings verbatim and the tests assert the assembled prompt contains **every** token. So the
+  block text and the token registry are pinned to each other — and because the strings were *copied
+  together from the same wrong source*, the pin confirmed a **consistent** error. **A consistency test is
+  not a correctness test**: it can only ever ask whether two copies of a claim agree, never whether the
+  claim is true. What ended the error was a check that **resolved the quoted command against the CLI**
+  (9.31) — an oracle outside the pair.
+- **Being repaired** as `rid-the-injected-block-names-a-runnable-command`, with 9.31's checker as its
+  regression test: the injected block's count should go **147 → 0**, and the whole-corpus count is
+  re-measured rather than assumed.
+
+- **CORRECTED 2026-10-13, because the entry above carried the same defect it describes.** It said the
+  correct form is used *"everywhere else in this repository"* and listed four sites. **Three were
+  verified; the fourth was not.** `skills/peaks-code/references/worktree-governance.md:42` shows
+  `--rid` with `--ttl 5m` and **no `--operation`** — it is **unrunnable too**, and the orchestrator
+  wrote the claim from a grep hit that showed a multi-line form, assuming the continuation lines. *A real
+  measurement attached to a site nobody checked is this file's own most-repeated defect, and the entry
+  describing that defect committed it.*
+- **The census, measured properly**: five sites print a **complete** invocation. Three are correct
+  (`worktree-auth-commands.ts:53-54`, `worktree-authorization-gate.ts:418,426,552`,
+  `worktree-refusal-messages.ts:24,57` — all carry `--operation`); **two are not** — the injected block
+  with its three mirrors, and `worktree-governance.md`. The honest sentence is **three of five**, not
+  "everywhere else".
+- **The block has TWO unrunnable lines, and the same orchestrator error produced both.** The second is
+  `peaks worktree spawn --rid <rid> --ttl <duration> --purpose <text>`: `--rid` is real, but
+  `peaks worktree spawn --rid x` answers `error: required option '--role <role>' not specified`. The
+  handoff **forbade touching it**, on the grounds that `--rid` exists. **Both of the orchestrator's
+  errors came from checking that a flag exists and concluding that the command runs.** Those are
+  different questions and only the second is the defect — so the rule for every printed invocation is
+  *run it, or derive its mandatory set from the registered command*, never *check that its flags exist*.
+- **A finding about the checker itself.** Pointing readers at `--help` was tried as the fix and
+  rejected: 9.31's checker reports `--help` as an undeclared flag. `--help` is universally accepted by
+  commander and present on every command, so that is a **false positive in the checker** — recorded here
+  rather than fixed here, since widening the checker is its own slice with its own corpus measurement.
+
+- **REPAIRED 2026-10-14**, as `fix(dispatch): the injected block names commands that run`. Both bullets
+  are corrected in the block, its three mirrors, its token registry, and **two further skill docs the
+  census found** (`worktree-governance.md`, `skills/peaks-code/SKILL.md`); 9.39 is closed in the same
+  round. `--ttl` is **dropped** rather than re-spelled — it is optional and the documented `300000`
+  default is exactly what `<5m>` meant, while `<ms>` would be a placeholder no reader can resolve.
+- **What the round actually cost is the guard, and it is this item's own lesson applied to itself.** The
+  first guard checked flag existence, mandatory presence and declared spelling — and a review showed it
+  **could not see the defect the slice had just removed**: reintroducing `--ttl 5m` across all five
+  surfaces left it **8/8 green**, while the CLI accepts that line and writes a grant with a
+  **five-millisecond TTL**. The hole was precise: **`--ttl` is optional, and the arm only compared
+  mandatory flags.** It is now a per-occurrence **shape walk** — each option compared against its
+  registered declaration, literal values asserted to be members of the declared enum, an unconsumed
+  token treated as a stray operand — with three red runs built from the pre-fix text (6/12, 4/12, 1/12).
+- **Two limits are stated rather than implied**: the arms do not spawn the CLI, so a well-*shaped*
+  invocation the command's own validation refuses (`--reason ""`, `--ttl 0`) still passes; and the
+  extraction reads a flagless run as a prose mention.
+- **The census was the highest-value part and it was not in the handoff.** It swept every printed
+  worktree invocation in the repository (1410 files, 43 printed, 98 prose mentions) and found **two
+  more unrunnable sites** the handoff had not named. The method — telling a printed invocation from a
+  prose mention — is what made the number mean anything, and it is stated with the count.
+- **The orchestrator's own handoff asserted two false premises, and both were the same error.** It said
+  the correct form was used "everywhere else" (three of four listed sites were verified; the fourth was
+  not, and was wrong), and it **forbade fixing the `spawn` line** because `--rid` is real — verifying
+  that a **flag exists** and concluding that the **command runs**. They are different questions, and only
+  the second is the defect. Both corrections are recorded beside the claims they correct.
+
+
+
+### 9.39 The CLI's own `gc` output tells the operator to run a command that does not exist (measured 2026-10-14, by 9.38's census; **found-and-left by the slice, then fixed on review**) — **REPAIRED 2026-10-14**
+
+- **Where**: `src/cli/commands/worktree-lease-gc-command.ts:143`, in the output block `peaks worktree gc`
+  prints on every run:
+  ```
+  For per-lease detail, run \`peaks worktree status --lease-id <id>\`.
+  ```
+- **Measured**: `peaks worktree status --lease-id x` → `error: unknown command 'status'`. The registered
+  subcommand is `lease-status`. A one-word typo, in an instruction printed to a human, that the human
+  will paste.
+- **Why it is its own item even though it is one word, and why the first judgement to leave it was
+  wrong.** 9.38's census swept every printed worktree invocation in the repository and returned this as
+  "named and untouched", on the reasoning that *other modules' commands belong to their own slices*.
+  The reviewer drew the distinction the reasoning missed: for the **other** site the slice left
+  (`cron-commands.ts:12-15`) the reasoning holds — its `--all-sessions` quote **documents a defect that
+  was corrected**, so it is a record, not an instruction. Here it is the opposite: **live output the CLI
+  emits at the moment an operator is looking for exactly this next step.** And no backlog entry owned
+  it. *"Somebody else's module owns it" is a scope argument, not an owner, and an item with no owner is
+  not filed — it is forgotten.*
+- **Fixed in 9.38's repair round.** Recorded separately because the class is *a printed instruction that
+  cannot run*, the same class as 9.38 — and because the sweep that found it was looking for precisely
+  that and still filed it nowhere.
+- **Not swept**: 9.38's census bounded itself to `worktree` invocations. Whether other verb families
+  print instructions the CLI refuses is unmeasured. The oracle for that now exists (9.31's checker
+  resolves a quoted command against the registered tree), so the sweep is cheap — and the reason to run
+  it is that this one was found by a **hand-written** predicate that only knew to look at worktrees.
+
+- **REPAIRED 2026-10-14** in 9.38's round: `worktree-lease-gc-command.ts:143` now names the registered
+  `lease-status`, confirmed both ways — `peaks worktree status --lease-id x` answers
+  `error: unknown command 'status'`, and the corrected form reaches the command and reports
+  `LEASE_NOT_FOUND` for an unknown id.
 
 ### 9.A Recorded, not fixed — the session's accepted risks, smaller items, and open U-questions
 
