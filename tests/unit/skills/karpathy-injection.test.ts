@@ -122,25 +122,25 @@ describe('Karpathy guidelines injection — AC-6 coverage', () => {
     expect(sectionBody).toContain('Define success criteria. Loop until verified');
     // The block is the canonical injection SOURCE — it must say so.
     //
-    // SCOPE OF THIS ASSERTION — read before trusting it: it pins the
-    // block's own STATEMENT of the obligation, not the obligation. Measured
-    // 2026-09-18: no `src/**` code injects this block. The dispatch prompt
-    // builder (`src/services/context/build-dispatch-system-prompt.ts`)
-    // injects TEST_TOOL_DETECTION_BLOCK / L1_WORKTREE_GOVERNANCE_BLOCK /
-    // LIFECYCLE_RULES / REPORT_CAP_BLOCK / FACT_FORCE_GATE_BLOCK and then the
-    // runtime context blocks — context / codegraph / project-stack /
-    // fresh-context / capsule / memory. This block is in neither list, and
-    // that is the whole claim. An earlier draft of this note closed the list
-    // with "and nothing else", which was FALSE (measured 2026-09-18 against
-    // the builder's own two return statements — the five named blocks are far
-    // from the whole prompt). `src/**` does mention the guideline titles, but
-    // only in prose — a CLI description reading "Karpathy #2 Simplicity
-    // First", a comment citing "§3 Surgical Changes" — never as an injection.
-    // So unlike the Test Tool Detection block ("machine-injected, not a
-    // prompt ritual"), this one is a prompt-ritual
-    // obligation. Wiring it changes dispatch behaviour and is recorded as a
-    // user decision, not done here: see
-    // `.peaks/_runtime/2026-09-17-session-607ead/rd/tech-doc-rid-d2-false-pins.md`.
+    // CORRECTED 2026-10-13, kept visible rather than edited away. This note
+    // used to end: "Measured 2026-09-18: no `src/**` code injects this block …
+    // So unlike the Test Tool Detection block ("machine-injected, not a prompt
+    // ritual"), this one is a prompt-ritual obligation. Wiring it changes
+    // dispatch behaviour and is recorded as a user decision, not done here."
+    // Both sentences were true when written and are false now:
+    // `src/services/dispatch/karpathy-block.ts` holds the machine copy of this
+    // block and `composeDispatchPrompt`
+    // (`src/cli/commands/dispatch-prompt-composition.ts`) runs
+    // `ensureKarpathyBlock` over the assembled prompt, so the obligation has an
+    // executor on the `peaks sub-agent dispatch` path.
+    // `tests/unit/services/dispatch/karpathy-block.test.ts` asserts the
+    // delivery behaviour AND the byte-equality of this file's fenced block with
+    // that constant — the two copies cannot drift.
+    //
+    // What this assertion still pins is the block's own STATEMENT of the
+    // obligation, which remains the contract for the paths that do NOT go
+    // through the composer: `--from-dag` and `--mode detached` inject no
+    // Karpathy block.
     expect(sectionBody).toContain('MUST be appended to the sub-agent prompt verbatim');
   });
 

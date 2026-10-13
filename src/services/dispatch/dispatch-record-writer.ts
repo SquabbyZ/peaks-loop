@@ -28,6 +28,8 @@ import {
   dispatchRecordPath
 } from '../security/safe-settings-path.js';
 import { withFileLockSync } from 'peaks-loop-shared-channel';
+import { registerActiveDispatch, unregisterActiveDispatch } from './active-dispatch-index.js';
+import { reapStaleQueuedEntries } from './ledger-reaper.js';
 import { isStageLabel, type StageLabel } from './stage-enum.js';
 import { emitLeaseEvent } from '../observability/observability-service.js';
 import { upgradeRecord } from './dispatch-record-upgrade.js';
@@ -81,6 +83,8 @@ export function writeInitialDispatchRecord(input: WriteInitialDispatchInput): {
   // source of truth; the index is purely a hint for the LLM-side
   // runner. A crash between writeAtomic and the index write is
   // non-fatal — the next restart scans the directory anyway.
+  // Bound the ledger BEFORE this dispatch registers (see the helper below).
+  reapLedgerBeforeRegister({ projectRoot, sessionId, now });
   registerActiveDispatch({
     projectRoot,
     sessionId,
@@ -91,6 +95,61 @@ export function writeInitialDispatchRecord(input: WriteInitialDispatchInput): {
     now
   });
   return { path: safePath, record };
+}
+
+/**
+ * Bound the dispatch ledger before a new record registers: index rows left
+ * `queued` past the bound, whose record is still `queued`, are finalized by the
+ * tooling rather than by a remembered `peaks sub-agent finalize` call (measured:
+ * 39/39, 2/2, 9/9, 23/23 rows across four sessions had never been finalized).
+ *
+ * The RECORD decides, not the index row. Nothing writes a mid-flight status into
+ * a row — `registerActiveDispatch` hardcodes `queued` and the only unregister
+ * caller deletes the row — so a row reads `queued` for a sub-agent that is
+ * heartbeating right now, and a row-keyed guard would reap a live dispatch.
+ * `no-execution` is terminal for the heartbeat pollers, so that would stop a
+ * watcher waiting on work that is still running.
+ *
+ * The clock passed in is the SAME one that stamps this dispatch's `createdAt`,
+ * so the bound is judged on one clock and a caller that injects a clock (every
+ * test, and any replay) sees a consistent frame.
+ */
+/**
+ * The record's own status, or `null` when the record file is absent. An
+ * unparseable file reports `unreadable` — a real terminal status — rather than
+ * `null`, so a caller can tell "no record here" from "a record I may not
+ * rewrite"; the reaper drops a row only for the first.
+ *
+ * Exported because the reaper takes it as its reader, so production and its
+ * tests judge on the same implementation rather than on two copies of it.
+ */
+export function readRecordStatus(recordPath: string): string | null {
+  if (!existsSync(recordPath)) return null;
+  try {
+    return readRecord(recordPath).status;
+  } catch {
+    return 'unreadable';
+  }
+}
+
+function reapLedgerBeforeRegister(input: {
+  projectRoot: string;
+  sessionId: string;
+  now: () => Date;
+}): void {
+  reapStaleQueuedEntries({
+    projectRoot: input.projectRoot,
+    sessionId: input.sessionId,
+    now: input.now,
+    readStatus: readRecordStatus,
+    finalize: (recordPath) =>
+      markCompleted({
+        recordPath,
+        outcome: 'no-execution',
+        status: 'no-execution',
+        projectRoot: input.projectRoot
+      })
+  });
 }
 
 /**
@@ -204,147 +263,11 @@ function buildInitialDispatchRecord(
 }
 
 /**
- * Active-dispatches index. Per-session JSON file at
- * `.peaks/_sub_agents/<sid>/active-dispatches.json`. Map<recordPath,
- * ActiveDispatchEntry>. Updated on dispatch + completion.
+ * The active-dispatches index lives in `./active-dispatch-index.ts` (split out
+ * to keep this file under its size cap). Re-exported here so every existing
+ * importer keeps its path.
  */
-export interface ActiveDispatchEntry {
-  readonly recordPath: string;
-  readonly requestId: string;
-  readonly role: string;
-  readonly batchId: string;
-  readonly createdAt: string;
-  // terminal members from the startup-timeout service.
-  readonly status:
-    | 'queued'
-    | 'running'
-    | 'finalizing'
-    | 'done'
-    | 'failed'
-    | 'cancelled'
-    | 'stale'
-    | 'no-execution'
-    | 'never-started'
-    | 'unreadable';
-}
-
-function activeDispatchIndexPath(projectRoot: string, sessionId: string): string {
-  return resolve(projectRoot, '.peaks', '_sub_agents', sessionId, 'active-dispatches.json');
-}
-
-function registerActiveDispatch(input: {
-  projectRoot: string;
-  sessionId: string;
-  recordPath: string;
-  requestId: string;
-  role: string;
-  batchId: string;
-  now: () => Date;
-}): void {
-  const indexPath = activeDispatchIndexPath(input.projectRoot, input.sessionId);
-  const dir = dirname(indexPath);
-  if (!existsSync(dir)) {
-    mkdirSync(dir, { recursive: true });
-  }
-  let index: Record<string, ActiveDispatchEntry> = {};
-  try {
-    if (existsSync(indexPath)) {
-      const raw = readFileSync(indexPath, 'utf8');
-      const parsed = JSON.parse(raw) as Record<string, unknown>;
-      if (typeof parsed === 'object' && parsed !== null) {
-        for (const [k, v] of Object.entries(parsed)) {
-          if (typeof v === 'object' && v !== null && 'recordPath' in v) {
-            index[k] = v as ActiveDispatchEntry;
-          }
-        }
-      }
-    }
-  } catch {
-    // Corrupt index — start fresh. The on-disk record is the source of truth.
-    index = {};
-  }
-  index[input.recordPath] = {
-    recordPath: input.recordPath,
-    requestId: input.requestId,
-    role: input.role,
-    batchId: input.batchId,
-    createdAt: input.now().toISOString(),
-    status: 'queued'
-  };
-  const tmp = `${indexPath}.tmp-${process.pid}-${Date.now()}`;
-  writeFileSync(tmp, JSON.stringify(index, null, 2) + '\n', 'utf8');
-  renameSync(tmp, indexPath);
-}
-
-function unregisterActiveDispatch(input: {
-  projectRoot: string;
-  sessionId: string;
-  recordPath: string;
-  status: ActiveDispatchEntry['status'];
-}): void {
-  const indexPath = activeDispatchIndexPath(input.projectRoot, input.sessionId);
-  if (!existsSync(indexPath)) return;
-  let index: Record<string, ActiveDispatchEntry> = {};
-  try {
-    const raw = readFileSync(indexPath, 'utf8');
-    const parsed = JSON.parse(raw) as Record<string, unknown>;
-    if (typeof parsed === 'object' && parsed !== null) {
-      for (const [k, v] of Object.entries(parsed)) {
-        if (typeof v === 'object' && v !== null && 'recordPath' in v) {
-          index[k] = v as ActiveDispatchEntry;
-        }
-      }
-    }
-  } catch {
-    return;
-  }
-  if (input.recordPath in index) {
-    index[input.recordPath] = { ...index[input.recordPath]!, status: input.status };
-    // and `unreadable` are terminal (the startup-timeout service writes
-    // them as terminal markers). Unregister on the full terminal set.
-    if (
-      input.status === 'done' ||
-      input.status === 'failed' ||
-      input.status === 'cancelled' ||
-      input.status === 'no-execution' ||
-      input.status === 'never-started' ||
-      input.status === 'unreadable'
-    ) {
-      delete index[input.recordPath];
-    }
-    const tmp = `${indexPath}.tmp-${process.pid}-${Date.now()}`;
-    writeFileSync(tmp, JSON.stringify(index, null, 2) + '\n', 'utf8');
-    renameSync(tmp, indexPath);
-  }
-}
-
-/**
- * for a session. Returns the current map<recordPath, entry>. Used
- * by the LLM-side runner to discover in-flight records on restart.
- * Returns an empty map when the index file is missing or corrupt
- * (the on-disk records directory is the next fallback).
- */
-export function readActiveDispatchIndex(
-  projectRoot: string,
-  sessionId: string
-): Record<string, ActiveDispatchEntry> {
-  const indexPath = activeDispatchIndexPath(projectRoot, sessionId);
-  if (!existsSync(indexPath)) return {};
-  try {
-    const raw = readFileSync(indexPath, 'utf8');
-    const parsed = JSON.parse(raw) as Record<string, unknown>;
-    if (typeof parsed !== 'object' || parsed === null) return {};
-    const out: Record<string, ActiveDispatchEntry> = {};
-    for (const [k, v] of Object.entries(parsed)) {
-      if (typeof v === 'object' && v !== null && 'recordPath' in v && 'role' in v) {
-        out[k] = v as ActiveDispatchEntry;
-      }
-    }
-    return out;
-  } catch {
-    return {};
-  }
-}
+export { readActiveDispatchIndex, type ActiveDispatchEntry } from './active-dispatch-index.js';
 
 export const DISPATCH_RECORD_TTL_DAYS = 30;
 

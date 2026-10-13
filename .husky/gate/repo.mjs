@@ -6,7 +6,10 @@
 // red, and a single-file copy cannot reach a sibling that no longer contains it.
 
 import { execFileSync } from 'node:child_process';
-import { ROOT, baseline, makeCheck } from './context.mjs';
+import { ROOT, baseline, inScope, makeCheck } from './context.mjs';
+import { trackedFiles, worktreeOnlyFiles } from '../../scripts/lint/lint-file-list.mjs';
+import { judgeScanCoverage } from '../../.husky/scan-coverage.mjs';
+import { judgeWorktreeCensus } from './worktree-census.mjs';
 import { runEslint } from './eslint.mjs';
 import { findingsTableLines, judgeFindingsTable } from './findings-table.mjs';
 import { prettierCheck } from './prettier.mjs';
@@ -19,6 +22,19 @@ import { FS_CEILING_KEY, printFileSizeLeg } from '../../.husky/peaks-gate-file-s
 // ---------------------------------------------------------------------------
 async function repoMode(files) {
   console.log(`peaks-gate: checking ${files.length} file(s) against the whole-repo ceilings...`);
+
+  // THE POPULATION PREFLIGHT. Both checks below are about the SET this run is entitled to
+  // speak for rather than about a number it measures, so they are read first (a git call
+  // each, against this mode's own ~2 minutes) and their failures join `failures` below —
+  // verdict last, evidence first, the posture the file-size leg states for itself. The
+  // `scan coverage:` line is printed either way: "0 undeclared" and "the declaration was
+  // not read" must not share an output. The whys are in the two modules.
+  const worktree = worktreeOnlyFiles();
+  const coverage = judgeScanCoverage({ tracked: trackedFiles(), worktree });
+  // `--others` is untracked by construction, so this list and `files` (the index) are
+  // disjoint; the filter below is the SCOPE rule, not a second subtraction.
+  const unseen = judgeWorktreeCensus({ scoped: worktree.filter(inScope), table: baseline.files });
+  console.log(`  ${coverage.line}`);
 
   // THE TWO ESLINT ROWS ARE NO LONGER ACCUMULATED HERE. Until rid
   // `rid-count-ceiling-exemption-table` this loop summed `findings` and `errors` and
@@ -124,6 +140,10 @@ async function repoMode(files) {
   const c = baseline.ceilings;
   const failures = [];
   const check = makeCheck(failures);
+  // The preflight's failures, first in the list because they are about the population
+  // every row below was measured over. Each one names its own remedy, so the generic
+  // trailer under the list stays what it is: a sentence about ceilings.
+  for (const failure of [...unseen.failures, ...coverage.failures]) failures.push(failure);
 
   console.log('');
   const table = judgeFindingsTable({ measured: lint, table: baseline.files });

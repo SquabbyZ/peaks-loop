@@ -1,7 +1,7 @@
 // The prompt `peaks sub-agent dispatch` hands a sub-agent: the adapter check, the
 // optional preflight blocks (memory / codegraph / UI library / fresh context /
-// context probe / session capsule), the isolation and must-ls-files blocks, and the
-// warning list the envelope carries.
+// context probe / session capsule), the isolation and must-ls-files blocks, the
+// machine-injected Karpathy block, and the warning list the envelope carries.
 import { fail, getErrorMessage } from 'peaks-loop-shared/result';
 import { printResult, type ProgramIO } from '../cli-helpers.js';
 import { detectInstalledIde } from '../../services/ide/ide-detector.js';
@@ -24,6 +24,7 @@ import { readFreshContextBlock } from '../../services/fresh-context/fresh-contex
 import type { ContextPercentProbe } from '../../services/context/auto-compact-types.js';
 import { deprecatedReviewerWarnings, type DispatchOptions } from './sub-agent-shared.js';
 import { buildIsolationBlock, buildMustLsFilesBlock } from './dispatch-prompt-blocks.js';
+import { ensureKarpathyBlock } from '../../services/dispatch/karpathy-block.js';
 
 export interface ComposeDispatchPromptInput {
   projectRoot: string;
@@ -238,7 +239,14 @@ export async function composeDispatchPrompt(
   const memoryAugmentedBody = await composeMemoryAugmentedBody(input, projectPrefs);
   const isolationBlock = buildIsolationBlock(isolationMode, leaseId, worktreePath, worktreeBranch);
   const { mustLsFilesVerification, mustLsFilesBlock } = buildMustLsFilesBlock(options, projectRoot);
-  const effectivePrompt = `${memoryAugmentedBody}${isolationBlock}${mustLsFilesBlock}`;
+  // The presence test runs on the ASSEMBLED prompt, not on the caller's draft:
+  // this string is what the sub-agent receives as `toolCall.args.prompt` and
+  // what the dispatch record stores as `prompt`. A draft that merely names
+  // Karpathy (or carries a copy with a word wrong) does not count as carrying
+  // the canonical block, so the block is added rather than trusted.
+  const effectivePrompt = ensureKarpathyBlock(
+    `${memoryAugmentedBody}${isolationBlock}${mustLsFilesBlock}`
+  );
   // + rerouted here, never refused — rationale on the helper itself.
   const warnings: string[] = [...decision.warnings, ...deprecatedReviewerWarnings(role)];
 

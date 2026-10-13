@@ -139,6 +139,8 @@ See the block constant at `src/services/dispatch/test-tool-detection.ts` for the
 
 When the dispatch primitive constructs the sub-agent prompt, the following context block MUST be appended to the sub-agent prompt verbatim. The block is the canonical injection source for any RD-spawned sub-agent (including 4-way fanout, including inline main-loop RD).
 
+**The dispatch CLI now does this itself (2026-10-13).** `peaks sub-agent dispatch` runs `ensureKarpathyBlock` over the assembled prompt (`src/services/dispatch/karpathy-block.ts`, applied in `src/cli/commands/dispatch-prompt-composition.ts`), so the block reaches the child whether or not the caller remembers to append it. A caller that already appended it is not appended twice. The constant is the machine copy of the block below, and a unit test asserts the two are byte-equal, so neither can drift. What the obligation still covers is the path that does NOT go through this CLI: `--from-dag` (`src/services/code/dag-orchestrator.ts`) and `--mode detached` inject no Karpathy block, so a caller using either must append it itself.
+
 ```
 Karpathy-guidelines context (REQUIRED — read before any code action)
 
@@ -161,7 +163,9 @@ Touch only what you must. Clean up only your own mess. When editing existing cod
 Define success criteria. Loop until verified. "Add validation" → write tests for invalid inputs, then make them pass. "Fix the bug" → write a test that reproduces it, then make it pass. For multi-step tasks, state a brief plan with verify checkpoints. Strong success criteria let you loop independently. Weak criteria require constant clarification.
 ```
 
-Sub-agents MUST NOT silently drop this block. Nothing asserts its presence automatically — the unit test that did was deleted in `f17aa377`, so a dropped block fails silently. The canonical skill id for the full guidelines text is `andrej-karpathy-skills:karpathy-guidelines`.
+Sub-agents MUST NOT silently drop this block. The canonical skill id for the full guidelines text is `andrej-karpathy-skills:karpathy-guidelines`.
+
+Corrected 2026-10-13, kept visible rather than edited away: this paragraph used to read *"Nothing asserts its presence automatically — the unit test that did was deleted in `f17aa377`, so a dropped block fails silently."* That was true when written and it was the defect. The composer now injects the block and `tests/unit/services/dispatch/karpathy-block.test.ts` + `tests/unit/skills/karpathy-injection.test.ts` assert both the delivery and the byte-equality of this file's block with the constant, so a dropped block no longer fails silently on the CLI path. Measured 2026-10-12, before the executor existed: four RD dispatch prompts in one session carried zero occurrences of `Karpathy`.
 
 ## BDD Test Style Contract (effective rid-2026-08-05-bdd-test-style, v4.0.11+)
 

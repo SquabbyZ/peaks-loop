@@ -26,6 +26,7 @@ import { join, resolve, isAbsolute } from 'node:path';
 import { createHash } from 'node:crypto';
 import { REQUEST_ID_PATTERN } from '../artifacts/request-artifact-service.js';
 import { resolveHandoffPath } from '../prd/handoff-service.js';
+import { handoffMissingRefusal } from './handoff-missing-refusal.js';
 
 /**
  * 5-state detection result. Mirrors `SecurityAuditDetectState` and
@@ -215,22 +216,20 @@ export function detectPerfAudit(input: {
   const templatePresent = existsSync(templatePath);
 
   if (!handoffPresent) {
+    const refusal = handoffMissingRefusal({
+      role: 'perf',
+      projectRoot: input.projectRoot,
+      sessionId: input.sessionId,
+      ...(input.requestId !== undefined ? { requestId: input.requestId } : {}),
+      // Measured, not assumed: `detect` supplies no envelope at all.
+      envelopeValidated: input.envelope !== undefined && isPerfAuditEnvelope(input.envelope)
+    });
     return {
       state: 'handoff-missing',
       handoffPresent: false,
       templatePresent,
-      warnings: [
-        `peaks-prd handoff not found under ${join(input.projectRoot, '.peaks', '_runtime', input.sessionId, 'prd')}`,
-        ...(input.requestId === undefined
-          ? [
-              "No --rid was supplied, so only the pre-rid-scoping `prd/handoff.md` could be probed. Pass --rid to resolve this slice's `prd/handoff-<rid>.md`."
-            ]
-          : [])
-      ],
-      nextActions: [
-        'Run peaks-prd handoff init to produce a sha256-locked handoff before running peaks perf-audit.',
-        'Until the handoff exists, peaks-perf-audit cannot start (gate fail).'
-      ]
+      warnings: refusal.warnings,
+      nextActions: refusal.nextActions
     };
   }
 

@@ -58,18 +58,61 @@ export function scopeDirs() {
   return JSON.parse(readFileSync(BASELINE_PATH, 'utf8')).scope.dirs;
 }
 
-/** Every tracked file, as forward-slash paths relative to the repo root. */
-export function trackedFiles() {
-  // `git ls-files` reads the INDEX, so it lists exactly the files a push carries
-  // — untracked scratch files cannot inflate the number, deleted-but-unstaged
-  // ones cannot silently shrink it (they stay, because they stay in the index).
-  return execFileSync('git', ['ls-files'], {
+/**
+ * ONE SNAPSHOT PER PROCESS. Both enumerations below are cached after their first call,
+ * and that is a property rather than an optimisation: the gate asks `git ls-files` from
+ * more than one leg in one run (the entry's `lintFileList()` and `repo` mode's own
+ * preflight), and two legs that could observe two different indexes would be comparing
+ * answers to two different questions. The index cannot change under a single gate run —
+ * nothing in it writes to git — so the first read is the run's answer. Measured
+ * 2026-10-13: this removes one of the two ~60 ms `git ls-files` spawns `repo` mode pays.
+ */
+const snapshot = new Map();
+
+function enumerates(key, argv) {
+  const seen = snapshot.get(key);
+  if (seen !== undefined) return seen;
+  const files = execFileSync('git', argv, {
     cwd: ROOT,
     encoding: 'utf8',
     windowsHide: true
   })
     .trim()
     .split('\n');
+  snapshot.set(key, files);
+  return files;
+}
+
+/** Every tracked file, as forward-slash paths relative to the repo root. */
+export function trackedFiles() {
+  // `git ls-files` reads the INDEX, so it lists exactly the files a push carries
+  // — untracked scratch files cannot inflate the number, deleted-but-unstaged
+  // ones cannot silently shrink it (they stay, because they stay in the index).
+  return enumerates('tracked', ['ls-files']);
+}
+
+/**
+ * The files PRESENT in the working tree and absent from the index: untracked, and not
+ * matched by any `.gitignore`. The other half of the question `trackedFiles()` asks,
+ * and it is asked here rather than in the leg that needs it because this module owns
+ * how the repository enumerates a file list — a second `git ls-files` spelled somewhere
+ * else is how two views of one tree start to differ.
+ *
+ * `--exclude-standard` IS A DECISION, NOT A DEFAULT. An ignored path is one nobody
+ * intends to commit (build output, scratch), so demanding a row for it would refuse a
+ * state the repository asked for. The cost is recorded: a source file that is
+ * deliberately ignored is invisible to this and to the census alike.
+ *
+ * The empty-line filter is load-bearing HERE and only here — `''.trim().split('\n')` is
+ * `['']`, not `[]`, and an empty worktree is this enumeration's COMMON case, so without
+ * it every clean tree would report one file named nothing. `trackedFiles()` keeps its
+ * old shape: a repository with no tracked file has no in-scope file either way, and
+ * changing it would move a number nothing asked to move.
+ */
+export function worktreeOnlyFiles() {
+  return enumerates('worktree', ['ls-files', '--others', '--exclude-standard']).filter(
+    (f) => f !== ''
+  );
 }
 
 /**
