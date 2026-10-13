@@ -4093,7 +4093,7 @@ presence` does. Measured three ways (bare, with `--project .` from the repo root
   path under a declared root refuses), but a producer that **rewrites its own** declaration is not —
   that is the same limit as `audited at:` and it is now stated rather than implied.
 
-### 9.10 A required artifact is blocked by its heading spelling, and the producer cannot know (found 2026-10-12; open)
+### 9.10 A required artifact is blocked by its heading spelling, and the producer cannot know (found 2026-10-12; open) — **REPAIRED 2026-10-13, both halves**
 
 - **Where**: `rd:implemented`'s requirement that `rd/bug-analysis.md` contain the literal headings
   `## Root cause` and `## Fix approach`.
@@ -4122,6 +4122,31 @@ presence` does. Measured three ways (bare, with `--project .` from the repo root
     dispatch prompt, or the artefacts should not be judged on their headings. Until one of those lands,
     every slice pays this tax and every orchestrator is one careless step from passing a gate by
     rewriting a reviewer.
+
+- **REPAIRED 2026-10-13 — the second half, delivered as `feat(dispatch): the producer is told what it
+  will be judged on`.** The dispatch prompt now carries an **artifact-contract block** naming, for the
+  dispatched role and the rid's actual type, every required artifact and its exact `mustContain` /
+  `mustContainAny` / `headingMustContain` markers. It is **generated** from the same accessor the gate
+  calls (`getPrerequisitesFor` over `ALLOWED_STATES_PER_ROLE[role]`), never transcribed — so it cannot
+  drift, and adding a marker to the table surfaces it without a second edit.
+- **Roles measured, not assumed**: `rd`, `qa` and `prd` produce marker-gated artifacts; `ui` and
+  `sc` are cleared across all six request types and receive nothing, so their prompts stay
+  byte-identical.
+- **Two limits stated rather than implied.** The type is read from the rid's request artifact, and most
+  dispatches happen before a type is declared, so the **default `feature` set is the common case** —
+  labelled in the block itself, not fixed. And the block names what the **table** demands: a gate
+  checking something the table does not carry is outside it, said in a scope note emitted only when the
+  rows include `rd:qa-handoff`.
+- **What the first review found, and it is this item's own class one level up.** The block's sample
+  command, `peaks request transition <rid> --role <role> --state <state>`, **omitted `--project`** —
+  a `requiredOption` — so the block told producers to run something that cannot run; the slice that
+  exists to end *"a producer is refused by something it was never told"* shipped a fresh instance of it,
+  and the pinning test **asserted the incomplete string**, locking the defect in. Fixed, and the class
+  closed rather than the instance: every printed command is now checked against the flags
+  `peaks request transition` **itself declares mandatory**, read off the registered command. The
+  injection was also made idempotent (a re-dispatched prompt produced **two** `## Artifact contract`
+  sections — 9.27's shape), and the `mustContainAny` semantics are now pinned by a case that fails when
+  "at least one of" is weakened to "all of".
 
 ### 9.11 Guards scope themselves by directory, so every new executable directory is a blind spot (found 2026-10-12; open) — **REPAIRED 2026-10-13**
 
@@ -4165,7 +4190,7 @@ presence` does. Measured three ways (bare, with `--project .` from the repo root
 - **Repair direction**: if the lock is to stay, the correction needs a channel **outside** the locked body
   (an errata list keyed by rid), not a footnote in a downstream item.
 
-### 9.14 Enumerating your own inputs by naming convention is wrong in both directions (found 2026-10-12; **the measured instance is fixed, the pattern is open**)
+### 9.14 Enumerating your own inputs by naming convention is wrong in both directions (found 2026-10-12; **the measured instance is fixed, the pattern is open**) — **REPAIRED 2026-10-13, live instances closed and the sweep preserved**
 
 - **Where**: `collectRids` in the artifact-contract pre-commit leg, which decided "is this a request?" by
   the filename prefix `rid-`. Found by code review as a **HIGH**.
@@ -4182,6 +4207,41 @@ presence` does. Measured three ways (bare, with `--project .` from the repo root
 - **Still open**: the session recorded this as a **pattern worth a repository-wide sweep** —
   _"by naming convention"_ as a way to enumerate one's own inputs is presumably elsewhere too, and only the
   one instance found by review was repaired.
+
+- **REPAIRED 2026-10-13 — the sweep was run, and the live instances closed.** Delivered as
+  `fix(race,scan,context): a name may key a row, it may not judge one`. The rule the repaired instance
+  established, now applied wherever it was violated: **the name may supply a key; it must not supply
+  the verdict.**
+- **Three sites, each measured, each wrong in a grounded direction.**
+  `pilot-gate-store.ts` refused any rid without a `rid-` prefix — of the **97** distinct ids under
+  `.peaks/_runtime/*/rd/requests/`, **58 carry no prefix**, so it rejected **61% of the repository's own
+  live ids**, and the correct predicate (`REQUEST_ID_PATTERN`) was already exported with a doc comment
+  saying it exists so call sites cannot drift. `type-sanity-service.ts` decided "is this a test file"
+  with `\btest\b` over the whole path — and `\b` is satisfied by `-`, so
+  `src/services/test-cache/test-cache-service.ts` was a test; re-measured independently over
+  `git ls-files`, **3064 tracked paths, exactly 29 verdicts change, all one direction** (18 → `source`,
+  11 → `unknown`). `context/collector.ts` passed a **raw win32 path** to a classifier testing for
+  `/__tests__/` — a branch that could never match on the platform it was written on — while the
+  normalised value sat computed four lines above; **the fix is one argument, not a second
+  normalisation.**
+- **The sweep is the durable artifact, and its own reliability is recorded with it.** Three tables
+  (16 classification sites, 12 producer-coupled name registries, ~40 considered-and-cleared benign
+  filters) are saved at `.peaks/_runtime/2026-10-12-session-74bd69/sc/9-14-sweep-report.md` **with the
+  orchestrator's re-verification block on top**, because the sweep was **wrong at least once** — it
+  named `src/services/scan/collector.ts`, which does not exist, and one of its numbers is unverified.
+  A sweep that names a nonexistent file is a sweep whose every row needs grounding before it is acted
+  on, and that is now stated where the next reader will find it.
+- **Most of the sweep is deliberately left unrepaired, and the reasons are recorded.** 12 of the 16
+  sites are latent or unexercised — repairing a path nothing walks is churn a review should reject. The
+  `-commands.ts` inventory family (`plan-refresher`, `plan-trigger-detector`) is **real but parked**:
+  measured `src/cli/commands/*.ts` holds 131 matching and 268 not, and the honest fix is a real
+  command-module registry rather than another suffix — a design decision, so its own slice.
+- **What the review found in this slice's own tests, which is the pattern biting its own fix.** One case
+  could not fail for **any** implementation — a `.md` path is intercepted by the docs arm before the
+  test branch, proven by loosening the predicate and watching the case stay green — and one comment
+  asserted a mechanism the case never reaches (`isUnsafePathInput('a/b')` is **false**, so the
+  traversal guard is never exercised and deleting it would leave the case green). Both fixed with cases
+  built from the real inputs.
 
 ### 9.15 Five rounds of repair, each a narrowing rather than a closure — and the rule that follows (found 2026-10-12; open, recorded as a discipline)
 
@@ -4723,6 +4783,39 @@ holes in the fix rather than in the original code.
   thing `peaks request init --help` can be diffed against, and a dispatch-time check could refuse a
   brief that names a flag its own quoted command does not accept.
 
+- **RECURRED the same day, same source, one section over — and this one the orchestrator caught only
+  because an RD measured it.** The shared preamble's audit paragraph read _"**The audit CLI now also
+  requires `--judged <paths...>`**"_, and the definite article is the defect: it implies **both**
+  audit verbs. Measured against both `--help` outputs — `security-audit run` lists
+  `--judged <paths...>`; `perf-audit run` **does not list it at all** and exits `unknown option`.
+  The declaration check reads **only** the security artifact. So the preamble sent every RD in this
+  campaign to run a command that refuses. Corrected in place with the correction kept visible.
+  **Twice now the orchestrator's brief has quoted a command the CLI does not accept, and both times a
+  sub-agent — not a gate — was what caught it.** 9.31's repair direction is therefore not optional:
+  a brief is composed by hand and validated by nothing.
+
+- **THIRD occurrence, same session, found the same way.** The shared preamble's artifact table put the
+  `test(` / `it(` requirement on **`qa/test-reports/<rid>.md`**, and left `qa/test-cases/<rid>.md`
+  with only its heading. Verified against the table: `TEST_REPORT.mustContain` is
+  `['## Test execution']` and nothing else, while `test(`/`it(` is `UNIT_TESTS.mustContainAny` — on
+  **`qa/test-cases/<rid>.md`**. **Both rows were wrong**: the requirement was on the wrong artifact
+  *and* missing from the right one. Found by an RD, corrected in the brief, correction kept visible.
+- **The tally is the finding, not any one error.** **Three** separate false statements about this
+  repository's own CLI were dispatched to every agent in this campaign, in its own shared preamble:
+  a **wrong flag** (`--rid` where `request init` wants `--id`), a **wrongly-scoped requirement**
+  (`--judged`, which only `security-audit run` accepts — `perf-audit run` exits `unknown option`),
+  and a **requirement attached to the wrong artifact** (`test(`/`it(`). **All three were found by
+  sub-agents reading the artifacts; none by any gate**, and the brief reaches every agent before
+  anything can check it. This is 9.19's shape — *a `MUST` with no executor* — applied to the
+  orchestrator's own output, which is the one artifact in this workflow that **no test reads**.
+- **One further lesson about red-direction cases, learned from the same dispatches and worth keeping
+  here.** A brief told its RD to prove a pinning test could fail by *"temporarily adding a marker to the
+  table"*. That is **necessarily a green run**: if the check asserts that a surface is **generated
+  from** the table, then mutating the table mutates the surface too. The RD discarded the procedure and
+  built the real red by **removing the surfacing from the producer**. A mutation has to land on the
+  side of the check the check cannot see; landing it on the wrong side produces a control that cannot
+  fail while reading exactly like one that works — the same mis-aim 9.15 records, one level up.
+
 ### 9.32 An unidentified gate refused three worktree commands, and it is not in this repository (found 2026-10-13, while correcting 8.1; open, and it will refuse again)
 
 - **What was measured**: §8.1 attributed three refusals — a sub-agent's `git stash pop`, an agent's
@@ -4820,6 +4913,32 @@ INIT_SESSION_HELP)` — versus line **107** in the same file:
   the same discipline `--allow-incomplete --reason` already uses. The gate should require that a
   withdrawn rid names why, and should refuse one whose scope is missing, so the state cannot become a
   cheaper `handed-off`.
+
+### 9.36 Every `bugfix` slice in a session shares one `rd/bug-analysis.md`, so two of them collide — and the workaround is to lie about the type (found 2026-10-13 by an RD, in its own report; open)
+
+- **Where**: `BUG_ANALYSIS.relativePath = 'rd/bug-analysis.md'`
+  (`src/services/artifacts/artifact-prerequisites.ts:105`) — the one prerequisite in the table whose
+  path carries **no `<rid>` placeholder**, among siblings that are all rid-scoped
+  (`rd/code-review-<rid>.md`, `rd/karpathy-review-<rid>.md`, `qa/test-cases/<rid>.md`).
+- **Measured**: exactly **one** `bug-analysis.md` exists per session on disk — one each under
+  `2026-10-09-session-90f47d`, `2026-10-10-session-062f74` and `2026-10-12-session-74bd69`, across
+  **95** request artifacts. The artifact is **session-scoped, not rid-scoped**.
+- **How it surfaced**: an RD dispatched to repair something that is plainly a **bugfix** reported that
+  it had used `refactor` instead — *"because `rd/bug-analysis.md` is un-rid-templated and already
+  holds another slice's analysis."* So the defect does not merely inconvenience the producer: **it
+  makes the honest type unavailable.** Two `bugfix` slices in one session cannot both satisfy
+  `rd:implemented`; choosing `bugfix` means the second slice's analysis overwrites the first's, or
+  the gate reads another rid's evidence as this one's.
+- **The workaround is the real finding.** The escape is to **declare a different type**, and the type
+  is what selects the prerequisite table (9.12). So a structural collision in one artifact converts
+  into a **silently lighter gate** for the slice that avoids it — the strictest-type mechanism turned
+  into an incentive to pick a type you are not.
+- **Family**: 9.10's shape, one level down. 9.10 is a required artifact the producer cannot satisfy
+  because **it was never told the spelling**; this is a required artifact it cannot satisfy because
+  **the path is not per-rid at all**. Both refuse a producer that did the work.
+- **Repair direction**: give the path the `<rid>` placeholder its siblings have, with a
+  `legacyRelativePath` tier so sessions already on disk keep resolving — the table's own documented
+  back-compat pattern.
 
 ### 9.A Recorded, not fixed — the session's accepted risks, smaller items, and open U-questions
 
