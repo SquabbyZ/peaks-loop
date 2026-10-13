@@ -4002,7 +4002,7 @@ presence` does. Measured three ways (bare, with `--project .` from the repo root
   **pass earned by withheld evidence**. Both make the verdict a property of the plumbing rather than of
   the change.
 
-### 9.9 A reported check is silently invalidated by a later edit, and nothing requires a re-run (found 2026-10-12; open) — **WITHDRAWN, MEASUREMENT KEPT 2026-10-13**
+### 9.9 A reported check is silently invalidated by a later edit, and nothing requires a re-run (found 2026-10-12; **DELIVERED 2026-10-13 on its fourth attempt, after three were withdrawn and measured**) — **WITHDRAWN, MEASUREMENT KEPT 2026-10-13**
 
 - **Where**: process, not a file — the seam between "a check reported a result" and "the tree changed
   afterwards".
@@ -4064,6 +4064,34 @@ presence` does. Measured three ways (bare, with `--project .` from the repo root
   under declared **file** roots, with bare directory roots refused. F9's limit also survives and must
   be stated: `audited at:` is a line in the artifact being judged, so any date-keyed rule is closed
   against **accidental** shedding, not against a producer that rewrites its own date.
+
+- **DELIVERED 2026-10-13 — the fourth attempt, built on the input the first three lacked.** The
+  precondition was filed as its own slice (`rid-slice-declares-what-it-touched`) and shipped as
+  `feat(audit): a slice declares what it judged, and the check reads that`: `security-audit run
+--judged <paths...>` records each path's **content hash** in the artifact, and `rd:qa-handoff`
+  re-hashes them, refusing and naming the artifact and the first moved path.
+- **The three sheds, each closed and each shown closed on the real artifact.** An audit on a clean
+  tree is no longer vacuous (the declaration is the input, not a diff); **deleting a section no
+  longer turns the check off** — the marker is gone and a security artifact that exists must carry a
+  declaration; and the producer cannot omit it, because the run refuses with `declaration-missing`
+  and writes nothing. Commit-invariance survives from the third attempt: a commit redistributes
+  tracked and untracked, it does not change content.
+- **Two limits are stated rather than implied**, and the second is a correction: **completeness is
+  unenforced** — a declaration is a claim about the paths it names, never that those are all of them
+  (measured: ten files on disk, one declared, green). The earlier attempt had written a limit naming
+  a _different_ hole; naming the wrong one is the defect, not having one.
+- **What the fourth attempt cost, and why it is worth recording.** Its first review found the
+  requirement shed by deleting the marker's **own** section — one section over from the shed the
+  slice existed to close, and the section an editor trimming prose is most likely to touch, with two
+  module docstrings asserting the opposite. And the implementer **widened a `prettier --write` from
+  the files it owned to two whole trees** while chasing the `prettierUnformatted` ceiling, touching
+  **86 paths** — 65 unrelated fixtures and 6 shipped templates — none of them required by any arm.
+  All 86 were reverted before anything landed. _A slice that reformats fixtures it does not own is a
+  capability change to a surface it does not own, and the ceiling it is chasing is not a reason to
+  widen that radius._
+- **Still open, and deliberately not closed here**: the sibling add-only repair is caught (a gained
+  path under a declared root refuses), but a producer that **rewrites its own** declaration is not —
+  that is the same limit as `audited at:` and it is now stated rather than implied.
 
 ### 9.10 A required artifact is blocked by its heading spelling, and the producer cannot know (found 2026-10-12; open)
 
