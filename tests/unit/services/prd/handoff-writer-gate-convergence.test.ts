@@ -45,7 +45,7 @@ import {
 import { autoRegenPrdHandoff } from '../../../../src/services/prd/handoff-auto-regen.js';
 import { generateEvidence } from '../../../../src/services/evidence/evidence-generator.js';
 import { getPrerequisitesFor } from '../../../../src/services/artifacts/artifact-prerequisites.js';
-import { readAndVerifyHandoff as readSecurityHandoff } from '../../../../src/services/audit-independent/security-audit-service.js';
+import { readAndVerifyHandoff as readSecurityHandoff } from '../../../../src/services/audit-independent/handoff-readers.js';
 import { readAndVerifyHandoff as readPerfHandoff } from '../../../../src/services/audit-independent/perf-audit-service.js';
 
 declareDimensions('tests/unit/services/prd/handoff-writer-gate-convergence.test.ts', [

@@ -100,27 +100,15 @@ export type PrerequisiteCheckResult = {
 type TransitionKey = `${RequestArtifactRole}:${RequestArtifactState}`;
 type PrerequisiteTable = Partial<Record<TransitionKey, ReadonlyArray<ArtifactPrerequisite>>>;
 
-// Shared prerequisite fragments
-// (Removed in v2.11.0 Group A: TECH_DOC prerequisite. The per-session
-// rd/tech-doc.md is replaced by the immutable peaks-prd handoff at
-// prd/handoff.md. Group B will introduce a PRD_HANDOFF prerequisite
-// once the handoff service lands. For Group A scope, `rd:implemented`
-// and `rd:qa-handoff` rely on the evidence files (code-review,
-// security-review, perf-baseline, karpathy-review, unit tests) only.)
+// Shared prerequisite fragments.
 const BUG_ANALYSIS: ArtifactPrerequisite = {
   relativePath: 'rd/bug-analysis.md',
   description:
     'Bug root-cause analysis (reproduction, affected paths, fix approach, regression test plan)',
   mustContain: ['## Root cause', '## Fix approach']
 };
-// filename (`code-review-<rid>.md`). A fixed per-session path cannot hold
-// two slices' evidence at once — the second slice's write silently
-// destroyed the first slice's on 2026-09-13, and the gate stayed green
-// because it only checks that *some* file is there, not whose it is.
-// The bare path stays accepted (see `legacyRelativePath`) so sessions
-// written before this change — and any writer still emitting it — keep
-// passing.
 const CODE_REVIEW: ArtifactPrerequisite = {
+  // The bare path below is still accepted, so an older session keeps passing.
   relativePath: 'rd/code-review-<rid>.md',
   legacyRelativePath: 'rd/code-review.md',
   description: 'Code review evidence (CRITICAL/HIGH must be fixed before handoff)',
@@ -130,12 +118,7 @@ const SECURITY_REVIEW: ArtifactPrerequisite = {
   relativePath: 'rd/security-review.md',
   description: 'Security review evidence for the changed surface'
 };
-// Gate B9 — RD-side perf baseline (peaks-rd SKILL "Parallel review fan-out").
-// The file must exist; the body must either carry a Results table marker
-// (per peaks-rd SKILL "Mandatory perf-baseline output") or the explicit
-// "N/A — no perf surface" escape hatch. A slice without a perf surface
-// still has to write the stub; an RD that omits perf-baseline entirely is
-// blocked here, matching peaks-rd's BLOCKING Gate B9 claim.
+// Gate B9 — RD-side perf baseline: the body carries a Results table or "N/A — no perf surface".
 const PERF_BASELINE: ArtifactPrerequisite = {
   relativePath: 'rd/perf-baseline.md',
   description:
@@ -622,6 +605,23 @@ export async function checkPrerequisites(
     });
     missing.push(...declaredEvidence.missing);
     warnings.push(...declaredEvidence.warnings);
+
+    // The security audit artifact declares the paths it judged; the check
+    // re-hashes them, so a repair after the audit is refused by name. An
+    // artifact with no declaration is refused here, not waved through — a
+    // deleted section is the shed this arm exists to close.
+    const { verifyJudgedDeclaration } =
+      await import('../audit-independent/judged-declaration-check.js');
+    for (const refusal of verifyJudgedDeclaration({
+      projectRoot: options.projectRoot,
+      sessionId: options.sessionId,
+      requestId: options.requestId
+    }).refusals) {
+      missing.push({
+        path: refusal.artifact,
+        description: `Judged declaration ${refusal.code} at ${refusal.path}`
+      });
+    }
   }
 
   const result: PrerequisiteCheckResult = { ok: missing.length === 0, missing, warnings };

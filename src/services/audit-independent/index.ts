@@ -2,16 +2,40 @@ export {
   runSecurityAudit,
   isSecurityAuditEnvelope,
   detectSecurityAudit,
-  readSecurityTemplate,
-  renderSecurityAuditArtifact,
   type SecurityAuditEnvelope,
   type SecurityAuditViolation,
   type SecurityAuditVerdict,
   type SecurityAuditDetectState,
-  type SecurityAuditDetectResult,
-  type HandoffFrontmatter,
-  readAndVerifyHandoff
+  type SecurityAuditDetectResult
 } from './security-audit-service.js';
+
+export {
+  readSecurityTemplate,
+  readAndVerifyHandoff,
+  resolveHandoffHash,
+  type HandoffFrontmatter
+} from './handoff-readers.js';
+
+export {
+  renderSecurityAuditArtifact,
+  writeSecurityAuditArtifact
+} from './security-audit-artifact.js';
+
+export {
+  parseJudgedDeclaration,
+  renderJudgedDeclaration,
+  sha256OfFile,
+  type JudgedDeclaration
+} from './judged-declaration.js';
+
+export { buildJudgedDeclaration, buildJudgedDeclarationFor } from './judged-declaration-build.js';
+
+export {
+  verifyJudgedDeclaration,
+  resolveSecurityArtifact,
+  type JudgedCheckResult,
+  type JudgedRefusal
+} from './judged-declaration-check.js';
 
 export {
   runPerfAudit,

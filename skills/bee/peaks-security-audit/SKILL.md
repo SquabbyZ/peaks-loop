@@ -142,10 +142,18 @@ The service renders the envelope to markdown and writes to
 
 ```bash
 peaks security-audit run --rid <id> --sid <sid> --project <repo> \
+  --judged <path> [<path>...] \
   --envelope @<path-to-envelope.json>
 # or pipe the envelope via stdin
-peaks security-audit run --rid <id> --sid <sid> --project <repo> < envelope.json
+peaks security-audit run --rid <id> --sid <sid> --project <repo> \
+  --judged <path> [<path>...] < envelope.json
 ```
+
+`--judged` is **required**, and omitting it refuses the run with `declaration-missing` without
+writing anything. Name the paths this audit actually judged: the CLI records each one's content
+hash in the artifact, and `rd:qa-handoff` re-hashes them, so a declared path edited afterwards
+refuses that transition. **Declare what you judged, not what you touched** — the check can tell
+that a declared path moved, and it cannot tell that an undeclared one did.
 
 The artifact body has the required sections per `.peaks/project-scan/audit-output-schema.md`:
 

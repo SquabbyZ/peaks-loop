@@ -41,6 +41,7 @@ import {
   getPrerequisitesFor
 } from '../../../../src/services/artifacts/artifact-prerequisites.js';
 import { generateEvidence } from '../../../../src/services/evidence/evidence-generator.js';
+import { JUDGED_FIXTURE_PATH } from './_judged-declaration-fixture.js';
 
 import {
   codeReviewBody,
@@ -186,7 +187,7 @@ describe('(integration) two slices coexist, and the old layouts still resolve', 
         projectRoot,
         rid,
         title: 'rid-scoping producer probe',
-        files: [],
+        files: [JUDGED_FIXTURE_PATH],
         lineCounts: {},
         sessionId: SESSION_ID
       });
@@ -342,7 +343,7 @@ describe('(integration) two slices coexist, and the old layouts still resolve', 
         projectRoot,
         rid: '../../../pwned',
         title: 'pwn',
-        files: [],
+        files: [JUDGED_FIXTURE_PATH],
         lineCounts: {},
         sessionId: SESSION_ID
       })
@@ -365,7 +366,7 @@ describe('(integration) two slices coexist, and the old layouts still resolve', 
       projectRoot,
       rid: RID_A,
       title: 'config probe',
-      files: [],
+      files: [JUDGED_FIXTURE_PATH],
       lineCounts: {},
       sessionId: SESSION_ID
     });

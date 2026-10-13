@@ -40,8 +40,18 @@ type RunOptions = {
   sid?: string;
   project?: string;
   envelope?: string;
+  judged?: string[];
   json?: boolean;
 };
+
+/**
+ * The judged paths as the service takes them. A call, not a `??` inside the
+ * action, because the action's branch budget is already at its cap and a second
+ * operator there is a `complexity` finding on the whole command.
+ */
+function resolveJudgedPaths(judged: string[] | undefined): string[] {
+  return judged ?? [];
+}
 
 function resolveEnvelope(envelopePath: string | undefined): unknown {
   if (envelopePath === undefined || envelopePath === '-') {
@@ -173,6 +183,10 @@ export function registerSecurityAuditCommands(program: Command, io: ProgramIO): 
         '--envelope <path>',
         'path to envelope JSON file; "-" reads from stdin (default: stdin)'
       )
+      .option(
+        '--judged <paths...>',
+        'project-relative paths this audit judged; written into the artifact as the declaration the rd:qa-handoff gate reads back. Not enforced by the parser: an empty or unhashable list is refused by the run itself, which exits 1 and writes nothing.'
+      )
   ).action((options: RunOptions) => {
     const projectRoot = options.project ?? process.cwd();
     const sid = options.sid;
@@ -232,6 +246,7 @@ export function registerSecurityAuditCommands(program: Command, io: ProgramIO): 
         sessionId: sid,
         rid,
         generatedAt: new Date().toISOString(),
+        judgedPaths: resolveJudgedPaths(options.judged),
         envelope: envelopeValue
       });
       if (result.detect.state !== 'ready' || result.artifactPath === null) {

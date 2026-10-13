@@ -35,6 +35,7 @@ import type { GateEvidence, HandoffFrontmatter } from '../prd/handoff-types.js';
 import { getSessionDir } from '../session/getSessionDir.js';
 import { REQUEST_ID_PATTERN } from '../artifacts/request-artifact-service.js';
 import { isUnsafePathInput } from '../../shared/path-safety.js';
+import { renderJudgedSection } from '../audit-independent/judged-declaration-build.js';
 import {
   buildCodeReview,
   buildKarpathyReview,
@@ -205,6 +206,11 @@ export async function generateEvidence(
     requestId: rid
   });
   const handoff = buildHandoff(rid, sessionId, title, files, lineCounts, gateEvidence);
+  // This generator has no surface of its own to declare, so it declares the
+  // paths it was handed. Given none, the section is empty and the audit
+  // artifact is refused by the check — declaring nothing is the case the
+  // contract exists to refuse, not one to paper over here.
+  const judgedSection = renderJudgedSection(projectRoot, files);
 
   // Four of these twelve paths carry the rid because the `rd:qa-handoff` gate
   // requires `<rid>` in them: every slice in a session shares `rd/` and
@@ -212,7 +218,7 @@ export async function generateEvidence(
   // slice's evidence on 2026-09-13 while the gate stayed green (slice
   const writes: Array<[string, string]> = [
     [join(rdDir, `code-review-${rid}.md`), buildCodeReview(rid, title, files, lineCounts)],
-    [join(auditDir, `security-${rid}.md`), buildSecurityReview(rid)],
+    [join(auditDir, `security-${rid}.md`), buildSecurityReview(rid) + judgedSection],
     // ...but the `config` type is the one whose `rd:qa-handoff` row is
     // `SECURITY_REVIEW` — the genuinely ridless `rd/security-review.md` — and
     // this generator is request-type-agnostic (no `--request-type`). So it

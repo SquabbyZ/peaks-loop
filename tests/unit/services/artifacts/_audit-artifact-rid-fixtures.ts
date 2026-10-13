@@ -37,6 +37,10 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import {
+  judgedDeclarationSection,
+  writeJudgedFixtureSource
+} from './_judged-declaration-fixture.js';
+import {
   checkPrerequisites,
   getPrerequisitesFor,
   type ArtifactPrerequisite
@@ -73,6 +77,7 @@ export function makeProjectRoot(): string {
   const root = mkdtempSync(join(tmpdir(), 'peaks-rid-scoping-'));
   tempRoots.push(root);
   mkdirSync(join(root, '.peaks', '_runtime', SESSION_ID, 'audit'), { recursive: true });
+  writeJudgedFixtureSource(root);
   return root;
 }
 
@@ -90,7 +95,7 @@ export function writeArtifact(projectRoot: string, relativePath: string, body: s
 /** Body satisfying AUDIT_SECURITY's `mustContainAny` and carrying a rid so the
  *  two rids' files are distinguishable by content, not merely by name. */
 export function securityBody(rid: string): string {
-  return `---\nschemaVersion: 1\nartifactKind: security-audit\nrid: ${rid}\n---\n\n# Security audit — \`${rid}\`\n\n## Verdict\n\nwarn\n`;
+  return `---\nschemaVersion: 1\nartifactKind: security-audit\nrid: ${rid}\n---\n\n# Security audit — \`${rid}\`\n\n## Verdict\n\nwarn\n${judgedDeclarationSection()}`;
 }
 
 export function perfBody(rid: string): string {
@@ -140,6 +145,9 @@ export function posix(path: string): string {
  *  entirely also never emits it, and would still pass. `ok` cannot be faked
  *  that way. */
 export function seedCompleteSlice(projectRoot: string, rid: string): void {
+  // The security artifact's declaration names this file, so it has to be on
+  // disk in whatever root is being seeded — not only in `makeProjectRoot()`.
+  writeJudgedFixtureSource(projectRoot);
   writeArtifact(
     projectRoot,
     'prd/handoff.md',

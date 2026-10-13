@@ -40,6 +40,10 @@
 
 import { describe, expect, it } from 'vitest';
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  judgedDeclarationSection,
+  writeJudgedFixtureSource
+} from '../artifacts/_judged-declaration-fixture.js';
 import { dirname, join } from 'node:path';
 import { declareDimensions } from '../../_setup/4dim-template.js';
 import { withTmpWorkspacePerTest, type TmpWorkspace } from '../../_setup/tmp-workspace.js';
@@ -102,7 +106,7 @@ const QA_EVIDENCE: ReadonlyArray<[string, string]> = [
 const CURRENT_CONTRACT_EVIDENCE: ReadonlyArray<[string, string]> = [
   [`prd/handoff-${RID}.md`, PRD_HANDOFF_BODY],
   ['rd/code-review.md', '# Code review\n\n## Findings\n\nCRITICAL: none\n'],
-  ['audit/security.md', '# Security audit\n\n## Verdict\n\nPASS\n'],
+  ['audit/security.md', '# Security audit\n\n## Verdict\n\nPASS\n' + judgedDeclarationSection()],
   ['audit/perf.md', '# Perf audit\n\n## Baseline\n\nn/a\n'],
   ['rd/karpathy-review.md', KARPATHY_REVIEW_BODY],
   ['qa/.initiated', ''],
@@ -117,7 +121,10 @@ const LEGACY_CONTRACT_EVIDENCE: ReadonlyArray<[string, string]> = [
   ['prd/handoff.md', PRD_HANDOFF_BODY],
   ['rd/tech-doc.md', '# Tech doc\n'],
   ['rd/code-review.md', '# Code review\n\n## Findings\n\nCRITICAL: none\n'],
-  ['rd/security-review.md', '# Security review\n\n## Findings\n\nnone\n'],
+  [
+    'rd/security-review.md',
+    '# Security review\n\n## Findings\n\nnone\n' + judgedDeclarationSection()
+  ],
   ['rd/perf-baseline.md', '# Perf baseline\n\n## Results\n\nn/a\n'],
   ['rd/karpathy-review.md', KARPATHY_REVIEW_BODY],
   ['qa/.initiated', ''],
@@ -153,6 +160,7 @@ async function seedSlice(
       'utf8'
     );
   }
+  writeJudgedFixtureSource(ws.path);
   for (const [relative, body] of evidence) write(ws.path, relative, body);
 }
 

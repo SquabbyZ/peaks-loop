@@ -34,6 +34,10 @@
 //                  nothing and exits nothing
 
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  judgedDeclarationSection,
+  writeJudgedFixtureSource
+} from './_judged-declaration-fixture.js';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -115,6 +119,7 @@ function makeProjectRoot(): string {
   const root = mkdtempSync(join(tmpdir(), 'peaks-unit-tests-idiom-'));
   tempRoots.push(root);
   mkdirSync(join(root, '.peaks', '_runtime', SESSION_ID), { recursive: true });
+  writeJudgedFixtureSource(root);
   return root;
 }
 
@@ -138,7 +143,7 @@ function seedSlice(projectRoot: string, testCasesBody: string): void {
   writeArtifact(
     projectRoot,
     `audit/security-${RID}.md`,
-    '---\nrid: ' + RID + '\n---\n\n## Verdict\n\nwarn\n'
+    '---\nrid: ' + RID + '\n---\n\n## Verdict\n\nwarn\n' + judgedDeclarationSection()
   );
   writeArtifact(
     projectRoot,

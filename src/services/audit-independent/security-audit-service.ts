@@ -31,12 +31,20 @@
  *   - Schema: `.peaks/project-scan/audit-output-schema.md` (schemaVersion: 1)
  */
 
-import { existsSync, readFileSync, writeFileSync, mkdirSync, renameSync } from 'node:fs';
-import { join, resolve, isAbsolute } from 'node:path';
-import { createHash } from 'node:crypto';
-import { REQUEST_ID_PATTERN } from '../artifacts/request-artifact-service.js';
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
 import { resolveHandoffPath } from '../prd/handoff-service.js';
 import { handoffMissingRefusal } from './handoff-missing-refusal.js';
+import {
+  renderSecurityAuditArtifact,
+  writeSecurityAuditArtifact
+} from './security-audit-artifact.js';
+import {
+  declarationMissingDetect,
+  renderJudgedDeclaration,
+  type JudgedDeclaration
+} from './judged-declaration.js';
+import { buildJudgedDeclarationFor } from './judged-declaration-build.js';
 
 /**
  * 5-state detection result. Mirrors `detectEcc` in `services/code-review/ecc-bridge.ts`.
@@ -48,7 +56,12 @@ import { handoffMissingRefusal } from './handoff-missing-refusal.js';
  *   - `envelope-malformed` — parent LLM returned a value that fails `isSecurityAuditEnvelope`
  */
 export type SecurityAuditDetectState =
-  'ready' | 'handoff-missing' | 'template-missing' | 'dispatch-failed' | 'envelope-malformed';
+  | 'ready'
+  | 'handoff-missing'
+  | 'template-missing'
+  | 'dispatch-failed'
+  | 'envelope-malformed'
+  | 'declaration-missing';
 
 export interface SecurityAuditDetectResult {
   readonly state: SecurityAuditDetectState;
@@ -105,84 +118,6 @@ export function isSecurityAuditEnvelope(value: unknown): value is SecurityAuditE
     if (typeof vo.hint !== 'string') return false;
   }
   return true;
-}
-
-/**
- * Handoff frontmatter — minimal projection of peaks-prd v2.11.0 handoff
- * frontmatter. We only need sha256 for verification; the rest of the
- * handoff body is consumed by the parent LLM, not by this service.
- */
-export interface HandoffFrontmatter {
-  readonly sha256: string;
-  readonly schemaVersion: number;
-}
-
-/**
- * Read the peaks-prd handoff frontmatter + body, verify sha256 matches
- * the body. Returns null on missing file or sha256 mismatch; otherwise
- * returns the parsed frontmatter + body string.
- *
- * Defensive: we read frontmatter via a 1-line regex match, not via
- * a YAML parser. The handoff service (`src/services/prd/handoff-service.ts`)
- * is the canonical writer; we only consume its output here.
- */
-export function readAndVerifyHandoff(
-  handoffPath: string,
-  projectRoot: string
-): { frontmatter: HandoffFrontmatter; body: string } | null {
-  if (!handoffPath || !isAbsolute(handoffPath)) {
-    const absolutePath = resolve(projectRoot, handoffPath);
-    if (!existsSync(absolutePath)) return null;
-    return readAndVerifyHandoff(absolutePath, projectRoot);
-  }
-  if (!existsSync(handoffPath)) return null;
-
-  let raw: string;
-  try {
-    raw = readFileSync(handoffPath, 'utf8');
-  } catch {
-    // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
-    return null;
-  }
-
-  // Frontmatter pattern: `---` line, then key: value pairs, then `---` line.
-  const match = raw.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
-  if (match === null) return null;
-
-  const frontmatterRaw = match[1]!;
-  const body = match[2]!;
-
-  const sha256Match = frontmatterRaw.match(/^sha256:\s*([a-f0-9]{64})\s*$/m);
-  const schemaVersionMatch = frontmatterRaw.match(/^schemaVersion:\s*(\d+)\s*$/m);
-  if (sha256Match === null || schemaVersionMatch === null) return null;
-
-  const sha256Expected = sha256Match[1]!;
-  const schemaVersion = parseInt(schemaVersionMatch[1]!, 10);
-  const sha256Actual = createHash('sha256').update(body, 'utf8').digest('hex');
-
-  if (sha256Expected !== sha256Actual) return null;
-
-  return {
-    frontmatter: { sha256: sha256Expected, schemaVersion },
-    body
-  };
-}
-
-/**
- * Read the project-level security-template.md. Returns the body
- * string (with frontmatter stripped) or null if the file is absent.
- * Does NOT validate the template content; the parent LLM validates
- * by reading.
- */
-export function readSecurityTemplate(projectRoot: string): string | null {
-  const templatePath = join(projectRoot, '.peaks', 'project-scan', 'security-template.md');
-  if (!existsSync(templatePath)) return null;
-  try {
-    return readFileSync(templatePath, 'utf8');
-  } catch {
-    // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
-    return null;
-  }
 }
 
 /**
@@ -290,108 +225,6 @@ export function detectSecurityAudit(input: {
 }
 
 /**
- * Render a SecurityAuditEnvelope to the canonical audit artifact body
- * (markdown). Mirrors `adaptEccEnvelopeToRdCodeReview` in ecc-bridge.ts:
- * produce a markdown body with all required sections, ready to write
- * to `.peaks/_runtime/<sid>/audit/security-<rid>.md`.
- */
-export function renderSecurityAuditArtifact(
-  env: SecurityAuditEnvelope,
-  opts: { rid: string; handoffHash: string; generatedAt: string }
-): { body: string; violationsCount: number; verdict: SecurityAuditVerdict } {
-  const counts: Record<string, number> = {};
-  for (const v of env.violations) {
-    counts[v.severity] = (counts[v.severity] ?? 0) + 1;
-  }
-  const criticalCount = counts['CRITICAL'] ?? 0;
-
-  const findingsBullets =
-    env.violations.length === 0
-      ? '- (none)'
-      : env.violations
-          .map((v) => `- [${v.severity}] ${v.dimension} @ ${v.file}:${v.line} — ${v.hint}`)
-          .join('\n');
-
-  const requiredFixes = buildRequiredFixes(env);
-
-  const body = [
-    '## Summary',
-    '',
-    env.summary,
-    '',
-    '## Threat model coverage',
-    '',
-    `audited at: ${opts.generatedAt}`,
-    `verdict: ${env.verdict}`,
-    `handoffHash: ${opts.handoffHash}`,
-    '',
-    '## Findings',
-    '',
-    findingsBullets,
-    '',
-    requiredFixes,
-    '## Verdict',
-    '',
-    `verdict: ${env.verdict}`,
-    `CRITICAL: ${criticalCount}`,
-    ''
-  ]
-    .filter((s) => s.length > 0)
-    .join('\n');
-
-  return {
-    body,
-    violationsCount: env.violations.length,
-    verdict: env.verdict
-  };
-}
-
-function buildRequiredFixes(env: SecurityAuditEnvelope): string {
-  const requiredFixes =
-    env.violations.length === 0
-      ? ''
-      : [
-          '## Required fixes',
-          '',
-          ...env.violations.map((v) => `- [${v.severity}] ${v.file}:${v.line} — ${v.hint}`),
-          ''
-        ].join('\n');
-  return requiredFixes;
-}
-
-/**
- * Write the rendered audit artifact to
- * `.peaks/_runtime/<sid>/audit/security-<rid>.md`.
- *
- * Atomic write (tmp + rename) to avoid partial writes on crash.
- * Returns the absolute path on success.
- */
-export function writeSecurityAuditArtifact(
-  projectRoot: string,
-  sessionId: string,
-  rid: string,
-  body: string
-): string {
-  // The rid is a filename below, and the write is tmp+rename, so an
-  // unvalidated rid can OVERWRITE an arbitrary `.md` rather than merely create
-  // one. Guarded here (not only at the CLI boundary) so no caller can skip it.
-  if (!REQUEST_ID_PATTERN.test(rid)) {
-    throw new Error(
-      `Invalid request id: ${rid} (expected letters, digits, dots, underscores, or dashes)`
-    );
-  }
-  const targetDir = join(projectRoot, '.peaks', '_runtime', sessionId, 'audit');
-  mkdirSync(targetDir, { recursive: true });
-  const targetPath = join(targetDir, `security-${rid}.md`);
-  // tmp + rename for atomicity
-  const tmpPath = `${targetPath}.tmp`;
-  writeFileSync(tmpPath, body, 'utf8');
-  // Sync rename: on Windows, fs.renameSync overwrites if target exists (Node 22+)
-  renameSync(tmpPath, targetPath);
-  return targetPath;
-}
-
-/**
  * Convenience: run `detectSecurityAudit` + `renderSecurityAuditArtifact`
  * + `writeSecurityAuditArtifact` in one call.
  *
@@ -403,6 +236,11 @@ export function runSecurityAudit(input: {
   readonly sessionId: string;
   readonly rid: string;
   readonly generatedAt: string;
+  /** Project-relative paths this audit judged; written into the artifact as
+   *  the declaration the transition gate reads back. Required — a path that
+   *  cannot be hashed is refused, because a declaration naming a file that is
+   *  not there cannot be checked later. */
+  readonly judgedPaths: readonly string[];
   readonly dispatchError?: unknown;
   readonly envelope?: unknown;
 }): {
@@ -419,33 +257,37 @@ export function runSecurityAudit(input: {
     ...(input.envelope !== undefined ? { envelope: input.envelope } : {})
   });
 
-  if (detect.state !== 'ready' || input.envelope === undefined) {
-    return { detect, artifactPath: null, violationsCount: 0, verdict: null };
+  // The stamp is built inside the producer, before anything is written, so a
+  // caller that reaches the service alone still cannot leave an unstamped
+  // artifact behind. Folding its failure into the probe's own verdict keeps the
+  // refusal on this function's single early-return rather than a second one.
+  const built = buildJudgedDeclarationFor(input);
+  // A probe that is already refusing keeps its own diagnosis: the declaration
+  // is what this run would write, not what stopped it earlier.
+  const probe: SecurityAuditDetectResult =
+    built.ok || detect.state !== 'ready' ? detect : declarationMissingDetect(detect, built);
+
+  if (probe.state !== 'ready' || input.envelope === undefined || !built.ok) {
+    return { detect: probe, artifactPath: null, violationsCount: 0, verdict: null };
   }
 
-  // detect.state === 'ready' implies input.envelope passed isSecurityAuditEnvelope.
+  // probe.state === 'ready' implies input.envelope passed isSecurityAuditEnvelope.
   const env = input.envelope as SecurityAuditEnvelope;
 
-  const handoffPath = resolveHandoffPath({
-    projectRoot: input.projectRoot,
-    sessionId: input.sessionId,
-    requestId: input.rid
-  });
-  const verified =
-    handoffPath === null ? null : readAndVerifyHandoff(handoffPath, input.projectRoot);
-  const handoffHash = verified?.frontmatter.sha256 ?? 'unknown';
-
-  const rendered = renderSecurityAuditArtifact(env, {
+  const renderOpts = {
     rid: input.rid,
-    handoffHash,
+    handoffHash: built.handoffHash,
     generatedAt: input.generatedAt
-  });
+  };
+  const rendered = renderSecurityAuditArtifact(env, renderOpts);
 
+  const declared: JudgedDeclaration = built.declaration;
+  const body = `${rendered.body}\n${renderJudgedDeclaration(declared)}`;
   const artifactPath = writeSecurityAuditArtifact(
     input.projectRoot,
     input.sessionId,
     input.rid,
-    rendered.body
+    body
   );
 
   return {
