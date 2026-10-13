@@ -47,6 +47,7 @@ interface ComposePhaseInput {
   prompt: string;
   decision: ContextGuardDecision;
   lease: IsolationLease;
+  rootCommand: Command;
 }
 
 interface ToolCallPhaseInput {
@@ -66,6 +67,7 @@ interface DispatchPipelineInput {
   decision: ContextGuardDecision;
   prompt: string;
   asJson: boolean;
+  rootCommand: Command;
 }
 
 function buildDispatchContext(
@@ -123,7 +125,8 @@ async function composePromptPhase(
     worktreePath: input.lease.worktreePath,
     worktreeBranch: input.lease.worktreeBranch,
     decision: input.decision,
-    asJson: ctx.asJson
+    asJson: ctx.asJson,
+    rootCommand: input.rootCommand
   });
 }
 
@@ -177,7 +180,8 @@ async function runDispatchPipeline(
   const composed = await composePromptPhase(io, options, ctx, {
     prompt: input.prompt,
     decision: input.decision,
-    lease
+    lease,
+    rootCommand: input.rootCommand
   });
   if (composed === null) return;
   const { adapter, effectivePrompt, warnings, mustLsFilesVerification } = composed;
@@ -210,7 +214,8 @@ async function runDispatchPipeline(
 async function runDispatchAction(
   role: string,
   options: DispatchOptions,
-  io: ProgramIO
+  io: ProgramIO,
+  rootCommand: Command
 ): Promise<void> {
   const asJson = options.json === true;
   // explicitly requested, lazy-import the detached handler and short-
@@ -236,7 +241,7 @@ async function runDispatchAction(
   const { decision, prompt } = preflight;
 
   try {
-    await runDispatchPipeline(io, options, role, { decision, prompt, asJson });
+    await runDispatchPipeline(io, options, role, { decision, prompt, asJson, rootCommand });
   } catch (error: unknown) {
     printResult(
       io,
@@ -256,8 +261,13 @@ async function runDispatchAction(
 }
 
 export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
+  // `parent` is the `sub-agent` group, so its parent is the registered root —
+  // the real command tree the prompt's quotations are resolved against. A caller
+  // that mounted the group on a bare `Command` (as the unit tests do) gets that
+  // Command, which is the whole tree it has.
+  const rootCommand: Command = parent.parent ?? parent;
   buildDispatchCommandSpec(parent).action((role: string, options: DispatchOptions) =>
-    runDispatchAction(role, options, io)
+    runDispatchAction(role, options, io, rootCommand)
   );
 }
 

@@ -2,6 +2,7 @@
 // optional preflight blocks (memory / codegraph / UI library / fresh context /
 // context probe / session capsule), the isolation and must-ls-files blocks, the
 // machine-injected Karpathy block, and the warning list the envelope carries.
+import type { Command } from 'commander';
 import { fail, getErrorMessage } from 'peaks-loop-shared/result';
 import { printResult, type ProgramIO } from '../cli-helpers.js';
 import { detectInstalledIde } from '../../services/ide/ide-detector.js';
@@ -29,6 +30,7 @@ import {
   readArtifactContractBlock
 } from '../../services/artifacts/artifact-contract-block.js';
 import { ensureKarpathyBlock } from '../../services/dispatch/karpathy-block.js';
+import { cliInvocationWarnings } from './dispatch-cli-invocation-check.js';
 
 export interface ComposeDispatchPromptInput {
   projectRoot: string;
@@ -44,6 +46,11 @@ export interface ComposeDispatchPromptInput {
   worktreeBranch: string | null;
   decision: ContextGuardDecision;
   asJson: boolean;
+  /**
+   * The registered CLI, so the prompt's own quotations of it can be resolved
+   * against the commands that exist rather than against a second, hand-kept list.
+   */
+  rootCommand: Command;
 }
 
 export interface ComposedDispatchPrompt {
@@ -232,7 +239,9 @@ export async function composeDispatchPrompt(
     worktreePath,
     worktreeBranch,
     decision,
-    asJson
+    asJson,
+    rootCommand,
+    prompt
   } = input;
   const projectPrefs = loadProjectPreferences(projectRoot);
 
@@ -266,8 +275,16 @@ export async function composeDispatchPrompt(
       contractBlock
     )
   );
+  // Findings travel as WARNINGS, never as a refusal, and they are read off the
+  // CALLER's prompt rather than the assembled one — both decisions are measured
+  // and recorded on `dispatch-cli-invocation-check.ts`.
+  const invocationWarnings = cliInvocationWarnings(prompt, rootCommand);
   // + rerouted here, never refused — rationale on the helper itself.
-  const warnings: string[] = [...decision.warnings, ...deprecatedReviewerWarnings(role)];
+  const warnings: string[] = [
+    ...decision.warnings,
+    ...deprecatedReviewerWarnings(role),
+    ...invocationWarnings
+  ];
 
   return { adapter, effectivePrompt, warnings, mustLsFilesVerification };
 }
