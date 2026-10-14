@@ -67,7 +67,6 @@ export const FORMAT_CHECK_BASELINE_FILES = Object.freeze([
   'tests/unit/lint/baseline-rescope-guard.test.ts',
   'tests/unit/lint/baseline-scope-growth-vs-shrink.test.ts',
   'tests/unit/lint/baseline-scope-population-set.test.ts',
-  'tests/unit/lint/file-size-excess-gate-leg.test.ts',
   'tests/unit/lint/gate-scope-exemption.test.ts',
   'tests/unit/lint/lint-file-list-parity.test.ts',
   'tests/unit/lint/lint-scope-rule.test.ts',
