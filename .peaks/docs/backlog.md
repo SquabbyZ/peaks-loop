@@ -104,6 +104,17 @@
 > stated separately because this file keeps conflating a real check with a vacuous one. **No existing item
 > was renumbered or rewritten; §9.48 is an append**, and its sibling is **9.42**, which is the same leg
 > failing in the opposite direction.
+>
+> **Revised 2026-10-14, later again — §9.48 was fixed (`f9091db3`) and §9.49 records what the fix ships
+> with.** The fix is a **redirect, not a refusal**: the leg verifies the newest sibling session that carries
+> rid carriers instead of permitting the commit on an empty bound session. The refusal variant is the
+> obvious repair and it was **measured and rejected** — six of eleven session directories carry zero
+> carriers, so it would block every docs / chore / memory commit from them, which is the outcome the leg's
+> own header warns about. Three follow-ups are filed in **9.49**, all tightening-only; one of them is a
+> wrong number **this file's predecessor claim introduced** — the PRD handoff counted request FILES and
+> called them rids — which is recorded there rather than quietly corrected, because the handoff is
+> sha256-locked (9.13) and this entry is the only durable home the correction has. **No existing item was
+> renumbered or rewritten; §9.49 is an append.**
 
 ---
 
@@ -5436,6 +5447,52 @@ INIT_SESSION_HELP)` — versus line **107** in the same file:
   refusal; (b) have the leg read the session the contract's own carriers name, which is a larger
   change than a guard. (a) carries the false-refusal risk the header's rationale warns about, and
   measuring that risk is the first step of any repair rather than an argument against it.
+
+### 9.49 9.48's redirect ships with three findings it recorded rather than fixed — and one of them is the orchestrator's own (measured 2026-10-14)
+
+- **Where**: `.husky/pipeline/session-redirect.mjs` (new, landed as `f9091db3`),
+  `.husky/pipeline/contract-verdict.mjs` (297 of its 300-line hooks cap), `.husky/peaks-gate-pipeline.mjs`,
+  `tests/unit/hooks/pipeline-contract-gate-redirect.test.ts`.
+- **What 9.48's fix is, in one line**: the artifact-contract pre-commit leg now **redirects** to the newest
+  sibling session directory that carries rid carriers instead of permitting the commit on an empty bound
+  session. Not a refusal — that design was measured and rejected (six of eleven session directories carry
+  zero carriers, and refusing would block every docs / chore / memory commit from them).
+- **The three findings, all tightening-only** — none can convert a refusal into a pass, which QA verified
+  by differential (HEAD's leg replayed against the same inputs, plus 90 randomized real trees; old-refused /
+  new-passed = **0** in every run):
+  1. **The tie-break belongs to the caller, not the module.** `session-redirect.mjs:97` uses `>=`, so
+     last-in-enumeration wins; the header's *"a tie keeps the greater session id … never depends on
+     enumeration order"* is true **only because `discoverSessions` sorts by sessionId**
+     (`reconcile-service.ts:78`) — this module does not supply it, and the module's own test stub returns raw
+     `readdirSync` order, so nothing pins it. Measured by QA, worse than filed: two carrier siblings at an
+     identical mtime resolve to `…-0109` fed ascending and `…-0102` fed descending — same tree, different
+     target. One-line fix: sort the candidates here, or move the claim out of this module's header.
+  2. **An unreadable sibling is dropped silently.** `session-redirect.mjs:83` keeps a candidate only when
+     `carriers.size > 0`, so `collectRids`' `failures` are discarded — while the bound scope **refuses** on
+     the identical posture. Built by QA: with the newest sibling's `rd/requests` replaced by a file
+     (ENOTDIR), the leg verified the **older** session and printed *"the newest of 1 rid-carrying session(s);
+     0 NOT verified"* — a whole session dropped and the sentence denies it. **This is 9.48's own shape, one
+     layer down**: a silent wrong scope, caused by a silent exclusion rather than by a wrong binding.
+  3. **A comment's numbers are request-file counts, not rids — and the error is the ORCHESTRATOR's.**
+     `session-redirect.mjs:21` reads *"87 + 47 + 19 + 18 + 14 rids"*; those five figures are **request-file**
+     counts from an `ls | wc -l`. The real enumeration is **65 rids (22/18/14/6/4/1)** across 6 rid-carrying
+     sessions. The unbounded argument stands; its number overstates ~3×. The RD cited the PRD handoff
+     **correctly** — the handoff states *"five carry rid carriers (87, 47, 19, 18, 14)"*, which is where the
+     conflation entered, and being sha256-locked it cannot be corrected (**9.13**). This entry is the only
+     place that correction can live.
+- **Why they were recorded rather than fixed in the same commit**, and this is the reusable part: fixing any
+  judged path invalidates the security artifact's sha256 judged-path declaration, which requires re-running
+  the audit **and** re-running a verification whose verdict the edit would have invalidated anyway —
+  **9.9's shape**. A repair that cannot be verified without re-verifying everything it already verified is
+  not a cheap repair. A slice that ships a known non-blocking finding **with its adjudication** is not the
+  same thing as a slice that hides one.
+- **The residual false-refusal surface, as a number rather than a worry**: of the five carrier-bearing
+  sessions, `90f47d` is 14 rids short of its contracts, `062f74` 17, `5ac396` 4; `74bd69` and `2f9323` are
+  complete. The newest today (`2f9323`) is complete, so the surface **does not fire today**; it fires only
+  when the newest rid-carrying session is one of the incomplete three, and it then refuses naming the
+  session and the rid rather than passing silently.
+- **Disposition**: three follow-ups, each with a one-line fix, filed here because the commit that shipped
+  them recorded them and nothing else would have.
 
 ### 9.A Recorded, not fixed — the session's accepted risks, smaller items, and open U-questions
 
