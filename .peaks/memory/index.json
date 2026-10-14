@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-12T12:42:17.315Z",
+  "updatedAt": "2026-10-14T05:48:18.601Z",
   "hot": {
     "rule": [
       {
@@ -1190,6 +1190,14 @@
         "updatedAt": "2026-10-08"
       },
       {
+        "name": "a-name-keyed-sweep-cannot-see-a-class-defined-by-position",
+        "kind": "lesson",
+        "description": "Two repairs to the same defect were each reviewed by their own instance and each left the class open.",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\a-name-keyed-sweep-cannot-see-a-class-defined-by-position.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-14-session-2f9323/txt/handoff.md",
+        "updatedAt": "2026-10-14"
+      },
+      {
         "name": "a-prose-claim-about-what-a-timeout-does-while-holding-evidence-only-of-what-it-is",
         "kind": "lesson",
         "description": "断言行为之前，先测行为；断言不存在之前，先确认自己读到了输出 案例一：算式是真的，回收是假的（2026-10-01，rid ）  求值成 18,000,000 ms （5 小时），而命名与注释要的是 300,000 ms。这一半是**...",
@@ -1884,6 +1892,22 @@
         "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\subagent-evidence-must-hold-at-delivery-state.md",
         "sourceArtifact": null,
         "updatedAt": "2026-10-09"
+      },
+      {
+        "name": "the-globally-installed-peaks-binary-silently-lags-src-by-days",
+        "kind": "lesson",
+        "description": "resolves to a compiled single-file binary (measured 2026-10-14: , dated **2026-10-04**) that reports version **4.1.4*...",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\the-globally-installed-peaks-binary-silently-lags-src-by-days.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-14-session-2f9323/txt/handoff.md",
+        "updatedAt": "2026-10-14"
+      },
+      {
+        "name": "the-heading-is-the-claim-and-nothing-checks-it",
+        "kind": "lesson",
+        "description": "A backlog whose headings carry implementation state will drift from its own bodies, and nothing in the tree detects it.",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\the-heading-is-the-claim-and-nothing-checks-it.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-14-session-2f9323/txt/handoff.md",
+        "updatedAt": "2026-10-14"
       },
       {
         "name": "the-ratchet-s-only-joint-decision-exception-works-and-it-is-conditional",
