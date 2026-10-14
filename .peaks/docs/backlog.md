@@ -5493,6 +5493,37 @@ INIT_SESSION_HELP)` — versus line **107** in the same file:
   session and the rid rather than passing silently.
 - **Disposition**: three follow-ups, each with a one-line fix, filed here because the commit that shipped
   them recorded them and nothing else would have.
+- **All three were then fixed** (rid `2026-10-14-gate-redirect-followups`, `15def424`), together with the
+  re-audit the parent entry said the repair would cost. What that slice produced, and what it did **not**
+  close — recorded here rather than only in its commit message, because the next reader of *this* entry is
+  the one who needs to know whether the three are still open:
+  - **F1 was fixed as a construction, not a patch.** The tie-break is now `better()` — a max over the total
+    order (mtime, then session id) — so it is order-independent **by construction** rather than by the
+    caller's sort. Verified by exhausting the input: all six permutations of three siblings tied at one
+    carrier mtime give **one** distinct target, against **three** under the pre-repair module. The
+    distinction matters because the two fixes are not equivalent: sorting the entries would have satisfied
+    G1 only for as long as the seam's caller kept sorting.
+  - **F3's numbers were cut rather than corrected**, and that is the durable part: the rid population
+    **moves whenever a request is filed** (65 at QA's measurement, 66 at the RD's, hours apart), so no
+    value is permanently reproducible and *any* pinned number would have been the same defect again. A
+    number that cannot be reproduced on demand is not a measurement.
+  - **The repair's own residuals, each named so they are not lost.** (a) The `unreadable` list is
+    `push`-ordered, so a caller that does not sort can reorder the **names** inside `1 unreadable (…)` —
+    cosmetic: no target and no exit-code movement. (b) Arms 12 and 13 of the redirect test file assert
+    **rendered text**, never `findRedirectScope`'s return value, so an implementation emitting identical
+    words from the caller would pass them; the RD flagged 13 and QA found 12 is identical in kind. Closing
+    it needs the injectable seam's return asserted directly. (c) `pipeline-contract-gate.test.ts` is **533
+    lines against the 500 `tests/**` cap and unchanged** — that is **9.4**'s already-ruled documentary cap,
+    not a new instance.
+  - **One finding was raised and deliberately NOT sent back.** The auditor broke the module on the posture
+    *no readable sibling + at least one unreadable one*, where the leg prints *"no rid to verify … Nothing
+    was refused"* while the module's own comment calls that sibling count UNKNOWN. QA reproduced it
+    verbatim and adjudicated it **weaker than the module's knowledge, not false**, because the printed line
+    narrows its own claim in the same sentence — *"no **readable** sibling carries a request; 1 unreadable
+    (…)"* — so no reader sees the headline without the disclosure. **The condition that flips it is worth
+    keeping**: drop the word "readable", or move the disclosure off that line, and the sentence becomes
+    false. QA also priced the repair the auditor did not: arm 13's `toContain('no rid to verify')` pins
+    that exact wording, so "fixing" the sentence is not the cheap change it looks like.
 
 ### 9.A Recorded, not fixed — the session's accepted risks, smaller items, and open U-questions
 
