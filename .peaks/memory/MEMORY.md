@@ -144,7 +144,7 @@
 - [src-services-ide-module-is-the-single-source-of-truth-for-ide-aware-behavior](src-services-ide-module-is-the-single-source-of-truth-for-ide-aware-behavior.md) — The  module is the single source of truth for IDE-aware behavior.
 - [src-services-session-canonical-workspace-resolver](src-services-session-canonical-workspace-resolver.md) — is the canonical home for the per-session workspace.
 
-## lesson (122)
+## lesson (123)
 
 - [2026-06-26-unknown-sid-root-cause](archived/2026-06-26-unknown-sid-root-cause.md) — Root cause + remediation log for the  and  orphan session dirs.
 - [2026-07-28-rid-034-handoff-no-sediment-block](2026-07-28-rid-034-handoff-no-sediment-block.md) — rid-034 收尾遇 sediment 反向 — no peaks-memory:start/end 闭合块 **Date:** 2026-07-28 **Rid:** 2026-07-28-rid-034-v2-13-0-clea...
@@ -160,6 +160,7 @@
 - [a-degradation-that-carries-no-reason-is-indistinguishable-from-a-success](a-degradation-that-carries-no-reason-is-indistinguishable-from-a-success.md) — built the sub-agent prompt's codegraph block as .
 - [a-dependency-whose-backend-was-replaced-must-be-checked-for-ability-not-for-the-label](a-dependency-whose-backend-was-replaced-must-be-checked-for-ability-not-for-the-label.md) — (2026-10-05) removed  from peaks-loop's own dependencies and from 's , as part of moving peaks-loop's own stores to .
 - [a-digest-that-proves-the-source-side-does-not-prove-the-emit-side](a-digest-that-proves-the-source-side-does-not-prove-the-emit-side.md) — A staleness guard that digests  and compares against a recorded stamp proves only that the sources have not moved.
+- [a-gate-bound-to-the-active-session-verifies-nothing](a-gate-bound-to-the-active-session-verifies-nothing.md) — The last slice of job  was resumed from a **fresh** session while its six rid carriers lived under the session that p...
 - [a-gate-invoked-with-no-file-arguments-passes-vacuously-and-exits-0](a-gate-invoked-with-no-file-arguments-passes-vacuously-and-exits-0.md) — with zero in-scope files prints  and **returns 0** (, ).
 - [a-guard-keyed-on-a-file-path-shrinks-silently-when-you-split-that-file](a-guard-keyed-on-a-file-path-shrinks-silently-when-you-split-that-file.md) — Three independent guards in this repo decide what to measure by PATH, so moving code into a sibling removes it from c...
 - [a-guard-named-for-a-rule-but-written-as-a-list-cannot-see-the-next-case](a-guard-named-for-a-rule-but-written-as-a-list-cannot-see-the-next-case.md) — 是 npm 的发布白名单，而**仓库里没有任何东西读它**。漏加一个  导入的模块，后果是**每个用户**在  后 ， 而**全仓 4238 条测试全绿**。本 session 在同一个地方栽了两次（、）。 第三次时，一条守卫被加上了...

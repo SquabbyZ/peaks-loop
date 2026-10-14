@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-14T05:48:18.601Z",
+  "updatedAt": "2026-10-14T07:42:13.838Z",
   "hot": {
     "rule": [
       {
@@ -1108,6 +1108,14 @@
         "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\a-digest-that-proves-the-source-side-does-not-prove-the-emit-side.md",
         "sourceArtifact": ".peaks/_runtime/2026-09-24-session-b714c7/txt/handoff.md",
         "updatedAt": "2026-10-08"
+      },
+      {
+        "name": "a-gate-bound-to-the-active-session-verifies-nothing",
+        "kind": "lesson",
+        "description": "The last slice of job  was resumed from a **fresh** session while its six rid carriers lived under the session that p...",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\a-gate-bound-to-the-active-session-verifies-nothing.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-14-session-2f9323/txt/handoff.md",
+        "updatedAt": "2026-10-14"
       },
       {
         "name": "a-gate-invoked-with-no-file-arguments-passes-vacuously-and-exits-0",

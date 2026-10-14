@@ -92,6 +92,18 @@
 > **No existing item was renumbered, and no item body was rewritten — every corrected heading is a marker
 > change alone. The 17 Rule-B corrections sit in §2 (15) and §8 (2); the five remaining corrected headings
 > are §9's `9.1`–`9.4` and `9.37`.**
+>
+> **Revised 2026-10-14, later the same day — §9.48 is new, and it was filed by walking into it.**
+> The job `backlog-9x-drain` was resumed from a **fresh** session (`…-session-3cb9bc`) while its six rid
+> carriers live under `…-session-2f9323`, and the two things that then happened are the item: the
+> **artifact-contract pre-commit leg resolved the active session, found zero rids, and permitted the
+> commit while saying so truthfully** — *"no rid to verify … Nothing was refused"* — and there is **no
+> override on that path**, so the leg cannot be pointed at the right session by configuration.
+> `verify-pipeline --rid … --session-id …` was then run explicitly and reported `complete: true` with all
+> eight gates passed, so **the pipeline was followed and the hook did not check it** — the two claims are
+> stated separately because this file keeps conflating a real check with a vacuous one. **No existing item
+> was renumbered or rewritten; §9.48 is an append**, and its sibling is **9.42**, which is the same leg
+> failing in the opposite direction.
 
 ---
 
@@ -5374,6 +5386,56 @@ INIT_SESSION_HELP)` — versus line **107** in the same file:
 - **This is 9.15's rule generalised**: the control arm must be built from **the side the check reads**,
   and the *class* must be keyed on the **property**, not on the names the instances happen to carry.
 - **Disposition**: filed as the generalised rule; the instance itself is closed by `47863518`.
+
+### 9.48 The artifact-contract pre-commit leg resolves the ACTIVE session, so committing a resumed job's slice from a different session verifies nothing — and the pass is deliberate (measured 2026-10-14)
+
+- **Where**: `.husky/pipeline/contract-verdict.mjs:173` `enumerateScope` → `:177`
+  `getSessionIdCanonical(projectRoot)`; the vacuous branch is `:275`. The hook binds that
+  resolver at `.husky/peaks-gate-pipeline.mjs:107` and `:159`.
+- **What the resolver reads, measured 2026-10-14**: `src/services/session/session-manager.ts:558` —
+  `resolveCallerBoundSession(projectRoot)`, then `readSessionFileCanonical(projectRoot)` →
+  `.peaks/_runtime/session.json`. **There is no session override on this path.** `PEAKS_SESSION_ID`
+  is read by five CLI commands (`dispatch-commands.ts:87`, `contract-write-command.ts:118`,
+  `container-command-shared.ts:91`, `dispatch-dag-preflight.ts:38`, `job-cost-check-command.ts:23`)
+  and by **neither** `session-manager.ts` nor the hook — so the leg cannot be pointed at another
+  session by configuration. The hypothesis that the env var would serve as the escape hatch was
+  **falsified by this grep**, not set aside.
+- **Measured symptom**: slice 6 of job `backlog-9x-drain` was committed from session
+  `2026-10-14-session-3cb9bc` while the work and all six rid carriers live under
+  `2026-10-14-session-2f9323`. The leg printed
+  `peaks-gate-pipeline: no rid to verify — session 2026-10-14-session-3cb9bc; 0 rid(s) under
+  rd/requests, prd/requests, qa/requests. Nothing was refused.` and exited 0. Under the session
+  that produced the work the same leg prints `artifact contract satisfied for 6 rid(s) — session
+  2026-10-14-session-2f9323`, as commits 4 and 5 of the same job did. **Both sentences are true;
+  only one of them is a check.**
+- **Not an oversight — a decision, and the item is about the decision's blind spot.** The leg's own
+  header says *"ZERO RIDS IS A PASS, LOUDLY. A session with no rid … passes and names the scope it
+  found empty; refusing there would block every commit from the first one, which is how a gate dies
+  and gets bypassed."* That rationale is sound for a **fresh** session. The unanticipated case is a
+  session whose binding is live, valid and **someone else's** — where zero is not "nothing to check"
+  but "checked the wrong place". The leg cannot tell the two apart: both are `carriers.size === 0`.
+- **Why it is worse than 9.42.** 9.42 is the same leg being too **broad** — it demands the full
+  contract for every rid it can see, so a job's first slice cannot be committed. 9.42's failure is
+  loud and blocks. This one is silent and permits, and its closing sentence — *"Nothing was
+  refused"* — is exactly what a reader skims as "nothing was wrong".
+- **The trigger is the documented resume flow, so it will recur.** `RESUME-SLICE-6.md` says *"reuse
+  this id, do not start a new one"* **because** the gates enumerate per bound session, and it names
+  the *artifact* consequence. It does not name the *commit* consequence: the same property that makes
+  a new session read the slice as never started also makes the commit leg read the session as having
+  no slices at all. Whoever resumes the next job from a fresh session hits this, and nothing warns.
+- **The verification that did happen, and how it was obtained**: `peaks workflow verify-pipeline
+  --rid <rid> --project . --session-id <sid>` → `complete: true`, `violations: 0`, all eight gates
+  passed (`rd-request-exists`, `prd-handoff`, `code-review`, `security-review`, `perf-baseline`,
+  `qa-request-exists`, `test-cases`, `test-report`). **Passing `--session-id` explicitly is what
+  makes it real** — the flag's own help says *"When omitted, no skip-state is consulted"*, and the
+  same active-session binding applies to the default. So the pipeline **was** followed; the hook
+  simply did not check it.
+- **Disposition**: unfiled class, recorded the day it was walked into. Candidate repairs, neither
+  attempted: (a) refuse when the bound session's carriers are empty **while** the project holds other
+  session directories that carry rids — fail-closed, and it converts today's silent permit into a
+  refusal; (b) have the leg read the session the contract's own carriers name, which is a larger
+  change than a guard. (a) carries the false-refusal risk the header's rationale warns about, and
+  measuring that risk is the first step of any repair rather than an argument against it.
 
 ### 9.A Recorded, not fixed — the session's accepted risks, smaller items, and open U-questions
 
