@@ -3,9 +3,18 @@
 // silent-warning mode and file-size mode. Hoisted VERBATIM out of
 // `.husky/peaks-gate.mjs` by rid `2026-10-02-wave9-gate-entry-split`.
 
-import { baseline, inScope, makeCheck, outOfScopeNotice, rel, reportEmpty } from './context.mjs';
+import {
+  ROOT,
+  baseline,
+  inScope,
+  makeCheck,
+  outOfScopeNotice,
+  rel,
+  reportEmpty
+} from './context.mjs';
 import { ratchetFiles } from './ratchet.mjs';
 import { silentWarningLeg, fileSizeLeg } from './legs.mjs';
+import { stagedSizeLeg } from './staged-size.mjs';
 // The enforced scope, from the one module that owns the rule — the same list
 // `.husky/peaks-gate.mjs`'s `repoFileList()` builds for `repo` mode, reached the
 // copy-safe way (see the header of `.husky/peaks-gate.mjs`).
@@ -58,7 +67,7 @@ function refuseNoFileArgument() {
       '  `staged` reads its file list from argv because lint-staged passes the staged\n' +
       '  paths to it, and lint-staged does NOT run a command whose glob matched nothing.\n' +
       '  An argv with no file in it therefore did not come from lint-staged: it is a\n' +
-      '  hand-written or empty-generated invocation. Exit 2 is this gate\'s usage code.\n' +
+      "  hand-written or empty-generated invocation. Exit 2 is this gate's usage code.\n" +
       '\n' +
       '  NOT refused here, and still exit 0: a change set whose code files are all\n' +
       '  outside the lint scope (a scope exemption), and `changed` mode with nothing to\n' +
@@ -75,8 +84,26 @@ async function stagedMode(argv) {
   const all = argv.map(rel).filter((f) => f !== '');
   const dropped = outOfScopeNotice('staged', all);
   const files = all.filter(inScope);
-  if (files.length === 0) return reportEmpty('staged', dropped);
-  return ratchetFiles(files, 'staged');
+  // THE FILE-SIZE RATCHET, ON THE COMMIT PATH. It is handed `all`, not `files`:
+  // `tests/**` and `scripts/**` are outside the LINT scope but inside the file-size
+  // POLICY's, and a leg hung off `files` would have missed the very file the defect was
+  // measured on (a 504-line test file under a 500 cap, staged, exit 0). The policy —
+  // not this gate — decides which of the staged paths it measures; see
+  // `staged-size.mjs` for why there is no threshold written down here.
+  //
+  // It runs BEFORE the empty-change-set branch below, deliberately: that branch is
+  // exactly the defect's signature (every staged file out of lint scope), so a leg
+  // placed after it would be unreachable on the input this slice exists to cover.
+  const size = stagedSizeLeg(all, ROOT);
+  if (size.line !== null) console.log(`peaks-gate: ${size.line}`);
+  const lint =
+    files.length === 0 ? reportEmpty('staged', dropped) : await ratchetFiles(files, 'staged');
+  if (size.refusal !== null) {
+    console.error(`\npeaks-gate: commit blocked — the staged file-size ratchet refused.\n`);
+    console.error(`${size.refusal}\n`);
+    return 1;
+  }
+  return lint;
 }
 // ---------------------------------------------------------------------------
 // silent-warning mode — the two legs, without eslint / prettier / tsc

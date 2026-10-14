@@ -34,10 +34,8 @@
 import { execFileSync, spawnSync } from 'node:child_process';
 import {
   copyFileSync,
-  existsSync,
   mkdirSync,
   mkdtempSync,
-  readdirSync,
   readFileSync,
   renameSync,
   rmSync,
@@ -52,13 +50,14 @@ import {
   FILE_SIZE_CAP_HOOKS,
   FILE_SIZE_SCOPE_DIRS,
   FILE_SIZE_SCOPE_EXTENSIONS,
-  HOOKS_FILE_SIZE_SCOPE_DIRS,
-  countRawLines,
-  isHooksMeasuredFile
+  countRawLines
 } from '../../../src/services/scan/file-size-policy.js';
 import { REPO_ROOT } from '../standards/_file-size-cap-scan.js';
+import { FIXTURE_COPIED_FILES, hooksScopeFilesUnder } from './_file-size-copy-set.js';
 import { GATE_TOOL_STUBS } from './_file-size-hooks-walk.js';
 import { type HooksWalk, type OverCapEntry, walkHooksScope } from './_file-size-hooks-walk.js';
+
+export { FIXTURE_COPIED_FILES, hooksScopeFilesUnder };
 
 /** The real tsx the fixture's forwarder hands its argv to. */
 const REAL_TSX = join(REPO_ROOT, 'node_modules', 'tsx', 'dist', 'cli.mjs');
@@ -83,50 +82,10 @@ const POLICY_REL = join('src', 'services', 'scan', 'file-size-policy.ts');
 const CENSUS_REL = join('scripts', 'lint', 'file-size-census.ts');
 
 /**
- * Every `.husky/` module the gate is made of, by WALKING the source tree under the
- * census's OWN hooks-scope rule (`isHooksMeasuredFile`), so the fixture stages
- * whatever the gate is made of and cannot go stale the way the fixed list this
- * replaces did. That list named `.husky/peaks-gate.mjs`, `-baseline.mjs`,
- * `-file-size.mjs` and `-baseline-monotonic.mjs` by hand; the day the gate's regions
- * moved to `.husky/gate/*.mjs` (rid `2026-10-02-wave9-gate-entry-split`) the fixture's
- * copy of the ENTRY alone died at load inside the temp repo —
- * `ERR_MODULE_NOT_FOUND: …\.husky\gate\changed.mjs`, the same shape as the wave-7
- * parity incident. A hard-coded name list is a second copy of the tree; a walk is
- * the tree. `file-size-hooks-gate-leg.test.ts` carries the plant arm (a module added
- * under `.husky/gate/` grows the staged set with no edit here) and the inverse.
+ * The `.husky/` copy set and its walk moved to `_file-size-copy-set.ts` — see that
+ * module's header. They are re-exported above so every existing importer keeps its
+ * specifier; the fixture itself only needs `POLICY_REL` and `CENSUS_REL` below.
  */
-export function hooksScopeFilesUnder(root: string): string[] {
-  const out: string[] = [];
-  const scan = (dir: string, rel: string): void => {
-    for (const entry of readdirSync(dir, { withFileTypes: true })) {
-      const rel2 = rel === '' ? entry.name : `${rel}/${entry.name}`;
-      const abs = join(dir, entry.name);
-      if (entry.isDirectory()) scan(abs, rel2);
-      else if (entry.isFile() && isHooksMeasuredFile(rel2)) out.push(rel2);
-    }
-  };
-  for (const dir of HOOKS_FILE_SIZE_SCOPE_DIRS) {
-    const abs = join(root, dir);
-    if (existsSync(abs)) scan(abs, dir);
-  }
-  return out.sort();
-}
-
-/** The non-`.husky/` half of what the fixture runs byte-for-byte from the repository. */
-const RUNTIME_FILES = [
-  CENSUS_REL,
-  join('scripts', 'lint', 'file-size-census-hooks.ts'),
-  POLICY_REL,
-  join('scripts', 'lint', 'lint-file-list.mjs')
-];
-
-/**
- * Everything the fixture runs byte-for-byte from the repository, in one walked set.
- * Exported so `gate-module-staging.test.ts` can assert it covers every module the gate
- * is made of: a fixture that stages less than the entry imports dies at load, and that
- * is the failure this list used to cause.
- */
-export const FIXTURE_COPIED_FILES = [...hooksScopeFilesUnder(REPO_ROOT), ...RUNTIME_FILES];
 
 const ESLINT_STUB = "process.stdout.write('[]\\n');\n";
 const TSC_STUB = "process.stdout.write('');\n";

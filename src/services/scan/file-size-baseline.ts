@@ -47,7 +47,7 @@
 
 import { execFileSync, spawnSync } from 'node:child_process';
 
-import { countRawLines } from './file-size-policy.js';
+import { countRawLines, normalizePolicyPath } from './file-size-policy.js';
 
 /** A git read the scan needs could not be completed. Thrown, never returned:
  *  the alternative is an empty file list that reads as "nothing changed". */
@@ -90,12 +90,35 @@ function gitLines(projectRoot: string, args: readonly string[]): string[] {
 }
 
 /**
+ * The caller's list, intersected with what git reports — or the whole change set when
+ * the caller named none. Compared in the policy's POSIX spelling, because a
+ * Windows-native caller path and a git-reported one spell the same file differently.
+ *
+ * INTERSECTION, NOT POPULATION. The commit hook is handed the STAGED paths by
+ * lint-staged, so it knows its set and the set is narrower than the working tree: a
+ * modification nobody staged is not part of that commit, and measuring it would block
+ * the commit over a file it was never asked about. A named path git does not report as
+ * changed is therefore skipped, never measured — this narrows; it cannot widen.
+ */
+function restrictedTo(all: readonly string[], only: readonly string[] | undefined): string[] {
+  if (only === undefined) return [...all];
+  const wanted = new Set(only.map(normalizePolicyPath));
+  return all.filter((file) => wanted.has(normalizePolicyPath(file)));
+}
+
+/**
  * The changed-file population the scan measures, as `git diff --name-status`
  * reports it. `A`/`M` keep their path; `R`/`C` keep the TARGET path and record
  * the source, so the rename is judged against the size the file had before it
  * moved; `D` is dropped. A git failure here THROWS rather than returning `[]`.
+ *
+ * `only` is the caller's own list, when it has one — see `restrictedTo`.
  */
-export function readChangedFiles(projectRoot: string, baseRef: string): ChangedFiles {
+export function readChangedFiles(
+  projectRoot: string,
+  baseRef: string,
+  only?: readonly string[]
+): ChangedFiles {
   const paths: string[] = [];
   const renameSources = new Map<string, string>();
   for (const line of gitLines(projectRoot, ['diff', '--name-status', baseRef])) {
@@ -110,7 +133,10 @@ export function readChangedFiles(projectRoot: string, baseRef: string): ChangedF
   }
   const untracked = gitLines(projectRoot, ['ls-files', '--others', '--exclude-standard']);
   const allPaths = Array.from(new Set([...paths, ...untracked]));
-  return { paths: allPaths, baselinePathFor: (file: string) => renameSources.get(file) ?? file };
+  return {
+    paths: restrictedTo(allPaths, only),
+    baselinePathFor: (file: string) => renameSources.get(file) ?? file
+  };
 }
 
 /**

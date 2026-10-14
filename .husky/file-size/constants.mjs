@@ -6,6 +6,13 @@
 
 /** The census tool: the only thing that imports the `.ts` policy and counts the scope. */
 export const FS_CENSUS = 'scripts/lint/file-size-census.ts';
+/**
+ * THE DIFF-SCOPED RATCHET TOOL, for the second shape of the same rule. The census
+ * answers "how many files are over cap"; this one answers "did THIS change grow one
+ * past its cap", which is the commit gate's question. It carries no rule either —
+ * it calls `scanFileSize`, the function the transition path runs.
+ */
+export const FS_DELTA_TOOL = 'scripts/lint/file-size-delta.ts';
 /** The census is TypeScript, so both callers run it through tsx. */
 export const TSX_CLI = 'node_modules/tsx/dist/cli.mjs';
 /** The ceiling row this leg ratchets. */

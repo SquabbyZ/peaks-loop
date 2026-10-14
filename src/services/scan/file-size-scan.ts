@@ -134,6 +134,13 @@ export type FileSizeScanOptions = {
    * the policy is the default, this option only overrides it.
    */
   threshold?: number;
+  /**
+   * The caller's own list, when it has one — the commit hook is handed the STAGED
+   * paths by lint-staged. It RESTRICTS the git change set (a path git does not
+   * report as changed is skipped, never measured) and never widens it; omitted,
+   * git alone decides the population.
+   */
+  files?: readonly string[];
 };
 
 function countLines(filePath: string): number {
@@ -218,7 +225,7 @@ export function scanFileSize(options: FileSizeScanOptions): FileSizeScanResult {
   // `null` here means "the policy decides, per file" — the cap is a property of
   // the path (300 raw lines; 500 under root `tests/`), not of the run.
   const override = options.threshold ?? null;
-  const changed = readChangedFiles(options.projectRoot, baseRef);
+  const changed = readChangedFiles(options.projectRoot, baseRef, options.files);
   const violations: FileSizeViolation[] = [];
   const deletedFiles: string[] = [];
   const exemptFiles: string[] = [];
