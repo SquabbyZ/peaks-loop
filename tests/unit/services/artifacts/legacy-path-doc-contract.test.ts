@@ -36,10 +36,12 @@ import {
 import { ALLOWED_STATES_PER_ROLE } from '../../../../src/services/artifacts/request-artifact-state-helpers.js';
 import type { RequestArtifactRole } from '../../../../src/services/artifacts/request-artifact-service.js';
 
-declareDimensions(
-  'tests/unit/services/artifacts/legacy-path-doc-contract.test.ts',
-  ['render', 'behavior', 'integration', 'a11y']
-);
+declareDimensions('tests/unit/services/artifacts/legacy-path-doc-contract.test.ts', [
+  'render',
+  'behavior',
+  'integration',
+  'a11y'
+]);
 
 /** The placeholder a canonical prerequisite path carries in place of the id. */
 const RID_SLOT = '-<rid>';
@@ -104,11 +106,7 @@ function everyPrerequisiteRow(): ArtifactPrerequisite[] {
 }
 
 /** The hits in one document, one per stem per line. */
-function writeTargetHitsIn(
-  text: string,
-  stems: readonly string[],
-  file: string
-): WriteTargetHit[] {
+function writeTargetHitsIn(text: string, stems: readonly string[], file: string): WriteTargetHit[] {
   const hits: WriteTargetHit[] = [];
   text.split('\n').forEach((line, index) => {
     if (RETIREMENT_QUALIFIER.test(line)) return;
@@ -135,7 +133,10 @@ function skillsMarkdownFiles(root: string): string[] {
 }
 
 const toRepoPath = (root: string, absolute: string): string =>
-  absolute.slice(root.length + 1).split(sep).join('/');
+  absolute
+    .slice(root.length + 1)
+    .split(sep)
+    .join('/');
 
 const REPO_ROOT = process.cwd();
 
@@ -150,8 +151,9 @@ const DEMOTED_BARE_STEMS = [
   'rd/security-review.md'
 ];
 
-const row = (parts: Partial<ArtifactPrerequisite> & { relativePath: string }): ArtifactPrerequisite =>
-  parts as ArtifactPrerequisite;
+const row = (
+  parts: Partial<ArtifactPrerequisite> & { relativePath: string }
+): ArtifactPrerequisite => parts as ArtifactPrerequisite;
 
 describe('(render) the stems the check is aimed at', () => {
   it('derives every demoted bare name off the table', () => {

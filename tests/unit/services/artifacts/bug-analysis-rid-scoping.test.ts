@@ -148,7 +148,9 @@ function bugAnalysisSource(projectRoot: string, rid: string) {
 describe('(render) the declared naming contract', () => {
   it('names the bugfix plan artefact with the request id, bare name as the legacy tier', () => {
     const prereqs = getPrerequisitesFor('rd', 'qa-handoff', 'bugfix');
-    const bugAnalysis = prereqs.find((candidate) => candidate.relativePath === BUG_ANALYSIS_RID_PATH);
+    const bugAnalysis = prereqs.find(
+      (candidate) => candidate.relativePath === BUG_ANALYSIS_RID_PATH
+    );
 
     expect(bugAnalysis).toBeDefined();
     expect(bugAnalysis?.legacyRelativePath).toBe(BUG_ANALYSIS_BARE_PATH);
@@ -252,7 +254,9 @@ describe('(integration) the legacy tier and the readers outside the table', () =
     const candidate = bugAnalysisSource(projectRoot, RID_A);
 
     expect(candidate.read).toBe('ok');
-    expect(candidate.relativePath).toBe(`.peaks/_runtime/${SESSION_ID}/rd/bug-analysis-${RID_A}.md`);
+    expect(candidate.relativePath).toBe(
+      `.peaks/_runtime/${SESSION_ID}/rd/bug-analysis-${RID_A}.md`
+    );
     expect(candidate.raw?.toString('utf8')).toContain(RID_A);
   });
 
