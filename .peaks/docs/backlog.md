@@ -73,13 +73,18 @@
 > The shared consequence is the one §7.B and 7.10 keep naming: a gate that refuses legitimate work is
 > what teaches `--no-verify`, and `--no-verify` turns the gate off entirely.
 >
-> **Revised 2026-10-14 — §9's headings were corrected against measurement, and eight items were filed,
-> five of them structural defects new to this session.** The four decision items (9.1–9.4) had been **ruled by the user on 2026-10-13** and their
+> **Revised 2026-10-14 — §9's headings were corrected against measurement, and eight items were filed
+> (`9.40`–`9.47`): the sweep's own record (`9.40`), four structural defects new to this session (`9.42`–
+> `9.44`, `9.46`), two statements that correct an existing item rather than add a defect (`9.41` → §2.36,
+> `9.45` → §2.46, the latter saying so itself), and one generalised rule (`9.47`).** The four decision items (9.1–9.4) had been **ruled by the user on 2026-10-13** and their
 > headings still said *"needs the user's decision"* a full day later, so a reader trusting the heading
 > would have re-implemented finished work; each now names the ruling, the date, and a commit **verified
-> by `git` in this session**. A Rule-B sweep over every heading returned **20** candidates; **17** of
-> them already recorded a resolution their heading did not, and those **17 were corrected** (markers
-> only, no body touched) and **one more (`1.2`), reached by reading rather than by the rule, was left**,
+> by `git` in this session**. A Rule-B sweep over every heading returned **20** candidates. **18** of them
+> already recorded a resolution their heading did not — **17** by a Rule-B marker, and `9.2` by a
+> differently-spelled `**FIXED BY …**` line that the rule's vocabulary does not match. Those **17 were
+> corrected** by the rule (markers only, no body touched), and `9.2` was corrected as one of the four
+> decision items, whose state is the **user's ruling** rather than a marker. **One more (`1.2`), reached by
+> reading rather than by the rule, was left**,
 > with its reason, because its body records a *decision*, not a resolution —
 > adding the evidence would have been the sweep asserting rather than reporting. A note in §9 now states
 > the thing that was missing: **a heading's state is not machine-checked either.** New items
