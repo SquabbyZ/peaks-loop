@@ -67,7 +67,8 @@ describe('Scenario: final-review evidence sources — rid-scoped canonical paths
     expect(entry('rd-code-review').segments).toEqual(['rd', `code-review-${RID}.md`]);
     expect(entry('rd-code-review').legacySegments).toEqual(['rd', 'code-review.md']);
     expect(entry('rd-security-review').segments).toEqual(['audit', `security-${RID}.md`]);
-    expect(entry('rd-security-review').legacySegments).toEqual(['rd', 'security-review.md']);
+    expect(entry('rd-security-review').legacySegments).toEqual(['rd', `security-review-${RID}.md`]);
+    expect(entry('rd-security-review').olderSegments).toEqual([['rd', 'security-review.md']]);
   });
 
   it('when the rid-scoped code review exists, should select and report it', () => {

@@ -159,8 +159,8 @@ peaks request transition <rid> --role rd --state implemented --project <repo> --
 # 5. Peaks-Loop Code review + security review BEFORE qa-handoff transition.
 #    Produce the evidence files the CLI gate enforces:
 #      - .peaks/_runtime/<id>/rd/code-review-<rid>.md  (CRITICAL/HIGH findings + fixes; required for feature/bugfix/refactor)
-#      - .peaks/_runtime/<id>/audit/security-<rid>.md  (required for feature/bugfix/refactor; the ridless rd/security-review.md is the config-type requirement)
-#      The pre-rid names remain accepted back-compat tiers, but writing one re-opens the two-slices-one-session collision (slice 2026-09-14-audit-artifact-rid-scoping).
+#      - .peaks/_runtime/<id>/audit/security-<rid>.md  (required for feature/bugfix/refactor; the config type instead requires rd/security-review-<rid>.md)
+#      The pre-rid names remain accepted back-compat tiers, but writing one re-opens the two-slices-one-session collision (slices 2026-09-14-audit-artifact-rid-scoping and 2026-10-14-backlog-9-37-prereq-collisions).
 #    Then transition. If --type is docs/chore the gate is empty and the transition is unguarded.
 peaks request transition <rid> --role rd --state qa-handoff --project <repo> --json
 
@@ -169,8 +169,9 @@ peaks request transition <rid> --role rd --state qa-handoff --project <repo> --j
 #      Before qa:running        → .peaks/_runtime/<id>/qa/test-cases/<rid>.md
 peaks request transition <rid> --role qa --state running --project <repo> --json
 #      Before qa:verdict-issued → .peaks/_runtime/<id>/qa/test-reports/<rid>.md
-#                                 + .peaks/_runtime/<id>/qa/security-findings.md
-#                                 + .peaks/_runtime/<id>/qa/performance-findings.md (feature/refactor only)
+#      (no qa/security-findings.md or qa/performance-findings.md: no qa:verdict-issued
+#       table holds them since the v2.11.0 D1/D4 trim — peaks-rd's audit fan-out owns
+#       that evidence; see skills/bee/peaks-qa/references/qa-transition-gates.md).
 peaks request transition <rid> --role qa --state verdict-issued --project <repo> --json
 # → Peaks-Loop Gate D check. Assisted/Strict: [CONFIRM]
 #   → AskUserQuestion; on approval re-run the transition with --confirm

@@ -2,7 +2,7 @@
 
 > Body of `### Transition verification gates`. You cannot declare a phase complete from memory. Each gate below is a `ls` or `grep` command you **MUST run** and whose output you **MUST see** before proceeding. If any file shows "No such file" or any command returns empty, the phase is incomplete.
 
-> **CLI enforcement (v2.11.0 D1/D4 trim)**: the gates below are enforced by `peaks request transition`. The CLI checks the same files before allowing the transition and fails with `code: PREREQUISITES_MISSING` if any are absent. Required files depend on the request type recorded at `peaks request init --type ...`. **As of v2.11.0:** peaks-qa does NOT own security-findings or performance-findings — those are produced by peaks-rd's audit fan-out as `rd/security-review.md` and `rd/perf-baseline.md` and are referenced from the QA test report rather than required as separate files.
+> **CLI enforcement (v2.11.0 D1/D4 trim)**: the gates below are enforced by `peaks request transition`. The CLI checks the same files before allowing the transition and fails with `code: PREREQUISITES_MISSING` if any are absent. Required files depend on the request type recorded at `peaks request init --type ...`. **As of v2.11.0:** peaks-qa does NOT own security-findings or performance-findings — peaks-rd's audit fan-out produces that evidence as `audit/security-<rid>.md` and `audit/perf-<rid>.md` (the standalone skills in the paragraph below; the paths named here were `rd/security-review.md` / `rd/perf-baseline.md` until v2.12.0 and remain readable back-compat tiers), and the QA test report references it rather than requiring separate files.
 
 | Type | qa:running requires | qa:verdict-issued also requires |
 |---|---|---|

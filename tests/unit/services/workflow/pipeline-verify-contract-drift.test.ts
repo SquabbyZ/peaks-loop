@@ -205,9 +205,12 @@ describe('Scenario: behavior — the checker reads the contract, not a frozen co
   });
 
   it('when the request type has no audit surface, should follow the contract rather than a hardcoded list', () => {
-    // CONFIG_TABLE keeps the v2.11.x single-file security slot and has no perf
-    // entry at all — the checker must not invent one.
+    // CONFIG_TABLE keeps the security slot and has no perf entry at all — the
+    // checker must not invent one. The probe name is the pre-rid one, which
+    // resolves through the row's legacy tier since slice 9.37 scoped that row;
+    // the returned list is [canonical, ...legacy], canonical first.
     expect(contractEvidencePaths('rd', 'qa-handoff', 'config', 'rd/security-review.md')).toEqual([
+      'rd/security-review-<rid>.md',
       'rd/security-review.md'
     ]);
     expect(contractEvidencePaths('rd', 'qa-handoff', 'config', 'rd/perf-baseline.md')).toBeNull();

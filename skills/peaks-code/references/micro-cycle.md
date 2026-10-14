@@ -164,9 +164,9 @@ verdict=return-to-rd → RD 修 (new slice 内部走 micro-cycle)
 
 > **CLI gate enforcement**: `peaks request transition` now refuses to move RD/QA to gated states when required artifacts are missing. The required files depend on `--type` chosen at `peaks request init` (default `feature`):
 >
-> - `feature` / `refactor`: full gates (tech-doc, code-review, security-review, test-cases, test-report, security-findings, performance-findings)
-> - `bugfix`: lighter planning (`bug-analysis-<rid>.md` instead of `tech-doc.md`); still requires code-review + security-review + regression test-cases + security-findings; performance-findings optional unless the bug is performance-related
-> - `config`: only security-review (RD) and security-findings (QA)
+> - `feature` / `refactor`: full gates (tech-doc, code-review, security-review, test-cases, test-report)
+> - `bugfix`: lighter planning (`bug-analysis-<rid>.md` instead of `tech-doc.md`); still requires code-review + security-review + regression test-cases
+> - `config`: `rd/security-review-<rid>.md` (RD) only — the one type whose RD evidence is the security review rather than `audit/security-<rid>.md`
 > - `docs` / `chore`: no gates
 >
 > When PRD lands, classify the request type before running `peaks request init` for every role — pass `--type <type>` so the artifact records it and downstream transitions enforce the right gates. Misclassifying a feature as `docs` to skip gates is a workflow violation. If a transition fails with `code: PREREQUISITES_MISSING`, the response lists every missing path — produce them, then re-transition. For one-off exceptions, the escape hatch `--allow-incomplete --reason "<text>"` records the bypass in the artifact transition note.

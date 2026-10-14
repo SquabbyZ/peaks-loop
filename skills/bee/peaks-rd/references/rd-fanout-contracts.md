@@ -230,7 +230,7 @@ refusing — matching the prereq-side acceptance above.
 |---|---|
 | feature / refactor | `prd/handoff.md` (immutable) + `audit/security-<rid>.md` (peaks-security-audit) + `audit/perf-<rid>.md` (peaks-perf-audit) + `rd/code-review-<rid>.md` + `rd/karpathy-review-<rid>.md` + `qa/test-cases/<rid>.md` |
 | bugfix | `prd/handoff.md` (immutable) + `audit/security-<rid>.md` (peaks-security-audit) + `audit/perf-<rid>.md` (peaks-perf-audit, perf-shaped only) + `rd/code-review-<rid>.md` + `rd/karpathy-review-<rid>.md` + `qa/test-cases/<rid>.md` |
-| config | `rd/security-review.md` (genuinely ridless — `SECURITY_REVIEW.relativePath` carries no `<rid>`) |
+| config | `rd/security-review-<rid>.md` (`SECURITY_REVIEW.relativePath` carries the `<rid>` since slice 9.37; the bare name stays readable as the legacy tier) |
 | docs / chore | (no extra evidence required) |
 
 Always required (in addition to the type-specific row):

@@ -117,8 +117,11 @@ const CODE_REVIEW: ArtifactPrerequisite = {
   mustContain: ['## Findings', 'CRITICAL']
 };
 const SECURITY_REVIEW: ArtifactPrerequisite = {
-  relativePath: 'rd/security-review.md',
-  description: 'Security review evidence for the changed surface'
+  relativePath: 'rd/security-review-<rid>.md',
+  // The bare path is the legacy tier, so a session already on disk keeps passing.
+  legacyRelativePath: 'rd/security-review.md',
+  description:
+    'Security review evidence for the changed surface. The rid is part of the filename so two config slices in one session do not collide; the bare location is the legacy tier. The body is never read, so a collision here was silent.'
 };
 // Gate B9 — RD-side perf baseline: the body carries a Results table or "N/A — no perf surface".
 const PERF_BASELINE: ArtifactPrerequisite = {
@@ -345,13 +348,10 @@ const QA_INITIATED: ArtifactPrerequisite = {
   description: 'QA skill must be invoked before RD handoff (run peaks request init --role qa)'
 };
 
-// v2.11.0 D1/D4 trim (Group C Tier 6): peaks-qa no longer requires
-// qa/security-findings.md or qa/performance-findings.md at qa:verdict-issued.
-// Those are owned by peaks-rd's audit fan-out (rd/security-review.md and
-// rd/perf-baseline.md). QA references them by path from the test-report body
-// (see qa-transition-gates.md Gates A3/A4). SECURITY_FINDINGS /
-// PERFORMANCE_FINDINGS constants are kept for back-compat and a 1-minor-
-// release deprecation window but are NOT in any qa:verdict-issued table.
+// v2.11.0 D1/D4 trim (Group C Tier 6): no qa:verdict-issued table holds
+// qa/security-findings.md or qa/performance-findings.md — peaks-rd's audit
+// fan-out owns that evidence. Both constants below are kept for back-compat
+// only: `evidence-generator.ts` writes the scoped names, not these.
 //
 // v2.12.0 Group B Tier 5: at rd:qa-handoff, the v2.11.x security-review +
 // perf-baseline slots are replaced by `AUDIT_SECURITY` + `AUDIT_PERF` (the

@@ -193,18 +193,18 @@ describe('(render) the derived map declares exactly what the type must produce',
   });
 
   it('declares the CONFIG-specific security path, and no prdHandoff', () => {
-    // config's security evidence is the genuinely ridless
-    // `rd/security-review.md` (its own table row says so). Declaring
-    // `audit/security-<rid>.md` would name a file config never writes — and
-    // declaring `prdHandoff` would name a handoff config is not required to
-    // have (no `AUDIT_REQUIRES_HANDOFF` row).
+    // config's security evidence is `rd/security-review-<rid>.md` — its own
+    // table row. It carried no rid until slice 9.37, so two config slices in
+    // one session shared one file. Declaring `audit/security-<rid>.md` would
+    // name a file config never writes, and `prdHandoff` a handoff config is
+    // not required to have (no `AUDIT_REQUIRES_HANDOFF` row).
     const evidence = deriveGateEvidence({
       sessionId: SESSION_ID,
       requestId: REQUEST_ID,
       requestType: 'config'
     });
     expect(evidence.securityReview).toBe(
-      join('.peaks', '_runtime', SESSION_ID, 'rd', 'security-review.md')
+      join('.peaks', '_runtime', SESSION_ID, 'rd', `security-review-${REQUEST_ID}.md`)
     );
     expect(evidence.prdHandoff).toBeUndefined();
     expect(evidence.perfBaseline).toBeUndefined();
@@ -382,7 +382,7 @@ describe('(integration) the three producers put the field on disk', () => {
     const read = await readHandoffGateEvidence(out.handoffPath);
     expect(read.status).toBe('ok');
     expect(read.status === 'ok' ? read.evidence.securityReview : null).toBe(
-      join('.peaks', '_runtime', SESSION_ID, 'rd', 'security-review.md')
+      join('.peaks', '_runtime', SESSION_ID, 'rd', `security-review-${REQUEST_ID}.md`)
     );
   });
 });

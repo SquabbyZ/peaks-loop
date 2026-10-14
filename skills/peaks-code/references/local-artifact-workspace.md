@@ -53,11 +53,11 @@ Files written into these directories during the workflow (not pre-created — th
 - `rd/project-scan.md` (Code step 0.6)
 - `rd/tech-doc.md` (feature/refactor planning; required by `rd → implemented` gate)
 - `rd/bug-analysis-<rid>.md` (bugfix planning; required by `rd → implemented` gate for `--type bugfix`)
-- `rd/code-review-<rid>.md`, `audit/security-<rid>.md` (required by `rd → qa-handoff` gate for feature/bugfix/refactor; the `config` type instead requires the ridless `rd/security-review.md`)
+- `rd/code-review-<rid>.md`, `audit/security-<rid>.md` (required by `rd → qa-handoff` gate for feature/bugfix/refactor; the `config` type instead requires `rd/security-review-<rid>.md`)
 - `rd/mock-plan.md` (frontend-only mode)
 - `ui/design-draft.md` (UI step)
 - `system/existing-system.md` (Code step 0.7; legacy projects only)
-- `qa/test-cases/<rid>.md`, `qa/test-reports/<rid>.md`, `qa/security-findings.md`, `qa/performance-findings.md` (gated per `--type`)
+- `qa/test-cases/<rid>.md`, `qa/test-reports/<rid>.md` (gated per `--type`); `qa/security-findings.md` / `qa/performance-findings.md` are **not** required by any `--type` since the v2.11.0 D1/D4 trim — peaks-rd's audit fan-out owns that evidence, so existing ones are kept for auditability and ignored by the gate
 
 ## Root pollution prohibition (CRITICAL)
 

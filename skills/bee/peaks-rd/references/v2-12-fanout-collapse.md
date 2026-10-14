@@ -9,10 +9,10 @@ into two new standalone audit skills.
 ## Removed sub-agent slots
 
 - `security-reviewer` — moved to standalone `peaks-security-audit` skill.
-  Output: `.peaks/_runtime/<sessionId>/audit/security.md`.
+  Output: `.peaks/_runtime/<sessionId>/audit/security-<rid>.md`.
   Required RD-side prereq: `AUDIT_SECURITY`.
 - `perf-baseline-reviewer` — moved to standalone `peaks-perf-audit` skill.
-  Output: `.peaks/_runtime/<sessionId>/audit/perf.md`.
+  Output: `.peaks/_runtime/<sessionId>/audit/perf-<rid>.md`.
   Required RD-side prereq: `AUDIT_PERF`.
 
 Both audit skills consume the immutable peaks-prd handoff

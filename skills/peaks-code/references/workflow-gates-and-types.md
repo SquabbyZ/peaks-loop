@@ -106,7 +106,7 @@ The CLI gate (`peaks request transition --state qa-handoff`) is the authoritativ
 |---|---|
 | `feature` / `refactor` | `rd/tech-doc.md` + `rd/code-review-<rid>.md` + `audit/security-<rid>.md` + `audit/perf-<rid>.md` + `qa/test-cases/<rid>.md` (qa/test-cases pre-drafted by the 4th sub-agent in peaks-rd's parallel fan-out — slice 004) |
 | `bugfix` | `rd/bug-analysis-<rid>.md` + `rd/code-review-<rid>.md` + `audit/security-<rid>.md` + `audit/perf-<rid>.md` + `qa/test-cases/<rid>.md` (the perf artifact is always required; a bug with no perf surface satisfies it with the `N/A — no perf surface` stub) |
-| `config` | `rd/security-review.md` (this one is genuinely ridless — `SECURITY_REVIEW.relativePath` carries no `<rid>`) |
+| `config` | `rd/security-review-<rid>.md` (`SECURITY_REVIEW.relativePath` carries the `<rid>` since slice `2026-10-14-backlog-9-37-prereq-collisions`; the bare `rd/security-review.md` stays readable as the legacy tier) |
 | `docs` / `chore` | (no extra evidence required) |
 
 > The four rid-scoped names above are the gate's **primary** tier (slice `2026-09-14-audit-artifact-rid-scoping`): two slices in one session share `rd/` and `audit/`, so a ridless write silently destroyed the earlier slice's evidence. The pre-rid names (`rd/code-review.md`, `audit/security.md`, `audit/perf.md`, `rd/security-review.md`, `rd/perf-baseline.md`) remain accepted as **back-compat tiers** — they keep old sessions passing, but a new slice must write the rid-scoped name or it reopens the collision.
@@ -122,7 +122,7 @@ ls .peaks/_runtime/<sessionId>/rd/requests/<rid>.md
 #                         (qa/test-cases/<rid>.md pre-drafted by the 4th sub-agent in peaks-rd's parallel fan-out — slice 004)
 #   bugfix             → ls rd/bug-analysis-<rid>.md rd/code-review-<rid>.md audit/security-<rid>.md audit/perf-<rid>.md qa/test-cases/<rid>.md
 #                         (the perf artifact is always required; use the "N/A — no perf surface" stub when there is no perf surface)
-#   config             → ls rd/security-review.md
+#   config             → ls rd/security-review-<rid>.md
 #   docs / chore       → (no extra evidence required)
 # Missing any required file → DO NOT attempt the qa-handoff transition; CLI will reject with PREREQUISITES_MISSING.
 ```

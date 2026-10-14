@@ -54,6 +54,15 @@ export interface EvidenceSource {
    * it (`enforceScopeContractDelivery` returns early on `missing`).
    */
   readonly legacySegments?: readonly string[];
+  /**
+   * Further older locations, tried **in declared order** after
+   * `legacySegments`. Needed because one artifact has THREE tiers on disk
+   * (`audit/security-<rid>.md` → `rd/security-review-<rid>.md` →
+   * `rd/security-review.md`). Mirrors `legacyRelativePaths` on
+   * `ArtifactPrerequisite` in `src/services/artifacts/artifact-prerequisites.ts`,
+   * which splits its older tiers the same way for the same reason.
+   */
+  readonly olderSegments?: readonly (readonly string[])[];
   /** Dimensions this source can supply evidence for. */
   readonly supports: readonly DimensionKind[];
   /** What DELIVERED means for this source. See `isDelivered()` — every source
@@ -232,15 +241,16 @@ function baseEvidenceSourcesB(rid: string): EvidenceSource[] {
       // would now misname the producer — but the legacy tier really is the
       // RD-authored review, so the parenthetical must cover both.
       label: 'Security review (independent audit, or legacy RD review)',
-      // Mirrors AUDIT_SECURITY in
+      // Mirrors AUDIT_SECURITY **and** SECURITY_REVIEW in
       // `src/services/artifacts/artifact-prerequisites.ts`: the scoped
-      // `audit/security-${rid}.md` is canonical and `rd/security-review.md` —
-      // the v2.11.x RD slot the independent audit skill replaced — is the
-      // legacy tier. The mechanism holds ONE legacy location, so that entry's
-      // middle tier (`audit/security.md`) is not repeated here; no session on
-      // disk carries the bare name, and the audit skill writes this one.
+      // `audit/security-${rid}.md` is canonical, the scoped
+      // `rd/security-review-${rid}.md` is the `config` row's own requirement
+      // (it was ridless, so a second config slice in a session overwrote the
+      // first's review), and the bare `rd/security-review.md` — the v2.11.x RD
+      // slot the independent audit skill replaced — is the oldest tier.
       segments: ['audit', `security-${rid}.md`],
-      legacySegments: ['rd', 'security-review.md'],
+      legacySegments: ['rd', `security-review-${rid}.md`],
+      olderSegments: [['rd', 'security-review.md']],
       supports: ['no-new-bugs'],
       delivery: { kind: 'whole' }
     },

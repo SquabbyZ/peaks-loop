@@ -39,9 +39,10 @@
  *     `AUDIT_REQUIRES_HANDOFF` row. An earlier revision of this comment
  *     claimed three, and QA caught prose that disagreed with the code, which
  *     is the defect this module exists to end. The security path declared is
- *     the config-specific `rd/security-review.md` — genuinely ridless, per its
- *     own row — not the documented `audit/security-<rid>.md`, which no config
- *     slice writes)
+ *     the config-specific `rd/security-review-<rid>.md` (it carried no rid
+ *     until slice 9.37, so the second config slice in a session overwrote the
+ *     first's review) — not the documented `audit/security-<rid>.md`, which no
+ *     config slice writes)
  *   - docs / chore       → NOTHING. No `rd:qa-handoff` row ⇒ nothing for Gate C
  *     to validate ⇒ nothing declared (see below)
  *

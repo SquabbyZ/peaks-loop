@@ -276,15 +276,15 @@ function classifyTerminalGates(
   // RD qa-handoff → deepest gate is C. If the review artifacts are
   // missing the state is inconsistent; fall back to rd-review-fanout.
   if (ctx.primaryRd !== null && ctx.primaryRd.state === 'qa-handoff') {
-    // the pre-rid names behind it — the same order the transition gate
-    // resolves in, so an inconsistent-looking slice here means the fan-out
-    // never ran, not that it wrote to a name this reader does not know.
+    // the pre-rid names behind it, in the same order the transition gate
+    // resolves: an inconsistent-looking slice here means the fan-out never ran.
     const rid = ridOf(ctx.primaryRd.filename);
     const missing: string[] = [];
     const codeReviewCandidates = [`rd/code-review-${rid}.md`, 'rd/code-review.md'];
     const securityCandidates = [
       `audit/security-${rid}.md`,
       'audit/security.md',
+      `rd/security-review-${rid}.md`,
       'rd/security-review.md'
     ];
     if (!codeReviewCandidates.some((rel) => existsSync(join(sessionDir, rel)))) {

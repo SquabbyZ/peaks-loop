@@ -308,22 +308,22 @@ async function runUnitTests(projectRoot: string, runTests: boolean): Promise<Sli
   };
 }
 
-// carry the rid now. Candidate order is canonical-first, then the
-// back-compat tiers — the same order `artifact-prerequisites.ts` resolves
-// in, so this boundary gate and the transition gate agree on which file is
-// a slice's evidence. `<rid>` is substituted at probe time.
+// Candidate order is canonical-first, then the back-compat tiers, mirroring
+// `artifact-prerequisites.ts` (v2.12.0 moved security + perf to audit skills).
 const REVIEW_FILES = [
   {
     name: 'code-review',
     paths: ['rd/code-review-<rid>.md', 'rd/code-review.md'],
     label: 'code-review'
   },
-  // v2.12.0 collapse: security + perf moved to standalone audit skills.
-  // OR the v2.11.x legacy path during the 1-minor-release back-compat
-  // window (v2.13.0 hard-deletes the legacy paths — see CHANGELOG [2.12.0]).
   {
     name: 'security-review',
-    paths: ['audit/security-<rid>.md', 'audit/security.md', 'rd/security-review.md'],
+    paths: [
+      'audit/security-<rid>.md',
+      'audit/security.md',
+      'rd/security-review-<rid>.md',
+      'rd/security-review.md'
+    ],
     label: 'security-review'
   },
   {

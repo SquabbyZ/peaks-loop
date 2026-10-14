@@ -41,7 +41,12 @@ export type JudgedCheckResult = {
 
 /** Where the security audit artifact may live, newest tier first. */
 export function securityArtifactTiers(rid: string): readonly string[] {
-  return [`audit/security-${rid}.md`, 'audit/security.md', 'rd/security-review.md'];
+  return [
+    `audit/security-${rid}.md`,
+    'audit/security.md',
+    `rd/security-review-${rid}.md`,
+    'rd/security-review.md'
+  ];
 }
 
 export function resolveSecurityArtifact(

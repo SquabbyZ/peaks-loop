@@ -220,14 +220,15 @@ export async function generateEvidence(
     [join(rdDir, `code-review-${rid}.md`), buildCodeReview(rid, title, files, lineCounts)],
     [join(auditDir, `security-${rid}.md`), buildSecurityReview(rid) + judgedSection],
     // ...but the `config` type is the one whose `rd:qa-handoff` row is
-    // `SECURITY_REVIEW` — the genuinely ridless `rd/security-review.md` — and
-    // this generator is request-type-agnostic (no `--request-type`). So it
-    // (`AUDIT_SECURITY`) and the bare one `config` resolves. Nothing is lost
-    // by having both; a `config` slice has nothing else to fall back on, and
-    // dropping this write made a `config` slice fail its own gate while the
-    // generator reported success (repair round: measured `missing:
+    // `SECURITY_REVIEW`, and this generator is request-type-agnostic (no
+    // `--request-type`). So both this write (`AUDIT_SECURITY`) and the scoped
+    // one below are emitted, or a `config` slice fails its own gate while the
+    // generator reports success (measured then as `missing:
     // ['rd/security-review.md']` with the real generator and the real gate).
-    [join(rdDir, 'security-review.md'), buildSecurityReview(rid)],
+    // The rid is now in that name too: the ridless one was overwritten by the
+    // second config slice in a session, and the prereq pins no body, so the
+    // first slice's review vanished without a single check reporting it.
+    [join(rdDir, `security-review-${rid}.md`), buildSecurityReview(rid)],
     [join(rdDir, `karpathy-review-${rid}.md`), buildKarpathyReview(rid, lineCounts)],
     // `rd/tech-doc.md` stays ridless on purpose: the TECH_DOC prereq was
     // sibling that anything reads.

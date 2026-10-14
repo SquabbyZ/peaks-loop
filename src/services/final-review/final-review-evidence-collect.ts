@@ -57,7 +57,8 @@ export function readEvidence(
     // copy would silently swap the evidence this run reports.
     const attempts: ReadonlyArray<readonly string[]> = [
       source.segments,
-      ...(source.legacySegments !== undefined ? [source.legacySegments] : [])
+      ...(source.legacySegments !== undefined ? [source.legacySegments] : []),
+      ...(source.olderSegments ?? [])
     ];
     // The path reported when nothing resolved stays the CANONICAL one, so the
     // operator is sent to where the artifact belongs, not to its old home.
