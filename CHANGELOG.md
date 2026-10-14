@@ -1,5 +1,117 @@
 # Changelog
 
+## 4.1.5 — 2026-10-14 (快车道从设计走到落地并带来一个新命令族；代码门与提交禁令第一次真的会拒绝；提交边界补齐三道门；派发提示第一次被自己的 CLI 校验；artifact 按 rid 落盘，两条切片停止互相覆写)
+
+**版本级别**: 未发布区间 `v4.1.4..HEAD` 共 **125 个 commit**（**13 feat / 37 fix / 2 refactor / 5 chore / 3 test / 3 style** / 其余 62 docs+memory）。取 **patch**，依维护者 2026-07-22 的常设规则"默认版本新增采用最小的版本位"。
+
+**此处必须如实记一笔，与 4.1.3 面对 `peaks mcp` 时是同一情形**：本版**确实新增了命令族**——`peaks race`（`pilot-status` 只读判定与 `pilot-gate record` 唯一写入者两个动词，`src/cli/commands/race-commands.ts`）与 `request retag`（`src/cli/commands/request-retag-command.ts`）。按严格语义化版本，新增用户可见命令应当取 **minor**。取 patch 是常设规则的默认，不是"没有新增命令"。4 个 workspace 包各 +1 patch（internal-runtime 0.0.44→**0.0.45**、mut 0.1.58→**0.1.59**、shared 0.0.93→**0.0.94**、shared-channel 0.0.61→**0.0.62**），`CLI_VERSION` 与 `RUNTIME_VERSION` 由 `scripts/sync-version.mjs` 同步。
+
+### 1. 快车道：从一份设计到一条真能开门的路径
+
+`peaks-race-code` 是本版的核心新能力。它的设计先被写死、再被对抗性评审推翻重写过一次（`9da13bc0` 的设计记录、`304e4e2e` 评审后的重写、`8d3f2896` 拆成四个 slice），落地时 `9bad2be1` 把它交付为 `peaks-code` 的**兄弟**而不是模式——它去掉的正是让 peaks-code 开独立上下文窗口的那条红线：在这个车道里，编排的窗口同时就是改源码的窗口。技能树因此从 22 走到 **23**（14 个顶层 + 9 个 bee 级，`tests/unit/ide/` 的三条计数断言随之更新）。门槛只有一个事实：为会话解析出的 driver 读到 `peaks-race-code`，而这个事实是**自报的**，文档自己也这么说。
+
+**但代码门此前在这条路径上是死的，这是本版最该被读到的一段。** `401b44f7` 之前 `peaks code-gate` 按 `tool` / `input` 读工具调用，而真实的 PreToolUse 投递的是 `tool_name` / `tool_input`；工具名到达时是 `undefined`，而 `decideGateAction` 的第一个判断放行任何不叫 Edit / Write / MultiEdit 的名字——**在读路径之前**，于是它对每一次调用都返回 allow。修法在命令层归一化顶层载荷，接受两种拼写（与既有 shell sibling `pre-tool-code-gate.sh` 一致），`GateInput` 与 `decideGateAction` 不动。
+
+**这是一次会到达每一个既有安装的行为变更，故明写**：注册了 code-gate 条目的仓库会从"这门从不拒绝"变成"按路径族拒绝"——对 `src/`、`tests/unit/`、`tests/integration/`、`config/`、`bin/`、`scripts/` 的直接 Edit / Write / MultiEdit 会被 `PEAKS_CODE_PROHIBITED_DIRECT_EDIT` 拒绝，除非解析出的 driver 是快车道。用户没有理由预期这件事，因为这条条目**从未拒绝过一次调用**，它的第一次拒绝会是一次普通的 `src/**` 编辑。
+
+放行必须精确。`adff480b` 只认**精确匹配** `peaks-race-code`，无前缀匹配也不做大小写折叠，于是一个未来的 `peaks-race-<something>` 兄弟不会继承源码编辑权——顺带把这条钉死的是 `938b92a1`：唯一的负例 `peaks-code` 在 `startsWith('peaks-race')`、大小写折叠、`trim`/`contains` 三种放宽下**全都仍然通过**，所以四条新负例各对一种放宽。`f5612cde` 从 hook payload 读 caller identity（`caller_id`，回退 `session_id`），把 lease 查询**限定在该 caller**，再交给 `decideGateAction` 的第三个参数。
+
+**提交禁令（AI 署名红线）有三处只存在于代码里的事实。** 它只有一个调用点，且只在 `peaks hook handle` 下运行——即 trae / cursor / codex；Claude Code、hermes 与 openclaw 拿到的是 `gate enforce`，其中**不含**禁令。它此前能被任意字符串解除：`79b20add` 证实任何带 `session_id: "anything"` 的载荷都会让一个本该被拒的提交通过，因为判别说的是"载荷里有没有非空字符串"而不是"那个字符串有没有指到一个 lease"；`a8f94c89` 证实什么都没解析出来时，`if (skill !== null)` 会让整条禁令跳过自己。`023235e2` 补上最后一块：`callerId` 过滤器一直有效，但**没有任何生产调用点传它**，于是"谁在驱动"由 `readdirSync` 第一个产出回答——一个没有 peaks 技能的会话的 `git commit` 会被另一个窗口的 peaks-code lease 禁掉。而 `0c08be62` 让 driver 解析器与 statusline 读者对同一份 lease 集合给出同一答案（按 `lastHeartbeat` 再按 `startedAt` 的共享 comparator）；此前它取 `readdirSync` 的第一个，在 Windows 上就是文件名顺序。
+
+### 2. gate 2 从"没有阈值"变成有策略的判定；车道相位搬进一个有语法的载体
+
+`peaks-race-code` 的 pilot 信任门原先有四个可数量、零个阈值，于是"pilot 清关了吗"无法可复现地回答。`21304696` 补上 `src/services/race/gate2-policy.ts`、`gate2-evaluator.ts`、`pilot-gate-store.ts` 与两个动词：`peaks race pilot-status`（只读判定，fail 时 exit 1）与 `peaks race pilot-gate record`（唯一写入者，幂等 upsert）。策略 `race-gate2-policy-v1` 有七条阈值，其中 `taskCount >= 10` 取 rule-of-three（十次干净跑把失败率上界锁在约 26%）；安全臂计入**全部**记录（含 escalated）而 `taskCount` 只计 landed，这条不对称是刻意的。覆盖面是**推导出来的**，永不自报：`filesChanged × HARD_BLOCKED_PATH_FAMILIES`（从 `src/services/hooks/pre-tool-code-gate.ts` import），或安全臂谓词。判定永远从策略常量重算，**从不**读 `.peaks/race/pilot-gate.json` 自己的 policy 块——否则削弱那个块就能洗白这道门。用五条真实的 2026-10-11 trace 播种，得到 `insufficient-evidence` 与两个缺口：**task 4 < 10、session 1 < 2**（core 3 与 safetyArm 1 达标）。
+
+**车道相位从 markdown 搬进一个有语法的载体。** 相位此前是 `skills/peaks-audit/SKILL.md` 里的一句话加一个 HTML 注释标记；markdown 是自由文本，于是每一条"必须长得像 X"的守卫都能被一个人类仍读作相位声明的拼写变体绕开——**五轮修复产生了五种逃逸**（一行两个 token、一行两个 `phase=`、多一个空格、少一个空格、tab、NBSP、大写、缺前缀），没有一轮是最后一轮，而守卫已到 500 行帽的 495 行。`3b95e00a` 把它搬到 `.peaks/race/lane-phase.json`（`{ "phase": "name-only" }`），`src/services/race/lane-phase.ts` 是唯一读者：严格的 Zod 对象、恰好两个值的 enum、以及一个带标签的结果（ok / missing / invalid），**missing 拒绝而不是取默认**。**第一版没有做到这件事，记录如此**：JSON 的键可以用 unicode 转义书写，而 `JSON.parse` 会把转义解析回键名 `phase`，于是一个首条声明被转义的文件返回 ok 并采用**第二个**值——原始文本读者看到的是一个相位，守卫解析出的是另一个，而一条非法的首条声明被静默丢弃。修法是拒绝任何反斜杠。QA 对八条验收判据全部 PASS，含 80+ 条对抗输入（键与值里的 unicode 转义、任何位置的重复键、三个位置的 BOM、NUL、孤立代理、CRLF、NEL、一个 4 MB 的填充对象、载体路径上放目录与符号链接，以及为数组 / 字符串 / 数字 / null 的 root）。
+
+`76830652` 把车道问题放到**每一次 peaks 工作流的入口**：一个以"端到端做这个"表述的诉求直达 peaks-code，所以住在 dispatcher 里的问题永远不会被问到。问题落在 peaks-audit 的契约处（任何 peaks-* 工作流的第一步），每个请求问一次；快车道是 pre-pilot，所以在 pilot 清关前它**只在用户点名时**可达。
+
+### 3. 提交边界上新增的三道门
+
+CI 结构性地看不到这三样东西：artifact 住在 `.peaks/_runtime/`，那是 gitignored，所以**本地提交是它们唯一可见的边界**。
+
+**artifact 契约在提交处被强制执行（`4a5d74b4`）。** 本仓此前对同一份工作有三种做法，按"artifact 的 state 值对该 role 是否合法"衡量：完整状态机（2026-09-10）、混合——33 条规范 state 行加 6 条手写、CLI 会拒绝的名字（2026-10-09）、以及完全没有（2026-10-11，零条 state 行）。**绕过的形式是模仿，不是拒绝。** 检查器早就存在（`peaks workflow verify-pipeline` 在 2026-10-11 那次会话上正确报 `complete:false / gateC:fail`），**只是没有任何东西运行它**。新增 `.husky/peaks-gate-pipeline.mjs`（pre-commit 腿）与 `.husky/pipeline/contract-verdict.mjs`（纯判定路径：无 fs、无 spawn、无时钟）。豁免是 `PEAKS_SKIP_PIPELINE_VERIFY=1` 且**大声**：它逐条列出跳过的 rid、说明读过的范围、并声明环境变量在 git 历史里不留痕——不像 `--allow-incomplete`，它的理由留在 artifact 里。**跑不起来的检查器一律拒绝**：一条崩溃的检查器不是"没有违规"。rid 枚举改按 **artifact** 键控而不是按 `rid-` 前缀，两个方向的错误在真实会话上量过：2026-10-11 是 8→4，2026-10-10 是 0→18。文件里也写明它**不是**完全强制：这条腿放行 `MUT_REPORT`，而它的 artifact 在这个构建里没有生产者。
+
+**这条腿会验证一个有工作的会话，而不是它被绑定到的那个（`f9091db3`）。** 此前它解析 ACTIVE 会话并枚举该会话的 rid 载体；当 active 会话是新的、而工作属于另一个会话时，枚举为空，这条腿便以"no rid to verify … Nothing was refused"放行——那句话是真的，而检查从未运行。实测：job backlog-9x-drain 的最后一条切片从会话 `…-3cb9bc` 提交，而它全部六个 rid 载体住在 `…-2f9323` 下。**显然的修法（绑定会话为空而兄弟非空时拒绝）被量过后否决**：11 个会话目录里 6 个零 rid 载体，其中三个是当天建立的，拒绝会挡住那六个会话的每一次 docs / chore / memory 提交。落地的形状是验证**正确**的那个会话，而不是拒绝。`15def424` 收掉它留下的三条：平局判定从 `>=` 改成 `carrier mtime → session id` 的全序 `better()`（QA 把三个兄弟的所有六种排列都跑过，修复后收敛到**一个**目标，HEAD 下有**三个**）；不可读的兄弟从静默丢弃改为**被点名**（审计者量到：40 棵指向这条路径的树里，HEAD 在 15 棵上打印 "0 NOT verified" 而确实丢了一个会话）；注释里那串"87 + 47 + 19 + 18 + 14 rids"被删掉——它们是 request **文件**计数，真实枚举是 6 个载体会话上的 65 个 rid。
+
+**staged 与 worktree 的分歧被抓住（`23d5de3d`）。** `git commit` 交付的是 INDEX，而本仓每一个测试、门和评审读的都是 WORKING TREE。两者分歧时"被验证的字节"和"被提交的字节"不是同一份，而没有东西说出来——一个会话里真实触发过两次：一轮修复编辑了受tracked 文件却没重新 `git add`，于是 STAGED 侧是修复前的弱守卫（22 例 / 16004 B）而 worktree 是 28 / 24168 B。比较**经过 git 的 filter**：staged 侧是 index blob，worktree 侧是 `git hash-object`。第一版直接比原始字节，在 `core.autocrlf=true`（本仓如此）下会把 git 判定为同步的文件拒绝，而且打印出的补救（`git add`）是可证明的空操作——**这是提交门唯一绝不能有的结局：它教人用 `--no-verify`**。不可比较的路径（gitlink、符号链接、未合并、不可读）一律拒绝。
+
+**提交路径开始量 staged 文件尺寸（`8caa1901`）。** 在此之前 `node .husky/peaks-gate.mjs staged <over-cap file>` 对任何文件都打印 `NOTHING WAS COMPARED (staged) … every one of them is OUTSIDE the lint scope` 并 **exit 0**——337 行的测试文件和 600 行的一样，而 `peaks scan file-size` 与 transition 路径会拒绝同一个文件并给出 delta。新腿挂在门的 `all` scope 上而不是 lint-scoped 的 `files` 上，因为 `tests/**` 在 LINT scope 之外、却在 file-size 政策之内——挂在 `files` 上的腿会漏掉缺陷正是在其上被量到的那个文件；它跑在 empty-change-set 分支**之前**，因为那个分支正是本缺陷的签名。`scripts/lint/file-size-delta.ts` 调用 `scanFileSize`，与 `peaks scan file-size` 用的是**同一个**实现，新模块自己不含任何阈值、也没有"长大了"这个概念。**只有增长被拒绝**：已经超帽但没长大的文件保持绿，创建是另一个分支。
+
+### 4. 既有的几条判据被改成会失败
+
+**尺寸判定按 delta 而不是绝对值（`435445dd`）。** `rd -> implemented` 的尺寸门扫描 `getChangedFiles` 并拒绝**任何**超帽的改动文件，而基线把 `fileSizeOverCap` **78** 当作可接受量棘轮着——同一个机制一边容忍 78 个超帽文件，一边不许任何切片碰其中一个。连续复现两次；第二次一个 767 行的文件因为改了 **2 行描述**被拒，两次会话都退回了 `--allow-incomplete`——那正是 artifact 契约存在来让它多余的旁路。状态机也开始强制它自己描述的顺序：`rd: draft -> handed-off` 此前能通过，而 `implemented` 与 `qa-handoff` 都被拒，于是一条切片可以越过每一道中间门宣称自己已交付。
+
+**软通过的前提被真的报出来（`3059ac27`）。** 门为每一个缺失文件的 backCompat 前提构造一个 `warnings` 数组且不动 `missing`，于是 `ok` 保持 true——而调用方只在它自己的 `throw` 里读 `prerequisiteResult.warnings`。那个词在文件里只出现一次，就在那一行，所以成功路径上这个数组被构造、填满、一帧之后丢弃：一个软通过了两条前提的 transition 因此报 `warnings: []`，读者会断定每一条前提都通过了。实测：`data.prerequisiteWarnings: undefined` 与 `envelope.warnings: []` 变成了 **2 和 2**。顺带修掉一处"不会失败的门"——警告码是硬编码的字面量、指着 mut-report，却为**每一条** backCompat 前提发出，于是 third-party-review 前提被报在 mut-report 的码下面，而任何按那个码过滤 MUT_REPORT 问题的东西都会一并匹配到它。
+
+**eslint 的行改成说出它们容忍什么（`d3684dbc`）。** `eslintFindings` 是一个**计数**的上界，而计数的上界意味着没有任何单条 finding 能迫使行动：ESM `require()` 家族的 16 个 error 级站点一直被报出来，却落在一个 1727 的计数里——约等于零。行现在是"包含 + 按量不增长"，建立在 census 既有的 per-file map 上：1270 个文件里 478 个容忍 finding、792 个为零，artifact 精确复现 ceiling（**行之和 = 1727 findings / 573 errors**）。**提交路径调用同一条规则**，于是新实例在贡献者遇到它的地方**按名字**变红：
+
+```
+count form:  eslint findings (derived) 1 (ceiling 1)            -> green, silent
+table form:  src/tidy.ts went from 0 to 1 lint finding(s) (+1)  -> exit 1
+```
+
+一条关键情形也成立：对受容忍文件的**无关改动**在提交路径上保持绿——因为会拦住无辜提交的门正是教人用 `--no-verify` 的那一扇。这个切片交了六条 finding，最该记的一条是它自己赖以成立的理由**是假的，且来自编排者**：声称 eslint-disable 注释点名的 `no-var-requires` "在 ESLint v8 里不存在"，实测 `@typescript-eslint/eslint-plugin` **8.66.0 定义了它**（`deprecatedSince` 8.0.0，`replacedBy` `no-require-imports`），而一条被弃用的规则**仍然会报**。真缺陷是"被抑制的规则"和"在报的规则"**不匹配**——一个更有意思的失败，被那个更弱的故事挤掉了。
+
+**把每一个 `require()` 扫出源码，并防止它回来（`c3fe88b7`）。** 本仓每个 `package.json` 都声明 `"type": "module"`，所以 `require` 在运行时不存在。十六处分布在十四个文件里：十五处躲在函数体里当"惰性" require，只在各自的冷路径上抛；一处（`scripts/fix-dispatcher.js`）在顶层，让那个文件无法加载。**没有任何东西能在模式上失败，这正是它累积起来的原因**：tsc 接受 ESM 文件里的 require；没有测试走过那些路径；四处带着 `eslint-disable-next-line @typescript-eslint/no-var-requires`——一条**没有启用**的规则，而真正的拼写 `no-require-imports` 本来就在那些站点上报错，于是这些指令什么都没抑制。实测 before → after：`peaks loop run` 在干净会话上 `RUN_FAILED "require is not defined"` → exit 0 `RUN_OK`；`peaks security-audit run` 不带 `globalThis` shim 从 exit 1、只留一个 `.tmp` → exit 0、`.md` 落盘。新守卫 `tests/unit/standards/no-esm-require-mixing.test.ts` 目标为零、无 allowlist，其判别性对照是一个被转换文件**逐字的前修内容**——一条不可能失败的对照不是对照。
+
+**一个名字可以给一行做键，不能判定一行（`e8e916e6`）。** 同一缺陷类的三个活实例，每一个都由测量而非检视确立：`pilot-gate-store` 拒绝任何不以 `rid-` 开头的 rid，而 `.peaks/_runtime/*/rd/requests/` 下 97 个不同 id 里有 **58 个**没有前缀——守卫在拒绝本仓实际铸造的多数 id；`type-sanity-service` 用 `/\b(?:tests?|…)\b/` 判断"这是不是测试文件"，而词边界可以被 `-` 满足，于是 `src/services/test-cache/test-cache-service.ts` 被判成测试（在 `git ls-files` 上重测：3064 条 tracked 路径，**恰好 29 条判定改变**，全部单向——18 条变 `source`、11 条变 `unknown`）；`context/collector` 把 `relative(root, full)`——在 win32 上以 `\` 分隔——喂给一个测试 `/__tests__/` 的分类器，于是那个分支在它被写成的平台上**永远不可能匹配**，而规范化的值就在四行之上已经算好了。
+
+### 5. 派发：提示词第一次被自己的 CLI 校验
+
+编排者手写一份共享 brief 交给一个 campaign 里的每个子代理，**没有任何东西校验它**，而它在一次会话里三次携带关于本仓 CLI 自身的假陈述：一个错 flag、一条范围错误的必需项、一条挂在错 artifact 上的必需项。三条都是子代理读 artifact 时发现的，**没有一条是门发现的**——这是工作流里唯一没有测试读过的 artifact。
+
+`9894eab0` 加了检查器：从提示里抽出 `peaks …` 调用，对**注册的命令树**解析，报出被解析出的命令或它的祖先没有声明的 flag。解析来自 CLI 自己，永不来自一份名单。它**警告而不拒绝**，决定的数字是真实语料上的假阳性计数：本会话 **147 条派发记录、1772 次调用、176 条未声明 flag**，其中**恰好一条**是假阳性——一份正确的 brief 在一个记录该缺陷的表格里**引用了**那条错误命令。`--rid` 是整个语料里唯一的未声明 flag：147 次出现在被注入的一行上，29 次出现在手写的一行上——**第二组是真的，这正是本片的意义**。审查者给的二次输入关闭了一个真缺陷：一次每匹配都走到文末的扫描在 `composeDispatchPrompt` 里对一份 3.5 MB 提示耗时 **109.9 s**，按 run 上限定界后同一输入是 **98.6 ms**。
+
+`f9ecb6fd` 把被注入的那一行修对：`L1_WORKTREE_GOVERNANCE_BLOCK` 里的两条 worktree 命令**都跑不起来**——`peaks worktree auth grant --rid … --reason … --ttl <5m>` 三处都错（没有 `--rid` 这个 flag，它是可选的 `--request-id`；必需的 `--operation` 被省略；`--ttl` 的单位是毫秒，`<5m>` 不是合法值形式），逐一逐字运行两者都答 `error: required option … not specified`。修完的守卫是重点：第一版只查 flag 是否存在、必需项是否出现、拼写是否声明过——评审证明它**看不见它刚刚移除的缺陷**：把 `--ttl 5m` 重新加回全部五个表面，它 8/8 全绿，而 CLI 接受那一行并写下一份 **5 毫秒** TTL 的 grant。它现在是逐次出现的形状走查，把每个选项对回注册声明，断言块里点名的字面值是声明 enum 的成员，并把未被消费的 token 当作游离操作数。
+
+`b7056cdb` 让生产者知道它将被按什么评判：前提表靠字面量字符串判定 artifact 是否存在，而派发提示从不点名它们——于是做了工作的生产者被一个它从未被展示过的谓词拒绝，唯一出路是事后编辑别人的证据。实测：四个有真实内容、判定正确、证据可量的 artifact 因四条违规被拒，**每一条都是缺失的字面标题而非缺失的事实**。块从表里**生成**，永不从表里**转录**：改表会移动这个块，移除 surfacing 会让套件点名那个缺失的标记而变红。
+
+### 6. artifact 按 rid 落盘，两条切片停止互相覆写
+
+一个会话里两条同类型切片写同一个路径，第二条覆写第一条，**而两条 transition 都通过**——第二条切片被另一份 diff 的审查判定，artifact 和门里都没有任何东西说出来。本版把三类 artifact 改成按 rid：
+
+- `BUG_ANALYSIS`（`6a394084`）：`rd/bug-analysis.md` → 带 `<rid>` 占位符，`legacyRelativePath` 兜底，磁盘上已有的会话继续解析；`AUDIT_SECURITY` / `AUDIT_PERF` / `KARPATHY_REVIEW` 早已是这个形状。磁盘上实测：三个会话 95 份 request artifact 里，**每个会话恰好一份** `bug-analysis.md`。后果是**观察到的而不是推断的**：一个在修显然是 bugfix 的 RD 报称自己选了 `refactor`，因为那个文件"已经装着另一条切片的分析"——而声明一个自己不是的类型会选中**另一张**前提表，于是结构性碰撞转化为一条静默更轻的门。把表项回退，13 个用例里 9 个变红。
+- `SECURITY_REVIEW`（`47863518`）：`rd/security-review.md` 是同一碰撞里**硬且静默**的那个实例，它不声明 `mustContain`。七处读者分布于五个服务，八份 `skills/**` 文档一并跟过来。两轮 QA 修复各有产出：第一轮证伪了一条证据表断言（`workflow-gates-and-types.md:109` 不在 diff 里却仍然断言那个性质），第二轮证伪了清扫自己的完备性断言——模式以 artifact **名字**和 token "rid" 为键，而真正要紧的 `v2-12-fanout-collapse.md:12/:15` 把 `audit/security.md` 与 `audit/perf.md` 当作当前的写目标呈现，其中 `rid` 出现 **0 次**。所以第二轮不再清扫，而是落地 `tests/unit/services/artifacts/legacy-path-doc-contract.test.ts`：从前提表**推导**被降级的词干（七个名字，没有喂给扫描的字面名单），它的红跑取在真实的修复前文本上，1 failed / 15 passed，恰好点名那三处。
+- `final-review` 消费的 rid 作用域证据路径（`ebb07c61`）：门接受的 artifact 路径**其消费者从不读**——`peaks prepare-final-review` 从 `rd/code-review.md`、`rd/security-review.md` 拼装证据，而 transition 门与写侧统一在 `rd/code-review-<rid>.md` 与 `audit/security-<rid>.md`；写对了 rid 作用域路径的切片，其 no-new-bugs 维度仍然回到 `inconclusive`，评审报 `rd-code-review` ENOENT。
+
+`0da35578` 把一条**写了却没人读**的声明变成会被读：`backCompatUntil` 落在两行前提上（`mut/mut-report.json` 在 v2.14.0、`rd/third-party-review.md` 在 v2.15.0）而没有任何东西读它，安装版本是 4.1.4，于是两个窗口都过期了约二十个 minor release，没有任何用户可见的输出把它们与按时的窗口区分开。软通过警告现在带一个附加的 `expiredWindow` 字段，拒绝打印机与成功打印机都渲染它。实测一次真实的 `rd -> qa-handoff`：两条软通过分别报 `v2.15.0 (installed 4.1.4)` 与 `v2.14.0 (installed 4.1.4)`，各带一句 "past expiry"。**它只观察**：一条 OPEN 窗口和一条**早于**窗口的构建都渲染不出这个从句，缺失前提仍然给 `ok: true`，`path`/`code`/`message` 逐字节不变。
+
+`21016bbf` 让一条切片**声明它判定了什么**，而检查读那份声明（backlog 9.9 的第四次尝试）：三次尝试都被建起来又撤回，因为此前没有机器可读的"这条切片动了什么"，每个机制只能去**推断**，而每一种推断在本仓日常生成的输入上都是错的——从 git 状态推断会让干净树上的审计永久空转，从散文 `## Red-line scope` 解析会拒掉 15 份真实请求里的 14 份。现在 `security-audit run --judged <paths...>` 记录每条路径的内容哈希，`rd:qa-handoff` 重新哈希它们并拒绝，点名 artifact 与第一条移动的路径。
+
+### 7. 其余修复
+
+- **`peaks workspace init` 把本仓自己的开发 hook 注册进下游项目（`09f8d043`）。** 模板用 `bash "${CLAUDE_PROJECT_DIR}/src/services/hooks/<script>.sh"` 展开两条 hook，而 `${CLAUDE_PROJECT_DIR}` 解析到**消费者**的项目根，脚本在本仓的 `src/` 里，`package.json#files` 也不发 `src/**`——于是每个下游项目都拿到两条无法解析的 Bash PreToolUse 条目。修法是 `TEMPLATE_VERSION` 1.9.0 → **1.10.0** 并把这些条目注册进本仓**被 tracked** 的 `.claude/settings.json`，fresh clone 才真的能拿到它们。这次搬迁又打断第二条门：反馈提升检查的 layer B 只读 `peaks workspace init` **生成**的那份快照，快照刷新后两条真的被提升的规则会被报成未提升——一个假阴性，因为强制**搬了家而不是消失了**。
+- **仪表盘数了三类计数，而没有任何东西发出它们（`e6bcc39e`）。** `peaks dashboard summary` 报 `cycleCount` / `tokenCount` / `monotonicTriggerCount`，而它们的唯一生产者是三个**没有调用点**的 helper——三个计数按构造为零。实测 `{"cycleCount":0,"tokenCount":0,"dispatchCount":3,"compactCount":0,"monotonicTriggerCount":0}`：`dispatchCount` 非零，另外三个结构性地死。这类计数此前通过的验收是 `AC-F1: PASS - observability-service.ts exports 4 new emit helpers`——它测的是**导出**而不是**发出**，于是每个类别都未接线地发了出去。
+- **`peaks memory extract` 报了一个它没有写下的数字（`97bb5e5c`）。** 一个 5 块的 capsule 给出 `extractedCount: 5`、`plannedWrites: 5`、`warnings: []` 而磁盘上只有**四个**文件：一个纯 CJK 标题被 slugify 成空，回退到通用的 `project-memory.md`，与一条已 tracked 的条目碰撞，于是那次写入被静默跳过。第一版修复**本身是一次回归**，由评审发现：派生名用十六进制、每字节两个字符，一个长标题产生 287 字符的文件名、ENOENT，并让**整个批次**中止。
+- **`peaks request retag`，以及"默认类型"不再无声（`97bb5e5c`）。** 一个 hand-written artifact 的 request type 此前静默地就是默认的 `feature`——`rd:qa-handoff` 要求最多的那个类型。它现在在 `request show` 里同时以字段和警告的形式可读为 `declared` 或 `default`；`--type` 缺席时 `init` 不写 type 行，于是默认值永不被盖在那个区分之上；`retag` 负责改它，并且**往 artifact 里追加自己的注记**——那个唯一能改门禁适用表的操作不再不可见。`getPrerequisitesFor` 的默认值被删除，它的第三个参数现在是必需的。
+- **四条只有散文在强制的义务有了执行者（`fae227a1`），每一条都先在野外被量到失败。** 强制的 Karpathy 块此前没有执行者，而 2026-10-12 的四份 RD 提示**全都不含它**（派发路径现在自己追加：一份已经带了它的草稿 14029 → 12055 字节，正好是 2 字节分隔符加 1758 字节的块）；派发账本的回收器没有调用者（每个会话的每条记录都是 `queued`，39/39、2/2、9/9、23/23——终结动词在数字是 13 时写就，到 73 时已无人调用）；一个看不见文件的扫描会报绿（`peaks-gate.mjs repo` 走 `git ls-files`，所以 `3b95e00a` 加进一个没有基线行的模块后门从那次提交起就是红的）；审计拒绝点名了错误的路障（两个 CLI 都以 `handoff-missing` 拒绝而不说信封**已经通过**校验，于是四个独立审查者每人做完全部工作却无法落地）。
+- **`peaks code lint` 的 `execution-failed` 不再把四件事说成一件（`adf63e1e`）**：不可构建的参数表、失败的 spawn、被杀的子进程、无法解析的 linter 输出，共用一个状态码且一个都不点名，而 hint 无论实际发生了什么都说 "restore the ESLint toolchain"——一个工具链好好的操作员被指去重建它。现在 `reason` 从 runner 带进消息，每个条件一个。
+- **CI 的 capability 基线门现在说出**哪个**探针失败了（`adb3c67c`）。** 4.1.4 的发布在 `gate-capability-baseline` 上失败，CI 只给一行 `verdict=drifted degraded=false failing=[J03]`——J03 有六个探针，六个条件压缩成一个词。细节其实一直都在：`capability-audit-service/runner.ts` 从写下那天起就把失败契约的 `diff.reason` 放进 `dimensions[].evidence[].summary`，而工作流的内联脚本只读 `journeyId` 就把它丢了。测试**不读**工作流，而是**执行**它。
+- **工具在说假话的那些散文（`48861a11`、`e84ef33e`、`cdbef65d`、`c0554c7a`、`f3a3c969`、`17183c8c`、`e4030eb1`）。** 一整族 fix 都在改**散文而不是代码**，因为代码是对的而承诺超了：`skills/peaks-race-code/SKILL.md` 引用了一份 `docs/` 下的设计记录，而 `docs/` 不在 `package.json#files` 里、安装器只拷贝技能目录，所以那条引用对每个消费者都是死的（引用守卫按仓根解析，对"是否会被发布"是盲的）；快车道规范说"没有第二份拷贝能通过套件"，而测试只查一个文件、两条陈述里的一条——**一条强于代码的断言，写在正是为阻止它而存在的规范里**；一趟以 `vitest … | head` 为模式、走全文匹配的 hook 拒绝了一条搜索模式为 `vitest` 的 `grep`，而本仓**自己规定**的命令 `timeout 300 pnpm vitest run 2>&1 | tail -100`（就写在 "If the exit code is 0, tests passed" 旁边）反而因为 `timeout` 起头而不受保护——被改的是文档，不是匹配器。
+
+### 8. 记录与记忆（62 docs + 3 test + 3 style + 2 chore）
+
+绝大多数 docs commit 是 backlog 与 memory 的沉淀，但它们记录的是本版反复撞上的同一类缺陷：**标题是一个断言，而没有东西检查它。** 实测：§9 的四条决定项**都已由用户裁定**，其中三条**已经实现**（9.1 在 `3b95e00a`、9.2 的裁定在 `3059ac27`、9.3 的两半在 `435445dd`、9.4 的前一半在 `d3684dbc`），而**每一条的标题都还写着 "needs the user's decision"**——信任标题的读者会重新实现已完成的工作（`80b14172`）。同一族里还有：一个以名字为键的清扫看不见由**位置**定义的类（真正要紧的文件里搜索键出现 **0 次**）；一条被复制到四个载体里的错误理由（`9.4` 的 `no-var-requires` 故事，见 §4）在任何地方都不可校验，而其中一份是 sha256 锁定的、根本改不了。
+
+`3 test` 与 `3 style` 里最该记的是**格式棘轮**：`b9b5ca69` 把 `node .husky/format-check-ratchet.mjs` 挪进 pre-push 并**放在最前**——理由不止是开销，而是该腿失败时的补救是 `pnpm format`，它会重写 tracked 源码，从而让另外两条腿作废。这正是一周 drift 一次浮出的地方：`2e8c8b6a` 面对的是**累积在主分支上的 61 个 commit**、两个未格式化文件落在允许集之外。两文件被判为**空白改动**的方式不是 `git diff -w`（prettier 在这里做的是**行重排**，`--ignore-whitespace` 无法规范化一个换行），而是把空白全部剥掉后与 HEAD **逐字节相同**（12309 字符 / sha256 `8759576b…`，9655 字符 / sha256 `ceccf1f1…`，修复前后一致）。`f50210ef` 把允许集从 12 个名字收缩到 **11** 个——**只减不增，这是这份棘轮唯一安全的方向**。
+
+### 9. 未验证（记录而非隐瞒）
+
+- **快车道的 pilot 门判 `insufficient-evidence`，不是 pass**：五条真实 trace 给出两个缺口（task 4 < 10、session 1 < 2），所以快车道在 pilot 清关前**只在用户点名它时**可达。
+- **第 3 节的三道门在 CI 上不可测**：artifact 住在 gitignored 的 `.peaks/_runtime/` 下，而这三条腿的存在理由正是"本地提交是它们唯一可见的边界"。
+- **提交禁令（AI 署名红线）只在 trae / cursor / codex 上运行**。Claude Code、hermes、openclaw 拿到的是 `gate enforce`，其中不含禁令——所以这条红线在**这三个 harness 上仍然只有检测、没有执行**。
+- **快车道完成的证明是自报的**，而强制的规范住在 `skills/peaks-code/references/fast-lane-norm.md`，在**任何车道里都没有执行者**；`src/services/hooks/` 下的 shell sibling 由一个全局作用域的安装拷贝、且**没有接线到任何东西**。
+- **eslint 行表的键是名字，而名字不是身份**：一个文件被**重命名**到一个受容忍的名字上会洗白它的 findings，且无需任何重生成——旧路径离开被量过的 map、总量下降，那是一个被允许的方向。在 header 里连同探针一起写明，**未修**（身份追踪是另一次改动）。
+- **`21016bbf` 的完备性不被强制**：一份声明是"关于它点名的路径"的断言，永远不是"那就是全部"（实测：磁盘上十个文件、声明一个，绿）。而该片还记录了一次代价——实现者为了追 `prettierUnformatted` ceiling 把一次 `prettier --write` 从自己拥有的文件扩大到两整棵树，重排了 65 个无关 fixture 和 6 个随包发布的模板；它们全部被回退。
+- **尺寸 gate 的 subprocess 开销未优**：K 个超帽**改动**文件要 2+2K 次 git spawn，每次约 58 ms，已知的修法是单次 `cat-file --batch`——**未实现**，因为两个调用点都是每切片的人手命令，付 0.3–0.8 s。
+- **本版记录的 ceiling 只降不升**，全部由受认可的生成器产出，nothing rose：
+
+```
+eslintFindings       1760 -> 1722      fileSizeOverCap       78 ->  77
+eslintErrors          590 ->  572      fileSizeExcessLines 22502 -> 22117
+```
+
 ## 4.1.4 — 2026-10-10 (修掉推送门上的一个假绿；`src/cli/commands` 清空超帽；两条"BLOCKING 却拦不住任何东西"的步骤；以及一项被推迟的边界)
 
 **版本级别**: 未发布区间 `v4.1.3..HEAD` 共 **17 个 commit**（1 feat / 5 fix / 6 refactor / 2 test / 其余 docs+memory）。取 **patch**，依维护者 2026-07-22 的常设规则"默认版本新增采用最小的版本位"。4 个 workspace 包各 +1 patch（internal-runtime 0.0.43→0.0.44、mut 0.1.57→0.1.58、shared 0.0.92→0.0.93、shared-channel 0.0.60→0.0.61），`CLI_VERSION` 与 `RUNTIME_VERSION` 由 `scripts/sync-version.mjs` 同步。**本版不新增命令族**，所以 4.1.3 那条"新增命令应取 minor"的注记不适用。
