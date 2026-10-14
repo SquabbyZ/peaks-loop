@@ -100,6 +100,27 @@ describe('Scenario: the diff-scoped file-size scan judges a DELTA, not an absolu
   );
 
   it(
+    'when an over-cap file is reduced but is still over its cap, should accept it',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    () => {
+      // given: a module committed over its cap (351 raw lines at HEAD)
+      writeMarked('src/trimmed.ts', OVER_CAP, 'before');
+      commitAll('over cap at head');
+      // when: this change removes 20 lines and the file is STILL over the cap
+      writeMarked('src/trimmed.ts', OVER_CAP - 20, 'after');
+      const result = scanFileSize({ projectRoot: repo });
+      // then: accepted — the rule is "did not grow", not "unchanged". Asserting
+      //       only `ok` would also pass under a rule that accepted equal sizes
+      //       alone, which would re-block the reduction the delta rule exists to
+      //       permit; naming the accepted file fixes which rule answered, since
+      //       that channel is filled only by the not-grown branch.
+      expect(result.ok).toBe(true);
+      expect(result.violations).toEqual([]);
+      expect(result.acceptedOverCapFiles).toEqual(['src/trimmed.ts']);
+    }
+  );
+
+  it(
     'when a file that was under its cap grows past it, should refuse it and name the growth',
     { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
     () => {

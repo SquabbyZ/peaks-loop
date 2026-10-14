@@ -112,6 +112,22 @@ describe('Scenario: behavior — which moves the sequence allows', () => {
     expect(stateOrderViolation('rd', 'blocked', 'implemented')).toBeNull();
   });
 
+  it('when the move skips exactly one state, should refuse it — the reproduction this rule was written for', () => {
+    // given: the reproduction recorded in this module's header — the request sits
+    //        at `implemented`, so the two gates before it already passed and the
+    //        move jumps straight to the end
+    // when: the rule is asked about that single skip
+    // then: it is a jump, not a pass. The `draft → handed-off` case does not
+    //       reach this boundary: it skips three states, so a rule tolerating a
+    //       two-state window would still refuse it, while this one is the exact
+    //       shape the recorded defect took.
+    expect(stateOrderViolation('rd', 'implemented', 'handed-off')).toEqual({
+      kind: 'jump',
+      skipped: ['qa-handoff'],
+      next: 'qa-handoff'
+    });
+  });
+
   it('when the current state cannot be read, should fail CLOSED rather than allow the move', () => {
     // given: `existing.state` is 'unknown' whenever the artifact carries no
     //        `- state:` line, and this gate runs before every other one
