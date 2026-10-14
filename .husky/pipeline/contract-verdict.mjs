@@ -171,7 +171,9 @@ export function collectRids(sessionDir, deriveId) {
  * degrade into "no rid to verify".
  */
 export function enumerateScope(projectRoot, getSessionIdCanonical, getSessionDir, deriveId) {
-  const empty = { carriers: new Map(), failures: [], note: '' };
+  // `sessionId: null` marks a scope that was never RESOLVED: the unresolved
+  // postures below carry an empty `failures` too, so emptiness cannot tell.
+  const empty = { carriers: new Map(), failures: [], note: '', sessionId: null };
   let sessionId;
   try {
     sessionId = getSessionIdCanonical(projectRoot);
@@ -196,7 +198,7 @@ export function enumerateScope(projectRoot, getSessionIdCanonical, getSessionDir
   }
   const { carriers, failures } = collectRids(sessionDir, deriveId);
   const note = `session ${sessionId}; ${carriers.size} rid(s) under ${CARRIER_DIRS.join(', ')}`;
-  return { carriers, failures, note };
+  return { carriers, failures, note, sessionId };
 }
 
 /** The per-rid type: the carrier's `- type:` value when it IS a request type,
@@ -228,9 +230,14 @@ export function resolveRidType(carrierPath, isRequestType) {
  * is the human description of what was enumerated, printed in every branch so
  * that a green line says WHICH scope was green.
  *
+ * `redirect` (optional) is `.husky/pipeline/session-redirect.mjs`'s sentence for a
+ * verified scope that is NOT the bound session's. Printed on the REFUSAL path only
+ * — the pass path already carries it inside `scopeNote` — so a refusal says which
+ * session it refused, not the bound session's empty scope. Absent: nothing changes.
+ *
  * Returns `{ exitCode, lines }`. The caller prints `lines`; it decides nothing.
  */
-export function decidePipelineVerdict({ rids, results, skipToken, scopeNote }) {
+export function decidePipelineVerdict({ rids, results, skipToken, scopeNote, redirect = null }) {
   const exemptionOn =
     skipToken !== null && skipToken !== undefined && skipToken !== '' && skipToken !== '0';
   if (exemptionOn) {
@@ -276,6 +283,11 @@ export function decidePipelineVerdict({ rids, results, skipToken, scopeNote }) {
         : `peaks-gate-pipeline: artifact contract satisfied for ${results.length} rid(s) — ${scopeNote}.`
     );
     return { exitCode: 0, lines };
+  }
+  // Only the refusal tail is reached: the pass branch returned above, so this
+  // line cannot widen a passing commit's output for any scope.
+  if (typeof redirect === 'string' && redirect !== '') {
+    lines.push(`peaks-gate-pipeline: SCOPE — ${redirect}`);
   }
   lines.push(
     `peaks-gate-pipeline: ${failed.length} rid(s) short of the contract, ${broken.length} unreadable — ` +

@@ -41,6 +41,19 @@
  * be listed is the other case, and it refuses: "the detector could not read the
  * scope" is not "the scope held nothing".
  *
+ * ZERO RIDS IS ALSO NOT PROOF THAT THE SESSION IS THE RIGHT ONE (§9.48). The
+ * scope is resolved from the BINDING, and a live binding can point at a session
+ * that did not produce the commit: on 2026-10-14 this leg permitted a commit with
+ * "no rid to verify … Nothing was refused, exit 0" while the work belonged to a
+ * sibling session whose contract the checker reported `complete: true` for. Both
+ * sentences were true and only one of them was a check. So when the bound scope
+ * reads cleanly AND holds nothing, the leg verifies the MOST RECENTLY ACTIVE
+ * sibling session that does carry rids, and says so on both the pass and the
+ * refusal path, naming the bound session, the redirected session, and how many
+ * rid-carrying sessions were NOT verified. Refusing on the emptiness instead was
+ * measured and rejected: it would refuse every docs / chore / memory commit from
+ * a fresh session. `.husky/pipeline/session-redirect.mjs` holds the rule.
+ *
  * A REQUEST IS AN ARTIFACT, NOT A FILENAME. The rid is the one the artifact
  * service reads off a filename (`requestIdFromFileName`), and the file must be the
  * document that request is (`ridFromCarrier`). A filename prefix is wrong in both
@@ -70,11 +83,13 @@
  * `git commit --no-verify` still bypasses this leg, as it bypasses every other
  * one. Git owns that semantics; this leg does not fight it.
  *
- * THE DECISION IS IN A SIBLING. The pure part — enumeration, type resolution,
+ * THE DECISION IS IN SIBLINGS. The pure part — enumeration, type resolution,
  * and `decidePipelineVerdict` — is `.husky/pipeline/contract-verdict.mjs`, split
  * out for the 300-line hooks cap exactly as `.husky/gate/*.mjs` is split out of
- * `.husky/peaks-gate.mjs`. What stays here is the two things that touch the
- * world: loading the checker, and printing the verdict to a real commit line.
+ * `.husky/peaks-gate.mjs`; the scope redirect is
+ * `.husky/pipeline/session-redirect.mjs`, split out for the same cap. What stays
+ * here is the two things that touch the world: loading the checker, and printing
+ * the verdict to a real commit line.
  *
  * Exit codes: 0 pass, 1 the contract (or the checker) failed. Nothing else.
  */
@@ -90,6 +105,7 @@ import {
   messageOf,
   resolveRidType
 } from '../.husky/pipeline/contract-verdict.mjs';
+import { findRedirectScope } from '../.husky/pipeline/session-redirect.mjs';
 
 /** The checker modules. Lazy, so importing this file into a test stays cheap. */
 export async function loadPeaks() {
@@ -115,6 +131,22 @@ export async function loadPeaks() {
     requestIdFromFileName: (name) => {
       const id = numbering.requestIdFromFileName(name);
       return id !== null && requests.REQUEST_ID_PATTERN.test(id) ? id : null;
+    },
+    /**
+     * Every session directory the repository itself recognises — the same
+     * enumeration `peaks workspace reconcile` reads, so the leg never spells a
+     * second answer to "what is a session directory".
+     *
+     * LAZY, AND THAT IS THE POINT: `await import` costs a second module graph,
+     * and the ordinary run — a bound session that HAS carriers — never redirects
+     * and so never calls this. Only `findRedirectScope` reads it.
+     */
+    listSessionDirs: async (root) => {
+      const { discoverSessions } = await import('../src/services/workspace/reconcile-service.js');
+      return discoverSessions(root).map((entry) => ({
+        sessionId: entry.sessionId,
+        path: entry.path
+      }));
     }
   };
 }
@@ -164,8 +196,37 @@ export async function runPipelineLeg({ projectRoot, env = process.env, peaks }) 
   if (exemptionOn) {
     return decidePipelineVerdict({ rids, results: [], skipToken: token, scopeNote: scope.note });
   }
-  const results = scope.failures.map((failure) => ({ rid: 'the session scope', error: failure }));
-  for (const [rid, carrier] of scope.carriers) {
+  // THE SCOPE REDIRECT (`.peaks/docs/backlog.md` §9.48). An empty scope under a
+  // LIVE binding is not "nothing to check" — it can be the wrong session, and
+  // this leg passed a commit from a session that had produced it while saying
+  // "Nothing was refused". Three conditions, each load-bearing:
+  //   - `sessionId !== null`: a scope that was never RESOLVED (the resolver threw,
+  //     or there is no binding) is NOT an empty scope. Those postures carry an
+  //     empty `failures` too, so without this they would degrade into a redirect
+  //     — verifying somebody else's session where a named failure is the answer.
+  //   - `failures.length === 0`: a scope whose requests directory could not be
+  //     listed is already a refusal; redirecting there would answer a detector
+  //     failure with a green line about another session.
+  //   - `carriers.size === 0`: the ordinary case never pays for the scan. The
+  //     exemption returned above, so an exempted commit never pays for it either.
+  const redirect =
+    scope.sessionId !== null && scope.carriers.size === 0 && scope.failures.length === 0
+      ? await findRedirectScope({
+          projectRoot,
+          listSessionDirs: loader.listSessionDirs,
+          deriveId: loader.requestIdFromFileName
+        })
+      : null;
+  const redirected = redirect !== null && redirect.sessionId !== null;
+  const verified = redirected ? redirect : scope;
+  const scopeNote = redirect === null ? scope.note : `${scope.note}; ${redirect.note}`;
+  const results = verified.failures.map((failure) => ({
+    // A scope read failure under a redirect must name the session it could not
+    // read, or the refusal blames the bound session for the sibling's state.
+    rid: redirected ? `the scope of session ${redirect.sessionId}` : 'the session scope',
+    error: failure
+  }));
+  for (const [rid, carrier] of verified.carriers) {
     const resolved = resolveRidType(carrier.path, loader.isRequestType);
     const note = resolved.note === null ? {} : { note: resolved.note };
     try {
@@ -189,7 +250,13 @@ export async function runPipelineLeg({ projectRoot, env = process.env, peaks }) 
       results.push({ rid, error: messageOf(err), ...note });
     }
   }
-  return decidePipelineVerdict({ rids, results, skipToken: null, scopeNote: scope.note });
+  return decidePipelineVerdict({
+    rids,
+    results,
+    skipToken: null,
+    scopeNote,
+    redirect: redirected ? redirect.note : null
+  });
 }
 
 /** Print the verdict and set the exit code. Nothing else decides anything. */
