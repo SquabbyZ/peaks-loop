@@ -27,6 +27,17 @@ const RID = '2026-10-13-rid-session-fallback';
 const BOUND_SID = '2026-10-12-session-bound';
 const FLAG_SID = '2026-10-12-session-flag';
 
+/**
+ * The caller id every invocation supplies. `request init` resolves one by
+ * design (D4 priority: flag → `PEAKS_CALLER_ID` → the IDE adapter), and with
+ * no flag the claude-code adapter falls back to the ambient
+ * `CLAUDE_CODE_SESSION_ID` — present on a developer machine, absent in CI.
+ * A test that borrowed that signal asserted the machine, not the command, so
+ * it passed locally and failed on CI. Supplying the flag pins the same input
+ * everywhere, and being level 1 it wins in both environments.
+ */
+const CALLER_ID = 'request-init-session-test-caller';
+
 /** The single per-project binding file `getCurrentSessionId` reads. */
 function writeSessionFile(ws: TmpWorkspace, sessionId: string): void {
   const runtimeDir = join(ws.path, '.peaks', '_runtime');
@@ -48,11 +59,17 @@ function requestsDir(ws: TmpWorkspace, sessionId: string, role = 'rd'): string {
   return join(ws.path, '.peaks', '_runtime', sessionId, role, 'requests');
 }
 
+/**
+ * Every test drives the command through this one helper, which supplies the
+ * caller id (see `CALLER_ID`) so no arm depends on the ambient environment.
+ * The four refusal arms are unaffected: they refuse at session resolution,
+ * which runs BEFORE `resolveInitCallerId`, so they still refuse.
+ */
 async function runInit(args: string[]): Promise<ReturnType<typeof makeCapturedIo>['captured']> {
   const program = new Command();
   const { io, captured } = makeCapturedIo();
   registerRequestInitCommand(program, io);
-  await program.parseAsync(['init', ...args], { from: 'user' });
+  await program.parseAsync(['init', '--caller-id', CALLER_ID, ...args], { from: 'user' });
   return captured;
 }
 
