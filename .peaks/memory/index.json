@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-14T07:42:13.838Z",
+  "updatedAt": "2026-10-14T12:50:03.479Z",
   "hot": {
     "rule": [
       {
@@ -1420,6 +1420,14 @@
         "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\load-shaped-failures-are-real-maxworkers-2-is-a-deliberate-compromise-and-the-suite-tells-you.md",
         "sourceArtifact": ".peaks/_runtime/2026-09-16-session-5bcf09/sc/release-1-load-shaped.md",
         "updatedAt": "2026-10-08"
+      },
+      {
+        "name": "local-only-commits-hide-ci-only-gates",
+        "kind": "lesson",
+        "description": "本地独积 ⇒ CI-only 的门从未跑过 事实（2026-10-14，4.1.5 发版） 发 4.1.5 时， 落后本地 **125 个 commit**——这批工作从未推送，因此 **CI 从未见过它们**。第一次推送（，62 个...",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\local-only-commits-hide-ci-only-gates.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-10-14"
       },
       {
         "name": "mcp-e2e-verified-by-official-schema-not-by-sdk",
