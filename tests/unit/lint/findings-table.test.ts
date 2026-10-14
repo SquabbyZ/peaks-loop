@@ -68,6 +68,12 @@ type TableResult = {
   totals: { findings: number; errors: number };
   tolerated: number;
   namedAtZero: number;
+  /**
+   * Named non-zero rows for paths this run did NOT measure. It is the slack the rename
+   * launder lives in (arm J), and it was absent from this hand-written shape until that
+   * arm needed it — the module has returned it since the table landed.
+   */
+  unmeasured: number;
   shrinking: string[];
 };
 type Judged = { failures: string[]; improved: number };
@@ -300,6 +306,50 @@ describe('Scenario: behavior — the count form and the table form, on one scrat
     //       the header, and so a future slice that closes one of them sees this go red
     expect(flat.failures).toEqual([]);
     expect(moved.failures).toEqual([]);
+  });
+
+  it('J: when a file RENAMES onto a row whose own file is gone, should launder it — backlog 9.4 AC-5', () => {
+    // given: `src/gone.ts` held 9 findings and was DELETED. Its row is not removed — the
+    //        artifact keeps a row per named path, and a run reports such rows as "counted
+    //        and not judged" — so the NAME is worth 9 findings and owns no file.
+    //        `src/a.ts` holds 5 findings and owns a row of exactly 5.
+    const stale = { eslint: 9, eslintErrors: 0 };
+    const rows = { 'src/a.ts': { eslint: 5, eslintErrors: 0 }, 'src/gone.ts': stale };
+    const afterDelete = mod.judgeFindingsTable({
+      measured: new Map([['src/a.ts', verdict(5)]]),
+      table: rows
+    });
+    // when: `src/a.ts` is renamed ONTO that name, carrying its 5 findings with it
+    const afterRename = mod.judgeFindingsTable({
+      measured: new Map([['src/gone.ts', verdict(5)]]),
+      table: rows
+    });
+    // and: 4 more findings then arrive on the name the rename landed on
+    const afterGrowth = mod.judgeFindingsTable({
+      measured: new Map([['src/gone.ts', verdict(9)]]),
+      table: rows
+    });
+    // then: NOTHING refuses at any of the three steps. The row outlives its file, the
+    //       rename makes the stale row measurable again, and its unused remainder (9 − 5)
+    //       is capacity an individual finding can be spent in — the shape the named table
+    //       was adopted to remove. `unmeasured` is where the slack is VISIBLE, and it is
+    //       the only sentence the gate prints about it: a count, never a refusal. It reads
+    //       1 at every step and names a DIFFERENT row each time — `src/gone.ts` while its
+    //       file is gone, then `src/a.ts`, the source whose 5 findings the table still
+    //       claims after they moved.
+    expect(afterDelete.failures).toEqual([]);
+    expect(afterDelete.unmeasured).toBe(1);
+    expect(afterRename.failures).toEqual([]);
+    expect(afterRename.unmeasured).toBe(1);
+    expect(afterGrowth.failures).toEqual([]);
+    expect(afterGrowth.unmeasured).toBe(1);
+    expect(afterGrowth.totals.findings).toBe(9);
+    // WHY THE EXISTING GUARDS MISS IT, so a reader does not go looking for one:
+    // `.husky/monotonic/rows.mjs` refuses a row that moves UP, and no row moved here;
+    // the row for `src/a.ts` is never measured, so it cannot descend; and the totals the
+    // count rows bound are not what refused a valid reshuffle in the first place. Closing
+    // this needs identity across renames, which the census does not record — recorded as a
+    // decision with this probe rather than closed, per the slice's own brief.
   });
 });
 
