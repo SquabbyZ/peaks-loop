@@ -72,6 +72,21 @@
 > comparison could not be completed. **No existing item was renumbered and §§0–7 are untouched.**
 > The shared consequence is the one §7.B and 7.10 keep naming: a gate that refuses legitimate work is
 > what teaches `--no-verify`, and `--no-verify` turns the gate off entirely.
+>
+> **Revised 2026-10-14 — §9's headings were corrected against measurement, and eight items were filed,
+> five of them structural defects new to this session.** The four decision items (9.1–9.4) had been **ruled by the user on 2026-10-13** and their
+> headings still said *"needs the user's decision"* a full day later, so a reader trusting the heading
+> would have re-implemented finished work; each now names the ruling, the date, and a commit **verified
+> by `git` in this session**. A Rule-B sweep over every heading returned **20** candidates; **17** of
+> them already recorded a resolution their heading did not, and those **17 were corrected** (markers
+> only, no body touched) and **one more (`1.2`), reached by reading rather than by the rule, was left**,
+> with its reason, because its body records a *decision*, not a resolution —
+> adding the evidence would have been the sweep asserting rather than reporting. A note in §9 now states
+> the thing that was missing: **a heading's state is not machine-checked either.** New items
+> **9.40–9.47** carry this session's findings, which until now lived only in the gitignored run state.
+> **No existing item was renumbered, and no item body was rewritten — every corrected heading is a marker
+> change alone. The 17 Rule-B corrections sit in §2 (15) and §8 (2); the five remaining corrected headings
+> are §9's `9.1`–`9.4` and `9.37`.**
 
 ---
 
@@ -346,7 +361,7 @@ peaks-loop-4.0.16+` are byte-identical to `HEAD`, while its **keys** were rewrit
   full scans measured 2887 / 2890 / 2888 depending on which runner file was in place — a spread that is
   the runner's own findings, not an unreproduced number. Clean + fixed is **2888 = 2881 + 7**.
 
-### 2.11 `pnpm test:unit` skips the build its own suite requires (found 2026-09-24)
+### 2.11 `pnpm test:unit` skips the build its own suite requires (found 2026-09-24) — **FIXED 2026-09-24 (rid `rid-muf2sasw`)**
 
 - **Measured, on a fresh setup** (`node_modules` installed 02:36; `dist/` never built), on a host booted
   ten minutes earlier — so neither uptime nor load is in play:
@@ -1204,7 +1219,7 @@ cap → the guard goes red), or it asserts existence only, in which case the doc
 `:NN` as if it were checked, because a reader will trust a precision the guard does not provide.
 C wave 5's record is written with both the old and the new locations for exactly that reason.
 
-### 2.21 `EXEC_TIMEOUT_MS` is 5 hours, not 5 minutes — a hung cron task is never reaped (found 2026-10-01)
+### 2.21 `EXEC_TIMEOUT_MS` is 5 hours, not 5 minutes — a hung cron task is never reaped (found 2026-10-01) — **RESOLVED 2026-10-01 (rid `2026-10-01-cron-exec-timeout-01`)**
 
 `src/cli/commands/cron-commands.ts` computes the per-task exec timeout as
 
@@ -1256,7 +1271,7 @@ five minutes is safe today — the only built-in task (`lease-gc-daily` → `pea
 in 745–767 ms — but a downstream consumer with a >5-minute task would need this knob, and it belongs in
 its own slice rather than smuggled in behind a constant fix.
 
-### 2.22 `cron-commands.ts`'s header comment describes a task the code does not register (found 2026-10-01)
+### 2.22 `cron-commands.ts`'s header comment describes a task the code does not register (found 2026-10-01) — **RESOLVED 2026-10-01 (rid `2026-10-01-cron-exec-timeout-01`, comment-only)**
 
 **RESOLVED 2026-10-01 (rid `2026-10-01-cron-exec-timeout-01`, comment-only).** The header was corrected
 to describe what `cron-commands-schedule.ts` actually registers: `lease-gc-daily` runs `peaks worktree
@@ -1301,7 +1316,7 @@ error is closed, and the _reaping_ property never existed. What the fix actually
 `runTask` caller is released after five minutes instead of five hours — the parent stops waiting, the
 child keeps running.
 
-### 2.23 `runTask` orphans its task child on timeout (found 2026-10-01, §2.21a measured it)
+### 2.23 `runTask` orphans its task child on timeout (found 2026-10-01, §2.21a measured it) — **RESOLVED 2026-10-01 (rid `2026-10-01-cron-task-tree-kill-01`)**
 
 `execSync(cmd, { timeout })` sends SIGTERM to the shell. On Windows the shell is `cmd.exe`, and the node
 process it launched is not in that kill set — it is orphaned and finishes on its own. Consequence: any
@@ -1375,7 +1390,7 @@ enumeration throws, so "did not run" can never be read as "zero survivors".
 What this does **not** close: §2.24 below (the rate half), and the unidentified emitter of the
 2026-09-30/10-01 population (diagnosis §9). See the §9 addendum for what changes for that population.
 
-### 2.24 The scheduler's `tick()` never persists `lastRunAt`, so a due task re-fires every tick (read 2026-10-01)
+### 2.24 The scheduler's `tick()` never persists `lastRunAt`, so a due task re-fires every tick (read 2026-10-01) — **FIXED 2026-10-01 (rid `2026-10-01-cron-last-run-at-01`)**
 
 `src/cli/commands/cron-scheduler-commands.ts` — the daemon tick:
 
@@ -1515,7 +1530,7 @@ punished"; it is "a metavariable outside a code span is punished", and the remed
 Half 2 is confirmed in current source: `src/services/artifacts/request-artifact-state-helpers.ts:75–76` builds
 "…6 lint error(s) found in artifact." with no path, while `request lint`'s own envelope does carry `path`.
 
-### 2.27 `peaks-gate-baseline.mjs` has no monotonicity check — it raised `prettierUnformatted` 0 → 7 and wrote it (found 2026-10-01, C wave 7 convergence)
+### 2.27 `peaks-gate-baseline.mjs` has no monotonicity check — it raised `prettierUnformatted` 0 → 7 and wrote it (found 2026-10-01, C wave 7 convergence) — **CLOSED 2026-10-02 (rid `2026-10-02-baseline-monotonicity`)**
 
 §5 and the artifact's own `note` both say _"Every ceiling may only go DOWN — if a regeneration raises
 one, that is a regression to fix, not a number to commit."_ The generator does not implement that. It
@@ -1554,7 +1569,7 @@ tree_, so the artifact itself is still the trust anchor for a weakening — meas
 in isolated fixtures, deleting a row there turns a raise into `NEWLY SEEDED` (exit 0) and inflating a row
 turns it into `CLEARED` (exit 0).
 
-### 2.28 A source-text guard lost 86% of its subject in a split and still passed (introduced by C wave 7 `w7-2`, found at convergence 2026-10-01)
+### 2.28 A source-text guard lost 86% of its subject in a split and still passed (introduced by C wave 7 `w7-2`, found at convergence 2026-10-01) — **CLOSED 2026-10-02 (rid `2026-10-02-guard-covers-module-set`)**
 
 `tests/unit/final-review/final-review-service-fact-states-and-guard.test.ts:286` reads
 `src/services/final-review/final-review-service.ts` as **text** and asserts the delivery invariant over
@@ -1669,7 +1684,7 @@ whose basename matches a leaf's target, 0-byte tracked files) and not only by `g
 brief must pin scratch destinations to an absolute path under the session's runtime dir — a redirect that
 depends on cwd is a leak waiting for the next `cd`.
 
-### 2.32 `.husky/` is capped by nothing (half 1 of this entry — "the CLI reports a flattering number" — was a **stale install**, corrected below; found 2026-10-02, C wave 8)
+### 2.32 `.husky/` is capped by nothing (half 1 of this entry — "the CLI reports a flattering number" — was a **stale install**, corrected below; found 2026-10-02, C wave 8) — **CLOSED 2026-10-02 (half 2, rid `2026-10-02-hooks-size-rows`)**
 
 The file-size policy measures four directories (`src`, `tests`, `packages`, `scripts`) over seven extensions.
 `policyCapFor` (`src/services/scan/file-size-scan.ts:171`) returns `null` for anything outside that set, and
@@ -1737,7 +1752,7 @@ equivalence harness was specified against `git show HEAD:` and self-destructed o
 fixture was rejected on price — a 799-line `.mjs` under `tests/` is inside the census scope at cap 500, so the
 fixture would have added 299 excess lines to the very row the wave was descending.
 
-### 2.33 The monotonicity guard's previous side is the file it guards, so the artifact is still the trust anchor for a weakening (found 2026-10-02 by out-of-band review of C wave 8)
+### 2.33 The monotonicity guard's previous side is the file it guards, so the artifact is still the trust anchor for a weakening (found 2026-10-02 by out-of-band review of C wave 8) — **CLOSED 2026-10-02 (rid `2026-10-02-monotonicity-head-anchor`)**
 
 `.husky/peaks-gate-baseline.mjs:436–449` reads `OUT_PATH` — the same path it writes at `:484` — and
 `:126–137` of the new module arbitrates `added` vs `raised` purely by **key presence** in that read. So the
@@ -1784,7 +1799,7 @@ envelope: control (working == HEAD) → `refusal: null`; delete `prettierUnforma
 key set, 13 rows. The happy path is idempotent on the real repository — two consecutive regenerations exit 0
 with identical ceilings and identical `files` tables. What the fix does NOT yet cover is in §2.35.
 
-### 2.34 Guard C's widened subject has four holes of its own, all found by attacking it (C wave 8, 2026-10-02)
+### 2.34 Guard C's widened subject has four holes of its own, all found by attacking it (C wave 8, 2026-10-02) — **CLOSED 2026-10-02 (rid `2026-10-02-guard-scope-teeth`)**
 
 The §2.28 fix is real and measured — 16 modules, 66 named functions against 8, every HEAD case present, moved
 scanner bodies byte-identical except the two disclosed coverage extensions — and it still has these residues,
@@ -1818,7 +1833,7 @@ blindness.
 
 **CLOSED 2026-10-02, rid `2026-10-02-guard-scope-teeth` (repair cycle 1).** All four are armed. The walk now takes its extension set from the shared policy (`FILE_SIZE_SCOPE_EXTENSIONS`) and recurses, so a `.mts` module and a module under `final-review/delivery/` are both scanned — and the choice is enforced by a fixture with a real subdirectory, not by an assertion that none exists, because a non-recursion assertion would make the guard's coverage hostage to a layout fact any legitimate split can change. Guard C's own `describe` now audits the module set it consumed, so a `.filter` inserted at its call site reddens the guard instead of shrinking it quietly; the guarded directory is constructed in exactly one place; and `definitionCount(MODULES, DELIVERY_PREDICATE) === 1` plus `predicateHomeViolations` close the shadowed-predicate hole. Module-level delivery decisions are now scanned and labelled `top-level:…` so the allow-list can never match them, with a measurement arm for the residue. One premise of this entry was wrong, measured by the leaf: the scanner already recorded a nested _named_ predicate at `3b3bb00c`, so the gap was only the missing assertion, not blindness to the shape. Cases 85 → 96 in `tests/unit/final-review`, no original arm name lost.
 
-### 2.35 The HEAD-anchor repair refuses a legitimately seeded ceiling row after the first regeneration, and its printed remedy would delete it (found 2026-10-02 while probing §2.33's fix)
+### 2.35 The HEAD-anchor repair refuses a legitimately seeded ceiling row after the first regeneration, and its printed remedy would delete it (found 2026-10-02 while probing §2.33's fix) — **CLOSED 2026-10-02 (rid `2026-10-02-added-row-seeding-path`)**
 
 `workingCopyTrip` treats any working-copy difference from HEAD as suspect unless it is a **lowering**, so a
 row that the generator itself legitimately measured and wrote is, from then until the commit, an `ADDED` row
@@ -2079,7 +2094,7 @@ verifies the sha resolves before writing, and refuses without touching the ledge
 (c)+(a) together: after a refusal like the one above, following the tool's own `Next:` line must reach a
 command that succeeds.
 
-### 2.39 A killed leaf left a comment in the shipped source claiming a proof no test performs (wave 9 slice 3, aborted by quota 2026-10-02)
+### 2.39 A killed leaf left a comment in the shipped source claiming a proof no test performs (wave 9 slice 3, aborted by quota 2026-10-02) — **CLOSED 2026-10-02 (rid `2026-10-02-wave9-generator-split-repair1`)**
 
 Slice 3 (`.husky/peaks-gate-baseline.mjs`, 799 raw, +499) died from **daily usage quota**, not the turn limit:
 121 tool calls, 72 minutes, and unlike the turn-limit deaths it produced **no envelope at all**. Its tree was
@@ -2407,7 +2422,7 @@ a -> b — the boundary exempts it; nobody fixed it` per risen row (annotated `(
 than asserted in prose: the exit code is identical to the same decision computed without the warning, and
 the artifact's key list and `ceilings` bytes are unchanged.
 
-### 2.47 An equivalence projection with no bounding arm is a channel for declaring any future behaviour "equivalent" (found 2026-10-03 while reviewing the §2.46 rider)
+### 2.47 An equivalence projection with no bounding arm is a channel for declaring any future behaviour "equivalent" (found 2026-10-03 while reviewing the §2.46 rider) — **CLOSED the same day (`…-shadow-move-rider-repair1`)**
 
 `tests/unit/lint/_rescope-projection.ts` carries this sentence in shipped test machinery:
 
@@ -2460,7 +2475,7 @@ reds itself, because reproducing them requires editing a test file and the campa
 from writing tests — so that leg stands on the leaf's captured failure output, which is exactly the kind of
 claim this section is about.
 
-### 2.50 §2.43's scope trip cannot tell "we started watching more" from "we redrew the boundary", and that blocked the first honest descent slice (found 2026-10-03 by `…-w11a-ecc-cache-split`, reproduced by the orchestrator)
+### 2.50 §2.43's scope trip cannot tell "we started watching more" from "we redrew the boundary", and that blocked the first honest descent slice (found 2026-10-03 by `…-w11a-ecc-cache-split`, reproduced by the orchestrator) — **CLOSED 2026-10-03 (`2026-10-03-scope-growth-vs-shrink`)**
 
 `scopeTrip` was widened in §2.43 to compare the whole `scope` block, so a _leg's_ population change is a
 boundary event. Correct for its own case — and too blunt: it fires on **file counts moving inside an
@@ -2807,7 +2822,7 @@ out through the escape hatch the refusal text itself names — `PEAKS_GATE_CHANG
 semantically right base for a release. The gate behaviour §2.53 describes is still open, and the meta layer is
 frozen, so it stays open by decision rather than by oversight.
 
-### 2.55 Two tests pinned to a literal commit sha run in the one CI job that has no commit history — `main` has been red on CI on every push since 2026-10-02 and green in every place it was ever measured
+### 2.55 Two tests pinned to a literal commit sha run in the one CI job that has no commit history — `main` has been red on CI on every push since 2026-10-02 and green in every place it was ever measured — **CLOSED 2026-10-04 (landed `3c212b06`, pushed; existence of the sha verified 2026-10-14)**
 
 Found while verifying the 4.1.0 publish (the publish itself is green and shipped; this is the _other_ workflow).
 
@@ -3476,7 +3491,7 @@ naming: a gate whose refusal is indistinguishable from a gate that is simply wro
 the blocked command — it is that a gate which refuses legitimate work is the thing that teaches
 `--no-verify`, and `--no-verify` turns the gate off entirely.
 
-### 8.1 The worktree gate has no agent-reachable path for a user-named stash operation
+### 8.1 The worktree gate has no agent-reachable path for a user-named stash operation — **CLOSED THE LOOP 2026-10-13, by performing it**
 
 - **Where**: `src/services/hooks/worktree-authorization-gate.ts` (the `WORKTREE_USER_AUTH_REQUIRED`
   pre-tool gate) together with `peaks worktree auth grant`. The gate's own message instructs:
@@ -3535,7 +3550,7 @@ the blocked command — it is that a gate which refuses legitimate work is the t
   `ee6677e7205a12fe0c1759f32596e0b80ba36361`, still in the object store until GC, so
   `git stash apply ee6677e7` recovers it.
 
-### 8.2 The piped-test-run hook matches the guarded pattern anywhere in the command, including inside strings
+### 8.2 The piped-test-run hook matches the guarded pattern anywhere in the command, including inside strings — **REPAIRED 2026-10-13**
 
 - **Where**: `src/services/hooks/pre-tool-piping-a-test-run-reports-the-pipes-exit-code.sh`. Its own
   header documents the exception it is supposed to carry, at line 29:
@@ -3649,8 +3664,22 @@ the blocked command — it is that a gate which refuses legitimate work is the t
 > produced and then dropped by the caller. **A true observation with a wrong explanation is harder to
 > catch than a false one**, because checking the number confirms it. Both halves are now written into 9.2
 > with the old reading named.
+>
+> **A HEADING'S STATE IS UNVERIFIED IN THE SAME WAY, AND IT IS THE DANGEROUS ONE.** The paragraph above
+> is about `file:line` anchors; a heading's trailing marker is a claim too, and **nothing in this
+> repository checks it** — not the citation guard, not the baseline census, not a test. Four of this
+> section's own headings asserted `**needs the user's decision**` for a full day *after* the user had
+> decided all four (the RULINGS table above), so the heading and the authority in the same section
+> disagreed and only the heading was read. A sweep on 2026-10-14 found **17 more** headings — across §2
+> and §8 — whose bodies already recorded a resolution the heading did not. **For the four decision items
+> 9.1–9.4 the authority is the RULINGS table above; for everything else it is the body.** The heading is
+> a summary, and a summary can lag the thing it summarizes: re-measure the heading before you act on it,
+> and if the two disagree, this file's method is that **both stay visible** rather than the older reading
+> being overwritten. The rule the sweep used, its result, and the one candidate it deliberately did not
+> correct are recorded at **9.40**; whether heading state can be checked *mechanically* is left open
+> there, because it would require this file to declare its items' states in a machine-readable form.
 
-### 9.1 The lane phase lives in a carrier that has no grammar — five rounds, five spellings, and the guard is at 495/500 lines (found 2026-10-11 → 2026-10-12; **needs the user's decision**)
+### 9.1 The lane phase lives in a carrier that has no grammar — five rounds, five spellings, and the guard is at 495/500 lines (found 2026-10-11 → 2026-10-12; **RULED (a) — migrate the carrier — on 2026-10-13, and DELIVERED at `3b95e00a` (2026-10-13); the guard is 397 lines, measured 2026-10-14**)
 
 - **Where**: `skills/peaks-audit/SKILL.md` carries the phase as **a prose sentence plus an HTML-comment
   marker inside a markdown file**. The guard over it is `tests/unit/skills/race-lane-phase-gate.test.ts`.
@@ -3718,7 +3747,7 @@ the blocked command — it is that a gate which refuses legitimate work is the t
     (`a-feature-can-be-fully-tested-and-still-be-unreachable-from-production`) arrived at this
     independently.
 
-### 9.2 `MUT_REPORT` is a hard prerequisite with no producer, and it does not report its own skip (found 2026-10-12; **needs the user's decision**)
+### 9.2 `MUT_REPORT` is a hard prerequisite with no producer, and it does not report its own skip (found 2026-10-12; **RULED 2026-10-13 — do 1a + 1b and file the producer separately; 1a+1b DELIVERED at `3059ac27` (2026-10-13). The `backCompatUntil` residue, as of 2026-10-14, is at `0da35578` (the declared window is now read); this slice did not re-measure it**)
 
 - **Where**: `src/services/artifacts/artifact-prerequisites.ts:201` (`MUT_REPORT` demands a literal
   `"passed": true` in `mut/mut-report.json`), used in **two** tables — the rd path (line 382) and the qa
@@ -3794,7 +3823,7 @@ the blocked command — it is that a gate which refuses legitimate work is the t
 - **A second, quieter half**: the artifact-contract pre-commit leg shipped 2026-10-12 **passes this
   prerequisite too**, so that leg is recorded at 9.A as _not_ complete enforcement.
 
-### 9.3 The `rd → implemented` size gate contradicts the baseline ratchet, and the state machine enforces no order (found 2026-10-11, reproduced 2026-10-12; **needs the user's decision**)
+### 9.3 The `rd → implemented` size gate contradicts the baseline ratchet, and the state machine enforces no order (found 2026-10-11, reproduced 2026-10-12; **RULED 2026-10-13 — read the ratchet and judge by delta, plus enforce the state order; BOTH HALVES DELIVERED at `435445dd` (2026-10-13), each side pinned at `42700853` (2026-10-14)**)
 
 - **Where**: `peaks request transition --state implemented`'s file-size leg versus the ratchet in
   `.peaks/lint/gate-baseline.json`.
@@ -3818,7 +3847,7 @@ the blocked command — it is that a gate which refuses legitimate work is the t
   required** — which at minimum makes the reader's next action discoverable. For S-14, independently:
   enforce the sequence, or stop describing it as a sequence.
 
-### 9.4 A count ceiling cannot make a single finding force action, and the `tests/**` 500-line cap is documentary (found 2026-10-12; **needs the user's decision**)
+### 9.4 A count ceiling cannot make a single finding force action, and the `tests/**` 500-line cap is documentary (found 2026-10-12; **RULED 2026-10-13 — a named exemption table in place of the numeric ceiling, and the `tests/**` cap enforced or renamed; the TABLE LANDED at `d3684dbc` (2026-10-13), the cap's enforcing surface named at `52fcf989` (2026-10-14)**)
 
 - **Where**: `eslintFindings` in the gate baseline, and the census's **enforced scope** versus its
   **measurement universe**.
@@ -5002,7 +5031,7 @@ INIT_SESSION_HELP)` — versus line **107** in the same file:
   filename containing `rid`.** The RD re-worded rather than spelling the name around the detector —
   which is the right call, and the difference between fixing the comment and training the guard away.
 
-### 9.37 The same session-scoped collision survives in three other prerequisite paths, and one of them is hard-enforced (measured 2026-10-13 by an independent review of 9.36's fix; open)
+### 9.37 The same session-scoped collision survives in three other prerequisite paths, and one of them is hard-enforced (measured 2026-10-13 by an independent review of 9.36's fix; **open as the body records it — but the hard instance's per-rid repair landed `47863518` on 2026-10-14, and `THIRD_PARTY_REVIEW` is deliberately still bare**)
 
 - **Where**: `artifacts/artifact-prerequisites.ts`. 9.36 gave `BUG_ANALYSIS` an `<rid>` placeholder,
   but the repair direction the handoff stated — *"the only prerequisite path with no `<rid>`"* — was
@@ -5176,6 +5205,170 @@ INIT_SESSION_HELP)` — versus line **107** in the same file:
   `lease-status`, confirmed both ways — `peaks worktree status --lease-id x` answers
   `error: unknown command 'status'`, and the corrected form reaches the command and reports
   `LEASE_NOT_FOUND` for an unknown id.
+
+### 9.40 The heading is the claim, and nothing checks it — four §9 headings asserted a decision the user had already made (measured 2026-10-14)
+
+- **Where**: this file's headings. Nothing in the repository reads them: the citation guard's corpus is
+  `['.peaks/standards', 'skills']` (9.18), so `.peaks/docs/` is outside every check.
+- **Measured 2026-10-14, before this slice's edits**: `grep -c '^#' .peaks/docs/backlog.md` → **143**
+  (130 `###`, 12 `##`); `grep -c "needs the user's decision"` → **4**, all `9.x` — while the RULINGS
+  table at §9 recorded that *"the user decided all four decision items on 2026-10-13"*. **The heading and
+  the authority in the same section disagreed, and only the heading was read.**
+- **The class, swept by a stated rule**: _a heading that carries no resolution marker while its body
+  already records one, and where the marker can be written without adding evidence._ Candidates were
+  generated mechanically (bolded `REPAIRED|FIXED|CLOSED|RESOLVED|DELIVERED|SUPERSEDED|WITHDRAWN|WON'T FIX`
+  in the body; no such marker and no `open` in the heading). **The rule returns 20, not 18**, and three of
+  the 20 are not Rule-B items: `## 2.` is a **section** heading (level 2, whose "body" is the whole of §2 —
+  a scope describes what the section covers, not an item's state); `2.43`'s heading already reads
+  `CLOSED 2026-10-03` in plain text, so the heading test excludes it the moment it is read at word level
+  rather than at bold-span level; and `9.2` is one of the four decision items, whose state is the **user's
+  ruling** in §9's RULINGS table rather than a Rule-B marker. **17 were corrected mechanically**, and each
+  was then read. **`1.2` was never a candidate**: its body's bold tokens (`**Fixed in-session**`,
+  `**Still open**`, `**Decided by the user**`) match none of the vocabulary, so the rule cannot reach it —
+  it entered the list by **reading**. So **18 = 17 mechanical + 1 read** — `1.2`, `2.11`, `2.21`–`2.24`,
+  `2.27`, `2.28`, `2.32`–`2.35`, `2.39`, `2.47`, `2.50`, `2.55`, `8.1`, `8.2` — **corrected 17**,
+  **left 1**.
+- **Why `1.2` was left, and this is the rule's stopping condition.** Its body records a *decision* the
+  user took (*"stale historical sediment should be fixed or discarded"*) plus a partial in-session fix
+  (5 pointers across 3 files of 42) — **not a resolution of the item**. Writing a resolution marker on
+  that heading would have required *adding* evidence, and a sweep that can add evidence is not
+  reporting, it is asserting. The same rule left `2.19`–`2.26`'s siblings and every other unmarked
+  heading whose body records none.
+- **Disposition**: headings corrected (markers only — no body, no numbering, no ordering). **Open**: the
+  PRD's deferred question — whether heading state can be checked *mechanically* — is NOT attempted here,
+  and would need this file to declare each item's state in a machine-readable form, which is a much
+  larger change than a sweep.
+
+### 9.41 `peaks` on PATH is a ten-day-old compiled binary carrying the current version string (§2.36's remedy has a ten-day half-life) — measured 2026-10-14
+
+- **Where**: `/c/Users/small/AppData/Local/Author Software/nvm/.nodejs/peaks.exe`.
+- **Measured 2026-10-14**: `ls -la` → **546088** bytes, dated **Oct 4 06:37**; `peaks --version` →
+  **4.1.4**; `package.json#version` → **4.1.4**. **Version equality cannot reveal the drift** — the stale
+  binary carries the same number as the tree, which is exactly what §2.36 recorded and why a reinstall
+  looked like a fix.
+- **Measured symptom, restated from the session's record and NOT re-run here**: `sub-agent dispatch
+  --prompt "@<file>"` dispatched the **literal 62-byte path** instead of a **20,734-byte** brief — no
+  warning, exit 0 — and `request init` demanded `--session-id` despite **9.33** recording that as
+  repaired. The dispatch symptom was not reproduced by this slice (it dispatches a sub-agent); the
+  version and the binary date above **were** measured, and the two claims are separated here because
+  this file keeps conflating a measurement with a mechanism.
+- **Correction carried into §2.36, not as a new number**: this **is** §2.36's shape, and §2.36 was
+  **CLOSED 2026-10-03 by a global reinstall** — it reopened **within ten days**. The finding is not the
+  drift, which §2.36 already names: it is that **the remedy has a ten-day half-life and nothing detects
+  it**, because the one signal a version check would use is the signal the drift preserves.
+- **Disposition**: filed as an update to §2.36. A staleness check that does not read the version string
+  (mtime, or a build id) is the possible repair; **not attempted here**.
+
+### 9.42 `peaks job` and the artifact-contract pre-commit leg are mutually exclusive (measured 2026-10-14)
+
+- **Where**: `.husky/pre-commit:61` → `.husky/peaks-gate-pipeline.mjs` →
+  `.husky/pipeline/contract-verdict.mjs:47` (re-measured 2026-10-14: `grep -n CARRIER_DIRS .husky/pipeline/contract-verdict.mjs` → `47:`; `:46` is the last line of the preceding doc comment, and the file is unmodified since `4a5d74b4` — so this anchor was never measured rather than having rotted), whose `CARRIER_DIRS = ['rd/requests', 'prd/requests',
+  'qa/requests']` are **all** walked. The refusal text is built at `contract-verdict.mjs:281`.
+- **Measured**: the leg refused a commit with **`4 rid(s) short of the contract`** while the slice being
+  committed verified clean (`peaks workflow verify-pipeline --rid <rid>` → `ok: true, violations: 0`).
+  Session record for the count; the enumeration and the refusal path above were re-read 2026-10-14.
+- **Why it is structural, not a slip**: the leg enumerates **every** rid under
+  `<sid>/{rd,prd,qa}/requests/` and demands the full contract for each, so a job's **first slice cannot
+  be committed while later slices exist**, even as untouched `draft` templates. It leaves two bad
+  options — stub every later slice to `verdict-issued` (**a lie**) or use `PEAKS_SKIP_PIPELINE_VERIFY=1`,
+  which the hook's own comment (`.husky/peaks-gate-pipeline.mjs:60-67`) records as leaving **no trace in
+  git history**: *"the commit that skipped the check is indistinguishable in `git log` from one that
+  passed it."*
+- **The workaround used here, which belongs in the item**: create each slice's request artifacts **at
+  that slice's turn**, holding pending ones outside `requests/`. It is a discipline, not a gate — nothing
+  prevents the next job from staging five drafts at once and hitting this again.
+- **Disposition**: **9.35's shape from the other side** — _the contract has no representation for a slice
+  that has not started._
+
+### 9.43 `peaks job checkpoint --slice-id` maps a caller-supplied label to a positional `slice-NNN`, and there is no undo verb (measured 2026-10-14)
+
+- **Where**: `src/cli/commands/job-checkpoint-commands.ts` — `--slice-id` accepts the canonical
+  `slice-NNN` **or** the slice's own label, resolved by `resolveSliceId`; an id matching no slice is
+  refused `SLICE_NOT_FOUND` *before any write*. The mapping is therefore **positional on one side and
+  name-keyed on the other**, and nothing reconciles the two.
+- **Measured**: a checkpoint intended for **slice 2** landed on **slice-003** and left **slice-002
+  `pending`**. The `peaks job` surface — `init / status / rotate-now / subagent-cleanup / checkpoint /
+  block / continue / resume / progress / handoff / karpathy-cost-check / add-slice`, enumerated
+  2026-10-14 from the `job-*.ts` registrations — has **no repair verb**, so the only fix was editing
+  `state.json` by hand.
+- **Re-measured 2026-10-14**: `.peaks/_runtime/2026-10-14-session-2f9323/job/backlog-9x-drain/state.json`
+  now carries **consistent** labels (slice-001 `…9-2-mut-warnings`, slice-002 `…9-3-size-delta`,
+  slice-003 `…9-4-named-exemptions`, slice-004 `…9-37-prereq-collisions`). **The hand edit removed the
+  evidence of the mislabel**, which is why the *mechanism* is the finding and the file is not — and why
+  an undo verb, which would have left a record, is the missing surface.
+- **Why it is worse than a wrong row**: a mislabelled state transition **reads as a completed
+  checkpoint**. A wrong row is visibly wrong; a transition recorded against the wrong slice is not.
+- **Disposition**: same family as **9.37**'s name-keyed table and **§2.46**'s rename laundering.
+
+### 9.44 An `rd`-shaped carrier can be placed in the `qa` slot, and there is no in-order way out (measured 2026-10-14)
+
+- **Where**: `src/services/artifacts/request-artifact-state-helpers.ts:18-27`.
+- **Measured**: `ALLOWED_STATES_PER_ROLE.qa = ['draft', 'running', 'verdict-issued', 'blocked']` — there
+  is **no `qa-handoff`**. (`rd` carries six states including `qa-handoff`; `qa` never can.)
+- **Consequence**: a qa artifact seeded with an rd state **cannot be walked in order**, and no repair
+  verb exists — the only route is `--allow-incomplete --reason`, which at least **does** record the
+  bypass in the artifact itself (unlike 9.42's env token, which records nothing).
+- **Hit once this session**, by an orchestrator staging error rather than by the CLI — i.e. the CLI did
+  not produce the bad state, but nothing in it could detect or reverse one that had arrived.
+- **Disposition**: unfiled class. The state table is a closed list per role, so a carrier that arrives in
+  the wrong shape has no in-order exit; `--allow-incomplete` is a bypass, not a repair.
+
+### 9.45 §2.46's shadow block is triggered by nothing more exotic than adding a test file — and it fired again in this session (measured 2026-10-14; correction to §2.46)
+
+- **Where**: `.peaks/lint/gate-baseline.json` → `shadow`.
+- **Measured, this session's record**: `measuredFiles 714 → 715 → 716`, and on the second trigger
+  `eslintFindings 733 → 734` **and** `eslintErrors 230 → 231`. **A third trigger is recorded in the
+  message of `47863518` itself** (`measuredFiles 716 → 718`, `eslintFindings 734 → 736`,
+  `eslintErrors 231 → 232`). Both readings are kept: the session's own count of triggers was **two**
+  when it wrote the finding, and a third is on disk.
+- **Re-measured by this slice 2026-10-14**: `shadow.measuredFiles` → **718**, `shadow.eslintFindings` →
+  **736**, `shadow.eslintErrors` → **232** (read from the baseline, not inferred from the deltas).
+- The generator warns each time — *"the boundary exempts it; nobody fixed it"* — **and writes anyway**.
+- **The reusable part, and the reason this is a correction rather than a new item**: the trigger is
+  nothing more exotic than **adding a test file**, which every session does, and the count is
+  **not monotonic downward** — it moves in the direction a ratchet is supposed to forbid, silently, as a
+  side effect of ordinary work. §2.46 owns the fix; this records the frequency and the trigger.
+- **Disposition**: filed as a correction to **§2.46** (not a new defect number).
+
+### 9.46 The commit path has no file-size leg for any file; the transition path enforces the same cap (measured 2026-10-14)
+
+- **Where**: `.husky/pre-commit` runs **two** legs — `peaks-gate-staged-parity.mjs` (line 54) and
+  `peaks-gate-pipeline.mjs` (line 61). Neither carries a size leg: `grep -n "fileSize"` over the parity
+  leg returns **nothing**. `.husky/peaks-gate-file-size.mjs` **does exist**, but its only importer is the
+  baseline *generator* (`.husky/baseline/census-leg.mjs:19`), plus a `TSX_CLI` re-export that
+  `.husky/gate/comment-hygiene.mjs:18` uses — so it measures, and nothing on the commit path refuses.
+- **Measured**: `node .husky/peaks-gate.mjs staged tests/unit/lint/eslint-ceiling-derivation.test.ts` →
+  *"NOTHING WAS COMPARED (staged) … every one of them is OUTSIDE the lint scope"*, **exit 0**, for a
+  **337-line** test file. (The session's record used a **600-line** file and got the same message; the
+  size is the only difference between the two measurements, and both are kept.) Meanwhile `peaks scan
+  file-size` refuses that file and refuses a *grown* file, **naming the delta**.
+- **How it was found, and the disagreement that kept it unfiled.** It was found while deciding whether
+  §9.4's `tests/**` cap is enforced; the answer is *"yes, at a named surface"*, so **no change was
+  made**. A reviewer **disagreed with the reasoning for leaving it**: the case for rejecting an
+  **un-scoped whole-tree** size leg does not license leaving the commit path with **no** size leg at all,
+  and the transition path already demonstrates the **scoped per-file delta** rule that spares innocent
+  commits. **That disagreement is recorded here because it was filed nowhere** — the asymmetry is the
+  finding, not the cap.
+- **Disposition**: filed because it was **unfiled**. The disagreement is recorded, not resolved.
+
+### 9.47 A name-keyed prose sweep cannot see a class defined by position (measured 2026-10-14)
+
+- **Where**: `tests/unit/services/artifacts/legacy-path-doc-contract.test.ts`, landed by `47863518`.
+- **Measured**: a slice was **returned twice by QA** before it landed the right shape. The defect was
+  *"a bare path presented as a current write target"*, and the first repair swept for the artifact
+  **name** and the token **`rid`** — while the file that mattered,
+  `skills/bee/peaks-rd/references/v2-12-fanout-collapse.md:12,15`, contained **zero** occurrences of
+  `rid` at the time of that sweep. Re-measured 2026-10-14: `git show 47863518^:… | grep -c rid` → **0**,
+  and `grep -c rid` on the file now → **2** (the two demoted stems carry `<rid>` after the repair).
+  **Both readings are kept**: the same grep that found nothing then matches now, and the number moved
+  because the repair landed — not because the finding was wrong.
+- **The closing check, and why it is a different shape**: it **derives** the demoted stems from
+  `artifact-prerequisites.ts` and reads write direction off **one line**. It **cites no reported site,
+  no rid and no session id**, and it fires on a tree it never saw — which is the difference between
+  closing a class and re-sweeping it next session.
+- **This is 9.15's rule generalised**: the control arm must be built from **the side the check reads**,
+  and the *class* must be keyed on the **property**, not on the names the instances happen to carry.
+- **Disposition**: filed as the generalised rule; the instance itself is closed by `47863518`.
 
 ### 9.A Recorded, not fixed — the session's accepted risks, smaller items, and open U-questions
 
