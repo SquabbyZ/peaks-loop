@@ -49,6 +49,13 @@ type Verdict = {
     redirect?: string | null;
   }) => { exitCode: number; lines: string[] };
 };
+type Redirect = {
+  findRedirectScope: (input: {
+    projectRoot: string;
+    listSessionDirs: (root: string) => Promise<{ sessionId: string; path: string }[]>;
+    deriveId: (name: string) => string | null;
+  }) => Promise<{ sessionId: string | null; note: string } | null>;
+};
 
 const leg = (await import(
   new URL('../../../.husky/peaks-gate-pipeline.mjs', import.meta.url).href
@@ -56,7 +63,11 @@ const leg = (await import(
 const verdictModule = (await import(
   new URL('../../../.husky/pipeline/contract-verdict.mjs', import.meta.url).href
 )) as Verdict;
+const redirectModule = (await import(
+  new URL('../../../.husky/pipeline/session-redirect.mjs', import.meta.url).href
+)) as Redirect;
 const { decidePipelineVerdict } = verdictModule;
+const { findRedirectScope } = redirectModule;
 const { requestIdFromFileName: deriveId, getSessionDir } = (await leg.loadPeaks()) as {
   requestIdFromFileName: (name: string) => string | null;
   getSessionDir: (root: string, sid: string) => string;
@@ -393,6 +404,77 @@ describe(
       });
       expect(passing.exitCode).toBe(0);
       expect(passing.lines).toHaveLength(1);
+    });
+
+    it('when two siblings tie on the newest carrier mtime, should pick the same target in either order', () => {
+      // given: two siblings whose ONLY carriers are stamped at the same minute, so the
+      //        mtime comparison is an exact tie, plus both enumerations of that pair
+      // when:  the redirect scan reads the same tree twice, ascending then descending
+      // then:  both runs name the same target — the greater session id
+      // PASSES FALSELY IF: the two runs are handed the same order, which is why the
+      // orders are built here and not read off the directory. The pre-repair scan keeps
+      // the LAST candidate it is handed, so the descending run names the smaller id.
+      const root = makeRoot();
+      draftRid(root, SIB_DONE, '001-sib-low.md', 10);
+      draftRid(root, SIB_DONE_LATENAME, '001-sib-high.md', 10);
+      const dirs = [SIB_DONE, SIB_DONE_LATENAME].map((sessionId) => ({
+        sessionId,
+        path: join(root, '.peaks', '_runtime', sessionId)
+      }));
+      return Promise.all([
+        findRedirectScope({
+          projectRoot: root,
+          listSessionDirs: async () => dirs,
+          deriveId
+        }),
+        findRedirectScope({
+          projectRoot: root,
+          listSessionDirs: async () => [...dirs].reverse(),
+          deriveId
+        })
+      ]).then(([ascending, descending]) => {
+        expect(ascending?.sessionId).toBe(SIB_DONE_LATENAME);
+        expect(descending?.sessionId).toBe(SIB_DONE_LATENAME);
+      });
+    });
+
+    it('when a sibling cannot be read, should name it and not claim that none were skipped', () => {
+      // given: an older sibling whose only carrier is a draft, and a sibling whose
+      //        carrier directory is a FILE, so listing it takes ENOTDIR
+      // when:  the pre-commit leg runs against that root
+      // then:  it refuses on the readable sibling, NAMES the one it could not read, and
+      //        counts that one among the sessions it did not verify
+      // PASSES FALSELY IF: the scan reports only the sessions it managed to read. The
+      // pre-repair scan drops the unreadable sibling entirely and prints "0 NOT
+      // verified", so both the name and the count are absent from its output.
+      const root = makeRoot();
+      draftRid(root, SIB_DRAFT_EARLYNAME, '002-sib-draft.md', 10);
+      write(join(root, '.peaks', '_runtime', SIB_DONE_LATENAME, 'rd', 'requests'), 'file');
+      const { status, out } = runLeg(root);
+      expect(status).toBe(1);
+      expect(out).toContain(`REDIRECTED to session ${SIB_DRAFT_EARLYNAME}`);
+      expect(out).toContain('the newest readable of 1 rid-carrying session(s)');
+      expect(out).toContain('1 NOT verified');
+      expect(out).toContain(`1 unreadable (${SIB_DONE_LATENAME})`);
+      expect(out).not.toContain('0 NOT verified');
+    });
+
+    it('when the only sibling cannot be read, should say so instead of a clean empty scope', () => {
+      // given: an empty bound session and one sibling whose carrier directory is a FILE
+      // when:  the pre-commit leg runs against that root
+      // then:  it still passes, and the line says what the scan could not read
+      // PASSES FALSELY IF: the scan answers "nothing here carries a request" for a
+      // population it never finished reading. The pre-repair scan returns the same
+      // value it returns for a tree that holds no sibling at all, so the line is the
+      // fresh-tree line byte for byte and the unreadable sibling appears nowhere.
+      const root = makeRoot();
+      write(join(root, '.peaks', '_runtime', SIB_DONE_LATENAME, 'rd', 'requests'), 'file');
+      const { status, out } = runLeg(root);
+      expect(status).toBe(0);
+      expect(out).toContain('no rid to verify');
+      expect(out).toContain(
+        `no readable sibling carries a request; 1 unreadable (${SIB_DONE_LATENAME})`
+      );
     });
   }
 );
