@@ -9,7 +9,7 @@
 [![ci](https://img.shields.io/github/actions/workflow/status/SquabbyZ/peaks-loop/ci.yml?style=for-the-badge&logo=githubactions&logoColor=white&label=ci)](https://github.com/SquabbyZ/peaks-loop/actions/workflows/ci.yml)
 [![license](https://img.shields.io/badge/license-MIT-blue?style=for-the-badge)](./LICENSE)
 [![node](https://img.shields.io/badge/node-%E2%89%A520-339933?style=for-the-badge&logo=node.js&logoColor=white)](https://www.npmjs.com/package/peaks-loop)
-[![tests](https://img.shields.io/badge/tests-285%2B%20cases%20%C3%97%204%20pkgs-22c55e?style=for-the-badge&logo=vitest&logoColor=white)](#status)
+[![tests](https://img.shields.io/badge/tests-1096%20cases%20%C3%97%204%20pkgs-22c55e?style=for-the-badge&logo=vitest&logoColor=white)](#status)
 [![stars](https://img.shields.io/github/stars/SquabbyZ/peaks-loop?style=for-the-badge&logo=github&github=github&logoColor=white)](https://github.com/SquabbyZ/peaks-loop/stargazers)
 
 **English** · [简体中文](./README.md)
@@ -89,6 +89,31 @@ No CLI to memorize. No manifest to hand-author. No second terminal to open. **Se
 
 ---
 
+## Where files land after install
+
+After `npm i -g`, the three asset classes (**skills / agents / output-styles**) are stored **once**, under
+`~/.peaks/{skills,agents,output-styles}` in your own home directory. Every entry in each IDE directory
+(`~/.claude/…`, `~/.trae/…`, and so on) is **a link to it** — directories via junction, individual `.md` files
+via symlink. So upgrading `peaks-loop` leaves the link targets unchanged, needs no rebuild, and cannot break
+silently when the package path (which embeds the node version) changes.
+
+Two things that affect you directly:
+
+- **Managed entries are overwritten on upgrade.** An entry peaks-loop installed (say
+  `~/.claude/agents/karpathy-reviewer.md`) sits next to a `.peaks-managed` sidecar that marks ownership, and its
+  contents are updated on upgrade. **To keep your own version instead, delete that sidecar** — an entry without
+  the marker is always treated as yours, and is **never replaced and never deleted**.
+- **On some Windows hosts they degrade to real copies.** Without Developer Mode and without administrator
+  rights, **file** symlinks cannot be created (the junctions used for directories are unaffected), so the
+  installer writes real copies and says so on stderr: `installed as REAL COPIES because this host refused a symlink`.
+  The contents still follow the upgrade — they just no longer share one copy with the true source.
+
+The true-source root can be redirected with the `PEAKS_HOME` environment variable. The full model, what happens
+when you upgrade from 4.1.1, and how to verify and roll back →
+[`.peaks/docs/canonical-store.md`](./.peaks/docs/canonical-store.md).
+
+---
+
 ## What it does for you
 
 Code, content, project health, issue sweeps, custom workflows — **4.x ships five first-class domains**, each with its own orchestrator. Same discipline on every lane: "gate fails = stop, run the next gate".
@@ -121,7 +146,7 @@ Every lane opens with **one slash command**.
 ## Why people pick it
 
 - **Natural language is the interface.** No CLI to learn, no commands to memorize. **Use an explicit slash command (e.g. `/peaks-code xxx`)** to route to the right orchestrator; everything after the slash is plain language. The LLM runs the commands on your behalf.
-- **Gates that actually block, not decorate.** 285+ test cases across 4 packages, all green by default; QA gate, review sign-off — all on. **Audit fails = stop. QA fails = stop.**
+- **Gates that actually block, not decorate.** 1096 test cases across 4 packages, all green by default; QA gate, review sign-off — all on. **Audit fails = stop. QA fails = stop.**
 - **Run-once flows become local tactics (bees).** Sedimented loop engineering lands in your local `~/.peaks/` pool — twice-clean runs auto-promote to standing tactics, broken runs come back for you to redefine. **Next time, just say "run that one" and the whole playbook slots back in.** Your few tactics grow with your taste.
 - **Sits on top of what you already run.** Not a new AI CLI to learn — it rides on **Claude Code** and **Z Code**. No shell grab, no prompt grab, no IDE grab. Other tools: adapters in progress, contributions welcome.
 - **You decide, it executes.** Decisions that touch your assets are yours; everything else it runs on its own. **Zero learning cost. One minute to first task.**
@@ -143,7 +168,7 @@ Every lane opens with **one slash command**.
 
 ---
 
-## Status · shipping 4.0.17
+## Status · shipping 4.1.5
 
 <p align="center">
   <img src="./assets/readme/pulse.svg" alt="peaks-loop live metrics — 4 tiles + sparkline + pipeline progress" width="92%"/>
@@ -155,15 +180,15 @@ Every lane opens with **one slash command**.
 
 | | |
 | --- | --- |
-| **Latest** | [![npm](https://img.shields.io/npm/v/peaks-loop?style=for-the-badge&logo=npm&logoColor=white&color=cb3837)](https://www.npmjs.com/package/peaks-loop) — 4.1.4 (2026-10-10) |
+| **Latest** | [![npm](https://img.shields.io/npm/v/peaks-loop?style=for-the-badge&logo=npm&logoColor=white&color=cb3837)](https://www.npmjs.com/package/peaks-loop) — 4.1.5 (2026-10-14) |
 | **Domains** | Code (`peaks-code`) · Content (`peaks-content`) · Project health (`peaks-doctor`) · Issue sweep (`peaks-issue-fix-orchestrator`) · Custom SOP (`peaks-sop`) · Cross-domain primitives (`peaks-solo` dispatcher · `peaks-resume` · `peaks-status` · `peaks-test` · `peaks-slice-decompose`) |
 | **Sediment pool** | `~/.peaks/` local pool · twice-clean runs auto-promote to a bee · broken runs come back for you to redefine · the bee grows with your taste |
-| **Test suite** | 285+ cases · 4 packages (peaks-loop / peaks-loop-mut / peaks-loop-shared-channel / peaks-loop-shared) · **0 timeouts** · 14 BDD caller-binding edge cases |
+| **Test suite** | 1096 cases · 4 packages (peaks-loop / peaks-loop-mut / peaks-loop-shared-channel / peaks-loop-shared) · **0 timeouts** · 14 BDD caller-binding edge cases |
 | **IDE adapters** | ✅ Claude Code · ✅ Z Code · 🚧 Codex / Cursor / Trae / Tongyi Lingma / Hermes / OpenClaw / Qoder (adapters in progress — contributions welcome) |
 | **Runtime** | Node ≥ 20 |
 | **License** | MIT |
 
-### What 4.0.17 actually shipped (2026-08-07)
+### What the recent releases actually shipped
 
 | Epic | Solved | Verified by |
 | --- | --- | --- |

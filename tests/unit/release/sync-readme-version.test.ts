@@ -15,11 +15,19 @@
 //   match MUST abort (exit 1). A test that only asserted the happy-path
 //   rewrite would re-admit the exact defect this file exists to prevent.
 //
+// Extended 2026-10-16 (rid 2026-10-16-readme-en-sync): the script now also
+//   rewrites the `## 当前状态 · X` / `## Status · shipping X` heading, which
+//   nothing maintained before — it drifted to 4.0.32 / 4.0.17 while the rows
+//   were being hand-edited. A missing heading is a hard failure for the same
+//   reason a missing row is. The `readme()` fixture therefore carries a status
+//   heading, and the counts in the stdout assertions moved with it (a synced
+//   file now changes two occurrences, not one).
+//
 // Dimensions covered:
 //   - render:      stdout lines distinguish "updated" / "already in sync"
-//   - behavior:    on-disk row after the run; per-file date spacing preserved
+//   - behavior:    on-disk row + heading after the run; per-file date spacing preserved
 //   - integration: subprocess spawn in a tmp cwd; CHANGELOG.md date source
-//   - a11y:        exit codes and the human-readable stderr for a bad row
+//   - a11y:        exit codes and the human-readable stderr for a bad row / heading
 
 import { spawnSync } from 'node:child_process';
 import { existsSync, mkdtempSync, rmSync, readFileSync, writeFileSync } from 'node:fs';
@@ -45,10 +53,14 @@ const rowZh = (version: string, date: string): string =>
 const rowEn = (version: string, date: string): string =>
   `| **Latest** | [![npm](https://img.shields.io/npm/v/peaks-loop)](https://www.npmjs.com/package/peaks-loop) — ${version} (${date}) |`;
 
+const statusZh = (version: string): string => `## 当前状态 · ${version}`;
+const statusEn = (version: string): string => `## Status · shipping ${version}`;
+
 // A second row is included so a too-greedy pattern (one that matched past the
 // version) would corrupt an unrelated line and fail the whole-file assertion.
-const readme = (row: string, other: string): string =>
-  `# peaks-loop\n\n| | |\n| --- | --- |\n${row}\n| **覆盖域** | ${other} |\n`;
+// `heading: null` builds the fixture that has no status heading at all.
+const readme = (heading: string | null, row: string, other: string): string =>
+  `# peaks-loop\n\n${heading === null ? '' : `${heading}\n\n`}| | |\n| --- | --- |\n${row}\n| **覆盖域** | ${other} |\n`;
 
 interface Harness {
   cwd: string;
@@ -61,6 +73,8 @@ interface FixtureOptions {
   version: string;
   zhRow?: string;
   enRow?: string;
+  zhHeading?: string | null;
+  enHeading?: string | null;
   changelog?: string | null;
 }
 
@@ -74,12 +88,20 @@ function setupHarness(opts: FixtureOptions): Harness {
   );
   writeFileSync(
     join(cwd, 'README.md'),
-    readme(opts.zhRow ?? rowZh('4.0.32', '2026-09-08'), '代码'),
+    readme(
+      opts.zhHeading === undefined ? statusZh('4.0.32') : opts.zhHeading,
+      opts.zhRow ?? rowZh('4.0.32', '2026-09-08'),
+      '代码'
+    ),
     'utf8'
   );
   writeFileSync(
     join(cwd, 'README-en.md'),
-    readme(opts.enRow ?? rowEn('4.0.17', '2026-08-07'), 'Code'),
+    readme(
+      opts.enHeading === undefined ? statusEn('4.0.17') : opts.enHeading,
+      opts.enRow ?? rowEn('4.0.17', '2026-08-07'),
+      'Code'
+    ),
     'utf8'
   );
   if (opts.changelog !== null) {
@@ -133,12 +155,12 @@ describe('Scenario: (render) — updated vs already-in-sync lines are distinguis
       // then:  each file reports its own update
       expect(r.status).toBe(0);
       expect(r.stdout).toContain(
-        '[sync-readme-version] updated README.md (1 occurrence(s)) -> 4.0.37'
+        '[sync-readme-version] updated README.md (2 occurrence(s)) -> 4.0.37'
       );
       expect(r.stdout).toContain(
-        '[sync-readme-version] updated README-en.md (1 occurrence(s)) -> 4.0.37'
+        '[sync-readme-version] updated README-en.md (2 occurrence(s)) -> 4.0.37'
       );
-      expect(r.stdout).toContain('[sync-readme-version] total 2 occurrence(s) updated to 4.0.37');
+      expect(r.stdout).toContain('[sync-readme-version] total 4 occurrence(s) updated to 4.0.37');
     }
   );
 
@@ -153,7 +175,7 @@ describe('Scenario: (render) — updated vs already-in-sync lines are distinguis
       const r = runSync();
       // then:  idempotent — no write, no failure, and it says so
       expect(r.status).toBe(0);
-      expect(r.stdout).toContain('README.md already in sync (1 row(s) matched) -> 4.0.37');
+      expect(r.stdout).toContain('README.md already in sync (2 occurrence(s) matched) -> 4.0.37');
       expect(r.stdout).toContain('total 0 occurrence(s) updated to 4.0.37');
     }
   );
@@ -169,8 +191,25 @@ describe('Scenario: (behavior) — only the version label moves', () => {
       setupHarness({ version: '4.0.37' });
       const r = runSync();
       expect(r.status).toBe(0);
-      expect(read('README.md')).toBe(readme(rowZh('4.0.37', '2026-09-10'), '代码'));
-      expect(read('README-en.md')).toBe(readme(rowEn('4.0.37', '2026-09-10'), 'Code'));
+      expect(read('README.md')).toBe(readme(statusZh('4.0.37'), rowZh('4.0.37', '2026-09-10'), '代码'));
+      expect(read('README-en.md')).toBe(
+        readme(statusEn('4.0.37'), rowEn('4.0.37', '2026-09-10'), 'Code')
+      );
+    }
+  );
+
+  it(
+    'when invoked, should rewrite the status heading as well as the row',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    () => {
+      // given: both status headings are two releases behind
+      setupHarness({ version: '4.0.37' });
+      // when:  the script runs
+      runSync();
+      // then:  the heading — which nothing maintained before this arm existed —
+      //        carries the new version too
+      expect(read('README.md')).toContain('## 当前状态 · 4.0.37');
+      expect(read('README-en.md')).toContain('## Status · shipping 4.0.37');
     }
   );
 
@@ -215,7 +254,7 @@ describe('Scenario: (behavior) — only the version label moves', () => {
       const r = runSync();
       // then:  the version moves, the date is NOT invented
       expect(r.status).toBe(0);
-      expect(read('README.md')).toBe(readme(rowZh('4.0.37', '2026-09-08'), '代码'));
+      expect(read('README.md')).toBe(readme(statusZh('4.0.37'), rowZh('4.0.37', '2026-09-08'), '代码'));
       expect(r.stderr).toContain('keeping each README row');
     }
   );
@@ -282,6 +321,24 @@ describe('Scenario: (a11y) — an unmatched row aborts the publish instead of pa
       expect(r.stderr).toContain('README.md, README-en.md');
       expect(read('README.md')).toContain('| **版本** | 4.0.32 |');
       expect(read('README-en.md')).toContain('| **Version** | 4.0.17 |');
+    }
+  );
+
+  it(
+    'when invoked, should exit 1 and name the file when the status heading is absent',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    () => {
+      // given: README-en.md has a good row but no status heading at all — the
+      //        shape the two real READMEs were in before this slice
+      setupHarness({ version: '4.0.37', enHeading: null });
+      // when:  the script runs
+      const r = runSync();
+      // then:  the absent heading aborts, exactly like an unmatched row
+      expect(r.status).toBe(1);
+      expect(r.stderr).toContain('ERROR: status heading not found in README-en.md');
+      expect(r.stderr).toContain('Refusing to exit 0 with a stale version claim');
+      // and the file whose heading was found is left correctly synced
+      expect(read('README.md')).toContain('## 当前状态 · 4.0.37');
     }
   );
 });
