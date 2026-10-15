@@ -14,7 +14,15 @@
 //   - render:      not applicable (returns structured data)
 //   - a11y:        not applicable (no user-visible text or exit code)
 
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -56,6 +64,55 @@ function makeWorkspace(): string {
   const root = mkdtempSync(join(tmpdir(), 'peaks-ledger-reaper-'));
   roots.push(root);
   return root;
+}
+
+/**
+ * A SECOND SPELLING of an existing directory: a junction on Windows (which
+ * needs no elevation), a directory symlink elsewhere. macOS supplies one for
+ * free — `os.tmpdir()` returns `/var/...` while the kernel resolves the same
+ * tree to `/private/var/...` — and this host has no ambient alias, so the test
+ * makes one. The alias is unshifted so it is removed before the directory it
+ * points at.
+ */
+function aliasOf(real: string): string {
+  const alias = `${real}-alias`;
+  if (process.platform === 'win32') {
+    symlinkSync(real, alias, 'junction');
+  } else {
+    symlinkSync(real, alias);
+  }
+  roots.unshift(alias);
+  return alias;
+}
+
+/** Point the session's index at one record path, without writing that record. */
+function writeIndexRow(root: string, recordPath: string, requestId: string): void {
+  writeFileSync(
+    activeDispatchIndexPath(root, SESSION_ID),
+    `${JSON.stringify(
+      {
+        [recordPath]: {
+          recordPath,
+          requestId,
+          role: 'rd',
+          batchId: 'batch-1',
+          createdAt: new Date(Date.now() - 7 * HOUR_MS).toISOString(),
+          status: 'queued'
+        }
+      },
+      null,
+      2
+    )}\n`,
+    'utf8'
+  );
+}
+
+/** Bytes of a REAL `queued` record (the production writer's). A `..` arm needs
+ * one: a row that walks up to a file which is not a readable `queued` record
+ * keeps its row whether the guard refused or admitted it, so it proves nothing. */
+function queuedRecordBody(): string {
+  const seed = makeWorkspace();
+  return readFileSync(writeRecordAt(seed, 'rid-seed', new Date(Date.now() - 7 * HOUR_MS)), 'utf8');
 }
 
 afterEach(() => {
@@ -273,6 +330,129 @@ describe('Scenario: behavior — a live record is not reaped', () => {
     expect(reaped).toEqual([stalePath]);
     expect(readActiveDispatchIndex(root, SESSION_ID)[stalePath]).toBeUndefined();
     expect(readActiveLeaf(root, SESSION_ID)).toBeNull();
+  });
+});
+
+describe('Scenario: behavior — the root and the record path are two spellings of one directory', () => {
+  // The root handed to the production entry point is an ALIAS of the fixture
+  // directory, so `projectRoot` and the record path below it share no leading
+  // path segment even though they name the same tree. That is the shape CI
+  // fails on: macOS resolves `/var` to `/private/var`, `os.tmpdir()` hands out
+  // the unresolved spelling, and the path guard compares the two raw. Nothing
+  // here canonicalizes the fixture root — see the arms below, which depend on
+  // the alias surviving into the guard.
+
+  it('when the root is an alias, should still finalize a stale record and drop its row', () => {
+    // given: a record left `queued` past the bound, reached through a second
+    //        spelling of the fixture root
+    const root = aliasOf(makeWorkspace());
+    const stalePath = writeRecordAt(root, 'rid-stale', new Date(Date.now() - 7 * HOUR_MS));
+    expect(readStatus(stalePath)).toBe('queued');
+    expect(readActiveDispatchIndex(root, SESSION_ID)[stalePath]).toBeDefined();
+    // when:  the reaper runs, handed the same alias the record was written through
+    const reaped = reapNow(root);
+    // then:  an alias is not a refusal: the record is terminal and the row is gone
+    expect(reaped).toContain(stalePath);
+    expect(readStatus(stalePath)).toBe('no-execution');
+    expect(readActiveDispatchIndex(root, SESSION_ID)[stalePath]).toBeUndefined();
+  });
+
+  it('when the root is an alias and the RECORD is running, should not reap the live dispatch', () => {
+    // given: the shape production produces — heartbeated to `running`, index
+    //        row still `queued` — behind an aliased root
+    const root = aliasOf(makeWorkspace());
+    const livePath = writeRecordAt(root, 'rid-live', new Date(Date.now() - 7 * HOUR_MS));
+    appendHeartbeat({ recordPath: livePath, status: 'running', progress: 20 });
+    appendHeartbeat({ recordPath: livePath, status: 'running', progress: 40 });
+    expect(readStatus(livePath)).toBe('running');
+    expect(readActiveDispatchIndex(root, SESSION_ID)[livePath]?.status).toBe('queued');
+    // when:  the reaper runs under the alias
+    const reaped = reapNow(root);
+    // then:  the root's spelling does not change what the RECORD says
+    expect(reaped).toEqual([]);
+    expect(readStatus(livePath)).toBe('running');
+    expect(readActiveDispatchIndex(root, SESSION_ID)[livePath]).toBeDefined();
+  });
+
+  it('when the root is an alias and the row names a file outside the ledger, should still refuse it', () => {
+    // given: the same escape as the unaliased arm, with the alias in play —
+    //        the direction that would break if the comparison were widened
+    //        into alias-blindness rather than into alias-tolerance
+    const root = aliasOf(makeWorkspace());
+    const victim = join(root, 'important.json');
+    writeFileSync(victim, JSON.stringify({ keep: 'me' }), 'utf8');
+    mkdirSync(join(root, '.peaks', '_sub_agents', SESSION_ID), { recursive: true });
+    writeIndexRow(root, victim, 'rid-escape');
+    // when:  the reaper runs
+    const reaped = reapNow(root);
+    // then:  the row is gone and the file it named is byte-identical
+    expect(reaped).toEqual([victim]);
+    expect(readFileSync(victim, 'utf8')).toBe(JSON.stringify({ keep: 'me' }));
+    expect(readActiveDispatchIndex(root, SESSION_ID)).toEqual({});
+  });
+
+  it('when a row carries a raw .. segment out of its session dir, should refuse the segment', () => {
+    // given: a row key that walks UP one level out of `<sid>/` to a real
+    //        `queued` record still inside `_sub_agents/`, so the canonical
+    //        comparison ADMITS the segment and only the lexical check refuses
+    const root = aliasOf(makeWorkspace());
+    const dir = join(root, '.peaks', '_sub_agents', SESSION_ID);
+    mkdirSync(dir, { recursive: true });
+    const reached = join(root, '.peaks', '_sub_agents', 'important.json');
+    const body = queuedRecordBody();
+    writeFileSync(reached, body, 'utf8');
+    const escaping = `${dir}/../important.json`;
+    writeIndexRow(root, escaping, 'rid-dots');
+    // when:  the reaper runs
+    const reaped = reapNow(root);
+    // then:  the row is gone, and admitting it would have FINALIZED that file
+    expect(reaped).toEqual([escaping]);
+    expect(readFileSync(reached, 'utf8')).toBe(body);
+    expect(readActiveDispatchIndex(root, SESSION_ID)).toEqual({});
+  });
+
+  it('when a row walks up out of the ledger with .., should refuse it and leave the file alone', () => {
+    // given: a row key that reaches the project root by walking up three
+    //        levels to a real `queued` record — an escape both refusals see
+    const root = aliasOf(makeWorkspace());
+    const dir = join(root, '.peaks', '_sub_agents', SESSION_ID);
+    mkdirSync(dir, { recursive: true });
+    const victim = join(root, 'important.json');
+    const body = queuedRecordBody();
+    writeFileSync(victim, body, 'utf8');
+    const escaping = `${dir}/../../../important.json`;
+    writeIndexRow(root, escaping, 'rid-dots-escape');
+    // when:  the reaper runs
+    const reaped = reapNow(root);
+    // then:  the row is gone and the file the escape reached is byte-identical
+    expect(reaped).toEqual([escaping]);
+    expect(readFileSync(victim, 'utf8')).toBe(body);
+    expect(readActiveDispatchIndex(root, SESSION_ID)).toEqual({});
+  });
+
+  it('when a row reaches its record through a symlinked parent that leaves the ledger, should refuse it', () => {
+    // given: a row whose path is lexically inside `.peaks/_sub_agents/` but
+    //        whose parent resolves outside the project entirely
+    const root = aliasOf(makeWorkspace());
+    const outside = makeWorkspace();
+    const dir = join(root, '.peaks', '_sub_agents', SESSION_ID);
+    mkdirSync(dir, { recursive: true });
+    const escaped = join(dir, 'escaped');
+    if (process.platform === 'win32') {
+      symlinkSync(outside, escaped, 'junction');
+    } else {
+      symlinkSync(outside, escaped);
+    }
+    const victim = join(outside, 'important.json');
+    writeFileSync(victim, JSON.stringify({ keep: 'me' }), 'utf8');
+    const rowPath = join(escaped, 'important.json');
+    writeIndexRow(root, rowPath, 'rid-symlink');
+    // when:  the reaper runs
+    const reaped = reapNow(root);
+    // then:  the row is gone and the file it reached outside the project is untouched
+    expect(reaped).toEqual([rowPath]);
+    expect(readFileSync(victim, 'utf8')).toBe(JSON.stringify({ keep: 'me' }));
+    expect(readActiveDispatchIndex(root, SESSION_ID)).toEqual({});
   });
 });
 

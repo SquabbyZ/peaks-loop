@@ -17,6 +17,8 @@
 import { realpathSync } from 'node:fs';
 import { dirname, isAbsolute, relative, resolve, sep } from 'node:path';
 
+import { stablePath } from '../../shared/path-utils.js';
+
 const SUB_AGENTS_DIR = '_sub_agents';
 
 /** Build the canonical record path for a given session/rid/timestamp. */
@@ -48,6 +50,11 @@ export function dispatchRecordsDir(projectRoot: string, sid: string): string {
  * Assert that `recordPath` lives under `projectRoot/.peaks/_sub_agents/<sid>/`.
  * Rejects symlink/junction escapes and `..` segments.
  *
+ * `projectRoot` and `recordPath` may be two spellings of the same directory —
+ * macOS resolves `/var` (and `/tmp`) into `/private`, so `os.tmpdir()` and the
+ * kernel disagree — and that is accepted, not refused. See the comparison
+ * below.
+ *
  * Throws an Error with `.code = 'INVALID_RECORD_PATH'` on rejection so
  * the CLI can map to `{ok: false, code: "INVALID_RECORD_PATH"}`.
  */
@@ -64,8 +71,22 @@ export function assertSafeDispatchRecordPath(recordPath: string, projectRoot: st
     throw invalidPathError(recordPath, 'must not contain .. segments');
   }
 
-  const expected = resolve(projectRoot, '.peaks', SUB_AGENTS_DIR);
-  const rel = relative(expected, recordPath);
+  // Compare the two on their CANONICAL spellings, not on the caller's, because
+  // they are routinely two spellings of ONE directory: macOS resolves `/var`
+  // into `/private/var` while `os.tmpdir()` hands out the unresolved form, and
+  // any caller can reach its project through a junction. Compared raw, the two
+  // share no leading segment, `relative()` walks to the project root and a
+  // legitimate record is refused as though it had escaped the ledger.
+  // `stablePath` is preferred here because it resolves the deepest EXISTING
+  // ancestor and re-appends the missing tail — the common case, since the
+  // record usually does not exist yet. It is NOT the primitive
+  // `projectRootCompareKey` is built from; that key uses `stableRealPath`,
+  // which does not walk up and adds separator and Windows-only case folding.
+  // They are siblings with different behaviour. Nor swap it for a bare
+  // `realpathSync`, whose `.native` variant also rewrites Windows 8.3 short
+  // names (see `projectRootCompareKey`'s doc-comment) and is not a drop-in.
+  const expected = resolve(canonicalSpelling(projectRoot), '.peaks', SUB_AGENTS_DIR);
+  const rel = relative(expected, canonicalSpelling(recordPath));
   if (rel.startsWith('..') || isAbsolute(rel)) {
     throw invalidPathError(recordPath, 'must be under .peaks/_sub_agents/');
   }
@@ -87,12 +108,15 @@ export function assertSafeDispatchRecordPath(recordPath: string, projectRoot: st
     // canonical projectRoot — the write will then create the file,
     // and any symlink in the parent will be caught on the next read.
     //
-    // macOS note: the project's own realpath may still resolve the
-    // `/var -> /private/var` symlink even when the sub-agent dir does
-    // not exist yet, so the caller can compare on a stable prefix
-    // instead of having one side of the comparison on `/var/...` and
-    // the other on `/private/var/...`. We still validate that the
-    // canonical record path lives under the canonical projectRoot.
+    // What this branch returns is the record path rebuilt under the CANONICAL
+    // projectRoot, so the caller writes, indexes and hands back a stable
+    // spelling. The alias tolerance that GETS here belongs to the canonical
+    // comparison above; this branch does NOT inherit it. `fallback` is built
+    // from the caller's `projectRoot`, and `recordPath` is compared here as the
+    // caller spelled it, so an aliased root beside a canonical record and a
+    // not-yet-created parent is still REFUSED by the comparison below — the
+    // same alias defect this change repairs, surviving in this one branch. It
+    // is fail-closed: it refuses a legitimate record; it never admits an escape.
     const fallback = resolve(projectRoot, '.peaks', SUB_AGENTS_DIR);
     const rel2 = relative(fallback, recordPath);
     if (rel2.startsWith('..') || isAbsolute(rel2)) {
@@ -121,6 +145,39 @@ export function assertSafeDispatchRecordPath(recordPath: string, projectRoot: st
     throw invalidPathError(recordPath, 'escapes project root via symlink');
   }
   return realRecord;
+}
+
+/**
+ * `path` with its existing prefix symlink-resolved, or the raw spelling when
+ * the filesystem will not resolve it (a locked or vanishing ancestor).
+ *
+ * The fallback is what keeps this guard's contract intact: it promises to
+ * REJECT with `INVALID_RECORD_PATH`, and a raw `realpathSync` that threw here
+ * would surface as a crash on the dispatch write path instead. Its cost is
+ * stronger than a different refusal shape, though: the throw reverts the
+ * comparison to the pre-fix one, so on an aliased root the bug returns for that
+ * call — a legitimate record refused, not merely refused differently.
+ *
+ * The swallow is NOT fail-closed, which an earlier draft of this comment
+ * claimed. Measured in scratch copies of this guard: reverting the recordPath
+ * side of the comparison above to its raw spelling, ALONE, re-admits all three
+ * escape shapes that comparison closes — a `_sub_agents` junction pointing
+ * outside with the session dir missing, the in-repo sibling junction, and an
+ * existing leaf file-symlink pointing outside. Reverting both sides reproduces
+ * the pre-fix guard. A throw here therefore GROWS the admitted set rather than
+ * shrinking it. Nothing known makes `stablePath` throw on this input — a
+ * self-referential or deep junction, and every dangling link, make `existsSync`
+ * false so the peel loop runs instead — so the path is unverified, not cleared.
+ * The swallow stays anyway: refusing it trades this guard's refusal contract
+ * for a crash on the dispatch write path, and `stablePath` does not throw for a
+ * `projectRoot` that does not exist (verified by reading it).
+ */
+function canonicalSpelling(path: string): string {
+  try {
+    return stablePath(path);
+  } catch {
+    return path;
+  }
 }
 
 function sanitizeSegment(segment: string, label: string): string {
