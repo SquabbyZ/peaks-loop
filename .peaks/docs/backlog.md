@@ -5735,3 +5735,71 @@ checkedFiles = 0                            → toBeGreaterThan(0)    FAILS
 | — | `.peaks/lint/baseline.json` still carries two rows for the deleted `vm-lease.ts` (`:1268`, `:1275`). They waive nothing today; a rescan would churn 192 unrelated rows. Narrow latent hazard: re-creating that path with a violation at exactly those lines would be silently pre-waived. | `.peaks/lint/baseline.json` | **Accepted residual** (parent's call, on the RD's measurement). |
 | — | 92 of 94 tracked `tests/integration/**` files were not executed locally — twice mis-stated as 67 during this session, in the RD artifact *and* in the orchestrator's shared review brief, understating the residual by ~37 %. | session artifacts | **Recorded as unrun.** CI's `integration suite` job is the only closure. |
 | — | `.peaks/docs/backlog.md` fails `prettier --check` at HEAD too (§10.A), and a `.peaks/**` change trips the full-suite fallback in the push gate, which on this host cannot pass (§10.1). **Measured on the first push attempt: refused, `8 failed | 474 passed (482)` — the seven web files of §10.1 plus §11.7, and zero failures traceable to this slice.** The backlog entry for this section therefore lands in **its own commit**, deliberately outside the code commit. | `.peaks/docs/backlog.md` | **Recorded** — the §10.7 cost, paid knowingly. |
+
+## 12. Drained from the 2026-10-15 session, third slice — the stub was the honest one, and this session's real defect is a counting one (2026-10-15)
+
+The slice wired real documentation lookup into `peaks best-practice-scan` (rid `2026-10-15-best-practice-real-context7`). It ships clean — `tsc` 0, 92 tests, two ceilings **down**, every gate green. The findings below are what the *process* cost and what it caught, in the same frame as §10–§11.
+
+**Heading discipline (§9.40 applies here too).** Every disposition is the one actually reached. Nothing is marked closed that was not closed.
+
+### 12.1 The first version of "make it real" was strictly worse than the stub it replaced (found 2026-10-15 by the code review, reproduced by the orchestrator; **fixed and re-verified**)
+
+`best-practice-scan` shipped as an honest no-op: `defaultContext7Lookup` fabricated a fragment **but set `synthetic: true`**, so the CLI refused and exited 1 on every run. Removing the stub made the command capable of a recommendation — and the first implementation produced this, from a document stating that **both** lookups found nothing:
+
+```
+> intent: add a caching layer | fragments: 0 | recommendation: B
+| 技术组合(通俗) | 方案 A | **方案 B ★** | 方案 C |
+```
+
+Exit 0, written to the **primary** artifact. Cause: `ok:false` falls **through** the chain rather than short-circuiting it, so `scan-orchestrator.ts:171` computes `false || false` ⇒ the **non-synthetic** render branch. **The stub's fabrication was labelled and refused; the new one was neither.** Worse, the slice's own AC-7 write guard then *protected* the fabricated table, by pushing the honest refusal to a sibling file nobody reads.
+
+The reusable reading: **a slice whose purpose is "replace the fake with something real" must first establish which property the fake was carrying.** The stub's honesty, not its data, was the thing worth preserving, and it was invisible until the reviews looked for it. Note also that both SKILL edits — written from the PRD — instructed callers to encode a miss as `ok:false, []`, i.e. the slice actively steered callers into the hole. Fixed with a zero-fragment refusal that writes **nothing at all**.
+
+### 12.2 A write guard whose test could be forged by the caller's own argument (found 2026-10-15 by the security audit; **fixed, and the fix removed the test entirely**)
+
+`helpers.ts:66` decided whether an existing artifact was a refusal by **content substring**. `intent` is interpolated into that artifact's own heading, so an `intent` containing the refusal marker made a *real* recommendation match and be overwritten. Measured: `AC-7 HELD? false | real rec destroyed? true`.
+
+The repair the brief asked for was "test structurally"; the RD **deleted the test** — a refusal now never overwrites *any* existing file — on the measured grounds that any body test is forgeable by a caller-supplied **newline**, which shifts every later line. **Removing a check is usually the weaker move; here it is the stronger one, and it was chosen for a reason rather than for convenience.** The generalisable rule: when the validator and the validator's *subject* are both caller-supplied, a predicate over the subject's content is not a control.
+
+### 12.3 Two intents colliding at the slug cap still lose a recommendation silently, and the PRD credited the guard with preventing it (found 2026-10-15 by QA; **recorded as an open residual**)
+
+The artifact path keys on `(date, slug)` with the slug capped at 32 characters. Two distinct intents agreeing in their first 32 slug characters — `…best-practice-scan` and `…best-practice-xyz` — land on one file; **both exit 0 and the second silently overwrites the first.** PRD R4 attributed the protection to AC-7's guard, which covers **refusals only**: neither of these writes is a refusal, so no branch inspects the existing file. R4 is corrected and the collision recorded as a residual (the path scheme is pinned by `best-practice-scan-command.test.ts:217-221`, so changing it is its own request).
+
+Same class as §10.8 and §11.6 — but note the direction here: the *guard* was sound and the *claim about it* was too wide. A control's documentation is part of the control.
+
+### 12.4 One slice spent the file budgets of two modules, and left one line (found 2026-10-15; **open, and the first item in this backlog that is a cost rather than a defect**)
+
+After three repair rounds, `best-practice-scan-lookup-results.ts` is **299 of a 300-line cap** and `best-practice-scan-command.ts` is **297**. The security auditor's own summary is the accurate phrasing: *the `firstUnknownKey` fix was about the last line-neutral fix available to that module.* The next change to either — a bug fix, a new rule, a corrected hint — must **split before it can be written**, and a ratchet that refuses at 300 will refuse the person fixing a typo in it. The slice respected the rule throughout (it split a test file into a third one rather than exceed 500, and cut a comment from five lines to two), so this is the rule working as designed. It is still a real constraint the next author inherits, and it belongs here rather than in whatever diff first hits it.
+
+### 12.5 This session produced **eleven** claims stronger than their measurement, and the count does not fall across slices (2026-10-15; **recorded so the class is not read as closed**)
+
+§10.8 recorded five, §11.6 four more, this slice at least two — and the meta-finding is that the *rate has not improved* despite the class being named three times in the tree. The tally, so a reader can see the shape rather than the number:
+
+| Who | The claim | Caught by |
+| --- | --- | --- |
+| orchestrator | "the baseline generator refuses nothing" | the RD, measuring |
+| orchestrator | the `2027-` prefix is cosmetic because readers strip it | QA — it **blocked the commit** |
+| orchestrator | the integration suite cannot run locally | misreading its own correct memory |
+| orchestrator | "there is no `openspec/` directory" | the RD, and QA again |
+| orchestrator | "S4 does not trip the push fallback" | the push, which tripped it |
+| PRD (s2) | D1: the zero-fragment case "stays unreachable in production" | the code review |
+| RD (s2) | "an un-injected scan can no longer destroy a real recommendation" | the security audit |
+| RD (s2) | "8 rows gone" / "other ten ceiling rows" / "fixed as a side effect" | three reviewers, three times |
+| PRD (s3) | R4 credits the guard with preventing a collision it cannot see | QA |
+| auditor | its own round-1 table showed `INVALID_RESULTS`' wrong `command` id and it failed to call it out | itself, in round 2 |
+| RD (s3) | "13 arms" where the file has 14 | QA |
+
+**Two of these are load-bearing enough to be their own items** (§11.3, §12.3). The rest are small. The pattern worth carrying: **a claim is only as good as the attempt behind it**, and every one above was caught by a role that measured, never by a role that reviewed. The corollary a future session should act on: *when you write a sentence that asserts a property, decide then which command would falsify it — and if there is none, write `UNMEASURED` instead.* The orchestrator wrote `UNMEASURED` into a PRD once this session and it was the only claim of its that survived contact.
+
+Three process defects from §11 **recurred** and are not re-recorded here: the `2027-` filename collision fired on **every** fresh request directory this session (§11.3 — three more times, renamed by hand each time); `peaks request init` again wrote a template nothing filled, blocking `qa:running` (§11.2); and the security audit again needed the schema envelope it was not authored through (§11.1). Their fix costs are unchanged and their absence from this section is not a claim that they are fixed.
+
+### 12.A Recorded, not fixed — this slice's accepted residues
+
+| # | Item | Where | Disposition |
+| --- | --- | --- | --- |
+| — | **AC-1 and AC-4(b) are fixture-verified only.** The Context7 MCP tool is unauthenticated in this client, so no real query was sent through the CLI by anyone — not the RD, not four reviewers, not QA. What remains unproven is narrow (that a real Context7 response maps into a document passing the eight rules) and everything downstream of a valid document is measured. | slice artifacts | **Open prerequisite.** Every artifact states it; none upgraded it. |
+| — | The `websearch`-only results file is valid-per-validator but **dead-per-orchestrator**: with only `websearch` injected the context7 stub answers priority 1 with `ok:true` and short-circuits. Fix belongs in `scan-orchestrator.ts`, which this slice left byte-identical by instruction. | `best-practice-scan-lookup-results.ts` | **Follow-up**, with the perf audit's 106 ms measurement. |
+| — | Two intents colliding at the 32-char slug cap overwrite each other silently. See §12.3. | `best-practice-scan-command.ts:217-221` | **Open residual**, PRD R4 corrected. |
+| — | The failure envelope's `message` is the last unsanitised echo (`--project` with a raw ESC reaches stderr in non-JSON mode). Scoped as caller-argv, **not** the untrusted document — the slug collapses everything outside `[A-Za-z0-9_-]`. | `best-practice-scan-command.ts:287` | **Accepted residual.** Fixing it would invalidate the audit bound to the frozen tree (§10.6's termination rule). |
+| — | A zero-fragment scan writes nothing and names `artifactPath: null`, but an **injected recommendation still overwrites a prior SKIPPED refusal** at the primary path. | command refusals | **Intended ordering** (D4.2), recorded so it is not read as a bug. |
+| — | `.peaks/docs/backlog.md` fails `prettier --check` at HEAD too (§10.A), and a `.peaks/**` change trips the full-suite fallback (§10.7) which this host cannot pass (§10.1). This section therefore lands in its own commit. | `.peaks/docs/backlog.md` | **Recorded** — the §10.7 cost, paid knowingly for the third time. |
