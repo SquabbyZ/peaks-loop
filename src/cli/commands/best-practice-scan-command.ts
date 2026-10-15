@@ -17,12 +17,17 @@
  * the defect this command was fixed for (a `.`-titled "best-practice scan").
  * Omitting `--intent` fails with `BEST_PRACTICE_SCAN_INTENT_REQUIRED`.
  *
- * Honesty gate: v1's Context7 / WebSearch lookups are stubs, so a scan can
- * come back `synthetic: true` (see scan-orchestrator). A synthetic result is
- * NOT a scan result — the command then prints a refusal (no table, no
- * recommendation, no ⚠️ catch gate), records the skip, and exits non-zero
- * with `BEST_PRACTICE_SCAN_SYNTHETIC_LOOKUP` so no automated caller can
- * treat Step 2.5 as satisfied.
+ * Honesty gate: the built-in Context7 / WebSearch lookups are stubs, so an
+ * uninjected scan comes back `synthetic: true` (see scan-orchestrator). A
+ * synthetic result is NOT a scan result — the command then prints a refusal (no
+ * table, no recommendation, no ⚠️ catch gate), records the skip, and exits
+ * non-zero with `BEST_PRACTICE_SCAN_SYNTHETIC_LOOKUP` so no automated caller can
+ * treat Step 2.5 as satisfied. Two further outcomes also refuse non-zero, both
+ * without rendering: a `--lookup-results` document that breaks the injection
+ * contract (`BEST_PRACTICE_SCAN_INVALID_RESULTS`) and a scan that resolved
+ * against caller-supplied lookups and found nothing
+ * (`BEST_PRACTICE_SCAN_NO_FRAGMENTS` — see `emitNoFragmentsRefusal`, which is
+ * the guard against a `★` recommendation built from zero fragments).
  *
  * Catch-gate (spec §7): the command emits a 3-line prompt asking the
  * user to ack / pick alt / reject + reason. The gate is read from
@@ -31,8 +36,6 @@
  * suffix so the orchestrator can react programmatically.
  */
 import type { Command } from 'commander';
-import { mkdirSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
 
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
 import { fail, ok } from 'peaks-loop-shared/result';
@@ -44,26 +47,25 @@ import {
   type RecommendationChoice
 } from '../../services/best-practice/output-formatter.js';
 import {
-  bestPracticeDir,
   CATCH_GATE_PROMPT,
+  emitNoFragmentsRefusal,
   INTENT_REQUIRED_MESSAGE,
   renderSyntheticRefusal,
-  SYNTHETIC_SOURCE_MESSAGE
+  scanArtifactPath,
+  SYNTHETIC_SOURCE_MESSAGE,
+  writeRefusal,
+  writeRenderedArtifact
 } from './best-practice-scan-helpers.js';
+import { readLookupResultsOrFail } from './best-practice-scan-lookup-results.js';
 
 type BestPracticeScanOptions = {
   readonly intent?: string;
   readonly project: string;
   readonly lang?: string;
   readonly commit?: boolean;
+  readonly lookupResults?: string;
   readonly json?: boolean;
 };
-
-function artifactPathFor(projectRoot: string, slugSource: string): string {
-  const dateStr = new Date().toISOString().slice(0, 10);
-  const slug = slugSource.replace(/[^a-zA-Z0-9_-]+/g, '-').slice(0, 32) || 'intent';
-  return join(bestPracticeDir(projectRoot), `${dateStr}-${slug}.md`);
-}
 
 async function readUserInput(): Promise<string> {
   const override = process.env.PEAKS_BEST_PRACTICE_STDIN;
@@ -132,6 +134,11 @@ export function registerBestPracticeScanCommand(program: Command, io: ProgramIO)
       .option('--intent <text>', 'business goal the scan is for (required)')
       .option('--project <path>', 'project root (default cwd)', process.cwd())
       .option('--lang <lang>', 'language override (skip auto-detect)')
+      .option(
+        '--lookup-results <file>',
+        'JSON file of real Context7 / WebSearch results the caller performed; ' +
+          'keys are `context7` / `websearch`, values are { ok, results:[{title,url,snippet}] }'
+      )
       .option('--commit', 'reserved flag — opts the artifact into git tracking (future slice)')
   ).action(async (opts: BestPracticeScanOptions) => {
     try {
@@ -152,6 +159,15 @@ export function registerBestPracticeScanCommand(program: Command, io: ProgramIO)
         return;
       }
 
+      const injection =
+        opts.lookupResults === undefined
+          ? {}
+          : readLookupResultsOrFail(opts.lookupResults, intent, io, opts.json === true);
+      if (injection === null) {
+        process.exitCode = 1;
+        return;
+      }
+
       const detection = opts.lang === undefined ? detectLanguage(opts.project) : null;
       const language = opts.lang ?? detection?.language ?? 'unknown';
       io.stdout(
@@ -162,15 +178,14 @@ export function registerBestPracticeScanCommand(program: Command, io: ProgramIO)
         intent,
         language,
         projectRoot: opts.project,
-        io
+        io,
+        ...injection
       });
 
       if (scan.synthetic) {
         const refusal = renderSyntheticRefusal({ intent, language, source: scan.source });
         io.stdout(refusal);
-        const refusedPath = artifactPathFor(opts.project, intent);
-        mkdirSync(bestPracticeDir(opts.project), { recursive: true });
-        writeFileSync(refusedPath, refusal + '\n', 'utf8');
+        const refusedPath = writeRefusal(opts.project, intent, refusal);
         printResult(
           io,
           fail(
@@ -187,7 +202,7 @@ export function registerBestPracticeScanCommand(program: Command, io: ProgramIO)
               artifactPath: refusedPath
             },
             [
-              'Re-run once real Context7 / WebSearch wiring lands',
+              'Re-run with --lookup-results <file> carrying the Context7 / WebSearch results you fetched',
               `Skip record written to ${refusedPath}`
             ]
           ),
@@ -197,9 +212,21 @@ export function registerBestPracticeScanCommand(program: Command, io: ProgramIO)
         return;
       }
 
+      if (scan.results.length === 0) {
+        emitNoFragmentsRefusal(io, opts.json === true, {
+          project: opts.project,
+          intent,
+          language,
+          source: scan.source
+        });
+        process.exitCode = 1;
+        return;
+      }
+
       const recommendation: RecommendationChoice = scan.results.length > 0 ? 'A' : 'B';
       const reasoning =
-        `基于 ${scan.fragments.length} 个 ${scan.source} 文档片段;` +
+        `基于调用方提供的 ${scan.fragments.length} 个 ${scan.source} 文档片段` +
+        `(URL 由调用方构造,Context7 响应不含 URL);` +
         `语言=${language};LLM 推断方案 ${recommendation} 与项目阶段最匹配。`;
 
       const table = formatOutputTable({
@@ -224,39 +251,41 @@ export function registerBestPracticeScanCommand(program: Command, io: ProgramIO)
       const userInput = await readUserInput();
       const outcome = parseCatchGateReply(userInput, recommendation);
 
-      const artifactPath = artifactPathFor(opts.project, intent);
-      mkdirSync(bestPracticeDir(opts.project), { recursive: true });
-      writeFileSync(artifactPath, table + '\n', 'utf8');
+      const artifactPath = scanArtifactPath(opts.project, intent);
+      const payload = {
+        project: opts.project,
+        intent,
+        language,
+        scanSource: scan.source,
+        fragments: scan.results,
+        recommendation,
+        catchGate: outcome,
+        artifactPath,
+        commitFlag: opts.commit === true,
+        forbiddenHits
+      };
+      writeRenderedArtifact(artifactPath, table, payload);
 
       printResult(
         io,
         ok(
           'best-practice.scan',
-          {
-            project: opts.project,
-            intent,
-            language,
-            scanSource: scan.source,
-            fragments: scan.results,
-            recommendation,
-            catchGate: outcome,
-            artifactPath,
-            commitFlag: opts.commit === true,
-            forbiddenHits
-          },
+          payload,
           forbiddenHits.length > 0 ? [`forbidden tokens present: ${forbiddenHits.join(', ')}`] : [],
           [`Artifact written to ${artifactPath}`, `catch-gate outcome: ${outcome.kind}`]
         ),
         opts.json === true
       );
     } catch (err) {
+      // No `data.stack`: the caller asked for a scan, not a diagnosis, and the
+      // failure here is usually a path it chose (EISDIR names it in the message).
       printResult(
         io,
         fail(
           'best-practice.scan',
           'BEST_PRACTICE_SCAN_FAILED',
           getErrorMessage(err),
-          { stack: err instanceof Error ? err.stack : undefined },
+          { project: opts.project, intent: opts.intent ?? null },
           ['Rerun with --json for machine-readable envelope']
         ),
         opts.json === true

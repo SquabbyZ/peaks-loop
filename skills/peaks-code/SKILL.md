@@ -262,25 +262,42 @@ language-aware, LLM-recommended best-practice scan** before RD kicks off.
 **Trigger:** Fires at peak-prd exit when business-goal is non-empty + sub-step not yet
 triggered for this intent.
 
-**Action sequence:**
+**Action sequence — the LLM performs the lookup; the CLI never calls Context7:**
 1. Detect project language (TS / JS / Python / Go / Java) via `language-detector` (5-lang
-   priority chain).
-2. Query Context7 (`@upstash/context7-mcp@^4.0.2`, installed as peaks-loop production dep)
-   priority-1 with 30s timeout.
-3. WebSearch fallback when Context7 returns empty / errors.
-4. Synthesize 8-row markdown comparison table per `output-formatter`.
+   priority chain), or let the CLI auto-detect it.
+2. **You** query Context7 (`@upstash/context7-mcp`) with your own MCP tool — priority 1, 30s budget —
+   and WebSearch as the priority-2 fallback when Context7 answers nothing.
+3. **You** write those results to `.peaks/_runtime/<sessionId>/best-practice/lookup-results.json` in
+   the scan seam's own vocabulary — `{ "intent": "<the --intent value>", "context7": { "ok": …,
+   "results": [{ "title", "url", "snippet" }] }, "websearch": { … } }` — then run
+   `peaks best-practice-scan --project <repo> --intent "<goal>" --lookup-results <that file>`. The
+   path is resolved against your cwd, so pass it explicitly. A lookup that returned nothing is
+   `"ok": false, "results": []`; `"ok": true` with an empty `results` is refused, because that is
+   the shape a fabrication would take. Each fragment may carry `title`/`url`/`snippet` and nothing
+   else, and **the `url` is yours to construct** — Context7's response contains no URL, only a
+   library ID (`/org/project`), so state that when the recommendation is read.
+4. The CLI validates the file and renders the 8-row markdown comparison table per `output-formatter`
+   into `<project>/best-practice/<date>-<intent-slug>.md`.
 5. LLM picks one recommendation (★ marker) with reasoning block.
 6. **Mandatory ⚠️ catch gate** — user explicitly acks / picks alt / rejects + reason.
 
-**When the scan cannot be performed, the sub-step is SKIPPED — never fabricated.** The lookups behind
-this scan are stubs in the current build: they return synthetic fragments marked internally as
-synthetic. When the scan runs on a synthetic result it **refuses** — `ok:false`,
-`BEST_PRACTICE_SCAN_SYNTHETIC_LOOKUP`, exit 1 — and prints no recommendation, no comparison table and
-no ⚠️ catch gate, because there is nothing real for the user to judge. Record the sub-step as
-**skipped with reason `synthetic-lookup`** and carry on; do not synthesise a recommendation to satisfy
-the gate. `--intent <text>` is required (the business goal, not the project path) — omitting it is
-`BEST_PRACTICE_SCAN_INTENT_REQUIRED`, also exit 1. A real scan renders the full table and the gate
-normally; wiring the real Context7 / WebSearch lookup is a future slice.
+**When the scan cannot be performed, the sub-step is SKIPPED — never fabricated.** With no
+`--lookup-results`, the CLI's built-in lookups are stubs and return synthetic fragments: the scan
+**refuses** — `ok:false`, `BEST_PRACTICE_SCAN_SYNTHETIC_LOOKUP`, exit 1 — and prints no recommendation,
+no comparison table and no ⚠️ catch gate, because there is nothing real for the user to judge. Record
+the sub-step as **skipped with reason `synthetic-lookup`** and carry on; do not synthesise a
+recommendation to satisfy the gate. **Every miss is refused**, in one of two ways: with no real
+WebSearch behind a Context7 miss the fall-through lands on the stub and gives the refusal above; when
+you supply the `websearch` seam and it *also* reports `ok: false`, the chain is real and found nothing,
+and the command refuses with `BEST_PRACTICE_SCAN_NO_FRAGMENTS` and writes no artifact at all. A scan
+with zero fragments never renders — a table with a `★` on it and nothing behind it is the fabrication
+this sub-step exists to prevent. `--intent <text>` is required (the business goal, not the project
+path) — omitting it is `BEST_PRACTICE_SCAN_INTENT_REQUIRED`, also exit 1. Supply real results with
+`--lookup-results <file>`; a malformed, mismatched or empty-results file is refused as
+`BEST_PRACTICE_SCAN_INVALID_RESULTS` without scanning. A real scan renders the full table and the gate
+normally. Run the injected scan **after** the PRD state transition, so the real recommendation is the
+artifact left on disk; a refusal never overwrites it — it is recorded under
+`<project>/best-practice/skipped/` instead.
 
 **Out of scope for this sub-step:**
 - ❌ No changes to RD dispatch Karpathy prose (Step 3 unchanged)
