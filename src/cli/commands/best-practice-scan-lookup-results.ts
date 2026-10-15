@@ -21,10 +21,9 @@
  * nothing is the shape a fabrication would take, and it is refused rather than
  * rendered. **The converse is not a miss.** `ok: false` does not end the scan —
  * the orchestrator falls *through* a failed priority to the next one, and a
- * chain in which no stub took part reports `synthetic: false` even when it
- * found nothing. A document declaring `ok: false` on every seam it supplies is
- * therefore valid *and* fragments-free, and the CLI — not this module — is
- * where a fragments-free scan is refused. (`best-practice-scan-command.ts`.)
+ * chain in which no stub took part reports `synthetic: false` even when it found
+ * nothing. A document declaring `ok: false` on every seam it supplies is
+ * therefore valid *and* fragments-free; the CLI, not this module, refuses it.
  *
  * Unknown keys are refused at every level, not just the top: the document is
  * the caller's, and a key this module would ignore is a key the caller believed
@@ -204,10 +203,12 @@ function parseLookupResults(value: unknown, intent: string): ParseOutcome {
     const parsed = parseSeam(key, value[key]);
     if (!parsed.ok) return { ok: false, message: parsed.message };
     const seam = parsed.value;
+    // The return type is annotated because the `async` is a contract, not a
+    // convenience: `LookupFn` requires a Promise and `seam` is a plain object.
     if (key === 'context7') {
-      lookups.context7Lookup = async () => seam;
+      lookups.context7Lookup = async (): Promise<LookupOutcome> => seam;
     } else {
-      lookups.webSearchLookup = async () => seam;
+      lookups.webSearchLookup = async (): Promise<LookupOutcome> => seam;
     }
   }
   return { ok: true, lookups };
@@ -284,8 +285,7 @@ function readJsonOrFail(file: string): ReadOutcome {
       message: `cannot read lookup-results file at ${shown}: ${safeToEcho(getErrorMessage(err))}`
     };
   }
-  // A BOM is what several editors and PowerShell redirection write on Windows;
-  // JSON.parse rejects it, so a correct file would read as malformed.
+  // Windows editors write a BOM and JSON.parse rejects it, so strip it.
   const text = raw.charCodeAt(0) === BOM_CODE_POINT ? raw.slice(1) : raw;
   try {
     return { ok: true, value: JSON.parse(text) };
