@@ -5569,3 +5569,169 @@ the fix's own measurement is the reusable part. Commits are as recorded by the s
 | **`skills/peaks-final-review/SKILL.md`'s two false statements** | `--session-id` was documented as having a default when it is **required** — and the error code cited was **`MISSING_REQUIRED_OPTION`**, copied between documents, where the code returns **`MISSING_REQUIRED_FLAG`**. Separately, "the real provider is unreachable" was **false** (measured reachable).                                                                                                                                                                                                                                                                                                                                                                                                                      | **Corrected** — the error code was wrong in two documents because nobody read the code.                                                                                                                                                                                                                                                                                        |
 | **`bdd-test-style-verifier`'s arity assumption**                | `getCallbackBlock` read `arguments[1]` unconditionally, so `it(name, { timeout }, fn)` was misjudged.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | **Fixed** — the callback is now located as the last arrow / function-expression. Corpus: **451 files / 64 ok / 230 + 157** (58 ok before); **26 files changed verdict — 4 to green, and 22 exposing real violations the misjudgement had masked**.                                                                                                                             |
 | **The format ratchet bites only in CI**                         | Two commits in that session (`4a5d74b4`, and a later new file) shipped **unformatted**, so they were **red in CI's `format-check` job while green locally** — the ratchet is CI-only.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | Both repaired; the **class** is 9.11.                                                                                                                                                                                                                                                                                                                                          |
+
+## 10. Drained from the 2026-10-15 session — a host that cannot loop back, three escapes closed, and four gate frictions one small slice walked into (2026-10-15)
+
+The session's slice was `rid 2026-10-15-macos-ledger-reaper` (§9.50 cause 2). **It is a small slice — twelve lines of production logic — and it is the reason the items below exist: the friction is proportional to the process, not to the diff.** Recorded here so the next reader inherits the diagnosis rather than re-deriving it.
+
+**Heading discipline (§9.40 applies to this section too).** Every disposition below is the one actually reached on 2026-10-15. Nothing here is marked closed that was not closed.
+
+### 10.1 The seven `web` test files that fail on this host fail because **the host's loopback TCP is broken** — not load, not a stale `dist`, not the product (found and diagnosed 2026-10-15; **environmental, not a repository defect — recorded so it cannot be re-inherited as a load flake**)
+
+- **The measurement.** `pnpm test:unit` on this host gives `7 failed | 476 passed (483)` / `29 failed | 5162 passed | 3 skipped (5194)`, 878 s. All seven failing files are the web daemon: `services/web/web-daemon-race.test.ts`, `web-daemon-service`, `web-daemon-health-oracle`, `web-daemon-browser-teardown`, `web-status-report`, `cli/commands/web-commands`, `web-lifecycle-commands`.
+- **The two readings that are WRONG, both of which were tried first.** (a) *Load.* The project's own discriminator is "does it pass alone?" — and these **fail alone too**, so "flake" is refuted. (b) *A stale `dist/`* — CI runs `npm run build` before `npx vitest run` and this host does not, which is a real difference; it is refuted because `web-daemon-service.test.ts` **imports the source directly** (`../../../../src/services/web/…`) and drives a real `node:http` server — no `dist/`, no spawned CLI. `grep -rlE 'bin/peaks|dist/cli|src/cli/index' tests/unit/services/web/` returns **nothing**.
+- **The actual cause.** The failures are `TypeError: fetch failed` → `connect ETIMEDOUT 127.0.0.1:<port>`. Both sides use the **literal** `127.0.0.1`, so it is not an IPv4/IPv6 mismatch (`localhost` *does* resolve to `::1` first on this host, but nothing in the failing path uses it). Minimal reproduction, **no peaks-loop code involved**:
+  ```bash
+  node -e 'const http=require("node:http");const s=http.createServer((q,r)=>r.end("ok"));
+  s.listen(0,"127.0.0.1",async()=>{const p=s.address().port;
+  try{await fetch("http://127.0.0.1:"+p+"/");console.log("OK");}
+  catch(e){console.log("FAIL",(e.cause&&e.cause.code)||e.message);}s.close();});'
+  # -> FAIL ETIMEDOUT
+  ```
+  It is **system-wide, not Node-specific**: PowerShell's `TcpClient.Connect("127.0.0.1", …)` fails identically at the full 21 s timeout. And `ping 127.0.0.1` returns **"General failure" / 100 % loss** — which does not happen on a healthy Windows stack — while the route table is correct (`127.0.0.0/8 → On-link 127.0.0.1`) and `netsh winsock show catalog` holds **no third-party LSP**.
+- **The conclusion CI already provides.** `vitest + build (windows-latest, 24.x)` is **green** on the tip. The same files pass on a fresh runner, so this is the host and not the tree. **Do not open a repair slice for these seven files on the strength of a local red.**
+- **The environmental suspect, named so the next session does not re-scan for it.** 腾讯电脑管家 (Tencent PC Manager): `QQPCRTP` (real-time protection) is running, and **every** loaded non-Microsoft kernel driver is its own (`QMUdisk`, `QQSysMonX64`, `TSSysKit`, `TcHardWare`). An `AstarVPN` adapter exists but its **driver is not loaded** — a leftover, not the cause. `QQPCRTP` reports **`CanStop: False`** (self-protected) and an agent session is **not elevated**, so this is not fixable from inside a session: it needs the user to exit 电脑管家 from its tray UI and/or disable its 网络防护 module, with Defender's 网络保护 as the fallback suspect.
+- **Why it is a backlog item and not a note to self.** The pre-push gate runs `pnpm test:changed`, and `scripts/test-changed-classify.mjs` treats `/^\.peaks\//` as a `FULL_FALLBACK_TRIGGER` (10.7). So **on this host, any diff touching `.peaks/**` or `docs/**` cannot be pushed at all** — the gate runs the whole unit suite, which contains these seven files. A reader who does not know 10.1 will read that red as a code signal.
+
+### 10.2 The guard repair **closed three pre-existing path escapes**, one of which HEAD admitted — the delta is not pure widening (measured 2026-10-15 by the independent security audit; **recorded here because §9.50 states the refusals without stating that they are closes**)
+
+The security role ran the HEAD guard and the shipped guard side by side over ~28 shapes. Three shapes were **ADMITTED at HEAD and are REFUSED now**:
+
+| shape | HEAD | after |
+| --- | --- | --- |
+| a `_sub_agents` link pointing outside the project, **with the session dir not yet created** | **ADMIT** (a path resolving outside the ledger) | REFUSE |
+| an in-repo sibling junction for `<sid>` | ADMIT | REFUSE |
+| an **existing leaf file-symlink** pointing out of the project | ADMIT | REFUSE |
+
+The first is a genuine escape, not a spelling difference: at HEAD the guard's canonicalizing fallback branch could admit a path that resolves outside `.peaks/_sub_agents/`, and it is closed only because the comparison now runs on canonical spellings on **both** sides. **§9.50 records the five outcome deltas but frames them as refusals; this row exists so a reader does not read "five deltas" as "the fix is wider than the bug and bought nothing."** Measured widening is bounded to the intended alias tolerance plus one declared "lexically outside, resolves in" case; no shape admitted after the fix resolves outside `<root>/.peaks/_sub_agents`.
+
+### 10.3 Two prerequisites share the path `qa/test-cases/<rid>.md` with different requirements, and the refusal reports an **existing** file as *missing* (found 2026-10-15; **open**)
+
+`TEST_CASES` requires `mustContain: ['## Test cases']`. `UNIT_TESTS` — at the **same** `relativePath` — additionally requires `mustContainAny: ['test(', 'it(']` (`src/services/artifacts/artifact-prerequisites.ts`). A test-case artifact that satisfies the first and not the second produces:
+
+> `PREREQUISITES_MISSING: Cannot transition rd to qa-handoff: 1 required artifact missing`
+
+for a file that **exists and satisfies one of the two entries at its path**. The message names a path, not the unsatisfied requirement, so the producer is told a file is absent when it is present. Under `mustContainAny: ['test(', 'it(']` the honest way through is to **name the test arms as `it('…')`** — which is legitimate content for a test-case artifact, but it is also the "pass by mentioning" idiom the field's own contract comment says it exists to prevent. Worth a ruling: split the two entries onto distinct paths, or make the refusal name the unmet `mustContain`/`mustContainAny`.
+
+### 10.4 `qa/.initiated` is only produced by `peaks request init --role qa`, which **refuses when the request artifact already exists** — so a QA role that writes its artifact first has no in-order way to create the marker (found 2026-10-15; **open**)
+
+`request-artifact-service.ts` writes the marker as a side effect of `role === 'qa'`. `request init` then refuses with `REQUEST_INIT_FAILED: A request artifact with id "…" already exists in …/qa/requests. Remove it before re-running`. Any workflow in which the QA role writes `qa/requests/<rid>.md` before `request init --role qa` runs is therefore stuck, and the only ways out are dishonest (delete a real artifact) or unrecorded (hand-create the marker — what this session did). **This is §9.44's class: a carrier can reach a slot there is no in-order way out of.** A `peaks request mark-qa-initiated` verb, or making the marker idempotent rather than init-coupled, would close it.
+
+### 10.5 A `- state:` line that is **absent**, or that carries a **parenthetical**, fails the transition closed — two instances in one slice, both machine-read fields holding human prose (found 2026-10-15; **open**)
+
+The RD artifact held `- state: implemented (see the AC-by-AC verdict for the two rows this role cannot close)` → `STATE_ORDER_UNREADABLE`. The QA artifact held **no `- state:` line at all** → `STATE_ORDER_UNREADABLE` for a different reason. The gate fails closed and says so (that part is right), but the producer cannot know: nothing validates the field when the artifact is written, and the state machines define different vocabularies per role (`qa` accepts `draft | running | verdict-issued | blocked`; passing `handed-off` to `--role qa` gives `UNHANDLED_ERROR`, which is a crash rather than a refusal). **Same class as §9.10** — a required artifact blocked by its own spelling — with the addition that *absence* is now a second way in. A `peaks request lint` leg over `- state:` per role would catch both at author time.
+
+### 10.6 The `--judged` content-hash binding invalidates an audit on **any** later edit, including a comment — and no artifact states where the loop terminates (found 2026-10-15; **recorded as a discipline, not a defect**)
+
+`security-audit run --judged <paths…>` records each path's content hash and the `rd:qa-handoff` gate re-hashes and refuses a stale binding. This is **correct and load-bearing** — it is what §9.9 asked for. Its consequence is that a **comment-only** edit to `src/services/security/safe-settings-path.ts` (verified comment-only by three independent methods, `sha256` unchanged in code) invalidated the audit and required a re-run, which produced a new finding, which required an edit, which invalidated the audit again. The slice spent **two** full security audits on comment text. **The termination condition is a decision, not a rule:** freeze `src/` first, run the audit **last**, and record its remaining findings as accepted residuals. Nothing in the CLI or the SKILL.md says this, and a session that does not work it out will loop. Worth stating in `skills/bee/peaks-security-audit/SKILL.md`.
+
+### 10.7 A `.peaks/**` or `docs/**` change makes the push gate run the **full** unit suite, so a docs-only slice pays for the whole suite — and on this host it cannot be paid at all (found 2026-10-15; **open, by design — the cost is now measured**)
+
+`.husky/pre-push` leg 3 is `pnpm test:changed -- origin/main`; `scripts/test-changed-classify.mjs` lists `/^\.peaks\//` in `FULL_FALLBACK_TRIGGERS` with `FULL_FALLBACK_EXEMPT` holding only `.peaks/lint/gate-baseline.json`. The header documents the choice. The measured consequence this session: **the AC-8 requirement to update §9.50 is itself what made the slice unpushable from this host**, because §9.50 lives under `.peaks/`. The two effects compose with 10.1 — the fallback runs the suite, and seven of that suite's files fail here for an environmental reason. Neither half is wrong; together they mean **a documentation fix carries the cost of a full test run**, which is the opposite of the proportionality the rest of the gate design aims at.
+
+### 10.8 The slice produced **five** "claim stronger than measurement" defects, and one of them was introduced by the round whose job was to fix that class (measured 2026-10-15; **recorded so the class is not read as closed**)
+
+Three independent reviewers (code review, security, karpathy) each found a **different** instance inside the same file's comments: `stablePath` named as the primitive `projectRootCompareKey` is built from (it is `stableRealPath` — wrong in the `src/` comment **and** in this file, §9.50); a new comment claiming the alias tolerance "is the canonical comparison above" (true for the main comparison, false for the fallback branch); and a `canonicalSpelling` docstring asserting the swallow "is fail-closed (a one-sided throw can only shrink the admitted set)" — **falsified by measurement: a throw GROWS the admitted set for the recordPath call.** Plus a §9.50 heading reading *"both causes fixed"* while AC-6 was open, which is §9.40 exactly. The fifth: the RD's claim that at HEAD the writer "could have written **through** the leaf link" is unsupported — every record write is `writeAtomic` (tmp + `renameSync`), and `rename` replaces the link rather than writing through it.
+
+**The instance that matters is the third.** It was written by repair round 3, whose brief was to correct claims stronger than measurement — and it was caught by the next independent reader. §9.40 named this class; naming it did not prevent its recurrence inside the same file, three times, in one slice. The reusable reading is not "prose drifts" but **"a comment asserting a property is a claim, and a claim needs the same measurement a behaviour does."**
+
+### 10.A Recorded, not fixed — this session's accepted residues
+
+| # | Item | Where | Disposition |
+| --- | --- | --- | --- |
+| — | The guard's **fallback branch** still compares raw spellings, so the alias defect survives there (fail-closed; unreachable through either caller today). The security role's named one-liner `fallback = canonicalSpelling(projectRoot)` was **measured and rejected**: it refuses the writer's first write for a session under an alias — the macOS CI shape this slice exists to fix — and the root-only reading doubles the path elsewhere. Only the symmetric form is correct, and it is an unmotivated admission widening. | `src/services/security/safe-settings-path.ts` | **Accepted residual.** Ships as-is, with the branch described accurately in the comment. |
+| — | The reaper **discards the guard's return value** and then reads and finalizes the **raw** path, so the checked path and the used path can differ (narrow: needs a concurrent ledger-dir swap). | `src/services/dispatch/ledger-reaper.ts:110` | **Accepted residual** (security's worst remaining finding, LOW). |
+| — | `:90` uses `rel.startsWith('..')` where `:124`/`:134` correctly use `rel.startsWith('..' + sep)`, so a sibling named `..foo` false-positives. Pre-existing; it is the line whose operands this diff rewrote. | `src/services/security/safe-settings-path.ts` | **Recorded, not fixed** — outside this slice's request (Karpathy §3). |
+| — | The test file is at **494** of a **500**-line cap. The arms added are 18–19 lines each, so the **next arm lands near 513 and the ratchet refuses it**. | `tests/unit/services/dispatch/ledger-reaper.test.ts` | **Recorded** — this slice has spent the file's remaining budget; a further arm here needs a compensating trim. |
+| — | `.peaks/docs/backlog.md` fails `prettier --check` **at HEAD too** (178 lines, `*x*` → `_x_`), so it is not any session's regression. It is outside the format ratchet's globs (`src`, `tests`, `packages`, `scripts`), which is why nothing has bitten. | `.peaks/docs/backlog.md` | **Recorded, deliberately not `--write`** — a `prettier --write` would fold 178 unrelated lines into the next slice's diff. |
+
+## 11. Drained from the 2026-10-15 session, second slice — a 1,593-line deletion that the *process* fought harder than the code (2026-10-15)
+
+The slice removed the VM isolation surface: 8 files, 979 lines of `src/`, plus two test files whose only subject was the deleted code. **The code change was uneventful — `tsc` clean on the first run, four independent reviews clean, QA PASSES.** Everything below is a finding about the *workflow* that carried it, which is where the friction actually was. Same frame as §10: the process cost is proportional to the ceremony, not to the diff.
+
+**Heading discipline (§9.40 applies here too).** Every disposition is the one actually reached. Nothing is marked closed that was not closed.
+
+### 11.1 A hand-authored audit satisfies every content marker and still fails the gate, with an error that names a file that exists (found 2026-10-15; **open**)
+
+The security role wrote a thorough 14.9 KB audit to `audit/security-<rid>.md` — `## Verdict` present, findings, an explicit PASS-WITH-FINDINGS. The `rd:qa-handoff` transition refused it with:
+
+> `audit/security-<rid>.md` — **Judged declaration declaration-missing**
+
+The gate does not read that Markdown as the audit. It reads a **judged declaration** that `peaks security-audit run --judged <paths…>` writes *into* the artifact, rendered from a schema-validated envelope (`isSecurityAuditEnvelope`, `src/services/audit-independent/security-audit-service.ts:94-121`). An audit authored directly has no envelope behind it and no `## Judged content` block, so it fails a gate whose message says a *file is missing* when the file is present and complete. This is §10.3's class again — an existing artifact reported as missing — one role over.
+
+Worth a ruling: either the SKILL should make the envelope the only production path (so the failure is "you skipped the pipeline", not "file missing"), or the refusal should name the unmet **declaration** rather than the absent path.
+
+### 11.2 `peaks request init --role qa` writes a template that nothing fills, and the transition refuses on it two steps later (found 2026-10-15; **open**)
+
+`request init` produces a template containing `<id>` placeholders. §10.4 established that the QA role has no in-order way to create `qa/.initiated` once its artifact exists, so this session ran `request init --role qa` to get the carrier. That created `qa/requests/<rid>.md` **as an unfilled template**, and `qa:running` then refused with `LINT_GATE_FAILED` on two `<id>` tokens in the OpenSpec section — a section that cannot be filled at all, because this repository's `openspec/` holds only `baselines/` and no `changes/`. The producer is handed a template whose sections are unfillable and then blocked for not filling them.
+
+### 11.3 A date-shaped request id collides with the numeric filename prefix, and it **blocks the commit** (found 2026-10-15; **open, with a measured consequence**)
+
+`getNextNumber` (`src/shared/incrementing-number.ts:17-31`) scans a directory for `/^(\d+)-/` and returns `max + 1`. Every rid in this repository begins with a date, so a request whose file carries no prefix contributes its **year** to that scan: `2026-10-15-macos-ledger-reaper.md` reads as file number **2026**, and the next request in that directory is stamped **`2027-…`**.
+
+It was first called cosmetic on the strength of this module's own comment (`:42-52`, *"readers strip the prefix"*). **That comment is false for this case**, and QA measured the consequence: `requestIdFromFileName` (`:97-100`) strips only `/^0\d{2}-/`, so a **three-digit** prefix (`002-`) is discarded and a **four-digit** one (`2027-`) is not. The derived rid becomes `2027-2026-10-15-remove-isolation-vm-surface`, and `.husky/peaks-gate-pipeline.mjs` then looks for `prd/handoff-2027-…`, `rd/code-review-2027-…` and refuses the commit:
+
+> `peaks-gate-pipeline: <rid> (type refactor) fails the artifact contract: RD evidence missing …`
+
+The unblock used here was to **rename the two affected request artifacts** to their bare-rid form. That is a workaround, not a repair: any fresh request directory whose first file lacks a prefix reproduces it. Worth a ruling: `requestIdFromFileName` should strip any leading digit run that cannot be part of a date-shaped rid, or `getNextNumber` should not read a leading year as a sequence number.
+
+### 11.4 `dispatch --isolation container` exits **0** having dispatched nothing (found 2026-10-15; **open; the most consequential item in this section**)
+
+Measured three times by the code review and again by QA, on a host and project where `--isolation worktree` and no-isolation both emit full envelopes:
+
+- `… sub-agent dispatch rd … --isolation container --json` → **exit 0, 0 stdout bytes**, no lease, no session directory.
+- A direct `peaks container spawn` **does** emit `DOCKER_RUN_FAILED` (1,116 B), so the failure is swallowed in the dispatch layer rather than absent at the source.
+
+The mechanism, isolated past the first reviewer's reading by QA: `src/services/dispatch/isolation-lease.ts:191` calls `child.unref()` **synchronously**, where the worktree path at `:104-105` defers it with `setImmediate` — and the worktree path's own comment states the consequence (*"the unref races the buffered stdout close and the test receives an empty JSON envelope"*). The container path's comment reads *"See spawnWorktreeLease above for the rationale"*: it cites the rationale and does not apply it. QA narrowed it further — the sync unref is **necessary but conditional**, in that deferring it, or running it with other pending work in the loop, both receive the envelope.
+
+**Why this matters beyond the bug:** a `--isolation container` dispatch that silently does nothing while reporting success is worse than one that fails, and it has **zero test coverage** — which is why the slice that deleted the *advertised* surface is the one that surfaced it. It is out of scope for §11's slice (the PRD put the container surface out of bounds) and needs its own.
+
+### 11.5 The `--rescope` waiver is weaker than its own comment claims (found 2026-10-15 by the security audit; **open, latent**)
+
+`.husky/baseline/decide.mjs:220-233` waives a raised ceiling row when `rescopeApplied !== null && raiseIsBoundary(…)`; `raiseIsBoundary` (`.husky/baseline/leg-scope.mjs:169-172`) returns true for a row owned by no leg whenever the gate population moved in **either** direction. `eslintFindings` and `eslintErrors` are not in `SW_CEILING_KEYS`, so both are waivable. Against that, `.husky/baseline/rescope.mjs:23` claims *"the monotonicity guard refuses any raised ceiling regardless of the flag"* and `decide.mjs:212` says *"`--rescope` is NOT a licence to raise a ceiling."*
+
+**Not realised in §11's slice** — no ceiling rose, verified structurally by three independent readers. Recorded because the comment-versus-code gap is this repository's most-repeated defect class, and because the guard was exercised for real here: `node .husky/peaks-gate-baseline.mjs` **refuses without `--rescope`** on a shrinking file set (`SCOPE CHANGE without --rescope … FILES LEFT THE SCOPE (8) … 1289→1281`), so the flag had to be passed knowingly.
+
+### 11.6 This session produced four more "claim stronger than measurement" defects, two of them the orchestrator's (measured 2026-10-15; **recorded so the class is not read as closed**)
+
+§10.8 recorded five in the preceding slice and concluded that *a comment asserting a property is a claim, and a claim needs the same measurement a behaviour does.* It recurred, four times, in the slice that followed it:
+
+| # | The claim | Who found it | What measurement showed |
+| --- | --- | --- | --- |
+| 1 | The orphan baseline rows are *"inert — nothing refuses them"* (orchestrator, passed into the PRD as a correction) | the RD, measuring | The generator **refuses** without `--rescope`. The gate-level reading was right; the generator-level one was not, and the orchestrator had resolved the PRD's honest `UNMEASURED` into a confident wrong answer. |
+| 2 | AC-6's exception blames `.peaks/**` scratch files for the coverage denominator | the perf audit **and** the karpathy review, independently | **Zero** `.peaks` rows in either saved summary. The exception survives on different ground; its stated reason did not. |
+| 3 | AC-3(ii) "container unchanged — PASS" | the code review | The capture was **empty versus empty**, which proves nothing. Correct status: NOT MEASURED. |
+| 4 | The `2027-` prefix is cosmetic because *"readers strip it"* (the orchestrator, repeating the module's own comment) | QA | Only three-digit prefixes are stripped; four-digit ones become the rid. It **blocked the commit** (§11.3). |
+
+Two of the four were the orchestrator's, and one of those was introduced *inside the correction round whose purpose was to fix an earlier unmeasured claim* — the same shape §10.8 named. **The reusable reading is unchanged and now has a second data point: the class does not close by being named. What closes it is a reader who measures instead of agreeing** — in this session every one of the four was caught by a role that checked, and none by a role that reviewed.
+
+Two smaller reporting defects of the same family, both **open**: `peaks workflow verify-pipeline` reports `requestType: feature` for a request created and declared as `refactor` (harmless here only because `REFACTOR_TABLE = FEATURE_TABLE` is the same object, so the tables coincide and the misreport is silent); and AC-4's stated command cannot fail as written, because `passWithNoTests: true` makes `vitest run <deleted-file>` exit 0 — QA recorded that instead of citing it as evidence.
+
+### 11.7 `staged-size-leg.test.ts`'s integration arm passes or fails on what happens to be uncommitted, and its comment disclaims the assertion it makes (found 2026-10-15; **open**)
+
+Found by pushing, not by reading. The push gate's full-suite fallback (§10.7) reported **8** failed files where §10.1 documents **7**. The eighth was `tests/unit/lint/staged-size-leg.test.ts`, the only failure in that run that was not a web-daemon loopback failure — so the first question was whether the slice caused it. It did not, and the reason it did not is the finding.
+
+The arm reads `changedPathsInRepo()` (`tests/unit/lint/staged-size-leg.test.ts:378-394`), which is `git diff --name-status HEAD` plus untracked files — **the working tree, not the commit**. On this run the working tree held exactly one modification, `.peaks/docs/backlog.md` (this section, appended while the suite ran). The size leg's population is `FILE_SIZE_SCOPE_DIRS = ['src','tests','packages','scripts']` × `FILE_SIZE_SCOPE_EXTENSIONS = ['ts','tsx','mts','cts','mjs','cjs','js']` (`src/services/scan/file-size-policy.ts:53,56`), so that change is out of scope on both counts:
+
+```
+changed      = ['.peaks/docs/backlog.md']   length 1
+countedFiles = 1                            → toBe(changed.length)  PASSES
+checkedFiles = 0                            → toBeGreaterThan(0)    FAILS
+```
+
+**The arm contradicts its own comment.** It reads: *"An empty change set is a legitimate answer here (a clean tree passes the gate too), so the arm asserts the number of refusals rather than the number of files."* The code handles `changed.length === 0` with an early return, then — for every non-empty set — asserts `checkedFiles > 0`, which is precisely the file-count assertion the comment says it avoids. A change set that is non-empty **and** entirely out of scope falls between the two branches and fails.
+
+**Consequence:** the arm's verdict depends on what a developer happens to have uncommitted. A clean tree takes the early return; a tree holding only out-of-scope edits fails; a tree holding an in-scope edit passes. That is why §10.1 measured 7 failing files and this push measured 8 from the same tree state plus one uncommitted `.md`. It is a test whose result is not a property of the code, which is the §10.1 discriminator (*"does it pass alone?"*) applied to a file that is not a load flake and not the host.
+
+**Recorded, not fixed** — outside §11's slice, which touched no `tests/unit/lint/` file and no file in this arm's population. The repair is small and named: either assert the refusals only (as the comment intends) or assert `checkedFiles > 0` **only when the change set contains an in-scope path**.
+
+### 11.A Recorded, not fixed — this slice's accepted residues
+
+| # | Item | Where | Disposition |
+| --- | --- | --- | --- |
+| — | The `refactor` coverage bar (≥ 95 %) is **unmet**, and the slice proceeds on a stated exception. Measured `src`-only 47.78 % → 47.98 %; the bar is unmet at HEAD too. The surviving ground is that only `tests/unit` runs, against a `--src`-wide denominator where every under-loaded module scores 0 % — **not** the `.peaks`/`dist` claim the RD first gave (§11.6 #2). | slice RD artifact + `rd/coverage-report.md` | **Accepted exception**, reasoning corrected on measurement. |
+| — | Branch coverage moved **against** the change (75.26 % → 73.71 %). Attributed by the perf audit to **denominator churn**, not the diff: 120 of 1,066 common `src` rows changed their branch denominator (1,294 absolute churn against a net +60), and 119 of the 120 moved files are untouched. The RD could not reproduce the audit's percentage decomposition and recorded its own with its script rather than repeating one it could not verify. | `coverage/coverage-summary.json` | **Recorded as a measurement defect.** The instrument is unreliable at this granularity; the AC-6 exception does not rest on it. |
+| — | The inverted `rid-VM-001` arm is a **real** control — verified by running HEAD's resolver blob out-of-tree, not by reading: HEAD yields `ISOLATION_VM_NOT_YET_IMPLEMENTED`, so the inverted assertion fails under HEAD and passes now for the stated reason. The `vm-leases` absence assertion beside it was **deleted** as a control that could no longer fail. | `tests/integration/dispatch-isolation-lifecycle.test.ts` | **Closed**, with the falsification executed. |
+| — | `.peaks/lint/baseline.json` still carries two rows for the deleted `vm-lease.ts` (`:1268`, `:1275`). They waive nothing today; a rescan would churn 192 unrelated rows. Narrow latent hazard: re-creating that path with a violation at exactly those lines would be silently pre-waived. | `.peaks/lint/baseline.json` | **Accepted residual** (parent's call, on the RD's measurement). |
+| — | 92 of 94 tracked `tests/integration/**` files were not executed locally — twice mis-stated as 67 during this session, in the RD artifact *and* in the orchestrator's shared review brief, understating the residual by ~37 %. | session artifacts | **Recorded as unrun.** CI's `integration suite` job is the only closure. |
+| — | `.peaks/docs/backlog.md` fails `prettier --check` at HEAD too (§10.A), and a `.peaks/**` change trips the full-suite fallback in the push gate, which on this host cannot pass (§10.1). **Measured on the first push attempt: refused, `8 failed | 474 passed (482)` — the seven web files of §10.1 plus §11.7, and zero failures traceable to this slice.** The backlog entry for this section therefore lands in **its own commit**, deliberately outside the code commit. | `.peaks/docs/backlog.md` | **Recorded** — the §10.7 cost, paid knowingly. |
