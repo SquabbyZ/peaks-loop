@@ -36,7 +36,12 @@ import { fileURLToPath } from 'node:url';
 
 import { declareDimensions } from '../unit/_setup/4dim-template.js';
 
-declareDimensions('tests/lint/readme-parity.test.ts', ['render', 'behavior', 'integration', 'a11y']);
+declareDimensions('tests/lint/readme-parity.test.ts', [
+  'render',
+  'behavior',
+  'integration',
+  'a11y'
+]);
 
 const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
@@ -119,7 +124,8 @@ function badgeVersion(markdown: string, label: string): string | null {
 /** The version in the `## 当前状态 · X` / `## Status · shipping X` heading. */
 function headingVersion(markdown: string): string | null {
   return (
-    new RegExp(String.raw`^## (?:当前状态|Status)[^\n]*?(${SEMVER})`, 'm').exec(markdown)?.[1] ?? null
+    new RegExp(String.raw`^## (?:当前状态|Status)[^\n]*?(${SEMVER})`, 'm').exec(markdown)?.[1] ??
+    null
   );
 }
 
@@ -135,9 +141,9 @@ function caseCount(markdown: string, label: string): string | null {
  * otherwise read as the count `0`.
  */
 function statedCaseCounts(markdown: string): string[] {
-  return [
-    ...markdown.matchAll(/(?<![\w%.])(\d[\d.,]*\+?)\s*(?:test\s+)?(?:cases|测试用例)/gi)
-  ].map((match) => match[1] ?? '');
+  return [...markdown.matchAll(/(?<![\w%.])(\d[\d.,]*\+?)\s*(?:test\s+)?(?:cases|测试用例)/gi)].map(
+    (match) => match[1] ?? ''
+  );
 }
 
 // ---- render dimension ------------------------------------------------------
@@ -158,10 +164,7 @@ describe('(render) — both READMEs expose the same ordered H2 sections', () => 
 
 describe('(behavior) — the parity check reports the first divergence', () => {
   it('should report a mismatch when a section is removed from the English document', () => {
-    const withoutOneSection = EN_README.replace(
-      /^## Where files land after install[ \t]*\n/m,
-      ''
-    );
+    const withoutOneSection = EN_README.replace(/^## Where files land after install[ \t]*\n/m, '');
     expect(withoutOneSection).not.toBe(EN_README);
     expect(parityMismatch(ZH_README, withoutOneSection)).not.toBeNull();
   });

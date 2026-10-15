@@ -191,7 +191,9 @@ describe('Scenario: (behavior) — only the version label moves', () => {
       setupHarness({ version: '4.0.37' });
       const r = runSync();
       expect(r.status).toBe(0);
-      expect(read('README.md')).toBe(readme(statusZh('4.0.37'), rowZh('4.0.37', '2026-09-10'), '代码'));
+      expect(read('README.md')).toBe(
+        readme(statusZh('4.0.37'), rowZh('4.0.37', '2026-09-10'), '代码')
+      );
       expect(read('README-en.md')).toBe(
         readme(statusEn('4.0.37'), rowEn('4.0.37', '2026-09-10'), 'Code')
       );
@@ -254,7 +256,9 @@ describe('Scenario: (behavior) — only the version label moves', () => {
       const r = runSync();
       // then:  the version moves, the date is NOT invented
       expect(r.status).toBe(0);
-      expect(read('README.md')).toBe(readme(statusZh('4.0.37'), rowZh('4.0.37', '2026-09-08'), '代码'));
+      expect(read('README.md')).toBe(
+        readme(statusZh('4.0.37'), rowZh('4.0.37', '2026-09-08'), '代码')
+      );
       expect(r.stderr).toContain('keeping each README row');
     }
   );

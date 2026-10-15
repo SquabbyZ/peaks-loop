@@ -116,9 +116,7 @@ for (const f of TARGETS) {
   }
   writeFileSync(path, after, 'utf8');
   totalChanged += matched;
-  console.log(
-    `[sync-readme-version] updated ${f} (${matched} occurrence(s)) -> ${newVersion}`
-  );
+  console.log(`[sync-readme-version] updated ${f} (${matched} occurrence(s)) -> ${newVersion}`);
 }
 
 if (missingRow.length > 0) {
