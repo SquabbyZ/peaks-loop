@@ -13,7 +13,6 @@ import { registerLeaseMetricsCommand } from './commands/lease-metrics-commands.j
 import { registerMcpCommands } from './commands/mcp-commands.js';
 import { registerLeaseStatsCommand } from './commands/lease-stats-commands.js';
 import { registerContainerCommand } from './commands/container-commands.js';
-import { registerVmCommand } from './commands/vm-commands.js';
 import { registerCronCommand } from './commands/cron-commands.js';
 import { registerCronSchedulerCommand } from './commands/cron-scheduler-commands.js';
 import { registerWorkspaceCommands } from './commands/workspace-commands.js';
@@ -213,7 +212,6 @@ Run peaks (no arguments) for a quickstart. You likely want one of:
   registerLeaseMetricsCommand(program, io);
   registerLeaseStatsCommand(program, io);
   registerContainerCommand(program, io);
-  registerVmCommand(program, io);
   registerCronCommand(program, io);
   registerCronSchedulerCommand(program, io);
   // The read-only MCP surface's command family. `serve` spawns the server

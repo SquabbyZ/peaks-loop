@@ -19,7 +19,7 @@ export interface WriteDispatchRecordInput {
   effectivePrompt: string;
   toolCall: SubAgentToolCall;
   batchId: string;
-  isolationMode: 'worktree' | 'container' | 'vm' | null;
+  isolationMode: 'worktree' | 'container' | null;
   leaseId: string | null;
   /** The dispatch's warning list — this function appends to it, as the inline block did. */
   warnings: string[];

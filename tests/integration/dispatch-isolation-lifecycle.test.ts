@@ -338,13 +338,21 @@ describe('peaks sub-agent dispatch --isolation worktree auto-release (Part 3.A.3
   });
 });
 
-// rid-VM-001 — the `--isolation vm` fail-fast is shipped behavior, and until
-// now no test pinned it: a refactor that let `vm` fall through to the
-// worktree branch (the union accepts three modes and only two are live) would
-// have gone unnoticed while silently handing out a worktree lease the gate
-// then reads as VM isolation.
-describe('peaks sub-agent dispatch --isolation vm fail-fast (rid-VM-001)', () => {
-  test('refuses with ISOLATION_VM_NOT_YET_IMPLEMENTED and spawns nothing', () => {
+// rid-VM-001 — `--isolation vm` is no longer a value the CLI knows. The VM
+// isolation surface was removed wholesale (slice
+// 2026-10-15-remove-isolation-vm-surface), so `vm` now falls into the same
+// pre-existing INVALID_ISOLATION refusal as any other unrecognised mode: no
+// vm-specific code path exists to fail-fast any more.
+//
+// The block is KEPT, with its expectation inverted, because the failure mode it
+// was written to catch outlives the fail-fast it used to pin: a `vm` value that
+// silently fell through to the worktree branch would still hand out a worktree
+// lease while the caller believed it had asked for VM isolation. That is
+// exactly what a later re-introduction of `vm` — as an alias, a shim, or a
+// partially-restored runtime — would produce, and no other test in this file
+// pins it.
+describe('peaks sub-agent dispatch --isolation vm is refused as invalid (rid-VM-001)', () => {
+  test('refuses with INVALID_ISOLATION and spawns nothing', () => {
     const project = initRepo();
     const sessionId = '2026-10-05-vm-refusal';
     const dispatch = runCli(
@@ -377,13 +385,19 @@ describe('peaks sub-agent dispatch --isolation vm fail-fast (rid-VM-001)', () =>
       data: { worktreePath?: string | null };
     };
     expect(env.ok).toBe(false);
-    expect(env.code).toBe('ISOLATION_VM_NOT_YET_IMPLEMENTED');
+    expect(env.code).toBe('INVALID_ISOLATION');
     expect(env.data.worktreePath ?? '').toBe('');
     // No lease of any kind was written for this session.
     expect(existsSync(join(project, '.peaks', '_runtime', sessionId, 'worktree-leases'))).toBe(
       false
     );
-    expect(existsSync(join(project, '.peaks', '_runtime', sessionId, 'vm-leases'))).toBe(false);
+    // The `vm-leases/` assertion that used to sit here is DELETED, deliberately:
+    // it asserted the absence of a directory that no code path in this tree can
+    // create any more, so it could not fail. A control that cannot fail reads to
+    // the next person as a guarantee, which is worse than no control at all.
+    // The `worktree-leases/` assertion above is the one that still carries this
+    // block's purpose — a `vm` value falling through to the worktree branch is
+    // exactly what would create that directory.
     // The refusal names the modes that DO work, so the caller is not stranded.
     expect(String(env.message)).toMatch(/worktree/);
     expect(String(env.message)).toMatch(/container/);

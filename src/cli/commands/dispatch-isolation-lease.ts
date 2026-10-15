@@ -1,6 +1,6 @@
-// The `--isolation` lease set-up of `peaks sub-agent dispatch`. Validates the mode,
-// spawns the container/worktree lease, and hands the handles back; `vm` fail-fasts
-// because the runtime is not implemented yet.
+// The `--isolation` lease set-up of `peaks sub-agent dispatch`. Validates the mode and
+// spawns the container/worktree lease, handing the handles back. `vm` is not a mode:
+// it is refused by the same guard as any other unrecognised value.
 import { fail, getErrorMessage } from 'peaks-loop-shared/result';
 import { printResult, type ProgramIO } from '../cli-helpers.js';
 import {
@@ -19,7 +19,7 @@ export interface IsolationLeaseInput {
 }
 
 export interface IsolationLease {
-  isolationMode: 'worktree' | 'container' | 'vm' | null;
+  isolationMode: 'worktree' | 'container' | null;
   leaseId: string | null;
   worktreePath: string | null;
   worktreeBranch: string | null;
@@ -36,13 +36,13 @@ function rejectInvalidIsolation(
     fail(
       'sub-agent.dispatch',
       'INVALID_ISOLATION',
-      `--isolation only accepts "worktree" | "container" | "vm" (got "${isolation}")`,
+      `--isolation only accepts "worktree" | "container" (got "${isolation}")`,
       {
         role,
         toolCall: null,
         dispatchRecordPath: null
       } as never,
-      ['Drop --isolation or pass --isolation worktree / --isolation container / --isolation vm.']
+      ['Drop --isolation or pass --isolation worktree / --isolation container.']
     ),
     asJson
   );
@@ -143,59 +143,6 @@ async function spawnWorktreeIsolation(
   }
 }
 
-function rejectVmIsolation(io: ProgramIO, input: IsolationLeaseInput): null {
-  const { role, asJson } = input;
-  // VM isolation mode is the L4 follow-up to L4 container.
-  // The CLI contract is shipped (--isolation vm is accepted
-  // by the dispatch parser and reflected in the envelope's
-  // isolationMode type). The VM runtime (Linux KVM / macOS
-  // HyperKit / Windows Hyper-V) is a much larger follow-up
-  // and is intentionally not implemented yet — we
-  // fail-fast with ISOLATION_VM_NOT_YET_IMPLEMENTED so
-  // operators see a clear "this is a placeholder" signal
-  // rather than a silent fallback to worktree.
-  //
-  // The full implementation lives in a future rid; the
-  // design is:
-  //   1. New service: src/services/vm/vm-lease.ts (parallels
-  //      worktree-lease.ts / container-lease.ts) — pure lease
-  //      store with vmId + hypervisor + status.
-  //   2. CLI: 'peaks vm spawn --hypervisor kvm|hyperkit|hyperv
-  //      --image <name> --rid <rid> --role <role>' — runs
-  //      virsh create / hvftool / hvcreate, captures the
-  //      vm id, writes the lease.
-  //   3. CLI: 'peaks vm release --lease-id <id>' — virsh
-  //      destroy + cleanup.
-  //   4. dispatch --isolation vm: shells out to peaks vm
-  //      spawn, injects PEAKS_VM_LEASE_ID env (parallel
-  //      to PEAKS_CONTAINER_LEASE_ID).
-  //   5. PreToolUse gate: when the env var is set AND the
-  //      tool call is bash-with-vm-bearing-command,
-  //      allow via the vm lease.
-  //
-  // Until then: fail-fast.
-  printResult(
-    io,
-    fail(
-      'sub-agent.dispatch',
-      'ISOLATION_VM_NOT_YET_IMPLEMENTED',
-      '--isolation vm is the L4 follow-up to --isolation container (Part 25 contract); the VM runtime (KVM / HyperKit / Hyper-V) is a much larger follow-up rid and is intentionally not implemented yet. Drop --isolation or pass --isolation worktree / --isolation container for now.',
-      {
-        role,
-        toolCall: null,
-        dispatchRecordPath: null
-      } as never,
-      [
-        'The VM contract is shipped (--isolation vm is accepted by the dispatch parser); the runtime is the next rid.',
-        'Use --isolation worktree (L2 production) or --isolation container (L4 docker, Part 12) for now.'
-      ]
-    ),
-    asJson
-  );
-  process.exitCode = 1;
-  return null;
-}
-
 export async function resolveIsolationLease(
   io: ProgramIO,
   options: DispatchOptions,
@@ -208,11 +155,7 @@ export async function resolveIsolationLease(
   // without this injection, the gate has no leaseId to consult and
   // the sub-agent would need a separate `peaks worktree auth grant`.
   if (typeof options.isolation === 'string' && options.isolation.length > 0) {
-    if (
-      options.isolation !== 'worktree' &&
-      options.isolation !== 'container' &&
-      options.isolation !== 'vm'
-    ) {
+    if (options.isolation !== 'worktree' && options.isolation !== 'container') {
       return rejectInvalidIsolation(io, options.isolation, role, asJson);
     }
     if (options.isolation === 'container') {
@@ -220,8 +163,6 @@ export async function resolveIsolationLease(
     }
     if (options.isolation === 'worktree') {
       return spawnWorktreeIsolation(io, input);
-    } else if (options.isolation === 'vm') {
-      return rejectVmIsolation(io, input);
     }
   }
 

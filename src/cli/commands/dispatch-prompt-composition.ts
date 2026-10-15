@@ -40,7 +40,7 @@ export interface ComposeDispatchPromptInput {
   options: DispatchOptions;
   /** The prompt the sub-agent receives, as `preflightDispatch` resolved it. */
   prompt: string;
-  isolationMode: 'worktree' | 'container' | 'vm' | null;
+  isolationMode: 'worktree' | 'container' | null;
   leaseId: string | null;
   worktreePath: string | null;
   worktreeBranch: string | null;

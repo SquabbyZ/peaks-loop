@@ -13,7 +13,7 @@ import { type DispatchOptions } from './sub-agent-shared.js';
 // by the LLM in its own environment, not as children of this CLI;
 // the lease id travels through the dispatch record + prompt body.
 export function buildIsolationBlock(
-  isolationMode: 'worktree' | 'container' | 'vm' | null,
+  isolationMode: 'worktree' | 'container' | null,
   leaseId: string | null,
   worktreePath: string | null,
   worktreeBranch: string | null

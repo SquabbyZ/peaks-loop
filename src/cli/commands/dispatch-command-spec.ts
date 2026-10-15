@@ -55,7 +55,7 @@ function applyDispatchInputOptions(command: Command): Command {
       )
       .option(
         '--isolation <mode>',
-        'slice 2026-07-29-worktree-l2-extended Part 2.C: isolation mode for the sub-agent. Accepts "worktree" (Part 2.C + Part 12 L2 surface), "container" (Part 8 contract + Part 12 L4 docker runtime), or "vm" (Part 25 contract; the VM runtime is a follow-up rid and fail-fasts with ISOLATION_VM_NOT_YET_IMPLEMENTED). Auto-spawns a lease + injects PEAKS_<MODE>_LEASE_ID into the dispatch envelope so the sub-agent can write to the isolated surface without a separate auth grant.'
+        'slice 2026-07-29-worktree-l2-extended Part 2.C: isolation mode for the sub-agent. Accepts "worktree" (Part 2.C + Part 12 L2 surface) or "container" (Part 8 contract + Part 12 L4 docker runtime). Auto-spawns a lease + injects PEAKS_<MODE>_LEASE_ID into the dispatch envelope so the sub-agent can write to the isolated surface without a separate auth grant.'
       )
       // Slice 4.0.8 RD §4 made this a `.requiredOption`. It is optional now:
       // the requirement was enforced but never validated — nothing downstream

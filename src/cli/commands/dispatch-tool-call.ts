@@ -27,7 +27,7 @@ export interface BuildDispatchToolCallInput {
   rid: string;
   sid: string;
   projectRoot: string;
-  isolationMode: 'worktree' | 'container' | 'vm' | null;
+  isolationMode: 'worktree' | 'container' | null;
   leaseId: string | null;
   asJson: boolean;
 }
@@ -36,7 +36,7 @@ interface IsolationStampInput {
   projectRoot: string;
   sid: string;
   rid: string;
-  isolationMode: 'worktree' | 'container' | 'vm' | null;
+  isolationMode: 'worktree' | 'container' | null;
   leaseId: string | null;
 }
 
