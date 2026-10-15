@@ -699,3 +699,83 @@ jobs:
         # `.husky/format-check-ratchet.mjs` — so neither the scope nor the number is
         # spelled twice here and left to drift (§2.28).
         run: node .husky/format-check-ratchet.mjs
+
+  # THE COVERAGE FLOOR — the defect it closes. CI enforced no coverage floor at all, so
+  # coverage could regress silently and nothing noticed. The repository's strict
+  # instrument, `scripts/coverage-c8.mjs`, holds a 100% bar over the whole project and is
+  # left BYTE-IDENTICAL by this job: its rule is not weakened, scoped or softened. It is
+  # simply unreachable today, so no workflow calls it and it measures nothing — and a bar
+  # nothing can pass certifies nothing, which is the same no-fake-green instinct that set
+  # it, read the other way round. This job is the reachable form of the same posture: a
+  # floor that is MEASURED (never chosen), ENFORCED (a blocking job), and MONOTONIC (it
+  # may only rise). Both paths stay open; nobody loses the strict one.
+  #
+  # GREEN ON ARRIVAL, AND THAT IS THE POINT. A job that is red forever is a job everyone
+  # learns to ignore — `format-check`'s comment above says the same thing about its own
+  # baseline set, and `peaks-gate.mjs`'s header states the rule for the whole gate family.
+  # The seeded floor is therefore deliberately loose, and the reason is recorded rather
+  # than hidden: it is read from `.peaks/lint/coverage-floor.json`, which carries the
+  # platform the number was measured ON, and it was measured on Windows while this job
+  # enforces on ubuntu. Whoever reads a red run here is reading a platform mismatch, not
+  # a coverage regression, until the first ubuntu measurement exists.
+  #
+  # WHY ubuntu-latest ONLY — AND WHY THAT IS NOT THE `format-check` ARGUMENT. That job is
+  # ubuntu-only because formatting is platform-independent. This one is ubuntu-only for a
+  # COST reason, and it is platform-SENSITIVE: it instruments code with
+  # `process.platform` branches. Three instrumented suites would multiply a ~12-minute
+  # run by the size of the OS matrix, which is the doubling this repository already
+  # declined once for its integration suite. The consequence is stated rather than
+  # papered over — the floor is measured on one platform and enforced on another — and it
+  # is the strongest single reason the seed value is loose. Do not copy the shape of the
+  # job above without this paragraph's reasoning; they are different decisions.
+  #
+  # THE FLOOR IS RAISED BY THE SCRIPT, NEVER TYPED. `node .husky/coverage-ratchet.mjs
+  # --raise` is the only writer, and it refuses to write a value below the floor already
+  # on disk, so the tool cannot lower the bar. Lowering it is a hand edit — deliberately
+  # one visible tracked line, which is the one form a reviewer should interrogate.
+  #
+  # NO `continue-on-error`, NO `|| true`: a step that cannot fail is the defect this job
+  # exists to end, and a green-looking step that measures nothing is worse than no gate at
+  # all. `tests/unit/lint/coverage-ratchet-wiring.test.ts` pins that.
+  coverage-ratchet:
+    name: 'coverage floor (src/** line ratchet, monotonic)'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The HEAD anchor. `readHeadFloor()` in `.husky/coverage-ratchet.mjs` reads the previous
+          # floor with `git show HEAD:…`, and @v4 defaults to depth 1 — so without this the anchor
+          # silently finds nothing to compare against and a hand-lowered floor passes unnoticed,
+          # which is the hole the anchor exists to close. The `test` and `commit-message-red-line`
+          # jobs already pay this; it is the same cost, for the same reason.
+          fetch-depth: 0
+
+      - name: Setup pnpm (corepack)
+        # Same reason as every other job here: pnpm/action-setup's self-installer
+        # fails on the runner's default Node 24.
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.11.0 --activate
+          pnpm --version
+
+      - name: Use Node.js 24.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.x
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        # The unit suite's `globalSetup` requires `packages/*/dist`, so this job needs the
+        # same Build step every other job here has.
+        run: npm run build
+
+      - name: Coverage floor (src/** line ratchet)
+        # ONE step, ONE script. The ratchet measures `src/**`, compares the measured line
+        # percentage against `.peaks/lint/coverage-floor.json`, prints the population it
+        # measured on every run, and fails on a drop. The population expression, the
+        # artifact's shape, the comparison and the raise path all live under
+        # `.husky/coverage*` — nothing about this gate is spelled twice here, so nothing
+        # here can drift from what runs.
+        run: node .husky/coverage-ratchet.mjs

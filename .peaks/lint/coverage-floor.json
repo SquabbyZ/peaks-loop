@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "linesPct": 47.0,
+  "counter": "lines",
+  "population": "src/**",
+  "files": 1243,
+  "measuredPct": 47.98,
+  "measuredOn": "win32",
+  "measuredAt": "2026-10-15",
+  "generatedAt": "2026-10-15T16:54:46.251Z",
+  "command": "node .husky/coverage-ratchet.mjs",
+  "note": "Seeded deliberately loose: measuredPct 47.98 is inherited (c8 method, src-only denominator 185,914 lines) and has NOT been reproduced by this ratchet's own command, whose denominator is 42,397 executable line entries over the same population; measuredAt is date-precision because the source recorded a date, not an instant. files 1243 is MEASURED (the ratchet's own reports, twice) and pins the population by SIZE as well as by name, so a subset report cannot read green. The runner refuses to measure on a host whose unit suite is not green, which is why the seed cannot yet be derived — the first green CI run is the calibration."
+}

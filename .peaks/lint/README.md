@@ -1,8 +1,8 @@
 # `.peaks/lint/` — what these files are, and what their metadata does NOT say
 
-Added 2026-09-25 with `rid-6f1df581`. Written because the two files here carried metadata that was
-**byte-identical to `HEAD` while their contents had changed**, and nothing in the repository explained
-the difference. Their only account lived in a gitignored session handoff, which is the same defect as a
+Added 2026-09-25 with `rid-6f1df581`. Written because the two files that then lived here carried
+metadata that was **byte-identical to `HEAD` while their contents had changed**, and nothing in the
+repository explained the difference. Their only account lived in a gitignored session handoff, which is the same defect as a
 comment the code contradicts.
 
 ## `baseline.json` — the per-file waiver
@@ -50,6 +50,54 @@ A **different artifact** with a different reader. It holds repo-wide ceilings
 (`eslintFindings`, `prettierUnformatted`, `tscErrors`), not per-file waivers. Changing this file changes
 a ceiling; changing `baseline.json` changes which findings are exempt. They are not
 interchangeable and a fix to one is not a fix to the other.
+
+## `coverage-floor.json` — the coverage floor, which points the OTHER way
+
+A third artifact with a third reader, and a direction that is the mirror image of the ratchet above.
+Do not read this file with the reading the one above taught you.
+
+| | `gate-baseline.json` (`ceilings`) | `coverage-floor.json` (`linesPct`) |
+|---|---|---|
+| what it is | a **ceiling** | a **floor** |
+| which way it may move | only **DOWN** | only **UP** |
+| a rise means | a regression — refused | the outcome the gate exists to encourage |
+| **read by** | `.husky/peaks-gate-baseline.mjs` and the monotonic trips | `.husky/coverage-ratchet.mjs` |
+| **written by** | `.husky/peaks-gate-baseline.mjs` | `.husky/coverage-ratchet.mjs --raise` **only** |
+| **population** | the repository's lint scope | `src/**`, pinned by path AND by row count |
+
+**Why it could not be a row in `ceilings`.** The decisive reason is the **direction**:
+`compareCeilings` puts a *rise* into `raised`, and any `raised` row is `ok: false`, so that machinery
+accepts only a fall. A coverage floor may only rise, and the good direction for coverage is precisely
+the change it refuses. A second, weaker reason: `ceilingProblem` requires `Number.isInteger`, so a
+**fractional** percentage cannot live there. (It is *not* true that a percentage cannot live there "at
+all" — `Number.isInteger(47.0)` is `true`, and 47.0 is this artifact's own seed. The direction argument
+stands alone; recorded because the first draft of this section overreached and a review caught it.)
+
+**Read by** `.husky/coverage-ratchet.mjs`, run by the CI job `coverage-ratchet`. It measures `src/**`
+under vitest coverage, prints the population it measured on every run (so "0 files measured" can never
+read as green), and fails when the measured line percentage is below `linesPct`. The boundary is
+**inclusive**: measured equal to the floor holds, because a ratchet set at the value it just wrote must
+not be red on the tree it wrote on. The population is pinned **twice** — every row must be under
+`src/`, *and* the report must account for at least `files` rows — so a report holding a mere subset of
+the source cannot read green at a high percentage.
+
+**Written by** that script's `--raise` mode and nothing else, so the number is measured rather than
+typed. `--raise` records the measurement it just made minus a 0.5 pp margin, and **refuses** to write a
+value below the floor already on disk — the tool cannot lower the bar. Lowering is therefore a hand
+edit, and the script reads HEAD's copy with `git show` and refuses a working copy lower than HEAD's
+unless `--lower-floor` says so explicitly, so that lowering is a **named act** rather than one nobody
+notices.
+
+**Its fields, and which of them a reader may trust.** `linesPct` is the enforced floor and `files` the
+enforced row count. `measuredPct`, `measuredOn` and `measuredAt` are the measurement the floor was
+derived from and the platform it came from, kept beside the floor so the margin is an inspectable fact
+rather than a claim in prose. At the seed, `measuredPct` is **inherited** from another slice's run and
+was not produced by this artifact's own command — the `note` field says so. A percentage here is only
+comparable to another percentage produced by the same measuring expression: the denominator is whatever
+`.husky/coverage-ratchet/report.mjs` declares, so a figure from a different tool is a different
+quantity wearing the same units. The two denominators in play are **185,914** (the c8 method, ~88 % of
+`src`'s physical lines) and **42,397** (this ratchet's executable line entries over the same files);
+they are not interchangeable, and the floor's number is on the second.
 
 ## Two behaviours worth knowing before trusting a run here
 
