@@ -5803,3 +5803,61 @@ Three process defects from §11 **recurred** and are not re-recorded here: the `
 | — | The failure envelope's `message` is the last unsanitised echo (`--project` with a raw ESC reaches stderr in non-JSON mode). Scoped as caller-argv, **not** the untrusted document — the slug collapses everything outside `[A-Za-z0-9_-]`. | `best-practice-scan-command.ts:287` | **Accepted residual.** Fixing it would invalidate the audit bound to the frozen tree (§10.6's termination rule). |
 | — | A zero-fragment scan writes nothing and names `artifactPath: null`, but an **injected recommendation still overwrites a prior SKIPPED refusal** at the primary path. | command refusals | **Intended ordering** (D4.2), recorded so it is not read as a bug. |
 | — | `.peaks/docs/backlog.md` fails `prettier --check` at HEAD too (§10.A), and a `.peaks/**` change trips the full-suite fallback (§10.7) which this host cannot pass (§10.1). This section therefore lands in its own commit. | `.peaks/docs/backlog.md` | **Recorded** — the §10.7 cost, paid knowingly for the third time. |
+
+## 13. Drained from the 2026-10-15/16 session, the last three slices — and the one finding that outranks them (2026-10-16)
+
+Slices s5 (a coverage floor in CI), s6 (README sync) and s7 (a process ruling). All three closed. **§13.1 is the item that matters**; the rest is the remainder of a seven-slice sweep.
+
+**Heading discipline (§9.40 applies here too).** Every disposition is the one actually reached. Nothing is marked closed that was not closed.
+
+### 13.1 The verification scope cannot see the directory that holds standards guards — and it has already let two reds sit at HEAD (found 2026-10-16 by accident; **OPEN, and the strongest item in §13**)
+
+While s6 was being verified, `tests/unit/standards/` was run in full for essentially the first time this session. It is **red at HEAD**: `2 failed | 196 passed (198)`, both in the file-size census machinery, with `728 counted file(s) have no row, but shadow.measuredFiles claims 723` — a `gate-baseline.json` shadow block stale by tracked files. QA confirmed independence by a calibrated probe reading HEAD's tree through `git ls-tree -r HEAD` with no checkout (728 vs 723, matching what the real tests print) and each red reproduces **in isolation**, so it is not an ordering interaction.
+
+**Why this outranks the stales themselves.** Earlier in the same session, s3 shipped a red `tests/unit/standards/gratuitous-async-guard.test.ts` past **the RD's scoped run, four independent reviewers, QA, and `peaks-gate.mjs repo`** — because none of them executes that directory and the repo gate runs **no tests at all**. It was found by luck, from a background coverage job started for an unrelated reason. §13.1 is the same hole seen from the other side: not a regression that slipped through, but **two pre-existing reds that nothing has surfaced**, in the directory whose job is to hold whole-repository standards assertions. A standards guard that no routine run executes is a guard in name only.
+
+**Open question for the user, raised rather than decided:** should `tests/unit/standards/` (and `tests/unit/lint/`) be part of a slice's default verification scope? The evidence says the present scope can certify a tree that a standards guard is failing. This is the process counterpart of §12.5 — *a claim is only as good as the attempt behind it* — with the added sting that here **the process was the claimant**.
+
+### 13.2 Three carrier traps cost a round on every slice, every time (found across 2026-10-15/16; **OPEN — the largest wall-clock cost in this backlog**)
+
+Not one of the three is about a check; all three are about producing and binding a check's artifact. Each recurred on **three or four** slices in a single session:
+
+| Trap | Disposition |
+| --- | --- |
+| **A hand-authored security audit** passes every content marker and fails `rd:qa-handoff` with `declaration-missing` for a file that **exists**. The gate reads a judged declaration the CLI writes from a schema envelope. Cost a round on s4, s3, s5 — three for three. | **OPEN.** Either make the envelope the only production path, or name the unmet declaration rather than the absent path. (Was §11.1.) |
+| **`peaks request init` writes a template nothing fills**, and the next transition refuses on its `<id>` placeholders with `LINT_GATE_FAILED`. Cost a round on s4, s3, s5, s6 — four for four. | **OPEN.** §10.4's class: a carrier reachable only by hand. (Was §11.2.) |
+| **A date-shaped request id collides with the numeric filename prefix.** `getNextNumber` reads a leading year as a file number, so a fresh request directory names its second file `2027-…`; and because `requestIdFromFileName` strips only `/^0\d{2}-/`, the mis-derived rid **blocks the commit**. Fired **six times** this session. | **OPEN.** Renamed by hand every time. Two-line fix, unauthorised all session. (§11.3.) |
+
+**The reusable reading:** the workflow's expensive defects are in its plumbing, not its checks. A gate whose artifact cannot be produced in-order is not enforcing anything — it is charging rent. Worth measuring: across this session's seven slices, these three traps consumed more wall-clock than every code defect the reviews found, combined.
+
+### 13.3 Two gates disagree with the type tables that are supposed to define them (found 2026-10-16; **open**)
+
+- **`docs` requests.** `artifact-prerequisites.ts`'s `MINIMAL_TABLE` gives a `docs` request **no QA requirement** — its only contract is PRD content. But the **pipeline** checker enforces a QA phase for **every** rid regardless of type, so s6 passed every transition gate and was then refused at commit time for a requirement its own type table says does not exist. Two enforcement layers, one table, different answers.
+- **`ceilings` cannot express a floor, and the reason first given was wrong.** s5's design needed a second mechanism because `compareCeilings` puts a *rise* in `raised` ⇒ `ok:false` — the direction is inverted, and that is now verified (`compare.mjs:87→100→109`). The *sub*-reason originally offered ("a percentage cannot live there at all") was falsified: `Number.isInteger(47.0)` is `true`, and 47.0 is the seed. The conclusion survives on direction alone; the overreach is recorded because it is this repository's most-repeated defect class.
+
+Related, and the reason s7's ruling matters: **`scripts/coverage-c8.mjs` demanded 100 % for months and was called by nothing** — a gate that cannot pass measures nothing, exactly as a gate that cannot fail enforces nothing. See §13.4.
+
+### 13.4 s7's ruling: do NOT freeze the gates to "only shrink" (process decision, 2026-10-16; **recorded, no code**)
+
+The slice asked whether the repository should declare that gates may only shrink. **Ruling: no — the frame is wrong.** The inventory is 3 pre-commit legs, 3 pre-push legs, 8 CI jobs and 17 ceiling keys, but this session's evidence is that the problem is gate **quality and plumbing**, not gate **count**. A count-based freeze would have blocked the coverage ratchet — the one gate added all session — while leaving the two genuinely broken gates in place.
+
+**Four rules instead of a freeze:** (1) a new gate must name the defect class it catches that nothing else does; (2) a dead gate must be **removed**, not left red-on-arrival — `coverage-c8.mjs` stayed dead because nothing measured *it*; (3) a gate's threshold must be looser than its metric's observed noise — s5's steady-state margin was found to sit *inside* the only observed movement; (4) **the carrier is part of the gate** (§13.2). Reversible by the user with no code moving.
+
+### 13.5 A "docs" slice is not a harmless slice (found 2026-10-16; **recorded**)
+
+s6 was scoped as a README sync and turned out to be three things. **A real defect**: `sync-readme-version.mjs` is wired into `publish.yml` but the job has `permissions: contents: read` and no commit step, so **the script has never once updated the repo's READMEs** — only the CI runner and the npm tarball. Verified three ways (`git diff v4.1.4 v4.1.5 -- README*` empty, the release commit touches neither file, the prior release hand-edited the badge). **A second divergence** nobody had named: the files disagreed on the test-case count, and `README.md` contradicted itself (`:144` said `285+`, `:181` said `1096`). **And a broken AC**: one of the acceptance criteria could not pass on **any** tree, because it built a `RegExp` from a string containing `process.exit(1)`, so the parentheses became a capture group and the command demanded the literal text `process.exit1`. The RD corrected the AC rather than silently rewriting it, and QA re-derived the diagnosis against pristine HEAD.
+
+The ruling taken: **a repo-facing parity test in `tests/lint/`, not a permissions widening.** Granting a workflow `contents: write` would make drift the robot's problem rather than something the repository can see, and it is the change least appropriate to make unattended.
+
+### 13.A Recorded, not fixed — this session's accepted residues
+
+| # | Item | Where | Disposition |
+| --- | --- | --- | --- |
+| — | **`tests/unit/standards/` is red at HEAD** — 2 tests, a stale census shadow block. A regeneration must absorb **6** tracked files, not 5: QA measured the live index at **729 vs 723** (the new staged test file *is* visible to `git ls-files`, correcting the RD's "untracked ⇒ invisible" mechanism). | `.peaks/lint/gate-baseline.json` shadow block | **Open.** Baseline regeneration is forbidden inside a slice that did not cause the drift. |
+| — | **The coverage floor's seed (47.0) is unmeasured**, and cannot be measured on this host: the runner refuses a non-green suite by design, and the suite is red for the loopback reason. The seed's basis came from a 185,914-line denominator; the gate measures 42,397. | `.peaks/lint/coverage-floor.json` | **Open, bootstrapping limit.** The first green CI run is the calibration. Deliberately **not** hand-lowered (§13.4 rule 3). |
+| — | **A row *count* is not a *population*** — a forged full-row report still reads HELD. Reachable only through the dev-only `--report` flag; CI's no-arg step is pinned as a whole command. | `.husky/coverage-ratchet/` | **Accepted residual.** Cheapest tightening: record the measured denominator beside `files`. |
+| — | **A *committed* floor-lowering still lands green**, because working-copy and `HEAD:` are identical bytes on a clean checkout. | `.husky/coverage-ratchet.mjs` | **Accepted residual** (LOW). |
+| — | **No job in `ci.yml` sets `timeout-minutes`**, so a hung run waits GitHub's **6-hour** default. A file-wide exposure, larger than the slice that surfaced it. | `.github/workflows/ci.yml` | **Recorded for the backlog; not added to s5's diff.** |
+| — | **The READMEs' test-case count (`1096`) is unverified** — inherited from one file's own breakdown, with no run to confirm it. AC6 asserts *agreement only*, deliberately. | `README.md` / `README-en.md` | **Open residual** — the true value needs a full per-package run. |
+| — | **Which README is canonical is unresolved.** A repo comment calls English canonical; the content says Chinese. s6 made English track Chinese because Chinese is current and longer. | `README*.md` | **Recorded as a user decision**, not silently resolved. |
+| — | **Eight commits sit unpushed** (`82c6f384` … `27796c88`), including two backlog commits. `.peaks/**` trips the full-suite fallback (§10.7) and this host's loopback is broken (§10.1), so the push cannot succeed from here. **S1's AC-6 remains open on it.** | local `main` | **Blocked on the host**, not on the work. |
