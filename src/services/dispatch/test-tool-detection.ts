@@ -44,7 +44,7 @@ Read \`package.json#scripts.test\` for the project's framework and use the proje
 
 Any test command MUST be **scoped** to a single file or pattern — a bare \`./node_modules/.bin/vitest run\` is **not permitted** without the explicit opt-in token \`PEAKS_FULL_TEST=1\` (CI / release verification only, never routine slice verification). Nothing inspects the command you run: this is a rule you follow, not a gate that fires.
 
-A suite whose subject is the tree, not one file, is in scope for every slice, whatever the slice changed — it can go red for a change outside its own subtree. This repo's tier is \`tests/unit/standards\` and \`tests/unit/lint\`: add both to a slice's run, once per slice rather than per reviewer pass.
+A suite whose subject is the tree, not one file, is in scope for every slice, whatever the slice changed — it can go red for a change outside its own subtree. This repo's tier is \`tests/unit/standards\`, \`tests/unit/lint\` and the root of \`tests/unit/\` (\`tests/unit/*.test.ts\`): add all three to a slice's run, once per slice rather than per reviewer pass.
 
 Repo-defined \`test\` / \`test:*\` scripts are the human/LLM direct path and are NOT gated by this scope rule (PB-5).`;
 
@@ -53,11 +53,14 @@ Repo-defined \`test\` / \`test:*\` scripts are the human/LLM direct path and are
  * exported constant) so future variants can take a runtime parameter
  * (e.g. projectRoot for context) without churning every call site.
  *
- * The whole-tree tier (2026-10-16) names `tests/unit/standards` and
- * `tests/unit/lint` because a file-scoped run cannot cover a suite whose
- * subject is the tree: the push gate's area rule turns `src/<area>` into
- * `tests/unit/<area>`, and neither suite has an area of its own to be
- * reached through, so a scoped run silently misses the tier.
+ * The whole-tree tier (2026-10-16) names `tests/unit/standards`, `tests/unit/lint`
+ * and the root of `tests/unit/` (`tests/unit/*.test.ts`). A file-scoped run cannot
+ * cover a suite whose subject is the tree: the push gate's area rule turns
+ * `src/<area>` into `tests/unit/<area>`, and no guard directory has an area of its
+ * own to be reached through. That gap is a HAND-run's alone — the classifier's
+ * `subset()` unions the whole tier into every subset verdict, so the gate reaches
+ * the tier on every diff it runs at all. The one diff it does NOT run is gate data
+ * alone whose content did not move: that verdict selects 0 tests, root tier included.
  */
 export function formatTestToolDetection(): string {
   return TEST_TOOL_DETECTION_BLOCK;

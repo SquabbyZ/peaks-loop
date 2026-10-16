@@ -438,12 +438,11 @@ export const BINDING_RULE_TOKENS: readonly string[] = [
 ] as const;
 
 /**
- * The runner-direct-path tokens: the scope requirement, the whole-tree tier by both path names
- * and the PRINCIPLE they are the mechanism for, the two direct paths the block names (`peaks test
- * --json` to introspect; PB-5, the repo-defined `test` / `test:*` scripts that are NOT gated), and
- * the two pieces of quality guidance that must survive any compression — never assume a runner
- * without asking the user as a last resort, and prefer `peaks test <file>` because it resolves the
- * local binary Windows-aware. Asserted IDENTICALLY for every role.
+ * The runner-direct-path tokens: the scope requirement; the whole-tree tier by ALL THREE of its
+ * members (both guard directories and the root selector); the PRINCIPLE they are the mechanism
+ * for; the two direct paths the block names (`peaks test --json` to introspect, PB-5 = the
+ * repo-defined `test` / `test:*` scripts that are NOT gated); and the quality guidance that must
+ * survive compression — never assume a runner without asking; prefer `peaks test <file>`.
  */
 export const TEST_RUNNER_RULE_TOKENS: readonly string[] = [
   '`./node_modules/.bin/vitest run`',
@@ -453,7 +452,8 @@ export const TEST_RUNNER_RULE_TOKENS: readonly string[] = [
   '(Windows-aware)',
   'subject is the tree, not one file, is in scope for every slice',
   '`tests/unit/standards`',
-  '`tests/unit/lint`'
+  '`tests/unit/lint`',
+  '`tests/unit/*.test.ts`'
 ] as const;
 
 /**
