@@ -49,7 +49,9 @@ export type FloorModule = {
 
 export type ReportModule = {
   POPULATION_GLOB: string;
-  MEASURE_ARGS: readonly string[];
+  measureArgs(root: string): readonly string[];
+  /** The discrimination invariant: matches `<prefix>/src/<f>`, not `<prefix>/packages/<p>/src/<f>`. */
+  discriminates(pattern: string, prefix: string): boolean;
   readSummary(
     text: string,
     options: { root: string }

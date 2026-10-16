@@ -161,6 +161,20 @@ describe('Scenario: integration — the HEAD anchor refuses a lowered floor in a
         mkdirSync(join(root, '.peaks', 'lint'), { recursive: true });
         cpSync(join(REPO_ROOT, RATCHET_REL), join(root, RATCHET_REL));
         cpSync(join(REPO_ROOT, MODULES_REL), join(root, MODULES_REL), { recursive: true });
+        // …AND THE ONE PACKAGE THE MODULES IMPORT. `report.mjs` checks its own composed expression
+        // against the real matcher before returning it, which makes `picomatch` the gate's only
+        // non-builtin import — so a temp repository holding just the two `.husky` files would fail to
+        // resolve it and this arm would report a module error instead of the anchor's refusal.
+        // `dereference` because the package is a symlink into the pnpm store, and a copied symlink
+        // would dangle here.
+        cpSync(
+          join(REPO_ROOT, 'node_modules', 'picomatch'),
+          join(root, 'node_modules', 'picomatch'),
+          {
+            recursive: true,
+            dereference: true
+          }
+        );
 
         const asSeeded = JSON.parse(trackedBytes);
         writeFileSync(join(root, FLOOR_REL), `${JSON.stringify(asSeeded, null, 2)}\n`, 'utf8');

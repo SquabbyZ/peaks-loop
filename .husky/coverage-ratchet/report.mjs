@@ -6,7 +6,9 @@
  * ONE SUBJECT, TWO HALVES. The argv below and the reader are the same fact — "what this
  * report is" — kept in one module so the population cannot be spelled twice and drift. The
  * glob is `POPULATION_GLOB`; the floor artifact's own `population` field is VALIDATED against
- * it on every run rather than trusted.
+ * it on every run rather than trusted, and the measuring expression is the same glob ANCHORED
+ * at the repository root (`measureArgs`), so the expression and the reader agree by construction
+ * rather than by coincidence.
  *
  * WHY VITEST AND NOT THE FROZEN `scripts/coverage-c8.mjs`. That script is the strict 100%
  * instrument, it is not to be modified, and this slice does not weaken it — but its exit is
@@ -34,16 +36,17 @@
  * measured" may never share an output with "coverage held".
  */
 
-import { relative, resolve } from 'node:path';
+import { isAbsolute, relative, resolve } from 'node:path';
+import picomatch from 'picomatch';
 
 /**
- * The population glob, and what guarantees it — stated without overclaiming.
+ * The population, as a NAME: the `population` field the floor artifact records, and the directory
+ * the reader below tests each row against.
  *
- * It NO LONGER reads "`dist/**` and `.peaks/**` cannot match it": vitest matches this option with
- * picomatch `{ contains: true }` (`vitest/dist/chunks/coverage.DM_a_rWm.js:662-681`), so a path like
- * `dist/src/x.js` WOULD match. The guarantee is not the expression; it is the reader below, which
- * refuses any row whose path is not under `src/`. The expression and the reader are belt and braces,
- * and only the braces hold on their own.
+ * IT IS NO LONGER THE WHOLE MEASURING EXPRESSION — see `measureArgs`, which anchors it at the
+ * repository root. It stays the bare glob because the tracked artifact and the reader's directory
+ * derivation are both built from this spelling, so there is still exactly one place the population
+ * is written down and no second name to drift away from it.
  */
 export const POPULATION_GLOB = 'src/**';
 
@@ -53,8 +56,45 @@ const REPORTS_DIR = 'coverage';
 /** The report this ratchet reads, repo-relative. */
 export const SUMMARY_PATH = `${REPORTS_DIR}/coverage-summary.json`;
 
+/** A path as `/`-separated, so a Windows-native row and a POSIX one compare the same. */
+const posix = (path) => path.split('\\').join('/');
+
 /**
- * The measuring command's arguments, after the vitest entry.
+ * Every glob metacharacter picomatch would otherwise read as SYNTAX. A root is text from the host and
+ * is not guaranteed to be pattern-safe: `C:/Program Files (x86)/repo` is an ordinary place to clone a
+ * repository, and unescaped the `(x86)` parses as a regex group, so the pattern matches nothing at all
+ * (measured). Escaping is a no-op for a root carrying none of these, which is every root this
+ * repository has been built under.
+ */
+const GLOB_META = /([*?[\]{}()!+@|\\])/g;
+
+/** The placeholder both halves of the probe below are built from. Named once. */
+const PROBE = '__ratchet_probe__';
+
+/**
+ * Whether `pattern` tells the population apart from the leak: it must match `<prefix>/src/<file>` and
+ * must NOT match `<prefix>/packages/<pkg>/src/<file>`.
+ *
+ * WHAT IT CAN AND CANNOT SEE, MEASURED RATHER THAN ASSUMED. Both probes are built from the SAME prefix
+ * the pattern was composed from, so this asks whether the pattern discriminates RELATIVE TO ITS OWN
+ * ROOT — which is trivially true of every absolute root on Windows (41 spellings measured, none
+ * rejected). It fires only when the pattern is WIDER than its own prefix text: an empty prefix (POSIX
+ * root `/`) or a broken escape. It is therefore a redundant early backstop, NOT the guarantee — what
+ * guarantees the population is the reader's `underPopulation` check and the row-count pin, and neither
+ * is this function's.
+ *
+ * `PURE`: two `picomatch` calls, no filesystem, no spawn.
+ */
+export function discriminates(pattern, prefix) {
+  const isMatch = picomatch(pattern, { contains: true });
+  return (
+    isMatch(`${prefix}/src/${PROBE}.ts`) === true &&
+    isMatch(`${prefix}/packages/${PROBE}/src/${PROBE}.ts`) === false
+  );
+}
+
+/**
+ * The measuring command's arguments, after the vitest entry. `root` is the repository root.
  *
  * `--coverage.include` IS THE WHOLE POPULATION EXPRESSION, and it is what puts an UNTESTED
  * file under `src/` in the denominator: vitest 4's v8 provider merges a zero-coverage entry
@@ -64,20 +104,82 @@ export const SUMMARY_PATH = `${REPORTS_DIR}/coverage-summary.json`;
  * vitest 3's `coverage.all`, which no longer exists in vitest 4.1.10 — asserting
  * `coverage.all` here would assert an option the runner ignores.
  *
+ * THE EXPRESSION IS ROOT-ANCHORED, AND THAT IS THE WHOLE OF THE POPULATION FIX. vitest hands this
+ * option to picomatch with `{ contains: true }` (`vitest/dist/chunks/coverage.DM_a_rWm.js:662-681`),
+ * so the pattern matches ANYWHERE in a path rather than only at its start. A bare `src/**` therefore
+ * matched `packages/peaks-loop-internal-runtime/src/x.ts` as well — and rows enter this report by a
+ * second path besides the glob: every EXECUTED script is tested with `isIncluded(fileURLToPath(
+ * result.url))`, so a test that imports a `packages/<pkg>/src` module directly puts that file's
+ * absolute path in the report. Measured on the full unit suite: 19 such rows, 1262 rows in total,
+ * while the floor is recorded over 1243. Anchoring the pattern at the repository root is what makes
+ * it match `<root>/src/**` and nothing else, so the report's total IS the floor's population.
+ *
+ * THE ROOT IS TREATED AS A LITERAL, AND THE EXPRESSION IS ROOT-ANCHORED. This function GUARANTEES
+ * four properties and nothing else: the include it returns is ABSOLUTE; `resolve`-NORMALISED, so `.`,
+ * `..` and a doubled separator cannot survive in it; GLOB-ESCAPED, with the escape applied to the root
+ * BEFORE the `/src/**` suffix is appended, which is what keeps that suffix a globstar; and it BEGINS
+ * WITH THE REPOSITORY ROOT every time.
+ *
+ * WHAT ACTUALLY KEEPS THE POPULATION HONEST, SAID HERE BECAUSE THIS IS WHERE A READER LOOKS: **the
+ * reader below.** `underPopulation` refuses any row outside `src/`, and `unaccountedProblem` refuses a
+ * report accounting for fewer than the recorded rows — on every run, for every report. Everything in
+ * this function exists to make those two checks SUFFICIENT; they are what refuses a wrong or a missing
+ * population, and they are the part that cannot be talked out of it.
+ *
+ * THE PROBE BELOW IS A REDUNDANT EARLY BACKSTOP, and it is described that way on purpose. Six spellings
+ * of a root were hunted one at a time while this was built — relative, a trailing separator, a native
+ * separator, a metacharacter, an unfolded `.`/`..`, and root `/` — each one hidden behind the last fix,
+ * which is a good sign that enumerating is the wrong method. The list is deliberately NOT repeated here;
+ * those spellings are pinned by arms O2 and O3 beside the guard that handles each, and an unlisted
+ * seventh would be caught by the reader rather than by this file. What the probe buys is the one case it
+ * can see — an empty prefix, which composes the bare `/src/**`, i.e. the leak — refused LOUDLY at
+ * composition time instead of by the reader at measurement time. **Deleting it changes no verdict QA
+ * measured; it changes when the refusal prints.**
+ *
+ * ONE NAMED EXCEPTION, AND WHY IT IS NAMED RATHER THAN CLOSED: A CASE-DIFFERING ROOT. `resolve` does not
+ * canonicalise case (`d:/repo` stays `d:/repo`; measured) and picomatch is case-SENSITIVE here, so
+ * `d:/repo/src/**` matches nothing. Every pure fix is a guess or a break: uppercasing the drive letter
+ * guesses the case the candidate will carry and, guessing wrong, produces the silent-empty population
+ * this function exists to prevent; case-folding the root is correct on Windows and WRONG on POSIX, where
+ * two directories really can differ only by case; and a `[dD]` drive class would stop the argument from
+ * literally beginning with the repository root, which AC1(i) pins. `realpathSync` is filesystem I/O in a
+ * module documented as pure. It fails CLOSED like everything else here, and it is latent: the live call
+ * site derives the root from `import.meta.url` and the candidates come from the same machinery.
+ *
  * THERE IS NO `--coverage.exclude`. Vitest 4's `coverageConfigDefaults.exclude` is `[]`, and the
- * population is meant to be a property of the expression rather than a maintained list.
+ * population is meant to be a property of the expression rather than a maintained list. The anchoring
+ * above is what makes that true; an exclude list naming `packages/**` would be a second place the
+ * population is written down.
  */
-export const MEASURE_ARGS = Object.freeze([
-  'run',
-  '--coverage',
-  `--coverage.include=${POPULATION_GLOB}`,
-  '--coverage.reporter=json-summary',
-  '--coverage.reporter=text-summary',
-  `--coverage.reportsDirectory=${REPORTS_DIR}`
-]);
-
-/** A path as `/`-separated, so a Windows-native row and a POSIX one compare the same. */
-const posix = (path) => path.split('\\').join('/');
+export function measureArgs(root) {
+  if (!isAbsolute(root)) {
+    throw new TypeError(
+      `measureArgs needs an absolute root to anchor the population at, and got ${JSON.stringify(root)}. ` +
+        'A relative root yields a pattern that matches paths OUTSIDE <root>/src/ — measured: `.` and ' +
+        '`` both admit packages/*/src/** — so it is refused rather than used.'
+    );
+  }
+  const prefix = posix(resolve(root)).replace(/\/+$/, '');
+  const pattern = `${prefix.replace(GLOB_META, '\\$1')}/${POPULATION_GLOB}`;
+  // The redundant backstop described above: only an empty prefix or a broken escape can fail this, and
+  // it turns that case into a loud failure here instead of a refusal by the reader later.
+  if (!discriminates(pattern, prefix)) {
+    throw new TypeError(
+      `measureArgs composed an include for root ${JSON.stringify(root)} that does not discriminate: ` +
+        `${JSON.stringify(pattern)}. It must match <root>/src/<file> and must NOT match ` +
+        '<root>/packages/<pkg>/src/<file>. An expression that fails either half measures a population ' +
+        'other than src/** — the defect this module was repaired for — so it is refused rather than used.'
+    );
+  }
+  return Object.freeze([
+    'run',
+    '--coverage',
+    `--coverage.include=${pattern}`,
+    '--coverage.reporter=json-summary',
+    '--coverage.reporter=text-summary',
+    `--coverage.reportsDirectory=${REPORTS_DIR}`
+  ]);
+}
 
 /**
  * Whether one report row is inside the population.

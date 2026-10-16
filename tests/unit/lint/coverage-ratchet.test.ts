@@ -30,6 +30,8 @@
 //   - a11y:        the operator-facing sentences and the process exit code
 
 import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import picomatch from 'picomatch';
 import { beforeAll, describe, expect, it } from 'vitest';
 
 import { declareDimensions } from '../_setup/4dim-template.js';
@@ -302,15 +304,158 @@ describe('Scenario: behavior — the report reader is fail-closed', () => {
 });
 
 describe('Scenario: render — the measuring command and the artifact agree on one population', () => {
-  it('O: the measuring command sets coverage.include, which is what puts untested files in', () => {
-    // vitest 4 removed `coverage.all`; the property it gave — an untested file under `src/` is
-    // inside the DENOMINATOR — is now provided by `coverage.include` being set at all
-    // (@vitest/coverage-v8 provider.js: "Include untested files when all tests were run", guarded by
-    // `options.include != null`). Asserting `coverage.all` would assert an option this runner
-    // ignores, so this arm pins the option that actually carries the property.
-    const include = report.MEASURE_ARGS.filter((arg) => arg.startsWith('--coverage.include='));
-    expect(include).toEqual([`--coverage.include=${report.POPULATION_GLOB}`]);
-    expect(report.MEASURE_ARGS.some((arg) => arg.includes('coverage.all'))).toBe(false);
+  /**
+   * The measuring expression, and the predicate vitest itself applies to it.
+   *
+   * `picomatch(pattern, { contains: true })` is exactly how vitest matches `coverage.include`
+   * (`vitest/dist/chunks/coverage.DM_a_rWm.js:662-681`), so an arm built on it is an arm on the
+   * real matcher rather than on a regex that resembles one. The predicate is a local so the
+   * negative control below drives the SAME one over the pre-fix value.
+   */
+  const matches = (pattern: string, target: string): boolean =>
+    picomatch(pattern, { contains: true })(target);
+  const root = REPO_ROOT.split('\\').join('/');
+  /** The `--coverage.include=` argument `measureArgs` composes for a root. */
+  const includeOf = (r: string): string =>
+    report
+      .measureArgs(r)
+      .find((arg) => arg.startsWith('--coverage.include='))
+      ?.slice('--coverage.include='.length) ?? '';
+
+  it('O: the measuring expression is ROOT-ANCHORED, so it cannot match a path outside <root>/src/', () => {
+    // THIS ARM REPLACED ONE THAT ASSERTED THE DEFECT. Its predecessor pinned
+    // `--coverage.include=${POPULATION_GLOB}` — the BARE `src/**` — as a contract. That string is
+    // what let a full unit-suite report carry 19 `packages/*/src/**` rows beside the 1243 under
+    // `src/`, so the first real CI measurement refused on its own reading of the world. The
+    // assertion changed because the thing it named was wrong, not because it was inconvenient.
+    const include = report
+      .measureArgs(REPO_ROOT)
+      .filter((arg) => arg.startsWith('--coverage.include='));
+    expect(include).toHaveLength(1);
+    const expression = include[0]?.slice('--coverage.include='.length) ?? '';
+
+    // (i) anchored at the repository root, POSIX-normalised — and NOT the bare glob.
+    expect(expression).toBe(`${root}/${report.POPULATION_GLOB}`);
+    expect(expression).not.toBe(report.POPULATION_GLOB);
+    // The separator is load-bearing: vitest normalises the CANDIDATE with `slash()` and does not
+    // normalise the PATTERN, so a native-backslash root matches NOTHING — including a real `src/`
+    // file. Measured on both roots; the population would empty rather than widen.
+    expect(expression, 'a backslash would make the pattern match nothing').not.toContain('\\');
+    expect(
+      matches(`${REPO_ROOT}\\${report.POPULATION_GLOB.split('/').join('\\')}`, `${root}/src/a.ts`)
+    ).toBe(false);
+
+    // (ii) it DOES match the population…
+    expect(matches(expression, `${root}/src/cli/cli-envelope.ts`)).toBe(true);
+    // (iii) …and does NOT match the row that reddened CI.
+    expect(
+      matches(expression, `${root}/packages/peaks-loop-internal-runtime/src/dispatch.ts`)
+    ).toBe(false);
+
+    // THE NEGATIVE CONTROL, WHICH IS WHY THIS ARM IS AN ARM. The same predicate on the PRE-FIX
+    // value must report the match that made the report wider than its population: a test asserting
+    // only the fixed behaviour cannot tell "the anchoring works" from "the matcher always says no",
+    // and the matcher always saying no is the empty-population failure this slice also guards.
+    expect(
+      matches(
+        report.POPULATION_GLOB,
+        `${root}/packages/peaks-loop-internal-runtime/src/dispatch.ts`
+      )
+    ).toBe(true);
+
+    // The predecessor's second claim, kept because it carries a different property: vitest 4 removed
+    // `coverage.all`, and what it gave — an untested file under `src/` is inside the DENOMINATOR — is
+    // now provided by `coverage.include` being set at all (@vitest/coverage-v8 provider.js: "Include
+    // untested files when all tests were run", guarded by `options.include != null`). Asserting
+    // `coverage.all` would assert an option this runner ignores.
+    expect(report.measureArgs(REPO_ROOT).some((arg) => arg.includes('coverage.all'))).toBe(false);
+  });
+
+  it('O2: the root is a LITERAL — a relative or oddly-spelled root cannot widen or empty the population', () => {
+    // Arm O only ever passes `REPO_ROOT`, so it pins the one root the call site happens to use and
+    // nothing about the FUNCTION. Each row below fails in one of the two directions this slice is about.
+    for (const bad of ['.', '', 'src', '../..']) {
+      expect(() => report.measureArgs(bad), `root ${JSON.stringify(bad)} must be refused`).toThrow(
+        /absolute root/
+      );
+    }
+
+    // A RELATIVE ROOT WIDENS THE PATTERN BACK: `.` compiles to a regex whose `.` matches any
+    // character, so a `packages/<pkg>/src` row matches `./src/**`.
+    const pkgRow = `${root}/packages/peaks-loop-mut/src/a.ts`;
+    expect(matches('./src/**', pkgRow), "a '.' root must be shown to leak").toBe(true);
+    // The EMPTY root's pattern is the same string POSIX root `/` collapses to. It is shown only as the
+    // reason those roots are REFUSED (arm O3) — never as behaviour a reader should read as intended.
+    expect(
+      report.discriminates(`/${report.POPULATION_GLOB}`, ''),
+      'the empty prefix must fail'
+    ).toBe(false);
+
+    // A TRAILING SEPARATOR EMPTIES IT, and the strip is observed THROUGH `measureArgs`: asserted as a
+    // raw pattern it would stay green with the strip deleted, i.e. documented but unpinned.
+    expect(matches(`${root}//src/**`, `${root}/src/a.ts`)).toBe(false);
+    expect(includeOf(`${root}/`), 'a trailing separator must be normalised away').toBe(
+      includeOf(root)
+    );
+
+    // AN ABSOLUTE-BUT-UNNORMALISED ROOT — the spelling every guard above misses, because a reject-list
+    // of RELATIVE roots cannot see an absolute root that is merely not folded.
+    for (const unnormalised of [`${root}/.`, `${root}/src/..`, `${root}//`]) {
+      expect(includeOf(unnormalised), `${unnormalised} must fold`).toBe(includeOf(root));
+      expect(matches(includeOf(unnormalised), `${root}/src/cli/cli-envelope.ts`)).toBe(true);
+    }
+    expect(matches(`${root}/./src/**`, `${root}/src/cli/cli-envelope.ts`), 'the defect').toBe(
+      false
+    );
+
+    // A CASE-DIFFERING ROOT IS DELIBERATELY NOT ASSERTED, so that closing it later is a change to the
+    // function rather than a test failure; the reasons it is named rather than fixed are in its docstring.
+
+    // A METACHARACTER IN THE ROOT EMPTIES IT TOO, and the escape is what fixes it. The candidate is
+    // built from the same resolution the function uses, because `resolve` rewrites a leading `/` on
+    // Windows — this row is about the ESCAPE, not about `resolve`.
+    const oddRoot = resolve('/opt/peaks (x86)/repo').split('\\').join('/');
+    expect(matches(`${oddRoot}/src/**`, `${oddRoot}/src/a.ts`), 'unescaped (x86)').toBe(false);
+    expect(matches(includeOf(oddRoot), `${oddRoot}/src/a.ts`), 'the escaped root is literal').toBe(
+      true
+    );
+    expect(matches(includeOf(oddRoot), pkgRow), 'and it still anchors').toBe(false);
+  });
+
+  it('O3: the composed include must DISCRIMINATE — the invariant that replaces a list of spellings', () => {
+    // The property, through the same predicate `measureArgs` calls: an include is usable iff it matches
+    // `<root>/src/<file>` and does NOT match `<root>/packages/<pkg>/src/<file>`.
+    const include = includeOf(root);
+    expect(report.discriminates(include, root), 'the real include must discriminate').toBe(true);
+    expect(matches(include, `${root}/packages/peaks-loop-mut/src/a.ts`)).toBe(false);
+
+    // The two expressions that FAIL it: the pre-fix bare glob (the defect), and an empty prefix.
+    expect(
+      report.discriminates(report.POPULATION_GLOB, root),
+      'the bare glob must be rejected'
+    ).toBe(false);
+    expect(report.discriminates(`/${report.POPULATION_GLOB}`, ''), 'an empty prefix').toBe(false);
+
+    // ARM O4 CARRIES ROOT `/` ITSELF, which collapses to that empty prefix on POSIX.
+  });
+
+  it('O4: root `/` is either refused by the backstop, or its include admits no foreign row', () => {
+    // THE ONLY ARM THAT PASSES `/` TO `measureArgs`, and it is here because WITHOUT one the backstop's
+    // CALL SITE IS UNOBSERVED ON EVERY PLATFORM: deleting it left 41 root spellings green on win32, and
+    // no arm passed `/` at all, so it was unobserved on POSIX too. On POSIX the second branch is the one
+    // that fails if the call site is removed — `/` would return the bare `/src/**`, which admits the
+    // leak row. Root `/`'s verdict is platform-dependent; both verdicts are safe.
+    let include: string;
+    try {
+      include = includeOf('/');
+    } catch (err) {
+      expect(String(err), 'a refusal must name the backstop').toMatch(/does not discriminate/);
+      return;
+    }
+    expect(
+      matches(include, `${root}/packages/peaks-loop-mut/src/a.ts`),
+      'an accepted root must still not admit the leak'
+    ).toBe(false);
   });
 
   it('P: the tracked artifact names the SAME population the command measures', () => {

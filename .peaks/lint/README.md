@@ -91,12 +91,23 @@ notices.
 **Its fields, and which of them a reader may trust.** `linesPct` is the enforced floor and `files` the
 enforced row count. `measuredPct`, `measuredOn` and `measuredAt` are the measurement the floor was
 derived from and the platform it came from, kept beside the floor so the margin is an inspectable fact
-rather than a claim in prose. At the seed, `measuredPct` is **inherited** from another slice's run and
-was not produced by this artifact's own command — the `note` field says so. A percentage here is only
+rather than a claim in prose. **Recalibrated 2026-10-16:** `measuredPct` was **inherited** at the seed
+from another slice's run and never reproduced by this artifact's own command, so the floor is now
+`round2(measuredPct − margin)` off a **measured** figure — written by a hand edit plus `--lower-floor`,
+because `--raise` provably cannot lower the bar. That figure is a **`measuredOn: "win32"`** measurement
+applied to a job that enforces on **ubuntu**; the `note` carries that caveat, the size of the
+platform-conditional surface under `src/**` (76 lines across 32 files by
+`git grep -n -E "process\.platform|win32|darwin|IS_WINDOWS|isWindows" -- src`, ≈0.18 pp in the worst
+case), and what to do if CI prints `BREACHED`. The measuring expression is also **root-anchored**
+(`<root>/src/**`, forward-slashed, and with the root escaped as a glob literal): vitest matches
+`coverage.include` with picomatch `{ contains: true }`, so the bare `src/**` used to admit
+`packages/*/src/**` rows for modules the tests imported directly — which is what made this artifact's
+first real measurement refuse. A percentage here is only
 comparable to another percentage produced by the same measuring expression: the denominator is whatever
 `.husky/coverage-ratchet/report.mjs` declares, so a figure from a different tool is a different
 quantity wearing the same units. The two denominators in play are **185,914** (the c8 method, ~88 % of
-`src`'s physical lines) and **42,397** (this ratchet's executable line entries over the same files);
+`src`'s physical lines) and **42,415** (this ratchet's executable line entries over the same files, as
+last measured);
 they are not interchangeable, and the floor's number is on the second.
 
 ## Two behaviours worth knowing before trusting a run here

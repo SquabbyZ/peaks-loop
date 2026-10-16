@@ -62,9 +62,9 @@ import {
   unaccountedProblem
 } from './coverage-ratchet/floor.mjs';
 import {
-  MEASURE_ARGS,
   POPULATION_GLOB,
   SUMMARY_PATH,
+  measureArgs,
   readSummary
 } from './coverage-ratchet/report.mjs';
 
@@ -173,7 +173,7 @@ function measure() {
   console.log(
     `coverage-ratchet: measuring ${POPULATION_GLOB} — the unit suite under coverage, which takes minutes.`
   );
-  const run = spawnSync(process.execPath, [VITEST_BIN, ...MEASURE_ARGS], {
+  const run = spawnSync(process.execPath, [VITEST_BIN, ...measureArgs(ROOT)], {
     cwd: ROOT,
     stdio: 'inherit',
     windowsHide: true
