@@ -427,7 +427,7 @@ describe('Scenario: behavior — the sentence follows the CODE, not just the ref
     const declaredBody = 'export const declared = 1;\n';
     writeFileSync(join(root, 'src', 'a.ts'), declaredBody, 'utf8');
     writeFileSync(join(root, 'src', 'b.ts'), 'export const undeclared = 2;\n', 'utf8');
-    execFileSync('git', ['init', '-q'], { cwd: root });
+    execFileSync('git', ['init', '-q'], { cwd: root, windowsHide: true });
     const { createHash } = await import('node:crypto');
     const payload = {
       schemaVersion: 1,
