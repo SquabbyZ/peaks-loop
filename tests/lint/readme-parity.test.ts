@@ -182,8 +182,16 @@ describe('(integration) — the retired version and number surfaces stay retired
   });
 
   it('should still fire on an injected fixture (an absence a dead detector reports proves nothing)', () => {
-    const zhFixture = ['| **最新版本** | x — 4.1.5(2026-10-14) |', '## 当前状态 · 4.1.5', '1096 test cases'].join('\n');
-    const enFixture = ['| **Latest** | x — 4.1.5 (2026-10-14) |', '## Status · shipping 4.1.5', '1096 cases'].join('\n');
+    const zhFixture = [
+      '| **最新版本** | x — 4.1.5(2026-10-14) |',
+      '## 当前状态 · 4.1.5',
+      '1096 test cases'
+    ].join('\n');
+    const enFixture = [
+      '| **Latest** | x — 4.1.5 (2026-10-14) |',
+      '## Status · shipping 4.1.5',
+      '1096 cases'
+    ].join('\n');
 
     expect(tableRow(zhFixture, '最新版本')).not.toBe('');
     expect(tableRow(enFixture, 'Latest')).not.toBe('');
