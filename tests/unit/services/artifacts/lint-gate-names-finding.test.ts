@@ -62,6 +62,18 @@ declareDimensions(
 
 const SESSION_ID = '2026-10-16-lint-gate-naming';
 const RID = '2026-10-16-lint-gate-probe';
+/**
+ * `request init` resolves a CALLER id before it writes: flag, then
+ * `PEAKS_CALLER_ID`, then the active IDE adapter. With none of the three the
+ * adapter throws `PEAKS_CALLER_NOT_RESOLVED`, the action prints
+ * `CALLER_ID_INVALID` and returns **without writing anything** — no throw, so a
+ * caller that does not read `io` sees a silent no-op. Pinning the flag is what
+ * makes this file hermetic: it ran green on a developer host purely because the
+ * ambient harness exports `CLAUDE_CODE_SESSION_ID`, and red in CI where nothing
+ * does. Same rule, same reason, as
+ * `tests/unit/cli/commands/request-init-session-resolution.test.ts`.
+ */
+const CALLER_ID = 'lint-gate-test-caller';
 
 type LintFinding = { line: number; text: string; reason: string };
 
@@ -112,6 +124,8 @@ async function initPrdArtifact(): Promise<string> {
     '--session-id',
     SESSION_ID,
     '--apply',
+    '--caller-id',
+    CALLER_ID,
     '--json'
   ]);
   return root;

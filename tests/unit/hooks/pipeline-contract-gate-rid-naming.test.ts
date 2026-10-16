@@ -82,6 +82,18 @@ const { requestIdFromFileName: deriveId } = await legModule.loadPeaks();
 
 const SESSION = '2026-10-16-rid-naming';
 const NEW_RID = '2026-10-16-artifact-carrier-traps';
+/**
+ * `request init` resolves a CALLER id before it writes: flag, then
+ * `PEAKS_CALLER_ID`, then the active IDE adapter. With none of the three the
+ * adapter throws `PEAKS_CALLER_NOT_RESOLVED`, the action prints
+ * `CALLER_ID_INVALID` and returns **without writing anything** — no throw, so a
+ * caller that does not read `io` sees a silent no-op. Pinning the flag is what
+ * makes this file hermetic: it ran green on a developer host purely because the
+ * ambient harness exports `CLAUDE_CODE_SESSION_ID`, and red in CI where nothing
+ * does. Same rule, same reason, as
+ * `tests/unit/cli/commands/request-init-session-resolution.test.ts`.
+ */
+const CALLER_ID = 'rid-naming-test-caller';
 
 /** The shape this session's own `rd/requests` holds: nothing but date-shaped names. */
 const DATE_SHAPED = [
@@ -142,6 +154,8 @@ async function initRequest(root: string, rid: string): Promise<void> {
       '--session-id',
       SESSION,
       '--apply',
+      '--caller-id',
+      CALLER_ID,
       '--json'
     ],
     { from: 'user' }
