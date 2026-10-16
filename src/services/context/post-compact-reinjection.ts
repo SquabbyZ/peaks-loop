@@ -112,7 +112,7 @@ export const POST_COMPACT_REINJECTION_BYTE_BUDGET = 3072;
  */
 export const AGENT_RUNTIME_RULES: ReadonlyArray<string> = Object.freeze([
   'CLI: run `node --import tsx src/cli/index.ts <cmd>`, never `pnpm exec tsx` — on Windows the latter truncates any argument at its first newline.',
-  'Test scope: one file or pattern per run; the full suite requires PEAKS_FULL_TEST=1.',
+  'Test scope: one file or pattern per run; the full suite requires PEAKS_FULL_TEST=1; a slice also runs the whole-tree tier tests/unit/standards + tests/unit/lint.',
   "Exit codes: never read a test result through a pipe (`| tail` reports tail's status); read ${PIPESTATUS[0]}.",
   'Never write `.claude/settings.local.json` from a slice — reproduce against a temp project copy via `--project <tmpdir>`.',
   'Git: commit / push policy is per-dispatch and is NOT inherited from this card — re-read the dispatch record before any state-mutating git command.',

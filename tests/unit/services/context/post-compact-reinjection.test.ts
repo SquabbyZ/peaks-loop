@@ -175,6 +175,15 @@ describe('behavior — post-compact re-injection card stays inside its budget', 
     expect(joined).toContain('PIPESTATUS');
     expect(joined).toContain('settings.local.json');
     expect(joined).toContain('dispatch record');
+    // the whole-tree tier: a compaction that drops this loses the one rule a file-scoped run
+    // cannot obey by construction, which is why the entry names the directories and not a tier
+    expect(joined, 'the test-scope rule must name the tier').toContain('tests/unit/standards');
+    expect(joined, 'the test-scope rule must name the lint guard directory').toContain(
+      'tests/unit/lint'
+    );
+    expect(byteLength(joined), 'the rules block must keep room in the card budget').toBeLessThan(
+      POST_COMPACT_REINJECTION_BYTE_BUDGET
+    );
     for (const rule of AGENT_RUNTIME_RULES) {
       expect(rule).not.toContain('\n');
     }

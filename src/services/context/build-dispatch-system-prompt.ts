@@ -434,26 +434,26 @@ export const BINDING_RULE_TOKENS: readonly string[] = [
   'do NOT invoke `npx <runner>`',
   '## Test Scope (mandatory)',
   'PEAKS_FULL_TEST=1',
-  'refused'
+  'not permitted'
 ] as const;
 
 /**
- * The runner-direct-path tokens: the refusal example, the two direct paths
- * the block names (`peaks test --json` to introspect; PB-5, the repo-defined
- * `test` / `test:*` scripts that are NOT gated), and the two pieces of
- * quality guidance that must survive any compression — never assume a
- * runner without asking the user as a last resort, and prefer
- * `peaks test <file>` because it resolves the local binary Windows-aware.
- *
- * so this set is asserted IDENTICALLY for every role. The runner EXAMPLES
- * were removed as part of the unification — they were never rules.
+ * The runner-direct-path tokens: the scope requirement, the whole-tree tier by both path names
+ * and the PRINCIPLE they are the mechanism for, the two direct paths the block names (`peaks test
+ * --json` to introspect; PB-5, the repo-defined `test` / `test:*` scripts that are NOT gated), and
+ * the two pieces of quality guidance that must survive any compression — never assume a runner
+ * without asking the user as a last resort, and prefer `peaks test <file>` because it resolves the
+ * local binary Windows-aware. Asserted IDENTICALLY for every role.
  */
 export const TEST_RUNNER_RULE_TOKENS: readonly string[] = [
   '`./node_modules/.bin/vitest run`',
   'PB-5',
   '`peaks test --json`',
   'ask the user before assuming a runner',
-  '(Windows-aware)'
+  '(Windows-aware)',
+  'subject is the tree, not one file, is in scope for every slice',
+  '`tests/unit/standards`',
+  '`tests/unit/lint`'
 ] as const;
 
 /**

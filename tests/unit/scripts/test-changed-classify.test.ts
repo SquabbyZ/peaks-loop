@@ -6,12 +6,10 @@
  * and the classification lives in `scripts/test-changed-classify.mjs` because the runner runs
  * its whole flow at import, so no arm could read a rule out of it.
  *
- * WHAT THIS FILE EXISTS TO KEEP TRUE — the repair's blocking defect. Population guards used
- * to be unioned into the MAPPING, which made `picked.size > 0` for any A/D/R/C and killed the
- * unmapped→full-suite backstop: `A README.md`, `A .github/workflows/x.yml`, `A .husky/<hook>`
- * and `D docs/old.md` each selected 13 guard files instead of the whole suite, while five test
- * files read `.github/`. The `unmapped` arms below are that table, as arms; the backstop plant
- * proves they can go red.
+ * WHAT THIS FILE EXISTS TO KEEP TRUE — two structural rules. (1) The guard tier is an ADDITION to
+ * a mapping: while it fed the mapping, `A README.md` and `A .github/**` selected 13 guard files
+ * instead of the whole suite, so the `unmapped` arms below hold the backstop. (2) The tier rides
+ * EVERY subset verdict — see the two arms that used to assert its exclusion, and its own plant.
  *
  * The module is loaded through `pathToFileURL` + a local type, the idiom
  * `tests/unit/scripts/test-changed-git-env.test.ts` uses for its sibling `scripts/*.mjs` (they
@@ -167,14 +165,14 @@ describe('Scenario: behavior — a diff that reaches no mapping runs the whole s
   it('when a content-only diff reaches a mapped area, should still be a subset', async () => {
     // given: the §0 control shape, which must not regress into the guard-subset defect either
     // when:  the classifier classifies it
-    // then:  the area mapping is the answer and the whole-tree guards stay out
+    // then:  the area mapping is the answer AND the whole-tree guards ride with it, unconditionally
     const mod = await loadModule();
     const plan = mod.classifyChanged([MAPPED_CONTENT_ONLY]);
 
     expect(plan.mode).toBe('subset');
     expect(plan.code).toBe('subset');
     expect(plan.paths).toContain('tests/unit/services');
-    expect(plan.paths).not.toContain(mod.STANDARDS_GUARD_PATH);
+    expect(plan.paths).toContain(mod.STANDARDS_GUARD_PATH);
   });
 });
 
@@ -201,14 +199,15 @@ describe('Scenario: behavior — the population guards are added to a mapping', 
     }
   );
 
-  it('when the diff only changes file contents, should leave the population guards out', async () => {
-    // given: a content-only change (M) to a gated file — the cheap path the gate protects
+  it('when the diff only changes file contents, should still run the population guards', async () => {
+    // given: a content-only change (M) to a gated file — the shape that used to skip the guards
     // when:  the classifier classifies it
-    // then:  the area subset runs and the whole-tree guards do NOT
+    // then:  the area subset runs AND the whole-tree guards run with it — see GATE_GUARD_SUITES
     const mod = await loadModule();
     const plan = mod.classifyChanged([MAPPED_CONTENT_ONLY]);
 
-    expect(plan.paths).not.toContain(mod.STANDARDS_GUARD_PATH);
+    expect(plan.paths).toContain(mod.STANDARDS_GUARD_PATH);
+    expect(plan.paths).toContain(mod.LINT_GUARD_PATH);
     expect(plan.paths).toContain('tests/unit/services');
   });
 
@@ -277,15 +276,15 @@ describe('Scenario: behavior — the population guards are added to a mapping', 
   it('when the file that defines the population changes, should run the population guards', async () => {
     // given: R3's shape — an M-status edit to the file that DEFINES the censused population
     // when:  the classifier classifies it
-    // then:  the population guards run, and only that suite is added (R3 is not R1)
+    // then:  the guards run; R3 is told apart from R1 by its own reason line, not the lint path
     const mod = await loadModule();
     const plan = mod.classifyChanged([{ status: 'M', path: mod.CENSUS_POLICY_REL }]);
 
     expect(plan.mode).toBe('subset');
     expect(plan.code).toBe('subset');
     expect(plan.paths).toContain(mod.STANDARDS_GUARD_PATH);
-    expect(plan.paths, 'R3 adds the population guards only — it is not R1').not.toContain(
-      mod.LINT_GUARD_PATH
+    expect(plan.reasons.join(' '), 'R3 must be the rule that fired, and say so itself').toMatch(
+      /DEFINES the censused population/
     );
   });
 });
@@ -322,7 +321,8 @@ describe('Scenario: behavior — one path, two statuses, one order-independent a
   it('when every occurrence of a path is M, should keep it a content change', async () => {
     // given: the inverse of the union rule — nothing in the diff changes the file set
     // when:  mergeEntries and the classifier read it
-    // then:  the status stays content-only, so the guards are not selected
+    // then:  the status stays content-only, so R2 does not fire. The guard tier still runs, so the
+    //        path list can no longer witness R2 at all — the reason line is what must stay absent
     const mod = await loadModule();
     const merged = mod.mergeEntries([
       { status: 'M', path: TWO_STATUS },
@@ -330,8 +330,9 @@ describe('Scenario: behavior — one path, two statuses, one order-independent a
     ]);
 
     expect(merged).toEqual([{ status: 'M', path: TWO_STATUS }]);
-    expect(mod.classifyChanged([{ status: 'M', path: TWO_STATUS }]).paths).not.toContain(
-      mod.STANDARDS_GUARD_PATH
+    const plan = mod.classifyChanged([{ status: 'M', path: TWO_STATUS }]);
+    expect(plan.reasons.join(' '), 'an all-M diff is not a file-set change').not.toMatch(
+      /file set changed/
     );
   });
 
@@ -554,64 +555,63 @@ describe('Scenario: integration — the rules are bound to the tree they classif
     );
   });
 
-  it('when the baseline rule is planted away, should stop selecting the gate guard suites', async () => {
+  it('when the baseline rule is planted away, should stop saying the artifact moved', async () => {
     // given: R1's guard removed from a copy of the module
     // when:  a content-moved baseline diff is classified by the planted copy
-    // then:  the guard suites are gone — the negation of the R1 arm, which is why it can fail
+    // then:  R1's reason is gone: the path list cannot witness R1 now, only the reason line can
     const real = await loadModule();
-    expect(
-      real.classifyChanged([{ status: 'M', path: real.BASELINE_REL }]).paths,
-      'control'
-    ).toEqual([...real.GATE_GUARD_SUITES]);
+    const moved = real.classifyChanged([{ status: 'M', path: real.BASELINE_REL }]);
+    expect(moved.paths, 'control: the tier rides this subset').toEqual([...real.GATE_GUARD_SUITES]);
+    expect(moved.reasons.join(' '), 'control: R1 names why').toMatch(/the suites that guard it/);
 
     const planted = await loadPlanted(R1_ANCHOR);
     const plan = planted.classifyChanged([{ status: 'M', path: planted.BASELINE_REL }]);
 
-    expect(plan.paths, 'without R1 nothing reaches the artifact guard suites').toEqual([]);
+    expect(plan.reasons.join(' '), 'R1 planted away').not.toMatch(/the suites that guard it/);
   });
 
-  it('when the file-set rule is planted away, should stop selecting the population guards', async () => {
+  it('when the file-set rule is planted away, should stop saying the file set changed', async () => {
     // given: R2's guard removed from a copy of the module
     // when:  an added-file diff is classified by the planted copy
-    // then:  the guards are gone — the negation of the AC1/AC2 arms
+    // then:  R2's reason is gone. The area subset still runs — the mapping is untouched — and the
+    //        tier still rides it, because `subset()` adds it unconditionally: as with R1, the
+    //        reason line is the witness the plant can still redden
+    const added = { status: 'A', path: 'src/services/distribution/added-runner.ts' };
     const real = await loadModule();
-    expect(
-      real.classifyChanged([{ status: 'A', path: 'src/services/distribution/added-runner.ts' }])
-        .paths,
-      'control'
-    ).toContain(real.STANDARDS_GUARD_PATH);
+    const control = real.classifyChanged([added]);
+    expect(control.paths, 'control: the area subset').toContain('tests/unit/services');
+    expect(control.reasons.join(' '), 'control: R2 names it').toMatch(/file set changed/);
 
     const planted = await loadPlanted(R2_ANCHOR);
-    const plan = planted.classifyChanged([
-      { status: 'A', path: 'src/services/distribution/added-runner.ts' }
-    ]);
+    const plan = planted.classifyChanged([added]);
 
-    expect(plan.paths).not.toContain(planted.STANDARDS_GUARD_PATH);
+    expect(plan.reasons.join(' '), 'R2 planted away').not.toMatch(/file set changed/);
     expect(plan.paths).toContain('tests/unit/services');
   });
 
-  it('when the census-policy rule is planted away, should stop selecting the population guards', async () => {
+  it('when the census-policy rule is planted away, should stop naming the population', async () => {
     // given: R3's guard removed from a copy of the module
     // when:  an M-only diff to the policy file is classified by the planted copy
-    // then:  only the area subset remains — the negation of the R3 arm
+    // then:  R3's reason is gone — the re-point R1/R2 needed too: the tier rides every subset
     const real = await loadModule();
-    expect(
-      real.classifyChanged([{ status: 'M', path: real.CENSUS_POLICY_REL }]).paths,
-      'control'
-    ).toContain(real.STANDARDS_GUARD_PATH);
+    const moved = real.classifyChanged([{ status: 'M', path: real.CENSUS_POLICY_REL }]);
+    expect(moved.reasons.join(' '), 'control: R3 names it').toMatch(
+      /DEFINES the censused population/
+    );
 
     const planted = await loadPlanted(R3_ANCHOR);
     const plan = planted.classifyChanged([{ status: 'M', path: planted.CENSUS_POLICY_REL }]);
 
-    expect(plan.paths).not.toContain(planted.STANDARDS_GUARD_PATH);
-    expect(plan.paths).toContain('tests/unit/services');
+    expect(plan.reasons.join(' '), 'R3 planted away').not.toMatch(
+      /DEFINES the censused population/
+    );
   });
 
   it('when the guards feed the mapping again, should show the backstop arms can go red', async () => {
     // given: the pre-repair structure planted back — the guards participate in the net
     // when:  a §0 row is classified by the planted copy
-    // then:  the whole suite is replaced by the guard list, i.e. the §0 defect reproduces and
-    //        every `unmapped` arm above is falsifiable rather than vacuous
+    // then:  the whole suite is replaced by the guard subset — the §0 defect reproduces, so every
+    //        `unmapped` arm above is falsifiable. Membership: the tier is unconditional now
     const real = await loadModule();
     expect(real.classifyChanged([{ status: 'A', path: 'README.md' }]).mode, 'control').toBe('full');
 
@@ -624,7 +624,7 @@ describe('Scenario: integration — the rules are bound to the tree they classif
     expect(plan.mode, 'with the guards in the net an unmapped diff is no longer full').toBe(
       'subset'
     );
-    expect(plan.paths).toEqual([planted.STANDARDS_GUARD_PATH]);
+    expect(plan.paths).toContain(planted.STANDARDS_GUARD_PATH);
   });
 });
 

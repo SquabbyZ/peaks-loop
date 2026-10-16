@@ -33,6 +33,7 @@ import {
   STUB_VITEST_MARKER,
   buildGateFixture,
   disposeFixtureScratch,
+  loadClassifyModule,
   runGate,
   type GateFixture,
   type GateRun
@@ -109,6 +110,31 @@ describe('Scenario: integration — a non-ASCII path end to end, through the gat
       );
       expect(stderr).toContain('verdict: subset');
       expect(stderr, 'the area suite, handed to vitest').toContain(
+        `${STUB_VITEST_MARKER} run tests/unit/services`
+      );
+    },
+    SUBPROCESS_TEST_TIMEOUT_MS
+  );
+
+  it(
+    'when a mapped file changed in content only, should hand the tier over as well as the area',
+    async () => {
+      // given: the fixture's single `M`, in a mapped area, with no file-set change at all — the
+      //        shape of a slice that only edits existing files
+      // when:  the gate's own runner selects what to run
+      // then:  both whole-tree guard directories survive the runner's existence filter and reach
+      //        the suite process: the tier rides every subset, so the suites whose subject is the
+      //        tree are run even though nothing in the diff names them
+      const { status, stderr } = await narration();
+
+      expect(status, stderr).toBe(0);
+      const mod = await loadClassifyModule();
+      for (const suite of mod.GATE_GUARD_SUITES) {
+        expect(stderr, `${suite} must be picked rather than filtered out`).toContain(
+          `  * ${suite}`
+        );
+      }
+      expect(stderr, 'the area suite is still handed over too').toContain(
         `${STUB_VITEST_MARKER} run tests/unit/services`
       );
     },

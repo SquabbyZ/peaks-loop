@@ -76,6 +76,7 @@ export type Plan = {
 };
 
 export type ClassifyModule = {
+  GATE_GUARD_SUITES: readonly string[];
   STANDARDS_GUARD_PATH: string;
   classifyChanged(entries: readonly Entry[], options?: { baselineContentMoved?: boolean }): Plan;
   parseNameStatus(stdout: string): ParsedEntry[];
@@ -341,6 +342,12 @@ export async function buildGateFixture(plantHeadCallSites = false): Promise<Gate
   mkdirSync(join(repo.path, 'node_modules', 'vitest'), { recursive: true });
   writeFileSync(join(repo.path, 'node_modules', 'vitest', 'vitest.mjs'), STUB_VITEST, 'utf8');
   mkdirSync(dirname(join(repo.path, NON_ASCII_REL)), { recursive: true });
+  // The whole-tree tier, on disk, so the runner's own existence filter keeps it: the classifier
+  // selects both directories for every subset verdict, and a candidate path that is not there is
+  // dropped before vitest is spawned. Named from the module, so a rename cannot desync the two.
+  const classify = await loadClassifyModule();
+  for (const suite of classify.GATE_GUARD_SUITES)
+    mkdirSync(join(repo.path, suite), { recursive: true });
   mkdirSync(join(repo.path, 'tests', 'unit', 'services'), { recursive: true });
   writeFileSync(join(repo.path, NON_ASCII_REL), 'before\n', 'utf8');
   writeFileSync(join(repo.path, 'tests/unit/services/x.test.ts'), 'export {};\n', 'utf8');

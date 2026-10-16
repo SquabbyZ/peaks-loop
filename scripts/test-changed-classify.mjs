@@ -14,15 +14,14 @@
  * `parseNameStatus`, which lives here for the same reason: "a rename names two paths" is a
  * rule, and a rule that lives inside a runner that runs at import has no arm.
  *
- * THE REQUIRED STRUCTURE: the population guards are an ADDITION to a mapping, never a
- * substitute for the unmapped→full-suite backstop. While they fed the mapping, `A README.md`
- * and `A .github/**` — diffs that reach no `src/<area>` and no test file — selected 13 guard
- * files instead of the whole suite, and five test files read `.github/`. A false green of
- * exactly the class this classifier exists to close.
+ * THE REQUIRED STRUCTURE: the guard tier is an ADDITION to a mapping, never a substitute for the
+ * unmapped→full-suite backstop — and it is UNCONDITIONAL: `subset()` puts both guard suites into
+ * EVERY subset verdict, so a diff that only edits existing files reaches them. While the guards fed
+ * the mapping, `A README.md` and `A .github/**` selected 13 guard files instead of the whole suite
+ * — the false-green class this classifier exists to close (rid 2026-10-10-gate-classifier-backstop-repair).
  *
- * The three non-obvious rules (R1 the artifact's guard suites, R2 a file-SET change, R3 the
- * file that DEFINES the census population) are documented at the constants each is keyed to,
- * so the reason and the value cannot drift apart (rid 2026-10-10-gate-classifier-backstop-repair).
+ * The rules keyed to a constant (R1 the artifact's suites, R2 a file-SET change, R3 the census
+ * population's definer) are the REASONS the tier matters here, not the selector of it.
  */
 
 /**
@@ -68,16 +67,17 @@ export const CENSUS_POLICY_REL = 'src/services/scan/file-size-policy.ts';
  */
 export const FULL_FALLBACK_EXEMPT = Object.freeze([BASELINE_REL]);
 
-/** The whole-tree population guards R2 and R3 reach. */
+/** The whole-tree population guards: R2/R3 reach them, and `subset()` adds them to every subset. */
 export const STANDARDS_GUARD_PATH = 'tests/unit/standards/';
 
 /** The gate-artifact guard suite beside it — R1's second member. */
 export const LINT_GUARD_PATH = 'tests/unit/lint/';
 
 /**
- * R1's reader set, as a BOUNDARY: these are the suites that guard the gate artifact. A new
- * guard suite living anywhere else must be added HERE, or it silently stops running for the
- * diffs that can break it. The arms pin this list's membership and assert each entry exists.
+ * THE WHOLE-TREE GUARD TIER — the ONE list `subset()` unions into every subset verdict. Their
+ * subject is the repository TREE: the area rule above maps `src/<area>` to `tests/unit/<area>`, so
+ * neither suite can be reached through an area of its own. A tree-subject guard suite living
+ * anywhere else belongs HERE, or it silently stops running for the diffs that can break it.
  */
 export const GATE_GUARD_SUITES = Object.freeze([STANDARDS_GUARD_PATH, LINT_GUARD_PATH]);
 
@@ -104,9 +104,9 @@ function full(code, reasons) {
   return { mode: 'full', paths: [], code, reasons };
 }
 
-/** A `subset` verdict. */
+/** A `subset` verdict — with the whole-tree guard tier unioned in, whatever selected the subset. */
 function subset(paths, code, reasons) {
-  return { mode: 'subset', paths, code, reasons };
+  return { mode: 'subset', paths: [...new Set([...paths, ...GATE_GUARD_SUITES])], code, reasons };
 }
 
 /** git's status letter, upper-cased; `''` when the entry carries no readable letter. */
@@ -239,9 +239,9 @@ export function classifyChanged(diffEntries = [], options = {}) {
   const guards = populationGuards(entries, baselineContentMoved, reasons);
 
   // THE NET IS DECIDED ON THE MAPPING ALONE. The population guards are unioned in below
-  // (`[...mapped, ...guards]`), never here — while they fed `mapped`, any A/D/R/C (or any
-  // diff touching the baseline) made this branch unreachable and `A README.md` selected 13
-  // guard files instead of the whole suite.
+  // (`[...mapped, ...guards]`) and `subset()` adds the whole-tree tier on top of that, never here:
+  // while the guards fed `mapped`, any A/D/R/C (or any diff touching the baseline) made this branch
+  // unreachable and `A README.md` selected 13 guard files instead of the whole suite.
   if (mapped.size === 0) {
     if (!entries.every((entry) => FULL_FALLBACK_EXEMPT.includes(entry.path))) {
       return full('unmapped', [
@@ -313,7 +313,7 @@ function pickSrcAreas(entries, picked, reasons) {
   }
 }
 
-/** R1 + R2 + R3 — the three rules that reach guards no `src/<area>` mapping reaches. */
+/** R1 + R2 + R3 — why the tier matters on this diff; `subset()` is what always selects it. */
 function populationGuards(entries, baselineContentMoved, reasons) {
   const guards = new Set();
 

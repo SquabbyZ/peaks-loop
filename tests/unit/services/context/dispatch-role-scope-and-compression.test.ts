@@ -162,6 +162,50 @@ describe('Scenario: behavior — rule-presence set is unchanged for every role (
   });
 });
 
+describe('Scenario: behavior — the whole-tree tier is named in the scope block', () => {
+  const TIER_PATHS = ['`tests/unit/standards`', '`tests/unit/lint`'] as const;
+
+  it('when a prompt is composed, should name both whole-tree guard directories', () => {
+    // given: the block every role receives, and the two directories a file-scoped run cannot reach
+    //       (their subject is the tree: the area rule maps `src/<area>` to `tests/unit/<area>`)
+    // when:  each path is looked for in the composed prompt
+    // then:  both are there for EVERY role — a tier only some roles are told about is not a rule
+    for (const role of ROLES) {
+      const out = promptFor(role);
+      for (const path of TIER_PATHS) {
+        expect(out, `${role} must be told about ${path}`).toContain(path);
+      }
+    }
+  });
+
+  it('when a tier path is dropped from the block, should show that arm can go red', () => {
+    // given: the control a presence arm needs — the block with one tier path taken out
+    // when:  the same lookup runs against the damaged text
+    // then:  the predicate reports the token missing, so the arm above is a guard rather than a
+    //        restatement of a constant that could drift away from the block
+    for (const path of TIER_PATHS) {
+      const damaged = TEST_TOOL_DETECTION_BLOCK.replace(path, '');
+      expect(damaged, 'the control must really damage the block').not.toBe(
+        TEST_TOOL_DETECTION_BLOCK
+      );
+      expect(missingRuleTokens(damaged, [path])).toEqual([path]);
+    }
+  });
+
+  it('when a prompt is composed, should pin the principle the tier is the mechanism for', () => {
+    // given: the tier is a finite list, and the PRINCIPLE is the maintenance rule for the list
+    // when:  the pinned token set is checked against a composed prompt
+    // then:  the principle is a pinned token, and no role is missing any of the pinned tokens —
+    //        including the three this tier added
+    expect(TEST_RUNNER_RULE_TOKENS).toContain(
+      'subject is the tree, not one file, is in scope for every slice'
+    );
+    for (const role of ROLES) {
+      expect(missingRuleTokens(promptFor(role), TEST_RUNNER_RULE_TOKENS)).toEqual([]);
+    }
+  });
+});
+
 describe('Scenario: render — section order stays stable', () => {
   it('when a prompt is composed, should order test-tool → L1 → lifecycle → report-cap → fact-gate → context → task', () => {
     // given: a dispatch with a probe and no memory

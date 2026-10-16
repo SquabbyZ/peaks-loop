@@ -42,7 +42,9 @@ Read \`package.json#scripts.test\` for the project's framework and use the proje
 
 ## Test Scope (mandatory)
 
-Any test command MUST be **scoped** to a single file or pattern; a bare \`./node_modules/.bin/vitest run\` is **refused** unless you prefix the explicit opt-in token \`PEAKS_FULL_TEST=1\` (CI / release verification only, never routine slice verification).
+Any test command MUST be **scoped** to a single file or pattern — a bare \`./node_modules/.bin/vitest run\` is **not permitted** without the explicit opt-in token \`PEAKS_FULL_TEST=1\` (CI / release verification only, never routine slice verification). Nothing inspects the command you run: this is a rule you follow, not a gate that fires.
+
+A suite whose subject is the tree, not one file, is in scope for every slice, whatever the slice changed — it can go red for a change outside its own subtree. This repo's tier is \`tests/unit/standards\` and \`tests/unit/lint\`: add both to a slice's run, once per slice rather than per reviewer pass.
 
 Repo-defined \`test\` / \`test:*\` scripts are the human/LLM direct path and are NOT gated by this scope rule (PB-5).`;
 
@@ -50,6 +52,12 @@ Repo-defined \`test\` / \`test:*\` scripts are the human/LLM direct path and are
  * Pure helper that returns the block. Exists as a function (not just an
  * exported constant) so future variants can take a runtime parameter
  * (e.g. projectRoot for context) without churning every call site.
+ *
+ * The whole-tree tier (2026-10-16) names `tests/unit/standards` and
+ * `tests/unit/lint` because a file-scoped run cannot cover a suite whose
+ * subject is the tree: the push gate's area rule turns `src/<area>` into
+ * `tests/unit/<area>`, and neither suite has an area of its own to be
+ * reached through, so a scoped run silently misses the tier.
  */
 export function formatTestToolDetection(): string {
   return TEST_TOOL_DETECTION_BLOCK;
@@ -60,6 +68,13 @@ export function formatTestToolDetection(): string {
  * dispatch prompt template, future test-runner bridges) can decide
  * whether the command is allowed, refused, or requires the explicit
  * opt-in.
+ *
+ * NO CALLER YET, stated so the next reader does not look for one: nothing
+ * under `src/`, `tests/` or `scripts/` imports this. The dispatch block
+ * states the scope as a rule the agent follows, and does not claim a run is
+ * refused — wiring this into the `peaks test` CLI or a hook is a separate
+ * change with its own blast radius, and it is the owner's call, not a
+ * consequence of the rule text.
  *
  *   - 'scoped'    — the command names a file/pattern after `run`
  *   - 'opt-in'    — the user/LLM set PEAKS_FULL_TEST=1 to override
