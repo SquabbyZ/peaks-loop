@@ -30,6 +30,7 @@ import { afterAll, describe, expect, it } from 'vitest';
 import { declareDimensions } from '../_setup/4dim-template.js';
 import {
   NON_ASCII_REL,
+  ROOT_GUARD_REL,
   STUB_VITEST_MARKER,
   buildGateFixture,
   disposeFixtureScratch,
@@ -58,8 +59,10 @@ declareDimensions(
 
 let realFixturePromise: Promise<GateFixture> | undefined;
 let plantedFixturePromise: Promise<GateFixture> | undefined;
+let badSelectorFixturePromise: Promise<GateFixture> | undefined;
 let realRun: Promise<GateRun> | undefined;
 let plantedRun: Promise<GateRun> | undefined;
+let badSelectorRun: Promise<GateRun> | undefined;
 
 function realFixture(): Promise<GateFixture> {
   realFixturePromise ??= buildGateFixture();
@@ -69,6 +72,12 @@ function realFixture(): Promise<GateFixture> {
 function plantedFixture(): Promise<GateFixture> {
   plantedFixturePromise ??= buildGateFixture(true);
   return plantedFixturePromise;
+}
+
+/** The same fixture with the CLASSIFIER's selector desynchronised from the rule's two halves. */
+function badSelectorFixture(): Promise<GateFixture> {
+  badSelectorFixturePromise ??= buildGateFixture(false, true);
+  return badSelectorFixturePromise;
 }
 
 /**
@@ -86,8 +95,14 @@ function plantedNarration(): Promise<GateRun> {
   return plantedRun;
 }
 
+/** The same run against the desynchronised classifier: the gate must refuse before it selects. */
+function badSelectorNarration(): Promise<GateRun> {
+  badSelectorRun ??= (async () => runGate(await badSelectorFixture()))();
+  return badSelectorRun;
+}
+
 afterAll(async () => {
-  for (const fixture of [realFixturePromise, plantedFixturePromise]) {
+  for (const fixture of [realFixturePromise, plantedFixturePromise, badSelectorFixturePromise]) {
     if (fixture !== undefined) (await fixture).repo.dispose();
   }
   disposeFixtureScratch();
@@ -137,6 +152,44 @@ describe('Scenario: integration — a non-ASCII path end to end, through the gat
       expect(stderr, 'the area suite is still handed over too').toContain(
         `${STUB_VITEST_MARKER} run tests/unit/services`
       );
+    },
+    SUBPROCESS_TEST_TIMEOUT_MS
+  );
+
+  it(
+    'when the root of tests/unit holds a test file, should hand THAT file to the suite process',
+    async () => {
+      // given: the fixture's `tests/unit/` root holds a `*.test.ts` that the diff never names — the
+      //        population the root tier exists for, and the shape nothing used to reach
+      // when:  the gate's OWN runner expands the root selector from that directory's listing
+      // then:  the file is in the ARGV vitest received, not merely in the classifier's `paths`: an
+      //        unexpanded selector is dropped by the runner's `existsSync` filter (vitest's filter
+      //        is a `String.includes`), so a `paths` assertion would pass while nothing ever ran
+      const { status, stderr } = await narration();
+      const argv = stderr.split('\n').find((line) => line.startsWith(STUB_VITEST_MARKER)) ?? '';
+
+      expect(status, stderr).toBe(0);
+      expect(argv, `the root guard never reached vitest: ${stderr}`).toContain(ROOT_GUARD_REL);
+    },
+    SUBPROCESS_TEST_TIMEOUT_MS
+  );
+
+  it(
+    'when the classifier`s selector cannot be reconciled, should refuse to run at all',
+    async () => {
+      // given: R7's fail-closed claim, whose runner half was asserted in prose only — the fixture's
+      //        CLASSIFIER is copied with a selector whose halves no longer compose with the rule's
+      // when:  the gate's own runner starts and imports the rule
+      // then:  it refuses BEFORE selecting anything: exit 1 and no suite process. Passing the
+      //        selector through instead would let `existsSync` drop it and the run would stay green
+      //        with a guard missing — the silent-loss class this slice exists to close
+      const { status, stderr } = await badSelectorNarration();
+
+      expect(status, `the gate must refuse, not run: ${stderr}`).toBe(1);
+      expect(stderr, 'and it must say which reconciliation failed').toContain(
+        'not tests/unit/*.test.ts'
+      );
+      expect(stderr, 'no suite may be spawned').not.toContain(STUB_VITEST_MARKER);
     },
     SUBPROCESS_TEST_TIMEOUT_MS
   );

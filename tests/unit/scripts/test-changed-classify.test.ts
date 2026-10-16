@@ -9,7 +9,7 @@
  * WHAT THIS FILE EXISTS TO KEEP TRUE — two structural rules. (1) The guard tier is an ADDITION to
  * a mapping: while it fed the mapping, `A README.md` and `A .github/**` selected 13 guard files
  * instead of the whole suite, so the `unmapped` arms below hold the backstop. (2) The tier rides
- * EVERY subset verdict — see the two arms that used to assert its exclusion, and its own plant.
+ * EVERY subset verdict — `tierOf` below is exactly it, the root selector included.
  *
  * The module is loaded through `pathToFileURL` + a local type, the idiom
  * `tests/unit/scripts/test-changed-git-env.test.ts` uses for its sibling `scripts/*.mjs` (they
@@ -71,6 +71,7 @@ type ClassifyModule = {
   FULL_FALLBACK_TRIGGERS: readonly RegExp[];
   GATE_GUARD_SUITES: readonly string[];
   LINT_GUARD_PATH: string;
+  ROOT_TIER_SELECTOR: string;
   STANDARDS_GUARD_PATH: string;
   classifyChanged(entries: readonly Entry[], options?: { baselineContentMoved?: boolean }): Plan;
   isPopulationChange(status: string): boolean;
@@ -82,6 +83,8 @@ type ClassifyModule = {
 async function loadModule(): Promise<ClassifyModule> {
   return (await import(MODULE_URL)) as ClassifyModule;
 }
+
+const tierOf = (mod: ClassifyModule) => [...mod.GATE_GUARD_SUITES, mod.ROOT_TIER_SELECTOR];
 
 // ---------------------------------------------------------------------------
 // the case tables. Paths are LITERALS on purpose — they are facts about the tree the gate
@@ -268,9 +271,7 @@ describe('Scenario: behavior — the population guards are added to a mapping', 
     expect(inert.mode).toBe('none');
     expect(inert.paths, 'an inert regeneration must select no test at all').toEqual([]);
     expect(moved.mode).toBe('subset');
-    expect(moved.paths, 'a content move must run every gate guard suite').toEqual([
-      ...mod.GATE_GUARD_SUITES
-    ]);
+    expect(moved.paths, 'a content move must run every gate guard suite').toEqual(tierOf(mod));
   });
 
   it('when the file that defines the population changes, should run the population guards', async () => {
@@ -561,7 +562,7 @@ describe('Scenario: integration — the rules are bound to the tree they classif
     // then:  R1's reason is gone: the path list cannot witness R1 now, only the reason line can
     const real = await loadModule();
     const moved = real.classifyChanged([{ status: 'M', path: real.BASELINE_REL }]);
-    expect(moved.paths, 'control: the tier rides this subset').toEqual([...real.GATE_GUARD_SUITES]);
+    expect(moved.paths, 'control: the tier rides this subset').toEqual(tierOf(real));
     expect(moved.reasons.join(' '), 'control: R1 names why').toMatch(/the suites that guard it/);
 
     const planted = await loadPlanted(R1_ANCHOR);
@@ -632,16 +633,10 @@ describe('Scenario: integration — the rules are bound to the tree they classif
 // integration — the runner measures the artifact against BOTH objects its diff reads
 //
 // WHY THE RUNNER IS DRIVEN END TO END. `baselineContentMoved` is the one rule that lives in
-// `scripts/test-changed.mjs`, and that file runs its whole flow at import, so no arm can call it
-// (the same reason this classifier module exists at all). QA reproduced its incoherence by hand
-// (rid `2026-10-10-gate-classifier-baseline-coverage`, F1): stage a moved artifact, revert the
-// worktree file, and the gate printed `baseline-inert` — 0 test files, exit 0, vitest never
-// spawned. The invariant is about the runner's two readings of ONE artifact, so the arm builds a
-// real repository, puts it in exactly that state, and runs the gate's own script against it. The
-// classifier's arms cannot see it — the fact crosses the boundary as an option (module header) —
-// and a source-text pin would neither have caught the defect (M1 of the previous round) nor catch
-// its return. The §4 pair of request 002 is run here end to end as well, which is the one thing
-// that round recorded as unverified ("I could not run (a) end-to-end").
+// `scripts/test-changed.mjs`, which runs its whole flow at import — no arm can call it and no
+// source-text pin would catch its return. QA reproduced its incoherence by hand (rid
+// `2026-10-10-gate-classifier-baseline-coverage`, F1): a staged move with a reverted worktree printed
+// `baseline-inert` — 0 test files, exit 0, vitest never spawned. So this section drives the runner.
 // ---------------------------------------------------------------------------
 
 /** What the fixture's vitest entry prints, so "a suite process ran" is observable. */
@@ -651,7 +646,12 @@ const STUB_VITEST = `process.stderr.write('${STUB_VITEST_MARKER} ' + process.arg
 
 /** The gate's own scripts — the runner and its classifier resolve them relative to themselves. */
 const GATE_RUNNER = 'test-changed.mjs';
-const GATE_SCRIPTS = [GATE_RUNNER, 'test-changed-classify.mjs', 'git-hook-env.mjs'] as const;
+const GATE_SCRIPTS = [
+  GATE_RUNNER,
+  'test-changed-classify.mjs',
+  'test-changed-root-tier.mjs',
+  'git-hook-env.mjs'
+] as const;
 const HOOK_ENV_URL = pathToFileURL(join(REPO_ROOT, 'scripts', 'git-hook-env.mjs')).href;
 
 /** A published-looking artifact body: the line a no-op regeneration rewrites, and one it does not. */

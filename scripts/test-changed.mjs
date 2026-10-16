@@ -42,7 +42,7 @@
 //     spawn 会 ENOENT,而那个错误曾被吞成裸 `exit 1`(看起来就像"测试红了")。
 
 import { spawn, spawnSync } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 
 import { scrubGitHookEnv } from './git-hook-env.mjs';
@@ -53,6 +53,7 @@ import {
   parseNameStatus,
   withoutGeneratedAt
 } from './test-changed-classify.mjs';
+import { expandRootTier } from './test-changed-root-tier.mjs';
 
 // Resolve this script's directory. We DO NOT use `import.meta.url` because
 // when this script is invoked via `node scripts/test-changed.mjs` under
@@ -237,10 +238,17 @@ async function main() {
     process.exit(0);
   }
 
-  // The classifier prints candidates; existence is an fs fact and stays here. A
-  // candidate path that is not on disk (e.g. `src/<area>` with no `tests/unit/<area>`)
-  // would otherwise make vitest exit 1 on a filter that matches nothing.
-  const files = plan.paths.filter((path) => existsSync(resolve(repoRoot, path)));
+  // The classifier prints candidates — a DIRECTORY, or a SELECTOR (`tests/unit/*.test.ts`, the root
+  // of the guard tier). Turning a selector into the paths on disk is an fs fact and stays here, at
+  // the boundary the `existsSync` filter already owns; a candidate that is not on disk (e.g.
+  // `src/<area>` with no `tests/unit/<area>`) would otherwise make vitest exit 1 on a filter that
+  // matches nothing. An UNEXPANDED selector is dropped by that same filter, SILENTLY — vitest's own
+  // filter matches with `String.includes`, so no glob ever runs (see `scripts/test-changed-root-tier.mjs`).
+  // It fails CLOSED: `expandRootTier` throws on a selector no rule recognizes, and that reaches
+  // `main().catch` as a fatal — a rule that stopped being expanded is never a green run.
+  const unitRoot = resolve(repoRoot, 'tests/unit');
+  const selected = expandRootTier(plan.paths, existsSync(unitRoot) ? readdirSync(unitRoot) : []);
+  const files = selected.filter((path) => existsSync(resolve(repoRoot, path)));
   if (files.length === 0) {
     console.error(
       '[test-changed] no selected test path exists on disk, falling back to full suite'

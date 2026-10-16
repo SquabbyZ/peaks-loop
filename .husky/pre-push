@@ -64,11 +64,17 @@
 #          runs the same guards.
 #
 #      THE WHOLE-TREE TIER IS UNCONDITIONAL (2026-10-16): `subset()` unions
-#      tests/unit/standards/ and tests/unit/lint/ into EVERY subset verdict, so the rules
-#      above now state WHY the tier matters on a diff rather than selecting it. The hole
-#      they left is the one that shipped a red standards test past a scoped run, four
-#      reviewers and QA: a content-only diff — a slice that only edits existing files —
-#      reached neither directory, because both are unreachable through an area mapping.
+#      tests/unit/standards/, tests/unit/lint/ AND the root selector
+#      `tests/unit/*.test.ts` into EVERY subset verdict, so the rules
+#      above now state WHY the tier matters on a diff rather than selecting it. Both
+#      holes the tier has closed were the same one: a tree-subject guard no area
+#      mapping can reach. A content-only diff reached neither directory, because both
+#      are directories; and a guard at the ROOT of tests/unit/ — where the spawn-hygiene
+#      ratchet lives — was reached by NOTHING at all, which shipped a defect past four
+#      reviewers, QA and both tiers (slice s10). The root is now selected BY RULE, from
+#      the directory's own listing, so a guard added there tomorrow is selected the day
+#      it is created. Its rule, its bound and the price of the convention are in
+#      `scripts/test-changed-root-tier.mjs`.
 #
 #      The guards are an ADDITION to a mapping, never a substitute for the fallback:
 #      a diff that reaches no mapping at all (README.md, .github/**, .husky/**, docs/**,
@@ -87,13 +93,22 @@
 #          (the area subset PLUS the whole-tree guards)
 #        - a diff that also touches package.json / scripts/ / .peaks/
 #                                                    ->427 files /4486 tests, 320s
-#      THE TIER'S OWN COST, re-measured 2026-10-16 on this host: tests/unit/standards plus
-#      tests/unit/lint alone are 59 files / 586 tests / 138s (and 127s on a second run), and
-#      union adds that to EVERY subset row above. So the content-only `src/cli/commands/**`
-#      row is no longer 61s but 61s + the tier — the sum of two measurements, not a third
-#      run taken here. That tier is now the largest single item in a small slice's run; the
-#      shrink lever, if it ever needs one, is the tier's own contents (tests/unit/lint/ is
-#      the bulk of it), not the rule.
+#      THE TIER'S OWN COST, measured on this host 2026-10-16: tests/unit/standards plus
+#      tests/unit/lint alone are 59 files / 589 tests / 125s (125.4s, 137.2s, 139.4s and
+#      152.7s on four runs of this same tree, so the seconds move by more than a fifth —
+#      read the file and test counts as the fact, the seconds as an order of magnitude).
+#      The union adds that to EVERY subset row above, so the content-only
+#      `src/cli/commands/**` row is no longer 61s but 61s + the tier — the sum of two
+#      measurements, not a third run taken here. That tier is now the largest single item
+#      in a small slice's run; the shrink lever, if it ever needs one, is the tier's own
+#      contents (tests/unit/lint/ is the bulk of it), not the rule.
+#
+#      THE ROOT'S SHARE OF THAT, measured 2026-10-16 separately: the root's own three files
+#      are 3 files / 32 tests / 1.47s, of which the TESTS are 14ms and the IMPORT is 1.30s —
+#      almost all of that one file (the spawn ratchet imports `typescript` and walks the
+#      tree at module scope). So the root's price is import-shaped and fixed, not
+#      proportional to its tests: a root file with many cheap tests is nearly free, a root
+#      file that scans the tree at module scope costs ~1.3s on every subset verdict forever.
 #      So the hook is 0 tests, a subset, or the full suite depending on the diff, and the
 #      old "936s, a known measured gap" no longer describes it. Do not skip it with
 #      --no-verify on the strength of a stale number.

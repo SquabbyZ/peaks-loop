@@ -62,6 +62,12 @@ export const RENAME_FROM_REL = 'src/alpha/old.ts';
 export const RENAME_TO_REL = 'src/beta/new.ts';
 export const COPY_FROM_REL = 'src/alpha/copy-source.ts';
 export const COPY_TO_REL = 'src/gamma/copy-target.ts';
+/**
+ * A `*.test.ts` at the ROOT of `tests/unit/` in the end-to-end fixture — the population the root
+ * tier exists for. It is committed at the fixture's base and never named by the diff, so the ONLY
+ * way it can reach vitest's argv is the root selector's expansion.
+ */
+export const ROOT_GUARD_REL = 'tests/unit/zz-fixture-root-guard.test.ts';
 
 /** The 3 UTF-8 bytes of `中` followed by the 3 of `文` — what "byte-for-byte" has to mean here. */
 export const CJK_BYTES = Buffer.from([0xe4, 0xb8, 0xad, 0xe6, 0x96, 0x87]);
@@ -306,9 +312,22 @@ export const STUB_VITEST_MARKER = '[fixture-vitest] spawned';
 /** The runner spawns a LOCAL vitest entry; this stub makes that spawn cheap and observable. */
 export const STUB_VITEST = `process.stderr.write('${STUB_VITEST_MARKER} ' + process.argv.slice(2).join(' ') + '\\n');\nprocess.exit(0);\n`;
 
-const GATE_SCRIPTS = ['test-changed.mjs', 'test-changed-classify.mjs', 'git-hook-env.mjs'] as const;
+const GATE_SCRIPTS = [
+  'test-changed.mjs',
+  'test-changed-classify.mjs',
+  'test-changed-root-tier.mjs',
+  'git-hook-env.mjs'
+] as const;
 /** Both `-z` arguments, spelled as source — the token the call-site plant removes. */
 export const RUNNER_Z_ARG = "'--name-status', '-z',";
+/**
+ * The classifier's half of the root selector, spelled as source — the token the SELECTOR plant
+ * changes. Changing it desynchronises the two halves `test-changed-root-tier.mjs` reconciles, which
+ * is the one failure its load-time check exists to catch.
+ */
+export const CLASSIFY_SELECTOR_DECL = "'tests/unit/*.test.ts'";
+/** What that plant changes it to: a selector whose halves no longer compose. */
+export const CLASSIFY_SELECTOR_PLANTED = "'tests/unit/*.spec.ts'";
 
 export type GateFixture = { repo: ScratchGitRepo; env: NodeJS.ProcessEnv };
 export type GateRun = { status: number | null; stderr: string };
@@ -316,9 +335,13 @@ export type GateRun = { status: number | null; stderr: string };
 /**
  * A scratch repository holding the gate's own scripts, one non-ASCII path changed in the WORKTREE,
  * and a stub vitest. `plantHeadCallSites` copies the runner with both `-z` arguments removed, so
- * the call-site half of this change is falsifiable end to end.
+ * the call-site half of this change is falsifiable end to end; `plantSelector` copies the
+ * CLASSIFIER with a selector the root tier's rule cannot reconcile, so the fail-closed half is.
  */
-export async function buildGateFixture(plantHeadCallSites = false): Promise<GateFixture> {
+export async function buildGateFixture(
+  plantHeadCallSites = false,
+  plantSelector = false
+): Promise<GateFixture> {
   const env = await scrubbedEnv();
   const repo = createScratchGitRepo(plantHeadCallSites ? 'peaks-nul-planted-' : 'peaks-nul-e2e-');
   gitAt(repo.path, ['config', 'core.autocrlf', 'false'], env);
@@ -326,15 +349,25 @@ export async function buildGateFixture(plantHeadCallSites = false): Promise<Gate
   mkdirSync(join(repo.path, 'scripts'), { recursive: true });
   for (const name of GATE_SCRIPTS) {
     const source = readFileSync(join(REPO_ROOT, 'scripts', name), 'utf8');
-    const planted =
-      plantHeadCallSites && name === 'test-changed.mjs'
-        ? source.replaceAll(RUNNER_Z_ARG, "'--name-status',")
+    const zPlant = plantHeadCallSites && name === 'test-changed.mjs';
+    const selectorPlant = plantSelector && name === 'test-changed-classify.mjs';
+    const planted = zPlant
+      ? source.replaceAll(RUNNER_Z_ARG, "'--name-status',")
+      : selectorPlant
+        ? source.replace(CLASSIFY_SELECTOR_DECL, CLASSIFY_SELECTOR_PLANTED)
         : source;
-    if (planted !== source) {
+    if (zPlant) {
       expect(
         source.match(/'--name-status', '-z',/g)?.length,
         'the plant removes two `-z` arguments; a different count means it is no longer a plant'
       ).toBe(2);
+    }
+    if (selectorPlant) {
+      expect(
+        source.split(CLASSIFY_SELECTOR_DECL).length - 1,
+        'the plant rewrites one declaration; a different count means it is no longer a plant'
+      ).toBe(1);
+      expect(planted, 'the selector plant must really change the module').not.toBe(source);
     }
     writeFileSync(join(repo.path, 'scripts', name), planted, 'utf8');
   }
@@ -351,6 +384,7 @@ export async function buildGateFixture(plantHeadCallSites = false): Promise<Gate
   mkdirSync(join(repo.path, 'tests', 'unit', 'services'), { recursive: true });
   writeFileSync(join(repo.path, NON_ASCII_REL), 'before\n', 'utf8');
   writeFileSync(join(repo.path, 'tests/unit/services/x.test.ts'), 'export {};\n', 'utf8');
+  writeFileSync(join(repo.path, ROOT_GUARD_REL), 'export {};\n', 'utf8');
   gitAt(repo.path, ['add', '-A'], env);
   gitAt(repo.path, ['commit', '--quiet', '-m', 'nul e2e base'], env);
 
