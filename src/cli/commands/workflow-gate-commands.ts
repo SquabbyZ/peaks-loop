@@ -196,8 +196,7 @@ export function registerWorkflowGateCommands(workflow: Command, io: ProgramIO): 
       .requiredOption('--project <path>', 'project root path')
       .option(
         '--type <type>',
-        'request type: feature, bugfix, refactor, docs, config, chore',
-        'feature'
+        "request type: feature, bugfix, refactor, docs, config, chore. Omit it and the rid's own request artifact decides — the recorded `- type:` line on its RD (then PRD, then QA) carrier. Only a `--type` given here overrides that."
       )
       .option(
         '--session-id <sid>',

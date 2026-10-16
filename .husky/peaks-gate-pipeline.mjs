@@ -233,6 +233,11 @@ export async function runPipelineLeg({ projectRoot, env = process.env, peaks }) 
       const verdict = await loader.verifyPipeline({
         projectRoot,
         rid,
+        // The scope being verified, NAMED. After a redirect that is the SIBLING,
+        // not the binding, and the checker reads exactly the session this leg
+        // enumerated — a carrier lookup that fell back to the binding would land
+        // in the empty session the redirect exists to look past.
+        ...(verified.sessionId === null ? {} : { sessionId: verified.sessionId }),
         ...(resolved.type === undefined ? {} : { requestType: resolved.type })
       });
       if (typeof verdict?.complete !== 'boolean') {

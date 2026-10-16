@@ -12,8 +12,10 @@
  *
  */
 
-import { isRequestType, type RequestType } from '../artifacts/artifact-prerequisites.js';
+import { markQaRequestGate, typeRequiresQaPhase } from './pipeline-verify-qa-phase.js';
+import { NO_SESSION_SCOPE, mayHonourSkip, resolveRequestType } from './request-type-resolution.js';
 import { readSkipState } from './workflow-state-store.js';
+
 import { getSessionIdCanonical } from '../session/session-manager.js';
 import {
   listPromotionExempt,
@@ -40,14 +42,15 @@ export async function verifyPipeline(options: {
   sessionId?: string;
   requestType?: string;
 }): Promise<PipelineVerification> {
-  const requestType = isRequestType(options.requestType ?? '')
-    ? (options.requestType as RequestType)
-    : 'feature';
-  const violations: string[] = [];
+  // ONE scope for every read: the session, or NONE — never a scan.
+  const sessionId = options.sessionId ?? getSessionIdCanonical(options.projectRoot);
+  const requestType = await resolveRequestType({ ...options, sessionId });
+  const violations: string[] = sessionId === null ? [NO_SESSION_SCOPE] : [];
   const nextActions: string[] = [];
 
   const rdGates = rdGatesForType(requestType);
   const qaGates = qaGatesForType(requestType);
+  const qaPhaseRequired = typeRequiresQaPhase(requestType);
 
   // and pre-mark matching gates as `status: 'skipped'`. We do this
   // BEFORE evaluating evidence files, so a skipped gate never
@@ -56,7 +59,7 @@ export async function verifyPipeline(options: {
   // treat skipped gates as satisfied; the new `status` field
   // distinguishes the bypass from an actual pass.
   const skippedGateNames = new Set<string>();
-  if (options.sessionId !== undefined) {
+  if (options.sessionId !== undefined && mayHonourSkip(requestType)) {
     const skipState = readSkipState(options.projectRoot, options.sessionId, options.rid);
     if (skipState !== null) {
       for (const gateName of skipState.skippedGates) {
@@ -83,7 +86,7 @@ export async function verifyPipeline(options: {
 
   // Resolve RD + QA on-disk locations via showRequestArtifact (the change-id
   // is whatever dir the file actually lives in, not the caller's session-id).
-  const rdFile = await findRequestFile(options.projectRoot, 'rd', options.rid);
+  const rdFile = await findRequestFile(options.projectRoot, 'rd', options.rid, sessionId);
   let rdInvoked = false;
   let rdState = 'missing';
   // The resolved change-id is the on-disk location the file actually
@@ -118,18 +121,17 @@ export async function verifyPipeline(options: {
   // detail / nextActions surface the `DEPRECATION_LEGACY_PATH_USED`
   // warning so QA / TXT can nudge users to migrate via
   // `peaks workspace migrate`.
-  // v2.18.1 bug #5 fix: when `resolvedChangeId` is empty (no RD/QA
-  // artifact on disk yet), the canonical session id from the
-  // binding-store is the preferred filesystem scope; falling through
-  // to `options.rid` would make every missing-evidence path look like
-  // a per-rid scope dir.
+  // v2.18.1 bug #5 fix: when `resolvedChangeId` is empty (no RD/QA artifact on
+  // disk yet), the canonical session id from the binding-store is the scope.
+  //
+  // THE RID IS NOT A SCOPE: this chain used to end at `options.rid`, reading
+  // EVIDENCE out of a directory named after the rid. An empty scope reads none.
   const rdEvidenceDir =
-    resolvedChangeId ||
-    options.sessionId ||
-    getSessionIdCanonical(options.projectRoot) ||
-    options.rid;
+    resolvedChangeId || options.sessionId || getSessionIdCanonical(options.projectRoot) || '';
+  // An empty gate list IS "no evidence read": the resolver walks the gates it is
+  // handed, so no second branch has to be kept in step with this one.
   const rdTracker = resolveRdEvidencePaths(
-    rdGates,
+    rdEvidenceDir === '' ? [] : rdGates,
     rdEvidenceDir,
     options.projectRoot,
     options.rid,
@@ -150,7 +152,7 @@ export async function verifyPipeline(options: {
   }
 
   // Check QA phase
-  const qaFile = await findRequestFile(options.projectRoot, 'qa', options.rid);
+  const qaFile = await findRequestFile(options.projectRoot, 'qa', options.rid, sessionId);
 
   let qaInvoked = false;
   let qaState = 'missing';
@@ -158,10 +160,9 @@ export async function verifyPipeline(options: {
   if (qaFile) {
     qaInvoked = true;
     qaState = extractState(qaFile.content);
-    qaGates[0]!.passed = true;
-    qaGates[0]!.detail = `found at ${qaFile.path}`;
+    markQaRequestGate(qaGates, qaFile.path);
     resolvedChangeId = qaFile.sessionId || resolvedChangeId;
-  } else {
+  } else if (qaPhaseRequired) {
     violations.push(
       'QA phase skipped: peaks-qa was never invoked for this request (no QA request artifact found)'
     );
@@ -175,7 +176,7 @@ export async function verifyPipeline(options: {
   // fallback — current session id when no RD/QA artifact is on disk yet —
   // the security/perf findings branch that was its only consumer.)
   const qaTracker = resolveQaEvidencePaths(
-    qaGates,
+    rdEvidenceDir === '' ? [] : qaGates,
     options.projectRoot,
     rdEvidenceDir,
     requestType,
@@ -235,7 +236,7 @@ export async function verifyPipeline(options: {
   // Resolve the "RD invoked without QA" check now that markIfSkipped
   // has run. The check is suppressed when every QA gate is skipped
   // to skip the QA phase).
-  if (rdInvokedWithoutQaRaw) {
+  if (rdInvokedWithoutQaRaw && qaPhaseRequired) {
     const allQaSkipped = qaGates.every((g) => g.status === 'skipped');
     if (!allQaSkipped) {
       violations.push(
@@ -303,12 +304,11 @@ export async function verifyPipeline(options: {
   const allQaGatesPassed = qaGates.every((g) => g.passed);
   const complete =
     rdInvoked &&
-    qaInvoked &&
+    (qaInvoked ? QA_COMPLETE_STATES.has(qaState) : !qaPhaseRequired) &&
     allRdGatesPassed &&
     allQaGatesPassed &&
     allFeedbackGatesPassed &&
-    RD_QA_HANDOFF_STATES.has(rdState) &&
-    QA_COMPLETE_STATES.has(qaState);
+    RD_QA_HANDOFF_STATES.has(rdState);
 
   // 'suffixed' when the contract's current path served the file and 'legacy'
   // when the deprecated fallback did; 'none' if neither gate passed.

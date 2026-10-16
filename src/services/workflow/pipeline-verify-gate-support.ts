@@ -14,6 +14,7 @@ import {
   type ArtifactPrerequisite,
   type RequestType
 } from '../artifacts/artifact-prerequisites.js';
+import * as qaPhase from './pipeline-verify-qa-phase.js';
 import { prerequisiteBodyViolations } from '../artifacts/prerequisite-checks.js';
 import type {
   RequestArtifactRole,
@@ -27,22 +28,22 @@ export function extractState(markdown: string): string {
   return readArtifactState(markdown) ?? 'unknown';
 }
 
-/**
- * scope is the change-id (the `.peaks/_runtime/<sessionId>/` dir the file lives
- * in), NOT the session-id. We resolve the on-disk location via
- * `showRequestArtifact` (which scans all top-level dirs and returns the
- * actual dir the file was found in) instead of assuming
- * `.peaks/_runtime/<sessionId>/<role>/requests/`.
- */
+/** The rid's artifact file, read from ONE session: `sessionId` is required, and
+ *  `null` — no resolvable scope — means NO CARRIER, never a scan (that branch
+ *  reads every directory under `.peaks/_runtime/` and takes the first name that
+ *  sorts). The dir the file was FOUND in comes back as `sessionId`. */
 export async function findRequestFile(
   projectRoot: string,
   role: string,
-  rid: string
+  rid: string,
+  sessionId: string | null
 ): Promise<{ path: string; content: string; sessionId: string } | null> {
+  if (sessionId === null) return null;
   const artifact = await showRequestArtifact({
     projectRoot,
     role: role as 'prd' | 'ui' | 'rd' | 'qa' | 'sc',
-    requestId: rid
+    requestId: rid,
+    sessionId
   });
   if (artifact === null) return null;
   // `_runtime/` prefix here, because `showRequestArtifact` then returned the
@@ -214,35 +215,34 @@ export function rdGatesForType(requestType: RequestType): PipelineGate[] {
   return gates;
 }
 
+/**
+ * The QA phase's gate list for one type.
+ *
+ * Both halves are read off the type's own table. WHICH EVIDENCE the phase owes is
+ * the type's `qa:` row, resolved through the same contract accessor
+ * `rdGatesForType` uses — a row the contract carries builds its gate, a row it
+ * does not carry builds none. WHETHER the phase exists at all is
+ * `typeRequiresQaPhase`, the same call the checker makes, which is the part that
+ * used to be a list of three request types named here. The derivation and the
+ * arming that keeps it total are `pipeline-verify-qa-phase.ts`.
+ *
+ * Two of the six types are why this reads the table instead of naming its
+ * members. The minimal table — docs and chore — carries no `qa:` row, so those
+ * types owe no QA evidence and get an empty list; that is how both the checker
+ * and the commit-time carrier learn there is no phase to report. Config carries
+ * exactly one QA row instead: a test report, and no test cases. The member list
+ * was wrong about both, in opposite directions: one type was asked for a phase it
+ * does not owe, and the other never for the evidence its transition requires.
+ */
 export function qaGatesForType(requestType: RequestType): PipelineGate[] {
-  const gates: PipelineGate[] = [
-    {
-      name: 'qa-request-exists',
-      description: 'QA request artifact created',
-      passed: false,
-      detail: ''
-    }
-  ];
-
-  if (requestType === 'feature' || requestType === 'refactor' || requestType === 'bugfix') {
-    gates.push({ name: 'test-cases', description: 'QA test cases', passed: false, detail: '' });
-    gates.push({
-      name: 'test-report',
-      description: 'QA test report with execution results',
-      passed: false,
-      detail: ''
-    });
-  }
-
-  // The `security-findings` / `performance-findings` gates were removed here
-  // security review or performance review — `peaks-qa/SKILL.md` says so, and
-  // the v2.11.0 D1/D4 trim dropped both from every `qa:verdict-issued` table.
-  // The evidence they used to demand is now checked on the RD side, at the
-  // paths the contract actually names (`audit/security-<rid>.md`,
-  // `audit/perf.md` and `rd/security-review.md` / `rd/perf-baseline.md` as the
-  // declared legacy tiers behind them).
-
-  return gates;
+  return qaPhase.qaPhaseGates(
+    qaPhase.typeRequiresQaPhase(requestType),
+    qaPhase.QA_EVIDENCE_GATES.filter((gate) =>
+      qaPhase.QA_STATES.some(
+        (state) => contractEvidencePaths('qa', state, requestType, gate.relativePath) !== null
+      )
+    )
+  );
 }
 
 export const RD_QA_HANDOFF_STATES = new Set(['qa-handoff', 'handed-off', 'implemented']);
@@ -376,10 +376,10 @@ export function resolveQaEvidencePaths(
   nextActions: string[],
   tracker: CanonicalPathTracker
 ): CanonicalPathTracker {
-  const QA_EVIDENCE_PROBE: Record<string, string> = {
-    'test-cases': 'qa/test-cases/<rid>.md',
-    'test-report': 'qa/test-reports/<rid>.md'
-  };
+  // Derived from the declared gates — a restatement could resolve a renamed path.
+  const QA_EVIDENCE_PROBE: Record<string, string> = Object.fromEntries(
+    qaPhase.QA_EVIDENCE_GATES.map((gate) => [gate.name, gate.relativePath] as const)
+  );
   let anyEvidenceResolved = tracker.anyEvidenceResolved;
   let allResolvedPathsCanonical = tracker.allResolvedPathsCanonical;
   for (const gate of gates.slice(1)) {

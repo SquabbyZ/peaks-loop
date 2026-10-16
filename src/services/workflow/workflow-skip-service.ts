@@ -24,7 +24,7 @@ import { readSkipState, writeSkipState, type WorkflowSkipState } from './workflo
 import { showRequestArtifact } from '../artifacts/request-artifact-service.js';
 import type { RequestType } from '../artifacts/artifact-prerequisites.js';
 
-const SKIPPABLE_TYPES: ReadonlyArray<RequestType> = ['docs', 'config', 'chore'];
+export const SKIPPABLE_TYPES: ReadonlyArray<RequestType> = ['docs', 'config', 'chore'];
 const SCRIPT_CALLER_IDS: ReadonlyArray<string> = ['ci', 'postinstall', 'cron'];
 
 export type SkipArgs = {
