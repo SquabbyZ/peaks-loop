@@ -61,7 +61,11 @@ function reportPrerequisitesFailure(
         warnings: error.warnings
       },
       [
-        ...error.missing.map((entry) => `Produce ${entry.path}: ${entry.description}`),
+        // `Satisfy`, not `Produce`: a `missing` entry is an unmet REQUIREMENT, not
+        // necessarily an absent file. A present artifact refused for the judged
+        // declaration it does not carry was reported as one to "Produce", and a
+        // producer that did exactly that changed nothing.
+        ...error.missing.map((entry) => `Satisfy ${entry.path}: ${entry.description}`),
         // Sanitised for the same reason the success branch sanitises: a
         // `gateEvidence.<key>` warning can carry a control character decoded out
         // of the handoff frontmatter, and `printResult` puts these on stderr.
@@ -70,7 +74,7 @@ function reportPrerequisitesFailure(
             `Soft-blocked (v2.13.3 back-compat window): ${printableWarningText(w.path)} — ` +
             `${printableWarningText(w.message)}${softWarningExpiryClause(w)}`
         ),
-        'Once every required artifact exists, rerun this transition.',
+        'Once every unmet requirement above is met, rerun this transition.',
         'For exceptional cases (docs-only / config-only change), bypass with: --allow-incomplete --reason "<justification>"'
       ]
     ),
@@ -90,10 +94,27 @@ function reportLintGateFailure(
       'request.transition',
       error.code,
       error.message,
-      { role: error.role, newState: error.newState, errorCount: error.errorCount },
+      {
+        role: error.role,
+        newState: error.newState,
+        errorCount: error.errorCount,
+        findings: error.findings
+      },
       [
+        // One line per unmet placeholder, naming the line, the offending text and
+        // the rule's own reason. The refusal used to carry only their count, so a
+        // producer was told HOW MANY were wrong and not one of them WHERE or WHY.
+        ...error.findings.map(
+          (finding) =>
+            `Line ${finding.line}: ${printableWarningText(finding.text)} — ` +
+            printableWarningText(finding.reason)
+        ),
         'Fix lint errors in the artifact before transitioning.',
-        'Run `peaks request lint --role <role> --id <rid> --project <path>` to see details.',
+        // The rid is POSITIONAL; `--id` is not an option this command has, and the
+        // earlier hint named it — so the one remedy this refusal offered was a
+        // command the CLI answers with `unknown option '--id'`. Verified by running
+        // the substituted form: it reaches the action.
+        'Run `peaks request lint <rid> --role <role> --project <path>` to see details.',
         'Or bypass with: --allow-incomplete --reason "<justification>"'
       ]
     ),

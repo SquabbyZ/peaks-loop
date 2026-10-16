@@ -5,6 +5,7 @@
 import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import type { DecompositionResult } from '../../services/slice/slice-decompose-types.js';
+import { slugifyDescription } from '../../shared/incrementing-number.js';
 
 export type BenchmarkMetrics = {
   totalMs: number;
@@ -33,7 +34,7 @@ export function readPrdBody(rid: string, projectRoot: string): string {
     }
     for (const entry of entries) {
       if (!entry.endsWith('.md')) continue;
-      if (entry === `${rid}.md` || entry.endsWith(`-${rid}.md`)) {
+      if (entry === `${rid}.md` || entry.endsWith(`-${slugifyDescription(rid)}.md`)) {
         return readFileSync(join(dir, entry), 'utf8');
       }
     }

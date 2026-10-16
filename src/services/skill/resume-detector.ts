@@ -31,6 +31,7 @@
  */
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { requestIdFromFileName } from '../../shared/incrementing-number.js';
 import { readArtifactState } from '../artifacts/request-artifact-state-helpers.js';
 
 export type ResumeKind = 'fresh' | 'complete' | 'resume' | 'in-flight';
@@ -423,16 +424,15 @@ function extractState(content: string): string {
 }
 
 /**
- * The `<rid>` embedded in a request filename: drop the `.md` suffix and the
- * zero-padded `NNN-` prefix `request init` writes.
- *
- * Uses the same `^0\d{2}-` rule as the request loader
- * (`request-artifact-service.ts`: "Only strip 3-digit zero-padded prefixes").
- * A looser `^\d+-` would eat the leading year of every real rid, which is
- * itself date-shaped (`2026-09-14-<slug>`).
+ * The `<rid>` a request filename carries: the `.md` suffix and the `<NNN>-` prefix
+ * `request init` writes, both dropped by the reader that owns them — so this
+ * module cannot be left behind by a writer that moves the family. It used to spell
+ * its own `^0\d{2}-` here, which agreed with that reader only until the family was
+ * widened, and then reported a different id for the same file. A looser `^\d+-`
+ * would instead eat the leading year of every real rid, which is date-shaped.
  */
 function ridOf(filename: string): string {
-  return filename.replace(/^0\d{2}-/, '').replace(/\.md$/, '');
+  return requestIdFromFileName(filename) ?? filename.replace(/\.md$/, '');
 }
 
 function hasAbandonedTransitionNote(content: string): boolean {

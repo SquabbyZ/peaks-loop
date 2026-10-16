@@ -117,7 +117,7 @@ function refuseBypassLimitReached(io: ProgramIO, ctx: BypassContext): void {
       'BYPASS_LIMIT_REACHED',
       `--allow-incomplete limit reached (${MAX_BYPASSES_PER_SESSION} per session)`,
       { role: ctx.role, requestId: ctx.requestId, limit: MAX_BYPASSES_PER_SESSION },
-      ['Produce the missing artifacts instead of bypassing.']
+      ['Satisfy the unmet requirements instead of bypassing.']
     ),
     ctx.options.json
   );

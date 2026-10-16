@@ -35,6 +35,7 @@ import type { GateEvidence, HandoffFrontmatter } from '../prd/handoff-types.js';
 import { getSessionDir } from '../session/getSessionDir.js';
 import { REQUEST_ID_PATTERN } from '../artifacts/request-artifact-service.js';
 import { isUnsafePathInput } from '../../shared/path-safety.js';
+import { requestIdFromFileName, slugifyDescription } from '../../shared/incrementing-number.js';
 import { renderJudgedSection } from '../audit-independent/judged-declaration-build.js';
 import {
   buildCodeReview,
@@ -147,17 +148,20 @@ ${lineCountsMd(lineCounts)}
   return { content: `${serializeHandoffFrontmatter(frontmatter)}${body}`, hash: handoffHash };
 }
 
-/** Find the existing numbered QA request file for `rid`, else the default. */
+/** Find the QA request file whose carried id is `rid`, else the default. */
 async function resolveQaRequestPath(qaDir: string, rid: string): Promise<string> {
-  const suffix = `-${rid}.md`;
   try {
     const entries = await readdir(join(qaDir, 'requests'));
-    const match = entries.find((name) => /^\d+-/.test(name) && name.endsWith(suffix));
+    // The operand is the SLUG, as it is at the two `request-artifact-service.ts`
+    // sites: the writer lowercases the rid into the filename, so comparing a
+    // carried id against the raw rid answers a different question about the same
+    // file and misses it whenever the rid carries a capital.
+    const match = entries.find((name) => requestIdFromFileName(name) === slugifyDescription(rid));
     if (match !== undefined) return join(qaDir, 'requests', match);
   } catch {
     // directory missing — fall through to the default numbered name
   }
-  return join(qaDir, 'requests', `001-${rid}.md`);
+  return join(qaDir, 'requests', `001-${slugifyDescription(rid)}.md`);
 }
 
 export async function generateEvidence(

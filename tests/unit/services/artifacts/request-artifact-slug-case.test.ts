@@ -20,6 +20,7 @@
 //   - a11y:        OMITTED — no human-facing text in the service round-trip
 
 import { describe, expect, it } from 'vitest';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { declareDimensions } from '../../_setup/4dim-template.js';
 import { withTmpWorkspacePerTest } from '../../_setup/tmp-workspace.js';
@@ -114,6 +115,55 @@ describe('Scenario: behavior — duplicate detection is slug-aware', () => {
       createRequestArtifact({
         role: 'rd',
         requestId: MIXED_CASE_REQUEST_ID,
+        projectRoot: ws().path,
+        sessionId: SESSION_ID,
+        apply: true
+      })
+    ).rejects.toThrow(/already exists/);
+  });
+
+  it('when a bare date-shaped artifact ends with the new id, should not read it as a duplicate', async () => {
+    // given: a session whose `rd/requests` holds a bare date-shaped artifact beside a
+    //        fresh request whose id is one of that name's trailing slug segments
+    const dir = join(ws().path, '.peaks', '_runtime', SESSION_ID, 'rd', 'requests');
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(
+      join(dir, '2026-10-15-macos-ledger-reaper.md'),
+      `# RD Request 2026-10-15-macos-ledger-reaper\n\n- session: ${SESSION_ID}\n`,
+      'utf8'
+    );
+
+    // when: init runs for the shorter id
+    const created = await createRequestArtifact({
+      role: 'rd',
+      requestId: 'reaper',
+      projectRoot: ws().path,
+      sessionId: SESSION_ID,
+      apply: true
+    });
+
+    // then: it is written, not refused. The id a filename carries is read by the one
+    //       rule that owns it; `2026-10-15-macos-ledger-reaper` is not the id
+    //       `reaper`. The superset pattern this replaced (`^\d+-` plus a
+    //       `-<slug>.md` suffix test) matched that name and reported a collision.
+    expect(created.path.endsWith(`reaper.md`)).toBe(true);
+    expect(created.path).not.toContain('2026-10-15-macos-ledger-reaper');
+  });
+
+  it('when a file with the id really is there, should still reject — the control', async () => {
+    // given: the same directory, plus an in-family file whose id IS `reaper`
+    const dir = join(ws().path, '.peaks', '_runtime', SESSION_ID, 'rd', 'requests');
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, '2026-10-15-macos-ledger-reaper.md'), '# other\n', 'utf8');
+    writeFileSync(join(dir, '003-reaper.md'), '# reaper\n', 'utf8');
+
+    // when: init runs for that id
+    // then: the duplicate check still fires — the case above is the naming rule, not a
+    //       duplicate check that stopped working
+    await expect(
+      createRequestArtifact({
+        role: 'rd',
+        requestId: 'reaper',
         projectRoot: ws().path,
         sessionId: SESSION_ID,
         apply: true

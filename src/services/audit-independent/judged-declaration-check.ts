@@ -23,6 +23,7 @@ import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
 
 import {
+  JUDGED_HEADING,
   parseJudgedDeclaration,
   sha256OfFile,
   type JudgedDeclaration
@@ -33,6 +34,70 @@ export type JudgedRefusal = {
   readonly artifact: string;
   readonly path: string;
 };
+
+/**
+ * What a refusal means, partitioned by THE ONE QUESTION its codes answer:
+ * **did this check complete the observation its sentence would assert?** One
+ * sentence for all 17 told a producer to satisfy a declaration a `declared-path-*`
+ * refusal had already read — "name the requirement that is unmet" broken one level
+ * in, and the reason the arm has been split four times since. The partition below
+ * is stated so a reviewer checks it, rather than hunting members:
+ *
+ *   A. `declaration-*` — **11 codes** (`missing`, `unfenced`, `unterminated`,
+ *      `empty`, `schema`, `path`, `hash`, `duplicate`, `bare-root`, `escaped`,
+ *      `unparsable`). No declaration was read at all, so the sentence is about the
+ *      BLOCK and claims nothing about the tree.
+ *   B. `artifact-unreadable` — **1**. The artifact was not read; nothing about its
+ *      declaration is known.
+ *   C. `declared-path-unreadable` — **1**. The path was reached and could not be
+ *      read, so its hash is **UNKNOWN**, not mismatched. Its own arm because the
+ *      remedy differs and "re-run the producer" cannot work: a re-run hashes the
+ *      same unreadable path and refuses identically.
+ *   D. `root-listing-failed` — **1**. A root was declared and could NOT be listed,
+ *      so no file under it was compared. Its answer is "no observation", not
+ *      "mismatch".
+ *   E. `declared-path-gone`, `declared-path-modified`,
+ *      `undeclared-path-under-root` — **3**. All three COMPLETED their observation:
+ *      a declared path is absent or edited, or the listing succeeded and found a
+ *      file under a declared root that the declaration does not name. Together they
+ *      are the only codes that may say the tree and the declaration disagree — which
+ *      is why they are a LIST and not the `else` arm.
+ *   F. **0 codes today** — the fail-safe. Anything unrecognised gets a sentence that
+ *      asserts only what is certain (it parsed and was read). Codes A–E are
+ *      exhaustive over the 17 the two modules emit, so this arm is unreachable now;
+ *      it exists so a NEW code cannot inherit an observation it did not make, which
+ *      is the failure this comment records four times.
+ *
+ * A producer reads this in a refusal, so the classes are the ACTIONS, not the codes:
+ * write the block, make the path readable, or re-run the producer.
+ */
+
+/** The codes that completed a tree observation, and so may say the tree disagrees. */
+const OBSERVED_DISAGREEMENT = new Set([
+  'declared-path-gone',
+  'declared-path-modified',
+  'undeclared-path-under-root'
+]);
+
+export function describeJudgedRefusal(refusal: JudgedRefusal): string {
+  const where = `Judged declaration ${refusal.code} at ${refusal.path}`;
+  if (refusal.code === 'artifact-unreadable') {
+    return `${where}: the artifact is present but could not be read, so its \`${JUDGED_HEADING}\` declaration is unverified`;
+  }
+  if (refusal.code === 'declared-path-unreadable') {
+    return `${where}: the declaration is present and parses, but a path it names is present and unreadable, so its hash is unknown — make that path readable; re-running the producer hashes the same path and refuses identically`;
+  }
+  if (refusal.code === 'root-listing-failed') {
+    return `${where}: the declaration is present and parses and names this as a root, but the root could not be listed, so no file under it was compared — re-run the producer, which declares no roots`;
+  }
+  if (refusal.code.startsWith('declaration-')) {
+    return `${where}: the artifact is present; what is unmet is its \`${JUDGED_HEADING}\` block, absent or not one this check can accept`;
+  }
+  if (OBSERVED_DISAGREEMENT.has(refusal.code)) {
+    return `${where}: the declaration was read and the tree compared against it, and the two do not agree — re-run the producer`;
+  }
+  return `${where}: the declaration is present and parses; this code records no comparison this check completed, so treat the tree as unverified and re-run the producer`;
+}
 
 export type JudgedCheckResult = {
   readonly refusals: readonly JudgedRefusal[];

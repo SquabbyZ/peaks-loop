@@ -146,16 +146,37 @@ const SCOPE_BASE =
   'not a complete contract.';
 
 /**
+ * The body-lint gate, named in EVERY non-empty block because it runs for every role
+ * and every type: the transition OUT of `draft` lints the artifact and refuses on
+ * any placeholder the template still carries. The block said nothing about it, so a
+ * producer that satisfied every row below still met a refusal the carrier had never
+ * mentioned — the same defect as a row whose marker the producer was not shown.
+ */
+const SCOPE_LINT =
+  ' Separately from the rows above: leaving `draft` runs the body lint over this artifact, and it ' +
+  'refuses on a placeholder the template still carries — an unfilled `<...>` token or a `- ...` stub.';
+
+/**
  * The addendum for a state the gate really does guard with more than the table.
  * Measured on a probe project and again on this slice's own rid: an artifact set
  * satisfying every `rd:qa-handoff` row was still refused once, on a declaration
  * outside the table. The earlier wording said a gate "may also check something
  * the table does not carry", which under-claims a systematic gap at exactly the
  * state this block guides a producer to.
+ *
+ * The declaration is named because naming it is the whole fix: the refusal used to
+ * report the artifact as absent when the artifact was there and only its
+ * declaration was unmet, so a producer that read this far-first ended one refusal
+ * later than it needed to.
+ * NO PRODUCER IS NAMED: the same declaration is required of whichever security
+ * artifact the rows above demand — a `config` slice's is `rd/security-review-<rid>.md`
+ * — and more than one in-repo producer writes a valid one.
  */
 const SCOPE_HANDOFF =
   ' At `rd:qa-handoff` the gate also runs checks that are not rows of this table, so satisfying every ' +
-  'row below does not by itself open that transition.';
+  'row below does not by itself open that transition. One is the judged declaration: the security ' +
+  'artifact the rows above name must also carry a `## Judged content` block, and a body written ' +
+  'without one satisfies the row and is still refused.';
 
 const ARTIFACT_CONTRACT_HEADING = '## Artifact contract (generated from the prerequisite table)';
 
@@ -185,7 +206,7 @@ export function buildArtifactContractBlock(input: {
     `\n${ARTIFACT_CONTRACT_HEADING}\n` +
     `Role \`${input.role}\`, ${typeLine}.\n` +
     `${BODY_RULE}\n` +
-    `${SCOPE_BASE}${guardedHandoff ? SCOPE_HANDOFF : ''}\n` +
+    `${SCOPE_BASE}${guardedHandoff ? SCOPE_HANDOFF : ''}${SCOPE_LINT}\n` +
     rows.map((row) => row.text).join('') +
     '\n'
   );

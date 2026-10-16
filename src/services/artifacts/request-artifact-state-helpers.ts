@@ -53,7 +53,7 @@ export class PrerequisitesNotSatisfiedError extends Error {
     warnings: PrerequisiteCheckResult['warnings'] = []
   ) {
     super(
-      `Cannot transition ${role} to ${newState}: ${missing.length} required artifact${missing.length === 1 ? '' : 's'} missing under .peaks/_runtime/${sessionId}/`
+      `Cannot transition ${role} to ${newState}: ${missing.length} unmet requirement${missing.length === 1 ? '' : 's'} under .peaks/_runtime/${sessionId}/`
     );
     this.name = 'PrerequisitesNotSatisfiedError';
     this.role = role;
@@ -64,20 +64,30 @@ export class PrerequisitesNotSatisfiedError extends Error {
   }
 }
 
+/** The diagnosis a lint refusal carries: the `line`, `text` and `reason` the linter
+ *  computed for each finding and this error previously kept only a count of. */
+export type LintGateFinding = { line: number; text: string; reason: string };
+
 export class LintGateError extends Error {
   readonly code = 'LINT_GATE_FAILED';
   readonly role: RequestArtifactRole;
   readonly newState: RequestArtifactState;
   readonly errorCount: number;
-  constructor(role: RequestArtifactRole, newState: RequestArtifactState, errorCount: number) {
+  readonly findings: ReadonlyArray<LintGateFinding>;
+  constructor(
+    role: RequestArtifactRole,
+    newState: RequestArtifactState,
+    findings: ReadonlyArray<LintGateFinding>
+  ) {
     super(
-      `Cannot transition ${role} to ${newState}: ${errorCount} lint error(s) found in artifact. ` +
+      `Cannot transition ${role} to ${newState}: ${findings.length} lint error(s) found in artifact. ` +
         'Fix lint errors or use --allow-incomplete to bypass.'
     );
     this.name = 'LintGateError';
     this.role = role;
     this.newState = newState;
-    this.errorCount = errorCount;
+    this.findings = findings;
+    this.errorCount = findings.length;
   }
 }
 

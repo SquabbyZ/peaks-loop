@@ -57,6 +57,7 @@ import {
   writeArtifact
 } from './_audit-artifact-rid-fixtures.js';
 import { writeJudgedFixtureSource } from './_judged-declaration-fixture.js';
+import { slugifyDescription } from '../../../../src/shared/incrementing-number.js';
 
 declareDimensions(
   'tests/unit/services/artifacts/bug-analysis-rid-scoping.test.ts',
@@ -228,6 +229,47 @@ describe('(behavior) two bugfix slices in one session', () => {
 
     expect(a.missing).toContain(missingPath(BUG_ANALYSIS_RID_PATH, RID_A));
     expect(b.missing).toEqual([]);
+  });
+});
+
+describe('(integration) the numbered fallback compares the operand the writer wrote', () => {
+  it('when the rid carries a capital, should resolve the analysis file the writer named', async () => {
+    // given: a rid with a capital, and the analysis file named EXACTLY as the
+    //        writer names it — `buildNumberedFilename` slugifies the rid, then
+    //        `getNextNumber` prefixes it
+    const projectRoot = makeProjectRoot();
+    const rid = '2026-09-06-split-batchA';
+    writeArtifact(
+      projectRoot,
+      `rd/001-bug-analysis-${slugifyDescription(rid)}.md`,
+      bugAnalysisBody(rid)
+    );
+    // the premise: the on-disk spelling is NOT the rid's raw spelling
+    expect(`001-bug-analysis-${slugifyDescription(rid)}.md`).not.toContain(rid);
+
+    // when: the row's gate runs for that rid
+    const result = await bugfixGate(projectRoot, rid, 'implemented');
+
+    // then: the row is satisfied. The fallback's suffix used the rid's RAW
+    //       spelling, so it reported `rd/bug-analysis/<raw rid>.md` — a path never
+    //       written — for a file that was on disk. That is T1's shape, at the site
+    //       the prefix-family fix touched.
+    expect(result.missing).toEqual([]);
+    expect(result.ok).toBe(true);
+  });
+
+  it('when no analysis file exists at all, should still refuse — the control', async () => {
+    // given: the same kind of session with the file simply absent
+    const projectRoot = makeProjectRoot();
+    const rid = '2026-09-06-split-batchB';
+
+    // when: the row's gate runs
+    const result = await bugfixGate(projectRoot, rid, 'implemented');
+
+    // then: the row is refused, so the case above is the operand matching and not a
+    //       gate that stopped checking
+    expect(result.ok).toBe(false);
+    expect(result.missing).toContain(`rd/bug-analysis-${rid}.md`);
   });
 });
 

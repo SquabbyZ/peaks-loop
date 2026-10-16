@@ -220,12 +220,12 @@ export async function createRequestArtifact(
   if (await isDirectory(requestsDir)) {
     const existingFiles = await listMarkdownFiles(requestsDir);
     // The writer lowercases the request id into a kebab slug
-    // (`buildNumberedFilename`), so the duplicate-detection endsWith must
-    // compare against the SAME slug — a mixed-case id like
+    // (`buildNumberedFilename`), so the duplicate check compares against the SAME
+    // slug — read off each filename by the one reader that owns the naming rule.
     const slug = slugifyDescription(options.requestId);
     const alreadyExists = existingFiles.some((file) => {
       if (file === `${options.requestId}.md`) return true;
-      if (/^\d+-/.test(file) && file.endsWith(`-${slug}.md`)) return true;
+      if (requestIdFromFileName(file) === slug) return true;
       return false;
     });
     if (alreadyExists) {
@@ -451,8 +451,8 @@ export async function showRequestArtifact(
       if (file === `${options.requestId}.md`) {
         return { fileName: file, path: join(dir, file) };
       }
-      // Match numbered format: ${number}-${requestId}.md
-      if (/^\d+-/.test(file) && file.endsWith(`-${slug}.md`)) {
+      // Match the id this filename carries, by the ONE rule that owns it
+      if (requestIdFromFileName(file) === slug) {
         return { fileName: file, path: join(dir, file) };
       }
     }
@@ -650,9 +650,9 @@ export async function transitionRequestArtifact(
       sessionId: existing.sessionId
     });
     if (lintReport !== null && !lintReport.ok) {
-      const errorCount = lintReport.findings.filter((f) => f.severity === 'error').length;
-      if (errorCount > 0) {
-        throw new LintGateError(options.role, options.newState, errorCount);
+      const errors = lintReport.findings.filter((f) => f.severity === 'error');
+      if (errors.length > 0) {
+        throw new LintGateError(options.role, options.newState, errors);
       }
     }
   }

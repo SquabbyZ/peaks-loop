@@ -2,6 +2,7 @@ import { join, dirname, basename } from 'node:path';
 import { readFile, readdir } from 'node:fs/promises';
 import { pathExists } from 'peaks-loop-shared/fs';
 
+import { NUMBERED_PREFIX_RE, slugifyDescription } from '../../shared/incrementing-number.js';
 import { emitPrereqTransitionEvent } from './prerequisite-transition-event.js';
 import { isUnsafePathInput } from '../../shared/path-safety.js';
 import { bodyViolationsIfDeclared, missingPrerequisiteWarning } from './prerequisite-checks.js';
@@ -501,7 +502,9 @@ async function resolvePrerequisiteAbsolutePath(
     return null;
   }
   const dir = dirname(exact);
-  const targetSuffix = `-${basename(exact)}`;
+  // The on-disk suffix is the SLUG of this basename — the writer lowercases the
+  // rid — so a mixed-case rid used to be reported absent with the file on disk.
+  const suffix = `-${slugifyDescription(basename(exact).replace(/\.md$/, ''))}.md`;
   let entries: string[];
   try {
     entries = await readdir(dir);
@@ -509,7 +512,7 @@ async function resolvePrerequisiteAbsolutePath(
     // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     return null;
   }
-  const match = entries.find((name) => /^\d+-/.test(name) && name.endsWith(targetSuffix));
+  const match = entries.find((name) => NUMBERED_PREFIX_RE.test(name) && name.endsWith(suffix));
   return match ? join(dir, match) : null;
 }
 
@@ -610,17 +613,14 @@ export async function checkPrerequisites(
     // re-hashes them, so a repair after the audit is refused by name. An
     // artifact with no declaration is refused here, not waved through — a
     // deleted section is the shed this arm exists to close.
-    const { verifyJudgedDeclaration } =
+    const { describeJudgedRefusal, verifyJudgedDeclaration } =
       await import('../audit-independent/judged-declaration-check.js');
     for (const refusal of verifyJudgedDeclaration({
       projectRoot: options.projectRoot,
       sessionId: options.sessionId,
       requestId: options.requestId
     }).refusals) {
-      missing.push({
-        path: refusal.artifact,
-        description: `Judged declaration ${refusal.code} at ${refusal.path}`
-      });
+      missing.push({ path: refusal.artifact, description: describeJudgedRefusal(refusal) });
     }
   }
 

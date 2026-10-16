@@ -412,4 +412,48 @@ describe('a11y — what the producer reads', () => {
     expect(text).toContain('a missing file only warns until v2.14.0');
     expect(text).toContain('a missing file only warns until v2.15.0');
   });
+
+  it('should name the declaration the handoff gate also requires', () => {
+    // The handoff transition refuses an artifact that satisfies the row's markers
+    // and carries no judged declaration. Naming it in the carrier is the fix: the
+    // producer reads the requirement before writing, instead of meeting it at a
+    // refusal that reported the artifact as merely absent.
+    const text = block('rd', 'bugfix');
+
+    expect(text).toContain('## Judged content');
+    // The same check runs for a CONFIG handoff, where the security artifact is
+    // `rd/security-review-<rid>.md` — measured through the real `checkPrerequisites`,
+    // which refuses that path with `declaration-missing` when no block is present.
+    // So the clause must not be gated on the canonical audit path, and it must not
+    // name a producer: no single producer writes both artifacts.
+    expect(block('rd', 'config')).toContain('## Judged content');
+    expect(block('rd', 'config')).not.toContain('peaks security-audit run');
+    // conditional on the same ROWS the handoff note is: a role whose transition
+    // never runs that check is not told about it
+    expect(block('qa', 'feature')).not.toContain('## Judged content');
+    expect(block('prd', 'feature')).not.toContain('## Judged content');
+  });
+
+  it('should name the body-lint gate in every block that has rows, and in none that has not', () => {
+    // The lint gate runs when the artifact leaves `draft` — for every role and every
+    // type — so it belongs to every non-empty block. It said nothing about that
+    // gate before, so a producer met a refusal the carrier had never mentioned.
+    let nonEmpty = 0;
+    for (const role of ROLES) {
+      for (const requestType of VALID_REQUEST_TYPES) {
+        const text = block(role, requestType);
+        if (text.length === 0) continue;
+        nonEmpty += 1;
+        expect(text, `${role}/${requestType}`).toContain('leaving `draft` runs the body lint');
+      }
+    }
+    // non-vacuity: a block builder that emitted nothing would pass the loop above
+    expect(nonEmpty).toBeGreaterThan(0);
+
+    // and the control on the real input: the blocks pinned as byte-empty get none of
+    // it, because the empty string is the whole byte-identity contract
+    expect(block('rd', 'docs')).toBe('');
+    expect(block('txt', 'feature')).toBe('');
+    expect(block('reviewer', 'feature')).toBe('');
+  });
 });

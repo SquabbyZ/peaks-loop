@@ -30,6 +30,7 @@ import { isUnsafePathInput } from '../../shared/path-safety.js';
 import { DEFAULT_REQUEST_TYPE } from '../../services/artifacts/artifact-prerequisites.js';
 import { REQUEST_ID_PATTERN } from '../../services/artifacts/request-artifact-service.js';
 import { contractEvidencePaths } from '../../services/workflow/pipeline-verify-gate-support.js';
+import { slugifyDescription } from '../../shared/incrementing-number.js';
 
 type AggregateOptions = {
   fromRid?: string;
@@ -266,7 +267,7 @@ async function readMut(projectRoot: string, sid: string): Promise<ReturnType<typ
 
 function readQa(projectRoot: string, sid: string, rid: string): ReturnType<typeof parseQaEnvelope> {
   const dir = join(projectRoot, '.peaks', '_runtime', sid, QA_REL);
-  const candidates = [`${rid}.md`, `001-${rid}.md`];
+  const candidates = [`${rid}.md`, `001-${slugifyDescription(rid)}.md`];
   for (const name of candidates) {
     const path = join(dir, name);
     if (existsSync(path)) {
