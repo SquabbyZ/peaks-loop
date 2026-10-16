@@ -195,12 +195,12 @@ jobs:
       # './scripts/bump-version.mjs --to <X.Y.Z>' locally first, commit,
       # then push the matching vX.Y.Z tag.
 
-      - name: Sync README badges to new version
-        # 2026-07-22 follow-up: keep the `Latest` / `最新版本` row in
-        # both READMEs in lockstep with the just-bumped version. The
-        # release-page link stays the same (GitHub renders the latest
-        # tag by default); only the displayed version text changes.
-        run: node ./scripts/sync-readme-version.mjs
+      # README version-sync step (DELETED 2026-10-16, with the usage-document
+      # rewrite): the `**最新版本**` row and the `## 当前状态 · X` heading both
+      # lived INSIDE the `## 当前状态` section that rewrite dropped, so the
+      # script this step ran (retired in the same commit) would exit 1 on
+      # every publish. The shields npm badge serves the same fact and cannot
+      # rot.
 
       - name: Build (runs subpackage builds before root tsc — required so
           # workspace:* deps provide dist/* .d.ts/.js exports for typecheck
