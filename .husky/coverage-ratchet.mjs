@@ -5,14 +5,18 @@
  * and fail when coverage has dropped.
  *
  * THE DEFECT IT CLOSES. CI enforced no coverage floor at all, so coverage could regress
- * silently and nothing noticed. The repository's existing strict instrument,
- * `scripts/coverage-c8.mjs`, holds a 100% bar over the whole project; that bar is unreachable
- * today, so it is called by no workflow and measures nothing. A bar nothing can pass
+ * silently and nothing noticed. The repository's strict instrument of the day,
+ * `scripts/coverage-c8.mjs`, held a 100% bar over the whole project; that bar was
+ * unreachable, so no workflow called it and it measured nothing. A bar nothing can pass
  * certifies nothing — which is the same no-fake-green instinct that set it, read the other
- * way. This job is the reachable form: a floor that is MEASURED (never chosen), ENFORCED (a
- * blocking job), and MONOTONIC (it may only rise). `coverage-c8.mjs` is untouched and its
- * `--100` rule is not weakened — this gate is additive, and anyone who wants the strict bar
- * still has it.
+ * way. This gate is the reachable form: a floor that is MEASURED (never chosen), ENFORCED (a
+ * blocking job), and MONOTONIC (it may only rise).
+ *
+ * IT IS NOW THE ONLY ONE. That strict instrument was REMOVED on 2026-10-17 (backlog §13.4
+ * rule 2: "a dead gate must be removed, not left red-on-arrival"), so this ratchet is the
+ * repository's whole coverage enforcement. Nothing here changed to absorb it: the floor was
+ * already reachable, measured and enforced, which is why removing the other one cost no
+ * enforcement. Raising `.peaks/lint/coverage-floor.json` is the only way the bar moves.
  *
  * GREEN ON ARRIVAL, AND THAT IS THE POINT. The seeded floor is deliberately loose, because it
  * was measured on Windows while this job enforces on ubuntu and nobody has measured Linux

@@ -702,13 +702,15 @@ jobs:
 
   # THE COVERAGE FLOOR — the defect it closes. CI enforced no coverage floor at all, so
   # coverage could regress silently and nothing noticed. The repository's strict
-  # instrument, `scripts/coverage-c8.mjs`, holds a 100% bar over the whole project and is
-  # left BYTE-IDENTICAL by this job: its rule is not weakened, scoped or softened. It is
-  # simply unreachable today, so no workflow calls it and it measures nothing — and a bar
-  # nothing can pass certifies nothing, which is the same no-fake-green instinct that set
-  # it, read the other way round. This job is the reachable form of the same posture: a
+  # instrument at the time, `scripts/coverage-c8.mjs`, held a 100% bar over the whole
+  # project that no workflow called and that its own `:135` admitted was unreachable —
+  # and a bar nothing can pass certifies nothing, which is the same no-fake-green
+  # instinct that set it, read the other way round. That dead gate was REMOVED on
+  # 2026-10-17 (backlog §13.4 rule 2: "a dead gate must be removed, not left
+  # red-on-arrival"), so this job is now the repository's ONLY coverage enforcement: a
   # floor that is MEASURED (never chosen), ENFORCED (a blocking job), and MONOTONIC (it
-  # may only rise). Both paths stay open; nobody loses the strict one.
+  # may only rise). Removing the dead one cost no enforcement, because this was already
+  # the reachable form of the same posture.
   #
   # GREEN ON ARRIVAL, AND THAT IS THE POINT. A job that is red forever is a job everyone
   # learns to ignore — `format-check`'s comment above says the same thing about its own

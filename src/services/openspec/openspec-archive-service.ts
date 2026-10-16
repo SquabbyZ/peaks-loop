@@ -55,7 +55,7 @@ export type CoverageEvidence = {
   capabilityRows: ReadonlyArray<CapabilityMappingRow>;
   /** Resolved coverage-summary.json absolute path (Fix-6B). */
   summaryPath?: string;
-  /** Freshness status of the c8 summary relative to change files. */
+  /** Freshness status of the summary relative to change files. */
   summaryStatus: 'missing' | 'stale' | 'fresh' | 'unavailable';
   /** Per-capability validation outcome. */
   capabilityValidation: 'ok' | 'mismatch' | 'no-mapping' | 'not-enforced';
@@ -321,7 +321,7 @@ export async function archiveOpenSpecChange(
       }
     }
 
-    // --- Fix-6B: parse Capability Mapping block + validate against c8 summary ---
+    // --- Fix-6B: parse Capability Mapping block + validate against the summary ---
     const mapping = await parseCapabilityMapping(proposalPath);
     coverage = {
       ...coverage,
@@ -357,7 +357,7 @@ export async function archiveOpenSpecChange(
       throw new OpenSpecArchiveError(
         'OPENSPEC_COVERAGE_EVIDENCE_MISSING',
         `Refusing to archive "${changeId}": no coverage-summary.json found at any of: ${triedPaths.join(', ')}. ` +
-          'Run `pnpm test:coverage` (which invokes scripts/coverage-c8.mjs) to generate one, ' +
+          'Generate coverage/coverage-summary.json with the project coverage run (`.husky/coverage-ratchet.mjs` here), ' +
           'or pass --coverage-summary <path> to point at an existing summary, ' +
           'or re-run with --force to bypass.',
         {
@@ -376,7 +376,7 @@ export async function archiveOpenSpecChange(
       throw new OpenSpecArchiveError(
         'OPENSPEC_COVERAGE_EVIDENCE_MISSING',
         `Refusing to archive "${changeId}": coverage-summary.json at ${summaryPathResult.value} is malformed (${(error as Error).message}). ` +
-          'Re-run `pnpm test:coverage` to regenerate, or pass --coverage-summary <path> to point at a valid summary.',
+          'Re-generate coverage/coverage-summary.json, or pass --coverage-summary <path> to point at a valid summary.',
         { changeId, path: summaryPathResult.value, coverage }
       );
     }
@@ -400,7 +400,7 @@ export async function archiveOpenSpecChange(
       throw new OpenSpecArchiveError(
         'OPENSPEC_COVERAGE_EVIDENCE_STALE',
         `Refusing to archive "${changeId}": coverage-summary.json is older than ${staleFiles.length} change file(s). ` +
-          'Re-run `pnpm test:coverage` to refresh, or re-run with --force to bypass.',
+          'Re-generate coverage/coverage-summary.json to refresh, or re-run with --force to bypass.',
         { changeId, staleFiles, summaryPath: summary.path, coverage }
       );
     }
@@ -426,8 +426,8 @@ export async function archiveOpenSpecChange(
       } else {
         throw new OpenSpecArchiveError(
           'OPENSPEC_COVERAGE_EVIDENCE_MISMATCH',
-          `Refusing to archive "${changeId}": ${validation.mismatches.length} capability row(s) claim "covered" in proposal.md but c8 reports < 100% coverage. ` +
-            'Re-run `pnpm test:coverage` after closing the gap, or re-run with --force to bypass.',
+          `Refusing to archive "${changeId}": ${validation.mismatches.length} capability row(s) claim "covered" in proposal.md but the coverage summary reports < 100% coverage. ` +
+            'Re-generate coverage/coverage-summary.json after closing the gap, or re-run with --force to bypass.',
           {
             changeId,
             mismatches: validation.mismatches,

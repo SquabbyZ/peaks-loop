@@ -412,7 +412,8 @@ Both were discovered by leaves, not by the planning model, which reasoned about 
 rather than about text reads and path-keyed lists. The general form:
 
 > **any policy keyed on a file PATH must be re-declared for the sibling a split creates** — the census
-> zero-swallow list, `scripts/coverage-c8.mjs`'s `--exclude` list (measured: counting one new sibling
+> zero-swallow list, the `--exclude` list of `scripts/coverage-c8.mjs` (that instrument was removed
+> 2026-10-17 — backlog §13.4 rule 2; measured: counting one new sibling
 > would have added 151 statements, 100 uncovered, to a `--100` gate), and
 > `no-runtime-input-guard.test.ts`'s `MEASURED_ESCAPE_MODULES`. Three instances, same cause, all three
 > invisible to `tsc`.

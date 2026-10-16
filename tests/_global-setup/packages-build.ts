@@ -22,10 +22,7 @@
 //                                   `test:dev:cli`, `test:cli`, `test:workflow`,
 //                                   `test:fast`, `test:ci`,
 //                                   `test:coverage:vitest`,
-//                                   `test:coverage:workflow`,
-//                                   `scripts/coverage-c8.mjs` (`test:coverage`,
-//                                   `test:coverage:c8`), which runs `vitest run`
-//                                   with no `--config`, and `test:race`,
+//                                   `test:coverage:workflow`, and `test:race`,
 //                                   `test:replay`, `test:changed`, which pass
 //                                   files to the same bare `vitest run`.
 //                                   `test:full` (`pnpm -r … run test`) reaches

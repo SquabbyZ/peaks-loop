@@ -135,8 +135,6 @@
     "test:race": "vitest run --no-file-parallelism packages/peaks-loop-shared-channel/tests/shared-channel.test.ts tests/unit/services/dispatch/dispatch-record-writer.test.ts",
     "test:replay": "node scripts/fixture-capture-setup.mjs && vitest run tests/unit/services/dispatch/conflict-replay.test.ts tests/unit/services/dispatch/e2e-fixtures.test.ts",
     "fixture:capture-setup": "node scripts/fixture-capture-setup.mjs",
-    "test:coverage": "node ./scripts/coverage-c8.mjs",
-    "test:coverage:c8": "node ./scripts/coverage-c8.mjs",
     "test:coverage:vitest": "vitest run --coverage",
     "test:coverage:workflow": "vitest run --coverage --coverage.include='src/services/workflow/plan-*.ts' tests/unit/services/workflow/",
     "schema:generate": "node scripts/generate-context-schema.mjs",

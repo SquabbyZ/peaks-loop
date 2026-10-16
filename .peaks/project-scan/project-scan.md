@@ -40,7 +40,7 @@ architecture: |
     two-axis workspace (.peaks/_runtime/<sessionId>/..., .peaks/_runtime/change/<changeId>/...)
     workspace hard ban on .peaks/_runtime/<change-id>/ or <YYYY-MM-DD-*>/ at top level
     vitest pinned at ^4.1.10 (locked 2026-07-25 — do NOT propose 5.x; user directive)
-    coverage via c8 (scripts/coverage-c8.mjs) — NOT vitest's built-in coverage (4.x has structural per-project config overwrite)
+    coverage floor (.peaks/lint/coverage-floor.json, raised only by .husky/coverage-ratchet.mjs) — the c8 100% gate was removed 2026-10-17 (backlog §13.4 rule 2)
 karpathySelfCheck:
   simpleFirst: "800-line file cap + Karpathy §2 enforced by peaks scan file-size. Every new module is the minimum code that solves the problem."
   surgicalChanges: "Touch only what the request requires. Every changed line traces to a PRD AC or risk note. No refactor-adjacent cleanup in feature slices."
@@ -83,7 +83,7 @@ karpathySelfCheck:
 | Node runtime | `>= 20.0.0` (active: v22.22.1) |
 | Build | `tsc -p tsconfig.json` (root) + per-package `tsc -p tsconfig.json` |
 | Tests | vitest (`^4.1.10` — **pinned, do NOT bump to 5.x**) |
-| Coverage | c8 (`^10.1.3`) via `scripts/coverage-c8.mjs`; vitest's built-in coverage is **disabled** (4.x has structural per-project config overwrite bug — see `2026-07-25-b1-vitest-coverage-tooling-closure.md`) |
+| Coverage | vitest's built-in coverage, driven by `.husky/coverage-ratchet.mjs` against the floor in `.peaks/lint/coverage-floor.json` (`c8` `^10.1.3` remains a devDependency); the c8 100% gate (`scripts/coverage-c8.mjs`) was removed 2026-10-17 (backlog §13.4 rule 2) |
 | Mutation | `@stryker-mutator/core ^8.7.1` (slice-only) |
 | Lint | (none configured; formatting per `.editorconfig` + Prettier hooks) |
 
@@ -96,9 +96,9 @@ karpathySelfCheck:
 | `zod` | `^4.4.3` | schema validation across services |
 | `fzf` | `^0.5.2` | fuzzy selector (sub-agent dispatch) |
 | `vitest` | `^4.1.10` | unit + integration tests (LOCKED 2026-07-25) |
-| `@vitest/coverage-v8` | `^4.1.10` | bundled but unused (c8 reads raw V8 output directly) |
+| `@vitest/coverage-v8` | `^4.1.10` | the provider `.husky/coverage-ratchet.mjs` measures through |
 | `@vitest/coverage-istanbul` | `^4.1.10` | bundled but unused |
-| `c8` | `^10.1.3` | post-test coverage merge (100% threshold via `--100`) |
+| `c8` | `^10.1.3` | kept as a devDependency; the `--100` gate that used it was removed 2026-10-17 |
 | `vite` | `^6.0.0` | vitest peer (no runtime use) |
 | `tsx` | `^4.19.2` | `peaks dev` runtime |
 | `better-sqlite3` | `^12.11.1` | native binding for retrospective state |
@@ -131,4 +131,4 @@ See `src/services/prd/handoff-service.ts` (immutable handoff) and
 3. Update `capturedAt` to current ISO timestamp
 4. Commit alongside the dependency bump
 5. **Vitest bump requires explicit user approval** — 4.1.10 is a hard pin per `peaks-vitest-locked-4-1-10` memory
-6. **Coverage tool** is c8, not vitest — do not switch back without re-validating the 4.x per-project config bug
+6. **Coverage tool** is vitest's built-in coverage, driven by `.husky/coverage-ratchet.mjs` against the floor in `.peaks/lint/coverage-floor.json` — the c8 100% gate was removed 2026-10-17

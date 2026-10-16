@@ -10,25 +10,30 @@
  * at the repository root (`measureArgs`), so the expression and the reader agree by construction
  * rather than by coincidence.
  *
- * WHY VITEST AND NOT THE FROZEN `scripts/coverage-c8.mjs`. That script is the strict 100%
- * instrument, it is not to be modified, and this slice does not weaken it — but its exit is
- * always non-zero, so a caller could not tell "the bar was not met" from "instrumentation
- * never fired"; and its `--src=` sweep is the whole project, so it drags `dist/**` and
- * `.peaks/**` into a denominator that is then thrown away. This ratchet owns its own
- * measurement instead, scoped to `src/**` by the expression below. The c8 path stays
- * available and unblocked for anyone who wants it.
+ * WHY THIS MODULE OWNS ITS OWN MEASUREMENT RATHER THAN REUSING THE REMOVED ONE. The
+ * repository's strict 100% instrument, `scripts/coverage-c8.mjs`, was removed on 2026-10-17
+ * (backlog §13.4 rule 2) and this paragraph is kept, past-tensed, because it is the record of
+ * a choice that still governs: this gate was never a weakened copy of that one, and the
+ * numbers below are the reason. While it existed, its exit was always non-zero, so a caller
+ * could not tell "the bar was not met" from "instrumentation never fired"; and its `--src=`
+ * sweep was the whole project, so it dragged `dist/**` and `.peaks/**` into a denominator that
+ * was then thrown away. This ratchet owns its own measurement instead, scoped to `src/**` by
+ * the expression below.
  *
- * THE TWO METHODS PRODUCE DIFFERENT QUANTITIES, AND THE NUMBERS ARE NOT INTERCHANGEABLE. Measured
- * 2026-10-16: the c8 path's `src`-only denominator is 185,914 lines (≈88 % of `src`'s physical
- * lines, because V8 line ranges span the blank and comment lines inside a function); this path's is
- * 42,397 executable line ENTRIES over the same 1,243 files (a multi-line statement is one entry).
- * So a percentage from one is not comparable to a percentage from the other, and this module is the
- * only place that defines which one the floor's number is on.
+ * THE TWO METHODS PRODUCE DIFFERENT QUANTITIES, AND THE NUMBERS ARE NOT INTERCHANGEABLE. This is
+ * what the removal leaves behind: anyone who remembers a coverage number from the removed path
+ * must not read it as this floor's. Measured 2026-10-16: the removed path's `src`-only
+ * denominator was 185,914 lines (≈88 % of `src`'s physical lines, because V8 line ranges span the
+ * blank and comment lines inside a function); this path's is 42,397 executable line ENTRIES over
+ * the same 1,243 files (a multi-line statement is one entry). So a percentage from one is not
+ * comparable to a percentage from the other, and this module is the only place that defines which
+ * one the floor's number is on.
  *
  * VITEST'S ENTRY IS SPAWNED AS ITS `.mjs`, NOT THROUGH `node_modules/.bin`. The `.bin` shim
  * is a `.cmd` on Windows, which Node >= 20 will not spawn without `shell: true`, and
- * `shell: true` concatenates argv unescaped — the landmine `scripts/coverage-c8.mjs:99-104`
- * documents at length. The JS entry needs no shim and no shell.
+ * `shell: true` concatenates argv unescaped — the landmine the removed instrument's
+ * `--temp-directory=` / `--reports-dir=` / `--src=` arguments documented at length. The JS
+ * entry needs no shim and no shell.
  *
  * FAIL CLOSED ON EVERY DEGENERATE REPORT: absent, empty, unparseable, no `total` row, no numeric
  * `total.lines.pct`, a percentage outside [0, 100], no file rows, or ANY file row outside the

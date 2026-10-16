@@ -1,9 +1,9 @@
 /**
- * Coverage Evidence reader for c8 `coverage-summary.json` (Fix-6B).
+ * Coverage Evidence reader for the istanbul `coverage-summary.json` shape (Fix-6B).
  *
  *   - pure helper module, no side effects beyond FS reads
- *   - reads the istanbul-reporter JSON shape emitted by `c8 --reporter=json-summary`
- *     (the project's coverage tool — see scripts/coverage-c8.mjs)
+ *   - reads the istanbul-reporter JSON shape a `--reporter=json-summary` run emits
+ *     (the project's instrument is `.husky/coverage-ratchet.mjs`, which emits it)
  *   - resolves a `coverage-summary.json` from a fixed discovery order
  *   - validates per-capability coverage against a `## Capability Mapping` block
  *
@@ -14,7 +14,7 @@
  *
  * Conventions:
  *   - All paths are POSIX-normalized for JSON safety.
- *   - The c8 summary's per-file keys are project-root-relative POSIX paths
+ *   - The summary's per-file keys are project-root-relative POSIX paths
  *     (e.g. `src/services/openspec/openspec-archive-service.ts`).
  *   - Capability mapping `source` field is also project-root-relative, may be
  *     a file (`foo.ts`) or a directory (`src/services/openspec/`).
@@ -45,7 +45,7 @@ export type CoverageSummary = {
 };
 
 export type CoverageFileEntry = {
-  /** Absolute path the c8 entry covers (POSIX). */
+  /** Absolute path the summary entry covers (POSIX). */
   path: string;
   /** Project-root-relative POSIX path (the key the summary uses). */
   relativePath: string;
@@ -102,7 +102,7 @@ const DEFAULT_DISCOVERY = [
  *
  * Discovery order (per Fix-6B AC1):
  *   1. `explicitPath` (passed via `--coverage-summary`)
- *   2. `<projectRoot>/coverage/coverage-summary.json` (c8 wrapper default)
+ *   2. `<projectRoot>/coverage/coverage-summary.json` (the coverage run's default)
  *   3. `<projectRoot>/openspec/coverage-summary.json` (per-project override)
  *
  * Returns:
@@ -319,7 +319,7 @@ function parseCapabilityRow(line: string): Omit<CapabilityMappingRow, 'line'> | 
  * - File path: returns `[file]`.
  * - Directory path: returns every `*.ts` file recursively under it (relative
  *   to `projectRoot`, POSIX separators). Non-TS files are excluded because
- *   c8 only collects coverage on TS source modules.
+ *   the summary only carries TS source modules.
  */
 export async function resolveCapabilityFiles(input: {
   projectRoot: string;
@@ -365,7 +365,7 @@ async function walkTsFiles(absRoot: string, projectRoot: string): Promise<string
 
 /**
  * Validate per-capability coverage. Each capability row's `source` is resolved
- * to one or more files; each file must appear in the c8 summary with all four
+ * to one or more files; each file must appear in the summary with all four
  * metrics at exactly 100%.
  *
  * Returns `{ ok: true }` when every capability passes; `{ ok: false, mismatches }`
@@ -437,7 +437,7 @@ export async function validateCapabilityCoverage(input: {
 
 /**
  * Compare the mtime of every spec/proposal/tasks file under the change against
- * the mtime of the c8 summary. If any change file is newer than the summary,
+ * the mtime of the summary. If any change file is newer than the summary,
  * the captured V8 counters no longer match the source on disk and the summary
  * is stale.
  *

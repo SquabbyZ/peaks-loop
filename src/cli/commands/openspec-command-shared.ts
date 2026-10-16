@@ -206,13 +206,13 @@ export function nextActionsForArchiveError(code: OpenSpecArchiveError['code']): 
       ];
     case 'OPENSPEC_COVERAGE_EVIDENCE_MISSING':
       return [
-        'Run `pnpm test:coverage` (which invokes scripts/coverage-c8.mjs) to generate coverage-summary.json',
+        'Generate coverage/coverage-summary.json with the project coverage run (`node .husky/coverage-ratchet.mjs` in this repo)',
         'Or pass --coverage-summary <path> to point at an existing summary',
         'Or re-run with --force to bypass the gate'
       ];
     case 'OPENSPEC_COVERAGE_EVIDENCE_STALE':
       return [
-        'Re-run `pnpm test:coverage` to refresh coverage-summary.json',
+        'Re-generate coverage/coverage-summary.json, then re-run',
         'Or re-run with --force to bypass the gate after confirming the source delta is acceptable'
       ];
     case 'OPENSPEC_COVERAGE_EVIDENCE_MISMATCH':
