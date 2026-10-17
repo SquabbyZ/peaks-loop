@@ -643,18 +643,20 @@ jobs:
   # they cover and in nothing else — both ratchet, neither is a whole-repo boolean. They
   # can therefore never drift into "a check that is documented and never run" again.
   #
-  # GREEN ON ARRIVAL, AND THAT IS THE POINT — A SET RATCHET, NOT A BOOLEAN. 12 files
-  # are unformatted today and were unformatted before this job existed. The job asserts
-  # the current unformatted set stays INSIDE the baseline SET of 12 known names, so it is
-  # GREEN on the tree it lands on and RED the moment an unformatted file appears OUTSIDE
-  # that set — the only way the leak recurs, and the thing a boolean could never say (a
-  # boolean over 12 pre-existing violations is red forever, and a job that is red forever
-  # is a job everyone learns to ignore — the pass-shaped anti-pattern W2 exists to remove,
-  # not a stronger gate). The 12 names live in ONE named place WITH their rationale:
-  # `FORMAT_CHECK_BASELINE_FILES` at the top of `.husky/format-check-ratchet.mjs`. They are
-  # PRE-EXISTING debt this job SURFACES; it does not create it and this slice does not fix
-  # it, and the set may only SHRINK. NO `continue-on-error`, NO `|| true`: a step that
-  # cannot fail is the defect this job exists to end.
+  # A SET RATCHET, NOT A BOOLEAN — and the set is now EMPTY. The job asserts the current
+  # unformatted set stays INSIDE the baseline SET, so it is GREEN on the tree it lands on
+  # and RED the moment an unformatted file appears OUTSIDE that set — the only way the leak
+  # recurs, and the thing a boolean could never say: a boolean over the pre-existing
+  # violations this job went in with was red forever, and a job that is red forever is a job
+  # everyone learns to ignore — the pass-shaped anti-pattern W2 exists to remove, not a
+  # stronger gate. Those names were then COLLECTED, one at a time, by formatting the file
+  # the ratchet named (2026-10-17), so the set sits at its floor; it may only SHRINK, and an
+  # empty set cannot regrow into a permission. The names live in ONE named place WITH their
+  # rationale: `FORMAT_CHECK_BASELINE_FILES` at the top of `.husky/format-check-ratchet.mjs`.
+  # Emptying it makes this check strictly STRONGER than the day it went in — containment
+  # against `{}` is exactly "no unformatted file at all" over the four globs. NO
+  # `continue-on-error`, NO `|| true`: a step that cannot fail is the defect this job exists
+  # to end.
   #
   # WHY THE JOB NAME CARRIES NO NUMBER (rid-038 repair 2). The old name said
   # `unformatted <= 12`. That `12` was a SECOND spelling of the baseline, in a file nothing

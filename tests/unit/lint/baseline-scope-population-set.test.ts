@@ -125,8 +125,10 @@ describe('Scenario: behavior — the leaving set is a set, not an arithmetic dif
   it('pure growth — nothing left, files entered — proceeds with NO flag and NO refusal', () => {
     const head = files('src/f', 943);
     const run = [...head, ...files('src/new-', 7)];
-    expect(trip(943, head, run), 'the §2.43 trip refused any count move; §2.50 must not')
-      .toBeNull();
+    expect(
+      trip(943, head, run),
+      'the §2.43 trip refused any count move; §2.50 must not'
+    ).toBeNull();
   });
 
   it('a file leaving refuses even while the count GROWS (one out, three in), naming the leaver', () => {

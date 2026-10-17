@@ -51,29 +51,22 @@ const ROOT = resolve(dirname(SELF), '..');
 const FORMAT_SCRIPT = 'format:check';
 
 // ---------------------------------------------------------------------------
-// THE ALLOWED SET — the ONE place these names live. These 12 files were already
-// unformatted when this ratchet went in (prettier --check, 2026-10-09), measured
-// BEFORE the rid-038 slice and NOT introduced by it. The rule above applies:
-// containment, not a count. This is PRE-EXISTING DEBT, not a target and not a
-// permission: the check reports the debt and blocks only its GROWTH. It is
-// deliberately not empty, because a demand to format all 12 would be red on
-// arrival and would be the whole-repo cleanup the gate's own header refuses to
-// demand. Exported so the ratchet's own test re-derives these names rather than
-// restating them (a second copy of a list is the drift this file exists to end).
+// THE ALLOWED SET — the ONE place these names live, and IT IS NOW EMPTY.
+//
+// THE DEBT IS COLLECTED (2026-10-17). Every name this set once allowed has been
+// formatted, so the set reached its floor. Read the rule above again with an
+// empty set: containment against `{}` is exactly "no unformatted file at all"
+// over the four globs, for the first time. So the check is STRONGER than the day
+// it went in, not weaker — and because the set may only SHRINK, an empty set can
+// never grow into a permission. Adding a name here is the regression this file's
+// own failure text forbids by name.
+//
+// The array is kept as an exported, empty, frozen value rather than deleted:
+// the ratchet's own test reads the export to pin it at empty, which is what
+// turns "someone adds a name to silence a breach" into a red test rather than a
+// silent widening. Deleting it would remove that arm.
 // ---------------------------------------------------------------------------
-export const FORMAT_CHECK_BASELINE_FILES = Object.freeze([
-  'tests/unit/cli/node-floor.test.ts',
-  'tests/unit/comments/comment-scan-parity.test.ts',
-  'tests/unit/lint/baseline-rescope-guard.test.ts',
-  'tests/unit/lint/baseline-scope-growth-vs-shrink.test.ts',
-  'tests/unit/lint/baseline-scope-population-set.test.ts',
-  'tests/unit/lint/gate-scope-exemption.test.ts',
-  'tests/unit/lint/lint-file-list-parity.test.ts',
-  'tests/unit/lint/lint-scope-rule.test.ts',
-  'tests/unit/lint/shadow-move-warning.test.ts',
-  'tests/unit/standards/_scope-shadow-coverage.ts',
-  'tests/unit/standards/scope-shadow-coverage.test.ts'
-]);
+export const FORMAT_CHECK_BASELINE_FILES = Object.freeze([]);
 
 /** A configuration problem (exit 2), the same usage code the gate uses. */
 function refuse(message) {

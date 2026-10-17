@@ -36,7 +36,11 @@ declareDimensions(
   'tests/unit/lint/lint-scope-rule.test.ts',
   ['behavior', 'integration'],
   [
-    { dim: 'render', reason: 'the module prints nothing; every sentence it feeds is asserted in the generator/gate process arms' },
+    {
+      dim: 'render',
+      reason:
+        'the module prints nothing; every sentence it feeds is asserted in the generator/gate process arms'
+    },
     { dim: 'a11y', reason: 'no operator-facing output originates here' }
   ]
 );
@@ -91,11 +95,9 @@ describe('Scenario: behavior — the rule is a pattern, not an enumeration of pa
 
   it('derives the artifact scope.dirs from the gated population alone', async () => {
     const rule = await loadRule();
-    expect(rule.deriveScopeDirs(['src/a.ts', 'packages/z/src/b.ts', 'packages/a/src/c.ts'])).toEqual([
-      'packages/a/src',
-      'packages/z/src',
-      'src'
-    ]);
+    expect(
+      rule.deriveScopeDirs(['src/a.ts', 'packages/z/src/b.ts', 'packages/a/src/c.ts'])
+    ).toEqual(['packages/a/src', 'packages/z/src', 'src']);
     // A new package joins the enumeration because a file exists, not because a
     // constant was edited — item 7's derivation arm.
     const before = rule.deriveScopeDirs(['src/a.ts']);

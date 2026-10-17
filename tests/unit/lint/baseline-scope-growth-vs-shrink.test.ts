@@ -49,7 +49,7 @@ const CLEAN_SRC = 'export const planted = 1;\n';
  * `rel()` keeps fixture-relative slash paths as they are).
  */
 const ESLINT_ECHO_STUB = [
-  "const argv = process.argv.slice(2);",
+  'const argv = process.argv.slice(2);',
   "const i = argv.indexOf('json');",
   'const files = i === -1 ? [] : argv.slice(i + 1);',
   'process.stdout.write(',

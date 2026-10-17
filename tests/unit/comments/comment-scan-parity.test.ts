@@ -109,16 +109,36 @@ function literalRanges(text: string, kind: ts.ScriptKind): Array<[number, number
 
 /** The shapes a line-local reader gets wrong, with the truth derived by hand. */
 const SHAPES: ReadonlyArray<[string, string, number[]]> = [
-  ['a template literal whose content starts with a double slash', 'const s = `// a.ts\\n// b.ts`;\n', []],
-  ['a regex carrying an escaped double slash', 'const r = /https?:\\/\\//g;\nexport const x = 1;\n', []],
+  [
+    'a template literal whose content starts with a double slash',
+    'const s = `// a.ts\\n// b.ts`;\n',
+    []
+  ],
+  [
+    'a regex carrying an escaped double slash',
+    'const r = /https?:\\/\\//g;\nexport const x = 1;\n',
+    []
+  ],
   ['a URL in a string', 'const u = "https://example.com/a";\n', []],
   ['a real comment after that regex', 'const r = /a\\/\\/b/; // the flag matters\n', [1]],
-  ['a comment inside an interpolation', 'const s = `x${ /* inner */ y }z`;\nexport const k = 2; // tail\n', [1, 2]],
-  ['a nested template inside an interpolation', 'const s = `a${ `b // not a comment` }c`;\nexport const q = 3;\n', []],
+  [
+    'a comment inside an interpolation',
+    'const s = `x${ /* inner */ y }z`;\nexport const k = 2; // tail\n',
+    [1, 2]
+  ],
+  [
+    'a nested template inside an interpolation',
+    'const s = `a${ `b // not a comment` }c`;\nexport const q = 3;\n',
+    []
+  ],
   ['a block comment spanning lines', '/**\n * doc\n */\nexport const d = 4;\n', [1, 2, 3]],
   ['an apostrophe inside a comment', "export const e = 5; // don't cut this\n", [1]],
   ['division, then a comment', 'const h = (a + b) / 2; // mean\nexport const f = 6;\n', [1]],
-  ['a string containing a block opener', 'const s = "/* not a comment */";\nexport const g = 7;\n', []]
+  [
+    'a string containing a block opener',
+    'const s = "/* not a comment */";\nexport const g = 7;\n',
+    []
+  ]
 ];
 
 describe('the lexer agrees with hand-derived truth on the shapes a line reader gets wrong', () => {
@@ -180,9 +200,10 @@ describe('the lexer is safe and complete over every shipped source file', () => 
       literals += literalRanges(text, kind).length;
       referenceLines += parserCommentLines(text, kind).length;
     }
-    expect(literals, 'the sample carries no literals — the safety arm would be vacuous').toBeGreaterThan(
-      200
-    );
+    expect(
+      literals,
+      'the sample carries no literals — the safety arm would be vacuous'
+    ).toBeGreaterThan(200);
     expect(
       referenceLines,
       'the sample carries no parser comments — the coverage arm would be vacuous'
@@ -193,11 +214,16 @@ describe('the lexer is safe and complete over every shipped source file', () => 
     const overlaps: string[] = [];
     for (const rel of files) {
       const text = readFileSync(resolve(REPO_ROOT, rel), 'utf8');
-      const literals = literalRanges(text, rel.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
+      const literals = literalRanges(
+        text,
+        rel.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS
+      );
       for (const span of commentSpans(text)) {
         const inside = literals.find(([from, to]) => span.start > from && span.start < to);
         if (inside !== undefined) {
-          overlaps.push(`${rel}: line ${span.line} "${span.text.slice(0, 48)}" is inside a literal`);
+          overlaps.push(
+            `${rel}: line ${span.line} "${span.text.slice(0, 48)}" is inside a literal`
+          );
         }
       }
     }

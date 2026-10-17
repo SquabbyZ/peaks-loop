@@ -43,7 +43,8 @@ declareDimensions(
   [
     {
       dim: 'behavior',
-      reason: 'the pure trip functions ride these process arms; a text pin could not show the write actually stopping'
+      reason:
+        'the pure trip functions ride these process arms; a text pin could not show the write actually stopping'
     }
   ]
 );

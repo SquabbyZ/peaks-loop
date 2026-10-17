@@ -40,11 +40,7 @@
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-import {
-  REPO_ROOT,
-  overCapFromWalk,
-  type CensusEnvelope
-} from './_file-size-cap-scan.js';
+import { REPO_ROOT, overCapFromWalk, type CensusEnvelope } from './_file-size-cap-scan.js';
 
 /** The shadow block as the artifact publishes it. Read, never retyped (H3). */
 export type ShadowBlock = {
@@ -86,9 +82,10 @@ export async function loadLintScopeRule(): Promise<{
   isLintScoped: (file: string) => boolean;
   LINT_SCOPE_RULE: string;
 }> {
-  return (await import(
-    pathToFileURL(join(REPO_ROOT, '.husky', 'lint-scope.mjs')).href
-  )) as { isLintScoped: (file: string) => boolean; LINT_SCOPE_RULE: string };
+  return (await import(pathToFileURL(join(REPO_ROOT, '.husky', 'lint-scope.mjs')).href)) as {
+    isLintScoped: (file: string) => boolean;
+    LINT_SCOPE_RULE: string;
+  };
 }
 
 /**
@@ -150,14 +147,12 @@ export type CoverageProblems = {
  * exactly one of the three kinds — that is what the controls in
  * `scope-shadow-coverage.test.ts` plant and watch.
  */
-export function baselineCoverageProblems(
-  args: {
-    counted: readonly string[];
-    rowFiles: readonly string[];
-    shadow: { scopeDirs: readonly string[]; measuredFiles: number };
-    inEnforcedScope: (file: string) => boolean;
-  }
-): CoverageProblems {
+export function baselineCoverageProblems(args: {
+  counted: readonly string[];
+  rowFiles: readonly string[];
+  shadow: { scopeDirs: readonly string[]; measuredFiles: number };
+  inEnforcedScope: (file: string) => boolean;
+}): CoverageProblems {
   const rows = new Set(args.rowFiles);
   const omitted = args.counted.filter((file) => !rows.has(file));
   const inScopeMissing = omitted.filter((file) => args.inEnforcedScope(file));

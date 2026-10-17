@@ -23,11 +23,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-import {
-  MIN_NODE_MAJOR,
-  nodeFloorProblem,
-  nodeFloorSentence
-} from '../../../bin/node-floor.mjs';
+import { MIN_NODE_MAJOR, nodeFloorProblem, nodeFloorSentence } from '../../../bin/node-floor.mjs';
 import { declareDimensions } from '../_setup/4dim-template.js';
 
 declareDimensions(

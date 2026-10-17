@@ -8,18 +8,26 @@
 // script printed "no new unformatted file", a sentence that is FALSE in exactly
 // the case the check exists to catch. This slice exists to remove checks that
 // look like passes without being passes; shipping one would defeat its purpose.
-// The predicate is now SET CONTAINMENT: the 12 baseline NAMES are the allowed
-// set, and the current unformatted set must be a SUBSET of it. Arm C below is the
+// The predicate is now SET CONTAINMENT: the baseline NAMES are the allowed set,
+// and the current unformatted set must be a SUBSET of it. Arm C below is the
 // defect itself, pinned RED.
+//
+// THE REAL BASELINE IS NOW EMPTY — the debt was collected on 2026-10-17. That
+// splits this file's subject in two, stated once here:
+//   - `beforeAll` pins the REAL export at EMPTY. The set may only shrink, so
+//     empty is its floor; a name added back is how a ratchet becomes a
+//     permission, and that arm is what makes adding one a RED TEST.
+//   - the PREDICATE arms A–F take their names from `FIXTURE_BASELINE` instead,
+//     because an empty list would leave them vacuous rather than red. The
+//     fixture substitutes that list into its copy's exported declaration — by
+//     SHAPE, not by content, so the real list may change without an edit here.
 //
 // WHY A FIXTURE REPOSITORY. The arms need a tree whose unformatted set the test
 // controls exactly — the baseline names, or one fewer, or those plus a new one —
-// without touching the 12 real unformatted files and without writing into the
+// without touching real unformatted files and without writing into the
 // repository (backlog §2.31). Each arm builds a repository under OS tmp, copies
-// the REAL ratchet in byte-for-byte, and runs it as a child process against the
-// fixture's own `package.json#scripts['format:check']`. The baseline NAMES are NOT
-// restated here: they are read from the ratchet's own export, so a name added or
-// removed there is exercised here with no edit to this file.
+// the REAL ratchet in, and runs it as a child process against the fixture's own
+// `package.json#scripts['format:check']`.
 //
 // WHAT IS REAL AND WHAT IS A SHIM. The fixture's `node_modules/prettier/bin` is a
 // FORWARDER to the repository's real prettier with the same argv and cwd, so "this
@@ -35,7 +43,7 @@
 // `mkdtempSync(join(tmpdir(), …))` and is removed in its own `finally`.
 
 import { spawnSync } from 'node:child_process';
-import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -57,6 +65,21 @@ const UNFORMATTED = 'const  fixture={a:1,b:2}\nexport default  fixture\n';
 // arm throws rather than silently losing its subject.
 const PREDICATE = 'files.filter((file) => !allowed.has(file))';
 
+// The declaration whose CONTENTS the fixture owns. Matched by SHAPE — the
+// exported name and its `Object.freeze([...])` form — rather than by the list
+// itself, so the real baseline may change without an edit here.
+const BASELINE_DECL = /export const FORMAT_CHECK_BASELINE_FILES = Object\.freeze\(\[[\s\S]*?\]\);/;
+
+// The names the predicate arms hand their fixture. Deliberately NOT the real
+// baseline: that one is empty (collected), and these arms need a non-empty
+// subject before a set predicate can be told apart from a count one. Three
+// names, so `length - 1` — arms C and D — still means something.
+const FIXTURE_BASELINE = Object.freeze([
+  'tests/unit/lint/fixture-alpha.ts',
+  'tests/unit/lint/fixture-beta.ts',
+  'tests/unit/lint/fixture-gamma.ts'
+]);
+
 declareDimensions(
   'tests/unit/lint/format-check-ratchet.test.ts',
   ['behavior', 'integration', 'a11y'],
@@ -69,16 +92,19 @@ declareDimensions(
   ]
 );
 
-let baselineNames: readonly string[] = [];
+let realBaseline: readonly string[] = [];
 
 beforeAll(async () => {
   const mod = (await import(pathToFileURL(join(REPO_ROOT, RATCHET_REL)).href)) as {
     FORMAT_CHECK_BASELINE_FILES: readonly string[];
   };
-  baselineNames = mod.FORMAT_CHECK_BASELINE_FILES;
-  // Every arm derives its counts from this list, so an empty one would make them
-  // vacuous rather than red.
-  expect(baselineNames.length, 'the ratchet exports no baseline names').toBeGreaterThan(0);
+  realBaseline = mod.FORMAT_CHECK_BASELINE_FILES;
+  // The debt was COLLECTED on 2026-10-17: every name this set once allowed is
+  // formatted, and empty is therefore its floor — the set may only shrink. This
+  // pins the floor, so ADDING a name back to silence a breach is a red test
+  // rather than a silent widening. (It replaces a non-empty assertion, which
+  // emptying the baseline made false.)
+  expect(realBaseline, 'the baseline regrew — the wide check is a permission now').toEqual([]);
 });
 
 type Fixture = {
@@ -116,7 +142,21 @@ function buildFixture(): Fixture {
 
   const ratchetDest = abs(RATCHET_REL);
   mkdirSync(dirname(ratchetDest), { recursive: true });
-  copyFileSync(join(REPO_ROOT, RATCHET_REL), ratchetDest);
+  // The real ratchet, with ONLY its baseline declaration substituted: the real
+  // list is empty (the debt is collected) and these arms need a non-empty
+  // subject. Arm F patches the predicate the same way; nothing else is replaced.
+  const ratchetSource = readFileSync(join(REPO_ROOT, RATCHET_REL), 'utf8');
+  const withFixtureBaseline = ratchetSource.replace(
+    BASELINE_DECL,
+    `export const FORMAT_CHECK_BASELINE_FILES = Object.freeze(${JSON.stringify([...FIXTURE_BASELINE])});`
+  );
+  if (withFixtureBaseline === ratchetSource) {
+    throw new Error(
+      'the baseline declaration was not substituted, so every arm below would run against ' +
+        `the real (empty) baseline: ${String(BASELINE_DECL)}`
+    );
+  }
+  writeFileSync(ratchetDest, withFixtureBaseline, 'utf8');
 
   // A forwarder, not a stub: the fixture's prettier IS the repository's real one.
   write(
@@ -142,7 +182,7 @@ function buildFixture(): Fixture {
     root,
     write,
     baseline(count) {
-      for (const name of baselineNames.slice(0, count)) write(name, UNFORMATTED);
+      for (const name of FIXTURE_BASELINE.slice(0, count)) write(name, UNFORMATTED);
     },
     run() {
       const r = spawnSync(process.execPath, [RATCHET_REL], {
@@ -191,7 +231,7 @@ describe('Scenario: integration — the ratchet measures a SET, not a count', ()
     { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
     () => {
       withFixture((fx) => {
-        fx.baseline(baselineNames.length);
+        fx.baseline(FIXTURE_BASELINE.length);
         const run = fx.run();
         expect(run.code, run.out).toBe(0);
         expect(run.out).toContain('no unformatted file outside the baseline set');
@@ -205,14 +245,14 @@ describe('Scenario: integration — the ratchet measures a SET, not a count', ()
     { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
     () => {
       withFixture((fx) => {
-        fx.baseline(baselineNames.length);
+        fx.baseline(FIXTURE_BASELINE.length);
         fx.write(NEW_FILE_REL, UNFORMATTED);
         const run = fx.run();
         expect(run.code, run.out).toBe(1);
         const breach = breachBlock(run.out);
         expect(breach).toContain(NEW_FILE_REL);
         // The old message named ALL unformatted files; this one names the encroacher.
-        expect(breach).not.toContain(baselineNames[0]);
+        expect(breach).not.toContain(FIXTURE_BASELINE[0]);
       });
     }
   );
@@ -224,10 +264,10 @@ describe('Scenario: integration — the ratchet measures a SET, not a count', ()
       withFixture((fx) => {
         // One old file is now formatted, one new file appeared: the COUNT is the
         // same as the baseline's, which is what the old predicate measured.
-        fx.baseline(baselineNames.length - 1);
+        fx.baseline(FIXTURE_BASELINE.length - 1);
         fx.write(NEW_FILE_REL, UNFORMATTED);
         const run = fx.run();
-        expect(run.out).toContain(`: ${baselineNames.length} unformatted file(s);`);
+        expect(run.out).toContain(`: ${FIXTURE_BASELINE.length} unformatted file(s);`);
         // ...and it is RED anyway, because the new NAME is outside the set.
         expect(run.code, run.out).toBe(1);
         expect(breachBlock(run.out)).toContain(NEW_FILE_REL);
@@ -240,8 +280,8 @@ describe('Scenario: integration — the ratchet measures a SET, not a count', ()
     { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
     () => {
       withFixture((fx) => {
-        const dropped = baselineNames[baselineNames.length - 1];
-        fx.baseline(baselineNames.length - 1);
+        const dropped = FIXTURE_BASELINE[FIXTURE_BASELINE.length - 1];
+        fx.baseline(FIXTURE_BASELINE.length - 1);
         const run = fx.run();
         expect(run.code, run.out).toBe(0);
         expect(run.out).toContain('no unformatted file outside the baseline set');
@@ -258,7 +298,7 @@ describe('Scenario: a11y — the sentence cannot be false', () => {
     { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
     () => {
       withFixture((fx) => {
-        fx.baseline(baselineNames.length);
+        fx.baseline(FIXTURE_BASELINE.length);
         const green = fx.run();
         expect(green.code, green.out).toBe(0);
         // The retired sentence: true only under a count predicate, and false there
@@ -266,7 +306,7 @@ describe('Scenario: a11y — the sentence cannot be false', () => {
         expect(green.out).not.toContain('no new unformatted file');
       });
       withFixture((fx) => {
-        fx.baseline(baselineNames.length);
+        fx.baseline(FIXTURE_BASELINE.length);
         fx.write(NEW_FILE_REL, UNFORMATTED);
         const red = fx.run();
         expect(red.code, red.out).toBe(1);
@@ -283,7 +323,7 @@ describe('Scenario: behavior — the red is attributable to the predicate', () =
     { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
     () => {
       withFixture((fx) => {
-        fx.baseline(baselineNames.length);
+        fx.baseline(FIXTURE_BASELINE.length);
         fx.write(NEW_FILE_REL, UNFORMATTED);
         fx.weakenPredicate();
         const run = fx.run();

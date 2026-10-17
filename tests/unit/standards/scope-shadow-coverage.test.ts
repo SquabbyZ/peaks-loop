@@ -37,11 +37,13 @@ declareDimensions(
   [
     {
       dim: 'render',
-      reason: 'the checker returns records, not text; the arm messages it feeds live in `file-size-cap.test.ts`'
+      reason:
+        'the checker returns records, not text; the arm messages it feeds live in `file-size-cap.test.ts`'
     },
     {
       dim: 'a11y',
-      reason: 'no operator-facing output originates here; the generator stderr line is guarded by `baseline-rescope-guard.test.ts`'
+      reason:
+        'no operator-facing output originates here; the generator stderr line is guarded by `baseline-rescope-guard.test.ts`'
     }
   ]
 );

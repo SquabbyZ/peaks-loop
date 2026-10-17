@@ -35,8 +35,15 @@ declareDimensions(
   'tests/unit/lint/gate-scope-exemption.test.ts',
   ['integration', 'a11y'],
   [
-    { dim: 'behavior', reason: 'the comparison under test is the gate process itself, not an in-process function' },
-    { dim: 'render', reason: 'the sentences are asserted here as operator-visible evidence, which is the a11y leg of this gate' }
+    {
+      dim: 'behavior',
+      reason: 'the comparison under test is the gate process itself, not an in-process function'
+    },
+    {
+      dim: 'render',
+      reason:
+        'the sentences are asserted here as operator-visible evidence, which is the a11y leg of this gate'
+    }
   ]
 );
 
@@ -50,7 +57,7 @@ const ESLINT_DIRTY_STUB = [
   'const reports = files.map((f) => ({',
   '  filePath: path.resolve(f),',
   "  messages: path.basename(f).includes('dirty')",
-  '    ? [{ ruleId: \'no-console\', severity: 1, message: \'Unexpected console statement.\', line: 1, column: 1 }]',
+  "    ? [{ ruleId: 'no-console', severity: 1, message: 'Unexpected console statement.', line: 1, column: 1 }]",
   '    : [],',
   '}));',
   'process.stdout.write(JSON.stringify(reports));',
@@ -88,7 +95,11 @@ function fixture(): Fixture {
         2
       )}\n`
     );
-    writeFileSync(join(f.root, 'node_modules', 'eslint', 'bin', 'eslint.js'), ESLINT_DIRTY_STUB, 'utf8');
+    writeFileSync(
+      join(f.root, 'node_modules', 'eslint', 'bin', 'eslint.js'),
+      ESLINT_DIRTY_STUB,
+      'utf8'
+    );
     const write = (rel: string, text: string): void => {
       const abs = join(f.root, rel);
       mkdirSync(dirname(abs), { recursive: true });

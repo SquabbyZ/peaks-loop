@@ -377,9 +377,9 @@ describe('(behavior) the file list is the published gate scope, exactly', () => 
     expect(rule.deriveScopeDirs(['src/a.ts', 'packages/new-pkg/src/a.ts'])).toEqual(
       [...base, 'packages/new-pkg/src'].sort()
     );
-    expect(
-      rule.deriveScopeDirs(['src/a.ts', 'packages/new-pkg/src/a.ts'])
-    ).toContain('packages/new-pkg/src');
+    expect(rule.deriveScopeDirs(['src/a.ts', 'packages/new-pkg/src/a.ts'])).toContain(
+      'packages/new-pkg/src'
+    );
   });
 
   // CONTROL ARMS — the guard must be able to see its own weakening.
@@ -412,9 +412,7 @@ describe('(behavior) the file list is the published gate scope, exactly', () => 
       // The dropped extension is the first one the PUBLISHED scope actually
       // contains — since the rescope the repo's in-scope population is all `.ts`,
       // and a hand-typed `'mjs'` would drop nothing and stop controlling.
-      const usedExt = module.EXTENSIONS.find((e) =>
-        [...expected].some((f) => f.endsWith(`.${e}`))
-      );
+      const usedExt = module.EXTENSIONS.find((e) => [...expected].some((f) => f.endsWith(`.${e}`)));
       if (usedExt === undefined) throw new Error('the published scope contains no known extension');
       const droppedExt = usedExt;
       const weakened = module.filterScopeFiles(

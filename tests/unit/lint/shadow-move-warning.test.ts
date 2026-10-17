@@ -126,8 +126,7 @@ function generatorRun(args: readonly string[] = []): GenRun {
   };
 }
 
-const doc = (text: string): Record<string, unknown> =>
-  JSON.parse(text) as Record<string, unknown>;
+const doc = (text: string): Record<string, unknown> => JSON.parse(text) as Record<string, unknown>;
 const blockOf = (text: string, which: string): Record<string, unknown> =>
   doc(text)[which] as Record<string, unknown>;
 const rowOf = (text: string, which: string, key: string): number =>
@@ -219,7 +218,9 @@ describe('Scenario: behavior — the four states of the shadow-move check', () =
       const head = shadowBlock({});
       head[row] = current - 1;
       const lines = check({ headShadow: head, shadow: shadowBlock({}) });
-      expect(lines.join('\n'), `${row}`).toContain(`${row} ${String(current - 1)} -> ${String(current)}`);
+      expect(lines.join('\n'), `${row}`).toContain(
+        `${row} ${String(current - 1)} -> ${String(current)}`
+      );
       expect(riseLines(lines.join('\n')).length, `${row}: ${lines.join('\n')}`).toBe(1);
     }
   });
