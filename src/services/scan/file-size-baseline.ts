@@ -72,22 +72,34 @@ export type ChangedFiles = {
   baselinePathFor(file: string): string;
 };
 
-function gitLines(projectRoot: string, args: readonly string[]): string[] {
-  let raw: string;
+function gitNul(projectRoot: string, args: readonly string[]): string[] {
+  let raw: Buffer;
   try {
     raw = execFileSync('git', ['-C', projectRoot, ...args], {
-      encoding: 'utf8',
       windowsHide: true
     });
   } catch (error) {
     const detail = error instanceof Error ? (error.message.split('\n')[0] ?? '') : String(error);
     throw new GitReadFailedError(`\`git ${args.join(' ')}\``, projectRoot, detail);
   }
+  // `-z` suppresses C-quoting (core.quotePath), so a non-ASCII name arrives as
+  // the real path rather than `"src/\303\251.ts"`; NUL is the only separator.
   return raw
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean);
+    .toString('utf8')
+    .split('\0')
+    .filter((entry) => entry.length > 0);
 }
+
+/**
+ * One git enumeration for both readers that need the change set: the declared-
+ * type rule judges `changedPaths` (deletions included), and the size scan
+ * measures `changedFiles` (the A/M/R/untracked subset). Two spawns total,
+ * `git diff` + `git ls-files`, never one pair per reader.
+ */
+export type GitChangeSet = {
+  changedPaths: string[];
+  changedFiles: ChangedFiles;
+};
 
 /**
  * The caller's list, intersected with what git reports — or the whole change set when
@@ -107,36 +119,85 @@ function restrictedTo(all: readonly string[], only: readonly string[] | undefine
 }
 
 /**
- * The changed-file population the scan measures, as `git diff --name-status`
- * reports it. `A`/`M` keep their path; `R`/`C` keep the TARGET path and record
- * the source, so the rename is judged against the size the file had before it
- * moved; `D` is dropped. A git failure here THROWS rather than returning `[]`.
+ * The whole change set, read ONCE. `--relative` makes the `diff` arm emit paths
+ * relative to `projectRoot` (the `ls-files` arm already does), so a project root
+ * nested inside a larger repository is judged by the same prefix rule; without
+ * it, a tracked `apps/web/src/x.ts` arrived root-relative and escaped a `src/`
+ * test. `R`/`C` keep the TARGET path and record the source; a RENAME also
+ * contributes its source, so moving a file out of a source tree is still seen.
+ * `D` is kept in `changedPaths` and dropped from `changedFiles`.
  *
- * `only` is the caller's own list, when it has one — see `restrictedTo`.
+ * `only` restricts the measured subset (see `restrictedTo`); `changedPaths`
+ * stays the full set the type rule needs.
+ */
+type ChangeAccumulator = {
+  changedPaths: string[];
+  measurable: string[];
+  renameSources: Map<string, string>;
+};
+
+/** One `--name-status -z` entry into the accumulator. Extracted because the
+ *  inline form pushed `readGitChangeSet` past the complexity cap. */
+function appendEntry(
+  status: string,
+  fields: readonly (string | undefined)[],
+  acc: ChangeAccumulator
+): void {
+  if (status.startsWith('R') || status.startsWith('C')) {
+    const from = fields[0];
+    const to = fields[1];
+    if (from === undefined || to === undefined) return;
+    acc.changedPaths.push(...(status.startsWith('R') ? [from] : []), to);
+    acc.measurable.push(to);
+    acc.renameSources.set(to, from);
+    return;
+  }
+  const path = fields[0];
+  if (path === undefined) return;
+  acc.changedPaths.push(path);
+  if (status.startsWith('A') || status.startsWith('M')) acc.measurable.push(path);
+}
+
+export function readGitChangeSet(
+  projectRoot: string,
+  baseRef: string,
+  only?: readonly string[]
+): GitChangeSet {
+  const acc: ChangeAccumulator = { changedPaths: [], measurable: [], renameSources: new Map() };
+  const tokens = gitNul(projectRoot, [
+    'diff',
+    '--name-status',
+    '--relative',
+    '-z',
+    '--end-of-options',
+    baseRef
+  ]);
+  for (let i = 0; i < tokens.length;) {
+    const status = tokens[i++] ?? '';
+    const count = status.startsWith('R') || status.startsWith('C') ? 2 : 1;
+    appendEntry(status, tokens.slice(i, i + count), acc);
+    i += count;
+  }
+  const untracked = gitNul(projectRoot, ['ls-files', '--others', '--exclude-standard', '-z']);
+  return {
+    changedPaths: Array.from(new Set([...acc.changedPaths, ...untracked])),
+    changedFiles: {
+      paths: restrictedTo(Array.from(new Set([...acc.measurable, ...untracked])), only),
+      baselinePathFor: (file: string) => acc.renameSources.get(file) ?? file
+    }
+  };
+}
+
+/**
+ * The measurable subset alone. Kept as the size scan's entry point; the
+ * transition gate calls `readGitChangeSet` so the type rule shares the read.
  */
 export function readChangedFiles(
   projectRoot: string,
   baseRef: string,
   only?: readonly string[]
 ): ChangedFiles {
-  const paths: string[] = [];
-  const renameSources = new Map<string, string>();
-  for (const line of gitLines(projectRoot, ['diff', '--name-status', baseRef])) {
-    const [status, first, second] = line.split('\t');
-    if (status === undefined || first === undefined) continue;
-    if ((status.startsWith('R') || status.startsWith('C')) && second !== undefined) {
-      paths.push(second);
-      renameSources.set(second, first);
-    } else if (status.startsWith('A') || status.startsWith('M')) {
-      paths.push(first);
-    }
-  }
-  const untracked = gitLines(projectRoot, ['ls-files', '--others', '--exclude-standard']);
-  const allPaths = Array.from(new Set([...paths, ...untracked]));
-  return {
-    paths: restrictedTo(allPaths, only),
-    baselinePathFor: (file: string) => renameSources.get(file) ?? file
-  };
+  return readGitChangeSet(projectRoot, baseRef, only).changedFiles;
 }
 
 /**

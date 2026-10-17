@@ -31,6 +31,7 @@ import { describe, expect, it } from 'vitest';
 
 import { declareDimensions } from '../_setup/4dim-template.js';
 import { FILE_SIZE_SCOPE_DIRS } from '../../../src/services/scan/file-size-policy.js';
+import { isProductSourcePath } from '../../../src/services/scan/type-corroboration.js';
 
 declareDimensions(
   'tests/unit/lint/lint-scope-rule.test.ts',
@@ -88,9 +89,31 @@ describe('Scenario: behavior — the rule is a pattern, not an enumeration of pa
   });
 
   it('Windows separators answer the same rule as POSIX ones', async () => {
+    // given: the rule that owns the boundary, and the copy the rd type gate reads
     const rule = await loadRule();
+
+    // when:  both are asked about the same paths
+    const samples = [
+      'src/a.ts',
+      'packages/new-pkg/src/a.ts',
+      'packages/peaks-loop-shared/src/deep/x.ts',
+      'packages\\new-pkg\\src\\a.ts',
+      'tests\\dirty.ts',
+      'tests/unit/a.ts',
+      'scripts/lint/run.mjs',
+      'packages/peaks-loop-shared/tests/x.ts',
+      'packages/new-pkg/index.ts',
+      'srcx/a.ts',
+      '.husky/peaks-gate.mjs',
+      'README.md'
+    ];
+
+    // then:  the TS copy agrees arm-for-arm, so `packages/<name>/src/**` cannot
+    //        drift out of the rd gate while the lint rule keeps rejecting it
+    for (const path of samples) {
+      expect(isProductSourcePath(path), path).toBe(rule.isLintScoped(path));
+    }
     expect(rule.isLintScoped('packages\\new-pkg\\src\\a.ts')).toBe(true);
-    expect(rule.isLintScoped('tests\\dirty.ts')).toBe(false);
   });
 
   it('derives the artifact scope.dirs from the gated population alone', async () => {

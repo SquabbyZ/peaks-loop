@@ -1,7 +1,7 @@
-import { execFileSync } from 'node:child_process';
 import { extname, basename } from 'node:path';
 import type { RequestType } from '../artifacts/artifact-prerequisites.js';
 import { normalizePath } from '../../shared/path-utils.js';
+import { readGitChangeSet } from './file-size-baseline.js';
 
 export type FileCategory = 'source' | 'config' | 'docs' | 'lockfile' | 'test' | 'unknown';
 
@@ -143,35 +143,25 @@ function classifyFile(filePath: string): FileCategory {
  * excluded from the diff — otherwise a PRD-planning-phase handoff that only
  * wrote `.peaks/**` markdown would be misclassified as a docs change.
  */
-function isArtifactWorkspaceFile(filePath: string): boolean {
+export function isArtifactWorkspaceFile(filePath: string): boolean {
   const normalized = normalizePath(filePath);
   return normalized === '.peaks' || normalized.startsWith('.peaks/');
 }
 
-function tryGitDiffFiles(projectRoot: string, baseRef: string): { ok: boolean; files: string[] } {
+/** The ONE git enumeration: tracked changes vs `baseRef` plus untracked files.
+ *  `readGitChangeSet` is NUL-safe and `--relative`, so non-ASCII names and a
+ *  nested project root are both read correctly. */
+export function tryGitDiffFiles(
+  projectRoot: string,
+  baseRef: string
+): { ok: boolean; files: string[] } {
   try {
-    // Combine: tracked changes vs baseRef + untracked files. Use porcelain status for untracked too.
-    const trackedRaw = execFileSync('git', ['-C', projectRoot, 'diff', '--name-only', baseRef], {
-      encoding: 'utf8',
-      windowsHide: true
-    });
-    const tracked = trackedRaw
-      .split(/\r?\n/)
-      .map((line) => line.trim())
-      .filter(Boolean);
-    const untrackedRaw = execFileSync(
-      'git',
-      ['-C', projectRoot, 'ls-files', '--others', '--exclude-standard'],
-      { encoding: 'utf8', windowsHide: true }
-    );
-    const untracked = untrackedRaw
-      .split(/\r?\n/)
-      .map((line) => line.trim())
-      .filter(Boolean);
-    const merged = Array.from(new Set([...tracked, ...untracked])).filter(
-      (file) => !isArtifactWorkspaceFile(file)
-    );
-    return { ok: true, files: merged };
+    return {
+      ok: true,
+      files: readGitChangeSet(projectRoot, baseRef).changedPaths.filter(
+        (file) => !isArtifactWorkspaceFile(file)
+      )
+    };
   } catch {
     return { ok: false, files: [] };
   }

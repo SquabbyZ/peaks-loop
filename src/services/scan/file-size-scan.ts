@@ -2,7 +2,7 @@ import { existsSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { countRawLines, fileSizeCapFor, isPolicyMeasuredFile } from './file-size-policy.js';
-import { readBaseLineCount, readChangedFiles } from './file-size-baseline.js';
+import { readBaseLineCount, readChangedFiles, type ChangedFiles } from './file-size-baseline.js';
 
 /**
  * Paths exempt from the file-size cap. The cap is Karpathy's "Simplicity
@@ -141,6 +141,12 @@ export type FileSizeScanOptions = {
    * git alone decides the population.
    */
   files?: readonly string[];
+  /**
+   * A change set the caller already read (the transition gate shares one read
+   * with the declared-type rule). When present, NO git enumeration runs here;
+   * `files` restriction is the caller's responsibility.
+   */
+  changedFiles?: ChangedFiles;
 };
 
 function countLines(filePath: string): number {
@@ -220,12 +226,18 @@ function policyCapFor(file: string, override: number | null): number | null {
  * unresolvable `baseRef`, a non-repo path) — an empty list must mean "nothing
  * changed", never "the read failed". `readChangedFiles` owns that refusal.
  */
+/** The change set: the caller's already-read one, or one enumeration. Kept out
+ *  of `scanFileSize` so the `??` does not push the scan past its complexity cap. */
+function changesFor(options: FileSizeScanOptions, baseRef: string): ChangedFiles {
+  return options.changedFiles ?? readChangedFiles(options.projectRoot, baseRef, options.files);
+}
+
 export function scanFileSize(options: FileSizeScanOptions): FileSizeScanResult {
   const baseRef = options.baseRef ?? 'HEAD';
   // `null` here means "the policy decides, per file" — the cap is a property of
   // the path (300 raw lines; 500 under root `tests/`), not of the run.
   const override = options.threshold ?? null;
-  const changed = readChangedFiles(options.projectRoot, baseRef, options.files);
+  const changed = changesFor(options, baseRef);
   const violations: FileSizeViolation[] = [];
   const deletedFiles: string[] = [];
   const exemptFiles: string[] = [];

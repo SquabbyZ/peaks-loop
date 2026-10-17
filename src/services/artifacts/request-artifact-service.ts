@@ -28,7 +28,7 @@ import { isUnsafePathInput } from '../../shared/path-safety.js';
 import { guardRuntimeSegment, runtimeRoot } from '../../shared/runtime-root.js';
 import { checkTypeSanity } from '../scan/type-sanity-service.js';
 import { requireUserConfirmation } from '../mode/mode-enforcement.js';
-import { scanFileSize } from '../scan/file-size-scan.js';
+import { runRdTransitionGates } from './rd-transition-gates.js';
 import { emitObservabilityEvent } from '../observability/observability-service.js';
 
 export { VALID_REQUEST_TYPES, DEFAULT_REQUEST_TYPE, isRequestType, type RequestType };
@@ -536,7 +536,6 @@ export type TransitionRequestArtifactResult = RequestArtifactSummary & {
 // behaviour are unchanged (verbatim move).
 import {
   ALLOWED_STATES_PER_ROLE,
-  FileSizeViolationError,
   LintGateError,
   PrerequisitesNotSatisfiedError,
   TypeSanityViolationError,
@@ -657,17 +656,18 @@ export async function transitionRequestArtifact(
     }
   }
 
-  // File-size ratchet: refuse only a file this change made worse (Simplicity First).
-  if (
+  const gateBypassNote =
     options.role === 'rd' &&
-    options.newState === 'implemented' &&
-    options.allowIncomplete !== true
-  ) {
-    const sizeResult = scanFileSize({ projectRoot: options.projectRoot });
-    if (!sizeResult.ok) {
-      throw new FileSizeViolationError(sizeResult.violations);
-    }
-  }
+    (options.newState === 'implemented' ||
+      options.newState === 'qa-handoff' ||
+      options.newState === 'handed-off')
+      ? runRdTransitionGates({
+          projectRoot: options.projectRoot,
+          declaredType: existing.requestType,
+          allowIncomplete: options.allowIncomplete === true,
+          phase: options.newState
+        })
+      : null;
 
   const clock = options.clock ?? defaultClock;
   const timestamp = clock();
@@ -675,7 +675,7 @@ export async function transitionRequestArtifact(
     !prerequisiteResult.ok && options.allowIncomplete === true
       ? `bypassed prerequisites (${prerequisiteResult.missing.map((entry) => entry.path).join(', ')})`
       : undefined;
-  const combinedReason = [options.reason, bypassNote]
+  const combinedReason = [options.reason, bypassNote, gateBypassNote ?? undefined]
     .filter((part): part is string => part !== undefined && part.length > 0)
     .join(' | ');
   const reasonForNote = combinedReason.length > 0 ? combinedReason : undefined;

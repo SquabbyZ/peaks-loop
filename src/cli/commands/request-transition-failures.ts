@@ -10,6 +10,7 @@ import {
   FileSizeViolationError
 } from '../../services/artifacts/request-artifact-service.js';
 import { StateOrderViolationError } from '../../services/artifacts/request-state-order.js';
+import { TypeCorroborationViolationError } from '../../services/artifacts/rd-transition-gates.js';
 import { ConfirmationRequiredError } from '../../services/mode/mode-enforcement.js';
 import { fail } from 'peaks-loop-shared/result';
 
@@ -199,6 +200,25 @@ function reportFileSizeFailure(
   process.exitCode = 1;
 }
 
+function reportTypeCorroborationFailure(
+  io: ProgramIO,
+  options: RequestTransitionOptions,
+  error: TypeCorroborationViolationError
+): void {
+  printResult(
+    io,
+    fail(
+      'request.transition',
+      error.code,
+      error.message,
+      { declaredType: error.declaredType, kind: error.kind },
+      ['Or bypass with: --allow-incomplete --reason "<justification>"']
+    ),
+    options.json
+  );
+  process.exitCode = 1;
+}
+
 function reportConfirmationFailure(
   io: ProgramIO,
   options: RequestTransitionOptions,
@@ -251,6 +271,10 @@ export function reportTransitionFailure(
   }
   if (error instanceof FileSizeViolationError) {
     reportFileSizeFailure(io, options, error);
+    return;
+  }
+  if (error instanceof TypeCorroborationViolationError) {
+    reportTypeCorroborationFailure(io, options, error);
     return;
   }
   if (error instanceof ConfirmationRequiredError) {
