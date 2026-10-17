@@ -1,5 +1,41 @@
 # Changelog
 
+## 4.1.6 — 2026-10-18（三类闸规则收紧：配置路径的 reader、skip 允许列表、声明类型；两个 refactor 切片被自己新增的规则抓住）
+
+**版本级别**: 未发布区间 `v4.1.5..HEAD` 共 **38 个 commit**（**2 feat / 11 fix / 3 refactor / 7 chore / 8 docs / 4 test+style**）。取 **patch**，依维护者 2026-07-22 的常设规则"默认版本新增采用最小的版本位"。**本版含两处用户可见的行为收紧**，按 4.1.5 的先例明写：声明为 `docs`/`chore`/`config` 的请求不能再携带产品源码；`config` 不再能通过 skip 记录跳过它的 QA 阶段。
+
+### 1. 声明类型第一次被改动内容佐证（`f7de7828`）
+
+前置表由 rid 的**声明类型**选择，而没有任何东西检查类型与 diff 是否一致——一个标成 `chore` 的请求可以改运行时代码并通过提交闸。现在 `docs`/`chore`/`config` 的请求若触及 `src/**` 或 `packages/<name>/src/**`，会在 `rd:implemented`、`rd:qa-handoff` 和 `rd:handed-off` 被拒绝；工具链路径（`scripts/`、`tests/`、`.husky/`、配置、lockfile）不受影响。规则与 file-size 棘轮**共用一次 git 枚举**（`-z` + `--relative`），非 ASCII 路径不能借 C-quote 逃过 `src/` 判定。**原建议"把 `checkTypeSanity` 接到提交腿"被测量否决**：它对 `chore` 只与纯 lockfile 一致，会拒掉本仓库自己的基础设施切片；提交腿也没有 rid↔commit 绑定。
+
+**这个切片被它自己的规则抓住了**：它声明 `chore` 却改 `src/`，于是重定向为 `refactor`，走完 handoff / code review / security / perf / QA 的完整证据链，而不是给自己开豁免。perf 在 `qa-handoff`/`handed-off` 记了一个 `block`（+2 次 git spawn，约 126 ms 一次性），为关闭"`implemented` 之后再加 `src/` 变更"的窗口而**显式豁免并记录**。
+
+### 2. skip 允许列表从 QA-free 类型派生（`98614528`）
+
+`SKIPPABLE_TYPES` 此前是手写列表 `['docs','config','chore']`，而 `typeRequiresQaPhase('config')` 为 **true**——一条本地 skip 记录可以跳过 config 本来要求的 `SECURITY_REVIEW` 与 `TEST_REPORT`。现在 `QA_FREE_TYPES = VALID_REQUEST_TYPES.filter(t => !typeRequiresQaPhase(t))`，允许列表就是它（今天 `docs` + `chore`），`config` 退出。读路径还拒绝写入侧不可能产生的记录：空 reason、空/未 trim/含控制字符的 gate 名（C0/DEL/C1）、控制字符字段；坏记录读成 `null`，闸照常执行。署名行改成 **"record says applied by …"**——它是自述，不是证明。
+
+### 3. 配置路径的 reader 不再在复合 diff 里消失（`43f3cc51`）
+
+分类器只看映射决定网：一个不映射到任何测试的路径既不触发全量回退，也不扩大子集。`.gitignore + src/` 因此会跳过读根 `.gitignore` 的 `tests/unit/workspace/top-level-change-id-guard.test.ts`——用线上分类器扫全部 2246 个非空提交，**9 个提交就是这个复合形状**。落地的是一条**声明映射**（`.gitignore`、`pnpm-workspace.yaml`）+ `/^\.gitattributes$/` 全量触发器（它没有根 reader，记下的映射指向的测试只把键写在注释里）。arm 要求一行非注释代码同时命名键、带读/join 调用、绑定 `REPO_ROOT`、且不带写调用；红控包括注释-only、临时根读取、写操作和缺失的 reader。
+
+### 4. 两个"把崩溃/竞态读成通过"的修复（`988c6197`、`1cba9312`）
+
+- **format 棘轮把 prettier 崩溃读成干净树**：`typeof '' === 'string'` 让 exit 1 + 空 stdout 返回 `''`，腿打印 `0 unformatted file(s)` + held。现在只有 prettier **确实列出**了文件才返回列表。
+- **树扫描器在文件消失时杀死整个测试文件**：`ENOENT` 发生在枚举与读取之间，而扫描在模块作用域运行，失败是 `(0 tests)`。现在只容忍 `ENOENT`，并报告 `listed/read/vanished`，缺口可见而不是被吞掉。
+
+### 5. 其余已落地
+
+- **A–F sweep 的闸改进**：`.github/` 与 `.husky/` 成为全量触发器（`af8f8053`）；`GATE_GUARD_SUITES` 的根层按规则并入每个子集（`27a85b7f`）；`src/` 的每一段都映射到 `tests/unit/<area>`，130 个孤儿测试降到 6 个且逐个记录（`7fa29669`）；类型表决定 QA 相位（`d62eda51`）。
+- **CI 与门禁**：覆盖率地板成为 CI 可执行的棘轮（`87b76fa3`）；coverage 地板测量它记录的人口（`b1c5c89e`）；一个要求 100% 且无人调用的门被移除（`888fb3e9`）。
+- **CLI**：`peaks scan best-practice` 可以真正查阅文档（`195f573b`）；VM isolation 表面（从未运行）被移除（`0172d89f`）；路径守卫判断目录本身而不是调用者的拼写（`82c6f384`）。
+
+### 已知残余（记录，不粉饰）
+
+- ③c 的反向不可发现性（未在映射中的 reader）、tooling 路径的误标、skip 记录 provenance 不可验证。
+- 13 个 A–F 的 RD 工件停在 `implemented`——**grandfathered**；现在回溯关闭会触发 ③c。
+- ③c 的 perf `block` 已显式豁免；③b 的安全/文档 LOW 已记录。
+- 4 个 workspace 包随根版本各 +1 patch（internal-runtime 0.0.46、mut 0.1.60、shared 0.0.95、shared-channel 0.0.63），`CLI_VERSION` 与 `RUNTIME_VERSION` 由 `scripts/sync-version.mjs` 同步。
+
 ## 4.1.5 — 2026-10-14 (快车道从设计走到落地并带来一个新命令族；代码门与提交禁令第一次真的会拒绝；提交边界补齐三道门；派发提示第一次被自己的 CLI 校验；artifact 按 rid 落盘，两条切片停止互相覆写)
 
 **版本级别**: 未发布区间 `v4.1.4..HEAD` 共 **125 个 commit**（**13 feat / 37 fix / 2 refactor / 5 chore / 3 test / 3 style** / 其余 62 docs+memory）。取 **patch**，依维护者 2026-07-22 的常设规则"默认版本新增采用最小的版本位"。
