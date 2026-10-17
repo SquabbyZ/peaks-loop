@@ -351,8 +351,12 @@ regression is invisible to the gate's `tsc` leg.
 > collected (slice E, `8e8a9ca3`), so the assertion is `== 0` in effect while still being a
 > set, which means the ratchet can never regrow its allowance without a test going red. It is
 > green on this tree and turns red the moment an unformatted file appears at all — a
-> permanently red boolean would be a job people learn to ignore, which is how the eleven
-> drifted with nobody watching. (Repair 2,
+> permanently red boolean would be a job people learn to ignore, which is how the debt
+> drifted with nobody watching. (The dated correction above says 12 because that is what
+> `format:check` reported on 2026-10-09; by 2026-10-17 the array was measured at eleven
+> names. **Whether it was 12 then and shrank, or was stale in that sentence, was NOT
+> determined** — recorded here as an open discrepancy rather than explained away.)
+> (Repair 2,
 > 2026-10-09: this began as a COUNT ratchet `<= 12`, which stayed green when one old file was
 > cleaned and one new one added — count unchanged — while printing "no new unformatted file", a
 > sentence that was false; set containment makes that case red. The count also no longer appears
