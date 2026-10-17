@@ -111,9 +111,14 @@ function listDifferent(globs) {
       stdio: ['ignore', 'pipe', 'pipe']
     });
   } catch (err) {
-    // Exit 1 is the measured answer ("some files differ"); anything else is a
-    // failure to measure, and a failure to measure must never read as a pass.
-    if (err.status === 1 && typeof err.stdout === 'string') return err.stdout;
+    // Exit 1 is the measured answer ("some files differ") only when prettier
+    // actually LISTED something. A crash also exits 1, with an empty stdout, and
+    // `typeof '' === 'string'` made that read as a clean tree (fixed 2026-10-17).
+    // Anything else is a failure to measure, and a failure to measure must never
+    // read as a pass.
+    if (err.status === 1 && typeof err.stdout === 'string' && err.stdout.trim() !== '') {
+      return err.stdout;
+    }
     refuse(
       `prettier could not be run over the ${FORMAT_SCRIPT} globs (exit ${err.status ?? '?'}): ` +
         `${String(err.stderr ?? '').trim() || err.message}`

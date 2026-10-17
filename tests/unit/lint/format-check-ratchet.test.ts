@@ -29,10 +29,13 @@
 // the REAL ratchet in, and runs it as a child process against the fixture's own
 // `package.json#scripts['format:check']`.
 //
-// WHAT IS REAL AND WHAT IS A SHIM. The fixture's `node_modules/prettier/bin` is a
-// FORWARDER to the repository's real prettier with the same argv and cwd, so "this
-// file is unformatted" is a real measurement, not a stub's opinion. Nothing else
-// about the ratchet is replaced: the copied module is the committed one.
+// WHAT IS REAL AND WHAT IS A SHIM. By default the fixture's
+// `node_modules/prettier/bin` is a FORWARDER to the repository's real prettier with
+// the same argv and cwd, so "this file is unformatted" is a real measurement, not a
+// stub's opinion. One test asks for the opposite — a CRASH STUB that exits 1 with an
+// empty or whitespace-only stdout — because a failure to measure must not read as a
+// pass, and that arm pins it. Nothing else about the ratchet is replaced: the copied
+// module is the committed one.
 //
 // THE CONTROL ARMS. Arm C is the count-vs-set defect (a count predicate would pass
 // it). Arm F is the positive control for that: the SAME scenario with the predicate
@@ -109,12 +112,16 @@ beforeAll(async () => {
 
 type Fixture = {
   root: string;
+  /** Where the fixture's prettier writes proof of its own path when it crashes. */
+  crashMarker: string;
   write(rel: string, text: string): void;
   /** Materialize the first `count` baseline names as really-unformatted files. */
   baseline(count: number): void;
   run(): { code: number; out: string };
   /** Weaken the predicate to a constant, for the positive control. */
   weakenPredicate(): void;
+  /** Replace the forwarder with one that exits 1 (empty or whitespace-only stdout), like a crash. */
+  crashPrettier(stdout?: string): void;
   cleanup(): void;
 };
 
@@ -180,6 +187,7 @@ function buildFixture(): Fixture {
 
   return {
     root,
+    crashMarker: abs('crash-marker.txt'),
     write,
     baseline(count) {
       for (const name of FIXTURE_BASELINE.slice(0, count)) write(name, UNFORMATTED);
@@ -201,6 +209,19 @@ function buildFixture(): Fixture {
         throw new Error(`the control arm's predicate marker did not match: ${PREDICATE}`);
       }
       writeFileSync(path, after, 'utf8');
+    },
+    crashPrettier(stdout = '') {
+      write(
+        join('node_modules', 'prettier', 'bin', 'prettier.cjs'),
+        [
+          "const { writeFileSync } = require('node:fs');",
+          "const { join } = require('node:path');",
+          "writeFileSync(join(process.cwd(), 'crash-marker.txt'), process.argv[1]);",
+          `process.stdout.write(${JSON.stringify(stdout)});`,
+          'process.exit(1);',
+          ''
+        ].join('\n')
+      );
     },
     cleanup() {
       rmSync(root, { recursive: true, force: true });
@@ -329,6 +350,45 @@ describe('Scenario: behavior — the red is attributable to the predicate', () =
         const run = fx.run();
         expect(run.code, run.out).toBe(0);
         expect(run.out).toContain('no unformatted file outside the baseline set');
+      });
+    }
+  );
+});
+
+describe('Scenario: integration — a crash is a failure to measure, not a clean tree', () => {
+  it(
+    'G: empty OR whitespace-only stdout REFUSES — a crash is not a clean tree, and the fixture binary is the one that ran',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    () => {
+      withFixture((fx) => {
+        fx.baseline(FIXTURE_BASELINE.length);
+        // Definitely unformatted: a real measurement WOULD name it, so an empty
+        // list can only mean the measurement never happened.
+        fx.write(NEW_FILE_REL, UNFORMATTED);
+        fx.crashPrettier();
+        const run = fx.run();
+        expect(run.code, run.out).toBe(2);
+        expect(run.out).toContain('prettier could not be run over the format:check globs (exit 1)');
+        expect(run.out).not.toContain('0 unformatted file(s)');
+        expect(run.out).not.toContain('held —');
+        // R1: the crash stub ran, and it is the FIXTURE's prettier — the real
+        // repository binary never writes this marker. Loosening the guard back to
+        // `typeof err.stdout === 'string'` makes this arm red at the exit code.
+        const marker = readFileSync(fx.crashMarker, 'utf8').split('\\').join('/').toLowerCase();
+        const own = fx.root.split('\\').join('/').toLowerCase();
+        expect(marker).toContain(`${own}/node_modules/prettier/bin/prettier.cjs`);
+
+        // The `.trim()` half of the condition: a whitespace-only list carries no
+        // NAME, so it is no measurement either. Without trim this run would return
+        // `'\n'`, split to `[]`, and report the tree clean.
+        fx.crashPrettier(' \n\t');
+        const blank = fx.run();
+        expect(blank.code, blank.out).toBe(2);
+        expect(blank.out).toContain(
+          'prettier could not be run over the format:check globs (exit 1)'
+        );
+        expect(blank.out).not.toContain('0 unformatted file(s)');
+        expect(blank.out).not.toContain('held —');
       });
     }
   );
