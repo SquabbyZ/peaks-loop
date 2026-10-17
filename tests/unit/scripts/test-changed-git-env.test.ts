@@ -302,7 +302,7 @@ describe('Scenario: integration — a real child process is what the gate spawns
 
     const pins = forbiddenRuleSpellings(mod);
     // The pins below can only be red for the right reason if the rules really live there.
-    expect(mod.FULL_FALLBACK_TRIGGERS.length, 'an empty list would make every pin vacuous').toBe(7);
+    expect(mod.FULL_FALLBACK_TRIGGERS.length, 'an empty list would make every pin vacuous').toBe(9);
     expect(mod.FULL_FALLBACK_EXEMPT.length).toBeGreaterThanOrEqual(1);
     expect(pins.length, 'an empty pin list cannot fail').toBeGreaterThan(
       mod.FULL_FALLBACK_TRIGGERS.length

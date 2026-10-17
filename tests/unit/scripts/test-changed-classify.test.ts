@@ -94,15 +94,15 @@ const tierOf = (mod: ClassifyModule) => [...mod.GATE_GUARD_SUITES, mod.ROOT_TIER
 // ---------------------------------------------------------------------------
 
 /**
- * §0's table, verbatim: diffs that reach NO mapping — no `src/<area>`, no changed test file.
- * Every one of them ran the FULL suite at HEAD, and every one of them selected 13 guard files
- * while the guards fed the mapping. The last row (`M`, non-exempt) is §0's own control: `M` is
- * deliberately not a file-set status, so it fell through even in the broken build.
+ * §0's table: diffs reaching NO mapping — no `src/<area>`, no changed test file. Two rows MOVED to
+ * `test-changed-config-path-triggers.test.ts`: `.github/**`/`.husky/**` are triggers now, and two
+ * unmapped paths take their place. Each ran the FULL suite at HEAD and chose 13 guard files while
+ * the guards fed the mapping; the `M` row is §0's control — not file-set, so it never moved.
  */
 const UNMAPPED_DIFFS: ReadonlyArray<readonly [string, string]> = [
   ['A', 'README.md'],
-  ['A', '.github/workflows/x.yml'],
-  ['A', '.husky/pre-push'],
+  ['A', '.changeset/config.json'],
+  ['M', 'schemas/approval-record.schema.json'],
   ['A', 'docs/new.md'],
   ['D', 'docs/old.md'],
   ['D', 'tests/unit/x.test.ts'],
@@ -115,7 +115,7 @@ const UNMAPPED_DIFFS: ReadonlyArray<readonly [string, string]> = [
   ['M', '.gitignore']
 ];
 
-/** One representative path per full-suite trigger — seven triggers, seven rows. */
+/** One representative path per trigger; this slice's two config paths are tabled in a sibling. */
 const TRIGGER_CASES: readonly string[] = [
   'package.json',
   'pnpm-lock.yaml',
@@ -467,13 +467,13 @@ describe('Scenario: behavior — the trigger list and the generatedAt comparison
     }
   });
 
-  it('when the module declares its policy lists, should carry the seven triggers and one exemption', async () => {
+  it('when the module declares its policy lists, should carry the nine triggers and one exemption', async () => {
     // given: the policy lists every arm above is keyed to
     // when:  the module is read
     // then:  the counts and the exemption are exactly what the gate was measured against
     const mod = await loadModule();
 
-    expect(mod.FULL_FALLBACK_TRIGGERS.length, 'a trigger was added or dropped').toBe(7);
+    expect(mod.FULL_FALLBACK_TRIGGERS.length, 'a trigger was added or dropped').toBe(9);
     expect([...mod.FULL_FALLBACK_EXEMPT]).toEqual([mod.BASELINE_REL]);
     expect([...mod.FILE_SET_STATUSES]).toEqual(['A', 'D', 'R', 'C']);
     expect(mod.STANDARDS_GUARD_PATH).toBe('tests/unit/standards/');

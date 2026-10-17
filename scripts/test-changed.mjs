@@ -15,7 +15,7 @@
 //      这里不重复任何一条规则):
 //      a) 改的是 src/<area>/<file>.ts            → 跑 tests/unit/<area>/**/*.test.ts
 //      b) 改的是 tests/<path>.test.ts            → 直接跑该文件(删除的除外,删掉的文件跑不了)
-//      c) 改的是 scripts/ 或 .claude/ 或根 config → 跑全量(防漏)
+//      c) 改的是 scripts/ 或 .claude/ 或 .github/ 或 .husky/ 或根 config → 跑全量(防漏)
 //      d) 改的是 package.json / pnpm-lock.yaml   → 跑全量(配置变更影响面不可推断)
 //      e) 没有变更                              → 跑全量(空 diff 等同"啥都没验证")
 //      f) 改的是 .peaks/lint/gate-baseline.json  → 内容真的动了才跑它的守卫套件
@@ -23,7 +23,7 @@
 //      g) 有任何 A/D/R/C(文件集合变化)          → 额外跑整树 population 守卫(这是 R2)
 //      h) 改的是 src/services/scan/file-size-policy.ts
 //                                               → 额外跑整树 population 守卫(这是 R3)
-//      i) 一条映射都不命中(README.md / .github/ / .husky/ 等)
+//      i) 一条映射都不命中(README.md / .changeset/ 等)
 //                                               → 跑全量。守卫是"映射之外再加",不是
 //                                                 映射的替代品 —— 否则这个兜底永远不会触发
 //

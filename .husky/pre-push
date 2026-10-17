@@ -39,8 +39,8 @@
 #      (scripts/test-changed.mjs, wired since slice 2 as `test:changed`). Not a
 #      new script: it classifies the same diff and runs the tests that diff
 #      implies, falling back to the FULL unit suite for a change it declines to
-#      reason about (package.json / pnpm-lock.yaml / vitest.config.ts /
-#      tsconfig.json / scripts/ / .claude/ / .peaks/, or an empty diff).
+#      reason about (package.json / pnpm-lock.yaml / vitest.config.ts / tsconfig.json /
+#      scripts/ / .claude/ / .peaks/ / .github/ / .husky/, or an empty diff).
 #
 #      THE RULES LIVE IN ONE MODULE: scripts/test-changed-classify.mjs (pure; pinned
 #      by tests/unit/scripts/test-changed-classify.test.ts and the wiring arm in
@@ -77,7 +77,7 @@
 #      `scripts/test-changed-root-tier.mjs`.
 #
 #      The guards are an ADDITION to a mapping, never a substitute for the fallback:
-#      a diff that reaches no mapping at all (README.md, .github/**, .husky/**, docs/**,
+#      a diff that reaches no mapping at all (README.md, docs/**, .changeset/**,
 #      a deleted test file) runs the FULL suite. While the guards fed the mapping those
 #      diffs selected 13 guard files and the fallback never fired — a false green of the
 #      same class as the defect above.

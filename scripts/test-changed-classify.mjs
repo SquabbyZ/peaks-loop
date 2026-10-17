@@ -16,11 +16,9 @@
  *
  * The guard tier is an ADDITION to a mapping, never a substitute for the unmapped→full backstop —
  * and UNCONDITIONAL: `subset()` puts it into EVERY subset verdict, so a content-only diff reaches it.
- * While the guards fed it, `A README.md` and `A .github/**` selected 13 guard files, not the whole
- * suite — the false-green class this module closes (rid 2026-10-10-gate-classifier-backstop-repair).
  */
 /**
- * Full-suite triggers: a path this vague-fine-grained mapping declines to reason about.
+ * Full-suite triggers: a path no `src/<area>` rule can reach — root configs, `scripts/`, dot-dirs.
  *
  * The `/^\.peaks\//` trigger STAYS broad on purpose. Real repo-root `.peaks/` files ARE
  * read off the working tree by tests, so a blanket `.peaks/` exemption would skip tests
@@ -38,7 +36,9 @@ export const FULL_FALLBACK_TRIGGERS = Object.freeze([
   /^tsconfig\.json$/,
   /^scripts\//,
   /^\.claude\//,
-  /^\.peaks\//
+  /^\.peaks\//,
+  /^\.github\//,
+  /^\.husky\//
 ]);
 
 /** The published ceiling artifact — the one path the broad `.peaks/` trigger must not catch. */
