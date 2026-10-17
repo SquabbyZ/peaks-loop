@@ -32,7 +32,7 @@
  * reason (no human-facing text is produced here).
  */
 
-import { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -67,6 +67,7 @@ type ClassifyModule = {
   ROOT_TIER_SELECTOR: string;
   STANDARDS_GUARD_PATH: string;
   GATE_GUARD_SUITES: readonly string[];
+  UNREACHABLE_UNIT_DIRS: ReadonlyArray<{ dir: string; reason: string }>;
   classifyChanged(entries: readonly Entry[], options?: { baselineContentMoved?: boolean }): Plan;
 };
 type RootTierModule = {
@@ -397,5 +398,100 @@ describe('Scenario: integration — the union is what selects the tier, and remo
       planted.classifyChanged([s10], { baselineContentMoved: true })
     );
     expect(prefixed, 'pre-fix, the ratchet never runs for this diff').not.toContain(guard);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// behavior — the AREA rule reaches a nested `src/**/<segment>/` layout
+// ---------------------------------------------------------------------------
+
+/** Direct children of `tests/unit/` — the population every area rule must account for. */
+const unitDirectories = (): string[] =>
+  readdirSync(UNIT_ROOT, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => entry.name)
+    .sort();
+
+/** Every directory NAME anywhere under `src/` — the segments the area rule can reach. */
+function srcDirNames(): Set<string> {
+  const names = new Set<string>();
+  for (const file of readdirSync(join(REPO_ROOT, 'src'), { recursive: true })) {
+    for (const name of String(file).split(/[/\\]/).slice(0, -1)) names.add(name);
+  }
+  return names;
+}
+
+/** True when `rel` holds a `*.test.ts` anywhere below it — a directory that is a SUITE. */
+const holdsTests = (rel: string): boolean =>
+  readdirSync(join(REPO_ROOT, rel), { recursive: true }).some((name) =>
+    String(name).endsWith('.test.ts')
+  );
+
+/** The paths the RUNNER keeps: a candidate only runs when it exists on disk (its fs fact). */
+const keptByRunner = (plan: Plan): string[] =>
+  plan.paths.filter((path) => existsSync(join(REPO_ROOT, path)));
+
+/** Every unit directory the area rule reaches, asked through the classifier rather than re-derived. */
+async function reachedUnitDirs(mod: ClassifyModule): Promise<Set<string>> {
+  const names = srcDirNames();
+  const reached = new Set<string>();
+  for (const dir of unitDirectories()) {
+    if (!names.has(dir)) continue;
+    const plan = mod.classifyChanged([{ status: 'M', path: `src/services/${dir}/probe.ts` }]);
+    if (keptByRunner(plan).includes(`tests/unit/${dir}`)) reached.add(dir);
+  }
+  return reached;
+}
+
+/** Unit directories neither reached by a rule nor RECORDED with a reason. */
+function unrecordedUnitDirs(
+  dirs: readonly string[],
+  reached: ReadonlySet<string>,
+  recorded: ReadonlyArray<{ dir: string; reason: string }>
+): string[] {
+  const exempt = new Set(recorded.map((entry) => entry.dir));
+  return dirs.filter((dir) => !reached.has(dir) && !exempt.has(dir));
+}
+
+describe('Scenario: behavior — a nested `src` layout reaches its own `tests/unit` area', () => {
+  it.each([
+    ['src/services/workflow/probe.ts', 'workflow', 'services'],
+    ['src/cli/commands/doctor/probe.ts', 'doctor', 'cli'],
+    ['src/cli/probe.ts', 'cli', 'cli']
+  ])('when %s changes, should select tests/unit/%s', async (path, nested, top) => {
+    // given: a source path whose area lives at a nested segment
+    // when:  the classifier's output goes through the runner's existence filter
+    // then:  the nested area is selected, and the top-level rule is UNIONED rather than replaced
+    const kept = keptByRunner((await loadModule()).classifyChanged([{ status: 'M', path }]));
+    expect(kept, 'the nested area must be reachable by rule').toContain(`tests/unit/${nested}`);
+    expect(kept, 'the top-level rule is unioned, never replaced').toContain(`tests/unit/${top}`);
+  });
+});
+
+describe('Scenario: integration — every unit directory is reached by a rule or recorded', () => {
+  it('when the tree is asked, should leave exactly the recorded residual', async () => {
+    // given: the unit tree as it is, and the classifier as it ships
+    // when:  every directory is asked for by name
+    // then:  nothing is unaccounted for, the record is EXACTLY the uncovered set, each entry has
+    //        a reason, and every directory is a suite — so a new orphan or a helper-only
+    //        directory reddens here rather than becoming a silent selection target
+    const mod = await loadModule();
+    const dirs = unitDirectories();
+    const reached = await reachedUnitDirs(mod);
+    const exempt = new Set(mod.UNREACHABLE_UNIT_DIRS.map((entry) => entry.dir));
+
+    expect(unrecordedUnitDirs(dirs, reached, mod.UNREACHABLE_UNIT_DIRS)).toEqual([]);
+    expect([...exempt].sort()).toEqual(dirs.filter((dir) => !reached.has(dir)));
+    expect(reached.size, 'reaching nothing would make the arm vacuous').toBeGreaterThan(0);
+    for (const dir of dirs) {
+      expect(holdsTests(`tests/unit/${dir}`), `${dir} is not a suite`).toBe(true);
+    }
+    for (const entry of mod.UNREACHABLE_UNIT_DIRS) {
+      expect(entry.reason.trim().length, `${entry.dir} carries no reason`).toBeGreaterThan(0);
+    }
+    // the list cannot grow back: a name no rule reaches is reported even beside the live set
+    expect(
+      unrecordedUnitDirs([...dirs, 'brand-new-area'], reached, mod.UNREACHABLE_UNIT_DIRS)
+    ).toEqual(['brand-new-area']);
   });
 });

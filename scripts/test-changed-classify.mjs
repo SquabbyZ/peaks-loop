@@ -5,14 +5,12 @@
  * WHY A SEPARATE MODULE, the same reason `scripts/git-hook-env.mjs` exists: the runner
  * executes its whole flow at import time, so no test can read a rule out of it without
  * starting a suite. Everything here is pure in / pure out — no `fs`, no `spawn`, no
- * `process`, no env. One fs/git fact cannot be had without them, and it crosses the
- * boundary as an explicit OPTION (`baselineContentMoved`) instead, so the rule stays an
- * arm and only the fact is plumbing. Existence filtering of the returned candidate paths
+ * `process`, no env. One fs/git fact is an explicit OPTION (`baselineContentMoved`), so the
+ * rule stays an arm and only the fact is plumbing. Existence filtering of the returned paths
  * stays in the runner: whether a path is on disk is an fs fact, not a classification fact.
  *
  * INPUT SHAPE. `git diff --name-status -z` stdout — NUL-separated, never C-quoted — parsed by
- * `parseNameStatus`, which lives here for the same reason: "a rename names two paths" is a
- * rule, and a rule that lives inside a runner that runs at import has no arm.
+ * `parseNameStatus`, which lives here for the same reason: a rename naming two paths is a rule.
  *
  * The guard tier is an ADDITION to a mapping, never a substitute for the unmapped→full backstop —
  * and UNCONDITIONAL: `subset()` puts it into EVERY subset verdict, so a content-only diff reaches it.
@@ -134,11 +132,9 @@ export function isPopulationChange(status) {
 /**
  * One entry per path, statuses UNIONED — not first-wins.
  *
- * This is load-bearing: the runner feeds `[...staged, ...unstaged]`, so one path legitimately
- * arrives twice. A file modified in the index and then deleted on disk unstaged yields
- * `[{M,P},{D,P}]`, and first-wins would keep the `M` and skip R2 — while flipping the input
- * order gave the opposite verdict, i.e. the classification was order-dependent. The rule is
- * therefore: a path is a file-set change if ANY of its occurrences carries a file-set status.
+ * The runner feeds `[...staged, ...unstaged]`, so one path arrives twice: `M` in the index and
+ * `D` on disk. First-wins would keep the `M` and skip R2, and flipping the order would flip the
+ * verdict. A path is a file-set change if ANY of its occurrences carries a file-set status.
  */
 export function mergeEntries(diffEntries) {
   const byPath = new Map();
@@ -185,14 +181,8 @@ export function parseNameStatus(stdout) {
 }
 
 /**
- * The artifact minus the one line a no-op regeneration rewrites.
- *
- * Measured 2026-10-10: `git diff .peaks/lint/gate-baseline.json` after a no-op regeneration is
- * ONE line, and that line is `generatedAt`. The runner compares the base blob against the
- * working tree through this function to decide `baselineContentMoved`, so the cheap path rests
- * on a measurement rather than on the false "no test reads it" claim it used to rest on.
- * Line endings are normalized because `core.autocrlf` can make the working tree differ from
- * the blob by `\r` alone, and that is not content.
+ * The artifact minus the one line a no-op regeneration rewrites — `generatedAt`, measured
+ * 2026-10-10. CRLF is normalized because `core.autocrlf` can differ by `\r` alone, not content.
  */
 export function withoutGeneratedAt(text) {
   return String(text ?? '')
@@ -207,9 +197,8 @@ export function withoutGeneratedAt(text) {
  * @param {ReadonlyArray<{ status?: string, path?: string }>} diffEntries
  * @param {{ baselineContentMoved?: boolean }} [options]
  *   `baselineContentMoved` is the ONE fs/git fact the classifier cannot compute: whether
- *   `BASELINE_REL` differs from its base blob in anything but `generatedAt`. It FAILS CLOSED —
- *   an omitted option reads as "content moved", so the guard suites run — because the
- *   alternative failure mode is a content change that silently costs zero tests.
+ *   `BASELINE_REL` changed in anything but `generatedAt`. Omitted FAILS CLOSED as "moved", because
+ *   the alternative is a content change that silently costs zero tests.
  * @returns {{ mode: 'full' | 'none' | 'subset', paths: string[], code: string, reasons: string[] }}
  *   `code` is the machine-readable verdict: 'empty-diff' / 'trigger' / 'unmapped' /
  *   'baseline-inert' / 'r1-readers' / 'subset'. `mode` alone conflates the trigger fallback
@@ -282,20 +271,33 @@ function pickTestFiles(entries, picked, reasons) {
 }
 
 /**
- * `src/<area>/…` → `tests/unit/<area>`, the mapping this gate has always had.
- *
- * A `Set` carries membership and an array carries ORDER: HEAD deduped areas through a `Set`, and
- * an `areas.includes(...)` scan here would make the walk quadratic in the number of entries — a
- * per-push cost that grows with the diff for no reason.
+ * `tests/unit/` directories no `src` area can reach, each with the reason it is a DECISION. The two
+ * triggers (`publish`, `scripts`) are per-path; the rest are reached only when nothing else maps.
+ */
+export const UNREACHABLE_UNIT_DIRS = Object.freeze([
+  { dir: 'scripts', reason: 'subject is scripts/** — a FULL_FALLBACK_TRIGGER' },
+  { dir: 'publish', reason: 'subject is package.json#files + .github/workflows — both triggers' },
+  { dir: 'vendor', reason: 'packages/*/src/vendor/**; full only if nothing else maps' },
+  { dir: '_samples', reason: 'unit collection excludes it; only CI `pnpm test:e2e` runs it' },
+  { dir: '_setup', reason: 'the test harness itself; full only if nothing else maps' }
+]);
+
+/**
+ * `src/<dir>/…` → `tests/unit/<dir>` for EVERY directory segment: the top-level rule UNIONED with
+ * each deeper segment. Existence is the runner's fs fact — it keeps the paths on disk. A `Set`
+ * carries membership and an array carries ORDER: HEAD deduped areas through a `Set`, and an
+ * `areas.includes(...)` scan here would make the walk quadratic in the number of entries.
  */
 function pickSrcAreas(entries, picked, reasons) {
   const seen = new Set();
   const areas = [];
   for (const entry of entries) {
-    const area = entry.path.match(/^src\/([^/]+)/);
-    if (area && !seen.has(area[1])) {
-      seen.add(area[1]);
-      areas.push(area[1]);
+    const segments = entry.path.split('/');
+    if (segments[0] !== 'src' || segments.length < 2) continue;
+    for (const area of [segments[1], ...segments.slice(2, -1)]) {
+      if (seen.has(area)) continue;
+      seen.add(area);
+      areas.push(area);
     }
   }
   if (areas.length > 0) {
@@ -348,10 +350,8 @@ function populationGuards(entries, baselineContentMoved, reasons) {
  * 0 tests is the correct answer and is SAID OUT LOUD by the runner — a silent green is
  * indistinguishable from a suite that ran and found nothing.
  *
- * This is the one path to `mode: 'none'`, and it is arm-covered: the runner reaches it by
- * comparing the base blob against the working tree through `withoutGeneratedAt`, and every
- * case it cannot read (file absent from `<base>`, absent from the working tree, a git
- * failure) reads as content moved instead.
+ * The one path to `mode: 'none'`, and arm-covered: every case the runner cannot read (missing
+ * blob, missing worktree file, git failure) reads as content moved instead.
  */
 function baselineInert(entries) {
   return {
