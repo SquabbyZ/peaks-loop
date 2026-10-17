@@ -12,7 +12,7 @@
 // row 2 and §4c record. The RULE D banner below carries the reach statement.
 
 import { readFileSync, readdirSync } from 'node:fs';
-import { join, resolve, sep } from 'node:path';
+import { join, relative, resolve, sep } from 'node:path';
 import * as ts from 'typescript';
 
 import {
@@ -308,27 +308,89 @@ export const NOT_SCANNED_LITERAL_FIRST: readonly {
 ];
 
 interface ScanResult {
+  /** Files the walk LISTED. The denominator the read count is reported against. */
+  readonly listedFiles: number;
+  /** Files whose bytes were actually READ. */
   readonly scannedFiles: number;
+  /**
+   * Listed, then absent when the read happened — repo-relative, POSIX. Not a
+   * skip: `listedFiles - scannedFiles` is the gap, and it is the number a
+   * vanished file must never be able to hide inside.
+   */
+  readonly vanishedFiles: readonly string[];
   readonly anchoredPaths: readonly AnchoredRuntimePath[];
   readonly repoRootedReads: readonly RepoRootedArtifactRead[];
 }
 
-function scanProject(): ScanResult {
-  const files = listTestFiles(TESTS_ROOT);
+/** The read half of the walk, injectable so the vanish arm can drive it. */
+export type ScanFileReader = (absolutePath: string) => string;
+
+const readUtf8: ScanFileReader = (absolutePath) => readFileSync(absolutePath, 'utf8');
+
+/**
+ * Scan a `tests/`-shaped tree.
+ *
+ * A file listed by `listTestFiles` can be gone by the time it is read: a
+ * concurrent test removes its own fixture from under this walk (measured on CI
+ * 2026-10-17 — `bdd-reporter.test.ts`'s `afterEach` deletes a
+ * `tests/fixtures/bdd-reporter-tmp/` case while the guard walks). Because
+ * `SCAN` runs at MODULE SCOPE, that race did not produce a finding — it failed
+ * the whole test file to collect (`(0 tests)`).
+ *
+ * So ENOENT is tolerated, and ONLY ENOENT. Every other read error still throws:
+ * a permission or IO failure is a finding about the tree, not a fixture leaving
+ * mid-walk. A tolerated vanish is COUNTED — `listedFiles`, `scannedFiles` and
+ * `vanishedFiles` are returned, and a non-zero gap is warned about. A bare
+ * `catch { continue }` would be indistinguishable from a clean walk, which is
+ * the defect this repository keeps producing; the arms at the end of
+ * `no-runtime-input-guard.test.ts` fail if this reporting is removed.
+ */
+export function scanTestTree(
+  root: string = TESTS_ROOT,
+  read: ScanFileReader = readUtf8
+): ScanResult {
+  const files = listTestFiles(root);
   const anchoredPaths: AnchoredRuntimePath[] = [];
   const repoRootedReads: RepoRootedArtifactRead[] = [];
+  const vanishedFiles: string[] = [];
+  let readFiles = 0;
   for (const absolutePath of files) {
+    let source: string;
+    try {
+      source = read(absolutePath);
+    } catch (error) {
+      if ((error as { code?: unknown }).code !== 'ENOENT') throw error;
+      vanishedFiles.push(relative(root, absolutePath).split(sep).join('/'));
+      continue;
+    }
+    // MEASURED, not derived from the vanished list: a skip that failed to record
+    // itself would still leave `readFiles < listedFiles` visible on the result.
+    readFiles += 1;
     // This is the one file in the tree that must be able to NAME a violating
     // fixture in order to test the rules against it. Its fixtures are ASSEMBLED
     // at runtime (`['2026','07','25'].join('-')`) rather than written as
     // literals, so it does not trip the rules it defines and needs no
     // self-exemption — an exemption by name would reopen exactly the hole this
     // guard exists to close.
-    const sourceFile = parseSourceFile(absolutePath, readFileSync(absolutePath, 'utf8'));
+    const sourceFile = parseSourceFile(absolutePath, source);
     anchoredPaths.push(...findModuleLocationRuntimePaths(sourceFile));
     repoRootedReads.push(...findRepoRootedArtifactReads(sourceFile));
   }
-  return { scannedFiles: files.length, anchoredPaths, repoRootedReads };
+  if (vanishedFiles.length > 0) {
+    // VISIBLE, not swallowed: the counts and the names reach the log a red CI
+    // run is read from, and the same numbers reach the caller below.
+    console.warn(
+      `no-runtime-input-guard: listed ${files.length} test file(s), read ${readFiles}; ` +
+        `${vanishedFiles.length} vanished between enumeration and read: ${vanishedFiles.join(', ')}`
+    );
+  }
+  return {
+    listedFiles: files.length,
+    scannedFiles: readFiles,
+    vanishedFiles,
+    anchoredPaths,
+    repoRootedReads
+  };
 }
 
 interface SrcScanResult {
@@ -367,7 +429,7 @@ function scanSourceLayer(): SrcScanResult {
   return { scannedFiles: files, unguardedIdJoins, idJoinSites, literalFirstJoins };
 }
 
-export const SCAN = scanProject();
+export const SCAN = scanTestTree();
 export const SRC_SCAN = scanSourceLayer();
 
 export const where = (file: string, line: number): string => `${relativeToRoot(file)}:${line}`;

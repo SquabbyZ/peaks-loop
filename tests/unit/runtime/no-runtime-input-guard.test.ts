@@ -99,14 +99,23 @@
 //   i. It says nothing about whether a tmp fixture is REALISTIC. A test can
 //      hand-build a shape the product never produces and be green.
 
-import { describe, it, expect } from 'vitest';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { dirname, join } from 'node:path';
+import { afterEach, describe, it, expect, vi } from 'vitest';
 
 import {
   ARTIFACT_READERS,
   findModuleLocationRuntimePaths,
   findRepoRootedArtifactReads
 } from './no-runtime-input-guard-detect-bc.js';
-import { SCAN, parseSourceFile, where } from './no-runtime-input-guard-scan.js';
+import {
+  SCAN,
+  parseSourceFile,
+  scanTestTree,
+  where,
+  type ScanFileReader
+} from './no-runtime-input-guard-scan.js';
 
 describe('`.peaks/_runtime` is never a test input (slice 2026-09-13)', () => {
   it('parses a real part of the tree (anti-silence: a broken scanner must not pass)', () => {
@@ -308,5 +317,124 @@ describe('limits — pinned as passing tests, not left implicit', () => {
     const parsed = parseSourceFile('fixture.ts', fixture);
     expect(findRepoRootedArtifactReads(parsed)).toEqual([]);
     expect(findModuleLocationRuntimePaths(parsed)).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The walk must survive a file that disappears between enumeration and read,
+// and must not learn to ignore VIOLATIONS while learning to ignore absence.
+//
+// Measured on CI 2026-10-17 (rid 2026-10-17-scanners-survive-a-vanishing-file):
+// `bdd-reporter.test.ts` writes a fixture under
+// `tests/fixtures/bdd-reporter-tmp/case-*/happy-path.test.ts` and its
+// `afterEach` deletes it. The walk lists that path, the delete lands before the
+// read, and because `SCAN` runs at MODULE SCOPE the whole guard test file failed
+// to collect — `(0 tests)`, twice, once on a docs-only commit.
+//
+// Three arms, each a direction:
+//   1. a vanished file is tolerated AND counted. Remove the tolerance and the
+//      scan call throws (this test reds); remove the count and the assertions
+//      below red;
+//   2. a tolerated vanish does not soften the rules — a planted violation in a
+//      file that WAS read is still found;
+//   3. only ENOENT is tolerated — any other read error still propagates, so the
+//      tolerance cannot become a general silent-catch.
+//
+// The roots are test-made tmp dirs, never the repository tree: the walk under
+// test is handed its root, so this suite neither reads nor mutates `tests/**`.
+// ---------------------------------------------------------------------------
+describe('the walk survives a file that vanishes between enumeration and read', () => {
+  let root = '';
+
+  afterEach(() => {
+    if (root !== '') {
+      rmSync(root, { recursive: true, force: true });
+      root = '';
+    }
+    vi.restoreAllMocks();
+  });
+
+  function fixtureTree(files: Readonly<Record<string, string>>): string {
+    root = mkdtempSync(join(tmpdir(), 'guard-vanish-'));
+    for (const [rel, body] of Object.entries(files)) {
+      const abs = join(root, rel);
+      mkdirSync(dirname(abs), { recursive: true });
+      writeFileSync(abs, body);
+    }
+    return root;
+  }
+
+  /** Deletes `victim` immediately before its first read — the measured race. */
+  function deletingReader(victim: string): ScanFileReader {
+    let deleted = false;
+    return (absolutePath) => {
+      if (!deleted && absolutePath === victim) {
+        deleted = true;
+        rmSync(victim);
+      }
+      return readFileSync(absolutePath, 'utf8');
+    };
+  }
+
+  /** Direction 1: the call that throws if the ENOENT tolerance is removed. */
+  function toleratingScan(dir: string, victim: string) {
+    try {
+      return scanTestTree(dir, deletingReader(victim));
+    } catch (error) {
+      throw new Error(
+        'the scan no longer tolerates a file that vanished between enumeration and read ' +
+          '(the ENOENT branch in scanTestTree was removed)',
+        { cause: error }
+      );
+    }
+  }
+
+  it('tolerates the vanish, counts the gap, and NAMES the file', () => {
+    const dir = fixtureTree({ 'a.test.ts': '// readable\n', 'b.test.ts': '// vanishes\n' });
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const result = toleratingScan(dir, join(dir, 'b.test.ts'));
+
+    // Direction 2: a bare `catch { continue }` leaves these empty/equal and reds.
+    expect(result.listedFiles).toBe(2);
+    expect(result.scannedFiles).toBe(1);
+    expect(result.vanishedFiles).toEqual(['b.test.ts']);
+
+    // …and the gap is VISIBLE where a red CI run is read, not only in a field.
+    const message = warn.mock.calls.map((call) => String(call[0])).join('\n');
+    expect(message).toContain('listed 2');
+    expect(message).toContain('read 1');
+    expect(message).toContain('b.test.ts');
+  });
+
+  it('does not soften the rules: a planted violation in a READ file is still found', () => {
+    const planted = [
+      'const REPO = resolve(__dirname, "../..");',
+      `const p = readFileSync(join(REPO, '.peaks', '_runtime', sid, 'x.md'), 'utf8');`
+    ].join('\n');
+    const dir = fixtureTree({ 'clean.test.ts': '// fine\n', 'bad.test.ts': planted });
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const result = toleratingScan(dir, join(dir, 'clean.test.ts'));
+
+    expect(result.vanishedFiles).toEqual(['clean.test.ts']);
+    expect(result.anchoredPaths).toHaveLength(1);
+    expect(result.anchoredPaths[0]?.file).toContain('bad.test.ts');
+  });
+
+  it('propagates every read error that is not ENOENT (R1)', () => {
+    const dir = fixtureTree({ 'a.test.ts': '// present\n' });
+    const denied = Object.assign(new Error('permission denied'), { code: 'EACCES' });
+    expect(() =>
+      scanTestTree(dir, () => {
+        throw denied;
+      })
+    ).toThrow(denied);
+  });
+
+  it('reports a zero gap for a clean walk, so the count has a baseline', () => {
+    const dir = fixtureTree({ 'a.test.ts': '// a\n', 'nested/b.test.ts': '// b\n' });
+    const result = scanTestTree(dir);
+    expect(result.listedFiles).toBe(2);
+    expect(result.scannedFiles).toBe(2);
+    expect(result.vanishedFiles).toEqual([]);
   });
 });
