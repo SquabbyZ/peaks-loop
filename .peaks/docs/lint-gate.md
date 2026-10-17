@@ -346,10 +346,13 @@ regression is invisible to the gate's `tsc` leg.
 > drift because **no executor ran it** — the sentence above was the only thing watching the wide
 > globs, and a measured-once sentence does not watch anything. The wide check now runs in CI
 > (`.github/workflows/ci.yml`, job `format-check`) as `.husky/format-check-ratchet.mjs`, a
-> **set ratchet**: it asserts the current unformatted set stays INSIDE a named baseline SET of 12
-> files (listed in that script) rather than `== 0`. It is green on this tree and turns red the
-> moment an unformatted file appears OUTSIDE that set — a permanently red boolean would be a
-> job people learn to ignore, which is how the 12 drifted with nobody watching. (Repair 2,
+> **set ratchet**: it asserts the current unformatted set stays INSIDE a named baseline SET
+> rather than `== 0`. **That set is now EMPTY** — the eleven names it used to tolerate were
+> collected (slice E, `8e8a9ca3`), so the assertion is `== 0` in effect while still being a
+> set, which means the ratchet can never regrow its allowance without a test going red. It is
+> green on this tree and turns red the moment an unformatted file appears at all — a
+> permanently red boolean would be a job people learn to ignore, which is how the eleven
+> drifted with nobody watching. (Repair 2,
 > 2026-10-09: this began as a COUNT ratchet `<= 12`, which stayed green when one old file was
 > cleaned and one new one added — count unchanged — while printing "no new unformatted file", a
 > sentence that was false; set containment makes that case red. The count also no longer appears
