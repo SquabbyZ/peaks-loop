@@ -467,13 +467,13 @@ describe('Scenario: behavior — the trigger list and the generatedAt comparison
     }
   });
 
-  it('when the module declares its policy lists, should carry the nine triggers and one exemption', async () => {
+  it('when the module declares its policy lists, should carry the ten triggers and one exemption', async () => {
     // given: the policy lists every arm above is keyed to
     // when:  the module is read
     // then:  the counts and the exemption are exactly what the gate was measured against
     const mod = await loadModule();
 
-    expect(mod.FULL_FALLBACK_TRIGGERS.length, 'a trigger was added or dropped').toBe(9);
+    expect(mod.FULL_FALLBACK_TRIGGERS.length, 'a trigger was added or dropped').toBe(10);
     expect([...mod.FULL_FALLBACK_EXEMPT]).toEqual([mod.BASELINE_REL]);
     expect([...mod.FILE_SET_STATUSES]).toEqual(['A', 'D', 'R', 'C']);
     expect(mod.STANDARDS_GUARD_PATH).toBe('tests/unit/standards/');

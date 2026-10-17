@@ -33,6 +33,7 @@ export const FULL_FALLBACK_TRIGGERS = Object.freeze([
   /^vitest\.config\.ts$/,
   /^tsconfig\.json$/,
   /^scripts\//,
+  /^\.gitattributes$/,
   /^\.claude\//,
   /^\.peaks\//,
   /^\.github\//,
@@ -59,6 +60,15 @@ export const CENSUS_POLICY_REL = 'src/services/scan/file-size-policy.ts';
  * costing a suite. The old justification — "no test reads it" — was false.
  */
 export const FULL_FALLBACK_EXEMPT = Object.freeze([BASELINE_REL]);
+
+/** Root config → the test that reads it; unioned into a subset only (`scripts/config-reader-map.mjs`). */
+export const CONFIG_READER_MAP = Object.freeze({
+  __proto__: null,
+  '.gitignore': ['tests/unit/workspace/top-level-change-id-guard.test.ts'],
+  'pnpm-workspace.yaml': ['tests/unit/scripts/packages-build-prerequisite.test.ts']
+});
+export const configReaderHits = (entries) =>
+  entries.flatMap((entry) => CONFIG_READER_MAP[entry.path] ?? []);
 
 /** The whole-tree population guards: R2/R3 reach them, and `subset()` adds them to every subset. */
 export const STANDARDS_GUARD_PATH = 'tests/unit/standards/';
@@ -98,21 +108,11 @@ const TIER = [...GATE_GUARD_SUITES, ROOT_TIER_SELECTOR];
 export const FILE_SET_STATUSES = Object.freeze(['A', 'D', 'R', 'C']);
 
 /** A `full` verdict, so the reasons that reach the whole suite share one shape. */
-function full(code, reasons) {
-  return { mode: 'full', paths: [], code, reasons };
-}
+const full = (code, reasons) => ({ mode: 'full', paths: [], code, reasons });
 
 /** A `subset` verdict — with the whole-tree guard tier unioned in, whatever selected the subset. */
 function subset(paths, code, reasons) {
   return { mode: 'subset', paths: [...new Set([...paths, ...TIER])], code, reasons };
-}
-
-/** git's status letter, upper-cased; `''` when the entry carries no readable letter. */
-function statusOf(entry) {
-  return String(entry?.status ?? '')
-    .trim()
-    .charAt(0)
-    .toUpperCase();
 }
 
 /**
@@ -134,20 +134,21 @@ export function isPopulationChange(status) {
  *
  * The runner feeds `[...staged, ...unstaged]`, so one path arrives twice: `M` in the index and
  * `D` on disk. First-wins would keep the `M` and skip R2, and flipping the order would flip the
- * verdict. A path is a file-set change if ANY of its occurrences carries a file-set status.
+ * verdict. A path is a file-set change if ANY of its occurrences carries a file-set status. The
+ * letter recorded is upper-cased; `''` when the entry carries no readable letter.
  */
 export function mergeEntries(diffEntries) {
   const byPath = new Map();
   for (const entry of diffEntries ?? []) {
     const path = typeof entry?.path === 'string' ? entry.path.trim() : '';
     if (path === '') continue;
-    const status = statusOf(entry);
+    const status = String(entry?.status ?? '')
+      .trim()
+      .charAt(0)
+      .toUpperCase();
     const previous = byPath.get(path);
-    if (previous === undefined) {
-      byPath.set(path, { status, path });
-    } else if (isPopulationChange(status)) {
-      previous.status = status;
-    }
+    if (previous === undefined) byPath.set(path, { status, path });
+    else if (isPopulationChange(status)) previous.status = status;
   }
   return [...byPath.values()];
 }
@@ -241,7 +242,7 @@ export function classifyChanged(diffEntries = [], options = {}) {
     return subset(guards, 'r1-readers', reasons);
   }
 
-  return subset([...mapped, ...guards], 'subset', reasons);
+  return subset([...mapped, ...guards, ...configReaderHits(entries)], 'subset', reasons);
 }
 
 /** The changed paths whose blast radius this mapping declines to infer. */
@@ -263,8 +264,7 @@ function fullFallbackHits(entries) {
  */
 function pickTestFiles(entries, picked, reasons) {
   for (const entry of entries) {
-    if (!/^tests\/.+\.test\.ts$/.test(entry.path)) continue;
-    if (entry.status === 'D') continue;
+    if (!/^tests\/.+\.test\.ts$/.test(entry.path) || entry.status === 'D') continue;
     picked.add(entry.path);
     reasons.push(`${entry.status || 'M'} ${entry.path} — the test file itself changed`);
   }
