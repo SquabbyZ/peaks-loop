@@ -8,14 +8,14 @@ import { verifyPipeline } from '../../services/workflow/pipeline-verify-service.
 import {
   applySkip,
   detectCallerKind,
+  SKIPPABLE_TYPES,
   type SkipArgs
 } from '../../services/workflow/workflow-skip-service.js';
 
 const VERIFY_PIPELINE_DESCRIPTION =
   'Verify the complete rd→qa pipeline was followed for a request. Scans the v2.17.0 canonical session-axis layout (artifacts under _runtime per-session) and falls back to the legacy v2.16.0 change-axis forms during the 1-minor-release deprecation window.';
 
-const SKIP_DESCRIPTION =
-  'Skip specific gates for a request (RD/QA). Use --dry-run to preview without writing. Allowed gate names: QA / RD (phase shortcuts) or specific gate names (rd-request-exists, prd-handoff, bug-analysis, code-review, security-review, perf-baseline, qa-request-exists, test-cases, test-report). Three rules apply: (1) only docs/config/chore slices can skip; (2) skip is one-time per rid; (3) script callers must also pass --i-have-reviewed.';
+const SKIP_DESCRIPTION = `Skip specific gates for a request (RD/QA). Use --dry-run to preview without writing. Allowed gate names: QA / RD (phase shortcuts) or specific gate names (rd-request-exists, prd-handoff, bug-analysis, code-review, security-review, perf-baseline, qa-request-exists, test-cases, test-report). Three rules apply: (1) only ${SKIPPABLE_TYPES.join('/')} slices can skip; (2) skip is one-time per rid; (3) script callers must also pass --i-have-reviewed.`;
 
 interface VerifyPipelineOpts {
   rid: string;
@@ -138,7 +138,7 @@ function reportSkipOutcome(
   printResult(
     io,
     fail('workflow.skip', 'SKIP_REJECTED', result.reason ?? 'unknown rejection', result, [
-      'See RD request for the three rules: docs/config/chore only, one-time per rid, script callers need --i-have-reviewed.'
+      `See RD request for the three rules: ${SKIPPABLE_TYPES.join('/')} only, one-time per rid, script callers need --i-have-reviewed.`
     ]),
     options.json
   );

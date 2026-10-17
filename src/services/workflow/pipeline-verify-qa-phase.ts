@@ -104,6 +104,19 @@ export function typeRequiresQaPhase(requestType: RequestType): boolean {
 }
 
 /**
+ * The request types whose table carries NO QA phase — the set a skip may cover.
+ *
+ * DERIVED, not listed. The skip allowlist used to spell `['docs', 'config', 'chore']`,
+ * and `config` carries a QA phase (its table demands `SECURITY_REVIEW` and
+ * `TEST_REPORT`), so a plantable record could bypass a phase the contract requires.
+ * Reading the answer off the same derivation the pipeline uses means a table change
+ * moves the allowlist with it — in both directions, without anyone remembering.
+ */
+export const QA_FREE_TYPES: ReadonlyArray<RequestType> = Object.freeze(
+  VALID_REQUEST_TYPES.filter((requestType) => !typeRequiresQaPhase(requestType))
+);
+
+/**
  * Fill in the QA request gate for a phase that HAS one.
  *
  * A type whose table carries no QA row has no QA gate to fill, and that is not a

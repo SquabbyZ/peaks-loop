@@ -1,30 +1,33 @@
 /**
  *
  * Pure-function classifier (`canSkipSlice`) + side-effecting applicator
- * (`applySkip`). Both are testable without filesystem mocks (the
- * applicator accepts an injected `readSkipState` / `writeSkipState`
- * pair so the unit tests use in-memory fakes; the production caller
- * passes the real store from `workflow-state-store.ts`).
+ * (`applySkip`). Both are testable without filesystem mocks: injected
+ * read/write state functions, the real store in production.
  *
  * Three rules (per RD §Why + Tech Doc §2-4):
  *   - Rule 1 (slice type allowlist): `bugfix` / `feature` / `refactor`
- *     can never skip QA, regardless of `--reason`. The allowlist is
- *     `['docs', 'config', 'chore']`.
- *   - Rule 2 (one-time semantics): if a skip-marker already exists for
- *     this rid AND the requested skip is the same → idempotent
- *     no-op (`applied: false, idempotent: true`). If different → deny
- *     with `reason: "rid already has a different skip applied"`.
+ *     can never skip QA. The allowlist is DERIVED from the pipeline's
+ *     QA-free set (`QA_FREE_TYPES`); today that is `docs` / `chore`.
+ *   - Rule 2 (one-time semantics): the same skip on the same rid is an
+ *     idempotent no-op (`applied: false`); a different one is denied with
+ *     `reason: "rid already has a different skip applied"`.
  *   - Rule 3 (role-based authorization): scripts (caller kind derived
  *     from `$PEAKS_CALLER_ID` env var) MUST pass `--i-have-reviewed`
  *     in addition to `--reason`.
  */
 import { execFileSync } from 'node:child_process';
 import { userInfo } from 'node:os';
-import { readSkipState, writeSkipState, type WorkflowSkipState } from './workflow-state-store.js';
+import {
+  hasControlChars,
+  readSkipState,
+  writeSkipState,
+  type WorkflowSkipState
+} from './workflow-state-store.js';
 import { showRequestArtifact } from '../artifacts/request-artifact-service.js';
 import type { RequestType } from '../artifacts/artifact-prerequisites.js';
+import { QA_FREE_TYPES } from './pipeline-verify-qa-phase.js';
 
-export const SKIPPABLE_TYPES: ReadonlyArray<RequestType> = ['docs', 'config', 'chore'];
+export const SKIPPABLE_TYPES: ReadonlyArray<RequestType> = QA_FREE_TYPES;
 const SCRIPT_CALLER_IDS: ReadonlyArray<string> = ['ci', 'postinstall', 'cron'];
 
 export type SkipArgs = {
@@ -112,17 +115,18 @@ export async function canSkipSlice(
   currentState: WorkflowSkipState | null
 ): Promise<CanSkipVerdict> {
   // Argument validation (no filesystem).
-  if (args.reason.trim().length === 0) {
+  if (args.reason.trim().length === 0 || hasControlChars(args.reason)) {
     return {
       allowed: false,
-      reason: 'skip requires --reason; what is the user-visible justification for this QA bypass?'
+      reason:
+        'skip requires a single-line --reason; what is the user-visible justification for this QA bypass?'
     };
   }
   const gates = parseGatesList(args.gatesRaw);
-  if (gates.length === 0) {
+  if (gates.length === 0 || gates.some(hasControlChars)) {
     return {
       allowed: false,
-      reason: '--gates must list at least one gate name (e.g. "QA" or "QA,slice-check")'
+      reason: '--gates must list at least one single-line gate name (e.g. "QA" or "QA,slice-check")'
     };
   }
 
@@ -156,7 +160,7 @@ export async function canSkipSlice(
   if (!SKIPPABLE_TYPES.includes(sliceType)) {
     return {
       allowed: false,
-      reason: `slice type "${sliceType}" cannot skip QA (allowlist: docs, config, chore)`,
+      reason: `slice type "${sliceType}" cannot skip QA (QA-free types: ${SKIPPABLE_TYPES.join(', ')})`,
       sliceType
     };
   }
@@ -265,8 +269,8 @@ function pathFromStateFile(projectRoot: string, sessionId: string, rid: string):
 }
 
 /** Resolve the author of the skip. Reads `git config --global user.name`
- *  synchronously; falls back to the OS user if git config is
- *  unavailable. Never throws. */
+ *  synchronously, falling back to the OS user and then 'unknown'. A value
+ *  carrying a control character is not written (the reader would refuse it). */
 function resolveSkipAppliedBy(): string {
   try {
     const out = execFileSync('git', ['config', '--global', 'user.name'], {
@@ -276,7 +280,7 @@ function resolveSkipAppliedBy(): string {
     });
     const trimmed = out.trim();
     if (trimmed.length > 0) {
-      return trimmed;
+      return hasControlChars(trimmed) ? 'unknown' : trimmed;
     }
   } catch {
     // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
@@ -284,7 +288,7 @@ function resolveSkipAppliedBy(): string {
   }
   try {
     const info = userInfo();
-    return info.username;
+    return hasControlChars(info.username) ? 'unknown' : info.username;
   } catch {
     return 'unknown';
   }

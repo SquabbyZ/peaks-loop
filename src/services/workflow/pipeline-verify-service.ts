@@ -72,7 +72,7 @@ export async function verifyPipeline(options: {
         }
       }
       nextActions.push(
-        `Skipped gates (via peaks workflow skip): [${skipState.skippedGates.join(', ')}] — reason: ${skipState.skipReason}`
+        `Skipped gates (via peaks workflow skip): [${skipState.skippedGates.join(', ')}] — reason: ${skipState.skipReason} (record says applied by ${skipState.skipAppliedBy} at ${skipState.skipAppliedAt}, caller: ${skipState.callerKind})`
       );
     }
   }

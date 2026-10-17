@@ -32,6 +32,14 @@ export type WorkflowSkipState = {
 
 const STATE_FILE_NAME = 'workflow-state.json';
 
+/** C0/C1 controls and DEL. A newline or escape in a printed field is a spoofed line. */
+export function hasControlChars(value: string): boolean {
+  for (const char of value) {
+    if (char < ' ' || char === '\u007f' || (char >= '\u0080' && char <= '\u009f')) return true;
+  }
+  return false;
+}
+
 function stateFilePath(projectRoot: string, sessionId: string, rid: string): string {
   return join(projectRoot, '.peaks', '_runtime', sessionId, 'workflow-state', `${rid}.json`);
 }
@@ -40,6 +48,13 @@ function stateFilePath(projectRoot: string, sessionId: string, rid: string): str
  * Read the skip-state for a rid, or `null` if no state file exists or
  * the file is malformed. The caller is expected to treat `null` as
  * "no skip applied; evaluate all gates normally".
+ *
+ * A NULL IS SILENCE, AND SILENCE MEANS "NO SKIP HONOURED". The shape check refuses
+ * a record the write path could not have produced — an empty reason, or no gate
+ * named — so a hand-planted file that satisfies field PRESENCE but not the write
+ * rules lands here as `null` and the gates are evaluated. That is the safe
+ * direction: the cost is a skip that stops applying, stated in the RD artifact,
+ * not a bypass that starts applying.
  */
 export function readSkipState(
   projectRoot: string,
@@ -101,10 +116,20 @@ function isWorkflowSkipState(value: unknown): value is WorkflowSkipState {
   const v = value as Partial<WorkflowSkipState>;
   if (typeof v.rid !== 'string') return false;
   if (!Array.isArray(v.skippedGates)) return false;
-  if (!v.skippedGates.every((g) => typeof g === 'string')) return false;
+  if (v.skippedGates.length === 0) return false;
+  if (
+    !v.skippedGates.every(
+      (g) => typeof g === 'string' && g.trim().length > 0 && g === g.trim() && !hasControlChars(g)
+    )
+  )
+    return false;
   if (typeof v.skipReason !== 'string') return false;
+  if (v.skipReason.trim().length === 0) return false;
+  if (hasControlChars(v.skipReason)) return false;
   if (typeof v.skipAppliedAt !== 'string') return false;
+  if (hasControlChars(v.skipAppliedAt)) return false;
   if (typeof v.skipAppliedBy !== 'string') return false;
+  if (hasControlChars(v.skipAppliedBy)) return false;
   if (v.callerKind !== 'human' && v.callerKind !== 'llm' && v.callerKind !== 'script') return false;
   return true;
 }
