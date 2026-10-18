@@ -6116,8 +6116,4 @@ the reader now fails closed — but a direct library caller with a hand-built st
 is a fallback `?? []` in the message builder; left for a separate slice because it touches the
 transition path §2.4 was told not to change.
 
-**New finding (2026-10-19, found while closing §2.10's residual):** `peaks lint check` and
-`peaks lint baseline` both register `--config <path>`, but commander stores it as `options.config`
-while the action reads `options.configPath`, so the flag is ignored. A caller who passes a custom
-ESLint config gets the default one and no warning. The fix is to read `options.config` (or rename the
-option); the same shape should be checked on the other lint subcommands.
+**New finding (2026-10-19, found while closing §2.10's residual) — FIXED 2026-10-19 (rid `rid-lint-config-flag`):** `peaks lint check` and `peaks lint baseline` both registered `--config <path>`, but commander stores it as `options.config` while the action read `options.configPath`, so the flag was ignored. Both actions now read `options.config` and map it to the runner's `configPath`. Measured with a scratch config whose rule emits a marker: before, the default config ran and the marker never appeared; after, `check` and `baseline` both emit it. The injection control reds exactly the two `--config` arms. `detect-eslint` does not declare the flag and is unchanged.

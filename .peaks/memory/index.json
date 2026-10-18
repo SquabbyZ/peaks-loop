@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-18T21:41:50.022Z",
+  "updatedAt": "2026-10-18T22:00:47.404Z",
   "hot": {
     "rule": [
       {
@@ -492,6 +492,14 @@
         "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\ide-adapter-resource-profile-framework.md",
         "sourceArtifact": ".peaks/_runtime/2026-06-06-session-5b1095/rd/tech-doc-011-2026-06-07-ide-adapter-resource-profile.md",
         "updatedAt": "2026-10-08"
+      },
+      {
+        "name": "map-the-cli-name-at-the-action-boundary",
+        "kind": "decision",
+        "description": "Commander stores  as ; the runner's option is .",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\map-the-cli-name-at-the-action-boundary.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-18-session-dedff6/txt/handoff-lintconfig.md",
+        "updatedAt": "2026-10-18"
       },
       {
         "name": "memory-search-y2-rerank-2026-06-19-decision",
@@ -1072,6 +1080,14 @@
         "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\project-option-is-canonical-project-root-source.md",
         "sourceArtifact": ".peaks/_runtime/2026-06-06-session-22f08c/txt/handoff.md",
         "updatedAt": "2026-10-08"
+      },
+      {
+        "name": "prove-a-cli-flag-with-an-observable-marker",
+        "kind": "convention",
+        "description": "The  fix is proved by a scratch ESLint config whose rule emits a marker: before the fix the default config ran and th...",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\prove-a-cli-flag-with-an-observable-marker.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-18-session-dedff6/txt/handoff-lintconfig.md",
+        "updatedAt": "2026-10-18"
       },
       {
         "name": "quote-the-contract-line-in-the-fix",
