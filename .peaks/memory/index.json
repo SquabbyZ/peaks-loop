@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-18T16:51:40.567Z",
+  "updatedAt": "2026-10-18T17:56:08.008Z",
   "hot": {
     "rule": [
       {
@@ -548,6 +548,14 @@
         "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\the-shipped-default-for-fail-closed-strictness-is-the-user-s-call-not-the-implementer-s.md",
         "sourceArtifact": ".peaks/_runtime/2026-09-16-session-5bcf09/sc/release-4-advisory-default.md",
         "updatedAt": "2026-10-08"
+      },
+      {
+        "name": "two-prerequisites-may-share-a-path-if-each-names-its-requirement",
+        "kind": "decision",
+        "description": "That is not a defect by itself: a missing heading and a missing test idiom are DISTINCT requirements on the same docu...",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\two-prerequisites-may-share-a-path-if-each-names-its-requirement.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-18-session-dedff6/txt/handoff-prereq.md",
+        "updatedAt": "2026-10-18"
       }
     ],
     "feedback": [
@@ -994,6 +1002,14 @@
         "updatedAt": "2026-10-08"
       },
       {
+        "name": "stage-new-files-before-regenerating-the-baseline",
+        "kind": "convention",
+        "description": "The gate baseline must be regenerated AFTER -ing any new file it should count.",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\stage-new-files-before-regenerating-the-baseline.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-18-session-dedff6/txt/handoff-prereq.md",
+        "updatedAt": "2026-10-18"
+      },
+      {
         "name": "sub-agent-scratch-belongs-under-peaks-runtime-sessionid-rd-scratch-and-the-reason-is-functional",
         "kind": "convention",
         "description": "Sub-agent scratch files belong under , never at a path outside the repository.",
@@ -1284,6 +1300,14 @@
         "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\a-ratchet-on-a-count-cannot-see-substitution.md",
         "sourceArtifact": null,
         "updatedAt": "2026-10-09"
+      },
+      {
+        "name": "a-refusal-needs-a-machine-shape-not-only-prose",
+        "kind": "lesson",
+        "description": "already said \"N unmet requirement(s)\" and the CLI already said , but  still listed a PRESENT file under a field named...",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\a-refusal-needs-a-machine-shape-not-only-prose.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-18-session-dedff6/txt/handoff-prereq.md",
+        "updatedAt": "2026-10-18"
       },
       {
         "name": "a-registry-or-behaviour-hash-cannot-see-a-function-body-and-cannot-see-a-dropped-re-export",
