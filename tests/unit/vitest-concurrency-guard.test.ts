@@ -23,13 +23,57 @@
 //   - behavior:  cap is populated (not undefined) and within a sane bound
 //   - integration: PEAKS_VITEST_MAX_WORKERS env var override is honored
 //   - a11y:      n/a (config drift guard)
+//
+// 2026-10-19 (rid-concurrency-guard-dimensions): the `behavior` and
+// `integration` dimensions above were claims with nothing behind them — every
+// test matched strings in vitest.config.ts, so a cap of any value and an
+// ignored env var both stayed green. The two Scenario blocks at the bottom
+// EVALUATE `vitest.workers.ts` itself instead: one reads the exported bound,
+// the other re-evaluates the module under each documented env shape.
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 const vitestConfigPath = resolve(__dirname, '..', '..', 'vitest.config.ts');
 const configText = readFileSync(vitestConfigPath, 'utf8');
+
+const OVERRIDE_ENV = 'PEAKS_VITEST_MAX_WORKERS';
+
+// Sane bound for the FIXED default, named so the assertion cannot drift with
+// the value it is supposed to constrain.
+//
+// Lower bound 1: `maxWorkers` is a worker COUNT, and `parseOverride` already
+// refuses anything below 1. A default below 1 would admit exactly the value
+// the override path rejects, so the two paths must agree on the floor.
+//
+// Upper bound 8: 8 is the loudest schedule this repository has measured
+// evidence for — the 2026-07-30 halved `floor(cpus/2)` schedule on the 16-core
+// host (17 timeouts -> 0, 705 -> 722 passing) — and `package.json`'s
+// `test:fast` pins `--maxWorkers=8` as the EXPLICIT opt-in for callers who want
+// the speed back. A fixed default at 8 or above would make that opt-in
+// meaningless and put the default back into the oversubscription regime the
+// cap exists to leave (measured 15 forked workers, 8.8x aggregate/wall).
+const SANE_MIN_WORKERS = 1;
+const SANE_MAX_WORKERS = 8;
+
+// Evaluate the policy module afresh under one env value. A plain import would
+// be evaluated once and cached, so every later case would read the FIRST value
+// and the override assertions below would pass vacuously. `resetModules`
+// clears the registry between cases; `stubEnv(name, undefined)` DELETES the
+// key, which is the only shape that reaches `parseOverride` as `undefined`.
+async function loadWorkerPolicy(override: string | undefined): Promise<{
+  DEFAULT_MAX_WORKERS: number;
+  maxWorkers: number;
+}> {
+  vi.resetModules();
+  vi.stubEnv(OVERRIDE_ENV, override);
+  try {
+    return await import('../../vitest.workers.js');
+  } finally {
+    vi.unstubAllEnvs();
+  }
+}
 
 describe('vitest config — worker concurrency cap (4.0.17 starvation fix)', () => {
   it('when read, vitest.config.ts declares maxWorkers', () => {
@@ -91,5 +135,55 @@ describe('vitest config — worker concurrency cap (4.0.17 starvation fix)', () 
     expect(activeWiring, 'the worker cap must be wired on a line the config actually reads').toBe(
       true
     );
+  });
+});
+
+// ── behavior: the cap value itself ───────────────────────────────────
+
+describe('Scenario: behavior — the worker cap value itself', () => {
+  it('when no override is set, should resolve maxWorkers to a positive integer inside the sane bound', async () => {
+    // given: PEAKS_VITEST_MAX_WORKERS is unset
+    // when: the single-source-of-truth policy module is evaluated
+    // then: the default is an integer in [1, 8] and maxWorkers is exactly it
+    const policy = await loadWorkerPolicy(undefined);
+
+    expect(
+      Number.isInteger(policy.DEFAULT_MAX_WORKERS),
+      'the cap is a worker count, so a fraction is not a valid default'
+    ).toBe(true);
+    expect(policy.DEFAULT_MAX_WORKERS).toBeGreaterThanOrEqual(SANE_MIN_WORKERS);
+    expect(policy.DEFAULT_MAX_WORKERS).toBeLessThanOrEqual(SANE_MAX_WORKERS);
+    expect(policy.maxWorkers).toBe(policy.DEFAULT_MAX_WORKERS);
+  });
+});
+
+// ── integration: the env override ────────────────────────────────────
+
+describe('Scenario: integration — PEAKS_VITEST_MAX_WORKERS is honored', () => {
+  it('when the override is a positive integer or a decimal, should use it (floored) instead of the default', async () => {
+    // given: the default resolved with no override, and probes derived from it
+    //        so neither probe can equal the default (an ignored env stays red)
+    // when: the module is evaluated with `<default + 1>` and `<default + 1>.9`
+    // then: the integer is honored and the decimal is floored, never rounded
+    const baseline = await loadWorkerPolicy(undefined);
+    const probe = baseline.DEFAULT_MAX_WORKERS + 1;
+    const integer = await loadWorkerPolicy(String(probe));
+    const decimal = await loadWorkerPolicy(`${probe}.9`);
+
+    expect(integer.maxWorkers, `override ${probe}`).toBe(probe);
+    expect(decimal.maxWorkers, `override ${probe}.9`).toBe(probe);
+  });
+
+  it('when the override is zero, negative, non-numeric, empty or unset, should fall back to the default', async () => {
+    // given: each documented shape `parseOverride` must refuse
+    // when: the policy module is evaluated under it
+    // then: maxWorkers is the fixed default, never the rejected value
+    for (const raw of ['0', '-2', 'abc', '', undefined]) {
+      const policy = await loadWorkerPolicy(raw);
+      expect(
+        policy.maxWorkers,
+        `override ${raw === undefined ? '<unset>' : JSON.stringify(raw)}`
+      ).toBe(policy.DEFAULT_MAX_WORKERS);
+    }
   });
 });
