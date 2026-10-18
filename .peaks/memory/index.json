@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-18T22:25:05.006Z",
+  "updatedAt": "2026-10-18T23:18:09.013Z",
   "hot": {
     "rule": [
       {
@@ -1184,6 +1184,14 @@
         "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\validate-metadata-with-the-readers-own-rule.md",
         "sourceArtifact": ".peaks/_runtime/2026-10-18-session-dedff6/txt/handoff-lint.md",
         "updatedAt": "2026-10-18"
+      },
+      {
+        "name": "when-the-file-is-at-the-cap-the-comment-is-the-code",
+        "kind": "convention",
+        "description": "is capped at 300 raw lines and the new  field pushed it to 302.",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\when-the-file-is-at-the-cap-the-comment-is-the-code.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-18-session-dedff6/txt/handoff-lintgate.md",
+        "updatedAt": "2026-10-18"
       }
     ],
     "module": [
@@ -1500,6 +1508,14 @@
         "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\a-ratchet-on-a-count-cannot-see-substitution.md",
         "sourceArtifact": null,
         "updatedAt": "2026-10-09"
+      },
+      {
+        "name": "a-refusal-must-name-the-artifact-it-refused",
+        "kind": "lesson",
+        "description": "said \"6 lint error(s) found in artifact.\" with no path, while the sibling  command's envelope carried .",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\a-refusal-must-name-the-artifact-it-refused.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-18-session-dedff6/txt/handoff-lintgate.md",
+        "updatedAt": "2026-10-18"
       },
       {
         "name": "a-refusal-needs-a-machine-shape-not-only-prose",

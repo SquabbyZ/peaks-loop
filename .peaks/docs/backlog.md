@@ -1593,7 +1593,7 @@ What this does **not** close: the emitter of the 2026-09-30/10-01 process popula
 §2.24 was a mechanism without a confirmed instance, and this slice closes the rate half of the mechanism,
 not the hunt (diagnosis §9.2).
 
-### 2.25 `peaks request init` prefixes request artifacts with a year that is not this year (found 2026-10-01)
+### 2.25 `peaks request init` prefixes request artifacts with a year that is not this year (found 2026-10-01; **CLOSED 2026-10-19 — already fixed by the `NUMBERED_PREFIX_RE` family**)
 
 On 2026-10-01, two `peaks request init --role qa --id 2026-…` calls wrote artifacts named
 `2027-2026-10-01-cron-exec-timeout-01.md` and `2028-2026-10-01-cron-task-tree-kill-01.md`. The prefix is
@@ -1616,7 +1616,15 @@ rid in that directory is `2027-`, and each further `request init` increments. Th
 `2027 … 2038` exactly — the counter is real, it is just fed dates as integers. See
 `.peaks/docs/diagnosis-2026-10-02-cli-build-drift-recheck.md`.
 
-### 2.26 The request-record placeholder lint flags real shell syntax, and `LINT_GATE_FAILED` never says which artifact (found 2026-10-01, C wave 6)
+**CLOSED 2026-10-19 — the fix is already in the tree.** `src/shared/incrementing-number.ts` defines
+`NUMBERED_PREFIX_RE = /^(\d{3})-/`; a four-digit year is out of family by construction, so
+`getNextNumber` ignores `2026-10-01-…` names and answers 1 rather than 2027.
+`tests/unit/shared/incrementing-number-prefix-family.test.ts` pins the exact case ("when a directory
+holds only date-shaped names, should answer 1 and not the year") and passes 12/12. **No code change
+was made by the 2026-10-19 run.** The mechanism block above records the defect; the constant records
+the closure.
+
+### 2.26 The request-record placeholder lint flags real shell syntax, and `LINT_GATE_FAILED` never says which artifact (found 2026-10-01, C wave 6; **second half FIXED 2026-10-19 — rid `rid-lint-gate-artifact-path`; first half narrowed, not a defect**)
 
 `peaks request transition --role rd --state implemented` refused C wave 6 with **"6 lint error(s)
 found in artifact"** and no path. `peaks request lint --role rd` on the same rid reported **ok:true**,
@@ -1641,6 +1649,14 @@ produced one — on both the repo build and the installed one. So half 1 is not 
 punished"; it is "a metavariable outside a code span is punished", and the remedy is the code-span convention.
 Half 2 is confirmed in current source: `src/services/artifacts/request-artifact-state-helpers.ts:75–76` builds
 "…6 lint error(s) found in artifact." with no path, while `request lint`'s own envelope does carry `path`.
+
+**SECOND HALF FIXED 2026-10-19 (rid `rid-lint-gate-artifact-path`).** `LintGateError` now takes the
+linted artifact's `path`, names it in the message (`N lint error(s) found in <path>.`), and carries it
+in the CLI `data` envelope; the throw site passes `lintReport.path`. Measured on a temp artifact:
+before, the message said "found in artifact" and `data` had no path; after, both name the exact path,
+with `role` / `newState` / `errorCount` / `findings` unchanged. `request lint`, a clean transition, and
+`--allow-incomplete` are unchanged. The first half remains a convention, not a defect: the heuristic
+strips inline code spans, so a backticked `git show HEAD:<path>` is clean.
 
 ### 2.27 `peaks-gate-baseline.mjs` has no monotonicity check — it raised `prettierUnformatted` 0 → 7 and wrote it (found 2026-10-01, C wave 7 convergence) — **CLOSED 2026-10-02 (rid `2026-10-02-baseline-monotonicity`)**
 
