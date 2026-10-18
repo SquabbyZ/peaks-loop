@@ -73,13 +73,15 @@ export class LintGateError extends Error {
   readonly newState: RequestArtifactState;
   readonly errorCount: number;
   readonly findings: ReadonlyArray<LintGateFinding>;
+  readonly path: string;
   constructor(
     role: RequestArtifactRole,
     newState: RequestArtifactState,
-    findings: ReadonlyArray<LintGateFinding>
+    findings: ReadonlyArray<LintGateFinding>,
+    path: string
   ) {
     super(
-      `Cannot transition ${role} to ${newState}: ${findings.length} lint error(s) found in artifact. ` +
+      `Cannot transition ${role} to ${newState}: ${findings.length} lint error(s) found in ${path}. ` +
         'Fix lint errors or use --allow-incomplete to bypass.'
     );
     this.name = 'LintGateError';
@@ -87,6 +89,7 @@ export class LintGateError extends Error {
     this.newState = newState;
     this.findings = findings;
     this.errorCount = findings.length;
+    this.path = path;
   }
 }
 

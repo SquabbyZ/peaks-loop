@@ -35,7 +35,7 @@
 // Run with: pnpm exec vitest run tests/unit/services/artifacts/lint-gate-names-finding.test.ts
 
 import { Command } from 'commander';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -131,6 +131,12 @@ async function initPrdArtifact(): Promise<string> {
   return root;
 }
 
+/** The artifact's on-disk path — what `request lint` reports and the refusal must name. */
+function artifactPath(root: string): string {
+  const dir = join(root, '.peaks', '_runtime', SESSION_ID, 'prd', 'requests');
+  return join(dir, readdirSync(dir).find((name) => name.endsWith('.md')) ?? '');
+}
+
 function transition(root: string, json: boolean): Promise<CapturedIo> {
   const argv = [
     'request',
@@ -152,13 +158,13 @@ function envelopeOf(captured: CapturedIo): {
   ok: boolean;
   code?: string;
   message?: string;
-  data: { findings?: LintFinding[]; errorCount?: number };
+  data: { path?: string; findings?: LintFinding[]; errorCount?: number };
 } {
   return JSON.parse(captured.text().trim()) as {
     ok: boolean;
     code?: string;
     message?: string;
-    data: { findings?: LintFinding[]; errorCount?: number };
+    data: { path?: string; findings?: LintFinding[]; errorCount?: number };
   };
 }
 
@@ -174,7 +180,7 @@ describe('Scenario: a11y — the lint refusal names the finding, not only its co
     process.exitCode = previousExitCode;
   });
 
-  it('when the transition leaves draft with an unfilled template, should name the first finding line, text and reason', async () => {
+  it('when the transition leaves draft with an unfilled template, should name the artifact and the first finding line, text and reason', async () => {
     // given: the template `request init --role prd` writes, which carries six
     //        unfilled placeholders
     const root = await initPrdArtifact();
@@ -186,7 +192,9 @@ describe('Scenario: a11y — the lint refusal names the finding, not only its co
     //       three literals the previous refusal never carried
     expect(process.exitCode).toBe(1);
     const printed = captured.stderrText();
-    expect(printed).toContain('lint error(s) found in artifact');
+    // and the refusal names the file the producer must edit — the same path
+    // `peaks request lint` reports for this rid
+    expect(printed).toContain(`lint error(s) found in ${artifactPath(root)}.`);
     expect(printed).toContain('- Line 4: ');
     expect(printed).toContain('<ticket, message URL, or "verbal" with a short sanitized quote>');
     expect(printed).toContain('Contains an unfilled <placeholder> token');
@@ -205,6 +213,11 @@ describe('Scenario: a11y — the lint refusal names the finding, not only its co
     // then: the findings ride the payload with all three fields, one per lint error
     expect(envelope.ok).toBe(false);
     expect(envelope.code).toBe('LINT_GATE_FAILED');
+    // the refusal carries the linted artifact's path, in the message and in `data`,
+    // matching what `request lint` reports for the same rid
+    const path = artifactPath(root);
+    expect(envelope.data.path).toBe(path);
+    expect(envelope.message).toContain(path);
     const findings = envelope.data.findings ?? [];
     expect(findings).toHaveLength(6);
     expect(envelope.data.errorCount).toBe(6);
@@ -268,6 +281,13 @@ describe('Scenario: a11y — the lint refusal names the finding, not only its co
     // then: no lint refusal is produced — so the two cases above are the lint's own
     //       findings rather than a gate that refuses everything
     expect(process.exitCode).toBeUndefined();
-    expect(envelopeOf(captured).code).not.toBe('LINT_GATE_FAILED');
+    const envelope = envelopeOf(captured);
+    expect(envelope.code).not.toBe('LINT_GATE_FAILED');
+    // and a clean transition is unchanged: it still reports the artifact it moved
+    // under its existing `path`, with no lint findings and no lint sentence
+    expect(envelope.data.path).toBe(artifactPath(root));
+    expect(envelope.data.errorCount).toBeUndefined();
+    expect(envelope.data.findings).toBeUndefined();
+    expect(envelope.message ?? '').not.toContain('lint error(s)');
   });
 });

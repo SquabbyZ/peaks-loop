@@ -98,6 +98,7 @@ function reportLintGateFailure(
       {
         role: error.role,
         newState: error.newState,
+        path: error.path,
         errorCount: error.errorCount,
         findings: error.findings
       },

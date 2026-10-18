@@ -651,7 +651,7 @@ export async function transitionRequestArtifact(
     if (lintReport !== null && !lintReport.ok) {
       const errors = lintReport.findings.filter((f) => f.severity === 'error');
       if (errors.length > 0) {
-        throw new LintGateError(options.role, options.newState, errors);
+        throw new LintGateError(options.role, options.newState, errors, lintReport.path);
       }
     }
   }
