@@ -82,6 +82,14 @@ export function getReleaseStatePath(projectRoot: string): string {
   return resolve(projectRoot, STATE_FILE);
 }
 
+/** A persisted record is only as trustworthy as its stage: `currentStage` is
+ *  typed `ReleaseStage`, but it comes out of a JSON file nothing validated. */
+function hasValidStage(value: unknown): boolean {
+  if (typeof value !== 'object' || value === null) return false;
+  const stage = (value as { currentStage?: unknown }).currentStage;
+  return typeof stage === 'string' && isReleaseStage(stage);
+}
+
 export function readReleaseState(projectRoot: string): ReleaseState {
   const path = getReleaseStatePath(projectRoot);
   if (!existsSync(path)) return EMPTY_RELEASE_STATE;
@@ -89,11 +97,16 @@ export function readReleaseState(projectRoot: string): ReleaseState {
     const raw = readFileSync(path, 'utf8');
     const parsed = JSON.parse(raw) as Partial<ReleaseState>;
     if (parsed.version !== 1) return EMPTY_RELEASE_STATE;
-    return {
-      version: 1,
-      active: parsed.active ?? null,
-      history: Array.isArray(parsed.history) ? parsed.history : []
-    };
+    const active = parsed.active ?? null;
+    const history = Array.isArray(parsed.history) ? parsed.history : [];
+    // Fail closed, exactly as the version check and the catch above do: a state
+    // file naming a stage this table no longer has (e.g. the dropped
+    // 'hotfixed') is a file this build cannot interpret. `transitionRelease`
+    // would otherwise throw on it (its error message indexes the stage table),
+    // so the reader is where an unknown stage has to stop.
+    if (active !== null && !hasValidStage(active)) return EMPTY_RELEASE_STATE;
+    if (!history.every(hasValidStage)) return EMPTY_RELEASE_STATE;
+    return { version: 1, active, history };
   } catch {
     return EMPTY_RELEASE_STATE;
   }
