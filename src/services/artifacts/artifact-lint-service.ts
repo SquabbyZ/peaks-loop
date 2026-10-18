@@ -1,4 +1,6 @@
 import { showRequestArtifact, type RequestArtifactRole } from './request-artifact-service.js';
+import { isRequestType, VALID_REQUEST_TYPES } from './artifact-prerequisites.js';
+import { allowedStatesForRole } from './request-artifact-state-helpers.js';
 
 export type ArtifactLintSeverity = 'error' | 'warning';
 
@@ -61,7 +63,6 @@ const ALLOWLIST_PATTERNS: ReadonlyArray<RegExp> = [
   /^\s*```/, // code fences
   /^\s*-\s*last update:/i, // metadata
   /^\s*-\s*created:/i,
-  /^\s*-\s*state:/i,
   /^\s*-\s*type:\s*(feature|bugfix|refactor|docs|config|chore)\s*$/i,
   /^\s*-\s*session:\s*[a-z0-9-]+/i,
   /^\s*-\s*transition note/i // bypass / repair notes are not placeholders
@@ -81,6 +82,93 @@ function stripInlineCode(line: string): string {
   return line.replace(/`[^`]*`/g, '');
 }
 
+/**
+ * The reader's own `- type:` locator: `extractMetadata` trims every line before
+ * matching, and takes everything after `type:`. `- state:` is matched at column
+ * 0, exactly as `locateArtifactState` does. Both are "handled" whether the value
+ * is valid or not, so the placeholder rules never fire on the same line.
+ */
+const METADATA_TYPE_RE = /^-\s*type:\s*(.+?)\s*$/;
+const METADATA_STATE_RE = /^-\s*state:\s*(.+?)\s*$/;
+
+type MetadataCheck = { handled: false } | { handled: true; reason: string | null };
+
+function checkMetadataLine(rawLine: string, role: RequestArtifactRole): MetadataCheck {
+  const typeMatch = METADATA_TYPE_RE.exec(rawLine.trim());
+  if (typeMatch?.[1] !== undefined) {
+    const value = typeMatch[1];
+    return {
+      handled: true,
+      reason: isRequestType(value)
+        ? null
+        : `Invalid - type: "${value}" — expected one of: ${VALID_REQUEST_TYPES.join(', ')}`
+    };
+  }
+  const stateMatch = METADATA_STATE_RE.exec(rawLine);
+  if (stateMatch?.[1] !== undefined) {
+    const value = stateMatch[1];
+    const allowed = allowedStatesForRole(role);
+    return {
+      handled: true,
+      reason: (allowed as ReadonlyArray<string>).includes(value)
+        ? null
+        : `Invalid - state: "${value}" for role ${role} — expected one of: ${allowed.join(', ')}`
+    };
+  }
+  return { handled: false };
+}
+
+/** The finding a metadata line produces, or `undefined` when the line is not metadata. */
+function metadataFinding(
+  rawLine: string,
+  role: RequestArtifactRole,
+  line: number
+): ArtifactLintFinding | null | undefined {
+  const metadata = checkMetadataLine(rawLine, role);
+  if (!metadata.handled) return undefined;
+  if (metadata.reason === null) return null;
+  return { line, text: rawLine.trim(), reason: metadata.reason, severity: 'error' };
+}
+
+/** The first placeholder rule this line violates, or null when it violates none. */
+function firstRule(rawLine: string): Rule | null {
+  const testLine = stripInlineCode(rawLine);
+  for (const rule of RULES) {
+    if (rule.test(testLine)) return rule;
+  }
+  return null;
+}
+
+function scanLines(lines: ReadonlyArray<string>, role: RequestArtifactRole): ArtifactLintFinding[] {
+  const findings: ArtifactLintFinding[] = [];
+  let insideFence = false;
+  for (const [index, rawLine] of lines.entries()) {
+    // Fenced code blocks hold literal examples, not prose to fill; skip their
+    // contents entirely (the fence delimiters themselves toggle the state).
+    if (/^\s*```/.test(rawLine)) {
+      insideFence = !insideFence;
+      continue;
+    }
+    if (insideFence) continue;
+    const metadata = metadataFinding(rawLine, role, index + 1);
+    if (metadata !== undefined) {
+      if (metadata !== null) findings.push(metadata);
+      continue;
+    }
+    if (isAllowlisted(rawLine)) continue;
+    const rule = firstRule(rawLine);
+    if (rule !== null) {
+      findings.push({
+        line: index + 1,
+        text: rawLine.trim(),
+        reason: rule.reason,
+        severity: rule.severity
+      });
+    }
+  }
+  return findings;
+}
+
 export async function lintRequestArtifact(
   options: LintArtifactOptions
 ): Promise<ArtifactLintReport | null> {
@@ -97,32 +185,7 @@ export async function lintRequestArtifact(
     return null;
   }
   const lines = artifact.content.split(/\r?\n/);
-  const findings: ArtifactLintFinding[] = [];
-  let insideFence = false;
-  for (let index = 0; index < lines.length; index += 1) {
-    const rawLine = lines[index];
-    if (rawLine === undefined) continue;
-    // Fenced code blocks hold literal examples, not prose to fill; skip their
-    // contents entirely (the fence delimiters themselves toggle the state).
-    if (/^\s*```/.test(rawLine)) {
-      insideFence = !insideFence;
-      continue;
-    }
-    if (insideFence) continue;
-    if (isAllowlisted(rawLine)) continue;
-    const testLine = stripInlineCode(rawLine);
-    for (const rule of RULES) {
-      if (rule.test(testLine)) {
-        findings.push({
-          line: index + 1,
-          text: rawLine.trim(),
-          reason: rule.reason,
-          severity: rule.severity
-        });
-        break;
-      }
-    }
-  }
+  const findings = scanLines(lines, options.role);
   const hasError = findings.some((finding) => finding.severity === 'error');
   return {
     ok: !hasError,
