@@ -925,7 +925,7 @@ measurements. The bound is still adequate (~6.6× headroom, not 20×), so this i
 not behaviour** — but the comment presents a low outlier as the fact, inside the module that was
 built to stop numbers being carried forward. Untouched by request.
 
-### 2.16 `hasBuild` is blind to a nested-only package — a false refusal no rebuild clears (found 2026-09-25)
+### 2.16 `hasBuild` is blind to a nested-only package — a false refusal no rebuild clears (found 2026-09-25; **CLOSED 2026-10-19 — the walk is already recursive**)
 
 - **Where**: `scripts/packages-build-prerequisite.mjs` — `hasBuild`, which asks only
   `readdirSync(join(pkgRoot, 'dist')).some((name) => name.endsWith('.js'))`. **Top level only.**
@@ -942,6 +942,14 @@ built to stop numbers being carried forward. Untouched by request.
 - **Not fixed.** Named here so a future slice finds it; §2.12 fixed the sibling reach (the emit walk) and
   deliberately left this one, which is a **refusal** rather than a blind spot, so its fix has a different
   shape — the guard must decide what a nested-only package _should_ be.
+
+**CLOSED 2026-10-19 — the fix is already in the tree.** `hasBuild` now walks recursively
+(`listFiles(join(pkgRoot, 'dist'))`); its comment in `scripts/packages-build-freshness.mjs:82-118` cites
+this item by name, keeps the `.js` filter untouched per §2.14's clearance, and names the remaining
+`catch`-maps-unreadable-to-false residual as a different axis. The function moved out of
+`packages-build-prerequisite.mjs` in `1e2d098a`; this heading was never updated.
+`tests/unit/scripts/packages-build-nested-emit.test.ts` covers the nested-only tree (the file plus its
+sibling suite pass 6/6). **No code change was made by the 2026-10-19 run.**
 
 ### 2.17 `verifyBddStyle` counts LINES where its contract says COMMENTS — and it refuses inputs the contract permits (found 2026-09-25; **FIXED 2026-10-19 — rid `rid-bdd-style-unit`**)
 
