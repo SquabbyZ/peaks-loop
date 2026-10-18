@@ -51,7 +51,7 @@
 - [windows-shell-quoting-divergence](windows-shell-quoting-divergence.md) — <!-- peaks-feedback-promoted: layer=A --> On Windows, when testing  or similar nested-quote patterns, the test outcom...
 - [writing-a-value-then-reading-it-back-locks-the-first-guess](writing-a-value-then-reading-it-back-locks-the-first-guess.md) — <!-- peaks-feedback-promoted: layer=A --> **一个组件若把"自己派生的值"写进某处、又在后续运行里把该值读回来当作自己的输入，它就把自己锁在了首次猜测上。** 2026-09-13 实测（pe...
 
-## decision (13)
+## decision (14)
 
 - [a-spawned-child-unref-must-wait-for-close](a-spawned-child-unref-must-wait-for-close.md) — Both isolation-lease spawners must resolve the envelope and then defer  with  inside the  handler.
 - [backlog-14-7-closed-by-a-parity-arm-not-a-shared-import](backlog-14-7-closed-by-a-parity-arm-not-a-shared-import.md) — §14.7's two type derivations were closed by a parity arm, not by deriving one from the other.
@@ -64,6 +64,7 @@
 - [skill-first-cli-auxiliary-sub-agent-dispatch](skill-first-cli-auxiliary-sub-agent-dispatch.md) — Slice #009 (PRD #002) added a new  CLI primitive.
 - [slim-ideadapter-shape-is-the-contract](slim-ideadapter-shape-is-the-contract.md) — Slice #1 established the slim  shape: 4 string fields (id, displayName, envVar, hookEvent, toolMatcher) + 1 settings ...
 - [subagent-tool-matcher-per-ide](subagent-tool-matcher-per-ide.md) — Per-IdeAdapter.subAgentToolMatcher is a string field declared in .
+- [the-lint-is-the-author-time-boundary-the-reader-keeps-its-default](the-lint-is-the-author-time-boundary-the-reader-keeps-its-default.md) — §14.6 was closed at the LINT boundary, not by changing .
 - [the-shipped-default-for-fail-closed-strictness-is-the-user-s-call-not-the-implementer-s](the-shipped-default-for-fail-closed-strictness-is-the-user-s-call-not-the-implementer-s.md) — The user chose option C — advisory-by-default + opt-in strict () — for the new codegraph index integrity gate.
 - [two-prerequisites-may-share-a-path-if-each-names-its-requirement](two-prerequisites-may-share-a-path-if-each-names-its-requirement.md) — That is not a defect by itself: a missing heading and a missing test idiom are DISTINCT requirements on the same docu...
 
@@ -126,7 +127,7 @@
 - [widening-a-guard-can-add-false-positives-against-live-files-instead-of-finding-anything](widening-a-guard-can-add-false-positives-against-live-files-instead-of-finding-anything.md) — A2 deliberately declined to widen the citation guard to bare non-test paths, and recorded the cost as "50 findings, n...
 - [workspace-underscore-convention](workspace-underscore-convention.md) — Under , any top-level directory whose name starts with  is **ephemeral** and is automatically gitignored by the  rule...
 
-## convention (16)
+## convention (17)
 
 - [a-slice-that-adds-src-files-owes-a-baseline-regen](a-slice-that-adds-src-files-owes-a-baseline-regen.md) — A commit that adds  files must regenerate  before the next tier run, or  and  go red for a reason unrelated to the cu...
 - [audit-artifact-convention](audit-artifact-convention.md) — Audit artifact writer generalization (Slice 2026-06-26-audit-artifact-writer-generalization).
@@ -144,6 +145,7 @@
 - [stage-new-files-before-regenerating-the-baseline](stage-new-files-before-regenerating-the-baseline.md) — The gate baseline must be regenerated AFTER -ing any new file it should count.
 - [sub-agent-scratch-belongs-under-peaks-runtime-sessionid-rd-scratch-and-the-reason-is-functional](sub-agent-scratch-belongs-under-peaks-runtime-sessionid-rd-scratch-and-the-reason-is-functional.md) — Sub-agent scratch files belong under , never at a path outside the repository.
 - [trae-install-inherits-slice-1-s-registry-driven-code-path-no-install-code-was-added](trae-install-inherits-slice-1-s-registry-driven-code-path-no-install-code-was-added.md) — Slice #2's Trae support is purely "fill the table" —  for Trae users uses the same registry-driven install path as Cl...
+- [validate-metadata-with-the-readers-own-rule](validate-metadata-with-the-readers-own-rule.md) — The lint's new  check uses , and its  check uses  — the same functions the readers use.
 
 ## module (5)
 
@@ -153,7 +155,7 @@
 - [src-services-ide-module-is-the-single-source-of-truth-for-ide-aware-behavior](src-services-ide-module-is-the-single-source-of-truth-for-ide-aware-behavior.md) — The  module is the single source of truth for IDE-aware behavior.
 - [src-services-session-canonical-workspace-resolver](src-services-session-canonical-workspace-resolver.md) — is the canonical home for the per-session workspace.
 
-## lesson (127)
+## lesson (128)
 
 - [2026-06-26-unknown-sid-root-cause](archived/2026-06-26-unknown-sid-root-cause.md) — Root cause + remediation log for the  and  orphan session dirs.
 - [2026-07-28-rid-034-handoff-no-sediment-block](2026-07-28-rid-034-handoff-no-sediment-block.md) — rid-034 收尾遇 sediment 反向 — no peaks-memory:start/end 闭合块 **Date:** 2026-07-28 **Rid:** 2026-07-28-rid-034-v2-13-0-clea...
@@ -193,6 +195,7 @@
 - [a-spent-flag-stops-protecting-what-it-named](a-spent-flag-stops-protecting-what-it-named.md) — was invented so that redrawing the lint scope had to be **stated**: the guard refuses a scope change, the operator pa...
 - [a-wave-is-accepted-by-the-total-that-its-leaves-cannot-see](a-wave-is-accepted-by-the-total-that-its-leaves-cannot-see.md) — C wave 7 drove  60,271 → 54,318.
 - [ac-pass-list-is-not-a-completion-bar](ac-pass-list-is-not-a-completion-bar.md) — 本切片 QA 报 **11/11 AC pass**，RD 自评审却找出 **4 条 MEDIUM**，全部落在 QA 那 11 条 AC 之外：(CR-1)  的成功提示被打成  输出到 stderr；(CR-2) 自实现 matc...
+- [an-allowlist-that-matches-any-value-cannot-fail](an-allowlist-that-matches-any-value-cannot-fail.md) — allowlisted  — ANY state value — before the placeholder rules ran.
 - [an-ast-guard-resolves-a-const-alias-not-a-parameter](an-ast-guard-resolves-a-const-alias-not-a-parameter.md) — walks the TypeScript AST for calls whose callee is bound to a  import.
 - [an-installed-build-whose-version-string-matches-the-worktree-can-still-be-missing-every-new-file](an-installed-build-whose-version-string-matches-the-worktree-can-still-be-missing-every-new-file.md) — PATH resolution is not a build check.
 - [an-llm-facing-contract-copy-must-be-guarded-by-a-test-that-reads-the-file-itself](an-llm-facing-contract-copy-must-be-guarded-by-a-test-that-reads-the-file-itself.md) — has 21 values; the sentence telling LLMs which  values are legal advertised 7 — and the same stale sentence had been ...

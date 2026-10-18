@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-18T17:56:08.008Z",
+  "updatedAt": "2026-10-18T18:26:24.731Z",
   "hot": {
     "rule": [
       {
@@ -542,6 +542,14 @@
         "updatedAt": "2026-10-08"
       },
       {
+        "name": "the-lint-is-the-author-time-boundary-the-reader-keeps-its-default",
+        "kind": "decision",
+        "description": "§14.6 was closed at the LINT boundary, not by changing .",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\the-lint-is-the-author-time-boundary-the-reader-keeps-its-default.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-18-session-dedff6/txt/handoff-lint.md",
+        "updatedAt": "2026-10-18"
+      },
+      {
         "name": "the-shipped-default-for-fail-closed-strictness-is-the-user-s-call-not-the-implementer-s",
         "kind": "decision",
         "description": "The user chose option C — advisory-by-default + opt-in strict () — for the new codegraph index integrity gate.",
@@ -1024,6 +1032,14 @@
         "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\trae-install-inherits-slice-1-s-registry-driven-code-path-no-install-code-was-added.md",
         "sourceArtifact": ".peaks/_runtime/2026-06-06-session-22f08c/txt/handoff.md",
         "updatedAt": "2026-10-08"
+      },
+      {
+        "name": "validate-metadata-with-the-readers-own-rule",
+        "kind": "convention",
+        "description": "The lint's new  check uses , and its  check uses  — the same functions the readers use.",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\validate-metadata-with-the-readers-own-rule.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-18-session-dedff6/txt/handoff-lint.md",
+        "updatedAt": "2026-10-18"
       }
     ],
     "module": [
@@ -1372,6 +1388,14 @@
         "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\ac-pass-list-is-not-a-completion-bar.md",
         "sourceArtifact": ".peaks/_runtime/2026-09-12-session-e37ef0/txt/handoff.md",
         "updatedAt": "2026-10-08"
+      },
+      {
+        "name": "an-allowlist-that-matches-any-value-cannot-fail",
+        "kind": "lesson",
+        "description": "allowlisted  — ANY state value — before the placeholder rules ran.",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\an-allowlist-that-matches-any-value-cannot-fail.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-18-session-dedff6/txt/handoff-lint.md",
+        "updatedAt": "2026-10-18"
       },
       {
         "name": "an-ast-guard-resolves-a-const-alias-not-a-parameter",
