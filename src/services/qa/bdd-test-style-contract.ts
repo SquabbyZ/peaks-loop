@@ -66,3 +66,43 @@ export function matchesBddTriple(triple: readonly string[]): boolean {
 export function hasWhenOrShould(text: string): boolean {
   return /(\bwhen\b|\bshould\b)/i.test(text);
 }
+
+/** True when a `//` line starts with one of the three BDD keywords. */
+function isBddKeywordLine(line: string): boolean {
+  return /^\s*\/\/\s*(?:given|when|then)\s*:/i.test(line);
+}
+
+/**
+ * The leading logical comments of a callback block, in source order.
+ *
+ * The contract's unit is the COMMENT, not the source line
+ * (`contracts/test-style-contract.md` §1.2: the body must start with
+ * "exactly three leading comments"). A `// given:` wrapped onto a second
+ * line is still ONE comment, so it must not consume a second slot and push
+ * `// when:` out of the triple. A comment line that carries no keyword
+ * counts as a continuation of the previous comment only when it is
+ * hanging-indented beneath that comment's text; written at the same column
+ * it is a separate leading comment, and a fourth one violates "exactly
+ * three".
+ *
+ * Scanning stops at the first executable line: only the region before any
+ * executable code is contract-bound, so comments after it are permitted.
+ */
+export function leadingBddComments(blockBody: string): string[] {
+  const comments: string[] = [];
+  let previousContentColumn = -1;
+  for (const line of blockBody.split(/\r?\n/)) {
+    if (line.trim().length === 0) continue;
+    if (!line.trimStart().startsWith('//')) break;
+    const commentAt = line.indexOf('//');
+    const content = line.slice(commentAt + 2);
+    if (content.trim().length === 0) continue;
+    const contentColumn = commentAt + 2 + (content.length - content.trimStart().length);
+    if (comments.length > 0 && !isBddKeywordLine(line) && contentColumn > previousContentColumn) {
+      continue; // hanging-indent continuation of the previous comment
+    }
+    comments.push(line);
+    previousContentColumn = contentColumn;
+  }
+  return comments;
+}

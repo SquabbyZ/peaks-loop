@@ -43,6 +43,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import ts from 'typescript';
 import {
+  leadingBddComments,
   matchesBddTriple,
   hasWhenOrShould,
   type BddStyleFail,
@@ -64,12 +65,15 @@ const TEST_NAMES = new Set(['it', 'test']);
  *      here because the description itself is a literal — there is
  *      no nested template literal to misread.
  *   2. The callback body (the second argument when it is an arrow /
- *      function expression with a block) MUST have a `// given:`,
- *      `// when:`, `// then:` triple at the top, in that order,
- *      within the first 3 leading-comment ranges before the first
- *      statement. The `// arrange:` / `// act:` / `// assert:` AAA
- *      legacy is NOT accepted — the contract is given-when-then
- *      only.
+ *      function expression with a block) MUST start with the
+ *      `// given:` / `// when:` / `// then:` triple, in that order. The
+ *      unit is the leading COMMENT, not the source line: a keyword
+ *      comment plus any hanging-indented continuation lines counts as
+ *      one, so a wrapped `// given:` does not shift `// when:` into a
+ *      later slot. Before any executable code the body must hold exactly
+ *      those three comments — a fourth leading comment is refused. The
+ *      `// arrange:` / `// act:` / `// assert:` AAA legacy is NOT
+ *      accepted — the contract is given-when-then only.
  *
  * Returns the FIRST failure encountered (file order, then
  * top-to-bottom line order). A structured `BddStyleFail` is what the
@@ -235,29 +239,10 @@ function checkBlockLeadingComments(
   sourceFile: ts.SourceFile,
   relPath: string
 ): BddStyleFail | null {
-  // TypeScript's `getLeadingCommentRanges` API is unreliable for
-  // comment-only blocks: with `setParentNodes: true`, an empty
-  // block (no statements, only comments) has no anchor to attach
-  // the comments to, so the API returns zero ranges. To get a
-  // deterministic answer, we scan the block's text directly and
-  // pick the first three non-empty lines.
-  //
-  // The block's text spans `{` ... `}`. We extract the body,
-  // split on lines, and check the first three non-empty lines for
-  // the BDD triple. This is AST-driven (we use the block's source
-  // range from the SourceFile, not a global regex) and survives
-  // both empty-body and populated-body cases.
-  const blockStart = block.getStart(sourceFile) + 1; // skip `{`
-  const blockEnd = block.end - 1; // skip `}`
-  const body = sourceFile.text.slice(blockStart, blockEnd);
-  const lines = body.split(/\r?\n/);
-  const nonEmpty: string[] = [];
-  for (const line of lines) {
-    if (line.trim().length === 0) continue;
-    nonEmpty.push(line);
-    if (nonEmpty.length === 3) break;
-  }
-  if (nonEmpty.length < 3 || !matchesBddTriple(nonEmpty)) {
+  const body = sourceFile.text.slice(block.getStart(sourceFile) + 1, block.end - 1);
+  // `matchesBddTriple` also refuses anything other than three comments, so
+  // the contract's "exactly three leading comments" needs no second count.
+  if (!matchesBddTriple(leadingBddComments(body))) {
     return makeMissingCommentFailure(block, sourceFile, relPath);
   }
   return null;
@@ -268,11 +253,16 @@ function makeMissingCommentFailure(
   sourceFile: ts.SourceFile,
   relPath: string
 ): BddStyleFail {
-  // Report the line of the opening `{` + 1 — the line that should
-  // contain the first comment of the BDD triple. This gives the
-  // caller a stable pointer even when the block is empty.
-  const pos = block.getStart(sourceFile) + 1;
-  const { line } = sourceFile.getLineAndCharacterOfPosition(pos);
+  // Point at the first line the author must change: the first
+  // non-whitespace character inside the braces (where the triple belongs),
+  // or just inside the braces when the block is empty. Anchoring on
+  // `getStart() + 1` reported the `{` — and with it the `it(` line — one
+  // line too early.
+  const bodyStart = block.getStart(sourceFile) + 1;
+  const bodyEnd = block.end - 1;
+  const firstContent = sourceFile.text.slice(bodyStart, bodyEnd).search(/\S/);
+  const anchor = firstContent === -1 ? bodyEnd : bodyStart + firstContent;
+  const { line } = sourceFile.getLineAndCharacterOfPosition(anchor);
   return {
     ok: false,
     reason: 'missing-given-when-then',

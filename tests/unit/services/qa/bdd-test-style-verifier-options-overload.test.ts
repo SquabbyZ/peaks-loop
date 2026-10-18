@@ -63,8 +63,9 @@ it(
   it('when an options object is present and the triple is missing, should still fail at the callback block', () => {
     // given: the same overload whose callback block carries NO triple
     // when:  the verifier scans the file
-    // then:  it fails at the callback's `{` (line 5), not at the call's `it(` (line 2)
-    //        — that difference is the proof the block was found
+    // then:  it fails at the first body line inside the callback (line 6 —
+    //        `expect`, where the triple belongs), not at the call's `it(`
+    //        (line 2) and not at the `{` line (line 5)
     const file = writeTestFile(
       'opts-missing.test.ts',
       `import { it, expect } from 'vitest';
@@ -80,7 +81,7 @@ it(
     expect(result.ok).toBe(false);
     if (result.ok) throw new Error('expected fail');
     expect(result.reason).toBe('missing-given-when-then');
-    expect(result.line).toBe(5);
+    expect(result.line).toBe(6);
   });
 
   it('when a describe carries an options object, should walk the its nested inside it', () => {
