@@ -35,6 +35,7 @@ import { check as skillNameMatch } from './checks/skill-name-match.js';
 import { check as skillParse } from './checks/skill-parse.js';
 import { check as skillRunbook } from './checks/skill-runbook.js';
 import { check as skillApplyNote } from './checks/skill-apply-note.js';
+import { check as skillReferenceParity } from './checks/skill-reference-parity.js';
 import { check as schemaValidity } from './checks/schema-validity.js';
 import { check as userConfig } from './checks/user-config.js';
 import { check as skillPresence } from './checks/skill-presence.js';
@@ -67,6 +68,7 @@ export const PLUGINS: ReadonlyArray<DoctorCheckPlugin> = [
   skillParse, // id prefix "skill-parse:"
   skillRunbook, // id prefix "skill-runbook:"
   skillApplyNote, // id prefix "skill-apply-note:"
+  skillReferenceParity, // ids "skills:reference-parity:<ide>:<skill>" + "skills:reference-parity:store"
   schemaValidity, // id prefix "schema:"
   userConfig, // id "config:user"
   skillPresence, // ids "skill-presence:current" + "skill-presence:freshness"

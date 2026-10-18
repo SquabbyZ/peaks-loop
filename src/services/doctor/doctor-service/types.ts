@@ -148,6 +148,15 @@ export type DoctorOptions = {
   /** Injected for the integration:ecc-hooks-schema-drift check (defaults to defaultEccHooksDriftProbe on disk). */
   eccHooksDriftProbe?: EccHooksDriftProbe;
   /**
+   * Injected roots for the `skills:reference-parity` check. When omitted the
+   * check binds `$PEAKS_HOME`/`~/.peaks` and the adapter registry. Tests pass
+   * temp directories here, so no test reads the real home directory.
+   */
+  skillParity?: {
+    canonicalRoot: string;
+    ideRoots: ReadonlyArray<{ ide: string; skillsDir: string }>;
+  };
+  /**
    * root for the L3:l3-memory-health check (defaults to
    * `findProjectRoot(process.cwd())`). Tests use this to point the
    * check at a temp dir without monkey-patching `findProjectRoot`.

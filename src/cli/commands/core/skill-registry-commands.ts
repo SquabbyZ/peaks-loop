@@ -66,15 +66,26 @@ function runSkillList(options: ListOptions, io: ProgramIO): Promise<void> {
 function runSkillDoctor(options: DoctorOptions, io: ProgramIO): Promise<void> {
   return runDoctor().then((report) => {
     const skillChecks = report.checks.filter((check) => check.id.startsWith('skill'));
-    const failed = skillChecks.filter((check) => !check.ok).length;
+    // A `severity: 'warning'` finding is displayed but does not fail the
+    // command: the severity contract in `doctor-service/types.ts` says a
+    // warning must not escalate an exit code (the parity check is one).
+    const failed = skillChecks.filter((check) => !check.ok && check.severity !== 'warning').length;
+    const warned = skillChecks.filter((check) => !check.ok && check.severity === 'warning').length;
     if (options.json === true) {
-      printResult(io, ok('skill.doctor', { checks: skillChecks, ok: failed === 0 }), true);
+      printResult(
+        io,
+        ok('skill.doctor', { checks: skillChecks, ok: failed === 0, warnings: warned }),
+        true
+      );
     } else {
       for (const check of skillChecks) {
-        const icon = check.ok ? '+' : '×';
+        const icon = check.ok ? '+' : check.severity === 'warning' ? '!' : '×';
         io.stdout(`  ${icon}  ${check.message}`);
       }
-      io.stdout(`\n  ${skillChecks.length - failed} passed, ${failed} failed`);
+      const warningSuffix = warned > 0 ? `, ${warned} warning(s)` : '';
+      io.stdout(
+        `\n  ${skillChecks.length - failed - warned} passed, ${failed} failed${warningSuffix}`
+      );
       if (failed > 0) {
         io.stderr('\nOne or more skill checks failed.');
       }

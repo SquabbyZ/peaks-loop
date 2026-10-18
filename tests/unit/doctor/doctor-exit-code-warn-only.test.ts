@@ -86,6 +86,9 @@ describe('doctor exit-code gate — severity-aware (slice repair cycle)', () => 
       workspaceInitializedProbe: () => false,
       statusLineInstalledProbe: () => false,
       skillPresenceProbe: () => null,
+      // Point the parity check at an absent store with no IDE roots so this
+      // test never measures the host's real `~/.peaks` / `~/.claude` trees.
+      skillParity: { canonicalRoot: '/tmp/synthetic-doctor-warn-only/skills', ideRoots: [] },
       // Inject a multi-binary-drift probe that emits a real
       // `severity: 'warning'` finding, exactly as the production
       // check does on a drifted PATH.
