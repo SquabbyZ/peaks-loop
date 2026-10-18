@@ -11,13 +11,18 @@
 // `tests/unit/standards/gratuitous-async-guard.test.ts`, which keys its 14-site
 // set on `file | declaration text`.
 import { Command } from 'commander';
-import { ok } from 'peaks-loop-shared/result';
+import { fail, ok } from 'peaks-loop-shared/result';
 
 import { addJsonOption, printResult, type ProgramIO } from '../cli-helpers.js';
 import { JobStateStore } from '../../services/job/job-state-store.js';
 import { JobRotation } from '../../services/job/job-rotation.js';
 import { SubAgentJobWrapper } from '../../services/job/subagent-job-wrapper.js';
-import { asJson, type JobIdOnlyOpts, type JobSubagentCleanupOpts } from './job-command-shared.js';
+import {
+  asJson,
+  failResult,
+  type JobIdOnlyOpts,
+  type JobSubagentCleanupOpts
+} from './job-command-shared.js';
 import { SESSION_ID_HELP, resolveJobStateRoot } from './job-state-root.js';
 import { registerJobInitStatusCommands } from './job-init-status-commands.js';
 import { registerJobCheckpointCommands } from './job-checkpoint-commands.js';
@@ -60,20 +65,39 @@ function registerJobSubagentCleanupCommand(job: Command, io: ProgramIO): void {
       .command('subagent-cleanup')
       .requiredOption('--job-id <jid>')
       .requiredOption('--batch-id <bid>')
-      .option('--force')
+      .option('--force', 'clean ledger rows whose status is not queued')
       .option('--session-id <sid>', SESSION_ID_HELP)
       .option('--project <repo>')
   ).action(async (opts: JobSubagentCleanupOpts) => {
-    const wrapper = new SubAgentJobWrapper(
-      new JobStateStore(resolveJobStateRoot(opts, opts.jobId).rootDir),
-      async () => ({ batchId: opts.batchId })
+    const { rootDir, sessionId, projectRoot } = resolveJobStateRoot(opts, opts.jobId);
+    const wrapper = new SubAgentJobWrapper(new JobStateStore(rootDir), () =>
+      Promise.resolve({ batchId: opts.batchId })
     );
     const r = await wrapper.cleanup({
       jobId: opts.jobId,
       batchId: opts.batchId,
-      force: !!opts.force
+      force: !!opts.force,
+      projectRoot,
+      sessionId
     });
-    printResult(io, ok('subagent-cleanup', r), asJson(opts));
+    if (!r.cleaned) {
+      failResult(
+        io,
+        fail(
+          'subagent-cleanup',
+          'BATCH_NOT_CLEANED',
+          `No queued ledger entry for batch ${opts.batchId} in session ${sessionId}; nothing was cleaned.`,
+          r as unknown as Record<string, unknown>,
+          [
+            `The ledger is .peaks/_sub_agents/${sessionId}/active-dispatches.json — check --batch-id.`,
+            ...(r.skipped.length > 0 ? ['Rows in a non-queued status need --force.'] : [])
+          ]
+        ),
+        opts
+      );
+      return;
+    }
+    printResult(io, ok('subagent-cleanup', r as unknown as Record<string, unknown>), asJson(opts));
   });
 }
 

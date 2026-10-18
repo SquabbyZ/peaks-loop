@@ -22,14 +22,14 @@
 //
 // WHY THIS IS A TYPE-CHECKER GUARD AND NOT JUST AN AST WALK
 //
-// The naive sibling of this guard — "flag `async` with no `await`" — reports 21
-// sites here, not 14. The extra 7 are `async (x) => pollDispatchRecords(x)` and
+// The naive sibling of this guard — "flag `async` with no `await`" — reports 20
+// sites here, not 13. The extra 7 are `async (x) => pollDispatchRecords(x)` and
 // `async () => { …; return base.query(…) }`: their `async` is also gratuitous,
 // but the rule this guard replaces **exempts a function whose return expression
 // is thenable**, and those 7 are exactly that. Reproducing the class the rule
 // actually reported therefore needs the same basis the rule used: the type
-// checker. `scan()` keeps BOTH numbers — `withoutThenableExemption` (21) and
-// `violations` (14) — so the exemption's effect is visible and pinned rather
+// checker. `scan()` keeps BOTH numbers — `withoutThenableExemption` (20) and
+// `violations` (13) — so the exemption's effect is visible and pinned rather
 // than smuggled in as a sixth condition.
 //
 // ⚠ THE TRAP, RECORDED BECAUSE IT IS EASY TO FALL INTO
@@ -42,7 +42,7 @@
 //
 // WHAT IT ASSERTS
 //
-//   violations (load-bearing): exactly the pinned 14 sites, each named by the text
+//   violations (load-bearing): exactly the pinned 13 sites, each named by the text
 //            of its declaration line, and reported to a human as `file:line`.
 //   reach (the anti-weakening arm): the file set, the async-function count and
 //            the type-checked count the walk actually consumed are each
@@ -85,7 +85,7 @@
 // injection case then fails instead of silently agreeing with the damaged walk.
 //
 // What `PINNED_SITES` is keyed on: the TEXT of each offending declaration, not its
-// line. A human can still read the 14 — the failure message prints `file:line` for
+// line. A human can still read the 13 — the failure message prints `file:line` for
 // every site it measured — but deleting a comment above one of them no longer
 // reddens this file, because a site that moved is not a site that changed.
 //
@@ -146,10 +146,10 @@ declareDimensions(
 );
 
 /**
- * The 14 sites this guard exists to keep visible, as `file | declaration line`.
+ * The 13 sites this guard exists to keep visible, as `file | declaration line`.
  *
  * Pinned as a SET, not just as a count: a count assertion alone cannot tell
- * "the same 14" from "13 of the old ones and a new one", and the whole point of
+ * "the same 13" from "12 of the old ones and a new one", and the whole point of
  * the guard is that a human can inspect the list.
  *
  * Keyed on the TEXT of the declaration, not its line number. The line used to be
@@ -161,7 +161,7 @@ declareDimensions(
  *
  * What still fails: a site leaving the class (an `await`, a `Promise<…>`
  * annotation, or the `async` going away), a new `async` with no await, no
- * contract and no `throw`, and any edit to one of these fourteen lines. The
+ * contract and no `throw`, and any edit to one of these thirteen lines. The
  * failure message prints the measured `file:line` for each, so navigating to a
  * site is still one click.
  */
@@ -169,7 +169,6 @@ const PINNED_SITES: readonly string[] = [
   'src/cli/commands/code-job-shape-commands.ts | async (opts: {',
   'src/cli/commands/job-commands.ts | async (_jid) => {',
   'src/cli/commands/job-commands.ts | async (jid) => ({ jobId: jid, cycle: 0 })',
-  'src/cli/commands/job-commands.ts | async () => ({ batchId: opts.batchId })',
   'src/services/adapter/codex-adapter.ts | async detect() {',
   'src/services/adapter/copilot-adapter.ts | async detect() {',
   'src/services/capability-guard-runner/contracts/J04.ts | return { call: async () => ({ output, tokens: { input: 1, output: 1 } }) };',
@@ -281,17 +280,17 @@ describe('Scenario: integration — the guard walks the real src/ + packages/ tr
   it('keys the class on the rule own thenable exemption, and that exemption is worth 7 sites', () => {
     // The naive predicate — `async`, no own-scope `await`, no `Promise<…>`
     // annotation, no own-body `throw`, non-empty body, not a generator —
-    // reports 21 sites, not 14. Measured: the 7-site difference is exactly the
+    // reports 20 sites, not 13. Measured: the 7-site difference is exactly the
     // functions whose return expression is thenable (`async (x) => poll(x)`,
     // `async () => { …; return base.query(…) }`), which the rule this guard
     // replaces exempts. Both numbers are pinned so the sixth condition is
     // auditable rather than invisible.
-    expect(result.withoutThenableExemption).toHaveLength(21);
-    expect(result.violations).toHaveLength(14);
+    expect(result.withoutThenableExemption).toHaveLength(20);
+    expect(result.violations).toHaveLength(13);
   });
 
   it('finds exactly the pinned residual class, no more and no fewer', () => {
-    // The set, not only the count: 14 of the right shape would still be wrong.
+    // The set, not only the count: 13 of the right shape would still be wrong.
     // Sorted on both sides — the walk yields them in the program's file order,
     // which is not a property worth pinning, and sorting keeps the diff readable
     // when one site leaves and another arrives in the same run.
@@ -379,8 +378,8 @@ describe('Scenario: behavior — the decision, on fixture programs', () => {
 
   it('stays green when the return expression is thenable, annotated or not', () => {
     // `async (x) => poll(x)` — also gratuitous, also exempt: the rule keys on a
-    // thenable return, and 7 of the 21 candidates in this repo are exactly this
-    // shape. Without this arm the 14 could be reached by a predicate that is
+    // thenable return, and 7 of the 20 candidates in this repo are exactly this
+    // shape. Without this arm the 13 could be reached by a predicate that is
     // simply blind to thenable returns rather than one that tests for them.
     withFixtureProgram(
       {

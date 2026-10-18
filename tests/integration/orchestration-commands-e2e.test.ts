@@ -575,7 +575,7 @@ describe('peaks job handoff (P2-B.3 orchestration e2e)', () => {
 });
 
 describe('peaks job subagent-cleanup (P2-B.3 orchestration e2e)', () => {
-  test('on a seeded job with --batch-id returns a structured envelope (no force)', () => {
+  test('on a seeded job whose batch is absent from the ledger, refuses instead of claiming cleaned', () => {
     const project = makeProject('peaks-p2b3-job-sa-cleanup-');
     bindSession(project);
     runCli(
@@ -611,10 +611,10 @@ describe('peaks job subagent-cleanup (P2-B.3 orchestration e2e)', () => {
     );
     expect(result.stdout.length).toBeGreaterThan(0);
     const envelope = parseEnvelope(result);
-    expect(envelope.ok).toBe(true);
-    expect(envelope.command).toBe('subagent-cleanup');
-    const data = envelope.data as { cleaned?: boolean };
-    expect(data.cleaned).toBe(true);
+    expect(envelope.ok).toBe(false); // §2.29: an absent batch is not "cleaned"
+    expect(envelope.code).toBe('BATCH_NOT_CLEANED');
+    expect((envelope.data as { cleaned?: boolean }).cleaned).toBe(false);
+    expect(result.code).not.toBe(0);
   });
 });
 
