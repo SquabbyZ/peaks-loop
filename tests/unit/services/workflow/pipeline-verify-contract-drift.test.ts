@@ -46,6 +46,7 @@ import {
 } from '../artifacts/_judged-declaration-fixture.js';
 import { dirname, join } from 'node:path';
 import { declareDimensions } from '../../_setup/4dim-template.js';
+import { backcompatAcceptanceBody } from '../artifacts/_audit-artifact-rid-fixtures.js';
 import { withTmpWorkspacePerTest, type TmpWorkspace } from '../../_setup/tmp-workspace.js';
 import { checkPrerequisites } from '../../../../src/services/artifacts/artifact-prerequisites.js';
 import { createRequestArtifact } from '../../../../src/services/artifacts/request-artifact-service.js';
@@ -91,6 +92,10 @@ const KARPATHY_REVIEW_BODY = [
  *  `contractBodyViolations` (repair round 2 — before that the checker probed
  *  existence only), so this fixture has to satisfy it for either to pass. */
 const PRD_HANDOFF_BODY = '# PRD handoff\n\nschemaVersion: 2\nsha256: 0000000000000000\n';
+
+/** The tracked acceptances this workspace seeds, derived from the shipped table
+ *  so the fixture cannot drift from the windows it accepts. */
+const ACCEPTANCE_BODY = backcompatAcceptanceBody();
 
 /** The QA-side evidence a feature slice needs at `verdict-issued`. */
 const QA_EVIDENCE: ReadonlyArray<[string, string]> = [
@@ -161,6 +166,14 @@ async function seedSlice(
     );
   }
   writeJudgedFixtureSource(ws.path);
+  // The commit leg refuses a closed back-compat window that no tracked
+  // acceptance covers. This tree has neither the mutation report nor the
+  // third-party review, so the workspace carries the acceptances the shipped
+  // `.peaks/lint/backcompat-expired-acceptance.json` carries, with a review
+  // target far enough ahead that these arms judge the CONTRACT, not the list.
+  const acceptance = join(ws.path, '.peaks', 'lint', 'backcompat-expired-acceptance.json');
+  mkdirSync(dirname(acceptance), { recursive: true });
+  writeFileSync(acceptance, ACCEPTANCE_BODY, 'utf8');
   for (const [relative, body] of evidence) write(ws.path, relative, body);
 }
 

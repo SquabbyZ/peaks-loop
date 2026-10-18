@@ -112,10 +112,10 @@ const ALLOWED_LEGACY_READ_PATHS: ReadonlyArray<string> = [
   // Not a write target: the legacy string is pushed onto a `migratedFiles`
   // report list describing where a file was moved FROM.
   'src/services/workspace/reconcile-migrate.ts',
-  // Intentional legacy read: `legacySessionRoot` is tier 2 of the documented
-  // pre-F3 back-compat fallback (`:455`), consumed by
-  // `resolvePrerequisiteAbsolutePathWithFallback`.
-  'src/services/artifacts/artifact-prerequisites.ts'
+  // Intentional legacy read: `sessionRootsFor` builds tier 2 of the documented
+  // pre-F3 back-compat fallback, which `resolvePrerequisiteAbsolutePathWithFallback`
+  // then probes. Both the transition and the commit-leg expiry gate read it.
+  'src/services/artifacts/prerequisite-path-resolver.ts'
 ];
 
 // `skills/` files exempt from invariant (c). Deliberately empty: the two

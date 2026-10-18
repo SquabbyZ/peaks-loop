@@ -17,6 +17,7 @@ import { NO_SESSION_SCOPE, mayHonourSkip, resolveRequestType } from './request-t
 import { readSkipState } from './workflow-state-store.js';
 
 import { getSessionIdCanonical } from '../session/session-manager.js';
+import { checkExpiredBackCompatCommitGate } from '../artifacts/artifact-prerequisites.js';
 import {
   listPromotionExempt,
   listUnpromotedFeedback
@@ -188,6 +189,15 @@ export async function verifyPipeline(options: {
   const anyEvidenceResolved = qaTracker.anyEvidenceResolved;
   const allResolvedPathsCanonical = qaTracker.allResolvedPathsCanonical;
 
+  const backcompatExpiry = await checkExpiredBackCompatCommitGate({
+    projectRoot: options.projectRoot,
+    sessionId: rdEvidenceDir === '' ? undefined : rdEvidenceDir,
+    requestType,
+    requestId: options.rid
+  });
+  violations.push(...backcompatExpiry.violations);
+  nextActions.push(...backcompatExpiry.warnings);
+
   // Check if QA reached verdict-issued
   if (qaInvoked && !QA_COMPLETE_STATES.has(qaState)) {
     violations.push(
@@ -203,12 +213,9 @@ export async function verifyPipeline(options: {
   // decision with a placeholder here and resolve it below.
   const rdInvokedWithoutQaRaw = rdInvoked && !qaInvoked;
 
-  // the user marked as skipped, override the evaluation result. The
-  // boolean `passed` is set to true so the gate counts as satisfied;
-  // the new `status: 'skipped'` field signals the bypass to
-  // downstream consumers. Violations and nextActions pushed for
-  // skipped gates are filtered out (the user explicitly chose to
-  // skip — the missing-evidence message is no longer actionable).
+  // A skipped gate counts as satisfied (`passed = true`); its `status: 'skipped'`
+  // signals the bypass downstream, and its missing-evidence violations and
+  // nextActions are filtered out because the user chose the skip.
   for (const gate of [...rdGates, ...qaGates]) {
     if (skippedGateNames.has(gate.name)) {
       markIfSkipped(gate);
@@ -308,6 +315,7 @@ export async function verifyPipeline(options: {
     allRdGatesPassed &&
     allQaGatesPassed &&
     allFeedbackGatesPassed &&
+    backcompatExpiry.violations.length === 0 &&
     RD_QA_HANDOFF_STATES.has(rdState);
 
   // 'suffixed' when the contract's current path served the file and 'legacy'
@@ -333,17 +341,9 @@ export async function verifyPipeline(options: {
   const gateC: 'pass' | 'fail' = allQaGatesPassed ? 'pass' : 'fail';
   const gateH: 'pass' | 'fail' = allFeedbackGatesPassed ? 'pass' : 'fail';
 
-  // every gate resolved on the canonical path; `false` when at least
-  // one fell back to a legacy form. QA / TXT surface the value so the
-  // user knows the legacy content must be moved into the canonical
-  // location (the legacy `peaks workspace migrate-change-scope` helper
-  // was removed in v2.19.0; use `peaks workspace migrate` to relocate
-  // misplaced content).
-  //
-  // If NO evidence file resolved (e.g. all gates missing), the field is
-  // `true` — there is nothing non-canonical to worry about. If every
-  // resolved gate was skipped via `peaks workflow skip`, the field is
-  // `true` — the user opted out of the canonical/legacy decision.
+  // `true` when every resolved gate used the canonical path (or nothing resolved,
+  // or every gate was skipped). `false` when one fell back to a legacy form; QA /
+  // TXT surface it so the user moves the content with `peaks workspace migrate`.
   const allGatesSkipped = [...rdGates, ...qaGates].every((g) => g.status === 'skipped');
   const usedCanonicalPath = !anyEvidenceResolved || allGatesSkipped || allResolvedPathsCanonical;
 

@@ -82,8 +82,13 @@ function releaseTriple(version: string): ReadonlyArray<number> {
 }
 
 /** Negative when `a` predates `b`, positive when it follows, 0 when their
- *  release triples are equal. */
-function compareReleaseVersions(a: string, b: string): number {
+ *  release triples are equal.
+ *
+ *  Exported because the commit-leg expiry gate makes the same comparison the
+ *  soft warning makes: an acceptance entry is current only while its `reviewBy`
+ *  is still ahead of the installed release. One comparator, so the two legs
+ *  cannot disagree about where a window boundary sits. */
+export function compareReleaseVersions(a: string, b: string): number {
   const left = releaseTriple(a);
   const right = releaseTriple(b);
   for (let index = 0; index < RELEASE_SEGMENTS; index += 1) {

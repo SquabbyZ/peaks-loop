@@ -32,10 +32,12 @@
 // It is a file under `tests/`, so the ESM-extension guard walks it — which is why the two
 // relative specifiers below carry their `.js` extension.
 
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 
+import { createRequestArtifact } from '../../../../src/services/artifacts/request-artifact-service.js';
+import { updateStatusBlock } from '../../../../src/services/artifacts/request-artifact-state-helpers.js';
 import {
   judgedDeclarationSection,
   writeJudgedFixtureSource
@@ -45,6 +47,7 @@ import {
   getPrerequisitesFor,
   type ArtifactPrerequisite
 } from '../../../../src/services/artifacts/artifact-prerequisites.js';
+import { CLI_VERSION } from 'peaks-loop-shared/version';
 export const SESSION_ID = '2026-09-13-session-21878f';
 export const RID_A = '2026-09-13-compact-event-settle';
 export const RID_B = '2026-09-13-statusline-window-witness';
@@ -71,7 +74,99 @@ export const RID_SCOPED_ARTIFACTS: ReadonlyArray<{
  *  (`mutReportPath()` in packages/peaks-loop-mut/.../report-loader.ts). */
 export const MUT_REPORT_BARE = 'mut/mut-report.json';
 
+const KARPATHY_REVIEW_BODY = [
+  '# Karpathy review',
+  '',
+  '## Karpathy-Gate',
+  '',
+  '### Think Before Coding',
+  '### Simplicity First',
+  '### Surgical Changes',
+  '### Goal-Driven Execution',
+  ''
+].join('\n');
+
+/** The evidence a `verifyPipeline` arm needs beyond the RD/QA carriers, so the
+ *  pipeline is green for reasons unrelated to the gate under test. */
+function pipelineEvidence(rid: string): ReadonlyArray<[string, string]> {
+  return [
+    [`prd/handoff-${rid}.md`, '# PRD handoff\n\nschemaVersion: 2\nsha256: 0000000000000000\n'],
+    ['rd/code-review.md', '# Code review\n\n## Findings\n\nCRITICAL: none\n'],
+    ['audit/security.md', '# Security audit\n\n## Verdict\n\nPASS\n' + judgedDeclarationSection()],
+    ['audit/perf.md', '# Perf audit\n\n## Baseline\n\nn/a\n'],
+    ['rd/karpathy-review.md', KARPATHY_REVIEW_BODY],
+    ['qa/.initiated', ''],
+    [`qa/test-cases/${rid}.md`, '# Test cases\n\n## Test cases\n\ntest(x)\n'],
+    [`qa/test-reports/${rid}.md`, '# Test report\n\n## Test execution\n\nall green\n']
+  ];
+}
+
+/** Seed a slice whose `verifyPipeline` verdict is green apart from the gate the
+ *  caller is exercising: RD reaches `qa-handoff`, QA reaches `verdict-issued`,
+ *  and every contract artifact is on disk. */
+export async function seedVerifiablePipeline(
+  projectRoot: string,
+  rid: string,
+  sessionId: string
+): Promise<void> {
+  for (const [role, state] of [
+    ['rd', 'qa-handoff'],
+    ['qa', 'verdict-issued']
+  ] as const) {
+    const created = await createRequestArtifact({
+      role,
+      requestId: rid,
+      projectRoot,
+      sessionId,
+      apply: true
+    });
+    writeFileSync(
+      created.path,
+      updateStatusBlock(readFileSync(created.path, 'utf8'), state, '2026-10-18T00:00:00.000Z')
+        .updated,
+      'utf8'
+    );
+  }
+  writeJudgedFixtureSource(projectRoot);
+  for (const [relative, body] of pipelineEvidence(rid)) {
+    // Written into the CALLER's session scope, not this module's fixture id.
+    const absolute = join(projectRoot, '.peaks', '_runtime', sessionId, relative);
+    mkdirSync(dirname(absolute), { recursive: true });
+    writeFileSync(absolute, body, 'utf8');
+  }
+}
+
 export const tempRoots: string[] = [];
+
+/** The tracked acceptance list a fixture workspace seeds. The `until` values are
+ *  read from the SHIPPED table (not copied here) and `reviewBy` sits one minor
+ *  ahead of this build, so the commit-leg gate accepts the fixture without an
+ *  expiring literal. */
+export function backcompatAcceptanceBody(): string {
+  const row = (path: string): ArtifactPrerequisite | undefined =>
+    getPrerequisitesFor('rd', 'qa-handoff', 'feature').find(
+      (prerequisite) => prerequisite.relativePath === path
+    );
+  const [major, minor] = CLI_VERSION.split('.');
+  const reviewBy = `v${major}.${Number(minor) + 1}.0`;
+  return JSON.stringify({
+    version: 1,
+    accepted: [
+      {
+        path: 'mut/mut-report.json',
+        until: row('mut/mut-report.json')?.backCompatUntil ?? '',
+        reason: 'fixture',
+        reviewBy
+      },
+      {
+        path: 'rd/third-party-review.md',
+        until: row('rd/third-party-review.md')?.backCompatUntil ?? '',
+        reason: 'fixture',
+        reviewBy
+      }
+    ]
+  });
+}
 
 export function makeProjectRoot(): string {
   const root = mkdtempSync(join(tmpdir(), 'peaks-rid-scoping-'));

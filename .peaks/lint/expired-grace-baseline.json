@@ -98,7 +98,7 @@
       "versions": ["v2.14.0"]
     },
     {
-      "path": "src/services/artifacts/artifact-prerequisites.ts",
+      "path": "src/services/artifacts/prerequisite-path-resolver.ts",
       "occurrences": 1,
       "versions": ["v2.14.0"]
     },

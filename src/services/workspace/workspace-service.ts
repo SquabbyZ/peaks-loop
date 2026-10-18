@@ -12,6 +12,7 @@ import { updateCallerBindingSessionId } from '../session/caller-binding-service.
 import { resolveCallerProjection } from '../session/resolve-caller-id.js';
 import { normalizePath } from '../../shared/path-utils.js';
 import { assertWritableProjectRoot } from '../config/config-safety.js';
+import { seedBackCompatAcceptance } from '../artifacts/backcompat-acceptance.js';
 
 /**
  * calling process's own per-caller binding at the session id this init just
@@ -46,21 +47,6 @@ function listPeaksRuntimeSiblings(projectRoot: string): string[] {
   if (!existsSync(peaksDir)) return [];
   try {
     return readdirSync(peaksDir);
-  } catch {
-    return [];
-  }
-}
-
-/**
- * `.peaks/_runtime/` so the legacy sibling-dir guard can enumerate
- * date-stamped residue dirs at the runtime layer. Returns `[]` when
- * the `.peaks/_runtime/` dir does not exist.
- */
-function listRuntimeSiblings(projectRoot: string): string[] {
-  const runtimeDir = join(projectRoot, '.peaks', '_runtime');
-  if (!existsSync(runtimeDir)) return [];
-  try {
-    return readdirSync(runtimeDir);
   } catch {
     return [];
   }
@@ -497,6 +483,9 @@ export async function initWorkspace(options: WorkspaceInitOptions): Promise<Work
   // last regenerate this project", not "when did the bytes change". See
   // `generated-artifacts-stamp.ts`.
   writeGeneratedArtifactsStamp(options.projectRoot);
+  // The commit-leg expiry gate is opt-in by the presence of this tracked list;
+  // seeding it here (idempotently) is how a project opts in.
+  seedBackCompatAcceptance(options.projectRoot);
 
   return {
     sessionId: options.sessionId,
