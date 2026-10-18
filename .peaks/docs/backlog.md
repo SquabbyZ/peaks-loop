@@ -943,7 +943,7 @@ built to stop numbers being carried forward. Untouched by request.
   deliberately left this one, which is a **refusal** rather than a blind spot, so its fix has a different
   shape — the guard must decide what a nested-only package _should_ be.
 
-### 2.17 `verifyBddStyle` counts LINES where its contract says COMMENTS — and it refuses inputs the contract permits (found 2026-09-25)
+### 2.17 `verifyBddStyle` counts LINES where its contract says COMMENTS — and it refuses inputs the contract permits (found 2026-09-25; **FIXED 2026-10-19 — rid `rid-bdd-style-unit`**)
 
 - **Where**: `src/services/qa/bdd-test-style-verifier.ts` — the `missing-given-when-then` check.
 - **Measured by QA in `rid-5b6d975f`**: the checker's unit is the **line slot**, not the comment. Its case
@@ -969,6 +969,16 @@ built to stop numbers being carried forward. Untouched by request.
   `packages-build-nested-emit.test.ts:55` (**this slice's own untracked file**, wrapped `given:`/`when:` with
   the triple present in order — a **false refusal**). The second is being collapsed to one line as a rider
   so both readings are satisfied; the checker stays wrong.
+
+**FIXED 2026-10-19 (rid `rid-bdd-style-unit`).** The unit is now the leading COMMENT, quoted from
+`contracts/test-style-contract.md:41-42` ("MUST be exactly three leading comments"):
+`leadingBddComments` folds a hanging-indented untagged continuation into its keyword comment, stops at
+the first executable line, and treats a same-column comment as a separate leading comment, so
+"exactly three" is enforceable. Measured: a wrapped `given:` / `when:` now passes (was refused); five
+leading comments now fails (was accepted); missing and reordered triples still fail; the failure line
+points at the first body line, not the `it(` line. Mutation controls restore the old line-slot logic
+(the wrapped arm reds) and drop the exactly-three check (the five-comment arm reds). **The production
+caller / untracked-file gap above is NOT part of this fix** — it remains a separate slice.
 
 ### 2.18 The gate skips a package with no `.ts` source, so a sourceless tree prints `OK` (found 2026-09-25)
 

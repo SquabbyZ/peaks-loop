@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-18T18:26:24.731Z",
+  "updatedAt": "2026-10-18T19:05:55.551Z",
   "hot": {
     "rule": [
       {
@@ -467,6 +467,14 @@
         "description": "§14.7's two type derivations were closed by a parity arm, not by deriving one from the other.",
         "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\backlog-14-7-closed-by-a-parity-arm-not-a-shared-import.md",
         "sourceArtifact": ".peaks/_runtime/2026-10-18-session-dedff6/txt/handoff-parity.md",
+        "updatedAt": "2026-10-18"
+      },
+      {
+        "name": "comments-after-executable-code-are-not-contract-bound",
+        "kind": "decision",
+        "description": "The \"exactly three leading comments\" rule is enforced only BEFORE the first executable line.",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\comments-after-executable-code-are-not-contract-bound.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-18-session-dedff6/txt/handoff-bdd.md",
         "updatedAt": "2026-10-18"
       },
       {
@@ -992,6 +1000,14 @@
         "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\project-option-is-canonical-project-root-source.md",
         "sourceArtifact": ".peaks/_runtime/2026-06-06-session-22f08c/txt/handoff.md",
         "updatedAt": "2026-10-08"
+      },
+      {
+        "name": "quote-the-contract-line-in-the-fix",
+        "kind": "convention",
+        "description": "The fix's docblock quotes  (\"MUST be exactly three leading comments\") and derives the folding rule from it.",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\quote-the-contract-line-in-the-fix.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-18-session-dedff6/txt/handoff-bdd.md",
+        "updatedAt": "2026-10-18"
       },
       {
         "name": "r-2-symlink-guard-for-settings-writes",
@@ -2052,6 +2068,14 @@
         "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\the-ratchet-s-only-joint-decision-exception-works-and-it-is-conditional.md",
         "sourceArtifact": ".peaks/_runtime/2026-10-10-session-062f74/txt/handoff.md",
         "updatedAt": "2026-10-10"
+      },
+      {
+        "name": "three-units-one-contract-line-range-and-logical-comment",
+        "kind": "lesson",
+        "description": "had three candidate units for \"the body must start with exactly these 3 leading comments\": source LINES (what the cod...",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\three-units-one-contract-line-range-and-logical-comment.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-18-session-dedff6/txt/handoff-bdd.md",
+        "updatedAt": "2026-10-18"
       },
       {
         "name": "trae-adapter-values-hookevent-toolmatcher-envvar-are-1-x-assumptions-not-verified",
