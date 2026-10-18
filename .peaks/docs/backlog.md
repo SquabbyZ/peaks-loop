@@ -299,12 +299,21 @@ predicate: 5 failed / 4 passed; branch deleted: 2 failed / 7 passed) after the s
 refused the first in-place attempt. Coverage: `atomic-write.ts` 100 % statements / branches / lines;
 the recursion at `config-validation.ts:143-154` is covered. **Production diff is empty.**
 
-### 2.6 A guard whose two dimensions have no assertions
+### 2.6 A guard whose two dimensions have no assertions (found 2026-09-25; **CLOSED 2026-10-19 — both dimensions now evaluate the policy module**)
 
 - **Where**: `tests/unit/vitest-concurrency-guard.test.ts`
 - **Measured**: the file's own header claims four dimensions; "cap within a sane bound" and "env override honored"
   have **zero assertions**. The negative arm was added in-session (it now catches the comment-out form), but those
   two dimensions are still empty.
+
+**CLOSED 2026-10-19 (rid `rid-concurrency-guard-dimensions`).** The two dimensions now evaluate
+`vitest.workers.ts` itself: a `behavior` arm asserts `DEFAULT_MAX_WORKERS` is an integer in [1,8] and that
+`maxWorkers` equals it with no override; an `integration` arm re-evaluates the module under a positive
+integer, a decimal (floored), `0`, `-2`, `abc`, `''`, and unset, asserting the documented answer each
+time. The probes are derived from the resolved default (`default+1`, `+1.9`) so none can equal it; a
+stubbed-but-ignored env, or rounding instead of flooring, reds. Three mutation controls on copies
+(ignore-env, `default=12`, round-not-floor) red exactly their target arm; the other nine stay green.
+Production is unchanged.
 
 ### 2.7 Two bounded blind spots, deliberately not widened
 

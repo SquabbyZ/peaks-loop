@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-18T20:13:17.070Z",
+  "updatedAt": "2026-10-18T20:36:07.263Z",
   "hot": {
     "rule": [
       {
@@ -970,12 +970,28 @@
         "updatedAt": "2026-10-08"
       },
       {
+        "name": "derive-the-probe-from-the-resolved-value",
+        "kind": "convention",
+        "description": "The override arms compute  and use , so neither probe can equal the default.",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\derive-the-probe-from-the-resolved-value.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-18-session-dedff6/txt/handoff-concurrency.md",
+        "updatedAt": "2026-10-18"
+      },
+      {
         "name": "detectidefromcontext-iterates-listadapterids",
         "kind": "convention",
         "description": "MUST iterate  (from ), never a hardcoded list of IdeId strings.",
         "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\detectidefromcontext-iterates-listadapterids.md",
         "sourceArtifact": ".peaks/_runtime/2026-06-06-session-22f08c/txt/handoff.md",
         "updatedAt": "2026-10-08"
+      },
+      {
+        "name": "evaluate-the-policy-module-with-reset-modules-and-stub-env",
+        "kind": "convention",
+        "description": "The arms use , , and a dynamic import of ;  runs in a .",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\evaluate-the-policy-module-with-reset-modules-and-stub-env.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-18-session-dedff6/txt/handoff-concurrency.md",
+        "updatedAt": "2026-10-18"
       },
       {
         "name": "fail-closed-to-the-readers-existing-sentinel",
@@ -1252,6 +1268,14 @@
         "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\a-digest-that-proves-the-source-side-does-not-prove-the-emit-side.md",
         "sourceArtifact": ".peaks/_runtime/2026-09-24-session-b714c7/txt/handoff.md",
         "updatedAt": "2026-10-08"
+      },
+      {
+        "name": "a-dimensional-header-is-not-a-set-of-assertions",
+        "kind": "lesson",
+        "description": "The guard's header listed four dimensions — render, behavior, integration, a11y — but every test matched strings in .",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\a-dimensional-header-is-not-a-set-of-assertions.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-18-session-dedff6/txt/handoff-concurrency.md",
+        "updatedAt": "2026-10-18"
       },
       {
         "name": "a-gate-bound-to-the-active-session-verifies-nothing",

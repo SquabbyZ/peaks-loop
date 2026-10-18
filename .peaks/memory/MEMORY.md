@@ -129,7 +129,7 @@
 - [widening-a-guard-can-add-false-positives-against-live-files-instead-of-finding-anything](widening-a-guard-can-add-false-positives-against-live-files-instead-of-finding-anything.md) — A2 deliberately declined to widen the citation guard to bare non-test paths, and recorded the cost as "50 findings, n...
 - [workspace-underscore-convention](workspace-underscore-convention.md) — Under , any top-level directory whose name starts with  is **ephemeral** and is automatically gitignored by the  rule...
 
-## convention (22)
+## convention (24)
 
 - [a-safety-classifier-denial-is-not-a-missing-red-side](a-safety-classifier-denial-is-not-a-missing-red-side.md) — The RD's first red-side attempt (mutating the real source and running tests) was refused by the safety classifier.
 - [a-slice-that-adds-src-files-owes-a-baseline-regen](a-slice-that-adds-src-files-owes-a-baseline-regen.md) — A commit that adds  files must regenerate  before the next tier run, or  and  go red for a reason unrelated to the cu...
@@ -137,7 +137,9 @@
 - [audit-decision-record-convention](audit-decision-record-convention.md) — Red-line audit snapshots produced by  are persisted as project-memory decisions at .
 - [backlog-open-markers-need-a-head-measurement](backlog-open-markers-need-a-head-measurement.md) — The backlog's OPEN markers are not machine-checked.
 - [comparing-counts-across-rounds-guarantees-a-false-regression-report](comparing-counts-across-rounds-guarantees-a-false-regression-report.md) — A long job measured its own size repeatedly and kept disagreeing: 14 → 22 → 25 → 27 changed files, RD test counts of ...
+- [derive-the-probe-from-the-resolved-value](derive-the-probe-from-the-resolved-value.md) — The override arms compute  and use , so neither probe can equal the default.
 - [detectidefromcontext-iterates-listadapterids](detectidefromcontext-iterates-listadapterids.md) — MUST iterate  (from ), never a hardcoded list of IdeId strings.
+- [evaluate-the-policy-module-with-reset-modules-and-stub-env](evaluate-the-policy-module-with-reset-modules-and-stub-env.md) — The arms use , , and a dynamic import of ;  runs in a .
 - [fail-closed-to-the-readers-existing-sentinel](fail-closed-to-the-readers-existing-sentinel.md) — The invalid stage returns  — the same sentinel  already returns for malformed JSON, a wrong version, and a missing file.
 - [never-quote-a-vitest-selector-glob](never-quote-a-vitest-selector-glob.md) — A quoted  is a vitest filter string, not a shell glob, so it matches nothing and the run is green over zero files.
 - [one-type-line-two-readers-and-the-parity-corpus](one-type-line-two-readers-and-the-parity-corpus.md) — is the canonical  reader (trim; hyphen bullet; whole value; ; LAST usable line wins).
@@ -162,7 +164,7 @@
 - [src-services-ide-module-is-the-single-source-of-truth-for-ide-aware-behavior](src-services-ide-module-is-the-single-source-of-truth-for-ide-aware-behavior.md) — The  module is the single source of truth for IDE-aware behavior.
 - [src-services-session-canonical-workspace-resolver](src-services-session-canonical-workspace-resolver.md) — is the canonical home for the per-session workspace.
 
-## lesson (133)
+## lesson (134)
 
 - [2026-06-26-unknown-sid-root-cause](archived/2026-06-26-unknown-sid-root-cause.md) — Root cause + remediation log for the  and  orphan session dirs.
 - [2026-07-28-rid-034-handoff-no-sediment-block](2026-07-28-rid-034-handoff-no-sediment-block.md) — rid-034 收尾遇 sediment 反向 — no peaks-memory:start/end 闭合块 **Date:** 2026-07-28 **Rid:** 2026-07-28-rid-034-v2-13-0-clea...
@@ -178,6 +180,7 @@
 - [a-degradation-that-carries-no-reason-is-indistinguishable-from-a-success](a-degradation-that-carries-no-reason-is-indistinguishable-from-a-success.md) — built the sub-agent prompt's codegraph block as .
 - [a-dependency-whose-backend-was-replaced-must-be-checked-for-ability-not-for-the-label](a-dependency-whose-backend-was-replaced-must-be-checked-for-ability-not-for-the-label.md) — (2026-10-05) removed  from peaks-loop's own dependencies and from 's , as part of moving peaks-loop's own stores to .
 - [a-digest-that-proves-the-source-side-does-not-prove-the-emit-side](a-digest-that-proves-the-source-side-does-not-prove-the-emit-side.md) — A staleness guard that digests  and compares against a recorded stamp proves only that the sources have not moved.
+- [a-dimensional-header-is-not-a-set-of-assertions](a-dimensional-header-is-not-a-set-of-assertions.md) — The guard's header listed four dimensions — render, behavior, integration, a11y — but every test matched strings in .
 - [a-gate-bound-to-the-active-session-verifies-nothing](a-gate-bound-to-the-active-session-verifies-nothing.md) — The last slice of job  was resumed from a **fresh** session while its six rid carriers lived under the session that p...
 - [a-gate-invoked-with-no-file-arguments-passes-vacuously-and-exits-0](a-gate-invoked-with-no-file-arguments-passes-vacuously-and-exits-0.md) — with zero in-scope files prints  and **returns 0** (, ).
 - [a-guard-keyed-on-a-file-path-shrinks-silently-when-you-split-that-file](a-guard-keyed-on-a-file-path-shrinks-silently-when-you-split-that-file.md) — Three independent guards in this repo decide what to measure by PATH, so moving code into a sibling removes it from c...
