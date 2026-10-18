@@ -370,7 +370,7 @@ Production is unchanged.
   (95 lines / 4975 bytes). The 1292 in this bullet is the **citation** guard's number, carried over
   from §3. See §3 for the real cap — which is not 800 either.
 
-### 2.10 The D5 no-touch-stockcode waiver is INERT on every checkout but one (found 2026-09-24)
+### 2.10 The D5 no-touch-stockcode waiver is INERT on every checkout but one (found 2026-09-24; **FIXED 2026-09-25 — rid `rid-6f1df581`, repo-relative; residuals below still open**)
 
 - **Where**: `.peaks/lint/baseline.json` — **tracked in git**. 192 violations, **53 distinct files**,
   22 distinct `ruleId`s. _(An earlier revision of this line read "29 distinct paths, 22 ruleIds
@@ -433,10 +433,12 @@ peaks-loop-4.0.16+` are byte-identical to `HEAD`, while its **keys** were rewrit
   **one** killer fixture (`file: 'src\\foo.ts'`). On the real tree that mutant is a no-op — the baseline
   is already relative — so it is **not independently guarded** by the suite. Treat it as guarded by one
   case, not by the battery.
-- **Not closed, and left as open items**: `peaks lint baseline` is **not idempotent** — its read side
-  ignores `--baseline-file`, so measuring against a scratch path does not subtract what the real file
-  covers. **31 line-0 parsing errors can never be diff-scoped.** And `smallMark` remains in dozens of
-  `.peaks/memory` prose files, left as history.
+- **Not closed, and left as open items**: **CLOSED 2026-10-19 (rid `rid-lint-baseline-idempotent`)** —
+  `peaks lint baseline --baseline-file` now passes the named file into `runEslint`, so the read
+  subtracts the same file the write targets; a scratch baseline with one tuple went from
+  `findings 1 / written 1` to `0 / 0`, and the absent-flag default is unchanged. **31 line-0 parsing
+  errors can never be diff-scoped.** And `smallMark` remains in dozens of `.peaks/memory` prose files,
+  left as history.
 - **A caveat for anyone reading a future full-scan number**: `.peaks/` is **not** in ESLint's
   `ignorePatterns`, so agent-harness `.ts` files are linted (0 findings when measured here). Pre-fix
   full scans measured 2887 / 2890 / 2888 depending on which runner file was in place — a spread that is
@@ -6113,3 +6115,9 @@ instead of refusing. In-repo it is unreachable — every call site passes `readR
 the reader now fails closed — but a direct library caller with a hand-built state reaches it. The fix
 is a fallback `?? []` in the message builder; left for a separate slice because it touches the
 transition path §2.4 was told not to change.
+
+**New finding (2026-10-19, found while closing §2.10's residual):** `peaks lint check` and
+`peaks lint baseline` both register `--config <path>`, but commander stores it as `options.config`
+while the action reads `options.configPath`, so the flag is ignored. A caller who passes a custom
+ESLint config gets the default one and no warning. The fix is to read `options.config` (or rename the
+option); the same shape should be checked on the other lint subcommands.

@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-18T21:16:01.349Z",
+  "updatedAt": "2026-10-18T21:41:50.022Z",
   "hot": {
     "rule": [
       {
@@ -1010,6 +1010,14 @@
         "updatedAt": "2026-10-18"
       },
       {
+        "name": "measure-read-write-parity-with-a-scratch-fixture",
+        "kind": "convention",
+        "description": "The parity test seeds a scratch baseline with one known tuple and a matching source file, then asserts the written ou...",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\measure-read-write-parity-with-a-scratch-fixture.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-18-session-dedff6/txt/handoff-lintidem.md",
+        "updatedAt": "2026-10-18"
+      },
+      {
         "name": "never-quote-a-vitest-selector-glob",
         "kind": "convention",
         "description": "A quoted  is a vitest filter string, not a shell glob, so it matches nothing and the run is green over zero files.",
@@ -1278,6 +1286,14 @@
         "updatedAt": "2026-10-08"
       },
       {
+        "name": "a-cli-options-parsed-name-is-not-its-flag-name",
+        "kind": "lesson",
+        "description": "QA found an adjacent defect while checking the parity fix:  is declared on  and , but the action reads .",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\a-cli-options-parsed-name-is-not-its-flag-name.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-18-session-dedff6/txt/handoff-lintidem.md",
+        "updatedAt": "2026-10-18"
+      },
+      {
         "name": "a-degradation-that-carries-no-reason-is-indistinguishable-from-a-success",
         "kind": "lesson",
         "description": "built the sub-agent prompt's codegraph block as .",
@@ -1307,6 +1323,14 @@
         "description": "The guard's header listed four dimensions — render, behavior, integration, a11y — but every test matched strings in .",
         "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\a-dimensional-header-is-not-a-set-of-assertions.md",
         "sourceArtifact": ".peaks/_runtime/2026-10-18-session-dedff6/txt/handoff-concurrency.md",
+        "updatedAt": "2026-10-18"
+      },
+      {
+        "name": "a-flag-can-govern-one-side-of-a-read-write-pair",
+        "kind": "lesson",
+        "description": "passed the flag only to ; the read side () was built without it and silently used the default .",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\a-flag-can-govern-one-side-of-a-read-write-pair.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-18-session-dedff6/txt/handoff-lintidem.md",
         "updatedAt": "2026-10-18"
       },
       {

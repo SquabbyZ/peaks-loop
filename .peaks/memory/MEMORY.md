@@ -130,7 +130,7 @@
 - [widening-a-guard-can-add-false-positives-against-live-files-instead-of-finding-anything](widening-a-guard-can-add-false-positives-against-live-files-instead-of-finding-anything.md) — A2 deliberately declined to widen the citation guard to bare non-test paths, and recorded the cost as "50 findings, n...
 - [workspace-underscore-convention](workspace-underscore-convention.md) — Under , any top-level directory whose name starts with  is **ephemeral** and is automatically gitignored by the  rule...
 
-## convention (27)
+## convention (28)
 
 - [a-safety-classifier-denial-is-not-a-missing-red-side](a-safety-classifier-denial-is-not-a-missing-red-side.md) — The RD's first red-side attempt (mutating the real source and running tests) was refused by the safety classifier.
 - [a-slice-that-adds-src-files-owes-a-baseline-regen](a-slice-that-adds-src-files-owes-a-baseline-regen.md) — A commit that adds  files must regenerate  before the next tier run, or  and  go red for a reason unrelated to the cu...
@@ -142,6 +142,7 @@
 - [detectidefromcontext-iterates-listadapterids](detectidefromcontext-iterates-listadapterids.md) — MUST iterate  (from ), never a hardcoded list of IdeId strings.
 - [evaluate-the-policy-module-with-reset-modules-and-stub-env](evaluate-the-policy-module-with-reset-modules-and-stub-env.md) — The arms use , , and a dynamic import of ;  runs in a .
 - [fail-closed-to-the-readers-existing-sentinel](fail-closed-to-the-readers-existing-sentinel.md) — The invalid stage returns  — the same sentinel  already returns for malformed JSON, a wrong version, and a missing file.
+- [measure-read-write-parity-with-a-scratch-fixture](measure-read-write-parity-with-a-scratch-fixture.md) — The parity test seeds a scratch baseline with one known tuple and a matching source file, then asserts the written ou...
 - [never-quote-a-vitest-selector-glob](never-quote-a-vitest-selector-glob.md) — A quoted  is a vitest filter string, not a shell glob, so it matches nothing and the run is green over zero files.
 - [one-type-line-two-readers-and-the-parity-corpus](one-type-line-two-readers-and-the-parity-corpus.md) — is the canonical  reader (trim; hyphen bullet; whole value; ; LAST usable line wins).
 - [peaks-ide-skill-is-the-skill-first-pattern-5-step-flow-uses-existing-cli-primitives](peaks-ide-skill-is-the-skill-first-pattern-5-step-flow-uses-existing-cli-primitives.md) — The  skill () is the canonical example of the dev-preference red line "skill is primary, CLI is auxiliary".
@@ -168,7 +169,7 @@
 - [src-services-ide-module-is-the-single-source-of-truth-for-ide-aware-behavior](src-services-ide-module-is-the-single-source-of-truth-for-ide-aware-behavior.md) — The  module is the single source of truth for IDE-aware behavior.
 - [src-services-session-canonical-workspace-resolver](src-services-session-canonical-workspace-resolver.md) — is the canonical home for the per-session workspace.
 
-## lesson (136)
+## lesson (138)
 
 - [2026-06-26-unknown-sid-root-cause](archived/2026-06-26-unknown-sid-root-cause.md) — Root cause + remediation log for the  and  orphan session dirs.
 - [2026-07-28-rid-034-handoff-no-sediment-block](2026-07-28-rid-034-handoff-no-sediment-block.md) — rid-034 收尾遇 sediment 反向 — no peaks-memory:start/end 闭合块 **Date:** 2026-07-28 **Rid:** 2026-07-28-rid-034-v2-13-0-clea...
@@ -181,10 +182,12 @@
 - [a-ceiling-row-is-born-measured-before-it-is-committed](a-ceiling-row-is-born-measured-before-it-is-committed.md) — The hooks-rows slice looked like the simplest of the day — two new ceiling rows for a directory nothing measured — an...
 - [a-census-guard-cannot-see-an-untracked-file-so-a-pre-commit-green-is-not-a-green](a-census-guard-cannot-see-an-untracked-file-so-a-pre-commit-green-is-not-a-green.md) — The lint ratchet's census legs enumerate their subject with .
 - [a-citation-that-outlives-its-referent-is-silent](a-citation-that-outlives-its-referent-is-silent.md) — **"验证的输入来自被验证者自己" 有两种形态。第一种（自证）已经被记过很多次；第二种是"来自一份不会再被核对的静态清单"—— 这一条在本仓没有专门记录，而它同样致命。** 被引用者消失时，**没有任何机制报警**。于是引用可以无限期...
+- [a-cli-options-parsed-name-is-not-its-flag-name](a-cli-options-parsed-name-is-not-its-flag-name.md) — QA found an adjacent defect while checking the parity fix:  is declared on  and , but the action reads .
 - [a-degradation-that-carries-no-reason-is-indistinguishable-from-a-success](a-degradation-that-carries-no-reason-is-indistinguishable-from-a-success.md) — built the sub-agent prompt's codegraph block as .
 - [a-dependency-whose-backend-was-replaced-must-be-checked-for-ability-not-for-the-label](a-dependency-whose-backend-was-replaced-must-be-checked-for-ability-not-for-the-label.md) — (2026-10-05) removed  from peaks-loop's own dependencies and from 's , as part of moving peaks-loop's own stores to .
 - [a-digest-that-proves-the-source-side-does-not-prove-the-emit-side](a-digest-that-proves-the-source-side-does-not-prove-the-emit-side.md) — A staleness guard that digests  and compares against a recorded stamp proves only that the sources have not moved.
 - [a-dimensional-header-is-not-a-set-of-assertions](a-dimensional-header-is-not-a-set-of-assertions.md) — The guard's header listed four dimensions — render, behavior, integration, a11y — but every test matched strings in .
+- [a-flag-can-govern-one-side-of-a-read-write-pair](a-flag-can-govern-one-side-of-a-read-write-pair.md) — passed the flag only to ; the read side () was built without it and silently used the default .
 - [a-gate-bound-to-the-active-session-verifies-nothing](a-gate-bound-to-the-active-session-verifies-nothing.md) — The last slice of job  was resumed from a **fresh** session while its six rid carriers lived under the session that p...
 - [a-gate-invoked-with-no-file-arguments-passes-vacuously-and-exits-0](a-gate-invoked-with-no-file-arguments-passes-vacuously-and-exits-0.md) — with zero in-scope files prints  and **returns 0** (, ).
 - [a-guard-keyed-on-a-file-path-shrinks-silently-when-you-split-that-file](a-guard-keyed-on-a-file-path-shrinks-silently-when-you-split-that-file.md) — Three independent guards in this repo decide what to measure by PATH, so moving code into a sibling removes it from c...
