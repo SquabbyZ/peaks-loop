@@ -1,27 +1,247 @@
 /**
- * `peaks reviewer run` / `peaks reviewer status` — CLI surface for the
- * G4 third-party reviewer. v2.14.0.
+ * `peaks reviewer run|status` — CLI surface for the G4 third-party reviewer.
+ * `peaks reviewer config` lives in reviewer-config-commands.ts (file-size cap).
  *
- *   peaks reviewer run   --rid <rid> [--json]
+ *   peaks reviewer run    --rid <rid> [--write] [--session-id <id>] [--json]
  *   peaks reviewer status [--json]
  *
  * The CLI never silently prompts for API keys. When `~/.peaks/config.json`
- * has no `reviewer` section, both commands emit a structured skip envelope
- * and exit 0 (consistent with A4.3 fallbackOnError=skip).
+ * has no usable `reviewer` section, `run` emits the skip envelope (which is
+ * NOT a pass) and exits 0, consistent with fallbackOnError=skip.
  */
 import type { Command } from 'commander';
 import {
   runReviewer,
-  REVIEWER_ID,
-  type ReviewerEnvelope
+  type ReviewerEnvelope,
+  type ReviewerRunOutput
 } from '../../services/reviewer/reviewer-service.js';
-import { loadReviewerConfig } from '../../services/reviewer/reviewer-config.js';
+import {
+  defaultReviewerConfigPath,
+  loadReviewerConfig,
+  MIN_REVIEWER_PROVIDERS,
+  type ReviewerConfig,
+  type ReviewerConfigStatus
+} from '../../services/reviewer/reviewer-config.js';
+import { DISPATCHABLE_PROVIDER_NAMES } from '../../services/reviewer/reviewer-config-write.js';
+import { writeReviewerArtifacts } from '../../services/reviewer/reviewer-artifacts.js';
 import { deriveModelFamily } from '../../services/reviewer/model-family.js';
-import { addJsonOption, printResult, type ProgramIO } from '../cli-helpers.js';
+import { resolveCanonicalProjectRoot } from '../../services/config/config-service.js';
+import { readActiveSid } from './code-runtime-session.js';
+import { registerReviewerConfigCommand } from './reviewer-config-commands.js';
+import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
 import { fail, ok } from 'peaks-loop-shared/result';
 
-type RunOptions = { rid?: string; json?: boolean };
-type StatusOptions = { json?: boolean };
+type ConfigPathOptions = { config?: string; json?: boolean };
+type RunOptions = ConfigPathOptions & {
+  rid?: string;
+  write?: boolean;
+  sessionId?: string;
+  project?: string;
+};
+
+function isJson(options: ConfigPathOptions): boolean {
+  return options.json === true;
+}
+
+function printRunFailure(
+  io: ProgramIO,
+  options: ConfigPathOptions,
+  code: string,
+  message: string,
+  nextActions: string[]
+): void {
+  printResult(io, fail('reviewer.run', code, message, null, nextActions), isJson(options));
+}
+
+async function handleRun(options: RunOptions, io: ProgramIO): Promise<void> {
+  const rid = options.rid ?? '';
+  if (rid.length === 0) {
+    printRunFailure(io, options, 'MISSING_RID', '--rid is required', []);
+    process.exitCode = 2;
+    return;
+  }
+  const result = await runReviewer({
+    rid,
+    context: `rid=${rid}`,
+    ...(options.config !== undefined ? { configPath: options.config } : {})
+  });
+  if (!result.ok) {
+    printConfigSkip(result, options, io);
+    return;
+  }
+  if (options.write !== true) {
+    printResult(io, ok('reviewer.run', { envelope: result.envelope }), isJson(options));
+    return;
+  }
+  if (result.skipped) {
+    printResult(
+      io,
+      ok('reviewer.run', {
+        envelope: result.envelope,
+        written: false,
+        writeSkippedReason: result.envelope.reason
+      }),
+      isJson(options)
+    );
+    return;
+  }
+  writeArtifacts(result.envelope, rid, options, io);
+}
+
+function printConfigSkip(
+  result: Extract<ReviewerRunOutput, { ok: false }>,
+  options: RunOptions,
+  io: ProgramIO
+): void {
+  const data =
+    options.write === true
+      ? {
+          envelope: result.envelope,
+          reason: result.reason,
+          written: false,
+          writeSkippedReason: result.envelope.reason
+        }
+      : { envelope: result.envelope, reason: result.reason };
+  printResult(
+    io,
+    ok(
+      'reviewer.run',
+      data,
+      [],
+      [
+        `Configure the reviewer with: peaks reviewer config --provider <name:model> --provider <name:model>`
+      ]
+    ),
+    isJson(options)
+  );
+}
+
+function writeArtifacts(
+  envelope: ReviewerEnvelope,
+  rid: string,
+  options: RunOptions,
+  io: ProgramIO
+): void {
+  const projectRoot = resolveCanonicalProjectRoot(options.project ?? process.cwd());
+  const sessionId = options.sessionId ?? readActiveSid(projectRoot) ?? '';
+  if (sessionId.length === 0) {
+    printResult(
+      io,
+      fail(
+        'reviewer.run',
+        'MISSING_SESSION_ID',
+        '--write needs an active session id; pass --session-id <id>',
+        { envelope },
+        ['Re-run with --session-id <sessionId>']
+      ),
+      isJson(options)
+    );
+    process.exitCode = 1;
+    return;
+  }
+  try {
+    printResult(
+      io,
+      ok('reviewer.run', {
+        envelope,
+        written: true,
+        artifacts: writeReviewerArtifacts({ projectRoot, sessionId, rid, envelope })
+      }),
+      isJson(options)
+    );
+  } catch (error) {
+    printResult(
+      io,
+      fail('reviewer.run', 'ARTIFACT_WRITE_FAILED', getErrorMessage(error), { envelope }),
+      isJson(options)
+    );
+    process.exitCode = 1;
+  }
+}
+
+function registerRunCommand(reviewer: Command, io: ProgramIO): void {
+  addJsonOption(
+    reviewer
+      .command('run')
+      .description('Run the configured third-party reviewer on a slice.')
+      .option('--rid <rid>', 'request id (slice) to review')
+      .option('--write', 'write rd/third-party-review.md + .json under the session runtime')
+      .option('--session-id <id>', 'session id for --write (defaults to the active session)')
+      .option('--project <path>', 'project root for --write (defaults to cwd)')
+      .option('--config <path>', 'reviewer config path (defaults to ~/.peaks/config.json)')
+  ).action((options: RunOptions) => handleRun(options, io));
+}
+
+function unconfiguredData(
+  status: Extract<ReviewerConfigStatus, { ok: false }>,
+  path: string
+): Record<string, unknown> {
+  return {
+    configured: false,
+    state: status.reason === 'insufficient-providers' ? 'insufficient-providers' : 'no-section',
+    reason: status.reason,
+    configPath: path,
+    providerCount: status.providerCount,
+    requiredProviders: status.requiredProviders
+  };
+}
+
+function unconfiguredActions(
+  status: Extract<ReviewerConfigStatus, { ok: false }>,
+  path: string
+): string[] {
+  const first =
+    status.reason === 'insufficient-providers'
+      ? `Only ${String(status.providerCount)} valid provider(s); at least ${String(status.requiredProviders)} are required. Add one with: peaks reviewer config --provider <name:model>`
+      : `No reviewer section at ${path}. Write one with: peaks reviewer config --provider <name:model> --provider <name:model>`;
+  return [first, `Accepted providers: ${DISPATCHABLE_PROVIDER_NAMES.join(', ')}.`];
+}
+
+function configuredData(config: ReviewerConfig, path: string): Record<string, unknown> {
+  const families = config.providers.map((p) => ({
+    name: p.name,
+    model: p.model,
+    modelFamily: deriveModelFamily(p.model).modelFamily
+  }));
+  return {
+    configured: true,
+    state: 'configured',
+    configPath: path,
+    providerCount: families.length,
+    requiredProviders: MIN_REVIEWER_PROVIDERS,
+    selection: config.selection,
+    requireDistinctModelFamily: config.requireDistinctModelFamily,
+    fallbackOnError: config.fallbackOnError,
+    schemaPath: config.schemaPath,
+    rdProviderName: config.rdProviderName,
+    providers: families
+  };
+}
+
+function handleStatus(options: ConfigPathOptions, io: ProgramIO): void {
+  const path = options.config ?? defaultReviewerConfigPath();
+  const status = loadReviewerConfig(options.config !== undefined ? { path } : {});
+  if (!status.ok) {
+    printResult(
+      io,
+      ok('reviewer.status', unconfiguredData(status, path), [], unconfiguredActions(status, path)),
+      isJson(options)
+    );
+    return;
+  }
+  printResult(io, ok('reviewer.status', configuredData(status.config, path)), isJson(options));
+}
+
+function registerStatusCommand(reviewer: Command, io: ProgramIO): void {
+  addJsonOption(
+    reviewer
+      .command('status')
+      .description(
+        'Show whether the reviewer is configured and which selection mode + provider families are active.'
+      )
+      .option('--config <path>', 'reviewer config path (defaults to ~/.peaks/config.json)')
+  ).action((options: ConfigPathOptions) => handleStatus(options, io));
+}
 
 export function registerReviewerCommands(program: Command, io: ProgramIO): void {
   const reviewer = program
@@ -29,86 +249,7 @@ export function registerReviewerCommands(program: Command, io: ProgramIO): void 
     .description(
       'Third-party reviewer (v2.14.0 G4 anti-fake-green) — runs an out-of-band model on the slice and emits a schema-validated ReviewerEnvelope.'
     );
-
-  addJsonOption(
-    reviewer
-      .command('run')
-      .description('Run the configured third-party reviewer on a slice.')
-      .option('--rid <rid>', 'request id (slice) to review')
-  ).action(async (options: RunOptions) => {
-    const rid = options.rid ?? '';
-    if (rid.length === 0) {
-      printResult(
-        io,
-        fail('reviewer.run', 'MISSING_RID', '--rid is required', null),
-        options.json === true
-      );
-      process.exitCode = 2;
-      return;
-    }
-    const status = loadReviewerConfig();
-    if (!status.ok) {
-      const envelope: ReviewerEnvelope = {
-        reviewerId: REVIEWER_ID,
-        modelId: 'skipped',
-        modelFamily: 'skipped',
-        passed: true,
-        violations: [],
-        gateAction: 'allow',
-        reason: 'skipped: no-reviewer-config (fallbackOnError=skip)'
-      };
-      printResult(
-        io,
-        ok('reviewer.run', { envelope, reason: status.reason }),
-        options.json === true
-      );
-      return;
-    }
-    const result = await runReviewer({ rid, context: `rid=${rid}` });
-    if (result.ok) {
-      printResult(io, ok('reviewer.run', { envelope: result.envelope }), options.json === true);
-      return;
-    }
-    printResult(
-      io,
-      fail('reviewer.run', 'NO_REVIEWER_CONFIG', result.reason, null),
-      options.json === true
-    );
-  });
-
-  addJsonOption(
-    reviewer
-      .command('status')
-      .description(
-        'Show whether the reviewer is configured and which selection mode + provider families are active.'
-      )
-  ).action((options: StatusOptions) => {
-    const status = loadReviewerConfig();
-    if (!status.ok) {
-      printResult(
-        io,
-        ok('reviewer.status', { configured: false, reason: status.reason }),
-        options.json === true
-      );
-      return;
-    }
-    const families = status.config.providers.map((p) => ({
-      name: p.name,
-      model: p.model,
-      modelFamily: deriveModelFamily(p.model).modelFamily
-    }));
-    printResult(
-      io,
-      ok('reviewer.status', {
-        configured: true,
-        selection: status.config.selection,
-        requireDistinctModelFamily: status.config.requireDistinctModelFamily,
-        fallbackOnError: status.config.fallbackOnError,
-        schemaPath: status.config.schemaPath,
-        rdProviderName: status.config.rdProviderName,
-        providers: families
-      }),
-      options.json === true
-    );
-  });
+  registerReviewerConfigCommand(reviewer, io);
+  registerRunCommand(reviewer, io);
+  registerStatusCommand(reviewer, io);
 }

@@ -19,7 +19,8 @@ import { join } from 'node:path';
 export type ReviewerProviderName = 'ollama' | 'anthropic' | 'openai' | 'bedrock' | 'azure';
 
 export type ReviewerProviderConfig = {
-  name: ReviewerProviderName | string;
+  /** A {@link ReviewerProviderName}, or any future provider name. */
+  name: string;
   model: string;
   endpoint?: string | undefined;
   apiKeyEnv?: string | undefined;
@@ -38,8 +39,23 @@ export type ReviewerConfig = {
   schemaPath: string;
 };
 
+/** A4.1 — the reviewer needs at least two provider families to be usable. */
+export const MIN_REVIEWER_PROVIDERS = 2;
+
+/**
+ * Three states, so `peaks reviewer status` can tell "nothing configured"
+ * apart from "configured, but not enough providers" (backlog §7.10 ③).
+ * `providerCount` is the number of VALID entries after parsing, which is
+ * what the >=2 requirement is measured on.
+ */
 export type ReviewerConfigStatus =
-  { ok: true; config: ReviewerConfig } | { ok: false; reason: 'no-reviewer-config' };
+  | { ok: true; config: ReviewerConfig }
+  | {
+      ok: false;
+      reason: 'no-reviewer-config' | 'insufficient-providers';
+      providerCount: number;
+      requiredProviders: number;
+    };
 
 const VALID_SELECTION: ReadonlyArray<ReviewerSelectionMode> = ['round-robin', 'hash', 'random'];
 const VALID_FALLBACK: ReadonlyArray<ReviewerFallbackMode> = ['skip', 'error'];
@@ -52,36 +68,47 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-/**
- * Read + parse `~/.peaks/config.json` (or override path) and return the
- * `reviewer` section if present. NEVER throws on missing file — returns
- * `{ ok: false, reason: 'no-reviewer-config' }` instead so the CLI can
- * record the skip reason in the envelope.
- */
-export function loadReviewerConfig(options: { path?: string } = {}): ReviewerConfigStatus {
-  const path = options.path ?? defaultReviewerConfigPath();
-  if (!existsSync(path)) {
-    return { ok: false, reason: 'no-reviewer-config' };
-  }
+function absentStatus(): ReviewerConfigStatus {
+  return {
+    ok: false,
+    reason: 'no-reviewer-config',
+    providerCount: 0,
+    requiredProviders: MIN_REVIEWER_PROVIDERS
+  };
+}
+
+function insufficientStatus(providerCount: number): ReviewerConfigStatus {
+  return {
+    ok: false,
+    reason: 'insufficient-providers',
+    providerCount,
+    requiredProviders: MIN_REVIEWER_PROVIDERS
+  };
+}
+
+type SectionRead = { ok: true; reviewer: Record<string, unknown> } | { ok: false };
+
+/** The `reviewer` object, or `{ ok: false }` when the file / section is absent or unreadable. */
+function readSection(path: string): SectionRead {
+  if (!existsSync(path)) return { ok: false };
   let raw: unknown;
   try {
     raw = JSON.parse(readFileSync(path, 'utf8')) as unknown;
   } catch {
-    return { ok: false, reason: 'no-reviewer-config' };
+    return { ok: false };
   }
-  if (!isRecord(raw)) return { ok: false, reason: 'no-reviewer-config' };
+  if (!isRecord(raw)) return { ok: false };
   const reviewer = raw['reviewer'];
-  if (!isRecord(reviewer)) return { ok: false, reason: 'no-reviewer-config' };
+  return isRecord(reviewer) ? { ok: true, reviewer } : { ok: false };
+}
 
-  const providersRaw = reviewer['providers'];
-  if (!Array.isArray(providersRaw) || providersRaw.length < 2) {
-    // A4.1 explicitly requires >=2 providers; with <2 we treat the
-    // section as absent so the reviewer is skipped cleanly.
-    return { ok: false, reason: 'no-reviewer-config' };
-  }
-
+function parseProviders(raw: unknown): {
+  providers: ReviewerProviderConfig[];
+  total: number;
+} {
+  if (!Array.isArray(raw)) return { providers: [], total: 0 };
   const providers: ReviewerProviderConfig[] = [];
-  for (const entry of providersRaw) {
+  for (const entry of raw) {
     if (!isRecord(entry)) continue;
     const name = entry['name'];
     const model = entry['model'];
@@ -93,44 +120,58 @@ export function loadReviewerConfig(options: { path?: string } = {}): ReviewerCon
       apiKeyEnv: typeof entry['apiKeyEnv'] === 'string' ? entry['apiKeyEnv'] : undefined
     });
   }
-  if (providers.length < 2) return { ok: false, reason: 'no-reviewer-config' };
+  return { providers, total: raw.length };
+}
 
-  const selectionRaw = reviewer['selection'];
-  const selection: ReviewerSelectionMode =
-    typeof selectionRaw === 'string' &&
-    (VALID_SELECTION as ReadonlyArray<string>).includes(selectionRaw)
-      ? (selectionRaw as ReviewerSelectionMode)
-      : 'round-robin';
+function readSelection(raw: unknown): ReviewerSelectionMode {
+  return typeof raw === 'string' && (VALID_SELECTION as ReadonlyArray<string>).includes(raw)
+    ? (raw as ReviewerSelectionMode)
+    : 'round-robin';
+}
 
-  const fallbackRaw = reviewer['fallbackOnError'];
-  const fallbackOnError: ReviewerFallbackMode =
-    typeof fallbackRaw === 'string' &&
-    (VALID_FALLBACK as ReadonlyArray<string>).includes(fallbackRaw)
-      ? (fallbackRaw as ReviewerFallbackMode)
-      : 'skip';
+function readFallback(raw: unknown): ReviewerFallbackMode {
+  return typeof raw === 'string' && (VALID_FALLBACK as ReadonlyArray<string>).includes(raw)
+    ? (raw as ReviewerFallbackMode)
+    : 'skip';
+}
 
-  const rdProviderNameRaw = reviewer['rdProviderName'];
-  const rdProviderName =
-    rdProviderNameRaw === null || typeof rdProviderNameRaw === 'string' ? rdProviderNameRaw : null;
+function readRdProviderName(raw: unknown): string | null {
+  return raw === null || typeof raw === 'string' ? raw : null;
+}
 
-  const requireDistinct = reviewer['requireDistinctModelFamily'];
-  const requireDistinctModelFamily = typeof requireDistinct === 'boolean' ? requireDistinct : true;
+function readRequireDistinct(raw: unknown): boolean {
+  return typeof raw === 'boolean' ? raw : true;
+}
 
-  const schemaPathRaw = reviewer['schemaPath'];
-  const schemaPath =
-    typeof schemaPathRaw === 'string' && schemaPathRaw.length > 0
-      ? schemaPathRaw
-      : 'schemas/reviewer-envelope.schema.json';
+function readSchemaPath(raw: unknown): string {
+  return typeof raw === 'string' && raw.length > 0 ? raw : 'schemas/reviewer-envelope.schema.json';
+}
 
+/**
+ * Read + parse `~/.peaks/config.json` (or override path) and return the
+ * `reviewer` section if present. NEVER throws on missing file — the CLI
+ * records the skip reason in the envelope instead.
+ */
+export function loadReviewerConfig(options: { path?: string } = {}): ReviewerConfigStatus {
+  const path = options.path ?? defaultReviewerConfigPath();
+  const section = readSection(path);
+  if (!section.ok) return absentStatus();
+  const reviewer = section.reviewer;
+  const { providers, total } = parseProviders(reviewer['providers']);
+  if (total < MIN_REVIEWER_PROVIDERS || providers.length < MIN_REVIEWER_PROVIDERS) {
+    // A4.1 requires >=2 valid providers. The section exists but is not
+    // usable; report the count rather than collapsing it into "no section".
+    return insufficientStatus(total < MIN_REVIEWER_PROVIDERS ? total : providers.length);
+  }
   return {
     ok: true,
     config: {
       providers,
-      selection,
-      rdProviderName,
-      requireDistinctModelFamily,
-      fallbackOnError,
-      schemaPath
+      selection: readSelection(reviewer['selection']),
+      rdProviderName: readRdProviderName(reviewer['rdProviderName']),
+      requireDistinctModelFamily: readRequireDistinct(reviewer['requireDistinctModelFamily']),
+      fallbackOnError: readFallback(reviewer['fallbackOnError']),
+      schemaPath: readSchemaPath(reviewer['schemaPath'])
     }
   };
 }

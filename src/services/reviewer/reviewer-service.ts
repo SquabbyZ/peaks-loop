@@ -16,7 +16,6 @@
  * do NOT pipe through the karpathy-reviewer path (out-of-scope per NG4).
  */
 import { createHash } from 'node:crypto';
-import { deriveModelFamily } from './model-family.js';
 import { selectByMode, initialState } from './selection-strategies.js';
 import { callOllama } from './providers/ollama.js';
 import { callAnthropic } from './providers/anthropic.js';
@@ -25,9 +24,14 @@ import {
   loadReviewerConfig,
   type ReviewerConfig,
   type ReviewerConfigStatus,
-  type ReviewerProviderConfig,
-  type ReviewerProviderName
+  type ReviewerProviderConfig
 } from './reviewer-config.js';
+import {
+  buildInvalidReplyEnvelope,
+  buildProviderErrorEnvelope,
+  buildSkippedEnvelope,
+  stampEnvelope
+} from './reviewer-envelopes.js';
 import {
   type ReviewerViolation,
   type ReviewerEnvelope,
@@ -41,8 +45,7 @@ export type {
   ReviewerRunInput,
   ReviewerRunOutput
 } from './reviewer-types.js';
-
-export const REVIEWER_ID = 'third-party-reviewer-v2.14.0';
+export { REVIEWER_ID, buildSkippedEnvelope } from './reviewer-envelopes.js';
 
 const VIOLATION_KINDS: ReadonlyArray<string> = [
   'karpathy-violation',
@@ -110,7 +113,7 @@ export function validateReviewerEnvelope(value: unknown): ReviewerEnvelope | nul
  * Many LLMs wrap JSON in ```json fences or surrounding prose; we
  * tolerate both. Returns null when no JSON object is present.
  */
-export function extractFirstJsonObject(text: string): unknown | null {
+export function extractFirstJsonObject(text: string): unknown {
   const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/);
   const candidate = fenced?.[1]?.trim() ?? text.trim();
   // Try the whole candidate first.
@@ -174,7 +177,7 @@ function buildPrompt(input: ReviewerRunInput): string {
 }
 
 function dispatchProvider(
-  name: ReviewerProviderName | string,
+  name: string,
   input: { provider: ReviewerProviderConfig; prompt: string; fetchImpl?: typeof fetch }
 ) {
   if (name === 'ollama') return callOllama(input);
@@ -188,40 +191,30 @@ function dispatchProvider(
   });
 }
 
-function skippedEnvelope(reason: string): ReviewerEnvelope {
-  return {
-    reviewerId: REVIEWER_ID,
-    modelId: 'skipped',
-    modelFamily: 'skipped',
-    passed: true,
-    violations: [],
-    gateAction: 'allow',
-    reason
-  };
+function skipReason(status: Extract<ReviewerConfigStatus, { ok: false }>): string {
+  return status.reason === 'insufficient-providers'
+    ? `skipped: insufficient-providers (${status.providerCount} valid, >=${status.requiredProviders} required; fallbackOnError=skip)`
+    : 'skipped: no-reviewer-config (fallbackOnError=skip)';
 }
 
 export async function runReviewer(input: ReviewerRunInput): Promise<ReviewerRunOutput> {
-  const status: ReviewerConfigStatus = loadReviewerConfig();
+  const status = loadReviewerConfig(
+    input.configPath !== undefined ? { path: input.configPath } : {}
+  );
   if (!status.ok) {
-    return {
-      ok: false,
-      reason: 'no-reviewer-config',
-      envelope: skippedEnvelope('skipped: no-reviewer-config (fallbackOnError=skip)')
-    };
+    return { ok: false, reason: status.reason, envelope: buildSkippedEnvelope(skipReason(status)) };
   }
   const config: ReviewerConfig = status.config;
-  const state = input.state ?? initialState();
   const { result, nextState } = selectByMode(
     config.selection,
     config.providers,
     input.rid,
-    state,
+    input.state ?? initialState(),
     input.rng
   );
-  const prompt = buildPrompt(input);
   const callResult = await dispatchProvider(result.provider.name, {
     provider: result.provider,
-    prompt,
+    prompt: buildPrompt(input),
     ...(input.fetchImpl !== undefined ? { fetchImpl: input.fetchImpl } : {})
   });
   if (!callResult.ok) {
@@ -230,43 +223,26 @@ export async function runReviewer(input: ReviewerRunInput): Promise<ReviewerRunO
     }
     return {
       ok: true,
-      envelope: {
-        reviewerId: REVIEWER_ID,
-        modelId: result.provider.model,
-        modelFamily: deriveModelFamily(result.provider.model).modelFamily,
-        passed: true,
-        violations: [],
-        gateAction: 'warn',
-        reason: `skipped: provider ${result.provider.name} error (${callResult.error}); fallbackOnError=skip`
-      },
+      skipped: true,
+      envelope: buildProviderErrorEnvelope(result.provider, callResult.error),
       nextState
     };
   }
-  const parsed = extractFirstJsonObject(callResult.text);
-  const validated = validateReviewerEnvelope(parsed);
+  const validated = validateReviewerEnvelope(extractFirstJsonObject(callResult.text));
   if (validated === null) {
     return {
       ok: true,
-      envelope: {
-        reviewerId: REVIEWER_ID,
-        modelId: result.provider.model,
-        modelFamily: deriveModelFamily(result.provider.model).modelFamily,
-        passed: true,
-        violations: [],
-        gateAction: 'warn',
-        reason: `provider ${result.provider.name} returned non-conforming JSON; treated as warn`
-      },
+      skipped: true,
+      envelope: buildInvalidReplyEnvelope(result.provider),
       nextState
     };
   }
-  // Stamp modelFamily from the actual modelId we called — prevents the LLM
-  const stamped: ReviewerEnvelope = {
-    ...validated,
-    modelId: result.provider.model,
-    modelFamily: deriveModelFamily(result.provider.model).modelFamily,
-    reviewerId: REVIEWER_ID
+  return {
+    ok: true,
+    skipped: false,
+    envelope: stampEnvelope(validated, result.provider),
+    nextState
   };
-  return { ok: true, envelope: stamped, nextState };
 }
 
 /**

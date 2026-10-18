@@ -10,9 +10,9 @@
 | `reviewerId` | string  | yes      | Stable id (`third-party-reviewer-v2.14.0`). |
 | `modelId`    | string  | yes      | Concrete model id (overwritten server-side from the provider we called). |
 | `modelFamily`| string  | yes      | Family bucket (overwritten server-side via `deriveModelFamily(modelId)`). |
-| `passed`     | bool    | yes      | True when no blocking violations. |
+| `passed`     | bool    | yes      | True only when a review RAN and found no blocking violations. False on every skip path. |
 | `violations` | array   | yes      | `[{kind, file, line, hint}]`. Empty when none. |
-| `gateAction` | enum    | yes      | `block` | `allow` | `warn`. |
+| `gateAction` | enum    | yes      | `block` | `allow` | `warn`. A skip is `warn`, never `allow`. |
 | `reason`     | string  | yes      | One-sentence rationale. |
 
 ## Violation kinds (closed enum)
@@ -32,18 +32,23 @@
 
 ## Skipped envelope
 
-When `~/.peaks/config.json` lacks the `reviewer` section, the reviewer returns:
+When `~/.peaks/config.json` lacks the `reviewer` section (or has fewer than
+two usable providers), the reviewer returns:
 
 ```json
 {
   "reviewerId": "third-party-reviewer-v2.14.0",
   "modelId": "skipped",
   "modelFamily": "skipped",
-  "passed": true,
+  "passed": false,
   "violations": [],
-  "gateAction": "allow",
+  "gateAction": "warn",
   "reason": "skipped: no-reviewer-config (fallbackOnError=skip)"
 }
 ```
 
-The transition still passes; the THIRD_PARTY_REVIEW prereq records the skip in `prerequisites.warnings`.
+A skip is not a pass: `passed` is `false` and `gateAction` is `warn`, so no
+consumer reading those two fields sees green. `peaks reviewer run --write`
+refuses to write `rd/third-party-review.md` / `.json` from a skipped
+envelope — the artifact exists only when a review actually ran. The
+THIRD_PARTY_REVIEW prereq records the skip in `prerequisites.warnings`.

@@ -32,7 +32,7 @@
     },
     "passed": {
       "type": "boolean",
-      "description": "True when reviewer found no blocking violations."
+      "description": "True only when a review RAN and found no blocking violations. False when it found violations, and also false on every skip path (no config, provider error, non-conforming JSON) — a review that never produced a verdict is never a pass."
     },
     "violations": {
       "type": "array",

@@ -72,11 +72,23 @@ If the distinctness check fails, the CI gate fails. See `references/reviewer-sch
 ## CLI surface
 
 ```
-peaks reviewer run --rid <rid> [--json]
+peaks reviewer config --provider <name:model> --provider <name:model> [options]
+peaks reviewer run --rid <rid> [--write] [--session-id <id>] [--json]
 peaks reviewer status [--json]
 ```
 
-`run` produces `rd/third-party-review.json` (and a human-readable `rd/third-party-review.md`) under `.peaks/_runtime/<sessionId>/`. `status` shows whether the reviewer is configured and which selection mode is active.
+`config` writes the `reviewer` section to `~/.peaks/config.json` — the LLM
+runs it on the user's behalf; nobody hand-authors JSON. It refuses a section
+with fewer than two dispatchable providers (`ollama` / `anthropic` / `openai`).
+
+`run --write` produces `rd/third-party-review.json` (the validated envelope)
+and the human-readable `rd/third-party-review.md` under
+`.peaks/_runtime/<sessionId>/rd/`. It writes **nothing** on a skip and
+reports why: a skip is `passed: false` + `gateAction: 'warn'`, never a pass.
+
+`status` reports one of three states — `no-section`, `insufficient-providers`
+(naming the count and the >=2 requirement), or `configured` — and carries the
+fix command in `nextActions`.
 
 ## Configuration (`~/.peaks/config.json`)
 
@@ -97,7 +109,11 @@ peaks reviewer status [--json]
 }
 ```
 
-Missing section: reviewer is skipped (transition still passes; envelope records `skipped: no-reviewer-config`). Per A4.1, the CLI flag `--reviewer-model` is REMOVED — users edit the config file.
+Missing section: reviewer is skipped. The skip envelope records
+`passed: false` + `gateAction: 'warn'` plus `skipped: no-reviewer-config` in
+`reason` — it is never reported as a pass. Per A4.1, the CLI flag
+`--reviewer-model` is REMOVED; configuration goes through
+`peaks reviewer config`.
 
 ## Hard prohibitions
 

@@ -28,6 +28,8 @@ export type ReviewerRunInput = {
   rid: string;
   /** Slice context blob fed to the prompt. Plain text — no PII (A1.5). */
   context: string;
+  /** Optional override of the reviewer section path (`~/.peaks/config.json`). */
+  configPath?: string;
   /** Optional override of the selection-mode state for cross-slice round-robin. */
   state?: SelectionState;
   /** Optional injected fetch (testability). */
@@ -37,5 +39,15 @@ export type ReviewerRunInput = {
 };
 
 export type ReviewerRunOutput =
-  | { ok: true; envelope: ReviewerEnvelope; nextState: SelectionState }
-  | { ok: false; reason: 'no-reviewer-config'; envelope: ReviewerEnvelope };
+  | {
+      ok: true;
+      envelope: ReviewerEnvelope;
+      nextState: SelectionState;
+      /** True when no review verdict was produced (skip, provider error, bad JSON). */
+      skipped: boolean;
+    }
+  | {
+      ok: false;
+      reason: 'no-reviewer-config' | 'insufficient-providers';
+      envelope: ReviewerEnvelope;
+    };
