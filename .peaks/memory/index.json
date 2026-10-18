@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-18T20:36:07.263Z",
+  "updatedAt": "2026-10-18T20:55:09.340Z",
   "hot": {
     "rule": [
       {
@@ -1082,6 +1082,14 @@
         "updatedAt": "2026-10-18"
       },
       {
+        "name": "share-the-warm-paths-rule-not-a-second-vocabulary",
+        "kind": "convention",
+        "description": "The DAG path imports the same  the warm path uses.",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\share-the-warm-paths-rule-not-a-second-vocabulary.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-18-session-dedff6/txt/handoff-fromdag.md",
+        "updatedAt": "2026-10-18"
+      },
+      {
         "name": "stage-new-files-before-regenerating-the-baseline",
         "kind": "convention",
         "description": "The gate baseline must be regenerated AFTER -ing any new file it should count.",
@@ -1104,6 +1112,14 @@
         "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\trae-install-inherits-slice-1-s-registry-driven-code-path-no-install-code-was-added.md",
         "sourceArtifact": ".peaks/_runtime/2026-06-06-session-22f08c/txt/handoff.md",
         "updatedAt": "2026-10-08"
+      },
+      {
+        "name": "validate-before-the-expensive-read",
+        "kind": "convention",
+        "description": "The role check runs before the DAG file is opened.",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\validate-before-the-expensive-read.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-18-session-dedff6/txt/handoff-fromdag.md",
+        "updatedAt": "2026-10-18"
       },
       {
         "name": "validate-metadata-with-the-readers-own-rule",
@@ -1436,6 +1452,14 @@
         "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\a-registry-or-behaviour-hash-cannot-see-a-function-body-and-cannot-see-a-dropped-re-export.md",
         "sourceArtifact": ".peaks/_runtime/2026-10-10-session-062f74/txt/handoff.md",
         "updatedAt": "2026-10-10"
+      },
+      {
+        "name": "a-second-entry-path-bypasses-the-shared-validator",
+        "kind": "lesson",
+        "description": "returned from  before , which is where the warm single-dispatch path runs .",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\a-second-entry-path-bypasses-the-shared-validator.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-18-session-dedff6/txt/handoff-fromdag.md",
+        "updatedAt": "2026-10-18"
       },
       {
         "name": "a-self-check-whose-file-set-comes-from-the-diff-covers-neither-agent-s-window",

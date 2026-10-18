@@ -224,7 +224,7 @@ Every item below is one instance. The corollary that decided how each was handle
 > (≥ 0.80) is the tier that mandates compaction, while the probe a reader trusts says everything is
 > merely soft — a silent under-report the peaks-code skill itself acknowledges in prose.
 
-### 2.1 `--from-dag` validates no role
+### 2.1 `--from-dag` validates no role (found 2026-09-24; **FIXED 2026-10-19 — rid `rid-from-dag-role-validation`**)
 
 - **Where**: `src/cli/commands/dispatch-commands.ts:262-264` — the `--from-dag` branch calls
   `runDispatchFromDag` and returns — **before** `validateRole` at `:266`, which is still its only call
@@ -234,6 +234,14 @@ Every item below is one instance. The corollary that decided how each was handle
   those lines rotted in the reformat — see the §2 preamble._
 - **Consequence**: the deprecated-reviewer policy F2 wired into the warm path is bypassed entirely by `--from-dag`.
   Same validator, one of two paths missing it.
+
+**FIXED 2026-10-19 (rid `rid-from-dag-role-validation`).** `runDispatchFromDag` now calls the warm
+path's `validateRole(role)` as its first statement and, on a non-null reason, emits `INVALID_ROLE`
+through `emitDagFailure` BEFORE the DAG file is opened. Measured: `''`, `'a b'`, `'a\tb'`, a 257-char
+string, and `'a\u0000b'` were `ok` exit 0 on the DAG path before (the empty string was
+`IDE_NOT_SUPPORTED`) and are `INVALID_ROLE` exit 1 after; `'rd'` still dispatches; an invalid role plus
+a nonexistent DAG path reports `INVALID_ROLE`, not `INVALID_DAG`/ENOENT. The injection control (stub
+`validateRole` to null) reds 6 of the 8 arms. The warm path and `validateRole` are unchanged.
 
 ### 2.2 `reviewer-dispatch-policy` — 11 of 13 exports still unreferenced
 

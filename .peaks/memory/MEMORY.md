@@ -129,7 +129,7 @@
 - [widening-a-guard-can-add-false-positives-against-live-files-instead-of-finding-anything](widening-a-guard-can-add-false-positives-against-live-files-instead-of-finding-anything.md) — A2 deliberately declined to widen the citation guard to bare non-test paths, and recorded the cost as "50 findings, n...
 - [workspace-underscore-convention](workspace-underscore-convention.md) — Under , any top-level directory whose name starts with  is **ephemeral** and is automatically gitignored by the  rule...
 
-## convention (24)
+## convention (26)
 
 - [a-safety-classifier-denial-is-not-a-missing-red-side](a-safety-classifier-denial-is-not-a-missing-red-side.md) — The RD's first red-side attempt (mutating the real source and running tests) was refused by the safety classifier.
 - [a-slice-that-adds-src-files-owes-a-baseline-regen](a-slice-that-adds-src-files-owes-a-baseline-regen.md) — A commit that adds  files must regenerate  before the next tier run, or  and  go red for a reason unrelated to the cu...
@@ -151,9 +151,11 @@
 - [r-2-symlink-guard-for-settings-writes](r-2-symlink-guard-for-settings-writes.md) — R-2 hard rule: settings files (, , etc.) MUST NOT be writable through a symlink.
 - [re-stage-after-a-sub-agent-repairs-an-already-staged-file](re-stage-after-a-sub-agent-repairs-an-already-staged-file.md) — The git index keeps the **pre-repair** bytes.
 - [share-the-directed-failure-helper](share-the-directed-failure-helper.md) — The remediation sentence lives in one helper () and the two consumers use it; the approximate build cost is stated in...
+- [share-the-warm-paths-rule-not-a-second-vocabulary](share-the-warm-paths-rule-not-a-second-vocabulary.md) — The DAG path imports the same  the warm path uses.
 - [stage-new-files-before-regenerating-the-baseline](stage-new-files-before-regenerating-the-baseline.md) — The gate baseline must be regenerated AFTER -ing any new file it should count.
 - [sub-agent-scratch-belongs-under-peaks-runtime-sessionid-rd-scratch-and-the-reason-is-functional](sub-agent-scratch-belongs-under-peaks-runtime-sessionid-rd-scratch-and-the-reason-is-functional.md) — Sub-agent scratch files belong under , never at a path outside the repository.
 - [trae-install-inherits-slice-1-s-registry-driven-code-path-no-install-code-was-added](trae-install-inherits-slice-1-s-registry-driven-code-path-no-install-code-was-added.md) — Slice #2's Trae support is purely "fill the table" —  for Trae users uses the same registry-driven install path as Cl...
+- [validate-before-the-expensive-read](validate-before-the-expensive-read.md) — The role check runs before the DAG file is opened.
 - [validate-metadata-with-the-readers-own-rule](validate-metadata-with-the-readers-own-rule.md) — The lint's new  check uses , and its  check uses  — the same functions the readers use.
 
 ## module (5)
@@ -164,7 +166,7 @@
 - [src-services-ide-module-is-the-single-source-of-truth-for-ide-aware-behavior](src-services-ide-module-is-the-single-source-of-truth-for-ide-aware-behavior.md) — The  module is the single source of truth for IDE-aware behavior.
 - [src-services-session-canonical-workspace-resolver](src-services-session-canonical-workspace-resolver.md) — is the canonical home for the per-session workspace.
 
-## lesson (134)
+## lesson (135)
 
 - [2026-06-26-unknown-sid-root-cause](archived/2026-06-26-unknown-sid-root-cause.md) — Root cause + remediation log for the  and  orphan session dirs.
 - [2026-07-28-rid-034-handoff-no-sediment-block](2026-07-28-rid-034-handoff-no-sediment-block.md) — rid-034 收尾遇 sediment 反向 — no peaks-memory:start/end 闭合块 **Date:** 2026-07-28 **Rid:** 2026-07-28-rid-034-v2-13-0-clea...
@@ -201,6 +203,7 @@
 - [a-refusal-needs-a-machine-shape-not-only-prose](a-refusal-needs-a-machine-shape-not-only-prose.md) — already said "N unmet requirement(s)" and the CLI already said , but  still listed a PRESENT file under a field named...
 - [a-refusal-path-can-throw-instead-of-refusing](a-refusal-path-can-throw-instead-of-refusing.md) — 's refusal builds its message with .
 - [a-registry-or-behaviour-hash-cannot-see-a-function-body-and-cannot-see-a-dropped-re-export](a-registry-or-behaviour-hash-cannot-see-a-function-body-and-cannot-see-a-dropped-re-export.md) — Five batches each "proved" behaviour-preserving refactors by hashing the rendered command registry before and after.
+- [a-second-entry-path-bypasses-the-shared-validator](a-second-entry-path-bypasses-the-shared-validator.md) — returned from  before , which is where the warm single-dispatch path runs .
 - [a-self-check-whose-file-set-comes-from-the-diff-covers-neither-agent-s-window](a-self-check-whose-file-set-comes-from-the-diff-covers-neither-agent-s-window.md) — An RD reported "eslint + prettier --check clean **on the new test file**" — singular.
 - [a-silent-push-on-this-repo-is-the-pre-push-hook-running-the-full-suite](a-silent-push-on-this-repo-is-the-pre-push-hook-running-the-full-suite.md) — On 2026-09-25,  produced **zero bytes of output for over two minutes**.
 - [a-single-measurement-of-a-host-sensitive-command-is-not-a-fact-about-the-command](a-single-measurement-of-a-host-sensitive-command-is-not-a-fact-about-the-command.md) — Four measurements of one  on this repo spread **8.89 s – 14.2 s** (~60 %): , from three different agents.
