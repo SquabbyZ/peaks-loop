@@ -40,12 +40,23 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { declareDimensions } from '../_setup/4dim-template.js';
 import { SUBPROCESS_TEST_TIMEOUT_MS } from '../_setup/subprocess-timeouts.js';
 import { CARRIER_ROLES } from '../../../src/services/workflow/request-type-resolution.js';
+import { extractMetadata } from '../../../src/services/artifacts/request-artifact-metadata.js';
+import {
+  DEFAULT_REQUEST_TYPE,
+  isRequestType
+} from '../../../src/services/artifacts/artifact-prerequisites.js';
 
-/** The leg's own carrier list, loaded the way its arms load it — as a `.mjs`
- *  with no type information, so the shape is declared here. */
-const { CARRIER_DIRS } = (await import(
+/** The leg's own carrier list and type reader, loaded the way its arms load them —
+ *  as a `.mjs` with no type information, so the shapes are declared here. */
+const { CARRIER_DIRS, resolveRidType } = (await import(
   new URL('../../../.husky/pipeline/contract-verdict.mjs', import.meta.url).href
-)) as { CARRIER_DIRS: readonly string[] };
+)) as {
+  CARRIER_DIRS: readonly string[];
+  resolveRidType: (
+    path: string,
+    isRequestType: (value: string) => boolean
+  ) => { type: string | undefined; note: string | null };
+};
 
 declareDimensions(
   'tests/unit/hooks/pipeline-verify-type-derivation.test.ts',
@@ -282,3 +293,71 @@ describe(
     });
   }
 );
+
+/**
+ * The parity corpus: every shape the two readers could disagree on, in one table.
+ * `expected` is the answer BOTH must give — the src reader's rule, which the
+ * commit leg reimplements because it has to load under bare `node`.
+ */
+const TYPE_CASES: ReadonlyArray<{ name: string; body: string; expected: string }> = [
+  { name: 'a plain `- type: docs` line', body: '- type: docs\n', expected: 'docs' },
+  { name: 'no type line at all', body: '', expected: DEFAULT_REQUEST_TYPE },
+  {
+    name: 'two lines, docs then feature',
+    body: '- type: docs\n- type: feature\n',
+    expected: 'feature'
+  },
+  {
+    name: 'two lines, feature then docs',
+    body: '- type: feature\n- type: docs\n',
+    expected: 'docs'
+  },
+  {
+    name: 'a usable line shadowed by an unusable one',
+    body: '- type: docs\n- type: nonsense\n',
+    expected: 'docs'
+  },
+  { name: 'a type line indented two spaces', body: '  - type: docs\n', expected: 'docs' },
+  {
+    name: 'an asterisk bullet instead of a hyphen',
+    body: '* type: docs\n',
+    expected: DEFAULT_REQUEST_TYPE
+  },
+  {
+    name: 'trailing prose after the value',
+    body: '- type: docs — because the change is documentation\n',
+    expected: DEFAULT_REQUEST_TYPE
+  },
+  {
+    name: 'a placeholder value',
+    body: '- type: feature | bugfix | docs\n',
+    expected: DEFAULT_REQUEST_TYPE
+  }
+];
+
+describe('Scenario: behavior — the two type readers answer one rule', () => {
+  for (const item of TYPE_CASES) {
+    it(`when a carrier has ${item.name}, should answer ${item.expected} in both readers`, () => {
+      // given: one carrier body, handed to the src reader and to the commit leg —
+      //        the same text, so a disagreement can only be the rule
+      // when:  each reader derives the request type from it
+      // then:  both answer the same effective type, and both agree on whether the
+      //        type was DECLARED rather than substituted
+      const root = makeRoot();
+      const path = join(root, 'carrier.md');
+      const markdown = `# RD Request rid-x\n\n- session: ${SESSION}\n${item.body}`;
+      write(path, markdown);
+
+      const src = extractMetadata(markdown);
+      const leg = resolveRidType(path, isRequestType);
+      const legType = leg.type ?? DEFAULT_REQUEST_TYPE;
+
+      expect(src.requestType, 'src reader').toBe(item.expected);
+      expect(legType, 'commit leg').toBe(item.expected);
+      expect(legType, 'the two readers agree').toBe(src.requestType);
+      expect(src.requestTypeSource === 'declared', 'provenance agrees').toBe(
+        leg.type !== undefined
+      );
+    });
+  }
+});

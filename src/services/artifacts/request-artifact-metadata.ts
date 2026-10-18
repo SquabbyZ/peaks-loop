@@ -31,6 +31,15 @@ export type ArtifactMetadata = {
  * `request-artifact-service.ts` when the type's provenance was added; the only
  * behaviour change is `requestTypeSource`, which records whether a usable
  * `- type:` line was actually present.
+ *
+ * THIS READER IS THE CANONICAL `- type:` RULE. `.husky/pipeline/request-type-line.mjs`
+ * reimplements it because that module must load under bare `node` and cannot import
+ * `src/**`, and `tests/unit/hooks/pipeline-verify-type-derivation.test.ts` drives
+ * both readers over one corpus so they cannot drift. The rule: each line is
+ * trimmed, the bullet is a hyphen, the value is everything after `type:` and must
+ * be a request type (`isRequestType`), and the LAST usable line wins — an unusable
+ * later line does not erase an earlier usable one, and no usable line leaves the
+ * default with source `default`.
  */
 export function extractMetadata(markdown: string): ArtifactMetadata {
   const state = readArtifactState(markdown) ?? 'unknown';

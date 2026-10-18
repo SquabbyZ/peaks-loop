@@ -39,6 +39,8 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { parseTypeLines } from './request-type-line.mjs';
+
 /** The opt-in token. It is the only env var this leg reads. */
 export const SKIP_TOKEN_ENV = 'PEAKS_SKIP_PIPELINE_VERIFY';
 
@@ -67,9 +69,6 @@ function declaredRequests(markdown) {
   }
   return found;
 }
-/** `- type: <t>` / `* type: <t>` as a whole line. Reads the value; coerces nothing. */
-const TYPE_LINE = /^[-*]\s*type:\s*(\S+)\s*$/m;
-
 /** An error's message, clipped: this text ends up on a commit line. */
 export function messageOf(err) {
   return String(err && err.message ? err.message : err).slice(0, 200);
@@ -108,12 +107,6 @@ export function ridFromCarrier(name, markdown, deriveId) {
   const declared = declaredRequests(markdown);
   if (declared.length > 0 && !declared.includes(rid)) return null;
   return rid;
-}
-
-/** The `- type:` value in a carrier's text, or null when the line is absent. */
-export function parseTypeLine(markdown) {
-  const match = TYPE_LINE.exec(markdown);
-  return match === null ? null : (match[1] ?? null);
 }
 
 /**
@@ -201,9 +194,12 @@ export function enumerateScope(projectRoot, getSessionIdCanonical, getSessionDir
   return { carriers, failures, note, sessionId };
 }
 
-/** The per-rid type: the carrier's `- type:` value when it IS a request type,
- *  otherwise no type at all (the checker's `feature` default applies) — plus a
- *  note when the value was present but unusable, so the fallback stays visible. */
+/** The per-rid type: the carrier's LAST USABLE `- type:` value, otherwise no type
+ *  at all (the checker's `feature` default applies) — plus a note when a value was
+ *  present but unusable, so the fallback stays visible. The rule is
+ *  `./request-type-line.mjs`'s, which reimplements the src reader's
+ *  (`src/services/artifacts/request-artifact-metadata.ts`); the parity arm in
+ *  `tests/unit/hooks/pipeline-verify-type-derivation.test.ts` holds them equal. */
 export function resolveRidType(carrierPath, isRequestType) {
   let text;
   try {
@@ -211,10 +207,11 @@ export function resolveRidType(carrierPath, isRequestType) {
   } catch {
     return { type: undefined, note: null };
   }
-  const declared = parseTypeLine(text);
-  if (declared === null) return { type: undefined, note: null };
-  if (isRequestType(declared)) return { type: declared, note: null };
-  const note = `the carrier declares type "${declared}", which is not a request type;`;
+  const declared = parseTypeLines(text);
+  const usable = declared.filter((value) => isRequestType(value));
+  if (usable.length > 0) return { type: usable[usable.length - 1], note: null };
+  if (declared.length === 0) return { type: undefined, note: null };
+  const note = `the carrier declares type "${declared[declared.length - 1]}", which is not a request type;`;
   return { type: undefined, note: `${note} the checker's fail-closed default applies` };
 }
 
