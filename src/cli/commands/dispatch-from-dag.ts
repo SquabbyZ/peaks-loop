@@ -48,7 +48,7 @@ import {
   type DagDispatcher,
   type DagEmissions
 } from './dispatch-dag-runners.js';
-import { type DispatchOptions } from './sub-agent-shared.js';
+import { RECOMMENDED_ROLES, validateRole, type DispatchOptions } from './sub-agent-shared.js';
 
 /** Everything one `--from-dag` run needs once the DAG and its levels are known. */
 type DagRun = {
@@ -67,6 +67,22 @@ export async function runDispatchFromDag(
   asJson: boolean,
   io: ProgramIO
 ): Promise<void> {
+  // Backlog §2.1: the warm path refuses an invalid role in `preflightDispatch`,
+  // but this branch returns before it ever runs. Validate here, before the DAG
+  // file is opened, so both paths share one rule and no DAG work can start.
+  const validation = validateRole(role);
+  if (validation !== null) {
+    emitDagFailure(io, asJson, {
+      role,
+      code: 'INVALID_ROLE',
+      message: validation,
+      nextActions: [
+        'Use a non-empty role string with no control characters.',
+        `Recommended: ${RECOMMENDED_ROLES}.`
+      ]
+    });
+    return;
+  }
   if (!options.fromDag) return;
   const scope: DagScope = { role, asJson, io };
   const ids = resolveDagIds(options);
