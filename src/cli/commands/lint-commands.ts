@@ -39,7 +39,11 @@ import {
 
 type LintOptions = {
   scope?: string;
-  configPath?: string;
+  /**
+   * Commander stores `--config <path>` as `options.config`; the internal
+   * runner option keeps the name `configPath`.
+   */
+  config?: string;
   fix?: boolean;
   write?: boolean;
   timeoutMs?: string;
@@ -188,7 +192,7 @@ export function registerLintCommands(program: Command, io: ProgramIO): void {
     const runOptions: EslintRunOptions = {
       cwd,
       ...(options.scope !== undefined ? { scope: options.scope } : {}),
-      ...(options.configPath !== undefined ? { configPath: options.configPath } : {}),
+      ...(options.config !== undefined ? { configPath: options.config } : {}),
       ...(options.baselineFile !== undefined ? { baselineFile: options.baselineFile } : {}),
       ...(timeoutMs !== undefined ? { timeoutMs } : {})
     };
@@ -253,7 +257,7 @@ export function registerLintCommands(program: Command, io: ProgramIO): void {
       diffOnly: false,
       baselineFile,
       ...(options.scope !== undefined ? { scope: options.scope } : {}),
-      ...(options.configPath !== undefined ? { configPath: options.configPath } : {}),
+      ...(options.config !== undefined ? { configPath: options.config } : {}),
       ...(timeoutMs !== undefined ? { timeoutMs } : {})
     };
     const result = runEslint(runOptions);

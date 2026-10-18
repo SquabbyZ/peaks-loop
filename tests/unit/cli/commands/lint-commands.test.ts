@@ -63,6 +63,26 @@ function missingFile(path: string): never {
   });
 }
 
+/**
+ * The arguments the runner handed to the local ESLint binary. The runner
+ * spawns `node <…>/eslint/bin/eslint.js <args>` through the mocked
+ * `spawnSync`, so the call carrying `--config` is the one under test.
+ */
+function eslintArgs(): string[] | undefined {
+  const call = childMock.spawnSync.mock.calls.find(
+    (entry) =>
+      Array.isArray(entry[1]) &&
+      (entry[1] as unknown[]).some((arg) => String(arg).endsWith('eslint.js'))
+  );
+  return call?.[1] as string[] | undefined;
+}
+
+function configArg(): string | undefined {
+  const args = eslintArgs() ?? [];
+  const index = args.indexOf('--config');
+  return index === -1 ? undefined : args[index + 1];
+}
+
 type Capture = {
   stdout: string;
   stderr: string;
@@ -318,5 +338,81 @@ describe('registerLintCommands', () => {
         /[\\/]\.peaks[\\/]lint[\\/]baseline\.json$/.test(String(call[0]))
       )
     ).toBe(true);
+  });
+
+  it('when lint check is given --config, should pass that path to the eslint invocation', async () => {
+    // given: a runner whose eslint call reports no findings
+    const { io } = makeIo();
+    const mod = await importFresh();
+    const program = new Command();
+    mod.registerLintCommands(program, io);
+    childMock.spawnSync.mockImplementation(() => ({ status: 0, stdout: '[]' }) as never);
+
+    // when: `lint check` receives the flag commander stores as `options.config`
+    await program.parseAsync(['lint', 'check', '--json', '--config', 'scratch/eslint.cjs'], {
+      from: 'user'
+    });
+
+    // then: the named config — not the built-in default — reached the runner
+    expect(configArg()).toBe('scratch/eslint.cjs');
+  });
+
+  it('when lint baseline is given --config, should pass that path to the eslint invocation', async () => {
+    // given: a runner whose eslint call reports no findings
+    const { io } = makeIo();
+    const mod = await importFresh();
+    const program = new Command();
+    mod.registerLintCommands(program, io);
+    childMock.spawnSync.mockImplementation(() => ({ status: 0, stdout: '[]' }) as never);
+
+    // when: `lint baseline` receives the flag
+    await program.parseAsync(
+      [
+        'lint',
+        'baseline',
+        '--json',
+        '--config',
+        'scratch/eslint.cjs',
+        '--baseline-file',
+        'scratch/baseline.json'
+      ],
+      { from: 'user' }
+    );
+
+    // then: the named config reached the runner
+    expect(configArg()).toBe('scratch/eslint.cjs');
+  });
+
+  it('when lint check has no --config, should keep the default eslint config path', async () => {
+    // given: a runner whose eslint call reports no findings
+    const { io } = makeIo();
+    const mod = await importFresh();
+    const program = new Command();
+    mod.registerLintCommands(program, io);
+    childMock.spawnSync.mockImplementation(() => ({ status: 0, stdout: '[]' }) as never);
+
+    // when: `lint check` runs without the flag
+    await program.parseAsync(['lint', 'check', '--json'], { from: 'user' });
+
+    // then: the built-in config path is unchanged
+    expect(configArg()).toBe(join('config', 'eslint', '.peaks-rules.cjs'));
+  });
+
+  it('when lint baseline has no --config, should keep the default eslint config path', async () => {
+    // given: a runner whose eslint call reports no findings
+    const { io } = makeIo();
+    const mod = await importFresh();
+    const program = new Command();
+    mod.registerLintCommands(program, io);
+    childMock.spawnSync.mockImplementation(() => ({ status: 0, stdout: '[]' }) as never);
+
+    // when: `lint baseline` runs without the flag
+    await program.parseAsync(
+      ['lint', 'baseline', '--json', '--baseline-file', 'scratch/baseline.json'],
+      { from: 'user' }
+    );
+
+    // then: the built-in config path is unchanged
+    expect(configArg()).toBe(join('config', 'eslint', '.peaks-rules.cjs'));
   });
 });
